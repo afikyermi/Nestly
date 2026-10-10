@@ -1,0 +1,48 @@
+{
+  "$comment": [
+    "Guardrails layer. These are enforced by the harness, not by prompt text.",
+    "Deny rules are prefix-matched and are a fence, not a vault: an equivalent command can be",
+    "constructed that a prefix rule does not match. A PreToolUse hook is the stronger control and",
+    "is the next step — see README. Until it exists, treat this file as the first line, not the only one."
+  ],
+  "permissions": {
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(rm -fr:*)",
+      "Bash(git push:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean:*)",
+      "Bash(git remote add:*)",
+      "Bash(psql:*)",
+      "Bash(dropdb:*)",
+      "Bash(supabase db reset:*)",
+      "Bash(vercel --prod:*)",
+      "Bash(vercel deploy --prod:*)",
+      "Bash(curl:*)",
+      "Bash(wget:*)",
+      "Bash(npm publish:*)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Write(./.env)",
+      "Write(./.env.*)",
+      "Edit(./.env)",
+      "Edit(./.env.*)"
+    ],
+    "ask": [
+      "Bash(npm install:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(pnpm add:*)",
+      "Bash(git commit:*)",
+      "Bash(git merge:*)",
+      "Bash(git rebase:*)",
+      "Bash(npx prisma migrate:*)",
+      "Bash(npx drizzle-kit:*)",
+      "Bash(supabase:*)",
+      "Write(./.claude/**)",
+      "Edit(./.claude/**)",
+      "Write(./decisions.md)",
+      "Write(./CLAUDE.md)",
+      "Edit(./CLAUDE.md)"
+    ]
+  }
+}

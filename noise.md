@@ -1,0 +1,53 @@
+# Noise
+
+Findings that were raised and should not have been, or cost more than they saved.
+
+The counterpart to `escapes.md`. Escapes measure what a gate **missed**; this measures what a gate
+**invented**. A system instrumented only for misses gets stricter forever and nobody notices the
+price.
+
+```
+YYYY-MM-DD | <feature> | <gate> | <what was raised> | why it wasn't real | severity claimed
+```
+
+Gates: `CRITIC` · `TEST ENGINEER` · `DATA ARCHITECT` · `SPEC` · `CI`
+
+---
+
+## What belongs here
+
+| Case | Example |
+|---|---|
+| a finding Afik dismissed | "this isn't a real risk, ship it" |
+| **severity inflation** | a `high` whose failure scenario turns out not to be reachable |
+| a concern with no failure path, presented as a defect | "this could theoretically..." |
+| a blocked feature that should not have been blocked | `Not Ready` overturned |
+| a `QUESTION` whose stated default was obviously correct | the agent should have proceeded |
+| a `BLOCKER` that had a reasonable default | filed as blocking when it was not |
+| a test asserting incidental structure, breaking on every refactor | maintenance cost, zero signal |
+| review or spec work on a change that warranted the Light path | process applied where it was not earned |
+
+## What does not belong here
+
+- A finding that was real but low priority. That is correct behaviour, and it is not noise.
+- A finding that was real and went to `debt.md`. That is the system working.
+- Something Afik disagreed with and then changed his mind about.
+
+> **Noise is a gate being wrong, not a gate being inconvenient.**
+> Logging every finding you did not feel like fixing turns this file into a reason to stop reviewing.
+
+---
+
+## Why it matters
+
+A CRITIC raising ten findings of which nine get dismissed is worse than no CRITIC: it costs tokens,
+it costs your attention, and it trains you to skim findings — so the tenth one, the real one, gets
+skimmed too.
+
+Without this file that failure is invisible. It even reads as diligence.
+
+Read together with `escapes.md` at every retro. See `.claude/learning.md`.
+
+---
+
+*no entries*

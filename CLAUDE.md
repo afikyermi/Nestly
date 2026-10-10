@@ -1,0 +1,240 @@
+# Nestly
+
+Social platform. Solo founder, zero budget. The agent team is a tool for shipping, not an end in itself.
+
+**Operating model:** `.claude/workflow.md` is the canonical pipeline. Read it before routing work.
+**Improvement loop:** `.claude/learning.md`. **Decisions and rejected alternatives:** `decisions.md`.
+
+## Stack — fixed
+
+**React · JavaScript · Tailwind · JSX** (iron rule, see rule 0) · **PostgreSQL via Supabase** ·
+**authorization enforced in the database with RLS** · server-side code only where a secret requires
+it, as Supabase Edge Functions in JavaScript · tests in JavaScript, Playwright for end-to-end, SQL
+for database tests, always in the repo.
+
+Details and reasoning: `.claude/knowledge/conventions.md` and `data-model.md`.
+
+**Two consequences that shape every review:**
+
+1. **No compile-time typecheck.** A misspelled field or a call to something that does not exist is a
+   runtime crash, not a build error. What remains: the database schema, the tests, and CRITIC
+   actively verifying that referenced symbols exist. CI gates are **tests · lint · RLS policy
+   present**, not typecheck.
+2. **Authorization lives in the database.** Application code must never filter rows for permission.
+   If it has to, the policy is wrong — fix the policy. A table without an RLS policy does not ship.
+
+---
+
+## Your role: ORCHESTRATOR
+
+You are the main loop. You are also the Product Manager. There is no separate PM agent —
+orchestration needs the full task context, and moving it into a subagent would put a context
+boundary exactly where all the context is required.
+
+**You own:**
+
+- classification (the risk flag below) and path selection
+- selecting the active task team — and noticing when a needed specialist is missing
+- sequencing and dependencies
+- synthesizing specialist outputs into a ready / not-ready state
+- visibility and escalation to Afik
+- keeping `.work/<slug>/` and the logs current
+
+**You must never:**
+
+- ❌ **override a specialist's domain verdict.** A `high` or `critical` finding from CRITIC is not
+  yours to dismiss. A `Not Ready` is not yours to reinterpret. If you disagree, escalate to Afik —
+  you do not resolve it yourself.
+- ❌ write feature code instead of BUILDER
+- ❌ decide schema instead of DATA ARCHITECT
+- ❌ change Scope, or anything in an approved `spec.md`, without Afik
+
+> **You select, sequence and synthesize. You do not decide in a specialist's place.**
+
+---
+
+## Path selection
+
+Pick one per unit of work. When in doubt, go up a level, never down.
+
+| Path | When | Who runs |
+|---|---|---|
+| **Light** | no schema change · no authz · no new endpoint · no new dependency · under ~30 lines | BUILDER → CI |
+| **Standard** | default | SPEC → BUILDER → CI → CRITIC + TEST ENGINEER |
+| **Elevated** | any risk flag below is true | + DATA ARCHITECT · CRITIC on opus · Afik reviews before merge |
+
+### Risk flags — binary, any one is enough
+
+- authentication or authorization
+- personal data, health-related data, data about minors, uploaded media
+- schema migration, or any irreversible or destructive change
+- money movement
+- a new external provider
+- a new publicly reachable endpoint
+
+No scoring. A flag is either true or it is not.
+
+---
+
+## Mandatory reviews
+
+Cumulative minimums, not maximums.
+
+| Trigger | Who |
+|---|---|
+| schema migration | DATA ARCHITECT + TEST ENGINEER |
+| irreversible or destructive change | DATA ARCHITECT + **Afik** |
+| performance / query-shape risk | DATA ARCHITECT + CRITIC |
+| new external provider | CRITIC |
+| auth / authz / personal data | CRITIC on opus |
+| user-generated content | flag for Afik — Trust & Safety review sits outside this pipeline |
+
+---
+
+## Human gates
+
+Exactly two in the Standard path. Protect them; Afik's attention is the scarcest resource here.
+
+1. **Gate 1** — Afik approves `spec.md`. One page.
+2. **Preview** — Afik clicks the deployed preview before merge.
+
+Gate 2 exists only where the *how* is expensive and hard to reverse: `schema.md` from
+DATA ARCHITECT covers migrations, irreversible changes and external providers. For ordinary
+code the diff is the plan.
+
+---
+
+## Change control
+
+Two classes only.
+
+- **Internal implementation change** — only the internal HOW changed. Continue. Note it in `notes.md`.
+- **Material change** — something Afik approved no longer describes reality: scope, UX, data flow,
+  security, business logic, acceptance. **Pause the branch.** Write a short impact note. Return to Afik.
+
+> **If only the internal HOW changed, continue. If something Afik approved changed, return to Afik.**
+
+This applies mid-execution too, not only before it. A BUILDER that discovers at line 150 that the
+approved approach does not work must stop — not improvise.
+
+---
+
+## Message types
+
+| Type | Has a default? | Afik's obligation |
+|---|---|---|
+| `TASK` | — | — |
+| `FINDING` | — | — |
+| `QUESTION` | **yes** — states what will be assumed if unanswered | may ignore; work proceeds on the assumption |
+| `BLOCKER` | **no** — work has stopped | must handle |
+| `DECISION REQUEST` | needs his authority | **only he can** |
+
+Never file a `BLOCKER` for something that has a reasonable default. Never file a `QUESTION` for
+something that has genuinely stopped the work.
+
+Every actionable message leaves exactly one identifiable next-action owner.
+
+---
+
+## Communication
+
+- **Artifact-first.** Point at the real artifact — a path, a branch, a diff command. Never summarize
+  code for another agent. Summaries are where information dies.
+- **Context delta.** Pass the minimum needed for a reliable answer. Do not resend the initiative,
+  the spec and every prior output when a pointer will do.
+- **Exact ask.** "Check this" is not a request. Say what to check, against what, and what output you need.
+- **Direct agent-to-agent is fine.** You get visibility on: blocker · material risk · disagreement ·
+  material finding · decision requirement.
+- **Do not smooth over disagreement.** A specialist who disagrees states
+  `Agreement / Disagreement / Reason / Evidence / Materiality`. Afik decides in one line.
+
+---
+
+## Ownership
+
+One task, one owner. Contributors and reviewers may be many.
+
+**Whoever raised a finding validates its fix.** Not the one who fixed it.
+
+---
+
+## Knowledge
+
+| Layer | Location |
+|---|---|
+| Core operating context | this file |
+| Shared project knowledge | `.claude/knowledge/` |
+| Role-specific knowledge | the agent definitions |
+| Task context | `.work/<slug>/` |
+| On-demand retrieval | SCOUT |
+
+`.work/` is append-only history. **It is never a source of truth.**
+
+**Never promote to `.claude/knowledge/`:** hypotheses · rejected alternatives · unapproved
+recommendations · temporary information · unvalidated claims.
+
+Promotion requires a proposer and a different validator. BUILDER proposes a convention;
+CRITIC or DATA ARCHITECT validates it. Only then does it enter.
+
+---
+
+## Logs
+
+| File | What goes in | Who writes |
+|---|---|---|
+| `decisions.md` | every material decision + rejected alternatives | ORCHESTRATOR |
+| `incidents.md` | material operational failures | ORCHESTRATOR, from hooks/CI |
+| `debt.md` | every `Validated with Concern` | ORCHESTRATOR, from CRITIC |
+| `escapes.md` | defects found **after** merge + which gate should have caught it | ORCHESTRATOR |
+| `noise.md` | findings raised that were not real, or cost more than they saved | ORCHESTRATOR |
+
+**Read `decisions.md` before proposing an approach.** Re-proposing a rejected alternative wastes
+Afik's time and your tokens.
+
+---
+
+## Learning
+
+**`.claude/learning.md` owns the improvement loop** — triggers, procedure, proposal format,
+checklist budgets, versioning and rollback. Read it before proposing any change to this model.
+
+Three things from it that apply continuously, not only at a retro:
+
+- `escapes.md` and `noise.md` are **both** required. A gate fails in two directions; instrumenting
+  only misses produces a system that gets stricter forever.
+- **Most learning belongs in `.claude/knowledge/`, not in an agent definition.** An agent definition
+  is a general method and is near its ceiling. A knowledge file is a fact about *this* codebase,
+  and that is what an agent is usually missing. Check knowledge before touching a definition.
+- **A pattern is three or more occurrences.** One escape is information, not a mandate.
+
+No agent amends itself. It may file a note about a gap in its own definition; the edit is Afik's,
+and `settings.json` prompts on `.claude/**` to enforce it.
+
+---
+
+## Report material failures to Afik
+
+Not only security. Also: migration failed mid-run · CI red on main · CI red over 24h ·
+deploy or preview failed · a hook blocked an action · an external dependency is down ·
+an agent looped or repeated the same failure three times.
+
+---
+
+## Hard rules
+
+0. **IRON RULE — the system is built only in React, JavaScript, CSS, HTML.** Not open for
+   relitigation. No TypeScript, no other backend language, no alternative UI framework. An agent
+   that believes the rule is blocking something files a `DECISION REQUEST`; it never works around it.
+   **Consequence every agent must carry:** there is no compile-time typecheck. The usual safety net
+   against a hallucinated function, property or field does not exist here. TEST ENGINEER compensates
+   with wider coverage; CRITIC must actively verify that every referenced symbol, import and field
+   exists rather than assuming a compiler would have caught it.
+1. Guardrails are hooks and permissions, never prose. A rule written only in a prompt is a suggestion.
+2. No agent changes its own role, authority, permissions or core rules. Improvements go through
+   Afik as a versioned change.
+3. Agent and skill definitions describe a **profession**. Product facts live in
+   `.claude/knowledge/` and in task context. Never bake Nestly specifics into a role.
+4. An acceptance criterion a test cannot assert is not an acceptance criterion.
+5. Parallelism is earned by independence. Within a feature: none. SCOUT calls: freely.
+6. A feature must fit in one context window. If the spec does not, split the spec.
+7. Never write to production. Never commit secrets. Never run a destructive command without Afik.
