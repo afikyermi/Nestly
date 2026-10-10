@@ -115,6 +115,9 @@ Cumulative minimums, not maximums.
 | performance / query-shape risk | DATA ARCHITECT + CRITIC |
 | new external provider | CRITIC |
 | auth / authz / personal data | CRITIC on opus |
+| behavioural signals · ranking or recommendation · analytics events · paid placement | ALGORITHM & DATA, before BUILDER and as reviewer |
+| any new or changed UI | Accessibility domain — see `.claude/workflow.md` |
+| any AI/ML idea | record it in the SRS (Appendix D, or the decided section). No AI/ML agent exists yet — see `.claude/knowledge/ai-ml-readiness.md` |
 | user-generated content | flag for Afik — Trust & Safety review sits outside this pipeline |
 
 ---

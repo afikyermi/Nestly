@@ -111,14 +111,15 @@ ceremony that catches nothing.
 
 A checklist that only grows becomes a ritual. Each agent has a cap.
 
-| Agent | Budget | Current (v1.0) |
+| Agent | Budget | Current |
 |---|---|---|
-| SPEC | 8 | 6 |
+| SPEC | 8 | 8 (v1.1 — at budget) |
 | DATA ARCHITECT | 12 | 9 |
 | BUILDER | 12 | 9 |
 | SCOUT | 6 | 5 |
 | CRITIC | 20 | ~16 |
 | TEST ENGINEER | 10 categories | 6 |
+| ALGORITHM & DATA | 12 | 10 |
 
 > **At budget, adding a check requires removing or merging one.**
 

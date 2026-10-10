@@ -24,6 +24,7 @@ An Initiative is approved once. Features inside it then flow without further ini
 .work/<slug>/
   spec.md       SPEC              the contract. SRS IDs it implements. acceptance criteria. frozen at Gate 1
   schema.md     DATA ARCHITECT    only when schema changes. this is Gate 2
+  algorithm.md  ALGORITHM & DATA  only when signals, ranking, analytics events or paid placement are involved
   notes.md      BUILDER           decisions and why. CRITIC must not read this
   findings.md   CRITIC            fixed schema
   result.md     ORCHESTRATOR      execution × quality, planned vs actual, SRS IDs implemented or changed
@@ -43,10 +44,11 @@ The maintained as-built descriptions are `.claude/knowledge/data-model.md` and `
 | 3 | **SPEC** | write the contract | `spec.md` |
 | 4 | **Afik** | ✋ **Gate 1** — approve or edit one page | approved `spec.md` |
 | 5 | **DATA ARCHITECT** | *only if schema changes* — Gate 2 | `schema.md` |
+| 5b | **ALGORITHM & DATA** | *only if the feature uses behavioural signals, ranks or recommends, records analytics events, or places paid content* — purpose map, pipeline, configuration, events, evaluation. Feeds DATA ARCHITECT when tables are needed | `algorithm.md` |
 | 6 | **BUILDER** | branch, implement. calls SCOUT as needed | diff + `notes.md` |
 | 7 | **CI** | 🤖 tests · lint · RLS policy present on every touched table. red → back to 6 | green build |
 | 8 | **TEST ENGINEER** | tests derived from `spec.md` only | test files |
-| 9 | **CRITIC** | review the diff cold | `findings.md` + verdict |
+| 9 | **CRITIC** | review the diff cold. ALGORITHM & DATA reviews in parallel when step 5b ran | `findings.md` + verdict |
 | 10 | **BUILDER** | address findings | updated diff |
 | 11 | **CRITIC** | re-check **only what it raised** | verdict |
 | 12 | **Afik** | ✋ **Preview** — click it | go / no-go |
@@ -143,6 +145,23 @@ updated in step 14. A feature is not done until the SRS describes what was actua
 
 ---
 
+## Domains — cross-cutting concerns without their own agent
+
+A domain is a concern every relevant agent applies. It owns no task and no asset; it names who checks
+what, and when. A domain becomes an agent only through the Agent Necessity Test.
+
+### Accessibility — WCAG 2.2 AA (SRS NFR-A11Y-001, decision D6)
+
+| | |
+|---|---|
+| **Trigger** | any new or changed UI |
+| **BUILDER** | builds to the accessibility constraints in `.claude/knowledge/conventions.md`. Shared UI components carry accessibility once, so every screen inherits it |
+| **TEST ENGINEER** | axe-core checks inside the Playwright E2E tests of every screen the feature touches |
+| **CRITIC** | what automation misses: keyboard operation, focus order and visibility, meaningful labels, target size |
+| **Severity** | a WCAG 2.2 AA failure on a core flow is `high` |
+
+*Threat Modeling, the second domain in plan item 6.1, has not been added yet.*
+
 ## Temporary hold
 
 Any agent may raise a temporary hold: *"do not merge yet, I am still looking."*
@@ -158,6 +177,7 @@ agent that raised it.
 | ORCHESTRATOR | **the main loop** | — | orchestration needs the full task context |
 | SPEC | subagent | opus when a risk flag is set, else sonnet | specification errors are the largest failure class |
 | DATA ARCHITECT | subagent | **opus always** | rare decisions, expensive to reverse |
+| ALGORITHM & DATA | subagent | **opus always** | purpose limits on personal data and minors' data; rare, high-stakes decisions |
 | BUILDER | subagent | sonnet; opus when a risk flag is set | own context window per feature |
 | SCOUT | subagent | **haiku** | search, not judgment |
 | CRITIC | subagent | opus when a risk flag is set, else sonnet | — |

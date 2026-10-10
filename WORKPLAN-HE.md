@@ -62,8 +62,8 @@
 | 4.1 | תיקון רשומת הבדיקות ב-`decisions.md`, שורת הבדיקות ב-`conventions.md` וב-`CLAUDE.md`, והבהרת כלל 0 | ✅ |
 | 4.2 | **SPEC 1.1:** חיתוך ה-SRS, ציטוט מזהים, איסור למלא TBD, סימון התנהגות שלא ב-SRS, וקריטריון הרשאה | ✅ |
 | 4.3 | **ORCHESTRATOR (`CLAUDE.md`):** סעיף "Product requirements — the SRS" | ✅ |
-| 4.4 | **יצירת סוכן ALGORITHM & DATA**, כולל תקציב בדיקות ב-`learning.md` | 🔄 |
-| 4.5 | תנאי כניסה לסוכן AI/ML ומפת מיקומי AI ב-SRS | 🔄 |
+| 4.4 | **סוכן ALGORITHM & DATA** — `.claude/agents/algorithm-data.md`, שלב 5b בצינור, סוקר במקביל ל-CRITIC, תקציב 12 | ✅ |
+| 4.5 | תנאי כניסה לסוכן AI/ML ומפת מיקומי AI ב-SRS — `.claude/knowledge/ai-ml-readiness.md` | ✅ |
 | 4.6 | `conventions.md`: אילוצי הקומפוננטות מ-§4, Web ואחריו React Native, נגישות | ✅ |
 | 4.7 | `data-model.md`: מלאי הישויות מ-§13 ושכבות ההרשאה, כקלט ולא כסכמה | ⬜ |
 | 4.8 | knowledge: נקודות ביקורת מה-SRS (Audit, Eligibility לפני Ranking, Organic/Paid, Data Usage) | ⬜ |
@@ -86,7 +86,7 @@
 
 | # | משימה | תלוי ב |
 |---|---|---|
-| 6.1 | Domains ב-`workflow.md`: Accessibility (לפי D6) · Threat Modeling | 🔄 Accessibility · Threat Modeling — ⬜ |
+| 6.1 | Domains ב-`workflow.md`: Accessibility (לפי D6) · Threat Modeling | ✅ Accessibility · Threat Modeling — ⬜ |
 | 6.2 | אינווריאנט שלמות ה-Audit: טסט ונקודת ביקורת | 4.8 |
 | 6.3 | פגיעויות בתלויות. נבנה בתוך CI, שלב 7.1 | — |
 
