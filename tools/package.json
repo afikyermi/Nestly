@@ -1,0 +1,12 @@
+{
+  "name": "nestly-tools",
+  "private": true,
+  "description": "Repo tooling for the SRS (index builder, Word export). Not product code.",
+  "scripts": {
+    "srs:index": "node build-srs-index.js",
+    "srs:export": "node export-srs-docx.js"
+  },
+  "dependencies": {
+    "docx": "9.9.0"
+  }
+}

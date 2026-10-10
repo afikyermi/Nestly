@@ -41,6 +41,8 @@ nestly/
 └── tools/
     ├── build-srs-index.js  ← בונה את docs/srs/INDEX.md מתוך קבצי ה-SRS. להריץ אחרי כל שינוי ב-FR או AC
     ├── srs-ac-names.json   ← השמות המקוצרים של ה-AC באינדקס
+    ├── export-srs-docx.js  ← מייצא את ה-SRS המלא ל-Word: exports/Nestly_SRS_v<גרסה>.docx
+    ├── package.json        ← התלות היחידה של הכלים (docx), מותקנת רק ב-tools/
     └── docx2md.ps1         ← ממיר docx ל-markdown, למקרה שיגיע שוב קובץ Word
 ```
 

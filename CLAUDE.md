@@ -39,8 +39,11 @@ the files the task needs, or ask SCOUT.
   `tools/srs-ac-names.json`.
 - **AI/ML ideas and decisions** are recorded in the SRS: Appendix D while they are future options, the
   relevant FR, §18 or NFR once decided. See `.claude/knowledge/ai-ml-readiness.md`.
+- **Word export on request**: `node tools/export-srs-docx.js` produces the complete current SRS as
+  `exports/Nestly_SRS_v<version>.docx`. Never edit an export — fix the markdown and export again.
 - `docs/srs/archive/` holds old Word versions. History only — never edit them, and never regenerate the
-  markdown from them.
+  markdown from them. If Afik hands over an edited Word file, diff it against the markdown first and import
+  only his changes, before anyone edits the markdown again.
 
 **Two consequences that shape every review:**
 

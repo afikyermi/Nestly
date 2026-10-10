@@ -10,6 +10,9 @@ node_modules/
 dist/
 build/
 
+# Generated Word exports of the SRS — regenerate with tools/export-srs-docx.js, never edit
+exports/
+
 # Per-machine Claude settings
 .claude/settings.local.json
 

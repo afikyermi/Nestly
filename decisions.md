@@ -224,7 +224,10 @@ YYYY-MM-DD | <decision in one line>
                 table in docs/srs/00-document-info.md. The INDEX is rebuilt with tools/build-srs-index.js.
   export:       a complete, current SRS must be producible as a Word document on request, reflecting every
                 change. The markdown structure (INDEX order, section files) is the input to that export.
-  status:       scope and versioning applied in SRS 2.3. Word export tool: not built yet — next step.
+  status:       scope and versioning applied in SRS 2.3. Word export: `node tools/export-srs-docx.js` writes
+                exports/Nestly_SRS_v<version>.docx in the original's format (A4, Arial 11, right-to-left).
+                Verified on 2.3 by round-trip: all 4,483 text atoms of the 38 markdown files present, 120 of
+                120 tables. Visual layout not checked on our side — no Word or LibreOffice renderer.
   decided by:   Afik
 
 2026-10-10 | ALGORITHM & DATA agent — owns algorithm rules, data purpose limits, evaluation and review (D2, option A)
