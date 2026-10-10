@@ -61,7 +61,9 @@ Nestly היא רשת חברתית דיגיטלית הפתוחה למשתמשים
 | Regular Chat Request | בקשת שיחה בין שני Regular Users שאינם Friends ושאין ביניהם Conversation פעילה. הבקשה דורשת Accept או Decline מצד הנמען; רק Accept פותח שיחה חדשה. |
 | Chat Block | חסימה ברמת ההודעות בלבד. היא מונעת המשך שליחת הודעות Chat בין הצדדים עד להסרת החסימה, אך אינה מסתירה חשבונות, אינה מסירה Friendship/Follow ואינה מהווה חסימה גלובלית במערכת. |
 | Support Thread | שרשור שירות המקושר ל-SupportRequest ומוצג ב-Chat בשם “Support” כאשר התקבלה תגובת שירות. השרשור אינו Chat חברתי חופשי והאינטראקציה בו מוגבלת להקשר ולסטטוס של הפנייה. |
-| Regular Profile Visibility | Regular User תמיד ניתן לאיתור ב-People Search. המשתמש יכול לקבוע אם פרופילו פתוח לצפייה של non-Friends; כאשר אינו פתוח, non-Friend רואה רק שם, תמונה ומידע ציבורי בסיסי. |
+| Regular Profile Visibility | Regular User תמיד ניתן לאיתור ב-People Search. המשתמש יכול לקבוע אם פרופילו פתוח לצפייה של non-Friends (Open) או לא (Restricted). ב-Restricted, non-Friend רואה רק את ה-Basic Public Profile. ב-Open, non-Friend רואה את כל הפרופיל **למעט** מדדים ונתונים שהמשתמש מתעד או מעלה על ילדים, הריון, מחזור וביוץ (Tracker Data). |
+| Basic Public Profile (מידע ציבורי בסיסי) | המידע שמוצג על Regular User לכל משתמש קהילה מחובר, בכל מצב Visibility. כולל **רק:** שם, תמונת פרופיל, מספר הילדים, סטטוס הריון או תכנון הריון, רשימת Friends ו-Friends משותפים, ופעולת שליחת הודעה בכפוף ל-FR-CHAT-002. |
+| Anonymous Post | פוסט שהמחבר בחר לפרסם בלי שזהותו תוצג למשתמשי קהילה אחרים. המערכת שומרת את זהות המחבר האמיתי; ההסתרה חלה כלפי משתמשי קהילה בלבד. ראה FR-FEED-005. |
 | Personalization Signal | אירוע או נתון מאושר שמשמש להתאמה אישית, כגון Stage, חיפוש, צפייה, Dwell Time, Save, Follow, Group Membership או Negative Feedback. שימוש כפוף להרשאות ולמגבלות הפרטיות. |
 | Interest Profile | ייצוג נגזר של תחומי עניין של המשתמש לפי נושאים/קטגוריות. ב-v1 מחושב מחוקים ו-Scoring דטרמיניסטי, עם דעיכה לאורך זמן; אינו מודל ML. |
 | Intent Signal | אות קצר-טווח שמייצג צורך נוכחי, למשל רצף חיפושים/פתיחות סביב מוצר או נושא מסוים. השפעתו דועכת עם הזמן. |

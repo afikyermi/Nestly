@@ -47,7 +47,7 @@
 | BR-041 | היררכיית Group Roles היא Owner > Admin > Group Moderator > Member. Role נמוך אינו אוכף פעולה על Role שווה/גבוה; Owner אינו ניתן להסרה/עזיבה לפני העברת בעלות. |
 | BR-042 | Regular non-Friend יכול לשלוח Regular Chat Request. Friendship פעילה מאפשרת Chat ישיר; Conversation שכבר נפתחה ממשיכה גם לאחר Remove Friend. |
 | BR-043 | Support communication מוצגת ב-Chat בשם “Support” רק בהקשר SupportRequest. אין Chat חופשי אל Admin/Moderator דרך Support. |
-| BR-044 | Regular User תמיד ניתן לאיתור ב-People Search. Profile Visibility שולט בגישה לפרופיל מצד non-Friends; Restricted מציג רק שם, תמונה ומידע ציבורי בסיסי. |
+| BR-044 | Regular User תמיד ניתן לאיתור ב-People Search. Profile Visibility שולט בגישה לפרופיל מצד non-Friends: Restricted מציג רק את ה-Basic Public Profile (§1.4); Open מציג את כל הפרופיל למעט Tracker Data — מדדים ונתונים על ילדים, הריון, מחזור וביוץ. |
 | BR-045 | Email ייחודי גלובלית בין כל חשבונות Nestly; אותו Email אינו יכול לשמש גם Regular וגם Professional Account. |
 | BR-046 | בשלב הראשון Sponsored Products מנוהלים על ידי Admin בלבד; אין Brand User עצמאי. |
 | BR-047 | Professional Marketing Tools בשלב הראשון כוללים Profile Promotion, Post Promotion ו-Promotion Analytics; תשלום קונה Reach ואינו משנה Reputation אורגני. |
@@ -65,3 +65,4 @@
 | BR-059 | שינוי AlgorithmConfiguration הוא Admin Only דרך ALGORITHM_AI_CONFIG ונרשם ב-Audit Log עם Before/After ו-version חדש. |
 | BR-060 | Group Highlights v1 הוא דטרמיניסטי; שינוי ל-ML Highlights בעתיד דורש עדכון SRS והחלטת AI/Algorithm נפרדת. |
 | BR-061 | מדיניות ערוצי Notification: בשלב Web התראות חברתיות/קבוצתיות/מסחריות ומערכתיות נמסרות ב-In-App. בשלב Mobile ניתן לשלוח גם Push לקטגוריות מאופשרות, רק כאשר Push מופעל והרשאת מערכת ההפעלה קיימת. Security/Critical נשארות חובה ב-In-App. Email/SMS אינם משמשים להתראות שוטפות אלה ויישמרו רק לתהליכים טכניים/חשבון/אבטחה שאושרו בנפרד. |
+| BR-062 | Anonymous Post מסתיר את זהות המחבר ממשתמשי קהילה בלבד. המערכת שומרת תמיד את המחבר האמיתי, ו-Admin רשאי לראות אותו לצורכי ניהול. Anonymous Post אינו יוצר תצוגה, תוצאת חיפוש או Notification שחושפים את המחבר. |

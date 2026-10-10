@@ -11,8 +11,7 @@
 | AI / ML / LLM / Chat capabilities | Future Enhancement / Open Decision | v1 Personalization/Ranking מוגדר כ-Rule-Based. ML/LLM/semantic/assistant capabilities אינן נדרשות להפעלת v1 וייבחנו לפי נספח D לאחר הגדרת Use Case, Data, Value, Safety, Cost ו-Fallback. |
 | Premium subscription למשתמשים/בעלי מקצוע | Out of current model | המודל שנבחר שומר בסיס חינמי; תשלום מבעלי מקצוע מיועד לקידום פרופיל וכלים שיווקיים. |
 | שכבות התפתחות לגילאים מעל 5 | Future Enhancement | המערכת פתוחה לכל גיל, אך שכבות ייעודיות לגילאים מבוגרים יותר יתווספו בהמשך בהתאם לצורך. |
-| Brand / Advertiser Self-Service Portal | Future Enhancement / Out of Scope for current phase | בשלב הראשון Sponsored Products מנוהלים על ידי Admin. פורטל עצמאי למותגים/מפרסמים ייבחן בעתיד. |
+| Brand / Advertiser Self-Service Portal | Future Enhancement / Out of Scope for current phase | בשלב הראשון Sponsored Products מנוהלים על ידי Admin. פורטל עצמאי למותגים/מפרסמים ייבחן בעתיד; Brand User ו-auction אינם נדרשים כעת. |
 | ML Learned Ranking / Collaborative Filtering | Future Enhancement | אפשרי לאחר הצטברות data/traffic והוכחת צורך מעבר ל-v1 rule-based. |
 | Semantic Search / Embeddings | Future Enhancement | Global Search v1 נשאר Exact/Prefix/Keyword; semantic retrieval ייבחן בהמשך. |
-| Brand Portal / Self-Serve Ads | Future Enhancement | Sponsored Products מנוהלים ב-v1 על ידי Admin; Brand User/auction אינם נדרשים כעת. |
 | Experimentation Platform / A-B Testing | Future Enhancement | אפשר להוסיף לאחר שיש traffic מספיק ומדדים יציבים; אינו blocker לפיתוח v1. |

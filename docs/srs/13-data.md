@@ -2,7 +2,7 @@
 
 # 13. דרישות נתונים / Database
 
-המסמך מגדיר ישויות לוגיות בלבד ואינו קובע MongoDB/SQL. בחירת DB היא החלטת Design נפרדת.
+המסמך מגדיר ישויות לוגיות. בחירת ה-DB היא החלטת Design נפרדת, והיא התקבלה: **PostgreSQL דרך Supabase**, מקור אמת אחד, והרשאות שנאכפות בבסיס הנתונים באמצעות **Row Level Security** (החלטה מ-12.9.2026).
 
 | Entity | מטרה |
 |---|---|
@@ -12,7 +12,7 @@
 | Child | שם/מין/תאריך לידה ושיוך להורה; פרטים מדויקים לפי הרשמה. |
 | JourneyContext | סוג מסלול: ילד/ה, הריון ולידה, מחזור וביוץ; סטטוס פעיל. |
 | TrackerEvent | סוג Tracker, timestamp ונתוני האירוע; האירועים מהווים חלק מ-Tracker Data המשויך למשתמש/ילד/מסלול. |
-| Post | מחבר, תוכן, זמן, קהילה/הקשר, סטטוס. |
+| Post | מחבר (נשמר תמיד), סימון אנונימיות, תוכן, זמן, קהילה/הקשר, סטטוס. בפוסט אנונימי זהות המחבר אינה נחשפת למשתמשי קהילה (FR-FEED-005). |
 | Comment / Reaction | אינטראקציות לתוכן. Comment יכול לכלול parentCommentId עבור Reply ו-Mention references לפי הצורך; Reaction נשמר לפי סוג האינטראקציה שיוגדר. |
 | Group / Membership | Group עם type Public/Private, מטא-דאטה, בעלות וסטטוס; Membership משייך משתמש לקבוצה ומכיל סטטוס חברות. תפקידי קבוצה נשמרים בנפרד מ-System Roles. |
 | MarketplaceListing | Listing מסחרי של משתמש: מוצר למכירה/מסירה, בעלים, תוכן, מדיה, סטטוס, מקור וקידום. |
@@ -81,12 +81,12 @@ NotificationPreference ו-GroupNotificationPreference מסננים אירועי 
 | קטגוריית Data | דוגמאות / מקור | שימוש מותר v1 | הגבלות / שימוש אסור | גישה |
 |---|---|---|---|---|
 | Account / Role | Login, Role, account status, contact fields | Authentication, authorization, lifecycle analytics | לא לחשוף ל-Professional; Paid targeting רק לפי surface/category ולא contact identifiers | Admin לפי הרשאות; המשתמש לחשבונו |
-| Regular Profile — Public | שם, תמונה, public basic info, Profile Visibility | People Search, profile display, social features | Restricted profile מגביל non-Friend; לא נגזר Paid target מזהות אישית | משתמשים לפי Visibility |
+| Regular Profile — Public | Basic Public Profile (§1.4): שם, תמונה, מספר ילדים, סטטוס הריון/תכנון, Friends ו-Friends משותפים; Profile Visibility | People Search, profile display, social features | Restricted מגביל non-Friend ל-Basic Public Profile; Open חושף את הפרופיל ללא Tracker Data; לא נגזר Paid target מזהות אישית | משתמשים לפי Visibility |
 | Child / Journey Context | DOB/Stage/JourneyContext, child association | My Stage, organic contextual relevance, trackers | Child DOB/identifiers אינם Paid Targeting ואינם משותפים ל-Professional/Advertiser | Regular owner; Admin לפי הרשאה; algorithms דרך derived Stage |
 | Tracker Data | Tracker type/events/summary | Tracking history; organic non-diagnostic tips/context | ללא Paid Targeting; ללא Professional access; ללא medical diagnosis/inference | Regular owner; restricted Admin access; ContextualContentFeature לפי purpose |
 | Professional Profile | profession, experience, verification, ratings, content/activity | Directory, organic matching, profile, Professional analytics | Paid boost לא משנה organic reputation | Public/eligible users; owner/admin |
 | Social Graph | Friendship, ProfessionalFollow, Group Membership | Feed candidates, social relevance, notifications | לא לחשוף graph מלא לצדדים שלישיים | המשתמש/Features הרלוונטיים |
-| Content & Metadata | Posts/Comments/Groups/Listings/Products/Articles + topic/stage/category tags | Search, Feed, Ranking, Moderation, analytics | Private Group content לפי membership/admin exception בלבד | לפי content visibility |
+| Content & Metadata | Posts/Comments/Groups/Listings/Products/Articles + topic/stage/category tags | Search, Feed, Ranking, Moderation, analytics | Private Group content לפי membership/admin exception בלבד. זהות המחבר של Anonymous Post אינה נחשפת למשתמשי קהילה; Admin בלבד, וגישת Moderator לפי OP-019 | לפי content visibility |
 | Search Data | normalized query, filters, result count, clicks | Search ranking, current intent, zero-result/demand analytics | Raw query לא מוצג ל-Professional; Chat/Support לא נגזרים ל-query | System/Admin aggregate; user personalization |
 | Interaction / Exposure | impression, open, dwell, like, comment, save, profile/product open | Interest/Intent, Ranking evaluation, Admin analytics | Dwell אינו Satisfaction יחיד; מינימום metadata נדרש | System; Admin aggregate; Professional own aggregates |
 | Negative Feedback | Not Interested, Hide, Show Less | Suppression/Re-ranking, recommendation quality | לא משמש אכיפה על משתמש אחר כשלעצמו | System + user preference |

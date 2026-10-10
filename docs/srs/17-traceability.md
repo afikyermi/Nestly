@@ -8,7 +8,7 @@
 | PG-002 | LoginPage | FR-AUTH-002/003 | UC-03 | User |
 | PG-004/005 | RegularRegistrationFlow | FR-REG-002/003/004 | UC-01 | User, RegularProfile, Child, JourneyContext |
 | PG-006/007 | ProfessionalRegistrationFlow | FR-PROREG-001/002/003 | UC-02 | User, ProfessionalProfile |
-| PG-008 | FeedFeature / PersonalizationSignalFeature / RuleBasedRecommendationEngine | FR-FEED-001..004 / FR-ALG-001..004 / FR-ALG-009 | UC-04/36/37/40 | Post, Comment, Reaction, Group, Friendship, ProfessionalFollow, PersonalizationProfile, ContentImpression, RecommendationFeedback, ContentMetadata, AlgorithmConfiguration |
+| PG-008 | FeedFeature / PersonalizationSignalFeature / RuleBasedRecommendationEngine | FR-FEED-001..005 / FR-ALG-001..004 / FR-ALG-009 | UC-04/36/37/40 | Post, Comment, Reaction, Group, Friendship, ProfessionalFollow, PersonalizationProfile, ContentImpression, RecommendationFeedback, ContentMetadata, AlgorithmConfiguration |
 | PG-009 | HomeTrackingFeature | FR-HOME-001..004 | UC-05/06 | JourneyContext, TrackerEvent, Article |
 | PG-010/019 | MarketplaceFeature / MarketplacePromotionFeature / MarketplaceDetailPage / RuleBasedRecommendationEngine | FR-MKT-001..005 / FR-ALG-006/007 | UC-07/39 | MarketplaceListing, SponsoredProduct, Promotion, MediaAsset, PromotionPerformanceEvent, ContentImpression, AnalyticsEvent |
 | PG-011/013 | ServicesDirectoryFeature / ProfessionalProfilePage / RuleBasedRecommendationEngine | FR-SERV-001..003 / FR-ALG-005 | UC-08/38 | ProfessionalProfile, ServiceCategory, PersonalizationProfile, AnalyticsEvent |

@@ -2,22 +2,22 @@
 
 # SRS — אינדקס
 
-**מקור האמת של מוצר Nestly.** SRS v2.2 · 10.10.2026.
+**מקור האמת של מוצר Nestly.** SRS v2.3 · 10.10.2026.
 
-ב-10.10.2026 המסמך הומר מ-Word ל-markdown ופוצל לפי סעיפים, בלי לשנות אף מילה. מאז ה-markdown הוא המקור, וקובץ ה-Word נמצא ב-[`archive/`](archive/) כהיסטוריה.
+ה-SRS מתוחזק ב-markdown ומפוצל לפי סעיפים. גרסאות ה-Word הקודמות נמצאות ב-[`archive/`](archive/) כהיסטוריה בלבד.
 
-**כלל:** כל שינוי במערכת מתעדכן כאן. כשנוסף או משתנה FR או AC, צריך לעדכן גם את הטבלאות באינדקס.
+**הקובץ הזה נוצר אוטומטית** — `node tools/build-srs-index.js`. אין לערוך אותו ידנית. כשנוסף או משתנה FR או AC, מריצים את הכלי מחדש. ל-AC חדש מוסיפים קודם שם מקוצר ב-`tools/srs-ac-names.json`.
 
 ## קבצים
 
 | § | קובץ | נושא |
 |---|---|---|
-| — | [00-document-info.md](00-document-info.md) | פרטי המסמך, כלל הבסיס ותוכן העניינים המקורי |
+| — | [00-document-info.md](00-document-info.md) | פרטי המסמך, היסטוריית שינויים, כלל הבסיס ותוכן העניינים המקורי |
 | 1 | [01-intro.md](01-intro.md) | מבוא |
 | 2 | [02-system-overview.md](02-system-overview.md) | תיאור כללי של המערכת |
 | 3 | [03-roles-permissions.md](03-roles-permissions.md) | סוגי משתמשים והרשאות |
 | 4 | [04-architecture.md](04-architecture.md) | ארכיטקטורת Pages, Features ו-Components |
-| 5 | [05-functional/](05-functional/) | דרישות פונקציונליות — 82 FR ב-16 קבצי תחום (ראה למטה) |
+| 5 | [05-functional/](05-functional/) | דרישות פונקציונליות — 83 FR ב-16 קבצי תחום (ראה למטה) |
 | 6 | [06-non-functional.md](06-non-functional.md) | דרישות לא-פונקציונליות |
 | 7 | [07-screens-navigation.md](07-screens-navigation.md) | מסכי מערכת וניווט |
 | 8 | [08-business-rules.md](08-business-rules.md) | חוקים עסקיים (Business Rules) |
@@ -42,7 +42,7 @@
 |---|---|---|---|
 | [auth.md](05-functional/auth.md) | Auth — כניסה והזדהות | FR-AUTH | 4 |
 | [registration.md](05-functional/registration.md) | Registration — הרשמה (רגיל ומקצועי) | FR-REG · FR-PROREG | 7 |
-| [feed.md](05-functional/feed.md) | Feed — פיד, פוסטים והתאמה לשלב | FR-FEED | 4 |
+| [feed.md](05-functional/feed.md) | Feed — פיד, פוסטים והתאמה לשלב | FR-FEED | 5 |
 | [home-tracking.md](05-functional/home-tracking.md) | Home & Tracking — בית, מסלולים ו-Trackers | FR-HOME · FR-TRACK | 6 |
 | [marketplace.md](05-functional/marketplace.md) | Marketplace | FR-MKT | 5 |
 | [services.md](05-functional/services.md) | Services — בעלי מקצוע, פניות וקידום | FR-SERV | 10 |
@@ -57,7 +57,7 @@
 | [admin.md](05-functional/admin.md) | Admin — ניהול מערכת | FR-ADMIN | 10 |
 | [algorithms-data.md](05-functional/algorithms-data.md) | Algorithms & Data — אלגוריתמים ואנליטיקה | FR-ALG · FR-DATA | 11 |
 
-## דרישות פונקציונליות — 82
+## דרישות פונקציונליות — 83
 
 | ID | שם | קובץ |
 |---|---|---|
@@ -76,6 +76,7 @@
 | FR-FEED-002 | יצירת פוסט/שאלה | [feed.md](05-functional/feed.md) |
 | FR-FEED-003 | תגובה ואינטראקציה | [feed.md](05-functional/feed.md) |
 | FR-FEED-004 | התאמה לפי שלב | [feed.md](05-functional/feed.md) |
+| FR-FEED-005 | פרסום פוסט אנונימי | [feed.md](05-functional/feed.md) |
 | FR-HOME-001 | הצגת בית — מעקב ותכנון | [home-tracking.md](05-functional/home-tracking.md) |
 | FR-HOME-002 | הוספת מסלול מעקב | [home-tracking.md](05-functional/home-tracking.md) |
 | FR-HOME-003 | רישום פעילות | [home-tracking.md](05-functional/home-tracking.md) |
@@ -144,7 +145,7 @@
 | FR-ALG-010 | Group Notification Highlights v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-DATA-001 | Analytics Event Tracking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 
-## קריטריוני קבלה — 74
+## קריטריוני קבלה — 75
 
 > השמות קוצרו לצורך ניווט בלבד. הנוסח המחייב נמצא ב-[15-acceptance.md](15-acceptance.md).
 
@@ -203,7 +204,7 @@
 | AC-051 | Regular Chat Request בין non-Friends | [15-acceptance.md](15-acceptance.md) |
 | AC-052 | Chat Block מונע הודעות בלבד | [15-acceptance.md](15-acceptance.md) |
 | AC-053 | תגובת Support ב-Chat ללא Chat חופשי | [15-acceptance.md](15-acceptance.md) |
-| AC-054 | כל Regular ב-People Search; Restricted מוגבל | [15-acceptance.md](15-acceptance.md) |
+| AC-054 | Restricted מציג Basic Public Profile; Open ללא Tracker Data | [15-acceptance.md](15-acceptance.md) |
 | AC-055 | Email ייחודי בכל סוגי החשבונות | [15-acceptance.md](15-acceptance.md) |
 | AC-056 | יצירת Group ללא אישור Admin | [15-acceptance.md](15-acceptance.md) |
 | AC-057 | כלי שיווק מקצועיים לא משנים Reputation | [15-acceptance.md](15-acceptance.md) |
@@ -224,17 +225,18 @@
 | AC-072 | Professional Analytics — own-account aggregates בלבד | [15-acceptance.md](15-acceptance.md) |
 | AC-073 | שינוי AlgorithmConfiguration: Admin, גרסה ו-Audit | [15-acceptance.md](15-acceptance.md) |
 | AC-074 | ערוצי התראה: Web רק In-App; Mobile גם Push בהרשאה | [15-acceptance.md](15-acceptance.md) |
+| AC-075 | פוסט אנונימי לא חושף את המחבר למשתמשי קהילה | [15-acceptance.md](15-acceptance.md) |
 
 ## מזהים נוספים
 
 | סוג | נושא | טווח | כמות | קובץ |
 |---|---|---|---|---|
-| BR | חוקים עסקיים | BR-001 … BR-061 | 61 | [08-business-rules.md](08-business-rules.md) |
-| VAL | ולידציות | VAL-001 … VAL-035 | 35 | [09-validations.md](09-validations.md) |
+| BR | חוקים עסקיים | BR-001 … BR-062 | 62 | [08-business-rules.md](08-business-rules.md) |
+| VAL | ולידציות | VAL-001 … VAL-036 | 36 | [09-validations.md](09-validations.md) |
 | ERR | שגיאות ותרחישי קצה | ERR-001 … ERR-031 | 31 | [10-errors-edge-cases.md](10-errors-edge-cases.md) |
 | NFR | דרישות לא-פונקציונליות | NFR-SEC-001 … NFR-OBS-001 | 28 | [06-non-functional.md](06-non-functional.md) |
 | UC | Use Cases | UC-01 … UC-42 | 42 | [14-use-cases.md](14-use-cases.md) |
 | PG | מסכים | PG-001 … PG-044 | 44 | [07-screens-navigation.md](07-screens-navigation.md) |
-| OP | נקודות פתוחות | OP-001 … OP-018 | 18 | [appendix-b-open-points.md](appendix-b-open-points.md) |
+| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-020 | 20 | [appendix-b-open-points.md](appendix-b-open-points.md) |
 | ALG | קטלוג האלגוריתמים | ALG-01 … ALG-09 | 9 | [18-algorithms-spec.md](18-algorithms-spec.md) |
 | P-ALG | עקרונות האלגוריתמים | P-ALG-01 … P-ALG-08 | 8 | [18-algorithms-spec.md](18-algorithms-spec.md) |

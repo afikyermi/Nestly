@@ -30,7 +30,7 @@
 | VAL-024 | Chat Initiation | Friends פותחים Conversation ישירות. Regular non-Friends יוצרים RegularChatRequest. Professional/Marketplace כפופים ל-FR-CHAT-002. ChatBlock מונע הודעות בלבד ואינו משפיע על Search/Profile/Relationship. |
 | VAL-025 | Regular Chat Request | Requester/Target חייבים להיות Regular Users פעילים ללא Conversation פתוחה. Accept פותח Chat; Decline אינו פותח Chat. |
 | VAL-026 | Support Thread | חייב להיות מקושר ל-SupportRequest; תגובת צד ניהולי דורשת SUPPORT_HANDLE ומוצגת בשם “Support”. אין Support Thread חופשי ללא פנייה. |
-| VAL-027 | Regular Profile Visibility | Regular User אינו יכול להסתיר עצמו מ-People Search. Visibility קובע גישת non-Friend; Restricted מחזיר רק שם/תמונה/מידע ציבורי בסיסי. |
+| VAL-027 | Regular Profile Visibility | Regular User אינו יכול להסתיר עצמו מ-People Search. Visibility קובע גישת non-Friend: Restricted מחזיר רק את שדות ה-Basic Public Profile (§1.4); Open מחזיר את הפרופיל ללא Tracker Data. Tracker Data אינו מוחזר ל-non-Friend בשום מצב. |
 | VAL-028 | Group Creation | יוצר חייב להיות Regular/Professional פעיל; type חייב Public/Private; היוצר נרשם Member + Owner. |
 | VAL-029 | Recommendation Candidate | Candidate חייב לעבור Authorization, content status, Block/visibility וכללי context לפני Ranking; Candidate שנכשל אינו מקבל Score להצגה. |
 | VAL-030 | Sponsored Unit | חייב להיות Active, Sponsored-eligible ומסומן Sponsored/Promoted. אין להשתמש ב-Child/Tracker/Chat/Support/private-group content כ-paid targeting input. |
@@ -39,3 +39,4 @@
 | VAL-033 | Algorithm Configuration | שינוי weights/thresholds/decay/frequency cap דורש Admin + ALGORITHM_AI_CONFIG; כל שינוי יוצר configVersion חדש ונרשם ב-Audit. |
 | VAL-034 | Tracker Personalization | Tracker signal מותר רק ל-Organic non-diagnostic contextual guidance. אם mapping לא מאושר, מתעלמים מה-signal ולא מייצרים inference. |
 | VAL-035 | Group Highlights | GroupNotificationPreference חייב All/Highlights/Off; Highlights מחושב לפי FR-ALG-010 ו-Off אינו מבטל direct/security/account events שחייבים להימסר. |
+| VAL-036 | Anonymous Post | פוסט אנונימי חייב לשמור את מזהה המחבר האמיתי. לפני החזרת הפוסט, תוצאת חיפוש או Notification למשתמש קהילה, זהות המחבר מוחלפת בזהות אנונימית: אין להחזיר מזהה מחבר, שם, תמונה או קישור לפרופיל. |

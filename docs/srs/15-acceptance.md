@@ -57,7 +57,7 @@
 | AC-051 | Regular non-Friend יכול לשלוח Message Request; ללא Accept לא נפתחת Conversation מלאה. |
 | AC-052 | Chat Block אינו מסתיר משתמש מחיפוש/פרופיל ואינו מסיר Friendship/Follow; הוא מונע הודעות עד Unblock. |
 | AC-053 | Support reply מופיעה ב-Chat בשם “Support”, מקושרת ל-SupportRequest ואינה מאפשרת פתיחת Chat חופשי אל Admin/Moderator. |
-| AC-054 | כל Regular פעיל מופיע ב-People Search. Profile Restricted מציג ל-non-Friend רק שם, תמונה ומידע ציבורי בסיסי. |
+| AC-054 | כל Regular פעיל מופיע ב-People Search. Profile Restricted מציג ל-non-Friend רק את ה-Basic Public Profile: שם, תמונה, מספר הילדים, סטטוס הריון או תכנון הריון, Friends ו-Friends משותפים ופעולת הודעה. Profile Open מציג את כל הפרופיל, ו-Tracker Data אינו מוצג ל-non-Friend בשום מצב. |
 | AC-055 | Email שכבר קיים בכל חשבון Nestly נדחה גם אם החשבון הקיים מסוג משתמש אחר. |
 | AC-056 | כל Regular/Professional פעיל יכול ליצור Public/Private Group והיוצר הופך Group Owner ללא אישור Admin. |
 | AC-057 | Professional Marketing Tools כוללים Profile Promotion, Post Promotion ו-Promotion Analytics; Reputation אורגני אינו משתנה עקב קידום. |
@@ -78,3 +78,4 @@
 | AC-072 | Professional Dashboard/Promotion Analytics מציגים own-account aggregates ומפרידים Organic/Paid ללא user identities או raw search queries. |
 | AC-073 | כל שינוי AlgorithmConfiguration דורש Admin ALGORITHM_AI_CONFIG, יוצר configVersion חדש ונרשם ב-Audit עם Before/After. |
 | AC-074 | בשלב Web אין Email/SMS/Push להתראות חברתיות/קבוצתיות/Marketplace/Promotion שוטפות — הן In-App בלבד. בשלב Mobile ניתן Push לקטגוריות מאופשרות ובהרשאת מערכת ההפעלה; חסימת Push אינה מוחקת את ה-Notification מתוך Nestly. Email/SMS נשמרים לתהליכים טכניים/חשבון/אבטחה בלבד. |
+| AC-075 | Regular User יכול לפרסם פוסט אנונימי. זהות המחבר אינה מוצגת למשתמש קהילה ב-Feed, בתצוגת הפוסט, בחיפוש, ב-Notifications או ב-API, ולא נוצרת עבורו התראת "פוסט חדש של Friend". Admin יכול לראות את המחבר האמיתי. |

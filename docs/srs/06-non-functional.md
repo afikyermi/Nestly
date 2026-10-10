@@ -14,7 +14,7 @@
 | NFR-LOAD-001 | Load | מספר משתמשים בו-זמניים יעד — TBD. |
 | NFR-AVAIL-001 | Availability | יעד זמינות — TBD. |
 | NFR-USE-001 | Usability | הסקיצות הן Mobile-first. נדרשת התאמה למסכים קטנים; תמיכה מלאה ב-Desktop/Tablet תיקבע לפי Scope הפיתוח. |
-| NFR-A11Y-001 | Accessibility | רמת נגישות יעד ותקן — TBD לפי שוק/דרישת קורס. |
+| NFR-A11Y-001 | Accessibility | גרסת ה-Web תעמוד ב-WCAG 2.2 ברמה AA (החלטה מ-10.10.2026). רמת הנגישות לשלב React Native תוגדר כחלק מתכנית המעבר (OP-002). |
 | NFR-COMP-001 | Compatibility | גרסת ה-Web תתמוך ב-Google Chrome וב-Microsoft Edge. בשלב האפליקציה העתידי תפותח תמיכה ב-iOS וב-Android. גרסאות מינימום נתמכות לכל דפדפן/מערכת הפעלה יוגדרו לפני QA של אותו שלב. |
 | NFR-AUDIT-001 | Audit | כל פעולה ניהולית משמעותית של Admin/Moderator תירשם ב-Audit Log: שינוי הרשאות, טיפול בפניות, Warning/Suspension/Ban/Unban, הסרה/שחזור תוכן או Listing, אימות Professional, שינוי Community Config ופרסום הודעת מערכת. הרשומה תכלול Actor, Role, Permission, Action, Target, Timestamp, Result וסיבה לפי הצורך; בשינוי הרשאות יישמר Before/After. Moderator אינו רשאי לשנות/למחוק רשומות. Retention TBD. גישת Moderator לתוכן Private Group באמצעות PRIVATE_GROUP_MODERATE תירשם גם היא. |
 | NFR-QA-001 | Quality Assurance | כלי ה-QA והאוטומציה ייבחרו בכל שלב לפי הכלים היציבים, העדכניים והמתאימים ביותר לסוג הבדיקה ולארכיטקטורה בפועל. הבחירה אינה כבולה ל-React או ל-React Native. בדיקות אוטומטיות יכולות להיכתב כקוד, אך תשתית הבדיקות תישמר מופרדת מהלוגיקה העסקית ולא תשנה את התנהגות סביבת Production. יש להגדיר Unit, Integration, E2E ובדיקות נוספות לפי הצורך. |
