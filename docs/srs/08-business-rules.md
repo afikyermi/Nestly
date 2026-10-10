@@ -47,7 +47,7 @@
 | BR-041 | היררכיית Group Roles היא Owner > Admin > Group Moderator > Member. Role נמוך אינו אוכף פעולה על Role שווה/גבוה; Owner אינו ניתן להסרה/עזיבה לפני העברת בעלות. |
 | BR-042 | Regular non-Friend יכול לשלוח Regular Chat Request. Friendship פעילה מאפשרת Chat ישיר; Conversation שכבר נפתחה ממשיכה גם לאחר Remove Friend. |
 | BR-043 | Support communication מוצגת ב-Chat בשם “Support” רק בהקשר SupportRequest. אין Chat חופשי אל Admin/Moderator דרך Support. |
-| BR-044 | Regular User תמיד ניתן לאיתור ב-People Search. Profile Visibility שולט בגישה לפרופיל מצד non-Friends: Restricted מציג רק את ה-Basic Public Profile (§1.4); Open מציג את כל הפרופיל למעט Tracker Data — מדדים ונתונים על ילדים, הריון, מחזור וביוץ. |
+| BR-044 | Regular User תמיד ניתן לאיתור ב-People Search. Profile Visibility שולט בגישה לפרופיל מצד non-Friends: Restricted מציג רק את ה-Basic Public Profile (§1.4); Open מציג את כל הפרופיל, כאשר מידע על ילדים והריון מוצג רק כ-Journey Summary — מספר ילדים, גילאים, והריון ללא פרטים — ו-Tracker Data אינו מוצג. שמות ילדים ותאריכי לידה אינם מוצגים ל-non-Friend. |
 | BR-045 | Email ייחודי גלובלית בין כל חשבונות Nestly; אותו Email אינו יכול לשמש גם Regular וגם Professional Account. |
 | BR-046 | בשלב הראשון Sponsored Products מנוהלים על ידי Admin בלבד; אין Brand User עצמאי. |
 | BR-047 | Professional Marketing Tools בשלב הראשון כוללים Profile Promotion, Post Promotion ו-Promotion Analytics; תשלום קונה Reach ואינו משנה Reputation אורגני. |

@@ -30,7 +30,7 @@
 | VAL-024 | Chat Initiation | Friends פותחים Conversation ישירות. Regular non-Friends יוצרים RegularChatRequest. Professional/Marketplace כפופים ל-FR-CHAT-002. ChatBlock מונע הודעות בלבד ואינו משפיע על Search/Profile/Relationship. |
 | VAL-025 | Regular Chat Request | Requester/Target חייבים להיות Regular Users פעילים ללא Conversation פתוחה. Accept פותח Chat; Decline אינו פותח Chat. |
 | VAL-026 | Support Thread | חייב להיות מקושר ל-SupportRequest; תגובת צד ניהולי דורשת SUPPORT_HANDLE ומוצגת בשם “Support”. אין Support Thread חופשי ללא פנייה. |
-| VAL-027 | Regular Profile Visibility | Regular User אינו יכול להסתיר עצמו מ-People Search. Visibility קובע גישת non-Friend: Restricted מחזיר רק את שדות ה-Basic Public Profile (§1.4); Open מחזיר את הפרופיל ללא Tracker Data. Tracker Data אינו מוחזר ל-non-Friend בשום מצב. |
+| VAL-027 | Regular Profile Visibility | Regular User אינו יכול להסתיר עצמו מ-People Search. Visibility קובע גישת non-Friend: Restricted מחזיר רק את שדות ה-Basic Public Profile (§1.4); Open מחזיר את הפרופיל ללא Tracker Data. לכל non-Friend, מידע ילדים והריון מוחזר רק כ-Journey Summary: מספר ילדים, גילאים (ב-Open) וסימון הריון. שמות ילדים, תאריכי לידה, שבוע הריון ותאריך לידה צפוי אינם מוחזרים. Tracker Data אינו מוחזר ל-non-Friend בשום מצב. |
 | VAL-028 | Group Creation | יוצר חייב להיות Regular/Professional פעיל; type חייב Public/Private; היוצר נרשם Member + Owner. |
 | VAL-029 | Recommendation Candidate | Candidate חייב לעבור Authorization, content status, Block/visibility וכללי context לפני Ranking; Candidate שנכשל אינו מקבל Score להצגה. |
 | VAL-030 | Sponsored Unit | חייב להיות Active, Sponsored-eligible ומסומן Sponsored/Promoted. אין להשתמש ב-Child/Tracker/Chat/Support/private-group content כ-paid targeting input. |
