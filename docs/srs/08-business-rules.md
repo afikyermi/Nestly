@@ -56,7 +56,7 @@
 | BR-050 | Stage הוא Signal חזק ל-Regular אך אינו Hard Filter; Search/Intent מפורש יכול להציג תוכן מחוץ לשלב. |
 | BR-051 | Professional User personalization אינו משתמש ב-Child/Journey/Tracker Data; הוא מבוסס Profession, Groups, Follows, Searches ו-Content interactions. |
 | BR-052 | תוכן Chat/Support אינו Signal ל-Personalization ואינו משמש Paid Targeting. |
-| BR-053 | Child/Tracker Data יכולים לשמש Organic Contextual Guidance בלבד; אסור להשתמש בהם ל-Paid Targeting או לשתף אותם עם Professional/Advertiser. |
+| BR-053 | Child/Tracker Data יכולים לשמש Organic Contextual Guidance בלבד; אסור להשתמש בהם ל-Paid Targeting או לשתף אותם עם Professional/Advertiser דרך ערוצי Targeting, Analytics או Dashboard. צפייה בפרופיל כפופה ל-FR-PRIV-001 באופן זהה לכל צופה (NFR-PRIV-005). |
 | BR-054 | Paid Promotion עובר Sponsored Eligibility ורלוונטיות לפני הצגה. Budget/Payment אינם יכולים לבטל Privacy, Safety או Relevance eligibility. |
 | BR-055 | Not Interested/Hide/Show Less הם Signals שליליים שחייבים להשפיע על Re-ranking עתידי; exact weights/decay הם Configuration. |
 | BR-056 | Recommendation Engine חייב לשמור Diversity בין creator/topic/source ולהימנע מחזרתיות מוגזמת; exploration יתבצע רק מתוך Eligible content. |
@@ -65,4 +65,5 @@
 | BR-059 | שינוי AlgorithmConfiguration הוא Admin Only דרך ALGORITHM_AI_CONFIG ונרשם ב-Audit Log עם Before/After ו-version חדש. |
 | BR-060 | Group Highlights v1 הוא דטרמיניסטי; שינוי ל-ML Highlights בעתיד דורש עדכון SRS והחלטת AI/Algorithm נפרדת. |
 | BR-061 | מדיניות ערוצי Notification: בשלב Web התראות חברתיות/קבוצתיות/מסחריות ומערכתיות נמסרות ב-In-App. בשלב Mobile ניתן לשלוח גם Push לקטגוריות מאופשרות, רק כאשר Push מופעל והרשאת מערכת ההפעלה קיימת. Security/Critical נשארות חובה ב-In-App. Email/SMS אינם משמשים להתראות שוטפות אלה ויישמרו רק לתהליכים טכניים/חשבון/אבטחה שאושרו בנפרד. |
-| BR-062 | Anonymous Post מסתיר את זהות המחבר ממשתמשי קהילה בלבד. המערכת שומרת תמיד את המחבר האמיתי, ו-Admin רשאי לראות אותו לצורכי ניהול. Anonymous Post אינו יוצר תצוגה, תוצאת חיפוש או Notification שחושפים את המחבר. |
+| BR-062 | Anonymous Post מסתיר את זהות המחבר ממשתמשי קהילה בלבד. המערכת שומרת תמיד את המחבר האמיתי, ו-Admin רשאי לראות אותו לצורכי ניהול. Moderator רשאי לחשוף אותו רק בטיפול בדיווח על אותו פוסט, והחשיפה נרשמת ב-Audit Log. Anonymous Post אינו יוצר תצוגה, תוצאת חיפוש, Notification או דירוג דרך הגרף החברתי שחושפים את המחבר. רק Regular User רשאי לפרסם באופן אנונימי. |
+| BR-063 | Basic Public Profile נגיש לכל משתמש מחובר, אך לא בשליפה גורפת: People Search מחזיר תוצאות רק למחרוזת חיפוש, בקצב מוגבל, ומזהי המשתמשים אינם ניתנים לניחוש (NFR-SEC-006). |

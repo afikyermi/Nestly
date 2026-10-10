@@ -2,7 +2,7 @@
 
 # SRS — אינדקס
 
-**מקור האמת של מוצר Nestly.** SRS v2.3 · 10.10.2026.
+**מקור האמת של מוצר Nestly.** SRS v2.4 · 10.10.2026.
 
 ה-SRS מתוחזק ב-markdown ומפוצל לפי סעיפים. גרסאות ה-Word הקודמות נמצאות ב-[`archive/`](archive/) כהיסטוריה בלבד.
 
@@ -145,7 +145,7 @@
 | FR-ALG-010 | Group Notification Highlights v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-DATA-001 | Analytics Event Tracking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 
-## קריטריוני קבלה — 75
+## קריטריוני קבלה — 78
 
 > השמות קוצרו לצורך ניווט בלבד. הנוסח המחייב נמצא ב-[15-acceptance.md](15-acceptance.md).
 
@@ -226,15 +226,18 @@
 | AC-073 | שינוי AlgorithmConfiguration: Admin, גרסה ו-Audit | [15-acceptance.md](15-acceptance.md) |
 | AC-074 | ערוצי התראה: Web רק In-App; Mobile גם Push בהרשאה | [15-acceptance.md](15-acceptance.md) |
 | AC-075 | פוסט אנונימי לא חושף את המחבר למשתמשי קהילה | [15-acceptance.md](15-acceptance.md) |
+| AC-076 | פוסט אנונימי: תגובות המחבר, פיד, Offer Help ומונים | [15-acceptance.md](15-acceptance.md) |
+| AC-077 | חשיפת מחבר אנונימי ע"י Moderator — רק בדיווח, עם Audit | [15-acceptance.md](15-acceptance.md) |
+| AC-078 | אין שליפה גורפת של משתמשים; הגבלת קצב | [15-acceptance.md](15-acceptance.md) |
 
 ## מזהים נוספים
 
 | סוג | נושא | טווח | כמות | קובץ |
 |---|---|---|---|---|
-| BR | חוקים עסקיים | BR-001 … BR-062 | 62 | [08-business-rules.md](08-business-rules.md) |
-| VAL | ולידציות | VAL-001 … VAL-036 | 36 | [09-validations.md](09-validations.md) |
-| ERR | שגיאות ותרחישי קצה | ERR-001 … ERR-031 | 31 | [10-errors-edge-cases.md](10-errors-edge-cases.md) |
-| NFR | דרישות לא-פונקציונליות | NFR-SEC-001 … NFR-OBS-001 | 28 | [06-non-functional.md](06-non-functional.md) |
+| BR | חוקים עסקיים | BR-001 … BR-063 | 63 | [08-business-rules.md](08-business-rules.md) |
+| VAL | ולידציות | VAL-001 … VAL-037 | 37 | [09-validations.md](09-validations.md) |
+| ERR | שגיאות ותרחישי קצה | ERR-001 … ERR-032 | 32 | [10-errors-edge-cases.md](10-errors-edge-cases.md) |
+| NFR | דרישות לא-פונקציונליות | NFR-SEC-001 … NFR-SEC-006 | 29 | [06-non-functional.md](06-non-functional.md) |
 | UC | Use Cases | UC-01 … UC-42 | 42 | [14-use-cases.md](14-use-cases.md) |
 | PG | מסכים | PG-001 … PG-044 | 44 | [07-screens-navigation.md](07-screens-navigation.md) |
 | OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-020 | 20 | [appendix-b-open-points.md](appendix-b-open-points.md) |

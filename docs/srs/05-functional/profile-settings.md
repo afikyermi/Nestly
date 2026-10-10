@@ -39,7 +39,7 @@
 | תיאור | Regular User תמיד ניתן לאיתור ב-People Search. המשתמש יכול לקבוע אם הפרופיל פתוח לצפייה של מי שאינו Friend. **Restricted:** non-Friend רואה רק את ה-Basic Public Profile (§1.4): שם, תמונה, מספר הילדים, סטטוס הריון או תכנון הריון, Friends ו-Friends משותפים, ופעולת שליחת הודעה בכפוף ל-FR-CHAT-002. **Open:** non-Friend רואה את כל הפרופיל, למעט מדדים ונתונים שהמשתמש מתעד או מעלה על ילדים, הריון, מחזור וביוץ (Tracker Data). |
 | תנאים מוקדמים | Regular User פעיל; צופה מחובר שאינו Friend. |
 | קלט / Trigger | שינוי Profile Visibility ב-SettingsPage או פתיחת Regular Profile מתוצאת חיפוש. |
-| תהליך מערכת | SettingsFeature שומר Open/Restricted. Search תמיד מחזיר את ה-Basic Public Profile. Restricted מגביל את הפרופיל ל-Basic Public Profile. Open מאפשר צפייה בכל הפרופיל, ו-Tracker Data לעולם אינו מוצג ל-non-Friend. Professional נחשב non-Friend. **נדרש אישור:** האם פרטים מזהים של ילדים (שם, תאריך לידה) נכללים בפרופיל Open — ראה OP-020, בשל סתירה אפשרית עם NFR-PRIV-005 ו-BR-037. |
+| תהליך מערכת | SettingsFeature שומר Open/Restricted. Search תמיד מחזיר את ה-Basic Public Profile. Restricted מגביל את הפרופיל ל-Basic Public Profile. Open מאפשר צפייה בכל הפרופיל, ו-Tracker Data לעולם אינו מוצג ל-non-Friend. Professional נחשב non-Friend, ורואה **בדיוק** מה ש-Regular non-Friend רואה (OP-020). פרטי ילדים שאינם Tracker Data, כגון שם ותאריך לידה, גלויים בפרופיל Open. התראת יום הולדת של ילד נשארת כפופה ל-BR-037. |
 | פלט | תצוגת פרופיל בהתאם ל-Visibility ללא הסתרה מ-People Search. |
 | מצב לאחר ביצוע | הגדרת הפרטיות נשמרת ומיושמת בכל פתיחת Profile/Deep Link. |
 | בעל אחריות לוגי (Page / Feature) | SettingsPage / SettingsFeature / UserProfilePage / SearchFeature |

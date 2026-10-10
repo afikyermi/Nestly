@@ -39,4 +39,5 @@
 | VAL-033 | Algorithm Configuration | שינוי weights/thresholds/decay/frequency cap דורש Admin + ALGORITHM_AI_CONFIG; כל שינוי יוצר configVersion חדש ונרשם ב-Audit. |
 | VAL-034 | Tracker Personalization | Tracker signal מותר רק ל-Organic non-diagnostic contextual guidance. אם mapping לא מאושר, מתעלמים מה-signal ולא מייצרים inference. |
 | VAL-035 | Group Highlights | GroupNotificationPreference חייב All/Highlights/Off; Highlights מחושב לפי FR-ALG-010 ו-Off אינו מבטל direct/security/account events שחייבים להימסר. |
-| VAL-036 | Anonymous Post | פוסט אנונימי חייב לשמור את מזהה המחבר האמיתי. לפני החזרת הפוסט, תוצאת חיפוש או Notification למשתמש קהילה, זהות המחבר מוחלפת בזהות אנונימית: אין להחזיר מזהה מחבר, שם, תמונה או קישור לפרופיל. |
+| VAL-036 | Anonymous Post | רק Regular User יכול לסמן פוסט כאנונימי. פוסט אנונימי חייב לשמור את מזהה המחבר האמיתי. לפני החזרת הפוסט, תגובות המחבר בשרשור שלו, תוצאת חיפוש או Notification למשתמש קהילה, זהות המחבר מוחלפת בזהות אנונימית: אין להחזיר מזהה מחבר, שם, תמונה או קישור לפרופיל. |
+| VAL-037 | People Search | בקשה ללא מחרוזת חיפוש אינה מחזירה משתמשים. בקשות מעבר לסף הקצב נדחות, ומספר התוצאות לבקשה מוגבל לפי Configuration (NFR-SEC-006). |

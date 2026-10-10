@@ -35,3 +35,4 @@
 | ERR-029 | Analytics/Event pipeline אינו זמין | לא לחסום פעולה עסקית; לבצע retry/queue לפי Tech Design ולנטר data loss. UI ממשיך לפעול. |
 | ERR-030 | AlgorithmConfiguration חסר/לא תקין | להשתמש ב-last known valid configuration או default safe configuration מתועד; אין לעבור אוטומטית למודל AI. |
 | ERR-031 | Tracker signal אינו מתאים למיפוי תוכן מאושר | להתעלם מה-signal ולהמשיך Stage/Interest ranking; לא להסיק מצב רפואי ולא להציג אזהרה רפואית מותאמת. |
+| ERR-032 | חריגה מהגבלת הקצב ב-People Search או בפתיחת פרופילים | לא להחזיר תוצאות נוספות עד תום חלון ההגבלה; להציג הודעה כללית שאינה חושפת את הספים; לרשום אירוע Security (NFR-SEC-006). |

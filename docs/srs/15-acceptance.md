@@ -57,7 +57,7 @@
 | AC-051 | Regular non-Friend יכול לשלוח Message Request; ללא Accept לא נפתחת Conversation מלאה. |
 | AC-052 | Chat Block אינו מסתיר משתמש מחיפוש/פרופיל ואינו מסיר Friendship/Follow; הוא מונע הודעות עד Unblock. |
 | AC-053 | Support reply מופיעה ב-Chat בשם “Support”, מקושרת ל-SupportRequest ואינה מאפשרת פתיחת Chat חופשי אל Admin/Moderator. |
-| AC-054 | כל Regular פעיל מופיע ב-People Search. Profile Restricted מציג ל-non-Friend רק את ה-Basic Public Profile: שם, תמונה, מספר הילדים, סטטוס הריון או תכנון הריון, Friends ו-Friends משותפים ופעולת הודעה. Profile Open מציג את כל הפרופיל, ו-Tracker Data אינו מוצג ל-non-Friend בשום מצב. |
+| AC-054 | כל Regular פעיל מופיע ב-People Search. Profile Restricted מציג ל-non-Friend רק את ה-Basic Public Profile: שם, תמונה, מספר הילדים, סטטוס הריון או תכנון הריון, Friends ו-Friends משותפים ופעולת הודעה. Profile Open מציג את כל הפרופיל, ו-Tracker Data אינו מוצג ל-non-Friend בשום מצב. צופה Professional רואה בדיוק מה שצופה Regular non-Friend רואה. |
 | AC-055 | Email שכבר קיים בכל חשבון Nestly נדחה גם אם החשבון הקיים מסוג משתמש אחר. |
 | AC-056 | כל Regular/Professional פעיל יכול ליצור Public/Private Group והיוצר הופך Group Owner ללא אישור Admin. |
 | AC-057 | Professional Marketing Tools כוללים Profile Promotion, Post Promotion ו-Promotion Analytics; Reputation אורגני אינו משתנה עקב קידום. |
@@ -79,3 +79,6 @@
 | AC-073 | כל שינוי AlgorithmConfiguration דורש Admin ALGORITHM_AI_CONFIG, יוצר configVersion חדש ונרשם ב-Audit עם Before/After. |
 | AC-074 | בשלב Web אין Email/SMS/Push להתראות חברתיות/קבוצתיות/Marketplace/Promotion שוטפות — הן In-App בלבד. בשלב Mobile ניתן Push לקטגוריות מאופשרות ובהרשאת מערכת ההפעלה; חסימת Push אינה מוחקת את ה-Notification מתוך Nestly. Email/SMS נשמרים לתהליכים טכניים/חשבון/אבטחה בלבד. |
 | AC-075 | Regular User יכול לפרסם פוסט אנונימי. זהות המחבר אינה מוצגת למשתמש קהילה ב-Feed, בתצוגת הפוסט, בחיפוש, ב-Notifications או ב-API, ולא נוצרת עבורו התראת "פוסט חדש של Friend". Admin יכול לראות את המחבר האמיתי. |
+| AC-076 | בפוסט אנונימי: תגובת המחבר מוצגת תחת "המחבר"; הפוסט אינו מגיע ל-Friends של המחבר דרך הגרף החברתי ואינו מקבל Social Relevance; Offer Help אינו חושף את המחבר לבעל המקצוע עד Accept; הפוסט אינו נספר במוניטין או במונים ציבוריים. Professional אינו יכול לפרסם פוסט אנונימי. |
+| AC-077 | Moderator יכול לחשוף את זהות המחבר של Anonymous Post רק מתוך טיפול בדיווח על אותו פוסט, עם REPORTS_VIEW ו-CONTENT_MODERATE, וכל חשיפה יוצרת AuditLogEntry. בלי אחת ההרשאות, או מחוץ לטיפול בדיווח, החשיפה נדחית. |
+| AC-078 | לא ניתן לשלוף רשימת משתמשים ללא מחרוזת חיפוש. חריגה מסף הקצב בחיפוש או בפתיחת פרופילים נחסמת ונרשמת כאירוע Security. מזהי משתמש ופרופיל אינם רציפים. |

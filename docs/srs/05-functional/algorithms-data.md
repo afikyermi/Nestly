@@ -25,7 +25,7 @@
 | תיאור | המערכת תדרג Feed Units עבור Regular User לפי שילוב Stage, Interest/Intent, Social Relevance, Group/Follow context, Content Quality, Freshness ו-Diversity. |
 | תנאים מוקדמים | Regular User מחובר וקיימים Candidates מורשים. |
 | קלט / Trigger | Friends/Groups/Follows, Stage, Interest/Intent, Content Metadata, engagement/quality signals, Negative Feedback, eligibility. |
-| תהליך מערכת | Authorization/Eligibility → Candidate Generation → Rule-Based Scoring → Re-ranking לגיוון/בטיחות/Negative Feedback → שילוב Sponsored eligible בנפרד. |
+| תהליך מערכת | Authorization/Eligibility → Candidate Generation → Rule-Based Scoring → Re-ranking לגיוון/בטיחות/Negative Feedback → שילוב Sponsored eligible בנפרד. Anonymous Post אינו נכנס כ-Candidate ואינו מקבל Social Relevance דרך הגרף החברתי של המחבר (FR-FEED-005). |
 | פלט | Feed ordered list עם Organic/Sponsored labeling. |
 | מצב לאחר ביצוע | Impression/Interaction נרשמים; Organic Score אינו מושפע מתשלום. |
 | בעל אחריות לוגי (Page / Feature) | FeedFeature / RuleBasedRecommendationEngine |
