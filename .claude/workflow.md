@@ -43,12 +43,12 @@ The maintained as-built descriptions are `.claude/knowledge/data-model.md` and `
 | 2 | ORCHESTRATOR | classify, pick path, select team | — |
 | 3 | **SPEC** | write the contract | `spec.md` |
 | 4 | **Afik** | ✋ **Gate 1** — approve or edit one page | approved `spec.md` |
-| 5 | **DATA ARCHITECT** | *only if schema changes* — Gate 2 | `schema.md` |
+| 5 | **DATA ARCHITECT** | *only if schema changes* — Gate 2. Policies follow the authorization layers in `.claude/knowledge/data-model.md` | `schema.md` |
 | 5b | **ALGORITHM & DATA** | *only if the feature uses behavioural signals, ranks or recommends, records analytics events, or places paid content* — purpose map, pipeline, configuration, events, evaluation. Feeds DATA ARCHITECT when tables are needed | `algorithm.md` |
 | 6 | **BUILDER** | branch, implement. calls SCOUT as needed | diff + `notes.md` |
 | 7 | **CI** | 🤖 tests · lint · RLS policy present on every touched table. red → back to 6 | green build |
 | 8 | **TEST ENGINEER** | tests derived from `spec.md` only | test files |
-| 9 | **CRITIC** | review the diff cold. ALGORITHM & DATA reviews in parallel when step 5b ran | `findings.md` + verdict |
+| 9 | **CRITIC** | review the diff cold, including every invariant in `.claude/knowledge/srs-review-points.md` that the diff touches. ALGORITHM & DATA reviews in parallel when step 5b ran | `findings.md` + verdict |
 | 10 | **BUILDER** | address findings | updated diff |
 | 11 | **CRITIC** | re-check **only what it raised** | verdict |
 | 12 | **Afik** | ✋ **Preview** — click it | go / no-go |

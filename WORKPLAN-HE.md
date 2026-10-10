@@ -66,8 +66,8 @@
 | 4.4 | **סוכן ALGORITHM & DATA** — `.claude/agents/algorithm-data.md`, שלב 5b בצינור, סוקר במקביל ל-CRITIC, תקציב 12 | ✅ |
 | 4.5 | תנאי כניסה לסוכן AI/ML ומפת מיקומי AI ב-SRS — `.claude/knowledge/ai-ml-readiness.md` | ✅ |
 | 4.6 | `conventions.md`: אילוצי הקומפוננטות מ-§4, Web ואחריו React Native, נגישות | ✅ |
-| 4.7 | `data-model.md`: מלאי הישויות מ-§13 ושכבות ההרשאה, כקלט ולא כסכמה | ⬜ |
-| 4.8 | knowledge: נקודות ביקורת מה-SRS (Audit, Eligibility לפני Ranking, Organic/Paid, Data Usage) | ⬜ |
+| 4.7 | `data-model.md`: מפת ה-SRS לתכנון הסכמה. 13 שכבות הרשאה ל-RLS, עובדות שמשפיעות על הטבלאות, ונקודות פתוחות שחוסמות. מפנה ל-SRS ולא מעתיק. 66 מזהים אומתו | ✅ |
+| 4.8 | `srs-review-points.md`: 32 אינווריאנטים שכל ריוויו בודק, לכל אחד מי בודק וחומרה. מחובר לשלב 9. 88 מזהים אומתו | ✅ |
 | 4.9 | כלי ה-QA ב-`conventions.md`. ההגדרה של TEST ENGINEER נשארת גנרית, לפי כלל 3 | ✅ |
 | 4.10 | `workflow.md`: מזהים ב-`spec.md`, עקבות SRS ב-`result.md`, ושלב 14 — עדכון ה-SRS | ✅ |
 | 4.11 | רענון `open-questions.md` · `docs/overview-HE.md` · `docs/coverage-audit-HE.md` | ⬜ |
@@ -88,7 +88,7 @@
 | # | משימה | תלוי ב |
 |---|---|---|
 | 6.1 | Domains ב-`workflow.md`: Accessibility (לפי D6) · Threat Modeling | ✅ Accessibility · Threat Modeling — ⬜ (סיכון השליפה הגורפת כבר מכוסה ב-NFR-SEC-006) |
-| 6.2 | אינווריאנט שלמות ה-Audit: טסט ונקודת ביקורת | 4.8 |
+| 6.2 | אינווריאנט שלמות ה-Audit: טסט ונקודת ביקורת | ✅ נקודת ביקורת (G1, G2). הטסטים ייכתבו עם כל פיצ'ר ניהולי |
 | 6.3 | פגיעויות בתלויות. נבנה בתוך CI, שלב 7.1 | — |
 
 ## חלק 7 — CI ו-hook (אושר 12.9, עוד לא נבנה) ⬜

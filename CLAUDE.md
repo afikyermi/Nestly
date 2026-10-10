@@ -197,7 +197,7 @@ One task, one owner. Contributors and reviewers may be many.
 | Layer | Location |
 |---|---|
 | Core operating context | this file |
-| Shared project knowledge | `.claude/knowledge/` |
+| Shared project knowledge | `.claude/knowledge/` — `conventions.md` (stack, binding SRS constraints) · `data-model.md` (as-built schema, plus the SRS map of authorization layers) · `srs-review-points.md` (product-wide invariants every review checks) · `ai-ml-readiness.md` (dormant AI/ML role) |
 | Role-specific knowledge | the agent definitions |
 | Task context | `.work/<slug>/` |
 | On-demand retrieval | SCOUT |
