@@ -1,12 +1,16 @@
 # Debt
 
-Every `Validated with Concern` verdict from CRITIC.
+Every `Validated with Concern` verdict from CRITIC, and every neighbouring bug BUILDER reported in
+`notes.md` and did not fix (`.work/` is history, not a source of truth, so a report left there is lost).
 
 Shipped deliberately, with a known cost. Read monthly, not per feature.
 
 ```
 YYYY-MM-DD | <feature> | <the concern> | cost if ignored: <what happens later> | file:line
 ```
+
+A neighbouring bug uses the same line, with `observed in <feature>` in place of the feature. Fixing it is
+a bug-fix path of its own (`.claude/workflow.md`).
 
 ---
 

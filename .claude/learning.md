@@ -115,7 +115,7 @@ A checklist that only grows becomes a ritual. Each agent has a cap.
 |---|---|---|
 | SPEC | 8 | 8 (v1.1 — at budget) |
 | DATA ARCHITECT | 12 | 9 |
-| BUILDER | 12 | 9 |
+| BUILDER | 12 | 11 (v1.1. earlier listed as 9; the actual count was 10) |
 | SCOUT | 6 | 5 |
 | CRITIC | 20 | ~16 |
 | TEST ENGINEER | 10 categories | 6 |

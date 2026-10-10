@@ -18,8 +18,8 @@ nestly/
 ├── debt.md · escapes.md · incidents.md · noise.md   ← יומני הלמידה והתפעול
 │
 ├── .claude/
-│   ├── agents/             ← 6 הגדרות סוכנים (spec, data-architect, builder, scout, critic, test-engineer)
-│   ├── knowledge/          ← ידע פרויקט: conventions.md, data-model.md
+│   ├── agents/             ← 7 הגדרות סוכנים (spec, data-architect, algorithm-data, builder, scout, critic, test-engineer)
+│   ├── knowledge/          ← ידע פרויקט: conventions.md, data-model.md, srs-review-points.md, ai-ml-readiness.md
 │   ├── workflow.md         ← הצינור הקנוני — מי נכנס מתי
 │   ├── learning.md         ← לופ השיפור: טריגרים, תקציבים, גרסאות
 │   └── settings.json       ← הרשאות (Guardrails שנאכפים, לא פרוזה)
@@ -28,7 +28,7 @@ nestly/
 │   ├── srs/                        ← **ה-SRS — מקור האמת של המוצר**, ב-markdown ומפוצל לפי סעיפים
 │   │   ├── INDEX.md                ← מתחילים כאן: מפת קבצים, כל FR וכל AC וגם טווחי המזהים
 │   │   ├── 00-document-info.md … 18-algorithms-spec.md · appendix-a … appendix-d
-│   │   ├── 05-functional/          ← 82 FR ב-16 קבצי תחום (auth, registration, feed, chat …)
+│   │   ├── 05-functional/          ← 83 FR ב-16 קבצי תחום (auth, registration, feed, chat …)
 │   │   └── archive/                ← ה-SRS ב-Word: v1 ו-v2.2. היסטוריה בלבד, לא לעריכה
 │   │
 │   ├── srs-analysis-HE.md          ← ניתוח SRS v2.2 והשלכותיו על הסוכנים
@@ -36,6 +36,7 @@ nestly/
 │   ├── overview-HE.md              ← סקירת כל הסוכנים והמבנה
 │   ├── glossary-HE.md              ← מילון מונחים מאפס
 │   ├── database-decision-HE.md     ← RLS ובחירת המסד
+│   ├── engineering-guidelines-review-HE.md ← סקירת הנחיות הנדסיות חיצוניות: מה אומץ, מה נדחה ולמה
 │   └── design-history/             ← איך הגענו למודל, לפי סדר כרונולוגי (ראה למטה)
 │
 └── tools/

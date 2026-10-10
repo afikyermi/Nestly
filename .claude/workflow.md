@@ -1,6 +1,6 @@
 # Workflow — canonical pipeline
 
-**Version:** 1.0
+**Version:** 1.1
 **Status:** the single source of truth for sequence, triggers and who enters when.
 Agent definitions describe professions. **This file describes order.** If they disagree, this file wins.
 
@@ -23,6 +23,7 @@ An Initiative is approved once. Features inside it then flow without further ini
 ```
 .work/<slug>/
   spec.md       SPEC              the contract. SRS IDs it implements. acceptance criteria. frozen at Gate 1
+  bug.md        ORCHESTRATOR      bug-fix path only, in place of spec.md: expected (SRS ID), actual, reproduction
   schema.md     DATA ARCHITECT    only when schema changes. this is Gate 2
   algorithm.md  ALGORITHM & DATA  only when signals, ranking, analytics events or paid placement are involved
   notes.md      BUILDER           decisions and why. CRITIC must not read this
@@ -48,7 +49,7 @@ The maintained as-built descriptions are `.claude/knowledge/data-model.md` and `
 | 6 | **BUILDER** | branch, implement. calls SCOUT as needed | diff + `notes.md` |
 | 7 | **CI** | 🤖 tests · lint · RLS policy present on every touched table. red → back to 6 | green build |
 | 8 | **TEST ENGINEER** | tests derived from `spec.md` only | test files |
-| 9 | **CRITIC** | review the diff cold, including every invariant in `.claude/knowledge/srs-review-points.md` that the diff touches. ALGORITHM & DATA reviews in parallel when step 5b ran | `findings.md` + verdict |
+| 9 | **CRITIC** | review the diff cold, including every invariant in `.claude/knowledge/srs-review-points.md` that the diff touches and the platform rules in `.claude/knowledge/data-model.md`. ALGORITHM & DATA reviews in parallel when step 5b ran | `findings.md` + verdict |
 | 10 | **BUILDER** | address findings | updated diff |
 | 11 | **CRITIC** | re-check **only what it raised** | verdict |
 | 12 | **Afik** | ✋ **Preview** — click it | go / no-go |
@@ -73,6 +74,26 @@ not only the preview.
 
 Entry condition: any risk flag in `CLAUDE.md`.
 
+## Bug-fix path
+
+A defect in merged code: behaviour differs from what the SRS, or an approved `spec.md`, says.
+
+| # | Actor | Action | Output |
+|---|---|---|---|
+| 1 | ORCHESTRATOR | write `bug.md` — expected behaviour with its SRS ID, actual behaviour, reproduction steps. classify by the risk flags. add the `escapes.md` entry, with the gate that should have caught it | `bug.md` |
+| 2 | **TEST ENGINEER** | a regression test derived from `bug.md` only — never the code. it must fail on the current code; a test that passes does not reproduce the bug | failing test |
+| 3 | **BUILDER** | the smallest change that fixes the root cause. no refactoring beyond it | diff + `notes.md` |
+| 4 | **CI** | the new test passes and nothing else turned red | green build |
+| 5 | **CRITIC** | review the diff cold. skipped only when the fix meets every Light-path condition. any risk flag → Elevated: CRITIC on opus, Afik reviews the diff | verdict |
+| 6 | **Afik** | ✋ **Preview** — only if the fix is user-visible | go / no-go |
+| 7 | ORCHESTRATOR | merge, `result.md`, step 14 if behaviour the SRS describes changed | `result.md` |
+
+- **No SRS behaviour, no bug.** If the expected behaviour is not in the SRS or an approved spec, this is a
+  requirements gap: a `DECISION REQUEST` to Afik, then the Standard path. Never fix toward a behaviour
+  nobody approved.
+- **No bug fix skips the failing test**, even when its size would fit the Light path.
+- A root cause that needs a schema change goes through DATA ARCHITECT, as on any other path.
+
 ---
 
 ## The three rules that make the reviews real
@@ -82,7 +103,7 @@ These are not style preferences. Remove any one of them and the corresponding ga
 1. **CRITIC must not read `notes.md`.**
    If it reads BUILDER's reasoning it is persuaded by it. Cold eyes or nobody.
 
-2. **TEST ENGINEER must not read the diff.** It reads `spec.md` only.
+2. **TEST ENGINEER must not read the diff.** It reads `spec.md` only — or `bug.md` on the bug-fix path.
    A test derived from the implementation asserts that the code does what the code does — zero information.
    A test derived from acceptance criteria asserts that the code does what was promised.
 
@@ -143,6 +164,10 @@ Over time this calibrates SPEC's splitting rule.
 And the **SRS trace**: which requirement IDs were implemented, which changed, and which SRS files were
 updated in step 14. A feature is not done until the SRS describes what was actually built.
 
+And the **evidence**: what was verified, how, and at which commit — tests, CI, the preview, data read
+back after a write. Evidence carried over from an earlier run names its original commit. It is never
+presented as a fresh run.
+
 ---
 
 ## Domains — cross-cutting concerns without their own agent
@@ -201,3 +226,11 @@ usually the spec was too large and should have been split.
 - Use SCOUT instead of reading files "to be safe." Every unnecessary file read burns context
   that the actual work needs.
 - Pass pointers, not prose.
+
+---
+
+## Changelog
+- 1.1 — 2026-10-10 — added the bug-fix path and the `bug.md` artifact · CRITIC's step 9 includes the Supabase
+  platform rules in `data-model.md` · `result.md` records evidence. Decided by Afik after the
+  engineering-guidelines review (`docs/engineering-guidelines-review-HE.md`). Design-time change, provisional
+  until 5 features.

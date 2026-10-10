@@ -26,6 +26,7 @@ is a second pair of eyes.
 | UI | **React** | 🔒 IRON RULE |
 | Styling | **Tailwind** | decided |
 | Markup | JSX (React's form of HTML) | 🔒 IRON RULE |
+| Build | **Vite**, React single-page app. A build tool only — product code stays React and JavaScript | decided 2026-10-10 · SRS §11 |
 | Database | **PostgreSQL**, single source of truth | decided |
 | Platform | **Supabase** — Postgres, auth, storage, realtime | decided |
 | Authorization | **RLS**, enforced in the database | decided |
@@ -75,10 +76,16 @@ first line of code, and CRITIC checks them in every review. When the SRS changes
 - API calls, auth, payments and data access live in a Service/Repository layer, never inside a UI component.
 - Shared state lives in the common parent, Feature or service layer, and is never duplicated across components.
 - No over-decomposition: a simple, one-off piece can stay inside its Page or Feature.
+- A Feature never imports another Feature. What two Features both need moves to a Shared/Domain component
+  or a shared service.
+- These rules are enforced by lint in CI, including a size cap per file (WORKPLAN part 7; the caps are in
+  `decisions.md`). Until CI exists, CRITIC checks them.
 
 ### Web now, React Native later — SRS §4, §11, OP-002, NFR-USAB-002
 - Business logic, validation and data access stay out of web-specific UI, so that they carry over to
   React Native unchanged. The UI layer is what gets re-implemented in the app phase.
+- The logic layer — business rules, validation, data access, services — never touches the DOM, `window`
+  or `react-dom` (SRS §4.1).
 - Web and Native are never developed in parallel. The React Native version is chosen and locked at the
   start of the app phase.
 
@@ -87,6 +94,14 @@ first line of code, and CRITIC checks them in every review. When the SRS changes
   contrast, target size of at least 24×24 CSS px — so every screen that composes them inherits it.
 - axe-core runs inside the Playwright E2E tests. It does not catch everything: keyboard flow, focus order
   and meaningful labels still need a manual check in review.
+
+### User-facing errors — SRS §10 (ERR-xxx), decided 2026-10-10
+- A raw error — from the database, the network or a library — is never shown to a user. What the user sees
+  comes from the SRS error catalog (§10), or a generic message where no ERR entry applies. The technical
+  detail goes to the log.
+- Why: a raw database message names tables, constraints and policies. With authorization in RLS, that is a
+  map of the authorization model handed to whoever triggers the error. ERR-001 already requires messages
+  that expose nothing sensitive.
 
 ---
 

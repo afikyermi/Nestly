@@ -7,7 +7,8 @@ Social platform. Solo founder, zero budget. The agent team is a tool for shippin
 
 ## Stack — fixed
 
-**React · JavaScript · Tailwind · JSX** (iron rule, see rule 0) · **PostgreSQL via Supabase** ·
+**React · JavaScript · Tailwind · JSX** (iron rule, see rule 0) · built with **Vite** as a single-page
+app (a build tool only — product code stays React and JavaScript) · **PostgreSQL via Supabase** ·
 **authorization enforced in the database with RLS** · server-side code only where a secret requires
 it, as Supabase Edge Functions in JavaScript · **QA tooling per SRS NFR-QA-001 / OP-018**: Vitest +
 React Testing Library, Playwright on Chrome and Edge, axe-core, pgTAP, npm audit. Tests live in the
@@ -53,6 +54,8 @@ the files the task needs, or ask SCOUT.
    present**, not typecheck.
 2. **Authorization lives in the database.** Application code must never filter rows for permission.
    If it has to, the policy is wrong — fix the policy. A table without an RLS policy does not ship.
+   Nothing bypasses it: no service_role key in product code, and no SECURITY DEFINER function outside
+   the approved list — see the platform rules in `.claude/knowledge/data-model.md`.
 
 ---
 
@@ -93,6 +96,7 @@ Pick one per unit of work. When in doubt, go up a level, never down.
 | **Light** | no schema change · no authz · no new endpoint · no new dependency · under ~30 lines | BUILDER → CI |
 | **Standard** | default | SPEC → BUILDER → CI → CRITIC + TEST ENGINEER |
 | **Elevated** | any risk flag below is true | + DATA ARCHITECT · CRITIC on opus · Afik reviews before merge |
+| **Bug fix** | merged code behaves differently from the SRS or an approved spec | `bug.md` → TEST ENGINEER (failing test first) → BUILDER → CI → CRITIC unless Light-sized. risk flags still apply — see `.claude/workflow.md` |
 
 ### Risk flags — binary, any one is enough
 
@@ -218,7 +222,7 @@ CRITIC or DATA ARCHITECT validates it. Only then does it enter.
 |---|---|---|
 | `decisions.md` | every material decision + rejected alternatives | ORCHESTRATOR |
 | `incidents.md` | material operational failures | ORCHESTRATOR, from hooks/CI |
-| `debt.md` | every `Validated with Concern` | ORCHESTRATOR, from CRITIC |
+| `debt.md` | every `Validated with Concern` · every neighbouring bug BUILDER reported and did not fix | ORCHESTRATOR, from CRITIC and from `notes.md` |
 | `escapes.md` | defects found **after** merge + which gate should have caught it | ORCHESTRATOR |
 | `noise.md` | findings raised that were not real, or cost more than they saved | ORCHESTRATOR |
 
