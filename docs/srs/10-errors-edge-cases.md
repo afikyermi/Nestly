@@ -1,0 +1,37 @@
+[← אינדקס ה-SRS](INDEX.md)
+
+# 10. טיפול בשגיאות ותרחישי קצה
+
+| ID | תרחיש | תגובה נדרשת |
+|---|---|---|
+| ERR-001 | פרטי התחברות שגויים | לא ליצור Session; להציג הודעה ללא חשיפת מידע רגיש. |
+| ERR-002 | אימייל קיים | למנוע יצירת חשבון כפול ולהציע התחברות/שחזור. |
+| ERR-003 | שדה חובה חסר | למנוע מעבר שלב ולסמן את השדה. |
+| ERR-004 | כשל רשת בעת שמירה | לא לאבד קלט אם אפשר; להציג אפשרות ניסיון חוזר. |
+| ERR-005 | ניסיון לשלוח Offer Help שני לאותו פוסט | לא לשלוח את הבקשה ולהציג לבעל המקצוע שהפנייה לאותו פוסט כבר נוצלה. |
+| ERR-006 | Professional מנסה לפתוח שיחה יזומה עם Regular ללא הקשר מורשה | מחוץ ל-Marketplace להפנות ל-Offer Help מתוך פוסט. מתוך Marketplace Listing פעיל מותר Chat ישיר. ללא הקשר מורשה — לא לפתוח Chat. |
+| ERR-007 | Message Request נדחתה או לא אושרה | לא לפתוח שיחה מלאה ולא לאפשר פנייה נוספת של אותו בעל מקצוע על אותו פוסט. |
+| ERR-008 | Chat Block פעיל | למנוע שליחת הודעות עד Unblock. אין להסתיר חשבון או לשנות Friendship/Follow/Group/Search. |
+| ERR-009 | אין מוצרים/בעלי מקצוע לתנאי סינון | להציג Empty State ברור ולא מסך ריק. |
+| ERR-010 | מסלול Tracking לא תואם | לא להציג פעולת מעקב שאינה רלוונטית למסלול, בהתאם למיפוי שייקבע. |
+| ERR-011 | תוכן נמחק/נחסם | להציג מצב Unavailable ולא לטעון מידע חלקי כאילו תקין. |
+| ERR-012 | Guest מנסה לגשת למסך פנימי | לחסום גישה ולנתב ל-Welcome/Login. |
+| ERR-013 | Professional User מנסה לפתוח Tracking הורי | למנוע גישה ולהציג ניווט/מסך המתאים לחשבון מקצועי. |
+| ERR-014 | Media לא נתמכת/חורגת ממגבלה | לא להעלות; להציג סיבת כשל ודרישות קובץ. |
+| ERR-015 | זמן סיום הנקה מוקדם מזמן התחלה | למנוע שמירה ולהציג שגיאת ולידציה. |
+| ERR-016 | Friend Request ליעד שאינו Regular / בקשה כפולה | לא ליצור בקשה ולהציג פעולה לא זמינה/הודעה מתאימה. |
+| ERR-017 | משתמש שאינו Member פותח Deep Link לפוסט ב-Private Group | למשתמש קהילה לא להחזיר תוכן. Admin/Moderator מורשה חייבים להשתמש בכלי Moderation; Moderator ללא PRIVATE_GROUP_MODERATE נדחה. |
+| ERR-018 | Join Request כפולה לקבוצה פרטית | לא ליצור רשומה נוספת; להציג שהבקשה כבר ממתינה. |
+| ERR-019 | Group Role מנסה לפעול נגד Role שווה/גבוה או לבצע פעולה שמורה ל-Owner | לחסום. Moderator רק מול Members; Admin לא מול Owner/Admin אחר; Owner חייב להעביר בעלות לפני יציאה. |
+| ERR-020 | Notification Target כבר אינו זמין או שההרשאה השתנתה | לא לחשוף מידע; להציג שהפריט אינו זמין ולעדכן/לשמור את Notification לפי מדיניות. |
+| ERR-021 | ניסיון לפתוח Chat שלא בהתאם ל-Relationship/Request/Context | Regular non-Friend יקבל Message Request; Professional→Regular מחוץ ל-Marketplace יופנה ל-Offer Help; הקשר לא מורשה אחר ייחסם. |
+| ERR-022 | Admin/Moderator מנסים להשתמש בפעולה חברתית | לחסום Social Post/Friend/Group Membership/Chat ולהפנות לכלי הניהול המתאים. |
+| ERR-023 | Email כבר קיים בכל סוג חשבון | למנוע יצירת Regular/Professional Account נוסף עם אותו Email ולהציע התחברות/שחזור. |
+| ERR-024 | Moderator ללא PRIVATE_GROUP_MODERATE מנסה לפתוח תוכן Private Group שאינו Member בו | לחסום גישה גם אם יש REPORTS_VIEW/CONTENT_MODERATE ולהציג שאין הרשאת תוכן פרטי. |
+| ERR-025 | ניסיון לפתוח Support Chat חופשי ללא SupportRequest | לא ליצור Conversation; להפנות ל-Help/Support Request. |
+| ERR-026 | Group Owner מנסה לעזוב/להימחק ללא העברת בעלות | לחסום ולדרוש Transfer Ownership. |
+| ERR-027 | אין מספיק Signals/Stage/History להתאמה אישית | להפעיל Cold Start fallback: Eligible recent/high-quality content, joined groups/follows ואם קיימים Stage/Profession explicit data. אין לחסום Feed. |
+| ERR-028 | Candidate ממומן אינו עובר Sponsored Eligibility | לא להציג אותו גם אם Campaign פעיל/משולם; להמשיך ל-candidate הבא ולרשום reason code לצורכי campaign analytics. |
+| ERR-029 | Analytics/Event pipeline אינו זמין | לא לחסום פעולה עסקית; לבצע retry/queue לפי Tech Design ולנטר data loss. UI ממשיך לפעול. |
+| ERR-030 | AlgorithmConfiguration חסר/לא תקין | להשתמש ב-last known valid configuration או default safe configuration מתועד; אין לעבור אוטומטית למודל AI. |
+| ERR-031 | Tracker signal אינו מתאים למיפוי תוכן מאושר | להתעלם מה-signal ולהמשיך Stage/Interest ranking; לא להסיק מצב רפואי ולא להציג אזהרה רפואית מותאמת. |

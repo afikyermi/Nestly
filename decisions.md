@@ -195,6 +195,22 @@ YYYY-MM-DD | <decision in one line>
                 rules first and build nothing.
   decided by:   Afik
 
+2026-10-10 | The SRS is maintained as markdown in docs/srs/, split per section; the Word file is archived
+  alternatives: Word as master with a generated markdown mirror (recommended in D1) · Word only
+  why:          Afik instructed: convert to markdown, split per section under docs/srs/, build an
+                INDEX of every FR and AC, and archive the previous version "so there won't be two
+                versions". Read as: markdown is now the single master. One source of truth that agents
+                read directly, with every change reviewable as a git diff.
+  accepted cost: SRS edits happen in markdown, not Word. A Word copy, if ever needed (e.g. for
+                submission), has to be exported. INDEX.md must be updated whenever an FR or AC is added
+                or changed.
+  verification: the conversion is lossless. All 4,392 text blocks of the docx appear verbatim; all 1,991
+                non-blank source lines were written to exactly one file; 82 FR and 73 AC accounted for.
+                Callout boxes became blockquotes and style-based bullets became list items. Text was not
+                changed.
+  still open:   the scope of the "every change updates the SRS" rule, and versioning (rest of D1).
+  decided by:   Afik (instruction of 10.10.2026; the reading "markdown is the master" was stated to him)
+
 ---
 
 ## Pending — not yet decided

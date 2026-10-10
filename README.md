@@ -24,11 +24,13 @@ nestly/
 │   ├── learning.md         ← לופ השיפור: טריגרים, תקציבים, גרסאות
 │   └── settings.json       ← הרשאות (Guardrails שנאכפים, לא פרוזה)
 │
-├── srs/
-│   ├── Nestly_SRS_v2.2_Final.docx   ← **מקור האמת של המוצר**
-│   └── archive/SRS_v1.docx          ← גרסת ה-SRS הראשונה, לשם היסטוריה
-│
-├── docs/                   ← מסמכים בעברית, להבנה ולהחלטות
+├── docs/                   ← ה-SRS, ומסמכים בעברית להבנה ולהחלטות
+│   ├── srs/                        ← **ה-SRS — מקור האמת של המוצר**, ב-markdown ומפוצל לפי סעיפים
+│   │   ├── INDEX.md                ← מתחילים כאן: מפת קבצים, כל FR וכל AC וגם טווחי המזהים
+│   │   ├── 00-document-info.md … 18-algorithms-spec.md · appendix-a … appendix-d
+│   │   ├── 05-functional/          ← 82 FR ב-16 קבצי תחום (auth, registration, feed, chat …)
+│   │   └── archive/                ← ה-SRS ב-Word: v1 ו-v2.2. היסטוריה בלבד, לא לעריכה
+│   │
 │   ├── srs-analysis-HE.md          ← ניתוח SRS v2.2 והשלכותיו על הסוכנים
 │   ├── coverage-audit-HE.md        ← ביקורת כיסוי: המודל המקורי מול מה שנבנה
 │   ├── overview-HE.md              ← סקירת כל הסוכנים והמבנה
@@ -37,7 +39,7 @@ nestly/
 │   └── design-history/             ← איך הגענו למודל, לפי סדר כרונולוגי (ראה למטה)
 │
 └── tools/
-    └── docx2md.ps1         ← ממיר docx ל-markdown. הסוכנים לא יכולים לקרוא docx
+    └── docx2md.ps1         ← ממיר docx ל-markdown, למקרה שיגיע שוב קובץ Word
 ```
 
 ## היסטוריית התכנון — לפי הסדר
@@ -56,5 +58,5 @@ nestly/
 ## חוקים שלא משתנים
 
 - **המוצר נבנה רק ב-React, JavaScript, CSS ו-HTML.** זה חוק ברזל. כלי QA נבחרים לפי NFR-QA-001
-- **כל שינוי במערכת מתעדכן ב-SRS.** המנגנון ממתין להכרעה D1
+- **כל שינוי במערכת מתעדכן ב-SRS**, כלומר בקבצי ה-markdown תחת `docs/srs/`. כשנוסף או משתנה FR או AC, מעדכנים גם את `INDEX.md`. היקף הכלל וניהול הגרסאות עדיין פתוחים בהכרעה D1
 - `git push` ו-`git remote add` **חסומים** ב-`.claude/settings.json`. כדי לפתוח אותם צריך החלטה של אפיק
