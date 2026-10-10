@@ -39,6 +39,8 @@ nestly/
 │   └── design-history/             ← איך הגענו למודל, לפי סדר כרונולוגי (ראה למטה)
 │
 └── tools/
+    ├── build-srs-index.js  ← בונה את docs/srs/INDEX.md מתוך קבצי ה-SRS. להריץ אחרי כל שינוי ב-FR או AC
+    ├── srs-ac-names.json   ← השמות המקוצרים של ה-AC באינדקס
     └── docx2md.ps1         ← ממיר docx ל-markdown, למקרה שיגיע שוב קובץ Word
 ```
 

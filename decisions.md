@@ -174,16 +174,20 @@ YYYY-MM-DD | <decision in one line>
   accepted cost: verbose markup; a build step.
   decided by:   Afik
 
-2026-09-12 | Tests live in the repo, in JavaScript, plus SQL for database tests
-  alternatives: tests in another language (Python/Java bindings) · tests kept outside the repo
-  why:          unit tests import the code and therefore cannot be in another language at all. For
-                end-to-end the best tool is Playwright, whose native home is JavaScript — other
-                language bindings are a translation of the same tool, so there is zero capability
-                gain and a real cost in a second toolchain every agent must know. Tests never ship to
-                production in any language, so that condition is already satisfied. Tests outside the
-                repo were rejected: they do not run in CI, are not versioned, and rot silently into
-                tests that stopped existing without anyone noticing.
-  decided by:   Afik
+2026-10-10 | Test tooling follows the SRS: chosen per stage, kept in the repo, separate from business logic
+  correction:   this replaces an earlier entry ("tests in JavaScript, decided by Afik", dated 12.9). Afik
+                never made that decision — he had only asked a question — and it contradicted SRS
+                NFR-QA-001. Replaced on 10.10.2026 at his instruction (D8).
+  rule:         per SRS NFR-QA-001 and OP-018, QA tools are chosen per stage on professional merit, not
+                bound to React or React Native. Test infrastructure stays separate from business logic and
+                never changes production behaviour. The React/JavaScript iron rule governs product code;
+                it does not govern QA tooling.
+  web stack:    Vitest + React Testing Library (unit, integration) · Playwright on Chrome and Edge (E2E) ·
+                axe-core inside Playwright (accessibility, WCAG 2.2 AA) · pgTAP (database and RLS) ·
+                npm audit (dependencies) · performance deferred. Re-selected for Mobile at the start of the
+                React Native phase.
+  location:     tests live in the repo, so they run in CI and are versioned. They never ship.
+  decided by:   Afik (D4 and D8, 10.10.2026)
 
 2026-09-12 | CI and a PreToolUse hook are approved, to be built before the first agent runs
   alternatives: start building features and add gates later
@@ -211,6 +215,54 @@ YYYY-MM-DD | <decision in one line>
   still open:   the scope of the "every change updates the SRS" rule, and versioning (rest of D1).
   decided by:   Afik (instruction of 10.10.2026; the reading "markdown is the master" was stated to him)
 
+2026-10-10 | SRS scope, versioning and Word export (D1, completed)
+  scope:        product behaviour, plus the technical decisions the SRS already has a place for (market, DB,
+                QA stack…), is recorded in the SRS. Changes to the agent team and its tooling go to this
+                file. Every SRS update follows the document's existing structure and writing logic, so the
+                document always stays in order.
+  versioning:   a minor version per batch of changes (2.2 → 2.3 …), each with a row in the change-history
+                table in docs/srs/00-document-info.md. The INDEX is rebuilt with tools/build-srs-index.js.
+  export:       a complete, current SRS must be producible as a Word document on request, reflecting every
+                change. The markdown structure (INDEX order, section files) is the input to that export.
+  status:       scope and versioning applied in SRS 2.3. Word export tool: not built yet — next step.
+  decided by:   Afik
+
+2026-10-10 | ALGORITHM & DATA agent — owns algorithm rules, data purpose limits, evaluation and review (D2, option A)
+  alternatives: the same agent also writing the ranking code (B) · extend DATA ARCHITECT (C) · a cross-functional domain (D)
+  why:          SRS v2.2+ makes ranking and analytics mandatory in v1 (ALG-01..09, §13.2 data usage matrix,
+                §13.3 event taxonomy, §18). A builder wiring the feed will use whatever data improves
+                ranking; purpose limits (no child or tracker data for paid targeting, no chat content in
+                personalisation) erode silently, and whoever writes the scoring cannot judge ranking
+                quality. BUILDER still writes all code, so the coherence rule holds.
+  boundary:     DATA ARCHITECT asks who may access which row (access control, RLS). ALGORITHM & DATA asks
+                which data may serve which purpose (purpose limitation, signals, ranking, events).
+  rejected:     C puts two specialities in one agent and leaves ranking quality unowned; D cannot own the
+                three assets involved (AlgorithmConfiguration, event taxonomy, data usage matrix).
+  decided by:   Afik
+
+2026-10-10 | AI/ML agent: dormant — no agent file yet; entry conditions recorded; AI ideas live in the SRS (D3, option 1)
+  why:          SRS v1 has no ML/LLM (P-ALG-01, NFR-ALG-001, BR-049). An agent with no work tends to push
+                AI where it is not needed.
+  preparation:  every AI/ML idea or decision is recorded in the relevant place in the SRS — Appendix D while
+                it is a future option, the relevant FR/§18/NFR once decided — so a future agent can start
+                from the SRS. Entry conditions and the map of AI-relevant SRS locations are in
+                .claude/knowledge/ai-ml-readiness.md.
+  entry:        the agent is created only when Afik approves a concrete AI use case that passes Appendix D's
+                gate: use case, data, value, safety, cost and fallback, plus model governance (provider,
+                version, evaluation, red-team, latency, rollback).
+  decided by:   Afik
+
+2026-10-10 | Product decisions D5 and D6 are recorded in the SRS (2.3), not here
+  pointer:      Basic Public Profile and Open profile (D5a), anonymous posting (D5c), WCAG 2.2 AA (D6) —
+                see docs/srs/00-document-info.md change history. Open detail points: OP-019, OP-020.
+  agent side:   D6 also adds an Accessibility domain to .claude/workflow.md.
+  decided by:   Afik
+
+2026-10-10 | First initiative deferred (D7)
+  decision:     not set now; a structured plan comes later.
+  kept:         CI and the PreToolUse hook must exist before the first feature runs (entry of 12.9).
+  decided by:   Afik
+
 ---
 
 ## Pending — not yet decided
@@ -223,11 +275,7 @@ whether that violates the spirit of the rule. A weaker, entirely free version is
 alone, with no JSDoc, which still catches some errors from library-provided types.
 **Not adopted. Awaiting Afik.**
 
-**First initiative.** Assumed to be accounts + profile + stage, since everything depends on it.
-Not confirmed.
+**First initiative.** Deferred by Afik (D7, 10.10.2026) until a structured plan is made.
 
-**Product decisions, to be resolved in the SRS.** Anonymity · community content visibility · My Stage
-segmentation and entry/exit points · whether both parents are treated identically · professional
-verification · moderation model · Preliminary Conversation realtime or async · feed chronological or
-ranked · Booking Commitment and Lead pricing · Brands as a third account type · the name.
-See `open-questions.md`. None of these change the database paradigm.
+**Open product points** are tracked in the SRS itself: `docs/srs/appendix-b-open-points.md` (OP-xxx),
+plus every "TBD" or "נדרש אישור" in the section files. They are product decisions, so they belong there.

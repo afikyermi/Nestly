@@ -22,11 +22,11 @@ An Initiative is approved once. Features inside it then flow without further ini
 
 ```
 .work/<slug>/
-  spec.md       SPEC              the contract. acceptance criteria. frozen at Gate 1
+  spec.md       SPEC              the contract. SRS IDs it implements. acceptance criteria. frozen at Gate 1
   schema.md     DATA ARCHITECT    only when schema changes. this is Gate 2
   notes.md      BUILDER           decisions and why. CRITIC must not read this
   findings.md   CRITIC            fixed schema
-  result.md     ORCHESTRATOR      execution × quality, planned vs actual
+  result.md     ORCHESTRATOR      execution × quality, planned vs actual, SRS IDs implemented or changed
 ```
 
 `spec.md` is a historical record of what was approved. The code is the as-built.
@@ -51,12 +51,13 @@ The maintained as-built descriptions are `.claude/knowledge/data-model.md` and `
 | 11 | **CRITIC** | re-check **only what it raised** | verdict |
 | 12 | **Afik** | ✋ **Preview** — click it | go / no-go |
 | 13 | ORCHESTRATOR | merge, write result, update logs | `result.md` |
+| 14 | ORCHESTRATOR | **update the SRS** if behaviour changed — the right section file, its own format, new IDs continue the sequence · rebuild the index (`node tools/build-srs-index.js`) · add a change-history row at the batch's version | updated `docs/srs/` |
 
 Steps 8 and 9 may run in parallel — they are independent and neither reads the other's output.
 
 ## Light path
 
-1 → 6 → 7 → 12 → 13. No SPEC, no CRITIC, no TEST ENGINEER.
+1 → 6 → 7 → 12 → 13 → 14 (14 only if user-visible behaviour changed). No SPEC, no CRITIC, no TEST ENGINEER.
 
 Entry condition — **all** must hold: no schema change · no authz · no new endpoint ·
 no new dependency · under ~30 lines · no risk flag.
@@ -136,6 +137,9 @@ A feature can ship and be bad. Recording both is what makes `escapes.md` meaning
 
 Also record **planned vs actual**: the size estimate from `spec.md` against `git diff --stat`.
 Over time this calibrates SPEC's splitting rule.
+
+And the **SRS trace**: which requirement IDs were implemented, which changed, and which SRS files were
+updated in step 14. A feature is not done until the SRS describes what was actually built.
 
 ---
 

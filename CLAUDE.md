@@ -9,10 +9,38 @@ Social platform. Solo founder, zero budget. The agent team is a tool for shippin
 
 **React · JavaScript · Tailwind · JSX** (iron rule, see rule 0) · **PostgreSQL via Supabase** ·
 **authorization enforced in the database with RLS** · server-side code only where a secret requires
-it, as Supabase Edge Functions in JavaScript · tests in JavaScript, Playwright for end-to-end, SQL
-for database tests, always in the repo.
+it, as Supabase Edge Functions in JavaScript · **QA tooling per SRS NFR-QA-001 / OP-018**: Vitest +
+React Testing Library, Playwright on Chrome and Edge, axe-core, pgTAP, npm audit. Tests live in the
+repo, separate from business logic.
+
+Web first in React. React Native only after the Web version is complete and Afik approves the move, so
+everything built for Web must stay portable to React Native (SRS §4, OP-002).
 
 Details and reasoning: `.claude/knowledge/conventions.md` and `data-model.md`.
+
+---
+
+## Product requirements — the SRS
+
+**`docs/srs/` is the product's source of truth**: markdown, split per section. Start at
+`docs/srs/INDEX.md`, which maps every FR, AC and ID range to its file. Never load the whole SRS — read
+the files the task needs, or ask SCOUT.
+
+- **Every product change updates the SRS**: product behaviour, plus the technical decisions the SRS already
+  has a place for. Changes to the agent team go to `decisions.md`.
+- **Follow the document's own structure and writing logic**: the right section file, its table format, its
+  ID scheme. New IDs continue the sequence. Never renumber.
+- **The SRS does not fill decisions that do not exist.** An open point stays "TBD" or "נדרש אישור", and an
+  OP entry in Appendix B tracks it. No agent fills one with a default — it goes to Afik as a
+  `DECISION REQUEST`.
+- **Versioning**: a minor version per batch of changes, with a row in the change history in
+  `00-document-info.md`.
+- **After any FR or AC change**, run `node tools/build-srs-index.js`. A new AC also needs a short name in
+  `tools/srs-ac-names.json`.
+- **AI/ML ideas and decisions** are recorded in the SRS: Appendix D while they are future options, the
+  relevant FR, §18 or NFR once decided. See `.claude/knowledge/ai-ml-readiness.md`.
+- `docs/srs/archive/` holds old Word versions. History only — never edit them, and never regenerate the
+  markdown from them.
 
 **Two consequences that shape every review:**
 
@@ -225,6 +253,8 @@ an agent looped or repeated the same failure three times.
 0. **IRON RULE — the system is built only in React, JavaScript, CSS, HTML.** Not open for
    relitigation. No TypeScript, no other backend language, no alternative UI framework. An agent
    that believes the rule is blocking something files a `DECISION REQUEST`; it never works around it.
+   The rule governs **product code**. QA tooling follows SRS NFR-QA-001: chosen per stage, kept separate
+   from business logic.
    **Consequence every agent must carry:** there is no compile-time typecheck. The usual safety net
    against a hallucinated function, property or field does not exist here. TEST ENGINEER compensates
    with wider coverage; CRITIC must actively verify that every referenced symbol, import and field
