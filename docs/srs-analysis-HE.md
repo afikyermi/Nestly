@@ -166,7 +166,7 @@
 | `knowledge/conventions.md` | בטבלת הסטאק כתוב "Tests: JavaScript, Playwright — decided". **לא נכון** לפי OP-018 |
 | `CLAUDE.md` כלל 0 | חוק הברזל צריך הבהרה: הוא חל על **קוד המוצר**. כלי QA נבחרים לפי NFR-QA-001 |
 | `open-questions.md` | רוב השאלות נסגרו ב-SRS. סעיף ה-AI/ML כבר לא רלוונטי ל-v1 |
-| `overview-HE.md` · `coverage-audit-HE.md` | מצב AI/ML ו-Data & Analytics התהפך |
+| `docs/overview-HE.md` · `docs/coverage-audit-HE.md` | מצב AI/ML ו-Data & Analytics התהפך |
 | `knowledge/conventions.md` | חסרים כללי הקומפוננטות מ-§4 ועקרון המעבר ל-React Native |
 | `knowledge/data-model.md` | חסר מלאי הישויות מ-§13, כקלט ולא כסכמה |
 

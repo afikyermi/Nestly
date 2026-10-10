@@ -21,7 +21,7 @@
 | # | משימה | מצב |
 |---|---|---|
 | 1.1 | קריאה מלאה: 18 פרקים ו-4 נספחים | ✅ |
-| 1.2 | מפת מערכת: משתמשים, עולמות, אלגוריתמים, דאטה, היקף | ✅ ב-`srs-analysis-HE.md`, חלק 1 |
+| 1.2 | מפת מערכת: משתמשים, עולמות, אלגוריתמים, דאטה, היקף | ✅ ב-`docs/srs-analysis-HE.md`, חלק 1 |
 | 1.3 | מה השתנה ממה שהנחנו, ומה נסגר מתוך שש ההכרעות החוסמות | ✅ חלק 2 |
 | 1.4 | פגמים ב-SRS (8, מאומתים) | ✅ חלק 5 |
 
@@ -63,7 +63,7 @@
 | 4.8 | knowledge: נקודות ביקורת מה-SRS (Audit, Eligibility לפני Ranking, Organic/Paid, Data Usage) | — |
 | 4.9 | **TEST ENGINEER:** כלי QA לפי OP-018 | D4 |
 | 4.10 | `workflow.md`: ציטוט מזהים ב-`spec.md`, ו-`result.md` מפרט מזהים שבוצעו או השתנו | D1 |
-| 4.11 | רענון `open-questions.md` · `overview-HE.md` · `coverage-audit-HE.md` | D2, D3 |
+| 4.11 | רענון `open-questions.md` · `docs/overview-HE.md` · `docs/coverage-audit-HE.md` | D2, D3 |
 
 ## חלק 5 — עדכון ה-SRS ⬜
 

@@ -1,0 +1,19 @@
+# Word / Office lock files — created while a .docx (e.g. the SRS) is open
+~$*
+
+# Secrets — never commit (Supabase keys and similar). Also denied in .claude/settings.json
+.env
+.env.*
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+
+# Per-machine Claude settings
+.claude/settings.local.json
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
