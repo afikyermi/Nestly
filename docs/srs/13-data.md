@@ -34,7 +34,7 @@
 | ProfessionalFollow | Follower User, Target ProfessionalProfile, createdAt; יעד Follow תמיד ProfessionalProfile. |
 | GroupJoinRequest | User, Group, status Pending/Approved/Rejected, requestedAt, decidedBy/decidedAt. |
 | GroupRoleAssignment | Group, User, role Owner/Admin/Moderator, assignedBy, timestamps. System Moderator אינו נשמר כאן אלא ב-ModeratorPermission. |
-| NotificationPreference | User + Notification Type/Category + enabled. Security/Critical categories נשמרות כ-mandatory ולא ניתנות לכיבוי. |
+| NotificationPreference | User + Notification Type/Category + inAppEnabled + pushEnabled. Security/Critical categories הן mandatory ב-In-App. pushEnabled משמש רק בשלב Mobile ואפקטיבי רק כאשר הקטגוריה מאופשרת והרשאת Push של מערכת ההפעלה קיימת. Group-specific level נשמר ב-GroupNotificationPreference. |
 | GroupNotificationPreference | User + Group + mode All/Highlights/Off. Highlights logic תוגדר במשימת האלגוריתמים. |
 | FriendContentNotificationPreference | User + Friend + enabled עבור “פוסט חדש של חבר”, כדי שההתראה לא תישלח אוטומטית מכל Friend. |
 | ChildBirthdayVisibility | העדפת פרטיות של ההורה הקובעת האם ניתן להשתמש ביום ההולדת של הילד לצורך Notification לחברים. |
@@ -74,7 +74,7 @@ Group מוגדר Public/Private. כל Regular/Professional יכול ליצור G
 
 Search מחזיר Group metadata ו-Regular basic identity. Private Group content תלוי Membership; Regular profile content ל-non-Friend תלוי PrivacyPreference. כלי Admin/Moderation אינם חלק מ-Global Search.
 
-NotificationPreference ו-GroupNotificationPreference מסננים אירועי In-App. Recommendation signals המבוססים על חיפוש/צריכה שייכים ל-Feed ולא ל-Notification Center.
+NotificationPreference ו-GroupNotificationPreference מסננים אירועי In-App, ובשלב Mobile משמשים גם לקביעת זכאות ל-Push בהתאם להרשאת המכשיר. Recommendation signals המבוססים על חיפוש/צריכה שייכים ל-Feed ולא ל-Notification Center.
 
 ## 13.2 Data Inventory & Usage v1
 

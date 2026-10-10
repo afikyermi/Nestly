@@ -83,7 +83,7 @@ Side Menu אינו משכפל את ה-Bottom Navigation. Regular: My Groups, Fri
 
 ### 7.3.3 Notifications
 
-Bell מציג unread count ופותח Dropdown. כל Notification כולל Type, Actor/System, Text, Timestamp, Read/Unread ו-Target. NotificationsPage מציג היסטוריה מלאה ו-Mark all as read. אייקון Settings פותח Multi-select/Toggles לסוגי אירועים; Security/Critical אינם ניתנים לכיבוי. לכל Group ניתן לבחור All / Highlights / Off.
+Bell מציג unread count ופותח Dropdown. כל Notification כולל Type, Actor/System, Text, Timestamp, Read/Unread ו-Target. NotificationsPage מציג היסטוריה מלאה ו-Mark all as read. אייקון Settings פותח Multi-select/Toggles לסוגי אירועים; Security/Critical אינם ניתנים לכיבוי ב-In-App. לכל Group ניתן לבחור All / Highlights / Off. בשלב Web ההתראות החברתיות/מערכתיות הן In-App; בשלב Mobile ניתן גם Push לקטגוריות מאופשרות ובכפוף להרשאת מערכת ההפעלה. Email/SMS אינם ערוץ להתראות החברתיות/המסחריות השוטפות.
 
 ### 7.3.4 Chat
 

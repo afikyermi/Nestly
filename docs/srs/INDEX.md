@@ -32,7 +32,7 @@
 | 17 | [17-traceability.md](17-traceability.md) | Traceability Matrix |
 | 18 | [18-algorithms-spec.md](18-algorithms-spec.md) | אלגוריתמים, התאמה אישית ודאטה — Specification v1 |
 | A | [appendix-a-sketches.md](appendix-a-sketches.md) | נספח A — מיפוי 10 הסקיצות שהועלו |
-| B | [appendix-b-open-points.md](appendix-b-open-points.md) | נספח B — נקודות פתוחות שחייבות החלטה לפני פיתוח מלא |
+| B | [appendix-b-open-points.md](appendix-b-open-points.md) | נספח B — נקודות פתוחות ומעקב החלטות |
 | C | [appendix-c-srs-structure.md](appendix-c-srs-structure.md) | נספח C — התאמה למבנה SRS שניתן בפרויקט |
 | D | [appendix-d-ai-ml.md](appendix-d-ai-ml.md) | נספח D — הצעות המשך ותחומים פתוחים: AI/ML ואלגוריתמים מתקדמים |
 
@@ -144,7 +144,7 @@
 | FR-ALG-010 | Group Notification Highlights v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-DATA-001 | Analytics Event Tracking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 
-## קריטריוני קבלה — 73
+## קריטריוני קבלה — 74
 
 > השמות קוצרו לצורך ניווט בלבד. הנוסח המחייב נמצא ב-[15-acceptance.md](15-acceptance.md).
 
@@ -223,17 +223,18 @@
 | AC-071 | Admin Analytics מציג את כל התחומים ב-Aggregate | [15-acceptance.md](15-acceptance.md) |
 | AC-072 | Professional Analytics — own-account aggregates בלבד | [15-acceptance.md](15-acceptance.md) |
 | AC-073 | שינוי AlgorithmConfiguration: Admin, גרסה ו-Audit | [15-acceptance.md](15-acceptance.md) |
+| AC-074 | ערוצי התראה: Web רק In-App; Mobile גם Push בהרשאה | [15-acceptance.md](15-acceptance.md) |
 
 ## מזהים נוספים
 
 | סוג | נושא | טווח | כמות | קובץ |
 |---|---|---|---|---|
-| BR | חוקים עסקיים | BR-001 … BR-060 | 60 | [08-business-rules.md](08-business-rules.md) |
+| BR | חוקים עסקיים | BR-001 … BR-061 | 61 | [08-business-rules.md](08-business-rules.md) |
 | VAL | ולידציות | VAL-001 … VAL-035 | 35 | [09-validations.md](09-validations.md) |
 | ERR | שגיאות ותרחישי קצה | ERR-001 … ERR-031 | 31 | [10-errors-edge-cases.md](10-errors-edge-cases.md) |
 | NFR | דרישות לא-פונקציונליות | NFR-SEC-001 … NFR-OBS-001 | 28 | [06-non-functional.md](06-non-functional.md) |
 | UC | Use Cases | UC-01 … UC-42 | 42 | [14-use-cases.md](14-use-cases.md) |
 | PG | מסכים | PG-001 … PG-044 | 44 | [07-screens-navigation.md](07-screens-navigation.md) |
-| OP | נקודות פתוחות | OP-001 … OP-018 | 15 | [appendix-b-open-points.md](appendix-b-open-points.md) |
+| OP | נקודות פתוחות | OP-001 … OP-018 | 18 | [appendix-b-open-points.md](appendix-b-open-points.md) |
 | ALG | קטלוג האלגוריתמים | ALG-01 … ALG-09 | 9 | [18-algorithms-spec.md](18-algorithms-spec.md) |
 | P-ALG | עקרונות האלגוריתמים | P-ALG-01 … P-ALG-08 | 8 | [18-algorithms-spec.md](18-algorithms-spec.md) |

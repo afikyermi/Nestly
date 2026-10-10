@@ -99,7 +99,7 @@
 | Feature / Container | ProfessionalFollowFeature | מנהל Follow/Unfollow אל Professional Profile. יעד Follow תמיד ProfessionalProfile; Professional אינו עוקב אחר Regular User. |
 | Feature / Container | GroupsFeature | מנהל גילוי קבוצות, יצירת Group חדש על ידי Regular/Professional, Membership, Public/Private visibility, הצטרפות, בקשות והזמנות. |
 | Feature / Container | GroupManagementFeature | מנהל Group Owner/Admin/Moderator לפי היררכיה Owner > Admin > Group Moderator > Member. Role נמוך אינו יכול לאכוף פעולה על Role שווה/גבוה ממנו. |
-| Feature / Container | NotificationSettingsFeature | מנהל Multi-select/Toggles לסוגי התראות, חריגי Security/Critical והעדפת All/Highlights/Off לכל קבוצה. |
+| Feature / Container | NotificationSettingsFeature | מנהל Multi-select/Toggles לסוגי התראות, חריגי Security/Critical והעדפת All/Highlights/Off לכל קבוצה. בשלב Web הוא מנהל In-App בלבד; בשלב Mobile הוא מנהל גם Push delivery עבור קטגוריות מאופשרות, בכפוף להרשאת מערכת ההפעלה. |
 | Page | GroupsDirectoryPage / GroupPage / GroupManagementPage | מסכי גילוי/הקבוצות שלי, צפייה בקבוצה וניהול קבוצה בהתאם ל-Public/Private ולתפקיד. |
 | Page | FriendsPage | מסך Friends ובקשות חברות עבור Regular User בלבד. |
 | Feature / Container | PasswordRecoveryFeature | מנהל את תהליך שחזור הסיסמה מתוך Login. ערוץ האימות המדויק נשאר TBD עד להחלטה; ה-Feature אחראי ל-state, ולידציה והחלפת הסיסמה לאחר אימות. |

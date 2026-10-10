@@ -64,3 +64,4 @@
 | BR-058 | Admin Analytics יוצג כברירת מחדל כ-Aggregates. גישה ל-Raw user-level data מיועדת לצורך תפעולי/אבטחה/Debug בהתאם להרשאה ול-Audit, לא להצגת Dashboard רגילה. |
 | BR-059 | שינוי AlgorithmConfiguration הוא Admin Only דרך ALGORITHM_AI_CONFIG ונרשם ב-Audit Log עם Before/After ו-version חדש. |
 | BR-060 | Group Highlights v1 הוא דטרמיניסטי; שינוי ל-ML Highlights בעתיד דורש עדכון SRS והחלטת AI/Algorithm נפרדת. |
+| BR-061 | מדיניות ערוצי Notification: בשלב Web התראות חברתיות/קבוצתיות/מסחריות ומערכתיות נמסרות ב-In-App. בשלב Mobile ניתן לשלוח גם Push לקטגוריות מאופשרות, רק כאשר Push מופעל והרשאת מערכת ההפעלה קיימת. Security/Critical נשארות חובה ב-In-App. Email/SMS אינם משמשים להתראות שוטפות אלה ויישמרו רק לתהליכים טכניים/חשבון/אבטחה שאושרו בנפרד. |

@@ -25,7 +25,7 @@
 | VAL-019 | Private Group Access | קריאת תוכן Private Group דורשת Membership למשתמש קהילה. Admin מוחרג לניהול; Moderator שאינו Member דורש PRIVATE_GROUP_MODERATE ו-Permission טיפול רלוונטי ורק דרך Moderation. |
 | VAL-020 | Private Group Join | Join Request דורשת משתמש מחובר שאינו Member ואינה יכולה להיווצר פעמיים במצב Pending. |
 | VAL-021 | Group Role Management | Owner > Admin > Group Moderator > Member. רק Owner ממנה/מסיר Admin, משנה Public/Private, מעביר בעלות/מוחק. Admin אינו פועל נגד Owner/Admin אחר; Group Moderator רק נגד Members. Owner לא עוזב לפני העברת בעלות. |
-| VAL-022 | Notification Preferences | לא ניתן לכבות Security/Critical notifications; ערך Group Notification חייב להיות All / Highlights / Off. |
+| VAL-022 | Notification Preferences | לא ניתן לכבות Security/Critical ב-In-App; ערך Group Notification חייב להיות All / Highlights / Off. Push רלוונטי רק בשלב Mobile ואינו יכול לעקוף קטגוריה מושתקת או חסימת Push/הרשאה ברמת מערכת ההפעלה. |
 | VAL-023 | Search Visibility | לפני החזרת Post/Deep Link, המערכת חייבת לוודא שלמחפש יש הרשאת צפייה בתוכן המקור. |
 | VAL-024 | Chat Initiation | Friends פותחים Conversation ישירות. Regular non-Friends יוצרים RegularChatRequest. Professional/Marketplace כפופים ל-FR-CHAT-002. ChatBlock מונע הודעות בלבד ואינו משפיע על Search/Profile/Relationship. |
 | VAL-025 | Regular Chat Request | Requester/Target חייבים להיות Regular Users פעילים ללא Conversation פתוחה. Accept פותח Chat; Decline אינו פותח Chat. |

@@ -44,7 +44,7 @@
 | AC-038 | Group hierarchy נאכפת Owner > Admin > Group Moderator > Member. Admin אינו פועל נגד Owner/Admin אחר; Moderator רק נגד Member; Owner מעביר בעלות לפני יציאה. |
 | AC-039 | Global Search מציג Dropdown מחולק ל-People/Groups/Posts ו-View All; SearchResultsPage כולל All/People/Groups/Posts וכל תוצאה מכבדת הרשאות. |
 | AC-040 | Notification dropdown מציג unread state ו-Deep Link; NotificationsPage מאפשר Mark all as read. Chat messages אינן מופיעות כהתראות כפולות. |
-| AC-041 | Regular/Professional יכולים לשנות Notification Preferences במולטי-סלקט/Toggles; Security/Critical אינן ניתנות לכיבוי; Group preference תומכת All/Highlights/Off. |
+| AC-041 | Regular/Professional יכולים לשנות Notification Preferences במולטי-סלקט/Toggles; Security/Critical אינן ניתנות לכיבוי ב-In-App; Group preference תומכת All/Highlights/Off. בשלב Mobile, קטגוריה מאופשרת יכולה להישלח גם כ-Push רק כאשר Push מופעל והרשאת מערכת ההפעלה קיימת. |
 | AC-042 | Recommendation המבוססת על חיפוש/צריכת תוכן אינה נוצרת כ-Notification ומופיעה רק במסגרת Feed/Recommendation logic. |
 | AC-043 | Professional Notification Center אינו כולל Friend Requests או Birthdays, אך יכול לכלול New Follower, Verification, Promotion, Moderation, Group ו-System events. |
 | AC-044 | Moderator מקבל Notification ניהולי רק אם Permission מתאים לתחום האירוע; Admin יכול לקבל את כלל אירועי הניהול. |
@@ -77,3 +77,4 @@
 | AC-071 | Admin Analytics מציג לפחות Lifecycle/Retention, Feed, Search, Groups, Professionals, Marketplace, Promotions, Support/Moderation ו-Recommendation Quality ב-aggregate. |
 | AC-072 | Professional Dashboard/Promotion Analytics מציגים own-account aggregates ומפרידים Organic/Paid ללא user identities או raw search queries. |
 | AC-073 | כל שינוי AlgorithmConfiguration דורש Admin ALGORITHM_AI_CONFIG, יוצר configVersion חדש ונרשם ב-Audit עם Before/After. |
+| AC-074 | בשלב Web אין Email/SMS/Push להתראות חברתיות/קבוצתיות/Marketplace/Promotion שוטפות — הן In-App בלבד. בשלב Mobile ניתן Push לקטגוריות מאופשרות ובהרשאת מערכת ההפעלה; חסימת Push אינה מוחקת את ה-Notification מתוך Nestly. Email/SMS נשמרים לתהליכים טכניים/חשבון/אבטחה בלבד. |

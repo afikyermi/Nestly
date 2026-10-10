@@ -57,7 +57,7 @@ Nestly היא רשת חברתית דיגיטלית הפתוחה למשתמשים
 | Group Admin | מנהל קבוצה שמונה על ידי Group Owner. יכול לאשר בקשות הצטרפות לקבוצה פרטית, להזמין/להסיר/לחסום חברים, לנהל חוקי קבוצה ותוכן מוצמד ולמנות/להסיר Group Moderator. אינו יכול להעביר בעלות, למחוק קבוצה או לשנות את סוג הקבוצה. |
 | Group Moderator | תפקיד ניהול תוכן בתוך קבוצה, נפרד מ-System Moderator. יכול לטפל בפוסטים/תגובות, אזהרות/השתקות והסרת חבר בהתאם למדיניות הקבוצה; אינו מנהל בעלות, סוג קבוצה או מינוי Group Admin. |
 | Top Bar | סרגל עליון גלובלי לאחר התחברות. ב-Regular/Professional הוא כולל Hamburger Menu, Global Search, Chat ו-Notifications; ב-Admin/Moderator הוא מותאם לחשבון מערכת ומציג פעולות ניהול/התראות ללא השתתפות חברתית. |
-| Notification Preference | העדפת משתמש הקובעת אילו סוגי התראות In-App יוצגו לו. התראות Security/Critical Account אינן ניתנות לכיבוי. לקבוצה ניתן להגדיר All / Highlights / Off. |
+| Notification Preference | העדפת משתמש הקובעת אילו סוגי התראות In-App יוצגו לו. בשלב Mobile, קטגוריות שהמשתמש הפעיל יכולות להישלח גם כ-Push, רק כאשר Push מופעל באפליקציה והרשאת מערכת ההפעלה ניתנה. התראות Security/Critical Account נשארות חובה ב-In-App ואינן ניתנות לכיבוי. לקבוצה ניתן להגדיר All / Highlights / Off. |
 | Regular Chat Request | בקשת שיחה בין שני Regular Users שאינם Friends ושאין ביניהם Conversation פעילה. הבקשה דורשת Accept או Decline מצד הנמען; רק Accept פותח שיחה חדשה. |
 | Chat Block | חסימה ברמת ההודעות בלבד. היא מונעת המשך שליחת הודעות Chat בין הצדדים עד להסרת החסימה, אך אינה מסתירה חשבונות, אינה מסירה Friendship/Follow ואינה מהווה חסימה גלובלית במערכת. |
 | Support Thread | שרשור שירות המקושר ל-SupportRequest ומוצג ב-Chat בשם “Support” כאשר התקבלה תגובת שירות. השרשור אינו Chat חברתי חופשי והאינטראקציה בו מוגבלת להקשר ולסטטוס של הפנייה. |

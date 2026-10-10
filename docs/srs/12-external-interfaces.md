@@ -5,7 +5,7 @@
 | ממשק | צורך | סטטוס |
 |---|---|---|
 | Payment Gateway | נדרש אם קידום פרופיל/כלים שיווקיים או קידום Marketplace Listing יירכשו בתוך המערכת. ספק לא נבחר. | TBD Provider |
-| Email / SMS / Push | שחזור סיסמה וערוצי Notification חיצוניים. Notification Center In-App הוגדר, אך Email/SMS/Push כערוצי Delivery חיצוניים, Opt-in ותדירות עדיין TBD. Message Requests מוצגות בתוך Chat. | In-App מאושר; External Channels TBD |
+| Email / SMS / Push | Notification delivery ושחזור/אבטחת חשבון. בשלב Web התראות חברתיות, קבוצתיות, Marketplace, Promotion ו-System נמסרות In-App. בשלב Mobile ניתן גם Push לקטגוריות מאופשרות, בכפוף ל-Push enabled ולהרשאת מערכת ההפעלה. Email/SMS אינם ערוץ להתראות השוטפות; ניתן להשתמש בהם רק לתהליכים טכניים/חשבון/אבטחה כגון Password Recovery, לפי החלטה וספק שייבחרו בנפרד. | Notification channels מאושר: In-App + Mobile Push. ערוץ/ספק Password Recovery נשאר TBD נפרד. |
 | Location / Maps | סינון בעלי מקצוע לפי קרבה גיאוגרפית. אופן קבלת מיקום והרשאה TBD. | TBD |
 | Media Storage | תמונות וסרטונים בפוסטים וב-Marketplace Listings, וכן תמונות פרופיל. ספק, פורמטים ומגבלות TBD. | TBD |
 | Affiliate / Commerce | קישורי Affiliate או אינטגרציה מסחרית למוצרים. | TBD |
