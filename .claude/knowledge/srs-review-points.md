@@ -15,13 +15,15 @@ Severity column: the minimum severity of a finding that breaks the invariant.
 
 | # | Invariant | SRS | Checks | Severity |
 |---|---|---|---|---|
-| A1 | Every permission is enforced server-side, in RLS. A client-side check is presentation only | NFR-SEC-002, data-model.md | CRITIC · DATA ARCHITECT | critical |
-| A2 | Moderator is deny-by-default. A missing Permission Key means Access Denied, also on a direct API call | §3.1, BR-023, AC-026 | CRITIC · TEST ENGINEER | critical |
-| A3 | No Moderator key unlocks an Admin Only action | §3.2, BR-025, NFR-SEC-004, AC-031 | CRITIC · TEST ENGINEER | critical |
-| A4 | Every deep link — from Search, a Notification or Chat — re-checks authorization; a link never grants access | NFR-SEC-005, VAL-023, ERR-020 | CRITIC | high |
+| A1 | Every permission is enforced in RLS. A check in the server or the client is an early exit or presentation, never the only one. Account type, permissions and status are read from database tables — never from `user_metadata` or token claims beyond the user id | NFR-SEC-002, data-model.md rules 1, 14 | CRITIC · DATA ARCHITECT | critical |
+| A2 | Moderator is deny-by-default. A missing Permission Key means Access Denied, also on a direct API call. **pgTAP per key:** denied without it, allowed with it | §3.1, BR-023, AC-026, data-model.md rule 16 | CRITIC · TEST ENGINEER | critical |
+| A3 | No Moderator key unlocks an Admin Only action. **pgTAP:** an Admin Only action is denied to a Moderator holding every key | §3.2, BR-025, NFR-SEC-004, AC-031 | CRITIC · TEST ENGINEER | critical |
+| A4 | Every deep link — from Search, a Notification or Chat — re-checks authorization; a link never grants access | NFR-SEC-005, VAL-023, ERR-020 | CRITIC · TEST ENGINEER | high |
 | A5 | Private Group content never leaks to a non-member, through search, API or deep link | NFR-PRIV-002, BR-039, AC-037 | CRITIC · TEST ENGINEER | critical |
 | A6 | Group roles never act on an equal or higher role; the Owner leaves only after transferring ownership | BR-041, VAL-021, AC-038 | CRITIC · TEST ENGINEER | high |
 | A7 | Admin and Moderator accounts never post, befriend, join groups or use social chat | BR-034, ERR-022 | CRITIC | high |
+| A8 | Nothing at runtime bypasses RLS: no service_role, no role with BYPASSRLS, never the table owner; the request server connects as `app_server` and every query runs inside a transaction carrying the user's identity; every view is `security_invoker`; a SECURITY DEFINER function exists only on the approved list | NFR-SEC-002, data-model.md rules 1–10 | CRITIC · DATA ARCHITECT | critical |
+| A9 | A suspended or banned account is blocked at once, on every query — not only when its token expires | FR-MOD-002, BR-024, AC-027, AC-028, data-model.md rule 15 | CRITIC · TEST ENGINEER | high |
 
 ## Privacy of people and children
 
@@ -30,9 +32,9 @@ Severity column: the minimum severity of a finding that breaks the invariant.
 | P1 | A non-Friend sees only the Basic Public Profile (Restricted) or the profile with Journey Summary (Open). A Professional viewer sees exactly what a Regular non-Friend sees | §1.4, FR-PRIV-001, BR-044, AC-054 | CRITIC · TEST ENGINEER | critical |
 | P2 | Children and pregnancy reach a non-Friend only as Journey Summary — never names, birth dates, pregnancy week or due date | §1.4, VAL-027 | CRITIC · TEST ENGINEER | critical |
 | P3 | Tracker Data never reaches a non-Friend, a Professional channel or an advertiser | NFR-PRIV-005, BR-053, AC-068 | CRITIC · ALGORITHM & DATA | critical |
-| P4 | An anonymous post never exposes its author — not in the feed, search, notifications, comments, the API or the social-graph ranking | FR-FEED-005, BR-062, VAL-036, AC-075, AC-076 | CRITIC · ALGORITHM & DATA · TEST ENGINEER | critical |
-| P5 | A Moderator reveals an anonymous author only while handling a report on that post, with both keys, and every reveal is audited | FR-FEED-005, AC-077 | CRITIC · TEST ENGINEER | high |
-| P6 | Users cannot be listed in bulk: a query is required, rate limits apply, identifiers are not guessable | NFR-SEC-006, BR-063, AC-078 | CRITIC · DATA ARCHITECT | high |
+| P4 | An anonymous post never exposes its author — not in the feed, search, notifications, comments, the API or the social-graph ranking. The real author sits in a table only the author can read | FR-FEED-005, BR-062, VAL-036, AC-075, AC-076, data-model.md rule 20 | CRITIC · ALGORITHM & DATA · TEST ENGINEER | critical |
+| P5 | A Moderator reveals an anonymous author only while handling a report on that post, with both keys, through the audited reveal function — the read and its audit entry are one call | FR-FEED-005, AC-077, data-model.md rule 19 | CRITIC · TEST ENGINEER | high |
+| P6 | Users cannot be listed in bulk: a query is required, rate limits apply on the server, identifiers are not guessable. The thresholds are configuration, changed by Admin only (SECURITY_SETTINGS_MANAGE) — never constants in code | NFR-SEC-006, BR-063, AC-078 | CRITIC · DATA ARCHITECT | high |
 | P7 | A child's birthday notification goes only to Friends, and only with the parent's consent | BR-037, NFR-PRIV-003, AC-046 | CRITIC | high |
 | P8 | Tracker-based guidance stays general and non-diagnostic; with no approved mapping, the signal is ignored | NFR-PRIV-006, VAL-034, ERR-031, AC-069 | ALGORITHM & DATA · CRITIC | high |
 
@@ -45,15 +47,15 @@ Severity column: the minimum severity of a finding that breaks the invariant.
 | D3 | Organic and paid are ranked and stored separately; payment never changes organic score or reputation; every paid unit is labelled | NFR-ALG-003, BR-004, BR-005, VAL-030, AC-062, AC-063 | ALGORITHM & DATA · CRITIC | high |
 | D4 | Professional Analytics show own-account aggregates only — no identities, no raw queries | BR-057, VAL-032, AC-072 | ALGORITHM & DATA · CRITIC | high |
 | D5 | Analytics events carry a unique id, are counted once, never copy message bodies, and never block the user's action | NFR-DATA-002, NFR-DATA-003, VAL-031, AC-070 | ALGORITHM & DATA | medium |
-| D6 | Algorithm configuration is versioned and Admin Only, every change audited with before and after; a broken configuration falls back to the last valid one, never to an AI model | BR-059, VAL-033, ERR-030, AC-073 | ALGORITHM & DATA | high |
+| D6 | Weights, decay, thresholds and exploration or frequency caps live in AlgorithmConfiguration — never hardcoded. The configuration is versioned and Admin Only, every change audited with before and after; a broken configuration falls back to the last valid one, never to an AI model | NFR-ALG-001, BR-059, VAL-033, ERR-030, AC-073 | ALGORITHM & DATA · CRITIC | high |
 | D7 | Content recommended from search or consumption appears in the feed only — never as a notification | BR-035, AC-042 | CRITIC | medium |
 
 ## Audit and administration
 
 | # | Invariant | SRS | Checks | Severity |
 |---|---|---|---|---|
-| G1 | Every meaningful Admin or Moderator action writes an audit entry: actor, role, permission, action, target, time, result, reason; before and after for permission changes | NFR-AUDIT-001, BR-026, AC-029 | CRITIC · TEST ENGINEER | high |
-| G2 | The audit log is append-only; nothing in the product edits or deletes an entry | BR-027, AC-030 | CRITIC · DATA ARCHITECT | critical |
+| G1 | Every meaningful Admin or Moderator action writes an audit entry: actor, role, permission, action, target, time, result, reason; before and after for permission changes. Writes are audited by a database trigger in the same transaction; protected reads by an audited function | NFR-AUDIT-001, BR-026, AC-029, data-model.md rules 18, 19 | CRITIC · TEST ENGINEER | high |
+| G2 | The audit log is append-only; nothing in the product edits or deletes an entry. `authenticated` has no INSERT, UPDATE or DELETE on it | BR-027, AC-030 | CRITIC · DATA ARCHITECT | critical |
 
 ## Messaging and notifications
 
@@ -69,7 +71,7 @@ Severity column: the minimum severity of a finding that breaks the invariant.
 | # | Invariant | SRS | Checks | Severity |
 |---|---|---|---|---|
 | S1 | Component architecture: reusable components with no business logic inside; logic lives in Feature/Page and services | §4.1, §4.2, conventions.md | CRITIC | medium |
-| S2 | Business logic stays portable to React Native — none hidden in web-only UI | §4, OP-002, NFR-USAB-002 | CRITIC | medium |
+| S2 | Business logic stays portable to React Native — it lives in `packages/shared` and on the server, none hidden in web-only UI; `packages/shared` uses no DOM and no Node APIs | §4, §4.1, OP-002, NFR-USAB-002, conventions.md | CRITIC | medium |
 | S3 | WCAG 2.2 AA on every new or changed screen | NFR-A11Y-001, workflow.md Accessibility domain | CRITIC · TEST ENGINEER | high on a core flow |
 | S4 | No medical diagnosis or personalized medical advice anywhere in the product | BR-012, NFR-PRIV-006 | CRITIC · ALGORITHM & DATA | critical |
 

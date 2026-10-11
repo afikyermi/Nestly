@@ -1,6 +1,6 @@
 # Workflow — canonical pipeline
 
-**Version:** 1.1
+**Version:** 1.2
 **Status:** the single source of truth for sequence, triggers and who enters when.
 Agent definitions describe professions. **This file describes order.** If they disagree, this file wins.
 
@@ -47,14 +47,14 @@ The maintained as-built descriptions are `.claude/knowledge/data-model.md` and `
 | 5 | **DATA ARCHITECT** | *only if schema changes* — Gate 2. Policies follow the authorization layers in `.claude/knowledge/data-model.md` | `schema.md` |
 | 5b | **ALGORITHM & DATA** | *only if the feature uses behavioural signals, ranks or recommends, records analytics events, or places paid content* — purpose map, pipeline, configuration, events, evaluation. Feeds DATA ARCHITECT when tables are needed | `algorithm.md` |
 | 6 | **BUILDER** | branch, implement. calls SCOUT as needed | diff + `notes.md` |
-| 7 | **CI** | 🤖 tests · lint · RLS policy present on every touched table. red → back to 6 | green build |
+| 7 | **CI** | 🤖 typecheck · tests · lint · RLS checks (the list in WORKPLAN 7.1). red → back to 6 | green build |
 | 8 | **TEST ENGINEER** | tests derived from `spec.md` only | test files |
 | 9 | **CRITIC** | review the diff cold, including every invariant in `.claude/knowledge/srs-review-points.md` that the diff touches and the platform rules in `.claude/knowledge/data-model.md`. ALGORITHM & DATA reviews in parallel when step 5b ran | `findings.md` + verdict |
 | 10 | **BUILDER** | address findings | updated diff |
 | 11 | **CRITIC** | re-check **only what it raised** | verdict |
 | 12 | **Afik** | ✋ **Preview** — click it | go / no-go |
 | 13 | ORCHESTRATOR | merge, write result, update logs | `result.md` |
-| 14 | ORCHESTRATOR | **update the SRS** if behaviour changed — the right section file, its own format, new IDs continue the sequence · rebuild the index (`node tools/build-srs-index.js`) · add a change-history row at the batch's version | updated `docs/srs/` |
+| 14 | ORCHESTRATOR | **update the SRS** if behaviour changed — the right section file, its own format, new IDs continue the sequence · rebuild the index (`node tools/build-srs-index.js`) · update §17 (Traceability Matrix) when pages, FRs or entities changed · add a change-history row at the batch's version | updated `docs/srs/` |
 
 Steps 8 and 9 may run in parallel — they are independent and neither reads the other's output.
 
@@ -62,8 +62,8 @@ Steps 8 and 9 may run in parallel — they are independent and neither reads the
 
 1 → 6 → 7 → 12 → 13 → 14 (14 only if user-visible behaviour changed). No SPEC, no CRITIC, no TEST ENGINEER.
 
-Entry condition — **all** must hold: no schema change · no authz · no new endpoint ·
-no new dependency · under ~30 lines · no risk flag.
+Entry condition — **all** must hold: no schema change · no authz · no endpoint reachable without
+authentication and no new external surface · no new dependency · under ~30 lines · no risk flag.
 
 If any condition fails mid-work, stop and re-enter the Standard path. Do not finish "since it's nearly done."
 
@@ -146,6 +146,16 @@ CRITIC returns exactly one. This is the release-readiness statement.
 | `Not Ready` | not ready | back to BUILDER. ORCHESTRATOR may not reinterpret this |
 
 A review returned as prose without a verdict is rejected and re-run.
+
+**Two reviewers, one outcome.** When ALGORITHM & DATA reviews in parallel (step 5b ran), it returns its own
+verdict on the same scale. A `Not Ready` from **either** CRITIC or ALGORITHM & DATA blocks. Any
+`Validated with Concern` goes to `debt.md`. Only two `Validated` (or `Validated with Concern`) verdicts proceed.
+
+## Traceability
+
+Every test name carries the FR/AC IDs it asserts. Every commit carries a line `Implements: FR-…, AC-…`.
+In code, an ID appears only beside a direct implementation of a BR or VAL rule — IDs scattered through
+code go stale. A commit that implements no requirement says so (`Implements: none — <reason>`).
 
 ---
 
@@ -234,3 +244,7 @@ usually the spec was too large and should have been split.
   platform rules in `data-model.md` · `result.md` records evidence. Decided by Afik after the
   engineering-guidelines review (`docs/engineering-guidelines-review-HE.md`). Design-time change, provisional
   until 5 features.
+- 1.2 — 2026-10-11 — CI gate includes typecheck · Light path: "no new endpoint" becomes "no endpoint reachable
+  without authentication and no new external surface" · a Not Ready from CRITIC or ALGORITHM & DATA blocks ·
+  traceability: FR/AC IDs in test names and an `Implements:` line in commits · step 14 updates SRS §17.
+  Decided by Afik (TypeScript and own-server decisions, 11.10.2026). Provisional until 5 features.

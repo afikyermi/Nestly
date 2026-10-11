@@ -22,15 +22,17 @@ is a second pair of eyes.
 
 | Layer | Choice | Status |
 |---|---|---|
-| Language | **JavaScript** | 🔒 **IRON RULE** — no TypeScript |
-| UI | **React** | 🔒 IRON RULE |
-| Styling | **Tailwind** | decided |
-| Markup | JSX (React's form of HTML) | 🔒 IRON RULE |
-| Build | **Vite**, React single-page app. A build tool only — product code stays React and JavaScript | decided 2026-10-10 · SRS §11 |
-| Database | **PostgreSQL**, single source of truth | decided |
-| Platform | **Supabase** — Postgres, auth, storage, realtime | decided |
-| Authorization | **RLS**, enforced in the database | decided |
-| Server-side code | Supabase Edge Functions, JavaScript — only where a secret is required | decided |
+| Languages | **TypeScript** everywhere in product code — web, server, shared. React · TypeScript · CSS · HTML on the web; Node.js + TypeScript on the server | 🔒 rule 0 · decided 2026-10-11 (replaces JavaScript-only, 12.9) |
+| TypeScript settings | `strict: true` · no `any` · no `@ts-ignore`, `@ts-nocheck` or `@ts-expect-error` · `as` restricted. Enforced by typecheck and typescript-eslint in CI, and by CRITIC | decided 2026-10-11 |
+| Repository | **Monorepo, npm workspaces:** `apps/web` · `apps/server` · `packages/shared` · `apps/mobile` later only | decided 2026-10-11 |
+| UI | **React**, with **Tailwind** for styling | decided |
+| Web build | **Vite**, single-page app | decided 2026-10-10 · SRS §11 |
+| Server | **Node.js + TypeScript on Fastify.** Layers: route ≤200 lines → service ≤400 → repository ≤400 | decided 2026-10-11 |
+| Shared | `packages/shared`: **Zod** validations (VAL-xxx), types, constants. No DOM, no Node APIs — it must run on web, server and mobile | decided 2026-10-11 |
+| Database | **PostgreSQL via Supabase**, the only database, accessed with **Drizzle** through the server | decided |
+| Authorization | **RLS**, enforced in the database. The server never filters rows for permission | decided |
+| Auth | **Supabase Auth.** The web app signs in with supabase-js; the server verifies the JWT through JWKS (asymmetric keys), ignores the token's role and forces `authenticated` | decided 2026-10-11 |
+| Storage · Realtime | **TBD** — SRS §12, NFR-MEDIA-001 | open |
 | Tests | Vitest + React Testing Library (unit, integration) · Playwright on Chrome and Edge (E2E) · axe-core in Playwright (accessibility) · pgTAP (database and RLS) · npm audit (dependencies). Per SRS NFR-QA-001 / OP-018 | decided (D4) |
 | Files | **in the repo.** Tests never ship, but they are always versioned | decided |
 | Accessibility | WCAG 2.2 AA for the Web version (SRS NFR-A11Y-001) | decided (D6) |
@@ -42,21 +44,19 @@ Reasoning for each: `decisions.md`.
 
 ## The consequence that shapes everything below
 
-> **There is no compile-time typecheck.**
+> **The typecheck is a gate, and it can be defeated.**
 
-A misspelled field, a property that does not exist, a call to a function that was never written —
-none of these are caught before the code runs. The defences that remain:
+Strict TypeScript catches a misspelled field, a property that does not exist or a call to a function that
+was never written — before the code runs. It is only as honest as the types:
 
-| Defence | Carries |
+| What defeats it | Defence |
 |---|---|
-| the database schema | the only place the *system* says "this does not exist" |
-| tests | behaviour, and the existence of what they exercise |
-| CRITIC | must actively verify that referenced symbols, imports and fields exist |
-| conventions below | consistency, so that a wrong name is visible as wrong |
+| a cast — `as`, `any`, a ts-comment — that tells the compiler something untrue | banned or restricted in CI; CRITIC checks every one that remains |
+| input from outside — a request, the database, a third party — that does not match its type | **Zod at every boundary**: request bodies, params and query strings on the server; forms on the web |
+| raw SQL, or a query the typed schema does not describe | Drizzle's typed schema; raw SQL only where Drizzle cannot express it, reviewed |
+| behaviour — the right type, the wrong result | tests |
 
-**This is why naming conventions matter more here than in a typed project.** In a typed codebase a
-wrong name is a compiler error. Here it is a runtime crash, possibly on a rare path, possibly in
-front of a user. A convention that makes names predictable is a real safety mechanism, not tidiness.
+Naming conventions still matter: predictable names make a wrong one visible in review.
 
 ---
 
@@ -81,13 +81,29 @@ first line of code, and CRITIC checks them in every review. When the SRS changes
 - These rules are enforced by lint in CI, including a size cap per file (WORKPLAN part 7; the caps are in
   `decisions.md`). Until CI exists, CRITIC checks them.
 
+### Monorepo boundaries — decided 2026-10-11
+- `packages/shared` imports nothing from `apps/*`. It uses no DOM and no Node APIs.
+- `apps/web` never imports from `apps/server`, and the server never imports from the web app. They meet only
+  through `packages/shared` and the HTTP API.
+- Enforced by lint in CI (WORKPLAN 7.1).
+
 ### Web now, React Native later — SRS §4, §11, OP-002, NFR-USAB-002
-- Business logic, validation and data access stay out of web-specific UI, so that they carry over to
-  React Native unchanged. The UI layer is what gets re-implemented in the app phase.
-- The logic layer — business rules, validation, data access, services — never touches the DOM, `window`
-  or `react-dom` (SRS §4.1).
+- Business rules, validation and data access live in `packages/shared` and on the server, so they carry
+  over to React Native unchanged. The web UI is what gets re-implemented in the app phase.
+- Logic inside `apps/web` — hooks, services, state — never touches the DOM, `window` or `react-dom` (SRS
+  §4.1), so the same rule holds for whatever the app phase reuses.
 - Web and Native are never developed in parallel. The React Native version is chosen and locked at the
-  start of the app phase.
+  start of the app phase, and the app talks to the same server.
+
+### Server — decided 2026-10-11
+- Layers: route → service → repository. A route parses and validates (Zod schema from `packages/shared`),
+  calls a service, and shapes the response. A service holds the business logic. A repository holds the
+  Drizzle queries. Caps: route 200 lines, service 400, repository 400.
+- Every database call runs inside the identity transaction described in `data-model.md`. No query runs
+  outside one.
+- Rate limits (NFR-SEC-006) are enforced on the server. Their thresholds are configuration, not constants.
+- Background jobs run as a separate process with their own database credentials (`app_jobs`). The request
+  server never holds those credentials.
 
 ### Accessibility — SRS NFR-A11Y-001 (WCAG 2.2 AA)
 - Build accessibility into the shared UI components once — labels, keyboard operation, visible focus,
@@ -99,6 +115,8 @@ first line of code, and CRITIC checks them in every review. When the SRS changes
 - A raw error — from the database, the network or a library — is never shown to a user. What the user sees
   comes from the SRS error catalog (§10), or a generic message where no ERR entry applies. The technical
   detail goes to the log.
+- The server never returns a raw error message in a response. It returns a status and an error code the web
+  app maps to its ERR text.
 - Why: a raw database message names tables, constraints and policies. With authorization in RLS, that is a
   map of the authorization model handed to whoever triggers the error. ERR-001 already requires messages
   that expose nothing sensitive.
