@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>R2 — חמשת המסכים · Nestly</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;--bg:#FFF8F2;--surface:#FFFFFF;--smuted:#FBEFE6;--primary:#B5502C;--strong:#8F3E21;--soft:#FDE6D8;--accent:#E3EEDF;--text:#3B2F2A;--muted:#6B5A51;--border:#9C8579;--divider:#F1E6DD;--danger:#B3261E;--danger-soft:#FCEBE8;--shadow:59 47 42;--font:'Rubik';background:var(--bg);color:var(--text);font-family:var(--font),system-ui,sans-serif;font-size:17px;line-height:1.65}
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+h1,h2,h3,h4,p{margin:0}
+a{color:var(--strong)}
+.ic{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.page{max-width:1240px;margin-inline:auto;padding:24px 16px 48px}
+.page-head h1{font-size:28px;line-height:36px;margin-bottom:8px}
+.page-head p{max-width:780px;margin-bottom:8px}
+.box{background:var(--surface);border-radius:16px;padding:16px 20px;box-shadow:0 1px 2px rgb(var(--shadow) / .05),0 4px 16px rgb(var(--shadow) / .07)}
+.box h2{font-size:20px;line-height:28px;margin-bottom:6px}
+.box ul{margin:0;padding-inline-start:20px}
+.box li{margin-bottom:4px}
+.toc{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 8px;padding:0;list-style:none}
+.toc a{display:inline-flex;align-items:center;min-height:36px;padding-inline:14px;border-radius:999px;background:var(--surface);color:var(--strong);text-decoration:none;font-size:15px;font-weight:500;box-shadow:0 1px 2px rgb(var(--shadow) / .06)}
+.decision{margin:16px 0 8px;border:2px solid var(--primary)}
+.opts{display:grid;gap:8px;margin-top:8px}
+.opt{display:flex;gap:10px;align-items:flex-start}
+.opt b{white-space:nowrap}
+.rec{display:inline-block;margin-inline-start:6px;padding:0 8px;border-radius:999px;background:var(--accent);color:#2E4B36;font-size:13px;line-height:22px;font-weight:600}
+
+/* screen blocks */
+.screen-block{display:grid;grid-template-columns:375px minmax(0,1fr);gap:28px;align-items:start;margin-top:40px}
+.screen-block > h2{grid-column:1/-1;font-size:24px;line-height:32px}
+.screen-block > h2 small{font-size:15px;font-weight:400;color:var(--muted);margin-inline-start:8px}
+.phones{display:flex;flex-wrap:wrap;gap:20px}
+.phone{position:relative;width:375px;min-height:760px;display:flex;flex-direction:column;border-radius:28px;overflow:hidden;background:var(--bg);box-shadow:0 0 0 1px rgb(var(--shadow) / .08),0 12px 40px rgb(var(--shadow) / .14);container-type:inline-size}
+.phone-cap{font-size:13px;color:var(--muted);margin-top:6px;text-align:center}
+.notes{max-width:520px}
+.notes dl{margin:0;display:grid;gap:10px}
+.notes dt{font-weight:600;font-size:15px;color:var(--strong)}
+.notes dd{margin:0;font-size:15px;line-height:24px}
+.notes dd ul{padding-inline-start:18px;margin:0}
+.wrap{display:grid;grid-template-columns:auto minmax(0,1fr);gap:28px;align-items:start;grid-column:1/-1}
+@media (max-width: 900px){
+  .wrap{grid-template-columns:1fr}
+  .notes{max-width:none}
+}
+@media (max-width: 480px){
+  .page{padding-inline:0}
+  .page-head,.box,.toc,.screen-block > h2,.notes,.phone-cap{margin-inline:16px}
+  .phones{gap:0;width:100%}
+  .phones > div{width:100%;min-width:0}
+  .phone{width:100%;border-radius:0;box-shadow:none;min-height:0}
+  .wrap{gap:16px;grid-template-columns:minmax(0,1fr)}
+  .screen-block{grid-template-columns:minmax(0,1fr)}
+}
+
+/* components */
+.card{background:var(--surface);border-radius:16px;box-shadow:0 1px 2px rgb(var(--shadow) / .05),0 4px 16px rgb(var(--shadow) / .07)}
+.icon-btn{position:relative;display:inline-grid;place-items:center;width:44px;height:44px;border:0;border-radius:12px;background:transparent;color:var(--text);cursor:pointer;flex:none}
+.icon-btn:hover{background:var(--smuted)}
+.badge{position:absolute;inset-block-start:3px;inset-inline-end:1px;min-width:20px;height:20px;padding-inline:5px;border-radius:999px;background:var(--soft);color:var(--strong);font-size:13px;line-height:20px;font-weight:600;font-variant-numeric:tabular-nums;text-align:center}
+.avatar{display:inline-grid;place-items:center;width:40px;height:40px;border-radius:999px;background:var(--soft);color:var(--strong);font-size:15px;font-weight:600;flex:none}
+.avatar .ic{width:22px;height:22px}
+.avatar.anon{background:var(--smuted);color:var(--muted)}
+.logo{display:inline-flex;align-items:center;gap:4px;color:var(--strong);font-weight:600;font-size:20px;line-height:1;text-decoration:none;padding-inline:4px}
+.logo .ic{width:26px;height:26px}
+.logo.big{font-size:30px;gap:6px}
+.logo.big .ic{width:38px;height:38px}
+@container (max-width: 360px){.topbar .logo span{display:none}}
+.topbar{display:flex;align-items:center;gap:2px;padding:6px;background:var(--surface);box-shadow:0 1px 0 var(--divider),0 2px 10px rgb(var(--shadow) / .04);position:relative;z-index:2}
+.search-pill{flex:1;min-width:0;display:flex;align-items:center;gap:6px;height:40px;margin-inline:6px;padding-inline:12px;border:0;border-radius:999px;background:var(--smuted);color:var(--muted);font:inherit;font-size:15px;cursor:pointer;text-align:start}
+.search-pill .ic{width:20px;height:20px}
+.screen{display:flex;flex-direction:column;gap:12px;padding:12px;flex:1}
+.composer{display:flex;align-items:center;gap:10px;padding:12px}
+.composer-btn{flex:1;min-width:0;height:44px;padding-inline:16px;border:0;border-radius:999px;background:var(--smuted);color:var(--muted);font:inherit;font-size:15px;text-align:start;cursor:pointer}
+.feed{display:flex;flex-direction:column;gap:12px}
+.post{padding:16px}
+.post-head{display:flex;align-items:center;gap:10px}
+.post-meta{flex:1;min-width:0}
+.post-author{font-weight:600;font-size:16px;line-height:22px}
+.post-ctx{color:var(--muted);font-size:13px;line-height:20px}
+.post-body{margin-top:10px;font-size:17px;line-height:28px}
+.post-foot{display:flex;align-items:center;justify-content:space-between;margin-top:14px}
+.react{display:inline-flex;align-items:center;gap:6px;height:40px;padding-inline:14px;border:0;border-radius:999px;background:var(--soft);color:var(--strong);font:inherit;font-size:15px;font-weight:600;cursor:pointer}
+.react .ic{width:20px;height:20px}
+.react[aria-pressed="true"] .ic{fill:currentColor}
+.react .count{font-variant-numeric:tabular-nums;font-weight:500}
+.quiet-link{color:var(--muted);font-size:15px;text-decoration:none;padding:8px 4px;border-radius:8px}
+.quiet-link:hover{text-decoration:underline}
+.tag{display:inline-block;padding:0 8px;border-radius:8px;background:var(--smuted);color:var(--muted);font-size:13px;line-height:22px;font-weight:600}
+.media{margin-top:12px;height:140px;border-radius:12px;background:linear-gradient(135deg,var(--soft),var(--accent));display:grid;place-items:center;color:var(--strong)}
+.media .ic{width:64px;height:64px;opacity:.5;stroke-width:1.25}
+.skeleton{padding:16px}
+.sk{background:var(--smuted);border-radius:8px}
+.sk-row{display:flex;gap:10px;align-items:center}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding-inline:20px;border-radius:12px;border:0;font:inherit;font-size:16px;font-weight:600;cursor:pointer;text-decoration:none}
+.btn-lg{min-height:52px;font-size:17px;border-radius:14px}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--strong)}
+.btn-soft{background:var(--soft);color:var(--strong)}
+.btn-ghost{background:transparent;color:var(--strong);padding-inline:10px;font-size:15px}
+.btn-ghost:hover{background:var(--smuted)}
+.btn-block{width:100%}
+.btn-text{background:none;border:0;color:var(--strong);font:inherit;font-size:15px;font-weight:600;cursor:pointer;padding:10px 4px;text-decoration:underline;text-underline-offset:3px}
+.bottomnav{margin-top:auto;position:relative;z-index:2}
+.bottomnav ul{display:flex;margin:0;padding:6px 4px 8px;list-style:none;background:var(--surface);box-shadow:0 -1px 0 var(--divider),0 -2px 10px rgb(var(--shadow) / .04)}
+.bottomnav li{flex:1;min-width:0}
+.bottomnav a{display:flex;flex-direction:column;align-items:center;gap:2px;min-height:56px;padding-top:4px;color:var(--muted);text-decoration:none;font-size:13px;line-height:18px;border-radius:12px;text-align:center}
+.bottomnav .pill{display:grid;place-items:center;width:56px;height:30px;border-radius:999px}
+.bottomnav a[aria-current="page"]{color:var(--strong);font-weight:600}
+.bottomnav a[aria-current="page"] .pill{background:var(--soft)}
+.mini-avatar{width:24px;height:24px;border-radius:999px;background:var(--accent);display:grid;place-items:center;font-size:11px;font-weight:600;color:var(--text)}
+.totop{position:absolute;inset-inline:0;margin-inline:auto;width:max-content;bottom:84px;z-index:3;display:inline-flex;align-items:center;gap:6px;height:44px;padding-inline:16px;border:0;border-radius:999px;background:var(--surface);color:var(--strong);font:inherit;font-size:15px;font-weight:600;box-shadow:0 8px 32px rgb(var(--shadow) / .14);cursor:pointer}
+.totop .ic{width:18px;height:18px}
+
+/* forms */
+.form-screen{display:flex;flex-direction:column;gap:0;padding:12px 20px 24px;flex:1}
+.form-top{display:flex;align-items:center;gap:8px;margin:0 -8px 8px}
+.steps{flex:1;display:flex;flex-direction:column;gap:6px}
+.steps-label{font-size:13px;line-height:20px;color:var(--muted)}
+.steps-bar{display:flex;gap:6px}
+.steps-bar span{flex:1;height:6px;border-radius:999px;background:var(--smuted)}
+.steps-bar span.on{background:var(--primary)}
+.form-screen h1{font-size:28px;line-height:36px;font-weight:600;margin:8px 0 4px}
+.sub{color:var(--muted);font-size:15px;line-height:24px;margin-bottom:20px}
+.field{margin-bottom:18px}
+.label,.field label,.legend{display:block;font-weight:600;font-size:15px;line-height:22px;margin-bottom:6px}
+.opt-mark{font-weight:400;color:var(--muted)}
+.input,.select{width:100%;height:48px;padding-inline:14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text);font:inherit;font-size:16px}
+.select{appearance:none;background-image:none;padding-inline-end:40px}
+.select-wrap{position:relative}
+.select-wrap .ic{position:absolute;inset-block-start:12px;inset-inline-end:12px;pointer-events:none;color:var(--muted)}
+.input[aria-invalid="true"]{border:2px solid var(--danger)}
+.input-wrap{position:relative}
+.input-wrap .input{padding-inline-end:52px}
+.input-wrap .icon-btn{position:absolute;inset-block-start:2px;inset-inline-end:2px}
+.err,.hint,.ok{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:15px;line-height:22px}
+.err{color:var(--danger)}
+.hint{color:var(--muted)}
+.ok{color:#2E6B45}
+.err .ic,.hint .ic,.ok .ic{width:18px;height:18px}
+.alert{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:12px;background:var(--danger-soft);color:var(--danger);font-size:15px;line-height:24px;margin-bottom:18px}
+.alert .ic{margin-top:1px}
+.row-end{display:flex;justify-content:flex-end;margin:-8px 0 14px}
+.date3{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:8px}
+.date3 .mini{display:block;font-size:13px;line-height:18px;color:var(--muted);margin-bottom:4px;font-weight:400}
+.choices{display:grid;gap:8px;border:0;margin:0 0 18px;padding:0}
+.choice{position:relative;display:flex;align-items:center;gap:12px;min-height:52px;padding:12px 14px;border-radius:14px;background:var(--surface);border:1px solid var(--border);cursor:pointer;font-size:16px}
+.choice input{position:absolute;opacity:0;pointer-events:none}
+.choice .mark{display:grid;place-items:center;width:22px;height:22px;border-radius:999px;border:1.5px solid var(--border);flex:none;color:#fff}
+.choice .mark .ic{width:16px;height:16px;stroke-width:2.5;opacity:0}
+.choice:has(input:checked){background:var(--soft);border:2px solid var(--primary);color:var(--strong)}
+.choice:has(input:checked) b{color:var(--strong)}
+.choice:has(input:checked) .mark{background:var(--primary);border-color:var(--primary)}
+.choice:has(input:checked) .mark .ic{opacity:1}
+.choice:has(input:focus-visible){outline:2px solid var(--primary);outline-offset:2px}
+.choice.big{align-items:flex-start;padding:16px}
+.choice.big .ci{display:grid;place-items:center;width:44px;height:44px;border-radius:12px;background:var(--accent);color:var(--strong);flex:none}
+.choice.big b{display:block;font-size:18px;line-height:26px}
+.choice.big span.d{display:block;font-size:15px;line-height:22px;color:var(--muted)}
+.choice.big .mark{margin-top:2px}
+.child{padding:16px;margin-bottom:12px;border-radius:16px;background:var(--surface);box-shadow:0 1px 2px rgb(var(--shadow) / .05),0 4px 16px rgb(var(--shadow) / .07)}
+.child-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.child-head h2{font-size:18px;line-height:26px;font-weight:600}
+.check{display:flex;gap:12px;align-items:flex-start;margin:4px 0 20px;font-size:15px;line-height:24px}
+.check input{width:24px;height:24px;margin:1px 0 0;accent-color:var(--primary);flex:none}
+.illu{display:grid;place-items:center;margin:8px 0 4px}
+.form-actions{display:flex;gap:10px;margin-top:auto;padding-top:8px}
+.form-actions .btn-primary{flex:1}
+.divider{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;margin:20px 0 12px}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--divider)}
+.center{text-align:center}
+
+/* welcome */
+.welcome{display:flex;flex-direction:column;align-items:center;text-align:center;padding:36px 24px 28px;flex:1}
+.welcome h1{font-size:28px;line-height:36px;font-weight:600;margin-top:12px}
+.welcome .lead{font-size:18px;line-height:30px;color:var(--muted);margin-top:8px;max-width:300px}
+.welcome .stack{display:flex;flex-direction:column;gap:10px;width:100%;margin-top:auto}
+
+/* home */
+.ctx{display:flex;align-items:center;gap:12px;padding:14px}
+.ctx-photo{width:56px;height:56px;border-radius:999px;background:var(--accent);display:grid;place-items:center;color:var(--strong);flex:none}
+.ctx-photo .ic{width:30px;height:30px}
+.ctx-text{flex:1;min-width:0}
+.ctx-name{font-weight:600;font-size:18px;line-height:26px}
+.ctx-age{color:var(--muted);font-size:15px;line-height:22px;white-space:nowrap}
+.sec-h{font-size:20px;line-height:28px;font-weight:600;margin:8px 0 0}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0;padding:0;list-style:none}
+.tile{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;padding:10px 2px;border:0;border-radius:14px;background:var(--surface);color:var(--text);font:inherit;font-size:14px;line-height:20px;cursor:pointer;box-shadow:0 1px 2px rgb(var(--shadow) / .05),0 3px 10px rgb(var(--shadow) / .06)}
+.tile .bub{display:grid;place-items:center;width:40px;height:40px;border-radius:999px;background:var(--soft);color:var(--strong)}
+.tile .bub .ic{width:22px;height:22px}
+.tile:hover{background:var(--smuted)}
+.article{display:flex;gap:12px;padding:12px;text-decoration:none;color:var(--text)}
+.article .thumb{width:84px;height:84px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--soft));flex:none;display:grid;place-items:center;color:var(--strong)}
+.article .thumb .ic{width:36px;height:36px;opacity:.55;stroke-width:1.25}
+.article h3{font-size:17px;line-height:26px;font-weight:600}
+.article p{font-size:13px;line-height:20px;color:var(--muted);margin-top:4px}
+
+/* sheet */
+.scrim{position:absolute;inset:0;background:rgb(59 47 42 / .32);z-index:4}
+.sheet{position:absolute;inset-inline:0;bottom:0;z-index:5;background:var(--surface);border-radius:24px 24px 0 0;padding:8px 8px 20px;box-shadow:0 -8px 32px rgb(var(--shadow) / .14)}
+.grabber{width:40px;height:4px;border-radius:999px;background:var(--divider);margin:4px auto 10px}
+.sheet h2{font-size:17px;line-height:24px;font-weight:600;padding:4px 12px 8px}
+.sheet ul{list-style:none;margin:0;padding:0}
+.sheet button{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding-inline:12px;border:0;border-radius:12px;background:transparent;color:var(--text);font:inherit;font-size:16px;text-align:start;cursor:pointer}
+.sheet button:hover{background:var(--smuted)}
+</style>
+</head>
+<body>
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+ <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+ <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+ <symbol id="i-chat" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
+ <symbol id="i-bell" viewBox="0 0 24 24"><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="M3.26 15.33A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.67C19.41 13.96 18 12.5 18 8A6 6 0 0 0 6 8c0 4.5-1.41 5.96-2.74 7.33"/></symbol>
+ <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></symbol>
+ <symbol id="i-bag" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></symbol>
+ <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l2 6.2 6 1.8-6 1.8-2 6.2-2-6.2-6-1.8 6-1.8z"/></symbol>
+ <symbol id="i-heart" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></symbol>
+ <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/></symbol>
+ <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+ <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16h.01"/></symbol>
+ <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+ <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+ <symbol id="i-back" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+ <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+ <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+ <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+ <symbol id="i-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/></symbol>
+ <symbol id="i-nest" viewBox="0 0 24 24"><path d="M3 12.5c0 4.4 4 7.5 9 7.5s9-3.1 9-7.5"/><path d="M2.5 12.5h19"/><ellipse cx="9.5" cy="8.6" rx="2.3" ry="3"/><ellipse cx="14.6" cy="9.2" rx="2.1" ry="2.6"/></symbol>
+ <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 21.5a6.5 6.5 0 0 0 6.5-6.5c0-1.9-.9-3.6-2.7-5.1S12.6 6.3 12 3.5c-.6 2.8-2 4.9-3.8 6.4S5.5 13.1 5.5 15a6.5 6.5 0 0 0 6.5 6.5Z"/></symbol>
+ <symbol id="i-bottle" viewBox="0 0 24 24"><path d="M9 2h6M10 2v3L8 8v12a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V8l-2-3V2"/><path d="M8 13h8"/></symbol>
+ <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/></symbol>
+ <symbol id="i-diaper" viewBox="0 0 24 24"><path d="M3 7h18v3a9 9 0 0 1-18 0Z"/><path d="M8.5 7v2.5a3.5 3.5 0 0 0 7 0V7"/></symbol>
+ <symbol id="i-pill" viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></symbol>
+ <symbol id="i-growth" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol>
+ <symbol id="i-down" viewBox="0 0 24 24"><path d="M3 7l6 6 4-4 8 8"/><path d="M15 17h6v-6"/></symbol>
+ <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></symbol>
+ <symbol id="i-bath" viewBox="0 0 24 24"><path d="M3 12h18v2a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5z"/><path d="M6 12V6a2 2 0 0 1 3.6-1.2"/><path d="M7 19l-1 2M17 19l1 2"/></symbol>
+ <symbol id="i-eyeoff" viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2.4 3.3M6.6 6.6C3.9 8.4 2 12 2 12s3.5 7 10 7a9.6 9.6 0 0 0 5.4-1.6"/></symbol>
+ <symbol id="i-minus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></symbol>
+ <symbol id="i-flag" viewBox="0 0 24 24"><path d="M4 22V4a1 1 0 0 1 1-1h11l-2 4 2 4H5"/></symbol>
+</svg>
+<div class="page">
+  <header class="page-head">
+    <h1>R2 — חמשת המסכים</h1>
+    <p>כיוון A, Rubik. מובייל ברוחב 375. הפיד והבית בדסקטופ נמצאים בקובץ השני, <a href="r2-desktop.html">r2-desktop.html</a>. ליד כל מסך: מה נשמר מהסקיצה, מה חודד ולמה, אילו החלטות מיושמות ומה עדיין פתוח.</p>
+    <p><b>מה מחליטים כאן:</b> אישור ויזואלי של המסכים, ושם ה-Reaction (החלטה 12). אפשר לענות בשורה אחת, למשל "R2 מאושר, 12: חיבוק".</p>
+  </header>
+  
+<section class="box decision" aria-labelledby="d12-h">
+  <h2 id="d12-h">החלטה 12: שם ה-Reaction</h2>
+  <p>הפעולה הראשית בכל פוסט. אייקון הלב נשאר, ומשתנה רק השם. במוקאפ מופיעה ההמלצה שלי.</p>
+  <div class="opts">
+    <div class="opt"><b>חיבוק</b><span class="rec">מומלץ</span><span>מתאים גם לבשורה טובה וגם לרגע קשה, כמו פוסט על אובדן או על טיפולים. "אהבתי" לא מתאים לשם. וזה גם רחוק מה-Like של פייסבוק.</span></div>
+    <div class="opt"><b>תמיכה</b><span>ברור, אבל מרגיש פורמלי יותר, ופחות טבעי ליד בשורה משמחת.</span></div>
+    <div class="opt"><b>אהבתי</b><span>מוכר מכל רשת, ובדיוק לכן מזכיר את פייסבוק. לא מתאים לפוסטים קשים.</span></div>
+  </div>
+</section>
+  <nav aria-label="מסכים"><ul class="toc">
+    <li><a href="#welcome">Welcome</a></li><li><a href="#login">Login</a></li><li><a href="#account-type">סוג חשבון</a></li><li><a href="#register">הרשמה</a></li><li><a href="#register-pro">הרשמה מקצועית</a></li><li><a href="#feed">Feed</a></li><li><a href="#home">בית</a></li>
+  </ul></nav>
+  
+<section class="screen-block" id="welcome" aria-labelledby="welcome-title">
+  <h2 id="welcome-title">Welcome<small>PG-001</small></h2>
+  <div class="wrap"><div class="phones"><div><div class="phone">
+<main class="welcome" aria-labelledby="w-h">
+  <a class="logo big" href="#" aria-label="Nestly"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg><span aria-hidden="true">Nestly</span></a>
+  <div style="margin-top:28px"><svg width="220" height="170" viewBox="0 0 220 170" aria-hidden="true" focusable="false">
+  <circle cx="110" cy="88" r="78" fill="#E3EEDF"/>
+  <path d="M40 60c18-22 44-30 66-26" fill="none" stroke="#B5502C" stroke-width="2" stroke-linecap="round" opacity=".35"/>
+  <path d="M172 52c-10-10-24-14-38-12" fill="none" stroke="#B5502C" stroke-width="2" stroke-linecap="round" opacity=".35"/>
+  <ellipse cx="96" cy="86" rx="17" ry="22" fill="#FFFFFF" stroke="#8F3E21" stroke-width="2.5"/>
+  <ellipse cx="126" cy="90" rx="15" ry="19" fill="#FDE6D8" stroke="#8F3E21" stroke-width="2.5"/>
+  <path d="M46 100h128" stroke="#8F3E21" stroke-width="3" stroke-linecap="round"/>
+  <path d="M48 100c0 26 28 42 62 42s62-16 62-42" fill="#FDE6D8" stroke="#8F3E21" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M62 114c16 6 30 8 48 8s34-3 48-9M70 128c12 4 26 6 40 6s28-2 40-7" fill="none" stroke="#B5502C" stroke-width="2" stroke-linecap="round" opacity=".55"/>
+  <path d="M170 128c10-6 16-16 16-26M178 112c6 2 10 0 12-4" fill="none" stroke="#5E7F58" stroke-width="2.5" stroke-linecap="round"/>
+</svg></div>
+  <h1 id="w-h">הצטרפות ל-Nestly</h1>
+  <p class="lead">קהילה חמה להורים ולהורים לעתיד. שאלות, תמיכה, מעקב ובעלי מקצוע, במקום אחד.</p>
+  <div class="stack">
+    <a class="btn btn-primary btn-lg btn-block" href="#account-type">יצירת חשבון חדש</a>
+    <a class="btn btn-soft btn-lg btn-block" href="#login">כבר יש לי חשבון</a>
+  </div>
+</main></div></div></div>
+<aside class="box notes" aria-label="הערות">
+  <dl>
+    <dt>מקור</dt><dd>PG-001 · <a href="../sketches/sk-57-3-welcome.jpeg">סקיצה 57(3)</a></dd>
+    <dt>נשמר מהסקיצה</dt><dd><ul><li>הסדר: לוגו, תמונה, טקסט מתאר ושתי פעולות</li><li>"יצירת חשבון חדש" ומעבר לחשבון קיים</li></ul></dd>
+    <dt>חודד, ולמה</dt><dd><ul><li>"יצירת חשבון" היא הפעולה הראשית, ו"כבר יש לי חשבון" משנית. כך יש פעולה ראשית אחת</li><li>הכפתורים בתחתית, באזור שקל להגיע אליו באגודל</li><li>הכותרת "הצטרפי ל-Nestly" הוחלפה בנוסח ניטרלי (NFR-USAB-003)</li></ul></dd>
+    <dt>החלטות שמיושמות כאן</dt><dd><ul><li>7: איור סטטי של קן במקום תמונה מתחלפת. אין בו תינוק ואין בו הריון (החלטה 6)</li><li>3: wordmark זמני</li></ul></dd>
+    <dt>פתוח</dt><dd><ul><li>הטקסט המתאר הוא נוסח זמני שלי, לאישורך</li></ul></dd>
+  </dl>
+</aside></div>
+</section>
+  
+<section class="screen-block" id="login" aria-labelledby="login-title">
+  <h2 id="login-title">Login<small>PG-002</small></h2>
+  <div class="wrap"><div class="phones"><div><div class="phone">
+<main class="form-screen" aria-labelledby="l-h">
+  <div class="center" style="margin:28px 0 8px"><a class="logo big" href="#" aria-label="Nestly"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg><span aria-hidden="true">Nestly</span></a></div>
+  <h1 id="l-h" class="center">כניסה</h1>
+  <p class="sub center">טוב שחזרת.</p>
+  <div class="alert" role="alert"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-alert"/></svg><span>האימייל או הסיסמה לא נכונים. אפשר לנסות שוב, או לאפס את הסיסמה.</span></div>
+  <form onsubmit="return false">
+    <div class="field"><label for="l-email">אימייל</label><input class="input" id="l-email" type="email" dir="ltr" style="text-align:start" value="noa@example.com" autocomplete="email"></div>
+    <div class="field"><label for="l-pw">סיסמה</label><div class="input-wrap"><input class="input" id="l-pw" type="password" value="ציפור בקן שלי" autocomplete="current-password"><button class="icon-btn" type="button" aria-label="הצגת הסיסמה" aria-pressed="false"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-eye"/></svg></button></div></div>
+    <div class="row-end"><a href="#" class="btn-text">שכחתי סיסמה</a></div>
+    <button class="btn btn-primary btn-lg btn-block" type="submit">התחברות</button>
+  </form>
+  <p class="divider">אין עדיין חשבון?</p>
+  <a class="btn btn-soft btn-lg btn-block" href="#account-type">יצירת חשבון חדש</a>
+</main></div></div></div>
+<aside class="box notes" aria-label="הערות">
+  <dl>
+    <dt>מקור</dt><dd>PG-002 · <a href="../sketches/sk-57-4-login.jpeg">סקיצה 57(4)</a></dd>
+    <dt>נשמר מהסקיצה</dt><dd><ul><li>לוגו בראש המסך</li><li>שדה מזהה, סיסמה, "התחברות", "שכחתי סיסמה" ו"יצירת חשבון חדש"</li></ul></dd>
+    <dt>חודד, ולמה</dt><dd><ul><li>תוויות מעל השדות, ולא placeholder</li><li>כפתור להצגת הסיסמה. אפשר להדביק (WCAG 3.3.8)</li><li>"שכחתי סיסמה" ליד שדה הסיסמה</li><li>"Nestly" בתחתית ירד, כי הלוגו כבר בראש</li><li>שגיאה בראש הטופס, ב-role=alert</li></ul></dd>
+    <dt>החלטות שמיושמות כאן</dt><dd><ul><li>8: אימייל בלבד, בלי שם משתמש</li></ul></dd>
+    <dt>פתוח</dt><dd><ul><li>ERR-001 מגדיר התנהגות ולא נוסח. הטקסט כאן הוא הצעה שלי: הוא לא מגלה אם האימייל קיים</li><li>ערוץ שחזור הסיסמה עדיין TBD (FR-AUTH-003). בלי טלפון נשאר בפועל רק אימייל</li></ul></dd>
+  </dl>
+</aside></div>
+</section>
+  
+<section class="screen-block" id="account-type" aria-labelledby="account-type-title">
+  <h2 id="account-type-title">בחירת סוג חשבון<small>PG-003</small></h2>
+  <div class="wrap"><div class="phones"><div><div class="phone">
+<main class="form-screen" aria-labelledby="a-h">
+  <div class="form-top"><button class="icon-btn" type="button" aria-label="חזרה"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-back"/></svg></button></div>
+  <h1 id="a-h">בחירת סוג חשבון</h1>
+  <p class="sub">אפשר לבחור אחד מהשניים.</p>
+  <fieldset class="choices">
+    <legend class="sr-only">סוג החשבון</legend>
+    <label class="choice big"><input type="radio" name="acct" checked><span class="ci"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-user"/></svg></span><span style="flex:1"><b>חשבון אישי</b><span class="d">להורים, להורים לעתיד ולמי שמתכננים. קהילה, מעקב וטיפים.</span></span><span class="mark"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span></label>
+    <label class="choice big"><input type="radio" name="acct"><span class="ci"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-briefcase"/></svg></span><span style="flex:1"><b>חשבון מקצועי</b><span class="d">לבעלי מקצוע ונותני שירות. פרופיל מקצועי, נוכחות בקהילה ופנייה להורים.</span></span><span class="mark"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span></label>
+  </fieldset>
+  <div class="form-actions"><button class="btn btn-primary btn-lg" type="button">המשך</button></div>
+</main></div></div></div>
+<aside class="box notes" aria-label="הערות">
+  <dl>
+    <dt>מקור</dt><dd>PG-003 · אין סקיצה (UI TBD)</dd>
+    <dt>נשמר מהסקיצה</dt><dd><ul><li>—</li></ul></dd>
+    <dt>חודד, ולמה</dt><dd><ul><li>שני כרטיסי בחירה גדולים עם אייקון ותיאור, כ-radio</li><li>מצב "נבחר" מסומן ברקע, בגבול של 2px וב-✓, לא רק בצבע</li></ul></dd>
+    <dt>החלטות שמיושמות כאן</dt><dd><ul><li>13: "חשבון אישי" ו"חשבון מקצועי"</li></ul></dd>
+    <dt>פתוח</dt><dd><ul><li>התיאורים מתחת לשמות הם נוסח זמני שלי</li></ul></dd>
+  </dl>
+</aside></div>
+</section>
+  
+<section class="screen-block" id="register" aria-labelledby="register-title">
+  <h2 id="register-title">הרשמה רגילה<small>PG-004, PG-005</small></h2>
+  <div class="wrap"><div class="phones"><div><div class="phone">
+<main class="form-screen" aria-labelledby="r1-h">
+  <div class="form-top"><button class="icon-btn" type="button" aria-label="חזרה"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-back"/></svg></button>
+  <div class="steps"><span class="steps-label">שלב 1 מתוך 2</span><div class="steps-bar" aria-hidden="true"><span class="on"></span><span></span></div></div></div>
+  <h1 id="r1-h">פרטים אישיים</h1>
+  <p class="sub">כדי שהתוכן יתאים למסע.</p>
+  <form onsubmit="return false">
+    <fieldset class="choices">
+      <legend class="legend">השלב במסע</legend>
+      <label class="choice"><input type="radio" name="stage"><span class="mark"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>מתכננים</label>
+      <label class="choice"><input type="radio" name="stage"><span class="mark"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>בהריון</label>
+      <label class="choice"><input type="radio" name="stage" checked><span class="mark"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>יש לנו ילד או ילדה</label>
+    </fieldset>
+    <div class="field"><label for="r-name">שם מלא</label><input class="input" id="r-name" value="נועה רז" autocomplete="name"></div>
+    <div class="field"><label for="r-gender">מין ההורה <span class="opt-mark">(לא חובה)</span></label><div class="select-wrap"><select class="select" id="r-gender"><option>בחירה</option></select><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chevron"/></svg></div></div>
+    <section class="child" aria-labelledby="c1-h">
+      <div class="child-head"><h2 id="c1-h">יואב</h2><button class="icon-btn" type="button" aria-label="הסרת הפרטים של יואב"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-minus"/></svg></button></div>
+      <div class="field"><label for="c-name">שם</label><input class="input" id="c-name" value="יואב"></div>
+      <div class="field"><label for="c-gender">מין</label><div class="select-wrap"><select class="select" id="c-gender"><option>בחירה</option></select><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chevron"/></svg></div></div>
+      <fieldset class="field" style="border:0;padding:0;margin:0">
+        <legend class="label">תאריך לידה</legend>
+        <div class="date3">
+          <label><span class="mini">יום</span><input class="input" inputmode="numeric" value="7" aria-label="יום"></label>
+          <label><span class="mini">חודש</span><input class="input" inputmode="numeric" value="6" aria-label="חודש"></label>
+          <label><span class="mini">שנה</span><input class="input" inputmode="numeric" value="2026" aria-label="שנה"></label>
+        </div>
+      </fieldset>
+    </section>
+    <button class="btn btn-soft btn-block" type="button" style="margin-bottom:20px"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-plus"/></svg>הוספת ילד או ילדה</button>
+    <div class="form-actions"><button class="btn btn-primary btn-lg" type="submit">המשך</button></div>
+  </form>
+</main></div><p class="phone-cap">שלב 1, כשנבחר "יש לנו ילד או ילדה"</p></div><div><div class="phone">
+<main class="form-screen" aria-labelledby="r2-h">
+  <div class="form-top"><button class="icon-btn" type="button" aria-label="חזרה"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-back"/></svg></button>
+  <div class="steps"><span class="steps-label">שלב 2 מתוך 2</span><div class="steps-bar" aria-hidden="true"><span class="on"></span><span class="on"></span></div></div></div>
+  <div class="illu"><svg width="120" height="84" viewBox="0 0 120 84" aria-hidden="true" focusable="false">
+  <circle cx="60" cy="44" r="38" fill="#E3EEDF"/>
+  <path d="M24 50h72" stroke="#8F3E21" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M26 50c0 14 15 22 34 22s34-8 34-22" fill="#FDE6D8" stroke="#8F3E21" stroke-width="2.5"/>
+  <path d="M60 22c-4-6-14-5-14 3 0 6 8 11 14 15 6-4 14-9 14-15 0-8-10-9-14-3Z" fill="#B5502C" opacity=".85"/>
+</svg></div>
+  <h1 id="r2-h">פרטי התחברות</h1>
+  <p class="sub">עוד רגע מסיימים.</p>
+  <form onsubmit="return false">
+    <div class="field"><label for="r-email">אימייל</label><input class="input" id="r-email" type="email" dir="ltr" style="text-align:start" value="noa@example.com" autocomplete="email"></div>
+    <div class="field"><label for="r-pw">סיסמה</label><div class="input-wrap"><input class="input" id="r-pw" type="password" value="ציפור בקן שלי" autocomplete="new-password" aria-describedby="r-pw-rule r-pw-tip"><button class="icon-btn" type="button" aria-label="הצגת הסיסמה" aria-pressed="false"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-eye"/></svg></button></div>
+      <p class="ok" id="r-pw-rule"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-check"/></svg>לפחות 10 תווים</p>
+      <p class="hint" id="r-pw-tip">אפשר גם משפט שלם, בעברית או באנגלית.</p></div>
+    <label class="check"><input type="checkbox" required><span>אישור <a href="#">תנאי השימוש</a> ו<a href="#">מדיניות הפרטיות</a></span></label>
+    <div class="form-actions"><button class="btn btn-primary btn-lg" type="submit">יצירת חשבון</button><button class="btn btn-soft btn-lg" type="button">חזרה</button></div>
+  </form>
+</main></div><p class="phone-cap">שלב 2. אין שדה טלפון</p></div></div>
+<aside class="box notes" aria-label="הערות">
+  <dl>
+    <dt>מקור</dt><dd>PG-004, PG-005 · <a href="../sketches/sk-57-2-register-regular.jpeg">סקיצה 57(2)</a></dd>
+    <dt>נשמר מהסקיצה</dt><dd><ul><li>שני שלבים</li><li>בחירה ראשונית: מתכננים, בהריון, יש לנו ילד</li><li>שדות הילד והוספת ילד</li><li>תמונה חמה בשלב 2</li><li>אישור תקנון ותנאי שימוש</li></ul></dd>
+    <dt>חודד, ולמה</dt><dd><ul><li>"שלב 1 מתוך 2" עם פס התקדמות</li><li>הבחירה הראשונית בכרטיסים ולא ב-dropdown</li><li>שדות הילד מופיעים רק אחרי "יש לנו ילד או ילדה", בכרטיס לכל ילד עם אפשרות הסרה</li><li>תאריך לידה בשלושה שדות: יום, חודש ושנה. קל יותר מלוח שנה בתאריך רחוק</li><li>האימייל רק בשלב 2, ולא פעמיים</li><li>כלל הסיסמה מוצג כ-✓ חי, לא בצבע בלבד</li></ul></dd>
+    <dt>החלטות שמיושמות כאן</dt><dd><ul><li>9: לפחות 10 תווים, בלי חובת אותיות ומספרים, כל תו מותר</li><li>10: מין ההורה לא חובה</li><li>19: אישור תנאי שימוש ופרטיות</li><li>20: אין שדה טלפון</li><li>21: שדות הילד חובה רק כשנבחר "יש לנו ילד"</li><li>27: שני שלבים</li></ul></dd>
+    <dt>פתוח</dt><dd><ul><li>האפשרויות בשדות המין (OP-004). ב-select מוצג רק "בחירה"</li><li>בבחירה "בהריון" אין עדיין שדה לתאריך לידה משוער. ייפתח OP חדש</li><li>הנוסחים "כדי שהתוכן יתאים למסע" ו"עוד רגע מסיימים" זמניים</li></ul></dd>
+  </dl>
+</aside></div>
+</section>
+  
+<section class="screen-block" id="register-pro" aria-labelledby="register-pro-title">
+  <h2 id="register-pro-title">הרשמה מקצועית<small>PG-006</small></h2>
+  <div class="wrap"><div class="phones"><div><div class="phone">
+<main class="form-screen" aria-labelledby="p1-h">
+  <div class="form-top"><button class="icon-btn" type="button" aria-label="חזרה"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-back"/></svg></button>
+  <div class="steps"><span class="steps-label">שלב 1 מתוך 2</span><div class="steps-bar" aria-hidden="true"><span class="on"></span><span></span></div></div></div>
+  <h1 id="p1-h">פרטים מקצועיים</h1>
+  <p class="sub">כך יכירו אותך בקהילה.</p>
+  <form onsubmit="return false">
+    <div class="field"><label for="p-name">שם מלא</label><input class="input" id="p-name" value="מיכל אורן" autocomplete="name"></div>
+    <div class="field"><label for="p-biz">שם עסק <span class="opt-mark">(לא חובה)</span></label><input class="input" id="p-biz" value="שינה טובה" autocomplete="organization"></div>
+    <div class="field"><label for="p-gender">מין</label><div class="select-wrap"><select class="select" id="p-gender"><option>בחירה</option></select><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chevron"/></svg></div></div>
+    <div class="field"><label for="p-prof">תחום או מקצוע</label><input class="input" id="p-prof" list="profs" value="ייעוץ שינה" aria-describedby="p-prof-h"><datalist id="profs"><option value="ייעוץ שינה"></option></datalist><p class="hint" id="p-prof-h">אפשר לבחור מהרשימה או להקליד.</p></div>
+    <div class="field"><label for="p-years">שנות ניסיון</label><input class="input" id="p-years" inputmode="numeric" value="6" style="max-width:120px"></div>
+    <div class="form-actions"><button class="btn btn-primary btn-lg" type="submit">המשך</button></div>
+  </form>
+</main></div><p class="phone-cap">הרשמה מקצועית, שלב 1. שלב 2 זהה להרשמה הרגילה</p></div></div>
+<aside class="box notes" aria-label="הערות">
+  <dl>
+    <dt>מקור</dt><dd>PG-006, PG-007 · <a href="../sketches/sk-57-1-register-pro.jpeg">סקיצה 57(1)</a></dd>
+    <dt>נשמר מהסקיצה</dt><dd><ul><li>שם, מין, תחום או מקצוע (בחירה או הקלדה), ותק</li><li>שני שלבים</li></ul></dd>
+    <dt>חודד, ולמה</dt><dd><ul><li>"שם עסק" כשדה נפרד</li><li>שדה התחום משלב רשימה והקלדה חופשית, כמו בסקיצה</li><li>שלב 2 זהה להרשמה הרגילה</li></ul></dd>
+    <dt>החלטות שמיושמות כאן</dt><dd><ul><li>11: בלי תאריך לידה</li><li>22: "מספר עוסק/ח.פ" עובר לתהליך האימות (OP-005)</li><li>23: כלל סיסמה אחד</li><li>24: "שם עסק" לא חובה</li><li>20: אין טלפון</li></ul></dd>
+    <dt>פתוח</dt><dd><ul><li>רשימת התחומים לא מוגדרת ב-SRS</li><li>האם שדה המין חובה בחשבון מקצועי, והאפשרויות שלו (OP-004)</li></ul></dd>
+  </dl>
+</aside></div>
+</section>
+  
+<section class="screen-block" id="feed" aria-labelledby="feed-title">
+  <h2 id="feed-title">Feed<small>PG-008</small></h2>
+  <div class="wrap"><div class="phones"><div><div class="phone">
+
+<header class="topbar">
+  <button class="icon-btn" type="button" aria-label="פתיחת התפריט"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-menu"/></svg></button>
+  <a class="logo" href="#" aria-label="Nestly, לפיד"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg><span aria-hidden="true">Nestly</span></a>
+  <button class="search-pill" type="button"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-search"/></svg><span>חיפוש</span></button>
+  <button class="icon-btn" type="button" aria-label="צ'אט, 2 שיחות שלא נקראו"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="badge" aria-hidden="true"><span dir="ltr">2</span></span></button>
+  <button class="icon-btn" type="button" aria-label="התראות, 3 חדשות"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bell"/></svg><span class="badge" aria-hidden="true"><span dir="ltr">3</span></span></button>
+</header>
+<main class="screen" aria-labelledby="feed-h">
+  <h1 id="feed-h" class="sr-only">פיד</h1>
+  <div class="card composer"><span class="avatar" aria-hidden="true">נר</span><button class="composer-btn" type="button">רוצים לשתף או לשאול משהו?</button></div>
+  <div class="feed" role="feed" aria-busy="true" aria-labelledby="feed-h">
+    
+<article class="card post" aria-labelledby="fp1" aria-posinset="1" aria-setsize="-1">
+  <header class="post-head">
+    <span class="avatar" aria-hidden="true">מל</span>
+    <div class="post-meta"><p class="post-author" id="fp1">מאיה ל.</p><p class="post-ctx">לילות רגועים · לפני 3 שעות</p></div>
+    <button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+  </header>
+  <p class="post-body" dir="auto">אחרי שבוע של שגרת השכבה קבועה, הקטנה נרדמת לבד תוך עשר דקות. מה עבד אצלכם בגיל ארבעה חודשים?</p>
+  <footer class="post-foot">
+    <button class="react" type="button" aria-pressed="false"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-heart"/></svg><span>חיבוק</span><span class="count">24</span></button>
+    <a class="quiet-link" href="#">8 תגובות</a>
+  </footer>
+</article>
+    
+<article class="card post" aria-labelledby="fp2" aria-posinset="2" aria-setsize="-1">
+  <header class="post-head">
+    <span class="avatar anon" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-user"/></svg></span>
+    <div class="post-meta"><p class="post-author" id="fp2">פוסט אנונימי</p><p class="post-ctx">בפיד · לפני 5 שעות</p></div>
+    <button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+  </header>
+  <p class="post-body" dir="auto">מתחילים טיפולים בחודש הבא. יש כאן מי שמוכנים לשתף איך שמרו על שגרה בעבודה?</p>
+  <footer class="post-foot">
+    <button class="react" type="button" aria-pressed="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-heart"/></svg><span>חיבוק</span><span class="count">41</span></button>
+    <a class="quiet-link" href="#">15 תגובות</a>
+  </footer>
+</article>
+    <article class="card post" aria-labelledby="fp3" aria-posinset="3" aria-setsize="-1">
+      <header class="post-head"><span class="avatar" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span><div class="post-meta"><p class="post-author" id="fp3">קן טקסטיל</p><p class="post-ctx"><span class="tag">ממומן</span></p></div><button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button></header>
+      <p class="post-body" dir="auto">שמיכות מוסלין נושמות לעונת המעבר, במארז של שלוש.</p>
+      <div class="media" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></div>
+      <a class="btn btn-soft btn-block" href="#" style="margin-top:12px">לפרטים</a>
+    </article>
+    <div class="card skeleton" aria-hidden="true">
+      <div class="sk-row"><span class="sk" style="width:40px;height:40px;border-radius:999px"></span><span style="flex:1"><span class="sk" style="display:block;width:40%;height:12px;margin-bottom:8px"></span><span class="sk" style="display:block;width:25%;height:10px"></span></span></div>
+      <span class="sk" style="display:block;height:12px;margin-top:16px"></span><span class="sk" style="display:block;width:80%;height:12px;margin-top:10px"></span>
+    </div>
+  </div>
+  <p class="sr-only" aria-live="polite">נטענו עוד פוסטים</p>
+</main>
+<button class="totop" type="button"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-up"/></svg>חזרה למעלה</button>
+
+<nav class="bottomnav" aria-label="ניווט ראשי">
+  <ul><li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-home"/></svg></span>בית</a></li><li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bag"/></svg></span>חנות</a></li><li><a href="#" aria-current="page"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span>פיד</a></li><li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-spark"/></svg></span>יועצים</a></li><li><a href="#"><span class="pill"><span class="mini-avatar" aria-hidden="true">נר</span></span>פרופיל</a></li></ul>
+</nav></div><p class="phone-cap">אחרי גלילה: "חזרה למעלה" וטעינה בתחתית</p></div><div><div class="phone">
+
+<header class="topbar">
+  <button class="icon-btn" type="button" aria-label="פתיחת התפריט"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-menu"/></svg></button>
+  <a class="logo" href="#" aria-label="Nestly, לפיד"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg><span aria-hidden="true">Nestly</span></a>
+  <button class="search-pill" type="button"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-search"/></svg><span>חיפוש</span></button>
+  <button class="icon-btn" type="button" aria-label="צ'אט, 2 שיחות שלא נקראו"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="badge" aria-hidden="true"><span dir="ltr">2</span></span></button>
+  <button class="icon-btn" type="button" aria-label="התראות, 3 חדשות"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bell"/></svg><span class="badge" aria-hidden="true"><span dir="ltr">3</span></span></button>
+</header>
+<main class="screen" aria-labelledby="feed-h-b">
+  <h1 id="feed-h-b" class="sr-only">פיד</h1>
+  <div class="card composer"><span class="avatar" aria-hidden="true">נר</span><button class="composer-btn" type="button">רוצים לשתף או לשאול משהו?</button></div>
+  <div class="feed" role="feed" aria-busy="true" aria-labelledby="feed-h-b">
+    
+<article class="card post" aria-labelledby="fp1-b" aria-posinset="1" aria-setsize="-1">
+  <header class="post-head">
+    <span class="avatar" aria-hidden="true">מל</span>
+    <div class="post-meta"><p class="post-author" id="fp1-b">מאיה ל.</p><p class="post-ctx">לילות רגועים · לפני 3 שעות</p></div>
+    <button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+  </header>
+  <p class="post-body" dir="auto">אחרי שבוע של שגרת השכבה קבועה, הקטנה נרדמת לבד תוך עשר דקות. מה עבד אצלכם בגיל ארבעה חודשים?</p>
+  <footer class="post-foot">
+    <button class="react" type="button" aria-pressed="false"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-heart"/></svg><span>חיבוק</span><span class="count">24</span></button>
+    <a class="quiet-link" href="#">8 תגובות</a>
+  </footer>
+</article>
+    
+<article class="card post" aria-labelledby="fp2-b" aria-posinset="2" aria-setsize="-1">
+  <header class="post-head">
+    <span class="avatar anon" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-user"/></svg></span>
+    <div class="post-meta"><p class="post-author" id="fp2-b">פוסט אנונימי</p><p class="post-ctx">בפיד · לפני 5 שעות</p></div>
+    <button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+  </header>
+  <p class="post-body" dir="auto">מתחילים טיפולים בחודש הבא. יש כאן מי שמוכנים לשתף איך שמרו על שגרה בעבודה?</p>
+  <footer class="post-foot">
+    <button class="react" type="button" aria-pressed="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-heart"/></svg><span>חיבוק</span><span class="count">41</span></button>
+    <a class="quiet-link" href="#">15 תגובות</a>
+  </footer>
+</article>
+    <article class="card post" aria-labelledby="fp3-b" aria-posinset="3" aria-setsize="-1">
+      <header class="post-head"><span class="avatar" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span><div class="post-meta"><p class="post-author" id="fp3-b">קן טקסטיל</p><p class="post-ctx"><span class="tag">ממומן</span></p></div><button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button></header>
+      <p class="post-body" dir="auto">שמיכות מוסלין נושמות לעונת המעבר, במארז של שלוש.</p>
+      <div class="media" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></div>
+      <a class="btn btn-soft btn-block" href="#" style="margin-top:12px">לפרטים</a>
+    </article>
+    <div class="card skeleton" aria-hidden="true">
+      <div class="sk-row"><span class="sk" style="width:40px;height:40px;border-radius:999px"></span><span style="flex:1"><span class="sk" style="display:block;width:40%;height:12px;margin-bottom:8px"></span><span class="sk" style="display:block;width:25%;height:10px"></span></span></div>
+      <span class="sk" style="display:block;height:12px;margin-top:16px"></span><span class="sk" style="display:block;width:80%;height:12px;margin-top:10px"></span>
+    </div>
+  </div>
+  <p class="sr-only" aria-live="polite">נטענו עוד פוסטים</p>
+</main>
+
+
+<nav class="bottomnav" aria-label="ניווט ראשי">
+  <ul><li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-home"/></svg></span>בית</a></li><li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bag"/></svg></span>חנות</a></li><li><a href="#" aria-current="page"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span>פיד</a></li><li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-spark"/></svg></span>יועצים</a></li><li><a href="#"><span class="pill"><span class="mini-avatar" aria-hidden="true">נר</span></span>פרופיל</a></li></ul>
+</nav>
+<div class="scrim" aria-hidden="true"></div>
+<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sh-h">
+  <div class="grabber" aria-hidden="true"></div>
+  <h2 id="sh-h">פעולות לפוסט של מאיה ל.</h2>
+  <ul>
+    <li><button type="button"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-eyeoff"/></svg>הסתרת הפוסט</button></li>
+    <li><button type="button"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-minus"/></svg>לא מעניין אותי</button></li>
+    <li><button type="button"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-down"/></svg>פחות פוסטים כאלה</button></li>
+    <li><button type="button"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-flag"/></svg>דיווח</button></li>
+  </ul>
+</div></div><p class="phone-cap">תפריט "⋯" פתוח</p></div></div>
+<aside class="box notes" aria-label="הערות">
+  <dl>
+    <dt>מקור</dt><dd>PG-008 · <a href="../sketches/sk-56-1-feed.jpeg">סקיצה 56(1)</a> · <a href="../sketches/sk-56-social-network.jpeg">סקיצה 56</a></dd>
+    <dt>נשמר מהסקיצה</dt><dd><ul><li>Top Bar: ≡, לוגו, חיפוש שנפתח, פעמון</li><li>חמש הלשוניות בסדר המקורי. סמל הלוגו בלשונית הפיד, ותמונת המשתמש בלשונית הפרופיל</li></ul></dd>
+    <dt>חודד, ולמה</dt><dd><ul><li>צ'אט ב-Top Bar, לפי ה-SRS</li><li>תיבת כתיבה בראש הפיד</li><li>בכל פוסט פעולה ראשית אחת ("חיבוק"), קישור שקט לתגובות, ושאר הפעולות תחת "⋯"</li><li>תוכן ממומן מסומן בתג טקסט "ממומן" (VAL-012). הכפתור בו רך, כדי שהממומן לא יבלוט יותר מתוכן הקהילה</li><li>מונים שקטים: רקע פסטל וטקסט כהה</li><li>גלילה אינסופית: skeleton בתחתית, הפיד מסומן aria-busy, והכרזה עדינה לקורא מסך</li><li>כפתור "חזרה למעלה" אחרי גלילה ארוכה</li><li>תפריט "⋯" נפתח במובייל כ-sheet מלמטה (במסגרת הימנית)</li></ul></dd>
+    <dt>החלטות שמיושמות כאן</dt><dd><ul><li>25: "חנות" · "יועצים"</li><li>26: הפיד הוא מסך הנחיתה אחרי התחברות</li><li>פיד: גלילה אינסופית, בלי footer</li></ul></dd>
+    <dt>פתוח</dt><dd><ul><li><b>12: שם ה-Reaction</b>. בתיבה בראש העמוד</li><li>שמות הפעולות ב-"⋯" ("הסתרת הפוסט", "לא מעניין אותי", "פחות פוסטים כאלה", "דיווח") הם הצעה לתרגום של Hide, Not Interested, Show Less ו-Report</li></ul></dd>
+  </dl>
+</aside></div>
+</section>
+  
+<section class="screen-block" id="home" aria-labelledby="home-title">
+  <h2 id="home-title">בית — מעקב ותכנון<small>PG-009</small></h2>
+  <div class="wrap"><div class="phones"><div><div class="phone">
+
+<header class="topbar">
+  <button class="icon-btn" type="button" aria-label="פתיחת התפריט"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-menu"/></svg></button>
+  <a class="logo" href="#" aria-label="Nestly, לפיד"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg><span aria-hidden="true">Nestly</span></a>
+  <button class="search-pill" type="button"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-search"/></svg><span>חיפוש</span></button>
+  <button class="icon-btn" type="button" aria-label="צ'אט, 2 שיחות שלא נקראו"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="badge" aria-hidden="true"><span dir="ltr">2</span></span></button>
+  <button class="icon-btn" type="button" aria-label="התראות, 3 חדשות"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bell"/></svg><span class="badge" aria-hidden="true"><span dir="ltr">3</span></span></button>
+</header>
+<main class="screen" aria-labelledby="home-h">
+  <h1 id="home-h" class="sr-only">בית: מעקב ותכנון</h1>
+  <div class="card ctx">
+    <span class="ctx-photo" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span>
+    <div class="ctx-text"><p class="ctx-name">יואב</p><p class="ctx-age">בן 4 חודשים</p></div>
+    <button class="btn btn-ghost" type="button" aria-haspopup="menu">הוספת מעקב<svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chevron"/></svg></button>
+  </div>
+  <h2 class="sec-h">יומן פעולות</h2>
+  <ul class="tiles"><li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-drop"/></svg></span>הנקה</button></li><li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bottle"/></svg></span>בקבוק</button></li><li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-moon"/></svg></span>שינה</button></li><li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-diaper"/></svg></span>חיתול</button></li><li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-pill"/></svg></span>תרופה</button></li><li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-growth"/></svg></span>גדילה</button></li><li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-shield"/></svg></span>חיסון</button></li><li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bath"/></svg></span>אמבטיה</button></li></ul>
+  <h2 class="sec-h">טיפים ומאמרים</h2>
+  <a class="card article" href="#"><span class="thumb" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-moon"/></svg></span><span><h3>שינה בגיל ארבעה חודשים: מה משתנה</h3><p>קריאה של 4 דקות</p></span></a>
+  <a class="card article" href="#"><span class="thumb" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bottle"/></svg></span><span><h3>הנקה ובקבוק: איך משלבים בלי לחץ</h3><p>קריאה של 6 דקות</p></span></a>
+</main>
+
+<nav class="bottomnav" aria-label="ניווט ראשי">
+  <ul><li><a href="#" aria-current="page"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-home"/></svg></span>בית</a></li><li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bag"/></svg></span>חנות</a></li><li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span>פיד</a></li><li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-spark"/></svg></span>יועצים</a></li><li><a href="#"><span class="pill"><span class="mini-avatar" aria-hidden="true">נר</span></span>פרופיל</a></li></ul>
+</nav></div></div></div>
+<aside class="box notes" aria-label="הערות">
+  <dl>
+    <dt>מקור</dt><dd>PG-009 · <a href="../sketches/sk-56-2-home.jpeg">סקיצה 56(2)</a></dd>
+    <dt>נשמר מהסקיצה</dt><dd><ul><li>כרטיס Context: תמונה, שם וגיל</li><li>"הוספת מעקב" כתפריט נפתח בכרטיס</li><li>"יומן פעולות" עם שמונה סוגי מעקב</li><li>"טיפים ומאמרים"</li></ul></dd>
+    <dt>חודד, ולמה</dt><dd><ul><li>האריחים ברשת 4×2, כולם גלויים, במקום שורה עם חץ גלילה</li><li>טיפים כ-ArticleCards עם זמן קריאה</li><li>החיפוש זהה לזה שבפיד (NFR-USAB-002)</li></ul></dd>
+    <dt>החלטות שמיושמות כאן</dt><dd><ul><li>28: האריח השמיני הוא "אמבטיה", ו-OP-007 נסגר</li></ul></dd>
+    <dt>פתוח</dt><dd><ul><li>מחליף Context למספר ילדים לא מעוצב עד OP-003</li><li>השדות של כל Tracker (OP-008)</li><li>כותרות המאמרים הן דוגמה</li></ul></dd>
+  </dl>
+</aside></div>
+</section>
+</div>
+</body>
+</html>
