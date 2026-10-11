@@ -6,17 +6,40 @@
 import path from "node:path";
 
 // ---- the physical class list: stored once, from the rtl-hebrew skill ("Forbidden", 1) ----
-// ml- mr- pl- pr-, left- right-, text-left/right, rounded-l/r (and the corner forms),
-// border-l/r. The logical twins are ms- me- ps- pe- start- end- text-start/end
-// rounded-s/e rounded-ss/se/es/ee border-s/e.
-export const PHYSICAL_CLASS =
-  /^(?:-?[mp][lr]-|-?(?:left|right)-|text-(?:left|right)$|rounded-(?:[lr]|tl|tr|bl|br)(?:-|$)|border-[lr](?:-|$))/;
+// ml- mr- pl- pr-, left- right-, text-left/right, rounded-l/r (and the corner forms), border-l/r,
+// float- and clear- left/right, scroll-m/p l/r, origin-, object-, bg- left/right positions, translate-x-.
+// The logical twins are ms- me- ps- pe- start- end- text-start/end rounded-s/e border-s/e float-start/end.
+// space-x- is not listed: Tailwind 4 spaces by logical margin, so it already mirrors.
+export const PHYSICAL_CLASS = new RegExp(
+  "^(?:" +
+    [
+      "-?[mp][lr]-",
+      "-?(?:left|right)-",
+      "text-(?:left|right)$",
+      "rounded-(?:[lr]|tl|tr|bl|br)(?:-|$)",
+      "border-[lr](?:-|$)",
+      "(?:float|clear)-(?:left|right)$",
+      "-?scroll-[mp][lr]-",
+      "origin-(?:(?:top|bottom)-)?(?:left|right)$",
+      "(?:object|bg)-(?:(?:top|bottom)-)?(?:left|right)(?:-(?:top|bottom))?$",
+      "-?translate-x-",
+    ].join("|") +
+    ")",
+);
+
+// The same properties written as inline style keys and as CSS declarations.
+const PHYSICAL_STYLE_KEY =
+  /^(?:margin|padding)(?:Left|Right)$|^border(?:Left|Right)(?:Width|Color|Style)?$|^border(?:Top|Bottom)(?:Left|Right)Radius$|^(?:left|right)$/;
+const PHYSICAL_STYLE_VALUE_KEY = /^(?:textAlign|float|clear)$/;
+const PHYSICAL_CSS = /(?<![\w-])(?:(?:margin|padding)-(?:left|right)|border-(?:left|right)(?:-(?:width|color|style))?|border-(?:top|bottom)-(?:left|right)-radius|left|right)\s*:|(?<![\w-])(?:text-align|float|clear)\s*:\s*(?:left|right)\b/;
+const COLOUR_FUNCTION = /(?<![\w-])(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color-mix|color)\(/;
 
 const ARBITRARY_VALUE = /^!?-?[a-z][a-z0-9-]*-\[[^\]]*\]!?$/;
 const ARBITRARY_PROPERTY = /^!?\[[a-z-]+:[^\]]*\]!?$/;
 // Variants that read an attribute, not a value: allowed everywhere (spec Q1).
 const STATE_VARIANT = /^(?:group-|peer-)?(?:data|aria)-/;
-const HEX = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})(?![0-9a-zA-Z_-])/g;
+const HEX = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})(?![0-9a-zA-Z_-])/;
+const COLOUR = new RegExp(`${HEX.source}|${COLOUR_FUNCTION.source}`, "g");
 // A fixture or file with this suffix is a whole .css/.svg file, see textProcessor.
 const TEXT_BLOCK = ".nestlytext";
 
@@ -56,23 +79,13 @@ const rule = (messages, visit) => ({
   },
 });
 
-const noPhysicalDirection = rule(
-  { physical: "'{{ token }}' is a physical direction class. Use the logical one (ms-/me-/ps-/pe-/start-/end-/text-start/rounded-s/border-s)." },
-  (text, report) => {
-    for (const token of text.split(/\s+/)) {
-      const utility = splitTopLevel(token).at(-1).replace(/^!/, "");
-      if (PHYSICAL_CLASS.test(utility)) report("physical", { token });
-    }
-  },
-);
-
 const noArbitraryValue = rule(
   {
     arbitrary: "'{{ token }}' is an arbitrary Tailwind value. Use a token or a scale step.",
     selectorVariant: "'{{ token }}' uses a [&…] selector variant, which is allowed only inside components/ui.",
   },
   (text, report, context) => {
-    const inUi = /[\\/]components[\\/]ui[\\/]/.test(context.filename);
+    const inUi = /apps[\\/]web[\\/]src[\\/]components[\\/]ui[\\/]/.test(context.filename);
     for (const token of text.split(/\s+/)) {
       const parts = splitTopLevel(token);
       const utility = parts.at(-1);
@@ -91,19 +104,75 @@ const lineColumn = (text, index) => {
   return { line: before.length, column: before.at(-1).length };
 };
 
+const wholeFileLoc = (text, index, length) => ({
+  start: lineColumn(text, index),
+  end: lineColumn(text, index + length),
+});
+
+const keyName = (property) =>
+  property.key.type === "Identifier" && !property.computed ? property.key.name
+    : property.key.type === "Literal" ? String(property.key.value) : "";
+
+const noPhysicalDirection = {
+  meta: {
+    type: "problem",
+    schema: [],
+    messages: {
+      physical: "'{{ token }}' is a physical direction class. Use the logical one (ms-/me-/ps-/pe-/start-/end-/text-start/rounded-s/border-s).",
+      styleKey: "The style '{{ token }}' is a physical direction. Use the logical property (marginInlineStart, paddingInlineEnd, insetInlineStart, textAlign: 'start').",
+      css: "'{{ token }}' is a physical direction in CSS. Use the logical property (margin-inline-start, inset-inline-start, text-align: start).",
+    },
+  },
+  create(context) {
+    const wholeFile = context.filename.endsWith(TEXT_BLOCK);
+    const inStyleAttribute = (node) =>
+      context.sourceCode.getAncestors(node).some((a) => a.type === "JSXAttribute" && a.name.name === "style");
+    const strings = (node) => {
+      for (const text of stringsOf(node)) {
+        if (wholeFile) {
+          for (const match of text.matchAll(new RegExp(PHYSICAL_CSS, "g"))) {
+            context.report({ loc: wholeFileLoc(text, match.index, match[0].length), messageId: "css", data: { token: match[0].trim() } });
+          }
+          continue;
+        }
+        for (const token of text.split(/\s+/)) {
+          const utility = splitTopLevel(token).at(-1).replace(/^!/, "");
+          if (PHYSICAL_CLASS.test(utility)) context.report({ node, messageId: "physical", data: { token } });
+        }
+      }
+    };
+    return {
+      Literal: strings,
+      TemplateElement: strings,
+      Property(node) {
+        if (wholeFile || !inStyleAttribute(node)) return;
+        const name = keyName(node);
+        const physicalKey = PHYSICAL_STYLE_KEY.test(name);
+        const physicalValue =
+          PHYSICAL_STYLE_VALUE_KEY.test(name) &&
+          node.value.type === "Literal" &&
+          (node.value.value === "left" || node.value.value === "right");
+        if (physicalKey || physicalValue) {
+          context.report({ node, messageId: "styleKey", data: { token: physicalValue ? name + ": " + node.value.value : name } });
+        }
+      },
+    };
+  },
+};
+
 const noHex = {
   meta: {
     type: "problem",
     schema: [],
-    messages: { hex: "'{{ value }}' is a hex colour outside the token source. Use a semantic token (bg-primary, var(--color-primary))." },
+    messages: { hex: "'{{ value }}' is a literal colour (hex or colour function) outside the token source. Use a semantic token (bg-primary, var(--color-primary))." },
   },
   create(context) {
     const wholeFile = context.filename.endsWith(TEXT_BLOCK);
     const handler = (node) => {
       for (const text of stringsOf(node)) {
-        for (const match of text.matchAll(HEX)) {
+        for (const match of text.matchAll(COLOUR)) {
           const data = { value: match[0] };
-          if (wholeFile) context.report({ loc: { start: lineColumn(text, match.index), end: lineColumn(text, match.index + match[0].length) }, messageId: "hex", data });
+          if (wholeFile) context.report({ loc: wholeFileLoc(text, match.index, match[0].length), messageId: "hex", data });
           else context.report({ node, messageId: "hex", data });
         }
       }

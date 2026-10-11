@@ -26,9 +26,11 @@ function render(t) {
     '   Do not edit. Spec: docs/design/tokens.md. Dark mode is not defined. */',
     '',
     '@theme {',
-    '  --color-*: initial;',
+    // Tailwind's default scales are reset, so only our tokens generate utilities.
+    ...['color', 'font', 'text', 'font-weight', 'radius', 'shadow', 'ease', 'breakpoint'].map((ns) => `  --${ns}-*: initial;`),
   );
   out.push(...lines(Object.entries(t.colors), 'color', (v) => v));
+  block('font weight', lines(Object.entries(t.fontWeights), 'font-weight', String));
   block('typography', [
     `  --font-sans: ${t.fontFamily.sans};`,
     ...Object.entries(t.typeStyles).flatMap(([name, s]) => [

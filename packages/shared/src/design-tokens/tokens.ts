@@ -44,6 +44,9 @@ export const fontFamily = {
   sans: '"Rubik Variable", system-ui, sans-serif',
 } as const;
 
+// Weights in the UI: 500 for actions, 600 for headings and the active state, no 700 or more.
+export const fontWeights = { normal: 400, medium: 500, semibold: 600 } as const;
+
 // Sizes and line heights in px; the generator converts to rem. Minimum 13px.
 export const typeStyles = {
   display: { size: 34, line: 42, weight: 600 },

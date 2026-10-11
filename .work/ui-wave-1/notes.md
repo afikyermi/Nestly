@@ -139,3 +139,30 @@ Known not to work yet: no components, no Storybook gallery (part b).
 - `apps/server` vitest failed once under the parallel `npm run ci` (see Uncertain); worth watching, may be a timeout.
 - `.gitkeep` files remain in `components/shared`, `components/layout`, `components/domain`, `assets` (removed only where a
   real file now sits).
+
+---
+## Round 2 (after CRITIC and TEST ENGINEER on part a)
+
+- **HIGH, plugin name clash.** `eslint.config.mjs` builds one `nestly` plugin object (boundaries rule + design rules +
+  the `text` processor) and uses it in every block. Proved with a temporary file under `apps/web/src/features/`: it
+  lints, and reports `no-radix-outside-ui`, physical classes and so on. File deleted.
+- **Finding 1.** The generator resets `--color-* --font-* --text-* --font-weight-* --radius-* --shadow-* --ease-*
+  --breakpoint-*`. New source export `fontWeights` (normal 400, medium 500, semibold 600), generated as
+  `--font-weight-*`. `--font-*` is reset too (Tailwind's serif and mono stacks), which was not asked for. Proof: a
+  temporary file with `text-xs font-bold shadow-lg rounded-2xl xl:p-4 ease-in bg-red-500` generated no CSS for any of
+  them; `text-body font-semibold shadow-card rounded-lg lg:p-4` did. Note for TEST ENGINEER: the token-completeness
+  test (criterion 7) must now allow `fontWeights`, a new export.
+- **Finding 2.** `PHYSICAL_CLASS` (still stored once) adds float-, clear-, scroll-m/p l/r, origin-, object-, bg- left/right
+  positions and translate-x-. `space-x-` is left alone, as instructed (Tailwind 4 uses logical margin). New: style keys
+  in a JSX `style` attribute (marginLeft, paddingRight, borderLeftWidth, left, right, corner radii) and the values
+  `left`/`right` of `textAlign`, `float`, `clear`; CSS declarations in `.css`/`.svg` through the processor (margin-left,
+  padding-right, left:, right:, border-*-left, text-align/float/clear). Keys named `left` outside a `style` attribute are
+  not flagged. `rtl-hebrew` skill updated to 1.2.
+- **LOW 5.** Colour functions (`rgb( hsl( hwb( lab( lch( oklab( oklch( color-mix( color(`) count as hex, same exemptions.
+  The message text now says "literal colour".
+- **LOW 6.** `engines.node` `>=22.18`, `.nvmrc` `22.18`, lockfile root entry updated.
+- **LOW 7.** `fonts.css` uses `@fontsource-variable/rubik/files/…`; the build still bundles exactly the two woff2.
+- **LOW 8.** The `[&…]` exemption is anchored on `apps/web/src/components/ui/`; the Radix rule also covers
+  `apps/web/.storybook/**/*.{ts,tsx}` (config checked with `calculateConfigForFile`; that folder is in no tsconfig yet,
+  part b must add it).
+- Finding 4 is debt, not fixed. `tools/_probe.mjs` was not mine and does not exist in my tree.

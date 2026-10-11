@@ -3,6 +3,13 @@
 
 @theme {
   --color-*: initial;
+  --font-*: initial;
+  --text-*: initial;
+  --font-weight-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --ease-*: initial;
+  --breakpoint-*: initial;
   --color-background: #FFF8F2;
   --color-foreground: #3B2F2A;
   --color-card: #FFFFFF;
@@ -30,6 +37,11 @@
   --color-ring: #B5502C;
   --color-badge: #FDE6D8;
   --color-badge-foreground: #8F3E21;
+
+  /* font weight */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
 
   /* typography */
   --font-sans: "Rubik Variable", system-ui, sans-serif;
