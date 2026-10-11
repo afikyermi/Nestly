@@ -108,7 +108,7 @@ Pick one per unit of work. When in doubt, go up a level, never down.
 |---|---|---|
 | **Light** | no schema change · no authz · no unauthenticated endpoint or new external surface · no new dependency · under ~30 lines | BUILDER → CI |
 | **Standard** | default | SPEC → BUILDER → CI → CRITIC + TEST ENGINEER |
-| **Elevated** | any risk flag below is true | + DATA ARCHITECT · CRITIC on opus · Afik reviews before merge |
+| **Elevated** | any risk flag below is true | + DATA ARCHITECT · CRITIC on opus. The protection is the reviewers, CI and hooks — Afik approves Gate 1, Gate 2 (a plain-language /gate summary) and the Preview, not the diff |
 | **Bug fix** | merged code behaves differently from the SRS or an approved spec | `bug.md` → TEST ENGINEER (failing test first) → BUILDER → CI → CRITIC unless Light-sized. risk flags still apply — see `.claude/workflow.md` |
 
 ### Risk flags — binary, any one is enough
@@ -154,6 +154,11 @@ Exactly two in the Standard path. Protect them; Afik's attention is the scarcest
 Gate 2 exists only where the *how* is expensive and hard to reverse: `schema.md` from
 DATA ARCHITECT covers migrations, irreversible changes and external providers. For ordinary
 code the diff is the plan.
+
+Afik does not review diffs, on any path. In the Elevated path the protection is CRITIC on opus,
+DATA ARCHITECT, CI and the hooks; Afik approves Gate 1, Gate 2 and the Preview. Gate 2 reaches him as a
+plain-language `/gate` page: what data is stored, who can see it, what can and cannot be undone. An
+irreversible or destructive change still needs his explicit approval (Mandatory reviews).
 
 ---
 

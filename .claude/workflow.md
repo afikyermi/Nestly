@@ -1,6 +1,6 @@
 # Workflow — canonical pipeline
 
-**Version:** 1.3
+**Version:** 1.4
 **Status:** the single source of truth for sequence, triggers and who enters when.
 Agent definitions describe professions. **This file describes order.** If they disagree, this file wins.
 
@@ -70,8 +70,9 @@ If any condition fails mid-work, stop and re-enter the Standard path. Do not fin
 
 ## Elevated path
 
-Standard, plus: DATA ARCHITECT always · CRITIC on opus · Afik reviews the diff before merge,
-not only the preview.
+Standard, plus: DATA ARCHITECT always · CRITIC on opus. Afik approves Gate 1, Gate 2 and the
+Preview — not the diff. Gate 2 is presented through `/gate` in plain language. An irreversible or
+destructive change still needs his explicit approval (CLAUDE.md → Mandatory reviews).
 
 Entry condition: any risk flag in `CLAUDE.md`.
 
@@ -85,7 +86,7 @@ A defect in merged code: behaviour differs from what the SRS, or an approved `sp
 | 2 | **TEST ENGINEER** | a regression test derived from `bug.md` only — never the code. it must fail on the current code; a test that passes does not reproduce the bug | failing test |
 | 3 | **BUILDER** | the smallest change that fixes the root cause. no refactoring beyond it | diff + `notes.md` |
 | 4 | **CI** | the new test passes and nothing else turned red | green build |
-| 5 | **CRITIC** | review the diff cold. skipped only when the fix meets every Light-path condition. any risk flag → Elevated: CRITIC on opus, Afik reviews the diff | verdict |
+| 5 | **CRITIC** | review the diff cold. skipped only when the fix meets every Light-path condition. any risk flag → Elevated: CRITIC on opus, and DATA ARCHITECT when the fix touches data | verdict |
 | 6 | **Afik** | ✋ **Preview** — only if the fix is user-visible | go / no-go |
 | 7 | ORCHESTRATOR | merge, `result.md`, step 14 if behaviour the SRS describes changed | `result.md` |
 
@@ -252,3 +253,6 @@ usually the spec was too large and should have been split.
 - 1.3 — 2026-10-11 — `intake.md` artifact, written by `/feature` at step 2 · the Accessibility domain names the
   craft skills. Process skills in `.claude/skills/` carry out these steps; this file still defines them.
   Decided by Afik (skills decision). Provisional until 5 features.
+- 1.4 — 2026-10-11 — Elevated: Afik no longer reviews the diff; the protection is CRITIC on opus, DATA ARCHITECT, CI and
+  hooks. Gate 2 reaches him as a plain-language /gate page; irreversible changes still need his approval.
+  Decided by Afik. Design-time change.

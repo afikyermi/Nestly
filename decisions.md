@@ -580,6 +580,64 @@ YYYY-MM-DD | <decision in one line>
                 fields of the bath tracker stay open under OP-008, like every tracker except breastfeeding.
   decided by:   Afik (11.10.2026, "אמבטיה")
 
+2026-10-11 | D7 closed: the product is built in 15 initiatives; the MVP is I1–I9
+  supersedes:   2026-10-10 "First initiative deferred (D7)". Its condition stands: CI and the hooks exist before the
+                first feature runs.
+  roadmap:      ordered by dependency (SRS §17, §13, §3 and the authorization layers in data-model.md).
+                MVP — I1 accounts and access (Regular) · I2 profile, privacy and Friends · I3 community feed · I4 safety
+                and admin core · I5 media (images) · I6 home and tracking · I7 notifications and search · I8 chat and
+                Support · I9 launch readiness. After launch — I10 groups · I11 professionals and services · I12
+                Marketplace · I13 monetization · I14 Moderator team · I15 personalization and intelligence. About 77
+                features: 45 in the MVP. Every FR and PG is assigned. The table lives in WORKPLAN part 8.
+  mvp:          Regular accounts only · bottom navigation with three destinations (בית, פיד, פרופיל); חנות and יועצים
+                are added when they are built · feed with text and images, comments and replies, one Reaction,
+                anonymous posts and a basic ranking (authorization first, recency, stage — a subset of FR-ALG-002,
+                designed by ALGORITHM & DATA) · images in posts and a profile photo, no video · home with the context
+                card, breastfeeding and the trackers whose fields are defined, static tips written and reviewed by Afik
+                · in-app notifications · People and Posts search with the enumeration protections · 1:1 text chat by
+                polling: Friends, chat requests, Chat Block, Support Thread (OP-011: text only) · moderation by the
+                Admin alone, with the audit log from day one · a closed beta with an invite list before an open
+                launch.
+  required:     reports on posts, comments, images and users, with a dedicated reason for an inappropriate image of a
+                child · a moderation queue, content and image removal, warn/suspend/ban checked in RLS · private
+                images behind short-lived signed URLs, EXIF and GPS stripped on upload · Terms of Use and Privacy
+                Policy drafted by Claude from SRS §13.2 and §13.4 and reviewed by a lawyer before launch · consent at
+                sign-up with its version · retention per data class, images included · manual export and deletion
+                through Support · users 18 and over · community rules, including the policy on images of minors ·
+                WCAG 2.2 AA, an accessibility statement, alt text for images.
+  initiative 1: seven features — identity-platform, app-shell-guard, register-profile-step, register-account-create,
+                login-session, password-recovery, auth-email-delivery. Scope: .work/_initiatives/I1-accounts-access.md.
+  decided for I1: parent gender — אישה, גבר, אחר, מעדיפים לא לציין; child — בן, בת, עוד לא ידוע (OP-004) · an optional
+                due date for the "בהריון" choice · password recovery by email (FR-AUTH-003) · email verification
+                required before the first sign-in · the auth email provider is chosen in F1.7, reviewed by CRITIC ·
+                users are 18 or over.
+  before 9.7:   hosting for web and server, and the Preview environment — WORKPLAN 7.4.
+  pending:      the media decisions M1–M6 (storage provider, formats and limits, policy for images of minors, EXIF
+                stripping, hash scanning, retention) are decided before I5. A budget for the legal review is planned
+                before I9.
+  storage:      status in WORKPLAN part 8 · approved scope per initiative in .work/_initiatives/, written when each is
+                approved · the MVP definition goes to SRS §2.5, §16 and Appendix B in batch 2.9 · no other status file.
+  alternatives: professionals, groups or a Moderator team at launch · text-only posts at launch (Afik chose images) ·
+                five bottom-navigation tabs with empty destinations · a "load more" feed (rejected earlier)
+  decided by:   Afik (11.10.2026, "מאשר את התוכנית, עם השינויים הבאים" — 5: "מדיה נכנסת ל-MVP"; 12: "לפי ההמלצה"
+                with a reminder for the legal-review budget before launch readiness; 20: "להחליט מוקדם, לפני 9.7";
+                "כל השאר: לפי ההמלצה")
+
+2026-10-11 | Elevated path: Afik approves gates, not diffs
+  updates:      the path table in CLAUDE.md and workflow.md "Elevated path" (model of 2026-09-12): "Afik reviews the
+                diff before merge" is removed. Extends 2026-09-12 "Gate 2 is scoped by risk, not applied to every
+                feature".
+  rule:         in the Elevated path the protection is CRITIC on opus, DATA ARCHITECT, CI and the hooks. Afik approves
+                Gate 1, Gate 2 and the Preview. Gate 2 reaches him as a plain-language /gate page — what data is
+                stored, who can see it, what can and cannot be undone, any external provider — with no SQL. An
+                irreversible or destructive change still needs his explicit approval (Mandatory reviews). No Elevated
+                feature runs before WORKPLAN 7.1 (CI) and 7.2 (hooks) are active.
+  why:          Afik does not read code. A diff review by him would be a gate in name only, and would cost his
+                attention without protecting anything.
+  alternatives: keep the diff review · add an independent second reviewer agent
+  status:       design-time change by Afik (learning.md §9 — a human gate changes only by his deliberate decision).
+  decided by:   Afik (11.10.2026, "ביקורת diff שלי לפני כל merge לא נותנת הגנה אמיתית")
+
 ---
 
 ## Pending — not yet decided
@@ -587,7 +645,10 @@ YYYY-MM-DD | <decision in one line>
 ~~**Type checking via JSDoc.**~~ **Closed 2026-10-11** — superseded by the decision to write all product
 code in TypeScript (entry "Rule 0 reopened").
 
-**First initiative.** Deferred by Afik (D7, 10.10.2026) until a structured plan is made.
+~~**First initiative.**~~ **Closed 2026-10-11** — the roadmap and the MVP are decided (entry "D7 closed").
+
+**Media decisions M1–M6.** Before I5 — storage provider, formats and limits, policy for images of minors, EXIF
+stripping, hash scanning, retention (entry "D7 closed").
 
 **Design choices at the review rounds.** The Reaction's name at R2. Palette, font, desktop layout and the eighth
 tracker tile were decided on 11.10.2026 (entries "R1" and "The eighth tracker tile").

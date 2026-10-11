@@ -7,8 +7,9 @@ argument-hint: <1|2|preview> <slug>
 
 # /gate — one page for one decision
 
-**Version:** 1.0 · the gates are defined in `CLAUDE.md` → "Human gates". Afik's attention is the scarcest
-resource here: one page, and an answer he can give in one line.
+**Version:** 1.1 · the gates are defined in `CLAUDE.md` → "Human gates". Afik's attention is the scarcest
+resource here: one page, and an answer he can give in one line. Afik does not read code or SQL: every page is in
+plain language.
 
 ## Input
 
@@ -22,8 +23,10 @@ resource here: one page, and an answer he can give in one line.
    - Preview: the `synthesize` outcome, `findings.md`, `notes.md` (its Preview path; Afik may read notes — only
      CRITIC may not), and the evidence so far.
 2. **Write the page, in Hebrew:**
-   - **מה מאושר** — Gate 1: scope, out of scope, the acceptance criteria with their SRS IDs. Gate 2: the change,
-     the rollback, whether it is reversible. Preview: what was built, and the clicks to verify it.
+   - **מה מאושר** — Gate 1: scope, out of scope, the acceptance criteria with their SRS IDs. Gate 2, in plain
+     language with no SQL and no table names: what data is stored, who can see it, what can and cannot be undone,
+     and any external provider — the technical detail stays in `schema.md` for CRITIC and DATA ARCHITECT.
+     Preview: what was built, and the clicks to verify it.
    - **סיכונים** — the risk flags that apply, and anything irreversible, stated plainly.
    - **פתוח** — every open `DECISION REQUEST` and any SPEC CHALLENGE, each with its options.
    - **מחלוקות** — each in the `Agreement / Disagreement / Reason / Evidence / Materiality` format.
@@ -42,3 +45,5 @@ The page fits one screen, every item cites its artifact, and the one-line answer
 
 ## Changelog
 - 1.0 — 2026-10-11 — created (Afik's skills decision). Provisional until 5 features.
+- 1.1 — 2026-10-11 — Gate 2 in plain language: Afik approves gates, not diffs (decision "Elevated path: Afik
+  approves gates, not diffs").
