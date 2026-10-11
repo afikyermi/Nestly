@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>R1 — כיווני צבע וגופן · Nestly</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700&family=Fredoka:wght@400;500;600&family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:#F3F1EE;color:#2B2724;font-family:'Assistant',system-ui,sans-serif;font-size:17px;line-height:1.65}
+.ic{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.page{max-width:1240px;margin-inline:auto;padding:24px 16px 48px}
+.page-head h1{font-size:28px;line-height:36px;margin:0 0 8px}
+.page-head p{margin:0 0 8px;max-width:760px}
+.how{background:#fff;border-radius:16px;padding:16px 20px;margin:16px 0 24px;box-shadow:0 1px 2px rgb(0 0 0 / .04),0 4px 16px rgb(0 0 0 / .05)}
+.how h2{font-size:20px;line-height:28px;margin:0 0 4px}
+.how ul{margin:0;padding-inline-start:20px}
+a{color:inherit}
+
+/* ===== themed scope ===== */
+.theme{background:var(--bg);color:var(--text);font-family:var(--font-body),system-ui,sans-serif}
+.theme :focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.theme h1,.theme h2,.theme h3,.theme h4{font-family:var(--font-head),system-ui,sans-serif}
+.card{background:var(--surface);border-radius:16px;box-shadow:0 1px 2px rgb(var(--shadow) / .05),0 4px 16px rgb(var(--shadow) / .07)}
+.icon-btn{position:relative;display:inline-grid;place-items:center;width:44px;height:44px;border:0;border-radius:12px;background:transparent;color:var(--text);cursor:pointer;flex:none}
+.icon-btn:hover{background:var(--smuted)}
+.badge{position:absolute;inset-block-start:3px;inset-inline-end:1px;min-width:20px;height:20px;padding-inline:5px;border-radius:999px;background:var(--soft);color:var(--strong);font-size:13px;line-height:20px;font-weight:600;font-variant-numeric:tabular-nums;text-align:center}
+.avatar{display:inline-grid;place-items:center;width:40px;height:40px;border-radius:999px;background:var(--soft);color:var(--strong);font-size:15px;font-weight:600;flex:none}
+.avatar.anon{background:var(--smuted);color:var(--muted)}
+.logo{display:inline-flex;align-items:center;gap:4px;color:var(--strong);font-family:var(--font-head),sans-serif;font-weight:600;font-size:20px;line-height:1;text-decoration:none;padding-inline:4px}
+.logo .ic{width:26px;height:26px}
+
+/* top bar */
+.topbar{display:flex;align-items:center;gap:2px;padding:6px 6px;background:var(--surface);box-shadow:0 1px 0 var(--divider),0 2px 10px rgb(var(--shadow) / .04)}
+.search-pill{flex:1;min-width:0;display:flex;align-items:center;gap:6px;height:40px;margin-inline:6px;padding-inline:12px;border:0;border-radius:999px;background:var(--smuted);color:var(--muted);font:inherit;font-size:15px;cursor:pointer;text-align:start}
+.search-pill .ic{width:20px;height:20px}
+
+/* feed */
+.screen{display:flex;flex-direction:column;gap:12px;padding:12px}
+.composer{display:flex;align-items:center;gap:10px;padding:12px}
+.composer-btn{flex:1;min-width:0;height:44px;padding-inline:16px;border:0;border-radius:999px;background:var(--smuted);color:var(--muted);font:inherit;font-size:15px;text-align:start;cursor:pointer}
+.post{padding:16px}
+.post-head{display:flex;align-items:center;gap:10px}
+.post-meta{flex:1;min-width:0}
+.post-author{margin:0;font-weight:600;font-size:16px;line-height:22px}
+.post-ctx{margin:0;color:var(--muted);font-size:13px;line-height:20px}
+.post-body{margin:10px 0 0;font-size:17px;line-height:28px}
+.post-foot{display:flex;align-items:center;justify-content:space-between;margin-top:14px}
+.react{display:inline-flex;align-items:center;gap:6px;height:40px;padding-inline:14px;border:0;border-radius:999px;background:var(--soft);color:var(--strong);font:inherit;font-size:15px;font-weight:600;cursor:pointer}
+.react .ic{width:20px;height:20px}
+.react[aria-pressed="true"] .ic{fill:currentColor}
+.react .count{font-variant-numeric:tabular-nums;font-weight:500}
+.quiet-link{color:var(--muted);font-size:15px;text-decoration:none;padding:8px 4px;border-radius:8px}
+.quiet-link:hover{text-decoration:underline}
+.tag{display:inline-block;padding:0 8px;border-radius:8px;background:var(--smuted);color:var(--muted);font-size:13px;line-height:22px;font-weight:600}
+.media{margin-top:12px;height:140px;border-radius:12px;background:linear-gradient(135deg,var(--soft),var(--accent));display:grid;place-items:center;color:var(--strong)}
+.media .ic{width:64px;height:64px;opacity:.5;stroke-width:1.25}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding-inline:20px;border-radius:12px;border:0;font:inherit;font-size:16px;font-weight:600;cursor:pointer}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--strong)}
+.btn-soft{background:var(--soft);color:var(--strong)}
+.btn-ghost{background:transparent;color:var(--strong);padding-inline:10px;font-size:15px}
+.btn-ghost:hover{background:var(--smuted)}
+.btn-block{width:100%;margin-top:12px}
+
+/* bottom nav */
+.bottomnav ul{display:flex;margin:0;padding:6px 4px 8px;list-style:none;background:var(--surface);box-shadow:0 -1px 0 var(--divider),0 -2px 10px rgb(var(--shadow) / .04)}
+.bottomnav li{flex:1;min-width:0}
+.bottomnav a{display:flex;flex-direction:column;align-items:center;gap:2px;min-height:56px;padding-top:4px;color:var(--muted);text-decoration:none;font-size:13px;line-height:18px;border-radius:12px;text-align:center}
+.bottomnav .pill{display:grid;place-items:center;width:56px;height:30px;border-radius:999px}
+.bottomnav a[aria-current="page"]{color:var(--strong);font-weight:600}
+.bottomnav a[aria-current="page"] .pill{background:var(--soft)}
+.mini-avatar{width:24px;height:24px;border-radius:999px;background:var(--accent);display:grid;place-items:center;font-size:11px;font-weight:600;color:var(--text)}
+
+.dirs{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px;align-items:start}
+.dir{border-radius:24px;padding:16px;display:flex;flex-direction:column;gap:16px}
+.dir-head{padding:4px 4px 0}
+.dir-letter{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:999px;background:var(--primary);color:#fff;font-weight:700;font-size:18px;margin:0 0 6px}
+.dir-head h2{margin:0;font-size:24px;line-height:32px}
+.dir-font{margin:0;color:var(--muted);font-size:15px}
+.phone{width:100%;max-width:375px;margin-inline:auto;border-radius:28px;overflow:hidden;background:var(--bg);box-shadow:0 0 0 1px rgb(var(--shadow) / .08),0 12px 40px rgb(var(--shadow) / .14)}
+.panel{padding:16px}
+.panel h3{margin:0 0 12px;font-size:20px;line-height:28px}
+.field{margin-bottom:16px}
+.field label,.legend{display:block;font-weight:600;font-size:15px;line-height:22px;margin-bottom:6px}
+.input{width:100%;height:48px;padding-inline:14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text);font:inherit;font-size:16px}
+.input[aria-invalid="true"]{border:2px solid #B3261E}
+.input-wrap{position:relative}
+.input-wrap .input{padding-inline-end:52px}
+.input-wrap .icon-btn{position:absolute;inset-block-start:2px;inset-inline-end:2px}
+.err,.hint{display:flex;align-items:center;gap:6px;margin:6px 0 0;font-size:15px;line-height:22px}
+.err{color:#B3261E}
+.hint{color:var(--muted)}
+.err .ic,.hint .ic{width:18px;height:18px}
+.choices{display:grid;gap:8px;border:0;margin:0 0 16px;padding:0}
+.choice{display:flex;align-items:center;gap:10px;min-height:52px;padding:10px 14px;border-radius:12px;background:var(--surface);border:1px solid var(--border);cursor:pointer;font-size:16px}
+.choice input{position:absolute;opacity:0;pointer-events:none}
+.choice .mark{display:grid;place-items:center;width:22px;height:22px;border-radius:999px;border:1.5px solid var(--border);flex:none;color:#fff}
+.choice .mark .ic{width:16px;height:16px;stroke-width:2.5;opacity:0}
+.choice:has(input:checked){background:var(--soft);border:2px solid var(--primary);font-weight:600;color:var(--strong)}
+.choice:has(input:checked) .mark{background:var(--primary);border-color:var(--primary)}
+.choice:has(input:checked) .mark .ic{opacity:1}
+.choice:has(input:focus-visible){outline:2px solid var(--primary);outline-offset:2px}
+.actions{display:flex;gap:10px}
+.actions .btn-primary{flex:1}
+.ctx{display:flex;align-items:center;gap:12px;padding:14px}
+.ctx-photo{width:56px;height:56px;border-radius:999px;background:var(--accent);display:grid;place-items:center;color:var(--strong);flex:none}
+.ctx-photo .ic{width:30px;height:30px}
+.ctx-text{flex:1;min-width:0}
+.ctx-name{margin:0;font-weight:600;font-size:18px;line-height:26px}
+.ctx-age{margin:0;color:var(--muted);font-size:15px;line-height:22px;white-space:nowrap}
+.tiles-h{margin:18px 0 10px;font-size:18px;line-height:26px}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0;padding:0;list-style:none}
+.tile{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;padding:10px 2px;border:0;border-radius:14px;background:var(--surface);color:var(--text);font:inherit;font-size:14px;line-height:20px;cursor:pointer;box-shadow:0 1px 2px rgb(var(--shadow) / .05),0 3px 10px rgb(var(--shadow) / .06)}
+.tile .bub{display:grid;place-items:center;width:40px;height:40px;border-radius:999px;background:var(--soft);color:var(--strong)}
+.tile .bub .ic{width:22px;height:22px}
+.tile:hover{background:var(--smuted)}
+.spec p{margin:0 0 10px}
+.spec .s-h1{font-family:var(--font-head),sans-serif;font-size:28px;line-height:36px;font-weight:600}
+.spec .s-h2{font-family:var(--font-head),sans-serif;font-size:24px;line-height:32px;font-weight:600}
+.spec .s-h3{font-family:var(--font-head),sans-serif;font-size:20px;line-height:28px;font-weight:600}
+.spec .s-body{font-size:17px;line-height:28px}
+.spec .s-small{font-size:15px;line-height:24px;color:var(--muted)}
+.spec .s-cap{font-size:13px;line-height:20px;color:var(--muted)}
+.sw{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:0;padding:0;list-style:none}
+.sw li{display:flex;gap:10px;align-items:center;background:var(--surface);border-radius:12px;padding:8px}
+.chip{width:40px;height:40px;border-radius:10px;flex:none;box-shadow:inset 0 0 0 1px rgb(0 0 0 / .08)}
+.sw b{display:block;font-size:14px;line-height:20px}
+.sw span{display:block;font-size:13px;line-height:18px;color:var(--muted);font-variant-numeric:tabular-nums}
+.verdict dl{margin:0;display:grid;gap:6px}
+.verdict dt{font-weight:600;font-size:15px}
+.verdict dd{margin:0;font-size:15px;line-height:24px}
+.notes{margin-top:32px}
+.notes h2{font-size:24px;line-height:32px;margin:0 0 8px}
+.notes ul{padding-inline-start:20px;margin:0}
+.phone{container-type:inline-size}
+@container (max-width: 360px){.logo span{display:none}}
+@media (max-width: 480px){
+  .page{padding-inline:0}
+  .page-head,.how,.notes{margin-inline:16px}
+  .dir{border-radius:0;padding-inline:0}
+  .dir > :not(.phone){margin-inline:16px}
+  .phone{border-radius:0;max-width:none;box-shadow:none}
+}
+</style>
+</head>
+<body>
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+ <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+ <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+ <symbol id="i-chat" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
+ <symbol id="i-bell" viewBox="0 0 24 24"><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="M3.26 15.33A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.67C19.41 13.96 18 12.5 18 8A6 6 0 0 0 6 8c0 4.5-1.41 5.96-2.74 7.33"/></symbol>
+ <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></symbol>
+ <symbol id="i-bag" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></symbol>
+ <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l2 6.2 6 1.8-6 1.8-2 6.2-2-6.2-6-1.8 6-1.8z"/></symbol>
+ <symbol id="i-heart" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></symbol>
+ <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/></symbol>
+ <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+ <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16h.01"/></symbol>
+ <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+ <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+ <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+ <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+ <symbol id="i-nest" viewBox="0 0 24 24"><path d="M3 12.5c0 4.4 4 7.5 9 7.5s9-3.1 9-7.5"/><path d="M2.5 12.5h19"/><ellipse cx="9.5" cy="8.6" rx="2.3" ry="3"/><ellipse cx="14.6" cy="9.2" rx="2.1" ry="2.6"/></symbol>
+ <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 21.5a6.5 6.5 0 0 0 6.5-6.5c0-1.9-.9-3.6-2.7-5.1S12.6 6.3 12 3.5c-.6 2.8-2 4.9-3.8 6.4S5.5 13.1 5.5 15a6.5 6.5 0 0 0 6.5 6.5Z"/></symbol>
+ <symbol id="i-bottle" viewBox="0 0 24 24"><path d="M9 2h6M10 2v3L8 8v12a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V8l-2-3V2"/><path d="M8 13h8"/></symbol>
+ <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/></symbol>
+ <symbol id="i-diaper" viewBox="0 0 24 24"><path d="M3 7h18v3a9 9 0 0 1-18 0Z"/><path d="M8.5 7v2.5a3.5 3.5 0 0 0 7 0V7"/></symbol>
+ <symbol id="i-pill" viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></symbol>
+ <symbol id="i-growth" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol>
+ <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></symbol>
+</svg>
+<div class="page">
+  <header class="page-head">
+    <h1>R1 — כיווני צבע וגופן</h1>
+    <p>אותם רכיבים בשלושה כיוונים: מסך פיד, טופס, בית, טיפוגרפיה וצבעים. כאן בוחרים רק צבע וגופן. הרכיבים עצמם יחודדו ב-R2.</p>
+  </header>
+  <section class="how" aria-labelledby="how-h">
+    <h2 id="how-h">מה מחליטים כאן</h2>
+    <ul>
+      <li><b>1 — צבע:</b> A, B או C. ההמלצה: A.</li>
+      <li><b>2 — גופן:</b> Rubik, Assistant, או Fredoka עם Assistant. ההמלצה: Rubik. אפשר לשלב צבע מכיוון אחד עם גופן מכיוון אחר.</li>
+      <li><b>5 — דסקטופ:</b> בקובץ השני, <a href="r1-desktop.html">r1-desktop.html</a>.</li>
+      <li>אפשר לענות בשורה אחת, למשל: "1: A, 2: Rubik, 5: עמודה ממורכזת".</li>
+    </ul>
+  </section>
+  <div class="dirs">
+    
+<section class="dir theme" style="--bg:#FFF8F2;--surface:#FFFFFF;--smuted:#FBEFE6;--primary:#B5502C;--strong:#8F3E21;--soft:#FDE6D8;--accent:#E3EEDF;--text:#3B2F2A;--muted:#6B5A51;--border:#9C8579;--divider:#F1E6DD;--shadow:59 47 42;--font-head:'Rubik';--font-body:'Rubik';" aria-labelledby="dir-h-A">
+  <header class="dir-head">
+    <p class="dir-letter" aria-hidden="true">A</p>
+    <h2 id="dir-h-A">A — משמש וטרקוטה</h2>
+    <p class="dir-font">גופן: Rubik</p>
+  </header>
+  <div class="phone">
+    
+<header class="topbar">
+  <button class="icon-btn" type="button" aria-label="פתיחת התפריט"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-menu"/></svg></button>
+  <a class="logo" href="#" aria-label="Nestly, לפיד"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg><span aria-hidden="true">Nestly</span></a>
+  <button class="search-pill" type="button"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-search"/></svg><span>חיפוש</span></button>
+  <button class="icon-btn" type="button" aria-label="צ'אט, 2 שיחות שלא נקראו"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="badge" aria-hidden="true"><span dir="ltr">2</span></span></button>
+  <button class="icon-btn" type="button" aria-label="התראות, יותר מ-9 חדשות"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bell"/></svg><span class="badge" aria-hidden="true"><span dir="ltr">9+</span></span></button>
+</header>
+    
+<main class="screen" aria-labelledby="feed-h-A">
+  <h2 id="feed-h-A" class="sr-only">פיד</h2>
+  <div class="card composer">
+    <span class="avatar" aria-hidden="true">נר</span>
+    <button class="composer-btn" type="button">רוצים לשתף או לשאול משהו?</button>
+  </div>
+  <div role="feed" aria-busy="false" aria-labelledby="feed-h-A" style="display:flex;flex-direction:column;gap:12px">
+    <article class="card post" aria-labelledby="p1-A" aria-posinset="1" aria-setsize="-1">
+      <header class="post-head">
+        <span class="avatar" aria-hidden="true">מל</span>
+        <div class="post-meta"><p class="post-author" id="p1-A">מאיה ל.</p><p class="post-ctx">לילות רגועים · לפני 3 שעות</p></div>
+        <button class="icon-btn" type="button" aria-label="פעולות נוספות"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+      </header>
+      <p class="post-body" dir="auto">אחרי שבוע של שגרת השכבה קבועה, הקטנה נרדמת לבד תוך עשר דקות. מה עבד אצלכם בגיל ארבעה חודשים?</p>
+      <footer class="post-foot">
+        <button class="react" type="button" aria-pressed="false"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-heart"/></svg><span>תמיכה</span><span class="count">24</span></button>
+        <a class="quiet-link" href="#">8 תגובות</a>
+      </footer>
+    </article>
+    <article class="card post" aria-labelledby="p2-A" aria-posinset="2" aria-setsize="-1">
+      <header class="post-head">
+        <span class="avatar anon" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-user"/></svg></span>
+        <div class="post-meta"><p class="post-author" id="p2-A">פוסט אנונימי</p><p class="post-ctx">בפיד · לפני 5 שעות</p></div>
+        <button class="icon-btn" type="button" aria-label="פעולות נוספות"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+      </header>
+      <p class="post-body" dir="auto">מתחילים טיפולים בחודש הבא. יש כאן מי שמוכנים לשתף איך שמרו על שגרה בעבודה?</p>
+      <footer class="post-foot">
+        <button class="react" type="button" aria-pressed="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-heart"/></svg><span>תמיכה</span><span class="count">41</span></button>
+        <a class="quiet-link" href="#">15 תגובות</a>
+      </footer>
+    </article>
+    <article class="card post" aria-labelledby="p3-A" aria-posinset="3" aria-setsize="-1">
+      <header class="post-head">
+        <span class="avatar" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span>
+        <div class="post-meta"><p class="post-author" id="p3-A">קן טקסטיל</p><p class="post-ctx"><span class="tag">ממומן</span></p></div>
+        <button class="icon-btn" type="button" aria-label="פעולות נוספות"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+      </header>
+      <p class="post-body" dir="auto">שמיכות מוסלין נושמות לעונת המעבר, במארז של שלוש.</p>
+      <div class="media" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></div>
+      <a class="btn btn-primary btn-block" href="#">לפרטים</a>
+    </article>
+  </div>
+</main>
+    
+<nav class="bottomnav" aria-label="ניווט ראשי">
+  <ul>
+    <li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-home"/></svg></span>בית</a></li>
+    <li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bag"/></svg></span>חנות</a></li>
+    <li><a href="#" aria-current="page"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span>פיד</a></li>
+    <li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-spark"/></svg></span>נותני שירות</a></li>
+    <li><a href="#"><span class="pill"><span class="mini-avatar" aria-hidden="true">נר</span></span>פרופיל</a></li>
+  </ul>
+</nav>
+  </div>
+  
+<form class="panel card" onsubmit="return false" aria-labelledby="form-h-A">
+  <h3 id="form-h-A">טופס</h3>
+  <fieldset class="choices">
+    <legend class="legend">איפה אתם במסע?</legend>
+    <label class="choice"><input type="radio" name="stage-A"><span class="mark"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>מתכננים</label>
+    <label class="choice"><input type="radio" name="stage-A" checked><span class="mark"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>בהריון</label>
+    <label class="choice"><input type="radio" name="stage-A"><span class="mark"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>יש לנו ילד או ילדה</label>
+  </fieldset>
+  <div class="field">
+    <label for="name-A">שם מלא</label>
+    <input class="input" id="name-A" aria-invalid="true" aria-describedby="name-A-err" autocomplete="name">
+    <p class="err" id="name-A-err"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-alert"/></svg>יש למלא שם מלא</p>
+  </div>
+  <div class="field">
+    <label for="email-A">אימייל</label>
+    <input class="input" id="email-A" type="email" dir="ltr" style="text-align:start" value="noa@example.com" autocomplete="email">
+  </div>
+  <div class="field">
+    <label for="pw-A">סיסמה</label>
+    <div class="input-wrap">
+      <input class="input" id="pw-A" type="password" value="ציפור בקן שלי" aria-describedby="pw-A-hint" autocomplete="new-password">
+      <button class="icon-btn" type="button" aria-label="הצגת הסיסמה" aria-pressed="false"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-eye"/></svg></button>
+    </div>
+    <p class="hint" id="pw-A-hint"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-check"/></svg>לפחות 10 תווים</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-primary" type="submit">המשך</button>
+    <button class="btn btn-soft" type="button">חזרה</button>
+  </div>
+</form>
+  
+<section class="panel" aria-labelledby="home-h-A">
+  <h3 id="home-h-A">בית — מעקב ותכנון</h3>
+  <div class="card ctx">
+    <span class="ctx-photo" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span>
+    <div class="ctx-text"><p class="ctx-name">יואב</p><p class="ctx-age">בן 4 חודשים</p></div>
+    <button class="btn btn-ghost" type="button">הוספת מעקב<svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chevron"/></svg></button>
+  </div>
+  <h4 class="tiles-h">יומן פעולות</h4>
+  <ul class="tiles">
+    <li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-drop"/></svg></span>הנקה</button></li>
+    <li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bottle"/></svg></span>בקבוק</button></li>
+    <li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-moon"/></svg></span>שינה</button></li>
+    <li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-diaper"/></svg></span>חיתול</button></li>
+    <li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-pill"/></svg></span>תרופה</button></li>
+    <li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-growth"/></svg></span>גדילה</button></li>
+    <li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-shield"/></svg></span>חיסון</button></li>
+  </ul>
+</section>
+  
+<section class="panel card spec" aria-labelledby="spec-h-A">
+  <h3 id="spec-h-A">טיפוגרפיה · Rubik</h3>
+  <p class="s-h1">הצטרפות ל-Nestly</p>
+  <p class="s-h2">יומן פעולות</p>
+  <p class="s-h3">טיפים ומאמרים</p>
+  <p class="s-body">גוף טקסט, 17 על 28. כך נראית פסקה רגילה בפוסט או בטיפ: משפטים קצרים, הרבה אוויר בין השורות, וקריאה נוחה גם בשתיים בלילה.</p>
+  <p class="s-small">טקסט משני, 15 על 24: הסברים ליד שדות.</p>
+  <p class="s-cap">כיתוב, 13 על 20: לפני 3 שעות · 8 תגובות</p>
+</section>
+  
+<section class="panel card" aria-labelledby="sw-h-A">
+  <h3 id="sw-h-A">צבעים וניגודיות</h3>
+  <ul class="sw">
+    <li><span class="chip" style="background:#FFF8F2" aria-hidden="true"></span><div><b>רקע</b><span dir="ltr" style="text-align:start">#FFF8F2</span><span>טקסט עליו 12.28</span></div></li>
+    <li><span class="chip" style="background:#FDE6D8" aria-hidden="true"></span><div><b>פסטל ראשי</b><span dir="ltr" style="text-align:start">#FDE6D8</span><span>טקסט עמוק 6.07</span></div></li>
+    <li><span class="chip" style="background:#B5502C" aria-hidden="true"></span><div><b>ראשי</b><span dir="ltr" style="text-align:start">#B5502C</span><span>טקסט לבן 5.06</span></div></li>
+    <li><span class="chip" style="background:#8F3E21" aria-hidden="true"></span><div><b>ראשי עמוק</b><span dir="ltr" style="text-align:start">#8F3E21</span><span>על לבן 7.29</span></div></li>
+    <li><span class="chip" style="background:#E3EEDF" aria-hidden="true"></span><div><b>פסטל משני</b><span dir="ltr" style="text-align:start">#E3EEDF</span><span>טקסט עליו 10.80</span></div></li>
+    <li><span class="chip" style="background:#3B2F2A" aria-hidden="true"></span><div><b>טקסט</b><span dir="ltr" style="text-align:start">#3B2F2A</span><span>על רקע 12.28</span></div></li>
+    <li><span class="chip" style="background:#6B5A51" aria-hidden="true"></span><div><b>טקסט משני</b><span dir="ltr" style="text-align:start">#6B5A51</span><span>על רקע 6.23</span></div></li>
+    <li><span class="chip" style="background:#9C8579" aria-hidden="true"></span><div><b>גבול שדה</b><span dir="ltr" style="text-align:start">#9C8579</span><span>מול לבן 3.47 (צריך 3)</span></div></li>
+  </ul>
+  <p class="s-cap" style="margin:10px 0 0;font-size:13px;color:var(--muted)">הסף: 4.5 לטקסט, 3 לגבולות ולאייקונים (WCAG 2.2 AA). פסטל מול לבן הוא רק 1.20, ולכן הוא לא נושא מידע לבד.</p>
+</section>
+  
+<section class="panel card verdict">
+  <dl>
+    <dt>תחושה</dt><dd>חם, ביתי, "קן".</dd>
+    <dt>בעד</dt><dd>הכי קרוב לפלטה חמה. רחוק מהכחול של פייסבוק ומוורוד ותכלת. גם הכפתור הראשי עובר את סף AA, ביחס של 5.06.</dd>
+    <dt>נגד</dt><dd>טרקוטה בשטחים גדולים נראית כבדה, ולכן היא מוגבלת לפעולות. הניגודיות של הכפתור הכי קרובה לסף מבין השלושה.</dd>
+  </dl>
+</section>
+</section>
+
+<section class="dir theme" style="--bg:#F8F7F1;--surface:#FFFFFF;--smuted:#EEF1E9;--primary:#3F6E57;--strong:#2F5644;--soft:#DFEADF;--accent:#F6E3D3;--text:#27302B;--muted:#5A6660;--border:#7D8780;--divider:#E6E9E1;--shadow:39 48 43;--font-head:'Assistant';--font-body:'Assistant';" aria-labelledby="dir-h-B">
+  <header class="dir-head">
+    <p class="dir-letter" aria-hidden="true">B</p>
+    <h2 id="dir-h-B">B — מרווה ושיבולת</h2>
+    <p class="dir-font">גופן: Assistant</p>
+  </header>
+  <div class="phone">
+    
+<header class="topbar">
+  <button class="icon-btn" type="button" aria-label="פתיחת התפריט"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-menu"/></svg></button>
+  <a class="logo" href="#" aria-label="Nestly, לפיד"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg><span aria-hidden="true">Nestly</span></a>
+  <button class="search-pill" type="button"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-search"/></svg><span>חיפוש</span></button>
+  <button class="icon-btn" type="button" aria-label="צ'אט, 2 שיחות שלא נקראו"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="badge" aria-hidden="true"><span dir="ltr">2</span></span></button>
+  <button class="icon-btn" type="button" aria-label="התראות, יותר מ-9 חדשות"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bell"/></svg><span class="badge" aria-hidden="true"><span dir="ltr">9+</span></span></button>
+</header>
+    
+<main class="screen" aria-labelledby="feed-h-B">
+  <h2 id="feed-h-B" class="sr-only">פיד</h2>
+  <div class="card composer">
+    <span class="avatar" aria-hidden="true">נר</span>
+    <button class="composer-btn" type="button">רוצים לשתף או לשאול משהו?</button>
+  </div>
+  <div role="feed" aria-busy="false" aria-labelledby="feed-h-B" style="display:flex;flex-direction:column;gap:12px">
+    <article class="card post" aria-labelledby="p1-B" aria-posinset="1" aria-setsize="-1">
+      <header class="post-head">
+        <span class="avatar" aria-hidden="true">מל</span>
+        <div class="post-meta"><p class="post-author" id="p1-B">מאיה ל.</p><p class="post-ctx">לילות רגועים · לפני 3 שעות</p></div>
+        <button class="icon-btn" type="button" aria-label="פעולות נוספות"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+      </header>
+      <p class="post-body" dir="auto">אחרי שבוע של שגרת השכבה קבועה, הקטנה נרדמת לבד תוך עשר דקות. מה עבד אצלכם בגיל ארבעה חודשים?</p>
+      <footer class="post-foot">
+        <button class="react" type="button" aria-pressed="false"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-heart"/></svg><span>תמיכה</span><span class="count">24</span></button>
+        <a class="quiet-link" href="#">8 תגובות</a>
+      </footer>
+    </article>
+    <article class="card post" aria-labelledby="p2-B" aria-posinset="2" aria-setsize="-1">
+      <header class="post-head">
+        <span class="avatar anon" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-user"/></svg></span>
+        <div class="post-meta"><p class="post-author" id="p2-B">פוסט אנונימי</p><p class="post-ctx">בפיד · לפני 5 שעות</p></div>
+        <button class="icon-btn" type="button" aria-label="פעולות נוספות"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+      </header>
+      <p class="post-body" dir="auto">מתחילים טיפולים בחודש הבא. יש כאן מי שמוכנים לשתף איך שמרו על שגרה בעבודה?</p>
+      <footer class="post-foot">
+        <button class="react" type="button" aria-pressed="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-heart"/></svg><span>תמיכה</span><span class="count">41</span></button>
+        <a class="quiet-link" href="#">15 תגובות</a>
+      </footer>
+    </article>
+    <article class="card post" aria-labelledby="p3-B" aria-posinset="3" aria-setsize="-1">
+      <header class="post-head">
+        <span class="avatar" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span>
+        <div class="post-meta"><p class="post-author" id="p3-B">קן טקסטיל</p><p class="post-ctx"><span class="tag">ממומן</span></p></div>
+        <button class="icon-btn" type="button" aria-label="פעולות נוספות"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+      </header>
+      <p class="post-body" dir="auto">שמיכות מוסלין נושמות לעונת המעבר, במארז של שלוש.</p>
+      <div class="media" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></div>
+      <a class="btn btn-primary btn-block" href="#">לפרטים</a>
+    </article>
+  </div>
+</main>
+    
+<nav class="bottomnav" aria-label="ניווט ראשי">
+  <ul>
+    <li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-home"/></svg></span>בית</a></li>
+    <li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bag"/></svg></span>חנות</a></li>
+    <li><a href="#" aria-current="page"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span>פיד</a></li>
+    <li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-spark"/></svg></span>נותני שירות</a></li>
+    <li><a href="#"><span class="pill"><span class="mini-avatar" aria-hidden="true">נר</span></span>פרופיל</a></li>
+  </ul>
+</nav>
+  </div>
+  
+<form class="panel card" onsubmit="return false" aria-labelledby="form-h-B">
+  <h3 id="form-h-B">טופס</h3>
+  <fieldset class="choices">
+    <legend class="legend">איפה אתם במסע?</legend>
+    <label class="choice"><input type="radio" name="stage-B"><span class="mark"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>מתכננים</label>
+    <label class="choice"><input type="radio" name="stage-B" checked><span class="mark"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>בהריון</label>
+    <label class="choice"><input type="radio" name="stage-B"><span class="mark"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>יש לנו ילד או ילדה</label>
+  </fieldset>
+  <div class="field">
+    <label for="name-B">שם מלא</label>
+    <input class="input" id="name-B" aria-invalid="true" aria-describedby="name-B-err" autocomplete="name">
+    <p class="err" id="name-B-err"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-alert"/></svg>יש למלא שם מלא</p>
+  </div>
+  <div class="field">
+    <label for="email-B">אימייל</label>
+    <input class="input" id="email-B" type="email" dir="ltr" style="text-align:start" value="noa@example.com" autocomplete="email">
+  </div>
+  <div class="field">
+    <label for="pw-B">סיסמה</label>
+    <div class="input-wrap">
+      <input class="input" id="pw-B" type="password" value="ציפור בקן שלי" aria-describedby="pw-B-hint" autocomplete="new-password">
+      <button class="icon-btn" type="button" aria-label="הצגת הסיסמה" aria-pressed="false"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-eye"/></svg></button>
+    </div>
+    <p class="hint" id="pw-B-hint"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-check"/></svg>לפחות 10 תווים</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-primary" type="submit">המשך</button>
+    <button class="btn btn-soft" type="button">חזרה</button>
+  </div>
+</form>
+  
+<section class="panel" aria-labelledby="home-h-B">
+  <h3 id="home-h-B">בית — מעקב ותכנון</h3>
+  <div class="card ctx">
+    <span class="ctx-photo" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span>
+    <div class="ctx-text"><p class="ctx-name">יואב</p><p class="ctx-age">בן 4 חודשים</p></div>
+    <button class="btn btn-ghost" type="button">הוספת מעקב<svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chevron"/></svg></button>
+  </div>
+  <h4 class="tiles-h">יומן פעולות</h4>
+  <ul class="tiles">
+    <li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-drop"/></svg></span>הנקה</button></li>
+    <li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bottle"/></svg></span>בקבוק</button></li>
+    <li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-moon"/></svg></span>שינה</button></li>
+    <li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-diaper"/></svg></span>חיתול</button></li>
+    <li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-pill"/></svg></span>תרופה</button></li>
+    <li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-growth"/></svg></span>גדילה</button></li>
+    <li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-shield"/></svg></span>חיסון</button></li>
+  </ul>
+</section>
+  
+<section class="panel card spec" aria-labelledby="spec-h-B">
+  <h3 id="spec-h-B">טיפוגרפיה · Assistant</h3>
+  <p class="s-h1">הצטרפות ל-Nestly</p>
+  <p class="s-h2">יומן פעולות</p>
+  <p class="s-h3">טיפים ומאמרים</p>
+  <p class="s-body">גוף טקסט, 17 על 28. כך נראית פסקה רגילה בפוסט או בטיפ: משפטים קצרים, הרבה אוויר בין השורות, וקריאה נוחה גם בשתיים בלילה.</p>
+  <p class="s-small">טקסט משני, 15 על 24: הסברים ליד שדות.</p>
+  <p class="s-cap">כיתוב, 13 על 20: לפני 3 שעות · 8 תגובות</p>
+</section>
+  
+<section class="panel card" aria-labelledby="sw-h-B">
+  <h3 id="sw-h-B">צבעים וניגודיות</h3>
+  <ul class="sw">
+    <li><span class="chip" style="background:#F8F7F1" aria-hidden="true"></span><div><b>רקע</b><span dir="ltr" style="text-align:start">#F8F7F1</span><span>טקסט עליו 12.67</span></div></li>
+    <li><span class="chip" style="background:#DFEADF" aria-hidden="true"></span><div><b>פסטל ראשי</b><span dir="ltr" style="text-align:start">#DFEADF</span><span>טקסט עמוק 6.69</span></div></li>
+    <li><span class="chip" style="background:#3F6E57" aria-hidden="true"></span><div><b>ראשי</b><span dir="ltr" style="text-align:start">#3F6E57</span><span>טקסט לבן 5.87</span></div></li>
+    <li><span class="chip" style="background:#2F5644" aria-hidden="true"></span><div><b>ראשי עמוק</b><span dir="ltr" style="text-align:start">#2F5644</span><span>על לבן 8.28</span></div></li>
+    <li><span class="chip" style="background:#F6E3D3" aria-hidden="true"></span><div><b>פסטל משני</b><span dir="ltr" style="text-align:start">#F6E3D3</span><span>טקסט עליו 10.91</span></div></li>
+    <li><span class="chip" style="background:#27302B" aria-hidden="true"></span><div><b>טקסט</b><span dir="ltr" style="text-align:start">#27302B</span><span>על רקע 12.67</span></div></li>
+    <li><span class="chip" style="background:#5A6660" aria-hidden="true"></span><div><b>טקסט משני</b><span dir="ltr" style="text-align:start">#5A6660</span><span>על רקע 5.58</span></div></li>
+    <li><span class="chip" style="background:#7D8780" aria-hidden="true"></span><div><b>גבול שדה</b><span dir="ltr" style="text-align:start">#7D8780</span><span>מול לבן 3.72 (צריך 3)</span></div></li>
+  </ul>
+  <p class="s-cap" style="margin:10px 0 0;font-size:13px;color:var(--muted)">הסף: 4.5 לטקסט, 3 לגבולות ולאייקונים (WCAG 2.2 AA). פסטל מול לבן הוא רק 1.24, ולכן הוא לא נושא מידע לבד.</p>
+</section>
+  
+<section class="panel card verdict">
+  <dl>
+    <dt>תחושה</dt><dd>רגוע וטבעי.</dd>
+    <dt>בעד</dt><dd>הכי שקט מבין השלושה. Assistant קריא מאוד בגדלים קטנים.</dd>
+    <dt>נגד</dt><dd>קרוב לשפה של אפליקציות בריאות, ופחות חם ממה שביקשת.</dd>
+  </dl>
+</section>
+</section>
+
+<section class="dir theme" style="--bg:#FBF8F5;--surface:#FFFFFF;--smuted:#F4EFF7;--primary:#6E4FA3;--strong:#573C85;--soft:#ECE4F6;--accent:#FBE7DC;--text:#2F2A36;--muted:#625A6B;--border:#8F8698;--divider:#ECE6EF;--shadow:47 42 54;--font-head:'Fredoka';--font-body:'Assistant';" aria-labelledby="dir-h-C">
+  <header class="dir-head">
+    <p class="dir-letter" aria-hidden="true">C</p>
+    <h2 id="dir-h-C">C — לילך על קרם</h2>
+    <p class="dir-font">גופן: Fredoka לכותרות, Assistant לגוף</p>
+  </header>
+  <div class="phone">
+    
+<header class="topbar">
+  <button class="icon-btn" type="button" aria-label="פתיחת התפריט"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-menu"/></svg></button>
+  <a class="logo" href="#" aria-label="Nestly, לפיד"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg><span aria-hidden="true">Nestly</span></a>
+  <button class="search-pill" type="button"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-search"/></svg><span>חיפוש</span></button>
+  <button class="icon-btn" type="button" aria-label="צ'אט, 2 שיחות שלא נקראו"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="badge" aria-hidden="true"><span dir="ltr">2</span></span></button>
+  <button class="icon-btn" type="button" aria-label="התראות, יותר מ-9 חדשות"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bell"/></svg><span class="badge" aria-hidden="true"><span dir="ltr">9+</span></span></button>
+</header>
+    
+<main class="screen" aria-labelledby="feed-h-C">
+  <h2 id="feed-h-C" class="sr-only">פיד</h2>
+  <div class="card composer">
+    <span class="avatar" aria-hidden="true">נר</span>
+    <button class="composer-btn" type="button">רוצים לשתף או לשאול משהו?</button>
+  </div>
+  <div role="feed" aria-busy="false" aria-labelledby="feed-h-C" style="display:flex;flex-direction:column;gap:12px">
+    <article class="card post" aria-labelledby="p1-C" aria-posinset="1" aria-setsize="-1">
+      <header class="post-head">
+        <span class="avatar" aria-hidden="true">מל</span>
+        <div class="post-meta"><p class="post-author" id="p1-C">מאיה ל.</p><p class="post-ctx">לילות רגועים · לפני 3 שעות</p></div>
+        <button class="icon-btn" type="button" aria-label="פעולות נוספות"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+      </header>
+      <p class="post-body" dir="auto">אחרי שבוע של שגרת השכבה קבועה, הקטנה נרדמת לבד תוך עשר דקות. מה עבד אצלכם בגיל ארבעה חודשים?</p>
+      <footer class="post-foot">
+        <button class="react" type="button" aria-pressed="false"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-heart"/></svg><span>תמיכה</span><span class="count">24</span></button>
+        <a class="quiet-link" href="#">8 תגובות</a>
+      </footer>
+    </article>
+    <article class="card post" aria-labelledby="p2-C" aria-posinset="2" aria-setsize="-1">
+      <header class="post-head">
+        <span class="avatar anon" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-user"/></svg></span>
+        <div class="post-meta"><p class="post-author" id="p2-C">פוסט אנונימי</p><p class="post-ctx">בפיד · לפני 5 שעות</p></div>
+        <button class="icon-btn" type="button" aria-label="פעולות נוספות"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+      </header>
+      <p class="post-body" dir="auto">מתחילים טיפולים בחודש הבא. יש כאן מי שמוכנים לשתף איך שמרו על שגרה בעבודה?</p>
+      <footer class="post-foot">
+        <button class="react" type="button" aria-pressed="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-heart"/></svg><span>תמיכה</span><span class="count">41</span></button>
+        <a class="quiet-link" href="#">15 תגובות</a>
+      </footer>
+    </article>
+    <article class="card post" aria-labelledby="p3-C" aria-posinset="3" aria-setsize="-1">
+      <header class="post-head">
+        <span class="avatar" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span>
+        <div class="post-meta"><p class="post-author" id="p3-C">קן טקסטיל</p><p class="post-ctx"><span class="tag">ממומן</span></p></div>
+        <button class="icon-btn" type="button" aria-label="פעולות נוספות"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+      </header>
+      <p class="post-body" dir="auto">שמיכות מוסלין נושמות לעונת המעבר, במארז של שלוש.</p>
+      <div class="media" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></div>
+      <a class="btn btn-primary btn-block" href="#">לפרטים</a>
+    </article>
+  </div>
+</main>
+    
+<nav class="bottomnav" aria-label="ניווט ראשי">
+  <ul>
+    <li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-home"/></svg></span>בית</a></li>
+    <li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bag"/></svg></span>חנות</a></li>
+    <li><a href="#" aria-current="page"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span>פיד</a></li>
+    <li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-spark"/></svg></span>נותני שירות</a></li>
+    <li><a href="#"><span class="pill"><span class="mini-avatar" aria-hidden="true">נר</span></span>פרופיל</a></li>
+  </ul>
+</nav>
+  </div>
+  
+<form class="panel card" onsubmit="return false" aria-labelledby="form-h-C">
+  <h3 id="form-h-C">טופס</h3>
+  <fieldset class="choices">
+    <legend class="legend">איפה אתם במסע?</legend>
+    <label class="choice"><input type="radio" name="stage-C"><span class="mark"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>מתכננים</label>
+    <label class="choice"><input type="radio" name="stage-C" checked><span class="mark"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>בהריון</label>
+    <label class="choice"><input type="radio" name="stage-C"><span class="mark"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>יש לנו ילד או ילדה</label>
+  </fieldset>
+  <div class="field">
+    <label for="name-C">שם מלא</label>
+    <input class="input" id="name-C" aria-invalid="true" aria-describedby="name-C-err" autocomplete="name">
+    <p class="err" id="name-C-err"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-alert"/></svg>יש למלא שם מלא</p>
+  </div>
+  <div class="field">
+    <label for="email-C">אימייל</label>
+    <input class="input" id="email-C" type="email" dir="ltr" style="text-align:start" value="noa@example.com" autocomplete="email">
+  </div>
+  <div class="field">
+    <label for="pw-C">סיסמה</label>
+    <div class="input-wrap">
+      <input class="input" id="pw-C" type="password" value="ציפור בקן שלי" aria-describedby="pw-C-hint" autocomplete="new-password">
+      <button class="icon-btn" type="button" aria-label="הצגת הסיסמה" aria-pressed="false"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-eye"/></svg></button>
+    </div>
+    <p class="hint" id="pw-C-hint"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-check"/></svg>לפחות 10 תווים</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-primary" type="submit">המשך</button>
+    <button class="btn btn-soft" type="button">חזרה</button>
+  </div>
+</form>
+  
+<section class="panel" aria-labelledby="home-h-C">
+  <h3 id="home-h-C">בית — מעקב ותכנון</h3>
+  <div class="card ctx">
+    <span class="ctx-photo" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span>
+    <div class="ctx-text"><p class="ctx-name">יואב</p><p class="ctx-age">בן 4 חודשים</p></div>
+    <button class="btn btn-ghost" type="button">הוספת מעקב<svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chevron"/></svg></button>
+  </div>
+  <h4 class="tiles-h">יומן פעולות</h4>
+  <ul class="tiles">
+    <li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-drop"/></svg></span>הנקה</button></li>
+    <li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bottle"/></svg></span>בקבוק</button></li>
+    <li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-moon"/></svg></span>שינה</button></li>
+    <li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-diaper"/></svg></span>חיתול</button></li>
+    <li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-pill"/></svg></span>תרופה</button></li>
+    <li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-growth"/></svg></span>גדילה</button></li>
+    <li><button class="tile" type="button"><span class="bub"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-shield"/></svg></span>חיסון</button></li>
+  </ul>
+</section>
+  
+<section class="panel card spec" aria-labelledby="spec-h-C">
+  <h3 id="spec-h-C">טיפוגרפיה · Fredoka לכותרות, Assistant לגוף</h3>
+  <p class="s-h1">הצטרפות ל-Nestly</p>
+  <p class="s-h2">יומן פעולות</p>
+  <p class="s-h3">טיפים ומאמרים</p>
+  <p class="s-body">גוף טקסט, 17 על 28. כך נראית פסקה רגילה בפוסט או בטיפ: משפטים קצרים, הרבה אוויר בין השורות, וקריאה נוחה גם בשתיים בלילה.</p>
+  <p class="s-small">טקסט משני, 15 על 24: הסברים ליד שדות.</p>
+  <p class="s-cap">כיתוב, 13 על 20: לפני 3 שעות · 8 תגובות</p>
+</section>
+  
+<section class="panel card" aria-labelledby="sw-h-C">
+  <h3 id="sw-h-C">צבעים וניגודיות</h3>
+  <ul class="sw">
+    <li><span class="chip" style="background:#FBF8F5" aria-hidden="true"></span><div><b>רקע</b><span dir="ltr" style="text-align:start">#FBF8F5</span><span>טקסט עליו 13.18</span></div></li>
+    <li><span class="chip" style="background:#ECE4F6" aria-hidden="true"></span><div><b>פסטל ראשי</b><span dir="ltr" style="text-align:start">#ECE4F6</span><span>טקסט עמוק 7.11</span></div></li>
+    <li><span class="chip" style="background:#6E4FA3" aria-hidden="true"></span><div><b>ראשי</b><span dir="ltr" style="text-align:start">#6E4FA3</span><span>טקסט לבן 6.34</span></div></li>
+    <li><span class="chip" style="background:#573C85" aria-hidden="true"></span><div><b>ראשי עמוק</b><span dir="ltr" style="text-align:start">#573C85</span><span>על לבן 8.79</span></div></li>
+    <li><span class="chip" style="background:#FBE7DC" aria-hidden="true"></span><div><b>פסטל משני</b><span dir="ltr" style="text-align:start">#FBE7DC</span><span>טקסט עליו 11.67</span></div></li>
+    <li><span class="chip" style="background:#2F2A36" aria-hidden="true"></span><div><b>טקסט</b><span dir="ltr" style="text-align:start">#2F2A36</span><span>על רקע 13.18</span></div></li>
+    <li><span class="chip" style="background:#625A6B" aria-hidden="true"></span><div><b>טקסט משני</b><span dir="ltr" style="text-align:start">#625A6B</span><span>על רקע 6.21</span></div></li>
+    <li><span class="chip" style="background:#8F8698" aria-hidden="true"></span><div><b>גבול שדה</b><span dir="ltr" style="text-align:start">#8F8698</span><span>מול לבן 3.48 (צריך 3)</span></div></li>
+  </ul>
+  <p class="s-cap" style="margin:10px 0 0;font-size:13px;color:var(--muted)">הסף: 4.5 לטקסט, 3 לגבולות ולאייקונים (WCAG 2.2 AA). פסטל מול לבן הוא רק 1.24, ולכן הוא לא נושא מידע לבד.</p>
+</section>
+  
+<section class="panel card verdict">
+  <dl>
+    <dt>תחושה</dt><dd>רך וחלומי.</dd>
+    <dt>בעד</dt><dd>כותרות מעוגלות ועדינות. הניגודיות הגבוהה ביותר מבין השלושה.</dd>
+    <dt>נגד</dt><dd>קר יותר. שתי משפחות גופן, ולכן הטעינה כבדה יותר.</dd>
+  </dl>
+</section>
+</section>
+  </div>
+  <section class="notes" aria-labelledby="notes-h">
+    <h2 id="notes-h">מה עוד לא נקבע כאן</h2>
+    <ul>
+      <li><b>"תמיכה"</b> הוא שם זמני ל-Reaction (החלטה 12, ב-R2).</li>
+      <li><b>הלוגו</b> הוא wordmark זמני עם סימן של קן. זהות המותג הסופית היא OP חדש.</li>
+      <li><b>"נותני שירות"</b> בניווט התחתון מקוצר מ"נותני שירות ויועצים" שבסקיצה, כי השם המלא לא נכנס בלשונית. יוחלט ב-R2.</li>
+      <li><b>האריח השמיני</b> ביומן הפעולות לא מוצג, כי OP-007 פתוח.</li>
+      <li><b>תמונת הילד</b> בכרטיס הבית מוחלפת כאן באיור. במוצר זו תמונה שהמשתמש מעלה, או איור אם לא הועלתה.</li>
+      <li>הגופנים במוקאפ נטענים מ-Google Fonts. במוצר הם מאוחסנים אצלנו.</li>
+    </ul>
+  </section>
+</div>
+</body>
+</html>
