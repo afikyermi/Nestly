@@ -232,3 +232,16 @@ icon-only · 19 tsc "Property 'label' is missing" without a label; tooltip "פת
 none after Escape · 21 pending: `aria-busy=true`, not disabled, loader svg present · 23 skeleton under reduced motion
 `animation-name none`, duration `0s`; `aria-hidden` in source · 24 the story DOM shows `stroke-width="1.75"` and
 `aria-hidden="true"` on the loader icon (same wrapper for all). Not asserted by me: 11, 17, 20 (tests by TEST ENGINEER).
+
+### Part b, review round (CRITIC findings 1-7)
+1. `cn.ts` extends the tailwind-merge `spacing` theme from `spacingRhythm`; `cn('px-5 px-screen-margin')` returns `px-screen-margin`
+   (checked by running it; `text-label text-primary` and `p-card-padding p-4` also behave).
+2. `chrome` project uses `channel: 'chrome'`; CI installs `chrome msedge`. `npm run test:browser`: 194 passed on real Chrome and Edge,
+   2 "expected to fail, but passed" (the `test.fail` on `ui-tooltip--on-hover`, TEST ENGINEER removes the mark).
+3-4. Button: `pending` JSDoc holds the contract (synchronous set or own guard; caller's live region). A link with
+   `aria-disabled` true/"true" prevents the click. `variant` is `undefined` in the `iconOnly` type branch. Pending icon-only shows the loader instead of its icon.
+5. `check-stories.mjs` counts `export const X: Story|StoryObj` only, walks nested folders, checks `.ts` too. Negative proofs run by hand: a `.ts`
+   component without stories, a nested `shared/n/y.tsx`, and a stories file with one story plus a helper export all fail.
+6. Gender-slash heuristic: left as is (debt).
+7. `--pass-with-no-tests` and the stale CI comment removed.
+8. `OnHover` story uses a plain button as the trigger, so one tooltip opens.

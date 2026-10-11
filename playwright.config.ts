@@ -12,7 +12,7 @@ export default defineConfig({
   reporter: isCi ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: { baseURL: `http://127.0.0.1:${PORT}` },
   projects: [
-    { name: 'chrome', use: { ...devices['Desktop Chrome'], channel: 'chromium' } },
+    { name: 'chrome', use: { ...devices['Desktop Chrome'], channel: 'chrome' } },
     { name: 'edge', use: { ...devices['Desktop Edge'], channel: 'msedge' } },
   ],
   webServer: {

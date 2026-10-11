@@ -23,29 +23,43 @@ export const STATES = {
 export const NO_VISUAL = new Set(["ui/direction-provider"]);
 
 const isStory = (name) => name.endsWith(".stories.tsx");
+const isComponent = (name) =>
+  /.tsx?$/.test(name) && !isStory(name) && !name.endsWith(".d.ts") && !/.(test|spec).tsx?$/.test(name);
+
+// Every file of a layer, nested folders included, as a path relative to the layer.
+async function walk(dir, prefix = "") {
+  const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+  const files = [];
+  for (const entry of entries) {
+    const rel = prefix + entry.name;
+    if (entry.isDirectory()) files.push(...(await walk(path.join(dir, entry.name), rel + "/")));
+    else if (entry.isFile()) files.push(rel);
+  }
+  return files;
+}
 
 export async function exportedStories(file) {
   const source = await readFile(file, "utf8");
-  return [...source.matchAll(/^export const (\w+)/gm)].map((m) => m[1]);
+  // Only story exports count: `export const Name: Story` (or StoryObj), not the meta or a helper.
+  return [...source.matchAll(/^export const (\w+)\s*:\s*(?:Story|StoryObj)\b/gm)].map((m) => m[1]);
 }
 
 export async function check() {
   const problems = [];
   for (const layer of LAYERS) {
-    const entries = await readdir(path.join(componentsDir, layer), { withFileTypes: true }).catch(() => []);
-    for (const entry of entries) {
-      if (!entry.isFile() || !entry.name.endsWith(".tsx") || isStory(entry.name)) continue;
-      const key = `${layer}/${entry.name.slice(0, -".tsx".length)}`;
+    for (const file of await walk(path.join(componentsDir, layer))) {
+      if (!isComponent(file)) continue;
+      const key = `${layer}/${file.replace(/\.tsx?$/, "")}`;
       if (NO_VISUAL.has(key)) continue;
-      const storyFile = path.join(componentsDir, layer, `${key.split("/")[1]}.stories.tsx`);
+      const storyFile = path.join(componentsDir, `${key}.stories.tsx`);
       const stories = await exportedStories(storyFile).catch(() => null);
       if (stories === null) {
-        problems.push(`${key}.tsx has no sibling ${path.basename(storyFile)}`);
+        problems.push(`${file} in ${layer} has no sibling ${path.basename(storyFile)}`);
         continue;
       }
       const required = STATES[key];
       if (required === undefined) {
-        problems.push(`${key}.tsx is not in STATES (tools/check-stories.mjs): add its state count`);
+        problems.push(`${key} is not in STATES (tools/check-stories.mjs): add its state count`);
       } else if (stories.length < required) {
         problems.push(`${key}.stories.tsx exports ${stories.length} stories, the spec lists ${required} states`);
       }

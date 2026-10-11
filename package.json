@@ -22,7 +22,7 @@
     "build-storybook": "npm run build-storybook -w @nestly/web",
     "check:stories": "node tools/check-stories.mjs",
     "serve:storybook": "node tools/serve-static.mjs apps/web/storybook-static 6007",
-    "test:browser": "npm run build-storybook && playwright test --pass-with-no-tests"
+    "test:browser": "npm run build-storybook && playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.0",

@@ -35,19 +35,26 @@ const buttonStyles = cva(
 type Variant = 'primary' | 'soft' | 'text';
 
 interface ButtonBase {
-  variant?: Variant;
   size?: 'default' | 'lg';
   block?: boolean;
-  // Work in progress: the label stays, a loader shows, activation does nothing. The button is
-  // not disabled, so focus and the screen reader's place are kept (direction.md, states).
+  /**
+   * Work in progress: the label stays, a loader shows (an icon-only button shows the loader
+   * instead of its icon), activation does nothing. The button is not disabled, so focus and
+   * the screen reader's place are kept (direction.md, states).
+   *
+   * Contract for the caller: set `pending` synchronously in the handler, or guard on its own
+   * state. The guard only holds from the render that carries `pending`; a second activation
+   * before that render still reaches the handler. The caller also announces the state in its
+   * own live region ("שולח"): `aria-busy` on a button is poorly announced.
+   */
   pending?: boolean;
 }
 
 // An icon-only button must carry its accessible name: leaving `label` out fails tsc.
 // The same text is the tooltip, shown on hover and on focus (NFR-USAB-004).
 type ButtonContent =
-  | { iconOnly: true; label: string; children: ReactNode }
-  | { iconOnly?: false; label?: undefined; children?: ReactNode };
+  | { iconOnly: true; label: string; children: ReactNode; variant?: undefined }
+  | { iconOnly?: false; label?: undefined; children?: ReactNode; variant?: Variant };
 
 type NativeProps = Omit<ComponentProps<'button'>, 'children' | 'aria-label'> & { href?: undefined };
 type LinkProps = Omit<ComponentProps<'a'>, 'children' | 'aria-label'> & { href: string };
@@ -60,7 +67,7 @@ export function Button(props: ButtonProps) {
   const content = (
     <>
       {pending ? <LoaderIcon className="size-5 motion-safe:animate-spin" /> : null}
-      {children}
+      {pending && iconOnly ? null : children}
     </>
   );
   const common = {
@@ -74,7 +81,7 @@ export function Button(props: ButtonProps) {
       {...rest}
       {...common}
       onClick={(event: MouseEvent<HTMLAnchorElement>) => {
-        if (pending) {
+        if (pending || rest['aria-disabled'] === true || rest['aria-disabled'] === 'true') {
           event.preventDefault();
           return;
         }
