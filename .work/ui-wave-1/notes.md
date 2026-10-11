@@ -301,3 +301,53 @@ target-size pass on all 18 new stories, Chrome and Edge. `npm run ci` green; `te
 - Red outside my files: `tests/ui/form-controls.test.tsx(146)` fails `tsc` (FormFieldControl vs Record<string, unknown>), and test
   `[27] a met rule shows ...` line 327 expects the unmet text to equal "ספרה אחת" exactly, which the addendum's hidden "(עדיין לא)" breaks.
   Both are TEST ENGINEER's. `npm run ci` therefore stops at typecheck.
+
+## Part d — DateInput, ChoiceCardGroup, StepIndicator, Checkbox, InlineAlert (`ui-wave-1/part-d`)
+
+**Approach.** Five components with exactly the props of the API section (no `className`), one story file each, rows added to
+`STATES`. DateInput and Checkbox use native inputs; ChoiceCardGroup uses native radios (visually hidden, `peer`) with the card as
+their label.
+
+**Decisions.**
+- DateInput RTL order: DOM order day, month, year, so the day is at the right edge and the year at the left, as the R2 mockup
+  (`.date3`, יום first) draws it in RTL. The year field is twice as wide (`grid-cols-4`, `col-span-2`): the mockup's 1.4fr is an
+  arbitrary value the lint rejects. Fields are `type="text"` with `inputMode="numeric"`, `autoComplete="off"`, no `maxLength` (no range
+  or length rule here). Visible labels יום · חודש · שנה are the accessible names. Fieldset is a plain `group` with the legend.
+- ChoiceCardGroup: arrows are handled in `onKeyDown` (not left to the browser) so jsdom and every browser behave the same: Down and
+  Up next/previous, Right is previous in RTL (next in LTR), Left the reverse, wrapping at the ends. Direction is read from the nearest
+  `[dir]`, then the document. One tab stop (selected card, else the first). Error: destructive border on unselected cards, no
+  `aria-invalid` (not allowed on a radio); the error message text belongs to the caller. The group is controlled only (`value`).
+- StepIndicator also throws on non-integers and NaN (a finer reading of "invalid input").
+- Checkbox: native input; the whole label row is the touch target (min 44 high), the box is 24. `error` is a thicker destructive
+  outline on the box (`aria-invalid`), the message text is the caller's. No `aria-describedby`, since the API lists none.
+- Story copy: stage options from FR-REG-002 (מתכננים / בהריון / יש לנו ילד או ילדה); DateInput legend "תאריך לידה"; Checkbox label
+  "אישור תנאי השימוש ומדיניות הפרטיות" (FR-REG-004); InlineAlert "פרטי ההתחברות שגויים" is ERR-001's name, the wording itself being undecided
+  (the mockup's text is marked as a proposal).
+
+**Deviations.** None.
+
+**Deliberately not done.** No tests. No range validation. No large ChoiceCardGroup variant. No error text inside the group or Checkbox.
+
+**Uncertain.** (1) jsdom has no layout; the RTL decision in ChoiceCardGroup relies on a `dir` attribute, not on computed style.
+(2) The Checkbox error is an outline plus caller text, which is thin if a caller forgets the text.
+
+**FINDING for SPEC.** `e2e/touch.spec.ts` (criterion 18) fails on the 5 Checkbox stories x 2 browsers (10 tests): the inline links in
+the label measure 18 high (תנאי השימוש 79x18, מדיניות הפרטיות 100x18). They are inline links in running text, which WCAG 2.5.8 exempts.
+The test was not edited. SPEC should exempt `a` inside running text (e.g. inside a `label` or `p`), or say how. Everything else passes.
+
+**Preview path.** `npm run build-storybook`, `npm run serve:storybook`: shared/DateInput (4), shared/ChoiceCardGroup (5), shared/StepIndicator (2),
+ui/Checkbox (5), shared/InlineAlert (2). Check: day field at the right edge; selected card has check mark, 2px terracotta border and dark
+terracotta text; click a card, Tab into the group, arrows move the selection (Right goes to the previous card); filled bar segments start
+at the right; the two links in the Checkbox label are focusable. Not yet: no screen composition.
+
+**Evidence (criteria).** 29: three labelled numeric fields in a fieldset+legend, emits strings, 4 stories. 30: radio in fieldset+legend, arrows
+verified in Chrome RTL (below), check mark + `border-primary` 2px + `text-primary-strong` on selected, 5 stories. 31: text "שלב {n} מתוך {m}", bar
+`aria-hidden`, `RangeError`. 32: native checkbox (Space), 5 stories. 33: `role="alert"`, `aria-hidden` icon, caller's text. 14/18: axe
+passes on all new stories; touch passes except the Checkbox link finding above. `npm run ci` green; `test:browser` 684 passed, 10 failed (the finding).
+
+**RTL geometry (Chrome, 375 wide, measured).** DateInput inputs x: day 279-359, month 192-271, year 16-184 (all 48 high, no overlap, gap 8).
+Choice cards x 16-359, check mark 319-343 (inline start edge, right) at every card. StepIndicator segments: filled 191-359, empty 16-185.
+Checkbox box 335-359 (right edge), label links 205-285 and 97-198, row 44 high. InlineAlert icon 321-345 (right), text 150-311.
+ChoiceCardGroup keys, RTL: from card 1 ArrowRight goes to card 3 (previous, wraps); from card 3, two ArrowLeft reach card 2.
+
+**Neighbouring.** None new. (`incidents.md` was modified in the working tree by something other than this part; not committed.)
