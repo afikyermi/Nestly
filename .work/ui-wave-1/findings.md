@@ -43,3 +43,11 @@ No critical or high finding. CI green; Edge 99/99; Chrome unproven locally (chan
 
 Also from TEST ENGINEER: the `ui-tooltip--on-hover` story double-wraps a Tooltip (two `role=tooltip`), marked `test.fail` ·
 spec gap: component APIs (exports, props) are not specified — SPEC adds an API line per component for parts c–f.
+
+**Re-check (CRITIC, 573bad0): Validated.** Findings 1–5 and 7 fixed; 6 → `debt.md`. TEST ENGINEER's items (stale
+`test.fail`, `check-stories` fixtures) resolved by TEST ENGINEER. `test:browser` 196/196 on real Chrome and Edge.
+**Preview (ORCHESTRATOR, 11.10.2026): passed** — gallery built and served locally; Button primary/pending, icons,
+skeleton at 375: palette and Rubik per `tokens.md`, loader at inline start, directional icons correct in RTL, skeleton
+avatar on the start side; keyboard focus shows the ring and the icon button's tooltip opens on focus. Merged at f71a0ab.
+**For SPEC, parts c–f:** add one API line per component (exports, props, the accessible-name prop) — TEST ENGINEER had
+to learn the API from stories in part b.
