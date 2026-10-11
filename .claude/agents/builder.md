@@ -3,6 +3,12 @@ name: builder
 description: Implements an approved spec end to end — data access, server logic, client, styling, wiring. Owns all feature code. Invoke after Gate 1, and after schema.md exists if the feature changes schema. On the bug-fix path, invoke after TEST ENGINEER's failing regression test exists. Also invoke to address CRITIC findings.
 tools: Read, Grep, Glob, Write, Edit, Bash, Skill
 model: sonnet
+hooks:
+  PreToolUse:
+    - matcher: "Write|Edit|MultiEdit|NotebookEdit|Bash"
+      hooks:
+        - type: command
+          command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/guard.js" builder'
 ---
 
 # BUILDER — Implementation

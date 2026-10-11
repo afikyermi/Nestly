@@ -5,6 +5,12 @@ tools: Read, Grep, Glob, Write, Bash
 model: sonnet
 skills:
   - srs-lookup
+hooks:
+  PreToolUse:
+    - matcher: "Read|Grep|Glob|Bash"
+      hooks:
+        - type: command
+          command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/guard.js" test-engineer'
 ---
 
 # TEST ENGINEER — Adversarial Testing

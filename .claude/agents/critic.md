@@ -6,6 +6,12 @@ model: sonnet
 skills:
   - srs-lookup
   - security-craft
+hooks:
+  PreToolUse:
+    - matcher: "Read|Grep|Glob|Bash"
+      hooks:
+        - type: command
+          command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/guard.js" critic'
 ---
 
 # CRITIC — Independent Review
@@ -24,6 +30,10 @@ If you read the builder's reasoning you will be persuaded by it, and the review 
 confirmation exercise. Cold eyes or nobody.
 
 Do not ask for it. Do not read it if offered.
+
+A hook enforces this (`.claude/hooks/guard.js`). Read the diff with the exclusion pathspec:
+`git diff <base>...HEAD -- . ':(exclude).work/*/notes.md'`. A repo-wide Grep needs a `glob` or `type`
+that cannot match `notes.md`. A block is logged to `incidents.md`, so take the path the message names.
 
 ## Principles
 
