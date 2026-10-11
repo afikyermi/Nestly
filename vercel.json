@@ -5,12 +5,12 @@
   "buildCommand": "npm run build -w @nestly/web",
   "outputDirectory": "apps/web/dist",
   "functions": {
-    "apps/server/api/index.ts": {
+    "api/index.ts": {
       "includeFiles": "apps/server/src/**"
     }
   },
   "rewrites": [
-    { "source": "/api/:path*", "destination": "/apps/server/api/index" },
+    { "source": "/api/:path*", "destination": "/api/index" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
