@@ -241,9 +241,14 @@ function withCwd(segments, start) {
   });
 }
 
-// The production Supabase project. No agent reaches it: migrations to prod run only from CI after Afik's
-// approval (decisions.md, 2026-10-11, "Working rules").
-const PROD_REF = 'wnzwrkgnpvgincottwfm';
+// Supabase projects no agent may reach from the shell: production — migrations to prod run only from CI after
+// Afik's approval (decisions.md, 2026-10-11, "Working rules") — and the two retired projects of the first setup,
+// opened by mistake in Asia and replaced by Frankfurt projects on 2026-10-11.
+const BLOCKED_REFS = [
+  'cihugbwafnaujsqabgyp', // nestly-prod (Frankfurt)
+  'wnzwrkgnpvgincottwfm', // retired: the first nestly-prod
+  'ncsxugphtawrwotimymp', // retired: the first nestly-preview
+];
 
 // The command without heredoc bodies that are only data — a commit message, a file being written. A body fed
 // to an interpreter (bash, node, python…) is a script, so it is kept.
@@ -282,8 +287,9 @@ function checkAll(tool, input, ctx) {
   if (namesEnvFile(input.command)) {
     return 'Shell commands do not touch .env files: they hold Afik\'s secrets. SQL on preview runs through `node tools/db-preview.mjs`, which reads .env.preview itself.';
   }
-  if (fold(commandText(input.command)).includes(PROD_REF)) {
-    return 'nestly-prod is out of reach for agents. Production changes go through CI with Afik\'s approval.';
+  const text = fold(commandText(input.command));
+  if (BLOCKED_REFS.some((ref) => text.includes(ref))) {
+    return 'nestly-prod (and the retired projects) are out of reach for agents. Production changes go through CI with Afik\'s approval.';
   }
   const calls = withCwd(shellSegments(input.command), ctx.cwd)
     .map(({ seg, cwd }) => {

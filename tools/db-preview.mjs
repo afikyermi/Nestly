@@ -12,11 +12,12 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import postgres from 'postgres';
 
-const PREVIEW_REF = 'ncsxugphtawrwotimymp';
-const PROD_REF = 'wnzwrkgnpvgincottwfm';
+const PREVIEW_REF = 'xmihorrkegrdlbhpktny'; // nestly-preview (Frankfurt), since 2026-10-11
+// Never a target: production, and the two retired projects of the first setup (opened in Asia by mistake).
+const REFUSED_REFS = ['cihugbwafnaujsqabgyp', 'wnzwrkgnpvgincottwfm', 'ncsxugphtawrwotimymp'];
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ENV_FILE = path.join(ROOT, '.env.preview');
 
@@ -44,7 +45,7 @@ function checkTarget(raw) {
     fail('PREVIEW_DATABASE_URL is not a valid URL.');
   }
   const where = `${url.username}@${url.hostname}`.toLowerCase();
-  if (where.includes(PROD_REF)) fail('refusing: the connection string points at nestly-prod.');
+  if (REFUSED_REFS.some((ref) => where.includes(ref))) fail('refusing: the connection string points at nestly-prod or a retired project.');
   const preview = url.username.toLowerCase().endsWith(`.${PREVIEW_REF}`) || url.hostname.toLowerCase() === `db.${PREVIEW_REF}.supabase.co`;
   if (!preview) fail('refusing: the connection string is not for nestly-preview.');
   if (!/^postgres(ql)?:$/.test(url.protocol)) fail('PREVIEW_DATABASE_URL must be a postgres:// URL.');
@@ -93,4 +94,9 @@ async function main() {
   }
 }
 
-main().catch((e) => fail(`unexpected error (${e && e.name ? e.name : 'Error'}); details withheld so the connection string cannot leak.`));
+// Run only when invoked directly; probes import the checks below.
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  main().catch((e) => fail(`unexpected error (${e && e.name ? e.name : 'Error'}); details withheld so the connection string cannot leak.`));
+}
+
+export { PREVIEW_REF, readUrl, checkTarget, scrubber };

@@ -13,12 +13,14 @@
 **עודכן:** 11.10.2026 · **גרסת SRS:** 2.10
 
 - **מצב:** התשתית פעילה. ‏7.0 (שלד), ‏7.1 (CI), ‏7.2 (hooks) ו-7.4 (Vercel ו-Supabase) הושלמו. ב-7.3 נשארו הבדיקות T2 עד T7 לפני המיגרציה הראשונה. **כללי העבודה שונו ב-11.10:** אני עובר את Gate 1, ‏Gate 2 ו-Preview ומחליט את מה שלא שמור לך, ורושם כל החלטה ב-`decisions.md`. נשארו אצלך: סודות, prod, החלטות שאי אפשר לבטל או שמשנות את ה-SRS מהותית, ונקודות של משפט, קטינים או כסף (`CLAUDE.md`, ‏"Decision authority").
-- **Preview:** ‏[nestly-blue.vercel.app](https://nestly-blue.vercel.app). ‏`/api/health` עובד. עוד אין מסך מוצר.
-- **המשימה הבאה:** T2 על nestly-preview, דרך `node tools/db-preview.mjs`.
-- **אחריה:** T3 עד T7, וכיבוי ה-Data API: קודם preview, ואחרי ש-T7 עובר גם prod. אחר כך סיום 7.3, ‏9.6, ‏9.7 ו-I1.
+- **Preview:** ‏[nestly-blue.vercel.app](https://nestly-blue.vercel.app). ‏`/api/health` עובד. עוד אין מסך מוצר. **Supabase הועבר ב-11.10 לפרנקפורט:** הפרויקט החדש של prod הוא `cihugbwafnaujsqabgyp`, והחדש של preview הוא `xmihorrkegrdlbhpktny`. שני הפרויקטים הישנים, שנפתחו בטעות באסיה, חסומים ב-guard וב-`db-preview.mjs`.
+- **המשימה הבאה:** סיום 7.3. ‏T2, ‏T3 ו-T4 עברו. ‏T5 עבר בתנאי אחד. DATA ARCHITECT מכין המלצה לשתי מגבלות ש-T5 מצא: `app_owner` לא יכול ליצור FK ל-`auth.users`, ולא policy שקוראת ל-`auth.uid()` (פרטים ב-`.work/infra-7.3/`). אחרי ההמלצה אני מחליט ורושם.
+- **אחריה:** T6 ו-T7, ואז 9.6, ‏9.7 ו-I1.
 - **ממתין לך (סודות ופעולות):**
-  1. **ליצור `.env.preview` בשורש ה-repo**, עם השורה `PREVIEW_DATABASE_URL=`. הערך: nestly-preview ← Connect ← Session pooler (פורט 5432), למשתמש `postgres`, עם הסיסמה שלך. הקובץ ב-`.gitignore`, ואני לא יכול לקרוא אותו. **T2 מחכה לזה.**
-  2. **כיבוי ה-Data API ב-nestly-prod**, אחרי ש-T7 יעבור ב-preview. אין לי גישה ל-prod. אכתוב כאן כשזה יהיה מוכן.
+  1. **להוסיף ל-`.env.preview`** את השורה `PREVIEW_PUBLISHABLE_KEY=`, עם המפתח מסוג publishable של nestly-preview (Project Settings ← API Keys). ‏T7 קורא אותו בעצמו.
+  2. **לכבות את ה-Data API ב-nestly-preview** (Project Settings ← Data API). אחר כך אריץ את T7.
+  3. **ליצור ב-GitHub שתי סביבות** (Settings ← Environments). הראשונה `production`: ב-Required reviewers אתה, וב-Deployment branches רק `main`. השנייה `preview`: בלי הגבלות. עוד לא צריך סודות. זה T6.
+  4. **אחרי ש-T7 יעבור:** לכבות את ה-Data API גם ב-nestly-prod. אכתוב כאן כשזה מוכן.
 - **ממתין להכרעה שלך:** אין.
 - **פתוח, בלי הכרעה נדרשת עכשיו:**
   - 4.11 ו-6.1 (Threat Modeling).

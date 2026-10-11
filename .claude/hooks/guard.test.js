@@ -458,8 +458,10 @@ test('all: no shell access to .env files or to the production project', () => {
     'grep URL .env.local',
     'cp .env.preview /tmp/x',
     'echo x > .env.preview',
+    'curl https://cihugbwafnaujsqabgyp.supabase.co/rest/v1/',
+    'node tools/db-preview.mjs -e "select 1" # cihugbwafnaujsqabgyp',
     'curl https://wnzwrkgnpvgincottwfm.supabase.co/rest/v1/',
-    'node tools/db-preview.mjs -e "select 1" # wnzwrkgnpvgincottwfm',
+    'echo ncsxugphtawrwotimymp',
   ]) {
     blocks('all', 'Bash', { command: c });
   }
