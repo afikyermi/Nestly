@@ -33,7 +33,7 @@ is a second pair of eyes.
 | Shared | `packages/shared`: **Zod** validations (VAL-xxx), types, constants. No DOM, no Node APIs — it must run on web, server and mobile | decided 2026-10-11 |
 | Database | **PostgreSQL via Supabase**, the only database, accessed with **Drizzle** through the server | decided |
 | Authorization | **RLS**, enforced in the database. The server never filters rows for permission | decided |
-| Auth | **Supabase Auth.** The web app signs in with supabase-js; the server verifies the JWT through JWKS (asymmetric keys), ignores the token's role and forces `authenticated` | decided 2026-10-11 |
+| Auth | **Supabase Auth.** The web app signs in with supabase-js; the server verifies the JWT with **`jose`** (`createRemoteJWKSet` against Supabase's JWKS, asymmetric keys; not `@fastify/jwt`), ignores the token's role and forces `authenticated` | decided 2026-10-11 |
 | Storage | **TBD** — SRS §12, NFR-MEDIA-001; media decision M1 before I5 | open |
 | Realtime | Polling in the MVP. Later, **Supabase Realtime** private channels carry signals only, never content; the client fetches the content through the server | decided 2026-10-11 |
 | Tests | Vitest + React Testing Library (unit, integration) · Playwright on Chrome and Edge (E2E) · axe-core in Playwright (accessibility) · pgTAP (database and RLS) · npm audit (dependencies). Per SRS NFR-QA-001 / OP-018 | decided (D4) |

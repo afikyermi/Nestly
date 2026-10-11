@@ -50,7 +50,7 @@
 | CommunityConfiguration | הגדרות קהילה תפעוליות כגון קטגוריות, סיבות דיווח ותצורות Moderation מאושרות; כוללות metadata של שינוי לפי הצורך. |
 | SystemAnnouncement | הודעת מערכת רשמית: title/body, status Draft/Published/Removed, target scope לפי מה שיוגדר, author/actor ו-timestamps. |
 | RegularChatRequest | Requester Regular User, Target Regular User, openingMessage, status Pending/Accepted/Declined, timestamps. Accept פותח Conversation; Decline אינו יוצר Chat. |
-| PrivacyPreference | User + RegularProfileVisibility (Open/Restricted) והעדפות פרטיות נוספות. Regular User נשאר searchable בכל מצב. |
+| PrivacyPreference | User + RegularProfileVisibility (Open/Restricted), הצגת משפט ה-Journey Summary (§1.4; ברירת מחדל: מוצג) והעדפות פרטיות נוספות. Regular User נשאר searchable בכל מצב. |
 | ProfessionalPromotionMetric | Promotion, TargetType Profile/Post, impressions/clicks/engagement ושדות מדידה נוספים שייקבעו; נשמר בנפרד ממדדי Reputation אורגניים. |
 | AnalyticsEvent | Event כללי למדידת Impression/Open/Dwell/Search/Interaction/Conversion/Support/Moderation עם eventId, timestamp, entity/surface/source ו-algorithm/config version לפי צורך. |
 | ContentImpression | רשומת/אירוע חשיפה של Recommendation/Feed unit: user/session, entity, surface, position, organic/paid, algorithm/config version ומשך חשיפה אם זמין. |

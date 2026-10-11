@@ -10,14 +10,12 @@
 
 ## איפה אנחנו עומדים
 
-**עודכן:** 11.10.2026 · **גרסת SRS:** 2.9
+**עודכן:** 11.10.2026 · **גרסת SRS:** 2.10
 
 - **מצב:** צוות הסוכנים וה-SRS מוכנים. עוד לא נכתבה שורת קוד. ב-11.10 הארכיטקטורה עודכנה: TypeScript, שרת Node.js משלנו, monorepo, Supabase למסד ול-Auth, ו-Drizzle. נוספה מערכת skills, שלב א: כלי תהליך, משימות SRS ו-skills מקצועיים. לפני הפיצ'ר הראשון צריך את חלק 7, CI ו-hook, ואת חלק 9, עיצוב UX/UI. מחלק 9 בוצעו 9.1 עד 9.3: הסקיצות ב-`docs/design/sketches/`, ההחלטות ב-`decisions.md`, מסמך הכיוון `docs/design/direction.md`, ו-R1 ב-`docs/design/mockups/`. ב-R1 נבחרו כיוון A, Rubik ועמודה ממורכזת עם rail, וה-tokens נמצאים ב-`docs/design/tokens.md`. R2 אושר, עם שורת פעולות בכרטיס הפוסט: לייק, תגובה, שיתוף בפיד ושיתוף קישור. **D7 נסגר:** המוצר נבנה ב-15 Initiatives, ו-I1 עד I9 הם ה-MVP (חלק 8). מסלול Elevated עודכן: אתה מאשר Gate 1, ‏Gate 2 ו-Preview, ולא diff. **7.0 ו-7.4 הוחלטו:** מבנה התיקיות והשמות, והאתר והשרת ב-Vercel. השרת רץ כ-Vercel Functions בפרנקפורט, והמסד ב-Supabase בפרנקפורט (שיטה C).
-- **המשימה הבאה:** בניית שלד ה-monorepo (7.0). ‏SRS 2.9 נכתב (9.5). ה-repo מחובר ל-GitHub: `afikyermi/Nestly`, ציבורי.
-- **אחריה:** 7.1, 7.2 ו-7.3, ואז 9.6 ו-9.7. אחר כך I1 (חלק 8).
-- **ממתין להכרעה שלך:**
-  - OP-021: הנוסח של משפט התכנון, והאם אפשר להסתיר אותו.
-  - ספריית אימות JWT (`jose`, או `@fastify/jwt` עם JWKS): תעלה בחלק 7.
+- **המשימה הבאה:** 7.1, CI. שלד ה-monorepo (7.0) נבנה: web, server ו-shared, עם typecheck, טסטים ו-build שעוברים. OP-021 נסגר (SRS 2.10), ו-`jose` נבחרה לאימות JWT. ה-repo מחובר ל-GitHub: `afikyermi/Nestly`, ציבורי.
+- **אחריה:** 7.2 ו-7.3, ואז 9.6 ו-9.7. אחר כך I1 (חלק 8).
+- **ממתין להכרעה שלך:** אין.
 - **פתוח, בלי הכרעה נדרשת עכשיו:**
   - 4.11 ו-6.1 (Threat Modeling).
   - החלטות המדיה M1 עד M6: לפני I5.
@@ -77,7 +75,7 @@
 | **OP-019** | שבעת כללי הפוסט האנונימי — לפי ההמלצה |
 | **OP-020** | Professional רואה פרופיל בדיוק כמו Regular non-Friend. NFR-PRIV-005 הובהר. BR-037 ללא שינוי |
 | **D5.א בולט 2** | הגנה מפני שליפה גורפת של משתמשים: NFR-SEC-006, BR-063, VAL-037, ERR-032, AC-078 |
-| **OP-020, עדכון (SRS 2.5)** | **Journey Summary:** ל-non-Friend מוצגים מספר ילדים, גילאים (ב-Open בלבד) ו"בהריון" בלי פרטים. אם אין ילדים ואין הריון, מוצג משפט הומוריסטי על תכנון. "תכנון" לא מוצג כסטטוס. הנוסח פתוח: **OP-021** ⏳ |
+| **OP-020, עדכון (SRS 2.5)** | **Journey Summary:** ל-non-Friend מוצגים מספר ילדים, גילאים (ב-Open בלבד) ו"בהריון" בלי פרטים. אם אין ילדים ואין הריון, מוצג משפט הומוריסטי על תכנון. "תכנון" לא מוצג כסטטוס. **OP-021 נסגר (SRS 2.10):** "עוד אין כאן ילדים, אז הקפה עדיין מגיע חם ☕". מתאר את ההווה, ניטרלי מגדרית, מוצג כברירת מחדל, ואפשר להסתיר אותו בהגדרות הפרטיות ✅ |
 
 ## חלק 4 — יישור הקבצים ועדכון הסוכנים 🔄
 
@@ -123,10 +121,10 @@
 
 | # | משימה |
 |---|---|
-| 7.0 | **שלד ה-monorepo** (npm workspaces). **כבר הוחלט:** `apps/web` (React, Vite ו-TS) · `apps/server` (Node.js, TS ו-Fastify, בשכבות route ← service ← repository) · `packages/shared` (Zod, טיפוסים וקבועים) · `apps/mobile` רק בעתיד. **הוחלט ב-11.10:** התיקיות בתוך כל app לפי השכבות של §4.2, וטסטים מחוץ ל-`src`. השמות באנגלית, לפי השמות הלוגיים ב-SRS, ובלי מזהי SRS בשמות קבצים (`decisions.md`, ‏"Repository layout and naming"). **הבנייה עצמה עוד לא בוצעה** ⏳ |
-| 7.1 | **CI.**<br>**בסיס:** typecheck (`strict`) · טסטים · lint (typescript-eslint, תלות dev הכרחית) · ביקורת תלויות.<br>**כללי TS:** איסור `any`, `@ts-ignore`, `@ts-nocheck` ו-`@ts-expect-error` · הגבלת `as`.<br>**תקרות גודל:** Page, Feature ו-Component 600 · hook 300 · service 400 · utility 300 · route בשרת 200 · service בשרת 400 · repository 400.<br>**גבולות import:** Feature לא מייבא Feature · Shared UI לא מייבא features או services · הלוגיקה ב-web בלי react-dom, window או document · shared לא מייבא מ-apps, ובלי DOM ובלי API של Node · web לא מייבא מ-server.<br>**בדיקות מסד:** לכל טבלה יש מדיניות RLS ו-FORCE RLS · אף טבלה לא בבעלות `app_server` · כל view מוגדר `security_invoker` · טסט pgTAP ששאילתה בלי זהות נכשלת · הטסטים רצים בתפקיד `app_server` |
+| 7.0 | **שלד ה-monorepo** (npm workspaces). **כבר הוחלט:** `apps/web` (React, Vite ו-TS) · `apps/server` (Node.js, TS ו-Fastify, בשכבות route ← service ← repository) · `packages/shared` (Zod, טיפוסים וקבועים) · `apps/mobile` רק בעתיד. **הוחלט ב-11.10:** התיקיות בתוך כל app לפי השכבות של §4.2, וטסטים מחוץ ל-`src`. השמות באנגלית, לפי השמות הלוגיים ב-SRS, ובלי מזהי SRS בשמות קבצים (`decisions.md`, ‏"Repository layout and naming"). ✅ **נבנה ב-11.10:** שלושת ה-workspaces, ‏`GET /api/health`, ומתאם Vercel ב-`apps/server/api/`. ‏typecheck, טסטים ו-build עוברים. **לבדוק ב-Preview הראשון:** הניתוב של `vercel.json` לפונקציה, והייבוא של `@nestly/shared` מתוך הפונקציה |
+| 7.1 | **CI.**<br>**בסיס:** typecheck (`strict`) · טסטים · lint (typescript-eslint, תלות dev הכרחית) · ביקורת תלויות.<br>**גרסת TypeScript (החלטת אפיק, 11.10):** אם typescript-eslint לא תומך ב-TypeScript 7, יורדים לגרסה העדכנית של TypeScript 6.<br>**כללי TS:** איסור `any`, `@ts-ignore`, `@ts-nocheck` ו-`@ts-expect-error` · הגבלת `as`.<br>**תקרות גודל:** Page, Feature ו-Component 600 · hook 300 · service 400 · utility 300 · route בשרת 200 · service בשרת 400 · repository 400.<br>**גבולות import:** Feature לא מייבא Feature · Shared UI לא מייבא features או services · הלוגיקה ב-web בלי react-dom, window או document · shared לא מייבא מ-apps, ובלי DOM ובלי API של Node · web לא מייבא מ-server.<br>**בדיקות מסד:** לכל טבלה יש מדיניות RLS ו-FORCE RLS · אף טבלה לא בבעלות `app_server` · כל view מוגדר `security_invoker` · טסט pgTAP ששאילתה בלי זהות נכשלת · הטסטים רצים בתפקיד `app_server` |
 | 7.2 | **hooks.** PreToolUse, והאות ל-`incidents.md`.<br>**לכולם:** חסימה של `git add -A` ו-`git add .`.<br>**לפי סוכן:** hooks בתוך הגדרת הסוכן, עם סקריפט אחד `.claude/hooks/guard.js`. הסקריפט נסגר כשמשהו משתבש: שגיאה מחזירה exit 2.<br>• **CRITIC:** לא קורא `notes.md`.<br>• **TEST ENGINEER:** לא קורא `apps/*/src` (הטסטים יושבים מחוץ ל-`src`, לפי 7.0), ולא את `notes.md`. החסימה חלה בכל כלי: Read, Grep, Glob, git (diff, show, log -p, blame), ופקודות Bash שמזכירות את הנתיבים (cat, less, head, type ודומות). מותר לו לקרוא את `packages/shared`, החוזה.<br>• **BUILDER:** לא כותב קבצי טסטים: `apps/*/tests`, ‏`packages/shared/tests`, ‏`e2e/` ו-`supabase/tests`.<br>**לבדיקה:** ה-hook של security-guidance. קוראים את הקוד שלו לפני שמפעילים |
-| 7.3 | **בדיקת ה-hook בסביבה מבודדת לפני הפעלה**, כדי שלא ישבור את הסביבה. בודקים גם אם אפשר לחסום עריכת טסטים של TEST ENGINEER על ידי BUILDER. **במקביל, בדיקות תשתית:**<br>• גרסת Postgres: 16 ומעלה, לטובת `WITH INHERIT FALSE, SET TRUE`. אחרת NOINHERIT.<br>• ה-pooler מקבל תפקיד מותאם.<br>• ב-Supabase מופעלים מפתחות JWT אסימטריים.<br>• בחירת ספריית אימות JWT<br>• **נתיב המיגרציות:** החיבור הישיר ל-Supabase הוא IPv6 בלבד, ו-CI אולי לא מגיע אליו. DATA ARCHITECT מחליט בין ה-pooler במצב session לבין תוסף IPv4, וזה עשוי לשנות את כלל 5.<br>• ה-pooler מקבל חיבור אחד מכל מופע של פונקציה (מגבלה של 200 לקוחות ב-Free) |
+| 7.3 | **בדיקת ה-hook בסביבה מבודדת לפני הפעלה**, כדי שלא ישבור את הסביבה. בודקים גם אם אפשר לחסום עריכת טסטים של TEST ENGINEER על ידי BUILDER. **במקביל, בדיקות תשתית:**<br>• גרסת Postgres: 16 ומעלה, לטובת `WITH INHERIT FALSE, SET TRUE`. אחרת NOINHERIT.<br>• ה-pooler מקבל תפקיד מותאם.<br>• ב-Supabase מופעלים מפתחות JWT אסימטריים.<br>• ~~בחירת ספריית אימות JWT~~: הוחלט `jose` (`decisions.md`)<br>• **נתיב המיגרציות:** החיבור הישיר ל-Supabase הוא IPv6 בלבד, ו-CI אולי לא מגיע אליו. DATA ARCHITECT מחליט בין ה-pooler במצב session לבין תוסף IPv4, וזה עשוי לשנות את כלל 5.<br>• ה-pooler מקבל חיבור אחד מכל מופע של פונקציה (מגבלה של 200 לקוחות ב-Free) |
 | 7.4 | **hosting וסביבת Preview.** ✅ **הוחלט ב-11.10, שיטה C:**<br>• **האתר והשרת ב-Vercel, בפרויקט אחד:** האתר סטטי, והשרת (Fastify) רץ כ-Vercel Functions באזור fra1 (פרנקפורט). Hobby לפיתוח בלבד. Pro ‏($20 לחודש) לפני הבטא.<br>• **המסד:** Supabase Free, ‏Central EU (פרנקפורט). פרויקט אחד לייצור ואחד ל-Preview.<br>• **משימות רקע** כ-`app_jobs`, בנפרד מהשרת: pg_cron במסד, ופרויקט Vercel נפרד למשימות קוד.<br>• **Preview לכל פיצ'ר:** ענף ב-Vercel, עם האתר וה-API יחד, ופרויקט ה-Preview המשותף ב-Supabase.<br>• **תנאים:** מוני rate limit במסד · ניטור שגיאות חיצוני לפני הבטא · HEIC ב-M2 · חיבור אחד ל-pooler לכל מופע.<br>• **repo:** ‏`github.com/afikyermi/Nestly`, ציבורי (החלטה מ-11.10).<br>• **חלופה שנדחתה:** A, שרת שרץ תמיד ב-Railway. הפירוט ב-`decisions.md`, ‏"Hosting" |
 
 **הערה, לא החלטה: Storage.** נשאר TBD עד פיצ'ר המדיה. כיוון שאפיק רוצה לבחון אז: Cloudflare R2, עם buckets פרטיים, presigned URLs מהשרת וניקוי EXIF ו-GPS.
@@ -229,7 +227,7 @@
 | # | Initiative | MVP | פיצ'רים | תלוי ב | חוסם לפני פתיחה | קובץ | מצב |
 |---|---|---|---|---|---|---|---|
 | I1 | חשבונות וגישה (Regular) | ✅ | 7 | 7, 9.7 | — (הוחלט) | [I1-accounts-access.md](.work/_initiatives/I1-accounts-access.md) | ⬜ מאושר, ממתין לחלק 7 ול-9.7 |
-| I2 | פרופיל, פרטיות ו-Friends | ✅ | 5 | I1 | OP-021 | — | ⬜ |
+| I2 | פרופיל, פרטיות ו-Friends | ✅ | 5 | I1 | — (OP-021 נסגר) | — | ⬜ |
 | I3 | פיד קהילתי, כולל שיתוף פנימי וחיצוני | ✅ | 8 | I2 | כללי קהילה · `algorithm.md` | — | ⬜ |
 | I4 | בטיחות וניהול, ליבה | ✅ | 5 | I3 | סיבות דיווח · משכי השעיה | — | ⬜ |
 | I5 | מדיה: תמונות בפוסטים ותמונת פרופיל | ✅ | 4 | I2, I3, I4 | M1–M6 | — | ⬜ |

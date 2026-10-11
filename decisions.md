@@ -770,6 +770,15 @@ YYYY-MM-DD | <decision in one line>
                 GitHub's noreply address before the first push (offered, not chosen)
   decided by:   Afik (11.10.2026, "כרגע נשאיר PUBLIC" · "תריץ")
 
+2026-10-11 | JWT verification: `jose`, with `createRemoteJWKSet` against Supabase's JWKS endpoint
+  alternatives: `@fastify/jwt` with JWKS (rejected — not used)
+  why:          `jose` is a small, dependency-free library that verifies asymmetric tokens against a remote
+                JWKS and caches the key set. It keeps verification a plain function in the server, independent
+                of the Fastify plugin layer, and fits the rule that the server ignores the token's `role`
+                claim and sets the identity itself (data-model.md rule 3).
+  accepted cost: the server wires the verification hook itself instead of using a ready Fastify plugin.
+  decided by:   Afik (11.10.2026)
+
 ---
 
 ## Pending — not yet decided

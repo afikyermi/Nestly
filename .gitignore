@@ -20,3 +20,11 @@ exports/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Environment templates are the one tracked exception to the .env.* rule above
+!.env.example
+
+# Vercel, TypeScript and test output
+.vercel/
+*.tsbuildinfo
+coverage/

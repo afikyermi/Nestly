@@ -57,7 +57,7 @@
 | AC-051 | Regular non-Friend יכול לשלוח Message Request; ללא Accept לא נפתחת Conversation מלאה. |
 | AC-052 | Chat Block אינו מסתיר משתמש מחיפוש/פרופיל ואינו מסיר Friendship/Follow; הוא מונע הודעות עד Unblock. |
 | AC-053 | Support reply מופיעה ב-Chat בשם “Support”, מקושרת ל-SupportRequest ואינה מאפשרת פתיחת Chat חופשי אל Admin/Moderator. |
-| AC-054 | כל Regular פעיל מופיע ב-People Search. Profile Restricted מציג ל-non-Friend רק את ה-Basic Public Profile: שם, תמונה, Journey Summary ללא גילאים, Friends ו-Friends משותפים ופעולת הודעה. Profile Open מציג את כל הפרופיל, ומידע ילדים והריון מוצג רק כ-Journey Summary עם גילאים. שמות ילדים, תאריכי לידה, שבוע הריון ו-Tracker Data אינם מוצגים ל-non-Friend בשום מצב. כשאין ילדים ואין הריון מוצג משפט התכנון ההומוריסטי. צופה Professional רואה בדיוק מה שצופה Regular non-Friend רואה. |
+| AC-054 | כל Regular פעיל מופיע ב-People Search. Profile Restricted מציג ל-non-Friend רק את ה-Basic Public Profile: שם, תמונה, Journey Summary ללא גילאים, Friends ו-Friends משותפים ופעולת הודעה. Profile Open מציג את כל הפרופיל, ומידע ילדים והריון מוצג רק כ-Journey Summary עם גילאים. שמות ילדים, תאריכי לידה, שבוע הריון ו-Tracker Data אינם מוצגים ל-non-Friend בשום מצב. כשאין ילדים ואין הריון מוצג המשפט שב-§1.4; כשהמשתמש מסתיר אותו בהגדרות הפרטיות, לא מוצג דבר במקומו. צופה Professional רואה בדיוק מה שצופה Regular non-Friend רואה. |
 | AC-055 | Email שכבר קיים בכל חשבון Nestly נדחה גם אם החשבון הקיים מסוג משתמש אחר. |
 | AC-056 | כל Regular/Professional פעיל יכול ליצור Public/Private Group והיוצר הופך Group Owner ללא אישור Admin. |
 | AC-057 | Professional Marketing Tools כוללים Profile Promotion, Post Promotion ו-Promotion Analytics; Reputation אורגני אינו משתנה עקב קידום. |
