@@ -42,11 +42,12 @@ async function smallTargets(page: Page, rootSelector: string): Promise<Small[]> 
         if (rect.width >= 44 && rect.height >= 44) continue;
         // The inline exception: an a[href], computed display inline, in a parent that has other text.
         if (el.matches('a[href]') && style.display === 'inline' && el.parentElement) {
+          // "text outside the link" = a letter or digit outside every a and button of the parent;
+          // separators such as "|" do not make a sentence.
           const clone = el.parentElement.cloneNode(true);
-          const index = Array.from(el.parentElement.children).indexOf(el);
           if (clone instanceof Element) {
-            clone.children[index]?.remove();
-            if ((clone.textContent ?? '').trim().length > 0) continue;
+            for (const other of Array.from(clone.querySelectorAll('a, button'))) other.remove();
+            if (/[\p{L}\p{N}]/u.test(clone.textContent ?? '')) continue;
           }
         }
         out.push({
@@ -104,6 +105,25 @@ test.describe('[18] the inline-link exemption is narrow', () => {
   test('[18] control: an inline link beside only whitespace still fails', async ({ page }) => {
     const small = await judge(page, '<p>  <a href="/terms">תנאים</a>  </p>');
     expect(small.map((s) => s.tag)).toEqual(['a']);
+  });
+
+  test('[18] control: two links separated by "|" in one parent are not a sentence and still fail', async ({ page }) => {
+    const small = await judge(page, '<p><a href="/a">תנאים</a> | <a href="/b">פרטיות</a></p>');
+    expect(small.map((s) => s.tag)).toEqual(['a', 'a']);
+  });
+
+  test('[18] control: a link and a button side by side with only a separator still fail', async ({ page }) => {
+    const small = await judge(page, '<p><a href="/a">תנאים</a> · <button type="button">עוד</button></p>');
+    expect(small.map((s) => s.tag).sort()).toEqual(['a', 'button']);
+  });
+
+  // Reading of the addendum: "text outside every a and button in the parent". A label followed by a stand-alone link
+  // has such text ("סיסמה"), so by the literal definition the link is exempt. Pinned here so a change is deliberate;
+  // reported to SPEC as a possible loophole.
+  test('[18] control (pinned reading): a label text followed by a stand-alone link counts as text outside the link', async ({
+    page,
+  }) => {
+    expect(await judge(page, '<div>סיסמה <a href="/forgot">שכחתי</a></div>')).toEqual([]);
   });
 
   test('[18] control: a too-small button inside a sentence still fails', async ({ page }) => {

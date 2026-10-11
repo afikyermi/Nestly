@@ -455,3 +455,58 @@ test.describe('InlineAlert (33)', () => {
     expect(c.color).not.toBe(c.bg);
   });
 });
+
+// Addendum after the part-d review.
+test.describe('announced errors (addendum after the part-d review)', () => {
+  for (const id of storiesOf('shared-choicecardgroup--')) {
+    test(`[30] ${id}: the fieldset is a radiogroup; aria-invalid="true" only in the error story`, async ({ page }) => {
+      await openStory(page, id);
+      const group = page.locator(`${ROOT} fieldset[role="radiogroup"]`);
+      await expect(group).toHaveCount(1);
+      if (id.endsWith('--error-state')) await expect(group).toHaveAttribute('aria-invalid', 'true');
+      else await expect(group).not.toHaveAttribute('aria-invalid', 'true');
+    });
+  }
+
+  test('[30] shared-choicecardgroup--error-state: aria-describedby, when present, points at existing text', async ({
+    page,
+  }) => {
+    await openStory(page, 'shared-choicecardgroup--error-state');
+    const ids = ((await page.locator(`${ROOT} fieldset`).getAttribute('aria-describedby')) ?? '')
+      .split(/\s+/)
+      .filter(Boolean);
+    for (const id of ids) {
+      expect(await page.evaluate((i) => document.getElementById(i)?.textContent?.trim() ?? '', id)).not.toBe('');
+    }
+  });
+
+  test('[29] shared-dateinput--error-state: aria-describedby on the fieldset, when present, points at existing text', async ({
+    page,
+  }) => {
+    await openStory(page, 'shared-dateinput--error-state');
+    const ids = ((await page.locator(`${ROOT} fieldset`).getAttribute('aria-describedby')) ?? '')
+      .split(/\s+/)
+      .filter(Boolean);
+    for (const id of ids) {
+      expect(await page.evaluate((i) => document.getElementById(i)?.textContent?.trim() ?? '', id)).not.toBe('');
+    }
+  });
+
+  test('[32] ui-checkbox--error-state: the checkbox shows the destructive colour (border, outline or shadow); the plain story does not', async ({
+    page,
+  }) => {
+    const paint = async (id: string) => {
+      await openStory(page, id);
+      return page
+        .locator(`${ROOT} input[type="checkbox"], ${ROOT} [role="checkbox"]`)
+        .first()
+        .evaluate((el) => {
+          const c = getComputedStyle(el);
+          return [c.borderTopColor, c.outlineColor, c.boxShadow].join(' | ');
+        });
+    };
+    const destructive = rgb(colors.destructive);
+    expect(await paint('ui-checkbox--error-state')).toContain(destructive);
+    expect(await paint('ui-checkbox--unchecked')).not.toContain(destructive);
+  });
+});

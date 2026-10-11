@@ -9,6 +9,7 @@ import { DateInput } from '@/components/shared/date-input';
 import type { DateParts } from '@/components/shared/date-input';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { StepIndicator } from '@/components/shared/step-indicator';
+import { FormField } from '@/components/shared/form-field';
 import { Checkbox } from '@/components/ui/checkbox';
 
 afterEach(() => vi.restoreAllMocks());
@@ -169,7 +170,7 @@ function ControlledChoice({ onSeen, initial = null }: { onSeen?: (v: string) => 
 describe('ChoiceCardGroup (30)', () => {
   it('[30] a fieldset group named by the legend holds one radio per option, all sharing the name', () => {
     const { container } = render(<ChoiceCardGroup legend="באיזה שלב אתם?" name="stage" options={OPTIONS} />);
-    const group = screen.getByRole('group', { name: 'באיזה שלב אתם?' });
+    const group = screen.getByRole('radiogroup', { name: 'באיזה שלב אתם?' });
     expect(group.tagName).toBe('FIELDSET');
     expect(container.querySelector('fieldset > legend')).toHaveTextContent('באיזה שלב אתם?');
     const radios = within(group).getAllByRole('radio');
@@ -254,7 +255,7 @@ describe('ChoiceCardGroup (30)', () => {
 
   it('[30] zero options renders the group with no radio and does not crash; one option works', () => {
     const { rerender } = render(<ChoiceCardGroup legend="ל" name="s" options={[]} />);
-    expect(screen.getByRole('group', { name: 'ל' })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: 'ל' })).toBeInTheDocument();
     expect(screen.queryAllByRole('radio')).toHaveLength(0);
     rerender(<ChoiceCardGroup legend="ל" name="s" options={[{ value: 'pregnant', label: 'בהריון' }]} value="pregnant" />);
     expect(screen.getAllByRole('radio')).toHaveLength(1);
@@ -472,5 +473,105 @@ describe('InlineAlert (33)', () => {
       </>,
     );
     expect(screen.getAllByRole('alert')).toHaveLength(2);
+  });
+});
+
+// Addendum after the part-d review: errors are announced, not only drawn.
+describe('announced errors (addendum after the part-d review)', () => {
+  it('[30] ChoiceCardGroup: a radiogroup (a fieldset) named by the legend', () => {
+    const { container } = render(<ChoiceCardGroup legend="באיזה שלב אתם?" name="s" options={OPTIONS} />);
+    const group = screen.getByRole('radiogroup', { name: 'באיזה שלב אתם?' });
+    expect(group.tagName).toBe('FIELDSET');
+    expect(container.querySelector('fieldset > legend')).toHaveTextContent('באיזה שלב אתם?');
+  });
+
+  it('[30] ChoiceCardGroup with error: the radiogroup has aria-invalid="true"; without error it does not', () => {
+    const { rerender } = render(<ChoiceCardGroup legend="ל" name="s" options={OPTIONS} error />);
+    expect(screen.getByRole('radiogroup')).toHaveAttribute('aria-invalid', 'true');
+    rerender(<ChoiceCardGroup legend="ל" name="s" options={OPTIONS} />);
+    expect(screen.getByRole('radiogroup')).not.toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('[30] ChoiceCardGroup: aria-describedby on the radiogroup links to the caller message', () => {
+    render(
+      <>
+        <ChoiceCardGroup legend="ל" name="s" options={OPTIONS} error aria-describedby="stage-error" />
+        <p id="stage-error">יש לבחור שלב</p>
+      </>,
+    );
+    expect(screen.getByRole('radiogroup')).toHaveAttribute('aria-describedby', 'stage-error');
+    expect(screen.getByRole('radiogroup')).toHaveAccessibleDescription('יש לבחור שלב');
+  });
+
+  it('[30] ChoiceCardGroup: without the prop there is no dangling aria-describedby', () => {
+    render(<ChoiceCardGroup legend="ל" name="s" options={OPTIONS} />);
+    const ref = screen.getByRole('radiogroup').getAttribute('aria-describedby');
+    expect(ref === null || ref.split(/\s+/).every((id) => document.getElementById(id) !== null)).toBe(true);
+  });
+
+  it('[29] DateInput: aria-describedby on the fieldset links to the caller message', () => {
+    const { container } = render(
+      <>
+        <DateInput legend="תאריך לידה" error aria-describedby="date-error" />
+        <p id="date-error">תאריך לא תקין</p>
+      </>,
+    );
+    const fieldset = container.querySelector('fieldset');
+    expect(fieldset).toHaveAttribute('aria-describedby', 'date-error');
+    expect(screen.getByRole('group', { name: 'תאריך לידה' })).toHaveAccessibleDescription('תאריך לא תקין');
+  });
+
+  it('[29] DateInput with error and aria-describedby: all three fields keep aria-invalid="true"', () => {
+    render(<DateInput legend="תאריך לידה" error aria-describedby="date-error" />);
+    for (const name of FIELD_NAMES) {
+      expect(screen.getByLabelText(name)).toHaveAttribute('aria-invalid', 'true');
+    }
+  });
+
+  it('[32] Checkbox inside FormField with an error: aria-invalid="true" and aria-describedby reach the input', () => {
+    render(
+      <FormField label="תנאים" error="יש לאשר את התנאים">
+        {(c) => <Checkbox {...c}>אני מסכים</Checkbox>}
+      </FormField>,
+    );
+    const box = screen.getByRole('checkbox');
+    expect(box).toHaveAttribute('aria-invalid', 'true');
+    const ids = (box.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean);
+    expect(ids.length).toBeGreaterThan(0);
+    expect(box).toHaveAccessibleDescription(expect.stringContaining('יש לאשר את התנאים'));
+  });
+
+  it('[32] Checkbox: aria-invalid and aria-describedby pass through on their own', () => {
+    render(
+      <>
+        <Checkbox aria-invalid aria-describedby="why">
+          אני מסכים
+        </Checkbox>
+        <p id="why">הסבר</p>
+      </>,
+    );
+    expect(screen.getByRole('checkbox')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('checkbox')).toHaveAccessibleDescription('הסבר');
+  });
+
+  it('[32] Checkbox: error and aria-invalid combine; neither overrides the other', () => {
+    const { rerender } = render(
+      <Checkbox error aria-invalid={false}>
+        אני מסכים
+      </Checkbox>,
+    );
+    expect(screen.getByRole('checkbox')).toHaveAttribute('aria-invalid', 'true');
+    rerender(
+      <Checkbox error={false} aria-invalid>
+        אני מסכים
+      </Checkbox>,
+    );
+    expect(screen.getByRole('checkbox')).toHaveAttribute('aria-invalid', 'true');
+    rerender(
+      <Checkbox error={false} aria-invalid={false}>
+        אני מסכים
+      </Checkbox>,
+    );
+    expect(screen.getByRole('checkbox')).not.toHaveAttribute('aria-invalid', 'true');
   });
 });
