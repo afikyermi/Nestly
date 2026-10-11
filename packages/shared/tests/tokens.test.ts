@@ -4,6 +4,7 @@ import {
   colorRoles,
   colors,
   fontFamily,
+  fontWeights,
   motion,
   radius,
   shadows,
@@ -64,6 +65,10 @@ describe('token source matches docs/design/tokens.md exactly', () => {
   it('[UI-7] font stack: Rubik first, ending system-ui, sans-serif', () => {
     expect(fontFamily.sans).toMatch(/^"?Rubik/);
     expect(fontFamily.sans).toMatch(/system-ui,\s*sans-serif$/);
+  });
+
+  it('[UI-7] font weights: normal 400, medium 500, semibold 600, no extras', () => {
+    expect(fontWeights).toEqual({ normal: 400, medium: 500, semibold: 600 });
   });
 
   it('[UI-7] spacing: 4px base and the documented rhythm values, no extras', () => {

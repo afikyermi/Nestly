@@ -105,10 +105,7 @@ describe("UI-wave-1 criterion 1 (L): hex colours are rejected outside the token 
 describe("UI-wave-1 criterion 1 (L): Radix is imported only inside components/ui", () => {
   for (const spec of ["@radix-ui/react-dialog", "radix-ui"]) {
     for (const where of ["apps/web/src/components/shared/X.tsx", "apps/web/src/features/auth/X.tsx"]) {
-      // FINDING: under features/ the repo config defines the plugin "nestly" twice (boundaries and design),
-      // so ESLint throws "Cannot redefine plugin" and no feature file can be linted. Todo keeps CI green.
-      const todo = where.includes("/features/") ? "config defines plugin nestly twice under features" : false;
-      it(`[UI-1] rejects import from "${spec}" in ${where}`, { todo }, async () => {
+      it(`[UI-1] rejects import from "${spec}" in ${where}`, async () => {
         const code = `import * as R from "${spec}";\nexport const a = R;\n`;
         assert.ok((await designRulesOf(code, where)).includes("nestly/no-radix-outside-ui"));
       });
@@ -181,4 +178,80 @@ describe("UI-wave-1 criterion 8 (L): the generated CSS", () => {
     assert.ok(before.equals(middle), "generated CSS differs from what the generator produces (run npm run tokens)");
     assert.ok(middle.equals(after));
   });
+});
+
+const styleFix = (props) => `export const A = () => <div style={{ ${props} }} />;\n`;
+const hasRule = async (code, file, rule) => (await designRulesOf(code, file)).includes(rule);
+const PHYS = "nestly/no-physical-direction";
+
+describe("UI-wave-1 criterion 1 (widened): physical direction in styles, CSS and more classes", () => {
+  const styles = [
+    "marginLeft: 4", "paddingRight: 8", "left: 0", "textAlign: 'left'", "float: 'right'", "clear: 'left'",
+  ];
+  for (const prop of styles) {
+    it(`[UI-1] rejects inline style { ${prop} }`, async () => {
+      assert.ok(await hasRule(styleFix(prop), WEB, PHYS));
+    });
+  }
+  const cssDecls = ["margin-left: 4px", "padding-right: 8px", "left: 0", "text-align: left", "float: right"];
+  for (const decl of cssDecls) {
+    for (const base of ["apps/web/src/x.css", "packages/shared/src/x.css"]) {
+      it(`[UI-1] rejects CSS ${decl} in ${base}`, async () => {
+        assert.ok(await hasRule(`.a { ${decl}; }\n`, base, PHYS));
+      });
+    }
+  }
+  for (const prop of ["marginInlineStart: 4", "paddingInlineEnd: 8", "insetInlineStart: 0", "textAlign: 'start'"]) {
+    it(`[UI-1] passes logical inline style { ${prop} }`, async () => {
+      assert.deepEqual(await designRulesOf(styleFix(prop), WEB), []);
+    });
+  }
+  for (const decl of ["margin-inline-start: 4px", "text-align: start", "padding-inline-end: 8px", "inset-inline-start: 0"]) {
+    it(`[UI-1] passes CSS ${decl}`, async () => {
+      assert.deepEqual(await designRulesOf(`.a { ${decl}; }\n`, "apps/web/src/x.css"), []);
+    });
+  }
+  it("[UI-1] passes space-x-2", async () => {
+    assert.deepEqual(await designRulesOf(jsx("space-x-2"), WEB), []);
+  });
+  for (const cls of ["float-left", "translate-x-2", "object-left"]) {
+    it(`[UI-1] rejects class ${cls}`, async () => {
+      assert.ok(await hasRule(jsx(cls), WEB, PHYS));
+    });
+  }
+});
+
+describe("UI-wave-1 criterion 1 (widened): colour functions are rejected outside the token source", () => {
+  const fns = ["rgb(181 80 44)", "rgb(181, 80, 44)", "oklch(0.5 0.1 40)"];
+  for (const fn of fns) {
+    it(`[UI-1] rejects ${fn} in .tsx`, async () => {
+      const code = `export const A = () => <i style={{ color: '${fn}' }} />;\n`;
+      assert.ok(await hasRule(code, "apps/web/src/components/shared/C.tsx", "nestly/no-hex"));
+    });
+    it(`[UI-1] rejects ${fn} in .css`, async () => {
+      assert.ok(await hasRule(`.a { color: ${fn}; }\n`, "apps/web/src/x.css", "nestly/no-hex"));
+    });
+    it(`[UI-1] allows ${fn} inside packages/shared/src/design-tokens/`, async () => {
+      assert.deepEqual(await designRulesOf(`export const c = '${fn}';\n`, "packages/shared/src/design-tokens/x.ts"), []);
+    });
+  }
+});
+
+describe("UI-wave-1 criterion 1 (widened): [&…] selector variants only inside components/ui", () => {
+  const code = jsx("[&_svg]:size-4");
+  it("[UI-1] rejects [&_svg]:size-4 outside components/ui", async () => {
+    assert.ok((await designRulesOf(code, WEB)).length > 0);
+  });
+  it("[UI-1] passes [&_svg]:size-4 inside apps/web/src/components/ui", async () => {
+    assert.deepEqual(await designRulesOf(code, "apps/web/src/components/ui/B.tsx"), []);
+  });
+});
+
+describe("UI-wave-1 criterion 8 (L): Tailwind default scales are reset", () => {
+  const css = fs.readFileSync(path.join(root, "apps/web/src/styles/tokens.generated.css"), "utf8");
+  for (const ns of ["text", "font-weight", "radius", "shadow", "ease", "breakpoint", "font"]) {
+    it(`[UI-8] --${ns}-* is set to initial`, () => {
+      assert.match(css, new RegExp(`--${ns}-\\*:\\s*initial\\s*;`));
+    });
+  }
 });
