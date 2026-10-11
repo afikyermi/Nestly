@@ -276,6 +276,11 @@ SelectInput also accept `aria-label?`. When both `error` and `aria-invalid` are 
 - SelectInput: while the empty placeholder option is selected, the shown text is `muted-foreground`; any real choice
   shows `foreground`.
 
+**Addendum after part d (ORCHESTRATOR, 12.10.2026) — criterion 18:** a link that sits inline inside a sentence (for
+example the terms and privacy links in the Checkbox label) is exempt from the 44×44 and 24×24 target size, as WCAG
+2.5.8's inline exception allows. The exemption covers an `a[href]` whose computed `display` is `inline` and whose
+parent element also contains text outside the link. Every other control keeps the 44×44 check.
+
 **Open**
 - **DR-1 — decided at Gate 1 (ORCHESTRATOR, 11.10.2026):** the five units (FormField, Checkbox, InlineAlert, Logo,
   AuthLayout) are added to SRS §4.2 in version 2.11. Parts c–e are unblocked.
