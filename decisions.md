@@ -737,6 +737,27 @@ YYYY-MM-DD | <decision in one line>
   decided by:   Afik (11.10.2026, "עבור לשיטה C"; earlier "אתר: Vercel … מסד: Supabase. כולל סביבת Preview לכל
                 פיצ'ר"); the region chosen by Claude at his instruction ("תבחר אזור קרוב ל-Supabase").
 
+2026-10-11 | Sharing defined — internal share in the feed and external share by link (to SRS 2.9)
+  extends:      2026-10-11 "R2 approved; the post card gets four icon actions" — settles its pending SRS definition.
+  ids:          FR-FEED-006 share in feed · FR-FEED-007 share a link · BR-064–067 · VAL-038 · ERR-033, ERR-034 ·
+                AC-079–083 · NFR-PRIV-007. They enter the SRS in batch 2.9 (WORKPLAN 9.5).
+  shareable:    only an active post the viewer may see. Never shared, internally or externally: an anonymous post,
+                content of a private group, a post by a user whose profile is Restricted, sponsored content, a removed
+                or hidden post, and anything that is not a post — profiles, children, Journey Summary, Tracker data,
+                comments, messages. On a post that cannot be shared the share buttons do not appear; the server checks
+                anyway.
+  reference:    a share stores only a reference. The original is loaded on every view, under the viewer's
+                permissions. When the original is deleted, hidden or removed, its author turns Restricted, is
+                suspended or banned, or the viewer loses access, the share shows "הפוסט המקורי כבר לא זמין"; the
+                sharer's own text stays, and nothing from the original is kept or shown, images included. A restored
+                original appears again. Sharing a share shares the original and credits only its author.
+  link:         the preview in WhatsApp or email is generic ("פוסט ב-Nestly") — no author, text or image. A signed-out
+                visitor goes to sign-in (FR-AUTH-004) and returns to the post; a signed-in visitor without access sees
+                "לא זמין". Every opened link re-checks access (NFR-SEC-005).
+  also:         the author receives a notification when the post is shared (I7) · the share event joins the §13.3
+                taxonomy; whether it affects ranking is ALGORITHM & DATA's call · no share counter in v1.
+  decided by:   Afik (11.10.2026, "מאשר לפי המלצתך")
+
 ---
 
 ## Pending — not yet decided
@@ -754,8 +775,7 @@ stripping, hash scanning, retention (entry "D7 closed").
 **Migration path.** In 7.3 — the direct connection is IPv6 only; DATA ARCHITECT decides between the session-mode
 pooler and the IPv4 add-on (entry "Hosting").
 
-**Sharing in the SRS.** FR-FEED-006 and FR-FEED-007 — Claude's proposal awaits Afik's approval (entry "R2
-approved").
+~~**Sharing in the SRS.**~~ **Closed 2026-10-11** — approved (entry "Sharing defined"); it enters SRS 2.9.
 
 **Design choices at the review rounds.** The Reaction's name at R2. Palette, font, desktop layout and the eighth
 tracker tile were decided on 11.10.2026 (entries "R1" and "The eighth tracker tile").
