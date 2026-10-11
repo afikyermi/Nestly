@@ -28,3 +28,8 @@ desktop.ini
 .vercel/
 *.tsbuildinfo
 coverage/
+
+# Storybook static build and Playwright output
+storybook-static/
+test-results/
+playwright-report/

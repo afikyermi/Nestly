@@ -3,11 +3,12 @@ import path from "node:path";
 import tseslint from "typescript-eslint";
 import nestlyBoundaries from "./tools/eslint-rules/no-cross-feature-import.mjs";
 import nestlyDesign from "./tools/eslint-rules/design-rules.mjs";
+import nestlyCopy from "./tools/eslint-rules/copy-rules.mjs";
 
 // One plugin object under one name: ESLint throws if two different objects are
 // registered as `nestly` for the same file.
 const nestly = {
-  rules: { ...nestlyBoundaries.rules, ...nestlyDesign.rules },
+  rules: { ...nestlyBoundaries.rules, ...nestlyDesign.rules, ...nestlyCopy.rules },
   processors: nestlyDesign.processors,
 };
 
@@ -113,6 +114,9 @@ export default tseslint.config(
       "**/dist/**",
       "**/build/**",
       "**/coverage/**",
+      "**/storybook-static/**",
+      "**/playwright-report/**",
+      "**/test-results/**",
       "**/.vercel/**",
       "exports/**",
       "docs/**",
@@ -171,6 +175,7 @@ export default tseslint.config(
           "apps/web/tsconfig.node.json",
           "apps/server/tsconfig.json",
           "packages/shared/tsconfig.tests.json",
+          "tsconfig.playwright.json",
         ],
         tsconfigRootDir: root,
       },
@@ -303,6 +308,12 @@ export default tseslint.config(
     rules: { "nestly/no-radix-outside-ui": "error" },
   },
   { files: ["apps/web/src/components/ui/**/*.{ts,tsx}"], rules: { "nestly/no-radix-outside-ui": "off" } },
+  {
+    // No gender slash form in component copy or in stories (NFR-USAB-003).
+    files: ["apps/web/src/components/**/*.{ts,tsx}", "apps/web/.storybook/**/*.{ts,tsx}"],
+    plugins: { nestly },
+    rules: { "nestly/no-gender-slash": "error" },
+  },
   {
     // Hex colours live in the token source and its generated CSS only.
     files: ["apps/web/src/**/*.{ts,tsx}", "packages/shared/src/**/*.{ts,tsx}"],
