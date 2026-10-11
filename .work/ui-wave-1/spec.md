@@ -262,6 +262,20 @@ with the caller and criterion 16 stays checkable; FormField uses a render prop s
 cloning; SideDrawer is controlled because AppShell must also own the Hamburger. A behaviour a test needs that this
 section does not state is a finding for SPEC, not a guess.
 
+**Addendum after part c (ORCHESTRATOR, 11.10.2026):** so FormField's render-prop output can be spread into the control,
+TextInput, PasswordInput and SelectInput also accept `aria-invalid?` and `aria-describedby?`; PasswordInput and
+SelectInput also accept `aria-label?`. When both `error` and `aria-invalid` are given, `error` wins.
+
+**Addendum after the part-c review (ORCHESTRATOR, 11.10.2026):**
+- The three controls accept exactly the props in this section and the addendum above — no `className`, no
+  `placeholder` on TextInput, no other native input props. Width and spacing come from FormField and the layout.
+- PasswordInput: the show/hide toggle never overlaps the text. The input's reserved padding is on the side where the
+  toggle sits, in an RTL page with an LTR (`dir="ltr"`) password field.
+- PasswordInput rules (criterion 27): the "✓" glyph is `aria-hidden`; each rule carries visually hidden status text
+  — "(התקיים)" when met, "(עדיין לא)" when not — so the state is announced, not only drawn.
+- SelectInput: while the empty placeholder option is selected, the shown text is `muted-foreground`; any real choice
+  shows `foreground`.
+
 **Open**
 - **DR-1 — decided at Gate 1 (ORCHESTRATOR, 11.10.2026):** the five units (FormField, Checkbox, InlineAlert, Logo,
   AuthLayout) are added to SRS §4.2 in version 2.11. Parts c–e are unblocked.

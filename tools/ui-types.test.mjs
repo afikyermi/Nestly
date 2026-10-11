@@ -78,3 +78,42 @@ describe("criterion 19: icon-only controls require an accessible name (type leve
     assert.equal(ok, false, output);
   });
 });
+
+const fields = `import { TextInput } from "@/components/ui/text-input";
+import { PasswordInput } from "@/components/shared/password-input";
+import { SelectInput } from "@/components/ui/select-input";
+`;
+
+describe("part c addendum: the form controls accept exactly their documented props (type level)", () => {
+  it("control: the documented props compile (the harness is sound)", () => {
+    const { ok, output } = compile(
+      `${fields}export const A = () => <TextInput aria-label="x" type="email" dir="ltr" error aria-invalid aria-describedby="d" />;\n` +
+        `export const B = () => <PasswordInput toggleLabel="הצגה" aria-label="סיסמה" />;\n` +
+        `export const C = () => <SelectInput options={[]} placeholder="בחירה" aria-label="מין" />;\n`,
+    );
+    assert.equal(ok, true, output);
+  });
+
+  for (const [name, element] of [
+    ["TextInput", `<TextInput aria-label="x" className="w-1/2" />`],
+    ["PasswordInput", `<PasswordInput toggleLabel="הצגה" aria-label="סיסמה" className="w-1/2" />`],
+    ["SelectInput", `<SelectInput options={[]} placeholder="בחירה" aria-label="מין" className="w-1/2" />`],
+  ]) {
+    it(`[exact props] className on ${name} fails tsc`, () => {
+      const { ok, output } = compile(`${fields}export const A = () => ${element};\n`);
+      assert.equal(ok, false, "className must not compile");
+      assert.match(output, /className/);
+    });
+  }
+
+  it("[exact props] placeholder on TextInput fails tsc", () => {
+    const { ok, output } = compile(`${fields}export const A = () => <TextInput aria-label="x" placeholder="שם" />;\n`);
+    assert.equal(ok, false, "a placeholder on TextInput must not compile");
+    assert.match(output, /placeholder/);
+  });
+
+  it("[exact props] another native input prop (maxLength) on TextInput fails tsc", () => {
+    const { ok } = compile(`${fields}export const A = () => <TextInput aria-label="x" maxLength={5} />;\n`);
+    assert.equal(ok, false);
+  });
+});

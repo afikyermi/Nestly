@@ -245,3 +245,59 @@ none after Escape · 21 pending: `aria-busy=true`, not disabled, loader svg pres
 6. Gender-slash heuristic: left as is (debt).
 7. `--pass-with-no-tests` and the stale CI comment removed.
 8. `OnHover` story uses a plain button as the trigger, so one tooltip opens.
+
+# Part c — TextInput, FormField, PasswordInput, SelectInput
+
+Branch `ui-wave-1/part-c`. Criteria 25-28 and the common 17-20. Built to the spec's API section.
+
+**Approach.** `ui/text-input.tsx` also exports `inputStyles` (the shared field box: `border-input`, `min-h-12`, `aria-invalid:` 2px
+`destructive` border, disabled surface), reused by PasswordInput and SelectInput. FormField is a render prop giving `{id,
+aria-describedby, aria-invalid}`; label above, hint, error with `AlertIcon` + text and `role="alert"`. PasswordInput wraps a
+native input and an icon-only `Button` (so the Tooltip comes with it) with `aria-pressed`; rules render in a `ul` linked by
+`aria-describedby`; a met rule's text is `✓ text`. SelectInput is a native `<select>` with the placeholder as first option
+(value `""`), a chevron icon (`pointer-events-none`), `onChange(value)`. Four stories files; `STATES` has four new rows.
+
+**Decisions.**
+- Controls accept `aria-invalid` and `aria-describedby` (so the FormField control can be spread in), and `error` wins over
+  `aria-invalid` when both are given. These are additions to the listed props, needed for the render prop to work.
+- `aria-invalid?: boolean | undefined` because `exactOptionalPropertyTypes` rejects the render prop's `undefined` otherwise.
+- PasswordInput forces `dir="ltr"` with `text-start` (passwords are LTR content); the toggle sits at the inline end.
+- SelectInput without `value` is uncontrolled (`defaultValue=""`); with `value` it is controlled by the caller.
+- "(לא חובה)" is a constant in FormField, as criterion 26 fixes the text; labels, hints, errors, `toggleLabel`, placeholder are props.
+
+**Deviations.** None from the API; the additions above are the only extras.
+
+**Deliberately not done.** No test files. No Zod, no form state. No custom select popup. No muted placeholder colour in the
+select (a native select cannot know it is empty without state).
+
+**Uncertain.** (1) A met password rule reads "✓ text" to a screen reader as "check mark text": conveys "met", slightly noisy.
+(2) FormField's `role="alert"` on the error announces when it appears; a page that renders several errors at once announces
+them all. (3) One Edge run crashed a Button keyboard test (`Target crashed`); the rerun was 340/340.
+
+**Preview path.** `npm run build-storybook`, `npm run serve:storybook`, open `http://127.0.0.1:6007/`: ui/TextInput (5),
+shared/FormField (4), shared/PasswordInput (5), ui/SelectInput (4). Check: 48px height, brown-grey field border, red 2px
+border plus icon and text on error, eye toggle at the left edge (inline end in RTL) flips the text, email text at the left,
+chevron at the left of the select. Not working yet: no DateInput, Checkbox or screen composition (part d onward).
+
+**Evidence.** 25: stories empty/filled/error/disabled/email; `aria-invalid` from `error`; `border-input`, never `border-border`.
+26: `label htmlFor` = `id`, `aria-describedby` = hint id + error id, error is icon + text. 27: toggle switches `type` and
+`aria-pressed`; no paste handler; `autoComplete` typed `current-password|new-password`; empty `rules` renders no list.
+28: placeholder option value `""`, `onChange(event.target.value)`, zero options renders only the placeholder. 14/18: axe and
+target-size pass on all 18 new stories, Chrome and Edge. `npm run ci` green; `test:browser` 340/340 on the second run.
+17/19/20: native elements (Tab, Enter/Space), the toggle's Tooltip via icon-only Button, the global focus ring; not asserted by me.
+
+**Neighbouring.** None new.
+
+### Part c, review round (CRITIC Not Ready; spec addendum fc807a9)
+- HIGH toggle overlap: the input is `dir="ltr"`, so `ps-14` is its left padding, the side where the toggle sits (RTL `end-0.5`).
+  Measured at 375 on `shared-passwordinput--filled`, Chrome: input x 16-359, toggle x 18-62, padding-left 56px, so the text starts at
+  x 73 (was about 30). No intersection.
+- TextInput is now an explicit interface with exactly the API props (+ addendum aria props); PasswordInput and SelectInput lost `className`;
+  the TextInput story lost `placeholder`. SelectInput keeps the required `placeholder` prop (it is in the API).
+- Rules: "✓ " in an `aria-hidden` span; each rule has an `sr-only` " (התקיים)" or " (עדיין לא)". The lint accepts `sr-only`.
+- SelectInput muted text: `has-[option[value=""]:checked]:text-muted-foreground` is REJECTED by `nestly/no-arbitrary-value`. I did not
+  weaken the rule. Instead the component keeps whether the value is empty (`value ?? own state`) and adds `text-muted-foreground`.
+  Measured computed colour: placeholder rgb(107, 90, 81) (muted-foreground), selected rgb(59, 47, 42) (foreground).
+- Red outside my files: `tests/ui/form-controls.test.tsx(146)` fails `tsc` (FormFieldControl vs Record<string, unknown>), and test
+  `[27] a met rule shows ...` line 327 expects the unmet text to equal "ספרה אחת" exactly, which the addendum's hidden "(עדיין לא)" breaks.
+  Both are TEST ENGINEER's. `npm run ci` therefore stops at typecheck.

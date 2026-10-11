@@ -17,6 +17,10 @@ export const STATES = {
   "ui/icons": 1, // the gallery of all icons
   "ui/tooltip": 2, // hover, focus
   "ui/skeleton": 2, // line, card shape
+  "ui/text-input": 5, // empty, filled, error, disabled, email (ltr)
+  "shared/form-field": 4, // basic, hint, error, optional
+  "shared/password-input": 5, // empty, filled, rules, error, disabled
+  "ui/select-input": 4, // placeholder, selected, error, disabled
 };
 
 // Files with nothing to draw: a provider or a helper.
