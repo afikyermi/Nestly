@@ -2,6 +2,7 @@ import { builtinModules } from "node:module";
 import path from "node:path";
 import tseslint from "typescript-eslint";
 import nestlyBoundaries from "./tools/eslint-rules/no-cross-feature-import.mjs";
+import nestlyDesign from "./tools/eslint-rules/design-rules.mjs";
 
 const root = import.meta.dirname;
 const webSrc = path.join(root, "apps/web/src");
@@ -276,5 +277,37 @@ export default tseslint.config(
         ...restrictGlobalObjectAccess([...BROWSER_GLOBALS, ...NODE_GLOBALS], "packages/shared"),
       ],
     },
+  },
+  // ---- design consistency (decisions.md, 'Design consistency without a design agent') ----
+  // Only src is checked: lint fixtures in tests hold the forbidden strings on purpose.
+  {
+    files: ["apps/web/src/**/*.{ts,tsx}"],
+    plugins: { nestly: nestlyDesign },
+    rules: {
+      "nestly/no-physical-direction": "error",
+      "nestly/no-arbitrary-value": "error",
+      "nestly/no-radix-outside-ui": "error",
+    },
+  },
+  { files: ["apps/web/src/components/ui/**/*.{ts,tsx}"], rules: { "nestly/no-radix-outside-ui": "off" } },
+  {
+    // Hex colours live in the token source and its generated CSS only.
+    files: ["apps/web/src/**/*.{ts,tsx}", "packages/shared/src/**/*.{ts,tsx}"],
+    ignores: ["packages/shared/src/design-tokens/**"],
+    plugins: { nestly: nestlyDesign },
+    rules: { "nestly/no-hex": "error" },
+  },
+  {
+    // A .css or .svg file is read as one string by the same hex rule.
+    files: ["apps/web/src/**/*.{css,svg}", "packages/shared/src/**/*.{css,svg}"],
+    ignores: ["packages/shared/src/design-tokens/**", "apps/web/src/styles/tokens.generated.css"],
+    plugins: { nestly: nestlyDesign },
+    processor: "nestly/text",
+  },
+  {
+    files: ["**/*.nestlytext"],
+    plugins: { nestly: nestlyDesign },
+    languageOptions: { ecmaVersion: "latest", sourceType: "module" },
+    rules: { "nestly/no-hex": "error" },
   },
 );

@@ -14,7 +14,9 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present && npm run test:tools",
     "lint": "eslint --max-warnings 0 .",
-    "ci": "npm run typecheck && npm run lint && npm test && npm run build",
+    "tokens": "node tools/build-design-tokens.js",
+    "tokens:check": "node tools/build-design-tokens.js && git diff --exit-code -- apps/web/src/styles/tokens.generated.css",
+    "ci": "npm run typecheck && npm run lint && npm run tokens:check && npm test && npm run build",
     "test:tools": "node --test tools/eslint-rules/no-cross-feature-import.test.mjs .claude/hooks/guard.test.js"
   },
   "devDependencies": {
