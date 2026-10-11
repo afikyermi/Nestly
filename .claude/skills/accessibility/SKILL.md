@@ -8,7 +8,7 @@ paths:
 
 # accessibility — WCAG 2.2 AA in practice
 
-**Version:** 1.0 · the requirement: SRS NFR-A11Y-001. Who checks what, and when: `.claude/workflow.md` → "Domains"
+**Version:** 1.1 · the requirement: SRS NFR-A11Y-001. Who checks what, and when: `.claude/workflow.md` → "Domains"
 → Accessibility. The binding constraints: `.claude/knowledge/conventions.md` → Accessibility. This skill is how to
 build it.
 
@@ -38,10 +38,25 @@ build it.
 visible replacement. A sticky header or banner must not cover the focused element (2.4.11).
 
 **Size and alternatives:**
-- Pointer targets are at least 24×24 CSS px (2.5.8).
+- Pointer targets are at least 24×24 CSS px (2.5.8). Nestly's design asks more: **44×44 for every primary touch
+  action** (`docs/design/tokens.md`).
 - Anything done by dragging has a single-pointer alternative (2.5.7).
 
-**Async status is announced.** A save confirmation or a load error goes to an `aria-live="polite"` region.
+**Async status is announced.** A save confirmation or a load error goes to an `aria-live="polite"` region. A
+toast that carries an action does not disappear on its own.
+
+**The infinite feed** (decision of 11.10.2026, `docs/design/direction.md`):
+- `role="feed"` on the list, `aria-busy="true"` while a page loads, each post an `article` with
+  `aria-posinset` / `aria-setsize` (`-1` when unknown).
+- Keyboard per the ARIA feed pattern: Page Down / Page Up move between posts.
+- One polite announcement per load, not one per post.
+- A load error appears inside the feed with "ניסיון חוזר"; scroll position is restored on return.
+
+**Icon buttons in the post card** carry a name that includes the count ("לייק, 3"), and a tooltip on hover
+*and* on keyboard focus.
+
+**Reduced motion:** with `prefers-reduced-motion`, nothing moves — transitions switch instantly, the skeleton has
+no shimmer.
 
 **Authentication** (3.3.8): allow paste into password fields, and never require a cognitive puzzle.
 
@@ -77,3 +92,6 @@ the previous item.
 ## Changelog
 - 1.0 — 2026-10-11 — created (Afik's skills decision). Includes the overlay checklist (C5). Provisional until 5
   features.
+- 1.1 — 2026-10-11 — aligned with the approved design (WORKPLAN 9.6): 44×44 primary touch targets, the infinite
+  feed pattern, icon-button names with counts and tooltips on focus, toasts with actions, reduced motion. Patterns
+  only; the forbidden list is unchanged. Provisional until 5 features.

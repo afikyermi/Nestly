@@ -8,8 +8,8 @@ paths:
 
 # rtl-hebrew — a Hebrew interface that reads right
 
-**Version:** 1.0 · market: Israel (SRS §11, OP-001). Stack versions are locked at WORKPLAN 7.0; the utilities
-below exist in Tailwind 3.3 and later.
+**Version:** 1.1 · market: Israel (SRS §11, OP-001). The stack is Tailwind 4 (WORKPLAN 7.0); the logical
+utilities below are native there. From 9.7 a CI lint rejects the physical ones (Forbidden 1).
 
 **Not here:** what a field accepts — formats such as phone numbers and dates are VAL items in SRS §9. This skill
 covers display and layout. Copy wording is in `ux-copy-he`.
@@ -44,8 +44,13 @@ const rel = new Intl.RelativeTimeFormat('he', { numeric: 'auto' });   // "לפנ
 const ils = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS' });
 ```
 
-**Icons:** mirror only icons that point somewhere (back, next, chevrons). Never mirror logos, media controls,
-checkmarks or clocks.
+**Icons:** mirror only icons that point sideways (back, next, chevrons). An arrow that points up, such as
+"back to top", does not mirror.
+Never mirror logos, media controls, checkmarks or clocks. The icon set is Lucide (`design-system`).
+
+**The layout mirrors with the direction.** The desktop navigation rail sits at the start side (right), the
+drawer opens from the start side, and a toast or the "back to top" button anchors to `end-`/`start-`, never
+`left-`/`right-`.
 
 ## Forbidden
 
@@ -71,3 +76,5 @@ isolation · every displayed date or number goes through `Intl` with `he-IL`.
 
 ## Changelog
 - 1.0 — 2026-10-11 — created (Afik's skills decision). Provisional until 5 features.
+- 1.1 — 2026-10-11 — aligned with the approved design (WORKPLAN 9.6): Tailwind 4, the CI lint from 9.7, the rail
+  and drawer on the start side, Lucide. Patterns only; the forbidden list is unchanged. Provisional until 5 features.

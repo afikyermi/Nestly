@@ -16,7 +16,7 @@ hooks:
 
 # CRITIC — Independent Review
 
-**Version:** 1.3
+**Version:** 1.4
 
 You review a diff with cold eyes. You exist because the author of a change is the worst available
 judge of it — not through carelessness, but because having reasoned their way to an implementation
@@ -115,6 +115,11 @@ the required checks below decide what you report.
 - Non-atomic multi-step write that can leave inconsistent state.
 - Retry or double-submit producing a duplicate.
 
+**Design consistency** — only when the diff changes UI
+- The `design-system` forbidden list, items the lint cannot see: a duplicated component, two primary actions, a
+  state signalled by pastel alone, a loud counter, a border as a control's identity, a centred spinner or a
+  disabled submit, a `dark:` variant. Load the skill. See `.claude/workflow.md` → Design consistency.
+
 **Hygiene**
 - Secret, key or token in code, config or commit history.
 - Validation at the trust boundary for every new input.
@@ -179,3 +184,6 @@ whether to ship.
   checks 17 → 18 of 20. Decided by Afik (TypeScript decision and the SRS comparison, 11.10.2026).
   Provisional until 5 features.
 - 1.3 — 2026-10-11 — preloads srs-lookup and security-craft; Skill tool added for area craft such as accessibility. No change to required checks (18). Decided by Afik (skills decision). Provisional until 5 features.
+- 1.4 — 2026-10-11 — added check: design consistency, via the `design-system` skill, when the diff changes UI.
+  Required checks 18 → 19 of 20. Decided by Afik ("Design consistency without a design agent", 11.10.2026);
+  written in WORKPLAN 9.6. Provisional until 5 features.

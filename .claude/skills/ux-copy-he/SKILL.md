@@ -8,7 +8,7 @@ paths:
 
 # ux-copy-he — what the user reads
 
-**Version:** 1.0 · the binding rules are elsewhere and are not restated here:
+**Version:** 1.1 · the binding rules are elsewhere and are not restated here:
 - **Gender-neutral copy:** SRS NFR-USAB-003.
 - **Error texts:** the SRS error catalog, §10.
 - **Never show a raw error:** `.claude/knowledge/conventions.md`.
@@ -37,14 +37,21 @@ const messages: Record<ErrorCode, string> = { /* each entry traced to its ERR-xx
 
 **Empty states** say why the list is empty, and offer the next step.
 
+**System messages** carry no exclamation marks and no urgency words ("דחוף", "מהר", "עכשיו!"). A success toast is
+short and quiet (`docs/design/direction.md` → טון).
+
+**Icon-button names** are neutral actions: "פתיחת התפריט", "לייק", "שיתוף קישור" — with the count when there is
+one ("תגובות, 4").
+
 **Tone:** calm, warm and direct. The audience includes people in pregnancy, after loss and in fertility
 treatment:
 - Never assume an outcome, a family shape or a stage.
 - Never phrase anything as medical advice (BR-012, NFR-PRIV-006).
 
 **Product terms** keep the names the SRS and the sketches use (SRS §1.4, Appendix A). A new user-visible term is
-a decision for Afik, not a writing choice. Humour appears only where the SRS asks for it; its wording is Afik's
-(OP-021).
+a decision for its owner (`CLAUDE.md` → "Decision authority"), recorded — not a writing choice. Humour appears
+only where the SRS writes it out: the Journey Summary sentence is fixed in SRS §1.4 (OP-021, closed) and is used
+verbatim.
 
 ## Forbidden
 
@@ -67,3 +74,6 @@ a decision for Afik, not a writing choice. Humour appears only where the SRS ask
 ## Changelog
 - 1.0 — 2026-10-11 — created after Afik decided on gender-neutral copy (NFR-USAB-003). Provisional until 5
   features.
+- 1.1 — 2026-10-11 — aligned with the approved design and decisions (WORKPLAN 9.6): system-message tone,
+  icon-button names, OP-021 closed (the sentence is used verbatim), new terms go to their decision owner. Patterns
+  only; the forbidden list is unchanged. Provisional until 5 features.

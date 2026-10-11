@@ -141,7 +141,7 @@ Cumulative minimums, not maximums.
 | new external provider | CRITIC |
 | auth / authz / personal data | CRITIC on opus |
 | behavioural signals · ranking or recommendation · analytics events · paid placement | ALGORITHM & DATA, before BUILDER and as reviewer |
-| any new or changed UI | Accessibility domain — see `.claude/workflow.md` |
+| any new or changed UI | Accessibility and Design consistency domains — see `.claude/workflow.md` |
 | any AI/ML idea | record it in the SRS (Appendix D, or the decided section). No AI/ML agent exists yet — see `.claude/knowledge/ai-ml-readiness.md` |
 | user-generated content | flag for Afik — Trust & Safety review sits outside this pipeline |
 
@@ -247,7 +247,7 @@ One task, one owner. Contributors and reviewers may be many.
 | Core operating context | this file |
 | Shared project knowledge | `.claude/knowledge/` — `conventions.md` (stack, binding SRS constraints) · `data-model.md` (as-built schema, plus the SRS map of authorization layers) · `srs-review-points.md` (product-wide invariants every review checks) · `ai-ml-readiness.md` (dormant AI/ML role) |
 | Role-specific knowledge | the agent definitions |
-| Skills | `.claude/skills/` — process tools (`/where`, `/feature`, `/bugfix`, `/gate`, `synthesize`, `/wrap-up`, `/decision`, `/srs-update`, `/srs-export`), shared methods (`srs-lookup`), stack craft (`rtl-hebrew`, `accessibility`, `security-craft`, `ux-copy-he`; more after 7.0). Skills point to this file, `workflow.md`, knowledge and the SRS — they never restate them. Rules: `learning.md` §6 |
+| Skills | `.claude/skills/` — process tools (`/where`, `/feature`, `/bugfix`, `/gate`, `synthesize`, `/wrap-up`, `/decision`, `/srs-update`, `/srs-export`), shared methods (`srs-lookup`), stack craft (`rtl-hebrew`, `accessibility`, `security-craft`, `ux-copy-he`, `design-system`). Skills point to this file, `workflow.md`, knowledge and the SRS — they never restate them. Rules: `learning.md` §6 |
 | Task context | `.work/<slug>/` |
 | On-demand retrieval | SCOUT — not the built-in search agents (Explore, general-purpose). SCOUT is pinned to a cheap model and returns `file:line` citations, never conclusions |
 

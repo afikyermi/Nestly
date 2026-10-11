@@ -1,6 +1,6 @@
 # Workflow — canonical pipeline
 
-**Version:** 1.5
+**Version:** 1.6
 **Status:** the single source of truth for sequence, triggers and who enters when.
 Agent definitions describe professions. **This file describes order.** If they disagree, this file wins.
 
@@ -198,6 +198,19 @@ what, and when. A domain becomes an agent only through the Agent Necessity Test.
 | **CRITIC** | what automation misses: keyboard operation, focus order and visibility, meaningful labels, target size — loading the `accessibility` skill when the diff changes UI |
 | **Severity** | a WCAG 2.2 AA failure on a core flow is `high` |
 
+### Design consistency — one visual system (decision "Design consistency without a design agent")
+
+| | |
+|---|---|
+| **Trigger** | any new or changed UI |
+| **BUILDER** | builds with the `design-system` craft skill, next to `accessibility`, `rtl-hebrew` and `ux-copy-he`: semantic tokens only, reuse of existing components, the designed states. Every changed component gets a Storybook story with its states |
+| **CI** | from 9.7, lint rejects physical direction classes, arbitrary Tailwind values, hex outside the tokens source and `@radix-ui` imports outside `components/ui`; a Vitest test holds every token pair in `docs/design/tokens.md` to its WCAG contrast threshold |
+| **TEST ENGINEER** | Playwright screenshots of the changed stories — non-blocking at first, until they prove stable |
+| **CRITIC** | what lint cannot see: the `design-system` forbidden list 4–10 (duplicated components, two primary actions, pastel-only signals, loud counters, borders as identity, spinner or disabled submit, `dark:`) — one required check |
+| **Preview** | ORCHESTRATOR checks the screens against `docs/design/` and the approved mockups. A change to the visual direction itself (palette, font, layout) is a recorded decision, not a Preview fix |
+| **Severity** | a broken token or contrast pair on a core flow is `high`; a duplicated component or a second primary action is `medium` |
+| **Revisit** | three design-consistency escapes in `escapes.md` open an Agent Necessity Test for a design agent |
+
 *Threat Modeling, the second domain in plan item 6.1, has not been added yet.*
 
 ## Temporary hold
@@ -260,3 +273,6 @@ usually the spec was too large and should have been split.
 - 1.5 — 2026-10-11 — Working rules: ORCHESTRATOR passes Gate 1, Gate 2 and the Preview and decides unreserved
   `DECISION REQUEST`s, recording each in `decisions.md`. Reserved for Afik: secrets, production, irreversible or
   material SRS changes, legal / minors / money points, disagreement with a specialist. Decided by Afik.
+- 1.6 — 2026-10-11 — "Design consistency" domain, modelled on Accessibility (WORKPLAN 9.6). Decided by Afik
+  ("Design consistency without a design agent"); the Preview row follows the working rules. Provisional until 5
+  features.
