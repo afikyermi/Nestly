@@ -561,6 +561,25 @@ YYYY-MM-DD | <decision in one line>
   alternatives: "נותני שירות" (the shortened form shown in R1)
   decided by:   Afik (11.10.2026, "במקום 'נותני שירות' שנה ל-'יועצים'")
 
+2026-10-11 | R1: direction A (apricot and terracotta), Rubik, centered column with a navigation rail
+  extends:      2026-10-11 "Visual direction" — settles its pending palette, font and desktop layout
+  palette:      direction A — background #FFF8F2, surface #FFFFFF, primary #B5502C (white text 5.06), primary deep
+                #8F3E21, pastel #FDE6D8, secondary pastel (sage) #E3EEDF, text #3B2F2A, muted text #6B5A51, input border
+                #9C8579. Values and contrast table in docs/design/tokens.md.
+  font:         Rubik, one family for the whole interface, self-hosted in the product via @fontsource-variable.
+  desktop:      a centered content column (feed 600–640, forms 560). From 1024px the five bottom-navigation
+                destinations move to a vertical rail at the start side; no third column. NFR-USE-001 and §7.1 are
+                updated in SRS 2.9.
+  alternatives: B sage and oat with Assistant · C lilac on cream with Fredoka and Assistant · three columns in
+                Facebook's style (docs/design/mockups/r1-*.html)
+  decided by:   Afik (11.10.2026, "לפי המלצתך")
+
+2026-10-11 | The eighth tracker tile is "אמבטיה" — OP-007 closes
+  extends:      2026-10-11 "Product changes from the sketch review" — settles its pending OP-007
+  rule:         the home-page tracker menu has eight tiles: הנקה, בקבוק, שינה, חיתול, תרופה, גדילה, חיסון, אמבטיה. The
+                fields of the bath tracker stay open under OP-008, like every tracker except breastfeeding.
+  decided by:   Afik (11.10.2026, "אמבטיה")
+
 ---
 
 ## Pending — not yet decided
@@ -570,8 +589,8 @@ code in TypeScript (entry "Rule 0 reopened").
 
 **First initiative.** Deferred by Afik (D7, 10.10.2026) until a structured plan is made.
 
-**Design choices at the review rounds.** Palette, Hebrew font and desktop layout at R1; the Reaction's name at R2;
-the eighth tracker tile (OP-007). See the 2026-10-11 design entries.
+**Design choices at the review rounds.** The Reaction's name at R2. Palette, font, desktop layout and the eighth
+tracker tile were decided on 11.10.2026 (entries "R1" and "The eighth tracker tile").
 
 **Open product points** are tracked in the SRS itself: `docs/srs/appendix-b-open-points.md` (OP-xxx),
 plus every "TBD" or "נדרש אישור" in the section files. They are product decisions, so they belong there.
