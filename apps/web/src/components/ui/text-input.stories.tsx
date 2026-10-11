@@ -11,7 +11,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 // Stories name the field with aria-label; in screens FormField supplies the label.
-export const Empty: Story = { args: { 'aria-label': 'שם פרטי', placeholder: 'לדוגמה: נועה' } };
+export const Empty: Story = { args: { 'aria-label': 'שם פרטי' } };
 
 export const Filled: Story = { args: { 'aria-label': 'שם פרטי', defaultValue: 'נועה' } };
 

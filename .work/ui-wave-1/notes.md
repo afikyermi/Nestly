@@ -287,3 +287,17 @@ target-size pass on all 18 new stories, Chrome and Edge. `npm run ci` green; `te
 17/19/20: native elements (Tab, Enter/Space), the toggle's Tooltip via icon-only Button, the global focus ring; not asserted by me.
 
 **Neighbouring.** None new.
+
+### Part c, review round (CRITIC Not Ready; spec addendum fc807a9)
+- HIGH toggle overlap: the input is `dir="ltr"`, so `ps-14` is its left padding, the side where the toggle sits (RTL `end-0.5`).
+  Measured at 375 on `shared-passwordinput--filled`, Chrome: input x 16-359, toggle x 18-62, padding-left 56px, so the text starts at
+  x 73 (was about 30). No intersection.
+- TextInput is now an explicit interface with exactly the API props (+ addendum aria props); PasswordInput and SelectInput lost `className`;
+  the TextInput story lost `placeholder`. SelectInput keeps the required `placeholder` prop (it is in the API).
+- Rules: "✓ " in an `aria-hidden` span; each rule has an `sr-only` " (התקיים)" or " (עדיין לא)". The lint accepts `sr-only`.
+- SelectInput muted text: `has-[option[value=""]:checked]:text-muted-foreground` is REJECTED by `nestly/no-arbitrary-value`. I did not
+  weaken the rule. Instead the component keeps whether the value is empty (`value ?? own state`) and adds `text-muted-foreground`.
+  Measured computed colour: placeholder rgb(107, 90, 81) (muted-foreground), selected rgb(59, 47, 42) (foreground).
+- Red outside my files: `tests/ui/form-controls.test.tsx(146)` fails `tsc` (FormFieldControl vs Record<string, unknown>), and test
+  `[27] a met rule shows ...` line 327 expects the unmet text to equal "ספרה אחת" exactly, which the addendum's hidden "(עדיין לא)" breaks.
+  Both are TEST ENGINEER's. `npm run ci` therefore stops at typecheck.

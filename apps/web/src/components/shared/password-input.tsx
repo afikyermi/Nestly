@@ -22,7 +22,6 @@ export interface PasswordInputProps {
   disabled?: boolean;
   id?: string;
   name?: string;
-  className?: string;
   'aria-label'?: string;
   'aria-describedby'?: string | undefined;
   'aria-invalid'?: boolean | undefined;
@@ -35,7 +34,6 @@ export function PasswordInput({
   rules = [],
   toggleLabel,
   error,
-  className,
   'aria-invalid': ariaInvalid,
   'aria-describedby': describedBy,
   ...rest
@@ -46,7 +44,7 @@ export function PasswordInput({
   const described = [describedBy, rules.length > 0 ? rulesId : null].filter(Boolean).join(' ');
 
   return (
-    <div className={cn('flex flex-col gap-2', className)}>
+    <div className="flex flex-col gap-2">
       <div className="relative">
         <input
           {...rest}
@@ -54,7 +52,7 @@ export function PasswordInput({
           dir="ltr"
           aria-invalid={invalid ? true : undefined}
           aria-describedby={described === '' ? undefined : described}
-          className={cn(inputStyles, 'pe-14 text-start')}
+          className={cn(inputStyles, 'ps-14 text-start')}
         />
         <Button
           iconOnly
@@ -71,7 +69,9 @@ export function PasswordInput({
         <ul id={rulesId} className="flex flex-col gap-1">
           {rules.map((rule) => (
             <li key={rule.id} className={cn('text-small', rule.met ? 'text-success' : 'text-muted-foreground')}>
-              {rule.met ? `✓ ${rule.text}` : rule.text}
+              {rule.met ? <span aria-hidden="true">✓ </span> : null}
+              {rule.text}
+              <span className="sr-only">{rule.met ? ' (התקיים)' : ' (עדיין לא)'}</span>
             </li>
           ))}
         </ul>

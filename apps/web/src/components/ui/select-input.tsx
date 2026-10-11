@@ -1,4 +1,4 @@
-import type { ChangeEvent } from 'react';
+import { useState, type ChangeEvent } from 'react';
 import { cn } from '@/lib/cn';
 import { ChevronDownIcon } from './icons';
 import { inputStyles } from './text-input';
@@ -18,7 +18,6 @@ export interface SelectInputProps {
   disabled?: boolean;
   id?: string;
   name?: string;
-  className?: string;
   'aria-label'?: string;
   'aria-describedby'?: string | undefined;
   'aria-invalid'?: boolean | undefined;
@@ -33,19 +32,24 @@ export function SelectInput({
   placeholder,
   error,
   onChange,
-  className,
   'aria-invalid': ariaInvalid,
   ...rest
 }: SelectInputProps) {
   const invalid = error ?? ariaInvalid;
+  // Uncontrolled, the select starts on the placeholder; the shown text is muted while it is.
+  const [own, setOwn] = useState('');
+  const empty = (value ?? own) === '';
   return (
-    <div className={cn('relative', className)}>
+    <div className="relative">
       <select
         {...rest}
         {...(value === undefined ? { defaultValue: '' } : { value })}
         aria-invalid={invalid ? true : undefined}
-        onChange={(event: ChangeEvent<HTMLSelectElement>) => onChange?.(event.target.value)}
-        className={cn(inputStyles, 'appearance-none pe-10')}
+        onChange={(event: ChangeEvent<HTMLSelectElement>) => {
+          setOwn(event.target.value);
+          onChange?.(event.target.value);
+        }}
+        className={cn(inputStyles, 'appearance-none pe-10', empty && 'text-muted-foreground')}
       >
         <option value="">{placeholder}</option>
         {options.map((option) => (

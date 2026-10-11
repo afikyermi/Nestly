@@ -1,4 +1,4 @@
-import type { ComponentProps } from 'react';
+import type { ChangeEventHandler, FocusEventHandler } from 'react';
 import { cn } from '@/lib/cn';
 
 // The field box shared by TextInput, PasswordInput and SelectInput. The border is the `input`
@@ -12,25 +12,36 @@ export const inputStyles = cn(
   'aria-invalid:border-2 aria-invalid:border-destructive',
 );
 
-export interface TextInputProps
-  extends Omit<ComponentProps<'input'>, 'type' | 'dir' | 'children' | 'aria-invalid'> {
+// Exactly the props of the spec's API section (and its addendum): width and spacing come from
+// FormField and the layout, so there is no className.
+export interface TextInputProps {
+  value?: string;
+  defaultValue?: string;
   type?: 'text' | 'email' | 'tel';
   /** `error` sets `aria-invalid`; FormField hands its own invalid state over as `aria-invalid`. */
   error?: boolean;
-  'aria-invalid'?: boolean | undefined;
   /** For LTR content inside the RTL form (email): text stays aligned to the start edge. */
   dir?: 'ltr';
+  disabled?: boolean;
+  id?: string;
+  name?: string;
+  autoComplete?: string;
+  'aria-label'?: string;
+  'aria-describedby'?: string | undefined;
+  'aria-invalid'?: boolean | undefined;
+  onChange?: ChangeEventHandler<HTMLInputElement>;
+  onBlur?: FocusEventHandler<HTMLInputElement>;
 }
 
 // Its accessible name comes from FormField (`id`) or `aria-label`; it has none of its own.
-export function TextInput({ type = 'text', error, 'aria-invalid': ariaInvalid, className, ...rest }: TextInputProps) {
+export function TextInput({ type = 'text', error, 'aria-invalid': ariaInvalid, ...rest }: TextInputProps) {
   const invalid = error ?? ariaInvalid;
   return (
     <input
       {...rest}
       type={type}
       aria-invalid={invalid ? true : undefined}
-      className={cn(inputStyles, rest.dir === 'ltr' && 'text-start', className)}
+      className={cn(inputStyles, rest.dir === 'ltr' && 'text-start')}
     />
   );
 }
