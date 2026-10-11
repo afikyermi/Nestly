@@ -283,6 +283,7 @@ parent element also contains text outside the link. Every other control keeps th
 link" means text outside every `a` and `button` in that parent — a row of links with separators is not a sentence.
 **Narrowed (ORCHESTRATOR, 12.10.2026):** the parent must also be a `p`, or a `label` that labels a checkbox or radio.
 A field label or a `div` with a stand-alone link next to it (`<div>סיסמה <a>שכחתי</a></div>`) is not exempt.
+Wrapper `span`s between the link and that container are looked through (the Checkbox wraps its label text in one).
 
 **Addendum after the part-d review (ORCHESTRATOR, 12.10.2026) — errors are announced, not only drawn:**
 - ChoiceCardGroup: the fieldset carries `role="radiogroup"`; when `error` is set it carries `aria-invalid="true"`. New
