@@ -2,9 +2,10 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { SelectInput } from './select-input';
 
 const options = [
-  { value: 'f', label: 'נקבה' },
-  { value: 'm', label: 'זכר' },
+  { value: 'f', label: 'אישה' },
+  { value: 'm', label: 'גבר' },
   { value: 'o', label: 'אחר' },
+  { value: 'n', label: 'מעדיפים לא לציין' },
 ];
 
 const meta = {
