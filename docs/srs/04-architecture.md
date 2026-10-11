@@ -126,3 +126,15 @@
 | Feature / Container | AnalyticsEventFeature | רושם Event Taxonomy אחיד ל-Impression, Open, Dwell, Search, Engagement, Conversion ו-Administrative metrics ללא שמירת גוף Chat/Support באירועי Analytics כלליים. |
 | Feature / Container | AdminIntelligenceFeature | מחשב Aggregates ל-Owner/Admin: Lifecycle, Retention, Feed/Search, Groups, Professionals, Marketplace, Promotion, Moderation/Support ו-Recommendation Quality. ברירת המחדל בתצוגה היא Aggregate. |
 | Feature / Container | ContentMetadataFeature | מחזיק Topic/Category/Stage metadata לצורכי v1 באמצעות שדות מובנים, Group/Category context, Tags ומילות מפתח. סיווג סמנטי אוטומטי/Embeddings הוא Future Enhancement. |
+| Shared UI Component | OverflowMenu | תפריט "⋯" לפעולות משניות בכרטיס או במסך. במובייל נפתח כ-sheet מלמטה. הפעולות מוזנות מבחוץ (החלטות עיצוב מ-11.10.2026). |
+| Shared UI Component | Tooltip | תווית קצרה לכפתור אייקון, בריחוף ובמיקוד. ניתנת לסגירה ואינה מסתירה תוכן (WCAG 1.4.13). |
+| Shared UI Component | Toast | הודעת מצב קצרה ושקטה, ב-live region. אינה המקום היחיד למידע חשוב, ו-Toast עם פעולה אינו נעלם לבד. |
+| Shared UI Component | EmptyState | מצב ריק: הסבר קצר ופעולה אחת לצעד הבא. התוכן מוזן מבחוץ. |
+| Shared UI Component | Skeleton | מצב טעינה רך, בלי תנועה כשהמשתמש ביקש להפחית תנועה. |
+| Shared UI Component | ChoiceCardGroup | בחירה אחת מתוך כמה אפשרויות, בכרטיסים (radio), עם סימון "נבחר" שאינו בצבע בלבד. |
+| Shared UI Component | StepIndicator | "שלב X מתוך Y" ופס התקדמות לטפסים מרובי שלבים. |
+| Shared UI Component | ScrollToTopButton | כפתור "חזרה למעלה" שמופיע אחרי גלילה ארוכה בפיד ומחזיר את המיקוד לראש הרשימה. |
+| Shared UI Component | ShareSheet | חלון שיתוף קישור: וואטסאפ, אימייל, העתקת קישור וחלון השיתוף של המכשיר. היעדים מוזנים מבחוץ. |
+| Feature / Container | PostShareFeature | מנהל שיתוף בפיד ושיתוף קישור (FR-FEED-006/007): בדיקה שמותר לשתף (BR-064), שמירת הפניה למקור (BR-065), מצב "לא זמין" ויצירת קישור בלי תוכן בתצוגה המקדימה (BR-067). |
+| Feature / Container | BetaAccessFeature | מנהל את רשימת המוזמנים לבטא הסגורה ואת מצב הבטא, ובודק בהרשמה שהאימייל מוזמן (FR-ADMIN-011). |
+| Page | AdminBetaInvitesPage | מסך Admin לניהול רשימת המוזמנים ומצב הבטא. |

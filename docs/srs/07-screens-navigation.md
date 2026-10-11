@@ -2,22 +2,24 @@
 
 # 7. מסכי מערכת וניווט
 
-מסכי PG-001 עד PG-011 נגזרו ישירות מהסקיצות. מסכי PG-012 ואילך הם מסכים תומכים הנדרשים מהקונספט העסקי והחידודים שאושרו, אך לא הופיעו כסקיצה מלאה; העיצוב שלהם נשאר TBD.
+מסכי PG-001 עד PG-011 נגזרו ישירות מהסקיצות. מסכי PG-012 ואילך הם מסכים תומכים הנדרשים מהקונספט העסקי והחידודים שאושרו, אך לא הופיעו כסקיצה מלאה.
+
+**עיצוב:** השפה החזותית המחייבת נמצאת ב-[`docs/design/`](../design/README.md): כיוון, tokens ומוקאפים (NFR-USAB-004). הסקיצות הן קונספט ([נספח A](appendix-a-sketches.md)). מוקאפים למסכים שעוד לא עוצבו נבנים יחד עם הפיצ'ר שלהם.
 
 | ID | עמוד | Page / Feature Owner | מקור | עיקרי תוכן |
 |---|---|---|---|---|
-| PG-001 | Welcome / הצטרפות | WelcomePage | סקיצה 57(3) | תמונה מתחלפת, טקסט מתאר, יצירת חשבון חדש, מעבר לחשבון קיים. |
-| PG-002 | Login | LoginPage | סקיצה 57(4) | שם משתמש/אימייל, סיסמה, התחברות, שכחת סיסמה, יצירת חשבון. |
-| PG-003 | בחירת סוג חשבון | AccountTypeSelectionPage | נדרש לתהליך | בחירת Regular / Professional; UI מדויק TBD. |
-| PG-004 | הרשמה רגילה — שלב 1 | RegularRegistrationPage / RegularRegistrationFlow | סקיצה 57(2) | שם מלא, מין הורה, בחירה ראשונית לגבי שלב/ילדים, פרטי ילד/ה והוספת ילד. |
-| PG-005 | הרשמה רגילה — שלב 2 | RegularRegistrationPage / RegularRegistrationFlow | סקיצה 57(2) | אימייל/סיסמה/טלפון אופציונלי; הסקיצה מציינת כללי סיסמה של לפחות 8 תווים עם אות גדולה, אות קטנה ומספר. |
-| PG-006 | הרשמה מקצועית — שלב 1 | ProfessionalRegistrationPage / ProfessionalRegistrationFlow | סקיצה 57(1) | שם, מין, תאריך לידה, תחום/מקצוע, שנות ניסיון, פרט הסמכה/מספר מקצועי — ניסוח מדויק TBD. |
-| PG-007 | הרשמה מקצועית — שלב 2 | ProfessionalRegistrationPage / ProfessionalRegistrationFlow | סקיצה 57(1) | אימייל/סיסמה/טלפון אופציונלי. |
-| PG-008 | Feed | FeedPage / FeedFeature | סקיצה 56(1) | TopBar, אזור Feed ו-Bottom Navigation. TopBar כולל Hamburger, Global Search, Chat ו-Notifications; יצירת פוסט נשארת בתוך FeedFeature ולא כחלק קשיח מה-TopBar. |
-| PG-009 | בית — מעקב ותכנון | HomeTrackingPage / HomeTrackingFeature | סקיצה 56(2) | כרטיס Context, הוספת מסלול מעקב, יומן/Tracker Menu, טיפים ומאמרים. |
-| PG-010 | Marketplace | MarketplacePage / MarketplaceFeature | סקיצה 57 | אוסף Marketplace Listings של משתמשים, Listings מקודמים ומוצרים/תוכן ממומן של חברות/ספונסרים. |
-| PG-011 | נותני שירות ויועצים | ServicesDirectoryPage / ServicesDirectoryFeature | סקיצה 55(1) | קטגוריות וסינון לפי דירוג, מחיר, קרבה גיאוגרפית וניסיון. |
-| PG-012 | פרופיל משתמש / עריכת מידע | UserProfilePage / ProfileEditingFeature | סקיצה 55 | עריכת מידע המשתמש ונתוני המסע. |
+| PG-001 | Welcome / הצטרפות | WelcomePage | [סקיצה 57(3)](../design/sketches/sk-57-3-welcome.jpeg) | איור סטטי, טקסט מתאר, יצירת חשבון חדש, מעבר לחשבון קיים. |
+| PG-002 | Login | LoginPage | [סקיצה 57(4)](../design/sketches/sk-57-4-login.jpeg) | אימייל, סיסמה, התחברות, שכחת סיסמה, יצירת חשבון. |
+| PG-003 | בחירת סוג חשבון | AccountTypeSelectionPage | נדרש לתהליך | בחירה בין "חשבון אישי" ו"חשבון מקצועי" בכרטיסי בחירה. נכנס יחד עם בעלי המקצוע (§2.5). |
+| PG-004 | הרשמה רגילה — שלב 1 | RegularRegistrationPage / RegularRegistrationFlow | [סקיצה 57(2)](../design/sketches/sk-57-2-register-regular.jpeg) | השלב במסע, שם מלא, מין ההורה (לא חובה), פרטי ילד והוספת ילד, ותאריך לידה משוער בהריון (FR-REG-002). |
+| PG-005 | הרשמה רגילה — שלב 2 | RegularRegistrationPage / RegularRegistrationFlow | [סקיצה 57(2)](../design/sketches/sk-57-2-register-regular.jpeg) | אימייל, סיסמה (VAL-003) ואישור תנאי השימוש ומדיניות הפרטיות. אין טלפון. |
+| PG-006 | הרשמה מקצועית — שלב 1 | ProfessionalRegistrationPage / ProfessionalRegistrationFlow | [סקיצה 57(1)](../design/sketches/sk-57-1-register-pro.jpeg) | שם מלא, שם עסק (לא חובה), מין, תחום/מקצוע ושנות ניסיון. בלי תאריך לידה. מספר עוסק/ח.פ נאסף באימות (PG-040). |
+| PG-007 | הרשמה מקצועית — שלב 2 | ProfessionalRegistrationPage / ProfessionalRegistrationFlow | [סקיצה 57(1)](../design/sketches/sk-57-1-register-pro.jpeg) | אימייל, סיסמה ואישור תנאים. אין טלפון. |
+| PG-008 | Feed | FeedPage / FeedFeature | [סקיצה 56(1)](../design/sketches/sk-56-1-feed.jpeg), [סקיצה 56](../design/sketches/sk-56-social-network.jpeg) | מסך הנחיתה אחרי התחברות. TopBar, אזור Feed ו-Bottom Navigation. TopBar כולל Hamburger, לוגו, Global Search, Chat ו-Notifications; יצירת פוסט נשארת בתוך FeedFeature ולא כחלק קשיח מה-TopBar. גלילה אינסופית. בכל כרטיס פוסט: לייק, תגובה, שיתוף בפיד ושיתוף קישור (FR-FEED-006/007). |
+| PG-009 | בית — מעקב ותכנון | HomeTrackingPage / HomeTrackingFeature | [סקיצה 56(2)](../design/sketches/sk-56-2-home.jpeg) | כרטיס Context, הוספת מסלול מעקב, יומן/Tracker Menu, טיפים ומאמרים. |
+| PG-010 | Marketplace | MarketplacePage / MarketplaceFeature | [סקיצה 57](../design/sketches/sk-57-marketplace.jpeg) | אוסף Marketplace Listings של משתמשים, Listings מקודמים ומוצרים/תוכן ממומן של חברות/ספונסרים. |
+| PG-011 | נותני שירות ויועצים | ServicesDirectoryPage / ServicesDirectoryFeature | [סקיצה 55(1)](../design/sketches/sk-55-1-services.jpeg) | קטגוריות וסינון לפי דירוג, מחיר, קרבה גיאוגרפית וניסיון. |
+| PG-012 | פרופיל משתמש / עריכת מידע | UserProfilePage / ProfileEditingFeature | [סקיצה 55](../design/sketches/sk-55-profile.jpeg) | עריכת מידע המשתמש ונתוני המסע. |
 | PG-013 | פרופיל מקצועי | ProfessionalProfilePage | נדרש מהקונספט | מידע מקצועי, מוניטין/פעילות, שירותים ופעולת פנייה. UI TBD. |
 | PG-014 | Chat / Conversation | ChatPage / MessagingFeature | נדרש מהקונספט | מרכז שיחות + Conversation + Requests. Friends פותחים Chat ישיר; non-Friends משתמשים ב-Regular Chat Request; Conversation קיימת ממשיכה לאחר Remove Friend; Support responses מופיעות כ-Support Thread מוגבל. |
 | PG-015 | Offer Help / Message Request | ProfessionalOutreachFeature | נדרש מהקונספט | פנייה יזומה של בעל מקצוע מתוך פוסט של משתמש רגיל; פנייה אחת לכל Professional+Post. |
@@ -50,10 +52,13 @@
 | PG-042 | Billing / Promotions | BillingPromotionsPage / ProfessionalPromotionFeature | החלטת מוצר 10.10.2026 | ריכוז קידומים ורכישות מקצועיות; סליקה/חשבוניות לפי הספק שייבחר. |
 | PG-043 | Create Group | CreateGroupPage / GroupsFeature | החלטת מוצר 10.10.2026 | כל Regular/Professional רשאי ליצור Public/Private Group ולהפוך ל-Group Owner. |
 | PG-044 | Admin Sponsored Products | AdminSponsoredProductsPage / SponsoredProductManagementFeature | החלטת מוצר 10.10.2026 | Admin יוצר ומנהל Sponsored Products / Brand Promotions; אין Brand User בשלב הראשון. |
+| PG-045 | Admin Beta Invites | AdminBetaInvitesPage / BetaAccessFeature | החלטת מוצר 11.10.2026 | Admin בלבד: רשימת אימיילים מוזמנים לבטא הסגורה, והפעלה או השבתה של מצב בטא (FR-ADMIN-011). כל שינוי נרשם ב-Audit Log. |
 
 ## 7.1 Bottom Navigation
 
-Regular User משתמש בניווט התחתון המוגדר בסקיצות. Professional User לא יקבל Home Tracking; יעד הבית שלו יהיה Professional Dashboard. מבנה הניווט המקצועי המלא עדיין TBD ולא ייקבע בהנחה.
+Regular User משתמש בניווט התחתון המוגדר בסקיצות. Professional User לא יקבל Home Tracking; יעד הבית שלו יהיה Professional Dashboard. מבנה הניווט המקצועי המלא עדיין TBD ולא ייקבע בהנחה (OP-016).
+
+**תוויות בממשק:** בית · חנות · פיד · יועצים · פרופיל. ללשונית הפיד אייקון של הלוגו, וללשונית הפרופיל תמונת המשתמש. **ב-MVP** מוצגים רק בית, פיד ופרופיל; "חנות" ו"יועצים" נוספים כשהיעדים שלהם נבנים (§2.5). **בדסקטופ,** מרוחב 1024px, אותם יעדים מוצגים ב-rail אנכי בצד ההתחלה (NFR-USE-001) (החלטות מ-11.10.2026).
 
 | מיקום בסקיצה | יעד | יעד Page |
 |---|---|---|
@@ -65,13 +70,13 @@ Regular User משתמש בניווט התחתון המוגדר בסקיצות. P
 
 ## 7.2 מסלולי מעקב ותפריטי Tracker
 
-הסקיצה של עמוד הבית מציגה שלושה מסלולי מעקב: ילד/ה, הריון ולידה, מחזור וביוץ. היא מציגה גם תפריט Tracking אופקי, שבו ניתנים לקריאה בבירור: הנקה, בקבוק, שינה, חיתול, תרופה, גדילה וחיסון. קיים אריח נוסף שאינו קריא בוודאות ולכן אינו מוגדר כדרישה סופית.
+הסקיצה של עמוד הבית מציגה שלושה מסלולי מעקב: ילד/ה, הריון ולידה, מחזור וביוץ. היא מציגה גם תפריט Tracking ("יומן פעולות") עם שמונה סוגי מעקב: הנקה, בקבוק, שינה, חיתול, תרופה, גדילה, חיסון ואמבטיה (האריח השמיני אושר ב-11.10.2026; OP-007 נסגר). בממשק האריחים מוצגים ברשת ולא בשורה גלילה.
 
 > לכל Tracker ייפתח עמוד ייעודי. שדות ה-Tracker המדויקים נשארים TBD לכל סוג שלא הוגדר, למעט Tracker הנקה שהוגדר בקובץ החידודים.
 
 ## 7.3 Top Bar ומנגנונים גלובליים
 
-TopBar הוא Component גלובלי בתוך AppShell. ב-Regular/Professional סדר הפעולות ב-RTL הוא Hamburger בצד ימין, Global Search במרכז, Chat ו-Notification Bell בצד שמאל. כל אזור ממומש כ-Feature עצמאי ומחובר ל-TopBar באמצעות props/events/state, כך שה-TopBar אינו מכיל לוגיקה עסקית של Search/Chat/Notifications.
+TopBar הוא Component גלובלי בתוך AppShell. ב-Regular/Professional סדר הפעולות ב-RTL הוא Hamburger בצד ימין ולצידו הלוגו, Global Search במרכז, Chat ו-Notification Bell בצד שמאל. כל אזור ממומש כ-Feature עצמאי ומחובר ל-TopBar באמצעות props/events/state, כך שה-TopBar אינו מכיל לוגיקה עסקית של Search/Chat/Notifications.
 
 ### 7.3.1 Hamburger / Side Menu
 

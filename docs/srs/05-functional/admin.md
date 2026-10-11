@@ -141,3 +141,17 @@
 | פלט | Dashboards/KPIs/filters המאפשרים זיהוי trends, funnels, demand/supply gaps ואיכות Recommendation. |
 | מצב לאחר ביצוע | Admin יכול לקבל החלטות Product/Operations על בסיס מדדים; Raw Chat/Support/Tracker אינם מוצגים כ-dashboard analytics. |
 | בעל אחריות לוגי (Page / Feature) | AdminAnalyticsPage / AdminAnalyticsFeature / AdminIntelligenceFeature |
+
+## FR-ADMIN-011 — רשימת מוזמנים לבטא סגורה
+
+| שדה | הגדרה |
+|---|---|
+| סטטוס | מאושר (11.10.2026) — לתקופת הבטא שלפני השקה פתוחה |
+| Actor | Admin |
+| תיאור | לפני ההשקה הפתוחה Nestly פועלת כבטא סגורה. Admin מנהל רשימת כתובות אימייל מוזמנות, ורק אימייל ברשימה יכול להשלים הרשמה. בהשקה הפתוחה הרשימה מושבתת. |
+| תנאים מוקדמים | Admin מחובר. |
+| קלט / Trigger | הוספה או הסרה של כתובת אימייל, והפעלה או השבתה של מצב בטא. |
+| תהליך מערכת | שמירת הרשימה ומצב הבטא; רישום Audit לכל שינוי. בהרשמה בזמן בטא, אימייל שאינו ברשימה נדחה בהודעה כללית (ERR-035). |
+| פלט | רשימת מוזמנים מעודכנת ומצב בטא פעיל או מושבת. |
+| מצב לאחר ביצוע | ההרשמה פתוחה רק למוזמנים, עד שהבטא מושבתת. |
+| בעל אחריות לוגי (Page / Feature) | AdminBetaInvitesPage / BetaAccessFeature |

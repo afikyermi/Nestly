@@ -8,17 +8,18 @@
 - הגישה לנתונים היא רק דרך שרת המערכת, באמצעות Drizzle. ה-Data API של Supabase כבוי לסכמת המוצר.
 - כל שאילתה רצה בטרנזקציה שנושאת את זהות המשתמש, בתפקיד מסד שאינו יכול לעקוף את RLS. כך RLS נשאר מקור האמת להרשאות, והשרת אינו מסנן שורות לפי הרשאה.
 - רשומת Audit נכתבת בבסיס הנתונים באותה טרנזקציה של הפעולה (NFR-AUDIT-001).
-- אחסון מדיה ו-Realtime נשארים TBD (סעיף 12, NFR-MEDIA-001).
+- אחסון מדיה נשאר TBD (סעיף 12, NFR-MEDIA-001, OP-027). Realtime, כשיופעל, יעביר אות בלבד ולא תוכן (סעיף 12).
+- השרת רץ כ-Vercel Functions; משימות רקע רצות בנפרד, בתפקיד מסד משלהן (סעיף 11).
 
 | Entity | מטרה |
 |---|---|
 | User | מזהה, Role, פרטי Login/Contact, סטטוס. |
 | RegularProfile | נתוני פרופיל הורה/משתמש. |
-| ProfessionalProfile | מקצוע, ניסיון, הסמכה, דירוגים/מדדים, סטטוס אימות. |
-| Child | שם/מין/תאריך לידה ושיוך להורה; פרטים מדויקים לפי הרשמה. |
-| JourneyContext | סוג מסלול: ילד/ה, הריון ולידה, מחזור וביוץ; סטטוס פעיל. |
+| ProfessionalProfile | מקצוע, שם עסק (לא חובה), ניסיון, נתוני אימות — כולל מספר עוסק/ח.פ שנאסף באימות ולא בהרשמה — דירוגים/מדדים, סטטוס אימות. |
+| Child | שם, מין (VAL-006), תאריך לידה ושיוך להורה. |
+| JourneyContext | סוג מסלול: ילד/ה, הריון ולידה, מחזור וביוץ; סטטוס פעיל; בהריון — תאריך לידה משוער (לא חובה). |
 | TrackerEvent | סוג Tracker, timestamp ונתוני האירוע; האירועים מהווים חלק מ-Tracker Data המשויך למשתמש/ילד/מסלול. |
-| Post | מחבר (נשמר תמיד), סימון אנונימיות, תוכן, זמן, קהילה/הקשר, סטטוס. בפוסט אנונימי זהות המחבר אינה נחשפת למשתמשי קהילה (FR-FEED-005). |
+| Post | מחבר (נשמר תמיד), סימון אנונימיות, תוכן, זמן, קהילה/הקשר, סטטוס. בפוסט אנונימי זהות המחבר אינה נחשפת למשתמשי קהילה (FR-FEED-005). שיתוף בפיד הוא פוסט של המשתף עם הפניה לפוסט המקורי ובלי עותק של תוכנו (FR-FEED-006, BR-065). |
 | Comment / Reaction | אינטראקציות לתוכן. Comment יכול לכלול parentCommentId עבור Reply ו-Mention references לפי הצורך; Reaction נשמר לפי סוג האינטראקציה שיוגדר. |
 | Group / Membership | Group עם type Public/Private, מטא-דאטה, בעלות וסטטוס; Membership משייך משתמש לקבוצה ומכיל סטטוס חברות. תפקידי קבוצה נשמרים בנפרד מ-System Roles. |
 | MarketplaceListing | Listing מסחרי של משתמש: מוצר למכירה/מסירה, בעלים, תוכן, מדיה, סטטוס, מקור וקידום. |
@@ -60,6 +61,8 @@
 | AlgorithmConfiguration | גרסת weights/thresholds/decay/diversity/exploration/frequency caps. שינוי Admin Only דרך ALGORITHM_AI_CONFIG ונרשם ב-Audit. |
 | AnalyticsAggregate | מדדים מצטברים לפי period/surface/entity/segment מאושר לצורך Admin/Professional dashboards. |
 | PromotionPerformanceEvent | Impression/Click/ProfileVisit/Follow/ChatStart/other approved event המשויך ל-Promotion ומסומן Paid לצורך הפרדה מ-Organic. |
+| LegalConsent | User, מסמך (Terms / Privacy), גרסה, זמן אישור. נוצר בהרשמה (FR-REG-004) ובכל אישור של גרסה חדשה. |
+| BetaInvite | אימייל מוזמן, מי הוסיף ומתי, וסטטוס. יחד עם מצב הבטא קובע מי יכול להירשם בתקופת הבטא (FR-ADMIN-011). |
 
 ## 13.1 קשרים מרכזיים
 

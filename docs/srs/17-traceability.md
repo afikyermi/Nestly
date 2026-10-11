@@ -6,9 +6,9 @@
 |---|---|---|---|---|
 | PG-001 | WelcomePage | FR-AUTH-001 | UC-01/UC-02 | — |
 | PG-002 | LoginPage | FR-AUTH-002/003 | UC-03 | User |
-| PG-004/005 | RegularRegistrationFlow | FR-REG-002/003/004 | UC-01 | User, RegularProfile, Child, JourneyContext |
-| PG-006/007 | ProfessionalRegistrationFlow | FR-PROREG-001/002/003 | UC-02 | User, ProfessionalProfile |
-| PG-008 | FeedFeature / PersonalizationSignalFeature / RuleBasedRecommendationEngine | FR-FEED-001..005 / FR-ALG-001..004 / FR-ALG-009 | UC-04/36/37/40 | Post, Comment, Reaction, Group, Friendship, ProfessionalFollow, PersonalizationProfile, ContentImpression, RecommendationFeedback, ContentMetadata, AlgorithmConfiguration |
+| PG-004/005 | RegularRegistrationFlow / BetaAccessFeature | FR-REG-002/003/004 / FR-ADMIN-011 | UC-01 | User, RegularProfile, Child, JourneyContext, LegalConsent, BetaInvite |
+| PG-006/007 | ProfessionalRegistrationFlow | FR-PROREG-001/002/003 | UC-02 | User, ProfessionalProfile, LegalConsent |
+| PG-008 | FeedFeature / PostShareFeature / PersonalizationSignalFeature / RuleBasedRecommendationEngine | FR-FEED-001..007 / FR-ALG-001..004 / FR-ALG-009 | UC-04/36/37/40 | Post (כולל שיתופים), Comment, Reaction, Group, Friendship, ProfessionalFollow, PersonalizationProfile, ContentImpression, RecommendationFeedback, ContentMetadata, AlgorithmConfiguration |
 | PG-009 | HomeTrackingFeature | FR-HOME-001..004 | UC-05/06 | JourneyContext, TrackerEvent, Article |
 | PG-010/019 | MarketplaceFeature / MarketplacePromotionFeature / MarketplaceDetailPage / RuleBasedRecommendationEngine | FR-MKT-001..005 / FR-ALG-006/007 | UC-07/39 | MarketplaceListing, SponsoredProduct, Promotion, MediaAsset, PromotionPerformanceEvent, ContentImpression, AnalyticsEvent |
 | PG-011/013 | ServicesDirectoryFeature / ProfessionalProfilePage / RuleBasedRecommendationEngine | FR-SERV-001..003 / FR-ALG-005 | UC-08/38 | ProfessionalProfile, ServiceCategory, PersonalizationProfile, AnalyticsEvent |
@@ -41,3 +41,4 @@
 | PG-041/042 | ProfessionalPromotionFeature / ProfessionalPromotionPage / PromotionAnalyticsPage / BillingPromotionsPage | FR-SERV-010 / FR-PRO-002 / FR-ALG-007 | UC-34/42 | Promotion, ProfessionalPromotionMetric, PromotionPerformanceEvent, AnalyticsAggregate |
 | PG-043 | CreateGroupPage / GroupsFeature | FR-GRP-004 | UC-32 | Group, Membership, GroupRoleAssignment |
 | PG-044 | AdminSponsoredProductsPage / SponsoredProductManagementFeature | FR-ADMIN-009 / FR-MKT-003/005 | UC-35 | SponsoredProduct, MediaAsset, AuditLogEntry |
+| PG-045 | AdminBetaInvitesPage / BetaAccessFeature | FR-ADMIN-011 | — | BetaInvite, AuditLogEntry |

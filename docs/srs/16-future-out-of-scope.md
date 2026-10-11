@@ -15,3 +15,5 @@
 | ML Learned Ranking / Collaborative Filtering | Future Enhancement | אפשרי לאחר הצטברות data/traffic והוכחת צורך מעבר ל-v1 rule-based. |
 | Semantic Search / Embeddings | Future Enhancement | Global Search v1 נשאר Exact/Prefix/Keyword; semantic retrieval ייבחן בהמשך. |
 | Experimentation Platform / A-B Testing | Future Enhancement | אפשר להוסיף לאחר שיש traffic מספיק ומדדים יציבים; אינו blocker לפיתוח v1. |
+| מצב כהה (Dark mode) | Future Enhancement | לא נדרש ב-v1 (החלטה מ-11.10.2026). ה-tokens סמנטיים, כך שאפשר להוסיף אותו בעתיד בלי לשנות רכיבים. |
+| סרטונים בפוסטים וב-Listings | Future Enhancement | ב-MVP תמונות בלבד (NFR-MEDIA-001). |

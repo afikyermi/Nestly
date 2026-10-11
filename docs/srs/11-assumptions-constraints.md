@@ -28,3 +28,5 @@
 | Constraint | Recommendations המבוססות על חיפוש/צריכת מידע מוצגות ב-Feed בלבד ואינן משמשות In-App Notifications. | מאושר |
 | Constraint | כל Regular או Professional פעיל רשאי ליצור Public/Private Group ללא אישור Admin ולהפוך ל-Group Owner. | מאושר |
 | Constraint | Group Notification Highlights v1 מוגדר ב-FR-ALG-010 כ-rule-based/deterministic; thresholds ניתנים לכיול ב-AlgorithmConfiguration. | מאושר |
+| Constraint | בסיס ה-UI ב-Web (החלטה מ-11.10.2026): רכיבים על shadcn/ui ו-Radix, עם design tokens ממקור אחד ב-packages/shared. גלריית Storybook משמשת לאישור הרכיבים. השפה החזותית מחייבת לפי NFR-USAB-004 ו-`docs/design/`. | מאושר |
+| Constraint | פריסה (החלטה מ-11.10.2026): האתר והשרת ב-Vercel, בפרויקט אחד. השרת (Fastify) רץ כ-Vercel Functions באזור Frankfurt, ליד המסד ב-Supabase (Central EU, Frankfurt). משימות רקע רצות בנפרד, בתפקיד מסד משלהן. לכל פיצ'ר נוצרת סביבת Preview. | מאושר |
