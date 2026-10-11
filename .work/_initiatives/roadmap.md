@@ -32,3 +32,13 @@ retires or rewrites it.
 
 **Reviewers beyond the path:** ALGORITHM & DATA in I3, I6, I7, I9, I10, I11, I12, I13 and I15. Trust & Safety is
 flagged to Afik in I3, I5, I8, I10 and I12 (user-generated content and media).
+
+---
+
+## Amendment 1 — 11.10.2026 — sharing enters the MVP in I3
+
+Afik's decision (`decisions.md` → "R2 approved; the post card gets four icon actions"): the post card carries Like,
+Comment, Share in feed and Share link. **I3 adds two features** — an internal share of a post into the sharer's feed,
+and an external share of a link to the post or to the site. Its FR become FR-FEED-006 and FR-FEED-007 once Afik
+approves the SRS definition (batch 2.9); until then the SRS definition blocks I3. I3 grows from 6 to 8 features; the
+MVP from 45 to 47, and the roadmap from about 77 to about 79.

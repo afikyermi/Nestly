@@ -638,6 +638,105 @@ YYYY-MM-DD | <decision in one line>
   status:       design-time change by Afik (learning.md §9 — a human gate changes only by his deliberate decision).
   decided by:   Afik (11.10.2026, "ביקורת diff שלי לפני כל merge לא נותנת הגנה אמיתית")
 
+2026-10-11 | R2 approved; the post card gets four icon actions — Like, Comment, Share in feed, Share link
+  updates:      2026-10-11 "Visual direction" — "one primary action per card" no longer applies to the post card,
+                and the Reaction is named "לייק" after all. Its icon is Nestly's own (a heart with the nest line), not
+                Facebook's.
+  rule:         every post card carries four icon buttons: Like (decision 12, "לייק"), Comment, Share in feed (an
+                internal share of another user's post into my feed, under my name, as on Facebook) and Share link (a
+                link to the post, or to the site, sent by WhatsApp, email and the like). Each button has an
+                accessible name and a tooltip. A link opened by someone signed out leads to sign-in (FR-AUTH-004).
+  privacy:      on top of the existing permissions, never shared internally or externally — an anonymous post,
+                content of a private group, children's details, a post by a user whose profile is Restricted.
+  pending:      the SRS definition of sharing (FR-FEED-006, FR-FEED-007 and their BR, VAL, ERR and AC) — Claude's
+                proposal, awaiting Afik's approval before SRS batch 2.9. Sharing enters the MVP in I3.
+  alternatives: the R2 post card — one primary action ("חיבוק") and a quiet comments link (rejected by Afik)
+  decided by:   Afik (11.10.2026, "כפתורי אייקון בכרטיס הפוסט: לייק, תגובה, שיתוף פנימי, שיתוף חיצוני" ·
+                "Reaction = לייק" · "שאר R2 מאושר")
+
+2026-10-11 | Repository layout and naming (WORKPLAN 7.0)
+  rule:         English, readable names that follow the SRS logical names (§4.2, §7); no SRS IDs in file or folder
+                names (IDs live in test names and in the commit's Implements line).
+  layout:       apps/web/src — main.tsx · app/ (router, providers, route guard) · pages/<page>/<Name>Page.tsx ·
+                features/<feature>/<Name>Feature.tsx or <Name>Flow.tsx, with hooks and pieces used only there ·
+                components/ui/ (shadcn primitives) · components/layout/ (AppShell, TopBar, BottomNavigation,
+                SideDrawer) · components/shared/ (Shared UI, §4.2) · components/domain/ (Domain Reusable, §4.2) ·
+                services/<resource>-api.ts (HTTP to the server, no DOM) · hooks/ (app-wide only) · lib/ · styles/ ·
+                assets/. apps/server/src — main.ts (local development: listen) · app.ts (the Fastify app) · a thin
+                Vercel adapter that exposes app.ts as one function · jobs/ (background jobs, deployed apart as
+                app_jobs — see "Hosting") · routes/<resource>.route.ts · services/<resource>.service.ts ·
+                repositories/<resource>.repository.ts · db/ (Drizzle schema, client, identity transaction) · plugins/
+                (auth, rate limit, error mapping) · lib/. packages/shared/src — validation/ (Zod, VAL) · types/ ·
+                constants/ · errors/ (codes the web maps to ERR texts) · design-tokens/. supabase/ — migrations/
+                (SQL and RLS policies), tests/ (pgTAP), seed.sql — the Supabase CLI layout, owned by DATA ARCHITECT.
+                Tests sit outside src: apps/*/tests/ and packages/shared/tests/ mirror src; e2e/ holds Playwright
+                with axe.
+  naming:       folders kebab-case, from the logical name without its suffix (pages/welcome, features/regular-
+                registration) · React component files PascalCase.tsx, the exact SRS name (WelcomePage,
+                RegularRegistrationFlow, FeedFeature, PostCard), one component per file, stories <Name>.stories.tsx
+                beside it · other modules kebab-case with a role suffix (posts.route.ts, posts.service.ts,
+                posts.repository.ts, posts-api.ts, use-feed.ts) · shadcn primitives keep shadcn's kebab-case files —
+                the only exception · identifiers: PascalCase components and types, camelCase functions, Zod schemas
+                <name>Schema, constants UPPER_SNAKE · tests <module>.test.ts(x), E2E <flow>.spec.ts · imports: @/
+                inside an app, @nestly/shared between packages; packages @nestly/web, @nestly/server, @nestly/shared.
+                Database names are DATA ARCHITECT's, decided with the first table (data-model.md).
+  why:          tests outside src let the 7.2 hooks block by path — TEST ENGINEER never reads apps/*/src, BUILDER
+                never writes apps/*/tests, e2e/ or supabase/tests — which is simpler and harder to slip past than
+                file-name patterns. Folders mirror the §4.2 layers, so the CI import boundaries (7.1) are
+                path rules.
+  alternatives: tests beside the code (*.test.tsx in src) · feature-sliced layout · Drizzle migrations under
+                apps/server
+  decided by:   Afik (11.10.2026, "7.0: תחליט לפי ההמלצה שלך, בהתאם ל-SRS ולמוסכמה")
+
+2026-10-11 | Hosting: the web app and the server on Vercel (the server as Vercel Functions), the database on Supabase (WORKPLAN 7.4)
+  updates:      2026-10-11 "Own server: Node.js + TypeScript on Fastify" — Fastify and its layers stay; the server is
+                deployed as Vercel Functions, not as an always-on process. 2026-10-11 "Supabase … Storage and
+                Realtime TBD" — Realtime is decided below; Storage stays open (media decision M1, before I5).
+  rule:         one Vercel project serves the static web app and the API at the same origin. The Fastify app runs
+                as one function through a thin adapter; routes, services and repositories hold no Vercel-specific
+                code, so the same app can move to an always-on host without a rewrite. Functions run in fra1
+                (Frankfurt), next to the database.
+  jobs:         background jobs run as app_jobs, deployed apart from the request functions so they never share
+                credentials — SQL jobs in pg_cron inside the database, run as app_jobs; jobs that need code in a
+                separate Vercel project that holds only the app_jobs credentials, triggered by Vercel Cron or by
+                pg_cron through pg_net. A job is cut to fit the function limit (300 s on Hobby, 800 s on Pro).
+  realtime:     chat and notifications poll in the MVP. Later, Supabase Realtime private channels carry signals only
+                ("something changed") — never content; the client fetches the content through the server. Reason:
+                Realtime checks its RLS policy when a client connects and keeps it for the connection, so a revoked
+                or suspended user can keep receiving until the token expires.
+  conditions:   rate-limit counters (NFR-SEC-006) live in Postgres — functions share no memory · an external
+                error-monitoring service before the beta (Vercel keeps runtime logs 1 hour on Hobby, 1 day on Pro) —
+                a new provider, reviewed by CRITIC · HEIC images are decided in M2 (the prebuilt image library does
+                not read HEIC) · database connections through the pooler in transaction mode, one per function
+                instance.
+  prices:       checked on 11.10.2026 at vercel.com/pricing and supabase.com/pricing. Vercel Hobby $0, "personal,
+                non-commercial use" only; Pro $20 a month per developer seat. Supabase Free: two active projects,
+                500 MB database, 50,000 MAU, 1 GB storage, 5 GB egress, 200 pooler clients, paused after a week
+                without activity, no branching; Pro from $25 a month.
+  region:       Supabase Central EU (Frankfurt, eu-central-1) — the region closest to Israel; Supabase has none in
+                Israel. Vercel functions in fra1.
+  preview:      every feature gets one Vercel preview per branch, holding both the web app and the API. The database
+                preview is the second free Supabase project, shared — safe because features run one at a time
+                (rule 5). A feature's migrations run there; it is reset when a feature is rejected; production
+                receives migrations only on merge. Previews need the code in a Git host.
+  commercial:   Vercel defines commercial use as any deployment for the financial gain of anyone involved —
+                payments, advertising products or services, ads. Hobby is used for development only; Vercel Pro
+                ($20 a month) before the first deployment real users use (the closed beta, I9). Pro is also needed
+                for cron jobs more often than once a day.
+  cost:         $0 a month in development. About $20 in the beta. At launch about $45 or more: Vercel Pro, usage
+                beyond its included credit, and Supabase Pro for backups and no pausing — decided in I9.
+  move to an always-on server when: live chat at real scale (I8 later), heavy batch work (I15), or cold starts that
+                hurt in practice — a deployment change, not a rewrite.
+  alternatives: A — a separate always-on Fastify server on Railway (Hobby $5 a month, EU West Amsterdam, PR
+                environments): no cold starts and no time limit, but two platforms to wire for every preview, a cost
+                from day one, and the WebSocket rule kept as it was. Compared in full on 11.10.2026.
+  pending:      a private GitHub repository as the remote, for CI (7.1) and the previews — Afik's approval, since it
+                sends the code to an external service · the migration path (7.3): the direct connection is IPv6 only
+                and CI may not reach it — DATA ARCHITECT decides between the session-mode pooler and the IPv4 add-on,
+                which may change platform rule 5.
+  decided by:   Afik (11.10.2026, "עבור לשיטה C"; earlier "אתר: Vercel … מסד: Supabase. כולל סביבת Preview לכל
+                פיצ'ר"); the region chosen by Claude at his instruction ("תבחר אזור קרוב ל-Supabase").
+
 ---
 
 ## Pending — not yet decided
@@ -649,6 +748,14 @@ code in TypeScript (entry "Rule 0 reopened").
 
 **Media decisions M1–M6.** Before I5 — storage provider, formats and limits, policy for images of minors, EXIF
 stripping, hash scanning, retention (entry "D7 closed").
+
+**GitHub remote.** A private repository for CI (7.1) and the previews (7.4) — Afik's approval.
+
+**Migration path.** In 7.3 — the direct connection is IPv6 only; DATA ARCHITECT decides between the session-mode
+pooler and the IPv4 add-on (entry "Hosting").
+
+**Sharing in the SRS.** FR-FEED-006 and FR-FEED-007 — Claude's proposal awaits Afik's approval (entry "R2
+approved").
 
 **Design choices at the review rounds.** The Reaction's name at R2. Palette, font, desktop layout and the eighth
 tracker tile were decided on 11.10.2026 (entries "R1" and "The eighth tracker tile").

@@ -14,12 +14,14 @@ step, in the same commit. No other status or progress file.
 
 - **Monorepo, npm workspaces:** `apps/web` · `apps/server` · `packages/shared` · `apps/mobile` later only.
 - **Web:** React + TypeScript + Tailwind, built with **Vite** as a single-page app.
-- **Server:** Node.js + TypeScript on **Fastify**, layered route → service → repository. The web app reaches
+- **Server:** Node.js + TypeScript on **Fastify**, layered route → service → repository, deployed as **Vercel
+  Functions** in the same Vercel project as the web app. Background jobs run apart, as `app_jobs`. The web app reaches
   product data only through it.
 - **Shared:** `packages/shared` — Zod validations (VAL-xxx), types, constants. No DOM, no Node APIs.
 - **Data:** **PostgreSQL via Supabase**, the only database, accessed with **Drizzle**. **Authorization is
   enforced in the database with RLS.** The Supabase Data API is off for the product schema.
-- **Auth:** **Supabase Auth**; the server verifies the JWT. Storage and Realtime: TBD (SRS §12).
+- **Auth:** **Supabase Auth**; the server verifies the JWT. Storage: TBD (SRS §12, media decision M1). Realtime:
+  polling in the MVP; later Supabase Realtime carries signals only, never content.
 - **QA tooling per SRS NFR-QA-001 / OP-018:** Vitest + React Testing Library, Playwright on Chrome and Edge,
   axe-core, pgTAP, npm audit. Tests live in the repo, separate from business logic.
 

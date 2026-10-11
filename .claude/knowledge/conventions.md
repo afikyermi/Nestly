@@ -25,14 +25,17 @@ is a second pair of eyes.
 | Languages | **TypeScript** everywhere in product code — web, server, shared. React · TypeScript · CSS · HTML on the web; Node.js + TypeScript on the server | 🔒 rule 0 · decided 2026-10-11 (replaces JavaScript-only, 12.9) |
 | TypeScript settings | `strict: true` · no `any` · no `@ts-ignore`, `@ts-nocheck` or `@ts-expect-error` · `as` restricted. Enforced by typecheck and typescript-eslint in CI, and by CRITIC | decided 2026-10-11 |
 | Repository | **Monorepo, npm workspaces:** `apps/web` · `apps/server` · `packages/shared` · `apps/mobile` later only | decided 2026-10-11 |
+| Layout and naming | Folders per the §4.2 layers; tests outside `src` (`apps/*/tests`, `packages/shared/tests`, `e2e/`, `supabase/tests`); English names from the SRS logical names; no SRS IDs in file names. The full rule: `decisions.md` → "Repository layout and naming" | decided 2026-10-11 |
+| Hosting | **Vercel:** the web app and the server (as Vercel Functions, region fra1), one project, one preview per branch · **Supabase**, Central EU Frankfurt. `decisions.md` → "Hosting" | decided 2026-10-11 |
 | UI | **React**, with **Tailwind** for styling | decided |
 | Web build | **Vite**, single-page app | decided 2026-10-10 · SRS §11 |
-| Server | **Node.js + TypeScript on Fastify.** Layers: route ≤200 lines → service ≤400 → repository ≤400 | decided 2026-10-11 |
+| Server | **Node.js + TypeScript on Fastify,** deployed as Vercel Functions through a thin adapter. Layers: route ≤200 lines → service ≤400 → repository ≤400 | decided 2026-10-11 |
 | Shared | `packages/shared`: **Zod** validations (VAL-xxx), types, constants. No DOM, no Node APIs — it must run on web, server and mobile | decided 2026-10-11 |
 | Database | **PostgreSQL via Supabase**, the only database, accessed with **Drizzle** through the server | decided |
 | Authorization | **RLS**, enforced in the database. The server never filters rows for permission | decided |
 | Auth | **Supabase Auth.** The web app signs in with supabase-js; the server verifies the JWT through JWKS (asymmetric keys), ignores the token's role and forces `authenticated` | decided 2026-10-11 |
-| Storage · Realtime | **TBD** — SRS §12, NFR-MEDIA-001 | open |
+| Storage | **TBD** — SRS §12, NFR-MEDIA-001; media decision M1 before I5 | open |
+| Realtime | Polling in the MVP. Later, **Supabase Realtime** private channels carry signals only, never content; the client fetches the content through the server | decided 2026-10-11 |
 | Tests | Vitest + React Testing Library (unit, integration) · Playwright on Chrome and Edge (E2E) · axe-core in Playwright (accessibility) · pgTAP (database and RLS) · npm audit (dependencies). Per SRS NFR-QA-001 / OP-018 | decided (D4) |
 | Files | **in the repo.** Tests never ship, but they are always versioned | decided |
 | Accessibility | WCAG 2.2 AA for the Web version (SRS NFR-A11Y-001) | decided (D6) |
@@ -102,8 +105,13 @@ first line of code, and CRITIC checks them in every review. When the SRS changes
 - Every database call runs inside the identity transaction described in `data-model.md`. No query runs
   outside one.
 - Rate limits (NFR-SEC-006) are enforced on the server. Their thresholds are configuration, not constants.
-- Background jobs run as a separate process with their own database credentials (`app_jobs`). The request
-  server never holds those credentials.
+  Their counters live in Postgres: function instances share no memory.
+- The server runs as Vercel Functions: no state is kept in memory between requests beyond caches that may be
+  lost (the JWKS keys, for example). Routes, services and repositories hold no Vercel-specific code; only the
+  adapter does.
+- Background jobs run as `app_jobs`, deployed apart from the request functions: SQL jobs in pg_cron, code jobs
+  in a separate Vercel project that alone holds the `app_jobs` credentials. The request functions never hold
+  them. A job is cut to fit the function time limit.
 
 ### Accessibility — SRS NFR-A11Y-001 (WCAG 2.2 AA)
 - Build accessibility into the shared UI components once — labels, keyboard operation, visible focus,

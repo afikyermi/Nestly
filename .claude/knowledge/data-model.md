@@ -52,7 +52,7 @@ data without passing through a policy. DATA ARCHITECT designs to them; CRITIC ch
 | 3 | **Identity in every transaction.** The server verifies the JWT (JWKS, asymmetric keys), ignores the token's `role` claim, and inside the transaction runs `SET LOCAL ROLE authenticated` and `set_config('request.jwt.claims', <claims>, true)`. Only transaction-local settings — never session-level | `auth.uid()` in every policy works unchanged. Session-level settings would leak between users through the pooler |
 | 4 | **Guest endpoints** run with `SET LOCAL ROLE anon` and minimal grants, or touch no database at all. They exist only for what a Guest may reach (FR-AUTH-004) | anon gets nothing it does not need |
 | 5 | **Connection:** Supabase's pooler in transaction mode, postgres-js with `prepare: false`. **Migrations** run as a separate owner role over a direct connection — never through the pooler, never at runtime. Check in part 7 that the pooler accepts a custom role | transaction mode does not keep prepared statements; DDL needs a direct session |
-| 6 | **Background jobs run as `app_jobs`**, in a separate process with its own credentials, which the request server never holds. NOBYPASSRLS, minimal grants. Where a job must read or write across users, it gets an explicit `TO app_jobs` policy on that table, listed below | a compromised request server cannot act as the job runner, and every cross-user reach is a named, reviewable policy |
+| 6 | **Background jobs run as `app_jobs`**, deployed apart from the request functions with their own credentials, which the request functions never hold — SQL jobs in pg_cron run as `app_jobs`, code jobs in a separate Vercel project (decided 2026-10-11, "Hosting"). NOBYPASSRLS, minimal grants. Where a job must read or write across users, it gets an explicit `TO app_jobs` policy on that table, listed below | a compromised request server cannot act as the job runner, and every cross-user reach is a named, reviewable policy |
 
 ### Tables, views and functions
 
@@ -78,8 +78,16 @@ data without passing through a policy. DATA ARCHITECT designs to them; CRITIC ch
 | 19 | **Protected reads go through an audited function.** A trigger does not run on SELECT, so revealing an anonymous author (P5, AC-077) and Moderator access to Private Group content (NFR-PRIV-002) go through a dedicated function that returns the data and writes the audit entry in the same call | the read and its record are one operation |
 | 20 | **The real author of an anonymous post is not readable by anyone but the author.** It is kept in a separate table: the author reads their own rows (`author_id = auth.uid()`) — to see, edit and delete their anonymous posts and to get notifications on them. Nobody else reads it; the reveal function (rule 19) is the only other path. Final shape at Gate 2 | RLS hides rows, not columns, and a `security_invoker` view cannot mask a column its caller cannot read. A separate table makes row-level security enough (P4) |
 
-**Realtime, when it comes** (chat, notifications): WebSocket connections on the server pass through the same
-identity mechanism as rule 3, so RLS applies to them too.
+**Realtime, when it comes** (chat, notifications; the MVP polls): Supabase Realtime private channels, authorized
+by RLS policies on `realtime.messages`, carry **signals only** — "something changed on this topic", never content.
+The client then fetches the content through the server, under rule 3. Why: Realtime checks its policy when a
+client connects and keeps it for the connection, so a revoked or suspended user may receive until the token
+expires (rule 15 cannot hold on that channel). Decided 2026-10-11, "Hosting".
+
+**Connections from functions** (rule 5): the server runs as Vercel Functions, each instance holding one pooled
+connection in transaction mode. The Free plan allows 200 pooler clients — watch it as traffic grows. Migrations:
+the direct connection is IPv6 only and CI may not reach it; DATA ARCHITECT settles the path in WORKPLAN 7.3
+(session-mode pooler or the IPv4 add-on), which may change rule 5.
 
 ### Approved exceptions
 

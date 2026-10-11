@@ -200,6 +200,24 @@ a{color:var(--strong)}
 .article h3{font-size:17px;line-height:26px;font-weight:600}
 .article p{font-size:13px;line-height:20px;color:var(--muted);margin-top:4px}
 
+/* post actions */
+.actions-row{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:12px;padding-top:6px;box-shadow:inset 0 1px 0 var(--divider)}
+.act{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;border:0;border-radius:12px;background:transparent;color:var(--muted);font:inherit;font-size:15px;cursor:pointer}
+.act:hover{background:var(--smuted);color:var(--strong)}
+.act .ic{width:22px;height:22px}
+.act .n{font-variant-numeric:tabular-nums}
+.act[aria-pressed="true"]{color:var(--strong);font-weight:600;--like-inner:#FFFFFF}
+.act[aria-pressed="true"] .ic{fill:currentColor}
+.tip{position:absolute;bottom:calc(100% + 6px);inset-inline:0;margin-inline:auto;width:max-content;max-width:170px;padding:4px 10px;border-radius:8px;background:var(--text);color:#FFFFFF;font-size:13px;line-height:20px;font-weight:500;opacity:0;pointer-events:none;transition:opacity .15s;z-index:3}
+.act:hover .tip,.act:focus-visible .tip,.act.show-tip .tip{opacity:1}
+.embed{margin-top:10px;padding:12px;border-radius:12px;background:var(--smuted)}
+.embed .post-head .avatar{width:32px;height:32px;font-size:13px}
+.embed .post-body{margin-top:6px;font-size:16px;line-height:26px}
+.unavail{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:15px;line-height:24px}
+.unavail .ic{width:20px;height:20px}
+.share-text{width:100%;min-height:88px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text);font:inherit;font-size:16px;resize:vertical}
+.sheet-body{padding:0 12px}
+
 /* sheet */
 .scrim{position:absolute;inset:0;background:rgb(59 47 42 / .32);z-index:4}
 .sheet{position:absolute;inset-inline:0;bottom:0;z-index:5;background:var(--surface);border-radius:24px 24px 0 0;padding:8px 8px 20px;box-shadow:0 -8px 32px rgb(var(--shadow) / .14)}
@@ -244,22 +262,27 @@ a{color:var(--strong)}
  <symbol id="i-eyeoff" viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2.4 3.3M6.6 6.6C3.9 8.4 2 12 2 12s3.5 7 10 7a9.6 9.6 0 0 0 5.4-1.6"/></symbol>
  <symbol id="i-minus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></symbol>
  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M4 22V4a1 1 0 0 1 1-1h11l-2 4 2 4H5"/></symbol>
+ <symbol id="i-like" viewBox="0 0 24 24"><path d="M12 20.3c-.3 0-.6-.1-.8-.3C6.9 16.6 3.5 13.7 3.5 9.9 3.5 7.4 5.4 5.5 7.8 5.5c1.6 0 3.1.8 4.2 2.2 1.1-1.4 2.6-2.2 4.2-2.2 2.4 0 4.3 1.9 4.3 4.4 0 3.8-3.4 6.7-7.7 10.1-.2.2-.5.3-.8.3Z"/><path d="M8.6 12.6c1 .9 2.1 1.3 3.4 1.3s2.4-.4 3.4-1.3" fill="none" stroke="var(--like-inner, currentColor)"/></symbol>
+ <symbol id="i-repost" viewBox="0 0 24 24"><path d="m2 9 3-3 3 3"/><path d="M13 18H7a2 2 0 0 1-2-2V6"/><path d="m22 15-3 3-3-3"/><path d="M11 6h6a2 2 0 0 1 2 2v10"/></symbol>
+ <symbol id="i-shareout" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/></symbol>
+ <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></symbol>
+ <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
 </svg>
 <div class="page">
   <header class="page-head">
     <h1>R2 — חמשת המסכים</h1>
     <p>כיוון A, Rubik. מובייל ברוחב 375. הפיד והבית בדסקטופ נמצאים בקובץ השני, <a href="r2-desktop.html">r2-desktop.html</a>. ליד כל מסך: מה נשמר מהסקיצה, מה חודד ולמה, אילו החלטות מיושמות ומה עדיין פתוח.</p>
-    <p><b>מה מחליטים כאן:</b> אישור ויזואלי של המסכים, ושם ה-Reaction (החלטה 12). אפשר לענות בשורה אחת, למשל "R2 מאושר, 12: חיבוק".</p>
+    <p><b>מצב:</b> R2 אושר ב-11.10.2026. בפיד נוספו שורת הפעולות והשיתוף לפי ההחלטה שלך.</p>
   </header>
   
 <section class="box decision" aria-labelledby="d12-h">
-  <h2 id="d12-h">החלטה 12: שם ה-Reaction</h2>
-  <p>הפעולה הראשית בכל פוסט. אייקון הלב נשאר, ומשתנה רק השם. במוקאפ מופיעה ההמלצה שלי.</p>
-  <div class="opts">
-    <div class="opt"><b>חיבוק</b><span class="rec">מומלץ</span><span>מתאים גם לבשורה טובה וגם לרגע קשה, כמו פוסט על אובדן או על טיפולים. "אהבתי" לא מתאים לשם. וזה גם רחוק מה-Like של פייסבוק.</span></div>
-    <div class="opt"><b>תמיכה</b><span>ברור, אבל מרגיש פורמלי יותר, ופחות טבעי ליד בשורה משמחת.</span></div>
-    <div class="opt"><b>אהבתי</b><span>מוכר מכל רשת, ובדיוק לכן מזכיר את פייסבוק. לא מתאים לפוסטים קשים.</span></div>
-  </div>
+  <h2 id="d12-h">הוחלט ב-R2 (11.10.2026)</h2>
+  <ul>
+    <li><b>12: "לייק"</b>, עם אייקון שלנו: לב עם קו הקן.</li>
+    <li><b>שורת פעולות בכל פוסט:</b> לייק, תגובה, שיתוף בפיד ושיתוף קישור. לכל כפתור יש שם נגיש ו-tooltip.</li>
+    <li><b>⚖️ כללי השיתוף</b> ממתינים לאישור ההגדרה ל-SRS (FR-FEED-006, FR-FEED-007).</li>
+    <li>שאר R2 מאושר.</li>
+  </ul>
 </section>
   <nav aria-label="מסכים"><ul class="toc">
     <li><a href="#welcome">Welcome</a></li><li><a href="#login">Login</a></li><li><a href="#account-type">סוג חשבון</a></li><li><a href="#register">הרשמה</a></li><li><a href="#register-pro">הרשמה מקצועית</a></li><li><a href="#feed">Feed</a></li><li><a href="#home">בית</a></li>
@@ -468,10 +491,13 @@ a{color:var(--strong)}
     <button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
   </header>
   <p class="post-body" dir="auto">אחרי שבוע של שגרת השכבה קבועה, הקטנה נרדמת לבד תוך עשר דקות. מה עבד אצלכם בגיל ארבעה חודשים?</p>
-  <footer class="post-foot">
-    <button class="react" type="button" aria-pressed="false"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-heart"/></svg><span>חיבוק</span><span class="count">24</span></button>
-    <a class="quiet-link" href="#">8 תגובות</a>
-  </footer>
+  
+  <div class="actions-row">
+    <button class="act" type="button" aria-pressed="false" aria-label="לייק, 24"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-like"/></svg><span class="n" aria-hidden="true">24</span><span class="tip" aria-hidden="true">לייק</span></button>
+    <button class="act" type="button" aria-label="תגובות, 8"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="n" aria-hidden="true">8</span><span class="tip" aria-hidden="true">תגובה</span></button>
+    <button class="act show-tip" type="button" aria-label="שיתוף בפיד" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-repost"/></svg><span class="tip" aria-hidden="true">שיתוף בפיד</span></button>
+    <button class="act" type="button" aria-label="שיתוף קישור" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-shareout"/></svg><span class="tip" aria-hidden="true">שיתוף קישור</span></button>
+  </div>
 </article>
     
 <article class="card post" aria-labelledby="fp2" aria-posinset="2" aria-setsize="-1">
@@ -481,13 +507,52 @@ a{color:var(--strong)}
     <button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
   </header>
   <p class="post-body" dir="auto">מתחילים טיפולים בחודש הבא. יש כאן מי שמוכנים לשתף איך שמרו על שגרה בעבודה?</p>
-  <footer class="post-foot">
-    <button class="react" type="button" aria-pressed="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-heart"/></svg><span>חיבוק</span><span class="count">41</span></button>
-    <a class="quiet-link" href="#">15 תגובות</a>
-  </footer>
+  
+  <div class="actions-row">
+    <button class="act" type="button" aria-pressed="true" aria-label="לייק, 41"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-like"/></svg><span class="n" aria-hidden="true">41</span><span class="tip" aria-hidden="true">לייק</span></button>
+    <button class="act" type="button" aria-label="תגובות, 15"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="n" aria-hidden="true">15</span><span class="tip" aria-hidden="true">תגובה</span></button>
+    
+  </div>
 </article>
-    <article class="card post" aria-labelledby="fp3" aria-posinset="3" aria-setsize="-1">
-      <header class="post-head"><span class="avatar" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span><div class="post-meta"><p class="post-author" id="fp3">קן טקסטיל</p><p class="post-ctx"><span class="tag">ממומן</span></p></div><button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button></header>
+    
+<article class="card post" aria-labelledby="fp3" aria-posinset="3" aria-setsize="-1">
+  <header class="post-head">
+    <span class="avatar" aria-hidden="true">דכ</span>
+    <div class="post-meta"><p class="post-author" id="fp3">דנה כ.</p><p class="post-ctx">שיתוף · לפני שעה</p></div>
+    <button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+  </header>
+  <p class="post-body" dir="auto">בדיוק מה שחיפשנו השבוע. שווה לקרוא את התגובות.</p>
+  
+  <div class="embed" role="group" aria-label="הפוסט המקורי של מאיה ל.">
+    <div class="post-head"><span class="avatar" aria-hidden="true">מל</span><div class="post-meta"><p class="post-author">מאיה ל.</p><p class="post-ctx">לילות רגועים · לפני 3 שעות</p></div></div>
+    <p class="post-body" dir="auto">אחרי שבוע של שגרת השכבה קבועה, הקטנה נרדמת לבד תוך עשר דקות. מה עבד אצלכם בגיל ארבעה חודשים?</p>
+  </div>
+  
+  <div class="actions-row">
+    <button class="act" type="button" aria-pressed="false" aria-label="לייק, 6"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-like"/></svg><span class="n" aria-hidden="true">6</span><span class="tip" aria-hidden="true">לייק</span></button>
+    <button class="act" type="button" aria-label="תגובות, 1"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="n" aria-hidden="true">1</span><span class="tip" aria-hidden="true">תגובה</span></button>
+    <button class="act" type="button" aria-label="שיתוף בפיד" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-repost"/></svg><span class="tip" aria-hidden="true">שיתוף בפיד</span></button>
+    <button class="act" type="button" aria-label="שיתוף קישור" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-shareout"/></svg><span class="tip" aria-hidden="true">שיתוף קישור</span></button>
+  </div>
+</article>
+    
+<article class="card post" aria-labelledby="fp4" aria-posinset="4" aria-setsize="-1">
+  <header class="post-head">
+    <span class="avatar" aria-hidden="true">רא</span>
+    <div class="post-meta"><p class="post-author" id="fp4">רוני א.</p><p class="post-ctx">שיתוף · אתמול</p></div>
+    <button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+  </header>
+  <p class="post-body" dir="auto">שמרתי את זה לעצמי, היה מועיל.</p>
+  <div class="embed"><p class="unavail"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-eyeoff"/></svg>הפוסט המקורי כבר לא זמין.</p></div>
+  
+  <div class="actions-row">
+    <button class="act" type="button" aria-pressed="false" aria-label="לייק, 2"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-like"/></svg><span class="n" aria-hidden="true">2</span><span class="tip" aria-hidden="true">לייק</span></button>
+    <button class="act" type="button" aria-label="תגובות, 0"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="n" aria-hidden="true">0</span><span class="tip" aria-hidden="true">תגובה</span></button>
+    
+  </div>
+</article>
+    <article class="card post" aria-labelledby="fp5" aria-posinset="5" aria-setsize="-1">
+      <header class="post-head"><span class="avatar" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span><div class="post-meta"><p class="post-author" id="fp5">קן טקסטיל</p><p class="post-ctx"><span class="tag">ממומן</span></p></div><button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button></header>
       <p class="post-body" dir="auto">שמיכות מוסלין נושמות לעונת המעבר, במארז של שלוש.</p>
       <div class="media" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></div>
       <a class="btn btn-soft btn-block" href="#" style="margin-top:12px">לפרטים</a>
@@ -503,7 +568,7 @@ a{color:var(--strong)}
 
 <nav class="bottomnav" aria-label="ניווט ראשי">
   <ul><li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-home"/></svg></span>בית</a></li><li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bag"/></svg></span>חנות</a></li><li><a href="#" aria-current="page"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span>פיד</a></li><li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-spark"/></svg></span>יועצים</a></li><li><a href="#"><span class="pill"><span class="mini-avatar" aria-hidden="true">נר</span></span>פרופיל</a></li></ul>
-</nav></div><p class="phone-cap">אחרי גלילה: "חזרה למעלה" וטעינה בתחתית</p></div><div><div class="phone">
+</nav></div><p class="phone-cap">שורת פעולות (tooltip על "שיתוף בפיד"), שיתוף, מקור שלא זמין, "חזרה למעלה"</p></div><div><div class="phone">
 
 <header class="topbar">
   <button class="icon-btn" type="button" aria-label="פתיחת התפריט"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-menu"/></svg></button>
@@ -524,10 +589,13 @@ a{color:var(--strong)}
     <button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
   </header>
   <p class="post-body" dir="auto">אחרי שבוע של שגרת השכבה קבועה, הקטנה נרדמת לבד תוך עשר דקות. מה עבד אצלכם בגיל ארבעה חודשים?</p>
-  <footer class="post-foot">
-    <button class="react" type="button" aria-pressed="false"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-heart"/></svg><span>חיבוק</span><span class="count">24</span></button>
-    <a class="quiet-link" href="#">8 תגובות</a>
-  </footer>
+  
+  <div class="actions-row">
+    <button class="act" type="button" aria-pressed="false" aria-label="לייק, 24"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-like"/></svg><span class="n" aria-hidden="true">24</span><span class="tip" aria-hidden="true">לייק</span></button>
+    <button class="act" type="button" aria-label="תגובות, 8"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="n" aria-hidden="true">8</span><span class="tip" aria-hidden="true">תגובה</span></button>
+    <button class="act" type="button" aria-label="שיתוף בפיד" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-repost"/></svg><span class="tip" aria-hidden="true">שיתוף בפיד</span></button>
+    <button class="act" type="button" aria-label="שיתוף קישור" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-shareout"/></svg><span class="tip" aria-hidden="true">שיתוף קישור</span></button>
+  </div>
 </article>
     
 <article class="card post" aria-labelledby="fp2-b" aria-posinset="2" aria-setsize="-1">
@@ -537,13 +605,52 @@ a{color:var(--strong)}
     <button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
   </header>
   <p class="post-body" dir="auto">מתחילים טיפולים בחודש הבא. יש כאן מי שמוכנים לשתף איך שמרו על שגרה בעבודה?</p>
-  <footer class="post-foot">
-    <button class="react" type="button" aria-pressed="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-heart"/></svg><span>חיבוק</span><span class="count">41</span></button>
-    <a class="quiet-link" href="#">15 תגובות</a>
-  </footer>
+  
+  <div class="actions-row">
+    <button class="act" type="button" aria-pressed="true" aria-label="לייק, 41"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-like"/></svg><span class="n" aria-hidden="true">41</span><span class="tip" aria-hidden="true">לייק</span></button>
+    <button class="act" type="button" aria-label="תגובות, 15"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="n" aria-hidden="true">15</span><span class="tip" aria-hidden="true">תגובה</span></button>
+    
+  </div>
 </article>
-    <article class="card post" aria-labelledby="fp3-b" aria-posinset="3" aria-setsize="-1">
-      <header class="post-head"><span class="avatar" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span><div class="post-meta"><p class="post-author" id="fp3-b">קן טקסטיל</p><p class="post-ctx"><span class="tag">ממומן</span></p></div><button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button></header>
+    
+<article class="card post" aria-labelledby="fp3-b" aria-posinset="3" aria-setsize="-1">
+  <header class="post-head">
+    <span class="avatar" aria-hidden="true">דכ</span>
+    <div class="post-meta"><p class="post-author" id="fp3-b">דנה כ.</p><p class="post-ctx">שיתוף · לפני שעה</p></div>
+    <button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+  </header>
+  <p class="post-body" dir="auto">בדיוק מה שחיפשנו השבוע. שווה לקרוא את התגובות.</p>
+  
+  <div class="embed" role="group" aria-label="הפוסט המקורי של מאיה ל.">
+    <div class="post-head"><span class="avatar" aria-hidden="true">מל</span><div class="post-meta"><p class="post-author">מאיה ל.</p><p class="post-ctx">לילות רגועים · לפני 3 שעות</p></div></div>
+    <p class="post-body" dir="auto">אחרי שבוע של שגרת השכבה קבועה, הקטנה נרדמת לבד תוך עשר דקות. מה עבד אצלכם בגיל ארבעה חודשים?</p>
+  </div>
+  
+  <div class="actions-row">
+    <button class="act" type="button" aria-pressed="false" aria-label="לייק, 6"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-like"/></svg><span class="n" aria-hidden="true">6</span><span class="tip" aria-hidden="true">לייק</span></button>
+    <button class="act" type="button" aria-label="תגובות, 1"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="n" aria-hidden="true">1</span><span class="tip" aria-hidden="true">תגובה</span></button>
+    <button class="act" type="button" aria-label="שיתוף בפיד" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-repost"/></svg><span class="tip" aria-hidden="true">שיתוף בפיד</span></button>
+    <button class="act" type="button" aria-label="שיתוף קישור" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-shareout"/></svg><span class="tip" aria-hidden="true">שיתוף קישור</span></button>
+  </div>
+</article>
+    
+<article class="card post" aria-labelledby="fp4-b" aria-posinset="4" aria-setsize="-1">
+  <header class="post-head">
+    <span class="avatar" aria-hidden="true">רא</span>
+    <div class="post-meta"><p class="post-author" id="fp4-b">רוני א.</p><p class="post-ctx">שיתוף · אתמול</p></div>
+    <button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+  </header>
+  <p class="post-body" dir="auto">שמרתי את זה לעצמי, היה מועיל.</p>
+  <div class="embed"><p class="unavail"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-eyeoff"/></svg>הפוסט המקורי כבר לא זמין.</p></div>
+  
+  <div class="actions-row">
+    <button class="act" type="button" aria-pressed="false" aria-label="לייק, 2"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-like"/></svg><span class="n" aria-hidden="true">2</span><span class="tip" aria-hidden="true">לייק</span></button>
+    <button class="act" type="button" aria-label="תגובות, 0"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="n" aria-hidden="true">0</span><span class="tip" aria-hidden="true">תגובה</span></button>
+    
+  </div>
+</article>
+    <article class="card post" aria-labelledby="fp5-b" aria-posinset="5" aria-setsize="-1">
+      <header class="post-head"><span class="avatar" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span><div class="post-meta"><p class="post-author" id="fp5-b">קן טקסטיל</p><p class="post-ctx"><span class="tag">ממומן</span></p></div><button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button></header>
       <p class="post-body" dir="auto">שמיכות מוסלין נושמות לעונת המעבר, במארז של שלוש.</p>
       <div class="media" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></div>
       <a class="btn btn-soft btn-block" href="#" style="margin-top:12px">לפרטים</a>
@@ -570,14 +677,238 @@ a{color:var(--strong)}
     <li><button type="button"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-down"/></svg>פחות פוסטים כאלה</button></li>
     <li><button type="button"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-flag"/></svg>דיווח</button></li>
   </ul>
-</div></div><p class="phone-cap">תפריט "⋯" פתוח</p></div></div>
+</div></div><p class="phone-cap">תפריט "⋯" פתוח</p></div><div><div class="phone">
+
+<header class="topbar">
+  <button class="icon-btn" type="button" aria-label="פתיחת התפריט"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-menu"/></svg></button>
+  <a class="logo" href="#" aria-label="Nestly, לפיד"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg><span aria-hidden="true">Nestly</span></a>
+  <button class="search-pill" type="button"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-search"/></svg><span>חיפוש</span></button>
+  <button class="icon-btn" type="button" aria-label="צ'אט, 2 שיחות שלא נקראו"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="badge" aria-hidden="true"><span dir="ltr">2</span></span></button>
+  <button class="icon-btn" type="button" aria-label="התראות, 3 חדשות"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bell"/></svg><span class="badge" aria-hidden="true"><span dir="ltr">3</span></span></button>
+</header>
+<main class="screen" aria-labelledby="feed-h-c">
+  <h1 id="feed-h-c" class="sr-only">פיד</h1>
+  <div class="card composer"><span class="avatar" aria-hidden="true">נר</span><button class="composer-btn" type="button">רוצים לשתף או לשאול משהו?</button></div>
+  <div class="feed" role="feed" aria-busy="true" aria-labelledby="feed-h-c">
+    
+<article class="card post" aria-labelledby="fp1-c" aria-posinset="1" aria-setsize="-1">
+  <header class="post-head">
+    <span class="avatar" aria-hidden="true">מל</span>
+    <div class="post-meta"><p class="post-author" id="fp1-c">מאיה ל.</p><p class="post-ctx">לילות רגועים · לפני 3 שעות</p></div>
+    <button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+  </header>
+  <p class="post-body" dir="auto">אחרי שבוע של שגרת השכבה קבועה, הקטנה נרדמת לבד תוך עשר דקות. מה עבד אצלכם בגיל ארבעה חודשים?</p>
+  
+  <div class="actions-row">
+    <button class="act" type="button" aria-pressed="false" aria-label="לייק, 24"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-like"/></svg><span class="n" aria-hidden="true">24</span><span class="tip" aria-hidden="true">לייק</span></button>
+    <button class="act" type="button" aria-label="תגובות, 8"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="n" aria-hidden="true">8</span><span class="tip" aria-hidden="true">תגובה</span></button>
+    <button class="act" type="button" aria-label="שיתוף בפיד" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-repost"/></svg><span class="tip" aria-hidden="true">שיתוף בפיד</span></button>
+    <button class="act" type="button" aria-label="שיתוף קישור" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-shareout"/></svg><span class="tip" aria-hidden="true">שיתוף קישור</span></button>
+  </div>
+</article>
+    
+<article class="card post" aria-labelledby="fp2-c" aria-posinset="2" aria-setsize="-1">
+  <header class="post-head">
+    <span class="avatar anon" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-user"/></svg></span>
+    <div class="post-meta"><p class="post-author" id="fp2-c">פוסט אנונימי</p><p class="post-ctx">בפיד · לפני 5 שעות</p></div>
+    <button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+  </header>
+  <p class="post-body" dir="auto">מתחילים טיפולים בחודש הבא. יש כאן מי שמוכנים לשתף איך שמרו על שגרה בעבודה?</p>
+  
+  <div class="actions-row">
+    <button class="act" type="button" aria-pressed="true" aria-label="לייק, 41"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-like"/></svg><span class="n" aria-hidden="true">41</span><span class="tip" aria-hidden="true">לייק</span></button>
+    <button class="act" type="button" aria-label="תגובות, 15"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="n" aria-hidden="true">15</span><span class="tip" aria-hidden="true">תגובה</span></button>
+    
+  </div>
+</article>
+    
+<article class="card post" aria-labelledby="fp3-c" aria-posinset="3" aria-setsize="-1">
+  <header class="post-head">
+    <span class="avatar" aria-hidden="true">דכ</span>
+    <div class="post-meta"><p class="post-author" id="fp3-c">דנה כ.</p><p class="post-ctx">שיתוף · לפני שעה</p></div>
+    <button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+  </header>
+  <p class="post-body" dir="auto">בדיוק מה שחיפשנו השבוע. שווה לקרוא את התגובות.</p>
+  
+  <div class="embed" role="group" aria-label="הפוסט המקורי של מאיה ל.">
+    <div class="post-head"><span class="avatar" aria-hidden="true">מל</span><div class="post-meta"><p class="post-author">מאיה ל.</p><p class="post-ctx">לילות רגועים · לפני 3 שעות</p></div></div>
+    <p class="post-body" dir="auto">אחרי שבוע של שגרת השכבה קבועה, הקטנה נרדמת לבד תוך עשר דקות. מה עבד אצלכם בגיל ארבעה חודשים?</p>
+  </div>
+  
+  <div class="actions-row">
+    <button class="act" type="button" aria-pressed="false" aria-label="לייק, 6"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-like"/></svg><span class="n" aria-hidden="true">6</span><span class="tip" aria-hidden="true">לייק</span></button>
+    <button class="act" type="button" aria-label="תגובות, 1"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="n" aria-hidden="true">1</span><span class="tip" aria-hidden="true">תגובה</span></button>
+    <button class="act" type="button" aria-label="שיתוף בפיד" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-repost"/></svg><span class="tip" aria-hidden="true">שיתוף בפיד</span></button>
+    <button class="act" type="button" aria-label="שיתוף קישור" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-shareout"/></svg><span class="tip" aria-hidden="true">שיתוף קישור</span></button>
+  </div>
+</article>
+    
+<article class="card post" aria-labelledby="fp4-c" aria-posinset="4" aria-setsize="-1">
+  <header class="post-head">
+    <span class="avatar" aria-hidden="true">רא</span>
+    <div class="post-meta"><p class="post-author" id="fp4-c">רוני א.</p><p class="post-ctx">שיתוף · אתמול</p></div>
+    <button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+  </header>
+  <p class="post-body" dir="auto">שמרתי את זה לעצמי, היה מועיל.</p>
+  <div class="embed"><p class="unavail"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-eyeoff"/></svg>הפוסט המקורי כבר לא זמין.</p></div>
+  
+  <div class="actions-row">
+    <button class="act" type="button" aria-pressed="false" aria-label="לייק, 2"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-like"/></svg><span class="n" aria-hidden="true">2</span><span class="tip" aria-hidden="true">לייק</span></button>
+    <button class="act" type="button" aria-label="תגובות, 0"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="n" aria-hidden="true">0</span><span class="tip" aria-hidden="true">תגובה</span></button>
+    
+  </div>
+</article>
+    <article class="card post" aria-labelledby="fp5-c" aria-posinset="5" aria-setsize="-1">
+      <header class="post-head"><span class="avatar" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span><div class="post-meta"><p class="post-author" id="fp5-c">קן טקסטיל</p><p class="post-ctx"><span class="tag">ממומן</span></p></div><button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button></header>
+      <p class="post-body" dir="auto">שמיכות מוסלין נושמות לעונת המעבר, במארז של שלוש.</p>
+      <div class="media" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></div>
+      <a class="btn btn-soft btn-block" href="#" style="margin-top:12px">לפרטים</a>
+    </article>
+    <div class="card skeleton" aria-hidden="true">
+      <div class="sk-row"><span class="sk" style="width:40px;height:40px;border-radius:999px"></span><span style="flex:1"><span class="sk" style="display:block;width:40%;height:12px;margin-bottom:8px"></span><span class="sk" style="display:block;width:25%;height:10px"></span></span></div>
+      <span class="sk" style="display:block;height:12px;margin-top:16px"></span><span class="sk" style="display:block;width:80%;height:12px;margin-top:10px"></span>
+    </div>
+  </div>
+  <p class="sr-only" aria-live="polite">נטענו עוד פוסטים</p>
+</main>
+
+
+<nav class="bottomnav" aria-label="ניווט ראשי">
+  <ul><li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-home"/></svg></span>בית</a></li><li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bag"/></svg></span>חנות</a></li><li><a href="#" aria-current="page"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span>פיד</a></li><li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-spark"/></svg></span>יועצים</a></li><li><a href="#"><span class="pill"><span class="mini-avatar" aria-hidden="true">נר</span></span>פרופיל</a></li></ul>
+</nav>
+<div class="scrim" aria-hidden="true"></div>
+<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ish-h">
+  <div class="grabber" aria-hidden="true"></div>
+  <h2 id="ish-h">שיתוף בפיד</h2>
+  <div class="sheet-body">
+    <label class="label" for="ish-t">מה רוצים להוסיף? <span class="opt-mark">(לא חובה)</span></label>
+    <textarea class="share-text" id="ish-t" dir="auto"></textarea>
+    
+  <div class="embed" role="group" aria-label="הפוסט המקורי של מאיה ל.">
+    <div class="post-head"><span class="avatar" aria-hidden="true">מל</span><div class="post-meta"><p class="post-author">מאיה ל.</p><p class="post-ctx">לילות רגועים · לפני 3 שעות</p></div></div>
+    <p class="post-body" dir="auto">אחרי שבוע של שגרת השכבה קבועה, הקטנה נרדמת לבד תוך עשר דקות. מה עבד אצלכם בגיל ארבעה חודשים?</p>
+  </div>
+    <p class="hint">השיתוף יופיע בפיד תחת השם שלך. הפוסט המקורי מוצג כמו שהוא, ואם יימחק, גם הוא ייעלם מהשיתוף.</p>
+    <div class="form-actions"><button class="btn btn-primary btn-lg" type="button">שיתוף</button><button class="btn btn-soft btn-lg" type="button">ביטול</button></div>
+  </div>
+</div></div><p class="phone-cap">שיתוף בפיד</p></div><div><div class="phone">
+
+<header class="topbar">
+  <button class="icon-btn" type="button" aria-label="פתיחת התפריט"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-menu"/></svg></button>
+  <a class="logo" href="#" aria-label="Nestly, לפיד"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg><span aria-hidden="true">Nestly</span></a>
+  <button class="search-pill" type="button"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-search"/></svg><span>חיפוש</span></button>
+  <button class="icon-btn" type="button" aria-label="צ'אט, 2 שיחות שלא נקראו"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="badge" aria-hidden="true"><span dir="ltr">2</span></span></button>
+  <button class="icon-btn" type="button" aria-label="התראות, 3 חדשות"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bell"/></svg><span class="badge" aria-hidden="true"><span dir="ltr">3</span></span></button>
+</header>
+<main class="screen" aria-labelledby="feed-h-d">
+  <h1 id="feed-h-d" class="sr-only">פיד</h1>
+  <div class="card composer"><span class="avatar" aria-hidden="true">נר</span><button class="composer-btn" type="button">רוצים לשתף או לשאול משהו?</button></div>
+  <div class="feed" role="feed" aria-busy="true" aria-labelledby="feed-h-d">
+    
+<article class="card post" aria-labelledby="fp1-d" aria-posinset="1" aria-setsize="-1">
+  <header class="post-head">
+    <span class="avatar" aria-hidden="true">מל</span>
+    <div class="post-meta"><p class="post-author" id="fp1-d">מאיה ל.</p><p class="post-ctx">לילות רגועים · לפני 3 שעות</p></div>
+    <button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+  </header>
+  <p class="post-body" dir="auto">אחרי שבוע של שגרת השכבה קבועה, הקטנה נרדמת לבד תוך עשר דקות. מה עבד אצלכם בגיל ארבעה חודשים?</p>
+  
+  <div class="actions-row">
+    <button class="act" type="button" aria-pressed="false" aria-label="לייק, 24"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-like"/></svg><span class="n" aria-hidden="true">24</span><span class="tip" aria-hidden="true">לייק</span></button>
+    <button class="act" type="button" aria-label="תגובות, 8"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="n" aria-hidden="true">8</span><span class="tip" aria-hidden="true">תגובה</span></button>
+    <button class="act" type="button" aria-label="שיתוף בפיד" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-repost"/></svg><span class="tip" aria-hidden="true">שיתוף בפיד</span></button>
+    <button class="act" type="button" aria-label="שיתוף קישור" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-shareout"/></svg><span class="tip" aria-hidden="true">שיתוף קישור</span></button>
+  </div>
+</article>
+    
+<article class="card post" aria-labelledby="fp2-d" aria-posinset="2" aria-setsize="-1">
+  <header class="post-head">
+    <span class="avatar anon" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-user"/></svg></span>
+    <div class="post-meta"><p class="post-author" id="fp2-d">פוסט אנונימי</p><p class="post-ctx">בפיד · לפני 5 שעות</p></div>
+    <button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+  </header>
+  <p class="post-body" dir="auto">מתחילים טיפולים בחודש הבא. יש כאן מי שמוכנים לשתף איך שמרו על שגרה בעבודה?</p>
+  
+  <div class="actions-row">
+    <button class="act" type="button" aria-pressed="true" aria-label="לייק, 41"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-like"/></svg><span class="n" aria-hidden="true">41</span><span class="tip" aria-hidden="true">לייק</span></button>
+    <button class="act" type="button" aria-label="תגובות, 15"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="n" aria-hidden="true">15</span><span class="tip" aria-hidden="true">תגובה</span></button>
+    
+  </div>
+</article>
+    
+<article class="card post" aria-labelledby="fp3-d" aria-posinset="3" aria-setsize="-1">
+  <header class="post-head">
+    <span class="avatar" aria-hidden="true">דכ</span>
+    <div class="post-meta"><p class="post-author" id="fp3-d">דנה כ.</p><p class="post-ctx">שיתוף · לפני שעה</p></div>
+    <button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+  </header>
+  <p class="post-body" dir="auto">בדיוק מה שחיפשנו השבוע. שווה לקרוא את התגובות.</p>
+  
+  <div class="embed" role="group" aria-label="הפוסט המקורי של מאיה ל.">
+    <div class="post-head"><span class="avatar" aria-hidden="true">מל</span><div class="post-meta"><p class="post-author">מאיה ל.</p><p class="post-ctx">לילות רגועים · לפני 3 שעות</p></div></div>
+    <p class="post-body" dir="auto">אחרי שבוע של שגרת השכבה קבועה, הקטנה נרדמת לבד תוך עשר דקות. מה עבד אצלכם בגיל ארבעה חודשים?</p>
+  </div>
+  
+  <div class="actions-row">
+    <button class="act" type="button" aria-pressed="false" aria-label="לייק, 6"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-like"/></svg><span class="n" aria-hidden="true">6</span><span class="tip" aria-hidden="true">לייק</span></button>
+    <button class="act" type="button" aria-label="תגובות, 1"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="n" aria-hidden="true">1</span><span class="tip" aria-hidden="true">תגובה</span></button>
+    <button class="act" type="button" aria-label="שיתוף בפיד" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-repost"/></svg><span class="tip" aria-hidden="true">שיתוף בפיד</span></button>
+    <button class="act" type="button" aria-label="שיתוף קישור" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-shareout"/></svg><span class="tip" aria-hidden="true">שיתוף קישור</span></button>
+  </div>
+</article>
+    
+<article class="card post" aria-labelledby="fp4-d" aria-posinset="4" aria-setsize="-1">
+  <header class="post-head">
+    <span class="avatar" aria-hidden="true">רא</span>
+    <div class="post-meta"><p class="post-author" id="fp4-d">רוני א.</p><p class="post-ctx">שיתוף · אתמול</p></div>
+    <button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
+  </header>
+  <p class="post-body" dir="auto">שמרתי את זה לעצמי, היה מועיל.</p>
+  <div class="embed"><p class="unavail"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-eyeoff"/></svg>הפוסט המקורי כבר לא זמין.</p></div>
+  
+  <div class="actions-row">
+    <button class="act" type="button" aria-pressed="false" aria-label="לייק, 2"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-like"/></svg><span class="n" aria-hidden="true">2</span><span class="tip" aria-hidden="true">לייק</span></button>
+    <button class="act" type="button" aria-label="תגובות, 0"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg><span class="n" aria-hidden="true">0</span><span class="tip" aria-hidden="true">תגובה</span></button>
+    
+  </div>
+</article>
+    <article class="card post" aria-labelledby="fp5-d" aria-posinset="5" aria-setsize="-1">
+      <header class="post-head"><span class="avatar" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span><div class="post-meta"><p class="post-author" id="fp5-d">קן טקסטיל</p><p class="post-ctx"><span class="tag">ממומן</span></p></div><button class="icon-btn" type="button" aria-label="פעולות נוספות" aria-haspopup="dialog"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button></header>
+      <p class="post-body" dir="auto">שמיכות מוסלין נושמות לעונת המעבר, במארז של שלוש.</p>
+      <div class="media" aria-hidden="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></div>
+      <a class="btn btn-soft btn-block" href="#" style="margin-top:12px">לפרטים</a>
+    </article>
+    <div class="card skeleton" aria-hidden="true">
+      <div class="sk-row"><span class="sk" style="width:40px;height:40px;border-radius:999px"></span><span style="flex:1"><span class="sk" style="display:block;width:40%;height:12px;margin-bottom:8px"></span><span class="sk" style="display:block;width:25%;height:10px"></span></span></div>
+      <span class="sk" style="display:block;height:12px;margin-top:16px"></span><span class="sk" style="display:block;width:80%;height:12px;margin-top:10px"></span>
+    </div>
+  </div>
+  <p class="sr-only" aria-live="polite">נטענו עוד פוסטים</p>
+</main>
+
+
+<nav class="bottomnav" aria-label="ניווט ראשי">
+  <ul><li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-home"/></svg></span>בית</a></li><li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bag"/></svg></span>חנות</a></li><li><a href="#" aria-current="page"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-nest"/></svg></span>פיד</a></li><li><a href="#"><span class="pill"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-spark"/></svg></span>יועצים</a></li><li><a href="#"><span class="pill"><span class="mini-avatar" aria-hidden="true">נר</span></span>פרופיל</a></li></ul>
+</nav>
+<div class="scrim" aria-hidden="true"></div>
+<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="lsh-h">
+  <div class="grabber" aria-hidden="true"></div>
+  <h2 id="lsh-h">שיתוף קישור לפוסט</h2>
+  <p class="hint sheet-body" style="margin:0 0 8px">הקישור נפתח רק למי שמחוברים ל-Nestly ורשאים לראות את הפוסט. בתצוגה המקדימה של הקישור לא מופיע תוכן.</p>
+  <ul>
+    <li><button type="button"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"/></svg>וואטסאפ</button></li>
+    <li><button type="button"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-mail"/></svg>אימייל</button></li>
+    <li><button type="button"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-link"/></svg>העתקת קישור</button></li>
+    <li><button type="button"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-shareout"/></svg>עוד אפשרויות</button></li>
+  </ul>
+</div></div><p class="phone-cap">שיתוף קישור</p></div></div>
 <aside class="box notes" aria-label="הערות">
   <dl>
     <dt>מקור</dt><dd>PG-008 · <a href="../sketches/sk-56-1-feed.jpeg">סקיצה 56(1)</a> · <a href="../sketches/sk-56-social-network.jpeg">סקיצה 56</a></dd>
     <dt>נשמר מהסקיצה</dt><dd><ul><li>Top Bar: ≡, לוגו, חיפוש שנפתח, פעמון</li><li>חמש הלשוניות בסדר המקורי. סמל הלוגו בלשונית הפיד, ותמונת המשתמש בלשונית הפרופיל</li></ul></dd>
-    <dt>חודד, ולמה</dt><dd><ul><li>צ'אט ב-Top Bar, לפי ה-SRS</li><li>תיבת כתיבה בראש הפיד</li><li>בכל פוסט פעולה ראשית אחת ("חיבוק"), קישור שקט לתגובות, ושאר הפעולות תחת "⋯"</li><li>תוכן ממומן מסומן בתג טקסט "ממומן" (VAL-012). הכפתור בו רך, כדי שהממומן לא יבלוט יותר מתוכן הקהילה</li><li>מונים שקטים: רקע פסטל וטקסט כהה</li><li>גלילה אינסופית: skeleton בתחתית, הפיד מסומן aria-busy, והכרזה עדינה לקורא מסך</li><li>כפתור "חזרה למעלה" אחרי גלילה ארוכה</li><li>תפריט "⋯" נפתח במובייל כ-sheet מלמטה (במסגרת הימנית)</li></ul></dd>
-    <dt>החלטות שמיושמות כאן</dt><dd><ul><li>25: "חנות" · "יועצים"</li><li>26: הפיד הוא מסך הנחיתה אחרי התחברות</li><li>פיד: גלילה אינסופית, בלי footer</li></ul></dd>
-    <dt>פתוח</dt><dd><ul><li><b>12: שם ה-Reaction</b>. בתיבה בראש העמוד</li><li>שמות הפעולות ב-"⋯" ("הסתרת הפוסט", "לא מעניין אותי", "פחות פוסטים כאלה", "דיווח") הם הצעה לתרגום של Hide, Not Interested, Show Less ו-Report</li></ul></dd>
+    <dt>חודד, ולמה</dt><dd><ul><li>צ'אט ב-Top Bar, לפי ה-SRS</li><li>תיבת כתיבה בראש הפיד</li><li>בכל פוסט שורת פעולות: לייק, תגובה, שיתוף בפיד ושיתוף קישור. כפתורי אייקון של 44px, עם שם נגיש שכולל את המונה, ו-tooltip בריחוף ובמיקוד. במסגרת הראשונה מוצג ה-tooltip של "שיתוף בפיד". שאר הפעולות תחת "⋯"</li><li>אייקון הלייק שלנו: לב עם קו הקן, מלא כשסומן</li><li>פוסט אנונימי: רק לייק ותגובה. כפתורי השיתוף לא מוצגים</li><li>שיתוף בפיד: השם והטקסט של מי שמשתף, והפוסט המקורי בתוך הכרטיס</li><li>מקור שנמחק או הוסתר: "הפוסט המקורי כבר לא זמין", בלי שום תוכן ממנו</li><li>תוכן ממומן מסומן בתג טקסט "ממומן" (VAL-012). הכפתור בו רך, כדי שהממומן לא יבלוט יותר מתוכן הקהילה</li><li>מונים שקטים: רקע פסטל וטקסט כהה</li><li>גלילה אינסופית: skeleton בתחתית, הפיד מסומן aria-busy, והכרזה עדינה לקורא מסך</li><li>כפתור "חזרה למעלה" אחרי גלילה ארוכה</li><li>תפריט "⋯" נפתח במובייל כ-sheet מלמטה (במסגרת הימנית)</li></ul></dd>
+    <dt>החלטות שמיושמות כאן</dt><dd><ul><li>12: "לייק", עם אייקון שלנו</li><li>שורת פעולות: לייק, תגובה, שיתוף בפיד ושיתוף קישור</li><li>25: "חנות" · "יועצים"</li><li>26: הפיד הוא מסך הנחיתה אחרי התחברות</li><li>פיד: גלילה אינסופית, בלי footer</li></ul></dd>
+    <dt>פתוח</dt><dd><ul><li>⚖️ כללי השיתוף ממתינים לאישור ההגדרה ל-SRS (FR-FEED-006, FR-FEED-007): מה מותר לשתף, מה קורה כשהמקור נמחק, ומה מופיע בתצוגה המקדימה של קישור</li><li>אם מציגים מונה שיתופים</li><li>שמות הפעולות ב-"⋯" ("הסתרת הפוסט", "לא מעניין אותי", "פחות פוסטים כאלה", "דיווח") הם הצעה לתרגום של Hide, Not Interested, Show Less ו-Report</li></ul></dd>
   </dl>
 </aside></div>
 </section>

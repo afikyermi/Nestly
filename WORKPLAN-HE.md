@@ -12,15 +12,14 @@
 
 **עודכן:** 11.10.2026 · **גרסת SRS:** 2.8
 
-- **מצב:** צוות הסוכנים וה-SRS מוכנים. עוד לא נכתבה שורת קוד. ב-11.10 הארכיטקטורה עודכנה: TypeScript, שרת Node.js משלנו, monorepo, Supabase למסד ול-Auth, ו-Drizzle. נוספה מערכת skills, שלב א: כלי תהליך, משימות SRS ו-skills מקצועיים. לפני הפיצ'ר הראשון צריך את חלק 7, CI ו-hook, ואת חלק 9, עיצוב UX/UI. מחלק 9 בוצעו 9.1 עד 9.3: הסקיצות ב-`docs/design/sketches/`, ההחלטות ב-`decisions.md`, מסמך הכיוון `docs/design/direction.md`, ו-R1 ב-`docs/design/mockups/`. ב-R1 נבחרו כיוון A, Rubik ועמודה ממורכזת עם rail, וה-tokens נמצאים ב-`docs/design/tokens.md`. R2, חמשת המסכים, מוכן לאישור. **D7 נסגר:** המוצר נבנה ב-15 Initiatives, ו-I1 עד I9 הם ה-MVP (חלק 8). מסלול Elevated עודכן: אתה מאשר Gate 1, ‏Gate 2 ו-Preview, ולא diff.
-- **המשימה הבאה:** האישור שלך ל-R2 ושם ה-Reaction, ואחריהם 9.5 (SRS 2.9, כולל ה-MVP). במקביל 7.0 ו-7.4. ב-7.0 אני מכין אופציות לתיקיות שבתוך כל app ולמוסכמות השמות. ב-7.4 אני מכין השוואת hosting וסביבת Preview. אתה בוחר בשתיהן.
+- **מצב:** צוות הסוכנים וה-SRS מוכנים. עוד לא נכתבה שורת קוד. ב-11.10 הארכיטקטורה עודכנה: TypeScript, שרת Node.js משלנו, monorepo, Supabase למסד ול-Auth, ו-Drizzle. נוספה מערכת skills, שלב א: כלי תהליך, משימות SRS ו-skills מקצועיים. לפני הפיצ'ר הראשון צריך את חלק 7, CI ו-hook, ואת חלק 9, עיצוב UX/UI. מחלק 9 בוצעו 9.1 עד 9.3: הסקיצות ב-`docs/design/sketches/`, ההחלטות ב-`decisions.md`, מסמך הכיוון `docs/design/direction.md`, ו-R1 ב-`docs/design/mockups/`. ב-R1 נבחרו כיוון A, Rubik ועמודה ממורכזת עם rail, וה-tokens נמצאים ב-`docs/design/tokens.md`. R2 אושר, עם שורת פעולות בכרטיס הפוסט: לייק, תגובה, שיתוף בפיד ושיתוף קישור. **D7 נסגר:** המוצר נבנה ב-15 Initiatives, ו-I1 עד I9 הם ה-MVP (חלק 8). מסלול Elevated עודכן: אתה מאשר Gate 1, ‏Gate 2 ו-Preview, ולא diff. **7.0 ו-7.4 הוחלטו:** מבנה התיקיות והשמות, והאתר והשרת ב-Vercel. השרת רץ כ-Vercel Functions בפרנקפורט, והמסד ב-Supabase בפרנקפורט (שיטה C).
+- **המשימה הבאה:** האישור שלך להגדרת השיתוף ול-repo ב-GitHub. אחריהם 9.5 (SRS 2.9) ובניית שלד ה-monorepo (7.0).
 - **אחריה:** 7.1, 7.2 ו-7.3, ואז 9.6 ו-9.7. אחר כך I1 (חלק 8).
 - **ממתין להכרעה שלך:**
   - OP-021: הנוסח של משפט התכנון, והאם אפשר להסתיר אותו.
-  - 7.0: התיקיות בתוך כל app, ומוסכמות השמות.
-  - חלק 9: **R2 מוכן לאישור** (`docs/design/mockups/r2-screens.html`, `r2-desktop.html`) · שם ה-Reaction (החלטה 12). ההמלצה: "חיבוק".
+  - ⚖️ הגדרת השיתוף ל-SRS (FR-FEED-006 ו-FR-FEED-007): הצעה ממתינה לאישור.
+  - repo פרטי ב-GitHub כ-remote, ל-CI (7.1) ולסביבות ה-Preview (7.4). הקוד יישלח לשירות חיצוני.
   - ספריית אימות JWT (`jose`, או `@fastify/jwt` עם JWKS): תעלה בחלק 7.
-  - 7.4: hosting ל-web ולשרת, וסביבת Preview. **חייב להיסגר לפני 9.7.**
 - **פתוח, בלי הכרעה נדרשת עכשיו:**
   - 4.11 ו-6.1 (Threat Modeling).
   - החלטות המדיה M1 עד M6: לפני I5.
@@ -126,11 +125,11 @@
 
 | # | משימה |
 |---|---|
-| 7.0 | **שלד ה-monorepo** (npm workspaces). **כבר הוחלט:** `apps/web` (React, Vite ו-TS) · `apps/server` (Node.js, TS ו-Fastify, בשכבות route ← service ← repository) · `packages/shared` (Zod, טיפוסים וקבועים) · `apps/mobile` רק בעתיד. **להחלטה שלך:** התיקיות בתוך כל app, לפי השכבות של §4.2 ב-web, ומוסכמות השמות ⏳ |
+| 7.0 | **שלד ה-monorepo** (npm workspaces). **כבר הוחלט:** `apps/web` (React, Vite ו-TS) · `apps/server` (Node.js, TS ו-Fastify, בשכבות route ← service ← repository) · `packages/shared` (Zod, טיפוסים וקבועים) · `apps/mobile` רק בעתיד. **הוחלט ב-11.10:** התיקיות בתוך כל app לפי השכבות של §4.2, וטסטים מחוץ ל-`src`. השמות באנגלית, לפי השמות הלוגיים ב-SRS, ובלי מזהי SRS בשמות קבצים (`decisions.md`, ‏"Repository layout and naming"). **הבנייה עצמה עוד לא בוצעה** ⏳ |
 | 7.1 | **CI.**<br>**בסיס:** typecheck (`strict`) · טסטים · lint (typescript-eslint, תלות dev הכרחית) · ביקורת תלויות.<br>**כללי TS:** איסור `any`, `@ts-ignore`, `@ts-nocheck` ו-`@ts-expect-error` · הגבלת `as`.<br>**תקרות גודל:** Page, Feature ו-Component 600 · hook 300 · service 400 · utility 300 · route בשרת 200 · service בשרת 400 · repository 400.<br>**גבולות import:** Feature לא מייבא Feature · Shared UI לא מייבא features או services · הלוגיקה ב-web בלי react-dom, window או document · shared לא מייבא מ-apps, ובלי DOM ובלי API של Node · web לא מייבא מ-server.<br>**בדיקות מסד:** לכל טבלה יש מדיניות RLS ו-FORCE RLS · אף טבלה לא בבעלות `app_server` · כל view מוגדר `security_invoker` · טסט pgTAP ששאילתה בלי זהות נכשלת · הטסטים רצים בתפקיד `app_server` |
-| 7.2 | **hooks.** PreToolUse, והאות ל-`incidents.md`.<br>**לכולם:** חסימה של `git add -A` ו-`git add .`.<br>**לפי סוכן:** hooks בתוך הגדרת הסוכן, עם סקריפט אחד `.claude/hooks/guard.js`. הסקריפט נסגר כשמשהו משתבש: שגיאה מחזירה exit 2.<br>• **CRITIC:** לא קורא `notes.md`.<br>• **TEST ENGINEER:** לא קורא `apps/*/src`, חוץ מקבצי טסטים, ולא את `notes.md`. החסימה חלה בכל כלי: Read, Grep, Glob, git (diff, show, log -p, blame), ופקודות Bash שמזכירות את הנתיבים (cat, less, head, type ודומות). מותר לו לקרוא את `packages/shared`, החוזה.<br>• **BUILDER:** לא כותב קבצי טסטים.<br>**לבדיקה:** ה-hook של security-guidance. קוראים את הקוד שלו לפני שמפעילים |
-| 7.3 | **בדיקת ה-hook בסביבה מבודדת לפני הפעלה**, כדי שלא ישבור את הסביבה. בודקים גם אם אפשר לחסום עריכת טסטים של TEST ENGINEER על ידי BUILDER. **במקביל, בדיקות תשתית:**<br>• גרסת Postgres: 16 ומעלה, לטובת `WITH INHERIT FALSE, SET TRUE`. אחרת NOINHERIT.<br>• ה-pooler מקבל תפקיד מותאם.<br>• ב-Supabase מופעלים מפתחות JWT אסימטריים.<br>• בחירת ספריית אימות JWT |
-| 7.4 | **hosting וסביבת Preview** ל-web ולשרת. אני מכין השוואת חלופות בחינם, כי זה ספק חיצוני חדש שעובר ביקורת CRITIC. אתה מחליט. **חייב להיסגר לפני 9.7**, כי שער ה-Preview צריך סביבה פרוסה (החלטה 20 ב-D7) |
+| 7.2 | **hooks.** PreToolUse, והאות ל-`incidents.md`.<br>**לכולם:** חסימה של `git add -A` ו-`git add .`.<br>**לפי סוכן:** hooks בתוך הגדרת הסוכן, עם סקריפט אחד `.claude/hooks/guard.js`. הסקריפט נסגר כשמשהו משתבש: שגיאה מחזירה exit 2.<br>• **CRITIC:** לא קורא `notes.md`.<br>• **TEST ENGINEER:** לא קורא `apps/*/src` (הטסטים יושבים מחוץ ל-`src`, לפי 7.0), ולא את `notes.md`. החסימה חלה בכל כלי: Read, Grep, Glob, git (diff, show, log -p, blame), ופקודות Bash שמזכירות את הנתיבים (cat, less, head, type ודומות). מותר לו לקרוא את `packages/shared`, החוזה.<br>• **BUILDER:** לא כותב קבצי טסטים: `apps/*/tests`, ‏`packages/shared/tests`, ‏`e2e/` ו-`supabase/tests`.<br>**לבדיקה:** ה-hook של security-guidance. קוראים את הקוד שלו לפני שמפעילים |
+| 7.3 | **בדיקת ה-hook בסביבה מבודדת לפני הפעלה**, כדי שלא ישבור את הסביבה. בודקים גם אם אפשר לחסום עריכת טסטים של TEST ENGINEER על ידי BUILDER. **במקביל, בדיקות תשתית:**<br>• גרסת Postgres: 16 ומעלה, לטובת `WITH INHERIT FALSE, SET TRUE`. אחרת NOINHERIT.<br>• ה-pooler מקבל תפקיד מותאם.<br>• ב-Supabase מופעלים מפתחות JWT אסימטריים.<br>• בחירת ספריית אימות JWT<br>• **נתיב המיגרציות:** החיבור הישיר ל-Supabase הוא IPv6 בלבד, ו-CI אולי לא מגיע אליו. DATA ARCHITECT מחליט בין ה-pooler במצב session לבין תוסף IPv4, וזה עשוי לשנות את כלל 5.<br>• ה-pooler מקבל חיבור אחד מכל מופע של פונקציה (מגבלה של 200 לקוחות ב-Free) |
+| 7.4 | **hosting וסביבת Preview.** ✅ **הוחלט ב-11.10, שיטה C:**<br>• **האתר והשרת ב-Vercel, בפרויקט אחד:** האתר סטטי, והשרת (Fastify) רץ כ-Vercel Functions באזור fra1 (פרנקפורט). Hobby לפיתוח בלבד. Pro ‏($20 לחודש) לפני הבטא.<br>• **המסד:** Supabase Free, ‏Central EU (פרנקפורט). פרויקט אחד לייצור ואחד ל-Preview.<br>• **משימות רקע** כ-`app_jobs`, בנפרד מהשרת: pg_cron במסד, ופרויקט Vercel נפרד למשימות קוד.<br>• **Preview לכל פיצ'ר:** ענף ב-Vercel, עם האתר וה-API יחד, ופרויקט ה-Preview המשותף ב-Supabase.<br>• **תנאים:** מוני rate limit במסד · ניטור שגיאות חיצוני לפני הבטא · HEIC ב-M2 · חיבור אחד ל-pooler לכל מופע.<br>• **מחכה לאישור:** repo פרטי ב-GitHub.<br>• **חלופה שנדחתה:** A, שרת שרץ תמיד ב-Railway. הפירוט ב-`decisions.md`, ‏"Hosting" |
 
 **הערה, לא החלטה: Storage.** נשאר TBD עד פיצ'ר המדיה. כיוון שאפיק רוצה לבחון אז: Cloudflare R2, עם buckets פרטיים, presigned URLs מהשרת וניקוי EXIF ו-GPS.
 
@@ -141,9 +140,9 @@
 | # | מה הוחלט | איפה |
 |---|---|---|
 | 0 | **כלל 0 נפתח:** כל קוד המוצר ב-TypeScript, כולל web, server ו-shared. `strict`, בלי `any` ובלי הערות השתקה. Web תחילה ו-React Native רק אחרי אישור: **ללא שינוי** | `CLAUDE.md`, `conventions.md` |
-| 1 | **שרת Node.js ב-TypeScript על Fastify,** בשכבות route ← service ← repository. מחליף את Edge Functions | `conventions.md` |
+| 1 | **שרת Node.js ב-TypeScript על Fastify,** בשכבות route ← service ← repository. מחליף את Edge Functions. **נפרס כ-Vercel Functions** (7.4, שיטה C) | `conventions.md` |
 | 2 | **monorepo עם npm workspaces** | `conventions.md` |
-| 3 | **Supabase:** Postgres, המסד היחיד, ו-Auth. ה-Data API כבוי. Storage ו-Realtime TBD | SRS §12, §13 |
+| 3 | **Supabase:** Postgres, המסד היחיד, ו-Auth. ה-Data API כבוי. Storage TBD (M1). **Realtime:** polling ב-MVP, ואחר כך Supabase Realtime כאות בלבד (7.4) | SRS §12, §13 |
 | 4 | **Drizzle דרך `app_server`,** עם זהות בכל טרנזקציה. RLS נשאר מקור האמת | `data-model.md` (20 כללים) |
 | 5 | **Audit בטריגר במסד, באותה טרנזקציה.** קריאות רגישות עוברות דרך פונקציה עם Audit. המחבר האנונימי בטבלה נפרדת | `data-model.md` |
 | 6 | **Zod ב-`packages/shared`** | `conventions.md` |
@@ -208,8 +207,8 @@
 | 9.1 | הסקיצות ב-`docs/design/sketches/`, בשמות קריאים, עם README: מיפוי, מה כתוב, ו-12 פערים מול ה-SRS. ההחלטות נרשמו ב-`decisions.md` | — | ✅ |
 | 9.2 | `docs/design/README.md` ו-`direction.md`: עקרונות, מה לוקחים מפייסבוק, טון, תמונות, תנועה ומצבים | — | ✅ |
 | 9.3 | **R1**, לוח כיוונים: שלושה כיווני צבע וגופן, ושתי פריסות דסקטופ. `docs/design/mockups/r1-directions.html` ו-`r1-desktop.html`. נבדקו ב-375 וב-1280: הניגודיות עוברת, אין גלילה אופקית, ה-focus נראה, ולכל רכיב יש שם נגיש | 9.2 | ✅ נבחרו A, Rubik ועמודה ממורכזת עם rail. `tokens.md` נכתב |
-| 9.4 | **R2**: Welcome, Login, סוג חשבון, הרשמה רגילה ומקצועית, Feed (כולל תפריט "⋯") ובית, במובייל. Feed ובית גם בדסקטופ. ליד כל מסך: מה נשמר, מה חודד, ההחלטות ומה פתוח. `docs/design/mockups/r2-screens.html` ו-`r2-desktop.html`. נבדקו ב-375 וב-1280 | הכרעות R1 | ✅ ממתין לאישור |
-| 9.5 | **SRS 2.9**: קישורים לסקיצות, NFR-USAB-004, NFR-USE-001, §4.2, §11, §16 ונספח B, וה-FR/VAL שהשתנו. **ובנוסף, מ-D7:** §2.5 היקף ה-MVP · AC-005 בשלבים · AC-017 (בלי טלפון) · FR-AUTH-003 (אימייל) · VAL-006 ו-OP-004 (האפשרויות) · גיל 18 ומעלה · אימות אימייל · NFR-MEDIA-001 (תמונות בלבד) · OP חדשים: מקור הטיפים, מקור הדירוג של בעלי מקצוע, תאריך לידה משוער, קופונים, זהות מותג | R1, R2 | ⬜ |
+| 9.4 | **R2**: Welcome, Login, סוג חשבון, הרשמה רגילה ומקצועית, Feed (כולל תפריט "⋯") ובית, במובייל. Feed ובית גם בדסקטופ. ליד כל מסך: מה נשמר, מה חודד, ההחלטות ומה פתוח. `docs/design/mockups/r2-screens.html` ו-`r2-desktop.html`. נבדקו ב-375 וב-1280 | הכרעות R1 | ✅ אושר ב-11.10. נוספו שורת פעולות (לייק, תגובה, שיתוף בפיד, שיתוף קישור), כרטיס שיתוף ומצב "מקור לא זמין" |
+| 9.5 | **SRS 2.9**: קישורים לסקיצות, NFR-USAB-004, NFR-USE-001, §4.2, §11, §16 ונספח B, וה-FR/VAL שהשתנו. **ובנוסף, מ-D7:** §2.5 היקף ה-MVP · AC-005 בשלבים · AC-017 (בלי טלפון) · FR-AUTH-003 (אימייל) · VAL-006 ו-OP-004 (האפשרויות) · גיל 18 ומעלה · אימות אימייל · NFR-MEDIA-001 (תמונות בלבד) · OP חדשים: מקור הטיפים, מקור הדירוג של בעלי מקצוע, תאריך לידה משוער, קופונים, זהות מותג · **שיתוף:** FR-FEED-006/007, עם ה-BR, ה-VAL, ה-ERR וה-AC שלהם, אחרי אישור ההגדרה · FR-FEED-003: Reaction אחד, "לייק" · **שיטה C:** §11 (השרת כ-Vercel Functions) · §12 ו-§13 (Realtime כאות בלבד, ו-Storage נשאר TBD) | R1, R2 | ⬜ |
 | 9.6 | skill `design-system` · `rtl-hebrew`, `accessibility` ו-`ux-copy-he` בגרסה 1.1 · domain של עקביות עיצובית ב-`workflow.md` · בדיקה אחת ל-CRITIC | 7.0 | ⬜ |
 | 9.7 | **יחידת רכיבים, גל 1,** במסלול Standard: tokens, גופנים, shadcn ו-Storybook. **R3**, הגלריה, היא ה-Preview. היחידה הראשונה מתוך 5 | 7.0, 7.1, 7.2, **7.4** | ⬜ |
 
@@ -233,7 +232,7 @@
 |---|---|---|---|---|---|---|---|
 | I1 | חשבונות וגישה (Regular) | ✅ | 7 | 7, 9.7 | — (הוחלט) | [I1-accounts-access.md](.work/_initiatives/I1-accounts-access.md) | ⬜ מאושר, ממתין לחלק 7 ול-9.7 |
 | I2 | פרופיל, פרטיות ו-Friends | ✅ | 5 | I1 | OP-021 | — | ⬜ |
-| I3 | פיד קהילתי | ✅ | 6 | I2 | שם ה-Reaction · כללי קהילה · `algorithm.md` | — | ⬜ |
+| I3 | פיד קהילתי, כולל שיתוף פנימי וחיצוני | ✅ | 8 | I2 | הגדרת השיתוף ⚖️ · כללי קהילה · `algorithm.md` | — | ⬜ |
 | I4 | בטיחות וניהול, ליבה | ✅ | 5 | I3 | סיבות דיווח · משכי השעיה | — | ⬜ |
 | I5 | מדיה: תמונות בפוסטים ותמונת פרופיל | ✅ | 4 | I2, I3, I4 | M1–M6 | — | ⬜ |
 | I6 | בית ומעקב | ✅ | 5 | I2 | OP-003 · OP-008 · שדות מחזור וביוץ · תוכן הטיפים | — | ⬜ |
@@ -249,5 +248,5 @@
 
 **כיסוי:**
 - כל 83 ה-FR וכל 44 המסכים משויכים. ה-FR, ה-AC, ה-PG והישויות של כל Initiative נמצאים ב-[roadmap.md](.work/_initiatives/roadmap.md), רישום מאושר בלי סטטוס.
-- כ-77 פיצ'רים, מהם 45 ב-MVP.
+- כ-79 פיצ'רים, מהם 47 ב-MVP. השיתוף הוסיף שני פיצ'רים ל-I3 (תוספת 1 ב-`roadmap.md`).
 - `escapes.md` ו-`noise.md` מתחילים לצבור רישומים מהיחידה הראשונה, 9.7.
