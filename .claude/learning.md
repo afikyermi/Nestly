@@ -16,6 +16,7 @@ that looks like an agent improving is one of two things:
 |---|---|---|---|
 | **Externalized memory** | agents read `conventions.md`, `data-model.md`, `decisions.md` | **weekly** | 🟢 **most of it** |
 | **Definition improvement** | the agent's `.md` is edited | 5–10 times in 6 months | 🟡 real but rare |
+| **Skill improvement** | a `.claude/skills/*/SKILL.md` is edited | when the stack changes, or at a retro | 🟡 craft for the stack, not facts about the project |
 | Fine-tuning | — | never | ❌ kills traceability. not used |
 
 > **The highest-value learning is not the agents getting smarter. It is the knowledge files getting better.**
@@ -101,6 +102,7 @@ ceremony that catches nothing.
 | the agent applied a sound method and still missed it | the definition's required checks | knowledge |
 | nothing was looking at all | `workflow.md` — a trigger or a path | any agent |
 | the work took the wrong path | `CLAUDE.md` path conditions | any agent |
+| the agent knew the facts but lacked craft for the stack | the matching skill in `.claude/skills/` | knowledge, the definition |
 | genuinely novel | **nothing.** log it and move on | anywhere |
 
 **Most escapes are knowledge gaps misread as method gaps.** Check `knowledge/` before touching a definition.
@@ -128,6 +130,19 @@ accumulating every good idea anyone ever had. An over-budget proposal must name 
 
 Budgets are an initial calibration. They are themselves revisable — but only with evidence that the
 cap, not the content, is the problem.
+
+### Skills are under the same discipline
+
+A skill preloaded into an agent is part of that agent's instructions. Without a rule, it becomes a way to
+grow a checklist around the budget.
+
+- **A skill item that a reviewer enforces as pass/fail counts toward that reviewer's budget.** Craft that
+  guides — patterns, examples — does not.
+- **A skill's "forbidden" list holds at most 10 items.** At the cap, adding one means removing one.
+- **`SKILL.md` aims for 200 lines and never exceeds 500.** Detail goes into supporting files.
+- **A skill never restates** `CLAUDE.md`, `workflow.md`, `.claude/knowledge/` or the SRS. It points to them.
+- **Skill changes follow §5–§8:** evidence, diagnosis, provisional for 5 features, never stacked. Each
+  `SKILL.md` carries a version and a changelog.
 
 ---
 

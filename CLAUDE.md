@@ -200,6 +200,9 @@ Every actionable message leaves exactly one identifiable next-action owner.
   material finding · decision requirement.
 - **Do not smooth over disagreement.** A specialist who disagrees states
   `Agreement / Disagreement / Reason / Evidence / Materiality`. Afik decides in one line.
+- **One return format.** Every agent ends its turn with:
+  `Done` — what was done, in a line · `Artifact` — the path · `Findings` — or "none" · `Open` — any
+  `DECISION REQUEST`, `QUESTION` (with its default) or `BLOCKER` · `Next owner` — exactly one.
 
 ---
 
@@ -218,6 +221,7 @@ One task, one owner. Contributors and reviewers may be many.
 | Core operating context | this file |
 | Shared project knowledge | `.claude/knowledge/` — `conventions.md` (stack, binding SRS constraints) · `data-model.md` (as-built schema, plus the SRS map of authorization layers) · `srs-review-points.md` (product-wide invariants every review checks) · `ai-ml-readiness.md` (dormant AI/ML role) |
 | Role-specific knowledge | the agent definitions |
+| Skills | `.claude/skills/` — process tools (`/where`, `/feature`, `/bugfix`, `/gate`, `synthesize`, `/wrap-up`, `/decision`, `/srs-update`, `/srs-export`), shared methods (`srs-lookup`), stack craft (`rtl-hebrew`, `accessibility`, `security-craft`, `ux-copy-he`; more after 7.0). Skills point to this file, `workflow.md`, knowledge and the SRS — they never restate them. Rules: `learning.md` §6 |
 | Task context | `.work/<slug>/` |
 | On-demand retrieval | SCOUT — not the built-in search agents (Explore, general-purpose). SCOUT is pinned to a cheap model and returns `file:line` citations, never conclusions |
 

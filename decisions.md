@@ -425,6 +425,39 @@ YYYY-MM-DD | <decision in one line>
   status:       design-time changes (learning.md §9), provisional until 5 features.
   decided by:   Afik ("בצע", 11.10.2026)
 
+2026-10-11 | Skills introduced — process tools, shared methods, tasks and stack craft
+  updates:      2026-09-12 "No role-specific skill files yet". Its criterion stands: a role's own method lives in
+                its definition, and no skill is a single agent's always-on definition with extra indirection.
+  criterion:    a skill exists when it is (a) a shared method used by two or more agents, (b) an on-demand
+                procedure for the ORCHESTRATOR or Afik, or (c) craft for a part of the stack — version-bound,
+                loaded by path or preloaded — which keeps agent definitions generic (rule 3).
+  layers:       process — /where, /feature, /bugfix, /gate, synthesize, /wrap-up, /decision · shared — srs-lookup,
+                rls-tests (after 7.1) · tasks — /srs-update, /srs-export, /srs-coverage (after the first feature) ·
+                craft — rtl-hebrew, accessibility, security-craft, ux-copy-he now; react-web, fastify-api,
+                drizzle-postgres, testing-craft, shared-contracts after 7.0
+  rules:        one source of truth — skills point to CLAUDE.md, workflow.md, knowledge and the SRS, never restate
+                them · knowledge holds project facts, skills hold craft · a skill with side effects (commit, SRS,
+                decisions.md) is disable-model-invocation · SKILL.md under 500 lines · every skill states input,
+                steps, stop conditions and a checkable done · caps and budget rules in learning.md §6
+  names:        /where, not /status, and security-craft, not security-review — a project skill replaces a built-in
+                command of the same name, and both built-ins stay useful
+  step 14:      /srs-update is Afik's to invoke. Inside a feature, step 14 runs within /wrap-up, which follows the
+                srs-update procedure; Afik invokes /wrap-up after the Preview
+  not created:  agent-protocol (CLAUDE.md is loaded into every subagent; the return format went there) ·
+                tbd-protocol (the rule is in CLAUDE.md and in five agent definitions) · db-identity (project facts
+                belong in data-model.md; the code pattern goes to drizzle-postgres)
+  plugins:      the org catalog has none that fit. From Anthropic's official set: security-guidance to be examined
+                in 7.2, skill-creator used for authoring. feature-dev, code-review, pr-review-toolkit,
+                commit-commands and frontend-design are not adopted — they duplicate this pipeline or its design
+                sources.
+  hooks (7.2):  per-agent hooks with one guard script: CRITIC cannot read notes.md; TEST ENGINEER cannot read
+                apps/*/src (non-test files) or notes.md, by any tool — Read, Grep, Glob, git, or a shell command
+                naming those paths (cat, less, head, type…) — and may read packages/shared, the contract; BUILDER
+                cannot write test files; nobody runs `git add -A` or `git add .`.
+  product:      Hebrew UI copy is gender-neutral — a product decision, recorded in the SRS (NFR-USAB-003).
+  unchanged:    the ORCHESTRATOR owns the process (2026-09-12); skills are tools, not decision makers.
+  decided by:   Afik (11.10.2026, "מאשר את כל ההמלצות")
+
 ---
 
 ## Pending — not yet decided
