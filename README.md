@@ -62,6 +62,6 @@ nestly/
 
 ## חוקים שלא משתנים
 
-- **המוצר נבנה רק ב-React, JavaScript, CSS ו-HTML.** זה חוק ברזל. כלי QA נבחרים לפי NFR-QA-001
-- **כל שינוי במערכת מתעדכן ב-SRS**, כלומר בקבצי ה-markdown תחת `docs/srs/`. כשנוסף או משתנה FR או AC, מעדכנים גם את `INDEX.md`. היקף הכלל וניהול הגרסאות עדיין פתוחים בהכרעה D1
+- **שפות המוצר (כלל 0):** React, TypeScript, CSS ו-HTML ב-Web, ושרת Node.js ב-TypeScript. כך הוחלט ב-11.10.2026, במקום כלל ה-JavaScript מ-12.9. קודם Web, ו-React Native רק אחרי אישור. כלי QA נבחרים לפי NFR-QA-001
+- **כל שינוי במערכת מתעדכן ב-SRS**, כלומר בקבצי ה-markdown תחת `docs/srs/`. כשנוסף או משתנה FR או AC, מריצים את `node tools/build-srs-index.js`. היקף הכלל וניהול הגרסאות נקבעו ב-D1
 - `git push` ו-`git remote add` **חסומים** ב-`.claude/settings.json`. כדי לפתוח אותם צריך החלטה של אפיק

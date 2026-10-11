@@ -10,15 +10,15 @@
 
 ## איפה אנחנו עומדים
 
-**עודכן:** 11.10.2026 · **גרסת SRS:** 2.6
+**עודכן:** 11.10.2026 · **גרסת SRS:** 2.7
 
-- **מצב:** צוות הסוכנים וה-SRS מוכנים. עוד לא נכתבה שורת קוד. לפני הפיצ'ר הראשון צריך את חלק 7: CI ו-hook.
-- **המשימה הבאה:** 7.0, שלד תיקיות ומוסכמות שמות. אני מכין אופציות ואתה בוחר. היא חוסמת את 7.1.
+- **מצב:** צוות הסוכנים וה-SRS מוכנים. עוד לא נכתבה שורת קוד. ב-11.10 הארכיטקטורה עודכנה: TypeScript, שרת Node.js משלנו, monorepo, Supabase למסד ול-Auth, ו-Drizzle. לפני הפיצ'ר הראשון צריך את חלק 7: CI ו-hook.
+- **המשימה הבאה:** 7.0, שלד ה-monorepo. חלוקת העל כבר הוחלטה. אני מכין אופציות לתיקיות שבתוך כל app, ולמוסכמות השמות, ואתה בוחר. היא חוסמת את 7.1.
 - **אחריה:** 7.1, אחר כך 7.2, אחר כך 7.3. חלק 8 תלוי ב-D7.
 - **ממתין להכרעה שלך:**
   - OP-021: הנוסח של משפט התכנון, והאם אפשר להסתיר אותו.
-  - 7.0.
-  - JSDoc: רשום תחת Pending ב-`decisions.md`.
+  - 7.0: התיקיות בתוך כל app, ומוסכמות השמות.
+  - ספריית אימות JWT (`jose`, או `@fastify/jwt` עם JWKS): תעלה בחלק 7.
   - D7: ⏸️ נדחה.
 - **פתוח, בלי הכרעה נדרשת עכשיו:** 4.11 ו-6.1 (Threat Modeling).
 - **החלטות:**
@@ -107,6 +107,7 @@
 | 5.7 | גרסה 2.4: כללי פוסט אנונימי, צפייה של Professional בפרופיל, הגנה מפני שליפה גורפת | ✅ |
 | 5.8 | גרסה 2.5: Journey Summary. OP-021 נפתח | ✅ |
 | 5.9 | גרסה 2.6: §4.1 (בידוד Features, שכבת לוגיקה בלי Web, אכיפה אוטומטית) · §11 (Vite) | ✅ |
+| 5.10 | גרסה 2.7: §11 (TypeScript, שרת Node.js, monorepo) · §12 (Supabase Auth) · §13 (גישה דרך השרת עם Drizzle, זהות בכל טרנזקציה, Audit באותה טרנזקציה) | ✅ |
 
 ## חלק 6 — סגירת פערי כיסוי 🔄
 
@@ -120,10 +121,38 @@
 
 | # | משימה |
 |---|---|
-| 7.0 | **שלד תיקיות ומוסכמות שמות** לפי שכבות §4.2 (C1). להחלטה שלך לפני 7.1, כי גבולות ה-import תלויים בנתיבים. ה-build: Vite (הוחלט) ⏳ |
-| 7.1 | **CI:** טסטים · lint · בדיקה שיש מדיניות RLS · ביקורת תלויות. ב-lint: **תקרת גודל קובץ** (Page/Feature/Component 600 · hook 300 · service 400 · utility 300 · Edge Function 400) ו**גבולות import** (Feature לא מייבא Feature · Shared UI לא מייבא features/services · שכבת הלוגיקה בלי react-dom, window או document), עם כללים מובנים של ESLint ובלי תלות חדשה |
+| 7.0 | **שלד ה-monorepo** (npm workspaces). **כבר הוחלט:** `apps/web` (React, Vite ו-TS) · `apps/server` (Node.js, TS ו-Fastify, בשכבות route ← service ← repository) · `packages/shared` (Zod, טיפוסים וקבועים) · `apps/mobile` רק בעתיד. **להחלטה שלך:** התיקיות בתוך כל app, לפי השכבות של §4.2 ב-web, ומוסכמות השמות ⏳ |
+| 7.1 | **CI.**<br>**בסיס:** typecheck (`strict`) · טסטים · lint (typescript-eslint, תלות dev הכרחית) · ביקורת תלויות.<br>**כללי TS:** איסור `any`, `@ts-ignore`, `@ts-nocheck` ו-`@ts-expect-error` · הגבלת `as`.<br>**תקרות גודל:** Page, Feature ו-Component 600 · hook 300 · service 400 · utility 300 · route בשרת 200 · service בשרת 400 · repository 400.<br>**גבולות import:** Feature לא מייבא Feature · Shared UI לא מייבא features או services · הלוגיקה ב-web בלי react-dom, window או document · shared לא מייבא מ-apps, ובלי DOM ובלי API של Node · web לא מייבא מ-server.<br>**בדיקות מסד:** לכל טבלה יש מדיניות RLS ו-FORCE RLS · אף טבלה לא בבעלות `app_server` · כל view מוגדר `security_invoker` · טסט pgTAP ששאילתה בלי זהות נכשלת · הטסטים רצים בתפקיד `app_server` |
 | 7.2 | **PreToolUse hook**, והאות ל-`incidents.md`. כולל חסימה של `git add -A` ו-`git add .` |
-| 7.3 | **בדיקת ה-hook בסביבה מבודדת לפני הפעלה**, כדי שלא ישבור את הסביבה. בודקים גם אם אפשר לחסום עריכת טסטים של TEST ENGINEER על ידי BUILDER |
+| 7.3 | **בדיקת ה-hook בסביבה מבודדת לפני הפעלה**, כדי שלא ישבור את הסביבה. בודקים גם אם אפשר לחסום עריכת טסטים של TEST ENGINEER על ידי BUILDER. **במקביל, בדיקות תשתית:**<br>• גרסת Postgres: 16 ומעלה, לטובת `WITH INHERIT FALSE, SET TRUE`. אחרת NOINHERIT.<br>• ה-pooler מקבל תפקיד מותאם.<br>• ב-Supabase מופעלים מפתחות JWT אסימטריים.<br>• בחירת ספריית אימות JWT |
+
+**הערה, לא החלטה: Storage.** נשאר TBD עד פיצ'ר המדיה. כיוון שאפיק רוצה לבחון אז: Cloudflare R2, עם buckets פרטיים, presigned URLs מהשרת וניקוי EXIF ו-GPS.
+
+## החלטות ארכיטקטורה ✅ (11.10.2026)
+
+ההחלטות של אפיק ("מאשר, החלטה שלי"). הפירוט ב-`decisions.md`, וההשפעה על המוצר ב-SRS 2.7.
+
+| # | מה הוחלט | איפה |
+|---|---|---|
+| 0 | **כלל 0 נפתח:** כל קוד המוצר ב-TypeScript, כולל web, server ו-shared. `strict`, בלי `any` ובלי הערות השתקה. Web תחילה ו-React Native רק אחרי אישור: **ללא שינוי** | `CLAUDE.md`, `conventions.md` |
+| 1 | **שרת Node.js ב-TypeScript על Fastify,** בשכבות route ← service ← repository. מחליף את Edge Functions | `conventions.md` |
+| 2 | **monorepo עם npm workspaces** | `conventions.md` |
+| 3 | **Supabase:** Postgres, המסד היחיד, ו-Auth. ה-Data API כבוי. Storage ו-Realtime TBD | SRS §12, §13 |
+| 4 | **Drizzle דרך `app_server`,** עם זהות בכל טרנזקציה. RLS נשאר מקור האמת | `data-model.md` (20 כללים) |
+| 5 | **Audit בטריגר במסד, באותה טרנזקציה.** קריאות רגישות עוברות דרך פונקציה עם Audit. המחבר האנונימי בטבלה נפרדת | `data-model.md` |
+| 6 | **Zod ב-`packages/shared`** | `conventions.md` |
+| 7 | **עקיבות:** מזהי FR/AC בשמות הטסטים ושורת `Implements:` ב-commit | `workflow.md` 1.2 |
+| 8 | **`settings.json` ללא שינוי.** ה-Pending על JSDoc נסגר | `decisions.md` |
+
+**מהשוואת הסוכנים מול ה-SRS, בוצע:**
+- כלל "פריט פתוח לא ממולא" ב-BUILDER, ב-CRITIC וב-DATA ARCHITECT.
+- descriptions שתואמים את מסלול הבאג.
+- Not Ready מ-CRITIC או מ-ALGORITHM & DATA חוסם.
+- תבנית pgTAP לכל Permission Key.
+- NFR-ALG-001 וספי NFR-SEC-006 בכללי הביקורת.
+- הנחיה להשתמש ב-SCOUT ולא בסוכני החיפוש המובנים.
+- ספירה מדויקת של בדיקות CRITIC.
+- ה-glossary ו-`database-decision-HE.md` עודכנו.
 
 ## סקירת הנחיות הנדסיות חיצוניות ✅ (10.10.2026)
 
@@ -141,7 +170,7 @@
 
 **יוחלט כשהפיצ'ר הרלוונטי מגיע:**
 - container לאשף (C2)
-- ולידציה כמודול אחד, ו-Zod (C3)
+- ~~ולידציה כמודול אחד, ו-Zod (C3)~~ — הוחלט ב-11.10: Zod ב-`packages/shared`
 - לוגים עם כלל פרטיות (C4)
 - חלונות קופצים (C5)
 - rate limit (C6)
