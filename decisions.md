@@ -758,6 +758,18 @@ YYYY-MM-DD | <decision in one line>
                 taxonomy; whether it affects ranking is ALGORITHM & DATA's call · no share counter in v1.
   decided by:   Afik (11.10.2026, "מאשר לפי המלצתך")
 
+2026-10-11 | GitHub remote: github.com/afikyermi/Nestly, kept public for now
+  rule:         the repository's remote is github.com/afikyermi/Nestly, for CI (7.1) and the previews (7.4). It stays
+                public by Afik's choice: the SRS, decisions, the knowledge files (data-model.md included), the sketches
+                and the author email in every commit are readable by anyone. The history was scanned before the first
+                push — no keys, tokens, .env files or private keys.
+  consequence:  a secret must never reach a commit — the 7.2 hooks and CI should block one before it is pushed ·
+                going private later does not remove copies already made.
+  alternatives: a private repository (recommended by Claude: it protects the product plan and the map of the
+                authorization model, and gives a mistaken secret time to be fixed) · rewriting the author email to
+                GitHub's noreply address before the first push (offered, not chosen)
+  decided by:   Afik (11.10.2026, "כרגע נשאיר PUBLIC" · "תריץ")
+
 ---
 
 ## Pending — not yet decided
@@ -770,7 +782,7 @@ code in TypeScript (entry "Rule 0 reopened").
 **Media decisions M1–M6.** Before I5 — storage provider, formats and limits, policy for images of minors, EXIF
 stripping, hash scanning, retention (entry "D7 closed").
 
-**GitHub remote.** A private repository for CI (7.1) and the previews (7.4) — Afik's approval.
+~~**GitHub remote.**~~ **Closed 2026-10-11** — github.com/afikyermi/Nestly, public (entry "GitHub remote").
 
 **Migration path.** In 7.3 — the direct connection is IPv6 only; DATA ARCHITECT decides between the session-mode
 pooler and the IPv4 add-on (entry "Hosting").
