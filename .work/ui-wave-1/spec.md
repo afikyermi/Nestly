@@ -1,5 +1,8 @@
 # UI wave 1 — tokens, gates, Storybook and the shared components for I1 (WORKPLAN 9.7)
 
+**Revised after part b: API lines added (ORCHESTRATOR request); criteria unchanged.** Only the **API** section
+(after criterion 43) is new. Reason: `findings.md` → Part b, last lines.
+
 **Gate 1: approved by ORCHESTRATOR, 11.10.2026** (working rules). Edits at the gate: DR-1 and DR-2 decided,
 Q1–Q3 accepted, Button pending added to criterion 21. Recorded in `decisions.md`.
 
@@ -172,6 +175,92 @@ Criteria without an SRS ID trace to `tokens.md` / `direction.md` / R2, or are ma
 43. **P** ORCHESTRATOR opens the static gallery and compares Welcome-, Login-, step 1/2- and shell-shaped
     compositions to `r2-screens.html` and `r2-desktop.html`: palette, Rubik, spacing, one primary action per
     screen, RTL order of the TopBar (Hamburger at the right edge).
+
+**API** (contract for tests; derived from criteria 21–41 and the R2 mockups. Paths are under
+`apps/web/src/components/`; every component is a named export, no default export; props marked `?` are optional, all
+others required; every component also accepts `className?: string`, and form controls the native attributes of their
+element (`id`, `name`, `disabled`, `autoComplete`, …) unless a line says otherwise. Events are `on*` props. Tests
+import only what is listed here.)
+
+*Part b, for reference (built, merged):* `ui/button.tsx` → `Button`: `variant` (`primary|soft|text`), `size`
+(`default|lg`), `block`, `pending`, `href`, `disabled`, plus `iconOnly` with required `label`; `variant` is forbidden
+when `iconOnly` is set · `ui/tooltip.tsx` → `Tooltip {label, children}` · `ui/skeleton.tsx` → `Skeleton` ·
+`ui/icons.tsx` → the icons, exported as `*Icon` · `lib/cn.ts` → `cn`.
+
+*Part c*
+- **TextInput** — `ui/text-input.tsx` → `TextInput`. Props: `value?: string`, `defaultValue?: string`,
+  `type?: 'text'|'email'|'tel'` (default `text`), `error?: boolean` (sets `aria-invalid`), `dir?: 'ltr'` (criterion 25),
+  `disabled?`, `id?`, `name?`, `autoComplete?`. Accessible name: none of its own; it comes from FormField (`id`) or
+  `aria-label?: string`. Events: `onChange`, `onBlur`. Slots: none.
+- **FormField** — `shared/form-field.tsx` → `FormField`. Props: `label: string`, `htmlFor?: string` (generated when
+  absent and passed to the child), `hint?: string`, `error?: string`, `optional?: boolean` (renders "(לא חובה)"),
+  `children: (control: {id, 'aria-describedby', 'aria-invalid'}) => ReactNode` (a render prop, so TextInput,
+  PasswordInput, SelectInput and Checkbox get the ids and the invalid state). Name: `label`. Events: none. Slots:
+  `children`.
+- **PasswordInput** — `shared/password-input.tsx` → `PasswordInput`. Props: `value?: string`, `defaultValue?: string`,
+  `autoComplete?: 'current-password'|'new-password'`, `error?: boolean`, `rules?: {id: string; text: string;
+  met: boolean}[]` (default `[]`), `toggleLabel: string` (accessible name of the show/hide toggle, which carries
+  `aria-pressed`), `disabled?`, `id?`, `name?`. Events: `onChange`, `onBlur`. Slots: none. Paste is never blocked.
+- **SelectInput** — `ui/select-input.tsx` → `SelectInput` (native `<select>`, Q2). Props: `options: {value: string;
+  label: string}[]`, `value?: string` (`""` = placeholder), `placeholder: string` ("בחירה", supplied by the caller),
+  `error?: boolean`, `disabled?`, `id?`, `name?`. Name: from FormField, or `aria-label?`. Events:
+  `onChange(value: string)`. Slots: none.
+
+*Part d*
+- **DateInput** — `shared/date-input.tsx` → `DateInput`, and `type DateParts = {day: string; month: string; year:
+  string}` (exported). Props: `value?: DateParts`, `legend: string` (the fieldset legend), `error?: boolean`,
+  `disabled?`, `idPrefix?: string`. The three field names יום · חודש · שנה are fixed. Events: `onChange(value:
+  DateParts)`. Slots: none.
+- **ChoiceCardGroup** — `shared/choice-card-group.tsx` → `ChoiceCardGroup` (compact only). Props: `legend: string`,
+  `name: string` (radio group name), `options: {value: string; label: string; description?: string}[]`,
+  `value?: string | null`, `error?: boolean`, `disabled?`. Events: `onChange(value: string)`. Slots: none.
+- **StepIndicator** — `shared/step-indicator.tsx` → `StepIndicator`. Props: `current: number`, `total: number`
+  (criterion 31's `(x, y)` = `current`, `total`; invalid values throw `RangeError`). Renders "שלב {current} מתוך
+  {total}". Events and slots: none.
+- **Checkbox** — `ui/checkbox.tsx` → `Checkbox`. Props: `checked?: boolean`, `defaultChecked?: boolean`,
+  `required?: boolean`, `error?: boolean`, `disabled?`, `id?`, `name?`, `children: ReactNode` (the label; may contain
+  links). Name: `children`, or `aria-label?`. Events: `onCheckedChange(checked: boolean)`. Slots: `children`.
+- **InlineAlert** — `shared/inline-alert.tsx` → `InlineAlert`. Props: `variant?: 'error'` (default and only value),
+  `children: ReactNode` (the text). Name: its text. Events: none. Slots: `children`.
+
+*Part e*
+- **Logo** — `shared/logo.tsx` → `Logo`; the wordmark lives in `shared/logo-wordmark.tsx` (the single replacement point,
+  OP-022). Props: `size?: 'default'|'big'`, `href?: string` (a link when set, static otherwise). Accessible name
+  "Nestly" (fixed, no prop). Events: none (native link). Slots: none.
+- **Illustrations** — `shared/illustrations.tsx` → `WelcomeIllustration`, `RegistrationIllustration` (the names are a
+  naming choice for review, not a requirement). Props: `className?` only. Always `aria-hidden="true"`; no accessible name.
+- **AuthLayout** — `layout/auth-layout.tsx` → `AuthLayout`. Props: `children: ReactNode` (form body), `back?:
+  ReactNode`, `actions?: ReactNode`. Slots: `back` (back button), `children`, `actions` (bottom). Events: none. No
+  landmark of its own (the page supplies `main`).
+- **Avatar** — `ui/avatar.tsx` → `Avatar`. Props: `name?: string` (empty or absent → person icon), `decorative?:
+  boolean` (true when the name is shown beside it), `label?: string` (accessible name when not decorative and `name` is
+  empty). Accessible name: `name` when not decorative, else `label`. Events and slots: none.
+- **MenuItem** — `shared/menu-item.tsx` → `MenuItem`. Props: `children: ReactNode` (label), `icon?: ReactNode`,
+  `href?: string` (renders a link), `onClick?: () => void` (renders a button; `href` and `onClick` are mutually
+  exclusive), `disabled?: boolean` (`aria-disabled`, not activatable). Name: `children`. Events: `onClick`. Slots:
+  `icon`, `children`.
+
+*Part f*
+- **TopBar** — `shared/top-bar.tsx` → `TopBar`. Props: `onMenuClick: () => void`, `menuLabel: string` (the Hamburger
+  name, "פתיחת התפריט"), `menuButtonRef?: Ref<HTMLButtonElement>`, `actions?: ReactNode`. Renders `header`, the
+  Hamburger (icon-only Button + Tooltip) and Logo. Events: `onMenuClick`. Slots: `actions`.
+- **BottomNavigation** — `shared/bottom-navigation.tsx` → `BottomNavigation`. Props: `items: {key: string; label:
+  string; href: string; icon: ReactNode; current?: boolean}[]` (at most one `current`), `label: string` (name of the
+  `nav`, "ניווט ראשי"). Events: native link activation, no handler prop. Slots: none (each item's `icon` is a node).
+  Bar below 1024, vertical rail at the inline-start edge from 1024.
+- **SideDrawer** — `shared/side-drawer.tsx` → `SideDrawer`. Props: `open: boolean`, `onOpenChange(open: boolean)`,
+  `title: string` (the dialog name), `closeLabel: string` (name of the close control), `children: ReactNode`.
+  Controlled; focus returns to the previously focused element (the Hamburger) on close. Events: `onOpenChange`.
+  Slots: `children`.
+- **AppShell** — `layout/app-shell.tsx` → `AppShell`. Props: `children: ReactNode`, `navItems:
+  BottomNavigation['items']`, `navLabel: string`, `menuLabel: string`, `drawerTitle: string`, `drawerCloseLabel:
+  string`, `skipLinkLabel: string`, `menu: ReactNode` (drawer body, e.g. MenuItems), `topBarActions?: ReactNode`.
+  Owns the drawer's open state. Events: none. Slots: `children` (inside `main`), `menu`, `topBarActions`.
+
+Reading choices: the fixed Hebrew names in criteria 38–39 and the skip-link text are passed as props, so copy lives
+with the caller and criterion 16 stays checkable; FormField uses a render prop so the control gets its ids without
+cloning; SideDrawer is controlled because AppShell must also own the Hamburger. A behaviour a test needs that this
+section does not state is a finding for SPEC, not a guess.
 
 **Open**
 - **DR-1 — decided at Gate 1 (ORCHESTRATOR, 11.10.2026):** the five units (FormField, Checkbox, InlineAlert, Logo,
