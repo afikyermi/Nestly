@@ -16,6 +16,8 @@ export interface ChoiceCardGroupProps {
   value?: string | null;
   error?: boolean;
   disabled?: boolean;
+  /** Id of the caller's error message (or hint). */
+  'aria-describedby'?: string | undefined;
   onChange?: (value: string) => void;
 }
 
@@ -28,7 +30,7 @@ function isRtl(element: HTMLElement): boolean {
 // Compact variant: single choice, radio semantics in a fieldset with a legend. The selected card
 // shows a check mark, a 2px primary border and primary-strong text, never the pastel alone.
 // Arrow keys move the selection; in RTL, Right goes to the previous card and Left to the next.
-export function ChoiceCardGroup({ legend, name, options, value, error, disabled, onChange }: ChoiceCardGroupProps) {
+export function ChoiceCardGroup({ legend, name, options, value, error, disabled, 'aria-describedby': describedBy, onChange }: ChoiceCardGroupProps) {
   const prefix = useId();
   const refs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -49,7 +51,13 @@ export function ChoiceCardGroup({ legend, name, options, value, error, disabled,
   }
 
   return (
-    <fieldset disabled={disabled} className="m-0 grid min-w-0 gap-2 border-0 p-0">
+    <fieldset
+      role="radiogroup"
+      disabled={disabled}
+      aria-invalid={error ? true : undefined}
+      aria-describedby={describedBy}
+      className="m-0 grid min-w-0 gap-2 border-0 p-0"
+    >
       <legend className="mb-1.5 p-0 text-label text-foreground">{legend}</legend>
       {options.map((option, index) => {
         const id = `${prefix}-${index}`;

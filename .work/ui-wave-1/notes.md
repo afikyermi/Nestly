@@ -351,3 +351,10 @@ Checkbox box 335-359 (right edge), label links 205-285 and 97-198, row 44 high. 
 ChoiceCardGroup keys, RTL: from card 1 ArrowRight goes to card 3 (previous, wraps); from card 3, two ArrowLeft reach card 2.
 
 **Neighbouring.** None new. (`incidents.md` was modified in the working tree by something other than this part; not committed.)
+
+### Part d, review round (spec addendum bab53a7)
+- ChoiceCardGroup: `role="radiogroup"` on the fieldset, `aria-invalid` when `error`, optional `aria-describedby`. Roving tabindex and the
+  arrow handler live on the radio inputs and are unaffected.
+- DateInput: optional `aria-describedby` on the fieldset; the three fields keep `aria-invalid`.
+- Checkbox: `aria-invalid`/`aria-describedby` accepted; invalid = `error || aria-invalid`. The outline comes from `aria-invalid:` so it shows for both.
+- InlineAlert LongText story: neutral text, no reset flow.

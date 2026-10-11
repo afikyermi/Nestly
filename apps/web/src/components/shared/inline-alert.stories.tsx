@@ -14,5 +14,5 @@ type Story = StoryObj<typeof meta>;
 export const ErrorVariant: Story = { args: { variant: 'error', children: 'פרטי ההתחברות שגויים' } };
 
 export const LongText: Story = {
-  args: { children: 'פרטי ההתחברות שגויים. אפשר לנסות שוב, או לבקש איפוס סיסמה בעוד רגע.' },
+  args: { children: 'פרטי ההתחברות שגויים. כדאי לבדוק את הפרטים ולנסות שוב.' },
 };

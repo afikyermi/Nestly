@@ -13,6 +13,8 @@ export interface DateInputProps {
   disabled?: boolean;
   /** Prefix of the three field ids; generated when absent. */
   idPrefix?: string;
+  /** Id of the caller's error message (or hint), set on the fieldset. */
+  'aria-describedby'?: string | undefined;
   onChange?: (value: DateParts) => void;
 }
 
@@ -28,14 +30,14 @@ const FIELDS: { key: keyof DateParts; label: string }[] = [
 // Three numeric text fields in a fieldset. It emits what was typed and never validates ranges
 // (Zod does, in F1.3). The DOM order is day, month, year, so in the RTL page the day sits at the
 // right edge and the year at the left, the order the R2 mockup draws.
-export function DateInput({ value, legend, error, disabled, idPrefix, onChange }: DateInputProps) {
+export function DateInput({ value, legend, error, disabled, idPrefix, 'aria-describedby': describedBy, onChange }: DateInputProps) {
   const generated = useId();
   const prefix = idPrefix ?? generated;
   const [own, setOwn] = useState<DateParts>(EMPTY);
   const parts = value ?? own;
 
   return (
-    <fieldset className="m-0 min-w-0 border-0 p-0">
+    <fieldset aria-describedby={describedBy} className="m-0 min-w-0 border-0 p-0">
       <legend className="mb-1.5 p-0 text-label text-foreground">{legend}</legend>
       <div className="grid grid-cols-4 gap-2">
         {FIELDS.map(({ key, label }) => (
