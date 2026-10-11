@@ -8,7 +8,7 @@ paths:
 
 # rtl-hebrew — a Hebrew interface that reads right
 
-**Version:** 1.1 · market: Israel (SRS §11, OP-001). The stack is Tailwind 4 (WORKPLAN 7.0); the logical
+**Version:** 1.2 · market: Israel (SRS §11, OP-001). The stack is Tailwind 4 (WORKPLAN 7.0); the logical
 utilities below are native there. From 9.7 a CI lint rejects the physical ones (Forbidden 1).
 
 **Not here:** what a field accepts — formats such as phone numbers and dates are VAL items in SRS §9. This skill
@@ -54,8 +54,13 @@ drawer opens from the start side, and a toast or the "back to top" button anchor
 
 ## Forbidden
 
-1. `ml-`, `mr-`, `pl-`, `pr-`, `left-`, `right-`, `text-left`, `text-right`, `rounded-l/r`, `border-l/r` for
-   layout. Use `ms-`/`me-`/`ps-`/`pe-`/`start-`/`end-`/`text-start`/`text-end`/`rounded-s/e`/`border-s/e`
+1. A physical direction, in a class, an inline style or CSS. Classes: `ml-`, `mr-`, `pl-`, `pr-`, `left-`, `right-`,
+   `text-left/right`, `rounded-l/r` (and the corner forms), `border-l/r`, `float-left/right`, `clear-left/right`,
+   `scroll-ml/mr/pl/pr-`, `origin-*left/right`, `object-left/right`, `bg-left/right`, `translate-x-`. Style keys and
+   CSS: `marginLeft/Right`, `paddingLeft/Right`, `borderLeft/Right…`, `left`, `right`, and `left`/`right` as the value
+   of `textAlign`, `float` or `clear`. Use `ms-`/`me-`/`ps-`/`pe-`/`start-`/`end-`/`text-start`/`text-end`/
+   `rounded-s/e`/`border-s/e`/`float-start/end` or the `inline-start/end` properties. `space-x-` is allowed: Tailwind 4
+   spaces by logical margin
 2. `dir="rtl"` on a component, or `direction` in inline styles
 3. Hebrew and an LTR fragment (number, email, URL) concatenated with no isolation
 4. `toLocaleDateString()` or `toLocaleString()` without a locale and `timeZone`
@@ -78,3 +83,5 @@ isolation · every displayed date or number goes through `Intl` with `he-IL`.
 - 1.0 — 2026-10-11 — created (Afik's skills decision). Provisional until 5 features.
 - 1.1 — 2026-10-11 — aligned with the approved design (WORKPLAN 9.6): Tailwind 4, the CI lint from 9.7, the rail
   and drawer on the start side, Lucide. Patterns only; the forbidden list is unchanged. Provisional until 5 features.
+- 1.2 — 2026-10-11 — Forbidden 1 widened to the lint's full list: inline style keys, CSS, float, clear, scroll-, origin-,
+  object-, bg- positions, translate-x- (UI wave 1 part a review, CRITIC finding 2; ORCHESTRATOR approved). Provisional until 5 features.

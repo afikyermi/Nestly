@@ -1,5 +1,5 @@
 # CI for Nestly (WORKPLAN 7.1). Public repo: no secrets are used or needed.
-# Locally, `npm run ci` runs typecheck, lint, test and build in this order.
+# Locally, `npm run ci` runs typecheck, lint, tokens:check, test and build in this order.
 name: CI
 
 on:
@@ -46,6 +46,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
+      # The generated token CSS is committed; it must equal what the source builds (UI wave 1).
+      - run: npm run tokens:check
 
   test:
     runs-on: ubuntu-latest
