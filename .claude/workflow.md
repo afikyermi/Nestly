@@ -1,6 +1,6 @@
 # Workflow — canonical pipeline
 
-**Version:** 1.4
+**Version:** 1.5
 **Status:** the single source of truth for sequence, triggers and who enters when.
 Agent definitions describe professions. **This file describes order.** If they disagree, this file wins.
 
@@ -41,10 +41,10 @@ The maintained as-built descriptions are `.claude/knowledge/data-model.md` and `
 
 | # | Actor | Action | Output |
 |---|---|---|---|
-| 1 | Afik | intent, one or two sentences | — |
+| 1 | Afik or ORCHESTRATOR | intent, one or two sentences — from Afik, or the next item in WORKPLAN | — |
 | 2 | ORCHESTRATOR | classify, pick path, select team — `/feature` | `intake.md` |
 | 3 | **SPEC** | write the contract | `spec.md` |
-| 4 | **Afik** | ✋ **Gate 1** — approve or edit one page | approved `spec.md` |
+| 4 | **ORCHESTRATOR** | ✋ **Gate 1** — approve `spec.md` against the SRS, or return it to SPEC. A reserved point (CLAUDE.md → "Decision authority") goes to WORKPLAN for Afik | approved `spec.md` |
 | 5 | **DATA ARCHITECT** | *only if schema changes* — Gate 2. Policies follow the authorization layers in `.claude/knowledge/data-model.md` | `schema.md` |
 | 5b | **ALGORITHM & DATA** | *only if the feature uses behavioural signals, ranks or recommends, records analytics events, or places paid content* — purpose map, pipeline, configuration, events, evaluation. Feeds DATA ARCHITECT when tables are needed | `algorithm.md` |
 | 6 | **BUILDER** | branch, implement. calls SCOUT as needed | diff + `notes.md` |
@@ -53,7 +53,7 @@ The maintained as-built descriptions are `.claude/knowledge/data-model.md` and `
 | 9 | **CRITIC** | review the diff cold, including every invariant in `.claude/knowledge/srs-review-points.md` that the diff touches and the platform rules in `.claude/knowledge/data-model.md`. ALGORITHM & DATA reviews in parallel when step 5b ran | `findings.md` + verdict |
 | 10 | **BUILDER** | address findings | updated diff |
 | 11 | **CRITIC** | re-check **only what it raised** | verdict |
-| 12 | **Afik** | ✋ **Preview** — click it | go / no-go |
+| 12 | **ORCHESTRATOR** | ✋ **Preview** — open the deployed preview, check the acceptance criteria, record its URL in WORKPLAN | go / no-go |
 | 13 | ORCHESTRATOR | merge, write result, update logs | `result.md` |
 | 14 | ORCHESTRATOR | **update the SRS** if behaviour changed — the right section file, its own format, new IDs continue the sequence · rebuild the index (`node tools/build-srs-index.js`) · update §17 (Traceability Matrix) when pages, FRs or entities changed · add a change-history row at the batch's version | updated `docs/srs/` |
 
@@ -70,9 +70,9 @@ If any condition fails mid-work, stop and re-enter the Standard path. Do not fin
 
 ## Elevated path
 
-Standard, plus: DATA ARCHITECT always · CRITIC on opus. Afik approves Gate 1, Gate 2 and the
-Preview — not the diff. Gate 2 is presented through `/gate` in plain language. An irreversible or
-destructive change still needs his explicit approval (CLAUDE.md → Mandatory reviews).
+Standard, plus: DATA ARCHITECT always · CRITIC on opus. ORCHESTRATOR passes Gate 1, Gate 2 and the
+Preview. An irreversible or destructive change still needs Afik's explicit approval, and a migration to
+production waits for his approval on the GitHub `production` environment (CLAUDE.md → "Decision authority").
 
 Entry condition: any risk flag in `CLAUDE.md`.
 
@@ -87,11 +87,12 @@ A defect in merged code: behaviour differs from what the SRS, or an approved `sp
 | 3 | **BUILDER** | the smallest change that fixes the root cause. no refactoring beyond it | diff + `notes.md` |
 | 4 | **CI** | the new test passes and nothing else turned red | green build |
 | 5 | **CRITIC** | review the diff cold. skipped only when the fix meets every Light-path condition. any risk flag → Elevated: CRITIC on opus, and DATA ARCHITECT when the fix touches data | verdict |
-| 6 | **Afik** | ✋ **Preview** — only if the fix is user-visible | go / no-go |
+| 6 | **ORCHESTRATOR** | ✋ **Preview** — only if the fix is user-visible | go / no-go |
 | 7 | ORCHESTRATOR | merge, `result.md`, step 14 if behaviour the SRS describes changed | `result.md` |
 
 - **No SRS behaviour, no bug.** If the expected behaviour is not in the SRS or an approved spec, this is a
-  requirements gap: a `DECISION REQUEST` to Afik, then the Standard path. Never fix toward a behaviour
+  requirements gap: a `DECISION REQUEST` to its decision owner (CLAUDE.md → "Decision authority"), then the
+  Standard path. Never fix toward a behaviour
   nobody approved.
 - **No bug fix skips the failing test**, even when its size would fit the Light path.
 - A root cause that needs a schema change goes through DATA ARCHITECT, as on any other path.
@@ -122,7 +123,7 @@ These are not style preferences. Remove any one of them and the corresponding ga
 | **MATERIAL CHANGE** | any | mid-execution, the approved solution no longer holds | **yes — branch pauses** |
 | **BLOCKER** | any | work stopped, no reasonable default | **yes** |
 | **QUESTION** | any | unknown, but a default exists and is stated | no |
-| **DECISION REQUEST** | any | needs Afik's authority | yes |
+| **DECISION REQUEST** | any | needs a decision owner: ORCHESTRATOR, or Afik for a reserved point | yes |
 
 ### SPEC CHALLENGE
 
@@ -256,3 +257,6 @@ usually the spec was too large and should have been split.
 - 1.4 — 2026-10-11 — Elevated: Afik no longer reviews the diff; the protection is CRITIC on opus, DATA ARCHITECT, CI and
   hooks. Gate 2 reaches him as a plain-language /gate page; irreversible changes still need his approval.
   Decided by Afik. Design-time change.
+- 1.5 — 2026-10-11 — Working rules: ORCHESTRATOR passes Gate 1, Gate 2 and the Preview and decides unreserved
+  `DECISION REQUEST`s, recording each in `decisions.md`. Reserved for Afik: secrets, production, irreversible or
+  material SRS changes, legal / minors / money points, disagreement with a specialist. Decided by Afik.

@@ -29,12 +29,15 @@
       "Edit(./.env)",
       "Edit(./.env.*)"
     ],
-    "ask": [
+    "allow": [
       "Bash(npm install:*)",
       "Bash(npm uninstall:*)",
-      "Bash(pnpm add:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
+      "Bash(node tools/db-preview.mjs:*)"
+    ],
+    "ask": [
+      "Bash(pnpm add:*)",
       "Bash(git merge:*)",
       "Bash(git rebase:*)",
       "Bash(npx prisma migrate:*)",

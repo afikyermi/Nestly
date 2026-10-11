@@ -16,7 +16,8 @@ WORKPLAN rule in `CLAUDE.md`.
 
 ## Preconditions
 
-Afik approved the Preview (or the change took the Light path) · no `Not Ready` stands · CI is green.
+The Preview passed — ORCHESTRATOR checked it, URL recorded in WORKPLAN (or the change took the Light path) · no
+`Not Ready` stands · CI is green.
 
 ## Steps
 

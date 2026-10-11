@@ -7,6 +7,7 @@
     "srs:export": "node export-srs-docx.js"
   },
   "dependencies": {
-    "docx": "9.9.0"
+    "docx": "9.9.0",
+    "postgres": "3.4.9"
   }
 }

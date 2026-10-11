@@ -50,4 +50,4 @@ Read together with `escapes.md` at every retro. See `.claude/learning.md`.
 
 ---
 
-*no entries*
+2026-10-11 | working rules | hook (guard.js) | a commit whose message named the preview env file was blocked as an .env access | the heredoc body was a commit message, not a command; the guard now skips data heredocs and keeps bodies fed to an interpreter (test added) | block

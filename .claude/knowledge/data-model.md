@@ -51,7 +51,7 @@ data without passing through a policy. DATA ARCHITECT designs to them; CRITIC ch
 | 2 | **The request server connects as `app_server`**: LOGIN, NOBYPASSRLS, owns no table. It is granted `authenticated` — and `anon` for guest endpoints — with `GRANT … TO app_server WITH INHERIT FALSE, SET TRUE` (Postgres 16+; on 15, NOINHERIT on the role does the same). Never a member of `service_role`, so never Supabase's `authenticator` | without inherited privileges, `app_server` can do nothing until a transaction sets a role. A forgotten identity fails closed |
 | 3 | **Identity in every transaction.** The server verifies the JWT (JWKS, asymmetric keys), ignores the token's `role` claim, and inside the transaction runs `SET LOCAL ROLE authenticated` and `set_config('request.jwt.claims', <claims>, true)`. Only transaction-local settings — never session-level | `auth.uid()` in every policy works unchanged. Session-level settings would leak between users through the pooler |
 | 4 | **Guest endpoints** run with `SET LOCAL ROLE anon` and minimal grants, or touch no database at all. They exist only for what a Guest may reach (FR-AUTH-004) | anon gets nothing it does not need |
-| 5 | **Connection:** Supabase's pooler in transaction mode, postgres-js with `prepare: false`. **Migrations** run as a separate owner role over a direct connection — never through the pooler, never at runtime. Check in part 7 that the pooler accepts a custom role | transaction mode does not keep prepared statements; DDL needs a direct session |
+| 5 | **Connection:** the request server uses Supabase's pooler in transaction mode (port 6543), postgres-js with `prepare: false`, one connection per function instance. **Migrations** run as `app_owner`, a separate owner role, from CI only, through the pooler in **session mode** (port 5432) or a direct connection — never in transaction mode, never at runtime, never from a developer machine against production. Production migrations run only from `main`, after Afik's approval on the GitHub `production` environment. Decided 2026-10-11 (7.3); that the pooler accepts a custom role is tested in 7.3 (T3) | transaction mode keeps no session state; DDL and the migration tool's locks need a session. A production write needs a person's approval that a tool enforces |
 | 6 | **Background jobs run as `app_jobs`**, deployed apart from the request functions with their own credentials, which the request functions never hold — SQL jobs in pg_cron run as `app_jobs`, code jobs in a separate Vercel project (decided 2026-10-11, "Hosting"). NOBYPASSRLS, minimal grants. Where a job must read or write across users, it gets an explicit `TO app_jobs` policy on that table, listed below | a compromised request server cannot act as the job runner, and every cross-user reach is a named, reviewable policy |
 
 ### Tables, views and functions
@@ -85,9 +85,8 @@ client connects and keeps it for the connection, so a revoked or suspended user 
 expires (rule 15 cannot hold on that channel). Decided 2026-10-11, "Hosting".
 
 **Connections from functions** (rule 5): the server runs as Vercel Functions, each instance holding one pooled
-connection in transaction mode. The Free plan allows 200 pooler clients — watch it as traffic grows. Migrations:
-the direct connection is IPv6 only and CI may not reach it; DATA ARCHITECT settles the path in WORKPLAN 7.3
-(session-mode pooler or the IPv4 add-on), which may change rule 5.
+connection in transaction mode. The Free plan allows 200 pooler clients — watch it as traffic grows. Migrations: CI reaches the database through the session-mode pooler (IPv4), since the direct connection is IPv6
+only on Free. They move to the direct connection when the IPv4 add-on is bought (I9 or later). Decided in 7.3.
 
 ### Approved exceptions
 

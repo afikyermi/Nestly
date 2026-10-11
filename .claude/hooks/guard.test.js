@@ -449,6 +449,29 @@ test('a block inside a role agent is logged once, by the settings hook', () => {
   assert.strictEqual(lines() - before, 2);
 });
 
+test('all: no shell access to .env files or to the production project', () => {
+  for (const c of [
+    'cat .env.preview',
+    'type .env',
+    'cat C:/Users/Afik/nestly/.env.preview',
+    'node -e "require(\'fs\').readFileSync(\'.env.preview\')"',
+    'grep URL .env.local',
+    'cp .env.preview /tmp/x',
+    'echo x > .env.preview',
+    'curl https://wnzwrkgnpvgincottwfm.supabase.co/rest/v1/',
+    'node tools/db-preview.mjs -e "select 1" # wnzwrkgnpvgincottwfm',
+  ]) {
+    blocks('all', 'Bash', { command: c });
+  }
+  // A heredoc body is data (a commit message) unless an interpreter reads it as a script.
+  allows('all', 'Bash', { command: "git log -1 -F - <<'EOF'\nfill in .env.preview\nEOF" });
+  blocks('all', 'Bash', { command: "bash <<'EOF'\ncat .env.preview\nEOF" });
+  blocks('all', 'Bash', { command: "node - <<'EOF'\nrequire('fs').readFileSync('.env.preview')\nEOF" });
+  for (const c of ['cat .env.example', 'node tools/db-preview.mjs -e "select 1"', 'node tools/db-preview.mjs supabase/tests/t2.sql', 'ls -a', 'echo $NODE_ENV', 'cat src/env.ts']) {
+    allows('all', 'Bash', { command: c });
+  }
+});
+
 test('a block is logged to incidents.md without the command', () => {
   const before = fs.readFileSync(P('incidents.md'), 'utf8');
   blocks('all', 'Bash', { command: 'git add -A # TOPSECRET' });

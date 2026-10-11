@@ -35,3 +35,5 @@ YYYY-MM-DD HH:MM | <what failed> | impact | state: open | contained | resolved |
 
 2026-10-11 18:26 | 6 hook blocks, all deliberate: the live probes that activated the 7.2 guard (main loop git add -A; CRITIC git diff without the notes.md exclusion; TEST ENGINEER Read of apps/web/src, logged twice before the single-log fix; BUILDER Write and redirect into tests/) | none, no call ran | state: resolved | WORKPLAN 7.2/7.3: verification, not an incident
 2026-10-11 19:02 | hook blocked Bash (all): Run `git add` and `git commit` as separate commands, so the staged diff can be checked for secrets first. | the call did not run | state: contained | ORCHESTRATOR reports to Afik
+2026-10-11 19:02 | (resolution of the line above) ORCHESTRATOR combined git add and git commit; the rule worked as designed, the commands were split | none | state: resolved | —
+2026-10-11 20:42 | hook blocked Bash (all) ×2, the .env rule: the ORCHESTRATOR's commit message, then a sed recording it, named the preview env file as text | none, no call ran | state: resolved | a false positive on the commit message (noise.md), guard fixed; the sed block was correct — edited with the Edit tool instead

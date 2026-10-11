@@ -19,7 +19,7 @@ argument-hint: <what changed, and Afik's decision it rests on>
    several files — an FR, its BR, VAL, ERR and AC, and the entities in §13.
 2. **Write in the document's own logic.** The section's table format and wording style. A new ID continues its
    prefix's sequence — take the last ID from the INDEX ranges. Never renumber.
-3. **Keep open items open.** Anything Afik has not decided stays "TBD" or "נדרש אישור", with an OP row in
+3. **Keep open items open.** Anything its decision owner (CLAUDE.md → "Decision authority") has not decided stays "TBD" or "נדרש אישור", with an OP row in
    `appendix-b-open-points.md`. Never write a default into the SRS.
 4. **Traceability.** When pages, FRs or entities changed, update `17-traceability.md`. A new AC gets its short name
    in `tools/srs-ac-names.json` first, or the INDEX build fails.

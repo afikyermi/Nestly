@@ -72,7 +72,7 @@ Nothing else rides along.
 **Deviations**      anything that differs from spec.md or schema.md, and why
 **Deliberately not done**   what you left out on purpose
 **Uncertain**       what you are not confident about. be honest here
-**Preview path**    the exact clicks for Afik to verify this in the preview, and what is known not to work yet
+**Preview path**    the exact clicks to verify this in the preview (ORCHESTRATOR runs them), and what is known not to work yet
 **Neighbouring**    bugs you noticed and did not cause or fix. ORCHESTRATOR moves them to debt.md
 ```
 

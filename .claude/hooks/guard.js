@@ -241,8 +241,50 @@ function withCwd(segments, start) {
   });
 }
 
+// The production Supabase project. No agent reaches it: migrations to prod run only from CI after Afik's
+// approval (decisions.md, 2026-10-11, "Working rules").
+const PROD_REF = 'wnzwrkgnpvgincottwfm';
+
+// The command without heredoc bodies that are only data — a commit message, a file being written. A body fed
+// to an interpreter (bash, node, python…) is a script, so it is kept.
+function commandText(command) {
+  const lines = String(command).split('\n');
+  const out = [];
+  let delim = null;
+  let keep = false;
+  for (const line of lines) {
+    if (delim !== null) {
+      if (line.trim() === delim) delim = null;
+      else if (keep) out.push(line);
+      continue;
+    }
+    out.push(line);
+    const m = /(?:^|[^<])<<-?\s*(?!<)['"]?([A-Za-z_][A-Za-z0-9_]*)['"]?/.exec(line);
+    if (m) {
+      delim = m[1];
+      keep = /\b(bash|sh|zsh|node|python3?|perl|ruby|pwsh|powershell|deno|bun|eval|source)\b/i.test(line.slice(0, m.index + 1));
+    }
+  }
+  return out.join('\n');
+}
+
+// An .env file named anywhere in a shell command — except a committed *.example template.
+function namesEnvFile(command) {
+  const text = fold(slash(commandText(command)));
+  for (const m of text.matchAll(/(?:^|[\s"'=/<>|;&(`:])(\.env(?:\.[a-z0-9_-]+)*)(?=$|[\s"'`;|&)<>/])/g)) {
+    if (!m[1].endsWith('.example')) return true;
+  }
+  return false;
+}
+
 function checkAll(tool, input, ctx) {
   if (tool !== 'Bash') return null;
+  if (namesEnvFile(input.command)) {
+    return 'Shell commands do not touch .env files: they hold Afik\'s secrets. SQL on preview runs through `node tools/db-preview.mjs`, which reads .env.preview itself.';
+  }
+  if (fold(commandText(input.command)).includes(PROD_REF)) {
+    return 'nestly-prod is out of reach for agents. Production changes go through CI with Afik\'s approval.';
+  }
   const calls = withCwd(shellSegments(input.command), ctx.cwd)
     .map(({ seg, cwd }) => {
       const call = gitCall(seg);

@@ -789,6 +789,59 @@ YYYY-MM-DD | <decision in one line>
                 to the ask prompt instead. The 7.2 PreToolUse hook is the stronger control for it.
   decided by:   Afik (11.10.2026)
 
+2026-10-11 | Migration path, migration role, Data API and pre-migration tests (WORKPLAN 7.3)
+  source:       DATA ARCHITECT's recommendation, .work/infra-7.3/recommendation.md (facts verified 11.10.2026)
+  path:         CI (GitHub Actions) applies migrations with the Supabase CLI through the session-mode pooler (port
+                5432, IPv4), from a separate `migrate` workflow triggered by push and workflow_dispatch only — never
+                pull_request or pull_request_target. Two GitHub environments, `preview` and `production`, each with
+                only its own connection string. Moves to the direct connection when the IPv4 add-on is bought.
+  approval:     production migrations run only from `main`, after Afik's approval on the `production` environment.
+  role:         a dedicated `app_owner` (LOGIN, NOSUPERUSER, NOBYPASSRLS) owns the product schema and applies
+                migrations. If a test shows a grant it needs is impossible on Supabase, `postgres` is used for that
+                step only, recorded in data-model.md.
+  rule 5:       data-model.md rule 5 and "Connections from functions" reworded as recommended.
+  data api:     turned off entirely — first on nestly-preview, then T7 (sign-in still works); only if T7 passes,
+                also on nestly-prod. Rule 7 unchanged: the product schema is not `public`.
+  tests:        T2–T7 on nestly-preview only, with throwaway probe_* roles, in the order T2 → T3 → T4 → (Data API
+                off, T7) → T6 → T5. T2 first: if `postgres` cannot grant `authenticated` with ADMIN OPTION, rule 2
+                cannot be built as written and it returns to Afik as a blocker. Afik enters every password himself.
+  conventions:  every migration is compatible with the code already running (expand → deploy → contract) · a
+                destructive production migration gets a `supabase db dump` first (Free has no backups). Proposed
+                by DATA ARCHITECT, to be validated by CRITIC before entering conventions.md.
+  alternatives: the IPv4 add-on (needs Pro, about $29/month per project) · Afik's machine over IPv6 · CI over the
+                direct connection (runner IPv6 unverified) · Supabase Branching (Pro) · `postgres` as the migration
+                role (a leaked CI secret would reach auth.users and the platform)
+  accepted cost: the first secrets enter a public repo's CI, fenced by environments and the trigger ban.
+  decided by:   Afik (11.10.2026, "1 כן, 2 כן, 3 כן, 4 כן, 6 כן. 5 כן, בסדר הזה: קודם … nestly-preview …
+                רק אם T7 עבר, מכבים גם ב-nestly-prod")
+
+2026-10-11 | Working rules: ORCHESTRATOR decides and passes the gates; Afik keeps secrets, production and reserved decisions
+  rule:         without asking Afik — commit and push; installing and removing libraries; running SQL and migrations on
+                nestly-preview only (through tools/db-preview.mjs); passing Gate 1, Gate 2 and the Preview; deciding
+                every unreserved DECISION REQUEST from the SRS and the professional recommendation, recorded here with
+                the alternatives and the reason. CRITIC, CI and the hooks run unchanged; a specialist's verdict binds.
+  reserved:     (1) secrets — Afik enters keys and passwords himself; no agent reads them or asks for them in chat ·
+                (2) production — migrations to nestly-prod only from CI after his approval on the GitHub `production`
+                environment; every direct path to prod stays blocked · (3) irreversible decisions and material SRS
+                changes (adding or removing a feature, changing the security model) · (4) product points touching
+                legal matters, data about minors, or money (added on Claude's recommendation, approved by Afik) ·
+                (5) a disagreement with a specialist's verdict. Reserved items go to WORKPLAN "ממתין להחלטה שלך";
+                work continues on whatever does not depend on them.
+  tracking:     WORKPLAN-HE.md stays the only status file: updated at the end of every task, with the preview URL of
+                everything built and everything waiting on Afik (secrets, prod migration approvals, decisions).
+  enforcement:  settings.json — git commit, git push, npm install and npm uninstall allowed without a prompt; force
+                push, psql and every .env read or write stay denied; `node tools/db-preview.mjs` allowed. guard.js
+                (role all) — any shell command naming an .env file (other than *.example) or the production project
+                ref is blocked. tools/db-preview.mjs reads .env.preview itself, refuses any target that is not the
+                preview project ref, refuses the prod ref, and never prints the connection string.
+  supersedes:   2026-09-12 "Human gates" (Afik approves Gate 1 and the Preview) · 2026-10-11 "Elevated: Afik approves
+                Gate 1, Gate 2 and the Preview" · CLAUDE.md "DECISION REQUEST — only he can".
+  alternatives: keep Afik on every gate (the previous model: safe, but every feature waited on him) · full autonomy
+                with no reserved list (rejected: secrets, production and irreversible choices need a person)
+  accepted cost: product decisions are made without Afik's review; the record here is how he audits them.
+  decided by:   Afik (11.10.2026, a written rule set approved in chat with "מאשר", including the added boundary on
+                legal, minors and money)
+
 ---
 
 ## Pending — not yet decided
@@ -803,7 +856,7 @@ stripping, hash scanning, retention (entry "D7 closed").
 
 ~~**GitHub remote.**~~ **Closed 2026-10-11** — github.com/afikyermi/Nestly, public (entry "GitHub remote").
 
-**Migration path.** In 7.3 — the direct connection is IPv6 only; DATA ARCHITECT decides between the session-mode
+~~**Migration path.**~~ **Closed 2026-10-11** — CI over the session-mode pooler (entry "Migration path, migration role…"). Was: in 7.3 — the direct connection is IPv6 only; DATA ARCHITECT decides between the session-mode
 pooler and the IPv4 add-on (entry "Hosting").
 
 ~~**Sharing in the SRS.**~~ **Closed 2026-10-11** — approved (entry "Sharing defined"); it enters SRS 2.9.

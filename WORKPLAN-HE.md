@@ -12,9 +12,13 @@
 
 **עודכן:** 11.10.2026 · **גרסת SRS:** 2.10
 
-- **מצב:** צוות הסוכנים וה-SRS מוכנים. עוד לא נכתבה שורת קוד. ב-11.10 הארכיטקטורה עודכנה: TypeScript, שרת Node.js משלנו, monorepo, Supabase למסד ול-Auth, ו-Drizzle. נוספה מערכת skills, שלב א: כלי תהליך, משימות SRS ו-skills מקצועיים. לפני הפיצ'ר הראשון צריך את חלק 7, CI ו-hook, ואת חלק 9, עיצוב UX/UI. מחלק 9 בוצעו 9.1 עד 9.3: הסקיצות ב-`docs/design/sketches/`, ההחלטות ב-`decisions.md`, מסמך הכיוון `docs/design/direction.md`, ו-R1 ב-`docs/design/mockups/`. ב-R1 נבחרו כיוון A, Rubik ועמודה ממורכזת עם rail, וה-tokens נמצאים ב-`docs/design/tokens.md`. R2 אושר, עם שורת פעולות בכרטיס הפוסט: לייק, תגובה, שיתוף בפיד ושיתוף קישור. **D7 נסגר:** המוצר נבנה ב-15 Initiatives, ו-I1 עד I9 הם ה-MVP (חלק 8). מסלול Elevated עודכן: אתה מאשר Gate 1, ‏Gate 2 ו-Preview, ולא diff. **7.0 ו-7.4 הוחלטו:** מבנה התיקיות והשמות, והאתר והשרת ב-Vercel. השרת רץ כ-Vercel Functions בפרנקפורט, והמסד ב-Supabase בפרנקפורט (שיטה C).
-- **המשימה הבאה:** 7.3, בדיקות התשתית (Postgres, ה-pooler, מפתחות JWT ונתיב המיגרציות). ‏7.2 (hooks) נבנה, נבדק ופעיל. ‏7.1 (CI) נבנה ונבדק. שלד ה-monorepo (7.0) נבנה: web, server ו-shared, עם typecheck, טסטים ו-build שעוברים. OP-021 נסגר (SRS 2.10), ו-`jose` נבחרה לאימות JWT. ה-repo מחובר ל-GitHub: `afikyermi/Nestly`, ציבורי.
-- **אחריה:** 9.6 ו-9.7. אחר כך I1 (חלק 8).
+- **מצב:** התשתית פעילה. ‏7.0 (שלד), ‏7.1 (CI), ‏7.2 (hooks) ו-7.4 (Vercel ו-Supabase) הושלמו. ב-7.3 נשארו הבדיקות T2 עד T7 לפני המיגרציה הראשונה. **כללי העבודה שונו ב-11.10:** אני עובר את Gate 1, ‏Gate 2 ו-Preview ומחליט את מה שלא שמור לך, ורושם כל החלטה ב-`decisions.md`. נשארו אצלך: סודות, prod, החלטות שאי אפשר לבטל או שמשנות את ה-SRS מהותית, ונקודות של משפט, קטינים או כסף (`CLAUDE.md`, ‏"Decision authority").
+- **Preview:** ‏[nestly-blue.vercel.app](https://nestly-blue.vercel.app). ‏`/api/health` עובד. עוד אין מסך מוצר.
+- **המשימה הבאה:** T2 על nestly-preview, דרך `node tools/db-preview.mjs`.
+- **אחריה:** T3 עד T7, וכיבוי ה-Data API: קודם preview, ואחרי ש-T7 עובר גם prod. אחר כך סיום 7.3, ‏9.6, ‏9.7 ו-I1.
+- **ממתין לך (סודות ופעולות):**
+  1. **ליצור `.env.preview` בשורש ה-repo**, עם השורה `PREVIEW_DATABASE_URL=`. הערך: nestly-preview ← Connect ← Session pooler (פורט 5432), למשתמש `postgres`, עם הסיסמה שלך. הקובץ ב-`.gitignore`, ואני לא יכול לקרוא אותו. **T2 מחכה לזה.**
+  2. **כיבוי ה-Data API ב-nestly-prod**, אחרי ש-T7 יעבור ב-preview. אין לי גישה ל-prod. אכתוב כאן כשזה יהיה מוכן.
 - **ממתין להכרעה שלך:** אין.
 - **פתוח, בלי הכרעה נדרשת עכשיו:**
   - 4.11 ו-6.1 (Threat Modeling).

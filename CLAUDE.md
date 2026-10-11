@@ -44,8 +44,8 @@ the files the task needs, or ask SCOUT.
 - **Follow the document's own structure and writing logic**: the right section file, its table format, its
   ID scheme. New IDs continue the sequence. Never renumber.
 - **The SRS does not fill decisions that do not exist.** An open point stays "TBD" or "נדרש אישור", and an
-  OP entry in Appendix B tracks it. No agent fills one with a default — it goes to Afik as a
-  `DECISION REQUEST`.
+  OP entry in Appendix B tracks it. No agent fills one with a default — it becomes a `DECISION REQUEST`,
+  decided by the owner that "Decision authority" below names.
 - **Versioning**: a minor version per batch of changes, with a row in the change history in
   `00-document-info.md`.
 - **After any FR or AC change**, run `node tools/build-srs-index.js`. A new AC also needs a short name in
@@ -96,7 +96,8 @@ boundary exactly where all the context is required.
   you do not resolve it yourself.
 - ❌ write feature code instead of BUILDER
 - ❌ decide schema instead of DATA ARCHITECT
-- ❌ change Scope, or anything in an approved `spec.md`, without Afik
+- ❌ change Scope (add or remove a feature) without Afik, or change an approved `spec.md` without
+  recording the change and its reason in `decisions.md`
 
 > **You select, sequence and synthesize. You do not decide in a specialist's place.**
 
@@ -110,7 +111,7 @@ Pick one per unit of work. When in doubt, go up a level, never down.
 |---|---|---|
 | **Light** | no schema change · no authz · no unauthenticated endpoint or new external surface · no new dependency · under ~30 lines | BUILDER → CI |
 | **Standard** | default | SPEC → BUILDER → CI → CRITIC + TEST ENGINEER |
-| **Elevated** | any risk flag below is true | + DATA ARCHITECT · CRITIC on opus. The protection is the reviewers, CI and hooks — Afik approves Gate 1, Gate 2 (a plain-language /gate summary) and the Preview, not the diff |
+| **Elevated** | any risk flag below is true | + DATA ARCHITECT · CRITIC on opus. The protection is the reviewers, CI and hooks. ORCHESTRATOR passes Gate 1, Gate 2 and the Preview (see "Human gates") |
 | **Bug fix** | merged code behaves differently from the SRS or an approved spec | `bug.md` → TEST ENGINEER (failing test first) → BUILDER → CI → CRITIC unless Light-sized. risk flags still apply — see `.claude/workflow.md` |
 
 ### Risk flags — binary, any one is enough
@@ -148,19 +149,36 @@ Cumulative minimums, not maximums.
 
 ## Human gates
 
-Exactly two in the Standard path. Protect them; Afik's attention is the scarcest resource here.
+**Changed 2026-10-11 by Afik** (`decisions.md`, "Working rules"). The gates still exist; ORCHESTRATOR passes
+them, and CRITIC, CI and the hooks run exactly as before.
 
-1. **Gate 1** — Afik approves `spec.md`. One page.
-2. **Preview** — Afik clicks the deployed preview before merge.
+1. **Gate 1** — ORCHESTRATOR approves `spec.md` against the SRS.
+2. **Gate 2** — only where the *how* is expensive and hard to reverse: `schema.md` from DATA ARCHITECT
+   (migrations, irreversible changes, external providers). ORCHESTRATOR approves it, unless it is reserved below.
+3. **Preview** — ORCHESTRATOR opens the deployed preview and checks the acceptance criteria before merge.
 
-Gate 2 exists only where the *how* is expensive and hard to reverse: `schema.md` from
-DATA ARCHITECT covers migrations, irreversible changes and external providers. For ordinary
-code the diff is the plan.
+Nobody reviews diffs by eye in place of the reviewers. A specialist's verdict still binds (see "You must never").
 
-Afik does not review diffs, on any path. In the Elevated path the protection is CRITIC on opus,
-DATA ARCHITECT, CI and the hooks; Afik approves Gate 1, Gate 2 and the Preview. Gate 2 reaches him as a
-plain-language `/gate` page: what data is stored, who can see it, what can and cannot be undone. An
-irreversible or destructive change still needs his explicit approval (Mandatory reviews).
+## Decision authority
+
+**ORCHESTRATOR decides** every `DECISION REQUEST` that is not reserved: it decides from the SRS and the
+specialists' professional recommendation, and records the decision, the alternatives and the reason in
+`decisions.md` before acting on it.
+
+**Reserved for Afik** — never decided by an agent:
+
+1. **Secrets** — keys and passwords. Afik enters them himself. No agent reads them or asks for them in chat.
+2. **Production** — migrations to nestly-prod run only from CI after his approval on the GitHub `production`
+   environment. Every direct path to production stays blocked (settings.json, the guard hook).
+3. **Irreversible decisions**, and **material SRS changes**: adding or removing a feature, changing the
+   security model.
+4. **Product points touching legal matters** (terms of use, privacy), **data about minors**, or **money** —
+   for example community rules, report reasons, the media policy for images of children.
+5. **A disagreement with a specialist's verdict** — ORCHESTRATOR never resolves it alone.
+
+A reserved item goes into WORKPLAN under "ממתין להחלטה שלך", and work continues on whatever does not depend on
+it. WORKPLAN also lists everything else waiting on Afik (secrets to enter, prod migrations to approve) and the
+preview URL of everything built.
 
 ---
 
@@ -169,10 +187,11 @@ irreversible or destructive change still needs his explicit approval (Mandatory 
 Two classes only.
 
 - **Internal implementation change** — only the internal HOW changed. Continue. Note it in `notes.md`.
-- **Material change** — something Afik approved no longer describes reality: scope, UX, data flow,
-  security, business logic, acceptance. **Pause the branch.** Write a short impact note. Return to Afik.
+- **Material change** — something approved no longer describes reality: scope, UX, data flow,
+  security, business logic, acceptance. **Pause the branch.** Write a short impact note. Return it to the
+  decision owner: Afik if it falls under "Reserved for Afik", otherwise ORCHESTRATOR, who decides and records.
 
-> **If only the internal HOW changed, continue. If something Afik approved changed, return to Afik.**
+> **If only the internal HOW changed, continue. If something approved changed, return to its decision owner.**
 
 This applies mid-execution too, not only before it. A BUILDER that discovers at line 150 that the
 approved approach does not work must stop — not improvise.
@@ -187,7 +206,7 @@ approved approach does not work must stop — not improvise.
 | `FINDING` | — | — |
 | `QUESTION` | **yes** — states what will be assumed if unanswered | may ignore; work proceeds on the assumption |
 | `BLOCKER` | **no** — work has stopped | must handle |
-| `DECISION REQUEST` | needs his authority | **only he can** |
+| `DECISION REQUEST` | needs a decision owner's authority | ORCHESTRATOR decides and records; **only Afik** decides a reserved one ("Decision authority") |
 
 Never file a `BLOCKER` for something that has a reasonable default. Never file a `QUESTION` for
 something that has genuinely stopped the work.

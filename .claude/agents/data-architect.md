@@ -35,7 +35,7 @@ every feature.
 
 ## Output — `.work/<slug>/schema.md`
 
-This is Gate 2. It is short.
+This is Gate 2. It is short. ORCHESTRATOR approves it; an irreversible change also needs Afik (CLAUDE.md → "Decision authority").
 
 ```markdown
 # schema — <feature>

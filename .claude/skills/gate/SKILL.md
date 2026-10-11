@@ -7,7 +7,8 @@ argument-hint: <1|2|preview> <slug>
 
 # /gate — one page for one decision
 
-**Version:** 1.1 · the gates are defined in `CLAUDE.md` → "Human gates". Afik's attention is the scarcest
+**Version:** 1.2 · the gates are defined in `CLAUDE.md` → "Human gates". Since 2026-10-11 ORCHESTRATOR passes the
+gates; this page is used only for a point reserved for Afik ("Decision authority"). Afik's attention is the scarcest
 resource here: one page, and an answer he can give in one line. Afik does not read code or SQL: every page is in
 plain language.
 
@@ -45,5 +46,6 @@ The page fits one screen, every item cites its artifact, and the one-line answer
 
 ## Changelog
 - 1.0 — 2026-10-11 — created (Afik's skills decision). Provisional until 5 features.
+- 1.2 — 2026-10-11 — used only for points reserved for Afik; ORCHESTRATOR passes the gates (Working rules).
 - 1.1 — 2026-10-11 — Gate 2 in plain language: Afik approves gates, not diffs (decision "Elevated path: Afik
   approves gates, not diffs").
