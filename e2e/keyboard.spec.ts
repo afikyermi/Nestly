@@ -136,11 +136,7 @@ test.describe('Tooltip with keyboard and pointer', () => {
     await expect(tips(page)).toHaveCount(0);
   });
 
-  // FINDING (part b): the story wraps an icon-only Button, which already owns a Tooltip, in a second
-  // Tooltip. Two tooltips open and Escape closes one at a time. test.fail keeps the assertion intact and
-  // turns red the day the double wrap is fixed: then delete the test.fail line.
   test('[22] ui-tooltip--on-hover: one Escape closes the tooltip (no tooltip left behind)', async ({ page }) => {
-    test.fail(true, 'double Tooltip: story wraps a Button that already has one');
     await openStory(page, 'ui-tooltip--on-hover');
     await page.locator('#storybook-root button').first().hover();
     await expect(tips(page).first()).toBeAttached();

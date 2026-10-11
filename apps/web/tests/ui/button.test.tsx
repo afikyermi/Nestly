@@ -158,6 +158,52 @@ describe('Button', () => {
     });
   });
 
+  describe('link target and icon-only pending', () => {
+    it('[21] a link with aria-disabled="true" does not fire its handler and does not navigate', () => {
+      const onClick = vi.fn();
+      render(
+        <Button href="#welcome" aria-disabled="true" onClick={onClick}>
+          התחלה
+        </Button>,
+      );
+      const link = screen.getByRole('link', { name: 'התחלה' });
+      const notPrevented = fireEvent.click(link);
+      expect(onClick).not.toHaveBeenCalled();
+      expect(notPrevented, 'the default action (navigation) must be prevented').toBe(false);
+    });
+
+    it('[21] a link without aria-disabled does navigate and fires its handler (control)', () => {
+      const onClick = vi.fn();
+      render(
+        <Button href="#welcome" onClick={onClick}>
+          התחלה
+        </Button>,
+      );
+      expect(fireEvent.click(screen.getByRole('link'))).toBe(true);
+      expect(onClick).toHaveBeenCalledTimes(1);
+    });
+
+    it('[21] an icon-only button that is pending shows the loader instead of its icon', () => {
+      const { container, rerender } = render(
+        <Button iconOnly label="פתיחת התפריט">
+          <MenuIcon />
+        </Button>,
+      );
+      const idle = container.querySelector('svg')?.outerHTML;
+      rerender(
+        <Button iconOnly label="פתיחת התפריט" pending>
+          <MenuIcon />
+        </Button>,
+      );
+      const button = screen.getByRole('button', { name: 'פתיחת התפריט' });
+      expect(button).toHaveAttribute('aria-busy', 'true');
+      const svgs = button.querySelectorAll('svg');
+      expect(svgs).toHaveLength(1);
+      expect(svgs[0]?.outerHTML).not.toBe(idle);
+      expect(svgs[0]).toHaveAttribute('aria-hidden', 'true');
+    });
+  });
+
   describe('keyboard reach (17)', () => {
     it('[17] enabled button and link are natively tabbable and activatable by Enter/Space', () => {
       render(

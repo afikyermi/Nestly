@@ -69,4 +69,12 @@ describe("criterion 19: icon-only controls require an accessible name (type leve
     );
     assert.equal(ok, false);
   });
+
+  it("[19] an icon-only Button with a variant fails tsc (icon-only has one look)", () => {
+    const { ok, output } = compile(
+      `${header}export const A = () => <Button iconOnly label="x" variant="soft"><MenuIcon /></Button>;
+`,
+    );
+    assert.equal(ok, false, output);
+  });
 });
