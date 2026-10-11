@@ -458,6 +458,102 @@ YYYY-MM-DD | <decision in one line>
   unchanged:    the ORCHESTRATOR owns the process (2026-09-12); skills are tools, not decision makers.
   decided by:   Afik (11.10.2026, "מאשר את כל ההמלצות")
 
+2026-10-11 | UX/UI design track before the first UI feature — WORKPLAN part 9
+  rule:         the visual language, tokens, a component gallery and mockups are approved before any feature writes UI
+                logic. The 10 sketches are concept, not final design: a visual or layout change is shown in a mockup for
+                approval; a change to behaviour the SRS describes is Afik's decision and goes to the SRS (D1).
+  where:        product documents in docs/design/ (direction, tokens, components, sketches, mockups). Sketches copied to
+                docs/design/sketches/ with readable names and a README mapping them; the source folder and zip are
+                deleted only with Afik's approval, after the commit.
+  sequence:     part 9 runs before part 8. 9.1–9.5 (sketches, direction, R1 directions board, R2 five screens, SRS 2.9)
+                start now, in parallel with 7.0. 9.6 (skills, workflow) after 7.0. 9.7, the wave-1 component unit, runs
+                through the Standard path after 7.1 and 7.2 as the first run of the pipeline, with the Storybook gallery
+                as its Preview, and counts as the first of the 5 units for provisional changes.
+  approvals:    R1 — palette, font, desktop layout · R2 — the five screens · R3 — the Storybook gallery.
+  alternatives: design straight in code with no mockups · Storybook only, no static mockups (slower to change direction)
+  why:          Afik's request: a design plan before the first UI feature, with his approval of every visual direction.
+  accepted cost: three review rounds before the first feature.
+  decided by:   Afik (11.10.2026, "מאשר את גרסה 2 של התוכנית"; 14–18 "לפי ההמלצה")
+
+2026-10-11 | Visual direction: soft, calm, Facebook's patterns without its identity — no dark mode
+  rule:         Facebook's structure and usage patterns (card feed, composer, top bar, bottom navigation, comments,
+                dropdowns, "⋯" menu, **infinite scroll with no "load more" button**), none of its identity (no blue, no
+                "f", no look-alike reactions). Warm pastel palette for surfaces; text and actions in the deep shade of the
+                same hue. Rounded corners, soft shadows instead of borders — except input boundaries at 3:1 (WCAG 1.4.11).
+                One primary action per card, secondary actions under "⋯". Quiet counters (pastel, "9+", no red, no
+                pulse). No gender colour-coding. Touch targets 44×44. Warm, supportive, non-clinical tone.
+  feed:         infinite scroll with role=feed and aria-busy while loading, ARIA feed keyboard pattern, one polite
+                announcement per load, load errors inline with retry, no footer (Terms and Privacy live in the Side Menu
+                and Settings), scroll position restored when returning from a post or profile, a quiet "back to top"
+                button. v1 uses `content-visibility: auto` on post cards; TanStack Virtual only if a measured
+                performance test fails.
+  dark mode:    not required. No dark values are defined or tested. Tokens stay semantic so it can be added if ever
+                decided; recorded in SRS §16 as a Future Enhancement.
+  logo:         a temporary in-house wordmark; final brand identity tracked as a new OP.
+  imagery:      in-house abstract SVG illustrations in the palette. No photos of babies or pregnancy in general screens,
+                no third-party illustration sets in v1.
+  pending:      palette (A apricot-terracotta · B sage · C lilac), font (Rubik · Assistant · Fredoka + Assistant) and
+                desktop layout (centered column + nav rail, recommended · three columns) — Afik decides at R1.
+  alternatives: Facebook's density and red counters · a "load more" button instead of infinite scroll (rejected by
+                Afik) · dark mode in v1 (rejected by Afik)
+  decided by:   Afik (11.10.2026: "פיד: גלילה אינסופית. בלי כפתור 'עוד'" · "מצב כהה: לא נדרש" · "3, 6: לפי ההמלצה")
+
+2026-10-11 | UI library package, approved in advance
+  rule:         one library per need, so BUILDER does not ask per dependency. Wave 1, installed in unit 9.7: shadcn/ui on
+                Radix (with DirectionProvider for RTL), Lucide, @fontsource-variable with the chosen Hebrew font, React
+                Hook Form + Zod (@hookform/resolvers), TanStack Query, React Router, Sonner, date-fns with the `he`
+                locale and @date-fns/tz (calculations only; display stays on Intl), Storybook with addon-a11y, and
+                shadcn's own clsx, tailwind-merge, class-variance-authority, tw-animate-css and react-day-picker.
+                Approved, installed only when first needed: Recharts (with a table alternative for every chart) and
+                TanStack Virtual (only after a failed performance test).
+  not included: Motion (CSS transitions are enough for a calm UI; added when a need CSS cannot meet appears) ·
+                libphonenumber-js (no phone field — see the product-changes entry) · an i18n library (Hebrew only) ·
+                Chromatic (an external provider; Storybook is built as static files) · Vaul (Sheet covers the need).
+  tokens:       one source in packages/shared/src/design-tokens/, generated into apps/web CSS by
+                tools/build-design-tokens.js, with a Vitest contrast test over every token pair. Semantic names match
+                shadcn's.
+  versions:     locked at WORKPLAN 7.0 with the lockfile; npm audit in CI.
+  decided by:   Afik (11.10.2026, "14–18: לפי ההמלצה"; 20: "libphonenumber-js יוצא מהחבילה")
+
+2026-10-11 | Design consistency without a design agent
+  updates:      2026-09-12 "Six agents, not eleven" — its accepted cost ("no independent design ... specialist until a
+                failure pattern earns one") stands; this entry names who covers design consistency meanwhile.
+  rule:         lint in CI (no physical direction classes, no arbitrary Tailwind values, no hex outside the tokens file,
+                no @radix-ui imports outside components/ui) · a contrast test on the tokens · a `design-system` craft
+                skill for BUILDER and CRITIC (after 7.0) · a "Design consistency" domain in workflow.md, modelled on
+                Accessibility · one added CRITIC check (budget 19 of 20) · Playwright screenshots of stories,
+                non-blocking at first · Afik at the Preview as the design authority.
+  revisit:      three design-consistency escapes in escapes.md open an Agent Necessity Test for a design agent.
+  decided by:   Afik (11.10.2026, "14–18: לפי ההמלצה")
+
+2026-10-11 | Product changes from the sketch review — to be written into SRS 2.9
+  welcome:      a static illustration instead of a rotating image (FR-AUTH-001) · a gender-neutral heading
+  login:        email only, no username (FR-AUTH-002, PG-002)
+  password:     VAL-003 / AC-003 — at least 10 characters, no upper/lower/digit/special requirement, any character
+                allowed (Hebrew and spaces included), **no blocking of common or breached passwords**. One rule for
+                Regular and Professional. Supabase Auth settings follow the same rule.
+  registration: two steps, as in the SRS · account types shown as "חשבון אישי" and "חשבון מקצועי" (PG-003) · parent
+                gender optional (VAL-006; the options stay with OP-004) · child fields required only when "יש לנו ילד"
+                is chosen · due date for the pregnancy choice opens a new OP rather than being invented · a required
+                Terms of Use and Privacy acceptance at the end of step 2, with links
+  phone:        removed from both registration paths (PG-005, PG-007, FR-REG-004, FR-PROREG-002). VAL-004 and AC-017 are
+                not needed for now. A phone, if ever needed, is added in account settings. Impact on FR-AUTH-003
+                (password recovery): the channel stays TBD, but without a phone number no SMS option exists; email is
+                the channel that remains — recorded as an impact, not decided.
+  professional: no birth date (PG-006) · an optional "שם עסק" field · the sketch's field reads "מספר עוסק
+                (מורשה/פטור)/ח.פ" — the reading is confirmed and OP-006 closes; the number is collected in the
+                verification process (OP-005), not at registration, since an exempt dealer's number is usually a
+                personal ID number
+  navigation:   the Marketplace tab is labelled "חנות" · the Feed is the landing screen after login · Appendix A's
+                reading of sketch 56 is corrected ("הרשת החברתית" — the Feed page, not a registration transition)
+  feed:         one Reaction type in v1 (FR-FEED-003); its name is decided in the R2 mockup
+  open points:  new OPs — brand identity and logo · coupons in the Marketplace · due date for the pregnancy choice
+  pending:      the eighth tracker tile (OP-007) — Afik's answer left the choice blank ("[אמבטיה / אחר: ___]"); stays open
+  why:          the sketches were read image by image on 11.10.2026; twelve gaps against the SRS were found
+                (docs/design/sketches/README.md).
+  decided by:   Afik (11.10.2026, "7–13: לפי ההמלצה" · "19, 21–27: לפי ההמלצה" · "20: אין צורך כרגע בטלפון" ·
+                "28: קופונים כ-OP חדש" · "אין חסימה של סיסמאות נפוצות או סיסמאות שדלפו")
+
 ---
 
 ## Pending — not yet decided
@@ -466,6 +562,9 @@ YYYY-MM-DD | <decision in one line>
 code in TypeScript (entry "Rule 0 reopened").
 
 **First initiative.** Deferred by Afik (D7, 10.10.2026) until a structured plan is made.
+
+**Design choices at the review rounds.** Palette, Hebrew font and desktop layout at R1; the Reaction's name at R2;
+the eighth tracker tile (OP-007). See the 2026-10-11 design entries.
 
 **Open product points** are tracked in the SRS itself: `docs/srs/appendix-b-open-points.md` (OP-xxx),
 plus every "TBD" or "נדרש אישור" in the section files. They are product decisions, so they belong there.
