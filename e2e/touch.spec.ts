@@ -40,11 +40,25 @@ async function smallTargets(page: Page, rootSelector: string): Promise<Small[]> 
         const disabled = el.matches(':disabled') || el.getAttribute('aria-disabled') === 'true';
         if (!visible || disabled) continue;
         if (rect.width >= 44 && rect.height >= 44) continue;
-        // The inline exception: an a[href], computed display inline, in a parent that has other text.
-        if (el.matches('a[href]') && style.display === 'inline' && el.parentElement) {
+        // The inline exception: an a[href], computed display inline, in a p or in the label of a checkbox or radio,
+        // with text outside every a and button of that parent.
+        // A span that only wraps the link's text (the Checkbox label does this) is looked through: the sentence
+        // container is the first non-span ancestor.
+        let parent = el.parentElement;
+        while (parent !== null && parent.tagName === 'SPAN') parent = parent.parentElement;
+        const sentenceParent =
+          parent !== null &&
+          (parent.tagName === 'P' ||
+            (parent instanceof HTMLLabelElement &&
+              (parent.control ??
+                (parent.htmlFor ? document.getElementById(parent.htmlFor) : null) ??
+                parent.querySelector('[role="checkbox"], [role="radio"]'))?.matches(
+                'input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"]',
+              ) === true));
+        if (el.matches('a[href]') && style.display === 'inline' && parent && sentenceParent) {
           // "text outside the link" = a letter or digit outside every a and button of the parent;
           // separators such as "|" do not make a sentence.
-          const clone = el.parentElement.cloneNode(true);
+          const clone = parent.cloneNode(true);
           if (clone instanceof Element) {
             for (const other of Array.from(clone.querySelectorAll('a, button'))) other.remove();
             if (/[\p{L}\p{N}]/u.test(clone.textContent ?? '')) continue;
@@ -117,13 +131,64 @@ test.describe('[18] the inline-link exemption is narrow', () => {
     expect(small.map((s) => s.tag).sort()).toEqual(['a', 'button']);
   });
 
-  // Reading of the addendum: "text outside every a and button in the parent". A label followed by a stand-alone link
-  // has such text ("סיסמה"), so by the literal definition the link is exempt. Pinned here so a change is deliberate;
-  // reported to SPEC as a possible loophole.
-  test('[18] control (pinned reading): a label text followed by a stand-alone link counts as text outside the link', async ({
-    page,
-  }) => {
-    expect(await judge(page, '<div>סיסמה <a href="/forgot">שכחתי</a></div>')).toEqual([]);
+  test('[18] control: a div with a label text and a stand-alone link is not exempt', async ({ page }) => {
+    const small = await judge(page, '<div>סיסמה <a href="/forgot">שכחתי</a></div>');
+    expect(small.map((x) => x.tag)).toEqual(['a']);
+  });
+
+  test('[18] control: a <p> with a sentence and an inline link is exempt', async ({ page }) => {
+    expect(await judge(page, '<p>שכחת את הסיסמה? <a href="/forgot">לאיפוס</a> כאן</p>')).toEqual([]);
+  });
+
+  test('[18] control: the label of a native checkbox with inline links is exempt', async ({ page }) => {
+    expect(
+      await judge(
+        page,
+        '<input type="checkbox" id="t"><label for="t">אני מסכים ל<a href="/terms">תנאים</a> ול<a href="/privacy">פרטיות</a></label>',
+      ),
+    ).toEqual([]);
+  });
+
+  test('[18] control: the label of a role=checkbox control with an inline link is exempt', async ({ page }) => {
+    expect(
+      await judge(
+        page,
+        '<button type="button" role="checkbox" aria-checked="false" id="t" style="width:44px;height:44px"></button><label for="t">אני מסכים ל<a href="/terms">תנאים</a></label>',
+      ),
+    ).toEqual([]);
+  });
+
+  test('[18] control: the label of a radio with an inline link is exempt', async ({ page }) => {
+    expect(
+      await judge(page, '<label><input type="radio" name="r">בחירה <a href="/info">מידע</a></label>'),
+    ).toEqual([]);
+  });
+
+  test('[18] control: the label of a text field with a link is not exempt', async ({ page }) => {
+    const small = await judge(
+      page,
+      '<label for="pw">סיסמה <a href="/forgot">שכחתי</a></label><input type="text" id="pw" style="width:200px;height:44px">',
+    );
+    expect(small.map((x) => x.tag)).toEqual(['a']);
+  });
+
+  test('[18] control: a span inside a div (not a p or a checkbox label) is not exempt', async ({ page }) => {
+    const small = await judge(page, '<div><span>שכחת את הסיסמה? <a href="/forgot">לאיפוס</a> כאן</span></div>');
+    expect(small.map((x) => x.tag)).toEqual(['a']);
+  });
+
+  test('[18] control: a span wrapping label text inside a checkbox label is looked through (exempt)', async ({ page }) => {
+    expect(
+      await judge(
+        page,
+        '<label><input type="checkbox" style="width:24px;height:24px"><span>אישור <a href="/t">תנאים</a> ו<a href="/p">פרטיות</a></span></label>',
+      ),
+    ).toEqual([]);
+  });
+
+  test('[18] control: a span with text and a link is not exempt', async ({ page }) => {
+    const small = await judge(page, '<span>שכחת את הסיסמה? <a href="/forgot">לאיפוס</a> כאן</span>');
+    expect(small.map((x) => x.tag)).toEqual(['a']);
   });
 
   test('[18] control: a too-small button inside a sentence still fails', async ({ page }) => {
