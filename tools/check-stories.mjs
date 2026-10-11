@@ -8,7 +8,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const componentsDir = path.join(root, "apps/web/src/components");
+const repoComponentsDir = path.join(root, "apps/web/src/components");
 const LAYERS = ["ui", "shared", "layout"];
 
 // <layer>/<file name without .tsx>: minimum number of stories (the states of .work/ui-wave-1/spec.md).
@@ -24,7 +24,7 @@ export const NO_VISUAL = new Set(["ui/direction-provider"]);
 
 const isStory = (name) => name.endsWith(".stories.tsx");
 const isComponent = (name) =>
-  /.tsx?$/.test(name) && !isStory(name) && !name.endsWith(".d.ts") && !/.(test|spec).tsx?$/.test(name);
+  /\.tsx?$/.test(name) && !isStory(name) && !name.endsWith(".d.ts") && !/\.(test|spec)\.tsx?$/.test(name);
 
 // Every file of a layer, nested folders included, as a path relative to the layer.
 async function walk(dir, prefix = "") {
@@ -44,7 +44,8 @@ export async function exportedStories(file) {
   return [...source.matchAll(/^export const (\w+)\s*:\s*(?:Story|StoryObj)\b/gm)].map((m) => m[1]);
 }
 
-export async function check() {
+// componentsDir holds the layer folders (ui, shared, layout); states maps "<layer>/<file>" to its minimum story count.
+export async function check(componentsDir, states) {
   const problems = [];
   for (const layer of LAYERS) {
     for (const file of await walk(path.join(componentsDir, layer))) {
@@ -57,7 +58,7 @@ export async function check() {
         problems.push(`${file} in ${layer} has no sibling ${path.basename(storyFile)}`);
         continue;
       }
-      const required = STATES[key];
+      const required = states[key];
       if (required === undefined) {
         problems.push(`${key} is not in STATES (tools/check-stories.mjs): add its state count`);
       } else if (stories.length < required) {
@@ -69,7 +70,7 @@ export async function check() {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const problems = await check();
+  const problems = await check(repoComponentsDir, STATES);
   if (problems.length > 0) {
     for (const problem of problems) console.error(`check-stories: ${problem}`);
     process.exit(1);
