@@ -17,10 +17,10 @@ const BORDER = rgb(colors.border);
 const ROOT = '#storybook-root';
 const field = (page: Page) => page.locator(`${ROOT} input:not([type="hidden"]), ${ROOT} select`).first();
 
-test('part c: the 18 part c stories exist in the built Storybook (so the per-story specs cover them)', () => {
+test('part c: the 18 part c stories exist in the built Storybook (so the per-story specs cover them): 19 stories', () => {
   const prefixes = ['ui-textinput--', 'shared-formfield--', 'shared-passwordinput--', 'ui-selectinput--'];
   const found = prefixes.map((p) => storyIds().filter((id) => id.startsWith(p)).length);
-  expect(found).toEqual([5, 4, 5, 4]);
+  expect(found).toEqual([5, 4, 6, 4]);
 });
 
 test.describe('TextInput (25)', () => {
@@ -196,16 +196,34 @@ test.describe('PasswordInput (27, 17)', () => {
     expect(prevented).toBe(false);
   });
 
-  test('[27] shared-passwordinput--with-rules: met rules carry a ✓ in text, unmet do not; list items exist', async ({
+  test('[27] shared-passwordinput--with-rules: an unmet rule is plain text with hidden "(עדיין לא)", no ✓', async ({
     page,
   }) => {
     await openStory(page, 'shared-passwordinput--with-rules');
-    const items = await page.locator(`${ROOT} li`).allTextContents();
-    expect(items.length).toBeGreaterThan(0);
-    const withMark = items.filter((t) => t.includes('✓'));
-    const without = items.filter((t) => !t.includes('✓'));
-    expect(withMark.length, 'the story shows at least one met rule').toBeGreaterThan(0);
-    expect(without.length, 'the story shows at least one unmet rule').toBeGreaterThan(0);
+    const items = page.locator(`${ROOT} li`);
+    expect(await items.count()).toBeGreaterThan(0);
+    for (const text of await items.allTextContents()) {
+      expect(text).not.toContain('✓');
+      expect(text).toContain('(עדיין לא)');
+      expect(text).not.toContain('(התקיים)');
+    }
+  });
+
+  test('[27] shared-passwordinput--rules-met: a met rule carries an aria-hidden ✓ and hidden "(התקיים)"', async ({
+    page,
+  }) => {
+    await openStory(page, 'shared-passwordinput--rules-met');
+    const items = page.locator(`${ROOT} li`);
+    expect(await items.count()).toBeGreaterThan(0);
+    for (const text of await items.allTextContents()) {
+      expect(text).toContain('✓');
+      expect(text).toContain('(התקיים)');
+      expect(text).not.toContain('(עדיין לא)');
+    }
+    const glyph = page.locator(`${ROOT} li [aria-hidden="true"]`).filter({ hasText: '✓' });
+    await expect(glyph.first()).toBeAttached();
+    // the status text is not inside the aria-hidden glyph, so it is announced
+    await expect(page.locator(`${ROOT} li [aria-hidden="true"]`).filter({ hasText: '(התקיים)' })).toHaveCount(0);
   });
 
   for (const id of ['shared-passwordinput--empty', 'shared-passwordinput--filled', 'shared-passwordinput--disabled']) {
