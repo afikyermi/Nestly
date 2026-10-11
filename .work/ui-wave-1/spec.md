@@ -279,7 +279,18 @@ SelectInput also accept `aria-label?`. When both `error` and `aria-invalid` are 
 **Addendum after part d (ORCHESTRATOR, 12.10.2026) — criterion 18:** a link that sits inline inside a sentence (for
 example the terms and privacy links in the Checkbox label) is exempt from the 44×44 and 24×24 target size, as WCAG
 2.5.8's inline exception allows. The exemption covers an `a[href]` whose computed `display` is `inline` and whose
-parent element also contains text outside the link. Every other control keeps the 44×44 check.
+parent element also contains text outside the link. Every other control keeps the 44×44 check. "Text outside the
+link" means text outside every `a` and `button` in that parent — a row of links with separators is not a sentence.
+
+**Addendum after the part-d review (ORCHESTRATOR, 12.10.2026) — errors are announced, not only drawn:**
+- ChoiceCardGroup: the fieldset carries `role="radiogroup"`; when `error` is set it carries `aria-invalid="true"`. New
+  optional prop `aria-describedby?` goes on the fieldset, so the caller links its error message.
+- DateInput: new optional prop `aria-describedby?` on the fieldset; with `error`, each of the three fields keeps
+  `aria-invalid="true"`.
+- Checkbox: accepts `aria-invalid?` and `aria-describedby?` (as the part-c controls do). `error` and `aria-invalid`
+  combine — either one marks it invalid; neither overrides the other.
+- Story copy follows decided requirements only: a story never implies a flow the SRS leaves open (e.g. password
+  reset while its channel is TBD).
 
 **Open**
 - **DR-1 — decided at Gate 1 (ORCHESTRATOR, 11.10.2026):** the five units (FormField, Checkbox, InlineAlert, Logo,
