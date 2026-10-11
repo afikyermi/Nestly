@@ -168,7 +168,7 @@ specialists' professional recommendation, and records the decision, the alternat
 **Reserved for Afik** — never decided by an agent:
 
 1. **Secrets** — keys and passwords. Afik enters them himself. No agent reads them or asks for them in chat.
-2. **Production** — migrations to nestly-prod run only from CI after his approval on the GitHub `production`
+2. **Production** — migrations to nestly-prod run only from CI after his approval on the GitHub `db-production`
    environment. Every direct path to production stays blocked (settings.json, the guard hook).
 3. **Irreversible decisions**, and **material SRS changes**: adding or removing a feature, changing the
    security model.

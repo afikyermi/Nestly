@@ -72,7 +72,7 @@ If any condition fails mid-work, stop and re-enter the Standard path. Do not fin
 
 Standard, plus: DATA ARCHITECT always · CRITIC on opus. ORCHESTRATOR passes Gate 1, Gate 2 and the
 Preview. An irreversible or destructive change still needs Afik's explicit approval, and a migration to
-production waits for his approval on the GitHub `production` environment (CLAUDE.md → "Decision authority").
+production waits for his approval on the GitHub `db-production` environment (CLAUDE.md → "Decision authority").
 
 Entry condition: any risk flag in `CLAUDE.md`.
 

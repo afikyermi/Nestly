@@ -18,10 +18,11 @@
 - **7.3 עד עכשיו:** ‏T2, ‏T3, ‏T4 ו-T5 עברו, וגם P1 עד P4. **הוחלט (ORCHESTRATOR):** ‏`app_owner` מקבל את `authenticated` (inherit, בלי set), כדי שיוכל לכתוב policies עם `auth.uid()`. ה-FK היחיד ל-`auth.users` יושב על טבלת "עוגן" אחת, ו-`postgres` מוסיף אותו ב-bootstrap. ב-prod אתה מריץ את ה-bootstrap בעצמך, עם הפיצ'ר הראשון. מודל האבטחה לא השתנה. הפירוט ב-`decisions.md`.
 - **אחריה:** I1.
 - **ממתין לך (סודות ופעולות):**
-  1. **להוסיף ל-`.env.preview`** את השורה `PREVIEW_PUBLISHABLE_KEY=`, עם המפתח מסוג publishable של nestly-preview (Project Settings ← API Keys). ‏T7 קורא אותו בעצמו.
-  2. **לכבות את ה-Data API ב-nestly-preview** (Project Settings ← Data API). אחר כך אריץ את T7.
-  3. **ליצור ב-GitHub שתי סביבות** (Settings ← Environments). הראשונה `production`: ב-Required reviewers אתה, וב-Deployment branches רק `main`. השנייה `preview`: בלי הגבלות. עוד לא צריך סודות. זה T6.
-  4. **אחרי ש-T7 יעבור:** לכבות את ה-Data API גם ב-nestly-prod. אכתוב כאן כשזה מוכן.
+  1. **לכבות את ה-Data API ב-nestly-prod.** ‏T7 עבר ב-preview: ‏REST ו-GraphQL נחסמו, ‏Auth עובד (`decisions.md`).
+  2. **ליצור ב-GitHub שתי סביבות למיגרציות** (Settings ← Environments ← New environment). השמות שונים מ-Preview ו-Production של Vercel:
+     - `db-production`: ב-Required reviewers אתה, וב-Deployment branches and tags בוחרים Selected branches ומוסיפים רק את `main`.
+     - `db-preview`: בלי הגבלות.
+     - עוד לא צריך סודות. מחרוזות החיבור של `app_owner` יתווספו עם המיגרציה הראשונה (I1). זה T6.
 - **ממתין להכרעה שלך:** אין.
 - **פתוח, בלי הכרעה נדרשת עכשיו:**
   - 4.11 ו-6.1 (Threat Modeling).

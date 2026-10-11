@@ -891,6 +891,21 @@ YYYY-MM-DD | <decision in one line>
                 without pending and let F1.3–F1.5 raise it (each form would invent its own)
   decided by:   ORCHESTRATOR (11.10.2026, Gate 1 under "Working rules")
 
+2026-10-11 | GitHub environments for migrations are `db-preview` and `db-production`; T7 passed
+  updates:      2026-10-11 "Migration path, migration role, Data API and pre-migration tests" — its environments
+                `preview` and `production` are renamed. Vercel already created GitHub environments named Preview and
+                Production for its deployments, and GitHub environment names are case-insensitive, so the migration
+                environments need their own names.
+  rule:         `db-production` — required reviewer Afik, deployment branches `main` only; holds only the nestly-prod
+                migration connection string (app_owner). `db-preview` — no reviewer; holds only the nestly-preview
+                one. Vercel's Preview and Production environments are left as Vercel made them.
+  t7:           on nestly-preview with the Data API off — /rest/v1/ refused (401), a table path and /graphql/v1 refused
+                (503, PGRST002: no schema cache), /auth/v1/health and /auth/v1/settings 200. Sign-in is unaffected, so
+                the Data API is also turned off on nestly-prod (Afik, dashboard).
+  alternatives: reuse Vercel's Production environment for migrations (mixes deploy approvals with database writes and
+                ties migration secrets to an environment another integration manages)
+  decided by:   ORCHESTRATOR (11.10.2026, names proposed by Afik)
+
 ---
 
 ## Pending — not yet decided

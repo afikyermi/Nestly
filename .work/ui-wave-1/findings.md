@@ -26,3 +26,20 @@ finding: the style-key check applies to literal objects inside a JSX `style` att
 Carried to part b: put `.storybook` in a tsconfig (its lint currently fails on parse), and check `components/ui` for raw
 Radix re-exports. TEST ENGINEER's high finding (ESLint plugin collision on `features/**`) fixed and validated by TEST
 ENGINEER. Merged to main at 7189684.
+
+## Part b — `ui-wave-1/part-b` at 8133799 + TEST ENGINEER ef24cce — verdict: Validated with Concern
+
+No critical or high finding. CI green; Edge 99/99; Chrome unproven locally (channel `chromium` not installed).
+
+| # | Severity | File | Claim | Fix |
+|---|---|---|---|---|
+| 1 | medium | apps/web/src/lib/cn.ts:12 | tailwind-merge not extended with the spacing tokens: `cn('px-5 px-screen-margin')` keeps both, so overrides fail silently in every component | extend `spacing` from the token source; unit test the override |
+| 2 | medium | playwright.config.ts:17, ci.yml browser job | `chrome` project runs Chromium, not Chrome (NFR-QA-001); CI installs `chromium` | `channel: 'chrome'` and `playwright install --with-deps chrome msedge`, same commit (ORCHESTRATOR decided) |
+| 3 | low | button.tsx:78-103 | double-submit guard holds only if `pending` is set synchronously | document the contract on the prop |
+| 4 | low | button.tsx:50, 64-102 | (a) link with `aria-disabled` still fires · (b) `variant` ignored when `iconOnly` · (c) pending icon-only crowds loader and icon · (d) `aria-busy` poorly announced | guard (a); forbid or document (b); swap child for loader (c); document caller's live region (d) |
+| 5 | low | tools/check-stories.mjs:27-45 | no negative proof; counts any `export const`; nested/`.ts` components unchecked | count story exports only; walk nested folders; TEST ENGINEER adds negative fixtures |
+| 6 | low | tools/eslint-rules/copy-rules.mjs | gender-slash heuristic: `כן/לא` false positive; split literals bypass | accepted as heuristic backed by review → debt |
+| 7 | low | package.json test:browser, ci.yml | `--pass-with-no-tests` now stale; a lost suite stays green | remove the flag and the comment |
+
+Also from TEST ENGINEER: the `ui-tooltip--on-hover` story double-wraps a Tooltip (two `role=tooltip`), marked `test.fail` ·
+spec gap: component APIs (exports, props) are not specified — SPEC adds an API line per component for parts c–f.
