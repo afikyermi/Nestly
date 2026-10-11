@@ -315,17 +315,122 @@ YYYY-MM-DD | <decision in one line>
                 SRS §11 (2.6).
   decided by:   Afik (10.10.2026)
 
+2026-10-11 | Rule 0 reopened: all product code in TypeScript — web, server and shared
+  supersedes:   2026-09-12 "IRON RULE — the system is built only in React, JavaScript, CSS, HTML". Also closes the
+                Pending item "Type checking via JSDoc".
+  rule:         React · TypeScript · CSS · HTML for the web app · Node.js + TypeScript for the server ·
+                TypeScript in packages/shared. `strict: true`; no `any`, no `@ts-ignore`, `@ts-nocheck` or
+                `@ts-expect-error`; `as` restricted. Enforced in CI and by CRITIC.
+  why:          the iron rule's accepted cost was the typecheck gate — the cheapest and most reliable defence
+                against an agent inventing a field, a prop or a function. A typecheck over the whole repo restores
+                it, and packages/shared carries one set of types and validations to the web app, the server and,
+                later, the mobile app.
+  accepted cost: a typecheck step in CI; typescript-eslint as a required dev dependency (ESLint core cannot lint
+                TypeScript); types can still be defeated by casts — hence the bans above.
+  kept:         Web first in React; React Native only after the Web version is complete and Afik approves
+                (SRS §4, §11, OP-002). No alternative UI framework. QA tooling still follows NFR-QA-001.
+  decided by:   Afik (11.10.2026, "מאשר, החלטה שלי")
+
+2026-10-11 | Own server: Node.js + TypeScript on Fastify, layered route → service → repository
+  supersedes:   the stack line "server-side code only where a secret requires it, as Supabase Edge Functions in
+                JavaScript" (CLAUDE.md and conventions.md since the first version; it never had an entry here).
+                Revisits the 2026-10-10 guidelines-review rejection of "API route per call, NestJS layers…": that
+                rejection rested on there being no server.
+  shape:        Fastify. route ≤200 lines → service ≤400 → repository ≤400. The web app reaches product data only
+                through the server.
+  why:          Fastify gives full TypeScript, schema validation and mature plugins for JWT, rate limiting
+                (NFR-SEC-006) and security headers, without NestJS's dependency-injection layer. A server of our own
+                puts transactions, rate limits and input validation in one place.
+  path rules:   with a server, every feature adds endpoints. The risk flag "a new publicly reachable endpoint" and
+                the Light-path condition "no new endpoint" become "an endpoint reachable without authentication, or
+                a new external surface" — otherwise every feature would be Elevated.
+  accepted cost: a server to host and operate (hosting not decided); one more process to secure.
+  decided by:   Afik (11.10.2026)
+
+2026-10-11 | Monorepo with npm workspaces: apps/web · apps/server · packages/shared · apps/mobile later
+  shape:        apps/web — React + Vite, TypeScript · apps/server — Node.js + TypeScript · packages/shared —
+                validations (VAL-xxx), types and constants, with no DOM and no Node APIs · apps/mobile — React
+                Native, later only (SRS §11, OP-002), against the same server.
+  boundaries:   shared imports nothing from apps; web never imports server; plus the 2026-10-10 boundaries inside
+                the web app. Enforced by lint (WORKPLAN 7.1).
+  why:          npm workspaces add no new tool. packages/shared is the contract between web, server and future mobile.
+  decided by:   Afik (11.10.2026)
+
+2026-10-11 | Supabase: managed Postgres (the only database) and Supabase Auth; Data API off; Storage and Realtime TBD
+  extends:      2026-09-12 "Database: PostgreSQL via Supabase. One source of truth" — unchanged.
+  auth:         Supabase Auth. The web app uses supabase-js for sign-in only. The server verifies the JWT through
+                JWKS with asymmetric keys, ignores the token's role and forces `authenticated`. Account type and
+                permissions are read from database tables only, never from user_metadata. The password-recovery
+                channel stays TBD (SRS §12). The JWT verification library is chosen in part 7.
+  data api:     the Supabase Data API (PostgREST) is off for the product schema. Product tables live in a schema the
+                API does not expose, with anon privileges revoked — defence in depth if the API is ever re-enabled.
+  storage:      TBD until the media feature (SRS §12, NFR-MEDIA-001). A direction to examine then is noted in
+                WORKPLAN — it is not a decision. Realtime: TBD.
+  decided by:   Afik (11.10.2026)
+
+2026-10-11 | Database access: Drizzle, through roles that cannot bypass RLS, with the user's identity in every transaction
+  extends:      2026-09-12 "Authorization is enforced in the database, via RLS" — unchanged and still the source of
+                truth. The server authenticates, validates and rate-limits; it never filters rows for permission.
+  how:          the full rules are in .claude/knowledge/data-model.md. In short: the server connects as app_server —
+                LOGIN, NOBYPASSRLS, owns no table, granted authenticated (and anon for guest endpoints) WITH INHERIT
+                FALSE, SET TRUE, never service_role. Every request runs in a transaction that sets the role and
+                `request.jwt.claims` locally; outside one, every query fails. Pooler in transaction mode, postgres-js
+                with prepare: false. Migrations by a separate owner role over a direct connection, never at
+                runtime. FORCE ROW LEVEL SECURITY on every table; every view WITH (security_invoker = true).
+                Background jobs run as app_jobs in a separate process, with credentials the request server cannot
+                reach.
+  unchanged:    settings.json — drizzle-kit stays under ask.
+  decided by:   Afik (11.10.2026)
+
+2026-10-11 | Audit is written by the database in the same transaction; protected reads go through audited functions
+  how:          admin and moderator writes are audited by triggers (an approved SECURITY DEFINER exception);
+                `authenticated` has no INSERT, UPDATE or DELETE on the audit table; the reason travels in a
+                transaction-local setting. Reads a trigger cannot see — revealing an anonymous author (AC-077) and
+                moderator access to Private Group content (NFR-PRIV-002) — go through a dedicated function that
+                returns the data and writes the audit entry in the same call.
+  anonymous:    the real author of an anonymous post is stored in a separate table, readable only by the author
+                (author_id = auth.uid()) — to see, edit and delete their posts and get notifications on them. Nobody
+                else reads it; the reveal function is the only other path. RLS hides rows, not columns, and a
+                security_invoker view cannot mask a column its caller cannot read — hence a table, not a mask.
+                Final shape at Gate 2.
+  why:          NFR-AUDIT-001, BR-027: an action cannot happen without its record, and the server cannot forge one.
+  decided by:   Afik (11.10.2026)
+
+2026-10-11 | Zod for validation, in packages/shared
+  supersedes:   the deferral in the 2026-10-10 guidelines review ("VAL rules as one JS module — Zod is a DECISION
+                REQUEST").
+  why:          one schema per VAL rule, shared by the web form and the server, native to TypeScript.
+  decided by:   Afik (11.10.2026)
+
+2026-10-11 | Traceability: FR/AC IDs in test names and an `Implements:` line in commits
+  rule:         test names carry the FR/AC IDs they assert; each commit carries `Implements: FR-…, AC-…`. In code,
+                an ID appears only beside a direct implementation of a BR or VAL rule — IDs scattered through code
+                go stale. Step 14 also updates SRS §17 when pages, FRs or entities change.
+  decided by:   Afik (11.10.2026)
+
+2026-10-11 | Web build (2026-10-10): Vite stays, the reason is updated
+  updates:      2026-10-10 "Web build: Vite, React single-page app". Its reason ("server-side code lives only in
+                Edge Functions") no longer holds. The reason now: the server is a separate app (apps/server), so the
+                web app needs no server-rendering layer of its own, and a single-page app shares its shape with the
+                future React Native app. The web app is TypeScript (entry above), not JavaScript.
+  decided by:   Afik (Vite 10.10.2026, TypeScript 11.10.2026)
+
+2026-10-11 | Agent-model fixes from the comparison against the SRS
+  changes:      an item the specification leaves open is never filled — stop and raise a DECISION REQUEST — now in
+                BUILDER, DATA ARCHITECT and CRITIC, not only SPEC · descriptions of BUILDER and TEST ENGINEER match
+                the bug-fix path · DATA ARCHITECT's stale analytics note points to ALGORITHM & DATA · a Not Ready
+                from CRITIC or from ALGORITHM & DATA blocks · audit in the same transaction, a pgTAP pattern per
+                Permission Key, NFR-ALG-001 and NFR-SEC-006 thresholds in the review points · SCOUT, not the
+                built-in search agents, for codebase questions · CRITIC's budget count made exact.
+  status:       design-time changes (learning.md §9), provisional until 5 features.
+  decided by:   Afik ("בצע", 11.10.2026)
+
 ---
 
 ## Pending — not yet decided
 
-**Type checking via JSDoc.** Plain `.js` files with typed comments and a `jsconfig.json` recover much
-of what the iron rule gives up — misspelled fields, wrong argument types, calls to functions that do
-not exist. No `.ts` files, no compiled output; the shipped code is exactly the code written. The
-honest caveat: the checker itself is the TypeScript compiler in check-only mode, so Afik must decide
-whether that violates the spirit of the rule. A weaker, entirely free version is `jsconfig.json`
-alone, with no JSDoc, which still catches some errors from library-provided types.
-**Not adopted. Awaiting Afik.**
+~~**Type checking via JSDoc.**~~ **Closed 2026-10-11** — superseded by the decision to write all product
+code in TypeScript (entry "Rule 0 reopened").
 
 **First initiative.** Deferred by Afik (D7, 10.10.2026) until a structured plan is made.
 

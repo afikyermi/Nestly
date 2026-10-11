@@ -10,15 +10,22 @@ step, in the same commit. No other status or progress file.
 
 ## Stack — fixed
 
-**React · JavaScript · Tailwind · JSX** (iron rule, see rule 0) · built with **Vite** as a single-page
-app (a build tool only — product code stays React and JavaScript) · **PostgreSQL via Supabase** ·
-**authorization enforced in the database with RLS** · server-side code only where a secret requires
-it, as Supabase Edge Functions in JavaScript · **QA tooling per SRS NFR-QA-001 / OP-018**: Vitest +
-React Testing Library, Playwright on Chrome and Edge, axe-core, pgTAP, npm audit. Tests live in the
-repo, separate from business logic.
+**Languages (rule 0):** React · TypeScript · CSS · HTML on the web, Node.js + TypeScript on the server.
+
+- **Monorepo, npm workspaces:** `apps/web` · `apps/server` · `packages/shared` · `apps/mobile` later only.
+- **Web:** React + TypeScript + Tailwind, built with **Vite** as a single-page app.
+- **Server:** Node.js + TypeScript on **Fastify**, layered route → service → repository. The web app reaches
+  product data only through it.
+- **Shared:** `packages/shared` — Zod validations (VAL-xxx), types, constants. No DOM, no Node APIs.
+- **Data:** **PostgreSQL via Supabase**, the only database, accessed with **Drizzle**. **Authorization is
+  enforced in the database with RLS.** The Supabase Data API is off for the product schema.
+- **Auth:** **Supabase Auth**; the server verifies the JWT. Storage and Realtime: TBD (SRS §12).
+- **QA tooling per SRS NFR-QA-001 / OP-018:** Vitest + React Testing Library, Playwright on Chrome and Edge,
+  axe-core, pgTAP, npm audit. Tests live in the repo, separate from business logic.
 
 Web first in React. React Native only after the Web version is complete and Afik approves the move, so
-everything built for Web must stay portable to React Native (SRS §4, OP-002).
+everything built for Web must stay portable to React Native (SRS §4, OP-002) — business logic lives in
+`packages/shared` and the server, not in web-only UI.
 
 Details and reasoning: `.claude/knowledge/conventions.md` and `data-model.md`.
 
@@ -51,14 +58,17 @@ the files the task needs, or ask SCOUT.
 
 **Two consequences that shape every review:**
 
-1. **No compile-time typecheck.** A misspelled field or a call to something that does not exist is a
-   runtime crash, not a build error. What remains: the database schema, the tests, and CRITIC
-   actively verifying that referenced symbols exist. CI gates are **tests · lint · RLS policy
-   present**, not typecheck.
-2. **Authorization lives in the database.** Application code must never filter rows for permission.
-   If it has to, the policy is wrong — fix the policy. A table without an RLS policy does not ship.
-   Nothing bypasses it: no service_role key in product code, and no SECURITY DEFINER function outside
-   the approved list — see the platform rules in `.claude/knowledge/data-model.md`.
+1. **The typecheck is a gate, and it can be defeated.** Strict TypeScript across web, server and shared
+   catches a misspelled field or a call to something that does not exist before the code runs. CI gates are
+   **typecheck · tests · lint · RLS checks** (WORKPLAN 7.1). What a typecheck cannot catch: a cast that
+   lies to the compiler, a raw SQL string, and runtime data that does not match its type. Hence Zod at every
+   input boundary, the bans on `any` and ts-comments, and CRITIC still verifying what types cannot.
+2. **Authorization lives in the database — the server does not replace it.** Application code, server
+   code included, never filters rows for permission. If it has to, the policy is wrong — fix the policy. A
+   table without an RLS policy does not ship. The server runs every query inside a transaction that carries
+   the user's identity, as a role that cannot bypass RLS. Nothing bypasses it: no service_role, no role
+   with BYPASSRLS, no view without `security_invoker`, no SECURITY DEFINER function outside the approved
+   list — see the platform rules in `.claude/knowledge/data-model.md`.
 
 ---
 
@@ -96,7 +106,7 @@ Pick one per unit of work. When in doubt, go up a level, never down.
 
 | Path | When | Who runs |
 |---|---|---|
-| **Light** | no schema change · no authz · no new endpoint · no new dependency · under ~30 lines | BUILDER → CI |
+| **Light** | no schema change · no authz · no unauthenticated endpoint or new external surface · no new dependency · under ~30 lines | BUILDER → CI |
 | **Standard** | default | SPEC → BUILDER → CI → CRITIC + TEST ENGINEER |
 | **Elevated** | any risk flag below is true | + DATA ARCHITECT · CRITIC on opus · Afik reviews before merge |
 | **Bug fix** | merged code behaves differently from the SRS or an approved spec | `bug.md` → TEST ENGINEER (failing test first) → BUILDER → CI → CRITIC unless Light-sized. risk flags still apply — see `.claude/workflow.md` |
@@ -108,7 +118,9 @@ Pick one per unit of work. When in doubt, go up a level, never down.
 - schema migration, or any irreversible or destructive change
 - money movement
 - a new external provider
-- a new publicly reachable endpoint
+- an endpoint reachable without authentication, or a new external surface (webhook, public URL, provider
+  callback). An ordinary authenticated endpoint is not a flag by itself — with a server, every feature adds
+  endpoints
 
 No scoring. A flag is either true or it is not.
 
@@ -207,7 +219,7 @@ One task, one owner. Contributors and reviewers may be many.
 | Shared project knowledge | `.claude/knowledge/` — `conventions.md` (stack, binding SRS constraints) · `data-model.md` (as-built schema, plus the SRS map of authorization layers) · `srs-review-points.md` (product-wide invariants every review checks) · `ai-ml-readiness.md` (dormant AI/ML role) |
 | Role-specific knowledge | the agent definitions |
 | Task context | `.work/<slug>/` |
-| On-demand retrieval | SCOUT |
+| On-demand retrieval | SCOUT — not the built-in search agents (Explore, general-purpose). SCOUT is pinned to a cheap model and returns `file:line` citations, never conclusions |
 
 `.work/` is append-only history. **It is never a source of truth.**
 
@@ -263,15 +275,16 @@ an agent looped or repeated the same failure three times.
 
 ## Hard rules
 
-0. **IRON RULE — the system is built only in React, JavaScript, CSS, HTML.** Not open for
-   relitigation. No TypeScript, no other backend language, no alternative UI framework. An agent
-   that believes the rule is blocking something files a `DECISION REQUEST`; it never works around it.
-   The rule governs **product code**. QA tooling follows SRS NFR-QA-001: chosen per stage, kept separate
-   from business logic.
-   **Consequence every agent must carry:** there is no compile-time typecheck. The usual safety net
-   against a hallucinated function, property or field does not exist here. TEST ENGINEER compensates
-   with wider coverage; CRITIC must actively verify that every referenced symbol, import and field
-   exists rather than assuming a compiler would have caught it.
+0. **Languages — React, TypeScript, CSS and HTML on the web; Node.js + TypeScript on the server;
+   TypeScript in `packages/shared`.** Decided by Afik on 11.10.2026, replacing the JavaScript-only rule of
+   12.9. No other backend language, no alternative UI framework. `strict: true`; no `any`, no `@ts-ignore`,
+   `@ts-nocheck` or `@ts-expect-error`; `as` restricted. Web first; React Native only after the Web version
+   is complete and Afik approves. An agent that believes the rule is blocking something files a
+   `DECISION REQUEST`; it never works around it. The rule governs **product code**. QA tooling follows SRS
+   NFR-QA-001: chosen per stage, kept separate from business logic.
+   **Consequence every agent must carry:** the typecheck is only as honest as the types. A cast, an
+   unvalidated input or a raw SQL string brings back the failure it exists to prevent — inventing a field
+   that does not exist.
 1. Guardrails are hooks and permissions, never prose. A rule written only in a prompt is a suggestion.
 2. No agent changes its own role, authority, permissions or core rules. Improvements go through
    Afik as a versioned change.
