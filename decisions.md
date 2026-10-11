@@ -842,6 +842,39 @@ YYYY-MM-DD | <decision in one line>
   decided by:   Afik (11.10.2026, a written rule set approved in chat with "מאשר", including the added boundary on
                 legal, minors and money)
 
+2026-10-11 | app_owner holds `authenticated` (inherit, no set); one anchor table carries the only FK to auth.users, added by postgres
+  source:       DATA ARCHITECT, .work/infra-7.3/owner-role.md · evidence: T5 and P1–P4 on nestly-preview (tools/probes/)
+  found:        on Supabase, `postgres` holds USAGE on schema `auth` and REFERENCES on `auth.users` without grant option
+                (auth is owned by supabase_admin, auth.users by supabase_auth_admin). So an owner role can neither
+                create a policy or function that calls auth.uid() (L2) nor an FK to auth.users (L1).
+  rule (L2):    `grant authenticated to app_owner with inherit true, set false`. Verified: the full migration path
+                (CLI over the session pooler, table owned by the owner, FORCE RLS, a policy with auth.uid(), the CLI
+                history table) · the owner still cannot read auth.users and nothing is owned by authenticated (P1) ·
+                `TO authenticated` policies bind the owner, who sees 0 rows without claims (P3) · a definer function
+                owned by the owner returns the caller's uid (P4).
+  rule (L1):    exactly one product table (the anchor, named with the first table) references auth.users; all others
+                reference the anchor. `postgres`, made a member of app_owner (inherit, no set), adds that one FK in a
+                versioned bootstrap run once per environment — on nestly-prod by Afik. Verified: the FK is created, the
+                table stays owned by the owner, later owner DDL works, deleting the Auth user cascades (P2, bonus).
+  data-model:   rule 5 extended; new paragraph "The auth.users anchor and bootstrap steps"; an open note under rules
+                16–17 (FORCE RLS binds definer functions owned by app_owner — resolved at the first one's Gate 2).
+  re-check:     P1 shows `authenticated` holds privileges on storage (25 tables) and realtime (4 tables). A leaked
+                app_owner secret therefore reaches them as far as an authenticated user with chosen claims — the same
+                as a leaked app_server secret; before, R1's reason was "the product schema only". Nil today: Storage
+                and Realtime are unused. When M1 picks Supabase Storage or Realtime is adopted, DATA ARCHITECT
+                re-evaluates a narrower path; if app_owner could act as users over stored media (which may include
+                images of minors), it goes to Afik (reserved item 4).
+  deferred:     the anchor's ON DELETE action — decided with the first table against retention (§13.4); reserved for
+                Afik if it touches data about minors.
+  alternatives: L2 — a product-schema function reading request.jwt.claims (a second definition of the current user
+                that can drift from auth.uid(), four rules reworded, unprobed) · granting `anon` (narrower, untested) ·
+                postgres creating every policy (reverses R1). L1 — a trigger on auth.users (a SECURITY DEFINER
+                exception, still a postgres step) · the server deleting data then calling the Auth admin API (not
+                atomic, needs the service-role key) · a periodic orphan sweep (orphans persist until it runs).
+  security:     not a change to the security model: RLS stays the only enforcement point, no role bypasses it, FORCE
+                RLS on every table, app_owner never runs at runtime, no row becomes readable to anyone new.
+  decided by:   ORCHESTRATOR (11.10.2026, under "Working rules"; DATA ARCHITECT's recommendation, probes passed)
+
 ---
 
 ## Pending — not yet decided

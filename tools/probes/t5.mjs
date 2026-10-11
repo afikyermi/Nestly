@@ -80,8 +80,11 @@ try {
 } catch (e) {
   record('T5 unexpected error', false, e && e.message ? e.message : String(e));
 } finally {
-  await admin.unsafe('drop schema if exists probe_t5 cascade').catch(() => {});
-  await admin.unsafe('drop schema if exists supabase_migrations cascade').catch(() => {});
+  // postgres must be a member of the owner to drop what the owner created (found 2026-10-11: drops failed silently).
+  await admin.unsafe('grant probe_owner to postgres with inherit true, set false').catch(() => {});
+  await admin.unsafe('drop schema if exists probe_t5 cascade').catch((e) => record('T5 cleanup', false, e.message));
+  await admin.unsafe('drop schema if exists supabase_migrations cascade').catch((e) => record('T5 cleanup', false, e.message));
+  await admin.unsafe('revoke probe_owner from postgres').catch(() => {});
   await admin.unsafe('alter role probe_owner password null').catch(() => {});
   await admin.end({ timeout: 5 });
   fs.rmSync(work, { recursive: true, force: true });

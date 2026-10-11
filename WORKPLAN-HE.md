@@ -14,8 +14,9 @@
 
 - **מצב:** התשתית פעילה. ‏7.0 (שלד), ‏7.1 (CI), ‏7.2 (hooks) ו-7.4 (Vercel ו-Supabase) הושלמו. ב-7.3 נשארו הבדיקות T2 עד T7 לפני המיגרציה הראשונה. **כללי העבודה שונו ב-11.10:** אני עובר את Gate 1, ‏Gate 2 ו-Preview ומחליט את מה שלא שמור לך, ורושם כל החלטה ב-`decisions.md`. נשארו אצלך: סודות, prod, החלטות שאי אפשר לבטל או שמשנות את ה-SRS מהותית, ונקודות של משפט, קטינים או כסף (`CLAUDE.md`, ‏"Decision authority").
 - **Preview:** ‏[nestly-blue.vercel.app](https://nestly-blue.vercel.app). ‏`/api/health` עובד. עוד אין מסך מוצר. **Supabase הועבר ב-11.10 לפרנקפורט:** הפרויקט החדש של prod הוא `cihugbwafnaujsqabgyp`, והחדש של preview הוא `xmihorrkegrdlbhpktny`. שני הפרויקטים הישנים, שנפתחו בטעות באסיה, חסומים ב-guard וב-`db-preview.mjs`.
-- **המשימה הבאה:** סיום 7.3. ‏T2, ‏T3 ו-T4 עברו. ‏T5 עבר בתנאי אחד. DATA ARCHITECT מכין המלצה לשתי מגבלות ש-T5 מצא: `app_owner` לא יכול ליצור FK ל-`auth.users`, ולא policy שקוראת ל-`auth.uid()` (פרטים ב-`.work/infra-7.3/`). אחרי ההמלצה אני מחליט ורושם.
-- **אחריה:** T6 ו-T7, ואז 9.6, ‏9.7 ו-I1.
+- **המשימה הבאה:** 9.6. ‏7.3 מחכה רק לך: T6 ו-T7, וכיבוי ה-Data API. בזמן הזה אני ממשיך במה שלא תלוי בהם.
+- **7.3 עד עכשיו:** ‏T2, ‏T3, ‏T4 ו-T5 עברו, וגם P1 עד P4. **הוחלט (ORCHESTRATOR):** ‏`app_owner` מקבל את `authenticated` (inherit, בלי set), כדי שיוכל לכתוב policies עם `auth.uid()`. ה-FK היחיד ל-`auth.users` יושב על טבלת "עוגן" אחת, ו-`postgres` מוסיף אותו ב-bootstrap. ב-prod אתה מריץ את ה-bootstrap בעצמך, עם הפיצ'ר הראשון. מודל האבטחה לא השתנה. הפירוט ב-`decisions.md`.
+- **אחריה:** 9.7, ואז I1.
 - **ממתין לך (סודות ופעולות):**
   1. **להוסיף ל-`.env.preview`** את השורה `PREVIEW_PUBLISHABLE_KEY=`, עם המפתח מסוג publishable של nestly-preview (Project Settings ← API Keys). ‏T7 קורא אותו בעצמו.
   2. **לכבות את ה-Data API ב-nestly-preview** (Project Settings ← Data API). אחר כך אריץ את T7.
