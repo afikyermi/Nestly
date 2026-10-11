@@ -20,10 +20,15 @@ export const WithRules: Story = {
   args: {
     autoComplete: 'new-password',
     defaultValue: 'ציפור',
-    rules: [
-      { id: 'length', text: 'לפחות 8 תווים', met: false },
-      { id: 'letters', text: 'אותיות', met: true },
-    ],
+    rules: [{ id: 'length', text: 'לפחות 10 תווים', met: false }],
+  },
+};
+
+export const RulesMet: Story = {
+  args: {
+    autoComplete: 'new-password',
+    defaultValue: 'ציפור בקן שלי',
+    rules: [{ id: 'length', text: 'לפחות 10 תווים', met: true }],
   },
 };
 
