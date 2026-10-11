@@ -554,6 +554,13 @@ YYYY-MM-DD | <decision in one line>
   decided by:   Afik (11.10.2026, "7–13: לפי ההמלצה" · "19, 21–27: לפי ההמלצה" · "20: אין צורך כרגע בטלפון" ·
                 "28: קופונים כ-OP חדש" · "אין חסימה של סיסמאות נפוצות או סיסמאות שדלפו")
 
+2026-10-11 | Bottom navigation: the services tab is labelled "יועצים"
+  extends:      2026-10-11 "Product changes from the sketch review" — another tab label, to be written into SRS 2.9 (§7.1)
+  rule:         the bottom-navigation tab that opens ServicesDirectoryPage (PG-011) reads "יועצים". The sketch's
+                "נותני שירות ויועצים" does not fit a tab. The page's own name is unchanged.
+  alternatives: "נותני שירות" (the shortened form shown in R1)
+  decided by:   Afik (11.10.2026, "במקום 'נותני שירות' שנה ל-'יועצים'")
+
 ---
 
 ## Pending — not yet decided
