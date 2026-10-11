@@ -1,6 +1,6 @@
 # Workflow — canonical pipeline
 
-**Version:** 1.2
+**Version:** 1.3
 **Status:** the single source of truth for sequence, triggers and who enters when.
 Agent definitions describe professions. **This file describes order.** If they disagree, this file wins.
 
@@ -22,6 +22,7 @@ An Initiative is approved once. Features inside it then flow without further ini
 
 ```
 .work/<slug>/
+  intake.md     ORCHESTRATOR      classification: SRS IDs, open items, risk flags, path, team (written by /feature)
   spec.md       SPEC              the contract. SRS IDs it implements. acceptance criteria. frozen at Gate 1
   bug.md        ORCHESTRATOR      bug-fix path only, in place of spec.md: expected (SRS ID), actual, reproduction
   schema.md     DATA ARCHITECT    only when schema changes. this is Gate 2
@@ -41,7 +42,7 @@ The maintained as-built descriptions are `.claude/knowledge/data-model.md` and `
 | # | Actor | Action | Output |
 |---|---|---|---|
 | 1 | Afik | intent, one or two sentences | — |
-| 2 | ORCHESTRATOR | classify, pick path, select team | — |
+| 2 | ORCHESTRATOR | classify, pick path, select team — `/feature` | `intake.md` |
 | 3 | **SPEC** | write the contract | `spec.md` |
 | 4 | **Afik** | ✋ **Gate 1** — approve or edit one page | approved `spec.md` |
 | 5 | **DATA ARCHITECT** | *only if schema changes* — Gate 2. Policies follow the authorization layers in `.claude/knowledge/data-model.md` | `schema.md` |
@@ -190,9 +191,9 @@ what, and when. A domain becomes an agent only through the Agent Necessity Test.
 | | |
 |---|---|
 | **Trigger** | any new or changed UI |
-| **BUILDER** | builds to the accessibility constraints in `.claude/knowledge/conventions.md`. Shared UI components carry accessibility once, so every screen inherits it |
+| **BUILDER** | builds to the accessibility constraints in `.claude/knowledge/conventions.md`, with the `accessibility` and `rtl-hebrew` craft skills. Shared UI components carry accessibility once, so every screen inherits it |
 | **TEST ENGINEER** | axe-core checks inside the Playwright E2E tests of every screen the feature touches |
-| **CRITIC** | what automation misses: keyboard operation, focus order and visibility, meaningful labels, target size |
+| **CRITIC** | what automation misses: keyboard operation, focus order and visibility, meaningful labels, target size — loading the `accessibility` skill when the diff changes UI |
 | **Severity** | a WCAG 2.2 AA failure on a core flow is `high` |
 
 *Threat Modeling, the second domain in plan item 6.1, has not been added yet.*
@@ -248,3 +249,6 @@ usually the spec was too large and should have been split.
   without authentication and no new external surface" · a Not Ready from CRITIC or ALGORITHM & DATA blocks ·
   traceability: FR/AC IDs in test names and an `Implements:` line in commits · step 14 updates SRS §17.
   Decided by Afik (TypeScript and own-server decisions, 11.10.2026). Provisional until 5 features.
+- 1.3 — 2026-10-11 — `intake.md` artifact, written by `/feature` at step 2 · the Accessibility domain names the
+  craft skills. Process skills in `.claude/skills/` carry out these steps; this file still defines them.
+  Decided by Afik (skills decision). Provisional until 5 features.

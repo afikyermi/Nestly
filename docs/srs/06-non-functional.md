@@ -25,6 +25,7 @@
 | NFR-PRIV-002 | Privacy | תוכן Private Group לא יוחזר ב-Search/API/Deep Link למשתמש קהילה שאינו Member. חריג ניהולי: Admin רשאי לגשת לצורך ניהול; Moderator שאינו Member רשאי לקבל גישה נקודתית דרך כלי Moderation רק עם PRIVATE_GROUP_MODERATE ובצירוף הרשאות הטיפול הנדרשות. אין Membership והגישה נרשמת ב-Audit Log. |
 | NFR-PRIV-003 | Privacy | התראת יום הולדת של ילד תיווצר רק אם ההורה הגדיר שהמידע מותר לשיתוף עם Friends. |
 | NFR-USAB-002 | Usability | Top Bar, Search/Notification/Chat Dropdowns ו-Side Drawer ישמרו על מבנה והתנהגות עקביים בין מסכי Web; בשלב Mobile יותאמו ל-React Native ללא שינוי לוגיקה עסקית מאושרת. |
+| NFR-USAB-003 | Usability | שפת הממשק בעברית מנוסחת באופן ניטרלי מגדרית: פנייה בלשון סתמית או בשם פעולה ("אפשר לשתף", "יש למלא", כפתור "שמירה"), ולשון רבים רק כשאין חלופה. אין צורות לוכסן ("את/ה") ואין הנחה על מגדר המשתמש. ההחלטה אינה תלויה ב-OP-004 (החלטה מ-11.10.2026). |
 | NFR-ALG-001 | Algorithm Governance | v1 חייב לעבוד ללא ML/LLM באמצעות Rule-Based/Scoring Configuration. משקולות, decay, thresholds, exploration/frequency caps לא יוקשחו בקוד כאשר ניתן לנהל אותם ב-AlgorithmConfiguration. |
 | NFR-ALG-002 | Algorithm Safety | Authorization/Privacy/Block/Group visibility ו-content status מיושמים לפני Ranking. Recommendation לעולם אינה עוקפת הרשאה בגלל Score או Paid Promotion. |
 | NFR-ALG-003 | Organic vs Paid | Organic Score/Reputation ו-Paid Promotion נשמרים ומדווחים בנפרד. תשלום אינו משנה Organic ranking history או Professional reputation. |

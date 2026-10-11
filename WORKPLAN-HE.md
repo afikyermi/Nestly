@@ -10,9 +10,9 @@
 
 ## איפה אנחנו עומדים
 
-**עודכן:** 11.10.2026 · **גרסת SRS:** 2.7
+**עודכן:** 11.10.2026 · **גרסת SRS:** 2.8
 
-- **מצב:** צוות הסוכנים וה-SRS מוכנים. עוד לא נכתבה שורת קוד. ב-11.10 הארכיטקטורה עודכנה: TypeScript, שרת Node.js משלנו, monorepo, Supabase למסד ול-Auth, ו-Drizzle. לפני הפיצ'ר הראשון צריך את חלק 7: CI ו-hook.
+- **מצב:** צוות הסוכנים וה-SRS מוכנים. עוד לא נכתבה שורת קוד. ב-11.10 הארכיטקטורה עודכנה: TypeScript, שרת Node.js משלנו, monorepo, Supabase למסד ול-Auth, ו-Drizzle. נוספה מערכת skills, שלב א: כלי תהליך, משימות SRS ו-skills מקצועיים. לפני הפיצ'ר הראשון צריך את חלק 7: CI ו-hook.
 - **המשימה הבאה:** 7.0, שלד ה-monorepo. חלוקת העל כבר הוחלטה. אני מכין אופציות לתיקיות שבתוך כל app, ולמוסכמות השמות, ואתה בוחר. היא חוסמת את 7.1.
 - **אחריה:** 7.1, אחר כך 7.2, אחר כך 7.3. חלק 8 תלוי ב-D7.
 - **ממתין להכרעה שלך:**
@@ -108,6 +108,7 @@
 | 5.8 | גרסה 2.5: Journey Summary. OP-021 נפתח | ✅ |
 | 5.9 | גרסה 2.6: §4.1 (בידוד Features, שכבת לוגיקה בלי Web, אכיפה אוטומטית) · §11 (Vite) | ✅ |
 | 5.10 | גרסה 2.7: §11 (TypeScript, שרת Node.js, monorepo) · §12 (Supabase Auth) · §13 (גישה דרך השרת עם Drizzle, זהות בכל טרנזקציה, Audit באותה טרנזקציה) | ✅ |
+| 5.11 | גרסה 2.8: NFR-USAB-003, עברית בניסוח ניטרלי מגדרית | ✅ |
 
 ## חלק 6 — סגירת פערי כיסוי 🔄
 
@@ -123,7 +124,7 @@
 |---|---|
 | 7.0 | **שלד ה-monorepo** (npm workspaces). **כבר הוחלט:** `apps/web` (React, Vite ו-TS) · `apps/server` (Node.js, TS ו-Fastify, בשכבות route ← service ← repository) · `packages/shared` (Zod, טיפוסים וקבועים) · `apps/mobile` רק בעתיד. **להחלטה שלך:** התיקיות בתוך כל app, לפי השכבות של §4.2 ב-web, ומוסכמות השמות ⏳ |
 | 7.1 | **CI.**<br>**בסיס:** typecheck (`strict`) · טסטים · lint (typescript-eslint, תלות dev הכרחית) · ביקורת תלויות.<br>**כללי TS:** איסור `any`, `@ts-ignore`, `@ts-nocheck` ו-`@ts-expect-error` · הגבלת `as`.<br>**תקרות גודל:** Page, Feature ו-Component 600 · hook 300 · service 400 · utility 300 · route בשרת 200 · service בשרת 400 · repository 400.<br>**גבולות import:** Feature לא מייבא Feature · Shared UI לא מייבא features או services · הלוגיקה ב-web בלי react-dom, window או document · shared לא מייבא מ-apps, ובלי DOM ובלי API של Node · web לא מייבא מ-server.<br>**בדיקות מסד:** לכל טבלה יש מדיניות RLS ו-FORCE RLS · אף טבלה לא בבעלות `app_server` · כל view מוגדר `security_invoker` · טסט pgTAP ששאילתה בלי זהות נכשלת · הטסטים רצים בתפקיד `app_server` |
-| 7.2 | **PreToolUse hook**, והאות ל-`incidents.md`. כולל חסימה של `git add -A` ו-`git add .` |
+| 7.2 | **hooks.** PreToolUse, והאות ל-`incidents.md`.<br>**לכולם:** חסימה של `git add -A` ו-`git add .`.<br>**לפי סוכן:** hooks בתוך הגדרת הסוכן, עם סקריפט אחד `.claude/hooks/guard.js`. הסקריפט נסגר כשמשהו משתבש: שגיאה מחזירה exit 2.<br>• **CRITIC:** לא קורא `notes.md`.<br>• **TEST ENGINEER:** לא קורא `apps/*/src`, חוץ מקבצי טסטים, ולא את `notes.md`. החסימה חלה בכל כלי: Read, Grep, Glob, git (diff, show, log -p, blame), ופקודות Bash שמזכירות את הנתיבים (cat, less, head, type ודומות). מותר לו לקרוא את `packages/shared`, החוזה.<br>• **BUILDER:** לא כותב קבצי טסטים.<br>**לבדיקה:** ה-hook של security-guidance. קוראים את הקוד שלו לפני שמפעילים |
 | 7.3 | **בדיקת ה-hook בסביבה מבודדת לפני הפעלה**, כדי שלא ישבור את הסביבה. בודקים גם אם אפשר לחסום עריכת טסטים של TEST ENGINEER על ידי BUILDER. **במקביל, בדיקות תשתית:**<br>• גרסת Postgres: 16 ומעלה, לטובת `WITH INHERIT FALSE, SET TRUE`. אחרת NOINHERIT.<br>• ה-pooler מקבל תפקיד מותאם.<br>• ב-Supabase מופעלים מפתחות JWT אסימטריים.<br>• בחירת ספריית אימות JWT |
 
 **הערה, לא החלטה: Storage.** נשאר TBD עד פיצ'ר המדיה. כיוון שאפיק רוצה לבחון אז: Cloudflare R2, עם buckets פרטיים, presigned URLs מהשרת וניקוי EXIF ו-GPS.
@@ -177,6 +178,21 @@
 - skills לפרטיות ולאירוע אבטחה לפני השקה (C7)
 - "להעביר, לא לשכתב" ל-React Native (C8)
 - AI (C9)
+
+## מערכת skills 🔄 (11.10.2026)
+
+ההחלטה של אפיק: "מאשר את כל ההמלצות". הפירוט ב-`decisions.md`, והכללים ב-`learning.md` §6.
+
+| שלב | מה | מצב |
+|---|---|---|
+| **א** | **כלי תהליך:** `/where`, `/feature`, `/bugfix`, `/gate`, `synthesize`, `/wrap-up`, `/decision` · **משימות:** `/srs-update`, `/srs-export` · **משותף:** `srs-lookup` · **מקצועי:** `rtl-hebrew`, `accessibility`, `security-craft`, `ux-copy-he` · שדות `skills:` בהגדרות הסוכנים · `intake.md` ב-workflow 1.3 · NFR-USAB-003 | ✅ |
+| **ב** | **אחרי 7.0:** `react-web`, `fastify-api`, `drizzle-postgres`, `testing-craft` ו-`shared-contracts`, עם הגרסאות שננעלו · `rls-tests`, אחרי שיש הרצת pgTAP ב-CI (7.1) · טעינה מראש: `testing-craft` ו-`rls-tests` ל-TEST ENGINEER, `rls-tests` ו-`drizzle-postgres` ל-DATA ARCHITECT · ה-hooks (7.2) · **בדיקה ב-7.3:** האם skill עם `paths` נטען בתוך subagent | ⬜ |
+| **ג** | **אחרי הפיצ'ר הראשון:** דוגמאות שמפנות לקוד אמיתי · `/srs-coverage` | ⬜ |
+
+**לא נוצרו, בכוונה:**
+- `agent-protocol`: פורמט ההחזרה נכנס ל-`CLAUDE.md`.
+- `tbd-protocol`: הכלל כבר כתוב בחמש הגדרות.
+- `db-identity`: העובדות נמצאות ב-`data-model.md`.
 
 ## חלק 8 — Initiative ראשון ופיצ'ר ראשון ⬜
 
