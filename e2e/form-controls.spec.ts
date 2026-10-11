@@ -294,3 +294,65 @@ for (const id of touchIds) {
     }
   });
 }
+
+// Review round (CRITIC findings 2 and addendum).
+test.describe('PasswordInput geometry and token (27)', () => {
+  for (const id of ['shared-passwordinput--filled', 'shared-passwordinput--empty', 'shared-passwordinput--with-rules']) {
+    test(`[27] ${id}: the toggle does not intersect the text area of the input (RTL page, dir=ltr field)`, async ({
+      page,
+    }) => {
+      await openStory(page, id);
+      expect(await page.evaluate(() => document.documentElement.getAttribute('dir'))).toBe('rtl');
+      const g = await page.evaluate(() => {
+        const input = document.querySelector<HTMLInputElement>('#storybook-root input');
+        const toggle = document.querySelector<HTMLElement>('#storybook-root button');
+        if (!input || !toggle) return null;
+        const r = input.getBoundingClientRect();
+        const c = getComputedStyle(input);
+        const t = toggle.getBoundingClientRect();
+        return {
+          dir: input.getAttribute('dir'),
+          textLeft: r.left + Number.parseFloat(c.borderLeftWidth) + Number.parseFloat(c.paddingLeft),
+          textRight: r.right - Number.parseFloat(c.borderRightWidth) - Number.parseFloat(c.paddingRight),
+          toggleLeft: t.left,
+          toggleRight: t.right,
+          inputLeft: r.left,
+          inputRight: r.right,
+        };
+      });
+      expect(g).not.toBeNull();
+      if (!g) return;
+      expect(g.dir).toBe('ltr');
+      expect(g.textRight - g.textLeft, 'the text area has width').toBeGreaterThan(40);
+      // the toggle sits over the input box, so the check is not vacuous
+      expect(g.toggleRight).toBeGreaterThan(g.inputLeft);
+      expect(g.toggleLeft).toBeLessThan(g.inputRight);
+      // no horizontal overlap between toggle and text area
+      const overlap = Math.min(g.toggleRight, g.textRight) - Math.max(g.toggleLeft, g.textLeft);
+      expect(overlap, 'toggle overlaps the text area by this many px').toBeLessThanOrEqual(0);
+    });
+  }
+
+  for (const id of ['shared-passwordinput--empty', 'shared-passwordinput--filled']) {
+    test(`[27] ${id}: the field border is the input token, not the border token`, async ({ page }) => {
+      await openStory(page, id);
+      const color = await field(page).evaluate((el) => getComputedStyle(el).borderTopColor);
+      expect(color).toBe(INPUT);
+      expect(color).not.toBe(BORDER);
+    });
+  }
+});
+
+test.describe('SelectInput text colour (28)', () => {
+  const colorOf = (page: Page) => field(page).evaluate((el) => getComputedStyle(el).color);
+
+  test('[28] ui-selectinput--placeholder: the shown text is muted-foreground', async ({ page }) => {
+    await openStory(page, 'ui-selectinput--placeholder');
+    expect(await colorOf(page)).toBe(rgb(colors['muted-foreground']));
+  });
+
+  test('[28] ui-selectinput--selected: a real choice shows foreground', async ({ page }) => {
+    await openStory(page, 'ui-selectinput--selected');
+    expect(await colorOf(page)).toBe(rgb(colors.foreground));
+  });
+});

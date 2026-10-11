@@ -4,6 +4,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { FormField } from '@/components/shared/form-field';
+import type { FormFieldControl } from '@/components/shared/form-field';
 import { PasswordInput } from '@/components/shared/password-input';
 import { SelectInput } from '@/components/ui/select-input';
 import { TextInput } from '@/components/ui/text-input';
@@ -139,7 +140,7 @@ describe('FormField', () => {
   });
 
   it('[26] the render prop receives id, aria-describedby and aria-invalid', () => {
-    const seen = vi.fn<(c: Record<string, unknown>) => void>();
+    const seen = vi.fn<(c: FormFieldControl) => void>();
     render(
       <FormField label="א" hint="רמז" error="שגיאה">
         {(c) => {
@@ -148,10 +149,10 @@ describe('FormField', () => {
         }}
       </FormField>,
     );
-    const arg = seen.mock.calls[0]?.[0] ?? {};
-    expect(typeof arg['id']).toBe('string');
-    expect(typeof arg['aria-describedby']).toBe('string');
-    expect(String(arg['aria-invalid'])).toBe('true');
+    const arg = seen.mock.calls[0]?.[0];
+    expect(typeof arg?.id).toBe('string');
+    expect(typeof arg?.['aria-describedby']).toBe('string');
+    expect(String(arg?.['aria-invalid'])).toBe('true');
   });
 
   it('[26] the label comes before the control in the DOM (above the field), and there is no placeholder', () => {
@@ -323,9 +324,36 @@ describe('PasswordInput', () => {
     expect(items).toHaveLength(2);
     const met = items[0];
     const unmet = items[1];
+    // visible text: the glyph (met only) and the rule text
     expect(met?.textContent).toMatch(/✓\s*לפחות 8 תווים/);
-    expect(unmet?.textContent?.trim()).toBe('ספרה אחת');
+    expect(unmet?.textContent).toContain('ספרה אחת');
     expect(unmet?.textContent).not.toContain('✓');
+    // hidden status text carries the state for assistive technology
+    expect(met?.textContent).toContain('(התקיים)');
+    expect(met?.textContent).not.toContain('(עדיין לא)');
+    expect(unmet?.textContent).toContain('(עדיין לא)');
+    expect(unmet?.textContent).not.toContain('(התקיים)');
+    // the glyph is decoration: aria-hidden
+    const glyph = Array.from(met?.querySelectorAll('[aria-hidden="true"]') ?? []).find((e) =>
+      e.textContent?.includes('✓'),
+    );
+    expect(glyph, 'the ✓ glyph sits in an aria-hidden element').toBeDefined();
+    expect(unmet?.querySelector('[aria-hidden="true"]')?.textContent ?? '').not.toContain('✓');
+  });
+
+  it('[27] the status text is not inside the aria-hidden glyph (so it is announced)', () => {
+    render(
+      <PasswordInput
+        aria-label="סיסמה"
+        toggleLabel="הצגה"
+        rules={[{ id: 'len', text: 'לפחות 8 תווים', met: true }]}
+      />,
+    );
+    const item = screen.getByRole('listitem');
+    for (const hidden of Array.from(item.querySelectorAll('[aria-hidden="true"]'))) {
+      expect(hidden.textContent).not.toContain('(התקיים)');
+      expect(hidden.textContent).not.toContain('לפחות 8 תווים');
+    }
   });
 
   it('[27] a rule flipping from unmet to met gains the mark (met is text, not colour alone)', () => {
