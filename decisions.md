@@ -875,6 +875,22 @@ YYYY-MM-DD | <decision in one line>
                 RLS on every table, app_owner never runs at runtime, no row becomes readable to anyone new.
   decided by:   ORCHESTRATOR (11.10.2026, under "Working rules"; DATA ARCHITECT's recommendation, probes passed)
 
+2026-10-11 | UI wave 1 (9.7) Gate 1: five shared components join SRS §4.2; Button gets a pending state
+  source:       .work/ui-wave-1/spec.md (SPEC), DR-1 and DR-2, approved at Gate 1
+  DR-1:         AuthLayout (Shared Layout), FormField, Checkbox, InlineAlert and Logo (Shared UI) are added to SRS §4.2
+                (version 2.11). The approved R2 screens need them; they are shared UI, not a feature, and change no
+                behaviour the SRS describes.
+  DR-2:         Button gets a pending state in wave 1: the label stays, a small loader icon at the inline start,
+                aria-busy="true", focusable and not disabled, activation while pending does not call the handler, no
+                spin under reduced motion. Reason: every I1 form submits; a disabled submit and a centred spinner are
+                both banned (direction.md), and ignoring repeat activation prevents a double submit (a CRITIC check).
+  questions:    Q1–Q3 accepted as stated: arbitrary values rejected everywhere, data-/aria- state variants allowed,
+                [&…] selector variants only in components/ui · SelectInput is a native <select> · story screenshots
+                are added by TEST ENGINEER in part f.
+  alternatives: DR-1 — keep the five as unlisted helpers (a gap between the SRS and the code) · DR-2 — ship Button
+                without pending and let F1.3–F1.5 raise it (each form would invent its own)
+  decided by:   ORCHESTRATOR (11.10.2026, Gate 1 under "Working rules")
+
 ---
 
 ## Pending — not yet decided
