@@ -51,3 +51,21 @@ skeleton at 375: palette and Rubik per `tokens.md`, loader at inline start, dire
 avatar on the start side; keyboard focus shows the ring and the icon button's tooltip opens on focus. Merged at f71a0ab.
 **For SPEC, parts c–f:** add one API line per component (exports, props, the accessible-name prop) — TEST ENGINEER had
 to learn the API from stories in part b.
+
+## Part c — `ui-wave-1/part-c` at 82515f6 + a3b86f0 — verdict: Not Ready
+
+| # | Severity | File | Claim | Fix |
+|---|---|---|---|---|
+| 1 | high | apps/web/tests/ui/form-controls.test.tsx:146 | test file failed `tsc`, so `npm run ci` and the web build were red (Vitest does not typecheck) | spy typed as `FormFieldControl`; TEST ENGINEER now runs every CI step |
+| 2 | high | shared/password-input.tsx:57 | in the RTL page the show/hide toggle sat on top of the LTR password text (padding on the wrong side) | `ps-14` on the LTR input; geometry test added |
+| 3 | low | ui/select-input.tsx:52 | placeholder looked like a chosen value | muted while empty (state, since `has-[…]` is rejected by the lint) |
+| 4 | low | ui/text-input.tsx:19 | TextInput accepted every native prop, `placeholder` and `className` included | exact props on all three controls (spec addendum) |
+| 5 | low | e2e/touch.spec.ts:7 | 44×44 checked only on two story prefixes | generic over every story |
+| 6 | low | shared/password-input.tsx:79 | "✓" read as "check mark"; unmet rules had no state word | ✓ aria-hidden + sr-only "(התקיים)" / "(עדיין לא)" |
+
+**Re-check (CRITIC, d9fc3be): Validated.** Mutation probes that went undetected before (border token on PasswordInput,
+`dir="ltr"` removed, padding on the wrong side) now fail tests. **Preview (ORCHESTRATOR): passed** after a story-copy fix
+— the password rule read "8 characters" (VAL-003 is 10, no composition rules) and the select used undecided options
+(now OP-004's parent set). Merged at a89e800.
+**Process lesson:** TEST ENGINEER reported green from Vitest without the typecheck; ORCHESTRATOR now runs `npm run ci`
+after every TEST ENGINEER commit, and TEST ENGINEER lists every CI step it ran.
