@@ -1,5 +1,6 @@
 # CI for Nestly (WORKPLAN 7.1). Public repo: no secrets are used or needed.
-# Locally, `npm run ci` runs typecheck, lint, tokens:check, test and build in this order.
+# Locally, `npm run ci` runs typecheck, lint, tokens:check, check:stories, test and build in this order.
+# `build-storybook` and `test:browser` are their own jobs.
 name: CI
 
 on:
@@ -48,6 +49,8 @@ jobs:
       - run: npm run lint
       # The generated token CSS is committed; it must equal what the source builds (UI wave 1).
       - run: npm run tokens:check
+      # Every component has stories for all of its states (UI wave 1, criterion 13).
+      - run: npm run check:stories
 
   test:
     runs-on: ubuntu-latest
@@ -76,6 +79,44 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+
+  # The static gallery builds (UI wave 1, criterion 12). No Chromatic: plain files.
+  storybook:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build-storybook
+
+  # Playwright on Chrome and Edge against the built gallery (SRS NFR-QA-001).
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chrome msedge
+      - run: npm run test:browser
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
 
   audit:
     runs-on: ubuntu-latest

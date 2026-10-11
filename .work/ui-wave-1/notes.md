@@ -166,3 +166,82 @@ Known not to work yet: no components, no Storybook gallery (part b).
   `apps/web/.storybook/**/*.{ts,tsx}` (config checked with `calculateConfigForFile`; that folder is in no tsconfig yet,
   part b must add it).
 - Finding 4 is debt, not fixed. `tools/_probe.mjs` was not mine and does not exist in my tree.
+
+---
+## Part b — Storybook, Playwright set-up, icons, Button, Tooltip, Skeleton (branch `ui-wave-1/part-b`)
+
+**Approach.** Storybook 10 (`@storybook/react-vite`, addon-a11y) in `apps/web/.storybook/`, stories next to each
+component. `components/ui/`: `icons.tsx`, `button.tsx`, `tooltip.tsx`, `skeleton.tsx`, each with a `*.stories.tsx`; helper
+`lib/cn.ts`. The story gate is `tools/check-stories.mjs` (`npm run check:stories`, in `npm run ci` and the CI lint job).
+Playwright: root `playwright.config.ts`, `tsconfig.playwright.json`, `tools/serve-static.mjs`, scripts `test:browser`
+and `serve:storybook`, CI jobs `storybook` and `browser`. The suite directory `e2e/` does not exist yet (BUILDER cannot
+create it); Playwright with `--pass-with-no-tests` exits 0 without it. TEST ENGINEER creates `e2e/`.
+
+**Decisions**
+- **Versions added (approved package):** storybook, @storybook/react-vite, @storybook/addon-a11y 10.6.1 · lucide-react
+  1.55.0 · class-variance-authority 0.7.1 · clsx 2.1.1 · tailwind-merge 3.7.0 (web); @playwright/test 1.64.0 (root).
+  `npm audit --audit-level=high`: 0 vulnerabilities. No `serve` package: a 48-line `tools/serve-static.mjs` instead
+  (path-traversal guarded, 127.0.0.1 only).
+- **Button API.** `iconOnly` is a discriminated union: `iconOnly: true` requires `label: string` (tsc fails without it,
+  checked with a temporary file). The icon-only button wraps itself in a Tooltip with that label. `href` selects an `<a>`;
+  without it a `<button type="button">`. Pending: `aria-busy`, a loader first in the DOM (inline start), not `disabled`,
+  `onClick` is not called and the default is prevented (also for the link). A link has no `disabled` prop (type-level).
+- **`cn` extends tailwind-merge with our token names** (text-label, shadow-card, z-popover, duration-fast, ease-standard),
+  read from `@nestly/shared`. Without it `text-label text-primary` drops one of the two.
+- **Icons.** Wrapper factory over Lucide: `strokeWidth` 1.75, `aria-hidden="true"`, default `size-6`; `size` and
+  `strokeWidth` are not props. 15 icons (what the wave-1 screens in R2 use). Nest mark via `createLucideIcon` from the R2
+  `i-nest` paths. Directional: `ArrowBackIcon` and `ChevronForwardIcon` (`rtl:-scale-x-100`).
+- **Tooltip** has its own Radix Provider per instance; hover delay is Radix's default (700 ms), not invented by me.
+- **Skeleton** uses Tailwind's `animate-pulse` with `motion-safe:`: no moving highlight, and no animation at all under
+  reduced motion.
+- **`no-gender-slash` lint rule (criterion 16)** in `tools/eslint-rules/copy-rules.mjs`, merged into the one `nestly`
+  plugin; applies to `components/**` and `.storybook/**` (strings, template text, JSX text). `ו/או` allowed.
+- `.storybook` is in the web tsconfig as `.storybook/*.ts` and `*.tsx` (a bare `.storybook` entry is not picked up). ESLint
+  now ignores `storybook-static`, `playwright-report`, `test-results`.
+- `check:stories` is added to `npm run ci`; `build-storybook` and `test:browser` are separate CI jobs, as asked.
+
+**Deviations.** Criterion 13 counts: button 9 (primary, soft, text, lg, block, icon-only, disabled, pending, as link),
+icons 1, tooltip 2, skeleton 2. The spec says "states listed" and lists no count for these, so the numbers are mine; they
+live in `STATES` in the script and each later part adds its rows. The root script is named `test:browser` (not `e2e`):
+the hook treats names containing e2e like test paths.
+
+**Deliberately not done.** No test files (TEST ENGINEER). No `@axe-core/playwright`: not in the approved package; `axe-core`
+is installed through addon-a11y. TEST ENGINEER decides whether to use axe-core directly or ask for the wrapper.
+No lint rule against raw Radix re-exports from `components/ui` (CRITIC checks; none exist: `ui/` re-exports nothing).
+No dark mode, no Chromatic, no screenshots (Q3, part f).
+
+**Uncertain.** (1) The a11y addon parameter `test: 'error'` only has effect with the Vitest addon, which is not installed;
+criterion 14 is Playwright's. (2) Storybook's default 375 viewport is a manager-UI toolbar global; opening `iframe.html`
+directly uses the Playwright viewport, so tests must set 375 and 1024 themselves. (3) `edge` needs the `msedge` channel;
+verified Chromium only locally. (4) The Storybook build prints chunk-size and plugin-timing warnings; it exits 0.
+
+**Preview path (ORCHESTRATOR).** `npm run build-storybook`, then `npm run serve:storybook` and open
+`http://127.0.0.1:6007/`. Sidebar: ui/Button (9 stories: primary, soft, text, large, block, icon only, disabled, pending,
+as link), ui/Tooltip (hover; the focus story opens it at load), ui/Skeleton, ui/Icons (All, Directional). Check: Rubik,
+terracotta primary, right-to-left, the loader at the right of "שליחה" in Pending, the back arrow pointing right, the
+tooltip on hover and on Tab. Not working yet: no form, shell or screen compositions (parts c-f).
+
+**Neighbouring.** The hook-written `incidents.md` line (BUILDER blocked from `mkdir e2e`) is uncommitted on purpose.
+
+**Evidence without test files** (probe scripts in the scratchpad, Chromium, built Storybook, not committed):
+12 build exits 0, `storybook-static/` written, addon-a11y in `main.ts`, no Chromatic · 13 removing `tooltip.stories.tsx`
+makes the script exit 1 · 14 axe (wcag2a/aa/22aa, plus colour-contrast and target-size) 0 violations on all 15 stories ·
+15 `dir=rtl`, `lang=he`, computed font `"Rubik Variable", system-ui, sans-serif` on every story · 16 the rule rejects
+`מלא/י` and `את/ה`, accepts `ו/או` · 18 targets 79x44, 145x44, 44x44 (text variant, after `min-w-11`), 93x52, 343x44, 44x44
+icon-only · 19 tsc "Property 'label' is missing" without a label; tooltip "פתיחת התפריט" on hover, "שמירה" on focus,
+none after Escape · 21 pending: `aria-busy=true`, not disabled, loader svg present · 23 skeleton under reduced motion
+`animation-name none`, duration `0s`; `aria-hidden` in source · 24 the story DOM shows `stroke-width="1.75"` and
+`aria-hidden="true"` on the loader icon (same wrapper for all). Not asserted by me: 11, 17, 20 (tests by TEST ENGINEER).
+
+### Part b, review round (CRITIC findings 1-7)
+1. `cn.ts` extends the tailwind-merge `spacing` theme from `spacingRhythm`; `cn('px-5 px-screen-margin')` returns `px-screen-margin`
+   (checked by running it; `text-label text-primary` and `p-card-padding p-4` also behave).
+2. `chrome` project uses `channel: 'chrome'`; CI installs `chrome msedge`. `npm run test:browser`: 194 passed on real Chrome and Edge,
+   2 "expected to fail, but passed" (the `test.fail` on `ui-tooltip--on-hover`, TEST ENGINEER removes the mark).
+3-4. Button: `pending` JSDoc holds the contract (synchronous set or own guard; caller's live region). A link with
+   `aria-disabled` true/"true" prevents the click. `variant` is `undefined` in the `iconOnly` type branch. Pending icon-only shows the loader instead of its icon.
+5. `check-stories.mjs` counts `export const X: Story|StoryObj` only, walks nested folders, checks `.ts` too. Negative proofs run by hand: a `.ts`
+   component without stories, a nested `shared/n/y.tsx`, and a stories file with one story plus a helper export all fail.
+6. Gender-slash heuristic: left as is (debt).
+7. `--pass-with-no-tests` and the stale CI comment removed.
+8. `OnHover` story uses a plain button as the trigger, so one tooltip opens.
