@@ -2,6 +2,9 @@
 
 Social platform. Solo founder, zero budget. The agent team is a tool for shipping, not an end in itself.
 
+**State of the work:** `WORKPLAN-HE.md` — the single status file. **Read it at the start of every session**:
+it holds what is done, what is open, the decisions made and the next task. Update it at the end of every
+step, in the same commit. No other status or progress file.
 **Operating model:** `.claude/workflow.md` is the canonical pipeline. Read it before routing work.
 **Improvement loop:** `.claude/learning.md`. **Decisions and rejected alternatives:** `decisions.md`.
 
