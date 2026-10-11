@@ -25,4 +25,6 @@ mode this file exists to expose.
 
 ---
 
-*no entries*
+2026-10-11 | 7.1 CI | GitHub Actions pinned to the mutable `@v4` tags, not commit SHAs — SHAs could not be verified offline | cost if ignored: a moved tag runs third-party code in a public repo's CI | .github/workflows/ci.yml
+2026-10-11 | 7.1 CI | `.mts` and `.cts` files match no lint block, so they escape every lint gate | cost if ignored: an unusual extension carries `any`, DOM use or a boundary breach past CI | eslint.config.mjs:140
+2026-10-11 | 7.1 CI | aliasing a global (`const g = globalThis; g.window`) escapes the portability rule; lint cannot follow it without data-flow analysis | cost if ignored: web logic touches the DOM and breaks React Native portability; left to CRITIC review | eslint.config.mjs

@@ -1,0 +1,103 @@
+# CI for Nestly (WORKPLAN 7.1). Public repo: no secrets are used or needed.
+# Locally, `npm run ci` runs typecheck, lint, test and build in this order.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Read-only, public package registry; no token is configured.
+  NPM_CONFIG_FUND: "false"
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm audit --audit-level=high
+
+  # Database checks are NOT built yet. `supabase/` does not exist; it belongs to
+  # DATA ARCHITECT and is created with the first migration. They join this
+  # workflow in that same change (WORKPLAN 7.1, "בדיקות מסד"):
+  #   - every table has an RLS policy and FORCE ROW LEVEL SECURITY
+  #   - no table is owned by `app_server`
+  #   - every view is `security_invoker`
+  #   - a pgTAP test that a query without an identity fails
+  #   - the tests run as the `app_server` role
+  #
+  # db:
+  #   runs-on: ubuntu-latest
+  #   steps: [checkout, supabase/setup-cli, `supabase db start`, `supabase test db`]

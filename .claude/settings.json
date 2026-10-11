@@ -9,7 +9,8 @@
     "deny": [
       "Bash(rm -rf:*)",
       "Bash(rm -fr:*)",
-      "Bash(git push:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
       "Bash(git reset --hard:*)",
       "Bash(git clean:*)",
       "Bash(git remote add:*)",
@@ -33,6 +34,7 @@
       "Bash(npm uninstall:*)",
       "Bash(pnpm add:*)",
       "Bash(git commit:*)",
+      "Bash(git push:*)",
       "Bash(git merge:*)",
       "Bash(git rebase:*)",
       "Bash(npx prisma migrate:*)",

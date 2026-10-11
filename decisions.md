@@ -779,6 +779,16 @@ YYYY-MM-DD | <decision in one line>
   accepted cost: the server wires the verification hook itself instead of using a ready Fastify plugin.
   decided by:   Afik (11.10.2026)
 
+2026-10-11 | `git push` moves from deny to ask in .claude/settings.json; force push stays denied
+  rule:         every push prompts Afik for approval. `git push --force` and `git push -f` stay in deny.
+  why:          the repo now has a GitHub remote and CI; Afik running every push by hand is friction, while a
+                prompt keeps his approval on each one.
+  alternatives: keep push denied, Afik pushes by hand (the state until now)
+  accepted cost: the deny rules are prefix-matched, so a force flag placed after the remote or branch
+                (`git push origin main --force`, `--force-with-lease`, `+main`) is not matched by them — it falls
+                to the ask prompt instead. The 7.2 PreToolUse hook is the stronger control for it.
+  decided by:   Afik (11.10.2026)
+
 ---
 
 ## Pending — not yet decided
