@@ -43,8 +43,12 @@ nestly/
     ├── build-srs-index.js  ← בונה את docs/srs/INDEX.md מתוך קבצי ה-SRS. להריץ אחרי כל שינוי ב-FR או AC
     ├── srs-ac-names.json   ← השמות המקוצרים של ה-AC באינדקס
     ├── export-srs-docx.js  ← מייצא את ה-SRS המלא ל-Word: exports/Nestly_SRS_v<גרסה>.docx
-    ├── package.json        ← התלות היחידה של הכלים (docx), מותקנת רק ב-tools/
-    └── docx2md.ps1         ← ממיר docx ל-markdown, למקרה שיגיע שוב קובץ Word
+    ├── package.json        ← תלויות הכלים (docx, postgres), מותקנות רק ב-tools/
+    ├── docx2md.ps1         ← ממיר docx ל-markdown, למקרה שיגיע שוב קובץ Word
+    ├── db-preview.mjs      ← SQL על nestly-preview בלבד; קורא את .env.preview בעצמו ולא מדפיס אותו
+    ├── probes/             ← בדיקות התשתית של 7.3 (T3–T7, P1–P4), על preview בלבד
+    ├── build-design-tokens.js, check-stories.mjs, eslint-rules/  ← שערי העיצוב וה-CI
+    └── situation-room/     ← חדר המצב: npm run situation-room ← http://127.0.0.1:6010
 ```
 
 ## היסטוריית התכנון — לפי הסדר

@@ -930,6 +930,35 @@ YYYY-MM-DD | <decision in one line>
                 sit under `.claude/**`, which asks Afik before any edit, and CRITIC reviews them as one unit.
   decided by:   Afik (the request and its rules, 12.10.2026) · ORCHESTRATOR (option B and the design, on SPEC's
                 recommendation)
+  later:        (ORCHESTRATOR, 12.10.2026, during review) the live view's backlog is capped at the last 6000 events —
+                history is computed on the server · a day file of garbage lines is not a "problem" state (half-written
+                lines are skipped legitimately); only I/O failures are · 60 days kept in memory (150k events: 410 ms to
+                load, 219 MB RSS) · merges are detected by commit subject on word boundaries; an unmatched part shows
+                "מיזוג לא זוהה" · the guard's TEST ENGINEER rule strips plain shell expansions ($?, $X, ${X}) before
+                judging a path; operator expansions (${X:-…}) stay globs.
+
+2026-10-12 | UI wave 1 (9.7) spec addenda after Gate 1, parts c–e — recorded together
+  source:       `.work/ui-wave-1/spec.md` (each addendum in the API section, dated) and `.work/ui-wave-1/findings.md`
+  props:        form controls (TextInput, PasswordInput, SelectInput, Checkbox) accept exactly the spec's props — no
+                `className`, no native passthrough; display and layout components accept `className` for placement only
+                (margin, alignment, flex/grid item, max width); variation is a prop (e.g. Avatar `size`).
+  errors:       errors are announced, not only drawn: ChoiceCardGroup is a `radiogroup` with `aria-invalid` and an
+                `aria-describedby` prop; DateInput and Checkbox take `aria-describedby`; `error` and `aria-invalid`
+                combine. PasswordInput rule state is spoken ("(התקיים)" / "(עדיין לא)"), the ✓ is `aria-hidden`.
+  layout:       the password toggle never overlaps the LTR text in an RTL page · SelectInput's placeholder is muted
+                (by state; the arbitrary-value lint rejects `has-[…]`).
+  target size:  a link inline in a sentence — inside a `p` or a checkbox/radio `label`, wrapper spans looked through,
+                with text outside every link and button — is exempt from 44×44 (WCAG 2.5.8); nothing else is.
+  copy:         story copy follows decided requirements only (VAL-003 ten characters; OP-004 options; FR-AUTH-003
+                recovery link on Login; FR-AUTH-001 Welcome lead).
+  components:   MenuItem takes exactly one of `href` or `onClick`; a disabled link keeps its `href`, stays focusable and
+                cancels activation · Avatar initials by first grapheme of letter-led words, upper-cased; empty name →
+                `aria-hidden` · Logo's name is fixed ("Nestly") · the Registration illustration follows the R2 heart;
+                leaves keep the `success` token (decorative; no new token).
+  alternatives: native passthrough on all controls (rejected: placeholder-as-label becomes type-legal) · a decorative
+                `illustration-green` token (rejected: a token for one decoration) · a stand-alone link next to a label
+                exempt from target size (rejected: not a sentence).
+  decided by:   ORCHESTRATOR (11–12.10.2026, under "Working rules"), from CRITIC and TEST ENGINEER findings
 
 ---
 

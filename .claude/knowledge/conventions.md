@@ -2,7 +2,7 @@
 
 **Proposed by:** BUILDER. **Validated by:** CRITIC or DATA ARCHITECT. A convention enters only after
 a validator other than its proposer has confirmed it.
-**Status:** empty. No code exists yet.
+**Status:** two conventions (12.10.2026), from UI wave 1.
 
 ---
 
@@ -133,7 +133,23 @@ first line of code, and CRITIC checks them in every review. When the SRS changes
 
 ## Conventions
 
-*none yet*
+### Component props (web)
+rule:     form controls (TextInput, PasswordInput, SelectInput, Checkbox) accept exactly the props their spec names — no
+          `className`, no native-attribute passthrough. Display and layout components accept `className` for
+          placement only (margin, alignment, flex/grid item behaviour, max width); any variation (size, tone) is a
+          prop.
+why:      passthrough made `placeholder`-as-label type-legal and let sizes drift through ad-hoc classes (UI wave 1
+          parts c and e). The type system enforces the first half; review enforces "placement only".
+example:  apps/web/src/components/ui/text-input.tsx · apps/web/src/components/ui/avatar.tsx (`size`)
+added:    2026-10-12, proposed by CRITIC (part e), applied in parts c–e, validated by CRITIC
+
+### Errors are announced
+rule:     an error state is never colour alone: the control or its group carries `aria-invalid`, and the message is
+          linked with `aria-describedby` (a group: `role="radiogroup"` on the fieldset). `error` and `aria-invalid`
+          combine — neither overrides the other.
+why:      a destructive border alone told a screen-reader user nothing (part d, WCAG 1.4.1 / 3.3.1).
+example:  apps/web/src/components/shared/choice-card-group.tsx · apps/web/src/components/ui/checkbox.tsx
+added:    2026-10-12, proposed by CRITIC (part d), validated by CRITIC
 
 Each entry:
 
