@@ -465,7 +465,7 @@ function excludesNotes(args) {
     if (!m) return false;
     const magic = (m[1] || '').toLowerCase().split(',').map((s) => s.trim());
     if (!m[2] && !magic.includes('exclude')) return false;
-    const spec = fold(slash(m[3]));
+    const spec = slash(m[3]); // git matches pathspecs case-sensitively, on every platform
     return (magic.includes('glob') ? COVERS_NOTES : COVERS_NOTES_LITERAL).has(spec);
   });
 }
@@ -492,7 +492,8 @@ function checkReader(role, tool, input, ctx) {
     }
     if (tool === 'Grep') {
       if (isNotes(scope)) return `${who} does not read notes.md.`;
-      if (reaches(scope, '.work') || isInside(scope, '.work')) {
+      // .work in any case: some file systems ignore case
+      if (reaches(scope.toLowerCase(), '.work') || isInside(scope.toLowerCase(), '.work')) {
         if (!grepExcludesNotes(input)) {
           return `${who} does not read notes.md. A search that reaches .work/ needs a glob or type that cannot match notes.md (e.g. glob "*.ts" or type "ts"), or a narrower path.`;
         }
@@ -507,13 +508,13 @@ function checkReader(role, tool, input, ctx) {
     const flat = fold(slash(segments.map((s) => s.join(' ')).join('\n')));
     const both = withoutExclusions(fold(slash(raw)) + '\n' + flat);
     if (/notes\.md|notes~\d/i.test(both)) return `${who} does not read notes.md.`;
-    if (/\.work\/[^\s"']*[*?[{]/.test(both)) return `${who}: name the .work/ files you read; a wildcard there could reach notes.md.`;
+    if (/\.work\/[^\s"']*[*?[{]/i.test(both)) return `${who}: name the .work/ files you read; a wildcard there could reach notes.md.`;
 
     const located = withCwd(segments, ctx.cwd);
     for (const { seg, cwd } of located) {
       if (CD.includes(commandName(seg)) && seg[1]) {
         const target = rel(seg[1], ctx.root, cwd);
-        if (isInside(target, '.work')) return `${who}: do not cd into .work/; name the files you read.`;
+        if (isInside(target.toLowerCase(), '.work')) return `${who}: do not cd into .work/; name the files you read.`;
         if (te && (target === 'apps' || /^apps\/[^/]+$/.test(target) || isAppImpl(target))) {
           return 'TEST ENGINEER does not cd into an app. Use apps/<app>/tests paths from the root.';
         }
