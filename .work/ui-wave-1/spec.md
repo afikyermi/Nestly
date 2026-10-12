@@ -292,8 +292,9 @@ Wrapper `span`s between the link and that container are looked through (the Chec
   `aria-invalid="true"`.
 - Checkbox: accepts `aria-invalid?` and `aria-describedby?` (as the part-c controls do). `error` and `aria-invalid`
   combine — either one marks it invalid; neither overrides the other.
-- Story copy follows decided requirements only: a story never implies a flow the SRS leaves open (e.g. password
-  reset while its channel is TBD).
+- Story copy follows decided requirements only: a story never implies a flow the SRS leaves open. **Correction
+  (12.10.2026):** the example given here was wrong — FR-AUTH-003 is decided (recovery by email, started from the Login
+  screen, 11.10.2026), so the Login screen carries a "שכחתי סיסמה" entry point.
 
 **Addendum during part e (ORCHESTRATOR, 12.10.2026) — gaps raised by TEST ENGINEER:**
 - MenuItem takes exactly one of `href` or `onClick`; neither fails `tsc`, as both do.
@@ -301,6 +302,18 @@ Wrapper `span`s between the link and that container are looked through (the Chec
   unnamed image.
 - A disabled MenuItem link keeps its `href`, stays focusable (`aria-disabled="true"`), and its activation is cancelled
   — the same as a disabled Button link. A disabled MenuItem button stays focusable too.
+
+**Addendum after the part-e review (ORCHESTRATOR, 12.10.2026):**
+- `className` on display and layout components (Logo, illustrations, AuthLayout, Avatar, MenuItem, and the part-f
+  shell components) is for **placement only**: margin, alignment, grid or flex item behaviour, max width. Variation is a
+  prop. Form controls stay exact (no `className`). AuthLayout and the illustrations follow the same rule.
+- Avatar gains `size?: 'sm' | 'md'` (default `md`, 40px; `sm` 24px with caption text). Initials take the first grapheme
+  cluster (`Intl.Segmenter`) of the first two words that start with a letter, upper-cased with the locale.
+- MenuItem: the action branch requires `onClick`; a MenuItem with neither `href` nor `onClick` fails `tsc`.
+- The Login composition carries a "שכחתי סיסמה" link (FR-AUTH-003); the Welcome composition carries the descriptive
+  lead text FR-AUTH-001 requires (neutral placeholder wording until copy is set).
+- The Registration illustration follows the approved R2 mockup (the heart), not a substitute.
+- Illustration leaves keep the `success` token: decorative and `aria-hidden`, the palette's only green; no new token.
 
 **Open**
 - **DR-1 — decided at Gate 1 (ORCHESTRATOR, 11.10.2026):** the five units (FormField, Checkbox, InlineAlert, Logo,
