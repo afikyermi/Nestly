@@ -1,0 +1,52 @@
+import { useRef, type ReactNode } from 'react';
+import { Dialog as DialogPrimitive } from 'radix-ui';
+import { cn } from '@/lib/cn';
+
+interface DrawerPanelProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** The panel body; it holds a DrawerTitle, which names the dialog. */
+  children: ReactNode;
+  className?: string;
+}
+
+// The modal layer under SideDrawer: portaled, with a backdrop, a focus trap, Escape to close, page scroll
+// locked and the rest of the page hidden from assistive technology (Radix does these). The panel sits at
+// the inline-start edge. Radix returns focus only to a Trigger it owns; the drawer is controlled, so the
+// element focused when it opened is remembered and given focus back when it closes.
+export function DrawerPanel({ open, onOpenChange, children, className }: DrawerPanelProps) {
+  const opener = useRef<HTMLElement | null>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-drawer bg-foreground/40" />
+        <DialogPrimitive.Content
+          ref={panel}
+          aria-describedby={undefined}
+          onOpenAutoFocus={(event) => {
+            // Runs before Radix moves focus in, so the active element is still the opener.
+            opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+            // Focus lands on the panel itself, not on the close control, so no tooltip is open when Escape is pressed.
+            event.preventDefault();
+            panel.current?.focus();
+          }}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            opener.current?.focus();
+          }}
+          className={cn(
+            'fixed inset-y-0 start-0 z-drawer flex w-72 max-w-full flex-col bg-card text-card-foreground shadow-raised -outline-offset-2',
+            className,
+          )}
+        >
+          {children}
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  );
+}
+
+export function DrawerTitle({ children, className }: { children: ReactNode; className?: string }) {
+  return <DialogPrimitive.Title className={cn('text-h3', className)}>{children}</DialogPrimitive.Title>;
+}

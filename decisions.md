@@ -958,6 +958,21 @@ YYYY-MM-DD | <decision in one line>
   accepted cost: every merge waits for the GitHub run, a few minutes per PR.
   decided by:   Afik (12.10.2026)
 
+2026-10-12 | UI wave 1 (9.7) spec addenda, part f — recorded together
+  source:       `.work/ui-wave-1/spec.md` ("Addendum during part f", "Addendum after the part-f review") and
+                `.work/ui-wave-1/findings.md` (Part f)
+  layout:       BottomNavigation's position comes from its container; its standalone stories use a full-height page
+                frame · from 1024 the content column is centred beside the rail (R2 desktop) · scrolled or focused
+                content is never entirely hidden behind the TopBar or the nav (WCAG 2.4.11)
+  behaviour:    AppShell returns focus to the Hamburger on close even if it was not focused at open · only the first
+                `current` nav item is current · with the close control focused, the first Escape may close its Tooltip
+                (WCAG 1.4.13) · AppShell accepts `className` for placement · closing the drawer on menu-item activation
+                is decided with the router in I1
+  alternatives: BottomNavigation `position: fixed` (rejected: breaks the rail from 1024) · enforcing "one current" by
+                type (rejected: not expressible for an array without cost) · moving the nav after `main` in the DOM
+                (rejected by CRITIC's reading: it moves the order mismatch to 1024; the skip link covers it)
+  decided by:   ORCHESTRATOR (12.10.2026, under "Working rules"), from TEST ENGINEER and CRITIC findings
+
 ---
 
 ## Pending — not yet decided

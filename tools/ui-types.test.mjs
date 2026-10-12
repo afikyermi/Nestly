@@ -189,3 +189,111 @@ describe("part e addenda: MenuItem takes exactly one of href or onClick (type le
     assert.equal(compile(`${avatar}export const A = () => <Avatar size="lg" />;\n`).ok, false);
   });
 });
+
+const partF = `import { TopBar } from "@/components/shared/top-bar";
+import { BottomNavigation } from "@/components/shared/bottom-navigation";
+import { SideDrawer } from "@/components/shared/side-drawer";
+import { AppShell } from "@/components/layout/app-shell";
+`;
+const shellParts = {
+  navItems: `navItems={[{ key: "a", label: "א", href: "/a", icon: <svg /> }]}`,
+  navLabel: 'navLabel="n"',
+  menuLabel: 'menuLabel="m"',
+  drawerTitle: 'drawerTitle="t"',
+  drawerCloseLabel: 'drawerCloseLabel="c"',
+  skipLinkLabel: 'skipLinkLabel="s"',
+  menu: "menu={null}",
+};
+const shellProps = Object.values(shellParts).join(" ");
+
+describe("part f (criteria 19, 38-41): required copy props are required (type level)", () => {
+  it("[38][39][40][41] control: every component compiles with its documented props (the harness is sound)", () => {
+    const { ok, output } = compile(
+      `${partF}export const A = () => <>
+        <TopBar onMenuClick={() => undefined} menuLabel="m" />
+        <TopBar onMenuClick={() => undefined} menuLabel="m" actions={<a href="/x">x</a>} className="ms-2" />
+        <BottomNavigation items={[{ key: "a", label: "א", href: "/a", icon: <svg />, current: true }]} label="n" />
+        <SideDrawer open={false} onOpenChange={(open: boolean) => void open} title="t" closeLabel="c">x</SideDrawer>
+        <AppShell ${shellProps}>x</AppShell>
+      </>;\n`,
+    );
+    assert.equal(ok, true, output);
+  });
+
+  it("[38][19] a TopBar without menuLabel fails tsc (the Hamburger is icon-only and needs its name)", () => {
+    const { ok, output } = compile(`${partF}export const A = () => <TopBar onMenuClick={() => undefined} />;\n`);
+    assert.equal(ok, false);
+    assert.match(output, /menuLabel/);
+  });
+
+  it("[38][19] a TopBar with menuLabel undefined fails tsc (an optional name does not satisfy it)", () => {
+    const { ok } = compile(
+      `${partF}export const A = (p: { n?: string }) => <TopBar onMenuClick={() => undefined} menuLabel={p.n} />;\n`,
+    );
+    assert.equal(ok, false);
+  });
+
+  it("[38] a TopBar without onMenuClick fails tsc", () => {
+    const { ok, output } = compile(`${partF}export const A = () => <TopBar menuLabel="m" />;\n`);
+    assert.equal(ok, false);
+    assert.match(output, /onMenuClick/);
+  });
+
+  it("[39] a BottomNavigation without label fails tsc (the nav must be named)", () => {
+    const { ok, output } = compile(`${partF}export const A = () => <BottomNavigation items={[]} />;\n`);
+    assert.equal(ok, false);
+    assert.match(output, /label/);
+  });
+
+  it("[39] a BottomNavigation item without a label, an href or a key fails tsc", () => {
+    for (const bad of [`{ key: "a", href: "/a", icon: <svg /> }`, `{ key: "a", label: "x", icon: <svg /> }`, `{ label: "x", href: "/a", icon: <svg /> }`]) {
+      const { ok } = compile(`${partF}export const A = () => <BottomNavigation label="n" items={[${bad}]} />;\n`);
+      assert.equal(ok, false, bad);
+    }
+  });
+
+  it("[39] a BottomNavigation item with a non-boolean current fails tsc", () => {
+    const { ok } = compile(
+      `${partF}export const A = () => <BottomNavigation label="n" items={[{ key: "a", label: "x", href: "/a", icon: <svg />, current: "page" }]} />;\n`,
+    );
+    assert.equal(ok, false);
+  });
+
+  it("[40][19] a SideDrawer without closeLabel or title fails tsc (the close control is icon-only; the dialog needs a name)", () => {
+    const a = compile(`${partF}export const A = () => <SideDrawer open onOpenChange={() => undefined} title="t">x</SideDrawer>;\n`);
+    assert.equal(a.ok, false);
+    assert.match(a.output, /closeLabel/);
+    const b = compile(`${partF}export const A = () => <SideDrawer open onOpenChange={() => undefined} closeLabel="c">x</SideDrawer>;\n`);
+    assert.equal(b.ok, false);
+    assert.match(b.output, /title/);
+  });
+
+  it("[40] a SideDrawer is controlled: without open or onOpenChange it fails tsc", () => {
+    assert.equal(compile(`${partF}export const A = () => <SideDrawer onOpenChange={() => undefined} title="t" closeLabel="c">x</SideDrawer>;\n`).ok, false);
+    assert.equal(compile(`${partF}export const A = () => <SideDrawer open title="t" closeLabel="c">x</SideDrawer>;\n`).ok, false);
+  });
+
+  it("[41] an AppShell missing any one of its copy props or menu fails tsc", () => {
+    for (const prop of Object.keys(shellParts)) {
+      const without = Object.entries(shellParts).filter(([k]) => k !== prop).map(([, v]) => v).join(" ");
+      const { ok, output } = compile(`${partF}export const A = () => <AppShell ${without}>x</AppShell>;\n`);
+      assert.equal(ok, false, `${prop} must be required`);
+      assert.match(output, new RegExp(prop));
+    }
+  });
+
+  it("[41] className (placement, part-e review addendum) is accepted by TopBar, BottomNavigation and AppShell", () => {
+    for (const tag of ["TopBar onMenuClick={() => undefined} menuLabel=\"m\"", "BottomNavigation items={[]} label=\"n\""]) {
+      const { ok, output } = compile(`${partF}export const A = () => <${tag} className="ms-2" />;
+`);
+      assert.equal(ok, true, output);
+    }
+    const { ok, output } = compile(`${partF}export const A = () => <AppShell ${shellProps} className="ms-2">x</AppShell>;
+`);
+    assert.equal(ok, true, "every component accepts className?: string (API); AppShell does not: " + output);
+  });
+
+  it("[41] an AppShell without children fails tsc", () => {
+    assert.equal(compile(`${partF}export const A = () => <AppShell ${shellProps} />;\n`).ok, false);
+  });
+});
