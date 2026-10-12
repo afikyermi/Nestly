@@ -117,3 +117,56 @@ describe("part c addendum: the form controls accept exactly their documented pro
     assert.equal(ok, false);
   });
 });
+
+const partE = `import { MenuItem } from "@/components/shared/menu-item";
+import { Logo } from "@/components/shared/logo";
+import { WelcomeIllustration } from "@/components/shared/illustrations";
+`;
+
+describe("part e (criteria 34, 37): MenuItem is a link or a button, never both (type level)", () => {
+  it("[37] control: href alone, onClick alone, disabled, Logo and an illustration compile (the harness is sound)", () => {
+    const { ok, output } = compile(
+      `${partE}export const A = () => <MenuItem href="/x">א</MenuItem>;\n` +
+        `export const B = () => <MenuItem onClick={() => undefined}>ב</MenuItem>;\n` +
+        `export const C = () => <MenuItem href="/x" disabled>ג</MenuItem>;\n` +
+        `export const D = () => <Logo href="/" size="big" />;\n` +
+        `export const E = () => <WelcomeIllustration className="x" />;\n`,
+    );
+    assert.equal(ok, true, output);
+  });
+
+  it("[37] href together with onClick fails tsc (mutually exclusive, API Part e)", () => {
+    const { ok, output } = compile(
+      `${partE}export const A = () => <MenuItem href="/x" onClick={() => undefined}>א</MenuItem>;\n`,
+    );
+    assert.equal(ok, false, "a MenuItem with both a link target and an action must not compile");
+    assert.match(output, /href|onClick/);
+  });
+
+  it("[37] href together with onClick fails tsc also when the action is disabled", () => {
+    const { ok } = compile(
+      `${partE}export const A = () => <MenuItem href="/x" onClick={() => undefined} disabled>א</MenuItem>;\n`,
+    );
+    assert.equal(ok, false);
+  });
+
+  it("[37] a MenuItem without children fails tsc (the label is required)", () => {
+    const { ok } = compile(`${partE}export const A = () => <MenuItem href="/x" />;\n`);
+    assert.equal(ok, false);
+  });
+
+  it("[34] Logo has a fixed name (API: no prop): an aria-label prop fails tsc", () => {
+    assert.equal(compile(`${partE}export const A = () => <Logo aria-label="x" />;
+`).ok, false);
+  });
+
+  it("[34] Logo size accepts only default and big: an unknown size fails tsc", () => {
+    assert.equal(compile(`${partE}export const A = () => <Logo size="huge" />;
+`).ok, false);
+  });
+
+  it("[34] an illustration takes className only: an aria-label fails tsc", () => {
+    const { ok } = compile(`${partE}export const A = () => <WelcomeIllustration aria-label="x" />;\n`);
+    assert.equal(ok, false);
+  });
+});
