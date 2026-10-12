@@ -944,6 +944,20 @@ YYYY-MM-DD | <decision in one line>
                 exempt from target size (rejected: not a sentence).
   decided by:   ORCHESTRATOR (11–12.10.2026, under "Working rules"), from CRITIC and TEST ENGINEER findings
 
+2026-10-12 | No merge to `main` without green CI on GitHub — a standing rule (workflow.md 1.7)
+  rule:         every change reaches `main` through a PR, merged only when every GitHub Actions check on its latest
+                commit is green. A local `npm test` / `npm run ci` is never the gate. ORCHESTRATOR opens the PR itself
+                with `gh` and reads the checks there.
+  why:          `ci.yml` failed on GitHub for runs 1–22 (7.2 to 12.10) while each merge was reported "CI green" from a
+                local Windows run. Cause: one guard test (`guard.test.js:245`, `NOTES~1.MD`) relied on `fold()`
+                lowercasing, which happens only on win32; the runner is Linux. Fixed in PR 1 (`guard.js:509`, `/i`).
+                Every red run had that one failure and no other (checked with `gh run view --log-failed`, 12.10).
+  alternatives: keep local runs as the gate with the GitHub result as advisory (rejected: that is how 22 red runs
+                went unnoticed) · run CI locally in a Linux container (rejected: no Docker or WSL here, and it would
+                still not be the runner)
+  accepted cost: every merge waits for the GitHub run, a few minutes per PR.
+  decided by:   Afik (12.10.2026)
+
 ---
 
 ## Pending — not yet decided

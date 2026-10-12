@@ -1,6 +1,6 @@
 # Workflow — canonical pipeline
 
-**Version:** 1.6
+**Version:** 1.7
 **Status:** the single source of truth for sequence, triggers and who enters when.
 Agent definitions describe professions. **This file describes order.** If they disagree, this file wins.
 
@@ -48,7 +48,7 @@ The maintained as-built descriptions are `.claude/knowledge/data-model.md` and `
 | 5 | **DATA ARCHITECT** | *only if schema changes* — Gate 2. Policies follow the authorization layers in `.claude/knowledge/data-model.md` | `schema.md` |
 | 5b | **ALGORITHM & DATA** | *only if the feature uses behavioural signals, ranks or recommends, records analytics events, or places paid content* — purpose map, pipeline, configuration, events, evaluation. Feeds DATA ARCHITECT when tables are needed | `algorithm.md` |
 | 6 | **BUILDER** | branch, implement. calls SCOUT as needed | diff + `notes.md` |
-| 7 | **CI** | 🤖 typecheck · tests · lint · RLS checks (the list in WORKPLAN 7.1). red → back to 6 | green build |
+| 7 | **CI** | 🤖 typecheck · tests · lint · RLS checks (the list in WORKPLAN 7.1), run by GitHub Actions on the PR. red → back to 6 | green build |
 | 8 | **TEST ENGINEER** | tests derived from `spec.md` only | test files |
 | 9 | **CRITIC** | review the diff cold, including every invariant in `.claude/knowledge/srs-review-points.md` that the diff touches and the platform rules in `.claude/knowledge/data-model.md`. ALGORITHM & DATA reviews in parallel when step 5b ran | `findings.md` + verdict |
 | 10 | **BUILDER** | address findings | updated diff |
@@ -58,6 +58,11 @@ The maintained as-built descriptions are `.claude/knowledge/data-model.md` and `
 | 14 | ORCHESTRATOR | **update the SRS** if behaviour changed — the right section file, its own format, new IDs continue the sequence · rebuild the index (`node tools/build-srs-index.js`) · update §17 (Traceability Matrix) when pages, FRs or entities changed · add a change-history row at the batch's version | updated `docs/srs/` |
 
 Steps 8 and 9 may run in parallel — they are independent and neither reads the other's output.
+
+**No merge to `main` without green CI on GitHub.** Every path merges through a PR, and only after every
+GitHub Actions check on its latest commit is green (`gh pr checks`). A local run — `npm test`, `npm run ci` — is
+evidence for the builder, never the gate: the runner is Linux on the `.nvmrc` Node version, and this machine is
+not. A commit pushed after the checks passed needs them to pass again. `result.md` records the run URL.
 
 ## Light path
 
@@ -85,7 +90,7 @@ A defect in merged code: behaviour differs from what the SRS, or an approved `sp
 | 1 | ORCHESTRATOR | write `bug.md` — expected behaviour with its SRS ID, actual behaviour, reproduction steps. classify by the risk flags. add the `escapes.md` entry, with the gate that should have caught it | `bug.md` |
 | 2 | **TEST ENGINEER** | a regression test derived from `bug.md` only — never the code. it must fail on the current code; a test that passes does not reproduce the bug | failing test |
 | 3 | **BUILDER** | the smallest change that fixes the root cause. no refactoring beyond it | diff + `notes.md` |
-| 4 | **CI** | the new test passes and nothing else turned red | green build |
+| 4 | **CI** | the new test passes and nothing else turned red, on GitHub Actions — see "No merge to `main` without green CI on GitHub" | green build |
 | 5 | **CRITIC** | review the diff cold. skipped only when the fix meets every Light-path condition. any risk flag → Elevated: CRITIC on opus, and DATA ARCHITECT when the fix touches data | verdict |
 | 6 | **ORCHESTRATOR** | ✋ **Preview** — only if the fix is user-visible | go / no-go |
 | 7 | ORCHESTRATOR | merge, `result.md`, step 14 if behaviour the SRS describes changed | `result.md` |
@@ -276,3 +281,5 @@ usually the spec was too large and should have been split.
 - 1.6 — 2026-10-11 — "Design consistency" domain, modelled on Accessibility (WORKPLAN 9.6). Decided by Afik
   ("Design consistency without a design agent"); the Preview row follows the working rules. Provisional until 5
   features.
+- 1.7 — 2026-10-12 — No merge to `main` without green CI on GitHub Actions; a local run is not the gate.
+  Decided by Afik after `ci.yml` was red on GitHub for runs 1–22 while merges were reported green locally.
