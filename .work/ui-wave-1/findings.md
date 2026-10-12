@@ -120,3 +120,17 @@ Artifact: `.work/ui-wave-1/findings.md`, section "Part f".
 Findings: 2 medium (1 focus obscured by the sticky bars; 2 focus return when the opener is not focused), 2 low (3 two `current` items; 4 Escape test gap).
 Next owner: BUILDER fixes 1 and 2 (3 and 4 at BUILDER's choice, 3 may need SPEC); CRITIC re-checks only these.
 Verdict: **Validated with Concern.** Ready once 1 and 2 are fixed, which is cheap now (a few lines of CSS and one ref). If they are not fixed, the cost is that every page built on AppShell in I1 inherits an obscured-focus failure, and Safari users lose their place after the drawer.
+
+**Re-check (CRITIC, 18d5ad5): Validated with Concern** (findings 1-4 closed; one cost carried).
+- **1 closed.** `html` gets `scroll-padding-top` 56px and, below 1024, `scroll-padding-bottom` 72px (reset to 0 from 1024, where the nav is a rail). Measured against the markup: header = 12 + 44 = 56; bar = 6 + 56 + 8 + 1 border = 71, so 72 covers it. `part-f-review.spec.ts` walks Tab and Shift+Tab through every control, with and without filler links, at 375 and 1024, and fails if the focused control lies entirely inside the header or nav rect. That matches 2.4.11 as written, and without the CSS the bar would hide a 44px control flush at a fold.
+- **2 closed.** AppShell focuses the Hamburger in its click handler before opening, so the dialog records it even when the browser did not focus it. The tests open with `el.click()` after a blur, which is the Safari case, and via a focused link in main; both end on the Hamburger for Escape, close control and backdrop. Scope note: standalone `SideDrawer` still relies on the caller having focus on its opener; the spec addendum scopes the guarantee to AppShell, which is the only consumer.
+- **3 closed.** The first `current` item is marked and the rest render plain (`aria-current`, weight and pill all come from one `current` value); documented on the prop; covered by the unit tests. It compares by `key`, so it relies on unique keys, which React already requires.
+- **4 closed.** The spec addendum states the two-Escape behaviour, and the tests pin it (Tooltip first, then the drawer; one Escape elsewhere in the drawer).
+- **Concern carried (BUILDER's open point, low, for `debt.md`):** the 56px and 72px paddings are hand-matched to the bar heights in CSS, with a comment as the only link. A taller `topBarActions` node, a two-line nav label (the bar then exceeds 72px) or a larger bar later will leave controls partly under a bar again, and only the Playwright walk, which needs a control to land entirely inside a bar, will notice. Cost: a silent regression on the next change to either bar. Fix when it matters: derive both from one token or a CSS variable the bars set, instead of two numbers.
+
+Done: re-checked findings 1-4 against 26d5729 and 18d5ad5 and the spec addendum "Addendum after the part-f review".
+Artifact: `.work/ui-wave-1/findings.md`, section "Part f", this re-check.
+Findings: none open; 1 low concern carried (hand-matched scroll padding).
+Open: none for Afik.
+Next owner: ORCHESTRATOR (record the concern in `debt.md`, then the Preview).
+Verdict: **Validated with Concern.**

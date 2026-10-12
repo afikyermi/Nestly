@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "storybook-static",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["tools/serve-static.mjs", "apps/web/storybook-static", "6007"],
+      "port": 6007
+    },
+    {
+      "name": "mockups",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["tools/serve-static.mjs", "docs/design/mockups", "6008"],
+      "port": 6008
+    }
+  ]
+}
