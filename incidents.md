@@ -103,3 +103,7 @@ YYYY-MM-DD HH:MM | <what failed> | impact | state: open | contained | resolved |
 2026-10-12 19:23 | hook blocked Bash (test-engineer): TEST ENGINEER does not read apps/*/src or apps/*/api. Use apps/<app>/tests paths. | the call did not run | state: contained | ORCHESTRATOR reports to Afik
 2026-10-12 19:23 | hook blocked Bash (test-engineer): TEST ENGINEER does not read apps/*/src or apps/*/api. Use apps/<app>/tests paths. | the call did not run | state: contained | ORCHESTRATOR reports to Afik
 2026-10-12 19:26 | hook blocked Bash (all): Run `git add` and `git commit` as separate commands, so the staged diff can be checked for secrets first. | the call did not run | state: contained | ORCHESTRATOR reports to Afik
+2026-10-12 21:42 | hook blocked Bash (all): Run `git add` and `git commit` as separate commands, so the staged diff can be checked for secrets first. | the call did not run | state: contained | ORCHESTRATOR reports to Afik
+2026-10-12 21:42 | hook blocked Bash (builder): BUILDER does not write tests. Test files belong to TEST ENGINEER. | the call did not run | state: contained | ORCHESTRATOR reports to Afik
+2026-10-12 21:50 | hook blocked Bash (test-engineer): TEST ENGINEER does not read apps/*/src or apps/*/api. Use apps/<app>/tests paths. | the call did not run | state: contained | ORCHESTRATOR reports to Afik
+2026-10-12 22:58 | hook blocked Bash (all): Run `git add` and `git commit` as separate commands, so the staged diff can be checked for secrets first. | the call did not run | state: contained | ORCHESTRATOR reports to Afik
