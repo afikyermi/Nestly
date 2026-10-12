@@ -8,6 +8,14 @@ const meta = {
   component: BottomNavigation,
   parameters: { layout: 'fullscreen' },
   args: { label: 'ניווט ראשי', items: [] },
+  // The bar's position comes from its container: a full-height page frame, as AppShell gives it.
+  decorators: [
+    (Story) => (
+      <div className="flex min-h-dvh flex-col justify-end">
+        <Story />
+      </div>
+    ),
+  ],
 } satisfies Meta<typeof BottomNavigation>;
 
 export default meta;

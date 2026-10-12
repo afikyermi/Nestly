@@ -1,4 +1,5 @@
 import { useId, useRef, useState, type ReactNode } from 'react';
+import { cn } from '@/lib/cn';
 import { BottomNavigation, type BottomNavigationProps } from '../shared/bottom-navigation';
 import { SideDrawer } from '../shared/side-drawer';
 import { TopBar } from '../shared/top-bar';
@@ -15,6 +16,8 @@ export interface AppShellProps {
   /** The drawer body, for example MenuItems. */
   menu: ReactNode;
   topBarActions?: ReactNode;
+  /** Placement only. */
+  className?: string;
 }
 
 // The frame of every protected page: skip link, top bar, primary navigation (bar below 1024, rail from
@@ -30,13 +33,14 @@ export function AppShell({
   skipLinkLabel,
   menu,
   topBarActions,
+  className,
 }: AppShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
   const mainId = useId();
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className={cn('flex min-h-dvh flex-col', className)}>
       <a
         href={`#${mainId}`}
         onClick={(event) => {

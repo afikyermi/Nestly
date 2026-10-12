@@ -439,3 +439,11 @@ Evidence: `npm run ci` green (tools tests 171 pass, web 224, shared 75). `test:b
 **Evidence (local, built Storybook, Chrome).** 375: one main, header, nav; nav y 739-812 (bottom edge 812); Hamburger x 325-369; skip link first Tab stop, Enter focuses MAIN; drawer role dialog named by its title, focus inside, body scroll locked; Escape, backdrop click and close control each close it and focus returns to the Hamburger. 1024: nav x 904-1000 (rail at the right), main 672 wide centred in the rest. `npm run ci` green; `test:browser` axe and target-size pass for all new stories.
 
 **Neighbouring.** None.
+
+## Step 10 — findings from TEST ENGINEER (addendum during part f)
+
+**Approach.** (1) The standalone BottomNavigation stories now wrap in a decorator, a full-height page frame (`flex min-h-dvh flex-col justify-end`), so the bar's bottom edge meets the viewport bottom at 375. The component is unchanged: still `sticky`, rail from 1024. (2) AppShell takes `className?: string` (placement only), merged with `cn` onto the root, same as TopBar and BottomNavigation.
+**Checked, no change needed.** Content column centred in the space beside the rail from 1024 (`lg:mx-auto lg:max-w-2xl` in the flex row beside the rail); scrolled content never behind TopBar (sticky, in flow) or the nav (sticky bottom, in flow): the e2e shell tests at 375 and 1024 pass.
+**Deviations / not done.** Drawer does not close on menu item activation (deferred to I1 per the addendum). Tests untouched.
+**Evidence.** `npm run ci` exit 0; `npm run test:browser` 1346 passed.
+**Neighbouring.** None.
