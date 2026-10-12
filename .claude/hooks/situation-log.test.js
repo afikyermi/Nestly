@@ -432,6 +432,46 @@ test('[C11] a .git directory without a HEAD does not break the event', () => {
   assert.ok(!('branch' in only(dir)));
 });
 
+test('[C8][C11] a session whose cwd is a subdirectory still logs the root branch and root-relative paths', () => {
+  const dir = tmp();
+  fs.mkdirSync(path.join(dir, '.git'));
+  fs.writeFileSync(path.join(dir, '.git', 'HEAD'), 'ref: refs/heads/ui-wave-1/part-e\n');
+  const sub = path.join(dir, 'apps', 'web');
+  fs.mkdirSync(sub, { recursive: true });
+  const parts = ['apps', 'web', 'src', 'a.tsx'];
+  const r = run(JSON.stringify({
+    session_id: 's1', cwd: sub, hook_event_name: 'PreToolUse', tool_name: 'Read', tool_use_id: 't',
+    tool_input: { file_path: path.join(dir, ...parts) },
+  }), dir);
+  assert.strictEqual(r.status, 0);
+  const e = only(dir);
+  assert.strictEqual(e.branch, 'ui-wave-1/part-e');
+  assert.strictEqual(e.target, parts.join('/'));
+});
+
+test('[C11][C13] control: a worktree session with a subdirectory cwd logs its own branch to the main checkout', () => {
+  const main = tmp();
+  const wt = tmp();
+  fs.mkdirSync(path.join(main, '.git'));
+  fs.writeFileSync(path.join(main, '.git', 'HEAD'), 'ref: refs/heads/main\n');
+  const gd = path.join(main, '.git', 'worktrees', 'x');
+  fs.mkdirSync(gd, { recursive: true });
+  fs.writeFileSync(path.join(gd, 'HEAD'), 'ref: refs/heads/tools/wt-branch\n');
+  fs.writeFileSync(path.join(wt, '.git'), `gitdir: ${gd}\n`);
+  const sub = path.join(wt, 'apps', 'web');
+  fs.mkdirSync(sub, { recursive: true });
+  const parts = ['apps', 'web', 'src', 'a.tsx'];
+  const r = run(JSON.stringify({
+    session_id: 's1', cwd: sub, hook_event_name: 'PreToolUse', tool_name: 'Read', tool_use_id: 't',
+    tool_input: { file_path: path.join(wt, ...parts) },
+  }), wt);
+  assert.strictEqual(r.status, 0);
+  assert.strictEqual(liveFiles(wt).length, 0);
+  const e = only(main);
+  assert.strictEqual(e.branch, 'tools/wt-branch');
+  assert.strictEqual(e.target, parts.join('/'));
+});
+
 // ---------- 12. durations and failures ----------
 
 test('[C12] PostToolUse carries ms; PostToolUseFailure carries failed:true, interrupt, ms and no error text', () => {
