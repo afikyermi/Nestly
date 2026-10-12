@@ -295,6 +295,13 @@ Wrapper `span`s between the link and that container are looked through (the Chec
 - Story copy follows decided requirements only: a story never implies a flow the SRS leaves open (e.g. password
   reset while its channel is TBD).
 
+**Addendum during part e (ORCHESTRATOR, 12.10.2026) — gaps raised by TEST ENGINEER:**
+- MenuItem takes exactly one of `href` or `onClick`; neither fails `tsc`, as both do.
+- Avatar, not decorative, with an empty `name` and no `label`, is treated as decorative (`aria-hidden`) — never an
+  unnamed image.
+- A disabled MenuItem link keeps its `href`, stays focusable (`aria-disabled="true"`), and its activation is cancelled
+  — the same as a disabled Button link. A disabled MenuItem button stays focusable too.
+
 **Open**
 - **DR-1 — decided at Gate 1 (ORCHESTRATOR, 11.10.2026):** the five units (FormField, Checkbox, InlineAlert, Logo,
   AuthLayout) are added to SRS §4.2 in version 2.11. Parts c–e are unblocked.
