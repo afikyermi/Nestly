@@ -6,7 +6,7 @@ export interface BottomNavigationItem {
   label: string;
   href: string;
   icon: ReactNode;
-  /** At most one item is current. */
+  /** At most one item is current: when several are set, only the first is marked. */
   current?: boolean;
 }
 
@@ -22,6 +22,7 @@ export interface BottomNavigationProps {
 // edge from 1024 (NFR-USE-001). The current item is marked by aria-current, a heavier label and a pill
 // behind the icon, so it does not rest on colour alone.
 export function BottomNavigation({ items, label, className }: BottomNavigationProps) {
+  const currentKey = items.find((item) => item.current === true)?.key;
   return (
     <nav
       aria-label={label}
@@ -32,29 +33,32 @@ export function BottomNavigation({ items, label, className }: BottomNavigationPr
       )}
     >
       <ul className="m-0 flex list-none px-1 pt-1.5 pb-2 lg:flex-col lg:gap-1.5 lg:p-0">
-        {items.map((item) => (
-          <li key={item.key} className="min-w-0 flex-1 lg:flex-none">
-            <a
-              href={item.href}
-              aria-current={item.current === true ? 'page' : undefined}
-              className={cn(
-                'group flex min-h-14 flex-col items-center gap-0.5 rounded-md pt-1 text-center text-caption no-underline',
-                item.current === true ? 'font-semibold text-primary-strong' : 'text-muted-foreground',
-              )}
-            >
-              <span
-                aria-hidden="true"
+        {items.map((item) => {
+          const current = item.key === currentKey;
+          return (
+            <li key={item.key} className="min-w-0 flex-1 lg:flex-none">
+              <a
+                href={item.href}
+                aria-current={current ? 'page' : undefined}
                 className={cn(
-                  'grid h-8 w-14 place-items-center rounded-full transition-colors duration-fast ease-standard',
-                  item.current === true ? 'bg-primary-soft' : 'group-hover:bg-muted',
+                  'group flex min-h-14 flex-col items-center gap-0.5 rounded-md pt-1 text-center text-caption no-underline',
+                  current ? 'font-semibold text-primary-strong' : 'text-muted-foreground',
                 )}
               >
-                {item.icon}
-              </span>
-              {item.label}
-            </a>
-          </li>
-        ))}
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    'grid h-8 w-14 place-items-center rounded-full transition-colors duration-fast ease-standard',
+                    current ? 'bg-primary-soft' : 'group-hover:bg-muted',
+                  )}
+                >
+                  {item.icon}
+                </span>
+                {item.label}
+              </a>
+            </li>
+          );
+        })}
       </ul>
     </nav>
   );

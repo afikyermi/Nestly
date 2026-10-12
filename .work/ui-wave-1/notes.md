@@ -447,3 +447,14 @@ Evidence: `npm run ci` green (tools tests 171 pass, web 224, shared 75). `test:b
 **Deviations / not done.** Drawer does not close on menu item activation (deferred to I1 per the addendum). Tests untouched.
 **Evidence.** `npm run ci` exit 0; `npm run test:browser` 1346 passed.
 **Neighbouring.** None.
+
+## Part f - CRITIC fixes (step 10)
+
+**Approach**
+- Finding 1: `scroll-padding-top` (14 spacing units = 56px) and `scroll-padding-bottom` (18 = 72px, the bar is about 71px) on `html` in `styles/index.css`, written as `calc(var(--spacing) * n)` from the token. From 1024 the bottom padding is 0, because the nav is a rail there. The viewport is the scroll root.
+- Finding 2: AppShell owns a ref, passes it to TopBar's `menuButtonRef`, and focuses the Hamburger in `onMenuClick` before opening. DrawerPanel then records the Hamburger as the opener and returns focus to it. SideDrawer's API is unchanged (no new prop).
+- Finding 3: BottomNavigation marks only the first item with `current`. The prop comment says so.
+
+**Deviations** none.
+**Uncertain** The 72px bottom padding is hand-matched to the bar (6 + 56 + 8 + 1 border). If the bar's padding changes, the two must change together. I did not run the Safari/Firefox macOS case; the Hamburger is focused programmatically in the handler, which does not depend on the browser's click-focus behaviour.
+**Deliberately not done** Finding 4 (test gap) belongs to TEST ENGINEER. No tests were edited or added.

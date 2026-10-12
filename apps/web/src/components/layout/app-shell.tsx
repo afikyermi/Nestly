@@ -37,6 +37,7 @@ export function AppShell({
 }: AppShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   const mainId = useId();
 
   return (
@@ -54,7 +55,11 @@ export function AppShell({
       <TopBar
         className="sticky top-0 z-sticky"
         menuLabel={menuLabel}
+        menuButtonRef={menuButtonRef}
         onMenuClick={() => {
+          // Safari and Firefox on macOS do not focus a clicked button. The drawer returns focus to the
+          // element focused when it opened, so the Hamburger is focused here, before it opens.
+          menuButtonRef.current?.focus();
           setDrawerOpen(true);
         }}
         actions={topBarActions}
