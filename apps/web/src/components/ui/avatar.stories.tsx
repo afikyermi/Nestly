@@ -29,4 +29,4 @@ export const BesideName: Story = {
   ),
 };
 
-export const Small: Story = { args: { name: 'נועה רז', className: 'size-6 text-caption' } };
+export const Small: Story = { args: { name: 'נועה רז', size: 'sm' } };

@@ -400,3 +400,14 @@ Login: fields 20-355 x 48, password toggle 22-66 (left, inline end), actions 20-
 Logo link 44 high (103x44 / 161x44). MenuItem rows 16-359 x 48, icon 323-347 at the right (inline start). Avatar 40x40 at 319-359.
 
 **Neighbouring.** None new.
+
+### Part e, review round (spec addendum after the part-e review, 96e4771)
+1. Logo and the illustrations declare `'aria-label'?: never` (JSX does not type-check undeclared hyphenated attributes, so this is how the prop is refused). The two `ui-types` tests pass.
+2. MenuItem action branch: `onClick: () => void` is required; `<MenuItem>x</MenuItem>` fails `tsc`. The `Stacked` story got `args` for the union type.
+3. Login composition: "שכחתי סיסמה" is a text Button link under the password field (measured x 20-118, 98x44, at the inline end = left in RTL); the TBD comment is replaced.
+4. Welcome composition: lead paragraph "קהילה חמה להורים ולהורים לעתיד, במקום אחד." as marked placeholder wording (gender-neutral, no exclamation).
+5. Avatar: `size?: 'sm'|'md'` (`size-10 text-label` / `size-6 text-caption`, icon `size-5` / `size-4`); initials = first grapheme (`Intl.Segmenter`) of the first two words starting with a letter, `toLocaleUpperCase('he')`. Small story uses `size="sm"` (measured 24x24). `as const` is used on the size map only.
+6. The only size override passed through `className` was the Avatar Small story; removed. No other story passes `className`.
+7. Registration illustration: the R2 heart (`fill-primary opacity-85`); the Welcome sprig keeps `success`.
+
+Evidence: `npm run ci` green (tools tests 171 pass, web 224, shared 75). `test:browser`: 1082 passed, 4 Edge-only failures in the full run ("browserContext.close: Test ended" / crashed context: password-input disabled touch, button reduced motion, avatar anonymous render, menu-item disabled touch); the same four pass on rerun (14 passed). No existing test broke because of the addendum.

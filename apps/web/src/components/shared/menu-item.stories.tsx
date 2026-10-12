@@ -22,6 +22,7 @@ export const Disabled: Story = { args: { children: 'בקשת תמיכה', onClic
 export const WithoutIcon: Story = { args: { children: 'תנאי שימוש ופרטיות', href: '#terms', icon: undefined } };
 
 export const Stacked: Story = {
+  args: { href: '#groups' },
   render: () => (
     <nav aria-label="תפריט">
       <MenuItem href="#groups" icon={<HomeIcon />}>

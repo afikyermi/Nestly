@@ -5,7 +5,10 @@ import { cn } from '@/lib/cn';
 // pregnancy, no family (direction.md, images). Decorative, so always aria-hidden. Every colour
 // is a token class (fill-*, stroke-*), never a hex.
 interface IllustrationProps {
+  /** Placement only (margin, alignment, max width). */
   className?: string | undefined;
+  /** Decorative and always aria-hidden: there is no name to give. */
+  'aria-label'?: never;
 }
 
 function Svg({ width, height, className, children }: IllustrationProps & { width: number; height: number; children: ReactNode }) {
@@ -65,8 +68,10 @@ export function RegistrationIllustration({ className }: IllustrationProps) {
       <circle cx={60} cy={44} r={38} className="fill-accent-soft" />
       <path d="M24 50h72" className="stroke-primary-strong" strokeWidth={2.5} strokeLinecap="round" fill="none" />
       <path d="M26 50c0 14 15 22 34 22s34-8 34-22" className="fill-primary-soft stroke-primary-strong" strokeWidth={2.5} />
-      <path d="M60 40c-2-10-10-16-20-16 0 10 8 16 20 16Z" className="fill-success-soft stroke-success" strokeWidth={2} strokeLinejoin="round" />
-      <path d="M60 40c2-10 10-16 20-16 0 10-8 16-20 16Z" className="fill-success-soft stroke-success" strokeWidth={2} strokeLinejoin="round" />
+      <path
+        d="M60 22c-4-6-14-5-14 3 0 6 8 11 14 15 6-4 14-9 14-15 0-8-10-9-14-3Z"
+        className="fill-primary opacity-85"
+      />
     </Svg>
   );
 }

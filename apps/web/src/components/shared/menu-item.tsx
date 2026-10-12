@@ -10,9 +10,9 @@ interface MenuItemBase {
   className?: string;
 }
 
-// `href` renders a link, `onClick` a button; the two are mutually exclusive.
+// `href` renders a link, `onClick` a button; the two are mutually exclusive, and one of them is required.
 export type MenuItemProps = MenuItemBase &
-  ({ href: string; onClick?: undefined } | { href?: undefined; onClick?: () => void });
+  ({ href: string; onClick?: undefined } | { href?: undefined; onClick: () => void });
 
 const styles = [
   'flex min-h-12 w-full items-center gap-3 rounded-md px-3 py-2 text-start text-body text-foreground no-underline',

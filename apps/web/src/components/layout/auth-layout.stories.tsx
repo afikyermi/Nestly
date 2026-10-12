@@ -37,6 +37,8 @@ export const Welcome: Story = {
           <WelcomeIllustration />
         </div>
         <h1 className="mt-3 text-h1">הצטרפות ל-Nestly</h1>
+        {/* Placeholder wording (FR-AUTH-001 requires a descriptive text; the final copy is not set). */}
+        <p className="mt-2 max-w-72 text-lead text-muted-foreground">קהילה חמה להורים ולהורים לעתיד, במקום אחד.</p>
       </main>
     ),
     actions: (
@@ -52,7 +54,7 @@ export const Welcome: Story = {
   },
 };
 
-// Login (PG-002, FR-AUTH-002): email and password; the forgot-password link is left out while its channel is TBD.
+// Login (PG-002, FR-AUTH-002, FR-AUTH-003): email and password, and the forgot-password link that starts the email reset.
 export const Login: Story = {
   args: {
     children: (
@@ -68,6 +70,11 @@ export const Login: Story = {
           <FormField label="סיסמה">
             {(control) => <PasswordInput {...control} autoComplete="current-password" toggleLabel="הצגת הסיסמה" />}
           </FormField>
+        </div>
+        <div className="flex justify-end">
+          <Button variant="text" href="#forgot-password">
+            שכחתי סיסמה
+          </Button>
         </div>
       </main>
     ),

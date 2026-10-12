@@ -6,6 +6,8 @@ export interface LogoProps {
   /** A link when set (to the home page), a static mark otherwise. */
   href?: string;
   className?: string;
+  /** The name is fixed ("Nestly"); there is no prop for it. */
+  'aria-label'?: never;
 }
 
 const base = 'inline-flex items-center gap-1 px-1 text-primary-strong no-underline';
