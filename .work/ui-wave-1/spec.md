@@ -325,6 +325,16 @@ Wrapper `span`s between the link and that container are looked through (the Chec
 - Closing the drawer when a menu item is activated is not required in wave 1: AppShell has no router; it is decided
   with the router in I1.
 
+**Addendum after the part-f review (ORCHESTRATOR, 12.10.2026) — from CRITIC's findings:**
+- A focused control is never entirely hidden behind the TopBar or the BottomNavigation (WCAG 2.2 SC 2.4.11), including
+  when it is reached by Tab near the top or bottom of the viewport, at 375 and at 1024.
+- In AppShell, focus returns to the Hamburger when the drawer closes even if the Hamburger was not focused when the
+  drawer opened (a click in Safari/Firefox on macOS does not focus a button).
+- BottomNavigation: if more than one item has `current`, only the first is current (`aria-current="page"` and the
+  current styling); the others render as ordinary items.
+- With the drawer open and its close control focused, the first Escape may close the close control's Tooltip
+  (WCAG 1.4.13); the next closes the drawer. With focus anywhere else in the drawer, one Escape closes it.
+
 **Open**
 - **DR-1 — decided at Gate 1 (ORCHESTRATOR, 11.10.2026):** the five units (FormField, Checkbox, InlineAlert, Logo,
   AuthLayout) are added to SRS §4.2 in version 2.11. Parts c–e are unblocked.
