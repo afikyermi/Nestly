@@ -540,6 +540,8 @@ function checkReader(role, tool, input, ctx) {
       for (const { seg, cwd } of located) {
         for (const a of seg.slice(1)) {
           if (a.startsWith('-') || /^[a-z]+:\/\//i.test(a)) continue;
+          // A shell variable or an assignment holding one ($?, x=$?) is not a path, even with a `?` in it.
+          if (a.includes('$')) continue;
           const glob = /[*?[\]{}]/.test(a);
           const r = rel(glob ? literalPrefix(a) || '.' : a, ctx.root, cwd);
           if (isAppImpl(r) || (glob && reachesAppImpl(r))) return NO_IMPL;

@@ -482,6 +482,15 @@ test('a block is logged to incidents.md without the command', () => {
   assert.doesNotMatch(added, /TOPSECRET/);
 });
 
+test('test-engineer: a shell variable such as $? is not read as a glob that reaches app source', () => {
+  for (const c of ['npm run ci; echo x=$?', 'npm test; echo "exit=$?"', 'npx vitest run apps/web/tests; echo $?']) {
+    allows('test-engineer', 'Bash', { command: c });
+  }
+  // A real glob from the root still reaches app source.
+  blocks('test-engineer', 'Bash', { command: 'cat **/*.tsx' });
+  blocks('test-engineer', 'Bash', { command: 'cat apps/web/s*' });
+});
+
 // ---- the situation room's Block line (spec .work/situation-room, criteria 18-21) ----
 
 function liveLines(root) {
