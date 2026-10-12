@@ -906,6 +906,31 @@ YYYY-MM-DD | <decision in one line>
                 ties migration secrets to an environment another integration manages)
   decided by:   ORCHESTRATOR (11.10.2026, names proposed by Afik)
 
+2026-10-12 | Situation room: a local, observe-only view of the agent system at work
+  what:         an internal tool for Afik, not the product. `.claude/hooks/situation-log.js` appends one line per
+                session, prompt, tool and subagent event to `.live/events-YYYY-MM-DD.jsonl`; `tools/situation-room/`
+                serves a Hebrew RTL page on 127.0.0.1 with the live state (who is active, on what branch and step, which
+                skills, guard blocks) and history (usage per agent and skill, CRITIC/TEST ENGINEER rounds per part,
+                blocks over time, a timeline with merges). Opened with `npm run situation-room`.
+  rules:        (Afik) local only, nothing leaves the machine · no content: no prompt text, assistant text, commands,
+                file content, URL paths or queries, skill arguments, nor anything naming an `.env` file — only who,
+                what, when and a short description · the hook only observes: exit 0, silent, never blocks, adds ≤ 30 ms
+                over a bare node start (measured +9–16 ms) · `.live/` gitignored, 5 MB per day file, 60-day retention ·
+                tests for the hook; CRITIC reviews it as it reviews the guard. Spec: `.work/situation-room/spec.md`.
+  blocks:       option B — `guard.js` appends one scrubbed `Block` line (reason without file names, role names or
+                error text). The logger is required lazily inside a try, so a missing or broken logger cannot crash
+                the guard; exit code and message are unchanged; logged only when `incidents.md` is, so once.
+                `incidents.md` stays the official record.
+  alternatives: A — the server tails `incidents.md` (no session or agent, minute resolution, aggregated lines, a
+                git-tracked file a checkout rewrites) · C — infer a block from a Pre event with no Post (no reason,
+                cannot tell a block from a slow call)
+  origin:       a draft by an earlier session, found live and logging prompt text; contained on 12.10.2026 before the
+                build. The draft log (`.live/events.jsonl`) still holds that text — deleting it is Afik's call.
+  accepted cost: the guard's integrity now spans two files (a logger that exits or hangs at load could affect it); both
+                sit under `.claude/**`, which asks Afik before any edit, and CRITIC reviews them as one unit.
+  decided by:   Afik (the request and its rules, 12.10.2026) · ORCHESTRATOR (option B and the design, on SPEC's
+                recommendation)
+
 ---
 
 ## Pending — not yet decided

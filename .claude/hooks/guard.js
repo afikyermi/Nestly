@@ -538,10 +538,11 @@ function checkReader(role, tool, input, ctx) {
       const NO_IMPL = 'TEST ENGINEER does not read apps/*/src or apps/*/api. Use apps/<app>/tests paths.';
       // Every path-like argument, resolved where it runs; a glob is judged by where it starts.
       for (const { seg, cwd } of located) {
-        for (const a of seg.slice(1)) {
-          if (a.startsWith('-') || /^[a-z]+:\/\//i.test(a)) continue;
-          // A shell variable or an assignment holding one ($?, x=$?) is not a path, even with a `?` in it.
-          if (a.includes('$')) continue;
+        for (const raw of seg.slice(1)) {
+          // Parameter expansions are removed first ($?, $X, ${E}): their `?` is not a glob, and an unset one
+          // expands to nothing, so what is left is what the shell reads. The left-over is then checked in full.
+          const a = raw.replace(/\$(\{[^}]*\}|[?#@*!$0-9-]|\w+)/g, '');
+          if (!a || a.startsWith('-') || /^[a-z]+:\/\//i.test(a)) continue;
           const glob = /[*?[\]{}]/.test(a);
           const r = rel(glob ? literalPrefix(a) || '.' : a, ctx.root, cwd);
           if (isAppImpl(r) || (glob && reachesAppImpl(r))) return NO_IMPL;

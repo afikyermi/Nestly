@@ -489,6 +489,19 @@ test('test-engineer: a shell variable such as $? is not read as a glob that reac
   // A real glob from the root still reaches app source.
   blocks('test-engineer', 'Bash', { command: 'cat **/*.tsx' });
   blocks('test-engineer', 'Bash', { command: 'cat apps/web/s*' });
+  // An expansion inside a glob path does not hide it (CRITIC, situation room slice 1): an unset one expands to nothing.
+  for (const c of [
+    'cat ap*/web/src/a.ts$X',
+    'cat */web/src/a.ts$X',
+    'cat */*/src/*$X',
+    'cat a?ps/w?b/s?c/a.ts${E}',
+    'head -n 50 ap[p]s/web/src/main.tsx$Q',
+    'cat $(echo apps/web/src/a.ts)',
+    'P=apps/web/src/a.ts; cat ${P}',
+    'cat apps/web/src/$X',
+  ]) {
+    blocks('test-engineer', 'Bash', { command: c });
+  }
 });
 
 // ---- the situation room's Block line (spec .work/situation-room, criteria 18-21) ----
@@ -541,6 +554,25 @@ test('[19] the logged reason drops a staged file name, an unknown role name and 
   assert.strictEqual(scrubReason('`git add -A` and `git add .` are blocked.'), '`git add -A` and `git add .` are blocked.');
 });
 
+test('[19] a real block whose reason names a staged file logs the reason without the name', () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-live-repo-'));
+  const g = (...a) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8' });
+  g('init', '-q');
+  g('config', 'user.email', 't@example.com');
+  g('config', 'user.name', 't');
+  fs.writeFileSync(path.join(repo, 'incidents.md'), '# Incidents\n');
+  fs.writeFileSync(path.join(repo, '.env.local'), 'X=1\n');
+  g('add', '-f', '.env.local');
+  const payload = JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'git commit -m x' }, cwd: repo });
+  assert.strictEqual(run('all', 'Bash', payload, repo), 2);
+  assert.match(last, /\.env\.local/); // the agent still sees the full reason
+  const blocks = liveLines(repo).map((l) => JSON.parse(l)).filter((e) => e.ev === 'Block');
+  assert.strictEqual(blocks.length, 1);
+  assert.strictEqual(blocks[0].reason, 'A .env file is staged. It must never be committed.');
+  assert.doesNotMatch(liveLines(repo).join('\n'), /\.env\.local/);
+  fs.rmSync(repo, { recursive: true, force: true });
+});
+
 test('[20] the guard still blocks when the room cannot be written, or its logger is missing', () => {
   // .live is a file, so the log directory cannot be created.
   const root = freshRoot();
@@ -567,6 +599,21 @@ test('[20] the guard still blocks when the room cannot be written, or its logger
   });
   assert.strictEqual(ok.status, 0);
   fs.rmSync(lone, { recursive: true, force: true });
+
+  // A logger next to the guard that throws on load.
+  const broken = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-broken-'));
+  fs.copyFileSync(GUARD, path.join(broken, 'guard.js'));
+  fs.writeFileSync(path.join(broken, 'situation-log.js'), "throw new Error('broken logger');\n");
+  for (const [command, status] of [['git add -A', 2], ['git status', 0]]) {
+    const r2 = spawnSync(process.execPath, [path.join(broken, 'guard.js'), 'all'], {
+      input: JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd: ROOT }),
+      env: { ...process.env, CLAUDE_PROJECT_DIR: ROOT },
+      encoding: 'utf8',
+    });
+    assert.strictEqual(r2.status, status, command);
+    if (status === 2) assert.match(r2.stderr, /`git add -A` and `git add \.` are blocked/);
+  }
+  fs.rmSync(broken, { recursive: true, force: true });
 });
 
 test('[21] a block inside a role agent shows once in the room', () => {
