@@ -94,3 +94,29 @@ the part: inline links in the terms Checkbox exempted from target size per WCAG 
 Also: TEST ENGINEER's Finding 1 — Logo and illustrations accepted `aria-label` against the API → refused at compile time,
 validated by TEST ENGINEER. The Registration illustration back to the approved R2 heart. **Re-check (CRITIC): Validated**,
 probes on 1 and 3 caught. Merged at c83c65c.
+
+## Part f — `ui-wave-1/part-f` at e5de9bb (1f3efa3 + 5e14dd2 + e5de9bb) — verdict: Validated with Concern
+
+| # | Severity | File | Claim | Fix |
+|---|---|---|---|---|
+| 1 | medium | layout/app-shell.tsx:57,64 · bottom-navigation.tsx:28 · styles/index.css | The TopBar (sticky top, 56px) and the BottomNavigation (sticky bottom, ~72px at 375) overlay scrolled content, and nothing sets `scroll-padding`, so a focused control can land fully under a bar (WCAG 2.2 SC 2.4.11; `accessibility` skill line 38) | `scroll-padding-block` (top = header height, bottom = bar height below 1024) on the scroll root, from tokens; Playwright test: Tab to a control near each fold and assert it is not covered |
+| 2 | medium | ui/dialog.tsx:29-31 · layout/app-shell.tsx | Focus return depends on `document.activeElement` being the Hamburger when the drawer opens. In Safari (macOS, iOS) and Firefox on macOS a mouse or touch click does not focus a button, so the opener recorded is `body`, and on close focus is not returned (criterion 40). `menuButtonRef` exists on TopBar for this and AppShell does not use it | AppShell passes a ref to TopBar and gives it to the drawer as the return target (or the click handler sets the opener); a test where the opener is not focused at open |
+| 3 | low | shared/bottom-navigation.tsx:33 | "At most one `current`" is a comment only: two items with `current` both render `aria-current="page"` | document it on the prop, or take `currentKey` (breaks the API line, so SPEC decides) |
+| 4 | low | e2e/part-f.spec.ts:359-367, tests/ui/part-f.test.tsx:386 | Escape is tested only with focus on the panel; with the close control focused, the first Escape closes its Tooltip and the second closes the drawer, and no test pins that | add the test, so the behaviour is a decision and not an accident (see below) |
+
+**Looked at, no finding**
+- **Two Escapes with the close control focused: acceptable, not a defect.** Initial focus lands on the panel, so the common path (open, Escape) takes one. Once a keyboard user tabs to the close control, its Tooltip opens, and Escape dismissing that first is what WCAG 1.4.13 asks for ("dismissible without moving focus"). It is not a keyboard trap (2.1.2): Tab, the close control, Enter or Space all leave. Focus order (2.4.3) is not affected. Finding 4 only asks for a test.
+- **DOM order, nav before main, bar at the bottom at 375: acceptable.** The skip link bypasses it; the order matches visual order at 1024, where keyboard use is common; at 375 the sequence (header, nav, content) is still meaningful (1.3.2). Moving the nav after `main` would only move the mismatch to 1024.
+- **Skip link:** first Tab stop; parked by transform, so it stays in the accessibility tree; `z-dialog` above the sticky bars; Enter focuses `main` (`tabIndex=-1`); `main` is the only target. Landmarks: one `header`, `nav`, `main`; the drawer is a portaled dialog outside them. AppShell imports no auth, router or data code, and a test walks the transitive imports.
+- **SideDrawer / `ui/dialog.tsx`:** trap, `aria-hidden` on the rest, scroll lock (Overlay is rendered, so Radix's lock applies), Escape, backdrop and close control all close it; the Tooltip layer (`z-popover` 40) is above the drawer (`z-drawer` 30) and receives pointer events as the top layer. Focus return to a focused Hamburger works (finding 2 is the unfocused case).
+- **BottomNavigation:** `aria-current` only on the current item; heavier weight (`font-semibold`) plus a pill, so not colour alone; items are 56px high and at least 44 wide at 320 with five items; the rail is first in the DOM and `lg:flex-row` puts it at the inline-start (right) edge in RTL; `order-last` is visual only. The story decorator is a plain full-height frame and changes no component behaviour.
+- **`tools/check-stories.mjs`:** `ui/dialog` in `NO_VISUAL` does not weaken the gate. It is one named file, the same pattern as `shared/logo-wordmark`, and the dialog's behaviour is exercised through the SideDrawer stories (Closed, Open) and the AppShell stories, both with axe. The four new components have their state counts in `STATES`. Cost to watch: a second consumer of `DrawerPanel` will not be forced to bring its own story.
+- **Tests (5e14dd2):** they assert the criteria through roles, names, focus and geometry (bounding boxes in RTL, tab sequence, scroll lock, controlled `onOpenChange`, import walk), not the implementation. The exceptions are small: "differs by more than colour" compares class names (backed by the computed font-weight test in Playwright), and the reduced-motion test passes trivially because the drawer has no animation. Gaps are findings 1, 2 and 4.
+
+**Open:** none for Afik. A decision that stays visible: the drawer is not closed on a menu-item activation (spec addendum, I1); AppShell will need a close-on-navigate hook then.
+
+Done: reviewed `main...ui-wave-1/part-f` against spec criteria 17-20, 38-42, the Part f API lines and every addendum.
+Artifact: `.work/ui-wave-1/findings.md`, section "Part f".
+Findings: 2 medium (1 focus obscured by the sticky bars; 2 focus return when the opener is not focused), 2 low (3 two `current` items; 4 Escape test gap).
+Next owner: BUILDER fixes 1 and 2 (3 and 4 at BUILDER's choice, 3 may need SPEC); CRITIC re-checks only these.
+Verdict: **Validated with Concern.** Ready once 1 and 2 are fixed, which is cheap now (a few lines of CSS and one ref). If they are not fixed, the cost is that every page built on AppShell in I1 inherits an obscured-focus failure, and Safari users lose their place after the drawer.
