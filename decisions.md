@@ -973,6 +973,41 @@ YYYY-MM-DD | <decision in one line>
                 (rejected by CRITIC's reading: it moves the order mismatch to 1024; the skip link covers it)
   decided by:   ORCHESTRATOR (12.10.2026, under "Working rules"), from TEST ENGINEER and CRITIC findings
 
+2026-10-12 | The guard's protected-file rule: an allowlist as the base, the denylist kept for clear messages
+  rule:         every access to a protected file (today: `.work/<slug>/notes.md` for CRITIC; the same design for the
+                other per-role fences) is blocked unless it matches an allowed form — e.g. a git read accepted only in
+                one fixed form at the project root with the exact exclusion pathspec. The existing denylist stays in
+                front of it, only to give the agent a precise reason; it is no longer what keeps the file closed.
+  why:          the notes.md rule was a denylist of spellings, and each review found a new spelling through it: case
+                and platform (PR 1, PR 2), the directory git runs from, pathspec magic, shell globs without `.work/`
+                (`debt.md`, 12.10). An allowlist closes the class instead of the instance.
+  alternatives: keep patching the denylist (rejected: the third round of the same class) · allowlist only, with a
+                generic message (rejected: agents lose the precise reason and retry blindly)
+  accepted cost: some honest commands become blocked until their form is added to the allowlist — expected friction,
+                logged in `incidents.md` and `noise.md`.
+  next:         the first task of the next session, before I1: bug-fix/Elevated path on `.claude/hooks/guard.js`,
+                CRITIC on opus; closes the three `debt.md` lines "guard-notes-case (PR 2)".
+  decided by:   Afik (12.10.2026)
+
+2026-10-12 | Vercel builds only `main` and the active branch
+  rule:         `vercel.json` `ignoreCommand` builds a commit only when it is on `main`, or on a branch with an open
+                pull request (Vercel's `VERCEL_GIT_PULL_REQUEST_ID` is set). Every other push is skipped. The active
+                branch is the PR branch: every change reaches `main` through a PR (workflow.md 1.7).
+  why:          Vercel posted no deployment for the last commits of 12.10 (67b2bb6, 15b7fc7) after a day of many
+                pushes on many branches; the Hobby plan has a daily deployment limit.
+  accepted cost: the first push of a new branch, before its PR exists, gets no preview; the next push does.
+  alternatives: a list of branch names in `git.deploymentEnabled` (rejected: changes with every branch) · skipping
+                docs-only commits as well (not asked; revisit if the limit is still hit)
+  decided by:   Afik ("Vercel: מאשר"), mechanism by ORCHESTRATOR (12.10.2026)
+
+2026-10-12 | The migration secret is `APP_OWNER_DATABASE_URL`, in each of `db-preview` and `db-production`
+  rule:         one Environment secret with the same name in both GitHub environments; each holds its own project's
+                session-pooler URL (port 5432) for `app_owner`, user name `app_owner.<project-ref>`. The `migrate`
+                workflow (I1) reads only this secret. Afik enters both values himself.
+  alternatives: per-environment names (rejected: the environment already separates them, and one workflow step serves
+                both) · `DATABASE_URL` (rejected: reserved for the runtime `app_server` connection in Vercel)
+  decided by:   ORCHESTRATOR (12.10.2026)
+
 ---
 
 ## Pending — not yet decided

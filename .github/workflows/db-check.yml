@@ -1,0 +1,111 @@
+# db-check - manual login check for the migration role.
+#
+# Proves: the APP_OWNER_DATABASE_URL secret of the chosen GitHub Environment
+# (db-preview or db-production) logs in through the Supabase session pooler, as
+# the role app_owner, and that role is neither superuser nor BYPASSRLS.
+#
+# Read-only: one SELECT statement, no DDL, no writes. The URL is never printed, and its
+# user must be app_owner.<project ref> of the chosen environment.
+# Nothing is checked out and the token has no permissions.
+#
+# Who runs it: Afik, by hand (Actions -> db-check -> Run workflow). Choosing
+# db-production waits for the required reviewer and runs only from main.
+# Never runs on push or pull_request.
+
+name: db-check
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: GitHub Environment whose APP_OWNER_DATABASE_URL is checked
+        required: true
+        type: choice
+        options:
+          - db-preview
+          - db-production
+
+permissions: {}
+
+concurrency:
+  group: db-check-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  login:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Check login as app_owner
+        env:
+          APP_OWNER_DATABASE_URL: ${{ secrets.APP_OWNER_DATABASE_URL }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          PGCONNECT_TIMEOUT: "15"
+          PGSSLMODE: require
+        run: |
+          set -eu
+          # Nothing below may print the URL or any part of it: no set -x, no echo
+          # of the URL, and psql's own output is discarded (libpq errors can quote it).
+          fail() {
+            echo "::error::$1"
+            exit 1
+          }
+
+          case "${ENVIRONMENT}" in
+            db-preview) ref="xmihorrkegrdlbhpktny" ;;
+            db-production) ref="cihugbwafnaujsqabgyp" ;;
+            *) fail "unknown environment" ;;
+          esac
+
+          [ -n "${APP_OWNER_DATABASE_URL}" ] || fail "APP_OWNER_DATABASE_URL is not set in this environment"
+
+          # Parse with parameter expansion only: postgresql://user:password@host:port/db
+          case "${APP_OWNER_DATABASE_URL}" in
+            postgresql://*|postgres://*) ;;
+            *) fail "the secret is not a postgresql:// URL" ;;
+          esac
+          rest="${APP_OWNER_DATABASE_URL#*://}"
+          authority="${rest%%/*}"
+          authority="${authority%%\?*}"
+          case "${authority}" in
+            *@*:*) ;;
+            *) fail "the secret is not shaped like user:password@host:port" ;;
+          esac
+          userinfo="${authority%@*}"
+          hostport="${authority##*@}"
+          dburl_user="${userinfo%%:*}"
+          dburl_host="${hostport%:*}"
+          dburl_port="${hostport##*:}"
+
+          [ "${dburl_user}" = "app_owner.${ref}" ] \
+            || fail "the URL's user is not app_owner.${ref} - wrong project or role for ${ENVIRONMENT}"
+          case "${dburl_host}" in
+            ?*.pooler.supabase.com) ;;
+            *) fail "the URL's host is not a *.pooler.supabase.com host" ;;
+          esac
+          [ "${dburl_port}" = "5432" ] || fail "the URL's port is not 5432 (session pooler)"
+
+          if ! out="$(psql "${APP_OWNER_DATABASE_URL}" -X -A -t -v ON_ERROR_STOP=1 -F ' ' \
+            -c 'select current_user, rolsuper, rolbypassrls from pg_roles where rolname = current_user' \
+            2>/dev/null)"; then
+            fail "login failed - check the secret's format and password"
+          fi
+          set -- ${out}
+          [ "$#" -eq 3 ] || fail "unexpected check result"
+          role="$1"
+          superuser="$2"
+          bypassrls="$3"
+
+          echo "expected project ref: ${ref}"
+          echo "current_user: ${role}"
+          echo "rolsuper: ${superuser}"
+          echo "rolbypassrls: ${bypassrls}"
+
+          if [ "${role}" != "app_owner" ]; then
+            fail "logged in as a role other than app_owner"
+          fi
+          if [ "${superuser}" != "f" ] || [ "${bypassrls}" != "f" ]; then
+            fail "app_owner must have rolsuper=false and rolbypassrls=false"
+          fi
+          echo "OK: app_owner logs in; no superuser, no BYPASSRLS"
