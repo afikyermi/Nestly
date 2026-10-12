@@ -48,7 +48,6 @@ nestly/
     ├── db-preview.mjs      ← SQL על nestly-preview בלבד; קורא את .env.preview בעצמו ולא מדפיס אותו
     ├── probes/             ← בדיקות התשתית של 7.3 (T3–T7, P1–P4), על preview בלבד
     ├── build-design-tokens.js, check-stories.mjs, eslint-rules/  ← שערי העיצוב וה-CI
-    └── situation-room/     ← חדר המצב: npm run situation-room ← http://127.0.0.1:6010
 ```
 
 ## היסטוריית התכנון — לפי הסדר

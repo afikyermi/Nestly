@@ -18,12 +18,11 @@
     "tokens:check": "node tools/build-design-tokens.js && git diff --exit-code -- apps/web/src/styles/tokens.generated.css",
     "ci": "npm run typecheck && npm run lint && npm run tokens:check && npm run check:stories && npm test && npm run build && npm run test:build",
     "test:build": "node --test tools/built-css.test.mjs",
-    "test:tools": "node --test tools/design-gates.test.mjs tools/ui-types.test.mjs tools/check-stories.test.mjs tools/eslint-rules/no-cross-feature-import.test.mjs .claude/hooks/guard.test.js .claude/hooks/situation-log.test.js tools/situation-room/derive.test.mjs tools/situation-room/sources.test.mjs tools/situation-room/server.test.mjs",
+    "test:tools": "node --test tools/design-gates.test.mjs tools/ui-types.test.mjs tools/check-stories.test.mjs tools/eslint-rules/no-cross-feature-import.test.mjs .claude/hooks/guard.test.js",
     "build-storybook": "npm run build-storybook -w @nestly/web",
     "check:stories": "node tools/check-stories.mjs",
     "serve:storybook": "node tools/serve-static.mjs apps/web/storybook-static 6007",
-    "test:browser": "npm run build-storybook && playwright test",
-    "situation-room": "node tools/situation-room/server.mjs"
+    "test:browser": "npm run build-storybook && playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.0",

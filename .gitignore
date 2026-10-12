@@ -34,5 +34,5 @@ storybook-static/
 test-results/
 playwright-report/
 
-# Situation room event log (tools/situation-room), per machine
+# A local event log some machines keep here; never part of the project
 .live/

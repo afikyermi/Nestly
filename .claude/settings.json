@@ -60,35 +60,7 @@
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard.js\" all"
           }
         ]
-      },
-      { "matcher": "*", "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/situation-log.js\"", "timeout": 2 }] }
-    ],
-    "PostToolUse": [
-      { "matcher": "*", "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/situation-log.js\"", "timeout": 2 }] }
-    ],
-    "PostToolUseFailure": [
-      { "matcher": "*", "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/situation-log.js\"", "timeout": 2 }] }
-    ],
-    "SubagentStart": [
-      { "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/situation-log.js\"", "timeout": 2 }] }
-    ],
-    "SubagentStop": [
-      { "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/situation-log.js\"", "timeout": 2 }] }
-    ],
-    "UserPromptSubmit": [
-      { "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/situation-log.js\"", "timeout": 2 }] }
-    ],
-    "UserPromptExpansion": [
-      { "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/situation-log.js\"", "timeout": 2 }] }
-    ],
-    "Stop": [
-      { "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/situation-log.js\"", "timeout": 2 }] }
-    ],
-    "SessionStart": [
-      { "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/situation-log.js\"", "timeout": 2 }] }
-    ],
-    "SessionEnd": [
-      { "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/situation-log.js\"", "timeout": 2 }] }
+      }
     ]
   }
 }

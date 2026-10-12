@@ -906,36 +906,17 @@ YYYY-MM-DD | <decision in one line>
                 ties migration secrets to an environment another integration manages)
   decided by:   ORCHESTRATOR (11.10.2026, names proposed by Afik)
 
-2026-10-12 | Situation room: a local, observe-only view of the agent system at work
-  what:         an internal tool for Afik, not the product. `.claude/hooks/situation-log.js` appends one line per
-                session, prompt, tool and subagent event to `.live/events-YYYY-MM-DD.jsonl`; `tools/situation-room/`
-                serves a Hebrew RTL page on 127.0.0.1 with the live state (who is active, on what branch and step, which
-                skills, guard blocks) and history (usage per agent and skill, CRITIC/TEST ENGINEER rounds per part,
-                blocks over time, a timeline with merges). Opened with `npm run situation-room`.
-  rules:        (Afik) local only, nothing leaves the machine · no content: no prompt text, assistant text, commands,
-                file content, URL paths or queries, skill arguments, nor anything naming an `.env` file — only who,
-                what, when and a short description · the hook only observes: exit 0, silent, never blocks, adds ≤ 30 ms
-                over a bare node start (measured +9–16 ms) · `.live/` gitignored, 5 MB per day file, 60-day retention ·
-                tests for the hook; CRITIC reviews it as it reviews the guard. Spec: `.work/situation-room/spec.md`.
-  blocks:       option B — `guard.js` appends one scrubbed `Block` line (reason without file names, role names or
-                error text). The logger is required lazily inside a try, so a missing or broken logger cannot crash
-                the guard; exit code and message are unchanged; logged only when `incidents.md` is, so once.
-                `incidents.md` stays the official record.
-  alternatives: A — the server tails `incidents.md` (no session or agent, minute resolution, aggregated lines, a
-                git-tracked file a checkout rewrites) · C — infer a block from a Pre event with no Post (no reason,
-                cannot tell a block from a slow call)
-  origin:       a draft by an earlier session, found live and logging prompt text; contained on 12.10.2026 before the
-                build. The draft log (`.live/events.jsonl`) still holds that text — deleting it is Afik's call.
-  accepted cost: the guard's integrity now spans two files (a logger that exits or hangs at load could affect it); both
-                sit under `.claude/**`, which asks Afik before any edit, and CRITIC reviews them as one unit.
-  decided by:   Afik (the request and its rules, 12.10.2026) · ORCHESTRATOR (option B and the design, on SPEC's
-                recommendation)
-  later:        (ORCHESTRATOR, 12.10.2026, during review) the live view's backlog is capped at the last 6000 events —
-                history is computed on the server · a day file of garbage lines is not a "problem" state (half-written
-                lines are skipped legitimately); only I/O failures are · 60 days kept in memory (150k events: 410 ms to
-                load, 219 MB RSS) · merges are detected by commit subject on word boundaries; an unmatched part shows
-                "מיזוג לא זוהה" · the guard's TEST ENGINEER rule strips plain shell expansions ($?, $X, ${X}) before
-                judging a path; operator expansions (${X:-…}) stay globs.
+2026-10-12 | The guard keeps a single record: incidents.md
+  rule:         `guard.js` reports a block to `incidents.md` only. It writes no second log and loads no other module —
+                a short-lived change that also wrote a separate event log (12.10) was removed the same day at Afik's
+                request, with its tests; the guard depends on nothing outside its own file. At the same request, the
+                log entries that described that change were removed from this file and the other logs rather than marked
+                superseded; git history keeps them.
+  kept:         the TEST ENGINEER rule strips plain shell expansions ($?, $X, ${X}) before judging a path; an expansion
+                with an operator (${X:-…}) stays a glob. Found and fixed through two CRITIC rounds on opus (12.10);
+                the remaining text-not-semantics gap is in debt.md.
+  alternatives: keep the second log behind a lazy, fail-closed require (rejected: Afik wants no dependency)
+  decided by:   Afik (12.10.2026)
 
 2026-10-12 | UI wave 1 (9.7) spec addenda after Gate 1, parts c–e — recorded together
   source:       `.work/ui-wave-1/spec.md` (each addendum in the API section, dated) and `.work/ui-wave-1/findings.md`
