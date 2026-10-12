@@ -129,7 +129,7 @@ function num(v) {
 }
 
 function build(h) {
-  const dir = h.cwd || process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  const dir = process.env.CLAUDE_PROJECT_DIR || h.cwd || process.cwd();
   const ev = {
     t: Date.now(),
     ev: h.hook_event_name,
