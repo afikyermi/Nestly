@@ -27,3 +27,4 @@ invented. Acting on one without the other produces a system that gets stricter f
 ---
 
 2026-10-12 | 7.2 onward (all merges) | merged with the GitHub CI `test` job red on every run; the merge step checked a local `npm run ci` on Windows, never the Actions result | should have been caught by: CI — the gate ran and failed; nobody read it
+2026-10-12 | 7.2 hooks (guard) | the notes.md rule for CRITIC depended on case and platform: on Windows an exclusion pathspec in another case (`.WORK/*/notes.md`) passed the guard although git does not honour it; off Windows three `.work` checks compared case-sensitively (`.work/guard-notes-case/bug.md`) | should have been caught by: CRITIC
