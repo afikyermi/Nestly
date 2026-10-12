@@ -541,3 +541,60 @@ test("dayKey / dayRange: local calendar days, inclusive, across a month end", ()
   assert.deepEqual(dayRange(L(2026, 9, 29, 15), L(2026, 10, 2, 1)), ["2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02"]);
   assert.deepEqual(dayRange(L(2026, 10, 12, 8), L(2026, 10, 12, 9)), ["2026-10-12"]);
 });
+
+// ---------- CRITIC round 1 findings: merge matching, stepper, sanitize ----------
+const merged = (s, commits) => buildSummary({ events: s, commits, now: Date.now() + 1000, days: 30 }).rounds;
+const commit = (subject, t) => ({ sha: "a".repeat(40), t, subject, merge: true });
+
+test("[situation-room 27] merge matching uses word boundaries: ui/part-1 is not cut by 'Merge UI part 10'; ui/part-10 is", () => {
+  const t0 = Date.now() - 100000;
+  const events = [
+    start("critic", "c1", "ui/part-1", t0), start("critic", "c2", "ui/part-1", t0 + 50000),
+    start("critic", "c3", "ui/part-10", t0), start("critic", "c4", "ui/part-10", t0 + 50000),
+  ];
+  const rows = merged(events, [commit("Merge UI part 10", t0 + 10000)]);
+  const p1 = rows.find(r => r.part === "part-1");
+  const p10 = rows.find(r => r.part === "part-10");
+  assert.equal(p1.mergedAt, null, "part-1 has no merge detected");
+  assert.equal(p1.critic, 2, "no run of part-1 is cut off");
+  assert.equal(p10.mergedAt, t0 + 10000);
+  assert.equal(p10.critic, 1);
+  assert.equal(p10.afterMerge, 1);
+});
+
+test("[situation-room 27] an unmatched part carries the not-detected state as data (mergedAt null), a matched one a time", () => {
+  const t0 = Date.now() - 100000;
+  const events = [start("critic", "c1", "f/part-a", t0), start("critic", "c2", "f/part-b", t0)];
+  const rows = merged(events, [commit("Merge f part b", t0 + 5)]);
+  assert.equal(rows.find(r => r.part === "part-a").mergedAt, null);
+  assert.equal(rows.find(r => r.part === "part-b").mergedAt, t0 + 5);
+  assert.equal(merged(events, []).every(r => r.mergedAt === null), true);
+});
+
+test("[situation-room 25] stepper: with no part, critic runs are counted per branch, not shared", () => {
+  const s = createStepper();
+  assert.equal(s.annotate(start("critic", "c1", "alpha")).step, 9);
+  assert.equal(s.annotate(start("critic", "c2", "beta")).step, 9);
+  assert.equal(s.annotate(start("builder", "b1", "gamma")).step, 6);
+  assert.equal(s.annotate(start("builder", "b2", "beta")).step, 10);
+  assert.equal(s.annotate(start("critic", "c3", "alpha")).step, 11);
+  const m = createStepper();
+  assert.equal(m.annotate(start("critic", "c1", "main")).step, 9);
+  assert.equal(m.annotate(start("critic", "c2", undefined)).step, 9);
+});
+
+test("[situation-room 25] stepper: a repeated SubagentStart with the same aid is counted once", () => {
+  const s = createStepper();
+  assert.equal(s.annotate(start("critic", "c1", "f/part-e")).step, 9);
+  assert.equal(s.annotate(start("critic", "c1", "f/part-e")).step, 9);
+  assert.equal(s.annotate(start("critic", "c1", "f/part-e")).step, 9);
+  assert.equal(s.annotate(start("critic", "c2", "f/part-e")).step, 11, "the second real run is run 2");
+  assert.equal(s.annotate(start("builder", "b1", "f/part-e")).step, 10);
+});
+
+test("[situation-room 23] sanitizeEvent rejects an array-valued or object-valued ev", () => {
+  for (const evName of [["PreToolUse"], ["Stop"], [], [["Stop"]], { toString: () => "Stop" }, new String("Stop")]) {
+    assert.equal(sanitizeEvent({ t: 1, ev: evName, sid: "s" }), null, JSON.stringify(evName));
+  }
+  assert.equal(parseLogLine('{"t":1,"ev":["Stop"],"sid":"s"}'), null);
+});

@@ -212,3 +212,17 @@ test("[situation-room 30] git is invoked with execFile and fixed arguments, neve
   // no request data reaches the argument list: the readers take a directory, never a request
   assert.doesNotMatch(src, /\breq\b|\.url\b|searchParams/);
 });
+
+test("[situation-room 24] tail: after a truncation, lines at or before the last seen time are not replayed", async () => {
+  const dir = tmp();
+  const f = path.join(dir, "events-2026-10-12.jsonl");
+  const long = "x".repeat(200);
+  writeFileSync(f, line(ev(1, "a", { target: long })) + line(ev(2, "b", { target: long })) + line(ev(3, "c", { target: long })));
+  const tail = createTail(dir);
+  assert.deepEqual((await tail.poll()).map(e => e.id), ["a", "b", "c"]);
+  // the file is rewritten shorter: the old lines come again, then one new one
+  writeFileSync(f, line(ev(2, "b")) + line(ev(3, "c")) + line(ev(4, "d")));
+  assert.deepEqual((await tail.poll()).map(e => e.id), ["d"]);
+  appendFileSync(f, line(ev(5, "e")));
+  assert.deepEqual((await tail.poll()).map(e => e.id), ["e"]);
+});

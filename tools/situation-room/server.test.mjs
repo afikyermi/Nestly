@@ -416,3 +416,88 @@ test("[situation-room 33] the new test files are in test:tools and exist", () =>
   assert.ok(script.includes(".claude/hooks/situation-log.test.js"), "slice 1 test still wired");
   assert.ok(script.includes(".claude/hooks/guard.test.js"), "guard test still wired");
 });
+
+// ---------- CRITIC round 1: scale and load failures ----------
+const DAY = 86400000;
+const p2 = n => String(n).padStart(2, "0");
+const dayName = t => { const d = new Date(t); return `events-${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}.jsonl`; };
+
+// Reads a whole /events answer: resolves when the init event is complete.
+function readInit(port, ms = 90000) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    const timer = setTimeout(() => { req.destroy(); reject(new Error("init timeout")); }, ms);
+    const req = http.get({ host: "127.0.0.1", port, path: "/events", headers: { Host: `127.0.0.1:${port}` } }, res => {
+      let text = "";
+      res.setEncoding("utf8");
+      res.on("data", c => {
+        text += c;
+        const i = text.indexOf("event: init\n");
+        if (i >= 0 && text.indexOf("\n\n", i) >= 0) {
+          clearTimeout(timer);
+          const dataLine = text.slice(i).split("\n").find(l => l.startsWith("data: "));
+          req.destroy();
+          resolve({ init: JSON.parse(dataLine.slice(6)), text });
+        }
+      });
+    });
+    req.on("error", () => {});
+    void chunks;
+  });
+}
+
+test("[situation-room 24] scale: 150k events over three day files reach /events init (newest last) and /summary has full totals, no 500", { timeout: 180000 }, async () => {
+  const root = tempRoot();
+  const N = 150000;
+  const now = Date.now();
+  const base = now - 3 * 3600 * 1000;
+  const step = Math.floor((2 * 3600 * 1000) / N);
+  const per = N / 3;
+  for (let f = 0; f < 3; f++) {
+    const parts = [];
+    for (let i = f * per; i < (f + 1) * per; i += 2) {
+      const t = base + i * step;
+      parts.push(JSON.stringify({ t, ev: "SubagentStart", sid: "s1", aid: `a${i}`, who: "builder", branch: "f/part-e" }));
+      parts.push(JSON.stringify({ t: t + 1, ev: "SubagentStop", sid: "s1", aid: `a${i}`, who: "builder", branch: "f/part-e" }));
+    }
+    writeFileSync(path.join(root, ".live", dayName(now - (2 - f) * DAY)), `${parts.join("\n")}\n`);
+  }
+  const { port } = await boot(root, 200);
+  const { init } = await readInit(port);
+  assert.ok(init.length > 0 && init.length <= N, "init is a complete frame");
+  assert.equal(init.at(-1).aid, `a${N - 2}`, "init ends with the newest event");
+  assert.equal(init.at(-1).t > init[0].t, true);
+  const r = await request({ port, reqPath: "/summary?days=30" });
+  assert.equal(r.status, 200);
+  const s = JSON.parse(r.body.toString());
+  assert.equal(s.problem ?? null, null);
+  const b = s.usage.agents.find(a => a.who === "builder");
+  assert.equal(b.runs, N / 2);
+  assert.equal(b.running, 0);
+  assert.ok(b.ms > 0);
+  assert.notEqual(s.firstEvent, null);
+});
+
+test("[situation-room 24] a log location that cannot be read is reported: SSE problem event and /summary problem, not a silent empty view", async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "sr-srv-"));
+  made.push(root);
+  writeFileSync(path.join(root, ".live"), "this is a file, not a directory"); // readdir fails with ENOTDIR
+  const { port } = await boot(root, 40);
+  const sse = openSse(port);
+  assert.ok(await sse.waitFor(t => t.includes("event: problem")), "a problem event is sent");
+  sse.close();
+  const s = JSON.parse((await request({ port, reqPath: "/summary" })).body.toString());
+  assert.ok(typeof s.problem === "string" && s.problem.length > 0, "summary reports the problem");
+});
+
+test("[situation-room 24] a healthy log reports no problem: no problem event, problem null in /summary", async () => {
+  const root = tempRoot();
+  writeFileSync(path.join(root, ".live", dayName(Date.now())), line(ev(Date.now(), "ok-1")));
+  const { port } = await boot(root, 40);
+  const sse = openSse(port);
+  await sse.waitFor(t => t.includes("ok-1"));
+  await sleep(200);
+  sse.close();
+  assert.equal(sse.text.includes("event: problem"), false);
+  assert.equal(JSON.parse((await request({ port, reqPath: "/summary" })).body.toString()).problem ?? null, null);
+});
