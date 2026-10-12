@@ -170,3 +170,22 @@ describe("part e (criteria 34, 37): MenuItem is a link or a button, never both (
     assert.equal(ok, false);
   });
 });
+
+describe("part e addenda: MenuItem takes exactly one of href or onClick (type level)", () => {
+  it("[37] neither href nor onClick fails tsc", () => {
+    const { ok, output } = compile(`${partE}export const A = () => <MenuItem>א</MenuItem>;\n`);
+    assert.equal(ok, false, "a MenuItem with no link target and no action must not compile");
+    assert.match(output, /href|onClick/);
+  });
+
+  it("[37] neither fails also with disabled and an icon", () => {
+    const { ok } = compile(`${partE}export const A = () => <MenuItem disabled icon={<svg />}>א</MenuItem>;\n`);
+    assert.equal(ok, false);
+  });
+
+  it("[36] control: Avatar accepts size sm and md, and rejects another size", () => {
+    const avatar = `import { Avatar } from "@/components/ui/avatar";\n`;
+    assert.equal(compile(`${avatar}export const A = () => <><Avatar size="sm" /><Avatar size="md" name="x" decorative /></>;\n`).ok, true);
+    assert.equal(compile(`${avatar}export const A = () => <Avatar size="lg" />;\n`).ok, false);
+  });
+});

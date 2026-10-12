@@ -291,14 +291,19 @@ test.describe('MenuItem (37)', () => {
     expect(await page.evaluate<number>('window.__c || 0')).toBe(2);
   });
 
-  test('[37] shared-menuitem--disabled: aria-disabled, and click, Enter and Space do nothing', async ({ page }) => {
+  test('[37] shared-menuitem--disabled: aria-disabled, stays focusable, and click, Enter and Space do nothing', async ({
+    page,
+  }) => {
     await openStory(page, 'shared-menuitem--disabled');
     const item = page.locator(`${ROOT} [aria-disabled="true"]`).first();
     await expect(item).toHaveCount(1);
-    await page.evaluate(`document.addEventListener('click', (e) => { window.__nav = e.defaultPrevented; })`);
+    await page.evaluate(
+      `document.addEventListener('click', (e) => { window.__clicks = (window.__clicks || 0) + 1; window.__nav = e.defaultPrevented; })`,
+    );
     const before = page.url();
+    await page.keyboard.press('Tab');
+    await expect(item).toBeFocused(); // disabled items stay in the tab order
     await item.click({ force: true });
-    await item.focus();
     await page.keyboard.press('Enter');
     await page.keyboard.press('Space');
     expect(page.url()).toBe(before);
@@ -334,5 +339,48 @@ test.describe('MenuItem (37)', () => {
       await page.keyboard.press('Tab');
       await expect(items.nth(i)).toBeFocused();
     }
+  });
+});
+
+test.describe('Avatar size (36, addendum after the part-e review)', () => {
+  test.use({ viewport: MOBILE });
+  const circle = async (page: Page, id: string) => {
+    await openStory(page, id);
+    const box = await page.locator(`${ROOT} [aria-hidden="true"], ${ROOT} [role="img"]`).first().boundingBox();
+    expect(box).not.toBeNull();
+    return box;
+  };
+
+  test('[36] sm is 24px and md (the default) is 40px', async ({ page }) => {
+    const sm = await circle(page, 'ui-avatar--small');
+    expect(Math.round(sm?.width ?? 0)).toBe(24);
+    expect(Math.round(sm?.height ?? 0)).toBe(24);
+    const md = await circle(page, 'ui-avatar--initials');
+    expect(Math.round(md?.width ?? 0)).toBe(40);
+    expect(Math.round(md?.height ?? 0)).toBe(40);
+  });
+});
+
+test.describe('Auth compositions (addendum after the part-e review)', () => {
+  test.use({ viewport: MOBILE });
+
+  test('[35] layout-authlayout--login has a "שכחתי סיסמה" link, reachable by keyboard', async ({ page }) => {
+    await openStory(page, 'layout-authlayout--login');
+    const link = page.getByRole('link', { name: 'שכחתי סיסמה' });
+    await expect(link).toHaveCount(1);
+    await expect(link).toHaveAttribute('href', /.+/);
+    let reached = false;
+    for (let i = 0; i < 12 && !reached; i += 1) {
+      await page.keyboard.press('Tab');
+      reached = await link.evaluate((el) => el === document.activeElement);
+    }
+    expect(reached, 'Tab reaches the forgot-password link').toBe(true);
+  });
+
+  test('[35] layout-authlayout--welcome carries a descriptive lead paragraph', async ({ page }) => {
+    await openStory(page, 'layout-authlayout--welcome');
+    const lead = page.locator(`${ROOT} p`).first();
+    await expect(lead).toBeVisible();
+    expect(((await lead.innerText()) ?? '').trim().length).toBeGreaterThan(10);
   });
 });

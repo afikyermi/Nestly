@@ -257,9 +257,47 @@ describe('Avatar (36)', () => {
     expect(shows(container, 'נר')).toBe(true);
   });
 
-  it('[36] Latin names work the same way (case not specified)', () => {
+  it('[36] Latin names are upper-cased: "jane doe" shows "JD"', () => {
     const { container } = render(<Avatar name="jane doe" decorative />);
-    expect((container.textContent ?? '').trim()).toMatch(/^jd$/i);
+    expect(shows(container, 'JD')).toBe(true);
+  });
+
+  it('[36] words that do not start with a letter are skipped: "- Dan Levi" shows "DL"', () => {
+    const { container } = render(<Avatar name="- Dan Levi" decorative />);
+    expect(shows(container, 'DL')).toBe(true);
+  });
+
+  it('[36] a decomposed accent stays with its letter (one grapheme cluster)', () => {
+    const { container } = render(<Avatar name={'e\u0301lise dubois'} decorative />);
+    const text = (container.textContent ?? '').trim();
+    expect(text.normalize('NFC')).toBe('\u00C9D');
+    expect(text).toMatch(/^E\u0301D$|^\u00C9D$/);
+  });
+
+  it('[36] an emoji ZWJ sequence is never cut: no stray joiner, variation selector or lone surrogate', () => {
+    const family = '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}';
+    const { container } = render(<Avatar name={`Dan ${family} Levi`} decorative />);
+    const text = (container.textContent ?? '').trim();
+    expect(text).toBe('DL'); // the emoji word does not start with a letter, so it is skipped whole
+    const lone = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]|\u200D/;
+    expect(text).not.toMatch(lone);
+  });
+
+  it('[36] size: omitting it equals "md", and "sm" renders differently', () => {
+    const md = render(<Avatar name="נועה רז" size="md" decorative />).container.innerHTML;
+    const omitted = render(<Avatar name="נועה רז" decorative />).container.innerHTML;
+    const sm = render(<Avatar name="נועה רז" size="sm" decorative />).container.innerHTML;
+    expect(omitted).toBe(md);
+    expect(sm).not.toBe(md);
+  });
+
+  it('[36] not decorative, empty name and no label: treated as decorative (aria-hidden), never an unnamed image', () => {
+    for (const el of [<Avatar key="a" />, <Avatar key="b" name="" />, <Avatar key="c" name="   " />]) {
+      const { container, unmount } = render(el);
+      expect(screen.queryByRole('img')).toBeNull();
+      expect(container.firstElementChild).toHaveAttribute('aria-hidden', 'true');
+      unmount();
+    }
   });
 
   it('[36] a first letter outside the BMP is not cut into a lone surrogate', () => {
@@ -366,7 +404,7 @@ describe('MenuItem (37)', () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
-  it('[37] disabled link: aria-disabled="true" and activation does not navigate', async () => {
+  it('[37] disabled link keeps its href, is announced, stays focusable and its activation is cancelled', async () => {
     const user = userEvent.setup();
     render(
       <MenuItem href="/settings" disabled>
@@ -374,17 +412,35 @@ describe('MenuItem (37)', () => {
       </MenuItem>,
     );
     const link = screen.getByRole('link', { name: 'הגדרות' });
+    expect(link).toHaveAttribute('href', '/settings');
     expect(link).toHaveAttribute('aria-disabled', 'true');
-    const hasHref = link.hasAttribute('href') && link.getAttribute('href') !== '';
-    // Not navigable: either no usable href, or the click is cancelled (default prevented).
-    const proceeded = fireEvent.click(link);
-    expect(!hasHref || proceeded === false).toBe(true);
-    const prevented: boolean[] = [];
+    // Focusable: by Tab and by focus().
+    await user.tab();
+    expect(link).toHaveFocus();
     // React handles clicks at its root, so observe from the document (after the handler ran).
-    document.addEventListener('click', (e) => prevented.push(e.defaultPrevented));
-    link.focus();
+    const prevented: boolean[] = [];
+    const seen = (e: Event) => prevented.push(e.defaultPrevented);
+    document.addEventListener('click', seen);
+    fireEvent.click(link);
+    await user.click(link);
     await user.keyboard('{Enter}');
-    expect(!hasHref || prevented.every(Boolean)).toBe(true);
+    document.removeEventListener('click', seen);
+    expect(prevented.length).toBeGreaterThanOrEqual(3);
+    expect(prevented.every(Boolean)).toBe(true);
+  });
+
+  it('[37] disabled button stays focusable (Tab reaches it) and is still announced as disabled', async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+    render(
+      <MenuItem onClick={onClick} disabled>
+        יציאה
+      </MenuItem>,
+    );
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'יציאה' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'יציאה' })).toHaveAttribute('aria-disabled', 'true');
+    expect(onClick).not.toHaveBeenCalled();
   });
 
   it('[37] enabled items do not carry aria-disabled="true"', () => {
