@@ -358,3 +358,45 @@ ChoiceCardGroup keys, RTL: from card 1 ArrowRight goes to card 3 (previous, wrap
 - DateInput: optional `aria-describedby` on the fieldset; the three fields keep `aria-invalid`.
 - Checkbox: `aria-invalid`/`aria-describedby` accepted; invalid = `error || aria-invalid`. The outline comes from `aria-invalid:` so it shows for both.
 - InlineAlert LongText story: neutral text, no reset flow.
+
+## Part e — Logo, illustrations, AuthLayout, Avatar, MenuItem (`ui-wave-1/part-e`)
+
+**Approach.** Built to the API section of the spec; `className?` only where the API lists or implies it (Logo, Illustrations, Avatar, MenuItem; AuthLayout takes none).
+Five new story files and `STATES` rows (logo 4, illustrations 2, auth-layout 3, avatar 5, menu-item 4); `shared/logo-wordmark` is in `NO_VISUAL` of `check-stories`, since it
+is drawn only inside Logo's stories.
+
+**Decisions.**
+- Logo: the link renders `<a aria-label="Nestly">`, the static one `<span role="img" aria-label="Nestly">`; the wordmark inside is `aria-hidden`. The wordmark
+  (`logo-wordmark.tsx`) is the nest icon from the icon module plus the word, sized by `text-h3` / `text-display`. The link is `min-h-11 min-w-11`.
+- Illustrations: both use `fill-*` / `stroke-*` token classes, no hex. The welcome one is the R2 nest with two eggs and a sprig; the sprig stroke is `success`
+  (the mockup's `#5E7F58` is not a token). The registration one differs from the mockup: two leaves replace the heart, to keep to "nest, leaves, soft shapes".
+- Avatar: with no name to announce (decorative, or no name and no `label`) the span is `aria-hidden` rather than an unnamed `role="img"`. Default size `size-10`
+  (mockup 40); the BottomNavigation's small one passes `size-6` through `className`.
+- MenuItem: a disabled link keeps its `href`, sets `aria-disabled` and prevents the click (the same contract as Button, part b); it stays focusable.
+  `href` and `onClick` are a union type, so passing both fails `tsc`.
+- AuthLayout: `max-w-md` column, `px-5`, `min-h-dvh`, actions at the bottom edge in flow (not sticky), as in the mockup; the back slot is pulled `-ms-2` so
+  the glyph aligns with the text edge (mockup `.form-top`).
+- Story copy: Welcome heading "הצטרפות ל-Nestly" (the SRS names the screen so; no lead paragraph, the mockup marks it a draft); Login has no forgot-password
+  link (FR-AUTH-003 channel TBD) and no error text; the password rule is VAL-003's 10 characters; MenuItem labels are the FR-MENU-001 destinations.
+
+**Deviations.** None from the API. The two illustrations are not pixel copies of the mockup (above).
+
+**Deliberately not done.** No test files. No photos in Avatar. No sticky actions bar. No `size` prop on Avatar (not in the API).
+
+**Uncertain.** (1) The static Logo as `role="img"` is a choice; a test may look for plain text instead (the text "Nestly" is still in the DOM, `aria-hidden`).
+(2) Avatar's `aria-hidden` fallback when it has neither name nor label is my reading of "named otherwise".
+
+**Preview path.** `npm run build-storybook`, `npm run serve:storybook`: layout/AuthLayout (Welcome, Login, Registration step), shared/Logo (4), shared/Illustrations (2),
+ui/Avatar (5), shared/MenuItem (5 stories, 4 counted). Check at 375: logo and nest at the right of the word, illustration centred, the two actions at the bottom
+edge full width, back arrow at the right, no horizontal scroll. Not yet: no real pages (F1.2), no shell (part f).
+
+**Evidence (criteria, built Storybook, Chrome).** 34: link/static, name "Nestly", two sizes, svg `aria-hidden="true"`, classes only `fill-*`/`stroke-*`, lint clean (no hex).
+35: scrollWidth = clientWidth = 375 on all three stories; actions at y 674-788 within an 812 viewport. 36: `initialsOf` splits on whitespace, two words, first code point.
+37: link, button, `aria-disabled`, `min-h-12` (measured 48). 14/18: axe and target-size pass on all new stories (Chrome and Edge). `npm run ci` green; `test:browser` 1006 passed.
+17/19/20: native a/button, global focus ring; not asserted by me.
+
+**RTL geometry (Chrome, 375 wide, measured).** Welcome: logo 107-268 (nest icon 224-264 at the right, word 111-218), illustration 78-298, h1 71-304, actions 20-355 x 52 high.
+Login: fields 20-355 x 48, password toggle 22-66 (left, inline end), actions 20-355. Registration step: back 319-363 (right edge, 44x44), step bar 20-355, terms checkbox 331-355 (right).
+Logo link 44 high (103x44 / 161x44). MenuItem rows 16-359 x 48, icon 323-347 at the right (inline start). Avatar 40x40 at 319-359.
+
+**Neighbouring.** None new.
