@@ -538,8 +538,13 @@ function checkReader(role, tool, input, ctx) {
       const NO_IMPL = 'TEST ENGINEER does not read apps/*/src or apps/*/api. Use apps/<app>/tests paths.';
       // Every path-like argument, resolved where it runs; a glob is judged by where it starts.
       for (const { seg, cwd } of located) {
-        for (const a of seg.slice(1)) {
-          if (a.startsWith('-') || /^[a-z]+:\/\//i.test(a)) continue;
+        for (const raw of seg.slice(1)) {
+          // Plain parameter expansions are removed first ($?, $X, ${E}): their `?` is not a glob, and an unset one
+          // expands to nothing, so what is left is what the shell reads. An expansion with an operator
+          // (${X:-apps}, ${H/*/ap}) is left in place: its default or replacement is what the shell reads, and its
+          // braces mark the token a glob, so it is judged as one. The left-over is then checked in full.
+          const a = raw.replace(/\$(\{\w+\}|[?#@*!$0-9-]|\w+)/g, '');
+          if (!a || a.startsWith('-') || /^[a-z]+:\/\//i.test(a)) continue;
           const glob = /[*?[\]{}]/.test(a);
           const r = rel(glob ? literalPrefix(a) || '.' : a, ctx.root, cwd);
           if (isAppImpl(r) || (glob && reachesAppImpl(r))) return NO_IMPL;
@@ -676,8 +681,50 @@ function report(root, role, tool, reason) {
   }
 }
 
+// The hook input of the call being judged, for the situation room's Block line. Set in main().
+let current = null;
+
+// The reason with anything variable removed: a staged file's name, an unknown role's name, an error's text.
+function scrubReason(reason) {
+  const r = String(reason);
+  if (r.startsWith('A .env file is staged')) return 'A .env file is staged. It must never be committed.';
+  if (r.startsWith('unknown role')) return 'unknown role';
+  if (r.startsWith('guard error')) return 'guard error';
+  return r.replace(/\s+/g, ' ');
+}
+
+// One Block line in the situation room's log (decisions.md, "Situation room"). Observes only: the logger is required
+// lazily inside the try, so a missing or broken logger can never crash the guard, and nothing here changes the exit
+// code or the message.
+function live(root, role, tool, reason) {
+  try {
+    const log = require('./situation-log.js');
+    const h = current || {};
+    const who = typeof h.agent_type === 'string' && h.agent_type ? h.agent_type.toLowerCase() : 'ORCHESTRATOR';
+    log.writeEvent(
+      {
+        ev: 'Block',
+        sid: typeof h.session_id === 'string' ? h.session_id : undefined,
+        aid: typeof h.agent_id === 'string' ? h.agent_id : undefined,
+        who,
+        branch: log.branch(root),
+        role,
+        tool,
+        id: typeof h.tool_use_id === 'string' ? h.tool_use_id : undefined,
+        reason: scrubReason(reason),
+      },
+      root,
+    );
+  } catch {
+    // The block stands even when the room cannot be told.
+  }
+}
+
 function block(reason, root, role, tool) {
-  if (root) report(root, role, tool, reason);
+  if (root) {
+    report(root, role, tool, reason);
+    live(root, role, tool, reason);
+  }
   process.stderr.write(`Blocked by .claude/hooks/guard.js: ${reason}\n`);
   process.exit(2);
 }
@@ -694,6 +741,7 @@ function main() {
   if (!data || typeof data.tool_name !== 'string' || !data.tool_input || typeof data.tool_input !== 'object') {
     return block('malformed hook input');
   }
+  current = data;
   let root = null;
   let reason;
   try {
@@ -726,4 +774,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { shellSegments, gitCall, literalPrefix, rel, commitTakesWorkingTree, grepExcludesNotes };
+module.exports = { shellSegments, gitCall, literalPrefix, rel, commitTakesWorkingTree, grepExcludesNotes, scrubReason };
