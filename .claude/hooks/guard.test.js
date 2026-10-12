@@ -482,4 +482,98 @@ test('a block is logged to incidents.md without the command', () => {
   assert.doesNotMatch(added, /TOPSECRET/);
 });
 
+// ---- the situation room's Block line (spec .work/situation-room, criteria 18-21) ----
+
+function liveLines(root) {
+  const dir = path.join(root, '.live');
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith('.jsonl'))
+    .flatMap((f) => fs.readFileSync(path.join(dir, f), 'utf8').split('\n').filter(Boolean));
+}
+
+function freshRoot() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-live-'));
+  fs.writeFileSync(path.join(root, 'incidents.md'), '# Incidents\n');
+  return root;
+}
+
+test('[18] a blocked call writes exactly one Block line, with no command', () => {
+  const root = freshRoot();
+  const payload = JSON.stringify({
+    tool_name: 'Bash',
+    tool_input: { command: 'git add -A # LIVE-SECRET' },
+    cwd: root,
+    session_id: 's1',
+    tool_use_id: 'tu1',
+  });
+  assert.strictEqual(run('all', 'Bash', payload, root), 2);
+  const blocks = liveLines(root).map((l) => JSON.parse(l)).filter((e) => e.ev === 'Block');
+  assert.strictEqual(blocks.length, 1);
+  const b = blocks[0];
+  assert.strictEqual(b.role, 'all');
+  assert.strictEqual(b.tool, 'Bash');
+  assert.strictEqual(b.id, 'tu1');
+  assert.strictEqual(b.sid, 's1');
+  assert.strictEqual(b.who, 'ORCHESTRATOR');
+  assert.match(b.reason, /git add -A/);
+  assert.strictEqual(b.command, undefined);
+  assert.doesNotMatch(liveLines(root).join('\n'), /LIVE-SECRET/);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('[19] the logged reason drops a staged file name, an unknown role name and an error message', () => {
+  const { scrubReason } = require('./guard.js');
+  assert.strictEqual(scrubReason('A .env file is staged (apps/web/.env.local). It must never be committed.'),
+    'A .env file is staged. It must never be committed.');
+  assert.strictEqual(scrubReason('unknown role "secret-x"'), 'unknown role');
+  assert.strictEqual(scrubReason('guard error (ENOENT: C:\\secret\\path)'), 'guard error');
+  assert.strictEqual(scrubReason('`git add -A` and `git add .` are blocked.'), '`git add -A` and `git add .` are blocked.');
+});
+
+test('[20] the guard still blocks when the room cannot be written, or its logger is missing', () => {
+  // .live is a file, so the log directory cannot be created.
+  const root = freshRoot();
+  fs.writeFileSync(path.join(root, '.live'), 'not a directory');
+  assert.strictEqual(run('all', 'Bash', { command: 'git add -A' }, root), 2);
+  assert.match(last, /`git add -A` and `git add \.` are blocked/);
+  assert.strictEqual(run('all', 'Bash', { command: 'git status' }, root), 0);
+  fs.rmSync(root, { recursive: true, force: true });
+
+  // A copy of the guard with no situation-log.js next to it.
+  const lone = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-lone-'));
+  fs.copyFileSync(GUARD, path.join(lone, 'guard.js'));
+  const r = spawnSync(process.execPath, [path.join(lone, 'guard.js'), 'all'], {
+    input: JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'git add -A' }, cwd: ROOT }),
+    env: { ...process.env, CLAUDE_PROJECT_DIR: ROOT },
+    encoding: 'utf8',
+  });
+  assert.strictEqual(r.status, 2);
+  assert.match(r.stderr, /`git add -A` and `git add \.` are blocked/);
+  const ok = spawnSync(process.execPath, [path.join(lone, 'guard.js'), 'all'], {
+    input: JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'git status' }, cwd: ROOT }),
+    env: { ...process.env, CLAUDE_PROJECT_DIR: ROOT },
+    encoding: 'utf8',
+  });
+  assert.strictEqual(ok.status, 0);
+  fs.rmSync(lone, { recursive: true, force: true });
+});
+
+test('[21] a block inside a role agent shows once in the room', () => {
+  const root = freshRoot();
+  const payload = JSON.stringify({
+    tool_name: 'Read',
+    tool_input: { file_path: path.join(root, '.work', 'f', 'notes.md') },
+    cwd: root,
+    agent_type: 'critic',
+  });
+  assert.strictEqual(run('critic', 'Read', payload, root), 2); // frontmatter layer: blocks, stays quiet
+  assert.strictEqual(run('all', 'Read', payload, root), 2); // settings layer: blocks and logs
+  const blocks = liveLines(root).map((l) => JSON.parse(l)).filter((e) => e.ev === 'Block');
+  assert.strictEqual(blocks.length, 1);
+  assert.strictEqual(blocks[0].who, 'critic');
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
 test.after(() => fs.rmSync(ROOT, { recursive: true, force: true }));
