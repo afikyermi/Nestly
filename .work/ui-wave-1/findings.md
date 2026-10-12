@@ -69,3 +69,15 @@ to learn the API from stories in part b.
 (now OP-004's parent set). Merged at a89e800.
 **Process lesson:** TEST ENGINEER reported green from Vitest without the typecheck; ORCHESTRATOR now runs `npm run ci`
 after every TEST ENGINEER commit, and TEST ENGINEER lists every CI step it ran.
+
+## Part d — `ui-wave-1/part-d` at a4ef345 + tests — verdict: Validated with Concern
+
+| # | Severity | File | Claim | Fix |
+|---|---|---|---|---|
+| 1 | medium | shared/choice-card-group.tsx:68, shared/date-input.tsx | ChoiceCardGroup error was a destructive border only; no invalid state, no way to link the message; DateInput lacked describedby | `role="radiogroup"` + `aria-invalid` + `aria-describedby` prop; DateInput `aria-describedby` (spec addendum) |
+| 2 | medium | ui/checkbox.tsx:21-30 | `aria-invalid={error ? true : undefined}` after `{...rest}` erased FormField's invalid state | declared aria props; `error` and `aria-invalid` combine |
+| 3 | low | shared/inline-alert.stories.tsx | LongText copy implied a password-reset path (FR-AUTH-003 channel TBD) | neutral copy |
+| 4 | low | e2e/touch.spec.ts:44-52 | inline-link exemption swallowed link rows and label + stand-alone link | text outside every a/button; parent must be `p` or a checkbox/radio `label` (wrapper spans looked through) |
+
+**Re-check (CRITIC): Validated.** Mutation probes for 1, 2 and 4 failed the matching tests and were reverted. Earlier in
+the part: inline links in the terms Checkbox exempted from target size per WCAG 2.5.8 (spec addendum). Merged at 43ee913.
