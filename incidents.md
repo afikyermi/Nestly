@@ -75,3 +75,7 @@ YYYY-MM-DD HH:MM | <what failed> | impact | state: open | contained | resolved |
 2026-10-12 14:00 | hook blocked Bash (test-engineer): TEST ENGINEER does not read the implementation through git (diff, show, log -p, blame, grep). | the call did not run | state: contained | ORCHESTRATOR reports to Afik
 2026-10-12 14:00 | hook blocked Bash (test-engineer): TEST ENGINEER does not read notes.md. | the call did not run | state: contained | ORCHESTRATOR reports to Afik
 2026-10-12 14:10 | hook blocked Bash (all): Run `git add` and `git commit` as separate commands, so the staged diff can be checked for secrets first. | the call did not run | state: contained | ORCHESTRATOR reports to Afik
+2026-10-12 14:12 | hook blocked Bash (critic): CRITIC: a git command that shows file content must exclude notes.md. Add the pathspec `-- . ':(exclude).work/*/notes.md'`. | the call did not run | state: contained | ORCHESTRATOR reports to Afik
+2026-10-12 14:15 | hook blocked Bash (critic): CRITIC does not read notes.md. | the call did not run | state: contained | ORCHESTRATOR reports to Afik
+2026-10-12 14:16 | hook blocked Bash (all): `git add -A` and `git add .` are blocked. Stage the files by name. | the call did not run | state: contained | ORCHESTRATOR reports to Afik
+2026-10-12 14:17 | hook blocked Bash (all): Run `git add` and `git commit` as separate commands, so the staged diff can be checked for secrets first. | the call did not run | state: contained | ORCHESTRATOR reports to Afik

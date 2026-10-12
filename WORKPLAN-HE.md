@@ -14,7 +14,8 @@
 
 - **מצב:** חלק 7 הושלם (7.0 עד 7.4). מחלק 9 הושלמו 9.1 עד 9.6. ב-9.7, יחידת הרכיבים, מוזגו חלקים a עד e, וכל אחד מהם עבר את CRITIC ואת TEST ENGINEER. **כללי העבודה מ-11.10:** אני עובר את Gate 1, ‏Gate 2 וה-Preview, ומחליט את מה שלא שמור לך. כל החלטה נרשמת ב-`decisions.md`. השמורים לך: סודות, prod, החלטות בלתי הפיכות או שינוי מהותי ב-SRS, ונקודות של משפט, קטינים או כסף (`CLAUDE.md`, ‏"Decision authority").
 - **✅ CI ב-GitHub תוקן (PR 1):** כל 22 ההרצות האדומות נכשלו על אותו טסט יחיד ב-guard ‏(`guard.test.js:245`, ‏`NOTES~1.MD`). ‏`fold()` מנמיך אותיות רק ב-Windows, וה-runner הוא Linux. התיקון: ‏`/i` ב-`guard.js:509`. לא נמצא שום טסט אחר שנכשל רק ב-GitHub. **כלל קבוע (`workflow.md` 1.7, ‏`decisions.md`):** אין מיזוג ל-main בלי CI ירוק ב-GitHub. הרצה מקומית לא מספיקה. אני פותח PR בעצמי עם `gh`.
-- **המשימה הבאה:** ‏**תיקון ממצא ה-medium של CRITIC ב-guard** ‏(`excludesNotes`, ‏`guard.js:468`, ב-`debt.md`), במסלול bug-fix. **אחריו:** ‏**9.7 חלק f**: ‏TopBar, ‏BottomNavigation, ‏SideDrawer ו-AppShell (קריטריונים 38 עד 43 ב-`.work/ui-wave-1/spec.md`). אחריו Preview של כל הגלריה וסגירת 9.7. **אחריה:** ‏I1 (`.work/_initiatives/I1-accounts-access.md`).
+- **✅ פער האותיות ב-guard תוקן (PR 2, ‏`.work/guard-notes-case/`):** ארבעת הממצאים של CRITIC מ-PR 1 נסגרו ב-Windows, ‏Linux ו-macOS. ‏CRITIC מצא שלושה פערים ישנים נוספים באותו כלל (אחד medium), והם ב-`debt.md`.
+- **המשימה הבאה:** ‏**9.7 חלק f**: ‏TopBar, ‏BottomNavigation, ‏SideDrawer ו-AppShell (קריטריונים 38 עד 43 ב-`.work/ui-wave-1/spec.md`). אחריו Preview של כל הגלריה וסגירת 9.7. **אחריה:** ‏I1 (`.work/_initiatives/I1-accounts-access.md`).
 - **Preview:**
   - האתר: [nestly-blue.vercel.app](https://nestly-blue.vercel.app). ‏`/api/health` עובד, ועוד אין מסך מוצר.
   - **גלריית הרכיבים** מקומית בלבד: `npm run build-storybook` ואז `npm run serve:storybook`, בכתובת `http://127.0.0.1:6007`.
