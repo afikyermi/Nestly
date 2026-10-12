@@ -51,3 +51,4 @@ Read together with `escapes.md` at every retro. See `.claude/learning.md`.
 ---
 
 2026-10-11 | working rules | hook (guard.js) | a commit whose message named the preview env file was blocked as an .env access | the heredoc body was a commit message, not a command; the guard now skips data heredocs and keeps bodies fed to an interpreter (test added) | block
+2026-10-12 | UI wave 1 part d | CRITIC (relayed by ORCHESTRATOR into a spec addendum) | the InlineAlert story "implied a password-reset path whose channel is TBD" | FR-AUTH-003 was decided on 11.10.2026 (email, from the Login screen); the claim was stale and neither CRITIC nor ORCHESTRATOR checked the SRS — caught by CRITIC in part e | low

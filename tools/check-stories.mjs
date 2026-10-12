@@ -26,10 +26,16 @@ export const STATES = {
   "shared/step-indicator": 2, // 1 of 2, 2 of 2
   "ui/checkbox": 4, // unchecked, checked, error, required
   "shared/inline-alert": 1, // error
+  "shared/logo": 4, // link default, link big, static default, static big
+  "shared/illustrations": 2, // welcome, registration
+  "layout/auth-layout": 3, // welcome, login, registration step
+  "ui/avatar": 5, // initials, single word, no name, beside a name (decorative), small
+  "shared/menu-item": 4, // link, button, disabled, without icon
 };
 
-// Files with nothing to draw: a provider or a helper.
-export const NO_VISUAL = new Set(["ui/direction-provider"]);
+// Files with nothing to draw on their own: a provider, or a part drawn only inside its parent's stories
+// (the logo wordmark, the single replacement point of OP-022).
+export const NO_VISUAL = new Set(["ui/direction-provider", "shared/logo-wordmark"]);
 
 const isStory = (name) => name.endsWith(".stories.tsx");
 const isComponent = (name) =>
