@@ -506,7 +506,7 @@ function checkReader(role, tool, input, ctx) {
     const segments = shellSegments(raw);
     const flat = fold(slash(segments.map((s) => s.join(' ')).join('\n')));
     const both = withoutExclusions(fold(slash(raw)) + '\n' + flat);
-    if (/notes\.md|notes~\d/.test(both)) return `${who} does not read notes.md.`;
+    if (/notes\.md|notes~\d/i.test(both)) return `${who} does not read notes.md.`;
     if (/\.work\/[^\s"']*[*?[{]/.test(both)) return `${who}: name the .work/ files you read; a wildcard there could reach notes.md.`;
 
     const located = withCwd(segments, ctx.cwd);
