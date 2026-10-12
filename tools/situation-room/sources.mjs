@@ -12,16 +12,21 @@ const DAY_FILE = /^events-\d{4}-\d{2}-\d{2}\.jsonl$/;
 // Follows every `events-YYYY-MM-DD.jsonl` in `logDir`: each file has its own byte offset, a new
 // day's file is picked up as it appears, so a day rollover loses no line. Every line goes through the
 // allowlist and the stepper before anyone sees it. `poll()` returns the events found since the last
-// call, in file then line order; the first call returns the whole retained history.
+// call, in file then line order; the first call returns the whole retained history. `errors` holds what
+// went wrong in the last poll (a file that could not be read), empty when all is well. A file that
+// shrinks is read again from its start; lines at or before its last seen time are not returned twice.
 export function createTail(logDir) {
   const files = new Map(); // name -> { offset, partial: Buffer }
   const stepper = createStepper();
-  return {
+  const tail = {
+    errors: [],
     async poll() {
+      tail.errors = [];
       let names;
       try {
         names = (await readdir(logDir)).filter(n => DAY_FILE.test(n)).sort();
-      } catch {
+      } catch (err) {
+        if (err?.code !== "ENOENT") tail.errors.push(`${logDir}: ${err?.message}`);
         return []; // no .live yet
       }
       const fresh = [];
@@ -30,8 +35,8 @@ export function createTail(logDir) {
           const file = path.join(logDir, name);
           const size = (await stat(file)).size;
           let f = files.get(name);
-          if (!f) { f = { offset: 0, partial: Buffer.alloc(0) }; files.set(name, f); }
-          if (size < f.offset) { f.offset = 0; f.partial = Buffer.alloc(0); } // truncated: start over
+          if (!f) { f = { offset: 0, partial: Buffer.alloc(0), maxT: -Infinity, replay: false }; files.set(name, f); }
+          if (size < f.offset) { f.offset = 0; f.partial = Buffer.alloc(0); f.replay = true; } // truncated: start over
           if (size === f.offset) continue;
           const fh = await open(file, "r");
           let chunk;
@@ -49,15 +54,21 @@ export function createTail(logDir) {
           if (end < 0) continue;
           for (const line of data.subarray(0, end).toString("utf8").split("\n")) {
             const ev = line.trim() ? parseLogLine(line) : null;
-            if (ev) fresh.push(stepper.annotate(ev));
+            if (!ev) continue;
+            if (f.replay && ev.t <= f.maxT) continue; // seen before the truncation
+            f.replay = false;
+            f.maxT = Math.max(f.maxT, ev.t);
+            fresh.push(stepper.annotate(ev));
           }
-        } catch {
-          // A file mid-write or just pruned; the next poll tries again.
+        } catch (err) {
+          // A file just pruned is not an error; anything else is reported in `errors`.
+          if (err?.code !== "ENOENT") tail.errors.push(`${name}: ${err?.message}`);
         }
       }
       return fresh;
     },
   };
+  return tail;
 }
 
 // The text of incidents.md, or "" when there is none.

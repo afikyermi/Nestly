@@ -7,6 +7,18 @@
 export const NO_PART = "ללא חלק";
 export const DAY_MS = 86400000;
 
+// Math.min(...array) throws a RangeError from about 125k elements; the log can hold more.
+export function minOf(items, pick = x => x) {
+  let m = null;
+  for (const it of items) { const v = pick(it); if (m === null || v < m) m = v; }
+  return m;
+}
+export function maxOf(items, pick = x => x) {
+  let m = null;
+  for (const it of items) { const v = pick(it); if (m === null || v > m) m = v; }
+  return m;
+}
+
 // ---------- reading the log: the allowlist ----------
 // The server's own copy of the field list in .claude/hooks/situation-log.js. An old line (the draft
 // logged prompt text and assistant messages) or a widened hook cannot reach the page through here.
@@ -31,7 +43,7 @@ const MAX_STRING = 200;
 // dropped too (the hook never writes one; an older log might hold it).
 export function sanitizeEvent(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  const extra = Object.hasOwn(FIELDS, raw.ev) ? FIELDS[raw.ev] : null;
+  const extra = typeof raw.ev === "string" && Object.hasOwn(FIELDS, raw.ev) ? FIELDS[raw.ev] : null;
   if (!extra || typeof raw.t !== "number" || !Number.isFinite(raw.t)) return null;
   const out = {};
   for (const [key, type] of Object.entries({ ...COMMON, ...extra })) {
@@ -83,9 +95,12 @@ export function createStepper() {
   return {
     annotate(ev) {
       const { feature, part } = splitBranch(ev.branch);
-      const key = partKey(ev.branch);
+      // Without a part (main, a plain branch) the runs are counted per branch, not shared by all of them.
+      const key = part === NO_PART ? `branch:${ev.branch ?? ""}` : partKey(ev.branch);
       let step = null;
-      if (ev.ev === "SubagentStart" && ev.aid) {
+      if (ev.ev === "SubagentStart" && ev.aid && aidStep.has(ev.aid)) {
+        step = aidStep.get(ev.aid); // the same start seen again (a replay): not a new run
+      } else if (ev.ev === "SubagentStart" && ev.aid) {
         if (ev.who === "critic") {
           const n = (criticRuns.get(key) ?? 0) + 1;
           criticRuns.set(key, n);
@@ -262,14 +277,14 @@ export function parseIncidents(text) {
 // Block events; a block present in both counts once. Days before the earliest source are noData.
 export function blocksOverTime({ incidents = [], events = [], fromT, toT, firstEventT = null }) {
   const logBlocks = events.filter(e => e.ev === "Block");
-  const firstBlock = logBlocks.length ? Math.min(...logBlocks.map(e => e.t)) : null;
+  const firstBlock = logBlocks.length ? minOf(logBlocks, e => e.t) : null;
   const cut = firstBlock === null ? Infinity : Math.floor(firstBlock / 60000) * 60000;
   const items = [
     ...incidents.filter(i => i.t < cut).map(i => ({ t: i.t, role: i.role, tool: i.tool, count: i.count })),
     ...logBlocks.map(e => ({ t: e.t, role: e.role ?? "unknown", tool: e.tool ?? null, count: 1 })),
   ];
   const starts = [firstEventT, ...incidents.map(i => i.t)].filter(v => typeof v === "number");
-  const first = starts.length ? dayKey(Math.min(...starts)) : null;
+  const first = starts.length ? dayKey(minOf(starts)) : null;
   const days = new Map(dayRange(fromT, toT).map(date => [date, { date, noData: first === null || date < first, total: 0, roles: new Map(), tools: new Map() }]));
   for (const it of items) {
     const day = days.get(dayKey(it.t));
@@ -311,8 +326,8 @@ export function mergeTimes(events, commits) {
   for (const key of keys) {
     if (key === NO_PART) continue;
     const name = norm(key);
-    const hits = commits.filter(c => norm(c.subject).includes(name) && /\bmerge\b/i.test(c.subject));
-    if (hits.length) out[key] = Math.max(...hits.map(c => c.t));
+    const hits = commits.filter(c => ` ${norm(c.subject)} `.includes(` ${name} `) && /\bmerge\b/i.test(c.subject));
+    if (hits.length) out[key] = maxOf(hits, c => c.t);
   }
   return out;
 }
@@ -352,7 +367,7 @@ export function buildSummary({ events, incidentsText = "", commits = [], now, da
   const range = Math.min(Math.max(Math.trunc(days) || 30, 1), 90);
   const toT = now;
   const fromT = new Date(new Date(now).getFullYear(), new Date(now).getMonth(), new Date(now).getDate() - (range - 1)).getTime();
-  const firstEventT = events.length ? Math.min(...events.map(e => e.t)) : null;
+  const firstEventT = minOf(events, e => e.t);
   const incidents = parseIncidents(incidentsText);
   const blocks = blocksOverTime({ incidents, events, fromT, toT, firstEventT });
   const sp = spans(events, fromT, toT);

@@ -90,6 +90,7 @@
   details table { margin-top: 4px; }
   h3 { font-size: 13px; margin: 14px 0 6px; }
   .hist { display: block; max-width: 1100px; margin: 0 auto; }
+  #problem { margin: 12px 20px 0; border: 2px solid var(--bad); font-weight: 600; }
   .notice { background: var(--chip); border-radius: 8px; padding: 8px 12px; margin-bottom: 16px; font-size: 13px; }
   .tools { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
   select { font: inherit; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; }
@@ -119,6 +120,7 @@
   <span class="muted" id="conn" role="status">מתחבר…</span>
   <div class="stats" id="stats"></div>
 </header>
+<div id="problem" class="notice" role="alert" hidden></div>
 <main id="view-live">
   <div>
     <section aria-labelledby="h-agents">
@@ -220,7 +222,7 @@ function apply(ev) {
       if (!ev.aid) { s.status = "idle"; s.current = null; }
       break;
     case "Block":
-      feed(ev, `חסימה (${ev.role || "?"}${ev.tool ? ` · ${ev.tool}` : ""}): ${ev.reason || ""}`, "block");
+      feed(ev, `חסימה (${roleLabel(ev.role || "unknown")}${ev.tool ? ` · ${ev.tool}` : ""}): ${ev.reason || ""}`, "block");
       break;
     case "PreToolUse": {
       S.tools += today(ev.t) ? 1 : 0;
@@ -361,8 +363,10 @@ function renderLive() {
 }
 
 // ---------- history ----------
-const H = { summary: null, timer: null };
+const H = { summary: null, timer: null, sig: "", open: new Set() };
 const NODATA = "אין נתונים";
+const ROLE_LABEL = { unknown: "לא ידוע", all: "כל התפקידים" };
+const roleLabel = k => ROLE_LABEL[k] || k;
 const dm = d => d.slice(8, 10) + "." + d.slice(5, 7);
 function table(head, rows) {
   return `<table><thead><tr>${head.map(([t, n]) => `<th scope="col"${n ? ' class="n"' : ""}>${t}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table>`;
@@ -376,7 +380,7 @@ function usageTable(rows, kind) {
     `<tr><td><bdi>${esc(partLabel(p.feature, p.part))}</bdi></td>${cols.map(c => `<td class="n">${c[1](p)}</td>`).join("")}</tr>`));
   return table([[kind === "agent" ? "סוכן" : "סקיל"], ...cols.map(c => [c[0], true]), ["לפי חלק"]], rows.map(r =>
     `<tr><th scope="row"><bdi>${esc(kind === "agent" ? role(r.who)[0] : r.name)}</bdi></th>${cols.map(c => `<td class="n">${c[1](r)}</td>`).join("")}
-      <td><details><summary>חלקים (${r.parts.length})</summary>${inner(r.parts)}</details></td></tr>`));
+      <td><details data-k="${kind}:${esc(kind === "agent" ? r.who : r.name)}"${H.open.has(kind + ":" + (kind === "agent" ? r.who : r.name)) ? " open" : ""}><summary>חלקים (${r.parts.length})</summary>${inner(r.parts)}</details></td></tr>`));
 }
 function renderBlocks(s) {
   const days = s.blocks.days;
@@ -385,11 +389,11 @@ function renderBlocks(s) {
   for (const d of days) for (const r of d.roles) totals.set(r.key, (totals.get(r.key) || 0) + r.n);
   const sum = [...totals.entries()].sort((a, b) => b[1] - a[1]);
   const total = days.reduce((a, d) => a + d.total, 0);
-  return `<div class="chips" style="margin:0 0 8px"><span class="chip step">סה״כ ${total}</span>${sum.map(([k, n]) => `<span class="chip">${esc(k)} ${n}</span>`).join("")}</div>` +
+  return `<div class="chips" style="margin:0 0 8px"><span class="chip step">סה״כ ${total}</span>${sum.map(([k, n]) => `<span class="chip">${esc(roleLabel(k))} ${n}</span>`).join("")}</div>` +
     days.slice().reverse().map(d => d.noData
       ? `<div class="day nodata"><span>${dm(d.date)}</span><span class="track">${NODATA}</span></div>`
       : `<div class="day"><span>${dm(d.date)}</span><span class="track"><span class="fill" style="width:${(d.total / max) * 60}%"></span><b>${d.total}</b>
-          <span class="muted">${d.roles.slice(0, 4).map(r => `${esc(r.key)} ${r.n}`).join(" · ")}</span></span></div>`).join("");
+          <span class="muted">${d.roles.slice(0, 4).map(r => `${esc(roleLabel(r.key))} ${r.n}`).join(" · ")}</span></span></div>`).join("");
 }
 function renderTimeline(s) {
   const { fromT, toT } = s.range, W = 960, L = 110, R = 10, span = Math.max(1, toT - fromT), tl = s.timeline;
@@ -408,7 +412,7 @@ function renderTimeline(s) {
       ? `<path class="mg" d="M${cx} ${y - 6}l6 6l-6 6l-6 -6z"><title>מיזוג · ${esc(c.subject)}</title></path>`
       : `<circle class="pt" cx="${cx}" cy="${y}" r="3.5"><title>${esc(c.subject)}</title></circle>`;
   }
-  for (const b of tl.blocks) g += `<rect class="bk" x="${X(b.t) - 2}" y="${rowY(1) - 2}" width="4" height="12"><title>חסימה · ${esc(b.role)}${b.tool ? " · " + esc(b.tool) : ""}</title></rect>`;
+  for (const b of tl.blocks) g += `<rect class="bk" x="${X(b.t) - 2}" y="${rowY(1) - 2}" width="4" height="12"><title>חסימה · ${esc(roleLabel(b.role))}${b.tool ? " · " + esc(b.tool) : ""}</title></rect>`;
   for (const r of tl.runs) {
     const a = X(r.end ?? toT), b = X(r.start);
     g += `<rect class="run" x="${a}" y="${rowY(2 + whos.indexOf(r.who))}" width="${Math.max(2, b - a)}" height="10" rx="2"><title>${esc(role(r.who)[0])} · ${esc(r.part)}${r.end ? "" : " · רץ"}</title></rect>`;
@@ -425,6 +429,7 @@ function renderTimeline(s) {
 function renderHistory() {
   const s = H.summary;
   if (!s) { $("hist-notice").textContent = "טוען…"; return; }
+  const focused = document.activeElement && document.activeElement.parentElement ? document.activeElement.parentElement.dataset?.k : undefined;
   $("hist-notice").innerHTML = s.firstEvent
     ? `נתוני סוכנים וסקילים: מ-<b>${dm(s.firstEvent.date)}</b> (האירוע הראשון ביומן). חסימות: מ-<b>${s.blocks.firstDate ? dm(s.blocks.firstDate) : "—"}</b> (incidents.md, ואחר כך היומן). ימים לפני כן: ${NODATA}, לא אפס.`
     : "היומן עדיין ריק: אין נתוני סוכנים וסקילים. חסימות מוצגות רק מ-incidents.md.";
@@ -433,19 +438,33 @@ function renderHistory() {
     ? `<p class="muted">מספר ריצות, לא "עד אישור" (ההכרעה אינה ביומן). חלק שמוזג ב-main נספר עד המיזוג האחרון שלו.</p>` +
       table([["חלק"], ["CRITIC", true], ["TEST ENGINEER", true], ["מיזוג אחרון"]], s.rounds.map(r =>
         `<tr><td><bdi>${esc(partLabel(r.feature, r.part))}</bdi></td><td class="n">${r.critic}</td><td class="n">${r.testEngineer}</td>
-          <td>${r.mergedAt ? new Date(r.mergedAt).toLocaleDateString("he-IL") + (r.afterMerge ? ` · ${r.afterMerge} ריצות אחריו` : "") : "טרם מוזג"}</td></tr>`))
+          <td>${r.mergedAt ? new Date(r.mergedAt).toLocaleDateString("he-IL") + (r.afterMerge ? ` · ${r.afterMerge} ריצות אחריו` : "") : "מיזוג לא זוהה"}</td></tr>`))
     : `<div class="empty">${NODATA}.</div>`;
   $("hist-blocks").innerHTML = renderBlocks(s);
   $("hist-timeline").innerHTML = renderTimeline(s);
+  if (focused) document.querySelector(`details[data-k="${CSS.escape(focused)}"] > summary`)?.focus();
+}
+$("view-history").addEventListener("toggle", e => {
+  const k = e.target.dataset ? e.target.dataset.k : undefined;
+  if (k) { if (e.target.open) H.open.add(k); else H.open.delete(k); }
+}, true);
+function showProblem(text) {
+  $("problem").hidden = !text;
+  $("problem").textContent = text || "";
 }
 async function loadHistory() {
   try {
     const r = await fetch(`/summary?days=${encodeURIComponent($("hist-range").value)}`);
     if (!r.ok) throw new Error(String(r.status));
-    H.summary = await r.json();
-    renderHistory();
+    const next = await r.json();
+    // The clock moves every poll; skip the re-render when nothing a reader sees has changed.
+    const sig = JSON.stringify({ ...next, now: 0, range: { days: next.range.days } });
+    const same = sig === H.sig;
+    H.summary = next; H.sig = sig;
+    showProblem(next.problem);
+    if (!same) renderHistory();
   } catch {
-    $("hist-notice").textContent = "לא ניתן לטעון את ההיסטוריה. מנסה שוב…";
+    showProblem("לא ניתן לטעון את ההיסטוריה (השרת לא ענה). מנסה שוב…");
   }
 }
 function setView(v) {
@@ -455,11 +474,11 @@ function setView(v) {
     if (v === name) $(id).setAttribute("aria-current", "page"); else $(id).removeAttribute("aria-current");
   }
   clearInterval(H.timer);
-  if (v === "history") { renderHistory(); loadHistory(); H.timer = setInterval(loadHistory, 30000); }
+  if (v === "history") { H.sig = ""; renderHistory(); loadHistory(); H.timer = setInterval(loadHistory, 30000); }
 }
 $("tab-live").addEventListener("click", () => setView("live"));
 $("tab-history").addEventListener("click", () => setView("history"));
-$("hist-range").addEventListener("change", loadHistory);
+$("hist-range").addEventListener("change", () => { H.sig = ""; loadHistory(); });
 
 function render() { renderLive(); }
 
@@ -469,10 +488,15 @@ function connect() {
   const es = new EventSource("/events");
   es.addEventListener("init", e => {
     Object.assign(S, { sessions: new Map(), agents: new Map(), calls: new Map(), pending: [], skills: [], feed: [], tools: 0 });
-    for (const ev of JSON.parse(e.data)) apply(ev);
-    render();
+    try {
+      for (const ev of JSON.parse(e.data)) apply(ev);
+      render();
+    } catch {
+      showProblem("טעינת נתוני היומן נכשלה. הנתונים המוצגים אינם מלאים.");
+    }
   });
   es.addEventListener("events", e => { for (const ev of JSON.parse(e.data)) apply(ev); render(); });
+  es.addEventListener("problem", e => showProblem(JSON.parse(e.data)));
   es.onopen = () => { $("dot").classList.add("on"); $("conn").textContent = "מחובר · חי"; };
   es.onerror = () => { $("dot").classList.remove("on"); $("conn").textContent = "מנותק — מנסה שוב…"; };
 }

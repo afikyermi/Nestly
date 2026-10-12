@@ -78,3 +78,24 @@ server with a DOM stub.
 - Anything of the 15 "TEST ENGINEER" blocks in `incidents.md` between 09:42 and 10:11 on 12.10 is the same
   friction as earlier parts (reads `apps/*/src`); not touched.
 - `incidents.md` has uncommitted lines (written by the guard); left alone.
+
+## Round 2 (CRITIC: Not Ready on slices 2-4) - fixes
+
+**Scale (high).** `events.push(...fresh)` is now a loop; `Math.min/max(...array)` in `derive.mjs` are `minOf`/`maxOf` loops.
+A failed read is no longer swallowed: `createTail().errors` lists the files that failed in the last poll, the server
+keeps a `problem` string, logs it to stderr, sends it as an SSE `problem` event and in `/summary`, and the page shows it
+in a red alert bar (an init that cannot be parsed shows "טעינת נתוני היומן נכשלה"; a failed `/summary` shows a failure
+notice, not an empty view). Memory keeps events of the last 60 days only (trimmed every poll).
+Measured on this machine (Node 24, Windows), 150,000 events in 6 day files, generated apart, loaded by a fresh process:
+load 410 ms, RSS 219 MB, heap 49 MB after GC; `/summary` over them 161 ms. 200,000 events: load 508 ms (in the
+generator process, RSS 303 MB including the generator's own data). Note: the retention trim uses the real clock, so
+events with a `t` older than 60 days are not kept in memory.
+
+**Merge detection (medium).** Words are padded on both sides, so `part-1` no longer matches "part 10". Where nothing
+matches the page says "מיזוג לא זוהה".
+
+**Low.** (1) The stepper counts critic runs per branch when there is no part, and a SubagentStart whose `aid` it has
+seen is not counted again; the tail also skips lines at or before a file's last seen time after the file shrinks.
+(2) History re-renders only when the data changed (the clock is excluded); open `<details>` are remembered by key
+and restored; focus on a summary is restored. (3) "unknown" shows as "לא ידוע", "all" as "כל התפקידים" (history and
+the live feed). (4) `sanitizeEvent` requires `typeof raw.ev === "string"`.

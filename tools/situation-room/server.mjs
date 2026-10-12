@@ -18,6 +18,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_PORT = 6010;
 const BACKLOG_EVENTS = 6000;
 const COMMITS_TTL_MS = 15000;
+const RETENTION_MS = 60 * 86400000; // the hook prunes day files after 60 days; memory follows
 const CSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'";
 
 // root: the project (it holds .live/, incidents.md and .git). Returns { start, stop }.
@@ -29,18 +30,29 @@ export function createRoom({ root = path.resolve(here, "../.."), port = DEFAULT_
   let memo = { key: "", body: "" };
   let timer = null;
   let boundPort = port;
+  let problem = null; // set while the log cannot be read; the page shows it, never an empty view
 
   const send = (res, name, data) => res.write(`event: ${name}\ndata: ${JSON.stringify(data)}\n\n`);
 
   async function poll() {
+    let next = null;
     try {
       const fresh = await tail.poll();
-      if (fresh.length) {
-        events.push(...fresh);
-        for (const res of clients) send(res, "events", fresh);
-      }
-    } catch {
-      // The log is mid-write or missing; the next poll tries again.
+      // A loop, not push(...fresh): spreading a large array throws a RangeError.
+      for (const ev of fresh) events.push(ev);
+      const cutoff = Date.now() - RETENTION_MS;
+      let drop = 0;
+      while (drop < events.length && events[drop].t < cutoff) drop++;
+      if (drop) events.splice(0, drop);
+      if (fresh.length) for (const res of clients) send(res, "events", fresh);
+      if (tail.errors.length) next = `קריאת היומן נכשלה: ${tail.errors[0]}`;
+    } catch (err) {
+      next = `טעינת היומן נכשלה: ${err?.message ?? err}`;
+    }
+    if (next !== problem) {
+      problem = next;
+      if (problem) console.error(`Situation room: ${problem}`);
+      for (const res of clients) send(res, "problem", problem);
     }
   }
   function schedule() {
@@ -51,9 +63,9 @@ export function createRoom({ root = path.resolve(here, "../.."), port = DEFAULT_
     const now = Date.now();
     if (now - commits.at > COMMITS_TTL_MS) commits = { at: now, list: await readCommits(root) };
     const incidentsText = await readIncidents(root);
-    const key = `${events.length}:${incidentsText.length}:${commits.at}:${days}:${new Date(now).toDateString()}`;
+    const key = `${problem}:${events.length}:${incidentsText.length}:${commits.at}:${days}:${new Date(now).toDateString()}`;
     if (memo.key !== key) {
-      memo = { key, body: JSON.stringify(buildSummary({ events, incidentsText, commits: commits.list, now, days })) };
+      memo = { key, body: JSON.stringify({ ...buildSummary({ events, incidentsText, commits: commits.list, now, days }), problem }) };
     }
     return memo.body;
   }
@@ -70,6 +82,7 @@ export function createRoom({ root = path.resolve(here, "../.."), port = DEFAULT_
         res.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-store", Connection: "keep-alive", "X-Content-Type-Options": "nosniff" });
         // The snapshot and the subscription happen in one step, so no event is sent twice or skipped.
         send(res, "init", events.slice(-BACKLOG_EVENTS));
+        if (problem) send(res, "problem", problem);
         clients.add(res);
         const beat = setInterval(() => res.write(": beat\n\n"), 15000);
         req.on("close", () => { clearInterval(beat); clients.delete(res); });
