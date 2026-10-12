@@ -499,6 +499,16 @@ test('test-engineer: a shell variable such as $? is not read as a glob that reac
     'cat $(echo apps/web/src/a.ts)',
     'P=apps/web/src/a.ts; cat ${P}',
     'cat apps/web/src/$X',
+    // An expansion with an operator: its default or replacement word is what the shell reads (CRITIC re-check).
+    'cat ${X:-apps}/web/src/a.ts',
+    'cat "${X:-apps}/web/src/a.ts"',
+    'cat ${X-apps}/web/src/a.ts',
+    'cat ${X:=ap}ps/web/src/a.ts',
+    'cat ${X:-a}pps/web/src/a.ts',
+    'cat ${X:-*}/web/src/a.ts',
+    'cat ${X:-a*}/web/src/a.ts',
+    'cat ${HOME/*/ap}ps/web/src/a.ts',
+    'cat ${X}ap*/web/src/a.ts',
   ]) {
     blocks('test-engineer', 'Bash', { command: c });
   }

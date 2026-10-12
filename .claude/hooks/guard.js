@@ -539,9 +539,11 @@ function checkReader(role, tool, input, ctx) {
       // Every path-like argument, resolved where it runs; a glob is judged by where it starts.
       for (const { seg, cwd } of located) {
         for (const raw of seg.slice(1)) {
-          // Parameter expansions are removed first ($?, $X, ${E}): their `?` is not a glob, and an unset one
-          // expands to nothing, so what is left is what the shell reads. The left-over is then checked in full.
-          const a = raw.replace(/\$(\{[^}]*\}|[?#@*!$0-9-]|\w+)/g, '');
+          // Plain parameter expansions are removed first ($?, $X, ${E}): their `?` is not a glob, and an unset one
+          // expands to nothing, so what is left is what the shell reads. An expansion with an operator
+          // (${X:-apps}, ${H/*/ap}) is left in place: its default or replacement is what the shell reads, and its
+          // braces mark the token a glob, so it is judged as one. The left-over is then checked in full.
+          const a = raw.replace(/\$(\{\w+\}|[?#@*!$0-9-]|\w+)/g, '');
           if (!a || a.startsWith('-') || /^[a-z]+:\/\//i.test(a)) continue;
           const glob = /[*?[\]{}]/.test(a);
           const r = rel(glob ? literalPrefix(a) || '.' : a, ctx.root, cwd);
