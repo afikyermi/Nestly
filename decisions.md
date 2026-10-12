@@ -915,7 +915,10 @@ YYYY-MM-DD | <decision in one line>
   kept:         the TEST ENGINEER rule strips plain shell expansions ($?, $X, ${X}) before judging a path; an expansion
                 with an operator (${X:-…}) stays a glob. Found and fixed through two CRITIC rounds on opus (12.10);
                 the remaining text-not-semantics gap is in debt.md.
-  alternatives: keep the second log behind a lazy, fail-closed require (rejected: Afik wants no dependency)
+  history:      not rewritten. The change's branch was deleted from GitHub by Afik and locally (12.10); its commits
+                stay in main's history.
+  alternatives: keep the second log behind a lazy, fail-closed require (rejected: Afik wants no dependency) ·
+                rewrite history to remove the commits (rejected by Afik: a force push to a public repo for no gain)
   decided by:   Afik (12.10.2026)
 
 2026-10-12 | UI wave 1 (9.7) spec addenda after Gate 1, parts c–e — recorded together

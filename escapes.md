@@ -26,4 +26,4 @@ invented. Acting on one without the other produces a system that gets stricter f
 
 ---
 
-*no entries*
+2026-10-12 | 7.2 onward (all merges) | merged with the GitHub CI `test` job red on every run; the merge step checked a local `npm run ci` on Windows, never the Actions result | should have been caught by: CI — the gate ran and failed; nobody read it
