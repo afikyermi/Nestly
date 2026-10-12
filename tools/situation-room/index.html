@@ -82,6 +82,30 @@
   ol.feed .w { overflow-wrap: anywhere; }
   ol.feed .block { font-weight: 600; color: var(--bad); }
   .muted { color: var(--muted); }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: start; padding: 5px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+  thead th { color: var(--muted); font-weight: 600; border-top: 0; }
+  td.n, th.n { text-align: end; font-variant-numeric: tabular-nums; }
+  details > summary { cursor: pointer; color: var(--accent); }
+  details table { margin-top: 4px; }
+  h3 { font-size: 13px; margin: 14px 0 6px; }
+  .hist { display: block; max-width: 1100px; margin: 0 auto; }
+  .notice { background: var(--chip); border-radius: 8px; padding: 8px 12px; margin-bottom: 16px; font-size: 13px; }
+  .tools { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  select { font: inherit; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; }
+  .day { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 8px; align-items: center; padding: 3px 0; font-size: 13px; }
+  .day .track { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .day .fill { height: 10px; background: var(--bad); border-radius: 3px; flex: none; }
+  .day.nodata { color: var(--muted); }
+  svg.tl { width: 100%; height: auto; display: block; }
+  svg.tl text { fill: var(--text); font-size: 11px; }
+  svg.tl .axis { stroke: var(--line); }
+  svg.tl .nodata { fill: var(--chip); stroke: var(--line); stroke-dasharray: 4 3; }
+  svg.tl .run { fill: var(--accent); }
+  svg.tl .part { fill: var(--muted); }
+  svg.tl .pt { fill: var(--panel); stroke: var(--text); stroke-width: 1.5; }
+  svg.tl .mg { fill: var(--text); stroke: var(--text); }
+  svg.tl .bk { fill: var(--bad); }
   button.link { background: none; border: 0; color: var(--accent); cursor: pointer; font: inherit; font-size: 12px; padding: 0; }
 </style>
 </head>
@@ -120,6 +144,15 @@
       <ol class="feed" id="feed" aria-live="off"></ol>
     </section>
   </div>
+</main>
+<main id="view-history" class="hist" hidden>
+  <div id="hist-notice" class="notice" role="status"></div>
+  <div class="tools"><label for="hist-range">טווח לחסימות ולציר הזמן</label>
+    <select id="hist-range"><option value="7">7 ימים</option><option value="14">14 ימים</option><option value="30" selected>30 ימים</option><option value="60">60 ימים</option></select></div>
+  <section aria-labelledby="h-usage"><h2 id="h-usage"><span>שימוש לפי סוכן וסקיל</span></h2><div id="hist-usage"></div></section>
+  <section aria-labelledby="h-rounds"><h2 id="h-rounds"><span>סבבי CRITIC ו-TEST ENGINEER לפי חלק</span></h2><div id="hist-rounds"></div></section>
+  <section aria-labelledby="h-blocks"><h2 id="h-blocks"><span>חסימות לאורך זמן</span></h2><div id="hist-blocks"></div></section>
+  <section aria-labelledby="h-timeline"><h2 id="h-timeline"><span>ציר זמן</span></h2><div id="hist-timeline"></div></section>
 </main>
 <script>
 "use strict";
@@ -326,6 +359,107 @@ function renderLive() {
     [todayAgents, "סוכנים היום"], [todaySkills, "סקילים היום"], [S.tools, "פעולות היום"],
   ].map(([n, l]) => `<span class="stat"><b>${n}</b>${l}</span>`).join("");
 }
+
+// ---------- history ----------
+const H = { summary: null, timer: null };
+const NODATA = "אין נתונים";
+const dm = d => d.slice(8, 10) + "." + d.slice(5, 7);
+function table(head, rows) {
+  return `<table><thead><tr>${head.map(([t, n]) => `<th scope="col"${n ? ' class="n"' : ""}>${t}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table>`;
+}
+function usageTable(rows, kind) {
+  if (!rows.length) return `<div class="empty">${NODATA}.</div>`;
+  const cols = kind === "agent"
+    ? [["הרצות", p => p.runs + (p.running ? ` (${p.running} פתוחות)` : "")], ["זמן כולל", p => dur(p.ms)]]
+    : [["שימושים", p => p.uses], ["זמן טעינה", p => (p.ms ? dur(p.ms) : "—")]];
+  const inner = parts => table([["חלק"], ...cols.map(c => [c[0], true])], parts.map(p =>
+    `<tr><td><bdi>${esc(partLabel(p.feature, p.part))}</bdi></td>${cols.map(c => `<td class="n">${c[1](p)}</td>`).join("")}</tr>`));
+  return table([[kind === "agent" ? "סוכן" : "סקיל"], ...cols.map(c => [c[0], true]), ["לפי חלק"]], rows.map(r =>
+    `<tr><th scope="row"><bdi>${esc(kind === "agent" ? role(r.who)[0] : r.name)}</bdi></th>${cols.map(c => `<td class="n">${c[1](r)}</td>`).join("")}
+      <td><details><summary>חלקים (${r.parts.length})</summary>${inner(r.parts)}</details></td></tr>`));
+}
+function renderBlocks(s) {
+  const days = s.blocks.days;
+  const max = Math.max(1, ...days.map(d => d.total));
+  const totals = new Map();
+  for (const d of days) for (const r of d.roles) totals.set(r.key, (totals.get(r.key) || 0) + r.n);
+  const sum = [...totals.entries()].sort((a, b) => b[1] - a[1]);
+  const total = days.reduce((a, d) => a + d.total, 0);
+  return `<div class="chips" style="margin:0 0 8px"><span class="chip step">סה״כ ${total}</span>${sum.map(([k, n]) => `<span class="chip">${esc(k)} ${n}</span>`).join("")}</div>` +
+    days.slice().reverse().map(d => d.noData
+      ? `<div class="day nodata"><span>${dm(d.date)}</span><span class="track">${NODATA}</span></div>`
+      : `<div class="day"><span>${dm(d.date)}</span><span class="track"><span class="fill" style="width:${(d.total / max) * 60}%"></span><b>${d.total}</b>
+          <span class="muted">${d.roles.slice(0, 4).map(r => `${esc(r.key)} ${r.n}`).join(" · ")}</span></span></div>`).join("");
+}
+function renderTimeline(s) {
+  const { fromT, toT } = s.range, W = 960, L = 110, R = 10, span = Math.max(1, toT - fromT), tl = s.timeline;
+  const X = t => R + (1 - (Math.min(Math.max(t, fromT), toT) - fromT) / span) * (W - L - R); // time runs right to left
+  const whos = [...new Set(tl.runs.map(r => r.who))].sort();
+  const rows = ["קומיטים", "חסימות", ...whos.map(w => role(w)[0]), "חלקים"];
+  const rowY = i => 16 + i * 22, height = 16 + rows.length * 22 + 22;
+  let g = rows.map((r, i) => `<text x="${W - 4}" y="${rowY(i) + 4}" text-anchor="end">${esc(r)}</text><line class="axis" x1="${R}" x2="${W - L + R}" y1="${rowY(i) + 8}" y2="${rowY(i) + 8}"/>`).join("");
+  if (s.firstEvent && s.firstEvent.t > fromT) {
+    const x1 = X(s.firstEvent.t);
+    g += `<rect class="nodata" x="${x1}" y="4" width="${W - L + R - x1}" height="${rows.length * 22 + 8}"><title>${NODATA} על סוכנים לפני ${dm(s.firstEvent.date)}</title></rect><text x="${W - L - 4}" y="${height - 6}" text-anchor="end">${NODATA} על סוכנים</text>`;
+  }
+  for (const c of tl.commits) {
+    const cx = X(c.t), y = rowY(0) + 4;
+    g += c.merge
+      ? `<path class="mg" d="M${cx} ${y - 6}l6 6l-6 6l-6 -6z"><title>מיזוג · ${esc(c.subject)}</title></path>`
+      : `<circle class="pt" cx="${cx}" cy="${y}" r="3.5"><title>${esc(c.subject)}</title></circle>`;
+  }
+  for (const b of tl.blocks) g += `<rect class="bk" x="${X(b.t) - 2}" y="${rowY(1) - 2}" width="4" height="12"><title>חסימה · ${esc(b.role)}${b.tool ? " · " + esc(b.tool) : ""}</title></rect>`;
+  for (const r of tl.runs) {
+    const a = X(r.end ?? toT), b = X(r.start);
+    g += `<rect class="run" x="${a}" y="${rowY(2 + whos.indexOf(r.who))}" width="${Math.max(2, b - a)}" height="10" rx="2"><title>${esc(role(r.who)[0])} · ${esc(r.part)}${r.end ? "" : " · רץ"}</title></rect>`;
+  }
+  tl.parts.forEach((p, k) => {
+    const a = X(p.to), b = X(p.from);
+    g += `<rect class="part" x="${a}" y="${rowY(rows.length - 1) + (k % 2) * 6}" width="${Math.max(2, b - a)}" height="5" rx="2"><title>${esc(partLabel(p.feature, p.part))}</title></rect>`;
+  });
+  const list = tl.commits.slice(0, 40).map(c => `<tr><td>${new Date(c.t).toLocaleDateString("he-IL")}</td><td>${c.merge ? '<span class="badge work">מיזוג</span>' : ""}</td><td><bdi>${esc(c.subject)}</bdi></td></tr>`);
+  return `<svg class="tl" viewBox="0 0 ${W} ${height}" role="img" aria-label="ציר זמן של קומיטים, חסימות, ריצות סוכנים וחלקים. ישן מימין, חדש משמאל. הרשימה שמתחת מפרטת את הקומיטים."><title>ציר זמן</title>${g}</svg>
+    <p class="muted">יהלום = מיזוג · עיגול = קומיט · פס אדום = חסימה · פס כחול = ריצת סוכן. ישן מימין, חדש משמאל.</p>
+    ${list.length ? table([["תאריך"], [""], ["נושא"]], list) : `<div class="empty">אין קומיטים בטווח (או שאין git).</div>`}`;
+}
+function renderHistory() {
+  const s = H.summary;
+  if (!s) { $("hist-notice").textContent = "טוען…"; return; }
+  $("hist-notice").innerHTML = s.firstEvent
+    ? `נתוני סוכנים וסקילים: מ-<b>${dm(s.firstEvent.date)}</b> (האירוע הראשון ביומן). חסימות: מ-<b>${s.blocks.firstDate ? dm(s.blocks.firstDate) : "—"}</b> (incidents.md, ואחר כך היומן). ימים לפני כן: ${NODATA}, לא אפס.`
+    : "היומן עדיין ריק: אין נתוני סוכנים וסקילים. חסימות מוצגות רק מ-incidents.md.";
+  $("hist-usage").innerHTML = `<h3>סוכנים</h3>${usageTable(s.usage.agents, "agent")}<h3>סקילים</h3>${usageTable(s.usage.skills, "skill")}`;
+  $("hist-rounds").innerHTML = s.rounds.length
+    ? `<p class="muted">מספר ריצות, לא "עד אישור" (ההכרעה אינה ביומן). חלק שמוזג ב-main נספר עד המיזוג האחרון שלו.</p>` +
+      table([["חלק"], ["CRITIC", true], ["TEST ENGINEER", true], ["מיזוג אחרון"]], s.rounds.map(r =>
+        `<tr><td><bdi>${esc(partLabel(r.feature, r.part))}</bdi></td><td class="n">${r.critic}</td><td class="n">${r.testEngineer}</td>
+          <td>${r.mergedAt ? new Date(r.mergedAt).toLocaleDateString("he-IL") + (r.afterMerge ? ` · ${r.afterMerge} ריצות אחריו` : "") : "טרם מוזג"}</td></tr>`))
+    : `<div class="empty">${NODATA}.</div>`;
+  $("hist-blocks").innerHTML = renderBlocks(s);
+  $("hist-timeline").innerHTML = renderTimeline(s);
+}
+async function loadHistory() {
+  try {
+    const r = await fetch(`/summary?days=${encodeURIComponent($("hist-range").value)}`);
+    if (!r.ok) throw new Error(String(r.status));
+    H.summary = await r.json();
+    renderHistory();
+  } catch {
+    $("hist-notice").textContent = "לא ניתן לטעון את ההיסטוריה. מנסה שוב…";
+  }
+}
+function setView(v) {
+  $("view-live").hidden = v !== "live";
+  $("view-history").hidden = v !== "history";
+  for (const [id, name] of [["tab-live", "live"], ["tab-history", "history"]]) {
+    if (v === name) $(id).setAttribute("aria-current", "page"); else $(id).removeAttribute("aria-current");
+  }
+  clearInterval(H.timer);
+  if (v === "history") { renderHistory(); loadHistory(); H.timer = setInterval(loadHistory, 30000); }
+}
+$("tab-live").addEventListener("click", () => setView("live"));
+$("tab-history").addEventListener("click", () => setView("history"));
+$("hist-range").addEventListener("change", loadHistory);
 
 function render() { renderLive(); }
 
