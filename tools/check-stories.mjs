@@ -31,11 +31,15 @@ export const STATES = {
   "layout/auth-layout": 3, // welcome, login, registration step
   "ui/avatar": 5, // initials, single word, no name, beside a name (decorative), small
   "shared/menu-item": 4, // link, button, disabled, without icon
+  "shared/top-bar": 2, // default, with actions
+  "shared/bottom-navigation": 2, // three items, five items
+  "shared/side-drawer": 2, // closed, open
+  "layout/app-shell": 2, // with content, short content
 };
 
 // Files with nothing to draw on their own: a provider, or a part drawn only inside its parent's stories
-// (the logo wordmark, the single replacement point of OP-022).
-export const NO_VISUAL = new Set(["ui/direction-provider", "shared/logo-wordmark"]);
+// (the logo wordmark, the single replacement point of OP-022; the dialog layer, drawn inside SideDrawer's stories).
+export const NO_VISUAL = new Set(["ui/direction-provider", "shared/logo-wordmark", "ui/dialog"]);
 
 const isStory = (name) => name.endsWith(".stories.tsx");
 const isComponent = (name) =>

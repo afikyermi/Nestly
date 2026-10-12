@@ -12,6 +12,8 @@ import {
   LoaderCircle,
   Menu,
   Plus,
+  ShoppingBag,
+  Sparkles,
   User,
   X,
   type LucideIcon,
@@ -59,6 +61,8 @@ export const UserIcon = icon(User);
 export const CloseIcon = icon(X);
 export const LoaderIcon = icon(LoaderCircle);
 export const NestIcon = icon(Nest);
+export const BagIcon = icon(ShoppingBag);
+export const SparkIcon = icon(Sparkles);
 // Directional icons point the reading direction's way: mirrored under rtl.
 // Back points to the end side (right in Hebrew), forward to the start side (left).
 export const ArrowBackIcon = icon(ArrowLeft, true);

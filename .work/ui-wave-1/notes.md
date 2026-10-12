@@ -411,3 +411,31 @@ Logo link 44 high (103x44 / 161x44). MenuItem rows 16-359 x 48, icon 323-347 at 
 7. Registration illustration: the R2 heart (`fill-primary opacity-85`); the Welcome sprig keeps `success`.
 
 Evidence: `npm run ci` green (tools tests 171 pass, web 224, shared 75). `test:browser`: 1082 passed, 4 Edge-only failures in the full run ("browserContext.close: Test ended" / crashed context: password-input disabled touch, button reduced motion, avatar anonymous render, menu-item disabled touch); the same four pass on rerun (14 passed). No existing test broke because of the addendum.
+
+## Part f — TopBar, BottomNavigation, SideDrawer, AppShell (`ui-wave-1/part-f`)
+
+**Approach.** The four components per the Part f API lines. Radix is reached through one new `ui/dialog.tsx` (`DrawerPanel`, `DrawerTitle`) that SideDrawer uses; it is in
+`NO_VISUAL` of `check-stories` (drawn only in SideDrawer's stories). Stories: TopBar 2, BottomNavigation 2 (3 and 5 items), SideDrawer 2 (closed, open), AppShell 2
+(`WithContent` for the criterion-43 comparison, `ShortContent`); `STATES` rows added. Two icons added to the icon module for the 5-item story (`BagIcon`, `SparkIcon`, Lucide).
+
+**Decisions.**
+- Criterion 42: nothing to change. `main.tsx` imports `@/styles/index.css`, the same entry as Storybook's `preview.tsx` (tokens, Rubik, base layer); `tools/built-css.test.mjs` already asserts the built fonts.
+- Focus return: Radix returns focus only to a `Trigger` it owns; SideDrawer is controlled with no Trigger, so `DrawerPanel` remembers `document.activeElement` in `onOpenAutoFocus` and refocuses it on close.
+- Initial focus goes to the panel itself (not the close control). Otherwise the close control's tooltip opens on focus and the first Escape closes the tooltip, not the drawer. A keyboard user who Tabs to the close control and presses Escape closes the tooltip first, then the drawer on the second press (WCAG 1.4.13 dismissal).
+- Skip link: not `sr-only` (a 1x1 box fails the 44x44 gate, criterion 18). It is full size, parked above the viewport with `-translate-y-20`, and slides in on focus. Activation focuses `main` (`tabIndex=-1`) through a ref and cancels the hash navigation, so it works under any router.
+- BottomNavigation is one `nav`: `sticky bottom-0` bar below 1024, `lg:` vertical 96px rail (sticky, `top-16`) at the inline-start edge. The shell puts it before `main` in the DOM and `order-last` on small screens, so on mobile the DOM order (nav, main) differs from the visual one. I chose this over main-first so the rail comes first on desktop.
+- TopBar's Logo is static (no `href` in the API; the shell knows no routes).
+- `menuButtonRef` is implemented on TopBar; AppShell does not use it (focus return does not need it).
+- Story hrefs are `#posts`, not `#feed`: the no-hex lint reads `#feed` as a colour.
+
+**Deviations.** None from the API. `className` on TopBar, BottomNavigation is placement only; SideDrawer and AppShell take none (the API lists none and the addendum covers placement only).
+
+**Deliberately not done.** No tests. No drawer slide animation. No safe-area inset padding under the bar (needs an arbitrary value). No router/auth wiring (F1.2).
+
+**Uncertain.** (1) Mobile DOM-versus-visual order of nav and main (above). (2) The close-control Escape behaviour above. (3) The rail's `lg:top-16` assumes the 56px TopBar.
+
+**Preview path.** `npm run build-storybook`, `npm run serve:storybook`: layout/AppShell (WithContent, ShortContent), shared/TopBar, BottomNavigation, SideDrawer. At 375: Hamburger at the right edge, logo beside it, bar flush with the bottom edge, current item bold with a pill. Widen to 1024 (viewport toolbar): the bar becomes a rail at the right edge, content column centred. Tab once: skip link appears top-start. Click the Hamburger: drawer from the right, Escape/backdrop/close all return focus to the Hamburger. Compare to `docs/design/mockups/r2-screens.html` and `r2-desktop.html`. Known difference: no search/chat/bell (out of scope, spec I7/I8).
+
+**Evidence (local, built Storybook, Chrome).** 375: one main, header, nav; nav y 739-812 (bottom edge 812); Hamburger x 325-369; skip link first Tab stop, Enter focuses MAIN; drawer role dialog named by its title, focus inside, body scroll locked; Escape, backdrop click and close control each close it and focus returns to the Hamburger. 1024: nav x 904-1000 (rail at the right), main 672 wide centred in the rest. `npm run ci` green; `test:browser` axe and target-size pass for all new stories.
+
+**Neighbouring.** None.
