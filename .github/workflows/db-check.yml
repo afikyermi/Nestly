@@ -1,0 +1,69 @@
+# db-check - manual login check for the migration role.
+#
+# Proves: the APP_OWNER_DATABASE_URL secret of the chosen GitHub Environment
+# (db-preview or db-production) logs in through the Supabase session pooler, as
+# the role app_owner, and that role is neither superuser nor BYPASSRLS.
+#
+# Read-only: two SELECT statements, no DDL, no writes. The URL is never printed.
+# Nothing is checked out and the token has no permissions.
+#
+# Who runs it: Afik, by hand (Actions -> db-check -> Run workflow). Choosing
+# db-production waits for the required reviewer and runs only from main.
+# Never runs on push or pull_request.
+
+name: db-check
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: GitHub Environment whose APP_OWNER_DATABASE_URL is checked
+        required: true
+        type: choice
+        options:
+          - db-preview
+          - db-production
+
+permissions: {}
+
+concurrency:
+  group: db-check-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  login:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Check login as app_owner
+        env:
+          APP_OWNER_DATABASE_URL: ${{ secrets.APP_OWNER_DATABASE_URL }}
+          PGCONNECT_TIMEOUT: "15"
+        run: |
+          set -eu
+          if [ -z "${APP_OWNER_DATABASE_URL}" ]; then
+            echo "::error::APP_OWNER_DATABASE_URL is not set in this environment"
+            exit 1
+          fi
+
+          role="$(psql "${APP_OWNER_DATABASE_URL}" -X -A -t -v ON_ERROR_STOP=1 \
+            -c 'select current_user')"
+          flags="$(psql "${APP_OWNER_DATABASE_URL}" -X -A -t -v ON_ERROR_STOP=1 \
+            -F ' ' -c 'select rolsuper, rolbypassrls from pg_roles where rolname = current_user')"
+          superuser="${flags%% *}"
+          bypassrls="${flags##* }"
+
+          echo "current_user: ${role}"
+          echo "rolsuper: ${superuser}"
+          echo "rolbypassrls: ${bypassrls}"
+
+          if [ "${role}" != "app_owner" ]; then
+            echo "::error::logged in as '${role}', expected app_owner"
+            exit 1
+          fi
+          if [ "${superuser}" != "f" ] || [ "${bypassrls}" != "f" ]; then
+            echo "::error::app_owner must have rolsuper=false and rolbypassrls=false"
+            exit 1
+          fi
+          echo "OK: app_owner logs in; no superuser, no BYPASSRLS"
