@@ -15,14 +15,16 @@
 - **מצב:** חלק 7 הושלם (7.0 עד 7.4). מחלק 9 הושלמו 9.1 עד 9.6. 9.7, יחידת הרכיבים, הושלמה: ששת החלקים a עד f מוזגו, כל אחד עבר CRITIC ו-TEST ENGINEER, וה-Preview של הגלריה עבר (12.10). **כללי העבודה מ-11.10:** אני עובר את Gate 1, ‏Gate 2 וה-Preview, ומחליט את מה שלא שמור לך. כל החלטה נרשמת ב-`decisions.md`. השמורים לך: סודות, prod, החלטות בלתי הפיכות או שינוי מהותי ב-SRS, ונקודות של משפט, קטינים או כסף (`CLAUDE.md`, ‏"Decision authority").
 - **✅ CI ב-GitHub תוקן (PR 1):** כל 22 ההרצות האדומות נכשלו על אותו טסט יחיד ב-guard ‏(`guard.test.js:245`, ‏`NOTES~1.MD`). ‏`fold()` מנמיך אותיות רק ב-Windows, וה-runner הוא Linux. התיקון: ‏`/i` ב-`guard.js:509`. לא נמצא שום טסט אחר שנכשל רק ב-GitHub. **כלל קבוע (`workflow.md` 1.7, ‏`decisions.md`):** אין מיזוג ל-main בלי CI ירוק ב-GitHub. הרצה מקומית לא מספיקה. אני פותח PR בעצמי עם `gh`.
 - **✅ פער האותיות ב-guard תוקן (PR 2, ‏`.work/guard-notes-case/`):** ארבעת הממצאים של CRITIC מ-PR 1 נסגרו ב-Windows, ‏Linux ו-macOS. ‏CRITIC מצא שלושה פערים ישנים נוספים באותו כלל (אחד medium), והם ב-`debt.md`.
-- **המשימה הבאה:** ‏**I1** (`.work/_initiatives/I1-accounts-access.md`), החשבונות והגישה. לפניו ממתינים לך מחרוזות החיבור של `app_owner` וה-bootstrap של התפקידים ב-prod (למטה).
+- **✅ ההכנות ל-I1 הושלמו (PR 4, ‏`.work/i1-prep/`):** התפקידים `app_owner`, ‏`app_server` ו-`app_jobs` קיימים ב-preview וב-prod (בדיקה: 3 שורות `ok` בשניהם). הסוד `APP_OWNER_DATABASE_URL` נמצא ב-`db-preview` וב-`db-production`, ו-`db-check` עבר בשתי הסביבות. ‏Vercel בונה רק את `main` וענפים עם PR פתוח.
+- **המשימה הבאה:** ‏**guard: רשימת מותרים כבסיס** (הכרעתך מ-12.10, ‏`decisions.md`): כל גישה לקובץ מוגן שלא ברשימה נחסמת, ורשימת האסור נשארת להודעות. סוגר את שלוש שורות ה-guard ב-`debt.md`. ‏Elevated, ‏CRITIC על opus. **אחריה:** ‏**I1** (`.work/_initiatives/I1-accounts-access.md`).
 - **Preview:**
   - האתר: [nestly-blue.vercel.app](https://nestly-blue.vercel.app). ‏`/api/health` עובד, ועוד אין מסך מוצר.
   - **גלריית הרכיבים** מקומית בלבד: `npm run build-storybook` ואז `npm run serve:storybook`, בכתובת `http://127.0.0.1:6007`.
   - **Supabase בפרנקפורט:** פרויקט prod הוא `cihugbwafnaujsqabgyp`, ופרויקט preview הוא `xmihorrkegrdlbhpktny`. ה-Data API כבוי בשניהם. הפרויקטים הישנים באסיה חסומים.
 - **ממתין לך (סודות ופעולות):**
   1. **קובץ יומן מקומי ישן:** ‏`nestly/.live/events.jsonl` מכיל טקסט מפרומפטים, והוא לא נכנס ל-git. מחיקה היא פעולה הרסנית, ולכן ההחלטה שלך. אחרי שהוא נמחק, אפשר להסיר גם את השורה `.live/` מ-`.gitignore`.
-  2. **ב-I1:** מחרוזות החיבור של `app_owner` לסביבות `db-preview` ו-`db-production` ב-GitHub, וה-bootstrap של התפקידים ב-prod. את שניהם אתה מבצע בעצמך.
+  2. **מחיקת ענפים מרוחקים שמוזגו** (ה-guard חוסם את זה לסוכנים): ‏`ui-wave-1/part-a` עד `part-e` ו-`chore/i1-prep`. הפקודה בהודעת הסיום של 12.10.
+  3. **ב-I1, כשיידרש:** מחרוזת החיבור של `app_server` ל-Vercel (‏`DATABASE_URL`, ‏transaction pooler, פורט 6543). הסיסמה כבר קיימת אצלך.
 - **ממתין להכרעה שלך:** אין.
 - **לקחים מהשיחה:** בזיכרון (`orchestration-lessons`) וב-`noise.md`.
   - לבדוק את ה-SRS לפני שמעבירים הלאה שמשהו "TBD" (הטעות עם FR-AUTH-003).
@@ -31,6 +33,7 @@
   - כל שינוי ב-guard עובר CRITIC על opus.
 - **פתוח, בלי הכרעה נדרשת עכשיו:**
   - 4.11 ו-6.1 (Threat Modeling).
+  - לבדוק אחרי יום עמוס אם בניות ש-Vercel דילג עליהן עדיין נספרות במגבלה היומית. אם כן, עוברים ל-`git.deploymentEnabled`.
   - החלטות המדיה M1 עד M6: לפני I5.
   - **תזכורת: לתכנן תקציב לביקורת משפטית של תנאי השימוש ומדיניות הפרטיות, לפני I9.**
 - **החלטות:**
