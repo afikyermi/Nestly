@@ -4,7 +4,7 @@
 # (db-preview or db-production) logs in through the Supabase session pooler, as
 # the role app_owner, and that role is neither superuser nor BYPASSRLS.
 #
-# Read-only: two SELECT statements, no DDL, no writes. The URL is never printed, and its
+# Read-only: one SELECT statement, no DDL, no writes. The URL is never printed, and its
 # user must be app_owner.<project ref> of the chosen environment.
 # Nothing is checked out and the token has no permissions.
 #
