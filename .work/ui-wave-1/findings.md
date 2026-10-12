@@ -81,3 +81,16 @@ after every TEST ENGINEER commit, and TEST ENGINEER lists every CI step it ran.
 
 **Re-check (CRITIC): Validated.** Mutation probes for 1, 2 and 4 failed the matching tests and were reverted. Earlier in
 the part: inline links in the terms Checkbox exempted from target size per WCAG 2.5.8 (spec addendum). Merged at 43ee913.
+
+## Part e — `ui-wave-1/part-e` at ef17eab + 5614c90 — verdict: Validated with Concern
+
+| # | Severity | File | Claim | Fix |
+|---|---|---|---|---|
+| 1 | medium | shared/menu-item.tsx:14-15 | a MenuItem with neither `href` nor `onClick` compiled and rendered a dead button | action branch requires `onClick`; "neither" type tests |
+| 2 | medium | layout/auth-layout.stories.tsx:60; spec addendum | Login had no recovery entry point because the spec called FR-AUTH-003 TBD — it was decided on 11.10.2026 | "שכחתי סיסמה" link; Welcome lead text (FR-AUTH-001); spec corrected; the stale claim → `noise.md` |
+| 3 | low | ui/avatar.tsx | initials by code point, not grapheme; not upper-cased; leading non-letters kept | `Intl.Segmenter`, letter-start words, `toLocaleUpperCase` |
+| 4 | low | ui/avatar.stories.tsx:32 | size set through `className` | `size` prop; `className` for placement only on display/layout components (decision) |
+
+Also: TEST ENGINEER's Finding 1 — Logo and illustrations accepted `aria-label` against the API → refused at compile time,
+validated by TEST ENGINEER. The Registration illustration back to the approved R2 heart. **Re-check (CRITIC): Validated**,
+probes on 1 and 3 caught. Merged at c83c65c.
