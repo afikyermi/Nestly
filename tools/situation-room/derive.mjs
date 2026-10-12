@@ -228,8 +228,10 @@ export function parseIncidents(text) {
       const m = INCIDENT_LINE.exec(line);
       if (!m) continue;
       const [y, mo, d, h, mi] = m.slice(1).map(Number);
-      const t = new Date(y, mo - 1, d, h, mi).getTime();
-      if (!Number.isFinite(t)) continue;
+      const when = new Date(y, mo - 1, d, h, mi);
+      // A date that rolls over (month 13, minute 99) is a garbled line, not a block on another day.
+      if (when.getFullYear() !== y || when.getMonth() !== mo - 1 || when.getDate() !== d || when.getHours() !== h || when.getMinutes() !== mi) continue;
+      const t = when.getTime();
       const desc = (line.split(" | ")[1] ?? "").trim();
       const date = `${m[1]}-${m[2]}-${m[3]}`;
       const one = SINGLE.exec(desc);
@@ -294,7 +296,7 @@ export function parseGitLog(text) {
   for (const line of String(text ?? "").split("\n")) {
     const [sha, parents, ct, ...subject] = line.split("\x1f");
     const t = Number(ct) * 1000;
-    if (!sha || !/^[0-9a-f]{7,64}$/.test(sha) || !Number.isFinite(t)) continue;
+    if (!sha || !/^[0-9a-f]{7,64}$/.test(sha) || !Number.isFinite(t) || t <= 0) continue;
     out.push({ sha, t, subject: subject.join("\x1f").slice(0, 200), merge: (parents ?? "").trim().split(/\s+/).filter(Boolean).length > 1 });
   }
   return out;
