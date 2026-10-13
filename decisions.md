@@ -1008,6 +1008,25 @@ YYYY-MM-DD | <decision in one line>
                 both) · `DATABASE_URL` (rejected: reserved for the runtime `app_server` connection in Vercel)
   decided by:   ORCHESTRATOR (12.10.2026)
 
+2026-10-13 | Agent-system slimming before I1, in seven stages, one PR each (baseline `.work/agent-slim/baseline.md`)
+  rule:         stages 0 measure · 1 guard (a–d) · 2 log insights · 3 slim decisions/WORKPLAN/incidents/CLAUDE.md ·
+                4 agents and skills · 5 CI line budgets · 6 verify. Information is archived, never deleted. No new
+                agents; plugins stay. Moving a rule needs no approval; changing its meaning stops for Afik. A file
+                growing >50% in one task stops for a check.
+  guard:        (a) CRITIC without Bash — reads a diff file a script prepares without notes.md; TEST ENGINEER gets
+                Bash for exact test-run commands only; the guard checks paths only · (b) develop on guard.next.js,
+                swap on merge, loader falls back to the last valid guard and still blocks if that fails · (c) after
+                2 Not Ready on one task, stop and ask Afik about the approach · (d) correct blocks go to a separate
+                local log (not in git), /wrap-up records a count per kind; CLAUDE.md "Report material failures" and
+                critic.md change to match. Afik approves the approach after CRITIC on opus, then PR 6 closes
+                (its bug.md, findings and log lines are carried over).
+  corrections:  guard.js is simplified first and measured; split into modules only if still over 400 lines · the
+                hole in (a) — a test that reads source or notes.md — gets no mechanism: CRITIC checks it in every
+                review, recorded in debt.md as a known gap · BUILDER reads data-model.md only for a task touching
+                data or schema (stage 3).
+  alternatives: keep growing the allowlist guard of PR 6 (rejected: 1337 lines, it locked a session)
+  decided by:   Afik (13.10.2026)
+
 ---
 
 ## Pending — not yet decided
