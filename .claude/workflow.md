@@ -1,6 +1,6 @@
 # Workflow — canonical pipeline
 
-**Version:** 1.8
+**Version:** 1.9
 **Status:** the single source of truth for sequence, triggers and who enters when.
 Agent definitions describe professions. **This file describes order.** If they disagree, this file wins.
 
@@ -68,16 +68,14 @@ not. A commit pushed after the checks passed needs them to pass again. `result.m
 
 1 → 6 → 7 → 12 → 13 → 14 (14 only if user-visible behaviour changed). No SPEC, no CRITIC, no TEST ENGINEER.
 
-Entry condition — **all** must hold: no schema change · no authz · no endpoint reachable without
-authentication and no new external surface · no new dependency · under ~30 lines · no risk flag.
+Entry condition: `CLAUDE.md` → "Path selection", Light — **all** must hold.
 
 If any condition fails mid-work, stop and re-enter the Standard path. Do not finish "since it's nearly done."
 
 ## Elevated path
 
-Standard, plus: DATA ARCHITECT always · CRITIC on opus. ORCHESTRATOR passes Gate 1, Gate 2 and the
-Preview. An irreversible or destructive change still needs Afik's explicit approval, and a migration to
-production waits for his approval on the GitHub `db-production` environment (CLAUDE.md → "Decision authority").
+Standard, plus: DATA ARCHITECT always · CRITIC on opus. The protection is the reviewers, CI and the hooks.
+Who passes the gates, and what still needs Afik: `CLAUDE.md` → "Human gates" and "Decision authority".
 
 Entry condition: any risk flag in `CLAUDE.md`.
 
@@ -122,13 +120,8 @@ These are not style preferences. Remove any one of them and the corresponding ga
 
 ## Upward channels
 
-| Channel | Who | When | Blocking? |
-|---|---|---|---|
-| **SPEC CHALLENGE** | BUILDER | before writing code, once | no |
-| **MATERIAL CHANGE** | any | mid-execution, the approved solution no longer holds | **yes — branch pauses** |
-| **BLOCKER** | any | work stopped, no reasonable default | **yes** |
-| **QUESTION** | any | unknown, but a default exists and is stated | no |
-| **DECISION REQUEST** | any | needs a decision owner: ORCHESTRATOR, or Afik for a reserved point | yes |
+The channels — who raises each, when, and whether it blocks — are in `CLAUDE.md` → "Message types", which every
+agent loads.
 
 ### SPEC CHALLENGE
 
@@ -168,6 +161,8 @@ and waits. Two `Not Ready` never become a pass (decisions.md, 2026-10-13).
 Every test name carries the FR/AC IDs it asserts. Every commit carries a line `Implements: FR-…, AC-…`.
 In code, an ID appears only beside a direct implementation of a BR or VAL rule — IDs scattered through
 code go stale. A commit that implements no requirement says so (`Implements: none — <reason>`).
+Merges to `main` are squash: the PR body becomes the squash message, so it carries the `Implements:` line covering the
+whole PR.
 
 ---
 
@@ -289,3 +284,5 @@ usually the spec was too large and should have been split.
   Decided by Afik after `ci.yml` was red on GitHub for runs 1–22 while merges were reported green locally.
 - 1.8 — 2026-10-13 — "Two strikes" under Verdicts: a second `Not Ready` on one task stops it for Afik. Decided by
   Afik (agent-system slimming, guard approach c).
+- 1.9 — 2026-10-13 — Traceability: squash merges, the PR body carries the `Implements:` line. Decided by Afik
+  ("Commits and pushes", agent-slim stage 3).

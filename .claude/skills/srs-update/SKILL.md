@@ -7,7 +7,7 @@ argument-hint: <what changed, and Afik's decision it rests on>
 
 # /srs-update — keep the SRS true
 
-**Version:** 1.0 · the rules are in `CLAUDE.md` → "Product requirements — the SRS". This is their procedure.
+**Version:** 1.0 · the rules are in `CLAUDE.md` → "Product requirements — the SRS" and `.claude/rules/srs-editing.md`. This is their procedure.
 
 ## Input
 
