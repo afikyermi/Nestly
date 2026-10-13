@@ -1039,6 +1039,14 @@ YYYY-MM-DD | <decision in one line>
   accepted cost: guard.next.js ≈675 lines against 735; still over 400 — split decided after measuring.
   decided by:   Afik (13.10.2026); CRITIC on opus validated the approach with concern (stage1-findings.md)
 
+2026-10-13 | Guard stage 1 continues after the implementation's Not Ready; a third Not Ready triggers a minimum plan
+  rule:         sequence: failing tests for I-1 and the lows → fix → swap commit with I-2 → CI → CRITIC → merge.
+                guard.next.js at 797 lines is accepted (no lock-out, no shell parsing for the readers). On a third
+                Not Ready nobody stops to ask: merge only guard-loader.js and the separate block log with the current
+                guard.js unchanged; guard.next.js stays on its branch as a debt.md task; go on to stage 2.
+  alternatives: stop at the second Not Ready (rule c) — Afik chose to continue
+  decided by:   Afik (13.10.2026)
+
 ---
 
 ## Pending — not yet decided

@@ -150,3 +150,20 @@ test('[F7] notes-name.js exports NOTES_NAME, and it matches notes.md in any case
     assert.strictEqual(String(mod.NOTES_NAME).toLowerCase(), 'notes.md');
   }
 });
+
+test('[I-4] a stale .work/<slug>/review.diff is removed when the run fails (unknown base)', () => {
+  const { dir } = repo();
+  const out = path.join(dir, '.work', 's', 'review.diff');
+  fs.writeFileSync(out, 'STALE-DIFF-FROM-AN-EARLIER-RUN\n');
+  const r = run(dir, 's', 'no-such-branch');
+  assert.notStrictEqual(r.status, 0);
+  assert.ok(!fs.existsSync(out), 'stale review.diff must not survive a failed run');
+});
+
+test('[I-4] a stale review.diff is replaced, not kept, on a successful run', () => {
+  const { dir } = repo();
+  const out = path.join(dir, '.work', 's', 'review.diff');
+  fs.writeFileSync(out, 'STALE-DIFF-FROM-AN-EARLIER-RUN\n');
+  assert.strictEqual(run(dir, 's', 'main').status, 0);
+  assert.doesNotMatch(fs.readFileSync(out, 'utf8'), /STALE-DIFF/);
+});

@@ -611,3 +611,144 @@ test('regression [R3]: builder cannot write test files, can write source', () =>
   }
   allows('builder', 'Write', { file_path: P('apps', 'web', 'src', 'main.tsx'), content: '' });
 });
+
+// ---------------------------------------------------------------- I-1: paths that do not resolve under the root
+
+const IS_WIN = process.platform === 'win32';
+const winSkip = (t) => {
+  if (!IS_WIN) {
+    t.skip('Windows only');
+    return false;
+  }
+  return true;
+};
+// \\localhost\C$\<rest of ROOT>
+const rootNoDrive = () => ROOT.slice(path.parse(ROOT).root.length);
+const driveLetter = () => path.parse(ROOT).root.slice(0, 1);
+const unc = (...s) => `\\\\localhost\\${driveLetter()}$\\${path.join(rootNoDrive(), ...s)}`;
+const uncFwd = (...s) => unc(...s).split('\\').join('/');
+const devicePath = (...s) => `\\\\?\\${path.join(ROOT, ...s)}`;
+const otherDrive = () => (driveLetter().toUpperCase() === 'Z' ? 'Y' : 'Z') + ':\\nestly-x\\';
+
+test('[I-1] critic: UNC alias of the root, Grep on .work with no glob, is blocked', (t) => {
+  if (!winSkip(t)) return;
+  blocks('critic', 'Grep', { pattern: '.', path: unc('.work') });
+  blocks('critic', 'Grep', { pattern: '.', path: uncFwd('.work') });
+  blocks('critic', 'Grep', { pattern: '.', path: unc('.work', 'x') });
+  blocks('critic', 'Grep', { pattern: '.', path: unc() });
+});
+
+test('[I-1] critic: UNC, device-path and other-drive forms of Read, Grep, Glob and Write are blocked', (t) => {
+  if (!winSkip(t)) return;
+  for (const f of [unc('.work', 'x', 'spec.md'), uncFwd('.work', 'x', 'spec.md'), unc('apps', 'web', 'src', 'main.tsx')]) {
+    blocks('critic', 'Read', { file_path: f });
+  }
+  blocks('critic', 'Read', { file_path: devicePath('.work', 'x', 'spec.md') });
+  blocks('critic', 'Read', { file_path: devicePath('apps', 'web', 'src', 'main.tsx') });
+  blocks('critic', 'Read', { file_path: otherDrive() + 'a.ts' });
+  blocks('critic', 'Grep', { pattern: 'x', path: devicePath('.work') });
+  blocks('critic', 'Grep', { pattern: 'x', path: otherDrive(), glob: '*.ts' });
+  blocks('critic', 'Grep', { pattern: 'x', path: unc('apps', 'web', 'src'), glob: '*.ts' });
+  blocks('critic', 'Glob', { pattern: '**/*.ts', path: unc('apps') });
+  blocks('critic', 'Glob', { pattern: '**/*.ts', path: devicePath('apps') });
+  blocks('critic', 'Glob', { pattern: '**/*.ts', path: otherDrive() });
+  blocks('critic', 'Write', { file_path: unc('.work', 's', 'findings.md'), content: 'f' });
+  blocks('critic', 'Write', { file_path: devicePath('.work', 's', 'findings.md'), content: 'f' });
+  blocks('critic', 'Write', { file_path: otherDrive() + 'findings.md', content: 'f' });
+});
+
+test('[I-1] test-engineer: UNC, device-path and other-drive forms of Read, Grep, Glob and Write are blocked', (t) => {
+  if (!winSkip(t)) return;
+  blocks('test-engineer', 'Read', { file_path: unc('apps', 'web', 'src', 'x.ts') });
+  blocks('test-engineer', 'Read', { file_path: unc('apps', 'web', 'src', 'main.tsx') });
+  blocks('test-engineer', 'Read', { file_path: uncFwd('apps', 'web', 'src', 'main.tsx') });
+  blocks('test-engineer', 'Read', { file_path: unc('apps', 'server', 'api', 'h.ts') });
+  blocks('test-engineer', 'Read', { file_path: unc('apps', 'web', 'tests', 'a.test.ts') });
+  blocks('test-engineer', 'Read', { file_path: unc('.work', 'x', 'spec.md') });
+  blocks('test-engineer', 'Read', { file_path: devicePath('apps', 'web', 'src', 'main.tsx') });
+  blocks('test-engineer', 'Read', { file_path: devicePath('apps', 'web', 'tests', 'a.test.ts') });
+  blocks('test-engineer', 'Read', { file_path: otherDrive() + 'a.test.ts' });
+  blocks('test-engineer', 'Grep', { pattern: 'x', path: unc('apps') });
+  blocks('test-engineer', 'Grep', { pattern: 'x', path: unc('apps', 'web', 'src') });
+  blocks('test-engineer', 'Grep', { pattern: 'x', path: unc('apps', 'web', 'tests') });
+  blocks('test-engineer', 'Grep', { pattern: 'x', path: devicePath('apps') });
+  blocks('test-engineer', 'Grep', { pattern: 'x', path: otherDrive() });
+  blocks('test-engineer', 'Glob', { pattern: '**/*.tsx', path: unc('apps') });
+  blocks('test-engineer', 'Glob', { pattern: '*', path: unc('apps', 'web', 'tests') });
+  blocks('test-engineer', 'Glob', { pattern: '*', path: devicePath('apps', 'web', 'src') });
+  blocks('test-engineer', 'Glob', { pattern: '*', path: otherDrive() });
+  for (const tool of ['Write', 'Edit']) {
+    blocks('test-engineer', tool, { file_path: unc('apps', 'web', 'src', 'new.test.ts'), content: 'x', old_string: 'a', new_string: 'b' });
+    blocks('test-engineer', tool, { file_path: unc('apps', 'web', 'tests', 'new.test.ts'), content: 'x', old_string: 'a', new_string: 'b' });
+    blocks('test-engineer', tool, { file_path: devicePath('apps', 'web', 'tests', 'new.test.ts'), content: 'x', old_string: 'a', new_string: 'b' });
+    blocks('test-engineer', tool, { file_path: otherDrive() + 'new.test.ts', content: 'x', old_string: 'a', new_string: 'b' });
+  }
+});
+
+test('[I-1] both readers: an absolute path outside the project root is blocked on any platform', () => {
+  const outside = path.join(path.dirname(ROOT), 'guard-next-outside-' + process.pid);
+  fs.mkdirSync(outside, { recursive: true });
+  fs.writeFileSync(path.join(outside, 'o.test.ts'), 'x\n');
+  fs.writeFileSync(path.join(outside, 'findings.md'), 'x\n');
+  for (const role of ['critic', 'test-engineer']) {
+    blocks(role, 'Read', { file_path: path.join(outside, 'o.test.ts') });
+    blocks(role, 'Grep', { pattern: 'x', path: outside, glob: '*.ts' });
+    blocks(role, 'Grep', { pattern: 'x', path: path.join(outside, 'o.test.ts') });
+    blocks(role, 'Glob', { pattern: '*', path: outside });
+    blocks(role, 'Write', { file_path: path.join(outside, 'new.test.ts'), content: 'x' });
+  }
+  blocks('critic', 'Write', { file_path: path.join(outside, 'findings.md'), content: 'x' });
+  blocks('critic', 'Write', { file_path: path.join(outside, '.work', 's', 'findings.md'), content: 'x' });
+  blocks('test-engineer', 'Edit', { file_path: path.join(outside, 'o.test.ts'), old_string: 'a', new_string: 'b' });
+  blocks('test-engineer', 'Write', { file_path: path.join(outside, '.work', 's', 'x.md'), content: 'x' });
+  blocks('critic', 'Read', { file_path: path.parse(ROOT).root });
+  blocks('test-engineer', 'Glob', { pattern: '*', path: path.parse(ROOT).root });
+});
+
+test('[I-1] regression: ordinary in-root absolute paths stay allowed', () => {
+  allows('critic', 'Read', { file_path: P('apps', 'web', 'src', 'main.tsx') });
+  allows('critic', 'Write', { file_path: P('.work', 's', 'findings.md'), content: 'f' });
+  allows('test-engineer', 'Read', { file_path: P('apps', 'web', 'tests', 'a.test.ts') });
+  allows('test-engineer', 'Write', { file_path: P('apps', 'web', 'tests', 'new.test.ts'), content: 'x' });
+});
+
+// ---------------------------------------------------------------- I-3: escalation once the count reaches 3, even if the 3rd was skipped
+
+function seedReaderBlocks(root, role, session, n) {
+  const dir = path.join(root, '.claude', 'logs');
+  fs.mkdirSync(dir, { recursive: true });
+  const line = JSON.stringify({ time: new Date().toISOString(), role, tool: 'Bash', rule: 'reader', reason: 'seeded', session }) + '\n';
+  fs.appendFileSync(path.join(dir, 'blocks.jsonl'), line.repeat(n));
+}
+
+test('[I-3] incidents.md: with 3 reader lines already logged and no incidents line, the next block escalates once; a further block adds nothing', () => {
+  const root = mkRoot();
+  seedReaderBlocks(root, 'critic', 'sess-S', 3);
+  assert.strictEqual(incidentLines(root).length, 0);
+  blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'sess-S' });
+  assert.strictEqual(incidentLines(root).length, 1, 'count is already past 3: escalate');
+  blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'sess-S' });
+  assert.strictEqual(incidentLines(root).length, 1, 'still one');
+  blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'sess-S' });
+  assert.strictEqual(incidentLines(root).length, 1, 'still one');
+});
+
+test('[I-3] incidents.md: a count of 5 before the block still escalates once, per role and session', () => {
+  const root = mkRoot();
+  seedReaderBlocks(root, 'critic', 'A', 5);
+  seedReaderBlocks(root, 'critic', 'B', 2);
+  blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'B' });
+  assert.strictEqual(incidentLines(root).length, 1, 'B reaches exactly 3 with this block');
+  blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'A' });
+  assert.strictEqual(incidentLines(root).length, 2, 'A escalates separately');
+  blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'A' });
+  blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'B' });
+  assert.strictEqual(incidentLines(root).length, 2, 'no repeats');
+});
+
+test('[I-3] incidents.md: seeded reader lines of another role do not trigger escalation', () => {
+  const root = mkRoot();
+  seedReaderBlocks(root, 'test-engineer', 'S', 5);
+  blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'S' });
+  assert.strictEqual(incidentLines(root).length, 0);
+});
