@@ -1043,3 +1043,15 @@ plus every "TBD" or "נדרש אישור" in the section files. They are product
   accepted cost: honest commands off the list are blocked until added; a script file the role writes itself stays a gap
                 (debt.md)
   decided by:   ORCHESTRATOR, within Afik's decision of 2026-10-12 (13.10.2026)
+
+2026-10-13 | guard-allowlist round 3: prettier off the reader list; tool path arguments are searches; no .git writes
+  rule:         bug.md Addendum 3 (G.21–G.23). `npx prettier` leaves the CRITIC/TEST ENGINEER list; directory and
+                wildcard arguments to the remaining tools and to `npm run … --` follow the recursive-search reach
+                rules; a reader role never writes under `.git/`.
+  why:          CRITIC round 2 (findings 8–9, Not Ready): prettier and node --test expand their own globs and printed
+                both protected files; npm script arguments became git pathspecs; `.git/config` written by redirection
+                makes a later `git status` run a command.
+  alternatives: prettier only with --check/--list-different (rejected: readers have no need for it; one less form)
+  accepted cost: a test failure's code frame can still show app source to TEST ENGINEER when a test imports it — inherent
+                to running tests; `gh` is off the list, so PR bodies and CI checks reach CRITIC through ORCHESTRATOR
+  decided by:   ORCHESTRATOR, within Afik's decision of 2026-10-12 (13.10.2026)

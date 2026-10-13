@@ -155,3 +155,18 @@ G.19 Known residual, accepted: a script file the role writes itself and then run
 G.20 (13.10, ORCHESTRATOR) A.1's example `awk '{print $1}' docs/a.txt` contradicts G.16, and G.16 wins. A.1 still
      requires single-quoted `$` to stay literal and allowed, but its examples must use a listed command, e.g.
      `echo '{print $1}'` or `git log --format='%H %s'`.
+
+## Addendum 3, 13.10 — after CRITIC round 2 (`findings.md`, findings 8–9). ORCHESTRATOR decision (`decisions.md`)
+
+G.21 `npx prettier` is removed from the reader roles' list (formatting is not a reader's job; CI checks it). For the
+     tools that stay (`npx vitest|playwright|tsc|eslint`, `node --test`), a directory or wildcard argument — quoted or
+     not — is a search rooted there and follows the recursive-search reach rules: never `.work` or an ancestor of it for
+     CRITIC, never `apps/<app>/src|api` or an ancestor of it for TEST ENGINEER. Required blocks: every line of finding 8
+     (with `npx prettier …` blocked as off the list), `node --test '**/s*/a.ts'` (TEST ENGINEER), `npx vitest run .`
+     and `npx eslint .` (CRITIC). Required allows: `npx vitest run apps/web/tests`, `node --test .claude/hooks/x.test.js`,
+     `npx tsc --noEmit -p apps/web` (CRITIC), `npx vitest run` with no path argument.
+G.22 Arguments after `--` in `npm run <script>` / `npm test` are judged as paths by the same rules (literal path,
+     wildcard reach, `:` magic blocked). Required blocks: every line of finding 9. Required allow:
+     `npm test -- apps/web/tests/a.test.ts` (TEST ENGINEER).
+G.23 A reader role never writes under `.git/`: a redirection target, or a write-verb argument, resolving inside `.git`
+     is blocked (`printf x >> .git/config`, `cp f .git/hooks/pre-commit`).

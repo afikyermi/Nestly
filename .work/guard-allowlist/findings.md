@@ -77,3 +77,45 @@ failure:  F.14 runs only "a sample"; guard.test.js is not run under forced platf
 fix:      Run guard.test.js through the force-platform preload; name the changed cases in the PR body; add a block case for each form in findings 1–4.
 --- end ---
 ```
+
+# Findings — round 2 re-check (CRITIC on opus, 13.10.2026)
+
+*Saved by ORCHESTRATOR verbatim from CRITIC's return.*
+
+```
+verdict: Not Ready
+
+Re-check at 4fa31f8, diff `git diff 2a5b0fe..HEAD -- . ':(exclude).work/*/notes.md'`, against bug.md + Addendum 2 + G.20. Same probe method (throwaway root, forced linux/win32/darwin). 107/107 guard tests pass.
+
+1. closed — node -e, python3 -c, awk getline blocked ×3 platforms, both roles, direct and via all + agent_type; unlisted commands fail closed (tee, command, exec, time, !, {, if, functions, a program path). Class still open through a listed command: finding 8.
+2. closed — bash -lc, sh -ec, bash --norc -c, grep -d recurse, --directories=recurse, --dir=recurse, `--directories recurse` after operands, grep -iR / -e x -r.
+3. closed — --upload-pack (and --upload-pac), fetch -u, push --exec, remote add x ext::sh, ext:: fetch blocked; push -u (set-upstream), -C <dir> status, --no-pager allowed.
+4. closed — darwin APPS/…, …/SRC/… blocked for test-engineer; cd, wildcard and Glob forms covered.
+5. closed — --stat … 2>&1, --name-only … > file, --stat=200 allowed for both roles.
+6. closed — --no-pager log, -C <root> status, digit_input / legit_flag text allowed; -c, --git-dir, --exec-path, GIT_DIR= prefix, -C .work log -p, GIT_ word in a content read blocked.
+7. partly closed — guard.test.js and guard-case.test.js run in full ×3 platforms (guard-platforms.test.js). Open: no commit message or (unchecked) PR body names the changed allow cases.
+BUILDER (a) env-prefix list: not a defect — every other name fails closed; none of the 8 runs code.
+BUILDER (b) \bGIT_ case-insensitive on win32: not a defect — conservative and correct.
+
+--- finding 8 ---
+severity: high
+file:     .claude/hooks/guard.js (FORMS.npx, NPX_TOOLS; FORMS.node); bug.md G.16 lists `npx prettier` with no form
+claim:    `npx prettier` in any form prints every file it matches; directory and quoted-glob arguments are expanded by the tool, not the shell, and the guard treats them as literal text, not a search.
+failure:  allowed ×3 platforms, direct and via all + agent_type; run in the throwaway root (prettier 3.8.1):
+          CRITIC: npx prettier '*/*/*otes.md' → "SECRET"; npx prettier . → includes notes.md
+          TEST ENGINEER: npx prettier apps/web → "SECRET;"; npx prettier '**/s*/*.ts' allowed
+          TEST ENGINEER: node --test '**/s*/a.ts' → "# SECRET / ReferenceError" (node prints the failing source line)
+fix:      allow prettier only in a names-only form (--check / --list-different) or take it off the list (spec change — DECISION REQUEST). Treat a directory or quoted-wildcard argument to npx tools and node --test as a search rooted there, under the recursive-grep reach rules. Block cases for each line.
+--- end ---
+
+--- finding 9 ---
+severity: medium
+file:     .claude/hooks/guard.js (FORMS.npm: `if (a === '--') break;`)
+claim:    arguments after `npm run <script> --` are not checked; npm appends them to the script, and tokens:check ends in `git diff --exit-code -- <path>`, so they become git pathspecs outside the git rules.
+failure:  CRITIC ×3: npm run tokens:check -- '*otes.md' | -- ':(icase).WORK' | -- .work allowed; TEST ENGINEER: -- apps/web allowed. In the throwaway root it printed "diff --git a/.work/f/notes.md …" (uncommitted hunk). Limited to uncommitted changes.
+fix:      refuse arguments after `--` for npm run/test, or allow them only for test scripts and run them through the path rules as pathspecs. Block case.
+--- end ---
+
+G.19 note for debt.md: the role can write .git/config or .git/hooks/* by shell redirection (printf '[core]\n\tfsmonitor = "…"' >> .git/config); a later git status prints notes.md. Cheap to close: block redirection targets under .git/.
+Accepted cost: gh is off the list, so CRITIC cannot read PR bodies or CI checks from the shell.
+```
