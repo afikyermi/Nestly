@@ -152,3 +152,6 @@ G.18 A content-free git call is judged before the global-option / `GIT_` ban, wh
      `--stat=<n>[,<m>]` do not make a content-free call a content read.
 G.19 Known residual, accepted: a script file the role writes itself and then runs with `node <file>` or `npm run`.
      Recorded in `debt.md`; CRITIC review stays behind it.
+G.20 (13.10, ORCHESTRATOR) A.1's example `awk '{print $1}' docs/a.txt` contradicts G.16, and G.16 wins. A.1 still
+     requires single-quoted `$` to stay literal and allowed, but its examples must use a listed command, e.g.
+     `echo '{print $1}'` or `git log --format='%H %s'`.
