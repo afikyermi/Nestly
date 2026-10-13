@@ -393,9 +393,268 @@ for (const platform of ['win32', 'linux', 'darwin']) {
     c.allows('test-engineer', 'Glob', { pattern: 'packages/shared/**/*.ts' });
   });
 
+  // ---- G. Addendum 2: the command name is the allowlist key ----
+
+  t('G.16 findings 1-3: inline code, nested shells and recursive grep reach the protected file and are blocked', (c) => {
+    const crit = [
+      `node -e "console.log(require('fs').readFileSync('.wo'+'rk/f/no'+'tes.md','utf8'))"`,
+      `python3 -c "print(open('.wo'+'rk/f/no'+'tes.md').read())"`,
+      `awk 'BEGIN{while((getline l < (".wo" "rk/f/no" "tes.md"))>0) print l}'`,
+      `grep -d recurse '' .work/f`,
+      `grep --directories=recurse '' .work`,
+      `grep -drecurse '' .work`,
+      `bash -lc 'cat .wo""rk/f/no""tes.md'`,
+      `sh -ec 'cat .wo""rk/f/no""tes.md'`,
+      `bash --norc -c 'cat .wo""rk/f/no""tes.md'`,
+      `zsh -c 'cat .wo""rk/f/no""tes.md'`,
+    ];
+    const te = [
+      `node -e "console.log(require('fs').readFileSync('apps/web/sr'+'c/a.ts','utf8'))"`,
+      `python3 -c "print(open('apps/web/sr'+'c/a.ts').read())"`,
+      `awk 'BEGIN{while((getline l < ("apps/web/sr" "c/a.ts"))>0) print l}'`,
+      `grep -d recurse '' apps/web`,
+      `grep --directories=recurse '' apps/web`,
+      `bash -lc 'cat apps/web/s""rc/a.ts'`,
+      `sh -ec 'cat apps/web/s""rc/a.ts'`,
+      `bash --norc -c 'cat apps/web/s""rc/a.ts'`,
+      `zsh -c 'cat apps/web/s""rc/a.ts'`,
+    ];
+    for (const cmd of crit) c.bashBlocks('critic', cmd);
+    for (const cmd of te) c.bashBlocks('test-engineer', cmd);
+    // The same through the settings hook (role all + agent_type).
+    for (const cmd of crit) c.blocks('all', 'Bash', { command: cmd }, { agent_type: 'critic' });
+    for (const cmd of te) c.blocks('all', 'Bash', { command: cmd }, { agent_type: 'test-engineer' });
+    // After a separator or in a pipeline, the segment is judged too.
+    for (const role of ROLES) {
+      c.bashBlocks(role, `ls docs && node -e "1"`);
+      c.bashBlocks(role, `echo x | bash -c 'cat y'`);
+      c.bashBlocks(role, `echo x; awk 'BEGIN{}'`);
+    }
+  });
+
+  t('G.16 finding 3: git fetch/push options and remotes that run a command are blocked', (c) => {
+    for (const role of ROLES) {
+      for (const cmd of [
+        `git fetch --upload-pack='cat .wo""rk/f/no""tes.md >&2; false' .`,
+        `git fetch --upload-pack=x origin`,
+        `git fetch --upload-pack x origin`,
+        `git push --receive-pack=x origin main`,
+        `git push --receive-pack x origin main`,
+        `git push --exec=x origin main`,
+        `git fetch -u x origin`,
+        `git fetch ext::sh`,
+        `git fetch ext::'sh -c "cat x"'`,
+        `git push fd::3 main`,
+        `git ls-remote --upload-pack=x origin`,
+        `git pull --upload-pack=x origin`,
+        `git clone --upload-pack=x origin d`,
+      ]) c.bashBlocks(role, cmd);
+    }
+    // Without the dangerous option the same fetch and push stay allowed.
+    for (const role of ROLES) {
+      c.bashAllows(role, 'git fetch origin');
+      c.bashAllows(role, 'git push origin main');
+    }
+  });
+
+  t('G.16 a command outside the list is blocked, and the message names the list', (c) => {
+    for (const role of ROLES) {
+      for (const cmd of [
+        `sed -n '1e cat x' f`,
+        `sed -n '1w out' f`,
+        `sed -n '1r f' f`,
+        `sed -n '1R f' f`,
+        `sed -n '1W out' f`,
+        `sed -i 's/a/b/' f`,
+        `sed -n -i '1p' f`,
+        `sed 's/a/b/e' f`,
+        `sed 's/a/b/' f`,
+        `sed -n 's/a/b/p' f`,
+        'find . -exec cat {} \\;',
+        'find docs -execdir cat {} \\;',
+        'find docs -ok cat {} \\;',
+        'find docs -okdir cat {} \\;',
+        'find docs -delete',
+        'find docs -fprint out',
+        'find docs -fprintf out x',
+        'find docs -fls out',
+        'npx cowsay hi',
+        'npx some-package',
+        'npm exec cat x',
+        'env cat x',
+        'xargs cat',
+        'echo x | xargs cat',
+        'timeout 5 cat x',
+        `awk '{print}' docs/a.txt`,
+        `python3 -c "print(1)"`,
+        'python script.py',
+        `perl -e 'print 1'`,
+        `ruby -e 'puts 1'`,
+        'deno eval "1"',
+        'bun -e "1"',
+        'node -p "1"',
+        'node --eval "1"',
+        'node --print "1"',
+        'node -r ./x.js y.js',
+        'node --require ./x.js y.js',
+        'node --import ./x.mjs y.js',
+        'node - < docs/a.txt',
+        'node',
+        'bash -lc "ls"',
+        'sh -ec "ls"',
+        'zsh -c "ls"',
+        'bash script.sh',
+        'eval ls',
+        'source x',
+        '. x',
+        'grep -r foo docs',
+        'grep -R foo docs',
+        'grep --recursive foo docs',
+        'grep -rn foo docs',
+        'grep -f pats docs/a.md',
+        'git fetch --upload-pack=x origin',
+        'git push --receive-pack=x origin main',
+        'git fetch ext::sh',
+      ]) c.bashBlocks(role, cmd);
+    }
+    // The block names the list (the reason is not just "blocked").
+    for (const cmd of ['awk 1 docs/a.txt', 'env cat x', 'xargs cat', 'timeout 5 cat x', 'source x']) {
+      for (const role of ROLES) c.reasonMatches(role, cmd, /allow|list/i);
+    }
+  });
+
+  t('G.16 the allowed command list: each listed form is allowed', (c) => {
+    for (const role of ROLES) {
+      for (const cmd of [
+        'cat docs/a.md',
+        'head -5 docs/a.md',
+        'tail -n 3 docs/a.md',
+        'wc -l docs/a.md',
+        'ls docs',
+        'ls -la docs',
+        'diff docs/a.md docs/a.txt',
+        'sort docs/a.txt',
+        'sort docs/a.txt | uniq',
+        'cut -d, -f1 docs/a.txt',
+        'tr a b < docs/a.txt',
+        'echo hello',
+        "printf '%s\\n' hello",
+        'pwd',
+        'true',
+        'false',
+        'test -f docs/a.md',
+        '[ -f docs/a.md ]',
+        'jq . docs/a.txt',
+        'mktemp',
+        'mkdir -p docs/newdir',
+        'cd docs',
+        'cd docs && ls',
+        `sed -n '1,20p' docs/a.md`,
+        `sed -n '5p' docs/a.md`,
+        `sed -n -e '1,3p' docs/a.md`,
+        `grep foo docs/a.md`,
+        `grep -n -i foo docs/a.md docs/a.txt`,
+        `grep -c foo docs/a.md`,
+        `find docs -name '*.md'`,
+        `find docs -type f -name '*.txt'`,
+        'npm test',
+        'npm t',
+        'npm ci',
+        'npm install',
+        'npm run ci',
+        'npm run build',
+        'npm run ci --prefix apps/web',
+        'npm test --prefix apps/web',
+        'npm ls',
+        'npx vitest run',
+        'npx vitest run --root apps/web',
+        'npx playwright test',
+        'npx tsc --noEmit',
+        'npx eslint docs',
+        'npx prettier --check docs',
+        'node --test .claude/hooks/x.test.js',
+        'node --test a.test.js b.test.js',
+        'node tools/some-script.mjs --flag value',
+        'node ./script.js arg',
+        'git status',
+        'git log --oneline -5',
+        'git branch -a',
+        'git ls-files',
+        'git add docs/a.md',
+        'git commit -m "msg"',
+        'npm run ci 2>&1 | tail -40',
+      ]) c.bashAllows(role, cmd);
+    }
+    // The same forms through the settings hook.
+    for (const agent_type of ROLES) {
+      c.allows('all', 'Bash', { command: `sed -n '1,20p' docs/a.md` }, { agent_type });
+      c.allows('all', 'Bash', { command: 'npx vitest run' }, { agent_type });
+      c.blocks('all', 'Bash', { command: 'env cat x' }, { agent_type });
+      c.blocks('all', 'Bash', { command: `awk 1 docs/a.txt` }, { agent_type });
+    }
+  });
+
+  t('G.17 test-engineer: the app-implementation check ignores case on every platform', (c) => {
+    for (const cmd of [
+      'cat APPS/web/src/a.ts',
+      'cat apps/web/SRC/a.ts',
+      'cat Apps/Web/Src/a.ts',
+      'cat apps/WEB/src/a.ts',
+      'cat apps/server/API/index.ts',
+      'cd APPS/web && cat src/a.ts',
+      'cd apps/web && cat SRC/a.ts',
+      'cat APPS/web/s*/a.ts',
+      'cat apps/web/Sr*',
+    ]) c.bashBlocks('test-engineer', cmd);
+    c.blocks('test-engineer', 'Read', { file_path: at('APPS', 'web', 'src', 'a.ts') });
+    c.blocks('test-engineer', 'Read', { file_path: at('apps', 'web', 'SRC', 'a.ts') });
+    c.blocks('test-engineer', 'Grep', { pattern: 'x', path: at('APPS', 'web') });
+    c.blocks('test-engineer', 'Grep', { pattern: 'x', path: at('apps', 'web', 'SRC') });
+    c.blocks('test-engineer', 'Glob', { pattern: 'APPS/web/SRC/**/*.ts' });
+    // The allowed side is untouched.
+    c.bashAllows('test-engineer', 'cat packages/x/src/i.ts');
+    c.bashAllows('test-engineer', 'cat apps/web/tests/a.test.ts');
+    c.allows('test-engineer', 'Read', { file_path: at('apps', 'web', 'tests', 'a.test.ts') });
+  });
+
+  t('G.18 a content-free git call is judged before the global-option / GIT_ ban', (c) => {
+    const tmp = path.join(os.tmpdir(), 'x.txt').split(path.sep).join('/');
+    for (const role of ROLES) {
+      for (const cmd of [
+        'git --no-pager log --oneline -5',
+        `git -C ${ROOT.split(path.sep).join('/')} status`,
+        "git commit -m 'tests: digit_input boundary'",
+        'git add apps/web/tests/digit_input.test.ts',
+        "git commit -m 'review: legit_flag naming'",
+        "git commit -m 'document GIT_DIR handling'",
+        'git status 2>&1',
+        'git log --oneline -5 2>&1',
+        'git diff --stat main...HEAD 2>&1',
+        `git diff --name-only main...HEAD > ${tmp}`,
+        'git diff --name-only main...HEAD 2>/dev/null',
+        'git diff --stat=200 main...HEAD',
+        'git diff --stat=200,50 main...HEAD',
+        'git show HEAD --stat=120',
+        'git diff --stat main...HEAD 2>&1 | tail -5',
+      ]) c.bashAllows(role, cmd);
+    }
+    // The ban still applies to a content read, and is case-sensitive as a word.
+    c.bashAllows('critic', `git log -p --format=legit_flag -- . ${EXCL}`);
+    c.bashBlocks('critic', `GIT_DIR=.git git diff main -- . ${EXCL}`);
+    c.bashBlocks('critic', `git -C docs diff main -- . ${EXCL}`);
+    c.bashBlocks('critic', `git --no-pager diff main -- . ${EXCL}`);
+    c.bashBlocks('critic', `echo GIT_X=1; git diff main -- . ${EXCL}`);
+    // A redirection does not turn a content read into a content-free call.
+    c.bashBlocks('critic', `git diff main...HEAD 2>&1`);
+    c.bashBlocks('critic', `git diff main...HEAD > ${tmp}`);
+    c.bashBlocks('critic', `git diff --stat -p main...HEAD 2>&1`);
+    c.bashBlocks('test-engineer', `git diff main...HEAD 2>&1`);
+    c.bashBlocks('test-engineer', `git log -p > ${tmp}`);
+  });
+
   // ---- F. Everything else ----
 
-  t('F.14 a sample of cases both existing test files assert today keeps its result', (c) => {
+  t('F.14 a sample of cases the existing test files assert (the full files run in guard-platforms.test.js)', (c) => {
     c.blocks('critic', 'Read', { file_path: at('.work', 'f', 'notes.md') });
     c.blocks('critic', 'Read', { file_path: at('.WORK', 'f', 'NOTES.MD') });
     c.allows('critic', 'Read', { file_path: at('.work', 'f', 'spec.md') });
