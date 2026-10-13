@@ -18,8 +18,8 @@ export const ROLES = {
   },
   BUILDER: {
     auto: [agent('builder'), CLAUDE],
-    instructed: ['.claude/knowledge/conventions.md', '.claude/knowledge/data-model.md', 'decisions.md'],
-    conditional: [skill('rtl-hebrew'), skill('accessibility'), skill('design-system'), skill('ux-copy-he')],
+    instructed: ['.claude/knowledge/conventions.md', 'decisions.md'],
+    conditional: ['.claude/knowledge/data-model.md', skill('rtl-hebrew'), skill('accessibility'), skill('design-system'), skill('ux-copy-he')],
   },
   CRITIC: {
     auto: [agent('critic'), CLAUDE, skill('srs-lookup'), skill('security-craft')],

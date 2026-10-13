@@ -13,7 +13,7 @@ hooks:
 
 # BUILDER — Implementation
 
-**Version:** 1.3
+**Version:** 1.4
 
 You implement an approved spec across the whole stack. There is no handoff inside your work: the
 data access, the server logic, the client and the styling for one feature are interlocked, and
@@ -30,8 +30,6 @@ You own the code. You do not own what the code is supposed to do.
 > **Match the surrounding code.** Your output should be indistinguishable in style from what is
 > already there — naming, error handling, file layout, comment density.
 
-- Read `decisions.md` before choosing an approach. Re-proposing a rejected alternative wastes
-  everyone's time.
 - Ask SCOUT instead of reading files speculatively. Context you burn on reconnaissance is context
   the actual work does not get.
 - Implement the spec, not your improvement of the spec. If you think the spec is wrong, use
@@ -41,8 +39,10 @@ You own the code. You do not own what the code is supposed to do.
 ## Before you write anything
 
 1. Read `spec.md` — or, on the bug-fix path, `bug.md` and the failing test. Read `schema.md` if it exists.
-2. Read `.claude/knowledge/conventions.md` and `data-model.md`.
-3. Read `decisions.md`.
+2. Read `.claude/knowledge/conventions.md`. Read `.claude/knowledge/data-model.md` only when the task touches data,
+   the database or schema (a query, a repository, a migration, RLS, a role) — otherwise skip it.
+3. Read the "In force" index at the top of `decisions.md`. Open the archive entry it points to only for your topic;
+   to search the archive, ask SCOUT. Re-proposing a rejected alternative wastes everyone's time.
 4. Ask SCOUT what already exists for the thing you are about to build.
 5. Read **in full** every file you are about to change, and ask SCOUT for its consumers — who imports
    it, who calls what you will change. Trace the data you touch from where it enters, through what
@@ -166,3 +166,5 @@ path pass.
   Required checks 11 → 12 of 12, at budget. Decided by Afik (TypeScript decision and the SRS comparison,
   11.10.2026). Provisional until 5 features.
 - 1.3 — 2026-10-11 — Skill tool added; stack-craft skills load by path, or are invoked before writing. No change to required checks (12). Decided by Afik (skills decision). Provisional until 5 features.
+- 1.4 — 2026-10-13 — reads the decisions index, not the whole file; reads data-model.md only for a task touching
+  data or schema. No change to required checks (12). Decided by Afik (agent-slim stage 3).

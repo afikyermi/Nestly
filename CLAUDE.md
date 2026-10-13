@@ -3,8 +3,13 @@
 Social platform. Solo founder, zero budget. The agent team is a tool for shipping, not an end in itself.
 
 **State of the work:** `WORKPLAN-HE.md` — the single status file. **Read it at the start of every session**:
-it holds what is done, what is open, the decisions made and the next task. Update it at the end of every
-step, in the same commit. No other status or progress file.
+it holds what is open, the last part finished, what waits on Afik and the next task; closed parts move to
+`archive/WORKPLAN-<YYYY-MM>.md`. Update it at the end of every step, in the same commit as the work. No other status
+or progress file.
+**Commits and pushes:** a log, decision or WORKPLAN update never gets a commit of its own — it rides with the next
+work commit. Commit locally as often as useful; push only when CI is needed, at the end of a stage, or at the end of a
+session (each push to a PR branch costs a CI run and a Vercel deploy from a daily quota). Merges are squash; the PR body
+carries the `Implements:` line.
 **Operating model:** `.claude/workflow.md` is the canonical pipeline. Read it before routing work.
 **Improvement loop:** `.claude/learning.md`. **Decisions and rejected alternatives:** `decisions.md`.
 
@@ -41,22 +46,15 @@ the files the task needs, or ask SCOUT.
 
 - **Every product change updates the SRS**: product behaviour, plus the technical decisions the SRS already
   has a place for. Changes to the agent team go to `decisions.md`.
-- **Follow the document's own structure and writing logic**: the right section file, its table format, its
-  ID scheme. New IDs continue the sequence. Never renumber.
+- **Editing the SRS** — structure and IDs, versioning, the INDEX rebuild, the Word archive: `.claude/rules/srs-editing.md`
+  (loads with any `docs/srs/` file); the procedure is `/srs-update`.
 - **The SRS does not fill decisions that do not exist.** An open point stays "TBD" or "נדרש אישור", and an
   OP entry in Appendix B tracks it. No agent fills one with a default — it becomes a `DECISION REQUEST`,
   decided by the owner that "Decision authority" below names.
-- **Versioning**: a minor version per batch of changes, with a row in the change history in
-  `00-document-info.md`.
-- **After any FR or AC change**, run `node tools/build-srs-index.js`. A new AC also needs a short name in
-  `tools/srs-ac-names.json`.
 - **AI/ML ideas and decisions** are recorded in the SRS: Appendix D while they are future options, the
   relevant FR, §18 or NFR once decided. See `.claude/knowledge/ai-ml-readiness.md`.
 - **Word export on request**: `node tools/export-srs-docx.js` produces the complete current SRS as
   `exports/Nestly_SRS_v<version>.docx`. Never edit an export — fix the markdown and export again.
-- `docs/srs/archive/` holds old Word versions. History only — never edit them, and never regenerate the
-  markdown from them. If Afik hands over an edited Word file, diff it against the markdown first and import
-  only his changes, before anyone edits the markdown again.
 
 **Two consequences that shape every review:**
 
@@ -107,12 +105,14 @@ boundary exactly where all the context is required.
 
 Pick one per unit of work. When in doubt, go up a level, never down.
 
-| Path | When | Who runs |
-|---|---|---|
-| **Light** | no schema change · no authz · no unauthenticated endpoint or new external surface · no new dependency · under ~30 lines | BUILDER → CI |
-| **Standard** | default | SPEC → BUILDER → CI → CRITIC + TEST ENGINEER |
-| **Elevated** | any risk flag below is true | + DATA ARCHITECT · CRITIC on opus. The protection is the reviewers, CI and hooks. ORCHESTRATOR passes Gate 1, Gate 2 and the Preview (see "Human gates") |
-| **Bug fix** | merged code behaves differently from the SRS or an approved spec | `bug.md` → TEST ENGINEER (failing test first) → BUILDER → CI → CRITIC unless Light-sized. risk flags still apply — see `.claude/workflow.md` |
+| Path | When |
+|---|---|
+| **Light** | all hold: no schema change · no authz · no unauthenticated endpoint or new external surface · no new dependency · under ~30 lines · no risk flag |
+| **Standard** | default |
+| **Elevated** | any risk flag below is true |
+| **Bug fix** | merged code behaves differently from the SRS or an approved spec; risk flags still apply |
+
+Who runs on each path, in what order, is in `.claude/workflow.md`.
 
 ### Risk flags — binary, any one is enough
 
@@ -200,13 +200,15 @@ approved approach does not work must stop — not improvise.
 
 ## Message types
 
-| Type | Has a default? | Afik's obligation |
-|---|---|---|
-| `TASK` | — | — |
-| `FINDING` | — | — |
-| `QUESTION` | **yes** — states what will be assumed if unanswered | may ignore; work proceeds on the assumption |
-| `BLOCKER` | **no** — work has stopped | must handle |
-| `DECISION REQUEST` | needs a decision owner's authority | ORCHESTRATOR decides and records; **only Afik** decides a reserved one ("Decision authority") |
+| Type | Who · when | Has a default? | Blocking? | Afik's obligation |
+|---|---|---|---|---|
+| `TASK` | — | — | — | — |
+| `FINDING` | — | — | — | — |
+| `QUESTION` | any · an unknown, with the default stated | **yes** — states what will be assumed if unanswered | no | may ignore; work proceeds on the assumption |
+| `BLOCKER` | any · work stopped, no reasonable default | **no** — work has stopped | **yes** | must handle |
+| `DECISION REQUEST` | any · needs a decision owner | needs a decision owner's authority | yes | ORCHESTRATOR decides and records; **only Afik** decides a reserved one ("Decision authority") |
+| `SPEC CHALLENGE` | BUILDER · before writing code, once per feature | — | no | format and handling: `.claude/workflow.md` |
+| `MATERIAL CHANGE` | any · mid-execution, the approved solution no longer holds | — | **yes — branch pauses** | see "Change control" |
 
 Never file a `BLOCKER` for something that has a reasonable default. Never file a `QUESTION` for
 something that has genuinely stopped the work.
@@ -271,8 +273,9 @@ CRITIC or DATA ARCHITECT validates it. Only then does it enter.
 | `escapes.md` | defects found **after** merge + which gate should have caught it | ORCHESTRATOR |
 | `noise.md` | findings raised that were not real, or cost more than they saved | ORCHESTRATOR |
 
-**Read `decisions.md` before proposing an approach.** Re-proposing a rejected alternative wastes
-Afik's time and your tokens.
+**Read the "In force" index at the top of `decisions.md` before proposing an approach.** Full entries and rejected
+alternatives are in `decisions/<YYYY-MM>.md`; read the one an index line points to, or ask SCOUT to search them.
+Re-proposing a rejected alternative wastes Afik's time and your tokens.
 
 ---
 

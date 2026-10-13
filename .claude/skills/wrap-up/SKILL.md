@@ -30,9 +30,13 @@ The Preview passed — ORCHESTRATOR checked it, URL recorded in WORKPLAN (or the
    `noise.md`. The guard itself writes `incidents.md` for critical blocks; nothing else from the log does.
 3. **SRS — step 14:** if behaviour the SRS describes changed, follow `.claude/skills/srs-update/SKILL.md`, steps 1–6.
    Read and follow that file; it is a procedure, not something to invoke.
-4. **WORKPLAN:** the task's status in its part table, and the "איפה אנחנו עומדים" block.
-5. **Merge and commit:** stage explicit paths only. The message ends with `Implements: FR-…, AC-…` (or
-   `Implements: none — <reason>`) and the attribution line.
+4. **WORKPLAN:** the task's status in its part table, and the "איפה אנחנו עומדים" block. WORKPLAN keeps only open
+   work and the last finished part: when a part closes, the part it replaces as "last finished" moves verbatim to
+   `archive/WORKPLAN-<YYYY-MM>.md`, and anything still open inside it goes to "פתוח מחלקים שנסגרו".
+5. **Merge and commit:** stage explicit paths only. The logs, decisions and WORKPLAN go in this same commit — never a
+   commit of their own. The message ends with `Implements: FR-…, AC-…` (or `Implements: none — <reason>`) and the
+   attribution line. Push once, for CI; the PR body carries the same `Implements:` line, since merges are squash and
+   the PR body becomes the squash message (`decisions/2026-10.md`, "Commits and pushes").
 6. **Report** to Afik in Hebrew: what closed, what was logged, what comes next.
 
 ## Stop conditions
@@ -47,4 +51,5 @@ The Preview passed — ORCHESTRATOR checked it, URL recorded in WORKPLAN (or the
 
 ## Changelog
 - 1.0 — 2026-10-11 — created (Afik's skills decision). Provisional until 5 features.
-- 1.1 — 2026-10-13 — step 2 counts the hook blocks into `result.md` (Afik, guard approach d).
+- 1.1 — 2026-10-13 — step 2 counts the hook blocks into `result.md` (Afik, guard approach d). Step 4 archives the
+  closed WORKPLAN part; step 5: logs in the same commit, one push, Implements in the PR body (Afik, agent-slim stage 3).
