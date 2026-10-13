@@ -29,7 +29,7 @@ argument-hint: <the decision, in Afik's words>
    - an item WORKPLAN tracks → the WORKPLAN line
 6. **No commit of its own.** The entry and the index line go into the next work commit (`decisions/2026-10.md`,
    "Commits and pushes"). If no work commit follows in this session, commit them at its end with explicit paths and
-   `Implements: none — decision`.
+   `Implements: none — decision` and the attribution line.
 
 ## Stop conditions
 

@@ -60,7 +60,7 @@ the files the task needs, or ask SCOUT.
 
 1. **The typecheck is a gate, and it can be defeated.** Strict TypeScript across web, server and shared
    catches a misspelled field or a call to something that does not exist before the code runs. CI gates are
-   **typecheck · tests · lint · RLS checks** (WORKPLAN 7.1). What a typecheck cannot catch: a cast that
+   **typecheck · tests · lint · RLS checks** (WORKPLAN 7.1, now in `archive/WORKPLAN-2026-10.md`). What a typecheck cannot catch: a cast that
    lies to the compiler, a raw SQL string, and runtime data that does not match its type. Hence Zod at every
    input boundary, the bans on `any` and ts-comments, and CRITIC still verifying what types cannot.
 2. **Authorization lives in the database — the server does not replace it.** Application code, server

@@ -48,7 +48,7 @@ The maintained as-built descriptions are `.claude/knowledge/data-model.md` and `
 | 5 | **DATA ARCHITECT** | *only if schema changes* — Gate 2. Policies follow the authorization layers in `.claude/knowledge/data-model.md` | `schema.md` |
 | 5b | **ALGORITHM & DATA** | *only if the feature uses behavioural signals, ranks or recommends, records analytics events, or places paid content* — purpose map, pipeline, configuration, events, evaluation. Feeds DATA ARCHITECT when tables are needed | `algorithm.md` |
 | 6 | **BUILDER** | branch, implement. calls SCOUT as needed | diff + `notes.md` |
-| 7 | **CI** | 🤖 typecheck · tests · lint · RLS checks (the list in WORKPLAN 7.1), run by GitHub Actions on the PR. red → back to 6 | green build |
+| 7 | **CI** | 🤖 typecheck · tests · lint · RLS checks (the list in WORKPLAN 7.1, now in `archive/WORKPLAN-2026-10.md`), run by GitHub Actions on the PR. red → back to 6 | green build |
 | 8 | **TEST ENGINEER** | tests derived from `spec.md` only | test files |
 | 9 | **CRITIC** | review the diff cold, including every invariant in `.claude/knowledge/srs-review-points.md` that the diff touches and the platform rules in `.claude/knowledge/data-model.md`. ALGORITHM & DATA reviews in parallel when step 5b ran | `findings.md` + verdict |
 | 10 | **BUILDER** | address findings | updated diff |

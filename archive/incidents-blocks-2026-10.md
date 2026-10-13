@@ -1,7 +1,7 @@
 # Incidents archive: hook blocks, 2026-10
 
 Moved from `incidents.md` on 2026-10-13 (decisions.md, 2026-10-13: correct blocks go to the local block log;
-only critical blocks reach incidents.md). Not deleted, not edited. Format as in incidents.md.
+only critical blocks and the third reader block of one role in one session reach incidents.md). Not deleted, not edited. Format as in incidents.md.
 
 ---
 
