@@ -12,13 +12,13 @@
 
 **עודכן:** 13.10.2026 · **גרסת SRS:** 2.11
 
-- **🔄 סשן תחזוקה: הרזיית מערך הסוכנים** (הכרעתך מ-13.10, ‏`decisions.md`; ‏`.work/agent-slim/`). שבעה שלבים, PR לכל שלב. **שלב 0 ✅** (PR 7): מדידה, ‏`node tools/measure-context.mjs`. ‏ORCHESTRATOR קורא 163.9K ו-BUILDER 150.0K בכל הפעלה, ו-decisions.md (91.3K) הוא הרוב. **שלב 1 🔄:** אישרת את הגישה (א' בלבד) ואת F5. המימוש עבר TEST ENGINEER ו-BUILDER, ‏CRITIC החזיר Not Ready (I-1 עד I-6), והממצאים תוקנו. ה-guard החדש הוחלף (797→835 שורות), ‏CRITIC כבר בלי Bash, ו-TEST ENGINEER עם הרצת טסטים בלבד. 84 שורות חסימה הועברו מ-incidents ל-`archive/incidents-blocks-2026-10.md`. **עכשיו:** ‏CI, ואז בדיקה חוזרת של CRITIC ומיזוג. ‏Not Ready שלישי מפעיל את תוכנית המינימום (`decisions.md`). המשימה "guard: רשימת מותרים" (PR 6) מוחלפת בשלב 1. ‏I1 אחרי הסשן.
+- **🔄 סשן תחזוקה: הרזיית מערך הסוכנים** (הכרעתך מ-13.10, ‏`decisions.md`; ‏`.work/agent-slim/`). שבעה שלבים, PR לכל שלב. **שלב 0 ✅** (PR 7): מדידה, ‏`node tools/measure-context.mjs`. ‏ORCHESTRATOR קורא 163.9K ו-BUILDER 150.0K בכל הפעלה, ו-decisions.md (91.3K) הוא הרוב. **שלב 1 ✅** (PR 8, ‏squash): ‏guard.js ‏835 שורות. ל-CRITIC אין Bash, ‏TEST ENGINEER מריץ טסט אחד, ‏guard-loader.js חוזר לגרסה של main אם הטעינה נכשלת, והחסימות נרשמות ביומן מקומי. ‏CRITIC על opus: ‏Validated with Concern אחרי Not Ready אחד. ‏PR 6 נסגר והמידע שלו הועבר. **שלב 2 ✅** (`.work/agent-slim/stage2-insights.md`): שישה דפוסים, ושורת "Git and shell" ב-conventions (‏CRITIC: ‏Validated). **הבא: שלב 3, הרזיה.** ‏I1 אחרי הסשן.
 
 - **מצב:** חלק 7 הושלם (7.0 עד 7.4). מחלק 9 הושלמו 9.1 עד 9.6. 9.7, יחידת הרכיבים, הושלמה: ששת החלקים a עד f מוזגו, כל אחד עבר CRITIC ו-TEST ENGINEER, וה-Preview של הגלריה עבר (12.10). **כללי העבודה מ-11.10:** אני עובר את Gate 1, ‏Gate 2 וה-Preview, ומחליט את מה שלא שמור לך. כל החלטה נרשמת ב-`decisions.md`. השמורים לך: סודות, prod, החלטות בלתי הפיכות או שינוי מהותי ב-SRS, ונקודות של משפט, קטינים או כסף (`CLAUDE.md`, ‏"Decision authority").
 - **✅ CI ב-GitHub תוקן (PR 1):** כל 22 ההרצות האדומות נכשלו על אותו טסט יחיד ב-guard ‏(`guard.test.js:245`, ‏`NOTES~1.MD`). ‏`fold()` מנמיך אותיות רק ב-Windows, וה-runner הוא Linux. התיקון: ‏`/i` ב-`guard.js:509`. לא נמצא שום טסט אחר שנכשל רק ב-GitHub. **כלל קבוע (`workflow.md` 1.7, ‏`decisions.md`):** אין מיזוג ל-main בלי CI ירוק ב-GitHub. הרצה מקומית לא מספיקה. אני פותח PR בעצמי עם `gh`.
 - **✅ פער האותיות ב-guard תוקן (PR 2, ‏`.work/guard-notes-case/`):** ארבעת הממצאים של CRITIC מ-PR 1 נסגרו ב-Windows, ‏Linux ו-macOS. ‏CRITIC מצא שלושה פערים ישנים נוספים באותו כלל (אחד medium), והם ב-`debt.md`.
 - **✅ ההכנות ל-I1 הושלמו (PR 4, ‏`.work/i1-prep/`):** התפקידים `app_owner`, ‏`app_server` ו-`app_jobs` קיימים ב-preview וב-prod (בדיקה: 3 שורות `ok` בשניהם). הסוד `APP_OWNER_DATABASE_URL` נמצא ב-`db-preview` וב-`db-production`, ו-`db-check` עבר בשתי הסביבות. ‏Vercel בונה רק את `main` וענפים עם PR פתוח.
-- **המשימה הבאה:** ‏**guard: רשימת מותרים כבסיס** (הכרעתך מ-12.10, ‏`decisions.md`): כל גישה לקובץ מוגן שלא ברשימה נחסמת, ורשימת האסור נשארת להודעות. סוגר את שלוש שורות ה-guard ב-`debt.md`. ‏Elevated, ‏CRITIC על opus. **אחריה:** ‏**I1** (`.work/_initiatives/I1-accounts-access.md`).
+- **המשימה הבאה:** סשן ההרזיה, שלבים 3 עד 6. **אחריו:** ‏**I1** (`.work/_initiatives/I1-accounts-access.md`).
 - **Preview:**
   - האתר: [nestly-blue.vercel.app](https://nestly-blue.vercel.app). ‏`/api/health` עובד, ועוד אין מסך מוצר.
   - **גלריית הרכיבים** מקומית בלבד: `npm run build-storybook` ואז `npm run serve:storybook`, בכתובת `http://127.0.0.1:6007`.
@@ -27,7 +27,8 @@
   1. **קובץ יומן מקומי ישן:** ‏`nestly/.live/events.jsonl` מכיל טקסט מפרומפטים, והוא לא נכנס ל-git. מחיקה היא פעולה הרסנית, ולכן ההחלטה שלך. אחרי שהוא נמחק, אפשר להסיר גם את השורה `.live/` מ-`.gitignore`.
   2. **מחיקת ענפים מרוחקים שמוזגו** (ה-guard חוסם את זה לסוכנים): ‏`ui-wave-1/part-a` עד `part-e` ו-`chore/i1-prep`. הפקודה בהודעת הסיום של 12.10.
   3. **ב-I1, כשיידרש:** מחרוזת החיבור של `app_server` ל-Vercel (‏`DATABASE_URL`, ‏transaction pooler, פורט 6543). הסיסמה כבר קיימת אצלך.
-- **ממתין להכרעה שלך:** אין.
+- **ממתין להכרעה שלך:**
+  1. **כלל ה-`.env` ב-guard (R4) חוסם טקסט, לא קבצים** (שלב 2, דפוס 4: שלוש חסימות שווא, ושתיים מהן כתבו שורה ל-incidents). ההצעה: הכלל יבדוק רק ארגומנטים שהם נתיב ויעדי הפניה, ולא תבניות חיפוש או טקסט במירכאות. הכרעת שלא לגעת ב-R4, ולכן זה אצלך. ברירת המחדל: לא נוגעים, והעקיפה כתובה ב-conventions ("Git and shell").
 - **לקחים מהשיחה:** בזיכרון (`orchestration-lessons`) וב-`noise.md`.
   - לבדוק את ה-SRS לפני שמעבירים הלאה שמשהו "TBD" (הטעות עם FR-AUTH-003).
   - להריץ CI מלא אחרי כל commit של TEST ENGINEER.
