@@ -202,3 +202,38 @@ Proposed default (used unless Afik says otherwise):
 - **R2-3:** a Grep whose path is one existing file that is not a notes name is allowed for both readers, in `.work`
   too. So legitimate reads do not feed the F5 threshold.
 - TEST ENGINEER writing another slug's `.md` (integrity, not a read path): recorded in `debt.md`, no mechanism now.
+
+# Round 4 — Afik's approval and conditions (2026-10-13). This is the spec for the implementation.
+
+Approved: rounds 1–3 and the F5 default. **Scope: a only** (plus b, c, d). R4 and BUILDER code are not touched.
+Conditions, which override the TEST ENGINEER Bash text of rounds 1–3:
+
+- **TEST ENGINEER reads only with Read/Grep/Glob.** No `tail`, `head`, `cat`, `git` or `npm` in Bash. ORCHESTRATOR
+  commits TEST ENGINEER's tests.
+- **TEST ENGINEER Bash = one test run with explicit file paths, no globs.** The whole command must be:
+  - one of `npx vitest run …`, `npx playwright test …`, `node --test …`, run at the project root;
+  - every token matching `^[A-Za-z0-9._/:=@+-]+$` — so no quotes, spaces inside a token, `$`, backtick, `;`, `|`, `&`,
+    `<`, `>`, `(`, `)`, `*`, `?`, `[`, `]`, `{`, `}`, `~`, `!`, `\`, newline; anything else blocks;
+  - every non-flag token: a relative path (no `..` segment) to an **existing file** whose name matches the test-file
+    pattern (`*.test.*` / `*.spec.*`) and that does not resolve (realpath) into `apps/*/src|api` or to a notes name;
+  - flags only in `--name=value` form, from: vitest `--reporter=default|verbose|dot`, `--bail=N`, `--no-color`,
+    `--testNamePattern=<token>` · playwright `--project=<token>`, `--grep=<token>`, `--reporter=list|line|dot`,
+    `--workers=N` · node `--test-name-pattern=<token>`, `--test-reporter=spec|dot|tap`.
+  The npm forms, `--prefix`/`-w`, `tail`/`head` and git forms of rounds 1–3 are dropped (so R2-1 is moot).
+- TEST ENGINEER Write/Edit limits (F3) stay as in round 2.
+- Not significantly shorter than 735 lines is accepted (estimate ≈675): the goal was a simpler readers part and no
+  lock-out, not a line count.
+
+## Round 4 — implementation details fixed by ORCHESTRATOR (internal how, no rule change)
+
+- **Files:** `.claude/hooks/guard.next.js` (the new guard, same CLI `node guard.next.js <role>`, same stdin JSON, same
+  exports plus `main`) · `.claude/hooks/guard-loader.js <role>` (loads `./guard.js`) · `.claude/hooks/notes-name.js`
+  (exports `NOTES_NAME`) · `tools/critic-diff.mjs <slug> [base]` (writes `.work/<slug>/review.diff`; base defaults to
+  `main`).
+- **Block log (d, F5):** every block appends one JSON line `{"time","role","tool","rule","reason","session"}` to
+  `<root>/.claude/logs/blocks.jsonl` (directory created if missing; `session` = the hook input's `session_id`, or "").
+  `rule` is one of `reader` (R1/R2 and the CRITIC/TEST ENGINEER tool limits), `r4-critical` (.env, prod/retired refs,
+  force/mirror push or remote delete, secret found), `r4` (other R4), `builder`. An `incidents.md` line is appended only
+  for `r4-critical`, and for the **third** `reader` block with the same role and session (once per role+session). A
+  failed log write never changes the block.
+- **CRITIC's Write:** only `.work/<slug>/findings.md`, and `.work/<slug>/*-findings.md`.

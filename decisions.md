@@ -1027,6 +1027,18 @@ YYYY-MM-DD | <decision in one line>
   alternatives: keep growing the allowlist guard of PR 6 (rejected: 1337 lines, it locked a session)
   decided by:   Afik (13.10.2026)
 
+2026-10-13 | Guard approach a–d approved as written in `.work/agent-slim/stage1-guard.md`, rounds 1–4
+  rule:         scope a only — the readers part; R4 (everyone) and BUILDER code untouched. TEST ENGINEER reads only
+                with Read/Grep/Glob; its Bash is one test run (vitest, playwright, node --test) with explicit existing
+                test-file paths, no globs, no shell characters; ORCHESTRATOR commits its tests. F5: every block goes to
+                the local log and /wrap-up counts it; an incidents.md line only for an R4 prod/secret/.env/force-push
+                block, or 3+ reader-rule blocks by one role in one task.
+  alternatives: also move the secret scan to a git pre-commit hook (≈−100 lines) · also drop BUILDER's shell
+                test-write check (≈−45) — rejected: the goal is a simpler readers part and no lock-out, not a line
+                count; R4 and BUILDER work.
+  accepted cost: guard.next.js ≈675 lines against 735; still over 400 — split decided after measuring.
+  decided by:   Afik (13.10.2026); CRITIC on opus validated the approach with concern (stage1-findings.md)
+
 ---
 
 ## Pending — not yet decided
