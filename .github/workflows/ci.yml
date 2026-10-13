@@ -47,6 +47,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
+      # Line budgets for always-read files and code outside the ESLint caps (agent-slim stage 5).
+      - run: npm run check:budgets
       # The generated token CSS is committed; it must equal what the source builds (UI wave 1).
       - run: npm run tokens:check
       # Every component has stories for all of its states (UI wave 1, criterion 13).
