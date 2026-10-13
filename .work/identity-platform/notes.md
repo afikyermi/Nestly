@@ -184,3 +184,155 @@
   - bootstrap step 2 skipped with its notice
   - RLS gate: no violation
   - pg_prove: 3 files, 62 tests, PASS
+
+---
+
+# notes — identity-platform, part b (identity schema) + part a's CRITIC findings
+
+**Approach**
+- **Part a findings first** (commit 1b09f97):
+  - Finding 1 and low 6, `tools/migrate-url-guard.mjs`. It now refuses:
+    - a password that `decodeURIComponent` rejects, or one that decodes to a NUL
+    - any raw `#`, and a non-empty fragment
+    - an `sslmode` other than `require` / `verify-full`. Absent is allowed, because the workflow sets PGSSLMODE.
+
+    No refusal reason names the password.
+  - `migrate.yml`, both jobs:
+    - `PGSSLMODE: require` on the psql step
+    - first a connection (`select 1`) with every line of psql output discarded
+    - then the hash check with its output kept, so a re-pin can still be made from the log
+  - Finding 4, `rls-gate.sql`: a new check, `matview_or_foreign_table`, for any `m` / `f` relation in the schema. There
+    is no approved list: data-model's "Approved exceptions" has none, and a list is one function away once one is
+    approved.
+  - Finding 5:
+    - `tests.rls_gate_product()` runs the gate over `nestly` and over every other schema `app_owner` owns. The CLI's
+      `supabase_migrations` is the one exception.
+    - It adds `product_schema_missing`, and `history_schema_unexpected`. The second covers any function in
+      `supabase_migrations`, and anything there other than `schema_migrations` / `seed_files`.
+    - The CI gate step now calls it.
+    - A skipped bootstrap step 2 now fails once `supabase/migrations` has a file.
+  - Finding 3: `supabase/ci/rls-gate-fire.sql`, run as `postgres` in the step that installs the gate. It is one
+    transaction, rolled back, and it creates:
+    - a table in public
+    - a scratch schema owned by postgres, with anon USAGE (fires the schema-ownership and anon-on-schema checks)
+    - anon USAGE on `nestly`
+    - a materialized view and a foreign table (postgres_fdw) in `nestly`
+    - a table in `supabase_migrations`
+
+    It then drops `nestly`. It raises, naming every expected row the gate did not return.
+
+    `rls-gate-fire-owner.sql` runs as `app_owner` for the one case postgres cannot build: a second schema owned by
+    `app_owner`. Postgres holds `app_owner` with SET FALSE.
+- **Part b** (commit 0a1e910):
+  - `supabase/migrations/20261014100000_identity_schema.sql`, as in schema.md:
+    - the schema and its default privileges
+    - the two tables, with named constraints inline
+    - RLS + FORCE
+    - `is_active_account()`, INVOKER
+    - the two policies and the grants
+    - comments on the schema, the tables, every column, the function and the policies
+  - `supabase/rollback/20261014100000_identity_schema.down.sql`, run as app_owner.
+  - `supabase/bootstrap/02-anchor-fk.sql` and `02-anchor-fk-check.sql`. The README gains step 2 and its rollback.
+  - CI `db` job, the migration step now:
+    1. applies all but the newest migration
+    2. takes a fingerprint
+    3. applies the newest
+    4. runs its down script and requires the fingerprint from before it
+    5. applies it again and requires the first "up" fingerprint
+
+    The step-2 check must print `ok = t`. A new step runs the Drizzle drift check (criterion 20).
+  - `apps/server/src/db/schema.ts`: `pgSchema('nestly')` and the two tables. The enums come from `packages/shared`
+    (`ACCOUNT_TYPES`, `ACCOUNT_STATUSES`, `PARENT_GENDERS` in `constants/identity.ts`).
+  - The drift check:
+    - `supabase/ci/catalog-columns.sql` prints every non-system column as JSON.
+    - `apps/server/scripts/drift.ts` is pure: `drizzleColumns`, `normalizeType`, `compareColumns`, `parseCatalog`.
+    - `scripts/db-drift.ts` is the entry point: `npm run db:drift -w @nestly/server -- <file>`.
+    - It exits 1 with one problem line each, and 2 on unreadable input. It also fails when Drizzle declares no column
+      at all.
+
+**Decisions**
+- **VAL-001 length in the CHECK** (from the brief; ORCHESTRATOR decided the length on 13.10, SRS 2.12):
+  - `regular_profiles_full_name_check` is `char_length(btrim(full_name)) between 2 and 60`. It replaces schema.md's
+    `btrim(full_name) <> ''`.
+  - This is an internal how: the SRS decided the length after Gate 2.
+  - `btrim` trims spaces only, as VAL-001 says (spaces at the edges). `char_length` counts code points.
+- **The down script lifts FORCE RLS in its own transaction before it counts rows.** With FORCE on and no policy TO
+  app_owner, the owner sees zero rows whatever the table holds, so the count would always say "empty". The script
+  refuses if any row exists.
+- **Up -> down -> up covers whichever migration is newest**, not only this one. A newest migration without a down
+  script fails CI. The fingerprint after the down must equal the one from before the migration, which also proves that
+  the default privilege is restored.
+- **Step 2 also raises if any other FK from `nestly` reaches into `auth`** (data-model: exactly one). Like step 1, it
+  checks `current_user` only.
+- **In CI only, `app_owner` gets USAGE on `tests` and EXECUTE on its functions**, for the owner fire-test.
+- **Drizzle declares the defaults** (`auth.uid()` via `sql`, `defaultNow()`, `'regular'`), so insert types leave them
+  optional. drizzle-kit is not installed, and nothing generates DDL from this file.
+- **The drift check reports only what criterion 20 names**: a Drizzle column that is missing, or that differs in type
+  or nullability. It does not compare:
+  - database columns that Drizzle does not name
+  - enum value lists against the CHECKs
+  - defaults
+- **The scripts live in `apps/server/scripts/`.** They are typechecked (tsconfig include) and linted, but sit outside
+  the build's `src` rootDir, so they do not ship.
+- **migrate.yml's probe is a shell function**: `probe` runs psql with the URL, and the next line runs
+  `probe >/dev/null 2>&1`. The workflow test "nothing writes the URL to a file" flags any `>` on a line that names the
+  URL, `/dev/null` included.
+- **Server dependencies**: `drizzle-orm` ^0.45.4 (the spec lists it as already decided) and `@nestly/shared` (a
+  workspace). In this part, the server's runtime entry does not import either.
+
+**Deviations**
+- schema.md's full-name CHECK, which had no length: replaced (see Decisions). Nothing else differs from schema.md or
+  the spec.
+
+**Deliberately not done**
+- **Tests.** They are TEST ENGINEER's, and the guard blocks me from writing them anyway:
+  - the pgTAP tests of criteria 8 and 10–19, plus the fixture helpers under `supabase/tests/setup/`
+  - unit tests of the new guard refusals (finding 1 asks for "+ tests")
+  - unit tests of `scripts/drift.ts`, and a fire-test for the drift check
+  - finding 2's workflow tests
+- **`data-model.md`.** All of these are DATA ARCHITECT's, and `.claude/**` is frozen for me:
+  - the sentence "deleting the Auth user cascades"
+  - the wording of rule 16
+  - the conventions and the entities
+  - the "Approved exceptions" note
+- **Lows 7–8** (action SHA pins and a CLI checksum; a migration edited after a preview dispatch): left for debt.md.
+- **Zod or length constants for VAL-001** belong to F1.3. I added no `FULL_NAME_*` constant.
+- Nothing ran against nestly-preview or nestly-prod.
+
+**Uncertain**
+- **Grapheme vs code point for "60 characters."** In a Hebrew name with niqqud, each mark counts as a character. F1.3's
+  Zod check should count the same way as the CHECK does.
+- **`seed_files`** is on the history schema's allowed list in case the CLI creates it. That is harmless if it never
+  does.
+- The CI log section below records what CI resolved: postgres_fdw and postgres's REFERENCES on `auth.users` in the
+  image, and the default-ACL entry after the down script.
+
+**Preview path**
+- Part b has no UI and no route. In Actions → CI → `db` on PR 16, check that:
+  - the migrations step ends with `20261014100000_identity_schema: up -> down -> up OK`
+  - "Bootstrap step 2" logs `users_id_fkey added`, then `already present and identical`, then the row
+    `t | t | FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE RESTRICT | restrict | t | app_owner | 1`
+  - the Drizzle step logs `drizzle drift: none (9 columns in 2 tables match the database)`
+  - the postgres step logs `rls-gate-fire (violations): all 7 expected violations reported`, then the
+    `(nestly absent)` and `(app_owner)` lines
+  - "RLS gate" reports no violation
+- After the merge, `migrate` applies the migration to nestly-preview, then waits for Afik on db-production. Bootstrap
+  step 2 then runs once per environment (see the README).
+
+**Neighbouring**
+- `tools/db-workflows.test.mjs`, in "writes the URL to a file", treats `>/dev/null` as a file write (see Decisions).
+  This is a FINDING for TEST ENGINEER; I did not change the test.
+
+**CI log**
+- Run 38483560356 (commit 0a1e910, PR 16) passed all 8 jobs on the first run. In `db`:
+  - The migrations step logged `20261014100000_identity_schema: up -> down -> up OK`. The fingerprint after the down
+    equals the one from before the migration, so the default-ACL entry is gone again after the down.
+  - Bootstrap step 2: `users_id_fkey added`, then `already present and identical`, and the check row was
+    `t | t | FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE RESTRICT | restrict | t | app_owner | 1`. So in the
+    image, postgres holds REFERENCES on `auth.users`.
+  - Drift: `drizzle drift: none (9 columns in 2 tables match the database)`.
+  - Fire harness:
+    - `rls-gate-fire (violations): all 7 expected violations reported`. postgres_fdw worked as postgres.
+    - `(nestly absent): all 1`
+    - `(app_owner): a second schema owned by app_owner is gated`
+  - RLS gate: no violation. pg_prove: 3 files, 62 tests, PASS. TEST ENGINEER's part b tests are not in yet.
