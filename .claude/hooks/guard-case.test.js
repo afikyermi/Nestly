@@ -68,10 +68,8 @@ for (const platform of ['win32', 'linux', 'darwin']) {
     for (const c of [
       "git diff main...HEAD -- . ':(exclude).work/*/notes.md'",
       "git diff main...HEAD -- . ':(exclude).work'",
-      "git diff main...HEAD -- . ':(exclude)*notes.md'",
-      "git diff main...HEAD -- . ':(exclude,glob)**/notes.md'",
-      "git log -p -3 -- . ':!.work'",
-      "git log -p -- . ':^.work/*'",
+      "git log -p -3 -- . ':!.work/*/notes.md'",
+      "git log -p -- . ':^.work/*/notes.md'",
       'git log --oneline -5',
       'git status',
       'find .work -type f',

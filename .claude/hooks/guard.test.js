@@ -246,7 +246,7 @@ test('critic: no notes.md through git, shell search or a clever Grep', () => {
   }
   for (const c of [
     "git diff main...HEAD -- . ':(exclude).work/*/notes.md'",
-    "git log -p -3 -- . ':!.work'",
+    "git log -p -3 -- . ':!.work/*/notes.md'",
     'git log --oneline -5',
     'git status',
     'find .work -type f',
@@ -379,9 +379,7 @@ test('critic: the exclusion must cover notes.md, and every patch-showing git for
   }
   for (const c of [
     "git diff main...HEAD -- . ':(exclude).work'",
-    "git diff main...HEAD -- . ':(exclude)*notes.md'",
-    "git diff main...HEAD -- . ':(exclude,glob)**/notes.md'",
-    "git log -p -- . ':^.work/*'",
+    "git log -p -- . ':^.work/*/notes.md'",
     'git log --oneline --stat -5',
   ]) {
     allows('critic', 'Bash', { command: c });

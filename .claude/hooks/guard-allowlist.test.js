@@ -1,0 +1,417 @@
+// Regression tests for .work/guard-allowlist/bug.md: the guard's protected-file rules are an
+// allowlist (allow only a known form, block the rest), not a list of forbidden spellings.
+// Test names carry the bug.md line IDs (A.1 ... F.15). Every case runs under forced win32, linux and
+// darwin through the force-platform.js preload (F.15). Run: node --test .claude/hooks/guard-allowlist.test.js
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { spawnSync } = require('child_process');
+
+const GUARD = path.join(__dirname, 'guard.js');
+const PRELOAD = path.join(__dirname, 'force-platform.js');
+
+// A throwaway project root, so blocked calls log to its incidents.md and not to the real one.
+const ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-allowlist-'));
+const at = (...s) => path.join(ROOT, ...s);
+const put = (rel, body = 'x\n') => {
+  fs.mkdirSync(path.dirname(at(rel)), { recursive: true });
+  fs.writeFileSync(at(rel), body);
+};
+fs.writeFileSync(at('incidents.md'), '# Incidents\n');
+put('.work/f/notes.md');
+put('.work/f/spec.md');
+put('apps/web/src/a.ts');
+put('apps/web/tests/a.test.ts');
+put('apps/server/src/a.ts');
+put('apps/server/tests/a.test.ts');
+put('docs/a.md');
+put('docs/a.txt');
+put('a.md');
+put('packages/x/src/i.ts');
+// Symlinks, as `ln -s <target> <name>` run at the root would create them.
+fs.symlinkSync('.work/f', at('link'));
+fs.symlinkSync('.work', at('lnkwork'));
+fs.symlinkSync('.work/f/notes.md', at('lnotes'));
+fs.symlinkSync('.work/f/spec.md', at('lspec'));
+fs.symlinkSync('apps/web/src', at('lsrc'));
+fs.symlinkSync('apps/web/src/a.ts', at('lsrcfile'));
+fs.symlinkSync('apps/web/tests', at('ltests'));
+
+function run(platform, role, tool, input, { cwd = ROOT, agent_type } = {}) {
+  const payload = { tool_name: tool, tool_input: input, cwd };
+  if (agent_type) payload.agent_type = agent_type;
+  const r = spawnSync(process.execPath, ['--require', PRELOAD, GUARD, role], {
+    input: JSON.stringify(payload),
+    env: { ...process.env, CLAUDE_PROJECT_DIR: ROOT, FORCE_PLATFORM: platform },
+    encoding: 'utf8',
+  });
+  return { status: r.status, stderr: r.stderr };
+}
+
+// Collects every miss in a test, so one failing case does not hide the others.
+function checker(platform) {
+  const misses = [];
+  const bash = (role, command, opts) => run(platform, role, 'Bash', { command }, opts);
+  const c = {
+    misses,
+    blocks(role, tool, input, opts) {
+      const r = run(platform, role, tool, input, opts);
+      const what = `${role} ${tool} ${JSON.stringify(input)}${opts && opts.cwd ? ' @' + path.relative(ROOT, opts.cwd) : ''}`;
+      if (r.status !== 2) misses.push(`should be blocked: ${what}`);
+      else if (/guard error/.test(r.stderr)) misses.push(`blocked by "guard error", not a rule: ${what}`);
+      else if (!r.stderr.trim()) misses.push(`blocked with an empty reason: ${what}`);
+    },
+    allows(role, tool, input, opts) {
+      const r = run(platform, role, tool, input, opts);
+      if (r.status !== 0) {
+        misses.push(`should be allowed: ${role} ${tool} ${JSON.stringify(input)} -> ${r.status} ${r.stderr.trim().slice(0, 160)}`);
+      }
+    },
+    bashBlocks: (role, cmd, opts) => c.blocks(role, 'Bash', { command: cmd }, opts),
+    bashAllows: (role, cmd, opts) => c.allows(role, 'Bash', { command: cmd }, opts),
+    reasonMatches(role, cmd, re) {
+      const r = bash(role, cmd);
+      if (r.status === 2 && !re.test(r.stderr)) misses.push(`reason for ${role} ${JSON.stringify(cmd)} does not match ${re}: ${r.stderr.trim().slice(0, 200)}`);
+    },
+    done() {
+      assert.strictEqual(misses.length, 0, '\n' + misses.join('\n'));
+    },
+  };
+  return c;
+}
+
+const ROLES = ['critic', 'test-engineer'];
+const EXCL = "':(exclude).work/*/notes.md'";
+
+for (const platform of ['win32', 'linux', 'darwin']) {
+  const t = (name, fn) =>
+    test(`${name} [${platform}]`, () => {
+      const c = checker(platform);
+      fn(c);
+      c.done();
+    });
+
+  // ---- A. Shell expansion ----
+
+  t('A.1 an expansion or substitution outside single quotes is blocked, inside single quotes it stays allowed', (c) => {
+    for (const role of ROLES) {
+      for (const cmd of ['echo $HOME', 'echo ${HOME}', 'echo $(date)', 'echo `date`', 'echo "$HOME"', 'echo "x $(date) y"', 'echo "${X:-a}"']) {
+        c.bashBlocks(role, cmd);
+      }
+      c.bashAllows(role, "awk '{print $1}' docs/a.txt");
+      c.bashAllows(role, "echo 'costs $5 and ${x} and $(y) and `z`'");
+      // A heredoc body that is data is not judged by the expansion rule.
+      c.bashAllows(role, "cat <<'EOF' > out.txt\nmessage with $HOME and $(date) and `x`\nEOF");
+    }
+    c.bashAllows('critic', "git log --format='%H %s'");
+    c.bashAllows('test-engineer', "git commit -m 'fix $HOME handling'");
+  });
+
+  t('A.1 the settings hook (role all + agent_type) applies the same expansion rule', (c) => {
+    for (const agent_type of ROLES) {
+      c.blocks('all', 'Bash', { command: 'echo $HOME' }, { agent_type });
+      c.blocks('all', 'Bash', { command: 'echo `date`' }, { agent_type });
+      c.allows('all', 'Bash', { command: "awk '{print $1}' docs/a.txt" }, { agent_type });
+    }
+  });
+
+  t('A.2 special parameters that cannot name a path are exempt', (c) => {
+    for (const role of ROLES) {
+      c.bashAllows(role, 'npm run ci; echo "exit=$?"');
+      c.bashAllows(role, 'echo x=$?');
+      c.bashAllows(role, 'echo $? $# $$ $! $0 $1 $5 $9 $- $@ $*');
+      c.bashAllows(role, 'echo "$?" "$#" "$$" "$!" "$0" "$9" "$-" "$@" "$*"');
+    }
+  });
+
+  t('A.3 required blocks: expansions that build a protected path', (c) => {
+    for (const cmd of [
+      'X=a; cat ${X}pps/web/src/a.ts',
+      'cat "$X"pps/web/src/a.ts',
+      'cat $(printf apps)/web/src/a.ts',
+    ]) c.bashBlocks('test-engineer', cmd);
+    for (const cmd of [
+      'cat $(echo .work)/f/notes.md',
+      'cat `echo .wo`rk/f/x',
+      'N=notes; cat .work/f/$N.md',
+      'git $x diff main',
+    ]) c.bashBlocks('critic', cmd);
+  });
+
+  // ---- B. Wildcards and paths (CRITIC) ----
+
+  t('B.4 a wildcard is allowed only from a directory outside .work and below the project root', (c) => {
+    for (const cmd of [
+      'cat .w*/*/n*',
+      'cat .wor[k]/f/n*',
+      'cat */f/notes*',
+      'cat apps/../.w*/f/x',
+      'cat .work/f/{a,b}.md',
+      'ls *.md',
+      'ls ?.md',
+      'ls [a].md',
+      'ls {a,b}.md',
+      'cat lnkwork/f/n*',
+    ]) c.bashBlocks('critic', cmd);
+    // Resolved against where the command runs: a directory above the root is as bad as the root.
+    c.bashBlocks('critic', 'cd .. && ls *');
+    c.bashBlocks('critic', 'cat ../*.md');
+    c.blocks('critic', 'Bash', { command: 'ls *.md' }, { cwd: ROOT });
+    for (const cmd of ['ls docs/*.md', 'cat apps/web/src/*.ts', 'ls packages/*/src']) c.bashAllows('critic', cmd);
+    // ...and a wildcard whose directory is below the root is fine when the command runs there.
+    c.bashAllows('critic', 'cd docs && ls *.md');
+    c.allows('critic', 'Bash', { command: 'ls *.md' }, { cwd: at('docs') });
+    c.blocks('critic', 'Bash', { command: 'ls *' }, { cwd: at('.work') });
+    c.blocks('critic', 'Bash', { command: 'ls *' }, { cwd: at('.work', 'f') });
+  });
+
+  t('B.5 a literal path that resolves to notes.md (any case, through .. or a symlink) is blocked', (c) => {
+    for (const cmd of [
+      'cat link/NOTES.md',
+      'cat link/notes.md',
+      'head link/n*',
+      'cat lnotes',
+      'cat .work/f/../f/notes.md',
+      'cat apps/../.work/f/NOTES.md',
+      'cat docs/../.WORK/f/Notes.md',
+      'cat notes.md',
+    ]) c.bashBlocks('critic', cmd);
+    for (const cmd of ['cat .work/f/spec.md', 'cat docs/a.md', 'cat lspec']) c.bashAllows('critic', cmd);
+  });
+
+  t('B.6 cd into .work, in any case, or into a symlink that resolves there, is blocked', (c) => {
+    for (const cmd of [
+      'cd .work',
+      'cd .WORK',
+      'cd .Work/f && ls',
+      'cd .work/f && cat spec.md',
+      'cd lnkwork && ls',
+      'cd link && ls',
+      'cd docs/../.work',
+      'pushd .work',
+      'chdir .work',
+      'Set-Location .work',
+      'sl .work',
+    ]) c.bashBlocks('critic', cmd);
+    c.bashAllows('critic', 'cd docs && ls');
+    c.bashAllows('critic', 'cd apps/web && ls');
+  });
+
+  // ---- C. git reads that show file content (CRITIC) ----
+
+  t('C.7 the fixed form: only diff/log/show, at the root, plain pathspecs, exactly one exclusion from the set', (c) => {
+    // The allowed form.
+    for (const cmd of [
+      `git diff main...HEAD -- . ${EXCL}`,
+      "git diff main...HEAD -- . ':!.work/*/notes.md'",
+      "git diff main...HEAD -- . ':^.work/*/notes.md'",
+      "git diff main...HEAD -- . ':(exclude).work'",
+      `git log -p main..HEAD -- . ${EXCL}`,
+      `git show HEAD --stat -- . ${EXCL}`,
+      `git diff 1a2b3c4d..HEAD -- . ${EXCL}`,
+      `git diff HEAD~2 -- . ${EXCL}`,
+      `git diff HEAD^ -- . ${EXCL}`,
+      `git diff main -U5 -- . ${EXCL}`,
+      `git diff --unified=5 --no-color -w main -- . ${EXCL}`,
+      `git diff --stat --name-status main -- . ${EXCL}`,
+      `git log -n 3 --oneline --patch -- . ${EXCL}`,
+      `git log -p --format=%H -- . ${EXCL}`,
+      `git diff main -- apps docs ${EXCL}`,
+    ]) c.bashAllows('critic', cmd);
+
+    // Wrong subcommand, wrong place, global options, GIT_ variables.
+    for (const sub of ['blame apps/web/src/a.ts', 'grep foo', 'cat-file -p HEAD', 'archive HEAD', 'format-patch main', 'difftool main', 'range-diff a...b', 'diff-tree -p HEAD', 'diff-index -p HEAD', 'diff-files -p', 'whatchanged -p', 'stash show -p', 'reflog show -p', 'frobnicate']) {
+      c.bashBlocks('critic', `git ${sub}`);
+      c.bashBlocks('critic', `git ${sub} -- . ${EXCL}`);
+    }
+    c.blocks('critic', 'Bash', { command: `git diff main -- . ${EXCL}` }, { cwd: at('apps') });
+    c.blocks('critic', 'Bash', { command: `git diff main -- . ${EXCL}` }, { cwd: at('docs') });
+    c.bashBlocks('critic', `cd docs && git diff main -- . ${EXCL}`);
+    for (const g of ['-C docs', '-c core.pager=x', '--git-dir=.git', '--work-tree=.', '--glob-pathspecs', '--noglob-pathspecs', '--icase-pathspecs', '--literal-pathspecs', '--no-pager']) {
+      c.bashBlocks('critic', `git ${g} diff main -- . ${EXCL}`);
+    }
+    for (const v of ['GIT_DIR=.git', 'GIT_WORK_TREE=.', 'GIT_LITERAL_PATHSPECS=1', 'GIT_EXTERNAL_DIFF=x']) {
+      c.bashBlocks('critic', `${v} git diff main -- . ${EXCL}`);
+      c.bashBlocks('critic', `export ${v}; git diff main -- . ${EXCL}`);
+      c.bashBlocks('critic', `git diff main -- . ${EXCL}; echo ${v}`);
+    }
+
+    // Revisions.
+    for (const rev of ['HEAD:apps/web/src/a.ts', 'main:.work/f/notes.md', 'HEAD^{tree}', '1a2b3c4d', 'abcdef0123456789', '@{1}', 'HEAD@{1}', '-']) {
+      c.bashBlocks('critic', `git diff ${rev} -- . ${EXCL}`);
+      c.bashBlocks('critic', `git show ${rev} -- . ${EXCL}`);
+    }
+    c.bashBlocks('critic', `git diff --no-index docs/a.md docs/a.txt -- . ${EXCL}`);
+
+    // Options outside the display list.
+    for (const o of ['--output=out.txt', '--output out.txt', '--ext-diff', '--textconv', '--no-index', '--follow', '-L1,2:apps/web/src/a.ts', '-L 1,2:x', '--cc', '--no-pager', '--exec-path']) {
+      c.bashBlocks('critic', `git log -p ${o} main -- . ${EXCL}`);
+      c.bashBlocks('critic', `git diff ${o} main -- . ${EXCL}`);
+    }
+
+    // The separator, the pathspecs and the exclusion.
+    for (const cmd of [
+      'git diff main...HEAD',
+      'git diff main...HEAD -- .',
+      'git log -p -n 3',
+      'git show HEAD',
+      'git diff main -- :/',
+      `git diff main -- :/ ${EXCL}`,
+      `git diff main -- ':(top)' ${EXCL}`,
+      `git diff main -- ':(glob)**' ${EXCL}`,
+      `git diff main -- . ${EXCL} ${EXCL}`,
+      `git diff main -- . ${EXCL} ':(exclude).work'`,
+      "git diff main -- . ':(exclude).work/x/spec.md'",
+      "git diff main -- . ':(exclude)notes.md.bak'",
+      "git diff main -- . ':(exclude).WORK/*/notes.md'",
+      "git diff main -- . ':(exclude).work/*/NOTES.md'",
+      "git diff main -- . ':(exclude)*notes.md'",
+      "git diff main -- . ':(exclude,glob)**/notes.md'",
+      "git diff main -- . ':!.work'",
+      "git diff main -- . ':^.work/*'",
+      `git diff main ${EXCL}`,
+      `git diff main . ${EXCL}`,
+    ]) c.bashBlocks('critic', cmd);
+  });
+
+  t('C.7 a blocked git call names what was wrong (the missing exclusion)', (c) => {
+    c.reasonMatches('critic', 'git diff main...HEAD', /exclude/);
+    c.reasonMatches('critic', 'git diff main...HEAD', /notes\.md/);
+  });
+
+  t('C.8 required blocks from debt.md', (c) => {
+    for (const cmd of [
+      "cd apps && git diff main~1 -- :/ ':(exclude).work'",
+      "git -C apps diff main -- . ':(exclude).work'",
+      "git diff main -- . ':(exclude,literal).work/*/notes.md'",
+      "git diff main -- . ':(exclude,attr:x).work'",
+      "git --literal-pathspecs diff main -- . ':(exclude).work/*/notes.md'",
+      "GIT_LITERAL_PATHSPECS=1 git diff main -- . ':(exclude).work/*/notes.md'",
+      "git --glob-pathspecs diff main -- . ':(exclude)*notes.md'",
+      'git show HEAD:.work/f/x.md',
+      'git show 1a2b3c4d',
+      'git cat-file -p HEAD:.work/f/x.md',
+      'git grep foo',
+      'git blame apps/web/src/a.ts',
+    ]) c.bashBlocks('critic', cmd);
+  });
+
+  t('C.9 required allows: the canonical forms and git calls that show no content', (c) => {
+    for (const cmd of [
+      `git diff main...HEAD -- . ${EXCL}`,
+      `git log -p main..HEAD -- . ${EXCL}`,
+      "git show HEAD --stat -- . ':(exclude).work'",
+      'git diff --name-only main',
+      'git status',
+      'git log --oneline -5',
+      'git branch -a',
+      'git ls-files',
+    ]) c.bashAllows('critic', cmd);
+  });
+
+  // ---- D. TEST ENGINEER: false blocks to remove, true blocks that stay ----
+
+  t('D.10 required allows for test-engineer', (c) => {
+    c.bashAllows('test-engineer', 'npm run ci 2>&1 | tail -40; echo "exit=$?"');
+    c.bashAllows('test-engineer', `cd ${ROOT} && npm run ci | tail; echo $?`);
+    c.bashAllows('test-engineer', `cd ${ROOT.split(path.sep).join('/')} && npm run ci | tail; echo $?`);
+    c.bashAllows('test-engineer', 'npm test --prefix apps/web');
+    c.bashAllows('test-engineer', 'ls apps/*/tests');
+    c.bashAllows('test-engineer', 'ls apps/web/tests/*.test.ts');
+    c.bashAllows('test-engineer', 'git commit -m "tests for apps/web/src/a.ts"');
+    c.bashAllows('test-engineer', 'git add apps/web/tests/a.test.ts && git status');
+  });
+
+  t('D.11 required blocks stay for test-engineer: implementation, globs into it, every git content read, every A.3 case', (c) => {
+    for (const cmd of [
+      'cat apps/web/src/a.ts',
+      'cd apps/web && cat src/a.ts',
+      'cd apps/web && cat s*/a.ts',
+      'ls apps/*/s*',
+      'ls apps/web/*',
+      `node -e "require('fs').readFileSync('apps/web/src/a.ts')"`,
+      'cat apps/server/api/index.ts',
+      'cat apps/web/tests/../src/a.ts',
+      'cat lsrc/a.ts',
+      'cat lsrcfile',
+      // every git content read
+      'git diff main',
+      'git diff main...HEAD',
+      `git diff main...HEAD -- . ${EXCL}`,
+      `git log -p main..HEAD -- . ${EXCL}`,
+      'git show HEAD',
+      'git show HEAD:apps/web/src/a.ts',
+      'git log -p',
+      'git blame apps/web/tests/a.test.ts',
+      'git grep foo',
+      'git cat-file -p HEAD:apps/web/src/a.ts',
+      'git archive HEAD',
+      "git diff main -- apps/web/tests ':(exclude).work'",
+      // every A.3 case
+      'X=a; cat ${X}pps/web/src/a.ts',
+      'cat "$X"pps/web/src/a.ts',
+      'cat $(printf apps)/web/src/a.ts',
+    ]) c.bashBlocks('test-engineer', cmd);
+    // content-free git stays allowed
+    c.bashAllows('test-engineer', 'git status');
+    c.bashAllows('test-engineer', 'git log --oneline -5');
+  });
+
+  // ---- E. Read, Grep, Glob ----
+
+  t('E.12 Read of a symlink whose target is notes.md (critic) or app implementation (test-engineer) is blocked', (c) => {
+    c.blocks('critic', 'Read', { file_path: at('lnotes') });
+    c.blocks('critic', 'Read', { file_path: at('link', 'notes.md') });
+    c.blocks('critic', 'Read', { file_path: at('link', 'NOTES.md') });
+    c.allows('critic', 'Read', { file_path: at('lspec') });
+    c.allows('critic', 'Read', { file_path: at('link', 'spec.md') });
+    c.blocks('test-engineer', 'Read', { file_path: at('lsrcfile') });
+    c.blocks('test-engineer', 'Read', { file_path: at('lsrc', 'a.ts') });
+    c.allows('test-engineer', 'Read', { file_path: at('ltests', 'a.test.ts') });
+    c.allows('test-engineer', 'Read', { file_path: at('lspec') });
+    // The notes rule holds for test-engineer through a symlink too.
+    c.blocks('test-engineer', 'Read', { file_path: at('lnotes') });
+  });
+
+  t('E.13 Grep with a path that is a symlink into .work (critic) or app implementation (test-engineer) is judged as the target', (c) => {
+    c.blocks('critic', 'Grep', { pattern: 'x', path: at('lnkwork') });
+    c.blocks('critic', 'Grep', { pattern: 'x', path: at('link') });
+    c.blocks('critic', 'Grep', { pattern: 'x', path: at('lnotes') });
+    c.blocks('test-engineer', 'Grep', { pattern: 'x', path: at('lsrc') });
+    c.blocks('test-engineer', 'Grep', { pattern: 'x', path: at('lsrcfile') });
+    c.allows('test-engineer', 'Grep', { pattern: 'x', path: at('ltests') });
+    // Same results as before for direct paths.
+    c.blocks('critic', 'Grep', { pattern: 'x', path: at('.work') });
+    c.allows('critic', 'Grep', { pattern: 'x', path: at('apps') });
+    c.blocks('test-engineer', 'Grep', { pattern: 'x', path: at('apps', 'web') });
+    c.allows('test-engineer', 'Grep', { pattern: 'x', path: at('apps', 'web', 'tests') });
+    c.blocks('test-engineer', 'Glob', { pattern: '**/*.ts' });
+    c.allows('test-engineer', 'Glob', { pattern: 'packages/shared/**/*.ts' });
+  });
+
+  // ---- F. Everything else ----
+
+  t('F.14 a sample of cases both existing test files assert today keeps its result', (c) => {
+    c.blocks('critic', 'Read', { file_path: at('.work', 'f', 'notes.md') });
+    c.blocks('critic', 'Read', { file_path: at('.WORK', 'f', 'NOTES.MD') });
+    c.allows('critic', 'Read', { file_path: at('.work', 'f', 'spec.md') });
+    for (const cmd of ['cat .work/f/notes.md', 'cat .work/feat/*', 'cd .work/feat && cat n*', 'cat .WORK/f/*', 'cat .work/f/{notes,spec}.md', 'grep -r secret .', 'rg secret', 'git diff main...HEAD', 'git log -p -3', 'git show HEAD', "git diff -- ':(exclude).work/x/spec.md'", "git diff main -- . ':(exclude).WORK/*/notes.md'", "git log -p -3 -- . ':(exclude)*NOTES.MD'", 'git diff-tree -p HEAD', 'git range-diff a...b']) {
+      c.bashBlocks('critic', cmd);
+    }
+    for (const cmd of ['npm run ci', 'git status', 'git log --oneline -5', 'find .work -type f', 'cat .work/f/spec.md', `git diff main...HEAD -- . ${EXCL}`, "git diff main...HEAD -- . ':(exclude).work'"]) {
+      c.bashAllows('critic', cmd);
+    }
+    for (const cmd of ['cat apps/web/src/a.ts', 'cat .work/f/notes.md', 'git diff', 'git log -p', 'cat apps/web/s*/a.ts', 'cat apps/*/s*', 'cat **/*.tsx', 'cat apps/web/{src,tests}/a.ts', 'cd apps && cat web/src/a.ts']) {
+      c.bashBlocks('test-engineer', cmd);
+    }
+    for (const cmd of ['npm test', 'npm test -w apps/web', 'npx vitest run apps/web/tests/App.test.tsx', 'cat packages/x/src/i.ts', 'cd apps/web/tests && cat a.test.ts']) {
+      c.bashAllows('test-engineer', cmd);
+    }
+  });
+}
+
+test.after(() => fs.rmSync(ROOT, { recursive: true, force: true }));
