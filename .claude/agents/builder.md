@@ -8,7 +8,7 @@ hooks:
     - matcher: "Write|Edit|MultiEdit|NotebookEdit|Bash"
       hooks:
         - type: command
-          command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/guard.js" builder'
+          command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/guard-loader.js" builder'
 ---
 
 # BUILDER — Implementation

@@ -1008,6 +1008,31 @@ YYYY-MM-DD | <decision in one line>
                 both) · `DATABASE_URL` (rejected: reserved for the runtime `app_server` connection in Vercel)
   decided by:   ORCHESTRATOR (12.10.2026)
 
+2026-10-13 | guard-allowlist: the allowlist key for CRITIC and TEST ENGINEER is the command name
+  rule:         bug.md Addendum 2 (G.16–G.19): a reader role may run only listed commands, each in a listed form;
+                interpreters with inline code, nested shells in any spelling, awk, xargs and env are off the list.
+  why:          CRITIC round 1 (`.work/guard-allowlist/findings.md`, Not Ready) reached both protected files through
+                commands the first implementation allowed by default (node -e, python -c, awk, bash -lc, grep -d recurse,
+                git fetch --upload-pack). An allowlist of argument shapes alone still fails open on unknown commands.
+  alternatives: extend the inline-code and nested-shell denylists (rejected: the same class again — Afik's 12.10 rule)
+  accepted cost: honest commands off the list are blocked until added; a script file the role writes itself stays a gap
+                (debt.md)
+  decided by:   ORCHESTRATOR, within Afik's decision of 2026-10-12 (13.10.2026)
+  carried over: from PR 6 (closed unmerged, replaced by agent-slim stage 1) on 2026-10-13
+
+2026-10-13 | guard-allowlist round 3: prettier off the reader list; tool path arguments are searches; no .git writes
+  rule:         bug.md Addendum 3 (G.21–G.23). `npx prettier` leaves the CRITIC/TEST ENGINEER list; directory and
+                wildcard arguments to the remaining tools and to `npm run … --` follow the recursive-search reach
+                rules; a reader role never writes under `.git/`.
+  why:          CRITIC round 2 (findings 8–9, Not Ready): prettier and node --test expand their own globs and printed
+                both protected files; npm script arguments became git pathspecs; `.git/config` written by redirection
+                makes a later `git status` run a command.
+  alternatives: prettier only with --check/--list-different (rejected: readers have no need for it; one less form)
+  accepted cost: a test failure's code frame can still show app source to TEST ENGINEER when a test imports it — inherent
+                to running tests; `gh` is off the list, so PR bodies and CI checks reach CRITIC through ORCHESTRATOR
+  decided by:   ORCHESTRATOR, within Afik's decision of 2026-10-12 (13.10.2026)
+  carried over: from PR 6 (closed unmerged, replaced by agent-slim stage 1) on 2026-10-13
+
 2026-10-13 | Agent-system slimming before I1, in seven stages, one PR each (baseline `.work/agent-slim/baseline.md`)
   rule:         stages 0 measure · 1 guard (a–d) · 2 log insights · 3 slim decisions/WORKPLAN/incidents/CLAUDE.md ·
                 4 agents and skills · 5 CI line budgets · 6 verify. Information is archived, never deleted. No new
@@ -1025,6 +1050,26 @@ YYYY-MM-DD | <decision in one line>
                 review, recorded in debt.md as a known gap · BUILDER reads data-model.md only for a task touching
                 data or schema (stage 3).
   alternatives: keep growing the allowlist guard of PR 6 (rejected: 1337 lines, it locked a session)
+  decided by:   Afik (13.10.2026)
+
+2026-10-13 | Guard approach a–d approved as written in `.work/agent-slim/stage1-guard.md`, rounds 1–4
+  rule:         scope a only — the readers part; R4 (everyone) and BUILDER code untouched. TEST ENGINEER reads only
+                with Read/Grep/Glob; its Bash is one test run (vitest, playwright, node --test) with explicit existing
+                test-file paths, no globs, no shell characters; ORCHESTRATOR commits its tests. F5: every block goes to
+                the local log and /wrap-up counts it; an incidents.md line only for an R4 prod/secret/.env/force-push
+                block, or 3+ reader-rule blocks by one role in one task.
+  alternatives: also move the secret scan to a git pre-commit hook (≈−100 lines) · also drop BUILDER's shell
+                test-write check (≈−45) — rejected: the goal is a simpler readers part and no lock-out, not a line
+                count; R4 and BUILDER work.
+  accepted cost: guard.next.js ≈675 lines against 735; still over 400 — split decided after measuring.
+  decided by:   Afik (13.10.2026); CRITIC on opus validated the approach with concern (stage1-findings.md)
+
+2026-10-13 | Guard stage 1 continues after the implementation's Not Ready; a third Not Ready triggers a minimum plan
+  rule:         sequence: failing tests for I-1 and the lows → fix → swap commit with I-2 → CI → CRITIC → merge.
+                guard.next.js at 797 lines is accepted (no lock-out, no shell parsing for the readers). On a third
+                Not Ready nobody stops to ask: merge only guard-loader.js and the separate block log with the current
+                guard.js unchanged; guard.next.js stays on its branch as a debt.md task; go on to stage 2.
+  alternatives: stop at the second Not Ready (rule c) — Afik chose to continue
   decided by:   Afik (13.10.2026)
 
 ---

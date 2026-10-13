@@ -298,8 +298,10 @@ and `settings.json` prompts on `.claude/**` to enforce it.
 ## Report material failures to Afik
 
 Not only security. Also: migration failed mid-run · CI red on main · CI red over 24h ·
-deploy or preview failed · a hook blocked an action · an external dependency is down ·
-an agent looped or repeated the same failure three times.
+deploy or preview failed · a hook block the guard writes to `incidents.md` (prod, a secret, `.env`, force
+push, or a third reader block by one role in one session) · an external dependency is down ·
+an agent looped or repeated the same failure three times. Other correct hook blocks are only counted, by
+`/wrap-up`; a hook that blocked legitimate work goes to `noise.md`.
 
 ---
 

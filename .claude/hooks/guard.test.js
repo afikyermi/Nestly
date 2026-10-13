@@ -1,5 +1,9 @@
 // Tests for guard.js: each case pipes a hook payload into the script, as Claude Code does,
 // and asserts the exit code. Run: node --test .claude/hooks/guard.test.js
+//
+// Stage 1 (agent-slim, spec .work/agent-slim/stage1-guard.md Round 4): the reader rules changed. CRITIC has no
+// Bash; TEST ENGINEER Bash is one test run with explicit files (covered in guard-next.test.js). Cases here that
+// asserted the old allowed forms now assert the block. R4 (role all) and BUILDER cases are unchanged.
 'use strict';
 
 const test = require('node:test');
@@ -11,7 +15,7 @@ const { spawnSync, execFileSync } = require('child_process');
 
 const GUARD = path.join(__dirname, 'guard.js');
 
-// A throwaway project root, so blocked calls log to its incidents.md and not to the real one.
+// A throwaway project root, so blocked calls log to its own .claude/logs and incidents.md and not to the real ones.
 const ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-test-'));
 fs.writeFileSync(path.join(ROOT, 'incidents.md'), '# Incidents\n');
 const P = (...s) => path.join(ROOT, ...s);
@@ -47,6 +51,9 @@ const blocks = (role, tool, input, root) => {
   assert.doesNotMatch(last, /guard error/, last);
 };
 const allows = (role, tool, input, root) => assert.strictEqual(run(role, tool, input, root), 0, JSON.stringify(input));
+
+const logFile = () => P('.claude', 'logs', 'blocks.jsonl');
+const logLines = () => (fs.existsSync(logFile()) ? fs.readFileSync(logFile(), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : []);
 
 test('fails closed', () => {
   blocks('nobody', 'Bash', { command: 'ls' });
@@ -86,7 +93,8 @@ test('critic: never reads notes.md', () => {
   blocks('critic', 'Bash', { command: 'cat .work/feat/notes.md' });
   blocks('critic', 'Bash', { command: 'cat .work/feat/*' });
   blocks('critic', 'Bash', { command: 'cd .work/feat && cat n*' });
-  allows('critic', 'Bash', { command: 'npm run ci' });
+  // Converted (round 4, F6): CRITIC has no shell, so npm run ci is blocked too.
+  blocks('critic', 'Bash', { command: 'npm run ci' });
 });
 
 test('test-engineer: never reads apps/*/src or notes.md, by any tool', () => {
@@ -122,8 +130,10 @@ test('test-engineer: never reads apps/*/src or notes.md, by any tool', () => {
   ]) {
     blocks('test-engineer', 'Bash', { command: c });
   }
-  for (const c of ['npx vitest run apps/web/tests/App.test.tsx', 'npm test', 'git log --oneline -5', 'cat packages/shared/src/index.ts']) {
-    allows('test-engineer', 'Bash', { command: c });
+  // Converted (round 4): TEST ENGINEER Bash is one test run with explicit existing files; npm, git and cat are out.
+  // (A run that is allowed is covered in guard-next.test.js, which has fixture files.)
+  for (const c of ['npm test', 'git log --oneline -5', 'cat packages/shared/src/index.ts']) {
+    blocks('test-engineer', 'Bash', { command: c });
   }
 });
 
@@ -244,6 +254,7 @@ test('critic: no notes.md through git, shell search or a clever Grep', () => {
   ]) {
     blocks('critic', 'Bash', { command: c });
   }
+  // Converted (round 4, F6): these Bash forms used to be allowed; CRITIC has no shell now.
   for (const c of [
     "git diff main...HEAD -- . ':(exclude).work/*/notes.md'",
     "git log -p -3 -- . ':!.work'",
@@ -252,7 +263,7 @@ test('critic: no notes.md through git, shell search or a clever Grep', () => {
     'find .work -type f',
     'cat .work/f/spec.md',
   ]) {
-    allows('critic', 'Bash', { command: c });
+    blocks('critic', 'Bash', { command: c });
   }
   blocks('critic', 'Grep', { pattern: 'x', glob: '!*.ts' });
   blocks('critic', 'Grep', { pattern: 'x', glob: '*.ts *.md' });
@@ -267,9 +278,10 @@ test('critic: no notes.md through git, shell search or a clever Grep', () => {
   allows('critic', 'Grep', { pattern: 'x', glob: '*.ts !*.d.ts' });
 });
 
-test('test-engineer: per-app test runs are allowed, implementation stays out of reach', () => {
+test('test-engineer: per-app test runs through npm and --root are blocked, implementation stays out of reach', () => {
+  // Converted (round 4): the npm forms, -w/--workspace and --root are dropped from TEST ENGINEER Bash.
   for (const c of ['npm test -w apps/web', 'npm run test --workspace=apps/web', 'npx vitest run --root apps/web', 'npx vitest run apps/web']) {
-    allows('test-engineer', 'Bash', { command: c });
+    blocks('test-engineer', 'Bash', { command: c });
   }
   for (const c of ['cd apps && cat web/src/a.ts', 'cd apps/web', 'cat apps/server/api/index.ts', 'Get-Content apps\\web\\src\\main.tsx', 'git diff -- apps/web/tests']) {
     blocks('test-engineer', 'Bash', { command: c });
@@ -361,7 +373,7 @@ test('all: the secret scan covers pathspec commits, diff headers and more key sh
 
 // ---- regressions from CRITIC's second pass ----
 
-test('critic: the exclusion must cover notes.md, and every patch-showing git form counts', () => {
+test('critic: the exclusion forms and every patch-showing git form are blocked, since CRITIC has no shell', () => {
   for (const c of [
     "git diff -- ':(exclude).work/x/spec.md'",
     "git diff -- ':!.work/x/spec.md'",
@@ -377,6 +389,7 @@ test('critic: the exclusion must cover notes.md, and every patch-showing git for
   ]) {
     blocks('critic', 'Bash', { command: c });
   }
+  // Converted (round 4, F6): the forms that used to be allowed are blocked as well.
   for (const c of [
     "git diff main...HEAD -- . ':(exclude).work'",
     "git diff main...HEAD -- . ':(exclude)*notes.md'",
@@ -384,7 +397,7 @@ test('critic: the exclusion must cover notes.md, and every patch-showing git for
     "git log -p -- . ':^.work/*'",
     'git log --oneline --stat -5',
   ]) {
-    allows('critic', 'Bash', { command: c });
+    blocks('critic', 'Bash', { command: c });
   }
 });
 
@@ -407,7 +420,8 @@ test('test-engineer: other spellings of apps/*/src are still implementation', ()
   ]) {
     blocks('test-engineer', 'Bash', { command: c });
   }
-  allows('test-engineer', 'Bash', { command: 'cd apps/web/tests && cat App.test.tsx' });
+  // Converted (round 4): cd and cat are not part of TEST ENGINEER Bash at all.
+  blocks('test-engineer', 'Bash', { command: 'cd apps/web/tests && cat App.test.tsx' });
 });
 
 test('all: a commit after cd is scanned in the repo it runs in', () => {
@@ -438,15 +452,15 @@ test('the settings hook applies the calling agent\'s rules by agent_type', () =>
 });
 
 test('a block inside a role agent is logged once, by the settings hook', () => {
+  // Converted (round 4, d): a block goes to .claude/logs/blocks.jsonl, not to incidents.md.
   const payload = JSON.stringify({ tool_name: 'Read', tool_input: { file_path: P('.work', 'f', 'notes.md') }, cwd: ROOT, agent_type: 'critic' });
-  const lines = () => fs.readFileSync(P('incidents.md'), 'utf8').split('\n').filter((l) => l.includes('hook blocked')).length;
-  const before = lines();
+  const before = logLines().length;
   assert.strictEqual(run('critic', 'Read', payload), 2); // frontmatter layer: blocks, does not log
   assert.strictEqual(run('all', 'Read', payload), 2); // settings layer: blocks and logs
-  assert.strictEqual(lines() - before, 1);
+  assert.strictEqual(logLines().length - before, 1);
   // Without agent_type the frontmatter layer is the only one that knows the role, so it logs.
   assert.strictEqual(run('critic', 'Read', { file_path: P('.work', 'f', 'notes.md') }), 2);
-  assert.strictEqual(lines() - before, 2);
+  assert.strictEqual(logLines().length - before, 2);
 });
 
 test('all: no shell access to .env files or to the production project', () => {
@@ -474,17 +488,23 @@ test('all: no shell access to .env files or to the production project', () => {
   }
 });
 
-test('a block is logged to incidents.md without the command', () => {
-  const before = fs.readFileSync(P('incidents.md'), 'utf8');
+test('a block is logged to .claude/logs/blocks.jsonl without the command, and an ordinary block is not written to incidents.md', () => {
+  // Converted (round 4, d): git add -A is an ordinary R4 block ("r4"), so it is counted, not escalated.
+  const beforeLog = logLines().length;
+  const beforeInc = fs.readFileSync(P('incidents.md'), 'utf8');
   blocks('all', 'Bash', { command: 'git add -A # TOPSECRET' });
-  const added = fs.readFileSync(P('incidents.md'), 'utf8').slice(before.length);
-  assert.match(added, /hook blocked Bash \(all\)/);
-  assert.doesNotMatch(added, /TOPSECRET/);
+  const added = logLines().slice(beforeLog);
+  assert.strictEqual(added.length, 1);
+  assert.strictEqual(added[0].role, 'all');
+  assert.strictEqual(added[0].tool, 'Bash');
+  assert.doesNotMatch(JSON.stringify(added[0]), /TOPSECRET/);
+  assert.strictEqual(fs.readFileSync(P('incidents.md'), 'utf8'), beforeInc, 'an ordinary block does not touch incidents.md');
 });
 
 test('test-engineer: a shell variable such as $? is not read as a glob that reaches app source', () => {
+  // Converted (round 4): npm and echo are not part of TEST ENGINEER Bash, so these are blocked now.
   for (const c of ['npm run ci; echo x=$?', 'npm test; echo "exit=$?"', 'npx vitest run apps/web/tests; echo $?']) {
-    allows('test-engineer', 'Bash', { command: c });
+    blocks('test-engineer', 'Bash', { command: c });
   }
   // A real glob from the root still reaches app source.
   blocks('test-engineer', 'Bash', { command: 'cat **/*.tsx' });

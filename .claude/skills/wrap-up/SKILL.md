@@ -7,7 +7,7 @@ argument-hint: <slug>
 
 # /wrap-up — steps 13 and 14
 
-**Version:** 1.0 · the steps are in `.claude/workflow.md` (13, 14, "Result", "Traceability"); the logs and the
+**Version:** 1.1 · the steps are in `.claude/workflow.md` (13, 14, "Result", "Traceability"); the logs and the
 WORKPLAN rule in `CLAUDE.md`.
 
 ## Input
@@ -24,7 +24,10 @@ The Preview passed — ORCHESTRATOR checked it, URL recorded in WORKPLAN (or the
 1. **`result.md`** in `.work/<slug>/`: execution and quality · planned vs actual (`git diff --stat` against the
    size estimate in `spec.md`) · the SRS trace · the evidence, with commits.
 2. **Logs:** the `debt.md` lines from `synthesize`, plus every neighbouring bug listed in `notes.md` · `escapes.md`
-   or `noise.md` where a finding proved real after merge, or proved not real.
+   or `noise.md` where a finding proved real after merge, or proved not real · **blocks:** from the local
+   `.claude/logs/blocks.jsonl`, the lines since the task began, counted per role and `rule`+reason, as one
+   "Hook blocks" line in `result.md` (none → "Hook blocks: none"). A block that stopped legitimate work goes to
+   `noise.md`. The guard itself writes `incidents.md` for critical blocks; nothing else from the log does.
 3. **SRS — step 14:** if behaviour the SRS describes changed, follow `.claude/skills/srs-update/SKILL.md`, steps 1–6.
    Read and follow that file; it is a procedure, not something to invoke.
 4. **WORKPLAN:** the task's status in its part table, and the "איפה אנחנו עומדים" block.
@@ -44,3 +47,4 @@ The Preview passed — ORCHESTRATOR checked it, URL recorded in WORKPLAN (or the
 
 ## Changelog
 - 1.0 — 2026-10-11 — created (Afik's skills decision). Provisional until 5 features.
+- 1.1 — 2026-10-13 — step 2 counts the hook blocks into `result.md` (Afik, guard approach d).

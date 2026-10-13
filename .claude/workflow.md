@@ -1,6 +1,6 @@
 # Workflow — canonical pipeline
 
-**Version:** 1.7
+**Version:** 1.8
 **Status:** the single source of truth for sequence, triggers and who enters when.
 Agent definitions describe professions. **This file describes order.** If they disagree, this file wins.
 
@@ -159,6 +159,10 @@ A review returned as prose without a verdict is rejected and re-run.
 verdict on the same scale. A `Not Ready` from **either** CRITIC or ALGORITHM & DATA blocks. Any
 `Validated with Concern` goes to `debt.md`. Only two `Validated` (or `Validated with Concern`) verdicts proceed.
 
+**Two strikes.** After the second `Not Ready` (from either reviewer) on the same task, ORCHESTRATOR does not send
+it back to BUILDER a third time. It writes a short impact note and files a `BLOCKER` to Afik about the approach,
+and waits. Two `Not Ready` never become a pass (decisions.md, 2026-10-13).
+
 ## Traceability
 
 Every test name carries the FR/AC IDs it asserts. Every commit carries a line `Implements: FR-…, AC-…`.
@@ -283,3 +287,5 @@ usually the spec was too large and should have been split.
   features.
 - 1.7 — 2026-10-12 — No merge to `main` without green CI on GitHub Actions; a local run is not the gate.
   Decided by Afik after `ci.yml` was red on GitHub for runs 1–22 while merges were reported green locally.
+- 1.8 — 2026-10-13 — "Two strikes" under Verdicts: a second `Not Ready` on one task stops it for Afik. Decided by
+  Afik (agent-system slimming, guard approach c).
