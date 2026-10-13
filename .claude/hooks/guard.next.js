@@ -35,6 +35,7 @@ process.on('uncaughtException', () => {
 });
 
 const fs = require('fs');
+const crypto = require('crypto');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { NOTES_NAME } = require('./notes-name.js');
@@ -456,6 +457,28 @@ function relBoth(p, ctx) {
   return [fold(slash(path.relative(ctx.root, a))), fold(slash(path.relative(realAbs(ctx.root), realAbs(a))))];
 }
 
+// A path that does not resolve under the project root: another drive, a UNC share, a device path (\? prefix), or
+// '..' out of the tree. path.relative returns such a path unchanged (still absolute) or starting with '..'.
+// No legitimate CRITIC or TEST ENGINEER call needs one, and the path rules below cannot judge it.
+function outsideRoot(p, ctx) {
+  return relBoth(p, ctx).some((r) => r === '..' || r.startsWith('../') || path.isAbsolute(r));
+}
+
+// The path a tool call names, for the outside-root check (a Glob's literal prefix may itself be absolute).
+function namedPaths(tool, input, ctx) {
+  if (tool === 'Grep' || tool === 'Glob') {
+    let target = abs(input.path || '.', ctx.cwd);
+    if (tool === 'Glob' && input.pattern) {
+      const prefix = literalPrefix(input.pattern);
+      if (prefix) target = path.resolve(target, fromGitBash(prefix));
+    }
+    return [target];
+  }
+  return [input.file_path || input.notebook_path || ''];
+}
+
+const OUTSIDE = 'CRITIC and TEST ENGINEER work only inside the project: this path is outside the project root (another drive, a UNC or device path, or ..).';
+
 function isFile(p) {
   try {
     return fs.statSync(p).isFile();
@@ -506,6 +529,7 @@ const EDIT_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'];
 const FINDINGS_FILE = /^\.work\/[^/]+\/([^/]+-)?findings\.md$/;
 
 function checkCritic(tool, input, ctx) {
+  if (tool !== 'Bash' && namedPaths(tool, input, ctx).some((p) => outsideRoot(p, ctx))) return OUTSIDE;
   if (tool === 'Bash') return 'CRITIC has no shell. Read .work/<slug>/review.diff (ORCHESTRATOR prepares it with node tools/critic-diff.mjs <slug>).';
   if (EDIT_TOOLS.includes(tool)) {
     const forms = relBoth(input.file_path || input.notebook_path || '', ctx);
@@ -573,6 +597,7 @@ function checkTestEngineerBash(command, ctx) {
 }
 
 function checkTestEngineer(tool, input, ctx) {
+  if (tool !== 'Bash' && namedPaths(tool, input, ctx).some((p) => outsideRoot(p, ctx))) return OUTSIDE;
   if (tool === 'Bash') return checkTestEngineerBash(input.command, ctx);
   if (EDIT_TOOLS.includes(tool)) {
     const forms = relBoth(input.file_path || input.notebook_path || '', ctx);
@@ -717,9 +742,21 @@ function escalate(root, role, tool, reason) {
 }
 
 // Every block goes to the local log. incidents.md gets a line only for r4-critical, and for the third reader block
-// of one role in one session (the count includes this block, so it is exactly 3 once).
+// of one role in one session — the count reaching 3 or more, claimed once through an exclusive flag file, so parallel
+// hooks cannot skip it or fire it twice.
+function claimEscalation(dir, role, session) {
+  try {
+    const id = crypto.createHash('sha1').update(JSON.stringify([role, session])).digest('hex');
+    fs.writeFileSync(path.join(dir, 'escalated-' + id + '.flag'), '', { flag: 'wx' });
+    return true;
+  } catch {
+    return false; // already claimed, or the log directory is unusable
+  }
+}
+
 function report(root, session, role, tool, v) {
   let reader = 0;
+  let claimed = false;
   try {
     const dir = path.join(root, '.claude', 'logs');
     fs.mkdirSync(dir, { recursive: true });
@@ -735,12 +772,13 @@ function report(root, session, role, tool, v) {
           // a damaged line counts for nothing
         }
       }
+      claimed = reader >= 3 && claimEscalation(dir, role, session);
     }
   } catch {
     // The block stands even when it cannot be logged.
   }
   if (v.rule === 'r4-critical') escalate(root, role, tool, v.reason);
-  else if (reader === 3) escalate(root, role, tool, `third reader block by ${role} in one session (the fence is being probed): ${v.reason}`);
+  else if (claimed) escalate(root, role, tool, `third reader block by ${role} in one session (the fence is being probed): ${v.reason}`);
 }
 
 function block(v, root, session, role, tool) {
