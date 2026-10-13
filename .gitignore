@@ -16,6 +16,9 @@ exports/
 # Per-machine Claude settings
 .claude/settings.local.json
 
+# Local hook block log (guard.js); /wrap-up reads it
+.claude/logs/
+
 # OS
 Thumbs.db
 desktop.ini
