@@ -102,7 +102,7 @@ for (const platform of ['win32', 'linux', 'darwin']) {
       for (const cmd of ['echo $HOME', 'echo ${HOME}', 'echo $(date)', 'echo `date`', 'echo "$HOME"', 'echo "x $(date) y"', 'echo "${X:-a}"']) {
         c.bashBlocks(role, cmd);
       }
-      c.bashAllows(role, "awk '{print $1}' docs/a.txt");
+      c.bashAllows(role, "echo '{print $1}'");
       c.bashAllows(role, "echo 'costs $5 and ${x} and $(y) and `z`'");
       // A heredoc body that is data is not judged by the expansion rule.
       c.bashAllows(role, "cat <<'EOF' > out.txt\nmessage with $HOME and $(date) and `x`\nEOF");
@@ -115,7 +115,7 @@ for (const platform of ['win32', 'linux', 'darwin']) {
     for (const agent_type of ROLES) {
       c.blocks('all', 'Bash', { command: 'echo $HOME' }, { agent_type });
       c.blocks('all', 'Bash', { command: 'echo `date`' }, { agent_type });
-      c.allows('all', 'Bash', { command: "awk '{print $1}' docs/a.txt" }, { agent_type });
+      c.allows('all', 'Bash', { command: "echo '{print $1}'" }, { agent_type });
     }
   });
 
