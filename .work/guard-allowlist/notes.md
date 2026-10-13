@@ -43,3 +43,51 @@ extra blocks above).
 
 **Neighbouring**  `dropHeredocs` and `commandText` find heredocs by different rules (quote masking), so odd input can make them disagree;
 the new shape check treats a disagreement as a block. Not fixed here.
+
+---
+
+# Round 2 — the command name is the allowlist key (bug.md Addendum 2, G.16–G.19)
+
+**Approach**  `checkReader` ends with `allowlistReason`: after every specific message, each segment's command word must be on
+`ALLOWED_COMMANDS`, in the form `FORMS[cmd]` accepts. Unknown command: blocked, message names the list. `git` is judged by
+`gitReason` (earlier in the flow); the allowlist only requires that a git segment has a subcommand. `all` and `builder` untouched.
+
+**Decisions**
+- Command word = a bare name. `/usr/bin/cat`, `./cat` are not on the list (a program called `cat` that the role wrote must not pass).
+  On win32 only: lower-cased, `.exe` stripped.
+- `FOO=1 cmd`: `cmd` is judged, the assignment must name one of CI, NODE_ENV, FORCE_COLOR, NO_COLOR, TZ, LANG, LC_ALL, TERM. Any
+  other (PATH, NODE_OPTIONS, GIT_SSH_COMMAND, LD_PRELOAD…) changes what runs. This list is mine, not the spec's: say if it should differ.
+  A cd alias behind an assignment is blocked (`withCwd` would not follow it).
+- Long options of grep, sort, wc, diff are an exact allowlist, not a denylist: GNU getopt accepts abbreviations (`--rec`, `--out=`).
+- ORCHESTRATOR answers applied: `[` is `test`; bare `git fetch origin` / `git push origin main` allowed; `sed` only `-n` plus ranges and `p`
+  (`;`-joined parts and `-e` allowed, `s///` blocked).
+- Content-free git: judged first (G.18). Each subcommand has a fixed option list (`GIT_FREE_OPTS`, `COMMIT_OPT`); global options only
+  `-C <dir>`, `--no-pager`, `--no-optional-locks`; any positional with `::` blocked; `git remote` bare or `-v`; `reflog expire|delete` blocked;
+  `push -u` allowed (it is `--set-upstream`), `fetch -u` is not on fetch's list. The GIT_ / global-option ban now applies to content reads only,
+  on the command text without commit-message values, as the word `\bGIT_`.
+- `2>&1`, `>&2`, `<&3`, `&>f` are now one token in `shellSegments` (the `&` used to split the segment and left a command named `1`).
+  This changes the parse for `all` and `builder` too, in the right direction; their tests pass.
+- `xargs` removed from `recursiveSearch`: it is not a search, and now gets the list message (G.16 asks for a message naming the list).
+- G.17: `APP_IMPL`, `reachesAppImpl`, the cd check and the `apps/` text scan are case-insensitive on every platform (`isAppsDir` new).
+
+**Deviations**
+- `\bGIT_` is case-insensitive on win32 only (Windows environment variable names are), case-sensitive elsewhere as G.18 says.
+- `npm test/run … -- <args>`: everything after `--` is passed through unjudged (it is the script's own arguments). `npm install`/`ci` take no package name.
+
+**Contradiction in the tests (FINDING for TEST ENGINEER, not fixed by me)**  `guard-allowlist.test.js` A.1 (lines ~113–116, 133)
+requires `awk '{print $1}' docs/a.txt` to be allowed for both roles, `all`+agent_type too. G.16 requires `awk` blocked (`awk 1 …`,
+`awk '{print}' …`, the `BEGIN` read) and lists it as not on the list. Both cannot hold without special-casing one awk program. I
+followed G.16 (it is the later addendum, F.14: the newer line wins). Result: A.1 fails 6 times (2 tests × 3 platforms), nothing else.
+The A.1 case needs another command that keeps a `$1` inside single quotes, e.g. `echo '{print $1}'` or `jq '.[0]' …`.
+
+**Residual gaps (G.19 and what follows from it)**
+- G.19, accepted: a script the role writes itself and runs with `node <file>` or `npm run`. Also the config and plugin files
+  `vitest`, `eslint`, `prettier`, `playwright` and `tsc` load, and a hook or alias in `.git/config` that `git commit`/`fetch` runs, or a remote
+  in `.git/config` whose url is `ext::…`. For debt.md (ORCHESTRATOR writes it); CRITIC stays behind it.
+- `jq -f <file>`, `jq --rawfile` take a file the role names: paths are checked by name, contents are not.
+- `npm`/`npx` option values (`--prefix <dir>`, `-w <ws>`) are not path-checked beyond the general path rule.
+- Quoted arguments starting with `<` or `>` are treated as redirections when stripped (hides a literal argument from the option check; it cannot start with `-`).
+- Windows behaviour is tested only through the forced-platform preload on Linux.
+
+**Verification**  `node --test` on guard-allowlist, guard, guard-case, guard-platforms: 101 pass, 6 fail (only the A.1 awk contradiction above).
+`npm run lint`: does not run here (typescript-eslint not installed).

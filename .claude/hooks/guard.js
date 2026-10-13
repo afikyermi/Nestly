@@ -73,9 +73,15 @@ function reaches(r, dir) {
 }
 
 // TEST ENGINEER never reads the implementation: app source and the Vercel adapter.
-const APP_IMPL = /^apps\/[^/]+\/(src|api)(\/|$)/;
+// Case-insensitive on every platform: macOS and Windows file systems ignore case by default (G.17).
+const APP_IMPL = /^apps\/[^/]+\/(src|api)(\/|$)/i;
 const TEST_AREAS = [/^apps\/[^/]+\/tests(\/|$)/, /^packages\/[^/]+\/tests(\/|$)/, /^e2e(\/|$)/, /^supabase\/tests(\/|$)/];
 const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/;
+
+// apps/ itself, or one app's directory.
+function isAppsDir(r) {
+  return /^apps(\/[^/]+)?$/i.test(r);
+}
 
 function isAppImpl(r) {
   return APP_IMPL.test(r);
@@ -83,7 +89,7 @@ function isAppImpl(r) {
 
 // A search rooted at r reaches app implementation.
 function reachesAppImpl(r) {
-  return isAppImpl(r) || r === '' || r === 'apps' || /^apps\/[^/]+$/.test(r);
+  return isAppImpl(r) || r === '' || isAppsDir(r);
 }
 
 function isTestPath(r) {
@@ -193,6 +199,10 @@ function shellSegments(command, depth = 0) {
       has = true;
     } else if (c === '|' && src[i - 1] === '>') {
       cur += c; // `>|` is a redirection, not a pipe
+      pat += c;
+      has = true;
+    } else if (c === '&' && (src[i - 1] === '>' || src[i - 1] === '<' || src[i + 1] === '>')) {
+      cur += c; // `2>&1`, `<&3` and `&>file` are redirections, not a background separator
       pat += c;
       has = true;
     } else if ('|;&()`\n'.includes(c)) {
@@ -466,7 +476,7 @@ function recursiveSearch(seg) {
   if (['grep', 'egrep', 'fgrep'].includes(name)) {
     return rest.some((a) => /^-[A-Za-z]*[rR][A-Za-z]*$/.test(a) || /^--(recursive|dereference-recursive)$/.test(a));
   }
-  if (['rg', 'ag', 'ack', 'xargs', 'select-string', 'sls'].includes(name)) return true;
+  if (['rg', 'ag', 'ack', 'select-string', 'sls'].includes(name)) return true;
   if (name === 'findstr') return rest.some((a) => /^\/s$/i.test(a));
   if (name === 'find') return rest.some((a) => /^-(exec|execdir|ok|fprint)/.test(a));
   return false;
@@ -770,7 +780,7 @@ const NO_IMPL = 'TEST ENGINEER does not read apps/*/src or apps/*/api. Use apps/
 // diff and show with a stat-like option and no patch option.
 const GIT_FREE = new Set(['status', 'branch', 'ls-files', 'ls-tree', 'rev-parse', 'remote', 'fetch', 'add', 'commit', 'push', 'switch', 'merge-base']);
 const GIT_STAT = new Set(['--stat', '--shortstat', '--numstat', '--name-only', '--name-status', '--quiet']);
-const DISPLAY_OPT = new RegExp('^(--(stat|shortstat|numstat|name-only|name-status|patch|patch-with-stat|oneline|no-color|color|no-ext-diff|cached|staged|' +
+const DISPLAY_OPT = new RegExp('^(--(stat|stat=\\d+(,\\d+){0,2}|shortstat|numstat|name-only|name-status|patch|patch-with-stat|oneline|no-color|color|no-ext-diff|cached|staged|' +
   'graph|decorate|abbrev-commit|no-merges|merges|reverse|ignore-all-space|ignore-space-change|quiet|unified=\\d+|max-count=\\d+|(format|pretty)=.*)|-(p|w|b|\\d+|U\\d+|n\\d+))$');
 const HEX = /^[0-9a-f]{4,40}$/i;
 const REF = /^[A-Za-z0-9_][A-Za-z0-9_./-]*(?:[~^]\d*)*$/;
@@ -804,7 +814,7 @@ function gitContentFree(call) {
   if (['add', 'commit'].includes(sub)) return !args.some((a) => /^(-[A-Za-z]*[pie]|--(patch|interactive|edit))$/.test(a));
   if (GIT_FREE.has(sub)) return true;
   if (['log', 'reflog'].includes(sub)) return !showsPatch(args);
-  if (['diff', 'show'].includes(sub)) return args.some((a) => GIT_STAT.has(a)) && !showsPatch(args) && !parseGitArgs(args).bad;
+  if (['diff', 'show'].includes(sub)) return args.some((a) => GIT_STAT.has(a) || /^--stat=\d+(,\d+){0,2}$/.test(a)) && !showsPatch(args) && !parseGitArgs(args).bad;
   return false;
 }
 
@@ -823,13 +833,83 @@ function fixedGitReason(call, cwd, ctx) {
   return null;
 }
 
-function gitReason(role, call, cwd, raw, ctx) {
+// Redirections (`2>&1`, `> file`, `< file`, `<<EOF`) are not arguments of the command they sit beside.
+const REDIRECT = /^(?:\d*|&)[<>]/;
+const REDIRECT_OP = /^(?:\d*|&)(?:<<?<?|>>?|>\||<>|[<>]&)-?$/;
+
+function withoutRedirects(args) {
+  const out = [];
+  for (let k = 0; k < args.length; k++) {
+    if (REDIRECT_OP.test(args[k])) k++;
+    else if (!REDIRECT.test(args[k])) out.push(args[k]);
+  }
+  return out;
+}
+
+// What a content-free subcommand may be given. Each takes only the options listed (so --upload-pack, --receive-pack,
+// --exec and the rest that run a command are outside every list); a positional with `::` (ext::, fd::) is a remote
+// that runs a command. log, reflog, diff and show are judged by showsPatch and parseGitArgs instead.
+const GIT_FREE_OPTS = {
+  status: /^(-s|-b|-z|-u|-uno|-unormal|-uall|--short|--branch|--porcelain(=v?[12])?|--long|--show-stash|--ahead-behind|--no-ahead-behind|--renames|--no-renames|--ignore-submodules(=\w+)?|--untracked-files(=(no|normal|all))?)$/,
+  branch: /^(-a|-r|-v|-vv|-l|-i|--all|--remotes|--verbose|--list|--show-current|--ignore-case|--no-color|--color(=\w+)?|--column|--no-column|--merged|--no-merged|--contains|--no-contains|--points-at|--abbrev=\d+|--format=.*|--sort=.*)$/,
+  'ls-files': /^(-c|-o|-m|-d|-s|-u|-k|-i|-z|-t|-v|--cached|--others|--modified|--deleted|--stage|--unmerged|--killed|--ignored|--exclude-standard|--full-name|--error-unmatch|--directory|--no-empty-directory|--eol|--deduplicate|--abbrev(=\d+)?)$/,
+  'ls-tree': /^(-d|-r|-t|-l|-z|--name-only|--name-status|--long|--full-name|--full-tree|--object-only|--abbrev(=\d+)?)$/,
+  'rev-parse': /^(--abbrev-ref(=\w+)?|--short(=\d+)?|--show-toplevel|--git-dir|--absolute-git-dir|--git-common-dir|--is-inside-work-tree|--is-bare-repository|--show-prefix|--show-cdup|--verify|-q|--quiet|--symbolic|--symbolic-full-name|--revs-only|--no-revs|--all|--branches|--tags|--remotes)$/,
+  remote: /^(-v|--verbose)$/,
+  fetch: /^(--all|--prune|-p|--prune-tags|--tags|-t|--no-tags|-q|--quiet|-v|--verbose|--dry-run|--no-recurse-submodules|--depth=\d+|--unshallow)$/,
+  push: /^(--tags|--follow-tags|-u|--set-upstream|-q|--quiet|-v|--verbose|--dry-run|-n|--no-verify|--verify|--atomic|--progress)$/,
+  add: /^(-v|--verbose|-n|--dry-run|-f|--force|-u|--update|-N|--intent-to-add|--renormalize|--ignore-errors|--refresh)$/,
+  switch: /^(-c|--create|-d|--detach|-q|--quiet|--no-guess|-t|--track|--no-track)$/,
+  'merge-base': /^(--is-ancestor|--fork-point|--all|-a|--octopus|--independent)$/,
+};
+const COMMIT_OPT = /^(--(all|signoff|no-verify|quiet|amend|no-edit|allow-empty|allow-empty-message|no-gpg-sign|reset-author|author=.+|date=.+|message=.*|file=.+|cleanup=\w+)|-[asnq]+)$/;
+// Global options that cannot change what git reads or runs.
+const GIT_SAFE_GLOBAL = new Set(['--no-pager', '--no-optional-locks']);
+
+// Why this content-free git call is outside its fixed form, or null.
+function gitFreeReason(who, call) {
+  const no = (why) => `${who}: ${why}. A git call that shows no content takes only the options on its allowed list ` +
+    '(and no global option except -C <dir>, --no-pager, --no-optional-locks).';
+  for (let k = 0; k < call.globals.length; k++) {
+    if (call.globals[k] === '-C') k++;
+    else if (!GIT_SAFE_GLOBAL.has(call.globals[k])) return no(`the git option ${call.globals[k]} can change what git reads or runs`);
+  }
+  const { sub, args } = call;
+  if (args.some((a) => a.includes('::'))) return no('a remote such as ext:: or fd:: runs a command');
+  if (['log', 'reflog'].includes(sub)) {
+    return sub === 'reflog' && args.some((a) => ['expire', 'delete'].includes(a)) ? no('reflog expire and delete change the repository') : null;
+  }
+  if (['diff', 'show'].includes(sub)) return null;
+  const allowed = GIT_FREE_OPTS[sub];
+  for (let k = 0; k < args.length; k++) {
+    const a = args[k];
+    if (a === '--') break;
+    if (sub === 'commit') {
+      if (/^(-[asnq]*m|--message|-F|--file)$/.test(a)) {
+        k++;
+        continue;
+      }
+      if (a.startsWith('-') && !COMMIT_OPT.test(a)) return no(`the option ${a} of git commit is not on the allowed list`);
+    } else if (a.startsWith('-') && !(allowed && allowed.test(a))) {
+      return no(`the option ${a} of git ${sub} is not on the allowed list`);
+    }
+  }
+  if (sub === 'remote' && args.some((a) => !a.startsWith('-'))) return no('git remote takes no subcommand here');
+  return null;
+}
+
+// GIT_ as a word (an environment variable that changes what git does), outside a commit message value.
+const GIT_VAR = new RegExp('\\bGIT_', WIN ? 'i' : '');
+
+function gitReason(role, call0, cwd, raw, ctx, segments) {
   const te = role === 'test-engineer';
   const who = te ? 'TEST ENGINEER' : 'CRITIC';
-  if (call.globals.length || /GIT_/i.test(commandText(raw))) {
+  const call = { ...call0, args: withoutRedirects(call0.args) };
+  // A call that shows no content is judged on its own list; the ban below is for the ones that read.
+  if (gitContentFree(call)) return gitFreeReason(who, call);
+  if (call.globals.length || GIT_VAR.test(textWithoutMessages(raw, segments))) {
     return `${who}: git runs with no global option (-C, -c, --git-dir…) and no GIT_ variable named in the command: they change what it reads.`;
   }
-  if (gitContentFree(call)) return null;
   if (te) {
     return gitReadsContent(call)
       ? 'TEST ENGINEER does not read the implementation through git (diff, show, log -p, blame, grep).'
@@ -839,6 +919,148 @@ function gitReason(role, call, cwd, raw, ctx) {
     return "CRITIC: a git command that shows file content must exclude notes.md. Add the pathspec `-- . ':(exclude).work/*/notes.md'`.";
   }
   return fixedGitReason(call, cwd, ctx);
+}
+
+// ---- the command-name allowlist (G.16) ----
+
+// For CRITIC and TEST ENGINEER the command name is the key: every shell segment runs a command on this list, in the
+// form given, or the call is blocked. A command that can run code, read files by a route the guard cannot see, or
+// start another shell (bash -lc, env, xargs, timeout, awk, python, perl, ruby, deno, bun, source, `.`) is not on it.
+const FREE_READERS = new Set(['cat', 'head', 'tail', 'ls', 'uniq', 'cut', 'tr', 'echo', 'printf', 'pwd', 'true', 'false', 'test', '[', 'jq',
+  'mktemp', 'mkdir']);
+const ALLOWED_LIST = 'cat, head, tail, wc, ls, diff, sort, uniq, cut, tr, echo, printf, pwd, true, false, test, [, jq, mktemp, mkdir, cd, ' +
+  'sed -n (line ranges and p), grep (not recursive), find (no -exec, -delete, -fprint), npm (test, ci, install, run <script>, ls), ' +
+  'npx (vitest, playwright, tsc, eslint, prettier), node (--test, or a script file), git (its own rules)';
+const ALLOWED_COMMANDS = new Set([...FREE_READERS, ...CD, 'wc', 'diff', 'sort', 'sed', 'grep', 'find', 'npm', 'npx', 'node', 'git']);
+
+// Variables a command may be given in front of it (`CI=1 npm test`). Any other, PATH, NODE_OPTIONS and GIT_* among
+// them, changes what runs.
+const SAFE_ENV = new Set(['CI', 'NODE_ENV', 'FORCE_COLOR', 'NO_COLOR', 'TZ', 'LANG', 'LC_ALL', 'TERM']);
+const ENV_ASSIGN = /^[A-Za-z_][A-Za-z0-9_]*=/;
+
+// The command word as the shell would look it up: a bare name only (a path to a program is not on the list).
+function commandWord(token) {
+  if (/[\\/]/.test(token)) return null;
+  const name = fold(token);
+  return WIN ? name.replace(/\.exe$/, '') : name;
+}
+
+// The first option of the arguments (before `--`) that `bad` rejects, or null. A short option is rejected by
+// `badShort`, a long one unless `goodLong` matches: long options may be abbreviated, so only a known spelling is safe.
+function badOption(args, { goodLong, badShort }) {
+  for (const a of args) {
+    if (a === '--') return null;
+    if (a.startsWith('--')) {
+      if (goodLong && !goodLong.test(a)) return a;
+    } else if (a.length > 1 && a.startsWith('-') && badShort && badShort.test(a)) {
+      return a;
+    }
+  }
+  return null;
+}
+
+const GREP_LONG = new RegExp('^--(ignore-case|no-ignore-case|invert-match|word-regexp|line-regexp|count|files-with-matches|files-without-match|line-number|' +
+  'no-filename|with-filename|only-matching|quiet|silent|no-messages|fixed-strings|extended-regexp|basic-regexp|perl-regexp|null|text|binary|' +
+  'initial-tab|byte-offset|null-data|no-group-separator|color(=\\w+)?|colour(=\\w+)?|no-color|(max-count|after-context|before-context|context|' +
+  'regexp|include|exclude|label|binary-files|devices)=.+)$');
+const SED_RANGE = /^(\d+|\$)(,(\d+|\$))?p$/;
+const WC_LONG = /^--(lines|words|bytes|chars|max-line-length)$/;
+const SORT_LONG = new RegExp('^--(reverse|numeric-sort|unique|ignore-case|version-sort|stable|human-numeric-sort|month-sort|general-numeric-sort|' +
+  'ignore-leading-blanks|dictionary-order|ignore-nonprinting|check|merge|zero-terminated|(field-separator|key|buffer-size)=.+)$');
+const DIFF_LONG = new RegExp('^--(brief|text|unified(=\\d+)?|context(=\\d+)?|ignore-case|ignore-space-change|ignore-all-space|ignore-blank-lines|' +
+  'ignore-trailing-space|strip-trailing-cr|side-by-side|report-identical-files|new-file|normal|expand-tabs|initial-tab|minimal|' +
+  'suppress-common-lines|left-column|color(=\\w+)?|width=\\d+)$');
+const FIND_BAD = /^-(exec|ok|delete|fprint|fls|files0-from)/;
+const NPM_VALUED = new Set(['--prefix', '-w', '--workspace']);
+const NPM_OPT = /^(--(prefix|workspace)=.+|--(workspaces|if-present|silent|no-audit|no-fund|ignore-scripts|json|all|long|legacy-peer-deps)|--depth=\d+|-s|-a)$/;
+const NPX_TOOLS = new Set(['vitest', 'playwright', 'tsc', 'eslint', 'prettier']);
+
+// Why this call is outside the form its command is allowed in, or null. `args` has no redirections.
+const FORMS = {
+  wc: (args) => badOption(args, { goodLong: WC_LONG }) && 'wc takes only its counting options',
+  sort: (args) => badOption(args, { goodLong: SORT_LONG, badShort: /^-[^-]*o/ }) && 'sort writes no file and runs no program: no -o, --output, --compress-program, --files0-from',
+  diff: (args) => badOption(args, { goodLong: DIFF_LONG, badShort: /^-[^-]*r/ }) && 'diff is not recursive (no -r, --recursive)',
+  grep: (args) => badOption(args, { goodLong: GREP_LONG, badShort: /^-[^-]*[rRdf]/ }) && 'grep is not recursive and reads no pattern file (no -r, -R, -d, --directories, --recursive, -f)',
+  find: (args) => args.some((a) => FIND_BAD.test(a)) && 'find takes no -exec, -execdir, -ok, -okdir, -delete, -fprint*, -fls',
+  sed(args) {
+    let quiet = false;
+    const scripts = [];
+    let positional = false;
+    for (let k = 0; k < args.length; k++) {
+      const a = args[k];
+      if (a === '-n') quiet = true;
+      else if (a === '-e') scripts.push(args[++k] || '');
+      else if (a.startsWith('-')) return 'sed takes only -n and -e';
+      else if (!positional && !scripts.length) {
+        positional = true;
+        scripts.push(a);
+      }
+    }
+    const ok = quiet && scripts.length > 0 && scripts.every((sc) => sc.split(';').every((part) => SED_RANGE.test(part.trim())));
+    return ok ? null : 'sed is allowed as `sed -n \'<from>,<to>p\' <file>` only: -n and line ranges with p (no s///, e, w, r, R, W, -i)';
+  },
+  npm(args) {
+    const rest = [];
+    for (let k = 0; k < args.length; k++) {
+      const a = args[k];
+      if (a === '--') break;
+      if (NPM_VALUED.has(a)) k++;
+      else if (a.startsWith('-')) {
+        if (!NPM_OPT.test(a)) return `npm takes no option ${a} here`;
+      } else rest.push(a);
+    }
+    const [sub, ...more] = rest;
+    if (!['test', 't', 'ci', 'install', 'run', 'ls'].includes(sub)) return 'npm runs test, t, ci, install, run <script> and ls only';
+    if (sub === 'run' && (more.length !== 1)) return 'npm run takes one script name';
+    if (['ci', 'install'].includes(sub) && more.length) return `npm ${sub} installs no named package here`;
+    return null;
+  },
+  npx: (args) => (NPX_TOOLS.has(args[0]) ? null : 'npx runs vitest, playwright, tsc, eslint and prettier only, and its tool comes first'),
+  node(args) {
+    if (args[0] === '--test') return args.slice(1).some((a) => a.startsWith('-')) ? 'node --test takes file arguments only' : null;
+    if (!args[0] || args[0].startsWith('-')) return 'node runs `--test <files>` or a script file (never -e, -p, --eval, --print, -r, --require, --import or -)';
+    return null;
+  },
+};
+
+// Blocks the first segment whose command is not on the list, or is on it but outside its form.
+function allowlistReason(who, located) {
+  const no = (why) => `${who}: ${why} Commands on the allowed list: ${ALLOWED_LIST}. Use the Read, Grep and Glob tools for the rest.`;
+  for (const { seg } of located) {
+    let i = 0;
+    while (i < seg.length && ENV_ASSIGN.test(seg[i])) {
+      const name = seg[i].slice(0, seg[i].indexOf('='));
+      if (!SAFE_ENV.has(WIN ? name.toUpperCase() : name)) return no(`setting ${name} in front of a command can change what runs, so it is not allowed.`);
+      i++;
+    }
+    if (i === seg.length) continue;
+    const name = commandWord(seg[i]);
+    if (name === null || !ALLOWED_COMMANDS.has(name)) return no(`\`${seg[i]}\` is not on the list of allowed commands.`);
+    if (i > 0 && CD.includes(name)) return no('write cd on its own, without a variable in front of it.');
+    if (name === 'git') {
+      if (!gitCall(seg)) return no('git needs a subcommand.');
+      continue;
+    }
+    const form = FORMS[name];
+    const why = form && form(withoutRedirects(seg.slice(i + 1)));
+    if (why) return no(`\`${name}\` is allowed only in a fixed form: ${why}.`);
+  }
+  return null;
+}
+
+// The command text without the values of git commit -m: a commit message is text, not a read. `norm` is applied to
+// the text and to each quoted message before they are compared.
+function textWithoutMessages(raw, segments, norm = (x) => x) {
+  let text = norm(commandText(raw));
+  for (const seg of segments) {
+    for (const msg of commitMessages(seg).texts) {
+      for (const q of ['"', "'"]) {
+        const quoted = norm(q + msg + q);
+        if (text.split(quoted).length === 2) text = text.replace(quoted, ' ');
+      }
+    }
+  }
+  return text;
 }
 
 function checkReader(role, tool, input, ctx) {
@@ -905,7 +1127,7 @@ function checkReader(role, tool, input, ctx) {
       if (CD.includes(commandName(seg)) && seg[1]) {
         for (const target of [rel(seg[1], ctx.root, cwd), relReal(seg[1], ctx.root, cwd)]) {
           if (inWork(target)) return `${who}: do not cd into .work/; name the files you read.`;
-          if (te && (target === 'apps' || /^apps\/[^/]+$/.test(target) || isAppImpl(target))) {
+          if (te && (isAppsDir(target) || isAppImpl(target))) {
             return 'TEST ENGINEER does not cd into an app. Use apps/<app>/tests paths from the root.';
           }
         }
@@ -914,7 +1136,7 @@ function checkReader(role, tool, input, ctx) {
 
     for (const { seg, cwd } of located) {
       const call = gitCall(seg);
-      const reason = call && gitReason(role, call, cwd, raw, ctx);
+      const reason = call && gitReason(role, call, cwd, raw, ctx, segments);
       if (reason) return reason;
     }
 
@@ -928,22 +1150,16 @@ function checkReader(role, tool, input, ctx) {
     if (arg) return arg;
 
     if (te) {
-      // Paths inside strings (node -e "...") and other spellings, normalised. A commit message is text, not a read.
-      let text = fold(slash(commandText(raw)));
-      for (const seg of segments) {
-        for (const msg of commitMessages(seg).texts) {
-          for (const q of ['"', "'"]) {
-            const quoted = fold(slash(q + msg + q));
-            if (text.split(quoted).length === 2) text = text.replace(quoted, ' ');
-          }
-        }
-      }
-      for (const m of text.matchAll(/apps\/[^\s"'`;|&()]+/g)) {
+      // Paths inside strings (node -e "...") and other spellings, normalised.
+      const text = textWithoutMessages(raw, segments, (x) => fold(slash(x)));
+      for (const m of text.matchAll(/apps\/[^\s"'`;|&()]+/gi)) {
         const p = path.posix.normalize(m[0]);
-        if (isAppImpl(p) || /^apps\/[^/]+\/[^/]*[*?[\]{}]/.test(p)) return NO_IMPL;
+        if (isAppImpl(p) || /^apps\/[^/]+\/[^/]*[*?[\]{}]/i.test(p)) return NO_IMPL;
       }
     }
-    return null;
+
+    // The base: a command that is not on the list is blocked, whatever it is spelled like (G.16).
+    return allowlistReason(who, located);
   }
   return null;
 }
