@@ -170,3 +170,5 @@ G.22 Arguments after `--` in `npm run <script>` / `npm test` are judged as paths
      `npm test -- apps/web/tests/a.test.ts` (TEST ENGINEER).
 G.23 A reader role never writes under `.git/`: a redirection target, or a write-verb argument, resolving inside `.git`
      is blocked (`printf x >> .git/config`, `cp f .git/hooks/pre-commit`).
+G.24 (13.10, ORCHESTRATOR) An option's value (`--root apps/web`, `-p apps/web`, `--project x`) is not a search argument
+     for G.21; `npx vitest run --root apps/web` stays allowed. A config file the option loads is the G.19 residual.
