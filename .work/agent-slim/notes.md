@@ -62,3 +62,13 @@ Known not to work yet: nothing calls the loader or `guard.next.js` until the swa
 **Uncertain**  Blocking `..` and symlinks resolving outside the root is stricter than before. The real-hook UNC probe was not rerun; the tests build the UNC form from the temp root.
 **Preview path**  none (tooling).
 **Neighbouring**  The live guard.js appended a line to incidents.md (uncommitted) when my chained add+commit was blocked: a non-critical r4 block reaching incidents.md, which the new guard.next.js no longer does.
+
+## stage 5 — line budgets
+
+**Approach**  `tools/line-budgets.json` + `tools/check-budgets.mjs` (pure `countLines`, `globToRegExp`, `validateConfig`, `checkBudgets`, CLI guard like vercel-ignore.mjs). Wired as `check:budgets` in package.json (`ci`, after `lint`) and as a step in the `lint` CI job.
+**Decisions**  Exclude globs use a small local glob-to-regex (`*`, `**`) instead of `path.matchesGlob`, which is experimental in Node 22. alwaysRead existence is checked on disk, code files come from `git ls-files -z`; a tracked-but-deleted file is skipped. Stale-exception check uses testMax for test-named files.
+**Deviations**  none. `test:tools` not touched, as instructed (ORCHESTRATOR wires the test file).
+**Deliberately not done**  no test file; no change to any budget or file.
+**Uncertain**  Argument parsing takes flag/value pairs only. Violations go to stderr (summary to stdout); tests must read both streams.
+**Preview path**  none (tooling). `npm run check:budgets` prints `budgets: ok`.
+**Neighbouring**  none.
