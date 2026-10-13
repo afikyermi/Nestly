@@ -1032,3 +1032,14 @@ tracker tile were decided on 11.10.2026 (entries "R1" and "The eighth tracker ti
 
 **Open product points** are tracked in the SRS itself: `docs/srs/appendix-b-open-points.md` (OP-xxx),
 plus every "TBD" or "נדרש אישור" in the section files. They are product decisions, so they belong there.
+
+2026-10-13 | guard-allowlist: the allowlist key for CRITIC and TEST ENGINEER is the command name
+  rule:         bug.md Addendum 2 (G.16–G.19): a reader role may run only listed commands, each in a listed form;
+                interpreters with inline code, nested shells in any spelling, awk, xargs and env are off the list.
+  why:          CRITIC round 1 (`.work/guard-allowlist/findings.md`, Not Ready) reached both protected files through
+                commands the first implementation allowed by default (node -e, python -c, awk, bash -lc, grep -d recurse,
+                git fetch --upload-pack). An allowlist of argument shapes alone still fails open on unknown commands.
+  alternatives: extend the inline-code and nested-shell denylists (rejected: the same class again — Afik's 12.10 rule)
+  accepted cost: honest commands off the list are blocked until added; a script file the role writes itself stays a gap
+                (debt.md)
+  decided by:   ORCHESTRATOR, within Afik's decision of 2026-10-12 (13.10.2026)

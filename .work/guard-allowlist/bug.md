@@ -128,3 +128,27 @@ logged in `incidents.md` and `noise.md`.
    content-reading git call.
 4. The B.4 cwd cases follow from the rule: `ls *.md` run from `docs` is allowed, and `ls *` run from `.work` or `.work/f`
    is blocked.
+
+## Addendum 2, 13.10 — after CRITIC round 1 (`findings.md`): the command name is the allowlist key
+
+G.16 For CRITIC and TEST ENGINEER, every shell segment's command must be on an allowed list; any other command is
+     blocked with a message naming the list. Allowed, each only in the form given:
+     - readers: `cat`, `head`, `tail`, `wc`, `ls`, `diff`, `sort`, `uniq`, `cut`, `tr`, `echo`, `printf`, `pwd`, `true`,
+       `false`, `test`, `[`, `jq`, `mktemp`, `mkdir`, `cd` (and its aliases), `sed` only with `-n` and a script made of
+       line ranges and `p` (no `e`, `w`, `r`, `R`, `W` commands, no `-i`), `grep` non-recursive (no `-r`, `-R`, `-d`,
+       `--directories`, `--recursive`, `-f`), `find` without `-exec`, `-execdir`, `-ok`, `-okdir`, `-delete`, `-fprint*`,
+       `-fls`;
+     - runners: `npm` (`test`, `t`, `ci`, `install`, `run <script>`, `ls`, `--prefix <dir>` with those), `npx` only with
+       `vitest`, `playwright`, `tsc`, `eslint`, `prettier`; `node` only with `--test` and file arguments, or with a
+       script file path and its arguments — never `-e`, `-p`, `--eval`, `--print`, `-r`/`--require`/`--import` of an
+       inline value, or `-` (stdin);
+     - `git` under its own rules (C, Addendum 1), and the content-free subcommands with a fixed option list each:
+       `--upload-pack`, `--receive-pack`, `--exec`, `-u <cmd>`, `ext::` and `fd::` remotes are blocked.
+     A nested shell in any spelling (`bash -lc`, `sh -ec`, `bash --norc -c`, `zsh -c`), `eval`, `xargs`, `env`,
+     `timeout`, `awk`, `python*`, `perl`, `ruby`, `deno`, `bun`, `source`, `.` are not on the list.
+G.17 The TEST ENGINEER app-implementation check ignores case on every platform (as CRITIC's notes.md check does).
+G.18 A content-free git call is judged before the global-option / `GIT_` ban, which applies only to content reads and
+     matches `GIT_` case-sensitively as a word, outside a commit message value. Redirections (`2>&1`, `> file`) and
+     `--stat=<n>[,<m>]` do not make a content-free call a content read.
+G.19 Known residual, accepted: a script file the role writes itself and then runs with `node <file>` or `npm run`.
+     Recorded in `debt.md`; CRITIC review stays behind it.
