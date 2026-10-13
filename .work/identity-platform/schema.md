@@ -205,3 +205,91 @@ period. Not available as a database setting here, because the Nestly id *is* the
 
 If you choose B, the sentence in `data-model.md` that says deleting the Auth user cascades gets reworded.
 Only bootstrap step 2 waits on this; everything else proceeds.
+
+---
+
+## Addendum 1 — CI auth functions
+
+**Approved** 14.10.2026 by ORCHESTRATOR (MATERIAL CHANGE on [A], not reserved): option (a), with the hash check also before every `db push` on preview and prod (read-only catalog query inside the approved job).
+
+**Author:** DATA ARCHITECT · 14.10.2026 · answers the `MATERIAL CHANGE` from PR 15, CI run 38471909340, job `db`
+(`image-preflight.sql:55`). Replaces assumption `[A]` of "CI `db` job" step 1 for `auth.uid()` / `auth.role()` only;
+`auth.users`, the roles and pgTAP passed and stay as written. **Reversible:** yes — CI-only files and steps, no data.
+
+**What failed.** `supabase/postgres:17.11.0.004` ships `auth.uid()` and `auth.role()` from its own init scripts, which
+do not read `request.jwt.claims`. A real project gets newer definitions from the Auth service's migrations. Read
+read-only from nestly-preview on 14.10.2026 (`tools/db-preview.mjs`, `begin read only`; PG 17.11, all three
+`LANGUAGE sql STABLE`, SECURITY INVOKER, no `SET`, owner `supabase_auth_admin`, EXECUTE to PUBLIC):
+
+| function | returns | body (whitespace aside) | normalized sha256 on preview |
+|---|---|---|---|
+| `auth.uid()` | uuid | `select coalesce(nullif(current_setting('request.jwt.claim.sub', true), ''), (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub'))::uuid` | `d6dbd1274f41320d098fa39bbf8a1949bc608a6092e7d996ba21453e068f644b` |
+| `auth.role()` | text | same shape, `request.jwt.claim.role` / `->> 'role'`, `::text` | `63428ce1089b4f6517fbbc1c7ddd0d710b335032d20210d750353229e48a64cb` |
+| `auth.jwt()` | jsonb | `select coalesce(nullif(current_setting('request.jwt.claim', true), ''), nullif(current_setting('request.jwt.claims', true), ''))::jsonb` | `96c51f009347aad9a3e8292d05dd1fc6ffda46bf4b641335d452909994750bee` |
+
+Normalized sha256 = `encode(sha256(convert_to(btrim(regexp_replace(pg_get_functiondef(oid), '\s+', ' ', 'g')), 'UTF8')), 'hex')`.
+Whitespace is collapsed so an editor stripping trailing spaces (preview's body has `select ` with one) or a line-ending
+change cannot fail it; any change to a name, a setting key, a cast, volatility, `SECURITY DEFINER` or a `SET` does.
+Also on preview: `postgres` is **not** a superuser, `supabase_admin` is.
+
+**Decision: option (a), with the drift check made a gate rather than a note.**
+
+1. **`supabase/ci/auth-functions.sql`** — pinned copy, CI only, never in a migration. Header: source (nestly-preview,
+   14.10.2026, this addendum), "do not edit by hand; re-pin per 4". One transaction: `raise exception` unless
+   `session_user` is a superuser and role `supabase_auth_admin` exists; `create or replace function` for `auth.uid()`,
+   `auth.role()`, `auth.jwt()` with exactly the definitions above (signature, return type, `language sql stable`,
+   body — copy the text from preview, not from this table); `alter function … owner to supabase_auth_admin`;
+   `grant execute … to public`. `auth.jwt()` is included although no part-a/b policy uses it: it costs nothing,
+   the L2 analysis already lists it beside `auth.uid()` (`.work/infra-7.3/owner-role.md`), and the first policy that reads a claim would otherwise hit the same
+   wall. `auth.email()` is not included — no policy may key on email.
+2. **`supabase/ci/auth-functions-check.sql`** — read-only, runs anywhere: `begin read only;` a `do` block that, for
+   each of the three functions, compares the normalized sha256 with the pinned value (the three literals above, held
+   once in this file) and checks `has_schema_privilege('authenticated', 'auth', 'USAGE')` and
+   `has_function_privilege('authenticated', <fn>, 'EXECUTE')`; on any mismatch it raises one error naming the function
+   and printing the target's normalized definition (public Supabase code, no secret), so a re-pin can be made from the
+   log; `commit;`. Runs as any role that can read the catalogs (`postgres`, `app_owner`).
+3. **CI `db` job, new order:** start → **install** `auth-functions.sql` as `supabase_admin` (the image's superuser;
+   `[A]` its password is `POSTGRES_PASSWORD`; if that login is refused, run the same file with
+   `docker exec -i nestly-ci-db psql -U supabase_admin` over the container socket; if neither works → `BLOCKER` to me,
+   do not try other roles) → **check** `auth-functions-check.sql` as `postgres` → existing `image-preflight.sql`
+   unchanged (it now proves behaviour: `auth.uid()`/`auth.role()` read `request.jwt.claims`) → bootstrap step 1 → as
+   before. `supabase_admin` is used for this one setup step of a disposable database only; the suite still runs as
+   `app_server`, and nothing at runtime gains a role.
+4. **`migrate` workflow, both jobs:** install `postgresql-client` in the install step (before the secret is in any
+   step), then, after the URL guard and **before** `supabase db push`:
+   `psql "${APP_OWNER_DATABASE_URL}" -X -q -v ON_ERROR_STOP=1 -f supabase/ci/auth-functions-check.sql`.
+   A mismatch stops the job before anything is applied. This is a catalog read on prod inside the job Afik already
+   approves on `db-production`; it writes nothing.
+
+**Why this still proves platform rule 3 against production behaviour.** RLS outcomes depend on what `auth.uid()`
+returns for a given `request.jwt.claims`. CI no longer trusts the image for that: it installs the deployed
+definition, and the same hash check that passes in CI must pass on nestly-preview and on nestly-prod before any
+migration reaches them. So every pgTAP result was produced by function text proven identical (modulo whitespace) to
+the text the migration's target runs, at the moment of migrating. The rest of what rule 3 needs is PG itself
+(`SET LOCAL ROLE`, `set_config(…, true)`, FORCE RLS), which the image runs at prod's minor, 17.11.
+
+**How drift is caught.**
+- *Pinned copy vs pinned hashes:* every CI run (step 3). A hand edit that changes meaning fails CI.
+- *Supabase changes the functions on the platform:* the next `migrate` run on preview or prod fails before push.
+  Residual, accepted: a platform change between two migrations is seen at the next migration, not the day it happens;
+  no CI result is relied on in between.
+- *CLI / image bump:* nothing to re-check for these functions — the image's own definitions are overwritten. The
+  existing preflight still checks the rest of `[A]` on the new image. If a bump makes `create or replace` fail (a
+  changed signature or owner), CI says so.
+- *Preview and prod disagree:* the pinned file can match only one, so one migrate job fails → `MATERIAL CHANGE` to me.
+- **Re-pin procedure (internal change, not a gate):** read the definitions from preview with `tools/db-preview.mjs`
+  read-only (or from the migrate log for prod), update both files and the hashes, record it in `notes.md`. **If the new
+  definition no longer reads the `sub` / `role` of `request.jwt.claims`, it is a `MATERIAL CHANGE` to me** — rule 3
+  depends on it.
+
+**Rejected.**
+- (b) CLI local stack — its Auth container applies the migrations of the CLI's pinned Auth version, not the hosted
+  one, so fidelity to prod would still be unproven without this same hash check; it adds ~6 images and minutes per run,
+  a `config.toml`, and a stack that applies `supabase/migrations` itself on start, which muddies "migrations as
+  app_owner through `db push`" (criteria 1, 6, 7).
+- Our own stub functions in CI — a second definition of the current user that can drift from `auth.uid()`; the
+  reason L2 was rejected (decisions 2026-10, owner role). The pinned copy is not ours; it is hash-bound to the target.
+- Changing `image-preflight.sql` to accept the legacy keys — would test a behaviour the platform does not have.
+
+**Rollback.** Remove the two files and the steps; CI returns to the failing preflight. No database outside CI is
+touched.

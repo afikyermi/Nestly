@@ -157,6 +157,12 @@ verdict on the same scale. A `Not Ready` from **either** CRITIC or ALGORITHM & D
 it back to BUILDER a third time. It writes a short impact note and files a `BLOCKER` to Afik about the approach,
 and waits. Two `Not Ready` never become a pass (decisions.md, 2026-10-13).
 
+**Round limit (Afik, 2026-10-13, every task).** After a `Not Ready`: one fix round, one re-check, never a third. A
+process or guard task that still fails is not merged — its branch stays, a `debt.md` line, back to `main`, next WORKPLAN
+task without waiting. A product feature stops under Two strikes: `BLOCKER` with an impact note in WORKPLAN, work
+continues on whatever does not depend on it, else the session ends in the return format. Each task ends with one
+WORKPLAN line: merged / stopped (why) / next.
+
 ## Traceability
 
 Every test name carries the FR/AC IDs it asserts. Every commit carries a line `Implements: FR-…, AC-…`.

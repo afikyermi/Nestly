@@ -15,6 +15,9 @@ anchor and bootstrap steps". Anything else that needs `postgres` is a `DECISION 
 - **nestly-preview:** Afik in the Supabase SQL Editor, or an agent through `node tools/db-preview.mjs <file>`.
   The tool refuses every target except preview.
 - **nestly-prod:** Afik only, in the SQL Editor (CLAUDE.md, reserved item 2). No agent and no tool has a path there.
+- **CI (`db` job in `.github/workflows/ci.yml`):** every run builds a disposable `supabase/postgres` database and runs
+  step 1 there as `postgres`, then step 2 twice once it exists, with random per-run passwords. It never touches a
+  real environment.
 - Order: preview first, then check it. Prod after that.
 
 ## Step 1, in order
