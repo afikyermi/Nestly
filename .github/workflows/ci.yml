@@ -1,6 +1,6 @@
 # CI for Nestly (WORKPLAN 7.1). Public repo: no secrets are used or needed.
 # Locally, `npm run ci` runs typecheck, lint, tokens:check, check:stories, test and build in this order.
-# `build-storybook` and `test:browser` are their own jobs.
+# `build-storybook` and `test:browser` are their own jobs. `db` needs Docker and runs in CI only.
 name: CI
 
 on:
@@ -134,15 +134,217 @@ jobs:
       - run: npm ci
       - run: npm audit --audit-level=high
 
-  # Database checks are NOT built yet. `supabase/` does not exist; it belongs to
-  # DATA ARCHITECT and is created with the first migration. They join this
-  # workflow in that same change (WORKPLAN 7.1, "בדיקות מסד"):
-  #   - every table has an RLS policy and FORCE ROW LEVEL SECURITY
-  #   - no table is owned by `app_server`
-  #   - every view is `security_invoker`
-  #   - a pgTAP test that a query without an identity fails
-  #   - the tests run as the `app_server` role
-  #
-  # db:
-  #   runs-on: ubuntu-latest
-  #   steps: [checkout, supabase/setup-cli, `supabase db start`, `supabase test db`]
+  # A disposable database, built from scratch on every run (I1 F1.1 part a, spec criteria 1-4, 6, 7; WORKPLAN 7.1;
+  # .work/identity-platform/schema.md "CI `db` job"). No GitHub secret and no environment: every password is random
+  # per run, masked, and dies with the runner. Nothing here can reach nestly-preview or nestly-prod.
+  # Order: bootstrap step 1 -> migrations as app_owner -> bootstrap step 2 -> pgTAP as app_server.
+  db:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # The image the pinned CLI itself uses; PostgreSQL 17.11, the minor of nestly-preview and nestly-prod.
+      SUPABASE_POSTGRES_IMAGE: supabase/postgres:17.11.0.004
+      # The version T5 verified over the session pooler (tools/probes/t5.mjs). The same pin is in migrate.yml.
+      SUPABASE_CLI_VERSION: 2.120.0
+      PGHOST: 127.0.0.1
+      PGPORT: "54322"
+      PGDATABASE: postgres
+      PGCONNECT_TIMEOUT: "10"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install psql, pg_prove and the Supabase CLI (pinned)
+        run: |
+          set -eu
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends postgresql-client libtap-parser-sourcehandler-pgtap-perl
+          npm install --no-save --no-audit --no-fund --prefix "${RUNNER_TEMP}/supabase-cli" "supabase@${SUPABASE_CLI_VERSION}"
+          echo "${RUNNER_TEMP}/supabase-cli/node_modules/.bin" >> "${GITHUB_PATH}"
+
+      - name: Generate per-run passwords
+        run: |
+          set -eu
+          owner=""
+          for name in CI_POSTGRES_PASSWORD CI_APP_OWNER_PASSWORD CI_APP_SERVER_PASSWORD CI_JWT_SECRET; do
+            value="$(openssl rand -hex 32)"
+            echo "::add-mask::${value}"
+            echo "${name}=${value}" >> "${GITHUB_ENV}"
+            if [ "${name}" = CI_APP_OWNER_PASSWORD ]; then owner="${value}"; fi
+          done
+          url="postgresql://app_owner:${owner}@${PGHOST}:${PGPORT}/${PGDATABASE}"
+          echo "::add-mask::${url}"
+          echo "CI_APP_OWNER_DB_URL=${url}" >> "${GITHUB_ENV}"
+
+      - name: Start the disposable database
+        run: |
+          set -eu
+          supabase --version
+          docker run --detach --name nestly-ci-db \
+            --publish "127.0.0.1:${PGPORT}:5432" \
+            --env POSTGRES_PASSWORD="${CI_POSTGRES_PASSWORD}" \
+            --env JWT_SECRET="${CI_JWT_SECRET}" \
+            --env JWT_EXP=3600 \
+            "${SUPABASE_POSTGRES_IMAGE}"
+          # Ready = three logins in a row as postgres (the image restarts the server after its init scripts).
+          ok=0
+          for _ in $(seq 1 120); do
+            if PGUSER=postgres PGPASSWORD="${CI_POSTGRES_PASSWORD}" psql -X -q -t -c 'select 1' >/dev/null 2>&1; then
+              ok=$((ok + 1))
+              if [ "${ok}" -ge 3 ]; then exit 0; fi
+            else
+              ok=0
+            fi
+            sleep 2
+          done
+          echo "::error::the disposable database did not become ready"
+          exit 1
+
+      - name: Check the image provides what the suite assumes (schema.md [A])
+        env:
+          PGUSER: postgres
+          PGPASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
+        run: psql -X -q -v ON_ERROR_STOP=1 -f supabase/ci/image-preflight.sql
+
+      - name: Bootstrap step 1 as postgres, then per-run passwords
+        env:
+          PGUSER: postgres
+          PGPASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
+        run: |
+          set -eu
+          psql -X -q -v ON_ERROR_STOP=1 -f supabase/bootstrap/01-roles.sql
+          psql -X -q -v ON_ERROR_STOP=1 <<'SQL'
+          \getenv owner_pw CI_APP_OWNER_PASSWORD
+          \getenv server_pw CI_APP_SERVER_PASSWORD
+          alter role app_owner  password :'owner_pw';
+          alter role app_server password :'server_pw';
+          SQL
+
+      - name: Migrations as app_owner (supabase db push)
+        run: |
+          set -eu
+          mkdir -p supabase/migrations
+          supabase db push --db-url "${CI_APP_OWNER_DB_URL}" --yes --skip-vault --agent no
+
+      - name: A second push with nothing pending changes nothing (criterion 6)
+        env:
+          PGUSER: postgres
+          PGPASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
+        run: |
+          set -eu
+          fingerprint() { psql -X -q -A -t -v ON_ERROR_STOP=1 -f supabase/ci/catalog-fingerprint.sql; }
+          before="$(fingerprint)"
+          supabase db push --db-url "${CI_APP_OWNER_DB_URL}" --yes --skip-vault --agent no
+          after="$(fingerprint)"
+          if [ "${before}" != "${after}" ]; then
+            echo "::error::a push with nothing pending changed the database"
+            exit 1
+          fi
+
+      - name: A migration whose last statement fails leaves nothing behind (criterion 7)
+        env:
+          PGUSER: postgres
+          PGPASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
+        run: |
+          set -eu
+          fingerprint() { psql -X -q -A -t -v ON_ERROR_STOP=1 -f supabase/ci/catalog-fingerprint.sql; }
+          work="${RUNNER_TEMP}/atomicity"
+          log="${RUNNER_TEMP}/atomicity.log"
+          mkdir -p "${work}/supabase/migrations"
+          for f in supabase/migrations/*.sql; do
+            if [ -e "${f}" ]; then cp "${f}" "${work}/supabase/migrations/"; fi
+          done
+          cp supabase/ci/fixtures/99990101000000_atomicity_probe.sql "${work}/supabase/migrations/"
+          before="$(fingerprint)"
+          if supabase db push --workdir "${work}" --db-url "${CI_APP_OWNER_DB_URL}" --yes --skip-vault --agent no \
+            > "${log}" 2>&1; then
+            cat "${log}"
+            echo "::error::the failing fixture migration was applied without an error"
+            exit 1
+          fi
+          cat "${log}"
+          if ! grep -qF 'atomicity probe: intended failure' "${log}"; then
+            echo "::error::the push failed, but not on the fixture's last statement"
+            exit 1
+          fi
+          after="$(fingerprint)"
+          if [ "${before}" != "${after}" ]; then
+            echo "::error::statements before the failing one were left behind: the CLI did not apply the migration atomically (schema.md 'Atomicity': MATERIAL CHANGE to DATA ARCHITECT)"
+            exit 1
+          fi
+
+      - name: Bootstrap step 2 as postgres, twice (when it exists)
+        env:
+          PGUSER: postgres
+          PGPASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
+        run: |
+          set -eu
+          step=supabase/bootstrap/02-anchor-fk.sql
+          check=supabase/bootstrap/02-anchor-fk-check.sql
+          if [ ! -f "${step}" ]; then
+            echo "::notice::${step} does not exist yet (I1 F1.1 part b): skipped"
+            exit 0
+          fi
+          fingerprint() { psql -X -q -A -t -v ON_ERROR_STOP=1 -f supabase/ci/catalog-fingerprint.sql; }
+          psql -X -q -v ON_ERROR_STOP=1 -f "${step}"
+          before="$(fingerprint)"
+          psql -X -q -v ON_ERROR_STOP=1 -f "${step}"
+          after="$(fingerprint)"
+          if [ "${before}" != "${after}" ]; then
+            echo "::error::a second run of bootstrap step 2 changed the database"
+            exit 1
+          fi
+          if [ -f "${check}" ]; then psql -X -v ON_ERROR_STOP=1 -f "${check}"; fi
+
+      - name: pgTAP and the RLS gate as postgres (CI only), then test fixtures
+        env:
+          PGUSER: postgres
+          PGPASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
+        run: |
+          set -eu
+          psql -X -q -v ON_ERROR_STOP=1 -f supabase/ci/pgtap-setup.sql
+          psql -X -q -v ON_ERROR_STOP=1 -f supabase/ci/rls-gate.sql
+          # Fixture helpers that come with the tests (supabase/tests/setup/*.sql), in name order, if any.
+          for f in supabase/tests/setup/*.sql; do
+            if [ -e "${f}" ]; then psql -X -q -v ON_ERROR_STOP=1 -f "${f}"; fi
+          done
+
+      - name: RLS gate on nestly as app_server (criterion 3)
+        env:
+          PGUSER: app_server
+          PGPASSWORD: ${{ env.CI_APP_SERVER_PASSWORD }}
+        run: |
+          set -eu
+          violations="$(psql -X -q -A -t -F ' ' -v ON_ERROR_STOP=1 \
+            -c "select check_name, object from tests.rls_gate('nestly') order by 1, 2")"
+          if [ -n "${violations}" ]; then
+            while read -r check object; do
+              echo "::error::RLS gate: ${check}: ${object}"
+            done <<< "${violations}"
+            exit 1
+          fi
+          echo "RLS gate: no violation in nestly or public"
+
+      - name: pgTAP suite with pg_prove as app_server
+        env:
+          PGUSER: app_server
+          PGPASSWORD: ${{ env.CI_APP_SERVER_PASSWORD }}
+          PGOPTIONS: "-c search_path=pgtap,tests"
+        run: |
+          set -eu
+          files="$(find supabase/tests -path supabase/tests/setup -prune -o -type f -name '*.sql' -print 2>/dev/null | sort)"
+          if [ -z "${files}" ]; then
+            echo "::error::no pgTAP test file under supabase/tests: the suite is missing"
+            exit 1
+          fi
+          # Word splitting is intended: one argument per file, in name order.
+          # shellcheck disable=SC2086
+          pg_prove --host "${PGHOST}" --port "${PGPORT}" --dbname "${PGDATABASE}" --username app_server ${files}
+
+      - name: Database log on failure
+        if: failure()
+        run: docker logs --tail 200 nestly-ci-db 2>&1 || true
