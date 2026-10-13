@@ -1,7 +1,7 @@
 // Tests for the agent-slim stage 1 guard (spec: .work/agent-slim/stage1-guard.md, "Round 4" and the rounds it
 // builds on). Written from the spec only. Each case pipes a hook payload into the script, as Claude Code does.
-// Run: node --test .claude/hooks/guard-next.test.js
-// At the swap commit, repoint GUARD (the only place) to guard.js.
+// Run: node --test .claude/hooks/guard-readers.test.js
+// GUARD points at the live guard.js (swapped in from guard.next.js, stage 1).
 'use strict';
 
 const test = require('node:test');
@@ -11,7 +11,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-const GUARD = path.join(__dirname, 'guard.next.js');
+const GUARD = path.join(__dirname, 'guard.js');
 
 let canLink = true;
 

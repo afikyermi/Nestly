@@ -1008,6 +1008,31 @@ YYYY-MM-DD | <decision in one line>
                 both) · `DATABASE_URL` (rejected: reserved for the runtime `app_server` connection in Vercel)
   decided by:   ORCHESTRATOR (12.10.2026)
 
+2026-10-13 | guard-allowlist: the allowlist key for CRITIC and TEST ENGINEER is the command name
+  rule:         bug.md Addendum 2 (G.16–G.19): a reader role may run only listed commands, each in a listed form;
+                interpreters with inline code, nested shells in any spelling, awk, xargs and env are off the list.
+  why:          CRITIC round 1 (`.work/guard-allowlist/findings.md`, Not Ready) reached both protected files through
+                commands the first implementation allowed by default (node -e, python -c, awk, bash -lc, grep -d recurse,
+                git fetch --upload-pack). An allowlist of argument shapes alone still fails open on unknown commands.
+  alternatives: extend the inline-code and nested-shell denylists (rejected: the same class again — Afik's 12.10 rule)
+  accepted cost: honest commands off the list are blocked until added; a script file the role writes itself stays a gap
+                (debt.md)
+  decided by:   ORCHESTRATOR, within Afik's decision of 2026-10-12 (13.10.2026)
+  carried over: from PR 6 (closed unmerged, replaced by agent-slim stage 1) on 2026-10-13
+
+2026-10-13 | guard-allowlist round 3: prettier off the reader list; tool path arguments are searches; no .git writes
+  rule:         bug.md Addendum 3 (G.21–G.23). `npx prettier` leaves the CRITIC/TEST ENGINEER list; directory and
+                wildcard arguments to the remaining tools and to `npm run … --` follow the recursive-search reach
+                rules; a reader role never writes under `.git/`.
+  why:          CRITIC round 2 (findings 8–9, Not Ready): prettier and node --test expand their own globs and printed
+                both protected files; npm script arguments became git pathspecs; `.git/config` written by redirection
+                makes a later `git status` run a command.
+  alternatives: prettier only with --check/--list-different (rejected: readers have no need for it; one less form)
+  accepted cost: a test failure's code frame can still show app source to TEST ENGINEER when a test imports it — inherent
+                to running tests; `gh` is off the list, so PR bodies and CI checks reach CRITIC through ORCHESTRATOR
+  decided by:   ORCHESTRATOR, within Afik's decision of 2026-10-12 (13.10.2026)
+  carried over: from PR 6 (closed unmerged, replaced by agent-slim stage 1) on 2026-10-13
+
 2026-10-13 | Agent-system slimming before I1, in seven stages, one PR each (baseline `.work/agent-slim/baseline.md`)
   rule:         stages 0 measure · 1 guard (a–d) · 2 log insights · 3 slim decisions/WORKPLAN/incidents/CLAUDE.md ·
                 4 agents and skills · 5 CI line budgets · 6 verify. Information is archived, never deleted. No new

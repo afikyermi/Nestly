@@ -18,7 +18,7 @@
     "tokens:check": "node tools/build-design-tokens.js && git diff --exit-code -- apps/web/src/styles/tokens.generated.css",
     "ci": "npm run typecheck && npm run lint && npm run tokens:check && npm run check:stories && npm test && npm run build && npm run test:build",
     "test:build": "node --test tools/built-css.test.mjs",
-    "test:tools": "node --test tools/design-gates.test.mjs tools/ui-types.test.mjs tools/check-stories.test.mjs tools/vercel-ignore.test.mjs tools/eslint-rules/no-cross-feature-import.test.mjs .claude/hooks/guard.test.js .claude/hooks/guard-case.test.js .claude/hooks/guard-next.test.js .claude/hooks/guard-loader.test.js tools/critic-diff.test.mjs",
+    "test:tools": "node --test tools/design-gates.test.mjs tools/ui-types.test.mjs tools/check-stories.test.mjs tools/vercel-ignore.test.mjs tools/eslint-rules/no-cross-feature-import.test.mjs .claude/hooks/guard.test.js .claude/hooks/guard-case.test.js .claude/hooks/guard-readers.test.js .claude/hooks/guard-loader.test.js tools/critic-diff.test.mjs",
     "build-storybook": "npm run build-storybook -w @nestly/web",
     "check:stories": "node tools/check-stories.mjs",
     "serve:storybook": "node tools/serve-static.mjs apps/web/storybook-static 6007",

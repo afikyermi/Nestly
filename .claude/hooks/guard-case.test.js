@@ -64,7 +64,9 @@ for (const platform of ['win32', 'linux', 'darwin']) {
     blocks(platform, 'Bash', { command: 'cat .WORK/f/NOTES.MD' });
   });
 
-  test(`bug.md-3 [${platform}]: what is allowed today in exact case stays allowed`, () => {
+  // Converted for stage 1 (spec Round 4, F6): CRITIC has no shell, so the Bash forms that used to be
+  // allowed in exact case are blocked now; the non-shell reads stay allowed.
+  test(`bug.md-3 [${platform}]: CRITIC Bash is blocked in every form; non-shell reads in exact case stay allowed`, () => {
     for (const c of [
       "git diff main...HEAD -- . ':(exclude).work/*/notes.md'",
       "git diff main...HEAD -- . ':(exclude).work'",
@@ -78,7 +80,7 @@ for (const platform of ['win32', 'linux', 'darwin']) {
       'cat .work/f/spec.md',
       'npm run ci',
     ]) {
-      allows(platform, 'Bash', { command: c });
+      blocks(platform, 'Bash', { command: c });
     }
     allows(platform, 'Grep', { pattern: 'x', path: '.work', glob: '*.ts', output_mode: 'content' });
     allows(platform, 'Grep', { pattern: 'x', glob: '*.ts' });
