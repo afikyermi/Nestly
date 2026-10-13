@@ -178,3 +178,9 @@
   **The bug was mine, in `rls-gate.sql`, not in the test.** The sequence branch of `anon_privilege` relied on
   `kind = 'S' and has_sequence_privilege(...)` short-circuiting. SQL does not fix the order AND evaluates in, so a
   view reached `has_sequence_privilege`. It is now guarded with `CASE`.
+- Run 38477920818 (commit 655d07e): **all 8 jobs green.** In `db`:
+  - auth functions check OK, preflight OK
+  - criterion 7 shows `atomicity probe: intended failure`, with the fingerprint unchanged
+  - bootstrap step 2 skipped with its notice
+  - RLS gate: no violation
+  - pg_prove: 3 files, 62 tests, PASS
