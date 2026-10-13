@@ -14,7 +14,7 @@
 // session} — the reason only, never the command, which may hold a secret. /wrap-up counts them. rule: reader (R1/R2
 // and the CRITIC / TEST ENGINEER tool limits), r4-critical (.env, prod refs, force push, a secret), r4, builder.
 // Only two things reach incidents.md (a line for Afik): an r4-critical block, and the third reader block of one
-// role in one session — the signs of an agent probing the fence.
+// role in one task (/wrap-up rotates the log at the end of each task) — the signs of an agent probing the fence.
 //
 // CRITIC has no shell: every Bash call is blocked, and Read/Grep/Glob/Write are judged by path (symlinks resolved).
 // TEST ENGINEER reads with Read/Grep/Glob only; its Bash is one test run on explicit files. That allowlist rests on
@@ -264,8 +264,8 @@ const BLOCKED_REFS = [
 ];
 
 // The command without heredoc bodies that are only data — a commit message, a file being written. A body fed
-// to an interpreter (bash, node, python…) is a script, so it is kept.
-function commandText(command) {
+// to an interpreter (bash, node, python…) is a script, so it is kept. bodiesOnly: those script bodies alone.
+function commandText(command, bodiesOnly = false) {
   const lines = String(command).split('\n');
   const out = [];
   let delim = null;
@@ -276,7 +276,7 @@ function commandText(command) {
       else if (keep) out.push(line);
       continue;
     }
-    out.push(line);
+    if (!bodiesOnly) out.push(line);
     const m = /(?:^|[^<])<<-?\s*(?!<)['"]?([A-Za-z_][A-Za-z0-9_]*)['"]?/.exec(line);
     if (m) {
       delim = m[1];
@@ -286,13 +286,78 @@ function commandText(command) {
   return out.join('\n');
 }
 
-// An .env file named anywhere in a shell command — except a committed *.example template.
-function namesEnvFile(command) {
-  const text = fold(slash(commandText(command)));
-  for (const m of text.matchAll(/(?:^|[\s"'=/<>|;&(`:])(\.env(?:\.[a-z0-9_-]+)*)(?=$|[\s"'`;|&)<>/])/g)) {
-    if (!m[1].endsWith('.example')) return true;
+// R4 (decisions 2026-10-13): an env file is .env or .env.<anything>, any case, except a committed *.example. Each word
+// of each shell segment, nested shells included, is judged as a path (argument, redirection target, option or
+// assignment value, glob) unless it is a search pattern; inline code and heredoc scripts as text. Fail closed.
+const mentionsEnv = (text) => [...slash(text).toLowerCase().matchAll(/(?:^|[\s"'=/<>|;&(`:])(\.env(?:\.[a-z0-9_-]+)*)(?=$|[\s"'`;|&)<>/])/g)].some((m) => !m[1].endsWith('.example'));
+
+// Bash brace expansion, done before globbing: ".{env,x}" -> ".env", ".x".
+function braces(w) {
+  const m = /^(.*?)\{([^{}]*,[^{}]*)\}(.*)$/s.exec(w);
+  return m ? m[2].split(',').flatMap((a) => braces(m[1] + a + m[3])) : [w];
+}
+
+// A path or a glob. A glob counts if its literal start begins "." and agrees with ".env." (bash never globs a leading dot).
+function couldBeEnv(word) {
+  const last = word.split('/').pop();
+  const lit = last.split(/[*?[]/)[0];
+  if (lit === last) return /^\.env(\..*)?$/s.test(last) && !last.endsWith('.example');
+  return lit.startsWith('.') && ('.env.'.startsWith(lit) || lit.startsWith('.env.'));
+}
+
+// A token, split where a path may start inside it: = < > : , @ | and an attached short option value (-f.env).
+function tokenNamesEnv(t) {
+  const w = slash(t).toLowerCase();
+  if ((w.match(/\{/g) || []).length > 8) return true; // too many braces to expand: fail closed
+  return braces(w).some((x) => x.split(/[=<>:,@|]/).concat(/^-[a-z]/.test(x) ? [x.slice(2)] : []).some(couldBeEnv));
+}
+
+// Search commands, whose pattern is text: their short options that take a value, and the long ones.
+const SEARCH_LETTERS = new Map([['grep', 'ABCDdefm'], ['egrep', 'ABCDdefm'], ['fgrep', 'ABCDdefm'], ['rg', 'ABCdEefgjMmrTt']]);
+const SEARCH_LONG = /^--(regexp|file|include|exclude(-dir|-from)?|(after-|before-)?context|max-(count|depth|columns|filesize)|i?glob|type(-not|-add)?|replace|encoding|threads|ignore-file|pre(-glob)?|label|devices|directories|binary-files|group-separator|sortr?)$/;
+
+// The indices of seg's search-pattern tokens. With -e or -f every positional is a file; after an unknown long option
+// without "=" the pattern position is ambiguous (it may have taken the next word), so no positional is a pattern.
+function patternTokens(seg) {
+  const name = commandName(seg);
+  const git = name === 'git' ? gitCall(seg) : null;
+  let k = git ? seg.length - git.args.length : 1;
+  const ks = [...seg.keys()].slice(k);
+  if (git && git.sub !== 'grep') return new Set(ks.filter((j) => /^--grep=/.test(seg[j]) || seg[j - 1] === '--grep'));
+  if (name === 'select-string' || name === 'sls') return new Set(ks.filter((j) => /^-pattern$/i.test(seg[j - 1])));
+  if (name === 'findstr') return new Set(seg.some((t) => /^\/[cg]:/i.test(t)) ? [] : ks.filter((j) => !seg[j].startsWith('/')).slice(0, 1));
+  const letters = SEARCH_LETTERS.get(git ? 'grep' : name);
+  const out = new Set();
+  if (!letters) return out;
+  let [explicit, ambiguous, first] = [false, false, -1];
+  for (; k < seg.length && seg[k] !== '--'; k++) {
+    const t = seg[k];
+    if (t.startsWith('--')) {
+      explicit ||= /^--(regexp|file)(=|$)/.test(t);
+      if (/^--regexp(=|$)/.test(t)) out.add(t.includes('=') ? k : k + 1);
+      if (!t.includes('=') && SEARCH_LONG.test(t)) k++;
+      else ambiguous ||= !t.includes('=');
+    } else if (/^-./.test(t)) {
+      const p = [...t.slice(1)].findIndex((c) => letters.includes(c)) + 1; // 0: no option that takes a value
+      explicit ||= t[p] === 'e' || t[p] === 'f';
+      if (t[p] === 'e') out.add(p + 1 < t.length ? k : k + 1);
+      if (p + 1 === t.length) k++;
+    } else if (first < 0) first = k;
   }
-  return false;
+  if (first < 0 && k < seg.length) first = k + 1; // the first word after --
+  if (!explicit && !ambiguous) out.add(first);
+  return out;
+}
+
+const INTERPRETER = /^(node|deno|bun|tsx|ts-node|python[\d.]*|py|perl|ruby|php|awk|gawk|sed)$/;
+function segmentNamesEnv(seg) {
+  const [patterns, code] = [patternTokens(seg), seg.findIndex((t) => INTERPRETER.test(commandName([t])))];
+  return seg.some((t, k) => !patterns.has(k) && (tokenNamesEnv(t) || (code >= 0 && k > code && mentionsEnv(t))));
+}
+
+function namesEnvFile(command) {
+  const win = String(command).replace(/\\(?=[^"'\\$`\n])/g, '/'); // parsed again, \ as a Windows path separator
+  return [command, win].some((c) => shellSegments(c).some(segmentNamesEnv)) || mentionsEnv(commandText(command, true));
 }
 
 // A block of the kind Afik is told about at once (logged as rule r4-critical).
@@ -704,7 +769,6 @@ function checkBuilder(tool, input, ctx) {
 
 // ---------- main ----------
 
-
 const defaultRule = (role) => (role === 'builder' ? 'builder' : role === 'all' ? 'r4' : 'reader');
 
 // A verdict is null (allowed), or { reason, rule }.
@@ -742,7 +806,7 @@ function escalate(root, role, tool, reason) {
 }
 
 // Every block goes to the local log. incidents.md gets a line only for r4-critical, and for the third reader block
-// of one role in one session — the count reaching 3 or more, claimed once through an exclusive flag file, so parallel
+// of one role in one task — the count reaching 3 or more, claimed once through an exclusive flag file, so parallel
 // hooks cannot skip it or fire it twice.
 function claimEscalation(dir, role, session) {
   try {
@@ -778,7 +842,7 @@ function report(root, session, role, tool, v) {
     // The block stands even when it cannot be logged.
   }
   if (v.rule === 'r4-critical') escalate(root, role, tool, v.reason);
-  else if (claimed) escalate(root, role, tool, `third reader block by ${role} in one session (the fence is being probed): ${v.reason}`);
+  else if (claimed) escalate(root, role, tool, `third reader block by ${role} in one task (the fence is being probed): ${v.reason}`);
 }
 
 function block(v, root, session, role, tool) {
