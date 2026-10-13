@@ -1,0 +1,33 @@
+{
+  "alwaysRead": {
+    "CLAUDE.md": 380,
+    ".claude/workflow.md": 330,
+    "decisions.md": 220,
+    "WORKPLAN-HE.md": 200,
+    ".claude/agents/algorithm-data.md": 150,
+    ".claude/agents/builder.md": 200,
+    ".claude/agents/critic.md": 230,
+    ".claude/agents/data-architect.md": 140,
+    ".claude/agents/scout.md": 100,
+    ".claude/agents/spec.md": 170,
+    ".claude/agents/test-engineer.md": 180,
+    ".claude/knowledge/conventions.md": 220,
+    ".claude/knowledge/data-model.md": 260,
+    ".claude/knowledge/srs-review-points.md": 100,
+    ".claude/knowledge/ai-ml-readiness.md": 90,
+    ".claude/skills/srs-lookup/SKILL.md": 50,
+    ".claude/skills/security-craft/SKILL.md": 100,
+    ".claude/rules/srs-editing.md": 30
+  },
+  "code": {
+    "max": 400,
+    "testMax": 800,
+    "exclude": ["apps/*/src/**"],
+    "exceptions": {
+      ".claude/hooks/guard.js": {
+        "max": 900,
+        "reason": "835 lines after stage 1; size accepted by Afik 2026-10-13; split not pursued"
+      }
+    }
+  }
+}
