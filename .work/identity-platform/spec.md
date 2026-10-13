@@ -215,3 +215,10 @@ has no SRS ID; "not in SRS" is flagged.
 - **b:** about 400 (the migration, the Drizzle schema, bootstrap step 2 and its check, the pgTAP behaviour tests).
 - **c:** about 450. BUILDER's share is about 200, and TEST ENGINEER writes the tests (about 250). If c runs over, the
   integration tests (criteria 24–26) become part d.
+
+**Spec addendum 1 (ORCHESTRATOR, 14.10.2026, after part a's CRITIC review).** Criterion 18 and the "Data touched" line
+call `is_active_account()` a SECURITY DEFINER listed in "Approved exceptions". Gate 2 decided it is SECURITY INVOKER
+(`decisions/2026-10.md`, "F1.1 Gate 2"), so criterion 18 reads: it answers only for the caller, no function
+`authenticated` can execute returns another account's status, and it is **not** a definer and **not** in "Approved
+exceptions" (that list stays empty and equal to the gate's). Part b also carries part a's CRITIC findings 1–4 and the
+entry list in finding 5 (`findings.md`); part b does not merge until they are closed.

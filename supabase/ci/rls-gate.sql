@@ -23,6 +23,15 @@
 --   anon_privilege                anon holds any privilege on the schema, a relation, a column, a      r7
 --                                 sequence or a function in it
 --   relation_in_public            any table, view, sequence or foreign table exists in `public`        r7
+--   matview_or_foreign_table      a materialized view or foreign table exists in the schema: neither   r8, "every table"
+--                                 can carry RLS, so whoever holds SELECT reads every row. Allowed only
+--                                 through data-model.md "Approved exceptions" (none today, so no list)
+--
+-- tests.rls_gate_product() is the product-wide verdict the CI job enforces (part a CRITIC finding 5): the gate over
+-- `nestly` and over every other schema app_owner owns, except the Supabase CLI's history schema, plus:
+--   product_schema_missing        `nestly` does not exist (the gate must never pass by finding nothing to look at)
+--   history_schema_unexpected     `supabase_migrations` holds a relation or function other than the CLI's own tables
+--                                 (it is exempt from the gate, so nothing else may live there)
 --
 -- Runs as SECURITY INVOKER: the catalogs and has_*_privilege() are readable by app_server.
 -- =====================================================================================================================
@@ -114,14 +123,54 @@ as $$
   select 'anon_privilege', f.label from funcs f
   where has_function_privilege('anon', f.fn_oid, 'EXECUTE')
   union all
+  select 'matview_or_foreign_table', r.label from rels r where r.kind in ('m', 'f')
+  union all
   select 'relation_in_public', format('%I.%I', n.nspname, c.relname)
   from pg_catalog.pg_class c
   join pg_catalog.pg_namespace n on n.oid = c.relnamespace
   where n.nspname = 'public' and c.relkind in ('r', 'p', 'v', 'm', 'S', 'f')
 $$;
 
+-- The product-wide verdict. Every schema app_owner owns is a product schema, so each one gets the full gate; the CLI's
+-- history schema is the one exception, and only the CLI's own tables may live in it.
+create or replace function tests.rls_gate_product()
+returns table (check_name text, object text)
+language sql stable
+set search_path = ''
+as $$
+  select distinct g.check_name, g.object
+  from (
+    select n.nspname
+    from pg_catalog.pg_namespace n
+    where n.nspname = 'nestly'
+       or (n.nspowner = (select to_regrole('app_owner')) and n.nspname <> 'supabase_migrations')
+  ) s
+  cross join lateral tests.rls_gate(s.nspname) g
+  union
+  select 'product_schema_missing', 'schema nestly'
+  where not exists (select 1 from pg_catalog.pg_namespace n where n.nspname = 'nestly')
+  union
+  -- relation_in_public does not depend on the schema argument; this keeps it when no product schema exists at all.
+  select g.check_name, g.object from tests.rls_gate('public') g where g.check_name = 'relation_in_public'
+  union
+  select 'history_schema_unexpected', format('%I.%I', n.nspname, c.relname)
+  from pg_catalog.pg_class c
+  join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+  where n.nspname = 'supabase_migrations'
+    and c.relkind in ('r', 'p', 'v', 'm', 'S', 'f')
+    and c.relname not in ('schema_migrations', 'seed_files')
+  union
+  select 'history_schema_unexpected', p.oid::pg_catalog.regprocedure::text
+  from pg_catalog.pg_proc p
+  join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'supabase_migrations'
+$$;
+
 revoke all     on all functions in schema tests from public;
 grant  usage   on schema tests                  to app_server;
 grant  execute on all functions in schema tests to app_server;
+-- CI only: rls-gate-fire-owner.sql calls the gate as app_owner (a schema app_owner owns cannot be made by postgres).
+grant  usage   on schema tests                  to app_owner;
+grant  execute on all functions in schema tests to app_owner;
 
 commit;

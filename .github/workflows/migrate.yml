@@ -14,7 +14,9 @@
 # its user is app_owner.<that environment's project ref> and its port is 5432 (session pooler). Nothing prints the
 # URL: no set -x, no echo, and the guard's messages name only what was expected.
 #
-# Before the push, each job checks the auth functions against the pins the CI `db` job checks (read only).
+# Before the push, each job checks the auth functions against the pins the CI `db` job checks (read only). Its psql
+# step requires TLS (PGSSLMODE=require) and first connects with all output discarded, since a libpq error can quote
+# the URL (part a CRITIC finding 1).
 #
 # The command is the one the CI `db` job runs against its disposable database, with the same pinned CLI. With
 # nothing pending it applies nothing (criterion 6, shown in that job).
@@ -70,7 +72,18 @@ jobs:
       - name: Check the auth functions match the pinned hashes
         env:
           APP_OWNER_DATABASE_URL: ${{ secrets.APP_OWNER_DATABASE_URL }}
-        run: psql "${APP_OWNER_DATABASE_URL}" -X -q -v ON_ERROR_STOP=1 -f supabase/ci/auth-functions-check.sql
+          PGSSLMODE: require
+          PGCONNECT_TIMEOUT: "15"
+        run: |
+          set -eu
+          # Connect once with every line of psql output discarded: libpq errors can quote the URL (db-check.yml does
+          # the same). After that the URL has parsed and logged in, so what the check prints comes from the server.
+          probe() { psql "${APP_OWNER_DATABASE_URL}" -X -q -A -t -c 'select 1'; }
+          if ! probe >/dev/null 2>&1; then
+            echo "::error::could not connect as app_owner (psql output discarded: it can quote the URL)"
+            exit 1
+          fi
+          psql "${APP_OWNER_DATABASE_URL}" -X -q -v ON_ERROR_STOP=1 -f supabase/ci/auth-functions-check.sql
       - name: Apply pending migrations to nestly-preview
         env:
           APP_OWNER_DATABASE_URL: ${{ secrets.APP_OWNER_DATABASE_URL }}
@@ -107,7 +120,18 @@ jobs:
       - name: Check the auth functions match the pinned hashes
         env:
           APP_OWNER_DATABASE_URL: ${{ secrets.APP_OWNER_DATABASE_URL }}
-        run: psql "${APP_OWNER_DATABASE_URL}" -X -q -v ON_ERROR_STOP=1 -f supabase/ci/auth-functions-check.sql
+          PGSSLMODE: require
+          PGCONNECT_TIMEOUT: "15"
+        run: |
+          set -eu
+          # Connect once with every line of psql output discarded: libpq errors can quote the URL (db-check.yml does
+          # the same). After that the URL has parsed and logged in, so what the check prints comes from the server.
+          probe() { psql "${APP_OWNER_DATABASE_URL}" -X -q -A -t -c 'select 1'; }
+          if ! probe >/dev/null 2>&1; then
+            echo "::error::could not connect as app_owner (psql output discarded: it can quote the URL)"
+            exit 1
+          fi
+          psql "${APP_OWNER_DATABASE_URL}" -X -q -v ON_ERROR_STOP=1 -f supabase/ci/auth-functions-check.sql
       - name: Apply pending migrations to nestly-prod
         env:
           APP_OWNER_DATABASE_URL: ${{ secrets.APP_OWNER_DATABASE_URL }}
