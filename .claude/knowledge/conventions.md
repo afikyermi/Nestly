@@ -2,7 +2,7 @@
 
 **Proposed by:** BUILDER. **Validated by:** CRITIC or DATA ARCHITECT. A convention enters only after
 a validator other than its proposer has confirmed it.
-**Status:** two conventions (12.10.2026), from UI wave 1.
+**Status:** three conventions (13.10.2026): two from UI wave 1, one from the agent-slim log review.
 
 ---
 
@@ -150,6 +150,17 @@ rule:     an error state is never colour alone: the control or its group carries
 why:      a destructive border alone told a screen-reader user nothing (part d, WCAG 1.4.1 / 3.3.1).
 example:  apps/web/src/components/shared/choice-card-group.tsx · apps/web/src/components/ui/checkbox.tsx
 added:    2026-10-12, proposed by CRITIC (part d), validated by CRITIC
+
+### Git and shell (every agent that commits or runs shell)
+rule:     stage files by name, then commit in a **separate** command (`git add a b`, then `git commit …`) — never
+          `git add -A` / `.` and never add and commit in one command. Text that names an env file (a log line, a
+          search pattern, a `-m` commit message) is written with the Write/Edit tools or a quoted heredoc
+          (`git commit -F - <<'EOF'`), not as a shell argument.
+why:      the guard scans the staged diff for secrets before each commit, so it refuses add+commit in one call, and
+          its env-file rule reads command text, not targets. 16 add+commit blocks and 3 env-text false blocks in
+          three days (`.work/agent-slim/stage2-insights.md`).
+example:  .claude/hooks/guard.js (checkAll) · decisions.md 2026-10-11 "hooks (7.2)"
+added:    2026-10-13, proposed by ORCHESTRATOR (agent-slim stage 2), validated by CRITIC
 
 Each entry:
 

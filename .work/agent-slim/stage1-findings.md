@@ -485,3 +485,60 @@ Artifact — `C:\Users\Afik\nestly\.work\agent-slim\stage1-findings.md` ("Implem
 Findings — verdict Not Ready. I-1 high (a UNC alias of the root gets past every reader path rule: TE Read of src and CRITIC Grep of .work both work; the share is reachable, pre-existing in guard.js). I-2 medium (wiring, c/d docs, debt lines and the old guard tests are not in the diff). I-3 low (escalation fires only on exactly 3, which concurrent blocks can skip). I-4 low (a stale review.diff survives a failed run). I-5 low (runner positional arguments are filters). I-6 low (WORKPLAN is stale). F1–F7, R2-1..3 and the Round 4 conditions: met or moot. Loader: no fail-open path. critic-diff: no notes path. R4/BUILDER: unchanged except classification. The tests read no source or notes.
 Open — none for Afik from CRITIC. Rule (c) applicability is ORCHESTRATOR's call.
 Next owner — ORCHESTRATOR (route I-1, I-3 and I-4 to BUILDER, with TEST ENGINEER writing the I-1/I-3/I-4/I-7 tests first; I-2 and I-6 are ORCHESTRATOR's own edits; the re-check of I-1..I-6 comes back to me).
+
+---
+
+# Re-check of I-1..I-6 (CRITIC on opus, 2026-10-13)
+
+Scope: only I-1..I-6, plus the question of whether the swap opens anything new. Source: the regenerated
+`.work/agent-slim/review.diff` (25 files; `guard.next.js` is now swapped into `guard.js`). No Bash used, notes.md not
+read. Line numbers are `review.diff` lines.
+
+```
+verdict: Validated with Concern
+```
+
+## Status
+
+| # | sev | status | basis |
+|---|---|---|---|
+| I-1 | high | **closed** | `outsideRoot()` (diff 1395–1397) blocks a path when either form is `..`, starts with `../`, or is still absolute after `path.relative`. That covers a UNC share, a `\\?\` device path, another drive, and anything above the root. It runs for every non-Bash tool of CRITIC (1533) and TEST ENGINEER (1622). For Grep and Glob it judges the search target, including an absolute Glob prefix (`namedPaths`, 1404–1414). My two failure paths are covered by tests: CRITIC Grep on `unc('.work')`, both slash styles, no glob, and TE Read of `unc('apps','web','src',…)` (1096–1149). There is also a test for outside paths on any platform (1151–1169) and for normal paths inside the root (1171–1176). The UNC write into src and the parent-directory and absolute-prefix cases (I-7) are covered by the same rule and tests. |
+| I-2 | medium | **closed** | Wiring: `settings.json` (1969), builder (10), critic (35) and test-engineer (91) all call `guard-loader.js`. CRITIC: tools without Bash (23), matcher `Read\|Grep\|Glob\|Bash\|Write` (31). TEST ENGINEER: matcher `Read\|Grep\|Glob\|Write\|Edit\|Bash` (87). Docs: workflow.md "Two strikes" (2019–2021), the CLAUDE.md report line (2063–2066), the wrap-up count (1991–1994), the critic.md hygiene line (65–67), the debt.md lines (2236–2238), and the block lines moved to the archive without deleting them. **Old tests:** in `guard.test.js` and `guard-case.test.js`, every changed assertion is a CRITIC or TEST ENGINEER case. Each one either turns an `allows` into a `blocks` or moves the logging check from incidents.md to the block log. No `all` (R4) or `builder` case was removed or weakened, and the `git add -A # TOPSECRET` case still asserts the block and that the command is not logged. |
+| I-3 | low | **closed** | Escalation now fires when `reader >= 3`. It is claimed once per role and session through an exclusive-create flag file (`wx`, 1679–1687, 1707). Of two concurrent hooks, exactly one wins the claim. A failed claim or log directory means no escalation, but the block still stands. Tests seed counts of 3 and 5, check that the escalation fires once and is tracked per session, and check that another role's lines do not count (1187–1216). |
+| I-4 | low | **closed** | An earlier `review.diff` is removed before git runs. If it cannot be removed, the script exits 1 (2452–2458). `.work/*/review.diff` is gitignored (2051–2052). Residual, negligible: a bad slug or base exits before the cleanup. That is an immediate usage error, not a stale run. |
+| I-5 | low | **closed** | The debt.md known-gap line now says that vitest and playwright treat file arguments as filters (2236). |
+| I-6 | low | **closed** | WORKPLAN line 15 records the approval, the Not Ready, the fixes, the swap and the next step. The stale "waiting for your decision" items are gone (2079). |
+
+## Does the swap open anything new?
+
+No read path. What I checked:
+- `outsideRoot` adds blocks only. A CRITIC or TEST ENGINEER read outside the project, such as a file in a temp
+  scratchpad, is now refused. That is noise to watch, not exposure.
+- The R4 and BUILDER code in `guard.js` is unchanged apart from the five `critical()` wrappers.
+- TEST ENGINEER's matcher now also covers Write and Edit, so its Write limit no longer depends on `agent_type`.
+- CRITIC's tools list and its guard both refuse Bash.
+
+**Concerns.** These do not block the merge. ORCHESTRATOR records them in debt.md.
+
+1. **The UNC tests skip on CI.** The I-1 cases for UNC, device paths and other drives run on Windows only. CI runs on
+   Linux, so they skip there, and only the any-platform outside-root test runs. The fix for the one high in this
+   stage has no merge gate. A later edit to `outsideRoot` or `relBoth` that breaks the Windows case would pass CI.
+   - Cost: a silent regression of R1/R2 on the only platform where agents run.
+   - Before merge: ORCHESTRATOR runs `node --test .claude/hooks/guard-readers.test.js` on Windows and records the
+     result.
+   - Later: a Windows CI job, or a `win32` path test that does not touch the file system.
+2. **The fallback is inert until merge.** As stated in section 3, `origin/main:guard.js` has no `main` export until
+   this PR merges. The loader is now wired on the branch, so in a session on this branch a broken `guard.js` blocks
+   everything rather than falling back. After the merge and a fetch, this goes away. Also not new: if
+   `guard-loader.js` itself were missing, `node` would exit 1 and fail open, as a missing `guard.js` did before.
+3. **An escalation has already fired, at incidents.md 11:18.** It reads "third reader block by test-engineer in one
+   session" (diff 2402). Under CLAUDE.md as amended in this diff, it goes to Afik. ORCHESTRATOR also checks whether
+   the three blocks were TEST ENGINEER learning the new limits (→ noise.md) or a probe.
+
+---
+
+Done — re-checked I-1..I-6 against the regenerated review.diff (PR 8, with the swap), and checked the swap for new openings.
+Artifact — `C:\Users\Afik\nestly\.work\agent-slim\stage1-findings.md` ("Re-check of I-1..I-6")
+Findings — verdict Validated with Concern. I-1..I-6 all closed. No R4/BUILDER test was weakened. The swap opens no new read path. Concerns for debt.md: (1) the I-1 UNC tests skip on Linux CI, so run guard-readers.test.js on Windows before merge; (2) the loader fallback is inert until merge; (3) the 11:18 escalation needs reporting and triage.
+Open — none for Afik from CRITIC. The 11:18 incidents line goes to Afik under the amended CLAUDE.md.
+Next owner — ORCHESTRATOR (run guard-readers.test.js on Windows and record it, write the concerns to debt.md, report the 11:18 escalation, then merge on green GitHub CI).
