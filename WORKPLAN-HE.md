@@ -13,12 +13,12 @@
 **עודכן:** 13.10.2026 · **גרסת SRS:** 2.12 · **מצב:** בניית מוצר. מערך הסוכנים קפוא עד ש-I1 ממוזג (הכרעתך מ-13.10, `decisions.md`).
 
 - **🔄 עכשיו: I1 · F1.1 `identity-platform`** (`.work/identity-platform/spec.md`, ‏Elevated). ‏Gate 1 עבר אחרי תשובותיך (Q1 לא, Q2 ‏64 ביט, Q3 רק כשמיגרציות משתנות). Gate 2 עבר (`schema.md`; ‏ON DELETE ‏RESTRICT לפי הכרעתך). שלושה חלקים ברצף: **a** מסד ב-CI ושער RLS ← **b** סכמת זהות ← **c** זהות בשרת.
-- **✅ guard-env-paths** (PR 14): כלל ה-env בודק נתיבים ולא טקסט, וחמישה חורי glob נסגרו. ‏CRITIC: ‏Not Ready, ואחרי סבב התיקון היחיד Validated with Concern. נשאר פער אחד ב-debt: פקודות שעוברות דרך מריצים כמו nodemon ו-concurrently. ‏F5 ושלוש הסתירות באותו PR. הנושא סגור, וזה העדכון האחרון למערך עד סוף I1.
+- **✅ guard-env-paths — מוזגה** (PR 14, ‏13.10; הבאה: F1.1 a): כלל ה-env בודק נתיבים ולא טקסט, וחמישה חורי glob נסגרו. ‏CRITIC: ‏Not Ready, ואחרי סבב התיקון היחיד Validated with Concern. נשאר פער אחד ב-debt: פקודות שעוברות דרך מריצים כמו nodemon ו-concurrently. ‏F5 ושלוש הסתירות באותו PR. הנושא סגור. אחריו נוסף רק כלל מגבלת הסבבים (הכרעתך מ-13.10, workflow → Verdicts).
 - **✅ הכרעותיך על I1 (13.10)** נכנסו ל-SRS 2.12 ולתוספת 1 בקובץ ה-initiative: ‏Google ‏(F1.8 חדש), בלי אימות אימייל, שחזור בתוך המערכת, הצהרת גיל, מסלולים במקביל ועד 10 ילדים. ‏F1.7 יצא.
 - **ממתין להכרעה שלך:** אין.
 - **ממתין לך (סודות ופעולות):**
   1. **קובץ יומן מקומי ישן** `.live/events.jsonl` (טקסט מפרומפטים, לא ב-git): מחיקה היא שלך. אחריה אפשר להסיר את `.live/` מ-`.gitignore`.
-  2. **מחיקת ענפים מרוחקים שמוזגו:** ‏`ui-wave-1/part-a` עד `part-e`, ‏`chore/i1-prep`, ‏`chore/guard-env-paths` אחרי המיזוג.
+  2. **מחיקת ענפים מרוחקים שמוזגו:** ‏`ui-wave-1/part-a` עד `part-e`, ‏`chore/i1-prep`, ‏`chore/guard-env-paths` (מוזג).
   3. **אחרי מיזוג F1.1 b:** לאשר את `migrate` הראשון ב-`db-production`, ואז להריץ את bootstrap שלב 2 ב-prod (‏RESTRICT).
   4. **ב-F1.8:** הגדרת Google Cloud והסודות — אנחה אותך צעד-צעד.
   5. **כשיידרש route שנוגע במסד (F1.4):** ‏`DATABASE_URL` של `app_server` ב-Vercel (‏transaction pooler, פורט 6543).

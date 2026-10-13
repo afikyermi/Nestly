@@ -94,6 +94,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-13 | The guard is a fence, not a fortress: effortful bypasses are accepted risk; F1.1 spec answers Q1–Q3 | 10 |
 | 2026-10-13 | F1.1 Gate 2: schema conventions (nestly, uuid, timestamptz, text+CHECK…); caller-only helpers are INVOKER | 10 |
 | 2026-10-13 | I1 points: ON DELETE RESTRICT · age by declaration · parallel journeys, ≤10 children · Google + email, no verification, in-app recovery · VAL-001 2–60 | 10 |
+| 2026-10-13 | Round limit: one fix round after Not Ready, one re-check, never a third; process tasks stay unmerged, products stop | 10 |
 
 ## Superseded
 
