@@ -114,3 +114,17 @@ logged in `incidents.md` and `noise.md`.
 ## Escape
 
 `escapes.md`, 13.10.2026: should have been caught by CRITIC at 7.2.
+
+## Addendum 13.10 — ORCHESTRATOR answers TEST ENGINEER's four questions
+
+1. **Content-free git calls need no `--` and no exclusion.** Content-free means: `status`, `branch`, `ls-files`, `ls-tree`,
+   `rev-parse`, `remote`, `fetch`, `add`, `commit`, `push`, `switch`, `merge-base`, `log`/`reflog` without a patch option,
+   and `diff`/`show` with one of `--stat`, `--shortstat`, `--numstat`, `--name-only`, `--name-status`, `--quiet` and no
+   patch option. The fixed form of C.7 applies to every other git call. `-<n>` is shorthand for `-n <n>` and is allowed:
+   `git log --oneline --stat -5` and `git log -p -3 -- . ':!.work/*/notes.md'` stay allowed.
+2. Any git subcommand outside that list and outside C.7's fixed form is blocked for CRITIC. Every git content read is
+   blocked for TEST ENGINEER (D.11). The content-free list applies to both roles.
+3. "Named anywhere" is meant literally: `export GIT_X=1; …` and `echo GIT_X=1` in the same command both block a
+   content-reading git call.
+4. The B.4 cwd cases follow from the rule: `ls *.md` run from `docs` is allowed, and `ls *` run from `.work` or `.work/f`
+   is blocked.
