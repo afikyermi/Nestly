@@ -52,3 +52,13 @@ Known not to work yet: nothing calls the loader or `guard.next.js` until the swa
   files is blocked as "BUILDER changes test files" (it matches any test-looking name in the segment, not the target).
   One line landed in `incidents.md` (uncommitted, left in the working tree for ORCHESTRATOR: noise, not an incident).
 - Guard tests take ~45 s for guard-next and ~55 s for the loader (a node process per case); may matter for CI time.
+
+## Stage 1 — fixes for CRITIC I-1, I-3, I-4
+
+**Approach**  I-1: `outsideRoot()` + `namedPaths()` in guard.next.js; `checkCritic` and `checkTestEngineer` refuse any non-Bash call whose path (as written or realpath-resolved, a Glob's literal prefix included) is still absolute after `path.relative` against the root, or starts with `..`. One check at the top of each role function covers Read, Grep, Glob, Write and Edit. I-3: escalate when the reader count is >= 3 and the role+session claims an exclusive flag file `.claude/logs/escalated-<sha1(role,session)>.flag` (`wx`, atomic), so a race cannot fire it twice or skip it. I-4: critic-diff.mjs removes `.work/<slug>/review.diff` right after argument validation; `.gitignore` gets `.work/*/review.diff`.
+**Decisions**  The flag file, not a log line, records "already escalated": creation is atomic, a log read-then-append is not. It sits in the already-ignored `.claude/logs/`. If incidents.md is missing the flag is still claimed (as before, no line is written then). `..` paths are also blocked for the two readers, not only absolute ones.
+**Deviations**  none.
+**Deliberately not done**  guard.js, R4, BUILDER untouched. The R3 UNC write gap stays in debt.md as CRITIC advised.
+**Uncertain**  Blocking `..` and symlinks resolving outside the root is stricter than before. The real-hook UNC probe was not rerun; the tests build the UNC form from the temp root.
+**Preview path**  none (tooling).
+**Neighbouring**  The live guard.js appended a line to incidents.md (uncommitted) when my chained add+commit was blocked: a non-critical r4 block reaching incidents.md, which the new guard.next.js no longer does.
