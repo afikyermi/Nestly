@@ -1,6 +1,9 @@
 // Tests for tools/migrate-url-guard.mjs, from I1 F1.1 spec criterion 5:
 //   "It rejects a URL whose user is not app_owner.<ref> for that environment or whose port is not 5432,
 //    and it never prints the URL."
+// and, carried into part b, from part a's CRITIC finding 1 and finding 6 (.work/identity-platform/findings.md):
+//   the guard rejects a password that fails decodeURIComponent or decodes to a NUL, a non-empty URL hash or any raw "#",
+//   and an sslmode other than absent / require / verify-full; and it still never prints the URL or the password.
 // Only fake URLs and a fake password are used. The password below is a marker: it must never appear in any output.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -189,3 +192,216 @@ test('[F1.1-a c5] the command exits non-zero with no environment argument or an 
     assert.ok(!result.output.includes(PASSWORD));
   }
 });
+
+// =====================================================================================================================
+// Part a CRITIC finding 1 - a password libpq cannot parse.
+//   WHATWG URL accepts a password with invalid percent-encoding; psql then rejects it with an error that quotes the
+//   decoded password, which GitHub's masking of the whole secret does not cover. The guard must refuse it first.
+//   Failure being guarded: a raw "%" in the pasted prod password -> guard passes -> psql prints it in a public log.
+// =====================================================================================================================
+
+const userOf = (environment) => `app_owner.${PROJECT_REFS[environment]}`;
+
+// Each of these fails decodeURIComponent.
+const UNDECODABLE = {
+  'a lone %': '%',
+  'a trailing %': 'abc%',
+  'a % followed by one hex digit': 'ab%2',
+  'a % followed by non-hex characters': '%ZZ',
+  'a % followed by a hex digit and a non-hex character': 'ab%Z1cd',
+  'a doubled %': '%%',
+  'a truncated multi-byte sequence': '%E0%A4%A',
+  'a lone UTF-8 continuation byte': '%80',
+  'an invalid UTF-8 lead byte (%C0)': '%C0',
+  'an invalid UTF-8 byte (%FF)': '%FF',
+  'a %u escape': '%u0041',
+};
+
+for (const environment of ENVIRONMENTS) {
+  for (const [label, tail] of Object.entries(UNDECODABLE)) {
+    test(`[F1.1-a c5 finding 1] rejects a password with ${label} for ${environment}, naming no part of it`, () => {
+      const supplied = urlFor({ user: userOf(environment), password: `${PASSWORD}${tail}` });
+      const result = checkMigrationUrl(supplied, environment);
+      assert.equal(result.ok, false, 'a password that decodeURIComponent rejects was accepted');
+      assert.equal(typeof result.reason, 'string');
+      assert.deepEqual(leaks(result, [supplied, `${PASSWORD}${tail}`]), []);
+    });
+  }
+}
+
+// A password that decodes to a NUL byte: libpq refuses it with the same kind of error.
+const NUL_PASSWORDS = {
+  'only %00': '%00',
+  '%00 at the end': `${PASSWORD}%00`,
+  '%00 at the start': `%00${PASSWORD}`,
+  '%00 in the middle': 'ab%00cd',
+  'a doubled %00%00': '%00%00',
+};
+
+for (const environment of ENVIRONMENTS) {
+  for (const [label, password] of Object.entries(NUL_PASSWORDS)) {
+    test(`[F1.1-a c5 finding 1] rejects a password containing ${label} for ${environment}`, () => {
+      const supplied = urlFor({ user: userOf(environment), password });
+      const result = checkMigrationUrl(supplied, environment);
+      assert.equal(result.ok, false, 'a password that decodes to a NUL byte was accepted');
+      assert.deepEqual(leaks(result, [supplied]), []);
+    });
+  }
+}
+
+// The refusal must not become a ban on legitimate passwords: valid percent-encoding still passes.
+const ENCODED_BUT_VALID = {
+  '%25 (an encoded %)': `${PASSWORD}%25`,
+  '%23 (an encoded #)': `${PASSWORD}%23`,
+  '%40 (an encoded @)': `${PASSWORD}%40x`,
+  '%2F (an encoded /)': `a%2Fb${PASSWORD}`,
+  '%3A (an encoded :)': `a%3Ab${PASSWORD}`,
+  'a valid multi-byte sequence (%E2%82%AC)': `${PASSWORD}%E2%82%AC`,
+  'plain URL-safe characters': `${PASSWORD}-._~`,
+};
+
+for (const environment of ENVIRONMENTS) {
+  for (const [label, password] of Object.entries(ENCODED_BUT_VALID)) {
+    test(`[F1.1-a c5 finding 1] still accepts a password with ${label} for ${environment}`, () => {
+      const result = checkMigrationUrl(urlFor({ user: userOf(environment), password }), environment);
+      assert.equal(result.ok, true, `rejected a valid password: ${visible(result).replace(PASSWORD, '<marker>')}`);
+    });
+  }
+}
+
+test('[F1.1-a c5 finding 1] the command refuses an undecodable or NUL password, exits non-zero and prints neither password nor URL', () => {
+  const cases = [`${PASSWORD}%`, `${PASSWORD}%ZZ`, `${PASSWORD}%E0%A4%A`, `${PASSWORD}%00`, `%00${PASSWORD}`];
+  for (const environment of ENVIRONMENTS) {
+    for (const password of cases) {
+      const supplied = urlFor({ user: userOf(environment), password });
+      const result = run([environment], { APP_OWNER_DATABASE_URL: supplied });
+      assert.notEqual(result.status, 0, `accepted password ${password.replace(PASSWORD, '<marker>')}`);
+      assert.ok(!result.output.includes(PASSWORD), 'the password is printed');
+      assert.ok(!result.output.includes(supplied), 'the URL is printed');
+    }
+  }
+});
+
+// =====================================================================================================================
+// Part a CRITIC finding 6 - the fragment.
+//   libpq has no fragment: psql reads "#?host=evil" as part of the URL and applies it. Reject a non-empty hash and any
+//   raw "#", wherever it sits. An encoded %23 stays legal (checked above).
+// =====================================================================================================================
+
+for (const environment of ENVIRONMENTS) {
+  const user = userOf(environment);
+  const withHash = {
+    'a fragment after the path': urlFor({ user, path: '/postgres#frag' }),
+    'a bare # after the path (empty hash)': urlFor({ user, path: '/postgres#' }),
+    'a fragment that smuggles a host parameter': urlFor({ user, path: '/postgres#?host=evil.example.com' }),
+    'a fragment that smuggles a port parameter': urlFor({ user, path: '/postgres#?port=6543' }),
+    'a fragment after a valid sslmode query': urlFor({ user, query: '?sslmode=require#x' }),
+    'a fragment right after the port': `postgresql://${user}:${PASSWORD}@${HOST}:5432#?host=evil.example.com`,
+    'a raw # inside the password': urlFor({ user, password: `${PASSWORD}#x` }),
+    'a raw # at the end of the password': urlFor({ user, password: `${PASSWORD}#` }),
+    'a raw # inside the user': `postgresql://app_owner.${PROJECT_REFS[environment]}#x:${PASSWORD}@${HOST}:5432/postgres`,
+  };
+  for (const [label, supplied] of Object.entries(withHash)) {
+    test(`[F1.1-a c5 finding 6] rejects ${label} for ${environment}`, () => {
+      const result = checkMigrationUrl(supplied, environment);
+      assert.equal(result.ok, false, 'a URL with a "#" was accepted');
+      assert.deepEqual(leaks(result, [supplied]), []);
+    });
+  }
+
+  test(`[F1.1-a c5 finding 6] the command refuses a fragment for ${environment}, exits non-zero and prints nothing of the URL`, () => {
+    const supplied = urlFor({ user, path: '/postgres#?host=evil.example.com' });
+    const result = run([environment], { APP_OWNER_DATABASE_URL: supplied });
+    assert.notEqual(result.status, 0);
+    assert.ok(!result.output.includes(PASSWORD));
+    assert.ok(!result.output.includes(supplied));
+    assert.ok(!result.output.includes('evil.example.com'), 'the smuggled host is echoed');
+  });
+}
+
+// =====================================================================================================================
+// Part a CRITIC finding 6 - TLS. sslmode absent (the workflow sets PGSSLMODE=require), require, or verify-full; nothing else.
+// =====================================================================================================================
+
+for (const environment of ENVIRONMENTS) {
+  const user = userOf(environment);
+  for (const sslmode of ['require', 'verify-full']) {
+    test(`[F1.1-a c5 finding 6] accepts sslmode=${sslmode} for ${environment}`, () => {
+      assert.equal(checkMigrationUrl(urlFor({ user, query: `?sslmode=${sslmode}` }), environment).ok, true);
+    });
+  }
+  test(`[F1.1-a c5 finding 6] accepts a URL with no sslmode for ${environment} (the workflow requires TLS itself)`, () => {
+    assert.equal(checkMigrationUrl(urlFor({ user }), environment).ok, true);
+  });
+
+  const badModes = {
+    'sslmode=disable': '?sslmode=disable',
+    'sslmode=allow': '?sslmode=allow',
+    'sslmode=prefer': '?sslmode=prefer',
+    'sslmode=verify-ca': '?sslmode=verify-ca',
+    'an empty sslmode': '?sslmode=',
+    'sslmode=Require (case matters to libpq)': '?sslmode=Require',
+    'sslmode=REQUIRE': '?sslmode=REQUIRE',
+    'sslmode=require with a trailing space': '?sslmode=require%20',
+    'sslmode=require followed by a NUL': '?sslmode=require%00',
+    'sslmode=true': '?sslmode=true',
+    'sslmode=0': '?sslmode=0',
+    'require first, then disable': '?sslmode=require&sslmode=disable',
+    'disable first, then require': '?sslmode=disable&sslmode=require',
+    'require twice with prefer': '?sslmode=require&sslmode=verify-full&sslmode=prefer',
+    'an encoded parameter name': '?ssl%6Dmode=disable',
+  };
+  for (const [label, query] of Object.entries(badModes)) {
+    test(`[F1.1-a c5 finding 6] rejects ${label} for ${environment}`, () => {
+      const supplied = urlFor({ user, query });
+      const result = checkMigrationUrl(supplied, environment);
+      assert.equal(result.ok, false, 'a URL that does not require TLS was accepted');
+      assert.deepEqual(leaks(result, [supplied]), []);
+    });
+  }
+
+  // Parameters libpq honours that can move the connection somewhere else, or weaken it, next to a valid sslmode.
+  for (const key of ['host', 'hostaddr', 'user', 'password', 'service', 'passfile', 'options', 'sslrootcert', 'sslcert', 'sslkey']) {
+    test(`[F1.1-a c5 finding 6] rejects a ${key} parameter next to a valid sslmode for ${environment}`, () => {
+      const supplied = urlFor({ user, query: `?sslmode=require&${key}=evil.example.com` });
+      const result = checkMigrationUrl(supplied, environment);
+      assert.equal(result.ok, false, `the ${key} parameter was accepted`);
+      assert.deepEqual(leaks(result, [supplied, 'evil.example.com']), []);
+    });
+  }
+
+  test(`[F1.1-a c5 finding 6] the command refuses sslmode=disable for ${environment}, exits non-zero and prints nothing of the URL`, () => {
+    const supplied = urlFor({ user, query: '?sslmode=disable' });
+    const result = run([environment], { APP_OWNER_DATABASE_URL: supplied });
+    assert.notEqual(result.status, 0);
+    assert.ok(!result.output.includes(PASSWORD));
+    assert.ok(!result.output.includes(supplied));
+  });
+}
+
+// =====================================================================================================================
+// Part a CRITIC finding 6 - the host check had no failing test.
+// =====================================================================================================================
+
+const NOT_THE_POOLER = {
+  'the direct database host': 'db.cihugbwafnaujsqabgyp.supabase.co',
+  'localhost': 'localhost',
+  'an IPv4 address': '127.0.0.1',
+  'an unrelated host': 'evil.example.com',
+  'the pooler name as a prefix of another domain': 'aws-0-eu-central-1.pooler.supabase.com.evil.example.com',
+  'the pooler name inside another domain': 'aws-0-eu-central-1.pooler.supabase.com-evil.example.com',
+  'the supabase.com apex': 'supabase.com',
+  'a lookalike domain': 'aws-0-eu-central-1.pooler.supabase.co',
+  'a pooler name under a different parent': 'aws-0-eu-central-1.pooler.evil.com',
+};
+
+for (const environment of ENVIRONMENTS) {
+  for (const [label, host] of Object.entries(NOT_THE_POOLER)) {
+    test(`[F1.1-a c5 finding 6] rejects ${label} as the host for ${environment}`, () => {
+      const supplied = urlFor({ user: userOf(environment), host });
+      const result = checkMigrationUrl(supplied, environment);
+      assert.equal(result.ok, false, `the host ${host} was accepted`);
+      assert.deepEqual(leaks(result, [supplied]), []);
+    });
+  }
+}
