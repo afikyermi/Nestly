@@ -42,3 +42,26 @@ Accepted risk (Afik 13.10), not rated: $'.env' / $".env" / cat .en$x; '.env.'+x 
 Concern, not rated: a quoted multi-word string ending in "/.env" is judged a path (git commit -m "remove apps/server/.env") — fails closed; residual noise.
 
 (Written by ORCHESTRATOR verbatim from CRITIC's returned text; the harness refused CRITIC's own write.)
+
+## Round 2 — re-check of round-1 findings (commit 62050bf)
+
+verdict: Validated with Concern
+
+Finding 1 (high, "$(...)" and backticks inside double quotes): CLOSED. segmentNamesEnv reads any token containing $( or a backtick as text, even in a pattern position. psql "$(grep DATABASE_URL .env.preview | …)", export URL="$(cat .env.local)", echo "`cat .env`", "$(< .env)" all exit 2; echo "the .env file" exits 0.
+Finding 2 (high, scripts handed to a shell or interpreter in other forms): CLOSED. scriptOf finds -c in a bundle or after other options (bash -lc, sh -ec, bash -e -c, bash --login -c, zsh -ic); powershell without -Command and cmd /s /c, /d /c are read as text; a pipe into a bare interpreter is read as text. Where the script position is not found, tokens after the interpreter are text (fails closed).
+Finding 3 (medium, unbounded brace expansion): CLOSED. braces() stops past 256 words and fails closed; the regex is linear; quoted braces are never expanded.
+Finding 4 (medium, quoted braces counted): CLOSED. The "more than 8 '{'" rule is gone; brace-heavy node -e naming no env file exits 0.
+
+Regression check vs. the old text rule for plain, honest commands: none introduced by the round-1 fix. BUILDER's fail-closed false blocks (>256 unquoted brace words, '$(...)' in single quotes naming an env file, a bare sh/cmd/eval/bash argument followed by env text, a pipe plus an interpreter read as text) do not hit ordinary daily commands — unrated.
+
+--- finding ---
+severity: medium
+file:     .claude/hooks/guard.js:359-365 (INTERPRETER / segmentNamesEnv) and :315-318 (tokenNamesEnv)
+claim:    A quoted command string handed to a command runner not in INTERPRETER is judged only as one path token, so an env file named inside it passes. The old text rule blocked this. A round-1 miss in the class of finding 2, present before the fix.
+failure:  npx nodemon --exec "tsx --env-file=.env.local apps/server/src/index.ts" -> exit 0, and the server starts with the secrets loaded. Old rule: exit 2. Same for npx concurrently "… --env-file=.env.preview …", watch "cat .env", npx -c "cat .env", npm exec -c "…", git rebase -x "…", ssh host "cat .env".
+fix:      Treat known command runners like interpreters: nodemon, concurrently, watch, npx/npm exec -c, git rebase -x/--exec, ssh, iex/Invoke-Expression inside powershell. A still-blocked test for each.
+--- end ---
+
+Concern (to debt.md): 1. the runner gap stays open at medium — this was the last round. 2. Every fail-closed false block is r4-critical and writes an incidents.md line; if they appear in noise.md, the cheaper fix is a non-critical rule for fail-closed ambiguity.
+
+Accepted risk (Afik 13.10), unrated: "$(cat .env*)" / "$(cat {.env,x})" inside double quotes · sequence expressions (cat .en{v..v}) · ".env}" next to a brace in a PowerShell script block · PowerShell backtick escapes and iex inside -Command · env-reading code written to a file and run · plus the round-1 list.
