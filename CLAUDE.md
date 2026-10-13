@@ -267,8 +267,8 @@ CRITIC or DATA ARCHITECT validates it. Only then does it enter.
 
 | File | What goes in | Who writes |
 |---|---|---|
-| `decisions.md` | every material decision + rejected alternatives | ORCHESTRATOR |
-| `incidents.md` | material operational failures | ORCHESTRATOR, from hooks/CI |
+| `decisions.md` | every real decision + rejected alternatives — not what follows directly from the SRS or an approved spec | ORCHESTRATOR |
+| `incidents.md` | real operational events only: prod, a secret, CI red on main, a failed deploy, a loop. A false hook block is one `noise.md` line | ORCHESTRATOR, from hooks/CI |
 | `debt.md` | every `Validated with Concern` · every neighbouring bug BUILDER reported and did not fix | ORCHESTRATOR, from CRITIC and from `notes.md` |
 | `escapes.md` | defects found **after** merge + which gate should have caught it | ORCHESTRATOR |
 | `noise.md` | findings raised that were not real, or cost more than they saved | ORCHESTRATOR |
@@ -280,6 +280,11 @@ Re-proposing a rejected alternative wastes Afik's time and your tokens.
 ---
 
 ## Learning
+
+**Frozen until I1 merges** (Afik, 13.10.2026, "From building the system to building the product"): no change to this
+file, agents, skills, `workflow.md`, `learning.md`, the guard or `settings.json`, except the minimal fix of a rule that
+blocks legitimate feature work now (one `noise.md` line). Process ideas go as one line to "לרטרו אחרי I1" in WORKPLAN.
+The guard is a fence: an effortful bypass is an accepted risk, not a bug or debt.
 
 **`.claude/learning.md` owns the improvement loop** — triggers, procedure, proposal format,
 checklist budgets, versioning and rollback. Read it before proposing any change to this model.
@@ -302,7 +307,7 @@ and `settings.json` prompts on `.claude/**` to enforce it.
 
 Not only security. Also: migration failed mid-run · CI red on main · CI red over 24h ·
 deploy or preview failed · a hook block the guard writes to `incidents.md` (prod, a secret, `.env`, force
-push, or a third reader block by one role in one session) · an external dependency is down ·
+push, or a third reader block by one role in one task) · an external dependency is down ·
 an agent looped or repeated the same failure three times. Other correct hook blocks are only counted, by
 `/wrap-up`; a hook that blocked legitimate work goes to `noise.md`.
 

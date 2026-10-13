@@ -1,6 +1,6 @@
 # Workflow — canonical pipeline
 
-**Version:** 1.9
+**Version:** 1.10
 **Status:** the single source of truth for sequence, triggers and who enters when.
 Agent definitions describe professions. **This file describes order.** If they disagree, this file wins.
 
@@ -131,7 +131,8 @@ problem:      why — cost, risk, or not implementable as written
 alternative:  what instead, and what changes for the user
 ```
 
-One per feature, before code. Afik decides in one line. This is what keeps the team professional
+One per feature, before code. Its decision owner decides in one line — ORCHESTRATOR, or Afik when the
+challenge touches a reserved point (CLAUDE.md → "Decision authority"). This is what keeps the team professional
 rather than merely compliant.
 
 ---
@@ -168,7 +169,7 @@ whole PR.
 
 ## Result
 
-`result.md`, two independent axes:
+`result.md`, at most 15 lines, no narrative (Afik, 13.10.2026) — two independent axes:
 
 - **Execution:** `Succeeded` · `Partially Succeeded` · `Failed` · `Blocked`
 - **Quality:** `Good` · `Needs Improvement` · `Not Good`
@@ -249,8 +250,9 @@ nothing here because the output is a diff, not a summary: CRITIC reads the real 
 
 ## Cost discipline
 
-Target: **8–12 model calls per Standard feature.** If a feature exceeds ~20, stop and ask why —
-usually the spec was too large and should have been split.
+Target: **8–12 model calls per Standard feature, or per part of a split spec.** If one exceeds ~20, stop and ask
+why — usually the spec was too large and should have been split. Parts of one spec run in sequence without stopping,
+except on a reserved item, a real `BLOCKER` or Two strikes.
 
 - No agent reads the whole repository.
 - Use SCOUT instead of reading files "to be safe." Every unnecessary file read burns context
@@ -286,3 +288,6 @@ usually the spec was too large and should have been split.
   Afik (agent-system slimming, guard approach c).
 - 1.9 — 2026-10-13 — Traceability: squash merges, the PR body carries the `Implements:` line. Decided by Afik
   ("Commits and pushes", agent-slim stage 3).
+- 1.10 — 2026-10-13 — SPEC CHALLENGE goes to its decision owner, not always to Afik. Decided by Afik (agent-slim
+  stage 4, contradiction 2). Same day: `result.md` at most 15 lines; the cost target also per part; parts run in
+  sequence (Afik, "From building the system to building the product"). The last change before I1 merges.

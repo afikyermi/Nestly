@@ -65,3 +65,23 @@ Preview.
 - Every Preview is approved.
 - The SRS reflects what was built: step 14 runs in each feature's `/wrap-up`.
 - `escapes.md` and `noise.md` record what the gates missed or over-raised.
+
+## Addendum 1 — Afik, 13.10.2026 (`decisions/2026-10.md`, "I1 open points")
+
+Material change to the approved scope; the rows above are kept as approved and read through this addendum.
+
+- **Sign-up:** open to everyone. Two equal ways: "המשך עם Google", or email and password (VAL-003). **No email
+  verification** — sign up and enter at once. From Google only the email is stored.
+- **F1.3:** the stage is a multi-select — "מתכננים", "בהריון", "יש לנו ילד או ילדה"; the first two are exclusive. Each
+  choice's fields open only when ticked; "הוספת ילד נוסף" visible; up to 10 children. A user may hold several
+  JourneyContexts. ChoiceCardGroup needs a multi-select variant. VAL-001: full name 2–60 characters after trimming.
+- **F1.4:** no email verification. Consent includes the 18+ declaration (one checkbox with Terms and Privacy, stored in
+  LegalConsent with version and time). No parent birth date. OP-026 closed.
+- **F1.6:** password recovery **inside the product, no email**. SPEC and DATA ARCHITECT design it; CRITIC on opus. One
+  approved exception to platform rule 1 for this flow only, if needed: isolated, least privilege, rate-limited,
+  audited, listed in data-model.md "Approved exceptions".
+- **F1.7 (email provider): out.**
+- **New F1.8 `google-sign-in`:** sign-in and sign-up with Google — a new external provider (CRITIC). Afik sets up Google
+  Cloud and enters the secrets, guided step by step. Depends on F1.5.
+- **F1.1:** the anchor's ON DELETE is **RESTRICT**; bootstrap step 2 is unblocked.
+- **Out of I1:** the closed beta invite list (FR-ADMIN-011), deferred. Which journey the home shows first → I6.

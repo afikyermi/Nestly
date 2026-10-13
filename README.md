@@ -14,7 +14,7 @@ nestly/
 ├── CLAUDE.md               ← ORCHESTRATOR: חוקי הלופ הראשי. נטען אוטומטית בכל סשן מהתיקייה הזו
 ├── WORKPLAN-HE.md          ← תוכנית העבודה החיה
 ├── decisions.md            ← יומן החלטות וחלופות שנדחו. סוכנים קוראים אותו לפני כל הצעה
-├── open-questions.md       ← שאלות פתוחות ומה כל אחת חוסמת
+├── archive/                ← היסטוריה, לא מקור אמת: WORKPLAN ישן, open-questions, overview, coverage-audit
 ├── debt.md · escapes.md · incidents.md · noise.md   ← יומני הלמידה והתפעול
 │
 ├── .claude/
@@ -32,8 +32,6 @@ nestly/
 │   │   └── archive/                ← ה-SRS ב-Word: v1 ו-v2.2. היסטוריה בלבד, לא לעריכה
 │   │
 │   ├── srs-analysis-HE.md          ← ניתוח SRS v2.2 והשלכותיו על הסוכנים
-│   ├── coverage-audit-HE.md        ← ביקורת כיסוי: המודל המקורי מול מה שנבנה
-│   ├── overview-HE.md              ← סקירת כל הסוכנים והמבנה
 │   ├── glossary-HE.md              ← מילון מונחים מאפס
 │   ├── database-decision-HE.md     ← RLS ובחירת המסד
 │   ├── engineering-guidelines-review-HE.md ← סקירת הנחיות הנדסיות חיצוניות: מה אומץ, מה נדחה ולמה
