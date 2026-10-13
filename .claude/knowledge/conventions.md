@@ -81,14 +81,14 @@ first line of code, and CRITIC checks them in every review. When the SRS changes
 - No over-decomposition: a simple, one-off piece can stay inside its Page or Feature.
 - A Feature never imports another Feature. What two Features both need moves to a Shared/Domain component
   or a shared service.
-- These rules are enforced by lint in CI, including a size cap per file (WORKPLAN part 7; the caps are in
+- These rules are enforced by lint in CI, including a size cap per file (WORKPLAN part 7, in `archive/WORKPLAN-2026-10.md`; the caps are in
   `decisions.md`). Until CI exists, CRITIC checks them.
 
 ### Monorepo boundaries — decided 2026-10-11
 - `packages/shared` imports nothing from `apps/*`. It uses no DOM and no Node APIs.
 - `apps/web` never imports from `apps/server`, and the server never imports from the web app. They meet only
   through `packages/shared` and the HTTP API.
-- Enforced by lint in CI (WORKPLAN 7.1).
+- Enforced by lint in CI (WORKPLAN 7.1, in `archive/WORKPLAN-2026-10.md`).
 
 ### Web now, React Native later — SRS §4, §11, OP-002, NFR-USAB-002
 - Business rules, validation and data access live in `packages/shared` and on the server, so they carry

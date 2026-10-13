@@ -18,7 +18,7 @@ YYYY-MM-DD HH:MM | <what failed> | impact | state: open | contained | resolved |
 | CI red on `main` | the main branch is broken; everything built on it is suspect |
 | CI red over 24h | the pipeline is muted in practice, even if nobody said so |
 | deploy or preview failed | Gate 2 is gone |
-| a hook blocked an action | an agent attempted to cross a guardrail. **always reported** |
+| a hook block the guard escalates — prod, a secret, `.env`, force push, or the third reader block by one role in one session | an agent may be probing a guardrail. **always reported**; other correct blocks are counted by `/wrap-up` (decisions/2026-10.md, guard approach d and F5) |
 | external dependency down | storage, auth, database |
 | an agent looped, or repeated the same failure three times | a failure of the agent system, not of the product |
 | secret detected in a commit or in output | contain first, then report |
@@ -43,3 +43,5 @@ YYYY-MM-DD HH:MM | <what failed> | impact | state: open | contained | resolved |
 2026-10-13 11:34 | hook blocked Bash (all): Shell commands do not touch .env files: they hold Afik's secrets. SQL on preview runs through `node tools/db-preview.mjs`, which reads .env.preview itself. | the call did not run | state: contained | ORCHESTRATOR reports to Afik
 2026-10-13 11:35 | hook blocked Bash (all): Shell commands do not touch .env files: they hold Afik's secrets. SQL on preview runs through `node tools/db-preview.mjs`, which reads .env.preview itself. | the call did not run | state: contained | ORCHESTRATOR reports to Afik
 2026-10-13 11:35 (resolution) | the two blocks above: ORCHESTRATOR's grep over the block archive used the text ".env" as a search pattern, then a printf recording that block quoted it again; no .env file was named or read | none | state: resolved | false blocks, noise.md
+2026-10-13 12:10 | hook blocked Bash (all): Shell commands do not touch .env files: they hold Afik's secrets. SQL on preview runs through `node tools/db-preview.mjs`, which reads .env.preview itself. | the call did not run | state: contained | ORCHESTRATOR reports to Afik
+2026-10-13 12:10 (resolution) | the block above: an inline `node -e` script that edited incidents.md quoted the text ".env" in a table row; no .env file was named or read. ORCHESTRATOR broke its own new convention ("Git and shell") and reran the script from a file | none | state: resolved | false block, noise.md

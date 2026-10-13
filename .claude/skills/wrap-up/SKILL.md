@@ -27,7 +27,8 @@ The Preview passed — ORCHESTRATOR checked it, URL recorded in WORKPLAN (or the
    or `noise.md` where a finding proved real after merge, or proved not real · **blocks:** from the local
    `.claude/logs/blocks.jsonl`, the lines since the task began, counted per role and `rule`+reason, as one
    "Hook blocks" line in `result.md` (none → "Hook blocks: none"). A block that stopped legitimate work goes to
-   `noise.md`. The guard itself writes `incidents.md` for critical blocks; nothing else from the log does.
+   `noise.md`. The guard itself writes `incidents.md` for critical blocks and for the third reader block of one role in one
+   session; nothing else from the log does.
 3. **SRS — step 14:** if behaviour the SRS describes changed, follow `.claude/skills/srs-update/SKILL.md`, steps 1–6.
    Read and follow that file; it is a procedure, not something to invoke.
 4. **WORKPLAN:** the task's status in its part table, and the "איפה אנחנו עומדים" block. WORKPLAN keeps only open
