@@ -14,7 +14,9 @@
 //
 // A fence, not a vault: these are path and pattern checks on what the agent asked for.
 // A determined agent can build an equivalent the patterns do not match. CRITIC review and
-// CI stay behind it.
+// CI stay behind it. The one exception to "patterns" is the reading rules of CRITIC and TEST
+// ENGINEER: there an allowlist is the base (a call that could reach the protected file is
+// blocked unless it matches an allowed form) and the specific messages only give the reason.
 
 'use strict';
 
@@ -131,30 +133,55 @@ function dropHeredocs(command) {
 
 // Splits a command into segments (on && || ; | & ( ) ` and newlines, outside quotes) of
 // unquoted tokens. Strings handed to another shell — bash -c, sh -c, eval, powershell
-// -Command, cmd /c — are parsed too, and their segments added.
+// -Command, cmd /c — are parsed too, and their segments added (flagged `nested`). Each
+// segment also carries `pat` — its tokens with every quoted or escaped glob character
+// backslash-escaped, so what the shell would expand can be told from literal text — and
+// `before` / `after`, the separators on either side of it.
 function shellSegments(command, depth = 0) {
   const src = dropHeredocs(command);
   const segments = [];
   let tokens = [];
+  let pats = [];
   let cur = '';
+  let pat = '';
   let has = false;
   let quote = null;
+  let before = '';
+  const lit = (ch) => (/[*?[\]{}\\]/.test(ch) ? '\\' + ch : ch);
   const pushToken = () => {
-    if (has) tokens.push(cur);
+    if (has) {
+      tokens.push(cur);
+      pats.push(pat);
+    }
     cur = '';
+    pat = '';
     has = false;
   };
-  const pushSegment = () => {
+  const pushSegment = (sep = '') => {
     pushToken();
-    if (tokens.length) segments.push(tokens);
+    if (tokens.length) {
+      tokens.pat = pats;
+      tokens.before = before;
+      tokens.after = sep;
+      segments.push(tokens);
+      before = sep;
+    } else if (sep !== '\n') {
+      before = sep;
+    }
     tokens = [];
+    pats = [];
   };
   for (let i = 0; i < src.length; i++) {
     const c = src[i];
     if (quote) {
       if (c === quote) quote = null;
-      else if (c === '\\' && quote === '"' && i + 1 < src.length) cur += src[++i];
-      else cur += c;
+      else if (c === '\\' && quote === '"' && i + 1 < src.length) {
+        cur += src[++i];
+        pat += lit(src[i]);
+      } else {
+        cur += c;
+        pat += lit(c);
+      }
       continue;
     }
     if (c === '"' || c === "'") {
@@ -162,16 +189,25 @@ function shellSegments(command, depth = 0) {
       has = true;
     } else if (c === '\\' && i + 1 < src.length && src[i + 1] !== '\n') {
       cur += src[++i];
+      pat += lit(src[i]);
       has = true;
     } else if (c === '|' && src[i - 1] === '>') {
       cur += c; // `>|` is a redirection, not a pipe
+      pat += c;
       has = true;
     } else if ('|;&()`\n'.includes(c)) {
-      pushSegment();
+      const twice = (c === '&' || c === '|') && src[i + 1] === c;
+      if (twice) i++;
+      pushSegment(twice ? c + c : c);
     } else if (/\s/.test(c)) {
       pushToken();
+    } else if (c === '$' && /[?*]/.test(src[i + 1] || '')) {
+      cur += c + src[++i]; // $? and $* cannot name a path: not a glob
+      pat += c + lit(src[i]);
+      has = true;
     } else {
       cur += c;
+      pat += c;
       has = true;
     }
   }
@@ -194,10 +230,12 @@ function shellSegments(command, depth = 0) {
       }
     }
   }
+  for (const n of nested) n.nested = true;
   return segments.concat(nested);
 }
 
-// For a segment that runs git: the subcommand, what follows it, and a -C directory if given.
+// For a segment that runs git: the subcommand, what follows it, a -C directory if given, and the global options
+// before the subcommand.
 function gitCall(seg) {
   const i = seg.findIndex((t) => /^git(\.exe)?$/i.test(path.posix.basename(slash(t))));
   if (i < 0) return null;
@@ -209,7 +247,7 @@ function gitCall(seg) {
     j++;
   }
   if (j >= seg.length) return null;
-  return { sub: seg[j], args: seg.slice(j + 1), dir };
+  return { sub: seg[j], args: seg.slice(j + 1), dir, globals: seg.slice(i + 1, j) };
 }
 
 function hasShortFlag(args, letter) {
@@ -251,8 +289,9 @@ const BLOCKED_REFS = [
 ];
 
 // The command without heredoc bodies that are only data — a commit message, a file being written. A body fed
-// to an interpreter (bash, node, python…) is a script, so it is kept.
-function commandText(command) {
+// to an interpreter (bash, node, python…) is a script, so it is kept. With mode 'expanding' the body of a heredoc
+// whose delimiter is not quoted is kept too: the shell expands $(…) in it.
+function commandText(command, mode = '') {
   const lines = String(command).split('\n');
   const out = [];
   let delim = null;
@@ -264,10 +303,11 @@ function commandText(command) {
       continue;
     }
     out.push(line);
-    const m = /(?:^|[^<])<<-?\s*(?!<)['"]?([A-Za-z_][A-Za-z0-9_]*)['"]?/.exec(line);
+    const m = /(?:^|[^<])<<-?\s*(?!<)(['"]?)([A-Za-z_][A-Za-z0-9_]*)['"]?/.exec(line);
     if (m) {
-      delim = m[1];
-      keep = /\b(bash|sh|zsh|node|python3?|perl|ruby|pwsh|powershell|deno|bun|eval|source)\b/i.test(line.slice(0, m.index + 1));
+      delim = m[2];
+      keep = /\b(bash|sh|zsh|node|python3?|perl|ruby|pwsh|powershell|deno|bun|eval|source)\b/i.test(line.slice(0, m.index + 1)) ||
+        (mode === 'expanding' && !m[1]);
     }
   }
   return out.join('\n');
@@ -443,8 +483,8 @@ const GIT_READS_CONTENT = new Set(['diff', 'diff-tree', 'diff-index', 'diff-file
 // Flags that make log, reflog or stash print patches.
 function showsPatch(args) {
   return args.some((a) =>
-    /^-[A-Za-z0-9]*[pu][A-Za-z0-9]*$/.test(a) || /^-[cLGS]/.test(a) ||
-    /^--(patch|cc|combined|full-diff|word-diff|color-words|binary|raw)/.test(a));
+    /^-[A-Za-z0-9]*[pu][A-Za-z0-9]*$/.test(a) || /^-[cLGSU]/.test(a) ||
+    /^--(patch|cc|combined|full-diff|word-diff|color-words|binary|raw|unified|remerge-diff)/.test(a));
 }
 
 function gitReadsContent({ sub, args }) {
@@ -470,32 +510,374 @@ function excludesNotes(args) {
   });
 }
 
+// ---- the allowlist: what a call may be, whatever it is spelled like ----
+
+// The path with every symlink in it resolved and `..` read after the link — what the kernel opens. A part that does
+// not exist is kept as written.
+function physical(p, depth = 0) {
+  const { root } = path.parse(p);
+  let cur = root;
+  for (const part of p.slice(root.length).split(/[\\/]+/)) {
+    if (!part || part === '.') continue;
+    if (part === '..') {
+      cur = path.dirname(cur);
+      continue;
+    }
+    const next = path.join(cur, part);
+    let link = null;
+    try {
+      if (depth < 16 && fs.lstatSync(next).isSymbolicLink()) link = fs.readlinkSync(next);
+    } catch {
+      // not there: it stays as written
+    }
+    cur = link === null ? next : physical(path.resolve(cur, link), depth + 1);
+  }
+  return cur;
+}
+
+// Like rel(), but through symlinks.
+function relReal(p, root, cwd) {
+  return fold(slash(path.relative(physical(root), physical(abs(p, cwd)))));
+}
+
+function inWork(r) {
+  return isInside(r.toLowerCase(), '.work');
+}
+
+// A glob character the shell would expand: * ? [..] and a brace list or range. Quoted ones are escaped in `pat`.
+const WILD = /[*?]|\[[^\]]+\]|\{[^{}]*(,|\.\.)[^{}]*\}/;
+const unescape = (s) => s.replace(/\\(.)/g, '$1');
+const isWild = (pat) => WILD.test(pat.replace(/\\./g, ''));
+const wildSeg = (seg) => /[*?[{]/.test(seg.replace(/\\./g, ''));
+
+// {a,b} -> a, b (nested too). A brace without a comma is literal.
+function expandBraces(s, out = []) {
+  let depth = 0;
+  let start = -1;
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === '\\') {
+      i++;
+    } else if (s[i] === '{') {
+      if (depth++ === 0) start = i;
+    } else if (s[i] === '}' && depth > 0 && --depth === 0) {
+      const parts = [];
+      let d = 0;
+      let from = start + 1;
+      for (let k = start + 1; k < i; k++) {
+        if (s[k] === '\\') k++;
+        else if (s[k] === '{') d++;
+        else if (s[k] === '}') d--;
+        else if (s[k] === ',' && d === 0) {
+          parts.push(s.slice(from, k));
+          from = k + 1;
+        }
+      }
+      parts.push(s.slice(from, i));
+      if (parts.length > 1 && out.length < 256) {
+        for (const p of parts) expandBraces(s.slice(0, start) + p + s.slice(i + 1), out);
+        return out;
+      }
+    }
+  }
+  out.push(s);
+  return out;
+}
+
+// Does the glob segment match this name? Like bash: a leading * ? [ does not match a leading dot.
+function segMatches(seg, name) {
+  let re = /[*?[]/.test(seg[0] || '') ? '(?!\\.)' : '';
+  for (let i = 0; i < seg.length; i++) {
+    const c = seg[i];
+    const close = c === '[' ? seg.indexOf(']', i + 2) : -1;
+    if (c === '*') re += '.*';
+    else if (c === '?') re += '.';
+    else if (close > 0) {
+      re += '[' + seg.slice(i + 1, close).replace(/^!/, '^').replace(/\\/g, '\\\\') + ']';
+      i = close;
+    } else if (c === '\\' && i + 1 < seg.length) re += seg[++i].replace(/[\\^$.*+?()[\]{}|/]/g, '\\$&');
+    else re += c.replace(/[\\^$.*+?()[\]{}|/]/g, '\\$&');
+  }
+  try {
+    return new RegExp('^' + re + '$', 'i').test(name);
+  } catch {
+    return true; // a pattern that does not compile is assumed to match: the stricter reading
+  }
+}
+
+// Could this pattern (project-relative, braces expanded) match something under apps/<app>/src or apps/<app>/api?
+function globMayReachImpl(g) {
+  const segs = g.split('/');
+  const walk = (i, state) => {
+    if (state === 3) return true;
+    if (i >= segs.length) return false;
+    if (segs[i] === '**') return walk(i + 1, state) || walk(i, state + 1);
+    const ok = state === 1 || segMatches(segs[i], state === 0 ? 'apps' : 'src') || (state === 2 && segMatches(segs[i], 'api'));
+    return ok && walk(i + 1, state + 1);
+  };
+  return walk(0, 0);
+}
+
+// A glob argument as project-relative patterns: its literal directory read as written and through symlinks,
+// the rest appended, braces expanded.
+function globPatterns(pat, cwd, ctx) {
+  const segs = pat.split('/');
+  const k = segs.findIndex(wildSeg);
+  const dir = unescape(segs.slice(0, k).join('/')) || (k > 0 ? '/' : '.');
+  const rest = segs.slice(k).join('/');
+  return [rel(dir, ctx.root, cwd), relReal(dir, ctx.root, cwd)].flatMap((d) => expandBraces(path.posix.join(d, rest)));
+}
+
+const NOTES_EXCLUSIONS = new Set([':(exclude).work/*/notes.md', ':!.work/*/notes.md', ':^.work/*/notes.md', ':(exclude).work']);
+const COPIERS = /^(cp|mv|copy|move|xcopy|robocopy|rsync|tar|zip|unzip|7z|install|scp|dd|copy-item|move-item)$/i;
+
+// The values of git commit -m: text, not paths.
+function commitMessages(seg) {
+  const idx = new Set();
+  const texts = [];
+  const call = gitCall(seg);
+  if (!call || call.sub !== 'commit') return { idx, texts };
+  const base = seg.length - call.args.length;
+  call.args.forEach((a, k) => {
+    let v = null;
+    if (/^-[A-Za-z]*m$|^--message$/.test(a)) {
+      idx.add(base + k + 1);
+      v = call.args[k + 1];
+    } else if (a.startsWith('--message=')) {
+      idx.add(base + k);
+      v = a.slice('--message='.length);
+    }
+    if (v) texts.push(v);
+  });
+  return { idx, texts };
+}
+
+// The arguments of a segment that can name a file: flags and commit messages are not, the value of --opt=value is.
+function pathArgs(seg) {
+  const skip = commitMessages(seg).idx;
+  const out = [];
+  for (let i = 1; i < seg.length; i++) {
+    if (skip.has(i)) continue;
+    let text = seg[i];
+    let pat = seg.pat[i];
+    if (text.startsWith('-')) {
+      if (!text.includes('=')) continue;
+      text = text.slice(text.indexOf('=') + 1);
+      pat = pat.slice(pat.indexOf('=') + 1);
+    }
+    const redirect = /^\d*[<>]+&?/.exec(text);
+    if (redirect) {
+      text = text.slice(redirect[0].length);
+      pat = pat.slice(redirect[0].length);
+    }
+    if (!text || /^[a-z]+:\/\//i.test(text) || NOTES_EXCLUSIONS.has(text)) continue;
+    out.push({ text, pat });
+  }
+  return out;
+}
+
+// $name, ${…}, $(…), a backtick, <(…), ~ and $'…' build names the checks cannot see; $? $# $$ $! $- $@ $* and
+// $0-$9 cannot name a path. Single quotes are literal. A # comment can hide a quote from the parser.
+function expansionReason(who, command) {
+  const text = commandText(command, 'expanding');
+  const hit = (what) => `${who}: ${what} builds a name the guard cannot read. Write the path out; inside single quotes it is literal text.`;
+  let quote = null;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    const n = text[i + 1] || '';
+    if (quote === "'") {
+      if (c === "'") quote = null;
+      continue;
+    }
+    if (c === '\\') {
+      i++;
+    } else if (c === '"') {
+      quote = quote ? null : '"';
+    } else if (c === '`') {
+      return hit('a backtick substitution');
+    } else if (c === '$') {
+      if (/[?#$!0-9@*-]/.test(n)) i++;
+      else if (/[A-Za-z_{([]/.test(n) || (quote === null && /['"]/.test(n))) return hit('a shell expansion ($…)');
+    } else if (quote === null) {
+      const word = i === 0 || /[\s;&|()=:<>]/.test(text[i - 1]);
+      if (c === "'") quote = "'";
+      else if ((c === '<' || c === '>') && n === '(') return hit('a process substitution');
+      else if (c === '~' && word) return hit('a ~ expansion');
+      else if (c === '#' && word) return `${who}: a # comment cannot be checked; leave it out.`;
+    }
+  }
+  return null;
+}
+
+// What the segments are allowed to do at all: nothing nested, no scripts on stdin, no links, a cd the parser can follow.
+function shapeReason(who, raw, segments) {
+  if (commandText(raw) !== dropHeredocs(raw)) return `${who}: a script fed to a command through a heredoc cannot be checked. Run the command itself.`;
+  if (segments.some((s) => s.nested)) return `${who}: bash -c, eval, powershell -Command and cmd /c cannot be checked. Run the command directly.`;
+  const plain = (sep) => ['', ';', '\n', '&&'].includes(sep);
+  for (const seg of segments) {
+    const name = commandName(seg);
+    if (['ln', 'mklink', 'popd'].includes(name)) return `${who} does not use ${name}: a link or a directory stack hides where a path leads.`;
+    if (CD.includes(name) && (seg.length !== 2 || seg[1].startsWith('-') || !plain(seg.before) || !plain(seg.after))) {
+      return `${who}: write cd as \`cd <dir> && …\` (one plain path, then && or ;), so the guard knows where the rest runs.`;
+    }
+  }
+  return null;
+}
+
+// A wildcard may start only in a directory below the project root and outside .work: from the root, or from a
+// directory above it, it can reach into .work/.
+function wildcardReason(who, pat, cwd, ctx) {
+  const segs = pat.split('/');
+  const k = segs.findIndex(wildSeg);
+  if (!fs.existsSync(cwd)) return `${who}: a wildcard after a cd into a directory that does not exist cannot be checked.`;
+  const dir = relReal(unescape(segs.slice(0, k).join('/')) || (k > 0 ? '/' : '.'), ctx.root, cwd);
+  if (inWork(dir)) return `${who}: name the .work/ files you read; a wildcard there could reach notes.md.`;
+  if (dir === '' || /^\.\.(\/\.\.)*$/.test(dir)) {
+    return `${who}: a wildcard that starts at the project root or above could reach .work/notes.md. Start it in a subdirectory (docs/*.md) or name the files.`;
+  }
+  if (expandBraces(segs.slice(k).join('/')).some((alt) => alt.split('/').some((s) => segMatches(s, '..')))) {
+    return `${who}: a wildcard that can match .. could leave its directory. Name the files you read.`;
+  }
+  return null;
+}
+
+// The path-like arguments of every segment, resolved where the segment runs and through symlinks.
+function argReason(role, located, ctx) {
+  const te = role === 'test-engineer';
+  const who = te ? 'TEST ENGINEER' : 'CRITIC';
+  for (const { seg, cwd } of located) {
+    for (const { text, pat } of pathArgs(seg)) {
+      if (isWild(pat)) {
+        if (te && globPatterns(pat, cwd, ctx).some(globMayReachImpl)) return NO_IMPL;
+        const reason = wildcardReason(who, pat, cwd, ctx);
+        if (reason) return reason;
+        continue;
+      }
+      for (const r of [rel(text, ctx.root, cwd), relReal(text, ctx.root, cwd)]) {
+        if (isNotes(r)) return `${who} does not read notes.md.`;
+        if (te && isAppImpl(r)) return NO_IMPL;
+        if (inWork(r) && COPIERS.test(commandName(seg))) return `${who}: do not copy, move or archive from .work/; name the files you read.`;
+      }
+    }
+  }
+  return null;
+}
+
+const NO_IMPL = 'TEST ENGINEER does not read apps/*/src or apps/*/api. Use apps/<app>/tests paths.';
+
+// ---- git ----
+
+// Subcommands that never show file content (Addendum 13.10). log and reflog qualify without a patch option;
+// diff and show with a stat-like option and no patch option.
+const GIT_FREE = new Set(['status', 'branch', 'ls-files', 'ls-tree', 'rev-parse', 'remote', 'fetch', 'add', 'commit', 'push', 'switch', 'merge-base']);
+const GIT_STAT = new Set(['--stat', '--shortstat', '--numstat', '--name-only', '--name-status', '--quiet']);
+const DISPLAY_OPT = new RegExp('^(--(stat|shortstat|numstat|name-only|name-status|patch|patch-with-stat|oneline|no-color|color|no-ext-diff|cached|staged|' +
+  'graph|decorate|abbrev-commit|no-merges|merges|reverse|ignore-all-space|ignore-space-change|quiet|unified=\\d+|max-count=\\d+|(format|pretty)=.*)|-(p|w|b|\\d+|U\\d+|n\\d+))$');
+const HEX = /^[0-9a-f]{4,40}$/i;
+const REF = /^[A-Za-z0-9_][A-Za-z0-9_./-]*(?:[~^]\d*)*$/;
+
+// A ref name, HEAD, ~n and ^n suffixes, and a..b / a...b; a hex commit id only inside a range.
+function plainRevision(a) {
+  const at = a.indexOf('..');
+  const side = (s) => REF.test(s) && !s.includes('..') && !s.includes('//');
+  if (at < 0) return side(a) && !HEX.test(a.replace(/(?:[~^]\d*)+$/, ''));
+  const dots = a.startsWith('...', at) ? 3 : 2;
+  return side(a.slice(0, at)) && side(a.slice(at + dots));
+}
+
+// Display options, revisions, the `--` separator and the pathspecs; `bad` says what falls outside the allowed form.
+function parseGitArgs(args) {
+  const out = { paths: [], sep: false, bad: null };
+  for (let k = 0; k < args.length; k++) {
+    const a = args[k];
+    if (out.sep) out.paths.push(a);
+    else if (a === '--') out.sep = true;
+    else if (a === '-n' && /^\d+$/.test(args[k + 1] || '')) k++;
+    else if (a.startsWith('-')) {
+      if (!DISPLAY_OPT.test(a)) out.bad = out.bad || 'an option outside the list of display options';
+    } else if (!plainRevision(a)) out.bad = out.bad || 'a revision that is not a ref name, HEAD or a range of them';
+  }
+  return out;
+}
+
+function gitContentFree(call) {
+  const { sub, args } = call;
+  if (['add', 'commit'].includes(sub)) return !args.some((a) => /^(-[A-Za-z]*[pie]|--(patch|interactive|edit))$/.test(a));
+  if (GIT_FREE.has(sub)) return true;
+  if (['log', 'reflog'].includes(sub)) return !showsPatch(args);
+  if (['diff', 'show'].includes(sub)) return args.some((a) => GIT_STAT.has(a)) && !showsPatch(args) && !parseGitArgs(args).bad;
+  return false;
+}
+
+// The one form in which CRITIC may read content through git: diff, log or show, at the project root, no global
+// option, plain revisions, display options only, and exactly one exclusion that keeps notes.md out.
+function fixedGitReason(call, cwd, ctx) {
+  const no = (why) => `CRITIC: ${why}. A git command that shows file content has one form, run at the project root: ` +
+    "`git diff|log|show <revisions> -- . ':(exclude).work/*/notes.md'` (notes.md must be excluded, in this exact case).";
+  if (!['diff', 'log', 'show'].includes(call.sub)) return no('git shows content only through diff, log or show');
+  if (!fs.existsSync(cwd) || relReal('.', ctx.root, cwd) !== '') return no('git runs at the project root only');
+  const parsed = parseGitArgs(call.args);
+  if (parsed.bad) return no(parsed.bad);
+  if (!parsed.sep) return no('the `--` separator and the exclusion are missing');
+  const magic = parsed.paths.filter((a) => a.startsWith(':'));
+  if (magic.length !== 1 || !NOTES_EXCLUSIONS.has(magic[0])) return no('exactly one exclusion of notes.md is needed, and no other pathspec magic');
+  return null;
+}
+
+function gitReason(role, call, cwd, raw, ctx) {
+  const te = role === 'test-engineer';
+  const who = te ? 'TEST ENGINEER' : 'CRITIC';
+  if (call.globals.length || /GIT_/i.test(commandText(raw))) {
+    return `${who}: git runs with no global option (-C, -c, --git-dir…) and no GIT_ variable named in the command: they change what it reads.`;
+  }
+  if (gitContentFree(call)) return null;
+  if (te) {
+    return gitReadsContent(call)
+      ? 'TEST ENGINEER does not read the implementation through git (diff, show, log -p, blame, grep).'
+      : 'TEST ENGINEER runs only git commands that show no file content (status, log, branch, add, commit…).';
+  }
+  if (gitReadsContent(call) && !excludesNotes(call.args)) {
+    return "CRITIC: a git command that shows file content must exclude notes.md. Add the pathspec `-- . ':(exclude).work/*/notes.md'`.";
+  }
+  return fixedGitReason(call, cwd, ctx);
+}
+
 function checkReader(role, tool, input, ctx) {
   const te = role === 'test-engineer';
   const who = te ? 'TEST ENGINEER' : 'CRITIC';
 
   if (tool === 'Read' || tool === 'NotebookRead') {
-    const r = rel(input.file_path || input.notebook_path || '', ctx.root, ctx.cwd);
-    if (isNotes(r)) return `${who} does not read notes.md (the builder's own account).`;
-    if (te && isAppImpl(r)) return 'TEST ENGINEER does not read apps/*/src or apps/*/api. Test from the spec; packages/shared is the contract.';
+    const file = input.file_path || input.notebook_path || '';
+    for (const r of [rel(file, ctx.root, ctx.cwd), relReal(file, ctx.root, ctx.cwd)]) {
+      if (isNotes(r)) return `${who} does not read notes.md (the builder's own account).`;
+      if (te && isAppImpl(r)) return 'TEST ENGINEER does not read apps/*/src or apps/*/api. Test from the spec; packages/shared is the contract.';
+    }
     return null;
   }
 
   if (tool === 'Grep' || tool === 'Glob') {
-    let scope = rel(input.path || '.', ctx.root, ctx.cwd);
+    // Where the search starts, as written and through symlinks.
+    const base = input.path || '.';
+    let scopes = [rel(base, ctx.root, ctx.cwd), relReal(base, ctx.root, ctx.cwd)];
     if (tool === 'Glob' && input.pattern) {
       const prefix = literalPrefix(input.pattern);
-      if (prefix) scope = rel(path.posix.join(scope === '' ? '.' : scope, prefix), ctx.root, ctx.root);
+      if (prefix) {
+        scopes = scopes.flatMap((s) => {
+          const joined = path.posix.join(s === '' ? '.' : s, prefix);
+          return [rel(joined, ctx.root, ctx.root), relReal(joined, ctx.root, ctx.root)];
+        });
+      }
     }
-    if (te && reachesAppImpl(scope)) {
-      return 'TEST ENGINEER searches only where app source is out of reach. Point the path at apps/<app>/tests, packages/shared, e2e, supabase/tests or .work/<slug>.';
-    }
-    if (tool === 'Grep') {
-      if (isNotes(scope)) return `${who} does not read notes.md.`;
-      // .work in any case: some file systems ignore case
-      if (reaches(scope.toLowerCase(), '.work') || isInside(scope.toLowerCase(), '.work')) {
-        if (!grepExcludesNotes(input)) {
-          return `${who} does not read notes.md. A search that reaches .work/ needs a glob or type that cannot match notes.md (e.g. glob "*.ts" or type "ts"), or a narrower path.`;
+    for (const scope of scopes) {
+      if (te && reachesAppImpl(scope)) {
+        return 'TEST ENGINEER searches only where app source is out of reach. Point the path at apps/<app>/tests, packages/shared, e2e, supabase/tests or .work/<slug>.';
+      }
+      if (tool === 'Grep') {
+        if (isNotes(scope)) return `${who} does not read notes.md.`;
+        // .work in any case: some file systems ignore case
+        if (reaches(scope.toLowerCase(), '.work') || isInside(scope.toLowerCase(), '.work')) {
+          if (!grepExcludesNotes(input)) {
+            return `${who} does not read notes.md. A search that reaches .work/ needs a glob or type that cannot match notes.md (e.g. glob "*.ts" or type "ts"), or a narrower path.`;
+          }
         }
       }
     }
@@ -507,26 +889,33 @@ function checkReader(role, tool, input, ctx) {
     const segments = shellSegments(raw);
     const flat = fold(slash(segments.map((s) => s.join(' ')).join('\n')));
     const both = withoutExclusions(fold(slash(raw)) + '\n' + flat);
+
+    // The specific reasons first: they say what was wrong where the guard can tell. The allowlist behind them is
+    // what actually decides — a call that matches none of the allowed forms is blocked even if no reason fits.
     if (/notes\.md|notes~\d/i.test(both)) return `${who} does not read notes.md.`;
     if (/\.work\/[^\s"']*[*?[{]/i.test(both)) return `${who}: name the .work/ files you read; a wildcard there could reach notes.md.`;
+
+    const expansion = expansionReason(who, raw);
+    if (expansion) return expansion;
+    const shape = shapeReason(who, raw, segments);
+    if (shape) return shape;
 
     const located = withCwd(segments, ctx.cwd);
     for (const { seg, cwd } of located) {
       if (CD.includes(commandName(seg)) && seg[1]) {
-        const target = rel(seg[1], ctx.root, cwd);
-        if (isInside(target.toLowerCase(), '.work')) return `${who}: do not cd into .work/; name the files you read.`;
-        if (te && (target === 'apps' || /^apps\/[^/]+$/.test(target) || isAppImpl(target))) {
-          return 'TEST ENGINEER does not cd into an app. Use apps/<app>/tests paths from the root.';
+        for (const target of [rel(seg[1], ctx.root, cwd), relReal(seg[1], ctx.root, cwd)]) {
+          if (inWork(target)) return `${who}: do not cd into .work/; name the files you read.`;
+          if (te && (target === 'apps' || /^apps\/[^/]+$/.test(target) || isAppImpl(target))) {
+            return 'TEST ENGINEER does not cd into an app. Use apps/<app>/tests paths from the root.';
+          }
         }
       }
     }
 
-    for (const call of segments.map(gitCall).filter(Boolean)) {
-      if (!gitReadsContent(call)) continue;
-      if (te) return 'TEST ENGINEER does not read the implementation through git (diff, show, log -p, blame, grep).';
-      if (!excludesNotes(call.args)) {
-        return "CRITIC: a git command that shows file content must exclude notes.md. Add the pathspec `-- . ':(exclude).work/*/notes.md'`.";
-      }
+    for (const { seg, cwd } of located) {
+      const call = gitCall(seg);
+      const reason = call && gitReason(role, call, cwd, raw, ctx);
+      if (reason) return reason;
     }
 
     for (const seg of segments) {
@@ -535,24 +924,21 @@ function checkReader(role, tool, input, ctx) {
       return 'CRITIC does not search recursively from the shell (it could reach notes.md). Use the Grep tool with a glob or type.';
     }
 
+    const arg = argReason(role, located, ctx);
+    if (arg) return arg;
+
     if (te) {
-      const NO_IMPL = 'TEST ENGINEER does not read apps/*/src or apps/*/api. Use apps/<app>/tests paths.';
-      // Every path-like argument, resolved where it runs; a glob is judged by where it starts.
-      for (const { seg, cwd } of located) {
-        for (const raw of seg.slice(1)) {
-          // Plain parameter expansions are removed first ($?, $X, ${E}): their `?` is not a glob, and an unset one
-          // expands to nothing, so what is left is what the shell reads. An expansion with an operator
-          // (${X:-apps}, ${H/*/ap}) is left in place: its default or replacement is what the shell reads, and its
-          // braces mark the token a glob, so it is judged as one. The left-over is then checked in full.
-          const a = raw.replace(/\$(\{\w+\}|[?#@*!$0-9-]|\w+)/g, '');
-          if (!a || a.startsWith('-') || /^[a-z]+:\/\//i.test(a)) continue;
-          const glob = /[*?[\]{}]/.test(a);
-          const r = rel(glob ? literalPrefix(a) || '.' : a, ctx.root, cwd);
-          if (isAppImpl(r) || (glob && reachesAppImpl(r))) return NO_IMPL;
+      // Paths inside strings (node -e "...") and other spellings, normalised. A commit message is text, not a read.
+      let text = fold(slash(commandText(raw)));
+      for (const seg of segments) {
+        for (const msg of commitMessages(seg).texts) {
+          for (const q of ['"', "'"]) {
+            const quoted = fold(slash(q + msg + q));
+            if (text.split(quoted).length === 2) text = text.replace(quoted, ' ');
+          }
         }
       }
-      // Paths inside strings (node -e "...") and other spellings, normalised.
-      for (const m of both.matchAll(/apps\/[^\s"'`;|&()]+/g)) {
+      for (const m of text.matchAll(/apps\/[^\s"'`;|&()]+/g)) {
         const p = path.posix.normalize(m[0]);
         if (isAppImpl(p) || /^apps\/[^/]+\/[^/]*[*?[\]{}]/.test(p)) return NO_IMPL;
       }
