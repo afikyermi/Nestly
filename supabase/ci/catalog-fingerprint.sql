@@ -61,10 +61,13 @@ items(item) as (
   select format('extension %I %s schema=%s', e.extname, e.extversion, e.extnamespace::regnamespace)
   from pg_catalog.pg_extension e
   union all
-  -- The applied versions; empty while the CLI has not created its history table yet.
+  -- The applied versions as a text array. An absent history table and an empty one both read '{}': the CLI creates the
+  -- table lazily, on the first push that has a migration, and outside that migration's transaction.
   select 'history ' || coalesce(
     case when to_regclass('supabase_migrations.schema_migrations') is not null then
-      query_to_xml('select version from supabase_migrations.schema_migrations order by version', false, false, '')::text
-    end, '')
+      xpath('/table/row/version/text()',
+            query_to_xml('select version from supabase_migrations.schema_migrations order by version', false, false, ''))
+        ::text[]::text
+    end, '{}')
 )
 select md5(coalesce(string_agg(item, E'\n' order by item), '')) from items;

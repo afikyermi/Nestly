@@ -159,3 +159,13 @@
 - **`psql` from apt on ubuntu-latest is version 16 against PG 17.** That is enough for `-f` with plain SQL.
 
 **CI log**
+- Run 38474691283 (commit adf2351): the auth functions installed as `supabase_admin` over TCP with `POSTGRES_PASSWORD`,
+  so no `docker exec` fallback was needed. The check logged `auth functions check OK`, and the preflight logged
+  `image preflight OK: PostgreSQL 17.11, postgres rolsuper = f`. Bootstrap 1 and both criterion 6 pushes were green.
+- The criterion 7 step then failed with "left behind". **The cause was my fingerprint, not the CLI.**
+  - The pushes with nothing pending never create `supabase_migrations.schema_migrations`.
+  - The probe push creates it, in plain statements before and outside the migration.
+  - The `history` item read `''` for an absent table but a non-empty XML wrapper for an empty one.
+  - Fix in `catalog-fingerprint.sql`: the history item is now the array of versions, so absent and empty both read
+    `{}`. The schema, relation and function items that would catch a leftover `ci_atomicity_probe` are unchanged, and
+    so is the version list. On a mismatch the step now also prints whether the probe schema exists.

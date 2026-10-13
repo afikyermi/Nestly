@@ -289,6 +289,7 @@ jobs:
           fi
           after="$(fingerprint)"
           if [ "${before}" != "${after}" ]; then
+            psql -X -q -A -t -v ON_ERROR_STOP=1 -c "select 'probe schema present: ' || exists (select 1 from pg_namespace where nspname = 'ci_atomicity_probe')"
             echo "::error::statements before the failing one were left behind: the CLI did not apply the migration atomically (schema.md 'Atomicity': MATERIAL CHANGE to DATA ARCHITECT)"
             exit 1
           fi
