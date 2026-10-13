@@ -37,15 +37,8 @@
       "Bash(node tools/db-preview.mjs:*)"
     ],
     "ask": [
-      "Bash(pnpm add:*)",
-      "Bash(git merge:*)",
-      "Bash(git rebase:*)",
-      "Bash(npx prisma migrate:*)",
-      "Bash(npx drizzle-kit:*)",
-      "Bash(supabase:*)",
       "Write(./.claude/**)",
       "Edit(./.claude/**)",
-      "Write(./decisions.md)",
       "Write(./CLAUDE.md)",
       "Edit(./CLAUDE.md)"
     ]
