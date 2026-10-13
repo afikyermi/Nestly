@@ -14,6 +14,8 @@
 # its user is app_owner.<that environment's project ref> and its port is 5432 (session pooler). Nothing prints the
 # URL: no set -x, no echo, and the guard's messages name only what was expected.
 #
+# Before the push, each job checks the auth functions against the pins the CI `db` job checks (read only).
+#
 # The command is the one the CI `db` job runs against its disposable database, with the same pinned CLI. With
 # nothing pending it applies nothing (criterion 6, shown in that job).
 
@@ -52,15 +54,23 @@ jobs:
         with:
           node-version-file: .nvmrc
       # Installed before any step holds the secret.
-      - name: Install the Supabase CLI (pinned)
+      - name: Install psql and the Supabase CLI (pinned)
         run: |
           set -eu
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends postgresql-client
           npm install --no-save --no-audit --no-fund --prefix "${RUNNER_TEMP}/supabase-cli" "supabase@${SUPABASE_CLI_VERSION}"
           echo "${RUNNER_TEMP}/supabase-cli/node_modules/.bin" >> "${GITHUB_PATH}"
       - name: Check the connection URL
         env:
           APP_OWNER_DATABASE_URL: ${{ secrets.APP_OWNER_DATABASE_URL }}
         run: node tools/migrate-url-guard.mjs db-preview
+      # Read only: the auth functions on the target are the ones every CI pgTAP result ran on (schema.md
+      # "Addendum 1 — CI auth functions"). A mismatch stops the job before anything is applied.
+      - name: Check the auth functions match the pinned hashes
+        env:
+          APP_OWNER_DATABASE_URL: ${{ secrets.APP_OWNER_DATABASE_URL }}
+        run: psql "${APP_OWNER_DATABASE_URL}" -X -q -v ON_ERROR_STOP=1 -f supabase/ci/auth-functions-check.sql
       - name: Apply pending migrations to nestly-preview
         env:
           APP_OWNER_DATABASE_URL: ${{ secrets.APP_OWNER_DATABASE_URL }}
@@ -81,15 +91,23 @@ jobs:
         with:
           node-version-file: .nvmrc
       # Installed before any step holds the secret.
-      - name: Install the Supabase CLI (pinned)
+      - name: Install psql and the Supabase CLI (pinned)
         run: |
           set -eu
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends postgresql-client
           npm install --no-save --no-audit --no-fund --prefix "${RUNNER_TEMP}/supabase-cli" "supabase@${SUPABASE_CLI_VERSION}"
           echo "${RUNNER_TEMP}/supabase-cli/node_modules/.bin" >> "${GITHUB_PATH}"
       - name: Check the connection URL
         env:
           APP_OWNER_DATABASE_URL: ${{ secrets.APP_OWNER_DATABASE_URL }}
         run: node tools/migrate-url-guard.mjs db-production
+      # Read only: the auth functions on the target are the ones every CI pgTAP result ran on (schema.md
+      # "Addendum 1 — CI auth functions"). A mismatch stops the job before anything is applied.
+      - name: Check the auth functions match the pinned hashes
+        env:
+          APP_OWNER_DATABASE_URL: ${{ secrets.APP_OWNER_DATABASE_URL }}
+        run: psql "${APP_OWNER_DATABASE_URL}" -X -q -v ON_ERROR_STOP=1 -f supabase/ci/auth-functions-check.sql
       - name: Apply pending migrations to nestly-prod
         env:
           APP_OWNER_DATABASE_URL: ${{ secrets.APP_OWNER_DATABASE_URL }}

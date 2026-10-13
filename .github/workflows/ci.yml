@@ -137,7 +137,8 @@ jobs:
   # A disposable database, built from scratch on every run (I1 F1.1 part a, spec criteria 1-4, 6, 7; WORKPLAN 7.1;
   # .work/identity-platform/schema.md "CI `db` job"). No GitHub secret and no environment: every password is random
   # per run, masked, and dies with the runner. Nothing here can reach nestly-preview or nestly-prod.
-  # Order: bootstrap step 1 -> migrations as app_owner -> bootstrap step 2 -> pgTAP as app_server.
+  # Order: pinned auth functions -> their hash check -> image preflight -> bootstrap step 1 -> migrations as app_owner
+  # -> bootstrap step 2 -> pgTAP as app_server.
   db:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -203,6 +204,21 @@ jobs:
           done
           echo "::error::the disposable database did not become ready"
           exit 1
+
+      # The image's own auth.uid()/auth.role() do not read request.jwt.claims; install the deployed definitions, pinned
+      # and hash-checked (schema.md "Addendum 1 — CI auth functions"). supabase_admin is the image's superuser, used
+      # for this one setup step of a disposable database only.
+      - name: Install the pinned auth functions as supabase_admin
+        env:
+          PGUSER: supabase_admin
+          PGPASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
+        run: psql -X -q -v ON_ERROR_STOP=1 -f supabase/ci/auth-functions.sql
+
+      - name: Check the auth functions match the pinned hashes
+        env:
+          PGUSER: postgres
+          PGPASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
+        run: psql -X -q -v ON_ERROR_STOP=1 -f supabase/ci/auth-functions-check.sql
 
       - name: Check the image provides what the suite assumes (schema.md [A])
         env:

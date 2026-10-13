@@ -118,3 +118,44 @@
   that is harmless.
 - **Order of the pgTAP files.** pg_prove gets the files in lexical path order, so criterion 2's `session_user` file
   should sort first (for example `000-…`).
+
+---
+
+## Round 2 — schema.md Addendum 1 (CI auth functions), after CI run 38471909340 failed at image-preflight.sql:55
+
+**Approach**
+- `supabase/ci/auth-functions.sql`: one transaction. It refuses unless `session_user` is a superuser and
+  `supabase_auth_admin` exists. Then it runs `create or replace` for `auth.uid()`, `auth.role()` and `auth.jwt()`,
+  sets each owner to `supabase_auth_admin`, and grants EXECUTE to PUBLIC.
+  - The function text is copied verbatim from nestly-preview. It was read on 14.10.2026 with `tools/db-preview.mjs`,
+    using one `begin read only` select of `pg_get_functiondef`, owner and ACL. That includes the trailing space after
+    `select`.
+  - The normalized hashes on preview equal the three in the addendum.
+- `supabase/ci/auth-functions-check.sql`: `begin read only`, then one `do` block, then `commit`.
+  - The three pinned hashes live only in this file.
+  - For each function: exists, normalized sha256 equals the pin, and `authenticated` has EXECUTE. It also checks that
+    `authenticated` has USAGE on `auth`.
+  - It raises one error listing every problem, with the target's normalized definition for any hash mismatch.
+- `ci.yml` `db` job: two new steps between "Start" and the preflight.
+  - Install, as `supabase_admin` with `POSTGRES_PASSWORD` (the addendum's first option).
+  - Check, as `postgres`.
+  - `image-preflight.sql` is unchanged.
+- `migrate.yml`, both jobs:
+  - `postgresql-client` is installed in the install step, which holds no secret.
+  - A new step runs `psql "${APP_OWNER_DATABASE_URL}" … -f supabase/ci/auth-functions-check.sql` after the URL guard
+    and before `db push`.
+
+**Decisions**
+- **The check finds each function in `pg_proc` joined to `pg_namespace`, not with `to_regprocedure('auth.uid()')`.**
+  Name resolution needs USAGE on schema `auth`. A catalog join needs nothing, so the check runs as any role that can
+  read the catalogs, as the addendum requires.
+- **No automatic fallback to `docker exec` in the install step.** The first option was tried on CI. The fallback is
+  applied only if CI shows the login is refused (see the CI log below), so the job always runs one path.
+
+**Uncertain**
+- **The check has not run against nestly-preview or nestly-prod.** My instruction allowed only the
+  `pg_get_functiondef` read on preview. The hash expression is identical to the one that read gave, but the two
+  privilege checks run there for the first time in the next `migrate` run.
+- **`psql` from apt on ubuntu-latest is version 16 against PG 17.** That is enough for `-f` with plain SQL.
+
+**CI log**
