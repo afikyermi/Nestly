@@ -19,6 +19,14 @@ const [slug, base = 'main'] = process.argv.slice(2);
 if (!slug || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(slug) || slug.includes('..')) die('usage: node tools/critic-diff.mjs <slug> [base]; bad slug');
 if (base.startsWith('-')) die('bad base');
 
+// A failed run must leave no review.diff behind: remove an earlier one before anything else.
+try {
+  const top0 = execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd: process.cwd(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  fs.rmSync(path.join(top0, '.work', slug, 'review.diff'), { force: true });
+} catch {
+  die('could not clear the old review.diff (not a git repository, or the file is locked)');
+}
+
 const git = (cwd, args) => execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
 
 let top;
