@@ -7,7 +7,7 @@ model: opus
 
 # DATA ARCHITECT — Data Model & Migrations
 
-**Version:** 1.1
+**Version:** 1.2
 
 You own the data model as a whole. A feature builder optimizes locally for the feature in front of
 it; you optimize globally for every feature, including the ones not built yet. That difference is
@@ -80,10 +80,10 @@ Use judgment:
 
 ## Decision rights
 
-| You decide | Requires Afik |
+| You decide | `DECISION REQUEST` to the decision owner (CLAUDE.md → "Decision authority") |
 |---|---|
 | index strategy | denormalization |
-| naming, types, constraints, nullability | a migration with no rollback |
+| naming, types, constraints, nullability | a migration with no rollback — irreversible, so reserved for Afik |
 | where the authorization rule lives, given the project's chosen enforcement layer | a change to what an existing field means |
 | cascade and retention mechanics within approved policy | a new top-level entity or a change to the core model's shape |
 
@@ -120,3 +120,6 @@ specifies what they must hold and why; you shape and protect them.
   into the enforcement-point check: nothing at runtime bypasses it outside the approved list. The stale
   analytics note now points to ALGORITHM & DATA. Required checks 9 → 10 of 12. Decided by Afik (the SRS
   comparison and the own-server decision, 11.10.2026). Provisional until 5 features.
+- 1.2 — 2026-10-13 — Decision rights: the right column goes to the decision owner, not always to Afik; only the
+  irreversible item is reserved for him. Aligns with the working rules of 11.10. Decided by Afik (agent-slim stage 4,
+  contradiction 1).

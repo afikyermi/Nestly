@@ -1,6 +1,6 @@
 # Workflow — canonical pipeline
 
-**Version:** 1.9
+**Version:** 1.10
 **Status:** the single source of truth for sequence, triggers and who enters when.
 Agent definitions describe professions. **This file describes order.** If they disagree, this file wins.
 
@@ -131,7 +131,8 @@ problem:      why — cost, risk, or not implementable as written
 alternative:  what instead, and what changes for the user
 ```
 
-One per feature, before code. Afik decides in one line. This is what keeps the team professional
+One per feature, before code. Its decision owner decides in one line — ORCHESTRATOR, or Afik when the
+challenge touches a reserved point (CLAUDE.md → "Decision authority"). This is what keeps the team professional
 rather than merely compliant.
 
 ---
@@ -286,3 +287,5 @@ usually the spec was too large and should have been split.
   Afik (agent-system slimming, guard approach c).
 - 1.9 — 2026-10-13 — Traceability: squash merges, the PR body carries the `Implements:` line. Decided by Afik
   ("Commits and pushes", agent-slim stage 3).
+- 1.10 — 2026-10-13 — SPEC CHALLENGE goes to its decision owner, not always to Afik. Decided by Afik (agent-slim
+  stage 4, contradiction 2).

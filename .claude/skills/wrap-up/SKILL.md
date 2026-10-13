@@ -1,13 +1,13 @@
 ---
 name: wrap-up
-description: Closes a unit of work — result.md, the logs, the SRS update of step 14, WORKPLAN, and the commit with an Implements line. Use after Afik approves the Preview (or after a Light-path change), as `/wrap-up <slug>`.
+description: Closes a unit of work — result.md, the logs, the SRS update of step 14, WORKPLAN, and the commit with an Implements line. Use after the Preview passes (or after a Light-path change), as `/wrap-up <slug>`.
 disable-model-invocation: true
 argument-hint: <slug>
 ---
 
 # /wrap-up — steps 13 and 14
 
-**Version:** 1.1 · the steps are in `.claude/workflow.md` (13, 14, "Result", "Traceability"); the logs and the
+**Version:** 1.2 · the steps are in `.claude/workflow.md` (13, 14, "Result", "Traceability"); the logs and the
 WORKPLAN rule in `CLAUDE.md`.
 
 ## Input
@@ -25,10 +25,12 @@ The Preview passed — ORCHESTRATOR checked it, URL recorded in WORKPLAN (or the
    size estimate in `spec.md`) · the SRS trace · the evidence, with commits.
 2. **Logs:** the `debt.md` lines from `synthesize`, plus every neighbouring bug listed in `notes.md` · `escapes.md`
    or `noise.md` where a finding proved real after merge, or proved not real · **blocks:** from the local
-   `.claude/logs/blocks.jsonl`, the lines since the task began, counted per role and `rule`+reason, as one
-   "Hook blocks" line in `result.md` (none → "Hook blocks: none"). A block that stopped legitimate work goes to
-   `noise.md`. The guard itself writes `incidents.md` for critical blocks and for the third reader block of one role in one
-   session; nothing else from the log does.
+   `.claude/logs/blocks.jsonl`, every line, counted per role and `rule`+reason, as one "Hook blocks" line in
+   `result.md` (none → "Hook blocks: none"). A block that stopped legitimate work goes to `noise.md`. The guard itself
+   writes `incidents.md` for critical blocks and for the third reader block of one role in one task; nothing else from
+   the log does. **Then rotate the log:** move `blocks.jsonl` and every `escalated-*.flag` in `.claude/logs/` into
+   `.claude/logs/archive/<YYYY-MM-DD>-<slug>/` (a move, never a delete). The guard counts reader blocks only in
+   `blocks.jsonl`, so the count and the once-per-role escalation start again with the next task.
 3. **SRS — step 14:** if behaviour the SRS describes changed, follow `.claude/skills/srs-update/SKILL.md`, steps 1–6.
    Read and follow that file; it is a procedure, not something to invoke.
 4. **WORKPLAN:** the task's status in its part table, and the "איפה אנחנו עומדים" block. WORKPLAN keeps only open
@@ -54,3 +56,5 @@ The Preview passed — ORCHESTRATOR checked it, URL recorded in WORKPLAN (or the
 - 1.0 — 2026-10-11 — created (Afik's skills decision). Provisional until 5 features.
 - 1.1 — 2026-10-13 — step 2 counts the hook blocks into `result.md` (Afik, guard approach d). Step 4 archives the
   closed WORKPLAN part; step 5: logs in the same commit, one push, Implements in the PR body (Afik, agent-slim stage 3).
+- 1.2 — 2026-10-13 — step 2 rotates the block log at the end of each task, so reader-block escalation counts per task
+  (Afik, F5). Description: the Preview is passed by ORCHESTRATOR, not by Afik (Afik, stage 4 contradiction 3).

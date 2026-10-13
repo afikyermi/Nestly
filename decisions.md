@@ -86,6 +86,10 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-13 | Guard approach a–d (stage 1): CRITIC no shell, TEST ENGINEER one test run, loader, local block log | 10 |
 | 2026-10-13 | Guard stage 1 continues after Not Ready; a third triggers a minimum plan (closed: merged as PR 8) | 10 |
 | 2026-10-13 | Commits and pushes: logs ride with work commits; push only for CI, end of stage or session; squash merges | 10 |
+| 2026-10-13 | Guard env-file rule (R4) judges path arguments and redirection targets, not text; Not Ready → debt | 10 |
+| 2026-10-13 | Three older texts yield to the working rules (DATA ARCHITECT, SPEC CHALLENGE, /wrap-up) | 10 |
+| 2026-10-13 | F5: /wrap-up rotates the block log, so reader-block escalation counts per task | 10 |
+| 2026-10-13 | agent-slim and guard-allowlist closed; next is I1, Afik sees spec.md before Gate 1 | 10 |
 
 ## Superseded
 
