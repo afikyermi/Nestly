@@ -142,9 +142,21 @@ function dropHeredocs(command) {
   return kept.join('\n');
 }
 
-// Splits a command into segments (on && || ; | & ( ) ` and newlines, outside quotes) of
-// unquoted tokens. Strings handed to another shell — bash -c, sh -c, eval, powershell
-// -Command, cmd /c — are parsed too, and their segments added.
+// The tokens [from, to) a shell or eval at seg[i] runs as a script: bash/sh/zsh/dash with -c among its leading options
+// (-lc, -e -c; the next word), powershell -Command, cmd /c or /k after other switches, a leading eval. Else null: read as text.
+function scriptOf(seg, i) {
+  const name = commandName([seg[i]]);
+  let j = i + 1;
+  while (/^((ba|z|da)?sh|cmd)$/.test(name) && /^[-+/]/.test(seg[j] || '')) j++;
+  const c = seg.slice(i + 1, j).findIndex((t) => (name === 'cmd' ? /^\/[ck]$/i : /^-[a-z]*c/i).test(t)) + i + 1;
+  if (c > i) return name === 'cmd' ? [c + 1, seg.length] : j < seg.length ? [j, j + 1] : null;
+  const k = /^(powershell|pwsh)$/.test(name) ? seg.findIndex((t, x) => x > i && /^-(c|command)$/i.test(t)) : -1;
+  return k > i ? [k + 1, seg.length] : name === 'eval' && i === 0 ? [1, seg.length] : null;
+}
+
+// Splits a command into segments (on && || ; | & ( ) ` and newlines, outside quotes) of unquoted tokens. The first
+// script a segment hands to another shell (scriptOf) is parsed too, and its segments added. A quoted "{" is kept as
+// \uE000, so it is not brace-expanded (bash does not); a script handed on gets it back.
 function shellSegments(command, depth = 0) {
   const src = dropHeredocs(command);
   const segments = [];
@@ -167,7 +179,7 @@ function shellSegments(command, depth = 0) {
     if (quote) {
       if (c === quote) quote = null;
       else if (c === '\\' && quote === '"' && i + 1 < src.length) cur += src[++i];
-      else cur += c;
+      else cur += c === '{' ? '\uE000' : c;
       continue;
     }
     if (c === '"' || c === "'") {
@@ -192,20 +204,8 @@ function shellSegments(command, depth = 0) {
   if (depth > 8) return segments;
   const nested = [];
   for (const seg of segments) {
-    for (let i = 0; i < seg.length; i++) {
-      const name = path.posix.basename(slash(seg[i])).toLowerCase().replace(/\.exe$/, '');
-      const next = (seg[i + 1] || '').toLowerCase();
-      if (['bash', 'sh', 'zsh'].includes(name) && next === '-c' && seg[i + 2]) {
-        nested.push(...shellSegments(seg[i + 2], depth + 1));
-      } else if (['powershell', 'pwsh'].includes(name)) {
-        const k = seg.findIndex((t, j) => j > i && /^-(c|command)$/i.test(t));
-        if (k > 0) nested.push(...shellSegments(seg.slice(k + 1).join(' '), depth + 1));
-      } else if (name === 'cmd' && next === '/c') {
-        nested.push(...shellSegments(seg.slice(i + 2).join(' '), depth + 1));
-      } else if (name === 'eval' && i === 0) {
-        nested.push(...shellSegments(seg.slice(1).join(' '), depth + 1));
-      }
-    }
+    const s = seg.map((_, i) => scriptOf(seg, i)).find(Boolean);
+    if (s) nested.push(...shellSegments(seg.slice(...s).join(' ').replace(/\uE000/g, '{'), depth + 1));
   }
   return segments.concat(nested);
 }
@@ -291,10 +291,16 @@ function commandText(command, bodiesOnly = false) {
 // assignment value, glob) unless it is a search pattern; inline code and heredoc scripts as text. Fail closed.
 const mentionsEnv = (text) => [...slash(text).toLowerCase().matchAll(/(?:^|[\s"'=/<>|;&(`:])(\.env(?:\.[a-z0-9_-]+)*)(?=$|[\s"'`;|&)<>/])/g)].some((m) => !m[1].endsWith('.example'));
 
-// Bash brace expansion, done before globbing: ".{env,x}" -> ".env", ".x".
+// Bash brace expansion, done before globbing: ".{env,x}" -> ".env", ".x". Unquoted braces only (shellSegments). Past
+// 256 words it returns null and the caller fails closed, so a crafted chain cannot stall the hook; the regex is linear.
 function braces(w) {
-  const m = /^(.*?)\{([^{}]*,[^{}]*)\}(.*)$/s.exec(w);
-  return m ? m[2].split(',').flatMap((a) => braces(m[1] + a + m[3])) : [w];
+  const [todo, out] = [[w], []];
+  while (todo.length && todo.length + out.length <= 256) {
+    const m = /^(.*?)\{([^{},]*,[^{}]*)\}(.*)$/s.exec(todo[todo.length - 1]);
+    if (m) todo.splice(-1, 1, ...m[2].split(',', 257).map((a) => m[1] + a + m[3]));
+    else out.push(todo.pop());
+  }
+  return todo.length ? null : out;
 }
 
 // A path or a glob. A glob counts if its literal start begins "." and agrees with ".env." (bash never globs a leading dot).
@@ -307,9 +313,8 @@ function couldBeEnv(word) {
 
 // A token, split where a path may start inside it: = < > : , @ | and an attached short option value (-f.env).
 function tokenNamesEnv(t) {
-  const w = slash(t).toLowerCase();
-  if ((w.match(/\{/g) || []).length > 8) return true; // too many braces to expand: fail closed
-  return braces(w).some((x) => x.split(/[=<>:,@|]/).concat(/^-[a-z]/.test(x) ? [x.slice(2)] : []).some(couldBeEnv));
+  const words = braces(slash(t).toLowerCase());
+  return !words || words.some((x) => x.split(/[=<>:,@|]/).concat(/^-[a-z]/.test(x) ? [x.slice(2)] : []).some(couldBeEnv));
 }
 
 // Search commands, whose pattern is text: their short options that take a value, and the long ones.
@@ -349,15 +354,24 @@ function patternTokens(seg) {
   return out;
 }
 
-const INTERPRETER = /^(node|deno|bun|tsx|ts-node|python[\d.]*|py|perl|ruby|php|awk|gawk|sed)$/;
-function segmentNamesEnv(seg) {
-  const [patterns, code] = [patternTokens(seg), seg.findIndex((t) => INTERPRETER.test(commandName([t])))];
-  return seg.some((t, k) => !patterns.has(k) && (tokenNamesEnv(t) || (code >= 0 && k > code && mentionsEnv(t))));
+// After a shell or interpreter every token is also read as text (inline code, a script scriptOf cannot locate), except a
+// script parsed as shell; with text, every token is. A command substitution ($( or `) is text even in a pattern: it runs.
+const INTERPRETER = /^(node|deno|bun|tsx|ts-node|python[\d.]*|py|perl|ruby|php|awk|gawk|sed|(ba|z|da)?sh|powershell|pwsh|cmd|eval)$/;
+const interpreterAt = (seg) => seg.findIndex((t) => INTERPRETER.test(commandName([t])));
+function segmentNamesEnv(seg, text) {
+  const [patterns, code] = [patternTokens(seg), interpreterAt(seg)];
+  const [from, to] = (code >= 0 && scriptOf(seg, code)) || [0, 0];
+  const asText = (k) => (text || (code >= 0 && k > code)) && (k < from || k >= to);
+  return seg.some((t, k) => (/\$\(|`/.test(t) && mentionsEnv(t)) || (!patterns.has(k) && (tokenNamesEnv(t) || (asText(k) && mentionsEnv(t)))));
 }
 
+// A command with a pipe and an interpreter may feed it a script on stdin (echo "..." | node): every segment is then read
+// as text. Any | but || and >| counts, quoted or nested — the simplest closed form.
 function namesEnvFile(command) {
   const win = String(command).replace(/\\(?=[^"'\\$`\n])/g, '/'); // parsed again, \ as a Windows path separator
-  return [command, win].some((c) => shellSegments(c).some(segmentNamesEnv)) || mentionsEnv(commandText(command, true));
+  const segs = shellSegments(command).concat(shellSegments(win));
+  const fed = /(?<![|>])\|(?!\|)/.test(command) && segs.some((s) => interpreterAt(s) >= 0);
+  return segs.some((s) => segmentNamesEnv(s, fed)) || mentionsEnv(commandText(command, true));
 }
 
 // A block of the kind Afik is told about at once (logged as rule r4-critical).
@@ -531,15 +545,9 @@ function outsideRoot(p, ctx) {
 
 // The path a tool call names, for the outside-root check (a Glob's literal prefix may itself be absolute).
 function namedPaths(tool, input, ctx) {
-  if (tool === 'Grep' || tool === 'Glob') {
-    let target = abs(input.path || '.', ctx.cwd);
-    if (tool === 'Glob' && input.pattern) {
-      const prefix = literalPrefix(input.pattern);
-      if (prefix) target = path.resolve(target, fromGitBash(prefix));
-    }
-    return [target];
-  }
-  return [input.file_path || input.notebook_path || ''];
+  if (tool !== 'Grep' && tool !== 'Glob') return [input.file_path || input.notebook_path || ''];
+  const [target, prefix] = [abs(input.path || '.', ctx.cwd), tool === 'Glob' && input.pattern ? literalPrefix(input.pattern) : ''];
+  return [prefix ? path.resolve(target, fromGitBash(prefix)) : target];
 }
 
 const OUTSIDE = 'CRITIC and TEST ENGINEER work only inside the project: this path is outside the project root (another drive, a UNC or device path, or ..).';
@@ -568,11 +576,7 @@ function checkReadPath(role, tool, input, ctx) {
   if (tool === 'Glob' && !te) return null; // file names only
   if (tool !== 'Grep' && tool !== 'Glob') return null;
 
-  let target = abs(input.path || '.', ctx.cwd);
-  if (tool === 'Glob' && input.pattern) {
-    const prefix = literalPrefix(input.pattern);
-    if (prefix) target = path.resolve(target, fromGitBash(prefix));
-  }
+  const target = namedPaths(tool, input, ctx)[0];
   const forms = relBoth(target, ctx);
   if (te && forms.some(reachesAppImpl)) {
     return 'TEST ENGINEER searches only where app source is out of reach. Point the path at apps/<app>/tests, packages/shared, e2e, supabase/tests or .work/<slug>.';
@@ -726,16 +730,12 @@ function checkBuilder(tool, input, ctx) {
   if (tool !== 'Bash') return null;
 
   const raw = String(input.command || '');
-  let cwd = ctx.cwd;
-  for (const seg of shellSegments(raw)) {
+  for (const { seg, cwd } of withCwd(shellSegments(raw), ctx.cwd)) {
     if (RUNS_TESTS.test(seg.join(' ')) && seg.some((a) => /^(-u|--update[\w-]*)(=.*)?$/.test(a))) {
       return 'BUILDER does not update test snapshots. Snapshots belong to TEST ENGINEER.';
     }
-    const name = path.posix.basename(slash(seg[0] || '')).toLowerCase().replace(/\.exe$/, '');
-    if (['cd', 'pushd', 'set-location', 'sl', 'chdir'].includes(name) && seg[1]) {
-      cwd = abs(seg[1], cwd);
-      continue;
-    }
+    const name = commandName(seg);
+    if (CD.includes(name) && seg[1]) continue;
     const here = rel('.', ctx.root, cwd);
     const targets = [];
     // Redirections: > >> 1> 2> &> >| — the next token, or the rest of the same token.

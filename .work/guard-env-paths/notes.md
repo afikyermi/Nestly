@@ -85,8 +85,66 @@ session, `grep -n ".env" noise.md` runs, `cat .env*` is blocked.
 
 **Neighbouring**
 - `checkBuilder` repeats `commandName` and the `CD` list inline (guard.js, the `name` line and the cd check in
-  checkBuilder). Harmless duplication, not touched.
+  checkBuilder). Harmless duplication, not touched. (Fix round 1: now removed, to fit the budget; see below.)
 - During the build, my own `node -e` edit script quoted `.env` text inside inline code. The guard blocked it correctly:
   inline interpreter code keeps the text check by design. The block wrote one `incidents.md` line,
   "2026-10-13 14:08 | hook blocked Bash (all)". It is uncommitted in the working tree, for ORCHESTRATOR to resolve.
   Not a false block: the new rule intends this.
+
+---
+
+## Fix round 1 — CRITIC findings 1–4 (`findings.md`), the single round Afik allows
+
+**Approach**
+Each fix takes the simplest form that fails closed, as the brief asked, not precise parsing.
+- **F1, command substitution.** A token that contains `$(` or a backtick is checked as text (`mentionsEnv`) wherever it
+  stands, search patterns included, because it runs. `psql "$(grep … .env.preview …)"`, `URL="$(cat .env.local)"`,
+  `"\`cat .env\`"` and `"$(< .env)"` are blocked. `echo "the .env file"` is still allowed.
+- **F2, scripts handed to a shell.** bash/sh/zsh/dash, powershell/pwsh, cmd and eval joined `INTERPRETER`. After any
+  of them, every token is checked as text (minus search patterns), except the script that `scriptOf` locates and
+  parses as shell. `scriptOf` replaces the inline nested-shell block in `shellSegments`. It recognises these forms:
+  `-c` anywhere in the leading options (`-lc`, `-ec`, `-e -c`, `--login -c`), where the script is the next word;
+  powershell `-Command`; `cmd /c` or `/k` after other `/x` switches; a leading `eval`. If none of these is found, the
+  whole segment is checked as text. So `bash -lc "grep -n .env noise.md"` is parsed and allowed, while
+  `powershell "gc .env"` and `cmd /s /c "type .env"` are blocked by the text check.
+  Pipes: if a command contains a `|` (not `||` or `>|`) and any segment has an interpreter, every segment is checked as
+  text. `echo hi | node` and `bash -lc "ls"` are still allowed.
+- **F3/F4, braces.** The tokenizer keeps a quoted `{` as ``, so quoted text is never brace-expanded (bash does not
+  expand it either). A script handed to a nested shell gets its `{` back first. `braces` is now iterative and linear,
+  with no `,` before the first comma. Beyond 256 words, or a group with more than 256 alternatives (`split(',', 257)`),
+  it returns null and the token blocks. The "more than 8 `{`" rule is gone.
+
+**Decisions**
+- `shellSegments` now nests only the first located script per segment, not every shell token in it. This removes an
+  m^depth blow-up in the old loop: `cmd /c cmd /c …` re-parsed every suffix at every level. It also loses nothing,
+  because every token outside the nested script is still checked as text (e.g. `bash -c "x" bash -c "cat .env"`
+  blocks). Measured on 50,000-character pathological commands (shell chains, brace chains, `$(` runs, long pipes,
+  long option runs): at most 0.9 s per call.
+- The pipe rule is per command, not per pipeline, and it does not require a bare interpreter. Segment separators are
+  not recorded, and grouping by `;` breaks on `$(…; …)` and on `2>&1` (the tokenizer splits on `&`). Cost: a command
+  that has a pipe and an interpreter and also mentions an env name in plain text blocks, e.g.
+  `node x.js | tee log; echo "see .env"`.
+- **Line budget:** two de-duplications inside guard.js, with no comment carrying a rule cut. `checkReadPath` now takes
+  its Grep/Glob target from `namedPaths`, which had the same six lines. `checkBuilder` now iterates `withCwd` and
+  `commandName`/`CD` instead of its own copy (the earlier Neighbouring item). Both are covered by `guard-readers` /
+  `guard.test.js`. Result: 899 lines.
+
+**Deviations**
+- None from findings.md's expected behaviour. F2's fix line asked for each form to be recognised. For powershell
+  without `-Command`, I rely on the text fallback instead of locating the first non-switch argument; the result is
+  the same block.
+
+**Uncertain**
+- Brace forms inside a script that `scriptOf` cannot locate are not expanded by the text check, e.g.
+  `bash -o pipefail -c "cat .{env,x}"`. The old text rule had the same hole.
+- Over-blocks introduced, all fail-closed (r4-critical, one incidents line each):
+  - an unquoted brace word that expands past 256;
+  - `'$(cat .env)'` in single quotes (literal in bash);
+  - a token named exactly `sh`/`cmd`/`eval`/`bash` as an argument, followed by text that names an env file;
+  - the pipe-wide rule above.
+- `bash -C x` (noclobber) is read as `-c`, as the old code did with `-C`. The next word is parsed as shell instead of
+  being read as text. The nested parse still judges every path in it.
+
+**Preview path**
+No preview. `node --test` on the five guard test files: 202 tests, 197 pass, 0 fail, 5 symlink skips on Windows as
+before. All 18 `[critic-r1]` tests pass. `npm run check:budgets` is ok.
