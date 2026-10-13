@@ -265,3 +265,223 @@ Artifact — `C:\Users\Afik\nestly\.work\agent-slim\stage1-findings.md` ("Round 
 Findings — verdict Validated with Concern. R2-1 low (npm `--` passthrough routes around the F2 flag list; the cost goes to debt.md). R2-2 low (the notes substring over-blocks paths like `release-notes.md`; importing from guard.js installs its handler). R2-3 low (pre-existing false positive: a Grep on one named non-notes file in `.work` is blocked, and it would feed the F5 threshold).
 Open — F5 is a DECISION REQUEST reserved for Afik. The proposed default is acceptable to CRITIC. Input for him: R2-3 would make the 3-per-task threshold count false positives.
 Next owner — ORCHESTRATOR (take F5 to Afik, put R2-1 in debt.md, fold R2-1..3 into the approach or the implementation tests; a re-check of R2-1..3 comes back to me).
+
+---
+
+# Implementation review (CRITIC on opus, 2026-10-13)
+
+Scope: branch `chore/agent-slim-1-guard` as `.work/agent-slim/review.diff` (from `node tools/critic-diff.mjs agent-slim
+main`), against Round 4 and its implementation details, and rounds 1–3 where Round 4 does not override them.
+`guard.next.js` compared with the live `.claude/hooks/guard.js` by Read, function by function. Also read:
+`.claude/settings.json` and the critic/test-engineer frontmatters (wiring). No Bash used. notes.md not read.
+One probe, to check reachability for I-1: Glob (names only, allowed for CRITIC) of `CLAUDE.md` at
+`\\localhost\c$\Users\Afik\nestly`. It returned `\\localhost\c$\Users\Afik\nestly\CLAUDE.md`. No content was read
+through that path.
+Line numbers below are file lines (`guard.next.js` line 1 = diff line 929).
+
+```
+verdict: Not Ready
+```
+
+One high (I-1). It is pre-existing: `guard.js` has the same gap, at lines 478 and 485. But in this stage the path
+check is the whole fence for CRITIC, and this diff rewrote that check for exactly this class of problem (aliases of a
+path: symlinks, `..`, paths at or above the root).
+
+## 1. Earlier findings and Round 4 conditions
+
+| item | status | basis |
+|---|---|---|
+| F1 | **moot** | Round 4 removed `tail`/`head`. The TE charset `^[A-Za-z0-9._/:=@+ -]+$` (guard.next.js:550) cannot express a pipe. A test covers it. |
+| F2 | **closed**, with a low residual (I-5) | No glob characters can appear. Flags are only the fixed `--name=value` list (528–541). `npx` must be followed directly by `vitest run` / `playwright test`. Arguments are checked as relative paths to existing test files, with no `..`, and realpath must stay out of src/api/notes (564–571). |
+| F3 | **closed** | `TOOL_CONFIG` blocks the config basenames everywhere, test areas included (520). Writes go only to test paths and `.work/<slug>/*.md` (522–525). Write and Edit are tested. `--prefix`/`-w` are moot. |
+| F4 | **closed** | See section 3. |
+| F5 | **implemented** as Round 4 specifies, with a low race (I-3) | See section 6. |
+| F6 | **closed in the guard** | `checkCritic`: every Bash call is blocked (509). The frontmatter matcher change is not in the diff (I-2). |
+| F7 / R2-2 | **closed** | `notes-name.js` has no side effects. The script tests basenames and checks that the file set matches. `release-notes.md` passes, and a test covers it. |
+| R2-1 | **moot** | The npm forms were dropped. |
+| R2-3 | **closed** | `isFile(realAbs(target))` returns null only after the notes test on both forms (493–494). Tests cover it for both roles. |
+| R4: TE Bash = one run | **met** | The whole command is checked. Only space separates tokens. The head must match exactly. The cwd must realpath to the root. |
+| R4: CRITIC Write `*-findings.md` | **met** | `FINDINGS_FILE` (506), checked on both forms. |
+| R4: block log fields, rule classes, incidents | **met** (I-3) | Section 6. |
+| (b) wiring, (c), (d) docs, debt.md, critic.md lines | **not in the diff** | I-2. |
+
+## 2. Read paths through the new code
+
+- **Read.** Notes are matched by basename on both the written form and the realpath form. The realpath form also
+  closes these Windows aliases: trailing dots and spaces, an 8.3 short name, `\\?\C:\…` and subst drives. In each
+  case `GetFinalPathNameByHandle` returns the real long `C:` path. An NTFS stream suffix is cut off before the
+  basename test. **Gap:** a UNC alias of the root (I-1).
+- **Grep/Glob scope.** `isTop` now includes `..` chains, so a search from the parent directory is blocked, for
+  CRITIC on `.work` and for TEST ENGINEER on app source. The old guard missed this. An absolute or Git-Bash Glob prefix
+  now resolves through `path.resolve`. Both changes are correct. Neither has a test (I-7).
+- **TE Bash.** `$`, quotes, backslashes, globs and redirections cannot be written. `C:` and `/` absolute paths and
+  `..` are blocked. A path through a symlink is judged by its realpath, so `src./in.test.ts` resolves into src and
+  blocks.
+- **TE Write/Edit.** Both forms must pass. A file under app impl or with a notes name is refused. **Pre-existing,
+  not in scope:** through a UNC path, TEST ENGINEER can write a `*.test.*` file into `apps/*/src`, and BUILDER can
+  write a helper with no test name into a test area (R3, which Afik left untouched). Both are writes, not reads.
+  Record them in debt.md.
+- **Symlinks** are covered for Read, Grep, Write and Bash, with tests.
+
+--- finding I-1 ---
+severity: high
+file:     .claude/hooks/guard.next.js:454-456 (relBoth) and 468-501 (checkReadPath); same gap in guard.js:478,485
+claim:    A UNC alias of the project root (`\\localhost\c$\Users\Afik\nestly\…`, also `\\127.0.0.1\c$`, `\\<host>\c$`)
+          makes both path forms absolute strings that no reader rule matches. `path.relative` across roots returns the
+          target unchanged, and realpath over SMB returns the UNC path, not `C:`. So `isAppImpl`, `reachesAppImpl`,
+          `reaches('.work')` and `isTop` are all false.
+failure:  The share is reachable from the agent process; the probe above confirmed it.
+          TEST ENGINEER: Read `\\localhost\c$\Users\Afik\nestly\apps\web\src\main.tsx` → allowed → R2 broken in one call.
+          CRITIC: Grep pattern `.` with path `\\localhost\c$\Users\Afik\nestly\.work` and no glob → allowed → ripgrep
+          prints the lines of every `.work/*/notes.md` → R1 broken in one call. (A CRITIC Read of a notes file through
+          UNC is still blocked by its basename. Grep is the open path.)
+          The same works with forward slashes (`//localhost/c$/…`).
+fix:      For the reader roles (Read, Grep, Glob, Write/Edit of CRITIC and TEST ENGINEER), block any path whose written
+          or realpath form is still absolute after `path.relative` against the root. That covers a different root:
+          UNC, a device path, another drive. No legitimate reader call needs one. Add tests: on win32, build
+          `\\localhost\<drive>$\<rest>` from the temp root (skip elsewhere). One block case each for TE Read of src,
+          CRITIC Grep on `.work`, TE Grep on `apps`. Leave the R3 counterpart to debt.md, since Afik left it untouched.
+--- end ---
+
+## 3. guard-loader.js: no fail-open path found
+
+The handlers are installed before anything else. `process.exit` is wrapped, and an `exit` listener sets
+`exitCode = 2` if the process ends without an explicit exit. `fail()` exits 2 in a `finally`. Both sources sit in
+try/catch; `main()` sits in its own try/catch. The fallback ref is a fixed string, with a 10 s timeout, compiled in
+memory. The fallback's `require('./notes-name.js')` resolves against the local hooks dir, so a broken `notes-name.js`
+breaks both sources. That ends in exit 2, which is closed, not open. The tests cover every case named in F4, plus
+async throws, rejections and a throwing getter.
+
+**Concern:** `origin/main:.claude/hooks/guard.js` today is the old guard, which has no `main` export. Until this
+branch merges, the fallback cannot succeed, so a broken guard.js under the loader exits 2 and locks the session (the
+failure (b) exists to prevent). The wiring to the loader must therefore land in the same merge as the swap, not before.
+
+## 4. critic-diff.mjs
+
+I found no way for a notes file to reach `review.diff`. Notes are dropped by basename. All of `.work/` is dropped
+except this slug's four files. The header check uses the same regex. The file-set equality check catches any extra
+file. Quoted (C-escaped) headers fail closed. `--no-renames` turns a rename into a delete plus an add, so the notes
+side is still dropped by name. Widening `NOTES_NAME` to `notes\.md(\..*)?` only adds over-blocks: the guard refuses
+reads and TE writes of `notes.md.<anything>`. Two side effects, both fail-closed noise:
+- The header check splits on whitespace, so a changed file named, for example, `docs/my notes.md`, or one under a
+  directory named `notes.md.d/`, makes the script exit 1.
+- A very long kept-file list could exceed the Windows command-line limit. git fails and the script exits 1.
+
+--- finding I-4 ---
+severity: low
+file:     tools/critic-diff.mjs:15-16, 57-59
+claim:    When the script fails it writes nothing, but it does not remove a `review.diff` left by an earlier run. Spec
+          round 1 says "exit 1, no file".
+failure:  After new commits, a run exits 1 (bad header, git error). `.work/<slug>/review.diff` from the previous run
+          is still there. If the exit code is missed, CRITIC reviews the old diff as the current change.
+fix:      Delete `.work/<slug>/review.diff` before running git, or in `die()`. Add a test.
+--- end ---
+
+## 5. R4 and BUILDER
+
+Compared line by line with guard.js:221–418 and 604–656. `checkAll`, `scanForSecrets`, `commitTakesWorkingTree`,
+`checkBuilder`, `shellSegments`, `gitCall` and `dropHeredocs` are identical. The only change is the `critical()`
+wrapper on five verdicts: an .env name, a blocked ref, a force push, a staged .env and a secret pattern. Every message
+text is the same. `check()` turns a string verdict into `{reason, rule}`. **Unchanged except for the logging
+classification, as Afik required.**
+
+## 6. Block log and escalation
+
+Each entry has `{time, role, tool, rule, reason, session}`. The directory is created if missing, the command is never
+logged, and a frontmatter hook skips logging when the settings hook already logged the block (`loggedElsewhere`). An
+r4-critical block escalates even when the log write fails, and a failed log write never changes the verdict (tested
+with `.claude/logs` as a file). The third reader block per role and session escalates. The classification matches
+Round 4.
+
+--- finding I-3 ---
+severity: low
+file:     .claude/hooks/guard.next.js:721-744 (report)
+claim:    Escalation fires only when the count read back is exactly 3. Each hook process appends its entry and then
+          counts. When two reader blocks arrive concurrently (parallel tool calls run hooks in parallel), both
+          processes can count 4 or more. Then no process ever sees 3, and that role+session never escalates.
+failure:  An agent sends its 3rd and 4th probing calls in one parallel batch. A appends #3, B appends #4, both read 4,
+          so incidents.md gets no line. Later blocks count 5, 6 and so on, and still never escalate. The blocks are
+          still counted in the local log and by /wrap-up, which is why this is low.
+fix:      Escalate when `reader >= 3` and no escalation entry for that role+session exists yet. For example, append
+          `{"rule":"escalated",role,session}` to the same log and check for it. Or count only the entries up to and
+          including this process's own entry, identified by a nonce. Add a test that runs two blocks concurrently.
+--- end ---
+
+## 7. TEST ENGINEER's tests: file reads at run time (standing check)
+
+**Pass.** `guard-next.test.js` builds its own temp root with fake notes ("SECRET NOTES") and reads only the temp log
+and the temp `incidents.md`. `critic-diff.test.mjs` works in a temp repo and imports `notes-name.js`.
+`guard-loader.test.js` copies `guard-loader.js` into a temp repo to execute it, without printing it. That is the unit
+under test, not `apps/*/src|api` and not a notes file. No test reads app source or a real notes file.
+
+## Other findings
+
+--- finding I-2 ---
+severity: medium
+file:     review.diff as a whole: .claude/settings.json, .claude/agents/critic.md, .claude/agents/test-engineer.md,
+          .claude/workflow.md, CLAUDE.md, debt.md, incidents.md
+claim:    These spec items are not in the diff:
+          - (b) the wiring of `settings.json` and both frontmatters to `guard-loader.js`;
+          - (a) CRITIC's tools without Bash, and its matcher `Read|Grep|Glob|Bash|Write`;
+          - (a) TEST ENGINEER's matcher `…|Write|Edit|Bash`;
+          - (c) the workflow.md line;
+          - (d) the CLAUDE.md "Report material failures" change, critic.md:36, the archive move of the block lines;
+          - the critic.md checklist line for TEST ENGINEER's tests, and the debt.md lines (known gap, R3/UNC, other
+            slugs' .md).
+          The swap commit must also retire or rewrite `guard.test.js` and `guard-case.test.js`. They assert the old
+          CRITIC Bash behaviour, which the new guard blocks.
+failure:  If the swap lands without these:
+          - (b) is not delivered, and the loader is dead code;
+          - TEST ENGINEER's Write limit, the precondition of its Bash allowlist, runs only through the settings hook's
+            `agent_type` branch, and not at all when `agent_type` is absent;
+          - incidents.md keeps receiving every block, because the active guard is still the old one. This diff itself
+            adds 4 block lines to incidents.md.
+fix:      Put the wiring and documentation changes on this branch before the swap. The swap commit (guard.next.js →
+          guard.js, test repointing, old guard tests) comes back to CRITIC for a re-check of I-1, I-2 and I-3 only.
+--- end ---
+
+--- finding I-5 ---
+severity: low
+file:     .claude/hooks/guard.next.js:548-573 (checkTestEngineerBash)
+claim:    The "explicit existing test file" check holds for the token, but vitest treats a positional argument as a
+          substring filter on collected files, and playwright treats one as a regex. The set of files that actually
+          run is bounded by the runner config, not by the token.
+failure:  TEST ENGINEER writes `web/src/x.test.ts` at the repo root (allowed: a test name, not under `apps/`), then
+          runs `npx vitest run web/src/x.test.ts`. That filter also matches any `apps/web/src/x.test.ts` the config
+          collects, which then runs and prints its frames. No colocated test exists in `apps/*/src` today (checked
+          with Glob), and a TEST ENGINEER test can import src anyway, so this is inside the recorded known gap.
+fix:      No mechanism needed. Add one line to the known-gap debt entry: runner positional arguments are filters, not
+          paths.
+--- end ---
+
+--- finding I-6 ---
+severity: low
+file:     WORKPLAN-HE.md:15, 30-32 (diff)
+claim:    WORKPLAN still says stage 1 is waiting for Afik's approval of the approach and of F5. Commit 739f079 and the
+          decisions.md entry in this same diff record that he approved both.
+failure:  Afik opens the single status file and finds two decision requests he has already answered. The real next
+          step (implementation review, then the swap) is not listed.
+fix:      Update WORKPLAN in the next commit on this branch.
+--- end ---
+
+## Notes (no finding)
+
+- **I-7, test gaps:** the builder's widened handling has no tests: Grep from `..` for CRITIC and TEST ENGINEER, and
+  an absolute or `/c/…` Glob prefix for TEST ENGINEER. The tests for I-1 and I-3 belong next to them.
+- **Pre-existing, unchanged by design:** `grepExcludesNotes` compares globs case-sensitively. `glob: "NOTES.md"`
+  counts as excluding notes, and ripgrep would match a file whose real name on disk is upper-case `NOTES.md`. Today
+  the files are lower case. Candidate for debt.md.
+- **Size, 797 lines:** nothing is dead. The R4 and BUILDER code is about 400 lines, untouched. The reader part,
+  logging and loader glue are about 190 lines. The duplicates are older: the cd list inline in `checkBuilder` next to
+  `CD`, and the edit-tool array next to `EDIT_TOOLS`. There is one stray double blank line at 681–682. None of this
+  affects the verdict.
+- **Rule (c):** this is the first `Not Ready` on the implementation. ORCHESTRATOR decides whether the round-1
+  `Not Ready` on the approach counts toward the two-strike stop.
+
+---
+
+Done — reviewed the stage-1 implementation diff against Round 4 and rounds 1–3. Compared guard.next.js with the live guard.js, and checked the loader, critic-diff, the log and escalation, R4/BUILDER parity, and the tests' run-time reads.
+Artifact — `C:\Users\Afik\nestly\.work\agent-slim\stage1-findings.md` ("Implementation review")
+Findings — verdict Not Ready. I-1 high (a UNC alias of the root gets past every reader path rule: TE Read of src and CRITIC Grep of .work both work; the share is reachable, pre-existing in guard.js). I-2 medium (wiring, c/d docs, debt lines and the old guard tests are not in the diff). I-3 low (escalation fires only on exactly 3, which concurrent blocks can skip). I-4 low (a stale review.diff survives a failed run). I-5 low (runner positional arguments are filters). I-6 low (WORKPLAN is stale). F1–F7, R2-1..3 and the Round 4 conditions: met or moot. Loader: no fail-open path. critic-diff: no notes path. R4/BUILDER: unchanged except classification. The tests read no source or notes.
+Open — none for Afik from CRITIC. Rule (c) applicability is ORCHESTRATOR's call.
+Next owner — ORCHESTRATOR (route I-1, I-3 and I-4 to BUILDER, with TEST ENGINEER writing the I-1/I-3/I-4/I-7 tests first; I-2 and I-6 are ORCHESTRATOR's own edits; the re-check of I-1..I-6 comes back to me).
