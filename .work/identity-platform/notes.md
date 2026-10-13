@@ -169,3 +169,12 @@
   - Fix in `catalog-fingerprint.sql`: the history item is now the array of versions, so absent and empty both read
     `{}`. The schema, relation and function items that would catch a leftover `ci_atomicity_probe` are unchanged, and
     so is the version list. On a mismatch the step now also prints whether the probe schema exists.
+- Run 38476223870 (commit 88a1a7f) passed everything up to pg_prove:
+  - the auth functions, their check and the preflight
+  - bootstrap 1, migrations, and criteria 6 and 7, with the fingerprint fix
+  - the RLS gate ("no violation")
+  - `00_session_is_app_server` and `01_rls_gate_clean`
+- `02_rls_gate_fires.sql:87` then failed with `"zz_v_plain" is not a sequence`, raised inside `tests.rls_gate`.
+  **The bug was mine, in `rls-gate.sql`, not in the test.** The sequence branch of `anon_privilege` relied on
+  `kind = 'S' and has_sequence_privilege(...)` short-circuiting. SQL does not fix the order AND evaluates in, so a
+  view reached `has_sequence_privilege`. It is now guarded with `CASE`.

@@ -107,8 +107,9 @@ as $$
                              'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN')
          or has_any_column_privilege('anon', r.rel_oid, 'SELECT, INSERT, UPDATE, REFERENCES'))
   union all
+  -- CASE, not AND: SQL does not fix the order AND evaluates in, and has_sequence_privilege raises on a non-sequence.
   select 'anon_privilege', r.label from rels r
-  where r.kind = 'S' and has_sequence_privilege('anon', r.rel_oid, 'USAGE, SELECT, UPDATE')
+  where case when r.kind = 'S' then has_sequence_privilege('anon', r.rel_oid, 'USAGE, SELECT, UPDATE') else false end
   union all
   select 'anon_privilege', f.label from funcs f
   where has_function_privilege('anon', f.fn_oid, 'EXECUTE')
