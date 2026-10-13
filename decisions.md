@@ -64,7 +64,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-11 | Bottom navigation: the services tab is labelled "יועצים" | 10 |
 | 2026-10-11 | R1: palette A (apricot, terracotta), Rubik, centred column with a navigation rail | 10 |
 | 2026-10-11 | The eighth tracker tile is "אמבטיה" — OP-007 closes | 10 |
-| 2026-10-11 | D7 closed: 15 initiatives, MVP is I1–I9; I1 scope and its decided points | 10 |
+| 2026-10-11 | D7 closed: 15 initiatives, MVP is I1–I9; I1 scope and its decided points (upd. 10-13 I1 points) | 10 |
 | 2026-10-11 | Elevated path: no diff review by Afik — CRITIC on opus, DATA ARCHITECT, CI, hooks (upd. 10-11 Working rules) | 10 |
 | 2026-10-11 | R2 approved; post card has four icon actions — Like, Comment, Share in feed, Share link | 10 |
 | 2026-10-11 | Repository layout and naming (WORKPLAN 7.0); tests outside src | 10 |
@@ -89,7 +89,11 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-13 | Guard env-file rule (R4) judges path arguments and redirection targets, not text; Not Ready → debt | 10 |
 | 2026-10-13 | Three older texts yield to the working rules (DATA ARCHITECT, SPEC CHALLENGE, /wrap-up) | 10 |
 | 2026-10-13 | F5: /wrap-up rotates the block log, so reader-block escalation counts per task | 10 |
-| 2026-10-13 | agent-slim and guard-allowlist closed; next is I1, Afik sees spec.md before Gate 1 | 10 |
+| 2026-10-13 | agent-slim and guard-allowlist closed; next is I1, Afik sees spec.md before Gate 1 (upd. 10-13: F1.1 only) | 10 |
+| 2026-10-13 | System → product: agent system frozen until I1 merges; lean records; pace and progress line; retro after I1 | 10 |
+| 2026-10-13 | The guard is a fence, not a fortress: effortful bypasses are accepted risk; F1.1 spec answers Q1–Q3 | 10 |
+| 2026-10-13 | F1.1 Gate 2: schema conventions (nestly, uuid, timestamptz, text+CHECK…); caller-only helpers are INVOKER | 10 |
+| 2026-10-13 | I1 points: ON DELETE RESTRICT · age by declaration · parallel journeys, ≤10 children · Google + email, no verification, in-app recovery · VAL-001 2–60 | 10 |
 
 ## Superseded
 

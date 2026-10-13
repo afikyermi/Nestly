@@ -159,3 +159,87 @@
 | שלב | מה | מצב |
 |---|---|---|
 | **א** | **כלי תהליך:** `/where`, `/feature`, `/bugfix`, `/gate`, `synthesize`, `/wrap-up`, `/decision` · **משימות:** `/srs-update`, `/srs-export` · **משותף:** `srs-lookup` · **מקצועי:** `rtl-hebrew`, `accessibility`, `security-craft`, `ux-copy-he` · שדות `skills:` בהגדרות הסוכנים · `intake.md` ב-workflow 1.3 · NFR-USAB-003 | ✅ |
+
+
+---
+
+# הועבר מ-WORKPLAN ב-13.10.2026 (הכרעת אפיק: ממערכת למוצר)
+
+**4.11 נסגר בלי רענון** (הקבצים ב-archive/) · **6.1 Threat Modeling, skills שלב ב ו-7.2 security-guidance נדחו לרטרו אחרי I1.**
+
+## בלוק המצב כפי שהיה ב-13.10
+
+**עודכן:** 13.10.2026 · **גרסת SRS:** 2.11
+
+- **🔄 סשן תחזוקה: הרזיית מערך הסוכנים** (הכרעתך מ-13.10, ‏`decisions.md`; ‏`.work/agent-slim/`). שבעה שלבים, PR לכל שלב. **שלב 0 ✅** (PR 7): מדידה, ‏`node tools/measure-context.mjs`. ‏ORCHESTRATOR קורא 163.9K ו-BUILDER 150.0K בכל הפעלה, ו-decisions.md (91.3K) הוא הרוב. **שלב 1 ✅** (PR 8, ‏squash): ‏guard.js ‏835 שורות. ל-CRITIC אין Bash, ‏TEST ENGINEER מריץ טסט אחד, ‏guard-loader.js חוזר לגרסה של main אם הטעינה נכשלת, והחסימות נרשמות ביומן מקומי. ‏CRITIC על opus: ‏Validated with Concern אחרי Not Ready אחד. ‏PR 6 נסגר והמידע שלו הועבר. **שלב 2 ✅** (`.work/agent-slim/stage2-insights.md`): שישה דפוסים, ושורת "Git and shell" ב-conventions (‏CRITIC: ‏Validated). **שלב 3 ✅:**
+  - **decisions.md** 91.3K→10.0K: אינדקס של 62 החלטות בתוקף ו-9 שהוחלפו. הרשומות המלאות ב-`decisions/2026-09.md` וב-`decisions/2026-10.md`, כלשונן, 985 מתוך 985 שורות.
+  - **WORKPLAN** 37.2K→17.8K: החלקים הסגורים ב-`archive/WORKPLAN-2026-10.md`, והפתוח מתוכם נאסף ל"פתוח מחלקים שנסגרו".
+  - **commits ו-push** לפי הכרעתך: ב-CLAUDE.md, ב-`/decision`, ב-`/wrap-up` וב-workflow.
+  - **כפילויות CLAUDE.md מול workflow.md:** טבלת המסלולים וסוגי ההודעות נמצאים עכשיו במקום אחד. נוהל עריכת ה-SRS עבר ל-`.claude/rules/srs-editing.md`.
+  - **BUILDER** קורא את data-model.md רק במשימת נתונים.
+  - **מדידה:** ‏ORCHESTRATOR ‏163.9K→64.0K, ‏BUILDER ‏150.0K→51.2K.
+  - **ממצא ל-open-questions.md:** קובץ סטטוס שני (10.3K), שלא נגענו בו לפי הכרעתך. הרענון שלו הוא 4.11.
+- **שלב 4 ✅** (`.work/agent-slim/stage4-agents.md`): לא נמצאו בהגדרות הסוכנים ובסקילים כפילויות להסרה, מעבר לזו שהוסרה בשלב 3. הכפילויות שנשארו הוכנסו בכוונה ב-11.10. התיאורים של CRITIC ו-TEST ENGINEER חודדו, ואף סקיל לא נמחק. שלוש סתירות ישנות מול כללי העבודה מחכות להכרעתך.
+- **שלב 5 ✅:** ‏`npm run check:budgets` רץ ב-CI (ב-job ‏lint). התקציבים ב-`tools/line-budgets.json`: לכל קובץ שנקרא תמיד יש תקציב בגודלו הנוכחי ועוד כ-15%. קבצי קוד עד 400 שורות, טסטים עד 800, ו-`apps/*/src` נשאר תחת ESLint. ‏guard.js חריג מתועד (900). ‏30 טסטים. ‏CRITIC: ‏Validated, וארבעה ממצאים קלים: אחד תוקן ושלושה ב-debt.
+- **שלב 6 ✅** (`.work/agent-slim/stage6-verification.md`): טבלה של 23 כללים, ולכל אחד איפה הוא עכשיו. ‏CRITIC על opus: לא אבד אף כלל, והציון Validated with Concern. תוקנו שני ממצאים בינוניים: טבלת incidents עדיין אמרה "every block", ושלושה פריטים פתוחים מ-7.1 ו-7.2 (שער ה-RLS ב-CI, הגנת ענף, security-guidance) לא הועברו. נוספו לפתוח. גם ארבעה ממצאים קלים טופלו. **מדידה מול שלב 0:** ‏ORCHESTRATOR 163.9K→65.9K ‏(‎−60%), ‏BUILDER 150.0K→51.2K ‏(‎−66%), ושאר התפקידים +1% עד +5%.
+- **✅ סשן ההרזיה נסגר** (`.work/agent-slim/result.md`). גם `guard-allowlist` נסגר: הוחלף בשלב 1 (`.work/guard-allowlist/result.md`).
+- **הכרעותיך מ-13.10 על הפתוחים** (`decisions.md`): ‏(1) כלל ה-`.env` ב-guard יבדוק רק ארגומנטים שהם נתיב ויעדי הפניה. בעבודה: `.work/guard-env-paths/`, במסלול bug-fix עם CRITIC על opus. אם יחזור Not Ready, השינוי לא ימוזג ויירשם ב-debt · ‏(2) שלוש הסתירות יושרו: DATA ARCHITECT 1.2, ‏workflow 1.10, ‏`/wrap-up` 1.2 · ‏(3) F5: ‏`/wrap-up` מעביר את יומן החסימות ל-`.claude/logs/archive/<date>-<slug>/` בסוף כל משימה.
+- **🔄 הבא: I1** (`.work/_initiatives/I1-accounts-access.md`), במסלול Elevated. שער ה-RLS ב-CI נכנס עם המיגרציה הראשונה. **עוצרים לפני Gate 1, ו-`spec.md` נשלח אליך.**
+
+- **מצב:** חלק 7 הושלם (7.0 עד 7.4). מחלק 9 הושלמו 9.1 עד 9.6. 9.7, יחידת הרכיבים, הושלמה: ששת החלקים a עד f מוזגו, כל אחד עבר CRITIC ו-TEST ENGINEER, וה-Preview של הגלריה עבר (12.10). **כללי העבודה מ-11.10:** אני עובר את Gate 1, ‏Gate 2 וה-Preview, ומחליט את מה שלא שמור לך. כל החלטה נרשמת ב-`decisions.md`. השמורים לך: סודות, prod, החלטות בלתי הפיכות או שינוי מהותי ב-SRS, ונקודות של משפט, קטינים או כסף (`CLAUDE.md`, ‏"Decision authority").
+- **✅ ההכנות ל-I1 הושלמו (PR 4, ‏`.work/i1-prep/`):** התפקידים `app_owner`, ‏`app_server` ו-`app_jobs` קיימים ב-preview וב-prod (בדיקה: 3 שורות `ok` בשניהם). הסוד `APP_OWNER_DATABASE_URL` נמצא ב-`db-preview` וב-`db-production`, ו-`db-check` עבר בשתי הסביבות. ‏Vercel בונה רק את `main` וענפים עם PR פתוח.
+- **המשימה הבאה:** ‏**I1** (`.work/_initiatives/I1-accounts-access.md`). לפניו, באותו סשן: תיקון כלל ה-`.env` ב-guard.
+- **Preview:**
+  - האתר: [nestly-blue.vercel.app](https://nestly-blue.vercel.app). ‏`/api/health` עובד, ועוד אין מסך מוצר.
+  - **גלריית הרכיבים** מקומית בלבד: `npm run build-storybook` ואז `npm run serve:storybook`, בכתובת `http://127.0.0.1:6007`.
+  - **Supabase בפרנקפורט:** פרויקט prod הוא `cihugbwafnaujsqabgyp`, ופרויקט preview הוא `xmihorrkegrdlbhpktny`. ה-Data API כבוי בשניהם. הפרויקטים הישנים באסיה חסומים.
+- **ממתין לך (סודות ופעולות):**
+  1. **קובץ יומן מקומי ישן:** ‏`nestly/.live/events.jsonl` מכיל טקסט מפרומפטים, והוא לא נכנס ל-git. מחיקה היא פעולה הרסנית, ולכן ההחלטה שלך. אחרי שהוא נמחק, אפשר להסיר גם את השורה `.live/` מ-`.gitignore`.
+  2. **מחיקת ענפים מרוחקים שמוזגו** (ה-guard חוסם את זה לסוכנים): ‏`ui-wave-1/part-a` עד `part-e` ו-`chore/i1-prep`. הפקודה בהודעת הסיום של 12.10.
+  3. **ב-I1, כשיידרש:** מחרוזת החיבור של `app_server` ל-Vercel (‏`DATABASE_URL`, ‏transaction pooler, פורט 6543). הסיסמה כבר קיימת אצלך.
+- **ממתין להכרעה שלך:** אין. שלוש הנקודות הוכרעו ב-13.10 (למעלה).
+- **לקחים מהשיחה:** בזיכרון (`orchestration-lessons`) וב-`noise.md`.
+  - לבדוק את ה-SRS לפני שמעבירים הלאה שמשהו "TBD" (הטעות עם FR-AUTH-003).
+  - להריץ CI מלא אחרי כל commit של TEST ENGINEER.
+  - להריץ סוכנים בזה אחר זה, לא במקביל על אותו עץ.
+  - כל שינוי ב-guard עובר CRITIC על opus.
+- **פתוח, בלי הכרעה נדרשת עכשיו:**
+  - 4.11 ו-6.1 (Threat Modeling).
+  - לבדוק אחרי יום עמוס אם בניות ש-Vercel דילג עליהן עדיין נספרות במגבלה היומית. אם כן, עוברים ל-`git.deploymentEnabled`.
+  - החלטות המדיה M1 עד M6: לפני I5.
+  - **תזכורת: לתכנן תקציב לביקורת משפטית של תנאי השימוש ומדיניות הפרטיות, לפני I9.**
+- **החלטות:**
+  - ההכרעות מסומנות בחלקים למטה.
+  - הרשומה המלאה, כולל ההחלטות מ-12.9, נמצאת ב-`decisions.md`.
+  - הנקודות הפתוחות במוצר נמצאות ב-`docs/srs/appendix-b-open-points.md`.
+- **עדכון:** בסוף כל שלב מעדכנים את המצב בטבלת החלק ואת הבלוק הזה.
+
+
+## חלק 4 — יישור הקבצים ועדכון הסוכנים 🔄
+
+| # | משימה | מצב |
+|---|---|---|
+| 4.11 | רענון `open-questions.md` · `docs/overview-HE.md` · `docs/coverage-audit-HE.md` | ⬜ |
+
+## חלק 6 — סגירת פערי כיסוי 🔄
+
+| # | משימה | תלוי ב |
+|---|---|---|
+| 6.1 | Domains ב-`workflow.md`: Accessibility (לפי D6) · Threat Modeling | ✅ Accessibility · Threat Modeling — ⬜ (סיכון השליפה הגורפת כבר מכוסה ב-NFR-SEC-006) |
+| 6.2 | אינווריאנט שלמות ה-Audit: טסט ונקודת ביקורת | ✅ נקודת ביקורת (G1, G2). הטסטים ייכתבו עם כל פיצ'ר ניהולי |
+| 6.3 | פגיעויות בתלויות. נבנה בתוך CI, שלב 7.1 | — |
+
+## מערכת skills 🔄 (11.10.2026)
+
+ההחלטה של אפיק: "מאשר את כל ההמלצות". הפירוט ב-`decisions.md`, והכללים ב-`learning.md` §6.
+
+| שלב | מה | מצב |
+|---|---|---|
+| **ב** | **אחרי 7.0:** `react-web`, `fastify-api`, `drizzle-postgres`, `testing-craft` ו-`shared-contracts`, עם הגרסאות שננעלו · `rls-tests`, אחרי שיש הרצת pgTAP ב-CI (7.1) · טעינה מראש: `testing-craft` ו-`rls-tests` ל-TEST ENGINEER, `rls-tests` ו-`drizzle-postgres` ל-DATA ARCHITECT · ה-hooks (7.2) · **בדיקה ב-7.3:** האם skill עם `paths` נטען בתוך subagent | ⬜ |
+| **ג** | **אחרי הפיצ'ר הראשון:** דוגמאות שמפנות לקוד אמיתי · `/srs-coverage` | ⬜ |
+
+**לא נוצרו, בכוונה:**
+- `agent-protocol`: פורמט ההחזרה נכנס ל-`CLAUDE.md`.
+- `tbd-protocol`: הכלל כבר כתוב בחמש הגדרות.
+- `db-identity`: העובדות נמצאות ב-`data-model.md`.
+

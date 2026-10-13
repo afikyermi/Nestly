@@ -2,7 +2,7 @@
 
 # SRS — אינדקס
 
-**מקור האמת של מוצר Nestly.** SRS v2.11 · 11.10.2026.
+**מקור האמת של מוצר Nestly.** SRS v2.12 · 11.10.2026.
 
 ה-SRS מתוחזק ב-markdown ומפוצל לפי סעיפים. גרסאות ה-Word הקודמות נמצאות ב-[`archive/`](archive/) כהיסטוריה בלבד.
 
@@ -17,7 +17,7 @@
 | 2 | [02-system-overview.md](02-system-overview.md) | תיאור כללי של המערכת |
 | 3 | [03-roles-permissions.md](03-roles-permissions.md) | סוגי משתמשים והרשאות |
 | 4 | [04-architecture.md](04-architecture.md) | ארכיטקטורת Pages, Features ו-Components |
-| 5 | [05-functional/](05-functional/) | דרישות פונקציונליות — 86 FR ב-16 קבצי תחום (ראה למטה) |
+| 5 | [05-functional/](05-functional/) | דרישות פונקציונליות — 87 FR ב-16 קבצי תחום (ראה למטה) |
 | 6 | [06-non-functional.md](06-non-functional.md) | דרישות לא-פונקציונליות |
 | 7 | [07-screens-navigation.md](07-screens-navigation.md) | מסכי מערכת וניווט |
 | 8 | [08-business-rules.md](08-business-rules.md) | חוקים עסקיים (Business Rules) |
@@ -40,7 +40,7 @@
 
 | קובץ | תחום | קידומות | FR |
 |---|---|---|---|
-| [auth.md](05-functional/auth.md) | Auth — כניסה והזדהות | FR-AUTH | 4 |
+| [auth.md](05-functional/auth.md) | Auth — כניסה והזדהות | FR-AUTH | 5 |
 | [registration.md](05-functional/registration.md) | Registration — הרשמה (רגיל ומקצועי) | FR-REG · FR-PROREG | 7 |
 | [feed.md](05-functional/feed.md) | Feed — פיד, פוסטים והתאמה לשלב | FR-FEED | 7 |
 | [home-tracking.md](05-functional/home-tracking.md) | Home & Tracking — בית, מסלולים ו-Trackers | FR-HOME · FR-TRACK | 6 |
@@ -57,7 +57,7 @@
 | [admin.md](05-functional/admin.md) | Admin — ניהול מערכת | FR-ADMIN | 11 |
 | [algorithms-data.md](05-functional/algorithms-data.md) | Algorithms & Data — אלגוריתמים ואנליטיקה | FR-ALG · FR-DATA | 11 |
 
-## דרישות פונקציונליות — 86
+## דרישות פונקציונליות — 87
 
 | ID | שם | קובץ |
 |---|---|---|
@@ -65,6 +65,7 @@
 | FR-AUTH-002 | התחברות | [auth.md](05-functional/auth.md) |
 | FR-AUTH-003 | שכחת סיסמה | [auth.md](05-functional/auth.md) |
 | FR-AUTH-004 | הגבלת גישת Guest | [auth.md](05-functional/auth.md) |
+| FR-AUTH-005 | כניסה והרשמה עם Google | [auth.md](05-functional/auth.md) |
 | FR-REG-001 | בחירת סוג חשבון | [registration.md](05-functional/registration.md) |
 | FR-REG-002 | הרשמת משתמש רגיל — פרטים אישיים | [registration.md](05-functional/registration.md) |
 | FR-REG-003 | ניהול ילד נוסף בהרשמה | [registration.md](05-functional/registration.md) |
@@ -148,7 +149,7 @@
 | FR-ALG-010 | Group Notification Highlights v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-DATA-001 | Analytics Event Tracking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 
-## קריטריוני קבלה — 86
+## קריטריוני קבלה — 92
 
 > השמות קוצרו לצורך ניווט בלבד. הנוסח המחייב נמצא ב-[15-acceptance.md](15-acceptance.md).
 
@@ -238,19 +239,25 @@
 | AC-082 | קישור: התחברות ואז הפוסט; בלי הרשאה — לא זמין | [15-acceptance.md](15-acceptance.md) |
 | AC-083 | תצוגה מקדימה של קישור בלי תוכן | [15-acceptance.md](15-acceptance.md) |
 | AC-084 | אישור תנאים חובה, עם גרסה ותאריך | [15-acceptance.md](15-acceptance.md) |
-| AC-085 | אין התחברות לפני אימות אימייל | [15-acceptance.md](15-acceptance.md) |
-| AC-086 | בטא סגורה: רק מוזמנים, עם Audit | [15-acceptance.md](15-acceptance.md) |
+| AC-085 | בוטל: אין אימות אימייל | [15-acceptance.md](15-acceptance.md) |
+| AC-086 | נדחה: בטא סגורה | [15-acceptance.md](15-acceptance.md) |
+| AC-087 | כניסה והרשמה עם Google | [15-acceptance.md](15-acceptance.md) |
+| AC-088 | הצהרת גיל 18+ עם התנאים | [15-acceptance.md](15-acceptance.md) |
+| AC-089 | בחירה מרובה של השלב | [15-acceptance.md](15-acceptance.md) |
+| AC-090 | עד 10 ילדים | [15-acceptance.md](15-acceptance.md) |
+| AC-091 | כניסה מיד, בלי אימות אימייל | [15-acceptance.md](15-acceptance.md) |
+| AC-092 | שחזור סיסמה בתוך המערכת | [15-acceptance.md](15-acceptance.md) |
 
 ## מזהים נוספים
 
 | סוג | נושא | טווח | כמות | קובץ |
 |---|---|---|---|---|
 | BR | חוקים עסקיים | BR-001 … BR-068 | 68 | [08-business-rules.md](08-business-rules.md) |
-| VAL | ולידציות | VAL-001 … VAL-038 | 38 | [09-validations.md](09-validations.md) |
+| VAL | ולידציות | VAL-001 … VAL-040 | 40 | [09-validations.md](09-validations.md) |
 | ERR | שגיאות ותרחישי קצה | ERR-001 … ERR-036 | 36 | [10-errors-edge-cases.md](10-errors-edge-cases.md) |
 | NFR | דרישות לא-פונקציונליות | NFR-SEC-001 … NFR-SEC-006 | 32 | [06-non-functional.md](06-non-functional.md) |
 | UC | Use Cases | UC-01 … UC-42 | 42 | [14-use-cases.md](14-use-cases.md) |
 | PG | מסכים | PG-001 … PG-045 | 45 | [07-screens-navigation.md](07-screens-navigation.md) |
-| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-027 | 27 | [appendix-b-open-points.md](appendix-b-open-points.md) |
+| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-029 | 29 | [appendix-b-open-points.md](appendix-b-open-points.md) |
 | ALG | קטלוג האלגוריתמים | ALG-01 … ALG-09 | 9 | [18-algorithms-spec.md](18-algorithms-spec.md) |
 | P-ALG | עקרונות האלגוריתמים | P-ALG-01 … P-ALG-08 | 8 | [18-algorithms-spec.md](18-algorithms-spec.md) |

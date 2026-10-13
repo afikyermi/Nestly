@@ -17,7 +17,7 @@
 | RegularProfile | נתוני פרופיל הורה/משתמש. |
 | ProfessionalProfile | מקצוע, שם עסק (לא חובה), ניסיון, נתוני אימות — כולל מספר עוסק/ח.פ שנאסף באימות ולא בהרשמה — דירוגים/מדדים, סטטוס אימות. |
 | Child | שם, מין (VAL-006), תאריך לידה ושיוך להורה. |
-| JourneyContext | סוג מסלול: ילד/ה, הריון ולידה, מחזור וביוץ; סטטוס פעיל; בהריון — תאריך לידה משוער (לא חובה). |
+| JourneyContext | סוג מסלול: מתכננים, הריון ולידה, ילד/ה, מחזור וביוץ; סטטוס פעיל; בהריון — תאריך לידה משוער (לא חובה). למשתמש יכולים להיות כמה במקביל (החלטה מ-13.10.2026; VAL-039). |
 | TrackerEvent | סוג Tracker, timestamp ונתוני האירוע; האירועים מהווים חלק מ-Tracker Data המשויך למשתמש/ילד/מסלול. |
 | Post | מחבר (נשמר תמיד), סימון אנונימיות, תוכן, זמן, קהילה/הקשר, סטטוס. בפוסט אנונימי זהות המחבר אינה נחשפת למשתמשי קהילה (FR-FEED-005). שיתוף בפיד הוא פוסט של המשתף עם הפניה לפוסט המקורי ובלי עותק של תוכנו (FR-FEED-006, BR-065). |
 | Comment / Reaction | אינטראקציות לתוכן. Comment יכול לכלול parentCommentId עבור Reply ו-Mention references לפי הצורך; Reaction נשמר לפי סוג האינטראקציה שיוגדר. |
@@ -61,14 +61,16 @@
 | AlgorithmConfiguration | גרסת weights/thresholds/decay/diversity/exploration/frequency caps. שינוי Admin Only דרך ALGORITHM_AI_CONFIG ונרשם ב-Audit. |
 | AnalyticsAggregate | מדדים מצטברים לפי period/surface/entity/segment מאושר לצורך Admin/Professional dashboards. |
 | PromotionPerformanceEvent | Impression/Click/ProfileVisit/Follow/ChatStart/other approved event המשויך ל-Promotion ומסומן Paid לצורך הפרדה מ-Organic. |
-| LegalConsent | User, מסמך (Terms / Privacy), גרסה, זמן אישור. נוצר בהרשמה (FR-REG-004) ובכל אישור של גרסה חדשה. |
+| LegalConsent | User, מסמך (Terms / Privacy / הצהרת גיל 18+), גרסה, זמן אישור. נוצר בהרשמה (FR-REG-004) ובכל אישור של גרסה חדשה. |
 | BetaInvite | אימייל מוזמן, מי הוסיף ומתי, וסטטוס. יחד עם מצב הבטא קובע מי יכול להירשם בתקופת הבטא (FR-ADMIN-011). |
 
 ## 13.1 קשרים מרכזיים
 
 - User אחד יכול להיות משויך לפרופיל רגיל או מקצועי בהתאם למודל החשבון.
 - RegularProfile יכול להיות קשור ליותר מילד אחד — כפי שנדרש מהסקיצה; המגבלה המדויקת TBD.
-- User יכול להחזיק יותר מ-JourneyContext אחד; כללי Active Context עדיין TBD.
+- User יכול להחזיק כמה JourneyContext במקביל (החלטה מ-13.10.2026). איזה מסלול מוצג ראשון בבית — OP-003, ייקבע ב-I6.
+- RegularProfile מחזיק עד 10 ילדים (VAL-040).
+- User → משתמש Auth: מחיקת משתמש Auth נחסמת כל עוד יש לו נתונים במוצר (RESTRICT, החלטה מ-13.10.2026). מחיקה רק בנוהל מחיקה מסודר; מדיניות המחיקה — OP-028.
 - Conversation מקשרת בין המשתתפים והודעותיהם; ProfessionalOutreachRequest מקושר לפוסט המקור ולבעל המקצוע שיזם את הפנייה.
 - Promotion לא מחליף דירוג אורגני אלא מייצג שכבת חשיפה נפרדת ויכול להיות משויך לפרופיל מקצועי, Marketplace Listing של משתמש או תוכן/מוצר ממומן.
 - MarketplaceListing משויך למפרסם; SponsoredProduct מנוהל בשלב הראשון על ידי Admin. Marketplace Chat מתוך Listing פעיל הוא חריג מורשה לכלל Professional→Regular Outreach.

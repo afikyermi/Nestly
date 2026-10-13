@@ -1,3 +1,5 @@
+> **היסטוריה — לא מקור אמת.** הועבר לארכיון ב-13.10.2026 (הכרעת אפיק, 4.11 נסגר בלי רענון).
+
 # Open questions
 
 What is still undecided, what each one blocks, and what changes in the system depending on the answer.
