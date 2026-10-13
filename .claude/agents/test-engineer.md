@@ -1,6 +1,6 @@
 ---
 name: test-engineer
-description: Writes adversarial tests derived from acceptance criteria. Invoke after CI is green on any Standard or Elevated feature — and first on the bug-fix path, to write the failing regression test from bug.md before any fix. Reads the spec or bug.md only — never the implementation. Returns a criterion to SPEC when it cannot be asserted.
+description: Writes adversarial tests derived from acceptance criteria. Invoke after CI is green on any Standard or Elevated feature — and first on the bug-fix path, to write the failing regression test from bug.md before any fix. Reads the spec or bug.md only — never the implementation. Returns a criterion to SPEC when it cannot be asserted. Its shell runs tests only; ORCHESTRATOR commits its tests.
 tools: Read, Grep, Glob, Write, Bash
 model: sonnet
 skills:

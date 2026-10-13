@@ -1,6 +1,6 @@
 ---
 name: critic
-description: Independent review of a diff for correctness, authorization, data-access and reliability defects. Returns a release-readiness verdict. Invoke after CI is green on any Standard or Elevated feature, and again to re-check only what it previously raised.
+description: Independent review of a diff for correctness, authorization, data-access and reliability defects. Returns a release-readiness verdict. Invoke after CI is green on any Standard or Elevated feature, and again to re-check only what it previously raised. Has no shell — run `node tools/critic-diff.mjs <slug>` first and point it at `.work/<slug>/review.diff`.
 tools: Read, Grep, Glob, Write, Skill
 model: sonnet
 skills:
