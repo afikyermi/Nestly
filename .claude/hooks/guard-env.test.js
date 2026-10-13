@@ -6,6 +6,7 @@
 // Test names carry the bug.md section they assert (bug.md has no requirement IDs):
 //   [still-blocked]  "Still blocked" bullets   [not-blocked]  "No longer blocked" bullets
 //   [pattern-vs-path] the search-command paragraph   [F5] the "in one task" wording
+//   [critic-r1]      the four findings of CRITIC round 1 (.work/guard-env-paths/findings.md)
 'use strict';
 
 const test = require('node:test');
@@ -36,13 +37,14 @@ const REPO = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-env-repo-'));
   fs.writeFileSync(path.join(REPO, 'incidents.md'), '# Incidents\n');
 }
 
-function run(role, command, { root = ROOT, session } = {}) {
+function run(role, command, { root = ROOT, session, timeout } = {}) {
   const payload = JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd: root, ...(session !== undefined ? { session_id: session } : {}) });
   const r = spawnSync(process.execPath, [GUARD, role], {
     input: payload,
     cwd: root,
     env: { ...process.env, CLAUDE_PROJECT_DIR: root },
     encoding: 'utf8',
+    ...(timeout !== undefined ? { timeout } : {}),
   });
   return { status: r.status, stderr: r.stderr };
 }
@@ -197,6 +199,61 @@ notBlocked('nested shell, text only', [
   'bash -c "grep -n .env noise.md"',
   `sh -c 'echo "the .env file"'`,
 ]);
+
+// ---------------------------------------------------------------- [critic-r1]
+// From .work/guard-env-paths/findings.md; the expected behaviour is its `failure:` and `fix:` lines.
+
+// Finding 1: command substitution inside double quotes is still a command that runs.
+stillBlocked('[critic-r1] command substitution inside double quotes', [
+  'psql "$(grep DATABASE_URL .env.preview | cut -d= -f2-)"',
+  'export URL="$(cat .env.local)"',
+  'echo "`cat .env`"',
+  'echo "$(< .env)"',
+]);
+
+// Finding 2: a script handed to a shell or interpreter in a form other than the five exact ones.
+stillBlocked('[critic-r1] shell -c behind other options', [
+  'bash -lc "cat .env"',
+  "sh -ec 'source .env.preview && echo ok'",
+  'bash -e -c "cat .env"',
+  'bash --login -c "cat .env"',
+  'zsh -ic "cat .env"',
+]);
+
+stillBlocked('[critic-r1] powershell script without -Command', [
+  'powershell "Get-Content .env"',
+  'powershell -NoProfile "gc .env"',
+]);
+
+stillBlocked('[critic-r1] cmd with other switches before /c', [
+  'cmd /s /c "type .env"',
+  'cmd /d /c "type .env"',
+]);
+
+stillBlocked('[critic-r1] script piped into a bare interpreter', [
+  `echo "require('fs').readFileSync('.env.preview','utf8')" | node`,
+]);
+
+// Findings 1 and 4 (the `fix:` lines): the tighter rules must not block plain text, nor brace-heavy code that
+// names no env file.
+notBlocked('[critic-r1] text in double quotes that is not a command', ['echo "the .env file"']);
+
+notBlocked('[critic-r1] inline code with ten or more "{" that names no env file', [
+  `node -e 'const a={x:1,y:{z:2}}; const b={p:{q:{r:{s:4}}}}; console.log(\`\${a.x}\${b.p.q.r.s}\`, {m:1}, {n:2}, {o:3})'`,
+  'node -e "const a={x:{y:{z:{w:{v:{u:1}}}}}}; const b={c:1}; const d={e:2}; const f={g:3}; const h={i:4}; console.log(a,b,d,f,h)"',
+]);
+
+// Finding 3: brace expansion in quoted text must not stall or exhaust the hook; the command after it is still judged.
+test('[critic-r1] a quoted word of 8 brace groups x 20 alternatives, then "; cat .env", is blocked within 10 s', { timeout: 10000 }, () => {
+  const group = '{' + Array.from({ length: 20 }, (_, i) => String.fromCharCode(97 + i)).join(',') + '}';
+  const command = `echo '${group.repeat(8)}'; cat .env`;
+  const before = incidentLines(ROOT).length;
+  const r = run('all', command, { timeout: 9000 });
+  assert.strictEqual(r.status, 2, 'expected a block (null means the guard was killed by the timeout or crashed): ' + r.stderr);
+  assert.doesNotMatch(r.stderr, /guard error/, 'the block must come from the env rule, not from the guard failing: ' + r.stderr);
+  assert.match(r.stderr, /\.env files/i, 'the reason names .env files: ' + r.stderr);
+  assert.strictEqual(incidentLines(ROOT).length - before, 1, 'an env-file block is r4-critical: one incidents.md line');
+});
 
 // ---------------------------------------------------------------- F5: wording
 
