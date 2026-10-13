@@ -571,7 +571,6 @@ for (const platform of ['win32', 'linux', 'darwin']) {
         'npx playwright test',
         'npx tsc --noEmit',
         'npx eslint docs',
-        'npx prettier --check docs',
         'node --test .claude/hooks/x.test.js',
         'node --test a.test.js b.test.js',
         'node tools/some-script.mjs --flag value',
@@ -650,6 +649,96 @@ for (const platform of ['win32', 'linux', 'darwin']) {
     c.bashBlocks('critic', `git diff --stat -p main...HEAD 2>&1`);
     c.bashBlocks('test-engineer', `git diff main...HEAD 2>&1`);
     c.bashBlocks('test-engineer', `git log -p > ${tmp}`);
+  });
+
+  // ---- G. Addendum 3 (round 3) ----
+
+  t('G.21 npx prettier is off the reader roles list (changed: the earlier allow of `npx prettier --check docs` is removed)', (c) => {
+    for (const role of ROLES) {
+      for (const cmd of ['npx prettier --check docs', 'npx prettier --list-different .', 'npx prettier docs/a.md']) c.bashBlocks(role, cmd);
+      c.reasonMatches(role, 'npx prettier --check docs', /allow|list|prettier/i);
+    }
+  });
+
+  t('G.21 finding 8: a directory or wildcard argument to a kept tool is a search rooted there', (c) => {
+    for (const cmd of [
+      "npx prettier '*/*/*otes.md'",
+      'npx prettier .',
+      'npx vitest run .',
+      'npx eslint .',
+      "npx eslint '*/*/*otes.md'",
+      'npx eslint .work',
+      "npx vitest run '.w*'",
+      'npx tsc --noEmit -p .',
+    ]) c.bashBlocks('critic', cmd);
+    for (const cmd of [
+      'npx prettier apps/web',
+      "npx prettier '**/s*/*.ts'",
+      "node --test '**/s*/a.ts'",
+      'node --test apps/web',
+      'node --test apps/web/src',
+      'npx vitest run .',
+      'npx vitest run apps',
+      'npx eslint apps/web/src',
+      "npx eslint 'apps/*/src'",
+      "npx playwright test 'apps/web/s*'",
+    ]) c.bashBlocks('test-engineer', cmd);
+    for (const role of ROLES) {
+      c.bashAllows(role, 'npx vitest run apps/web/tests');
+      c.bashAllows(role, 'node --test .claude/hooks/x.test.js');
+      c.bashAllows(role, 'npx vitest run');
+    }
+    c.bashAllows('critic', 'npx tsc --noEmit -p apps/web');
+    // The same through the settings hook.
+    c.blocks('all', 'Bash', { command: "npx prettier '*/*/*otes.md'" }, { agent_type: 'critic' });
+    c.blocks('all', 'Bash', { command: "node --test '**/s*/a.ts'" }, { agent_type: 'test-engineer' });
+    c.allows('all', 'Bash', { command: 'npx vitest run apps/web/tests' }, { agent_type: 'test-engineer' });
+  });
+
+  t('G.22 finding 9: arguments after -- in npm run / npm test are judged as paths', (c) => {
+    for (const cmd of [
+      "npm run tokens:check -- '*otes.md'",
+      "npm run tokens:check -- ':(icase).WORK'",
+      'npm run tokens:check -- .work',
+      "npm test -- '*otes.md'",
+      "npm test -- ':(icase).WORK'",
+      'npm test -- .work/f',
+      'npm test -- .',
+    ]) c.bashBlocks('critic', cmd);
+    for (const cmd of [
+      'npm run tokens:check -- apps/web',
+      "npm run tokens:check -- 'apps/*/s*'",
+      "npm run tokens:check -- ':(top)apps/web/src'",
+      'npm test -- apps/web/src/a.ts',
+      'npm test -- apps/web',
+      'npm test -- .',
+    ]) c.bashBlocks('test-engineer', cmd);
+    c.bashAllows('test-engineer', 'npm test -- apps/web/tests/a.test.ts');
+    c.bashAllows('critic', 'npm test -- apps/web/tests/a.test.ts');
+    c.blocks('all', 'Bash', { command: 'npm run tokens:check -- .work' }, { agent_type: 'critic' });
+    c.blocks('all', 'Bash', { command: 'npm run tokens:check -- apps/web' }, { agent_type: 'test-engineer' });
+  });
+
+  t('G.23 a reader role never writes under .git/', (c) => {
+    for (const role of ROLES) {
+      for (const cmd of [
+        'printf x >> .git/config',
+        "printf '[core]' >> .git/config",
+        'echo x > .git/hooks/pre-commit',
+        'echo x >.git/config',
+        'echo x >> .GIT/config',
+        'echo x > docs/../.git/config',
+        'cp f .git/hooks/pre-commit',
+        'cp docs/a.md .git/config',
+        'mv docs/a.md .git/hooks/x',
+        'mkdir .git/hooks/d',
+        'echo x 2> .git/config',
+        'cd .git && echo x > config',
+      ]) c.bashBlocks(role, cmd);
+      c.blocks('all', 'Bash', { command: 'printf x >> .git/config' }, { agent_type: role });
+      c.bashAllows(role, 'git status');
+      c.bashAllows(role, 'echo x > docs/out.txt');
+    }
   });
 
   // ---- F. Everything else ----
