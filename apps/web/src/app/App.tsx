@@ -1,9 +1,20 @@
-import { APP_NAME } from '@nestly/shared';
+import { BrowserRouter } from 'react-router';
+import { productionSessionSource } from '@/services/session/production-session-source';
+import type { SessionSource } from '@/services/session/session-source';
+import { AppRoutes } from './AppRoutes';
+import { SessionProvider } from './SessionProvider';
 
-export function App() {
+export interface AppProps {
+  /** Where the session comes from. The deployed app uses the production source. */
+  sessionSource?: SessionSource;
+}
+
+export function App({ sessionSource = productionSessionSource }: AppProps) {
   return (
-    <main>
-      <h1>{APP_NAME}</h1>
-    </main>
+    <SessionProvider source={sessionSource}>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </SessionProvider>
   );
 }

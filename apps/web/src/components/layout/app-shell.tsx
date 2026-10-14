@@ -13,8 +13,13 @@ export interface AppShellProps {
   drawerTitle: string;
   drawerCloseLabel: string;
   skipLinkLabel: string;
-  /** The drawer body, for example MenuItems. */
-  menu: ReactNode;
+  /**
+   * The drawer body, for example MenuItems. As a function it receives `closeMenu`, for an item that changes the
+   * screen (navigates, signs out): the drawer closes and focus moves to `main`, not back to the Hamburger.
+   */
+  menu: ReactNode | ((closeMenu: () => void) => ReactNode);
+  /** Passed to the navigation: called with an item's href on a plain click (client-side routing). */
+  onNavigate?: ((href: string) => void) | undefined;
   topBarActions?: ReactNode;
   /** Placement only. */
   className?: string;
@@ -32,13 +37,21 @@ export function AppShell({
   drawerCloseLabel,
   skipLinkLabel,
   menu,
+  onNavigate,
   topBarActions,
   className,
 }: AppShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  // Set by closeMenu, read when the drawer closes: Escape, the close control and the backdrop keep
+  // returning focus to the Hamburger.
+  const focusMainOnClose = useRef(false);
   const mainId = useId();
+  const closeMenu = () => {
+    focusMainOnClose.current = true;
+    setDrawerOpen(false);
+  };
 
   return (
     <div className={cn('flex min-h-dvh flex-col', className)}>
@@ -60,12 +73,18 @@ export function AppShell({
           // Safari and Firefox on macOS do not focus a clicked button. The drawer returns focus to the
           // element focused when it opened, so the Hamburger is focused here, before it opens.
           menuButtonRef.current?.focus();
+          focusMainOnClose.current = false;
           setDrawerOpen(true);
         }}
         actions={topBarActions}
       />
       <div className="flex flex-1 flex-col lg:flex-row lg:gap-6 lg:px-6">
-        <BottomNavigation className="order-last lg:order-none" items={navItems} label={navLabel} />
+        <BottomNavigation
+          className="order-last lg:order-none"
+          items={navItems}
+          label={navLabel}
+          onNavigate={onNavigate}
+        />
         <main
           id={mainId}
           ref={mainRef}
@@ -75,8 +94,14 @@ export function AppShell({
           {children}
         </main>
       </div>
-      <SideDrawer open={drawerOpen} onOpenChange={setDrawerOpen} title={drawerTitle} closeLabel={drawerCloseLabel}>
-        {menu}
+      <SideDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        title={drawerTitle}
+        closeLabel={drawerCloseLabel}
+        finalFocus={() => (focusMainOnClose.current ? mainRef.current : null)}
+      >
+        {typeof menu === 'function' ? menu(closeMenu) : menu}
       </SideDrawer>
     </div>
   );

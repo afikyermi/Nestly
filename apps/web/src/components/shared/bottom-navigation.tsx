@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/cn';
+import { isPlainClick } from '@/lib/is-plain-click';
 
 export interface BottomNavigationItem {
   key: string;
@@ -14,6 +15,11 @@ export interface BottomNavigationProps {
   items: BottomNavigationItem[];
   /** The accessible name of the nav ("ניווט ראשי"). */
   label: string;
+  /**
+   * Called with the item's href on a plain click, in place of the browser following the link (client-side
+   * routing). A modified click (new tab, new window) is still the browser's.
+   */
+  onNavigate?: ((href: string) => void) | undefined;
   /** Placement only. */
   className?: string;
 }
@@ -21,7 +27,7 @@ export interface BottomNavigationProps {
 // One nav, two shapes: a bar fixed to the bottom edge below 1024, a vertical rail at the inline-start
 // edge from 1024 (NFR-USE-001). The current item is marked by aria-current, a heavier label and a pill
 // behind the icon, so it does not rest on colour alone.
-export function BottomNavigation({ items, label, className }: BottomNavigationProps) {
+export function BottomNavigation({ items, label, onNavigate, className }: BottomNavigationProps) {
   const currentKey = items.find((item) => item.current === true)?.key;
   return (
     <nav
@@ -40,6 +46,15 @@ export function BottomNavigation({ items, label, className }: BottomNavigationPr
               <a
                 href={item.href}
                 aria-current={current ? 'page' : undefined}
+                onClick={
+                  onNavigate === undefined
+                    ? undefined
+                    : (event) => {
+                        if (!isPlainClick(event)) return;
+                        event.preventDefault();
+                        onNavigate(item.href);
+                      }
+                }
                 className={cn(
                   'group flex min-h-14 flex-col items-center gap-0.5 rounded-md pt-1 text-center text-caption no-underline',
                   current ? 'font-semibold text-primary-strong' : 'text-muted-foreground',

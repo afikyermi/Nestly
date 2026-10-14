@@ -1,5 +1,6 @@
 import type { MouseEvent, ReactNode } from 'react';
 import { cn } from '@/lib/cn';
+import { isPlainClick } from '@/lib/is-plain-click';
 
 interface MenuItemBase {
   /** The label, and the accessible name. */
@@ -11,8 +12,13 @@ interface MenuItemBase {
 }
 
 // `href` renders a link, `onClick` a button; the two are mutually exclusive, and one of them is required.
+// A link may take `onNavigate`: called with the href on a plain click, in place of the browser following
+// it (client-side routing); a modified click (new tab, new window) is still the browser's.
 export type MenuItemProps = MenuItemBase &
-  ({ href: string; onClick?: undefined } | { href?: undefined; onClick: () => void });
+  (
+    | { href: string; onNavigate?: (href: string) => void; onClick?: undefined }
+    | { href?: undefined; onNavigate?: undefined; onClick: () => void }
+  );
 
 const styles = [
   'flex min-h-12 w-full items-center gap-3 rounded-md px-3 py-2 text-start text-body text-foreground no-underline',
@@ -35,12 +41,19 @@ export function MenuItem(props: MenuItemProps) {
   );
 
   if (props.href !== undefined) {
+    const { href, onNavigate } = props;
     return (
       <a
         {...common}
-        href={props.href}
+        href={href}
         onClick={(event: MouseEvent<HTMLAnchorElement>) => {
-          if (disabled) event.preventDefault();
+          if (disabled) {
+            event.preventDefault();
+            return;
+          }
+          if (onNavigate === undefined || !isPlainClick(event)) return;
+          event.preventDefault();
+          onNavigate(href);
         }}
       >
         {content}

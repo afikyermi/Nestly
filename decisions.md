@@ -100,6 +100,8 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-14 | Pace: local checks before push, CI waits ≤ 20 min, independent work meanwhile, split only when needed, WORKPLAN facts only | 10 |
 | 2026-10-14 | F1.2 Gate 1: unknown path when signed in → /feed; Q1–Q8 defaults | 10 |
 | 2026-10-14 | CI once per part: local checks between steps, one push per finished part; CI jobs filtered by changed paths | 10 |
+| 2026-10-14 | F1.3 Gate 1: due date −30/+300 days, child name 1–60, birth date ≥ 1900, ERR-003 missing or invalid | 10 |
+| 2026-10-14 | Node ≥ 22.22 for react-router; F1.2 source-scan tests a named exception (file:line only) | 10 |
 
 ## Superseded
 
