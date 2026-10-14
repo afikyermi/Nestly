@@ -19,12 +19,14 @@ function isStepTwoEntry(state: unknown): boolean {
   return typeof state === 'object' && state !== null && Reflect.get(state, 'registrationStep') === 2;
 }
 
-// The registration flow (UC-01): owns step-1 data in React state of this tab only (Q1). Nothing is stored or sent; leaving
+// The registration flow (UC-01): owns step-1 data in React state of this tab only (Q1). Nothing is stored; step 2 sends it; leaving
 // /register or reloading discards it. Step 2 shows only while the parsed value is in memory, so a reload or a browser
 // Forward onto a step-2 entry lands on an empty step 1.
 export function RegistrationFlow({ today }: RegistrationFlowProps) {
   const [form, setForm] = useState<Step1Form>(EMPTY_STEP1_FORM);
   const [parsed, setParsed] = useState<RegistrationStep1 | null>(null);
+  // Kept here so it survives Back and a return to step 2; the password is step 2's own and does not (F1.4 criterion 19).
+  const [email, setEmail] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -34,7 +36,7 @@ export function RegistrationFlow({ today }: RegistrationFlowProps) {
     <main tabIndex={-1}>
       <title>{documentTitle(stepTwoValue !== null ? 'פרטי התחברות' : 'פרטים אישיים')}</title>
       {stepTwoValue !== null ? (
-        <RegisterStepTwo step1={stepTwoValue} onBack={() => void navigate(-1)} />
+        <RegisterStepTwo step1={stepTwoValue} email={email} onEmailChange={setEmail} onBack={() => void navigate(-1)} />
       ) : (
         <RegisterStepOne
           form={form}

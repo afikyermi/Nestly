@@ -1,11 +1,11 @@
-import type { SessionSource, SessionState } from './session-source';
+import type { SessionEntry, SessionSource, SessionState } from './session-source';
 
 // TEST ONLY. A source the tests drive by hand, so every state and transition can be reached with no
 // network and no login screen (F1.2, criterion 12). The app loads it only in the `e2e` build mode
 // (main.tsx), so the deployed build never contains it: a test searches the built files for the marker.
 export const CONTROLLABLE_SESSION_MARKER = 'nestly-controllable-session-source';
 
-export interface ControllableSessionSource extends SessionSource {
+export interface ControllableSessionSource extends SessionSource, SessionEntry {
   readonly marker: typeof CONTROLLABLE_SESSION_MARKER;
   /** Moves the source to `state` and tells its listeners. */
   set(state: SessionState): void;
@@ -46,6 +46,10 @@ export function createControllableSessionSource(initial: SessionState = 'loading
       state = 'signed-out';
       notify();
       return Promise.resolve();
+    },
+    signIn: () => {
+      state = 'signed-in';
+      notify();
     },
     set: (next) => {
       state = next;

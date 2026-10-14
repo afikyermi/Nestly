@@ -105,3 +105,47 @@ Schema `nestly`. Runtime role `authenticated` (via `SET LOCAL ROLE`); suite sess
 
 ## Module resolution of @nestly/shared (deploy fix)
 - Exports map: `types`/`source`/`default` -> src/index.ts, `node` -> dist/index.js (built by root `postinstall`). Vite (web, server vitest, root vitest server project) uses conditions `['source', ...defaultClientConditions]` / `['source', ...defaultServerConditions]`, so tests read shared source. A plain `node` process (e.g. the drift test's `node --import tsx`) reads dist.
+
+---
+
+# interface — part c (web: registration step 2, Auth client, session hand-off)
+
+## Routes (apps/web/src/app/paths.ts)
+- `/register` step 1, then step 2 as a second history entry on the same URL with state `{ registrationStep: 2 }` (F1.3). Step 2 shows only while the parsed step 1 is in memory; a reload lands on an empty step 1.
+- New Guest placeholder routes (heading = title, text "המסך הזה ייפתח בקרוב."): `/terms` "תנאי השימוש", `/privacy` "מדיניות הפרטיות", `/recovery` "שחזור סיסמה". `GUEST_PATHS` is now `/`, `/login`, `/register`, `/auth/google`, `/recovery`, `/terms`, `/privacy`.
+- On success the session source reports `signed-in`; the guard replaces `/register` with `/feed`; focus moves to `main` of `/feed` (FocusOnNavigation). Document title: step 2 "פרטי התחברות · Nestly"; `/feed` "פיד · Nestly".
+
+## Step 2 roles and accessible names (inside `main`)
+- heading level 1 "פרטי התחברות"; text "שלב 2 מתוך 2"; text "עוד רגע מסיימים."
+- button "חזרה" (icon, top; the only one). Returns to step 1 with its values; on returning to step 2 the email is kept and the password is empty.
+- textbox "אימייל" (`type=email`, `dir=ltr`, autocomplete `email`).
+- password field labelled "סיסמה" (`type=password`, autocomplete `new-password`, `dir=ltr`), hint "לפחות 8 תווים" linked by `aria-describedby`; button "הצגת הסיסמה" (`aria-pressed`) toggles visibility.
+- checkbox named "אישור תנאי השימוש ומדיניות הפרטיות, והצהרה על גיל 18 ומעלה"; its label holds links "תנאי השימוש" (`/terms`) and "מדיניות הפרטיות" (`/privacy`), both `target=_blank`, `rel="noopener noreferrer"`.
+- submit button "יצירת חשבון" (size lg, block). While requests run: `aria-disabled=true`, `aria-busy=true`, a loader, and an sr-only `role=status` text "יוצרים את החשבון".
+- Field errors (`role=alert`, linked by `aria-describedby`, the field `aria-invalid=true`), after the first submit only and live afterwards: "יש למלא כתובת אימייל" · "כתובת האימייל אינה תקינה" · "הסיסמה צריכה להכיל לפחות 8 תווים" · consent "יש לאשר את התנאים ואת הצהרת הגיל כדי להמשיך". Focus goes to the first `[aria-invalid=true]` in DOM order (email, password, checkbox). An unticked box or an invalid field sends no Auth call and no route call.
+- Form-level message in an `InlineAlert` (`role=alert`), one at a time:
+  - taken (Auth says the email exists; route 409 or 401): "לא ניתן להשלים את ההרשמה עם הפרטים האלה. אפשר להתחבר או לשחזר סיסמה" + links "התחברות" (`/login`) and "שחזור סיסמה" (`/recovery`). When it comes from Auth the route is called 0 times.
+  - retry (Auth network failure or rejected promise; route 503 or unreachable): "השמירה לא הצליחה. אפשר לנסות שוב" + button "ניסיון חוזר".
+  - rate limited (Auth status 429, or code `over_request_rate_limit` / `over_email_send_rate_limit`): "בוצעו יותר מדי ניסיונות. אפשר לנסות שוב בעוד כמה דקות".
+  - generic (unknown Auth failure; route 500, 400, 413 or other): "משהו השתבש. אפשר לנסות שוב", no retry control.
+  - weak password from Auth (code `weak_password` or name `AuthWeakPasswordError`): the password field error "הסיסמה צריכה להכיל לפחות 8 תווים" until the password changes; focus on the password.
+- Retry (the button, or "יצירת חשבון" again): if a token is held, no sign-up and the route is called with the same token and an equal body; otherwise sign-up is called again.
+
+## Auth client seam (apps/web/src/services/auth/auth-client.ts, the only file importing `@supabase/auth-js`)
+- `interface AuthPort { signUp(credentials: { email: string; password: string }): Promise<SignUpResponse> }`
+- `type SignUpResponse = { accessToken: string; failure: null } | { accessToken: null; failure: AuthFailure }`; `interface AuthFailure { status: number | undefined; code: string | undefined; name: string | undefined }`. The mapping reads only these three fields (`classifySignUpFailure` in `features/registration/step2-form.ts`). A rejected `signUp` promise = network failure.
+- `createAuthPort(config?: { url; publishableKey })`: default config from `import.meta.env.VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`; either missing gives `failure.name 'AuthNotConfigured'` (generic text). The SDK client is created at the first sign-up with `persistSession:false`, `autoRefreshToken:false`, `detectSessionInUrl:false`, header `apikey`, base `<url>/auth/v1`.
+- Injection: `<AuthPortContext value={port}>` (`hooks/use-auth-port.ts`) around a screen, or `<App authPort={port} />`. The context default is the real port.
+
+## Session seam (apps/web/src/services/session)
+- `SessionEntry { signIn(): void }` and `isSessionEntry(source)` in `session-source.ts`. `SessionProvider` exposes the source's entry through `SessionEntryContext` (`hooks/use-session-entry.ts`, `useSessionEntry(): SessionEntry | null`). Registration calls `signIn()` after the route answers 201.
+- `createMemorySessionSource()` (starts `signed-out`; `signIn()` gives `signed-in`; `signOut()` gives `signed-out`); `productionSessionSource` is one instance of it. `ControllableSessionSource` (e2e build) also has `signIn()`.
+- To drive step 2 in a test: render `<RegistrationFlow today="YYYY-MM-DD" />` (or `RegisterStepTwo` with props `step1`, `email`, `onEmailChange`, `onBack`) inside a router, wrapped in `AuthPortContext` and `SessionEntryContext`; stub `globalThis.fetch` for `POST /api/register`.
+
+## Route call (apps/web/src/services/api/register-account.ts)
+- `registerAccount(accessToken, step1): Promise<'created' | 'already_registered' | 'unauthenticated' | 'unavailable' | 'failed'>`: `fetch('/api/register', { method:'POST', headers:{ authorization:'Bearer <token>', 'content-type':'application/json' }, body })`. 201 created, 409 already_registered, 401 unauthenticated, 503 or a thrown fetch unavailable, anything else failed. Only the status is read.
+- `toRegisterBody(step1)`: `{ stages, fullName, parentGender? (omitted when null), dueDate: {day,month,year} (empty strings when null), children: [{name, sex, birthDate:{day,month,year}}], consent: true }`; the date parts come from the ISO date, with leading zeros ("01"). No email, no password.
+- A test reading the network log sees one call to the Auth URL (`<VITE_SUPABASE_URL>/auth/v1/signup`, body with email and password) and one to `/api/register`.
+
+## Env names (build time)
+`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`. No other variable, no secret key.

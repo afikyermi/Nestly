@@ -4,6 +4,10 @@ export const PATHS = {
   login: '/login',
   register: '/register',
   googleEntry: '/auth/google',
+  // Placeholders until F1.6 (recovery) and I9 (the consent documents); registration step 2 links to them (F1.4).
+  recovery: '/recovery',
+  terms: '/terms',
+  privacy: '/privacy',
   home: '/home',
   feed: '/feed',
   profile: '/profile',
@@ -11,7 +15,15 @@ export const PATHS = {
 } as const;
 
 /** The only paths a Guest may open. */
-export const GUEST_PATHS: readonly string[] = [PATHS.welcome, PATHS.login, PATHS.register, PATHS.googleEntry];
+export const GUEST_PATHS: readonly string[] = [
+  PATHS.welcome,
+  PATHS.login,
+  PATHS.register,
+  PATHS.googleEntry,
+  PATHS.recovery,
+  PATHS.terms,
+  PATHS.privacy,
+];
 
 /** The screens a signed-in user may open. Any other path sends them to SIGNED_IN_LANDING. */
 export const PROTECTED_PATHS: readonly string[] = [PATHS.home, PATHS.feed, PATHS.profile, PATHS.settings];
