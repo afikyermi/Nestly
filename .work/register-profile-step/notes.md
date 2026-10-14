@@ -48,3 +48,21 @@ Typecheck and eslint pass. Nothing run against a DB or a test.
 - `aria-invalid` sits on each checkbox in multi mode, because a plain fieldset cannot carry it (radiogroup could).
   Message link `aria-describedby` stays on the fieldset.
 - The Interactive story passes explicit props instead of spreading `args` (union typing). Multi stories: pass d.
+
+## Pass c (criteria 7, 9-15): the flow without children
+
+- Files: `apps/web/src/features/registration/` (RegistrationFlow container, RegisterStepOne, RegisterStepTwo, step1-form,
+  error-texts, field-message), `pages/register/RegisterPage.tsx`, route swapped in AppRoutes. GuestPlaceholderPage still
+  serves login and Google.
+- Step 2 is a second history entry on `/register` with `state {registrationStep: 2}`. It renders only when that state is
+  present AND the parsed value is in the flow's memory, so reload and Forward-after-reload show an empty step 1.
+  Back (in-app) is `navigate(-1)`. Data lives in `useState` of the flow only.
+- Errors: derived on each render from `validateStep1` once "המשך" was pressed once, so they clear live. Focus goes to the
+  first `[aria-invalid="true"]` in the form after a failed submit.
+- Error map: DR-4 texts; codes with no text show the generic one. `due_date_invalid` reuses DR-4's "date does not exist"
+  text. No new user-facing text invented.
+- Step 2 receives `step1` (the parsed value) as a prop and shows none of it.
+- NOT done here (pass d): the children section. Ticking "יש לנו ילד או ילדה" opens nothing, and submitting with it ticked
+  fails with the generic message (the schema needs a child). Criterion 7's has-child half and the child cases of 9 wait for pass d.
+- FINDING for TEST ENGINEER: `apps/web/tests/app/guard-production-source.test.tsx` row `/register shows the h1 הרשמה`
+  now fails by design (the placeholder is gone; h1 is "פרטים אישיים"). Not edited by me.

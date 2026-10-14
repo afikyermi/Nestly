@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router';
 import { GuestPlaceholderPage } from '@/pages/placeholder/GuestPlaceholderPage';
 import { ProtectedPlaceholderPage } from '@/pages/placeholder/ProtectedPlaceholderPage';
+import { RegisterPage } from '@/pages/register/RegisterPage';
 import { WelcomePage } from '@/pages/welcome/WelcomePage';
 import { FocusOnNavigation } from './FocusOnNavigation';
 import { PATHS } from './paths';
@@ -17,7 +18,7 @@ export function AppRoutes() {
         <Routes>
           <Route path={PATHS.welcome} element={<WelcomePage />} />
           <Route path={PATHS.login} element={<GuestPlaceholderPage title="התחברות" />} />
-          <Route path={PATHS.register} element={<GuestPlaceholderPage title="הרשמה" />} />
+          <Route path={PATHS.register} element={<RegisterPage />} />
           <Route path={PATHS.googleEntry} element={<GuestPlaceholderPage title="המשך עם Google" />} />
           <Route element={<ProtectedLayout />}>
             <Route path={PATHS.home} element={<ProtectedPlaceholderPage title="בית" />} />
