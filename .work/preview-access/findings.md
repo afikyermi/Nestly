@@ -66,3 +66,16 @@ verdict: Validated with Concern
    id checked as a safe integer.
 4: closed — launcher and lookup injectable; every mutant in the finding fails a test in preview-shot-run.test.mjs.
 6: open until the first push.
+
+# re-check 2 — CRITIC (opus), 14.10.2026 — reopened finding 1 (low) only
+
+(Appended by ORCHESTRATOR from CRITIC's return.)
+
+verdict: Validated with Concern (the remaining concern is finding 5, accepted debt; finding 6 waits for the first push)
+
+1 (low, reopened): closed — preview-shot.mjs:339-359 no DEFAULT_ENV_FILE/envFilePath export, no module-level path;
+  :302-308 main() resolves the path locally; :79-80 readSecret(file, name = file) needs a path, name labels refusals
+  only; :10-11 comment matches. preview-shot.test.mjs:202-210 (no exported path in any form) and :215-250 (main() with a
+  temp file only). A deliberate bypass through main() with a fake browser is an accepted risk ("guard is a fence").
+New defects: none. Nit from re-check 1 fixed (strip-bypass-header.ts:5).
+Findings 1–4 closed · 5 debt (debt.md) · 6 open until the first preview-smoke run.
