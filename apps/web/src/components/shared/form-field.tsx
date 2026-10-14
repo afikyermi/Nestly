@@ -1,6 +1,6 @@
 import { useId, type ReactNode } from 'react';
 import { cn } from '@/lib/cn';
-import { AlertIcon } from '../ui/icons';
+import { FieldError, FieldHint } from './field-message';
 
 export interface FormFieldControl {
   id: string;
@@ -39,17 +39,8 @@ export function FormField({ label, htmlFor, hint, error, optional, className, ch
         'aria-describedby': describedBy === '' ? undefined : describedBy,
         'aria-invalid': error ? true : undefined,
       })}
-      {hint ? (
-        <p id={hintId} className="text-small text-muted-foreground">
-          {hint}
-        </p>
-      ) : null}
-      {error ? (
-        <p id={errorId} role="alert" className="flex items-center gap-1.5 text-small text-destructive">
-          <AlertIcon className="size-4.5" />
-          <span>{error}</span>
-        </p>
-      ) : null}
+      {hint ? <FieldHint id={hintId}>{hint}</FieldHint> : null}
+      {error ? <FieldError id={errorId}>{error}</FieldError> : null}
     </div>
   );
 }

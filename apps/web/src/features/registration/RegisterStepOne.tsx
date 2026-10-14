@@ -12,8 +12,8 @@ import { ArrowBackIcon } from '@/components/ui/icons';
 import { SelectInput } from '@/components/ui/select-input';
 import { TextInput } from '@/components/ui/text-input';
 import { ChildrenSection } from './ChildrenSection';
-import { FieldError, FieldHint } from './field-message';
-import { EMPTY_CHILD, validateStep1, type Step1Form } from './step1-form';
+import { FieldError, FieldHint } from '@/components/shared/field-message';
+import { EMPTY_CHILD, validateStep1, type ChildForm, type Step1Errors, type Step1Form } from './step1-form';
 
 const STAGE_OPTIONS: ChoiceOption[] = [
   { value: 'planning', label: 'מתכננים' },
@@ -32,6 +32,15 @@ const GENDER_LABELS: Record<ParentGender, string> = {
 };
 const GENDER_OPTIONS = PARENT_GENDERS.map((value) => ({ value, label: GENDER_LABELS[value] }));
 
+function withoutFreshCards(errors: Step1Errors, children: readonly ChildForm[], fresh: WeakSet<ChildForm>): Step1Errors {
+  if (errors.child === undefined) return errors;
+  const child = Object.fromEntries(Object.entries(errors.child).filter(([index]) => {
+    const card = children[Number(index)];
+    return card === undefined || !fresh.has(card);
+  }));
+  return { ...errors, child };
+}
+
 export interface RegisterStepOneProps {
   form: Step1Form;
   onFormChange: (form: Step1Form) => void;
@@ -39,23 +48,24 @@ export interface RegisterStepOneProps {
   getToday: () => string;
   /** Called with the parsed value when the form is valid. */
   onValid: (value: RegistrationStep1) => void;
-  /** Show the errors from the first render, as after a pressed "המשך" (stories). */
-  showErrors?: boolean;
 }
 
 // Registration step 1 (FR-REG-002): stage, name, parent gender and, under "בהריון", a due date. Errors appear on the
 // first "המשך" and are recomputed on every change after it, so one clears as soon as its field is valid.
-export function RegisterStepOne({ form, onFormChange, getToday, onValid, showErrors }: RegisterStepOneProps) {
+export function RegisterStepOne({ form, onFormChange, getToday, onValid }: RegisterStepOneProps) {
   const toWelcome = useLinkClickHandler(PATHS.welcome);
   const formRef = useRef<HTMLFormElement>(null);
-  const [attempts, setAttempts] = useState(showErrors === true ? 1 : 0);
+  const [attempts, setAttempts] = useState(0);
   const ids = useId();
   const stageHintId = `${ids}-stage-hint`;
   const stageErrorId = `${ids}-stage-error`;
   const dueErrorId = `${ids}-due-error`;
 
   const checked = attempts > 0 ? validateStep1(form, getToday()) : null;
-  const errors = checked !== null && !checked.ok ? checked.errors : {};
+  // A card added after the last failed "המשך" shows no errors until the user touches it (editing replaces the object, so it
+  // leaves this set); clearing stays live.
+  const freshCards = useRef(new WeakSet<ChildForm>());
+  const errors = checked !== null && !checked.ok ? withoutFreshCards(checked.errors, form.children, freshCards.current) : {};
 
   // After a failed "המשך", focus goes to the first invalid control in document order.
   useEffect(() => {
@@ -66,14 +76,19 @@ export function RegisterStepOne({ form, onFormChange, getToday, onValid, showErr
   // Ticking "יש לנו ילד או ילדה" opens one empty child card; children already entered return as they were (Q3).
   function onStagesChange(stages: string[]) {
     const needsCard = stages.includes('has_child') && form.children.length === 0;
-    onFormChange({ ...form, stages, children: needsCard ? [EMPTY_CHILD] : form.children });
+    const card = { ...EMPTY_CHILD };
+    if (needsCard && attempts > 0) freshCards.current.add(card);
+    onFormChange({ ...form, stages, children: needsCard ? [card] : form.children });
   }
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     const result = validateStep1(form, getToday());
     if (result.ok) onValid(result.value);
-    else setAttempts((count) => count + 1);
+    else {
+      freshCards.current = new WeakSet();
+      setAttempts((count) => count + 1);
+    }
   }
 
   const pregnant = form.stages.includes('pregnant');
@@ -129,7 +144,11 @@ export function RegisterStepOne({ form, onFormChange, getToday, onValid, showErr
             <ChildrenSection
               children={form.children}
               errors={errors.child}
-              onChange={(children) => onFormChange({ ...form, children })}
+              onChange={(children) => {
+                const added = children.length > form.children.length ? children[children.length - 1] : undefined;
+                if (added !== undefined && attempts > 0) freshCards.current.add(added);
+                onFormChange({ ...form, children });
+              }}
             />
           ) : null}
           <FormField label="שם מלא" {...(errors.fullName !== undefined ? { error: errors.fullName } : {})}>

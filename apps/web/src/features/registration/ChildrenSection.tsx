@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { MinusIcon, PlusIcon } from '@/components/ui/icons';
 import { SelectInput } from '@/components/ui/select-input';
 import { TextInput } from '@/components/ui/text-input';
-import { FieldError } from './field-message';
+import { FieldError } from '@/components/shared/field-message';
 import { EMPTY_CHILD, type ChildErrors, type ChildForm } from './step1-form';
 
 const SEX_LABELS: Record<ChildSex, string> = { boy: 'בן', girl: 'בת', unknown: 'עוד לא ידוע' };
@@ -75,7 +75,7 @@ export function ChildrenSection({ children, errors, onChange }: ChildrenSectionP
           onClick={() => {
             if (atMax) return;
             focusAfter.current = 'new-card';
-            onChange([...children, EMPTY_CHILD]);
+            onChange([...children, { ...EMPTY_CHILD }]);
           }}
         >
           <PlusIcon className="size-5" />
@@ -104,7 +104,7 @@ function ChildCard({ child, heading, errors, removable, onChange, onRemove }: Ch
   const headingId = useId();
   const birthErrorId = useId();
   return (
-    <div role="group" aria-labelledby={headingId} className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4">
+    <div role="group" aria-labelledby={headingId} className="flex min-w-0 flex-col gap-4 rounded-lg bg-card p-card-padding shadow-card">
       <div className="flex items-center justify-between gap-2">
         <h2 id={headingId} dir="auto" className="min-w-0 break-words text-h3">
           {heading}
@@ -117,7 +117,7 @@ function ChildCard({ child, heading, errors, removable, onChange, onRemove }: Ch
       </div>
       <FormField label="שם" {...(errors?.name !== undefined ? { error: errors.name } : {})}>
         {(control) => (
-          <TextInput {...control} value={child.name} onChange={(event) => onChange({ name: event.target.value })} />
+          <TextInput {...control} autoComplete="off" value={child.name} onChange={(event) => onChange({ name: event.target.value })} />
         )}
       </FormField>
       <FormField label="מין" {...(errors?.sex !== undefined ? { error: errors.sex } : {})}>

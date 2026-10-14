@@ -36,7 +36,7 @@ export function validateStep1(form: Step1Form, today: string): Step1Result {
   const errors: Step1Errors = {};
   for (const issue of result.error.issues) {
     const [head, index, key] = issue.path;
-    const text = errorTextFor(issue.message);
+    const text = errorTextFor(issue.message, today);
     const childField = CHILD_FIELDS.find((field) => field === key);
     if (head === 'children' && typeof index === 'number' && childField !== undefined) {
       const child = (errors.child ??= {});

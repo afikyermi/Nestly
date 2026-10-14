@@ -80,3 +80,12 @@ Typecheck and eslint pass. Nothing run against a DB or a test.
 - Not verified by me: axe, 375/1024 layout, no-horizontal-scroll, keyboard walk, target sizes - all need a real browser.
 - Uncertain: remove button is icon-only (CircleMinus) with a tooltip; the R2 look of a child card is my reading, not checked
   against `r2-screens.html`.
+
+## Review fixes (CRITIC findings 1-4, 6-8)
+- 1: `registrationErrorTexts(today)` / `errorTextFor(message, today)` (today is now required); three range texts per the
+  decision, built from shared constants, dates D.M.YYYY. Generic only for the six codes the UI cannot produce.
+- 2: the flow clears `parsed` on every form change. 3: `components/shared/field-message.tsx` (+ stories, STATES entry),
+  used by FormField, the stage group, the due date and child cards. 4/8: child card shadow-card, p-card-padding, no border;
+  name autoComplete="off". 7: `showErrors` removed; error stories press "המשך" in a play function.
+- 6: a card added (or auto-added on tick) after a failed "המשך" is in a WeakSet and its errors are hidden until it is edited
+  (editing replaces the object). A removed card shifts nothing: the set holds objects, not indexes.

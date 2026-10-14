@@ -38,7 +38,11 @@ export function RegistrationFlow({ today }: RegistrationFlowProps) {
       ) : (
         <RegisterStepOne
           form={form}
-          onFormChange={setForm}
+          onFormChange={(next) => {
+            // A changed form is a new parse: step 2 never shows a value from before the change.
+            setForm(next);
+            setParsed(null);
+          }}
           getToday={() => today ?? localDateIso(new Date())}
           onValid={(value) => {
             setParsed(value);
