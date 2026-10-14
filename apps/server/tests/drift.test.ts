@@ -1,0 +1,273 @@
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { pgSchema, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { afterAll, describe, expect, it } from 'vitest';
+import { compareColumns, drizzleColumns, normalizeType, parseCatalog, type ColumnShape } from '../scripts/drift.js';
+
+// I1 F1.1 part b, spec criterion 20: "CI fails when the Drizzle schema names a column that is missing from the migrated
+// database, or that differs from it in type or nullability."
+// Criterion 10 (the columns equal the lists approved in schema.md) is asserted on the real Drizzle schema through the
+// command CI runs, against a catalog built from schema.md's lists -- not from the schema file.
+
+const TZ = 'timestamp with time zone';
+const col = (table: string, column: string, type: string, notNull: boolean, schema = 'nestly'): ColumnShape => ({
+  schema,
+  table,
+  column,
+  type,
+  notNull,
+});
+
+// schema.md, "nestly.users" and "nestly.regular_profiles": name, type, nullability.
+const APPROVED: ColumnShape[] = [
+  col('users', 'id', 'uuid', true),
+  col('users', 'account_type', 'text', true),
+  col('users', 'status', 'text', true),
+  col('users', 'created_at', TZ, true),
+  col('regular_profiles', 'user_id', 'uuid', true),
+  col('regular_profiles', 'account_type', 'text', true),
+  col('regular_profiles', 'full_name', 'text', true),
+  col('regular_profiles', 'gender', 'text', false),
+  col('regular_profiles', 'created_at', TZ, true),
+];
+
+const without = (rows: ColumnShape[], table: string, column: string): ColumnShape[] =>
+  rows.filter((r) => !(r.table === table && r.column === column));
+const changed = (rows: ColumnShape[], table: string, column: string, patch: Partial<ColumnShape>): ColumnShape[] =>
+  rows.map((r) => (r.table === table && r.column === column ? { ...r, ...patch } : r));
+const mentions = (problems: string[], table: string, column: string): boolean =>
+  problems.some((p) => p.includes(table) && new RegExp(`\\b${column}\\b`).test(p));
+
+// A Drizzle schema declared in the test, shaped like the approved lists.
+const nestly = pgSchema('nestly');
+const users = nestly.table('users', {
+  id: uuid('id').primaryKey(),
+  accountType: text('account_type').notNull(),
+  status: text('status').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+const regularProfiles = nestly.table('regular_profiles', {
+  userId: uuid('user_id').primaryKey(),
+  accountType: text('account_type').notNull(),
+  fullName: text('full_name').notNull(),
+  gender: text('gender'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+describe('[F1.1-b c20] compareColumns: the Drizzle schema against the migrated database', () => {
+  it('reports nothing when every Drizzle column exists with the same type and nullability', () => {
+    expect(compareColumns(APPROVED, APPROVED)).toEqual([]);
+  });
+
+  it('reports a Drizzle column that is missing from the database, and names it', () => {
+    const problems = compareColumns(APPROVED, without(APPROVED, 'users', 'status'));
+    expect(problems.length).toBeGreaterThan(0);
+    expect(mentions(problems, 'users', 'status')).toBe(true);
+  });
+
+  it('reports each column of a table that is missing from the database altogether', () => {
+    const database = APPROVED.filter((r) => r.table !== 'regular_profiles');
+    const problems = compareColumns(APPROVED, database);
+    for (const column of ['user_id', 'account_type', 'full_name', 'gender', 'created_at']) {
+      expect(mentions(problems, 'regular_profiles', column), `column ${column} not reported`).toBe(true);
+    }
+  });
+
+  it('reports every column when the database catalog is empty (a migration that did not run)', () => {
+    const problems = compareColumns(APPROVED, []);
+    expect(problems.length).toBeGreaterThanOrEqual(APPROVED.length);
+  });
+
+  it('reports a column that exists only in another schema (public.users does not satisfy nestly.users)', () => {
+    const database = APPROVED.map((r) => ({ ...r, schema: 'public' }));
+    const problems = compareColumns(APPROVED, database);
+    expect(problems.length).toBeGreaterThanOrEqual(APPROVED.length);
+  });
+
+  it('reports a type mismatch and names the column', () => {
+    const problems = compareColumns(APPROVED, changed(APPROVED, 'users', 'id', { type: 'text' }));
+    expect(problems.length).toBeGreaterThan(0);
+    expect(mentions(problems, 'users', 'id')).toBe(true);
+  });
+
+  it('reports a timestamp without time zone where the database has timestamp with time zone, and the other way round', () => {
+    const naive = compareColumns(changed(APPROVED, 'users', 'created_at', { type: 'timestamp' }), APPROVED);
+    expect(mentions(naive, 'users', 'created_at')).toBe(true);
+    const tzDrizzle = compareColumns(APPROVED, changed(APPROVED, 'users', 'created_at', { type: 'timestamp without time zone' }));
+    expect(mentions(tzDrizzle, 'users', 'created_at')).toBe(true);
+  });
+
+  it('reports a nullability mismatch in both directions and names the column', () => {
+    const drizzleStricter = compareColumns(changed(APPROVED, 'regular_profiles', 'gender', { notNull: true }), APPROVED);
+    expect(mentions(drizzleStricter, 'regular_profiles', 'gender')).toBe(true);
+    const databaseLooser = compareColumns(APPROVED, changed(APPROVED, 'users', 'status', { notNull: false }));
+    expect(mentions(databaseLooser, 'users', 'status')).toBe(true);
+    const drizzleLooser = compareColumns(changed(APPROVED, 'users', 'status', { notNull: false }), APPROVED);
+    expect(mentions(drizzleLooser, 'users', 'status')).toBe(true);
+  });
+
+  it('reports every mismatch, not just the first', () => {
+    let database = without(APPROVED, 'users', 'status');
+    database = changed(database, 'users', 'id', { type: 'text' });
+    database = changed(database, 'regular_profiles', 'gender', { notNull: true });
+    const problems = compareColumns(APPROVED, database);
+    expect(mentions(problems, 'users', 'status')).toBe(true);
+    expect(mentions(problems, 'users', 'id')).toBe(true);
+    expect(mentions(problems, 'regular_profiles', 'gender')).toBe(true);
+  });
+
+  it('does not pass vacuously: a Drizzle schema that names no column is itself a problem', () => {
+    expect(compareColumns([], APPROVED).length).toBeGreaterThan(0);
+    expect(compareColumns([], []).length).toBeGreaterThan(0);
+  });
+
+  it('compares types by their meaning, not their spelling (case, spacing, varchar/character varying)', () => {
+    const db = [col('t', 'a', 'uuid', true), col('t', 'b', 'character varying(60)', true), col('t', 'c', 'numeric(10,2)', true)];
+    const drizzle = [col('t', 'a', 'UUID', true), col('t', 'b', 'varchar(60)', true), col('t', 'c', 'numeric(10, 2)', true)];
+    expect(compareColumns(drizzle, db)).toEqual([]);
+  });
+
+  it('still reports different lengths, a bounded type against an unbounded one, and different types', () => {
+    const db = [col('t', 'b', 'character varying(61)', true), col('t', 'c', 'character varying(60)', true), col('t', 'd', 'varchar', true)];
+    const drizzle = [col('t', 'b', 'varchar(60)', true), col('t', 'c', 'varchar', true), col('t', 'd', 'text', true)];
+    const problems = compareColumns(drizzle, db);
+    for (const column of ['b', 'c', 'd']) expect(mentions(problems, 't', column), `column ${column}`).toBe(true);
+  });
+
+  it('normalizeType gives one spelling to one type and different spellings to different types', () => {
+    expect(normalizeType(' VARCHAR (60) ')).toBe(normalizeType('character varying(60)'));
+    expect(normalizeType('timestamp')).toBe(normalizeType('timestamp without time zone'));
+    expect(normalizeType('timestamp')).not.toBe(normalizeType('timestamp with time zone'));
+    expect(normalizeType('uuid')).not.toBe(normalizeType('text'));
+  });
+});
+
+describe('[F1.1-b c20] drizzleColumns: reading the Drizzle side', () => {
+  it('reads schema, table, column, type and nullability of every table the module exports, and ignores the rest', () => {
+    const shapes = drizzleColumns({ users, regularProfiles, notATable: 42, alsoNot: { name: 'x' }, nothing: undefined });
+    expect(shapes).toHaveLength(9);
+    expect(shapes.every((s) => s.schema === 'nestly')).toBe(true);
+    const find = (table: string, column: string): ColumnShape | undefined => shapes.find((s) => s.table === table && s.column === column);
+    expect(find('users', 'account_type')).toMatchObject({ type: 'text', notNull: true });
+    expect(find('users', 'id')).toMatchObject({ type: 'uuid', notNull: true });
+    expect(find('regular_profiles', 'gender')).toMatchObject({ type: 'text', notNull: false });
+    expect(find('regular_profiles', 'created_at')?.type).toBe(TZ);
+  });
+
+  it('matches the approved lists when the declared schema is right (the end-to-end happy path)', () => {
+    expect(compareColumns(drizzleColumns({ users, regularProfiles }), APPROVED)).toEqual([]);
+  });
+
+  it('fails end to end when the database is missing a column, has another type, or another nullability', () => {
+    const declared = drizzleColumns({ users, regularProfiles });
+    expect(compareColumns(declared, without(APPROVED, 'users', 'created_at')).length).toBeGreaterThan(0);
+    expect(compareColumns(declared, changed(APPROVED, 'users', 'status', { type: 'integer' })).length).toBeGreaterThan(0);
+    expect(compareColumns(declared, changed(APPROVED, 'regular_profiles', 'full_name', { notNull: false })).length).toBeGreaterThan(0);
+  });
+
+  it('fails end to end when the Drizzle schema names a column the database does not have', () => {
+    const extra = nestly.table('users', {
+      id: uuid('id').primaryKey(),
+      accountType: text('account_type').notNull(),
+      status: text('status').notNull(),
+      createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+      passwordHash: text('password_hash').notNull(),
+    });
+    const problems = compareColumns(drizzleColumns({ users: extra, regularProfiles }), APPROVED);
+    expect(mentions(problems, 'users', 'password_hash')).toBe(true);
+  });
+});
+
+describe('[F1.1-b c20] parseCatalog: a malformed catalog must not pass', () => {
+  it('reads what catalog-columns.sql prints', () => {
+    expect(parseCatalog(JSON.stringify(APPROVED))).toEqual(APPROVED);
+    expect(parseCatalog('[]')).toEqual([]);
+  });
+
+  const firstEntry = APPROVED.slice(0, 1).map((r) => JSON.stringify(r)).join(',');
+
+  it.each([
+    ['not JSON', 'this is not json'],
+    ['an empty string', ''],
+    ['a truncated array', '[{"schema":"nestly","table":"users"'],
+    ['a JSON object, not an array', '{"schema":"nestly"}'],
+    ['JSON null', 'null'],
+    ['a string', '"[]"'],
+    ['an array holding a string', '["nestly.users.id"]'],
+    ['an array holding null', '[null]'],
+    ['an entry without notNull', '[{"schema":"nestly","table":"users","column":"id","type":"uuid"}]'],
+    ['an entry without type', '[{"schema":"nestly","table":"users","column":"id","notNull":true}]'],
+    ['an entry without schema', '[{"table":"users","column":"id","type":"uuid","notNull":true}]'],
+    ['notNull as the string "true"', '[{"schema":"nestly","table":"users","column":"id","type":"uuid","notNull":"true"}]'],
+    ['notNull as 1', '[{"schema":"nestly","table":"users","column":"id","type":"uuid","notNull":1}]'],
+    ['type as a number', '[{"schema":"nestly","table":"users","column":"id","type":7,"notNull":true}]'],
+    ['one bad entry among good ones', `[${firstEntry},{"schema":"nestly"}]`],
+  ])('throws on %s', (_label, input) => {
+    expect(() => parseCatalog(input)).toThrow();
+  });
+});
+
+// The command CI runs: `npm run db:drift -w @nestly/server -- <catalog.json>` -> tsx scripts/db-drift.ts <catalog.json>.
+// It compares the real Drizzle schema in apps/server with the catalog file.
+describe('[F1.1-b c10 c20] the db:drift command against the real Drizzle schema', () => {
+  const serverDir = fileURLToPath(new URL('..', import.meta.url));
+  const workDir = mkdtempSync(join(tmpdir(), 'nestly-drift-'));
+  afterAll(() => rmSync(workDir, { recursive: true, force: true }));
+
+  let counter = 0;
+  function drift(catalog: string | null): { status: number | null; output: string; error: Error | undefined } {
+    const args = ['--import', 'tsx', 'scripts/db-drift.ts'];
+    if (catalog !== null) {
+      counter += 1;
+      const file = join(workDir, `catalog-${counter}.json`);
+      writeFileSync(file, catalog);
+      args.push(file);
+    }
+    const result = spawnSync(process.execPath, args, { cwd: serverDir, encoding: 'utf8', timeout: 90_000 });
+    return { status: result.status, output: `${result.stdout}${result.stderr}`, error: result.error };
+  }
+
+  const TIMEOUT = 120_000;
+
+  it('exits 0 when the database has exactly the columns of schema.md (criterion 10: the Drizzle schema equals the approved lists)', { timeout: TIMEOUT }, () => {
+    const result = drift(JSON.stringify(APPROVED));
+    expect(result.error).toBeUndefined();
+    expect(result.output).not.toMatch(/Cannot find|ERR_MODULE_NOT_FOUND/);
+    expect(result.status).toBe(0);
+  });
+
+  it.each([
+    ['a column missing from the database', without(APPROVED, 'users', 'status')],
+    ['a whole table missing', APPROVED.filter((r) => r.table !== 'regular_profiles')],
+    ['a type that differs', changed(APPROVED, 'users', 'id', { type: 'text' })],
+    ['a timestamp without time zone', changed(APPROVED, 'regular_profiles', 'created_at', { type: 'timestamp without time zone' })],
+    ['a nullable column in the database where Drizzle says not null', changed(APPROVED, 'users', 'account_type', { notNull: false })],
+    ['a not null column in the database where Drizzle says nullable', changed(APPROVED, 'regular_profiles', 'gender', { notNull: true })],
+    ['an empty catalog', []],
+  ])('exits non-zero for %s', { timeout: TIMEOUT }, (_label, rows) => {
+    const result = drift(JSON.stringify(rows));
+    expect(result.error).toBeUndefined();
+    expect(result.status, result.output).not.toBe(0);
+    expect(result.status).not.toBeNull();
+  });
+
+  it.each([
+    ['a file that is not JSON', 'this is not json'],
+    ['an empty file', ''],
+    ['a JSON object, not an array', '{}'],
+    ['an entry of the wrong shape', '[{"schema":"nestly"}]'],
+  ])('exits non-zero for %s (a malformed catalog does not pass)', { timeout: TIMEOUT }, (_label, content) => {
+    const result = drift(content);
+    expect(result.status).not.toBe(0);
+    expect(result.status).not.toBeNull();
+  });
+
+  it('exits non-zero when it is given no catalog file at all', { timeout: TIMEOUT }, () => {
+    const result = drift(null);
+    expect(result.status).not.toBe(0);
+    expect(result.status).not.toBeNull();
+  });
+});

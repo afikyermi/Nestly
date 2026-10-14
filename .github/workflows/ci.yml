@@ -138,7 +138,8 @@ jobs:
   # .work/identity-platform/schema.md "CI `db` job"). No GitHub secret and no environment: every password is random
   # per run, masked, and dies with the runner. Nothing here can reach nestly-preview or nestly-prod.
   # Order: pinned auth functions -> their hash check -> image preflight -> bootstrap step 1 -> migrations as app_owner
-  # -> bootstrap step 2 -> pgTAP as app_server.
+  # (the newest up -> down -> up) -> bootstrap step 2 -> Drizzle drift check (part b criteria 8-20) -> the gate's
+  # fire harness as postgres -> RLS gate and pgTAP as app_server.
   db:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -158,6 +159,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
+          cache: npm
+      # The workspace packages: the Drizzle schema and its drift check (criterion 20).
+      - run: npm ci
 
       - name: Install psql, pg_prove and the Supabase CLI (pinned)
         run: |
@@ -240,11 +244,42 @@ jobs:
           alter role app_server password :'server_pw';
           SQL
 
-      - name: Migrations as app_owner (supabase db push)
+      # Every migration as app_owner. The newest also goes up -> down -> up once (schema.md "Rollback", Gate 2): its down
+      # script must return the database to the state before it, and the second up must give the database the first did.
+      - name: Migrations as app_owner (supabase db push), the newest up -> down -> up
+        env:
+          PGUSER: postgres
+          PGPASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
         run: |
           set -eu
+          fingerprint() { psql -X -q -A -t -v ON_ERROR_STOP=1 -f supabase/ci/catalog-fingerprint.sql; }
+          push() { supabase db push "$@" --db-url "${CI_APP_OWNER_DB_URL}" --yes --skip-vault --agent no; }
+          fail() { echo "::error::$1"; exit 1; }
           mkdir -p supabase/migrations
-          supabase db push --db-url "${CI_APP_OWNER_DB_URL}" --yes --skip-vault --agent no
+          newest="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort | tail -n 1)"
+          if [ -z "${newest}" ]; then
+            push
+            echo "::notice::no migration yet: up -> down -> up not run"
+            exit 0
+          fi
+          name="$(basename "${newest}" .sql)"
+          down="supabase/rollback/${name}.down.sql"
+          [ -f "${down}" ] || fail "${newest} has no down script (${down})"
+          older="${RUNNER_TEMP}/older"
+          mkdir -p "${older}/supabase/migrations"
+          for f in supabase/migrations/*.sql; do
+            if [ "${f}" != "${newest}" ]; then cp "${f}" "${older}/supabase/migrations/"; fi
+          done
+          push --workdir "${older}"
+          before="$(fingerprint)"
+          push
+          up="$(fingerprint)"
+          [ "${up}" != "${before}" ] || fail "${name} changed nothing"
+          psql "${CI_APP_OWNER_DB_URL}" -X -q -v ON_ERROR_STOP=1 -f "${down}"
+          [ "$(fingerprint)" = "${before}" ] || fail "${down} did not return the database to its state before ${name}"
+          push
+          [ "$(fingerprint)" = "${up}" ] || fail "${name} applied again after its down script gave a different database"
+          echo "${name}: up -> down -> up OK"
 
       - name: A second push with nothing pending changes nothing (criterion 6)
         env:
@@ -294,7 +329,8 @@ jobs:
             exit 1
           fi
 
-      - name: Bootstrap step 2 as postgres, twice (when it exists)
+      # Criterion 9. Skipped only while no migration exists; once one does, a missing step 2 fails (finding 5).
+      - name: Bootstrap step 2 as postgres, twice, then its check
         env:
           PGUSER: postgres
           PGPASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
@@ -303,8 +339,16 @@ jobs:
           step=supabase/bootstrap/02-anchor-fk.sql
           check=supabase/bootstrap/02-anchor-fk-check.sql
           if [ ! -f "${step}" ]; then
-            echo "::notice::${step} does not exist yet (I1 F1.1 part b): skipped"
+            if [ -n "$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' 2>/dev/null)" ]; then
+              echo "::error::${step} is missing, but supabase/migrations is not empty"
+              exit 1
+            fi
+            echo "::notice::${step} does not exist and there is no migration yet: skipped"
             exit 0
+          fi
+          if [ ! -f "${check}" ]; then
+            echo "::error::${check} is missing"
+            exit 1
           fi
           fingerprint() { psql -X -q -A -t -v ON_ERROR_STOP=1 -f supabase/ci/catalog-fingerprint.sql; }
           psql -X -q -v ON_ERROR_STOP=1 -f "${step}"
@@ -315,7 +359,25 @@ jobs:
             echo "::error::a second run of bootstrap step 2 changed the database"
             exit 1
           fi
-          if [ -f "${check}" ]; then psql -X -v ON_ERROR_STOP=1 -f "${check}"; fi
+          result="$(psql -X -q -A -t -F ' | ' -v ON_ERROR_STOP=1 -f "${check}")"
+          echo "ok | fk_exists | definition | on_delete | validated | users_owner | fks_to_auth"
+          echo "${result}"
+          case "${result}" in
+            "t | "*) ;;
+            *) echo "::error::02-anchor-fk-check.sql: ok is not true"; exit 1 ;;
+          esac
+
+      # Criterion 20. Every column the Drizzle schema names exists in the migrated database with the same type and
+      # nullability. The catalog is read as postgres; the comparison is apps/server/scripts/db-drift.ts.
+      - name: The Drizzle schema matches the migrated database (criterion 20)
+        env:
+          PGUSER: postgres
+          PGPASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
+        run: |
+          set -eu
+          catalog="${RUNNER_TEMP}/catalog-columns.json"
+          psql -X -q -A -t -v ON_ERROR_STOP=1 -f supabase/ci/catalog-columns.sql -o "${catalog}"
+          npm run db:drift -w @nestly/server -- "${catalog}"
 
       - name: pgTAP and the RLS gate as postgres (CI only), then test fixtures
         env:
@@ -325,26 +387,32 @@ jobs:
           set -eu
           psql -X -q -v ON_ERROR_STOP=1 -f supabase/ci/pgtap-setup.sql
           psql -X -q -v ON_ERROR_STOP=1 -f supabase/ci/rls-gate.sql
+          # The checks app_server cannot fire from its own session, fired here and rolled back (criterion 4; part a
+          # CRITIC findings 3-5). Each file raises, and fails this step, when the gate misses its violation.
+          psql -X -q -v ON_ERROR_STOP=1 -f supabase/ci/rls-gate-fire.sql
+          psql "${CI_APP_OWNER_DB_URL}" -X -q -v ON_ERROR_STOP=1 -f supabase/ci/rls-gate-fire-owner.sql
           # Fixture helpers that come with the tests (supabase/tests/setup/*.sql), in name order, if any.
           for f in supabase/tests/setup/*.sql; do
             if [ -e "${f}" ]; then psql -X -q -v ON_ERROR_STOP=1 -f "${f}"; fi
           done
 
-      - name: RLS gate on nestly as app_server (criterion 3)
+      # The product-wide verdict: nestly, every other schema app_owner owns, public, and the CLI's history schema
+      # (supabase/ci/rls-gate.sql, tests.rls_gate_product). nestly missing is itself a violation.
+      - name: RLS gate on the product schemas as app_server (criterion 3)
         env:
           PGUSER: app_server
           PGPASSWORD: ${{ env.CI_APP_SERVER_PASSWORD }}
         run: |
           set -eu
           violations="$(psql -X -q -A -t -F ' ' -v ON_ERROR_STOP=1 \
-            -c "select check_name, object from tests.rls_gate('nestly') order by 1, 2")"
+            -c "select check_name, object from tests.rls_gate_product() order by 1, 2")"
           if [ -n "${violations}" ]; then
             while read -r check object; do
               echo "::error::RLS gate: ${check}: ${object}"
             done <<< "${violations}"
             exit 1
           fi
-          echo "RLS gate: no violation in nestly or public"
+          echo "RLS gate: no violation in nestly, the schemas app_owner owns, public or the history schema"
 
       - name: pgTAP suite with pg_prove as app_server
         env:

@@ -69,3 +69,44 @@ Checked, no finding: triggers · job gating (`needs: preview`, main-only `if`, l
 Open for part b: spec line 58 and criterion 18 still say `is_active_account()` is DEFINER and listed in "Approved exceptions"; Gate 2 decided INVOKER. Part b reconciles criterion 18 with that decision; the gate's list stays equal to data-model.
 
 (Written by ORCHESTRATOR verbatim in substance from CRITIC's returned text; CRITIC cannot write files.)
+
+## Part b — CRITIC (opus), 14.10.2026, PR 16, CI run 38487219359
+
+### Re-check of part a findings 1–4 (the one re-check, Afik's round limit)
+1 — CLOSED. The guard refuses a password that fails decodeURIComponent or decodes to NUL, a raw "#" or fragment, and any sslmode but require/verify-full; tests include no password/URL in output. Both hash-check psql steps set PGSSLMODE=require and first connect with all output discarded (also covers libpq errors quoting the URL, e.g. a raw "@").
+2 — CLOSED. SWALLOW regex as asked; step-level `if` forbidden except the one-line failure() docker-logs step, which must be last; continue-on-error, set +e, custom shells without -e flagged; mutation table shows the check fails. Recorded, not reopened: `|| echo …`, `|| /bin/true`, `if cmd; then :; fi` undetected (heuristic).
+3 — CLOSED. rls-gate-fire.sql (as postgres) fires relation_in_public, anon_privilege on a schema (scratch and nestly), not_owned_by_app_owner on a schema; raises if the gate misses one; green in CI.
+4 — CLOSED. matview_or_foreign_table over relkind 'm' and 'f'; both fired as postgres.
+(5 closed: product_schema_missing, rls_gate_product() over every schema app_owner owns (fired as app_owner), missing step 2 fails once a migration exists. 6 closed by the guard changes. 7, 8 in debt.md.)
+
+### Part b
+verdict: Validated with Concern
+
+concern (to debt.md): rule 15 for every later table rests on is_active_account()'s own status check, untested today and the only guard once F1.5 widens the users policy (b-1); enum value lists in two places with no link (b-2).
+
+--- finding --- severity: low · b-1 · migration :64-74, tests/13
+claim: is_active_account()'s own `u.id = auth.uid()` and `u.status = 'active'` are untested; under users_select_own, removing them changes nothing.
+failure: body `select exists (select 1 from nestly.users)` → 394/394 pass; after F1.5 lets a suspended user read their own row, the function returns true for suspended/banned and every table it gates opens.
+fix: rolled-back fixture adds a permissive `for select to authenticated using (id = auth.uid())` policy; assert S and X false, A true.
+--- end ---
+--- finding --- severity: low · b-2 · packages/shared constants · apps/server/src/db/schema.ts · migration CHECKs
+claim: Drizzle's enum types and the CHECK value lists are separate; drift compares name, type, nullability only.
+failure: a migration adds status 'deactivated' without changing ACCOUNT_STATUSES → Drizzle's type lies, CI green (CLAUDE.md consequence 1).
+fix: emit each named CHECK's values from the catalog; db-drift compares with enumValues.
+--- end ---
+--- finding --- severity: low · b-3 · bootstrap/02-anchor-fk.sql · ci.yml step 2
+claim: refusal paths never exercised: another role (criterion 9), "exists but differs → raise", unexpected nestly→auth FK.
+failure: an edit to drop-and-re-add stays green; on prod an FK changed outside the script would be silently replaced (the check script still catches ON DELETE ≠ restrict).
+fix: run as app_owner and expect the role error; swap to CASCADE, expect "differs" and unchanged FK, restore; add a scratch nestly→auth FK, expect "unexpected FK".
+--- end ---
+--- finding --- severity: low · b-4 · rollback/20261014100000_identity_schema.down.sql :20-31
+claim: refuses only on rows in the two F1.1 tables; doesn't check it is the newest applied migration, yet drops schema nestly cascade.
+failure: run after F1.4 reaches preview → F1.4's tables dropped, history row stays, db push sees nothing pending.
+fix: refuse unless max(version) = '20261014100000'.
+--- end ---
+--- finding --- severity: low · b-5 · .claude/knowledge/data-model.md "Text limits"
+claim: a convention promoted without approval (not in Gate 2 or decisions), naming the wrong feature (F1.4 vs F1.3); JS .trim() strips all Unicode whitespace, btrim only spaces.
+fix: remove the row, or move it to F1.3's spec as a recommendation. → **Done by ORCHESTRATOR:** row removed; recommendation added to the I1 initiative file for F1.3's SPEC.
+--- end ---
+
+Checked, no finding: own-row reads only (joins, unions, subqueries, guessed ids, enumeration) · no write grant or policy for anyone but the owner, table or column level · no other account's status reachable · app_server without role 42501 · anon, PUBLIC, service_role, app_jobs hold nothing · claims beyond sub ignored · FORCE RLS on both tables · is_active_account INVOKER, search_path '', STABLE, EXECUTE to authenticated only, no recursion · anchor FK RESTRICT, validated, the only nestly→auth FK, RESTRICT works under FORCE (tested) · step 2 one transaction, postgres only, idempotent by fingerprint · down script app_owner only, lifts FORCE in-transaction, refuses on rows · up→down→up fingerprint covers ACLs, default ACLs, policies, function bodies · Drizzle mirrors schema.md, no casts/any; drift fails on missing column, type, nullability, malformed catalog, empty schema · VAL-001 2–60 matches SRS 2.12 · VAL-006, BR-016 composite FK correct · mutations caught: drop FORCE, `or true` on a policy, grant UPDATE, DEFINER; not caught: b-1 · criteria 8–20 covered (9 partly, b-3; 18 as amended) · test hygiene · data access bounded to one row · knowledge promotion accurate apart from b-5.

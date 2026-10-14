@@ -85,3 +85,8 @@ Material change to the approved scope; the rows above are kept as approved and r
   Cloud and enters the secrets, guided step by step. Depends on F1.5.
 - **F1.1:** the anchor's ON DELETE is **RESTRICT**; bootstrap step 2 is unblocked.
 - **Out of I1:** the closed beta invite list (FR-ADMIN-011), deferred. Which journey the home shows first → I6.
+
+**For F1.3's SPEC (CRITIC, F1.1 part b, finding 5 — a recommendation, not a decided convention):** the database checks
+VAL-001 as `char_length(btrim(full_name)) between 2 and 60` — `char_length` counts code points (each niqqud mark
+counts) and `btrim` strips only spaces. The Zod rule must count and trim the same way, or a name wrapped in other
+whitespace (e.g. NBSP) passes Zod and fails the CHECK with a raw 23514.

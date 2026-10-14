@@ -7,7 +7,7 @@ anchor and bootstrap steps". Anything else that needs `postgres` is a `DECISION 
 | Step | File | When |
 |---|---|---|
 | 1 | `01-roles.sql`, then `01-roles-check.sql` | before the first migration (before I1) |
-| 2 | the anchor's FK to `auth.users` | after the first table's migration. Not written yet: it comes with the first table |
+| 2 | `02-anchor-fk.sql`, then `02-anchor-fk-check.sql` | after the identity migration (`20261014100000_identity_schema`), before F1.4 deploys |
 | 3 | extensions, pg_cron jobs | when needed |
 
 ## Who runs it, where
@@ -16,7 +16,7 @@ anchor and bootstrap steps". Anything else that needs `postgres` is a `DECISION 
   The tool refuses every target except preview.
 - **nestly-prod:** Afik only, in the SQL Editor (CLAUDE.md, reserved item 2). No agent and no tool has a path there.
 - **CI (`db` job in `.github/workflows/ci.yml`):** every run builds a disposable `supabase/postgres` database and runs
-  step 1 there as `postgres`, then step 2 twice once it exists, with random per-run passwords. It never touches a
+  step 1 there as `postgres`, then step 2 twice and its check, with random per-run passwords. It never touches a
   real environment.
 - Order: preview first, then check it. Prod after that.
 
@@ -37,6 +37,19 @@ anchor and bootstrap steps". Anything else that needs `postgres` is a `DECISION 
    `app_server` one goes to Vercel when I1 needs it. The password in the URL must be URL-safe
    (percent-encode any special character), or use letters and digits only.
 
+## Step 2, in order
+
+The anchor's FK: `nestly.users (id)` → `auth.users (id)`, **ON DELETE RESTRICT** (Afik, 13.10.2026). From then on, an
+Auth user who still has a Nestly account cannot be deleted from the dashboard: the Nestly rows go first.
+
+1. Check that the migration has run: `nestly.users` exists (the `migrate` workflow applies it after merge).
+2. Open the SQL Editor (it runs as `postgres`). Paste `02-anchor-fk.sql` and run it. One transaction; safe to run again.
+   A second run reports "already present and identical" and changes nothing.
+3. Run `02-anchor-fk-check.sql`. Expect one row with `ok = true`. The expected values are in its header.
+
+If it stops with `differs` or `unexpected FK`: something other than this script changed the anchor. It is never
+repaired silently. Stop and report it.
+
 ## Connecting as a custom role through the pooler
 
 The pooler user name is **`<role>.<project-ref>`**, for example `app_owner.xmihorrkegrdlbhpktny` on nestly-preview.
@@ -55,6 +68,9 @@ A successful login is the only proof that a password is set. SQL cannot show it 
   past.
 
 ## Rollback
+
+Step 2: `alter table nestly.users drop constraint users_id_fkey;` as `postgres` or `app_owner`. Only `postgres` can
+add it back (step 2 again). While it is absent, nothing ties a Nestly account to its Auth user.
 
 Step 1 is reversible **only until `app_owner` owns something**, which happens at the first migration:
 
