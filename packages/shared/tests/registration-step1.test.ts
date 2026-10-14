@@ -183,8 +183,8 @@ describe('F1.3 criterion 4 [VAL-040 · AC-090 · FR-REG-002] children count and 
     expect(codes(form({ stages: ['has_child'], children: [] }))).toContain('children_required');
     expect(codes(form({ stages: ['has_child'], children: kids(11) }))).toContain('children_too_many');
   });
-  it('[VAL-040] without has_child the output has no children, even with invalid ones in the input', () => {
-    const r = schema.safeParse(form({ stages: ['planning'], children: [child({ sex: 'bogus', name: '' }), ...kids(12)] }));
+  it('[VAL-040] without has_child the output has no children, even with invalid ones in the input (at most 10: F1.4 criterion 2 rejects more, raw)', () => {
+    const r = schema.safeParse(form({ stages: ['planning'], children: [child({ sex: 'bogus', name: '' }), ...kids(9)] }));
     expect(r.success).toBe(true);
     expect(r.success && r.data.children).toEqual([]);
   });

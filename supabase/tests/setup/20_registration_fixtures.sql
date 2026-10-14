@@ -108,6 +108,20 @@ create or replace function tests.fx_consent_id(p_user uuid) returns uuid
 language sql security definer set search_path = ''
 as $$ select l.id from nestly.legal_consents l where l.user_id = p_user order by l.terms_version limit 1 $$;
 
+-- A fresh Auth user with NO nestly rows, for the server integration tests (apps/server/tests/db/registration.db.test.ts):
+-- those commit real rows (the runtime role cannot delete), so each test registers its own new identity. The disposable
+-- CI database is thrown away after the job. Definer, owner postgres, like the other writers here.
+create or replace function tests.fx_new_auth_user() returns uuid
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v uuid := gen_random_uuid();
+begin
+  insert into auth.users (id, aud, role, email) values (v, 'authenticated', 'authenticated', 'f14b-' || v::text || '@example.invalid');
+  return v;
+end
+$$;
+
 -- Like tests.dml_as, but the error carries its message: 'OK:<rows>' or 'ERR:<sqlstate>:<message>' (double quotes removed from
 -- the message, so 'permission denied for table children' and 'new row violates row-level security policy for table users'
 -- compare as plain text). Needed because the privilege fence and the policy fence both raise 42501 (Amendment 1).
