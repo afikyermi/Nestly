@@ -7,6 +7,11 @@ interface DrawerPanelProps {
   onOpenChange: (open: boolean) => void;
   /** The panel body; it holds a DrawerTitle, which names the dialog. */
   children: ReactNode;
+  /**
+   * Where focus goes when the panel closes. Unset, or returning null: the element focused when it opened.
+   * For a close that also changes the screen behind it (a menu item that navigates).
+   */
+  finalFocus?: (() => HTMLElement | null) | undefined;
   className?: string;
 }
 
@@ -14,7 +19,7 @@ interface DrawerPanelProps {
 // locked and the rest of the page hidden from assistive technology (Radix does these). The panel sits at
 // the inline-start edge. Radix returns focus only to a Trigger it owns; the drawer is controlled, so the
 // element focused when it opened is remembered and given focus back when it closes.
-export function DrawerPanel({ open, onOpenChange, children, className }: DrawerPanelProps) {
+export function DrawerPanel({ open, onOpenChange, children, finalFocus, className }: DrawerPanelProps) {
   const opener = useRef<HTMLElement | null>(null);
   const panel = useRef<HTMLDivElement>(null);
   return (
@@ -33,7 +38,7 @@ export function DrawerPanel({ open, onOpenChange, children, className }: DrawerP
           }}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
-            opener.current?.focus();
+            (finalFocus?.() ?? opener.current)?.focus();
           }}
           className={cn(
             'fixed inset-y-0 start-0 z-drawer flex w-72 max-w-full flex-col bg-card text-card-foreground shadow-raised -outline-offset-2',

@@ -11,13 +11,15 @@ export interface SideDrawerProps {
   /** The accessible name of the close control. */
   closeLabel: string;
   children: ReactNode;
+  /** Where focus goes on close; unset or null: back to the element that opened it. */
+  finalFocus?: (() => HTMLElement | null) | undefined;
 }
 
 // A modal panel from the inline-start edge. Controlled, so the shell can own the Hamburger as well.
 // Focus moves in, is trapped, and returns to the element that opened it when the drawer closes.
-export function SideDrawer({ open, onOpenChange, title, closeLabel, children }: SideDrawerProps) {
+export function SideDrawer({ open, onOpenChange, title, closeLabel, children, finalFocus }: SideDrawerProps) {
   return (
-    <DrawerPanel open={open} onOpenChange={onOpenChange}>
+    <DrawerPanel open={open} onOpenChange={onOpenChange} finalFocus={finalFocus}>
       <div className={'flex items-center justify-between gap-2 border-b border-border p-1.5 ps-4'}>
         <DrawerTitle>{title}</DrawerTitle>
         <Button iconOnly label={closeLabel} onClick={() => onOpenChange(false)}>
