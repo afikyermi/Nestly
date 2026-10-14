@@ -22,6 +22,7 @@ import {
   GENERIC_ERROR_TEXT,
   PASSWORD_LENGTH_TEXT,
   RATE_LIMITED_TEXT,
+  HELD_TEXT,
   RETRY_TEXT,
   TAKEN_TEXT,
   classifySignUpFailure,
@@ -67,12 +68,15 @@ export function RegisterStepTwo({ step1, email, onEmailChange, onBack }: Registe
   const formRef = useRef<HTMLFormElement>(null);
   const running = useRef(false);
   const accessToken = useRef<string | null>(null);
+  const passwordInput = useRef<HTMLInputElement>(null);
   const consentErrorId = `${useId()}-consent-error`;
   const [password, setPassword] = useState('');
   const [consent, setConsent] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [focusTick, setFocusTick] = useState(0);
   const [busy, setBusy] = useState(false);
+  // True once Auth holds this email and password for us and the account is not created yet: both fields are then locked.
+  const [held, setHeld] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
   // Auth refused the password as too weak: shown as the password field's error until the password changes.
   const [passwordRefused, setPasswordRefused] = useState(false);
@@ -112,7 +116,8 @@ export function RegisterStepTwo({ step1, email, onEmailChange, onBack }: Registe
   async function submit() {
     if (running.current) return;
     setSubmitted(true);
-    const result = validateCredentials(email, password);
+    // Read from the field itself (not mirrored into the markup), so an autofill without a change event still counts.
+    const result = validateCredentials(email, passwordInput.current?.value ?? password);
     if (!result.ok || !consent) {
       setFocusTick((tick) => tick + 1);
       return;
@@ -127,13 +132,17 @@ export function RegisterStepTwo({ step1, email, onEmailChange, onBack }: Registe
       const token = accessToken.current ?? (await signUp(result.value));
       if (token === null) return;
       accessToken.current = token;
+      setHeld(true);
       const outcome = await registerAccount(token, step1);
       if (outcome === 'created') {
         finished = true;
         sessionEntry?.signIn();
         return;
       }
-      if (outcome === 'already_registered' || outcome === 'unauthenticated') accessToken.current = null;
+      if (outcome === 'already_registered' || outcome === 'unauthenticated') {
+        accessToken.current = null;
+        setHeld(false);
+      }
       setNotice(OUTCOME_NOTICE[outcome]);
     } finally {
       running.current = false;
@@ -170,6 +179,7 @@ export function RegisterStepTwo({ step1, email, onEmailChange, onBack }: Registe
         </div>
         <h1 className="mb-1 text-h1">פרטי התחברות</h1>
         <p className="mb-5 text-body text-muted-foreground">עוד רגע מסיימים.</p>
+        {held ? <p className="mb-5 text-small text-muted-foreground">{HELD_TEXT}</p> : null}
         <div className="flex flex-col gap-5">
           <FormField label="אימייל" {...(errors.email !== undefined ? { error: errors.email } : {})}>
             {(control) => (
@@ -179,6 +189,7 @@ export function RegisterStepTwo({ step1, email, onEmailChange, onBack }: Registe
                 dir="ltr"
                 autoComplete="email"
                 value={email}
+                readOnly={held}
                 onChange={(event) => onEmailChange(event.target.value)}
               />
             )}
@@ -189,7 +200,8 @@ export function RegisterStepTwo({ step1, email, onEmailChange, onBack }: Registe
                 {...control}
                 autoComplete="new-password"
                 toggleLabel="הצגת הסיסמה"
-                value={password}
+                ref={passwordInput}
+                readOnly={held}
                 onChange={(event) => {
                   setPassword(event.target.value);
                   setPasswordRefused(false);
@@ -230,7 +242,14 @@ export function RegisterStepTwo({ step1, email, onEmailChange, onBack }: Registe
                 </div>
               ) : null}
               {notice === 'retry' ? (
-                <Button variant="soft" onClick={() => void submit()}>
+                <Button
+                  variant="soft"
+                  onClick={() => {
+                    // The retry control disappears when the answer arrives: focus waits on the submit button (WCAG 2.4.3).
+                    formRef.current?.querySelector<HTMLElement>('button[type="submit"]')?.focus();
+                    void submit();
+                  }}
+                >
                   ניסיון חוזר
                 </Button>
               ) : null}

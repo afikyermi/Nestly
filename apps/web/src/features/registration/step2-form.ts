@@ -12,6 +12,8 @@ export const CONSENT_REQUIRED_TEXT = 'יש לאשר את התנאים ואת ה�
 // ERR-002 · NFR-SEC-006: one text for Regular and Professional, naming neither (criteria 6, 7).
 export const TAKEN_TEXT = 'לא ניתן להשלים את ההרשמה עם הפרטים האלה. אפשר להתחבר או לשחזר סיסמה';
 export const RETRY_TEXT = 'השמירה לא הצליחה. אפשר לנסות שוב'; // ERR-004
+// Shown while Auth holds the email and password and the account is not yet created: the fields are locked.
+export const HELD_TEXT = 'האימייל והסיסמה נשמרו ואי אפשר לשנות אותם כעת';
 export const RATE_LIMITED_TEXT = 'בוצעו יותר מדי ניסיונות. אפשר לנסות שוב בעוד כמה דקות'; // Q6
 export { GENERIC_ERROR_TEXT };
 
@@ -60,6 +62,8 @@ export function classifySignUpFailure(failure: AuthFailure): SignUpProblem {
   if (failure.status === 429 || failure.code === 'over_request_rate_limit' || failure.code === 'over_email_send_rate_limit') {
     return 'rate_limited';
   }
+  // Any 5xx or a call that did not reach Auth is a retryable outage (auth-js leaves some 5xx as plain API errors).
   if (failure.name === 'AuthRetryableFetchError' || failure.status === 0) return 'unavailable';
+  if (failure.status !== undefined && failure.status >= 500) return 'unavailable';
   return 'unknown';
 }

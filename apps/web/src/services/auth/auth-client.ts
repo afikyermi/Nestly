@@ -3,6 +3,7 @@
 // in memory (Q7): nothing is persisted, nothing is read from the URL, no timer refreshes the token. Everything the rest
 // of the web sees is the port below, so a test injects a fake and no SDK type leaves this file.
 import { GoTrueClient } from '@supabase/auth-js';
+import { isSecretKey } from './secret-key';
 
 /** What a failed Auth call looks like to the web: only the fields the mapping reads, never the library's message. */
 export interface AuthFailure {
@@ -38,6 +39,7 @@ function configFromEnvironment(): AuthClientConfig | undefined {
   const publishableKey: unknown = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   if (typeof url !== 'string' || typeof publishableKey !== 'string') return undefined;
   if (url.trim() === '' || publishableKey.trim() === '') return undefined;
+  if (isSecretKey(publishableKey)) return undefined; // never start a client with a secret key
   return { url: url.trim().replace(/\/+$/, ''), publishableKey: publishableKey.trim() };
 }
 
