@@ -71,3 +71,34 @@ Schema `nestly`. Runtime role `authenticated` (via `SET LOCAL ROLE`); suite sess
   - `hasAccount(database: Database, identity: Identity): Promise<boolean>` — identity transaction around `accountExists`.
   - `createRegistration(database: Database, identity: Identity, step1: RegistrationStep1): Promise<RegistrationOutcome>`, `RegistrationOutcome = { kind: 'created' } | { kind: 'already_registered' }`. Versions come from the shared constants. `already_registered` iff the failure is SQLSTATE 23505 with constraint `users_pkey`; every other failure is rethrown (rolled back, no rows). No Auth call anywhere in these two layers. The journey's `dueDate` is `step1.dueDate` for `pregnant`, else null.
 - How a test drives them against the CI database: build `Database` with `createDatabase(<app_server URL>)` as `apps/server/tests/db/identity.db.test.ts` does; the identity is `{ userId }` of an `auth.users` row created by the test fixtures (a `nestly.users` row must not exist yet); read counts as the owner/postgres connection, which bypasses RLS, per table `users`, `regular_profiles`, `journey_contexts`, `children`, `legal_consents`.
+
+---
+
+# interface — part b, route (Revision 2: the web calls Auth; the server only verifies the session and writes rows)
+
+## Route `POST /api/register` (apps/server/src/routes/register.ts, registered in buildApp)
+- Protected: the authentication hook (`onRequest`) runs first. No/malformed/bad token -> 401 `{error:'unauthenticated'}` with `www-authenticate: Bearer`, before the body is read or parsed. Verifier/database/config missing or JWKS unreachable -> 503 `{error:'unavailable'}`.
+- Request: `Authorization: Bearer <access token>`, `content-type: application/json`, body (strict at every level):
+  `{ stages: string[]; fullName: string; parentGender?: string; dueDate: {day,month,year: string}; children: {name: string; sex: string; birthDate: {day,month,year: string}}[]; consent: true }` — the shape of `RegistrationRequestInput` in `@nestly/shared`. Any other key (email, password, consent version, parent birth date) -> 400.
+- Body limit: 102400 bytes (`REGISTER_BODY_LIMIT_BYTES`), enforced by Fastify from Content-Length and while streaming -> 413 `{error:'bad_request'}` before parsing.
+- Other methods (GET, PUT, PATCH, DELETE, OPTIONS) -> 405 `{error:'method_not_allowed'}` with `allow: POST`; these are protected too (no token -> 401 first). HEAD follows GET (405).
+- Responses (all JSON, fixed codes, no library text):
+  - 201 `{status:'created'}` — no session, no ids.
+  - 400 `{error:'invalid_request'}` — body failed the schema (including consent not literal `true`, unknown key, raw bound, an F1.3 rule with the server clock); also unparseable JSON -> 400 `{error:'bad_request'}`.
+  - 401 `{error:'unauthenticated'}`; 409 `{error:'already_registered'}` (own users row visible, or 23505 on `users_pkey` from the write); 413 `{error:'bad_request'}`.
+  - 500 `{error:'internal'}` — the database refused a validated body with a deterministic fault (SQLSTATE class 23 or 42501), e.g. a failing consent insert; transaction rolled back, zero rows in all five tables.
+  - 503 `{error:'profile_write_failed'}` — any other write failure (connection lost, timeout); transaction rolled back.
+- Order inside the handler: parse body (400) -> `hasAccount` (409) -> `createRegistration` (201 / 409 / 5xx). No Auth call anywhere on the server; the server does not read SUPABASE_URL or SUPABASE_PUBLISHABLE_KEY.
+- Logs of this route: status, SQLSTATE and constraint name only; never the error object, body, token, names or dates.
+
+## Shared (added)
+- `registrationRequestInput` (strict) and `createRegistrationRequestSchema(today: string)` -> output `RegistrationStep1` (the consent key is consumed). Issue messages as in the step-1 section above; `consent` not `true` -> message `consent_required` at path `['consent']`.
+
+## Seams
+- `buildApp({ config?, database?, logStream?, clock? })`: `clock: () => Date` is the server's clock; `today` for the schema is `clock()` UTC date + 1 day (Q4). Default `() => new Date()`. A fixed clock tests criterion 3: with clock at D, a child birth date of D+1 passes, D+2 fails with `birth_date_future`.
+- Token verification and database are the existing seams of F1.1 (`config.auth` JWKS, `database`); the route adds none.
+
+## How a test drives it
+- Build the app as `apps/server/tests/db/identity.db.test.ts` does (real `app_server` database in CI, test JWKS and signed tokens from `tests/helpers/identity-*.ts`), `app.inject({ method:'POST', url:'/api/register', headers:{authorization:'Bearer …'}, payload })`. The token's `sub` must be an existing `auth.users` id whose `nestly.users` row does not exist (fixture user without a profile).
+- 409 after a first 201 with the same token; row counts per table read on the owner connection; 500 path: a test can make the write fail by forcing a deterministic database fault (e.g. a body that passes Zod but the fixture makes a table refuse), 503 path: close/break the database connection.
+- Log assertions: pass `logStream`; no line contains the body's names/dates, the token or the SQL parameters.

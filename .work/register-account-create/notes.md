@@ -33,3 +33,10 @@
 **FINDING for TEST ENGINEER**  `packages/shared/tests/registration-step1.test.ts` line 186-190 ("without has_child the output has no children, even with invalid ones in the input") sends 13 children with `planning`; spec criterion 2 now rejects `children` over 10 on the raw body at any stage. That one test is red by design; it should use <= 10 invalid children. I did not touch it.
 **Preview path**  Not user-visible yet.
 **Neighbouring**  none.
+
+## Part b, route (Revision 2) — BUILDER 14.10.2026
+**Approach**  `POST /api/register` in `apps/server/src/routes/register.ts`; composed strict body schema in `packages/shared/src/validation/registration-request.ts` (step 1 + consent, piped into F1.3's schema with `today` = server UTC date + 1 day). 401 comes from the existing onRequest hook.
+**Decisions**  (1) Criteria 10 and 11 read together: a deterministic database refusal (SQLSTATE class 23, 42501) on a validated body -> 500 `internal` (retry cannot help); any other write failure -> 503 `profile_write_failed`. (2) The route has its own error handler and logs SQLSTATE/constraint only, because Drizzle and parser error messages can quote the SQL parameters or the body (criterion 13). The app-wide handler still logs `err` for other routes (unchanged). (3) 405 routes are protected like the rest: an unauthenticated GET gets 401, not 405. (4) 201 body is `{status:'created'}`; the spec's "with the account" has no field to return.
+**Deviations**  none. **Not done**  web, Auth client, config for Supabase keys (the server reads none).
+**Uncertain**  not run against a database or a real request here (no test files for me; CI db job/TEST ENGINEER). The `.pipe` composition and Fastify's route-level `bodyLimit` 413 are verified by types only.
+**Neighbouring**  the app-wide error handler (`app.ts`) logs the whole error object, which for a body parse error can quote part of the body; harmless on current routes, a leak risk for any route with personal data.
