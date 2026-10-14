@@ -105,6 +105,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-14 | Pace: spec ≤ ~150 lines and ≤ 12/20 criteria, 1–2 tests per criterion, notes ≤ 60, lean review diff, debt PR before F1.5, session handoff | 10 |
 | 2026-10-14 | Preview access: bypass secret stays a repository secret; preview-shot trusts only GitHub-listed deployment URLs; server drops the bypass header | 10 |
 | 2026-10-14 | F1.3 spec revised to 20 criteria / 120 lines (pace rule); two criteria move from source scans to behaviour | 10 |
+| 2026-10-14 | F1.3 review: three error texts (due date range, child name length, birth date floor); revealed fields sit under their choice | 10 |
 
 ## Superseded
 
