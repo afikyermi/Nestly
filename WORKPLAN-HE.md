@@ -13,7 +13,7 @@
 **עודכן:** 14.10.2026 · **גרסת SRS:** 2.12 · **מצב:** בניית מוצר. מערך הסוכנים קפוא עד ש-I1 ממוזג (הכרעתך מ-13.10, `decisions.md`).
 
 - **✅ F1.1 `identity-platform` — הושלם** (‏`.work/identity-platform/result.md`). ‏a מוזג (PR 15), ‏b מוזג (PR 16), ‏c מוזג (PR 17, ‏`671c096`, ‏14.10): שער RLS ב-CI, סכמת `nestly` עם RLS ו-FORCE, ‏FK לעוגן עם RESTRICT, ואימות JWT עם טרנזקציית זהות לכל בקשה. ‏CRITIC על opus: ‏Validated with Concern בכל חלק, והממצאים הקלים ב-debt.
-- **🔄 PR 18 (‏CI לפי קבצים שהשתנו)** — עוד לא מוזג. ‏CRITIC: ‏Validated with Concern, ושלושת הממצאים הבינוניים נסגרו בסבב היחיד. ממתין ל-CI ירוק.
+- **✅ PR 18 (‏CI לפי קבצים שהשתנו) — מוזג** (‏`f7ee887`, ‏14.10): ‏browser ו-storybook רצים רק על שינויי web, ו-db רק על שינויי מסד או שרת. ב-main הכול רץ תמיד. ‏CRITIC: ‏Validated with Concern, ושלושת הממצאים הבינוניים נסגרו.
 - **🔄 הבא: F1.2 `app-shell-guard`** (Gate 1 עבר; ‏`.work/app-shell-guard/spec.md`). ענף `feat/app-shell-guard`.
 - **✅ הכרעותיך על I1 (13.10)** נכנסו ל-SRS 2.12 ולתוספת 1 בקובץ ה-initiative: ‏Google ‏(F1.8 חדש), בלי אימות אימייל, שחזור בתוך המערכת, הצהרת גיל, מסלולים במקביל ועד 10 ילדים. ‏F1.7 יצא.
 - **ממתין להכרעה שלך:** אין.
