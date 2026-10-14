@@ -7,7 +7,10 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+    // @nestly/shared from source in dev, tests and Storybook; its built JS is for the Node function only.
+    conditions: ['source'],
   },
+  ssr: { resolve: { conditions: ['source'] } },
   server: {
     proxy: { '/api': 'http://127.0.0.1:3000' },
   },
