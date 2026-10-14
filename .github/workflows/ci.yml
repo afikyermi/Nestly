@@ -152,12 +152,18 @@ jobs:
       - run: npm ci
       - run: npm run build-storybook
 
-  # Playwright on Chrome and Edge against the built gallery (SRS NFR-QA-001).
+  # Playwright on Chrome and Edge against the built gallery (SRS NFR-QA-001). One job per browser and shard, in
+  # parallel (decisions.md, 2026-10-14 "Speed-up"): the single job took 16-18 of its 20 minutes.
   browser:
     needs: changes
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chrome, edge]
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -175,12 +181,14 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
-      - run: npx playwright install --with-deps chrome msedge
-      - run: npm run test:browser
+      # Only this job's browser: the Playwright project `edge` uses the channel `msedge`.
+      - run: npx playwright install --with-deps ${{ matrix.project == 'edge' && 'msedge' || 'chrome' }}
+      - run: npm run build-storybook
+      - run: npx playwright test --project=${{ matrix.project }} --shard=${{ matrix.shard }}/2
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.project }}-${{ matrix.shard }}
           path: playwright-report/
           retention-days: 7
           if-no-files-found: ignore

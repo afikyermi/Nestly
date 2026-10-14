@@ -104,6 +104,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-14 | Node ≥ 22.22 for react-router; F1.2 source-scan tests a named exception (file:line only) | 10 |
 | 2026-10-14 | Pace: spec ≤ ~150 lines and ≤ 12/20 criteria, 1–2 tests per criterion, notes ≤ 60, lean review diff, debt PR before F1.5, session handoff | 10 |
 | 2026-10-14 | Preview access: bypass secret stays a repository secret; preview-shot trusts only GitHub-listed deployment URLs; server drops the bypass header | 10 |
+| 2026-10-14 | Speed-up: CI browser matrix, Vercel builds branches with an open PR, root vitest, TEST ENGINEER runs and edits tests, interface sheet, jq filters not paths | 10 |
 
 ## Superseded
 
