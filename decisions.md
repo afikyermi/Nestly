@@ -97,6 +97,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-13 | Round limit: one fix round after Not Ready, one re-check, never a third; process tasks stay unmerged, products stop | 10 |
 | 2026-10-14 | Settings: "ask" only for .claude/** and CLAUDE.md; overnight rules (irreversible = prod, real data, GitHub) (upd. 10-14 narrowed) | 10 |
 | 2026-10-14 | Settings: "ask" narrowed to agents, skills, hooks, rules, settings, workflow, learning — knowledge updates without a prompt | 10 |
+| 2026-10-14 | Pace: local checks before push, CI waits ≤ 20 min, independent work meanwhile, split only when needed, WORKPLAN facts only | 10 |
 
 ## Superseded
 

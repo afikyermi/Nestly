@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { Database } from '../../src/db/client.js';
 import type { IdentityTx } from '../../src/db/identity-transaction.js';
+import { toRecords } from './identity-fixtures.js';
 
 // The one place that touches the server's transaction API, for tests/db/ (spec criteria 23, 24).
 //
@@ -10,6 +11,9 @@ import type { IdentityTx } from '../../src/db/identity-transaction.js';
 //   outsideIdentity(db, sql)    runs `sql` on the Database the test passed to buildApp({ database }), through its
 //                               postgres-js client, outside any identity transaction. The client has one connection, so
 //                               this is the connection the previous request used.
+//
+// Both return rows through toRecords, which throws on any shape that is not an array of objects, so an unexpected result
+// can never read as "no rows".
 
 export type Row = Record<string, unknown>;
 
@@ -23,9 +27,13 @@ function canRun(request: unknown): request is CanRunInIdentity {
 
 export async function inIdentity(request: unknown, text: string): Promise<Row[]> {
   if (!canRun(request)) throw new Error('request.inIdentityTransaction is missing: the route is not protected, or the hook did not run');
-  return request.inIdentityTransaction(async (tx) => Array.from(await tx.execute(sql.raw(text))));
+  return request.inIdentityTransaction(async (tx) => {
+    const result: unknown = await tx.execute(sql.raw(text));
+    return toRecords(result);
+  });
 }
 
 export async function outsideIdentity(database: Database, text: string): Promise<Row[]> {
-  return Array.from(await database.client.unsafe(text));
+  const result: unknown = await database.client.unsafe(text);
+  return toRecords(result);
 }

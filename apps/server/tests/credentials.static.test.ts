@@ -51,6 +51,18 @@ function filesUnderChecked(): string[] {
 
 const FORBIDDEN_USERS = /^(?:postgres|app_owner|service_role|supabase_admin|authenticator|supabase_auth_admin)(?:\.|$)/i;
 
+/** The `role` claim of a JWT payload given as base64url, or undefined when it is not a JSON object with a string role. */
+function roleOfPayload(encoded: string): string | undefined {
+  try {
+    const payload: unknown = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
+    if (typeof payload !== 'object' || payload === null) return undefined;
+    const role: unknown = Reflect.get(payload, 'role');
+    return typeof role === 'string' ? role : undefined;
+  } catch {
+    return undefined; // not a JWT after all
+  }
+}
+
 /** Every way the criterion is promised to be absent, as a list of human-readable findings for one file's text. */
 function credentialProblems(text: string): string[] {
   const problems: string[] = [];
@@ -68,16 +80,13 @@ function credentialProblems(text: string): string[] {
   if (/SUPABASE_SECRET|sb_secret_|SUPABASE_DB_PASSWORD|POSTGRES_PASSWORD/.test(text)) problems.push('a secret key or database password name');
 
   for (const match of text.matchAll(/\b(?:user|username)\s*:\s*['"]([^'"\n]{1,64})['"]/g)) {
-    if (FORBIDDEN_USERS.test(match[1] ?? '')) problems.push(`a driver option naming user "${match[1]}"`);
+    const name = match[1] ?? '';
+    if (FORBIDDEN_USERS.test(name)) problems.push(`a driver option naming user "${name}"`);
   }
 
   for (const match of text.matchAll(/eyJ[\w-]{10,}\.(eyJ[\w-]{10,})\.[\w-]*/g)) {
-    try {
-      const payload = JSON.parse(Buffer.from(match[1] ?? '', 'base64url').toString('utf8')) as { role?: unknown };
-      if (typeof payload.role === 'string' && FORBIDDEN_USERS.test(payload.role)) problems.push(`a hard-coded JWT with role "${payload.role}"`);
-    } catch {
-      // not a JWT after all
-    }
+    const role = roleOfPayload(match[1] ?? '');
+    if (role !== undefined && FORBIDDEN_USERS.test(role)) problems.push(`a hard-coded JWT with role "${role}"`);
   }
   return problems;
 }

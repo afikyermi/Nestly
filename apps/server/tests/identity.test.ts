@@ -14,6 +14,7 @@ import {
   spyDatabase,
   startFakeDb,
   startJwks,
+  toRecord,
   token,
   transactionsOpened,
   unsignedToken,
@@ -85,13 +86,13 @@ afterEach(async () => {
 
 const PROTECTED = '/api/_f11c/protected';
 function registerTestRoutes(app: App): void {
-  app.get(PROTECTED, async () => ({ reached: true }));
-  app.post(PROTECTED, async () => ({ reached: true }));
-  app.delete(PROTECTED, async () => ({ reached: true }));
+  app.get(PROTECTED, () => ({ reached: true }));
+  app.post(PROTECTED, () => ({ reached: true }));
+  app.delete(PROTECTED, () => ({ reached: true }));
   // Names that share a prefix with the one public route, or sit under it.
-  app.get('/api/healthz', async () => ({ reached: true }));
-  app.get('/api/health-check', async () => ({ reached: true }));
-  app.get('/api/health/extra', async () => ({ reached: true }));
+  app.get('/api/healthz', () => ({ reached: true }));
+  app.get('/api/health-check', () => ({ reached: true }));
+  app.get('/api/health/extra', () => ({ reached: true }));
 }
 
 const bearer = (t: string): { authorization: string } => ({ authorization: `Bearer ${t}` });
@@ -103,7 +104,7 @@ describe('[F1.1-c c21] the public list holds only GET /api/health (FR-AUTH-004, 
     const before = mark();
     const res = await app.inject({ method: 'GET', url: '/api/health' });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ status: 'ok' });
+    expect(toRecord(res.json())).toEqual({ status: 'ok' });
     expectNoTransaction(before, 'health');
   });
 
@@ -180,7 +181,7 @@ const REJECTED: Array<[string, HeaderMaker]> = [
   bad('Basic scheme', () => 'Basic dXNlcjpwYXNz'),
   bad('Bearer scheme with no token', () => 'Bearer'),
   bad('Bearer scheme with an empty token', () => 'Bearer '),
-  bad('a valid token with no scheme', async (c) => token({ key: c.key })),
+  bad('a valid token with no scheme', (c) => token({ key: c.key })),
   bad('a valid token under another scheme (Token)', async (c) => `Token ${await token({ key: c.key })}`),
   // malformed
   bad('garbage', () => 'Bearer not-a-jwt'),
@@ -204,7 +205,7 @@ const REJECTED: Array<[string, HeaderMaker]> = [
   bad('no kid at all, signed by a key that is not in the JWKS', async (c) => {
     const t = await token({ key: c.otherKey });
     const [h, p, s] = t.split('.');
-    const header = JSON.parse(Buffer.from(h ?? '', 'base64url').toString('utf8')) as Record<string, unknown>;
+    const header = toRecord(JSON.parse(Buffer.from(h ?? '', 'base64url').toString('utf8')));
     delete header.kid;
     return `Bearer ${Buffer.from(JSON.stringify(header)).toString('base64url')}.${p}.${s}`;
   }),
@@ -275,9 +276,7 @@ describe('[F1.1-c c22] a protected route answers 401, always the same body, and 
   it('the reference 401 body is JSON with a fixed error code and leaks nothing about a check or a library', () => {
     expect(referenceBody.length).toBeGreaterThan(0);
     const parsed: unknown = JSON.parse(referenceBody);
-    expect(parsed).toBeTypeOf('object');
-    expect(parsed).not.toBeNull();
-    const values = Object.values(parsed as Record<string, unknown>);
+    const values = Object.values(toRecord(parsed));
     expect(values.some((v) => typeof v === 'string' && v.length > 0), 'a string error code').toBe(true);
     expect(referenceBody).not.toMatch(LEAKS);
     // Nothing that looks like a stack trace or a file path.
@@ -352,9 +351,17 @@ describe('[F1.1-c c23] a valid token passes the hook whatever its role claim say
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
+const CONFIG_CASES: Array<[string, EnvValues]> = [
+  ['issuer unset', { SUPABASE_JWT_ISSUER: undefined }],
+  ['issuer empty', { SUPABASE_JWT_ISSUER: '' }],
+  ['audience unset', { SUPABASE_JWT_AUDIENCE: undefined }],
+  ['audience empty', { SUPABASE_JWT_AUDIENCE: '' }],
+];
+
 describe('[F1.1-c c26] missing configuration fails closed (platform r1, r2)', () => {
   async function rejectsEverythingProtected(app: App): Promise<void> {
-    for (const headers of [{}, bearer(await token({ key })), bearer('garbage')] as Array<Record<string, string>>) {
+    const headerSets: Array<Record<string, string>> = [{}, bearer(await token({ key })), bearer('garbage')];
+    for (const headers of headerSets) {
       const res = await app.inject({ method: 'GET', url: PROTECTED, headers });
       expect(res.statusCode).toBeGreaterThanOrEqual(400);
       expect(res.body).not.toContain('reached');
@@ -389,12 +396,7 @@ describe('[F1.1-c c26] missing configuration fails closed (platform r1, r2)', ()
     }
   });
 
-  it.each([
-    ['issuer unset', { SUPABASE_JWT_ISSUER: undefined }],
-    ['issuer empty', { SUPABASE_JWT_ISSUER: '' }],
-    ['audience unset', { SUPABASE_JWT_AUDIENCE: undefined }],
-    ['audience empty', { SUPABASE_JWT_AUDIENCE: '' }],
-  ] as Array<[string, EnvValues]>)('[Q-c] %s: fails closed like an unset JWKS (every protected request >= 400, no transaction)', T, async (_label, change) => {
+  it.each(CONFIG_CASES)('[Q-c] %s: fails closed like an unset JWKS (every protected request >= 400, no transaction)', T, async (_label, change) => {
     const app = await appWith({ ...goodEnv(), ...change }, registerTestRoutes);
     const before = mark();
     await rejectsEverythingProtected(app);
@@ -405,7 +407,7 @@ describe('[F1.1-c c26] missing configuration fails closed (platform r1, r2)', ()
     const app = await appWith({ ...goodEnv(), DATABASE_URL: undefined }, registerTestRoutes);
     const health = await app.inject({ method: 'GET', url: '/api/health' });
     expect(health.statusCode).toBe(200);
-    expect(health.json()).toEqual({ status: 'ok' });
+    expect(toRecord(health.json())).toEqual({ status: 'ok' });
     await rejectsEverythingProtected(app);
   });
 

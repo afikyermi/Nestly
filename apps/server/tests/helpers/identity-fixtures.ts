@@ -13,6 +13,8 @@ import type { Database } from '../../src/db/client.js';
 //   - a spy Database passed into buildApp({ database }) that counts every transaction opened through it
 //     ("no transaction opened" is asserted on the spy AND on the connection count)
 //   - environment scoping, and an app builder that registers the test's own routes
+//
+// The project bans `as` casts, so unknown values are narrowed with the small guards below (toRecord, toRecords).
 
 export const ISSUER = 'https://nestly-test.example.invalid/auth/v1';
 export const AUDIENCE = 'authenticated';
@@ -20,6 +22,33 @@ export const ACCOUNT_A = 'a0000000-0000-4000-8000-0000000000a1';
 export const ACCOUNT_B = 'b0000000-0000-4000-8000-0000000000b2';
 
 export const COLD_START_MS = 60_000;
+
+// ---- narrowing helpers (no casts) ----------------------------------------------------------------------------------
+
+/** An object, or an error. Used for parsed JSON and database rows. */
+export function toRecord(value: unknown): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error('expected an object');
+  const out: Record<string, unknown> = {};
+  for (const [name, entry] of Object.entries(value)) {
+    const item: unknown = entry;
+    out[name] = item;
+  }
+  return out;
+}
+
+/** An array of objects, or an error. It never turns a wrong shape into an empty result. */
+export function toRecords(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) throw new Error('expected an array of rows');
+  return value.map((item: unknown) => toRecord(item));
+}
+
+function portOf(server: { address(): string | AddressInfo | null }): number {
+  const address = server.address();
+  if (address === null || typeof address === 'string') throw new Error('the test server is not listening on a port');
+  return address.port;
+}
+
+// ---- environment ---------------------------------------------------------------------------------------------------
 
 const ENV_KEYS = ['SUPABASE_JWKS_URL', 'SUPABASE_JWT_ISSUER', 'SUPABASE_JWT_AUDIENCE', 'DATABASE_URL'] as const;
 type EnvKey = (typeof ENV_KEYS)[number];
@@ -75,9 +104,8 @@ export async function startJwks(initial: TestKey[]): Promise<JwksServer> {
     res.end(JSON.stringify({ keys: keys.map((k) => k.publicJwk) }));
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const { port } = server.address() as AddressInfo;
   return {
-    url: `http://127.0.0.1:${port}/.well-known/jwks.json`,
+    url: `http://127.0.0.1:${portOf(server)}/.well-known/jwks.json`,
     setKeys: (next) => {
       keys = next;
     },
@@ -89,7 +117,7 @@ export async function startJwks(initial: TestKey[]): Promise<JwksServer> {
 export async function deadUrl(): Promise<string> {
   const probe = createTcpServer();
   await new Promise<void>((resolve) => probe.listen(0, '127.0.0.1', resolve));
-  const { port } = probe.address() as AddressInfo;
+  const port = portOf(probe);
   await new Promise<void>((resolve) => probe.close(() => resolve()));
   return `http://127.0.0.1:${port}/.well-known/jwks.json`;
 }
@@ -103,13 +131,13 @@ export interface ClaimOptions {
   exp?: number | undefined;
   nbf?: number | undefined;
   /** merged last, so a test can add or override anything (role, app_metadata, user_metadata, a non-string sub ...) */
-  extra?: Record<string, unknown>;
+  extra?: Record<string, unknown> | undefined;
 }
 
 export interface TokenOptions extends ClaimOptions {
   key: TestKey;
   /** header kid; defaults to key.kid */
-  kid?: string;
+  kid?: string | undefined;
 }
 
 function payloadOf(o: ClaimOptions): Record<string, unknown> {
@@ -172,9 +200,8 @@ export async function startFakeDb(): Promise<FakeDb> {
     socket.destroy();
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const { port } = server.address() as AddressInfo;
   // Assembled from parts: the repository never holds a literal user:password@host.
-  const url = ['postgres://app_server', 'throwaway'].join(':') + ['@127.0.0.1', `${port}/nestly_test`].join(':');
+  const url = ['postgres://app_server', 'throwaway'].join(':') + ['@127.0.0.1', `${portOf(server)}/nestly_test`].join(':');
   return {
     url,
     connections: () => count,
@@ -206,24 +233,25 @@ export async function spyDatabase(url: string): Promise<Database> {
     get(target, prop) {
       const value: unknown = Reflect.get(target, prop);
       if (typeof value !== 'function') return value;
-      const fn = value as (...args: unknown[]) => unknown;
       if (prop === 'transaction') {
         return (...args: unknown[]) => {
           opened += 1;
-          return Reflect.apply(fn, target, args);
+          const result: unknown = Reflect.apply(value, target, args);
+          return result;
         };
       }
-      return fn.bind(target);
+      const bound: unknown = value.bind(target);
+      return bound;
     },
   });
   const client = new Proxy(real.client, {
     get(target, prop) {
       const value: unknown = Reflect.get(target, prop);
-      if (prop === 'begin' || prop === 'reserve') {
-        const fn = value as (...args: unknown[]) => unknown;
+      if ((prop === 'begin' || prop === 'reserve') && typeof value === 'function') {
         return (...args: unknown[]) => {
           opened += 1;
-          return Reflect.apply(fn, target, args);
+          const result: unknown = Reflect.apply(value, target, args);
+          return result;
         };
       }
       return value;

@@ -11,6 +11,8 @@ import {
   newKey,
   restoreEnv,
   startJwks,
+  toRecord,
+  toRecords,
   token,
   type App,
   type JwksServer,
@@ -89,18 +91,23 @@ function outside(app: App): Promise<Row[]> {
   return outsideIdentity(database, OUTSIDE);
 }
 
-async function call(app: App, q: string, sub: string | null, extra?: Record<string, unknown>): Promise<{ status: number; rows: Row[]; body: string }> {
+interface Answer {
+  status: number;
+  rows: Row[];
+  body: string;
+}
+
+function answerOf(status: number, body: string, json: () => unknown): Answer {
+  // A 200 must carry {rows: [...]}; anything else in a 200 is a failure of the test route, not "no rows".
+  const rows = status === 200 ? toRecords(toRecord(json()).rows) : [];
+  return { status, rows, body };
+}
+
+async function call(app: App, q: string, sub: string | null, extra?: Record<string, unknown>): Promise<Answer> {
   const headers: Record<string, string> = {};
   if (sub !== null) headers.authorization = `Bearer ${await token({ key, sub, extra })}`;
   const res = await app.inject({ method: 'GET', url: `${ROUTE}?q=${q}`, headers });
-  let rows: Row[] = [];
-  try {
-    const parsed = res.json() as { rows?: Row[] };
-    rows = parsed.rows ?? [];
-  } catch {
-    rows = [];
-  }
-  return { status: res.statusCode, rows, body: res.body };
+  return answerOf(res.statusCode, res.body, () => res.json());
 }
 
 const ids = (rows: Row[]): string[] => rows.map((r) => String(r.id));
@@ -263,7 +270,7 @@ describe('[F1.1-c c25] end to end through the server: the caller reads its own U
     const read = async (): Promise<Row[]> => {
       const res = await app.inject({ method: 'GET', url: `${ROUTE}?q=users`, headers: { authorization: `Bearer ${t}` } });
       expect(res.statusCode, res.body).toBe(200);
-      return (res.json() as { rows: Row[] }).rows;
+      return answerOf(res.statusCode, res.body, () => res.json()).rows;
     };
     expect(ids(await read())).toEqual([ACCOUNT_A]);
     await setStatus('a', 'suspended');
@@ -277,7 +284,9 @@ describe('[F1.1-c c25] end to end through the server: the caller reads its own U
   it('[F1.1-c c25] suspension also hides the account\'s regular_profiles row', T, async () => {
     const app = await serverApp();
     await setStatus('a', 'suspended');
-    expect((await call(app, 'profiles', ACCOUNT_A)).rows).toEqual([]);
+    const res = await call(app, 'profiles', ACCOUNT_A);
+    expect(res.status, res.body).toBe(200);
+    expect(res.rows).toEqual([]);
   });
 
   it.each([
