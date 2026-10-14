@@ -28,8 +28,8 @@ export const ENV = {
 } as const;
 
 // The request server connects as app_server only: `app_server` on a direct connection, `app_server.<project ref>`
-// through the Supabase pooler. Any other user — postgres, app_owner, service_role — would bypass or own the policies
-// (platform rule 1), so the server refuses to use it.
+// through the Supabase pooler. Any other role could bypass or own the policies (platform rule 1), so the server refuses
+// to use it.
 const APP_SERVER_USER = /^app_server(\.[a-z0-9]+)?$/;
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]']);
