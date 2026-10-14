@@ -15,9 +15,18 @@ export default defineConfig({
     { name: 'chrome', use: { ...devices['Desktop Chrome'], channel: 'chrome' } },
     { name: 'edge', use: { ...devices['Desktop Edge'], channel: 'msedge' } },
   ],
-  webServer: {
-    command: `node tools/serve-static.mjs apps/web/storybook-static ${PORT}`,
-    url: `http://127.0.0.1:${PORT}`,
-    reuseExistingServer: !isCi,
-  },
+  webServer: [
+    {
+      command: `node tools/serve-static.mjs apps/web/storybook-static ${PORT}`,
+      url: `http://127.0.0.1:${PORT}`,
+      reuseExistingServer: !isCi,
+    },
+    // The app itself, built in the e2e mode (test-only session source), for the I1 F1.2 flows.
+    {
+      command: 'npm run build:e2e -w @nestly/web && npm run preview:e2e -w @nestly/web',
+      url: 'http://127.0.0.1:4174',
+      reuseExistingServer: !isCi,
+      timeout: 180_000,
+    },
+  ],
 });
