@@ -33,3 +33,17 @@ TEST ENGINEER's tests read no source; criteria 1–19 have code and tests; 20 is
 - 2, 3, 4, 6, 7, 8 → BUILDER now.
 - 5: the current order stays (fields open under their choice); recorded as a change to R2.
 - 9 → debt.md, closes at F1.4 Gate 2.
+
+## CRITIC re-check (opus, 14.10, after 6b32bbd / 9c77935) — appended by ORCHESTRATOR from CRITIC's return
+
+verdict: Validated with Concern
+
+1 closed — error-texts.ts: the three texts verbatim from the decision, from the shared constants and the injected today
+  (2026-10-14 → 14.9.2026 / 10.8.2027, matches the test); generic only for codes the UI cannot produce.
+2 closed — RegistrationFlow.tsx onFormChange clears `parsed`; three flow tests (untick, remove card, no edit).
+3 closed — FieldError/FieldHint in components/shared/field-message.tsx, used by FormField; feature copy removed.
+4 closed — child card `rounded-lg bg-card p-card-padding shadow-card`, no border.
+6 closed — fresh cards show no errors until touched (per card); reset on the next failed "המשך"; clearing stays live.
+7 closed — showErrors removed; error stories use a play function.
+8 closed — child name autoComplete="off".
+New defects: none. Concern carried: 9 (debt.md, F1.4 Gate 2). 5 decided by ORCHESTRATOR.
