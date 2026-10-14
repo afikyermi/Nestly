@@ -6,23 +6,22 @@
 //   fails closed.
 //
 // Labels (the requirement the test asserts):
-//   [PS-1] parseSecret    [PS-2] readSecret refusals (no message carries the value)    [PS-3] envFilePath
-//   [PS-4] checkTarget    [PS-5] parseArgs                                              [PS-6] scrubber
-//   [PS-7] the command line, run as a child process: refusals exit 1, the secret never reaches an output, the URL is
-//          checked before the env file is read, nothing is sent or saved
+//   [PS-1] parseSecret    [PS-2] readSecret: no default reader, explicit path only, refusals (no message carries the value)
+//   [PS-3] envFilePath    [PS-4] checkTarget    [PS-5] parseArgs    [PS-6] scrubber
 //   [PS-8] createRouteHandler: the header goes only to requests of the target origin, never follows a redirect, other
 //          origins continue untouched, a failed fetch aborts and keeps no message
 //   [PS-M] a mutation check: a handler that adds the header for every origin (or follows redirects) must fail [PS-8]
+// The command line ([PS-7]), the target confirmation ([PS-9]) and the run with a fake browser ([PS-10]) are in
+// tools/preview-shot-run.test.mjs, in process, with no gh and no network.
 // The real .env.vercel is never read: every test names its own temp file, with a fake marker as the secret.
 // Assumption about parseArgs: it takes the arguments after the script name, e.g. [url, out, '--width', '375'], and the
 // result has target (or url), out (resolved against the working directory) and width (a number, 1024 by default).
 // Assumption about createRouteHandler: it reads the request URL with route.request().url().
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const shotPath = fileURLToPath(new URL('./preview-shot.mjs', import.meta.url));
@@ -106,13 +105,25 @@ for (const [what, text] of PARSE_EMPTY) {
 // ---------------------------------------------------------------------------------------------------------------------
 // readSecret
 
-test('[PS-2] readSecret returns the secret from a file, and with no argument reads the file PREVIEW_SHOT_ENV_FILE names', () => {
+// CRITIC finding 1: no exported reader may default to the real local file. The path is required; the default is resolved
+// only inside main(). A test must therefore always name a temp file, and a call without a path must not read anything.
+test('[PS-2] readSecret reads exactly the file it is given', () => {
   const file = envFile(`${KEY}=${MARK}\n`);
   assert.equal(readSecret(file), MARK);
+  const other = envFile(`${KEY}=OTHER-FAKE-MARKER-77\n`);
+  assert.equal(readSecret(other), 'OTHER-FAKE-MARKER-77');
+});
+
+test('[PS-2] readSecret has no default reader: without a path it throws a TypeError, even when PREVIEW_SHOT_ENV_FILE names a readable file', () => {
+  const file = envFile(`${KEY}=${MARK}\n`);
   const before = process.env[ENV_FILE_VAR];
   process.env[ENV_FILE_VAR] = file;
   try {
-    assert.equal(readSecret(), MARK);
+    assert.throws(() => readSecret(), TypeError);
+    assert.throws(() => readSecret(undefined), TypeError);
+    for (const bad of [null, '', 42, {}]) {
+      assert.throws(() => readSecret(bad), undefined, `readSecret(${JSON.stringify(bad)}) returned instead of throwing`);
+    }
   } finally {
     if (before === undefined) delete process.env[ENV_FILE_VAR];
     else process.env[ENV_FILE_VAR] = before;
@@ -524,80 +535,3 @@ for (const [what, make] of BROKEN_HANDLERS) {
     await assert.rejects(() => assertRouting(make), undefined, 'the routing assertions did not notice the broken handler');
   });
 }
-
-// ---------------------------------------------------------------------------------------------------------------------
-// the command line, as a child process
-
-function cli(args, { file, cwd = fresh() } = {}) {
-  const env = { ...process.env };
-  for (const k of Object.keys(env)) if (/^(VERCEL_|PREVIEW_SHOT|DEBUG$|PWDEBUG|HTTPS?_PROXY|ALL_PROXY)/i.test(k)) delete env[k];
-  if (file !== undefined) env[ENV_FILE_VAR] = file;
-  const r = spawnSync(process.execPath, [shotPath, ...args], { cwd, env, encoding: 'utf8', timeout: 60_000 });
-  return { status: r.status, out: `${r.stdout}${r.stderr}`, stdout: r.stdout, stderr: r.stderr, cwd, error: r.error };
-}
-
-function assertClean(r, ...values) {
-  assert.equal(r.error, undefined, String(r.error));
-  for (const v of values) assert.ok(!r.out.includes(v), `the output carries ${v}`);
-}
-
-const REFUSED_RUNS = [
-  ['http', ['http://nestly-abc123-afikyermis-projects.vercel.app', 'shot.png']],
-  ['an attacker host', ['https://nestly-x.evil.com/?-afikyermis-projects.vercel.app', 'shot.png']],
-  ['an appended .evil.com', [`${DEPLOY}.evil.com`, 'shot.png']],
-  ['a branch alias', ['https://nestly-git-feat-x-afikyermis-projects.vercel.app', 'shot.png']],
-  ['an attacker-shaped slug', ['https://nestly-abc123-evil-afikyermis-projects.vercel.app', 'shot.png']],
-  ['userinfo', ['https://user:pw@nestly-abc123-afikyermis-projects.vercel.app', 'shot.png']],
-  ['a port', [`${DEPLOY}:8443`, 'shot.png']],
-  ['the bypass parameter in the query', [`${DEPLOY}/?x-vercel-protection-bypass=LEAKME-URL-9`, 'shot.png']],
-  ['a width outside 375|1024', [DEPLOY, 'shot.png', '--width', '800']],
-  ['an output that is not .png', [DEPLOY, 'shot.jpg']],
-  ['an output named .env*', [DEPLOY, '.env.png']],
-  ['no arguments', []],
-  ['three positionals', [DEPLOY, 'shot.png', 'extra']],
-];
-for (const [what, args] of REFUSED_RUNS) {
-  test(`[PS-7] ${what}: exits 1, prints a refusal, leaks neither the secret nor a URL parameter, saves nothing`, () => {
-    const file = envFile(`${KEY}=${MARK}\n`);
-    const r = cli(args, { file });
-    assert.equal(r.status, 1, r.out);
-    assert.ok(r.stderr.trim().length > 0, 'a refusal prints nothing');
-    assertClean(r, MARK, 'LEAKME-URL-9', 'LEAKME');
-    assert.ok(!existsSync(join(r.cwd, 'shot.png')), 'a screenshot was saved after a refusal');
-    assert.ok(!existsSync(join(r.cwd, '.env.png')));
-  });
-}
-
-test('[PS-7] a refused URL is checked before the env file is read: a missing or unreadable file changes nothing', () => {
-  const missing = join(fresh(), 'NO-SUCH-ENV-FILE-q7x.env');
-  const dir = fresh();
-  for (const file of [missing, dir]) {
-    const r = cli(['http://nestly-abc123-afikyermis-projects.vercel.app', 'shot.png'], { file });
-    assert.equal(r.status, 1, r.out);
-    assert.ok(!r.out.includes('NO-SUCH-ENV-FILE'), 'the refusal talks about the env file, so the file was read first');
-    assert.ok(!/EISDIR|ENOENT/.test(r.out), `a file system error surfaced before the URL check: ${r.out}`);
-  }
-});
-
-test('[PS-7] with a valid URL and no usable secret the run stops before any network, exits 1 and prints no value from the file', () => {
-  const files = [
-    ['an empty file', ''],
-    ['a file without the key', `OTHER=${MARK}\n`],
-    ['the key commented out', `# ${KEY}=${MARK}\n`],
-    ['an empty value', `${KEY}=\nOTHER=${MARK}\n`],
-  ];
-  for (const [what, content] of files) {
-    const r = cli([DEPLOY, 'shot.png'], { file: envFile(content) });
-    assert.equal(r.status, 1, `${what}: ${r.out}`);
-    assertClean(r, MARK);
-    assert.ok(!existsSync(join(r.cwd, 'shot.png')), `${what}: a screenshot was saved`);
-    assert.ok(!/status|HTTP \d{3}/i.test(r.stdout), `${what}: the run reported an HTTP status, so it went to the network`);
-  }
-});
-
-test('[PS-7] a missing env file with a valid URL exits 1 without a screenshot and without a stack trace', () => {
-  const r = cli([DEPLOY, 'shot.png'], { file: join(fresh(), 'absent.env') });
-  assert.equal(r.status, 1, r.out);
-  assert.ok(!/\n\s+at\s/.test(r.out), 'a stack trace was printed');
-  assert.ok(!existsSync(join(r.cwd, 'shot.png')));
-});
