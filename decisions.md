@@ -108,10 +108,12 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-14 | F1.3 review: three error texts (due date range, child name length, birth date floor); revealed fields sit under their choice | 10 |
 | 2026-10-14 | Speed-up: CI browser matrix, Vercel builds branches with an open PR, root vitest, TEST ENGINEER runs and edits tests, interface sheet, jq filters not paths | 10 |
 | 2026-10-14 | Speed-up 4–6 (Afik): TEST ENGINEER edits and runs its tests, BUILDER writes interface.md, jq filters are text in the guard | 10 |
-| 2026-10-14 | F1.4 Gate 1: server-side Auth sign-up through `POST /api/register` (DR-1); orphan Auth user after a lost tab completed by F1.5 (DR-2) | 10 |
+| 2026-10-14 | F1.4 Gate 1: DR-2 orphan Auth user completed by F1.5 (DR-1 superseded: web calls Auth) | 10 |
 | 2026-10-14 | F1.4 Gate 2 passed; new rows are owner read + insert only until I2 (criterion 14 narrowed); one consent row per acceptance | 10 |
 | 2026-10-14 | Taken email (F1.4): option A, reveal at sign-up only with a generic message, rate-limited · password minimum 8 (Afik) | 10 |
 | 2026-10-14 | F1.4 Gate 2 amendment: INSERT granted per column; the server inserts through `*Insert` write models | 10 |
+| 2026-10-14 | F1.4: the web calls Supabase Auth directly; `POST /api/register` writes the account for the new session (Afik; supersedes DR-1) | 10 |
+| 2026-10-14 | Waiting on Afik: keep working on independent work, one side track at most, resume points in WORKPLAN (workflow 1.13) | 10 |
 
 ## Superseded
 
