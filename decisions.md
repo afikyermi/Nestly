@@ -95,7 +95,8 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-13 | F1.1 Gate 2: schema conventions (nestly, uuid, timestamptz, text+CHECK…); caller-only helpers are INVOKER | 10 |
 | 2026-10-13 | I1 points: ON DELETE RESTRICT · age by declaration · parallel journeys, ≤10 children · Google + email, no verification, in-app recovery · VAL-001 2–60 | 10 |
 | 2026-10-13 | Round limit: one fix round after Not Ready, one re-check, never a third; process tasks stay unmerged, products stop | 10 |
-| 2026-10-14 | Settings: "ask" only for .claude/** and CLAUDE.md; overnight rules (irreversible = prod, real data, GitHub) | 10 |
+| 2026-10-14 | Settings: "ask" only for .claude/** and CLAUDE.md; overnight rules (irreversible = prod, real data, GitHub) (upd. 10-14 narrowed) | 10 |
+| 2026-10-14 | Settings: "ask" narrowed to agents, skills, hooks, rules, settings, workflow, learning — knowledge updates without a prompt | 10 |
 
 ## Superseded
 
