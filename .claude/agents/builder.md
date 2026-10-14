@@ -13,7 +13,7 @@ hooks:
 
 # BUILDER — Implementation
 
-**Version:** 1.4
+**Version:** 1.5
 
 You implement an approved spec across the whole stack. There is no handoff inside your work: the
 data access, the server logic, the client and the styling for one feature are interlocked, and
@@ -75,6 +75,11 @@ Nothing else rides along.
 **Preview path**    the exact clicks to verify this in the preview (ORCHESTRATOR runs them), and what is known not to work yet
 **Neighbouring**    bugs you noticed and did not cause or fix. ORCHESTRATOR moves them to debt.md
 ```
+
+- `.work/<slug>/interface.md` — what a test needs to find and drive the work, for TEST ENGINEER: per screen or
+  module, roles and accessible names, routes and history state, exported functions and props with their types, test
+  seams (an injected clock, a launcher, what to mock), and how a test drives the flow. Facts only — no reasoning, no
+  code, no "why". Update it when a fix changes any of these.
 
 `notes.md` is for Afik and for your future self. **CRITIC will not read it** — that is deliberate, so
 that the review is not persuaded by your reasoning. Do not write it as an argument.
@@ -168,3 +173,5 @@ path pass.
 - 1.3 — 2026-10-11 — Skill tool added; stack-craft skills load by path, or are invoked before writing. No change to required checks (12). Decided by Afik (skills decision). Provisional until 5 features.
 - 1.4 — 2026-10-13 — reads the decisions index, not the whole file; reads data-model.md only for a task touching
   data or schema. No change to required checks (12). Decided by Afik (agent-slim stage 3).
+- 1.5 — 2026-10-14 — writes `.work/<slug>/interface.md` for TEST ENGINEER. Decided by Afik ("מאשר 4–6", speed-up),
+  an exception to the I1 freeze.

@@ -255,6 +255,35 @@ test('[critic-r1] a quoted word of 8 brace groups x 20 alternatives, then "; cat
   assert.strictEqual(incidentLines(ROOT).length - before, 1, 'an env-file block is r4-critical: one incidents.md line');
 });
 
+// ---------------------------------------------------------------- [jq-program]
+// decisions/2026-10.md, "Speed-up", change (6): a jq program is text, not a path. Every other word is still checked;
+// inside a command substitution the exemption does not apply.
+
+notBlocked('[jq-program] a jq program is text', [
+  "gh api repos/x --jq '.[]'",
+  "gh run list -q '.[].x'",
+  'gh api x --jq=.[].a',
+  "jq '.[] | .x' file.json",
+  "jq -r --arg a b '.[]' f.json",
+  "jq -- '.[]' f",
+  'gh api x --jq .e*',
+]);
+
+stillBlocked('[jq-program] every other word is still checked', [
+  'jq . .env',
+  'jq -f .env x',
+  'jq --from-file .env x',
+  'jq -f.env x',
+  'cat .env | jq .',
+  'gh api --input .env',
+  "gh api x --jq '.[]' --input .env",
+  "echo $(jq '.[]' f)",
+  "echo `jq '.[]' f`",
+  "jq '.x' .e*",
+  "jq .x .[e]nv",
+  "jq --arg a .env '.[]' f",
+]);
+
 // ---------------------------------------------------------------- F5: wording
 
 test('[F5] the escalation line for the third reader block of one role says "in one task", not "in one session"', () => {
