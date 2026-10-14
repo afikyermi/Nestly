@@ -149,3 +149,7 @@ Schema `nestly`. Runtime role `authenticated` (via `SET LOCAL ROLE`); suite sess
 
 ## Env names (build time)
 `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`. No other variable, no secret key.
+
+## E2E build and the Auth sign-up response shape
+- `vite build --mode e2e` defines `VITE_SUPABASE_URL` = `https://e2e-stub.invalid` and `VITE_SUPABASE_PUBLISHABLE_KEY` = `e2e-stub-placeholder-not-a-real-key` (apps/web/vite.config.ts, mode `e2e` only). The sign-up request goes to `https://e2e-stub.invalid/auth/v1/signup` (POST, JSON body `{email, password, data:{}, gotrue_meta_security, code_challenge:null, code_challenge_method:null}`, header `apikey`); a test intercepts it.
+- auth-js reads a session from the 200 body only if `access_token`, `refresh_token` and `expires_in` are all truthy (`user` is optional for the session; send `user: {id, identities:[{...}]}`). A body without `refresh_token` or `expires_in` gives no session, and the screen shows the generic text. Existing email with confirm-email off: HTTP 422 `{code:422, error_code:'user_already_exists', msg:'User already registered'}`; rate limit: 429 with `error_code:'over_request_rate_limit'`; weak password: 422 `{error_code:'weak_password', msg:..., weak_password:{reasons:['length'], message:...}}`.
