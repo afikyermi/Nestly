@@ -48,3 +48,26 @@ Schema `nestly`. Runtime role `authenticated` (via `SET LOCAL ROLE`); suite sess
 
 ## Migration and rollback
 - supabase/migrations/20261014200000_registration_account.sql; supabase/rollback/20261014200000_registration_account.down.sql (runs as app_owner; raises if any of the three tables holds a row); F1.1 down script raises if `nestly.legal_consents` exists.
+
+---
+
+# interface — part b, first slice (shared schemas, repository, service). Route, Auth client and web: not built yet (impact-1.md)
+
+## packages/shared (exported from `@nestly/shared`)
+- Constants: `RAW_NAME_MAX_UNITS` 600 · `RAW_EMAIL_MAX_UNITS` 512 · `RAW_PASSWORD_MAX_UNITS` 1024 · `RAW_TOKEN_MAX_UNITS` 32 · `EMAIL_MIN_LENGTH` 3 · `EMAIL_MAX_LENGTH` 254 · `PASSWORD_MIN_LENGTH` 8 · `PASSWORD_MAX_LENGTH` 256 · `CONSENT_TERMS_VERSION` · `CONSENT_PRIVACY_VERSION` (both `'placeholder-0'`, <= 64 chars).
+- `registrationStep1Input` (Zod): now `z.strictObject` at every level (top, `dueDate`, each child, each child's `birthDate`). Unknown key -> issue code `unrecognized_keys`. Raw bounds run before the transform; a bound failure aborts the transform (only the bound issues are reported). Bound issues carry a `REGISTRATION_ERROR_CODES` message: `fullName` > 600 units -> `full_name_length`; child `name` > 600 -> `child_name_length`; `stages` > 3 items or an item > 32 -> `stage_invalid`; `children` > 10 -> `children_too_many` (also when `has_child` is not ticked); `parentGender` > 32 -> `parent_gender_invalid`; `sex` > 32 -> `child_sex_invalid`; `dueDate` parts > 32 -> `due_date_invalid`; `birthDate` parts > 32 -> `birth_date_invalid`.
+- `createRegistrationStep1Schema(today: string)`: unchanged signature; `today` is "YYYY-MM-DD". For Q4 the server passes its UTC date plus one day (test: the day after the server date passes, two days after fails).
+- `registrationCredentialsInput` (strict object `{ email: string; password: string }`): output email trimmed (`String.trim`); password untouched. Issue messages (codes in `CREDENTIALS_ERROR_CODES`): `email_required` (empty after trim), `email_invalid` (outside 3-254 code points, whitespace inside, not exactly one `@`, empty local part, domain without a dot, domain starting/ending with a dot, raw > 512 units), `password_length` (< 8 or > 256 code points, raw > 1024 units, empty). Types `RegistrationCredentialsInput`, `RegistrationCredentials`.
+- `registrationConsentInput` = `z.literal(true)`, issue message `consent_required` for anything else (`false`, `"true"`, `undefined`).
+- The request body is NOT composed in shared yet (its shape depends on who calls Auth).
+
+## apps/server
+- `src/lib/pg-error.ts`: `readDatabaseFault(error: unknown): { code: string; constraint: string | undefined } | undefined` — first `postgres.PostgresError` in the `cause` chain (depth 5).
+- `src/repositories/registration-repository.ts`:
+  - `accountExists(tx: IdentityTx): Promise<boolean>` — `select id from nestly.users limit 1` under RLS (own row, active only).
+  - `insertRegularAccount(tx: IdentityTx, account: NewRegularAccount): Promise<void>` — statements in order: `usersInsert` (regular, active) -> `regularProfilesInsert` -> `journeyContextsInsert` (one multi-row statement) -> `childrenInsert` (one multi-row statement, slots 1..n in input order; skipped for 0 children) -> `legalConsentsInsert` (declaration true). Throws the driver error on any failure; it does not catch.
+  - `NewRegularAccount = { fullName: string; parentGender: ParentGender | null; journeys: { stage; dueDate: string | null }[]; children: RegistrationChild[]; consent: { termsVersion: string; privacyVersion: string } }`. Takes versions as parameters, so a repository test can force the last insert to fail with `termsVersion: ''` (check `legal_consents_terms_version_check`, 23514) and assert zero rows in all five tables.
+- `src/services/registration-service.ts`:
+  - `hasAccount(database: Database, identity: Identity): Promise<boolean>` — identity transaction around `accountExists`.
+  - `createRegistration(database: Database, identity: Identity, step1: RegistrationStep1): Promise<RegistrationOutcome>`, `RegistrationOutcome = { kind: 'created' } | { kind: 'already_registered' }`. Versions come from the shared constants. `already_registered` iff the failure is SQLSTATE 23505 with constraint `users_pkey`; every other failure is rethrown (rolled back, no rows). No Auth call anywhere in these two layers. The journey's `dueDate` is `step1.dueDate` for `pregnant`, else null.
+- How a test drives them against the CI database: build `Database` with `createDatabase(<app_server URL>)` as `apps/server/tests/db/identity.db.test.ts` does; the identity is `{ userId }` of an `auth.users` row created by the test fixtures (a `nestly.users` row must not exist yet); read counts as the owner/postgres connection, which bypasses RLS, per table `users`, `regular_profiles`, `journey_contexts`, `children`, `legal_consents`.

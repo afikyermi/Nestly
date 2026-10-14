@@ -26,3 +26,30 @@ export const DUE_DATE_DAYS_AFTER_TODAY = 300;
 
 /** DR-3: a child's birth date is plausible from this day on (YYYY-MM-DD). No age floor. */
 export const CHILD_BIRTH_DATE_FLOOR = '1900-01-01';
+
+/**
+ * F1.4 criterion 2: raw bounds on what a request may carry, checked on the string as received (UTF-16 units, O(1))
+ * before any code-point splitting, so an oversized value is refused without being walked. Generous against the real
+ * limits (60 code points a name is at most 240 units); they exist to bound work, not to validate content.
+ */
+export const RAW_NAME_MAX_UNITS = 600;
+export const RAW_EMAIL_MAX_UNITS = 512;
+export const RAW_PASSWORD_MAX_UNITS = 1024;
+/** Longest short token in the step-1 body: a stage, a sex, a gender, a date part. */
+export const RAW_TOKEN_MAX_UNITS = 32;
+
+/** VAL-002: the email, in code points after trimming. */
+export const EMAIL_MIN_LENGTH = 3;
+export const EMAIL_MAX_LENGTH = 254;
+
+/** VAL-003 (Afik, 14.10.2026: minimum 8). Not trimmed, no composition rule. The upper bound is F1.4 Q3, not in the SRS. */
+export const PASSWORD_MIN_LENGTH = 8;
+export const PASSWORD_MAX_LENGTH = 256;
+
+/**
+ * Versions of the consent documents a registration records (FR-REG-004, BR-068, AC-084). Placeholders until I9
+ * supplies the documents. The server reads these and the client never sends a version; each must fit the
+ * legal_consents version check (1-64 characters).
+ */
+export const CONSENT_TERMS_VERSION = 'placeholder-0';
+export const CONSENT_PRIVACY_VERSION = 'placeholder-0';

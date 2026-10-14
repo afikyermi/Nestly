@@ -20,3 +20,16 @@
 **Preview path**  None (database only). Part b must not deploy to an environment before this migration is applied there.
 
 **Neighbouring**  none
+
+---
+
+## Part b, first slice (shared schemas, repository, service) — BUILDER 14.10.2026
+
+**Approach**  Q6 check first: hosted Auth forwards the end-user IP only with a secret key plus `Sb-Forwarded-For`; publishable keys are refused (impact-1.md). Route, Auth client and web wait for Afik. Built what does not depend on it: strict step-1 schema with raw bounds, credentials schema, consent constants, and the repository and service for the account rows.
+**Decisions**  Bound failures carry the code of the rule they stand for (so the web maps them as before). Email: besides the spec's rules, I require a non-empty local part and a domain whose dot is neither first nor last. Consent body and credentials are separate schemas; composing the body waits on the Auth decision. The repository takes the consent versions as parameters (the service passes the shared constants) so the atomicity test can force the last insert to fail. `children_too_many` is now produced by the raw `.max(10)`; the dead transform check is removed.
+**Deviations**  None from spec/schema.
+**Deliberately not done**  Route, Auth client, config reading of SUPABASE_URL/PUBLISHABLE_KEY, 405/413 handling, web, Drizzle drift edits (none needed).
+**Uncertain**  Whether `RAW_TOKEN_MAX_UNITS` 32 is too tight for a legit value: the longest legit token is `prefer_not_to_say` (17).
+**FINDING for TEST ENGINEER**  `packages/shared/tests/registration-step1.test.ts` line 186-190 ("without has_child the output has no children, even with invalid ones in the input") sends 13 children with `planning`; spec criterion 2 now rejects `children` over 10 on the raw body at any stage. That one test is red by design; it should use <= 10 invalid children. I did not touch it.
+**Preview path**  Not user-visible yet.
+**Neighbouring**  none.

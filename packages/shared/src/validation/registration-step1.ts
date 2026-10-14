@@ -14,6 +14,8 @@ import {
   JOURNEY_STAGES,
   MAX_CHILDREN,
   PARENT_GENDERS,
+  RAW_NAME_MAX_UNITS,
+  RAW_TOKEN_MAX_UNITS,
   type ChildSex,
   type JourneyStage,
   type ParentGender,
@@ -44,17 +46,26 @@ export const REGISTRATION_ERROR_CODES = [
 ] as const;
 export type RegistrationErrorCode = (typeof REGISTRATION_ERROR_CODES)[number];
 
-const dateParts = z.object({ day: z.string(), month: z.string(), year: z.string() });
+// Strict at every level and bounded on the raw string, before the transform splits anything into code points
+// (F1.4 criterion 2, the F1.3 debt). The bound failures carry the code of the rule they stand for.
+const token = (code: RegistrationErrorCode) => z.string().max(RAW_TOKEN_MAX_UNITS, code);
 
-const childInput = z.object({ name: z.string(), sex: z.string(), birthDate: dateParts });
+const dateParts = (code: RegistrationErrorCode) =>
+  z.strictObject({ day: token(code), month: token(code), year: token(code) });
+
+const childInput = z.strictObject({
+  name: z.string().max(RAW_NAME_MAX_UNITS, 'child_name_length'),
+  sex: token('child_sex_invalid'),
+  birthDate: dateParts('birth_date_invalid'),
+});
 
 /** The form as the user left it. Values of an unticked choice may still be here; the output drops them (Q3). */
-export const registrationStep1Input = z.object({
-  stages: z.array(z.string()),
-  fullName: z.string(),
-  parentGender: z.string().optional(),
-  dueDate: dateParts,
-  children: z.array(childInput),
+export const registrationStep1Input = z.strictObject({
+  stages: z.array(token('stage_invalid')).max(JOURNEY_STAGES.length, 'stage_invalid'),
+  fullName: z.string().max(RAW_NAME_MAX_UNITS, 'full_name_length'),
+  parentGender: token('parent_gender_invalid').optional(),
+  dueDate: dateParts('due_date_invalid'),
+  children: z.array(childInput).max(MAX_CHILDREN, 'children_too_many'),
 });
 export type RegistrationStep1Input = z.input<typeof registrationStep1Input>;
 
@@ -78,7 +89,7 @@ function isParentGender(value: string): value is ParentGender {
   return PARENT_GENDERS.some((gender) => gender === value);
 }
 
-/** Registration step 1 against a fixed "today" (YYYY-MM-DD, the device's local date). */
+/** Registration step 1 against a fixed "today" (YYYY-MM-DD: the device's local date on the web, the server's UTC date plus the Q4 day of tolerance on the server). */
 export function createRegistrationStep1Schema(today: string) {
   return registrationStep1Input.transform((input, ctx): RegistrationStep1 => {
     const fail = (code: RegistrationErrorCode, path: (string | number)[]) => {
@@ -125,7 +136,6 @@ export function createRegistrationStep1Schema(today: string) {
     const children: RegistrationChild[] = [];
     if (hasChild) {
       if (input.children.length === 0) fail('children_required', ['children']);
-      else if (input.children.length > MAX_CHILDREN) fail('children_too_many', ['children']);
       else {
         input.children.forEach((child, index) => {
           const childName = checkName(child.name, CHILD_NAME_MIN_LENGTH, CHILD_NAME_MAX_LENGTH);
