@@ -30,10 +30,10 @@ select is(
   (select count(*) from pg_catalog.pg_class c
      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname in ('users', 'regular_profiles')
-      and (has_table_privilege('authenticated', c.oid, 'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
-           or has_any_column_privilege('authenticated', c.oid, 'INSERT,UPDATE,REFERENCES'))),
+      and (has_table_privilege('authenticated', c.oid, 'UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+           or has_any_column_privilege('authenticated', c.oid, 'UPDATE,REFERENCES'))),
   0::bigint,
-  '[F1.1-b c13 NFR-SEC-002] authenticated holds no INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on either table, at table or column level');
+  '[F1.1-b c13 · F1.4-a c14 NFR-SEC-002] authenticated holds no UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on either table, at table or column level (INSERT was granted by F1.4 and is bounded by the policies)');
 
 -- ---- the attempts ----------------------------------------------------------------------------------------------------
 -- (role, whose claims, statement, what it tries)
@@ -41,10 +41,8 @@ select is(tests.dml_as(t.r, tests.claims(tests.fx_id(t.w)), t.s), 'ERR:42501',
   '[F1.1-b c13 NFR-SEC-002] refused (42501): ' || t.label)
 from (values
   -- User: insert
-  ('authenticated', 'c', $q$ insert into nestly.users (account_type, status) values ('regular', 'active') $q$,
-     'INSERT a User row for an identity that has none (id from auth.uid())'),
-  ('authenticated', 'a', $q$ insert into nestly.users (account_type, status) values ('regular', 'active') $q$,
-     'INSERT a User row as A, who already has one'),
+  -- F1.4 part a: "c inserts its own regular/active User row" is now ALLOWED (file 21 asserts it), and "a inserts a second
+  -- User row" now fails 23505 on the primary key, not 42501 (asserted below the list). Both moved out of this list.
   ('authenticated', 'f1', $q$ insert into nestly.users (id, account_type, status) values ('f0000000-0000-4000-8000-0000000000f1', 'admin', 'active') $q$,
      'INSERT a User row with account_type admin for oneself'),
   ('authenticated', 'a', $q$ insert into nestly.users (id, account_type, status) values ('b0000000-0000-4000-8000-0000000000b2', 'regular', 'active') $q$,
@@ -88,8 +86,6 @@ from (values
   -- RegularProfile
   ('authenticated', 'c', $q$ insert into nestly.regular_profiles (full_name) values ('Cora Nobody') $q$,
      'INSERT a RegularProfile for an identity that has no User row'),
-  ('authenticated', 'a', $q$ insert into nestly.regular_profiles (full_name) values ('Alice Again') $q$,
-     'INSERT a second RegularProfile as A'),
   ('authenticated', 'a', $q$ insert into nestly.regular_profiles (user_id, full_name) values ('b0000000-0000-4000-8000-0000000000b2', 'Not Bella') $q$,
      'INSERT a RegularProfile in another account''s name'),
   ('authenticated', 'a', $q$ insert into nestly.regular_profiles (user_id, full_name, gender) values ('a0000000-0000-4000-8000-0000000000a1', 'Alice Changed', 'man')
@@ -126,6 +122,16 @@ from (values
   ('none', 'a', $q$ update nestly.regular_profiles set full_name = 'Srv Srv' $q$, 'app_server (no SET ROLE) UPDATE of RegularProfile'),
   ('none', 'a', $q$ delete from nestly.regular_profiles $q$, 'app_server (no SET ROLE) DELETE from RegularProfile')
 ) as t(r, w, s, label);
+
+-- ---- the two attempts whose outcome F1.4 changed: still refused, now by the primary key (a second row for A) ---------------
+select is(
+  tests.dml_as('authenticated', tests.claims(tests.fx_id('a')), $q$ insert into nestly.users (account_type, status) values ('regular', 'active') $q$),
+  'ERR:23505',
+  '[F1.1-b c13 · F1.4-a c10] a second User row for A (who has one) is refused with 23505 (users_pkey), not accepted');
+select is(
+  tests.dml_as('authenticated', tests.claims(tests.fx_id('a')), $q$ insert into nestly.regular_profiles (full_name) values ('Alice Again') $q$),
+  'ERR:23505',
+  '[F1.1-b c13 · F1.4-a c10] a second RegularProfile for A is refused with 23505 (primary key), not accepted');
 
 -- ---- and nothing changed ----------------------------------------------------------------------------------------------
 select is(tests.fx_state(), (select s0 from zz_state),
