@@ -1,7 +1,8 @@
 // Tests for .github/workflows/preview-smoke.yml (Afik's decision 14.10.2026: preview access for checks).
 // Derived from the expected behaviour as handed to TEST ENGINEER, not from the workflow's steps:
 //   the Vercel bypass secret travels only as the x-vercel-protection-bypass header - never in a URL, argv, log, output or
-//   artifact - and only to this project's Vercel hosts; every check fails closed.
+//   artifact - and only to this project's unique deployment hosts (nestly-<hash without hyphens>-afikyermis-projects
+//   .vercel.app); branch aliases, other slugs and the production alias are refused; every check fails closed.
 //
 // Labels (the requirement the test asserts):
 //   [PA-W1] trigger only deployment_status        [PA-W2] job `if`: success + Preview + vercel[bot]
@@ -50,13 +51,20 @@ const real = ctx(source);
 const ACCEPT_URLS = [
   'https://nestly-abc123-afikyermis-projects.vercel.app',
   'https://nestly-abc123-afikyermis-projects.vercel.app/',
-  'https://nestly-git-feat-preview-access-afikyermis-projects.vercel.app',
+  'https://nestly-9f8e7d6c5-afikyermis-projects.vercel.app',
 ];
 const REJECT_URLS = [
   ['an attacker host with the project suffix in the query', 'https://nestly-x.evil.com/?-afikyermis-projects.vercel.app'],
   ['an appended .evil.com', 'https://nestly-abc123-afikyermis-projects.vercel.app.evil.com'],
   ['an appended .evil.com with a slash', 'https://nestly-abc123-afikyermis-projects.vercel.app.evil.com/'],
   ['a dot inside the hash part', 'https://nestly-x.evil.com-afikyermis-projects.vercel.app'],
+  ['a branch alias (nestly-git-...)', 'https://nestly-git-feat-preview-access-afikyermis-projects.vercel.app'],
+  ['a branch alias with a short branch', 'https://nestly-git-main-afikyermis-projects.vercel.app'],
+  ['a slug that merely ends in -afikyermis-projects', 'https://nestly-abc123-evil-afikyermis-projects.vercel.app'],
+  ['a branch-shaped slug that ends in -afikyermis-projects', 'https://nestly-git-x-evil-afikyermis-projects.vercel.app'],
+  ['a hash with a hyphen', 'https://nestly-abc-123-afikyermis-projects.vercel.app'],
+  ['the production alias (the tool accepts it, the workflow does not)', 'https://nestly-blue.vercel.app'],
+  ['the production alias with a slash', 'https://nestly-blue.vercel.app/'],
   ['plain http', 'http://nestly-abc123-afikyermis-projects.vercel.app'],
   ['userinfo before the host', 'https://user:pw@nestly-abc123-afikyermis-projects.vercel.app'],
   ['userinfo hiding the real host', 'https://nestly-abc123-afikyermis-projects.vercel.app@evil.com'],
@@ -203,7 +211,7 @@ test('[PA-W3] permissions are exactly contents: read - at the workflow, and nowh
 test('[PA-W4] the secret is in the env of one step only, not the workflow or the job, and never inside a run script', () => checks.W4(real));
 test('[PA-W5] the target URL reaches the script by env only, never by an expression in the script', () => checks.W5(real));
 test('[PA-W6] the URL check precedes the first curl, and a failed check exits', () => checks.W6order(real));
-test('[PA-W6] the URL regex rejects attacker-shaped, insecure and over-specified URLs and accepts real-shaped ones', () => checks.W6regex(real));
+test('[PA-W6] the URL regex accepts unique deployment hosts and rejects aliases, other slugs, attacker shapes and over-specified URLs', () => checks.W6regex(real));
 test('[PA-W7] curl takes the header from stdin (-H @-), is limited to https, and never follows redirects or traces', () => checks.W7(real));
 test('[PA-W8] no xtrace, no echo of the secret, no environment dump, no file or GitHub-file output', () => checks.W8(real));
 test('[PA-W9] the script and job fail closed: errexit and pipefail, nothing swallows a failure', () => checks.W9(real));
@@ -226,7 +234,8 @@ const MUTANTS = [
   ['W4', 'a second secret expression appears in the script', (s) => mutate(s, 'set -euo pipefail', 'set -euo pipefail\n          x="${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}"')],
   ['W5', 'the target URL is interpolated into the script', (s) => mutate(s, 'base="${TARGET_URL%/}"', 'base="${{ github.event.deployment_status.target_url }}"')],
   ['W6regex', 'the URL regex loses its end anchor', (s) => mutate(s, "/?$'", "'")],
-  ['W6regex', 'the URL regex allows a dot in the hash part', (s) => mutate(s, 'nestly-[a-z0-9-]+-', 'nestly-[a-z0-9.-]+-')],
+  ['W6regex', 'the hash part allows a hyphen again (branch aliases and attacker slugs get through)', (s) => mutate(s, 'nestly-[a-z0-9]+-', 'nestly-[a-z0-9-]+-')],
+  ['W6regex', 'the hash part allows a dot', (s) => mutate(s, 'nestly-[a-z0-9]+-', 'nestly-[a-z0-9.]+-')],
   ['W6regex', 'http is allowed', (s) => mutate(s, "'^https://", "'^https?://")],
   ['W6order', 'the URL check is skipped', (s) => mutate(s, /if ! \[\[ "\$\{TARGET_URL\}" =~ \$url_rule \]\]; then/, 'if false; then')],
   ['W7', 'curl follows redirects', (s) => mutate(s, 'curl --silent', 'curl --location --silent')],
@@ -420,7 +429,7 @@ test('[PA-B1] the secret travels verbatim as the header even when it is shaped l
 });
 
 for (const url of ACCEPT_URLS) {
-  test(`[PA-B2] a real-shaped URL is accepted: ${url}`, { skip }, () => {
+  test(`[PA-B2] a unique deployment URL is accepted: ${url}`, { skip }, () => {
     const r = run({ target: url });
     assert.equal(r.status, 0, r.out);
     assert.equal(r.calls.length, 2);
@@ -528,6 +537,14 @@ const BEHAVIOUR_MUTANTS = [
     (s) => mutate(s, /if ! \[\[ "\$\{TARGET_URL\}" =~ \$url_rule \]\]; then/, 'if false; then'),
     (m) => {
       const r = run({ scriptText: m, target: 'https://nestly-x.evil.com/?-afikyermis-projects.vercel.app' });
+      assert.ok(r.calls.length > 0 && r.calls[0].stdin.includes(SECRET), 'the harness did not see the header leave');
+    },
+  ],
+  [
+    'the hash part allows a hyphen again, so an attacker-shaped slug gets the header',
+    (s) => mutate(s, 'nestly-[a-z0-9]+-', 'nestly-[a-z0-9-]+-'),
+    (m) => {
+      const r = run({ scriptText: m, target: 'https://nestly-abc123-evil-afikyermis-projects.vercel.app' });
       assert.ok(r.calls.length > 0 && r.calls[0].stdin.includes(SECRET), 'the harness did not see the header leave');
     },
   ],
