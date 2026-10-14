@@ -13,7 +13,7 @@
 **עודכן:** 14.10.2026 · **גרסת SRS:** 2.12 · **מצב:** בניית מוצר. מערך הסוכנים קפוא עד ש-I1 ממוזג (הכרעתך מ-13.10, `decisions.md`).
 
 - **✅ כלי ה-Preview — מוזג** (PR 21, ‏`2d877b2`, ‏14.10; ‏`.work/preview-access/result.md`): ‏`preview-smoke` (רץ על כל Preview: ‏health ‏200, נתיב מוגן נכשל סגור) ו-`tools/preview-shot.mjs` (צילום Preview מוגן). השרת מוחק את כותרת ה-bypass. ‏CRITIC: ‏Validated with Concern; ‏1–4 נסגרו, 5 ב-debt, 6 אומת בריצה הראשונה.
-- **🔄 F1.3 `register-profile-step`** (ענף `feat/register-profile-step`): ה-spec אוחד ל-20 קריטריונים ו-120 שורות (‏`decisions.md`, ‏14.10). מעבר a ✅ (סכמות ורשימות, קריטריונים 1–5; ‏shared ‏119/119; ‏pgTAP רץ לראשונה ב-CI). תוקנה שורה בטבלת השם המלא שסתרה את הכלל של עצמה. הבא: מעבר b.
+- **🔄 F1.3 `register-profile-step`** (ענף `feat/register-profile-step`): ה-spec אוחד ל-20 קריטריונים ו-120 שורות (‏`decisions.md`, ‏14.10). מעבר a ✅ (סכמות ורשימות, קריטריונים 1–5; ‏shared ‏119/119; ‏pgTAP רץ לראשונה ב-CI). תוקנה שורה בטבלת השם המלא שסתרה את הכלל של עצמה. מעבר b ✅ (מצב בחירה מרובה ב-ChoiceCardGroup, קריטריון 6). הבא: מעבר c.
 - **✅ F1.2 `app-shell-guard` — מוזג** (PR 19, ‏`53b85d0`, ‏14.10; ‏`.work/app-shell-guard/result.md`): מסך Welcome, ‏AppShell, ‏RouteGuard ושכבת session. ‏CRITIC: ‏Validated with Concern, וארבעה ממצאים קלים נסגרו. ה-Preview נבדק על production אחרי המיזוג ב-375 וב-1024.
 - **ממתין להכרעה שלך:** אין. (14.10: סוד ה-bypass נשאר repository secret — הכרעתך, `decisions.md`; הסיכון הנותר ב-`debt.md`.)
 - **ממתין לך (סודות ופעולות):**
