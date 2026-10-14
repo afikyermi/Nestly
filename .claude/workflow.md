@@ -1,6 +1,6 @@
 # Workflow — canonical pipeline
 
-**Version:** 1.11
+**Version:** 1.12
 **Status:** the single source of truth for sequence, triggers and who enters when.
 Agent definitions describe professions. **This file describes order.** If they disagree, this file wins.
 
@@ -47,9 +47,9 @@ The maintained as-built descriptions are `.claude/knowledge/data-model.md` and `
 | 4 | **ORCHESTRATOR** | ✋ **Gate 1** — approve `spec.md` against the SRS, or return it to SPEC. A reserved point (CLAUDE.md → "Decision authority") goes to WORKPLAN for Afik | approved `spec.md` |
 | 5 | **DATA ARCHITECT** | *only if schema changes* — Gate 2. Policies follow the authorization layers in `.claude/knowledge/data-model.md` | `schema.md` |
 | 5b | **ALGORITHM & DATA** | *only if the feature uses behavioural signals, ranks or recommends, records analytics events, or places paid content* — purpose map, pipeline, configuration, events, evaluation. Feeds DATA ARCHITECT when tables are needed | `algorithm.md` |
-| 6 | **BUILDER** | branch, implement. calls SCOUT as needed | diff + `notes.md` |
+| 6 | **BUILDER** | branch, implement. calls SCOUT as needed. Writes `interface.md`: for each screen and module a test touches — roles and accessible names, routes and history state, exported functions and props with their types, test seams (injected clock, launchers, mocks), and how a test drives the flow. Behaviour and interface only: no reasoning, no code | diff + `notes.md` + `interface.md` |
 | 7 | **Local checks** | 🤖 typecheck · lint · `check:budgets` · `check:stories` · the unit tests and the database tests that run on this machine. red → back to 6. No push, no CI wait between steps | green local run |
-| 8 | **TEST ENGINEER** | tests derived from `spec.md` only; ORCHESTRATOR runs the local checks on them | test files |
+| 8 | **TEST ENGINEER** | tests derived from `spec.md`, with `interface.md` for names and seams; runs its own tests until they pass or fail for a reason it reports — a test failing against its criterion is a finding, never weakened to pass. Before this step ORCHESTRATOR checks `interface.md` holds facts only (names, routes, exports, seams; no outcomes, no reasoning); ORCHESTRATOR runs the full local checks before the push | test files |
 | 9 | **CRITIC** | review the diff cold, including every invariant in `.claude/knowledge/srs-review-points.md` that the diff touches and the platform rules in `.claude/knowledge/data-model.md`. ALGORITHM & DATA reviews in parallel when step 5b ran. Fixes (10–11) are checked locally too. **Then one push** for the finished part — code, tests, review, fixes — and GitHub CI (typecheck · tests · lint · RLS checks) on its last commit is the merge condition. Red → fix, check locally, push once | `findings.md` + verdict, then green CI |
 | 10 | **BUILDER** | address findings | updated diff |
 | 11 | **CRITIC** | re-check **only what it raised** | verdict |
@@ -109,7 +109,8 @@ These are not style preferences. Remove any one of them and the corresponding ga
 1. **CRITIC must not read `notes.md`.**
    If it reads BUILDER's reasoning it is persuaded by it. Cold eyes or nobody.
 
-2. **TEST ENGINEER must not read the diff.** It reads `spec.md` only — or `bug.md` on the bug-fix path.
+2. **TEST ENGINEER must not read the diff.** It reads `spec.md` — or `bug.md` on the bug-fix path — and
+   `interface.md`, which names what exists (roles, labels, routes, exports, seams) but never why or how it works.
    A test derived from the implementation asserts that the code does what the code does — zero information.
    A test derived from acceptance criteria asserts that the code does what was promised.
 
@@ -299,3 +300,5 @@ except on a reserved item, a real `BLOCKER` or Two strikes.
 - 1.10 — 2026-10-13 — SPEC CHALLENGE goes to its decision owner, not always to Afik. Decided by Afik (agent-slim
   stage 4, contradiction 2). Same day: `result.md` at most 15 lines; the cost target also per part; parts run in
   sequence (Afik, "From building the system to building the product"). The last change before I1 merges.
+- 1.12 — 2026-10-14 — BUILDER writes `interface.md` (step 6); TEST ENGINEER reads it with the spec, edits and runs its own
+  tests (step 8). Decided by Afik ("מאשר 4–6", speed-up), an exception to the I1 freeze.

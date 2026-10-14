@@ -1,28 +1,19 @@
 #!/usr/bin/env node
 // PreToolUse guard — WORKPLAN 7.2, decisions.md (2026-10-11, "hooks (7.2)").
-//
-// Usage: node guard.js <role> (called through guard-loader.js)   role: all | critic | test-engineer | builder
-//   all            — wired in .claude/settings.json; runs for every agent, subagents included.
-//   critic, test-engineer, builder — wired in that agent's frontmatter; runs only inside it.
-//
-// Reads the hook JSON on stdin. Exit 0 lets the tool call run; exit 2 blocks it and the
-// reason on stderr goes back to the agent. Any other exit code would let the call through,
-// so the guard fails closed: bad input, an unknown role, a command too long to check or any
-// error inside the guard exits 2.
-//
+// Usage: node guard.js <role> (via guard-loader.js)   role: all (settings.json, every agent) | critic | test-engineer | builder
+// (the last three wired in that agent's frontmatter). Reads the hook JSON on stdin. Exit 0 lets the call run; exit 2
+// blocks it and the stderr reason goes back to the agent. Any other exit code would let the call through, so the guard
+// fails closed: bad input, an unknown role, a command too long to check or any error inside the guard exits 2.
 // Every block is appended to .claude/logs/blocks.jsonl (local, in .gitignore) as {time, role, tool, rule, reason,
 // session} — the reason only, never the command, which may hold a secret. /wrap-up counts them. rule: reader (R1/R2
 // and the CRITIC / TEST ENGINEER tool limits), r4-critical (.env, prod refs, force push, a secret), r4, builder.
 // Only two things reach incidents.md (a line for Afik): an r4-critical block, and the third reader block of one
 // role in one task (/wrap-up rotates the log at the end of each task) — the signs of an agent probing the fence.
-//
 // CRITIC has no shell: every Bash call is blocked, and Read/Grep/Glob/Write are judged by path (symlinks resolved).
-// TEST ENGINEER reads with Read/Grep/Glob only; its Bash is one test run on explicit files. That allowlist rests on
-// its Write limit: no package.json, .npmrc, tsconfig or tool config. The two go together.
-//
-// A fence, not a vault: these are path and pattern checks on what the agent asked for.
-// A determined agent can build an equivalent the patterns do not match. CRITIC review and
-// CI stay behind it.
+// TEST ENGINEER reads with Read/Grep/Glob only; its Bash is one test run on explicit files, an allowlist that rests on
+// its Write limit (no package.json, .npmrc, tsconfig or tool config). The two go together.
+// A fence, not a vault: path and pattern checks on what the agent asked for. A determined agent can build an
+// equivalent the patterns do not match. CRITIC review and CI stay behind it.
 
 'use strict';
 
@@ -130,8 +121,7 @@ function dropHeredocs(command) {
       continue;
     }
     kept.push(line);
-    // Find `<<` outside quotes (quote contents masked, same length), then read the
-    // delimiter — which may itself be quoted — from the original line.
+    // Find `<<` outside quotes (quotes masked, same length), then read the delimiter (maybe quoted) from the original line.
     const masked = line.replace(/"(?:[^"\\]|\\.)*"|'[^']*'/g, (q) => q[0] + '_'.repeat(q.length - 2) + q[0]);
     const at = /(?:^|[^<])(<<)(?!<)/.exec(masked);
     if (at) {
@@ -154,9 +144,8 @@ function scriptOf(seg, i) {
   return k > i ? [k + 1, seg.length] : name === 'eval' && i === 0 ? [1, seg.length] : null;
 }
 
-// Splits a command into segments (on && || ; | & ( ) ` and newlines, outside quotes) of unquoted tokens. The first
-// script a segment hands to another shell (scriptOf) is parsed too, and its segments added. A quoted "{" is kept as
-// \uE000, so it is not brace-expanded (bash does not); a script handed on gets it back.
+// Splits a command into segments (on && || ; | & ( ) ` and newlines, outside quotes) of unquoted tokens. The first script a
+// segment hands to another shell (scriptOf) is parsed too. A quoted "{" is kept as \uE000 (not brace-expanded); a script gets it back.
 function shellSegments(command, depth = 0) {
   const src = dropHeredocs(command);
   const segments = [];
@@ -210,7 +199,6 @@ function shellSegments(command, depth = 0) {
   return segments.concat(nested);
 }
 
-// For a segment that runs git: the subcommand, what follows it, and a -C directory if given.
 function gitCall(seg) {
   const i = seg.findIndex((t) => /^git(\.exe)?$/i.test(path.posix.basename(slash(t))));
   if (i < 0) return null;
@@ -254,9 +242,8 @@ function withCwd(segments, start) {
   });
 }
 
-// Supabase projects no agent may reach from the shell: production — migrations to prod run only from CI after
-// Afik's approval (decisions.md, 2026-10-11, "Working rules") — and the two retired projects of the first setup,
-// opened by mistake in Asia and replaced by Frankfurt projects on 2026-10-11.
+// Supabase projects no agent may reach from the shell: production — migrations to prod run only from CI after Afik's
+// approval (decisions.md, 2026-10-11, "Working rules") — and the two retired projects (Asia, replaced by Frankfurt 2026-10-11).
 const BLOCKED_REFS = [
   'cihugbwafnaujsqabgyp', // nestly-prod (Frankfurt)
   'wnzwrkgnpvgincottwfm', // retired: the first nestly-prod
@@ -321,9 +308,23 @@ function tokenNamesEnv(t) {
 const SEARCH_LETTERS = new Map([['grep', 'ABCDdefm'], ['egrep', 'ABCDdefm'], ['fgrep', 'ABCDdefm'], ['rg', 'ABCdEefgjMmrTt']]);
 const SEARCH_LONG = /^--(regexp|file|include|exclude(-dir|-from)?|(after-|before-)?context|max-(count|depth|columns|filesize)|i?glob|type(-not|-add)?|replace|encoding|threads|ignore-file|pre(-glob)?|label|devices|directories|binary-files|group-separator|sortr?)$/;
 
+// A jq program is text (".[]" is not a glob): jq's first non-option word, unless -f/--from-file anywhere takes it from a file
+// (-- may be an option's value, so it does not end the scan; a file named -f after a real -- fails closed).
+// Two-value options (--arg name value) are skipped whole; their words stay checked as paths.
+function jqProgram(seg, k) {
+  if (seg.slice(k).some((t) => /^--from-file(=|$)/.test(t) || /^-[^-]*f/.test(t))) return [];
+  for (; k < seg.length && seg[k] !== '--'; k++) {
+    const t = seg[k];
+    if (/^--(arg|argjson|slurpfile|rawfile)$/.test(t)) k += 2;
+    else if (/^(--indent|-L)$/.test(t)) k++;
+    else if (!t.startsWith('-')) return [k];
+  }
+  return k + 1 < seg.length && seg[k] === '--' ? [k + 1] : [];
+}
+
 // The indices of seg's search-pattern tokens. With -e or -f every positional is a file; after an unknown long option
 // without "=" the pattern position is ambiguous (it may have taken the next word), so no positional is a pattern.
-function patternTokens(seg) {
+function patternTokens(seg, subst = false) {
   const name = commandName(seg);
   const git = name === 'git' ? gitCall(seg) : null;
   let k = git ? seg.length - git.args.length : 1;
@@ -331,6 +332,8 @@ function patternTokens(seg) {
   if (git && git.sub !== 'grep') return new Set(ks.filter((j) => /^--grep=/.test(seg[j]) || seg[j - 1] === '--grep'));
   if (name === 'select-string' || name === 'sls') return new Set(ks.filter((j) => /^-pattern$/i.test(seg[j - 1])));
   if (name === 'findstr') return new Set(seg.some((t) => /^\/[cg]:/i.test(t)) ? [] : ks.filter((j) => !seg[j].startsWith('/')).slice(0, 1));
+  if (name === 'gh' && !subst) return new Set(ks.filter((j) => /^--jq=/.test(seg[j]) || /^(--jq|-q)$/.test(seg[j - 1])));
+  if (name === 'jq' && !subst) return new Set(jqProgram(seg, k));
   const letters = SEARCH_LETTERS.get(git ? 'grep' : name);
   const out = new Set();
   if (!letters) return out;
@@ -358,11 +361,12 @@ function patternTokens(seg) {
 // script parsed as shell; with text, every token is. A command substitution ($( or `) is text even in a pattern: it runs.
 const INTERPRETER = /^(node|deno|bun|tsx|ts-node|python[\d.]*|py|perl|ruby|php|awk|gawk|sed|(ba|z|da)?sh|powershell|pwsh|cmd|eval)$/;
 const interpreterAt = (seg) => seg.findIndex((t) => INTERPRETER.test(commandName([t])));
-function segmentNamesEnv(seg, text) {
-  const [patterns, code] = [patternTokens(seg), interpreterAt(seg)];
+function segmentNamesEnv(seg, text, subst) {
+  const [patterns, code] = [patternTokens(seg, subst), interpreterAt(seg)];
   const [from, to] = (code >= 0 && scriptOf(seg, code)) || [0, 0];
+  const jqText = /^(jq|gh)$/.test(commandName(seg)); // an exempt jq program is still scanned as text
   const asText = (k) => (text || (code >= 0 && k > code)) && (k < from || k >= to);
-  return seg.some((t, k) => (/\$\(|`/.test(t) && mentionsEnv(t)) || (!patterns.has(k) && (tokenNamesEnv(t) || (asText(k) && mentionsEnv(t)))));
+  return seg.some((t, k) => (/\$\(|`/.test(t) && mentionsEnv(t)) || (!patterns.has(k) && (tokenNamesEnv(t) || (asText(k) && mentionsEnv(t)))) || (patterns.has(k) && jqText && mentionsEnv(t)));
 }
 
 // A command with a pipe and an interpreter may feed it a script on stdin (echo "..." | node): every segment is then read
@@ -371,10 +375,9 @@ function namesEnvFile(command) {
   const win = String(command).replace(/\\(?=[^"'\\$`\n])/g, '/'); // parsed again, \ as a Windows path separator
   const segs = shellSegments(command).concat(shellSegments(win));
   const fed = /(?<![|>])\|(?!\|)/.test(command) && segs.some((s) => interpreterAt(s) >= 0);
-  return segs.some((s) => segmentNamesEnv(s, fed)) || mentionsEnv(commandText(command, true));
+  return segs.some((s) => segmentNamesEnv(s, fed, fed || /\$\(|`/.test(command))) || mentionsEnv(commandText(command, true));
 }
 
-// A block of the kind Afik is told about at once (logged as rule r4-critical).
 const critical = (reason) => ({ reason, rule: 'r4-critical' });
 
 function checkAll(tool, input, ctx) {
@@ -419,7 +422,6 @@ function checkAll(tool, input, ctx) {
   return null;
 }
 
-// Options of git commit that take a separate value.
 const COMMIT_VALUE_OPTS = new Set(['-m', '-F', '-C', '-c', '-t', '--author', '--date', '--file', '--message', '--template',
   '--reuse-message', '--reedit-message', '--fixup', '--squash', '--cleanup', '--trailer', '-S', '--gpg-sign', '--pathspec-from-file']);
 
@@ -514,8 +516,7 @@ function scanForSecrets(repo, workingTree) {
 
 // ---------- rules: CRITIC and TEST ENGINEER (reading) ----------
 
-// A path as the project sees it, two ways: as written, and with symlinks resolved (the longest existing prefix is
-// resolved by the file system, the rest is kept). A rule must hold for both.
+// A path as the project sees it, two ways: as written, and with symlinks resolved (longest existing prefix). A rule must hold for both.
 function realAbs(p) {
   const tail = [];
   let head = p;
@@ -678,8 +679,7 @@ function checkTestEngineer(tool, input, ctx) {
   return checkReadPath('test-engineer', tool, input, ctx);
 }
 
-// True only if the Grep call cannot search notes.md. ripgrep treats a glob without a slash
-// as a file-name match, a leading `!` as an exclusion, and several patterns as a union.
+// True only if the Grep call cannot search notes.md. ripgrep treats a glob without a slash as a file-name match, a leading `!` as an exclusion, several as a union.
 function grepExcludesNotes(input) {
   if (input.type) return !['md', 'markdown', 'all'].includes(String(input.type).toLowerCase());
   if (!input.glob) return false;
@@ -771,7 +771,6 @@ function checkBuilder(tool, input, ctx) {
 
 const defaultRule = (role) => (role === 'builder' ? 'builder' : role === 'all' ? 'r4' : 'reader');
 
-// A verdict is null (allowed), or { reason, rule }.
 function check(role, tool, input, ctx) {
   const v = checkRole(role, tool, input, ctx);
   if (!v) return null;
@@ -790,7 +789,6 @@ function checkRole(role, tool, input, ctx) {
   return `unknown role ${role}`;
 }
 
-// A line in incidents.md, for Afik. The reason only, never the command.
 function escalate(root, role, tool, reason) {
   try {
     const file = path.join(root, 'incidents.md');
@@ -805,9 +803,8 @@ function escalate(root, role, tool, reason) {
   }
 }
 
-// Every block goes to the local log. incidents.md gets a line only for r4-critical, and for the third reader block
-// of one role in one task — the count reaching 3 or more, claimed once through an exclusive flag file, so parallel
-// hooks cannot skip it or fire it twice.
+// Every block goes to the local log. incidents.md gets a line only for r4-critical, and for the third reader block of
+// one role in one task (count 3 or more, claimed once through an exclusive flag file, so parallel hooks cannot skip or double it).
 function claimEscalation(dir, role, session) {
   try {
     const id = crypto.createHash('sha1').update(JSON.stringify([role, session])).digest('hex');
@@ -869,8 +866,7 @@ function main() {
     if (typeof data.cwd !== 'undefined' && typeof data.cwd !== 'string') throw new Error('malformed cwd');
     root = path.resolve(process.env.CLAUDE_PROJECT_DIR || data.cwd || process.cwd());
     const cwd = path.resolve(data.cwd || root);
-    // The settings hook (role "all") also applies the calling agent's own rules, named by
-    // agent_type — so a role is enforced even where frontmatter hooks do not run.
+    // The settings hook (role "all") also applies the calling agent's own rules (agent_type), even where frontmatter hooks do not run.
     const roles = [role];
     const agent = typeof data.agent_type === 'string' ? data.agent_type.toLowerCase() : '';
     if (role === 'all' && ROLES.has(agent) && agent !== 'all') roles.push(agent);
@@ -884,9 +880,8 @@ function main() {
   } catch (e) {
     verdict = { reason: `guard error (${e && e.message ? e.message : 'unknown'})`, rule: defaultRule(role) };
   }
-  // Both layers run inside a role's agent: its frontmatter hook and the settings hook. The
-  // settings hook logs the block; the frontmatter one stays quiet when agent_type says the
-  // settings hook has seen the same call, so a block is reported once.
+  // Both layers run inside a role's agent: its frontmatter hook and the settings hook. The settings hook logs the
+  // block; the frontmatter one stays quiet when agent_type says the settings hook saw the same call (reported once).
   const agentType = data && typeof data.agent_type === 'string' ? data.agent_type.toLowerCase() : '';
   const loggedElsewhere = process.argv[2] !== 'all' && agentType === process.argv[2];
   const session = typeof data.session_id === 'string' ? data.session_id : '';
