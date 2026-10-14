@@ -3,6 +3,7 @@ import { createDatabase, type Database } from './db/client.js';
 import { readConfig, type ServerConfig } from './lib/config.js';
 import { createTokenVerifier } from './lib/token-verifier.js';
 import { registerAuthentication } from './plugins/authentication.js';
+import { registerStripBypassHeader } from './plugins/strip-bypass-header.js';
 
 export interface AppDependencies {
   /** Defaults to the process environment. */
@@ -12,10 +13,12 @@ export interface AppDependencies {
    * to close.
    */
   readonly database?: Database;
+  /** Where the logger writes. Defaults to no logger; a test passes one to read what would be logged. */
+  readonly logStream?: { write(message: string): void };
 }
 
 export function buildApp(deps: AppDependencies = {}): FastifyInstance {
-  const app = Fastify();
+  const app = Fastify({ logger: deps.logStream === undefined ? false : { level: 'trace', stream: deps.logStream } });
   const config = deps.config ?? readConfig(process.env);
   for (const issue of config.issues) app.log.warn(`configuration: ${issue}`);
 
@@ -25,6 +28,9 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
     app.addHook('onClose', () => owned.close());
     database = owned;
   }
+
+  // Before authentication: the first onRequest hook of the app.
+  registerStripBypassHeader(app);
 
   registerAuthentication(app, {
     verifier: config.auth === undefined ? undefined : createTokenVerifier(config.auth),

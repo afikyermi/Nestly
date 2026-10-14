@@ -1,0 +1,94 @@
+# preview-smoke - checks every successful Vercel Preview deployment from the outside (Afik, 14.10.2026: preview access
+# for checks).
+#
+# Trigger: deployment_status. Vercel posts one for each deployment; the job runs only when the state is success, the
+# environment is Preview, and the status was posted by vercel[bot]. Production deployments are never touched.
+#
+# Two GETs against the deployment URL:
+#   /api/health     expects 200 and the body {"status":"ok"}
+#   /api/anything   a protected path; expects 401 {"error":"unauthenticated"} or 503 {"error":"unavailable"} (deny
+#                   by default, fail closed). A 200, or any other answer, fails the job. The body check proves the
+#                   answer came from the server and not from Vercel's own protection page.
+#
+# Deployment Protection covers the preview, so both requests carry the VERCEL_AUTOMATION_BYPASS_SECRET repository
+# secret, and only as the x-vercel-protection-bypass header:
+#   - the secret is in the env of the one step that sends it, not the job or the workflow;
+#   - the deployment URL is checked first: https, a deployment of the nestly project in Afik's Vercel team, no path,
+#     no user, no port. Anything else stops the step before a header is built;
+#   - curl reads the header from stdin (-H @-), so the secret is never in a process argument list; it does not follow
+#     redirects (no -L), so the header cannot travel to another host; nothing prints a header, no set -x;
+#   - the target URL reaches the script through env, never through ${{ }} inside the script.
+# Nothing is checked out and nothing is installed: the step needs only bash, curl and jq from the runner image.
+
+name: preview-smoke
+
+on:
+  deployment_status:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: preview-smoke
+    if: github.event.deployment_status.state == 'success' && github.event.deployment_status.environment == 'Preview' && github.event.deployment_status.creator.login == 'vercel[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Smoke-test the preview deployment
+        env:
+          TARGET_URL: ${{ github.event.deployment_status.target_url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VERCEL_AUTOMATION_BYPASS_SECRET}" ]; then
+            echo "::error::the VERCEL_AUTOMATION_BYPASS_SECRET repository secret is empty or missing"
+            exit 1
+          fi
+          # The unique deployment URL of this project: nestly-<hash>-afikyermis-projects.vercel.app. The hash has no
+          # hyphen, dot, slash, colon or @, so neither another host nor a team whose slug ends in -afikyermis-projects
+          # matches. Branch aliases (nestly-git-<branch>-...) are refused: a hyphenated branch makes the team ambiguous.
+          url_rule='^https://nestly-[a-z0-9]+-afikyermis-projects\.vercel\.app/?$'
+          if ! [[ "${TARGET_URL}" =~ $url_rule ]]; then
+            echo "::error::the deployment URL is not an https deployment URL of the nestly project; nothing was sent"
+            exit 1
+          fi
+          base="${TARGET_URL%/}"
+
+          # get <path>: prints the body, a newline, then the status code. The header goes in on stdin.
+          get() {
+            printf 'x-vercel-protection-bypass: %s\n' "${VERCEL_AUTOMATION_BYPASS_SECRET}" \
+              | curl --silent --show-error --proto '=https' --max-time 30 \
+                  --header @- --write-out '\n%{http_code}' "${base}$1"
+          }
+
+          health="$(get /api/health)"
+          health_status="${health##*$'\n'}"
+          health_body="${health%$'\n'*}"
+          echo "GET /api/health -> ${health_status}"
+          if [ "${health_status}" != "200" ]; then
+            echo "::error::/api/health answered ${health_status}, expected 200"
+            exit 1
+          fi
+          if ! printf '%s' "${health_body}" | jq -e '. == {"status":"ok"}' >/dev/null 2>&1; then
+            echo "::error::/api/health answered 200 with a body other than {\"status\":\"ok\"}"
+            exit 1
+          fi
+
+          protected="$(get /api/anything)"
+          protected_status="${protected##*$'\n'}"
+          protected_body="${protected%$'\n'*}"
+          echo "GET /api/anything -> ${protected_status}"
+          case "${protected_status}" in
+            401) expected='{"error":"unauthenticated"}' ;;
+            503) expected='{"error":"unavailable"}' ;;
+            *)
+              echo "::error::the protected path answered ${protected_status}, expected 401 or 503 (fail closed)"
+              exit 1
+              ;;
+          esac
+          if ! printf '%s' "${protected_body}" | jq -e --argjson want "${expected}" '. == $want' >/dev/null 2>&1; then
+            echo "::error::the protected path answered ${protected_status} with a body that is not the server's ${expected}"
+            exit 1
+          fi
+          echo "preview smoke passed"

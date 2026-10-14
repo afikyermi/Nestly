@@ -12,24 +12,22 @@
 
 **עודכן:** 14.10.2026 · **גרסת SRS:** 2.12 · **מצב:** בניית מוצר. מערך הסוכנים קפוא עד ש-I1 ממוזג (הכרעתך מ-13.10, `decisions.md`).
 
-- **🔄 כלי ה-Preview** (ענף `chore/preview-access`, נדחף בלי PR, ולא מוזג): ‏`preview-smoke` ו-`tools/preview-shot.mjs`. ‏CRITIC (סקירה טרייה): ‏Validated with Concern, עם 4 ממצאים בינוניים ו-2 קלים, ב-`.work/preview-access/findings.md` שעל הענף.
+- **🔄 כלי ה-Preview** (ענף `chore/preview-access`, לא מוזג): ‏`preview-smoke` ו-`tools/preview-shot.mjs`. ממצאי CRITIC 1–4 תוקנו (14.10): הסוד נקרא רק מנתיב מפורש; היעד חייב להופיע בסטטוס פריסה של vercel[bot] ב-repo; השרת מוחק את כותרת ה-bypass; ‏`shoot` ו-`main` ניתנים להזרקה. טסטים: כלים 335/335, שרת 165/165. ממצא 5 → `debt.md` (הכרעתך). ‏CRITIC (שתי בדיקות חוזרות): 1–4 נסגרו, ‏Validated with Concern (נשאר רק 5, ‏debt). נדחף כענף `chore/preview-access-v2` (אחרי rebase; ה-push הכפוי חסום). PR 21: ‏CI ירוק (14.10). ‏Vercel דילג על ה-build, כי ה-push קדם ל-PR (`tools/vercel-ignore.mjs`). push נוסף אחרי פתיחת ה-PR מפעיל Preview ואת `preview-smoke`. הבא: בדיקת ממצא 6, מיזוג.
 - **✅ F1.2 `app-shell-guard` — מוזג** (PR 19, ‏`53b85d0`, ‏14.10; ‏`.work/app-shell-guard/result.md`): מסך Welcome, ‏AppShell, ‏RouteGuard ושכבת session. ‏CRITIC: ‏Validated with Concern, וארבעה ממצאים קלים נסגרו. ה-Preview נבדק על production אחרי המיזוג ב-375 וב-1024.
-- **ממתין להכרעה שלך:** סוד ה-bypass נשאר repository secret, או עובר ל-GitHub Environment עם מדיניות ענפים מוגנים. הסיכון: כל ענף ש-Vercel פורס מריץ workflow משלו עם הסוד. ברירת המחדל: נשאר, ו-Git Fork Protection פועל.
+- **ממתין להכרעה שלך:** אין. (14.10: סוד ה-bypass נשאר repository secret — הכרעתך, `decisions.md`; הסיכון הנותר ב-`debt.md`.)
 - **ממתין לך (סודות ופעולות):**
   1. **קובץ יומן מקומי ישן** `.live/events.jsonl` (טקסט מפרומפטים, לא ב-git): מחיקה היא שלך. אחריה אפשר להסיר את `.live/` מ-`.gitignore`.
-  2. **מחיקת ענפים מרוחקים שמוזגו:** ‏`ui-wave-1/part-a` עד `part-e`, ‏`chore/i1-prep`, ‏`chore/guard-env-paths` (מוזג).
+  2. **מחיקת ענפים מרוחקים שמוזגו:** ‏`ui-wave-1/part-a` עד `part-e`, ‏`chore/i1-prep`, ‏`chore/guard-env-paths` (מוזג), ‏`chore/preview-access` (הוחלף ב-`-v2` אחרי rebase), ‏`chore/records-after-f12` (מוזג).
   3. **ב-F1.8:** הגדרת Google Cloud והסודות — אנחה אותך צעד-צעד.
-  4. **לאשר פעם אחת ב-GitHub** שלסביבה `db-production` יש reviewer חובה (אתה) וכלל main-only. ‏CRITIC לא יכול לבדוק את זה מה-repo.
-  5. **לוודא ב-Vercel:** ש-Git Fork Protection פועל (‏Settings → Git), כדי ש-fork לא יוכל להריץ את `preview-smoke` עם הסוד. ושגרסת Node היא 22.x (‏Settings → General).
-  6. **כשיידרש route שנוגע במסד (F1.4):** ‏`DATABASE_URL` של `app_server` ב-Vercel (‏transaction pooler, פורט 6543).
+  4. **כשיידרש route שנוגע במסד (F1.4):** ‏`DATABASE_URL` של `app_server` ב-Vercel (‏transaction pooler, פורט 6543).
 - **פתוח, בלי הכרעה עכשיו:** החלטות המדיה M1–M6 לפני I5 · תקציב לביקורת משפטית לפני I9 · אם בניות ש-Vercel דילג עליהן נספרות במגבלה, עוברים ל-`git.deploymentEnabled`.
 - **התקדמות מוצר (שורה לכל סשן):**
   - 14.10: ‏F1.1 הושלם, שלושה PRs מוזגו (15, 16, 17). הסכמה הראשונה הוחלה על preview, ו-pgTAP עבר 394/394. ‏F1.2 מוזג (PR 19). ‏Welcome חי ב-production, ואורח מנותב אליו.
 - **להמשך (מסירה ל-session הבא):**
   1. **איפה עומדים:** ‏I1: ‏F1.1 ו-F1.2 מוזגו. ‏main ‏=`53b85d0`. ‏SRS ‏2.12. מערך הסוכנים קפוא עד סוף I1. ‏Production: ‏[nestly-blue.vercel.app](https://nestly-blue.vercel.app).
-  2. **הבא בתור (בסדר הזה):** (א) כלי ה-Preview: לתקן את ממצאי CRITIC בענף `chore/preview-access`. ממצאים 2 ו-3 דורשים בדיקה של התנהגות Vercel, וממצא 5 הוא DECISION REQUEST שלך. אחר כך לפתוח PR **לפני** ה-push, ‏CI ומיזוג. (ב) ‏F1.3: ה-spec (‏Gate 1 עבר) צריך איחוד מ-32 קריטריונים ל-20 לכל היותר, לפני BUILDER.
+  2. **הבא בתור (בסדר הזה):** (א) כלי ה-Preview: ‏CI של ה-PR מ-`chore/preview-access-v2`, בדיקת ממצא 6 ומיזוג. (ב) ‏F1.3: ה-spec (‏Gate 1 עבר) צריך איחוד מ-32 קריטריונים ל-20 לכל היותר, לפני BUILDER.
   3. **בדרך:** שינוי קטן ב-`tools/critic-diff.mjs` (בלי package-lock, ‏noise, ‏incidents ו-.claude/logs) נכנס עם הפיצ'ר הבא. לפני F1.5: ‏PR אחד שסוגר את ה-debt שמסומן "חייב לפני F1.5", כמו הבדיקה של `is_active_account`.
-  4. **פתוח אצלך:** הפריטים 1–6 ב"ממתין לך". החשובים: ‏Git Fork Protection ב-Vercel, ו-reviewer חובה ל-`db-production`.
+  4. **פתוח אצלך:** הפריטים 1–4 ב"ממתין לך". אימתת ב-14.10: ‏Git Fork Protection פועל, ל-`db-production` יש reviewer חובה וכלל main-only, ו-Node ב-Vercel הוא 22.x.
   5. **כללי עבודה:** בדיקות מקומיות בין שלבים, ‏push אחד לכל חלק. ‏draft PR נפתח מיד אחרי ה-push הראשון של הענף, כי Vercel בונה Preview רק לענף עם PR פתוח. ה-diff ל-CRITIC רק דרך `tools/critic-diff.mjs`, ובלי נימוקי BUILDER בתדריך (‏incidents ‏14.10). ‏spec עד כ-150 שורות, וטסט אחד או שניים לכל קריטריון.
 - **היסטוריה:** `archive/WORKPLAN-2026-10.md`. ההחלטות ב-`decisions.md`. הנקודות הפתוחות במוצר ב-`docs/srs/appendix-b-open-points.md`.
 
@@ -57,6 +55,7 @@
 - סוכן שמריץ `node -e` עם טקסט שמזכיר קובץ env נחסם (נכון לפי הכלל): פעמיים ב-13.10. לשקול שורה ב-conventions.
 - חסימות fail-closed של כלל ה-env על ארגומנטים שנראים כמו glob (`.[]` של jq, ‏`gh api`): שלוש ב-14.10, כלומר סף הדפוס. יש עקיפה סבירה, ולכן אין חריג הקפאה. ההצעה של CRITIC (debt): כלל לא-קריטי לעמימות.
 - גדר הקריאה של TEST ENGINEER: ‏21 חסימות ב-F1.1, ועקיפה דרך טסטי סריקה ב-F1.2. לבחון לתת לו לקרוא טיפוסים וממשקים מיוצאים במקום חסימה גורפת (הכרעתך מ-14.10).
+- ה-guard חוסם כל פקודה של סוכן שה-cwd שלו הוא worktree תחת `.claude/worktrees/` ("not the project root"): ‏TEST ENGINEER נחסם 5 פעמים ב-3 דקות (14.10, ‏preview-access). בינתיים: ענפים נבדקים ב-checkout הראשי, לא ב-worktree, ו-ORCHESTRATOR מריץ את הטסטים.
 
 ## חלק 9 — עיצוב UX/UI ✅ (11.10.2026, לפני חלק 8)
 
