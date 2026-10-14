@@ -33,7 +33,9 @@ select is(
       and (has_table_privilege('authenticated', c.oid, 'UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
            or has_any_column_privilege('authenticated', c.oid, 'UPDATE,REFERENCES'))),
   0::bigint,
-  '[F1.1-b c13 · F1.4-a c14 NFR-SEC-002] authenticated holds no UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on either table, at table or column level (INSERT was granted by F1.4 and is bounded by the policies)');
+  '[F1.1-b c13 · F1.4-a c14 NFR-SEC-002] authenticated holds no UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on either table, at table or column level (INSERT was granted by F1.4 per column — account_type, status / full_name, gender — and is bounded by the policies)');
+-- The attacks below that name id or user_id now fail by privilege, the others by policy; all stay 42501. The policy-reaching
+-- attacks on granted columns only (account_type admin, status suspended) are asserted with their message in file 21 (f3).
 
 -- ---- the attempts ----------------------------------------------------------------------------------------------------
 -- (role, whose claims, statement, what it tries)

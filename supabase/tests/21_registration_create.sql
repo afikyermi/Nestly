@@ -144,7 +144,7 @@ select is(
     end
     $$ $q$),
   'ERR:42501',
-  '[F1.4-a c10 c14] a consent that sends its own accepted_at fails the block (42501) ...');
+  '[F1.4-a c10 c14] a consent that sends its own accepted_at fails the block (42501, by privilege) ...');
 select is(tests.fx_counts(tests.fx_id('f2')), '0/0/0/0/0', '[F1.4-a c10] ... and leaves no row for f2');
 
 select is(
@@ -180,47 +180,50 @@ select is(tests.fx_counts(tests.fx_id('f2')), '1/1/1/0/1', '[F1.4-a c10] f2 now 
 -- =====================================================================================================================
 select is(tests.fx_counts(tests.fx_id('f3')), '0/0/0/0/0', '[F1.4-a c14 fixture] f3 starts with no account');
 
-select is(tests.dml_as('authenticated', tests.claims(tests.fx_id(t.w)), t.s, false), t.expected,
-  '[F1.4-a c14 rule ' || t.rule || '] ' || t.label)
+-- Both fences raise 42501 (Amendment 1), so these assert the MESSAGE too:
+--   fence 'pol'  = the policy WITH CHECK: 'new row violates row-level security policy for table <t>'
+--   fence 'priv' = the column privilege (the statement names an ungranted column): 'permission denied for table <t>'
+-- tests.dml_as_msg strips double quotes from the message.
+select is(tests.dml_as_msg('authenticated', tests.claims(tests.fx_id(t.w)), t.s, false),
+  'ERR:42501:' || case t.fence when 'pol' then 'new row violates row-level security policy for table ' else 'permission denied for table ' end || t.tbl,
+  '[F1.4-a c14 rule ' || t.rule || ' CRITIC a-1] ' || t.label)
 from (values
-  -- status gate and write order: nothing exists yet for f3, so is_active_account() is false
-  ('f3', $q$ insert into nestly.regular_profiles (full_name) values ('Too Early') $q$, 'ERR:42501', '14/15',
-     'a profile insert BEFORE the users insert is refused (42501): the write order is part of the design'),
-  ('f3', $q$ insert into nestly.journey_contexts (stage) values ('planning') $q$, 'ERR:42501', '15',
-     'a journey insert before the users insert is refused (42501)'),
-  ('f3', $q$ insert into nestly.children (slot, name, sex, birth_date) values (1, 'Early', 'boy', date '2023-01-01') $q$, 'ERR:42501', '15',
-     'a child insert before the users insert is refused (42501)'),
-  ('f3', $q$ insert into nestly.legal_consents (terms_version, privacy_version, has_declared_18_plus) values ('t', 'p', true) $q$, 'ERR:42501', '15',
-     'a consent insert before the users insert is refused (42501)'),
-  -- account_type and status pinned
-  ('f3', $q$ insert into nestly.users (account_type, status) values ('admin', 'active') $q$, 'ERR:42501', '14',
-     'users insert with account_type admin is refused (42501)'),
-  ('f3', $q$ insert into nestly.users (account_type, status) values ('professional', 'active') $q$, 'ERR:42501', '14',
-     'users insert with account_type professional is refused (42501): professional registration has its own Gate 2'),
-  ('f3', $q$ insert into nestly.users (account_type, status) values ('moderator', 'active') $q$, 'ERR:42501', '14',
-     'users insert with an unknown account_type is refused (42501)'),
-  ('f3', $q$ insert into nestly.users (account_type, status) values ('regular', 'suspended') $q$, 'ERR:42501', '14',
-     'users insert with status suspended is refused (42501)'),
-  ('f3', $q$ insert into nestly.users (account_type, status) values ('regular', 'banned') $q$, 'ERR:42501', '14',
-     'users insert with status banned is refused (42501)'),
-  ('f3', $q$ insert into nestly.users (account_type, status) values ('admin', 'suspended') $q$, 'ERR:42501', '14',
-     'users insert with both pinned columns wrong is refused (42501)'),
-  -- client-sent owner id
-  ('f3', format($q$ insert into nestly.users (id, account_type, status) values (%L, 'regular', 'active') $q$, tests.fx_id('b')), 'ERR:42501', '12',
-     'users insert with ANOTHER user''s id (b) is refused (42501)'),
-  ('f3', format($q$ insert into nestly.users (id, account_type, status) values (%L, 'regular', 'active') $q$, tests.fx_id('f4')), 'ERR:42501', '12',
-     'users insert with a free id that is not the caller''s (f4) is refused (42501)'),
-  ('f3', format($q$ insert into nestly.users (id, account_type, status) values (%L, 'regular', 'active') $q$, gen_random_uuid()), 'ERR:42501', '12',
-     'users insert with a random id is refused (42501)'),
-  ('f3', $q$ insert into nestly.users (id, account_type, status) values ('f0000000-0000-4000-8000-0000000000f5', 'regular', 'active') $q$, 'ERR:42501', '12',
-     'users insert with the literal id of another free user (f5) is refused (42501)')
-) as t(w, s, expected, rule, label);
-
--- an explicit NULL id: refused by the policy (42501) or by NOT NULL (23502), whichever the engine evaluates first; never stored
-select ok(
-  tests.dml_as('authenticated', tests.claims(tests.fx_id('f3')),
-    $q$ insert into nestly.users (id, account_type, status) values (null, 'regular', 'active') $q$, false) in ('ERR:42501', 'ERR:23502'),
-  '[F1.4-a c14 rule 12] users insert with an explicit NULL id is refused: it does not fall back to auth.uid()');
+  -- status gate and write order: nothing exists yet for f3, so is_active_account() is false (policy fence)
+  ('f3', $q$ insert into nestly.regular_profiles (full_name) values ('Too Early') $q$, 'pol', 'regular_profiles', '14/15',
+     'a profile insert BEFORE the users insert is refused by the policy: the write order is part of the design'),
+  ('f3', $q$ insert into nestly.journey_contexts (stage) values ('planning') $q$, 'pol', 'journey_contexts', '15',
+     'a journey insert before the users insert is refused by the policy'),
+  ('f3', $q$ insert into nestly.children (slot, name, sex, birth_date) values (1, 'Early', 'boy', date '2023-01-01') $q$, 'pol', 'children', '15',
+     'a child insert before the users insert is refused by the policy'),
+  ('f3', $q$ insert into nestly.legal_consents (terms_version, privacy_version, has_declared_18_plus) values ('t', 'p', true) $q$, 'pol', 'legal_consents', '15',
+     'a consent insert before the users insert is refused by the policy'),
+  -- account_type and status pinned: granted columns, so the POLICY is the first fence
+  ('f3', $q$ insert into nestly.users (account_type, status) values ('admin', 'active') $q$, 'pol', 'users', '14',
+     'users insert with account_type admin is refused by the policy'),
+  ('f3', $q$ insert into nestly.users (account_type, status) values ('professional', 'active') $q$, 'pol', 'users', '14',
+     'users insert with account_type professional is refused by the policy: professional registration has its own Gate 2'),
+  ('f3', $q$ insert into nestly.users (account_type, status) values ('moderator', 'active') $q$, 'pol', 'users', '14',
+     'users insert with an unknown account_type is refused by the policy'),
+  ('f3', $q$ insert into nestly.users (account_type, status) values ('regular', 'suspended') $q$, 'pol', 'users', '14',
+     'users insert with status suspended is refused by the policy'),
+  ('f3', $q$ insert into nestly.users (account_type, status) values ('regular', 'banned') $q$, 'pol', 'users', '14',
+     'users insert with status banned is refused by the policy'),
+  ('f3', $q$ insert into nestly.users (account_type, status) values ('admin', 'suspended') $q$, 'pol', 'users', '14',
+     'users insert with both pinned columns wrong is refused by the policy'),
+  -- client-sent owner id: id is not granted, so the PRIVILEGE is the fence, whatever the value (no unique-index oracle)
+  ('f3', format($q$ insert into nestly.users (id, account_type, status) values (%L, 'regular', 'active') $q$, tests.fx_id('b')), 'priv', 'users', '12',
+     'users insert naming id, with ANOTHER user''s id (b), is refused by privilege'),
+  ('f3', format($q$ insert into nestly.users (id, account_type, status) values (%L, 'regular', 'active') $q$, tests.fx_id('f4')), 'priv', 'users', '12',
+     'users insert naming id, with a free id that is not the caller''s (f4), is refused by privilege'),
+  ('f3', format($q$ insert into nestly.users (id, account_type, status) values (%L, 'regular', 'active') $q$, gen_random_uuid()), 'priv', 'users', '12',
+     'users insert naming id, with a random id, is refused by privilege'),
+  ('f3', format($q$ insert into nestly.users (id, account_type, status) values (%L, 'regular', 'active') $q$, tests.fx_id('f3')), 'priv', 'users', '12',
+     'users insert naming id, even with the caller''s OWN id (f3), is refused by privilege: the id is never sent'),
+  ('f3', $q$ insert into nestly.users (id, account_type, status) values (null, 'regular', 'active') $q$, 'priv', 'users', '12',
+     'users insert with an explicit NULL id is refused by privilege: it does not fall back to auth.uid()'),
+  ('f3', $q$ insert into nestly.users (created_at, account_type, status) values (now(), 'regular', 'active') $q$, 'priv', 'users', '13',
+     'users insert naming created_at is refused by privilege')
+) as t(w, s, fence, tbl, rule, label);
 
 select is(tests.fx_counts(tests.fx_id('f3')), '0/0/0/0/0', '[F1.4-a c14] after all of those f3 still has nothing');
 select is(tests.fx_counts(tests.fx_id('f4')), '0/0/0/0/0', '[F1.4-a c14 rule 12] and f4, whose id f3 tried to use, has nothing either');
@@ -228,53 +231,96 @@ select is(tests.fx_counts(tests.fx_id('f4')), '0/0/0/0/0', '[F1.4-a c14 rule 12]
 -- owner-id refusals on the dependent tables, as f1 (who has an active account): the row names another user
 create temp table zz_before_owner as select tests.fx_state() as s;
 
-select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('f1')), t.s, false), 'ERR:42501',
-  '[F1.4-a c14 rule 12] ' || t.label)
+-- every one of these names an ungranted column (user_id, id, created_at, accepted_at): the PRIVILEGE fence, not the policy
+select is(tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('f1')), t.s, false),
+  'ERR:42501:permission denied for table ' || t.tbl,
+  '[F1.4-a c14 rule 12 CRITIC a-1] ' || t.label)
 from (values
-  (format($q$ insert into nestly.regular_profiles (user_id, full_name) values (%L, 'Not Mine') $q$, tests.fx_id('f4')),
-     'f1 inserts a profile for another user (f4): refused (42501)'),
-  (format($q$ insert into nestly.journey_contexts (user_id, stage) values (%L, 'planning') $q$, tests.fx_id('b')),
-     'f1 inserts a journey owned by b: refused (42501)'),
-  (format($q$ insert into nestly.journey_contexts (user_id, stage) values (%L, 'planning') $q$, tests.fx_id('a')),
-     'f1 inserts a journey owned by a: refused (42501)'),
-  (format($q$ insert into nestly.children (user_id, slot, name, sex, birth_date) values (%L, 5, 'Stolen', 'boy', date '2020-01-01') $q$, tests.fx_id('b')),
-     'f1 inserts a child owned by b: refused (42501)'),
-  (format($q$ insert into nestly.children (user_id, slot, name, sex, birth_date) values (%L, 9, 'Stolen', 'boy', date '2020-01-01') $q$, tests.fx_id('a')),
-     'f1 inserts a child owned by a (free slot): refused (42501)'),
-  (format($q$ insert into nestly.legal_consents (user_id, terms_version, privacy_version, has_declared_18_plus) values (%L, 'x', 'y', true) $q$, tests.fx_id('b')),
-     'f1 records a consent in b''s name: refused (42501)'),
-  (format($q$ insert into nestly.legal_consents (user_id, terms_version, privacy_version, has_declared_18_plus) values (%L, 'x', 'y', true) $q$, tests.fx_id('f4')),
-     'f1 records a consent for a user that has no account (f4): refused (42501)'),
-  -- the consent time is the database's: any explicit value is refused
-  ($q$ insert into nestly.legal_consents (terms_version, privacy_version, has_declared_18_plus, accepted_at) values ('x', 'y', true, now() - interval '1 day') $q$,
-     'f1 sends an accepted_at in the past: refused (42501)'),
-  ($q$ insert into nestly.legal_consents (terms_version, privacy_version, has_declared_18_plus, accepted_at) values ('x', 'y', true, now() + interval '1 day') $q$,
-     'f1 sends an accepted_at in the future: refused (42501)'),
-  ($q$ insert into nestly.legal_consents (terms_version, privacy_version, has_declared_18_plus, accepted_at) values ('x', 'y', true, '1970-01-01') $q$,
-     'f1 sends an accepted_at of 1970: refused (42501)')
-) as t(s, label);
+  (format($q$ insert into nestly.regular_profiles (user_id, full_name) values (%L, 'Not Mine') $q$, tests.fx_id('f4')), 'regular_profiles',
+     'f1 inserts a profile naming user_id of another user (f4): refused by privilege'),
+  (format($q$ insert into nestly.journey_contexts (user_id, stage) values (%L, 'planning') $q$, tests.fx_id('b')), 'journey_contexts',
+     'f1 inserts a journey naming user_id = b: refused by privilege'),
+  (format($q$ insert into nestly.journey_contexts (user_id, stage) values (%L, 'planning') $q$, tests.fx_id('a')), 'journey_contexts',
+     'f1 inserts a journey naming user_id = a: refused by privilege'),
+  (format($q$ insert into nestly.journey_contexts (user_id, stage) values (%L, 'planning') $q$, tests.fx_id('f1')), 'journey_contexts',
+     'f1 inserts a journey naming user_id = f1 (its OWN id): refused by privilege, the column is never named'),
+  (format($q$ insert into nestly.children (user_id, slot, name, sex, birth_date) values (%L, 5, 'Stolen', 'boy', date '2020-01-01') $q$, tests.fx_id('b')), 'children',
+     'f1 inserts a child naming user_id = b: refused by privilege'),
+  (format($q$ insert into nestly.children (user_id, slot, name, sex, birth_date) values (%L, 9, 'Stolen', 'boy', date '2020-01-01') $q$, tests.fx_id('a')), 'children',
+     'f1 inserts a child naming user_id = a (free slot): refused by privilege'),
+  (format($q$ insert into nestly.legal_consents (user_id, terms_version, privacy_version, has_declared_18_plus) values (%L, 'x', 'y', true) $q$, tests.fx_id('b')), 'legal_consents',
+     'f1 records a consent naming user_id = b: refused by privilege'),
+  (format($q$ insert into nestly.legal_consents (user_id, terms_version, privacy_version, has_declared_18_plus) values (%L, 'x', 'y', true) $q$, tests.fx_id('f4')), 'legal_consents',
+     'f1 records a consent naming user_id of a user with no account (f4): refused by privilege'),
+  -- created_at and the consent time are the database's: naming either column is refused, whatever the value
+  ($q$ insert into nestly.children (created_at, slot, name, sex, birth_date) values (now(), 5, 'Dated', 'boy', date '2020-01-01') $q$, 'children',
+     'f1 inserts a child naming created_at: refused by privilege'),
+  ($q$ insert into nestly.journey_contexts (created_at, stage) values (now(), 'planning') $q$, 'journey_contexts',
+     'f1 inserts a journey naming created_at: refused by privilege'),
+  ($q$ insert into nestly.legal_consents (terms_version, privacy_version, has_declared_18_plus, accepted_at) values ('x', 'y', true, now() - interval '1 day') $q$, 'legal_consents',
+     'f1 sends an accepted_at in the past: refused by privilege'),
+  ($q$ insert into nestly.legal_consents (terms_version, privacy_version, has_declared_18_plus, accepted_at) values ('x', 'y', true, now() + interval '1 day') $q$, 'legal_consents',
+     'f1 sends an accepted_at in the future: refused by privilege'),
+  ($q$ insert into nestly.legal_consents (terms_version, privacy_version, has_declared_18_plus, accepted_at) values ('x', 'y', true, now()) $q$, 'legal_consents',
+     'f1 sends an accepted_at equal to now(): refused by privilege, the value does not matter'),
+  ($q$ insert into nestly.legal_consents (terms_version, privacy_version, has_declared_18_plus, accepted_at) values ('x', 'y', true, '1970-01-01') $q$, 'legal_consents',
+     'f1 sends an accepted_at of 1970: refused by privilege'),
+  ($q$ insert into nestly.legal_consents (terms_version, privacy_version, has_declared_18_plus, accepted_at) values ('x', 'y', true, null) $q$, 'legal_consents',
+     'f1 sends an explicit NULL accepted_at: refused by privilege, never falls back to the default')
+) as t(s, tbl, label);
 
--- the explicit NULL accepted_at: either the policy (42501) or NOT NULL (23502) refuses it; it must not succeed
-select ok(
-  tests.dml_as('authenticated', tests.claims(tests.fx_id('f1')),
-    $q$ insert into nestly.legal_consents (terms_version, privacy_version, has_declared_18_plus, accepted_at) values ('x', 'y', true, null) $q$, false)
-    in ('ERR:42501', 'ERR:23502'),
-  '[F1.4-a c14 BR-068] an explicit NULL accepted_at is refused (42501 or 23502), never stored');
+-- ---- the oracle test (CRITIC a-1): a client-sent id gives the SAME answer whether or not it exists ---------------------
+-- Before the amendment, an existing id reached 23505 and a fresh one reached the policy: a way to ask "does this id exist?".
+select is(
+  tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('f1')),
+    format($q$ insert into nestly.children (id, slot, name, sex, birth_date) values (%L, 5, 'Oracle', 'boy', date '2020-01-01') $q$,
+           (select tests.fx_child_id(tests.fx_id('b'), 1))), false),
+  'ERR:42501:permission denied for table children',
+  '[F1.4-a c14 rules 12, 13 CRITIC a-1] a child inserted with the id of one of b''s EXISTING children: permission denied, never 23505');
+select is(
+  tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('f1')),
+    format($q$ insert into nestly.children (id, slot, name, sex, birth_date) values (%L, 5, 'Oracle', 'boy', date '2020-01-01') $q$, gen_random_uuid()), false),
+  'ERR:42501:permission denied for table children',
+  '[F1.4-a c14 rules 12, 13 CRITIC a-1] the same insert with a fresh random id: the identical permission-denied error');
+select isnt(tests.fx_child_id(tests.fx_id('b'), 1), null,
+  '[F1.4-a c14 CRITIC a-1 control] b''s child exists and has an id (so the first oracle case really used an existing id)');
+select is(
+  tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('f1')),
+    format($q$ insert into nestly.children (id, slot, name, sex, birth_date) values (%L, 5, 'Oracle', 'boy', date '2020-01-01') $q$,
+           tests.fx_child_id(tests.fx_id('b'), 1)), false),
+  tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('f1')),
+    format($q$ insert into nestly.children (id, slot, name, sex, birth_date) values (%L, 5, 'Oracle', 'boy', date '2020-01-01') $q$, gen_random_uuid()), false),
+  '[F1.4-a c14 CRITIC a-1] existing-id and fresh-id answers are byte-for-byte identical (no oracle)');
+-- the same for the other tables that have an id
+select is(
+  tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('f1')),
+    format($q$ insert into nestly.journey_contexts (id, stage) values (%L, 'planning') $q$, tests.fx_journey_id(tests.fx_id('b'))), false),
+  tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('f1')),
+    format($q$ insert into nestly.journey_contexts (id, stage) values (%L, 'planning') $q$, gen_random_uuid()), false),
+  '[F1.4-a c14 CRITIC a-1] journey_contexts: existing-id and fresh-id answers are identical');
+select is(
+  tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('f1')),
+    format($q$ insert into nestly.legal_consents (id, terms_version, privacy_version, has_declared_18_plus) values (%L, 'x', 'y', true) $q$, tests.fx_consent_id(tests.fx_id('b'))), false),
+  tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('f1')),
+    format($q$ insert into nestly.legal_consents (id, terms_version, privacy_version, has_declared_18_plus) values (%L, 'x', 'y', true) $q$, gen_random_uuid()), false),
+  '[F1.4-a c14 CRITIC a-1] legal_consents: existing-id and fresh-id answers are identical');
 
 select is(tests.fx_state(), (select s from zz_before_owner),
   '[F1.4-a c14 rules 12, 13] after every client-sent-owner and explicit-clock attempt nothing in nestly changed');
 
 -- no identity at all: auth.uid() is NULL
-select ok(
-  tests.dml_as('authenticated', tests.claims(null), t.s, false) ~ '^ERR:(42501|23502)$',
-  '[F1.4-a c14 rule 12] with no identity claims: ' || t.label || ' is refused')
+-- granted columns only, so the POLICY is the fence on every table (no user to be, no active account)
+select is(
+  tests.dml_as_msg('authenticated', tests.claims(null), t.s, false),
+  'ERR:42501:new row violates row-level security policy for table ' || t.tbl,
+  '[F1.4-a c14 rule 12 CRITIC a-1] with no identity claims: ' || t.label || ' is refused by the policy')
 from (values
-  ($q$ insert into nestly.users (account_type, status) values ('regular', 'active') $q$, 'a users insert'),
-  ($q$ insert into nestly.regular_profiles (full_name) values ('No One') $q$, 'a profile insert'),
-  ($q$ insert into nestly.journey_contexts (stage) values ('planning') $q$, 'a journey insert'),
-  ($q$ insert into nestly.children (slot, name, sex, birth_date) values (1, 'No One', 'boy', date '2020-01-01') $q$, 'a child insert'),
-  ($q$ insert into nestly.legal_consents (terms_version, privacy_version, has_declared_18_plus) values ('t', 'p', true) $q$, 'a consent insert')
-) as t(s, label);
+  ($q$ insert into nestly.users (account_type, status) values ('regular', 'active') $q$, 'users', 'a users insert'),
+  ($q$ insert into nestly.regular_profiles (full_name) values ('No One') $q$, 'regular_profiles', 'a profile insert'),
+  ($q$ insert into nestly.journey_contexts (stage) values ('planning') $q$, 'journey_contexts', 'a journey insert'),
+  ($q$ insert into nestly.children (slot, name, sex, birth_date) values (1, 'No One', 'boy', date '2020-01-01') $q$, 'children', 'a child insert'),
+  ($q$ insert into nestly.legal_consents (terms_version, privacy_version, has_declared_18_plus) values ('t', 'p', true) $q$, 'legal_consents', 'a consent insert')
+) as t(s, tbl, label);
 
 select is(tests.fx_state(), (select s from zz_before_owner),
   '[F1.4-a c14] nothing was written with no identity');
@@ -282,15 +328,16 @@ select is(tests.fx_state(), (select s from zz_before_owner),
 -- =====================================================================================================================
 -- A profile cannot be created as another account type, and a regular account is created in one piece only
 -- =====================================================================================================================
-select ok(
-  tests.dml_as('authenticated', tests.claims(tests.fx_id('f5')), $q$
+select is(
+  tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('f5')), $q$
     do $$
     begin
       insert into nestly.users (account_type, status) values ('regular', 'active');
       insert into nestly.regular_profiles (account_type, full_name) values ('professional', 'Pat Pro');
     end
-    $$ $q$, false) like 'ERR:%',
-  '[F1.4-a c14 rule 14] a regular_profiles row with account_type professional is refused');
+    $$ $q$, false),
+  'ERR:42501:permission denied for table regular_profiles',
+  '[F1.4-a c14 rule 14 CRITIC a-1] a regular_profiles row naming account_type (even professional) is refused by privilege: the column is never granted');
 select is(tests.fx_counts(tests.fx_id('f5')), '0/0/0/0/0', '[F1.4-a c14] and it left nothing behind for f5');
 
 select * from finish();

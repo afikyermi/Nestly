@@ -95,6 +95,51 @@ as $$
   from nestly.children c where c.user_id = p_id
 $$;
 
+-- The existing id of one fixture row (for the id-oracle test): the child of slot p_slot, one journey, one consent of a user.
+create or replace function tests.fx_child_id(p_user uuid, p_slot int) returns uuid
+language sql security definer set search_path = ''
+as $$ select c.id from nestly.children c where c.user_id = p_user and c.slot = p_slot $$;
+
+create or replace function tests.fx_journey_id(p_user uuid) returns uuid
+language sql security definer set search_path = ''
+as $$ select j.id from nestly.journey_contexts j where j.user_id = p_user order by j.stage limit 1 $$;
+
+create or replace function tests.fx_consent_id(p_user uuid) returns uuid
+language sql security definer set search_path = ''
+as $$ select l.id from nestly.legal_consents l where l.user_id = p_user order by l.terms_version limit 1 $$;
+
+-- Like tests.dml_as, but the error carries its message: 'OK:<rows>' or 'ERR:<sqlstate>:<message>' (double quotes removed from
+-- the message, so 'permission denied for table children' and 'new row violates row-level security policy for table users'
+-- compare as plain text). Needed because the privilege fence and the policy fence both raise 42501 (Amendment 1).
+-- INVOKER, like dml_as: it runs as app_server and may SET ROLE authenticated / anon only.
+create or replace function tests.dml_as_msg(p_role text, p_claims text, p_sql text, p_keep boolean default true) returns text
+language plpgsql
+as $$
+declare
+  v text;
+  n bigint;
+begin
+  perform set_config('request.jwt.claims', coalesce(p_claims, ''), true);
+  if p_role <> 'none' then
+    execute format('set local role %I', p_role);
+  end if;
+  begin
+    execute p_sql;
+    get diagnostics n = row_count;
+    v := 'OK:' || n;
+    if not p_keep then
+      raise exception 'rollback this statement' using errcode = 'ZZ001';
+    end if;
+  exception
+    when sqlstate 'ZZ001' then null;
+    when others then v := 'ERR:' || sqlstate || ':' || replace(sqlerrm, '"', '');
+  end;
+  reset role;
+  perform set_config('request.jwt.claims', '', true);
+  return v;
+end
+$$;
+
 revoke all on all functions in schema tests from public;
 grant usage on schema tests to app_server;
 grant execute on all functions in schema tests to app_server;

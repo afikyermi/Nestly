@@ -165,30 +165,51 @@ from (values ('s'), ('x')) as w(who)
 cross join (values ('nestly.journey_contexts'), ('nestly.children'), ('nestly.legal_consents'), ('nestly.users'), ('nestly.regular_profiles')) as r(rel)
 cross join lateral (select w.who, r.rel) as t(who, rel);
 
-select is(tests.dml_as('authenticated', tests.claims(tests.fx_id(w.who)), t.s), 'ERR:42501',
-  '[F1.4-a c14 rule 15] ' || w.who || ' (not active) is refused (42501): ' || t.label)
+-- granted columns only: the status gate is the POLICY fence (Amendment 1), asserted by message
+select is(tests.dml_as_msg('authenticated', tests.claims(tests.fx_id(w.who)), t.s),
+  'ERR:42501:new row violates row-level security policy for table ' || t.tbl,
+  '[F1.4-a c14 rule 15 CRITIC a-1] ' || w.who || ' (not active) is refused by the policy: ' || t.label)
 from (values ('s'), ('x')) as w(who)
 cross join (values
-  ($q$ insert into nestly.journey_contexts (stage) values ('planning') $q$, 'INSERT a journey'),
-  ($q$ insert into nestly.children (slot, name, sex, birth_date) values (1, 'Late', 'boy', date '2020-01-01') $q$, 'INSERT a child'),
-  ($q$ insert into nestly.legal_consents (terms_version, privacy_version, has_declared_18_plus) values ('t', 'p', true) $q$, 'INSERT a consent')
-) as t(s, label);
+  ($q$ insert into nestly.journey_contexts (stage) values ('planning') $q$, 'journey_contexts', 'INSERT a journey'),
+  ($q$ insert into nestly.children (slot, name, sex, birth_date) values (1, 'Late', 'boy', date '2020-01-01') $q$, 'children', 'INSERT a child'),
+  ($q$ insert into nestly.legal_consents (terms_version, privacy_version, has_declared_18_plus) values ('t', 'p', true) $q$, 'legal_consents', 'INSERT a consent')
+) as t(s, tbl, label);
+
+-- naming an ungranted owner column is the PRIVILEGE fence, for any caller, active or not (checked before any row or policy)
+select is(tests.dml_as_msg('authenticated', tests.claims(tests.fx_id(t.who)), t.s),
+  'ERR:42501:permission denied for table ' || t.tbl,
+  '[F1.4-a c14 rules 12, 13 CRITIC a-1] ' || t.who || ': ' || t.label)
+from (values
+  ('b', format($q$ insert into nestly.children (user_id, slot, name, sex, birth_date) values (%L, 7, 'Planted', 'boy', date '2020-01-01') $q$, tests.fx_id('a')), 'children',
+     'B inserts a child naming user_id = A: refused by privilege'),
+  ('b', format($q$ insert into nestly.journey_contexts (user_id, stage) values (%L, 'has_child') $q$, tests.fx_id('a')), 'journey_contexts',
+     'B inserts a journey naming user_id = A: refused by privilege'),
+  ('b', format($q$ insert into nestly.legal_consents (user_id, terms_version, privacy_version, has_declared_18_plus) values (%L, 'x', 'y', true) $q$, tests.fx_id('a')), 'legal_consents',
+     'B records a consent naming user_id = A: refused by privilege'),
+  ('s', $q$ insert into nestly.children (user_id, slot, name, sex, birth_date) values (auth.uid(), 1, 'Own', 'boy', date '2020-01-01') $q$, 'children',
+     'suspended S naming its OWN user_id: refused by privilege, before the status gate is reached'),
+  ('a', $q$ insert into nestly.legal_consents (terms_version, privacy_version, has_declared_18_plus, accepted_at) values ('v', 'v', true, now()) $q$, 'legal_consents',
+     'A naming accepted_at, even = now(): refused by privilege')
+) as t(who, s, tbl, label);
 
 -- c: an Auth identity with no account at all: reads nothing, writes nothing (fails closed)
 select is(tests.n_as(tests.fx_id('c'), t.rel), '0', '[F1.4-a c14 rule 15] c (no account) reads 0 rows of ' || t.rel)
 from (values ('nestly.journey_contexts'), ('nestly.children'), ('nestly.legal_consents')) as t(rel);
-select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('c')),
-  $q$ insert into nestly.children (slot, name, sex, birth_date) values (1, 'Ghost', 'boy', date '2020-01-01') $q$), 'ERR:42501',
-  '[F1.4-a c14 rule 15] c (no users row) cannot insert a child (42501)');
+select is(tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('c')),
+  $q$ insert into nestly.children (slot, name, sex, birth_date) values (1, 'Ghost', 'boy', date '2020-01-01') $q$),
+  'ERR:42501:new row violates row-level security policy for table children',
+  '[F1.4-a c14 rule 15] c (no users row) cannot insert a child: refused by the policy');
 
 -- the status is checked on the NEXT statement, mid-test (A is flipped and flipped back; the suite rolls back anyway)
 select lives_ok($q$ select tests.set_status(tests.fx_id('a'), 'suspended') $q$, '[F1.4-a c14 rule 15] A is suspended (fixture)');
 select is(tests.n_as(tests.fx_id('a'), 'nestly.journey_contexts'), '0', '[F1.4-a c14 rule 15] A, suspended mid-test, reads 0 journeys at once');
 select is(tests.n_as(tests.fx_id('a'), 'nestly.children'), '0', '[F1.4-a c14 rule 15] A, suspended mid-test, reads 0 children at once');
 select is(tests.n_as(tests.fx_id('a'), 'nestly.legal_consents'), '0', '[F1.4-a c14 rule 15] A, suspended mid-test, reads 0 consents at once');
-select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('a')),
-  $q$ insert into nestly.children (slot, name, sex, birth_date) values (3, 'Third', 'boy', date '2020-01-01') $q$), 'ERR:42501',
-  '[F1.4-a c14 rule 15] A, suspended mid-test, cannot insert a child (42501)');
+select is(tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('a')),
+  $q$ insert into nestly.children (slot, name, sex, birth_date) values (3, 'Third', 'boy', date '2020-01-01') $q$),
+  'ERR:42501:new row violates row-level security policy for table children',
+  '[F1.4-a c14 rule 15] A, suspended mid-test, cannot insert a child: refused by the policy');
 select lives_ok($q$ select tests.set_status(tests.fx_id('a'), 'banned') $q$, '[F1.4-a c14 rule 15] A is banned (fixture)');
 select is(tests.n_as(tests.fx_id('a'), 'nestly.children'), '0', '[F1.4-a c14 rule 15] A, banned mid-test, reads 0 children');
 select lives_ok($q$ select tests.set_status(tests.fx_id('a'), 'active') $q$, '[F1.4-a c14 rule 15] A is active again (fixture)');

@@ -111,6 +111,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-14 | F1.4 Gate 1: server-side Auth sign-up through `POST /api/register` (DR-1); orphan Auth user after a lost tab completed by F1.5 (DR-2) | 10 |
 | 2026-10-14 | F1.4 Gate 2 passed; new rows are owner read + insert only until I2 (criterion 14 narrowed); one consent row per acceptance | 10 |
 | 2026-10-14 | Taken email (F1.4): option A, reveal at sign-up only with a generic message, rate-limited · password minimum 8 (Afik) | 10 |
+| 2026-10-14 | F1.4 Gate 2 amendment: INSERT granted per column; the server inserts through `*Insert` write models | 10 |
 
 ## Superseded
 

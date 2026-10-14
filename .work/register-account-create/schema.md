@@ -1,6 +1,6 @@
 # schema — register-account-create (I1 · F1.4), part a
 
-**Gate 2:** ✅ passed by ORCHESTRATOR, 14.10.2026 (`decisions/2026-10.md`). Criterion 14 narrowed per the DECISION REQUEST default; questions 1–3 at their defaults.
+**Gate 2:** ✅ passed by ORCHESTRATOR, 14.10.2026 (`decisions/2026-10.md`).  Amendment 1 (column-level INSERT) approved by ORCHESTRATOR, 14.10. Criterion 14 narrowed per the DECISION REQUEST default; questions 1–3 at their defaults.
 
 **Author:** DATA ARCHITECT · 14.10.2026 · **Gate 2**, approved by ORCHESTRATOR (nothing here is irreversible or reserved;
 see "Reversible?"). Tags: `[PG]` standard PostgreSQL behaviour · `[A]` assumption, with the test that proves it.
@@ -293,3 +293,159 @@ database-counter limiter, it is a separate table and Gate 2 (a guest-side counte
 approved definer function — that choice belongs to that gate).
 
 No BLOCKER. No new SECURITY DEFINER, no service_role, no BYPASSRLS, no column about a minor beyond the spec.
+
+---
+
+## Amendment 1 — CRITIC part a finding 1 (DATA ARCHITECT, 14.10.2026)
+
+Source: `.work/register-account-create/findings.md`, finding 1 and its concern. This falls within DATA ARCHITECT's
+decision rights (grants and constraints, given the chosen enforcement layer). It makes authorization stricter. It
+changes no field's meaning, no policy and no behaviour the spec approves. Nothing here is reserved. The migration has
+not been applied outside CI, so it is edited in place and gets no new file.
+
+**Decision: grant INSERT per column.** Table-level INSERT is rejected and is **not** recorded as the convention.
+
+Why:
+- **Rule 13 (and rule 12) hold in the database, not in the server.** Under a table-level grant, only part b's strict
+  body schema protects `id` and `created_at`, and every later write path (I2 edit, trackers, posts) would copy that.
+  With column grants, a statement that *names* `id`, `user_id`, `created_at`, `accepted_at` or
+  `regular_profiles.account_type` is refused by privilege (42501, `permission denied for table …`). The check runs when
+  the executor starts `[PG]`, before any row or constraint is evaluated. The value does not matter and no unique index
+  is consulted, so the **23505-vs-42501 oracle is gone**: a client-chosen id is refused the same way whether it exists
+  or not.
+- **The cost is small now and large later.** Today it is five grant lines and some test changes. Once rows and copied
+  repositories exist, every table must be re-granted and every insert rewritten.
+- **The policies stay unchanged**, as a second fence. No runtime statement can reach the owner clauses (`= auth.uid()`)
+  or `accepted_at = now()` any more, because no granted column carries those values. They stay because they cost
+  nothing and still hold if a later grant is widened by mistake. `users_insert_own`'s `account_type`/`status` pins and
+  every `is_active_account()` gate remain the **first** fence, because those columns are granted.
+
+**Drizzle behaviour, checked in the source** (`node_modules/drizzle-orm/pg-core/dialect.js`, `buildInsertQuery`,
+drizzle-orm 0.45.4). Drizzle builds the column list from **every** column of the table object it inserts into, except
+generated-always columns. A column the caller leaves out is sent as the keyword `default` (or as its `$defaultFn`
+value). Naming a column in an INSERT needs INSERT privilege on that column, even when its value is `DEFAULT` `[PG]`.
+So `tx.insert(children).values({...})` through today's read-side `children` object would send
+`"id", "user_id", …, "created_at"` and fail with 42501. **The repository must insert through an object that names
+only the granted columns.** The drift check allows this. `apps/server/scripts/drift.ts` compares only the columns
+Drizzle names, and `legalConsents` already leaves out `accepted_at` for the same reason. Rejected: marking `id` as
+"generated always" in Drizzle to hide it. That type would lie about the column.
+
+`INSERT … RETURNING` needs SELECT on the returned columns. SELECT is granted at table level on all five tables. The row
+must also pass the SELECT policy, and every new row does. Part b needs no RETURNING, because registration returns no row
+ids. A later feature that needs a generated id back (for example I2's "add a child") returns it with
+`.returning({ id: children.id })`, using the read-side column. `[A]` It renders as plain `"id"` without naming `id` in
+the column list. That feature's integration test proves this; it is not assumed here.
+
+### The exact grants (replace section 6 of the migration)
+
+```sql
+-- 6. Grants — authenticated only. SELECT per table; INSERT per column, only on the columns the server sends, so id,
+--    user_id, created_at, accepted_at and regular_profiles.account_type always take their defaults (platform rules
+--    12, 13). No UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER to anyone.
+grant select on table nestly.journey_contexts, nestly.children, nestly.legal_consents to authenticated;
+
+grant insert (account_type, status)                                 on table nestly.users            to authenticated;
+grant insert (full_name, gender)                                    on table nestly.regular_profiles to authenticated;
+grant insert (stage, due_date)                                      on table nestly.journey_contexts to authenticated;
+grant insert (slot, name, sex, birth_date)                          on table nestly.children         to authenticated;
+grant insert (terms_version, privacy_version, has_declared_18_plus) on table nestly.legal_consents   to authenticated;
+```
+
+| table | INSERT granted | never granted (default always applies) |
+|---|---|---|
+| `users` | `account_type`, `status` | `id` (`auth.uid()`), `created_at` |
+| `regular_profiles` | `full_name`, `gender` | `user_id` (`auth.uid()`), `account_type` (`'regular'`), `created_at` |
+| `journey_contexts` | `stage`, `due_date` | `id`, `user_id`, `created_at` |
+| `children` | `slot`, `name`, `sex`, `birth_date` | `id`, `user_id`, `created_at` |
+| `legal_consents` | `terms_version`, `privacy_version`, `has_declared_18_plus` | `id`, `user_id`, `accepted_at` |
+
+`gender` is nullable. Leaving it out of the statement gives NULL, which means "not given" (F1.1).
+
+The users row's id is still `auth.uid()` by default, so 23505 on `users_pkey` remains the only "already registered"
+signal, and it can fire only for the caller's own id.
+
+### BUILDER — migration and code (part a branch)
+
+1. `supabase/migrations/20261014200000_registration_account.sql`: replace section 6 (lines 112–114) with the block
+   above. Add to the header comment, after the write-order lines: "INSERT is granted per column: identifiers, owners
+   and clocks are never named by a runtime statement (rules 12, 13); the repository inserts through write-model
+   objects that name only the granted columns." Optionally, the five `*_insert_own` policy comments can say "second
+   fence" for the owner and clock clauses. The policy text does not change.
+2. `supabase/rollback/20261014200000_registration_account.down.sql`: no change. `revoke insert on table …` also revokes
+   the column privileges `[PG]`, and the up → down → up fingerprint (it includes `attacl`) proves it. Line 42 revokes on
+   `users` and `regular_profiles` only, which is enough because the three new tables are dropped.
+3. `apps/server/src/db/schema.ts`: add five write-model objects. Each has exactly the granted columns, with the same
+   types and nullability: `usersInsert` · `regularProfilesInsert` · `journeyContextsInsert` · `childrenInsert` ·
+   `legalConsentsInsert`, each `nestly.table('<same table>', { … })`. Give each the comment "INSERT target only. Names
+   exactly the columns granted INSERT (migration 20261014200000 §6); Drizzle names every column of the object it
+   inserts into." The read-side objects stay as they are. The CI drift check covers the write models automatically.
+   **Part b's repository inserts only through the `*Insert` objects.**
+
+### TEST ENGINEER — test changes (part a branch)
+
+**File 20 (`20_registration_structure.sql`)**
+- Lines ~240–244, "authenticated can INSERT into all five tables": replace it with two assertions.
+  (a) `has_table_privilege('authenticated', c.oid, 'INSERT')` is true on **no** `nestly` table (the list is empty).
+  (b) The exact column-INSERT set. Take `string_agg(relname || '.' || attname order by relname, attnum)` over the
+  columns where `has_column_privilege('authenticated', c.oid, a.attnum, 'INSERT')`. It must equal
+  `children.slot, children.name, children.sex, children.birth_date, journey_contexts.stage, journey_contexts.due_date,
+  legal_consents.terms_version, legal_consents.privacy_version, legal_consents.has_declared_18_plus,
+  regular_profiles.full_name, regular_profiles.gender, users.account_type, users.status`. Exact equality, so an added
+  column grant fails the test.
+- Lines ~252–258, "no column-level grant exists on any nestly table": replace it with "the only column-level ACL entries
+  in `nestly` are INSERT for `authenticated` on the 13 columns above". `attacl is not null` on exactly those 13
+  columns, and for each one `aclexplode(attacl)` yields only (grantee `authenticated`, privilege `INSERT`). No role has
+  column-level SELECT, UPDATE or REFERENCES on any column.
+- Add: none of the never-granted columns holds INSERT. Name each one: `users.id`, `users.created_at`,
+  `regular_profiles.user_id`, `regular_profiles.account_type`, `regular_profiles.created_at`, and
+  `id`/`user_id`/`created_at` (`accepted_at` on consents) on the three new tables. `has_column_privilege(..., 'INSERT')`
+  must be false for each. Tag `[F1.4-a c14 rules 12, 13 · CRITIC a-1]`.
+- The assertion "only id, user_id and the clock column have defaults" (line ~94) stays. It is now what lets the
+  ungranted columns be filled at all.
+
+**File 10 (`10_identity_structure.sql`)**
+- Lines 329–336, "authenticated can INSERT into users and regular_profiles": the `has_table_privilege(..., 'INSERT')`
+  count becomes 0. Replace it with "no table-level INSERT on either". The exact column set lives in file 20. Keep a
+  single exact-set assertion, so the list has one source.
+- Lines 338–344 stay as they are.
+
+**File 12 (`12_identity_writes_refused.sql`)**
+- Line 36's label becomes "… (INSERT was granted by F1.4 per column — account_type, status / full_name, gender — and
+  is bounded by the policies)".
+- The attacks at lines 46–55, 89–93 and 111–121 still expect 42501 and still pass. Most now fail by privilege because
+  they name `id` or `user_id`. Keep them. The policy-reaching attacks that use granted columns only (`account_type`
+  admin, status suspended) are already in file 21 as `f3`. Cite them in a comment rather than duplicating them.
+
+**Fence-specific assertions (files 21, 22).** `tests.dml_as` returns only `ERR:<sqlstate>`, and both fences raise 42501.
+The finding is about *which* fence holds, so a subset of the tests must assert the message too. You choose the
+mechanism, for example a variant `tests.dml_as_msg` that returns `ERR:<sqlstate>:<sqlerrm>`. Required:
+- **Privilege fence** (`permission denied for table <t>`):
+  - file 21: the client-sent `id` on users (lines ~209–215), `user_id` on each dependent table (~234–246), and the
+    explicit `accepted_at` (~249–253);
+  - file 21 line ~290: `regular_profiles.account_type = 'professional'` now fails by privilege, and its label should
+    say so;
+  - file 22: lines 131–133 and 157.
+- **Policy fence** (`new row violates row-level security policy for table <t>`):
+  - the users `account_type`/`status` pins (file 21, ~196–206);
+  - the status gate (a profile before the users row; the `s`/`x` inserts in file 22);
+  - no claims on users.
+- The explicit-NULL cases (`id = null`, `accepted_at = null`) now fail by privilege only. Tighten
+  `in ('ERR:42501', 'ERR:23502')` to the privilege message.
+- **Add the oracle test (CRITIC a-1).** As `f1`, run `insert into nestly.children (id, slot, name, sex, birth_date)`
+  twice: (i) with the id of one of `b`'s **existing** children, and (ii) with a fresh `gen_random_uuid()`. Both must
+  return the identical `ERR:42501:permission denied for table children`, never 23505, and `fx_state()` must be
+  unchanged.
+
+**Part b (carried in its spec, not part a):** the repository-level creation test (finding 2) runs every write through
+the `*Insert` objects against the CI database. It also proves that each write model matches the grants, since a mismatch
+is 42501 on the first registration. No extra drift machinery is needed.
+
+### Proposed convention for `.claude/knowledge/data-model.md` (needs a different validator: CRITIC)
+
+Add one row to "Schema conventions — DECIDED", after "Status gate placement":
+
+```
+| Write grants | INSERT (and, when it comes, UPDATE) is granted **per column**, only on the columns the client's data fills. Identifiers, owner columns, clocks and pinned columns are never granted, so their defaults always apply: rules 12–13 are held by privilege, and the policy's WITH CHECK is the second fence. SELECT stays table-level. In Drizzle every write goes through a write-model object (`<table>Insert`) in `schema.ts` that names exactly the granted columns: Drizzle names every column of the object it inserts into, and naming an ungranted column is 42501. Decided F1.4 part a (CRITIC finding 1) |
+```
+
+It is promoted after CRITIC validates it and the branch is merge-ready, together with this unit's "Entities" update.

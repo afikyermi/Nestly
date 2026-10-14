@@ -237,11 +237,62 @@ select is(
   'children, journey_contexts, legal_consents, regular_profiles, users',
   '[F1.4-a c14] authenticated can SELECT all five tables');
 
+-- Amendment 1 (CRITIC a-1): INSERT is granted per COLUMN, never per table.
+select is_empty(
+  $$ select c.relname from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'nestly' and c.relkind in ('r', 'p') and has_table_privilege('authenticated', c.oid, 'INSERT') $$,
+  '[F1.4-a c14 rules 12, 13 · CRITIC a-1] authenticated holds no table-level INSERT on any nestly table (only per-column INSERT)');
+
 select is(
-  (select string_agg(c.relname, ', ' order by c.relname) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'nestly' and c.relkind = 'r' and has_table_privilege('authenticated', c.oid, 'INSERT')),
-  'children, journey_contexts, legal_consents, regular_profiles, users',
-  '[F1.4-a c14] authenticated can INSERT into all five tables');
+  (select string_agg(c.relname || '.' || a.attname, ', ' order by c.relname, a.attnum)
+     from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+     join pg_catalog.pg_attribute a on a.attrelid = c.oid
+    where n.nspname = 'nestly' and c.relkind in ('r', 'p') and a.attnum > 0 and not a.attisdropped
+      and has_column_privilege('authenticated', c.oid, a.attnum, 'INSERT')),
+  'children.slot, children.name, children.sex, children.birth_date, journey_contexts.stage, journey_contexts.due_date, '
+  || 'legal_consents.terms_version, legal_consents.privacy_version, legal_consents.has_declared_18_plus, '
+  || 'regular_profiles.full_name, regular_profiles.gender, users.account_type, users.status',
+  '[F1.4-a c14 rules 12, 13 · CRITIC a-1] authenticated can INSERT exactly these 13 columns and no others');
+
+select is(
+  (select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+     join pg_catalog.pg_attribute a on a.attrelid = c.oid
+    where n.nspname = 'nestly' and c.relkind in ('r', 'p') and a.attnum > 0 and not a.attisdropped and a.attacl is not null),
+  13::bigint,
+  '[F1.4-a c14 rules 12, 13 · CRITIC a-1] exactly 13 columns in nestly carry a column-level ACL');
+
+select is_empty(
+  $$ select c.relname || '.' || a.attname || ':' || x.grantee::text || ':' || x.privilege_type
+       from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+       join pg_catalog.pg_attribute a on a.attrelid = c.oid, lateral pg_catalog.aclexplode(a.attacl) x
+      where n.nspname = 'nestly' and c.relkind in ('r', 'p') and a.attnum > 0 and not a.attisdropped
+        and not (x.privilege_type = 'INSERT' and x.grantee = (select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated')) $$,
+  '[F1.4-a c14 · CRITIC a-1] every column-level ACL entry is INSERT to authenticated: no column-level SELECT, UPDATE or REFERENCES, no other grantee');
+
+select is_empty(
+  $$ select v.t || '.' || v.col
+       from (values ('users', 'id'), ('users', 'created_at'),
+                    ('regular_profiles', 'user_id'), ('regular_profiles', 'account_type'), ('regular_profiles', 'created_at'),
+                    ('journey_contexts', 'id'), ('journey_contexts', 'user_id'), ('journey_contexts', 'created_at'),
+                    ('children', 'id'), ('children', 'user_id'), ('children', 'created_at'),
+                    ('legal_consents', 'id'), ('legal_consents', 'user_id'), ('legal_consents', 'accepted_at')) as v(t, col)
+       join pg_catalog.pg_class c on c.relname = v.t
+       join pg_catalog.pg_namespace n on n.oid = c.relnamespace and n.nspname = 'nestly'
+       join pg_catalog.pg_attribute a on a.attrelid = c.oid and a.attname = v.col
+      where has_column_privilege('authenticated', c.oid, a.attnum, 'INSERT') $$,
+  '[F1.4-a c14 rules 12, 13 · CRITIC a-1] none of the never-granted columns holds INSERT: identifiers, owners, clocks and regular_profiles.account_type always take their defaults');
+
+select is(
+  (select count(*) from (values ('users', 'id'), ('users', 'created_at'),
+                    ('regular_profiles', 'user_id'), ('regular_profiles', 'account_type'), ('regular_profiles', 'created_at'),
+                    ('journey_contexts', 'id'), ('journey_contexts', 'user_id'), ('journey_contexts', 'created_at'),
+                    ('children', 'id'), ('children', 'user_id'), ('children', 'created_at'),
+                    ('legal_consents', 'id'), ('legal_consents', 'user_id'), ('legal_consents', 'accepted_at')) as v(t, col)
+     join pg_catalog.pg_class c on c.relname = v.t
+     join pg_catalog.pg_namespace n on n.oid = c.relnamespace and n.nspname = 'nestly'
+     join pg_catalog.pg_attribute a on a.attrelid = c.oid and a.attname = v.col),
+  14::bigint,
+  '[F1.4-a c14 · CRITIC a-1 control] all 14 never-granted columns exist (the previous test is not vacuous)');
 
 select is_empty(
   $$ select c.relname || ':' || p.priv
@@ -254,8 +305,10 @@ select is_empty(
   $$ select c.relname || '.' || a.attname
        from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
        join pg_catalog.pg_attribute a on a.attrelid = c.oid
-      where n.nspname = 'nestly' and c.relkind in ('r', 'p') and a.attnum > 0 and not a.attisdropped and a.attacl is not null $$,
-  '[F1.4-a c14] no column-level grant exists on any nestly table (nothing narrower hides a column UPDATE)');
+      where n.nspname = 'nestly' and c.relkind in ('r', 'p') and a.attnum > 0 and not a.attisdropped
+        and (has_column_privilege('authenticated', c.oid, a.attnum, 'UPDATE')
+             or has_column_privilege('authenticated', c.oid, a.attnum, 'REFERENCES')) $$,
+  '[F1.4-a c14 criterion 14 amended] no column of any nestly table can be UPDATEd or REFERENCEd by authenticated');
 
 select is_empty(
   $$ select c.relname || ':' || r.rolname

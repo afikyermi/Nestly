@@ -326,14 +326,14 @@ select is(
   2::bigint,
   '[F1.1-b c12] authenticated can SELECT both tables (the policies then narrow it to its own row)');
 
--- F1.4 part a: INSERT is granted on both (schema.md "Grants"); still no UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER.
+-- F1.4 part a (Amendment 1): INSERT is granted per COLUMN, never per table. The exact column list lives in file 20 (one source).
 select is(
   (select count(*) from pg_catalog.pg_class c
      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname in ('users', 'regular_profiles')
       and has_table_privilege('authenticated', c.oid, 'INSERT')),
-  2::bigint,
-  '[F1.4-a c14] authenticated can INSERT into users and regular_profiles (registration writes the account)');
+  0::bigint,
+  '[F1.4-a c14 CRITIC a-1] authenticated holds no table-level INSERT on users or regular_profiles (column-level only; see file 20)');
 
 select is(
   (select count(*) from pg_catalog.pg_class c
