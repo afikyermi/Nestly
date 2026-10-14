@@ -66,6 +66,22 @@ async function one(query: PromiseLike<ReadonlyArray<Record<string, unknown>>>): 
 const journeys = (id: string) => one(side`select tests.fx_journeys(${id}::uuid) as v`);
 const childrenOf = (id: string) => one(side`select tests.fx_children(${id}::uuid) as v`);
 const consentOf = (id: string) => one(side`select tests.fx_consent(${id}::uuid) as v`);
+/** 'terms/privacy/declared' only. The 4th field of fx_consent (accepted_at = now()) is true only inside the inserting transaction. */
+async function consentVersions(id: string): Promise<string> {
+  return (await consentOf(id)).split('/').slice(0, 3).join('/');
+}
+async function clock(): Promise<number> {
+  const [row] = await side`select (extract(epoch from clock_timestamp()) * 1000)::float8 as ms`;
+  const ms: unknown = row?.ms;
+  if (typeof ms !== 'number') throw new Error('clock_timestamp did not return a number');
+  return ms;
+}
+async function consentTime(id: string): Promise<number> {
+  const [row] = await side`select (extract(epoch from tests.fx_consent_at(${id}::uuid)) * 1000)::float8 as ms`;
+  const ms: unknown = row?.ms;
+  if (typeof ms !== 'number') throw new Error('the consent has no accepted_at');
+  return ms;
+}
 const profileOf = (id: string) => one(side`select tests.fx_profile(${id}::uuid) as v`);
 const userOf = (id: string) => one(side`select tests.fx_user(${id}::uuid) as v`);
 
@@ -150,11 +166,16 @@ describe('[F1.4-b c8 c10] a registration is written whole, under the new user\'s
     expect(await journeys(id)).toBe('has_child:null ; planning:null');
   });
 
-  it('[F1.4-b c8] the consent is stored with the database clock and the declaration true', T, async () => {
+  it('[F1.4-b c8] the consent holds the declaration true and a time within 5 s of the request (the database\'s clock: pgTAP 21/23 prove a named accepted_at is refused)', T, async () => {
     const id = await freshUser();
+    const before = await clock();
     await createRegistration(database, { userId: id }, step1());
-    const stored = await consentOf(id);
-    expect(stored.endsWith('/true/true'), `consent row: ${stored}`).toBe(true);
+    const after = await clock();
+    expect(await consentVersions(id)).toBe(`${CONSENT_TERMS_VERSION}/${CONSENT_PRIVACY_VERSION}/true`);
+    const at = await consentTime(id);
+    expect(at, 'accepted_at is not before the request').toBeGreaterThanOrEqual(before - 5000);
+    expect(at, 'accepted_at is not after the response').toBeLessThanOrEqual(after + 5000);
+    expect(at - before, 'accepted_at within 5 s of the request').toBeLessThan(5000);
   });
 
   it('[F1.4-b c8] hostile text in the names is stored as data', T, async () => {
@@ -182,14 +203,14 @@ describe('[F1.4-b c9] the consent versions come from the shared constants, not f
   it('[F1.4-b c9] the stored versions equal CONSENT_TERMS_VERSION and CONSENT_PRIVACY_VERSION', T, async () => {
     const id = await freshUser();
     await createRegistration(database, { userId: id }, step1());
-    expect(await consentOf(id)).toBe(`${CONSENT_TERMS_VERSION}/${CONSENT_PRIVACY_VERSION}/true/true`);
+    expect(await consentVersions(id)).toBe(`${CONSENT_TERMS_VERSION}/${CONSENT_PRIVACY_VERSION}/true`);
   });
 
   it('[F1.4-b c9] changing the constants changes what the next registration stores, with no other edit', T, async () => {
     const service = await serviceWithVersions('terms-test-9', 'privacy-test-9');
     const id = await freshUser();
     expect(await service.createRegistration(database, { userId: id }, step1())).toEqual({ kind: 'created' });
-    expect(await consentOf(id)).toBe('terms-test-9/privacy-test-9/true/true');
+    expect(await consentVersions(id)).toBe('terms-test-9/privacy-test-9/true');
   });
 });
 

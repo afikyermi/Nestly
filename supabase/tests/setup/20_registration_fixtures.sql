@@ -79,6 +79,12 @@ as $$
   from nestly.legal_consents l where l.user_id = p_id
 $$;
 
+-- accepted_at of one user's consent rows (earliest first), unfiltered by RLS. For tests in a LATER transaction than the insert
+-- (the server integration tests), where fx_consent's `accepted_at = now()` is necessarily false.
+create or replace function tests.fx_consent_at(p_id uuid) returns timestamptz
+language sql security definer set search_path = ''
+as $$ select min(l.accepted_at) from nestly.legal_consents l where l.user_id = p_id $$;
+
 -- 'stage:due_date' per journey of one user, ordered by stage; '-' when none.
 create or replace function tests.fx_journeys(p_id uuid) returns text
 language sql security definer set search_path = ''
