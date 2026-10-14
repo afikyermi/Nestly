@@ -114,6 +114,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-14 | F1.4 Gate 2 amendment: INSERT granted per column; the server inserts through `*Insert` write models | 10 |
 | 2026-10-14 | F1.4: the web calls Supabase Auth directly; `POST /api/register` writes the account for the new session (Afik; supersedes DR-1) | 10 |
 | 2026-10-14 | Waiting on Afik: keep working on independent work, one side track at most, resume points in WORKPLAN (workflow 1.13) | 10 |
+| 2026-10-14 | Tests from F1.5: depth by type (🔴/🎨/🟡), one layer per behaviour, Chrome-only PRs, blocking visual regression, ≤2× soft ceiling (Afik) | 10 |
 
 ## Superseded
 
