@@ -8,7 +8,7 @@
   equal to `{"status":"ok"}` (jq). Protected `/api/anything`: 401 with `{"error":"unauthenticated"}` or 503 with
   `{"error":"unavailable"}`; anything else fails.
 - `tools/preview-shot.mjs`: same shape as `tools/db-preview.mjs`. Exports `parseSecret`, `readSecret`,
-  `checkTarget`, `parseArgs`, `envFilePath`, `scrubber`, `Refused` and the constants. `PREVIEW_SHOT_ENV_FILE`
+  `checkTarget`, `createRouteHandler`, `parseArgs`, `envFilePath`, `scrubber`, `Refused` and the constants. `PREVIEW_SHOT_ENV_FILE`
   overrides the secret file path.
 
 **Decisions**
@@ -16,8 +16,13 @@
   the server's own answer. Observed on 14.10: a wrong bypass makes Vercel answer **302** to vercel.com/login, so with
   a bad secret both checks fail (fail closed).
 - The URL rule is the deployment-URL shape Vercel posts (`nestly-<hash>-afikyermis-projects.vercel.app`, seen on the
-  GitHub deployment statuses) plus branch aliases `nestly-git-<branch>-…`. The tool also accepts the production alias
+  GitHub deployment statuses), with a hyphen-free hash. The tool also accepts the production alias
   `nestly-blue.vercel.app`; the workflow does not (it never runs on Production).
+- Fix after review (CRITIC, high): the first rule allowed hyphens, so it matched a team whose slug ends in
+  `-afikyermis-projects`, and branch aliases are ambiguous (`nestly-git-x-evil-afikyermis-projects`). Branch aliases
+  are now refused in both; use the unique deployment URL.
+- Fix after review (medium): the route handler is the exported factory `createRouteHandler(targetOrigin, secret)`,
+  so a test can pass a fake route. No behaviour change.
 - curl takes the header from stdin so the secret is never in a process argument list.
 - The job-level `if` also requires `creator.login == 'vercel[bot]'`, so a deployment status posted by anyone else does
   not run a step holding the secret.

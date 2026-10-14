@@ -45,9 +45,10 @@ jobs:
             echo "::error::the VERCEL_AUTOMATION_BYPASS_SECRET repository secret is empty or missing"
             exit 1
           fi
-          # A deployment of this project: nestly-<hash or git-branch>-afikyermis-projects.vercel.app. The character
-          # class has no dot, slash, colon or @, so no other host can match.
-          url_rule='^https://nestly-[a-z0-9-]+-afikyermis-projects\.vercel\.app/?$'
+          # The unique deployment URL of this project: nestly-<hash>-afikyermis-projects.vercel.app. The hash has no
+          # hyphen, dot, slash, colon or @, so neither another host nor a team whose slug ends in -afikyermis-projects
+          # matches. Branch aliases (nestly-git-<branch>-...) are refused: a hyphenated branch makes the team ambiguous.
+          url_rule='^https://nestly-[a-z0-9]+-afikyermis-projects\.vercel\.app/?$'
           if ! [[ "${TARGET_URL}" =~ $url_rule ]]; then
             echo "::error::the deployment URL is not an https deployment URL of the nestly project; nothing was sent"
             exit 1

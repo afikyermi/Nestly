@@ -10,7 +10,7 @@
 //
 // Where the secret goes:
 //   - only as the x-vercel-protection-bypass header, never in a URL;
-//   - only to a deployment of the nestly project (https, nestly-…-afikyermis-projects.vercel.app, or the production
+//   - only to a deployment of the nestly project (https, nestly-<hash>-afikyermis-projects.vercel.app, or the production
 //     alias), and only on requests to the origin of the URL given. Every request of the page passes through one route:
 //     a request to that origin is fetched by Playwright with the header and without following redirects, so the header
 //     cannot ride a redirect to another host; a request to any other origin goes out untouched. (Playwright's
@@ -33,9 +33,10 @@ const ENV_FILE_VAR = 'PREVIEW_SHOT_ENV_FILE';
 const SECRET_KEY = 'VERCEL_AUTOMATION_BYPASS_SECRET';
 const BYPASS_HEADER = 'x-vercel-protection-bypass';
 const COOKIE_HEADER = 'x-vercel-set-bypass-cookie';
-// A deployment URL of the project: nestly-<hash>-afikyermis-projects.vercel.app or nestly-git-<branch>-…, as Vercel
-// posts them. The character class has no dot, so no other host can match.
-const DEPLOYMENT_HOST = /^nestly-[a-z0-9-]+-afikyermis-projects\.vercel\.app$/;
+// The unique deployment URL of the project, as Vercel posts it: nestly-<hash>-afikyermis-projects.vercel.app. The hash
+// has no hyphen, so a team whose slug merely ends in -afikyermis-projects does not match. Branch aliases
+// (nestly-git-<branch>-…) are not accepted: a hyphenated branch name makes the team slug ambiguous.
+const DEPLOYMENT_HOST = /^nestly-[a-z0-9]+-afikyermis-projects\.vercel\.app$/;
 const PRODUCTION_HOST = 'nestly-blue.vercel.app';
 // Viewport width -> height. The screenshot is full-page, so the height only shapes the first paint.
 const VIEWPORTS = new Map([
@@ -127,6 +128,33 @@ function scrubber(secret) {
   };
 }
 
+/**
+ * The route every request of the page passes through. A request to `targetOrigin` is fetched with the bypass and
+ * cookie headers and without following redirects, then fulfilled; a request to any other origin (another host, or
+ * http on the same host) continues untouched. A failed fetch aborts the request; its error is not kept, since its
+ * call log lists the request headers.
+ */
+function createRouteHandler(targetOrigin, secret) {
+  return async (route) => {
+    const request = route.request();
+    let origin = '';
+    try {
+      origin = new URL(request.url()).origin;
+    } catch {
+      origin = '';
+    }
+    if (origin !== targetOrigin) return route.continue();
+    try {
+      const headers = { ...request.headers(), [BYPASS_HEADER]: secret, [COOKIE_HEADER]: 'true' };
+      const response = await route.fetch({ headers, maxRedirects: 0 });
+      return await route.fulfill({ response });
+    } catch {
+      // The request fails in the page (and the navigation, if it was the page itself).
+      return route.abort('failed');
+    }
+  };
+}
+
 async function shoot({ target, out, width, secret }) {
   // Playwright's debug log prints request headers. It reads these when it loads, so they go before the import.
   for (const name of ['DEBUG', 'DEBUG_FILE', 'PWDEBUG', 'PW_DEBUG']) delete process.env[name];
@@ -135,25 +163,7 @@ async function shoot({ target, out, width, secret }) {
   try {
     // Service workers are blocked: a request a service worker makes would not pass through the route below.
     const context = await browser.newContext({ viewport: { width, height: VIEWPORTS.get(width) }, serviceWorkers: 'block' });
-    await context.route('**/*', async (route) => {
-      const request = route.request();
-      let origin = '';
-      try {
-        origin = new URL(request.url()).origin;
-      } catch {
-        origin = '';
-      }
-      if (origin !== target.origin) return route.continue();
-      try {
-        const headers = { ...request.headers(), [BYPASS_HEADER]: secret, [COOKIE_HEADER]: 'true' };
-        const response = await route.fetch({ headers, maxRedirects: 0 });
-        return await route.fulfill({ response });
-      } catch {
-        // The request fails in the page (and the navigation, if it was the page itself). The error is not kept: its
-        // call log lists the request headers.
-        return route.abort('failed');
-      }
-    });
+    await context.route('**/*', createRouteHandler(target.origin, secret));
     const page = await context.newPage();
     const response = await page.goto(target.href, { waitUntil: 'networkidle', timeout: NAVIGATION_TIMEOUT_MS });
     await page.screenshot({ path: out, fullPage: true });
@@ -210,6 +220,7 @@ export {
   SECRET_KEY,
   Refused,
   checkTarget,
+  createRouteHandler,
   envFilePath,
   parseArgs,
   parseSecret,
