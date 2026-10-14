@@ -1,6 +1,7 @@
 # CI for Nestly (WORKPLAN 7.1). Public repo: no secrets are used or needed.
 # Locally, `npm run ci` runs typecheck, lint, tokens:check, check:stories, test and build in this order.
-# `build-storybook` and `test:browser` are their own jobs. `db` needs Docker and runs in CI only.
+# `build-storybook` and `test:browser` are their own jobs; they run only when the web app, the shared package or their
+# tooling changed (job `changes`). `db` needs Docker and runs in CI only.
 name: CI
 
 on:
@@ -20,6 +21,47 @@ env:
   NPM_CONFIG_FUND: "false"
 
 jobs:
+  # Which jobs the change needs (Afik 14.10, "CI once per part"). A skipped job still reports, as "skipped", which a
+  # required check counts as passing: so the filter is a job-level `if`, never a workflow-level `paths:`. Fail-safe:
+  # every push to main, and any pull request whose changed files cannot be read, runs everything. Be conservative: a
+  # missed run is worse than an extra one.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      # A pull request is checked out as a merge commit: HEAD^1 is the base, so the diff is what the merge would change.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - id: filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -eu
+          web=true
+          if [ "${EVENT_NAME}" = pull_request ]; then
+            # --no-renames lists both paths of a move, so a file moved out of apps/web still counts.
+            if git rev-parse --verify --quiet 'HEAD^2' >/dev/null && files="$(git diff --no-renames --name-only 'HEAD^1' HEAD)"; then
+              web=false
+              while IFS= read -r file; do
+                case "${file}" in
+                  apps/web/*|packages/shared/*|e2e/*|playwright.config.ts|tsconfig.playwright.json|tsconfig.base.json) web=true ;;
+                  package.json|package-lock.json|.nvmrc|.github/workflows/ci.yml) web=true ;;
+                  tools/serve-static.mjs|tools/build-design-tokens.js|tools/check-stories.mjs) web=true ;;
+                esac
+              done <<< "${files}"
+              echo "changed files:"
+              echo "${files}"
+            else
+              echo "::notice::could not read the changed files: running everything"
+            fi
+          fi
+          echo "web=${web}" >> "${GITHUB_OUTPUT}"
+          echo "browser and storybook run: ${web}"
+
   typecheck:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -84,6 +126,8 @@ jobs:
 
   # The static gallery builds (UI wave 1, criterion 12). No Chromatic: plain files.
   storybook:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -99,6 +143,8 @@ jobs:
 
   # Playwright on Chrome and Edge against the built gallery (SRS NFR-QA-001).
   browser:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -110,6 +156,14 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      # The cache key is the Playwright version in the lockfile; the install below is idempotent and fills what is missing.
+      - id: playwright
+        run: |
+          echo "version=$(node -p "require('./package-lock.json').packages['node_modules/playwright'].version")" >> "${GITHUB_OUTPUT}"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
       - run: npx playwright install --with-deps chrome msedge
       - run: npm run test:browser
       - uses: actions/upload-artifact@v4
