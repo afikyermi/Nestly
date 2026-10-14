@@ -4,7 +4,8 @@
 const SECRET_PREFIX = `sb_${'secret'}_`;
 const SECRET_ROLE = `${'service'}_${'role'}`;
 
-export function isSecretKey(value: string): boolean {
+export function isSecretKey(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
   const key = value.trim();
   if (key.startsWith(SECRET_PREFIX)) return true;
   const payload = key.split('.')[1];

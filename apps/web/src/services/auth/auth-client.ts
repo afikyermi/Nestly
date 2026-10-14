@@ -39,11 +39,12 @@ function configFromEnvironment(): AuthClientConfig | undefined {
   const publishableKey: unknown = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   if (typeof url !== 'string' || typeof publishableKey !== 'string') return undefined;
   if (url.trim() === '' || publishableKey.trim() === '') return undefined;
-  if (isSecretKey(publishableKey)) return undefined; // never start a client with a secret key
   return { url: url.trim().replace(/\/+$/, ''), publishableKey: publishableKey.trim() };
 }
 
-export function createAuthPort(config: AuthClientConfig | undefined = configFromEnvironment()): AuthPort {
+export function createAuthPort(given: AuthClientConfig | undefined = configFromEnvironment()): AuthPort {
+  // One guard for every way a key enters the client: a secret key means "not configured", never a network call.
+  const config = given !== undefined && isSecretKey(given.publishableKey) ? undefined : given;
   let client: GoTrueClient | null = null;
 
   // Built on the first sign-up, so opening the registration screen makes no call and holds no client.
