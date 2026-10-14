@@ -8,7 +8,7 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run --exclude \"tests/db/**\"",
-    "test:db": "vitest run tests/db/",
+    "test:db": "vitest run --no-file-parallelism tests/db/",
     "db:drift": "tsx --conditions=source scripts/db-drift.ts"
   },
   "dependencies": {
