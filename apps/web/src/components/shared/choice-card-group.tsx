@@ -8,18 +8,34 @@ export interface ChoiceOption {
   description?: string;
 }
 
-export interface ChoiceCardGroupProps {
+interface ChoiceCardGroupBaseProps {
   legend: string;
-  /** The radio group name. */
+  /** The input group name. */
   name: string;
   options: ChoiceOption[];
-  value?: string | null;
   error?: boolean;
   disabled?: boolean;
   /** Id of the caller's error message (or hint). */
   'aria-describedby'?: string | undefined;
+}
+
+export interface SingleChoiceCardGroupProps extends ChoiceCardGroupBaseProps {
+  multiple?: false;
+  value?: string | null;
   onChange?: (value: string) => void;
 }
+
+export interface MultiChoiceCardGroupProps extends ChoiceCardGroupBaseProps {
+  /** Several cards can be ticked: native checkboxes, no arrow-key movement. */
+  multiple: true;
+  values: readonly string[];
+  /** Pairs of option values never ticked together: ticking one unticks the other. */
+  exclusivePairs?: readonly (readonly [string, string])[];
+  /** The new ticked values, in option order. */
+  onChange?: (values: string[]) => void;
+}
+
+export type ChoiceCardGroupProps = SingleChoiceCardGroupProps | MultiChoiceCardGroupProps;
 
 // Which way the page reads: the nearest dir attribute, else the document's.
 function isRtl(element: HTMLElement): boolean {
@@ -27,14 +43,34 @@ function isRtl(element: HTMLElement): boolean {
   return own === 'rtl';
 }
 
-// Compact variant: single choice, radio semantics in a fieldset with a legend. The selected card
-// shows a check mark, a 2px primary border and primary-strong text, never the pastel alone.
-// Arrow keys move the selection; in RTL, Right goes to the previous card and Left to the next.
-export function ChoiceCardGroup({ legend, name, options, value, error, disabled, 'aria-describedby': describedBy, onChange }: ChoiceCardGroupProps) {
+// The ticked values after one card is toggled: it flips, and when it turns on its partner in an exclusive pair is unticked.
+function toggled(
+  options: ChoiceOption[],
+  values: readonly string[],
+  pairs: readonly (readonly [string, string])[],
+  changed: string,
+): string[] {
+  const turnsOn = !values.includes(changed);
+  const partners = pairs.flatMap(([a, b]) => (a === changed ? [b] : b === changed ? [a] : []));
+  return options
+    .map((option) => option.value)
+    .filter((v) => (v === changed ? turnsOn : values.includes(v) && !(turnsOn && partners.includes(v))));
+}
+
+// Compact variant: radio semantics (single) or checkbox semantics (multiple) in a fieldset with a legend. The selected card
+// shows a check mark, a 2px primary border and primary-strong text, never the pastel alone. In multiple mode the mark is a
+// rounded square, not a circle.
+// Single: arrow keys move the selection; in RTL, Right goes to the previous card and Left to the next.
+// Multiple: every card is a tab stop and Space toggles it.
+export function ChoiceCardGroup(props: ChoiceCardGroupProps) {
+  const { legend, name, options, error, disabled, 'aria-describedby': describedBy } = props;
   const prefix = useId();
   const refs = useRef<(HTMLInputElement | null)[]>([]);
+  const multiple = props.multiple === true;
+  const value = props.multiple === true ? null : props.value;
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>, index: number) {
+    if (props.multiple === true) return;
     const rtl = isRtl(event.currentTarget);
     let step = 0;
     if (event.key === 'ArrowDown') step = 1;
@@ -47,23 +83,23 @@ export function ChoiceCardGroup({ legend, name, options, value, error, disabled,
     const target = options[next];
     if (target === undefined) return;
     refs.current[next]?.focus();
-    onChange?.(target.value);
+    props.onChange?.(target.value);
   }
 
   return (
     <fieldset
-      role="radiogroup"
+      role={multiple ? undefined : 'radiogroup'}
       disabled={disabled}
-      aria-invalid={error ? true : undefined}
+      aria-invalid={error && !multiple ? true : undefined}
       aria-describedby={describedBy}
       className="m-0 grid min-w-0 gap-2 border-0 p-0"
     >
       <legend className="mb-1.5 p-0 text-label text-foreground">{legend}</legend>
       {options.map((option, index) => {
         const id = `${prefix}-${index}`;
-        const selected = value === option.value;
-        // With nothing selected the first card is the tab stop, as in a native radio group.
-        const tabbable = selected || (value == null && index === 0);
+        const selected = props.multiple === true ? props.values.includes(option.value) : value === option.value;
+        // With nothing selected the first card is the tab stop, as in a native radio group. Checkboxes are all tab stops.
+        const tabbable = multiple || selected || (value == null && index === 0);
         return (
           <div key={option.value} className="relative">
             <input
@@ -71,12 +107,17 @@ export function ChoiceCardGroup({ legend, name, options, value, error, disabled,
                 refs.current[index] = node;
               }}
               id={id}
-              type="radio"
+              type={multiple ? 'checkbox' : 'radio'}
               name={name}
               value={option.value}
               checked={selected}
               tabIndex={tabbable ? 0 : -1}
-              onChange={() => onChange?.(option.value)}
+              // A plain fieldset cannot carry aria-invalid (only radiogroup can), so in multiple mode each checkbox does.
+              aria-invalid={error && multiple ? true : undefined}
+              onChange={() => {
+                if (props.multiple === true) props.onChange?.(toggled(options, props.values, props.exclusivePairs ?? [], option.value));
+                else props.onChange?.(option.value);
+              }}
               onKeyDown={(event) => onKeyDown(event, index)}
               className="peer sr-only"
             />
@@ -97,7 +138,8 @@ export function ChoiceCardGroup({ legend, name, options, value, error, disabled,
               <span
                 aria-hidden="true"
                 className={cn(
-                  'grid size-6 shrink-0 place-items-center rounded-full border-2',
+                  'grid size-6 shrink-0 place-items-center border-2',
+                  multiple ? 'rounded-sm' : 'rounded-full',
                   selected ? 'border-primary bg-primary text-primary-foreground' : 'border-input',
                 )}
               >

@@ -38,3 +38,13 @@ Typecheck and eslint pass. Nothing run against a DB or a test.
 
 **Preview path**  None for this pass.
 **Neighbouring**  None.
+
+## Pass b (criterion 6): multi-select mode
+
+- `ChoiceCardGroup` props are now a union: single (`multiple?: false`, `value`, `onChange(value)`; unchanged) and
+  multi (`multiple: true`, `values`, `exclusivePairs?`, `onChange(values)`). The exclusive-pair rule lives in the
+  group as data (a pair prop); the flow passes `[['planning','pregnant']]`. Values come back in option order.
+- Multi mode: checkboxes, all tab stops, no `role`, no arrow keys, mark is `rounded-sm`.
+- `aria-invalid` sits on each checkbox in multi mode, because a plain fieldset cannot carry it (radiogroup could).
+  Message link `aria-describedby` stays on the fieldset.
+- The Interactive story passes explicit props instead of spreading `args` (union typing). Multi stories: pass d.

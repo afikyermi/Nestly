@@ -27,7 +27,7 @@ export const Selected: Story = { args: { value: 'pregnant' } };
 export const Interactive: Story = {
   render: (args) => {
     const [value, setValue] = useState<string | null>('parent');
-    return <ChoiceCardGroup {...args} value={value} onChange={setValue} />;
+    return <ChoiceCardGroup legend={args.legend} name={args.name} options={args.options} value={value} onChange={setValue} />;
   },
 };
 
