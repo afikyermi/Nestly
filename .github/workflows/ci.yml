@@ -46,21 +46,25 @@ jobs:
           web=true
           db=true
           if [ "${EVENT_NAME}" = pull_request ]; then
-            # --no-renames lists both paths of a move, so a file moved out of apps/web still counts.
-            if git rev-parse --verify --quiet 'HEAD^2' >/dev/null && files="$(git diff --no-renames --name-only 'HEAD^1' HEAD)"; then
+            list="${RUNNER_TEMP}/changed-files"
+            # -z: NUL-separated, never quoted or escaped, so a path with odd characters is read as it is. It goes to a
+            # file because $(...) drops NULs. --no-renames lists both paths of a move (a file moved out of apps/web).
+            # git's exit status decides whether the list is trustworthy.
+            if git rev-parse --verify --quiet 'HEAD^2' >/dev/null && git diff -z --no-renames --name-only 'HEAD^1' HEAD > "${list}"; then
               web=false
               db=false
-              while IFS= read -r file; do
-                # `case` takes the first match, so what both jobs need sits on one line.
+              while IFS= read -r -d '' file; do
+                # `case` takes the first match, so what both jobs need sits on one line. A path that starts with a
+                # quote should not occur with -z; if one does, run everything.
                 case "${file}" in
-                  packages/shared/*|package-lock.json|tsconfig.base.json|.github/workflows/ci.yml) web=true; db=true ;;
-                  apps/web/*|e2e/*|playwright.config.ts|tsconfig.playwright.json|package.json|.nvmrc) web=true ;;
+                  '"'*|packages/shared/*|package-lock.json|tsconfig.base.json|.nvmrc|.github/workflows/ci.yml) web=true; db=true ;;
+                  apps/web/*|e2e/*|playwright.config.ts|tsconfig.playwright.json|package.json) web=true ;;
                   tools/serve-static.mjs|tools/build-design-tokens.js|tools/check-stories.mjs) web=true ;;
                   supabase/*|apps/server/*) db=true ;;
                 esac
-              done <<< "${files}"
+              done < "${list}"
               echo "changed files:"
-              echo "${files}"
+              tr '\0' '\n' < "${list}"
             else
               echo "::notice::could not read the changed files: running everything"
             fi
