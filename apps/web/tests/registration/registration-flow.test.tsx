@@ -1,16 +1,20 @@
-// F1.3 pass c: criteria 7 (no-children half), 9, 10, 11, 12 (placeholder), 13, 14, 15 (unit level).
+// F1.3 pass c: criteria 7 (no-children half), 9, 10, 11, 12 (placeholder), 13, 14, 15 (unit level); and the review
+// follow-up (findings.md 1): the three range texts through the UI.
 // Derived from .work/register-profile-step/spec.md and the interface given for pass c. Pass d (children) is not tested.
-// Runs from inside apps/web: `npx vitest run tests/registration/registration-flow.test.tsx`.
+// Runs from the repo root or from apps/web: `npx vitest run apps/web/tests/registration/registration-flow.test.tsx`.
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, useLocation, useNavigate } from 'react-router';
 import { REGISTRATION_ERROR_CODES } from '@nestly/shared';
 import { RegistrationFlow } from '@/features/registration/RegistrationFlow';
-import { errorTextFor } from '@/features/registration/error-texts';
+import { errorTextFor, registrationErrorTexts } from '@/features/registration/error-texts';
 import { mountAt } from '../app/util';
 
 const TODAY = '2026-10-14';
+// DR-1 window for TODAY, counted by hand: 14.10.2026 - 30 days = 14.9.2026; + 300 days = 10.8.2027 (D.M.YYYY, no leading zeros).
+const DUE_RANGE_TEXT = 'התאריך צריך להיות בין 14.9.2026 ל-10.8.2027';
+const GENERIC = 'משהו השתבש. אפשר לנסות שוב';
 const STEP2: { pathname: string; state: { registrationStep: number } } = { pathname: '/register', state: { registrationStep: 2 } };
 
 afterEach(() => vi.restoreAllMocks());
@@ -170,6 +174,28 @@ describe('F1.3 criterion 9 [AC-002 · ERR-003] invalid blocks the step, errors a
     await u.click(next());
     expect(document.body.textContent ?? '').not.toMatch(/Invalid|Required|Expected|String must|Too (small|big)|issue/i);
   });
+
+  it('[VAL-040 · ERR-003][review 1] a due date outside today-30..today+300 shows the range, built from the fixed today; the boundary day passes', async () => {
+    const u = user();
+    renderFlow();
+    await u.click(stage('בהריון'));
+    await u.type(nameField(), 'דנה כהן');
+    // 13.9.2026 is one day before the window (14.10.2026 - 31 days).
+    await u.type(dueField('יום'), '13');
+    await u.type(dueField('חודש'), '9');
+    await u.type(dueField('שנה'), '2026');
+    await u.click(next());
+    onStep1();
+    expect(dueField('יום')).toHaveAttribute('aria-invalid', 'true');
+    expect(describedText(dueField('יום'))).toContain(DUE_RANGE_TEXT);
+    expect(describedText(dueField('יום'))).not.toContain(GENERIC);
+
+    // 14.9.2026 is the first day inside the window.
+    await u.clear(dueField('יום'));
+    await u.type(dueField('יום'), '14');
+    await u.click(next());
+    onStep2();
+  });
 });
 
 describe('F1.3 criterion 10 [ERR-003 · ux-copy-he] error text map', () => {
@@ -183,14 +209,35 @@ describe('F1.3 criterion 10 [ERR-003 · ux-copy-he] error text map', () => {
     ['birth_date_invalid', 'התאריך אינו תקין. יש לבדוק יום, חודש ושנה'],
     ['birth_date_future', 'תאריך הלידה לא יכול להיות בעתיד'],
     ['due_date_partial', 'יש להשלים את התאריך או להשאיר אותו ריק'],
+    // Decided at the review (decisions/2026-10.md "F1.3 review"): the three range texts.
+    ['due_date_out_of_range', DUE_RANGE_TEXT],
+    ['child_name_length', 'שם צריך להכיל עד 60 תווים'],
+    ['birth_date_out_of_range', 'התאריך צריך להיות מ-1900 ואילך'],
   ];
-  it.each(DR4)('[ERR-003] %s -> the DR-4 text', (code, text) => {
-    expect(Reflect.apply(errorTextFor, undefined, [code])).toBe(text);
+  it.each(DR4)('[ERR-003] %s -> its text, for today 2026-10-14', (code, text) => {
+    expect(Reflect.apply(errorTextFor, undefined, [code, TODAY])).toBe(text);
   });
+
+  it('[ERR-003][review 1] the due-date range follows "today" (here 2024-03-01, a leap year: 31.1.2024 to 26.12.2024)', () => {
+    expect(Reflect.apply(errorTextFor, undefined, ['due_date_out_of_range', '2024-03-01'])).toBe(
+      'התאריך צריך להיות בין 31.1.2024 ל-26.12.2024',
+    );
+    const map: unknown = registrationErrorTexts(TODAY);
+    expect(typeof map).toBe('object');
+    expect(map).not.toBeNull();
+  });
+
+  it.each(['stage_invalid', 'stage_conflict', 'parent_gender_invalid', 'children_required', 'children_too_many', 'child_sex_invalid'])(
+    '[ERR-003] %s (a code the UI cannot produce) gets the generic message',
+    (code) => {
+      expect(Reflect.apply(errorTextFor, undefined, [code, TODAY])).toBe(GENERIC);
+    },
+  );
+
   it('[ERR-003] an unmapped code gets the generic message; no code ever yields an empty or English text', () => {
-    expect(Reflect.apply(errorTextFor, undefined, ['no_such_code'])).toBe('משהו השתבש. אפשר לנסות שוב');
+    expect(Reflect.apply(errorTextFor, undefined, ['no_such_code', TODAY])).toBe(GENERIC);
     for (const code of REGISTRATION_ERROR_CODES) {
-      const text: unknown = Reflect.apply(errorTextFor, undefined, [code]);
+      const text: unknown = Reflect.apply(errorTextFor, undefined, [code, TODAY]);
       expect(typeof text).toBe('string');
       expect(String(text).length).toBeGreaterThan(0);
       expect(String(text)).not.toMatch(/[A-Za-z]/);
