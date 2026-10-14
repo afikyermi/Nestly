@@ -23,6 +23,14 @@ begin
 end
 $$;
 
+do $$
+begin
+  if to_regclass('nestly.legal_consents') is not null then
+    raise exception 'run supabase/rollback/20261014200000_registration_account.down.sql first: the registration account migration is still applied';
+  end if;
+end
+$$;
+
 alter table nestly.users            no force row level security;
 alter table nestly.regular_profiles no force row level security;
 
