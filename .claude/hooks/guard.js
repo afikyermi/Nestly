@@ -321,11 +321,11 @@ function tokenNamesEnv(t) {
 const SEARCH_LETTERS = new Map([['grep', 'ABCDdefm'], ['egrep', 'ABCDdefm'], ['fgrep', 'ABCDdefm'], ['rg', 'ABCdEefgjMmrTt']]);
 const SEARCH_LONG = /^--(regexp|file|include|exclude(-dir|-from)?|(after-|before-)?context|max-(count|depth|columns|filesize)|i?glob|type(-not|-add)?|replace|encoding|threads|ignore-file|pre(-glob)?|label|devices|directories|binary-files|group-separator|sortr?)$/;
 
-// A jq program is text (".[]" is not a glob): jq's first non-option word, unless -f/--from-file anywhere before -- takes it from a file.
+// A jq program is text (".[]" is not a glob): jq's first non-option word, unless -f/--from-file anywhere takes it from a file
+// (-- may be an option's value, so it does not end the scan; a file named -f after a real -- fails closed).
 // Options that take two values (--arg name value) are skipped whole; their words stay checked as paths.
 function jqProgram(seg, k) {
-  const end = seg.includes('--') ? seg.indexOf('--') : seg.length;
-  if (seg.slice(k, end).some((t) => /^--from-file(=|$)/.test(t) || /^-[^-]*f/.test(t))) return [];
+  if (seg.slice(k).some((t) => /^--from-file(=|$)/.test(t) || /^-[^-]*f/.test(t))) return [];
   for (; k < seg.length && seg[k] !== '--'; k++) {
     const t = seg[k];
     if (/^--(arg|argjson|slurpfile|rawfile)$/.test(t)) k += 2;
