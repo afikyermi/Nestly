@@ -1,18 +1,22 @@
 // Tests for tools/preview-shot.mjs (Afik's decision 14.10.2026: preview access for checks).
 // Derived from the expected behaviour as handed to TEST ENGINEER, and from the exported interface used as a black box:
 //   the Vercel bypass secret travels only as the x-vercel-protection-bypass header - never in a URL, argv, log, output or
-//   artifact - and only to this project's Vercel hosts; every check fails closed.
+//   artifact - and only to this project's unique deployment host (nestly-<hash without hyphens>-afikyermis-projects
+//   .vercel.app) or the production alias nestly-blue.vercel.app; branch aliases and other slugs are refused; every check
+//   fails closed.
 //
 // Labels (the requirement the test asserts):
 //   [PS-1] parseSecret    [PS-2] readSecret refusals (no message carries the value)    [PS-3] envFilePath
 //   [PS-4] checkTarget    [PS-5] parseArgs                                              [PS-6] scrubber
 //   [PS-7] the command line, run as a child process: refusals exit 1, the secret never reaches an output, the URL is
 //          checked before the env file is read, nothing is sent or saved
+//   [PS-8] createRouteHandler: the header goes only to requests of the target origin, never follows a redirect, other
+//          origins continue untouched, a failed fetch aborts and keeps no message
+//   [PS-M] a mutation check: a handler that adds the header for every origin (or follows redirects) must fail [PS-8]
 // The real .env.vercel is never read: every test names its own temp file, with a fake marker as the secret.
 // Assumption about parseArgs: it takes the arguments after the script name, e.g. [url, out, '--width', '375'], and the
 // result has target (or url), out (resolved against the working directory) and width (a number, 1024 by default).
-// NOT covered here: that the header never rides to another origin or a redirect target while Playwright loads a page.
-// That needs an injectable fetch or a browser plus DNS control; nothing exported allows it (reported to the caller).
+// Assumption about createRouteHandler: it reads the request URL with route.request().url().
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -23,7 +27,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const shotPath = fileURLToPath(new URL('./preview-shot.mjs', import.meta.url));
 const shot = await import(pathToFileURL(shotPath).href);
-const { BYPASS_HEADER, COOKIE_HEADER, DEFAULT_ENV_FILE, ENV_FILE_VAR, SECRET_KEY, Refused, checkTarget, envFilePath, parseArgs, parseSecret, readSecret, scrubber } = shot;
+const { BYPASS_HEADER, COOKIE_HEADER, DEFAULT_ENV_FILE, ENV_FILE_VAR, SECRET_KEY, Refused, checkTarget, createRouteHandler, envFilePath, parseArgs, parseSecret, readSecret, scrubber } = shot;
 
 const KEY = 'VERCEL_AUTOMATION_BYPASS_SECRET';
 const MARK = 'FAKE-MARKER-SECRET-3b9d51e7';
@@ -46,8 +50,10 @@ const DEPLOY = 'https://nestly-abc123-afikyermis-projects.vercel.app';
 test('[PS-0] the exported constants are what the decision names (guards the tests below)', () => {
   assert.equal(SECRET_KEY, KEY);
   assert.equal(BYPASS_HEADER, 'x-vercel-protection-bypass');
+  assert.equal(COOKIE_HEADER, 'x-vercel-set-bypass-cookie');
   assert.equal(ENV_FILE_VAR, 'PREVIEW_SHOT_ENV_FILE');
   assert.equal(typeof Refused, 'function');
+  assert.equal(typeof createRouteHandler, 'function');
   assert.ok(new Refused('x') instanceof Error);
 });
 
@@ -164,9 +170,9 @@ test('[PS-3] envFilePath is PREVIEW_SHOT_ENV_FILE when set (as a path), otherwis
 
 const href = (u) => String(u.href ?? u);
 const ACCEPT = [
-  ['a deployment', DEPLOY, DEPLOY],
-  ['a deployment with a trailing slash', `${DEPLOY}/`, DEPLOY],
-  ['a branch deployment', 'https://nestly-git-feat-preview-access-afikyermis-projects.vercel.app', 'https://nestly-git-feat-preview-access-afikyermis-projects.vercel.app'],
+  ['a unique deployment', DEPLOY, DEPLOY],
+  ['a unique deployment with a trailing slash', `${DEPLOY}/`, DEPLOY],
+  ['another unique deployment (digits and letters)', 'https://nestly-9f8e7d6c5-afikyermis-projects.vercel.app', 'https://nestly-9f8e7d6c5-afikyermis-projects.vercel.app'],
   ['a deployment page with a path and query', `${DEPLOY}/feed?tab=new`, DEPLOY],
   ['the production alias', 'https://nestly-blue.vercel.app/', 'https://nestly-blue.vercel.app'],
 ];
@@ -180,6 +186,12 @@ for (const [what, raw, origin] of ACCEPT) {
 const REJECT = [
   ['plain http', `http://nestly-abc123-afikyermis-projects.vercel.app`],
   ['http on the production alias', 'http://nestly-blue.vercel.app'],
+  ['a branch alias (nestly-git-...)', 'https://nestly-git-feat-preview-access-afikyermis-projects.vercel.app'],
+  ['a branch alias with a short branch', 'https://nestly-git-main-afikyermis-projects.vercel.app'],
+  ['a branch alias with a path', 'https://nestly-git-main-afikyermis-projects.vercel.app/feed'],
+  ['a slug that merely ends in -afikyermis-projects', 'https://nestly-abc123-evil-afikyermis-projects.vercel.app'],
+  ['a branch-shaped slug that ends in -afikyermis-projects', 'https://nestly-git-x-evil-afikyermis-projects.vercel.app'],
+  ['a hash with a hyphen', 'https://nestly-abc-123-afikyermis-projects.vercel.app'],
   ['an attacker host with the project suffix in the query', 'https://nestly-x.evil.com/?-afikyermis-projects.vercel.app'],
   ['an appended .evil.com', `${DEPLOY}.evil.com`],
   ['an appended .evil.com with a path', `${DEPLOY}.evil.com/x`],
@@ -346,6 +358,174 @@ test('[PS-6] scrubber also catches the secret when it is the whole first line', 
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
+// createRouteHandler, driven with a fake Playwright route
+
+// A fake route that records every call. `fetchImpl` replaces the default fetch (which answers 200).
+function fakeRoute(url, fetchImpl) {
+  const calls = { fetch: [], fulfill: [], continue: [], abort: [] };
+  const base = { url: () => url, method: () => 'GET', headers: () => ({ accept: '*/*' }), postData: () => null, postDataBuffer: () => null, resourceType: () => 'document' };
+  const request = new Proxy(base, { get: (t, p) => (typeof p === 'symbol' ? undefined : p in t ? t[p] : () => undefined) });
+  const route = {
+    request: () => request,
+    fetch: async (...a) => {
+      calls.fetch.push(a);
+      return fetchImpl ? fetchImpl(...a) : { status: () => 200, headers: () => ({}), body: async () => Buffer.from('ok') };
+    },
+    fulfill: async (...a) => void calls.fulfill.push(a),
+    continue: async (...a) => void calls.continue.push(a),
+    abort: async (...a) => void calls.abort.push(a),
+  };
+  return { route, calls };
+}
+
+const SAME_ORIGIN = [DEPLOY, `${DEPLOY}/`, `${DEPLOY}/feed?tab=new`, `${DEPLOY}/assets/app.js`, `${DEPLOY}/api/health`];
+const OTHER_ORIGIN = [
+  ['another host', 'https://evil.example/x'],
+  ['another host that carries the project suffix', 'https://nestly-x.evil.com/?-afikyermis-projects.vercel.app'],
+  ['the target host with .evil.com appended', `${DEPLOY}.evil.com/x`],
+  ['a sibling deployment host', 'https://nestly-other1-afikyermis-projects.vercel.app/feed'],
+  ['a sibling *.vercel.app host', 'https://other-project.vercel.app/'],
+  ['the production alias while the target is a deployment', 'https://nestly-blue.vercel.app/'],
+  ['http on the same host', 'http://nestly-abc123-afikyermis-projects.vercel.app/x'],
+  ['the same host on another port', `${DEPLOY}:8443/x`],
+  ['a third-party font host', 'https://fonts.gstatic.com/s/a.woff2'],
+  ['a data URL', 'data:text/plain;base64,AAAA'],
+];
+
+// What a correct handler does. `make` is createRouteHandler or a broken stand-in.
+async function assertRouting(make) {
+  const handler = make(DEPLOY, MARK);
+  assert.equal(typeof handler, 'function');
+
+  for (const url of SAME_ORIGIN) {
+    const { route, calls } = fakeRoute(url);
+    await handler(route);
+    assert.equal(calls.fetch.length, 1, `${url}: fetch not called once`);
+    const opts = calls.fetch[0][0] ?? {};
+    assert.equal(opts.headers?.[BYPASS_HEADER], MARK, `${url}: the bypass header is missing`);
+    assert.equal(String(opts.headers?.[COOKIE_HEADER]), 'true', `${url}: the set-cookie header is missing`);
+    assert.strictEqual(opts.maxRedirects, 0, `${url}: redirects are not switched off`);
+    assert.equal(calls.fulfill.length, 1, `${url}: not fulfilled`);
+    assert.equal(calls.continue.length + calls.abort.length, 0, `${url}: also continued or aborted`);
+  }
+
+  for (const [what, url] of OTHER_ORIGIN) {
+    const { route, calls } = fakeRoute(url);
+    await handler(route);
+    assert.equal(calls.continue.length, 1, `${what}: not continued`);
+    assert.equal(calls.continue[0].length, 0, `${what}: continue() was given an argument (headers?)`);
+    assert.equal(calls.fetch.length + calls.fulfill.length + calls.abort.length, 0, `${what}: fetched, fulfilled or aborted`);
+    assert.ok(!JSON.stringify(calls).includes(MARK), `${what}: the secret appears in a call`);
+  }
+
+  const boom = new Error(`connect failed, call log: ${BYPASS_HEADER}: ${MARK}`);
+  const { route, calls } = fakeRoute(`${DEPLOY}/feed`, async () => {
+    throw boom;
+  });
+  await handler(route); // must resolve, not reject
+  assert.equal(calls.abort.length, 1, 'a failed fetch is not aborted');
+  assert.deepEqual(calls.abort[0], ['failed'], 'abort must be called with just the reason "failed", no message');
+  assert.equal(calls.fulfill.length + calls.continue.length, 0, 'a failed fetch was also fulfilled or continued');
+  // the fetch call itself legitimately carries the header; nothing else may carry the secret
+  assert.ok(!JSON.stringify([calls.abort, calls.fulfill, calls.continue]).includes(MARK), 'the secret appears in a call after a failed fetch');
+}
+
+test('[PS-8] createRouteHandler: the target origin is fetched with the bypass and cookie headers and no redirects; every other origin continues untouched; a failed fetch aborts without a message', async () => {
+  await assertRouting(createRouteHandler);
+});
+
+test('[PS-8] createRouteHandler does not print the secret or the fetch error when a fetch fails', async () => {
+  const seen = [];
+  const originals = {};
+  for (const m of ['log', 'error', 'warn', 'info', 'debug']) {
+    originals[m] = console[m];
+    console[m] = (...a) => void seen.push(a.map(String).join(' '));
+  }
+  try {
+    const { route } = fakeRoute(`${DEPLOY}/`, async () => {
+      throw new Error(`call log ${BYPASS_HEADER}: ${MARK}`);
+    });
+    await createRouteHandler(DEPLOY, MARK)(route);
+  } finally {
+    Object.assign(console, originals);
+  }
+  assert.ok(!seen.join('\n').includes(MARK), 'the handler logged the secret');
+});
+
+test('[PS-8] createRouteHandler is bound to the origin it was built for: a handler for the production alias sends nothing to a deployment', async () => {
+  const handler = createRouteHandler('https://nestly-blue.vercel.app', MARK);
+  const { route, calls } = fakeRoute(`${DEPLOY}/`);
+  await handler(route);
+  assert.equal(calls.fetch.length, 0);
+  assert.equal(calls.continue.length, 1);
+  assert.equal(calls.continue[0].length, 0);
+});
+
+// ---- mutation checks: a broken handler must fail the assertions above ------------------------------------------------
+const headersFor = (secret) => ({ [BYPASS_HEADER]: secret, [COOKIE_HEADER]: 'true' });
+const BROKEN_HANDLERS = [
+  [
+    'adds the header for every origin',
+    (origin, secret) => async (route) => {
+      try {
+        await route.fulfill({ response: await route.fetch({ headers: headersFor(secret), maxRedirects: 0 }) });
+      } catch {
+        await route.abort('failed');
+      }
+    },
+  ],
+  [
+    'continues other origins with the header attached',
+    (origin, secret) => async (route) => {
+      if (new URL(route.request().url()).origin !== origin) return route.continue({ headers: headersFor(secret) });
+      try {
+        await route.fulfill({ response: await route.fetch({ headers: headersFor(secret), maxRedirects: 0 }) });
+      } catch {
+        await route.abort('failed');
+      }
+    },
+  ],
+  [
+    'follows redirects on the target origin',
+    (origin, secret) => async (route) => {
+      if (new URL(route.request().url()).origin !== origin) return route.continue();
+      try {
+        await route.fulfill({ response: await route.fetch({ headers: headersFor(secret) }) });
+      } catch {
+        await route.abort('failed');
+      }
+    },
+  ],
+  [
+    'matches the origin by prefix, so the target host with .evil.com appended gets the header',
+    (origin, secret) => async (route) => {
+      if (!route.request().url().startsWith(origin)) return route.continue();
+      try {
+        await route.fulfill({ response: await route.fetch({ headers: headersFor(secret), maxRedirects: 0 }) });
+      } catch {
+        await route.abort('failed');
+      }
+    },
+  ],
+  [
+    'keeps the error message when a fetch fails',
+    (origin, secret) => async (route) => {
+      if (new URL(route.request().url()).origin !== origin) return route.continue();
+      try {
+        await route.fulfill({ response: await route.fetch({ headers: headersFor(secret), maxRedirects: 0 }) });
+      } catch (e) {
+        await route.abort(e.message);
+      }
+    },
+  ],
+];
+for (const [what, make] of BROKEN_HANDLERS) {
+  test(`[PS-M] the routing assertions fail for a handler that ${what}`, async () => {
+    await assert.rejects(() => assertRouting(make), undefined, 'the routing assertions did not notice the broken handler');
+  });
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
 // the command line, as a child process
 
 function cli(args, { file, cwd = fresh() } = {}) {
@@ -365,6 +545,8 @@ const REFUSED_RUNS = [
   ['http', ['http://nestly-abc123-afikyermis-projects.vercel.app', 'shot.png']],
   ['an attacker host', ['https://nestly-x.evil.com/?-afikyermis-projects.vercel.app', 'shot.png']],
   ['an appended .evil.com', [`${DEPLOY}.evil.com`, 'shot.png']],
+  ['a branch alias', ['https://nestly-git-feat-x-afikyermis-projects.vercel.app', 'shot.png']],
+  ['an attacker-shaped slug', ['https://nestly-abc123-evil-afikyermis-projects.vercel.app', 'shot.png']],
   ['userinfo', ['https://user:pw@nestly-abc123-afikyermis-projects.vercel.app', 'shot.png']],
   ['a port', [`${DEPLOY}:8443`, 'shot.png']],
   ['the bypass parameter in the query', [`${DEPLOY}/?x-vercel-protection-bypass=LEAKME-URL-9`, 'shot.png']],
