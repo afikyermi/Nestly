@@ -1,70 +1,52 @@
 # notes — preview access for checks (Afik, 14.10.2026)
 
 **Approach**
-- `.github/workflows/preview-smoke.yml`: on `deployment_status`, job runs only when state is `success`, environment
-  is `Preview` and the status creator is `vercel[bot]`. One step, no checkout, no install. It checks the target URL
-  against `^https://nestly-[a-z0-9-]+-afikyermis-projects\.vercel\.app/?$` before building any header, then makes two
-  GETs with curl reading the bypass header from stdin (`-H @-`), no `-L`, `--proto =https`. Health: 200 and body
-  equal to `{"status":"ok"}` (jq). Protected `/api/anything`: 401 with `{"error":"unauthenticated"}` or 503 with
-  `{"error":"unavailable"}`; anything else fails.
-- `tools/preview-shot.mjs`: same shape as `tools/db-preview.mjs`. Exports `parseSecret`, `readSecret`,
-  `checkTarget`, `createRouteHandler`, `parseArgs`, `envFilePath`, `scrubber`, `Refused` and the constants. `PREVIEW_SHOT_ENV_FILE`
-  overrides the secret file path.
+- `.github/workflows/preview-smoke.yml`: on `deployment_status` (state success, environment `Preview`, creator
+  `vercel[bot]`), one step: curl with the bypass header from stdin (`-H @-`), no `-L`, `--proto =https`. Health must be
+  200 with `{"status":"ok"}`; protected `/api/anything` 401 `unauthenticated` or 503 `unavailable`.
+- `tools/preview-shot.mjs`: screenshot of a protected preview; the secret goes only as a header, only to the target
+  origin, through one Playwright route (not extraHTTPHeaders), never printed.
+- After CRITIC (14.10, findings 1-4), this round: the secret reader has no default path; the target is confirmed against
+  GitHub before the secret is read; the server drops the bypass header; `shoot()`/`main()` take injected dependencies.
 
 **Decisions**
-- The protected check also matches the body, so a 401 from Vercel's protection (or its 302 to login) cannot pass for
-  the server's own answer. Observed on 14.10: a wrong bypass makes Vercel answer **302** to vercel.com/login, so with
-  a bad secret both checks fail (fail closed).
-- The URL rule is the deployment-URL shape Vercel posts (`nestly-<hash>-afikyermis-projects.vercel.app`, seen on the
-  GitHub deployment statuses), with a hyphen-free hash. The tool also accepts the production alias
-  `nestly-blue.vercel.app`; the workflow does not (it never runs on Production).
-- Fix after review (CRITIC, high): the first rule allowed hyphens, so it matched a team whose slug ends in
-  `-afikyermis-projects`, and branch aliases are ambiguous (`nestly-git-x-evil-afikyermis-projects`). Branch aliases
-  are now refused in both; use the unique deployment URL.
-- Fix after review (medium): the route handler is the exported factory `createRouteHandler(targetOrigin, secret)`,
-  so a test can pass a fake route. No behaviour change.
-- curl takes the header from stdin so the secret is never in a process argument list.
-- The job-level `if` also requires `creator.login == 'vercel[bot]'`, so a deployment status posted by anyone else does
-  not run a step holding the secret.
-- `--width` default 1024 (the brief gave the two values, not a default). Viewport heights 812 / 768; screenshot is
-  full-page, so the height only shapes the first paint.
-- The tool reports the status the given URL answered (first response of the redirect chain), not the final page:
-  with a rejected bypass the final page is Vercel's login, which answers 200.
-
-**Deviations**
-- Brief said `extraHTTPHeaders`. Not used: Playwright sends extraHTTPHeaders to every host the page loads from
-  (fonts, CDNs, a redirect target), and its `route.continue({ headers })` override also follows redirects. Instead
-  one `context.route('**/*')`: same-origin requests are fetched with `route.fetch({ headers, maxRedirects: 0 })` and
-  fulfilled; other origins `route.continue()` untouched. `serviceWorkers: 'block'` so nothing bypasses the route.
-- Extra refusals not in the brief: user/password or port in the URL; the bypass parameter in the query string; an
-  output name starting with `.env`; a secret that is not printable ASCII without spaces (header injection).
-- Exit 1 also when the page ended on another host (the bypass was not accepted).
+- Protected check matches the body too, so Vercel's own 401/302 cannot pass for the server's answer. A wrong bypass
+  makes Vercel answer 302 to its login: both checks fail (fail closed).
+- Hosts: unique deployment URL `nestly-<hash>-afikyermis-projects.vercel.app` (hyphen-free hash), no branch aliases;
+  production alias `nestly-blue.vercel.app` in the tool only.
+- Finding 1: `readSecret(file)` requires a path (TypeError without one). `envFilePath(env)` and `DEFAULT_ENV_FILE`
+  stay exported (a path, not a reader); only `main()` resolves the default.
+- Finding 3: `confirmTarget(target, lookup)` after the host pattern, before the secret: the origin must equal the
+  `environment_url` or `target_url` of a status by `vercel[bot]` on `afikyermi/Nestly`, among the last 40
+  deployments (newest first, statuses 10 each, early exit). `gh api` through execFile, no shell; candidates `gh`, then
+  `C:\Program Files\GitHub CLI\gh.exe` on Windows; ENOENT on all = Refused. Lookup failure or a non-list = Refused.
+- Finding 2: `plugins/strip-bypass-header.ts`, first `onRequest` hook (before authentication), deletes the header
+  from `raw.headers` and `raw.rawHeaders`. The logger is off by default and Fastify's request serializer logs no
+  headers. Seam: `buildApp({ logStream })` turns the logger on for a test.
+- Finding 4 seam: `shoot(args, launch = launchChromium)` clears DEBUG vars, then calls `launch()`; `main(argv, deps)`
+  returns the exit code, `deps` = env, lookup, launch, stdout, stderr. The CLI wrapper sets `process.exitCode`.
+- curl takes the header from stdin; `--width` default 1024; status reported is the first response of the chain.
+- Brief said `extraHTTPHeaders`: not used (sent to every host the page loads from; override follows redirects).
 
 **Deliberately not done**
-- No test files (TEST ENGINEER). No README/WORKPLAN changes.
-- The workflow has no retry on cold start.
+- Server tests for finding 2 and the finding-4 tests: the guard blocks BUILDER from writing test files. For TEST
+  ENGINEER: reflect `request.headers` and `raw.rawHeaders` in an `onSend` hook, send the header in two cases on a
+  public and a protected route, assert it is absent; build the app with `logStream` and assert no line holds the
+  value or the header name. (Checked by hand with tsx: header absent, nothing logged.)
+- Finding 5 (a deployed branch can bring its own workflow): accepted debt. Finding 6: check after the push.
 
 **Uncertain**
-- The key name in Afik's file: I assumed `VERCEL_AUTOMATION_BYPASS_SECRET=<value>` (export and quotes accepted). I
-  cannot read the file. If he wrote a bare value, the tool refuses with a message naming the expected line.
-- The success path with the real secret is untested: the file sits at the main checkout root, and the tool reads the
-  root of the checkout it runs from. Run with a fake secret against a live preview: status 302, exit 1, screenshot of
-  Vercel's login page, nothing printed beyond status/path/the off-host line.
-- Whether Vercel could ever let another account own a `*-afikyermis-projects.vercel.app` name. I believe the team
-  suffix is reserved; if not, the host rule is weaker than it looks.
-- Whether `deployment_status.environment` stays exactly `Preview` (seen on the last statuses). If Vercel changes it,
-  the job silently does not run — a skipped check, not a leak.
-- Playwright's handling of a fulfilled 3xx: observed working (the redirect to vercel.com was followed and the chain
-  was readable via `redirectedFrom`).
+- Whether Vercel's `target_url`/`environment_url` for a preview is always the unique deployment URL (seen on the last
+  statuses); if it is a branch alias, the tool refuses that alias anyway by the host pattern.
+- `gh` unauthenticated or rate-limited = the tool refuses (by design); the CLI tests in `preview-shot.test.mjs` that
+  reach the lookup now call the real `gh` (suite went from seconds to ~95 s).
 
 **Preview path**
-- Workflow: push the branch with an open PR → Vercel posts a Preview deployment_status → Actions → preview-smoke →
-  two lines `GET /api/health -> 200`, `GET /api/anything -> 401` (or 503 while auth config is missing in Vercel).
-  Note: deployment_status runs the workflow file from the deployed commit, so it only exists for commits that contain
-  it.
-- Tool (from the main checkout, where `.env.vercel` is):
-  `node tools/preview-shot.mjs https://<deployment>.vercel.app/ shot.png --width 375` → `status: 200`, `saved: shot.png`.
-  Needs the Playwright Chromium build (`npx playwright install chromium`) if it is not already installed.
+- Workflow: push with an open PR, Actions, preview-smoke: `GET /api/health -> 200`, `GET /api/anything -> 401`.
+- Tool, from the checkout holding the secret file: `node tools/preview-shot.mjs https://<deployment>.vercel.app/ shot.png --width 375`.
 
 **Neighbouring**
-- none
+- `tools/preview-shot.test.mjs:109`, [PS-2] asserts `readSecret()` with no argument reads PREVIEW_SHOT_ENV_FILE. That
+  contradicts finding 1 and now fails (TypeError). TEST ENGINEER to change; I did not touch the file.
+- The [PS-7] child-process tests with a valid-looking host now go through the real lookup; give them `main(argv,
+  { lookup })` instead.

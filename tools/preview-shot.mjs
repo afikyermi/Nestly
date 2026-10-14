@@ -6,12 +6,17 @@
 //
 // The bypass secret comes from .env.vercel at the repo root (VERCEL_AUTOMATION_BYPASS_SECRET=…). Afik fills it in;
 // agents cannot read it (settings.json denies it, and the guard hook blocks any shell command naming it). This script
-// never prints it: not on success, not in an error. PREVIEW_SHOT_ENV_FILE names another file instead (for tests).
+// never prints it: not on success, not in an error. PREVIEW_SHOT_ENV_FILE names another file instead (for tests). The
+// default path is resolved only when the tool runs; the exported reader takes an explicit path.
 //
 // Where the secret goes:
 //   - only as the x-vercel-protection-bypass header, never in a URL;
 //   - only to a deployment of the nestly project (https, nestly-<hash>-afikyermis-projects.vercel.app, or the production
-//     alias), and only on requests to the origin of the URL given. Every request of the page passes through one route:
+//     alias). The host pattern is a first filter and is not trusted on its own (Vercel does not document the
+//     `-afikyermis-projects` suffix as reserved): before the secret is read, the origin must also be the environment_url
+//     or target_url of a deployment status created by vercel[bot] on afikyermi/Nestly, among the last deployments,
+//     listed with `gh api` (no shell). The production alias needs no lookup. Without gh the tool refuses;
+//   - only on requests to the origin of the URL given. Every request of the page passes through one route:
 //     a request to that origin is fetched by Playwright with the header and without following redirects, so the header
 //     cannot ride a redirect to another host; a request to any other origin goes out untouched. (Playwright's
 //     extraHTTPHeaders would send it to every host the page loads from, so it is not used.)
@@ -23,9 +28,11 @@
 // more, or a page that ended on another host (a rejected bypass redirects to Vercel's login). The screenshot is still
 // saved in the last three cases, so the page that answered can be seen.
 
+import { execFile as execFileCallback } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { promisify } from 'node:util';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DEFAULT_ENV_FILE = path.join(ROOT, '.env.vercel');
@@ -45,6 +52,13 @@ const VIEWPORTS = new Map([
 ]);
 const DEFAULT_WIDTH = 1024;
 const NAVIGATION_TIMEOUT_MS = 45_000;
+// The GitHub lookup that confirms a non-production target (see the header comment).
+const REPO = 'afikyermi/Nestly';
+const VERCEL_BOT = 'vercel[bot]';
+const LOOKUP_DEPLOYMENTS = 40;
+const LOOKUP_STATUSES = 10;
+const GH_TIMEOUT_MS = 30_000;
+const GH_MAX_BUFFER = 5 * 1024 * 1024;
 
 /** A refusal or a usage error: its message is safe to print as it is. */
 class Refused extends Error {}
@@ -64,8 +78,13 @@ function parseSecret(text) {
   return line ? line.slice(line.indexOf('=') + 1).trim().replace(/^["']|["']$/g, '') : '';
 }
 
-/** Reads and checks the secret. Throws Refused; no message carries the file's content. */
-function readSecret(file = envFilePath()) {
+/**
+ * Reads and checks the secret in the file at `file`. The path is required: there is deliberately no default here, so
+ * importing this module and calling the reader cannot reach the real secret file. Throws Refused; no message carries
+ * the file's content.
+ */
+function readSecret(file) {
+  if (typeof file !== 'string' || file === '') throw new TypeError('readSecret needs an explicit file path.');
   const name = file === DEFAULT_ENV_FILE ? '.env.vercel' : file;
   if (!fs.existsSync(file)) throw new Refused(`${name} not found. Afik creates it with the line ${SECRET_KEY}=<value>.`);
   const secret = parseSecret(fs.readFileSync(file, 'utf8'));
@@ -95,6 +114,92 @@ function checkTarget(raw) {
     throw new Refused('refusing: the bypass goes in a header, never in the URL. Remove it from the query.');
   }
   return url;
+}
+
+/** The origin of a URL string, or '' when it is not a URL. */
+function originOf(text) {
+  try {
+    return new URL(String(text)).origin;
+  } catch {
+    return '';
+  }
+}
+
+/** The first line of a text, cut to 200 characters. */
+function firstLine(text) {
+  return String(text).split(/\r?\n/)[0].slice(0, 200);
+}
+
+/** Where gh may be: on PATH, and on Windows at its installer's default place. */
+function ghCandidates(platform = process.platform) {
+  return platform === 'win32' ? ['gh', 'C:\\Program Files\\GitHub CLI\\gh.exe'] : ['gh'];
+}
+
+/** True when `status` is a deployment status created by vercel[bot] whose environment_url or target_url is `origin`. */
+function isVercelStatusFor(status, origin) {
+  if (typeof status !== 'object' || status === null) return false;
+  const creator = status.creator;
+  if (typeof creator !== 'object' || creator === null || creator.login !== VERCEL_BOT) return false;
+  return [status.environment_url, status.target_url].some((u) => typeof u === 'string' && originOf(u) === origin);
+}
+
+/**
+ * The default lookup: `async (origin) => boolean`, true when a vercel[bot] deployment status of REPO, among the last
+ * LOOKUP_DEPLOYMENTS deployments (newest first), lists `origin`. It runs `gh api` through execFile, no shell. Throws
+ * Refused when gh is unavailable, fails, or answers something that is not a list.
+ * `execFile` (promisified, like node:util's) and `candidates` are injectable for tests.
+ */
+function createGhLookup({ execFile = promisify(execFileCallback), candidates = ghCandidates() } = {}) {
+  async function gh(endpoint) {
+    for (const file of candidates) {
+      let stdout;
+      try {
+        ({ stdout } = await execFile(file, ['api', endpoint], { encoding: 'utf8', timeout: GH_TIMEOUT_MS, maxBuffer: GH_MAX_BUFFER, windowsHide: true }));
+      } catch (e) {
+        if (e && e.code === 'ENOENT') continue;
+        const why = firstLine((e && (e.stderr || e.message)) || 'unknown error');
+        throw new Refused(`refusing: the deployments of ${REPO} could not be listed with gh (${why}). Run \`gh auth login\`.`);
+      }
+      let list;
+      try {
+        list = JSON.parse(stdout);
+      } catch {
+        list = null;
+      }
+      if (!Array.isArray(list)) throw new Refused(`refusing: gh did not answer a list for ${endpoint}.`);
+      return list;
+    }
+    throw new Refused('refusing: the GitHub CLI (gh) is not available, so the deployment cannot be confirmed. Install gh and run `gh auth login`.');
+  }
+
+  return async (origin) => {
+    const deployments = await gh(`repos/${REPO}/deployments?per_page=${LOOKUP_DEPLOYMENTS}`);
+    for (const deployment of deployments.slice(0, LOOKUP_DEPLOYMENTS)) {
+      const id = typeof deployment === 'object' && deployment !== null ? deployment.id : undefined;
+      if (!Number.isSafeInteger(id) || id <= 0) continue;
+      const statuses = await gh(`repos/${REPO}/deployments/${id}/statuses?per_page=${LOOKUP_STATUSES}`);
+      if (statuses.some((status) => isVercelStatusFor(status, origin))) return true;
+    }
+    return false;
+  };
+}
+
+/**
+ * Confirms a target that passed checkTarget, before the secret is read: the production alias passes; any other origin
+ * must be listed by `lookup`. A lookup that fails, or answers anything but true, refuses (fail closed).
+ */
+async function confirmTarget(target, lookup) {
+  if (target.hostname.toLowerCase() === PRODUCTION_HOST) return;
+  let listed = false;
+  try {
+    listed = await lookup(target.origin);
+  } catch (e) {
+    if (e instanceof Refused) throw e;
+    throw new Refused(`refusing: the deployments of ${REPO} could not be listed.`);
+  }
+  if (listed !== true) {
+    throw new Refused(`refusing: no ${VERCEL_BOT} deployment status of ${REPO} lists this origin among the last ${LOOKUP_DEPLOYMENTS} deployments.`);
+  }
 }
 
 /** Parses the command line. Throws Refused on a usage error. */
@@ -155,11 +260,17 @@ function createRouteHandler(targetOrigin, secret) {
   };
 }
 
-async function shoot({ target, out, width, secret }) {
-  // Playwright's debug log prints request headers. It reads these when it loads, so they go before the import.
-  for (const name of ['DEBUG', 'DEBUG_FILE', 'PWDEBUG', 'PW_DEBUG']) delete process.env[name];
+/** The default browser launcher: Playwright's Chromium. Playwright loads here, after shoot() has cleared its debug variables. */
+async function launchChromium() {
   const { chromium } = await import('@playwright/test');
-  const browser = await chromium.launch();
+  return chromium.launch();
+}
+
+/** `launch` (async, returns a Playwright-shaped browser) is injectable for tests. */
+async function shoot({ target, out, width, secret }, launch = launchChromium) {
+  // Playwright's debug log prints request headers. It reads these when it loads, so they go before the launcher runs.
+  for (const name of ['DEBUG', 'DEBUG_FILE', 'PWDEBUG', 'PW_DEBUG']) delete process.env[name];
+  const browser = await launch();
   try {
     // Service workers are blocked: a request a service worker makes would not pass through the route below.
     const context = await browser.newContext({ viewport: { width, height: VIEWPORTS.get(width) }, serviceWorkers: 'block' });
@@ -179,37 +290,51 @@ async function shoot({ target, out, width, secret }) {
   }
 }
 
-async function main() {
-  const { url, out, width } = parseArgs(process.argv.slice(2));
-  const target = checkTarget(url);
-  const secret = readSecret();
+/**
+ * The whole run, returning the exit code instead of setting it. The env file path is resolved here and nowhere else.
+ * `deps` is for tests: env, lookup (see createGhLookup), launch (see shoot), stdout, stderr.
+ */
+async function main(argv, deps = {}) {
+  const env = deps.env ?? process.env;
+  const lookup = deps.lookup ?? createGhLookup();
+  const stdout = deps.stdout ?? process.stdout;
+  const stderr = deps.stderr ?? process.stderr;
+  let args;
+  let target;
+  let secret;
+  try {
+    args = parseArgs(argv);
+    target = checkTarget(args.url);
+    await confirmTarget(target, lookup);
+    secret = readSecret(envFilePath(env));
+  } catch (e) {
+    if (e instanceof Refused) stderr.write(`preview-shot: ${e.message}\n`);
+    else stderr.write(`preview-shot: unexpected error (${e && e.name ? e.name : 'Error'}); details withheld so the secret cannot leak.\n`);
+    return 1;
+  }
   const scrub = scrubber(secret);
   try {
-    const { status, left } = await shoot({ target, out, width, secret });
-    process.stdout.write(`status: ${status}\nsaved: ${path.relative(process.cwd(), out) || out}\n`);
-    if (left) process.stderr.write('preview-shot: the page ended on another host; the bypass was not accepted, or the app redirected away.\n');
-    if (left || status === 0 || status >= 400) process.exitCode = 1;
+    const { status, left } = await shoot({ target, out: args.out, width: args.width, secret }, deps.launch);
+    stdout.write(`status: ${status}\nsaved: ${path.relative(process.cwd(), args.out) || args.out}\n`);
+    if (left) stderr.write('preview-shot: the page ended on another host; the bypass was not accepted, or the app redirected away.\n');
+    return left || status === 0 || status >= 400 ? 1 : 0;
   } catch (e) {
-    process.stderr.write(`preview-shot: ${scrub(e && e.message ? e.message : 'unknown error')}\n`);
-    process.exitCode = 1;
+    stderr.write(`preview-shot: ${scrub(e && e.message ? e.message : 'unknown error')}\n`);
+    return 1;
   }
 }
 
 // Run only when invoked directly; tests import the functions below.
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   // Node's default report of a stray rejection prints the whole error, call log included.
-  process.on('unhandledRejection', (e) => {
+  const withheld = (e) => {
     process.stderr.write(`preview-shot: unexpected error (${e && e.name ? e.name : 'Error'}); details withheld so the secret cannot leak.\n`);
     process.exitCode = 1;
-  });
-  main().catch((e) => {
-    if (e instanceof Refused) {
-      process.stderr.write(`preview-shot: ${e.message}\n`);
-    } else {
-      process.stderr.write(`preview-shot: unexpected error (${e && e.name ? e.name : 'Error'}); details withheld so the secret cannot leak.\n`);
-    }
-    process.exitCode = 1;
-  });
+  };
+  process.on('unhandledRejection', withheld);
+  main(process.argv.slice(2)).then((code) => {
+    process.exitCode = code;
+  }, withheld);
 }
 
 export {
@@ -217,13 +342,21 @@ export {
   COOKIE_HEADER,
   DEFAULT_ENV_FILE,
   ENV_FILE_VAR,
+  LOOKUP_DEPLOYMENTS,
+  REPO,
   SECRET_KEY,
+  VERCEL_BOT,
   Refused,
   checkTarget,
+  confirmTarget,
+  createGhLookup,
   createRouteHandler,
   envFilePath,
+  ghCandidates,
+  main,
   parseArgs,
   parseSecret,
   readSecret,
   scrubber,
+  shoot,
 };
