@@ -13,7 +13,7 @@ const LINE = 'המסך הזה ייפתח בקרוב.';
 describe('Guest routes render their own placeholder (6, 2, 3)', () => {
   it.each([
     ['/login', 'התחברות'],
-    ['/register', 'הרשמה'],
+    ['/register', 'פרטים אישיים'], // F1.3: /register is registration step 1 (was the placeholder h1 "הרשמה")
     ['/auth/google', 'המשך עם Google'],
   ])('[F1.2 c6][c2][c3][FR-AUTH-001] %s shows the h1 %s and a back control', async (path, title) => {
     await mountAt(path);

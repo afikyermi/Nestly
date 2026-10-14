@@ -149,7 +149,7 @@ test.describe('Welcome', () => {
     await actionOf(page, CREATE).click();
     await expectUrl(page, '/register');
     expect(pathOf(page)).not.toMatch(/account|type/i);
-    await expect(h1Of(page)).toHaveText('הרשמה');
+    await expect(h1Of(page)).toHaveText('פרטים אישיים');
     await actionOf(page, 'חזרה').click();
     await expectUrl(page, '/');
     await expect(h1Of(page)).toHaveText(WELCOME_H1);

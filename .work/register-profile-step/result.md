@@ -1,0 +1,8 @@
+# Result — register-profile-step (I1 · F1.3)
+
+- **Execution:** Succeeded · **Quality:** Good — CRITIC (opus) Not Ready (1 high: three user-reachable errors showed the generic text; 2 medium: stale step-2 value after Back/edit/Forward, a duplicated error-line component; 6 low) → all fixed but 5 (field order decided and recorded) and 9 (debt, F1.4 Gate 2) → Validated with Concern.
+- **Planned vs actual:** spec revised 32 → 20 criteria; BUILDER ~750 lines in four passes on one branch, one PR. Test-fix rounds: ~10, most from tests written without seeing roles, labels and layout (→ speed-up decision, items 4–5 awaiting Afik).
+- **SRS trace:** FR-REG-002, FR-REG-003; AC-002, AC-017, AC-089, AC-090; VAL-001, VAL-005, VAL-006, VAL-039, VAL-040; ERR-003 (DR-4 + the three texts decided 14.10 — to the SRS at the next batch, with the field order as a change to R2).
+- **Evidence:** PR 22; CI all green on 9c77935 (browser 4 parallel jobs, 4–6 min). Local: web 488, server 165, shared 119, tools 1081/0 fail, Playwright 1921 on Chrome and Edge; pgTAP full-name parity green in CI.
+- **Preview (c20):** `tools/preview-shot.mjs` on nestly-1omjiwv4p-afikyermis-projects.vercel.app/register at 375 and 1024 (`.work/register-profile-step/preview/`): RTL, step indicator 1 of 2, stage cards → full name → parent gender (optional), one primary "המשך", no horizontal scroll. Opened states (children, errors) verified by E2E (axe, keyboard, layout at 375) and Storybook.
+- **Escapes found on the way:** the PR 21 test file CI never ran, and a missing space that silenced db-workflows (both fixed; escapes.md). A stale UI-wave e2e test broke on new multi-select stories — the whole browser suite now runs locally before every push.

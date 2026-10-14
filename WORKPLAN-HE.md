@@ -12,8 +12,9 @@
 
 **עודכן:** 14.10.2026 · **גרסת SRS:** 2.12 · **מצב:** בניית מוצר. מערך הסוכנים קפוא עד ש-I1 ממוזג (הכרעתך מ-13.10, `decisions.md`).
 
-- **🔄 כלי ה-Preview** (ענף `chore/preview-access`, לא מוזג): ‏`preview-smoke` ו-`tools/preview-shot.mjs`. ממצאי CRITIC 1–4 תוקנו (14.10): הסוד נקרא רק מנתיב מפורש; היעד חייב להופיע בסטטוס פריסה של vercel[bot] ב-repo; השרת מוחק את כותרת ה-bypass; ‏`shoot` ו-`main` ניתנים להזרקה. טסטים: כלים 335/335, שרת 165/165. ממצא 5 → `debt.md` (הכרעתך). ‏CRITIC (שתי בדיקות חוזרות): 1–4 נסגרו, ‏Validated with Concern (נשאר רק 5, ‏debt). נדחף כענף `chore/preview-access-v2` (אחרי rebase; ה-push הכפוי חסום). PR 21: ‏CI ירוק (14.10). ‏Vercel דילג על ה-build, כי ה-push קדם ל-PR (`tools/vercel-ignore.mjs`). push נוסף אחרי פתיחת ה-PR מפעיל Preview ואת `preview-smoke`. הבא: בדיקת ממצא 6, מיזוג.
-- **🔄 האצה** (ענף `chore/speed-up`, ‏14.10, בקשתך): ‏CI: ‏browser כ-matrix (Chrome/Edge × 2 shards); ‏Vercel בונה כל ענף עם PR פתוח; ‏vitest מהשורש. ממתין לאישורך: 4 — Edit והרצת טסטים ל-TEST ENGINEER, 5 — ‏interface.md, 6 — ‏jq ב-guard (`decisions.md`, ‏14.10).
+- **✅ כלי ה-Preview — מוזג** (PR 21, ‏`2d877b2`, ‏14.10; ‏`.work/preview-access/result.md`): ‏`preview-smoke` (רץ על כל Preview: ‏health ‏200, נתיב מוגן נכשל סגור) ו-`tools/preview-shot.mjs` (צילום Preview מוגן). השרת מוחק את כותרת ה-bypass. ‏CRITIC: ‏Validated with Concern; ‏1–4 נסגרו, 5 ב-debt, 6 אומת בריצה הראשונה.
+- **✅ F1.3 `register-profile-step` — מוזג** (PR 22, ‏14.10; ‏`.work/register-profile-step/result.md`): שלב 1 בהרשמה — שלב במסע, שם, מין ההורה, תאריך לידה משוער, ילדים 1–10; הנתונים בזיכרון הטאב בלבד. ‏CRITIC: ‏Validated with Concern (סכמה strict ב-F1.4 Gate 2, ‏debt). ה-Preview נבדק ב-375 וב-1024.
+- **✅ האצה — מוזג** (PR 23, ‏`a756931`, ‏14.10, בקשתך): ‏CI ‏browser כ-matrix (Chrome/Edge × 2 shards): ‏4–5 דק׳ במקום 16–18. ‏Vercel בונה כל ענף עם PR פתוח, בלי תלות בסדר push/PR. ‏vitest רץ מהשורש. ‏CRITIC: ‏Validated. **ממתין לאישורך:** 4 — Edit והרצת טסטים ל-TEST ENGINEER, 5 — ‏interface.md, 6 — ‏jq ב-guard (`decisions.md`, ‏14.10).
 - **✅ F1.2 `app-shell-guard` — מוזג** (PR 19, ‏`53b85d0`, ‏14.10; ‏`.work/app-shell-guard/result.md`): מסך Welcome, ‏AppShell, ‏RouteGuard ושכבת session. ‏CRITIC: ‏Validated with Concern, וארבעה ממצאים קלים נסגרו. ה-Preview נבדק על production אחרי המיזוג ב-375 וב-1024.
 - **ממתין להכרעה שלך:** אין. (14.10: סוד ה-bypass נשאר repository secret — הכרעתך, `decisions.md`; הסיכון הנותר ב-`debt.md`.)
 - **ממתין לך (סודות ופעולות):**
@@ -23,10 +24,10 @@
   4. **כשיידרש route שנוגע במסד (F1.4):** ‏`DATABASE_URL` של `app_server` ב-Vercel (‏transaction pooler, פורט 6543).
 - **פתוח, בלי הכרעה עכשיו:** החלטות המדיה M1–M6 לפני I5 · תקציב לביקורת משפטית לפני I9 · אם בניות ש-Vercel דילג עליהן נספרות במגבלה, עוברים ל-`git.deploymentEnabled`.
 - **התקדמות מוצר (שורה לכל סשן):**
-  - 14.10: ‏F1.1 הושלם, שלושה PRs מוזגו (15, 16, 17). הסכמה הראשונה הוחלה על preview, ו-pgTAP עבר 394/394. ‏F1.2 מוזג (PR 19). ‏Welcome חי ב-production, ואורח מנותב אליו.
+  - 14.10: ‏F1.1 הושלם, שלושה PRs מוזגו (15, 16, 17). הסכמה הראשונה הוחלה על preview, ו-pgTAP עבר 394/394. ‏F1.2 מוזג (PR 19). ‏Welcome חי ב-production, ואורח מנותב אליו. כלי ה-Preview מוזג (PR 21), ו-F1.3 נפתח. ‏F1.3 מוזג (PR 22). האצת CI מוזגה (PR 23).
 - **להמשך (מסירה ל-session הבא):**
-  1. **איפה עומדים:** ‏I1: ‏F1.1 ו-F1.2 מוזגו. ‏main ‏=`53b85d0`. ‏SRS ‏2.12. מערך הסוכנים קפוא עד סוף I1. ‏Production: ‏[nestly-blue.vercel.app](https://nestly-blue.vercel.app).
-  2. **הבא בתור (בסדר הזה):** (א) כלי ה-Preview: ‏CI של ה-PR מ-`chore/preview-access-v2`, בדיקת ממצא 6 ומיזוג. (ב) ‏F1.3: ה-spec (‏Gate 1 עבר) צריך איחוד מ-32 קריטריונים ל-20 לכל היותר, לפני BUILDER.
+  1. **איפה עומדים:** ‏I1: ‏F1.1, ‏F1.2 ו-F1.3 מוזגו; כלי ה-Preview והאצת ה-CI מוזגו. ‏SRS ‏2.12 (טקסטי ERR-003 וסדר השדות ממתינים למנת ה-SRS הבאה). מערך הסוכנים קפוא עד סוף I1, מלבד חריג ההאצה. ‏Production: ‏[nestly-blue.vercel.app](https://nestly-blue.vercel.app).
+  2. **הבא בתור:** ‏F1.4 (יצירת החשבון): ‏intake ו-spec. ב-Gate 2: סכמת שלב 1 strict וחסומה בגודל (‏debt). לפני push: כל חבילת הדפדפן מקומית. ממתין לאישורך: סעיפים 4–6 בהאצה.
   3. **בדרך:** שינוי קטן ב-`tools/critic-diff.mjs` (בלי package-lock, ‏noise, ‏incidents ו-.claude/logs) נכנס עם הפיצ'ר הבא. לפני F1.5: ‏PR אחד שסוגר את ה-debt שמסומן "חייב לפני F1.5", כמו הבדיקה של `is_active_account`.
   4. **פתוח אצלך:** הפריטים 1–4 ב"ממתין לך". אימתת ב-14.10: ‏Git Fork Protection פועל, ל-`db-production` יש reviewer חובה וכלל main-only, ו-Node ב-Vercel הוא 22.x.
   5. **כללי עבודה:** בדיקות מקומיות בין שלבים, ‏push אחד לכל חלק. ‏draft PR נפתח מיד אחרי ה-push הראשון של הענף, כי Vercel בונה Preview רק לענף עם PR פתוח. ה-diff ל-CRITIC רק דרך `tools/critic-diff.mjs`, ובלי נימוקי BUILDER בתדריך (‏incidents ‏14.10). ‏spec עד כ-150 שורות, וטסט אחד או שניים לכל קריטריון.

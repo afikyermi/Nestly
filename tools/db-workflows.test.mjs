@@ -555,6 +555,7 @@ test('[F1.1-b c2] every pgTAP file asserts session_user = app_server before anyt
       /^select\s+is\(\s*session_user::text\s*,\s*'app_server'/i,
       `${f}: its first assertion is not session_user = 'app_server'`,
     );
-    assert.match(raw, /\[F1\.1-[ab] c\d+/, `${f}: no test name carries a [F1.1-x cN] tag`);
+    // Any feature's tag: [F1.1-a c10], [F1.3-a c1], ... (the session_user-first and rollback checks above are unchanged).
+    assert.match(raw, /\[F\d+\.\d+-[a-z] c\d+/, `${f}: no test name carries a [Fn.n-x cN] tag`);
   }
 });

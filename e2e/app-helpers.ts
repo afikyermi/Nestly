@@ -30,7 +30,7 @@ export interface Route {
 export const GUEST_ROUTES: Route[] = [
   { path: '/', h1: WELCOME_H1, title: 'Nestly' },
   { path: '/login', h1: 'התחברות', title: 'התחברות · Nestly' },
-  { path: '/register', h1: 'הרשמה', title: 'הרשמה · Nestly' },
+  { path: '/register', h1: 'פרטים אישיים', title: 'פרטים אישיים · Nestly' },
   { path: '/auth/google', h1: GOOGLE, title: 'המשך עם Google · Nestly' },
 ];
 
