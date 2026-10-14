@@ -27,3 +27,9 @@ TEST ENGINEER Edit limited to test and .work paths; docs consistent otherwise.
 - 1, 2, 3 → BUILDER (guard), TEST ENGINEER (tests), CRITIC re-check.
 - 4 → ORCHESTRATOR (docs). 5 → ORCHESTRATOR (docs: ORCHESTRATOR checks interface.md before step 8; TEST ENGINEER does
   not edit it) + debt.md (a guard rule that blocks TEST ENGINEER writing interface.md, at the retro).
+
+## re-checks (CRITIC opus, 14.10) — appended by ORCHESTRATOR
+- Re-check 1: Validated with Concern — 2, 3, 4 closed; 5 closed as a process step (guard gap in debt.md); 1 closed for
+  the direct form, residual (medium): the from-file scan stopped at `--`, which can be an option's value.
+- Re-check 2: **Validated** — residual closed (guard.js scans seg.slice(k), ignoring `--`; tests guard-env.test.js:125-126).
+  Nothing open from 1–5.
