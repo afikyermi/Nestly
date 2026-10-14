@@ -172,3 +172,14 @@ role=alert, sr-only status, email dir=ltr, targets, axe) · design consistency �
 - TEST ENGINEER: unit 507 case; activeElement after a failed retry; read-only fields while a token is held; the DOM check
   no longer strips the password value; a build-guard test.
 - CRITIC re-checks only these five.
+
+## Re-check — CRITIC, F1.4 part c (91363a0, CI run 38648138325 green)
+
+```
+verdict: Validated — no findings. c-1 (status >= 500 → retry) · c-2 (email and password readOnly while a token is held;
+released on 409/401; חזרה drops the token → Q8) · c-3 (focus moves to the always-mounted submit button) · c-4
+(uncontrolled password via ref; PasswordInput sets no value) · c-5 (isSecretKey: sb_secret_ prefix or service_role JWT;
+never throws or prints; build-time via loadEnv in vite.config and runtime in createAuthPort for both paths): all CLOSED.
+The F1.1 credential scan skipping gitignored dist-e2e / storybook-static does not weaken it (checked against .gitignore;
+the guard source is still scanned).
+```
