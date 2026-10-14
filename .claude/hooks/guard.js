@@ -321,12 +321,13 @@ function tokenNamesEnv(t) {
 const SEARCH_LETTERS = new Map([['grep', 'ABCDdefm'], ['egrep', 'ABCDdefm'], ['fgrep', 'ABCDdefm'], ['rg', 'ABCdEefgjMmrTt']]);
 const SEARCH_LONG = /^--(regexp|file|include|exclude(-dir|-from)?|(after-|before-)?context|max-(count|depth|columns|filesize)|i?glob|type(-not|-add)?|replace|encoding|threads|ignore-file|pre(-glob)?|label|devices|directories|binary-files|group-separator|sortr?)$/;
 
-// A jq program is text (".[]" is not a glob): jq's first non-option word, unless -f/--from-file takes it from a file.
+// A jq program is text (".[]" is not a glob): jq's first non-option word, unless -f/--from-file anywhere before -- takes it from a file.
 // Options that take two values (--arg name value) are skipped whole; their words stay checked as paths.
 function jqProgram(seg, k) {
+  const end = seg.includes('--') ? seg.indexOf('--') : seg.length;
+  if (seg.slice(k, end).some((t) => /^--from-file(=|$)/.test(t) || /^-[^-]*f/.test(t))) return [];
   for (; k < seg.length && seg[k] !== '--'; k++) {
     const t = seg[k];
-    if (/^--from-file(=|$)/.test(t) || /^-[^-]*f/.test(t)) return [];
     if (/^--(arg|argjson|slurpfile|rawfile)$/.test(t)) k += 2;
     else if (/^(--indent|-L)$/.test(t)) k++;
     else if (!t.startsWith('-')) return [k];
@@ -376,8 +377,9 @@ const interpreterAt = (seg) => seg.findIndex((t) => INTERPRETER.test(commandName
 function segmentNamesEnv(seg, text, subst) {
   const [patterns, code] = [patternTokens(seg, subst), interpreterAt(seg)];
   const [from, to] = (code >= 0 && scriptOf(seg, code)) || [0, 0];
+  const jqText = /^(jq|gh)$/.test(commandName(seg)); // an exempt jq program is still scanned as text
   const asText = (k) => (text || (code >= 0 && k > code)) && (k < from || k >= to);
-  return seg.some((t, k) => (/\$\(|`/.test(t) && mentionsEnv(t)) || (!patterns.has(k) && (tokenNamesEnv(t) || (asText(k) && mentionsEnv(t)))));
+  return seg.some((t, k) => (/\$\(|`/.test(t) && mentionsEnv(t)) || (!patterns.has(k) && (tokenNamesEnv(t) || (asText(k) && mentionsEnv(t)))) || (patterns.has(k) && jqText && mentionsEnv(t)));
 }
 
 // A command with a pipe and an interpreter may feed it a script on stdin (echo "..." | node): every segment is then read
@@ -386,7 +388,7 @@ function namesEnvFile(command) {
   const win = String(command).replace(/\\(?=[^"'\\$`\n])/g, '/'); // parsed again, \ as a Windows path separator
   const segs = shellSegments(command).concat(shellSegments(win));
   const fed = /(?<![|>])\|(?!\|)/.test(command) && segs.some((s) => interpreterAt(s) >= 0);
-  return segs.some((s) => segmentNamesEnv(s, fed, /\$\(|`/.test(command))) || mentionsEnv(commandText(command, true));
+  return segs.some((s) => segmentNamesEnv(s, fed, fed || /\$\(|`/.test(command))) || mentionsEnv(commandText(command, true));
 }
 
 // A block of the kind Afik is told about at once (logged as rule r4-critical).
