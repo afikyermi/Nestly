@@ -25,7 +25,10 @@ function pgUrl(scheme: string, user: string, host: string, tail = '', password =
 }
 
 const TEXT_FILE = /\.(?:[cm]?[jt]sx?|json|jsonc|ya?ml|toml|env|example|sh)$|(?:^|[\\/])\.env[^\\/]*$/i;
-const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', '.vercel', '.turbo', '.next', '.vite', 'coverage', 'tests', '__tests__']);
+// Build output is generated from source and gitignored, so the scan reads the source it comes from, not the bundle: a bundle inlines the
+// assembled text of the key guard's marker (apps/web/src/services/auth/secret-key.ts builds it from parts on purpose). 'dist-e2e' and
+// 'storybook-static' are skipped by name; a test below proves both are gitignored, so no tracked source can hide in a skipped folder.
+const SKIP_DIRS = new Set(['node_modules', 'dist', 'dist-e2e', 'storybook-static', 'build', '.vercel', '.turbo', '.next', '.vite', 'coverage', 'tests', '__tests__']);
 const SKIP_FILES = new Set(['package-lock.json']);
 const MAX_BYTES = 1_000_000;
 
@@ -122,6 +125,22 @@ describe('[F1.1-c c27] the credential scan itself fires on what it is meant to f
     const files = filesUnderChecked().map((f) => relative(repoRoot, f).split(sep).join('/'));
     expect(files.length).toBeGreaterThan(0);
     expect(files).toContain('apps/server/package.json');
+  });
+});
+
+describe('[F1.1-c c27] the folders the scan skips are untracked build output or test code, not source', () => {
+  it('every skipped build-output folder is listed in .gitignore (so skipping it cannot hide tracked source)', () => {
+    const ignored = readFileSync(join(repoRoot, '.gitignore'), 'utf8')
+      .split(/\r?\n/)
+      .map((line) => line.trim().replace(/\/$/, ''));
+    const buildOutput = ['node_modules', 'dist', 'dist-e2e', 'storybook-static', 'build', '.vercel', 'coverage'];
+    expect(buildOutput.filter((name) => SKIP_DIRS.has(name) && !ignored.includes(name))).toEqual([]);
+  });
+
+  it('the scan still reads the web source that handles keys: the key guard module is in the checked set and passes without an exception', () => {
+    const files = filesUnderChecked().map((f) => relative(repoRoot, f).split(sep).join('/'));
+    expect(files).toContain('apps/web/src/services/auth/secret-key.ts');
+    expect(credentialProblems(readFileSync(join(repoRoot, 'apps/web/src/services/auth/secret-key.ts'), 'utf8'))).toEqual([]);
   });
 });
 

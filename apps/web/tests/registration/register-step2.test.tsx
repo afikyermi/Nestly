@@ -3,97 +3,43 @@
 //   - the Auth port is injected (AuthPortContext), the session entry too (SessionEntryContext); fetch is stubbed.
 //   - flow: step 1 is filled (planning + a name), "המשך", then step 2 is driven.
 // The Auth failure shape the mapping reads is { status, code, name } only (interface): a raw library message cannot reach the DOM.
-import { render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+// (Helpers are shared with register-step2-held-token.test.tsx: step2-helpers.tsx.)
+import { screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { MemoryRouter } from 'react-router';
-import { RegistrationFlow } from '@/features/registration/RegistrationFlow';
-import { AuthPortContext } from '@/hooks/use-auth-port';
-import { SessionEntryContext } from '@/hooks/use-session-entry';
 import type { AuthPort, SignUpResponse } from '@/services/auth/auth-client';
-
-const TODAY = '2026-10-14';
-const EMAIL = 'dana.cohen@example.com';
-const PASSWORD = 'correct horse 42';
-const TAKEN = 'לא ניתן להשלים את ההרשמה עם הפרטים האלה. אפשר להתחבר או לשחזר סיסמה';
-const RETRY = 'השמירה לא הצליחה. אפשר לנסות שוב';
-const RATE = 'בוצעו יותר מדי ניסיונות. אפשר לנסות שוב בעוד כמה דקות';
-const GENERIC = 'משהו השתבש. אפשר לנסות שוב';
-const PW_SHORT = 'הסיסמה צריכה להכיל לפחות 8 תווים';
-const NO_EMAIL = 'יש למלא כתובת אימייל';
-const BAD_EMAIL = 'כתובת האימייל אינה תקינה';
-const NO_CONSENT = 'יש לאשר את התנאים ואת הצהרת הגיל כדי להמשיך';
-const CONSENT_LABEL = 'אישור תנאי השימוש ומדיניות הפרטיות, והצהרה על גיל 18 ומעלה';
-const TOKEN = 'access-token-from-auth';
+import {
+  BAD_EMAIL,
+  EMAIL,
+  GENERIC,
+  NO_CONSENT,
+  NO_EMAIL,
+  PASSWORD,
+  PW_SHORT,
+  RATE,
+  RETRY,
+  TAKEN,
+  TOKEN,
+  alertWith,
+  bodyOf,
+  consentBox,
+  emailField,
+  fail,
+  fillStep2,
+  makePort,
+  ok,
+  passwordField,
+  retryButton,
+  stageBox,
+  stubRoute,
+  submit,
+  submitValid,
+  toStep2,
+  urlOf,
+  user,
+  waitAlert,
+} from './step2-helpers';
 
 afterEach(() => vi.restoreAllMocks());
-
-/** The URL text of a fetch input, narrowed (no default stringification of an object). */
-const urlOf = (input: RequestInfo | URL | undefined): string => (typeof input === 'string' ? input : input instanceof URL ? input.href : input instanceof Request ? input.url : '');
-/** The request body as text: the web sends a JSON string, anything else reads as empty and fails the test that expects JSON. */
-const bodyOf = (body: BodyInit | null | undefined): string => (typeof body === 'string' ? body : '');
-
-type Failure = { status: number | undefined; code: string | undefined; name: string | undefined };
-const ok = (accessToken = TOKEN): SignUpResponse => ({ accessToken, failure: null });
-const fail = (failure: Partial<Failure>): SignUpResponse => ({ accessToken: null, failure: { status: undefined, code: undefined, name: undefined, ...failure } });
-
-function makePort(...answers: Array<SignUpResponse | Error>) {
-  const queue = [...answers];
-  const signUp = vi.fn<AuthPort['signUp']>(() => {
-    const next = queue.length > 1 ? queue.shift() : queue[0];
-    if (next === undefined) return Promise.resolve(ok());
-    return next instanceof Error ? Promise.reject(next) : Promise.resolve(next);
-  });
-  const port: AuthPort = { signUp };
-  return { port, signUp };
-}
-
-function stubRoute(...statuses: Array<number | 'throw'>) {
-  const queue = [...statuses];
-  return vi.spyOn(globalThis, 'fetch').mockImplementation(() => {
-    const next = queue.length > 1 ? queue.shift() : queue[0];
-    if (next === 'throw') return Promise.reject(new TypeError('Failed to fetch'));
-    return Promise.resolve(new Response(next === 201 ? '{"status":"created"}' : '{"error":"x"}', { status: next ?? 201 }));
-  });
-}
-
-const user = () => userEvent.setup();
-const stageBox = (n: string) => within(screen.getByRole('group', { name: 'השלב במסע' })).getByRole('checkbox', { name: new RegExp(n) });
-const emailField = () => screen.getByRole('textbox', { name: 'אימייל' });
-const passwordField = () => screen.getByLabelText('סיסמה', { exact: true });
-const consentBox = () => screen.getByRole('checkbox', { name: CONSENT_LABEL });
-const submit = () => screen.getByRole('button', { name: 'יצירת חשבון' });
-const retryButton = () => screen.queryByRole('button', { name: 'ניסיון חוזר' });
-const alertWith = (text: string) => screen.queryAllByRole('alert').find((a) => (a.textContent ?? '').includes(text));
-const waitAlert = (text: string) => waitFor(() => expect(alertWith(text), `no alert says "${text}"`).toBeDefined());
-
-async function toStep2(u: ReturnType<typeof user>, port: AuthPort, signIn = vi.fn()) {
-  const view = render(
-    <MemoryRouter initialEntries={['/register']}>
-      <AuthPortContext value={port}>
-        <SessionEntryContext value={{ signIn }}>
-          <RegistrationFlow today={TODAY} />
-        </SessionEntryContext>
-      </AuthPortContext>
-    </MemoryRouter>,
-  );
-  await u.click(stageBox('מתכננים'));
-  await u.type(screen.getByLabelText(/^שם מלא/), 'דנה כהן');
-  await u.click(screen.getByRole('button', { name: 'המשך' }));
-  expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('פרטי התחברות');
-  return { view, signIn };
-}
-async function fillStep2(u: ReturnType<typeof user>, over: { email?: string; password?: string; consent?: boolean } = {}) {
-  await u.type(emailField(), over.email ?? EMAIL);
-  await u.type(passwordField(), over.password ?? PASSWORD);
-  if (over.consent !== false) await u.click(consentBox());
-}
-async function submitValid(u: ReturnType<typeof user>, port: AuthPort, signIn = vi.fn()) {
-  const ctx = await toStep2(u, port, signIn);
-  await fillStep2(u);
-  await u.click(submit());
-  return ctx;
-}
 
 // ---------------------------------------------------------------------------------------------------------------------
 describe('F1.4 criterion 4 [FR-REG-004 · AC-084 · AC-088 · BR-068] step 2 fields and consent', () => {
@@ -386,6 +332,9 @@ describe('F1.4 criterion 20 [VAL-003 · Addendum 1] Auth error mapping: fixed te
   it.each([
     ['500 (what auth-js reports for an HTTP 500)', fail({ status: 500, code: undefined, name: 'AuthRetryableFetchError' })],
     ['503', fail({ status: 503, code: undefined, name: 'AuthRetryableFetchError' })],
+    ['507 as AuthApiError (any status >= 500, whatever the name: CRITIC part c 1)', fail({ status: 507, name: 'AuthApiError' })],
+    ['505 with an unmapped code', fail({ status: 505, code: 'unexpected_failure', name: 'AuthApiError' })],
+    ['599', fail({ status: 599, name: 'AuthApiError' })],
     ['status 0 (a fetch that never answered)', fail({ status: 0, code: undefined, name: 'AuthRetryableFetchError' })],
   ])('[criterion 20][ERR-004][Q8] an Auth 5xx / network failure %s -> the retry text with "ניסיון חוזר"; the retry calls sign-up again, then the route once', async (_label, response) => {
     const u = user();
@@ -630,7 +579,7 @@ describe('F1.4 criterion 17 [NFR-USAB-004] a double activation sends one request
 
   it('[NFR-USAB-004] after a failure the button is usable again (not left disabled)', async () => {
     const u = user();
-    const { port } = makePort(fail({ status: 500 }));
+    const { port } = makePort(fail({ status: 400, code: 'something_new' })); // an unmapped 4xx: the fallback, not the retry state
     await toStep2(u, port);
     await fillStep2(u);
     await u.click(submit());
@@ -640,7 +589,8 @@ describe('F1.4 criterion 17 [NFR-USAB-004] a double activation sends one request
   });
 });
 
-// ---------------------------------------------------------------------------------------------------------------------
+// (The retry/fallback boundary, the held-token lock and the markup check are in register-step2-held-token.test.tsx.)
+
 describe('F1.4 criterion 19 [F1.3 criterion 13] back from step 2', () => {
   it('[F1.3 c13] "חזרה" returns to step 1 with all values intact; back on step 2 the email is kept and the password is empty', async () => {
     const u = user();

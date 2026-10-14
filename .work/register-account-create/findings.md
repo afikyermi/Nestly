@@ -141,3 +141,34 @@ finding 2 (low, transient vs deterministic): CLOSED — isTransient: DB fault ou
 finding 3 (low, spec): CLOSED — decision recorded, spec criterion 11, debt Q2/Q8 line includes the 500 strand.
 finding 4 (low, atomicity assertion): CLOSED — faultOf asserts 23514 on the consent version checks.
 ```
+
+## Part c — CRITIC on opus, 15.10.2026 (delta 0ef1c06..bc8c242; CI green run 38643518965)
+
+Written by ORCHESTRATOR from CRITIC's hand-back. **verdict: Validated** — no critical/high/medium; five low.
+
+1. low · step2-form.ts:328 — only AuthRetryableFetchError / status 0 get the retry state; auth-js leaves 505–519 as
+   AuthApiError → fallback, against criterion 20 ("any 5xx"). Fix: status >= 500 → 'unavailable'; unit case 507.
+2. low · RegisterStepTwo.tsx (held token) — after sign-up succeeded and the route failed, an edited email/password is
+   ignored: the account is created for the first Auth user, silently. Fix: clear the token or lock the fields (UX choice).
+3. low · RegisterStepTwo.tsx (retry) — pressing "ניסיון חוזר" unmounts the focused control; focus falls to body
+   (WCAG 2.4.3). Fix: keep focus on a stable element; e2e check of activeElement after a failed retry.
+4. low · RegisterStepTwo.tsx (PasswordInput controlled) — React mirrors the password into the DOM value attribute; the
+   e2e markup check strips values so cannot see it. Fix: uncontrolled password input, or record as accepted.
+5. low · auth-client.ts configFromEnvironment — a secret / service_role key pasted into VITE_SUPABASE_PUBLISHABLE_KEY
+   would be inlined into the public bundle. Fix: fail the build when the value starts with sb_secret_ or is a
+   service_role JWT.
+
+checked — no finding: Auth storage in memory, no BroadcastChannel, no refresh/URL detection, lazy client; credentials
+only to /auth/v1/signup; route body step 1 + consent; Auth messages never in the DOM · e2e stubs only in mode e2e (Vercel
+builds production mode; .invalid host) · criterion 22 scan adequate as a fence · session hand-off in memory (Q7) ·
+401/409 → taken message reveals nothing beyond option A · 500/503/network/Auth 5xx split (except finding 1) ·
+placeholder routes with noopener · accessibility (native checkbox, aria-invalid/describedby, focus to first invalid,
+role=alert, sr-only status, email dir=ltr, targets, axe) · design consistency · test hygiene.
+
+## Routing (ORCHESTRATOR) — all five fixed now (UI and privacy matter to Afik; each is small)
+- 1, 3, 4, 5 → BUILDER as CRITIC proposes (4: uncontrolled password input; 5: the build fails on a secret key).
+- 2 → decided: while a token is held (sign-up succeeded, route not yet), email and password are read-only with a short
+  note; the retry uses the held token (decisions/2026-10.md).
+- TEST ENGINEER: unit 507 case; activeElement after a failed retry; read-only fields while a token is held; the DOM check
+  no longer strips the password value; a build-guard test.
+- CRITIC re-checks only these five.

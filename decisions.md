@@ -117,6 +117,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-14 | Tests from F1.5: depth by type (🔴/🎨/🟡), one layer per behaviour, Chrome-only PRs, blocking visual regression, ≤2× soft ceiling (Afik) | 10 |
 | 2026-10-14 | F1.4: 500 after Auth sign-up → fallback message, no retry; any transient transaction failure → 503 | 10 |
 | 2026-10-15 | F1.4: Auth 5xx/network → retry state; unmapped Auth 4xx → fallback without retry | 10 |
+| 2026-10-15 | F1.4: while a sign-up token is held, email and password are read-only (no silent second Auth user) | 10 |
 
 ## Superseded
 

@@ -206,6 +206,48 @@ test.describe('F1.4 criteria 8, 11, 12 (web) [AC-091 · ERR-004] the journey', (
     expect(stubs.registerCalls).toHaveLength(1);
   });
 
+  test('[F1.4 c11][CRITIC part c 2] with the sign-up token held (route 503) the email and password are read-only with the note; the retry reuses the token: ONE sign-up', async ({ page }) => {
+    const stubs = await stub(page, [AUTH_OK], [{ status: 503, body: { error: 'profile_write_failed' } }, ROUTE_201]);
+    await toStep2(page);
+    await fillAndSubmit(page);
+    await expect(alertWith(page, RETRY)).toBeVisible();
+    await expect(email(page)).toHaveAttribute('readonly', '');
+    await expect(password(page)).toHaveAttribute('readonly', '');
+    await expect(page.getByText('האימייל והסיסמה נשמרו ואי אפשר לשנות אותם כעת')).toBeVisible();
+    await email(page).focus();
+    await page.keyboard.type('zzz');
+    await expect(email(page)).toHaveValue(EMAIL);
+    await retry(page).click();
+    await expect(h1Of(page)).toHaveText('פיד');
+    expect(stubs.authCalls, 'one sign-up in total').toHaveLength(1);
+    expect(stubs.registerCalls).toHaveLength(2);
+  });
+
+  test('[F1.4 c11][CRITIC part c 2] with the token held, step 1 stays editable through "חזרה"', async ({ page }) => {
+    await stub(page, [AUTH_OK], [{ status: 503, body: { error: 'profile_write_failed' } }]);
+    await toStep2(page);
+    await fillAndSubmit(page);
+    await expect(alertWith(page, RETRY)).toBeVisible();
+    await page.getByRole('button', { name: 'חזרה', exact: true }).click();
+    await expect(h1Of(page)).toHaveText('פרטים אישיים');
+    await expect(page.getByLabel(/^שם מלא/)).toBeEditable();
+  });
+
+  for (const vp of [MOBILE, DESKTOP]) {
+    test(`[F1.4 c17][CRITIC part c 3][WCAG 2.4.3] after a failed retry focus is on a stable element (the submit button), not on body @${vp.width}`, async ({ page }) => {
+      await page.setViewportSize(vp);
+      await stub(page, [AUTH_OK], [{ status: 503, body: { error: 'profile_write_failed' } }]);
+      await toStep2(page);
+      await fillAndSubmit(page);
+      await expect(retry(page)).toBeVisible();
+      await retry(page).click();
+      await expect.poll(() => page.evaluate(() => document.activeElement?.tagName ?? ''), 'focus is not lost to body').not.toBe('BODY');
+      await expect(retry(page)).toBeVisible(); // the second failure shows the retry state again
+      await expect(submit(page)).toBeFocused();
+      await expect(submit(page)).not.toHaveAttribute('aria-disabled', 'true');
+    });
+  }
+
   test('[F1.4 c20][ERR-004][Q8] Auth sign-up answers HTTP 500: the retry text and control; the retry calls sign-up again (now succeeding), then the route once -> /feed', async ({ page }) => {
     const stubs = await stub(page, [{ status: 500, body: { code: 500, error_code: 'unexpected_failure', msg: 'SECRET_RAW_AUTH_MESSAGE' } }, AUTH_OK], [ROUTE_201]);
     await toStep2(page);
@@ -387,13 +429,13 @@ test.describe('F1.4 criterion 13 [NFR-PRIV-001 · NFR-SEC-001] the password goes
     await fillAndSubmit(page);
     await expect(alertWith(page, GENERIC)).toBeVisible();
     expect(page.url()).not.toContain(PASSWORD);
-    // The field the user typed into holds its own value (React mirrors it in the value attribute); that is not a leak. Everything else is checked.
-    const markup = await page.evaluate(() => {
-      const copy = document.documentElement.cloneNode(true);
-      if (copy instanceof Element) for (const input of copy.querySelectorAll('input, textarea')) input.removeAttribute('value');
-      return JSON.stringify(history.state) + (copy instanceof Element ? copy.innerHTML : '');
-    });
+    // CRITIC part c 4: the password input is uncontrolled, so React never mirrors it into the value attribute: nothing is stripped here.
+    const markup = await page.evaluate(() => JSON.stringify(history.state) + document.documentElement.outerHTML);
     expect(markup).not.toContain(PASSWORD);
+    await expect(password(page)).toHaveValue(PASSWORD); // it is in the field as a property, as it must be
+    expect(await password(page).getAttribute('value')).toBeNull();
+    await page.getByRole('button', { name: 'הצגת הסיסמה', exact: true }).click();
+    expect(await page.evaluate(() => document.documentElement.outerHTML)).not.toContain(PASSWORD);
   });
 });
 
