@@ -12,16 +12,15 @@
 
 **עודכן:** 14.10.2026 · **גרסת SRS:** 2.12 · **מצב:** בניית מוצר. מערך הסוכנים קפוא עד ש-I1 ממוזג (הכרעתך מ-13.10, `decisions.md`).
 
-- **🔄 עכשיו: I1 · F1.1 `identity-platform`** (`.work/identity-platform/spec.md`, ‏Elevated). ‏Gate 1 עבר אחרי תשובותיך (Q1 לא, Q2 ‏64 ביט, Q3 רק כשמיגרציות משתנות). Gate 2 עבר (`schema.md`; ‏ON DELETE ‏RESTRICT לפי הכרעתך). שלושה חלקים ברצף: **a** מסד ב-CI ושער RLS ← **b** סכמת זהות ← **c** זהות בשרת.
-  - **F1.1 a — מוזגה** (PR 15, ‏14.10): מסד זמני ב-CI, שער RLS, ‏workflow של `migrate` ובודק URL. ‏CI ירוק, ‏pgTAP ‏62/62. ‏CRITIC על opus: ‏Validated with Concern. ממצאים 1–4 (אחד מהם: סיסמת prod עלולה לדלוף ללוג ציבורי אם יש בה תו `%` פגום) הם הפריט הראשון של חלק b, ו-b לא ממוזג בלעדיהם. **הבאה: F1.1 b.**
-  - **F1.1 b — מוזגה** (PR 16, ‏14.10): הסכמה `nestly` עם `users` ו-`regular_profiles`, ‏RLS ו-FORCE, קריאת השורה של עצמך בלבד, ‏`is_active_account()` (‏INVOKER), ‏FK לעוגן עם RESTRICT וסכמת Drizzle עם בדיקת drift. ‏CI ירוק, ‏pgTAP ‏394/394. ‏CRITIC על opus: ‏Validated with Concern, וממצאי a ‏1–4 נסגרו. חמישה ממצאים קלים: אחד תוקן (שורה ב-knowledge שלא אושרה) וארבעה ב-debt. אחד מהם חייב להיסגר לפני F1.5. **הבאה: F1.1 c.**
-- **✅ guard-env-paths — מוזגה** (PR 14, ‏13.10; הבאה: F1.1 a): כלל ה-env בודק נתיבים ולא טקסט, וחמישה חורי glob נסגרו. ‏CRITIC: ‏Not Ready, ואחרי סבב התיקון היחיד Validated with Concern. נשאר פער אחד ב-debt: פקודות שעוברות דרך מריצים כמו nodemon ו-concurrently. ‏F5 ושלוש הסתירות באותו PR. הנושא סגור. אחריו נוסף רק כלל מגבלת הסבבים (הכרעתך מ-13.10, workflow → Verdicts).
+- **✅ F1.1 `identity-platform` — הושלם** (‏`.work/identity-platform/result.md`). ‏a מוזג (PR 15), ‏b מוזג (PR 16), ‏c מוזג (PR 17, ‏`671c096`, ‏14.10): שער RLS ב-CI, סכמת `nestly` עם RLS ו-FORCE, ‏FK לעוגן עם RESTRICT, ואימות JWT עם טרנזקציית זהות לכל בקשה. ‏CRITIC על opus: ‏Validated with Concern בכל חלק, והממצאים הקלים ב-debt.
+- **🔄 PR 18 (‏CI לפי קבצים שהשתנו)** — עוד לא מוזג. ‏CRITIC: ‏Validated with Concern, ושלושת הממצאים הבינוניים נסגרו בסבב היחיד. ממתין ל-CI ירוק.
+- **🔄 הבא: F1.2 `app-shell-guard`** (Gate 1 עבר; ‏`.work/app-shell-guard/spec.md`). ענף `feat/app-shell-guard`.
 - **✅ הכרעותיך על I1 (13.10)** נכנסו ל-SRS 2.12 ולתוספת 1 בקובץ ה-initiative: ‏Google ‏(F1.8 חדש), בלי אימות אימייל, שחזור בתוך המערכת, הצהרת גיל, מסלולים במקביל ועד 10 ילדים. ‏F1.7 יצא.
 - **ממתין להכרעה שלך:** אין.
 - **ממתין לך (סודות ופעולות):**
   1. **קובץ יומן מקומי ישן** `.live/events.jsonl` (טקסט מפרומפטים, לא ב-git): מחיקה היא שלך. אחריה אפשר להסיר את `.live/` מ-`.gitignore`.
   2. **מחיקת ענפים מרוחקים שמוזגו:** ‏`ui-wave-1/part-a` עד `part-e`, ‏`chore/i1-prep`, ‏`chore/guard-env-paths` (מוזג).
-  3. **ממצאי CRITIC ‏1–4 של חלק a נסגרו (PR 16). עכשיו אפשר:** לאשר את `migrate` הראשון ב-`db-production` (‏GitHub → Actions → migrate, run 38508781512 → Review deployments; ה-preview כבר הוחל וירוק), ואז להריץ את bootstrap שלב 2 ב-prod ב-SQL Editor: `02-anchor-fk.sql` ואחריו `02-anchor-fk-check.sql` (‏RESTRICT). ב-preview זה כבר בוצע ב-14.10 ועבר (‏ok=true, הרצה שנייה לא שינתה כלום).
+  3. **bootstrap שלב 2 ב-prod** (ה-`migrate` ל-prod אושר ועבר ב-14.10, ושני ה-jobs ירוקים): ב-SQL Editor של nestly-prod להריץ את `supabase/bootstrap/02-anchor-fk.sql`, ואחריו את `02-anchor-fk-check.sql`, ולוודא `ok = true`. ב-preview זה בוצע ונבדק שוב ב-14.10 (‏`ok = true`, ‏RESTRICT).
   4. **ב-F1.8:** הגדרת Google Cloud והסודות — אנחה אותך צעד-צעד.
   5. **Preview לענף חסום ב-Vercel Deployment Protection** (מפנה ל-login של Vercel; אני לא מתחבר בשמך). הפריסה עצמה עברה. כדי שאוכל לבדוק `/api/health` על ענפים: לכבות את ההגנה ל-Preview, או להגדיר Protection Bypass ולהזין את הסוד. עד אז, בדיקת ה-Preview של חלקים בלי ממשק נשענת על בדיקת הפריסה של Vercel.
   6. **לאשר פעם אחת ב-GitHub** שלסביבה `db-production` יש reviewer חובה (אתה) וכלל main-only. ‏CRITIC לא יכול לבדוק את זה מה-repo.
@@ -30,6 +29,7 @@
 - **פתוח, בלי הכרעה עכשיו:** החלטות המדיה M1–M6 לפני I5 · תקציב לביקורת משפטית לפני I9 · אם בניות ש-Vercel דילג עליהן נספרות במגבלה, עוברים ל-`git.deploymentEnabled`.
 - **התקדמות מוצר (שורה לכל סשן):**
   - 13.10: אין — Gate 1 של F1.1 עבר, עוד לא נבנה קוד מוצר.
+  - 14.10: ‏F1.1 הושלם, שלושה PRs מוזגו (15, 16, 17). הסכמה הראשונה הוחלה על preview, ו-pgTAP עבר 394/394.
 - **היסטוריה:** `archive/WORKPLAN-2026-10.md`. ההחלטות ב-`decisions.md`. הנקודות הפתוחות במוצר ב-`docs/srs/appendix-b-open-points.md`.
 
 ---
