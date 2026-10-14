@@ -1,6 +1,6 @@
 # F1.4 — register-account-create: registration step 2 and account creation
 
-**Status** ✅ Gate 1 passed by ORCHESTRATOR, 14.10.2026, except criterion 6 (`PENDING — Afik decision (WORKPLAN)`; its tests wait). Edits at the gate: criterion 20's route test uses an injected Auth client; Q6 gains the IP-attribution check. DR-1 and DR-2 decided as their defaults (`decisions/2026-10.md`).
+**Status** ✅ Gate 1 passed by ORCHESTRATOR, 14.10.2026. Criterion 6 decided by Afik (option A) and the password minimum changed to 8 by Afik, 14.10 (`decisions/2026-10.md`). Edits at the gate: criterion 20's route test uses an injected Auth client; Q6 gains the IP-attribution check. DR-1 and DR-2 decided as their defaults (`decisions/2026-10.md`).
 
 **Problem**  A parent who filled step 1 (F1.3) cannot finish: step 2 is a placeholder, nothing creates an account, nothing stores step 1's data, and nothing records that the parent accepted the terms and is 18 or older.
 
@@ -30,19 +30,17 @@
 ## Acceptance criteria — the tag goes into the test name
 
 *Shared schema (unit)*
-1. **Credentials** [VAL-002 · VAL-003 · AC-003]. Email trimmed, 3–254 characters, one `@`, a dot in the domain, no spaces: `""`, `a@b`, `a b@c.com` ✗; `a@b.co` ✓. Password ≥10 code points, no composition rule, spaces and Hebrew allowed, not trimmed: 9 ✗; 10 ✓; `"אבגדהוזחטי"` ✓; ten spaces ✓; over 256 ✗ (Q3).
+1. **Credentials** [VAL-002 · VAL-003 · AC-003]. Email trimmed, 3–254 characters, one `@`, a dot in the domain, no spaces: `""`, `a@b`, `a b@c.com` ✗; `a@b.co` ✓. Password ≥8 code points (Afik 14.10, was 10), no composition rule, spaces and Hebrew allowed, not trimmed: 7 ✗; 8 ✓; `"אבגדהוזח"` ✓; eight spaces ✓; over 256 ✗ (Q3).
 2. **Request contract** [F1.3 debt]. The body schema is `.strict()`: an unknown key at any level → rejected, nothing created. Raw strings over their bound (name 600 units, email 512, password 1024, `stages` over 3 items, `children` over 10) are rejected **before** code-point splitting: a 5 MB name is rejected in under 100 ms with no Auth call. `consent` must be the literal `true`; `false`, absent, `"true"` ✗. A body with a consent version or a parent birth date is rejected.
 3. **Server re-check of step 1** [FR-REG-004 "תנאים מוקדמים" · VAL-001/005/039/040]. The route applies F1.3's step-1 schema with the server's clock: a birth date one day after the server's UTC date ✓ (Q4), two days ✗; every other F1.3 rule holds.
 
 *Step 2 screen (component + E2E)*
-4. **Fields and consent** [FR-REG-004 · AC-084 · AC-088 · BR-068]. Step 2 shows email (`type=email`, autocomplete `email`), password (`type=password`, autocomplete `new-password`, hint "לפחות 10 תווים"), one checkbox with the Q5 text and links "תנאי השימוש" and "מדיניות הפרטיות" to placeholder pages, and "יצירת חשבון". No phone, parent birth date or second password field. Submit with the box unticked stays on step 2, sets `aria-invalid` on the box, shows "יש לאשר את התנאים ואת הצהרת הגיל כדי להמשיך", and sends no request.
-5. **Errors on submit** [AC-003]. After the first submit only: empty email "יש למלא כתובת אימייל"; bad email "כתובת האימייל אינה תקינה"; 9-char password "הסיסמה צריכה להכיל לפחות 10 תווים". Each is linked by `aria-describedby`, focus goes to the first invalid field, a message clears when its field is valid. No Zod or server text reaches the DOM; an unmapped issue shows "משהו השתבש. אפשר לנסות שוב".
+4. **Fields and consent** [FR-REG-004 · AC-084 · AC-088 · BR-068]. Step 2 shows email (`type=email`, autocomplete `email`), password (`type=password`, autocomplete `new-password`, hint "לפחות 8 תווים"), one checkbox with the Q5 text and links "תנאי השימוש" and "מדיניות הפרטיות" to placeholder pages, and "יצירת חשבון". No phone, parent birth date or second password field. Submit with the box unticked stays on step 2, sets `aria-invalid` on the box, shows "יש לאשר את התנאים ואת הצהרת הגיל כדי להמשיך", and sends no request.
+5. **Errors on submit** [AC-003]. After the first submit only: empty email "יש למלא כתובת אימייל"; bad email "כתובת האימייל אינה תקינה"; 7-char password "הסיסמה צריכה להכיל לפחות 8 תווים". Each is linked by `aria-describedby`, focus goes to the first invalid field, a message clears when its field is valid. No Zod or server text reaches the DOM; an unmapped issue shows "משהו השתבש. אפשר לנסות שוב".
 
 *Taken email*
-6. **PENDING — Afik decision (WORKPLAN)** [FR-REG-004 · ERR-002 · AC-055 · AC-091 · NFR-SEC-006]. An email that already exists on a Regular **or** Professional account (BR-045) creates nothing and changes neither account. Candidates, replaced by one line when decided:
-   - **A — reveal at sign-up only:** the response is a generic message "לא ניתן להשלים את ההרשמה עם הפרטים האלה. אפשר להתחבר או לשחזר סיסמה", with links to login and recovery, naming no account; rate-limited (Q6). It confirms existence to a patient attacker.
-   - **B — email verification restored:** sign-up always answers "נשלח אימייל" and signs nobody in. Contradicts AC-091 and Addendum 1; needs F1.7 first and a changed FR-AUTH-002.
-7. **Same result for both account types** [AC-055]. Whatever 6 becomes, an existing Professional email gives the same response and the same stored result (nothing) as an existing Regular one.
+6. **Taken email — option A (Afik 14.10)** [FR-REG-004 · ERR-002 · AC-055 · AC-091 · NFR-SEC-006]. An email that already exists on a Regular **or** Professional account (BR-045) creates nothing and changes neither account. The response is one generic message "לא ניתן להשלים את ההרשמה עם הפרטים האלה. אפשר להתחבר או לשחזר סיסמה", with links to login and recovery, naming no account and no account type; sign-up is rate-limited (Q6). Accepted: it confirms existence to a patient attacker (decisions 2026-10-14).
+7. **Same result for both account types** [AC-055]. An existing Professional email gives the same response and the same stored result (nothing) as an existing Regular one.
 
 *Atomic creation and sign-in*
 8. **Happy path** [FR-REG-004 · AC-091 · AC-084 · AC-088]. A valid body creates the Auth user and, in one transaction, exactly: 1 User + 1 RegularProfile; one JourneyContext per ticked stage (the pregnant one with the due date, null if left empty); the entered Children; 1 LegalConsent (terms version, privacy version, age declaration true, time within 5 s of the request). Response 201 with a session; the web is signed in and on `/feed` with no email step.
@@ -61,7 +59,7 @@
 17. **Keyboard, targets, focus** [WCAG 2.1.1, 2.4.3, 2.5.8 · NFR-USAB-004]. Step 2 is completed by keyboard alone with focus order matching visual order; every control ≥24×24 px, "יצירת חשבון" ≥44×44; while the request runs the button is `aria-disabled` and a double activation sends one request; on success focus is on `main` of `/feed`; title "פרטי התחברות · Nestly".
 18. **RTL and copy** [NFR-USAB-003 · rtl-hebrew]. `dir="rtl"`; the email input is `dir="ltr"` with its label right-aligned; no horizontal scroll at 375; rendered step-2 text has no slash gender forms and actions are nouns.
 19. **Back from step 2** [F1.3 criterion 13]. "חזרה" returns to step 1 with all values intact; on returning to step 2 the email is kept and the password is empty.
-20. **Supabase Auth settings** [VAL-003 · Addendum 1]. On each Auth project, confirm-email is off and minimum password length is 10 (a browser step, recorded in WORKPLAN by ORCHESTRATOR; prod after Afik's OK). A route test with an injected Auth client that answers a weak-password rejection (and one that answers 429) asserts each maps to its fixed text (criterion 5 / Q6), never a raw message.
+20. **Supabase Auth settings** [VAL-003 · Addendum 1]. On each Auth project, confirm-email is off and minimum password length is 8 (browser steps, recorded in WORKPLAN; confirm-email turned off by Afik on both, 14.10). A route test with an injected Auth client that answers a weak-password rejection (and one that answers 429) asserts each maps to its fixed text (criterion 5 / Q6), never a raw message.
 21. **Preview.** ORCHESTRATOR registers a parent with two children and a due date on the Preview at 375 and 1024, lands on `/feed`, and checks the criteria above that can be seen there.
 
 ## Open questions and decisions

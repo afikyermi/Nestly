@@ -60,7 +60,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-11 | Visual direction: soft, calm, Facebook's patterns without its identity; no dark mode (upd. R1, R2) | 10 |
 | 2026-10-11 | UI library package approved in advance (shadcn/Radix, Lucide, RHF + Zod, TanStack Query, Router…) | 10 |
 | 2026-10-11 | Design consistency without a design agent (lint, contrast test, design-system skill, CRITIC check) | 10 |
-| 2026-10-11 | Product changes from the sketch review (to SRS 2.9): email login, password rule, no phone… | 10 |
+| 2026-10-11 | Product changes from the sketch review (to SRS 2.9): email login, password rule (upd. 10-14: minimum 8), no phone… | 10 |
 | 2026-10-11 | Bottom navigation: the services tab is labelled "יועצים" | 10 |
 | 2026-10-11 | R1: palette A (apricot, terracotta), Rubik, centred column with a navigation rail | 10 |
 | 2026-10-11 | The eighth tracker tile is "אמבטיה" — OP-007 closes | 10 |
@@ -110,6 +110,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-14 | Speed-up 4–6 (Afik): TEST ENGINEER edits and runs its tests, BUILDER writes interface.md, jq filters are text in the guard | 10 |
 | 2026-10-14 | F1.4 Gate 1: server-side Auth sign-up through `POST /api/register` (DR-1); orphan Auth user after a lost tab completed by F1.5 (DR-2) | 10 |
 | 2026-10-14 | F1.4 Gate 2 passed; new rows are owner read + insert only until I2 (criterion 14 narrowed); one consent row per acceptance | 10 |
+| 2026-10-14 | Taken email (F1.4): option A, reveal at sign-up only with a generic message, rate-limited · password minimum 8 (Afik) | 10 |
 
 ## Superseded
 

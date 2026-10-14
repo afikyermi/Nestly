@@ -16,9 +16,7 @@
 - **✅ F1.3 `register-profile-step` — מוזג** (PR 22, ‏14.10; ‏`.work/register-profile-step/result.md`): שלב 1 בהרשמה — שלב במסע, שם, מין ההורה, תאריך לידה משוער, ילדים 1–10; הנתונים בזיכרון הטאב בלבד. ‏CRITIC: ‏Validated with Concern (סכמה strict ב-F1.4 Gate 2, ‏debt). ה-Preview נבדק ב-375 וב-1024.
 - **✅ האצה — מוזג** (PR 23, ‏`a756931`, ‏14.10, בקשתך): ‏CI ‏browser כ-matrix (Chrome/Edge × 2 shards): ‏4–5 דק׳ במקום 16–18. ‏Vercel בונה כל ענף עם PR פתוח, בלי תלות בסדר push/PR. ‏vitest רץ מהשורש. ‏CRITIC: ‏Validated. סעיפים 4–6 אושרו (‏14.10) ונבנו ב-`chore/speed-up-2`: ‏TEST ENGINEER עורך ומריץ את הטסטים שלו, ‏BUILDER כותב `interface.md`, ו-jq אינו נחשב נתיב ב-guard. ‏CRITIC (opus): שני ממצאים גבוהים ב-guard תוקנו, ‏Validated.
 - **✅ F1.2 `app-shell-guard` — מוזג** (PR 19, ‏`53b85d0`, ‏14.10; ‏`.work/app-shell-guard/result.md`): מסך Welcome, ‏AppShell, ‏RouteGuard ושכבת session. ‏CRITIC: ‏Validated with Concern, וארבעה ממצאים קלים נסגרו. ה-Preview נבדק על production אחרי המיזוג ב-375 וב-1024.
-- **ממתין להכרעה שלך:**
-  1. **F1.4, אימייל תפוס בהרשמה** (מודל אבטחה, ‏`.work/register-account-create/intake.md`): בלי אימות אימייל, הרשמה עם אימייל קיים בהכרח נכשלת, ומי שמנסה לומד שהאימייל רשום. לכן FR-REG-004 ("לא חושף קיום חשבון") סותר את AC-091 (כניסה מיד). **א (המלצה):** מקבלים את החשיפה בהרשמה בלבד: הודעה "לא ניתן להשלים הרשמה עם האימייל הזה. אפשר להתחבר או לשחזר סיסמה" (ERR-002), ‏rate limit על ההרשמה, וכל השאר (כניסה ושחזור) לא חושף. כך נוהגים רוב השירותים בלי אימות. ‏**ב:** מחזירים אימות אימייל: ההרשמה לא חושפת, אבל AC-091 מתבטל ונדרש ספק אימייל (F1.7, שהוצא). ‏**ג:** ‏Google בלבד לחשבונות חדשים. תשובה בשורה: "א" / "ב" / "ג".
-  (14.10: סוד ה-bypass נשאר repository secret — הכרעתך, `decisions.md`; הסיכון הנותר ב-`debt.md`.)
+- **ממתין להכרעה שלך:** אין. (14.10: אימייל תפוס ב-F1.4 — הכרעתך "א"; סיסמה מינימלית 8 — הכרעתך; ‏`decisions.md`.)
 - **ממתין לך (סודות ופעולות):**
   1. **קובץ יומן מקומי ישן** `.live/events.jsonl` (טקסט מפרומפטים, לא ב-git): מחיקה היא שלך. אחריה אפשר להסיר את `.live/` מ-`.gitignore`.
   2. **מחיקת ענפים מרוחקים שמוזגו:** ‏`ui-wave-1/part-a` עד `part-e`, ‏`chore/i1-prep`, ‏`chore/guard-env-paths` (מוזג), ‏`chore/preview-access` (הוחלף ב-`-v2` אחרי rebase), ‏`chore/records-after-f12` (מוזג).
@@ -38,7 +36,9 @@
   - 14.10 · Vercel › nestly › Environment Variables · Preview: ‏`DATABASE_URL` (Secret) — ‏`app_server.<preview ref>` דרך ה-transaction pooler ‏(`aws-1-eu-central-1.pooler.supabase.com:6543`). הכנתי עד הסיסמה; אפיק הקליד ושמר.
   - 14.10 · Vercel › nestly › Deployments: ‏Redeploy ל-Preview של `483ce81` (‏`chore/speed-up-2`, בלי build cache ובלי Ignore Build Step), אישור אפיק. ‏Ready; ‏`/api/health` ‏200, ‏`/api/me` בלי token ועם token פגום ‏401. חיבור אמיתי למסד ייבדק רק עם משתמש מחובר (F1.4).
   - 14.10 · Vercel › nestly › Environment Variables · Production: טופס `DATABASE_URL` (Secret) הוכן עד הסיסמה — ‏`app_server.<prod ref>` באותו pooler, פורט 6543. אפיק הקליד ושמר. ‏nestly-prod: התפקידים, הסיסמה ו-migration ‏`identity_schema` קיימים (ריצה 38508781512); ‏`02-anchor-fk` הורץ על prod לפי אפיק (ok=true), בלי עדות ב-repo.
-  - 14.10 · Supabase › nestly-preview › Authentication › Sign In / Providers › Email: ‏Minimum password length ‏6 ← ‏10 (‏VAL-003, F1.4 קריטריון 20). ‏Password requirements נשאר "No required characters". ‏"Confirm email" עדיין דלוק: מצב auto חסם את הכיבוי, ממתין לאפיק.
+  - 14.10 · Supabase › nestly-preview › Authentication › Sign In / Providers › Email: ‏Minimum password length ‏6 ← ‏10 (‏VAL-003, F1.4 קריטריון 20). ‏Password requirements נשאר "No required characters". ‏"Confirm email" — מצב auto חסם את הכיבוי.
+  - 14.10 · אפיק: ‏Confirm email כובה ב-nestly-preview וב-nestly-prod.
+  - 14.10 · Supabase › nestly-preview וגם nestly-prod › Authentication › Email: ‏Minimum password length ‏8 (‏preview: ‏10 ← 8; ‏prod: ‏6 ← 8), לפי הכרעת אפיק. אומת אחרי טעינה מחדש: 8, ו-Confirm email כבוי בשניהם.
 - **היסטוריה:** `archive/WORKPLAN-2026-10.md`. ההחלטות ב-`decisions.md`. הנקודות הפתוחות במוצר ב-`docs/srs/appendix-b-open-points.md`.
 
 ---
