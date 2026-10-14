@@ -32,9 +32,14 @@ function url(): string {
 const env = () => ({ SUPABASE_JWKS_URL: jwks.url, SUPABASE_JWT_ISSUER: ISSUER, SUPABASE_JWT_AUDIENCE: AUDIENCE, DATABASE_URL: url() });
 
 /** A Database whose Nth transaction (counted from arm()) runs its work and then fails like a lost connection: the work is rolled back. */
-function flakyDatabase(real: Database): { database: Database; arm: (nth: number) => void; failures: () => number } {
+function flakyDatabase(real: Database): {
+  database: Database;
+  arm: (nth: number, make?: () => Error) => void;
+  failures: () => number;
+} {
   let remaining = 0;
   let failures = 0;
+  let make: () => Error = () => new Error('connection lost');
   const db = new Proxy(real.db, {
     get(target, prop) {
       const value: unknown = Reflect.get(target, prop);
@@ -53,7 +58,7 @@ function flakyDatabase(real: Database): { database: Database; arm: (nth: number)
         failures += 1;
         const failing = async (tx: unknown): Promise<never> => {
           await Reflect.apply(work, undefined, [tx]);
-          throw new Error('connection lost');
+          throw make();
         };
         const outcome: unknown = Reflect.apply(value, target, [failing, ...rest]);
         return outcome;
@@ -62,8 +67,9 @@ function flakyDatabase(real: Database): { database: Database; arm: (nth: number)
   });
   return {
     database: { db, client: real.client, close: () => real.close() },
-    arm: (nth) => {
+    arm: (nth, factory) => {
       remaining = nth;
+      make = factory ?? (() => new Error('connection lost'));
     },
     failures: () => failures,
   };
@@ -373,6 +379,53 @@ describe('[F1.4-b c11] a transient write failure is 503 profile_write_failed, ro
     }
     expect((await post(app, header, validBody())).statusCode).toBe(201);
     expect(await counts(id)).toBe('1/1/2/2/1');
+  });
+
+  it('[F1.4-b c11] the existing-account check (the FIRST transaction) failing transiently is also 503 profile_write_failed, zero rows; the retry -> 201', T, async () => {
+    const flaky = flakyDatabase(createDatabase(url()));
+    const { app } = await start({ database: flaky.database });
+    const id = await freshUser();
+    const header = await bearerFor(id);
+
+    flaky.arm(1); // transaction 1 = hasAccount
+    const failed = await post(app, header, validBody());
+    expect(flaky.failures(), 'the injected failure really fired').toBe(1);
+    expect(failed.statusCode, failed.body).toBe(503);
+    expect(jsonOf(failed.body)).toEqual({ error: 'profile_write_failed' });
+    expect(await counts(id)).toBe('0/0/0/0/0');
+
+    const retry = await post(app, header, validBody());
+    expect(retry.statusCode, retry.body).toBe(201);
+    expect(await counts(id)).toBe('1/1/2/2/1');
+  });
+
+  it('[F1.4-b c11] the first transaction failing for an existing account is still not a 409 and writes nothing', T, async () => {
+    const flaky = flakyDatabase(createDatabase(url()));
+    const { app } = await start({ database: flaky.database });
+    const a = 'a0000000-0000-4000-8000-0000000000a1';
+    const before = await snapshot(a);
+    flaky.arm(1);
+    const failed = await post(app, await bearerFor(a), validBody());
+    expect(failed.statusCode, failed.body).toBe(503);
+    expect(await snapshot(a)).toEqual(before);
+  });
+
+  it('[F1.4-b c11 c10] an error that is neither a database fault nor a connection error (a TypeError in the handler path) -> 500 internal, nothing written', T, async () => {
+    const flaky = flakyDatabase(createDatabase(url()));
+    const { app } = await start({ database: flaky.database });
+    for (const nth of [1, 2]) {
+      const id = await freshUser();
+      flaky.arm(nth, () => new TypeError('cannot read properties of undefined'));
+      const res = await post(app, await bearerFor(id), validBody());
+      expect(flaky.failures()).toBeGreaterThan(0);
+      expect(res.statusCode, `transaction ${nth}: ${res.body}`).toBe(500);
+      expect(jsonOf(res.body)).toEqual({ error: 'internal' });
+      expect(res.body).not.toMatch(/undefined|properties|TypeError/);
+      expect(await counts(id)).toBe('0/0/0/0/0');
+      // and a healthy retry still works: a code defect is not "retry later", but the account was never half-written
+      expect((await post(app, await bearerFor(id), validBody())).statusCode).toBe(201);
+      expect(await counts(id)).toBe('1/1/2/2/1');
+    }
   });
 
   it('[F1.4-b c11] a transient failure is not reported as 500, and a deterministic one is not reported as 503 (the rule: retry could fix it -> 503)', T, async () => {

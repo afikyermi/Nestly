@@ -2,6 +2,7 @@ import { createRegistrationStep1Schema, CONSENT_PRIVACY_VERSION, CONSENT_TERMS_V
 import postgres from 'postgres';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createDatabase, type Database } from '../../src/db/client.js';
+import { readDatabaseFault } from '../../src/lib/pg-error.js';
 import { createRegistration, hasAccount } from '../../src/services/registration-service.js';
 import { ACCOUNT_A, COLD_START_MS } from '../helpers/identity-fixtures.js';
 
@@ -101,6 +102,22 @@ afterAll(async () => {
   await database.close();
   await side.end({ timeout: 5 });
 });
+
+/** The error a call rejects with; a call that does not reject is a test failure. */
+async function failureOf(run: Promise<unknown>): Promise<unknown> {
+  try {
+    await run;
+  } catch (error) {
+    return error;
+  }
+  throw new Error('expected the call to reject, but it resolved');
+}
+/** The database fault (SQLSTATE and constraint name) behind an error; an error that is not a database fault fails the test. */
+function faultOf(error: unknown): { code: string; constraint: string | undefined } {
+  const fault = readDatabaseFault(error);
+  if (!fault) throw new Error('the failure is not a database fault: the statement did not reach the database');
+  return fault;
+}
 
 /** The service as it behaves when the shared consent constants have other values (criterion 9; criterion 10's forced failure). */
 async function serviceWithVersions(terms: string, privacy: string): Promise<typeof import('../../src/services/registration-service.js')> {
@@ -219,17 +236,24 @@ describe('[F1.4-b c10] atomicity: forcing the LAST insert (the consent) to fail 
   it('[F1.4-b c10] an empty terms version fails the consent insert: the call rejects, nothing is stored, not "already registered"', T, async () => {
     const service = await serviceWithVersions('', CONSENT_PRIVACY_VERSION);
     const id = await freshUser();
-    await expect(service.createRegistration(database, { userId: id }, step1())).rejects.toBeDefined();
+    const fault = faultOf(await failureOf(service.createRegistration(database, { userId: id }, step1())));
+    // it is the CONSENT insert that failed (check violation on the terms version), not an earlier statement
+    expect(fault).toEqual({ code: '23514', constraint: 'legal_consents_terms_version_check' });
     // users, profile, 2 journeys and 2 children were inserted before the consent: all rolled back.
     expect(await counts(id)).toBe('0/0/0/0/0');
     expect(await hasAccount(database, { userId: id })).toBe(false);
   });
 
   it('[F1.4-b c10] the same for an empty privacy version, and for a 65-character version', T, async () => {
-    for (const [terms, privacy] of [[CONSENT_TERMS_VERSION, ''], ['v'.repeat(65), CONSENT_PRIVACY_VERSION], [CONSENT_TERMS_VERSION, 'v'.repeat(65)]] as const) {
+    for (const [terms, privacy, constraint] of [
+      [CONSENT_TERMS_VERSION, '', 'legal_consents_privacy_version_check'],
+      ['v'.repeat(65), CONSENT_PRIVACY_VERSION, 'legal_consents_terms_version_check'],
+      [CONSENT_TERMS_VERSION, 'v'.repeat(65), 'legal_consents_privacy_version_check'],
+    ] as const) {
       const service = await serviceWithVersions(terms, privacy);
       const id = await freshUser();
-      await expect(service.createRegistration(database, { userId: id }, step1())).rejects.toBeDefined();
+      const fault = faultOf(await failureOf(service.createRegistration(database, { userId: id }, step1())));
+      expect(fault, `terms ${terms.length} / privacy ${privacy.length}`).toEqual({ code: '23514', constraint });
       expect(await counts(id), `terms ${terms.length} / privacy ${privacy.length}`).toBe('0/0/0/0/0');
     }
   });
@@ -237,7 +261,9 @@ describe('[F1.4-b c10] atomicity: forcing the LAST insert (the consent) to fail 
   it('[F1.4-b c10] after the forced failure the same identity can register: a retry starts from nothing', T, async () => {
     const broken = await serviceWithVersions('', '');
     const id = await freshUser();
-    await expect(broken.createRegistration(database, { userId: id }, step1())).rejects.toBeDefined();
+    const fault = faultOf(await failureOf(broken.createRegistration(database, { userId: id }, step1())));
+    expect(fault.code).toBe('23514');
+    expect(['legal_consents_terms_version_check', 'legal_consents_privacy_version_check']).toContain(fault.constraint);
     expect(await counts(id)).toBe('0/0/0/0/0');
     vi.doUnmock('@nestly/shared');
     vi.resetModules();
@@ -250,7 +276,8 @@ describe('[F1.4-b c10] atomicity: forcing the LAST insert (the consent) to fail 
     const kids = Array.from({ length: 11 }, (_, i) => ({ name: `ילד ${i + 1}`, sex: 'boy', birthDate: parts('2023-05-05') }));
     const base = step1({ stages: ['has_child'], dueDate: empty });
     const eleven = { ...base, children: kids.map((k) => ({ name: k.name, sex: 'boy' as const, birthDate: '2023-05-05' })) };
-    await expect(createRegistration(database, { userId: id }, eleven)).rejects.toBeDefined();
+    const fault = faultOf(await failureOf(createRegistration(database, { userId: id }, eleven)));
+    expect(fault).toEqual({ code: '23514', constraint: 'children_slot_check' });
     expect(await counts(id)).toBe('0/0/0/0/0');
   });
 
@@ -258,13 +285,14 @@ describe('[F1.4-b c10] atomicity: forcing the LAST insert (the consent) to fail 
     const id = await freshUser();
     const base = step1({ stages: ['has_child'], dueDate: empty, children: [{ name: 'א', sex: 'boy', birthDate: parts('2023-05-05') }] });
     const dup = { ...base, stages: ['has_child' as const, 'has_child' as const] };
-    await expect(createRegistration(database, { userId: id }, dup)).rejects.toBeDefined();
+    const fault = faultOf(await failureOf(createRegistration(database, { userId: id }, dup)));
+    expect(fault).toEqual({ code: '23505', constraint: 'journey_contexts_user_id_stage_key' });
     expect(await counts(id)).toBe('0/0/0/0/0');
   });
 
   it('[F1.4-b c10] an Auth id that does not exist cannot register: the call rejects, nothing is written', T, async () => {
     const ghost = '99999999-9999-4999-8999-999999999998';
-    await expect(createRegistration(database, { userId: ghost }, step1())).rejects.toBeDefined();
+    expect(faultOf(await failureOf(createRegistration(database, { userId: ghost }, step1()))).code).toBe('23503'); // users -> auth.users
     expect(await counts(ghost)).toBe('0/0/0/0/0');
   });
 
@@ -272,7 +300,7 @@ describe('[F1.4-b c10] atomicity: forcing the LAST insert (the consent) to fail 
     const broken = await serviceWithVersions('', '');
     const a = await freshUser();
     const b = await freshUser();
-    await expect(broken.createRegistration(database, { userId: a }, step1())).rejects.toBeDefined();
+    expect(faultOf(await failureOf(broken.createRegistration(database, { userId: a }, step1()))).code).toBe('23514');
     vi.doUnmock('@nestly/shared');
     vi.resetModules();
     await createRegistration(database, { userId: b }, step1());

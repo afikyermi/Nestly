@@ -75,3 +75,56 @@ convention promotion — data-model.md "Write grants" row (schema.md Amendment 1
   first fence." Promote with this unit's "Entities" update once the branch is merge-ready. Proposer DATA ARCHITECT,
   validator CRITIC.
 ```
+
+## Part b — CRITIC on opus, 14.10.2026 (delta f0eb184..HEAD; CI and preview-smoke green)
+
+Written by ORCHESTRATOR from CRITIC's hand-back.
+
+```
+verdict: Validated with Concern
+concern: finding 1 — Vite/Vitest `conditions: ['source']` replaces the default conditions; part c's Auth client can
+  then resolve to a non-browser build.
+
+--- finding --- medium · apps/web/vite.config.ts:11-13 (also apps/server/vitest.config.ts:7-8, vitest.config.mjs:13-14)
+claim:   resolve.conditions / ssr.resolve.conditions ['source'] replace Vite's defaults (Vite 8 merges arrays by
+         replacement): web loses module, browser, development|production; server SSR loses module, node, dev|prod.
+failure: visible today — react-router's `development` entry is no longer picked in vite dev / Storybook / web tests;
+         from part c, a dependency with browser vs node entries ships its non-browser build; server tests could run
+         different code than the function.
+fix:     ['source', ...defaultClientConditions] and ssr ['source', ...defaultServerConditions] from 'vite'; same in
+         both vitest configs.
+--- end ---
+--- finding --- low · apps/server/src/routes/register.ts:1002-1013
+claim:   the transient-failure status of the first transaction (hasAccount) is unspecified and untested; any
+         non-database error (TypeError, pre-SQL Drizzle error) also maps to 503.
+failure: a refactor could move hasAccount out of the try and turn it into 500; a code defect invites endless retries.
+fix:     db test with flaky.arm(1) → 503 profile_write_failed, zero rows; spec 11 "any transaction fails transiently →
+         503"; optionally 500 when the error is neither a database fault nor a connection/driver error.
+--- end ---
+--- finding --- low · spec.md criteria 10/11
+claim:   the web's behaviour on 500 internal (a deterministic refusal after Auth sign-up succeeded) is unspecified.
+failure: retry → 500 again; a fresh sign-up → "already registered"; the user is stranded, not listed with Q2/Q8.
+fix:     DECISION REQUEST to ORCHESTRATOR; add the 500 case to the Q2/Q8 debt line.
+--- end ---
+--- finding --- low · apps/server/tests/db/registration.db.test.ts:1742-1758
+claim:   the repository-level criterion-10 tests assert only rejects.toBeDefined(), not that the consent insert failed.
+failure: an earlier-insert regression would still pass with 0/0/0/0/0.
+fix:     assert readDatabaseFault(e)?.code === '23514' and the legal_consents constraint name.
+--- end ---
+
+checked — no finding: 500 vs 503 reading confirmed (class 23 / 42501 deterministic; serialization, deadlock, timeout,
+connection → 503) · part a finding 2 closed · no stale-dist path (dist gitignored, postinstall on every deploy,
+preview 200; dev/drift/tests use source) · authorization (401 at onRequest, identity transaction, no owner filters,
+defaults for ids/owners/clocks, strict body, versions from constants) · concurrency/repeats → 409 via users_pkey ·
+no sql.raw, logs SQLSTATE+constraint only, fixed response codes · 413/405 · one transaction, no per-item queries ·
+type honesty · criteria 1, 2, 3, 8, 9, 10, 11, 13, 15 server side met.
+```
+
+## Routing (ORCHESTRATOR)
+- Finding 1 (medium) → BUILDER now, not carried (cheap now, harmful from part c).
+- Finding 2 → BUILDER: non-database, non-connection errors → 500; TEST ENGINEER: the hasAccount-transient test; spec 11
+  updated by ORCHESTRATOR.
+- Finding 3 → decided by ORCHESTRATOR (decisions/2026-10.md): on 500 the web shows criterion 5's fallback text with no
+  retry control, keeps the entered data; the 500 case joins the Q2/Q8 debt line (F1.5 login completes the account).
+- Finding 4 → TEST ENGINEER.
+- CRITIC re-checks only these four.
