@@ -19,6 +19,7 @@
 - **✅ F1.2 `app-shell-guard` — מוזג** (PR 19, ‏`53b85d0`, ‏14.10; ‏`.work/app-shell-guard/result.md`): מסך Welcome, ‏AppShell, ‏RouteGuard ושכבת session. ‏CRITIC: ‏Validated with Concern, וארבעה ממצאים קלים נסגרו. ה-Preview נבדק על production אחרי המיזוג ב-375 וב-1024.
 - **ממתין להכרעה שלך:** אין. (14.10: ב-F1.4 הדפדפן קורא ל-Supabase Auth ישירות — הכרעתך "א"; קודם: אימייל תפוס "א", סיסמה מינימלית 8; ‏`decisions.md`.)
 - **ממתין לך (סודות ופעולות):**
+  0. **‏`VITE_SUPABASE_PUBLISHABLE_KEY` ב-Vercel** (‏F1.4 חלק c): אותו ערך כמו `SUPABASE_PUBLISHABLE_KEY` — של nestly-preview ל-Preview ושל nestly-prod ל-Production. בלעדיו מסך שלב 2 ב-Preview לא יכול להירשם. **להמשך:** ענף `feat/register-account-create`, אחרי CRITIC על חלק c — Preview ב-375 וב-1024 (קריטריון 21).
   1. **קובץ יומן מקומי ישן** `.live/events.jsonl` (טקסט מפרומפטים, לא ב-git): מחיקה היא שלך. אחריה אפשר להסיר את `.live/` מ-`.gitignore`.
   2. **מחיקת ענפים מרוחקים שמוזגו:** ‏`ui-wave-1/part-a` עד `part-e`, ‏`chore/i1-prep`, ‏`chore/guard-env-paths` (מוזג), ‏`chore/preview-access` (הוחלף ב-`-v2` אחרי rebase), ‏`chore/records-after-f12` (מוזג).
   3. **ב-F1.8:** הגדרת Google Cloud והסודות — אנחה אותך צעד-צעד.
@@ -42,6 +43,7 @@
   - 14.10 · אפיק: ‏Confirm email כובה ב-nestly-preview וב-nestly-prod.
   - 14.10 · Supabase › nestly-preview וגם nestly-prod › Authentication › Email: ‏Minimum password length ‏8 (‏preview: ‏10 ← 8; ‏prod: ‏6 ← 8), לפי הכרעת אפיק. אומת אחרי טעינה מחדש: 8, ו-Confirm email כבוי בשניהם.
   - 14.10 · אפיק: ‏`SUPABASE_PUBLISHABLE_KEY` ב-Vercel — של nestly-preview ל-Preview ושל nestly-prod ל-Production. אומת ברשימה (שמות בלבד).
+  - 15.10 · Vercel › nestly › Environment Variables: ‏`VITE_SUPABASE_URL` (Config) — כתובת nestly-preview ל-Preview וכתובת nestly-prod ל-Production (F1.4 חלק c: ה-Auth בדפדפן קורא רק משתני `VITE_`).
 - **היסטוריה:** `archive/WORKPLAN-2026-10.md`. ההחלטות ב-`decisions.md`. הנקודות הפתוחות במוצר ב-`docs/srs/appendix-b-open-points.md`.
 
 ---

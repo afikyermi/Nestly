@@ -267,15 +267,17 @@ describe('F1.3 criterion 11 [VAL-006 · FR-REG-002 · AC-017 · BR-068] optional
   });
 });
 
-describe('F1.3 criterion 12 (placeholder half) [FR-REG-002]', () => {
-  it('[FR-REG-002] a valid "המשך" shows the step-2 placeholder on /register', async () => {
+describe('F1.3 criterion 12 [FR-REG-002] (F1.4 part c: step 2 is real, no longer a placeholder)', () => {
+  it('[FR-REG-002][F1.4 c4] a valid "המשך" shows the real step 2 on /register: its fields, no "בקרוב" placeholder line', async () => {
     const u = user();
     renderFlow();
     await fillValid(u);
     await u.click(next());
     onStep2();
     expect(screen.getByText('שלב 2 מתוך 2')).toBeInTheDocument();
-    expect(screen.getByText('המסך הזה ייפתח בקרוב.')).toBeInTheDocument();
+    expect(screen.queryByText('המסך הזה ייפתח בקרוב.')).toBeNull();
+    expect(screen.getByRole('textbox', { name: 'אימייל' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'יצירת חשבון' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'חזרה' })).toBeInTheDocument();
     expect(screen.getByTestId('path')).toHaveTextContent('/register');
   });
