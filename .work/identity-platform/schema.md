@@ -51,7 +51,7 @@ No password or hash (NFR-SEC-001).
 |---|---|---|---|---|
 | `user_id` | uuid | not null | `auth.uid()` | PK. Shared with `users.id` |
 | `account_type` | text | not null | `'regular'` | `regular_profiles_account_type_check`: `= 'regular'`. With `regular_profiles_user_fkey` FK (`user_id`, `account_type`) → `users(id, account_type)` ON DELETE CASCADE, a profile can only belong to a Regular account (BR-016, layer 2) |
-| `full_name` | text | not null | none | `regular_profiles_full_name_check`: `btrim(full_name) <> ''` (VAL-001 "required"). **No length limit** — VAL-001 is TBD |
+| `full_name` | text | not null | none | `regular_profiles_full_name_check`: `char_length(btrim(full_name)) between 2 and 60` (VAL-001). *Updated 14.10.2026: was "no length limit, VAL-001 TBD"; VAL-001 decided 13.10.2026 (SRS 2.12), built so in part b.* |
 | `gender` | text | null | none | `regular_profiles_gender_check`: `woman` · `man` · `other` · `prefer_not_to_say` (VAL-006, OP-004 closed). NULL = not answered; `prefer_not_to_say` is an answer |
 | `created_at` | timestamptz | not null | `now()` | row creation |
 
