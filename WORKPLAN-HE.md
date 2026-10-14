@@ -14,13 +14,14 @@
 
 - **🔄 עכשיו: I1 · F1.1 `identity-platform`** (`.work/identity-platform/spec.md`, ‏Elevated). ‏Gate 1 עבר אחרי תשובותיך (Q1 לא, Q2 ‏64 ביט, Q3 רק כשמיגרציות משתנות). Gate 2 עבר (`schema.md`; ‏ON DELETE ‏RESTRICT לפי הכרעתך). שלושה חלקים ברצף: **a** מסד ב-CI ושער RLS ← **b** סכמת זהות ← **c** זהות בשרת.
   - **F1.1 a — מוזגה** (PR 15, ‏14.10): מסד זמני ב-CI, שער RLS, ‏workflow של `migrate` ובודק URL. ‏CI ירוק, ‏pgTAP ‏62/62. ‏CRITIC על opus: ‏Validated with Concern. ממצאים 1–4 (אחד מהם: סיסמת prod עלולה לדלוף ללוג ציבורי אם יש בה תו `%` פגום) הם הפריט הראשון של חלק b, ו-b לא ממוזג בלעדיהם. **הבאה: F1.1 b.**
+  - **F1.1 b — מוזגה** (PR 16, ‏14.10): הסכמה `nestly` עם `users` ו-`regular_profiles`, ‏RLS ו-FORCE, קריאת השורה של עצמך בלבד, ‏`is_active_account()` (‏INVOKER), ‏FK לעוגן עם RESTRICT וסכמת Drizzle עם בדיקת drift. ‏CI ירוק, ‏pgTAP ‏394/394. ‏CRITIC על opus: ‏Validated with Concern, וממצאי a ‏1–4 נסגרו. חמישה ממצאים קלים: אחד תוקן (שורה ב-knowledge שלא אושרה) וארבעה ב-debt. אחד מהם חייב להיסגר לפני F1.5. **הבאה: F1.1 c.**
 - **✅ guard-env-paths — מוזגה** (PR 14, ‏13.10; הבאה: F1.1 a): כלל ה-env בודק נתיבים ולא טקסט, וחמישה חורי glob נסגרו. ‏CRITIC: ‏Not Ready, ואחרי סבב התיקון היחיד Validated with Concern. נשאר פער אחד ב-debt: פקודות שעוברות דרך מריצים כמו nodemon ו-concurrently. ‏F5 ושלוש הסתירות באותו PR. הנושא סגור. אחריו נוסף רק כלל מגבלת הסבבים (הכרעתך מ-13.10, workflow → Verdicts).
 - **✅ הכרעותיך על I1 (13.10)** נכנסו ל-SRS 2.12 ולתוספת 1 בקובץ ה-initiative: ‏Google ‏(F1.8 חדש), בלי אימות אימייל, שחזור בתוך המערכת, הצהרת גיל, מסלולים במקביל ועד 10 ילדים. ‏F1.7 יצא.
 - **ממתין להכרעה שלך:** אין.
 - **ממתין לך (סודות ופעולות):**
   1. **קובץ יומן מקומי ישן** `.live/events.jsonl` (טקסט מפרומפטים, לא ב-git): מחיקה היא שלך. אחריה אפשר להסיר את `.live/` מ-`.gitignore`.
   2. **מחיקת ענפים מרוחקים שמוזגו:** ‏`ui-wave-1/part-a` עד `part-e`, ‏`chore/i1-prep`, ‏`chore/guard-env-paths` (מוזג).
-  3. **אחרי מיזוג F1.1 b, ורק כש-result שלו אומר שממצאי CRITIC 1–4 של חלק a נסגרו:** לאשר את `migrate` הראשון ב-`db-production`, ואז להריץ את bootstrap שלב 2 ב-prod (‏RESTRICT).
+  3. **ממצאי CRITIC ‏1–4 של חלק a נסגרו (PR 16). עכשיו אפשר:** לאשר את `migrate` הראשון ב-`db-production` (‏GitHub → Actions → migrate → Review deployments), ואז להריץ את bootstrap שלב 2 ב-prod (‏RESTRICT).
   4. **ב-F1.8:** הגדרת Google Cloud והסודות — אנחה אותך צעד-צעד.
   5. **Preview לענף חסום ב-Vercel Deployment Protection** (מפנה ל-login של Vercel; אני לא מתחבר בשמך). הפריסה עצמה עברה. כדי שאוכל לבדוק `/api/health` על ענפים: לכבות את ההגנה ל-Preview, או להגדיר Protection Bypass ולהזין את הסוד. עד אז, בדיקת ה-Preview של חלקים בלי ממשק נשענת על בדיקת הפריסה של Vercel.
   6. **לאשר פעם אחת ב-GitHub** שלסביבה `db-production` יש reviewer חובה (אתה) וכלל main-only. ‏CRITIC לא יכול לבדוק את זה מה-repo.
