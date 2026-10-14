@@ -102,6 +102,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-14 | CI once per part: local checks between steps, one push per finished part; CI jobs filtered by changed paths | 10 |
 | 2026-10-14 | F1.3 Gate 1: due date −30/+300 days, child name 1–60, birth date ≥ 1900, ERR-003 missing or invalid | 10 |
 | 2026-10-14 | Node ≥ 22.22 for react-router; F1.2 source-scan tests a named exception (file:line only) | 10 |
+| 2026-10-14 | Pace: spec ≤ ~150 lines and ≤ 12/20 criteria, 1–2 tests per criterion, notes ≤ 60, lean review diff, debt PR before F1.5, session handoff | 10 |
 
 ## Superseded
 
