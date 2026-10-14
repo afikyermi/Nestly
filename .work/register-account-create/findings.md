@@ -53,3 +53,25 @@ hygiene.
 - Finding 2 → spec note now; part b's TEST ENGINEER carries the repository-level criterion-10 test.
 - Finding 3 → spec fixed by ORCHESTRATOR (wording follows the Gate 2 decision; no behaviour change).
 - CRITIC re-checks only these three.
+
+## Re-check — CRITIC, F1.4 part a (eac7f7e, CI run 38621055774 green, db job included)
+
+```
+verdict: Validated
+
+finding 1 (low, column-level INSERT / rule 13 / id oracle): CLOSED — INSERT granted on 13 columns only; id, user_id,
+  created_at, accepted_at, regular_profiles.account_type never granted; file 20 asserts the exact grant set; file 21
+  asserts privilege vs policy refusal by message and the byte-identical existence-probe answer; five *Insert write
+  models fail closed if part b inserts through a read-side object. The first review's concern is resolved: no debt line.
+finding 2 (low, criterion 10 database-side only): CLOSED for part a — spec carries the repository-level test to part b;
+  CRITIC checks it exists in part b's review.
+finding 3 (low, spec Authorization paragraph): CLOSED.
+
+convention promotion — data-model.md "Write grants" row (schema.md Amendment 1): VALIDATED, with one wording change:
+  replace "Identifiers, owner columns, clocks and pinned columns are never granted" by "Identifiers, owner columns,
+  clocks and columns fixed to a constant default (e.g. regular_profiles.account_type) are never granted, so their
+  defaults always apply: rules 12–13 are held by privilege, and the policy's WITH CHECK is the second fence. A column
+  the server sets but the policy constrains (e.g. users.account_type, users.status) is granted, and the policy is its
+  first fence." Promote with this unit's "Entities" update once the branch is merge-ready. Proposer DATA ARCHITECT,
+  validator CRITIC.
+```
