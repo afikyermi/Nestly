@@ -95,7 +95,7 @@ select is(
 
 -- ---- constraints and indexes by name ---------------------------------------------------------------------------------------
 select set_eq(
-  $$ select c.relname || '.' || co.contype || '.' || co.conname
+  $$ select c.relname || '.' || co.contype::text || '.' || co.conname
        from pg_catalog.pg_constraint co join pg_catalog.pg_class c on c.oid = co.conrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'nestly' and c.relname = 'journey_contexts' and co.contype in ('p', 'f', 'u', 'c') $$,
   $$ values ('journey_contexts.p.journey_contexts_pkey'), ('journey_contexts.f.journey_contexts_user_id_fkey'),
@@ -104,7 +104,7 @@ select set_eq(
   '[F1.4-a c14] journey_contexts has exactly the approved constraints: pkey, owner FK, stage check, due-date check, one per stage');
 
 select set_eq(
-  $$ select c.relname || '.' || co.contype || '.' || co.conname
+  $$ select c.relname || '.' || co.contype::text || '.' || co.conname
        from pg_catalog.pg_constraint co join pg_catalog.pg_class c on c.oid = co.conrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'nestly' and c.relname = 'children' and co.contype in ('p', 'f', 'u', 'c') $$,
   $$ values ('children.p.children_pkey'), ('children.f.children_user_id_fkey'), ('children.c.children_slot_check'),
@@ -113,7 +113,7 @@ select set_eq(
   '[F1.4-a c14] children has exactly the approved constraints: pkey, owner FK, slot 1-10, name, sex, birth date, one child per slot');
 
 select set_eq(
-  $$ select c.relname || '.' || co.contype || '.' || co.conname
+  $$ select c.relname || '.' || co.contype::text || '.' || co.conname
        from pg_catalog.pg_constraint co join pg_catalog.pg_class c on c.oid = co.conrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'nestly' and c.relname = 'legal_consents' and co.contype in ('p', 'f', 'u', 'c') $$,
   $$ values ('legal_consents.p.legal_consents_pkey'), ('legal_consents.f.legal_consents_user_id_fkey'),
