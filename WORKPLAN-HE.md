@@ -12,7 +12,7 @@
 
 **עודכן:** 14.10.2026 · **גרסת SRS:** 2.12 · **מצב:** בניית מוצר. מערך הסוכנים קפוא עד ש-I1 ממוזג (הכרעתך מ-13.10, `decisions.md`).
 
-- **✅ F1.1 `identity-platform` — הושלם** (‏`.work/identity-platform/result.md`). ‏a מוזג (PR 15), ‏b מוזג (PR 16), ‏c מוזג (PR 17, ‏`671c096`, ‏14.10): שער RLS ב-CI, סכמת `nestly` עם RLS ו-FORCE, ‏FK לעוגן עם RESTRICT, ואימות JWT עם טרנזקציית זהות לכל בקשה. ‏CRITIC על opus: ‏Validated with Concern בכל חלק, והממצאים הקלים ב-debt.
+- **✅ F1.1 `identity-platform` — הושלם** (‏`.work/identity-platform/result.md`). ‏a מוזג (PR 15), ‏b מוזג (PR 16), ‏c מוזג (PR 17, ‏`671c096`, ‏14.10): שער RLS ב-CI, סכמת `nestly` עם RLS ו-FORCE, ‏FK לעוגן עם RESTRICT, ואימות JWT עם טרנזקציית זהות לכל בקשה. ‏CRITIC על opus: ‏Validated with Concern בכל חלק, והממצאים הקלים ב-debt. ‏**prod:** ‏`migrate` הוחל, ו-bootstrap שלב 2 רץ ונבדק ב-14.10 (‏`ok = true`, ‏RESTRICT, אתה). הסכמה זהה ב-preview וב-prod.
 - **✅ PR 18 (‏CI לפי קבצים שהשתנו) — מוזג** (‏`f7ee887`, ‏14.10): ‏browser ו-storybook רצים רק על שינויי web, ו-db רק על שינויי מסד או שרת. ב-main הכול רץ תמיד. ‏CRITIC: ‏Validated with Concern, ושלושת הממצאים הבינוניים נסגרו.
 - **🔄 הבא: F1.2 `app-shell-guard`** (Gate 1 עבר; ‏`.work/app-shell-guard/spec.md`). ענף `feat/app-shell-guard`.
 - **✅ הכרעותיך על I1 (13.10)** נכנסו ל-SRS 2.12 ולתוספת 1 בקובץ ה-initiative: ‏Google ‏(F1.8 חדש), בלי אימות אימייל, שחזור בתוך המערכת, הצהרת גיל, מסלולים במקביל ועד 10 ילדים. ‏F1.7 יצא.
@@ -20,11 +20,10 @@
 - **ממתין לך (סודות ופעולות):**
   1. **קובץ יומן מקומי ישן** `.live/events.jsonl` (טקסט מפרומפטים, לא ב-git): מחיקה היא שלך. אחריה אפשר להסיר את `.live/` מ-`.gitignore`.
   2. **מחיקת ענפים מרוחקים שמוזגו:** ‏`ui-wave-1/part-a` עד `part-e`, ‏`chore/i1-prep`, ‏`chore/guard-env-paths` (מוזג).
-  3. **bootstrap שלב 2 ב-prod** (ה-`migrate` ל-prod אושר ועבר ב-14.10, ושני ה-jobs ירוקים): ב-SQL Editor של nestly-prod להריץ את `supabase/bootstrap/02-anchor-fk.sql`, ואחריו את `02-anchor-fk-check.sql`, ולוודא `ok = true`. ב-preview זה בוצע ונבדק שוב ב-14.10 (‏`ok = true`, ‏RESTRICT).
-  4. **ב-F1.8:** הגדרת Google Cloud והסודות — אנחה אותך צעד-צעד.
-  5. **Preview לענף חסום ב-Vercel Deployment Protection** (מפנה ל-login של Vercel; אני לא מתחבר בשמך). הפריסה עצמה עברה. כדי שאוכל לבדוק `/api/health` על ענפים: לכבות את ההגנה ל-Preview, או להגדיר Protection Bypass ולהזין את הסוד. עד אז, בדיקת ה-Preview של חלקים בלי ממשק נשענת על בדיקת הפריסה של Vercel.
-  6. **לאשר פעם אחת ב-GitHub** שלסביבה `db-production` יש reviewer חובה (אתה) וכלל main-only. ‏CRITIC לא יכול לבדוק את זה מה-repo.
-  7. **כשיידרש route שנוגע במסד (F1.4):** ‏`DATABASE_URL` של `app_server` ב-Vercel (‏transaction pooler, פורט 6543).
+  3. **ב-F1.8:** הגדרת Google Cloud והסודות — אנחה אותך צעד-צעד.
+  4. **Preview לענף חסום ב-Vercel Deployment Protection** (מפנה ל-login של Vercel; אני לא מתחבר בשמך). הפריסה עצמה עברה. כדי שאוכל לבדוק `/api/health` על ענפים: לכבות את ההגנה ל-Preview, או להגדיר Protection Bypass ולהזין את הסוד. עד אז, בדיקת ה-Preview של חלקים בלי ממשק נשענת על בדיקת הפריסה של Vercel.
+  5. **לאשר פעם אחת ב-GitHub** שלסביבה `db-production` יש reviewer חובה (אתה) וכלל main-only. ‏CRITIC לא יכול לבדוק את זה מה-repo.
+  6. **כשיידרש route שנוגע במסד (F1.4):** ‏`DATABASE_URL` של `app_server` ב-Vercel (‏transaction pooler, פורט 6543).
 - **Preview:** [nestly-blue.vercel.app](https://nestly-blue.vercel.app), ‏`/api/health` עובד, עוד אין מסך מוצר. גלריית הרכיבים מקומית: `npm run build-storybook`, ‏`npm run serve:storybook`, ‏`http://127.0.0.1:6007`. ‏Supabase בפרנקפורט: prod ‏`cihugbwafnaujsqabgyp`, ‏preview ‏`xmihorrkegrdlbhpktny`.
 - **פתוח, בלי הכרעה עכשיו:** החלטות המדיה M1–M6 לפני I5 · תקציב לביקורת משפטית לפני I9 · אם בניות ש-Vercel דילג עליהן נספרות במגבלה, עוברים ל-`git.deploymentEnabled`.
 - **התקדמות מוצר (שורה לכל סשן):**
