@@ -4,8 +4,7 @@
 **Status:** schema `nestly` exists since I1 F1.1 part b (`nestly.users`, `nestly.regular_profiles`). The "Planned"
 section maps the SRS for everything not built yet.
 
-This file is one of the two maintained as-built descriptions. The other is `conventions.md`.
-Everything else about the system is read from the code.
+One of the two maintained as-built descriptions; the other is `conventions.md`. Everything else is read from the code.
 
 ---
 
@@ -24,17 +23,14 @@ Everything else about the system is read from the code.
 
 ### Why, in one line
 
-A rule attached to the data cannot be bypassed by forgetting. Enforcement in code has to be repeated
-at every read path — feed, search, notifications, profile, related content, any future API — and one
-omission is a privacy leak.
+A rule attached to the data cannot be bypassed by forgetting. Enforcement in code has to be repeated at every read
+path — feed, search, notifications, profile, related content, any future API — and one omission is a privacy leak.
 
 ### What DATA ARCHITECT owns as a result
 
-The security boundary, not only the shape of the data. A schema change and a policy change are one
-unit of work, reviewed together. Neither ships without the other.
-
-SQL — policies, functions, triggers — is database configuration, not application code. Tables are described
-in Drizzle's TypeScript schema; policies, functions and triggers are SQL in the migrations.
+The security boundary, not only the shape of the data. A schema change and a policy change are one unit of work,
+reviewed together; neither ships without the other. Tables are described in Drizzle's TypeScript schema; policies,
+functions and triggers are SQL in the migrations — database configuration, not application code.
 
 ---
 
@@ -70,11 +66,10 @@ data without passing through a policy. DATA ARCHITECT designs to them; CRITIC ch
 | 15 | **A suspended or banned account is blocked at once**: `is_active_account()` is checked in RLS, not only when the JWT expires | a token stays valid for its lifetime; the policy is checked on every query |
 | 16 | **Permission Keys are checked in policies through one function**, `has_permission(key)`: STABLE, fixed `search_path`, called as `(select has_permission(...))` so it runs once per statement. **Caller-only helpers — those that answer only for `auth.uid()` and read only rows the caller's own policies already let it read — are SECURITY INVOKER**; `is_active_account()` is one (F1.1 Gate 2). SECURITY DEFINER stays for a helper that must read rows the caller cannot, as an approved exception. Whether `has_permission` needs that is decided with it | one reviewable place for the Moderator model (deny by default, NFR-SEC-002/004), and no per-row cost. A definer that sees no more than the caller gains nothing and costs an exception |
 
-**What CI enforces** (`supabase/ci/rls-gate.sql`, every CI run):
-- The RLS gate covers `nestly` and every other schema `app_owner` owns (except the migration tool's history schema, which
-  may hold only the tool's own tables), and fails if `nestly` is missing.
-- It flags any materialized view or foreign table in those schemas: neither can carry RLS. Allowed only via "Approved
-  exceptions" below.
+**What CI enforces** (`supabase/ci/rls-gate.sql`, every CI run): the RLS gate covers `nestly` and every other schema
+`app_owner` owns (except the migration tool's history schema, which may hold only the tool's own tables), and fails if
+`nestly` is missing. It flags any materialized view or foreign table in those schemas — neither can carry RLS; allowed
+only via "Approved exceptions" below.
 
 ### Writes across users, and audit
 
@@ -85,37 +80,37 @@ data without passing through a policy. DATA ARCHITECT designs to them; CRITIC ch
 | 19 | **Protected reads go through an audited function.** A trigger does not run on SELECT, so revealing an anonymous author (P5, AC-077) and Moderator access to Private Group content (NFR-PRIV-002) go through a dedicated function that returns the data and writes the audit entry in the same call | the read and its record are one operation |
 | 20 | **The real author of an anonymous post is not readable by anyone but the author.** It is kept in a separate table: the author reads their own rows (`author_id = auth.uid()`) — to see, edit and delete their anonymous posts and to get notifications on them. Nobody else reads it; the reveal function (rule 19) is the only other path. Final shape at Gate 2 | RLS hides rows, not columns, and a `security_invoker` view cannot mask a column its caller cannot read. A separate table makes row-level security enough (P4) |
 
-**Realtime, when it comes** (chat, notifications; the MVP polls): Supabase Realtime private channels, authorized
-by RLS policies on `realtime.messages`, carry **signals only** — "something changed on this topic", never content.
-The client then fetches the content through the server, under rule 3. Why: Realtime checks its policy when a
-client connects and keeps it for the connection, so a revoked or suspended user may receive until the token
-expires (rule 15 cannot hold on that channel). Decided 2026-10-11, "Hosting".
+**Realtime, when it comes** (chat, notifications; the MVP polls): Supabase Realtime private channels, authorized by RLS
+policies on `realtime.messages`, carry **signals only** — "something changed on this topic", never content. The client
+then fetches the content through the server, under rule 3. Why: Realtime checks its policy when a client connects and
+keeps it for the connection, so a revoked or suspended user may receive until the token expires (rule 15 cannot hold
+on that channel). Decided 2026-10-11, "Hosting".
 
-**Connections from functions** (rule 5): the server runs as Vercel Functions, each instance holding one pooled
-connection in transaction mode. The Free plan allows 200 pooler clients — watch it as traffic grows. Migrations: CI reaches the database through the session-mode pooler (IPv4), since the direct connection is IPv6
-only on Free. They move to the direct connection when the IPv4 add-on is bought (I9 or later). Decided in 7.3.
+**Connections from functions** (rule 5): each Vercel Function instance holds one pooled connection in transaction
+mode. The Free plan allows 200 pooler clients — watch it as traffic grows. CI migrates through the session-mode pooler
+(IPv4), since the direct connection is IPv6 only on Free; it moves to the direct connection when the IPv4 add-on is
+bought (I9 or later). Decided in 7.3.
 
 **The `auth.users` anchor and bootstrap steps.** Exactly one product table references `auth.users`: the anchor,
-`nestly.users`, through `users_id_fkey`. Every other table references the anchor, never `auth.users`. `app_owner`
-cannot hold REFERENCES on `auth.users` (`postgres` lacks grant option, T5, 11.10.2026), so that one FK is added
-by `postgres`, a member of `app_owner` (`WITH INHERIT TRUE, SET FALSE`), in a versioned, idempotent bootstrap
-script run once per environment. On nestly-prod, Afik runs it. A pgTAP test asserts the FK exists. CRITIC flags
-any migration that touches that constraint: `app_owner` can drop it, only `postgres` can restore it. **The anchor's
-ON DELETE is RESTRICT** (Afik, 13.10.2026, `decisions/2026-10.md` "I1 open points"): an Auth user who still has a
-Nestly account cannot be deleted. Deletion runs only through an orderly deletion flow (I9, SRS OP-028) that removes
-the Nestly data first and the Auth user after; never as a side effect of deleting the Auth user. Changing the action
-is irreversible in effect once a cascade has run — reserved for Afik. Bootstrap steps, the complete
-list (anything else needing `postgres` is a `DECISION REQUEST`):
+`nestly.users`, through `users_id_fkey`; every other table references the anchor. `app_owner` cannot hold REFERENCES
+on `auth.users` (`postgres` lacks grant option, T5, 11.10.2026), so that one FK is added by `postgres`, a member of
+`app_owner` (`WITH INHERIT TRUE, SET FALSE`), in a versioned, idempotent bootstrap script run once per environment. On
+nestly-prod, Afik runs it. A pgTAP test asserts the FK exists. CRITIC flags any migration that touches that
+constraint: `app_owner` can drop it, only `postgres` can restore it. **The anchor's ON DELETE is RESTRICT** (Afik,
+13.10.2026, `decisions/2026-10.md` "I1 open points"): an Auth user who still has a Nestly account cannot be deleted.
+Deletion runs only through an orderly deletion flow (I9, SRS OP-028) that removes the Nestly data first and the Auth
+user after; never as a side effect of deleting the Auth user. Changing the action is irreversible in effect once a
+cascade has run — reserved for Afik. Bootstrap steps, the complete list (anything else needing `postgres` is a
+`DECISION REQUEST`):
 1. create `app_owner`, `app_server` and `app_jobs` and their grants, and `grant app_owner to postgres`;
 2. the anchor's FK to `auth.users` — as built: `supabase/bootstrap/02-anchor-fk.sql`, verified by `02-anchor-fk-check.sql`;
 3. extensions and pg_cron jobs, when needed.
 
 **Open, under rules 16 and 17** — FORCE RLS (rule 8) holds a SECURITY DEFINER function owned by `app_owner` to the
-table's policies, including those `TO authenticated` (which `app_owner` inherits). **Resolved for caller-only
-helpers** (F1.1 Gate 2): they are SECURITY INVOKER and read through the caller's own-row policies (rule 16). **Still
-open** for definer functions that must reach other users' rows (rules 17–19) — how they reach the rows they exist for
-is decided with the first one — and for backfills: the first backfill inside a migration needs a pattern for the same
-reason.
+table's policies, including those `TO authenticated` (which `app_owner` inherits). **Resolved for caller-only helpers**
+(F1.1 Gate 2): SECURITY INVOKER, reading through the caller's own-row policies (rule 16). **Still open** for definer
+functions that must reach other users' rows (rules 17–19) — decided with the first one — and for backfills: the first
+backfill inside a migration needs a pattern for the same reason.
 
 ### Approved exceptions
 
@@ -141,7 +136,7 @@ Proposed by DATA ARCHITECT and approved by ORCHESTRATOR at F1.1 Gate 2, 13.10.20
 | Identifier | **`uuid`**; generated ids use **`gen_random_uuid()`** (v4, 122 CSPRNG bits — satisfies NFR-SEC-006, BR-063). No sequence, identity or counter anywhere in `nestly`. UUIDv7 rejected: it leaks creation time and orders ids |
 | Person ids | a person's id **is** the Supabase Auth user id (`auth.uid()`), set by `default auth.uid()` (rules 12–13); never by the client. Policies compare to `auth.uid()` with no lookup in between |
 | Time | **`timestamptz`** only, default `now()`, microsecond precision, stored UTC; the UI converts to Asia/Jerusalem. Calendar dates (birth date, due date) are `date`. Never `timestamp without time zone` |
-| Naming | snake_case, **plural** tables; singular `<entity>_id` FK columns; `is_`/`has_` booleans; `_at` instants, `_date` dates; constraints `<table>_<column>_<check\|key\|fkey>`; policies `<table>_<command>_<who>`. Never a quoted identifier. Every table and column carries a `COMMENT` with its meaning and SRS id |
+| Naming | snake_case, **plural** tables; singular `<entity>_id` FK columns; `is_`/`has_` booleans; `_at` instants, `_date` dates; constraints `<table>_<column>_<check\|key\|fkey>`; policies `<table>_<command>_<who>`. Never a quoted identifier. Every table and column carries a `COMMENT` with its meaning and SRS id. It still matters under Drizzle: the typed schema catches a wrong column name in TypeScript, not inside raw SQL, policies or functions |
 | Enums | **`text` + a named `CHECK (… in (…))`**, lowercase snake_case values. The value list lives once in `packages/shared`; Drizzle declares `text(…, { enum })` from it. Postgres ENUM rejected: no value drop, `ADD VALUE` breaks atomic migrations |
 | Delete | no default. Account lifecycle lives in `users.status`. Soft delete, where an entity needs it, is a nullable `deleted_at timestamptz` hidden by its policy — decided per entity against §13.4 |
 | RLS helpers | in `nestly`, `language sql`, `STABLE`, no argument that names a user (caller only), `set search_path = ''` with every name schema-qualified, EXECUTE revoked from PUBLIC and granted to `authenticated` only, called as `(select nestly.fn())`. SECURITY INVOKER unless an approved exception says otherwise |
@@ -149,17 +144,13 @@ Proposed by DATA ARCHITECT and approved by ORCHESTRATOR at F1.1 Gate 2, 13.10.20
 | Migrations | hand-written SQL in `supabase/migrations/`, applied by the Supabase CLI as `app_owner`, each file and its history row in one transaction. One file = one unit: table + RLS + FORCE + policies + grants + comments. No non-transactional statements. Each has a down script in `supabase/rollback/` |
 | Drizzle | `pgSchema('nestly')` in `apps/server/src/db/schema.ts` mirrors columns, types and nullability for typing only; a CI drift check compares it to the catalog. drizzle-kit never generates or pushes migrations. Policies and functions are SQL only |
 
-**The naming convention still matters**: Drizzle's typed schema catches a wrong column name in TypeScript,
-but not inside raw SQL, policies or functions.
-
 ---
 
 ## Planned — input from the SRS (nothing below is built)
 
-The logical entities are listed in `docs/srs/13-data.md` (48 entities, with relations in §13.1, data
-usage in §13.2, events in §13.3, retention in §13.4). This section does **not** copy them. It organizes
-what a schema and its RLS policies have to encode, and points at the SRS for every rule.
-**On any conflict, the SRS wins** — fix this section, never the SRS to match it.
+The logical entities are in `docs/srs/13-data.md` (48 entities; relations §13.1, data usage §13.2, events §13.3,
+retention §13.4). This section does **not** copy them: it organizes what a schema and its RLS policies have to encode,
+and points at the SRS for every rule. **On any conflict, the SRS wins** — fix this section, never the SRS to match it.
 
 ### Authorization layers — what the RLS policies must express
 
@@ -202,7 +193,7 @@ Never design around these with a guess. Each one is a `DECISION REQUEST` to Afik
 | Open point | Blocks |
 |---|---|
 | OP-003 — active context with several children or a pregnancy alongside children | JourneyContext, Child |
-| OP-004 — gender field options | RegularProfile, Child |
+| OP-004 — gender field options — **closed** 11.10.2026 (VAL-006); no longer blocks | — (was RegularProfile, Child) |
 | OP-005 — professional verification | ProfessionalProfile verification fields |
 | OP-008 — fields of each Tracker (only breastfeeding is defined) | TrackerEvent |
 | OP-011 — messaging capabilities (attachments, read receipts) | Message, MediaAsset |
@@ -214,70 +205,39 @@ Never design around these with a guess. Each one is a `DECISION REQUEST` to Afik
 
 ## Entities
 
-Built by `supabase/migrations/20261014100000_identity_schema.sql` (I1 F1.1 part b; down script
-`supabase/rollback/20261014100000_identity_schema.down.sql`, safe only while both tables are empty) and bootstrap
-step 2. Writes: none for `authenticated` yet — F1.4 adds the create path, I2 the edit path.
+Built by `supabase/migrations/20261014100000_identity_schema.sql` (I1 F1.1 part b) and bootstrap step 2; down script
+`supabase/rollback/20261014100000_identity_schema.down.sql`, safe only while both tables are empty. Writes: none for
+`authenticated` yet — F1.4 adds the create path, I2 the edit path. Both tables are in `nestly`.
 
-### nestly.users
-```
-purpose:        SRS User (§13) — one person's Nestly account. The anchor: the only product table that references auth.users
-key fields:     id — uuid, PK, default auth.uid() — the account id = the Supabase Auth user id (JWT sub); never set by the client
-                account_type — text, not null, no default — regular · professional · admin · moderator (SRS Role, §3, BR-016).
-                  Fixed at creation, never changes. The only source of account type (rule 14)
-                status — text, not null, no default — active · suspended · banned (FR-MOD-002, BR-024): whether the account may
-                  use the product now. A warning is not a status; suspension end dates belong to AccountEnforcement (later)
-                created_at — timestamptz, not null, default now() — when the Nestly row was created, not the Auth sign-up
-                not stored: email and login details (stay in auth.users; BR-045 uniqueness is Auth's); no password or hash
-                  (NFR-SEC-001). A copy of another user's email would be denormalization → DECISION REQUEST
-owner:          the person; id is auth.uid(), set by the database (rules 12–13)
-authorization:  RLS + FORCE. users_select_own — authenticated reads its own row, only while status = 'active' (checked inline;
-                  never through a function that reads users). Grants: USAGE on nestly and SELECT → authenticated only.
-                  No INSERT, UPDATE or DELETE grant or policy. I2's UPDATE will be column-level, excluding account_type and status
-relations:      users_id_fkey (id) → auth.users (id) ON DELETE RESTRICT — bootstrap step 2, added by postgres.
-                  Referenced by regular_profiles through users_id_account_type_key UNIQUE (id, account_type)
-indexes:        users_pkey (id) — every policy and is_active_account() look up by id.
-                  users_id_account_type_key — target of the subtype FK; one extra small btree per insert, accepted.
-                  None on status: no query filters by it yet
-retention:      no deleted_at. Hard delete only through the orderly deletion flow (I9, OP-028); RESTRICT blocks deleting the
-                  Auth user while this row exists. Retention periods: §13.4 TBD
-```
+| Column | Type · null · default | Meaning |
+|---|---|---|
+| `users.id` | uuid PK · default `auth.uid()` | the account id = the Supabase Auth user id (JWT sub); never set by the client |
+| `users.account_type` | text · not null · no default | regular · professional · admin · moderator (SRS Role, §3, BR-016). Fixed at creation, never changes. The only source of account type (rule 14) |
+| `users.status` | text · not null · no default | active · suspended · banned (FR-MOD-002, BR-024): whether the account may use the product now. A warning is not a status; suspension end dates belong to AccountEnforcement (later) |
+| `users.created_at` | timestamptz · not null · `now()` | when the Nestly row was created, not the Auth sign-up |
+| `regular_profiles.user_id` | uuid PK · default `auth.uid()` | the owning account, = `users.id` |
+| `regular_profiles.account_type` | text · not null · default `'regular'` · CHECK = `'regular'` | with the composite FK, only a Regular account can hold a profile (BR-016, layer 2) |
+| `regular_profiles.full_name` | text · not null | VAL-001: CHECK `char_length(btrim(full_name))` between 2 and 60 (SRS 2.12, decided 13.10.2026); char_length counts code points |
+| `regular_profiles.gender` | text · null | VAL-006 (OP-004 closed): woman · man · other · prefer_not_to_say. NULL = not answered; prefer_not_to_say is an answer |
+| `regular_profiles.created_at` | timestamptz · not null · `now()` | row creation |
 
-### nestly.regular_profiles
-```
-purpose:        SRS RegularProfile (§13) — a Regular parent's own FR-REG-002 fields, 1:1 with a regular account
-key fields:     user_id — uuid, PK, default auth.uid() — the owning account, = nestly.users.id
-                account_type — text, not null, default 'regular', CHECK = 'regular' — with the composite FK, only a Regular
-                  account can hold a profile (BR-016, layer 2)
-                full_name — text, not null — VAL-001: CHECK char_length(btrim(full_name)) between 2 and 60 (SRS 2.12,
-                  decided 13.10.2026); char_length counts code points
-                gender — text, null — VAL-006 (OP-004 closed): woman · man · other · prefer_not_to_say. NULL = not answered;
-                  prefer_not_to_say is an answer
-                created_at — timestamptz, not null, default now() — row creation
-                not here: stage and due date (JourneyContext), children (Child) — F1.4 tables; JourneyContext waits on OP-003
-owner:          the Regular account; user_id is auth.uid(), set by the database (rule 12)
-authorization:  RLS + FORCE. regular_profiles_select_own — authenticated reads its own row, only while
-                  (select nestly.is_active_account()). Grants: SELECT → authenticated only. No INSERT, UPDATE or DELETE grant or policy
-relations:      regular_profiles_user_fkey (user_id, account_type) → users (id, account_type) ON DELETE CASCADE — the profile
-                  is part of the account. Ids never update
-indexes:        regular_profiles_pkey (user_id) — own-row reads, and the cascade lookup from users
-retention:      goes with its users row (cascade); OP-028 direction: deleted in full. §13.4 TBD
-```
+| | `users` | `regular_profiles` |
+|---|---|---|
+| Purpose | SRS User (§13) — one person's Nestly account. The anchor: the only product table that references auth.users | SRS RegularProfile (§13) — a Regular parent's own FR-REG-002 fields, 1:1 with a regular account |
+| Not stored | email and login details (stay in auth.users; BR-045 uniqueness is Auth's); no password or hash (NFR-SEC-001). A copy of another user's email would be denormalization → `DECISION REQUEST` | stage and due date (JourneyContext), children (Child) — F1.4 tables; JourneyContext waits on OP-003 |
+| Owner | the person; `id` is `auth.uid()`, set by the database (rules 12–13) | the Regular account; `user_id` is `auth.uid()`, set by the database (rule 12) |
+| Authorization | RLS + FORCE. `users_select_own` — authenticated reads its own row, only while status = 'active' (checked inline; never through a function that reads users). Grants: USAGE on nestly and SELECT → authenticated only. No INSERT, UPDATE or DELETE grant or policy. I2's UPDATE will be column-level, excluding account_type and status | RLS + FORCE. `regular_profiles_select_own` — authenticated reads its own row, only while `(select nestly.is_active_account())`. Grants: SELECT → authenticated only. No INSERT, UPDATE or DELETE grant or policy |
+| Relations | `users_id_fkey` (id) → auth.users (id) ON DELETE RESTRICT — the anchor FK above, bootstrap step 2, added by postgres. Referenced by regular_profiles through `users_id_account_type_key` UNIQUE (id, account_type) | `regular_profiles_user_fkey` (user_id, account_type) → users (id, account_type) ON DELETE CASCADE — the profile is part of the account. Ids never update |
+| Indexes | `users_pkey` (id) — every policy and is_active_account() look up by id. `users_id_account_type_key` — target of the subtype FK; one extra small btree per insert, accepted. None on status: no query filters by it yet | `regular_profiles_pkey` (user_id) — own-row reads, and the cascade lookup from users |
+| Retention | no deleted_at. Hard delete only through the orderly deletion flow (I9, OP-028); RESTRICT blocks deleting the Auth user while this row exists. Retention periods: §13.4 TBD | goes with its users row (cascade); OP-028 direction: deleted in full. §13.4 TBD |
 
 Helper: `nestly.is_active_account()` — true when the caller's own account exists and is active (rule 15). SECURITY
 INVOKER, caller only; checks `id = auth.uid()` and `status` itself rather than trusting the `users` policy.
 
-When further entities exist, each gets:
-
-```
-### <entity>
-purpose:        what it represents, in one line
-key fields:     field — type — meaning. meaning is the part that matters
-owner:          which actor owns a row, and how that is established
-authorization:  who may read / write / delete, and where that rule is enforced
-relations:      to what, with what cascade behaviour
-indexes:        index — the query it serves
-retention:      soft or hard delete, and what is retained after
-```
+A new entity adds its columns to the first table — field, type, and its meaning, which is the part that matters — and
+fills every row of the second: purpose in one line; what is not stored; owner, and how that is established;
+authorization — who may read, write and delete, and where that rule is enforced; relations, with cascade behaviour;
+indexes, each with the query it serves; retention — soft or hard delete, and what is retained after.
 
 ---
 
@@ -289,6 +249,4 @@ See "Schema conventions — DECIDED" above (F1.1 Gate 2, 13.10.2026).
 
 ## Known debt
 
-*none yet*
-
-Anything knowingly imperfect in the model, with the reason it was accepted.
+Anything knowingly imperfect in the model, with the reason it was accepted. *none yet*
