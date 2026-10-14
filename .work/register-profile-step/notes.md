@@ -66,3 +66,17 @@ Typecheck and eslint pass. Nothing run against a DB or a test.
   fails with the generic message (the schema needs a child). Criterion 7's has-child half and the child cases of 9 wait for pass d.
 - FINDING for TEST ENGINEER: `apps/web/tests/app/guard-production-source.test.tsx` row `/register shows the h1 הרשמה`
   now fails by design (the placeholder is gone; h1 is "פרטים אישיים"). Not edited by me.
+
+## Pass d (criteria 8, 16-20)
+
+- `ChildrenSection.tsx`: cards (role=group named by the h2), add (focus to the new card's name), remove (focus to the add
+  button, shown only with 2+ cards), max 10 via `aria-disabled` + note linked by `aria-describedby`; handler guards the 11th.
+  Cards are keyed by index (fields are controlled, so values stay right after a remove).
+- Ticking has_child with no children adds one empty card; children already entered return on re-tick (Q3).
+- `validateStep1` now returns `errors.child[index]` per field. Children errors: DR-4 texts; birth_date_out_of_range,
+  child_name_length fall to generic. No new text, no QUESTION.
+- Stories: 4 multi stories in choice-card-group.stories.tsx; `RegisterStepOne.stories.tsx` (empty, both sections with
+  errors, 10 children). `showErrors` prop on RegisterStepOne exists for the stories only. Storybook build passes.
+- Not verified by me: axe, 375/1024 layout, no-horizontal-scroll, keyboard walk, target sizes - all need a real browser.
+- Uncertain: remove button is icon-only (CircleMinus) with a tooltip; the R2 look of a child card is my reading, not checked
+  against `r2-screens.html`.

@@ -34,3 +34,20 @@ export const Interactive: Story = {
 export const ErrorState: Story = { args: { value: null, error: true } };
 
 export const Disabled: Story = { args: { value: 'planning', disabled: true } };
+
+// Multi-select mode (FR-REG-002): checkboxes, planning and pregnant never ticked together.
+const multiArgs = {
+  multiple: true,
+  legend: 'השלב במסע',
+  name: 'stage-multi',
+  options: options.map((option) => (option.value === 'parent' ? { ...option, value: 'has_child' } : option)),
+  exclusivePairs: [['planning', 'pregnant']],
+} as const;
+
+export const MultiNoneTicked: Story = { args: { ...multiArgs, values: [] } };
+
+export const MultiOneTicked: Story = { args: { ...multiArgs, values: ['pregnant'] } };
+
+export const MultiTwoTicked: Story = { args: { ...multiArgs, values: ['pregnant', 'has_child'] } };
+
+export const MultiErrorState: Story = { args: { ...multiArgs, values: [], error: true } };

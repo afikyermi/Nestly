@@ -11,8 +11,9 @@ import { Button } from '@/components/ui/button';
 import { ArrowBackIcon } from '@/components/ui/icons';
 import { SelectInput } from '@/components/ui/select-input';
 import { TextInput } from '@/components/ui/text-input';
+import { ChildrenSection } from './ChildrenSection';
 import { FieldError, FieldHint } from './field-message';
-import { validateStep1, type Step1Form } from './step1-form';
+import { EMPTY_CHILD, validateStep1, type Step1Form } from './step1-form';
 
 const STAGE_OPTIONS: ChoiceOption[] = [
   { value: 'planning', label: 'מתכננים' },
@@ -38,14 +39,16 @@ export interface RegisterStepOneProps {
   getToday: () => string;
   /** Called with the parsed value when the form is valid. */
   onValid: (value: RegistrationStep1) => void;
+  /** Show the errors from the first render, as after a pressed "המשך" (stories). */
+  showErrors?: boolean;
 }
 
 // Registration step 1 (FR-REG-002): stage, name, parent gender and, under "בהריון", a due date. Errors appear on the
 // first "המשך" and are recomputed on every change after it, so one clears as soon as its field is valid.
-export function RegisterStepOne({ form, onFormChange, getToday, onValid }: RegisterStepOneProps) {
+export function RegisterStepOne({ form, onFormChange, getToday, onValid, showErrors }: RegisterStepOneProps) {
   const toWelcome = useLinkClickHandler(PATHS.welcome);
   const formRef = useRef<HTMLFormElement>(null);
-  const [attempts, setAttempts] = useState(0);
+  const [attempts, setAttempts] = useState(showErrors === true ? 1 : 0);
   const ids = useId();
   const stageHintId = `${ids}-stage-hint`;
   const stageErrorId = `${ids}-stage-error`;
@@ -60,6 +63,12 @@ export function RegisterStepOne({ form, onFormChange, getToday, onValid }: Regis
     formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
   }, [attempts]);
 
+  // Ticking "יש לנו ילד או ילדה" opens one empty child card; children already entered return as they were (Q3).
+  function onStagesChange(stages: string[]) {
+    const needsCard = stages.includes('has_child') && form.children.length === 0;
+    onFormChange({ ...form, stages, children: needsCard ? [EMPTY_CHILD] : form.children });
+  }
+
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     const result = validateStep1(form, getToday());
@@ -68,6 +77,7 @@ export function RegisterStepOne({ form, onFormChange, getToday, onValid }: Regis
   }
 
   const pregnant = form.stages.includes('pregnant');
+  const hasChild = form.stages.includes('has_child');
   const stageDescribedBy = [stageHintId, errors.stages !== undefined ? stageErrorId : null].filter(Boolean).join(' ');
 
   return (
@@ -98,7 +108,7 @@ export function RegisterStepOne({ form, onFormChange, getToday, onValid }: Regis
               exclusivePairs={EXCLUSIVE_STAGES}
               error={errors.stages !== undefined}
               aria-describedby={stageDescribedBy}
-              onChange={(stages) => onFormChange({ ...form, stages })}
+              onChange={onStagesChange}
             />
             <FieldHint id={stageHintId}>אפשר לבחור יותר מאפשרות אחת.</FieldHint>
             {errors.stages !== undefined ? <FieldError id={stageErrorId}>{errors.stages}</FieldError> : null}
@@ -114,6 +124,13 @@ export function RegisterStepOne({ form, onFormChange, getToday, onValid }: Regis
               />
               {errors.dueDate !== undefined ? <FieldError id={dueErrorId}>{errors.dueDate}</FieldError> : null}
             </div>
+          ) : null}
+          {hasChild ? (
+            <ChildrenSection
+              children={form.children}
+              errors={errors.child}
+              onChange={(children) => onFormChange({ ...form, children })}
+            />
           ) : null}
           <FormField label="שם מלא" {...(errors.fullName !== undefined ? { error: errors.fullName } : {})}>
             {(control) => (
