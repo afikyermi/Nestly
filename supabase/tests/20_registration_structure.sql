@@ -273,11 +273,21 @@ select is(
   '[F1.4-a c14 platform r7] PUBLIC holds no privilege on any nestly table');
 
 select is_empty(
-  $$ select c.relname || ':' || r.rolname
+  $$ select r.rolname
+       from pg_catalog.pg_roles r
+      where r.rolbypassrls and not r.rolsuper
+        and (r.rolname in ('authenticated', 'anon', 'app_server', 'app_jobs')
+             or pg_has_role('authenticated', r.oid, 'member') or pg_has_role('anon', r.oid, 'member')
+             or pg_has_role('app_server', r.oid, 'member') or pg_has_role('app_jobs', r.oid, 'member')) $$,
+  '[F1.4-a c14 platform r1] no BYPASSRLS role is a runtime role or one a runtime role can become (Supabase''s built-in service_role has the attribute by design; it is unreachable: see the grants checks above)');
+
+select is_empty(
+  $$ select c.relname || ':service_role'
        from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-       join pg_catalog.pg_roles r on r.rolbypassrls
-      where n.nspname = 'nestly' and c.relkind = 'r' and r.rolname in ('authenticated', 'anon', 'app_server', 'app_jobs', 'service_role') $$,
-  '[F1.4-a c14 platform r1] no runtime role has BYPASSRLS');
+      where n.nspname = 'nestly' and c.relkind in ('r', 'p')
+        and (has_table_privilege('service_role', c.oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+             or has_schema_privilege('service_role', n.oid, 'USAGE')) $$,
+  '[F1.4-a c14 platform r1] service_role, which bypasses RLS by design, holds no schema or table privilege in nestly: it cannot reach the data');
 
 -- ---- nothing else came with the migration --------------------------------------------------------------------------------
 select is_empty(
