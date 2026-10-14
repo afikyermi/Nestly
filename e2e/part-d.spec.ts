@@ -458,13 +458,56 @@ test.describe('InlineAlert (33)', () => {
 
 // Addendum after the part-d review.
 test.describe('announced errors (addendum after the part-d review)', () => {
-  for (const id of storiesOf('shared-choicecardgroup--')) {
+  // Single-select stories: a radiogroup. The multi-select stories (`--multi-`, F1.3 criterion 6) are checkbox groups.
+  const allGroupStories = storiesOf('shared-choicecardgroup--');
+  const singleStories = allGroupStories.filter((id) => !id.includes('--multi-'));
+  const multiStories = allGroupStories.filter((id) => id.includes('--multi-'));
+  const tickedIn = new Map([
+    ['shared-choicecardgroup--multi-none-ticked', 0],
+    ['shared-choicecardgroup--multi-one-ticked', 1],
+    ['shared-choicecardgroup--multi-two-ticked', 2],
+  ]);
+
+  test('[30] the single-select stories and the multi-select stories are told apart (guards the two loops below)', () => {
+    expect(singleStories.length).toBeGreaterThanOrEqual(4);
+    expect([...multiStories].sort()).toEqual([
+      'shared-choicecardgroup--multi-error-state',
+      'shared-choicecardgroup--multi-none-ticked',
+      'shared-choicecardgroup--multi-one-ticked',
+      'shared-choicecardgroup--multi-two-ticked',
+    ]);
+  });
+
+  for (const id of singleStories) {
     test(`[30] ${id}: the fieldset is a radiogroup; aria-invalid="true" only in the error story`, async ({ page }) => {
       await openStory(page, id);
       const group = page.locator(`${ROOT} fieldset[role="radiogroup"]`);
       await expect(group).toHaveCount(1);
       if (id.endsWith('--error-state')) await expect(group).toHaveAttribute('aria-invalid', 'true');
       else await expect(group).not.toHaveAttribute('aria-invalid', 'true');
+    });
+  }
+
+  for (const id of multiStories) {
+    test(`[F1.3 c6][AC-089] ${id}: a fieldset of checkboxes with no radiogroup; aria-invalid="true" on every checkbox only in the error story`, async ({
+      page,
+    }) => {
+      await openStory(page, id);
+      await expect(page.locator(`${ROOT} fieldset`)).toHaveCount(1);
+      await expect(page.locator(`${ROOT} fieldset > legend`)).toHaveCount(1);
+      await expect(page.locator(`${ROOT} [role="radiogroup"]`)).toHaveCount(0);
+      await expect(page.locator(`${ROOT} input[type="radio"], ${ROOT} [role="radio"]`)).toHaveCount(0);
+      const boxes = page.locator(`${ROOT} fieldset input[type="checkbox"]`);
+      await expect(boxes).toHaveCount(3);
+      for (let i = 0; i < 3; i += 1) {
+        if (id.endsWith('--multi-error-state')) await expect(boxes.nth(i)).toHaveAttribute('aria-invalid', 'true');
+        else await expect(boxes.nth(i)).not.toHaveAttribute('aria-invalid', 'true');
+      }
+      const expected = tickedIn.get(id);
+      if (expected !== undefined) {
+        const ticked = await boxes.evaluateAll((els) => els.filter((e) => e instanceof HTMLInputElement && e.checked).length);
+        expect(ticked, `${id} ticked count`).toBe(expected);
+      }
     });
   }
 
