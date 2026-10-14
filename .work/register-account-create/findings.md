@@ -128,3 +128,16 @@ type honesty · criteria 1, 2, 3, 8, 9, 10, 11, 13, 15 server side met.
   retry control, keeps the entered data; the 500 case joins the Q2/Q8 debt line (F1.5 login completes the account).
 - Finding 4 → TEST ENGINEER.
 - CRITIC re-checks only these four.
+
+## Re-check — CRITIC, F1.4 part b (b0b8792, CI run 38636583114 green incl. db and preview-smoke)
+
+```
+verdict: Validated — no findings. The concern (finding 1) is withdrawn; nothing from part b goes to debt.md.
+finding 1 (medium, condition override): CLOSED — ['source', ...defaultClientConditions] / ['source',
+  ...defaultServerConditions] in all three configs; real Vite 8 exports; defaults restored.
+finding 2 (low, transient vs deterministic): CLOSED — isTransient: DB fault outside class 23/42501, or a connection code
+  in the cause chain → 503; else 500; hasAccount inside the try; tests arm(1) → 503 and retry 201, existing account → 503
+  not 409, TypeError → 500 with nothing written; driver-shaped CONNECTION_CLOSED goes through the real path.
+finding 3 (low, spec): CLOSED — decision recorded, spec criterion 11, debt Q2/Q8 line includes the 500 strand.
+finding 4 (low, atomicity assertion): CLOSED — faultOf asserts 23514 on the consent version checks.
+```
