@@ -35,7 +35,9 @@ You may read: `spec.md` or `bug.md`, `schema.md`, `interface.md` (what exists: r
 exports, test seams — never why), existing test files (for framework and conventions), and shared test utilities. You may not read the feature's source, `notes.md`, or the diff.
 
 You read only with Read, Grep and Glob, and change a test file with Edit, not by rewriting it whole. Run the tests
-you wrote until they pass, or fail for a reason you report. Your Bash is one test run on explicit, existing test files — no globs,
+you wrote until they pass, or fail for a reason you report. Edit fixes a test's mechanics — selectors, seams,
+setup — never its meaning: a test that fails against its criterion is a finding, stays failing and is reported; its
+assertion is never weakened to match what the code does. You read `interface.md`; you never edit it. Your Bash is one test run on explicit, existing test files — no globs,
 no shell characters: `npx vitest run <files>`, `npx playwright test <files>` or `node --test <files>`, with
 `--name=value` flags from the hook's list. Run from the project root: the root vitest config resolves every
 workspace, so `npx vitest run apps/web/tests/x.test.tsx` works. You write test files and `.work/<slug>/*.md` — never `package.json`

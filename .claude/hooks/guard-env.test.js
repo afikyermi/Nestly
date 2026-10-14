@@ -284,6 +284,33 @@ stillBlocked('[jq-program] every other word is still checked', [
   "jq --arg a .env '.[]' f",
 ]);
 
+// CRITIC findings 1-3 (.work/speed-up-2/findings.md).
+stillBlocked('[jq-program] from-file mode after the positional, combined flags', [
+  'jq .env -f x',
+  'jq .env --from-file x',
+  'jq .env -nf x',
+  'jq .env --from-file=x',
+  'jq -rf .env x',
+]);
+
+stillBlocked('[jq-program] output fed to an interpreter', [
+  `jq -nr '"cat .env"' | sh`,
+  `gh api x --jq '.[]' | sh`,
+]);
+
+stillBlocked('[jq-program] program text naming an env file', [
+  `jq 'include ".env"; .' f`,
+  `gh api x --jq '".env"'`,
+]);
+
+notBlocked('[jq-program] plain programs, unchanged', [
+  "jq '.[]' f.json",
+  "gh api x --jq '.[]'",
+  "gh api x --jq '.[]' | head",
+]);
+
+// `jq --library-path dir '.[]' f` is deliberately not asserted: the contract does not say. Observed: blocked (fail closed).
+
 // ---------------------------------------------------------------- F5: wording
 
 test('[F5] the escalation line for the third reader block of one role says "in one task", not "in one session"', () => {
