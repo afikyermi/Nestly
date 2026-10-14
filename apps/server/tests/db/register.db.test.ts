@@ -31,6 +31,14 @@ function url(): string {
 }
 const env = () => ({ SUPABASE_JWKS_URL: jwks.url, SUPABASE_JWT_ISSUER: ISSUER, SUPABASE_JWT_AUDIENCE: AUDIENCE, DATABASE_URL: url() });
 
+/**
+ * What postgres-js throws when the connection goes away mid-call: a plain Error (not a PostgresError, no SQLSTATE) carrying
+ * a driver `code` such as CONNECTION_CLOSED. The route reads that as "a retry could fix it" -> 503.
+ */
+function lostConnection(): Error {
+  return Object.assign(new Error('write CONNECTION_CLOSED'), { code: 'CONNECTION_CLOSED' });
+}
+
 /** A Database whose Nth transaction (counted from arm()) runs its work and then fails like a lost connection: the work is rolled back. */
 function flakyDatabase(real: Database): {
   database: Database;
@@ -39,7 +47,7 @@ function flakyDatabase(real: Database): {
 } {
   let remaining = 0;
   let failures = 0;
-  let make: () => Error = () => new Error('connection lost');
+  let make: () => Error = lostConnection;
   const db = new Proxy(real.db, {
     get(target, prop) {
       const value: unknown = Reflect.get(target, prop);
@@ -69,7 +77,7 @@ function flakyDatabase(real: Database): {
     database: { db, client: real.client, close: () => real.close() },
     arm: (nth, factory) => {
       remaining = nth;
-      make = factory ?? (() => new Error('connection lost'));
+      make = factory ?? lostConnection;
     },
     failures: () => failures,
   };
