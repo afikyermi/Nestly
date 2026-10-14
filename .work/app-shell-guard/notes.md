@@ -96,6 +96,17 @@ Known not to work on the Preview: no signed-in state, by design (Q1). The shell 
 - `fail()` landed on Welcome
 - no horizontal scroll at 375
 
+**Node engine (CRITIC low, ORCHESTRATOR decision)**
+- `react-router@8.4.0` declares node `>=22.22.0`, and jsdom already declared `^22.22.2`. So:
+  - `.nvmrc` → `22.22`; `actions/setup-node` resolves it to the latest 22.22.x patch.
+  - Root `engines.node` → `>=22.22.0`; the lockfile's root entry was synced by `npm install`.
+- No workspace declares engines. Nothing else pins 22.18: CI and `migrate.yml` read `node-version-file: .nvmrc`, and
+  `vercel.json` has no Node setting.
+- **For Afik:** check Vercel → Project Settings → Node.js Version is 22.x. Vercel takes the major from there, and a
+  `>=` range in `engines` can make it warn or pick the newest major. Patch updates within 22.x are automatic. I could
+  not read the dashboard, and the release-index lookup was denied, so the exact latest patch is unverified.
+- This machine runs Node 24.11, which satisfies both ranges.
+
 **Neighbouring**
 - `vite preview` logs a 404 for a resource on first load, most likely `/favicon.ico` (index.html declares none). It
   predates this change.
