@@ -229,3 +229,9 @@ side effect. Q-b: a token without `exp` is refused (401). Q-c: issuer or audienc
 closed like an unset JWKS URL (criterion 26). Q-d: only `GET /api/health` is public; `HEAD` is protected. Q-e: an
 `aud` list that contains the configured audience is accepted (standard JWT behaviour). Q-f: key rotation follows the
 JWKS client's refetch on an unknown `kid`; no criterion, no test.
+
+**Spec addendum 3 (Afik's decision 14.10.2026, "CI once per part"; recorded by ORCHESTRATOR).** Criterion 1 changes from
+"on every pull request" to: on every pull request **that changes `supabase/`, `apps/server/`, `packages/shared/`, the
+lockfile, the Node/TS base config or `ci.yml`**, and on every push to `main` (always). The skip may come only from the
+workflow's own change-detection job, which fails safe (cannot read the diff → run). No other condition may skip or
+soften the `db` job.

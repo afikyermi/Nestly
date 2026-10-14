@@ -6,9 +6,11 @@ import { describe, expect, it } from 'vitest';
 // I1 F1.1 part c, spec criterion 27 (platform r1, r5; WORKPLAN 7.3). The task asked for this as a static check:
 //   "The database client uses one connection per instance and has prepared statements off. Nothing under apps/, api/ or
 //    vercel.json names a credential other than app_server's: no service_role, app_owner or postgres."
-// It reads source files at run time, on purpose, because the promise is about what the repository contains. The tests
-// folders are skipped (this file names the forbidden credentials in order to look for them). The behavioural side of
-// "one connection" is asserted against a real database in tests/db/.
+// The credential half reads source files at run time, on purpose, because the promise is about what the repository
+// contains (a named exception to "tests do not read source": criterion 27 is a property of the repository's text). The
+// tests folders are skipped (this file names the forbidden credentials in order to look for them). The client half is
+// asserted on the exported interface, createDatabase(url).client.options, and not on the text of the source; the
+// behavioural side of "one connection" is asserted against a real database in tests/db/.
 //
 // No connection string with a password is written out in this file: the sample strings below are assembled at run time
 // from parts (pgUrl), so the repository never holds one literally.
@@ -136,24 +138,38 @@ describe('[F1.1-c c27] nothing under apps/, api/ or vercel.json names a credenti
 });
 
 describe('[F1.1-c c27] the database client: one connection per instance, prepared statements off (platform r1)', () => {
-  const srcDir = join(repoRoot, 'apps', 'server', 'src');
-  const clientText = (): { files: string[]; text: string } => {
-    const all: string[] = [];
-    walk(srcDir, all);
-    const files = all.filter((f) => /from\s+['"]postgres['"]|require\(\s*['"]postgres['"]\s*\)|import\(\s*['"]postgres['"]\s*\)/.test(readFileSync(f, 'utf8')));
-    return { files, text: files.map((f) => readFileSync(f, 'utf8')).join('\n') };
-  };
+  // The exported interface, not the source text: createDatabase(url) hands back a postgres-js client whose parsed options
+  // are what the driver will use. Nothing connects until a query runs, so a loopback address that nobody listens on is
+  // enough. The URL is built at run time, with no literal password.
+  const loopback = (): string => pgUrl('postgres', 'app_server', '127.0.0.1:1', '/nestly_test', 'throwaway');
 
-  it('the server code that creates the database client sets max: 1', SLOW, () => {
-    const { files, text } = clientText();
-    expect(files.length, 'a file under apps/server/src imports the postgres driver').toBeGreaterThan(0);
-    expect(text).toMatch(/\bmax\s*:\s*1\b/);
+  async function withDatabase<T>(use: (options: { max: number; prepare: boolean }) => T): Promise<T> {
+    const { createDatabase } = await import('../src/db/client.js');
+    const database = createDatabase(loopback());
+    try {
+      const { max, prepare } = database.client.options;
+      return use({ max, prepare });
+    } finally {
+      await database.close();
+    }
+  }
+
+  it('createDatabase(url).client.options.max is 1 (one connection per server instance)', SLOW, async () => {
+    expect(await withDatabase((o) => o.max)).toBe(1);
   });
 
-  it('prepared statements are off (prepare: false), because the transaction pooler cannot carry them', SLOW, () => {
-    const { files, text } = clientText();
-    expect(files.length).toBeGreaterThan(0);
-    expect(text).toMatch(/\bprepare\s*:\s*false\b/);
-    expect(text).not.toMatch(/\bprepare\s*:\s*true\b/);
+  it('createDatabase(url).client.options.prepare is false (the transaction pooler cannot carry prepared statements)', SLOW, async () => {
+    expect(await withDatabase((o) => o.prepare)).toBe(false);
+  });
+
+  it('the options are not taken from the URL: a query string asking for more connections or prepared statements does not change them', SLOW, async () => {
+    const { createDatabase } = await import('../src/db/client.js');
+    const database = createDatabase(`${loopback()}?max=20&prepare=true`);
+    try {
+      expect(database.client.options.max).toBe(1);
+      expect(database.client.options.prepare).toBe(false);
+    } finally {
+      await database.close();
+    }
   });
 });

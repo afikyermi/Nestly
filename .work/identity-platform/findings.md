@@ -110,3 +110,22 @@ fix: remove the row, or move it to F1.3's spec as a recommendation. → **Done b
 --- end ---
 
 Checked, no finding: own-row reads only (joins, unions, subqueries, guessed ids, enumeration) · no write grant or policy for anyone but the owner, table or column level · no other account's status reachable · app_server without role 42501 · anon, PUBLIC, service_role, app_jobs hold nothing · claims beyond sub ignored · FORCE RLS on both tables · is_active_account INVOKER, search_path '', STABLE, EXECUTE to authenticated only, no recursion · anchor FK RESTRICT, validated, the only nestly→auth FK, RESTRICT works under FORCE (tested) · step 2 one transaction, postgres only, idempotent by fingerprint · down script app_owner only, lifts FORCE in-transaction, refuses on rows · up→down→up fingerprint covers ACLs, default ACLs, policies, function bodies · Drizzle mirrors schema.md, no casts/any; drift fails on missing column, type, nullability, malformed catalog, empty schema · VAL-001 2–60 matches SRS 2.12 · VAL-006, BR-016 composite FK correct · mutations caught: drop FORCE, `or true` on a policy, grant UPDATE, DEFINER; not caught: b-1 · criteria 8–20 covered (9 partly, b-3; 18 as amended) · test hygiene · data access bounded to one row · knowledge promotion accurate apart from b-5.
+
+## Part c — CRITIC (opus), 14.10.2026, local review on 53198e0 (CI db green)
+
+verdict: Validated with Concern
+
+--- finding --- severity: low · c-1 · apps/server/src/app.ts:18 (Fastify() with no logger), plugins/authentication.ts
+claim: every log.warn/log.error is a no-op; config failures and 500s are recorded nowhere. When C4 enables a logger, these calls log the whole error object — jose's claim errors carry the token payload (email, metadata) → personal data in a log.
+fix: debt for C4: log the rejection reason and jose `code` only, never the error object or cause; until then report config issues where they are seen (stderr at startup), incl. a partly-set auth config. → debt.md.
+--- end ---
+--- finding --- severity: low · c-2 · tests/identity.test.ts, tests/db/identity.db.test.ts
+claim: two security mutations survive: (1) ALGORITHMS widened to HS256 or dropped — alg-none/HS256 still 401 because the EC-only JWKS has no oct key; (2) the whole token payload passed into request.jwt.claims (rule 14) — auth.uid()/role() still green.
+fix: (1) serve an in-set key of another algorithm and expect 401; (2) assert request.jwt.claims keys are exactly {sub, role}. → TEST ENGINEER, before the push.
+--- end ---
+--- finding --- severity: low · c-3 · tests/credentials.static.test.ts
+claim: reads app source as text (hygiene rule); the client-options half is a grep a second client or a comment fools.
+fix: client options via the exported interface (client.options.max/prepare) → TEST ENGINEER, before the push. The repository credential scan (criterion 27) is a property of the repository's text: **named exception to the TEST ENGINEER hygiene rule, ORCHESTRATOR 14.10.2026** (like the line budgets).
+--- end ---
+
+Checked, no finding: deny by default on the root instance before any route (404, HEAD, OPTIONS, bad URLs, prefix/case variants) · one 401 body, no backtracking · jose allow-list checked before key lookup; issuer, audience (lists), exp, sub UUID, nbf tolerance 0; kid refetch ≤ 1/30 s; https or loopback http; role/metadata never read · identity transaction: SET LOCAL ROLE + set_config(…, true) with {sub, role} as a parameter; c24 catches session-level settings · fail closed 503, health 200, non-app_server URL refused · client max 1, prepare false · error handler never echoes DB/library text · no any/casts/suppressions · no TBD filled. Criteria 21–27 met and tested; 28 is ORCHESTRATOR's (7.0 "not yet exercised"; branch Preview behind Vercel protection).

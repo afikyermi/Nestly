@@ -47,6 +47,8 @@ const QUERIES: Record<string, string> = {
   users: 'select id::text as id from nestly.users order by id',
   profiles: 'select user_id::text as id from nestly.regular_profiles order by user_id',
   pid: 'select pg_backend_pid()::int as pid',
+  // The names of the claims the transaction carries, sorted and comma-joined (platform rule 14: only sub and role).
+  claimkeys: "select string_agg(k, ',' order by k) as keys from jsonb_object_keys(current_setting('request.jwt.claims')::jsonb) as k",
   boom: 'select 1 / 0',
   sleep: 'select pg_sleep(0.4), pg_backend_pid()::int as pid',
 };
@@ -155,6 +157,24 @@ describe('[F1.1-c c23] inside the transaction the caller is `authenticated`, wha
     ['app_metadata and user_metadata saying service_role', { app_metadata: { role: 'service_role' }, user_metadata: { role: 'service_role' } }],
   ];
 
+  // Everything a Supabase token can carry beyond sub and role: none of it may reach the database.
+  const CLAIM_SETS: Array<[string, Record<string, unknown>]> = [
+    ['a plain token', {}],
+    ['a token with no role claim', { role: undefined }],
+    [
+      'a token carrying app_metadata, user_metadata, email, session and custom claims',
+      {
+        app_metadata: { role: 'service_role', provider: 'email' },
+        user_metadata: { status: 'active', account_type: 'admin' },
+        email: 'a@example.invalid',
+        phone: '',
+        session_id: 'f0000000-0000-4000-8000-0000000000f6',
+        is_anonymous: false,
+        custom_claim: 'x',
+      },
+    ],
+  ];
+
   it.each(ROLES)('[F1.1-c c23] role claim %s: current_user authenticated, auth.uid() is the sub, auth.role() authenticated', T, async (_label, extra) => {
     const app = await serverApp();
     const res = await call(app, 'ctx', ACCOUNT_A, extra);
@@ -167,6 +187,14 @@ describe('[F1.1-c c23] inside the transaction the caller is `authenticated`, wha
     const app = await serverApp();
     const res = await call(app, 'ctx', ACCOUNT_B, { role: 'service_role' });
     expect(res.rows[0]).toMatchObject({ cu: 'authenticated', uid: ACCOUNT_B, role: 'authenticated' });
+  });
+
+  it.each(CLAIM_SETS)('[F1.1-c c23] platform r14: request.jwt.claims inside the transaction holds exactly the keys {role, sub}: %s', T, async (_label, extra) => {
+    const app = await serverApp();
+    const res = await call(app, 'claimkeys', ACCOUNT_A, extra);
+    expect(res.status, res.body).toBe(200);
+    expect(res.rows).toHaveLength(1);
+    expect(res.rows[0]?.keys).toBe('role,sub');
   });
 
   it.each(ROLES)('[F1.1-c c23] role claim %s grants no more than authenticated: the caller reads only its own users row', T, async (_label, extra) => {
