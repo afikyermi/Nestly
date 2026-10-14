@@ -321,9 +321,22 @@ function tokenNamesEnv(t) {
 const SEARCH_LETTERS = new Map([['grep', 'ABCDdefm'], ['egrep', 'ABCDdefm'], ['fgrep', 'ABCDdefm'], ['rg', 'ABCdEefgjMmrTt']]);
 const SEARCH_LONG = /^--(regexp|file|include|exclude(-dir|-from)?|(after-|before-)?context|max-(count|depth|columns|filesize)|i?glob|type(-not|-add)?|replace|encoding|threads|ignore-file|pre(-glob)?|label|devices|directories|binary-files|group-separator|sortr?)$/;
 
+// A jq program is text (".[]" is not a glob): jq's first non-option word, unless -f/--from-file takes it from a file.
+// Options that take two values (--arg name value) are skipped whole; their words stay checked as paths.
+function jqProgram(seg, k) {
+  for (; k < seg.length && seg[k] !== '--'; k++) {
+    const t = seg[k];
+    if (/^--from-file(=|$)/.test(t) || /^-[^-]*f/.test(t)) return [];
+    if (/^--(arg|argjson|slurpfile|rawfile)$/.test(t)) k += 2;
+    else if (/^(--indent|-L)$/.test(t)) k++;
+    else if (!t.startsWith('-')) return [k];
+  }
+  return k + 1 < seg.length && seg[k] === '--' ? [k + 1] : [];
+}
+
 // The indices of seg's search-pattern tokens. With -e or -f every positional is a file; after an unknown long option
 // without "=" the pattern position is ambiguous (it may have taken the next word), so no positional is a pattern.
-function patternTokens(seg) {
+function patternTokens(seg, subst = false) {
   const name = commandName(seg);
   const git = name === 'git' ? gitCall(seg) : null;
   let k = git ? seg.length - git.args.length : 1;
@@ -331,6 +344,8 @@ function patternTokens(seg) {
   if (git && git.sub !== 'grep') return new Set(ks.filter((j) => /^--grep=/.test(seg[j]) || seg[j - 1] === '--grep'));
   if (name === 'select-string' || name === 'sls') return new Set(ks.filter((j) => /^-pattern$/i.test(seg[j - 1])));
   if (name === 'findstr') return new Set(seg.some((t) => /^\/[cg]:/i.test(t)) ? [] : ks.filter((j) => !seg[j].startsWith('/')).slice(0, 1));
+  if (name === 'gh' && !subst) return new Set(ks.filter((j) => /^--jq=/.test(seg[j]) || /^(--jq|-q)$/.test(seg[j - 1])));
+  if (name === 'jq' && !subst) return new Set(jqProgram(seg, k));
   const letters = SEARCH_LETTERS.get(git ? 'grep' : name);
   const out = new Set();
   if (!letters) return out;
@@ -358,8 +373,8 @@ function patternTokens(seg) {
 // script parsed as shell; with text, every token is. A command substitution ($( or `) is text even in a pattern: it runs.
 const INTERPRETER = /^(node|deno|bun|tsx|ts-node|python[\d.]*|py|perl|ruby|php|awk|gawk|sed|(ba|z|da)?sh|powershell|pwsh|cmd|eval)$/;
 const interpreterAt = (seg) => seg.findIndex((t) => INTERPRETER.test(commandName([t])));
-function segmentNamesEnv(seg, text) {
-  const [patterns, code] = [patternTokens(seg), interpreterAt(seg)];
+function segmentNamesEnv(seg, text, subst) {
+  const [patterns, code] = [patternTokens(seg, subst), interpreterAt(seg)];
   const [from, to] = (code >= 0 && scriptOf(seg, code)) || [0, 0];
   const asText = (k) => (text || (code >= 0 && k > code)) && (k < from || k >= to);
   return seg.some((t, k) => (/\$\(|`/.test(t) && mentionsEnv(t)) || (!patterns.has(k) && (tokenNamesEnv(t) || (asText(k) && mentionsEnv(t)))));
@@ -371,7 +386,7 @@ function namesEnvFile(command) {
   const win = String(command).replace(/\\(?=[^"'\\$`\n])/g, '/'); // parsed again, \ as a Windows path separator
   const segs = shellSegments(command).concat(shellSegments(win));
   const fed = /(?<![|>])\|(?!\|)/.test(command) && segs.some((s) => interpreterAt(s) >= 0);
-  return segs.some((s) => segmentNamesEnv(s, fed)) || mentionsEnv(commandText(command, true));
+  return segs.some((s) => segmentNamesEnv(s, fed, /\$\(|`/.test(command))) || mentionsEnv(commandText(command, true));
 }
 
 // A block of the kind Afik is told about at once (logged as rule r4-critical).
