@@ -1,6 +1,6 @@
 # Workflow — canonical pipeline
 
-**Version:** 1.10
+**Version:** 1.11
 **Status:** the single source of truth for sequence, triggers and who enters when.
 Agent definitions describe professions. **This file describes order.** If they disagree, this file wins.
 
@@ -48,9 +48,9 @@ The maintained as-built descriptions are `.claude/knowledge/data-model.md` and `
 | 5 | **DATA ARCHITECT** | *only if schema changes* — Gate 2. Policies follow the authorization layers in `.claude/knowledge/data-model.md` | `schema.md` |
 | 5b | **ALGORITHM & DATA** | *only if the feature uses behavioural signals, ranks or recommends, records analytics events, or places paid content* — purpose map, pipeline, configuration, events, evaluation. Feeds DATA ARCHITECT when tables are needed | `algorithm.md` |
 | 6 | **BUILDER** | branch, implement. calls SCOUT as needed | diff + `notes.md` |
-| 7 | **CI** | 🤖 typecheck · tests · lint · RLS checks (the list in WORKPLAN 7.1, now in `archive/WORKPLAN-2026-10.md`), run by GitHub Actions on the PR. red → back to 6 | green build |
-| 8 | **TEST ENGINEER** | tests derived from `spec.md` only | test files |
-| 9 | **CRITIC** | review the diff cold, including every invariant in `.claude/knowledge/srs-review-points.md` that the diff touches and the platform rules in `.claude/knowledge/data-model.md`. ALGORITHM & DATA reviews in parallel when step 5b ran | `findings.md` + verdict |
+| 7 | **Local checks** | 🤖 typecheck · lint · `check:budgets` · `check:stories` · the unit tests and the database tests that run on this machine. red → back to 6. No push, no CI wait between steps | green local run |
+| 8 | **TEST ENGINEER** | tests derived from `spec.md` only; ORCHESTRATOR runs the local checks on them | test files |
+| 9 | **CRITIC** | review the diff cold, including every invariant in `.claude/knowledge/srs-review-points.md` that the diff touches and the platform rules in `.claude/knowledge/data-model.md`. ALGORITHM & DATA reviews in parallel when step 5b ran. Fixes (10–11) are checked locally too. **Then one push** for the finished part — code, tests, review, fixes — and GitHub CI (typecheck · tests · lint · RLS checks) on its last commit is the merge condition. Red → fix, check locally, push once | `findings.md` + verdict, then green CI |
 | 10 | **BUILDER** | address findings | updated diff |
 | 11 | **CRITIC** | re-check **only what it raised** | verdict |
 | 12 | **ORCHESTRATOR** | ✋ **Preview** — open the deployed preview, check the acceptance criteria, record its URL in WORKPLAN | go / no-go |
@@ -294,6 +294,8 @@ except on a reserved item, a real `BLOCKER` or Two strikes.
   Afik (agent-system slimming, guard approach c).
 - 1.9 — 2026-10-13 — Traceability: squash merges, the PR body carries the `Implements:` line. Decided by Afik
   ("Commits and pushes", agent-slim stage 3).
+- 1.11 — 2026-10-14 — CI once per part: steps 7–9 run on local checks; one push when the part is finished; green
+  GitHub CI on the last commit stays the merge condition. Decided by Afik ("CI once per part").
 - 1.10 — 2026-10-13 — SPEC CHALLENGE goes to its decision owner, not always to Afik. Decided by Afik (agent-slim
   stage 4, contradiction 2). Same day: `result.md` at most 15 lines; the cost target also per part; parts run in
   sequence (Afik, "From building the system to building the product"). The last change before I1 merges.

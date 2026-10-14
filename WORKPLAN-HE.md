@@ -21,7 +21,7 @@
 - **ממתין לך (סודות ופעולות):**
   1. **קובץ יומן מקומי ישן** `.live/events.jsonl` (טקסט מפרומפטים, לא ב-git): מחיקה היא שלך. אחריה אפשר להסיר את `.live/` מ-`.gitignore`.
   2. **מחיקת ענפים מרוחקים שמוזגו:** ‏`ui-wave-1/part-a` עד `part-e`, ‏`chore/i1-prep`, ‏`chore/guard-env-paths` (מוזג).
-  3. **ממצאי CRITIC ‏1–4 של חלק a נסגרו (PR 16). עכשיו אפשר:** לאשר את `migrate` הראשון ב-`db-production` (‏GitHub → Actions → migrate → Review deployments), ואז להריץ את bootstrap שלב 2 ב-prod (‏RESTRICT).
+  3. **ממצאי CRITIC ‏1–4 של חלק a נסגרו (PR 16). עכשיו אפשר:** לאשר את `migrate` הראשון ב-`db-production` (‏GitHub → Actions → migrate, run 38508781512 → Review deployments; ה-preview כבר הוחל וירוק), ואז להריץ את bootstrap שלב 2 ב-prod ב-SQL Editor: `02-anchor-fk.sql` ואחריו `02-anchor-fk-check.sql` (‏RESTRICT). ב-preview זה כבר בוצע ב-14.10 ועבר (‏ok=true, הרצה שנייה לא שינתה כלום).
   4. **ב-F1.8:** הגדרת Google Cloud והסודות — אנחה אותך צעד-צעד.
   5. **Preview לענף חסום ב-Vercel Deployment Protection** (מפנה ל-login של Vercel; אני לא מתחבר בשמך). הפריסה עצמה עברה. כדי שאוכל לבדוק `/api/health` על ענפים: לכבות את ההגנה ל-Preview, או להגדיר Protection Bypass ולהזין את הסוד. עד אז, בדיקת ה-Preview של חלקים בלי ממשק נשענת על בדיקת הפריסה של Vercel.
   6. **לאשר פעם אחת ב-GitHub** שלסביבה `db-production` יש reviewer חובה (אתה) וכלל main-only. ‏CRITIC לא יכול לבדוק את זה מה-repo.

@@ -175,15 +175,21 @@ jobs:
         run: |
           set -eu
           owner=""
+          server=""
           for name in CI_POSTGRES_PASSWORD CI_APP_OWNER_PASSWORD CI_APP_SERVER_PASSWORD CI_JWT_SECRET; do
             value="$(openssl rand -hex 32)"
             echo "::add-mask::${value}"
             echo "${name}=${value}" >> "${GITHUB_ENV}"
             if [ "${name}" = CI_APP_OWNER_PASSWORD ]; then owner="${value}"; fi
+            if [ "${name}" = CI_APP_SERVER_PASSWORD ]; then server="${value}"; fi
           done
           url="postgresql://app_owner:${owner}@${PGHOST}:${PGPORT}/${PGDATABASE}"
           echo "::add-mask::${url}"
           echo "CI_APP_OWNER_DB_URL=${url}" >> "${GITHUB_ENV}"
+          # The request server's connection (part c): app_server, as in every real environment (data-model rule 2).
+          url="postgresql://app_server:${server}@${PGHOST}:${PGPORT}/${PGDATABASE}"
+          echo "::add-mask::${url}"
+          echo "CI_APP_SERVER_DB_URL=${url}" >> "${GITHUB_ENV}"
 
       - name: Start the disposable database
         run: |
@@ -429,6 +435,14 @@ jobs:
           # Word splitting is intended: one argument per file, in name order.
           # shellcheck disable=SC2086
           pg_prove --host "${PGHOST}" --port "${PGPORT}" --dbname "${PGDATABASE}" --username app_server ${files}
+
+      # Part c, criteria 23-26: the server's integration tests (apps/server/tests/db/) against this database, connected
+      # as app_server through DATABASE_URL like a deployed function. The JWKS is served by the tests themselves (local
+      # ES256 keys); nothing reaches Supabase Auth. Vitest fails when the folder holds no test file, on purpose.
+      - name: Server integration tests as app_server (part c)
+        env:
+          DATABASE_URL: ${{ env.CI_APP_SERVER_DB_URL }}
+        run: npm run test:db -w @nestly/server
 
       - name: Database log on failure
         if: failure()

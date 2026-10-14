@@ -7,13 +7,16 @@
     "dev": "tsx watch src/main.ts",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run",
+    "test": "vitest run --exclude \"tests/db/**\"",
+    "test:db": "vitest run tests/db/",
     "db:drift": "tsx scripts/db-drift.ts"
   },
   "dependencies": {
     "@nestly/shared": "*",
     "drizzle-orm": "^0.45.4",
-    "fastify": "^5.12.5"
+    "fastify": "^5.12.5",
+    "jose": "^6.2.12",
+    "postgres": "^3.4.9"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

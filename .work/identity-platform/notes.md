@@ -336,3 +336,92 @@
     - `(nestly absent): all 1`
     - `(app_owner): a second schema owned by app_owner is gated`
   - RLS gate: no violation. pg_prove: 3 files, 62 tests, PASS. TEST ENGINEER's part b tests are not in yet.
+
+---
+
+# notes — identity-platform, part c (server identity)
+
+**Approach**
+- `apps/server/src/lib/config.ts`: `readConfig(env)` reads four names, never a value: `SUPABASE_JWKS_URL`,
+  `SUPABASE_JWT_ISSUER`, `SUPABASE_JWT_AUDIENCE`, `DATABASE_URL`. Anything missing or unusable is `undefined`, and the
+  problem goes to `issues` (names only). The JWKS URL must be https (http only on a loopback host). `DATABASE_URL` must be
+  a postgres URL whose user is `app_server` or `app_server.<ref>`; any other user is refused (rules 1, 2).
+- `src/lib/token-verifier.ts`: `createTokenVerifier(auth)` → `jose.jwtVerify` with `createRemoteJWKSet`,
+  `algorithms: ['ES256']`, issuer, audience, `requiredClaims: ['sub', 'exp']`; `sub` must be a uuid. Only `sub` is
+  kept. It throws `TokenRejected('token')` for jose's token failures, and `TokenRejected('unavailable')` for anything
+  else (JWKS unreachable, timeout, non-200, not a key set).
+- `src/db/client.ts`: `createDatabase(url)` → postgres-js `{ max: 1, prepare: false }` + Drizzle. Lazy: nothing connects
+  until the first query.
+- `src/db/identity-transaction.ts`: `inIdentityTransaction(database, identity, work)` → one Drizzle transaction that
+  runs `set local role authenticated`, then `set_config('request.jwt.claims', '{"sub":…,"role":"authenticated"}', true)`,
+  then `work(tx)`.
+- `src/plugins/authentication.ts`: a root `onRequest` hook. `PUBLIC_ROUTES` = `{'GET /api/health'}`, matched on
+  method + route pattern; anything else, including unmatched paths (404s) and `HEAD /api/health`, is protected.
+  - auth config or database missing → 503 `{"error":"unavailable"}`, before the token is read
+  - no `Authorization: Bearer <token>`, or any token failure → 401 `{"error":"unauthenticated"}` + `WWW-Authenticate:
+    Bearer`
+  - JWKS unusable → 503 `{"error":"unavailable"}`
+  - success → `request.identity = { userId }`; the handler runs queries with `request.inIdentityTransaction(tx => …)`.
+- `src/app.ts`: `buildApp({ config?, database? })`. Defaults: `readConfig(process.env)`, and a client created from
+  `DATABASE_URL` and closed in `onClose`. An error handler replaces Fastify's default body (which carries
+  `error.message`, e.g. a Postgres "permission denied for table users") with `{"error":"bad_request"}` (4xx) or
+  `{"error":"internal"}`.
+- Dependencies: `jose` ^6.2.12, `postgres` ^3.4.9 (both decided; spec "Risk flags").
+- CI: `apps/server` `test` excludes `tests/db/`; `test:db` runs only it. The `db` job builds `CI_APP_SERVER_DB_URL`
+  (masked) and, after pgTAP, runs `npm run test:db -w @nestly/server` with `DATABASE_URL` set to it.
+
+**Test seams (for TEST ENGINEER)** — no test-only branch in production code:
+- `buildApp({ config: { auth: { jwksUrl, issuer, audience }, databaseUrl: undefined, issues: [] }, database })`. A
+  local JWKS on `http://127.0.0.1:<port>/…` is accepted (by `readConfig` too). Generate keys with jose
+  `generateKeyPair('ES256')`; serve `{ keys: [{ ...exportJWK(pub), kid, alg: 'ES256' }] }`.
+- Register a test route on the returned app before `ready()`/`inject`; it is protected because it is not on the list
+  (criterion 21). Read the caller's row with `request.inIdentityTransaction(tx => tx.select().from(users))`
+  (`src/db/schema.ts`).
+- Criterion 24: create the database with `createDatabase(process.env.DATABASE_URL)` and pass it in; with `max: 1`
+  `database.client` is the same single connection, so `` database.client`select current_user, current_setting('request.jwt.claims', true)` ``
+  after a request inspects exactly that connection. Close it yourself (an injected database is the caller's).
+- Criterion 25/22 "no query runs / no transaction opens": the hook rejects before any handler, and a handler is the only
+  place that opens one. Observable, e.g., via `pg_stat_database.xact_commit` or by a handler counter.
+- Fixtures: `tests.set_status`, `tests.fx_id` (supabase/tests/setup/10_identity_fixtures.sql) are callable by app_server
+  — on a separate `createDatabase` client, not the app's.
+- Criterion 26 JWKS unreachable: point `jwksUrl` at a closed loopback port → 503. Missing config: `auth: undefined` /
+  `databaseUrl: undefined` → protected 503, health 200.
+- DB tests go in `apps/server/tests/db/` (they run only in the CI `db` job); the rest in `apps/server/tests/`.
+
+**Decisions**
+- **The claims the database sees are `{sub, role: 'authenticated'}` only**, not the whole payload with `role`
+  overwritten. Rule 14 lets nothing beyond the user id come from the token, so no policy can come to rely on
+  `app_metadata`. A future need for e.g. `aal` (MFA) adds that claim explicitly.
+- **503 vs 401.** A token failure is 401; a check that could not be made (config missing, JWKS down) is 503. Both bodies
+  are fixed. 401 for a JWKS outage would tell the client its session is bad (F1.5 would sign the user out).
+- **Missing config is checked before the token**, so a misconfigured instance answers the same for every request.
+- **`DATABASE_URL` with another role's user is treated as unset** (protected routes 503, health 200), and logged as an
+  issue by name — rather than crashing the function and losing `/api/health`.
+- **No clock tolerance**: jose's default (0). Not a spec value; a tolerance would be a decision.
+- **Error code strings** `unauthenticated`, `unavailable`, `bad_request`, `internal`: §10 has no ERR entry for a bad
+  token; the web app maps them when F1.5 needs it.
+
+**Deviations** — none from spec.md. The error handler goes slightly beyond criterion 22 (see Approach); it exists so a
+Postgres message from the identity transaction never reaches a response (conventions, "User-facing errors").
+
+**Deliberately not done**
+- Tests (TEST ENGINEER's): criteria 21–27, unit (`tests/`) and integration (`tests/db/`).
+- No `/api/me` (Q1). Rate limiting, log policy (C4): out of scope; `app.log` is Fastify's default (off), so `issues`
+  and rejection warnings are silent until C4.
+- `DATABASE_URL` and the three `SUPABASE_*` names are not set on Vercel (Q1: no deployed route needs them). Until they
+  are, every protected route on the Preview answers 503, which is the fail-closed behaviour.
+- 7.0: the server's runtime path does not import `@nestly/shared` (only `src/db/schema.ts` does, and nothing at runtime
+  imports it yet) → "not yet exercised".
+
+**Uncertain**
+- Fluid compute may run concurrent requests in one instance; with one connection they queue. That is rule 5 as decided.
+- postgres-js with `max: 1` never reconnects proactively after a pooler-side idle close; the next query reconnects.
+  Not observed yet against the real pooler (port 6543), only by reading.
+
+**Preview path**
+- After the draft PR's Preview deploys: `GET /api/health` → 200 `{"status":"ok"}`; `GET /api/anything` → 503
+  `{"error":"unavailable"}` (no auth config on Preview). No UI.
+- CI → `db` → "Server integration tests as app_server (part c)" fails with "No test files found" until TEST ENGINEER's
+  `tests/db/` files land. Everything before it should be green.
+
+**Neighbouring** — none found.

@@ -37,8 +37,20 @@
       "Bash(node tools/db-preview.mjs:*)"
     ],
     "ask": [
-      "Write(./.claude/**)",
-      "Edit(./.claude/**)",
+      "Write(./.claude/agents/**)",
+      "Edit(./.claude/agents/**)",
+      "Write(./.claude/skills/**)",
+      "Edit(./.claude/skills/**)",
+      "Write(./.claude/hooks/**)",
+      "Edit(./.claude/hooks/**)",
+      "Write(./.claude/rules/**)",
+      "Edit(./.claude/rules/**)",
+      "Write(./.claude/settings.json)",
+      "Edit(./.claude/settings.json)",
+      "Write(./.claude/workflow.md)",
+      "Edit(./.claude/workflow.md)",
+      "Write(./.claude/learning.md)",
+      "Edit(./.claude/learning.md)",
       "Write(./CLAUDE.md)",
       "Edit(./CLAUDE.md)"
     ]

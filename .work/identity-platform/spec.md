@@ -222,3 +222,16 @@ call `is_active_account()` a SECURITY DEFINER listed in "Approved exceptions". G
 `authenticated` can execute returns another account's status, and it is **not** a definer and **not** in "Approved
 exceptions" (that list stays empty and equal to the gate's). Part b also carries part a's CRITIC findings 1–4 and the
 entry list in finding 5 (`findings.md`); part b does not merge until they are closed.
+
+**Spec addendum 2 (ORCHESTRATOR, 14.10.2026, TEST ENGINEER's part c questions — each follows from criteria 22–26 and
+platform rule 3; no new behaviour).** Q-a: a `sub` that is not a UUID is refused like a missing `sub` — the same 401, no
+side effect. Q-b: a token without `exp` is refused (401). Q-c: issuer or audience configuration unset or unusable fails
+closed like an unset JWKS URL (criterion 26). Q-d: only `GET /api/health` is public; `HEAD` is protected. Q-e: an
+`aud` list that contains the configured audience is accepted (standard JWT behaviour). Q-f: key rotation follows the
+JWKS client's refetch on an unknown `kid`; no criterion, no test.
+
+**Spec addendum 3 (Afik's decision 14.10.2026, "CI once per part"; recorded by ORCHESTRATOR).** Criterion 1 changes from
+"on every pull request" to: on every pull request **that changes `supabase/`, `apps/server/`, `packages/shared/`, the
+lockfile, the Node/TS base config or `ci.yml`**, and on every push to `main` (always). The skip may come only from the
+workflow's own change-detection job, which fails safe (cannot read the diff → run). No other condition may skip or
+soften the `db` job.
