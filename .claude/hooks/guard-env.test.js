@@ -291,6 +291,8 @@ stillBlocked('[jq-program] from-file mode after the positional, combined flags',
   'jq .env -nf x',
   'jq .env --from-file=x',
   'jq -rf .env x',
+  'jq --arg a -- .e* -f x',
+  "jq --argjson a -- '.e*' --from-file x",
 ]);
 
 stillBlocked('[jq-program] output fed to an interpreter', [
