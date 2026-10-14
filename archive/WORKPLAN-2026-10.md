@@ -243,3 +243,13 @@
 - `tbd-protocol`: הכלל כבר כתוב בחמש הגדרות.
 - `db-identity`: העובדות נמצאות ב-`data-model.md`.
 
+
+
+## הועבר מבלוק המצב ב-14.10.2026 (אחרי מיזוג F1.2)
+
+- **✅ F1.1 `identity-platform` — הושלם** (‏`.work/identity-platform/result.md`). ‏a מוזג (PR 15), ‏b מוזג (PR 16), ‏c מוזג (PR 17, ‏`671c096`, ‏14.10): שער RLS ב-CI, סכמת `nestly` עם RLS ו-FORCE, ‏FK לעוגן עם RESTRICT, ואימות JWT עם טרנזקציית זהות לכל בקשה. ‏CRITIC על opus: ‏Validated with Concern בכל חלק, והממצאים הקלים ב-debt. ‏**prod:** ‏`migrate` הוחל, ו-bootstrap שלב 2 רץ ונבדק ב-14.10 (‏`ok = true`, ‏RESTRICT, אתה). הסכמה זהה ב-preview וב-prod.
+- **✅ PR 18 (‏CI לפי קבצים שהשתנו) — מוזג** (‏`f7ee887`, ‏14.10): ‏browser ו-storybook רצים רק על שינויי web, ו-db רק על שינויי מסד או שרת. ב-main הכול רץ תמיד. ‏CRITIC: ‏Validated with Concern, ושלושת הממצאים הבינוניים נסגרו.
+- **✅ הכרעותיך על I1 (13.10)** נכנסו ל-SRS 2.12 ולתוספת 1 בקובץ ה-initiative: ‏Google ‏(F1.8 חדש), בלי אימות אימייל, שחזור בתוך המערכת, הצהרת גיל, מסלולים במקביל ועד 10 ילדים. ‏F1.7 יצא.
+- **✅ Preview לענף:** הזנת ב-14.10 את סוד ה-bypass, גם כ-repository secret ב-GitHub וגם בקובץ המקומי. אחרי F1.2 ייבנו `preview-smoke` (‏workflow) ו-`tools/preview-shot.mjs` (צילומי מסך). הסוד עובר רק כ-header, ולא נקרא, לא מודפס ולא נכנס ל-URL.
+  - 13.10: אין — Gate 1 של F1.1 עבר, עוד לא נבנה קוד מוצר.
+- **Preview:** [nestly-blue.vercel.app](https://nestly-blue.vercel.app), ‏`/api/health` עובד, עוד אין מסך מוצר. גלריית הרכיבים מקומית: `npm run build-storybook`, ‏`npm run serve:storybook`, ‏`http://127.0.0.1:6007`. ‏Supabase בפרנקפורט: prod ‏`cihugbwafnaujsqabgyp`, ‏preview ‏`xmihorrkegrdlbhpktny`.
