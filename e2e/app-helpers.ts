@@ -1,58 +1,9 @@
 // F1.2 app-shell-guard: helpers for the app specs. Derived from .work/app-shell-guard/spec.md only.
 // The session is driven through window.nestlyTestSession, which exists only in the e2e build.
-import { execFileSync, spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import path from 'node:path';
-import { test } from '@playwright/test';
+// The app server (build:e2e + preview:e2e on 4174) is started by the webServer entry in playwright.config.ts.
 import type { Locator, Page } from '@playwright/test';
 
 export const APP = 'http://127.0.0.1:4174';
-
-// ---------------------------------------------------------------------------------------------
-// The app server. The proper home for this is a second `webServer` entry in playwright.config.ts
-// (command: `npm run build:e2e -w @nestly/web && npm run preview:e2e -w @nestly/web`, url: APP, timeout 180s).
-// The test-engineer role cannot edit tool configs, so until that entry exists this hook starts the server itself
-// when nothing answers on 4174 (building the e2e bundle only if it is missing). With the entry in place the server is
-// already up and this does nothing.
-// ---------------------------------------------------------------------------------------------
-const ROOT = process.cwd();
-
-async function isUp(): Promise<boolean> {
-  try {
-    const res = await fetch(`${APP}/`);
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
-async function ensureAppServer(): Promise<void> {
-  if (await isUp()) return;
-  if (!existsSync(path.join(ROOT, 'apps/web/dist-e2e/index.html'))) {
-    execFileSync('npm', ['run', 'build:e2e', '-w', '@nestly/web'], {
-      cwd: ROOT,
-      stdio: 'pipe',
-      shell: process.platform === 'win32',
-    });
-  }
-  const child = spawn('npm', ['run', 'preview:e2e', '-w', '@nestly/web'], {
-    cwd: ROOT,
-    detached: true,
-    stdio: 'ignore',
-    shell: process.platform === 'win32',
-  });
-  child.unref();
-  for (let i = 0; i < 120; i += 1) {
-    if (await isUp()) return;
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  }
-  throw new Error(`the app preview server did not come up on ${APP}`);
-}
-
-test.beforeAll(async () => {
-  test.setTimeout(240_000);
-  await ensureAppServer();
-});
 
 export type SessionState = 'loading' | 'signed-in' | 'signed-out';
 
@@ -121,8 +72,8 @@ export const waitForSeam = (page: Page): Promise<unknown> =>
   page.waitForFunction(() => Reflect.get(window, 'nestlyTestSession') !== undefined);
 
 /** Loads a path (the session starts in `loading`), then moves the seam to `state` (null = leave it loading). */
-export async function open(page: Page, path: string, state: SessionState | null): Promise<void> {
-  await page.goto(APP + path);
+export async function open(page: Page, route: string, state: SessionState | null): Promise<void> {
+  await page.goto(APP + route);
   await waitForSeam(page);
   if (state !== null) await setState(page, state);
 }

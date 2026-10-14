@@ -1,5 +1,7 @@
-// F1.2 criteria 11 (import scan), 26 (gender-neutral copy grep) and 27 (no hex outside tokens in screens).
-// The spec itself asks for these as scans of the source tree. They read file text only; they never import or run it.
+// F1.2 criteria 11 (import scan) and 26 (gender-neutral copy grep).
+// The spec itself asks for these as scans of the source tree (recorded as a named exception: tests that read source).
+// They read file text only; they never import or run it. A match is reported as file:line, never as the source text.
+// The criterion 27 colour scan is not here: the design lint covers it.
 // Derived from .work/app-shell-guard/spec.md only.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
@@ -53,11 +55,19 @@ const AUTH_SDKS = [
   /^passport/,
 ];
 
-/** Every import / require / dynamic-import specifier in a source text. */
-function specifiers(text: string): string[] {
-  const out: string[] = [];
+interface Found {
+  specifier: string;
+  line: number;
+}
+
+/** Every import / require / dynamic-import specifier in a source text, with its 1-based line. */
+function specifiers(text: string): Found[] {
+  const out: Found[] = [];
   const re = /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)['"]([^'"\n]+)['"]/g;
-  for (const m of text.matchAll(re)) if (m[1] !== undefined) out.push(m[1]);
+  for (const m of text.matchAll(re)) {
+    if (m[1] === undefined) continue;
+    out.push({ specifier: m[1], line: text.slice(0, m.index).split('\n').length });
+  }
   return out;
 }
 
@@ -68,9 +78,14 @@ describe('the source scan is not vacuous', () => {
     expect(sources.some((f) => rel(f).startsWith('pages/') || rel(f).startsWith('features/'))).toBe(true);
   });
 
-  it('[F1.2 c11] the specifier extractor sees plain, side-effect, dynamic and require imports', () => {
+  it('[F1.2 c11] the specifier extractor sees plain, side-effect, dynamic and require imports, with their lines', () => {
     const text = `import a from '@supabase/supabase-js';\nimport '@clerk/x';\nconst b = await import("firebase/auth");\nconst c = require('auth0');`;
-    expect(specifiers(text)).toEqual(['@supabase/supabase-js', '@clerk/x', 'firebase/auth', 'auth0']);
+    expect(specifiers(text)).toEqual([
+      { specifier: '@supabase/supabase-js', line: 1 },
+      { specifier: '@clerk/x', line: 2 },
+      { specifier: 'firebase/auth', line: 3 },
+      { specifier: 'auth0', line: 4 },
+    ]);
   });
 });
 
@@ -78,8 +93,8 @@ describe('one seam (11)', () => {
   it('[F1.2 c11][FR-AUTH-004] no file under pages/, components/ or features/, and no guard, imports @supabase/* or any other auth SDK', () => {
     const offenders: string[] = [];
     for (const f of sources) {
-      for (const s of specifiers(read(f))) {
-        if (AUTH_SDKS.some((re) => re.test(s))) offenders.push(`${rel(f)} -> ${s}`);
+      for (const found of specifiers(read(f))) {
+        if (AUTH_SDKS.some((re) => re.test(found.specifier))) offenders.push(`${rel(f)}:${found.line}`);
       }
     }
     expect(offenders).toEqual([]);
@@ -119,7 +134,7 @@ describe('gender-neutral copy (26)', () => {
       read(f)
         .split('\n')
         .forEach((line, i) => {
-          if (/[א-ת]/.test(line) && slashForm.test(line)) offenders.push(`${rel(f)}:${i + 1}: ${line.trim()}`);
+          if (/[א-ת]/.test(line) && slashForm.test(line)) offenders.push(`${rel(f)}:${i + 1}`);
         });
     }
     expect(offenders).toEqual([]);
@@ -127,7 +142,7 @@ describe('gender-neutral copy (26)', () => {
 
   it('[F1.2 c26][NFR-USAB-003] the specified strings are present as specified: Welcome, actions, lead, shell, menu, placeholder', () => {
     const all = sources.map(read).join('\n');
-    for (const s of [
+    const strings = [
       'הצטרפות ל-Nestly',
       'יצירת חשבון חדש',
       'המשך עם Google',
@@ -138,18 +153,8 @@ describe('gender-neutral copy (26)', () => {
       'התנתקות',
       'הגדרות',
       'חזרה',
-    ]) {
-      expect(all, s).toContain(s);
-    }
-  });
-});
-
-describe('design consistency (27)', () => {
-  it('[F1.2 c27][NFR-USAB-004] screens (pages/, features/) use tokens only: no hex colour literal and no rgb()/hsl() literal', () => {
-    const screens = sources.filter((f) => /^(pages|features)\//.test(rel(f)));
-    const hex = /#[0-9a-fA-F]{3,8}\b/;
-    const fn = /\b(?:rgb|rgba|hsl|hsla|oklch)\s*\(/;
-    const offenders = screens.filter((f) => hex.test(read(f)) || fn.test(read(f))).map(rel);
-    expect(offenders).toEqual([]);
+    ];
+    // Compare booleans, so a failure names the missing string and does not dump the source text.
+    expect(strings.filter((s) => !all.includes(s))).toEqual([]);
   });
 });
