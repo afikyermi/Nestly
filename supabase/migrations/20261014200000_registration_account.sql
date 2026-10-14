@@ -9,6 +9,8 @@
 -- Write order inside the one identity transaction (platform rule 11), for the part-b repository:
 --   users -> regular_profiles -> journey_contexts -> children (slots 1..n in entry order) -> legal_consents.
 -- Every status gate below reads the users row inserted earlier in the same transaction.
+-- INSERT is granted per column: identifiers, owners and clocks are never named by a runtime statement (rules 12, 13);
+-- the repository inserts through write-model objects that name only the granted columns.
 --
 -- No UPDATE and no DELETE grant on any nestly table, and no policy behind one: I2 adds the edit path (its own Gate 2).
 -- Applied by the Supabase CLI as app_owner, in one transaction with its history row. Down script:
@@ -109,9 +111,16 @@ create policy legal_consents_insert_own on nestly.legal_consents
   for insert to authenticated
   with check (user_id = (select auth.uid()) and (select nestly.is_active_account()) and accepted_at = now());
 
--- 6. Grants — authenticated only. No UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER to anyone.
-grant select, insert on table nestly.journey_contexts, nestly.children, nestly.legal_consents to authenticated;
-grant insert         on table nestly.users, nestly.regular_profiles                           to authenticated;
+-- 6. Grants — authenticated only. SELECT per table; INSERT per column, only on the columns the server sends, so id,
+--    user_id, created_at, accepted_at and regular_profiles.account_type always take their defaults (platform rules
+--    12, 13). No UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER to anyone.
+grant select on table nestly.journey_contexts, nestly.children, nestly.legal_consents to authenticated;
+
+grant insert (account_type, status)                                 on table nestly.users            to authenticated;
+grant insert (full_name, gender)                                    on table nestly.regular_profiles to authenticated;
+grant insert (stage, due_date)                                      on table nestly.journey_contexts to authenticated;
+grant insert (slot, name, sex, birth_date)                          on table nestly.children         to authenticated;
+grant insert (terms_version, privacy_version, has_declared_18_plus) on table nestly.legal_consents   to authenticated;
 
 -- 7. Comments.
 comment on table nestly.journey_contexts is

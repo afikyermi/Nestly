@@ -69,3 +69,40 @@ export const legalConsents = nestly.table('legal_consents', {
   privacyVersion: text('privacy_version').notNull(),
   hasDeclared18Plus: boolean('has_declared_18_plus').notNull(),
 });
+
+// Write models. INSERT target only. Names exactly the columns granted INSERT (migration 20261014200000 §6); Drizzle
+// names every column of the object it inserts into, and naming an ungranted column is 42501. Part b's repository
+// inserts only through these. The read-side objects above stay for SELECT.
+
+/** INSERT target only. Names exactly the columns granted INSERT (migration 20261014200000 §6). */
+export const usersInsert = nestly.table('users', {
+  accountType: text('account_type', { enum: ACCOUNT_TYPES }).notNull(),
+  status: text('status', { enum: ACCOUNT_STATUSES }).notNull(),
+});
+
+/** INSERT target only. Names exactly the columns granted INSERT (migration 20261014200000 §6). */
+export const regularProfilesInsert = nestly.table('regular_profiles', {
+  fullName: text('full_name').notNull(),
+  gender: text('gender', { enum: PARENT_GENDERS }),
+});
+
+/** INSERT target only. Names exactly the columns granted INSERT (migration 20261014200000 §6). */
+export const journeyContextsInsert = nestly.table('journey_contexts', {
+  stage: text('stage', { enum: JOURNEY_STAGES }).notNull(),
+  dueDate: date('due_date', { mode: 'string' }),
+});
+
+/** INSERT target only. Names exactly the columns granted INSERT (migration 20261014200000 §6). */
+export const childrenInsert = nestly.table('children', {
+  slot: smallint('slot').notNull(),
+  name: text('name').notNull(),
+  sex: text('sex', { enum: CHILD_SEXES }).notNull(),
+  birthDate: date('birth_date', { mode: 'string' }).notNull(),
+});
+
+/** INSERT target only. Names exactly the columns granted INSERT (migration 20261014200000 §6). */
+export const legalConsentsInsert = nestly.table('legal_consents', {
+  termsVersion: text('terms_version').notNull(),
+  privacyVersion: text('privacy_version').notNull(),
+  hasDeclared18Plus: boolean('has_declared_18_plus').notNull(),
+});

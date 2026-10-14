@@ -22,7 +22,17 @@ Schema `nestly`. Runtime role `authenticated` (via `SET LOCAL ROLE`); suite sess
 - All five tables: RLS enabled and forced.
 
 ## Grants
-- authenticated: SELECT on users, regular_profiles (F1.1); SELECT, INSERT on journey_contexts, children, legal_consents; INSERT on users, regular_profiles. No UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER on any nestly table to any role.
+- authenticated: SELECT (table-level) on users, regular_profiles (F1.1), journey_contexts, children, legal_consents. No table-level INSERT on any nestly table. INSERT per column (Amendment 1), exactly 13 columns:
+  - users: account_type, status
+  - regular_profiles: full_name, gender
+  - journey_contexts: stage, due_date
+  - children: slot, name, sex, birth_date
+  - legal_consents: terms_version, privacy_version, has_declared_18_plus
+  - Never granted (default always applies): users.id, users.created_at; regular_profiles.user_id, account_type, created_at; id, user_id, created_at on the three new tables; legal_consents.accepted_at.
+  - Column-level ACL (attacl) exists only for those 13 columns, INSERT to authenticated only.
+- No UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER on any nestly table to any role.
+- Drizzle write models (apps/server/src/db/schema.ts), insert targets naming exactly the granted columns: `usersInsert` (accountType, status), `regularProfilesInsert` (fullName, gender), `journeyContextsInsert` (stage, dueDate), `childrenInsert` (slot, name, sex, birthDate), `legalConsentsInsert` (termsVersion, privacyVersion, hasDeclared18Plus). Read-side objects unchanged. Inserting through a read-side object names ungranted columns and fails 42501.
+- Privilege refusal vs policy refusal (both SQLSTATE 42501): privilege (a statement names an ungranted column, checked before any row or constraint) raises `permission denied for table <table>`; policy WITH CHECK raises `new row violates row-level security policy for table <table>`. A client-sent id never reaches 23505 (no unique-index oracle); the only 23505 on users_pkey is the caller's own id.
 - No trigger, view or SECURITY DEFINER function added. No new function in `nestly`.
 
 ## Fixtures (file supabase/tests/setup/20_registration_fixtures.sql, once placed; draft at .work/register-account-create/20_registration_fixtures.sql.draft)
