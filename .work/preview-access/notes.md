@@ -14,8 +14,8 @@
   makes Vercel answer 302 to its login: both checks fail (fail closed).
 - Hosts: unique deployment URL `nestly-<hash>-afikyermis-projects.vercel.app` (hyphen-free hash), no branch aliases;
   production alias `nestly-blue.vercel.app` in the tool only.
-- Finding 1: `readSecret(file)` requires a path (TypeError without one). `envFilePath(env)` and `DEFAULT_ENV_FILE`
-  stay exported (a path, not a reader); only `main()` resolves the default.
+- Finding 1: `readSecret(file)` requires a path (TypeError without one). `envFilePath` and `DEFAULT_ENV_FILE` are
+  gone; the default secret path exists only inside `main()` (re-check, 14.10).
 - Finding 3: `confirmTarget(target, lookup)` after the host pattern, before the secret: the origin must equal the
   `environment_url` or `target_url` of a status by `vercel[bot]` on `afikyermi/Nestly`, among the last 40
   deployments (newest first, statuses 10 each, early exit). `gh api` through execFile, no shell; candidates `gh`, then

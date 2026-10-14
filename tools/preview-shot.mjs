@@ -7,7 +7,8 @@
 // The bypass secret comes from .env.vercel at the repo root (VERCEL_AUTOMATION_BYPASS_SECRET=…). Afik fills it in;
 // agents cannot read it (settings.json denies it, and the guard hook blocks any shell command naming it). This script
 // never prints it: not on success, not in an error. PREVIEW_SHOT_ENV_FILE names another file instead (for tests). The
-// default path is resolved only when the tool runs; the exported reader takes an explicit path.
+// default path exists only inside main(), so it is resolved only when the tool runs; nothing exported names it, and
+// the exported reader takes an explicit path.
 //
 // Where the secret goes:
 //   - only as the x-vercel-protection-bypass header, never in a URL;
@@ -34,8 +35,6 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const DEFAULT_ENV_FILE = path.join(ROOT, '.env.vercel');
 const ENV_FILE_VAR = 'PREVIEW_SHOT_ENV_FILE';
 const SECRET_KEY = 'VERCEL_AUTOMATION_BYPASS_SECRET';
 const BYPASS_HEADER = 'x-vercel-protection-bypass';
@@ -63,12 +62,6 @@ const GH_MAX_BUFFER = 5 * 1024 * 1024;
 /** A refusal or a usage error: its message is safe to print as it is. */
 class Refused extends Error {}
 
-/** The env file to read: PREVIEW_SHOT_ENV_FILE when set, otherwise .env.vercel at the repo root. */
-function envFilePath(env = process.env) {
-  const injected = env[ENV_FILE_VAR];
-  return injected ? path.resolve(injected) : DEFAULT_ENV_FILE;
-}
-
 /** The secret in the text of an env file, or '' when its line is absent or empty. Accepts `export`, quotes and CRLF. */
 function parseSecret(text) {
   const keyLine = new RegExp(`^\\s*(?:export\\s+)?${SECRET_KEY}\\s*=`);
@@ -80,12 +73,11 @@ function parseSecret(text) {
 
 /**
  * Reads and checks the secret in the file at `file`. The path is required: there is deliberately no default here, so
- * importing this module and calling the reader cannot reach the real secret file. Throws Refused; no message carries
- * the file's content.
+ * importing this module and calling the reader cannot reach the real secret file. `name` is how the file is called in a
+ * message (default: the path). Throws Refused; no message carries the file's content.
  */
-function readSecret(file) {
+function readSecret(file, name = file) {
   if (typeof file !== 'string' || file === '') throw new TypeError('readSecret needs an explicit file path.');
-  const name = file === DEFAULT_ENV_FILE ? '.env.vercel' : file;
   if (!fs.existsSync(file)) throw new Refused(`${name} not found. Afik creates it with the line ${SECRET_KEY}=<value>.`);
   const secret = parseSecret(fs.readFileSync(file, 'utf8'));
   if (!secret) throw new Refused(`${SECRET_KEY} is missing or empty in ${name}.`);
@@ -291,7 +283,8 @@ async function shoot({ target, out, width, secret }, launch = launchChromium) {
 }
 
 /**
- * The whole run, returning the exit code instead of setting it. The env file path is resolved here and nowhere else.
+ * The whole run, returning the exit code instead of setting it. The env file path, the default included, is resolved
+ * here and nowhere else.
  * `deps` is for tests: env, lookup (see createGhLookup), launch (see shoot), stdout, stderr.
  */
 async function main(argv, deps = {}) {
@@ -306,7 +299,13 @@ async function main(argv, deps = {}) {
     args = parseArgs(argv);
     target = checkTarget(args.url);
     await confirmTarget(target, lookup);
-    secret = readSecret(envFilePath(env));
+    const injected = env[ENV_FILE_VAR];
+    if (injected) {
+      secret = readSecret(path.resolve(injected));
+    } else {
+      const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+      secret = readSecret(path.join(root, '.env.vercel'), '.env.vercel');
+    }
   } catch (e) {
     if (e instanceof Refused) stderr.write(`preview-shot: ${e.message}\n`);
     else stderr.write(`preview-shot: unexpected error (${e && e.name ? e.name : 'Error'}); details withheld so the secret cannot leak.\n`);
@@ -340,7 +339,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
 export {
   BYPASS_HEADER,
   COOKIE_HEADER,
-  DEFAULT_ENV_FILE,
   ENV_FILE_VAR,
   LOOKUP_DEPLOYMENTS,
   REPO,
@@ -351,7 +349,6 @@ export {
   confirmTarget,
   createGhLookup,
   createRouteHandler,
-  envFilePath,
   ghCandidates,
   main,
   parseArgs,

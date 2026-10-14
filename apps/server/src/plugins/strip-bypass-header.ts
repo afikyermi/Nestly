@@ -2,7 +2,7 @@
 // finding 2, decisions 2026-10-14). Checks send it as `x-vercel-protection-bypass`; Vercel's documentation does not say
 // the header is removed before the function, so the server removes it itself, in the first onRequest hook — before
 // authentication, before any handler, before anything can reflect or log it. The logger's request serializer carries no
-// headers (apps/server/tests/strip-bypass-header.test.ts asserts that nothing logged holds the value).
+// headers (apps/server/tests/bypass-header.test.ts asserts that nothing logged holds the value).
 
 import type { FastifyInstance } from 'fastify';
 
