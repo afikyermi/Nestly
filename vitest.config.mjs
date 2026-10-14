@@ -1,3 +1,4 @@
+import { defaultClientConditions, defaultServerConditions } from 'vite';
 import { configDefaults, defineConfig } from 'vitest/config';
 
 // Lets `npx vitest run <file>` work from the repo root for every workspace. The web project keeps its own config
@@ -10,8 +11,8 @@ export default defineConfig({
       'apps/web',
       'packages/shared',
       {
-        resolve: { conditions: ['source'] },
-        ssr: { resolve: { conditions: ['source'] } },
+        resolve: { conditions: ['source', ...defaultClientConditions] },
+        ssr: { resolve: { conditions: ['source', ...defaultServerConditions] } },
         test: {
           name: 'server',
           root: 'apps/server',

@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import { defaultClientConditions, defaultServerConditions } from 'vite';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
@@ -8,9 +9,9 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
     // @nestly/shared from source in dev, tests and Storybook; its built JS is for the Node function only.
-    conditions: ['source'],
+    conditions: ['source', ...defaultClientConditions],
   },
-  ssr: { resolve: { conditions: ['source'] } },
+  ssr: { resolve: { conditions: ['source', ...defaultServerConditions] } },
   server: {
     proxy: { '/api': 'http://127.0.0.1:3000' },
   },

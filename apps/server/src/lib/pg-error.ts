@@ -22,3 +22,18 @@ export function readDatabaseFault(error: unknown): DatabaseFault | undefined {
   }
   return undefined;
 }
+
+// postgres-js marks its own connection failures with a `code` such as CONNECTION_CLOSED, CONNECTION_ENDED,
+// CONNECTION_DESTROYED or CONNECT_TIMEOUT; Node's socket errors carry ECONNRESET, ETIMEDOUT and the like.
+const CONNECTION_CODE = /^(CONNECTION_|CONNECT_TIMEOUT|ECONN|ETIMEDOUT|EPIPE|ENOTFOUND|EAI_AGAIN|ENETUNREACH|EHOSTUNREACH)/;
+
+/** True when the failure is the connection to the database, not a statement it answered (a retry may pass). */
+export function isConnectionFailure(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current instanceof Error; depth += 1) {
+    const code: unknown = Reflect.get(current, 'code');
+    if (typeof code === 'string' && CONNECTION_CODE.test(code)) return true;
+    current = current.cause;
+  }
+  return false;
+}

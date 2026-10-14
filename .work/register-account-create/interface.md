@@ -86,8 +86,8 @@ Schema `nestly`. Runtime role `authenticated` (via `SET LOCAL ROLE`); suite sess
   - 201 `{status:'created'}` — no session, no ids.
   - 400 `{error:'invalid_request'}` — body failed the schema (including consent not literal `true`, unknown key, raw bound, an F1.3 rule with the server clock); also unparseable JSON -> 400 `{error:'bad_request'}`.
   - 401 `{error:'unauthenticated'}`; 409 `{error:'already_registered'}` (own users row visible, or 23505 on `users_pkey` from the write); 413 `{error:'bad_request'}`.
-  - 500 `{error:'internal'}` — the database refused a validated body with a deterministic fault (SQLSTATE class 23 or 42501), e.g. a failing consent insert; transaction rolled back, zero rows in all five tables.
-  - 503 `{error:'profile_write_failed'}` — any other write failure (connection lost, timeout); transaction rolled back.
+  - 500 `{error:'internal'}` — any failure that is not transient: a deterministic database fault (SQLSTATE class 23 or 42501, e.g. a failing consent insert; transaction rolled back, zero rows in all five tables) or an error that is neither a database fault nor a connection/driver error.
+  - 503 `{error:'profile_write_failed'}` — a transient failure in any transaction of the request, `hasAccount` included: a connection error (error `code` starting CONNECTION_, CONNECT_TIMEOUT, ECONN*, ETIMEDOUT, EPIPE, ENOTFOUND, EAI_AGAIN, ENETUNREACH, EHOSTUNREACH anywhere in the cause chain) or a database fault outside class 23/42501 (e.g. 40001, 57014, 53xxx, 08xxx). Transaction rolled back.
 - Order inside the handler: parse body (400) -> `hasAccount` (409) -> `createRegistration` (201 / 409 / 5xx). No Auth call anywhere on the server; the server does not read SUPABASE_URL or SUPABASE_PUBLISHABLE_KEY.
 - Logs of this route: status, SQLSTATE and constraint name only; never the error object, body, token, names or dates.
 
@@ -102,3 +102,6 @@ Schema `nestly`. Runtime role `authenticated` (via `SET LOCAL ROLE`); suite sess
 - Build the app as `apps/server/tests/db/identity.db.test.ts` does (real `app_server` database in CI, test JWKS and signed tokens from `tests/helpers/identity-*.ts`), `app.inject({ method:'POST', url:'/api/register', headers:{authorization:'Bearer …'}, payload })`. The token's `sub` must be an existing `auth.users` id whose `nestly.users` row does not exist (fixture user without a profile).
 - 409 after a first 201 with the same token; row counts per table read on the owner connection; 500 path: a test can make the write fail by forcing a deterministic database fault (e.g. a body that passes Zod but the fixture makes a table refuse), 503 path: close/break the database connection.
 - Log assertions: pass `logStream`; no line contains the body's names/dates, the token or the SQL parameters.
+
+## Module resolution of @nestly/shared (deploy fix)
+- Exports map: `types`/`source`/`default` -> src/index.ts, `node` -> dist/index.js (built by root `postinstall`). Vite (web, server vitest, root vitest server project) uses conditions `['source', ...defaultClientConditions]` / `['source', ...defaultServerConditions]`, so tests read shared source. A plain `node` process (e.g. the drift test's `node --import tsx`) reads dist.
