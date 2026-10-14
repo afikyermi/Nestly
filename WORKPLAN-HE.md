@@ -16,12 +16,13 @@
 - **✅ F1.3 `register-profile-step` — מוזג** (PR 22, ‏14.10; ‏`.work/register-profile-step/result.md`): שלב 1 בהרשמה — שלב במסע, שם, מין ההורה, תאריך לידה משוער, ילדים 1–10; הנתונים בזיכרון הטאב בלבד. ‏CRITIC: ‏Validated with Concern (סכמה strict ב-F1.4 Gate 2, ‏debt). ה-Preview נבדק ב-375 וב-1024.
 - **✅ האצה — מוזג** (PR 23, ‏`a756931`, ‏14.10, בקשתך): ‏CI ‏browser כ-matrix (Chrome/Edge × 2 shards): ‏4–5 דק׳ במקום 16–18. ‏Vercel בונה כל ענף עם PR פתוח, בלי תלות בסדר push/PR. ‏vitest רץ מהשורש. ‏CRITIC: ‏Validated. סעיפים 4–6 אושרו (‏14.10) ונבנו ב-`chore/speed-up-2`: ‏TEST ENGINEER עורך ומריץ את הטסטים שלו, ‏BUILDER כותב `interface.md`, ו-jq אינו נחשב נתיב ב-guard. ‏CRITIC (opus): שני ממצאים גבוהים ב-guard תוקנו, ‏Validated.
 - **✅ F1.2 `app-shell-guard` — מוזג** (PR 19, ‏`53b85d0`, ‏14.10; ‏`.work/app-shell-guard/result.md`): מסך Welcome, ‏AppShell, ‏RouteGuard ושכבת session. ‏CRITIC: ‏Validated with Concern, וארבעה ממצאים קלים נסגרו. ה-Preview נבדק על production אחרי המיזוג ב-375 וב-1024.
-- **ממתין להכרעה שלך:** אין. (14.10: סוד ה-bypass נשאר repository secret — הכרעתך, `decisions.md`; הסיכון הנותר ב-`debt.md`.)
+- **ממתין להכרעה שלך:**
+  1. **F1.4, אימייל תפוס בהרשמה** (מודל אבטחה, ‏`.work/register-account-create/intake.md`): בלי אימות אימייל, הרשמה עם אימייל קיים בהכרח נכשלת, ומי שמנסה לומד שהאימייל רשום. לכן FR-REG-004 ("לא חושף קיום חשבון") סותר את AC-091 (כניסה מיד). **א (המלצה):** מקבלים את החשיפה בהרשמה בלבד: הודעה "לא ניתן להשלים הרשמה עם האימייל הזה. אפשר להתחבר או לשחזר סיסמה" (ERR-002), ‏rate limit על ההרשמה, וכל השאר (כניסה ושחזור) לא חושף. כך נוהגים רוב השירותים בלי אימות. ‏**ב:** מחזירים אימות אימייל: ההרשמה לא חושפת, אבל AC-091 מתבטל ונדרש ספק אימייל (F1.7, שהוצא). ‏**ג:** ‏Google בלבד לחשבונות חדשים. תשובה בשורה: "א" / "ב" / "ג".
+  (14.10: סוד ה-bypass נשאר repository secret — הכרעתך, `decisions.md`; הסיכון הנותר ב-`debt.md`.)
 - **ממתין לך (סודות ופעולות):**
   1. **קובץ יומן מקומי ישן** `.live/events.jsonl` (טקסט מפרומפטים, לא ב-git): מחיקה היא שלך. אחריה אפשר להסיר את `.live/` מ-`.gitignore`.
   2. **מחיקת ענפים מרוחקים שמוזגו:** ‏`ui-wave-1/part-a` עד `part-e`, ‏`chore/i1-prep`, ‏`chore/guard-env-paths` (מוזג), ‏`chore/preview-access` (הוחלף ב-`-v2` אחרי rebase), ‏`chore/records-after-f12` (מוזג).
   3. **ב-F1.8:** הגדרת Google Cloud והסודות — אנחה אותך צעד-צעד.
-  4. **כשיידרש route שנוגע במסד (F1.4):** ‏`DATABASE_URL` של `app_server` ב-Vercel (‏transaction pooler, פורט 6543).
 - **פתוח, בלי הכרעה עכשיו:** החלטות המדיה M1–M6 לפני I5 · תקציב לביקורת משפטית לפני I9 · אם בניות ש-Vercel דילג עליהן נספרות במגבלה, עוברים ל-`git.deploymentEnabled`.
 - **התקדמות מוצר (שורה לכל סשן):**
   - 14.10: ‏F1.1 הושלם, שלושה PRs מוזגו (15, 16, 17). הסכמה הראשונה הוחלה על preview, ו-pgTAP עבר 394/394. ‏F1.2 מוזג (PR 19). ‏Welcome חי ב-production, ואורח מנותב אליו. כלי ה-Preview מוזג (PR 21), ו-F1.3 נפתח. ‏F1.3 מוזג (PR 22). האצת CI מוזגה (PR 23).
@@ -29,8 +30,15 @@
   1. **איפה עומדים:** ‏I1: ‏F1.1, ‏F1.2 ו-F1.3 מוזגו; כלי ה-Preview והאצת ה-CI מוזגו. ‏SRS ‏2.12 (טקסטי ERR-003 וסדר השדות ממתינים למנת ה-SRS הבאה). מערך הסוכנים קפוא עד סוף I1, מלבד חריג ההאצה. ‏Production: ‏[nestly-blue.vercel.app](https://nestly-blue.vercel.app).
   2. **הבא בתור:** ‏F1.4 (יצירת החשבון): ‏intake ו-spec. ב-Gate 2: סכמת שלב 1 strict וחסומה בגודל (‏debt). לפני push: כל חבילת הדפדפן מקומית. ‏F1.4 הראשון בתהליך החדש: ‏interface.md ובדיקת עובדות-בלבד לפני TEST ENGINEER.
   3. **בדרך:** שינוי קטן ב-`tools/critic-diff.mjs` (בלי package-lock, ‏noise, ‏incidents ו-.claude/logs) נכנס עם הפיצ'ר הבא. לפני F1.5: ‏PR אחד שסוגר את ה-debt שמסומן "חייב לפני F1.5", כמו הבדיקה של `is_active_account`.
-  4. **פתוח אצלך:** הפריטים 1–4 ב"ממתין לך". אימתת ב-14.10: ‏Git Fork Protection פועל, ל-`db-production` יש reviewer חובה וכלל main-only, ו-Node ב-Vercel הוא 22.x.
+  4. **פתוח אצלך:** הפריטים 1–3 ב"ממתין לך". אימתת ב-14.10: ‏Git Fork Protection פועל, ל-`db-production` יש reviewer חובה וכלל main-only, ו-Node ב-Vercel הוא 22.x.
   5. **כללי עבודה:** בדיקות מקומיות בין שלבים, ‏push אחד לכל חלק. ‏draft PR נפתח מיד אחרי ה-push הראשון של הענף, כי Vercel בונה Preview רק לענף עם PR פתוח. ה-diff ל-CRITIC רק דרך `tools/critic-diff.mjs`, ובלי נימוקי BUILDER בתדריך (‏incidents ‏14.10). ‏spec עד כ-150 שורות, וטסט אחד או שניים לכל קריטריון.
+- **שינויים בדפדפן (שורה לכל שינוי):**
+  - 14.10 · Vercel › nestly › Environment Variables · Preview: נוספו `SUPABASE_JWT_ISSUER` (‏`https://xmihorrkegrdlbhpktny.supabase.co/auth/v1`, nestly-preview, אומת מול openid-configuration) ו-`SUPABASE_JWT_AUDIENCE` (‏`authenticated`), שניהם Config.
+  - 14.10 · Vercel › nestly › Environment Variables · Production: נוספו `SUPABASE_JWT_ISSUER` (ה-issuer של nestly-prod, אומת מול openid-configuration) ו-`SUPABASE_JWT_AUDIENCE` (‏`authenticated`), שניהם Config.
+  - 14.10 · Vercel › nestly › Environment Variables · Preview: ‏`DATABASE_URL` (Secret) — ‏`app_server.<preview ref>` דרך ה-transaction pooler ‏(`aws-1-eu-central-1.pooler.supabase.com:6543`). הכנתי עד הסיסמה; אפיק הקליד ושמר.
+  - 14.10 · Vercel › nestly › Deployments: ‏Redeploy ל-Preview של `483ce81` (‏`chore/speed-up-2`, בלי build cache ובלי Ignore Build Step), אישור אפיק. ‏Ready; ‏`/api/health` ‏200, ‏`/api/me` בלי token ועם token פגום ‏401. חיבור אמיתי למסד ייבדק רק עם משתמש מחובר (F1.4).
+  - 14.10 · Vercel › nestly › Environment Variables · Production: טופס `DATABASE_URL` (Secret) הוכן עד הסיסמה — ‏`app_server.<prod ref>` באותו pooler, פורט 6543. אפיק הקליד ושמר. ‏nestly-prod: התפקידים, הסיסמה ו-migration ‏`identity_schema` קיימים (ריצה 38508781512); ‏`02-anchor-fk` הורץ על prod לפי אפיק (ok=true), בלי עדות ב-repo.
+  - 14.10 · Supabase › nestly-preview › Authentication › Sign In / Providers › Email: ‏Minimum password length ‏6 ← ‏10 (‏VAL-003, F1.4 קריטריון 20). ‏Password requirements נשאר "No required characters". ‏"Confirm email" עדיין דלוק: מצב auto חסם את הכיבוי, ממתין לאפיק.
 - **היסטוריה:** `archive/WORKPLAN-2026-10.md`. ההחלטות ב-`decisions.md`. הנקודות הפתוחות במוצר ב-`docs/srs/appendix-b-open-points.md`.
 
 ---

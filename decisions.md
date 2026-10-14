@@ -108,6 +108,8 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-14 | F1.3 review: three error texts (due date range, child name length, birth date floor); revealed fields sit under their choice | 10 |
 | 2026-10-14 | Speed-up: CI browser matrix, Vercel builds branches with an open PR, root vitest, TEST ENGINEER runs and edits tests, interface sheet, jq filters not paths | 10 |
 | 2026-10-14 | Speed-up 4–6 (Afik): TEST ENGINEER edits and runs its tests, BUILDER writes interface.md, jq filters are text in the guard | 10 |
+| 2026-10-14 | F1.4 Gate 1: server-side Auth sign-up through `POST /api/register` (DR-1); orphan Auth user after a lost tab completed by F1.5 (DR-2) | 10 |
+| 2026-10-14 | F1.4 Gate 2 passed; new rows are owner read + insert only until I2 (criterion 14 narrowed); one consent row per acceptance | 10 |
 
 ## Superseded
 
