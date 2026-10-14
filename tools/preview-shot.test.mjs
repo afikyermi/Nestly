@@ -6,14 +6,16 @@
 //   fails closed.
 //
 // Labels (the requirement the test asserts):
-//   [PS-1] parseSecret    [PS-2] readSecret: no default reader, explicit path only, refusals (no message carries the value)
-//   [PS-3] envFilePath    [PS-4] checkTarget    [PS-5] parseArgs    [PS-6] scrubber
+//   [PS-1] parseSecret    [PS-2] readSecret(file, name = file): file required, name only labels refusals, no message carries the value
+//   [PS-3] the real env file is out of reach: no exported default path, main() reads the file PREVIEW_SHOT_ENV_FILE names in deps.env
+//   [PS-4] checkTarget    [PS-5] parseArgs    [PS-6] scrubber
 //   [PS-8] createRouteHandler: the header goes only to requests of the target origin, never follows a redirect, other
 //          origins continue untouched, a failed fetch aborts and keeps no message
 //   [PS-M] a mutation check: a handler that adds the header for every origin (or follows redirects) must fail [PS-8]
 // The command line ([PS-7]), the target confirmation ([PS-9]) and the run with a fake browser ([PS-10]) are in
 // tools/preview-shot-run.test.mjs, in process, with no gh and no network.
-// The real .env.vercel is never read: every test names its own temp file, with a fake marker as the secret.
+// The real .env.vercel is never read, resolved or named: every test names its own temp file, with a fake marker as the
+// secret, and every call of main() carries PREVIEW_SHOT_ENV_FILE in the env it is given (no case runs main without it).
 // Assumption about parseArgs: it takes the arguments after the script name, e.g. [url, out, '--width', '375'], and the
 // result has target (or url), out (resolved against the working directory) and width (a number, 1024 by default).
 // Assumption about createRouteHandler: it reads the request URL with route.request().url().
@@ -21,12 +23,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const shotPath = fileURLToPath(new URL('./preview-shot.mjs', import.meta.url));
 const shot = await import(pathToFileURL(shotPath).href);
-const { BYPASS_HEADER, COOKIE_HEADER, DEFAULT_ENV_FILE, ENV_FILE_VAR, SECRET_KEY, Refused, checkTarget, createRouteHandler, envFilePath, parseArgs, parseSecret, readSecret, scrubber } = shot;
+const { BYPASS_HEADER, COOKIE_HEADER, ENV_FILE_VAR, SECRET_KEY, Refused, checkTarget, createRouteHandler, main, parseArgs, parseSecret, readSecret, scrubber } = shot;
 
 const KEY = 'VERCEL_AUTOMATION_BYPASS_SECRET';
 const MARK = 'FAKE-MARKER-SECRET-3b9d51e7';
@@ -53,6 +55,7 @@ test('[PS-0] the exported constants are what the decision names (guards the test
   assert.equal(ENV_FILE_VAR, 'PREVIEW_SHOT_ENV_FILE');
   assert.equal(typeof Refused, 'function');
   assert.equal(typeof createRouteHandler, 'function');
+  assert.equal(typeof main, 'function');
   assert.ok(new Refused('x') instanceof Error);
 });
 
@@ -105,13 +108,15 @@ for (const [what, text] of PARSE_EMPTY) {
 // ---------------------------------------------------------------------------------------------------------------------
 // readSecret
 
-// CRITIC finding 1: no exported reader may default to the real local file. The path is required; the default is resolved
-// only inside main(). A test must therefore always name a temp file, and a call without a path must not read anything.
+// CRITIC finding 1: no exported reader may default to the real local file. The file is required; `name` is only the label
+// used in refusal messages (it defaults to the file). A test must therefore always name a temp file, and a call without a
+// file must not read anything.
 test('[PS-2] readSecret reads exactly the file it is given', () => {
   const file = envFile(`${KEY}=${MARK}\n`);
   assert.equal(readSecret(file), MARK);
   const other = envFile(`${KEY}=OTHER-FAKE-MARKER-77\n`);
   assert.equal(readSecret(other), 'OTHER-FAKE-MARKER-77');
+  assert.equal(readSecret(file, 'a label'), MARK);
 });
 
 test('[PS-2] readSecret has no default reader: without a path it throws a TypeError, even when PREVIEW_SHOT_ENV_FILE names a readable file', () => {
@@ -121,6 +126,7 @@ test('[PS-2] readSecret has no default reader: without a path it throws a TypeEr
   try {
     assert.throws(() => readSecret(), TypeError);
     assert.throws(() => readSecret(undefined), TypeError);
+    assert.throws(() => readSecret(undefined, 'a label'), TypeError);
     for (const bad of [null, '', 42, {}]) {
       assert.throws(() => readSecret(bad), undefined, `readSecret(${JSON.stringify(bad)}) returned instead of throwing`);
     }
@@ -164,16 +170,83 @@ test('[PS-2] readSecret throws, and does not return text, when the path is a dir
   assert.throws(() => readSecret(fresh()));
 });
 
-// ---------------------------------------------------------------------------------------------------------------------
-// envFilePath
+test('[PS-2] readSecret names the file in its refusals by `name` when one is given, and by the file itself when not', () => {
+  const LABEL = 'THE-LABEL-q42';
+  const cases = [
+    ['a file without the key', envFile(`OTHER=${MARK}\n`)],
+    ['an empty value', envFile(`${KEY}=\n`)],
+    ['a missing file', join(fresh(), 'absent.env')],
+  ];
+  for (const [what, file] of cases) {
+    assert.throws(
+      () => readSecret(file, LABEL),
+      (e) => {
+        assert.ok(e instanceof Refused, `${what}: ${e?.constructor?.name}`);
+        assert.ok(String(e.message).includes(LABEL), `${what}: the label is not in the message: ${e.message}`);
+        assert.ok(!String(e.message).includes(basename(file)), `${what}: the real file name is in the message although a label was given: ${e.message}`);
+        assert.ok(!String(e.message).includes(MARK), `${what}: a value from the file is in the message`);
+        return true;
+      },
+    );
+    assert.throws(
+      () => readSecret(file),
+      (e) => e instanceof Refused && String(e.message).includes(basename(file)),
+      `${what}: with no name the message should name the file`,
+    );
+  }
+});
 
-test('[PS-3] envFilePath is PREVIEW_SHOT_ENV_FILE when set (as a path), otherwise .env.vercel at the repo root', () => {
-  const custom = join(fresh(), 'x.env');
-  assert.equal(resolve(envFilePath({ [ENV_FILE_VAR]: custom })), resolve(custom));
-  const def = envFilePath({});
-  assert.equal(def, DEFAULT_ENV_FILE);
-  const root = fileURLToPath(new URL('..', import.meta.url));
-  assert.equal(resolve(def), resolve(root, '.env.vercel'));
+// ---------------------------------------------------------------------------------------------------------------------
+// the real env file stays out of reach (CRITIC finding 1, re-check)
+
+test('[PS-3] the module exports no default env-file path and no way to get one: no DEFAULT_ENV_FILE, no envFilePath, nothing named like one', () => {
+  assert.ok(!('DEFAULT_ENV_FILE' in shot), 'DEFAULT_ENV_FILE is exported');
+  assert.ok(!('envFilePath' in shot), 'envFilePath is exported');
+  for (const [name, value] of Object.entries(shot)) {
+    if (name === 'ENV_FILE_VAR') continue; // the variable's name, not a path
+    assert.ok(!/default.*(env|file|path)|env.*(file|path)|secret.*(file|path)/i.test(name), `an export is named like a path to the env file: ${name}`);
+    if (typeof value === 'string') assert.ok(!/\.env/.test(value), `the string export ${name} names an env file: ${value}`);
+  }
+});
+
+// main() with a launcher that only counts: if the secret was read from the named file the browser is launched (and then
+// fails on purpose), otherwise the run stops before it. The target is the production alias, so no lookup is needed;
+// env is a plain object holding PREVIEW_SHOT_ENV_FILE and nothing else.
+async function mainWithEnvFile(file) {
+  const out = [];
+  const sink = (s) => void out.push(String(s));
+  sink.write = (s) => {
+    out.push(String(s));
+    return true;
+  };
+  let launched = 0;
+  const code = await main(['https://nestly-blue.vercel.app', join(fresh(), 'a.png')], {
+    env: { [ENV_FILE_VAR]: file },
+    lookup: async () => {
+      throw new Error('the lookup must not be called for the production alias');
+    },
+    launch: async () => {
+      launched += 1;
+      throw new Error('stop here');
+    },
+    stdout: sink,
+    stderr: sink,
+  });
+  return { code, launched, output: out.join('') };
+}
+
+test('[PS-3] main() reads the file that PREVIEW_SHOT_ENV_FILE names in the env it is given: a usable file launches the browser, an unusable one stops the run before it', async () => {
+  const good = await mainWithEnvFile(envFile(`${KEY}=${MARK}\n`));
+  assert.equal(good.launched, 1, `the secret was not read from the named file: ${good.output}`);
+  assert.equal(good.code, 1, 'the launcher fails on purpose, so the run must report failure');
+  assert.ok(!good.output.includes(MARK), 'the output carries the secret');
+
+  for (const content of ['', `OTHER=${MARK}\n`, `# ${KEY}=${MARK}\n`, `${KEY}=\n`]) {
+    const bad = await mainWithEnvFile(envFile(content));
+    assert.equal(bad.launched, 0, `the browser was launched with an unusable file: ${JSON.stringify(content)}`);
+    assert.equal(bad.code, 1, bad.output);
+    assert.ok(!bad.output.includes(MARK), bad.output);
+  }
 });
 
 // ---------------------------------------------------------------------------------------------------------------------

@@ -40,3 +40,29 @@ tests read no app source, no notes.md, never the real secret file.
 **Next session:** BUILDER fixes 1 (and 4's seam), TEST ENGINEER covers 4; 2, 3 need a Vercel check (header stripping,
 alias reservation) — Afik or documentation; 5 → debt + DECISION REQUEST; 6 after the first push. Then one push, PR,
 CI, merge; then the F1.2 branch-Preview tooling is usable.
+
+# re-check — CRITIC (opus), 14.10.2026 — findings 1–4 only (review.diff from critic-diff, against origin/main)
+
+(Appended by ORCHESTRATOR from CRITIC's return; the harness refused CRITIC's Write.)
+
+verdict: Validated with Concern
+
+1: partly closed. readSecret needs a path (preview-shot.mjs:86-87, tested preview-shot.test.mjs:117-131); tests use temp
+   files only. Reopened at low:
+   --- finding ---
+   severity: low
+   file:     tools/preview-shot.mjs:38, 67-70, 343, 354 (and the comment at :10)
+   claim:    DEFAULT_ENV_FILE and envFilePath() (env defaults to process.env) are exported, so an importer gets the real
+             secret path and can read it without naming the file; the comment at :10 says the opposite.
+   failure:  node -e "import('./tools/preview-shot.mjs').then(m=>console.log(m.readSecret(m.envFilePath({}))))" prints
+             the secret.
+   fix:      stop exporting DEFAULT_ENV_FILE; stop exporting envFilePath or give it no default; keep the default path a
+             local in main(); adjust the PS-3 default-case assertion (preview-shot.test.mjs:173-176); fix the comment :10.
+   --- end ---
+2: closed — strip-bypass-header.ts:11-20 (raw.headers and rawHeaders, any case), first onRequest hook (app.ts:33 before
+   :35), logger off in production; tests PA-S1..S3. Nit: comment at strip-bypass-header.ts:5 names the wrong test file.
+3: closed — order parseArgs → checkTarget → confirmTarget → readSecret (preview-shot.mjs:297-309); trusts only
+   creator.login 'vercel[bot]', origin match; fails closed on every gh error shape; execFile without shell, deployment
+   id checked as a safe integer.
+4: closed — launcher and lookup injectable; every mutant in the finding fails a test in preview-shot-run.test.mjs.
+6: open until the first push.
