@@ -11,7 +11,7 @@
 | PG-008 | FeedFeature / PostShareFeature / PersonalizationSignalFeature / RuleBasedRecommendationEngine | FR-FEED-001..007 / FR-ALG-001..004 / FR-ALG-009 | UC-04/36/37/40 | Post (כולל שיתופים), Comment, Reaction, Group, Friendship, ProfessionalFollow, PersonalizationProfile, ContentImpression, RecommendationFeedback, ContentMetadata, AlgorithmConfiguration |
 | PG-009 | HomeTrackingFeature | FR-HOME-001..004 | UC-05/06 | JourneyContext, TrackerEvent, Article |
 | PG-010/019 | MarketplaceFeature / MarketplacePromotionFeature / MarketplaceDetailPage / RuleBasedRecommendationEngine | FR-MKT-001..005 / FR-ALG-006/007 | UC-07/39 | MarketplaceListing, SponsoredProduct, Promotion, MediaAsset, PromotionPerformanceEvent, ContentImpression, AnalyticsEvent |
-| PG-011/013 | ServicesDirectoryFeature / ProfessionalProfilePage / RuleBasedRecommendationEngine | FR-SERV-001..003 / FR-ALG-005 | UC-08/38 | ProfessionalProfile, ServiceCategory, PersonalizationProfile, AnalyticsEvent |
+| PG-011/013 | ServicesDirectoryFeature / ProfessionalProfilePage / RuleBasedRecommendationEngine / ProfessionalReviewFeature / ProfessionalArticleFeature | FR-SERV-001..003 / FR-SERV-011 / FR-PRO-003 / FR-ALG-005 | UC-08/38 | ProfessionalProfile, ServiceCategory, PersonalizationProfile, AnalyticsEvent, ProfessionalReview, ProfessionalArticle |
 | PG-014/015/016 | MessagingFeature / ProfessionalOutreachFeature | FR-SERV-004..010 / FR-CHAT-001..004 | UC-09/25/30/31 | Conversation, Message, RegularChatRequest, ProfessionalOutreachRequest, Friendship, MarketplaceListing, ChatBlock, SupportRequest |
 | PG-012 | UserProfilePage / ProfileEditingFeature | FR-PROFILE-001/002 | UC-10 | User, Profile, Child, JourneyContext |
 | PG-017 | SearchFeature / AnalyticsEventFeature | FR-SEARCH-001 / FR-PRIV-001 / FR-ALG-008 | UC-19/33 | Post, User/Profiles, PrivacyPreference, Group/Membership, SearchEvent, AnalyticsEvent |
@@ -42,3 +42,4 @@
 | PG-043 | CreateGroupPage / GroupsFeature | FR-GRP-004 | UC-32 | Group, Membership, GroupRoleAssignment |
 | PG-044 | AdminSponsoredProductsPage / SponsoredProductManagementFeature | FR-ADMIN-009 / FR-MKT-003/005 | UC-35 | SponsoredProduct, MediaAsset, AuditLogEntry |
 | PG-045 | AdminBetaInvitesPage / BetaAccessFeature | FR-ADMIN-011 | — | BetaInvite, AuditLogEntry |
+| PG-046 | AdminContentPage / SystemContentFeature | FR-ADMIN-012 / FR-HOME-004 | — | Article, AuditLogEntry |

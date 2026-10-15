@@ -29,3 +29,17 @@
 | פלט | Professional KPIs ו-Promotion performance. |
 | מצב לאחר ביצוע | בעל המקצוע יכול להעריך ביצועים וקידום בלי לקבל User-level targeting data. |
 | בעל אחריות לוגי (Page / Feature) | ProfessionalDashboardFeature / ProfessionalPromotionFeature / PromotionAnalyticsPage |
+
+## FR-PRO-003 — פרסום מאמר מקצועי
+
+| שדה | הגדרה |
+|---|---|
+| סטטוס | מאושר (החלטת אפיק מ-15.10.2026) |
+| Actor | Professional User |
+| תיאור | בעל מקצוע יכול לפרסם מאמר בתחום שלו, שמוצג בפרופיל המקצועי שלו. האחריות לתוכן היא שלו, וליד המאמר מוצגת הערת אחריות (BR-071). |
+| תנאים מוקדמים | Professional Profile פעיל. |
+| קלט / Trigger | כותרת, גוף המאמר ותחום. |
+| תהליך מערכת | שמירת המאמר בבעלות בעל המקצוע; עריכה, הסתרה ומחיקה רק על ידי הבעלים, או על ידי Admin/Moderator בכלי האכיפה. המאמר כפוף לדיווח ולאכיפה (FR-MOD-001), ואינו מאבחן ואינו ממליץ באופן אישי (BR-012). |
+| פלט | מאמר מוצג בפרופיל המקצועי, עם הערת האחריות. |
+| מצב לאחר ביצוע | צפיות במאמר נספרות כמדד מצטבר ב-Professional Dashboard (FR-PRO-002), בלי זהות הצופים. |
+| בעל אחריות לוגי (Page / Feature) | ProfessionalProfilePage / ProfessionalArticleFeature |

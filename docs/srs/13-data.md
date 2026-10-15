@@ -28,7 +28,9 @@
 | ProfessionalOutreachRequest | בעל מקצוע, משתמש יעד, Post מקור, הודעה ראשונה, סטטוס בקשה. |
 | Conversation / Message | Conversation/Message: משתתפים, context/source, הודעות, זמן, unread/read state וסטטוס. Contexts כוללים Friends, Regular Chat Request, Professional, Marketplace ו-Support. Conversation בין Regular Users אינה נסגרת אוטומטית בעקבות Remove Friend. |
 | Report / ChatBlock | Report: יעד, סיבה, זמן וסטטוס טיפול. ChatBlock: blocker, blocked user, createdAt/removedAt; משפיע על Messaging בלבד ואינו חסימה גלובלית. |
-| Article / Tip | תוכן ידע והקשר רלוונטיות. |
+| Article / Tip | תוכן ידע והקשר רלוונטיות. מדריכים לפי סטטוס הם תוכן מערכת: סטטוס ושבוע/שליש/גיל, מקורות, תאריך בדיקה ומצב פרסום (FR-ADMIN-012). |
+| ProfessionalReview | ביקורת של משתמש רגיל על בעל מקצוע: הפנייה המאושרת שהיא נשענת עליה (אחת לכל פנייה), דירוג 1–5, טקסט, זמן וסטטוס (FR-SERV-011). |
+| ProfessionalArticle | מאמר של בעל מקצוע: כותרת, גוף, תחום, סטטוס וזמנים (FR-PRO-003). |
 | Notification | Notification: נמען, Type, Actor/System, Text, Timestamp, Read/Unread, TargetType/TargetId או Deep Link metadata. יצירה/הצגה כפופות ל-NotificationPreference ולהרשאות. |
 | SponsoredProduct | מוצר/תוכן מסחרי מטעם חברה/מותג/ספונסר, עם מקור, מדיה, סטטוס וסימון ממומן. בשלב הראשון נוצר ומנוהל על ידי Admin/Back Office בלבד. |
 | MediaAsset | מטא-דאטה וקישור לקובץ תמונה/סרטון המשויך לפוסט, Listing או ישות מאושרת אחרת. |

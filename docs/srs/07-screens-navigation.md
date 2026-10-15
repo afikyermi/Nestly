@@ -53,6 +53,7 @@
 | PG-043 | Create Group | CreateGroupPage / GroupsFeature | החלטת מוצר 10.10.2026 | כל Regular/Professional רשאי ליצור Public/Private Group ולהפוך ל-Group Owner. |
 | PG-044 | Admin Sponsored Products | AdminSponsoredProductsPage / SponsoredProductManagementFeature | החלטת מוצר 10.10.2026 | Admin יוצר ומנהל Sponsored Products / Brand Promotions; אין Brand User בשלב הראשון. |
 | PG-045 | Admin Beta Invites | AdminBetaInvitesPage / BetaAccessFeature | החלטת מוצר 11.10.2026 | Admin בלבד: רשימת אימיילים מוזמנים לבטא הסגורה, והפעלה או השבתה של מצב בטא (FR-ADMIN-011). כל שינוי נרשם ב-Audit Log. |
+| PG-046 | Admin Content | AdminContentPage / SystemContentFeature | החלטת אפיק מ-15.10.2026 | Admin בלבד: יצירה, עריכה, שיוך לסטטוס, פרסום והסתרה של מדריכים (FR-ADMIN-012). כל שינוי נרשם ב-Audit Log. |
 
 ## 7.1 Bottom Navigation
 
