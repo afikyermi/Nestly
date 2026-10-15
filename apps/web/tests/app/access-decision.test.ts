@@ -118,6 +118,27 @@ describe('signed-out after a session ended (sessionEnded = true): protected path
   });
 });
 
+// F1.6 Status line (held state) + Amendment 4: an active account without recovery questions is held on /recovery-questions.
+describe('held on the questions screen (F1.6 Status, Amendment 4)', () => {
+  it.each(['/recovery-questions', '/terms', '/privacy'])('[F1.6 c17][Amendment 4][FR-AUTH-004] a held user may open %s', (path) => {
+    expect(decideAccess('signed-in', path, false, true)).toEqual({ kind: 'render' });
+  });
+  it.each(['/feed', '/home', '/profile', '/settings', ...GUEST.filter((p) => !['/terms', '/privacy'].includes(p)), ...UNLISTED])(
+    '[F1.6 c17][FR-AUTH-004] a held user on %s is sent to /recovery-questions',
+    (path) => {
+      expect(decideAccess('signed-in', path, false, true)).toEqual({ kind: 'redirect', to: '/recovery-questions' });
+    },
+  );
+  it.each([...GUEST, ...PROTECTED, ...UNLISTED])('[F1.6 c17] the flag false changes nothing for %s', (path) => {
+    expect(decideAccess('signed-in', path, false, false)).toEqual(decideAccess('signed-in', path));
+  });
+  it.each(['loading', 'signed-out', 'signed-in-no-account'] as const)('[F1.6 c17] the flag does not alter the state %s', (state) => {
+    for (const path of [...GUEST, ...PROTECTED, ...UNLISTED]) {
+      expect(decideAccess(state, path, false, true)).toEqual(decideAccess(state, path));
+    }
+  });
+});
+
 describe('deny by default for an unknown state (F1.5 c15)', () => {
   it.each(['', 'SIGNED-IN', 'admin', 'signed_in', 'undefined'])('[F1.5 c15][FR-AUTH-004] the unknown state "%s" never renders a protected path', (state) => {
     for (const path of PROTECTED) {

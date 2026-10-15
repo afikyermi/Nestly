@@ -280,6 +280,8 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
       apply(state, null);
     },
     markRecoveryQuestionsSet: () => {
+      // A check that began before the save may still answer "missing"; the new epoch drops it, and the next trigger asks again.
+      epoch += 1;
       apply(state, notice, false);
     },
   };

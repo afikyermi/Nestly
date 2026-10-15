@@ -132,3 +132,6 @@ Test layers (one per behaviour): 7-8 unit on shared/server functions; 1-6, 10-15
 
 ## Amendment 3 — 15.10.2026, ORCHESTRATOR (CRITIC re-check N2; wording only, no behaviour change)
 - **Criterion 13**, the rate-limited clause, reads: a rate-limited attempt writes at most one audit row per locked subject per lock: the first limited attempt in a lock writes one `reset_limited` / `change_limited` row; later attempts in the same lock write no audit row and no handle row, and while the IP is locked no throttle row is created for the submitted email. An address not seen before still gets its own IP counter row (the approved lock order, `schema.md` "CRITIC findings 1-2", finding 2: growth is proportional to distinct addresses, never to request volume).
+
+## Amendment 4 — 15.10.2026, ORCHESTRATOR (CRITIC part c finding 3; scope unchanged)
+- **Held state, exception:** an account held on the questions screen may still open `/terms` and `/privacy` (read-only documents, no route onward). Reason: a user is asked for answers under the terms and privacy policy and must be able to read them. Every other route returns to the questions screen.

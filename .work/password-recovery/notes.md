@@ -148,3 +148,10 @@ being added above it, so the form does not move. Not a general fix: any long pag
 position; this keeps the tested state clear.
 **Seam**: `ControllableSessionSource.setNeedsRecoveryQuestions(needs: boolean)`, default false, notifies listeners; the source now also
 has `getNeedsRecoveryQuestions()`. In the e2e build: `window.nestlyTestSession.setNeedsRecoveryQuestions(true)`.
+
+## Fix round: CRITIC part c findings 1 and 4b
+**Finding 1**: `markRecoveryQuestionsSet` in `auth-session-source.ts` now bumps `epoch`, so a recheck that began before the save is dropped
+(its `epoch === startedAt` check fails) and cannot set the flag again. The next trigger asks again; F1.5 fail-closed paths untouched.
+**Finding 4b**: no change. F1.4 registration maps VAL-003 `password_length` (min and max, one code) to the single text "לפחות 8 תווים"
+(`step2-form.ts` `PASSWORD_LENGTH_TEXT`), so `/recovery` already matches it. Changing only recovery would diverge; a both-bounds text
+would be a change to both screens and to ERR-003 wording, left for ORCHESTRATOR.
