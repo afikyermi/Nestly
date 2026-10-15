@@ -10,7 +10,7 @@
 import { createRegistrationRequestSchema, addDaysIso } from '@nestly/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
-import { isConnectionFailure, readDatabaseFault } from '../lib/pg-error.js';
+import { isTransientFailure, readDatabaseFault } from '../lib/pg-error.js';
 import { createRegistration, hasAccount } from '../services/registration-service.js';
 
 /** FR-REG-004, NFR-SEC-001: a body over this is refused before it is parsed. */
@@ -23,22 +23,6 @@ export interface RegisterRouteDependencies {
 }
 
 const PATH = '/api/register';
-
-/** SQLSTATE class 23 (a constraint) and 42501 (a privilege or policy): the same body fails the same way again. */
-function isDeterministicFault(code: string): boolean {
-  return code.startsWith('23') || code === '42501';
-}
-
-/**
- * Whether a retry with the same session may pass: the connection failed, or the database answered with a fault that is
- * not tied to the body (serialization, timeout, resource limits). Anything else — a refused constraint, a bug, an error
- * that is not the database's at all — fails the same way again (criterion 11, decisions 2026-10-14).
- */
-function isTransient(error: unknown): boolean {
-  const fault = readDatabaseFault(error);
-  if (fault !== undefined) return !isDeterministicFault(fault.code);
-  return isConnectionFailure(error);
-}
 
 function serverToday(now: Date): string {
   return addDaysIso(now.toISOString().slice(0, 10), 1);
@@ -60,7 +44,7 @@ async function register(request: FastifyRequest, reply: FastifyReply, deps: Regi
     const fault = readDatabaseFault(error);
     request.log.error({ sqlstate: fault?.code, constraint: fault?.constraint }, 'registration write failed');
     // A retry may pass only after a transient failure, in any transaction of the request (hasAccount included).
-    if (isTransient(error)) return reply.code(503).send({ error: 'profile_write_failed' });
+    if (isTransientFailure(error)) return reply.code(503).send({ error: 'profile_write_failed' });
     return reply.code(500).send({ error: 'internal' });
   }
 }

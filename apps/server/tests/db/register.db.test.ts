@@ -255,7 +255,7 @@ describe('[F1.4-b c15] a session of an account that already exists is 409 and wr
     expect(before[0]).toBe('1/1/2/2/1');
   });
 
-  it('[F1.4-b c15] a suspended account (it cannot see its own row) is 409 too, and a professional one (a users row, no profile), with no write', T, async () => {
+  it('[F1.4-b c15] a suspended account (it reads its own row, so the pre-check answers) is 409 too, and a professional one (a users row, no profile), with no write', T, async () => {
     const { app } = await start();
     for (const [who, expected] of [['50000000-0000-4000-8000-000000000051', '1/1/0/0/0'], ['d0000000-0000-4000-8000-0000000000d4', '1/0/0/0/0']] as const) {
       expect(await counts(who)).toBe(expected);

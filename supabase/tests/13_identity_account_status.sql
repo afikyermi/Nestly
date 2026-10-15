@@ -30,16 +30,19 @@ select is(tests.as_role('authenticated', (select a_claims from zz_claims), 'sele
   '[F1.1-b c15 platform r15] is_active_account() is true for active A');
 
 select lives_ok($q$ select tests.set_status(tests.fx_id('a'), 'suspended') $q$, '[F1.1-b c15] A is suspended (fixture)');
-select is(tests.fx_user(tests.fx_id('a')), 'regular/suspended', '[F1.1-b c15] the User row still exists and now says suspended (so 0 below is the policy)');
+select is(tests.fx_user(tests.fx_id('a')), 'regular/suspended', '[F1.1-b c15] the User row still exists and now says suspended (so what is read below is the policy)');
 select isnt(tests.fx_profile(tests.fx_id('a')), null, '[F1.1-b c15] the RegularProfile row still exists');
 
-select is(tests.as_role('authenticated', (select a_claims from zz_claims), 'select count(*)::text from nestly.users'), '0',
-  '[F1.1-b c15 BR-024] suspended A, same claims, next statement: SELECT on User returns 0 rows, A''s own row included');
+select is(tests.as_role('authenticated', (select a_claims from zz_claims), 'select count(*)::text from nestly.users'), '1',
+  '[F1.5-a c1 BR-024] suspended A, same claims, next statement: SELECT on User returns only its own row');
+select is(tests.as_role('authenticated', (select a_claims from zz_claims), 'select coalesce(string_agg(id::text || ''/'' || status, '',''), '''') from nestly.users'),
+  tests.fx_id('a')::text || '/suspended',
+  '[F1.5-a c1 BR-024] suspended A reads its own id with its true status, suspended');
 select is(tests.as_role('authenticated', (select a_claims from zz_claims), 'select count(*)::text from nestly.regular_profiles'), '0',
   '[F1.1-b c15 BR-024] suspended A, same claims, next statement: SELECT on RegularProfile returns 0 rows');
 select is(tests.as_role('authenticated', (select a_claims from zz_claims),
-    $q$ select count(*)::text from nestly.users where id = 'a0000000-0000-4000-8000-0000000000a1' $q$), '0',
-  '[F1.1-b c15 BR-024] suspended A asking for its own row by id still gets 0 rows');
+    $q$ select count(*)::text from nestly.users where id = 'a0000000-0000-4000-8000-0000000000a1' $q$), '1',
+  '[F1.5-a c1 BR-024] suspended A asking for its own row by id gets that row');
 select is(tests.as_role('authenticated', (select a_claims from zz_claims), 'select nestly.is_active_account()::text'), 'false',
   '[F1.1-b c15 platform r15] is_active_account() is false for suspended A');
 
@@ -53,8 +56,11 @@ select is(tests.as_role('authenticated', (select b_claims from zz_claims), 'sele
 
 -- suspended -> banned
 select lives_ok($q$ select tests.set_status(tests.fx_id('a'), 'banned') $q$, '[F1.1-b c15] A is banned (fixture)');
-select is(tests.as_role('authenticated', (select a_claims from zz_claims), 'select count(*)::text from nestly.users'), '0',
-  '[F1.1-b c15 BR-024] banned A, same claims, next statement: SELECT on User returns 0 rows');
+select is(tests.as_role('authenticated', (select a_claims from zz_claims), 'select count(*)::text from nestly.users'), '1',
+  '[F1.5-a c1 BR-024] banned A, same claims, next statement: SELECT on User returns only its own row');
+select is(tests.as_role('authenticated', (select a_claims from zz_claims), 'select coalesce(string_agg(id::text || ''/'' || status, '',''), '''') from nestly.users'),
+  tests.fx_id('a')::text || '/banned',
+  '[F1.5-a c1 BR-024] banned A reads its own id with its true status, banned');
 select is(tests.as_role('authenticated', (select a_claims from zz_claims), 'select count(*)::text from nestly.regular_profiles'), '0',
   '[F1.1-b c15 BR-024] banned A, same claims, next statement: SELECT on RegularProfile returns 0 rows');
 select is(tests.as_role('authenticated', (select a_claims from zz_claims), 'select nestly.is_active_account()::text'), 'false',
@@ -75,35 +81,91 @@ select is(
 
 -- active -> banned directly, and suspended -> active directly
 select lives_ok($q$ select tests.set_status(tests.fx_id('a'), 'banned') $q$, '[F1.1-b c15] A is banned straight from active (fixture)');
-select is(tests.n_as(tests.fx_id('a'), 'nestly.users'), '0', '[F1.1-b c15 BR-024] active -> banned: 0 User rows from the next statement');
+select is(tests.n_as(tests.fx_id('a'), 'nestly.users'), '1', '[F1.5-a c1 BR-024] active -> banned: only its own User row from the next statement');
 select lives_ok($q$ select tests.set_status(tests.fx_id('a'), 'suspended') $q$, '[F1.1-b c15] A is suspended from banned (fixture)');
-select is(tests.n_as(tests.fx_id('a'), 'nestly.users'), '0', '[F1.1-b c15 BR-024] banned -> suspended: still 0 User rows');
+select is(tests.n_as(tests.fx_id('a'), 'nestly.users'), '1', '[F1.5-a c1 BR-024] banned -> suspended: still only its own User row');
 select lives_ok($q$ select tests.set_status(tests.fx_id('a'), 'active') $q$, '[F1.1-b c15] A is active straight from suspended (fixture)');
 select is(tests.n_as(tests.fx_id('a'), 'nestly.users'), '1', '[F1.1-b c15 BR-024] suspended -> active: 1 User row again');
 select is(tests.n_as(tests.fx_id('a'), 'nestly.regular_profiles'), '1', '[F1.1-b c15 BR-024] suspended -> active: 1 RegularProfile row again');
 
 -- accounts that are suspended or banned from the start
 select is(tests.fx_user(tests.fx_id('s')), 'regular/suspended', '[F1.1-b c15] S is suspended in the fixture');
-select is(tests.n_as(tests.fx_id('s'), 'nestly.users'), '0',
-  '[F1.1-b c15 BR-024] suspended S: SELECT on User returns 0 rows, its own row included');
+select is(tests.n_as(tests.fx_id('s'), 'nestly.users'), '1',
+  '[F1.5-a c1 BR-024] suspended S: SELECT on User returns only its own row');
 select is(tests.n_as(tests.fx_id('s'), 'nestly.regular_profiles'), '0',
   '[F1.1-b c15 BR-024] suspended S: SELECT on RegularProfile returns 0 rows, its own profile included');
 select is(tests.fx_user(tests.fx_id('x')), 'regular/banned', '[F1.1-b c15] X is banned in the fixture');
-select is(tests.n_as(tests.fx_id('x'), 'nestly.users'), '0',
-  '[F1.1-b c15 BR-024] banned X: SELECT on User returns 0 rows, its own row included');
+select is(tests.n_as(tests.fx_id('x'), 'nestly.users'), '1',
+  '[F1.5-a c1 BR-024] banned X: SELECT on User returns only its own row');
 select is(tests.n_as(tests.fx_id('x'), 'nestly.regular_profiles'), '0',
   '[F1.1-b c15 BR-024] banned X: SELECT on RegularProfile returns 0 rows, its own profile included');
 select is(
   tests.as_role('authenticated', tests.claims(tests.fx_id('s')),
     $q$ select ((select count(*) from nestly.users) + (select count(*) from nestly.regular_profiles))::text $q$),
-  '0',
-  '[F1.1-b c15 BR-024] suspended S reading both tables in one statement gets nothing from either');
+  '1',
+  '[F1.5-a c1 BR-024] suspended S reading both tables in one statement gets only its own users row, nothing from regular_profiles');
 
 -- the account becomes active the moment S is reactivated, and only S
 select lives_ok($q$ select tests.set_status(tests.fx_id('s'), 'active') $q$, '[F1.1-b c15] S is reactivated (fixture)');
 select is(tests.n_as(tests.fx_id('s'), 'nestly.users'), '1', '[F1.1-b c15 BR-024] reactivated S reads its own User row');
 select is(tests.n_as(tests.fx_id('s'), 'nestly.regular_profiles'), '1', '[F1.1-b c15 BR-024] reactivated S reads its own RegularProfile row');
-select is(tests.n_as(tests.fx_id('x'), 'nestly.users'), '0', '[F1.1-b c15 BR-024] X, still banned, still reads nothing');
+select is(tests.n_as(tests.fx_id('x'), 'nestly.users'), '1', '[F1.5-a c1 BR-024] X, still banned, reads its own User row and nothing else');
+select is(tests.n_as(tests.fx_id('x'), 'nestly.regular_profiles'), '0', '[F1.5-a c1 BR-024] X, still banned, reads no RegularProfile row');
+
+-- =====================================================================================================================
+-- F1.5-a criterion 1 — a stopped account reads its own users row and nothing else. [DR-1 A · BR-024 · platform r13, r15]
+-- A has rows in the three registration tables (20_registration_fixtures.sql), so a zero below is not vacuous.
+-- =====================================================================================================================
+select ok(tests.fx_counts(tests.fx_id('a')) ~ '^1/1/[1-9][0-9]*/[1-9][0-9]*/[1-9][0-9]*$',
+  '[F1.5-a c1] fixture: A has a users row, a profile, journeys, children and a consent (zero below is not vacuous)');
+
+select is(tests.as_role('authenticated', (select a_claims from zz_claims), 'select coalesce(string_agg(id::text || ''/'' || status, '',''), '''') from nestly.users'),
+  tests.fx_id('a')::text || '/active', '[F1.5-a c1] active A reads its own users row with status active');
+
+select lives_ok($q$ select tests.set_status(tests.fx_id('a'), 'suspended') $q$, '[F1.5-a c1] A is suspended (fixture)');
+select is(tests.n_as(tests.fx_id('b'), $r$nestly.users where id = 'a0000000-0000-4000-8000-0000000000a1'$r$), '0',
+  '[F1.5-a c1 NFR-SEC-002] B reads 0 rows of suspended A');
+select is(tests.n_as(tests.fx_id('a'), 'nestly.journey_contexts'), '0', '[F1.5-a c1 platform r15] suspended A reads 0 journey_contexts rows');
+select is(tests.n_as(tests.fx_id('a'), 'nestly.children'), '0', '[F1.5-a c1 platform r15] suspended A reads 0 children rows');
+select is(tests.n_as(tests.fx_id('a'), 'nestly.legal_consents'), '0', '[F1.5-a c1 platform r15] suspended A reads 0 legal_consents rows');
+select is(tests.n_as(tests.fx_id('a'), 'nestly.regular_profiles'), '0', '[F1.5-a c1 platform r15] suspended A reads 0 regular_profiles rows');
+select is(tests.as_role('authenticated', (select a_claims from zz_claims), 'select nestly.is_active_account()::text'), 'false',
+  '[F1.5-a c1 platform r15] is_active_account() stays false for suspended A although it reads its own users row');
+
+select lives_ok($q$ select tests.set_status(tests.fx_id('a'), 'banned') $q$, '[F1.5-a c1] A is banned (fixture)');
+select is(tests.n_as(tests.fx_id('b'), $r$nestly.users where id = 'a0000000-0000-4000-8000-0000000000a1'$r$), '0',
+  '[F1.5-a c1 NFR-SEC-002] B reads 0 rows of banned A');
+select is(tests.n_as(tests.fx_id('a'), 'nestly.journey_contexts'), '0', '[F1.5-a c1 platform r15] banned A reads 0 journey_contexts rows');
+select is(tests.n_as(tests.fx_id('a'), 'nestly.children'), '0', '[F1.5-a c1 platform r15] banned A reads 0 children rows');
+select is(tests.n_as(tests.fx_id('a'), 'nestly.legal_consents'), '0', '[F1.5-a c1 platform r15] banned A reads 0 legal_consents rows');
+select is(tests.n_as(tests.fx_id('a'), 'nestly.regular_profiles'), '0', '[F1.5-a c1 platform r15] banned A reads 0 regular_profiles rows');
+select is(tests.as_role('authenticated', (select a_claims from zz_claims), 'select nestly.is_active_account()::text'), 'false',
+  '[F1.5-a c1 platform r15] is_active_account() stays false for banned A');
+-- a stopped account sees only itself, even asking for everyone
+select is(tests.n_as(tests.fx_id('a'), $r$nestly.users where id <> 'a0000000-0000-4000-8000-0000000000a1'$r$), '0',
+  '[F1.5-a c1 NFR-SEC-002] banned A reads 0 rows of any other account');
+
+select is(tests.as_role('anon', '', 'select count(*)::text from nestly.users'), 'ERR:42501', '[F1.5-a c1] anon, no claims: users is refused (42501)');
+select is(tests.as_role('anon', tests.claims(tests.fx_id('a'), '{"role":"anon"}'::jsonb), 'select count(*)::text from nestly.users'), 'ERR:42501',
+  '[F1.5-a c1] anon carrying a stopped account''s sub: users is refused (42501)');
+select is(tests.n_as(tests.fx_id('c'), 'nestly.users'), '0', '[F1.5-a c1] an identity with no users row reads 0 rows');
+
+-- structure: the policy expression is exactly the own-id test, no status
+select is(
+  (select pg_catalog.pg_get_expr(pol.polqual, pol.polrelid)
+     from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid
+     join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'nestly' and c.relname = 'users' and pol.polname = 'users_select_own'),
+  '(id = ( SELECT auth.uid() AS uid))',
+  '[F1.5-a c1] users_select_own is exactly the own-id test');
+select ok(
+  (select pg_catalog.pg_get_expr(pol.polqual, pol.polrelid) !~* 'status'
+     from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid
+     join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'nestly' and c.relname = 'users' and pol.polname = 'users_select_own'),
+  '[F1.5-a c1] users_select_own does not mention status');
+
+select lives_ok($q$ select tests.set_status(tests.fx_id('a'), 'active') $q$, '[F1.5-a c1] A is active again (fixture)');
 
 -- =====================================================================================================================
 -- Criterion 16 — a status the table does not allow cannot exist; claims cannot supply one. [platform r14]

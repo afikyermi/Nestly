@@ -37,3 +37,19 @@ export function isConnectionFailure(error: unknown): boolean {
   }
   return false;
 }
+
+/** SQLSTATE class 23 (a constraint) and 42501 (a privilege or policy): the same input fails the same way again. */
+function isDeterministicFault(code: string): boolean {
+  return code.startsWith('23') || code === '42501';
+}
+
+/**
+ * Whether a retry with the same session may pass: the connection failed, or the database answered with a fault that is
+ * not tied to the input (serialization, timeout, resource limits). Anything else — a refused constraint, a bug, an error
+ * that is not the database's at all — fails the same way again.
+ */
+export function isTransientFailure(error: unknown): boolean {
+  const fault = readDatabaseFault(error);
+  if (fault !== undefined) return !isDeterministicFault(fault.code);
+  return isConnectionFailure(error);
+}

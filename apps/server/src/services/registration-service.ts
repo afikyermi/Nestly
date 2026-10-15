@@ -19,7 +19,7 @@ export type RegistrationOutcome = { readonly kind: 'created' } | { readonly kind
 const USERS_PRIMARY_KEY = 'users_pkey';
 const UNIQUE_VIOLATION = '23505';
 
-/** True when the identity's own account is visible. A suspended account is not; the write then settles it with 23505. */
+/** True when the identity's own `users` row is visible, in any status (a suspended account too: it is not "not registered"). */
 export function hasAccount(database: Database, identity: Identity): Promise<boolean> {
   return inIdentityTransaction(database, identity, accountExists);
 }

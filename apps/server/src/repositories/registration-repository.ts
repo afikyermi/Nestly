@@ -25,7 +25,7 @@ export interface NewRegularAccount {
   readonly consent: { readonly termsVersion: string; readonly privacyVersion: string };
 }
 
-/** Whether the caller's own `users` row is visible to them (RLS: own and active). A suspended account reads false. */
+/** Whether the caller's own `users` row is visible to them (RLS: own row, any status). A suspended account reads true. */
 export async function accountExists(tx: IdentityTx): Promise<boolean> {
   const rows = await tx.select({ id: users.id }).from(users).limit(1);
   return rows.length > 0;

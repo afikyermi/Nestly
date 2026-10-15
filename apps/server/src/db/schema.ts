@@ -22,7 +22,7 @@ export const nestly = pgSchema('nestly');
 // A profile belongs to a Regular account only (regular_profiles_account_type_check, BR-016).
 const REGULAR = 'regular' satisfies AccountType;
 
-/** SRS User (§13): the account, and the anchor to auth.users. Read own row only, while active (RLS). */
+/** SRS User (§13): the account, and the anchor to auth.users. Read own row only, in any status (RLS; F1.5 DR-1 A). */
 export const users = nestly.table('users', {
   id: uuid('id').primaryKey().default(sql`auth.uid()`),
   accountType: text('account_type', { enum: ACCOUNT_TYPES }).notNull(),

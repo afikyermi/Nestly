@@ -162,8 +162,12 @@ from (values
 -- =====================================================================================================================
 select is(tests.n_as(tests.fx_id(t.who), t.rel), '0', '[F1.4-a c14 rule 15] ' || t.who || ' reads 0 rows of ' || t.rel)
 from (values ('s'), ('x')) as w(who)
-cross join (values ('nestly.journey_contexts'), ('nestly.children'), ('nestly.legal_consents'), ('nestly.users'), ('nestly.regular_profiles')) as r(rel)
+cross join (values ('nestly.journey_contexts'), ('nestly.children'), ('nestly.legal_consents'), ('nestly.regular_profiles')) as r(rel)
 cross join lateral (select w.who, r.rel) as t(who, rel);
+
+-- F1.5-a c1: nestly.users is the one exception: a stopped account reads its own row, nothing of anyone else's
+select is(tests.n_as(tests.fx_id(w.who), 'nestly.users'), '1', '[F1.5-a c1 rule 15] ' || w.who || ' reads only its own users row')
+from (values ('s'), ('x')) as w(who);
 
 -- granted columns only: the status gate is the POLICY fence (Amendment 1), asserted by message
 select is(tests.dml_as_msg('authenticated', tests.claims(tests.fx_id(w.who)), t.s),

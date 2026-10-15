@@ -152,8 +152,9 @@ select is(tests.n_as(tests.fx_id('a'), 'nestly.regular_profiles', jsonb_build_ob
 from (values ('service_role'), ('postgres'), ('supabase_admin'), ('anon')) as r(claimed);
 
 -- claims that try to be a different status / account type, for an account that is not active
-select is(tests.n_as(tests.fx_id('s'), q.rel, r.extra::jsonb), '0',
-  '[F1.1-b c16 platform r14] suspended S, claims say ' || r.label || ': ' || q.rel || ' still returns 0 rows')
+-- F1.5-a c1: a stopped account reads its own users row (and the row says what the table says); claims cannot change that
+select is(tests.n_as(tests.fx_id('s'), 'nestly.regular_profiles', r.extra::jsonb), '0',
+  '[F1.1-b c16 platform r14] suspended S, claims say ' || r.label || ': nestly.regular_profiles still returns 0 rows')
 from (values
   ('app_metadata status active',  '{"app_metadata":{"status":"active"}}'),
   ('user_metadata status active', '{"user_metadata":{"status":"active"}}'),
@@ -161,12 +162,35 @@ from (values
   ('role service_role',           '{"role":"service_role"}'),
   ('app_metadata role admin and account_type admin', '{"app_metadata":{"role":"admin","account_type":"admin","status":"active"}}'),
   ('is_active true',              '{"app_metadata":{"is_active":true},"is_active":true}')
-) as r(label, extra)
-cross join (values ('nestly.users'), ('nestly.regular_profiles')) as q(rel);
+) as r(label, extra);
 
-select is(tests.n_as(tests.fx_id('x'), q.rel, '{"app_metadata":{"status":"active"},"user_metadata":{"status":"active"},"role":"service_role"}'::jsonb), '0',
-  '[F1.1-b c16 platform r14] banned X, claims say active and service_role: ' || q.rel || ' still returns 0 rows')
-from (values ('nestly.users'), ('nestly.regular_profiles')) as q(rel);
+select is(tests.n_as(tests.fx_id('s'), 'nestly.users', r.extra::jsonb), '1',
+  '[F1.5-a c1 platform r14] suspended S, claims say ' || r.label || ': nestly.users returns only its own row')
+from (values
+  ('app_metadata status active',  '{"app_metadata":{"status":"active"}}'),
+  ('user_metadata status active', '{"user_metadata":{"status":"active"}}'),
+  ('top-level status active',     '{"status":"active"}'),
+  ('role service_role',           '{"role":"service_role"}'),
+  ('app_metadata role admin and account_type admin', '{"app_metadata":{"role":"admin","account_type":"admin","status":"active"}}'),
+  ('is_active true',              '{"app_metadata":{"is_active":true},"is_active":true}')
+) as r(label, extra);
+
+select is(tests.as_role('authenticated', tests.claims(tests.fx_id('s'), r.extra::jsonb), 'select coalesce(string_agg(status, '',''), '''') from nestly.users'),
+  'suspended',
+  '[F1.5-a c1 platform r14] suspended S, claims say ' || r.label || ': the own row still says suspended')
+from (values
+  ('app_metadata status active',  '{"app_metadata":{"status":"active"}}'),
+  ('top-level status active',     '{"status":"active"}'),
+  ('role service_role',           '{"role":"service_role"}')
+) as r(label, extra);
+
+select is(tests.n_as(tests.fx_id('x'), 'nestly.regular_profiles', '{"app_metadata":{"status":"active"},"user_metadata":{"status":"active"},"role":"service_role"}'::jsonb), '0',
+  '[F1.1-b c16 platform r14] banned X, claims say active and service_role: nestly.regular_profiles still returns 0 rows');
+select is(tests.n_as(tests.fx_id('x'), 'nestly.users', '{"app_metadata":{"status":"active"},"user_metadata":{"status":"active"},"role":"service_role"}'::jsonb), '1',
+  '[F1.5-a c1 platform r14] banned X, claims say active and service_role: nestly.users returns only its own row');
+select is(tests.as_role('authenticated',
+    tests.claims(tests.fx_id('x'), '{"app_metadata":{"status":"active"},"role":"service_role"}'::jsonb), 'select coalesce(string_agg(status, '',''), '''') from nestly.users'),
+  'banned', '[F1.5-a c1 platform r14] banned X, claims say active: the own row still says banned');
 
 select is(tests.as_role('authenticated',
     tests.claims(tests.fx_id('s'), '{"app_metadata":{"status":"active"},"role":"service_role"}'::jsonb), 'select nestly.is_active_account()::text'),
