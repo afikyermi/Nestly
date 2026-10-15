@@ -382,7 +382,7 @@ test.describe('F1.4 criterion 4, 5 [FR-REG-004 · AC-003 · BR-068] consent and 
 });
 
 test.describe('F1.4 criterion 13 [NFR-PRIV-001 · NFR-SEC-001] the password goes toward Auth only; nothing is stored', () => {
-  test('[F1.4 c13][Q7] network log, storage, IndexedDB, cookies and console after a successful registration', async ({ page }) => {
+  test('[F1.4 c13][F1.5 c10][NFR-SEC-001] network log, storage (only the nestly-auth key), IndexedDB, cookies and console after a successful registration', async ({ page }) => {
     const consoleText: string[] = [];
     page.on('console', (m) => consoleText.push(m.text()));
     page.on('pageerror', (e) => consoleText.push(e.message));
@@ -409,18 +409,44 @@ test.describe('F1.4 criterion 13 [NFR-PRIV-001 · NFR-SEC-001] the password goes
     const stored = await page.evaluate(async () => {
       const dump = (s: Storage) => JSON.stringify(Object.fromEntries(Object.keys(s).map((k) => [k, s.getItem(k)])));
       const dbs = typeof indexedDB.databases === 'function' ? await indexedDB.databases() : [];
-      return { local: dump(localStorage), session: dump(sessionStorage), cookie: document.cookie, dbCount: dbs.length };
+      return { local: dump(localStorage), session: dump(sessionStorage), cookie: document.cookie, dbCount: dbs.length, localKeys: Object.keys(localStorage) };
     });
+    // F1.5 criterion 10 (replaces F1.4 "no web storage at all"): the only thing our app may hold is the Auth session, under one key
+    // (DR-3), with no email and no password. The token itself belongs to that key, so it is excluded from the secrets below.
     for (const blob of [stored.local, stored.session, stored.cookie]) {
-      for (const secret of [PASSWORD, EMAIL, TOKEN, NAME, 'e2e-refresh']) expect(blob).not.toContain(secret);
+      for (const secret of [PASSWORD, EMAIL, NAME]) expect(blob).not.toContain(secret);
+    }
+    for (const blob of [stored.session, stored.cookie]) {
+      for (const secret of [TOKEN, 'e2e-refresh']) expect(blob).not.toContain(secret);
     }
     expect(stored.dbCount, 'no IndexedDB database exists').toBe(0);
-    expect(stored.local, 'localStorage is empty').toBe('{}');
+    expect(stored.localKeys.filter((k) => k !== 'nestly-auth'), 'localStorage holds nothing but the Auth session key').toEqual([]);
     expect(stored.session, 'sessionStorage is empty').toBe('{}');
+    const localParsed: unknown = JSON.parse(stored.local);
+    const authValue: unknown = typeof localParsed === 'object' && localParsed !== null ? Reflect.get(localParsed, 'nestly-auth') : undefined;
+    if (typeof authValue === 'string') {
+      const parsed: unknown = JSON.parse(authValue);
+      const fields = typeof parsed === 'object' && parsed !== null ? Object.keys(parsed) : [];
+      expect(fields.sort(), 'the stored Auth session has tokens and expiry only: no user, no email').toEqual(['access_token', 'expires_at', 'expires_in', 'refresh_token', 'token_type']);
+    }
     for (const line of consoleText) {
       for (const secret of [PASSWORD, EMAIL, TOKEN, NAME]) expect(line).not.toContain(secret);
     }
     expect(await page.context().cookies()).toEqual([]);
+  });
+
+  test('[F1.5 c10][c17][DR-3] after registration the session is persisted under the one key "nestly-auth": tokens and expiry only, no user, no email, no name', async ({ page }) => {
+    await stub(page, [AUTH_OK], [ROUTE_201]);
+    await toStep2(page);
+    await fillAndSubmit(page);
+    await expect(h1Of(page)).toHaveText('פיד');
+    await page.waitForTimeout(300);
+    const raw = await page.evaluate(() => localStorage.getItem('nestly-auth'));
+    expect(raw, 'the Auth session is persisted under nestly-auth').not.toBeNull();
+    const parsed: unknown = JSON.parse(raw ?? 'null');
+    const fields = typeof parsed === 'object' && parsed !== null ? Object.keys(parsed).sort() : [];
+    expect(fields).toEqual(['access_token', 'expires_at', 'expires_in', 'refresh_token', 'token_type']);
+    for (const secret of [PASSWORD, EMAIL, NAME]) expect(raw).not.toContain(secret);
   });
 
   test('[F1.4 c13] the password is not in the URL, the history state or the page markup after a failed attempt', async ({ page }) => {
@@ -665,7 +691,8 @@ test.describe('F1.4 criterion 19 [F1.3 criterion 13] back from step 2', () => {
     await page.getByRole('button', { name: 'המשך', exact: true }).click();
     await expect(h1Of(page)).toHaveText(STEP2_H1);
     await page.reload();
-    // the e2e session seam starts in "loading" after a reload (nothing persists the session, F1.5): put it back to signed-out
+    // the e2e session seam is a controllable source that starts in "loading" after every reload (F1.5 keeps it for the build under
+    // test; the production source restores from storage): put it back to signed-out
     await waitForSeam(page);
     await setState(page, 'signed-out');
     await expect(h1Of(page)).toHaveText('פרטים אישיים');

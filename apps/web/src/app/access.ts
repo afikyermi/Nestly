@@ -1,5 +1,5 @@
 import type { SessionState } from '@/services/session/session-source';
-import { GUEST_LANDING, GUEST_PATHS, normalizePath, PROTECTED_PATHS, SIGNED_IN_LANDING } from './paths';
+import { GUEST_LANDING, GUEST_PATHS, normalizePath, PATHS, PROTECTED_PATHS, SIGNED_IN_LANDING } from './paths';
 
 export type AccessDecision = { kind: 'loading' } | { kind: 'render' } | { kind: 'redirect'; to: string };
 
@@ -9,8 +9,10 @@ const redirect = (to: string): AccessDecision => ({ kind: 'redirect', to });
 
 // The route guard's decision (FR-AUTH-004), with no DOM: from the session state and the requested path to
 // "render", "loading" or a redirect target. Deny by default: only the Guest allow-list is open to a Guest,
-// and any state other than loading or signed-in is treated as signed-out.
-export function decideAccess(state: SessionState, pathname: string): AccessDecision {
+// and any state other than loading, signed-in or signed-in-no-account is treated as signed-out.
+// `sessionEnded`: the session ended by itself (expired, or the account is stopped); a protected path then leads to the login
+// screen, which says why, instead of to Welcome (F1.5 criteria 11, 13).
+export function decideAccess(state: SessionState, pathname: string, sessionEnded = false): AccessDecision {
   if (state === 'loading') return LOADING;
   const path = normalizePath(pathname);
   const isGuestPath = GUEST_PATHS.includes(path);
@@ -18,5 +20,8 @@ export function decideAccess(state: SessionState, pathname: string): AccessDecis
     if (isGuestPath) return redirect(SIGNED_IN_LANDING);
     return PROTECTED_PATHS.includes(path) ? RENDER : redirect(SIGNED_IN_LANDING);
   }
-  return isGuestPath ? RENDER : redirect(GUEST_LANDING);
+  // Signed in with Auth but no account yet (DR-2): only the registration screen, in completion mode, opens.
+  if (state === 'signed-in-no-account') return path === PATHS.register ? RENDER : redirect(PATHS.register);
+  if (isGuestPath) return RENDER;
+  return redirect(sessionEnded ? PATHS.login : GUEST_LANDING);
 }

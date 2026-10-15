@@ -33,7 +33,7 @@ const UNLISTED = [
   '/null',
   '/undefined',
 ];
-const STATES = ['loading', 'signed-in', 'signed-out'] as const;
+const STATES = ['loading', 'signed-in', 'signed-out', 'signed-in-no-account'] as const;
 
 describe('the route table (6, Q2)', () => {
   it('[F1.2 c6][FR-AUTH-004][F1.4 c4] the Guest allow-list is exactly the seven Guest routes (the four of F1.2 plus /recovery, /terms, /privacy)', () => {
@@ -80,6 +80,56 @@ describe('signed-in (4, 10, DR-1)', () => {
   });
 });
 
+// F1.5 criterion 15 [FR-AUTH-004]: the fourth state "signed in, no account yet" (DR-2) and the session that ended (notice -> /login).
+describe('signed-in-no-account: only /register (completion), F1.5 c15 DR-2', () => {
+  it('[F1.5 c15][FR-AUTH-004] /register renders', () => {
+    expect(decideAccess('signed-in-no-account', '/register')).toEqual({ kind: 'render' });
+  });
+  it.each([...GUEST.filter((p) => p !== '/register'), ...PROTECTED, ...UNLISTED])(
+    '[F1.5 c15][FR-AUTH-004] %s redirects to /register',
+    (path) => {
+      expect(decideAccess('signed-in-no-account', path)).toEqual({ kind: 'redirect', to: '/register' });
+    },
+  );
+  it('[F1.5 c15] no loop: the redirect target renders for that state', () => {
+    for (const path of [...GUEST, ...PROTECTED, ...UNLISTED]) {
+      const d = decideAccess('signed-in-no-account', path);
+      if (d.kind === 'redirect') expect(decideAccess('signed-in-no-account', d.to)).toEqual({ kind: 'render' });
+    }
+  });
+});
+
+describe('signed-out after a session ended (sessionEnded = true): protected paths go to /login, F1.5 c11 c13 c15', () => {
+  it.each([...PROTECTED, ...UNLISTED])('[F1.5 c15][FR-AUTH-004] %s redirects to /login', (path) => {
+    expect(decideAccess('signed-out', path, true)).toEqual({ kind: 'redirect', to: '/login' });
+  });
+  it.each(GUEST)('[F1.5 c15][FR-AUTH-004] the Guest path %s still renders (including /login itself, so no loop)', (path) => {
+    expect(decideAccess('signed-out', path, true)).toEqual({ kind: 'render' });
+  });
+  it('[F1.5 c14] without sessionEnded (a logout) the same paths still go to / (Welcome)', () => {
+    for (const path of PROTECTED) expect(decideAccess('signed-out', path, false)).toEqual({ kind: 'redirect', to: '/' });
+    for (const path of PROTECTED) expect(decideAccess('signed-out', path)).toEqual({ kind: 'redirect', to: '/' });
+  });
+  it('[F1.5 c15] sessionEnded changes nothing for loading or signed-in', () => {
+    for (const path of [...GUEST, ...PROTECTED, ...UNLISTED]) {
+      expect(decideAccess('loading', path, true)).toEqual({ kind: 'loading' });
+      expect(decideAccess('signed-in', path, true)).toEqual(decideAccess('signed-in', path));
+    }
+  });
+});
+
+describe('deny by default for an unknown state (F1.5 c15)', () => {
+  it.each(['', 'SIGNED-IN', 'admin', 'signed_in', 'undefined'])('[F1.5 c15][FR-AUTH-004] the unknown state "%s" never renders a protected path', (state) => {
+    for (const path of PROTECTED) {
+      const d: unknown = Reflect.apply(decideAccess, undefined, [state, path]);
+      expect(d).not.toEqual({ kind: 'render' });
+    }
+    for (const bad of [undefined, null, 1, {}]) {
+      for (const path of PROTECTED) expect(Reflect.apply(decideAccess, undefined, [bad, path])).not.toEqual({ kind: 'render' });
+    }
+  });
+});
+
 describe('shape and purity (12)', () => {
   it('[F1.2 c12] every state x every listed path returns one of the three kinds, never throws, and is repeatable', () => {
     for (const state of STATES) {
@@ -88,7 +138,7 @@ describe('shape and purity (12)', () => {
         const b = decideAccess(state, path);
         expect(b).toEqual(a);
         expect(['loading', 'render', 'redirect']).toContain(a.kind);
-        if (a.kind === 'redirect') expect(['/', '/feed']).toContain(a.to);
+        if (a.kind === 'redirect') expect(['/', '/feed', '/register']).toContain(a.to);
       }
     }
   });
