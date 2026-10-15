@@ -12,3 +12,6 @@ F6 (part b) closed: criteria 10 and 14 E2E run the real session source.
 
 Checked with no finding: e2e seam constant-false in prod; completion paths; ERR-001 identical DOM; no Auth text; texts moved to
 lib; no secrets/logging/casts; A9; design and RTL.
+
+## Re-check (15.10)
+1–3 **closed** (the concern resolved with 1). 4 **open, low** → debt.md: the "[CRITIC c4]" test does not reach the proactive-refresh case, so the reset on TOKEN_REFRESHED (auth-client.ts:176-179) is unprotected. Verdict: **Validated**.
