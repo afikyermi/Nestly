@@ -222,14 +222,17 @@ select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('a')),
     $q$ update nestly.recovery_answers set email_handle = decode(repeat('ee', 32), 'hex'), handle_claimed_at = '2026-10-15 12:00:00+00' $q$, false),
   'OK:1', '[F1.6-a c23] a re-keys its own handle together with its claim time');
 select alike(tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('a')),
-    $q$ update nestly.recovery_answers set email_handle = decode(repeat('ee', 32), 'hex') $q$, false),
-  'ERR:23514:%handle_claim_check%', '[F1.6-a c23] a handle moves only with a claim time: the handle alone is refused');
+    $q$ update nestly.recovery_answers set email_handle = decode(repeat('ee', 32), 'hex'), handle_claimed_at = null $q$, false),
+  'ERR:23514:%handle_claim_check%', '[F1.6-a c23] a handle is never held without a claim time: the pairing is refused (the order of claims is the server''s)');
 select alike(tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('a')),
     $q$ update nestly.recovery_answers set email_handle = null $q$, false),
   'ERR:23514:%handle_claim_check%', '[F1.6-a c23] a handle cannot be emptied while the claim time stays');
 select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('a')),
     $q$ update nestly.recovery_answers set email_handle = null, handle_claimed_at = null $q$, false),
   'OK:1', '[F1.6-a c21] an owner may give up its own handle (both NULL)');
+select alike(tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('a')),
+    $q$ update nestly.recovery_answers set email_handle = decode(repeat('ee', 32), 'hex') $q$, false),
+  'ERR:23514:%handle_claim_check%', '[F1.6-a c23] on a released row, a handle alone is refused: it needs a claim time');
 select alike(tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('a')),
     $q$ update nestly.recovery_answers set email_handle = decode(repeat('bb', 32), 'hex'), handle_claimed_at = '2026-10-15 12:00:00+00' $q$, false),
   'ERR:23505:%email_handle_key%', '[F1.6-a c8 c21] a cannot take b''s handle by update: the handle is unique (the server releases first, or answers 503)');

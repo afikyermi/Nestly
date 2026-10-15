@@ -172,7 +172,7 @@ test.describe('AppShell: bottom navigation', () => {
 });
 
 test.describe('AppShell: side menu', () => {
-  test('[F1.2 c19][FR-MENU-001] the drawer titled "תפריט" holds exactly two items in order: הגדרות (link to /settings), התנתקות (button)', async ({
+  test('[F1.2 c19][FR-MENU-001] the drawer titled "תפריט" holds exactly three items in order: הגדרות (link to /settings), שאלות לשחזור סיסמה (link, F1.6 c18), התנתקות (button)', async ({
     page,
   }) => {
     await open(page, '/feed', 'signed-in');
@@ -189,6 +189,7 @@ test.describe('AppShell: side menu', () => {
       );
     expect(items.filter((i) => i.name !== CLOSE)).toEqual([
       { tag: 'a', name: 'הגדרות', href: '/settings' },
+      { tag: 'a', name: 'שאלות לשחזור סיסמה', href: '/recovery-questions' }, // F1.6 c18
       { tag: 'button', name: 'התנתקות', href: null },
     ]);
     for (const dest of ['/home', '/feed', '/profile']) {

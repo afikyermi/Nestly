@@ -773,3 +773,15 @@ Elsewhere:
 
 Done — recommendations for CRITIC findings 1-2 · Artifact — `.work/password-recovery/schema.md` (this section) · Next
 owner — ORCHESTRATOR (decide; record; amend criterion 13 and add 21-23)
+
+## Clarification — claim ordering is the server's (DATA ARCHITECT, 15.10.2026, CI run 38787328181)
+
+No schema change. The CHECK `recovery_answers_handle_claim_check` enforces **pairing only** (handle and claim time are
+both set or both NULL). "A handle moves only with a newer claim time" on the **own** row is the server's guarantee, as
+designed: `claimOwnHandle` (`apps/server/src/repositories/recovery-repository.ts:104-110`, `where handle_claimed_at is
+null or handle_claimed_at < $iat`), covered by `recovery-store.db.test.ts` "[F1.6 c23] skipped: ... an EQUAL or OLDER
+token ... change nothing". No trigger: the own row is not an authorization boundary (cross-account takeover stays in
+RLS, `recovery_answers_release_recovery` + UNIQUE); a stale own re-key is liveness only, and (b) still refuses a reset
+whose Auth email differs. `authenticated` is reachable only through app_server's SET LOCAL ROLE (Data API off), so the
+server is the only writer. pgTAP `31_recovery_policies.sql:224-226` asserted beyond the schema; it changes to assert the
+pairing only (see the hand-back).

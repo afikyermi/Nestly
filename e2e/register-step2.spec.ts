@@ -701,7 +701,8 @@ test.describe('F1.4 criterion 19 [F1.3 criterion 13] back from step 2', () => {
 });
 
 test.describe('F1.4 criterion 4 the placeholder pages the consent links lead to', () => {
-  for (const [path, h1] of [['/terms', 'תנאי השימוש'], ['/privacy', 'מדיניות הפרטיות'], ['/recovery', 'שחזור סיסמה']] as const) {
+  for (const [path, h1] of [['/terms', 'תנאי השימוש'], ['/privacy', 'מדיניות הפרטיות']] as const) {
+    // /recovery stopped being a placeholder in F1.6 c16; recovery-web.spec.ts covers it
     test(`[F1.4 c4] ${path} is a Guest placeholder page "${h1}" with the "בקרוב" line`, async ({ page }) => {
       await open(page, path, 'signed-out');
       await expect(h1Of(page)).toHaveText(h1);
