@@ -97,21 +97,21 @@ test('critic: never reads notes.md', () => {
   blocks('critic', 'Bash', { command: 'npm run ci' });
 });
 
-test('test-engineer: never reads apps/*/src or notes.md, by any tool', () => {
-  blocks('test-engineer', 'Read', { file_path: P('apps', 'web', 'src', 'main.tsx') });
+test('test-engineer: reads app source freely, never notes.md, by any tool', () => {
+  allows('test-engineer', 'Read', { file_path: P('apps', 'web', 'src', 'main.tsx') });
   blocks('test-engineer', 'Read', { file_path: P('.work', 'feat', 'notes.md') });
   allows('test-engineer', 'Read', { file_path: P('packages', 'shared', 'src', 'index.ts') });
   allows('test-engineer', 'Read', { file_path: P('apps', 'web', 'tests', 'App.test.tsx') });
   allows('test-engineer', 'Read', { file_path: P('.work', 'feat', 'spec.md') });
 
   blocks('test-engineer', 'Grep', { pattern: 'x' });
-  blocks('test-engineer', 'Grep', { pattern: 'x', path: P('apps', 'web') });
-  blocks('test-engineer', 'Grep', { pattern: 'x', path: P('apps', 'server', 'src', 'routes') });
+  allows('test-engineer', 'Grep', { pattern: 'x', path: P('apps', 'web') });
+  allows('test-engineer', 'Grep', { pattern: 'x', path: P('apps', 'server', 'src', 'routes') });
   allows('test-engineer', 'Grep', { pattern: 'x', path: P('apps', 'web', 'tests') });
   allows('test-engineer', 'Grep', { pattern: 'x', path: P('packages', 'shared') });
 
-  blocks('test-engineer', 'Glob', { pattern: '**/*.ts' });
-  blocks('test-engineer', 'Glob', { pattern: 'apps/web/src/**/*.tsx' });
+  allows('test-engineer', 'Glob', { pattern: '**/*.ts' });
+  allows('test-engineer', 'Glob', { pattern: 'apps/web/src/**/*.tsx' });
   allows('test-engineer', 'Glob', { pattern: 'packages/shared/**/*.ts' });
   allows('test-engineer', 'Glob', { pattern: '**/*.test.tsx', path: P('apps', 'web', 'tests') });
 
@@ -278,7 +278,7 @@ test('critic: no notes.md through git, shell search or a clever Grep', () => {
   allows('critic', 'Grep', { pattern: 'x', glob: '*.ts !*.d.ts' });
 });
 
-test('test-engineer: per-app test runs through npm and --root are blocked, implementation stays out of reach', () => {
+test('test-engineer: per-app test runs through npm and --root are blocked, source reads through Bash stay blocked, Read/Grep/Glob of source are allowed', () => {
   // Converted (round 4): the npm forms, -w/--workspace and --root are dropped from TEST ENGINEER Bash.
   for (const c of ['npm test -w apps/web', 'npm run test --workspace=apps/web', 'npx vitest run --root apps/web', 'npx vitest run apps/web']) {
     blocks('test-engineer', 'Bash', { command: c });
@@ -286,12 +286,12 @@ test('test-engineer: per-app test runs through npm and --root are blocked, imple
   for (const c of ['cd apps && cat web/src/a.ts', 'cd apps/web', 'cat apps/server/api/index.ts', 'Get-Content apps\\web\\src\\main.tsx', 'git diff -- apps/web/tests']) {
     blocks('test-engineer', 'Bash', { command: c });
   }
-  blocks('test-engineer', 'Read', { file_path: P('apps', 'server', 'api', 'index.ts') });
-  blocks('test-engineer', 'Read', { file_path: 'apps\\web\\src\\main.tsx' });
-  blocks('test-engineer', 'Read', { file_path: './apps/web/src/main.tsx' });
-  blocks('test-engineer', 'Glob', { pattern: '{apps,packages}/**/*.ts' });
-  blocks('test-engineer', 'Glob', { pattern: '**/src/**' });
-  blocks('test-engineer', 'Grep', { pattern: 'x', path: P('apps', 'web', 'tests', '..', 'src') });
+  allows('test-engineer', 'Read', { file_path: P('apps', 'server', 'api', 'index.ts') });
+  allows('test-engineer', 'Read', { file_path: 'apps\\web\\src\\main.tsx' });
+  allows('test-engineer', 'Read', { file_path: './apps/web/src/main.tsx' });
+  allows('test-engineer', 'Glob', { pattern: '{apps,packages}/**/*.ts' });
+  allows('test-engineer', 'Glob', { pattern: '**/src/**' });
+  allows('test-engineer', 'Grep', { pattern: 'x', path: P('apps', 'web', 'tests', '..', 'src') });
 });
 
 test('builder: shell writes into tests, snapshot updates, and legitimate test runs', () => {
@@ -443,7 +443,8 @@ test('the settings hook applies the calling agent\'s rules by agent_type', () =>
   const as = (agent, tool, input) =>
     run('all', tool, JSON.stringify({ tool_name: tool, tool_input: input, cwd: ROOT, agent_type: agent }));
   assert.strictEqual(as('critic', 'Read', { file_path: P('.work', 'f', 'notes.md') }), 2);
-  assert.strictEqual(as('test-engineer', 'Read', { file_path: P('apps', 'web', 'src', 'main.tsx') }), 2);
+  assert.strictEqual(as('test-engineer', 'Read', { file_path: P('.work', 'f', 'notes.md') }), 2);
+  assert.strictEqual(as('test-engineer', 'Read', { file_path: P('apps', 'web', 'src', 'main.tsx') }), 0);
   assert.strictEqual(as('builder', 'Write', { file_path: P('apps', 'web', 'tests', 'a.test.ts'), content: '' }), 2);
   // Another agent, or the main loop, is not held to a role's rules.
   assert.strictEqual(as('scout', 'Read', { file_path: P('apps', 'web', 'src', 'main.tsx') }), 0);

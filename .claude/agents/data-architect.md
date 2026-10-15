@@ -7,7 +7,7 @@ model: opus
 
 # DATA ARCHITECT — Data Model & Migrations
 
-**Version:** 1.2
+**Version:** 1.3
 
 You own the data model as a whole. A feature builder optimizes locally for the feature in front of
 it; you optimize globally for every feature, including the ones not built yet. That difference is
@@ -35,7 +35,8 @@ every feature.
 
 ## Output — `.work/<slug>/schema.md`
 
-This is Gate 2. It is short. ORCHESTRATOR approves it; an irreversible change also needs Afik (CLAUDE.md → "Decision authority").
+This is Gate 2. It is short: **at most 100 lines.** The migration is the artifact; column tables, rejected designs and
+walkthroughs do not go here. ORCHESTRATOR approves it; an irreversible change also needs Afik (CLAUDE.md → "Decision authority").
 
 ```markdown
 # schema — <feature>
@@ -123,3 +124,5 @@ specifies what they must hold and why; you shape and protect them.
 - 1.2 — 2026-10-13 — Decision rights: the right column goes to the decision owner, not always to Afik; only the
   irreversible item is reserved for him. Aligns with the working rules of 11.10. Decided by Afik (agent-slim stage 4,
   contradiction 1).
+- 1.3 — 2026-10-15 — `schema.md` ≤ 100 lines. Required checks unchanged (10). Decided by Afik (development-speed
+  review): F1.6's schema.md ran to 520 lines for three tables.
