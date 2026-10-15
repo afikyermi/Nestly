@@ -3,6 +3,7 @@ import { createDatabase, type Database } from './db/client.js';
 import { readConfig, type ServerConfig } from './lib/config.js';
 import { createTokenVerifier } from './lib/token-verifier.js';
 import { registerAuthentication } from './plugins/authentication.js';
+import { registerMeRoute } from './routes/me.js';
 import { registerRegistrationRoute } from './routes/register.js';
 import { registerStripBypassHeader } from './plugins/strip-bypass-header.js';
 
@@ -53,6 +54,7 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   });
 
   app.get('/api/health', () => ({ status: 'ok' }));
+  registerMeRoute(app, { database });
   registerRegistrationRoute(app, { database, clock: deps.clock ?? (() => new Date()) });
 
   return app;

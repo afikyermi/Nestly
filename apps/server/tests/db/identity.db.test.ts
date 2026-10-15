@@ -292,7 +292,7 @@ describe('[F1.1-c c25] end to end through the server: the caller reads its own U
     expect(ids(res.rows)).toEqual([ACCOUNT_A]);
   });
 
-  it('[F1.1-c c25] the same token after suspension gets 0 rows, and gets its row back when the account is active again', T, async () => {
+  it('[F1.5-a c1] the same token after suspension or ban still gets exactly its own row, and the row stays when the account is active again', T, async () => {
     const app = await serverApp();
     const t = await token({ key, sub: ACCOUNT_A });
     const read = async (): Promise<Row[]> => {
@@ -302,11 +302,11 @@ describe('[F1.1-c c25] end to end through the server: the caller reads its own U
     };
     expect(ids(await read())).toEqual([ACCOUNT_A]);
     await setStatus('a', 'suspended');
-    expect(await read()).toEqual([]);
+    expect(ids(await read())).toEqual([ACCOUNT_A]);
     await setStatus('a', 'active');
     expect(ids(await read())).toEqual([ACCOUNT_A]);
     await setStatus('a', 'banned');
-    expect(await read()).toEqual([]);
+    expect(ids(await read())).toEqual([ACCOUNT_A]);
   });
 
   it('[F1.1-c c25] suspension also hides the account\'s regular_profiles row', T, async () => {
@@ -320,12 +320,21 @@ describe('[F1.1-c c25] end to end through the server: the caller reads its own U
   it.each([
     ['s (suspended in the fixtures)', 's'],
     ['x (banned in the fixtures)', 'x'],
-    ['c (an Auth user with no nestly.users row)', 'c'],
-  ])('[F1.1-c c25] account %s gets 0 rows, including from a token that claims to be active', T, async (_label, who) => {
+  ])('[F1.5-a c1] account %s gets only its own row, including from a token that claims to be active', T, async (_label, who) => {
     const app = await serverApp();
     const lying = { app_metadata: { status: 'active', role: 'service_role' }, user_metadata: { status: 'active', role: 'service_role' }, role: 'service_role' };
     for (const extra of [undefined, lying]) {
       const res = await call(app, 'users', FIXTURE[who] ?? '', extra);
+      expect(res.status, res.body).toBe(200);
+      expect(ids(res.rows)).toEqual([FIXTURE[who]]);
+    }
+  });
+
+  it('[F1.1-c c25] account c (an Auth user with no nestly.users row) gets 0 rows, including from a token that claims to be active', T, async () => {
+    const app = await serverApp();
+    const lying = { app_metadata: { status: 'active', role: 'service_role' }, user_metadata: { status: 'active', role: 'service_role' }, role: 'service_role' };
+    for (const extra of [undefined, lying]) {
+      const res = await call(app, 'users', FIXTURE.c ?? '', extra);
       expect(res.status, res.body).toBe(200);
       expect(res.rows).toEqual([]);
     }

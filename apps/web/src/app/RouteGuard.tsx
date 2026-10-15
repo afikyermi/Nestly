@@ -8,9 +8,9 @@ import { SessionLoading } from './SessionLoading';
 // never reaches the DOM for a Guest, not for one render. A redirect replaces the history entry. This is a
 // UX control: the data stays protected by the server and RLS.
 export function RouteGuard({ children }: { children: ReactNode }) {
-  const { state } = useSession();
+  const { state, notice } = useSession();
   const { pathname } = useLocation();
-  const decision = decideAccess(state, pathname);
+  const decision = decideAccess(state, pathname, notice !== null);
   if (decision.kind === 'loading') return <SessionLoading />;
   if (decision.kind === 'redirect') return <Navigate to={decision.to} replace />;
   return children;

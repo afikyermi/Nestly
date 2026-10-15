@@ -8,11 +8,12 @@ import {
   FULL_NAME_MIN_LENGTH,
   type RegistrationErrorCode,
 } from '@nestly/shared';
+import { GENERIC_ERROR_TEXT } from '@/lib/auth-texts';
 
 // ERR-003 (SRS §10), widened to "missing or invalid" at F1.3 Gate 1 (DR-4); the three range texts were decided in the F1.3
 // review (decisions/2026-10.md). The shared schemas return codes; this is the only place a code becomes text, so no Zod
 // message ever reaches the DOM. The generic text is for codes the UI cannot produce.
-export const GENERIC_ERROR_TEXT = 'משהו השתבש. אפשר לנסות שוב';
+export { GENERIC_ERROR_TEXT };
 
 const DATE_NOT_REAL = 'התאריך אינו תקין. יש לבדוק יום, חודש ושנה';
 

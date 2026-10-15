@@ -1,12 +1,10 @@
 import { registrationCredentialsInput, type CredentialsErrorCode } from '@nestly/shared';
 import type { AuthFailure } from '@/services/auth/auth-client';
-import { GENERIC_ERROR_TEXT } from './error-texts';
+import { EMAIL_INVALID_TEXT, EMAIL_REQUIRED_TEXT, GENERIC_ERROR_TEXT, RATE_LIMITED_TEXT } from '@/lib/auth-texts';
 
 // Registration step 2: the texts, the credentials check and the reading of an Auth failure. The shared schema returns codes;
 // this is the only place a code or an Auth failure becomes text, so no Zod, Auth or server text reaches the DOM (criteria 5, 20).
 
-export const EMAIL_REQUIRED_TEXT = 'יש למלא כתובת אימייל'; // AC-003 · ERR-003
-export const EMAIL_INVALID_TEXT = 'כתובת האימייל אינה תקינה'; // VAL-002 · ERR-003
 export const PASSWORD_LENGTH_TEXT = 'הסיסמה צריכה להכיל לפחות 8 תווים'; // VAL-003 · ERR-003
 export const CONSENT_REQUIRED_TEXT = 'יש לאשר את התנאים ואת הצהרת הגיל כדי להמשיך'; // BR-068
 // ERR-002 · NFR-SEC-006: one text for Regular and Professional, naming neither (criteria 6, 7).
@@ -14,8 +12,7 @@ export const TAKEN_TEXT = 'לא ניתן להשלים את ההרשמה עם ה�
 export const RETRY_TEXT = 'השמירה לא הצליחה. אפשר לנסות שוב'; // ERR-004
 // Shown while Auth holds the email and password and the account is not yet created: the fields are locked.
 export const HELD_TEXT = 'האימייל והסיסמה נשמרו ואי אפשר לשנות אותם כעת';
-export const RATE_LIMITED_TEXT = 'בוצעו יותר מדי ניסיונות. אפשר לנסות שוב בעוד כמה דקות'; // Q6
-export { GENERIC_ERROR_TEXT };
+export { EMAIL_INVALID_TEXT, EMAIL_REQUIRED_TEXT, GENERIC_ERROR_TEXT, RATE_LIMITED_TEXT };
 
 const CREDENTIAL_TEXTS: Record<CredentialsErrorCode, string> = {
   email_required: EMAIL_REQUIRED_TEXT,

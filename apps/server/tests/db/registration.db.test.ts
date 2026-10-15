@@ -366,11 +366,11 @@ describe('[F1.4-b c10 c14] a repeated creation is safe: already_registered, no r
     expect(before[0]).toBe('1/1/2/2/1');
   });
 
-  it('[F1.4-b c14 rule 15] a SUSPENDED account is already_registered too (its row exists though it cannot see it), and changes nothing', T, async () => {
+  it('[F1.4-b c14 rule 15] a SUSPENDED account is already_registered too (it reads its own users row, F1.5-a c1), and changes nothing', T, async () => {
     const suspended = '50000000-0000-4000-8000-000000000051';
     const before = await counts(suspended);
     expect(before).toBe('1/1/0/0/0');
-    expect(await hasAccount(database, { userId: suspended })).toBe(false);
+    expect(await hasAccount(database, { userId: suspended })).toBe(true);
     expect(await createRegistration(database, { userId: suspended }, step1())).toEqual({ kind: 'already_registered' });
     expect(await counts(suspended)).toBe(before);
   });
@@ -389,10 +389,10 @@ describe('[F1.4-b c14] hasAccount reads only the caller\'s own row', () => {
     expect(await hasAccount(database, { userId: 'c0000000-0000-4000-8000-0000000000c3' })).toBe(false);
     expect(await hasAccount(database, { userId: '99999999-9999-4999-8999-999999999997' })).toBe(false);
   });
-  it('[F1.4-b c14] true for active accounts a and b, false for suspended s and banned x', T, async () => {
+  it('[F1.5-a c1] true for active accounts a and b and for suspended s and banned x (each reads its own row)', T, async () => {
     expect(await hasAccount(database, { userId: ACCOUNT_A })).toBe(true);
     expect(await hasAccount(database, { userId: 'b0000000-0000-4000-8000-0000000000b2' })).toBe(true);
-    expect(await hasAccount(database, { userId: '50000000-0000-4000-8000-000000000051' })).toBe(false);
-    expect(await hasAccount(database, { userId: 'e0000000-0000-4000-8000-0000000000e5' })).toBe(false);
+    expect(await hasAccount(database, { userId: '50000000-0000-4000-8000-000000000051' })).toBe(true);
+    expect(await hasAccount(database, { userId: 'e0000000-0000-4000-8000-0000000000e5' })).toBe(true);
   });
 });

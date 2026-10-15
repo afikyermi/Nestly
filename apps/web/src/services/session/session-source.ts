@@ -1,14 +1,21 @@
 // The session seam (FR-AUTH-004). The route guard, the shell and the menu learn about the session only
-// through it: three states and one action. A source implements SessionSource; createSessionStore wraps it
+// through it: four states and one action. A source implements SessionSource; createSessionStore wraps it
 // so that a source that throws or rejects is read as signed-out (fails closed). The seam is a UX control:
 // the data stays protected by the server and by RLS.
+import type { SignInProblem } from '@/services/auth/sign-in-problem';
 
-export const SESSION_STATES = ['loading', 'signed-in', 'signed-out'] as const;
+// `signed-in-no-account`: Auth knows the user but the account was never created (F1.5 DR-2); only the completion screen opens.
+export const SESSION_STATES = ['loading', 'signed-in', 'signed-out', 'signed-in-no-account'] as const;
 export type SessionState = (typeof SESSION_STATES)[number];
+
+/** Why a session ended without the user asking (F1.5): the login screen says so. Memory only; cleared by the next sign-in. */
+export type SessionNotice = 'expired' | 'stopped';
 
 export interface SessionSource {
   /** The current state. */
   getState(): SessionState;
+  /** Why the session ended by itself, if it did. A source that cannot tell leaves this out. */
+  getNotice?(): SessionNotice | null;
   /** Calls `listener` after every change of state. Returns the function that stops it. */
   subscribe(listener: () => void): () => void;
   /** Ends the session. The source then reports `signed-out`. */
@@ -21,12 +28,36 @@ export interface SessionEntry {
   signIn(): void;
 }
 
+/** The result of signing in with a password, as the login screen reads it (F1.5 criteria 5-9). Keys only, no text. */
+export type SignInResult =
+  | { kind: 'signed-in' }
+  | { kind: 'unregistered' } // signed in, no account yet: the state is `signed-in-no-account`
+  | { kind: 'stopped' } // the account is suspended or banned; the session is already ended
+  | { kind: 'failed'; problem: SignInProblem };
+
+/** What the login and completion screens call. A source that can sign in with a password implements it. */
+export interface SessionAccount {
+  /** Checks the password with Auth, then asks the server for the account state. A session survives only if this reports signed-in or unregistered. */
+  signInWithPassword(credentials: { email: string; password: string }): Promise<SignInResult>;
+  /** Asks the server for the account state now (e.g. after a 409 on completion) and acts on the answer. */
+  recheck(): Promise<void>;
+  /** The current access token, renewed if it has expired; null without a session. */
+  getAccessToken(): Promise<string | null>;
+  /** Forgets the notice. */
+  clearNotice(): void;
+}
+
+export const isSessionAccount = (source: SessionSource): source is SessionSource & SessionAccount =>
+  'signInWithPassword' in source && typeof source.signInWithPassword === 'function';
+
 export const isSessionEntry = (source: SessionSource): source is SessionSource & SessionEntry =>
   'signIn' in source && typeof source.signIn === 'function';
 
 /** What the app reads. Its members are plain functions, safe to pass around unbound. */
 export interface SessionStore {
   getState: () => SessionState;
+  /** Why the session ended by itself; null when it did not, or when the source cannot say. */
+  getNotice: () => SessionNotice | null;
   subscribe: (listener: () => void) => () => void;
   /** Ends the session. Never rejects: a failed sign-out leaves the store `signed-out`. */
   signOut: () => Promise<void>;
@@ -80,6 +111,17 @@ export function createSessionStore(source: SessionSource, { onError = reportToCo
     return 'signed-out';
   };
 
+  const getNotice = (): SessionNotice | null => {
+    if (failed) return null;
+    try {
+      return source.getNotice?.() ?? null;
+    } catch (error) {
+      onError(error);
+      failed = true;
+      return null;
+    }
+  };
+
   const subscribe = (listener: () => void) => {
     listeners.add(listener);
     if (stopSource === null && !failed) {
@@ -119,5 +161,5 @@ export function createSessionStore(source: SessionSource, { onError = reportToCo
     return pendingSignOut;
   };
 
-  return { getState, subscribe, signOut };
+  return { getState, getNotice, subscribe, signOut };
 }

@@ -1,5 +1,6 @@
 import { Route, Routes } from 'react-router';
 import { GuestPlaceholderPage } from '@/pages/placeholder/GuestPlaceholderPage';
+import { LoginPage } from '@/pages/login/LoginPage';
 import { ProtectedPlaceholderPage } from '@/pages/placeholder/ProtectedPlaceholderPage';
 import { RegisterPage } from '@/pages/register/RegisterPage';
 import { WelcomePage } from '@/pages/welcome/WelcomePage';
@@ -17,7 +18,7 @@ export function AppRoutes() {
       <RouteGuard>
         <Routes>
           <Route path={PATHS.welcome} element={<WelcomePage />} />
-          <Route path={PATHS.login} element={<GuestPlaceholderPage title="התחברות" />} />
+          <Route path={PATHS.login} element={<LoginPage />} />
           <Route path={PATHS.register} element={<RegisterPage />} />
           <Route path={PATHS.googleEntry} element={<GuestPlaceholderPage title="המשך עם Google" />} />
           <Route path={PATHS.recovery} element={<GuestPlaceholderPage title="שחזור סיסמה" />} />

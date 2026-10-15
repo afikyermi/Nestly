@@ -150,8 +150,11 @@ select is(tests.fx_profile(tests.fx_id('a')), 'Alice Aaron/woman',
   '[F1.1-b c13 NFR-SEC-002] A''s own profile is unchanged');
 select is(tests.n_as(tests.fx_id('a'), 'nestly.users'), '1',
   '[F1.1-b c13 NFR-SEC-002] A still reads exactly its own User row afterwards');
-select is(tests.n_as(tests.fx_id('s'), 'nestly.users'), '0',
-  '[F1.1-b c13 NFR-SEC-002] suspended S still reads 0 rows afterwards');
+select is(tests.n_as(tests.fx_id('s'), 'nestly.users'), '1',
+  '[F1.5-a c1 NFR-SEC-002] suspended S still reads only its own User row afterwards');
+select is(tests.as_role('authenticated', tests.claims(tests.fx_id('s')), 'select coalesce(string_agg(status, '',''), '''') from nestly.users'),
+  'suspended',
+  '[F1.5-a c1 NFR-SEC-002] and that row still says suspended: the write attempts did not reactivate it');
 
 select * from finish();
 
