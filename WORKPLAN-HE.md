@@ -94,6 +94,7 @@
 - ~~בדיקת Preview אוטומטית ב-CI~~ — **הוכרע 15.10 (E):** ‏Playwright מול ה-Preview עם חשבון בדיקה כסוד ב-GitHub, ‏PR 2.
 - `workflow.md` שורה 36: תיאורי ה-as-built הם `data-model.md` (כולל `data-model-tables.md` המקושר, מ-F1.4) ו-`conventions.md` — לציין את הקובץ החדש.
 - skills שלב ב: `react-web`, `fastify-api`, `drizzle-postgres`, `testing-craft`, `shared-contracts`, `rls-tests` (חריג: skill ממוקד אחד אחרי שני כשלים על אותה בעיית craft).
+- ה-guard: להכיר ב-`e2e-preview/*.flow.ts` כקובץ טסט של TEST ENGINEER (חסימה שלישית 16.10 01:12, ‏noise). ‏E: ‏concurrency לפי sha אחרי הכרעת DR-E1 (‏debt).
 - 6.1: domain של Threat Modeling.
 - 7.2: בדיקת ה-hook של security-guidance.
 - skills שלב ג: דוגמאות שמפנות לקוד אמיתי, `/srs-coverage`.
