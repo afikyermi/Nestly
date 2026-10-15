@@ -23,6 +23,8 @@ export interface TextInputProps {
   /** For LTR content inside the RTL form (email): text stays aligned to the start edge. */
   dir?: 'ltr';
   disabled?: boolean;
+  /** Shown and focusable, not editable (registration step 2 while a sign-up is held). */
+  readOnly?: boolean;
   id?: string;
   name?: string;
   autoComplete?: string;

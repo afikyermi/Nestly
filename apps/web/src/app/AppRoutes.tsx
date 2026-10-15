@@ -20,6 +20,9 @@ export function AppRoutes() {
           <Route path={PATHS.login} element={<GuestPlaceholderPage title="התחברות" />} />
           <Route path={PATHS.register} element={<RegisterPage />} />
           <Route path={PATHS.googleEntry} element={<GuestPlaceholderPage title="המשך עם Google" />} />
+          <Route path={PATHS.recovery} element={<GuestPlaceholderPage title="שחזור סיסמה" />} />
+          <Route path={PATHS.terms} element={<GuestPlaceholderPage title="תנאי השימוש" />} />
+          <Route path={PATHS.privacy} element={<GuestPlaceholderPage title="מדיניות הפרטיות" />} />
           <Route element={<ProtectedLayout />}>
             <Route path={PATHS.home} element={<ProtectedPlaceholderPage title="בית" />} />
             <Route path={PATHS.feed} element={<ProtectedPlaceholderPage title="פיד" />} />

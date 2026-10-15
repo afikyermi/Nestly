@@ -15,6 +15,15 @@ export interface SessionSource {
   signOut(): Promise<void>;
 }
 
+/** What registration calls once an account and its session exist (F1.4). A source that can take a session implements it. */
+export interface SessionEntry {
+  /** The source then reports `signed-in` and tells its listeners. */
+  signIn(): void;
+}
+
+export const isSessionEntry = (source: SessionSource): source is SessionSource & SessionEntry =>
+  'signIn' in source && typeof source.signIn === 'function';
+
 /** What the app reads. Its members are plain functions, safe to pass around unbound. */
 export interface SessionStore {
   getState: () => SessionState;

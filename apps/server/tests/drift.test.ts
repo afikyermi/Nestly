@@ -34,6 +34,31 @@ const APPROVED: ColumnShape[] = [
   col('regular_profiles', 'created_at', TZ, true),
 ];
 
+// F1.4 part a (schema.md, three new tables): what the migrated database really holds, `legal_consents.accepted_at`
+// included. The Drizzle schema deliberately omits accepted_at (the INSERT policy forces the database's clock), so the
+// catalog may hold a column Drizzle does not name. This is the catalog the command test feeds to `db:drift`.
+const APPROVED_F14: ColumnShape[] = [
+  col('journey_contexts', 'id', 'uuid', true),
+  col('journey_contexts', 'user_id', 'uuid', true),
+  col('journey_contexts', 'stage', 'text', true),
+  col('journey_contexts', 'due_date', 'date', false),
+  col('journey_contexts', 'created_at', TZ, true),
+  col('children', 'id', 'uuid', true),
+  col('children', 'user_id', 'uuid', true),
+  col('children', 'slot', 'smallint', true),
+  col('children', 'name', 'text', true),
+  col('children', 'sex', 'text', true),
+  col('children', 'birth_date', 'date', true),
+  col('children', 'created_at', TZ, true),
+  col('legal_consents', 'id', 'uuid', true),
+  col('legal_consents', 'user_id', 'uuid', true),
+  col('legal_consents', 'terms_version', 'text', true),
+  col('legal_consents', 'privacy_version', 'text', true),
+  col('legal_consents', 'has_declared_18_plus', 'boolean', true),
+  col('legal_consents', 'accepted_at', TZ, true),
+];
+const APPROVED_ALL: ColumnShape[] = [...APPROVED, ...APPROVED_F14];
+
 const without = (rows: ColumnShape[], table: string, column: string): ColumnShape[] =>
   rows.filter((r) => !(r.table === table && r.column === column));
 const changed = (rows: ColumnShape[], table: string, column: string, patch: Partial<ColumnShape>): ColumnShape[] =>
@@ -233,20 +258,31 @@ describe('[F1.1-b c10 c20] the db:drift command against the real Drizzle schema'
   const TIMEOUT = 120_000;
 
   it('exits 0 when the database has exactly the columns of schema.md (criterion 10: the Drizzle schema equals the approved lists)', { timeout: TIMEOUT }, () => {
-    const result = drift(JSON.stringify(APPROVED));
+    const result = drift(JSON.stringify(APPROVED_ALL));
     expect(result.error).toBeUndefined();
     expect(result.output).not.toMatch(/Cannot find|ERR_MODULE_NOT_FOUND/);
     expect(result.status).toBe(0);
   });
 
   it.each([
-    ['a column missing from the database', without(APPROVED, 'users', 'status')],
-    ['a whole table missing', APPROVED.filter((r) => r.table !== 'regular_profiles')],
-    ['a type that differs', changed(APPROVED, 'users', 'id', { type: 'text' })],
-    ['a timestamp without time zone', changed(APPROVED, 'regular_profiles', 'created_at', { type: 'timestamp without time zone' })],
-    ['a nullable column in the database where Drizzle says not null', changed(APPROVED, 'users', 'account_type', { notNull: false })],
-    ['a not null column in the database where Drizzle says nullable', changed(APPROVED, 'regular_profiles', 'gender', { notNull: true })],
+    ['a column missing from the database', without(APPROVED_ALL, 'users', 'status')],
+    ['a whole table missing', APPROVED_ALL.filter((r) => r.table !== 'regular_profiles')],
+    ['a type that differs', changed(APPROVED_ALL, 'users', 'id', { type: 'text' })],
+    ['a timestamp without time zone', changed(APPROVED_ALL, 'regular_profiles', 'created_at', { type: 'timestamp without time zone' })],
+    ['a nullable column in the database where Drizzle says not null', changed(APPROVED_ALL, 'users', 'account_type', { notNull: false })],
+    ['a not null column in the database where Drizzle says nullable', changed(APPROVED_ALL, 'regular_profiles', 'gender', { notNull: true })],
     ['an empty catalog', []],
+    // [F1.4-a c14] the three new tables are in the Drizzle schema and checked
+    ['the catalog of F1.1 alone (the three F1.4 tables missing from the database)', APPROVED],
+    ['journey_contexts missing from the database', APPROVED_ALL.filter((r) => r.table !== 'journey_contexts')],
+    ['children missing from the database', APPROVED_ALL.filter((r) => r.table !== 'children')],
+    ['legal_consents missing from the database', APPROVED_ALL.filter((r) => r.table !== 'legal_consents')],
+    ['children.birth_date missing', without(APPROVED_ALL, 'children', 'birth_date')],
+    ['children.slot of another type', changed(APPROVED_ALL, 'children', 'slot', { type: 'integer' })],
+    ['journey_contexts.due_date not null in the database', changed(APPROVED_ALL, 'journey_contexts', 'due_date', { notNull: true })],
+    ['journey_contexts.due_date a timestamp', changed(APPROVED_ALL, 'journey_contexts', 'due_date', { type: TZ })],
+    ['legal_consents.has_declared_18_plus of another type', changed(APPROVED_ALL, 'legal_consents', 'has_declared_18_plus', { type: 'text' })],
+    ['legal_consents.terms_version nullable in the database', changed(APPROVED_ALL, 'legal_consents', 'terms_version', { notNull: false })],
   ])('exits non-zero for %s', { timeout: TIMEOUT }, (_label, rows) => {
     const result = drift(JSON.stringify(rows));
     expect(result.error).toBeUndefined();

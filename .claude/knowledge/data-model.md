@@ -1,10 +1,10 @@
 # Data model — as-built
 
 **Maintained by:** DATA ARCHITECT. Updated on every schema change, in the same unit of work.
-**Status:** schema `nestly` exists since I1 F1.1 part b (`nestly.users`, `nestly.regular_profiles`). The "Planned"
+**Status:** schema `nestly` exists since I1 F1.1 part b (`nestly.users`, `nestly.regular_profiles`), and since I1 F1.4 (`nestly.journey_contexts`, `nestly.children`, `nestly.legal_consents`). The "Planned"
 section maps the SRS for everything not built yet.
 
-One of the two maintained as-built descriptions; the other is `conventions.md`. Everything else is read from the code.
+One of the two maintained as-built descriptions, with its per-table part `data-model-tables.md`; the other is `conventions.md`. Everything else is read from the code.
 
 ---
 
@@ -141,6 +141,7 @@ Proposed by DATA ARCHITECT and approved by ORCHESTRATOR at F1.1 Gate 2, 13.10.20
 | Delete | no default. Account lifecycle lives in `users.status`. Soft delete, where an entity needs it, is a nullable `deleted_at timestamptz` hidden by its policy — decided per entity against §13.4 |
 | RLS helpers | in `nestly`, `language sql`, `STABLE`, no argument that names a user (caller only), `set search_path = ''` with every name schema-qualified, EXECUTE revoked from PUBLIC and granted to `authenticated` only, called as `(select nestly.fn())`. SECURITY INVOKER unless an approved exception says otherwise |
 | Status gate placement | on `users` the active check is an inline column predicate; on every other table it is `(select nestly.is_active_account())`. A table's policy never calls a function that reads the same table (no recursion) |
+| Write grants | INSERT (and, when it comes, UPDATE) is granted **per column**, only on the columns the client's data fills. Identifiers, owner columns, clocks and columns fixed to a constant default (e.g. `regular_profiles.account_type`) are never granted, so their defaults always apply: rules 12–13 are held by privilege, and the policy's WITH CHECK is the second fence. A column the server sets but the policy constrains (e.g. `users.account_type`, `users.status`) is granted, and the policy is its first fence. SELECT stays table-level. In Drizzle every write goes through a write-model object (`<table>Insert`) in `schema.ts` that names exactly the granted columns: Drizzle names every column of the object it inserts into, and naming an ungranted column is 42501. Decided F1.4 part a (CRITIC finding 1). Proposed by DATA ARCHITECT (`.work/register-account-create/schema.md` Amendment 1); validated by CRITIC with its wording change (`.work/register-account-create/findings.md`, part a re-check) |
 | Migrations | hand-written SQL in `supabase/migrations/`, applied by the Supabase CLI as `app_owner`, each file and its history row in one transaction. One file = one unit: table + RLS + FORCE + policies + grants + comments. No non-transactional statements. Each has a down script in `supabase/rollback/` |
 | Drizzle | `pgSchema('nestly')` in `apps/server/src/db/schema.ts` mirrors columns, types and nullability for typing only; a CI drift check compares it to the catalog. drizzle-kit never generates or pushes migrations. Policies and functions are SQL only |
 
@@ -192,7 +193,7 @@ Never design around these with a guess. Each one is a `DECISION REQUEST` to Afik
 
 | Open point | Blocks |
 |---|---|
-| OP-003 — active context with several children or a pregnancy alongside children | JourneyContext, Child |
+| OP-003 — active context with several children or a pregnancy alongside children | choosing the active JourneyContext (I6); JourneyContext and Child are built (F1.4) |
 | OP-004 — gender field options — **closed** 11.10.2026 (VAL-006); no longer blocks | — (was RegularProfile, Child) |
 | OP-005 — professional verification | ProfessionalProfile verification fields |
 | OP-008 — fields of each Tracker (only breastfeeding is defined) | TrackerEvent |
@@ -205,39 +206,16 @@ Never design around these with a guess. Each one is a `DECISION REQUEST` to Afik
 
 ## Entities
 
-Built by `supabase/migrations/20261014100000_identity_schema.sql` (I1 F1.1 part b) and bootstrap step 2; down script
-`supabase/rollback/20261014100000_identity_schema.down.sql`, safe only while both tables are empty. Writes: none for
-`authenticated` yet — F1.4 adds the create path, I2 the edit path. Both tables are in `nestly`.
+Built by `supabase/migrations/20261014100000_identity_schema.sql` (I1 F1.1 part b) and bootstrap step 2, and by
+`supabase/migrations/20261014200000_registration_account.sql` (I1 F1.4 part a; Gate 2 and Amendment 1 in
+`.work/register-account-create/schema.md`). Down scripts in `supabase/rollback/`: F1.4's refuses while any of its three
+tables holds a row and must run first — F1.1's refuses while `nestly.legal_consents` exists, and is safe only while
+`users` and `regular_profiles` are empty. Writes: INSERT only, per column ("Write grants") — F1.4's create path. No
+UPDATE or DELETE grant or policy on any table; I2 adds the edit path. All five tables are in `nestly`.
 
-| Column | Type · null · default | Meaning |
-|---|---|---|
-| `users.id` | uuid PK · default `auth.uid()` | the account id = the Supabase Auth user id (JWT sub); never set by the client |
-| `users.account_type` | text · not null · no default | regular · professional · admin · moderator (SRS Role, §3, BR-016). Fixed at creation, never changes. The only source of account type (rule 14) |
-| `users.status` | text · not null · no default | active · suspended · banned (FR-MOD-002, BR-024): whether the account may use the product now. A warning is not a status; suspension end dates belong to AccountEnforcement (later) |
-| `users.created_at` | timestamptz · not null · `now()` | when the Nestly row was created, not the Auth sign-up |
-| `regular_profiles.user_id` | uuid PK · default `auth.uid()` | the owning account, = `users.id` |
-| `regular_profiles.account_type` | text · not null · default `'regular'` · CHECK = `'regular'` | with the composite FK, only a Regular account can hold a profile (BR-016, layer 2) |
-| `regular_profiles.full_name` | text · not null | VAL-001: CHECK `char_length(btrim(full_name))` between 2 and 60 (SRS 2.12, decided 13.10.2026); char_length counts code points |
-| `regular_profiles.gender` | text · null | VAL-006 (OP-004 closed): woman · man · other · prefer_not_to_say. NULL = not answered; prefer_not_to_say is an answer |
-| `regular_profiles.created_at` | timestamptz · not null · `now()` | row creation |
-
-| | `users` | `regular_profiles` |
-|---|---|---|
-| Purpose | SRS User (§13) — one person's Nestly account. The anchor: the only product table that references auth.users | SRS RegularProfile (§13) — a Regular parent's own FR-REG-002 fields, 1:1 with a regular account |
-| Not stored | email and login details (stay in auth.users; BR-045 uniqueness is Auth's); no password or hash (NFR-SEC-001). A copy of another user's email would be denormalization → `DECISION REQUEST` | stage and due date (JourneyContext), children (Child) — F1.4 tables; JourneyContext waits on OP-003 |
-| Owner | the person; `id` is `auth.uid()`, set by the database (rules 12–13) | the Regular account; `user_id` is `auth.uid()`, set by the database (rule 12) |
-| Authorization | RLS + FORCE. `users_select_own` — authenticated reads its own row, only while status = 'active' (checked inline; never through a function that reads users). Grants: USAGE on nestly and SELECT → authenticated only. No INSERT, UPDATE or DELETE grant or policy. I2's UPDATE will be column-level, excluding account_type and status | RLS + FORCE. `regular_profiles_select_own` — authenticated reads its own row, only while `(select nestly.is_active_account())`. Grants: SELECT → authenticated only. No INSERT, UPDATE or DELETE grant or policy |
-| Relations | `users_id_fkey` (id) → auth.users (id) ON DELETE RESTRICT — the anchor FK above, bootstrap step 2, added by postgres. Referenced by regular_profiles through `users_id_account_type_key` UNIQUE (id, account_type) | `regular_profiles_user_fkey` (user_id, account_type) → users (id, account_type) ON DELETE CASCADE — the profile is part of the account. Ids never update |
-| Indexes | `users_pkey` (id) — every policy and is_active_account() look up by id. `users_id_account_type_key` — target of the subtype FK; one extra small btree per insert, accepted. None on status: no query filters by it yet | `regular_profiles_pkey` (user_id) — own-row reads, and the cascade lookup from users |
-| Retention | no deleted_at. Hard delete only through the orderly deletion flow (I9, OP-028); RESTRICT blocks deleting the Auth user while this row exists. Retention periods: §13.4 TBD | goes with its users row (cascade); OP-028 direction: deleted in full. §13.4 TBD |
-
-Helper: `nestly.is_active_account()` — true when the caller's own account exists and is active (rule 15). SECURITY
-INVOKER, caller only; checks `id = auth.uid()` and `status` itself rather than trusting the `users` policy.
-
-A new entity adds its columns to the first table — field, type, and its meaning, which is the part that matters — and
-fills every row of the second: purpose in one line; what is not stored; owner, and how that is established;
-authorization — who may read, write and delete, and where that rule is enforced; relations, with cascade behaviour;
-indexes, each with the query it serves; retention — soft or hard delete, and what is retained after.
+Per-table detail — every column with its meaning, and each table's purpose, what is not stored, owner, authorization,
+relations, indexes and retention, plus the write order and the RLS helper — is in
+`.claude/knowledge/data-model-tables.md`, which also holds the template a new entity fills.
 
 ---
 

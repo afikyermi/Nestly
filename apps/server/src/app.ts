@@ -3,6 +3,7 @@ import { createDatabase, type Database } from './db/client.js';
 import { readConfig, type ServerConfig } from './lib/config.js';
 import { createTokenVerifier } from './lib/token-verifier.js';
 import { registerAuthentication } from './plugins/authentication.js';
+import { registerRegistrationRoute } from './routes/register.js';
 import { registerStripBypassHeader } from './plugins/strip-bypass-header.js';
 
 export interface AppDependencies {
@@ -15,6 +16,8 @@ export interface AppDependencies {
   readonly database?: Database;
   /** Where the logger writes. Defaults to no logger; a test passes one to read what would be logged. */
   readonly logStream?: { write(message: string): void };
+  /** The server's clock, for rules that compare with today. Defaults to the system clock. */
+  readonly clock?: () => Date;
 }
 
 export function buildApp(deps: AppDependencies = {}): FastifyInstance {
@@ -49,6 +52,7 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   });
 
   app.get('/api/health', () => ({ status: 'ok' }));
+  registerRegistrationRoute(app, { database, clock: deps.clock ?? (() => new Date()) });
 
   return app;
 }

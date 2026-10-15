@@ -260,13 +260,24 @@ select is(
   2::bigint,
   '[F1.1-b c12] each of the two tables has a SELECT policy');
 
+-- F1.4 part a (Gate 2): the five INSERT policies exist, and nothing else writes. Updated from "no INSERT, UPDATE, DELETE or
+-- ALL policy" to the exact list: no UPDATE, DELETE or ALL policy, and INSERT only on these five tables by these names.
 select is_empty(
   $$ select c.relname || '.' || pol.polname
        from pg_catalog.pg_policy pol
        join pg_catalog.pg_class c     on c.oid = pol.polrelid
        join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-      where n.nspname = 'nestly' and pol.polcmd <> 'r' $$,
-  '[F1.1-b c13 platform r14] no INSERT, UPDATE, DELETE or ALL policy exists in schema nestly (no write path in F1.1)');
+      where n.nspname = 'nestly' and pol.polcmd not in ('r', 'a') $$,
+  '[F1.1-b c13 platform r14 · F1.4-a c14] no UPDATE, DELETE or ALL policy exists in schema nestly (editing is I2)');
+
+select is(
+  (select string_agg(c.relname || '.' || pol.polname, ', ' order by c.relname, pol.polname)
+     from pg_catalog.pg_policy pol
+     join pg_catalog.pg_class c     on c.oid = pol.polrelid
+     join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'nestly' and pol.polcmd = 'a'),
+  'children.children_insert_own, journey_contexts.journey_contexts_insert_own, legal_consents.legal_consents_insert_own, regular_profiles.regular_profiles_insert_own, users.users_insert_own',
+  '[F1.1-b c13 · F1.4-a c14 platform r14] the INSERT policies are exactly the five approved ones, one per table');
 
 select is_empty(
   $$ select c.relname || '.' || pol.polname
@@ -314,6 +325,24 @@ select is(
       and has_table_privilege('authenticated', c.oid, 'SELECT')),
   2::bigint,
   '[F1.1-b c12] authenticated can SELECT both tables (the policies then narrow it to its own row)');
+
+-- F1.4 part a (Amendment 1): INSERT is granted per COLUMN, never per table. The exact column list lives in file 20 (one source).
+select is(
+  (select count(*) from pg_catalog.pg_class c
+     join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'nestly' and c.relname in ('users', 'regular_profiles')
+      and has_table_privilege('authenticated', c.oid, 'INSERT')),
+  0::bigint,
+  '[F1.4-a c14 CRITIC a-1] authenticated holds no table-level INSERT on users or regular_profiles (column-level only; see file 20)');
+
+select is(
+  (select count(*) from pg_catalog.pg_class c
+     join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'nestly' and c.relkind in ('r', 'p')
+      and (has_table_privilege('authenticated', c.oid, 'UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+           or has_any_column_privilege('authenticated', c.oid, 'UPDATE,REFERENCES'))),
+  0::bigint,
+  '[F1.1-b c13 · F1.4-a c14] authenticated holds no UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any table in nestly');
 
 -- =====================================================================================================================
 -- Criterion 18 — is_active_account(): caller only, invoker, not an approved definer. [Spec addendum 1]

@@ -1,6 +1,6 @@
 # Workflow — canonical pipeline
 
-**Version:** 1.12
+**Version:** 1.13
 **Status:** the single source of truth for sequence, triggers and who enters when.
 Agent definitions describe professions. **This file describes order.** If they disagree, this file wins.
 
@@ -233,6 +233,20 @@ agent that raised it.
 
 ---
 
+## Waiting on Afik — keep working
+
+When the main track stops for a decision of Afik's (a reserved `DECISION REQUEST`, a `MATERIAL CHANGE` whose owner is
+Afik, a secret or a production step), ORCHESTRATOR does not idle. It continues on work that does not depend on the
+decision: other parts of the same feature, the next feature's intake and spec, small `debt.md` items.
+
+1. **One side track at most** open at any moment. If the side track also stops for a decision, everything waits for Afik.
+2. **For each stopped track:** one line in WORKPLAN under "ממתין להכרעה שלך", and one line under "להמשך" with the exact
+   resume point — branch, file, step.
+3. **When the decision arrives:** resume the main track first, then the side track.
+4. **Every update to Afik** carries one line: what was done while waiting.
+
+---
+
 ## Model assignment
 
 | Agent | Runs as | Model | Why |
@@ -302,3 +316,4 @@ except on a reserved item, a real `BLOCKER` or Two strikes.
   sequence (Afik, "From building the system to building the product"). The last change before I1 merges.
 - 1.12 — 2026-10-14 — BUILDER writes `interface.md` (step 6); TEST ENGINEER reads it with the spec, edits and runs its own
   tests (step 8). Decided by Afik ("מאשר 4–6", speed-up), an exception to the I1 freeze.
+- 1.13 — 2026-10-14 — "Waiting on Afik — keep working": while a track waits on Afik, ORCHESTRATOR continues on independent work; one side track at most; WORKPLAN lines for each stopped track; main track resumes first; every update says what was done while waiting. Decided by Afik (14.10, an exception to the I1 freeze).

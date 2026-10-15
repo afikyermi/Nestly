@@ -60,7 +60,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-11 | Visual direction: soft, calm, Facebook's patterns without its identity; no dark mode (upd. R1, R2) | 10 |
 | 2026-10-11 | UI library package approved in advance (shadcn/Radix, Lucide, RHF + Zod, TanStack Query, Router…) | 10 |
 | 2026-10-11 | Design consistency without a design agent (lint, contrast test, design-system skill, CRITIC check) | 10 |
-| 2026-10-11 | Product changes from the sketch review (to SRS 2.9): email login, password rule, no phone… | 10 |
+| 2026-10-11 | Product changes from the sketch review (to SRS 2.9): email login, password rule (upd. 10-14: minimum 8), no phone… | 10 |
 | 2026-10-11 | Bottom navigation: the services tab is labelled "יועצים" | 10 |
 | 2026-10-11 | R1: palette A (apricot, terracotta), Rubik, centred column with a navigation rail | 10 |
 | 2026-10-11 | The eighth tracker tile is "אמבטיה" — OP-007 closes | 10 |
@@ -108,6 +108,16 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-14 | F1.3 review: three error texts (due date range, child name length, birth date floor); revealed fields sit under their choice | 10 |
 | 2026-10-14 | Speed-up: CI browser matrix, Vercel builds branches with an open PR, root vitest, TEST ENGINEER runs and edits tests, interface sheet, jq filters not paths | 10 |
 | 2026-10-14 | Speed-up 4–6 (Afik): TEST ENGINEER edits and runs its tests, BUILDER writes interface.md, jq filters are text in the guard | 10 |
+| 2026-10-14 | F1.4 Gate 1: DR-2 orphan Auth user completed by F1.5 (DR-1 superseded: web calls Auth) | 10 |
+| 2026-10-14 | F1.4 Gate 2 passed; new rows are owner read + insert only until I2 (criterion 14 narrowed); one consent row per acceptance | 10 |
+| 2026-10-14 | Taken email (F1.4): option A, reveal at sign-up only with a generic message, rate-limited · password minimum 8 (Afik) | 10 |
+| 2026-10-14 | F1.4 Gate 2 amendment: INSERT granted per column; the server inserts through `*Insert` write models | 10 |
+| 2026-10-14 | F1.4: the web calls Supabase Auth directly; `POST /api/register` writes the account for the new session (Afik; supersedes DR-1) | 10 |
+| 2026-10-14 | Waiting on Afik: keep working on independent work, one side track at most, resume points in WORKPLAN (workflow 1.13) | 10 |
+| 2026-10-14 | Tests from F1.5: depth by type (🔴/🎨/🟡), one layer per behaviour, Chrome-only PRs, blocking visual regression, ≤2× soft ceiling (Afik) | 10 |
+| 2026-10-14 | F1.4: 500 after Auth sign-up → fallback message, no retry; any transient transaction failure → 503 | 10 |
+| 2026-10-15 | F1.4: Auth 5xx/network → retry state; unmapped Auth 4xx → fallback without retry | 10 |
+| 2026-10-15 | F1.4: while a sign-up token is held, email and password are read-only (no silent second Auth user) | 10 |
 
 ## Superseded
 

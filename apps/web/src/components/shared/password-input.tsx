@@ -1,4 +1,4 @@
-import { useId, useState, type ChangeEventHandler, type FocusEventHandler } from 'react';
+import { useId, useState, type ChangeEventHandler, type FocusEventHandler, type Ref } from 'react';
 import { cn } from '@/lib/cn';
 import { Button } from '../ui/button';
 import { EyeIcon, EyeOffIcon } from '../ui/icons';
@@ -20,6 +20,9 @@ export interface PasswordInputProps {
   /** Accessible name of the show/hide toggle (copy lives with the caller). */
   toggleLabel: string;
   disabled?: boolean;
+  readOnly?: boolean;
+  /** For an uncontrolled use: the caller reads `ref.current.value` and React never copies the password into the markup. */
+  ref?: Ref<HTMLInputElement>;
   id?: string;
   name?: string;
   'aria-label'?: string;
