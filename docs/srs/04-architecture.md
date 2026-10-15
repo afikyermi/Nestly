@@ -68,8 +68,8 @@
 | Page | ServicesDirectoryPage / ProfessionalProfilePage | מסכי איתור וצפייה בבעלי מקצוע. |
 | Page | UserProfilePage / MarketplaceDetailPage | מסכי פרופיל משתמש ופרטי Marketplace Listing/מוצר ממומן. |
 | Page | SearchResultsPage / NotificationsPage / ChatPage | מסכי תוצאות חיפוש, היסטוריית התראות ומרכז שיחות מלא. |
-| Shared UI Component | MediaUploader | רכיב להוספת תמונות/סרטונים במקומות שבהם מדיה מותרת. סוגי קבצים ומגבלות מועברים מה-Feature המשתמש בו. |
-| Domain Reusable Component | ReportAction | פעולת דיווח רב-שימושית לתוכן/משתמש. יעד הדיווח, סיבת הדיווח והמשך ה-flow נקבעים על ידי ModerationFeature. |
+| Shared UI Component | MediaUploader | רכיב להוספת תמונות/סרטונים במקומות שבהם מדיה מותרת. סוגי קבצים ומגבלות מועברים מה-Feature המשתמש בו. בכל העלאה: הקטנה, ניקוי EXIF/GPS וטשטוש בדפדפן לפני השליחה (NFR-MEDIA-001, BR-076). |
+| Domain Reusable Component | ReportAction | פעולת דיווח רב-שימושית לתוכן/משתמש. נפתחת כחלון נפרד מעל מסך מטושטש מעט, עם סיבה, טקסט חופשי וקישור לכללי הקהילה (FR-MOD-001). יעד הדיווח, סיבת הדיווח והמשך ה-flow נקבעים על ידי ModerationFeature. |
 | Feature / Container | ProfessionalDashboardFeature | מנהל KPI מקצועיים מצטברים: Profile Views, Followers, Organic Reach/Engagement, Chat Starts ו-Promotion Analytics. Organic ו-Paid מוצגים בנפרד; אין חשיפת זהויות/חיפושים של משתמשים בודדים. |
 | Feature / Container | SupportRequestFeature | מנהל שליחת פנייה מסווגת ושיוכה למשתמש. כאשר Support משיב, התגובה מוזרמת ל-Support Thread ב-Chat תחת זהות “Support”, בלי להפוך את הערוץ ל-Chat חברתי חופשי. |
 | Feature / Container | SupportInboxFeature | מנהל תיבת פניות, סינון, סטטוס, הערות פנימיות ותגובות. SUPPORT_HANDLE מאפשר תגובה בשם “Support”; האינטראקציה נשמרת במסגרת SupportRequest. |

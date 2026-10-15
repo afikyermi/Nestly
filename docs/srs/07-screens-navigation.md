@@ -54,6 +54,10 @@
 | PG-044 | Admin Sponsored Products | AdminSponsoredProductsPage / SponsoredProductManagementFeature | החלטת מוצר 10.10.2026 | Admin יוצר ומנהל Sponsored Products / Brand Promotions; אין Brand User בשלב הראשון. |
 | PG-045 | Admin Beta Invites | AdminBetaInvitesPage / BetaAccessFeature | החלטת מוצר 11.10.2026 | Admin בלבד: רשימת אימיילים מוזמנים לבטא הסגורה, והפעלה או השבתה של מצב בטא (FR-ADMIN-011). כל שינוי נרשם ב-Audit Log. |
 | PG-046 | Admin Content | AdminContentPage / SystemContentFeature | החלטת אפיק מ-15.10.2026 | Admin בלבד: יצירה, עריכה, שיוך לסטטוס, פרסום והסתרה של מדריכים (FR-ADMIN-012). כל שינוי נרשם ב-Audit Log. |
+| PG-047 | Medical Hotlines | MedicalHotlinesPage | החלטת אפיק מ-16.10.2026 | כפתורי חיוג למד"א 101 ולמוקדי האחיות של הקופות, והשורה "לא תחליף לטיפול רפואי" (FR-MENU-002). |
+| PG-048 | Story Viewer / Composer | StoryViewerPage / StoryFeature | החלטת אפיק מ-16.10.2026 | יצירת סטורי וצפייה בסטורי של אחרים; בלי לייקים, תגובות ורשימת צופים (FR-FEED-008). |
+| PG-049 | Community Rules | CommunityRulesPage | החלטת אפיק מ-16.10.2026 | שמונת כללי הקהילה (BR-075), מקושר מהתפריט ומחלון הדיווח. |
+| PG-050 | Account Scheduled for Deletion | AccountDeletionFeature | החלטת אפיק מ-16.10.2026 | אחרי התחברות בזמן החרטה: "החשבון שלך מתוזמן למחיקה ב-<תאריך>" עם "ביטול המחיקה" או "התנתקות" (FR-SET-002). |
 
 ## 7.1 Bottom Navigation
 
