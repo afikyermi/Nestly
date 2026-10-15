@@ -278,7 +278,7 @@
 |---|---|---|---|---|
 | BR | חוקים עסקיים | BR-001 … BR-078 | 78 | [08-business-rules.md](08-business-rules.md) |
 | VAL | ולידציות | VAL-001 … VAL-042 | 42 | [09-validations.md](09-validations.md) |
-| ERR | שגיאות ותרחישי קצה | ERR-001 … ERR-040 | 40 | [10-errors-edge-cases.md](10-errors-edge-cases.md) |
+| ERR | שגיאות ותרחישי קצה | ERR-001 … ERR-041 | 41 | [10-errors-edge-cases.md](10-errors-edge-cases.md) |
 | NFR | דרישות לא-פונקציונליות | NFR-SEC-001 … NFR-SEC-009 | 35 | [06-non-functional.md](06-non-functional.md) |
 | UC | Use Cases | UC-01 … UC-42 | 42 | [14-use-cases.md](14-use-cases.md) |
 | PG | מסכים | PG-001 … PG-050 | 50 | [07-screens-navigation.md](07-screens-navigation.md) |
