@@ -2,7 +2,7 @@
 
 # SRS — אינדקס
 
-**מקור האמת של מוצר Nestly.** SRS v2.15 · 15.10.2026.
+**מקור האמת של מוצר Nestly.** SRS v2.16 · 15.10.2026.
 
 ה-SRS מתוחזק ב-markdown ומפוצל לפי סעיפים. גרסאות ה-Word הקודמות נמצאות ב-[`archive/`](archive/) כהיסטוריה בלבד.
 
@@ -152,7 +152,7 @@
 | FR-ALG-010 | Group Notification Highlights v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-DATA-001 | Analytics Event Tracking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 
-## קריטריוני קבלה — 98
+## קריטריוני קבלה — 101
 
 > השמות קוצרו לצורך ניווט בלבד. הנוסח המחייב נמצא ב-[15-acceptance.md](15-acceptance.md).
 
@@ -256,6 +256,9 @@
 | AC-096 | הרשמה דורשת בדיקת אדם | [15-acceptance.md](15-acceptance.md) |
 | AC-097 | אין רכישה ב-Marketplace | [15-acceptance.md](15-acceptance.md) |
 | AC-098 | תשלום מדומה בלי פרטי כרטיס | [15-acceptance.md](15-acceptance.md) |
+| AC-099 | חשבון מושעה או חסום נעצר בהתחברות | [15-acceptance.md](15-acceptance.md) |
+| AC-100 | השלמת הרשמה שלא הסתיימה | [15-acceptance.md](15-acceptance.md) |
+| AC-101 | Session נשמר ו-Logout מנקה | [15-acceptance.md](15-acceptance.md) |
 
 ## מזהים נוספים
 
@@ -263,8 +266,8 @@
 |---|---|---|---|---|
 | BR | חוקים עסקיים | BR-001 … BR-072 | 72 | [08-business-rules.md](08-business-rules.md) |
 | VAL | ולידציות | VAL-001 … VAL-040 | 40 | [09-validations.md](09-validations.md) |
-| ERR | שגיאות ותרחישי קצה | ERR-001 … ERR-036 | 36 | [10-errors-edge-cases.md](10-errors-edge-cases.md) |
-| NFR | דרישות לא-פונקציונליות | NFR-SEC-001 … NFR-SEC-008 | 34 | [06-non-functional.md](06-non-functional.md) |
+| ERR | שגיאות ותרחישי קצה | ERR-001 … ERR-038 | 38 | [10-errors-edge-cases.md](10-errors-edge-cases.md) |
+| NFR | דרישות לא-פונקציונליות | NFR-SEC-001 … NFR-SEC-009 | 35 | [06-non-functional.md](06-non-functional.md) |
 | UC | Use Cases | UC-01 … UC-42 | 42 | [14-use-cases.md](14-use-cases.md) |
 | PG | מסכים | PG-001 … PG-046 | 46 | [07-screens-navigation.md](07-screens-navigation.md) |
 | OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-030 | 30 | [appendix-b-open-points.md](appendix-b-open-points.md) |
