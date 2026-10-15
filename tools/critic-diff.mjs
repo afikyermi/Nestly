@@ -1,4 +1,6 @@
-// Prepares what CRITIC reads: the branch diff without any notes.md — stage1-guard.md (a, F7, R2-2).
+// Prepares what CRITIC reads: the branch diff without any notes.md — stage1-guard.md (a, F7, R2-2). It also leaves out
+// what is not code under review (dev-speed): package-lock.json, the root logs and WORKPLAN-HE.md, decisions/, archive/,
+// .claude/logs/, and .work/ except this slug's spec, schema, bug and findings.
 // Usage: node tools/critic-diff.mjs <slug> [base]      base defaults to main
 // Writes .work/<slug>/review.diff. Fails closed: on any doubt it exits 1 and writes nothing.
 import { execFileSync } from 'node:child_process';
@@ -27,6 +29,8 @@ try {
   die('could not clear the old review.diff (not a git repository, or the file is locked)');
 }
 
+const LOGS = new Set(['package-lock.json', 'WORKPLAN-HE.md', 'decisions.md', 'incidents.md', 'noise.md', 'debt.md', 'escapes.md']);
+
 const git = (cwd, args) => execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
 
 let top;
@@ -41,6 +45,7 @@ try {
   const specs = new Set(['spec', 'schema', 'bug', 'findings'].map((n) => `.work/${slug}/${n}.md`));
   kept = names.filter((n) => {
     if (NOTES_NAME.test(path.posix.basename(n))) return false;
+    if (LOGS.has(n) || /^(decisions|archive|\.claude\/logs)\//.test(n)) return false;
     return !n.toLowerCase().startsWith('.work/') || specs.has(n);
   });
   if (!kept.length) die('no reviewable files in the change set');

@@ -1,6 +1,6 @@
 # Workflow — canonical pipeline
 
-**Version:** 1.14
+**Version:** 1.15
 **Status:** the single source of truth for sequence, triggers and who enters when.
 Agent definitions describe professions. **This file describes order.** If they disagree, this file wins.
 
@@ -47,17 +47,17 @@ The maintained as-built descriptions are `.claude/knowledge/data-model.md` and `
 | 4 | **ORCHESTRATOR** | ✋ **Gate 1** — approve `spec.md` against the SRS, or return it to SPEC. A reserved point (CLAUDE.md → "Decision authority") goes to WORKPLAN for Afik | approved `spec.md` |
 | 5 | **DATA ARCHITECT** | *only if schema changes* — Gate 2. Policies follow the authorization layers in `.claude/knowledge/data-model.md` | `schema.md` |
 | 5b | **ALGORITHM & DATA** | *only if the feature uses behavioural signals, ranks or recommends, records analytics events, or places paid content* — purpose map, pipeline, configuration, events, evaluation. Feeds DATA ARCHITECT when tables are needed | `algorithm.md` |
-| 6 | **BUILDER** | branch, implement. calls SCOUT as needed. Writes `interface.md`: for each screen and module a test touches — roles and accessible names, routes and history state, exported functions and props with their types, test seams (injected clock, launchers, mocks), and how a test drives the flow. Behaviour and interface only: no reasoning, no code | diff + `notes.md` + `interface.md` |
-| 7 | **Local checks** | 🤖 typecheck · lint · `check:budgets` · `check:stories` · the unit tests and the database tests that run on this machine. red → back to 6. No push, no CI wait between steps | green local run |
-| 8 | **TEST ENGINEER** | tests derived from `spec.md`, to the depth of each criterion's type and at one layer per behaviour ("Test rules" below), with `interface.md` for names and seams; runs its own tests until they pass or fail for a reason it reports — a test failing against its criterion is a finding, never weakened to pass. Before this step ORCHESTRATOR checks `interface.md` holds facts only (names, routes, exports, seams; no outcomes, no reasoning); ORCHESTRATOR runs the full local checks before the push | test files |
-| 9 | **CRITIC** | review the diff cold, including every invariant in `.claude/knowledge/srs-review-points.md` that the diff touches and the platform rules in `.claude/knowledge/data-model.md`. ALGORITHM & DATA reviews in parallel when step 5b ran. Fixes (10–11) are checked locally too. **Then one push** for the finished part — code, tests, review, fixes — and GitHub CI (typecheck · tests · lint · RLS checks) on its last commit is the merge condition. Red → fix, check locally, push once | `findings.md` + verdict, then green CI |
+| 6 | **BUILDER** | branch, implement; calls SCOUT as needed. Hands off green: typecheck · lint · `check:budgets` · `check:stories` · the unit and database tests that run on this machine, on what it touched | diff + `notes.md` |
+| 7 | **Local checks** | 🤖 run by the agent that wrote the files (BUILDER its code, TEST ENGINEER its tests, including typecheck and lint on them). red → that agent fixes before handing off. ORCHESTRATOR runs none of them, and no push or CI wait happens between steps | green handoff |
+| 8 | **TEST ENGINEER** | tests derived from `spec.md`, to the depth of each criterion's type and at one layer per behaviour ("Test rules" below). It reads source files for names, routes, exports and seams — never for what to assert. It starts from the spec while BUILDER builds (test files only), and after BUILDER's handoff runs its tests, typecheck and lint on them until they pass or fail for a reason it reports — a test failing against its criterion is a finding, never weakened to pass | test files |
+| 9 | **CRITIC** | review the diff cold, including every invariant in `.claude/knowledge/srs-review-points.md` that the diff touches and the platform rules in `.claude/knowledge/data-model.md`; it writes `findings.md` itself — ORCHESTRATOR never transcribes a review. ALGORITHM & DATA reviews in parallel when step 5b ran. Reviews per feature: see "Elevated path". **Then one push** for the finished part — code, tests, review, fixes — and GitHub CI (typecheck · tests · lint · RLS checks) on its last commit is the merge condition. ORCHESTRATOR binds the PR to the app's PR monitor and acts on its notification — no polling loops. Red → fix, check locally, push once | `findings.md` + verdict, then green CI |
 | 10 | **BUILDER** | address findings | updated diff |
-| 11 | **CRITIC** | re-check **only what it raised** | verdict |
+| 11 | **CRITIC** | re-check **only what it raised** — a fresh invocation pointed at `findings.md` and the fix commits; no agent is kept alive between steps | verdict |
 | 12 | **ORCHESTRATOR** | ✋ **Preview** — open the deployed preview, check the acceptance criteria, record its URL in WORKPLAN | go / no-go |
-| 13 | ORCHESTRATOR | merge, write result, update logs | `result.md` |
-| 14 | ORCHESTRATOR | **update the SRS** if behaviour changed — the right section file, its own format, new IDs continue the sequence · rebuild the index (`node tools/build-srs-index.js`) · update §17 (Traceability Matrix) when pages, FRs or entities changed · add a change-history row at the batch's version | updated `docs/srs/` |
+| 13 | ORCHESTRATOR | merge; then **once per feature, never per part:** `result.md` (≤ 10 lines), the logs, WORKPLAN | `result.md` |
+| 14 | ORCHESTRATOR | the **SRS trace** goes in `result.md` (IDs implemented or changed). The SRS files themselves are updated **once per Initiative**, at its close, with the as-built delta of all its features (`/srs-update`: section files, IDs, §17, version row, index) — and at once only when a decision changes scope or the security model | SRS trace; `docs/srs/` per Initiative |
 
-Steps 8 and 9 may run in parallel — they are independent and neither reads the other's output.
+Steps 8 and 9 may run in parallel (neither reads the other's output); so may 6 and 8 (source versus test files).
 
 **No merge to `main` without green CI on GitHub.** Every path merges through a PR, and only after every
 GitHub Actions check on its latest commit is green (`gh pr checks`). A local run — `npm test`, `npm run ci` — is
@@ -68,7 +68,8 @@ not. A commit pushed after the checks passed needs them to pass again. `result.m
 
 1 → 6 → 7 → 12 → 13 → 14 (14 only if user-visible behaviour changed). No SPEC, no CRITIC, no TEST ENGINEER.
 
-Entry condition: `CLAUDE.md` → "Path selection", Light — **all** must hold.
+Entry condition: `CLAUDE.md` → "Path selection", Light — **all** must hold. A **records-only change** (docs/srs, WORKPLAN,
+decisions, logs, `.work`) is Light at any size: with the open PR, or straight to `main` between features (once per session).
 
 If any condition fails mid-work, stop and re-enter the Standard path. Do not finish "since it's nearly done."
 
@@ -78,6 +79,11 @@ Standard, plus: DATA ARCHITECT always · CRITIC on opus. The protection is the r
 Who passes the gates, and what still needs Afik: `CLAUDE.md` → "Human gates" and "Decision authority".
 
 Entry condition: any risk flag in `CLAUDE.md`.
+
+**Path per part (Afik, 15.10.2026).** A split spec marks each part's risk flags; the part, not the feature, takes the path.
+A part with no flag — a screen — runs Standard: CRITIC on sonnet, no DATA ARCHITECT, and still the full 🎨 depth
+(screenshots, axe, keyboard, desktop and phone). **Reviews: at most two per feature** — one for the Elevated parts once
+they are built, one for the rest at the end; a feature with no Elevated part gets one.
 
 ## Bug-fix path
 
@@ -109,10 +115,10 @@ These are not style preferences. Remove any one of them and the corresponding ga
 1. **CRITIC must not read `notes.md`.**
    If it reads BUILDER's reasoning it is persuaded by it. Cold eyes or nobody.
 
-2. **TEST ENGINEER must not read the diff.** It reads `spec.md` — or `bug.md` on the bug-fix path — and
-   `interface.md`, which names what exists (roles, labels, routes, exports, seams) but never why or how it works.
-   A test derived from the implementation asserts that the code does what the code does — zero information.
-   A test derived from acceptance criteria asserts that the code does what was promised.
+2. **TEST ENGINEER derives tests from `spec.md`** — or `bug.md` on the bug-fix path — never from the diff. It may read
+   source files for what exists (roles, labels, routes, exports, seams), never for what to assert: a test whose expected
+   value is copied from the code asserts that the code does what the code does — zero information — and CRITIC raises it
+   as a finding against the test. A test derived from acceptance criteria asserts that the code does what was promised.
 
 3. **An acceptance criterion a test cannot assert is not an acceptance criterion.**
    TEST ENGINEER that cannot derive a test returns the criterion to SPEC. It does not guess.
@@ -176,7 +182,7 @@ whole PR.
 
 ## Result
 
-`result.md`, at most 15 lines, no narrative (Afik, 13.10.2026) — two independent axes:
+`result.md`, at most 10 lines, no narrative (Afik, 13.10.2026; 10 lines from 15.10.2026) — two independent axes:
 
 - **Execution:** `Succeeded` · `Partially Succeeded` · `Failed` · `Blocked`
 - **Quality:** `Good` · `Needs Improvement` · `Not Good`
@@ -244,6 +250,7 @@ decision: other parts of the same feature, the next feature's intake and spec, s
    resume point — branch, file, step.
 3. **When the decision arrives:** resume the main track first, then the side track.
 4. **Every update to Afik** carries one line: what was done while waiting.
+5. Afik's items (secrets, approvals, browser steps) are asked **once**, on the WORKPLAN list "ממתין לך", never one by one.
 
 ---
 
@@ -284,7 +291,8 @@ Decided by Afik (14.10.2026) — quality is not lowered; duplication is removed 
   Noise is stabilised (fonts, animation, clock, data), never switched off. A screen without a baseline gets one in the
   same PR. The list `e2e/visual-screens.ts` is opt-in — only a listed screen is compared — so SPEC names every screen a
   🎨 criterion touches, TEST ENGINEER lists each one, and CRITIC checks the list against the 🎨 criteria.
-- **Soft ceiling** — test lines ≤ 2× product lines per feature; above it, one line in `result.md` says why.
+- **Hard ceiling** (Afik, 15.10.2026) — test lines ≤ 2× product lines per feature until launch; above it, TEST ENGINEER
+  removes the duplicated or lowest-value layer before handing off. `result.md` records the ratio.
 - **Tools and hooks** — no new tests unless a tool actually broke.
 
 ---
@@ -299,6 +307,7 @@ except on a reserved item, a real `BLOCKER` or Two strikes.
 - Use SCOUT instead of reading files "to be safe." Every unnecessary file read burns context
   that the actual work needs.
 - Pass pointers, not prose.
+- **One session per feature** (Afik, 15.10.2026): the handoff is WORKPLAN "להמשך". Long sessions ran at 300–900K of context.
 
 ---
 
@@ -317,3 +326,4 @@ except on a reserved item, a real `BLOCKER` or Two strikes.
 - 1.12 — 2026-10-14 — BUILDER writes `interface.md` (step 6); TEST ENGINEER reads it with the spec, edits and runs its own tests (step 8). Decided by Afik ("מאשר 4–6", speed-up), an exception to the I1 freeze.
 - 1.13 — 2026-10-14 — "Waiting on Afik — keep working": while a track waits on Afik, ORCHESTRATOR continues on independent work; one side track at most; WORKPLAN lines for each stopped track; main track resumes first; every update says what was done while waiting. Decided by Afik (14.10, an exception to the I1 freeze).
 - 1.14 — 2026-10-15 — "Test rules — this project": depth by criterion type, one layer per behaviour, desktop and phone, Chrome-only e2e on PRs and Edge after each merge to main and by hand, blocking visual regression, soft 2× ceiling, no new tool tests; step 8 points to it. Decided by Afik (14.10, an exception to the I1 freeze); applies from F1.5.
+- 1.15 — 2026-10-15 — Development speed (Afik, "מאשר את A עד F", after the speed review): checks run by the agent that wrote the files, ORCHESTRATOR runs none · TEST ENGINEER reads source for names and seams, runs typecheck and lint on its tests, may start beside BUILDER; `interface.md` dropped · CRITIC writes findings itself; re-check is a fresh invocation · path per part, at most two reviews per feature, 🎨 depth kept on Standard · records once per feature, result ≤ 10 lines · SRS once per Initiative · records-only changes are Light · hard 2× test ceiling · one session per feature · Afik's items asked once. Evidence: `.work/dev-speed/`, decisions 2026-10-15 "Development speed". The last change before F1.8 merges.

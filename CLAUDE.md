@@ -44,8 +44,10 @@ Details and reasoning: `.claude/knowledge/conventions.md` and `data-model.md`.
 `docs/srs/INDEX.md`, which maps every FR, AC and ID range to its file. Never load the whole SRS — read
 the files the task needs, or ask SCOUT.
 
-- **Every product change updates the SRS**: product behaviour, plus the technical decisions the SRS already
-  has a place for. Changes to the agent team go to `decisions.md`.
+- **Every product change reaches the SRS**: product behaviour, plus the technical decisions the SRS already
+  has a place for. Changes to the agent team go to `decisions.md`. **Cadence (Afik, 15.10.2026):** the SRS files are
+  updated once per Initiative, at its close, with the as-built delta of all its features; each feature records only its
+  SRS trace in `result.md`. A decision that changes scope or the security model enters the SRS at once.
 - **Editing the SRS** — structure and IDs, versioning, the INDEX rebuild, the Word archive: `.claude/rules/srs-editing.md`
   (loads with any `docs/srs/` file); the procedure is `/srs-update`.
 - **The SRS does not fill decisions that do not exist.** An open point stays "TBD" or "נדרש אישור", and an
@@ -107,7 +109,7 @@ Pick one per unit of work. When in doubt, go up a level, never down.
 
 | Path | When |
 |---|---|
-| **Light** | all hold: no schema change · no authz · no unauthenticated endpoint or new external surface · no new dependency · under ~30 lines · no risk flag |
+| **Light** | all hold: no schema change · no authz · no unauthenticated endpoint or new external surface · no new dependency · under ~30 lines · no risk flag. A records-only change (docs/srs, WORKPLAN, decisions, logs, `.work`) is Light whatever its size |
 | **Standard** | default |
 | **Elevated** | any risk flag below is true |
 | **Bug fix** | merged code behaves differently from the SRS or an approved spec; risk flags still apply |
@@ -281,10 +283,13 @@ Re-proposing a rejected alternative wastes Afik's time and your tokens.
 
 ## Learning
 
-**Frozen until I1 merges** (Afik, 13.10.2026, "From building the system to building the product"): no change to this
-file, agents, skills, `workflow.md`, `learning.md`, the guard or `settings.json`, except the minimal fix of a rule that
-blocks legitimate feature work now (one `noise.md` line). Process ideas go as one line to "לרטרו אחרי I1" in WORKPLAN.
-The guard is a fence: an effortful bypass is an accepted risk, not a bug or debt.
+**Frozen until F1.8 merges, no exceptions** (Afik, 13.10.2026 "From building the system to building the product";
+hardened 15.10.2026 after the development-speed review — 21 of 29 PRs had been process): no change to this file, agents,
+skills, `workflow.md`, `learning.md`, the guard, `settings.json` or the tools. A rule that blocks legitimate work is
+worked around inside the rules and gets one `noise.md` line; a false or honest-first-contact hook block gets that one
+line at `/wrap-up` and nothing else — no `incidents.md` resolution line, no report in chat. Process ideas go as one line
+to "לרטרו אחרי I1" in WORKPLAN; that retro removes and measures (calls per feature, waiting on Afik, record lines per
+feature), it does not add. The guard is a fence: an effortful bypass is an accepted risk, not a bug or debt.
 
 **`.claude/learning.md` owns the improvement loop** — triggers, procedure, proposal format,
 checklist budgets, versioning and rollback. Read it before proposing any change to this model.
@@ -306,10 +311,10 @@ and `settings.json` prompts on `.claude/**` to enforce it.
 ## Report material failures to Afik
 
 Not only security. Also: migration failed mid-run · CI red on main · CI red over 24h ·
-deploy or preview failed · a hook block the guard writes to `incidents.md` (prod, a secret, `.env`, force
-push, or a third reader block by one role in one task) · an external dependency is down ·
-an agent looped or repeated the same failure three times. Other correct hook blocks are only counted, by
-`/wrap-up`; a hook that blocked legitimate work goes to `noise.md`.
+deploy or preview failed · a hook block that names production, a real secret or a force push · an external dependency
+is down · an agent looped or repeated the same failure three times. Every other hook block — an env-glob ambiguity, a
+placeholder read as a secret, a reader block — is only counted by `/wrap-up`; when it blocked legitimate work it gets
+one `noise.md` line. The guard's own `incidents.md` line stands as written; nobody adds a resolution line.
 
 ---
 
@@ -331,6 +336,7 @@ an agent looped or repeated the same failure three times. Other correct hook blo
 3. Agent and skill definitions describe a **profession**. Product facts live in
    `.claude/knowledge/` and in task context. Never bake Nestly specifics into a role.
 4. An acceptance criterion a test cannot assert is not an acceptance criterion.
-5. Parallelism is earned by independence. Within a feature: none. SCOUT calls: freely.
+5. Parallelism is earned by independence. Within a feature: only TEST ENGINEER beside BUILDER (tests derive from the
+   spec; different files). SCOUT calls: freely.
 6. A feature must fit in one context window. If the spec does not, split the spec.
 7. Never write to production. Never commit secrets. Never run a destructive command without Afik.

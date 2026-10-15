@@ -37,6 +37,8 @@ function mkRoot() {
   w('apps/web/tests/a.test.ts', 'x\n');
   w('apps/web/tests/helper.ts', 'x\n');
   w('packages/shared/tests/b.test.ts', 'x\n');
+  w('apps/server/tests/b.test.ts', 'x\n');
+  w('apps/web/tsconfig.json', '{}\n');
   w('e2e/c.spec.ts', 'x\n');
   w('supabase/tests/d.test.js', 'x\n');
   w('tools/t.test.mjs', 'x\n');
@@ -172,19 +174,19 @@ test('[F3,round4] critic: Write only to .work/<slug>/findings.md and .work/<slug
 
 // ---------------------------------------------------------------- TEST ENGINEER, readers
 
-test('[R2] test-engineer: Read of app implementation or notes is blocked', () => {
-  blocks('test-engineer', 'Read', { file_path: P('apps', 'web', 'src', 'main.tsx') });
-  blocks('test-engineer', 'Read', { file_path: P('apps', 'server', 'api', 'h.ts') });
-  blocks('test-engineer', 'Read', { file_path: P('apps', 'web', 'src', '..', 'src', 'main.tsx') });
+test('[R2] test-engineer: Read of app implementation is allowed, Read of notes is blocked', () => {
+  allows('test-engineer', 'Read', { file_path: P('apps', 'web', 'src', 'main.tsx') });
+  allows('test-engineer', 'Read', { file_path: P('apps', 'server', 'api', 'h.ts') });
+  allows('test-engineer', 'Read', { file_path: P('apps', 'web', 'src', '..', 'src', 'main.tsx') });
   blocks('test-engineer', 'Read', { file_path: P('.work', 'x', 'notes.md') });
   blocks('test-engineer', 'Read', { file_path: P('.work', 'x', 'NOTES.md') });
 });
 
-test('[R2] test-engineer: Read through a symlink into app source or notes is blocked', (t) => {
+test('[R2] test-engineer: Read through a symlink to notes is blocked, to app source is allowed', (t) => {
   if (!needLinks(t)) return;
-  blocks('test-engineer', 'Read', { file_path: P('docs', 'link-src.ts') });
+  allows('test-engineer', 'Read', { file_path: P('docs', 'link-src.ts') });
   blocks('test-engineer', 'Read', { file_path: P('docs', 'link-notes.md') });
-  blocks('test-engineer', 'Read', { file_path: P('apps', 'web', 'tests', 'evil.test.ts') });
+  allows('test-engineer', 'Read', { file_path: P('apps', 'web', 'tests', 'evil.test.ts') });
 });
 
 test('[R2] test-engineer: Read of specs and tests is allowed', () => {
@@ -193,20 +195,23 @@ test('[R2] test-engineer: Read of specs and tests is allowed', () => {
   allows('test-engineer', 'Read', { file_path: P('packages', 'shared', 'tests', 'b.test.ts') });
 });
 
-test('[R2] test-engineer: Grep and Glob reaching app implementation are blocked', () => {
-  blocks('test-engineer', 'Grep', { pattern: 'x', path: P('apps', 'web', 'src') });
-  blocks('test-engineer', 'Grep', { pattern: 'x', path: P('apps', 'server', 'api') });
-  blocks('test-engineer', 'Grep', { pattern: 'x', path: P('apps') });
+test('[R2] test-engineer: Grep and Glob reaching app implementation are allowed, Grep on notes is blocked', () => {
+  allows('test-engineer', 'Grep', { pattern: 'x', path: P('apps', 'web', 'src') });
+  allows('test-engineer', 'Grep', { pattern: 'x', path: P('apps', 'server', 'api') });
+  allows('test-engineer', 'Grep', { pattern: 'x', path: P('apps') });
+  allows('test-engineer', 'Grep', { pattern: 'x', path: P('apps'), glob: 'apps/**/src/**' });
+  allows('test-engineer', 'Grep', { pattern: 'x', path: ROOT, glob: 'apps/**/src/**/*.ts' });
   blocks('test-engineer', 'Grep', { pattern: 'x', path: ROOT, glob: 'apps/**/src/**' });
   blocks('test-engineer', 'Grep', { pattern: 'x', path: P('.work', 'x', 'notes.md') });
-  blocks('test-engineer', 'Glob', { pattern: 'apps/web/src/**' });
-  blocks('test-engineer', 'Glob', { pattern: '**/*.tsx', path: P('apps') });
-  blocks('test-engineer', 'Glob', { pattern: '*', path: P('apps', 'web', 'src') });
+  blocks('test-engineer', 'Grep', { pattern: 'x', path: P('.work') });
+  allows('test-engineer', 'Glob', { pattern: 'apps/web/src/**' });
+  allows('test-engineer', 'Glob', { pattern: '**/*.tsx', path: P('apps') });
+  allows('test-engineer', 'Glob', { pattern: '*', path: P('apps', 'web', 'src') });
 });
 
-test('[R2] test-engineer: Grep through a symlink into app source is blocked', (t) => {
+test('[R2] test-engineer: Grep through a symlink into app source is allowed', (t) => {
   if (!needLinks(t)) return;
-  blocks('test-engineer', 'Grep', { pattern: 'x', path: P('docs', 'link-src.ts') });
+  allows('test-engineer', 'Grep', { pattern: 'x', path: P('docs', 'link-src.ts') });
 });
 
 test('[R2,R2-3] test-engineer: Grep and Glob in test areas, and Grep on one non-notes file in .work, are allowed', () => {
@@ -235,6 +240,32 @@ test('[round4] test-engineer: Bash, a single test run with explicit existing tes
     'node --test tools/t.test.mjs',
   ]) {
     allows('test-engineer', 'Bash', { command: c });
+  }
+});
+
+test('[dev-speed,C3] test-engineer: Bash typecheck on a tsconfig and lint on explicit test files are allowed', () => {
+  for (const c of [
+    'npx tsc -p apps/web/tsconfig.json',
+    'npx tsc -p apps/web/tsconfig.json --noEmit',
+    'npx eslint apps/web/tests/a.test.ts',
+    'npx eslint apps/web/tests/a.test.ts --max-warnings=0',
+    'npx eslint apps/web/tests/a.test.ts apps/server/tests/b.test.ts --no-color',
+  ]) {
+    allows('test-engineer', 'Bash', { command: c });
+  }
+});
+
+test('[dev-speed,C3] test-engineer: Bash tsc and eslint outside the fixed forms are blocked', () => {
+  for (const c of [
+    'npx tsc',
+    'npx tsc -p apps/web/src/x.ts',
+    'npx tsc -p ../tsconfig.json',
+    'npx tsc -p apps/web/tsconfig.json --watch',
+    'npx eslint apps/web/src/a.ts',
+    'npx eslint apps/web/tests/a.test.ts --fix',
+    'npx eslint .',
+  ]) {
+    blocks('test-engineer', 'Bash', { command: c });
   }
 });
 
@@ -403,7 +434,6 @@ test('[round4,F2] test-engineer: npx options and other packages are blocked', ()
     'npx vitest watch apps/web/tests/a.test.ts',
     'npx playwright install',
     'npx playwright show-report',
-    'npx eslint apps/web/tests/a.test.ts',
     'npx tsc',
     'vitest run apps/web/tests/a.test.ts',
     'pnpm vitest run apps/web/tests/a.test.ts',
@@ -520,7 +550,7 @@ test('[round4,d] session is "" when the input has no session_id; an allowed call
 
 test('[round4,d] rule classification: reader, r4-critical, r4, builder', () => {
   const root = mkRoot();
-  blocks('test-engineer', 'Read', { file_path: path.join(root, 'apps', 'web', 'src', 'main.tsx') }, { root });
+  blocks('test-engineer', 'Read', { file_path: path.join(root, '.work', 'x', 'notes.md') }, { root });
   blocks('all', 'Bash', { command: 'cat .env' }, { root });
   blocks('all', 'Bash', { command: 'git push --force' }, { root });
   blocks('all', 'Bash', { command: 'git add -A' }, { root });
@@ -573,7 +603,7 @@ test('[round4,F5] incidents.md: the count is per role and per session, and only 
   blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'A' });
   blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'B' });
   // a different role in session A
-  blocks('test-engineer', 'Read', { file_path: path.join(root, 'apps', 'web', 'src', 'main.tsx') }, { root, session: 'A' });
+  blocks('test-engineer', 'Read', { file_path: path.join(root, '.work', 'x', 'notes.md') }, { root, session: 'A' });
   // non-reader blocks in session A
   blocks('all', 'Bash', { command: 'git add -A' }, { root, session: 'A' });
   blocks('builder', 'Write', { file_path: path.join(root, 'apps', 'web', 'src', 'a.test.ts'), content: '' }, { root, session: 'A' });

@@ -10,8 +10,8 @@
 // Only two things reach incidents.md (a line for Afik): an r4-critical block, and the third reader block of one
 // role in one task (/wrap-up rotates the log at the end of each task) — the signs of an agent probing the fence.
 // CRITIC has no shell: every Bash call is blocked, and Read/Grep/Glob/Write are judged by path (symlinks resolved).
-// TEST ENGINEER reads with Read/Grep/Glob only; its Bash is one test run on explicit files, an allowlist that rests on
-// its Write limit (no package.json, .npmrc, tsconfig or tool config). The two go together.
+// TEST ENGINEER reads the project (never notes.md) with Read/Grep/Glob; its Bash is one test, tsc -p or eslint run on explicit
+// files, an allowlist that rests on its Write limit (no package.json, .npmrc, tsconfig or tool config). The two go together.
 // A fence, not a vault: path and pattern checks on what the agent asked for. A determined agent can build an
 // equivalent the patterns do not match. CRITIC review and CI stay behind it.
 
@@ -76,18 +76,13 @@ function reaches(r, dir) {
   return isTop(r) || isInside(dir, r);
 }
 
-// TEST ENGINEER never reads the implementation: app source and the Vercel adapter.
+// App source and the Vercel adapter: TEST ENGINEER neither writes nor runs files there.
 const APP_IMPL = /^apps\/[^/]+\/(src|api)(\/|$)/;
 const TEST_AREAS = [/^apps\/[^/]+\/tests(\/|$)/, /^packages\/[^/]+\/tests(\/|$)/, /^e2e(\/|$)/, /^supabase\/tests(\/|$)/];
 const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/;
 
 function isAppImpl(r) {
   return APP_IMPL.test(r);
-}
-
-// A search rooted at r reaches app implementation.
-function reachesAppImpl(r) {
-  return isAppImpl(r) || isTop(r) || r === 'apps' || /^apps\/[^/]+$/.test(r);
 }
 
 function isTestPath(r) {
@@ -564,31 +559,23 @@ function isFile(p) {
 // Read, Grep and Glob of CRITIC (R1) and TEST ENGINEER (R1, R2) are judged by path alone.
 function checkReadPath(role, tool, input, ctx) {
   const te = role === 'test-engineer';
-  const who = te ? 'TEST ENGINEER' : 'CRITIC';
-  const NO_IMPL = 'TEST ENGINEER does not read apps/*/src or apps/*/api. Test from the spec; packages/shared is the contract.';
+  const who = role === 'test-engineer' ? 'TEST ENGINEER' : 'CRITIC';
 
   if (tool === 'Read' || tool === 'NotebookRead') {
     const forms = relBoth(input.file_path || input.notebook_path || '', ctx);
     if (forms.some(isNotes)) return `${who} does not read notes.md (the builder's own account).`;
-    if (te && forms.some(isAppImpl)) return NO_IMPL;
     return null;
   }
 
-  if (tool === 'Glob' && !te) return null; // file names only
-  if (tool !== 'Grep' && tool !== 'Glob') return null;
+  if (tool !== 'Grep') return null; // a Glob lists file names only
 
   const target = namedPaths(tool, input, ctx)[0];
   const forms = relBoth(target, ctx);
-  if (te && forms.some(reachesAppImpl)) {
-    return 'TEST ENGINEER searches only where app source is out of reach. Point the path at apps/<app>/tests, packages/shared, e2e, supabase/tests or .work/<slug>.';
-  }
-  if (tool === 'Grep') {
-    if (forms.some(isNotes)) return `${who} does not read notes.md.`;
-    if (isFile(realAbs(target))) return null; // one existing file that is not a notes file
-    // .work in any case: some file systems ignore case
-    if (forms.some((r) => reaches(r.toLowerCase(), '.work') || isInside(r.toLowerCase(), '.work')) && !grepExcludesNotes(input)) {
-      return `${who} does not read notes.md. A search that reaches .work/ needs a glob or type that cannot match notes.md (e.g. glob "*.ts" or type "ts"), or a narrower path.`;
-    }
+  if (forms.some(isNotes)) return `${who} does not read notes.md.`;
+  if (isFile(realAbs(target))) return null; // one existing file that is not a notes file
+  // .work in any case: some file systems ignore case
+  if (forms.some((r) => reaches(r.toLowerCase(), '.work') || isInside(r.toLowerCase(), '.work')) && !grepExcludesNotes(input)) {
+    return `${who} does not read notes.md. A search that reaches .work/ needs a glob or type that cannot match notes.md (e.g. glob "*.ts" or type "ts"), or a narrower path.`;
   }
   return null;
 }
@@ -618,7 +605,8 @@ function testEngineerMayWrite(r) {
   return isTestPath(r) || /^\.work\/[^/]+\/[^/]+\.md$/.test(r);
 }
 
-// TEST ENGINEER's one shell use: a single test run on explicit files (round 4).
+// TEST ENGINEER's one shell use: a single test, typecheck or lint run (round 4, dev-speed). tsc takes one -p <tsconfig*.json>
+// and no files; the others take explicit test files.
 const RUNNERS = {
   vitest: {
     head: ['npx', 'vitest', 'run'],
@@ -632,12 +620,16 @@ const RUNNERS = {
     head: ['node', '--test'],
     flags: [/^--test-name-pattern=.+$/, /^--test-reporter=(spec|dot|tap)$/],
   },
+  tsc: { head: ['npx', 'tsc'], flags: [/^--noEmit$/], project: true },
+  eslint: { head: ['npx', 'eslint'], flags: [/^--max-warnings=0$/, /^--no-color$/] },
 };
 
 const BASH_FORMS =
-  'TEST ENGINEER runs one test command at the project root, nothing else: `npx vitest run <files>`, `npx playwright test <files>` or `node --test <files>`. ' +
+  'TEST ENGINEER runs one command at the project root, nothing else: `npx vitest run <files>`, `npx playwright test <files>`, `node --test <files>`, ' +
+  '`npx eslint <files>` or `npx tsc -p <path>/tsconfig*.json` (an existing relative path inside the project, no ..). ' +
   'Files are explicit relative paths of existing *.test.* / *.spec.* files outside apps/*/src and apps/*/api; no globs, quotes, pipes, `cd` or variables. ' +
-  'Flags (--name=value only): vitest --reporter=default|verbose|dot --bail=N --no-color --testNamePattern=X; playwright --project=X --grep=X --reporter=list|line|dot --workers=N; node --test-name-pattern=X --test-reporter=spec|dot|tap.';
+  'Flags (--name=value only): vitest --reporter=default|verbose|dot --bail=N --no-color --testNamePattern=X; playwright --project=X --grep=X --reporter=list|line|dot --workers=N; ' +
+  'node --test-name-pattern=X --test-reporter=spec|dot|tap; eslint --max-warnings=0 --no-color; tsc --noEmit.';
 
 function checkTestEngineerBash(command, ctx) {
   const s = String(command);
@@ -646,21 +638,25 @@ function checkTestEngineerBash(command, ctx) {
   const runner = Object.values(RUNNERS).find((r) => r.head.every((t, i) => tokens[i] === t));
   if (!runner) return BASH_FORMS;
   if (realAbs(ctx.cwd) !== realAbs(ctx.root)) return `${BASH_FORMS} (the working directory is not the project root)`;
-  const files = [];
-  for (const t of tokens.slice(runner.head.length)) {
-    if (t.startsWith('-')) {
+  const [files, projects, rest] = [[], [], tokens.slice(runner.head.length)];
+  for (let k = 0; k < rest.length; k++) {
+    const t = rest[k];
+    if (runner.project && t === '-p') projects.push(rest[++k] || ''); // -p takes the next token, for tsc only
+    else if (t.startsWith('-')) {
       if (!runner.flags.some((re) => re.test(t))) return BASH_FORMS;
-    } else {
-      files.push(t);
-    }
+    } else files.push(t);
   }
-  if (!files.length) return BASH_FORMS;
+  if (runner.project ? projects.length !== 1 || files.length : !files.length) return BASH_FORMS;
+  const plain = (f) => !path.isAbsolute(f) && !/^[A-Za-z]:/.test(f) && !f.split('/').includes('..') && isFile(abs(f, ctx.root));
+  for (const p of projects) {
+    const full = abs(p, ctx.root);
+    if (!/^tsconfig[^/]*\.json$/i.test(path.posix.basename(p)) || !plain(p) || outsideRoot(full, ctx)) return BASH_FORMS;
+    if (relBoth(full, ctx).some(isNotes)) return BASH_FORMS;
+  }
   for (const f of files) {
-    if (path.isAbsolute(f) || /^[A-Za-z]:/.test(f) || f.split('/').includes('..') || !TEST_FILE.test(f)) return BASH_FORMS;
-    const full = abs(f, ctx.root);
-    if (!isFile(full)) return BASH_FORMS;
-    if (relBoth(full, ctx).some((r) => isAppImpl(r) || isNotes(r))) {
-      return 'TEST ENGINEER does not read apps/*/src or apps/*/api, nor run files that resolve there.';
+    if (!TEST_FILE.test(f) || !plain(f)) return BASH_FORMS;
+    if (relBoth(abs(f, ctx.root), ctx).some((r) => isAppImpl(r) || isNotes(r))) {
+      return 'TEST ENGINEER does not run files under apps/*/src or apps/*/api, nor files that resolve there.';
     }
   }
   return null;

@@ -155,12 +155,14 @@ added:    2026-10-12, proposed by CRITIC (part d), validated by CRITIC
 rule:     stage files by name, then commit in a **separate** command (`git add a b`, then `git commit …`) — never
           `git add -A` / `.` and never add and commit in one command. Text that names an env file (a log line, a
           search pattern, a `-m` commit message) is written with the Write/Edit tools or a quoted heredoc
-          (`git commit -F - <<'EOF'`), not as a shell argument.
+          (`git commit -F - <<'EOF'`), not as a shell argument. `gh` output is shaped with `--template`, never
+          `--jq`/`-q` (a jq filter such as `.[]` reads as an env-file glob and pages incidents.md — 7 false blocks).
 why:      the guard scans the staged diff for secrets before each commit, so it refuses add+commit in one call, and
           its env-file rule reads command text, not targets. 16 add+commit blocks and 3 env-text false blocks in
           three days (`.work/agent-slim/stage2-insights.md`).
 example:  .claude/hooks/guard.js (checkAll) · decisions.md 2026-10-11 "hooks (7.2)"
-added:    2026-10-13, proposed by ORCHESTRATOR (agent-slim stage 2), validated by CRITIC
+added:    2026-10-13, proposed by ORCHESTRATOR (agent-slim stage 2), validated by CRITIC; the `gh --template` clause
+          2026-10-15 (dev-speed), validated by CRITIC in that PR's review
 
 ### Browser adapters (web)
 rule:     Web logic (hooks, services, lib, `app/*.ts`) never touches `window`, `document` or web storage; its only route

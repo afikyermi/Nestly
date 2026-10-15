@@ -39,7 +39,13 @@ function repo() {
   w('.work/t/spec.md', 'OTHER-SLUG-SPEC-CONTENT\n');
   w('.work/s/sub/Notes.md', `${SECRET} nested mixed case\n`);
   w('docs/release-notes.md', 'RELEASE-NOTES-CONTENT\n');
-  g('add', '.');
+  // lean review diff: one changed file of each excluded kind, plus one kept .claude file
+  for (const f of [
+    'package-lock.json', 'WORKPLAN-HE.md', 'decisions.md', 'incidents.md', 'noise.md', 'debt.md', 'escapes.md',
+    'decisions/2026-10.md', 'archive/WORKPLAN-2026-10.md', '.claude/logs/blocks.jsonl',
+  ]) w(f, `EXCLUDED-${f}\n`);
+  w('.claude/knowledge/x.md', 'KEPT-KNOWLEDGE\n');
+  g('add', '-f', '.');
   g('commit', '-q', '-m', 'work files');
   // a second commit touching notes again, in upper case, and a plain notes edit
   w('.work/s/NOTES.md', `${SECRET} upper\n`);
@@ -88,6 +94,23 @@ test('[a] a code line that looks like a notes diff header is content, not a head
   assert.strictEqual(r.status, 0, r.stderr);
   const text = fs.readFileSync(path.join(dir, '.work', 's', 'review.diff'), 'utf8');
   assert.match(text, /a code comment, not a header/);
+});
+
+test('[dev-speed,lean] the lock file, root logs, decisions/, archive/ and .claude/logs are left out; other files stay', () => {
+  const { dir } = repo();
+  assert.strictEqual(run(dir, 's', 'main').status, 0);
+  const text = fs.readFileSync(path.join(dir, '.work', 's', 'review.diff'), 'utf8');
+  const hs = headers(text);
+  for (const f of [
+    'package-lock.json', 'WORKPLAN-HE.md', 'decisions.md', 'incidents.md', 'noise.md', 'debt.md', 'escapes.md',
+    'decisions/2026-10.md', 'archive/WORKPLAN-2026-10.md', '.claude/logs/blocks.jsonl',
+  ]) {
+    assert.ok(!hs.some((h) => h.endsWith(' b/' + f)), 'excluded: ' + f);
+    assert.doesNotMatch(text, new RegExp('EXCLUDED-' + f.replace(/[.]/g, '\\.')), 'content excluded: ' + f);
+  }
+  for (const f of ['src/a.ts', 'docs/release-notes.md', '.claude/knowledge/x.md', '.work/s/spec.md', '.work/s/schema.md', '.work/s/bug.md', '.work/s/findings.md']) {
+    assert.ok(hs.some((h) => h.endsWith(' b/' + f)), 'kept: ' + f);
+  }
 });
 
 test('[a] base defaults to main', () => {

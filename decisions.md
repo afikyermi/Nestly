@@ -120,10 +120,16 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-15 | F1.4: Auth 5xx/network → retry state; unmapped Auth 4xx → fallback without retry | 10 |
 | 2026-10-15 | F1.4: while a sign-up token is held, email and password are read-only (no silent second Auth user) | 10 |
 | 2026-10-15 | Edge after the merge to main and by hand, not a production gate (as built); no release branch or tag now | 10 |
-| 2026-10-15 | Lecturer presentation: Afik's idea doc v2 is the scope (I1–I14 first, live site, isolated removable demo tool); plan in docs/lecturer-demo-plan-HE.md | 10 |
+| 2026-10-15 | Lecturer presentation: Afik's idea doc v2 is the scope (I1–I14 first, live site) — upd. 10-15 "plan v2": no presentation tool | 10 |
+| 2026-10-15 | Lecturer presentation plan v2: no presentation tool or split; product built to the end, then demo users and content through the product; lecturer signs in normally | 10 |
 | 2026-10-15 | Lecturer presentation answers: ASAP; G1–G6 (Marketplace = listing + contact, no purchase); prices TBD; back-dating over days and hours; §15 positions; SRS 2.15 | 10 |
 | 2026-10-15 | F1.5 Gate 1: own users row readable whatever its status (`/api/me` active/unavailable/unregistered); orphan Auth user completes registration; session in localStorage | 10 |
 | 2026-10-15 | F1.5 part b: completion state may read /terms, /privacy; restore retries only when unreachable (backoff); `apps/web/src/platform/` is the one fenced browser-adapter folder | 10 |
+| 2026-10-15 | F1.6: recovery by security questions — 3 offered at registration, pick 2 and answer (Afik; temporary until email recovery with a domain); recovery key rejected | 10 |
+| 2026-10-15 | F1.6 Gate 1: questions pet / nickname / street; lookup by stored email HMAC; questions screen required after account creation (no "later") | 10 |
+| 2026-10-15 | F1.6 Gate 2: fenced `app_recovery` role for the signed-out path; reset = admin set-password + one global sign-out, fail-safe 503 | 10 |
+| 2026-10-15 | F1.6 Amendment 2 (CRITIC findings 1-2): current-email check at redeem, stale handle released on store and re-keyed on /api/me; one limited event per subject per lock, IP checked first | 10 |
+| 2026-10-15 | Development speed (A–F): freeze to F1.8 without exceptions · one session and one records pass per feature · path per part, ≤ 2 reviews, 🎨 depth kept · hard 2× tests, TEST ENGINEER reads source · Preview automation · record caps, SRS once per Initiative · full I1–I14 | 10 |
 
 ## Superseded
 
