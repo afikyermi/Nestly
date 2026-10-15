@@ -1,6 +1,6 @@
 # CI for Nestly (WORKPLAN 7.1). Public repo: no secrets are used or needed.
 # Locally, `npm run ci` runs typecheck, lint, tokens:check, check:stories, test and build in this order.
-# `build-storybook` and `test:browser` are their own jobs; they run only when the web app, the shared package or their
+# `build-storybook` and `test:browser` (Chrome; Edge is `browser-edge`, on main and by hand) are their own jobs; they run only when the web app, the shared package or their
 # tooling changed, and `db` only when supabase/, apps/server/, packages/shared/ or their config changed (job `changes`;
 # Spec addendum 3 of I1 F1.1). `db` needs Docker and runs in CI only.
 name: CI
@@ -9,6 +9,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Run the whole workflow by hand, for instance the Edge job before a release (`changes` then runs everything).
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -152,8 +154,10 @@ jobs:
       - run: npm ci
       - run: npm run build-storybook
 
-  # Playwright on Chrome and Edge against the built gallery (SRS NFR-QA-001). One job per browser and shard, in
-  # parallel (decisions.md, 2026-10-14 "Speed-up"): the single job took 16-18 of its 20 minutes.
+  # Playwright on Chrome against the built gallery and the e2e app build, on every pull request and push: desktop and
+  # phone (the specs set their own viewports) and the blocking visual regression (e2e/visual-screens.ts). Two shards in
+  # parallel (decisions.md, 2026-10-14 "Speed-up"). Edge is `browser-edge` below (decisions/2026-10.md "Tests: depth by
+  # criterion type").
   browser:
     needs: changes
     if: needs.changes.outputs.web == 'true'
@@ -162,7 +166,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [chrome, edge]
+        project: [chrome]
         shard: [1, 2]
     steps:
       - uses: actions/checkout@v4
@@ -189,6 +193,44 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           name: playwright-report-${{ matrix.project }}-${{ matrix.shard }}
+          path: playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # Edge (SRS NFR-QA-001) is not run per pull request. It runs on every push to main (the merge Vercel deploys to
+  # production) and on workflow_dispatch, behind the same change filter. The visual regression is Chrome only.
+  browser-edge:
+    needs: changes
+    if: needs.changes.outputs.web == 'true' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - id: playwright
+        run: |
+          echo "version=$(node -p "require('./package-lock.json').packages['node_modules/playwright'].version")" >> "${GITHUB_OUTPUT}"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - run: npx playwright install --with-deps msedge
+      - run: npm run build-storybook
+      - run: npx playwright test --project=edge --shard=${{ matrix.shard }}/2
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report-edge-${{ matrix.shard }}
           path: playwright-report/
           retention-days: 7
           if-no-files-found: ignore
