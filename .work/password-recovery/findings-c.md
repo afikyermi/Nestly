@@ -23,3 +23,6 @@ E2E, with no unit test; the new recovery texts have no ERR items yet (DR3 at Ini
 5. **Criterion 19 thinly tested.** Only `/api/me` failing right after registration. Nothing asserts a 200 lacking `recoveryQuestions`, or holding an unknown value, leaves the user on `/feed`. Fix: unit test for `fetchAccountState`: "missing" → `active-missing`; "set", absent, null, unknown → `active`; unparseable → `failed`.
 
 **Open:** DR3 must add the ERR rows (4a); the exception in 3 needs a decision or removal.
+
+## Re-check (CRITIC, sonnet, fix commit 1d344e0) — verdict: Validated with Concern
+Saved by ORCHESTRATOR from the hand-back. 1 Closed (`epoch` bumped in `markRecoveryQuestionsSet`, `auth-session-source.ts:282-286`; recheck drops a stale answer `:158-161`) · 2 Closed (`access-decision.test.ts:121-127`) · 3 Closed (Amendment 4, reasoning accepted) · 4a Closed as recorded (ERR rows → DR3) · 4b Not closed, not blocking: one text for both password bounds on `/recovery` and F1.4 registration → `debt.md` · 5 Closed (`account-state.test.ts`). No critical or high finding stands.
