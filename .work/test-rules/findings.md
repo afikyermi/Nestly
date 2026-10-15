@@ -68,3 +68,12 @@ F1.4 test is in debt.md.
   update. `update-baselines.yml` header now says the empty-list failure is intentional.
 - Local after the fixes: typecheck · lint · budgets · test:tools green; `npx playwright test --project=chrome
   e2e/visual.visual.spec.ts` 3/3.
+
+## re-check (CRITIC sonnet, 15.10) — appended by ORCHESTRATOR
+- **Validated with Concern.** 1, 3, 4, 5, 6, 7 closed; 8 holds (budget reason accepted, blame noise an accepted cost);
+  open items closed/accepted (no branch protection on main → no stale check names; update-baselines header).
+- Residual (low) on 2: `workflow.md` changelog 1.14 still said "Edge before production" → fixed by ORCHESTRATOR
+  ("Edge after each merge to main and by hand"). Cosmetic: the decisions.md index line moved into date order.
+- The concern (→ debt.md): Edge runs after the merge and does not gate the production deploy; the release gate is
+  Afik's open question (WORKPLAN, default "as built"). CRITIC also recommends flagging that nothing enforces green CI
+  on main beyond the process rule (no branch protection — Afik's 11.10 decision, WORKPLAN "7.1").

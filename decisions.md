@@ -102,7 +102,6 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-14 | CI once per part: local checks between steps, one push per finished part; CI jobs filtered by changed paths | 10 |
 | 2026-10-14 | F1.3 Gate 1: due date −30/+300 days, child name 1–60, birth date ≥ 1900, ERR-003 missing or invalid | 10 |
 | 2026-10-14 | Node ≥ 22.22 for react-router; F1.2 source-scan tests a named exception (file:line only) | 10 |
-| 2026-10-15 | Visual regression tolerance starts tight (maxDiffPixelRatio 0.0005); loosened only after observed CI flake, cited | 10 |
 | 2026-10-14 | Pace: spec ≤ ~150 lines and ≤ 12/20 criteria, 1–2 tests per criterion, notes ≤ 60, lean review diff, debt PR before F1.5, session handoff | 10 |
 | 2026-10-14 | Preview access: bypass secret stays a repository secret; preview-shot trusts only GitHub-listed deployment URLs; server drops the bypass header | 10 |
 | 2026-10-14 | F1.3 spec revised to 20 criteria / 120 lines (pace rule); two criteria move from source scans to behaviour | 10 |
@@ -117,6 +116,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-14 | Waiting on Afik: keep working on independent work, one side track at most, resume points in WORKPLAN (workflow 1.13) | 10 |
 | 2026-10-14 | Tests from F1.5: depth by type (🔴/🎨/🟡), one layer per behaviour, Chrome-only PRs, blocking visual regression, ≤2× soft ceiling (Afik) | 10 |
 | 2026-10-14 | F1.4: 500 after Auth sign-up → fallback message, no retry; any transient transaction failure → 503 | 10 |
+| 2026-10-15 | Visual regression tolerance starts tight (maxDiffPixelRatio 0.0005); loosened only after observed CI flake, cited | 10 |
 | 2026-10-15 | F1.4: Auth 5xx/network → retry state; unmapped Auth 4xx → fallback without retry | 10 |
 | 2026-10-15 | F1.4: while a sign-up token is held, email and password are read-only (no silent second Auth user) | 10 |
 
