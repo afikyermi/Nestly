@@ -103,15 +103,18 @@ export function RecoveryQuestionsForm() {
     <>
       <title>{documentTitle(TITLE)}</title>
       <h1 className="text-h2">{TITLE}</h1>
-      <p className="mt-1 mb-5 text-body text-muted-foreground">{setup ? INTRO_TEXT : CHANGE_INTRO_TEXT}</p>
+      {/* The confirmation takes the place of the intro, so the form does not move down by a line when it appears: at 375 the
+          sticky bottom navigation would otherwise cover most of a field (WCAG 2.5.8). */}
+      {saved ? (
+        <div ref={messageRef} tabIndex={-1} role="status" className="mt-1 mb-5 text-body">
+          {CHANGED_TEXT}
+        </div>
+      ) : (
+        <p className="mt-1 mb-5 text-body text-muted-foreground">{setup ? INTRO_TEXT : CHANGE_INTRO_TEXT}</p>
+      )}
       {failure !== null ? (
         <div ref={messageRef} tabIndex={-1} className="mb-5">
           <InlineAlert>{failure}</InlineAlert>
-        </div>
-      ) : null}
-      {saved ? (
-        <div ref={messageRef} tabIndex={-1} role="status" className="mb-5 text-body">
-          {CHANGED_TEXT}
         </div>
       ) : null}
       <form

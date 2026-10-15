@@ -129,11 +129,11 @@ select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('p')), pg_temp.
   '[F1.6-a c3] the maximum parameters (17, 16, 4) are accepted');
 select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('p')), pg_temp.ins('ae', n => 15, r => 8, p => 1), false), 'OK:1',
   '[F1.6-a c3] the minimum parameters (15, 8, 1) are accepted');
-select alike(tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('p')), pg_temp.ins('ae', h => null), false), 'ERR:23514:%handle_claim_check%',
+select alike(tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('p')), pg_temp.ins(h => null), false), 'ERR:23514:%handle_claim_check%',
   '[F1.6-a c21] a claim time without a handle is refused: the two are NULL together');
 select alike(tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('p')), pg_temp.ins('ae', ca => null), false), 'ERR:23514:%handle_claim_check%',
   '[F1.6-a c21] a handle without a claim time is refused: a claim is always ordered');
-select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('p')), pg_temp.ins('ae', h => null, ca => null), false), 'OK:1',
+select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('p')), pg_temp.ins(h => null, ca => null), false), 'OK:1',
   '[F1.6-a c21] a row with neither handle nor claim (released) is valid');
 
 -- =====================================================================================================================

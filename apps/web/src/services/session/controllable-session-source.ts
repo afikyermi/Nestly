@@ -13,6 +13,8 @@ export interface ControllableSessionSource extends SessionSource, SessionEntry {
   fail(): void;
   /** When true, `signOut` rejects and the state does not change. */
   rejectSignOut(reject: boolean): void;
+  /** What `getNeedsRecoveryQuestions` answers from now on (default false); listeners are told. */
+  setNeedsRecoveryQuestions(needs: boolean): void;
   /** How many times `signOut` was called. */
   signOutCalls(): number;
 }
@@ -23,6 +25,7 @@ export function createControllableSessionSource(initial: SessionState = 'loading
   let broken = false;
   let signOutRejects = false;
   let calls = 0;
+  let needsQuestions = false;
 
   const notify = () => {
     for (const listener of [...listeners]) listener();
@@ -34,6 +37,7 @@ export function createControllableSessionSource(initial: SessionState = 'loading
       if (broken) throw new Error('Controllable session source: failed on purpose.');
       return state;
     },
+    getNeedsRecoveryQuestions: () => needsQuestions,
     subscribe: (listener) => {
       listeners.add(listener);
       return () => {
@@ -61,6 +65,10 @@ export function createControllableSessionSource(initial: SessionState = 'loading
     },
     rejectSignOut: (reject) => {
       signOutRejects = reject;
+    },
+    setNeedsRecoveryQuestions: (needs) => {
+      needsQuestions = needs;
+      notify();
     },
     signOutCalls: () => calls,
   };

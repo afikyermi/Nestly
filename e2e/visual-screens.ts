@@ -20,4 +20,10 @@ export interface AppScreen extends ScreenBase {
 }
 export type Screen = StoryScreen | AppScreen;
 
-export const SCREENS: Screen[] = [];
+export const SCREENS: Screen[] = [
+  // F1.6 c16: the recovery form for a Guest. c17/c18: the questions screen in its change mode (signed in, questions exist) and
+  // in its held setup mode (signed in, questions missing).
+  { kind: 'app', name: 'recovery', route: '/recovery', state: 'signed-out' },
+  { kind: 'app', name: 'recovery-questions-change', route: '/recovery-questions', state: 'signed-in' },
+  { kind: 'app', name: 'recovery-questions-setup', route: '/recovery-questions', state: 'signed-in-needs-recovery' },
+];

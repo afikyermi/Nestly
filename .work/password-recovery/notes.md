@@ -139,3 +139,12 @@ With two real accounts A and B: A saves answers with email X; A changes email to
 **Uncertain**  Hebrew texts (mismatch, lock, unavailable, intro) are mine, not from the ERR catalog; ux review wanted. The controllable (e2e) session source has no `getNeedsRecoveryQuestions`, so E2E with it never sees the questions screen. Group error is one alert with all three fields `aria-invalid`.
 **Preview path**  Register a new account -> lands on "שאלות לשחזור סיסמה" (no way to /feed; try typing /feed) -> fill two answers -> שמירה -> /feed. Menu -> שאלות לשחזור סיסמה -> current + new -> confirmation. Sign out -> /login -> שכחתי סיסמה -> /recovery -> email, two answers, new password -> success -> להתחברות. Needs part a/b deployed and the two secrets set.
 **Neighbouring**  `npm run check:budgets` fails on `.claude/knowledge/data-model.md` (268 lines, budget 260): not mine, being edited by another agent.
+
+## Fix round: c18 target-size at 375, and the held-mode test seam
+**c18 cause** (measured at 375x812): after a successful change the "saved" status sat above the intro, pushing the form down one
+line; the last new-answer input then straddled the top edge of the sticky bottom nav (736-784 against a nav top of 739), leaving 3 px
+visible, so axe target-size failed. Fixed in `RecoveryQuestionsForm.tsx`: the confirmation now replaces the intro paragraph instead of
+being added above it, so the form does not move. Not a general fix: any long page can put a field under the sticky nav at some scroll
+position; this keeps the tested state clear.
+**Seam**: `ControllableSessionSource.setNeedsRecoveryQuestions(needs: boolean)`, default false, notifies listeners; the source now also
+has `getNeedsRecoveryQuestions()`. In the e2e build: `window.nestlyTestSession.setNeedsRecoveryQuestions(true)`.
