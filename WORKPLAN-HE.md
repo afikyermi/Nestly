@@ -12,14 +12,14 @@
 
 **עודכן:** 14.10.2026 · **גרסת SRS:** 2.12 · **מצב:** בניית מוצר. מערך הסוכנים קפוא עד ש-I1 ממוזג (הכרעתך מ-13.10, `decisions.md`).
 
-- **🔄 F1.4 `register-account-create`** (ענף `feat/register-account-create`, draft PR 25; ‏`.work/register-account-create/`): ‏Gate 1 ו-Gate 2 עברו (כולל Amendment 1, הרשאות INSERT לפי עמודה). **חלק a (סכמה, RLS, pgTAP) ✅:** ‏CI ירוק ב-`eac7f7e`, ‏CRITIC: ‏Validated אחרי בדיקה חוזרת. **חלק b (שרת) ✅:** ‏`POST /api/register` (הדפדפן קורא ל-Supabase Auth — הכרעתך "א"), ‏`@nestly/shared` נבנה ל-JS לפונקציה. ‏CI ו-preview-smoke ירוקים ב-`b0b8792`, ‏CRITIC: ‏Validated אחרי בדיקה חוזרת. **חלק c (מסך) ✅:** שלב 2, מודול Auth בדפדפן, הודעות ושחזור, סריקה מצומצמת. ‏CI ירוק ב-`91363a0`, ‏CRITIC: ‏Validated אחרי בדיקה חוזרת. **נשאר: Preview (קריטריון 21) — ממתין למפתח שלך; ‏SRS ו-convention לפני מיזוג (מסלול צדדי).**
+- **🔄 F1.4 `register-account-create`** (ענף `feat/register-account-create`, draft PR 25; ‏`.work/register-account-create/`): ‏Gate 1 ו-Gate 2 עברו (כולל Amendment 1, הרשאות INSERT לפי עמודה). **חלק a (סכמה, RLS, pgTAP) ✅:** ‏CI ירוק ב-`eac7f7e`, ‏CRITIC: ‏Validated אחרי בדיקה חוזרת. **חלק b (שרת) ✅:** ‏`POST /api/register` (הדפדפן קורא ל-Supabase Auth — הכרעתך "א"), ‏`@nestly/shared` נבנה ל-JS לפונקציה. ‏CI ו-preview-smoke ירוקים ב-`b0b8792`, ‏CRITIC: ‏Validated אחרי בדיקה חוזרת. **חלק c (מסך) ✅:** שלב 2, מודול Auth בדפדפן, הודעות ושחזור, סריקה מצומצמת. ‏CI ירוק ב-`91363a0`, ‏CRITIC: ‏Validated אחרי בדיקה חוזרת. **‏Preview ✅ (15.10, `nestly-mch3ezhjm`):** הרשמה אמיתית עם שני ילדים ותאריך לידה משוער — 201 ו-`/feed`, השורות נכונות; אימייל חוזר — ההודעה הכללית. ‏`.work/register-account-create/result.md`. **הבא: מיזוג PR 25.**
 - **✅ כלי ה-Preview — מוזג** (PR 21, ‏`2d877b2`, ‏14.10; ‏`.work/preview-access/result.md`): ‏`preview-smoke` (רץ על כל Preview: ‏health ‏200, נתיב מוגן נכשל סגור) ו-`tools/preview-shot.mjs` (צילום Preview מוגן). השרת מוחק את כותרת ה-bypass. ‏CRITIC: ‏Validated with Concern; ‏1–4 נסגרו, 5 ב-debt, 6 אומת בריצה הראשונה.
 - **✅ F1.3 `register-profile-step` — מוזג** (PR 22, ‏14.10; ‏`.work/register-profile-step/result.md`): שלב 1 בהרשמה — שלב במסע, שם, מין ההורה, תאריך לידה משוער, ילדים 1–10; הנתונים בזיכרון הטאב בלבד. ‏CRITIC: ‏Validated with Concern (סכמה strict ב-F1.4 Gate 2, ‏debt). ה-Preview נבדק ב-375 וב-1024.
 - **✅ האצה — מוזג** (PR 23, ‏`a756931`, ‏14.10, בקשתך): ‏CI ‏browser כ-matrix (Chrome/Edge × 2 shards): ‏4–5 דק׳ במקום 16–18. ‏Vercel בונה כל ענף עם PR פתוח, בלי תלות בסדר push/PR. ‏vitest רץ מהשורש. ‏CRITIC: ‏Validated. סעיפים 4–6 אושרו (‏14.10) ונבנו ב-`chore/speed-up-2`: ‏TEST ENGINEER עורך ומריץ את הטסטים שלו, ‏BUILDER כותב `interface.md`, ו-jq אינו נחשב נתיב ב-guard. ‏CRITIC (opus): שני ממצאים גבוהים ב-guard תוקנו, ‏Validated.
 - **✅ F1.2 `app-shell-guard` — מוזג** (PR 19, ‏`53b85d0`, ‏14.10; ‏`.work/app-shell-guard/result.md`): מסך Welcome, ‏AppShell, ‏RouteGuard ושכבת session. ‏CRITIC: ‏Validated with Concern, וארבעה ממצאים קלים נסגרו. ה-Preview נבדק על production אחרי המיזוג ב-375 וב-1024.
-- **ממתין להכרעה שלך:** אין הכרעה; **נעצר על פעולה שלך:** ‏Preview של F1.4 ממתין ל-`VITE_SUPABASE_PUBLISHABLE_KEY` (ראו "ממתין לך" 0). (14.10: ב-F1.4 הדפדפן קורא ל-Supabase Auth ישירות — הכרעתך "א"; קודם: אימייל תפוס "א", סיסמה מינימלית 8; ‏`decisions.md`.)
+- **ממתין להכרעה שלך:** אין.
 - **ממתין לך (סודות ופעולות):**
-  0. **‏`VITE_SUPABASE_PUBLISHABLE_KEY` ב-Vercel** (‏F1.4 חלק c): אותו ערך כמו `SUPABASE_PUBLISHABLE_KEY` — של nestly-preview ל-Preview ושל nestly-prod ל-Production. בלעדיו מסך שלב 2 ב-Preview לא יכול להירשם. **להמשך:** ענף `feat/register-account-create`, אחרי CRITIC על חלק c — Preview ב-375 וב-1024 (קריטריון 21).
+  0. **‏`app_server` ב-nestly-prod:** לוודא שהסיסמה שמורה בפורמט SCRAM (ב-preview ה-pooler דחה אותה, `EAUTHQUERY`) — לפני ש-F1.4 עולה ל-production. אם לא: ‏`alter role app_server password ...` ב-SQL Editor של nestly-prod, ואותה סיסמה ב-`DATABASE_URL` של Production.
   1. **קובץ יומן מקומי ישן** `.live/events.jsonl` (טקסט מפרומפטים, לא ב-git): מחיקה היא שלך. אחריה אפשר להסיר את `.live/` מ-`.gitignore`.
   2. **מחיקת ענפים מרוחקים שמוזגו:** ‏`ui-wave-1/part-a` עד `part-e`, ‏`chore/i1-prep`, ‏`chore/guard-env-paths` (מוזג), ‏`chore/preview-access` (הוחלף ב-`-v2` אחרי rebase), ‏`chore/records-after-f12` (מוזג).
   3. **ב-F1.8:** הגדרת Google Cloud והסודות — אנחה אותך צעד-צעד.
@@ -45,6 +45,9 @@
   - 14.10 · Supabase › nestly-preview וגם nestly-prod › Authentication › Email: ‏Minimum password length ‏8 (‏preview: ‏10 ← 8; ‏prod: ‏6 ← 8), לפי הכרעת אפיק. אומת אחרי טעינה מחדש: 8, ו-Confirm email כבוי בשניהם.
   - 14.10 · אפיק: ‏`SUPABASE_PUBLISHABLE_KEY` ב-Vercel — של nestly-preview ל-Preview ושל nestly-prod ל-Production. אומת ברשימה (שמות בלבד).
   - 15.10 · Vercel › nestly › Environment Variables: ‏`VITE_SUPABASE_URL` (Config) — כתובת nestly-preview ל-Preview וכתובת nestly-prod ל-Production (F1.4 חלק c: ה-Auth בדפדפן קורא רק משתני `VITE_`).
+  - 15.10 · אפיק: ‏`VITE_SUPABASE_PUBLISHABLE_KEY` ב-Vercel — Preview ו-Production; אומת ברשימה (שמות וסביבות בלבד).
+  - 15.10 · Vercel › Preview של הענף: ‏Redeploy (‏`nestly-mch3ezhjm`) אחרי ש-VITE_SUPABASE_PUBLISHABLE_KEY נוסף. בדיקת קריטריון 21: שלב 1 ו-2 תקינים ב-375 וב-1024; הרשמה של אפיק — Auth ‏200, ‏`/api/register` ‏503: ה-migration של F1.4 לא הוחל על nestly-preview (42P01). מצב הניסיון החוזר וחסימת השדות עבדו לפי ה-spec.
+  - 15.10 · אפיק: ‏migrate מהענף על nestly-preview (ירוק; production דולג), וסיסמת `app_server` ב-nestly-preview אופסה ועודכנה ב-`DATABASE_URL` של Preview. בדיקת ה-Preview עברה.
 - **היסטוריה:** `archive/WORKPLAN-2026-10.md`. ההחלטות ב-`decisions.md`. הנקודות הפתוחות במוצר ב-`docs/srs/appendix-b-open-points.md`.
 
 ---
@@ -63,6 +66,8 @@
 
 עם נתונים מ-7 פיצ'רים (escapes, noise, planned vs actual, קריאות מודל לפיצ'ר): מה עבד, מה רק עלה כסף, ומה להוריד. שורה אחת לכל רעיון.
 
+- פיצ׳ר עם migration: להריץ `migrate` מהענף על nestly-preview לפני ה-Preview (שכחנו ב-F1.4; מצב auto חוסם את ORCHESTRATOR מלהפעיל אותו).
+- בדיקת Preview אוטומטית ב-CI (‏Playwright מול ה-Preview, חשבון בדיקה אקראי ב-nestly-preview) — ORCHESTRATOR אינו רשאי ליצור חשבון או להקליד סיסמה מחוץ ל-localhost; מוצע ל-PR שיפור הבדיקות.
 - `workflow.md` שורה 36: תיאורי ה-as-built הם `data-model.md` (כולל `data-model-tables.md` המקושר, מ-F1.4) ו-`conventions.md` — לציין את הקובץ החדש.
 - skills שלב ב: `react-web`, `fastify-api`, `drizzle-postgres`, `testing-craft`, `shared-contracts`, `rls-tests` (חריג: skill ממוקד אחד אחרי שני כשלים על אותה בעיית craft).
 - 6.1: domain של Threat Modeling.
