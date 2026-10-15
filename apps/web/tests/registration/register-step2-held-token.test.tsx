@@ -120,21 +120,22 @@ describe('F1.4 criterion 11 (CRITIC part c 2) while the sign-up token is held th
     }
   });
 
-  it('[criterion 11] the fields are NOT locked when no token is held: an Auth failure (4xx, 5xx, network) leaves them editable and without the note', async () => {
-    for (const response of [fail({ status: 500, name: 'AuthRetryableFetchError' }), new TypeError('Failed to fetch'), fail({ status: 400, code: 'something_new' }), fail({ status: 422, code: 'weak_password' })]) {
-      const u = user();
-      const { port } = makePort(response);
-      stubRoute(201);
-      const { view } = await toStep2(u, port);
-      await fillStep2(u);
-      await u.click(submit());
-      await waitFor(() => expect(submit()).not.toHaveAttribute('aria-disabled', 'true'));
-      expect(emailField()).not.toHaveAttribute('readonly');
-      expect(passwordField()).not.toHaveAttribute('readonly');
-      expect(screen.queryByText(NOTE)).toBeNull();
-      view.unmount();
-      vi.restoreAllMocks();
-    }
+  it.each([
+    ['Auth 500 retryable', fail({ status: 500, name: 'AuthRetryableFetchError' })],
+    ['network failure', new TypeError('Failed to fetch')],
+    ['Auth 400 unknown code', fail({ status: 400, code: 'something_new' })],
+    ['Auth 422 weak_password', fail({ status: 422, code: 'weak_password' })],
+  ])('[criterion 11] the fields are NOT locked when no token is held: after %s they stay editable and without the note', async (_label, response) => {
+    const u = user();
+    const { port } = makePort(response);
+    stubRoute(201);
+    await toStep2(u, port);
+    await fillStep2(u);
+    await u.click(submit());
+    await waitFor(() => expect(submit()).not.toHaveAttribute('aria-disabled', 'true'));
+    expect(emailField()).not.toHaveAttribute('readonly');
+    expect(passwordField()).not.toHaveAttribute('readonly');
+    expect(screen.queryByText(NOTE)).toBeNull();
   });
 
   it('[criterion 11] pressing "יצירת חשבון" again (not the retry button) also reuses the held token after a route 500', async () => {

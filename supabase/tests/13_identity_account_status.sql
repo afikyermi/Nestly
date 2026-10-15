@@ -164,6 +164,33 @@ select is(
   '0',
   '[F1.1-b c18 layer 13] seen from authenticated: no function in schema nestly that it can execute takes an argument');
 
+-- =====================================================================================================================
+-- Debt D1 (CRITIC b-1) — the function checks the caller's OWN row and its STATUS by itself, not through the users policy.
+-- A permissive select policy is added inside this transaction (rolled back with it), so the policy hides nothing. Then
+-- a body such as `select exists (select 1 from nestly.users)` would answer true for everyone and fail below.
+-- =====================================================================================================================
+select lives_ok($q$ select tests.set_status(tests.fx_id('a'), 'active') $q$, '[D1] A active (fixture)');
+select lives_ok($q$ select tests.set_status(tests.fx_id('b'), 'active') $q$, '[D1] B active (fixture)');
+select lives_ok($q$ select tests.set_status(tests.fx_id('s'), 'suspended') $q$, '[D1] S suspended (fixture)');
+select lives_ok($q$ select tests.set_status(tests.fx_id('x'), 'banned') $q$, '[D1] X banned (fixture)');
+select lives_ok($q$ select tests.fx_open_users_select() $q$, '[D1] a permissive select policy on nestly.users is added for this transaction');
+
+select ok(tests.n_as(tests.fx_id('s'), 'nestly.users') ~ '^[1-9][0-9]*$',
+  '[D1] with the permissive policy, suspended S can now read User rows (so the policy no longer hides anything)');
+select ok(tests.n_as(tests.fx_id('c'), 'nestly.users') ~ '^[1-9][0-9]*$',
+  '[D1] with the permissive policy, the caller with no row can read User rows (other active rows exist)');
+
+select is(tests.as_role('authenticated', tests.claims(tests.fx_id('s')), 'select nestly.is_active_account()::text'), 'false',
+  '[D1] suspended S is told false although the policy lets it read rows');
+select is(tests.as_role('authenticated', tests.claims(tests.fx_id('x')), 'select nestly.is_active_account()::text'), 'false',
+  '[D1] banned X is told false although the policy lets it read rows');
+select is(tests.as_role('authenticated', tests.claims(tests.fx_id('c')), 'select nestly.is_active_account()::text'), 'false',
+  '[D1] a caller with no User row is told false while other active rows are readable');
+select is(tests.as_role('authenticated', tests.claims(tests.fx_id('a')), 'select nestly.is_active_account()::text'), 'true',
+  '[D1] active A is told true');
+select is(tests.as_role('authenticated', tests.claims(tests.fx_id('b')), 'select nestly.is_active_account()::text'), 'true',
+  '[D1] active B is told true');
+
 select * from finish();
 
 rollback;
