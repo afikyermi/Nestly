@@ -40,6 +40,12 @@ function rejectUnavailable(reply: FastifyReply): FastifyReply {
   return reply.code(503).send({ error: 'unavailable' });
 }
 
+/** The library's machine code (e.g. ERR_JWT_EXPIRED) when the cause has one; nothing else of the cause. */
+function joseCode(cause: unknown): string | undefined {
+  if (typeof cause !== 'object' || cause === null || !('code' in cause)) return undefined;
+  return typeof cause.code === 'string' ? cause.code : undefined;
+}
+
 function isPublic(request: FastifyRequest): boolean {
   const route = request.routeOptions.url;
   return route !== undefined && PUBLIC_ROUTES.has(`${request.method} ${route}`);
@@ -70,8 +76,13 @@ export function registerAuthentication(app: FastifyInstance, deps: Authenticatio
     try {
       request.identity = await verifier(token);
     } catch (error) {
-      request.log.warn({ err: error }, 'access token rejected');
-      if (error instanceof TokenRejected && error.reason === 'token') return rejectUnauthenticated(reply);
+      // Never log the error object: its cause is the library's error, which can carry the decoded claims.
+      if (error instanceof TokenRejected) {
+        request.log.warn({ reason: error.reason, code: joseCode(error.cause) }, 'access token rejected');
+        if (error.reason === 'token') return rejectUnauthenticated(reply);
+      } else {
+        request.log.warn({ reason: 'unexpected' }, 'access token rejected');
+      }
       return rejectUnavailable(reply);
     }
   });

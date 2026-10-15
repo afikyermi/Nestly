@@ -21,3 +21,6 @@
 Target: `.claude/knowledge/data-model-tables.md`, users "Authorization" row (currently says reading is "only while status = 'active'").
 Proposed text:
 > Authorization: `users_select_own` (SELECT TO authenticated): an account reads its own row (`id = auth.uid()`) in every status (F1.5 DR-1 A, migration 20261015100000). Visibility of the own row does NOT mean "active": code that needs "is the caller active" uses `nestly.is_active_account()` or relies on the other tables' policies, never `exists(select from users)`. A suspended or banned account still reads zero rows of regular_profiles, journey_contexts, children and legal_consents (platform rule 15). INSERT: `users_insert_own` pins id, type and status; no UPDATE or DELETE.
+
+## Fix: 401 log line (CRITIC finding 2)
+The rejection log in authentication.ts no longer logs the error object (its jose cause can carry decoded claims); it logs only `reason` and jose `code`. Responses unchanged.

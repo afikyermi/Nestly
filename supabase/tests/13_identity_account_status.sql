@@ -1,5 +1,5 @@
 -- pgTAP, run by pg_prove as app_server (CI `db` job, I1 F1.1 part b).
--- Criterion 15 (exit criterion: a suspended or banned account reads nothing, from the next statement, with the same
+-- Criterion 15 (exit criterion: a suspended or banned account reads nothing but its own `users` row (F1.5 DR-1 A), from the next statement, with the same
 -- claims; reads again once active), 16 (status comes from the table) and 18 (is_active_account() answers only for the
 -- caller). [02-system-overview.md:59 · FR-MOD-002 · BR-024 · platform r15, r14, r16 · layer 13]
 --

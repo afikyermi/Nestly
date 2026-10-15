@@ -21,3 +21,6 @@
 ## Database
 - Policy `nestly.users.users_select_own`: `using (id = (select auth.uid()))` (FOR SELECT TO authenticated). Migration `supabase/migrations/20261015100000_users_select_own_any_status.sql`; down `supabase/rollback/20261015100000_users_select_own_any_status.down.sql`.
 - `hasAccount()` / `accountExists()` now true for a stopped account (own row visible).
+
+## Server log: access token rejected (authentication hook)
+Warn line message "access token rejected" carries fields: `reason` ("token" | "unavailable" | "unexpected"), `code` (jose error code string, may be absent). No err object, token, sub or claims. Responses unchanged (401 unauthenticated / 503 unavailable).

@@ -144,6 +144,43 @@ describe('[F1.5-a c3 NFR-SEC-004] a missing, malformed, tampered or expired sess
     expect(stub.attempts() - before).toBe(0);
   });
 
+  it('[F1.5-a c3 NFR-PRIV-001] an expired token and a wrong-audience token: 401, and the log has no token, sub or email; the rejection line has only the documented fields', T, async () => {
+    const EMAIL = 'leak.check.person@example.invalid';
+    const LEAK_SUB = 'f0000000-0000-4000-8000-0000000000e7';
+    const rejected: Array<[string, Record<string, unknown>]> = [
+      ['expired', { exp: Math.floor(Date.now() / 1000) - 3600 }],
+      ['wrong audience', { aud: 'someone-else' }],
+    ];
+    for (const [label, over] of rejected) {
+      await setup();
+      const raw = await token({ key, sub: LEAK_SUB, extra: { email: EMAIL }, ...over });
+      const res = await get(`Bearer ${raw}`);
+      expect(res.statusCode, label).toBe(401);
+      const text = log.text();
+      const [header = '', payload = '', signature = ''] = raw.split('.');
+      for (const secret of [raw, header, payload, signature, LEAK_SUB, EMAIL]) {
+        expect(text, `${label}: log contains ${secret.slice(0, 12)}`).not.toContain(secret);
+      }
+      expect(text.toLowerCase(), label).not.toContain('bearer ');
+      const lines = log.lines().filter((line) => line.includes('access token rejected'));
+      expect(lines.length, label).toBeGreaterThan(0);
+      const allowed = new Set(['level', 'time', 'pid', 'hostname', 'msg', 'reqId', 'reason', 'code']);
+      for (const line of lines) {
+        const parsed: unknown = JSON.parse(line);
+        if (typeof parsed !== 'object' || parsed === null) throw new Error(`${label}: log line is not an object`);
+        const entry = new Map(Object.entries(parsed));
+        expect(entry.get('reason'), label).toBe('token');
+        expect([...entry.keys()].filter((k) => !allowed.has(k)), `${label}: undocumented fields`).toEqual([]);
+        if (entry.has('code')) expect(typeof entry.get('code')).toBe('string');
+      }
+      await app.close();
+      await database?.close();
+    }
+    database = undefined;
+    log = captureLog();
+    app = await buildRegisterApp(env(), { logStream: log.stream });
+  });
+
   it('[F1.5-a c3] a 401 body is the same for every failure and names no reason', T, async () => {
     await setup();
     const bodies = new Set<string>();
