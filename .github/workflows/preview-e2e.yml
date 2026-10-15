@@ -54,13 +54,21 @@ jobs:
         env:
           PREVIEW_E2E_BASE_URL: ${{ steps.guard.outputs.base_url }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          PREVIEW_E2E_REPORT_FILE: ${{ runner.temp }}/preview-e2e-report.json
         run: npx playwright test -c e2e-preview/playwright.config.ts
       - name: Summary
         if: always()
         env:
           JOB_STATUS: ${{ job.status }}
+          REPORT_FILE: ${{ runner.temp }}/preview-e2e-report.json
         run: |
           {
             echo "preview-e2e: ${JOB_STATUS} (run ${GITHUB_RUN_ID}, attempt ${GITHUB_RUN_ATTEMPT})"
+            # Per project, counts only: the report is read for status, never printed, and is not uploaded.
+            if [ -f "${REPORT_FILE}" ]; then
+              jq -r '[.. | objects | select(has("projectName") and has("results"))] | group_by(.projectName)[] | "- \(.[0].projectName): \([.[] | select(.status == "expected")] | length) passed, \([.[] | select(.status != "expected" and .status != "skipped")] | length) failed"' "${REPORT_FILE}" || echo "- the report could not be read"
+            else
+              echo "- no report (the run stopped before the tests)"
+            fi
             echo "Test users are NOT yet deleted (decision DR-E1 pending): this run's users stay on nestly-preview, tagged nestly-e2e-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-*."
           } >> "${GITHUB_STEP_SUMMARY}"

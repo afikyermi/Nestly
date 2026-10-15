@@ -2,9 +2,12 @@
 // criteria 9, 16-18 and its amendments (an active account without answers is held on the questions screen). The spec fixes
 // no wording for the mismatch, confirmation or invalid-credentials texts, so those are asserted by role (alert / status),
 // by count, and by comparing texts with each other.
+// Success is asserted only after the request settles with 200 (change: PUT /api/recovery-questions, spec c4; reset:
+// POST /api/recovery/reset, spec c9). A status region also exists while busy, so "a status is visible" alone would pass
+// while the request is still in flight; after the response, exactly one non-empty status must remain.
 // One serial journey per project, one user per project. Failed recovery attempts per user: 2 (limit 4). IP-level failures
 // in the whole run: 2 projects x (1 wrong change + 1 wrong reset) = 4 (limit 10).
-import type { Page } from '@playwright/test';
+import type { Page, Response } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
@@ -15,12 +18,15 @@ const nick = (page: Page) => page.getByLabel(/כינו אתכם/);
 const street = (page: Page) => page.getByLabel(/רחוב/);
 const saveButton = (page: Page) => page.getByRole('button', { name: 'שמירה', exact: true });
 const resetSubmit = (page: Page) => page.getByRole('button', { name: 'עדכון הסיסמה', exact: true });
-const confirmation = (page: Page) => page.getByRole('status').filter({ hasText: /\S/ });
+const statuses = (page: Page) => page.getByRole('status').filter({ hasText: /\S/ });
 const alertText = async (page: Page) => (await page.getByRole('alert').first().innerText()).trim();
 
 const WRONG = 'wronganswer1';
 const reversed = (s: string) => s.split('').reverse().join('');
 let mismatchOnChange = '';
+
+const answered = (method: string, path: string, status: number) => (r: Response): boolean =>
+  r.request().method() === method && new URL(r.url()).pathname === path && r.status() === status;
 
 async function signIn(page: Page, email: string, password: string): Promise<void> {
   await page.goto('/login');
@@ -97,8 +103,8 @@ test.describe.serial('F1.6 on the Preview [preview-e2e c6 c7 · F1.6 c9 c16 c17 
     expect(mismatchOnChange.length).toBeGreaterThan(0);
     await pet(page).first().fill(testUser.answers.pet);
     await fillNew();
-    await saveButton(page).click();
-    await expect(confirmation(page)).toBeVisible();
+    await Promise.all([page.waitForResponse(answered('PUT', '/api/recovery-questions', 200)), saveButton(page).click()]);
+    await expect(statuses(page)).toHaveCount(1);
     await expect(page.getByRole('alert')).toHaveCount(0);
   });
 
@@ -127,8 +133,8 @@ test.describe.serial('F1.6 on the Preview [preview-e2e c6 c7 · F1.6 c9 c16 c17 
     await pet(page).fill(testUser.answers.pet);
     await street(page).fill(reversed(testUser.answers.nickname));
     await newPassword(page).fill(`${testUser.password}-new`);
-    await resetSubmit(page).click();
-    await expect(confirmation(page)).toBeVisible();
+    await Promise.all([page.waitForResponse(answered('POST', '/api/recovery/reset', 200)), resetSubmit(page).click()]);
+    await expect(statuses(page)).toHaveCount(1);
     await expect(page.getByRole('alert')).toHaveCount(0);
   });
 

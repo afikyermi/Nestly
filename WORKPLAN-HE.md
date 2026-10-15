@@ -30,6 +30,7 @@
   0א. **בוקר 17.10 — רשימת "רק אתה" מהלילה:**
      1. **הכרעה שמורה לך — מחיקת משתמשי הבדיקה (DR-E1, ‏`.work/preview-e2e/schema.md`, סוף הקובץ):** מחיקה דורשת לעקוף RLS על nestly-preview, וזה שינוי במודל האבטחה ("שום דבר לא עוקף RLS"), ולכן ההכרעה שלך. האפשרויות: (1) ‏`postgres` של nestly-preview ב-CI, ב-environment ‏`preview-e2e` בלבד, כחריג מאושר (ההמלצה של DATA ARCHITECT); (2) פונקציית מחיקה צרה כחריג SECURITY DEFINER, שמוחקת רק משתמשי בדיקה לפי התבנית (דורשת migration); (3) בלי מחיקה, ומשתמשי הבדיקה נשארים ב-preview עם תבנית מזהה. **עד ההכרעה E רץ בלי מחיקה, ו-`PREVIEW_DB_ADMIN_URL` לא בשימוש.** תשובה בשורה: "1", "2" או "3".
      2. **‏`PREVIEW_SUPABASE_SECRET_KEY` מיותר** — ‏DATA ARCHITECT בחר במחיקה ב-SQL. אם הזנת אותו, אפשר למחוק אותו מ-`preview-e2e`.
+     3. **דיווח (לא דורש פעולה):** ה-guard חסם את TEST ENGINEER בפעם השלישית במשימה (‏`incidents.md` 01:12). כתיבת `e2e-preview/*.flow.ts` אינה מוכרת כקובץ טסט. העבודה הייתה לגיטימית: הטיוטה הועתקה כלשונה על ידי ORCHESTRATOR. ההקפאה בתוקף, ולכן שורה ב-noise ב-wrap-up בלבד; ההצעה (להכיר ב-`*.flow.ts` כטסט) נכנסת לרטרו.
   1. **קובץ יומן מקומי ישן** `.live/events.jsonl` (טקסט מפרומפטים, לא ב-git): מחיקה היא שלך. אחריה אפשר להסיר את `.live/` מ-`.gitignore`.
   2. **מחיקת ענפים מרוחקים שמוזגו:** ‏`ui-wave-1/part-a` עד `part-e`, ‏`chore/i1-prep`, ‏`chore/guard-env-paths` (מוזג), ‏`chore/preview-access` (הוחלף ב-`-v2` אחרי rebase), ‏`chore/records-after-f12` (מוזג).
   3. **ב-F1.8:** הגדרת Google Cloud והסודות — אנחה אותך צעד-צעד.

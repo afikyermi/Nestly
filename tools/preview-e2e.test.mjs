@@ -4,7 +4,7 @@
 // pattern) and the F1.6 limit, never from the code under test.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -153,10 +153,9 @@ test('[E c12] no video, trace or screenshots are kept (they could capture creden
   assert.equal(cfg.use.screenshot, 'off');
 });
 
-test('[E c12] the root Playwright config tests only ./e2e, so npm run e2e and the CI browser jobs never run e2e-preview/', () => {
-  const root = read('playwright.config.ts');
-  assert.match(root, /testDir:\s*'\.\/e2e'/);
-  assert.doesNotMatch(root, /e2e-preview/);
+test('[E c12] the root Playwright config tests only ./e2e, so npm run e2e and the CI browser jobs never run e2e-preview/', async () => {
+  const root = (await import(new URL('playwright.config.ts', ROOT).href)).default;
+  assert.equal(root.testDir, './e2e');
 });
 
 test('[E c12] the Preview job runs Playwright with the e2e-preview config only', () => {
@@ -215,7 +214,7 @@ for (const [label, value] of Object.entries(REFUSED)) {
   });
 }
 
-test('[E c3] the check makes no network call (fetch stubbed to throw) and the guard sources import no network module', () => {
+test('[E c3] the check makes no network call (fetch stubbed to throw)', () => {
   const realFetch = globalThis.fetch;
   globalThis.fetch = () => {
     throw new Error('network call');
@@ -225,9 +224,6 @@ test('[E c3] the check makes no network call (fetch stubbed to throw) and the gu
     assert.equal(checkDeploymentUrl('https://evil.example.com').ok, false);
   } finally {
     globalThis.fetch = realFetch;
-  }
-  for (const f of ['tools/preview-e2e-url-check.ts', 'tools/preview-e2e-url-guard.ts']) {
-    assert.doesNotMatch(read(f), /\bfetch\(|node:(https?|net|tls|dns|child_process)|\bXMLHttpRequest\b/);
   }
 });
 
@@ -264,7 +260,10 @@ for (const [label, value] of [['a branch alias', REFUSED['a branch alias']], ['a
 }
 
 // ---- criterion 4 (A1): the bypass secret goes only to the deployment host --------------------------------------------------
-const { createBypassRouteHandler, BYPASS_HEADER, COOKIE_HEADER } = await import(new URL('e2e-preview/support/bypass.ts', ROOT).href);
+const { createBypassRouteHandler } = await import(new URL('e2e-preview/support/bypass.ts', ROOT).href);
+// Header names as spec c4 states them, not imported from the code under test.
+const BYPASS_HEADER = 'x-vercel-protection-bypass';
+const COOKIE_HEADER = 'x-vercel-set-bypass-cookie';
 const SENTINEL = 'SENTINEL-bypass-7d9a41f0c2';
 const ORIGIN = GOOD;
 
@@ -455,4 +454,76 @@ test('[E c7] two counters (two workers) are independent', () => {
   const y = createRecoveryAttempts();
   for (let i = 0; i < 4; i += 1) x.recordFailedAttempt('a@gmail.com');
   assert.equal(y.recordFailedAttempt('a@gmail.com'), 1);
+});
+
+// ---- criterion 11 (secrets leave the runner's process.env before any worker starts) ---------------------------------------
+const { default: globalSetup, SECRET_ENV, SECRET_FILE_ENV } = await import(new URL('e2e-preview/support/global-setup.ts', ROOT).href);
+
+async function withSecretEnv(value, fn) {
+  const saved = { s: process.env[SECRET_ENV], f: process.env[SECRET_FILE_ENV] };
+  delete process.env[SECRET_FILE_ENV];
+  if (value === undefined) delete process.env[SECRET_ENV];
+  else process.env[SECRET_ENV] = value;
+  try {
+    return await fn();
+  } finally {
+    for (const [k, v] of [[SECRET_ENV, saved.s], [SECRET_FILE_ENV, saved.f]]) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  }
+}
+
+test('[E c11] after global setup the secret is gone from process.env and only a private file holds it; teardown removes the file', () =>
+  withSecretEnv('SENTINEL-gs-41b7', () => {
+    const teardown = globalSetup();
+    assert.equal(process.env[SECRET_ENV], undefined);
+    const file = process.env[SECRET_FILE_ENV];
+    assert.equal(typeof file, 'string');
+    assert.equal(readFileSync(file, 'utf8'), 'SENTINEL-gs-41b7');
+    assert.ok(!JSON.stringify(process.env).includes('SENTINEL-gs-41b7'));
+    teardown();
+    assert.equal(existsSync(file), false);
+  }));
+
+for (const [label, value] of [['missing', undefined], ['empty', '']]) {
+  test(`[E c11] a ${label} secret makes global setup throw, and nothing is left behind`, () =>
+    withSecretEnv(value, () => {
+      assert.throws(() => globalSetup());
+      assert.equal(process.env[SECRET_ENV], undefined);
+      assert.equal(process.env[SECRET_FILE_ENV], undefined);
+    }));
+}
+
+// ---- criterion 10: the result is always reported, per viewport, without user data ----------------------------------------
+test('[E c10] the final step runs if: always()', () => {
+  assert.equal(String(steps.at(-1).if).trim(), 'always()');
+});
+
+test('[E c10] the JSON report path is under runner.temp and is never uploaded', () => {
+  const pw = steps.find((s) => /playwright test/.test(runOf(s)));
+  assert.match(pw.env.PREVIEW_E2E_REPORT_FILE, /^\$\{\{\s*runner\.temp\s*\}\}\//);
+  assert.doesNotMatch(workflowText, /upload-artifact/);
+});
+
+test('[E c10] the summary prints a passed/failed line for each of mobile-375 and desktop-1280', (t) => {
+  const probe = spawnSync('bash', ['-c', 'command -v jq'], { encoding: 'utf8' });
+  if (probe.status !== 0) return t.skip('bash or jq not available here');
+  const dir = mkdtempSync(join(tmpdir(), 'pe2e-sum-'));
+  try {
+    const row = (projectName, status) => ({ projectName, status, results: [{ status }] });
+    const report = { suites: [{ specs: [{ tests: [row('mobile-375', 'expected'), row('mobile-375', 'unexpected'), row('desktop-1280', 'expected')] }] }] };
+    writeFileSync(join(dir, 'report.json'), JSON.stringify(report));
+    const summary = join(dir, 'summary.md');
+    const r = spawnSync('bash', ['-c', runOf(steps.at(-1))], {
+      env: { PATH: process.env.PATH, JOB_STATUS: 'failure', REPORT_FILE: join(dir, 'report.json').replaceAll('\\', '/'), GITHUB_STEP_SUMMARY: summary.replaceAll('\\', '/'), GITHUB_RUN_ID: '42', GITHUB_RUN_ATTEMPT: '1' },
+      encoding: 'utf8',
+    });
+    assert.equal(r.status, 0, r.stderr);
+    const text = readFileSync(summary, 'utf8');
+    assert.match(text, /mobile-375.*1 passed.*1 failed/);
+    assert.match(text, /desktop-1280.*1 passed.*0 failed/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

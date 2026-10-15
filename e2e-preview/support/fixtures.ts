@@ -7,9 +7,12 @@
 //   baseURL           the validated Preview URL (Playwright's own option): page.goto('/recovery').
 //   page / context    the deployment host gets the Vercel bypass; other hosts (supabase.co) never see it.
 //
-// The bypass secret is read once from the worker's environment and deleted from it, so flow code cannot read it.
+// The bypass secret is never in a worker's environment: support/global-setup.ts removes it from process.env in the runner
+// before any worker is forked, and this fixture reads it from the private temp file that setup wrote.
 
+import { readFileSync } from 'node:fs';
 import { test as base, expect } from '@playwright/test';
+import { SECRET_FILE_ENV } from './global-setup.ts';
 import { createBypassRouteHandler } from './bypass.ts';
 import { createRecoveryAttempts, type RecoveryAttempts } from './recovery-attempts.ts';
 import { generateTestUser, type TestUser } from './test-user.ts';
@@ -35,9 +38,10 @@ export const test = base.extend<object, WorkerFixtures>({
   ],
   bypassSecret: [
     async ({}, use) => {
-      const secret = process.env['VERCEL_AUTOMATION_BYPASS_SECRET'];
-      delete process.env['VERCEL_AUTOMATION_BYPASS_SECRET'];
-      if (secret === undefined || secret === '') throw new Error('preview-e2e: the bypass secret is missing from the environment');
+      const file = process.env[SECRET_FILE_ENV];
+      if (file === undefined || file === '') throw new Error('preview-e2e: the bypass secret file is missing (global setup did not run)');
+      const secret = readFileSync(file, 'utf8');
+      if (secret === '') throw new Error('preview-e2e: the bypass secret is empty');
       await use(secret);
     },
     { scope: 'worker' },
