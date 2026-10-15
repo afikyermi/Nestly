@@ -67,7 +67,7 @@ const noPlatformValue = [
   { group: ["@/platform", "@/platform/**", "**/platform", "**/platform/**"], allowTypeImports: true, message: "Hooks, services and lib may import only types from platform/. Wire the adapter in app/ or main.tsx and pass it in." },
 ];
 const noPlatformUp = [
-  { group: ["@/services", "@/services/**", "@/features/**", "@/hooks/**", "@/app/**", "@/pages/**", "@/components/**", "**/services/**", "**/features/**", "**/hooks/**", "**/app/**"], message: "platform/ imports nothing above it: it declares its own small types." },
+  { group: ["@/services", "@/services/**", "@/features/**", "@/hooks/**", "@/app/**", "@/pages/**", "@/components/**", "@/lib/**", "**/services/**", "**/features/**", "**/hooks/**", "**/app/**", "**/lib/**"], message: "platform/ imports nothing above it: it declares its own small types." },
 ];
 
 // esquery regex literals cannot hold '/', so '#' stands for it and becomes '[/]'.
@@ -79,7 +79,7 @@ const dynamicImport = (pattern, message) => ({
 const dynNoServer = dynamicImport("^@nestly#server|apps#server|server#src|server#api", noServerImport[0].message);
 const dynNoWeb = dynamicImport("^@nestly#web|apps#web|web#src", noWebImport[0].message);
 const dynNoPlatform = dynamicImport("(^|#)platform($|#)", noPlatformValue[0].message);
-const dynNoPlatformUp = dynamicImport("(^|#)(services|features|hooks|app|pages|components)($|#)", noPlatformUp[0].message);
+const dynNoPlatformUp = dynamicImport("(^|#)(services|features|hooks|app|pages|components|lib)($|#)", noPlatformUp[0].message);
 const dynNoReactDom = dynamicImport("^react-dom", noReactDom[0].message);
 const dynNoApps = dynamicImport("^@nestly#(web|server)|(^|#)apps#", noAppsImport[0].message);
 const dynNoSharedUi = dynamicImport("(^|#)(features|services)($|#)", noSharedUi[0].message);

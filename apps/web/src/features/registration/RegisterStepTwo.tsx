@@ -3,22 +3,20 @@ import { useLinkClickHandler } from 'react-router';
 import type { RegistrationStep1 } from '@nestly/shared';
 import { PATHS } from '@/app/paths';
 import { AuthLayout } from '@/components/layout/auth-layout';
-import { FieldError } from '@/components/shared/field-message';
 import { FormField } from '@/components/shared/form-field';
 import { RegistrationIllustration } from '@/components/shared/illustrations';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { PasswordInput } from '@/components/shared/password-input';
 import { StepIndicator } from '@/components/shared/step-indicator';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { ArrowBackIcon } from '@/components/ui/icons';
 import { TextInput } from '@/components/ui/text-input';
 import type { SignUpResponse } from '@/services/auth/auth-client';
 import { useAuthPort } from '@/hooks/use-auth-port';
 import { useSessionEntry } from '@/hooks/use-session-entry';
 import { registerAccount, type RegisterOutcome } from '@/services/api/register-account';
+import { ConsentField } from './ConsentField';
 import {
-  CONSENT_REQUIRED_TEXT,
   GENERIC_ERROR_TEXT,
   PASSWORD_LENGTH_TEXT,
   RATE_LIMITED_TEXT,
@@ -55,8 +53,6 @@ const OUTCOME_NOTICE: Record<Exclude<RegisterOutcome, 'created'>, Notice> = {
   unavailable: 'retry',
   failed: 'generic',
 };
-
-const LINK = 'text-primary-strong underline underline-offset-4';
 
 // Registration step 2 (FR-REG-004): email, password and one consent. Sign-up goes to Auth from here, then the new session
 // calls our server. The session token and the password live in this component's memory only; nothing is stored (Q7).
@@ -209,25 +205,7 @@ export function RegisterStepTwo({ step1, email, onEmailChange, onBack }: Registe
               />
             )}
           </FormField>
-          <div className="flex flex-col gap-1.5">
-            <Checkbox
-              checked={consent}
-              error={consentError}
-              aria-describedby={consentError ? consentErrorId : undefined}
-              onCheckedChange={setConsent}
-            >
-              אישור{' '}
-              <a href={PATHS.terms} target="_blank" rel="noopener noreferrer" className={LINK}>
-                תנאי השימוש
-              </a>
-              {' '}ו
-              <a href={PATHS.privacy} target="_blank" rel="noopener noreferrer" className={LINK}>
-                מדיניות הפרטיות
-              </a>
-              , והצהרה על גיל 18 ומעלה
-            </Checkbox>
-            {consentError ? <FieldError id={consentErrorId}>{CONSENT_REQUIRED_TEXT}</FieldError> : null}
-          </div>
+          <ConsentField checked={consent} error={consentError} errorId={consentErrorId} onCheckedChange={setConsent} />
           {notice !== null ? (
             <div className="flex flex-col items-start gap-2">
               <InlineAlert>{noticeText[notice]}</InlineAlert>

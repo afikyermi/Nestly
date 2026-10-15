@@ -85,3 +85,31 @@ The rejection log in authentication.ts no longer logs the error object (its jose
 - F3: (1) lint: hooks/services/lib/`use-*`/`app/*.ts` may import `@/platform/*` only as types (static `allowTypeImports`, dynamic import banned); `platform/**` capped at 60 code lines and may not import services, features, hooks, app, pages or components. (2) Wiring moved into `app/App.tsx` (real Auth port, session source, adapters); `services/auth/browser-auth-port.ts` and `services/session/production-session-source.ts` deleted. `AuthPortContext` default is now an unconfigured port (no request); `App` always provides the real or the injected port; `main.tsx` passes a session source only in the e2e mode. (3) `windowBrowserEvents(storageKey)` takes the key as a parameter; platform declares its own `StorageLike`. (4) Conventions text: `knowledge-proposal.md` section 3.
 - Tests touched: none edited. Moved modules `browser-auth-port.ts` and `production-session-source.ts` had no imports in tests.
 - Tests that assert the old behaviour and now fail (6, TEST ENGINEER to update to Amendment 1): `access-decision.test.ts` (`/terms`, `/privacy` redirect); `auth-client.test.ts` ("refresh refused" expects event `signed-out`, now `refresh-refused`); `auth-session-source.test.tsx` ("/api/me unreachable ... retries after 15 s": delay is now jittered; "/api/me failed ... stays loading": now signed-out; "[c12] Auth reports the session ended": emit `refresh-refused` for `expired`, `signed-out` gives no notice).
+
+# Part c — login screen, completion mode, E2E seam
+
+**Approach**  `/login` is `features/login/LoginForm.tsx` (page `LoginPage`), over `useSessionAccount().signInWithPassword`; messages come from `login-form.ts` (problem or notice -> Hebrew text). Completion mode: `RegisterPage` reads the session and hands `completion` to `RegistrationFlow`; step 1 gets the completion heading and "התנתקות", step 2 is the new `RegisterConsentStep` (consent only, `POST /api/register` with `getAccessToken()`). The consent checkbox is extracted to `ConsentField` and shared with step 2 (same DOM).
+
+**Decisions**
+- Completion mode is chosen by the page, not by `RegistrationFlow` reading the session, because existing registration tests render the flow without a session provider.
+- Leaving /register when completion ends is the page's effect on the transition `signed-in-no-account` -> `signed-out`: `/login` if a notice exists (stopped, expired) or the server refused the session (401), `/` on a plain logout. Needed because /register is a Guest path, so the guard would otherwise show ordinary registration.
+- Consent-step heading and title: the spec gives none; I used "השלמת ההרשמה" with step 2's own line "עוד רגע מסיימים." rather than inventing copy.
+- Login email check reuses the shared credentials schema with a filler password (only the email verdict is read), so VAL-002 stays one rule. The shared texts moved to `lib/auth-texts.ts` (a Feature must not import a Feature); registration re-exports them.
+- The message wrapper (`div tabindex=-1`) takes focus, since `InlineAlert` is not focusable; the message sits above the fields.
+- E2E seam: in the existing e2e build, `window.nestlyRealSession = true` (set by `addInitScript`) skips the controllable source. No second build and no new output directory (the credentials scan skips only `dist-e2e`). Stripped from production like the rest of that branch.
+
+**Deviations**  None. Criterion 17 needed no code (the links already target `/login` and `/recovery`).
+
+**Deliberately not done**  No tests (TEST ENGINEER). No story for `LoginForm` or `RegisterConsentStep` (features, not components; `check:stories` passes). The session notice is not cleared on leaving `/login` (clearing on unmount would break under StrictMode).
+
+**Uncertain**
+- Not run in a browser: typecheck, lint, budgets, stories and the 815 existing web tests pass (none edited). Focus on the message, aria-busy and the completion redirects are by reading, not observed. A scratch component test I tried was blocked by the guard (BUILDER writes no tests), so the screen has no new test yet.
+- A 409 whose `recheck()` cannot reach the server shows the retry text; pressing the button repeats (409, recheck).
+- A stopped account found by a tab-visible re-check while on /register in completion mode goes to `/login` with the stopped text (page effect).
+- `autocomplete=username` with password managers is unverified.
+
+**Preview path**  375 and 1024: open `/login`, submit empty (two errors, focus on email); wrong password (one alert, email kept, password empty, focus on the alert); correct credentials (lands on `/feed`); reload `/feed` (still in); menu "התנתקות" (Welcome, Back shows no protected screen). Orphan: an Auth user without an account signs in at `/login` and reaches "השלמת ההרשמה"; step 1, consent, "יצירת חשבון" -> `/feed`. Stopped account: needs a fixture account with status suspended (stopped text, stays on `/login`). Known not to work yet: "שכחתי סיסמה" is the placeholder (F1.6); Google sign-in (F1.8).
+
+**Tests to add or update (TEST ENGINEER)**  E2E for criteria 10 and 14 with the seam above; the `e2e/register-step2.spec.ts` items listed under part b; axe at 375 and 1024 for the criterion 20 list; component tests for criteria 5, 6, 8, 11 (screen side), 16, 18, 19.
+
+**Neighbouring**  None new.

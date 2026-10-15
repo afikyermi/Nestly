@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router';
 import { localDateIso, type RegistrationStep1 } from '@nestly/shared';
 import { PATHS } from '@/app/paths';
 import { documentTitle } from '@/lib/document-title';
+import { RegisterConsentStep } from './RegisterConsentStep';
 import { RegisterStepOne } from './RegisterStepOne';
 import { RegisterStepTwo } from './RegisterStepTwo';
 import { EMPTY_STEP1_FORM, type Step1Form } from './step1-form';
@@ -10,6 +11,8 @@ import { EMPTY_STEP1_FORM, type Step1Form } from './step1-form';
 export interface RegistrationFlowProps {
   /** The calendar date used to judge dates, YYYY-MM-DD. Default: the device's local date when "המשך" is pressed (Q6). */
   today?: string;
+  /** Completion mode (F1.5, DR-2): the user signed in but never created the account. Step 2 becomes the consent alone. */
+  completion?: { onSignOut: () => void; onUnauthenticated: () => void };
 }
 
 // Step 2 is a second history entry on the same URL, marked by this state: the browser Back button returns to step 1.
@@ -22,7 +25,7 @@ function isStepTwoEntry(state: unknown): boolean {
 // The registration flow (UC-01): owns step-1 data in React state of this tab only (Q1). Nothing is stored; step 2 sends it; leaving
 // /register or reloading discards it. Step 2 shows only while the parsed value is in memory, so a reload or a browser
 // Forward onto a step-2 entry lands on an empty step 1.
-export function RegistrationFlow({ today }: RegistrationFlowProps) {
+export function RegistrationFlow({ today, completion }: RegistrationFlowProps) {
   const [form, setForm] = useState<Step1Form>(EMPTY_STEP1_FORM);
   const [parsed, setParsed] = useState<RegistrationStep1 | null>(null);
   // Kept here so it survives Back and a return to step 2; the password is step 2's own and does not (F1.4 criterion 19).
@@ -34,8 +37,15 @@ export function RegistrationFlow({ today }: RegistrationFlowProps) {
 
   return (
     <main tabIndex={-1}>
-      <title>{documentTitle(stepTwoValue !== null ? 'פרטי התחברות' : 'פרטים אישיים')}</title>
-      {stepTwoValue !== null ? (
+      <title>{documentTitle(completion !== undefined ? 'השלמת ההרשמה' : stepTwoValue !== null ? 'פרטי התחברות' : 'פרטים אישיים')}</title>
+      {stepTwoValue !== null && completion !== undefined ? (
+        <RegisterConsentStep
+          step1={stepTwoValue}
+          onBack={() => void navigate(-1)}
+          onSignOut={completion.onSignOut}
+          onUnauthenticated={completion.onUnauthenticated}
+        />
+      ) : stepTwoValue !== null ? (
         <RegisterStepTwo step1={stepTwoValue} email={email} onEmailChange={setEmail} onBack={() => void navigate(-1)} />
       ) : (
         <RegisterStepOne
@@ -45,6 +55,7 @@ export function RegistrationFlow({ today }: RegistrationFlowProps) {
             setForm(next);
             setParsed(null);
           }}
+          {...(completion !== undefined ? { completion: { onSignOut: completion.onSignOut } } : {})}
           getToday={() => today ?? localDateIso(new Date())}
           onValid={(value) => {
             setParsed(value);

@@ -48,11 +48,13 @@ export interface RegisterStepOneProps {
   getToday: () => string;
   /** Called with the parsed value when the form is valid. */
   onValid: (value: RegistrationStep1) => void;
+  /** Completion mode (F1.5): the user is signed in without an account. Own heading and text, and "התנתקות" instead of the way back. */
+  completion?: { onSignOut: () => void };
 }
 
 // Registration step 1 (FR-REG-002): stage, name, parent gender and, under "בהריון", a due date. Errors appear on the
 // first "המשך" and are recomputed on every change after it, so one clears as soon as its field is valid.
-export function RegisterStepOne({ form, onFormChange, getToday, onValid }: RegisterStepOneProps) {
+export function RegisterStepOne({ form, onFormChange, getToday, onValid, completion }: RegisterStepOneProps) {
   const toWelcome = useLinkClickHandler(PATHS.welcome);
   const formRef = useRef<HTMLFormElement>(null);
   const [attempts, setAttempts] = useState(0);
@@ -98,20 +100,33 @@ export function RegisterStepOne({ form, onFormChange, getToday, onValid }: Regis
   return (
     <form ref={formRef} noValidate onSubmit={onSubmit}>
       <AuthLayout
-        back={
-          <Button iconOnly label="חזרה" href={PATHS.welcome} onClick={toWelcome}>
-            <ArrowBackIcon />
-          </Button>
-        }
+        {...(completion === undefined
+          ? {
+              back: (
+                <Button iconOnly label="חזרה" href={PATHS.welcome} onClick={toWelcome}>
+                  <ArrowBackIcon />
+                </Button>
+              ),
+            }
+          : {})}
         actions={
-          <Button type="submit" size="lg" block>
-            המשך
-          </Button>
+          <>
+            <Button type="submit" size="lg" block>
+              המשך
+            </Button>
+            {completion !== undefined ? (
+              <Button variant="text" onClick={completion.onSignOut} className="self-center">
+                התנתקות
+              </Button>
+            ) : null}
+          </>
         }
       >
         <StepIndicator current={1} total={2} />
-        <h1 className="mt-4 mb-1 text-h1">פרטים אישיים</h1>
-        <p className="mb-5 text-body text-muted-foreground">כדי שהתוכן יתאים למסע.</p>
+        <h1 className="mt-4 mb-1 text-h1">{completion !== undefined ? 'השלמת ההרשמה' : 'פרטים אישיים'}</h1>
+        <p className="mb-5 text-body text-muted-foreground">
+          {completion !== undefined ? 'ההרשמה הקודמת לא הסתיימה. עוד רגע מסיימים.' : 'כדי שהתוכן יתאים למסע.'}
+        </p>
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-1.5">
             <ChoiceCardGroup

@@ -173,8 +173,11 @@ export function createAuthPort(
       fetch: observedFetch,
     });
     created.onAuthStateChange((event) => {
-      if (event === 'TOKEN_REFRESHED') emit('refreshed');
-      else if (event === 'SIGNED_OUT') {
+      if (event === 'TOKEN_REFRESHED') {
+        // A refresh that worked ends any earlier refusal, so the flag cannot colour an unrelated sign-out later.
+        refreshRefused = false;
+        emit('refreshed');
+      } else if (event === 'SIGNED_OUT') {
         emit(refreshRefused ? 'refresh-refused' : 'signed-out');
         refreshRefused = false;
       }
