@@ -558,7 +558,6 @@ function isFile(p) {
 
 // Read, Grep and Glob of CRITIC (R1) and TEST ENGINEER (R1, R2) are judged by path alone.
 function checkReadPath(role, tool, input, ctx) {
-  const te = role === 'test-engineer';
   const who = role === 'test-engineer' ? 'TEST ENGINEER' : 'CRITIC';
 
   if (tool === 'Read' || tool === 'NotebookRead') {
@@ -605,8 +604,8 @@ function testEngineerMayWrite(r) {
   return isTestPath(r) || /^\.work\/[^/]+\/[^/]+\.md$/.test(r);
 }
 
-// TEST ENGINEER's one shell use: a single test, typecheck or lint run (round 4, dev-speed). tsc takes one -p <tsconfig*.json>
-// and no files; the others take explicit test files.
+// TEST ENGINEER's one shell use: a single test, typecheck or lint run (round 4, dev-speed). tsc takes one -p <tsconfig*.json>,
+// never under node_modules/ or .claude/, and must carry --noEmit (Amendment 1); the others take explicit test files.
 const RUNNERS = {
   vitest: {
     head: ['npx', 'vitest', 'run'],
@@ -620,16 +619,16 @@ const RUNNERS = {
     head: ['node', '--test'],
     flags: [/^--test-name-pattern=.+$/, /^--test-reporter=(spec|dot|tap)$/],
   },
-  tsc: { head: ['npx', 'tsc'], flags: [/^--noEmit$/], project: true },
+  tsc: { head: ['npx', 'tsc'], flags: [/^--noEmit$/], project: true, required: '--noEmit' },
   eslint: { head: ['npx', 'eslint'], flags: [/^--max-warnings=0$/, /^--no-color$/] },
 };
 
 const BASH_FORMS =
   'TEST ENGINEER runs one command at the project root, nothing else: `npx vitest run <files>`, `npx playwright test <files>`, `node --test <files>`, ' +
-  '`npx eslint <files>` or `npx tsc -p <path>/tsconfig*.json` (an existing relative path inside the project, no ..). ' +
+  '`npx eslint <files>` or `npx tsc -p <path>/tsconfig*.json --noEmit` (--noEmit required; an existing relative path inside the project, no .., not under node_modules/ or .claude/). ' +
   'Files are explicit relative paths of existing *.test.* / *.spec.* files outside apps/*/src and apps/*/api; no globs, quotes, pipes, `cd` or variables. ' +
   'Flags (--name=value only): vitest --reporter=default|verbose|dot --bail=N --no-color --testNamePattern=X; playwright --project=X --grep=X --reporter=list|line|dot --workers=N; ' +
-  'node --test-name-pattern=X --test-reporter=spec|dot|tap; eslint --max-warnings=0 --no-color; tsc --noEmit.';
+  'node --test-name-pattern=X --test-reporter=spec|dot|tap; eslint --max-warnings=0 --no-color; tsc --noEmit (required).';
 
 function checkTestEngineerBash(command, ctx) {
   const s = String(command);
@@ -647,11 +646,13 @@ function checkTestEngineerBash(command, ctx) {
     } else files.push(t);
   }
   if (runner.project ? projects.length !== 1 || files.length : !files.length) return BASH_FORMS;
+  if (runner.required && !rest.includes(runner.required)) return BASH_FORMS;
   const plain = (f) => !path.isAbsolute(f) && !/^[A-Za-z]:/.test(f) && !f.split('/').includes('..') && isFile(abs(f, ctx.root));
   for (const p of projects) {
     const full = abs(p, ctx.root);
     if (!/^tsconfig[^/]*\.json$/i.test(path.posix.basename(p)) || !plain(p) || outsideRoot(full, ctx)) return BASH_FORMS;
-    if (relBoth(full, ctx).some(isNotes)) return BASH_FORMS;
+    const shut = (r) => r.split('/').some((seg) => seg === 'node_modules' || seg === '.claude');
+    if (relBoth(full, ctx).some((r) => isNotes(r) || shut(r))) return BASH_FORMS;
   }
   for (const f of files) {
     if (!TEST_FILE.test(f) || !plain(f)) return BASH_FORMS;

@@ -32,3 +32,11 @@
 **Preview path** none (agent-team guardrail). Check: the five guard test files, critic-diff.test.mjs, check:budgets, lint.
 
 **Neighbouring** none.
+
+## Fix round (CRITIC medium 2, low 3, low 4 / Amendment 1)
+- guard.js: unused `te` removed. tsc runner carries `required: '--noEmit'`; the form without it is refused. A `-p` path with a
+  `node_modules` or `.claude` segment at any depth (either relBoth form, so a symlink cannot hide it) is refused. BASH_FORMS says so. 891 lines.
+- critic-diff.mjs: when package-lock.json is in the change set, review.diff ends with the summary block (+N/-M from `--numstat`,
+  then every changed "version"/"resolved"/"integrity" line verbatim). Only the exact file headers (`--- a/…`, `+++ b/…`, `/dev/null`)
+  are skipped, so a content line is never dropped for starting with `---`. A failure computing it falls into the existing fail-closed catch.
+- Uncertain: a branch that changes only package-lock.json still exits 1 ("no reviewable files"), so it gets no summary, only a failed run.

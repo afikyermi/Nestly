@@ -119,7 +119,7 @@ A checklist that only grows becomes a ritual. Each agent has a cap.
 | DATA ARCHITECT | 12 | 10 (v1.1) |
 | BUILDER | 12 | 12 (v1.2 — at budget) |
 | SCOUT | 6 | 5 |
-| CRITIC | 20 | 19 (v1.4: design consistency added) |
+| CRITIC | 20 | 20 (v1.6: expected values trace to the spec — at budget) |
 | TEST ENGINEER | 10 categories | 6 |
 | ALGORITHM & DATA | 12 | 10 |
 

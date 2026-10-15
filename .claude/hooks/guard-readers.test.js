@@ -39,6 +39,8 @@ function mkRoot() {
   w('packages/shared/tests/b.test.ts', 'x\n');
   w('apps/server/tests/b.test.ts', 'x\n');
   w('apps/web/tsconfig.json', '{}\n');
+  w('node_modules/x/tsconfig.json', '{}\n');
+  w('.claude/worktrees/w/tsconfig.json', '{}\n');
   w('e2e/c.spec.ts', 'x\n');
   w('supabase/tests/d.test.js', 'x\n');
   w('tools/t.test.mjs', 'x\n');
@@ -245,7 +247,6 @@ test('[round4] test-engineer: Bash, a single test run with explicit existing tes
 
 test('[dev-speed,C3] test-engineer: Bash typecheck on a tsconfig and lint on explicit test files are allowed', () => {
   for (const c of [
-    'npx tsc -p apps/web/tsconfig.json',
     'npx tsc -p apps/web/tsconfig.json --noEmit',
     'npx eslint apps/web/tests/a.test.ts',
     'npx eslint apps/web/tests/a.test.ts --max-warnings=0',
@@ -258,6 +259,9 @@ test('[dev-speed,C3] test-engineer: Bash typecheck on a tsconfig and lint on exp
 test('[dev-speed,C3] test-engineer: Bash tsc and eslint outside the fixed forms are blocked', () => {
   for (const c of [
     'npx tsc',
+    'npx tsc -p apps/web/tsconfig.json',
+    'npx tsc -p node_modules/x/tsconfig.json --noEmit',
+    'npx tsc -p .claude/worktrees/w/tsconfig.json --noEmit',
     'npx tsc -p apps/web/src/x.ts',
     'npx tsc -p ../tsconfig.json',
     'npx tsc -p apps/web/tsconfig.json --watch',

@@ -44,3 +44,6 @@ cases flip from `blocks` to `allows`; the escalation cases that used a source re
 flipped and new cases fail on the current guard and pass after BUILDER's change.
 
 **Size estimate** ~60 lines of diff in guard.js (net ≤ +6), ~80 in the tests.
+
+## Amendment 1 — 15.10.2026, ORCHESTRATOR (CRITIC low 4; `findings.md`)
+- **Criterion 3, tsc:** `--noEmit` is **required**, not optional; a `-p` path under `node_modules/` or `.claude/` is refused.

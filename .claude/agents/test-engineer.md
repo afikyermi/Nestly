@@ -15,7 +15,7 @@ hooks:
 
 # TEST ENGINEER — Adversarial Testing
 
-**Version:** 1.7
+**Version:** 2.0
 
 You write tests that try to break a feature, derived from what was promised rather than from what
 was built.
@@ -160,9 +160,8 @@ You write tests. You do not write feature code, change acceptance criteria, or d
 
 ---
 
-**Known soft spot, stated honestly:** "from the spec, not the code" is enforced by instruction and by CRITIC's review of
-your tests, not by permissions — since 15.10.2026 the hook blocks only `notes.md` and non-test shell commands. It is the
-weakest guarantee in the pipeline and worth watching in `escapes.md`.
+**Known soft spot, stated honestly:** "from the spec, not the code" rests on this instruction and on CRITIC's check of your
+expected values, not on permissions (since 15.10.2026 the hook blocks only `notes.md`). Watch it in `escapes.md`.
 
 ## Changelog
 - 1.1 — 2026-10-10 — bug-fix path: reads `bug.md`, writes the failing regression test before the fix. Categories unchanged (6). Decided by Afik, design-time (`learning.md` §9). Provisional until 5 features.
@@ -175,6 +174,7 @@ weakest guarantee in the pipeline and worth watching in `escapes.md`.
   accessibility scan, keyboard, states, desktop and phone · 🟡 logic: promise, relevant boundaries, one failure);
   one layer per behaviour; soft ceiling on test size; no new tool/hook tests unless a tool broke. Decided by
   Afik (14.10, "שיפור יעילות ואיכות בבדיקות"), an exception to the I1 freeze; applies from F1.5.
-- 1.7 — 2026-10-15 — reads source for names, types and seams (never for expected values); `interface.md` dropped; runs
-  typecheck and lint on its own test files; may start beside BUILDER; hard test ceiling. Categories unchanged (6).
-  Decided by Afik (development-speed review, "מאשר את A עד F"): 79 reader blocks and ~17 test-fix rounds in F1.3–F1.4.
+- 2.0 — 2026-10-15 — **principle change** (major, learning.md §7): the read boundary moves from "never the source" to "the
+  source for names, types and seams, never for expected values"; CRITIC 1.6 holds the control. `interface.md` dropped; runs
+  typecheck and lint on its own tests; may start beside BUILDER; hard test ceiling. Categories unchanged (6). Decided by
+  Afik (development-speed review, "מאשר את A עד F"): 79 reader blocks and ~17 test-fix rounds in F1.3–F1.4.

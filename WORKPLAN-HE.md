@@ -29,7 +29,8 @@
   1. **קובץ יומן מקומי ישן** `.live/events.jsonl` (טקסט מפרומפטים, לא ב-git): מחיקה היא שלך. אחריה אפשר להסיר את `.live/` מ-`.gitignore`.
   2. **מחיקת ענפים מרוחקים שמוזגו:** ‏`ui-wave-1/part-a` עד `part-e`, ‏`chore/i1-prep`, ‏`chore/guard-env-paths` (מוזג), ‏`chore/preview-access` (הוחלף ב-`-v2` אחרי rebase), ‏`chore/records-after-f12` (מוזג).
   3. **ב-F1.8:** הגדרת Google Cloud והסודות — אנחה אותך צעד-צעד.
-  4. **ל-E (PR 2, אנחה אותך כשה-workflow מוכן):** חשבון בדיקה ב-nestly-preview — הרשמה רגילה דרך ה-Preview עם אימייל ייעודי וסיסמה אקראית (אחרי F1.6: גם שתי תשובות לשאלות השחזור), ושני סודות ב-GitHub עם האימייל והסיסמה (איזה סוג סוד — לפי ביקורת CRITIC על ה-workflow).
+  4. **מחיקת worktrees ישנים של סוכנים** תחת `.claude/worktrees/` (שניים, מ-14.10; לא ב-git): ‏CRITIC מצא שהם מחזיקים עותקי `notes.md` שה-guard לא מכסה (‏`debt.md` 15.10). הפקודה: `git worktree remove --force .claude/worktrees/<name>` לכל אחד, ואז `git worktree prune`.
+  5. **ל-E (PR 2, אנחה אותך כשה-workflow מוכן):** חשבון בדיקה ב-nestly-preview — הרשמה רגילה דרך ה-Preview עם אימייל ייעודי וסיסמה אקראית (אחרי F1.6: גם שתי תשובות לשאלות השחזור), ושני סודות ב-GitHub עם האימייל והסיסמה (איזה סוג סוד — לפי ביקורת CRITIC על ה-workflow).
 - **פתוח, בלי הכרעה עכשיו:** הערות GitHub בריצת migrate (15.10): ‏`actions/checkout@v4` ו-`setup-node@v4` רצים על Node 20 שיוצא משימוש — לעדכן גרסאות (יחד עם נעילת SHA שב-debt, low 7); ‏`ubuntu-latest` עובר ל-Ubuntu 26 ב-19.10 — לבדוק את ריצת ה-CI הראשונה אחריו (התקנת Chrome/Edge ו-Supabase CLI) · החלטות המדיה M1–M6 לפני I5 · תקציב לביקורת משפטית לפני I9 · אם בניות ש-Vercel דילג עליהן נספרות במגבלה, עוברים ל-`git.deploymentEnabled`.
 - **התקדמות מוצר (שורה לכל סשן):**
   - 15.10 (ערב, סשן הסקירה): אין — סקירת מהירות הפיתוח, ‏A–F אושרו ונבנו (‏`chore/dev-speed`); ‏F1.6 נמשך בסשן שלו.

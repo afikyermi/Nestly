@@ -6,8 +6,8 @@ Social platform. Solo founder, zero budget. The agent team is a tool for shippin
 it holds what is open, the last part finished, what waits on Afik and the next task; closed parts move to
 `archive/WORKPLAN-<YYYY-MM>.md`. Update it at the end of every step, in the same commit as the work. No other status
 or progress file.
-**Commits and pushes:** a log, decision or WORKPLAN update never gets a commit of its own — it rides with the next
-work commit. Commit locally as often as useful; push only when CI is needed, at the end of a stage, or at the end of a
+**Commits and pushes:** a log, decision or WORKPLAN update rides with the next work commit; between features it goes
+as a records-only PR (Light), never as a direct push to `main`. Commit locally as often as useful; push only when CI is needed, at the end of a stage, or at the end of a
 session (each push to a PR branch costs a CI run and a Vercel deploy from a daily quota). Merges are squash; the PR body
 carries the `Implements:` line.
 **Operating model:** `.claude/workflow.md` is the canonical pipeline. Read it before routing work.
@@ -109,7 +109,7 @@ Pick one per unit of work. When in doubt, go up a level, never down.
 
 | Path | When |
 |---|---|
-| **Light** | all hold: no schema change · no authz · no unauthenticated endpoint or new external surface · no new dependency · under ~30 lines · no risk flag. A records-only change (docs/srs, WORKPLAN, decisions, logs, `.work`) is Light whatever its size |
+| **Light** | all hold: no schema change · no authz · no unauthenticated endpoint or new external surface · no new dependency · under ~30 lines · no risk flag. A records-only change (WORKPLAN, decisions, logs, `.work`) is Light whatever its size — with the open PR, or its own PR on green CI; the per-Initiative SRS update is Standard |
 | **Standard** | default |
 | **Elevated** | any risk flag below is true |
 | **Bug fix** | merged code behaves differently from the SRS or an approved spec; risk flags still apply |
@@ -311,10 +311,12 @@ and `settings.json` prompts on `.claude/**` to enforce it.
 ## Report material failures to Afik
 
 Not only security. Also: migration failed mid-run · CI red on main · CI red over 24h ·
-deploy or preview failed · a hook block that names production, a real secret or a force push · an external dependency
-is down · an agent looped or repeated the same failure three times. Every other hook block — an env-glob ambiguity, a
-placeholder read as a secret, a reader block — is only counted by `/wrap-up`; when it blocked legitimate work it gets
-one `noise.md` line. The guard's own `incidents.md` line stands as written; nobody adds a resolution line.
+deploy or preview failed · a hook block that names production, a real secret, an env-file read or a force push, and
+the guard's escalation on the third reader block by one role in one task · an external dependency is down · an agent
+looped or repeated the same failure three times. Every other hook block — an env-glob ambiguity (a jq filter read as a
+path), a placeholder read as a secret, a reader block below the escalation — is only counted by `/wrap-up`; when it
+blocked legitimate work it gets one `noise.md` line. The guard's own `incidents.md` line stands as written; nobody adds
+a resolution line — the cause goes in the report to Afik.
 
 ---
 
