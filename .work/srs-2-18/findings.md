@@ -14,3 +14,8 @@ Check 1 (each decision lands faithfully): passed for every decision listed, with
 6. low — three details were filled in that no decision states: ERR-039 (the "unsupported" message also used when the blur fails), ERR-040 ("when the next is possible") and FR-MENU-002 ("on desktop the number is shown"). Fix: leave the wording to the spec, or drop the details. **Fixed.**
 7. low — the version date reads 15.10 in the INDEX and the info table, while the history row reads 16.10. **Fixed.**
 8. low (concern) — the Stories audience cites FR-PRIV-001, which covers profile visibility, not a default audience for posts. Fix: confirm the source, or reword. **Fixed: no FR defines a post audience. The text now says so and points to the new OP-033.**
+
+## Re-check (CRITIC, sonnet, fresh run, on 673ce23)
+
+verdict: Validated — items 1–8 fixed; no fix filled an undecided point, broke a reference or missed the history row.
+Residue (not raised): ERR-039 still names "the resize or blur failed" as a case — follows from BR-076, no copy invented.
