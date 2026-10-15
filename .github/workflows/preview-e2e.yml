@@ -1,0 +1,66 @@
+# preview-e2e - walks a flow against every successful Vercel Preview deployment (Afik, 16.10.2026: automated Preview
+# E2E; .work/preview-e2e/spec.md). Real Supabase Auth, the real server and the deployed web app, on Chrome at 375x812
+# and 1280x800.
+#
+# Trigger: deployment_status only; the job runs when the state is success, the environment is Preview and the status
+# was posted by vercel[bot]. The result is this run's own check on the deployment sha (Gate 1 amendment A3); no extra
+# permission until a real run shows it missing from the pull request.
+#
+# Secrets: the Vercel bypass secret is in the env of the one step that sends it. The deployment URL reaches the guard
+# through env, is checked before anything else runs, and the Playwright step receives only the checked URL. The flows
+# get only a generated user and that URL; the bypass goes to the deployment host only (e2e-preview/support/bypass.ts).
+#
+# NOT YET: test users are not deleted after a run (the cleanup route awaits Afik's decision DR-E1). Each run leaves
+# its users on nestly-preview, tagged by the nestly-e2e-<run>-<attempt>-<hex>@gmail.com pattern. No step here reads a
+# database URL or an admin key.
+
+name: preview-e2e
+
+on:
+  deployment_status:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-e2e
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    name: preview-e2e
+    if: github.event.deployment_status.state == 'success' && github.event.deployment_status.environment == 'Preview' && github.event.deployment_status.creator.login == 'vercel[bot]'
+    environment: preview-e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.deployment.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Check the deployment URL
+        id: guard
+        env:
+          TARGET_URL: ${{ github.event.deployment_status.target_url }}
+        run: node tools/preview-e2e-url-guard.ts
+      - run: npm ci
+      - run: npx playwright install --with-deps chrome
+      - name: Walk the flows on the preview
+        timeout-minutes: 12
+        env:
+          PREVIEW_E2E_BASE_URL: ${{ steps.guard.outputs.base_url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: npx playwright test -c e2e-preview/playwright.config.ts
+      - name: Summary
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "preview-e2e: ${JOB_STATUS} (run ${GITHUB_RUN_ID}, attempt ${GITHUB_RUN_ATTEMPT})"
+            echo "Test users are NOT yet deleted (decision DR-E1 pending): this run's users stay on nestly-preview, tagged nestly-e2e-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-*."
+          } >> "${GITHUB_STEP_SUMMARY}"
