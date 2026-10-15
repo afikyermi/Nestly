@@ -119,6 +119,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-15 | Visual regression tolerance starts tight (maxDiffPixelRatio 0.0005); loosened only after observed CI flake, cited | 10 |
 | 2026-10-15 | F1.4: Auth 5xx/network → retry state; unmapped Auth 4xx → fallback without retry | 10 |
 | 2026-10-15 | F1.4: while a sign-up token is held, email and password are read-only (no silent second Auth user) | 10 |
+| 2026-10-15 | Edge after the merge to main and by hand, not a production gate (as built); no release branch or tag now | 10 |
 
 ## Superseded
 
