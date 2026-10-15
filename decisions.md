@@ -134,6 +134,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-16 | F1.6 merges on automated Preview E2E (E), built first: a fresh random user per run, full flow, deleted at the end; no manual Preview from now on (Afik) | 10 |
 | 2026-10-16 | Before I3–I5 (Afik): deletion with a 30-day grace · 8 community rules · 8 report reasons · manual 5-step ladder · M1–M6 with in-browser blur and a background server check · Stories and medical hotline referral · no lawyer | 10 |
 | 2026-10-16 | Placement: medical hotline referral in I3, Stories in I5 | 10 |
+| 2026-10-16 | The seven open details of the I3–I5 decisions take their defaults (ladder per §4, Stories, hotline page, terms by Claude in I9, grace-period sign-in, demo Stories) | 10 |
 
 ## Superseded
 
