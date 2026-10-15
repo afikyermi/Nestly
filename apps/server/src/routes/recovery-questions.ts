@@ -1,7 +1,8 @@
 // POST and PUT /api/recovery-questions (I1 F1.6; FR-AUTH-003, AC-092). Signed in: the authentication hook has run before
 // anything here (401 before the body is read). POST saves the first two answers (201; 409 when answers already exist);
 // PUT replaces them after the current two are proved (200; 401 `invalid_recovery` for a wrong pair, counted as a failure;
-// 429 under a lock). A body that is not exactly the shape is 400 `invalid_questions`, before any database work. A missing
+// 429 under a lock; 409 `not_set` when the caller has no visible answers row, a not-active account included, because the
+// select-own policy hides it; 503 when the handle cannot be moved to the token's email). A body that is not exactly the shape is 400 `invalid_questions`, before any database work. A missing
 // pepper is 503. A body naming a user is a 400 too: the schemas are strict, and the rows touched are the caller's own by RLS.
 
 import { recoveryChangeRequest, recoveryStoreRequest } from '@nestly/shared';
@@ -36,10 +37,11 @@ async function store(request: FastifyRequest, reply: FastifyReply, deps: Recover
   if (!parsed.success) return reply.code(400).send(INVALID_QUESTIONS);
   const keys = deps.recovery.keys();
   if (keys === undefined) return replyUnavailable(reply);
-  // The email claim becomes the lookup handle. A token without one cannot be given a handle: nothing is stored.
-  const email = request.verifiedEmail;
-  if (email === null) {
-    request.log.error('recovery questions: the token has no email claim');
+  // The email claim becomes the lookup handle, and the token's issue time orders it against another account's claim. A
+  // token without either cannot be given a handle: nothing is stored.
+  const { verifiedEmail: email, verifiedIssuedAt: issuedAt } = request;
+  if (email === null || issuedAt === null) {
+    request.log.error('recovery questions: the token has no email claim or issue time');
     return reply.code(500).send({ error: 'internal' });
   }
 
@@ -49,11 +51,15 @@ async function store(request: FastifyRequest, reply: FastifyReply, deps: Recover
       deps.recovery,
       keys,
       identity,
-      email,
+      { email, issuedAt },
       { addressKey: clientAddress(request.ip).key },
       parsed.data.answers,
     );
     if (result.kind === 'already_set') return reply.code(409).send({ error: 'already_set' });
+    if (result.kind === 'handle_held') {
+      request.log.warn('recovery questions: the email handle is held by a newer claim');
+      return replyUnavailable(reply);
+    }
     return reply.code(201).send({ ok: true });
   } catch (error) {
     return replyDatabaseFailure(request, reply, error, 'recovery answers write failed', true);
@@ -69,6 +75,7 @@ async function change(request: FastifyRequest, reply: FastifyReply, deps: Recove
   if (!parsed.success) return reply.code(400).send(INVALID_QUESTIONS);
   const keys = deps.recovery.keys();
   if (keys === undefined) return replyUnavailable(reply);
+  const { verifiedEmail: email, verifiedIssuedAt: issuedAt } = request;
 
   try {
     const result = await changeRecoveryAnswers(
@@ -76,6 +83,7 @@ async function change(request: FastifyRequest, reply: FastifyReply, deps: Recove
       deps.recovery,
       keys,
       identity,
+      email === null || issuedAt === null ? undefined : { email, issuedAt },
       { addressKey: clientAddress(request.ip).key },
       parsed.data.current,
       parsed.data.answers,
@@ -89,6 +97,9 @@ async function change(request: FastifyRequest, reply: FastifyReply, deps: Recove
         return replyInvalidRecovery(reply);
       case 'limited':
         return replyRateLimited(reply, result.retryAfterSeconds);
+      case 'unavailable':
+        request.log.warn('recovery questions: the email handle could not be re-keyed');
+        return replyUnavailable(reply);
     }
   } catch (error) {
     return replyDatabaseFailure(request, reply, error, 'recovery answers change failed', true);

@@ -4,9 +4,11 @@
 //   transaction 1  (guest role app_recovery): throttles locked, answers verified, counters and audit written, and for a
 //                  verified attempt a `reset_verified` row. It COMMITS before Auth is called, so a password is never set
 //                  without a committed audit row, and no transaction is open across an HTTP call.
-//   Auth           the three calls of auth-admin.ts (set the password, then end every session).
-//   transaction 2  the one outcome row: reset_completed, reset_admin_failed or reset_revoke_failed. If it fails, the audit
-//                  ends at reset_verified and one fixed line is logged; the answer still follows Auth's outcome.
+//   Auth           the four calls of auth-admin.ts (read the account's current email, set the password, then end every
+//                  session). A current email that is not the request's sets nothing: the same `invalid` as a wrong answer.
+//   transaction 2  the one outcome row: reset_completed, reset_admin_failed, reset_revoke_failed or reset_email_mismatch. If
+//                  it fails, the audit ends at reset_verified and one fixed line is logged; the answer still follows Auth's
+//                  outcome.
 //
 // Every failure before Auth is the same `invalid` result, whatever the reason (unknown email, no answers, a wrong answer,
 // another pair of questions, a right answer in the wrong question). Nothing but fixed words is returned or logged.
@@ -46,6 +48,7 @@ const OUTCOME_KIND = {
   completed: 'reset_completed',
   admin_failed: 'reset_admin_failed',
   revoke_failed: 'reset_revoke_failed',
+  email_mismatch: 'reset_email_mismatch',
 } as const satisfies Record<string, RecoveryEventKind>;
 
 type Verified =
@@ -88,5 +91,7 @@ export async function redeemReset(
   } catch {
     logOutcomeNotRecorded('recovery reset: the outcome row was not written');
   }
-  return outcome === 'completed' ? { kind: 'ok' } : { kind: 'unavailable' };
+  if (outcome === 'completed') return { kind: 'ok' };
+  // A stale handle found this account: it is answered like any other failure to prove the request, and counts for nothing.
+  return outcome === 'email_mismatch' ? { kind: 'invalid' } : { kind: 'unavailable' };
 }

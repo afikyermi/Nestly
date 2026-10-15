@@ -27,16 +27,16 @@ $$;
 
 do $$
 begin
-  if to_regclass('nestly.legal_consents') is not null then
-    raise exception 'run supabase/rollback/20261014200000_registration_account.down.sql first: the registration account migration is still applied';
+  if to_regclass('nestly.recovery_answers') is not null then
+    raise exception 'run supabase/rollback/20261015200000_recovery_questions.down.sql first: the recovery questions migration is still applied';
   end if;
 end
 $$;
 
 do $$
 begin
-  if to_regclass('nestly.recovery_answers') is not null then
-    raise exception 'run supabase/rollback/20261015200000_recovery_questions.down.sql first: the recovery questions migration is still applied';
+  if to_regclass('nestly.legal_consents') is not null then
+    raise exception 'run supabase/rollback/20261014200000_registration_account.down.sql first: the registration account migration is still applied';
   end if;
 end
 $$;

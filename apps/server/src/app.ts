@@ -72,9 +72,9 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   });
 
   app.get('/api/health', () => ({ status: 'ok' }));
-  registerMeRoute(app, { database });
-  registerRegistrationRoute(app, { database, clock: deps.clock ?? (() => new Date()) });
   const recovery = createRecoveryDependencies(deps.recovery);
+  registerMeRoute(app, { database, recovery });
+  registerRegistrationRoute(app, { database, clock: deps.clock ?? (() => new Date()) });
   registerRecoveryQuestionsRoute(app, { database, recovery });
   registerRecoveryResetRoute(app, { database, recovery });
 

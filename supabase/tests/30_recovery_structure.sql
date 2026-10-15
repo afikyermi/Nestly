@@ -1,8 +1,8 @@
 -- pgTAP, run by pg_prove as app_server (CI `db` job, F1.6 part a/b: password recovery, FR-AUTH-003).
--- Structure of the three recovery tables, the role app_recovery and the two helpers: spec criteria 3 (no runtime role reads
+-- Structure of the three recovery tables, the role app_recovery and the three helpers: spec criteria 3 (no runtime role reads
 -- hashes except app_recovery for its handle), 5 (own rows only), 13 (audit: append-only, no access for authenticated/anon),
 -- and the structural side of 12. Behaviour of the policies is in file 31.
--- Source of expected values: .work/password-recovery/spec.md (+ Amendment 1), schema.md and interface.md "Database", not the
+-- Source of expected values: .work/password-recovery/spec.md (+ Amendments 1 and 2), schema.md and interface.md "Database", not the
 -- migration text.
 -- Catalog lookups join pg_class / pg_namespace by name: app_server has no USAGE on schema nestly, so a regclass cast would fail.
 -- Written without a database to run against: CI is the first run. no_plan() on purpose.
@@ -21,17 +21,17 @@ select is(
      from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = 'recovery_answers' and c.relkind = 'r' and a.attnum > 0 and not a.attisdropped),
   'answer_hash_1:bytea:nn, answer_hash_2:bytea:nn, answer_salt_1:bytea:nn, answer_salt_2:bytea:nn, created_at:timestamp with time zone:nn, '
-  || 'email_handle:bytea:nn, question_1:text:nn, question_2:text:nn, scrypt_log_n:smallint:nn, scrypt_p:smallint:nn, scrypt_r:smallint:nn, user_id:uuid:nn',
-  '[F1.6 c3 c8] recovery_answers has exactly the approved columns, all NOT NULL: two hashes, two salts, the pair, scrypt parameters, the handle');
+  || 'email_handle:bytea:null, handle_claimed_at:timestamp with time zone:null, question_1:text:nn, question_2:text:nn, scrypt_log_n:smallint:nn, scrypt_p:smallint:nn, scrypt_r:smallint:nn, user_id:uuid:nn',
+  '[F1.6 c3 c8 c21] recovery_answers has exactly the approved columns: two hashes, two salts, the pair and scrypt parameters (NOT NULL), the handle and its claim time (both nullable: NULL is released)');
 
 select is(
   (select string_agg(a.attname || ':' || format_type(a.atttypid, a.atttypmod) || ':' || case when a.attnotnull then 'nn' else 'null' end,
                      ', ' order by a.attname)
      from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = 'recovery_throttles' and c.relkind = 'r' and a.attnum > 0 and not a.attisdropped),
-  'locked_until:timestamp with time zone:null, long_failures:smallint:nn, long_window_started_at:timestamp with time zone:null, '
+  'limited_noted_until:timestamp with time zone:null, locked_until:timestamp with time zone:null, long_failures:smallint:nn, long_window_started_at:timestamp with time zone:null, '
   || 'short_failures:smallint:nn, short_window_started_at:timestamp with time zone:null, subject_hash:bytea:nn, subject_kind:text:nn',
-  '[F1.6 c12] recovery_throttles has exactly the approved columns: keyed by kind and hash, two windows, one lock');
+  '[F1.6 c12 c13] recovery_throttles has exactly the approved columns: keyed by kind and hash, two windows, one lock, and the marker of the limited event written for that lock');
 
 select is(
   (select string_agg(a.attname || ':' || format_type(a.atttypid, a.atttypmod) || ':' || case when a.attnotnull then 'nn' else 'null' end,
@@ -78,11 +78,11 @@ select is(
      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and co.conname in (
       'recovery_answers_pkey', 'recovery_answers_email_handle_key', 'recovery_answers_question_order_check',
-      'recovery_answers_salts_differ_check', 'recovery_answers_scrypt_log_n_check', 'recovery_events_kind_check',
+      'recovery_answers_salts_differ_check', 'recovery_answers_scrypt_log_n_check', 'recovery_answers_handle_claim_check', 'recovery_events_kind_check',
       'recovery_events_user_id_check', 'recovery_throttles_long_window_check', 'recovery_throttles_long_failures_check',
       'recovery_answers_user_id_fkey', 'recovery_events_user_id_fkey')),
-  11::bigint,
-  '[F1.6 c3 c8 c13] the named constraints of interface.md exist: pkey, handle uniqueness, pair order, salts differ, scrypt N, event kind and user checks, throttle checks, two foreign keys');
+  12::bigint,
+  '[F1.6 c3 c8 c13 c21] the named constraints exist: pkey, handle uniqueness, handle and claim time null together, pair order, salts differ, scrypt N, event kind and user checks, throttle checks, two foreign keys');
 
 select is(
   (select string_agg(c.relname || '->' || fc.relname || ':' || co.confdeltype::text, ', ' order by c.relname)
@@ -113,9 +113,10 @@ select set_eq(
       where n.nspname = 'nestly' and c.relname in ('recovery_answers', 'recovery_throttles', 'recovery_events') $$,
   $$ values ('recovery_answers.recovery_answers_select_own.r'), ('recovery_answers.recovery_answers_insert_own.a'),
             ('recovery_answers.recovery_answers_update_own.w'), ('recovery_answers.recovery_answers_select_recovery.r'),
+            ('recovery_answers.recovery_answers_release_recovery.w'),
             ('recovery_throttles.recovery_throttles_select_recovery.r'), ('recovery_throttles.recovery_throttles_insert_recovery.a'),
             ('recovery_throttles.recovery_throttles_update_recovery.w'), ('recovery_events.recovery_events_insert_recovery.a') $$,
-  '[F1.6 c3 c5 c13 platform r14] the recovery policies are exactly the eight approved ones: no DELETE or ALL policy, no policy for anon, no SELECT or UPDATE policy on the audit');
+  '[F1.6 c3 c5 c13 platform r14] the recovery policies are exactly the nine approved ones: no DELETE or ALL policy, no policy for anon, no SELECT or UPDATE policy on the audit');
 
 select is(
   (select string_agg(c.relname || '.' || pol.polname, ', ' order by c.relname, pol.polname)
@@ -130,9 +131,9 @@ select is(
      from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname like 'recovery\_%'
       and pol.polroles = array[(select r.oid from pg_catalog.pg_roles r where r.rolname = 'app_recovery')]),
-  'recovery_answers.recovery_answers_select_recovery, recovery_events.recovery_events_insert_recovery, '
+  'recovery_answers.recovery_answers_release_recovery, recovery_answers.recovery_answers_select_recovery, recovery_events.recovery_events_insert_recovery, '
   || 'recovery_throttles.recovery_throttles_insert_recovery, recovery_throttles.recovery_throttles_select_recovery, recovery_throttles.recovery_throttles_update_recovery',
-  '[F1.6 c3 c13] the five recovery policies are TO app_recovery only (never PUBLIC, never anon)');
+  '[F1.6 c3 c13 c21] the six recovery policies are TO app_recovery only (never PUBLIC, never anon)');
 
 select is_empty(
   $$ select c.relname || '.' || pol.polname
@@ -153,14 +154,26 @@ select ok(
      from pg_catalog.pg_policy pol where pol.polname = 'recovery_answers_select_recovery'),
   '[F1.6 c3] recovery_answers_select_recovery matches email_handle against the declared handle');
 
+-- The release policy: only the declared handle, only under an OLDER claim, and only to NULL.
+select ok(
+  (select pg_catalog.pg_get_expr(pol.polqual, pol.polrelid) ~ 'recovery_handle' and pg_catalog.pg_get_expr(pol.polqual, pol.polrelid) ~ 'recovery_claimed_at'
+          and pg_catalog.pg_get_expr(pol.polqual, pol.polrelid) ~ 'handle_claimed_at <'
+     from pg_catalog.pg_policy pol where pol.polname = 'recovery_answers_release_recovery'),
+  '[F1.6 c21] recovery_answers_release_recovery matches the declared handle and a claim older than the declared one');
+
+select ok(
+  (select pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid) ~ 'email_handle IS NULL' and pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid) ~ 'handle_claimed_at IS NULL'
+     from pg_catalog.pg_policy pol where pol.polname = 'recovery_answers_release_recovery'),
+  '[F1.6 c21] recovery_answers_release_recovery can only write NULL into both: a handle can be released, never set, by app_recovery');
+
 -- ---- authenticated: column-level grants, never the hashes -------------------------------------------------------------------
 select is(
   (select string_agg(a.attname, ', ' order by a.attname)
      from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace join pg_catalog.pg_attribute a on a.attrelid = c.oid
     where n.nspname = 'nestly' and c.relname = 'recovery_answers' and a.attnum > 0 and not a.attisdropped
       and has_column_privilege('authenticated', c.oid, a.attnum, 'SELECT')),
-  'created_at, email_handle, user_id',
-  '[F1.6 c3 DR-G2] authenticated can SELECT exactly user_id, email_handle and created_at of recovery_answers: never a hash, a salt, a question or a parameter');
+  'created_at, email_handle, handle_claimed_at, user_id',
+  '[F1.6 c3 DR-G2] authenticated can SELECT exactly user_id, email_handle, handle_claimed_at and created_at of recovery_answers: never a hash, a salt, a question or a parameter');
 
 select is(
   (select has_table_privilege('authenticated', c.oid, 'SELECT') from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
@@ -173,16 +186,16 @@ select is(
      from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace join pg_catalog.pg_attribute a on a.attrelid = c.oid
     where n.nspname = 'nestly' and c.relname = 'recovery_answers' and a.attnum > 0 and not a.attisdropped
       and has_column_privilege('authenticated', c.oid, a.attnum, 'INSERT')),
-  'answer_hash_1, answer_hash_2, answer_salt_1, answer_salt_2, email_handle, question_1, question_2, scrypt_log_n, scrypt_p, scrypt_r',
-  '[F1.6 c1 c5] authenticated can INSERT exactly the ten approved columns: not user_id, not created_at');
+  'answer_hash_1, answer_hash_2, answer_salt_1, answer_salt_2, email_handle, handle_claimed_at, question_1, question_2, scrypt_log_n, scrypt_p, scrypt_r',
+  '[F1.6 c1 c5 c21] authenticated can INSERT exactly the eleven approved columns: not user_id, not created_at');
 
 select is(
   (select string_agg(a.attname, ', ' order by a.attname)
      from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace join pg_catalog.pg_attribute a on a.attrelid = c.oid
     where n.nspname = 'nestly' and c.relname = 'recovery_answers' and a.attnum > 0 and not a.attisdropped
       and has_column_privilege('authenticated', c.oid, a.attnum, 'UPDATE')),
-  'answer_hash_1, answer_hash_2, answer_salt_1, answer_salt_2, question_1, question_2, scrypt_log_n, scrypt_p, scrypt_r',
-  '[F1.6 c4 c8] authenticated can UPDATE the same columns minus email_handle: the lookup handle is never rewritten');
+  'answer_hash_1, answer_hash_2, answer_salt_1, answer_salt_2, email_handle, handle_claimed_at, question_1, question_2, scrypt_log_n, scrypt_p, scrypt_r',
+  '[F1.6 c4 c8 c23] authenticated can UPDATE the same eleven columns: the handle moves only with its claim time, own row only (the policy), never user_id or created_at');
 
 select is(
   (select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
@@ -222,9 +235,9 @@ select is(
      from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace join pg_catalog.pg_attribute a on a.attrelid = c.oid
     where n.nspname = 'nestly' and c.relkind = 'r' and a.attnum > 0 and not a.attisdropped
       and has_column_privilege('app_recovery', c.oid, a.attnum, 'UPDATE')),
-  'recovery_throttles.locked_until, recovery_throttles.long_failures, recovery_throttles.long_window_started_at, '
-  || 'recovery_throttles.short_failures, recovery_throttles.short_window_started_at',
-  '[F1.6 c12 c13] app_recovery can UPDATE exactly the five counter and lock columns of the throttles: no answer, no audit row');
+  'recovery_answers.email_handle, recovery_answers.handle_claimed_at, recovery_throttles.limited_noted_until, recovery_throttles.locked_until, '
+  || 'recovery_throttles.long_failures, recovery_throttles.long_window_started_at, recovery_throttles.short_failures, recovery_throttles.short_window_started_at',
+  '[F1.6 c12 c13 c21] app_recovery can UPDATE exactly: the handle and its claim time of an answers row (the release policy limits it to NULL), and the six counter, lock and marker columns of the throttles: no hash, no audit row');
 
 select is_empty(
   $$ select c.relname from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
@@ -305,30 +318,30 @@ select is(
 select is(
   (select string_agg(p.proname, ', ' order by p.proname) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'nestly' and p.proname like 'recovery\_%'),
-  'recovery_handle, recovery_ip',
-  '[F1.6 c3] the helpers recovery_handle() and recovery_ip() exist');
+  'recovery_claimed_at, recovery_handle, recovery_ip',
+  '[F1.6 c3 c21] the helpers recovery_handle(), recovery_ip() and recovery_claimed_at() exist');
 
 select is(
   (select string_agg(p.proname || ':' || p.pronargs::text || ':' || p.prorettype::regtype::text || ':' || p.provolatile::text || ':' || p.prosecdef::text,
                      ', ' order by p.proname)
      from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'nestly' and p.proname like 'recovery\_%'),
-  'recovery_handle:0:bytea:s:false, recovery_ip:0:bytea:s:false',
-  '[F1.6 c3 platform r10] each helper takes no argument, returns bytea, is STABLE and SECURITY INVOKER');
+  'recovery_claimed_at:0:timestamp with time zone:s:false, recovery_handle:0:bytea:s:false, recovery_ip:0:bytea:s:false',
+  '[F1.6 c3 platform r10] each helper takes no argument, returns bytea (the claim time: timestamptz), is STABLE and SECURITY INVOKER');
 
 select is(
   (select count(*) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'nestly' and p.proname like 'recovery\_%'
       and exists (select 1 from unnest(p.proconfig) as cfg where cfg like 'search_path=%')),
-  2::bigint,
-  '[F1.6 platform r10] both helpers have a fixed search_path');
+  3::bigint,
+  '[F1.6 platform r10] all three helpers have a fixed search_path');
 
 select is(
   (select string_agg(p.proname || ':' || r.rolname, ', ' order by p.proname, r.rolname)
      from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
      cross join (values ('app_recovery'), ('authenticated'), ('anon'), ('service_role'), ('app_server'), ('app_jobs')) as r(rolname)
     where n.nspname = 'nestly' and p.proname like 'recovery\_%' and has_function_privilege(r.rolname, p.oid, 'EXECUTE')),
-  'recovery_handle:app_recovery, recovery_ip:app_recovery',
+  'recovery_claimed_at:app_recovery, recovery_handle:app_recovery, recovery_ip:app_recovery',
   '[F1.6 c3 c5] only app_recovery can execute the helpers: authenticated, anon, app_server, app_jobs and PUBLIC cannot');
 
 select is((select count(*) from tests.approved_security_definer()), 0::bigint,

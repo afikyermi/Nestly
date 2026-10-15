@@ -4,8 +4,11 @@
 // (tests/credentials.static.test.ts) fails when any of them appears anywhere else, or in .github/. The fence is this
 // file and that check, not the credential.
 //
-// One operation, three calls in a fixed order, none exported alone and no generic request function:
-//   1. set the user's password (the user id comes from the answers row, never from the request);
+// One operation, four calls in a fixed order, none exported alone and no generic request function:
+//   0. read the user's CURRENT email (read-only; the user id comes from the answers row, never from the request). The
+//      handle that found the row can be stale (Auth lets a user change their email), so no password is set unless that
+//      email is the request's: only the email is read, and a mismatch makes no further call;
+//   1. set the user's password;
 //   2. only after a 2xx, one sign-in as that user with the new password the request already holds: it yields an access
 //      token, and nothing else of the response is read;
 //   3. a global sign-out with that token, which ends every session of the user, the attacker's and the one call 2 made.
@@ -38,8 +41,9 @@ export interface ResetPasswordInput {
 /**
  * `completed`: the password is set and every session is ended. `admin_failed`: the password was not confirmed as set (on
  * a timeout it is unknown). `revoke_failed`: the password is set but the sign-out of every session was not confirmed.
+ * `email_mismatch`: the account's current email is not the request's, so nothing was set and no sign-in was made.
  */
-export type ResetPasswordOutcome = 'completed' | 'admin_failed' | 'revoke_failed';
+export type ResetPasswordOutcome = 'completed' | 'admin_failed' | 'revoke_failed' | 'email_mismatch';
 
 interface Target {
   readonly base: string;
@@ -73,7 +77,13 @@ function accessTokenOf(body: unknown): string | undefined {
   return typeof token === 'string' && token !== '' ? token : undefined;
 }
 
-/** The three calls, in order. Never throws: every failure is one of the three outcomes. */
+function emailOf(body: unknown): string | undefined {
+  if (typeof body !== 'object' || body === null) return undefined;
+  const email: unknown = Reflect.get(body, 'email');
+  return typeof email === 'string' && email !== '' ? email : undefined;
+}
+
+/** The four calls, in order. Never throws: every failure is one of the four outcomes. */
 export async function resetPassword(input: ResetPasswordInput, env: Env = process.env): Promise<ResetPasswordOutcome> {
   const target = readTarget(env);
   if (target === undefined || !UUID.test(input.userId)) return 'admin_failed';
@@ -91,6 +101,20 @@ export async function resetPassword(input: ResetPasswordInput, env: Env = proces
       redirect: 'error',
       signal: AbortSignal.any([total, AbortSignal.timeout(CALL_TIMEOUT_MS)]),
     });
+  }
+
+  // Call 0. Read-only. Only the email is read, and only to compare: a non-2xx or a timeout means nothing was confirmed, so
+  // nothing is set; a different (or missing) email means the handle was stale, so nothing is set either.
+  try {
+    const read = await call(`/admin/users/${input.userId}`, { method: 'GET', forwarded: true });
+    if (!read.ok) {
+      await read.body?.cancel();
+      return 'admin_failed';
+    }
+    const current = emailOf(await read.json());
+    if (current === undefined || normalizeRecoveryEmail(current) !== normalizeRecoveryEmail(input.email)) return 'email_mismatch';
+  } catch {
+    return 'admin_failed'; // audited by the caller; Auth's error text is deliberately not kept
   }
 
   // Call 1. A non-2xx, a timeout and a dropped connection all mean "the password was not confirmed as set".

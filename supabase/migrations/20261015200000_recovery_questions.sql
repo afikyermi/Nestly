@@ -1,12 +1,14 @@
 -- =====================================================================================================================
--- Password recovery by security questions — I1 F1.6. Three tables under RLS and FORCE RLS, two caller-free helpers,
+-- Password recovery by security questions — I1 F1.6. Three tables under RLS and FORCE RLS, three caller-free helpers,
 -- and the grants of the guest role `app_recovery` (bootstrap step 1).
 --
--- Source: .work/password-recovery/schema.md (Gate 2, passed 15.10.2026, with Amendment 1; decisions/2026-10.md).
+-- Source: .work/password-recovery/schema.md (Gate 2, passed 15.10.2026, with Amendment 1, and "CRITIC findings 1-2 —
+--         recommendation" = Amendment 2; decisions/2026-10.md).
 -- SRS: FR-AUTH-003, AC-092, OP-029, NFR-SEC-001, FR-ADMIN-005 · platform rules 1–4, 7, 8, 11–13, 15, 18, "Approved
 --      exceptions" (.claude/knowledge/data-model.md).
 --
--- recovery_answers    one row per account: the chosen pair of questions, two salted scrypt hashes, the email handle.
+-- recovery_answers    one row per account: the chosen pair of questions, two salted scrypt hashes, the email handle (the
+--                     most recent claim to an email: released or re-keyed by the rules below, NULL when released).
 -- recovery_throttles  failure counters and lock state per email handle or per IP hash; rows exist for unknown handles too.
 -- recovery_events     the recovery audit. Append-only; no runtime role can read it.
 --
@@ -16,6 +18,11 @@
 -- handle and the IP hash its transaction declares with nestly.recovery_handle() / nestly.recovery_ip(); an unset
 -- declaration reads NULL and matches nothing, so the role fails closed. `authenticated` writes only its own answers row
 -- and can never read a hash or a salt back.
+--
+-- The handle is a lookup key that must follow the account's CURRENT Auth email. Auth lets a user change their own email,
+-- so a handle can go stale or be squatted. The later claim wins, ordered by the `iat` of the token that made it
+-- (handle_claimed_at): saving answers, or a signed-in re-key, releases another account's handle only when that claim is
+-- older (policy recovery_answers_release_recovery: app_recovery may only NULL the one declared handle of an older claim).
 --
 -- Applied by the Supabase CLI as app_owner, in one transaction with its history row. Down script:
 -- supabase/rollback/20261015200000_recovery_questions.down.sql (refuses while recovery_answers or recovery_events
@@ -34,7 +41,8 @@ $$;
 -- 1. Tables.
 create table nestly.recovery_answers (
   user_id        uuid        not null default auth.uid(),
-  email_handle   bytea       not null,
+  email_handle   bytea,
+  handle_claimed_at timestamptz,
   question_1     text        not null,
   question_2     text        not null,
   answer_hash_1  bytea       not null,
@@ -50,6 +58,7 @@ create table nestly.recovery_answers (
     references nestly.users (id) on delete cascade,
   constraint recovery_answers_email_handle_key unique (email_handle),
   constraint recovery_answers_email_handle_check check (octet_length(email_handle) = 32),
+  constraint recovery_answers_handle_claim_check check ((email_handle is null) = (handle_claimed_at is null)),
   constraint recovery_answers_question_1_check check (question_1 in ('pet', 'nickname', 'street')),
   constraint recovery_answers_question_2_check check (question_2 in ('pet', 'nickname', 'street')),
   constraint recovery_answers_question_order_check check (question_1 < question_2),
@@ -71,6 +80,7 @@ create table nestly.recovery_throttles (
   long_window_started_at  timestamptz,
   long_failures           smallint    not null default 0,
   locked_until            timestamptz,
+  limited_noted_until     timestamptz,
   constraint recovery_throttles_pkey primary key (subject_kind, subject_hash),
   constraint recovery_throttles_subject_kind_check check (subject_kind in ('handle', 'ip')),
   constraint recovery_throttles_subject_hash_check check (octet_length(subject_hash) = 32),
@@ -91,7 +101,8 @@ create table nestly.recovery_events (
     references nestly.users (id) on delete restrict,
   constraint recovery_events_kind_check check (kind in (
     'answers_saved', 'answers_changed', 'change_failed', 'change_limited', 'reset_verified',
-    'reset_completed', 'reset_failed', 'reset_limited', 'reset_admin_failed', 'reset_revoke_failed')),
+    'reset_completed', 'reset_failed', 'reset_limited', 'reset_admin_failed', 'reset_revoke_failed',
+    'reset_email_mismatch', 'handle_released', 'handle_rekeyed')),
   constraint recovery_events_user_id_check check (user_id is not null or kind in ('reset_failed', 'reset_limited')),
   constraint recovery_events_handle_hash_check check (octet_length(handle_hash) = 32),
   constraint recovery_events_ip_hash_check check (octet_length(ip_hash) = 32)
@@ -130,12 +141,24 @@ as $$
   select pg_catalog.decode(nullif(pg_catalog.current_setting('nestly.recovery_ip', true), ''), 'hex')
 $$;
 
+create function nestly.recovery_claimed_at()
+returns timestamptz
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select nullif(pg_catalog.current_setting('nestly.recovery_claimed_at', true), '')::pg_catalog.timestamptz
+$$;
+
 revoke execute on function nestly.recovery_handle() from public;
 revoke execute on function nestly.recovery_ip()     from public;
+revoke execute on function nestly.recovery_claimed_at() from public;
 grant  execute on function nestly.recovery_handle() to app_recovery;
 grant  execute on function nestly.recovery_ip()     to app_recovery;
+grant  execute on function nestly.recovery_claimed_at() to app_recovery;
 
--- 5. Policies — eight.
+-- 5. Policies — nine.
 create policy recovery_answers_select_own on nestly.recovery_answers
   for select to authenticated
   using (user_id = (select auth.uid()) and (select nestly.is_active_account()));
@@ -149,6 +172,14 @@ create policy recovery_answers_update_own on nestly.recovery_answers
 create policy recovery_answers_select_recovery on nestly.recovery_answers
   for select to app_recovery
   using (email_handle = (select nestly.recovery_handle()));
+-- The only way a handle changes hands without its owner: the declared handle, held under a claim OLDER than the declared
+-- one, is set to NULL (released). The role cannot set a handle, touch a hash or delete a row. The statement that uses it
+-- has no WHERE and no RETURNING (either would apply the SELECT policy to the new NULL row and fail).
+create policy recovery_answers_release_recovery on nestly.recovery_answers
+  for update to app_recovery
+  using (email_handle = (select nestly.recovery_handle())
+     and handle_claimed_at < (select nestly.recovery_claimed_at()))
+  with check (email_handle is null and handle_claimed_at is null);
 
 create policy recovery_throttles_select_recovery on nestly.recovery_throttles
   for select to app_recovery
@@ -177,19 +208,21 @@ create policy recovery_events_insert_recovery on nestly.recovery_events
 --    so no statement may use RETURNING on it.
 grant usage on schema nestly to app_recovery;
 
-grant select (user_id, email_handle, created_at) on table nestly.recovery_answers to authenticated;
-grant insert (email_handle, question_1, question_2, answer_hash_1, answer_salt_1, answer_hash_2, answer_salt_2,
+grant select (user_id, email_handle, handle_claimed_at, created_at) on table nestly.recovery_answers to authenticated;
+grant insert (email_handle, handle_claimed_at, question_1, question_2, answer_hash_1, answer_salt_1, answer_hash_2, answer_salt_2,
               scrypt_log_n, scrypt_r, scrypt_p)
   on table nestly.recovery_answers to authenticated;
-grant update (question_1, question_2, answer_hash_1, answer_salt_1, answer_hash_2, answer_salt_2,
+grant update (email_handle, handle_claimed_at, question_1, question_2, answer_hash_1, answer_salt_1, answer_hash_2, answer_salt_2,
               scrypt_log_n, scrypt_r, scrypt_p)
   on table nestly.recovery_answers to authenticated;
 
 grant select on table nestly.recovery_answers to app_recovery;
+grant update (email_handle, handle_claimed_at) on table nestly.recovery_answers to app_recovery;
 
 grant select on table nestly.recovery_throttles to app_recovery;
 grant insert (subject_kind, subject_hash) on table nestly.recovery_throttles to app_recovery;
-grant update (short_window_started_at, short_failures, long_window_started_at, long_failures, locked_until)
+grant update (short_window_started_at, short_failures, long_window_started_at, long_failures, locked_until,
+              limited_noted_until)
   on table nestly.recovery_throttles to app_recovery;
 
 grant insert (kind, user_id, handle_hash, ip_hash) on table nestly.recovery_events to app_recovery;
@@ -200,7 +233,9 @@ comment on table nestly.recovery_answers is
 comment on column nestly.recovery_answers.user_id is
   'The account. Set by the database (auth.uid()), never by the client (platform rules 12-13).';
 comment on column nestly.recovery_answers.email_handle is
-  'HMAC-SHA256(K_handle, lower(trim(email))) of the token''s email claim at the first save. A lookup key for the signed-out redeem, not an identity claim; never updated (no change-email feature exists).';
+  'HMAC-SHA256(K_handle, lower(trim(email))) of the email claim of the token that made the most recent claim. A lookup key for the signed-out redeem, not an identity claim. NULL: released, no email finds this row. Released by a newer claim (recovery_answers_release_recovery) or re-keyed by its owner.';
+comment on column nestly.recovery_answers.handle_claimed_at is
+  'The iat (whole seconds, UTC) of the token whose email set email_handle. The later claim wins. NULL exactly when email_handle is NULL.';
 comment on column nestly.recovery_answers.question_1 is
   'The first chosen question id: pet, nickname or street. Always sorts before question_2: one representation per pair.';
 comment on column nestly.recovery_answers.question_2 is
@@ -239,14 +274,17 @@ comment on column nestly.recovery_throttles.long_failures is
 comment on column nestly.recovery_throttles.locked_until is
   'While later than now(), every attempt on this subject is answered 429 with retry-after. A limited attempt changes no counter.';
 
+comment on column nestly.recovery_throttles.limited_noted_until is
+  'The locked_until value for which a limited event was already written: one limited event per subject per lock.';
+
 comment on table nestly.recovery_events is
   'FR-ADMIN-005, AC-092: the recovery audit, one row per attempt and one outcome row after a verified reset. Append-only: no runtime role can read, update or delete it. Retention is undecided (§13.4, TBD).';
 comment on column nestly.recovery_events.id is
   'Generated by the database.';
 comment on column nestly.recovery_events.kind is
-  'answers_saved, answers_changed, change_failed, change_limited, reset_verified, reset_completed, reset_failed, reset_limited, reset_admin_failed or reset_revoke_failed. After reset_verified exactly one of reset_completed, reset_admin_failed, reset_revoke_failed.';
+  'answers_saved, answers_changed, change_failed, change_limited, reset_verified, reset_completed, reset_failed, reset_limited, reset_admin_failed, reset_revoke_failed, reset_email_mismatch, handle_released or handle_rekeyed. After reset_verified exactly one of reset_completed, reset_admin_failed, reset_revoke_failed, reset_email_mismatch.';
 comment on column nestly.recovery_events.user_id is
-  'The account the handle belongs to, forced by the insert policy. NULL only for reset_failed and reset_limited on a handle with no account. ON DELETE RESTRICT: the audit does not vanish as a side effect (I9, OP-028).';
+  'The account the handle belongs to, forced by the insert policy. NULL only for reset_failed and reset_limited on a handle with no account. For handle_released, the account that lost the handle. ON DELETE RESTRICT: the audit does not vanish as a side effect (I9, OP-028).';
 comment on column nestly.recovery_events.handle_hash is
   'The declared email handle (keyed hash). Never the email.';
 comment on column nestly.recovery_events.ip_hash is
@@ -261,6 +299,8 @@ comment on constraint recovery_answers_email_handle_key on nestly.recovery_answe
 
 comment on function nestly.recovery_handle() is
   'The email handle the current transaction declared with set_config(''nestly.recovery_handle'', hex, true). NULL when unset: matches no row. SECURITY INVOKER, executable by app_recovery only (FR-AUTH-003).';
+comment on function nestly.recovery_claimed_at() is
+  'The iat of the token making the current claim, declared with set_config(''nestly.recovery_claimed_at'', iso, true). NULL when unset: no handle is releasable. SECURITY INVOKER, executable by app_recovery only (FR-AUTH-003).';
 comment on function nestly.recovery_ip() is
   'The IP hash the current transaction declared with set_config(''nestly.recovery_ip'', hex, true). NULL when unset: matches no row. SECURITY INVOKER, executable by app_recovery only (FR-AUTH-003).';
 
@@ -269,7 +309,9 @@ comment on policy recovery_answers_select_own on nestly.recovery_answers is
 comment on policy recovery_answers_insert_own on nestly.recovery_answers is
   'An active account saves its own answers once (the primary key refuses a second row).';
 comment on policy recovery_answers_update_own on nestly.recovery_answers is
-  'An active account replaces its own answers; email_handle is not granted for UPDATE.';
+  'An active account replaces its own answers, and re-keys its own handle to its token''s email (the server orders claims by iat).';
+comment on policy recovery_answers_release_recovery on nestly.recovery_answers is
+  'app_recovery sets the declared handle to NULL when its holder''s claim is older than the declared one. Nothing else: no handle can be set, no hash touched (FR-AUTH-003).';
 comment on policy recovery_answers_select_recovery on nestly.recovery_answers is
   'app_recovery reads the one row of the handle its transaction declares, and nothing else: no listing, no dump (FR-AUTH-003).';
 comment on policy recovery_throttles_select_recovery on nestly.recovery_throttles is

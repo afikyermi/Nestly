@@ -480,3 +480,296 @@ No table, policy, grant, index or migration step changed, except the CHECK on `r
 
 Done — Gate 2 schema with Amendment 1 · Artifact — `.work/password-recovery/schema.md` · Next owner — ORCHESTRATOR (Gate 2;
 record DR-G1, DR-G2, Amendment 1 and the spec change to criteria 9, 13 and 15)
+
+---
+
+## Deviation review — F1.1 down script refusal (DATA ARCHITECT, 15.10.2026)
+
+**Verdict: Confirmed.** My Rollback section was wrong: F1.1's down script ends with `drop schema nestly cascade`, which
+drops the recovery tables (and any answers and audit rows) without a check. The dependent FKs do not stop a CASCADE. The
+sentence "F1.1's down script will also fail while these tables reference `users` (dependent FKs)" is withdrawn. BUILDER's
+refusal makes it true, for a different reason.
+
+1. **Guard correct.** `to_regclass('nestly.recovery_answers') is not null` → raise. It runs inside the `begin`, after the
+   `app_owner` check and before `no force row level security` and every drop, so a refusal aborts the whole transaction
+   with nothing changed. The header order line (F1.6, then F1.4, then F1.1) is right.
+   *Low, optional:* the `legal_consents` check runs first, so with everything applied the message says "run F1.4 first",
+   which is the opposite of the header. Following it does no harm: F1.4's down touches no recovery object and succeeds,
+   then F1.1 refuses again and names F1.6. The order still settles with no data loss. Moving the recovery check above the
+   `legal_consents` check would make the message match the header. Not required.
+2. **Editing an applied migration's down script is acceptable.** `supabase/rollback/` is outside `supabase/migrations`,
+   so the CLI never reads it and `schema_migrations` records nothing about it. CI's "fingerprint" is a catalog fingerprint
+   of the database (`supabase/ci/catalog-fingerprint.sql`), not a file hash, and the up → down → up round trip runs only
+   the **newest** migration's down script (`ci.yml` "Migrations as app_owner"). No file-hash or drift check covers rollback
+   files. Consequence: CI never runs this guard. It is verified only by reading it, which is acceptable for a
+   raise-only block copied from the existing `legal_consents` pattern.
+3. **One check is enough.** All three tables are created in one migration transaction, and the F1.6 down script drops them
+   in one transaction, so a state where `recovery_answers` is missing but `recovery_throttles` or `recovery_events` remains
+   cannot come from the scripts. It could only come from manual DDL, which is out of the model. No guard for the other two
+   tables is needed.
+
+**Recovery down script (`supabase/rollback/20261015200000_recovery_questions.down.sql`) matches the Rollback section.**
+- It refuses while `recovery_answers` or `recovery_events` holds a row. Before counting, it lifts FORCE on those two
+  tables inside the transaction, so the count is real; a refusal rolls the lift back.
+- `recovery_throttles` is dropped without a count, as decided.
+- It drops all 8 policies, the index, the 3 tables and the 2 helpers (their grants and comments go with them), and revokes
+  USAGE on `nestly` from `app_recovery`.
+- It deletes history row `20261015200000`.
+- Its header names the role drop by `postgres`, the revert of the bootstrap edit, and "code first".
+- Checked against the migration: nothing the migration creates is left behind. The explicit policy and index drops are
+  redundant with `drop table`, but harmless. The CI round trip confirms the result.
+
+---
+
+## CRITIC findings 1-2 — recommendation (DATA ARCHITECT, 15.10.2026)
+
+Both are schema changes. **No migration is live**: 20261015200000 waits on bootstrap step 1 and is applied to neither preview
+nor prod. So both are edits to that one migration file and its companions (down script, `schema.ts`, pgTAP, drift). No
+backfill, no new migration. Reversibility is unchanged (end of this section).
+
+### Finding 1 — stale or squatted email handle
+
+**The invariant the design was missing.** "Auth keeps email unique" makes the handle unique only while every row's handle is
+the hash of its user's **current** Auth email. A self-service email change breaks that silently: `PUT /auth/v1/user`, with
+Confirm email off, is applied by GoTrue at once, checking only that the new address is free. Neither case is a takeover,
+because the row's `user_id` picks the account whose password is set, never the request. Both are availability and
+correctness faults. Under DR-C the squat is a cheap, targeted lockout.
+
+**(a) Prevent or detect at Auth: not available without email; one option, reserved.**
+- No Auth setting blocks a self-service email change. "Secure email change" and confirmation work only with an email
+  provider.
+- No Auth hook fires on a user update. The hooks are access-token, send-email/SMS, MFA/password-attempt and
+  before-user-created. Send-email does not fire while Confirm email is off.
+- The only real block is a `BEFORE UPDATE OF email` trigger on `auth.users` that raises. It is the strongest option and
+  **not recommended now**:
+  - it needs `postgres` (bootstrap, not a migration);
+  - it is DDL in Supabase's managed schema, outside platform rule 1;
+  - it turns every self-service change into a 500, and may break a future Google sign-in if GoTrue syncs the provider
+    email.
+
+  If wanted, it is hardening only and reserved for Afik (Auth schema, security model). The design below does not rely on
+  it.
+- Detection without any Auth call is possible: the token's email claim arrives on every signed-in request. (c) and (d) use
+  it.
+
+**(b) Current Auth email at redeem: recommended, required.** It is the only layer that makes "a password is set only on the
+account the request's email names *now*" true. It turns the legitimate-change case from "password set, then
+`revoke_failed`" into a clean refusal.
+
+The new call:
+- `resetPassword` in `auth-admin.ts` gets a **call 0** before call 1: `GET <issuer>/admin/users/<uuid>`.
+- It uses the same key, the user id from the row, and the same `Sb-Forwarded-For`.
+- Read only `email`, normalise it with the shared normaliser the handle uses, and compare it with the request's normalised
+  email:
+  - equal → calls 1-3 as now;
+  - different or missing → **no further call**, and return `'email_mismatch'`;
+  - non-2xx or timeout → `'admin_failed'`, with the password unchanged.
+
+Outcome `email_mismatch`:
+- Transaction 2 writes the new kind **`reset_email_mismatch`**.
+- The response is **401 `{"error":"invalid_recovery"}`**, the same body as a mismatch.
+- No counter changes, since transaction 1 has already committed.
+- Only someone who knew the answers can tell this branch apart by timing, which is acceptable.
+
+Cost and fence:
+- Budget: 4 calls at 5 s each; keep the 12 s total. BUILDER confirms the function's `maxDuration` exceeds it.
+- Fence: `/admin/users/` is already a fenced literal. No new literal.
+- Authority: same key, same module, same user id, read-only, and it only narrows when a password is set.
+  - I read it as within exception part (a), which ORCHESTRATOR widened at Gate 2 (Amendment 1, the precedent).
+  - If ORCHESTRATOR holds that any growth of the exception's scope is a security-model change, it is Afik's.
+  - Either way, the knowledge text for (a) becomes "four calls: read the user's email, set the password, ...".
+- Worth it: yes. One call on a rare path removes the worst outcome: a password changed on an account the caller cannot sign
+  in to with that email.
+
+**(c) Release a stale handle on store: recommended, required (the squat case).** The caller's verified token says "at
+`iat`, I held E", and Auth uniqueness means **the later claim wins**. A token stays valid for up to an hour after an email
+change, so "the caller wins" alone would let a stale token take a handle back (ping-pong). Ordering by `iat` stops that.
+
+Schema, `recovery_answers`:
+- `email_handle` becomes **nullable**. NULL means "released: no email finds this row". UNIQUE allows many NULLs, and redeem
+  never matches NULL.
+- New column **`handle_claimed_at`** timestamptz null, set to `to_timestamp(iat)` of the token whose email set the handle.
+  - UTC, at second precision (JWT `iat` is whole seconds).
+  - CHECK `(email_handle is null) = (handle_claimed_at is null)`.
+- New helper **`nestly.recovery_claimed_at()`**, in the same shape as the other two:
+  - it reads `nestly.recovery_claimed_at` and returns timestamptz;
+  - unset gives NULL, which fails closed;
+  - EXECUTE is granted to `app_recovery` only.
+- New policy **`recovery_answers_release_recovery`**, FOR UPDATE TO app_recovery:
+  - USING `email_handle = (select nestly.recovery_handle()) and handle_claimed_at < (select
+    nestly.recovery_claimed_at())`;
+  - WITH CHECK `email_handle is null and handle_claimed_at is null`.
+- Grant `app_recovery` UPDATE on `(email_handle, handle_claimed_at)`.
+  - That role can only **release** the one declared handle, and only when the holder's claim is older. It cannot set a
+    handle, touch hashes or delete.
+  - This is the single enforcement point for "who may take a handle": RLS, not code, and no SECURITY DEFINER.
+- `authenticated`:
+  - INSERT grant gains `handle_claimed_at`;
+  - UPDATE grant gains `email_handle, handle_claimed_at` (own row only, through the existing `_update_own`);
+  - SELECT grant gains `handle_claimed_at`.
+
+  Hashes and salts stay unreadable. It could already write any `email_handle` on INSERT; computing the HMAC is the server's
+  job in both cases.
+- New event kinds, each with `user_id` not null:
+  - **`handle_released`**: user_id = the account that lost the handle;
+  - **`handle_rekeyed`**: user_id = the caller.
+
+Store (`POST`), one identity transaction, in this order:
+1. `set local role app_recovery`; declare handle = H(token email), the IP, and claimed_at = the token's `iat`.
+2. Run `select user_id from nestly.recovery_answers for update` with no `where`. FOR UPDATE applies UPDATE USING too, so RLS
+   returns the declared row exactly when a release is allowed.
+3. If a row came back:
+   - Insert `handle_released` with that user_id **first**: the event policy binds user_id to the declared handle's row.
+   - Then run `update nestly.recovery_answers set email_handle = null, handle_claimed_at = null` with **no `where` and no
+     `returning`**. Either one would make Postgres check the new NULL row against the SELECT policy and fail.
+   - pgTAP asserts that this exact statement works.
+4. `set local role authenticated`; insert the own row with handle and `handle_claimed_at`.
+5. `answers_saved` as `app_recovery`, as today.
+
+Errors:
+- 23505 on `recovery_answers_pkey` stays 409 `already_set`.
+- 23505 on `recovery_answers_email_handle_key` now means only "the holder's claim is not older than mine", i.e. a stale
+  caller token. It returns **503 `unavailable`**, never 500, and logs one fixed line.
+- A token refresh gives a newer `iat`, so a legitimate caller succeeds within the hour.
+
+**(d) Re-key on `GET /api/me`: recommended (the legitimate email change).** Without it, a user who changed email keeps a
+handle that no longer finds them, and nothing ever prompts them.
+
+When it runs:
+- After `/api/me` has built its response, `active` only, compare H(token email) with the own row's handle.
+- It needs the pepper. If the pepper is missing, skip the check: this is liveness, not authorization.
+- Re-key when the row exists, its handle differs or is NULL, and `handle_claimed_at` is NULL or older than the token's
+  `iat`.
+
+How it runs, in a **separate** transaction:
+1. Steps 1-3 of store.
+2. As `authenticated`: `update ... set email_handle = H, handle_claimed_at = iat where handle_claimed_at is null or
+   handle_claimed_at < $iat` on the own row.
+3. `handle_rekeyed` as `app_recovery`.
+
+Failure handling:
+- Any failure is logged as one fixed line and ignored: a 23505 (the holder is newer), or a deadlock between two accounts
+  swapping emails (Postgres aborts one).
+- **The `/api/me` response never depends on it.**
+- The answer hashes do not bind the email, so they stay valid.
+
+Related changes:
+- `PUT` (change): if the own handle is NULL or stale, run the same re-key at the start of its transaction, then
+  `guardedAttempt` on the current handle. If the re-key cannot happen, return 503 `unavailable`.
+- `token-verifier.ts` exposes the email claim **and `iat`** to the store, change and `/api/me` paths. They are used for
+  lookup and ordering only, never for authorization (rule 14). This widens "the store route only" in Blast radius.
+
+**Both cases after (b)-(d).**
+- **Squat:**
+  - The victim's first save releases the attacker's row. The victim saves (201) and is not held.
+  - The attacker's stale token cannot take the handle back (older `iat`): the attacker's re-key and POST fail.
+  - Redeem by the victim's email finds the victim's row.
+- **Legitimate change:**
+  - The next `/api/me` with a token carrying the new email re-keys, so recovery by the new email works.
+  - Recovery by the old email finds one of three things: nothing; the new holder's row; or, if the user has not opened the
+    app since the change, their own stale row. In that last case (b) refuses with 401 before any password is set.
+  - Residual, stated once: a user who changes email through the raw API and forgets the password **before** opening the
+    app again cannot recover by either email. It needs a raw API call the product does not offer. Accepted.
+
+**Spec wording (ORCHESTRATOR records it as a spec change):**
+- New 🔴 **21:** "If another account holds the handle of the caller's token email under an older claim, saving answers
+  releases it and succeeds (201); a redeem with that email then reaches the caller's account; the audit shows
+  `handle_released` for the other account. A caller whose token is older than the holder's claim gets 503 `unavailable` and
+  nothing changes."
+- New 🔴 **22:** "If the account's current Auth email is not the request's email, a verified reset sets no password and
+  makes no sign-in or sign-out call: 401 `invalid_recovery`, audit `reset_verified` + `reset_email_mismatch`."
+- New 🔴 **23:** "When the token's email differs from the stored handle and the token is newer, `/api/me` re-keys the handle
+  (audit `handle_rekeyed`) and a redeem by the new email succeeds; the `/api/me` body is the same whether the re-key
+  succeeds, fails or is skipped."
+- Criterion 13's outcome list gains `reset_email_mismatch` (wording below).
+
+### Finding 2 — rate-limited requests grow the database
+
+**Lock order: IP first, then handle, on every path.** Redeem and change both go through `guardedAttempt`, and nothing else
+takes a throttle lock, so one global order stays deadlock-free. Taking the IP lock first also serialises every attempt from
+one IP, which makes the IP limit exact.
+
+Order inside `guardedAttempt`:
+1. `set local role app_recovery`; declare the subjects, as today.
+2. Insert the IP row `on conflict do nothing`, then `for update` it.
+3. Read the declared answers row. It is a read only, and it is needed even when the IP is locked: the event policy binds
+   `user_id` to that row's user, so a `limited` event with the wrong user_id fails.
+4. **IP locked:**
+   - create and lock no handle row;
+   - write the limited event at most once per lock (below);
+   - return 429 with the IP's `retry-after`.
+
+   If the handle is still locked when that ends, the next attempt gets a second 429, which criterion 12 allows.
+5. Otherwise insert and lock the handle row. If it is locked, do the same as step 4, using the handle's marker.
+6. Otherwise continue as today: two scrypts, then on a mismatch `recordFailure` on the IP first, then the handle.
+
+Known and unknown handles behave identically on every branch: the IP-locked branch creates no handle row for either.
+Criterion 11 holds.
+
+**One limited event per subject per lock.**
+- Schema: `recovery_throttles` gets **`limited_noted_until`** timestamptz null, UTC.
+  - It holds the `locked_until` value for which a limited event has already been written.
+  - It is added to `app_recovery`'s UPDATE grant. No index.
+- In the locked branch, `lockThrottle` also returns `noted = (limited_noted_until is not distinct from locked_until)`.
+  - Not noted: set `limited_noted_until = locked_until` on that subject and insert the one `*_limited` event.
+  - Noted: write nothing.
+- `locked_until` cannot move during a lock, because a locked attempt never counts a failure. So there is exactly one event per
+  lock window.
+- What is lost: the count of requests during a lock. Nothing reads it, and the failures that count are still each audited.
+
+**Resulting bound.**
+- A locked IP costs **zero writes per request** after the first.
+- Per IP, each window-plus-lock cycle writes at most:
+  - as many handle rows as the IP's short limit;
+  - the same number of `*_failed` events;
+  - one `*_limited` event.
+- Growth is now proportional to distinct IPs (/64 for IPv6) and to time, not to request volume.
+- What makes it finite is still the throttle purge job (debt) and audit retention (an OP to open).
+- Correct the Retention "Growth" bullet to say this.
+
+**Criterion 13, exact wording I recommend:**
+> 13. 🔴 Every attempt that is not rate-limited (failed reset, verified reset, failed change, answers saved, answers changed)
+> writes exactly one audit row, in the same transaction as its counters; a verified reset then adds exactly one outcome row
+> (completed, admin failure, revoke failure, email mismatch). A rate-limited attempt writes at most one audit row per locked
+> subject per lock: the first limited attempt in a lock writes one `reset_limited` / `change_limited` row; later attempts in
+> the same lock write no row in any table, and while the IP is locked no throttle row is created for the submitted email.
+> Each row holds kind, user id when known, handle hash, IP hash and time; `authenticated` and `anon` have no access; no
+> answer, password or email is in it.
+
+Test assertion: "N ≥ 2 attempts with N distinct unknown emails from one locked IP add exactly one `reset_limited` row and
+zero `recovery_throttles` rows."
+
+### Schema delta, migration, rollback
+
+Changes to migration 20261015200000, by step:
+- **Step 1:**
+  - `recovery_answers.email_handle` becomes nullable;
+  - `handle_claimed_at` is added, with its paired-null CHECK;
+  - `recovery_throttles.limited_noted_until` is added;
+  - the `kind` CHECK gains `handle_released`, `handle_rekeyed` and `reset_email_mismatch`. `user_id` is not null for all
+    three.
+- **Step 4:** the third helper.
+- **Step 5:** the release policy (nine policies in all).
+- **Step 6:** the grant changes above.
+- **Step 7:** comments on everything new.
+
+Elsewhere:
+- **Down script:** drops the new policy and helper along with the rest.
+- **pgTAP (`30_recovery_structure.sql`):** the counts change (nine policies, three helpers, the new grants). It also asserts
+  that the release statement works, and that it is refused when the holder is newer and when WITH CHECK meets a non-NULL
+  value.
+- **Drift:** the drift test picks up `schema.ts`.
+- **Indexes:** none new. The release and the re-key use `recovery_answers_email_handle_key` and the primary key, and the
+  marker uses the throttle primary key.
+
+**Reserved points.**
+- None of the required parts touches one: this is a pre-merge revision of a migration that has not been applied.
+- The field-meaning change, from "never updated" to "the most recent claim, released or re-keyed by the rules above", is
+  ORCHESTRATOR's to decide (my decision-rights table): no live data carries the old meaning.
+- (b) is ORCHESTRATOR's by the Amendment 1 precedent, with the caveat stated in (b).
+- Only the optional `auth.users` trigger in (a) is reserved for Afik.
+
+**Reversible?** Yes, unchanged. The down script still refuses while `recovery_answers` or `recovery_events` holds data.
+
+Done — recommendations for CRITIC findings 1-2 · Artifact — `.work/password-recovery/schema.md` (this section) · Next
+owner — ORCHESTRATOR (decide; record; amend criterion 13 and add 21-23)

@@ -68,3 +68,59 @@ Once those are in: with a signed-in token, `POST /api/recovery-questions` with t
 **ORCHESTRATOR, 15.10 (after the handoff)**
 - Content-type finding (two tests expected `bad_request` for text/plain): the code is kept, interface.md corrected. Fastify parses text/plain as a string, the Zod schema refuses it, and the route answers 400 with its own validation code, uncounted — exactly what `/api/register` (F1.4) does. Status and "before any lookup, uncounted" (criteria 2, 14) hold either way; one behaviour across routes beats a special case.
 - Typecheck/lint on the new tests: 13 tsc errors in `tests/recovery-route.test.ts` (inject chain typed as `Chain`, `payload: undefined` under exactOptionalPropertyTypes), 4 eslint errors (restrict-template-expressions ×2, require-await ×2). Product code clean. Returned to TEST ENGINEER.
+
+---
+
+## Amendment 2 round — BUILDER, 15.10.2026 (CRITIC findings 1-5; design: schema.md "CRITIC findings 1-2 — recommendation")
+
+**Approach**
+- Finding 1 as designed. (b) `auth-admin.ts` gets call 0, `GET /admin/users/{id}`, before set-password: only `email` is read, both sides go through `normalizeRecoveryEmail`; different or missing -> `email_mismatch` with no further call (service: audit `reset_email_mismatch`, answer 401 `invalid_recovery`, no counter). (c) store releases an older holder through the new `app_recovery` policy `recovery_answers_release_recovery` (statement order and the no-where/no-returning UPDATE as in schema.md); a holder that is not older is 23505 on the handle key -> 503, one `warn` line. (d) `/api/me` and PUT re-key to the token's email when the token is newer (`needsRekey`, `rekeyOwnHandle`, one code path for all three).
+- Migration `20261015200000` edited in place: `email_handle` nullable, `handle_claimed_at`, paired-null CHECK, `limited_noted_until`, three new event kinds, helper `recovery_claimed_at()`, ninth policy, grants. Down script, `schema.ts` (new write model `recoveryAnswersRelease`), shared `RECOVERY_EVENT_KINDS` (13) updated.
+- Finding 2: `guardedAttempt` locks the IP row first; IP locked -> no handle row, at most one limited event per subject per lock (`limited_noted_until = locked_until`), 429 with the IP's `retry-after`. The handle row is created and locked only after that. `recordFailure` order is IP then handle.
+- Finding 3: POST reads the own row before hashing (already_set costs no scrypt); PUT hashes the new pair only after `guardedAttempt` matched (inside the transaction).
+- Finding 4: behaviour kept, interface.md corrected (PUT by a not-active account is 409 `not_set`).
+- Finding 5: recovery refusal moved above the `legal_consents` one in the F1.1 down script.
+- Token: `iat` exposed (`VerifiedToken.issuedAt`, `request.verifiedIssuedAt`).
+
+**Decisions**
+- In `guardedAttempt` the answers row is read after the handle lock on the normal path (as before this round); it is read earlier only in the IP-locked branch, where the event policy needs its user id. Reason: a read taken before the handle lock could miss a change committed while this request waited for the lock.
+- Call 0 sends `Sb-Forwarded-For` (schema.md says "same"); call 1 still does not, as before.
+- `readAccountState` now takes an optional `HandleRekey`; `registerMeRoute` takes `{database, recovery}`. The re-key is awaited before the reply (a fire-and-forget would be frozen by the function runtime) and runs only when the handle differs, so the usual `/api/me` pays one HMAC.
+- Write models `recoveryAnswersInsert/Update` declare `email_handle` and `handle_claimed_at` as nullable like the column: `db:drift` compares every declaration of a column with the database.
+- POST: the token needs both `email` and `iat`; without either it is the existing 500. PUT without either skips the re-key and uses the own handle.
+- PUT whose re-key hits a newer holder: the whole transaction rolls back (nothing else was done in it) and the answer is 503. No savepoint.
+
+**Deviations**
+- None from schema.md. One reading: PUT with a stale handle whose own claim is newer than the token (so not re-keyed) proceeds on the own handle; schema.md says "if the re-key cannot happen, 503", which I read as "was needed and failed".
+- I changed `supabase/tests/30_recovery_structure.sql` (expected columns, constraint count 12, nine policies, six app_recovery policies, grant lists, three helpers, two release-policy assertions) with a script before the guard hook stopped a second test edit (`supabase/tests/setup/30_recovery_fixtures.sql`) and the `git checkout` that would have undone it. Test files are TEST ENGINEER's: treat my edit to file 30 as a draft to keep, rewrite or discard. I could not revert it, because the hook blocks that too.
+
+**Deliberately not done**
+- No test edited or written (except the file-30 draft above). `supabase/tests/setup/30_recovery_fixtures.sql`: `fx_recovery_shift` should also shift `limited_noted_until` by the same interval (otherwise a shifted lock that is still active writes a second limited event). For TEST ENGINEER.
+- No `maxDuration` in `vercel.json` (see Uncertain). No knowledge-file or SRS edit: the data-model "Approved exceptions" text for part (a) must now say four calls (CRITIC's two amendments to the knowledge proposal still apply).
+- No `auth.users` trigger (reserved for Afik, schema.md (a)).
+
+**Existing tests that now fail or need changing (TEST ENGINEER)**
+Ran here (`npm test -w @nestly/server`, `-w @nestly/shared`): 13 failures, all by design.
+1. `apps/server/tests/recovery-units.test.ts`, describe "[F1.6 c9 c15 c20] resetPassword ..." (11 tests): `resetPassword` now makes a GET first, so each stub sequence needs a leading `{status:200, body:{email:<the input email>}}` and `stub.seen.length` is 4 on the success path; the "outcome is one of" list gains `'email_mismatch'`. New cases wanted: different email, missing email, non-2xx and timeout on call 0 (no further call; `email_mismatch` / `admin_failed`).
+2. `apps/server/tests/drift.test.ts` "exits 0 when the database has exactly the columns of schema.md": the hard-coded F1.6 catalog needs `recovery_answers.email_handle` nullable, new `handle_claimed_at` (timestamptz, nullable), `recovery_throttles.limited_noted_until` (timestamptz, nullable).
+3. `packages/shared` `recovery.test.ts` "[F1.6 c13] the audit kinds are the ten approved ones ...": now 13 (adds `reset_email_mismatch`, `handle_released`, `handle_rekeyed`).
+
+Not runnable here (no Postgres), found by reading:
+4. `supabase/tests/31_recovery_policies.sql`: the `pg_temp.ins` helper (line 27) inserts an answers row without `handle_claimed_at`, which the new CHECK refuses: add the column to the helper (every insert in the file). Line 87 (collision) then needs the second row's claim time to be not older than the first's to stay a 23505. Line 208 ("the email handle is never rewritten", expects 42501): authenticated may now update `email_handle` on its own row, so it becomes an allowed own-row update (a cross-row one stays 0 rows). The event kinds list (line 399) should add the three new kinds. New: the release policy (works with the exact statement; refused when the holder is newer; WITH CHECK refuses a non-NULL value; an unset or empty claim time releases nothing) and `limited_noted_until` update allowed.
+5. `supabase/tests/30_recovery_structure.sql`: see Deviations (my draft covers it).
+6. `apps/server/tests/db/recovery-store.db.test.ts` near line 299 "one handle per account: a second account saving under the same email ... is refused and stores nothing": by Amendment 2 a later token releases the first account's handle and saves (201, `handle_released` for the first account); only an equal or older `iat` is refused (503). The two tokens in that test are probably signed in the same second, so it may read as "refused" by accident: sign the second with a later `iat` for the release case and an earlier one for the refusal case.
+7. `apps/server/tests/db/recovery-reset.db.test.ts`: any assertion that a limited request while the IP is locked created a handle throttle row, or wrote a `reset_limited` row per request (now one per subject per lock, none for later requests, none for the handle while the IP is locked); and any `retry-after` expectation taken from the handle's lock when the IP is locked too (now the IP's). The IP-lock test near line 370 is the one to read first.
+8. `apps/server/tests/db/me.db.test.ts`: unchanged for fixtures without answers; `/api/me` for an account with answers and a different token email now re-keys (new tests for criterion 23).
+Helper note: `tests/helpers/recovery-app.ts` `AdminOutcome` lacks `'email_mismatch'`.
+
+**Uncertain**
+- All new SQL is unrun (no Postgres here). Highest risk: (a) `select ... for update` as `app_recovery` getting both the SELECT policy and the release policy's USING (the design relies on it); (b) the release `UPDATE` with no where and no returning, and its WITH CHECK; (c) `recovery_claimed_at()` casting the setting text to timestamptz in a `set search_path = ''` function; (d) the `handle_released` event policy's subquery before the release; (e) drizzle's `.for('update')` with `.limit(2)` emitting `limit 2 for update`. CI's `db` job is the first run.
+- Call 0 makes four Auth calls at up to 5 s each under a 12 s total. `vercel.json` sets no `maxDuration` for `api/index.ts`; I did not check the plan's default (10 s on a Hobby function without Fluid compute would cut a slow reset). Not changed (outside this diff); ORCHESTRATOR to check.
+- Hosted Auth: that `GET /admin/users/{id}` returns `email` for the secret key, and whether `updateUser({email})` applies at once with Confirm email off (CRITIC's verify item), are preview checks.
+- A bytea column read back must be a `Buffer` for `needsRekey` (`.equals`); the schema comment says postgres-js returns one.
+
+**Preview path (additions)**
+With two real accounts A and B: A saves answers with email X; A changes email to Y through Auth (`PUT /auth/v1/user`); open the app as A (any `GET /api/me`) -> handle re-keyed; redeem by Y works, by X gives 401. Then register B with X and save answers -> 201 (if A never opened the app, B's save releases A's old handle). Redeem for A with email X while A's row is stale: 401, password unchanged. Lock an address (10 wrong attempts) and send 20 more with different emails: the `recovery_throttles` and `reset_limited` row counts stay flat.
+
+**Neighbouring**
+- `supabase/tests/setup/30_recovery_fixtures.sql` `fx_recovery_shift` (see Deliberately not done).

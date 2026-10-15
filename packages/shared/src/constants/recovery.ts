@@ -47,7 +47,9 @@ export type RecoveryThrottleSubject = (typeof RECOVERY_THROTTLE_SUBJECTS)[number
 
 /**
  * recovery_events.kind (FR-ADMIN-005). After `reset_verified` the outcome is exactly one of `reset_completed`,
- * `reset_admin_failed` and `reset_revoke_failed`.
+ * `reset_admin_failed`, `reset_revoke_failed` and `reset_email_mismatch` (the account's current Auth email is not the
+ * request's). `handle_released` (the account lost its email handle to a newer claim) and `handle_rekeyed` (the account's
+ * handle was moved to its token's email) record how the handle changes hands.
  */
 export const RECOVERY_EVENT_KINDS = [
   'answers_saved',
@@ -60,5 +62,8 @@ export const RECOVERY_EVENT_KINDS = [
   'reset_limited',
   'reset_admin_failed',
   'reset_revoke_failed',
+  'reset_email_mismatch',
+  'handle_released',
+  'handle_rekeyed',
 ] as const;
 export type RecoveryEventKind = (typeof RECOVERY_EVENT_KINDS)[number];

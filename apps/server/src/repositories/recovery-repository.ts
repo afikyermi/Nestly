@@ -7,14 +7,14 @@
 // Throttle counters and locks use the database clock and take the limits as parameters, one statement per subject.
 // recovery_events has no SELECT for anyone, so nothing here ever reads it back or asks it for RETURNING.
 
-import { sql } from 'drizzle-orm';
+import { isNull, lt, or, sql } from 'drizzle-orm';
 import type { RecoveryEventKind, RecoveryQuestionId, RecoveryThrottleSubject } from '@nestly/shared';
 import { z } from 'zod';
 import type { IdentityTx } from '../db/identity-transaction.js';
-import type { RecoverySubjects } from '../db/recovery-transaction.js';
 import {
   recoveryAnswers,
   recoveryAnswersInsert,
+  recoveryAnswersRelease,
   recoveryAnswersUpdate,
   recoveryEventsInsert,
   recoveryThrottlesInsert,
@@ -49,6 +49,14 @@ export interface ThrottleState {
   readonly locked: boolean;
   /** Seconds until the lock ends; meaningful only while `locked`. */
   readonly retryAfterSeconds: number;
+  /** Whether a limited event was already written for this very lock (limited_noted_until = locked_until). */
+  readonly noted: boolean;
+}
+
+/** What the caller's own answers row says about its handle. NULL: released, no email finds the row. */
+export interface OwnClaim {
+  readonly emailHandle: Buffer | null;
+  readonly handleClaimedAt: Date | null;
 }
 
 export interface RecoveryEvent {
@@ -58,31 +66,48 @@ export interface RecoveryEvent {
   readonly ipHash: Buffer;
 }
 
-const throttleStateRows = z.array(z.object({ locked: z.boolean(), retry_after: z.number().int() }));
+const throttleStateRows = z.array(z.object({ locked: z.boolean(), retry_after: z.number().int(), noted: z.boolean() }));
 
 // --- as authenticated ---------------------------------------------------------------------------------------------------
 
-/** The caller's own handle, or undefined when they have no answers. Only the three granted columns are selectable. */
-export async function readOwnHandle(tx: IdentityTx): Promise<Buffer | undefined> {
-  const rows = await tx.select({ emailHandle: recoveryAnswers.emailHandle }).from(recoveryAnswers).limit(2);
+/**
+ * The caller's own handle and claim time, or undefined when they have no answers (or are not an active account: the
+ * select-own policy hides the row). Only the granted columns are selectable. Never has a `where`: RLS returns the own row.
+ */
+export async function readOwnClaim(tx: IdentityTx): Promise<OwnClaim | undefined> {
+  const rows = await tx
+    .select({ emailHandle: recoveryAnswers.emailHandle, handleClaimedAt: recoveryAnswers.handleClaimedAt })
+    .from(recoveryAnswers)
+    .limit(2);
   if (rows.length > 1) throw new Error('more than one own recovery_answers row');
-  return rows[0]?.emailHandle;
+  return rows[0];
 }
 
-/** Whether the caller has saved answers (GET /api/me). Reads the key column only. */
-export async function hasOwnAnswers(tx: IdentityTx): Promise<boolean> {
-  const rows = await tx.select({ userId: recoveryAnswers.userId }).from(recoveryAnswers).limit(1);
-  return rows.length > 0;
+/**
+ * The first save. A second one for the same account is a unique violation on recovery_answers_pkey; a handle held by a
+ * claim that is not older than `claimedAt` is one on recovery_answers_email_handle_key.
+ */
+export async function insertOwnAnswers(tx: IdentityTx, emailHandle: Buffer, claimedAt: Date, hashes: AnswerHashes): Promise<void> {
+  await tx.insert(recoveryAnswersInsert).values({ emailHandle, handleClaimedAt: claimedAt, ...hashes });
 }
 
-/** The first save. A second one for the same account is a unique violation on recovery_answers_pkey. */
-export async function insertOwnAnswers(tx: IdentityTx, emailHandle: Buffer, hashes: AnswerHashes): Promise<void> {
-  await tx.insert(recoveryAnswersInsert).values({ emailHandle, ...hashes });
-}
-
-/** Replaces both answers of the caller's own row. email_handle is not granted for UPDATE and never changes. */
+/** Replaces both answers of the caller's own row. The handle is moved only by claimOwnHandle. */
 export async function replaceOwnAnswers(tx: IdentityTx, hashes: AnswerHashes): Promise<void> {
   await tx.update(recoveryAnswersUpdate).set(hashes);
+}
+
+/**
+ * Moves the caller's own row to a handle claimed by a token issued at `claimedAt`, when the row's own claim is older (or
+ * the row was released). True when the row moved. A handle still held by another row is a unique violation on
+ * recovery_answers_email_handle_key (the caller releases an older holder first, with releaseDeclaredHandle).
+ */
+export async function claimOwnHandle(tx: IdentityTx, emailHandle: Buffer, claimedAt: Date): Promise<boolean> {
+  const rows = await tx
+    .update(recoveryAnswersUpdate)
+    .set({ emailHandle, handleClaimedAt: claimedAt })
+    .where(or(isNull(recoveryAnswersUpdate.handleClaimedAt), lt(recoveryAnswersUpdate.handleClaimedAt, claimedAt)))
+    .returning({ emailHandle: recoveryAnswersUpdate.emailHandle });
+  return rows.length > 0;
 }
 
 // --- as app_recovery -----------------------------------------------------------------------------------------------------
@@ -94,30 +119,56 @@ export async function readDeclaredAnswers(tx: IdentityTx) {
   return rows[0];
 }
 
-/** Creates the two throttle rows when missing, handle first and IP second. */
-export async function ensureThrottleRows(tx: IdentityTx, subjects: RecoverySubjects): Promise<void> {
-  await tx
-    .insert(recoveryThrottlesInsert)
-    .values({ subjectKind: 'handle', subjectHash: subjects.handle })
-    .onConflictDoNothing();
-  await tx.insert(recoveryThrottlesInsert).values({ subjectKind: 'ip', subjectHash: subjects.ip }).onConflictDoNothing();
+/**
+ * The row of the declared handle when another account holds it under a claim OLDER than the declared one, else undefined.
+ * `FOR UPDATE` makes RLS apply the release policy's USING as well, so the row comes back exactly when a release is
+ * allowed. No `where`, on purpose: the policies return that row and nothing else.
+ */
+export async function readReleasableHolder(tx: IdentityTx): Promise<{ readonly userId: string } | undefined> {
+  const rows = await tx.select({ userId: recoveryAnswers.userId }).from(recoveryAnswers).for('update').limit(2);
+  if (rows.length > 1) throw new Error('more than one releasable recovery_answers row for one handle');
+  return rows[0];
+}
+
+/**
+ * Releases the declared handle (sets it and its claim time to NULL). NO `where` and NO `returning`, on purpose: either
+ * would make Postgres check the new NULL row against the SELECT policy, which hides it, and fail. The release policy's
+ * USING limits the statement to the one releasable row. Append the `handle_released` event BEFORE this: the event
+ * policy binds user_id to the declared handle's row, which no longer exists afterwards.
+ */
+export async function releaseDeclaredHandle(tx: IdentityTx): Promise<void> {
+  await tx.update(recoveryAnswersRelease).set({ emailHandle: null, handleClaimedAt: null });
+}
+
+/** Creates the throttle row of one declared subject when missing. */
+export async function ensureThrottleRow(tx: IdentityTx, kind: RecoveryThrottleSubject, subjectHash: Buffer): Promise<void> {
+  await tx.insert(recoveryThrottlesInsert).values({ subjectKind: kind, subjectHash }).onConflictDoNothing();
 }
 
 /**
  * Locks the declared subject's row for the rest of the transaction and says whether it is locked now (database clock).
- * Callers lock the handle row first and the IP row second, always: one order rules out deadlocks, and the row lock
- * serialises concurrent attempts so the limits hold under concurrency.
+ * Callers lock the IP row first and the handle row second, always (guardedAttempt is the only caller): one order rules
+ * out deadlocks, and the row lock serialises concurrent attempts so the limits hold under concurrency.
  */
 export async function lockThrottle(tx: IdentityTx, kind: RecoveryThrottleSubject): Promise<ThrottleState> {
   const result = await tx.execute(sql`
     select (locked_until is not null and locked_until > now()) as locked,
-           greatest(1, ceil(extract(epoch from (locked_until - now()))))::integer as retry_after
+           greatest(1, ceil(extract(epoch from (locked_until - now()))))::integer as retry_after,
+           (limited_noted_until is not null and limited_noted_until = locked_until) as noted
     from nestly.recovery_throttles
     where subject_kind = ${kind}
     for update`);
   const [row, ...others] = throttleStateRows.parse(result);
   if (row === undefined || others.length > 0) throw new Error('recovery_throttles row missing or duplicated for a declared subject');
-  return { locked: row.locked, retryAfterSeconds: row.retry_after };
+  return { locked: row.locked, retryAfterSeconds: row.retry_after, noted: row.noted };
+}
+
+/** Records that the limited event of the declared subject's current lock has been written (one per subject per lock). */
+export async function markLimitedNoted(tx: IdentityTx, kind: RecoveryThrottleSubject): Promise<void> {
+  await tx.execute(sql`
+    update nestly.recovery_throttles
+    set limited_noted_until = locked_until
+    where subject_kind = ${kind}`);
 }
 
 /**

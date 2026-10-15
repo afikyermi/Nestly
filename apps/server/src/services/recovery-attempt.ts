@@ -1,12 +1,14 @@
 // One guarded attempt to prove two recovery answers (I1 F1.6; FR-AUTH-003, AC-092, NFR-SEC-001), shared by the signed-out
 // reset and the signed-in change. It runs inside a transaction its caller opened and does, in this order:
 //   1. SET LOCAL ROLE app_recovery and declare the handle and IP hash;
-//   2. create the two throttle rows when missing, then lock the handle row and the IP row (always in that order);
-//   3. read the declared handle's answers row (zero or one);
-//   4. when either subject is locked: append the "limited" event and stop, no counter changes;
-//   5. otherwise compute exactly two scrypt hashes and compare them in constant time. A missing row, or a stored pair that
-//      is not the submitted pair, is run against a fixed dummy salt, so every failure costs the same two computations;
-//   6. on a mismatch: count one failure on the handle and the IP, append the "failed" event.
+//   2. create and lock the IP throttle row FIRST (the one lock order of every path: IP, then handle);
+//   3. IP locked: write the one "limited" event of this lock when none is noted yet, and stop. No handle row is created
+//      or locked, so a locked IP can never grow the database with the emails it submits (CRITIC finding 2);
+//   4. otherwise create and lock the handle row; handle locked: the same, with the handle's marker;
+//   5. read the declared handle's answers row (zero or one), after both locks so a concurrent change is seen;
+//   6. compute exactly two scrypt hashes and compare them in constant time. A missing row, or a stored pair that is not
+//      the submitted pair, is run against a fixed dummy salt, so every failure costs the same two computations;
+//   7. on a mismatch: count one failure on the IP and the handle, append the "failed" event.
 // The caller then commits (every outcome but a thrown error commits: the counters and the audit are the point).
 // Nothing is logged here, and nothing but hashes, counts and kinds is ever written.
 
@@ -15,6 +17,7 @@ import {
   type RecoveryAnswersInput,
   type RecoveryEventKind,
   type RecoveryQuestionId,
+  type RecoveryThrottleSubject,
 } from '@nestly/shared';
 import { assumeRecoveryRole, type RecoverySubjects } from '../db/recovery-transaction.js';
 import type { IdentityTx } from '../db/identity-transaction.js';
@@ -28,12 +31,15 @@ import {
 } from '../recovery/hashing.js';
 import type { RecoveryKeys } from '../recovery/pepper.js';
 import {
-  ensureThrottleRows,
+  ensureThrottleRow,
   insertEvent,
   lockThrottle,
+  markLimitedNoted,
   readDeclaredAnswers,
   recordFailure,
+  type RecoveryEvent,
   type ThrottleLimits,
+  type ThrottleState,
 } from '../repositories/recovery-repository.js';
 
 export interface AttemptContext {
@@ -111,6 +117,24 @@ async function answersMatch(
   return real !== undefined && firstOk && secondOk;
 }
 
+/**
+ * A locked subject: the first attempt of this lock writes the one limited event, later ones write nothing in any table.
+ * `limited_noted_until` holds the locked_until value the event was written for, and it cannot move during a lock.
+ */
+async function limited(
+  tx: IdentityTx,
+  kinds: AttemptKinds,
+  event: Omit<RecoveryEvent, 'kind'>,
+  subject: RecoveryThrottleSubject,
+  state: ThrottleState,
+): Promise<AttemptResult> {
+  if (!state.noted) {
+    await markLimitedNoted(tx, subject);
+    await insertEvent(tx, { kind: kinds.limited, ...event });
+  }
+  return { kind: 'limited', retryAfterSeconds: state.retryAfterSeconds };
+}
+
 export async function guardedAttempt(
   tx: IdentityTx,
   context: AttemptContext,
@@ -119,22 +143,24 @@ export async function guardedAttempt(
 ): Promise<AttemptResult> {
   const { subjects } = context;
   await assumeRecoveryRole(tx, subjects);
-  await ensureThrottleRows(tx, subjects);
-  const handleState = await lockThrottle(tx, 'handle');
-  const ipState = await lockThrottle(tx, 'ip');
-  const stored = await readDeclaredAnswers(tx);
-  const userId = stored?.userId ?? null;
-  const event = { userId, handleHash: subjects.handle, ipHash: subjects.ip };
 
-  if (handleState.locked || ipState.locked) {
-    await insertEvent(tx, { kind: kinds.limited, ...event });
-    const waits = [handleState, ipState].filter((state) => state.locked).map((state) => state.retryAfterSeconds);
-    return { kind: 'limited', retryAfterSeconds: Math.max(...waits) };
+  await ensureThrottleRow(tx, 'ip', subjects.ip);
+  const ipState = await lockThrottle(tx, 'ip');
+  if (ipState.locked) {
+    // The event policy binds user_id to the declared handle's row, so it is read even though no handle row is touched.
+    const known = await readDeclaredAnswers(tx);
+    return limited(tx, kinds, { userId: known?.userId ?? null, handleHash: subjects.handle, ipHash: subjects.ip }, 'ip', ipState);
   }
 
+  await ensureThrottleRow(tx, 'handle', subjects.handle);
+  const handleState = await lockThrottle(tx, 'handle');
+  const stored = await readDeclaredAnswers(tx);
+  const event = { userId: stored?.userId ?? null, handleHash: subjects.handle, ipHash: subjects.ip };
+  if (handleState.locked) return limited(tx, kinds, event, 'handle', handleState);
+
   if (!(await answersMatch(context, stored, submitted)) || stored === undefined) {
-    await recordFailure(tx, 'handle', HANDLE_LIMITS);
     await recordFailure(tx, 'ip', IP_LIMITS);
+    await recordFailure(tx, 'handle', HANDLE_LIMITS);
     await insertEvent(tx, { kind: kinds.failed, ...event });
     return { kind: 'mismatch' };
   }

@@ -12,7 +12,7 @@
 --           audit, which is irreversible and Afik's decision. The script refuses otherwise. FORCE RLS would hide every
 --           row from app_owner, so it lifts FORCE on those two tables inside this transaction first and the count is real.
 --           recovery_throttles is operational state and goes with them.
--- Takes:    the three tables (and their policies and index), the two helpers, USAGE on nestly for app_recovery; deletes
+-- Takes:    the three tables (and their policies and index), the three helpers, USAGE on nestly for app_recovery; deletes
 --           the migration's history row.
 -- =====================================================================================================================
 
@@ -41,6 +41,7 @@ drop policy recovery_events_insert_recovery     on nestly.recovery_events;
 drop policy recovery_throttles_update_recovery  on nestly.recovery_throttles;
 drop policy recovery_throttles_insert_recovery  on nestly.recovery_throttles;
 drop policy recovery_throttles_select_recovery  on nestly.recovery_throttles;
+drop policy recovery_answers_release_recovery   on nestly.recovery_answers;
 drop policy recovery_answers_select_recovery    on nestly.recovery_answers;
 drop policy recovery_answers_update_own         on nestly.recovery_answers;
 drop policy recovery_answers_insert_own         on nestly.recovery_answers;
@@ -52,6 +53,7 @@ drop table nestly.recovery_events;
 drop table nestly.recovery_throttles;
 drop table nestly.recovery_answers;
 
+drop function nestly.recovery_claimed_at();
 drop function nestly.recovery_ip();
 drop function nestly.recovery_handle();
 

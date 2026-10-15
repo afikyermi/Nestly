@@ -28,12 +28,14 @@ export class TokenRejected extends Error {
 
 /**
  * What a verified token yields. `identity` is the user id and nothing more: it is all the database and every route but one
- * ever sees. `email` is the token's email claim, exposed for ONE purpose: the recovery-questions store route turns it into
- * the account's lookup handle (F1.6, DR-B). It is never used for authorization (platform rule 14).
+ * ever sees. `email` and `issuedAt` (the `iat` claim, whole seconds) are exposed for ONE purpose: the recovery handle
+ * (F1.6, DR-B). The store, change and /api/me paths turn the email into the account's lookup handle, and the issue time
+ * orders two claims to the same email (the later wins). Neither is ever used for authorization (platform rule 14).
  */
 export interface VerifiedToken {
   readonly identity: Identity;
   readonly email: string | undefined;
+  readonly issuedAt: number | undefined;
 }
 
 export type TokenVerifier = (token: string) => Promise<VerifiedToken>;
@@ -75,6 +77,7 @@ export function createTokenVerifier(config: AuthConfig): TokenVerifier {
   return async (token) => {
     let subject: unknown;
     let email: unknown;
+    let issuedAt: unknown;
     try {
       const { payload } = await jwtVerify(token, keySet, {
         algorithms: ALGORITHMS,
@@ -84,10 +87,15 @@ export function createTokenVerifier(config: AuthConfig): TokenVerifier {
       });
       subject = payload.sub;
       email = payload.email;
+      issuedAt = payload.iat;
     } catch (error) {
       throw classify(error);
     }
     if (typeof subject !== 'string' || !UUID.test(subject)) throw new TokenRejected('token');
-    return { identity: { userId: subject }, email: typeof email === 'string' ? email : undefined };
+    return {
+      identity: { userId: subject },
+      email: typeof email === 'string' ? email : undefined,
+      issuedAt: typeof issuedAt === 'number' && Number.isInteger(issuedAt) ? issuedAt : undefined,
+    };
   };
 }

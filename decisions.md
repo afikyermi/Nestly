@@ -128,6 +128,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-15 | F1.6: recovery by security questions — 3 offered at registration, pick 2 and answer (Afik; temporary until email recovery with a domain); recovery key rejected | 10 |
 | 2026-10-15 | F1.6 Gate 1: questions pet / nickname / street; lookup by stored email HMAC; questions screen required after account creation (no "later") | 10 |
 | 2026-10-15 | F1.6 Gate 2: fenced `app_recovery` role for the signed-out path; reset = admin set-password + one global sign-out, fail-safe 503 | 10 |
+| 2026-10-15 | F1.6 Amendment 2 (CRITIC findings 1-2): current-email check at redeem, stale handle released on store and re-keyed on /api/me; one limited event per subject per lock, IP checked first | 10 |
 
 ## Superseded
 
