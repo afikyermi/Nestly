@@ -31,6 +31,7 @@
      1. **הכרעה שמורה לך — מחיקת משתמשי הבדיקה (DR-E1, ‏`.work/preview-e2e/schema.md`, סוף הקובץ):** מחיקה דורשת לעקוף RLS על nestly-preview, וזה שינוי במודל האבטחה ("שום דבר לא עוקף RLS"), ולכן ההכרעה שלך. האפשרויות: (1) ‏`postgres` של nestly-preview ב-CI, ב-environment ‏`preview-e2e` בלבד, כחריג מאושר (ההמלצה של DATA ARCHITECT); (2) פונקציית מחיקה צרה כחריג SECURITY DEFINER, שמוחקת רק משתמשי בדיקה לפי התבנית (דורשת migration); (3) בלי מחיקה, ומשתמשי הבדיקה נשארים ב-preview עם תבנית מזהה. **עד ההכרעה E רץ בלי מחיקה, ו-`PREVIEW_DB_ADMIN_URL` לא בשימוש.** תשובה בשורה: "1", "2" או "3".
      2. **‏`PREVIEW_SUPABASE_SECRET_KEY` מיותר** — ‏DATA ARCHITECT בחר במחיקה ב-SQL. אם הזנת אותו, אפשר למחוק אותו מ-`preview-e2e`.
      3. **דיווח (לא דורש פעולה):** ה-guard חסם את TEST ENGINEER בפעם השלישית במשימה (‏`incidents.md` 01:12). כתיבת `e2e-preview/*.flow.ts` אינה מוכרת כקובץ טסט. העבודה הייתה לגיטימית: הטיוטה הועתקה כלשונה על ידי ORCHESTRATOR. ההקפאה בתוקף, ולכן שורה ב-noise ב-wrap-up בלבד; ההצעה (להכיר ב-`*.flow.ts` כטסט) נכנסת לרטרו.
+     4. **‏F1.6 מוכן למיזוג — מחכה לאישורך** (‏PR 31, לא מוזג): ‏E רץ על ה-Preview פעמיים, 14/14 בכל פעם (ריצות 38816319396, 38817721595): ‏F1.6 מלא ב-375 וב-1280. ‏CRITIC (opus) על E: ‏Validated with Concern. רשומות ה-wrap-up בוצעו (‏`result.md` של F1.6 ושל E, ‏debt, ‏noise, ‏decisions). תשובה בשורה: "מזג" → ‏squash עם `Implements:`, ואחריו ‏migrate ל-production — אישור שלך ב-`db-production`.
   1. **קובץ יומן מקומי ישן** `.live/events.jsonl` (טקסט מפרומפטים, לא ב-git): מחיקה היא שלך. אחריה אפשר להסיר את `.live/` מ-`.gitignore`.
   2. **מחיקת ענפים מרוחקים שמוזגו:** ‏`ui-wave-1/part-a` עד `part-e`, ‏`chore/i1-prep`, ‏`chore/guard-env-paths` (מוזג), ‏`chore/preview-access` (הוחלף ב-`-v2` אחרי rebase), ‏`chore/records-after-f12` (מוזג).
   3. **ב-F1.8:** הגדרת Google Cloud והסודות — אנחה אותך צעד-צעד.
@@ -41,6 +42,7 @@
 - **התקדמות מוצר (שורה לכל סשן):**
   - 15–16.10 (לילה, סשן F1.6 חלק c): טסטים לחלק c, ‏CRITIC ובדיקה חוזרת, ‏baselines, ‏CI ירוק (ריצה 5), ‏migrate ל-nestly-preview. ממתין ל-Preview שלך.
   - 16.10 (סשן ההכרעות): הכרעותיך לפני I3–I5 נרשמו (‏decisions, ‏roadmap תוספת 3), ‏Preview ידני הוחלף ב-E, שבע שאלות נשאלו ונסגרו כברירת המחדל; ‏SRS 2.18 נכתב ואושר ב-CRITIC.
+  - 16–17.10 (לילה, סשן E): ‏E נבנה בתוך PR 31 (‏spec, ‏DATA ARCHITECT, ‏BUILDER, ‏TEST ENGINEER, ‏CRITIC opus ובדיקה חוזרת), רץ ירוק פעמיים על ה-Preview של F1.6; ‏wrap-up של F1.6; ‏DR-E1 (מחיקת משתמשי בדיקה) שמור לך.
   - 15.10 (לילה, סשן F1.6 המשך): ‏main מוזג לענף; טסטים ל-Amendment 2; ‏CRITIC בדיקה חוזרת Validated with Concern; הידע הוחל; ‏PR 31 נפתח (draft); חלק c נבנה (לא נדחף). עצירה יציבה לבקשתך.
   - 15.10 (ערב, סשן הסקירה): אין — סקירת מהירות הפיתוח, ‏A–F אושרו ונבנו (‏`chore/dev-speed`); ‏F1.6 נמשך בסשן שלו.
   - 15.10 (המשך): תוכנית ההצגה למרצה נכתבה (חלק 10), הכרעותיך נרשמו, ‏SRS 2.15. ה-debt שלפני F1.5 מוזג (PR 27). ‏F1.5 מוזג (PR 29), ‏SRS 2.16.

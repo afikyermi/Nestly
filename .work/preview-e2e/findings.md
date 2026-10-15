@@ -35,3 +35,12 @@ fixed, a green run does not prove the success texts of F1.6 c16 and c18.
 argv, URLs and reports · the anchored email pattern · the F1.6 walk, except finding 1 · the failed-attempt budget (2 per
 user, 4 per IP per run) · the 2× ceiling (1.0× if the flow counts as product, about 2.0× if it counts as test;
 result.md records which reading applies).
+
+## Re-check (CRITIC opus, fresh run, 639123d vs 44278e4)
+
+verdict: Validated with Concern. Findings 2, 3 and 4 are closed. Finding 1 is mostly closed. A residual is downgraded to low: after
+`waitForResponse`, the status count can still poll the busy region before React commits (flow:107, :137). Fix: wait for the
+submit's busy state to end, then count. New 3a (low): the c11 tests import `SECRET_ENV` from the code under test
+(tools/preview-e2e.test.mjs:282). Fix: use the spec's literal name. Concern: the bypass file path reaches workers via
+`PREVIEW_E2E_BYPASS_FILE`, so c11 is a fence, not a wall. The DR-E1 credentials must never use this pattern; they belong
+in the cleanup step only. Round limit reached (one fix round, one re-check): the residuals go to debt.md.
