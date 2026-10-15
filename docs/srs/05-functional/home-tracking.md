@@ -78,7 +78,7 @@
 |---|---|
 | סטטוס | מאושר — Contextual Guidance v1 |
 | Actor | Regular User |
-| תיאור | המערכת תציג טיפים/מאמרים לפי Stage ו-Context. Tracker Data יכול לשמש רק להכוונה כללית ולא-אבחונית וללא Paid Targeting. |
+| תיאור | המערכת תציג טיפים/מאמרים לפי Stage ו-Context. Tracker Data יכול לשמש רק להכוונה כללית ולא-אבחונית וללא Paid Targeting. המדריכים לפי סטטוס הם תוכן מערכת: תכנון הריון; הריון לפי שבוע או שליש; הורות לפי גיל הילד. הם נכתבים על בסיס המקורות שב-BR-070, מאושרים לפני פרסום, ובכל אחד מוצגת ההערה "המידע אינו מחליף ייעוץ רפואי". הניהול — FR-ADMIN-012. |
 | תנאים מוקדמים | משתמש מחובר; תוכן מאושר עם Stage/Topic metadata. |
 | קלט / Trigger | My Stage + Topic/Tracker Category/summary מאושר + מאגר תוכן. |
 | תהליך מערכת | Eligibility → התאמת Stage/Topic → Quality/Freshness → Diversity. אין יצירת אבחנה רפואית או מסקנת מצב רפואי. |

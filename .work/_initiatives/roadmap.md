@@ -42,3 +42,12 @@ Comment, Share in feed and Share link. **I3 adds two features** — an internal 
 and an external share of a link to the post or to the site. Its FR become FR-FEED-006 and FR-FEED-007 once Afik
 approves the SRS definition (batch 2.9); until then the SRS definition blocks I3. I3 grows from 6 to 8 features; the
 MVP from 45 to 47, and the roadmap from about 77 to about 79.
+
+## Amendment 2 — 15.10.2026 — the lecturer presentation (SRS 2.15)
+
+Afik's decisions on the presentation plan (`docs/lecturer-demo-plan-HE.md` §1, `decisions.md` 15.10): **I6 adds**
+FR-ADMIN-012 (admin management of status guides, PG-046) · **I9 adds** NFR-SEC-008 (CAPTCHA at registration, Turnstile —
+a new external provider) · **I11 adds** FR-SERV-011 (reviews and rating) and FR-PRO-003 (professional articles) · **I12**:
+BR-069, the Marketplace is listing and contact only, no purchase · **I13**: NFR-SEC-007, payment is simulated behind one
+payment interface; the price list stays TBD (OP-030), so "payment provider" no longer blocks I13's opening. About 4 more
+features: roughly 83 in all. Presentation scope: I1–I14 (not I15).

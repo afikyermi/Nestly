@@ -121,6 +121,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-15 | F1.4: while a sign-up token is held, email and password are read-only (no silent second Auth user) | 10 |
 | 2026-10-15 | Edge after the merge to main and by hand, not a production gate (as built); no release branch or tag now | 10 |
 | 2026-10-15 | Lecturer presentation: Afik's idea doc v2 is the scope (I1–I14 first, live site, isolated removable demo tool); plan in docs/lecturer-demo-plan-HE.md | 10 |
+| 2026-10-15 | Lecturer presentation answers: ASAP; G1–G6 (Marketplace = listing + contact, no purchase); prices TBD; back-dating over days and hours; §15 positions; SRS 2.15 | 10 |
 
 ## Superseded
 
