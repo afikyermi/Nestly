@@ -1,6 +1,7 @@
 // GET /api/me (I1 F1.5 part a; FR-AUTH-002, BR-024). Tells the signed-in web which of three states the caller's account
 // is in: active, unavailable (suspended or banned, one answer) or unregistered (an Auth user with no account row). The
-// authentication hook has run before anything here. The route takes no id and no body; the answer is only the state word.
+// authentication hook has run before anything here. The route takes no id and no body; the answer is the state word, and for
+// an active account also `recoveryQuestions` (set or missing, F1.6).
 //
 // Logs carry the status and the SQLSTATE, never the token, the ids or the error object (NFR-PRIV-001).
 
@@ -22,8 +23,7 @@ async function me(request: FastifyRequest, reply: FastifyReply, deps: MeRouteDep
   // A state is never cached: the next request must see a status change (BR-024).
   reply.header('cache-control', 'no-store');
   try {
-    const state = await readAccountState(deps.database, identity);
-    return reply.code(200).send({ state });
+    return reply.code(200).send(await readAccountState(deps.database, identity));
   } catch (error) {
     const fault = readDatabaseFault(error);
     request.log.error({ sqlstate: fault?.code }, 'account state read failed');

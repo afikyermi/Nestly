@@ -12,12 +12,18 @@ import {
   CHILD_SEXES,
   JOURNEY_STAGES,
   PARENT_GENDERS,
+  RECOVERY_EVENT_KINDS,
+  RECOVERY_QUESTION_IDS,
+  RECOVERY_THROTTLE_SUBJECTS,
   type AccountType,
 } from '@nestly/shared';
 import { sql } from 'drizzle-orm';
-import { boolean, date, pgSchema, smallint, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, customType, date, pgSchema, smallint, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 export const nestly = pgSchema('nestly');
+
+/** bytea, as a Node Buffer both ways (postgres-js sends and returns Buffer for type 17). */
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => 'bytea' });
 
 // A profile belongs to a Regular account only (regular_profiles_account_type_check, BR-016).
 const REGULAR = 'regular' satisfies AccountType;
@@ -105,4 +111,94 @@ export const legalConsentsInsert = nestly.table('legal_consents', {
   termsVersion: text('terms_version').notNull(),
   privacyVersion: text('privacy_version').notNull(),
   hasDeclared18Plus: boolean('has_declared_18_plus').notNull(),
+});
+
+// Password recovery (I1 F1.6; schema.md). The hashes and salts are selectable through this schema only by app_recovery
+// (the recovery repository); `authenticated` is granted three columns of recovery_answers and nothing else.
+
+/** FR-AUTH-003: the chosen pair of questions with salted scrypt hashes of the answers, and the email handle. One per account. */
+export const recoveryAnswers = nestly.table('recovery_answers', {
+  userId: uuid('user_id').primaryKey().default(sql`auth.uid()`),
+  emailHandle: bytea('email_handle').notNull(),
+  question1: text('question_1', { enum: RECOVERY_QUESTION_IDS }).notNull(),
+  question2: text('question_2', { enum: RECOVERY_QUESTION_IDS }).notNull(),
+  answerHash1: bytea('answer_hash_1').notNull(),
+  answerSalt1: bytea('answer_salt_1').notNull(),
+  answerHash2: bytea('answer_hash_2').notNull(),
+  answerSalt2: bytea('answer_salt_2').notNull(),
+  scryptLogN: smallint('scrypt_log_n').notNull(),
+  scryptR: smallint('scrypt_r').notNull(),
+  scryptP: smallint('scrypt_p').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** NFR-SEC-001: failure counters and lock state per email handle or IP hash. Read and written by app_recovery only. */
+export const recoveryThrottles = nestly.table('recovery_throttles', {
+  subjectKind: text('subject_kind', { enum: RECOVERY_THROTTLE_SUBJECTS }).notNull(),
+  subjectHash: bytea('subject_hash').notNull(),
+  shortWindowStartedAt: timestamp('short_window_started_at', { withTimezone: true }),
+  shortFailures: smallint('short_failures').notNull().default(0),
+  longWindowStartedAt: timestamp('long_window_started_at', { withTimezone: true }),
+  longFailures: smallint('long_failures').notNull().default(0),
+  lockedUntil: timestamp('locked_until', { withTimezone: true }),
+});
+
+/** FR-ADMIN-005: the recovery audit, append-only. No runtime role can read it, so there is no read model. */
+export const recoveryEvents = nestly.table('recovery_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  kind: text('kind', { enum: RECOVERY_EVENT_KINDS }).notNull(),
+  userId: uuid('user_id'),
+  handleHash: bytea('handle_hash').notNull(),
+  ipHash: bytea('ip_hash').notNull(),
+  occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** INSERT target only. Names exactly the columns granted INSERT to authenticated (migration 20261015200000 §6). */
+export const recoveryAnswersInsert = nestly.table('recovery_answers', {
+  emailHandle: bytea('email_handle').notNull(),
+  question1: text('question_1', { enum: RECOVERY_QUESTION_IDS }).notNull(),
+  question2: text('question_2', { enum: RECOVERY_QUESTION_IDS }).notNull(),
+  answerHash1: bytea('answer_hash_1').notNull(),
+  answerSalt1: bytea('answer_salt_1').notNull(),
+  answerHash2: bytea('answer_hash_2').notNull(),
+  answerSalt2: bytea('answer_salt_2').notNull(),
+  scryptLogN: smallint('scrypt_log_n').notNull(),
+  scryptR: smallint('scrypt_r').notNull(),
+  scryptP: smallint('scrypt_p').notNull(),
+});
+
+/** UPDATE target only. Names exactly the columns granted UPDATE to authenticated: the same as INSERT without email_handle. */
+export const recoveryAnswersUpdate = nestly.table('recovery_answers', {
+  question1: text('question_1', { enum: RECOVERY_QUESTION_IDS }).notNull(),
+  question2: text('question_2', { enum: RECOVERY_QUESTION_IDS }).notNull(),
+  answerHash1: bytea('answer_hash_1').notNull(),
+  answerSalt1: bytea('answer_salt_1').notNull(),
+  answerHash2: bytea('answer_hash_2').notNull(),
+  answerSalt2: bytea('answer_salt_2').notNull(),
+  scryptLogN: smallint('scrypt_log_n').notNull(),
+  scryptR: smallint('scrypt_r').notNull(),
+  scryptP: smallint('scrypt_p').notNull(),
+});
+
+/** INSERT target only. Names exactly the columns granted INSERT to app_recovery. */
+export const recoveryThrottlesInsert = nestly.table('recovery_throttles', {
+  subjectKind: text('subject_kind', { enum: RECOVERY_THROTTLE_SUBJECTS }).notNull(),
+  subjectHash: bytea('subject_hash').notNull(),
+});
+
+/** UPDATE target only. Names exactly the columns granted UPDATE to app_recovery. */
+export const recoveryThrottlesUpdate = nestly.table('recovery_throttles', {
+  shortWindowStartedAt: timestamp('short_window_started_at', { withTimezone: true }),
+  shortFailures: smallint('short_failures').notNull(),
+  longWindowStartedAt: timestamp('long_window_started_at', { withTimezone: true }),
+  longFailures: smallint('long_failures').notNull(),
+  lockedUntil: timestamp('locked_until', { withTimezone: true }),
+});
+
+/** INSERT target only. Names exactly the columns granted INSERT to app_recovery. No SELECT exists, so never RETURNING. */
+export const recoveryEventsInsert = nestly.table('recovery_events', {
+  kind: text('kind', { enum: RECOVERY_EVENT_KINDS }).notNull(),
+  userId: uuid('user_id'),
+  handleHash: bytea('handle_hash').notNull(),
+  ipHash: bytea('ip_hash').notNull(),
 });

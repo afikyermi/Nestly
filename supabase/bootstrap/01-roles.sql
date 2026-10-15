@@ -1,8 +1,9 @@
 -- =====================================================================================================================
--- Bootstrap step 1 — the three product roles and their grants.
+-- Bootstrap step 1 — the four product roles and their grants.
 --
 -- Source: .claude/knowledge/data-model.md rules 1, 2, 5, 6 and "The auth.users anchor and bootstrap steps" (step 1);
---         decisions.md 2026-10-11 "Migration path, migration role…" and "app_owner holds `authenticated`…".
+--         decisions.md 2026-10-11 "Migration path, migration role…" and "app_owner holds `authenticated`…";
+--         .work/password-recovery/schema.md (F1.6: `app_recovery`, part (b) of the approved recovery exception).
 --
 -- Run as:   postgres, in the Supabase SQL Editor. Once per environment (nestly-preview, then nestly-prod).
 --           nestly-prod: Afik only. See supabase/bootstrap/README.md.
@@ -32,11 +33,16 @@
 --               nobody can log in as has no credential to leak. Its LOGIN attribute and any grant it needs are
 --               decided with the first job (pg_cron vs. a code job), by editing this file and re-running it.
 --               No memberships: cross-user reach is only ever an explicit `TO app_jobs` policy (rule 6).
+--   app_recovery NOLOGIN, NOINHERIT, owns nothing, member of nothing. The guest role of the password-recovery flow
+--               only (F1.6, data-model "Approved exceptions"): a signed-out request has no auth.uid(), and `anon` must hold
+--               nothing in nestly. Granted to app_server alone, WITH INHERIT FALSE, SET TRUE, so it acts only after
+--               SET LOCAL ROLE app_recovery inside a transaction. It sees only the rows of the email handle and the IP
+--               hash the transaction declares, held by RLS + FORCE.
 --   postgres    becomes a member of app_owner WITH INHERIT TRUE, SET FALSE, so it can add the one FK to auth.users
 --               on a table app_owner owns (bootstrap step 2) and clean up after it. Admin-side only: postgres can
 --               reach app_owner, never the reverse.
 --
--- None of the three is SUPERUSER, BYPASSRLS, REPLICATION, CREATEROLE or CREATEDB, and none is a member of
+-- None of the four is SUPERUSER, BYPASSRLS, REPLICATION, CREATEROLE or CREATEDB, and none is a member of
 -- service_role, authenticator, postgres or any other role than those listed above (rule 1).
 --
 -- NOT in this file: step 2 (the anchor FK to auth.users) and step 3 (extensions, pg_cron jobs).
@@ -69,6 +75,9 @@ begin
   if not exists (select 1 from pg_roles where rolname = 'app_jobs') then
     create role app_jobs   nologin nosuperuser nobypassrls noreplication nocreatedb nocreaterole noinherit;
   end if;
+  if not exists (select 1 from pg_roles where rolname = 'app_recovery') then
+    create role app_recovery nologin nosuperuser nobypassrls noreplication nocreatedb nocreaterole noinherit;
+  end if;
 end
 $$;
 
@@ -80,7 +89,7 @@ declare
 begin
   for r in
     select rolname from pg_roles
-    where rolname in ('app_owner', 'app_server', 'app_jobs') and (rolsuper or rolbypassrls or rolreplication)
+    where rolname in ('app_owner', 'app_server', 'app_jobs', 'app_recovery') and (rolsuper or rolbypassrls or rolreplication)
   loop
     raise exception 'role % is SUPERUSER, BYPASSRLS or REPLICATION — not created by this script; stop and escalate', r.rolname;
   end loop;
@@ -92,19 +101,22 @@ begin
     join pg_roles r2 on r2.oid = m.member
     join pg_roles g  on g.oid  = m.roleid
     where (r2.rolname = 'app_owner'  and g.rolname <> 'authenticated')
-       or (r2.rolname = 'app_server' and g.rolname not in ('authenticated', 'anon'))
+       or (r2.rolname = 'app_server' and g.rolname not in ('authenticated', 'anon', 'app_recovery'))
        or (r2.rolname = 'app_jobs')
+       or (r2.rolname = 'app_recovery')
   loop
     raise exception 'unexpected membership: % is a member of % — stop and escalate', r.member, r.granted;
   end loop;
 
-  -- Only postgres may hold these roles (nothing at runtime may become app_owner, rule 1).
+  -- Only postgres may hold these roles (nothing at runtime may become app_owner, rule 1); app_recovery may also be held
+  -- by app_server, and by nobody else.
   for r in
     select r2.rolname as member, g.rolname as granted
     from pg_auth_members m
     join pg_roles r2 on r2.oid = m.member
     join pg_roles g  on g.oid  = m.roleid
-    where g.rolname in ('app_owner', 'app_server', 'app_jobs') and r2.rolname <> 'postgres'
+    where (g.rolname in ('app_owner', 'app_server', 'app_jobs') and r2.rolname <> 'postgres')
+       or (g.rolname = 'app_recovery' and r2.rolname not in ('postgres', 'app_server'))
   loop
     raise exception 'unexpected membership: % is a member of % — stop and escalate', r.member, r.granted;
   end loop;
@@ -115,11 +127,13 @@ $$;
 alter role app_owner  login   nocreatedb nocreaterole inherit;
 alter role app_server login   nocreatedb nocreaterole noinherit;
 alter role app_jobs   nologin nocreatedb nocreaterole noinherit;
+alter role app_recovery nologin nocreatedb nocreaterole noinherit;
 
 -- 4. Grants (re-granting with options updates them in place on PG 16+) ---------------------------------------------
 grant authenticated to app_owner  with inherit true,  set false;   -- rule 5
 grant authenticated to app_server with inherit false, set true;    -- rule 2
 grant anon          to app_server with inherit false, set true;    -- rule 2 (guest endpoints, rule 4)
+grant app_recovery  to app_server with inherit false, set true;    -- F1.6: the recovery flow only
 grant app_owner     to postgres   with inherit true,  set false;   -- bootstrap step 2 needs it
 
 do $$

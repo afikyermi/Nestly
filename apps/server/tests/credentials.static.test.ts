@@ -19,6 +19,7 @@ const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const SLOW = { timeout: 60_000 };
 
 const FAKE_PW = 'pw';
+const FAKE_KEY = ['sb', 'secret', 'abcdefghijklmnop'].join('_');
 /** Builds a connection string (scheme, user, password, host, tail) at run time, from parts. */
 function pgUrl(scheme: string, user: string, host: string, tail = '', password = FAKE_PW): string {
   return [scheme, '://', user, ':', password, '@', host, tail].join('');
@@ -68,8 +69,16 @@ function roleOfPayload(encoded: string): string | undefined {
   }
 }
 
-/** Every way the criterion is promised to be absent, as a list of human-readable findings for one file's text. */
-function credentialProblems(text: string): string[] {
+// F1.6-b (Gate 2, schema.md "CI check"; FR-AUTH-003 exception part (a)): the Auth admin key's NAME may appear in exactly one source file.
+const AUTH_ADMIN_MODULE = 'apps/server/src/recovery/auth-admin.ts';
+const PEPPER_MODULE = 'apps/server/src/recovery/pepper.ts';
+const relPath = (file: string): string => relative(repoRoot, file).split(sep).join('/');
+
+/**
+ * Every way the criterion is promised to be absent, as a list of human-readable findings for one file's text.
+ * `allowAdminKeyName` is true for the one module that reads the Auth admin key; a literal key (sb_secret_) is never allowed.
+ */
+function credentialProblems(text: string, allowAdminKeyName = false): string[] {
   const problems: string[] = [];
 
   for (const match of text.matchAll(/postgres(?:ql)?:\/\/([^\s'"`<>/]*)@/g)) {
@@ -82,7 +91,8 @@ function credentialProblems(text: string): string[] {
 
   if (/SERVICE_ROLE/.test(text) || /service_?role_?key|serviceRoleKey/i.test(text)) problems.push('a service_role key name');
   if (/APP_OWNER_DATABASE_URL|APP_OWNER_PASSWORD/.test(text)) problems.push('an app_owner credential name');
-  if (/SUPABASE_SECRET|sb_secret_|SUPABASE_DB_PASSWORD|POSTGRES_PASSWORD/.test(text)) problems.push('a secret key or database password name');
+  if (/SUPABASE_SECRET(?!_KEY\b)|sb_secret_|SUPABASE_DB_PASSWORD|POSTGRES_PASSWORD/.test(text)) problems.push('a secret key or database password name');
+  if (!allowAdminKeyName && /SUPABASE_SECRET_KEY/.test(text)) problems.push('the Auth admin key name outside recovery/auth-admin.ts');
 
   for (const match of text.matchAll(/\b(?:user|username)\s*:\s*['"]([^'"\n]{1,64})['"]/g)) {
     const name = match[1] ?? '';
@@ -103,6 +113,9 @@ describe('[F1.1-c c27] the credential scan itself fires on what it is meant to f
     ['an app_owner URL', pgUrl('postgres', 'app_owner.abcdefgh', 'host:5432', '/postgres')],
     ['a service_role user URL', pgUrl('postgres', 'service_role', 'host', '/db')],
     ['SUPABASE_SERVICE_ROLE_KEY', 'process.env.SUPABASE_SERVICE_ROLE_KEY'],
+    ['SUPABASE_SECRET_KEY outside the one module', 'process.env.SUPABASE_SECRET_KEY'],
+    ['SUPABASE_SECRET under another name', 'process.env.SUPABASE_SECRET_TOKEN'],
+    ['a literal secret key', `const k = "${FAKE_KEY}"`],
     ['APP_OWNER_DATABASE_URL', 'env: { APP_OWNER_DATABASE_URL: x }'],
     ['a driver option user: postgres', "postgres(url, { user: 'postgres', max: 1 })"],
     ['a driver option user: app_owner', 'new Pool({ user: "app_owner" })'],
@@ -119,6 +132,12 @@ describe('[F1.1-c c27] the credential scan itself fires on what it is meant to f
     ['the word service_role in a comment about claims', '// the token role claim (service_role, anon) is ignored'],
   ])('does not flag %s', (_label, text) => {
     expect(credentialProblems(text)).toEqual([]);
+  });
+
+  it('F1.6-b: SUPABASE_SECRET_KEY is allowed in the one module that reads it, and a literal key is not allowed even there', () => {
+    expect(credentialProblems('process.env.SUPABASE_SECRET_KEY', true)).toEqual([]);
+    expect(credentialProblems(`const k = "${FAKE_KEY}"`, true).length).toBeGreaterThan(0);
+    expect(credentialProblems('process.env.SUPABASE_SERVICE_ROLE_KEY', true).length).toBeGreaterThan(0);
   });
 
   it('looks at a non-empty set of files', SLOW, () => {
@@ -148,10 +167,47 @@ describe('[F1.1-c c27] nothing under apps/, api/ or vercel.json names a credenti
   it('no connection string, key name, driver user or embedded token for service_role, app_owner or postgres', SLOW, () => {
     const offenders: string[] = [];
     for (const file of filesUnderChecked()) {
-      for (const problem of credentialProblems(readFileSync(file, 'utf8'))) {
-        offenders.push(`${relative(repoRoot, file).split(sep).join('/')}: ${problem}`);
+      for (const problem of credentialProblems(readFileSync(file, 'utf8'), relPath(file) === AUTH_ADMIN_MODULE)) {
+        offenders.push(`${relPath(file)}: ${problem}`);
       }
     }
+    expect(offenders).toEqual([]);
+  });
+});
+
+// F1.6-b criterion 15 ("the admin key is read in one source file and the pepper in one (CI check)"), schema.md "CI check" and
+// "The pepper". Like the scan above, this is a property of the repository's text, so it reads source files at run time.
+describe('[F1.6-b c15 FR-AUTH-003] the Auth admin key and the pepper are named in one source file each, and never in CI config', () => {
+  const scanned = (): Array<{ path: string; text: string }> =>
+    filesUnderChecked().map((file) => ({ path: relPath(file), text: readFileSync(file, 'utf8') }));
+  const namingIn = (name: RegExp): string[] =>
+    scanned()
+      .filter((f) => name.test(f.text))
+      .map((f) => f.path);
+
+  it('SUPABASE_SECRET_KEY is named in apps/server/src/recovery/auth-admin.ts and in no other file under apps/, api/ or vercel.json (and the module does name it: not vacuous)', SLOW, () => {
+    expect(namingIn(/SUPABASE_SECRET_KEY/)).toEqual([AUTH_ADMIN_MODULE]);
+  });
+
+  it('RECOVERY_PEPPER is named in apps/server/src/recovery/pepper.ts and in no other file under apps/, api/ or vercel.json (and the module does name it: not vacuous)', SLOW, () => {
+    expect(namingIn(/RECOVERY_PEPPER/)).toEqual([PEPPER_MODULE]);
+  });
+
+  it('the Auth admin literals (/admin/, grant_type=password, /logout, Sb-Forwarded-For) appear under apps/server/src in auth-admin.ts only, and the module has all four', SLOW, () => {
+    const serverSrc = scanned().filter((f) => f.path.startsWith('apps/server/src/'));
+    for (const literal of ['/admin/', 'grant_type=password', '/logout', 'Sb-Forwarded-For']) {
+      const where = serverSrc.filter((f) => f.text.toLowerCase().includes(literal.toLowerCase())).map((f) => f.path);
+      expect(where, `the literal ${literal}`).toEqual([AUTH_ADMIN_MODULE]);
+    }
+  });
+
+  it('neither secret name appears anywhere under .github/ (CI uses a stub; Afik sets both on the host only)', SLOW, () => {
+    const files: string[] = [];
+    const dir = join(repoRoot, '.github');
+    expect(existsSync(dir), '.github/ exists, so this check reads something').toBe(true);
+    walk(dir, files);
+    expect(files.length).toBeGreaterThan(0);
+    const offenders = files.filter((f) => /SUPABASE_SECRET|RECOVERY_PEPPER/.test(readFileSync(f, 'utf8'))).map(relPath);
     expect(offenders).toEqual([]);
   });
 });

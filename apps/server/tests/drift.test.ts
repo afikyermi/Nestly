@@ -57,7 +57,37 @@ const APPROVED_F14: ColumnShape[] = [
   col('legal_consents', 'has_declared_18_plus', 'boolean', true),
   col('legal_consents', 'accepted_at', TZ, true),
 ];
-const APPROVED_ALL: ColumnShape[] = [...APPROVED, ...APPROVED_F14];
+// F1.6 part a (schema.md, three new tables): what the migrated database really holds. The Drizzle schema may name fewer
+// columns (a write model names only the granted ones), never a column the database lacks.
+const APPROVED_F16: ColumnShape[] = [
+  col('recovery_answers', 'user_id', 'uuid', true),
+  col('recovery_answers', 'email_handle', 'bytea', true),
+  col('recovery_answers', 'question_1', 'text', true),
+  col('recovery_answers', 'question_2', 'text', true),
+  col('recovery_answers', 'answer_hash_1', 'bytea', true),
+  col('recovery_answers', 'answer_salt_1', 'bytea', true),
+  col('recovery_answers', 'answer_hash_2', 'bytea', true),
+  col('recovery_answers', 'answer_salt_2', 'bytea', true),
+  col('recovery_answers', 'scrypt_log_n', 'smallint', true),
+  col('recovery_answers', 'scrypt_r', 'smallint', true),
+  col('recovery_answers', 'scrypt_p', 'smallint', true),
+  col('recovery_answers', 'created_at', TZ, true),
+  col('recovery_throttles', 'subject_kind', 'text', true),
+  col('recovery_throttles', 'subject_hash', 'bytea', true),
+  col('recovery_throttles', 'short_window_started_at', TZ, false),
+  col('recovery_throttles', 'short_failures', 'smallint', true),
+  col('recovery_throttles', 'long_window_started_at', TZ, false),
+  col('recovery_throttles', 'long_failures', 'smallint', true),
+  col('recovery_throttles', 'locked_until', TZ, false),
+  col('recovery_events', 'id', 'uuid', true),
+  col('recovery_events', 'kind', 'text', true),
+  col('recovery_events', 'user_id', 'uuid', false),
+  col('recovery_events', 'handle_hash', 'bytea', true),
+  col('recovery_events', 'ip_hash', 'bytea', true),
+  col('recovery_events', 'occurred_at', TZ, true),
+];
+const APPROVED_ALL: ColumnShape[] = [...APPROVED, ...APPROVED_F14, ...APPROVED_F16];
+const APPROVED_BEFORE_F16: ColumnShape[] = [...APPROVED, ...APPROVED_F14];
 
 const without = (rows: ColumnShape[], table: string, column: string): ColumnShape[] =>
   rows.filter((r) => !(r.table === table && r.column === column));
@@ -261,7 +291,7 @@ describe('[F1.1-b c10 c20] the db:drift command against the real Drizzle schema'
     const result = drift(JSON.stringify(APPROVED_ALL));
     expect(result.error).toBeUndefined();
     expect(result.output).not.toMatch(/Cannot find|ERR_MODULE_NOT_FOUND/);
-    expect(result.status).toBe(0);
+    expect(result.status, result.output).toBe(0);
   });
 
   it.each([
@@ -283,6 +313,19 @@ describe('[F1.1-b c10 c20] the db:drift command against the real Drizzle schema'
     ['journey_contexts.due_date a timestamp', changed(APPROVED_ALL, 'journey_contexts', 'due_date', { type: TZ })],
     ['legal_consents.has_declared_18_plus of another type', changed(APPROVED_ALL, 'legal_consents', 'has_declared_18_plus', { type: 'text' })],
     ['legal_consents.terms_version nullable in the database', changed(APPROVED_ALL, 'legal_consents', 'terms_version', { notNull: false })],
+    // [F1.6-a] the three recovery tables are in the Drizzle schema and checked
+    ['the catalog of F1.1 and F1.4 alone (the three F1.6 tables missing from the database)', APPROVED_BEFORE_F16],
+    ['recovery_answers missing from the database', APPROVED_ALL.filter((r) => r.table !== 'recovery_answers')],
+    ['recovery_throttles missing from the database', APPROVED_ALL.filter((r) => r.table !== 'recovery_throttles')],
+    ['recovery_events missing from the database', APPROVED_ALL.filter((r) => r.table !== 'recovery_events')],
+    ['recovery_answers.answer_hash_1 missing', without(APPROVED_ALL, 'recovery_answers', 'answer_hash_1')],
+    ['recovery_answers.email_handle of another type', changed(APPROVED_ALL, 'recovery_answers', 'email_handle', { type: 'text' })],
+    ['recovery_answers.scrypt_log_n of another type', changed(APPROVED_ALL, 'recovery_answers', 'scrypt_log_n', { type: 'integer' })],
+    ['recovery_answers.question_2 nullable in the database', changed(APPROVED_ALL, 'recovery_answers', 'question_2', { notNull: false })],
+    ['recovery_throttles.locked_until not null in the database', changed(APPROVED_ALL, 'recovery_throttles', 'locked_until', { notNull: true })],
+    ['recovery_throttles.subject_hash of another type', changed(APPROVED_ALL, 'recovery_throttles', 'subject_hash', { type: 'text' })],
+    ['recovery_events.user_id not null in the database', changed(APPROVED_ALL, 'recovery_events', 'user_id', { notNull: true })],
+    ['recovery_events.ip_hash missing', without(APPROVED_ALL, 'recovery_events', 'ip_hash')],
   ])('exits non-zero for %s', { timeout: TIMEOUT }, (_label, rows) => {
     const result = drift(JSON.stringify(rows));
     expect(result.error).toBeUndefined();
@@ -299,6 +342,23 @@ describe('[F1.1-b c10 c20] the db:drift command against the real Drizzle schema'
     const result = drift(content);
     expect(result.status).not.toBe(0);
     expect(result.status).not.toBeNull();
+  });
+
+  it('[F1.6-a] the Drizzle schema exports the three recovery tables and the five write models named in interface.md', async () => {
+    const schema = await import('../src/db/schema.js');
+    const names = Object.keys(schema);
+    for (const name of [
+      'recoveryAnswers',
+      'recoveryThrottles',
+      'recoveryEvents',
+      'recoveryAnswersInsert',
+      'recoveryAnswersUpdate',
+      'recoveryThrottlesInsert',
+      'recoveryThrottlesUpdate',
+      'recoveryEventsInsert',
+    ]) {
+      expect(names, name).toContain(name);
+    }
   });
 
   it('exits non-zero when it is given no catalog file at all', { timeout: TIMEOUT }, () => {

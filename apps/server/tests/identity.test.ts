@@ -98,7 +98,9 @@ function registerTestRoutes(app: App): void {
 const bearer = (t: string): { authorization: string } => ({ authorization: `Bearer ${t}` });
 
 // ---------------------------------------------------------------------------------------------------------------------
-describe('[F1.1-c c21] the public list holds only GET /api/health (FR-AUTH-004, BR-015, AC-016)', () => {
+// F1.6-b: the public list is closed and now holds two entries, GET /api/health and POST /api/recovery/reset (FR-AUTH-003). Every
+// test below registers its own routes, so each still shows that nothing else is public; the reset route has its own tests.
+describe('[F1.1-c c21 · F1.6-b] the public list is closed: GET /api/health and POST /api/recovery/reset only (FR-AUTH-004, BR-015, AC-016)', () => {
   it('GET /api/health answers 200 {status: ok} with no token and opens no transaction', T, async () => {
     const app = await appWith(goodEnv(), registerTestRoutes);
     const before = mark();
@@ -131,7 +133,7 @@ describe('[F1.1-c c21] the public list holds only GET /api/health (FR-AUTH-004, 
     expect(res.statusCode).not.toBe(403);
   });
 
-  it('[Q-d] only GET /api/health is public: HEAD /api/health, and HEAD on a protected route, answer 401 without a token', T, async () => {
+  it('[Q-d] the public entries are GET only for health: HEAD /api/health, and HEAD on a protected route, answer 401 without a token', T, async () => {
     const app = await appWith(goodEnv(), registerTestRoutes);
     const before = mark();
     for (const url of ['/api/health', PROTECTED]) {
@@ -141,7 +143,7 @@ describe('[F1.1-c c21] the public list holds only GET /api/health (FR-AUTH-004, 
     expectNoTransaction(before);
   });
 
-  it('the public list is not wider than GET /api/health: another method on that path is not served as health', T, async () => {
+  it('the public entry for health is not wider than GET: another method on that path is not served as health', T, async () => {
     const app = await appWith(goodEnv(), registerTestRoutes);
     for (const method of ['POST', 'PUT', 'DELETE', 'PATCH'] as const) {
       const res = await app.inject({ method, url: '/api/health' });

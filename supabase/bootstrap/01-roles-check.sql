@@ -12,26 +12,29 @@
 --                 readable by postgres on Supabase. Proof that a password is set is a successful login through the
 --                 pooler as <role>.<project-ref> (README). valid_until is shown because it IS visible.
 --
--- EXPECTED RESULT (3 rows, every `ok` = true):
+-- EXPECTED RESULT (4 rows, every `ok` = true):
 --
 --   role       | ok | login | super | bypassrls | repl  | createrole | createdb | inherit | create_on_db
 --   app_jobs   | t  | false | false | false     | false | false      | false    | false   | false
 --   app_owner  | t  | true  | false | false     | false | false      | false    | true    | true
+--   app_recovery | t | false | false | false     | false | false      | false    | false   | false
 --   app_server | t  | true  | false | false     | false | false      | false    | false   | false
 --
 --   member_of:
 --     app_jobs     (none)
 --     app_owner    authenticated(i=t s=f a=f)
---     app_server   anon(i=f s=t a=f), authenticated(i=f s=t a=f)
+--     app_recovery (none)
+--     app_server   anon(i=f s=t a=f), app_recovery(i=f s=t a=f), authenticated(i=f s=t a=f)
 --   held_by:
 --     app_jobs     postgres(i=f s=f a=t) by supabase_admin
 --     app_owner    postgres(i=f s=f a=t) by supabase_admin, postgres(i=t s=f a=f) by postgres
+--     app_recovery app_server(i=f s=t a=f) by postgres, postgres(i=f s=f a=t) by supabase_admin
 --     app_server   postgres(i=f s=f a=t) by supabase_admin
 --   (The "a=t by supabase_admin" rows are made by PostgreSQL itself: on 16+, the role that creates a role gets
 --    ADMIN OPTION on it. The "i=t" row on app_owner is the script's `grant app_owner to postgres`.)
 --   valid_until: null for all three.
 --
--- Fewer than 3 rows means a role is missing: 01-roles.sql did not run (or did not commit) in this project.
+-- Fewer than 4 rows means a role is missing: 01-roles.sql did not run (or did not commit) in this project.
 -- =====================================================================================================================
 
 with expected(role, login, inherit, create_on_db, member_of, held_by) as (
@@ -42,8 +45,11 @@ with expected(role, login, inherit, create_on_db, member_of, held_by) as (
     ('app_owner',  true,  true,  true,
      'authenticated(i=t s=f a=f)',
      'postgres(i=f s=f a=t) by supabase_admin, postgres(i=t s=f a=f) by postgres'),
+    ('app_recovery', false, false, false,
+     '(none)',
+     'app_server(i=f s=t a=f) by postgres, postgres(i=f s=f a=t) by supabase_admin'),
     ('app_server', true,  false, false,
-     'anon(i=f s=t a=f), authenticated(i=f s=t a=f)',
+     'anon(i=f s=t a=f), app_recovery(i=f s=t a=f), authenticated(i=f s=t a=f)',
      'postgres(i=f s=f a=t) by supabase_admin')
 ),
 actual as (
@@ -73,7 +79,7 @@ actual as (
     'not visible from SQL; test by logging in'::text                    as password,
     r.rolvaliduntil                                                     as valid_until
   from pg_roles r
-  where r.rolname in ('app_owner', 'app_server', 'app_jobs')
+  where r.rolname in ('app_owner', 'app_server', 'app_jobs', 'app_recovery')
 )
 select
   a.role,

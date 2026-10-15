@@ -49,8 +49,9 @@ select is_empty(
   $$ select c.relname || '.' || a.attname
        from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'nestly' and c.relkind in ('r', 'p', 'v', 'm', 'f') and a.attnum > 0 and not a.attisdropped
+        and c.relname not in ('recovery_answers', 'recovery_throttles', 'recovery_events')
         and a.attname ~* '(pass|pwd|hash|secret|token|salt|crypt|email|phone)' $$,
-  '[F1.4-a c14 NFR-SEC-001] no column anywhere in nestly holds a password, hash, secret, token, email or phone');
+  '[F1.4-a c14 NFR-SEC-001 · F1.6 scoped] no column of the five F1.1/F1.4 tables holds a password, hash, secret, token, email or phone (the recovery tables hold hashes by design: file 30)');
 
 -- ---- defaults: the owner and the clock come from the database (rules 12, 13; criterion 10 / 14) ------------------------
 select is(
@@ -173,27 +174,33 @@ select is_empty(
 select is(
   (select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')),
-  5::bigint,
-  '[F1.4-a c14] schema nestly holds exactly five tables (no table nobody listed)');
+  8::bigint,
+  '[F1.4-a c14 · F1.6-a] schema nestly holds exactly eight tables: the five F1.1/F1.4 ones and the three recovery tables (no table nobody listed)');
+
+select is(
+  (select string_agg(c.relname, ', ' order by c.relname) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'nestly' and c.relkind in ('r', 'p')),
+  'children, journey_contexts, legal_consents, recovery_answers, recovery_events, recovery_throttles, regular_profiles, users',
+  '[F1.6-a] the eight tables are exactly these names');
 
 -- ---- policies: the exact list ---------------------------------------------------------------------------------------------
 select set_eq(
   $$ select c.relname || '.' || pol.polname || '.' || pol.polcmd::text
        from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-      where n.nspname = 'nestly' $$,
+      where n.nspname = 'nestly' and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents') $$,
   $$ values ('users.users_select_own.r'), ('users.users_insert_own.a'),
             ('regular_profiles.regular_profiles_select_own.r'), ('regular_profiles.regular_profiles_insert_own.a'),
             ('journey_contexts.journey_contexts_select_own.r'), ('journey_contexts.journey_contexts_insert_own.a'),
             ('children.children_select_own.r'), ('children.children_insert_own.a'),
             ('legal_consents.legal_consents_select_own.r'), ('legal_consents.legal_consents_insert_own.a') $$,
-  '[F1.4-a c14 platform r14] the policies in nestly are exactly ten: one SELECT and one INSERT per table, no UPDATE, DELETE or ALL');
+  '[F1.4-a c14 platform r14 · F1.6 scoped] the policies on the five F1.1/F1.4 tables are exactly ten: one SELECT and one INSERT per table, no UPDATE, DELETE or ALL (the recovery policies: file 30)');
 
 select is_empty(
   $$ select c.relname || '.' || pol.polname
        from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-      where n.nspname = 'nestly'
+      where n.nspname = 'nestly' and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents')
         and pol.polroles <> array[(select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated')] $$,
-  '[F1.4-a c14 platform r4] every policy in nestly is TO authenticated only (not PUBLIC, not anon)');
+  '[F1.4-a c14 platform r4 · F1.6 scoped] every policy on the five F1.1/F1.4 tables is TO authenticated only (not PUBLIC, not anon, not app_recovery)');
 
 select is_empty(
   $$ select c.relname || '.' || pol.polname
@@ -248,6 +255,7 @@ select is(
      from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
      join pg_catalog.pg_attribute a on a.attrelid = c.oid
     where n.nspname = 'nestly' and c.relkind in ('r', 'p') and a.attnum > 0 and not a.attisdropped
+      and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents')
       and has_column_privilege('authenticated', c.oid, a.attnum, 'INSERT')),
   'children.slot, children.name, children.sex, children.birth_date, journey_contexts.stage, journey_contexts.due_date, '
   || 'legal_consents.terms_version, legal_consents.privacy_version, legal_consents.has_declared_18_plus, '
@@ -257,17 +265,19 @@ select is(
 select is(
   (select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
      join pg_catalog.pg_attribute a on a.attrelid = c.oid
-    where n.nspname = 'nestly' and c.relkind in ('r', 'p') and a.attnum > 0 and not a.attisdropped and a.attacl is not null),
+    where n.nspname = 'nestly' and c.relkind in ('r', 'p') and a.attnum > 0 and not a.attisdropped and a.attacl is not null
+      and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents')),
   13::bigint,
-  '[F1.4-a c14 rules 12, 13 · CRITIC a-1] exactly 13 columns in nestly carry a column-level ACL');
+  '[F1.4-a c14 rules 12, 13 · CRITIC a-1 · F1.6 scoped] exactly 13 columns of the five F1.1/F1.4 tables carry a column-level ACL');
 
 select is_empty(
   $$ select c.relname || '.' || a.attname || ':' || x.grantee::text || ':' || x.privilege_type
        from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
        join pg_catalog.pg_attribute a on a.attrelid = c.oid, lateral pg_catalog.aclexplode(a.attacl) x
       where n.nspname = 'nestly' and c.relkind in ('r', 'p') and a.attnum > 0 and not a.attisdropped
+        and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents')
         and not (x.privilege_type = 'INSERT' and x.grantee = (select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated')) $$,
-  '[F1.4-a c14 · CRITIC a-1] every column-level ACL entry is INSERT to authenticated: no column-level SELECT, UPDATE or REFERENCES, no other grantee');
+  '[F1.4-a c14 · CRITIC a-1 · F1.6 scoped] on the five F1.1/F1.4 tables every column-level ACL entry is INSERT to authenticated: no column-level SELECT, UPDATE or REFERENCES, no other grantee');
 
 select is_empty(
   $$ select v.t || '.' || v.col
@@ -306,9 +316,10 @@ select is_empty(
        from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
        join pg_catalog.pg_attribute a on a.attrelid = c.oid
       where n.nspname = 'nestly' and c.relkind in ('r', 'p') and a.attnum > 0 and not a.attisdropped
+        and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents')
         and (has_column_privilege('authenticated', c.oid, a.attnum, 'UPDATE')
              or has_column_privilege('authenticated', c.oid, a.attnum, 'REFERENCES')) $$,
-  '[F1.4-a c14 criterion 14 amended] no column of any nestly table can be UPDATEd or REFERENCEd by authenticated');
+  '[F1.4-a c14 criterion 14 amended · F1.6 scoped] no column of the five F1.1/F1.4 tables can be UPDATEd or REFERENCEd by authenticated (recovery_answers has its own column-level UPDATE: file 30)');
 
 select is_empty(
   $$ select c.relname || ':' || r.rolname
@@ -357,8 +368,8 @@ select is_empty(
 select is(
   (select string_agg(p.proname, ', ' order by p.proname) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'nestly'),
-  'is_active_account',
-  '[F1.4-a c14] the migration added no function to nestly: is_active_account is still the only one');
+  'is_active_account, recovery_handle, recovery_ip',
+  '[F1.4-a c14 · F1.6-a] nestly holds exactly three functions: is_active_account and the two recovery helpers (no other function came with a migration)');
 
 select is_empty(
   $$ select c.relname from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace

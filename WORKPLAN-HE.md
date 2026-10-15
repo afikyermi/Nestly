@@ -10,7 +10,7 @@
 
 ## איפה אנחנו עומדים
 
-**עודכן:** 15.10.2026 · **גרסת SRS:** 2.16 · **מצב:** בניית מוצר. מערך הסוכנים קפוא עד ש-I1 ממוזג (הכרעתך מ-13.10, `decisions.md`).
+**עודכן:** 15.10.2026 · **גרסת SRS:** 2.17 · **מצב:** בניית מוצר. מערך הסוכנים קפוא עד ש-I1 ממוזג (הכרעתך מ-13.10, `decisions.md`).
 
 - **✅ PR שיפור הבדיקות — מוזג** (PR 26, ‏`02842b0`, ‏15.10; ‏`.work/test-rules/result.md`): ‏test-engineer 1.6, ‏spec 1.3, ‏workflow 1.14 ("Test rules — this project"); ‏CI: ‏Chrome בלבד ב-PR, ‏`browser-edge` אחרי מיזוג ל-main ובהפעלה ידנית, ‏`update-baselines`; צילומי Playwright חוסמים (‏`SCREENS` ריק עד משימת ה-baselines); ‏SRS 2.14. ‏CRITIC: ‏Validated with Concern בשני הסבבים (‏1–7 תוקנו, ‏8 נדחה בנימוק תקציב שורות); ה-Concern ב-`debt.md`. **הכרעתך 15.10: ‏Edge כמו שנבנה** (‏`decisions.md`). **מי שממזג קורא את `browser-edge` על main** — אדום שם אינו חוסם דבר. ריצת main הראשונה (38702161133): ‏browser-edge ‏1 ו-2 ירוקים, כל הריצה ירוקה.
 - **✅ F1.4 `register-account-create` — מוזג** (PR 25, ‏`0cdd5fa`, ‏15.10; ‏`.work/register-account-create/`): ‏Gate 1 ו-Gate 2 עברו (כולל Amendment 1, הרשאות INSERT לפי עמודה). **חלק a (סכמה, RLS, pgTAP) ✅:** ‏CI ירוק ב-`eac7f7e`, ‏CRITIC: ‏Validated אחרי בדיקה חוזרת. **חלק b (שרת) ✅:** ‏`POST /api/register` (הדפדפן קורא ל-Supabase Auth — הכרעתך "א"), ‏`@nestly/shared` נבנה ל-JS לפונקציה. ‏CI ו-preview-smoke ירוקים ב-`b0b8792`, ‏CRITIC: ‏Validated אחרי בדיקה חוזרת. **חלק c (מסך) ✅:** שלב 2, מודול Auth בדפדפן, הודעות ושחזור, סריקה מצומצמת. ‏CI ירוק ב-`91363a0`, ‏CRITIC: ‏Validated אחרי בדיקה חוזרת. **‏Preview ✅ (15.10, `nestly-mch3ezhjm`):** הרשמה אמיתית עם שני ילדים ותאריך לידה משוער — 201 ו-`/feed`, השורות נכונות; אימייל חוזר — ההודעה הכללית. ‏`.work/register-account-create/result.md`. **מוזג.**
@@ -18,13 +18,13 @@
 - **✅ F1.3 `register-profile-step` — מוזג** (PR 22, ‏14.10; ‏`.work/register-profile-step/result.md`): שלב 1 בהרשמה — שלב במסע, שם, מין ההורה, תאריך לידה משוער, ילדים 1–10; הנתונים בזיכרון הטאב בלבד. ‏CRITIC: ‏Validated with Concern (סכמה strict ב-F1.4 Gate 2, ‏debt). ה-Preview נבדק ב-375 וב-1024.
 - **✅ האצה — מוזג** (PR 23, ‏`a756931`, ‏14.10, בקשתך): ‏CI ‏browser כ-matrix (Chrome/Edge × 2 shards): ‏4–5 דק׳ במקום 16–18. ‏Vercel בונה כל ענף עם PR פתוח, בלי תלות בסדר push/PR. ‏vitest רץ מהשורש. ‏CRITIC: ‏Validated. סעיפים 4–6 אושרו (‏14.10) ונבנו ב-`chore/speed-up-2`: ‏TEST ENGINEER עורך ומריץ את הטסטים שלו, ‏BUILDER כותב `interface.md`, ו-jq אינו נחשב נתיב ב-guard. ‏CRITIC (opus): שני ממצאים גבוהים ב-guard תוקנו, ‏Validated.
 - **✅ F1.2 `app-shell-guard` — מוזג** (PR 19, ‏`53b85d0`, ‏14.10; ‏`.work/app-shell-guard/result.md`): מסך Welcome, ‏AppShell, ‏RouteGuard ושכבת session. ‏CRITIC: ‏Validated with Concern, וארבעה ממצאים קלים נסגרו. ה-Preview נבדק על production אחרי המיזוג ב-375 וב-1024.
-- **✅ תוכנית ההצגה למרצה — נכתבה** (15.10, בקשתך): מסמך הרעיון שלך ב-`docs/lecturer-demo-idea-HE.md` (שונה שמו ונכנס למעקב). התוכנית ב-[docs/lecturer-demo-plan-HE.md](docs/lecturer-demo-plan-HE.md), והסטטוס בחלק 10 למטה. עמדתי על השאלות מסעיף 15 בתוכנית, בסעיף 4.
+- **✅ תוכנית ההצגה למרצה — גרסה 2** (15.10, הכרעתך: בלי כלי הצגה ובלי פיצול; המוצר עד הסוף, אחר כך משתמשי דמו ותוכן, והמרצה נכנס בהתחברות הרגילה; ‏SRS 2.17 §11): מסמך הרעיון שלך ב-`docs/lecturer-demo-idea-HE.md` (שונה שמו ונכנס למעקב). התוכנית ב-[docs/lecturer-demo-plan-HE.md](docs/lecturer-demo-plan-HE.md), והסטטוס בחלק 10 למטה. עמדתי על השאלות מסעיף 15 בתוכנית, בסעיף 4.
 - **✅ ה-debt שלפני F1.5 — מוזג** (PR 27, ‏`9aadef6`, ‏15.10; ‏`.work/debt-before-f15/result.md`): ‏D1 ‏pgTAP ל-`is_active_account` (סוגר את b-1, ירוק ב-CI), ‏D2 הטסט האיטי פוצל לארבעה, ‏D3 ה-error handler בלי תוכן בקשה בלוג. ‏DATA ARCHITECT אישר את D1; ‏CRITIC (opus): ‏Validated; ממצא 2 כמו שנבנה עד C4 (‏debt). בלי שינוי נראה למשתמש, ולכן בלי Preview.
 - **✅ הכרעותיך על תוכנית ההצגה (15.10) ו-SRS 2.15:** תאריך — כמה שיותר מהר · ‏G1–G6 אושרו; ה-Marketplace לפרסום ופנייה בלבד, בלי קנייה (BR-069) · מחירים זמניים TBD (OP-030) · זמנים אחורה בימים ובשעות, בהזזה אחרי היצירה (דרך 1, אישרת) · סעיף 15 אושר · בלי Auto-fix. ב-SRS 2.15: ‏FR-SERV-011, ‏FR-PRO-003, ‏FR-ADMIN-012, ‏BR-069–072, ‏NFR-SEC-007/008, ‏AC-093–098, ‏OP-024/025 נסגרו. ‏`roadmap.md` תוספת 2.
-- **✅ F1.5 `login-session` — מוזג** (PR 29, ‏`27816b4`, ‏15.10; ‏`.work/login-session/result.md`): מסך התחברות, ‏Session שנשמר ומתחדש, התנתקות, חשבון מושעה או חסום נעצר מיד, השלמת הרשמה שלא הסתיימה (סוגר את ה-debt של F1.4). ‏Gate 1 ו-Gate 2 עברו; ‏CRITIC (opus) על שלושת החלקים — ‏Validated. ‏Preview: אתה, "1–6 עבר". ‏SRS 2.16. ‏migrate ל-nestly-preview רץ (#4).
+- **✅ F1.5 `login-session` — מוזג** (PR 29, ‏`27816b4`, ‏15.10; ‏`.work/login-session/result.md`): מסך התחברות, ‏Session שנשמר ומתחדש, התנתקות, חשבון מושעה או חסום נעצר מיד, השלמת הרשמה שלא הסתיימה (סוגר את ה-debt של F1.4). ‏Gate 1 ו-Gate 2 עברו; ‏CRITIC (opus) על שלושת החלקים — ‏Validated. ‏Preview: אתה, "1–6 עבר". ‏SRS 2.16. ‏migrate: nestly-preview (#4) ו-production (אישרת, ‏db-production ירוק, 15.10).
 - **ממתין להכרעה שלך:** אין.
 - **ממתין לך (סודות ופעולות):**
-  0. **אישור migrate של F1.5 ל-production** — GitHub › Actions › migrate (הריצה על main אחרי PR 29) › Review deployments › ‏`db-production`.
+  0. **ב-F1.6 (לפני ה-Preview, אנחה אותך):** שני סודות ב-Vercel (Preview ו-Production): ‏`SUPABASE_SECRET_KEY` (מפתח הניהול של Supabase — כוח מלא על הפרויקט; הקוד שלנו מגביל אותו לשלוש קריאות במודול אחד) ו-`RECOVERY_PEPPER`; הרצה חוזרת של bootstrap שלב 1 (התפקיד `app_recovery`) על preview ועל prod לפני ה-migrate; ב-Supabase Auth לשני הפרויקטים: CAPTCHA כבוי בהתחברות, ‏leaked-password protection כבוי, בלי דרישת סוגי תווים. אופציונלי: ‏JWT expiry קצר יותר.
   1. **קובץ יומן מקומי ישן** `.live/events.jsonl` (טקסט מפרומפטים, לא ב-git): מחיקה היא שלך. אחריה אפשר להסיר את `.live/` מ-`.gitignore`.
   2. **מחיקת ענפים מרוחקים שמוזגו:** ‏`ui-wave-1/part-a` עד `part-e`, ‏`chore/i1-prep`, ‏`chore/guard-env-paths` (מוזג), ‏`chore/preview-access` (הוחלף ב-`-v2` אחרי rebase), ‏`chore/records-after-f12` (מוזג).
   3. **ב-F1.8:** הגדרת Google Cloud והסודות — אנחה אותך צעד-צעד.
@@ -34,7 +34,7 @@
   - 15.10: ‏F1.4 מוזג (PR 25) ו-migrate רץ על production. ‏PR שיפור הבדיקות מוזג (PR 26): בדיקות מקומיות מלאות, ‏SRS 2.14, ‏CRITIC פעמיים, ‏CI ירוק. הכרעתך: ‏Edge כמו שנבנה.
   - 14.10: ‏F1.1 הושלם, שלושה PRs מוזגו (15, 16, 17). הסכמה הראשונה הוחלה על preview, ו-pgTAP עבר 394/394. ‏F1.2 מוזג (PR 19). ‏Welcome חי ב-production, ואורח מנותב אליו. כלי ה-Preview מוזג (PR 21), ו-F1.3 נפתח. ‏F1.3 מוזג (PR 22). האצת CI מוזגה (PR 23).
 - **להמשך (מסירה ל-session הבא):**
-  0. **מסלול ראשי עכשיו — F1.6 (‏password-recovery):** שחזור סיסמה בתוך המערכת, בלי אימייל (‏I1 Addendum 1, ‏OP-029; ‏SPEC ו-DATA ARCHITECT מתכננים, ‏CRITIC על opus; חריג אחד מכלל הפלטפורמה 1 אם יידרש). **לפני כן:** ‏migrate של F1.5 ל-production — ממתין לאישורך. **משימות נפרדות שנותרו מ-PR 26:** צילומי baseline לכל המסכים (‏`SCREENS` + ‏PNG מ-`update-baselines`, והסרת בלוק Q3 ב-`e2e/part-f.spec.ts`); הצעת איחוד כפילויות (בלי מחיקה לפני אישורך); בדיקת Preview אוטומטית ב-CI.
+  0. **מסלול ראשי עכשיו — F1.6 (‏password-recovery) 🔄 ענף `feat/f1-6-password-recovery`** (‏`.work/password-recovery/`; נדחף, בלי PR): המנגנון — שאלות זיהוי (הכרעתך: 3 מוצעות, בוחרים 2, בלי "אחר כך"). ‏Gate 1 ו-Gate 2 עברו (‏`decisions.md` 15.10: ‏F1.6 Gate 1/Gate 2 — תפקיד `app_recovery`, איפוס = קביעת סיסמה + ניתוק כל ה-sessions). **צד השרת (חלקים a+b) נבנה** ‏(BUILDER) **והטסטים נכתבו** ‏(TEST ENGINEER); מקומית: ‏typecheck ו-lint לא הורצו על הטסטים החדשים; שני טסטים נכשלים בכוונה — ממצא: ‏text/plain מחזיר `invalid_request`/`invalid_questions` במקום `bad_request` שב-interface.md (לבחור: לתקן קוד או ממשק); ‏drift exit-0 נכשל מקומית רק בגלל build ישן של shared. ‏pgTAP ו-db tests לא רצו (רק ב-CI). **הבא:** (1) להריץ typecheck ו-lint ולתקן; (2) להכריע ממצא ה-content-type; (3) ‏DATA ARCHITECT מאשר את הסטייה ב-down script של F1.1 (‏BUILDER הוסיף סירוב); (4) ‏CRITIC על opus לחלקים a+b + אימות הצעת הידע (Approved exceptions); (5) ‏push ו-draft PR; (6) חלק c — המסכים (מסך שאלות אחרי יצירת חשבון, ‏/recovery), ‏E2E; (7) לפני Preview — הסודות וה-bootstrap שלך ("ממתין לך" 0). ‏debt לרשום: ‏drift.test מקודד עמודות ידנית; ניקוי throttles; ‏retention של audit (‏OP חדש ב-SRS). **משימות נפרדות שנותרו מ-PR 26:** צילומי baseline לכל המסכים (‏`SCREENS` + ‏PNG מ-`update-baselines`, והסרת בלוק Q3 ב-`e2e/part-f.spec.ts`); הצעת איחוד כפילויות (בלי מחיקה לפני אישורך); בדיקת Preview אוטומטית ב-CI.
   1. **איפה עומדים:** ‏I1: ‏F1.1–F1.4 מוזגו (‏F1.4: ‏PR 25, ‏`0cdd5fa`, ‏migrate ב-production ירוק). ‏PR שיפור הבדיקות מוזג (‏PR 26, ‏`02842b0`). ‏SRS ‏2.15. ‏Production: ‏[nestly-blue.vercel.app](https://nestly-blue.vercel.app). מערך הסוכנים קפוא עד סוף I1, מלבד החריגים שאישרת (האצה, כלל ההמתנה, שיפור הבדיקות).
   2. **הבא בתור:** ‏F1.5, ‏F1.6, ‏F1.7, ואחריהם I2 לפי חלק 8. תוכנית ההצגה (חלק 10) רצה במקביל רק במה שלא תלוי בקוד.
   3. **בדרך:** שינוי קטן ב-`tools/critic-diff.mjs` (בלי package-lock, ‏noise, ‏incidents ו-.claude/logs) נכנס עם הפיצ'ר הבא.
@@ -88,7 +88,7 @@
 - גדר הקריאה של TEST ENGINEER: ‏21 חסימות ב-F1.1, ועקיפה דרך טסטי סריקה ב-F1.2. לבחון לתת לו לקרוא טיפוסים וממשקים מיוצאים במקום חסימה גורפת (הכרעתך מ-14.10).
 - ה-guard חוסם כל פקודה של סוכן שה-cwd שלו הוא worktree תחת `.claude/worktrees/` ("not the project root"): ‏TEST ENGINEER נחסם 5 פעמים ב-3 דקות (14.10, ‏preview-access). בינתיים: ענפים נבדקים ב-checkout הראשי, לא ב-worktree, ו-ORCHESTRATOR מריץ את הטסטים.
 
-## חלק 10 — הצגה למרצה 🔄 (15.10.2026)
+## חלק 10 — הצגה למרצה 🔄 (15.10.2026; תוכנית גרסה 2)
 
 **מה:** מסמך הרעיון שלך, [docs/lecturer-demo-idea-HE.md](docs/lecturer-demo-idea-HE.md). **איך:** [docs/lecturer-demo-plan-HE.md](docs/lecturer-demo-plan-HE.md). **ההחלטה:** `decisions.md`, 15.10, "Lecturer presentation". **הסטטוס:** רק כאן.
 
@@ -98,11 +98,11 @@
 | 10.1 | הכרעות: תאריך · ‏G1–G6 · מחירון · זמנים אחורה · סעיף 15 | — | ✅ 15.10 |
 | 10.2 | ‏SRS ‏2.15: ‏G1–G7, ‏OP-024, ‏OP-025, אחריות על תוכן משתמשים, היקף I1–I14 לפני ההצגה, כלי ההצגה מחוץ למוצר | 10.1 | ✅ 15.10 (`chore/srs-2-15-demo`) |
 | 10.3 | שלב א — מוצר: ‏I1–I14 בלי I15, לפי חלק 8 | — | 🔄 ‏I1 |
-| 10.4 | מדריכים לפי סטטוס (תוכן מערכת): ‏Claude כותב, ואתה מאשר כל מדריך | I6, 10.2 | ⬜ |
-| 10.5 | שלב ב — כלי ההצגה: spec, ‏Gate 2, ‏CRITIC על opus | 10.2; מתחיל אחרי I8 | ⬜ |
-| 10.6 | שלב ג — תוכן הדמו: דמויות, סיפורים, פוסטים, מוצרים, תמונות | 10.5 | ⬜ |
-| 10.7 | שלב ד — הכנסה ל-nestly-preview, חזרה גנרלית בכל תפקיד, ואחר כך production (באישורך) | 10.3, 10.6 | ⬜ |
-| 10.8 | שלב ה — איפוס, הצגה, איפוס | 10.7 | ⬜ |
+| 10.4 | שלב ב — מדריכים לפי סטטוס (תוכן מערכת): ‏Claude כותב, ואתה מאשר כל מדריך | I6 | ⬜ |
+| 10.5 | ~~כלי ההצגה~~ — **בוטל** (הכרעתך 15.10, תוכנית גרסה 2): בלי קוד גישה, כניסה בלחיצה, ‏schema נפרדת או `DEMO_ENABLED` | — | ⏸️ |
+| 10.6 | שלב ג — כתיבת תוכן הדמו: דמויות, סיפורים, פוסטים, מוצרים, מאמרים, תמונות | — | ⬜ |
+| 10.7 | שלב ד — הכנסת התוכן דרך ה-API של המוצר (הרצה חד-פעמית מ-CI, באישורך) והזזת זמנים, קודם nestly-preview ואחר כך production | 10.3, 10.6 | ⬜ |
+| 10.8 | שלב ה — ההצגה: המרצה נכנס בהתחברות הרגילה עם משתמש דמו; אתה כמנהל | 10.7 | ⬜ |
 
 ## חלק 9 — עיצוב UX/UI ✅ (11.10.2026, לפני חלק 8)
 
@@ -144,7 +144,7 @@
 | I6 | בית ומעקב | ✅ | 6 | I2 | OP-003 · OP-008 · שדות מחזור וביוץ (תוכן המדריכים הוחלט: BR-070, ‏FR-ADMIN-012) | — | ⬜ |
 | I7 | התראות וחיפוש | ✅ | 4 | I2, I3 | ספי rate limit · רשימת אירועים | — | ⬜ |
 | I8 | שיחות ו-Support | ✅ | 5 | I2, I4, I7 | נושאי פנייה | — | ⬜ |
-| I9 | מוכנות להשקה | ✅ | 5 (+CAPTCHA) | I1–I8 | Retention · ביקורת משפטית **ותקציב** · OP-017 · יעדי NFR · רשימת מוזמנים | — | ⬜ |
+| I9 | מוכנות להשקה | ✅ | 5 (+CAPTCHA) | I1–I8 | Retention · ביקורת משפטית **ותקציב** (מדיניות הפרטיות כוללת את תשובות שאלות השחזור, F1.6) · OP-017 · יעדי NFR · רשימת מוזמנים | — | ⬜ |
 | I10 | קבוצות | — | 5 | I3, I4, I7 | קטגוריות · Highlights | — | ⬜ |
 | I11 | בעלי מקצוע ושירותים | — | 10 | I8, I3, I5 | OP-005 · OP-010 · OP-016 · קטגוריות · מיקום (הדירוג הוחלט: BR-072) | — | ⬜ |
 | I12 | Marketplace | — | 5 | I5, I8 | OP-012 · קופונים | — | ⬜ |

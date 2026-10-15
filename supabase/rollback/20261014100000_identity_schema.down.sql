@@ -5,6 +5,8 @@
 -- Run as:   app_owner, the owner of nestly, in one transaction. CI runs it once per build (up -> down -> up) against
 --           the disposable database. Against nestly-preview or nestly-prod it is a destructive change: Afik only
 --           (CLAUDE.md hard rule 7).
+-- Order:    F1.6 down (20261015200000), then F1.4 (20261014200000), then this one. The script refuses while the
+--           recovery tables exist: its DROP SCHEMA ... CASCADE would drop them without any row check.
 -- Safe:     only while nestly.users and nestly.regular_profiles are empty, i.e. until F1.4 writes the first row. The
 --           script refuses otherwise. FORCE RLS would hide every row from app_owner (no policy is TO app_owner), so it
 --           lifts FORCE inside this transaction first; the owner then sees every row, and the count is real.
@@ -27,6 +29,14 @@ do $$
 begin
   if to_regclass('nestly.legal_consents') is not null then
     raise exception 'run supabase/rollback/20261014200000_registration_account.down.sql first: the registration account migration is still applied';
+  end if;
+end
+$$;
+
+do $$
+begin
+  if to_regclass('nestly.recovery_answers') is not null then
+    raise exception 'run supabase/rollback/20261015200000_recovery_questions.down.sql first: the recovery questions migration is still applied';
   end if;
 end
 $$;

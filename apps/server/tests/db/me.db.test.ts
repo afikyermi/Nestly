@@ -40,8 +40,11 @@ async function setStatus(who: string, status: 'active' | 'suspended' | 'banned')
 
 const bearerFor = async (sub: string, extra?: Record<string, unknown>): Promise<string> =>
   `Bearer ${await token({ key, sub, ...(extra ? { extra } : {}) })}`;
-const me = (app: App, header: string | null, headers: Record<string, string> = {}) =>
-  app.inject({ method: 'GET', url: '/api/me', headers: { ...(header === null ? {} : { authorization: header }), ...headers } });
+// A 200 body is returned in canonical (sorted-key) form: the key order of {state, recoveryQuestions} is not part of the contract.
+const me = async (app: App, header: string | null, headers: Record<string, string> = {}) => {
+  const res = await app.inject({ method: 'GET', url: '/api/me', headers: { ...(header === null ? {} : { authorization: header }), ...headers } });
+  return { statusCode: res.statusCode, headers: res.headers, body: res.statusCode === 200 ? canon(res.body) : res.body };
+};
 
 beforeAll(async () => {
   key = await newKey('me-db-key');
@@ -66,18 +69,23 @@ afterAll(async () => {
   restoreEnv();
 });
 
-const ACTIVE = '{"state":"active"}';
+// F1.6-a criterion 6: an active account's body is {state, recoveryQuestions}; the fixtures a, b and p have saved no answers, so
+// "missing". The other two states keep {state} alone. Key order is not part of the contract, so an active body is compared in
+// canonical (sorted-key) form.
+const canon = (body: string): string =>
+  JSON.stringify(Object.fromEntries(Object.entries(jsonOf(body)).sort(([left], [right]) => left.localeCompare(right))));
+const ACTIVE = '{"recoveryQuestions":"missing","state":"active"}';
 const UNAVAILABLE = '{"state":"unavailable"}';
 const UNREGISTERED = '{"state":"unregistered"}';
 
 // ---------------------------------------------------------------------------------------------------------------------
 describe('[F1.5-a c2 FR-AUTH-002] the three states', () => {
-  it('[F1.5-a c2] an active account (regular a, b; professional p) -> 200 {"state":"active"}', T, async () => {
+  it('[F1.5-a c2 · F1.6-a c6] an active account (regular a, b; professional p) without saved answers -> 200 {"state":"active","recoveryQuestions":"missing"}', T, async () => {
     const app = await start();
     for (const who of [ACCOUNT_A, ACCOUNT_B, P]) {
       const res = await me(app, await bearerFor(who));
       expect(res.statusCode, res.body).toBe(200);
-      expect(res.body).toBe(ACTIVE);
+      expect(canon(res.body)).toBe(ACTIVE);
     }
   });
 
@@ -131,7 +139,7 @@ describe('[F1.5-a c2 FR-AUTH-002] the three states', () => {
         headers: { authorization: await bearerFor(ACCOUNT_A), 'x-user-id': target, 'x-nestly-user': target },
       });
       expect(res.statusCode, res.body).toBe(200);
-      expect(res.body).toBe(ACTIVE);
+      expect(canon(res.body)).toBe(ACTIVE);
     }
     // and S asking with A's id is still told it is unavailable
     const res = await app.inject({ method: 'GET', url: `/api/me?id=${ACCOUNT_A}`, headers: { authorization: await bearerFor(S), 'x-user-id': ACCOUNT_A } });
@@ -140,16 +148,17 @@ describe('[F1.5-a c2 FR-AUTH-002] the three states', () => {
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
-describe('[F1.5-a c2 NFR-SEC-001] the body carries one field and nothing about the account', () => {
-  it('[F1.5-a c2] every body is exactly {"state": ...}: no id, email, type, status word or timestamp', T, async () => {
+describe('[F1.5-a c2 NFR-SEC-001] the body carries the state, one more field for an active account, and nothing about the account', () => {
+  it('[F1.5-a c2 · F1.6-a c6] every body is exactly {"state"} (active: also "recoveryQuestions"): no id, email, type, status word or timestamp', T, async () => {
     const app = await start();
     const bodies: string[] = [];
     for (const who of [ACCOUNT_A, S, X, C, P]) {
       const res = await me(app, await bearerFor(who));
       bodies.push(res.body);
       const parsed = jsonOf(res.body);
-      expect(Object.keys(parsed)).toEqual(['state']);
+      expect(Object.keys(parsed).sort()).toEqual(parsed.state === 'active' ? ['recoveryQuestions', 'state'] : ['state']);
       expect(['active', 'unavailable', 'unregistered']).toContain(parsed.state);
+      if (parsed.state === 'active') expect(['set', 'missing']).toContain(parsed.recoveryQuestions);
     }
     const all = bodies.join('\n');
     expect(all).not.toMatch(/suspend|ban|status|regular|professional|account_type|accountType|email|created|[0-9a-f]{8}-[0-9a-f]{4}|\d{4}-\d{2}-\d{2}/i);
@@ -175,7 +184,7 @@ describe('[F1.5-a c2 NFR-SEC-001] the body carries one field and nothing about t
     const app = await start();
     const res = await me(app, await bearerFor(ACCOUNT_A), { 'if-none-match': '*', 'if-modified-since': 'Wed, 21 Oct 2037 07:28:00 GMT' });
     expect(res.statusCode).toBe(200);
-    expect(res.body).toBe(ACTIVE);
+    expect(canon(res.body)).toBe(ACTIVE);
     expect(res.headers['etag']).toBeUndefined();
     expect(res.headers['last-modified']).toBeUndefined();
   });
@@ -247,7 +256,7 @@ describe('[F1.5-a c4 BR-024] a status change is seen by the very next call with 
     const more = Array.from({ length: 6 }, () => me(app, header));
     for (const res of await Promise.all([...calls, ...more])) {
       expect(res.statusCode, res.body).toBe(200);
-      expect([ACTIVE, UNAVAILABLE]).toContain(res.body);
+      expect([ACTIVE, UNAVAILABLE]).toContain(canon(res.body));
     }
     expect((await me(app, header)).body).toBe(UNAVAILABLE);
   });
