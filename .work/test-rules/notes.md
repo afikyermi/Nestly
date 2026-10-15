@@ -51,3 +51,8 @@
 **Neighbouring** The SRS note (NFR-QA-001 "per release, not per PR") is pending at wrap-up.
 
 **DECISION REQUEST (ORCHESTRATOR)** Edge trigger. Implemented default: push to main + workflow_dispatch (post-merge, parallel to the prod deploy). If Afik wants Edge strictly before production, the option is a protected release branch/tag that Vercel deploys from, which changes the deploy flow.
+
+## CRITIC round 1 (15.10)
+- ci.yml: the `browser` install step now installs the literal `chrome` (the matrix is `[chrome]`; the test accepts it); comment fixed. Comments for `workflow_dispatch` and `browser-edge` now say Edge runs on every push to main (after the merge, parallel to Vercel's production deploy, not blocking it) and by hand; no "before a release".
+- update-baselines.yml: header notes the run fails on purpose at `if-no-files-found: error` while SCREENS is empty.
+- playwright.config.ts: maxDiffPixelRatio 0.002 -> 0.0005 (decisions.md 2026-10-15), with a comment.

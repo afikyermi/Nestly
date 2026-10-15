@@ -9,7 +9,7 @@ on:
   pull_request:
   push:
     branches: [main]
-  # Run the whole workflow by hand, for instance the Edge job before a release (`changes` then runs everything).
+  # Run the whole workflow by hand, including the Edge job `browser-edge` (`changes` then runs everything).
   workflow_dispatch:
 
 permissions:
@@ -185,8 +185,8 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
-      # Only this job's browser: the Playwright project `edge` uses the channel `msedge`.
-      - run: npx playwright install --with-deps ${{ matrix.project == 'edge' && 'msedge' || 'chrome' }}
+      # Only this job's browser; Edge is installed in `browser-edge`.
+      - run: npx playwright install --with-deps chrome
       - run: npm run build-storybook
       - run: npx playwright test --project=${{ matrix.project }} --shard=${{ matrix.shard }}/2
       - uses: actions/upload-artifact@v4
@@ -197,8 +197,9 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # Edge (SRS NFR-QA-001) is not run per pull request. It runs on every push to main (the merge Vercel deploys to
-  # production) and on workflow_dispatch, behind the same change filter. The visual regression is Chrome only.
+  # Edge (SRS NFR-QA-001) is not run per pull request. It runs on every push to main (after the merge, in parallel with
+  # Vercel's production deploy, so it does not block the deploy) and on workflow_dispatch, behind the same change filter.
+  # The visual regression is Chrome only.
   browser-edge:
     needs: changes
     if: needs.changes.outputs.web == 'true' && github.event_name != 'pull_request'

@@ -16,7 +16,8 @@ const SIZES = [
   { label: 'desktop', viewport: DESKTOP },
 ] as const;
 
-test.use({ reducedMotion: 'reduce', baseURL: APP });
+// No file-wide baseURL: stories use the config's (Storybook), the app uses the absolute APP through open().
+test.use({ reducedMotion: 'reduce' });
 
 async function show(page: Page, screen: Screen): Promise<void> {
   if (screen.kind === 'story') await openStory(page, screen.id);
@@ -28,6 +29,17 @@ test('visual: screen names are unique and safe as file names', () => {
   const names = SCREENS.map((s) => s.name);
   expect(new Set(names).size).toBe(names.length);
   for (const n of names) expect(n).toMatch(/^[a-z0-9-]+$/);
+});
+
+test('visual: a story screen opens in Storybook', async ({ page }) => {
+  await show(page, { kind: 'story', id: 'ui-button--primary', name: 'probe' });
+  expect(page.url().startsWith('http://127.0.0.1:6007')).toBe(true);
+  await expect(page.locator('body.sb-show-main')).toBeAttached();
+});
+
+test('visual: an app screen opens in the e2e app', async ({ page }) => {
+  await show(page, { kind: 'app', route: '/', state: null, name: 'probe' });
+  expect(page.url().startsWith(APP)).toBe(true);
 });
 
 for (const screen of SCREENS) {

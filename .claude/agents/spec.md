@@ -83,9 +83,10 @@ context window, and you derive the contract from what is already written there.
 - Authorization is stated as a criterion whenever the feature touches user data: who may read, write and
   delete. A tester can only test what the contract says.
 - Every criterion is marked with its type, which sets how deeply it is tested: **🔴 security and data**
-  (authentication, authorization, permissions, personal or minors' data, deletion) · **🎨 UI and screens**
+  (authentication, authorization, permissions, children's or minors' data, deletion) · **🎨 UI and screens**
   (what a user sees and does on a screen) · **🟡 logic** (rules, calculations, validation without a
-  security or data stake). A criterion that fits two types takes the stricter one: 🔴 over 🎨 over 🟡.
+  security or data stake). A criterion that fits two types takes the stricter one: 🔴 over 🎨 over 🟡. A criterion
+  with no type of its own (configuration, infrastructure, performance) is 🟡.
 
 ## Writing a testable criterion
 

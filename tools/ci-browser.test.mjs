@@ -18,6 +18,7 @@ const config = readFileSync(join(root, 'playwright.config.ts'), 'utf8');
 const projectNames = [...config.matchAll(/\{\s*name:\s*'([^']+)'/g)].map((m) => m[1]);
 
 const WEB_IF = /^(?:\$\{\{\s*)?needs\.changes\.outputs\.web\s*==\s*'true'(?:\s*\}\})?$/;
+const EDGE_IF = /^(?:\$\{\{\s*)?needs\.changes\.outputs\.web\s*==\s*'true'\s*&&\s*github\.event_name\s*!=\s*'pull_request'(?:\s*\}\})?$/;
 const PROJECT_FLAG = /--project=\$\{\{\s*matrix\.project\s*\}\}/;
 const SHARD_FLAG = /--shard=\$\{\{\s*matrix\.shard\s*\}\}\/(\d+)\b/;
 
@@ -157,9 +158,9 @@ function edgeProblems(job, triggers) {
   if (JSON.stringify([matrix?.shard ?? []].flat()) !== JSON.stringify(['1', '2'])) problems.push(`matrix.shard is [${matrix?.shard}], not [1, 2]`);
   if (String(job.strategy?.['fail-fast']) !== 'false') problems.push('fail-fast is not false');
   if (!needsOf(job).includes('changes')) problems.push('the job does not need `changes`');
-  const condition = String(job.if ?? '');
-  if (!/needs\.changes\.outputs\.web\s*==\s*'true'/.test(condition)) problems.push(`the if lacks the web change filter: ${condition}`);
-  if (!/github\.event_name\s*!=\s*'pull_request'/.test(condition)) problems.push(`the if does not exclude pull_request: ${condition}`);
+  const condition = String(job.if ?? '').trim();
+  if (!EDGE_IF.test(condition)) problems.push(`the if is not exactly the web filter and not-a-pull_request: ${condition}`);
+  if (JSON.stringify(triggers?.push?.branches) !== JSON.stringify(['main'])) problems.push(`on.push.branches is ${JSON.stringify(triggers?.push?.branches)}, not [main]`);
   if (has(job, 'continue-on-error')) problems.push('the job has continue-on-error');
   const minutes = Number(job['timeout-minutes']);
   if (!(minutes >= 10 && minutes <= 15)) problems.push(`timeout-minutes is ${job['timeout-minutes']}, not 10 to 15`);
@@ -207,11 +208,15 @@ test('[test rules] the Edge check can fail: every drift is caught (guards the te
     'runs chrome': () => ({ ...clone(), steps: clone().steps.map((s) => (/playwright\s+test/.test(runOf(s)) ? { ...s, run: runOf(s).replace('--project=edge', '--project=chrome') } : s)) }),
     'installs chrome too': () => ({ ...clone(), steps: clone().steps.map((s) => (/playwright\s+install/.test(runOf(s)) ? { ...s, run: 'npx playwright install --with-deps chrome msedge' } : s)) }),
     'no storybook build': () => ({ ...clone(), steps: clone().steps.filter((s) => !/build-storybook/.test(runOf(s))) }),
+    'the if widened with || true': () => ({ ...clone(), if: `${edge.if} || true` }),
     'no job at all': () => undefined,
   };
   for (const [label, make] of Object.entries(mutants)) {
     assert.notDeepEqual(edgeProblems(make(), ci.on), [], `${label} was not caught`);
   }
+  const widened = { ...ci.on, push: { ...ci.on.push, branches: ['main', '**'] } };
+  assert.notDeepEqual(edgeProblems(edge, widened), [], 'a push widened to every branch was not caught');
+  assert.notDeepEqual(edgeProblems(edge, { ...ci.on, push: {} }), [], 'a push with no branch filter was not caught');
   for (const missing of ['pull_request', 'push', 'workflow_dispatch']) {
     const triggers = Object.fromEntries(Object.entries(ci.on).filter(([k]) => k !== missing));
     assert.notDeepEqual(edgeProblems(edge, triggers), [], `a workflow without ${missing} was not caught`);

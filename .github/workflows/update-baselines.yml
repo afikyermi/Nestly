@@ -2,6 +2,8 @@
 # is valid only when made by the same browser and OS that compares it (Linux Chrome). Run by hand (workflow_dispatch) on a
 # branch after adding screens to e2e/visual-screens.ts. The job only builds and uploads the PNGs as an artifact; it has
 # read-only access and cannot push. Download the artifact, copy the PNGs into e2e/__screenshots__/, and commit them.
+# While SCREENS in e2e/visual-screens.ts is empty, the run fails on purpose at `if-no-files-found: error` (no PNG is made),
+# so a failure there with an empty list is not a bug.
 
 name: update-baselines
 

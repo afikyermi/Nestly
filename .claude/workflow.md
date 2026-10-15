@@ -277,10 +277,13 @@ Decided by Afik (14.10.2026) — quality is not lowered; duplication is removed 
 - **One layer per behaviour** — permissions → pgTAP · logic → unit (Vitest) · screen behaviour → e2e (Playwright) ·
   a component Vitest test only for logic with no e2e expression.
 - **Devices** — every 🎨 criterion at desktop (1024) and phone (375).
-- **Browsers** — pull requests run e2e on Chrome only (desktop + phone). Edge runs before a release to production.
+- **Browsers** — pull requests run e2e on Chrome only (desktop + phone). Edge (job `browser-edge`) runs on every merge
+  to `main` and by hand (`workflow_dispatch`): after the merge, so it does not block the production deploy. A release
+  gate before the deploy is an open question for Afik (WORKPLAN).
 - **Visual regression** — Playwright screenshots are blocking for every screen the feature touches, desktop and phone.
   Noise is stabilised (fonts, animation, clock, data), never switched off. A screen without a baseline gets one in the
-  same PR.
+  same PR. The list `e2e/visual-screens.ts` is opt-in — only a listed screen is compared — so SPEC names every screen a
+  🎨 criterion touches, TEST ENGINEER lists each one, and CRITIC checks the list against the 🎨 criteria.
 - **Soft ceiling** — test lines ≤ 2× product lines per feature; above it, one line in `result.md` says why.
 - **Tools and hooks** — no new tests unless a tool actually broke.
 

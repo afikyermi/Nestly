@@ -14,7 +14,8 @@ export default defineConfig({
   reporter: isCi ? [['list'], ['html', { open: 'never' }]] : 'list',
   // One baseline per screen and size, no OS or project in the name: CI (Linux Chrome) is the only place baselines are made.
   snapshotPathTemplate: '{testDir}/__screenshots__/{arg}{ext}',
-  expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.002 } },
+  // Starts tight (about 150 px at 375x812). Raised only after a flake observed on CI and recorded in decisions.md; nothing is masked.
+  expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.0005 } },
   // A missing baseline is a failure, never silently written (the default 'missing' would pass the first run).
   updateSnapshots: 'none',
   use: { baseURL: `http://127.0.0.1:${PORT}` },

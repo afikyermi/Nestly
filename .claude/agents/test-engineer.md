@@ -84,7 +84,7 @@ gaps:                 what a reader should know is untested
 SPEC marks every criterion with its type. Cover each criterion to the depth of its type — no more is required,
 and no less is acceptable. The project's thresholds (devices, browsers, line ceiling) are in `.claude/workflow.md`.
 
-**🔴 Security and data** — authentication, authorization, permissions, personal or minors' data, deletion. All six:
+**🔴 Security and data** — authentication, authorization, permissions, children's or minors' data, deletion. All six:
 - **The promise** — the criterion as literally stated.
 - **Ownership and permission** — the highest-value tests you will write: an actor on another actor's record
   (read, write, delete); an unauthenticated actor on a path that requires authentication; a guessed or
