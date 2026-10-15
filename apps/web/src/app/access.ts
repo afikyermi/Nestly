@@ -4,6 +4,7 @@ import { GUEST_LANDING, GUEST_PATHS, normalizePath, PATHS, PROTECTED_PATHS, SIGN
 export type AccessDecision = { kind: 'loading' } | { kind: 'render' } | { kind: 'redirect'; to: string };
 
 const COMPLETION_PATHS: readonly string[] = [PATHS.register, PATHS.terms, PATHS.privacy];
+const QUESTIONS_HELD_PATHS: readonly string[] = [PATHS.recoveryQuestions, PATHS.terms, PATHS.privacy];
 const RENDER: AccessDecision = { kind: 'render' };
 const LOADING: AccessDecision = { kind: 'loading' };
 const redirect = (to: string): AccessDecision => ({ kind: 'redirect', to });
@@ -13,11 +14,14 @@ const redirect = (to: string): AccessDecision => ({ kind: 'redirect', to });
 // and any state other than loading, signed-in or signed-in-no-account is treated as signed-out.
 // `sessionEnded`: the session ended by itself (expired, or the account is stopped); a protected path then leads to the login
 // screen, which says why, instead of to Welcome (F1.5 criteria 11, 13).
-export function decideAccess(state: SessionState, pathname: string, sessionEnded = false): AccessDecision {
+// `needsQuestions` (F1.6): the account is active but has no recovery questions; everything except the questions screen and the two
+// documents leads to that screen, so there is no way past it.
+export function decideAccess(state: SessionState, pathname: string, sessionEnded = false, needsQuestions = false): AccessDecision {
   if (state === 'loading') return LOADING;
   const path = normalizePath(pathname);
   const isGuestPath = GUEST_PATHS.includes(path);
   if (state === 'signed-in') {
+    if (needsQuestions) return QUESTIONS_HELD_PATHS.includes(path) ? RENDER : redirect(PATHS.recoveryQuestions);
     if (isGuestPath) return redirect(SIGNED_IN_LANDING);
     return PROTECTED_PATHS.includes(path) ? RENDER : redirect(SIGNED_IN_LANDING);
   }

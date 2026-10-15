@@ -124,3 +124,18 @@ With two real accounts A and B: A saves answers with email X; A changes email to
 
 **Neighbouring**
 - `supabase/tests/setup/30_recovery_fixtures.sql` `fx_recovery_shift` (see Deliberately not done).
+
+## maxDuration (ORCHESTRATOR item e)
+- Set `"maxDuration": 30` on `functions` → `"api/index.ts"` in `vercel.json` (valid on every plan; Hobby ceiling is 60 s without Fluid compute).
+- Why: the reset path's four Auth calls run under a 12 s budget, above the 10 s Hobby default, so a slow reset could be cut off after the password set but before the global sign-out; an explicit limit removes the dependency on the plan default.
+
+## Part c (web) - BUILDER
+
+**Approach**  `/api/me` client reads `recoveryQuestions` and returns a new outcome `active-missing` (exact "missing" only; "set", absent or unparseable stays `active`, criterion 19). The session source keeps one flag `needsQuestions`, changed together with the state (no render in between), exposed as `getNeedsRecoveryQuestions` / `useSession().needsRecoveryQuestions`; `decideAccess` gets a 4th argument and holds the user on `/recovery-questions` (terms and privacy stay open). Features: `features/recovery` (guest `/recovery`), `features/recovery-questions` (setup and change, one form). Shared by both: `components/domain/recovery-answer-fields.tsx` (three questions as a fieldset), `lib/recovery-answers.ts` (check via the shared answer rule), `lib/recovery-texts.ts`, `services/api/recovery.ts`. Question texts added to shared: `constants/recovery-question-texts.ts`.
+**Decisions**  Registration's `signIn()` now asks `/api/me` once before applying the session (so the first screen after sign-up is the questions screen, no /feed flash); a failed or unreadable answer applies the session as before. Choosing 2 of 3 = filling exactly two fields (no checkboxes); same pattern as `/recovery`. Mode (setup/change) is fixed when the screen opens; after 201/200 `markRecoveryQuestionsSet()` flips the flag with no second `/api/me`. POST 409 is treated as saved. A 401 on a bearer call is "mismatch" only with `error: invalid_recovery`, otherwise generic. Menu item "שאלות לשחזור סיסמה" in ProtectedLayout (also visible while held; harmless).
+**Deviations**  None from the spec. The question screen sits inside ProtectedLayout (shell visible while held; nav clicks bounce back to it).
+**Deliberately not done**  No tests, no stories (domain/ is not gated), no SRS/spec edits, no Retry-After display (lock text has no number), `platform/` untouched. No "אחר כך".
+**Existing tests that need changing**  `apps/web/tests/app/access-decision.test.ts:43` (PROTECTED list must include `/recovery-questions`; its name says "four"). All other web tests pass (865).
+**Uncertain**  Hebrew texts (mismatch, lock, unavailable, intro) are mine, not from the ERR catalog; ux review wanted. The controllable (e2e) session source has no `getNeedsRecoveryQuestions`, so E2E with it never sees the questions screen. Group error is one alert with all three fields `aria-invalid`.
+**Preview path**  Register a new account -> lands on "שאלות לשחזור סיסמה" (no way to /feed; try typing /feed) -> fill two answers -> שמירה -> /feed. Menu -> שאלות לשחזור סיסמה -> current + new -> confirmation. Sign out -> /login -> שכחתי סיסמה -> /recovery -> email, two answers, new password -> success -> להתחברות. Needs part a/b deployed and the two secrets set.
+**Neighbouring**  `npm run check:budgets` fails on `.claude/knowledge/data-model.md` (268 lines, budget 260): not mine, being edited by another agent.

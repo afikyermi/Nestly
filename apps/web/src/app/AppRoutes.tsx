@@ -2,6 +2,8 @@ import { Route, Routes } from 'react-router';
 import { GuestPlaceholderPage } from '@/pages/placeholder/GuestPlaceholderPage';
 import { LoginPage } from '@/pages/login/LoginPage';
 import { ProtectedPlaceholderPage } from '@/pages/placeholder/ProtectedPlaceholderPage';
+import { RecoveryPage } from '@/pages/recovery/RecoveryPage';
+import { RecoveryQuestionsPage } from '@/pages/recovery-questions/RecoveryQuestionsPage';
 import { RegisterPage } from '@/pages/register/RegisterPage';
 import { WelcomePage } from '@/pages/welcome/WelcomePage';
 import { FocusOnNavigation } from './FocusOnNavigation';
@@ -21,7 +23,7 @@ export function AppRoutes() {
           <Route path={PATHS.login} element={<LoginPage />} />
           <Route path={PATHS.register} element={<RegisterPage />} />
           <Route path={PATHS.googleEntry} element={<GuestPlaceholderPage title="המשך עם Google" />} />
-          <Route path={PATHS.recovery} element={<GuestPlaceholderPage title="שחזור סיסמה" />} />
+          <Route path={PATHS.recovery} element={<RecoveryPage />} />
           <Route path={PATHS.terms} element={<GuestPlaceholderPage title="תנאי השימוש" />} />
           <Route path={PATHS.privacy} element={<GuestPlaceholderPage title="מדיניות הפרטיות" />} />
           <Route element={<ProtectedLayout />}>
@@ -29,6 +31,7 @@ export function AppRoutes() {
             <Route path={PATHS.feed} element={<ProtectedPlaceholderPage title="פיד" />} />
             <Route path={PATHS.profile} element={<ProtectedPlaceholderPage title="פרופיל" />} />
             <Route path={PATHS.settings} element={<ProtectedPlaceholderPage title="הגדרות" />} />
+            <Route path={PATHS.recoveryQuestions} element={<RecoveryQuestionsPage />} />
           </Route>
         </Routes>
       </RouteGuard>

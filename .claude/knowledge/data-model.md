@@ -126,35 +126,31 @@ F1.6 password recovery (FR-AUTH-003, OP-029) — the one exception Afik approved
 2026-10-13). Two parts, nothing else:
 (a) Auth: read the user's current email, set the password and end every session of the same user id — with the Supabase
     secret key from env SUPABASE_SECRET_KEY, read only in apps/server/src/recovery/auth-admin.ts, whose only operation is
-    resetPassword({userId, email, password, clientIp}). It makes exactly four calls, in this order, and none is exported
-    alone: GET <issuer>/admin/users/<uuid>, of which only email is read and compared (normalised) with the request's
-    email — different or missing ends the sequence with no further call (outcome email_mismatch; the service answers 401
-    invalid_recovery and audits reset_email_mismatch); then PUT <issuer>/admin/users/<uuid> {password}; after a 2xx,
-    one POST <issuer>/token?grant_type=password with the new password the request already holds; then
-    POST <issuer>/logout?scope=global with that access token, which revokes every refresh token of the user. The token
-    is discarded (never returned, logged or stored). Sb-Forwarded-For carries the platform-verified client IP on the
-    read, the sign-in and the logout (not on the set-password call). Called only by the redeem service after both answers
-    matched under the limits and a reset_verified row was committed.
+    resetPassword({userId, email, password, clientIp}): exactly four calls, in this order, none exported alone —
+    GET <issuer>/admin/users/<uuid> (only email is read and compared, normalised, with the request's email; different or
+    missing ends the sequence with no further call: outcome email_mismatch, answered 401 invalid_recovery, audited
+    reset_email_mismatch); PUT <issuer>/admin/users/<uuid> {password}; after a 2xx one POST <issuer>/token?grant_type=
+    password with the new password the request already holds; then POST <issuer>/logout?scope=global with that access
+    token, which revokes every refresh token. The token is discarded (never returned, logged or stored). Sb-Forwarded-For
+    carries the platform-verified client IP on the read, the sign-in and the logout (not on the set-password call). Called
+    only by the redeem service after both answers matched under the limits and a reset_verified row was committed.
     Why: no database role may set an Auth password (auth.users is outside the product's roles, rule 1); a signed-out user
-    has no token; the admin API has no revoke-by-user-id, while a reset that leaves an attacker's session alive does not
-    end a takeover; and only Auth knows the account's current email, so only this read makes "a password is set only on
-    the account the request's email names now" true (Amendment 2).
-    Fence: credentials.static.test allows the key's name in that one file only and asserts it is there; the admin,
-    token-grant and logout literals appear in that file only; never in .github/. The key itself is not scoped by Supabase
-    (it carries service_role power over the whole project), so the fence is the code and the CI check, not the credential.
+    has no token; the admin API has no revoke-by-user-id, and a reset that leaves an attacker's session alive does not end
+    a takeover; only Auth knows the account's current email (Amendment 2: a password is set only on the account the
+    request's email names now). Fence: credentials.static.test allows the key's name in that one file only and asserts it
+    is there; the admin, token-grant and logout literals appear in that file only; never in .github/. The key is not scoped
+    by Supabase (service_role power over the whole project): the fence is the code and the CI check, not the credential.
     Approved in .work/password-recovery/schema.md (Amendment 1; Amendment 2 adds the email read) · 2026-10-15
 (b) role app_recovery — NOLOGIN, NOINHERIT, NOBYPASSRLS, owns nothing; granted only to app_server WITH INHERIT FALSE,
     SET TRUE. The signed-out redeem, and the recovery verification and audit writes, run under SET LOCAL ROLE
     app_recovery, held by RLS + FORCE. It reads recovery_answers and reads/writes recovery_throttles only for the handle
     and IP hash the transaction declares (nestly.recovery_handle(), nestly.recovery_ip()); its one write on
-    recovery_answers releases the declared handle (sets email_handle and handle_claimed_at to NULL) only on a row whose
-    claim is older than the one the transaction declares (nestly.recovery_claimed_at(), policy
-    recovery_answers_release_recovery) — it can set no handle, touch no hash and delete no row; it appends
-    recovery_events, and reads no audit and no other table.
-    Why: a guest endpoint has no auth.uid(), and anon must hold nothing in nestly (rule 7, CI anon_privilege).
-    Not a SECURITY DEFINER function; tests.approved_security_definer() stays empty.
+    recovery_answers releases the declared handle (email_handle and handle_claimed_at to NULL) only on a row whose claim
+    is older than the declared one (nestly.recovery_claimed_at(), policy recovery_answers_release_recovery) — it can set
+    no handle, touch no hash, delete no row; it appends recovery_events and reads no audit and no other table.
+    Why: a guest endpoint has no auth.uid(), and anon must hold nothing in nestly (rule 7, CI anon_privilege). Not a
+    SECURITY DEFINER function; tests.approved_security_definer() stays empty.
     Approved in .work/password-recovery/schema.md · 2026-10-15 (DR-G1, ORCHESTRATOR; release policy: Amendment 2)
-```
 
 `nestly.is_active_account()` is deliberately not one: it is SECURITY INVOKER (rule 16).
 
@@ -241,24 +237,20 @@ Never design around these with a guess. Each one is a `DECISION REQUEST` to Afik
 
 ## Entities
 
-Built by `supabase/migrations/20261014100000_identity_schema.sql` (I1 F1.1 part b) and bootstrap step 2, and by
-`supabase/migrations/20261014200000_registration_account.sql` (I1 F1.4 part a; Gate 2 and Amendment 1 in
-`.work/register-account-create/schema.md`), and by `supabase/migrations/20261015200000_recovery_questions.sql` (I1 F1.6;
-Gate 2 and Amendments 1–2 in `.work/password-recovery/schema.md`). Down scripts in `supabase/rollback/`: F1.6's refuses
-while `recovery_answers` or `recovery_events` holds a row and runs first; F1.4's refuses while any of its three
-tables holds a row and runs next — F1.1's refuses while `nestly.legal_consents` exists, and is safe only while
-`users` and `regular_profiles` are empty. Writes: per column ("Write grants") — F1.4's create path is INSERT only; the only UPDATE grants and policies are on
-`recovery_answers` and `recovery_throttles` (F1.6). No DELETE grant or policy on any table; I2 adds the edit path. All eight
-tables are in `nestly`.
-
-Per-table detail — every column with its meaning, and each table's purpose, what is not stored, owner, authorization,
-relations, indexes and retention, plus the write order and the RLS helper — is in
-`.claude/knowledge/data-model-tables.md`, which also holds the template a new entity fills.
+Built by `supabase/migrations/20261014100000_identity_schema.sql` (I1 F1.1 part b) and bootstrap step 2,
+`20261014200000_registration_account.sql` (I1 F1.4 part a; Gate 2 and Amendment 1 in `.work/register-account-create/schema.md`)
+and `20261015200000_recovery_questions.sql` (I1 F1.6; Gate 2 and Amendments 1–2 in `.work/password-recovery/schema.md`).
+Down scripts in `supabase/rollback/`, in this order: F1.6's refuses while `recovery_answers` or `recovery_events` holds a
+row; F1.4's refuses while any of its three tables holds a row; F1.1's refuses while `nestly.legal_consents` exists and is safe
+only while `users` and `regular_profiles` are empty. Writes: per column ("Write grants") — F1.4's create path is INSERT only;
+the only UPDATE grants and policies are on `recovery_answers` and `recovery_throttles` (F1.6); no DELETE grant or policy on
+any table (I2 adds the edit path). All eight tables are in `nestly`. Per-table detail — every column with its meaning, each
+table's purpose, what is not stored, owner, authorization, relations, indexes and retention, the write order and the RLS
+helper — is in `.claude/knowledge/data-model-tables.md`, which also holds the template a new entity fills.
 
 ---
 
 ## Conventions in force
-
 See "Schema conventions — DECIDED" above (F1.1 Gate 2, 13.10.2026).
 
 ---

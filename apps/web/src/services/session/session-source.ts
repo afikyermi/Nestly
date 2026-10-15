@@ -16,6 +16,8 @@ export interface SessionSource {
   getState(): SessionState;
   /** Why the session ended by itself, if it did. A source that cannot tell leaves this out. */
   getNotice?(): SessionNotice | null;
+  /** True while the signed-in account has not saved its recovery questions (F1.6). A source that cannot tell leaves this out. */
+  getNeedsRecoveryQuestions?(): boolean;
   /** Calls `listener` after every change of state. Returns the function that stops it. */
   subscribe(listener: () => void): () => void;
   /** Ends the session. The source then reports `signed-out`. */
@@ -45,6 +47,8 @@ export interface SessionAccount {
   getAccessToken(): Promise<string | null>;
   /** Forgets the notice. */
   clearNotice(): void;
+  /** The recovery questions were saved: the account no longer needs the questions screen. No second `/api/me` call. */
+  markRecoveryQuestionsSet(): void;
 }
 
 export const isSessionAccount = (source: SessionSource): source is SessionSource & SessionAccount =>
@@ -58,6 +62,8 @@ export interface SessionStore {
   getState: () => SessionState;
   /** Why the session ended by itself; null when it did not, or when the source cannot say. */
   getNotice: () => SessionNotice | null;
+  /** True while a signed-in account must still save its recovery questions; false otherwise, and when the source cannot say. */
+  getNeedsRecoveryQuestions: () => boolean;
   subscribe: (listener: () => void) => () => void;
   /** Ends the session. Never rejects: a failed sign-out leaves the store `signed-out`. */
   signOut: () => Promise<void>;
@@ -122,6 +128,17 @@ export function createSessionStore(source: SessionSource, { onError = reportToCo
     }
   };
 
+  const getNeedsRecoveryQuestions = (): boolean => {
+    if (failed) return false;
+    try {
+      return source.getNeedsRecoveryQuestions?.() ?? false;
+    } catch (error) {
+      onError(error);
+      failed = true;
+      return false;
+    }
+  };
+
   const subscribe = (listener: () => void) => {
     listeners.add(listener);
     if (stopSource === null && !failed) {
@@ -161,5 +178,5 @@ export function createSessionStore(source: SessionSource, { onError = reportToCo
     return pendingSignOut;
   };
 
-  return { getState, getNotice, subscribe, signOut };
+  return { getState, getNotice, getNeedsRecoveryQuestions, subscribe, signOut };
 }
