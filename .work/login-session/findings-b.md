@@ -14,3 +14,6 @@
 Checked with no finding: password only to `/token`; storage = tokens only; not-configured guard; fail-closed paths; epoch;
 logout wins over refresh (SDK commit guard — the "lock" comment is stale); guard deny-by-default; no secrets, no PD in logs,
 no Auth text in DOM, source scan holds; A1, A9.
+
+## Re-check (15.10)
+F1–F5 **closed**, F6 tracked into part c. Knowledge §3 validated with CRITIC's wording change; promoted to conventions.md. Optional tidy-ups for part c: `@/lib/**` in `noPlatformUp`; clear `refreshRefused` on `TOKEN_REFRESHED`. Verdict: **Validated**.

@@ -162,6 +162,21 @@ why:      the guard scans the staged diff for secrets before each commit, so it 
 example:  .claude/hooks/guard.js (checkAll) · decisions.md 2026-10-11 "hooks (7.2)"
 added:    2026-10-13, proposed by ORCHESTRATOR (agent-slim stage 2), validated by CRITIC
 
+### Browser adapters (web)
+rule:     Web logic (hooks, services, lib, `app/*.ts`) never touches `window`, `document` or web storage; its only route
+          to them is `apps/web/src/platform/`: thin adapters behind an interface, holding no business rule or state,
+          each file at most 60 code lines, declaring their own types and importing nothing from services, features,
+          hooks, app, pages or components. Hooks, services and lib may import from `platform/` only types
+          (`import type`); a concrete adapter is created in `app/App.tsx` or `main.tsx` and passed in (an injected
+          `BrowserEvents`, a `keyValueStorage`). Enforced by lint (`eslint.config.mjs`, platform blocks).
+why:      the lint ban on window/document/localStorage keeps hooks, services and lib portable to React Native (SRS
+          §4.1), but the Auth session (F1.5) needs storage and tab-visibility events. A named, fenced place for the
+          unavoidable browser access stops it from spreading, and injecting the adapters is what lets a test fire a
+          visibility or storage event by hand.
+example:  apps/web/src/platform/browser-events.ts · apps/web/src/app/App.tsx (wiring) ·
+          apps/web/src/services/session/auth-session-source.ts (`import type { BrowserEvents }`)
+added:    2026-10-15, proposed by BUILDER (F1.5 part b), validated by CRITIC with its wording change
+
 Each entry:
 
 ```
