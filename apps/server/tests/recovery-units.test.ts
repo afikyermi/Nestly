@@ -223,7 +223,7 @@ async function authStub(replies: Reply[]): Promise<AuthStub> {
     res.setHeader('content-type', 'application/json');
     res.end(JSON.stringify(reply.json ?? {}));
   });
-  return { issuer: `http://127.0.0.1:${port}/auth/v1`, seen, close: async () => undefined };
+  return { issuer: `http://127.0.0.1:${port}/auth/v1`, seen, close: () => Promise.resolve() };
 }
 
 const TOKEN_OK: Reply = { status: 200, json: { access_token: 'ACCESS-TOKEN-FROM-AUTH', refresh_token: 'REFRESH-TOKEN-FROM-AUTH', token_type: 'bearer' } };

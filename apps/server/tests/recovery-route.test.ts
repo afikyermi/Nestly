@@ -1,3 +1,4 @@
+import type { Response as LightMyRequestResponse } from 'light-my-request';
 import postgres from 'postgres';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { Database } from '../src/db/client.js';
@@ -213,13 +214,14 @@ describe('[F1.6 c14 VAL-003 VAL-002] POST /api/recovery/reset: a malformed reque
     expect([...bodies]).toEqual(['{"error":"invalid_request"}']);
   });
 
-  const envelopes: Array<[string, () => ReturnType<typeof app.inject>]> = [
-    ['malformed JSON', () => reset('{"email": ')],
-    ['an empty body', () => reset('')],
-    ['text/plain', () => app.inject({ method: 'POST', url: '/api/recovery/reset', headers: { 'content-type': 'text/plain' }, payload: JSON.stringify(resetBody()) })],
-    ['form encoded', () => app.inject({ method: 'POST', url: '/api/recovery/reset', headers: { 'content-type': 'application/x-www-form-urlencoded' }, payload: 'email=a%40b.co' })],
-    ['no content type', () => app.inject({ method: 'POST', url: '/api/recovery/reset', payload: JSON.stringify(resetBody()) })],
-    ['a body over 16 KiB (refused before parsing)', () => reset(JSON.stringify({ ...resetBody(), pad: 'x'.repeat(17 * 1024) }))],
+  const envelopes: Array<[string, () => Promise<LightMyRequestResponse>, string]> = [
+    ['malformed JSON', () => reset('{"email": '), 'bad_request'],
+    ['an empty body', () => reset(''), 'bad_request'],
+    // text/plain is parsed as a string and fails the route's own schema (interface.md "HTTP")
+    ['text/plain', () => app.inject({ method: 'POST', url: '/api/recovery/reset', headers: { 'content-type': 'text/plain' }, payload: JSON.stringify(resetBody()) }), 'invalid_request'],
+    ['form encoded', () => app.inject({ method: 'POST', url: '/api/recovery/reset', headers: { 'content-type': 'application/x-www-form-urlencoded' }, payload: 'email=a%40b.co' }), 'bad_request'],
+    ['no content type', () => app.inject({ method: 'POST', url: '/api/recovery/reset', payload: JSON.stringify(resetBody()) }), 'bad_request'],
+    ['a body over 16 KiB (refused before parsing)', () => reset(JSON.stringify({ ...resetBody(), pad: 'x'.repeat(17 * 1024) })), 'bad_request'],
   ];
 
   it.each(envelopes)('[F1.6 c14] %s -> a 4xx, nothing opened, nothing hashed, no Auth call', T, async (_label, send) => {
@@ -232,10 +234,10 @@ describe('[F1.6 c14 VAL-003 VAL-002] POST /api/recovery/reset: a malformed reque
     expect(admin.calls).toEqual([]);
   });
 
-  it.each(envelopes)('[F1.6 c14 interface.md "HTTP"] %s -> the body is {"error":"bad_request"}', T, async (_label, send) => {
+  it.each(envelopes)('[F1.6 c14 interface.md "HTTP"] %s -> the body carries the expected error code', T, async (_label, send, code) => {
     await setup();
     const res = await send();
-    expect(jsonOf(res.body)).toEqual({ error: 'bad_request' });
+    expect(jsonOf(res.body)).toEqual({ error: code });
   });
 
   it('[F1.6 c14] a request on the boundary is NOT a 400: password of 8 and of 256 characters, Hebrew with spaces, an email with spaces and capitals all reach the database', T, async () => {
@@ -456,10 +458,11 @@ describe('[F1.6 c2 c4] the store and change bodies: exactly two entries of two d
     expect(spy.calls()).toBe(0);
   });
 
-  const questionEnvelopes: Array<[string, (header: string) => ReturnType<typeof app.inject>]> = [
-    ['malformed JSON', (header) => postJson(app, '/api/recovery-questions', '{"answers": [', { authorization: header })],
-    ['text/plain', (header) => app.inject({ method: 'POST', url: '/api/recovery-questions', headers: { authorization: header, 'content-type': 'text/plain' }, payload: 'x' })],
-    ['a body over 16 KiB', (header) => postJson(app, '/api/recovery-questions', JSON.stringify({ answers: PAIR, pad: 'x'.repeat(17 * 1024) }), { authorization: header })],
+  const questionEnvelopes: Array<[string, (header: string) => Promise<LightMyRequestResponse>, string]> = [
+    ['malformed JSON', (header) => postJson(app, '/api/recovery-questions', '{"answers": [', { authorization: header }), 'bad_request'],
+    // text/plain is parsed as a string and fails the route's own schema (interface.md "HTTP")
+    ['text/plain', (header) => app.inject({ method: 'POST', url: '/api/recovery-questions', headers: { authorization: header, 'content-type': 'text/plain' }, payload: 'x' }), 'invalid_questions'],
+    ['a body over 16 KiB', (header) => postJson(app, '/api/recovery-questions', JSON.stringify({ answers: PAIR, pad: 'x'.repeat(17 * 1024) }), { authorization: header }), 'bad_request'],
   ];
 
   it.each(questionEnvelopes)('[F1.6 c2] %s -> a 4xx, nothing opened', T, async (_label, send) => {
@@ -470,10 +473,10 @@ describe('[F1.6 c2 c4] the store and change bodies: exactly two entries of two d
     expect(stub.attempts()).toBe(0);
   });
 
-  it.each(questionEnvelopes)('[F1.6 c2 interface.md "HTTP"] %s -> the body is {"error":"bad_request"}', T, async (_label, send) => {
+  it.each(questionEnvelopes)('[F1.6 c2 interface.md "HTTP"] %s -> the body carries the expected error code', T, async (_label, send, code) => {
     await setup();
     const res = await send(await bearer());
-    expect(jsonOf(res.body)).toEqual({ error: 'bad_request' });
+    expect(jsonOf(res.body)).toEqual({ error: code });
   });
 
   it('[F1.6 c2] a well-formed store request is not a 400: it goes on to the database (control for the refusals above)', T, async () => {
@@ -503,7 +506,12 @@ describe('[F1.6 c1 c4 c13] methods, caching and the answer headers', () => {
 
   it.each(['GET', 'PUT', 'DELETE', 'PATCH'] as const)('[F1.6 c11] %s on /api/recovery/reset is never served: 405 with allow: POST (or 401 from the hook), nothing opened', T, async (method) => {
     await setup();
-    const res = await app.inject({ method, url: '/api/recovery/reset', headers: { 'content-type': 'application/json' }, payload: method === 'GET' ? undefined : JSON.stringify(resetBody()) });
+    const res = await app.inject({
+      method,
+      url: '/api/recovery/reset',
+      headers: { 'content-type': 'application/json' },
+      ...(method === 'GET' ? {} : { payload: JSON.stringify(resetBody()) }),
+    });
     expect([401, 405], `${method}: ${res.body}`).toContain(res.statusCode);
     if (res.statusCode === 405) expect(String(res.headers.allow).toUpperCase()).toBe('POST');
     expect(stub.attempts()).toBe(0);

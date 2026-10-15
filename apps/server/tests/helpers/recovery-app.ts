@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { Writable } from 'node:stream';
+import type { Response as LightMyRequestResponse } from 'light-my-request';
 import { vi } from 'vitest';
 import type { Database } from '../../src/db/client.js';
 import { nodeScrypt, type ScryptFn } from '../../src/recovery/hashing.js';
@@ -33,9 +34,9 @@ export function fakeAdmin(outcome: AdminOutcome = 'completed', configured = true
     },
     authAdmin: {
       isConfigured: () => configured,
-      resetPassword: async (input) => {
+      resetPassword: (input) => {
         calls.push(input);
-        return current;
+        return Promise.resolve(current);
       },
     },
   };
@@ -102,7 +103,7 @@ export function resetBody(over: Record<string, unknown> = {}): Record<string, un
   return { email: 'dana.recovery@example.invalid', answers: PAIR, password: 'סיסמה חדשה 12345', ...over };
 }
 
-export function postJson(app: App, url: string, payload: unknown, headers: Record<string, string> = {}) {
+export function postJson(app: App, url: string, payload: unknown, headers: Record<string, string> = {}): Promise<LightMyRequestResponse> {
   return app.inject({
     method: 'POST',
     url,

@@ -427,7 +427,7 @@ describe('[F1.6 c4 c5] answers already set: POST is 409 and changes nothing; PUT
       work.add(h.spy.calls());
     }
     expect([...bodies]).toEqual(['{"error":"invalid_recovery"}']);
-    expect(work.size, `the number of scrypt computations is the same whichever way the answers are wrong: ${[...work]}`).toBe(1);
+    expect(work.size, `the number of scrypt computations is the same whichever way the answers are wrong: ${[...work].join(', ')}`).toBe(1);
     expect([...work][0]).toBeGreaterThanOrEqual(2);
   });
 

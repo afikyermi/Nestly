@@ -64,3 +64,7 @@ Once those are in: with a signed-in token, `POST /api/recovery-questions` with t
 - `tests/drift.test.ts` hard-codes the approved column list (see item 2): every future table needs a manual edit there, contrary to the "picks up automatically" assumption.
 - F1.1's down script had no guard for later tables created in `nestly` (fixed for recovery only; a generic guard would be better).
 - `api/index.ts` builds the app with no logger (`buildApp()`), so no request or error line is ever written in production; the fixed log lines in this feature are visible in tests only until production logging is decided.
+
+**ORCHESTRATOR, 15.10 (after the handoff)**
+- Content-type finding (two tests expected `bad_request` for text/plain): the code is kept, interface.md corrected. Fastify parses text/plain as a string, the Zod schema refuses it, and the route answers 400 with its own validation code, uncounted — exactly what `/api/register` (F1.4) does. Status and "before any lookup, uncounted" (criteria 2, 14) hold either way; one behaviour across routes beats a special case.
+- Typecheck/lint on the new tests: 13 tsc errors in `tests/recovery-route.test.ts` (inject chain typed as `Chain`, `payload: undefined` under exactOptionalPropertyTypes), 4 eslint errors (restrict-template-expressions ×2, require-await ×2). Product code clean. Returned to TEST ENGINEER.

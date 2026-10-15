@@ -4,7 +4,7 @@ Facts only. Web (part c) is not built yet: no screen, no accessible name.
 
 ## HTTP
 
-All JSON. All three recovery answers carry `cache-control: no-store`. A body over 16 KiB (`RECOVERY_BODY_LIMIT_BYTES`) is refused before parsing. A malformed JSON body, wrong content type or oversize body: 4xx `{"error":"bad_request"}`.
+All JSON. All three recovery answers carry `cache-control: no-store`. A body over 16 KiB (`RECOVERY_BODY_LIMIT_BYTES`) is refused before parsing. A malformed JSON body, an unsupported content type or an oversize body: 4xx `{"error":"bad_request"}`. A `text/plain` body is parsed by Fastify as a string and then fails the route's schema: 400 with the route's own validation code (`invalid_request` on reset, `invalid_questions` on the questions routes), uncounted — the same as `/api/register` (ORCHESTRATOR, 15.10, step 2 of the handoff).
 
 | Route | Auth | Body (strict objects, no other key) | Answers |
 |---|---|---|---|
