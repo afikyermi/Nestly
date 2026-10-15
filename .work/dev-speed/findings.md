@@ -115,3 +115,37 @@ Process checks: the required-check counts in the changelogs hold. BUILDER 12 (on
 - **Low 4** → decided by ORCHESTRATOR (spec Amendment 1): `--noEmit` is required, and `-p` under `node_modules/` or `.claude/` is refused. BUILDER + TEST ENGINEER.
 - **Concern** → `debt.md` (guard frozen; retro after I1); the stale worktrees under `.claude/worktrees/` go on Afik's list.
 - CRITIC re-checks only these, as a fresh invocation.
+
+## Re-check (CRITIC on opus, fresh invocation, 15.10.2026)
+
+Saved verbatim by ORCHESTRATOR from CRITIC's hand-back (the harness refuses this role's Write).
+
+```
+verdict: Validated with Concern
+
+Scope: only what the first review raised. Read: findings.md, spec.md (Amendment 1), review.diff (main...chore/dev-speed, two commits), and guard.js abs/rel/realAbs/relBoth/outsideRoot (read directly to probe low 4). Also debt.md:82 and WORKPLAN-HE.md:32 for the concern. notes.md not read.
+
+high     CLOSED — critic.md 1.6 adds the required check in Hygiene: "Every expected value in TEST ENGINEER's tests traces to a criterion in spec.md or bug.md — never to a constant, branch or message in the source". The changelog says 19 → 20, and learning.md §6 shows "CRITIC | 20 | 20 (v1.6 … at budget)". workflow.md replaces the 8‖9 sentence with "Step 9 follows step 8: CRITIC reviews a diff that holds the finished tests. Steps 6 and 8 may run in parallel". Rule 2 and test-engineer.md 2.0 now point at a check that exists.
+medium 1 CLOSED — CLAUDE.md "Report material failures" now lists "a hook block that names production, a real secret, an env-file read or a force push, and the guard's escalation on the third reader block by one role in one task". "No resolution line" stays. Residual wording, not reopened: the Learning paragraph says a "false or honest-first-contact hook block" gets "no report in chat". An env-file read must never be classed as first contact. The specific list should win; say so at the retro.
+medium 2 CLOSED — critic-diff.mjs ends review.diff with "# package-lock.json: changed (+N/-M lines), full diff not shown. Changed "version", "resolved" and "integrity" lines:" followed by those +/- lines. The test asserts the exact header, that the block is last, that it holds only the version lines, that unrelated lines are absent, and that the block is absent without a lock change. The summary lines only start with +/- or #, so they cannot forge a "diff --git" header, and they are appended after the header/path cross-check. A numstat failure (binary lock) throws → exit 1. On the lock-only branch: agreed, it is NOT a silent pass. "no reviewable files" exits 1 and writes no review.diff, so CRITIC cannot be run on nothing and the stop is visible. A nested workspace lock (apps/*/package-lock.json) is not in LOGS and stays in the full diff.
+medium 3 CLOSED — workflow Light paragraph: records-only (WORKPLAN, decisions, logs, .work) is Light "with the open PR, or its own PR merged on green CI". docs/srs is no longer records-only: "The per-Initiative SRS update is its own Standard unit: CRITIC (sonnet) checks the delta against the as-built code and srs-review-points.md". The CLAUDE.md Light row and "Commits and pushes" ("never as a direct push to main") agree.
+medium 4 CLOSED — workflow Elevated paragraph: "A part merges only after a review covers it: parts that share a review merge together." The P2-on-main-unreviewed scenario is no longer allowed.
+low 1    CLOSED — hard rule 5 ("only TEST ENGINEER beside BUILDER") matches workflow ("Steps 6 and 8 may run in parallel"). Neither allows 8‖9.
+low 2    CLOSED — test-engineer.md is Version 2.0. The changelog says "principle change (major, learning.md §7)".
+low 3    CLOSED — guard.js checkReadPath now starts with `const who = role === 'test-engineer' ? 'TEST ENGINEER' : 'CRITIC';`. No `te` is left.
+low 4    CLOSED — RUNNERS.tsc has `required: '--noEmit'` and `rest.includes(runner.required)`. The -p operand must have a tsconfig*.json basename, pass plain() (relative, no drive, no '..' segment, existing file) and pass outsideRoot. It is refused if either relBoth form has a node_modules or .claude segment. The tests cover: no --noEmit, node_modules/x, .claude/worktrees/w, a non-tsconfig, ../, --watch.
+         Bypass probe, none found:
+         - mixed case (Node_Modules, .Claude): fold() case-folds both forms on Windows.
+         - ./ prefix: path.relative normalises it.
+         - Windows trailing-dot segment (node_modules./x/tsconfig.json): the lexical form hides the name, but isFile requires the file to exist, and realAbs uses realpathSync.native, which returns the canonical "node_modules". The real form is refused.
+         - 8.3 short name (NODE_M~1): "~" fails the character check.
+         - a junction or symlink: TEST ENGINEER cannot make one (no shell, Write limits). If one existed, the real form catches it.
+         - "-p --noEmit": --noEmit is taken as the operand and fails the basename check.
+         - a second -p: projects.length !== 1.
+         Residual, below a finding: a tsconfig with incremental: true still writes .tsbuildinfo under --noEmit. That is a cache file, not content TEST ENGINEER chooses.
+concern  ACCEPTABLE AS DEBT — debt.md:82 names the cost: "a reviewer can read a builder's notes through a worktree copy". The removal is on Afik's list (WORKPLAN-HE.md:32, git worktree remove/prune), and the retro fix is named (treat any .work segment like the root). Pre-existing, and the guard is frozen until F1.8.
+
+Cost carried (the reason for "with Concern"): until Afik removes the worktrees, and again whenever the harness creates a new agent worktree under .claude/worktrees/, a Grep on .claude with no glob reaches a builder's notes.md copy. That applies to CRITIC, and now to a TEST ENGINEER that reads the project freely. Correction to my first review: WORKPLAN says these worktrees are not in git (git status shows `?? .claude/worktrees/`), so "tracked" was wrong. The reach is the same. Retro: either the guard fix in debt.md, or keep agent worktrees outside the project root.
+
+No new findings. A re-check does not re-review the diff.
+```
