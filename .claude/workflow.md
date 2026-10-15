@@ -1,6 +1,6 @@
 # Workflow — canonical pipeline
 
-**Version:** 1.13
+**Version:** 1.14
 **Status:** the single source of truth for sequence, triggers and who enters when.
 Agent definitions describe professions. **This file describes order.** If they disagree, this file wins.
 
@@ -49,7 +49,7 @@ The maintained as-built descriptions are `.claude/knowledge/data-model.md` and `
 | 5b | **ALGORITHM & DATA** | *only if the feature uses behavioural signals, ranks or recommends, records analytics events, or places paid content* — purpose map, pipeline, configuration, events, evaluation. Feeds DATA ARCHITECT when tables are needed | `algorithm.md` |
 | 6 | **BUILDER** | branch, implement. calls SCOUT as needed. Writes `interface.md`: for each screen and module a test touches — roles and accessible names, routes and history state, exported functions and props with their types, test seams (injected clock, launchers, mocks), and how a test drives the flow. Behaviour and interface only: no reasoning, no code | diff + `notes.md` + `interface.md` |
 | 7 | **Local checks** | 🤖 typecheck · lint · `check:budgets` · `check:stories` · the unit tests and the database tests that run on this machine. red → back to 6. No push, no CI wait between steps | green local run |
-| 8 | **TEST ENGINEER** | tests derived from `spec.md`, with `interface.md` for names and seams; runs its own tests until they pass or fail for a reason it reports — a test failing against its criterion is a finding, never weakened to pass. Before this step ORCHESTRATOR checks `interface.md` holds facts only (names, routes, exports, seams; no outcomes, no reasoning); ORCHESTRATOR runs the full local checks before the push | test files |
+| 8 | **TEST ENGINEER** | tests derived from `spec.md`, to the depth of each criterion's type and at one layer per behaviour ("Test rules" below), with `interface.md` for names and seams; runs its own tests until they pass or fail for a reason it reports — a test failing against its criterion is a finding, never weakened to pass. Before this step ORCHESTRATOR checks `interface.md` holds facts only (names, routes, exports, seams; no outcomes, no reasoning); ORCHESTRATOR runs the full local checks before the push | test files |
 | 9 | **CRITIC** | review the diff cold, including every invariant in `.claude/knowledge/srs-review-points.md` that the diff touches and the platform rules in `.claude/knowledge/data-model.md`. ALGORITHM & DATA reviews in parallel when step 5b ran. Fixes (10–11) are checked locally too. **Then one push** for the finished part — code, tests, review, fixes — and GitHub CI (typecheck · tests · lint · RLS checks) on its last commit is the merge condition. Red → fix, check locally, push once | `findings.md` + verdict, then green CI |
 | 10 | **BUILDER** | address findings | updated diff |
 | 11 | **CRITIC** | re-check **only what it raised** | verdict |
@@ -269,6 +269,26 @@ nothing here because the output is a diff, not a summary: CRITIC reads the real 
 
 ---
 
+## Test rules — this project
+
+Decided by Afik (14.10.2026) — quality is not lowered; duplication is removed and tests aim at real problems. From F1.5.
+
+- **Depth by type** — SPEC marks each criterion 🔴 / 🎨 / 🟡; TEST ENGINEER covers it to that depth (its definition).
+- **One layer per behaviour** — permissions → pgTAP · logic → unit (Vitest) · screen behaviour → e2e (Playwright) ·
+  a component Vitest test only for logic with no e2e expression.
+- **Devices** — every 🎨 criterion at desktop (1024) and phone (375).
+- **Browsers** — pull requests run e2e on Chrome only (desktop + phone). Edge (job `browser-edge`) runs on every merge
+  to `main` and by hand (`workflow_dispatch`): after the merge, so it does not block the production deploy. A release
+  gate before the deploy is an open question for Afik (WORKPLAN).
+- **Visual regression** — Playwright screenshots are blocking for every screen the feature touches, desktop and phone.
+  Noise is stabilised (fonts, animation, clock, data), never switched off. A screen without a baseline gets one in the
+  same PR. The list `e2e/visual-screens.ts` is opt-in — only a listed screen is compared — so SPEC names every screen a
+  🎨 criterion touches, TEST ENGINEER lists each one, and CRITIC checks the list against the 🎨 criteria.
+- **Soft ceiling** — test lines ≤ 2× product lines per feature; above it, one line in `result.md` says why.
+- **Tools and hooks** — no new tests unless a tool actually broke.
+
+---
+
 ## Cost discipline
 
 Target: **8–12 model calls per Standard feature, or per part of a split spec.** If one exceeds ~20, stop and ask
@@ -283,37 +303,17 @@ except on a reserved item, a real `BLOCKER` or Two strikes.
 ---
 
 ## Changelog
-- 1.1 — 2026-10-10 — added the bug-fix path and the `bug.md` artifact · CRITIC's step 9 includes the Supabase
-  platform rules in `data-model.md` · `result.md` records evidence. Decided by Afik after the
-  engineering-guidelines review (`docs/engineering-guidelines-review-HE.md`). Design-time change, provisional
-  until 5 features.
-- 1.2 — 2026-10-11 — CI gate includes typecheck · Light path: "no new endpoint" becomes "no endpoint reachable
-  without authentication and no new external surface" · a Not Ready from CRITIC or ALGORITHM & DATA blocks ·
-  traceability: FR/AC IDs in test names and an `Implements:` line in commits · step 14 updates SRS §17.
-  Decided by Afik (TypeScript and own-server decisions, 11.10.2026). Provisional until 5 features.
-- 1.3 — 2026-10-11 — `intake.md` artifact, written by `/feature` at step 2 · the Accessibility domain names the
-  craft skills. Process skills in `.claude/skills/` carry out these steps; this file still defines them.
-  Decided by Afik (skills decision). Provisional until 5 features.
-- 1.4 — 2026-10-11 — Elevated: Afik no longer reviews the diff; the protection is CRITIC on opus, DATA ARCHITECT, CI and
-  hooks. Gate 2 reaches him as a plain-language /gate page; irreversible changes still need his approval.
-  Decided by Afik. Design-time change.
-- 1.5 — 2026-10-11 — Working rules: ORCHESTRATOR passes Gate 1, Gate 2 and the Preview and decides unreserved
-  `DECISION REQUEST`s, recording each in `decisions.md`. Reserved for Afik: secrets, production, irreversible or
-  material SRS changes, legal / minors / money points, disagreement with a specialist. Decided by Afik.
-- 1.6 — 2026-10-11 — "Design consistency" domain, modelled on Accessibility (WORKPLAN 9.6). Decided by Afik
-  ("Design consistency without a design agent"); the Preview row follows the working rules. Provisional until 5
-  features.
-- 1.7 — 2026-10-12 — No merge to `main` without green CI on GitHub Actions; a local run is not the gate.
-  Decided by Afik after `ci.yml` was red on GitHub for runs 1–22 while merges were reported green locally.
-- 1.8 — 2026-10-13 — "Two strikes" under Verdicts: a second `Not Ready` on one task stops it for Afik. Decided by
-  Afik (agent-system slimming, guard approach c).
-- 1.9 — 2026-10-13 — Traceability: squash merges, the PR body carries the `Implements:` line. Decided by Afik
-  ("Commits and pushes", agent-slim stage 3).
-- 1.11 — 2026-10-14 — CI once per part: steps 7–9 run on local checks; one push when the part is finished; green
-  GitHub CI on the last commit stays the merge condition. Decided by Afik ("CI once per part").
-- 1.10 — 2026-10-13 — SPEC CHALLENGE goes to its decision owner, not always to Afik. Decided by Afik (agent-slim
-  stage 4, contradiction 2). Same day: `result.md` at most 15 lines; the cost target also per part; parts run in
-  sequence (Afik, "From building the system to building the product"). The last change before I1 merges.
-- 1.12 — 2026-10-14 — BUILDER writes `interface.md` (step 6); TEST ENGINEER reads it with the spec, edits and runs its own
-  tests (step 8). Decided by Afik ("מאשר 4–6", speed-up), an exception to the I1 freeze.
+- 1.1 — 2026-10-10 — added the bug-fix path and the `bug.md` artifact · CRITIC's step 9 includes the Supabase platform rules in `data-model.md` · `result.md` records evidence. Decided by Afik after the engineering-guidelines review (`docs/engineering-guidelines-review-HE.md`). Design-time change, provisional until 5 features.
+- 1.2 — 2026-10-11 — CI gate includes typecheck · Light path: "no new endpoint" becomes "no endpoint reachable without authentication and no new external surface" · a Not Ready from CRITIC or ALGORITHM & DATA blocks · traceability: FR/AC IDs in test names and an `Implements:` line in commits · step 14 updates SRS §17. Decided by Afik (TypeScript and own-server decisions, 11.10.2026). Provisional until 5 features.
+- 1.3 — 2026-10-11 — `intake.md` artifact, written by `/feature` at step 2 · the Accessibility domain names the craft skills. Process skills in `.claude/skills/` carry out these steps; this file still defines them. Decided by Afik (skills decision). Provisional until 5 features.
+- 1.4 — 2026-10-11 — Elevated: Afik no longer reviews the diff; the protection is CRITIC on opus, DATA ARCHITECT, CI and hooks. Gate 2 reaches him as a plain-language /gate page; irreversible changes still need his approval. Decided by Afik. Design-time change.
+- 1.5 — 2026-10-11 — Working rules: ORCHESTRATOR passes Gate 1, Gate 2 and the Preview and decides unreserved `DECISION REQUEST`s, recording each in `decisions.md`. Reserved for Afik: secrets, production, irreversible or material SRS changes, legal / minors / money points, disagreement with a specialist. Decided by Afik.
+- 1.6 — 2026-10-11 — "Design consistency" domain, modelled on Accessibility (WORKPLAN 9.6). Decided by Afik ("Design consistency without a design agent"); the Preview row follows the working rules. Provisional until 5 features.
+- 1.7 — 2026-10-12 — No merge to `main` without green CI on GitHub Actions; a local run is not the gate. Decided by Afik after `ci.yml` was red on GitHub for runs 1–22 while merges were reported green locally.
+- 1.8 — 2026-10-13 — "Two strikes" under Verdicts: a second `Not Ready` on one task stops it for Afik. Decided by Afik (agent-system slimming, guard approach c).
+- 1.9 — 2026-10-13 — Traceability: squash merges, the PR body carries the `Implements:` line. Decided by Afik ("Commits and pushes", agent-slim stage 3).
+- 1.11 — 2026-10-14 — CI once per part: steps 7–9 run on local checks; one push when the part is finished; green GitHub CI on the last commit stays the merge condition. Decided by Afik ("CI once per part").
+- 1.10 — 2026-10-13 — SPEC CHALLENGE goes to its decision owner, not always to Afik. Decided by Afik (agent-slim stage 4, contradiction 2). Same day: `result.md` at most 15 lines; the cost target also per part; parts run in sequence (Afik, "From building the system to building the product"). The last change before I1 merges.
+- 1.12 — 2026-10-14 — BUILDER writes `interface.md` (step 6); TEST ENGINEER reads it with the spec, edits and runs its own tests (step 8). Decided by Afik ("מאשר 4–6", speed-up), an exception to the I1 freeze.
 - 1.13 — 2026-10-14 — "Waiting on Afik — keep working": while a track waits on Afik, ORCHESTRATOR continues on independent work; one side track at most; WORKPLAN lines for each stopped track; main track resumes first; every update says what was done while waiting. Decided by Afik (14.10, an exception to the I1 freeze).
+- 1.14 — 2026-10-15 — "Test rules — this project": depth by criterion type, one layer per behaviour, desktop and phone, Chrome-only e2e on PRs and Edge after each merge to main and by hand, blocking visual regression, soft 2× ceiling, no new tool tests; step 8 points to it. Decided by Afik (14.10, an exception to the I1 freeze); applies from F1.5.

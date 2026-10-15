@@ -18,6 +18,7 @@ const config = readFileSync(join(root, 'playwright.config.ts'), 'utf8');
 const projectNames = [...config.matchAll(/\{\s*name:\s*'([^']+)'/g)].map((m) => m[1]);
 
 const WEB_IF = /^(?:\$\{\{\s*)?needs\.changes\.outputs\.web\s*==\s*'true'(?:\s*\}\})?$/;
+const EDGE_IF = /^(?:\$\{\{\s*)?needs\.changes\.outputs\.web\s*==\s*'true'\s*&&\s*github\.event_name\s*!=\s*'pull_request'(?:\s*\}\})?$/;
 const PROJECT_FLAG = /--project=\$\{\{\s*matrix\.project\s*\}\}/;
 const SHARD_FLAG = /--shard=\$\{\{\s*matrix\.shard\s*\}\}\/(\d+)\b/;
 
@@ -35,11 +36,11 @@ function browserProblems(job, names) {
     }
     const projects = [matrix.project ?? []].flat();
     const shards = [matrix.shard ?? []].flat();
-    if (JSON.stringify([...projects].sort()) !== JSON.stringify(['chrome', 'edge'])) problems.push(`matrix.project is [${projects}], not [chrome, edge]`);
+    // Pull requests run Chrome only (decisions/2026-10.md "Tests: depth by criterion type"); Edge is `browser-edge`.
+    if (JSON.stringify([...projects].sort()) !== JSON.stringify(['chrome'])) problems.push(`matrix.project is [${projects}], not [chrome]`);
     if (JSON.stringify(shards) !== JSON.stringify(['1', '2'])) problems.push(`matrix.shard is [${shards}], not [1, 2]`);
-    if (JSON.stringify([...projects].sort()) !== JSON.stringify([...names].sort())) {
-      problems.push(`matrix.project [${projects}] differs from the Playwright project names [${names}]`);
-    }
+    const unknown = projects.filter((p) => !names.includes(p));
+    if (unknown.length > 0) problems.push(`matrix.project [${unknown}] is not a Playwright project (the config has [${names}])`);
     const test = steps.find((s) => /\bplaywright\s+test\b/.test(runOf(s)));
     if (!test) problems.push('no step runs playwright test');
     else {
@@ -84,11 +85,11 @@ function browserProblems(job, names) {
 
 const browser = ci.jobs?.browser;
 
-test('[speed-up 1] the browser job is a chrome x edge by shard 1 and 2 matrix, behind `changes`, with a timeout of 10 to 15 minutes', () => {
+test('[speed-up 1 · test rules] the pull-request browser job is a chrome by shard 1 and 2 matrix, behind `changes`, with a timeout of 10 to 15 minutes', () => {
   assert.deepEqual(browserProblems(browser, projectNames), []);
 });
 
-test('[speed-up 1] the playwright config names its projects chrome and edge (the matrix names must equal them)', () => {
+test('[speed-up 1] the playwright config names its projects chrome and edge (the PR matrix is a subset; the Edge job runs the other)', () => {
   assert.deepEqual([...projectNames].sort(), ['chrome', 'edge']);
 });
 
@@ -102,7 +103,9 @@ test('[speed-up 1] the browser problem check can fail: every drift from the deci
     'fail-fast true': () => ({ ...clone(), strategy: { ...browser.strategy, 'fail-fast': 'true' } }),
     'fail-fast removed': () => ({ ...clone(), strategy: { matrix: browser.strategy.matrix } }),
     'a third browser': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, project: ['chrome', 'edge', 'firefox'] } } }),
-    'edge dropped': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, project: ['chrome'] } } }),
+    'edge added to the PR matrix': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, project: ['chrome', 'edge'] } } }),
+    'chrome replaced by edge': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, project: ['edge'] } } }),
+    'the PR matrix emptied': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, project: [] } } }),
     'a third shard that --shard does not divide': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, shard: ['1', '2', '3'] } } }),
     'an extra matrix key': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, os: ['ubuntu-latest'] } } }),
     'timeout 20': () => ({ ...clone(), 'timeout-minutes': '20' }),
@@ -137,5 +140,85 @@ test('[speed-up 1] the browser problem check can fail: every drift from the deci
   for (const [label, make] of Object.entries(mutants)) {
     assert.notDeepEqual(browserProblems(make(), projectNames), [], `${label} was not caught`);
   }
-  assert.notDeepEqual(browserProblems(browser, ['chrome']), [], 'a matrix project that is not a Playwright project was not caught');
+  // The matrix names chrome; a config that has no `chrome` project (here only a made-up one) must be caught.
+  assert.notDeepEqual(browserProblems(browser, ['firefox']), [], 'a matrix project that is not a Playwright project was not caught');
+});
+
+// ---- Edge: not on pull requests; on main pushes and by hand ------------------------------------------------------------------
+
+const edge = ci.jobs?.['browser-edge'];
+
+/** Everything that must hold for the Edge job and for the triggers that make it run. */
+function edgeProblems(job, triggers) {
+  const problems = [];
+  if (!job) return ['there is no browser-edge job'];
+  const steps = stepsOf(job);
+  const matrix = job.strategy?.matrix;
+  if (JSON.stringify(Object.keys(matrix ?? {})) !== JSON.stringify(['shard'])) problems.push(`the matrix keys are ${Object.keys(matrix ?? {})}, not exactly shard`);
+  if (JSON.stringify([matrix?.shard ?? []].flat()) !== JSON.stringify(['1', '2'])) problems.push(`matrix.shard is [${matrix?.shard}], not [1, 2]`);
+  if (String(job.strategy?.['fail-fast']) !== 'false') problems.push('fail-fast is not false');
+  if (!needsOf(job).includes('changes')) problems.push('the job does not need `changes`');
+  const condition = String(job.if ?? '').trim();
+  if (!EDGE_IF.test(condition)) problems.push(`the if is not exactly the web filter and not-a-pull_request: ${condition}`);
+  if (JSON.stringify(triggers?.push?.branches) !== JSON.stringify(['main'])) problems.push(`on.push.branches is ${JSON.stringify(triggers?.push?.branches)}, not [main]`);
+  if (has(job, 'continue-on-error')) problems.push('the job has continue-on-error');
+  const minutes = Number(job['timeout-minutes']);
+  if (!(minutes >= 10 && minutes <= 15)) problems.push(`timeout-minutes is ${job['timeout-minutes']}, not 10 to 15`);
+  const test = steps.find((s) => /\bplaywright\s+test\b/.test(runOf(s)));
+  if (!test) problems.push('no step runs playwright test');
+  else {
+    if (!/--project=edge\b/.test(runOf(test))) problems.push('the playwright step does not run --project=edge');
+    const shard = SHARD_FLAG.exec(runOf(test));
+    if (!shard || Number(shard[1]) !== 2) problems.push('the playwright step does not pass --shard=${{ matrix.shard }}/2');
+  }
+  const install = steps.find((s) => /\bplaywright\s+install\b/.test(runOf(s)));
+  if (!install) problems.push('no step installs a browser');
+  else if (!/install\s+(?:--\S+\s+)*msedge\s*$/.test(runOf(install).trim())) problems.push(`the install step is not exactly msedge: ${runOf(install)}`);
+  if (!steps.some((s) => /\bbuild-storybook\b/.test(runOf(s)))) problems.push('no step builds the storybook');
+  const upload = steps.find((s) => typeof s.uses === 'string' && s.uses.startsWith('actions/upload-artifact'));
+  if (!/matrix\.shard/.test(String(upload?.with?.name ?? ''))) problems.push('the artifact name lacks the shard');
+  for (const trigger of ['pull_request', 'push', 'workflow_dispatch']) {
+    if (!has(triggers, trigger)) problems.push(`the workflow does not run on ${trigger}`);
+  }
+  return problems;
+}
+
+test('[test rules] Edge runs as its own job: shards 1 and 2, only msedge, never on pull_request, behind the change filter', () => {
+  assert.deepEqual(edgeProblems(edge, ci.on), []);
+});
+
+test('[test rules] the workflow runs on pull_request, push and workflow_dispatch (Edge needs the last two)', () => {
+  for (const trigger of ['pull_request', 'push', 'workflow_dispatch']) assert.ok(has(ci.on, trigger), `ci.yml has no ${trigger} trigger`);
+});
+
+test('[test rules] the Edge check can fail: every drift is caught (guards the tests above)', () => {
+  const clone = () => structuredClone(edge);
+  const mutants = {
+    'Edge runs on pull requests': () => ({ ...clone(), if: "needs.changes.outputs.web == 'true'" }),
+    'no change filter': () => ({ ...clone(), if: "github.event_name != 'pull_request'" }),
+    'no needs': () => {
+      const j = clone();
+      delete j.needs;
+      return j;
+    },
+    'fail-fast true': () => ({ ...clone(), strategy: { ...edge.strategy, 'fail-fast': 'true' } }),
+    'a project key in the matrix': () => ({ ...clone(), strategy: { ...edge.strategy, matrix: { ...edge.strategy.matrix, project: ['edge'] } } }),
+    'one shard': () => ({ ...clone(), strategy: { ...edge.strategy, matrix: { shard: ['1'] } } }),
+    'continue-on-error': () => ({ ...clone(), 'continue-on-error': 'true' }),
+    'runs chrome': () => ({ ...clone(), steps: clone().steps.map((s) => (/playwright\s+test/.test(runOf(s)) ? { ...s, run: runOf(s).replace('--project=edge', '--project=chrome') } : s)) }),
+    'installs chrome too': () => ({ ...clone(), steps: clone().steps.map((s) => (/playwright\s+install/.test(runOf(s)) ? { ...s, run: 'npx playwright install --with-deps chrome msedge' } : s)) }),
+    'no storybook build': () => ({ ...clone(), steps: clone().steps.filter((s) => !/build-storybook/.test(runOf(s))) }),
+    'the if widened with || true': () => ({ ...clone(), if: `${edge.if} || true` }),
+    'no job at all': () => undefined,
+  };
+  for (const [label, make] of Object.entries(mutants)) {
+    assert.notDeepEqual(edgeProblems(make(), ci.on), [], `${label} was not caught`);
+  }
+  const widened = { ...ci.on, push: { ...ci.on.push, branches: ['main', '**'] } };
+  assert.notDeepEqual(edgeProblems(edge, widened), [], 'a push widened to every branch was not caught');
+  assert.notDeepEqual(edgeProblems(edge, { ...ci.on, push: {} }), [], 'a push with no branch filter was not caught');
+  for (const missing of ['pull_request', 'push', 'workflow_dispatch']) {
+    const triggers = Object.fromEntries(Object.entries(ci.on).filter(([k]) => k !== missing));
+    assert.notDeepEqual(edgeProblems(edge, triggers), [], `a workflow without ${missing} was not caught`);
+  }
 });

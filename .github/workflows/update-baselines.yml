@@ -1,0 +1,37 @@
+# update-baselines - makes the visual-regression baselines (e2e/__screenshots__/*.png) on the CI runner, because a baseline
+# is valid only when made by the same browser and OS that compares it (Linux Chrome). Run by hand (workflow_dispatch) on a
+# branch after adding screens to e2e/visual-screens.ts. The job only builds and uploads the PNGs as an artifact; it has
+# read-only access and cannot push. Download the artifact, copy the PNGs into e2e/__screenshots__/, and commit them.
+# While SCREENS in e2e/visual-screens.ts is empty, the run fails on purpose at `if-no-files-found: error` (no PNG is made),
+# so a failure there with an empty list is not a bug.
+
+name: update-baselines
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  baselines:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chrome
+      - run: npm run build-storybook
+      - run: npx playwright test --project=chrome --update-snapshots --grep "visual:"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: visual-baselines
+          path: e2e/__screenshots__/
+          retention-days: 7
+          if-no-files-found: error
