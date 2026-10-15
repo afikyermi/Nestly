@@ -1,6 +1,6 @@
 # Learning & Evals
 
-**Version:** 1.0
+**Version:** 1.1 (15.10.2026: §9, the TEST ENGINEER rule's wording follows Afik's development-speed decision)
 **Owner of the procedure:** ORCHESTRATOR prepares. **Afik approves.** No agent amends itself.
 
 This file closes the loop. Without it, `escapes.md` and `noise.md` are data nobody reads.
@@ -119,7 +119,7 @@ A checklist that only grows becomes a ritual. Each agent has a cap.
 | DATA ARCHITECT | 12 | 10 (v1.1) |
 | BUILDER | 12 | 12 (v1.2 — at budget) |
 | SCOUT | 6 | 5 |
-| CRITIC | 20 | 19 (v1.4: design consistency added) |
+| CRITIC | 20 | 20 (v1.6: expected values trace to the spec — at budget) |
 | TEST ENGINEER | 10 categories | 6 |
 | ALGORITHM & DATA | 12 | 10 |
 
@@ -194,8 +194,9 @@ Not subject to the retro loop. Only Afik, deliberately, outside it:
 - an agent's role or its authority
 - decision rights and escalation paths
 - the permission model or anything in `settings.json`
-- the three rules that make the reviews real — CRITIC not reading `notes.md`, TEST ENGINEER not
-  reading the diff, acceptance criteria being assertable
+- the three rules that make the reviews real — CRITIC not reading `notes.md`, TEST ENGINEER deriving tests
+  from the spec and never from the code (Afik, 15.10.2026: it may read source for names and seams), acceptance
+  criteria being assertable
 - the human gates
 - this file
 

@@ -7,8 +7,8 @@ argument-hint: <slug>
 
 # /wrap-up — steps 13 and 14
 
-**Version:** 1.2 · the steps are in `.claude/workflow.md` (13, 14, "Result", "Traceability"); the logs and the
-WORKPLAN rule in `CLAUDE.md`.
+**Version:** 1.3 · the steps are in `.claude/workflow.md` (13, 14, "Result", "Traceability"); the logs and the
+WORKPLAN rule in `CLAUDE.md`. Runs **once per feature**, never per part.
 
 ## Input
 
@@ -21,18 +21,17 @@ The Preview passed — ORCHESTRATOR checked it, URL recorded in WORKPLAN (or the
 
 ## Steps
 
-1. **`result.md`** in `.work/<slug>/`: execution and quality · planned vs actual (`git diff --stat` against the
-   size estimate in `spec.md`) · the SRS trace · the evidence, with commits.
+1. **`result.md`** in `.work/<slug>/`, at most 10 lines: execution and quality · planned vs actual (`git diff --stat`
+   against the size estimate in `spec.md`, and the test-to-product ratio) · the SRS trace · the evidence, with commits.
 2. **Logs:** the `debt.md` lines from `synthesize`, plus every neighbouring bug listed in `notes.md` · `escapes.md`
    or `noise.md` where a finding proved real after merge, or proved not real · **blocks:** from the local
-   `.claude/logs/blocks.jsonl`, every line, counted per role and `rule`+reason, as one "Hook blocks" line in
-   `result.md` (none → "Hook blocks: none"). A block that stopped legitimate work goes to `noise.md`. The guard itself
-   writes `incidents.md` for critical blocks and for the third reader block of one role in one task; nothing else from
-   the log does. **Then rotate the log:** move `blocks.jsonl` and every `escalated-*.flag` in `.claude/logs/` into
-   `.claude/logs/archive/<YYYY-MM-DD>-<slug>/` (a move, never a delete). The guard counts reader blocks only in
-   `blocks.jsonl`, so the count and the once-per-role escalation start again with the next task.
-3. **SRS — step 14:** if behaviour the SRS describes changed, follow `.claude/skills/srs-update/SKILL.md`, steps 1–6.
-   Read and follow that file; it is a procedure, not something to invoke.
+   `.claude/logs/blocks.jsonl`, counted per role and `rule`, as one "Hook blocks" line in `result.md` (none → "Hook
+   blocks: none"); a block that stopped legitimate work is one `noise.md` line — never an `incidents.md` resolution line.
+   **Then rotate the log:** move `blocks.jsonl` and every `escalated-*.flag` in `.claude/logs/` into
+   `.claude/logs/archive/<YYYY-MM-DD>-<slug>/` (a move, never a delete), so the count and the once-per-role escalation
+   start again with the next task.
+3. **SRS — step 14:** the SRS trace is in `result.md`; the SRS files are updated once per Initiative, at its close
+   (`.claude/skills/srs-update/SKILL.md`, steps 1–6), or at once for a decision that changes scope or the security model.
 4. **WORKPLAN:** the task's status in its part table, and the "איפה אנחנו עומדים" block. WORKPLAN keeps only open
    work and the last finished part: when a part closes, the part it replaces as "last finished" moves verbatim to
    `archive/WORKPLAN-<YYYY-MM>.md`, and anything still open inside it goes to "פתוח מחלקים שנסגרו".
@@ -58,3 +57,5 @@ The Preview passed — ORCHESTRATOR checked it, URL recorded in WORKPLAN (or the
   closed WORKPLAN part; step 5: logs in the same commit, one push, Implements in the PR body (Afik, agent-slim stage 3).
 - 1.2 — 2026-10-13 — step 2 rotates the block log at the end of each task, so reader-block escalation counts per task
   (Afik, F5). Description: the Preview is passed by ORCHESTRATOR, not by Afik (Afik, stage 4 contradiction 3).
+- 1.3 — 2026-10-15 — once per feature; result ≤ 10 lines with the test ratio; no incidents resolution lines; SRS once
+  per Initiative. Decided by Afik (development-speed review).

@@ -11,6 +11,9 @@ import { fileURLToPath } from 'node:url';
 const SCRIPT = path.join(path.dirname(fileURLToPath(import.meta.url)), 'critic-diff.mjs');
 const SECRET = 'SECRET-NOTES-CONTENT';
 
+const LOCK_OLD = '{\n  "name": "x",\n  "version": "1.0.0",\n  "dev": true\n}\n';
+const LOCK_NEW = '{\n  "name": "x",\n  "version": "1.0.1",\n  "dev": false\n}\n';
+
 function repo() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'critic-diff-'));
   const g = (...a) => execFileSync('git', ['-C', dir, ...a], { encoding: 'utf8' });
@@ -24,6 +27,7 @@ function repo() {
   g('config', 'user.name', 't');
   w('src/a.ts', 'export const a = 1;\n');
   w('README.md', 'hi\n');
+  w('package-lock.json', LOCK_OLD);
   g('add', '.');
   g('commit', '-q', '-m', 'base');
   g('checkout', '-q', '-b', 'feature');
@@ -39,7 +43,14 @@ function repo() {
   w('.work/t/spec.md', 'OTHER-SLUG-SPEC-CONTENT\n');
   w('.work/s/sub/Notes.md', `${SECRET} nested mixed case\n`);
   w('docs/release-notes.md', 'RELEASE-NOTES-CONTENT\n');
-  g('add', '.');
+  // lean review diff: one changed file of each excluded kind, plus one kept .claude file
+  for (const f of [
+    'WORKPLAN-HE.md', 'decisions.md', 'incidents.md', 'noise.md', 'debt.md', 'escapes.md',
+    'decisions/2026-10.md', 'archive/WORKPLAN-2026-10.md', '.claude/logs/blocks.jsonl',
+  ]) w(f, `EXCLUDED-${f}\n`);
+  w('package-lock.json', LOCK_NEW);
+  w('.claude/knowledge/x.md', 'KEPT-KNOWLEDGE\n');
+  g('add', '-f', '.');
   g('commit', '-q', '-m', 'work files');
   // a second commit touching notes again, in upper case, and a plain notes edit
   w('.work/s/NOTES.md', `${SECRET} upper\n`);
@@ -88,6 +99,49 @@ test('[a] a code line that looks like a notes diff header is content, not a head
   assert.strictEqual(r.status, 0, r.stderr);
   const text = fs.readFileSync(path.join(dir, '.work', 's', 'review.diff'), 'utf8');
   assert.match(text, /a code comment, not a header/);
+});
+
+test('[dev-speed,lean] the lock file, root logs, decisions/, archive/ and .claude/logs are left out; other files stay', () => {
+  const { dir } = repo();
+  assert.strictEqual(run(dir, 's', 'main').status, 0);
+  const text = fs.readFileSync(path.join(dir, '.work', 's', 'review.diff'), 'utf8');
+  const hs = headers(text);
+  for (const f of [
+    'package-lock.json', 'WORKPLAN-HE.md', 'decisions.md', 'incidents.md', 'noise.md', 'debt.md', 'escapes.md',
+    'decisions/2026-10.md', 'archive/WORKPLAN-2026-10.md', '.claude/logs/blocks.jsonl',
+  ]) {
+    assert.ok(!hs.some((h) => h.endsWith(' b/' + f)), 'excluded: ' + f);
+    assert.doesNotMatch(text, new RegExp('EXCLUDED-' + f.replace(/[.]/g, '\\.')), 'content excluded: ' + f);
+  }
+  for (const f of ['src/a.ts', 'docs/release-notes.md', '.claude/knowledge/x.md', '.work/s/spec.md', '.work/s/schema.md', '.work/s/bug.md', '.work/s/findings.md']) {
+    assert.ok(hs.some((h) => h.endsWith(' b/' + f)), 'kept: ' + f);
+  }
+});
+
+test('[dev-speed,lean] package-lock.json: no full diff, but a closing summary of its version/resolved/integrity lines', () => {
+  const { dir } = repo();
+  assert.strictEqual(run(dir, 's', 'main').status, 0);
+  const text = fs.readFileSync(path.join(dir, '.work', 's', 'review.diff'), 'utf8');
+  assert.ok(!text.includes('diff --git a/package-lock.json'), 'no lock-file diff header');
+  const lines = text.replace(/\n+$/, '').split('\n');
+  const at = lines.findIndex((l) => l.startsWith('# package-lock.json: changed (+'));
+  assert.ok(at >= 0, 'summary header present');
+  assert.strictEqual(lines[at], '# package-lock.json: changed (+2/-2 lines), full diff not shown. Changed "version", "resolved" and "integrity" lines:');
+  assert.deepStrictEqual(lines.slice(at + 1), ['-  "version": "1.0.0",', '+  "version": "1.0.1",'], 'block is last, only the version lines');
+  assert.ok(!text.includes('"dev"'), 'unrelated lock line absent');
+});
+
+test('[dev-speed,lean] without package-lock.json in the change set there is no summary block', () => {
+  const { dir, g } = repo();
+  g('checkout', '-q', 'main');
+  g('checkout', '-q', '-b', 'nolock');
+  fs.writeFileSync(path.join(dir, 'src', 'a.ts'), 'export const a = 3;\n');
+  g('add', '.');
+  g('commit', '-q', '-m', 'code only');
+  assert.strictEqual(run(dir, 's', 'main').status, 0);
+  const text = fs.readFileSync(path.join(dir, '.work', 's', 'review.diff'), 'utf8');
+  assert.ok(headers(text).some((h) => h.endsWith(' b/src/a.ts')));
+  assert.doesNotMatch(text, /package-lock\.json/);
 });
 
 test('[a] base defaults to main', () => {

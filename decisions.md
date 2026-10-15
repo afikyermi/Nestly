@@ -129,6 +129,8 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-15 | F1.6 Gate 1: questions pet / nickname / street; lookup by stored email HMAC; questions screen required after account creation (no "later") | 10 |
 | 2026-10-15 | F1.6 Gate 2: fenced `app_recovery` role for the signed-out path; reset = admin set-password + one global sign-out, fail-safe 503 | 10 |
 | 2026-10-15 | F1.6 Amendment 2 (CRITIC findings 1-2): current-email check at redeem, stale handle released on store and re-keyed on /api/me; one limited event per subject per lock, IP checked first | 10 |
+| 2026-10-15 | Development speed (A–F): freeze to F1.8 without exceptions · one session and one records pass per feature · path per part, ≤ 2 reviews, 🎨 depth kept · hard 2× tests, TEST ENGINEER reads source · Preview automation · record caps, SRS once per Initiative · full I1–I14 (upd. 10-15 CRITIC round) | 10 |
+| 2026-10-15 | Development speed, CRITIC round: records-only via PR on green CI · per-Initiative SRS update is Standard · a part merges after its review · CRITIC 1.6 checks expected values, reviews after the tests · TEST ENGINEER 2.0 · tsc --noEmit only · lock-file summary in review.diff | 10 |
 
 ## Superseded
 

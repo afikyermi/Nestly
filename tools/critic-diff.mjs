@@ -1,4 +1,7 @@
-// Prepares what CRITIC reads: the branch diff without any notes.md — stage1-guard.md (a, F7, R2-2).
+// Prepares what CRITIC reads: the branch diff without any notes.md — stage1-guard.md (a, F7, R2-2). It also leaves out
+// what is not code under review (dev-speed): package-lock.json, the root logs and WORKPLAN-HE.md, decisions/, archive/,
+// .claude/logs/, and .work/ except this slug's spec, schema, bug and findings. A changed package-lock.json is not shown in
+// full: review.diff ends with a summary block, its +N/-M line counts and every changed "version", "resolved" and "integrity" line.
 // Usage: node tools/critic-diff.mjs <slug> [base]      base defaults to main
 // Writes .work/<slug>/review.diff. Fails closed: on any doubt it exits 1 and writes nothing.
 import { execFileSync } from 'node:child_process';
@@ -27,11 +30,14 @@ try {
   die('could not clear the old review.diff (not a git repository, or the file is locked)');
 }
 
+const LOGS = new Set(['package-lock.json', 'WORKPLAN-HE.md', 'decisions.md', 'incidents.md', 'noise.md', 'debt.md', 'escapes.md']);
+
 const git = (cwd, args) => execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
 
 let top;
 let diff;
 let kept;
+let lock = '';
 try {
   top = git(process.cwd(), ['rev-parse', '--show-toplevel']).trim();
   git(top, ['rev-parse', '--verify', '--quiet', `${base}^{commit}`]);
@@ -41,10 +47,22 @@ try {
   const specs = new Set(['spec', 'schema', 'bug', 'findings'].map((n) => `.work/${slug}/${n}.md`));
   kept = names.filter((n) => {
     if (NOTES_NAME.test(path.posix.basename(n))) return false;
+    if (LOGS.has(n) || /^(decisions|archive|\.claude\/logs)\//.test(n)) return false;
     return !n.toLowerCase().startsWith('.work/') || specs.has(n);
   });
   if (!kept.length) die('no reviewable files in the change set');
   diff = git(top, ['--literal-pathspecs', '-c', 'core.quotepath=false', 'diff', '--no-renames', '--no-ext-diff', '--no-color', `${base}...HEAD`, '--', ...kept]);
+  if (names.includes('package-lock.json')) {
+    const lockArgs = ['--literal-pathspecs', 'diff', '--no-renames', '--no-ext-diff', '--no-color'];
+    const counts = /^(\d+)\t(\d+)\t/.exec(git(top, [...lockArgs, '--numstat', `${base}...HEAD`, '--', 'package-lock.json']));
+    if (!counts) throw new Error('lock-file counts');
+    const fileHeader = /^(--- (a\/package-lock\.json|\/dev\/null)|\+\+\+ (b\/package-lock\.json|\/dev\/null))$/;
+    const changed = git(top, [...lockArgs, `${base}...HEAD`, '--', 'package-lock.json'])
+      .split('\n')
+      .filter((l) => /^[+-]/.test(l) && !fileHeader.test(l) && /"(version|resolved|integrity)"/.test(l));
+    const head = `# package-lock.json: changed (+${counts[1]}/-${counts[2]} lines), full diff not shown. Changed "version", "resolved" and "integrity" lines:`;
+    lock = `${[head, ...changed].join('\n')}\n`;
+  }
 } catch {
   die('git failed (unknown base, not a repository, or the diff could not be read)');
 }
@@ -64,5 +82,5 @@ if (paths.length !== kept.length || !kept.every((k) => paths.includes(k))) die('
 
 const dir = path.join(top, '.work', slug);
 fs.mkdirSync(dir, { recursive: true });
-fs.writeFileSync(path.join(dir, 'review.diff'), diff, 'utf8');
+fs.writeFileSync(path.join(dir, 'review.diff'), lock ? `${diff.replace(/\n*$/, '\n')}${lock}` : diff, 'utf8');
 process.stdout.write(`critic-diff: ${kept.length} files, .work/${slug}/review.diff\n`);
