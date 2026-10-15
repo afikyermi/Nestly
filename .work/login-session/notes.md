@@ -113,3 +113,8 @@ The rejection log in authentication.ts no longer logs the error object (its jose
 **Tests to add or update (TEST ENGINEER)**  E2E for criteria 10 and 14 with the seam above; the `e2e/register-step2.spec.ts` items listed under part b; axe at 375 and 1024 for the criterion 20 list; component tests for criteria 5, 6, 8, 11 (screen side), 16, 18, 19.
 
 **Neighbouring**  None new.
+
+## Fixes from CRITIC part c (F1, F3)
+- F1: `signIn()` of the session source is conditional (see interface.md addendum): a counter `ending` covers the window in which `end()` has cleared state but `auth.signOut()` has not finished; after that Auth holds no session, so `getAccessToken()` is null. Sign-out always wins; nothing was added to disable "התנתקות". Limit: a sign-out in another tab arriving after `signIn()` has already applied is the normal storage-event path, not this one. `signIn()` is now asynchronous in effect; no existing test depended on a synchronous change. Needs a test (sign out during a pending 201 -> stays signed-out on `/`).
+- F3: `validateLogin` uses the shared email schema alone.
+- Checks: typecheck, lint and 863 web tests pass (none edited).

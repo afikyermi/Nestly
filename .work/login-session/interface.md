@@ -111,3 +111,7 @@ Warn line message "access token rejected" carries fields: `reason` ("token" | "u
 ## Other changes
 - `auth-client.ts`: `refreshRefused` cleared on `TOKEN_REFRESHED`. `eslint.config.mjs`: `noPlatformUp` also forbids `@/lib/**` and `**/lib/**` (and a dynamic import of `lib`).
 - New files: `features/login/{LoginForm.tsx,login-form.ts}`, `pages/login/LoginPage.tsx`, `features/registration/{RegisterConsentStep.tsx,ConsentField.tsx}`, `lib/auth-texts.ts`. `RegisterStepTwo` uses `ConsentField` (same DOM).
+
+## Addendum (CRITIC part c fixes)
+- `SessionEntry.signIn()` (any caller: registration step 2, completion) no longer applies at once. It does nothing if a sign-out is still telling Auth (`ending`), and otherwise asks `auth.getAccessToken()`; it applies `signed-in` (notice cleared, `lastCheckAt = now()`, no `/api/me`) only if that returns a token, no sign-out started meanwhile and the epoch is unchanged since the call. So the state changes one microtask-chain later (after `getAccessToken` resolves), and a sign-out during a pending `POST /api/register` leaves the state `signed-out`. A rejection of `getAccessToken` ends the session locally (fail closed).
+- `validateLogin` checks the email with `registrationCredentialsInput.shape.email` alone; no filler password.

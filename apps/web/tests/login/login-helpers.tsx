@@ -41,15 +41,21 @@ export interface MountOptions {
 
 export function mountApp(path: string, over: MountOptions = {}) {
   const visible: Array<() => void> = [];
+  const removed: Array<() => void> = [];
   const outcomes: Outcome[] = [...(over.outcomes ?? ['active'])];
   let clock = 1_000_000;
   const signInOption = over.signIn ?? okAnswer;
   const signIn = vi.fn((): Promise<SignInAnswer> => (typeof signInOption === 'function' ? signInOption() : Promise.resolve(signInOption)));
-  const signOut = vi.fn((): Promise<boolean> => Promise.resolve(over.signOut ?? true));
+  // Like the real client: once the session is ended (sign-out here, or another tab removed it) Auth holds no token.
+  let tokenHeld = true;
+  const signOut = vi.fn((): Promise<boolean> => {
+    tokenHeld = false;
+    return Promise.resolve(over.signOut ?? true);
+  });
   const auth: Auth = {
     signIn,
     restore: vi.fn((): Promise<Restore> => Promise.resolve(over.restore ?? 'none')),
-    getAccessToken: vi.fn(() => Promise.resolve('tok')),
+    getAccessToken: vi.fn(() => Promise.resolve(tokenHeld ? 'tok' : null)),
     signOut,
     subscribe: vi.fn(() => () => undefined),
   };
@@ -63,7 +69,7 @@ export function mountApp(path: string, over: MountOptions = {}) {
     now: () => clock,
     events: {
       onTabVisible: (l) => (visible.push(l), () => undefined),
-      onSessionRemovedElsewhere: () => () => undefined,
+      onSessionRemovedElsewhere: (l) => (removed.push(l), () => undefined),
     },
   });
   const signUp = vi.fn<AuthPort['signUp']>(() => Promise.resolve({ accessToken: 'never', failure: null }));
@@ -94,6 +100,13 @@ export function mountApp(path: string, over: MountOptions = {}) {
     seen,
     stop: () => observer.disconnect(),
     advance: (ms: number) => void (clock += ms),
+    /** Another tab removed the stored session (a storage event with a null new value). */
+    removedElsewhere: () =>
+      act(async () => {
+        tokenHeld = false;
+        removed.forEach((l) => l());
+        await Promise.resolve();
+      }),
     tabVisible: () =>
       act(async () => {
         visible.forEach((l) => l());

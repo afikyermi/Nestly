@@ -319,6 +319,34 @@ describe('[F1.5 c12] refresh before expiry, and after it', () => {
     expect(events).toContain('refresh-refused');
   });
 
+  it('[CRITIC c4] a refused refresh, a new sign-in, a successful refresh, then a sign-out: the last event is "signed-out", not "refresh-refused"', async () => {
+    let refuse = true;
+    const { port } = build((call) => {
+      if (call.query.get('grant_type') === 'password') return json(200, tokenBody(jwt(nowSec() + 3600), 'r1'));
+      if (call.path.includes('logout')) return new Response(null, { status: 204 });
+      return refuse
+        ? json(400, { code: 400, error_code: 'refresh_token_not_found', msg: 'Invalid Refresh Token: Refresh Token Not Found' })
+        : json(200, tokenBody('renewed-token', 'r2'));
+    });
+    const events: string[] = [];
+    port.subscribe((e) => events.push(e));
+    await port.signIn({ email: EMAIL, password: PASSWORD });
+    vi.setSystemTime(NOW_MS + 3601_000);
+    expect(await port.getAccessToken()).toBeNull();
+    await vi.advanceTimersByTimeAsync(31_000);
+    expect(events).toContain('refresh-refused');
+    refuse = false;
+    await port.signIn({ email: EMAIL, password: PASSWORD });
+    vi.setSystemTime(NOW_MS + 2 * 3601_000);
+    expect(await port.getAccessToken()).toBe('renewed-token');
+    expect(events).toContain('refreshed');
+    events.length = 0;
+    await port.signOut();
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(events).not.toContain('refresh-refused');
+    expect(events).toContain('signed-out');
+  });
+
   it('refresh failing on the network or a 5xx -> the session stays in storage, no signed-out event, the refresh is retried', async () => {
     let refreshCalls = 0;
     const { port, map } = build((call) => {

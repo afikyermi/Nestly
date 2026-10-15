@@ -72,7 +72,7 @@ test('[F1.2 c14] the test-only controllable session source is absent from the pr
 });
 
 test('[F1.2 c14] the production build does not contain the test-session API names', () => {
-  for (const needle of ['nestlyTestSession', 'rejectSignOut', 'signOutCalls']) {
+  for (const needle of ['nestlyTestSession', 'rejectSignOut', 'signOutCalls', 'nestlyRealSession', 'e2e-stub.invalid']) {
     const hits = filesUnder(DIST)
       .filter((f) => /\.(js|mjs|html|map)$/.test(f))
       .filter((f) => readFileSync(f, 'utf8').includes(needle))

@@ -190,6 +190,61 @@ describe('[F1.5 c16] submitting the completion', () => {
   });
 });
 
+describe('[F1.5 c14][c16][CRITIC c1] a sign-out during a pending POST /api/register is not undone by its 201', () => {
+  async function pendingSubmit() {
+    let resolveRegister: (r: Response) => void = () => undefined;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveRegister = resolve;
+        }),
+    );
+    const m = await toCompletion();
+    const u = user();
+    await throughStep1(u);
+    await u.click(consentBox());
+    await u.click(screen.getByRole('button', { name: 'יצירת חשבון' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'יצירת חשבון' })).toHaveAttribute('aria-busy', 'true'));
+    return { m, u, created: () => resolveRegister(new Response('{"status":"created"}', { status: 201 })) };
+  }
+
+  it('[c14] "התנתקות" while the request runs, then 201: still signed out on /, no shell ever rendered after the logout, no web storage', async () => {
+    const { m, u, created } = await pendingSubmit();
+    await u.click(screen.getByRole('button', { name: 'התנתקות' }));
+    expect(await screen.findByRole('heading', { level: 1, name: WELCOME })).toBeInTheDocument();
+    m.seen.length = 0;
+    await act(async () => {
+      created();
+      await Promise.resolve();
+    });
+    await flush();
+    await flush();
+    expect(path()).toBe('/');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(WELCOME);
+    expect(screen.queryByRole('navigation', { name: 'ניווט ראשי' })).not.toBeInTheDocument();
+    expect(m.seen).toEqual([]);
+    expect(window.localStorage.length).toBe(0);
+    m.stop();
+  });
+
+  it('[c12/c14] another tab removing the session while the request runs, then 201: signed out, no shell, no protected render', async () => {
+    const { m, created } = await pendingSubmit();
+    await m.removedElsewhere();
+    m.seen.length = 0;
+    await act(async () => {
+      created();
+      await Promise.resolve();
+    });
+    await flush();
+    await flush();
+    expect(path()).not.toBe('/feed');
+    expect(screen.queryByRole('navigation', { name: 'ניווט ראשי' })).not.toBeInTheDocument();
+    expect(m.seen).toEqual([]);
+    expect(window.localStorage.length).toBe(0);
+    m.stop();
+  });
+});
+
 describe('[F1.5 c15] completion state and the Guest documents (Amendment 1)', () => {
   it.each(['/terms', '/privacy'])('%s renders in completion and is not redirected to /register', async (p) => {
     const m = mountApp(p, { restore: 'session', outcomes: ['unregistered'] });

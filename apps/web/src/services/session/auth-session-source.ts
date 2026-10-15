@@ -75,9 +75,16 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
     });
   };
 
+  // Sign-outs still telling Auth: until they finish, Auth may still hold a session that has already been ended here.
+  let ending = 0;
   const end = async (why: SessionNotice | null) => {
     endLocally(why);
-    await auth.signOut();
+    ending += 1;
+    try {
+      await auth.signOut();
+    } finally {
+      ending -= 1;
+    }
   };
 
   function scheduleRestoreRetry() {
@@ -242,12 +249,21 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
     signOut: async () => {
       await end(null);
     },
-    // Registration created the account with this session (F1.4): signed in without asking the server again.
+    // An account was created with the session Auth holds (registration F1.4, completion F1.5): signed in without asking the server
+    // again. It applies only if nothing ended the session since the caller began, and Auth still holds one: a sign-out (here or in
+    // another tab) that happened while the request was in flight wins, and this does nothing.
     signIn: () => {
-      epoch += 1;
-      lastCheckAt = now();
-      clearRetry();
-      apply('signed-in', null);
+      if (ending > 0) return;
+      const startedAt = epoch;
+      inBackground(
+        auth.getAccessToken().then((token) => {
+          if (token === null || ending > 0 || epoch !== startedAt) return;
+          epoch += 1;
+          lastCheckAt = now();
+          clearRetry();
+          apply('signed-in', null);
+        }),
+      );
     },
     signInWithPassword,
     recheck,

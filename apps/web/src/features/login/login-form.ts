@@ -32,22 +32,18 @@ export interface LoginErrors {
   password?: string;
 }
 
-// VAL-002 judges the email, trimmed; the password is only required to be non-empty (Q4: an old password must reach Auth's answer,
-// and a length hint would reveal the rule). The shared credentials schema also checks a password length, so it is given a
-// filler that always passes and only its email verdict is read.
-const LENGTH_FILLER = 'x'.repeat(8);
-
+// VAL-002 judges the email, trimmed (the shared email schema alone); the password is only required to be non-empty (Q4: an old
+// password must reach Auth's answer, and a length hint would reveal the rule).
 export type LoginCheck = { ok: true; value: { email: string; password: string } } | { ok: false; errors: LoginErrors };
 
 export function validateLogin(email: string, password: string): LoginCheck {
-  const checked = registrationCredentialsInput.safeParse({ email, password: LENGTH_FILLER });
+  const checked = registrationCredentialsInput.shape.email.safeParse(email);
   const errors: LoginErrors = {};
   if (!checked.success) {
-    // One text per field, from the first issue; any code other than 'required' reads as 'invalid'.
-    const issue = checked.error.issues.find((candidate) => candidate.path[0] === 'email');
-    errors.email = issue?.message === 'email_required' ? EMAIL_REQUIRED_TEXT : EMAIL_INVALID_TEXT;
+    // One text, from the first issue; any code other than 'required' reads as 'invalid'.
+    errors.email = checked.error.issues[0]?.message === 'email_required' ? EMAIL_REQUIRED_TEXT : EMAIL_INVALID_TEXT;
   }
   if (password === '') errors.password = PASSWORD_REQUIRED_TEXT;
   if (!checked.success || errors.password !== undefined) return { ok: false, errors };
-  return { ok: true, value: { email: checked.data.email, password } };
+  return { ok: true, value: { email: checked.data, password } };
 }
