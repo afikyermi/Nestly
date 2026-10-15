@@ -136,6 +136,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-16 | Placement: medical hotline referral in I3, Stories in I5 | 10 |
 | 2026-10-16 | The seven open details of the I3–I5 decisions take their defaults (ladder per §4, Stories, hotline page, terms by Claude in I9, grace-period sign-in, demo Stories) | 10 |
 | 2026-10-16 | OP-031–034 (Afik): own open-source image model in app_jobs · ERR-041 copy · audience per post and Story · related data deleted with the account | 10 |
+| 2026-10-16 | E is built inside PR 31, not its own PR; nothing merges to main overnight (Afik) | 10 |
 
 ## Superseded
 
