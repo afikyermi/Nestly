@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client';
 import { App } from '@/app/App';
 import { DirectionProvider } from '@/components/ui/direction-provider';
 import type { ControllableSessionSource } from '@/services/session/controllable-session-source';
-import { productionSessionSource } from '@/services/session/production-session-source';
 import type { SessionSource } from '@/services/session/session-source';
 import '@/styles/index.css';
 
@@ -21,7 +20,7 @@ if (container === null) {
 
 // The `e2e` build mode (npm run build:e2e) swaps in the test-only source. In every other mode the branch is
 // constant-false, so the bundler drops it and the test source never reaches the deployed build.
-let sessionSource: SessionSource = productionSessionSource;
+let sessionSource: SessionSource | undefined;
 if (import.meta.env.MODE === 'e2e') {
   const { createControllableSessionSource } = await import('@/services/session/controllable-session-source');
   const testSource = createControllableSessionSource();
@@ -32,7 +31,7 @@ if (import.meta.env.MODE === 'e2e') {
 createRoot(container).render(
   <StrictMode>
     <DirectionProvider>
-      <App sessionSource={sessionSource} />
+      <App {...(sessionSource !== undefined ? { sessionSource } : {})} />
     </DirectionProvider>
   </StrictMode>,
 );

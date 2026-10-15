@@ -91,3 +91,8 @@ About 1,000 lines of diff. Over ~400, so **three PRs on one branch**:
 - **a:** policy migration + pgTAP change + `GET /api/me` (criteria 1–4), ~300. Gate 2 if DR-1 A.
 - **b:** Auth module sign-in/out, real session source, persistence, refresh, re-check, logout, guard state, scan change (5–15, 21), ~450.
 - **c:** login screen, completion mode, states, accessibility, Preview (16–20, 22), ~250.
+
+## Amendment 1 — 15.10.2026, ORCHESTRATOR (from CRITIC part b, F1 and F2; `decisions.md` "F1.5 part b")
+- **Criterion 15:** the state "signed in, no account yet" renders `/register` (completion) **and the read-only Guest documents `/terms` and `/privacy`** (the consent step links to them); every other path redirects to `/register`.
+- **Restore when `/api/me` cannot answer (new, criterion 11):** only `unreachable` (network error, 503) keeps the state `loading` and retries, with backoff (15 s, 30 s, 60 s, then every 5 min, ±20 % jitter) while the tab is visible; any other failure (`failed`: 500, 404, unreadable) resolves to **signed-out with the stored session kept**, so a later reload tries again. No other timer (Q1 stands).
+- **Criterion 12 / logout in another tab:** a sign-out whose cause this tab does not know ends the session **without** a notice; "ההתחברות פגה" only when this tab's own refresh was refused.

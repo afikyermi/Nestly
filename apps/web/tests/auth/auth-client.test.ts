@@ -151,6 +151,47 @@ describe('[F1.5 c5][c6] signIn: failures are returned, not thrown, and store not
   });
 });
 
+describe('[F1.5 c10][NFR-SEC-001] which config counts as configured (the password must never go to our own origin or over plain http)', () => {
+  it.each([
+    ['plain http to a public host', 'http://example.com'],
+    ['a relative URL', '/auth/v1'],
+    ['a protocol-relative URL', '//example.com'],
+    ['a blank URL', '   '],
+    ['an unsupported scheme', 'ftp://example.com'],
+  ])('%s -> AuthNotConfigured on sign-in, restore "none", no token, and no request at all', async (_label, url) => {
+    const { fetchStub, calls } = stubFetch(() => json(200, tokenBody(jwt(nowSec() + 3600), 'r1')));
+    const port = createAuthPort({ url, publishableKey: CFG.publishableKey }, { keyValueStorage: mapStorage().storage, fetch: fetchStub });
+    const answer = await port.signIn({ email: EMAIL, password: PASSWORD });
+    expect(answer.accessToken).toBeNull();
+    expect(answer.failure?.name).toBe('AuthNotConfigured');
+    expect(await port.restore()).toBe('none');
+    expect(await port.getAccessToken()).toBeNull();
+    expect(calls).toHaveLength(0);
+  });
+
+  it('a blank publishable key -> AuthNotConfigured and no request', async () => {
+    const { fetchStub, calls } = stubFetch(() => json(200, {}));
+    const port = createAuthPort({ url: URL_BASE, publishableKey: '  ' }, { keyValueStorage: mapStorage().storage, fetch: fetchStub });
+    expect((await port.signIn({ email: EMAIL, password: PASSWORD })).failure?.name).toBe('AuthNotConfigured');
+    expect(calls).toHaveLength(0);
+  });
+
+  it.each(['http://localhost:54321', 'http://127.0.0.1:54321'])('%s (local development) is accepted: the sign-in reaches Auth', async (url) => {
+    const { fetchStub, calls } = stubFetch(() => json(200, tokenBody(jwt(nowSec() + 3600), 'r1')));
+    const port = createAuthPort({ url, publishableKey: CFG.publishableKey }, { keyValueStorage: mapStorage().storage, fetch: fetchStub });
+    const answer = await port.signIn({ email: EMAIL, password: PASSWORD });
+    expect(answer.failure).toBeNull();
+    expect(calls.map((c) => c.path)).toContain('/auth/v1/token');
+  });
+
+  it('an https URL with trailing slashes is accepted and the token path has no double slash', async () => {
+    const { fetchStub, calls } = stubFetch(() => json(200, tokenBody(jwt(nowSec() + 3600), 'r1')));
+    const port = createAuthPort({ url: `${URL_BASE}//`, publishableKey: CFG.publishableKey }, { keyValueStorage: mapStorage().storage, fetch: fetchStub });
+    expect((await port.signIn({ email: EMAIL, password: PASSWORD })).failure).toBeNull();
+    expect(calls[0]?.path).toBe('/auth/v1/token');
+  });
+});
+
 describe('[F1.5 c11] restore', () => {
   it('no stored value -> "none", no network call', async () => {
     const { port, calls } = build(() => json(500, {}));
@@ -275,7 +316,7 @@ describe('[F1.5 c12] refresh before expiry, and after it', () => {
     expect(await port.getAccessToken()).toBeNull();
     await vi.advanceTimersByTimeAsync(31_000);
     expect(map.has(KEY)).toBe(false);
-    expect(events).toContain('signed-out');
+    expect(events).toContain('refresh-refused');
   });
 
   it('refresh failing on the network or a 5xx -> the session stays in storage, no signed-out event, the refresh is retried', async () => {
@@ -294,6 +335,7 @@ describe('[F1.5 c12] refresh before expiry, and after it', () => {
     expect(refreshCalls).toBeGreaterThanOrEqual(2);
     expect(map.has(KEY)).toBe(true);
     expect(events).not.toContain('signed-out');
+    expect(events).not.toContain('refresh-refused');
   });
 });
 

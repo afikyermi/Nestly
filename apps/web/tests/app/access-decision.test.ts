@@ -82,10 +82,10 @@ describe('signed-in (4, 10, DR-1)', () => {
 
 // F1.5 criterion 15 [FR-AUTH-004]: the fourth state "signed in, no account yet" (DR-2) and the session that ended (notice -> /login).
 describe('signed-in-no-account: only /register (completion), F1.5 c15 DR-2', () => {
-  it('[F1.5 c15][FR-AUTH-004] /register renders', () => {
-    expect(decideAccess('signed-in-no-account', '/register')).toEqual({ kind: 'render' });
+  it.each(['/register', '/terms', '/privacy'])('[F1.5 c15][Amendment 1][FR-AUTH-004] %s renders (completion and the consent documents it links to)', (path) => {
+    expect(decideAccess('signed-in-no-account', path)).toEqual({ kind: 'render' });
   });
-  it.each([...GUEST.filter((p) => p !== '/register'), ...PROTECTED, ...UNLISTED])(
+  it.each([...GUEST.filter((p) => !['/register', '/terms', '/privacy'].includes(p)), ...PROTECTED, ...UNLISTED])(
     '[F1.5 c15][FR-AUTH-004] %s redirects to /register',
     (path) => {
       expect(decideAccess('signed-in-no-account', path)).toEqual({ kind: 'redirect', to: '/register' });

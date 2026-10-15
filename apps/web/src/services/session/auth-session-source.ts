@@ -1,4 +1,4 @@
-import type { AuthSessionPort } from '@/services/auth/auth-client';
+import type { AuthEvent, AuthSessionPort } from '@/services/auth/auth-client';
 import { classifySignInFailure } from '@/services/auth/sign-in-problem';
 import type { AccountStateOutcome } from '@/services/api/account-state';
 import type { BrowserEvents } from '@/platform/browser-events';
@@ -11,8 +11,11 @@ import type { SessionAccount, SessionEntry, SessionNotice, SessionSource, Sessio
 
 /** The state is asked again when the tab becomes visible and the last answer is older than this (Q1). */
 export const RECHECK_AFTER_MS = 60_000;
-/** While the stored session cannot be checked (Auth or the server unreachable at page load), the check is retried this often. */
+/** While the stored session cannot be checked (Auth or the server unreachable at page load), the check is retried after this long... */
 export const RESTORE_RETRY_MS = 15_000;
+/** ...then after each of these, the last one from then on; each delay varies by up to +-20 %, and the timer acts only while the tab is visible. */
+export const RESTORE_RETRY_DELAYS_MS: readonly number[] = [RESTORE_RETRY_MS, 30_000, 60_000, 300_000];
+export const RESTORE_RETRY_JITTER = 0.2;
 
 export type AuthSessionSource = SessionSource & SessionEntry & SessionAccount;
 
@@ -23,11 +26,13 @@ export interface AuthSessionSourceDeps {
   /** The clock, in milliseconds. */
   now: () => number;
   events: BrowserEvents;
+  /** A number in [0, 1) for the retry jitter. Default: Math.random. */
+  random?: () => number;
 }
 
 const hasSession = (state: SessionState) => state === 'signed-in' || state === 'signed-in-no-account';
 
-export function createAuthSessionSource({ auth, accountState, now, events }: AuthSessionSourceDeps): AuthSessionSource {
+export function createAuthSessionSource({ auth, accountState, now, events, random = Math.random }: AuthSessionSourceDeps): AuthSessionSource {
   const listeners = new Set<() => void>();
   let state: SessionState = 'loading';
   let notice: SessionNotice | null = null;
@@ -36,6 +41,7 @@ export function createAuthSessionSource({ auth, accountState, now, events }: Aut
   let lastCheckAt: number | null = null;
   let started = false;
   let restoring = false;
+  let retryAttempt = 0;
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let checking: Promise<void> | null = null;
   let signingIn: Promise<SignInResult> | null = null;
@@ -74,9 +80,28 @@ export function createAuthSessionSource({ auth, accountState, now, events }: Aut
     await auth.signOut();
   };
 
-  // What an answer from /api/me does. `restore`: the state is not known yet, so an answer that says nothing keeps it `loading`
-  // and tries again; once signed in, such an answer changes nothing and the next trigger asks again.
+  function scheduleRestoreRetry() {
+    clearRetry();
+    const base = RESTORE_RETRY_DELAYS_MS[Math.min(retryAttempt, RESTORE_RETRY_DELAYS_MS.length - 1)] ?? RESTORE_RETRY_MS;
+    retryAttempt += 1;
+    const delay = Math.round(base * (1 + (random() * 2 - 1) * RESTORE_RETRY_JITTER));
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      // A hidden tab waits: becoming visible runs the check at once.
+      if (events.isTabVisible?.() === false) return;
+      inBackground(restore());
+    }, delay);
+  }
+
+  // What an answer from /api/me does. At restore the state is not known yet: only an unreachable server keeps it loading (and
+  // retries with backoff); any other failure resolves to signed-out and keeps the stored session, so a later load asks again.
+  // Once signed in, an answer that says nothing changes nothing and the next trigger asks again.
   async function decide(answer: AccountStateOutcome | 'no-session', context: 'restore' | 'recheck'): Promise<void> {
+    if (answer === 'unreachable' && context === 'restore') {
+      scheduleRestoreRetry();
+      return;
+    }
+    retryAttempt = 0;
     if (answer === 'active' || answer === 'unregistered') {
       lastCheckAt = now();
       apply(answer === 'active' ? 'signed-in' : 'signed-in-no-account', null);
@@ -85,10 +110,7 @@ export function createAuthSessionSource({ auth, accountState, now, events }: Aut
     } else if (answer === 'unauthenticated' || answer === 'no-session') {
       await end('expired');
     } else if (context === 'restore') {
-      clearRetry();
-      retryTimer = setTimeout(() => {
-        inBackground(restore());
-      }, RESTORE_RETRY_MS);
+      endLocally(null);
     }
   }
 
@@ -171,9 +193,11 @@ export function createAuthSessionSource({ auth, accountState, now, events }: Aut
     return tracked;
   }
 
-  const onAuthEvent = (event: 'refreshed' | 'signed-out') => {
+  // A sign-out this tab does not know the cause of (another tab, say) ends the session with no notice; only this tab's own refused
+  // refresh says it expired.
+  const onAuthEvent = (event: AuthEvent) => {
     if (event === 'refreshed') inBackground(recheck());
-    else if (hasSession(state)) endLocally('expired');
+    else if (hasSession(state)) endLocally(event === 'refresh-refused' ? 'expired' : null);
   };
 
   const onTabVisible = () => {

@@ -69,3 +69,11 @@ Warn line message "access token rejected" carries fields: `reason` ("token" | "u
 ## Addendum (not configured, logout)
 - `createAuthPort`: config is usable only when url and key are non-blank after trim, the url (trailing slashes removed) is absolute https or http on `localhost`/`127.0.0.1`, and the key is not a secret key. Otherwise `signIn`/`signUp` return failure name `AuthNotConfigured`, `restore` returns `none`, `getAccessToken` null; no request is made.
 - `AuthSessionPort.signOut()` removes `nestly-auth`, waits for any running refresh, and removes it again; it resolves after both.
+
+## Addendum (CRITIC part b fixes)
+- Removed modules: `services/auth/browser-auth-port.ts`, `services/session/production-session-source.ts`. The production wiring is in `app/App.tsx` (not exported); `<App sessionSource authPort />` props unchanged and both optional. `AuthPortContext` is now always provided by `App` (the injected `authPort` or the real one); its bare default is a port that is not configured.
+- `AuthEvent = 'refreshed' | 'refresh-refused' | 'signed-out'`. `refresh-refused`: this client's own refresh call was answered 4xx (not 429) and the session was removed. Source: `refresh-refused` while a session is held gives signed-out + notice `expired`; `signed-out` gives signed-out with no notice.
+- `BrowserEvents` has optional `isTabVisible?(): boolean` (absent = visible). `windowBrowserEvents(storageKey: string)` (the parameter is the storage key). `platform/browser-storage.ts` exports `StorageLike`, `browserStorage()`.
+- `createAuthSessionSource` deps gain optional `random?: () => number` (default `Math.random`). Exports: `RESTORE_RETRY_MS = 15000`, `RESTORE_RETRY_DELAYS_MS = [15000, 30000, 60000, 300000]`, `RESTORE_RETRY_JITTER = 0.2`. Delay = base * (1 + (random()*2 - 1) * 0.2), rounded; with `random = () => 0.5` it is exactly the base. The timer fires only if `events.isTabVisible?.() !== false`; `onTabVisible` while `loading` restores at once.
+- Restore answers: `/api/me` `unreachable` (and the port's `restore()` = `unreachable`) keep `loading` and retry as above; `failed` gives signed-out, notice none, `auth.signOut` not called, stored session kept.
+- `decideAccess('signed-in-no-account', path)`: render for `/register`, `/terms`, `/privacy`; else redirect `/register`.

@@ -3,6 +3,7 @@ import { GUEST_LANDING, GUEST_PATHS, normalizePath, PATHS, PROTECTED_PATHS, SIGN
 
 export type AccessDecision = { kind: 'loading' } | { kind: 'render' } | { kind: 'redirect'; to: string };
 
+const COMPLETION_PATHS: readonly string[] = [PATHS.register, PATHS.terms, PATHS.privacy];
 const RENDER: AccessDecision = { kind: 'render' };
 const LOADING: AccessDecision = { kind: 'loading' };
 const redirect = (to: string): AccessDecision => ({ kind: 'redirect', to });
@@ -20,8 +21,9 @@ export function decideAccess(state: SessionState, pathname: string, sessionEnded
     if (isGuestPath) return redirect(SIGNED_IN_LANDING);
     return PROTECTED_PATHS.includes(path) ? RENDER : redirect(SIGNED_IN_LANDING);
   }
-  // Signed in with Auth but no account yet (DR-2): only the registration screen, in completion mode, opens.
-  if (state === 'signed-in-no-account') return path === PATHS.register ? RENDER : redirect(PATHS.register);
+  // Signed in with Auth but no account yet (DR-2): the registration screen (completion mode) and the two documents its consent
+  // step links to.
+  if (state === 'signed-in-no-account') return COMPLETION_PATHS.includes(path) ? RENDER : redirect(PATHS.register);
   if (isGuestPath) return RENDER;
   return redirect(sessionEnded ? PATHS.login : GUEST_LANDING);
 }

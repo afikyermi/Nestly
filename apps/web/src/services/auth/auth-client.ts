@@ -28,8 +28,11 @@ export interface AuthPort {
 /** What the stored session came to at page load: none there, a usable one, one Auth refused, or Auth could not be reached. */
 export type RestoreOutcome = 'none' | 'session' | 'refused' | 'unreachable';
 
-/** What Auth tells the session source on its own: the access token was renewed, or the session ended. */
-export type AuthEvent = 'refreshed' | 'signed-out';
+/**
+ * What Auth tells the session source on its own: the access token was renewed; this tab's own refresh was refused (the session
+ * ended); or the session ended for a cause this tab does not know (e.g. a sign-out in another tab).
+ */
+export type AuthEvent = 'refreshed' | 'refresh-refused' | 'signed-out';
 
 export interface AuthSessionPort {
   /** Checks the password with Auth. The password goes to Auth and nowhere else. A call that never answers rejects. */
@@ -140,6 +143,17 @@ export function createAuthPort(
   const storage = seams.keyValueStorage;
   const listeners = new Set<(event: AuthEvent) => void>();
   let client: GoTrueClient | null = null;
+  // Set when Auth answers this tab's own refresh with a 4xx: the SIGNED_OUT that follows is then "refused", not "unknown".
+  let refreshRefused = false;
+
+  const observedFetch: typeof fetch = async (input, init) => {
+    const response = await (seams.fetch ?? fetch)(input, init);
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    if (url.includes('grant_type=refresh_token') && response.status >= 400 && response.status < 500 && response.status !== 429) {
+      refreshRefused = true;
+    }
+    return response;
+  };
 
   const emit = (event: AuthEvent) => {
     for (const listener of [...listeners]) listener(event);
@@ -156,11 +170,14 @@ export function createAuthPort(
       persistSession: storage !== undefined,
       autoRefreshToken: true,
       detectSessionInUrl: false,
-      ...(seams.fetch !== undefined ? { fetch: seams.fetch } : {}),
+      fetch: observedFetch,
     });
     created.onAuthStateChange((event) => {
       if (event === 'TOKEN_REFRESHED') emit('refreshed');
-      else if (event === 'SIGNED_OUT') emit('signed-out');
+      else if (event === 'SIGNED_OUT') {
+        emit(refreshRefused ? 'refresh-refused' : 'signed-out');
+        refreshRefused = false;
+      }
     });
     client = created;
     return created;
@@ -221,13 +238,14 @@ export function createAuthPort(
       }
       // Auth leaves the stored session in place when its sign-out call fails; this device ends it regardless.
       storage?.removeItem(AUTH_STORAGE_KEY);
-      // A refresh already running holds the SDK's lock and may save its new session after the removal above. Waiting for the
-      // lock (getSession) lets it finish; the key is then removed again, so logout wins.
+      // A refresh already running may save its new session after the removal above. The SDK drops a refresh result when the
+      // session was removed meanwhile (its removal counter); reading the session once more and removing the key again is a
+      // backstop, so logout wins.
       if (client !== null) {
         try {
           await client.getSession();
         } catch {
-          // Only a wait for the lock; whatever it answered, the removal below is what counts.
+          // Only a backstop; whatever it answered, the removal below is what counts.
         }
         storage?.removeItem(AUTH_STORAGE_KEY);
       }

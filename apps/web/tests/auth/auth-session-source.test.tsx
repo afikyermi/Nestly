@@ -34,13 +34,15 @@ function Probe() {
   return <output>{s.state}</output>;
 }
 
-function setup(over: { restore?: Restore; outcomes?: Outcome[]; signIn?: SignInAnswer | Error; signOut?: Promise<boolean> | boolean } = {}) {
+function setup(over: { restore?: Restore; outcomes?: Outcome[]; signIn?: SignInAnswer | Error; signOut?: Promise<boolean> | boolean; random?: number } = {}) {
   let authListener: ((e: AuthEvent) => void) | undefined;
   const visible: Array<() => void> = [];
   const removed: Array<() => void> = [];
   const firstOutcome: Outcome = 'active';
   const outcomes = [...(over.outcomes ?? [firstOutcome])];
   let clock = 5_000_000;
+  const randomValue = over.random ?? 0.5; // 0.5 = no jitter: the delay is exactly the base
+  let tabIsVisible = true;
   // The mocks are held in variables and exposed as such, so that tests never read a method off the port object (unbound-method).
   const authSignIn = vi.fn((): Promise<SignInAnswer> => (over.signIn instanceof Error ? Promise.reject(over.signIn) : Promise.resolve(over.signIn ?? { accessToken: 'tok-signin', failure: null })));
   const authRestore = vi.fn((): Promise<Restore> => Promise.resolve(over.restore ?? 'session'));
@@ -63,9 +65,11 @@ function setup(over: { restore?: Restore; outcomes?: Outcome[]; signIn?: SignInA
     auth,
     accountState,
     now: () => clock,
+    random: () => randomValue,
     events: {
       onTabVisible: (l) => (visible.push(l), () => undefined),
       onSessionRemovedElsewhere: (l) => (removed.push(l), () => undefined),
+      isTabVisible: () => tabIsVisible,
     },
   });
   renders = [];
@@ -84,8 +88,11 @@ function setup(over: { restore?: Restore; outcomes?: Outcome[]; signIn?: SignInA
     tabVisible: () => inAct(() => visible.forEach((l) => l())),
     removedElsewhere: () => inAct(() => removed.forEach((l) => l())),
     advanceClock: (ms: number) => void (clock += ms),
+    setTabVisible: (v: boolean) => void (tabIsVisible = v),
   };
 }
+
+const advance = (ms: number) => act(async () => void (await vi.advanceTimersByTimeAsync(ms)));
 
 /** Runs a synchronous trigger inside act and lets the promises it started settle. */
 const inAct = (fn: () => void) =>
@@ -160,17 +167,73 @@ describe('[F1.5 c11] restore on load (DR-3)', () => {
     expect(renders).not.toContain('signed-in');
   });
 
-  it.each([['unreachable'], ['failed']] as const)('/api/me %s at restore -> stays loading (no sign-out, nothing protected) and retries after 15 s', async (bad) => {
-    const t = setup({ restore: 'session', outcomes: [bad, 'active'] });
+  it('[Amendment 1] /api/me unreachable at restore -> stays loading (no sign-out, nothing protected) and retries with backoff 15 s, 30 s, 60 s, then every 300 s', async () => {
+    const t = setup({ restore: 'session', outcomes: ['unreachable'] });
     await settle();
     expect(latest.state).toBe('loading');
     expect(t.authSignOut).not.toHaveBeenCalled();
-    await act(async () => void (await vi.advanceTimersByTimeAsync(14_000)));
-    expect(latest.state).toBe('loading');
-    await act(async () => void (await vi.advanceTimersByTimeAsync(1_500)));
+    const steps: Array<[number, number]> = [
+      [15_000, 2],
+      [30_000, 3],
+      [60_000, 4],
+      [300_000, 5],
+      [300_000, 6],
+    ];
+    await advance(200); // every retry below is checked 200 ms before and 200 ms after its due time
+    for (const [delay, calls] of steps) {
+      await advance(delay - 400);
+      expect(t.accountState, `not yet at ${delay}`).toHaveBeenCalledTimes(calls - 1);
+      await advance(400);
+      expect(t.accountState, `retried after ${delay}`).toHaveBeenCalledTimes(calls);
+      expect(latest.state).toBe('loading');
+    }
+    expect(renders).not.toContain('signed-out');
+  });
+
+  it('[Amendment 1] a retry that succeeds ends loading: unreachable, then active -> signed-in', async () => {
+    const t = setup({ restore: 'session', outcomes: ['unreachable', 'active'] });
+    await settle();
+    await advance(15_500);
     expect(t.accountState).toHaveBeenCalledTimes(2);
     expect(latest.state).toBe('signed-in');
     expect(renders).not.toContain('signed-out');
+  });
+
+  it.each([
+    [0, 12_000],
+    [1, 18_000],
+  ])('[Amendment 1] jitter is ±20 %%: with random() = %d the first retry comes at %d ms', async (random, at) => {
+    const t = setup({ restore: 'session', outcomes: ['unreachable'], random });
+    await settle();
+    await advance(at - 200);
+    expect(t.accountState).toHaveBeenCalledTimes(1);
+    await advance(400);
+    expect(t.accountState).toHaveBeenCalledTimes(2);
+  });
+
+  it('[Amendment 1] the retry timer does not fire while the tab is hidden; becoming visible while loading retries at once', async () => {
+    const t = setup({ restore: 'session', outcomes: ['unreachable', 'active'] });
+    await settle();
+    t.setTabVisible(false);
+    await advance(20 * 60_000);
+    expect(t.accountState).toHaveBeenCalledTimes(1);
+    expect(latest.state).toBe('loading');
+    t.setTabVisible(true);
+    await t.tabVisible();
+    await settle();
+    expect(t.accountState).toHaveBeenCalledTimes(2);
+    expect(latest.state).toBe('signed-in');
+  });
+
+  it('[Amendment 1] /api/me failed (500, 404, unreadable) at restore -> signed-out, the stored session kept (no Auth sign-out), no notice, no retry timer', async () => {
+    const t = setup({ restore: 'session', outcomes: ['failed'] });
+    await settle();
+    expect(latest.state).toBe('signed-out');
+    expect(latest.notice).toBeNull();
+    expect(t.authSignOut).not.toHaveBeenCalled();
+    await advance(20 * 60_000);
+    expect(t.accountState).toHaveBeenCalledTimes(1);
+    expect(t.authRestore).toHaveBeenCalledTimes(1);
   });
 
   it('Auth unreachable at restore -> stays loading, retried on the 15 s timer, storage not cleared (no signOut)', async () => {
@@ -403,11 +466,18 @@ describe('[F1.5 c12][c13] re-check of the account state (Q1)', () => {
     expect(latest.state).toBe('signed-in');
   });
 
-  it('[c12] Auth reports the session ended (refresh refused) while signed in -> signed-out with "expired"', async () => {
+  it('[c12][Amendment 1] this tab\'s own refresh refused (event refresh-refused) while signed in -> signed-out with "expired"', async () => {
+    const t = await signedInSetup(['active']);
+    await t.emit('refresh-refused');
+    expect(latest.state).toBe('signed-out');
+    expect(latest.notice).toBe('expired');
+  });
+
+  it('[c12][Amendment 1] a sign-out whose cause this tab does not know (event signed-out) ends the session with NO notice', async () => {
     const t = await signedInSetup(['active']);
     await t.emit('signed-out');
     expect(latest.state).toBe('signed-out');
-    expect(latest.notice).toBe('expired');
+    expect(latest.notice).toBeNull();
   });
 
   it('[c12] the session removed in another tab -> signed-out within the one event, no notice', async () => {
