@@ -43,8 +43,11 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   // A raw error — from the database, a library or Fastify itself — never reaches the response (conventions, "User-facing
   // errors"): a database message names tables and policies. The detail goes to the log.
   app.setErrorHandler((error, request, reply) => {
-    request.log.error({ err: error }, 'request failed');
     const status = typeof error === 'object' && error !== null && 'statusCode' in error ? error.statusCode : undefined;
+    // Never the error object: a body-parse message quotes the request body (NFR-PRIV-001).
+    const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : undefined;
+    const name = typeof error === 'object' && error !== null && 'name' in error ? error.name : undefined;
+    request.log.error({ status, code, name }, 'request failed');
     if (typeof status === 'number' && status >= 400 && status < 500) {
       return reply.code(status).send({ error: 'bad_request' });
     }

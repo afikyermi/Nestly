@@ -210,6 +210,19 @@ begin
 end
 $$;
 
+-- Debt D1: add a select policy that lets `authenticated` read every nestly.users row, so a test can show that
+-- is_active_account() does not lean on the users policy. DDL is transactional: the suite's rollback removes it.
+create or replace function tests.fx_open_users_select() returns void
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if transaction_timestamp() = statement_timestamp() then
+    raise exception 'tests.fx_open_users_select: call it inside the test transaction (the policy would be committed)';
+  end if;
+  create policy zz_d1_open_select on nestly.users for select to authenticated using (true);
+end
+$$;
+
 -- ---- observers: what is really in the tables, whatever RLS shows a signed-in user -----------------------------------------
 create or replace function tests.fx_state() returns text
 language sql security definer set search_path = ''
