@@ -51,3 +51,13 @@ a new external provider) · **I11 adds** FR-SERV-011 (reviews and rating) and FR
 BR-069, the Marketplace is listing and contact only, no purchase · **I13**: NFR-SEC-007, payment is simulated behind one
 payment interface; the price list stays TBD (OP-030), so "payment provider" no longer blocks I13's opening. About 4 more
 features: roughly 83 in all. Presentation scope: I1–I14 (not I15).
+
+## Amendment 3 — 16.10.2026 — Afik's decisions before I3–I5
+
+`decisions.md` 16.10 ("Decisions before I3–I5", "Placement"): **I3 adds** the medical hotline referral (one feature, no
+data); I3's blocking points "community rules" close, and OP-028 (account deletion, 30-day grace) is decided. **I4**: report
+reasons and suspension lengths are decided (OP-009). **I5**: M1–M6 are decided (OP-027), with in-browser blur and a
+background server check on every image; **I5 adds Stories** as its last feature (24 h expiry, ≤ 10 a day, an `app_jobs`
+expiry job). **I9**: "legal review and its budget" closes — Claude writes the terms and the privacy policy; M5 (Cloudflare
+CSAM scanning) needs a domain before public launch. I3 grows to 9 features, I5 to 5: about 85 in all. The SRS text for
+these lands at once (scope change), as its own Standard unit, after Afik's answers on the open details.
