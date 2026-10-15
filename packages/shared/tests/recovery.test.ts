@@ -331,7 +331,7 @@ describe('[F1.6 c3 c12 c13] the constants the server and the database share', ()
     expect(RECOVERY_LIMITS.ip).toEqual({ shortFailures: 10, shortWindowSeconds: 900, shortLockSeconds: 900 });
   });
 
-  it('[F1.6 c13] the audit kinds are the ten approved ones, with the reset outcome kinds of Amendment 1', () => {
+  it('[F1.6 c13 c21 c22 c23] the audit kinds are the thirteen approved ones: Amendment 1 outcomes, then email mismatch, handle released and handle re-keyed', () => {
     expect([...RECOVERY_EVENT_KINDS].sort()).toEqual(
       [
         'answers_saved',
@@ -344,6 +344,9 @@ describe('[F1.6 c3 c12 c13] the constants the server and the database share', ()
         'reset_limited',
         'reset_admin_failed',
         'reset_revoke_failed',
+        'reset_email_mismatch',
+        'handle_released',
+        'handle_rekeyed',
       ].sort(),
     );
   });

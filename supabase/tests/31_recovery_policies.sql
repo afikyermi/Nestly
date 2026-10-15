@@ -2,7 +2,9 @@
 -- Behaviour of the recovery policies and constraints, seen from each role: spec criteria 3 (no runtime role reads hashes
 -- except app_recovery for the one handle it declares), 5 (own rows only, RLS), 8 (one handle per account, a handle is
 -- never rewritten), 11/12 (throttle rows for any handle, only the declared ones), 13 (append-only audit, forced attribution).
--- Source of expected values: .work/password-recovery/spec.md (+ Amendment 1), schema.md and interface.md "Database", not the
+-- Amendment 2 adds: the claim time of a handle and its release by a newer claim (21), the owner's re-key (23), the marker
+-- of the limited event (13), three event kinds.
+-- Source of expected values: .work/password-recovery/spec.md (+ Amendments 1 and 2), schema.md and interface.md "Database", not the
 -- migration text. Structure (grants, catalog) is in file 30. Everything here rolls back with the transaction.
 -- Written without a database to run against: CI is the first run. no_plan() on purpose.
 --
@@ -21,20 +23,25 @@ select is(session_user::text, 'app_server'::text,
 create function pg_temp.ins(
   h text default 'aa', q1 text default 'nickname', q2 text default 'pet', uid text default null,
   hl int default 32, h1 int default 32, s1 int default 16, h2 int default 32, s2 int default 16, salt2 text default '22',
-  n int default 15, r int default 8, p int default 1
+  n int default 15, r int default 8, p int default 1, ca text default '2026-10-15 10:00:00+00'
 ) returns text language sql as $f$
   select format(
-    'insert into nestly.recovery_answers (%s email_handle, question_1, question_2, answer_hash_1, answer_salt_1, answer_hash_2, answer_salt_2, scrypt_log_n, scrypt_r, scrypt_p) '
-    || 'values (%s decode(repeat(%L, %s), ''hex''), %L, %L, decode(repeat(''11'', %s), ''hex''), decode(repeat(''21'', %s), ''hex''), '
+    'insert into nestly.recovery_answers (%s email_handle, handle_claimed_at, question_1, question_2, answer_hash_1, answer_salt_1, answer_hash_2, answer_salt_2, scrypt_log_n, scrypt_r, scrypt_p) '
+    || 'values (%s decode(repeat(%L, %s), ''hex''), %L::timestamptz, %L, %L, decode(repeat(''11'', %s), ''hex''), decode(repeat(''21'', %s), ''hex''), '
     || 'decode(repeat(''12'', %s), ''hex''), decode(repeat(%L, %s), ''hex''), %s, %s, %s)',
     case when uid is null then '' else 'user_id,' end,
     case when uid is null then '' else format('%L::uuid,', uid) end,
-    h, hl, q1, q2, h1, s1, h2, salt2, s2, n, r, p)
+    h, hl, ca, q1, q2, h1, s1, h2, salt2, s2, n, r, p)
 $f$;
 
 -- Declares the handle and the IP hash for the rest of this transaction (what the server does after SET LOCAL ROLE).
 create function pg_temp.decl(h text, i text) returns text language sql as $f$
   select set_config('nestly.recovery_handle', h, true) || '/' || set_config('nestly.recovery_ip', i, true)
+$f$;
+
+-- The same, plus the claim time (iat) of the caller's token: what a release is ordered by (criterion 21).
+create function pg_temp.decl_ca(h text, i text, ca text) returns text language sql as $f$
+  select pg_temp.decl(h, i) || '@' || set_config('nestly.recovery_claimed_at', ca, true)
 $f$;
 
 -- an events insert under whatever is declared
@@ -122,6 +129,12 @@ select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('p')), pg_temp.
   '[F1.6 c3] the maximum parameters (17, 16, 4) are accepted');
 select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('p')), pg_temp.ins('ae', n => 15, r => 8, p => 1), false), 'OK:1',
   '[F1.6 c3] the minimum parameters (15, 8, 1) are accepted');
+select like(tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('p')), pg_temp.ins('ae', h => null), false), 'ERR:23514:%handle_claim_check%',
+  '[F1.6 c21] a claim time without a handle is refused: the two are NULL together');
+select like(tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('p')), pg_temp.ins('ae', ca => null), false), 'ERR:23514:%handle_claim_check%',
+  '[F1.6 c21] a handle without a claim time is refused: a claim is always ordered');
+select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('p')), pg_temp.ins('ae', h => null, ca => null), false), 'OK:1',
+  '[F1.6 c21] a row with neither handle nor claim (released) is valid');
 
 -- =====================================================================================================================
 -- Criteria 3, 5 — what authenticated can read: its own row, never a hash
@@ -204,9 +217,25 @@ select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('a')),
 select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('a')),
     $q$ update nestly.recovery_answers set answer_hash_1 = decode(repeat('33', 32), 'hex') where user_id = 'b0000000-0000-4000-8000-0000000000b2' $q$, false),
   'OK:0', '[F1.6 c5] a cannot update b''s row (0 rows, not an error that reveals it exists)');
+-- criterion 23: the owner may re-key its own handle (the server orders claims by iat), always together with the claim time
 select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('a')),
+    $q$ update nestly.recovery_answers set email_handle = decode(repeat('ee', 32), 'hex'), handle_claimed_at = '2026-10-15 12:00:00+00' $q$, false),
+  'OK:1', '[F1.6 c23] a re-keys its own handle together with its claim time');
+select like(tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('a')),
     $q$ update nestly.recovery_answers set email_handle = decode(repeat('ee', 32), 'hex') $q$, false),
-  'ERR:42501', '[F1.6 c8] the email handle is never rewritten (no UPDATE privilege on it)');
+  'ERR:23514:%handle_claim_check%', '[F1.6 c23] a handle moves only with a claim time: the handle alone is refused');
+select like(tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('a')),
+    $q$ update nestly.recovery_answers set email_handle = null $q$, false),
+  'ERR:23514:%handle_claim_check%', '[F1.6 c23] a handle cannot be emptied while the claim time stays');
+select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('a')),
+    $q$ update nestly.recovery_answers set email_handle = null, handle_claimed_at = null $q$, false),
+  'OK:1', '[F1.6 c21] an owner may give up its own handle (both NULL)');
+select like(tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('a')),
+    $q$ update nestly.recovery_answers set email_handle = decode(repeat('bb', 32), 'hex'), handle_claimed_at = '2026-10-15 12:00:00+00' $q$, false),
+  'ERR:23505:%email_handle_key%', '[F1.6 c8 c21] a cannot take b''s handle by update: the handle is unique (the server releases first, or answers 503)');
+select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('a')),
+    $q$ update nestly.recovery_answers set email_handle = null, handle_claimed_at = null where user_id = 'b0000000-0000-4000-8000-0000000000b2' $q$, false),
+  'OK:0', '[F1.6 c5 c21] a cannot release or re-key b''s row (0 rows)');
 select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('a')),
     $q$ update nestly.recovery_answers set user_id = 'b0000000-0000-4000-8000-0000000000b2' $q$, false),
   'ERR:42501', '[F1.6 c5] a row cannot be handed to another user (no UPDATE privilege on user_id)');
@@ -354,6 +383,12 @@ select is(tests.dml_as('app_recovery', '',
 select is(tests.dml_as('app_recovery', '',
     $q$ update nestly.recovery_throttles set locked_until = now() + interval '15 minutes', short_failures = 10 where subject_kind = 'ip' $q$),
   'OK:1', '[F1.6 c12] the IP row is locked');
+select is(tests.dml_as('app_recovery', '',
+    $q$ update nestly.recovery_throttles set limited_noted_until = locked_until where subject_kind = 'ip' $q$),
+  'OK:1', '[F1.6 c13] app_recovery marks the lock for which a limited event was written (one event per subject per lock)');
+select is(tests.dml_as('app_recovery', '',
+    $q$ insert into nestly.recovery_throttles (subject_kind, subject_hash, limited_noted_until) values ('ip', decode(repeat('cc', 32), 'hex'), now()) on conflict do nothing $q$, false),
+  'ERR:42501', '[F1.6 c13] the marker is not insertable: a new row never starts out as "already noted"');
 
 select is(pg_temp.decl(repeat('bb', 32), repeat('dd', 32)), repeat('bb', 32) || '/' || repeat('dd', 32), '[F1.6 c12] declare bb / dd');
 select is(tests.as_role('app_recovery', '', $q$ select string_agg(short_failures::text || ':' || coalesce(locked_until::text, '-'), ',' order by subject_kind) from nestly.recovery_throttles $q$),
@@ -397,8 +432,11 @@ select is(
     $q$ insert into nestly.recovery_events (kind, user_id, handle_hash, ip_hash)
         select k, 'a0000000-0000-4000-8000-0000000000a1'::uuid, decode(repeat('aa', 32), 'hex'), decode(repeat('cc', 32), 'hex')
           from unnest(array['answers_saved', 'answers_changed', 'change_failed', 'change_limited', 'reset_verified',
-                            'reset_completed', 'reset_failed', 'reset_limited', 'reset_admin_failed', 'reset_revoke_failed']) as k $q$, false),
-  'OK:10', '[F1.6 c13 Amendment 1] all ten event kinds are accepted, including reset_completed and reset_revoke_failed');
+                            'reset_completed', 'reset_failed', 'reset_limited', 'reset_admin_failed', 'reset_revoke_failed',
+                            'reset_email_mismatch', 'handle_released', 'handle_rekeyed']) as k $q$, false),
+  'OK:13', '[F1.6 c13 c21 c22 c23] all thirteen event kinds are accepted, including reset_email_mismatch, handle_released and handle_rekeyed');
+select like(tests.dml_as_msg('app_recovery', '', pg_temp.ev('handle_released', null, repeat('aa', 32), repeat('cc', 32)), false),
+  'ERR:%', '[F1.6 c21 c13] a release is attributed to the account that lost the handle: with no account for the handle it is not written as an anonymous event');
 select like(tests.dml_as_msg('app_recovery', '', pg_temp.ev('reset_bogus', 'a0000000-0000-4000-8000-0000000000a1', repeat('aa', 32), repeat('cc', 32)), false),
   'ERR:23514:%recovery_events_kind_check%', '[F1.6 c13] an unknown kind is refused');
 select is(tests.dml_as('app_recovery', '', pg_temp.ev('Reset_Verified', 'a0000000-0000-4000-8000-0000000000a1', repeat('aa', 32), repeat('cc', 32)), false),
@@ -451,6 +489,54 @@ select is(tests.dml_as('app_recovery', '', pg_temp.ev('answers_saved', 'd0000000
   'OK:1', '[F1.6 c13] and answers_saved is accepted right after, in the same transaction, because the new row is visible under the declared handle');
 select is(tests.dml_as('app_recovery', '', pg_temp.ev('answers_saved', 'a0000000-0000-4000-8000-0000000000a1', repeat('ba', 32), repeat('cc', 32)), false),
   'ERR:42501', '[F1.6 c13] and cannot name a different account');
+
+-- =====================================================================================================================
+-- Criterion 21 — releasing a handle held under an OLDER claim (app_recovery, the one declared handle, only to NULL)
+-- p holds handle 'ba' under the claim 2026-10-15 10:00:00+00 (saved above and kept).
+-- =====================================================================================================================
+select is(tests.dml_as('app_recovery', '', pg_temp.ev('handle_released', 'd0000000-0000-4000-8000-0000000000d4', repeat('ba', 32), repeat('cc', 32)), false),
+  'OK:1', '[F1.6 c21 c13] the release is audited for the account that holds the handle, before the handle is taken from it');
+select is(pg_temp.decl_ca(repeat('ba', 32), repeat('cc', 32), '2026-10-15 10:00:00+00'), repeat('ba', 32) || '/' || repeat('cc', 32) || '@2026-10-15 10:00:00+00',
+  '[F1.6 c21] declare p''s handle with a claim EQUAL to the holder''s');
+select is(tests.dml_as('app_recovery', '', 'update nestly.recovery_answers set email_handle = null, handle_claimed_at = null', false), 'OK:0',
+  '[F1.6 c21] an equal claim releases nothing (the later claim wins; a tie goes to the holder)');
+select is(pg_temp.decl_ca(repeat('ba', 32), repeat('cc', 32), '2026-10-15 09:59:59+00'), repeat('ba', 32) || '/' || repeat('cc', 32) || '@2026-10-15 09:59:59+00',
+  '[F1.6 c21] declare p''s handle with a claim one second OLDER');
+select is(tests.dml_as('app_recovery', '', 'update nestly.recovery_answers set email_handle = null, handle_claimed_at = null', false), 'OK:0',
+  '[F1.6 c21] an older claim releases nothing');
+select is(pg_temp.decl_ca(repeat('ba', 32), repeat('cc', 32), ''), repeat('ba', 32) || '/' || repeat('cc', 32) || '@',
+  '[F1.6 c21] declare p''s handle with no claim time at all');
+select is(tests.dml_as('app_recovery', '', 'update nestly.recovery_answers set email_handle = null, handle_claimed_at = null', false), 'OK:0',
+  '[F1.6 c21] no declared claim time releases nothing (fails closed)');
+select is(pg_temp.decl_ca(repeat('ee', 32), repeat('cc', 32), '2030-01-01 00:00:00+00'), repeat('ee', 32) || '/' || repeat('cc', 32) || '@2030-01-01 00:00:00+00',
+  '[F1.6 c21] declare a handle nobody holds with a very late claim');
+select is(tests.dml_as('app_recovery', '', 'update nestly.recovery_answers set email_handle = null, handle_claimed_at = null', false), 'OK:0',
+  '[F1.6 c21] a handle that is not the declared one is never released, however late the claim');
+select is(pg_temp.decl_ca(repeat('ba', 32), repeat('cc', 32), '2026-10-15 10:00:01+00'), repeat('ba', 32) || '/' || repeat('cc', 32) || '@2026-10-15 10:00:01+00',
+  '[F1.6 c21] declare p''s handle with a claim one second NEWER');
+select is(tests.dml_as('app_recovery', '', $q$ update nestly.recovery_answers set email_handle = decode(repeat('ff', 32), 'hex'), handle_claimed_at = '2026-10-15 10:00:01+00' $q$, false),
+  'ERR:42501', '[F1.6 c21] app_recovery cannot SET a handle, even in the middle of a valid release (only NULL is allowed)');
+select like(tests.dml_as('app_recovery', '', $q$ update nestly.recovery_answers set email_handle = null $q$, false), 'ERR:%',
+  '[F1.6 c21] and cannot null the handle alone (the claim time goes with it)');
+select is(tests.dml_as('app_recovery', '', 'update nestly.recovery_answers set email_handle = null, handle_claimed_at = null'), 'OK:1',
+  '[F1.6 c21] a NEWER claim on the declared handle releases it: exactly one row, the holder''s');
+select is(tests.fx_recovery_answers_json(tests.fx_id('p'))::jsonb ->> 'email_handle', null,
+  '[F1.6 c21] the holder keeps its row and its answers, with no handle: no email finds it any more');
+select is(tests.fx_recovery_answers_json(tests.fx_id('p'))::jsonb ->> 'handle_claimed_at', null,
+  '[F1.6 c21] and no claim time');
+select isnt(tests.fx_recovery_answers_json(tests.fx_id('b')), '-', '[F1.6 c21] another account''s row is untouched');
+select is(tests.as_role('app_recovery', '', 'select count(*)::text from nestly.recovery_answers'), '0',
+  '[F1.6 c21] the released handle finds no row for a redeem');
+select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('p')),
+    $q$ update nestly.recovery_answers set email_handle = decode(repeat('ba', 32), 'hex'), handle_claimed_at = '2026-10-15 11:00:00+00' $q$),
+  'OK:1', '[F1.6 c21 c23] the former holder can take a handle again later with a newer claim of its own');
+
+-- criterion 23: a re-key is audited under the NEW handle, and attributed to the owner of the row
+select is(pg_temp.decl(repeat('ba', 32), repeat('cc', 32)), repeat('ba', 32) || '/' || repeat('cc', 32), '[F1.6 c23] declare p''s re-keyed handle');
+select is(tests.dml_as('app_recovery', '', pg_temp.ev('handle_rekeyed', 'd0000000-0000-4000-8000-0000000000d4', repeat('ba', 32), repeat('cc', 32)), false),
+  'OK:1', '[F1.6 c23 c13] handle_rekeyed is accepted for the owner of the row that holds the new handle');
+select is(tests.dml_as('app_recovery', '', pg_temp.ev('handle_rekeyed', 'a0000000-0000-4000-8000-0000000000a1', repeat('ba', 32), repeat('cc', 32)), false),
+  'ERR:42501', '[F1.6 c23 c13] and cannot be attributed to another account');
 
 select * from finish();
 

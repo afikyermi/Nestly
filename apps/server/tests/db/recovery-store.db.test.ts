@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
   T,
@@ -33,11 +34,12 @@ import {
   type Context,
 } from '../helpers/recovery-db.js';
 import { restorePepper } from '../helpers/recovery-app.js';
-import { restoreEnv } from '../helpers/identity-fixtures.js';
+import { restoreEnv, toRecord } from '../helpers/identity-fixtures.js';
 
 // F1.6 part a, the store and change paths against the real database (CI `db` job, as app_server). Spec criteria:
 //   1 save   2 invalid body / one transaction   3 only scrypt hashes, peppered, nothing readable in clear   4 already set, change
 //   5 own rows only   6 GET /api/me reports set / missing   8 one handle per account, a keyed hash   13 audit rows, no secrets
+//   21 a newer claim on an email releases the older holder (an equal or older token gets 503)   23 /api/me re-keys a stale handle
 // Derived from spec.md, schema.md (authorization section) and interface.md only. Each test creates its own accounts (unique
 // emails) and uses its own client address. The audit and the hashes are read through the fixture observers of
 // supabase/tests/setup/30_recovery_fixtures.sql, because no runtime role may read them.
@@ -61,6 +63,8 @@ afterAll(async () => {
 
 const NONE = '-';
 const SAVED = '{"ok":true}';
+/** The `iat` of a token, in whole seconds: what orders two claims on one email (criteria 21, 23). */
+const nowSeconds = (): number => Math.floor(Date.now() / 1000);
 
 // ---------------------------------------------------------------------------------------------------------------------
 describe('[F1.6 c1 c6 FR-AUTH-003 AC-092] saving the two answers', () => {
@@ -296,23 +300,186 @@ describe('[F1.6 c3 c8 NFR-SEC-001] only peppered scrypt hashes are stored; the h
     expect(JSON.stringify(row).toLowerCase()).not.toContain('handle.check');
   });
 
-  it('[F1.6 c8] one handle per account: a second account saving under the same email, or the same email in another case, is refused and stores nothing', T, async () => {
+  it('[F1.6 c8 c21] one handle per account: a second account under the same email with an EQUAL or OLDER token (same case or another) gets 503 unavailable and stores nothing', T, async () => {
     const h = await startApp(ctx);
     const email = `shared-${Date.now()}@example.invalid`;
     const first = await newAccount(ctx, email);
-    const sameCase = await newAccount(ctx);
-    const otherCase = await newAccount(ctx);
-    expect((await saveAnswers(h, await bearerFor(ctx, first))).statusCode).toBe(201);
-    for (const [account, claim] of [
-      [sameCase, email],
-      [otherCase, ` ${email.toUpperCase()} `],
+    const equal = await newAccount(ctx);
+    const older = await newAccount(ctx);
+    const t = nowSeconds();
+    expect((await saveAnswers(h, await bearerFor(ctx, first, email, { iat: t }))).statusCode).toBe(201);
+    const before = await answersJson(ctx, first.id);
+    for (const [account, claim, iat] of [
+      [equal, email, t],
+      [older, ` ${email.toUpperCase()} `, t - 30],
     ] as const) {
-      const res = await saveAnswers(h, await bearerFor(ctx, account, claim));
-      expect(res.statusCode, res.body).toBeGreaterThanOrEqual(400);
-      expect(res.statusCode).not.toBe(201);
+      const res = await saveAnswers(h, await bearerFor(ctx, account, claim, { iat }));
+      expect(res.statusCode, res.body).toBe(503);
+      expect(jsonOf(res.body)).toEqual({ error: 'unavailable' });
       expect(await answersJson(ctx, account.id)).toBe(NONE);
+      expect(await kinds(ctx, handleHex(ctx, email))).toBe('answers_saved');
     }
-    expect(await answersJson(ctx, first.id)).not.toBe(NONE);
+    expect(await answersJson(ctx, first.id), 'the holder is untouched').toBe(before);
+    const reset = await attemptReset(h, resetFor(email));
+    expect(reset.statusCode, reset.body).toBe(200);
+    expect(toRecord(h.admin.calls[0]).userId, 'a redeem still reaches the holder').toBe(first.id);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+describe('[F1.6 c21 c13] a newer claim on an email releases the older holder', () => {
+  const eventsOf = async (handle: string) => recordsOf(await eventsJson(ctx, handle));
+
+  it('[F1.6 c21] the caller\'s token is NEWER than the holder\'s claim: 201; the holder keeps its row but loses the handle; a redeem reaches the caller; handle_released is audited for the holder', T, async () => {
+    const h = await startApp(ctx);
+    const email = `moved-${Date.now()}@example.invalid`;
+    const holder = await newAccount(ctx, email);
+    const caller = await newAccount(ctx);
+    const handle = handleHex(ctx, email);
+    const t = nowSeconds();
+    expect((await saveAnswers(h, await bearerFor(ctx, holder, email, { iat: t - 120 }))).statusCode).toBe(201);
+
+    const res = await saveAnswers(h, await bearerFor(ctx, caller, ` ${email.toUpperCase()} `, { iat: t }));
+    expect(res.statusCode, res.body).toBe(201);
+    expect(res.body).toBe(SAVED);
+
+    const held = record(await answersJson(ctx, holder.id));
+    expect(held.email_handle).toBeNull();
+    expect(held.handle_claimed_at).toBeNull();
+    expect(hexOf(record(await answersJson(ctx, caller.id)).email_handle)).toBe(handle);
+    const events = await eventsOf(handle);
+    expect(events.map((e) => e.kind).sort()).toEqual(['answers_saved', 'answers_saved', 'handle_released']);
+    expect(events.find((e) => e.kind === 'handle_released')?.user_id).toBe(holder.id);
+    expect(events.filter((e) => e.kind === 'answers_saved').map((e) => e.user_id)).toContain(caller.id);
+    expect(JSON.stringify(events).toLowerCase()).not.toContain(email.toLowerCase());
+
+    const reset = await attemptReset(h, resetFor(email));
+    expect(reset.statusCode, reset.body).toBe(200);
+    expect(toRecord(h.admin.calls[0]).userId, 'the email now reaches the caller\'s account').toBe(caller.id);
+  });
+
+  it('[F1.6 c21] a newer token that is refused releases nothing: invalid body 400, a suspended caller 403, no token 401', T, async () => {
+    const h = await startApp(ctx);
+    const email = `kept-${Date.now()}@example.invalid`;
+    const holder = await newAccount(ctx, email);
+    const t = nowSeconds();
+    await saveAnswers(h, await bearerFor(ctx, holder, email, { iat: t - 120 }));
+    const before = await answersJson(ctx, holder.id);
+    const stopped = await newAccount(ctx);
+    await setStatus(ctx, stopped.id, 'suspended');
+    const invalid = await saveAnswers(h, await bearerFor(ctx, await newAccount(ctx), email, { iat: t }), [entry('pet', 'Rex')]);
+    const forbidden = await saveAnswers(h, await bearerFor(ctx, stopped, email, { iat: t }));
+    expect([invalid.statusCode, forbidden.statusCode]).toEqual([400, 403]);
+    expect(await answersJson(ctx, holder.id)).toBe(before);
+    expect(await kinds(ctx, handleHex(ctx, email))).toBe('answers_saved');
+  });
+
+  it('[F1.6 c21 concurrency] two newer claimants racing for one email: the newest wins, the other gets 201 then loses it or 503, one account holds the handle, never a 500', { timeout: 120_000 }, async () => {
+    const [a, b] = [await startApp(ctx), await startApp(ctx)];
+    const email = `race-${Date.now()}@example.invalid`;
+    const [holder, middle, newest] = [await newAccount(ctx, email), await newAccount(ctx), await newAccount(ctx)];
+    const t = nowSeconds();
+    await saveAnswers(a, await bearerFor(ctx, holder, email, { iat: t - 300 }));
+    const [r1, r2] = await Promise.all([
+      saveAnswers(a, await bearerFor(ctx, middle, email, { iat: t - 100 })),
+      saveAnswers(b, await bearerFor(ctx, newest, email, { iat: t })),
+    ]);
+    expect(r2.statusCode, r2.body).toBe(201);
+    expect([201, 503], r1.body).toContain(r1.statusCode);
+    const holders = [];
+    for (const account of [holder, middle, newest]) if (record(await answersJson(ctx, account.id)).email_handle !== null) holders.push(account.id);
+    expect(holders, 'exactly one account holds the handle, and it is the newest claim').toEqual([newest.id]);
+    expect((await attemptReset(a, resetFor(email))).statusCode).toBe(200);
+    expect(toRecord(a.admin.calls[0]).userId).toBe(newest.id);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+describe('[F1.6 c23] /api/me re-keys a stale handle when the token\'s email is different and newer; the body never tells', () => {
+  const BODY = { state: 'active', recoveryQuestions: 'set' };
+  const stale = async (h: Awaited<ReturnType<typeof startApp>>) => {
+    const old = `old-${randomUUID()}@example.invalid`;
+    const account = await newAccount(ctx, old);
+    const t = nowSeconds();
+    expect((await saveAnswers(h, await bearerFor(ctx, account, old, { iat: t - 300 }))).statusCode).toBe(201);
+    return { account, old, fresh: `new-${randomUUID()}@example.invalid`, t, before: await answersJson(ctx, account.id) };
+  };
+
+  it('[F1.6 c23] a newer token with a new email: the body is the usual one, the handle follows the new email, handle_rekeyed is audited, a redeem by the new email succeeds (the old one no longer finds the account)', T, async () => {
+    const h = await startApp(ctx);
+    const s = await stale(h);
+    const res = await me(h, await bearerFor(ctx, s.account, s.fresh, { iat: s.t }));
+    expect(res.statusCode).toBe(200);
+    expect(jsonOf(res.body)).toEqual(BODY);
+    expect(hexOf(record(await answersJson(ctx, s.account.id)).email_handle)).toBe(handleHex(ctx, s.fresh));
+    const events = recordsOf(await eventsJson(ctx, handleHex(ctx, s.fresh)));
+    expect(events.map((e) => e.kind)).toEqual(['handle_rekeyed']);
+    expect(events[0]?.user_id).toBe(s.account.id);
+    expect(JSON.stringify(events).toLowerCase()).not.toContain('new-');
+    const ok = await attemptReset(h, resetFor(s.fresh));
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect(toRecord(h.admin.calls[0]).userId).toBe(s.account.id);
+    expect((await attemptReset(h, resetFor(s.old))).statusCode, 'one handle per account: the old email finds nothing').toBe(401);
+  });
+
+  it('[F1.6 c23] skipped: the same email in another case, an EQUAL or OLDER token, no email claim, a stopped account, or no answers at all change nothing and the body is the same', T, async () => {
+    const h = await startApp(ctx);
+    const s = await stale(h);
+    const handle = handleHex(ctx, s.old);
+    const stopped = await newAccount(ctx);
+    await saveAnswers(h, await bearerFor(ctx, stopped));
+    await setStatus(ctx, stopped.id, 'suspended');
+    const bare = await newAccount(ctx);
+    const calls: Array<[string, Promise<string>]> = [
+      ['same email, other case', bearerFor(ctx, s.account, ` ${s.old.toUpperCase()} `, { iat: s.t })],
+      ['equal iat', bearerFor(ctx, s.account, s.fresh, { iat: s.t - 300 })],
+      ['older iat', bearerFor(ctx, s.account, s.fresh, { iat: s.t - 600 })],
+      ['no email claim', bearerFor(ctx, s.account, null, { iat: s.t })],
+    ];
+    for (const [label, auth] of calls) {
+      const res = await me(h, await auth);
+      expect(jsonOf(res.body), label).toEqual(BODY);
+      expect(await answersJson(ctx, s.account.id), label).toBe(s.before);
+    }
+    expect(await kinds(ctx, handle)).toBe('answers_saved');
+    expect(await kinds(ctx, handleHex(ctx, s.fresh))).toBe(NONE);
+    expect((await me(h, await bearerFor(ctx, stopped, s.fresh, { iat: s.t }))).body).toBe('{"state":"unavailable"}');
+    expect(hexOf(record(await answersJson(ctx, stopped.id)).email_handle)).toBe(handleHex(ctx, stopped.email));
+    expect(jsonOf((await me(h, await bearerFor(ctx, bare, s.fresh, { iat: s.t }))).body)).toEqual({ state: 'active', recoveryQuestions: 'missing' });
+    expect(await answersJson(ctx, bare.id)).toBe(NONE);
+  });
+
+  it('[F1.6 c23 c21] failed: the new email is held by another account under a NEWER claim, or the audit write fails: the body is the same 200, nothing changes', T, async () => {
+    const h = await startApp(ctx);
+    const s = await stale(h);
+    const holder = await newAccount(ctx, s.fresh);
+    expect((await saveAnswers(h, await bearerFor(ctx, holder, s.fresh, { iat: s.t + 5 }))).statusCode).toBe(201);
+    const held = await answersJson(ctx, holder.id);
+    const clash = await me(h, await bearerFor(ctx, s.account, s.fresh, { iat: s.t }));
+    expect(clash.statusCode).toBe(200);
+    expect(jsonOf(clash.body)).toEqual(BODY);
+    expect(await answersJson(ctx, s.account.id)).toBe(s.before);
+    expect(await answersJson(ctx, holder.id)).toBe(held);
+
+    const other = await stale(h);
+    await breakEvents(ctx, handleHex(ctx, other.fresh), 'handle_rekeyed');
+    const broken = await me(h, await bearerFor(ctx, other.account, other.fresh, { iat: other.t }));
+    expect(broken.statusCode).toBe(200);
+    expect(jsonOf(broken.body)).toEqual(BODY);
+    expect(await answersJson(ctx, other.account.id), 'the re-key and its audit row stand or fall together').toBe(other.before);
+    expect(await kinds(ctx, handleHex(ctx, other.fresh))).toBe(NONE);
+  });
+
+  it('[F1.6 c23 concurrency] five simultaneous calls with the same newer token all answer the same 200 body and end with the new email as the handle', { timeout: 120_000 }, async () => {
+    const apps = await Promise.all(Array.from({ length: 5 }, () => startApp(ctx)));
+    const s = await stale(apps[0] ?? (await startApp(ctx)));
+    const auth = await bearerFor(ctx, s.account, s.fresh, { iat: s.t });
+    const results = await Promise.all(apps.map((h) => me(h, auth)));
+    for (const res of results) {
+      expect(res.statusCode, res.body).toBe(200);
+      expect(jsonOf(res.body)).toEqual(BODY);
+    }
+    expect(hexOf(record(await answersJson(ctx, s.account.id)).email_handle)).toBe(handleHex(ctx, s.fresh));
   });
 });
 
@@ -377,7 +544,7 @@ describe('[F1.6 c4 c5] answers already set: POST is 409 and changes nothing; PUT
     const after = record(await answersJson(ctx, account.id));
     expect([after.question_1, after.question_2]).toEqual(['nickname', 'street']);
     for (const column of ['answer_hash_1', 'answer_hash_2', 'answer_salt_1', 'answer_salt_2']) expect(after[column], column).not.toBe(before[column]);
-    expect(after.email_handle, 'the lookup handle is never rewritten').toBe(before.email_handle);
+    expect(after.email_handle, 'a change with the same token email leaves the lookup handle as it was').toBe(before.email_handle);
     expect(await kinds(ctx, handleHex(ctx, account.email))).toBe('answers_saved,answers_changed');
 
     // the new answers now open a reset; the old ones no longer do

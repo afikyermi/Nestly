@@ -72,7 +72,8 @@ begin
   update nestly.recovery_throttles t
      set short_window_started_at = t.short_window_started_at - p_by,
          long_window_started_at  = t.long_window_started_at - p_by,
-         locked_until            = t.locked_until - p_by
+         locked_until            = t.locked_until - p_by,
+         limited_noted_until     = t.limited_noted_until - p_by
    where t.subject_kind = p_kind and t.subject_hash = decode(p_subject_hex, 'hex');
   if not found then raise exception 'tests.fx_recovery_shift: no throttle row for % %', p_kind, p_subject_hex; end if;
 end

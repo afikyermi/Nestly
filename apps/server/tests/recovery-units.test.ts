@@ -206,13 +206,19 @@ async function listen(handler: (req: IncomingMessage, res: ServerResponse, body:
   return { port: address.port };
 }
 
-/** A stand-in for Auth: `replies[n]` answers the n-th request (0, 1, 2 = admin, token, logout); anything past the list is 200 {}. */
-async function authStub(replies: Reply[]): Promise<AuthStub> {
+const READ_OK: Reply = { status: 200, json: { id: USER, email: EMAIL } };
+
+/**
+ * A stand-in for Auth: the first request is the read of the account's current email (answered by `read`); `replies[n]`
+ * answers the n-th request after it (0, 1, 2 = set password, token, logout); anything past the list is 200 {}.
+ */
+async function authStub(replies: Reply[], read: Reply = READ_OK): Promise<AuthStub> {
   const seen: Seen[] = [];
+  const all = [read, ...replies];
   const { port } = await listen((req, res, body) => {
     const n = seen.length;
     seen.push({ method: req.method ?? '', path: req.url ?? '', headers: req.headers, body });
-    const reply = replies[n] ?? { status: 200, json: {} };
+    const reply = all[n] ?? { status: 200, json: {} };
     if (reply.hang) return;
     if (reply.destroy) {
       req.socket.destroy();
@@ -230,12 +236,13 @@ const TOKEN_OK: Reply = { status: 200, json: { access_token: 'ACCESS-TOKEN-FROM-
 const env = (issuer: string) => ({ SUPABASE_SECRET_KEY: SECRET_KEY, SUPABASE_JWT_ISSUER: issuer });
 const input = { userId: USER, email: EMAIL, password: PASSWORD, clientIp: CLIENT_IP };
 
-describe('[F1.6 c9 c15 c20] resetPassword: three calls in a fixed order, and exactly one of three outcomes', () => {
-  it('[F1.6 c9] all three calls succeed -> "completed", in the order set-password, password grant, global logout', T, async () => {
+describe('[F1.6 c9 c15 c20 c22] resetPassword: four calls in a fixed order, and exactly one of four outcomes', () => {
+  it('[F1.6 c9 c22] all calls succeed -> "completed", in the order read current email, set-password, password grant, global logout', T, async () => {
     const stub = await authStub([{ status: 200, json: { id: USER } }, TOKEN_OK, { status: 204 }]);
     const outcome = await resetPassword(input, env(stub.issuer));
     expect(outcome).toBe('completed');
     expect(stub.seen.map((s) => `${s.method} ${s.path}`)).toEqual([
+      `GET /auth/v1/admin/users/${USER}`,
       `PUT /auth/v1/admin/users/${USER}`,
       'POST /auth/v1/token?grant_type=password',
       'POST /auth/v1/logout?scope=global',
@@ -245,7 +252,8 @@ describe('[F1.6 c9 c15 c20] resetPassword: three calls in a fixed order, and exa
   it('[F1.6 c9] call 1 sets the password of THE USER ID it was given, with the secret key as apikey, and sends the new password', T, async () => {
     const stub = await authStub([{ status: 200 }, TOKEN_OK, { status: 204 }]);
     await resetPassword(input, env(stub.issuer));
-    const first = stub.seen[0];
+    const first = stub.seen[1];
+    expect(first?.method).toBe('PUT');
     expect(first?.headers.apikey).toBe(SECRET_KEY);
     expect(JSON.parse(first?.body ?? '{}')).toEqual({ password: PASSWORD });
     expect(first?.path).toContain(USER);
@@ -254,7 +262,7 @@ describe('[F1.6 c9 c15 c20] resetPassword: three calls in a fixed order, and exa
   it('[F1.6 c9] call 2 is a password sign-in with the email and the new password; call 3 ends every session using the access token it got', T, async () => {
     const stub = await authStub([{ status: 200 }, TOKEN_OK, { status: 204 }]);
     await resetPassword(input, env(stub.issuer));
-    const [, second, third] = stub.seen;
+    const [, , second, third] = stub.seen;
     expect(JSON.parse(second?.body ?? '{}')).toEqual({ email: EMAIL, password: PASSWORD });
     expect(third?.headers.authorization).toBe('Bearer ACCESS-TOKEN-FROM-AUTH');
     expect(third?.path).toContain('scope=global');
@@ -263,8 +271,8 @@ describe('[F1.6 c9 c15 c20] resetPassword: three calls in a fixed order, and exa
   it('[F1.6 c9] the platform-verified client address is forwarded to Auth on the sign-in and the logout (Sb-Forwarded-For), so Auth counts the IP of the owner', T, async () => {
     const stub = await authStub([{ status: 200 }, TOKEN_OK, { status: 204 }]);
     await resetPassword(input, env(stub.issuer));
-    expect(stub.seen[1]?.headers['sb-forwarded-for']).toBe(CLIENT_IP);
     expect(stub.seen[2]?.headers['sb-forwarded-for']).toBe(CLIENT_IP);
+    expect(stub.seen[3]?.headers['sb-forwarded-for']).toBe(CLIENT_IP);
   });
 
   it('[F1.6 c15] call 1 refused (422, 400, 401, 403, 404, 429, 500) -> "admin_failed", and calls 2 and 3 are never made (the password is unchanged)', T, async () => {
@@ -272,14 +280,14 @@ describe('[F1.6 c9 c15 c20] resetPassword: three calls in a fixed order, and exa
       const stub = await authStub([{ status, json: { msg: 'Password should be at least 8 characters' } }, TOKEN_OK, { status: 204 }]);
       const outcome = await resetPassword(input, env(stub.issuer));
       expect(outcome, `status ${status}`).toBe('admin_failed');
-      expect(stub.seen.length, `status ${status}: no sign-in and no logout after a refused set-password`).toBe(1);
+      expect(stub.seen.length, `status ${status}: no sign-in and no logout after a refused set-password`).toBe(2);
     }
   });
 
   it('[F1.6 c15] call 1 dropped (connection destroyed) -> "admin_failed", no further call', T, async () => {
     const stub = await authStub([{ status: 0, destroy: true }]);
     expect(await resetPassword(input, env(stub.issuer))).toBe('admin_failed');
-    expect(stub.seen.length).toBe(1);
+    expect(stub.seen.length).toBe(2);
   });
 
   it('[F1.6 c15] Auth unreachable (nothing listens) -> "admin_failed", and the function does not throw', T, async () => {
@@ -307,7 +315,7 @@ describe('[F1.6 c9 c15 c20] resetPassword: three calls in a fixed order, and exa
     for (const status of [400, 422, 429, 500]) {
       const stub = await authStub([{ status: 200 }, { status, json: { msg: 'rate limit' } }, { status: 204 }]);
       expect(await resetPassword(input, env(stub.issuer)), `status ${status}`).toBe('revoke_failed');
-      expect(stub.seen.length, `status ${status}`).toBe(2);
+      expect(stub.seen.length, `status ${status}`).toBe(3);
     }
   });
 
@@ -315,7 +323,7 @@ describe('[F1.6 c9 c15 c20] resetPassword: three calls in a fixed order, and exa
     for (const json of [{}, { access_token: '' }, { access_token: null }, { access_token: 12345 }, { refresh_token: 'only-this' }]) {
       const stub = await authStub([{ status: 200 }, { status: 200, json }, { status: 204 }]);
       expect(await resetPassword(input, env(stub.issuer)), JSON.stringify(json)).toBe('revoke_failed');
-      expect(stub.seen.length).toBe(2);
+      expect(stub.seen.length).toBe(3);
     }
   });
 
@@ -323,7 +331,7 @@ describe('[F1.6 c9 c15 c20] resetPassword: three calls in a fixed order, and exa
     for (const status of [401, 403, 429, 500]) {
       const stub = await authStub([{ status: 200 }, TOKEN_OK, { status }]);
       expect(await resetPassword(input, env(stub.issuer)), `status ${status}`).toBe('revoke_failed');
-      expect(stub.seen.length).toBe(3);
+      expect(stub.seen.length).toBe(4);
     }
   });
 
@@ -344,13 +352,13 @@ describe('[F1.6 c9 c15 c20] resetPassword: three calls in a fixed order, and exa
     expect(await resetPassword(input, env(first.issuer))).toBe('revoke_failed');
     const second = await authStub([{ status: 200 }, TOKEN_OK, { status: 204 }]);
     expect(await resetPassword(input, env(second.issuer))).toBe('completed');
-    expect(second.seen.length).toBe(3);
+    expect(second.seen.length).toBe(4);
   });
 
-  it('[F1.6 c15 NFR-SEC-001] the outcome is one of three plain strings and carries nothing from Auth (no token, key, password, email or error text)', T, async () => {
+  it('[F1.6 c15 NFR-SEC-001] the outcome is one of four plain strings and carries nothing from Auth (no token, key, password, email or error text)', T, async () => {
     const stub = await authStub([{ status: 200 }, TOKEN_OK, { status: 500, json: { msg: `leak ${SECRET_KEY} ${PASSWORD} ${EMAIL}` } }]);
     const outcome = await resetPassword(input, env(stub.issuer));
-    expect(['completed', 'admin_failed', 'revoke_failed']).toContain(outcome);
+    expect(['completed', 'admin_failed', 'revoke_failed', 'email_mismatch']).toContain(outcome);
     for (const secret of [SECRET_KEY, PASSWORD, EMAIL, 'ACCESS-TOKEN-FROM-AUTH', 'REFRESH-TOKEN-FROM-AUTH']) expect(String(outcome)).not.toContain(secret);
   });
 
@@ -368,6 +376,53 @@ describe('[F1.6 c9 c15 c20] resetPassword: three calls in a fixed order, and exa
       expect(s.path).not.toContain(encodeURIComponent(PASSWORD));
       expect(JSON.stringify(s.headers)).not.toContain(PASSWORD);
     }
-    expect(stub.seen[2]?.body ?? '').not.toContain(PASSWORD);
+    expect(stub.seen[3]?.body ?? '').not.toContain(PASSWORD);
+    expect(stub.seen[0]?.body ?? '').not.toContain(PASSWORD);
+  });
+
+  it('[F1.6 c22] the account email is not the request email -> "email_mismatch": only the read is made, no password set, no sign-in, no sign-out', T, async () => {
+    for (const current of ['someone.else@example.invalid', 'dana.recovery@example.invalid.evil', '']) {
+      const stub = await authStub([{ status: 200 }, TOKEN_OK, { status: 204 }], { status: 200, json: { id: USER, email: current } });
+      expect(await resetPassword(input, env(stub.issuer)), current).toBe('email_mismatch');
+      expect(stub.seen.map((s) => s.method), current).toEqual(['GET']);
+    }
+  });
+
+  it('[F1.6 c22] the account has no readable email (absent, null, a number) -> nothing is set and nothing signs in or out', T, async () => {
+    for (const json of [{ id: USER }, { id: USER, email: null }, { id: USER, email: 42 }, {}]) {
+      const stub = await authStub([{ status: 200 }, TOKEN_OK, { status: 204 }], { status: 200, json });
+      const outcome = await resetPassword(input, env(stub.issuer));
+      expect(outcome, JSON.stringify(json)).not.toBe('completed');
+      expect(stub.seen.map((s) => s.method), JSON.stringify(json)).toEqual(['GET']);
+    }
+  });
+
+  it('[F1.6 c22 c8] the same mailbox written with other case or spaces is the same email: the reset completes', T, async () => {
+    const stub = await authStub([{ status: 200 }, TOKEN_OK, { status: 204 }], { status: 200, json: { id: USER, email: ` ${EMAIL.toUpperCase()} ` } });
+    expect(await resetPassword(input, env(stub.issuer))).toBe('completed');
+    expect(stub.seen.length).toBe(4);
+  });
+
+  it('[F1.6 c15 c22] the read refused or dropped (404, 429, 500, destroyed) -> "admin_failed", nothing set; the read targets THE USER ID with the secret key', T, async () => {
+    for (const status of [401, 404, 429, 500]) {
+      const stub = await authStub([{ status: 200 }, TOKEN_OK, { status: 204 }], { status, json: { id: USER, email: EMAIL } });
+      expect(await resetPassword(input, env(stub.issuer)), `status ${status}`).toBe('admin_failed');
+      expect(stub.seen.map((s) => s.method), `status ${status}`).toEqual(['GET']);
+    }
+    const stub = await authStub([{ status: 200 }], READ_OK);
+    await resetPassword(input, env(stub.issuer));
+    expect(stub.seen[0]?.headers.apikey).toBe(SECRET_KEY);
+    expect(stub.seen[0]?.path).toContain(USER);
+    const dropped = await authStub([{ status: 200 }], { status: 0, destroy: true });
+    expect(await resetPassword(input, env(dropped.issuer))).toBe('admin_failed');
+    expect(dropped.seen.length).toBe(1);
+  });
+
+  it('[F1.6 c15 c22] the read never answers -> "admin_failed" within the 12 s total budget, nothing set', { timeout: 30_000 }, async () => {
+    const stub = await authStub([{ status: 200 }, TOKEN_OK, { status: 204 }], { status: 0, hang: true });
+    const started = Date.now();
+    expect(await resetPassword(input, env(stub.issuer))).toBe('admin_failed');
+    expect(Date.now() - started).toBeLessThan(12_500);
+    expect(stub.seen.map((s) => s.method)).toEqual(['GET']);
   });
 });

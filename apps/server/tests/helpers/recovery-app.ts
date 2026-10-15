@@ -12,10 +12,10 @@ import { setEnv, type App, type EnvValues } from './identity-fixtures.js';
 //
 //   buildRecoveryApp(env, seams)      sets the environment, loads the server fresh and builds it with the recovery seam
 //   setPepper(value) / restorePepper  RECOVERY_PEPPER for the next buildRecoveryApp (a missing or short pepper is a 503)
-//   fakeAdmin(outcome, configured)    an Auth stand-in that records its inputs and answers one of the three outcomes
+//   fakeAdmin(outcome, configured)    an Auth stand-in that records its inputs and answers one of the four outcomes
 //   spyScrypt()                       the real scrypt behind a counter (a verified or failed attempt must call it exactly twice)
 
-export type AdminOutcome = 'completed' | 'admin_failed' | 'revoke_failed';
+export type AdminOutcome = 'completed' | 'admin_failed' | 'revoke_failed' | 'email_mismatch';
 
 export interface FakeAdmin {
   authAdmin: RecoveryDependencies['authAdmin'];

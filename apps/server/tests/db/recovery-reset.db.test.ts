@@ -33,6 +33,7 @@ import {
 } from '../helpers/recovery-db.js';
 
 // F1.6 part b, the redeem path against the real database (CI `db` job, as app_server). Spec criteria (with Amendment 1):
+//   (Amendment 2: 13 at most one limited row per lock, none created for an address-locked email; 22 email mismatch)
 //   9 success   10 every failure is the same 401, two scrypt computations, counted   11 unknown email == known email
 //   12 limits (handle, IP, 24 h; stored IP is a keyed hash; window expiry)   13 one audit row per attempt, outcomes
 //   14 400 uncounted   15 admin failure   20 sign-out failure, retry converges
@@ -383,7 +384,13 @@ describe('[F1.6 c12] limits: per account, per address, per day; the window ends;
     expect(Number(limited.headers['retry-after'])).toBeLessThanOrEqual(900);
     expect(h.spy.calls()).toBe(0);
     expect((await attemptReset(h, resetFor(unknownEmail(), wrongFirst), ip)).statusCode, 'an unknown handle from the locked address gets the same 429').toBe(429);
-    expect((await throttle(ctx, 'handle', handleHex(ctx, victim.email))).split('/')[0], 'the victim account was not counted against').toMatch(/^(-|0)$/);
+    expect(await throttle(ctx, 'handle', handleHex(ctx, victim.email)), 'while the address is locked no counter row is created for the submitted email').toBe(NONE);
+    expect(await kinds(ctx, handleHex(ctx, victim.email)), 'the first limited attempt of the lock writes its one row').toBe('answers_saved,reset_limited');
+    const second = unknownEmail();
+    for (const email of [second, victim.email]) expect((await attemptReset(h, resetFor(email, RIGHT), ip)).statusCode).toBe(429);
+    expect(await throttle(ctx, 'handle', handleHex(ctx, second))).toBe(NONE);
+    expect(await kinds(ctx, handleHex(ctx, second)), 'later limited attempts in the same lock write no row in any table').toBe(NONE);
+    expect(await kinds(ctx, handleHex(ctx, victim.email))).toBe('answers_saved,reset_limited');
 
     await shift(ctx, 'ip', ipHex(ctx, ip), '16 minutes');
     const later = await attemptReset(h, resetFor(victim.email, RIGHT), ip);
@@ -543,6 +550,41 @@ describe('[F1.6 c13] the audit: one row per attempt, in the same transaction, no
     expect(events.every((e) => e.user_id === null)).toBe(true);
   });
 
+  it('[F1.6 c13] a rate-limited attempt writes at most one row per lock: the first writes reset_limited, later ones (right answers, wrong answers, another address) write no row and change no counter; a NEW lock writes a new row', T, async () => {
+    const h = await startApp(ctx);
+    const account = await accountWithAnswers(ctx, h);
+    const handle = handleHex(ctx, account.email);
+    for (let i = 0; i < 5; i += 1) await attemptReset(h, resetFor(account.email, wrongFirst));
+    expect((await attemptReset(h, resetFor(account.email, RIGHT))).statusCode).toBe(429);
+    const locked = await throttle(ctx, 'handle', handle);
+    const after = await kinds(ctx, handle);
+    expect(after.split(',').filter((k) => k === 'reset_limited')).toHaveLength(1);
+    for (const body of [resetFor(account.email, RIGHT), resetFor(account.email, wrongFirst), resetFor(account.email, RIGHT)]) {
+      expect((await attemptReset(h, body, nextIp())).statusCode).toBe(429);
+    }
+    expect(await kinds(ctx, handle), 'no further row').toBe(after);
+    expect(await throttle(ctx, 'handle', handle), 'no counter moved').toBe(locked);
+
+    await shift(ctx, 'handle', handle, '31 minutes');
+    for (let i = 0; i < 5; i += 1) await attemptReset(h, resetFor(account.email, wrongFirst));
+    expect((await attemptReset(h, resetFor(account.email, RIGHT))).statusCode).toBe(429);
+    expect((await attemptReset(h, resetFor(account.email, RIGHT))).statusCode).toBe(429);
+    const trail = (await kinds(ctx, handle)).split(',');
+    expect(trail.filter((k) => k === 'reset_limited'), 'one row for the first lock and one for the second').toHaveLength(2);
+    expect(trail.filter((k) => k === 'reset_failed')).toHaveLength(10);
+  });
+
+  it('[F1.6 c13 concurrency] eight simultaneous attempts on a locked handle: all 429, exactly one reset_limited row', { timeout: 120_000 }, async () => {
+    const seed = await startApp(ctx);
+    const account = await accountWithAnswers(ctx, seed);
+    const handle = handleHex(ctx, account.email);
+    for (let i = 0; i < 5; i += 1) await attemptReset(seed, resetFor(account.email, wrongFirst));
+    const apps = await Promise.all(Array.from({ length: 8 }, () => startApp(ctx)));
+    const results = await Promise.all(apps.map((h) => attemptReset(h, resetFor(account.email, RIGHT))));
+    expect(results.map((r) => r.statusCode)).toEqual(Array(8).fill(429));
+    expect((await kinds(ctx, handle)).split(',').filter((k) => k === 'reset_limited')).toHaveLength(1);
+  });
+
   it('[F1.6 c13] a malformed request (400) writes no audit row', T, async () => {
     const h = await startApp(ctx);
     const email = unknownEmail();
@@ -583,6 +625,25 @@ describe('[F1.6 c15 c20 Amendment 1] when Auth does not confirm: 503, an outcome
     const retry = await attemptReset(h, resetFor(account.email));
     expect(retry.statusCode, retry.body).toBe(200);
     expect(await kinds(ctx, handle)).toBe('answers_saved,reset_verified,reset_admin_failed,reset_verified,reset_completed');
+  });
+
+  it('[F1.6 c22] the account\'s current Auth email is not the request\'s: 401 invalid_recovery in the shape of any other failure, audit reset_verified then reset_email_mismatch, the answers still work', T, async () => {
+    const admin = fakeAdmin('email_mismatch');
+    const h = await startApp(ctx, { admin });
+    const account = await accountWithAnswers(ctx, h);
+    const handle = handleHex(ctx, account.email);
+    const before = await answersJson(ctx, account.id);
+    const res = await attemptReset(h, resetFor(account.email));
+    const plain = await attemptReset(h, resetFor(unknownEmail(), wrongFirst));
+    expect(res.statusCode, res.body).toBe(401);
+    expect(res.body).toBe(INVALID);
+    expect(shapeOf(res), 'a stale handle must not tell itself apart from a wrong answer').toBe(shapeOf(plain));
+    expect(await kinds(ctx, handle)).toBe('answers_saved,reset_verified,reset_email_mismatch');
+    expect(await answersJson(ctx, account.id)).toBe(before);
+    expect(JSON.stringify(recordsOf(await eventsJson(ctx, handle))).toLowerCase()).not.toContain(account.email.toLowerCase());
+
+    admin.answer('completed');
+    expect((await attemptReset(h, resetFor(account.email))).statusCode, 'the answers still work once the email matches').toBe(200);
   });
 
   it('[F1.6 c15] repeated admin failures never lock the owner out: five 503s in a row, then a correct attempt that succeeds', T, async () => {

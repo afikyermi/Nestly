@@ -61,7 +61,8 @@ const APPROVED_F14: ColumnShape[] = [
 // columns (a write model names only the granted ones), never a column the database lacks.
 const APPROVED_F16: ColumnShape[] = [
   col('recovery_answers', 'user_id', 'uuid', true),
-  col('recovery_answers', 'email_handle', 'bytea', true),
+  col('recovery_answers', 'email_handle', 'bytea', false),
+  col('recovery_answers', 'handle_claimed_at', TZ, false),
   col('recovery_answers', 'question_1', 'text', true),
   col('recovery_answers', 'question_2', 'text', true),
   col('recovery_answers', 'answer_hash_1', 'bytea', true),
@@ -79,6 +80,7 @@ const APPROVED_F16: ColumnShape[] = [
   col('recovery_throttles', 'long_window_started_at', TZ, false),
   col('recovery_throttles', 'long_failures', 'smallint', true),
   col('recovery_throttles', 'locked_until', TZ, false),
+  col('recovery_throttles', 'limited_noted_until', TZ, false),
   col('recovery_events', 'id', 'uuid', true),
   col('recovery_events', 'kind', 'text', true),
   col('recovery_events', 'user_id', 'uuid', false),
@@ -321,6 +323,9 @@ describe('[F1.1-b c10 c20] the db:drift command against the real Drizzle schema'
     ['recovery_answers.answer_hash_1 missing', without(APPROVED_ALL, 'recovery_answers', 'answer_hash_1')],
     ['recovery_answers.email_handle of another type', changed(APPROVED_ALL, 'recovery_answers', 'email_handle', { type: 'text' })],
     ['recovery_answers.scrypt_log_n of another type', changed(APPROVED_ALL, 'recovery_answers', 'scrypt_log_n', { type: 'integer' })],
+    ['recovery_answers.handle_claimed_at missing', without(APPROVED_ALL, 'recovery_answers', 'handle_claimed_at')],
+    ['recovery_answers.email_handle not null in the database', changed(APPROVED_ALL, 'recovery_answers', 'email_handle', { notNull: true })],
+    ['recovery_throttles.limited_noted_until missing', without(APPROVED_ALL, 'recovery_throttles', 'limited_noted_until')],
     ['recovery_answers.question_2 nullable in the database', changed(APPROVED_ALL, 'recovery_answers', 'question_2', { notNull: false })],
     ['recovery_throttles.locked_until not null in the database', changed(APPROVED_ALL, 'recovery_throttles', 'locked_until', { notNull: true })],
     ['recovery_throttles.subject_hash of another type', changed(APPROVED_ALL, 'recovery_throttles', 'subject_hash', { type: 'text' })],
