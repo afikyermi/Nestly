@@ -1,7 +1,7 @@
 # Data model — as-built
 
 **Maintained by:** DATA ARCHITECT. Updated on every schema change, in the same unit of work.
-**Status:** schema `nestly` exists since I1 F1.1 part b (`nestly.users`, `nestly.regular_profiles`), and since I1 F1.4 (`nestly.journey_contexts`, `nestly.children`, `nestly.legal_consents`). The "Planned"
+**Status:** schema `nestly` exists since I1 F1.1 part b (`nestly.users`, `nestly.regular_profiles`), since I1 F1.4 (`nestly.journey_contexts`, `nestly.children`, `nestly.legal_consents`), and since I1 F1.6 (`nestly.recovery_answers`, `nestly.recovery_throttles`, `nestly.recovery_events`). The "Planned"
 section maps the SRS for everything not built yet.
 
 One of the two maintained as-built descriptions, with its per-table part `data-model-tables.md`; the other is `conventions.md`. Everything else is read from the code.
@@ -45,9 +45,9 @@ data without passing through a policy. DATA ARCHITECT designs to them; CRITIC ch
 | # | Rule | Why |
 |---|---|---|
 | 1 | **Nothing at runtime bypasses RLS**: no service_role, no role with BYPASSRLS, no superuser, and never the role that owns the tables | each of these skips every policy. Table owners skip RLS by default — hence rule 8 |
-| 2 | **The request server connects as `app_server`**: LOGIN, NOBYPASSRLS, owns no table. It is granted `authenticated` — and `anon` for guest endpoints — with `GRANT … TO app_server WITH INHERIT FALSE, SET TRUE` (Postgres 16+; on 15, NOINHERIT on the role does the same). Never a member of `service_role`, so never Supabase's `authenticator` | without inherited privileges, `app_server` can do nothing until a transaction sets a role. A forgotten identity fails closed |
+| 2 | **The request server connects as `app_server`**: LOGIN, NOBYPASSRLS, owns no table. It is granted `authenticated` — and `anon` for guest endpoints; `app_recovery` for the recovery flow only, see Approved exceptions — with `GRANT … TO app_server WITH INHERIT FALSE, SET TRUE` (Postgres 16+; on 15, NOINHERIT on the role does the same). Never a member of `service_role`, so never Supabase's `authenticator` | without inherited privileges, `app_server` can do nothing until a transaction sets a role. A forgotten identity fails closed |
 | 3 | **Identity in every transaction.** The server verifies the JWT (JWKS, asymmetric keys), ignores the token's `role` claim, and inside the transaction runs `SET LOCAL ROLE authenticated` and `set_config('request.jwt.claims', <claims>, true)`. Only transaction-local settings — never session-level | `auth.uid()` in every policy works unchanged. Session-level settings would leak between users through the pooler |
-| 4 | **Guest endpoints** run with `SET LOCAL ROLE anon` and minimal grants, or touch no database at all. They exist only for what a Guest may reach (FR-AUTH-004) | anon gets nothing it does not need |
+| 4 | **Guest endpoints** run with `SET LOCAL ROLE anon` and minimal grants, or touch no database at all. They exist only for what a Guest may reach (FR-AUTH-004). Exception: the recovery flow runs as `app_recovery` | anon gets nothing it does not need |
 | 5 | **Connection:** the request server uses Supabase's pooler in transaction mode (port 6543), postgres-js with `prepare: false`, one connection per function instance. **Migrations** run as `app_owner`, a separate owner role, from CI only, through the pooler in **session mode** (port 5432) or a direct connection — never in transaction mode, never at runtime, never from a developer machine against production. Production migrations run only from `main`, after Afik's approval on the GitHub `db-production` environment. Outside the product schema `app_owner` holds exactly two grants and nothing else: **CREATE on the database**, so it can create the product schema and the migration tool's `supabase_migrations` history schema (T5, 7.3); and **`authenticated` `WITH INHERIT TRUE, SET FALSE`**, because on Supabase `postgres` holds USAGE on schema `auth` without grant option, so this membership is the only way `app_owner` can create policies, defaults and functions that call `auth.uid()`, and run them inside its own SECURITY DEFINER functions (T5, P1–P4, 11.10.2026). As built: `supabase/bootstrap/01-roles.sql`. It never runs at runtime (rule 1). Decided 2026-10-11 (7.3); that the pooler accepts a custom role is tested in 7.3 (T3) | transaction mode keeps no session state; DDL and the migration tool's locks need a session. A production write needs a person's approval that a tool enforces |
 | 6 | **Background jobs run as `app_jobs`**, deployed apart from the request functions with their own credentials, which the request functions never hold — SQL jobs in pg_cron run as `app_jobs`, code jobs in a separate Vercel project (decided 2026-10-11, "Hosting"). NOBYPASSRLS, minimal grants. Where a job must read or write across users, it gets an explicit `TO app_jobs` policy on that table, listed below | a compromised request server cannot act as the job runner, and every cross-user reach is a named, reviewable policy |
 
@@ -76,7 +76,7 @@ only via "Approved exceptions" below.
 | # | Rule | Why |
 |---|---|---|
 | 17 | **A write that lands in another user's rows** — a notification to someone else, a counter, an aggregate, an analytics event, a ranking update — goes through a narrow SECURITY DEFINER function, one per kind of write, listed below | the caller's policy rightly forbids writing another user's rows; the function allows exactly one shape of write |
-| 18 | **Audit is written by the database in the same transaction.** Admin and Moderator writes are audited by triggers. `authenticated` has no INSERT, UPDATE or DELETE on the audit table. The reason travels in a transaction-local setting | an action cannot happen without its record, and the server cannot forge one (NFR-AUDIT-001, BR-027) |
+| 18 | **Audit is written by the database in the same transaction.** Admin and Moderator writes are audited by triggers. `authenticated` has no INSERT, UPDATE or DELETE on the audit table. The reason travels in a transaction-local setting. Exception: `nestly.recovery_events` is written by the server under `app_recovery`, not by a trigger, because the audited action (the Auth password reset) happens outside the database; the insert policy binds handle, IP hash and user id to the transaction's declared subject, while the server chooses `kind`. `authenticated` and `anon` have no access to it | an action cannot happen without its record, and the server cannot forge one (NFR-AUDIT-001, BR-027) |
 | 19 | **Protected reads go through an audited function.** A trigger does not run on SELECT, so revealing an anonymous author (P5, AC-077) and Moderator access to Private Group content (NFR-PRIV-002) go through a dedicated function that returns the data and writes the audit entry in the same call | the read and its record are one operation |
 | 20 | **The real author of an anonymous post is not readable by anyone but the author.** It is kept in a separate table: the author reads their own rows (`author_id = auth.uid()`) — to see, edit and delete their anonymous posts and to get notifications on them. Nobody else reads it; the reveal function (rule 19) is the only other path. Final shape at Gate 2 | RLS hides rows, not columns, and a `security_invoker` view cannot mask a column its caller cannot read. A separate table makes row-level security enough (P4) |
 
@@ -102,7 +102,7 @@ Deletion runs only through an orderly deletion flow (I9, SRS OP-028) that remove
 user after; never as a side effect of deleting the Auth user. Changing the action is irreversible in effect once a
 cascade has run — reserved for Afik. Bootstrap steps, the complete list (anything else needing `postgres` is a
 `DECISION REQUEST`):
-1. create `app_owner`, `app_server` and `app_jobs` and their grants, and `grant app_owner to postgres`;
+1. create `app_owner`, `app_server`, `app_jobs` and `app_recovery` and their grants, and `grant app_owner to postgres`;
 2. the anchor's FK to `auth.users` — as built: `supabase/bootstrap/02-anchor-fk.sql`, verified by `02-anchor-fk-check.sql`;
 3. extensions and pg_cron jobs, when needed.
 
@@ -114,14 +114,49 @@ backfill inside a migration needs a pattern for the same reason.
 
 ### Approved exceptions
 
-A SECURITY DEFINER function (rules 10, 16, 17, 18, 19), a `TO app_jobs` policy (rule 6), or a materialized view or
-foreign table in a schema `app_owner` owns exists only when it is listed here. Each entry:
+A SECURITY DEFINER function (rules 10, 16, 17, 18, 19), a `TO app_jobs` policy (rule 6), a role or credential outside
+rules 1–4, or a materialized view or foreign table in a schema `app_owner` owns exists only when it is listed here. Each entry:
 
 ```
 <name> — what it does · why the caller's own rights cannot do it · approved in .work/<slug>/schema.md · date
 ```
 
-*none yet.* `nestly.is_active_account()` is deliberately not one: it is SECURITY INVOKER (rule 16).
+```
+F1.6 password recovery (FR-AUTH-003, OP-029) — the one exception Afik approved for this flow only (decisions/2026-10.md,
+2026-10-13). Two parts, nothing else:
+(a) Auth: read the user's current email, set the password and end every session of the same user id — with the Supabase
+    secret key from env SUPABASE_SECRET_KEY, read only in apps/server/src/recovery/auth-admin.ts, whose only operation is
+    resetPassword({userId, email, password, clientIp}). It makes exactly four calls, in this order, and none is exported
+    alone: GET <issuer>/admin/users/<uuid>, of which only email is read and compared (normalised) with the request's
+    email — different or missing ends the sequence with no further call (outcome email_mismatch; the service answers 401
+    invalid_recovery and audits reset_email_mismatch); then PUT <issuer>/admin/users/<uuid> {password}; after a 2xx,
+    one POST <issuer>/token?grant_type=password with the new password the request already holds; then
+    POST <issuer>/logout?scope=global with that access token, which revokes every refresh token of the user. The token
+    is discarded (never returned, logged or stored). Sb-Forwarded-For carries the platform-verified client IP on the
+    read, the sign-in and the logout (not on the set-password call). Called only by the redeem service after both answers
+    matched under the limits and a reset_verified row was committed.
+    Why: no database role may set an Auth password (auth.users is outside the product's roles, rule 1); a signed-out user
+    has no token; the admin API has no revoke-by-user-id, while a reset that leaves an attacker's session alive does not
+    end a takeover; and only Auth knows the account's current email, so only this read makes "a password is set only on
+    the account the request's email names now" true (Amendment 2).
+    Fence: credentials.static.test allows the key's name in that one file only and asserts it is there; the admin,
+    token-grant and logout literals appear in that file only; never in .github/. The key itself is not scoped by Supabase
+    (it carries service_role power over the whole project), so the fence is the code and the CI check, not the credential.
+    Approved in .work/password-recovery/schema.md (Amendment 1; Amendment 2 adds the email read) · 2026-10-15
+(b) role app_recovery — NOLOGIN, NOINHERIT, NOBYPASSRLS, owns nothing; granted only to app_server WITH INHERIT FALSE,
+    SET TRUE. The signed-out redeem, and the recovery verification and audit writes, run under SET LOCAL ROLE
+    app_recovery, held by RLS + FORCE. It reads recovery_answers and reads/writes recovery_throttles only for the handle
+    and IP hash the transaction declares (nestly.recovery_handle(), nestly.recovery_ip()); its one write on
+    recovery_answers releases the declared handle (sets email_handle and handle_claimed_at to NULL) only on a row whose
+    claim is older than the one the transaction declares (nestly.recovery_claimed_at(), policy
+    recovery_answers_release_recovery) — it can set no handle, touch no hash and delete no row; it appends
+    recovery_events, and reads no audit and no other table.
+    Why: a guest endpoint has no auth.uid(), and anon must hold nothing in nestly (rule 7, CI anon_privilege).
+    Not a SECURITY DEFINER function; tests.approved_security_definer() stays empty.
+    Approved in .work/password-recovery/schema.md · 2026-10-15 (DR-G1, ORCHESTRATOR; release policy: Amendment 2)
+```
+
+`nestly.is_active_account()` is deliberately not one: it is SECURITY INVOKER (rule 16).
 
 ---
 
@@ -139,9 +174,9 @@ Proposed by DATA ARCHITECT and approved by ORCHESTRATOR at F1.1 Gate 2, 13.10.20
 | Naming | snake_case, **plural** tables; singular `<entity>_id` FK columns; `is_`/`has_` booleans; `_at` instants, `_date` dates; constraints `<table>_<column>_<check\|key\|fkey>`; policies `<table>_<command>_<who>`. Never a quoted identifier. Every table and column carries a `COMMENT` with its meaning and SRS id. It still matters under Drizzle: the typed schema catches a wrong column name in TypeScript, not inside raw SQL, policies or functions |
 | Enums | **`text` + a named `CHECK (… in (…))`**, lowercase snake_case values. The value list lives once in `packages/shared`; Drizzle declares `text(…, { enum })` from it. Postgres ENUM rejected: no value drop, `ADD VALUE` breaks atomic migrations |
 | Delete | no default. Account lifecycle lives in `users.status`. Soft delete, where an entity needs it, is a nullable `deleted_at timestamptz` hidden by its policy — decided per entity against §13.4 |
-| RLS helpers | in `nestly`, `language sql`, `STABLE`, no argument that names a user (caller only), `set search_path = ''` with every name schema-qualified, EXECUTE revoked from PUBLIC and granted to `authenticated` only, called as `(select nestly.fn())`. SECURITY INVOKER unless an approved exception says otherwise |
+| RLS helpers | in `nestly`, `language sql`, `STABLE`, no argument that names a user (caller only), `set search_path = ''` with every name schema-qualified, EXECUTE revoked from PUBLIC and granted to `authenticated` only — except the three recovery helpers (`recovery_handle`, `recovery_ip`, `recovery_claimed_at`), granted to `app_recovery`, not `authenticated` — called as `(select nestly.fn())`. SECURITY INVOKER unless an approved exception says otherwise |
 | Status gate placement | on `users` there is **no** status gate on SELECT — an account reads its own row in every status (F1.5 DR-1 A); on every other table the gate is `(select nestly.is_active_account())`. Seeing the own `users` row never means "active". A table's policy never calls a function that reads the same table (no recursion) |
-| Write grants | INSERT (and, when it comes, UPDATE) is granted **per column**, only on the columns the client's data fills. Identifiers, owner columns, clocks and columns fixed to a constant default (e.g. `regular_profiles.account_type`) are never granted, so their defaults always apply: rules 12–13 are held by privilege, and the policy's WITH CHECK is the second fence. A column the server sets but the policy constrains (e.g. `users.account_type`, `users.status`) is granted, and the policy is its first fence. SELECT stays table-level. In Drizzle every write goes through a write-model object (`<table>Insert`) in `schema.ts` that names exactly the granted columns: Drizzle names every column of the object it inserts into, and naming an ungranted column is 42501. Decided F1.4 part a (CRITIC finding 1). Proposed by DATA ARCHITECT (`.work/register-account-create/schema.md` Amendment 1); validated by CRITIC with its wording change (`.work/register-account-create/findings.md`, part a re-check) |
+| Write grants | INSERT (and, when it comes, UPDATE) is granted **per column**, only on the columns the client's data fills. Identifiers, owner columns, clocks and columns fixed to a constant default (e.g. `regular_profiles.account_type`) are never granted, so their defaults always apply: rules 12–13 are held by privilege, and the policy's WITH CHECK is the second fence. A column the server sets but the policy constrains (e.g. `users.account_type`, `users.status`) is granted, and the policy is its first fence. SELECT stays table-level, except where a column must never be read back: `recovery_answers` has the first column-level SELECT (`authenticated` reads user_id, email_handle, handle_claimed_at, created_at; hashes, salts and the chosen questions are not readable by `authenticated` or `anon`; `app_recovery` reads them for the declared handle only). In Drizzle every write goes through a write-model object (`<table>Insert`) in `schema.ts` that names exactly the granted columns: Drizzle names every column of the object it inserts into, and naming an ungranted column is 42501. Decided F1.4 part a (CRITIC finding 1). Proposed by DATA ARCHITECT (`.work/register-account-create/schema.md` Amendment 1); validated by CRITIC with its wording change (`.work/register-account-create/findings.md`, part a re-check) |
 | Migrations | hand-written SQL in `supabase/migrations/`, applied by the Supabase CLI as `app_owner`, each file and its history row in one transaction. One file = one unit: table + RLS + FORCE + policies + grants + comments. No non-transactional statements. Each has a down script in `supabase/rollback/` |
 | Drizzle | `pgSchema('nestly')` in `apps/server/src/db/schema.ts` mirrors columns, types and nullability for typing only; a CI drift check compares it to the catalog. drizzle-kit never generates or pushes migrations. Policies and functions are SQL only |
 
@@ -208,10 +243,13 @@ Never design around these with a guess. Each one is a `DECISION REQUEST` to Afik
 
 Built by `supabase/migrations/20261014100000_identity_schema.sql` (I1 F1.1 part b) and bootstrap step 2, and by
 `supabase/migrations/20261014200000_registration_account.sql` (I1 F1.4 part a; Gate 2 and Amendment 1 in
-`.work/register-account-create/schema.md`). Down scripts in `supabase/rollback/`: F1.4's refuses while any of its three
-tables holds a row and must run first — F1.1's refuses while `nestly.legal_consents` exists, and is safe only while
-`users` and `regular_profiles` are empty. Writes: INSERT only, per column ("Write grants") — F1.4's create path. No
-UPDATE or DELETE grant or policy on any table; I2 adds the edit path. All five tables are in `nestly`.
+`.work/register-account-create/schema.md`), and by `supabase/migrations/20261015200000_recovery_questions.sql` (I1 F1.6;
+Gate 2 and Amendments 1–2 in `.work/password-recovery/schema.md`). Down scripts in `supabase/rollback/`: F1.6's refuses
+while `recovery_answers` or `recovery_events` holds a row and runs first; F1.4's refuses while any of its three
+tables holds a row and runs next — F1.1's refuses while `nestly.legal_consents` exists, and is safe only while
+`users` and `regular_profiles` are empty. Writes: per column ("Write grants") — F1.4's create path is INSERT only; the only UPDATE grants and policies are on
+`recovery_answers` and `recovery_throttles` (F1.6). No DELETE grant or policy on any table; I2 adds the edit path. All eight
+tables are in `nestly`.
 
 Per-table detail — every column with its meaning, and each table's purpose, what is not stored, owner, authorization,
 relations, indexes and retention, plus the write order and the RLS helper — is in

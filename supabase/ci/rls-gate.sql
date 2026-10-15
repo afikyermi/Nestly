@@ -40,8 +40,9 @@ begin;
 
 create schema if not exists tests;
 
--- The approved SECURITY DEFINER functions, as regprocedure text (e.g. 'nestly.fn(uuid)'). This list must equal
--- .claude/knowledge/data-model.md → "Approved exceptions" — CRITIC checks that. Today that list is empty.
+-- The approved SECURITY DEFINER functions, as regprocedure text (e.g. 'nestly.fn(uuid)'). This list must equal the
+-- SECURITY DEFINER entries of .claude/knowledge/data-model.md → "Approved exceptions" — CRITIC checks that. Today that
+-- list holds no function (F1.6's entries are an Auth call sequence and a role, not functions).
 create or replace function tests.approved_security_definer()
 returns setof text
 language sql immutable

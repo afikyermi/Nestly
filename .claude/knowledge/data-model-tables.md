@@ -36,6 +36,28 @@ task touches a built table.
 | `legal_consents.privacy_version` | text · not null | the Privacy Policy version accepted; same check and source |
 | `legal_consents.has_declared_18_plus` | boolean · not null | the 18+ declaration was made in this acceptance (BR-068). CHECK = true: a row without it cannot exist |
 | `legal_consents.accepted_at` | timestamptz · not null · `now()` | when the user accepted: the database clock. Never granted; the insert policy refuses any value but `now()` |
+| `recovery_answers.user_id` | uuid PK · default `auth.uid()` | the account (rules 12–13) |
+| `recovery_answers.email_handle` | bytea · null · UNIQUE · CHECK 32 bytes | HMAC-SHA256(K_handle, lower(trim(email))) of the email claim of the token that made the most recent claim. A lookup key for the signed-out redeem, never an identity claim (rule 14). NULL = released: no email finds the row. Released by a newer claim or re-keyed by its owner |
+| `recovery_answers.handle_claimed_at` | timestamptz · null | the `iat` (whole seconds, UTC) of the token whose email set the handle; the later claim wins. CHECK: NULL exactly when `email_handle` is NULL |
+| `recovery_answers.question_1`, `question_2` | text · not null | the chosen pair: pet · nickname · street. CHECK `question_1 < question_2` — one representation per pair, never the same id twice |
+| `recovery_answers.answer_hash_1`, `answer_hash_2` | bytea · not null · CHECK 32 bytes | scrypt(HMAC-SHA256(K_answer, question_id ‖ 0x00 ‖ normalised answer), salt) — binds the question id. Never readable by `authenticated` or `anon` |
+| `recovery_answers.answer_salt_1`, `answer_salt_2` | bytea · not null · CHECK 16 bytes · CHECK the two differ | random salt per answer |
+| `recovery_answers.scrypt_log_n` · `scrypt_r` · `scrypt_p` | smallint · not null | scrypt parameters, CHECK log_n 15–17 (N ≥ 2^15, ≤ 128 MiB per verification), r 8–16, p 1–4 |
+| `recovery_answers.created_at` | timestamptz · not null · `now()` | first save. Never granted; changes are dated in `recovery_events` |
+| `recovery_throttles.subject_kind` | text · not null | handle · ip. PK part 1 |
+| `recovery_throttles.subject_hash` | bytea · not null · CHECK 32 bytes | the email handle (known or not) or HMAC-SHA256(K_ip, client IP; IPv6 by its /64). PK part 2. Never the email or the address |
+| `recovery_throttles.short_window_started_at` | timestamptz · null | start of the short window (handle 30 min · IP 15 min). NULL = no failure counted. Windows start at the first failure after the last expired; they do not slide |
+| `recovery_throttles.short_failures` | smallint · not null · 0 · CHECK ≥ 0 | failures in the short window |
+| `recovery_throttles.long_window_started_at` | timestamptz · null | start of the 24-hour window. CHECK: handles only |
+| `recovery_throttles.long_failures` | smallint · not null · 0 | failures in the 24-hour window. CHECK ≥ 0, and 0 for an IP |
+| `recovery_throttles.locked_until` | timestamptz · null | while later than `now()`, every attempt on the subject is answered 429. A limited attempt changes no counter |
+| `recovery_throttles.limited_noted_until` | timestamptz · null | the `locked_until` for which a limited event was already written: one limited event per subject per lock |
+| `recovery_events.id` | uuid PK · `gen_random_uuid()` | |
+| `recovery_events.kind` | text · not null | answers_saved · answers_changed · change_failed · change_limited · reset_verified · reset_completed · reset_failed · reset_limited · reset_admin_failed · reset_revoke_failed · reset_email_mismatch · handle_released · handle_rekeyed. After reset_verified exactly one of reset_completed, reset_admin_failed, reset_revoke_failed, reset_email_mismatch. Chosen by the server |
+| `recovery_events.user_id` | uuid · null | the account the declared handle belongs to, forced by the insert policy. CHECK: NULL only for reset_failed and reset_limited (a handle with no account). For handle_released, the account that lost the handle |
+| `recovery_events.handle_hash` | bytea · not null · CHECK 32 bytes | the declared handle. Never the email |
+| `recovery_events.ip_hash` | bytea · not null · CHECK 32 bytes | the declared client address, keyed hash. Never the address |
+| `recovery_events.occurred_at` | timestamptz · not null · `now()` | the database clock. Never granted |
 
 | | `users` | `regular_profiles` |
 |---|---|---|
@@ -67,6 +89,31 @@ failure rolls back the whole account. The repository inserts only through the `*
 
 Helper: `nestly.is_active_account()` — true when the caller's own account exists and is active (rule 15). SECURITY
 INVOKER, caller only; checks `id = auth.uid()` and `status` itself rather than trusting the `users` policy.
+
+| | `recovery_answers` | `recovery_throttles` | `recovery_events` |
+|---|---|---|---|
+| Purpose | FR-AUTH-003, AC-092 — one row per account: the chosen pair of recovery questions, the salted answer hashes and the email handle | NFR-SEC-001, AC-092 — failure counters and lock state per email handle or per IP hash, unknown handles included | FR-ADMIN-005, AC-092 — the recovery audit: one row per attempt and one outcome row after a verified reset |
+| Not stored | no plaintext or normalised answer; no email (only the keyed handle); no IP | no email, no address — keyed hashes only; no per-request history | no answer, password, email, token or IP; not the count of requests during a lock |
+| Owner | the account; `user_id` is `auth.uid()`, set by the database (rule 12) | none: operational state keyed by hashes | none set by a client; `user_id` is forced by the insert policy to the declared handle's account, or NULL |
+| Authorization | RLS + FORCE. `recovery_answers_select_own` / `_insert_own` / `_update_own` — authenticated, own row only, while `(select nestly.is_active_account())`. `recovery_answers_select_recovery` — app_recovery reads the declared handle's row only. `recovery_answers_release_recovery` — app_recovery UPDATE only where the handle is the declared one and `handle_claimed_at < nestly.recovery_claimed_at()`; WITH CHECK both columns NULL. Grants: authenticated SELECT on (user_id, email_handle, handle_claimed_at, created_at); INSERT and UPDATE on (email_handle, handle_claimed_at, question_1, question_2, the hashes, the salts, the scrypt parameters). app_recovery SELECT; UPDATE on (email_handle, handle_claimed_at). No DELETE grant or policy | RLS + FORCE. `recovery_throttles_{select,insert,update}_recovery` — app_recovery, only rows of the declared handle or the declared IP hash. Grants: app_recovery SELECT; INSERT on (subject_kind, subject_hash); UPDATE on the five counter/lock columns and limited_noted_until. Nothing to authenticated. No DELETE grant or policy | RLS + FORCE. `recovery_events_insert_recovery` — app_recovery; WITH CHECK handle_hash and ip_hash are the declared ones and user_id is not distinct from the declared handle's row. Grant: INSERT on (kind, user_id, handle_hash, ip_hash). No SELECT for any role (so no RETURNING), no UPDATE or DELETE: append-only (rule 18 exception) |
+| Relations | `recovery_answers_user_id_fkey` (user_id) → users (id) ON DELETE CASCADE — part of the account | none: rows exist for hashes with no account | `recovery_events_user_id_fkey` (user_id) → users (id) ON DELETE RESTRICT — the audit does not vanish as a side effect (I9, OP-028) |
+| Indexes | `recovery_answers_pkey` (user_id) — own-row reads and the cascade. `recovery_answers_email_handle_key` UNIQUE — the redeem lookup, the release and the re-key, one handle per account; one extra btree write per save | `recovery_throttles_pkey` (subject_kind, subject_hash) — the only access path | `recovery_events_pkey` (id). `recovery_events_user_id_idx` (user_id) WHERE user_id IS NOT NULL — the RESTRICT check on a users delete and a per-account investigation; one btree write per attempt. None on handle_hash, ip_hash or occurred_at: nothing reads them yet |
+| Retention | no deleted_at; goes with the account (cascade). §13.4 TBD | disposable once the lock and both windows have passed; the purge job waits for the first job infrastructure (debt) | append-only, every row kept until audit retention is decided (§13.4 TBD, an OP to open); RESTRICT blocks deleting the account while a row exists |
+
+**Recovery write order** (rule 11; lock order IP, then handle, on every path). Store (`POST`), one identity transaction:
+as app_recovery, declare handle, IP and claimed_at, `select … for update` with no WHERE → if a releasable holder came
+back, `handle_released` first, then the release UPDATE with no WHERE and no RETURNING → as authenticated, insert the own
+row → `answers_saved` as app_recovery. Re-key (`GET /api/me` in a separate transaction after the body is built; `PUT`
+at its start): the same release steps, then the own-row UPDATE where the claim is NULL or older, then `handle_rekeyed`.
+Attempt (`guardedAttempt`, redeem and change): IP throttle row insert-on-conflict then FOR UPDATE → if locked, the one
+limited event of the lock, stop → handle row the same → read the answers row → two scrypts → on a mismatch, count on IP then
+handle and append the failed event. Change on a match: own-row UPDATE as authenticated, then `answers_changed`. Redeem on a
+match: `reset_verified` commits before the Auth calls; the outcome row is a second transaction. `recovery_events` has no
+SELECT, so no statement uses RETURNING on it.
+
+Helpers: `nestly.recovery_handle()`, `nestly.recovery_ip()`, `nestly.recovery_claimed_at()` — what the transaction
+declared with `set_config('nestly.recovery_handle' | 'nestly.recovery_ip' | 'nestly.recovery_claimed_at', …, true)`; unset
+or empty is NULL and matches no row. SECURITY INVOKER, caller-free, EXECUTE to app_recovery only.
 
 A new entity adds its columns to the first table — field, type, and its meaning, which is the part that matters — and
 fills every row of the second: purpose in one line; what is not stored; owner, and how that is established;

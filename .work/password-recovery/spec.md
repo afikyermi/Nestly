@@ -129,3 +129,6 @@ Test layers (one per behaviour): 7-8 unit on shared/server functions; 1-6, 10-15
 - **New 22 (🔴):** If the account's current Auth email is not the request's email, a verified reset sets no password and makes no sign-in or sign-out call: 401 `invalid_recovery`, audit `reset_verified` + `reset_email_mismatch`.
 - **New 23 (🔴):** When the token's email differs from the stored handle and the token is newer, `/api/me` re-keys the handle (audit `handle_rekeyed`) and a redeem by the new email succeeds; the `/api/me` body is the same whether the re-key succeeds, fails or is skipped.
 - Design: `schema.md`, "CRITIC findings 1-2 — recommendation" (binding for BUILDER).
+
+## Amendment 3 — 15.10.2026, ORCHESTRATOR (CRITIC re-check N2; wording only, no behaviour change)
+- **Criterion 13**, the rate-limited clause, reads: a rate-limited attempt writes at most one audit row per locked subject per lock: the first limited attempt in a lock writes one `reset_limited` / `change_limited` row; later attempts in the same lock write no audit row and no handle row, and while the IP is locked no throttle row is created for the submitted email. An address not seen before still gets its own IP counter row (the approved lock order, `schema.md` "CRITIC findings 1-2", finding 2: growth is proportional to distinct addresses, never to request volume).

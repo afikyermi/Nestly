@@ -550,7 +550,7 @@ describe('[F1.6 c13] the audit: one row per attempt, in the same transaction, no
     expect(events.every((e) => e.user_id === null)).toBe(true);
   });
 
-  it('[F1.6 c13] a rate-limited attempt writes at most one row per lock: the first writes reset_limited, later ones (right answers, wrong answers, another address) write no row and change no counter; a NEW lock writes a new row', T, async () => {
+  it('[F1.6 c13] a rate-limited attempt writes at most one row per lock: the first writes reset_limited, later ones in the same lock (right or wrong answers, from other addresses) write no audit row and no handle row for the submitted email; a NEW lock writes a new row', T, async () => {
     const h = await startApp(ctx);
     const account = await accountWithAnswers(ctx, h);
     const handle = handleHex(ctx, account.email);
@@ -562,8 +562,8 @@ describe('[F1.6 c13] the audit: one row per attempt, in the same transaction, no
     for (const body of [resetFor(account.email, RIGHT), resetFor(account.email, wrongFirst), resetFor(account.email, RIGHT)]) {
       expect((await attemptReset(h, body, nextIp())).statusCode).toBe(429);
     }
-    expect(await kinds(ctx, handle), 'no further row').toBe(after);
-    expect(await throttle(ctx, 'handle', handle), 'no counter moved').toBe(locked);
+    expect(await kinds(ctx, handle), 'no further audit row for the submitted email').toBe(after);
+    expect(await throttle(ctx, 'handle', handle), 'the handle row is untouched').toBe(locked);
 
     await shift(ctx, 'handle', handle, '31 minutes');
     for (let i = 0; i < 5; i += 1) await attemptReset(h, resetFor(account.email, wrongFirst));

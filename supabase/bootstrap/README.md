@@ -31,7 +31,7 @@ anchor and bootstrap steps". Anything else that needs `postgres` is a `DECISION 
    ```
    Until you do this, neither role can log in. `app_jobs` is NOLOGIN for now and gets no password (see the header
    of `01-roles.sql`).
-3. Run `01-roles-check.sql`. Expect 3 rows, all with `ok = true`. The expected values are in its header.
+3. Run `01-roles-check.sql`. Expect 4 rows, all with `ok = true`. The expected values are in its header.
 4. Wait about 20 seconds after setting a password before you use it. The pooler caches role credentials.
 5. Put the `app_owner` connection string in the GitHub environment (`db-preview` / `db-production`). The
    `app_server` one goes to Vercel when I1 needs it. The password in the URL must be URL-safe

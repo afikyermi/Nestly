@@ -368,8 +368,8 @@ select is_empty(
 select is(
   (select string_agg(p.proname, ', ' order by p.proname) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'nestly'),
-  'is_active_account, recovery_handle, recovery_ip',
-  '[F1.4-a c14 · F1.6-a] nestly holds exactly three functions: is_active_account and the two recovery helpers (no other function came with a migration)');
+  'is_active_account, recovery_claimed_at, recovery_handle, recovery_ip',
+  '[F1.4-a c14 · F1.6-a c3 c21] nestly holds exactly four functions: is_active_account and the three recovery helpers (no other function came with a migration)');
 
 select is_empty(
   $$ select c.relname from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
