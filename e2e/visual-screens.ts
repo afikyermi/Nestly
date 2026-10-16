@@ -17,6 +17,8 @@ export interface AppScreen extends ScreenBase {
   kind: 'app';
   route: string;
   state: SessionState | null;
+  /** Open the side menu before the screenshot (the menu is the screen). */
+  openMenu?: boolean;
 }
 export type Screen = StoryScreen | AppScreen;
 
@@ -26,4 +28,9 @@ export const SCREENS: Screen[] = [
   { kind: 'app', name: 'recovery', route: '/recovery', state: 'signed-out' },
   { kind: 'app', name: 'recovery-questions-change', route: '/recovery-questions', state: 'signed-in' },
   { kind: 'app', name: 'recovery-questions-setup', route: '/recovery-questions', state: 'signed-in-needs-recovery' },
+  // F2.0 c14: the forced new-password screen (any route lands on it, so '/feed' is used); c15: the password-change screen, and the
+  // side menu open with the new item. The menu is opened by the test via `menu: true` below.
+  { kind: 'app', name: 'set-new-password', route: '/feed', state: 'signed-in-needs-new-password' },
+  { kind: 'app', name: 'password-change', route: '/change-password', state: 'signed-in' },
+  { kind: 'app', name: 'side-menu', route: '/feed', state: 'signed-in', openMenu: true },
 ];

@@ -1,0 +1,98 @@
+// F2.0 c10/c14/c15 on the real Preview: change the password with the two saved answers, then sign in with the new one; the old
+// one is refused. Derived from .work/account-takeover-close/spec.md (c10, c15) and the SRS texts ERR-042.
+// It makes its own fresh user (the shared fixture user is already registered and has changed its password in
+// password-recovery.flow.ts). Same email pattern as the fixture's, so the sweep covers it. Failed attempts per user: 1 (limit 5);
+// IP-level failures added to the run: 1 per project (limit 10; the recovery flow uses 2 per project).
+import type { Page, Response } from '@playwright/test';
+import { expect, test } from './support/fixtures.ts';
+import { generateTestUser, type TestUser } from './support/test-user.ts';
+
+const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
+const passwordField = (page: Page) => page.getByLabel('סיסמה', { exact: true });
+const newPassword = (page: Page) => page.getByLabel('סיסמה חדשה', { exact: true });
+const pet = (page: Page) => page.getByLabel(/חיית המחמד/);
+const nick = (page: Page) => page.getByLabel(/כינו אתכם/);
+const saveButton = (page: Page) => page.getByRole('button', { name: 'שמירה', exact: true });
+const submit = (page: Page) => page.locator('form button[type="submit"]').first();
+const statuses = (page: Page) => page.getByRole('status').filter({ hasText: /\S/ });
+
+const answered = (method: string, path: string, status: number) => (r: Response): boolean =>
+  r.request().method() === method && new URL(r.url()).pathname === path && r.status() === status;
+
+const users = new Map<string, TestUser>();
+function userOf(project: string): TestUser {
+  let u = users.get(project);
+  if (u === undefined) {
+    u = generateTestUser(process.env['GITHUB_RUN_ID'] ?? '', process.env['GITHUB_RUN_ATTEMPT'] ?? '');
+    users.set(project, u);
+  }
+  return u;
+}
+
+async function signIn(page: Page, email: string, password: string): Promise<void> {
+  await page.goto('/login');
+  await emailField(page).fill(email);
+  await passwordField(page).fill(password);
+  await page.getByRole('button', { name: 'התחברות', exact: true }).click();
+}
+async function logOut(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'פתיחת התפריט' }).click();
+  await page.getByRole('button', { name: 'התנתקות', exact: true }).click();
+  await expect(page).not.toHaveURL(/\/(feed|home|recovery-questions|change-password)$/);
+}
+async function openChange(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'פתיחת התפריט' }).click();
+  await page.getByRole('link', { name: 'החלפת סיסמה', exact: true }).click();
+  await expect(page).toHaveURL(/\/change-password$/);
+}
+
+test.describe.serial('F2.0 password change on the Preview [c10 c15]', () => {
+  test('[c10 c15] fresh user: sign up, store the two answers', async ({ page }, info) => {
+    const u = userOf(info.project.name);
+    await page.goto('/register');
+    await page.getByRole('group', { name: 'השלב במסע', exact: true }).locator('label').filter({ hasText: /מתכננים/ }).click();
+    await page.getByLabel(/^שם מלא/).fill('דנה כהן');
+    await page.getByRole('button', { name: 'המשך', exact: true }).click();
+    await emailField(page).fill(u.email);
+    await passwordField(page).fill(u.password);
+    const box = page.getByRole('checkbox', { name: /אישור תנאי השימוש/ });
+    await box.focus();
+    await page.keyboard.press('Space');
+    await expect(box).toBeChecked();
+    await page.getByRole('button', { name: 'יצירת חשבון', exact: true }).click();
+    await expect(page).toHaveURL(/\/recovery-questions$/);
+    await pet(page).fill(u.answers.pet);
+    await nick(page).fill(u.answers.nickname);
+    await saveButton(page).click();
+    await expect(page).toHaveURL(/\/feed$/);
+  });
+
+  test('[c10 c15] a wrong answer shows an error and leaves the password; the right answers change it', async ({ page, recoveryAttempts }, info) => {
+    const u = userOf(info.project.name);
+    await signIn(page, u.email, u.password);
+    await expect(page).toHaveURL(/\/feed$/);
+    await openChange(page);
+    recoveryAttempts.recordFailedAttempt(u.email);
+    await pet(page).fill('wronganswer1');
+    await nick(page).fill(u.answers.nickname);
+    await newPassword(page).fill(`${u.password}-new`);
+    await submit(page).click();
+    await expect(page.getByRole('alert')).toHaveCount(1);
+    await expect(newPassword(page)).toHaveValue('');
+    await pet(page).fill(u.answers.pet);
+    await newPassword(page).fill(`${u.password}-new`);
+    await Promise.all([page.waitForResponse(answered('POST', '/api/password/change', 200)), submit(page).click()]);
+    await expect(statuses(page)).toContainText(/הסיסמה הוחלפה/);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  });
+
+  test('[c10] the new password signs in; the old one is refused', async ({ page }, info) => {
+    const u = userOf(info.project.name);
+    await signIn(page, u.email, `${u.password}-new`);
+    await expect(page).toHaveURL(/\/feed$/);
+    await logOut(page);
+    await signIn(page, u.email, u.password);
+    await expect(page.getByRole('alert')).toHaveCount(1);
+    await expect(page).toHaveURL(/\/login$/);
+  });
+});
