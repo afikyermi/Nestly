@@ -141,6 +141,17 @@ test.describe('F2.0 c14 forced new-password screen', () => {
     }
   });
 
+  test('[F2.0 c14] terms and privacy stay open while the screen is forced', async ({ page }) => {
+    await setup(page, { mustSet: true, questions: 'missing' });
+    await signIn(page);
+    await expect(newPassword(page)).toBeVisible();
+    for (const to of ['/terms', '/privacy']) {
+      await page.goto(to);
+      await expect(newPassword(page)).toHaveCount(0);
+      expect(pathOf(page)).toBe(to);
+    }
+  });
+
   test('[F2.0 c14] submit sends exactly the password once and success leads to the PG-052 setup', async ({ page }) => {
     const net = await setup(page, { mustSet: true, questions: 'missing' });
     await signIn(page);
