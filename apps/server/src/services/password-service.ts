@@ -2,17 +2,23 @@
 // password (D2): these three paths are the only ones, each acting on the JWT subject only, the password set through
 // auth-admin.ts and audited in recovery_events. The password is never logged, stored or returned.
 //
-//   forced (c7)   the session that completed a takeover clear (guard must_set), active account: the row lock (NOWAIT, the
-//                 clear's lock), the password set, the row marked done (trigger) and password_set_forced, in one transaction.
-//   change (c10)  two current answers under the recovery limits (the question change's own-handle path and counters), then
-//                 the password set and every other session signed out with the caller's token, then the outcome row. As in
-//                 the reset, the attempt commits before Auth is called, and no transaction is open across the Auth calls.
-//   first (c11)   an Auth user with no account row (the F1.8 completion): the password set, then a takeover clear's row (c9)
-//                 marked done and first_password_set. Refused for an account row, so it cannot bypass c10.
+// Each set holds the user's password-state lock (db/password-lock.ts, Gate 2 A4) from a re-read of the guard through its Auth
+// password set, then commits: a set admitted before an S-01 clear lands before the clear's cancel, never after it. F1.6's
+// "no transaction open across an Auth call" yields here for that one call. A held lock is 503 (PasswordStateBusy).
+//
+//   forced (c7)   the session that completed a takeover clear (guard must_set, re-read under the lock), active account: the
+//                 row lock, the password set, the row marked done (trigger) and password_set_forced, in one transaction.
+//   change (c10)  two current answers under the recovery limits (the question change's own-handle path and counters) in a
+//                 transaction that commits; then, under the lock, the guard and the answers row re-read and the password
+//                 set; after commit every other session signed out with the caller's token, then the outcome row.
+//   first (c11)   an Auth user with no account row (the F1.8 completion), re-read under the lock: the password set, a
+//                 takeover clear's row (c9) marked done and first_password_set, in one transaction. Refused for an account
+//                 row, so it cannot bypass c10.
 
 import type { RecoveryAnswersInput, RecoveryEventKind } from '@nestly/shared';
 import type { Database } from '../db/client.js';
-import { inIdentityTransaction, type IdentityTx } from '../db/identity-transaction.js';
+import { inIdentityTransaction, rereadGuard, SessionRefused, type IdentityTx } from '../db/identity-transaction.js';
+import { lockPasswordState } from '../db/password-lock.js';
 import { assumeAuthenticatedRole, assumeRecoveryRole, type RecoverySubjects } from '../db/recovery-transaction.js';
 import type { Identity } from '../lib/token-verifier.js';
 import type { RecoveryDependencies } from '../recovery/dependencies.js';
@@ -20,7 +26,7 @@ import { emailHandle, ipHash } from '../recovery/hashing.js';
 import type { RecoveryKeys } from '../recovery/pepper.js';
 import { readOwnStatuses } from '../repositories/account-state-repository.js';
 import { lockOwnLinkCheck, markPasswordSet } from '../repositories/identity-link-repository.js';
-import { insertEvent } from '../repositories/recovery-repository.js';
+import { insertEvent, readOwnClaim } from '../repositories/recovery-repository.js';
 import { accountExists } from '../repositories/registration-repository.js';
 import { guardedAttempt } from './recovery-attempt.js';
 import { isHandleHeld, ownHandleFor, type HandleClaim } from './recovery-questions-service.js';
@@ -76,11 +82,12 @@ export async function setForcedPassword(
 ): Promise<ForcedResult> {
   const subjects = subjectsFor(keys, email, client.addressKey);
   try {
-    return await inIdentityTransaction(database, identity, async (tx, guard): Promise<ForcedResult> => {
-      if (guard !== 'must_set') return { kind: 'not_required' };
+    return await inIdentityTransaction(database, identity, async (tx): Promise<ForcedResult> => {
+      await lockPasswordState(tx, identity.userId);
+      if ((await rereadGuard(tx)) !== 'must_set') return { kind: 'not_required' };
       const [status] = await readOwnStatuses(tx);
       if (status !== 'active') return { kind: 'not_required' }; // c9: an Auth user with no account row sets it through c11
-      const own = await lockOwnLinkCheck(tx); // the guard was read before the lock: a concurrent set may have finished
+      const own = await lockOwnLinkCheck(tx);
       if (own === undefined || !own.cleared || own.passwordSet) return { kind: 'not_required' };
       if ((await deps.authAccount.setPassword({ userId: identity.userId, password })) !== 'set') throw new PasswordNotSet();
       if (!(await markPasswordSet(tx))) return { kind: 'not_required' };
@@ -103,16 +110,26 @@ export async function setFirstPassword(
   client: PasswordClient,
   password: string,
 ): Promise<FirstResult> {
-  if (await inIdentityTransaction(database, identity, accountExists)) return { kind: 'has_account' };
-  if ((await deps.authAccount.setPassword({ userId: identity.userId, password })) !== 'set') return { kind: 'unavailable' };
   const subjects = subjectsFor(keys, email, client.addressKey);
-  // A failure here throws (503): the client retries, and Auth's same_password makes the retry a success.
-  return inIdentityTransaction(database, identity, async (tx): Promise<FirstResult> => {
-    if (await accountExists(tx)) return { kind: 'has_account' };
-    await markPasswordSet(tx); // c9: an unregistered user's clear is done once its first password is set (no row: no move)
-    await audit(tx, subjects, 'first_password_set', null);
-    return { kind: 'set' };
-  });
+  try {
+    return await inIdentityTransaction(database, identity, async (tx): Promise<FirstResult> => {
+      await lockPasswordState(tx, identity.userId);
+      refuseUnlessProceeding(await rereadGuard(tx));
+      if (await accountExists(tx)) return { kind: 'has_account' };
+      if ((await deps.authAccount.setPassword({ userId: identity.userId, password })) !== 'set') throw new PasswordNotSet();
+      await markPasswordSet(tx); // c9: an unregistered user's clear is done once its first password is set (no row: no move)
+      await audit(tx, subjects, 'first_password_set', null);
+      return { kind: 'set' };
+    });
+  } catch (error) {
+    if (error instanceof PasswordNotSet) return { kind: 'unavailable' };
+    throw error;
+  }
+}
+
+/** A guard re-read under the lock that a concurrent clear moved to pending or stale: refused like at the start (503 / 401). */
+function refuseUnlessProceeding(guard: Awaited<ReturnType<typeof rereadGuard>>): void {
+  if (guard !== 'ok' && guard !== 'must_set') throw new SessionRefused(guard);
 }
 
 type Verified = { readonly kind: 'verified'; readonly userId: string; readonly subjects: RecoverySubjects } | ChangeResult;
@@ -149,14 +166,22 @@ export async function changePassword(
   }
   if (first.kind !== 'verified') return first;
 
-  // Set, then sign the other sessions out. A retry after either failure sets the same password again and signs out again.
-  const set = await deps.authAccount.setPassword({ userId: identity.userId, password });
+  // Under the lock: the guard and the verified answers row again (a clear in between deleted it: ERR-042, nothing set), then
+  // the set. After commit the other sessions are signed out. A retry after either failure sets and signs out again.
+  const verified = first;
+  const set = await inIdentityTransaction(database, identity, async (tx) => {
+    await lockPasswordState(tx, identity.userId);
+    refuseUnlessProceeding(await rereadGuard(tx));
+    if ((await readOwnClaim(tx))?.emailHandle?.equals(verified.subjects.handle) !== true) return 'gone' as const;
+    return deps.authAccount.setPassword({ userId: identity.userId, password });
+  });
+  if (set === 'gone') return { kind: 'invalid' };
   const signedOut =
     set === 'set' ? await deps.authAccount.signOutOthers({ accessToken: request.accessToken, clientIp: request.client.address }) : 'failed';
   const completed = signedOut === 'done';
   try {
     await inIdentityTransaction(database, identity, (tx) =>
-      audit(tx, first.subjects, completed ? 'password_changed' : 'password_change_auth_failed', first.userId),
+      audit(tx, verified.subjects, completed ? 'password_changed' : 'password_change_auth_failed', verified.userId),
     );
   } catch {
     logOutcomeNotRecorded('password change: the outcome row was not written');

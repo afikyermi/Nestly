@@ -4,6 +4,7 @@
 
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { isTransientFailure, readDatabaseFault } from '../lib/pg-error.js';
+import { PasswordStateBusy } from '../db/password-lock.js';
 import { replySessionRefused } from '../plugins/authentication.js';
 
 /** NFR-SEC-001: a body over this is refused before it is parsed. Two answers, an email and a password fit many times over. */
@@ -32,7 +33,7 @@ export function recoveryErrorHandler(error: { statusCode?: number | undefined; c
 }
 
 /**
- * A database failure as an answer. A token the session guard refused (F2.0) is 401 or 503 first; then a transient one (the connection, a timeout) is 503 and may be retried; a refused policy
+ * A database failure as an answer. A token the session guard refused (F2.0) is 401 or 503 first, a held password-state lock (A4) 503; then a transient one (the connection, a timeout) is 503 and may be retried; a refused policy
  * is 403 when `policyRefusedIs403` (a signed-in caller who may not write), and anything else is 500.
  */
 export function replyDatabaseFailure(
@@ -44,6 +45,10 @@ export function replyDatabaseFailure(
 ): FastifyReply {
   const refused = replySessionRefused(reply, error);
   if (refused !== undefined) return refused;
+  if (error instanceof PasswordStateBusy) {
+    request.log.warn(`${line}: the password state is locked by another request`);
+    return replyUnavailable(reply);
+  }
   const fault = readDatabaseFault(error);
   request.log.error({ sqlstate: fault?.code }, line);
   if (policyRefusedIs403 && fault?.code === POLICY_REFUSED) return reply.code(403).send({ error: 'forbidden' });

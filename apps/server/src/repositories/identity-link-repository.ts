@@ -46,7 +46,10 @@ export async function deleteOwnAnswers(tx: IdentityTx): Promise<void> {
   await tx.delete(recoveryAnswers);
 }
 
-/** The clear (pending to cleared). The trigger stamps now() and the caller's session. True when this call made the move. */
+/**
+ * The clear (pending to cleared). The trigger stamps clock_timestamp() (Gate 2 A1: after the sign-out of the other sessions) and
+ * the caller's session; the value sent here is only a trigger. True when this call made the move.
+ */
 export async function markCleared(tx: IdentityTx): Promise<boolean> {
   const rows = await tx
     .update(identityLinkChecksUpdate)

@@ -239,7 +239,7 @@ export const identityLinkChecksInsert = nestly.table('identity_link_checks', {
   checkedSessionId: uuid('checked_session_id').notNull(),
 });
 
-/** UPDATE target only. Names exactly the columns granted UPDATE to authenticated; the trigger stamps both with now(). */
+/** UPDATE target only. Names exactly the columns granted UPDATE to authenticated; the trigger stamps both (cleared_at clock_timestamp(), Gate 2 A1; password_set_at now()). */
 export const identityLinkChecksUpdate = nestly.table('identity_link_checks', {
   clearedAt: timestamp('cleared_at', { withTimezone: true }),
   passwordSetAt: timestamp('password_set_at', { withTimezone: true }),

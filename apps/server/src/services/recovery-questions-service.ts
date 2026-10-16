@@ -14,6 +14,7 @@
 import { RECOVERY_SCRYPT, type RecoveryAnswersInput } from '@nestly/shared';
 import type { Database } from '../db/client.js';
 import { inIdentityTransaction, type IdentityTx } from '../db/identity-transaction.js';
+import { lockPasswordState } from '../db/password-lock.js';
 import { assumeAuthenticatedRole, assumeRecoveryRole, type RecoverySubjects } from '../db/recovery-transaction.js';
 import { readDatabaseFault } from '../lib/pg-error.js';
 import type { Identity } from '../lib/token-verifier.js';
@@ -155,6 +156,7 @@ export async function storeRecoveryAnswers(
   const subjects = { handle: emailHandle(keys, claim.email), ip: ipHash(keys, client.addressKey), claimedAt };
   try {
     return await inIdentityTransaction(database, identity, async (tx): Promise<StoreResult> => {
+      await lockPasswordState(tx, identity.userId); // Gate 2 A4: never in the middle of an S-01 clear
       if ((await readOwnClaim(tx)) !== undefined) return { kind: 'already_set' };
       const hashes = await hashNewAnswers(deps, keys, answers);
       await releaseOlderHolder(tx, subjects);
@@ -221,6 +223,7 @@ export async function changeRecoveryAnswers(
   const ip = ipHash(keys, client.addressKey);
   try {
     return await inIdentityTransaction(database, identity, async (tx): Promise<ChangeResult> => {
+      await lockPasswordState(tx, identity.userId); // Gate 2 A4: first, before the throttle row locks
       const handle = await ownHandleFor(tx, keys, identity, claim, ip);
       if (handle === 'not_set' || handle === 'unavailable') return { kind: handle };
       const subjects = { handle, ip };

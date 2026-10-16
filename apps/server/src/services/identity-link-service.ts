@@ -7,18 +7,22 @@
 //              identity older than the google one is `affected`. `unaffected` is written once and is permanent.
 //   affected   the clear, in this order, each step safe to repeat:
 //                tx 1   the verdict `affected` (= pending) and the caller's recovery answers deleted, in one transaction;
-//                tx 2   the own row locked (NOWAIT: a concurrent runner gets 503 at once), the password cancelled, every
+//                tx 2   the user's password-state lock (A4) and the own row lock (both NOWAIT: a concurrent runner gets 503 at
+//                       once), the answers deleted again (A5), the password cancelled, every
 //                       other session signed out with the caller's token, the row marked cleared by the clearing session
 //                       (trigger), and one takeover_cleared audit row; committed only when every step succeeded.
 //   pending    a request from any Google session resumes tx 2; a failure leaves it pending, so every session keeps getting
 //              503 and nothing reports success before the clear is done (c3, c4).
 //
+// Both transactions take the per-user password-state lock first (db/password-lock.ts), so a password set or an answers store
+// admitted before the clear completes before it, never after (A4).
 // The pepper (for the audit row's hashes) and the Auth key are required before any step. Nothing is logged here but fixed
 // words and SQLSTATEs: never a token, an email, an id or a password.
 
 import type { IdentityLinkVerdict } from '@nestly/shared';
 import type { Database } from '../db/client.js';
 import { inLinkCheckTransaction, type SessionGuard } from '../db/identity-transaction.js';
+import { lockPasswordState } from '../db/password-lock.js';
 import { assumeAuthenticatedRole, assumeRecoveryRole } from '../db/recovery-transaction.js';
 import { readDatabaseFault } from '../lib/pg-error.js';
 import type { Identity } from '../lib/token-verifier.js';
@@ -82,6 +86,7 @@ function readGuard(database: Database, identity: Identity): Promise<SessionGuard
 async function recordVerdict(database: Database, identity: Identity, sessionId: string, verdict: IdentityLinkVerdict): Promise<void> {
   await inLinkCheckTransaction(database, identity, async (tx, guard) => {
     if (guard !== 'unchecked') return;
+    if (verdict === 'affected') await lockPasswordState(tx, identity.userId); // A4: no set or answers store in flight
     await insertLinkCheck(tx, verdict, sessionId);
     if (verdict === 'affected') await deleteOwnAnswers(tx);
   });
@@ -98,8 +103,10 @@ async function completeClear(
   if (keys === undefined) throw new Error('the pepper is missing');
   const subjects = { handle: emailHandle(keys, request.email), ip: ipHash(keys, request.addressKey) };
   return inLinkCheckTransaction(database, identity, async (tx) => {
+    await lockPasswordState(tx, identity.userId); // A4: first, before the row lock
     const own = await lockOwnLinkCheck(tx);
     if (own === undefined || own.verdict !== 'affected' || own.cleared) return false;
+    await deleteOwnAnswers(tx); // A5: answers stored after tx 1 began (still pending, so the policy allows it)
     if ((await deps.authAccount.cancelPassword({ userId: identity.userId })) !== 'set') throw new ClearStepFailed('cancel');
     const signedOut = await deps.authAccount.signOutOthers({ accessToken: request.accessToken, clientIp: request.address });
     if (signedOut !== 'done') throw new ClearStepFailed('sign_out');

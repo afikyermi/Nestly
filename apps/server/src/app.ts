@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import { createDatabase, type Database } from './db/client.js';
+import { PasswordStateBusy } from './db/password-lock.js';
 import { readConfig, type ServerConfig } from './lib/config.js';
 import { createTokenVerifier } from './lib/token-verifier.js';
 import { registerAuthentication, replySessionRefused, type LinkGate } from './plugins/authentication.js';
@@ -71,6 +72,7 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
     // A token the session guard refused (F2.0): 401 or 503, never a 500, wherever it surfaced.
     const refused = replySessionRefused(reply, error);
     if (refused !== undefined) return refused;
+    if (error instanceof PasswordStateBusy) return reply.code(503).send({ error: 'unavailable' });
     const raw = typeof error === 'object' && error !== null && 'statusCode' in error ? error.statusCode : undefined;
     const status = typeof raw === 'number' && raw >= 400 && raw < 500 ? raw : 500;
     const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : undefined;

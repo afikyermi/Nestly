@@ -61,6 +61,16 @@ async function enter(tx: IdentityTx, identity: Identity): Promise<SessionGuard> 
   return row.guard;
 }
 
+/**
+ * The guard again, inside a transaction that already set the claims: for a re-read under the password-state lock (A4), when a
+ * concurrent clear may have moved the state since the transaction began.
+ */
+export async function rereadGuard(tx: IdentityTx): Promise<SessionGuard> {
+  const [row] = guardRows.parse(await tx.execute(sql`select nestly.session_guard() as guard`));
+  if (row === undefined) throw new Error('the session guard returned no row');
+  return row.guard;
+}
+
 /** A product transaction. Throws SessionRefused (and rolls back) unless the guard is `ok` or `must_set`. */
 export async function inIdentityTransaction<T>(
   database: Database,
