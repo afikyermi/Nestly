@@ -120,3 +120,19 @@ password call in the same part; part (b) keeps c14, c15, c17.
 - **A3 (audit FK) — confirmed: NULL.** `first_password_set` (c11) and `takeover_cleared` for a c9 user carry `user_id`
   NULL: `recovery_events_user_id_fkey` references `nestly.users`, which has no row for them. Test `:421` must insert NULL
   and expect OK, and expect 23503 for a non-NULL id with no users row.
+- **A4 (CRITIC bug 1, high) — one per-user advisory lock.** Mechanism: `select pg_catalog.pg_try_advisory_xact_lock(
+  pg_catalog.hashtextextended('nestly.password_state:' || $1, 0))`, `$1` = the user id; the key is built in one server
+  module, nowhere else. Transaction-scoped (pooler-safe), built-in, needs no grant (PUBLIC EXECUTE; under every runtime
+  role incl. `app_recovery`), no migration change. A row lock on `identity_link_checks` was rejected: no row may exist yet,
+  and the guest reset (`app_recovery`) cannot read the table. A "set in flight" marker was rejected: it needs cleanup after
+  a crash; the transaction lock releases itself. **NOWAIT** (try-lock): false → 503 `unavailable`, retried by the client;
+  no waiting while holding a pooled connection. Takers, lock first, then any row lock: the clear Tx1 and Tx2; c7, c10,
+  c11 and the F1.6 reset, each held from a re-read through its Auth password set, then commit; the answers store and
+  change (short, no Auth call). Re-read under the lock: c7/c10/c11 the guard (`pending`/`stale` → refuse as today) and the
+  link-check state; c10 and the reset also that the verified answers row still exists for that user (Tx1 deletes it; a
+  deleted row → ERR-042 semantics, nothing set). The reset's sign-in and global logout may run after commit. **F1.6's rule
+  yields here, only for the Auth password set call**: one connection held for one Auth call per set, rare per user; the
+  cost is accepted. Tests: a delayed fake set admitted before the clear lands before `cancelPassword`, never after (server
+  integration); pgTAP: the try-lock call succeeds as `authenticated` and `app_recovery`, a second holder gets false.
+- **A5 (CRITIC bug 2, low) — confirmed.** Tx2 runs `deleteOwnAnswers` again under its locks, before `markCleared` (still
+  pending, so the delete policy allows it). With A4 the store cannot overlap Tx1 either; the re-delete stays as the fence.
