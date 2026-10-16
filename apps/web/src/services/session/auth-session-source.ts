@@ -33,12 +33,22 @@ export interface AuthSessionSourceDeps {
 
 const hasSession = (state: SessionState) => state === 'signed-in' || state === 'signed-in-no-account';
 
+type SignedInAnswer = 'active' | 'active-missing' | 'active-must-set-password' | 'unregistered';
+const isSignedInAnswer = (answer: AccountStateOutcome | 'no-session'): answer is SignedInAnswer =>
+  answer === 'active' || answer === 'active-missing' || answer === 'active-must-set-password' || answer === 'unregistered';
+// F2.0 c7, c8: a session that must set a new password has no recovery questions either (the clear removed them), so both holds are on;
+// the new-password one comes first (access.ts).
+const needsQuestionsFor = (answer: SignedInAnswer) => answer === 'active-missing' || answer === 'active-must-set-password';
+const mustSetPasswordFor = (answer: SignedInAnswer) => answer === 'active-must-set-password';
+
 export function createAuthSessionSource({ auth, accountState, now, events, random = Math.random }: AuthSessionSourceDeps): AuthSessionSource {
   const listeners = new Set<() => void>();
   let state: SessionState = 'loading';
   let notice: SessionNotice | null = null;
   // F1.6: the account is active and has not saved its recovery questions. Always changes together with the state.
   let needsQuestions = false;
+  // F2.0 c14: this session must set a new password after a takeover clear. Always changes together with the state.
+  let mustSetPassword = false;
   // Bumped whenever the session is replaced or ended, so an answer that arrives for an older session is dropped.
   let epoch = 0;
   let lastCheckAt: number | null = null;
@@ -50,11 +60,19 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
   let signingIn: Promise<SignInResult> | null = null;
   let stopWatching: Array<() => void> = [];
 
-  const apply = (nextState: SessionState, nextNotice: SessionNotice | null, nextNeedsQuestions = needsQuestions) => {
-    if (state === nextState && notice === nextNotice && needsQuestions === nextNeedsQuestions) return;
+  const apply = (
+    nextState: SessionState,
+    nextNotice: SessionNotice | null,
+    nextNeedsQuestions = needsQuestions,
+    nextMustSetPassword = mustSetPassword,
+  ) => {
+    if (state === nextState && notice === nextNotice && needsQuestions === nextNeedsQuestions && mustSetPassword === nextMustSetPassword) {
+      return;
+    }
     state = nextState;
     notice = nextNotice;
     needsQuestions = nextNeedsQuestions;
+    mustSetPassword = nextMustSetPassword;
     for (const listener of [...listeners]) listener();
   };
 
@@ -68,7 +86,7 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
     epoch += 1;
     lastCheckAt = null;
     clearRetry();
-    apply('signed-out', why, false);
+    apply('signed-out', why, false, false);
   };
 
   // Work started by an event, not by a caller. If it breaks, the session is treated as signed-out (fail closed) and the break is logged.
@@ -113,9 +131,9 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
       return;
     }
     retryAttempt = 0;
-    if (answer === 'active' || answer === 'active-missing' || answer === 'unregistered') {
+    if (isSignedInAnswer(answer)) {
       lastCheckAt = now();
-      apply(answer === 'unregistered' ? 'signed-in-no-account' : 'signed-in', null, answer === 'active-missing');
+      apply(answer === 'unregistered' ? 'signed-in-no-account' : 'signed-in', null, needsQuestionsFor(answer), mustSetPasswordFor(answer));
     } else if (answer === 'unavailable') {
       await end('stopped');
     } else if (answer === 'unauthenticated' || answer === 'no-session') {
@@ -139,7 +157,7 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
       const outcome = await auth.restore();
       if (epoch !== startedAt) return;
       if (outcome === 'none') {
-        apply('signed-out', null, false);
+        apply('signed-out', null, false, false);
       } else if (outcome === 'refused') {
         endLocally('expired');
       } else if (outcome === 'unreachable') {
@@ -191,9 +209,9 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
         await auth.signOut();
         return { kind: 'failed', problem: 'unavailable' };
       }
-      if (answer === 'active' || answer === 'active-missing' || answer === 'unregistered') {
+      if (isSignedInAnswer(answer)) {
         lastCheckAt = now();
-        apply(answer === 'unregistered' ? 'signed-in-no-account' : 'signed-in', null, answer === 'active-missing');
+        apply(answer === 'unregistered' ? 'signed-in-no-account' : 'signed-in', null, needsQuestionsFor(answer), mustSetPasswordFor(answer));
         return answer === 'unregistered' ? { kind: 'unregistered' } : { kind: 'signed-in' };
       }
       await auth.signOut();
@@ -240,6 +258,7 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
     getState: () => state,
     getNotice: () => notice,
     getNeedsRecoveryQuestions: () => needsQuestions,
+    getMustSetPassword: () => mustSetPassword,
     subscribe: (listener) => {
       listeners.add(listener);
       watch();
@@ -272,7 +291,7 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
           epoch += 1;
           lastCheckAt = now();
           clearRetry();
-          apply('signed-in', null, answer === 'active-missing');
+          apply('signed-in', null, answer === 'active-missing', answer === 'active-must-set-password');
         }),
       );
     },
@@ -294,6 +313,11 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
       // A check that began before the save may still answer "missing"; the new epoch drops it, and the next trigger asks again.
       epoch += 1;
       apply(state, notice, false);
+    },
+    markPasswordSet: () => {
+      // As above: a check that began before the set may still answer "must set"; the new epoch drops it. The questions stay missing (c8).
+      epoch += 1;
+      apply(state, notice, true, false);
     },
   };
 }

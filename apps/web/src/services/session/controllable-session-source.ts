@@ -15,6 +15,8 @@ export interface ControllableSessionSource extends SessionSource, SessionEntry {
   rejectSignOut(reject: boolean): void;
   /** What `getNeedsRecoveryQuestions` answers from now on (default false); listeners are told. */
   setNeedsRecoveryQuestions(needs: boolean): void;
+  /** What `getMustSetPassword` answers from now on (default false); listeners are told (F2.0 c14). */
+  setMustSetPassword(must: boolean): void;
   /** How many times `signOut` was called. */
   signOutCalls(): number;
 }
@@ -26,6 +28,7 @@ export function createControllableSessionSource(initial: SessionState = 'loading
   let signOutRejects = false;
   let calls = 0;
   let needsQuestions = false;
+  let mustSetPassword = false;
 
   const notify = () => {
     for (const listener of [...listeners]) listener();
@@ -38,6 +41,7 @@ export function createControllableSessionSource(initial: SessionState = 'loading
       return state;
     },
     getNeedsRecoveryQuestions: () => needsQuestions,
+    getMustSetPassword: () => mustSetPassword,
     subscribe: (listener) => {
       listeners.add(listener);
       return () => {
@@ -68,6 +72,10 @@ export function createControllableSessionSource(initial: SessionState = 'loading
     },
     setNeedsRecoveryQuestions: (needs) => {
       needsQuestions = needs;
+      notify();
+    },
+    setMustSetPassword: (must) => {
+      mustSetPassword = must;
       notify();
     },
     signOutCalls: () => calls,
