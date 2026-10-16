@@ -254,11 +254,11 @@ select alike(tests.dml_as_msg('authenticated', tests.claims(tests.fx_id('a')),
 select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('a')),
     $q$ update nestly.recovery_answers set answer_salt_1 = decode(repeat('42', 16), 'hex'), answer_salt_2 = decode(repeat('42', 16), 'hex') $q$, false),
   'ERR:23514', '[F1.6-a c3] an update cannot make the two salts equal');
-select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('a')), $q$ delete from nestly.recovery_answers $q$, false), 'ERR:42501',
-  '[F1.6-a c4] nobody deletes answers through authenticated');
+select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('a')), $q$ delete from nestly.recovery_answers $q$, false), 'OK:0',
+  '[F1.6-a c4; F2.0-a D1] an account with no pending link row deletes nothing through authenticated (the D1 delete applies only while pending, see 41_link_policies.sql)');
 select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('a')),
-    $q$ delete from nestly.recovery_answers where user_id = 'b0000000-0000-4000-8000-0000000000b2' $q$, false), 'ERR:42501',
-  '[F1.6-a c5] and certainly not another user''s');
+    $q$ delete from nestly.recovery_answers where user_id = 'b0000000-0000-4000-8000-0000000000b2' $q$, false), 'OK:0',
+  '[F1.6-a c5; F2.0-a D1] and certainly not another user''s');
 
 -- a stopped account sees and changes nothing through authenticated
 select lives_ok($q$ select tests.set_status(tests.fx_id('a'), 'suspended') $q$, '[F1.6 fixture] a is suspended');
