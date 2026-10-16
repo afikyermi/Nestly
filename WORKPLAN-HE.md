@@ -24,7 +24,9 @@
 - **✅ הכרעותיך על תוכנית ההצגה (15.10) ו-SRS 2.15:** תאריך — כמה שיותר מהר · ‏G1–G6 אושרו; ה-Marketplace לפרסום ופנייה בלבד, בלי קנייה (BR-069) · מחירים זמניים TBD (OP-030) · זמנים אחורה בימים ובשעות, בהזזה אחרי היצירה (דרך 1, אישרת) · סעיף 15 אושר · בלי Auto-fix. ב-SRS 2.15: ‏FR-SERV-011, ‏FR-PRO-003, ‏FR-ADMIN-012, ‏BR-069–072, ‏NFR-SEC-007/008, ‏AC-093–098, ‏OP-024/025 נסגרו. ‏`roadmap.md` תוספת 2.
 - **✅ F1.5 `login-session` — מוזג** (PR 29, ‏`27816b4`, ‏15.10; ‏`.work/login-session/result.md`): מסך התחברות, ‏Session שנשמר ומתחדש, התנתקות, חשבון מושעה או חסום נעצר מיד, השלמת הרשמה שלא הסתיימה (סוגר את ה-debt של F1.4). ‏Gate 1 ו-Gate 2 עברו; ‏CRITIC (opus) על שלושת החלקים — ‏Validated. ‏Preview: אתה, "1–6 עבר". ‏SRS 2.16. ‏migrate: nestly-preview (#4) ו-production (אישרת, ‏db-production ירוק, 15.10).
 - **✅ הכרעותיך לפני I3–I5 (16.10, ‏`docs/decisions-before-i3-i5-HE.md`; ‏`decisions.md` שלוש רשומות 16.10; ‏`roadmap.md` תוספת 3):** מחיקת חשבון עם 30 יום חרטה · 8 כללי קהילה · 8 סיבות דיווח · מדרג אכיפה ידני · ‏M1–M6 עם טשטוש בדפדפן ובדיקה ברקע בשרת · בלי עורך דין (Claude כותב תקנון ופרטיות). פיצ'רים חדשים: **הפניה למוקדי רפואה → I3**, **סטורי → I5** (פיצ'ר אחרון). ה-SRS עודכן מיד (שינוי היקף): ‏2.18.
-- **ממתין להכרעה שלך:** אין. שבע השאלות על הכרעות I3–I5 נסגרו כברירת המחדל (16.10, "הכול כברירת המחדל"; ‏`decisions.md`).
+- **🔄 F1.8 `google-sign-in` (17.10, ‏`.work/google-sign-in/`, ענף `feat/google-sign-in`):** ‏Gate 1 עבר (‏DR-1–DR-4 ב-`decisions.md`). ‏DATA ARCHITECT: בלי סכמה. ‏P1 (‏guard, ‏`*.flow.ts`) בבנייה; ‏P2 (‏auth) ממתין ל-DR-5 ולהגדרה 2 למטה; ‏P3 (מסכים) אחריו.
+- **ממתין להכרעה שלך:**
+  1. **DR-5 (פרטיות, F1.8):** ‏Supabase מקבל תמיד מ-Google גם שם ותמונה, ושומר אותם בטבלת הזהויות הפנימית שלו — וזה לא מתיישב עם AC-087 ("נשמר האימייל בלבד"). **ההמלצה שלי:** ‏Nestly אף פעם לא קורא ולא מציג אותם, מוחק אותם מהפרופיל של משתמש ה-Auth מיד אחרי הכניסה, ומקבל שהרשומה הפנימית של Supabase שומרת אותם (שורה במדיניות הפרטיות; ‏AC-087 יתוקן ב-SRS בסגירת I1). חלופות: לוותר על Google · זרימת OAuth משלנו (יקר, ספק חיצוני נוסף). תשובה בשורה: "DR-5 כהמלצה" או אחרת.
 - **ממתין לך (סודות ופעולות):**
   0. **‏E — הסודות (נמסרו לך 16.10 בלילה; לא צריך הגדרה ב-Supabase):** ‏environment ‏`preview-e2e` (בלי reviewers, בלי הגבלת ענפים) ובו `PREVIEW_SUPABASE_SECRET_KEY` (ה-secret key של nestly-preview) ו-`PREVIEW_DB_ADMIN_URL` (‏nestly-preview, משתמש `postgres`, ‏Session pooler 5432). ‏`PREVIEW_TEST_EMAIL`/`PREVIEW_TEST_PASSWORD` מיותרים, אפשר למחוק אחרי ש-E ירוק.
   0א. **בוקר 17.10 — רשימת "רק אתה" מהלילה:**
@@ -34,7 +36,12 @@
      4. ✅ **‏migrate ל-production של F1.6** — אישרת, ‏db-production ירוק (ריצה 38860446921, 17.10).
   1. **קובץ יומן מקומי ישן** `.live/events.jsonl` (טקסט מפרומפטים, לא ב-git): מחיקה היא שלך. אחריה אפשר להסיר את `.live/` מ-`.gitignore`.
   2. **מחיקת ענפים מרוחקים שמוזגו:** ‏`ui-wave-1/part-a` עד `part-e`, ‏`chore/i1-prep`, ‏`chore/guard-env-paths` (מוזג), ‏`chore/preview-access` (הוחלף ב-`-v2` אחרי rebase), ‏`chore/records-after-f12` (מוזג).
-  3. ✅ **ב-F1.8: Google Cloud והסודות — הוגדרו אצלך (17.10).** בתחילת F1.8 אבדוק מה חסר (למשל Redirect URLs ב-Supabase › Authentication › URL Configuration) ואנחה אותך.
+  3. ✅ **ב-F1.8: Google Cloud והסודות — הוגדרו אצלך (17.10).**
+  3א. **F1.8 — מה חסר ממך ב-Supabase (לא הצלחתי לקרוא את ההגדרות מכאן):**
+     1. בשני הפרויקטים (nestly-preview, ‏nestly-prod): ‏Authentication › Sign In / Providers → להפעיל **"Allow manual linking"** (‏DR-4: בלי זה אי אפשר לנתק Google מחשבון שמישהו כבר רשם עם אותו אימייל).
+     2. ‏Authentication › URL Configuration: ב-**nestly-prod** — ‏Site URL ‏`https://nestly-blue.vercel.app`, ו-Redirect URL ‏`https://nestly-blue.vercel.app/auth/google`. ב-**nestly-preview** — ‏Redirect URL ‏`https://nestly-*-afikyermis-projects.vercel.app/auth/google`. אם כבר הוגדר — לכתוב לי מה מופיע שם.
+     3. לוודא ש-"Confirm email" נשאר כבוי בשני הפרויקטים.
+     4. בסוף, ב-Preview הסופי: ארבע בדיקות ידניות עם חשבון Google שלך (אנחה אותך כשנגיע).
   4. ✅ **worktrees ישנים** — נמחקו (15.10, אתה; ‏`git worktree list` מציג רק את התיקייה הראשית). ה-concern מ-PR 30 סגור — לרשום ב-`debt.md` ב-wrap-up.
   5. ✅ **חשבון בדיקה ל-E** — נרשמת ב-nestly-preview; repository secrets ב-GitHub: ‏`PREVIEW_TEST_EMAIL`, ‏`PREVIEW_TEST_PASSWORD` (אם CRITIC יקבע environment אחר — לומר לך). שים לב: החשבון נרשם לפני F1.6, ולכן בכניסה הראשונה הוא יוחזק במסך השאלות.
   6. ✅ **‏baselines של F1.6** — ‏`update-baselines` רץ (38787338192), שישה PNG ב-`e2e/__screenshots__/` (נבדקו בעין). אישרת לי להריץ ולהוריד בעצמי גם בהמשך.
