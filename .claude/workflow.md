@@ -1,6 +1,6 @@
 # Workflow — canonical pipeline
 
-**Version:** 1.15
+**Version:** 1.16
 **Status:** the single source of truth for sequence, triggers and who enters when.
 Agent definitions describe professions. **This file describes order.** If they disagree, this file wins.
 
@@ -48,13 +48,13 @@ The maintained as-built descriptions are `.claude/knowledge/data-model.md` and `
 | 5 | **DATA ARCHITECT** | *only if schema changes* — Gate 2. Policies follow the authorization layers in `.claude/knowledge/data-model.md` | `schema.md` |
 | 5b | **ALGORITHM & DATA** | *only if the feature uses behavioural signals, ranks or recommends, records analytics events, or places paid content* — purpose map, pipeline, configuration, events, evaluation. Feeds DATA ARCHITECT when tables are needed | `algorithm.md` |
 | 6 | **BUILDER** | branch, implement; calls SCOUT as needed. Hands off green: typecheck · lint · `check:budgets` · `check:stories` · the unit and database tests that run on this machine, on what it touched | diff + `notes.md` |
-| 7 | **Local checks** | 🤖 run by the agent that wrote the files (BUILDER its code, TEST ENGINEER its tests, including typecheck and lint on them). red → that agent fixes before handing off. ORCHESTRATOR runs none of them, and no push or CI wait happens between steps | green handoff |
+| 7 | **Local checks** | 🤖 run by the agent that wrote the files (BUILDER its code, TEST ENGINEER its tests, including typecheck and lint on them). red → that agent fixes before handing off. ORCHESTRATOR runs none of them, and no push or CI wait happens between steps. **Before every push (Afik, 16.10.2026, audit decision 3):** the database tests (pgTAP and db integration) run on this machine when the part touches `supabase/`, `apps/server/` or `packages/shared/`; line budgets run in the git pre-commit hook (`.githooks/`); an older test the part breaks is updated in the same part; a part that touches a shared screen or component runs the whole browser suite | green handoff |
 | 8 | **TEST ENGINEER** | tests derived from `spec.md`, to the depth of each criterion's type and at one layer per behaviour ("Test rules" below). It reads source files for names, routes, exports and seams — never for what to assert. It starts from the spec while BUILDER builds (test files only), and after BUILDER's handoff runs its tests, typecheck and lint on them until they pass or fail for a reason it reports — a test failing against its criterion is a finding, never weakened to pass | test files |
-| 9 | **CRITIC** | review the diff cold, including every invariant in `.claude/knowledge/srs-review-points.md` that the diff touches and the platform rules in `.claude/knowledge/data-model.md`; it writes `findings.md` itself; when the harness refuses the subagent's write, ORCHESTRATOR saves its hand-back verbatim. ALGORITHM & DATA reviews in parallel when step 5b ran. Reviews per feature: see "Elevated path". **Then one push** for the finished part — code, tests, review, fixes — and GitHub CI (typecheck · tests · lint · RLS checks) on its last commit is the merge condition. ORCHESTRATOR binds the PR to the app's PR monitor and acts on its notification — no polling loops. Red → fix, check locally, push once | `findings.md` + verdict, then green CI |
+| 9 | **CRITIC** | review the diff cold, including every invariant in `.claude/knowledge/srs-review-points.md` that the diff touches and the platform rules in `.claude/knowledge/data-model.md`; it writes `findings.md` itself; when the harness refuses the subagent's write, ORCHESTRATOR saves its hand-back verbatim. ALGORITHM & DATA reviews in parallel when step 5b ran. **One review round per part** (see "Verdicts"). **Then one push** for the finished part — code, tests, review, fixes — and GitHub CI (typecheck · tests · lint · RLS checks) on its last commit is the merge condition. ORCHESTRATOR binds the PR to the app's PR monitor and acts on its notification — no polling loops. Red → fix, check locally, push once | `findings.md` (bug list), then green CI |
 | 10 | **BUILDER** | address findings | updated diff |
-| 11 | **CRITIC** | re-check **only what it raised** — a fresh invocation pointed at `findings.md` and the fix commits; no agent is kept alive between steps | verdict |
-| 12 | **ORCHESTRATOR** | ✋ **Preview** — open the deployed preview, check the acceptance criteria, record its URL in WORKPLAN | go / no-go |
-| 13 | ORCHESTRATOR | merge; then **once per feature, never per part:** `result.md` (≤ 10 lines), the logs, WORKPLAN | `result.md` |
+| 11 | **CRITIC** | re-check **only when it raised a real bug** (critical, high or medium with a failure scenario) — a fresh invocation pointed at `findings.md` and the fix commits; low items are fixed or go to `debt.md` without a re-check | bug list |
+| 12 | **E** | 🤖 automated Preview E2E (`preview-e2e`) on the PR's Preview — no manual Preview | green run |
+| 13 | ORCHESTRATOR | **merge without waiting for Afik** (pre-approved, Afik 16.10.2026, audit decision 1) when GitHub CI and E are green and no critical/high/medium bug from CRITIC is open — day or night; then start the next part in a new session. Afik reviews after the merge. Once per feature: `result.md` (≤ 10 lines). WORKPLAN: once per Initiative | `result.md` |
 | 14 | ORCHESTRATOR | the **SRS trace** goes in `result.md` (IDs implemented or changed). The SRS files themselves are updated **once per Initiative**, at its close, with the as-built delta of all its features (`/srs-update`: section files, IDs, §17, version row, index) — and at once only when a decision changes scope or the security model | SRS trace; `docs/srs/` per Initiative |
 
 Step 9 follows step 8: CRITIC reviews a diff that holds the finished tests. Steps 6 and 8 may run in parallel (source vs tests).
@@ -84,8 +84,8 @@ Entry condition: any risk flag in `CLAUDE.md`.
 
 **Path per part (Afik, 15.10.2026).** A split spec marks each part's risk flags; the part, not the feature, takes the path.
 A part with no flag — a screen — runs Standard: CRITIC on sonnet, no DATA ARCHITECT, and still the full 🎨 depth
-(screenshots, axe, keyboard, desktop and phone). **Reviews: at most two per feature** — one for the Elevated parts once
-built, one for the rest at the end. **A part merges only after a review covers it:** parts that share a review merge together.
+(screenshots, axe, keyboard, desktop and phone). **Reviews: one round per part** (Afik, 16.10.2026, audit decision 4).
+**A part merges only after its review:** parts that share a review merge together.
 
 ## Bug-fix path
 
@@ -97,9 +97,9 @@ A defect in merged code: behaviour differs from what the SRS, or an approved `sp
 | 2 | **TEST ENGINEER** | a regression test derived from `bug.md` only — never the code. it must fail on the current code; a test that passes does not reproduce the bug | failing test |
 | 3 | **BUILDER** | the smallest change that fixes the root cause. no refactoring beyond it | diff + `notes.md` |
 | 4 | **CI** | the new test passes and nothing else turned red, on GitHub Actions — see "No merge to `main` without green CI on GitHub" | green build |
-| 5 | **CRITIC** | review the diff cold. skipped only when the fix meets every Light-path condition. any risk flag → Elevated: CRITIC on opus, and DATA ARCHITECT when the fix touches data | verdict |
-| 6 | **ORCHESTRATOR** | ✋ **Preview** — only if the fix is user-visible | go / no-go |
-| 7 | ORCHESTRATOR | merge, `result.md`, step 14 if behaviour the SRS describes changed | `result.md` |
+| 5 | **CRITIC** | review the diff cold. skipped only when the fix meets every Light-path condition. any risk flag → Elevated: CRITIC on opus, and DATA ARCHITECT when the fix touches data | bug list |
+| 6 | **E** | automated Preview E2E — only if the fix is user-visible | green run |
+| 7 | ORCHESTRATOR | merge on the Standard path's pre-approved condition (step 13), `result.md`, step 14 if behaviour the SRS describes changed | `result.md` |
 
 - **No SRS behaviour, no bug.** If the expected behaviour is not in the SRS or an approved spec, this is a
   requirements gap: a `DECISION REQUEST` to its decision owner (CLAUDE.md → "Decision authority"), then the
@@ -148,25 +148,21 @@ rather than merely compliant.
 
 ## Verdicts
 
-CRITIC returns exactly one. This is the release-readiness statement.
+**A bug list, not a verdict** (Afik, 16.10.2026, audit decision 4). CRITIC returns the bugs it found — each with
+severity, file, a concrete failure scenario and a fix — or "no bugs" explicitly. No `Validated with Concern`.
 
-| Verdict | Meaning | Consequence |
-|---|---|---|
-| `Validated` | ready | proceed to preview |
-| `Validated with Concern` | ready, and a choice here will hurt later | proceed + entry in `debt.md` |
-| `Not Ready` | not ready | back to BUILDER. ORCHESTRATOR may not reinterpret this |
+| Open bug | Consequence |
+|---|---|
+| critical · high · medium | blocks the merge: BUILDER fixes, CRITIC re-checks only these. ORCHESTRATOR may not reinterpret a severity |
+| low | fixed in the same part or one `debt.md` line; never blocks, no re-check |
 
-A review returned as prose without a verdict is rejected and re-run.
+A review returned as prose without a bug list is rejected and re-run. ALGORITHM & DATA, when step 5b ran, returns its
+own list on the same scale; a blocking bug from **either** reviewer blocks.
 
-**Two reviewers, one outcome.** When ALGORITHM & DATA reviews in parallel (step 5b ran), it returns its own
-verdict on the same scale. A `Not Ready` from **either** CRITIC or ALGORITHM & DATA blocks. Any
-`Validated with Concern` goes to `debt.md`. Only two `Validated` (or `Validated with Concern`) verdicts proceed.
+**Two strikes.** If the re-check still finds a blocking bug, ORCHESTRATOR does not send it back to BUILDER a third
+time. It writes a short impact note and files a `BLOCKER` to Afik about the approach, and waits.
 
-**Two strikes.** After the second `Not Ready` (from either reviewer) on the same task, ORCHESTRATOR does not send
-it back to BUILDER a third time. It writes a short impact note and files a `BLOCKER` to Afik about the approach,
-and waits. Two `Not Ready` never become a pass (decisions.md, 2026-10-13).
-
-**Round limit (Afik, 2026-10-13, every task).** After a `Not Ready`: one fix round, one re-check, never a third. A
+**Round limit (Afik, 2026-10-13, every task).** After a blocking bug: one fix round, one re-check, never a third. A
 process or guard task that still fails is not merged — its branch stays, a `debt.md` line, back to `main`, next WORKPLAN
 task without waiting. A product feature stops under Two strikes: `BLOCKER` with an impact note in WORKPLAN, work
 continues on whatever does not depend on it, else the session ends in the return format. Each task ends with one
@@ -252,6 +248,17 @@ decision: other parts of the same feature, the next feature's intake and spec, s
 4. **Every update to Afik** carries one line: what was done while waiting.
 5. Afik's items (secrets, approvals, browser steps) are asked **once**, on the WORKPLAN list "ממתין לך", never one by one.
 
+**Batched approvals (Afik, 16.10.2026, audit decision 2).** Before an Initiative opens, ORCHESTRATOR puts every decision
+reserved for Afik in that Initiative into **one questionnaire** (AskUserQuestion, plus `.work/_initiatives/<I>-questions.md`),
+then works without stopping. Production migrations are batched: merges apply to nestly-preview at once; ORCHESTRATOR
+dispatches `migrate` from `main` **once a day or once per Initiative** (`gh workflow run migrate.yml --ref main`), and Afik
+approves that one run on `db-production`. Merging never waits for it.
+
+**Two sessions in parallel from I3 (Afik, 16.10.2026, audit decision 9)** — only once decisions 1 and 2 are working.
+Pairs follow the dependency graph in `.work/_initiatives/roadmap.md` (Amendment 4): I3 ∥ I6 (F6.1–6.5), I4 ∥ I7,
+I5 ∥ I8 ∥ I10 ∥ I14. Each session has its own branch; merges that carry a migration go one at a time, rebased on `main`
+first, so the migration chain stays in timestamp order.
+
 ---
 
 ## Model assignment
@@ -291,39 +298,27 @@ Decided by Afik (14.10.2026) — quality is not lowered; duplication is removed 
   Noise is stabilised (fonts, animation, clock, data), never switched off. A screen without a baseline gets one in the
   same PR. The list `e2e/visual-screens.ts` is opt-in — only a listed screen is compared — so SPEC names every screen a
   🎨 criterion touches, TEST ENGINEER lists each one, and CRITIC checks the list against the 🎨 criteria.
-- **Hard ceiling** (Afik, 15.10.2026) — test lines ≤ 2× product lines per feature until launch; above it, TEST ENGINEER
-  removes the duplicated or lowest-value layer before handing off. `result.md` records the ratio.
+- **A test per criterion, nothing beyond** (Afik, 16.10.2026, audit decision 5) — every acceptance criterion gets its
+  test; no hardening past the criteria, also not on a low review item. The test-to-product ratio is information
+  (`result.md` may note it), not a target or a ceiling.
 - **Tools and hooks** — no new tests unless a tool actually broke.
 
 ---
 
 ## Cost discipline
 
-Target: **8–12 model calls per Standard feature, or per part of a split spec.** If one exceeds ~20, stop and ask
-why — usually the spec was too large and should have been split. Parts of one spec run in sequence without stopping,
-except on a reserved item, a real `BLOCKER` or Two strikes.
+**Target: 5–7 features a day** (Afik, 16.10.2026, audit decision 12). Parts of one spec run in sequence without
+stopping, except on a reserved item, a real `BLOCKER` or Two strikes.
 
 - No agent reads the whole repository.
 - Use SCOUT instead of reading files "to be safe." Every unnecessary file read burns context
   that the actual work needs.
 - Pass pointers, not prose.
-- **One session per feature** (Afik, 15.10.2026): the handoff is WORKPLAN "להמשך". Long sessions ran at 300–900K of context.
+- **A new session per part; `/compact` at 200K of context** (Afik, 16.10.2026, audit decision 6). The handoff is the
+  PR and `.work/<slug>/`. Long sessions ran at a median 320K and up to 964K.
 
 ---
 
 ## Changelog
-- 1.1 — 2026-10-10 — added the bug-fix path and the `bug.md` artifact · CRITIC's step 9 includes the Supabase platform rules in `data-model.md` · `result.md` records evidence. Decided by Afik after the engineering-guidelines review (`docs/engineering-guidelines-review-HE.md`). Design-time change, provisional until 5 features.
-- 1.2 — 2026-10-11 — CI gate includes typecheck · Light path: "no new endpoint" becomes "no endpoint reachable without authentication and no new external surface" · a Not Ready from CRITIC or ALGORITHM & DATA blocks · traceability: FR/AC IDs in test names and an `Implements:` line in commits · step 14 updates SRS §17. Decided by Afik (TypeScript and own-server decisions, 11.10.2026). Provisional until 5 features.
-- 1.3 — 2026-10-11 — `intake.md` artifact, written by `/feature` at step 2 · the Accessibility domain names the craft skills. Process skills in `.claude/skills/` carry out these steps; this file still defines them. Decided by Afik (skills decision). Provisional until 5 features.
-- 1.4 — 2026-10-11 — Elevated: Afik no longer reviews the diff; the protection is CRITIC on opus, DATA ARCHITECT, CI and hooks. Gate 2 reaches him as a plain-language /gate page; irreversible changes still need his approval. Decided by Afik. Design-time change.
-- 1.5 — 2026-10-11 — Working rules: ORCHESTRATOR passes Gate 1, Gate 2 and the Preview and decides unreserved `DECISION REQUEST`s, recording each in `decisions.md`. Reserved for Afik: secrets, production, irreversible or material SRS changes, legal / minors / money points, disagreement with a specialist. Decided by Afik.
-- 1.6 — 2026-10-11 — "Design consistency" domain, modelled on Accessibility (WORKPLAN 9.6). Decided by Afik ("Design consistency without a design agent"); the Preview row follows the working rules. Provisional until 5 features.
-- 1.7 — 2026-10-12 — No merge to `main` without green CI on GitHub Actions; a local run is not the gate. Decided by Afik after `ci.yml` was red on GitHub for runs 1–22 while merges were reported green locally.
-- 1.8 — 2026-10-13 — "Two strikes" under Verdicts: a second `Not Ready` on one task stops it for Afik. Decided by Afik (agent-system slimming, guard approach c).
-- 1.9 — 2026-10-13 — Traceability: squash merges, the PR body carries the `Implements:` line. Decided by Afik ("Commits and pushes", agent-slim stage 3).
-- 1.11 — 2026-10-14 — CI once per part: steps 7–9 run on local checks; one push when the part is finished; green GitHub CI on the last commit stays the merge condition. Decided by Afik ("CI once per part").
-- 1.10 — 2026-10-13 — SPEC CHALLENGE goes to its decision owner, not always to Afik. Decided by Afik (agent-slim stage 4, contradiction 2). Same day: `result.md` at most 15 lines; the cost target also per part; parts run in sequence (Afik, "From building the system to building the product"). The last change before I1 merges.
-- 1.12 — 2026-10-14 — BUILDER writes `interface.md` (step 6); TEST ENGINEER reads it with the spec, edits and runs its own tests (step 8). Decided by Afik ("מאשר 4–6", speed-up), an exception to the I1 freeze.
-- 1.13 — 2026-10-14 — "Waiting on Afik — keep working": while a track waits on Afik, ORCHESTRATOR continues on independent work; one side track at most; WORKPLAN lines for each stopped track; main track resumes first; every update says what was done while waiting. Decided by Afik (14.10, an exception to the I1 freeze).
-- 1.14 — 2026-10-15 — "Test rules — this project": depth by criterion type, one layer per behaviour, desktop and phone, Chrome-only e2e on PRs and Edge after each merge to main and by hand, blocking visual regression, soft 2× ceiling, no new tool tests; step 8 points to it. Decided by Afik (14.10, an exception to the I1 freeze); applies from F1.5.
-- 1.15 — 2026-10-15 — Development speed (Afik, "מאשר את A עד F", after the speed review): checks run by the agent that wrote the files, ORCHESTRATOR runs none · TEST ENGINEER reads source for names and seams, runs typecheck and lint on its tests, may start beside BUILDER; `interface.md` dropped · CRITIC writes findings itself; re-check is a fresh invocation · path per part, at most two reviews per feature, 🎨 depth kept on Standard · records once per feature, result ≤ 10 lines · SRS once per Initiative · records-only changes are Light · hard 2× test ceiling · one session per feature · Afik's items asked once. Evidence: `.work/dev-speed/`, decisions 2026-10-15 "Development speed". The last change before F1.8 merges.
+- 1.1–1.15 (10.10–15.10.2026): each entry is in `git log -- .claude/workflow.md` and in `decisions/2026-10.md`.
+- 1.16 — 2026-10-16 — audit decisions (Afik, `decisions.md` 2026-10-16 "Audit decisions" 1–6, 8, 9, 12): merge pre-approved on green CI + E with no blocking bug, also at night · questionnaire per Initiative, production migrate batched daily or per Initiative · DB tests local before push, budgets in pre-commit, broken old tests fixed in the part, full browser suite when a shared screen changes · one review round per part, re-check only on a real bug, a bug list instead of verdicts · a test per criterion, ratio is information · a new session per part, compact at 200K · two sessions in parallel from I3 · target 5–7 features a day.

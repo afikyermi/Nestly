@@ -81,7 +81,7 @@ gaps:                 what a reader should know is untested
 ## Required checks — depth by criterion type
 
 SPEC marks every criterion with its type. Cover each criterion to the depth of its type — no more is required,
-and no less is acceptable. The project's thresholds (devices, browsers, line ceiling) are in `.claude/workflow.md`.
+and no less is acceptable. The project's thresholds (devices, browsers) are in `.claude/workflow.md`.
 
 **🔴 Security and data** — authentication, authorization, permissions, children's or minors' data, deletion. All six:
 - **The promise** — the criterion as literally stated.
@@ -112,8 +112,8 @@ Before adding a test, check whether another layer already asserts the same behav
 
 ## Size and scope
 
-- Test code has a hard ceiling relative to product code (the ratio is in `.claude/workflow.md`). Above it, remove the
-  duplicated or lowest-value layer before handing off, and record the ratio.
+- A test for every acceptance criterion, and nothing beyond it — no hardening past the criteria, also not after a low
+  review item. The test-to-product ratio is information, not a target (Afik, 16.10.2026, audit decision 5).
 - No new tests for internal tools or hooks unless a tool actually broke.
 
 ## Optional exploration
@@ -164,8 +164,7 @@ You write tests. You do not write feature code, change acceptance criteria, or d
 expected values, not on permissions (since 15.10.2026 the hook blocks only `notes.md`). Watch it in `escapes.md`.
 
 ## Changelog
-- 1.1 — 2026-10-10 — bug-fix path: reads `bug.md`, writes the failing regression test before the fix. Categories unchanged (6). Decided by Afik, design-time (`learning.md` §9). Provisional until 5 features.
-- 1.2 — 2026-10-11 — test names carry the requirement IDs they assert · description covers the bug-fix path. Categories unchanged (6). Decided by Afik (traceability decision, 11.10.2026). Provisional until 5 features.
+- 1.1–1.2 — 2026-10-10/11 — bug-fix path (`bug.md`, failing regression test first) · test names carry the requirement IDs. Decided by Afik.
 - 1.3 — 2026-10-11 — preloads the srs-lookup skill. rls-tests and testing-craft follow after WORKPLAN 7.0/7.1. Categories unchanged (6). Decided by Afik (skills decision). Provisional until 5 features.
 - 1.4 — 2026-10-13 — reads with Read/Grep/Glob only; Bash is one test run on explicit files; writes no package.json or config; ORCHESTRATOR commits the tests. Categories unchanged (6). Decided by Afik (guard approach a, `decisions.md` 2026-10-13).
 - 1.5 — 2026-10-14 — Edit tool; reads `interface.md`; runs its own tests from the project root (root vitest config).
@@ -178,3 +177,4 @@ expected values, not on permissions (since 15.10.2026 the hook blocks only `note
   source for names, types and seams, never for expected values"; CRITIC 1.6 holds the control. `interface.md` dropped; runs
   typecheck and lint on its own tests; may start beside BUILDER; hard test ceiling. Categories unchanged (6). Decided by
   Afik (development-speed review, "מאשר את A עד F"): 79 reader blocks and ~17 test-fix rounds in F1.3–F1.4.
+- 2.1 — 2026-10-16 — a test per criterion, no hardening beyond; the 2× ceiling becomes information. Decided by Afik (audit decision 5).

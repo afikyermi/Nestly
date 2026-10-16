@@ -61,3 +61,35 @@ background server check on every image; **I5 adds Stories** as its last feature 
 expiry job). **I9**: "legal review and its budget" closes — Claude writes the terms and the privacy policy; M5 (Cloudflare
 CSAM scanning) needs a domain before public launch. I3 grows to 9 features, I5 to 5: about 85 in all. The SRS text for
 these lands at once (scope change), as its own Standard unit, after Afik's answers on the open details.
+
+## Amendment 4 — 16.10.2026 — account deletion, S-01 and the audit's roadmap gaps
+
+Afik's decisions after the full system audit (`decisions.md` 16.10 "Audit decisions" 10–11; the audit's findings A11-01..12,
+A4-02 and its plan §4–§5). Each line closes a gap the audit found in this file.
+
+1. **Account deletion gets a home: feature U1 in I9 (MVP).** FR-SET-002 · AC-108 · PG-050; OP-028 (30-day grace) and
+   OP-034 (related data deleted with the account) are decided. Elevated and irreversible: DATA ARCHITECT + Afik. Depends on
+   I3, I5 and I8 (it deletes their data) and on the jobs runner (item 7). I9 grows from 5 to 6 features.
+2. **S-01 (account takeover through Google, `security-privacy-open.md`) is closed in I2**, as I2's first part, before the
+   first endpoint that shows personal data. How it is closed is in the I2 questionnaire.
+3. **Missing dependencies:** I6 ← I4 for F6.6 only (FR-ADMIN-012, Amendment 2, needs the admin shell, the Admin role and
+   the Audit Log of I4); F6.1–F6.5 still depend on I2 alone · I14 ← I7 (AC-044: moderators get notifications) ·
+   I9 ← I1–I8 means all eight, I5 and I6 included · U1 ← I3, I5, I8.
+4. **I9 no longer waits on a "beta invite list"**: FR-ADMIN-011 was deferred on 13.10.2026 (sign-up is open).
+5. **I13 no longer waits on "invoices · refunds"**: payment is simulated (NFR-SEC-007, Amendment 2). "Price" (I11) and
+   "affiliate" (I12) have no recorded decision and stay open points.
+6. **Trust & Safety is flagged in I11 too** (reviews FR-SERV-011 and articles FR-PRO-003, Amendment 2).
+7. **Cross-cutting infrastructure gets an owner** — built once, as the first part of the first Initiative that needs it:
+   the jobs runner (`app_jobs`) → I5, first part (image check, Story expiry, BR-077, U1's 30-day job, notifications) ·
+   the Super Admin account → I4 · Moderator accounts → I14 · the PrivacyPreference default (Open/Restricted) and its
+   backfill for existing users → I2 (questionnaire) · logger, error monitoring and backups → I9 · `algorithm.md` by
+   ALGORITHM & DATA before I3 opens (already an I3 blocker).
+8. **Counts.** The table's FR/PG/AC columns predate Amendments 1–3; the SRS now has 93 FR, 52 PG and 116 AC. Every FR has
+   an Initiative except FR-ADMIN-011 (deferred). Features: I1 7 · I2 5 · I3 9 · I4 5 · I5 5 · I6 6 · I7 4 · I8 5 · I9 6 ·
+   I10 5 · I11 10 · I12 5 · I13 5 · I14 4 · I15 5 = **86, of them 52 in the MVP (I1–I9)**.
+9. **Feature lists before each Initiative.** I2–I14 have counts, not lists. Before an Initiative opens, its feature list
+   and parts are written with its questionnaire (`.work/_initiatives/<I>-questions.md`); a feature with no AC (17 of the
+   73 in the audit's breakdown) gets its criteria from SPEC then.
+10. **React Native stays after the Web** (SRS §11): no Expo work in parallel with I2–I14 unless Afik changes §11.
+11. **Open for Afik before the demo:** the admin charts the lecturer demo describes (FR-ADMIN-010/003, DATA-001 full) sit
+    in I15, outside the presentation scope (I1–I14). In or out is decided in the demo questionnaire.

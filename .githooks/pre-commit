@@ -1,0 +1,4 @@
+#!/bin/sh
+# Line budgets before every commit (Afik, 16.10.2026, audit decision 3). Enabled once per clone:
+#   git config core.hooksPath .githooks
+exec npm run --silent check:budgets
