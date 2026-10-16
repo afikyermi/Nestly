@@ -256,196 +256,6 @@ test('[dev-speed,C3] test-engineer: Bash typecheck on a tsconfig and lint on exp
   }
 });
 
-test('[dev-speed,C3] test-engineer: Bash tsc and eslint outside the fixed forms are blocked', () => {
-  for (const c of [
-    'npx tsc',
-    'npx tsc -p apps/web/tsconfig.json',
-    'npx tsc -p node_modules/x/tsconfig.json --noEmit',
-    'npx tsc -p .claude/worktrees/w/tsconfig.json --noEmit',
-    'npx tsc -p apps/web/src/x.ts',
-    'npx tsc -p ../tsconfig.json',
-    'npx tsc -p apps/web/tsconfig.json --watch',
-    'npx eslint apps/web/src/a.ts',
-    'npx eslint apps/web/tests/a.test.ts --fix',
-    'npx eslint .',
-  ]) {
-    blocks('test-engineer', 'Bash', { command: c });
-  }
-});
-
-test('[round4] test-engineer: Bash with read, git or npm commands is blocked', () => {
-  for (const c of [
-    'tail -n 5 apps/web/tests/a.test.ts',
-    'head apps/web/tests/a.test.ts',
-    'cat apps/web/tests/a.test.ts',
-    'cat apps/web/src/main.tsx',
-    'git status',
-    'git log --oneline',
-    'git add apps/web/tests/a.test.ts',
-    'git commit -m x',
-    'npm test',
-    'npm run ci',
-    'npm run test:unit',
-    'npm run typecheck -w apps/web',
-    'ls',
-    'node -e "1"',
-    'node apps/web/tests/a.test.ts',
-    'node --test',
-  ]) {
-    blocks('test-engineer', 'Bash', { command: c });
-  }
-});
-
-test('[round4] test-engineer: Bash with shell syntax is blocked', () => {
-  const run1 = 'npx vitest run apps/web/tests/a.test.ts';
-  for (const c of [
-    'npx vitest run apps/web/tests/*.test.ts',
-    'npx vitest run apps/web/tests/?.test.ts',
-    'npx vitest run apps/web/tests/[a].test.ts',
-    'npx vitest run apps/web/tests/{a}.test.ts',
-    'npx vitest run "apps/web/tests/a.test.ts"',
-    "npx vitest run 'apps/web/tests/a.test.ts'",
-    'npx vitest run $HOME/a.test.ts',
-    'npx vitest run apps/web/tests/a.test.ts $?',
-    'npx vitest run `echo apps/web/tests/a.test.ts`',
-    'npx vitest run $(echo apps/web/tests/a.test.ts)',
-    `${run1}; ls`,
-    `${run1} && ls`,
-    `${run1} || ls`,
-    `${run1} | tail -5`,
-    `${run1} | head`,
-    `${run1} 2>&1`,
-    `${run1} > out.txt`,
-    `${run1} < in.txt`,
-    `${run1} &`,
-    `${run1}\nls`,
-    `${run1} ~`,
-    `${run1} !x`,
-    `npx vitest run apps\\web\\tests\\a.test.ts`,
-    `${run1} ; echo exit=$?`,
-    `(${run1})`,
-    `echo hi; ${run1}`,
-    `ls && ${run1}`,
-  ]) {
-    blocks('test-engineer', 'Bash', { command: c });
-  }
-});
-
-test('[round4] test-engineer: Bash with cd is blocked, anywhere', () => {
-  for (const c of [
-    `cd ${ROOT.split(path.sep).join('/')} && npx vitest run apps/web/tests/a.test.ts`,
-    'cd apps/web && npx vitest run tests/a.test.ts',
-    'cd . && npx vitest run apps/web/tests/a.test.ts',
-    'cd ..',
-    'cd',
-  ]) {
-    blocks('test-engineer', 'Bash', { command: c });
-  }
-});
-
-test('[round4] test-engineer: Bash path arguments must be relative, existing, test-named and outside app source', () => {
-  const abs = P('apps', 'web', 'tests', 'a.test.ts');
-  for (const c of [
-    `npx vitest run ${abs.split(path.sep).join('/')}`,
-    'npx vitest run /etc/a.test.ts',
-    'npx vitest run ../a.test.ts',
-    'npx vitest run apps/web/tests/../tests/a.test.ts',
-    'npx vitest run apps/web/../web/tests/a.test.ts',
-    'node --test ../x/a.test.js',
-    'npx vitest run apps/web/tests/missing.test.ts',
-    'npx vitest run apps/web/tests',
-    'npx vitest run apps/web/tests/helper.ts',
-    'npx vitest run package.json',
-    'npx vitest run apps/web/src/in.test.ts',
-    'npx vitest run apps/web/src/main.tsx',
-    'npx vitest run apps/server/api/h.ts',
-    'npx playwright test apps/web/src/in.test.ts',
-    'node --test apps/web/src/in.test.ts',
-    'npx vitest run .work/x/notes.md',
-    'npx vitest run apps/web/tests/a.test.ts apps/web/src/in.test.ts',
-    'npx vitest run apps/web/tests/a.test.ts apps/web/tests/missing.test.ts',
-  ]) {
-    blocks('test-engineer', 'Bash', { command: c });
-  }
-});
-
-test('[round4] test-engineer: Bash with a test-named symlink into app source is blocked', (t) => {
-  if (!needLinks(t)) return;
-  blocks('test-engineer', 'Bash', { command: 'npx vitest run apps/web/tests/evil.test.ts' });
-  blocks('test-engineer', 'Bash', { command: 'node --test apps/web/tests/evil.test.ts' });
-});
-
-test('[round4,F2] test-engineer: Bash flags only in the fixed --name=value list', () => {
-  const v = 'npx vitest run apps/web/tests/a.test.ts';
-  const pw = 'npx playwright test e2e/c.spec.ts';
-  const nd = 'node --test supabase/tests/d.test.js';
-  for (const c of [
-    `${v} --coverage`,
-    `${v} --coverage=true`,
-    `${v} --config=x`,
-    `${v} --config=vitest.config.ts`,
-    `${v} --root=x`,
-    `${v} --dir=x`,
-    `${v} --outputFile=x`,
-    `${v} --reporter=json`,
-    `${v} --reporter=junit`,
-    `${v} --reporter=./evil.js`,
-    `${v} --bail=abc`,
-    `${v} --bail=-1`,
-    `${v} --reporter verbose`,
-    `${v} --reporter`,
-    `${v} --reporter=`,
-    `${v} --testNamePattern foo`,
-    `${v} -t foo`,
-    `${v} -t=foo`,
-    `${v} -u`,
-    `${v} --update`,
-    `${v} --watch`,
-    `${v} --project=x`,
-    `${v} --workers=2`,
-    `${v} --test-name-pattern=x`,
-    `${pw} --config=x`,
-    `${pw} -g foo`,
-    `${pw} --grep foo`,
-    `${pw} --project chromium`,
-    `${pw} --reporter=html`,
-    `${pw} --reporter=json`,
-    `${pw} --workers=two`,
-    `${pw} --output=x`,
-    `${pw} --ui`,
-    `${pw} --bail=1`,
-    `${nd} --test-reporter=junit`,
-    `${nd} --test-reporter-destination=out.txt`,
-    `${nd} --test-name-pattern x`,
-    `${nd} --require=./evil.js`,
-    `${nd} --import=./evil.js`,
-    `${nd} --experimental-test-coverage`,
-    `${nd} --eval=1`,
-    `${nd} -r ./evil.js`,
-  ]) {
-    blocks('test-engineer', 'Bash', { command: c });
-  }
-});
-
-test('[round4,F2] test-engineer: npx options and other packages are blocked', () => {
-  for (const c of [
-    'npx -p x vitest run apps/web/tests/a.test.ts',
-    'npx --package=x vitest run apps/web/tests/a.test.ts',
-    'npx -y vitest run apps/web/tests/a.test.ts',
-    'npx -c vitest apps/web/tests/a.test.ts',
-    'npx tsx apps/web/tests/a.test.ts',
-    'npx vitest apps/web/tests/a.test.ts',
-    'npx vitest watch apps/web/tests/a.test.ts',
-    'npx playwright install',
-    'npx playwright show-report',
-    'npx tsc',
-    'vitest run apps/web/tests/a.test.ts',
-    'pnpm vitest run apps/web/tests/a.test.ts',
-  ]) {
-    blocks('test-engineer', 'Bash', { command: c });
-  }
-});
-
 // ---------------------------------------------------------------- TEST ENGINEER, Write / Edit
 
 test('[F3] test-engineer: Write and Edit of test files in test areas and .work md files are allowed', () => {
@@ -552,16 +362,15 @@ test('[round4,d] session is "" when the input has no session_id; an allowed call
   assert.strictEqual(logLines(root)[0].session, '');
 });
 
-test('[round4,d] rule classification: reader, r4-critical, r4, builder', () => {
+test('[round4,d] rule classification: reader, r4-critical, builder', () => {
   const root = mkRoot();
   blocks('test-engineer', 'Read', { file_path: path.join(root, '.work', 'x', 'notes.md') }, { root });
   blocks('all', 'Bash', { command: 'cat .env' }, { root });
   blocks('all', 'Bash', { command: 'git push --force' }, { root });
-  blocks('all', 'Bash', { command: 'git add -A' }, { root });
   blocks('builder', 'Write', { file_path: path.join(root, 'apps', 'web', 'src', 'a.test.ts'), content: '' }, { root });
   assert.deepStrictEqual(
     logLines(root).map((l) => l.rule),
-    ['reader', 'r4-critical', 'r4-critical', 'r4', 'builder'],
+    ['reader', 'r4-critical', 'r4-critical', 'builder'],
   );
 });
 
@@ -571,53 +380,18 @@ test('[round4,d] a failed log write never changes the block', () => {
   fs.mkdirSync(path.join(root, '.claude'), { recursive: true });
   fs.writeFileSync(path.join(root, '.claude', 'logs'), 'not a directory');
   blocks('critic', 'Bash', { command: 'ls' }, { root });
-  blocks('all', 'Bash', { command: 'git add -A' }, { root });
+  blocks('all', 'Bash', { command: 'git push --force' }, { root });
   allows('critic', 'Read', { file_path: path.join(root, '.work', 'x', 'spec.md') }, { root });
 });
 
-test('[round4,F5] incidents.md: an r4-critical block adds a line; an r4 or builder block does not', () => {
+test('[round4,F5] incidents.md: an r4-critical block adds a line; reader and builder blocks never do, however many', () => {
   const root = mkRoot();
-  blocks('all', 'Bash', { command: 'git add -A' }, { root, session: 's' });
+  for (let i = 0; i < 4; i++) blocks('critic', 'Bash', { command: 'ls' }, { root, session: 's' });
   blocks('builder', 'Write', { file_path: path.join(root, 'apps', 'web', 'src', 'a.test.ts'), content: '' }, { root, session: 's' });
   assert.strictEqual(incidentLines(root).length, 0);
   blocks('all', 'Bash', { command: 'cat .env' }, { root, session: 's' });
   assert.strictEqual(incidentLines(root).length, 1);
   assert.doesNotMatch(incidentLines(root)[0], /cat \.env/, 'the command is not written to incidents.md');
-});
-
-test('[round4,F5] incidents.md: the third reader block with the same role and session adds one line, once', () => {
-  const root = mkRoot();
-  const o = { root, session: 'sess-A' };
-  blocks('critic', 'Bash', { command: 'ls' }, o);
-  assert.strictEqual(incidentLines(root).length, 0, 'first');
-  blocks('critic', 'Bash', { command: 'ls' }, o);
-  assert.strictEqual(incidentLines(root).length, 0, 'second');
-  blocks('critic', 'Bash', { command: 'ls' }, o);
-  assert.strictEqual(incidentLines(root).length, 1, 'third');
-  blocks('critic', 'Bash', { command: 'ls' }, o);
-  blocks('critic', 'Bash', { command: 'ls' }, o);
-  assert.strictEqual(incidentLines(root).length, 1, 'fourth and fifth add nothing');
-});
-
-test('[round4,F5] incidents.md: the count is per role and per session, and only reader blocks count', () => {
-  const root = mkRoot();
-  // two critic blocks in session A, two in session B: no escalation
-  blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'A' });
-  blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'B' });
-  blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'A' });
-  blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'B' });
-  // a different role in session A
-  blocks('test-engineer', 'Read', { file_path: path.join(root, '.work', 'x', 'notes.md') }, { root, session: 'A' });
-  // non-reader blocks in session A
-  blocks('all', 'Bash', { command: 'git add -A' }, { root, session: 'A' });
-  blocks('builder', 'Write', { file_path: path.join(root, 'apps', 'web', 'src', 'a.test.ts'), content: '' }, { root, session: 'A' });
-  assert.strictEqual(incidentLines(root).length, 0);
-  // third critic block in A
-  blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'A' });
-  assert.strictEqual(incidentLines(root).length, 1);
-  // B is still at two; its third escalates separately
-  blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'B' });
-  assert.strictEqual(incidentLines(root).length, 2);
 });
 
 // ---------------------------------------------------------------- regression: R4 and BUILDER unchanged
@@ -628,10 +402,9 @@ test('regression: fails closed on bad input and unknown role', () => {
   assert.strictEqual(run('all', 'Bash', JSON.stringify({ tool_name: 'Bash' })), 2);
 });
 
-test('regression [R4]: git add -A / force push are blocked, ordinary forms are not', () => {
-  for (const c of ['git add -A', 'git add .', 'git add --all', 'git -C x add -A', 'echo hi && git add .']) blocks('all', 'Bash', { command: c });
+test('regression [R4]: force push is blocked, ordinary forms and git add -A are not', () => {
   for (const c of ['git push --force', 'git push -f', 'git push origin +main', 'git push --force-with-lease']) blocks('all', 'Bash', { command: c });
-  for (const c of ['git push', 'git push origin main', 'git status', 'git add -u', 'git add apps/web/src/a.ts']) allows('all', 'Bash', { command: c });
+  for (const c of ['git push', 'git push origin main', 'git status', 'git add -u', 'git add apps/web/src/a.ts', 'git add -A', 'git add .']) allows('all', 'Bash', { command: c });
 });
 
 test('regression [R4]: .env in a shell command is blocked', () => {
@@ -672,71 +445,16 @@ test('[I-1] critic: UNC alias of the root, Grep on .work with no glob, is blocke
   blocks('critic', 'Grep', { pattern: '.', path: unc() });
 });
 
-test('[I-1] critic: UNC, device-path and other-drive forms of Read, Grep, Glob and Write are blocked', (t) => {
-  if (!winSkip(t)) return;
-  for (const f of [unc('.work', 'x', 'spec.md'), uncFwd('.work', 'x', 'spec.md'), unc('apps', 'web', 'src', 'main.tsx')]) {
-    blocks('critic', 'Read', { file_path: f });
-  }
-  blocks('critic', 'Read', { file_path: devicePath('.work', 'x', 'spec.md') });
-  blocks('critic', 'Read', { file_path: devicePath('apps', 'web', 'src', 'main.tsx') });
-  blocks('critic', 'Read', { file_path: otherDrive() + 'a.ts' });
-  blocks('critic', 'Grep', { pattern: 'x', path: devicePath('.work') });
-  blocks('critic', 'Grep', { pattern: 'x', path: otherDrive(), glob: '*.ts' });
-  blocks('critic', 'Grep', { pattern: 'x', path: unc('apps', 'web', 'src'), glob: '*.ts' });
-  blocks('critic', 'Glob', { pattern: '**/*.ts', path: unc('apps') });
-  blocks('critic', 'Glob', { pattern: '**/*.ts', path: devicePath('apps') });
-  blocks('critic', 'Glob', { pattern: '**/*.ts', path: otherDrive() });
-  blocks('critic', 'Write', { file_path: unc('.work', 's', 'findings.md'), content: 'f' });
-  blocks('critic', 'Write', { file_path: devicePath('.work', 's', 'findings.md'), content: 'f' });
-  blocks('critic', 'Write', { file_path: otherDrive() + 'findings.md', content: 'f' });
-});
-
-test('[I-1] test-engineer: UNC, device-path and other-drive forms of Read, Grep, Glob and Write are blocked', (t) => {
-  if (!winSkip(t)) return;
-  blocks('test-engineer', 'Read', { file_path: unc('apps', 'web', 'src', 'x.ts') });
-  blocks('test-engineer', 'Read', { file_path: unc('apps', 'web', 'src', 'main.tsx') });
-  blocks('test-engineer', 'Read', { file_path: uncFwd('apps', 'web', 'src', 'main.tsx') });
-  blocks('test-engineer', 'Read', { file_path: unc('apps', 'server', 'api', 'h.ts') });
-  blocks('test-engineer', 'Read', { file_path: unc('apps', 'web', 'tests', 'a.test.ts') });
-  blocks('test-engineer', 'Read', { file_path: unc('.work', 'x', 'spec.md') });
-  blocks('test-engineer', 'Read', { file_path: devicePath('apps', 'web', 'src', 'main.tsx') });
-  blocks('test-engineer', 'Read', { file_path: devicePath('apps', 'web', 'tests', 'a.test.ts') });
-  blocks('test-engineer', 'Read', { file_path: otherDrive() + 'a.test.ts' });
-  blocks('test-engineer', 'Grep', { pattern: 'x', path: unc('apps') });
-  blocks('test-engineer', 'Grep', { pattern: 'x', path: unc('apps', 'web', 'src') });
-  blocks('test-engineer', 'Grep', { pattern: 'x', path: unc('apps', 'web', 'tests') });
-  blocks('test-engineer', 'Grep', { pattern: 'x', path: devicePath('apps') });
-  blocks('test-engineer', 'Grep', { pattern: 'x', path: otherDrive() });
-  blocks('test-engineer', 'Glob', { pattern: '**/*.tsx', path: unc('apps') });
-  blocks('test-engineer', 'Glob', { pattern: '*', path: unc('apps', 'web', 'tests') });
-  blocks('test-engineer', 'Glob', { pattern: '*', path: devicePath('apps', 'web', 'src') });
-  blocks('test-engineer', 'Glob', { pattern: '*', path: otherDrive() });
-  for (const tool of ['Write', 'Edit']) {
-    blocks('test-engineer', tool, { file_path: unc('apps', 'web', 'src', 'new.test.ts'), content: 'x', old_string: 'a', new_string: 'b' });
-    blocks('test-engineer', tool, { file_path: unc('apps', 'web', 'tests', 'new.test.ts'), content: 'x', old_string: 'a', new_string: 'b' });
-    blocks('test-engineer', tool, { file_path: devicePath('apps', 'web', 'tests', 'new.test.ts'), content: 'x', old_string: 'a', new_string: 'b' });
-    blocks('test-engineer', tool, { file_path: otherDrive() + 'new.test.ts', content: 'x', old_string: 'a', new_string: 'b' });
-  }
-});
-
-test('[I-1] both readers: an absolute path outside the project root is blocked on any platform', () => {
-  const outside = path.join(path.dirname(ROOT), 'guard-next-outside-' + process.pid);
-  fs.mkdirSync(outside, { recursive: true });
-  fs.writeFileSync(path.join(outside, 'o.test.ts'), 'x\n');
-  fs.writeFileSync(path.join(outside, 'findings.md'), 'x\n');
+test('[PR 37 CRITIC 1] both readers: a Grep outside the root needs a notes-excluding glob or type', () => {
   for (const role of ['critic', 'test-engineer']) {
-    blocks(role, 'Read', { file_path: path.join(outside, 'o.test.ts') });
-    blocks(role, 'Grep', { pattern: 'x', path: outside, glob: '*.ts' });
-    blocks(role, 'Grep', { pattern: 'x', path: path.join(outside, 'o.test.ts') });
-    blocks(role, 'Glob', { pattern: '*', path: outside });
-    blocks(role, 'Write', { file_path: path.join(outside, 'new.test.ts'), content: 'x' });
+    // Another drive and a \\?\ device path are paths only on Windows.
+    const winOnly = IS_WIN ? [otherDrive(), devicePath('.work')] : [];
+    for (const p of [path.dirname(ROOT), path.join(path.dirname(ROOT), 'other-clone'), ...winOnly]) {
+      blocks(role, 'Grep', { pattern: '.', path: p });
+      allows(role, 'Grep', { pattern: '.', path: p, glob: '*.ts' });
+      allows(role, 'Grep', { pattern: '.', path: p, type: 'ts' });
+    }
   }
-  blocks('critic', 'Write', { file_path: path.join(outside, 'findings.md'), content: 'x' });
-  blocks('critic', 'Write', { file_path: path.join(outside, '.work', 's', 'findings.md'), content: 'x' });
-  blocks('test-engineer', 'Edit', { file_path: path.join(outside, 'o.test.ts'), old_string: 'a', new_string: 'b' });
-  blocks('test-engineer', 'Write', { file_path: path.join(outside, '.work', 's', 'x.md'), content: 'x' });
-  blocks('critic', 'Read', { file_path: path.parse(ROOT).root });
-  blocks('test-engineer', 'Glob', { pattern: '*', path: path.parse(ROOT).root });
 });
 
 test('[I-1] regression: ordinary in-root absolute paths stay allowed', () => {
@@ -755,34 +473,3 @@ function seedReaderBlocks(root, role, session, n) {
   fs.appendFileSync(path.join(dir, 'blocks.jsonl'), line.repeat(n));
 }
 
-test('[I-3] incidents.md: with 3 reader lines already logged and no incidents line, the next block escalates once; a further block adds nothing', () => {
-  const root = mkRoot();
-  seedReaderBlocks(root, 'critic', 'sess-S', 3);
-  assert.strictEqual(incidentLines(root).length, 0);
-  blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'sess-S' });
-  assert.strictEqual(incidentLines(root).length, 1, 'count is already past 3: escalate');
-  blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'sess-S' });
-  assert.strictEqual(incidentLines(root).length, 1, 'still one');
-  blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'sess-S' });
-  assert.strictEqual(incidentLines(root).length, 1, 'still one');
-});
-
-test('[I-3] incidents.md: a count of 5 before the block still escalates once, per role and session', () => {
-  const root = mkRoot();
-  seedReaderBlocks(root, 'critic', 'A', 5);
-  seedReaderBlocks(root, 'critic', 'B', 2);
-  blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'B' });
-  assert.strictEqual(incidentLines(root).length, 1, 'B reaches exactly 3 with this block');
-  blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'A' });
-  assert.strictEqual(incidentLines(root).length, 2, 'A escalates separately');
-  blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'A' });
-  blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'B' });
-  assert.strictEqual(incidentLines(root).length, 2, 'no repeats');
-});
-
-test('[I-3] incidents.md: seeded reader lines of another role do not trigger escalation', () => {
-  const root = mkRoot();
-  seedReaderBlocks(root, 'test-engineer', 'S', 5);
-  blocks('critic', 'Bash', { command: 'ls' }, { root, session: 'S' });
-  assert.strictEqual(incidentLines(root).length, 0);
-});

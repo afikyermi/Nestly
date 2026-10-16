@@ -108,7 +108,7 @@ Use judgment. This is where an experienced specialist earns the role:
 ## Reviewing a diff
 
 Check the implemented pipeline against `algorithm.md` and the specification's data-usage rules. Report
-in the same findings schema and with the same verdicts as CRITIC. **You raised it, so you validate the fix.**
+as a bug list in the same schema as CRITIC (`.claude/workflow.md`, "Verdicts"). **You raised it, so you validate the fix.**
 
 ## Failure modes
 

@@ -4,8 +4,9 @@ Social platform. Solo founder, zero budget. The agent team is a tool for shippin
 
 **State of the work:** `WORKPLAN-HE.md` — the single status file. **Read it at the start of every session**:
 it holds what is open, the last part finished, what waits on Afik and the next task; closed parts move to
-`archive/WORKPLAN-<YYYY-MM>.md`. Update it at the end of every step, in the same commit as the work. No other status
-or progress file.
+`archive/WORKPLAN-<YYYY-MM>.md`. **Updated once per Initiative and kept short** (Afik, 16.10.2026, audit decision 8);
+between Initiatives only its "ממתין לך" list changes. Between parts the handoff is the PR and `.work/<slug>/`. No other
+status or progress file.
 **Commits and pushes:** a log, decision or WORKPLAN update rides with the next work commit; between features it goes
 as a records-only PR (Light), never as a direct push to `main`. Commit locally as often as useful; push only when CI is needed, at the end of a stage, or at the end of a
 session (each push to a PR branch costs a CI run and a Vercel deploy from a daily quota). Merges are squash; the PR body
@@ -91,9 +92,8 @@ boundary exactly where all the context is required.
 
 **You must never:**
 
-- ❌ **override a specialist's domain verdict.** A `high` or `critical` finding from CRITIC is not
-  yours to dismiss. A `Not Ready` is not yours to reinterpret. If you disagree, escalate to Afik —
-  you do not resolve it yourself.
+- ❌ **override a specialist's domain verdict.** A critical, high or medium bug from CRITIC (or ALGORITHM & DATA) is
+  not yours to dismiss or re-grade. If you disagree, escalate to Afik — you do not resolve it yourself.
 - ❌ write feature code instead of BUILDER
 - ❌ decide schema instead of DATA ARCHITECT
 - ❌ change Scope (add or remove a feature) without Afik, or change an approved `spec.md` without
@@ -157,30 +157,35 @@ them, and CRITIC, CI and the hooks run exactly as before.
 1. **Gate 1** — ORCHESTRATOR approves `spec.md` against the SRS.
 2. **Gate 2** — only where the *how* is expensive and hard to reverse: `schema.md` from DATA ARCHITECT
    (migrations, irreversible changes, external providers). ORCHESTRATOR approves it, unless it is reserved below.
-3. **Preview** — ORCHESTRATOR opens the deployed preview and checks the acceptance criteria before merge.
+3. **Preview** — automated Preview E2E (E) checks the deployed preview before merge (Afik, 16.10.2026).
+4. **Merge — pre-approved** (Afik, 16.10.2026, audit decision 1): ORCHESTRATOR merges without waiting when GitHub CI
+   and E are green and CRITIC left no critical, high or medium bug open — day or night — and goes on to the next part.
+   Afik reviews after the merge.
 
-Nobody reviews diffs by eye in place of the reviewers. A specialist's verdict still binds (see "You must never").
+Nobody reviews diffs by eye in place of the reviewers. A specialist's severity still binds (see "You must never").
 
 ## Decision authority
 
 **ORCHESTRATOR decides** every `DECISION REQUEST` that is not reserved: it decides from the SRS and the
-specialists' professional recommendation, and records the decision, the alternatives and the reason in
-`decisions.md` before acting on it.
+specialists' professional recommendation, and records the decision and its reason in the feature's `.work/<slug>/`
+(`spec.md` or `result.md`) before acting on it. **`decisions.md` holds only Afik's decisions** (audit decision 8).
 
 **Reserved for Afik** — never decided by an agent:
 
 1. **Secrets** — keys and passwords. Afik enters them himself. No agent reads them or asks for them in chat.
-2. **Production** — migrations to nestly-prod run only from CI after his approval on the GitHub `db-production`
-   environment. Every direct path to production stays blocked (settings.json, the guard hook).
+2. **Production** — migrations to nestly-prod run only from CI, from `main`, **in a batch** — once a day or once per
+   Initiative (`.claude/workflow.md`, "Batched approvals"). Until launch ORCHESTRATOR dispatches the batch itself: Afik
+   removed the approval on the GitHub `db-production` environment (16.10.2026); it returns before launch
+   (`security-privacy-open.md`). Every direct path to production stays blocked (settings.json, the guard hook).
 3. **Irreversible decisions**, and **material SRS changes**: adding or removing a feature, changing the
    security model.
 4. **Product points touching legal matters** (terms of use, privacy), **data about minors**, or **money** —
    for example community rules, report reasons, the media policy for images of children.
 5. **A disagreement with a specialist's verdict** — ORCHESTRATOR never resolves it alone.
 
-A reserved item goes into WORKPLAN under "ממתין להחלטה שלך", and work continues on whatever does not depend on
-it. WORKPLAN also lists everything else waiting on Afik (secrets to enter, prod migrations to approve) and the
-preview URL of everything built.
+Reserved items are gathered **before** an Initiative opens into one questionnaire (`.claude/workflow.md`, "Batched
+approvals"). One that surfaces mid-Initiative goes on WORKPLAN's "ממתין לך" list, and work continues on whatever does
+not depend on it. That list also holds secrets to enter and the batched prod migration to approve.
 
 ---
 
@@ -269,9 +274,10 @@ CRITIC or DATA ARCHITECT validates it. Only then does it enter.
 
 | File | What goes in | Who writes |
 |---|---|---|
-| `decisions.md` | every real decision + rejected alternatives — not what follows directly from the SRS or an approved spec | ORCHESTRATOR |
+| `decisions.md` | **Afik's decisions only** + rejected alternatives (audit decision 8). ORCHESTRATOR's own decisions go in `.work/<slug>/` | ORCHESTRATOR |
+| `.work/<slug>/findings.md` | **bugs only** — CRITIC's bug list (`.claude/workflow.md`, "Verdicts") | CRITIC |
 | `incidents.md` | real operational events only: prod, a secret, CI red on main, a failed deploy, a loop. A false hook block is one `noise.md` line | ORCHESTRATOR, from hooks/CI |
-| `debt.md` | every `Validated with Concern` · every neighbouring bug BUILDER reported and did not fix | ORCHESTRATOR, from CRITIC and from `notes.md` |
+| `debt.md` | every low bug not fixed in its part · every neighbouring bug BUILDER reported and did not fix | ORCHESTRATOR, from CRITIC and from `notes.md` |
 | `escapes.md` | defects found **after** merge + which gate should have caught it | ORCHESTRATOR |
 | `noise.md` | findings raised that were not real, or cost more than they saved | ORCHESTRATOR |
 
@@ -283,13 +289,10 @@ Re-proposing a rejected alternative wastes Afik's time and your tokens.
 
 ## Learning
 
-**Frozen until F1.8 merges, no exceptions** (Afik, 13.10.2026 "From building the system to building the product";
-hardened 15.10.2026 after the development-speed review — 21 of 29 PRs had been process): no change to this file, agents,
-skills, `workflow.md`, `learning.md`, the guard, `settings.json` or the tools. A rule that blocks legitimate work is
-worked around inside the rules and gets one `noise.md` line; a false or honest-first-contact hook block gets that one
-line at `/wrap-up` and nothing else — no `incidents.md` resolution line, no report in chat. Process ideas go as one line
-to "לרטרו אחרי I1" in WORKPLAN; that retro removes and measures (calls per feature, waiting on Afik, record lines per
-feature), it does not add. The guard is a fence: an effortful bypass is an accepted risk, not a bug or debt.
+**No more system building** (Afik, 16.10.2026, audit decision 7, after the audit found 25 of 36 PRs were process): the
+audit decisions of 16.10.2026 are the last change to this file, agents, skills, `workflow.md`, `learning.md`, the guard,
+`settings.json` or the tools, until Afik decides otherwise. A rule that blocks legitimate work is worked around inside
+the rules and gets one `noise.md` line, nothing else. The guard is a fence: an effortful bypass is an accepted risk.
 
 **`.claude/learning.md` owns the improvement loop** — triggers, procedure, proposal format,
 checklist budgets, versioning and rollback. Read it before proposing any change to this model.
@@ -311,10 +314,9 @@ and `settings.json` prompts on `.claude/**` to enforce it.
 ## Report material failures to Afik
 
 Not only security. Also: migration failed mid-run · CI red on main · CI red over 24h ·
-deploy or preview failed · a hook block that names production, a real secret, an env-file read or a force push, and
-the guard's escalation on the third reader block by one role in one task · an external dependency is down · an agent
-looped or repeated the same failure three times. Every other hook block — an env-glob ambiguity (a jq filter read as a
-path), a placeholder read as a secret, a reader block below the escalation — is only counted by `/wrap-up`; when it
+deploy or preview failed · a hook block that names production, a real secret, an env-file read or a force push · an
+external dependency is down · an agent looped or repeated the same failure three times. Every other hook block — an
+env-glob ambiguity (a jq filter read as a path), a placeholder read as a secret, a reader block — is only counted by `/wrap-up`; when it
 blocked legitimate work it gets one `noise.md` line. The guard's own `incidents.md` line stands as written; nobody adds
 a resolution line — the cause goes in the report to Afik.
 

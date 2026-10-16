@@ -16,8 +16,8 @@ WORKPLAN rule in `CLAUDE.md`. Runs **once per feature**, never per part.
 
 ## Preconditions
 
-The Preview passed — ORCHESTRATOR checked it, URL recorded in WORKPLAN (or the change took the Light path) · no
-`Not Ready` stands · CI is green.
+E (automated Preview E2E) is green (or the change took the Light path) · no critical, high or medium bug is
+open · CI is green.
 
 ## Steps
 
@@ -27,9 +27,8 @@ The Preview passed — ORCHESTRATOR checked it, URL recorded in WORKPLAN (or the
    or `noise.md` where a finding proved real after merge, or proved not real · **blocks:** from the local
    `.claude/logs/blocks.jsonl`, counted per role and `rule`, as one "Hook blocks" line in `result.md` (none → "Hook
    blocks: none"); a block that stopped legitimate work is one `noise.md` line — never an `incidents.md` resolution line.
-   **Then rotate the log:** move `blocks.jsonl` and every `escalated-*.flag` in `.claude/logs/` into
-   `.claude/logs/archive/<YYYY-MM-DD>-<slug>/` (a move, never a delete), so the count and the once-per-role escalation
-   start again with the next task.
+   **Then rotate the log:** move `blocks.jsonl` in `.claude/logs/` into `.claude/logs/archive/<YYYY-MM-DD>-<slug>/`
+   (a move, never a delete), so the count starts again with the next task.
 3. **SRS — step 14:** the SRS trace is in `result.md`; the SRS files are updated once per Initiative, at its close
    (`.claude/skills/srs-update/SKILL.md`, steps 1–6), or at once for a decision that changes scope or the security model.
 4. **WORKPLAN:** the task's status in its part table, and the "איפה אנחנו עומדים" block. WORKPLAN keeps only open

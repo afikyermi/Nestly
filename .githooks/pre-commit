@@ -1,0 +1,7 @@
+#!/bin/sh
+# Before every commit (Afik, 16.10.2026, audit decisions 3 and 7). Enabled once per clone:
+#   git config core.hooksPath .githooks
+# 1. Line budgets. 2. The guard's secret scan on the staged diff — here it sees the index even when `git add` and
+# `git commit` run in one command. The repo is public.
+npm run --silent check:budgets || exit 1
+exec node -e "const v = require('./.claude/hooks/guard.js').scanForSecrets(process.cwd(), false); if (v) { console.error('pre-commit: ' + (v.reason || v)); process.exit(1); }"

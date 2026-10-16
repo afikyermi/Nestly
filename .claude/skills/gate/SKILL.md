@@ -38,7 +38,7 @@ plain language.
 ## Stop conditions
 
 - A required artifact is missing → say which one. Never build a gate page from memory.
-- A `Not Ready` verdict stands → Preview cannot be requested. Say so.
+- An open critical, high or medium bug stands → the part cannot merge. Say so.
 
 ## Done when
 

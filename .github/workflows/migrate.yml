@@ -7,8 +7,9 @@
 #
 #   preview     environment db-preview. Runs first, from any ref a manual run names (a feature's migrations run on
 #               nestly-preview before merge), or from main.
-#   production  environment db-production: required reviewer Afik, deployment branch main only. Runs only from main
-#               and only after preview succeeded.
+#   production  environment db-production: required reviewer Afik, deployment branch main only. Runs only from main,
+#               only after preview succeeded, and only in a manual run: production is batched once a day or once per
+#               Initiative (decisions 2026-10-16 "Audit decisions" 2), so a merge never queues an approval.
 #
 # Each job reads one secret, APP_OWNER_DATABASE_URL of its environment. tools/migrate-url-guard.mjs refuses it unless
 # its user is app_owner.<that environment's project ref> and its port is 5432 (session pooler). Nothing prints the
@@ -92,7 +93,7 @@ jobs:
   production:
     name: db-production
     needs: preview
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: db-production
