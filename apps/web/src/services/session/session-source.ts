@@ -47,8 +47,6 @@ export interface SessionAccount {
   discardGoogleStart(): void;
   /** The Auth user's email when the user came in through Google (the completion screen then asks for a password); null for any other user. Rejects when Auth could not answer. */
   googleAccount(): Promise<{ email: string } | null>;
-  /** Sets the Auth user's password (F1.8 completion). 'failed' covers every refusal and a call that never answered. */
-  setPassword(password: string): Promise<'set' | 'failed'>;
   /** Asks the server for the account state now (e.g. after a 409 on completion) and acts on the answer. */
   recheck(): Promise<void>;
   /** The current access token, renewed if it has expired; null without a session. */
