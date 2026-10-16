@@ -1,0 +1,37 @@
+number,kind,title,head_branch,created_at,merged_at,squash_sha,files_changed,insertions,deletions
+36,records,Records after F1.8 + I1 close (SRS 2.19),chore/records-after-f18,2026-10-16T15:43:17Z,2026-10-16T15:46:41Z,a98b29a,25,150,72
+35,product,I1 F1.8: sign-in and sign-up with Google,feat/google-sign-in,2026-10-16T13:32:09Z,2026-10-16T15:21:43Z,9ece04e,51,2607,69
+34,records,Records after E part 2 (PR 33),chore/records-after-e2,2026-10-16T09:40:54Z,2026-10-16T09:44:53Z,a15c551,1,3,2
+33,product,E part 2: delete Preview test users (DR-E1 option 1),feat/e-cleanup,2026-10-16T08:45:50Z,2026-10-16T09:40:18Z,6627502,17,964,27
+32,records,Records after F1.6: merge; production migrate pending; guard exception for *.flow.ts,chore/records-after-f16,2026-10-16T06:19:12Z,2026-10-16T08:37:23Z,b50fa64,3,35,5
+31,product,I1 F1.6: password recovery by security questions + E automated Preview E2E + SRS 2.18,feat/f1-6-password-recovery,2026-10-15T16:41:55Z,2026-10-16T06:18:14Z,c0d34d7,147,11357,193
+30,process,Development speed (Afik A-F): freeze to F1.8 and rules,chore/dev-speed,2026-10-15T15:59:14Z,2026-10-15T16:20:33Z,1742adb,28,837,324
+29,product,I1 F1.5: email sign-in; session and logout (login-session),feat/f1-5-login-session,2026-10-15T10:50:32Z,2026-10-15T13:03:55Z,27816b4,82,5579,207
+28,records,SRS 2.15: lecturer-presentation decisions,chore/srs-2-15-demo,2026-10-15T09:59:04Z,2026-10-15T10:14:18Z,9cf70b3,24,162,40
+27,process,Debt before F1.5: is_active_account own-check test; split slow test; error log,chore/debt-before-f15,2026-10-15T09:30:49Z,2026-10-15T09:53:42Z,9aadef6,15,827,32
+26,process,Test rules: depth by criterion type; Chrome-only PR browser job; Edge on main; visual regression; SRS 2.14,chore/test-rules,2026-10-15T07:19:25Z,2026-10-15T07:56:27Z,02842b0,23,614,88
+25,product,I1 F1.4: registration step 2 and account creation (register-account-create),feat/register-account-create,2026-10-14T18:18:15Z,2026-10-15T06:25:43Z,0cdd5fa,91,7953,135
+24,process,Speed-up 4-6: TEST ENGINEER edits and runs tests; interface.md; jq filters in the guard,chore/speed-up-2,2026-10-14T16:00:55Z,2026-10-14T16:03:35Z,e12d384,10,174,60
+23,process,Speed-up: parallel browser CI; Vercel builds PR branches; root vitest,chore/speed-up,2026-10-14T13:49:33Z,2026-10-14T14:03:13Z,a756931,10,392,12
+22,product,I1 F1.3: registration step 1 (register-profile-step),feat/register-profile-step,2026-10-14T12:28:32Z,2026-10-14T14:40:01Z,8c3ab07,50,2994,183
+21,process,Preview access: preview-smoke workflow; preview-shot tool; server drops the bypass header,chore/preview-access-v2,2026-10-14T10:48:33Z,2026-10-14T11:39:05Z,2d877b2,17,2634,10
+20,records,Records after F1.2: result; pace decision; handoff,chore/records-after-f12,2026-10-14T08:27:53Z,2026-10-14T08:30:45Z,b678ddf,7,48,10
+19,product,I1 F1.2: Welcome; AppShell; RouteGuard,feat/app-shell-guard,2026-10-14T07:42:02Z,2026-10-14T08:24:25Z,53b85d0,58,3216,42
+18,process,CI: run browser; storybook and db only when their files change,chore/ci-path-filters,2026-10-14T06:28:33Z,2026-10-14T06:50:32Z,f7ee887,6,785,157
+17,product,I1 F1.1 part c: server identity (JWT; deny by default; identity transaction),feat/identity-platform-c,2026-10-14T04:34:59Z,2026-10-14T06:41:14Z,671c096,29,2314,12
+16,product,I1 F1.1 part b: identity schema (users; regular_profiles; RLS),feat/identity-platform-b,2026-10-13T23:19:37Z,2026-10-14T03:55:50Z,04c9be1,39,3387,104
+15,product,I1 F1.1 part a: CI database; RLS gate; migrate workflow,feat/identity-platform-a,2026-10-13T21:26:29Z,2026-10-13T23:02:50Z,9eb2793,28,2127,26
+14,process,Guard env-file rule judges paths not text; Afik's decisions of 13.10,chore/guard-env-paths,2026-10-13T11:16:27Z,2026-10-13T21:02:04Z,287cb27,42,1625,215
+13,process,Agent-slim stage 6: verification,chore/agent-slim-6-verify,2026-10-13T10:18:12Z,2026-10-13T10:31:54Z,377a327,12,198,9
+12,process,Agent-slim stage 5: line budgets in CI,chore/agent-slim-5-budgets,2026-10-13T09:36:09Z,2026-10-13T10:18:04Z,9aea942,10,583,3
+11,process,Agent-slim stage 4: agents and skills checked against CLAUDE.md,chore/agent-slim-4-agents,2026-10-13T09:17:50Z,2026-10-13T09:36:03Z,bb090c7,4,31,3
+10,process,Agent-slim stage 3: decisions index; WORKPLAN archive; dedup,chore/agent-slim-3-slim,2026-10-13T09:03:28Z,2026-10-13T09:17:37Z,9992e30,13,1444,1259
+9,process,Agent-slim stage 2: log patterns; Git-and-shell convention,chore/agent-slim-2-insights,2026-10-13T08:45:23Z,2026-10-13T09:02:13Z,883f750,8,132,4
+8,process,Agent-slim stage 1: guard readers simplified; loader; block log,chore/agent-slim-1-guard,2026-10-13T08:30:31Z,2026-10-13T08:44:40Z,13c1131,31,2984,266
+7,process,Agent-slim stage 0: context baseline per role,chore/agent-slim-0-baseline,2026-10-13T06:50:51Z,2026-10-13T07:05:01Z,ee18e44,4,145,1
+6,process,guard: allowlist as the base for the CRITIC and TEST ENGINEER rules (CLOSED UNMERGED),claude/guard-allowlist-implementation-xcv55m,2026-10-13T03:43:02Z,,,,,
+5,records,Wrap-up 12.10: I1 prep done; logs and WORKPLAN,chore/wrap-up-12-10,2026-10-12T20:55:52Z,2026-10-12T21:08:14Z,63414c7,5,42,2
+4,process,I1 prep: roles bootstrap; db-check workflow; Vercel builds main and PR branches,chore/i1-prep,2026-10-12T20:08:31Z,2026-10-12T20:17:43Z,bf1be63,12,539,2
+3,product,UI wave 1 part f: TopBar; BottomNavigation; SideDrawer; AppShell (9.7),ui-wave-1/part-f,2026-10-12T12:06:59Z,2026-10-12T17:43:48Z,,,,
+2,process,Guard: CRITIC notes.md rule independent of letter case and platform,fix/guard-notes-case,2026-10-12T11:11:06Z,2026-10-12T11:30:11Z,,,,
+1,process,Guard: match notes.md in Bash commands case-insensitively on every platform,fix/guard-case-insensitive-notes,2026-10-12T10:13:55Z,2026-10-12T10:39:24Z,,,,

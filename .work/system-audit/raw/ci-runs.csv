@@ -1,0 +1,325 @@
+run_id,workflow,event,head_branch,head_sha,status,conclusion,run_started_at,updated_at,duration_min,run_attempt,display_title
+38926809794,preview-e2e-cleanup,workflow_run,main,a98b29a5,completed,skipped,2026-10-16T15:47:43Z,2026-10-16T15:47:44Z,0.0,1,preview-e2e-cleanup
+38926787203,preview-smoke,deployment_status,main,a98b29a5,completed,skipped,2026-10-16T15:47:33Z,2026-10-16T15:47:40Z,0.1,1,preview-smoke
+38926787139,preview-e2e,deployment_status,main,a98b29a5,completed,skipped,2026-10-16T15:47:33Z,2026-10-16T15:47:40Z,0.1,1,preview-e2e
+38926681954,CI,push,main,a98b29a5,completed,success,2026-10-16T15:46:44Z,2026-10-16T15:54:08Z,7.4,1,Records after F1.8 + I1 close (SRS 2.19) (#36)
+38926227012,CI,pull_request,chore/records-after-f18,4547652e,completed,success,2026-10-16T15:43:20Z,2026-10-16T15:46:28Z,3.1,1,Records after F1.8 + I1 close (SRS 2.19)
+38923370190,preview-e2e-cleanup,workflow_run,main,9ece04e7,completed,skipped,2026-10-16T15:22:15Z,2026-10-16T15:22:16Z,0.0,1,preview-e2e-cleanup
+38923362726,preview-e2e,deployment_status,main,9ece04e7,completed,skipped,2026-10-16T15:22:11Z,2026-10-16T15:22:12Z,0.0,1,preview-e2e
+38923362479,preview-smoke,deployment_status,main,9ece04e7,completed,skipped,2026-10-16T15:22:11Z,2026-10-16T15:22:12Z,0.0,1,preview-smoke
+38923302139,CI,push,main,9ece04e7,completed,success,2026-10-16T15:21:45Z,2026-10-16T15:28:00Z,6.2,1,I1 F1.8: sign-in and sign-up with Google (#35)
+38919755705,preview-e2e,deployment_status,main,a15c551d,completed,skipped,2026-10-16T14:55:46Z,2026-10-16T14:55:47Z,0.0,1,preview-e2e
+38919755612,preview-smoke,deployment_status,main,a15c551d,completed,skipped,2026-10-16T14:55:46Z,2026-10-16T14:55:47Z,0.0,1,preview-smoke
+38919667953,preview-e2e,deployment_status,main,a15c551d,completed,skipped,2026-10-16T14:55:08Z,2026-10-16T14:55:12Z,0.1,1,preview-e2e
+38919667917,preview-smoke,deployment_status,main,a15c551d,completed,skipped,2026-10-16T14:55:08Z,2026-10-16T14:55:09Z,0.0,1,preview-smoke
+38919663124,preview-e2e,deployment_status,main,a15c551d,completed,skipped,2026-10-16T14:55:07Z,2026-10-16T14:55:11Z,0.1,1,preview-e2e
+38919662594,preview-smoke,deployment_status,main,a15c551d,completed,skipped,2026-10-16T14:55:06Z,2026-10-16T14:55:07Z,0.0,1,preview-smoke
+38919659499,preview-e2e,deployment_status,main,a15c551d,completed,skipped,2026-10-16T14:55:05Z,2026-10-16T14:55:06Z,0.0,1,preview-e2e
+38919659495,preview-smoke,deployment_status,main,a15c551d,completed,skipped,2026-10-16T14:55:05Z,2026-10-16T14:55:06Z,0.0,1,preview-smoke
+38919649294,preview-e2e-cleanup,workflow_run,main,a15c551d,completed,success,2026-10-16T14:55:01Z,2026-10-16T14:55:43Z,0.7,1,preview-e2e-cleanup
+38919402939,preview-e2e,deployment_status,feat/google-sign-in,8e71212f,completed,success,2026-10-16T14:53:12Z,2026-10-16T14:54:58Z,1.8,1,preview-e2e
+38919402824,preview-smoke,deployment_status,feat/google-sign-in,8e71212f,completed,success,2026-10-16T14:53:12Z,2026-10-16T14:53:21Z,0.1,1,preview-smoke
+38919342071,CI,pull_request,feat/google-sign-in,8e71212f,completed,success,2026-10-16T14:52:46Z,2026-10-16T15:00:03Z,7.3,1,I1 F1.8: sign-in and sign-up with Google
+38908654072,update-baselines,workflow_dispatch,feat/google-sign-in,a698e960,completed,success,2026-10-16T13:32:40Z,2026-10-16T13:33:36Z,0.9,1,update-baselines
+38908597249,CI,pull_request,feat/google-sign-in,a698e960,completed,failure,2026-10-16T13:32:13Z,2026-10-16T13:40:14Z,8.0,1,I1 F1.8: sign-in and sign-up with Google
+38882655431,preview-e2e-cleanup,workflow_run,main,a15c551d,completed,skipped,2026-10-16T09:45:37Z,2026-10-16T09:45:38Z,0.0,1,preview-e2e-cleanup
+38882648657,preview-e2e,deployment_status,main,a15c551d,completed,skipped,2026-10-16T09:45:33Z,2026-10-16T09:45:34Z,0.0,1,preview-e2e
+38882648607,preview-smoke,deployment_status,main,a15c551d,completed,skipped,2026-10-16T09:45:33Z,2026-10-16T09:45:34Z,0.0,1,preview-smoke
+38882573288,CI,push,main,a15c551d,completed,success,2026-10-16T09:44:56Z,2026-10-16T09:53:08Z,8.2,1,Records after E part 2 (#34)
+38882459863,preview-smoke,deployment_status,main,6627502a,completed,skipped,2026-10-16T09:43:56Z,2026-10-16T09:43:57Z,0.0,1,preview-smoke
+38882459831,preview-e2e,deployment_status,main,6627502a,completed,skipped,2026-10-16T09:43:56Z,2026-10-16T09:43:57Z,0.0,1,preview-e2e
+38882410387,preview-e2e,deployment_status,main,6627502a,completed,skipped,2026-10-16T09:43:29Z,2026-10-16T09:43:40Z,0.2,1,preview-e2e
+38882410365,preview-smoke,deployment_status,main,6627502a,completed,skipped,2026-10-16T09:43:29Z,2026-10-16T09:43:38Z,0.1,1,preview-smoke
+38882405939,preview-e2e,deployment_status,main,6627502a,completed,skipped,2026-10-16T09:43:26Z,2026-10-16T09:43:27Z,0.0,1,preview-e2e
+38882405873,preview-smoke,deployment_status,main,6627502a,completed,skipped,2026-10-16T09:43:26Z,2026-10-16T09:43:34Z,0.1,1,preview-smoke
+38882404076,preview-smoke,deployment_status,main,6627502a,completed,skipped,2026-10-16T09:43:25Z,2026-10-16T09:43:26Z,0.0,1,preview-smoke
+38882404022,preview-e2e,deployment_status,main,6627502a,completed,skipped,2026-10-16T09:43:25Z,2026-10-16T09:43:26Z,0.0,1,preview-e2e
+38882395902,preview-e2e-cleanup,workflow_run,main,6627502a,completed,success,2026-10-16T09:43:21Z,2026-10-16T09:43:54Z,0.6,1,preview-e2e-cleanup
+38882191894,preview-e2e,deployment_status,chore/records-after-e2,e3e9b116,completed,success,2026-10-16T09:41:34Z,2026-10-16T09:43:19Z,1.8,1,preview-e2e
+38882191789,preview-smoke,deployment_status,chore/records-after-e2,e3e9b116,completed,success,2026-10-16T09:41:34Z,2026-10-16T09:41:40Z,0.1,1,preview-smoke
+38882130468,preview-e2e-cleanup,workflow_run,main,6627502a,completed,skipped,2026-10-16T09:41:02Z,2026-10-16T09:41:03Z,0.0,1,preview-e2e-cleanup
+38882124541,preview-e2e,deployment_status,main,6627502a,completed,skipped,2026-10-16T09:40:59Z,2026-10-16T09:41:00Z,0.0,1,preview-e2e
+38882124437,preview-smoke,deployment_status,main,6627502a,completed,skipped,2026-10-16T09:40:59Z,2026-10-16T09:40:59Z,0.0,1,preview-smoke
+38882122004,CI,pull_request,chore/records-after-e2,e3e9b116,completed,success,2026-10-16T09:40:57Z,2026-10-16T09:44:16Z,3.3,1,Records after E part 2 (PR 33)
+38882052024,CI,push,main,6627502a,completed,success,2026-10-16T09:40:21Z,2026-10-16T09:46:46Z,6.4,1,E part 2: delete Preview test users after each run (DR-E1 option 1) (…
+38880365814,preview-smoke,deployment_status,feat/e-cleanup,8952c839,completed,success,2026-10-16T09:25:34Z,2026-10-16T09:25:43Z,0.1,1,preview-smoke
+38880365801,preview-e2e,deployment_status,feat/e-cleanup,8952c839,completed,success,2026-10-16T09:25:34Z,2026-10-16T09:27:08Z,1.6,1,preview-e2e
+38880306302,CI,pull_request,feat/e-cleanup,8952c839,completed,success,2026-10-16T09:25:04Z,2026-10-16T09:30:26Z,5.4,1,E part 2: delete Preview test users (DR-E1 option 1)
+38877497606,preview-e2e,deployment_status,feat/e-cleanup,cd722eea,completed,success,2026-10-16T09:00:32Z,2026-10-16T09:02:18Z,1.8,1,preview-e2e
+38877497564,preview-smoke,deployment_status,feat/e-cleanup,cd722eea,completed,success,2026-10-16T09:00:32Z,2026-10-16T09:00:41Z,0.1,1,preview-smoke
+38877436276,CI,pull_request,feat/e-cleanup,cd722eea,completed,failure,2026-10-16T09:00:02Z,2026-10-16T09:03:37Z,3.6,1,E part 2: delete Preview test users (DR-E1 option 1)
+38877327310,preview-smoke,deployment_status,feat/e-cleanup,b55ea384,completed,success,2026-10-16T08:59:02Z,2026-10-16T08:59:10Z,0.1,1,preview-smoke
+38877327287,preview-e2e,deployment_status,feat/e-cleanup,b55ea384,completed,success,2026-10-16T08:59:02Z,2026-10-16T09:00:45Z,1.7,1,preview-e2e
+38877275862,CI,pull_request,feat/e-cleanup,b55ea384,completed,cancelled,2026-10-16T08:58:34Z,2026-10-16T09:01:32Z,3.0,1,E part 2: delete Preview test users (DR-E1 option 1)
+38876993347,preview-e2e,deployment_status,feat/e-cleanup,2505a41f,completed,success,2026-10-16T08:56:00Z,2026-10-16T08:57:21Z,1.4,1,preview-e2e
+38876993258,preview-smoke,deployment_status,feat/e-cleanup,2505a41f,completed,success,2026-10-16T08:56:00Z,2026-10-16T08:56:06Z,0.1,1,preview-smoke
+38876936314,CI,pull_request,feat/e-cleanup,2505a41f,completed,cancelled,2026-10-16T08:55:29Z,2026-10-16T08:58:44Z,3.2,1,E part 2: delete Preview test users (DR-E1 option 1)
+38876148675,preview-smoke,deployment_status,feat/e-cleanup,82aef618,completed,skipped,2026-10-16T08:48:27Z,2026-10-16T08:48:28Z,0.0,1,preview-smoke
+38875938409,preview-smoke,deployment_status,feat/e-cleanup,82aef618,completed,skipped,2026-10-16T08:46:33Z,2026-10-16T08:46:34Z,0.0,1,preview-smoke
+38875921956,preview-smoke,deployment_status,feat/e-cleanup,82aef618,completed,success,2026-10-16T08:46:24Z,2026-10-16T08:46:33Z,0.1,1,preview-smoke
+38875921919,preview-e2e,deployment_status,feat/e-cleanup,82aef618,completed,success,2026-10-16T08:46:24Z,2026-10-16T08:48:25Z,2.0,1,preview-e2e
+38875862083,CI,pull_request,feat/e-cleanup,82aef618,completed,failure,2026-10-16T08:45:53Z,2026-10-16T08:47:59Z,2.1,1,E part 2: delete Preview test users (DR-E1 option 1)
+38874984768,preview-smoke,deployment_status,main,b50fa648,completed,skipped,2026-10-16T08:38:01Z,2026-10-16T08:38:02Z,0.0,1,preview-smoke
+38874984713,preview-e2e,deployment_status,main,b50fa648,completed,skipped,2026-10-16T08:38:01Z,2026-10-16T08:38:09Z,0.1,1,preview-e2e
+38874921701,CI,push,main,b50fa648,completed,success,2026-10-16T08:37:26Z,2026-10-16T08:44:13Z,6.8,1,"Records after F1.6: merged, production migrate green, DR-E1 option 1,…"
+38874735992,preview-smoke,deployment_status,chore/records-after-f16,9e82c88c,completed,skipped,2026-10-16T08:35:43Z,2026-10-16T08:35:44Z,0.0,1,preview-smoke
+38874573235,preview-smoke,deployment_status,chore/records-after-f16,9e82c88c,completed,skipped,2026-10-16T08:34:15Z,2026-10-16T08:34:16Z,0.0,1,preview-smoke
+38874558625,preview-smoke,deployment_status,chore/records-after-f16,9e82c88c,completed,success,2026-10-16T08:34:07Z,2026-10-16T08:34:16Z,0.1,1,preview-smoke
+38874558610,preview-e2e,deployment_status,chore/records-after-f16,9e82c88c,completed,success,2026-10-16T08:34:07Z,2026-10-16T08:35:41Z,1.6,1,preview-e2e
+38874502072,CI,pull_request,chore/records-after-f16,9e82c88c,completed,success,2026-10-16T08:33:37Z,2026-10-16T08:36:58Z,3.4,1,"Records after F1.6: merge, production migrate pending, guard exception for *.flo"
+38874412679,preview-smoke,deployment_status,main,c0d34d7d,completed,skipped,2026-10-16T08:32:49Z,2026-10-16T08:32:50Z,0.0,1,preview-smoke
+38874412666,preview-e2e,deployment_status,main,c0d34d7d,completed,skipped,2026-10-16T08:32:49Z,2026-10-16T08:32:50Z,0.0,1,preview-e2e
+38874368859,preview-smoke,deployment_status,main,c0d34d7d,completed,skipped,2026-10-16T08:32:25Z,2026-10-16T08:32:26Z,0.0,1,preview-smoke
+38874368771,preview-e2e,deployment_status,main,c0d34d7d,completed,skipped,2026-10-16T08:32:25Z,2026-10-16T08:32:26Z,0.0,1,preview-e2e
+38874364343,preview-e2e,deployment_status,main,c0d34d7d,completed,skipped,2026-10-16T08:32:23Z,2026-10-16T08:32:24Z,0.0,1,preview-e2e
+38874364281,preview-smoke,deployment_status,main,c0d34d7d,completed,skipped,2026-10-16T08:32:23Z,2026-10-16T08:32:32Z,0.1,1,preview-smoke
+38874364228,preview-e2e,deployment_status,main,c0d34d7d,completed,skipped,2026-10-16T08:32:23Z,2026-10-16T08:32:24Z,0.0,1,preview-e2e
+38874364222,preview-smoke,deployment_status,main,c0d34d7d,completed,skipped,2026-10-16T08:32:23Z,2026-10-16T08:32:24Z,0.0,1,preview-smoke
+38860749706,preview-smoke,deployment_status,chore/records-after-f16,ba5ca1ba,completed,skipped,2026-10-16T06:21:32Z,2026-10-16T06:21:38Z,0.1,1,preview-smoke
+38860598205,preview-smoke,deployment_status,chore/records-after-f16,ba5ca1ba,completed,skipped,2026-10-16T06:19:56Z,2026-10-16T06:20:06Z,0.2,1,preview-smoke
+38860588439,preview-smoke,deployment_status,chore/records-after-f16,ba5ca1ba,completed,success,2026-10-16T06:19:49Z,2026-10-16T06:19:57Z,0.1,1,preview-smoke
+38860588427,preview-e2e,deployment_status,chore/records-after-f16,ba5ca1ba,completed,success,2026-10-16T06:19:49Z,2026-10-16T06:21:29Z,1.7,1,preview-e2e
+38860537935,CI,pull_request,chore/records-after-f16,ba5ca1ba,completed,success,2026-10-16T06:19:15Z,2026-10-16T06:22:33Z,3.3,1,"Records after F1.6: merge, production migrate pending, guard exception for *.flo"
+38860505163,preview-e2e,deployment_status,main,c0d34d7d,completed,skipped,2026-10-16T06:18:55Z,2026-10-16T06:19:05Z,0.2,1,preview-e2e
+38860505152,preview-smoke,deployment_status,main,c0d34d7d,completed,skipped,2026-10-16T06:18:55Z,2026-10-16T06:18:56Z,0.0,1,preview-smoke
+38860494974,preview-smoke,deployment_status,main,c0d34d7d,completed,skipped,2026-10-16T06:18:48Z,2026-10-16T06:18:49Z,0.0,1,preview-smoke
+38860494939,preview-e2e,deployment_status,main,c0d34d7d,completed,skipped,2026-10-16T06:18:48Z,2026-10-16T06:18:49Z,0.0,1,preview-e2e
+38860494388,preview-e2e,deployment_status,main,c0d34d7d,completed,skipped,2026-10-16T06:18:48Z,2026-10-16T06:18:49Z,0.0,1,preview-e2e
+38860494347,preview-smoke,deployment_status,main,c0d34d7d,completed,skipped,2026-10-16T06:18:48Z,2026-10-16T06:18:49Z,0.0,1,preview-smoke
+38860456896,preview-smoke,deployment_status,main,c0d34d7d,completed,skipped,2026-10-16T06:18:23Z,2026-10-16T06:18:24Z,0.0,1,preview-smoke
+38860456870,preview-e2e,deployment_status,main,c0d34d7d,completed,skipped,2026-10-16T06:18:23Z,2026-10-16T06:18:24Z,0.0,1,preview-e2e
+38860446970,CI,push,main,c0d34d7d,completed,success,2026-10-16T06:18:16Z,2026-10-16T06:24:47Z,6.5,1,I1 F1.6: password recovery by security questions; E: automated Previe…
+38860446921,migrate,push,main,c0d34d7d,completed,success,2026-10-16T06:18:16Z,2026-10-16T08:32:47Z,134.5,1,I1 F1.6: password recovery by security questions; E: automated Previe…
+38818500315,preview-smoke,deployment_status,feat/f1-6-password-recovery,8d91ed3d,completed,skipped,2026-10-15T22:38:38Z,2026-10-15T22:38:39Z,0.0,1,preview-smoke
+38818295280,preview-smoke,deployment_status,feat/f1-6-password-recovery,8d91ed3d,completed,skipped,2026-10-15T22:36:48Z,2026-10-15T22:36:49Z,0.0,1,preview-smoke
+38818290937,preview-smoke,deployment_status,feat/f1-6-password-recovery,8d91ed3d,completed,skipped,2026-10-15T22:36:45Z,2026-10-15T22:36:47Z,0.0,1,preview-smoke
+38818287501,preview-smoke,deployment_status,feat/f1-6-password-recovery,8d91ed3d,completed,skipped,2026-10-15T22:36:44Z,2026-10-15T22:36:45Z,0.0,1,preview-smoke
+38818186219,preview-smoke,deployment_status,feat/f1-6-password-recovery,8d91ed3d,completed,success,2026-10-15T22:35:48Z,2026-10-15T22:35:54Z,0.1,1,preview-smoke
+38818186088,preview-e2e,deployment_status,feat/f1-6-password-recovery,8d91ed3d,completed,success,2026-10-15T22:35:48Z,2026-10-15T22:38:35Z,2.8,1,preview-e2e
+38818135264,preview-smoke,deployment_status,feat/f1-6-password-recovery,8d91ed3d,completed,skipped,2026-10-15T22:35:22Z,2026-10-15T22:35:31Z,0.1,1,preview-smoke
+38818122503,preview-smoke,deployment_status,feat/f1-6-password-recovery,1f5f9873,completed,success,2026-10-15T22:35:15Z,2026-10-15T22:35:24Z,0.1,1,preview-smoke
+38818122399,preview-e2e,deployment_status,feat/f1-6-password-recovery,1f5f9873,completed,success,2026-10-15T22:35:15Z,2026-10-15T22:36:42Z,1.4,1,preview-e2e
+38818100340,CI,pull_request,feat/f1-6-password-recovery,8d91ed3d,completed,success,2026-10-15T22:35:04Z,2026-10-15T22:41:55Z,6.8,1,I1 F1.6: password recovery by security questions (password-recovery)
+38818054751,CI,pull_request,feat/f1-6-password-recovery,1f5f9873,completed,cancelled,2026-10-15T22:34:40Z,2026-10-15T22:35:05Z,0.4,1,I1 F1.6: password recovery by security questions (password-recovery)
+38817889627,preview-smoke,deployment_status,feat/f1-6-password-recovery,639123d8,completed,skipped,2026-10-15T22:33:13Z,2026-10-15T22:33:14Z,0.0,1,preview-smoke
+38817733145,preview-smoke,deployment_status,feat/f1-6-password-recovery,639123d8,completed,skipped,2026-10-15T22:31:50Z,2026-10-15T22:31:52Z,0.0,1,preview-smoke
+38817721689,preview-smoke,deployment_status,feat/f1-6-password-recovery,639123d8,completed,success,2026-10-15T22:31:44Z,2026-10-15T22:31:51Z,0.1,1,preview-smoke
+38817721595,preview-e2e,deployment_status,feat/f1-6-password-recovery,639123d8,completed,success,2026-10-15T22:31:44Z,2026-10-15T22:33:11Z,1.4,1,preview-e2e
+38817642598,CI,pull_request,feat/f1-6-password-recovery,639123d8,completed,cancelled,2026-10-15T22:31:02Z,2026-10-15T22:35:17Z,4.2,1,I1 F1.6: password recovery by security questions (password-recovery)
+38816486970,preview-smoke,deployment_status,feat/f1-6-password-recovery,44278e46,completed,skipped,2026-10-15T22:20:59Z,2026-10-15T22:21:08Z,0.1,1,preview-smoke
+38816331380,preview-smoke,deployment_status,feat/f1-6-password-recovery,44278e46,completed,skipped,2026-10-15T22:19:40Z,2026-10-15T22:19:41Z,0.0,1,preview-smoke
+38816319396,preview-e2e,deployment_status,feat/f1-6-password-recovery,44278e46,completed,success,2026-10-15T22:19:33Z,2026-10-15T22:20:58Z,1.4,1,preview-e2e
+38816319194,preview-smoke,deployment_status,feat/f1-6-password-recovery,44278e46,completed,success,2026-10-15T22:19:33Z,2026-10-15T22:19:42Z,0.1,1,preview-smoke
+38816263079,CI,pull_request,feat/f1-6-password-recovery,44278e46,completed,success,2026-10-15T22:19:04Z,2026-10-15T22:25:59Z,6.9,1,I1 F1.6: password recovery by security questions (password-recovery)
+38812650872,preview-smoke,deployment_status,feat/f1-6-password-recovery,d9d47b5c,completed,success,2026-10-15T21:48:36Z,2026-10-15T21:48:45Z,0.1,1,preview-smoke
+38812589627,CI,pull_request,feat/f1-6-password-recovery,d9d47b5c,completed,success,2026-10-15T21:48:05Z,2026-10-15T21:55:13Z,7.1,1,I1 F1.6: password recovery by security questions (password-recovery)
+38802106396,preview-smoke,deployment_status,feat/f1-6-password-recovery,ba2c2a9d,completed,skipped,2026-10-15T20:27:33Z,2026-10-15T20:27:34Z,0.0,1,preview-smoke
+38802052534,preview-smoke,deployment_status,feat/f1-6-password-recovery,ba2c2a9d,completed,skipped,2026-10-15T20:27:09Z,2026-10-15T20:27:10Z,0.0,1,preview-smoke
+38802031784,migrate,workflow_dispatch,feat/f1-6-password-recovery,ba2c2a9d,completed,success,2026-10-15T20:27:00Z,2026-10-15T20:27:30Z,0.5,1,migrate
+38800489164,preview-smoke,deployment_status,feat/f1-6-password-recovery,ba2c2a9d,completed,success,2026-10-15T20:15:40Z,2026-10-15T20:15:47Z,0.1,1,preview-smoke
+38800426931,CI,pull_request,feat/f1-6-password-recovery,ba2c2a9d,completed,success,2026-10-15T20:15:12Z,2026-10-15T20:21:48Z,6.6,1,I1 F1.6: password recovery by security questions (password-recovery)
+38791665990,preview-smoke,deployment_status,feat/f1-6-password-recovery,b762e1d9,completed,success,2026-10-15T19:10:09Z,2026-10-15T19:10:16Z,0.1,1,preview-smoke
+38791587720,CI,pull_request,feat/f1-6-password-recovery,b762e1d9,completed,failure,2026-10-15T19:09:36Z,2026-10-15T19:16:13Z,6.6,1,I1 F1.6: password recovery by security questions (password-recovery)
+38787397811,preview-smoke,deployment_status,feat/f1-6-password-recovery,5d9aa652,completed,success,2026-10-15T18:39:14Z,2026-10-15T18:39:22Z,0.1,1,preview-smoke
+38787338192,update-baselines,workflow_dispatch,feat/f1-6-password-recovery,5d9aa652,completed,success,2026-10-15T18:38:48Z,2026-10-15T18:39:46Z,1.0,1,update-baselines
+38787328181,CI,pull_request,feat/f1-6-password-recovery,5d9aa652,completed,failure,2026-10-15T18:38:43Z,2026-10-15T18:45:43Z,7.0,1,I1 F1.6: password recovery by security questions (password-recovery)
+38773011941,preview-smoke,deployment_status,feat/f1-6-password-recovery,d6b86d71,completed,success,2026-10-15T16:55:26Z,2026-10-15T16:55:34Z,0.1,1,preview-smoke
+38772939202,CI,pull_request,feat/f1-6-password-recovery,d6b86d71,completed,failure,2026-10-15T16:54:54Z,2026-10-15T17:01:48Z,6.9,1,I1 F1.6: password recovery by security questions (password-recovery)
+38771178257,CI,pull_request,feat/f1-6-password-recovery,464dfba1,completed,failure,2026-10-15T16:41:59Z,2026-10-15T16:48:31Z,6.5,1,I1 F1.6: password recovery by security questions (password-recovery)
+38768260272,preview-smoke,deployment_status,main,1742adb6,completed,skipped,2026-10-15T16:21:09Z,2026-10-15T16:21:10Z,0.0,1,preview-smoke
+38768182803,CI,push,main,1742adb6,completed,success,2026-10-15T16:20:36Z,2026-10-15T16:26:42Z,6.1,1,"Development speed (Afik, A–F): freeze to F1.8, one session and one re…"
+38767561480,preview-smoke,deployment_status,chore/dev-speed,771d2afa,completed,success,2026-10-15T16:16:13Z,2026-10-15T16:16:21Z,0.1,1,preview-smoke
+38767486643,CI,pull_request,chore/dev-speed,771d2afa,completed,success,2026-10-15T16:15:42Z,2026-10-15T16:18:47Z,3.1,1,"Development speed (Afik, A–F): freeze to F1.8, one session and one records pass "
+38767200518,preview-smoke,deployment_status,chore/dev-speed,721635b2,completed,success,2026-10-15T16:13:43Z,2026-10-15T16:13:51Z,0.1,1,preview-smoke
+38767131752,CI,pull_request,chore/dev-speed,721635b2,completed,success,2026-10-15T16:13:14Z,2026-10-15T16:15:39Z,2.4,1,"Development speed (Afik, A–F): freeze to F1.8, one session and one records pass "
+38765198678,preview-smoke,deployment_status,chore/dev-speed,9b9cc325,completed,success,2026-10-15T15:59:49Z,2026-10-15T15:59:57Z,0.1,1,preview-smoke
+38765124952,CI,pull_request,chore/dev-speed,9b9cc325,completed,success,2026-10-15T15:59:17Z,2026-10-15T16:01:52Z,2.6,1,"Development speed (Afik, A–F): freeze to F1.8, one session and one records pass "
+38745815915,preview-smoke,deployment_status,main,27816b46,completed,skipped,2026-10-15T13:48:15Z,2026-10-15T13:48:24Z,0.1,1,preview-smoke
+38745742540,preview-smoke,deployment_status,main,27816b46,completed,skipped,2026-10-15T13:47:42Z,2026-10-15T13:47:44Z,0.0,1,preview-smoke
+38745736996,preview-smoke,deployment_status,main,27816b46,completed,skipped,2026-10-15T13:47:40Z,2026-10-15T13:47:41Z,0.0,1,preview-smoke
+38739729328,preview-smoke,deployment_status,main,27816b46,completed,skipped,2026-10-15T13:05:05Z,2026-10-15T13:05:16Z,0.2,1,preview-smoke
+38739664317,preview-smoke,deployment_status,main,27816b46,completed,skipped,2026-10-15T13:04:37Z,2026-10-15T13:04:38Z,0.0,1,preview-smoke
+38739661689,preview-smoke,deployment_status,main,27816b46,completed,skipped,2026-10-15T13:04:36Z,2026-10-15T13:04:37Z,0.0,1,preview-smoke
+38739597870,preview-smoke,deployment_status,main,27816b46,completed,skipped,2026-10-15T13:04:07Z,2026-10-15T13:04:17Z,0.2,1,preview-smoke
+38739578649,CI,push,main,27816b46,completed,success,2026-10-15T13:03:59Z,2026-10-15T13:10:37Z,6.6,1,"I1 F1.5: email sign-in, session and logout (login-session) (#29)"
+38739578639,migrate,push,main,27816b46,completed,success,2026-10-15T13:03:59Z,2026-10-15T13:48:11Z,44.2,1,"I1 F1.5: email sign-in, session and logout (login-session) (#29)"
+38736618019,preview-smoke,deployment_status,feat/f1-5-login-session,debb91a8,completed,skipped,2026-10-15T12:41:48Z,2026-10-15T12:41:56Z,0.1,1,preview-smoke
+38736562851,preview-smoke,deployment_status,feat/f1-5-login-session,debb91a8,completed,skipped,2026-10-15T12:41:22Z,2026-10-15T12:41:23Z,0.0,1,preview-smoke
+38736543869,migrate,workflow_dispatch,feat/f1-5-login-session,debb91a8,completed,success,2026-10-15T12:41:13Z,2026-10-15T12:41:46Z,0.6,1,migrate
+38735235584,preview-smoke,deployment_status,feat/f1-5-login-session,debb91a8,completed,success,2026-10-15T12:31:01Z,2026-10-15T12:31:08Z,0.1,1,preview-smoke
+38735149576,CI,pull_request,feat/f1-5-login-session,debb91a8,completed,success,2026-10-15T12:30:24Z,2026-10-15T12:36:47Z,6.4,1,"I1 F1.5: email sign-in, session and logout (login-session)"
+38729493202,preview-smoke,deployment_status,feat/f1-5-login-session,befa45d3,completed,success,2026-10-15T11:44:33Z,2026-10-15T11:44:39Z,0.1,1,preview-smoke
+38729431049,CI,pull_request,feat/f1-5-login-session,befa45d3,completed,success,2026-10-15T11:44:02Z,2026-10-15T11:50:10Z,6.1,1,"I1 F1.5: email sign-in, session and logout (login-session)"
+38723113880,CI,pull_request,feat/f1-5-login-session,15ede97a,completed,success,2026-10-15T10:50:36Z,2026-10-15T10:52:59Z,2.4,1,"I1 F1.5: email sign-in, session and logout (login-session)"
+38718894249,preview-smoke,deployment_status,main,9cf70b31,completed,skipped,2026-10-15T10:14:54Z,2026-10-15T10:15:04Z,0.2,1,preview-smoke
+38718826729,CI,push,main,9cf70b31,completed,success,2026-10-15T10:14:20Z,2026-10-15T10:20:22Z,6.0,1,SRS 2.15 from the lecturer-presentation decisions; Afik's answers rec…
+38716962943,CI,pull_request,chore/srs-2-15-demo,14cdc69d,completed,success,2026-10-15T09:59:07Z,2026-10-15T10:02:12Z,3.1,1,"SRS 2.15: lecturer-presentation decisions (reviews, articles, guides, CAPTCHA, s"
+38716374684,preview-smoke,deployment_status,main,9aadef62,completed,skipped,2026-10-15T09:54:16Z,2026-10-15T09:54:17Z,0.0,1,preview-smoke
+38716310975,CI,push,main,9aadef62,completed,success,2026-10-15T09:53:45Z,2026-10-15T10:00:02Z,6.3,1,"Debt before F1.5: is_active_account own-check test, split slow test, …"
+38713491298,CI,pull_request,chore/debt-before-f15,ec5a14cc,completed,success,2026-10-15T09:30:52Z,2026-10-15T09:36:34Z,5.7,1,"Debt before F1.5: is_active_account own-check test, split slow test, error log w"
+38702221302,preview-smoke,deployment_status,main,02842b0a,completed,skipped,2026-10-15T07:57:02Z,2026-10-15T07:57:04Z,0.0,1,preview-smoke
+38702161133,CI,push,main,02842b0a,completed,success,2026-10-15T07:56:30Z,2026-10-15T08:02:51Z,6.3,1,"Test rules: depth by criterion type, Chrome-only PR browser job, Edge…"
+38699657095,preview-smoke,deployment_status,chore/test-rules,ea1a6a63,completed,success,2026-10-15T07:34:24Z,2026-10-15T07:34:31Z,0.1,1,preview-smoke
+38699604045,CI,pull_request,chore/test-rules,ea1a6a63,completed,success,2026-10-15T07:33:55Z,2026-10-15T07:40:12Z,6.3,1,"Test rules: depth by criterion type, Chrome-only PR browser job, Edge on main, b"
+38697973709,CI,pull_request,chore/test-rules,385b4172,completed,success,2026-10-15T07:19:28Z,2026-10-15T07:26:10Z,6.7,1,"Test rules: depth by criterion type, Chrome-only PR browser job, Edge on main, b"
+38692887481,preview-smoke,deployment_status,main,0cdd5fa0,completed,skipped,2026-10-15T06:31:09Z,2026-10-15T06:31:19Z,0.2,1,preview-smoke
+38692829008,preview-smoke,deployment_status,main,0cdd5fa0,completed,skipped,2026-10-15T06:30:36Z,2026-10-15T06:30:45Z,0.1,1,preview-smoke
+38692822615,preview-smoke,deployment_status,main,0cdd5fa0,completed,skipped,2026-10-15T06:30:33Z,2026-10-15T06:30:41Z,0.1,1,preview-smoke
+38692403646,preview-smoke,deployment_status,main,0cdd5fa0,completed,skipped,2026-10-15T06:26:22Z,2026-10-15T06:26:23Z,0.0,1,preview-smoke
+38692403133,preview-smoke,deployment_status,main,0cdd5fa0,completed,skipped,2026-10-15T06:26:22Z,2026-10-15T06:26:23Z,0.0,1,preview-smoke
+38692402503,preview-smoke,deployment_status,main,0cdd5fa0,completed,skipped,2026-10-15T06:26:22Z,2026-10-15T06:26:30Z,0.1,1,preview-smoke
+38692396011,preview-smoke,deployment_status,main,0cdd5fa0,completed,skipped,2026-10-15T06:26:18Z,2026-10-15T06:26:19Z,0.0,1,preview-smoke
+38692353462,preview-smoke,deployment_status,main,0cdd5fa0,completed,skipped,2026-10-15T06:25:52Z,2026-10-15T06:25:53Z,0.0,1,preview-smoke
+38692343049,CI,push,main,0cdd5fa0,completed,success,2026-10-15T06:25:46Z,2026-10-15T06:31:37Z,5.8,1,I1 F1.4: registration step 2 and account creation (register-account-c…
+38692342935,migrate,push,main,0cdd5fa0,completed,success,2026-10-15T06:25:46Z,2026-10-15T06:31:06Z,5.3,1,I1 F1.4: registration step 2 and account creation (register-account-c…
+38691723918,preview-smoke,deployment_status,feat/register-account-create,5d5ba6ff,completed,success,2026-10-15T06:19:26Z,2026-10-15T06:19:35Z,0.1,1,preview-smoke
+38691680838,CI,pull_request,feat/register-account-create,5d5ba6ff,completed,success,2026-10-15T06:18:58Z,2026-10-15T06:25:11Z,6.2,1,I1 F1.4: registration step 2 and account creation (register-account-create)
+38690371759,preview-smoke,deployment_status,feat/register-account-create,0c42f722,completed,skipped,2026-10-15T06:05:25Z,2026-10-15T06:05:25Z,0.0,1,preview-smoke
+38690329728,preview-smoke,deployment_status,feat/register-account-create,0c42f722,completed,skipped,2026-10-15T06:05:00Z,2026-10-15T06:05:01Z,0.0,1,preview-smoke
+38690318803,migrate,workflow_dispatch,feat/register-account-create,0c42f722,completed,success,2026-10-15T06:04:53Z,2026-10-15T06:05:23Z,0.5,1,migrate
+38689293416,preview-smoke,deployment_status,feat/register-account-create,0c42f722,completed,success,2026-10-15T05:53:56Z,2026-10-15T05:54:02Z,0.1,1,preview-smoke
+38649709851,preview-smoke,deployment_status,feat/register-account-create,0c42f722,completed,success,2026-10-14T22:44:43Z,2026-10-14T22:44:52Z,0.1,1,preview-smoke
+38649662000,CI,pull_request,feat/register-account-create,0c42f722,completed,success,2026-10-14T22:44:16Z,2026-10-14T22:50:51Z,6.6,1,I1 F1.4: registration step 2 and account creation (register-account-create)
+38648189192,preview-smoke,deployment_status,feat/register-account-create,91363a06,completed,success,2026-10-14T22:31:05Z,2026-10-14T22:31:13Z,0.1,1,preview-smoke
+38648138325,CI,pull_request,feat/register-account-create,91363a06,completed,success,2026-10-14T22:30:39Z,2026-10-14T22:36:10Z,5.5,1,I1 F1.4: registration step 2 and account creation (register-account-create)
+38643573003,preview-smoke,deployment_status,feat/register-account-create,bc8c2420,completed,success,2026-10-14T21:52:34Z,2026-10-14T21:52:47Z,0.2,1,preview-smoke
+38643518965,CI,pull_request,feat/register-account-create,bc8c2420,completed,success,2026-10-14T21:52:08Z,2026-10-14T21:58:00Z,5.9,1,I1 F1.4: registration step 2 and account creation (register-account-create)
+38636653168,preview-smoke,deployment_status,feat/register-account-create,b0b87926,completed,success,2026-10-14T20:59:15Z,2026-10-14T20:59:24Z,0.1,1,preview-smoke
+38636583114,CI,pull_request,feat/register-account-create,b0b87926,completed,success,2026-10-14T20:58:44Z,2026-10-14T21:03:54Z,5.2,1,I1 F1.4: registration step 2 and account creation (register-account-create)
+38635032083,preview-smoke,deployment_status,feat/register-account-create,ce40aaac,completed,success,2026-10-14T20:47:31Z,2026-10-14T20:47:37Z,0.1,1,preview-smoke
+38634968011,CI,pull_request,feat/register-account-create,ce40aaac,completed,failure,2026-10-14T20:53:49Z,2026-10-14T20:56:35Z,2.8,2,I1 F1.4: registration step 2 and account creation (register-account-create)
+38633815455,preview-smoke,deployment_status,feat/register-account-create,09919e0a,completed,success,2026-10-14T20:38:45Z,2026-10-14T20:38:52Z,0.1,1,preview-smoke
+38633752488,CI,pull_request,feat/register-account-create,09919e0a,completed,failure,2026-10-14T20:38:18Z,2026-10-14T20:44:24Z,6.1,1,I1 F1.4: registration step 2 and account creation (register-account-create)
+38629719365,preview-smoke,deployment_status,feat/register-account-create,9bef3ba9,completed,success,2026-10-14T20:09:49Z,2026-10-14T20:09:58Z,0.1,1,preview-smoke
+38629647095,CI,pull_request,feat/register-account-create,9bef3ba9,completed,success,2026-10-14T20:09:18Z,2026-10-14T20:15:37Z,6.3,1,I1 F1.4: registration step 2 and account creation (register-account-create)
+38627486393,preview-smoke,deployment_status,feat/register-account-create,1ee27fdf,completed,failure,2026-10-14T19:53:48Z,2026-10-14T19:53:55Z,0.1,1,preview-smoke
+38627436682,CI,pull_request,feat/register-account-create,1ee27fdf,completed,success,2026-10-14T19:53:27Z,2026-10-14T19:58:34Z,5.1,1,I1 F1.4: registration step 2 and account creation (register-account-create)
+38624356616,preview-smoke,deployment_status,feat/register-account-create,b17d03b3,completed,success,2026-10-14T19:31:12Z,2026-10-14T19:31:18Z,0.1,1,preview-smoke
+38624288325,CI,pull_request,feat/register-account-create,b17d03b3,completed,success,2026-10-14T19:30:44Z,2026-10-14T19:36:11Z,5.5,1,I1 F1.4: registration step 2 and account creation (register-account-create)
+38623340798,preview-smoke,deployment_status,feat/register-account-create,3375d2c2,completed,success,2026-10-14T19:24:03Z,2026-10-14T19:24:12Z,0.1,1,preview-smoke
+38623267548,CI,pull_request,feat/register-account-create,3375d2c2,completed,failure,2026-10-14T19:23:32Z,2026-10-14T19:29:05Z,5.5,1,I1 F1.4: registration step 2 and account creation (register-account-create)
+38621117272,preview-smoke,deployment_status,feat/register-account-create,eac7f7ee,completed,success,2026-10-14T19:08:18Z,2026-10-14T19:08:27Z,0.1,1,preview-smoke
+38621055774,CI,pull_request,feat/register-account-create,eac7f7ee,completed,success,2026-10-14T19:07:52Z,2026-10-14T19:09:44Z,1.9,1,I1 F1.4: registration step 2 and account creation (register-account-create)
+38618503345,preview-smoke,deployment_status,feat/register-account-create,c7e1d894,completed,success,2026-10-14T18:49:58Z,2026-10-14T18:50:08Z,0.2,1,preview-smoke
+38618433966,CI,pull_request,feat/register-account-create,c7e1d894,completed,success,2026-10-14T18:49:29Z,2026-10-14T18:52:09Z,2.7,1,I1 F1.4: registration step 2 and account creation (register-account-create)
+38617963661,preview-smoke,deployment_status,feat/register-account-create,b1ca8096,completed,success,2026-10-14T18:46:12Z,2026-10-14T18:46:20Z,0.1,1,preview-smoke
+38617896367,CI,pull_request,feat/register-account-create,b1ca8096,completed,failure,2026-10-14T18:45:44Z,2026-10-14T18:48:17Z,2.5,1,I1 F1.4: registration step 2 and account creation (register-account-create)
+38614012354,CI,pull_request,feat/register-account-create,87c04491,completed,failure,2026-10-14T18:18:19Z,2026-10-14T18:20:09Z,1.8,1,I1 F1.4: registration step 2 and account creation (register-account-create)
+38607385974,preview-smoke,deployment_status,chore/speed-up-2,483ce813,completed,success,2026-10-14T17:31:36Z,2026-10-14T17:31:44Z,0.1,1,preview-smoke
+38594893122,preview-smoke,deployment_status,main,e12d3846,completed,skipped,2026-10-14T16:04:14Z,2026-10-14T16:04:16Z,0.0,1,preview-smoke
+38594805543,CI,push,main,e12d3846,completed,success,2026-10-14T16:03:38Z,2026-10-14T16:09:57Z,6.3,1,"Speed-up 4–6: TEST ENGINEER edits and runs tests, interface.md, jq fi…"
+38594487714,preview-smoke,deployment_status,chore/speed-up-2,483ce813,completed,success,2026-10-14T16:01:27Z,2026-10-14T16:01:37Z,0.2,1,preview-smoke
+38594413603,CI,pull_request,chore/speed-up-2,483ce813,completed,success,2026-10-14T16:00:58Z,2026-10-14T16:03:08Z,2.2,1,"Speed-up 4–6: TEST ENGINEER edits and runs tests, interface.md, jq filters in th"
+38582643933,preview-smoke,deployment_status,main,8c3ab07b,completed,skipped,2026-10-14T14:40:38Z,2026-10-14T14:40:39Z,0.0,1,preview-smoke
+38582556343,CI,push,main,8c3ab07b,completed,success,2026-10-14T14:40:04Z,2026-10-14T14:46:12Z,6.1,1,I1 F1.3: registration step 1 (register-profile-step) (#22)
+38581654157,preview-smoke,deployment_status,feat/register-profile-step,c906ef59,completed,success,2026-10-14T14:34:01Z,2026-10-14T14:34:11Z,0.2,1,preview-smoke
+38581585947,CI,pull_request,feat/register-profile-step,c906ef59,completed,success,2026-10-14T14:33:33Z,2026-10-14T14:39:28Z,5.9,1,I1 F1.3: registration step 1 (register-profile-step)
+38580508012,preview-smoke,deployment_status,feat/register-profile-step,9c77935f,completed,success,2026-10-14T14:26:19Z,2026-10-14T14:26:29Z,0.2,1,preview-smoke
+38580432619,CI,pull_request,feat/register-profile-step,9c77935f,completed,success,2026-10-14T14:25:49Z,2026-10-14T14:31:39Z,5.8,1,I1 F1.3: registration step 1 (register-profile-step)
+38577172638,preview-smoke,deployment_status,main,a7569315,completed,skipped,2026-10-14T14:03:50Z,2026-10-14T14:03:57Z,0.1,1,preview-smoke
+38577095519,CI,push,main,a7569315,completed,success,2026-10-14T14:03:18Z,2026-10-14T14:09:07Z,5.8,1,"Speed-up: parallel browser CI, Vercel builds PR branches, root vitest…"
+38576946970,preview-smoke,deployment_status,feat/register-profile-step,5840d18d,completed,success,2026-10-14T14:02:17Z,2026-10-14T14:02:26Z,0.1,1,preview-smoke
+38576858413,CI,pull_request,feat/register-profile-step,5840d18d,completed,success,2026-10-14T14:01:41Z,2026-10-14T14:14:13Z,12.5,1,I1 F1.3: registration step 1 (register-profile-step)
+38575159195,preview-smoke,deployment_status,chore/speed-up,1cad99ee,completed,success,2026-10-14T13:50:05Z,2026-10-14T13:50:12Z,0.1,1,preview-smoke
+38575089604,CI,pull_request,chore/speed-up,1cad99ee,completed,success,2026-10-14T13:49:37Z,2026-10-14T13:54:53Z,5.3,1,"Speed-up: parallel browser CI, Vercel builds PR branches, root vitest"
+38572543316,preview-smoke,deployment_status,feat/register-profile-step,71a5c89c,completed,success,2026-10-14T13:31:49Z,2026-10-14T13:31:58Z,0.1,1,preview-smoke
+38572482950,CI,pull_request,feat/register-profile-step,71a5c89c,completed,failure,2026-10-14T13:31:22Z,2026-10-14T13:49:06Z,17.7,1,I1 F1.3: registration step 1 (register-profile-step)
+38564172288,preview-smoke,deployment_status,feat/register-profile-step,8b21e10c,completed,success,2026-10-14T12:29:22Z,2026-10-14T12:29:30Z,0.1,1,preview-smoke
+38564101202,CI,pull_request,feat/register-profile-step,8b21e10c,completed,failure,2026-10-14T12:28:49Z,2026-10-14T12:48:30Z,19.7,1,I1 F1.3: registration step 1 (register-profile-step)
+38564072252,CI,pull_request,feat/register-profile-step,c8530d9b,completed,cancelled,2026-10-14T12:28:35Z,2026-10-14T12:30:12Z,1.6,1,I1 F1.3: registration step 1 (register-profile-step)
+38558147350,preview-smoke,deployment_status,main,2d877b2b,completed,skipped,2026-10-14T11:39:46Z,2026-10-14T11:39:47Z,0.0,1,preview-smoke
+38558074534,CI,push,main,2d877b2b,completed,success,2026-10-14T11:39:08Z,2026-10-14T11:55:48Z,16.7,1,"Preview access: preview-smoke workflow, preview-shot tool, server dro…"
+38556086101,preview-smoke,deployment_status,chore/preview-access-v2,6d080115,completed,success,2026-10-14T11:22:16Z,2026-10-14T11:22:24Z,0.1,1,preview-smoke
+38556017063,CI,pull_request,chore/preview-access-v2,6d080115,completed,success,2026-10-14T11:21:40Z,2026-10-14T11:38:00Z,16.3,1,"Preview access: preview-smoke workflow, preview-shot tool, server drops the bypa"
+38552154315,CI,pull_request,chore/preview-access-v2,4abed564,completed,success,2026-10-14T10:48:36Z,2026-10-14T11:05:35Z,17.0,1,"Preview access: preview-smoke workflow, preview-shot tool, server drops the bypa"
+38535633589,CI,push,main,b678ddfc,completed,success,2026-10-14T08:30:48Z,2026-10-14T08:57:24Z,26.6,1,"Records after F1.2: result, pace decision, session handoff (#20)"
+38535286981,CI,pull_request,chore/records-after-f12,a74a2d62,completed,success,2026-10-14T08:27:56Z,2026-10-14T08:30:13Z,2.3,1,"Records after F1.2: result, pace decision, handoff"
+38534879817,CI,push,main,53b85d01,completed,success,2026-10-14T08:24:28Z,2026-10-14T08:41:01Z,16.6,1,"I1 F1.2: Welcome, AppShell, RouteGuard (#19)"
+38531459973,CI,pull_request,feat/app-shell-guard,730ae1da,completed,success,2026-10-14T07:54:43Z,2026-10-14T08:08:18Z,13.6,1,"I1 F1.2: Welcome, AppShell, RouteGuard"
+38530044138,CI,pull_request,feat/app-shell-guard,858a90fe,completed,success,2026-10-14T07:42:05Z,2026-10-14T07:53:32Z,11.4,1,"I1 F1.2: Welcome, AppShell, RouteGuard"
+38524603496,CI,push,main,f7ee887d,completed,success,2026-10-14T06:50:35Z,2026-10-14T07:03:21Z,12.8,1,"CI: run browser, storybook and db only when their files change (#18)"
+38523676491,CI,push,main,671c0968,completed,success,2026-10-14T06:41:17Z,2026-10-14T06:54:02Z,12.8,1,"I1 F1.1 part c: server identity (JWT, deny by default, identity trans…"
+38523563572,CI,pull_request,chore/ci-path-filters,b5bc826b,completed,success,2026-10-14T06:40:11Z,2026-10-14T06:50:06Z,9.9,1,"CI: run browser, storybook and db only when their files change"
+38522421812,CI,pull_request,chore/ci-path-filters,3a6313fb,completed,cancelled,2026-10-14T06:28:36Z,2026-10-14T06:40:31Z,11.9,1,"CI: run browser, storybook and db only when their files change"
+38522128265,CI,pull_request,feat/identity-platform-c,57d4f166,completed,success,2026-10-14T06:25:34Z,2026-10-14T06:38:54Z,13.3,1,"I1 F1.1 part c: server identity (JWT, deny by default, identity transaction)"
+38519755089,CI,pull_request,feat/identity-platform-c,53198e0b,completed,success,2026-10-14T06:00:51Z,2026-10-14T06:13:35Z,12.7,1,"I1 F1.1 part c: server identity (JWT, deny by default, identity transaction)"
+38514591063,CI,pull_request,feat/identity-platform-c,63fbbe7c,completed,failure,2026-10-14T05:03:18Z,2026-10-14T05:13:13Z,9.9,1,"I1 F1.1 part c: server identity (JWT, deny by default, identity transaction)"
+38512176703,CI,pull_request,feat/identity-platform-c,e8eab86e,completed,failure,2026-10-14T04:35:26Z,2026-10-14T04:47:20Z,11.9,1,"I1 F1.1 part c: server identity (JWT, deny by default, identity transaction)"
+38512139367,CI,pull_request,feat/identity-platform-c,254de1c4,completed,cancelled,2026-10-14T04:35:02Z,2026-10-14T04:36:53Z,1.9,1,"I1 F1.1 part c: server identity (JWT, deny by default, identity transaction)"
+38508781724,CI,push,main,04c9be1e,completed,success,2026-10-14T03:55:53Z,2026-10-14T04:08:12Z,12.3,1,"I1 F1.1 part b: identity schema (users, regular_profiles, RLS) (#16)"
+38508781512,migrate,push,main,04c9be1e,completed,success,2026-10-14T03:55:52Z,2026-10-14T06:34:26Z,158.6,1,"I1 F1.1 part b: identity schema (users, regular_profiles, RLS) (#16)"
+38507630096,CI,pull_request,feat/identity-platform-b,c8f2fa41,completed,success,2026-10-14T03:42:24Z,2026-10-14T03:54:40Z,12.3,1,"I1 F1.1 part b: identity schema (users, regular_profiles, RLS)"
+38505788509,CI,pull_request,feat/identity-platform-b,e5df60d8,completed,failure,2026-10-14T03:21:00Z,2026-10-14T03:33:58Z,13.0,1,"I1 F1.1 part b: identity schema (users, regular_profiles, RLS)"
+38487219359,CI,pull_request,feat/identity-platform-b,060bfd84,completed,success,2026-10-13T23:56:10Z,2026-10-14T00:09:31Z,13.3,1,"I1 F1.1 part b: identity schema (users, regular_profiles, RLS)"
+38483560356,CI,pull_request,feat/identity-platform-b,0a1e910b,completed,success,2026-10-13T23:19:40Z,2026-10-13T23:30:30Z,10.8,1,"I1 F1.1 part b: identity schema (users, regular_profiles, RLS)"
+38481774806,CI,push,main,9eb27934,completed,success,2026-10-13T23:02:52Z,2026-10-13T23:15:37Z,12.8,1,"I1 F1.1 part a: CI database, RLS gate, migrate workflow (#15)"
+38480214996,CI,pull_request,feat/identity-platform-a,04d40582,completed,success,2026-10-13T22:48:21Z,2026-10-13T23:02:27Z,14.1,1,"I1 F1.1 part a: CI database, RLS gate, migrate workflow"
+38477920818,CI,pull_request,feat/identity-platform-a,655d07e8,completed,success,2026-10-13T22:27:29Z,2026-10-13T22:40:13Z,12.7,1,"I1 F1.1 part a: CI database, RLS gate, migrate workflow"
+38476223870,CI,pull_request,feat/identity-platform-a,88a1a7f1,completed,failure,2026-10-13T22:12:50Z,2026-10-13T22:26:09Z,13.3,1,"I1 F1.1 part a: CI database, RLS gate, migrate workflow"
+38474691283,CI,pull_request,feat/identity-platform-a,adf23516,completed,failure,2026-10-13T22:00:03Z,2026-10-13T22:11:01Z,11.0,1,"I1 F1.1 part a: CI database, RLS gate, migrate workflow"
+38471909340,CI,pull_request,feat/identity-platform-a,255d6beb,completed,failure,2026-10-13T21:36:45Z,2026-10-13T21:51:20Z,14.6,1,"I1 F1.1 part a: CI database, RLS gate, migrate workflow"
+38470626240,CI,pull_request,feat/identity-platform-a,a9b4c5c4,completed,cancelled,2026-10-13T21:26:32Z,2026-10-13T21:38:08Z,11.6,1,"I1 F1.1 part a: CI database, RLS gate, migrate workflow"
+38467509900,CI,push,main,287cb270,completed,success,2026-10-13T21:02:07Z,2026-10-13T21:13:06Z,11.0,1,"Guard env-file rule judges paths, not text; Afik's decisions of 13.10…"
+38397424942,CI,pull_request,chore/guard-env-paths,6a22401f,completed,success,2026-10-13T12:27:31Z,2026-10-13T12:41:02Z,13.5,1,"Guard env-file rule judges paths, not text; Afik's decisions of 13.10"
+38396685590,CI,pull_request,chore/guard-env-paths,7c1137c0,completed,cancelled,2026-10-13T12:21:23Z,2026-10-13T12:27:59Z,6.6,1,"Guard env-file rule judges paths, not text; Afik's decisions of 13.10"
+38389083518,CI,pull_request,chore/guard-env-paths,499342cf,completed,success,2026-10-13T11:16:30Z,2026-10-13T11:27:17Z,10.8,1,"Guard env-file rule judges paths, not text; Afik's decisions of 13.10"
+38383999632,CI,push,main,377a3273,completed,success,2026-10-13T10:31:57Z,2026-10-13T10:42:38Z,10.7,1,"Agent-slim stage 6: verification — no rule lost, re-measure (#13)"
+38382430321,CI,pull_request,chore/agent-slim-6-verify,5586da91,completed,success,2026-10-13T10:18:16Z,2026-10-13T10:31:02Z,12.8,1,"Agent-slim stage 6: verification — no rule lost, re-measure"
+38382413523,CI,push,main,9aea942e,completed,success,2026-10-13T10:18:07Z,2026-10-13T10:27:26Z,9.3,1,Agent-slim stage 5: line budgets in CI (#12)
+38377498988,CI,pull_request,chore/agent-slim-5-budgets,414f3848,completed,success,2026-10-13T09:36:12Z,2026-10-13T09:50:02Z,13.8,1,Agent-slim stage 5: line budgets in CI
+38377486025,CI,push,main,bb090c7b,completed,success,2026-10-13T09:36:06Z,2026-10-13T09:46:24Z,10.3,1,Agent-slim stage 4: agents and skills checked against CLAUDE.md (#11)
+38375295434,CI,pull_request,chore/agent-slim-4-agents,13685233,completed,success,2026-10-13T09:17:54Z,2026-10-13T09:30:24Z,12.5,1,Agent-slim stage 4: agents and skills checked against CLAUDE.md
+38375267512,CI,push,main,9992e306,completed,success,2026-10-13T09:17:40Z,2026-10-13T09:30:03Z,12.4,1,"Agent-slim stage 3: decisions index, WORKPLAN archive, dedup (#10)"
+38373605809,CI,pull_request,chore/agent-slim-3-slim,45028d97,completed,success,2026-10-13T09:03:31Z,2026-10-13T09:16:55Z,13.4,1,"Agent-slim stage 3: decisions index, WORKPLAN archive, dedup"
+38373458096,CI,push,main,883f7509,completed,success,2026-10-13T09:02:15Z,2026-10-13T09:12:30Z,10.2,1,"Agent-slim stage 2: log patterns, Git-and-shell convention (#9)"
+38371452786,CI,pull_request,chore/agent-slim-2-insights,dc8638a9,completed,success,2026-10-13T08:45:26Z,2026-10-13T08:58:21Z,12.9,1,"Agent-slim stage 2: log patterns, Git-and-shell convention"
+38371363126,CI,push,main,13c11317,completed,success,2026-10-13T08:44:43Z,2026-10-13T08:58:10Z,13.4,1,"Agent-slim stage 1: guard readers simplified, loader, block log (#8)"
+38369732536,CI,pull_request,chore/agent-slim-1-guard,8f2229aa,completed,success,2026-10-13T08:30:34Z,2026-10-13T08:43:53Z,13.3,1,"Agent-slim stage 1: guard readers simplified, loader, block log"
+38360464397,CI,push,main,ee18e448,completed,success,2026-10-13T07:05:03Z,2026-10-13T07:18:09Z,13.1,1,Merge pull request #7 from afikyermi/chore/agent-slim-0-baseline
+38359056011,CI,pull_request,chore/agent-slim-0-baseline,378636dc,completed,success,2026-10-13T06:50:54Z,2026-10-13T07:03:36Z,12.7,1,Agent-slim stage 0: context baseline per role
+38347899994,CI,pull_request,claude/guard-allowlist-implementation-xcv55m,17510a1b,completed,failure,2026-10-13T04:44:23Z,2026-10-13T04:54:23Z,10.0,1,guard: allowlist as the base for the CRITIC and TEST ENGINEER rules
+38347373882,CI,pull_request,claude/guard-allowlist-implementation-xcv55m,3414d6a2,completed,cancelled,2026-10-13T04:37:52Z,2026-10-13T04:44:41Z,6.8,1,guard: allowlist as the base for the CRITIC and TEST ENGINEER rules
+38345860285,CI,pull_request,claude/guard-allowlist-implementation-xcv55m,4fa31f87,completed,success,2026-10-13T04:19:07Z,2026-10-13T04:32:08Z,13.0,1,guard: allowlist as the base for the CRITIC and TEST ENGINEER rules
+38344658986,CI,pull_request,claude/guard-allowlist-implementation-xcv55m,1b15aaf5,completed,failure,2026-10-13T04:03:59Z,2026-10-13T04:17:15Z,13.3,1,guard: allowlist as the base for the CRITIC and TEST ENGINEER rules
+38344220242,CI,pull_request,claude/guard-allowlist-implementation-xcv55m,fd915191,completed,cancelled,2026-10-13T03:58:34Z,2026-10-13T04:04:22Z,5.8,1,guard: allowlist as the base for the CRITIC and TEST ENGINEER rules
+38344186998,CI,pull_request,claude/guard-allowlist-implementation-xcv55m,86188640,completed,cancelled,2026-10-13T03:58:08Z,2026-10-13T03:58:52Z,0.7,1,guard: allowlist as the base for the CRITIC and TEST ENGINEER rules
+38343022234,CI,pull_request,claude/guard-allowlist-implementation-xcv55m,2a5b0fe7,completed,success,2026-10-13T03:43:05Z,2026-10-13T03:53:00Z,9.9,1,guard: allowlist as the base for the CRITIC and TEST ENGINEER rules
+38308722397,CI,push,main,63414c7e,completed,success,2026-10-12T21:08:18Z,2026-10-12T21:20:56Z,12.6,1,Merge pull request #5 from afikyermi/chore/wrap-up-12-10
+38307392652,CI,pull_request,chore/wrap-up-12-10,7f2b88f2,completed,success,2026-10-12T20:55:56Z,2026-10-12T21:07:17Z,11.3,1,Wrap-up 12.10: I1 prep done; logs and WORKPLAN
+38306995203,db-check,workflow_dispatch,main,bf1be637,completed,success,2026-10-12T20:52:12Z,2026-10-12T20:52:27Z,0.2,1,db-check
+38306396829,db-check,workflow_dispatch,main,bf1be637,completed,success,2026-10-12T20:46:36Z,2026-10-12T20:46:46Z,0.2,1,db-check
+38303272984,CI,push,main,bf1be637,completed,success,2026-10-12T20:17:46Z,2026-10-12T20:31:04Z,13.3,1,Merge pull request #4 from afikyermi/chore/i1-prep
+38302270980,CI,pull_request,chore/i1-prep,e49b3045,completed,success,2026-10-12T20:08:35Z,2026-10-12T20:17:10Z,8.6,1,"I1 prep: roles bootstrap, db-check workflow, Vercel builds main and PR branches"
+38286146091,CI,push,main,15b7fc7a,completed,success,2026-10-12T17:43:51Z,2026-10-12T17:57:00Z,13.2,1,Merge pull request #3 from afikyermi/ui-wave-1/part-f
+38283992005,CI,pull_request,ui-wave-1/part-f,67b2bb66,completed,success,2026-10-12T17:24:28Z,2026-10-12T17:38:00Z,13.5,1,"UI wave 1 part f: TopBar, BottomNavigation, SideDrawer, AppShell (9.7)"
+38277438741,CI,pull_request,ui-wave-1/part-f,9a8a9060,completed,success,2026-10-12T16:26:44Z,2026-10-12T16:39:09Z,12.4,1,"UI wave 1 part f: TopBar, BottomNavigation, SideDrawer, AppShell (9.7)"
+38272622210,CI,pull_request,ui-wave-1/part-f,e5de9bb7,completed,success,2026-10-12T15:46:00Z,2026-10-12T15:54:14Z,8.2,1,"UI wave 1 part f: TopBar, BottomNavigation, SideDrawer, AppShell (9.7)"
+38247004348,CI,pull_request,ui-wave-1/part-f,1f3efa37,completed,success,2026-10-12T12:07:02Z,2026-10-12T12:17:13Z,10.2,1,"UI wave 1 part f: TopBar, BottomNavigation, SideDrawer, AppShell (9.7)"
+38243056394,CI,push,main,aed3a930,completed,success,2026-10-12T11:30:13Z,2026-10-12T11:39:25Z,9.2,1,Merge pull request #2 from afikyermi/fix/guard-notes-case
+38241907180,CI,pull_request,fix/guard-notes-case,31246005,completed,success,2026-10-12T11:19:27Z,2026-10-12T11:29:50Z,10.4,1,Guard: CRITIC notes.md rule independent of letter case and platform
+38241026585,CI,pull_request,fix/guard-notes-case,fc8b3126,completed,cancelled,2026-10-12T11:11:09Z,2026-10-12T11:20:17Z,9.1,1,Guard: CRITIC notes.md rule independent of letter case and platform
+38237691915,CI,push,main,c67616e0,completed,success,2026-10-12T10:39:27Z,2026-10-12T10:46:55Z,7.5,1,Merge pull request #1 from afikyermi/fix/guard-case-insensitive-notes
+38236416252,CI,pull_request,fix/guard-case-insensitive-notes,2e98955d,completed,success,2026-10-12T10:27:16Z,2026-10-12T10:36:39Z,9.4,1,"(page 4, transcribed)"
+38235017642,CI,pull_request,fix/guard-case-insensitive-notes,62871b19,completed,success,2026-10-12T10:13:59Z,2026-10-12T10:23:45Z,9.8,1,"(page 4, transcribed)"
+38231867951,CI,push,main,893fc16e,completed,failure,2026-10-12T09:44:51Z,2026-10-12T09:51:30Z,6.7,1,"(page 4, transcribed)"
+38226404829,CI,push,main,efa81438,completed,failure,2026-10-12T08:53:48Z,2026-10-12T09:03:24Z,9.6,1,"(page 4, transcribed)"
+38225306249,CI,push,main,b327d678,completed,failure,2026-10-12T08:43:19Z,2026-10-12T08:53:00Z,9.7,1,"(page 4, transcribed)"
+38224004029,CI,push,main,8a9272de,completed,failure,2026-10-12T08:30:41Z,2026-10-12T08:37:34Z,6.9,1,"(page 4, transcribed)"
+38212836075,CI,push,main,51213929,completed,failure,2026-10-12T06:30:17Z,2026-10-12T06:39:38Z,9.3,1,"(page 4, transcribed)"
+38203781419,CI,push,main,a48a3938,completed,failure,2026-10-12T04:26:20Z,2026-10-12T04:32:50Z,6.5,1,"(page 4, transcribed)"
+38175200321,CI,push,main,908c741b,completed,failure,2026-10-11T21:09:38Z,2026-10-11T21:13:31Z,3.9,1,"(page 4, transcribed)"
+38171346463,CI,push,main,c85225a4,completed,failure,2026-10-11T20:14:15Z,2026-10-11T20:18:25Z,4.2,1,"(page 4, transcribed)"
+38171301769,CI,push,main,f365ce14,completed,failure,2026-10-11T20:13:36Z,2026-10-11T20:15:40Z,2.1,1,"(page 4, transcribed)"
+38170588507,CI,push,main,469303ca,completed,failure,2026-10-11T20:03:22Z,2026-10-11T20:05:30Z,2.1,1,"(page 4, transcribed)"
+38170219178,CI,push,main,433b4896,completed,failure,2026-10-11T19:58:06Z,2026-10-11T19:58:34Z,0.5,1,"(page 4, transcribed)"
+38167146885,CI,push,main,d1a8241f,completed,failure,2026-10-11T19:14:09Z,2026-10-11T19:14:41Z,0.5,1,"(page 4, transcribed)"
+38165576918,CI,push,main,9f8974ed,completed,failure,2026-10-11T18:51:37Z,2026-10-11T18:52:04Z,0.5,1,"(page 4, transcribed)"
+38165186440,CI,push,main,bb716f32,completed,failure,2026-10-11T18:46:01Z,2026-10-11T18:46:27Z,0.4,1,"(page 4, transcribed)"
+38164865622,CI,push,main,38b4cf68,completed,failure,2026-10-11T18:41:24Z,2026-10-11T18:41:47Z,0.4,1,"(page 4, transcribed)"
+38164388570,CI,push,main,4537a422,completed,failure,2026-10-11T18:34:32Z,2026-10-11T18:35:00Z,0.5,1,"(page 4, transcribed)"
+38161354634,CI,push,main,23b8b75e,completed,failure,2026-10-11T17:51:01Z,2026-10-11T17:51:25Z,0.4,1,"(page 4, transcribed)"
+38157487320,CI,push,main,33599129,completed,failure,2026-10-11T16:55:41Z,2026-10-11T16:56:01Z,0.3,1,"(page 4, transcribed)"
+38155865298,CI,push,main,1294c147,completed,failure,2026-10-11T16:32:06Z,2026-10-11T16:32:31Z,0.4,1,"(page 4, transcribed)"
+38155574057,CI,push,main,3d6152b9,completed,failure,2026-10-11T16:28:01Z,2026-10-11T16:28:24Z,0.4,1,"(page 4, transcribed)"
+38153799014,CI,push,main,4d843b76,completed,failure,2026-10-11T16:02:35Z,2026-10-11T16:03:00Z,0.4,1,"(page 4, transcribed)"
+38153371325,CI,push,main,f83b8de1,completed,failure,2026-10-11T15:56:25Z,2026-10-11T15:56:44Z,0.3,1,"(page 4, transcribed)"
