@@ -155,10 +155,14 @@ F1.6 password recovery (FR-AUTH-003, OP-029) — the one exception Afik approved
 ```
 Preview E2E test-user cleanup (DR-E1, option 1) — the credential PREVIEW_DB_ADMIN_URL: role `postgres` (BYPASSRLS) on
 nestly-preview only (project xmihorrkegrdlbhpktny), through the session pooler, user exactly postgres.xmihorrkegrdlbhpktny,
-port 5432. Lives only in GitHub environment `preview-e2e`, in the env of the one workflow step "Delete the test users"
-(`tools/preview-e2e-cleanup-cli.ts`); never in the Playwright step, a worker, or any other job. It deletes only users whose
-auth email matches ^nestly-e2e-[0-9]{1,20}-[0-9]{1,3}-[0-9a-f]{16}@gmail.com$ — this run's, plus any older than 3 h —
-at most 10 per run (more: delete nothing, fail), one transaction per user with SET LOCAL row_security = off (RLS raises
+port 5432. Lives only in GitHub environment `preview-e2e`, in the env of the one step "Delete the test users" of the workflow
+`preview-e2e-cleanup.yml` (`tools/preview-e2e-cleanup-cli.ts`); never in the Playwright step, a worker, or any other job.
+What enforces that boundary: the cleanup workflow triggers on `workflow_run` of preview-e2e, so GitHub runs it from the
+default branch and it checks out `main`, never the deployment sha; the environment is restricted to the `main` branch
+(Afik sets the rule); so branch code never receives the credential. It deletes only users whose auth email matches
+`^nestly-e2e-[0-9]{1,20}-[0-9]{1,3}-[0-9a-f]{16}@gmail\.com$` (`TEST_EMAIL_PATTERN`, e2e-preview/support/test-user.ts):
+this run's always, plus at most 10 older than 3 h per run, oldest first; above 50 pattern users in total: delete nothing,
+fail. One transaction per user with SET LOCAL row_security = off (RLS raises
 instead of filtering), the eight nestly tables leaf first, then auth.users, count must be exactly 1. Their recovery_events
 are deleted with them (test data on preview; not a retention decision, §13.4 stays TBD; never a template for real accounts).
 A fail-closed in-connection preflight checks current_user, BYPASSRLS, DELETE on auth.users and the exact set of nestly

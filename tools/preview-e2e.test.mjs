@@ -63,8 +63,10 @@ test('[E c1] permissions are contents: read at the workflow and nothing broader 
 });
 
 // ---- criterion 2: environment and secrets -----------------------------------------------------------------------------
-test('[E c2] the job declares environment preview-e2e', () => {
-  assert.equal(job.environment, 'preview-e2e');
+test('[E c2] the test workflow declares no environment (the credential environment belongs to the cleanup workflow only)', () => {
+  assert.equal(job.environment, undefined);
+  assert.equal(wf.environment, undefined);
+  assert.doesNotMatch(workflowText, /^\s*environment\s*:/m);
 });
 
 test('[E c2] no secret is in the workflow-level or job-level env', () => {
@@ -602,9 +604,11 @@ for (const [label, over] of [
   });
 }
 
-test('[E c9] the sweep age is 3 hours and the cap is 10 users', () => {
+test('[E c9] the sweep age is 3 hours, the sweep cap 10 per run, the pattern ceiling 50', () => {
   assert.equal(cleanup.SWEEP_AGE_HOURS, 3);
-  assert.equal(cleanup.MAX_VICTIMS, 10);
+  assert.equal(cleanup.MAX_SWEEP_PER_RUN, 10);
+  assert.equal(cleanup.MAX_PATTERN_USERS, 50);
+  assert.equal(cleanup.MAX_VICTIMS, undefined);
 });
 
 test('[E c9] decoys and prefix-only look-alikes are not pattern matches; generated users are', () => {
@@ -633,29 +637,61 @@ test('[E c8][E c9] the run prefix is nestly-e2e-<run>-<attempt>-%, and a non-num
 
 const cands = (n, own = false, tag = 'u') => Array.from({ length: n }, (_, i) => ({ id: `${tag}${i}`, own }));
 
-test("[E c9] this run's users are always selected, together with leftovers, up to the cap", () => {
-  const r = cleanup.selectVictims([{ id: 'mine', own: true }, { id: 'old', own: false }]);
+test("[E c9] this run's users and leftovers are both selected", () => {
+  const r = cleanup.selectVictims([{ id: 'mine', own: true }, { id: 'old', own: false }], 2);
   assert.equal(r.ok, true);
   assert.deepEqual(r.victims.map((v) => v.id).sort(), ['mine', 'old']);
-  assert.equal(cleanup.selectVictims(cands(10)).ok, true, 'exactly 10 is allowed');
-  assert.equal(cleanup.selectVictims([]).ok, true);
+  assert.equal(cleanup.selectVictims([], 0).ok, true);
 });
 
-test("[E c9] more than 10 matches (even when some are this run's) selects nothing and fails", () => {
-  for (const list of [cands(11), [...cands(10), { id: 'mine', own: true }], cands(500)]) {
-    const r = cleanup.selectVictims(list);
+test("[E c9] this run's users are never capped: 12 own and no leftovers are all selected", () => {
+  const r = cleanup.selectVictims(cands(12, true, 'own'), 12);
+  assert.equal(r.ok, true);
+  assert.equal(r.victims.length, 12);
+});
+
+test("[E c9] own users are all kept and the sweep takes at most 10 leftovers: 12 own + 15 leftovers -> 22", () => {
+  const r = cleanup.selectVictims([...cands(12, true, 'own'), ...cands(15, false, 'old')], 27);
+  assert.equal(r.ok, true);
+  assert.equal(r.victims.filter((v) => v.own).length, 12);
+  assert.equal(r.victims.filter((v) => !v.own).length, 10);
+});
+
+test('[E c9] exactly 10 leftovers are swept, oldest first, when more exist (candidates arrive oldest first)', () => {
+  const r = cleanup.selectVictims(cands(14, false, 'old'), 14);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.victims.map((v) => v.id), Array.from({ length: 10 }, (_, i) => `old${i}`));
+});
+
+test('[E c9] fewer than 10 leftovers are all swept', () => {
+  const r = cleanup.selectVictims(cands(3, false, 'old'), 3);
+  assert.equal(r.victims.length, 3);
+});
+
+test('[E c9] 50 pattern users in total is allowed; 51 (or more) selects nothing and fails, even when all are this run\'s', () => {
+  assert.equal(cleanup.selectVictims(cands(5, true, 'own'), 50).ok, true);
+  for (const [list, total] of [[cands(5, true, 'own'), 51], [cands(20, false), 51], [[], 500]]) {
+    const r = cleanup.selectVictims(list, total);
     assert.equal(r.ok, false);
     assert.ok(r.reason.length > 0);
     assert.equal(r.victims, undefined);
   }
 });
 
+test('[E c9] a negative or non-numeric pattern total selects nothing', () => {
+  for (const total of [-1, Number.NaN, undefined, '3']) {
+    assert.equal(cleanup.selectVictims(cands(2, true), total).ok, false, String(total));
+  }
+});
+
+const found = (candidates, patternTotal = candidates.length) => ({ candidates, patternTotal });
+
 // A stub client: records every call so a test can say what was and was not deleted.
 function stubClient(over = {}) {
   const calls = { deleted: [], counted: 0 };
   const client = {
     preflight: async () => GOOD_FACTS,
-    findCandidates: async () => [],
+    findCandidates: async () => found([]),
     deleteUser: async (id) => {
       calls.deleted.push(id);
       return { 'auth.users': 1, 'nestly.users': 1 };
@@ -679,7 +715,7 @@ test('[E c8] flow passed (it deleted its own user): cleanup succeeds with zero d
 });
 
 test('[E c8] flow threw (its user is still there): cleanup deletes it and succeeds', async () => {
-  const { client, calls } = stubClient({ findCandidates: async () => [{ id: 'mine', own: true }] });
+  const { client, calls } = stubClient({ findCandidates: async () => found([{ id: 'mine', own: true }]) });
   const r = await runIt(client);
   assert.deepEqual(calls.deleted, ['mine']);
   assert.equal(r.ok, true);
@@ -688,7 +724,7 @@ test('[E c8] flow threw (its user is still there): cleanup deletes it and succee
 });
 
 test("[E c9] leftovers of earlier runs are swept and counted apart from this run's", async () => {
-  const { client, calls } = stubClient({ findCandidates: async () => [{ id: 'mine', own: true }, { id: 'old', own: false }] });
+  const { client, calls } = stubClient({ findCandidates: async () => found([{ id: 'mine', own: true }, { id: 'old', own: false }]) });
   const r = await runIt(client);
   assert.deepEqual(calls.deleted.sort(), ['mine', 'old']);
   assert.equal(r.deletedOwn, 1);
@@ -715,7 +751,7 @@ test('[E c8] the final count itself failing is a failure, not a pass', async () 
 test("[E c8] one user's delete failing: the others still run, and the job fails", async () => {
   const ids = ['a', 'b', 'c'];
   const { client, calls } = stubClient({
-    findCandidates: async () => ids.map((id) => ({ id, own: true })),
+    findCandidates: async () => found(ids.map((id) => ({ id, own: true }))),
     deleteUser: async (id) => {
       calls.deleted.push(id);
       if (id === 'a') throw Object.assign(new Error('restrict'), { code: '23503' });
@@ -729,11 +765,27 @@ test("[E c8] one user's delete failing: the others still run, and the job fails"
   assert.equal(r.deletedOwn, 2);
 });
 
-test('[E c9] more than 10 candidates: no delete is attempted and the cleanup fails', async () => {
-  const { client, calls } = stubClient({ findCandidates: async () => cands(11) });
+test('[E c9] more than 50 pattern users in total: no delete is attempted and the cleanup fails', async () => {
+  const { client, calls } = stubClient({ findCandidates: async () => found(cands(11, true), 51) });
   const r = await runIt(client);
   assert.equal(r.ok, false);
   assert.equal(calls.deleted.length, 0);
+});
+
+test('[E c9] 12 own users and no leftovers: all 12 are deleted and the cleanup succeeds', async () => {
+  const { client, calls } = stubClient({ findCandidates: async () => found(cands(12, true, 'own')) });
+  const r = await runIt(client);
+  assert.equal(calls.deleted.length, 12);
+  assert.equal(r.deletedOwn, 12);
+  assert.equal(r.ok, true);
+});
+
+test('[E c9] 15 leftovers: exactly 10 are deleted, oldest first, and the cleanup succeeds', async () => {
+  const { client, calls } = stubClient({ findCandidates: async () => found(cands(15, false, 'old')) });
+  const r = await runIt(client);
+  assert.deepEqual(calls.deleted, Array.from({ length: 10 }, (_, i) => `old${i}`));
+  assert.equal(r.deletedSwept, 10);
+  assert.equal(r.ok, true);
 });
 
 for (const [label, facts] of [
@@ -746,7 +798,7 @@ for (const [label, facts] of [
       preflight: async () => facts,
       findCandidates: async () => {
         read = true;
-        return cands(1, true);
+        return found(cands(1, true));
       },
     });
     const r = await runIt(client);
@@ -785,7 +837,7 @@ test('[E c8] nothing is logged beyond counts: sentinel emails, URL and ids in er
   const URLS = `postgresql://postgres.xmihorrkegrdlbhpktny:${PW}@host.pooler.supabase.com:5432/postgres`;
   const leak = `${EMAIL} ${URLS} user-id-sentinel-77`;
   const { client } = stubClient({
-    findCandidates: async () => [{ id: 'user-id-sentinel-77', own: true }, { id: 'ok', own: true }],
+    findCandidates: async () => found([{ id: 'user-id-sentinel-77', own: true }, { id: 'ok', own: true }]),
     deleteUser: async (id) => {
       if (id !== 'ok') throw Object.assign(new Error(leak), { code: '23503' });
       return { 'auth.users': 1 };
@@ -817,36 +869,72 @@ test('[E c8] a preflight error message carrying a secret is not echoed in the re
 });
 
 // ---- criteria 8 and 9: the cleanup step in the workflow ---------------------------------------------------------------------
-const cleanupIdx = steps.findIndex((s) => JSON.stringify(s.env ?? {}).includes('PREVIEW_DB_ADMIN_URL'));
+// Decision 17.10: cleanup is its own workflow on workflow_run, default-branch checkout, environment preview-e2e.
+const cleanupText = read('.github/workflows/preview-e2e-cleanup.yml');
+const cwf = parseYaml(cleanupText);
+const cjob = Object.values(cwf.jobs)[0];
+const csteps = stepsOf(cjob);
+const secretIdx = csteps.findIndex((s) => JSON.stringify(s.env ?? {}).includes('PREVIEW_DB_ADMIN_URL'));
 const pwIdx = steps.findIndex((s) => /playwright test/.test(runOf(s)));
 const summaryIdx = steps.findIndex((s) => /GITHUB_STEP_SUMMARY/.test(runOf(s)));
 
-test("[E c8] the cleanup step is if: always(), has a timeout smaller than the job's, and sits between Playwright and the summary", () => {
-  assert.ok(cleanupIdx >= 0, 'no step carries PREVIEW_DB_ADMIN_URL');
-  const step = steps[cleanupIdx];
-  assert.equal(String(step.if).trim(), 'always()');
-  assert.ok(Number(step['timeout-minutes']) > 0 && Number(step['timeout-minutes']) < Number(job['timeout-minutes']));
-  assert.ok(pwIdx >= 0 && summaryIdx >= 0 && pwIdx < cleanupIdx && cleanupIdx < summaryIdx);
+test('[E c8] the cleanup workflow triggers only on workflow_run completed of preview-e2e', () => {
+  assert.deepEqual(Object.keys(cwf.on), ['workflow_run']);
+  assert.deepEqual([...cwf.on.workflow_run.workflows], ['preview-e2e']);
+  assert.deepEqual([...cwf.on.workflow_run.types], ['completed']);
 });
 
-test("[E c8] the Playwright step has its own timeout, and it plus the cleanup's fit inside the job's", () => {
-  const pwT = Number(steps[pwIdx]['timeout-minutes']);
-  assert.ok(pwT > 0 && pwT + Number(steps[cleanupIdx]['timeout-minutes']) < Number(job['timeout-minutes']));
+test("[E c8] the cleanup checkout is not the event's head sha, head branch or any github.event.workflow_run value", () => {
+  const checkouts = csteps.filter((s) => /actions\/checkout/.test(String(s.uses)));
+  assert.equal(checkouts.length, 1);
+  const ref = String(checkouts[0].with?.ref ?? '');
+  assert.doesNotMatch(ref, /head_sha|head_branch|workflow_run|pull_request|github\.sha|github\.head_ref/);
+  assert.doesNotMatch(JSON.stringify(checkouts[0].with ?? {}), /head_sha|head_branch|head_repository/);
+  assert.doesNotMatch(cleanupText, /head_sha|head_branch|head_repository/);
 });
 
-test('[E c8] PREVIEW_DB_ADMIN_URL is in the env of the cleanup step only, as a secrets reference, never in a run body', () => {
-  const holders = steps.filter((s) => JSON.stringify(s.env ?? {}).includes('PREVIEW_DB_ADMIN_URL'));
+test('[E c8] the cleanup run id and attempt arrive through env from github.event.workflow_run, never in a run body', () => {
+  const step = csteps[secretIdx];
+  const values = JSON.stringify(step.env);
+  assert.match(values, /github\.event\.workflow_run\.id/);
+  assert.match(values, /github\.event\.workflow_run\.run_attempt/);
+  for (const s of csteps) {
+    assert.doesNotMatch(runOf(s), /\$\{\{/, `an expression in the run body of "${s.name ?? s.uses ?? runOf(s)}"`);
+  }
+});
+
+test('[E c8] the cleanup job declares environment preview-e2e', () => {
+  assert.equal(cjob.environment, 'preview-e2e');
+});
+
+test('[E c8] PREVIEW_DB_ADMIN_URL is in the env of one cleanup step only, as a secrets reference, never in a run body or a broader env', () => {
+  assert.ok(secretIdx >= 0, 'no cleanup step carries PREVIEW_DB_ADMIN_URL');
+  const holders = csteps.filter((s) => JSON.stringify(s.env ?? {}).includes('PREVIEW_DB_ADMIN_URL'));
   assert.equal(holders.length, 1);
   assert.match(String(holders[0].env.PREVIEW_DB_ADMIN_URL), /^\$\{\{\s*secrets\.PREVIEW_DB_ADMIN_URL\s*\}\}$/);
-  for (const s of steps) assert.doesNotMatch(runOf(s), /PREVIEW_DB_ADMIN_URL/);
-  assert.doesNotMatch(JSON.stringify(steps[pwIdx].env), /PREVIEW_DB_ADMIN_URL/);
-  for (const env of [wf.env, job.env]) assert.doesNotMatch(JSON.stringify(env ?? {}), /PREVIEW_DB_ADMIN_URL/);
+  assert.equal((cleanupText.match(/\$\{\{\s*secrets\./g) ?? []).length, 1, 'exactly one secrets.* reference in the file');
+  for (const s of csteps) assert.doesNotMatch(runOf(s), /PREVIEW_DB_ADMIN_URL/);
+  for (const env of [cwf.env, cjob.env]) assert.doesNotMatch(JSON.stringify(env ?? {}), /secrets\.|PREVIEW_DB_ADMIN_URL/);
 });
 
-test('[E c8] the cleanup step does not get the bypass secret', () => {
-  assert.doesNotMatch(JSON.stringify(steps[cleanupIdx].env), /VERCEL_AUTOMATION_BYPASS_SECRET/);
+test('[E c8] the cleanup step does not get the bypass secret, and the job timeout exceeds the step timeout', () => {
+  assert.doesNotMatch(cleanupText, /VERCEL_AUTOMATION_BYPASS_SECRET/);
+  const t = Number(csteps[secretIdx]['timeout-minutes']);
+  assert.ok(t > 0 && t < Number(cjob['timeout-minutes']));
 });
 
-test('[E c8] the summary no longer says the test users are not deleted', () => {
+test('[E c8] the cleanup workflow has contents: read only', () => {
+  assert.deepEqual(cwf.permissions, { contents: 'read' });
+  assert.ok(cjob.permissions === undefined || cjob.permissions === null);
+});
+
+test('[E c8] the test workflow has no cleanup step and no PREVIEW_DB_ADMIN_URL anywhere', () => {
+  const code = workflowText.replace(/^\s*#.*$/gm, ''); // comments may explain where the cleanup went
+  assert.doesNotMatch(code, /PREVIEW_DB_ADMIN_URL/);
+  for (const s of steps) assert.doesNotMatch(runOf(s), /preview-e2e-cleanup(-cli)?\.ts/);
+});
+
+test('[E c8] the test workflow summary is the last step, after Playwright, and does not claim users are left behind', () => {
+  assert.ok(pwIdx >= 0 && summaryIdx > pwIdx);
   assert.doesNotMatch(runOf(steps[summaryIdx]), /not deleted|are left|stay on preview|not removed/i);
 });

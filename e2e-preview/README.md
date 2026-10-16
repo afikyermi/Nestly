@@ -8,6 +8,6 @@ Flows that run against a deployed Preview (workflow `preview-e2e`), on Chrome at
 - Real Auth, real server. Create users only through the app; the email pattern is `support/test-user.ts`.
 - Call `recoveryAttempts.recordFailedAttempt(email)` before each wrong /recovery submission (max 4 per user).
 - No secrets, no logging of password or answers, no video, trace or screenshots. Retries are off.
-- Test users are not yet deleted after a run (decision pending); they stay on nestly-preview.
+- Test users are deleted after each run by `preview-e2e-cleanup` (workflow_run, main's code; DR-E1). Flows never clean up.
 - Run: `npx playwright test -c e2e-preview/playwright.config.ts` with `PREVIEW_E2E_BASE_URL`,
   `VERCEL_AUTOMATION_BYPASS_SECRET`, `GITHUB_RUN_ID` and `GITHUB_RUN_ATTEMPT` set.

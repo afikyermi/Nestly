@@ -1,0 +1,46 @@
+# preview-e2e-cleanup - deletes the test users of a finished preview-e2e run, and the leftovers older than 3 h (DR-E1,
+# Afik 17.10.2026, option 1: SQL as postgres on nestly-preview, tools/preview-e2e-cleanup-cli.ts).
+#
+# Why a separate workflow: it triggers on workflow_run, so GitHub runs THIS file from the default branch, and the job checks
+# out the default branch - never the deployment sha of the run it cleans up. A branch under test therefore never executes
+# code with the BYPASSRLS credential. The credential is in the GitHub environment `preview-e2e` (restricted to `main`) and in
+# the env of the one cleanup step; the run id and attempt come from the event through env, never interpolated in `run:`.
+
+name: preview-e2e-cleanup
+
+on:
+  workflow_run:
+    workflows: [preview-e2e]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-e2e-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: preview-e2e-cleanup
+    if: github.event.workflow_run.conclusion != 'skipped'
+    environment: preview-e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Delete the test users
+        timeout-minutes: 5
+        env:
+          PREVIEW_DB_ADMIN_URL: ${{ secrets.PREVIEW_DB_ADMIN_URL }}
+          TARGET_RUN_ID: ${{ github.event.workflow_run.id }}
+          TARGET_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+        run: node tools/preview-e2e-cleanup-cli.ts

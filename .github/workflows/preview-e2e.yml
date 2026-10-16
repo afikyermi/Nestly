@@ -10,9 +10,8 @@
 # through env, is checked before anything else runs, and the Playwright step receives only the checked URL. The flows
 # get only a generated user and that URL; the bypass goes to the deployment host only (e2e-preview/support/bypass.ts).
 #
-# Cleanup (DR-E1, Afik 17.10.2026, option 1): one step after the tests, if: always(), deletes this run's test users and
-# the leftovers older than 3 h, by SQL as postgres on nestly-preview (tools/preview-e2e-cleanup-cli.ts). Its credential,
-# PREVIEW_DB_ADMIN_URL, is in the env of that one step: never in the Playwright step, never in a worker.
+# Cleanup (DR-E1, Afik 17.10.2026, option 1) is NOT here: .github/workflows/preview-e2e-cleanup.yml runs after this workflow
+# (workflow_run, the default branch's code). This job holds no environment and never sees PREVIEW_DB_ADMIN_URL.
 
 name: preview-e2e
 
@@ -30,7 +29,6 @@ jobs:
   e2e:
     name: preview-e2e
     if: github.event.deployment_status.state == 'success' && github.event.deployment_status.environment == 'Preview' && github.event.deployment_status.creator.login == 'vercel[bot]'
-    environment: preview-e2e
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -56,23 +54,11 @@ jobs:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           PREVIEW_E2E_REPORT_FILE: ${{ runner.temp }}/preview-e2e-report.json
         run: npx playwright test -c e2e-preview/playwright.config.ts
-      - name: Delete the test users
-        id: cleanup
-        if: always()
-        timeout-minutes: 5
-        env:
-          PREVIEW_DB_ADMIN_URL: ${{ secrets.PREVIEW_DB_ADMIN_URL }}
-        run: node tools/preview-e2e-cleanup-cli.ts
       - name: Summary
         if: always()
         env:
           JOB_STATUS: ${{ job.status }}
           REPORT_FILE: ${{ runner.temp }}/preview-e2e-report.json
-          CLEANUP_OUTCOME: ${{ steps.cleanup.outcome }}
-          CLEANUP_DELETED_OWN: ${{ steps.cleanup.outputs.deleted_own }}
-          CLEANUP_DELETED_SWEPT: ${{ steps.cleanup.outputs.deleted_swept }}
-          CLEANUP_FAILED: ${{ steps.cleanup.outputs.failed }}
-          CLEANUP_LEFTOVERS: ${{ steps.cleanup.outputs.leftovers }}
         run: |
           {
             echo "preview-e2e: ${JOB_STATUS} (run ${GITHUB_RUN_ID}, attempt ${GITHUB_RUN_ATTEMPT})"
@@ -82,5 +68,5 @@ jobs:
             else
               echo "- no report (the run stopped before the tests)"
             fi
-            echo "cleanup: ${CLEANUP_OUTCOME} - deleted ${CLEANUP_DELETED_OWN:-0} of this run and ${CLEANUP_DELETED_SWEPT:-0} leftover(s); ${CLEANUP_FAILED:-0} failed; this run's remaining: ${CLEANUP_LEFTOVERS:-unknown}"
+            echo "cleanup of the test users runs in the follow-up workflow preview-e2e-cleanup"
           } >> "${GITHUB_STEP_SUMMARY}"

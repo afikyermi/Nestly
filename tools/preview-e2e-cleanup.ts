@@ -8,7 +8,8 @@ import { TEST_EMAIL_PATTERN } from '../e2e-preview/support/test-user.ts';
 export { TEST_EMAIL_PATTERN };
 export const PREVIEW_PROJECT_REF = 'xmihorrkegrdlbhpktny'; // nestly-preview
 export const SWEEP_AGE_HOURS = 3; // longer than the job's 20 minute timeout: a concurrent run's users are never swept
-export const MAX_VICTIMS = 10; // more candidates than this: delete nothing and fail
+export const MAX_SWEEP_PER_RUN = 10; // leftovers (not this run's) deleted per run, oldest first; this run's own users are never capped
+export const MAX_PATTERN_USERS = 50; // more pattern users than this in total: a wrong pattern, delete nothing and fail
 
 /** The eight tables the preflight expects in `nestly`, sorted; an unknown table means this design needs re-review. */
 export const EXPECTED_NESTLY_TABLES: readonly string[] = [
@@ -99,7 +100,7 @@ export function matchesTestEmail(email: string): boolean {
 /** The `like` prefix of this run's users: nestly-e2e-<run>-<attempt>-%. Both parts must be numeric (else it throws). */
 export function runEmailPrefix(runId: string, runAttempt: string): string {
   if (!/^[0-9]{1,20}$/.test(runId) || !/^[0-9]{1,3}$/.test(runAttempt)) {
-    throw new Error('GITHUB_RUN_ID and GITHUB_RUN_ATTEMPT must be numeric');
+    throw new Error('the run id and attempt must be numeric');
   }
   return `nestly-e2e-${runId}-${runAttempt}-%`;
 }
@@ -112,14 +113,28 @@ export interface Candidate {
 
 export type Selection = { ok: true; victims: Candidate[] } | { ok: false; reason: string };
 
-/** More than MAX_VICTIMS candidates in total: nothing is selected. Duplicate ids count once. */
-export function selectVictims(candidates: readonly Candidate[], cap: number = MAX_VICTIMS): Selection {
+/**
+ * This run's users are always selected. Leftovers (candidates that are not this run's) must arrive oldest first; at most
+ * `maxSweep` of them are selected. `patternTotal` is every user matching the pattern, of any age: above `maxPattern`
+ * nothing is selected. Duplicate ids count once.
+ */
+export function selectVictims(
+  candidates: readonly Candidate[],
+  patternTotal: number,
+  limits: { maxSweep?: number; maxPattern?: number } = {},
+): Selection {
+  const maxSweep = limits.maxSweep ?? MAX_SWEEP_PER_RUN;
+  const maxPattern = limits.maxPattern ?? MAX_PATTERN_USERS;
+  if (!Number.isInteger(patternTotal) || patternTotal < 0) return { ok: false, reason: 'the pattern user count is not a number' };
+  if (patternTotal > maxPattern) {
+    return { ok: false, reason: `${patternTotal} users match the pattern, more than ${maxPattern}: nothing was deleted` };
+  }
   const byId = new Map<string, Candidate>();
   for (const c of candidates) byId.set(c.id, { id: c.id, own: c.own || (byId.get(c.id)?.own ?? false) });
-  if (byId.size > cap) {
-    return { ok: false, reason: `${byId.size} users match the pattern, more than the cap of ${cap}: nothing was deleted` };
-  }
-  return { ok: true, victims: [...byId.values()] };
+  const all = [...byId.values()];
+  const own = all.filter((c) => c.own);
+  const swept = all.filter((c) => !c.own).slice(0, maxSweep);
+  return { ok: true, victims: [...own, ...swept] };
 }
 
 // ---- control flow ------------------------------------------------------------------------------------------------------
@@ -129,8 +144,11 @@ export type DeleteCounts = Record<string, number>;
 
 export interface CleanupClient {
   preflight(): Promise<PreflightFacts>;
-  /** The database's own answer: this run's users plus users older than SWEEP_AGE_HOURS, both only by the pattern. */
-  findCandidates(runId: string, runAttempt: string): Promise<Candidate[]>;
+  /**
+   * The database's own answer, only by the pattern: this run's users plus users older than SWEEP_AGE_HOURS, oldest first,
+   * and the count of every pattern user of any age.
+   */
+  findCandidates(runId: string, runAttempt: string): Promise<{ candidates: Candidate[]; patternTotal: number }>;
   /** One transaction; throws (after rolling back) on any failure. Resolves with the counts, all zero if already gone. */
   deleteUser(id: string): Promise<DeleteCounts>;
   /** Users of this run still matching the pattern. */
@@ -173,14 +191,15 @@ export async function runCleanup(input: CleanupInput): Promise<CleanupReport> {
   try {
     runEmailPrefix(runId, runAttempt);
   } catch {
-    return empty('GITHUB_RUN_ID and GITHUB_RUN_ATTEMPT must be numeric');
+    return empty('the run id and attempt must be numeric');
   }
 
   let victims: Candidate[];
   try {
     const decision = decidePreflight(await client.preflight());
     if (!decision.ok) return empty(decision.reason);
-    const selection = selectVictims(await client.findCandidates(runId, runAttempt));
+    const found = await client.findCandidates(runId, runAttempt);
+    const selection = selectVictims(found.candidates, found.patternTotal);
     if (!selection.ok) return empty(selection.reason);
     victims = selection.victims;
   } catch (error) {

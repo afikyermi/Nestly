@@ -2,9 +2,10 @@
 //
 //   node tools/preview-e2e-cleanup-cli.ts
 //
-// Reads PREVIEW_DB_ADMIN_URL (postgres@nestly-preview through the session pooler), GITHUB_RUN_ID and GITHUB_RUN_ATTEMPT from
-// the environment. The URL is checked before anything connects. The credential bypasses RLS: it is read in this one step of
-// the workflow and nowhere else (data-model.md, Approved exceptions). It never prints the URL, an email, an id or a
+// Reads PREVIEW_DB_ADMIN_URL (postgres@nestly-preview through the session pooler), TARGET_RUN_ID and TARGET_RUN_ATTEMPT (the
+// run being cleaned up: workflow_run's id and attempt) from the environment. The URL is checked before anything connects.
+// The credential bypasses RLS: it is read in this one step of the preview-e2e-cleanup workflow (main's code, run on
+// workflow_run) and nowhere else (data-model.md, Approved exceptions). It never prints the URL, an email, an id or a
 // password; it prints counts. Exit 0 only when every user is gone and none of this run remains.
 
 import { appendFileSync } from 'node:fs';
@@ -18,6 +19,7 @@ import {
   runEmailPrefix,
   type Candidate,
   type CleanupClient,
+  type CleanupReport,
   type DeleteCounts,
 } from './preview-e2e-cleanup.ts';
 
@@ -46,14 +48,17 @@ function createClient(url: string): { client: CleanupClient; close: () => Promis
       if (!row) throw new Error('no preflight row');
       return { dbUser: row.db_user, bypassRls: row.bypassrls, canDeleteAuthUsers: row.can_delete, nestlyTables: row.tables };
     },
-    async findCandidates(runId, runAttempt): Promise<Candidate[]> {
+    async findCandidates(runId, runAttempt) {
       const prefix = runEmailPrefix(runId, runAttempt);
       const rows = await sql<{ id: string; own: boolean }[]>`
         select id::text as id, (email like ${prefix}) as own
           from auth.users
          where email ~ ${TEST_EMAIL_PATTERN}
-           and (email like ${prefix} or created_at < now() - make_interval(hours => ${SWEEP_AGE_HOURS}))`;
-      return rows.map((r) => ({ id: r.id, own: r.own }));
+           and (email like ${prefix} or created_at < now() - make_interval(hours => ${SWEEP_AGE_HOURS}))
+         order by created_at asc, id asc`;
+      const total = await sql<{ n: number }[]>`select count(*)::int as n from auth.users where email ~ ${TEST_EMAIL_PATTERN}`;
+      const candidates: Candidate[] = rows.map((r) => ({ id: r.id, own: r.own }));
+      return { candidates, patternTotal: total[0]?.n ?? Number.NaN };
     },
     async deleteUser(id): Promise<DeleteCounts> {
       return sql.begin(async (tx) => {
@@ -90,28 +95,31 @@ function createClient(url: string): { client: CleanupClient; close: () => Promis
   return { client, close: () => sql.end({ timeout: 5 }) };
 }
 
-function writeOutputs(values: Record<string, string | number>): void {
-  const file = process.env['GITHUB_OUTPUT'];
+/** The cleanup job's own step summary: counts only. */
+function writeSummary(report: CleanupReport): void {
+  const file = process.env['GITHUB_STEP_SUMMARY'];
   if (file === undefined || file === '') return;
-  appendFileSync(file, Object.entries(values).map(([k, v]) => `${k}=${v}\n`).join(''));
+  const text = [
+    `preview-e2e-cleanup: ${report.ok ? 'OK' : 'FAILED'}`,
+    `- deleted ${report.deletedOwn} user(s) of the run and ${report.deletedSwept} leftover(s)`,
+    `- ${report.failedUsers} failed; the run's remaining: ${report.leftovers ?? 'unknown'}`,
+    ...(report.ok ? [] : [`- ${report.reason ?? 'cleanup failed'}`]),
+    '',
+  ].join('\n');
+  appendFileSync(file, text);
 }
 
 async function main(): Promise<void> {
   const url = process.env['PREVIEW_DB_ADMIN_URL'];
   const check = checkCleanupUrl(url);
   if (!check.ok || url === undefined) stop(`${check.ok ? 'URL missing' : check.reason}; nothing connected`);
-  const runId = process.env['GITHUB_RUN_ID'] ?? '';
-  const runAttempt = process.env['GITHUB_RUN_ATTEMPT'] ?? '';
+  const runId = process.env['TARGET_RUN_ID'] ?? '';
+  const runAttempt = process.env['TARGET_RUN_ATTEMPT'] ?? '';
 
   const { client, close } = createClient(url);
   try {
     const report = await runCleanup({ client, runId, runAttempt, log: line });
-    writeOutputs({
-      deleted_own: report.deletedOwn,
-      deleted_swept: report.deletedSwept,
-      failed: report.failedUsers,
-      leftovers: report.leftovers ?? 'unknown',
-    });
+    writeSummary(report);
     line(`preview-e2e-cleanup: deleted ${report.deletedOwn} of this run and ${report.deletedSwept} leftover(s); ${report.failedUsers} failed; leftovers of this run: ${report.leftovers ?? 'unknown'}`);
     const rows = Object.entries(report.tableCounts).map(([table, n]) => `${table}=${n}`).join(' ');
     if (rows !== '') line(`preview-e2e-cleanup: rows removed: ${rows}`);
