@@ -123,7 +123,7 @@ or empty is NULL and matches no row. SECURITY INVOKER, caller-free, EXECUTE to a
 | `verdict` | text · not null · CHECK unaffected / affected | decided once from the caller's Auth identities: affected = an email identity older than the google one |
 | `checked_at` | timestamptz · not null · `now()` | when the verdict was written |
 | `checked_session_id` | uuid · not null | the session_id claim of the oauth session that wrote it (insert policy: the caller's own) |
-| `cleared_at` | timestamptz · null | the clear completed (trigger: now()). NULL on an affected row = pending |
+| `cleared_at` | timestamptz · null | the clear completed (trigger: clock_timestamp() at the UPDATE, after the other sessions were signed out; Gate 2 A1). NULL on an affected row = pending |
 | `clearing_session_id` | uuid · null | the session that completed the clear (trigger); NULL exactly when `cleared_at` is |
 | `password_set_at` | timestamptz · null | the new password after the clear (c7 forced, or c11 with no users row); only after `cleared_at` |
 

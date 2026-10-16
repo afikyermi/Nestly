@@ -126,8 +126,8 @@ F1.6 recovery and F2.0 S-01/S-16 (FR-AUTH-003/005, OP-029) — Afik 2026-10-13, 
 (a) Auth: set the password in five flows only — recovery reset (as below), the S-01 clear (random, never kept), the forced
     new password, the change after two answers, the F1.8 first password (no account row) — key SUPABASE_SECRET_KEY read only
     in apps/server/src/recovery/auth-admin.ts; no other admin operation; other sessions end with the caller's own token
-    (logout?scope=others), the reset keeps scope=global; every set audited in recovery_events. The S-01 detection reads the
-    caller's identities with the caller's own token (GET <issuer>/user). The reset, resetPassword({userId, email, password,
+    (logout?scope=others), the reset keeps scope=global; each set audited in recovery_events after it (a lost row is logged); every set and the S-01 clear hold the per-user password-state lock (A4). The S-01
+    detection reads the caller's identities with the caller's own token (GET <issuer>/user); it and logout?scope=others also send SUPABASE_SECRET_KEY as the gateway `apikey` (the server holds no publishable key; using one needs a new env var, Afik). The reset, resetPassword({userId, email, password,
     clientIp}): exactly four calls, in this order — GET <issuer>/admin/users/<uuid> (only email is read and compared, normalised, with the request's email; different or
     missing ends the sequence with no further call: outcome email_mismatch, answered 401 invalid_recovery, audited
     reset_email_mismatch); PUT <issuer>/admin/users/<uuid> {password}; after a 2xx one POST <issuer>/token?grant_type=
