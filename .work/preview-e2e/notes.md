@@ -51,3 +51,38 @@ untested against a real Vercel protection page here. (3) `.nvmrc` is 22.22, type
 
 **Neighbouring**  `node --test tools/critic-diff.test.mjs` fails 9 of 9 here ("tools/critic-diff.mjs is missing", and
 `.claude/hooks/notes-name.js` not found) - not caused by this change; it appeared in output of an earlier command, check.
+
+## Part 2 - test-user cleanup (DR-E1 option 1)
+
+**Approach**  `tools/preview-e2e-cleanup.ts` (pure, no driver import): `checkCleanupUrl` (user `postgres.xmihorrkegrdlbhpktny`, pooler
+host, port 5432, only `sslmode`), `decidePreflight(facts)`, `selectVictims(candidates, cap=10)`, `runEmailPrefix`, `errorCode`, and
+`runCleanup({client, runId, runAttempt, log})` over an injectable `CleanupClient` (preflight / findCandidates / deleteUser /
+countRunLeftovers). `tools/preview-e2e-cleanup-cli.ts` is the real client (`postgres` 3.4.9, already hoisted at the root from
+apps/server, so `npm ci` gives it; `tools/package.json` also lists it; no new dependency). Both added to `tsconfig.e2e-preview.json`.
+Workflow: step "Delete the test users" (id `cleanup`, `if: always()`, 5 min) before the Summary; `PREVIEW_DB_ADMIN_URL` in that
+step's env only. Summary reports outcome and counts via step outputs (`deleted_own`, `deleted_swept`, `failed`, `leftovers`).
+`data-model.md` Approved-exceptions entry added (before the `is_active_account` line).
+
+**Decisions**  Preflight has no role-comment marker (rejected). The pattern is the one constant `TEST_EMAIL_PATTERN` from
+`e2e-preview/support/test-user.ts`, imported, so the generator and the sweep cannot drift (item 4: the run shape
+`nestly-e2e-<run>-<attempt>-<16hex>@gmail.com` is exactly what the SQL `~` matches; leftovers of the first runs are older than 3 h
+by the time the step first runs, so they match the sweep; they are not older than 3 h at the moment of those runs themselves).
+Errors are reduced to a SQLSTATE/Node code; messages are never printed. A failed user does not stop the others; the job fails.
+Counts for a user that was already gone are all zero and not counted as deleted. Cap counts own plus leftovers together.
+
+**Deviations**  None from schema.md. The criterion-8 "Auth admin API" and 30-min/50 values are replaced as instructed.
+
+**Deliberately not done**  No tests (TEST ENGINEER). Not added to `test:tools`. No commit. Throttles of kind `ip` and
+NULL-user events stay (no pepper in CI).
+
+**Uncertain**  (1) Never run against a database: the SQL, `sql.begin` typing at runtime and the pooler session (current_user =
+`postgres`) are verified only by tsc/eslint and reading; the first real run is the proof. (2) `make_interval(hours => $1)` param
+inference with postgres.js. (3) The cap fails the whole run if more than 10 users accumulate (e.g. after several failed
+cleanups): by design, but Afik clears them by hand then. (4) The run's own users are found by email prefix, not by id.
+(5) Secret `PREVIEW_DB_ADMIN_URL` must be entered by Afik in environment `preview-e2e`; without it the step fails on the URL guard.
+
+**Preview path**  After Afik enters the secret: push, wait for the Preview, open the `preview-e2e` run: step "Delete the test
+users" prints counts only, Summary shows "cleanup: success - deleted N of this run and M leftover(s)". `PREVIEW_SUPABASE_SECRET_KEY`
+can be removed from the environment.
+
+**Neighbouring**  Node warns MODULE_TYPELESS_PACKAGE_JSON when loading the .ts tools (harmless noise on stderr).

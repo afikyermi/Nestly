@@ -10,9 +10,8 @@
 # through env, is checked before anything else runs, and the Playwright step receives only the checked URL. The flows
 # get only a generated user and that URL; the bypass goes to the deployment host only (e2e-preview/support/bypass.ts).
 #
-# NOT YET: test users are not deleted after a run (the cleanup route awaits Afik's decision DR-E1). Each run leaves
-# its users on nestly-preview, tagged by the nestly-e2e-<run>-<attempt>-<hex>@gmail.com pattern. No step here reads a
-# database URL or an admin key.
+# Cleanup (DR-E1, Afik 17.10.2026, option 1) is NOT here: .github/workflows/preview-e2e-cleanup.yml runs after this workflow
+# (workflow_run, the default branch's code). This job holds no environment and never sees PREVIEW_DB_ADMIN_URL.
 
 name: preview-e2e
 
@@ -30,7 +29,6 @@ jobs:
   e2e:
     name: preview-e2e
     if: github.event.deployment_status.state == 'success' && github.event.deployment_status.environment == 'Preview' && github.event.deployment_status.creator.login == 'vercel[bot]'
-    environment: preview-e2e
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -70,5 +68,5 @@ jobs:
             else
               echo "- no report (the run stopped before the tests)"
             fi
-            echo "Test users are NOT yet deleted (decision DR-E1 pending): this run's users stay on nestly-preview, tagged nestly-e2e-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-*."
+            echo "cleanup of the test users runs in the follow-up workflow preview-e2e-cleanup"
           } >> "${GITHUB_STEP_SUMMARY}"

@@ -152,6 +152,15 @@ F1.6 password recovery (FR-AUTH-003, OP-029) — the one exception Afik approved
     SECURITY DEFINER function; tests.approved_security_definer() stays empty.
     Approved in .work/password-recovery/schema.md · 2026-10-15 (DR-G1, ORCHESTRATOR; release policy: Amendment 2)
 
+```
+Preview E2E test-user cleanup (DR-E1, option 1) — credential PREVIEW_DB_ADMIN_URL: role `postgres` (BYPASSRLS), nestly-preview
+only, user postgres.xmihorrkegrdlbhpktny, session pooler, port 5432. CI only: `preview-e2e-cleanup` on `workflow_run` (main's
+code, never the deployment sha), in environment `preview-e2e` restricted to `main` (Afik set it 17.10; verified via the API).
+Victims only by the exact `TEST_EMAIL_PATTERN` (e2e-preview/support/test-user.ts). Caps: this run's users uncapped, sweep 10,
+refusal above 50. One transaction per user, SET LOCAL row_security = off (raises, never filters). Fail-closed preflight.
+Rest: .work/preview-e2e/schema.md · decisions/2026-10.md "DR-E1" (Afik, 17.10)
+```
+
 `nestly.is_active_account()` is deliberately not one: it is SECURITY INVOKER (rule 16).
 
 ---
@@ -225,13 +234,11 @@ Never design around these with a guess. Each one is a `DECISION REQUEST` to Afik
 | Open point | Blocks |
 |---|---|
 | OP-003 — active context with several children or a pregnancy alongside children | choosing the active JourneyContext (I6); JourneyContext and Child are built (F1.4) |
-| OP-004 — gender field options — **closed** 11.10.2026 (VAL-006); no longer blocks | — (was RegularProfile, Child) |
 | OP-005 — professional verification | ProfessionalProfile verification fields |
 | OP-008 — fields of each Tracker (only breastfeeding is defined) | TrackerEvent |
 | OP-011 — messaging capabilities (attachments, read receipts) | Message, MediaAsset |
 | OP-012 — Marketplace listing fields and closing flow | MarketplaceListing |
 | §13.4 — retention periods | soft/hard delete and archival per entity |
-| NFR-MEDIA-001 — media formats and limits | MediaAsset |
 
 ---
 
@@ -247,14 +254,3 @@ the only UPDATE grants and policies are on `recovery_answers` and `recovery_thro
 any table (I2 adds the edit path). All eight tables are in `nestly`. Per-table detail — every column with its meaning, each
 table's purpose, what is not stored, owner, authorization, relations, indexes and retention, the write order and the RLS
 helper — is in `.claude/knowledge/data-model-tables.md`, which also holds the template a new entity fills.
-
----
-
-## Conventions in force
-See "Schema conventions — DECIDED" above (F1.1 Gate 2, 13.10.2026).
-
----
-
-## Known debt
-
-Anything knowingly imperfect in the model, with the reason it was accepted. *none yet*

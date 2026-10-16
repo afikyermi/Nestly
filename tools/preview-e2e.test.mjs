@@ -1,6 +1,6 @@
 // preview-e2e (.work/preview-e2e/spec.md, with Gate 1 amendments A1-A3): criteria 1, 2, 12 (workflow and config), 3 (URL part),
 // 4 (as A1: request helper with stubs and sentinels), 5 and 7 (user pattern, attempt counter). Criteria 8 and 9 (cleanup,
-// sweep) are deferred with DR-E1 and are not asserted here. Expected values come from the spec, schema.md (the email
+// sweep, A2 and DR-E1 option 1) are asserted in preview-e2e-cleanup.test.mjs. Expected values come from the spec, schema.md (the email
 // pattern) and the F1.6 limit, never from the code under test.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -63,8 +63,10 @@ test('[E c1] permissions are contents: read at the workflow and nothing broader 
 });
 
 // ---- criterion 2: environment and secrets -----------------------------------------------------------------------------
-test('[E c2] the job declares environment preview-e2e', () => {
-  assert.equal(job.environment, 'preview-e2e');
+test('[E c2] the test workflow declares no environment (the credential environment belongs to the cleanup workflow only)', () => {
+  assert.equal(job.environment, undefined);
+  assert.equal(wf.environment, undefined);
+  assert.doesNotMatch(workflowText, /^\s*environment\s*:/m);
 });
 
 test('[E c2] no secret is in the workflow-level or job-level env', () => {
@@ -527,3 +529,4 @@ test('[E c10] the summary prints a passed/failed line for each of mobile-375 and
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
