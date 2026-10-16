@@ -92,3 +92,26 @@ Checked, no finding:
 ## ORCHESTRATOR decisions on the two DECISION REQUESTs (17.10)
 - **c7:** aligned with design-system rule 9 and the F1.5 pattern — submit enabled; pressing with invalid input shows the password and consent errors (aria-describedby) and makes no call.
 - **c15:** reworded — "the PKCE verifier only under the SDK's verifier key, removed after the return (exchanged or not)".
+
+---
+
+# Re-check — CRITIC, opus, 17.10.2026, commit b3e9b92 (saved verbatim by ORCHESTRATOR)
+
+verdict: Validated with Concern
+
+Findings 1, 2, 3: closed (evidence in the hand-back: auth-client.ts:342-358, GoogleReturn.tsx:40-42, auth-client.ts:361-363,
+RegisterGoogleCompletionStep.tsx:769, google-return.test.tsx:169,182,337-347,386-413, google-completion.test.tsx:189-253).
+The extra refresh vs F1.5: no defect — TOKEN_REFRESHED fires before apply(), recheck() returns at once (auth-session-source.ts:157,211-213).
+Below the line: a refused renewal right after the exchange leaves refreshRefused true; a SIGNED_OUT from another tab then shows "expired".
+
+```
+--- finding ---
+severity: low
+file:     apps/web/tests/google/google-return.test.tsx:26-33,402
+claim:    The c13 test checks that the stored access token has no email claim, but the fake refreshed token is simply built without one. A real Supabase token always carries the email, as security-privacy-open.md S-04 records.
+failure:  The test passes against the fake, while a real Google sign-in stores a token whose claims hold the email. A reader of the c13 test would conclude something false about production, and if the email claim later starts to matter (S-23, a logger writing token content), the test is evidence it does not exist.
+fix:      Have the fake refreshed token carry the email, as Supabase's does, and drop the `not.toHaveProperty('email')` assertion. Keep the Google-key assertions. Correct c13's wording ("tokens, no email" means no email outside the token) when the SRS is updated at I1 close.
+--- end ---
+```
+
+Concern (debt.md): c13 says the stored session holds "tokens, no email", which is not true of the token's content; S-04 accepts it; the wording is corrected with the I1 SRS update.

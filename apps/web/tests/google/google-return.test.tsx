@@ -29,7 +29,8 @@ const accessToken = (dirty = false): string =>
     role: 'authenticated',
     sub: 'u1',
     exp: Math.floor(Date.now() / 1000) + 3600,
-    ...(dirty ? { email: GOOGLE_EMAIL, user_metadata: { full_name: 'Dana Cohen', name: 'Dana Cohen', avatar_url: 'https://x.invalid/a.png', picture: 'https://x.invalid/a.png' } } : {}),
+    email: dirty ? GOOGLE_EMAIL : 'account@example.com',
+    ...(dirty ? { user_metadata: { full_name: 'Dana Cohen', name: 'Dana Cohen', avatar_url: 'https://x.invalid/a.png', picture: 'https://x.invalid/a.png' } } : {}),
   })}.${ACCESS_SIG}`;
 const claimsOf = (token: string): Record<string, unknown> => {
   const parsed: unknown = JSON.parse(Buffer.from(token.split('.')[1] ?? '', 'base64url').toString('utf8'));
@@ -399,7 +400,6 @@ describe('F1.8 c13 + c15 what is stored, sent and logged [NFR-SEC-009][AC-101]',
     const claims = claimsOf(String(token));
     for (const key of GOOGLE_KEYS) expect(claims, `token claim ${key}`).not.toHaveProperty(key);
     expect(JSON.stringify(claims.user_metadata ?? {})).not.toMatch(/full_name|avatar_url|picture|Dana/);
-    expect(claims).not.toHaveProperty('email');
     expect(window.localStorage.length).toBe(0);
     expect(window.sessionStorage.length).toBe(0);
   });
