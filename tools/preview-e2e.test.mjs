@@ -1,6 +1,6 @@
 // preview-e2e (.work/preview-e2e/spec.md, with Gate 1 amendments A1-A3): criteria 1, 2, 12 (workflow and config), 3 (URL part),
 // 4 (as A1: request helper with stubs and sentinels), 5 and 7 (user pattern, attempt counter). Criteria 8 and 9 (cleanup,
-// sweep) are deferred with DR-E1 and are not asserted here. Expected values come from the spec, schema.md (the email
+// sweep, A2 and DR-E1 option 1) are asserted in the last section. Expected values come from the spec, schema.md (the email
 // pattern) and the F1.6 limit, never from the code under test.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -526,4 +526,327 @@ test('[E c10] the summary prints a passed/failed line for each of mobile-375 and
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// ---- criteria 8 and 9 (A2, DR-E1 option 1): cleanup and sweep -----------------------------------------------------------------
+// Expected values: spec criteria 8 and 9 and schema.md (ref xmihorrkegrdlbhpktny, 3 h age, cap of 10, port 5432, the eight tables).
+const cleanup = await import(new URL('tools/preview-e2e-cleanup.ts', ROOT).href);
+const PW = 'PW-sentinel-3c8e1a';
+const dbUrl = (over = {}) => {
+  const o = { user: 'postgres.xmihorrkegrdlbhpktny', host: 'aws-0-eu-central-1.pooler.supabase.com', port: '5432', query: '', ...over };
+  return `postgresql://${o.user}:${PW}@${o.host}${o.port ? `:${o.port}` : ''}/postgres${o.query}`;
+};
+
+for (const [label, url] of [['plain', dbUrl()], ['sslmode=require', dbUrl({ query: '?sslmode=require' })], ['sslmode=verify-full', dbUrl({ query: '?sslmode=verify-full' })]]) {
+  test(`[E c8] DB URL guard accepts the preview pooler URL (${label})`, () => {
+    assert.equal(cleanup.checkCleanupUrl(url).ok, true);
+  });
+}
+
+for (const [label, url] of [
+  ['the plain postgres user', dbUrl({ user: 'postgres' })],
+  ['another project ref', dbUrl({ user: 'postgres.cihugbwafnaujsqabgyp' })],
+  ['a ref with a suffix', dbUrl({ user: 'postgres.xmihorrkegrdlbhpktnyx' })],
+  ['port 6543', dbUrl({ port: '6543' })],
+  ['no port', dbUrl({ port: '' })],
+  ['a direct db host', dbUrl({ host: 'db.xmihorrkegrdlbhpktny.supabase.co' })],
+  ['a look-alike host suffix', dbUrl({ host: 'aws-0-eu-central-1.pooler.supabase.com.evil.com' })],
+  ['a look-alike host prefix', dbUrl({ host: 'evilpooler.supabase.com' })],
+  ['another TLD', dbUrl({ host: 'aws-0-eu-central-1.pooler.supabase.co' })],
+  ['an extra query key', dbUrl({ query: '?sslmode=require&host=evil.com' })],
+  ['only a foreign query key', dbUrl({ query: '?options=-c%20x' })],
+  ['sslmode=disable', dbUrl({ query: '?sslmode=disable' })],
+  ['an https URL', 'https://aws-0-eu-central-1.pooler.supabase.com:5432/'],
+  ['no password', 'postgresql://postgres.xmihorrkegrdlbhpktny@aws-0-eu-central-1.pooler.supabase.com:5432/postgres'],
+  ['an empty string', ''],
+  ['whitespace only', '   '],
+  ['undefined', undefined],
+]) {
+  test(`[E c8] DB URL guard refuses ${label}, and the reason never echoes the input`, () => {
+    const r = cleanup.checkCleanupUrl(url);
+    assert.equal(r.ok, false);
+    assert.ok(typeof r.reason === 'string' && r.reason.length > 0);
+    assert.ok(!r.reason.includes(PW));
+    if (typeof url === 'string' && url.trim() !== '') assert.ok(!r.reason.includes(url.trim()));
+  });
+}
+
+const GOOD_FACTS = {
+  dbUser: 'postgres',
+  bypassRls: true,
+  canDeleteAuthUsers: true,
+  nestlyTables: ['children', 'journey_contexts', 'legal_consents', 'recovery_answers', 'recovery_events', 'recovery_throttles', 'regular_profiles', 'users'],
+};
+
+test('[E c8] preflight passes only for the exact expected facts, in any table order', () => {
+  assert.equal(cleanup.decidePreflight(GOOD_FACTS).ok, true);
+  assert.equal(cleanup.decidePreflight({ ...GOOD_FACTS, nestlyTables: [...GOOD_FACTS.nestlyTables].reverse() }).ok, true);
+});
+
+for (const [label, over] of [
+  ['a session role other than postgres', { dbUser: 'app_user' }],
+  ['an empty session role', { dbUser: '' }],
+  ['no BYPASSRLS', { bypassRls: false }],
+  ['BYPASSRLS unknown (null)', { bypassRls: null }],
+  ['no DELETE on auth.users', { canDeleteAuthUsers: false }],
+  ['DELETE on auth.users unknown (null)', { canDeleteAuthUsers: null }],
+  ['a missing nestly table', { nestlyTables: GOOD_FACTS.nestlyTables.slice(1) }],
+  ['an extra nestly table', { nestlyTables: [...GOOD_FACTS.nestlyTables, 'posts'] }],
+  ['no nestly tables', { nestlyTables: [] }],
+  ['a table swapped for another', { nestlyTables: [...GOOD_FACTS.nestlyTables.slice(1), 'posts'] }],
+]) {
+  test(`[E c8] preflight fails closed on ${label}`, () => {
+    const r = cleanup.decidePreflight({ ...GOOD_FACTS, ...over });
+    assert.equal(r.ok, false);
+    assert.ok(r.reason.length > 0);
+  });
+}
+
+test('[E c9] the sweep age is 3 hours and the cap is 10 users', () => {
+  assert.equal(cleanup.SWEEP_AGE_HOURS, 3);
+  assert.equal(cleanup.MAX_VICTIMS, 10);
+});
+
+test('[E c9] decoys and prefix-only look-alikes are not pattern matches; generated users are', () => {
+  const hex = '0123456789abcdef';
+  assert.equal(cleanup.matchesTestEmail(`nestly-e2e-12-1-${hex}@gmail.com`), true);
+  for (const decoy of [
+    'alice@gmail.com',
+    'alice@example.com',
+    'nestly-e2e-keep-me@gmail.com',
+    `nestly-e2e-12-1-${hex}`,
+    `nestly-e2e-12-1-${hex}@gmail.com.evil.com`,
+    `xnestly-e2e-12-1-${hex}@gmail.com`,
+    `nestly-e2e-12-1-${hex}@gmail.com\nalice@gmail.com`,
+    `nestly-e2e-12-1-${hex}0@gmail.com`,
+  ]) {
+    assert.equal(cleanup.matchesTestEmail(decoy), false, decoy);
+  }
+});
+
+test('[E c8][E c9] the run prefix is nestly-e2e-<run>-<attempt>-%, and a non-numeric part is refused', () => {
+  assert.equal(cleanup.runEmailPrefix('123', '2'), 'nestly-e2e-123-2-%');
+  for (const [run, attempt] of [['', '1'], ['1', ''], ['1%', '1'], ['1', '1_'], ['a', '1'], ['1; drop', '1'], ['1', '1000']]) {
+    assert.throws(() => cleanup.runEmailPrefix(run, attempt), `${run}/${attempt}`);
+  }
+});
+
+const cands = (n, own = false, tag = 'u') => Array.from({ length: n }, (_, i) => ({ id: `${tag}${i}`, own }));
+
+test("[E c9] this run's users are always selected, together with leftovers, up to the cap", () => {
+  const r = cleanup.selectVictims([{ id: 'mine', own: true }, { id: 'old', own: false }]);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.victims.map((v) => v.id).sort(), ['mine', 'old']);
+  assert.equal(cleanup.selectVictims(cands(10)).ok, true, 'exactly 10 is allowed');
+  assert.equal(cleanup.selectVictims([]).ok, true);
+});
+
+test("[E c9] more than 10 matches (even when some are this run's) selects nothing and fails", () => {
+  for (const list of [cands(11), [...cands(10), { id: 'mine', own: true }], cands(500)]) {
+    const r = cleanup.selectVictims(list);
+    assert.equal(r.ok, false);
+    assert.ok(r.reason.length > 0);
+    assert.equal(r.victims, undefined);
+  }
+});
+
+// A stub client: records every call so a test can say what was and was not deleted.
+function stubClient(over = {}) {
+  const calls = { deleted: [], counted: 0 };
+  const client = {
+    preflight: async () => GOOD_FACTS,
+    findCandidates: async () => [],
+    deleteUser: async (id) => {
+      calls.deleted.push(id);
+      return { 'auth.users': 1, 'nestly.users': 1 };
+    },
+    countRunLeftovers: async () => {
+      calls.counted += 1;
+      return 0;
+    },
+    ...over,
+  };
+  return { client, calls };
+}
+const runIt = async (client, log = () => {}) => cleanup.runCleanup({ client, runId: '4242', runAttempt: '1', log });
+
+test('[E c8] flow passed (it deleted its own user): cleanup succeeds with zero deletions and zero leftovers', async () => {
+  const { client, calls } = stubClient();
+  const r = await runIt(client);
+  assert.equal(r.ok, true);
+  assert.equal(calls.deleted.length, 0);
+  assert.equal(r.leftovers, 0);
+});
+
+test('[E c8] flow threw (its user is still there): cleanup deletes it and succeeds', async () => {
+  const { client, calls } = stubClient({ findCandidates: async () => [{ id: 'mine', own: true }] });
+  const r = await runIt(client);
+  assert.deepEqual(calls.deleted, ['mine']);
+  assert.equal(r.ok, true);
+  assert.equal(r.deletedOwn, 1);
+  assert.equal(r.deletedSwept, 0);
+});
+
+test("[E c9] leftovers of earlier runs are swept and counted apart from this run's", async () => {
+  const { client, calls } = stubClient({ findCandidates: async () => [{ id: 'mine', own: true }, { id: 'old', own: false }] });
+  const r = await runIt(client);
+  assert.deepEqual(calls.deleted.sort(), ['mine', 'old']);
+  assert.equal(r.deletedOwn, 1);
+  assert.equal(r.deletedSwept, 1);
+  assert.equal(r.ok, true);
+});
+
+test("[E c8] this run's users remain after the deletes: the cleanup fails even though no delete threw", async () => {
+  const { client } = stubClient({ countRunLeftovers: async () => 1 });
+  const r = await runIt(client);
+  assert.equal(r.ok, false);
+  assert.equal(r.leftovers, 1);
+});
+
+test('[E c8] the final count itself failing is a failure, not a pass', async () => {
+  const { client } = stubClient({
+    countRunLeftovers: async () => {
+      throw new Error('boom');
+    },
+  });
+  assert.equal((await runIt(client)).ok, false);
+});
+
+test("[E c8] one user's delete failing: the others still run, and the job fails", async () => {
+  const ids = ['a', 'b', 'c'];
+  const { client, calls } = stubClient({
+    findCandidates: async () => ids.map((id) => ({ id, own: true })),
+    deleteUser: async (id) => {
+      calls.deleted.push(id);
+      if (id === 'a') throw Object.assign(new Error('restrict'), { code: '23503' });
+      return { 'auth.users': 1 };
+    },
+  });
+  const r = await runIt(client);
+  assert.deepEqual(calls.deleted, ids);
+  assert.equal(r.ok, false);
+  assert.equal(r.failedUsers, 1);
+  assert.equal(r.deletedOwn, 2);
+});
+
+test('[E c9] more than 10 candidates: no delete is attempted and the cleanup fails', async () => {
+  const { client, calls } = stubClient({ findCandidates: async () => cands(11) });
+  const r = await runIt(client);
+  assert.equal(r.ok, false);
+  assert.equal(calls.deleted.length, 0);
+});
+
+for (const [label, facts] of [
+  ['no BYPASSRLS', { ...GOOD_FACTS, bypassRls: false }],
+  ['an unknown nestly table', { ...GOOD_FACTS, nestlyTables: [...GOOD_FACTS.nestlyTables, 'x'] }],
+]) {
+  test(`[E c8] a failed preflight (${label}): the candidates are never read, nothing is deleted, the cleanup fails`, async () => {
+    let read = false;
+    const { client, calls } = stubClient({
+      preflight: async () => facts,
+      findCandidates: async () => {
+        read = true;
+        return cands(1, true);
+      },
+    });
+    const r = await runIt(client);
+    assert.equal(r.ok, false);
+    assert.equal(calls.deleted.length, 0);
+    assert.equal(read, false);
+  });
+}
+
+test('[E c8] a preflight that throws fails the cleanup with nothing deleted', async () => {
+  const { client, calls } = stubClient({
+    preflight: async () => {
+      throw new Error('connect ECONNREFUSED');
+    },
+  });
+  const r = await runIt(client);
+  assert.equal(r.ok, false);
+  assert.equal(calls.deleted.length, 0);
+});
+
+test('[E c8] a non-numeric run id fails the cleanup before the client is touched', async () => {
+  let touched = false;
+  const { client } = stubClient({
+    preflight: async () => {
+      touched = true;
+      return GOOD_FACTS;
+    },
+  });
+  const r = await cleanup.runCleanup({ client, runId: '1%', runAttempt: '1', log: () => {} });
+  assert.equal(r.ok, false);
+  assert.equal(touched, false);
+});
+
+test('[E c8] nothing is logged beyond counts: sentinel emails, URL and ids in errors never reach the log, stdout or the report', async () => {
+  const EMAIL = 'nestly-e2e-4242-1-0123456789abcdef@gmail.com';
+  const URLS = `postgresql://postgres.xmihorrkegrdlbhpktny:${PW}@host.pooler.supabase.com:5432/postgres`;
+  const leak = `${EMAIL} ${URLS} user-id-sentinel-77`;
+  const { client } = stubClient({
+    findCandidates: async () => [{ id: 'user-id-sentinel-77', own: true }, { id: 'ok', own: true }],
+    deleteUser: async (id) => {
+      if (id !== 'ok') throw Object.assign(new Error(leak), { code: '23503' });
+      return { 'auth.users': 1 };
+    },
+    countRunLeftovers: async () => {
+      throw new Error(leak);
+    },
+  });
+  const lines = [];
+  let report;
+  const out = await capture(async () => {
+    report = await runIt(client, (l) => lines.push(l));
+  });
+  const everything = `${lines.join('\n')}\n${out}\n${JSON.stringify(report)}`;
+  for (const secret of [EMAIL, PW, 'pooler.supabase.com', 'user-id-sentinel-77', 'nestly-e2e-4242']) {
+    assert.ok(!everything.includes(secret), `leaked ${secret}`);
+  }
+  assert.equal(report.ok, false);
+});
+
+test('[E c8] a preflight error message carrying a secret is not echoed in the report', async () => {
+  const { client } = stubClient({
+    preflight: async () => {
+      throw new Error(`bad ${PW}`);
+    },
+  });
+  const r = await runIt(client);
+  assert.ok(!JSON.stringify(r).includes(PW));
+});
+
+// ---- criteria 8 and 9: the cleanup step in the workflow ---------------------------------------------------------------------
+const cleanupIdx = steps.findIndex((s) => JSON.stringify(s.env ?? {}).includes('PREVIEW_DB_ADMIN_URL'));
+const pwIdx = steps.findIndex((s) => /playwright test/.test(runOf(s)));
+const summaryIdx = steps.findIndex((s) => /GITHUB_STEP_SUMMARY/.test(runOf(s)));
+
+test("[E c8] the cleanup step is if: always(), has a timeout smaller than the job's, and sits between Playwright and the summary", () => {
+  assert.ok(cleanupIdx >= 0, 'no step carries PREVIEW_DB_ADMIN_URL');
+  const step = steps[cleanupIdx];
+  assert.equal(String(step.if).trim(), 'always()');
+  assert.ok(Number(step['timeout-minutes']) > 0 && Number(step['timeout-minutes']) < Number(job['timeout-minutes']));
+  assert.ok(pwIdx >= 0 && summaryIdx >= 0 && pwIdx < cleanupIdx && cleanupIdx < summaryIdx);
+});
+
+test("[E c8] the Playwright step has its own timeout, and it plus the cleanup's fit inside the job's", () => {
+  const pwT = Number(steps[pwIdx]['timeout-minutes']);
+  assert.ok(pwT > 0 && pwT + Number(steps[cleanupIdx]['timeout-minutes']) < Number(job['timeout-minutes']));
+});
+
+test('[E c8] PREVIEW_DB_ADMIN_URL is in the env of the cleanup step only, as a secrets reference, never in a run body', () => {
+  const holders = steps.filter((s) => JSON.stringify(s.env ?? {}).includes('PREVIEW_DB_ADMIN_URL'));
+  assert.equal(holders.length, 1);
+  assert.match(String(holders[0].env.PREVIEW_DB_ADMIN_URL), /^\$\{\{\s*secrets\.PREVIEW_DB_ADMIN_URL\s*\}\}$/);
+  for (const s of steps) assert.doesNotMatch(runOf(s), /PREVIEW_DB_ADMIN_URL/);
+  assert.doesNotMatch(JSON.stringify(steps[pwIdx].env), /PREVIEW_DB_ADMIN_URL/);
+  for (const env of [wf.env, job.env]) assert.doesNotMatch(JSON.stringify(env ?? {}), /PREVIEW_DB_ADMIN_URL/);
+});
+
+test('[E c8] the cleanup step does not get the bypass secret', () => {
+  assert.doesNotMatch(JSON.stringify(steps[cleanupIdx].env), /VERCEL_AUTOMATION_BYPASS_SECRET/);
+});
+
+test('[E c8] the summary no longer says the test users are not deleted', () => {
+  assert.doesNotMatch(runOf(steps[summaryIdx]), /not deleted|are left|stay on preview|not removed/i);
 });

@@ -152,6 +152,23 @@ F1.6 password recovery (FR-AUTH-003, OP-029) — the one exception Afik approved
     SECURITY DEFINER function; tests.approved_security_definer() stays empty.
     Approved in .work/password-recovery/schema.md · 2026-10-15 (DR-G1, ORCHESTRATOR; release policy: Amendment 2)
 
+```
+Preview E2E test-user cleanup (DR-E1, option 1) — the credential PREVIEW_DB_ADMIN_URL: role `postgres` (BYPASSRLS) on
+nestly-preview only (project xmihorrkegrdlbhpktny), through the session pooler, user exactly postgres.xmihorrkegrdlbhpktny,
+port 5432. Lives only in GitHub environment `preview-e2e`, in the env of the one workflow step "Delete the test users"
+(`tools/preview-e2e-cleanup-cli.ts`); never in the Playwright step, a worker, or any other job. It deletes only users whose
+auth email matches ^nestly-e2e-[0-9]{1,20}-[0-9]{1,3}-[0-9a-f]{16}@gmail.com$ — this run's, plus any older than 3 h —
+at most 10 per run (more: delete nothing, fail), one transaction per user with SET LOCAL row_security = off (RLS raises
+instead of filtering), the eight nestly tables leaf first, then auth.users, count must be exactly 1. Their recovery_events
+are deleted with them (test data on preview; not a retention decision, §13.4 stays TBD; never a template for real accounts).
+A fail-closed in-connection preflight checks current_user, BYPASSRLS, DELETE on auth.users and the exact set of nestly
+tables. Why: no runtime role has a DELETE policy, the Auth user is RESTRICT-anchored by nestly.users, and the Auth admin
+API cannot delete the product rows. Rejected: a SECURITY DEFINER cleanup function (needs a migration), no deletion.
+Production is out of scope: the URL guard and the pooler tenant refuse any other project. Accepted cost: a credential that
+bypasses RLS sits in CI; a dependence on Supabase's internal auth schema (guarded by the preflight).
+Approved in .work/preview-e2e/schema.md · decisions/2026-10.md "DR-E1" (Afik, "אפשרות 1", reserved: security model) · 2026-10-17
+```
+
 `nestly.is_active_account()` is deliberately not one: it is SECURITY INVOKER (rule 16).
 
 ---
