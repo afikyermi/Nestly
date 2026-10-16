@@ -174,8 +174,10 @@ specialists' professional recommendation, and records the decision and its reaso
 **Reserved for Afik** — never decided by an agent:
 
 1. **Secrets** — keys and passwords. Afik enters them himself. No agent reads them or asks for them in chat.
-2. **Production** — migrations to nestly-prod run only from CI after his approval on the GitHub `db-production`
-   environment. Every direct path to production stays blocked (settings.json, the guard hook).
+2. **Production** — migrations to nestly-prod run only from CI, from `main`, **in a batch** — once a day or once per
+   Initiative (`.claude/workflow.md`, "Batched approvals"). Until launch ORCHESTRATOR dispatches the batch itself: Afik
+   removed the approval on the GitHub `db-production` environment (16.10.2026); it returns before launch
+   (`security-privacy-open.md`). Every direct path to production stays blocked (settings.json, the guard hook).
 3. **Irreversible decisions**, and **material SRS changes**: adding or removing a feature, changing the
    security model.
 4. **Product points touching legal matters** (terms of use, privacy), **data about minors**, or **money** —
@@ -313,10 +315,9 @@ and `settings.json` prompts on `.claude/**` to enforce it.
 ## Report material failures to Afik
 
 Not only security. Also: migration failed mid-run · CI red on main · CI red over 24h ·
-deploy or preview failed · a hook block that names production, a real secret, an env-file read or a force push, and
-the guard's escalation on the third reader block by one role in one task · an external dependency is down · an agent
-looped or repeated the same failure three times. Every other hook block — an env-glob ambiguity (a jq filter read as a
-path), a placeholder read as a secret, a reader block below the escalation — is only counted by `/wrap-up`; when it
+deploy or preview failed · a hook block that names production, a real secret, an env-file read or a force push · an
+external dependency is down · an agent looped or repeated the same failure three times. Every other hook block — an
+env-glob ambiguity (a jq filter read as a path), a placeholder read as a secret, a reader block — is only counted by `/wrap-up`; when it
 blocked legitimate work it gets one `noise.md` line. The guard's own `incidents.md` line stands as written; nobody adds
 a resolution line — the cause goes in the report to Afik.
 

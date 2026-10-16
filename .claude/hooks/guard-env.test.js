@@ -315,25 +315,6 @@ notBlocked('[jq-program] plain programs, unchanged', [
 
 // ---------------------------------------------------------------- F5: wording
 
-test('[F5] the escalation line for the third reader block of one role says "in one task", not "in one session"', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-env-f5-'));
-  fs.writeFileSync(path.join(root, 'incidents.md'), '# Incidents\n');
-  try {
-    // CRITIC has no shell: any Bash call is a reader block.
-    for (let i = 0; i < 3; i++) {
-      const r = run('critic', 'ls', { root, session: 'sess-F5' });
-      assert.strictEqual(r.status, 2, 'reader block ' + (i + 1) + ': ' + r.stderr);
-      assert.doesNotMatch(r.stderr, /guard error/, r.stderr);
-    }
-    const lines = incidentLines(root);
-    assert.strictEqual(lines.length, 1, 'the third block escalates once: ' + JSON.stringify(lines));
-    assert.match(lines[0], /in one task/, lines[0]);
-    assert.doesNotMatch(lines[0], /in one session/, lines[0]);
-  } finally {
-    fs.rmSync(root, { recursive: true, force: true });
-  }
-});
-
 test.after(() => {
   fs.rmSync(ROOT, { recursive: true, force: true });
   fs.rmSync(REPO, { recursive: true, force: true });

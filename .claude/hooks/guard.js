@@ -5,13 +5,12 @@
 // blocks it and the stderr reason goes back to the agent. Any other exit code would let the call through, so the guard
 // fails closed: bad input, an unknown role, a command too long to check or any error inside the guard exits 2.
 // Every block is appended to .claude/logs/blocks.jsonl (local, in .gitignore) as {time, role, tool, rule, reason,
-// session} — the reason only, never the command, which may hold a secret. /wrap-up counts them. rule: reader (R1/R2
-// and the CRITIC / TEST ENGINEER tool limits), r4-critical (.env, prod refs, force push, a secret), r4, builder.
-// Only two things reach incidents.md (a line for Afik): an r4-critical block, and the third reader block of one
-// role in one task (/wrap-up rotates the log at the end of each task) — the signs of an agent probing the fence.
-// CRITIC has no shell: every Bash call is blocked, and Read/Grep/Glob/Write are judged by path (symlinks resolved).
-// TEST ENGINEER reads the project (never notes.md) with Read/Grep/Glob; its Bash is one test, tsc -p or eslint run on explicit
-// files, an allowlist that rests on its Write limit (no package.json, .npmrc, tsconfig or tool config). The two go together.
+// session} — the reason only, never the command, which may hold a secret. For everyone (decisions 2026-10-16 "Audit
+// decisions" 7): .env files, production refs, force push and the secret scan of a commit — rule r4-critical, the only one
+// that reaches incidents.md (a line for Afik). The same scan runs in .githooks/pre-commit (scanForSecrets), which sees the
+// index even when add and commit share one command. Roles: CRITIC has no shell, writes only its findings and never reads
+// notes.md; TEST ENGINEER never reads notes.md and writes only tests and .work/<slug>/*.md (rule reader); BUILDER never
+// writes tests (rule builder).
 // A fence, not a vault: path and pattern checks on what the agent asked for. A determined agent can build an
 // equivalent the patterns do not match. CRITIC review and CI stay behind it.
 
@@ -26,7 +25,6 @@ process.on('uncaughtException', () => {
 });
 
 const fs = require('fs');
-const crypto = require('crypto');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { NOTES_NAME } = require('./notes-name.js');
@@ -214,13 +212,6 @@ function hasShortFlag(args, letter) {
 
 // ---------- rules: everyone ----------
 
-const ADD_ALL = new Set(['-A', '--all', '.', './', '*', ':', ':/', ':(top)', '--no-ignore-removal']);
-
-function addsEverything(args) {
-  return args.some((a) => ADD_ALL.has(a) || /^:\(.*(top|glob).*\)/.test(a) || /^(\.\/?)?\*+$/.test(a) || /(^|\/)\.\.?\/?$/.test(a)) ||
-    hasShortFlag(args, 'A');
-}
-
 const CD = ['cd', 'pushd', 'set-location', 'sl', 'chdir'];
 
 function commandName(seg) {
@@ -392,9 +383,6 @@ function checkAll(tool, input, ctx) {
     .filter(Boolean);
 
   for (const { sub, args } of calls) {
-    if ((sub === 'add' || sub === 'stage') && addsEverything(args)) {
-      return '`git add -A` and `git add .` are blocked. Stage the files by name.';
-    }
     if (sub === 'push') {
       const force =
         args.some((a) => /^--(force|force-with-lease|force-if-includes|mirror|delete|prune)(=|$)/.test(a) || /^\+/.test(a) || /^:/.test(a)) ||
@@ -405,9 +393,6 @@ function checkAll(tool, input, ctx) {
 
   const commits = calls.filter((c) => c.sub === 'commit');
   if (commits.length) {
-    if (calls.some((c) => ['add', 'stage', 'rm', 'mv', 'stash', 'apply', 'cherry-pick', 'restore', 'checkout'].includes(c.sub))) {
-      return 'Run `git add` and `git commit` as separate commands, so the staged diff can be checked for secrets first.';
-    }
     for (const c of commits) {
       const repo = c.dir ? abs(c.dir, c.cwd) : c.cwd;
       const reason = scanForSecrets(repo, commitTakesWorkingTree(c.args));
@@ -532,21 +517,12 @@ function relBoth(p, ctx) {
   return [fold(slash(path.relative(ctx.root, a))), fold(slash(path.relative(realAbs(ctx.root), realAbs(a))))];
 }
 
-// A path that does not resolve under the project root: another drive, a UNC share, a device path (\? prefix), or
-// '..' out of the tree. path.relative returns such a path unchanged (still absolute) or starting with '..'.
-// No legitimate CRITIC or TEST ENGINEER call needs one, and the path rules below cannot judge it.
-function outsideRoot(p, ctx) {
-  return relBoth(p, ctx).some((r) => r === '..' || r.startsWith('../') || path.isAbsolute(r));
-}
-
-// The path a tool call names, for the outside-root check (a Glob's literal prefix may itself be absolute).
+// The path a tool call names (a Glob's literal prefix may itself be absolute).
 function namedPaths(tool, input, ctx) {
   if (tool !== 'Grep' && tool !== 'Glob') return [input.file_path || input.notebook_path || ''];
   const [target, prefix] = [abs(input.path || '.', ctx.cwd), tool === 'Glob' && input.pattern ? literalPrefix(input.pattern) : ''];
   return [prefix ? path.resolve(target, fromGitBash(prefix)) : target];
 }
-
-const OUTSIDE = 'CRITIC and TEST ENGINEER work only inside the project: this path is outside the project root (another drive, a UNC or device path, or ..).';
 
 function isFile(p) {
   try {
@@ -585,7 +561,6 @@ const EDIT_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'];
 const FINDINGS_FILE = /^\.work\/[^/]+\/([^/]+-)?findings\.md$/;
 
 function checkCritic(tool, input, ctx) {
-  if (tool !== 'Bash' && namedPaths(tool, input, ctx).some((p) => outsideRoot(p, ctx))) return OUTSIDE;
   if (tool === 'Bash') return 'CRITIC has no shell. Read .work/<slug>/review.diff (ORCHESTRATOR prepares it with node tools/critic-diff.mjs <slug>).';
   if (EDIT_TOOLS.includes(tool)) {
     const forms = relBoth(input.file_path || input.notebook_path || '', ctx);
@@ -595,8 +570,7 @@ function checkCritic(tool, input, ctx) {
   return checkReadPath('critic', tool, input, ctx);
 }
 
-// TEST ENGINEER writes tests and its own .work/<slug>/*.md — never an npm or tool config. The Bash allowlist below
-// runs only explicit test files, and this rule is what keeps a config from changing what they do.
+// TEST ENGINEER writes tests and its own .work/<slug>/*.md — never an npm or tool config. Its shell is free.
 const TOOL_CONFIG = /^(package(-lock)?\.json|\.npmrc|tsconfig[^/]*\.json|(vitest|playwright)\.[^/]*|[^/]*\.config\.[^/]*)$/i;
 
 // Preview E2E flows (guard-freeze exception, decisions 2026-10-17): one level under e2e-preview/, exact suffix .flow.ts.
@@ -607,68 +581,8 @@ function testEngineerMayWrite(r) {
   return isTestPath(r) || PREVIEW_FLOW.test(r) || /^\.work\/[^/]+\/[^/]+\.md$/.test(r);
 }
 
-// TEST ENGINEER's one shell use: a single test, typecheck or lint run (round 4, dev-speed). tsc takes one -p <tsconfig*.json>,
-// never under node_modules/ or .claude/, and must carry --noEmit (Amendment 1); the others take explicit test files.
-const RUNNERS = {
-  vitest: {
-    head: ['npx', 'vitest', 'run'],
-    flags: [/^--reporter=(default|verbose|dot)$/, /^--bail=\d+$/, /^--no-color$/, /^--testNamePattern=.+$/],
-  },
-  playwright: {
-    head: ['npx', 'playwright', 'test'],
-    flags: [/^--project=.+$/, /^--grep=.+$/, /^--reporter=(list|line|dot)$/, /^--workers=\d+$/],
-  },
-  node: {
-    head: ['node', '--test'],
-    flags: [/^--test-name-pattern=.+$/, /^--test-reporter=(spec|dot|tap)$/],
-  },
-  tsc: { head: ['npx', 'tsc'], flags: [/^--noEmit$/], project: true, required: '--noEmit' },
-  eslint: { head: ['npx', 'eslint'], flags: [/^--max-warnings=0$/, /^--no-color$/] },
-};
-
-const BASH_FORMS =
-  'TEST ENGINEER runs one command at the project root, nothing else: `npx vitest run <files>`, `npx playwright test <files>`, `node --test <files>`, ' +
-  '`npx eslint <files>` or `npx tsc -p <path>/tsconfig*.json --noEmit` (--noEmit required; an existing relative path inside the project, no .., not under node_modules/ or .claude/). ' +
-  'Files are explicit relative paths of existing *.test.* / *.spec.* files outside apps/*/src and apps/*/api; no globs, quotes, pipes, `cd` or variables. ' +
-  'Flags (--name=value only): vitest --reporter=default|verbose|dot --bail=N --no-color --testNamePattern=X; playwright --project=X --grep=X --reporter=list|line|dot --workers=N; ' +
-  'node --test-name-pattern=X --test-reporter=spec|dot|tap; eslint --max-warnings=0 --no-color; tsc --noEmit (required).';
-
-function checkTestEngineerBash(command, ctx) {
-  const s = String(command);
-  if (!/^[A-Za-z0-9._/:=@+ -]+$/.test(s)) return BASH_FORMS;
-  const tokens = s.split(' ').filter(Boolean);
-  const runner = Object.values(RUNNERS).find((r) => r.head.every((t, i) => tokens[i] === t));
-  if (!runner) return BASH_FORMS;
-  if (realAbs(ctx.cwd) !== realAbs(ctx.root)) return `${BASH_FORMS} (the working directory is not the project root)`;
-  const [files, projects, rest] = [[], [], tokens.slice(runner.head.length)];
-  for (let k = 0; k < rest.length; k++) {
-    const t = rest[k];
-    if (runner.project && t === '-p') projects.push(rest[++k] || ''); // -p takes the next token, for tsc only
-    else if (t.startsWith('-')) {
-      if (!runner.flags.some((re) => re.test(t))) return BASH_FORMS;
-    } else files.push(t);
-  }
-  if (runner.project ? projects.length !== 1 || files.length : !files.length) return BASH_FORMS;
-  if (runner.required && !rest.includes(runner.required)) return BASH_FORMS;
-  const plain = (f) => !path.isAbsolute(f) && !/^[A-Za-z]:/.test(f) && !f.split('/').includes('..') && isFile(abs(f, ctx.root));
-  for (const p of projects) {
-    const full = abs(p, ctx.root);
-    if (!/^tsconfig[^/]*\.json$/i.test(path.posix.basename(p)) || !plain(p) || outsideRoot(full, ctx)) return BASH_FORMS;
-    const shut = (r) => r.split('/').some((seg) => seg === 'node_modules' || seg === '.claude');
-    if (relBoth(full, ctx).some((r) => isNotes(r) || shut(r))) return BASH_FORMS;
-  }
-  for (const f of files) {
-    if (!TEST_FILE.test(f) || !plain(f)) return BASH_FORMS;
-    if (relBoth(abs(f, ctx.root), ctx).some((r) => isAppImpl(r) || isNotes(r))) {
-      return 'TEST ENGINEER does not run files under apps/*/src or apps/*/api, nor files that resolve there.';
-    }
-  }
-  return null;
-}
-
 function checkTestEngineer(tool, input, ctx) {
-  if (tool !== 'Bash' && namedPaths(tool, input, ctx).some((p) => outsideRoot(p, ctx))) return OUTSIDE;
-  if (tool === 'Bash') return checkTestEngineerBash(input.command, ctx);
+  if (tool === 'Bash') return null;
   if (EDIT_TOOLS.includes(tool)) {
     const forms = relBoth(input.file_path || input.notebook_path || '', ctx);
     if (!forms.every(testEngineerMayWrite)) {
@@ -803,43 +717,17 @@ function escalate(root, role, tool, reason) {
   }
 }
 
-// Every block goes to the local log. incidents.md gets a line only for r4-critical, and for the third reader block of
-// one role in one task (count 3 or more, claimed once through an exclusive flag file, so parallel hooks cannot skip or double it).
-function claimEscalation(dir, role, session) {
-  try {
-    const id = crypto.createHash('sha1').update(JSON.stringify([role, session])).digest('hex');
-    fs.writeFileSync(path.join(dir, 'escalated-' + id + '.flag'), '', { flag: 'wx' });
-    return true;
-  } catch {
-    return false; // already claimed, or the log directory is unusable
-  }
-}
-
+// Every block goes to the local log; incidents.md gets a line only for r4-critical.
 function report(root, session, role, tool, v) {
-  let reader = 0;
-  let claimed = false;
   try {
     const dir = path.join(root, '.claude', 'logs');
     fs.mkdirSync(dir, { recursive: true });
-    const file = path.join(dir, 'blocks.jsonl');
     const entry = { time: new Date().toISOString(), role, tool, rule: v.rule, reason: String(v.reason).replace(/\s+/g, ' '), session };
-    fs.appendFileSync(file, JSON.stringify(entry) + '\n', 'utf8');
-    if (v.rule === 'reader') {
-      for (const l of fs.readFileSync(file, 'utf8').split('\n')) {
-        try {
-          const e = JSON.parse(l);
-          if (e.rule === 'reader' && e.role === role && e.session === session) reader++;
-        } catch {
-          // a damaged line counts for nothing
-        }
-      }
-      claimed = reader >= 3 && claimEscalation(dir, role, session);
-    }
+    fs.appendFileSync(path.join(dir, 'blocks.jsonl'), JSON.stringify(entry) + '\n', 'utf8');
   } catch {
     // The block stands even when it cannot be logged.
   }
   if (v.rule === 'r4-critical') escalate(root, role, tool, v.reason);
-  else if (claimed) escalate(root, role, tool, `third reader block by ${role} in one task (the fence is being probed): ${v.reason}`);
 }
 
 function block(v, root, session, role, tool) {
@@ -891,4 +779,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { main, shellSegments, gitCall, literalPrefix, rel, commitTakesWorkingTree, grepExcludesNotes };
+module.exports = { main, shellSegments, gitCall, literalPrefix, rel, commitTakesWorkingTree, grepExcludesNotes, scanForSecrets };

@@ -36,11 +36,10 @@ building (you touch test files only) and run everything once BUILDER hands off.
 You read with Read, Grep and Glob, and change a test file with Edit, not by rewriting it whole. Run the tests you wrote
 until they pass, or fail for a reason you report. Edit fixes a test's mechanics — selectors, seams, setup — never its
 meaning: a test that fails against its criterion is a finding, stays failing and is reported; its assertion is never
-weakened to match what the code does. Your Bash, from the project root, is one command on explicit existing files, with
-`--name=value` flags from the hook's list: `npx vitest run <files>`, `npx playwright test <files>`, `node --test
-<files>`, and on your own files `npx tsc -p <tsconfig>` and `npx eslint <test files>` — you hand off tests that pass
-typecheck and lint. You write test files and `.work/<slug>/*.md` — never `package.json` or a config. ORCHESTRATOR
-commits your tests. The hook (`.claude/hooks/guard.js`) enforces all of this.
+weakened to match what the code does. You run your tests, typecheck and lint on them from Bash, and hand off tests that
+pass them; your shell is used for that, not to read `notes.md`. You write test files and `.work/<slug>/*.md` — never
+`package.json` or a config. ORCHESTRATOR commits your tests. The hook (`.claude/hooks/guard.js`) enforces the write
+limit and `notes.md` for Read and Grep (decisions 2026-10-16 "Audit decisions" 7).
 
 ### On the bug-fix path
 

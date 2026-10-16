@@ -61,13 +61,6 @@ test('fails closed', () => {
   assert.strictEqual(run('all', 'Bash', JSON.stringify({ tool_name: 'Bash' })), 2);
 });
 
-test('all: git add -A and git add . are blocked', () => {
-  for (const c of ['git add -A', 'git add .', 'git add --all', 'git add -- .', 'git -C x add -A', 'git add -Av', 'echo hi && git add .', 'bash -c "git add -A"']) {
-    blocks('all', 'Bash', { command: c });
-  }
-  for (const c of ['git add apps/web/src/a.ts', 'git status', 'git add -u', 'ls -A']) allows('all', 'Bash', { command: c });
-});
-
 test('all: a commit message that mentions git add . is not a git add', () => {
   allows('all', 'Bash', { command: "git log --oneline -1 <<'EOF'\ngit add .\nEOF" });
   allows('all', 'Bash', { command: 'echo "git add -A is blocked"' });
@@ -115,25 +108,9 @@ test('test-engineer: reads app source freely, never notes.md, by any tool', () =
   allows('test-engineer', 'Glob', { pattern: 'packages/shared/**/*.ts' });
   allows('test-engineer', 'Glob', { pattern: '**/*.test.tsx', path: P('apps', 'web', 'tests') });
 
-  for (const c of [
-    'cat apps/web/src/main.tsx',
-    'type apps\\server\\src\\app.ts',
-    'cd apps/web && cat src/main.tsx',
-    'head -50 C:/x/nestly/apps/server/src/app.ts',
-    'git diff',
-    'git show HEAD',
-    'git log -p',
-    'git blame apps/web/tests/x.ts',
-    'grep -rn foo .',
-    'rg foo',
-    'cat .work/feat/notes.md',
-  ]) {
-    blocks('test-engineer', 'Bash', { command: c });
-  }
-  // Converted (round 4): TEST ENGINEER Bash is one test run with explicit existing files; npm, git and cat are out.
-  // (A run that is allowed is covered in guard-next.test.js, which has fixture files.)
-  for (const c of ['npm test', 'git log --oneline -5', 'cat packages/shared/src/index.ts']) {
-    blocks('test-engineer', 'Bash', { command: c });
+  // Its shell is free (decisions 2026-10-16 "Audit decisions" 7): only the rules for everyone apply.
+  for (const c of ['npm test', 'git diff', 'cat apps/web/src/main.tsx', 'npx vitest run apps/web/tests']) {
+    allows('test-engineer', 'Bash', { command: c });
   }
 });
 
@@ -202,7 +179,12 @@ test('all: commit is blocked when the staged diff holds a secret', () => {
   blocks('all', 'Bash', { command: 'git commit -m env' }, repo);
   g('reset', '-q');
 
-  blocks('all', 'Bash', { command: 'git add leak.ts && git commit -m x' }, repo);
+  // add and commit in one command: the guard runs before the add, so the pre-commit hook's scan (the same
+  // scanForSecrets) is what sees the staged secret.
+  allows('all', 'Bash', { command: 'git add leak.ts && git commit -m x' }, repo);
+  g('add', 'leak.ts');
+  assert.ok(require('./guard.js').scanForSecrets(repo, false), 'the pre-commit scan blocks the staged secret');
+  g('reset', '-q');
   fs.rmSync(repo, { recursive: true, force: true });
 });
 
@@ -214,25 +196,21 @@ test('fails closed on a malformed cwd or command, and on a command too long to c
   assert.strictEqual(run('critic', 'Bash', { command: 'echo ' + 'x'.repeat(60000) }), 2);
 });
 
-test('all: wrappers and variants of git add and force push', () => {
+test('all: wrappers and variants of force push', () => {
   for (const c of [
-    '(git add -A)',
     '(cd x && git push --force)',
-    'echo $(git add -A)',
-    'eval "git add -A"',
-    'powershell -Command "git add -A"',
-    'cmd /c git add .',
-    'git stage .',
-    'git add :',
-    "git add ':(glob)**'",
-    'git add apps/..',
+    '(git push --force)',
+    'echo $(git push -f)',
+    'eval "git push --force"',
+    'powershell -Command "git push --force"',
+    'cmd /c git push -f',
     'git push --mirror',
     'git push --delete origin main',
     'git push origin :main',
     'git push origin +HEAD:main',
     'git push --force=origin',
-    'cat <<<EOF\ngit add -A',
-    'echo "<<X"\ngit add -A',
+    'cat <<<EOF\ngit push -f',
+    'echo "<<X"\ngit push -f',
   ]) {
     blocks('all', 'Bash', { command: c });
   }
@@ -276,22 +254,6 @@ test('critic: no notes.md through git, shell search or a clever Grep', () => {
   blocks('critic', 'Read', { file_path: 'notes.md' });
   allows('critic', 'Grep', { pattern: 'x', glob: '*.{ts,tsx}' });
   allows('critic', 'Grep', { pattern: 'x', glob: '*.ts !*.d.ts' });
-});
-
-test('test-engineer: per-app test runs through npm and --root are blocked, source reads through Bash stay blocked, Read/Grep/Glob of source are allowed', () => {
-  // Converted (round 4): the npm forms, -w/--workspace and --root are dropped from TEST ENGINEER Bash.
-  for (const c of ['npm test -w apps/web', 'npm run test --workspace=apps/web', 'npx vitest run --root apps/web', 'npx vitest run apps/web']) {
-    blocks('test-engineer', 'Bash', { command: c });
-  }
-  for (const c of ['cd apps && cat web/src/a.ts', 'cd apps/web', 'cat apps/server/api/index.ts', 'Get-Content apps\\web\\src\\main.tsx', 'git diff -- apps/web/tests']) {
-    blocks('test-engineer', 'Bash', { command: c });
-  }
-  allows('test-engineer', 'Read', { file_path: P('apps', 'server', 'api', 'index.ts') });
-  allows('test-engineer', 'Read', { file_path: 'apps\\web\\src\\main.tsx' });
-  allows('test-engineer', 'Read', { file_path: './apps/web/src/main.tsx' });
-  allows('test-engineer', 'Glob', { pattern: '{apps,packages}/**/*.ts' });
-  allows('test-engineer', 'Glob', { pattern: '**/src/**' });
-  allows('test-engineer', 'Grep', { pattern: 'x', path: P('apps', 'web', 'tests', '..', 'src') });
 });
 
 test('builder: shell writes into tests, snapshot updates, and legitimate test runs', () => {
@@ -408,22 +370,6 @@ test('builder: a redirect glued to its target is still a redirect', () => {
   allows('builder', 'Bash', { command: 'node -e "const f = (a) => a"' });
 });
 
-test('test-engineer: other spellings of apps/*/src are still implementation', () => {
-  for (const c of [
-    'cat apps/web/./src/a.ts',
-    'cat apps/web//src/a.ts',
-    'cat apps/web/tests/../src/a.ts',
-    'cd apps/server/tests && cat ../src/a.ts',
-    'cat apps/web/s*/a.ts',
-    'cat apps/*/s*',
-    'cat apps/web/{src,tests}/a.ts',
-  ]) {
-    blocks('test-engineer', 'Bash', { command: c });
-  }
-  // Converted (round 4): cd and cat are not part of TEST ENGINEER Bash at all.
-  blocks('test-engineer', 'Bash', { command: 'cd apps/web/tests && cat App.test.tsx' });
-});
-
 test('all: a commit after cd is scanned in the repo it runs in', () => {
   const repo = ROOT_REPO();
   const key = 'sb_' + 'secret_' + 'abcdefghijklmnopqrstuvwxyz';
@@ -490,49 +436,16 @@ test('all: no shell access to .env files or to the production project', () => {
 });
 
 test('a block is logged to .claude/logs/blocks.jsonl without the command, and an ordinary block is not written to incidents.md', () => {
-  // Converted (round 4, d): git add -A is an ordinary R4 block ("r4"), so it is counted, not escalated.
+  // A builder block is ordinary: counted, not escalated.
   const beforeLog = logLines().length;
   const beforeInc = fs.readFileSync(P('incidents.md'), 'utf8');
-  blocks('all', 'Bash', { command: 'git add -A # TOPSECRET' });
+  blocks('builder', 'Bash', { command: 'echo TOPSECRET > apps/web/tests/a.test.ts' });
   const added = logLines().slice(beforeLog);
   assert.strictEqual(added.length, 1);
-  assert.strictEqual(added[0].role, 'all');
+  assert.strictEqual(added[0].role, 'builder');
   assert.strictEqual(added[0].tool, 'Bash');
   assert.doesNotMatch(JSON.stringify(added[0]), /TOPSECRET/);
   assert.strictEqual(fs.readFileSync(P('incidents.md'), 'utf8'), beforeInc, 'an ordinary block does not touch incidents.md');
-});
-
-test('test-engineer: a shell variable such as $? is not read as a glob that reaches app source', () => {
-  // Converted (round 4): npm and echo are not part of TEST ENGINEER Bash, so these are blocked now.
-  for (const c of ['npm run ci; echo x=$?', 'npm test; echo "exit=$?"', 'npx vitest run apps/web/tests; echo $?']) {
-    blocks('test-engineer', 'Bash', { command: c });
-  }
-  // A real glob from the root still reaches app source.
-  blocks('test-engineer', 'Bash', { command: 'cat **/*.tsx' });
-  blocks('test-engineer', 'Bash', { command: 'cat apps/web/s*' });
-  // An expansion inside a glob path does not hide it: an unset one expands to nothing.
-  for (const c of [
-    'cat ap*/web/src/a.ts$X',
-    'cat */web/src/a.ts$X',
-    'cat */*/src/*$X',
-    'cat a?ps/w?b/s?c/a.ts${E}',
-    'head -n 50 ap[p]s/web/src/main.tsx$Q',
-    'cat $(echo apps/web/src/a.ts)',
-    'P=apps/web/src/a.ts; cat ${P}',
-    'cat apps/web/src/$X',
-    // An expansion with an operator: its default or replacement word is what the shell reads (CRITIC re-check).
-    'cat ${X:-apps}/web/src/a.ts',
-    'cat "${X:-apps}/web/src/a.ts"',
-    'cat ${X-apps}/web/src/a.ts',
-    'cat ${X:=ap}ps/web/src/a.ts',
-    'cat ${X:-a}pps/web/src/a.ts',
-    'cat ${X:-*}/web/src/a.ts',
-    'cat ${X:-a*}/web/src/a.ts',
-    'cat ${HOME/*/ap}ps/web/src/a.ts',
-    'cat ${X}ap*/web/src/a.ts',
-  ]) {
-    blocks('test-engineer', 'Bash', { command: c });
-  }
 });
 
 test.after(() => fs.rmSync(ROOT, { recursive: true, force: true }));

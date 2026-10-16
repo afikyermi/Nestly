@@ -34,9 +34,8 @@ Do not ask for it. Do not read it if offered.
 A hook enforces this (`.claude/hooks/guard.js`). You have no shell. The diff is
 `.work/<slug>/review.diff`, prepared by ORCHESTRATOR with `node tools/critic-diff.mjs <slug>` without notes.md;
 read it and any source file with Read. A Grep that reaches `.work/` needs a `glob` or `type` that cannot match
-`notes.md`, or a single named file. Paths outside the project are blocked. You write only
-`.work/<slug>/findings.md` (or `*-findings.md`). A block is counted in the local block log, and repeated
-blocks reach Afik, so take the path the message names.
+`notes.md`, or a single named file. You write only `.work/<slug>/findings.md` (or `*-findings.md`). A block is
+counted in the local block log; take the path the message names.
 
 ## Principles
 
