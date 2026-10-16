@@ -1,21 +1,30 @@
-// The Auth calls of a password reset (F1.6; schema.md "The Auth calls"; data-model "Approved exceptions", part (a)).
-// The ONLY file that reads the Supabase secret key, which carries service_role power over the whole project, and the only
-// one that may name the admin, token-grant and logout endpoints and the forwarded-address header: the CI check
+// The Auth calls of the password flows (F1.6; F2.0, AR-1; schema.md "The Auth calls"; data-model "Approved exceptions",
+// part (a)). The ONLY file that reads the Supabase secret key, which carries service_role power over the whole project, and the
+// only one that may name the admin, token-grant and logout endpoints and the forwarded-address header: the CI check
 // (tests/credentials.static.test.ts) fails when any of them appears anywhere else, or in .github/. The fence is this
 // file and that check, not the credential.
 //
-// One operation, four calls in a fixed order, none exported alone and no generic request function:
-//   0. read the user's CURRENT email (read-only; the user id comes from the answers row, never from the request). The
-//      handle that found the row can be stale (Auth lets a user change their email), so no password is set unless that
-//      email is the request's: only the email is read, and a mismatch makes no further call;
-//   1. set the user's password;
-//   2. only after a 2xx, one sign-in as that user with the new password the request already holds: it yields an access
-//      token, and nothing else of the response is read;
-//   3. a global sign-out with that token, which ends every session of the user, the attacker's and the one call 2 made.
-// The token is dropped when the function returns: never returned, logged or stored.
+// The operations, each a fixed sequence, none a generic request function:
+//   resetPassword (F1.6 recovery reset), four calls in a fixed order:
+//     0. read the user's CURRENT email (read-only; the user id comes from the answers row, never from the request). The
+//        handle that found the row can be stale (Auth lets a user change their email), so no password is set unless that
+//        email is the request's: only the email is read, and a mismatch makes no further call;
+//     1. set the user's password;
+//     2. only after a 2xx, one sign-in as that user with the new password the request already holds: it yields an access
+//        token, and nothing else of the response is read;
+//     3. a global sign-out with that token, which ends every session of the user, the attacker's and the one call 2 made.
+//     The token is dropped when the function returns: never returned, logged or stored.
+//   F2.0 (AR-1: set-password in four more flows, no other admin operation):
+//     readSignInIdentities   the caller's own Auth user with the caller's own access token (no admin call): provider and
+//                            creation time of each identity, for the S-01 detection. Nothing else of the user is kept;
+//     cancelPassword         the S-01 clear: sets a random password that is never returned, logged or kept;
+//     setUserPassword        the forced new password (c7), the change after two answers (c10), the F1.8 first password (c11);
+//     signOutOtherSessions   ends every session but the caller's, with the caller's own access token (scope others).
+// The user id is always the JWT subject of the request, never a body field.
 //
 // Nothing is logged here, and no error text of Auth is kept: the outcome is a word the caller audits.
 
+import { randomBytes } from 'node:crypto';
 import { normalizeRecoveryEmail } from '@nestly/shared';
 import { ENV } from '../lib/config.js';
 
@@ -83,30 +92,39 @@ function emailOf(body: unknown): string | undefined {
   return typeof email === 'string' && email !== '' ? email : undefined;
 }
 
+interface CallInit {
+  readonly method: string;
+  readonly body?: string;
+  readonly bearer?: string;
+  /** The platform-verified client address for Sb-Forwarded-For, when Auth should count the caller and not the server. */
+  readonly forwardedFor?: string | undefined;
+}
+
+/** One call to Auth with the project key, a per-call timeout under the sequence's total. Throws on a network fault. */
+function call(target: Target, total: AbortSignal, path: string, init: CallInit): Promise<Response> {
+  const headers: Record<string, string> = { apikey: target.key, 'content-type': 'application/json' };
+  if (init.bearer !== undefined) headers['authorization'] = `Bearer ${init.bearer}`;
+  if (init.forwardedFor !== undefined) headers['Sb-Forwarded-For'] = init.forwardedFor;
+  return fetch(`${target.base}${path}`, {
+    method: init.method,
+    headers,
+    ...(init.body === undefined ? {} : { body: init.body }),
+    redirect: 'error',
+    signal: AbortSignal.any([total, AbortSignal.timeout(CALL_TIMEOUT_MS)]),
+  });
+}
+
 /** The four calls, in order. Never throws: every failure is one of the four outcomes. */
 export async function resetPassword(input: ResetPasswordInput, env: Env = process.env): Promise<ResetPasswordOutcome> {
   const target = readTarget(env);
   if (target === undefined || !UUID.test(input.userId)) return 'admin_failed';
-  const { base, key } = target;
   const total = AbortSignal.timeout(TOTAL_TIMEOUT_MS);
-
-  async function call(path: string, init: { method: string; body?: string; bearer?: string; forwarded: boolean }): Promise<Response> {
-    const headers: Record<string, string> = { apikey: key, 'content-type': 'application/json' };
-    if (init.bearer !== undefined) headers['authorization'] = `Bearer ${init.bearer}`;
-    if (init.forwarded && input.clientIp !== undefined) headers['Sb-Forwarded-For'] = input.clientIp;
-    return fetch(`${base}${path}`, {
-      method: init.method,
-      headers,
-      ...(init.body === undefined ? {} : { body: init.body }),
-      redirect: 'error',
-      signal: AbortSignal.any([total, AbortSignal.timeout(CALL_TIMEOUT_MS)]),
-    });
-  }
+  const forwarded = input.clientIp;
 
   // Call 0. Read-only. Only the email is read, and only to compare: a non-2xx or a timeout means nothing was confirmed, so
   // nothing is set; a different (or missing) email means the handle was stale, so nothing is set either.
   try {
-    const read = await call(`/admin/users/${input.userId}`, { method: 'GET', forwarded: true });
+    const read = await call(target, total, `/admin/users/${input.userId}`, { method: 'GET', forwardedFor: forwarded });
     if (!read.ok) {
       await read.body?.cancel();
       return 'admin_failed';
@@ -119,10 +137,9 @@ export async function resetPassword(input: ResetPasswordInput, env: Env = proces
 
   // Call 1. A non-2xx, a timeout and a dropped connection all mean "the password was not confirmed as set".
   try {
-    const set = await call(`/admin/users/${input.userId}`, {
+    const set = await call(target, total, `/admin/users/${input.userId}`, {
       method: 'PUT',
       body: JSON.stringify({ password: input.password }),
-      forwarded: false,
     });
     await set.body?.cancel();
     if (!set.ok) return 'admin_failed';
@@ -132,10 +149,10 @@ export async function resetPassword(input: ResetPasswordInput, env: Env = proces
 
   // Calls 2 and 3. The password is set from here on: any failure is `revoke_failed`.
   try {
-    const signIn = await call('/token?grant_type=password', {
+    const signIn = await call(target, total, '/token?grant_type=password', {
       method: 'POST',
       body: JSON.stringify({ email: normalizeRecoveryEmail(input.email), password: input.password }),
-      forwarded: true,
+      forwardedFor: forwarded,
     });
     if (!signIn.ok) {
       await signIn.body?.cancel();
@@ -144,10 +161,123 @@ export async function resetPassword(input: ResetPasswordInput, env: Env = proces
     const accessToken = accessTokenOf(await signIn.json());
     if (accessToken === undefined) return 'revoke_failed';
 
-    const signOut = await call('/logout?scope=global', { method: 'POST', bearer: accessToken, forwarded: true });
+    const signOut = await call(target, total, '/logout?scope=global', { method: 'POST', bearer: accessToken, forwardedFor: forwarded });
     await signOut.body?.cancel();
     return signOut.ok ? 'completed' : 'revoke_failed';
   } catch {
     return 'revoke_failed'; // as above: audited by the caller, nothing kept
+  }
+}
+
+// ---- F2.0 (AR-1) -------------------------------------------------------------------------------------------------------
+
+/** One identity of the caller's Auth user, as the S-01 detection reads it: the provider and when it was linked. */
+export interface SignInIdentity {
+  readonly provider: string;
+  readonly createdAt: Date;
+}
+
+export type IdentitiesRead = { readonly kind: 'ok'; readonly identities: readonly SignInIdentity[] } | { readonly kind: 'failed' };
+
+/** `set`: Auth confirmed the password (or answered that it already is that password). `failed`: not confirmed. */
+export type PasswordSetOutcome = 'set' | 'failed';
+
+/** `done`: Auth confirmed that every other session of the user ended. `failed`: not confirmed. */
+export type SignOutOutcome = 'done' | 'failed';
+
+function identitiesOf(body: unknown): SignInIdentity[] | undefined {
+  if (typeof body !== 'object' || body === null) return undefined;
+  const list: unknown = Reflect.get(body, 'identities');
+  if (!Array.isArray(list)) return undefined;
+  const identities: SignInIdentity[] = [];
+  for (const entry of list) {
+    if (typeof entry !== 'object' || entry === null) return undefined;
+    const provider: unknown = Reflect.get(entry, 'provider');
+    const createdAt: unknown = Reflect.get(entry, 'created_at');
+    if (typeof provider !== 'string' || typeof createdAt !== 'string') return undefined;
+    const when = new Date(createdAt);
+    if (Number.isNaN(when.getTime())) return undefined;
+    identities.push({ provider, createdAt: when });
+  }
+  return identities;
+}
+
+async function errorCodeOf(response: Response): Promise<string | undefined> {
+  try {
+    const body: unknown = await response.json();
+    const code: unknown = typeof body === 'object' && body !== null ? Reflect.get(body, 'error_code') : undefined;
+    return typeof code === 'string' ? code : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The caller's own identities, read with the caller's own access token. Never throws. */
+export async function readSignInIdentities(
+  input: { readonly accessToken: string; readonly clientIp: string | undefined },
+  env: Env = process.env,
+): Promise<IdentitiesRead> {
+  const target = readTarget(env);
+  if (target === undefined) return { kind: 'failed' };
+  try {
+    const total = AbortSignal.timeout(CALL_TIMEOUT_MS);
+    const read = await call(target, total, '/user', { method: 'GET', bearer: input.accessToken, forwardedFor: input.clientIp });
+    if (!read.ok) {
+      await read.body?.cancel();
+      return { kind: 'failed' };
+    }
+    const identities = identitiesOf(await read.json());
+    return identities === undefined ? { kind: 'failed' } : { kind: 'ok', identities };
+  } catch {
+    return { kind: 'failed' };
+  }
+}
+
+/** Sets `password` on the user with the admin key. Auth's `same_password` counts as set (a retry). Never throws. */
+export async function setUserPassword(
+  input: { readonly userId: string; readonly password: string },
+  env: Env = process.env,
+): Promise<PasswordSetOutcome> {
+  const target = readTarget(env);
+  if (target === undefined || !UUID.test(input.userId)) return 'failed';
+  try {
+    const total = AbortSignal.timeout(CALL_TIMEOUT_MS);
+    const set = await call(target, total, `/admin/users/${input.userId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ password: input.password }),
+    });
+    if (set.ok) {
+      await set.body?.cancel();
+      return 'set';
+    }
+    return (await errorCodeOf(set)) === 'same_password' ? 'set' : 'failed';
+  } catch {
+    return 'failed';
+  }
+}
+
+/** The S-01 clear: a random password nobody knows replaces the earlier registrant's. Never returned or kept. Never throws. */
+export function cancelPassword(input: { readonly userId: string }, env: Env = process.env): Promise<PasswordSetOutcome> {
+  return setUserPassword({ userId: input.userId, password: randomBytes(48).toString('base64url') }, env);
+}
+
+/** Ends every session of the user but the one `accessToken` belongs to (refresh tokens revoked). Never throws. */
+export async function signOutOtherSessions(
+  input: { readonly accessToken: string; readonly clientIp: string | undefined },
+  env: Env = process.env,
+): Promise<SignOutOutcome> {
+  const target = readTarget(env);
+  if (target === undefined) return 'failed';
+  try {
+    const total = AbortSignal.timeout(CALL_TIMEOUT_MS);
+    const signOut = await call(target, total, '/logout?scope=others', {
+      method: 'POST',
+      bearer: input.accessToken,
+      forwardedFor: input.clientIp,
+    });
+    await signOut.body?.cancel();
+    return signOut.ok ? 'done' : 'failed';
+  } catch {
+    return 'failed';
   }
 }

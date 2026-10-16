@@ -8,6 +8,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
 import { isTransientFailure, readDatabaseFault } from '../lib/pg-error.js';
+import { replySessionRefused } from '../plugins/authentication.js';
 import { clientAddress } from '../recovery/client-ip.js';
 import type { RecoveryDependencies } from '../recovery/dependencies.js';
 import { readAccountState, type HandleRekey } from '../services/account-state-service.js';
@@ -47,6 +48,8 @@ async function me(request: FastifyRequest, reply: FastifyReply, deps: MeRouteDep
   try {
     return reply.code(200).send(await readAccountState(deps.database, identity, rekeyFor(request, deps)));
   } catch (error) {
+    const refused = replySessionRefused(reply, error);
+    if (refused !== undefined) return refused;
     const fault = readDatabaseFault(error);
     request.log.error({ sqlstate: fault?.code }, 'account state read failed');
     if (isTransientFailure(error)) return reply.code(503).send({ error: 'unavailable' });

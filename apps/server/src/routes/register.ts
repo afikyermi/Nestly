@@ -11,6 +11,7 @@ import { createRegistrationRequestSchema, addDaysIso } from '@nestly/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
 import { isTransientFailure, readDatabaseFault } from '../lib/pg-error.js';
+import { replySessionRefused } from '../plugins/authentication.js';
 import { createRegistration, hasAccount } from '../services/registration-service.js';
 
 /** FR-REG-004, NFR-SEC-001: a body over this is refused before it is parsed. */
@@ -41,6 +42,8 @@ async function register(request: FastifyRequest, reply: FastifyReply, deps: Regi
     if (outcome.kind === 'already_registered') return reply.code(409).send({ error: 'already_registered' });
     return reply.code(201).send({ status: 'created' });
   } catch (error) {
+    const refused = replySessionRefused(reply, error);
+    if (refused !== undefined) return refused;
     const fault = readDatabaseFault(error);
     request.log.error({ sqlstate: fault?.code, constraint: fault?.constraint }, 'registration write failed');
     // A retry may pass only after a transient failure, in any transaction of the request (hasAccount included).
