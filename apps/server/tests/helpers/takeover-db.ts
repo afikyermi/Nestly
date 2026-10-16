@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { createDatabase } from '../../src/db/client.js';
-import type { AuthAccountPort } from '../../src/recovery/dependencies.js';
+import type { AuthAccountPort, RecoveryDependencies } from '../../src/recovery/dependencies.js';
 import { AUDIENCE, ISSUER } from './identity-fixtures.js';
 import { captureLog } from './register-app.js';
 import { buildRecoveryApp, fakeAdmin, postJson, spyScrypt } from './recovery-app.js';
@@ -44,6 +44,8 @@ export interface AuthScript {
   configured?: boolean;
   /** awaited inside cancelPassword (to make two requests overlap) */
   cancelDelayMs?: number;
+  /** awaited inside setPassword, after the call started (a set "in flight") */
+  setDelayMs?: number;
 }
 
 export interface Call {
@@ -57,6 +59,8 @@ export interface FakeAuth {
   calls: Call[];
   /** the calls of one kind, in order */
   of: (op: Call['op']) => Call[];
+  /** 'op:start' / 'op:end' in the order they happened, across every app that shares this port (F2.0 A4) */
+  order: string[];
   /** runs before each call of that kind answers (to observe the database at that moment) */
   onCall: Partial<Record<Call['op'], () => Promise<void>>>;
 }
@@ -64,6 +68,7 @@ export interface FakeAuth {
 export function fakeAuth(initial: AuthScript = {}): FakeAuth {
   const script: AuthScript = { identities: EMAIL_FIRST, cancel: 'set', set: 'set', signOut: 'done', configured: true, ...initial };
   const calls: Call[] = [];
+  const order: string[] = [];
   const onCall: FakeAuth['onCall'] = {};
   const record = async (op: Call['op'], input: Record<string, unknown>): Promise<void> => {
     calls.push({ op, input });
@@ -76,12 +81,17 @@ export function fakeAuth(initial: AuthScript = {}): FakeAuth {
       return script.identities === 'failed' ? { kind: 'failed' } : { kind: 'ok', identities: script.identities ?? [] };
     },
     cancelPassword: async (input) => {
+      order.push('cancelPassword:start');
       await record('cancelPassword', { ...input });
       if (script.cancelDelayMs) await new Promise((resolve) => setTimeout(resolve, script.cancelDelayMs));
+      order.push('cancelPassword:end');
       return script.cancel ?? 'set';
     },
     setPassword: async (input) => {
+      order.push('setPassword:start');
       await record('setPassword', { ...input });
+      if (script.setDelayMs) await new Promise((resolve) => setTimeout(resolve, script.setDelayMs));
+      order.push('setPassword:end');
       return script.set ?? 'set';
     },
     signOutOthers: async (input) => {
@@ -89,21 +99,22 @@ export function fakeAuth(initial: AuthScript = {}): FakeAuth {
       return script.signOut ?? 'done';
     },
   };
-  return { port, script, calls, onCall, of: (op) => calls.filter((c) => c.op === op) };
+  return { port, script, calls, onCall, order, of: (op) => calls.filter((c) => c.op === op) };
 }
 
 export interface TakeoverHarness extends Harness {
   auth: FakeAuth;
 }
 
-export async function startTakeoverApp(ctx: Context, auth: FakeAuth, extra: { keys?: () => undefined } = {}): Promise<TakeoverHarness> {
+export async function startTakeoverApp(ctx: Context, auth: FakeAuth, extra: { keys?: () => undefined; authAdmin?: RecoveryDependencies['authAdmin'] } = {}): Promise<TakeoverHarness> {
   const database = createDatabase(databaseUrl());
   const admin = fakeAdmin();
+  const { authAdmin = admin.authAdmin, ...rest } = extra;
   const spy = spyScrypt();
   const log = captureLog();
   const app = await buildRecoveryApp(
     { SUPABASE_JWKS_URL: ctx.jwks.url, SUPABASE_JWT_ISSUER: ISSUER, SUPABASE_JWT_AUDIENCE: AUDIENCE, DATABASE_URL: databaseUrl() },
-    { database, logStream: log.stream, recovery: { authAdmin: admin.authAdmin, scrypt: spy.scrypt, authAccount: auth.port, ...extra } },
+    { database, logStream: log.stream, recovery: { authAdmin, scrypt: spy.scrypt, authAccount: auth.port, ...rest } },
   );
   const harness: TakeoverHarness = { app, database, admin, spy, log, auth };
   openApps.push(harness);
@@ -170,4 +181,45 @@ export const linkEventsJson = (ctx: Context, id: string): Promise<string> => tex
 export async function linkPut(ctx: Context, id: string, verdict: 'affected' | 'unaffected', session: string, cleared = false, passwordSet = false): Promise<void> {
   await ctx.side`select tests.fx_link_put(${id}::uuid, ${verdict}, ${session}::uuid,
     ${cleared ? new Date() : null}::timestamptz, ${cleared ? session : null}::uuid, ${passwordSet ? new Date() : null}::timestamptz)`;
+}
+
+// ---- the per-user lock (schema.md Gate 2 amendment A4) -------------------------------------------------------------------------
+/** The text the lock is taken on: 'nestly.password_state:' + the user id (A4), hashed by the database. */
+export const lockKey = (userId: string): string => `nestly.password_state:${userId}`;
+
+/**
+ * Holds the user's password-state lock on a separate connection, as another request would, while `during` runs; released on
+ * return. A try-lock taken by the app in that time must fail (503 `unavailable`).
+ */
+export async function holdingLock<T>(ctx: Context, userId: string, during: () => Promise<T>): Promise<T> {
+  const results: T[] = [];
+  await ctx.side.begin(async (tx) => {
+    const [row] = await tx`select pg_catalog.pg_try_advisory_xact_lock(pg_catalog.hashtextextended(${lockKey(userId)}, 0)) as got`;
+    if (row?.got !== true) throw new Error('the test could not take the lock: another holder exists');
+    results.push(await during());
+  });
+  for (const value of results) return value;
+  throw new Error('the callback did not run');
+}
+
+/** Waits (polling) until `condition` holds; fails after `ms`. */
+export async function until(condition: () => boolean, ms = 10_000): Promise<void> {
+  const end = Date.now() + ms;
+  while (!condition()) {
+    if (Date.now() > end) throw new Error('timed out waiting for the in-flight call to start');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+/** A reset stand-in that logs its start and end into `order` and takes `delayMs` to answer 'completed'. */
+export function delayedAdmin(order: string[], delayMs: number): RecoveryDependencies['authAdmin'] {
+  return {
+    isConfigured: () => true,
+    resetPassword: async () => {
+      order.push('reset:start');
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      order.push('reset:end');
+      return 'completed';
+    },
+  };
 }
