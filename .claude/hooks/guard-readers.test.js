@@ -447,7 +447,9 @@ test('[I-1] critic: UNC alias of the root, Grep on .work with no glob, is blocke
 
 test('[PR 37 CRITIC 1] both readers: a Grep outside the root needs a notes-excluding glob or type', () => {
   for (const role of ['critic', 'test-engineer']) {
-    for (const p of [path.dirname(ROOT), path.join(path.dirname(ROOT), 'other-clone'), otherDrive(), devicePath('.work')]) {
+    // Another drive and a \\?\ device path are paths only on Windows.
+    const winOnly = IS_WIN ? [otherDrive(), devicePath('.work')] : [];
+    for (const p of [path.dirname(ROOT), path.join(path.dirname(ROOT), 'other-clone'), ...winOnly]) {
       blocks(role, 'Grep', { pattern: '.', path: p });
       allows(role, 'Grep', { pattern: '.', path: p, glob: '*.ts' });
       allows(role, 'Grep', { pattern: '.', path: p, type: 'ts' });
