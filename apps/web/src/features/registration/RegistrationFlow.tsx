@@ -4,15 +4,24 @@ import { localDateIso, type RegistrationStep1 } from '@nestly/shared';
 import { PATHS } from '@/app/paths';
 import { documentTitle } from '@/lib/document-title';
 import { RegisterConsentStep } from './RegisterConsentStep';
+import { RegisterGoogleCompletionStep } from './RegisterGoogleCompletionStep';
 import { RegisterStepOne } from './RegisterStepOne';
+import { GoogleLookupHold } from './GoogleLookupHold';
 import { RegisterStepTwo } from './RegisterStepTwo';
 import { EMPTY_STEP1_FORM, type Step1Form } from './step1-form';
+
+/** Whether the completing user came in through Google (F1.8): asked of Auth by the page. Absent reads as 'none'. */
+export type GoogleLookup =
+  | { status: 'pending' }
+  | { status: 'failed'; onRetry: () => void }
+  | { status: 'none' }
+  | { status: 'google'; email: string };
 
 export interface RegistrationFlowProps {
   /** The calendar date used to judge dates, YYYY-MM-DD. Default: the device's local date when "המשך" is pressed (Q6). */
   today?: string;
-  /** Completion mode (F1.5, DR-2): the user signed in but never created the account. Step 2 becomes the consent alone. */
-  completion?: { onSignOut: () => void; onUnauthenticated: () => void };
+  /** Completion mode (F1.5, DR-2): the user signed in but never created the account. Step 2 becomes the consent alone; for a Google user (F1.8) it is the password and the consent. */
+  completion?: { onSignOut: () => void; onUnauthenticated: () => void; google?: GoogleLookup };
 }
 
 // Step 2 is a second history entry on the same URL, marked by this state: the browser Back button returns to step 1.
@@ -38,7 +47,17 @@ export function RegistrationFlow({ today, completion }: RegistrationFlowProps) {
   return (
     <main tabIndex={-1}>
       <title>{documentTitle(completion !== undefined ? 'השלמת ההרשמה' : stepTwoValue !== null ? 'פרטי התחברות' : 'פרטים אישיים')}</title>
-      {stepTwoValue !== null && completion !== undefined ? (
+      {stepTwoValue !== null && (completion?.google?.status === 'pending' || completion?.google?.status === 'failed') ? (
+        <GoogleLookupHold lookup={completion.google} onBack={() => void navigate(-1)} />
+      ) : stepTwoValue !== null && completion?.google?.status === 'google' ? (
+        <RegisterGoogleCompletionStep
+          step1={stepTwoValue}
+          email={completion.google.email}
+          onBack={() => void navigate(-1)}
+          onSignOut={completion.onSignOut}
+          onUnauthenticated={completion.onUnauthenticated}
+        />
+      ) : stepTwoValue !== null && completion !== undefined ? (
         <RegisterConsentStep
           step1={stepTwoValue}
           onBack={() => void navigate(-1)}

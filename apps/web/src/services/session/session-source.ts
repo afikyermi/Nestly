@@ -30,7 +30,7 @@ export interface SessionEntry {
   signIn(): void;
 }
 
-/** The result of signing in with a password, as the login screen reads it (F1.5 criteria 5-9). Keys only, no text. */
+/** The result of signing in with a password or Google, as the login screen and the Google return read it (F1.5 criteria 5-9). Keys only, no text. */
 export type SignInResult =
   | { kind: 'signed-in' }
   | { kind: 'unregistered' } // signed in, no account yet: the state is `signed-in-no-account`
@@ -41,6 +41,12 @@ export type SignInResult =
 export interface SessionAccount {
   /** Checks the password with Auth, then asks the server for the account state. A session survives only if this reports signed-in or unregistered. */
   signInWithPassword(credentials: { email: string; password: string }): Promise<SignInResult>;
+  /** Google's return (F1.8): exchanges the code for a session, then runs the same status check as for a password. A session survives only if this reports signed-in or unregistered. */
+  signInWithGoogle(code: string): Promise<SignInResult>;
+  /** The Auth user's email when the user came in through Google (the completion screen then asks for a password); null for any other user. Rejects when Auth could not answer. */
+  googleAccount(): Promise<{ email: string } | null>;
+  /** Sets the Auth user's password (F1.8 completion). 'failed' covers every refusal and a call that never answered. */
+  setPassword(password: string): Promise<'set' | 'failed'>;
   /** Asks the server for the account state now (e.g. after a 409 on completion) and acts on the answer. */
   recheck(): Promise<void>;
   /** The current access token, renewed if it has expired; null without a session. */

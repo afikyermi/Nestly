@@ -1,5 +1,5 @@
 import { registrationCredentialsInput } from '@nestly/shared';
-import { EMAIL_INVALID_TEXT, EMAIL_REQUIRED_TEXT, GENERIC_ERROR_TEXT, RATE_LIMITED_TEXT } from '@/lib/auth-texts';
+import { EMAIL_INVALID_TEXT, EMAIL_REQUIRED_TEXT, GENERIC_ERROR_TEXT, RATE_LIMITED_TEXT, STOPPED_TEXT } from '@/lib/auth-texts';
 import type { SessionNotice } from '@/services/session/session-source';
 import type { SignInProblem } from '@/services/auth/sign-in-problem';
 
@@ -9,7 +9,6 @@ import type { SignInProblem } from '@/services/auth/sign-in-problem';
 export const PASSWORD_REQUIRED_TEXT = 'יש למלא סיסמה'; // FR-AUTH-002 · ERR-003
 export const INVALID_CREDENTIALS_TEXT = 'האימייל או הסיסמה שגויים. אפשר לנסות שוב'; // ERR-001: names neither field
 export const SIGN_IN_FAILED_TEXT = 'ההתחברות לא הצליחה. אפשר לנסות שוב';
-export const STOPPED_TEXT = 'הכניסה לחשבון הזה אינה זמינה כרגע'; // DR-1: no reason, no length
 export const EXPIRED_TEXT = 'ההתחברות פגה. אפשר להתחבר שוב';
 
 const PROBLEM_TEXTS: Record<SignInProblem, string> = {

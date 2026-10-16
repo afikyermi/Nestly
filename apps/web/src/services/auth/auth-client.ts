@@ -20,6 +20,33 @@ export type SignUpResponse =
 
 export type SignInResponse = SignUpResponse;
 
+/** The Google start: the provider's authorize URL to leave for, or why there is none. */
+export type GoogleStartResponse = { url: string; failure: null } | { url: null; failure: AuthFailure };
+
+/** The two Google steps (F1.8). The start builds the authorize URL and the web leaves for it; the return exchanges the code. */
+export interface GoogleAuthPort {
+  /** Builds the Google authorize URL (PKCE, scopes openid and email) for `redirectTo`. The verifier stays in the SDK's storage; nothing is navigated here. */
+  startGoogleSignIn(redirectTo: string): Promise<GoogleStartResponse>;
+  /**
+   * Exchanges the code Google returned for a session, then clears Google's profile keys from the Auth user (DR-5); a failed clear
+   * changes nothing. A missing verifier, a refused or reused code and a client that is not configured are all the same failure.
+   */
+  completeGoogleSignIn(code: string): Promise<SignInResponse>;
+  /**
+   * The email of the Auth user when the user came in through Google, asked of Auth with the held session (nothing stored); null for
+   * any other user. Rejects when Auth could not answer, so a screen never mistakes a failed read for a user without Google. It tells the completion screen whether to ask for a password.
+   */
+  readGoogleAccount(): Promise<{ email: string } | null>;
+  /**
+   * Sets the Auth user's password (a Google user has none). Auth's answer "this is already the password" (`same_password`) is a success:
+   * the password is then the one typed, which is what the retry after a failed registration needs.
+   */
+  setPassword(password: string): Promise<SetPasswordResponse>;
+}
+
+/** The result of setting the password: nothing to report on success, the failure's marker fields otherwise. */
+export type SetPasswordResponse = { failure: null } | { failure: AuthFailure };
+
 export interface AuthPort {
   /** Registers the email and password with Auth. The password goes to Auth and nowhere else. */
   signUp(credentials: { email: string; password: string }): Promise<SignUpResponse>;
@@ -81,6 +108,46 @@ function configFromEnvironment(): AuthClientConfig | undefined {
   return { url: url.trim().replace(/\/+$/, ''), publishableKey: publishableKey.trim() };
 }
 
+// DR-5 (F1.8): the keys Google's profile adds to the Auth user's metadata. They are cleared after a Google return and never read,
+// shown or sent anywhere; this list is the only place they are named.
+const GOOGLE_PROFILE_KEYS = [
+  'full_name',
+  'name',
+  'given_name',
+  'family_name',
+  'avatar_url',
+  'picture',
+] as const;
+
+// auth-js writes a PKCE verifier twice: under the fixed key `<storage key>-code-verifier` (read by an exchange whose URL carries no
+// flow id, as ours) and in a per-flow slot plus an index that only an exchange with a flow id removes. Ours never has one, so the
+// slots would stay in web storage for good. They are dropped on the way in; the fixed key does the work and the exchange removes it.
+function withoutVerifierSlots(inner: KeyValueStorage): KeyValueStorage {
+  const isSlot = (key: string) => key.startsWith(`${AUTH_STORAGE_KEY}-flow`) && key.endsWith('-code-verifier');
+  return {
+    getItem: (key) => (isSlot(key) ? null : inner.getItem(key)),
+    setItem: (key, value) => {
+      if (!isSlot(key)) inner.setItem(key, value);
+    },
+    removeItem: (key) => {
+      inner.removeItem(key);
+    },
+  };
+}
+
+// The Auth client speaks the implicit flow, so a password sign-up leaves no PKCE verifier behind. The Google start and return run the
+// PKCE flow: this turns it on for the length of one call and off again.
+class NestlyGoTrueClient extends GoTrueClient {
+  async withPkce<T>(work: () => Promise<T>): Promise<T> {
+    this.flowType = 'pkce';
+    try {
+      return await work();
+    } finally {
+      this.flowType = 'implicit';
+    }
+  }
+}
+
 /** The user object stays out of web storage: it carries the email, and the web only ever reads the access token. */
 function memoryStorage(): KeyValueStorage {
   const items = new Map<string, string>();
@@ -111,7 +178,7 @@ function isStoredSession(raw: string): boolean {
   );
 }
 
-export type BrowserAuthPort = AuthPort & AuthSessionPort;
+export type BrowserAuthPort = AuthPort & AuthSessionPort & GoogleAuthPort;
 
 /** True for an absolute https URL, or http on localhost; anything else could send a password to our own origin or in the clear. */
 function isAuthUrl(url: string): boolean {
@@ -142,7 +209,7 @@ export function createAuthPort(
   const config = usableConfig(given);
   const storage = seams.keyValueStorage;
   const listeners = new Set<(event: AuthEvent) => void>();
-  let client: GoTrueClient | null = null;
+  let client: NestlyGoTrueClient | null = null;
   // Set when Auth answers this tab's own refresh with a 4xx: the SIGNED_OUT that follows is then "refused", not "unknown".
   let refreshRefused = false;
 
@@ -160,13 +227,13 @@ export function createAuthPort(
   };
 
   // Built on first use, so a visitor who never signs in makes no call and holds no client.
-  function getClient(settings: AuthClientConfig): GoTrueClient {
+  function getClient(settings: AuthClientConfig): NestlyGoTrueClient {
     if (client !== null) return client;
-    const created = new GoTrueClient({
+    const created = new NestlyGoTrueClient({
       url: `${settings.url}/auth/v1`,
       headers: { apikey: settings.publishableKey },
       storageKey: AUTH_STORAGE_KEY,
-      ...(storage !== undefined ? { storage, userStorage: memoryStorage() } : {}),
+      ...(storage !== undefined ? { storage: withoutVerifierSlots(storage), userStorage: memoryStorage() } : {}),
       persistSession: storage !== undefined,
       autoRefreshToken: true,
       detectSessionInUrl: false,
@@ -253,6 +320,48 @@ export function createAuthPort(
         storage?.removeItem(AUTH_STORAGE_KEY);
       }
       return told;
+    },
+
+    async startGoogleSignIn(redirectTo) {
+      if (config === undefined) return { url: null, failure: NOT_CONFIGURED };
+      const authClient = getClient(config);
+      const { data, error } = await authClient.withPkce(() =>
+        authClient.signInWithOAuth({ provider: 'google', options: { redirectTo, scopes: 'openid email', skipBrowserRedirect: true } }),
+      );
+      if (error !== null) return { url: null, failure: { status: error.status, code: error.code, name: error.name } };
+      return { url: data.url, failure: null };
+    },
+
+    async completeGoogleSignIn(code) {
+      if (config === undefined) return { accessToken: null, failure: NOT_CONFIGURED };
+      const authClient = getClient(config);
+      const { data, error } = await authClient.withPkce(() => authClient.exchangeCodeForSession(code));
+      if (error !== null) return { accessToken: null, failure: { status: error.status, code: error.code, name: error.name } };
+      const present = GOOGLE_PROFILE_KEYS.filter((key) => Object.hasOwn(data.user.user_metadata, key));
+      if (present.length > 0) {
+        try {
+          await authClient.updateUser({ data: Object.fromEntries(present.map((key) => [key, null])) });
+        } catch {
+          // A clear that fails does not stop the sign-in and is not shown (DR-5); the keys are never read, so they only wait.
+        }
+      }
+      return { accessToken: data.session.access_token, failure: null };
+    },
+
+    async readGoogleAccount() {
+      if (config === undefined) return null;
+      const { data, error } = await getClient(config).getUser();
+      if (error !== null) throw new Error('The Auth user could not be read.');
+      if (data.user === null) return null;
+      const email = data.user.email;
+      return data.user.app_metadata.provider === 'google' && email !== undefined ? { email } : null;
+    },
+
+    async setPassword(password) {
+      if (config === undefined) return { failure: NOT_CONFIGURED };
+      const { error } = await getClient(config).updateUser({ password });
+      if (error === null || error.code === 'same_password') return { failure: null };
+      return { failure: { status: error.status, code: error.code, name: error.name } };
     },
 
     subscribe(listener) {

@@ -1,4 +1,4 @@
-import type { AuthEvent, AuthSessionPort } from '@/services/auth/auth-client';
+import type { AuthEvent, AuthSessionPort, GoogleAuthPort, SignInResponse } from '@/services/auth/auth-client';
 import { classifySignInFailure } from '@/services/auth/sign-in-problem';
 import type { AccountStateOutcome } from '@/services/api/account-state';
 import type { BrowserEvents } from '@/platform/browser-events';
@@ -20,7 +20,8 @@ export const RESTORE_RETRY_JITTER = 0.2;
 export type AuthSessionSource = SessionSource & SessionEntry & SessionAccount;
 
 export interface AuthSessionSourceDeps {
-  auth: AuthSessionPort;
+  /** The Auth client. Without the Google return (a test fake), a Google return reads as a failure. */
+  auth: AuthSessionPort & Partial<Pick<GoogleAuthPort, 'completeGoogleSignIn' | 'readGoogleAccount' | 'setPassword'>>;
   /** Asks the server for the account state (`GET /api/me`) with this access token. */
   accountState: (accessToken: string) => Promise<AccountStateOutcome>;
   /** The clock, in milliseconds. */
@@ -167,7 +168,9 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
     return tracked;
   }
 
-  function signInWithPassword(credentials: { email: string; password: string }): Promise<SignInResult> {
+  // One sign-in at a time, whatever the way in (a password, or Google's code): Auth answers with a session or a failure, and nothing is
+  // signed in until the server has said what the account is (F1.5 criterion 9). Google's return (F1.8 criterion 6) runs this same check.
+  function signInThrough(obtain: () => Promise<SignInResponse>): Promise<SignInResult> {
     if (signingIn !== null) return signingIn;
     const attempt = (async (): Promise<SignInResult> => {
       epoch += 1;
@@ -175,7 +178,7 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
       apply(state, null);
       let accessToken: string | null;
       try {
-        const response = await auth.signIn(credentials);
+        const response = await obtain();
         if (response.failure !== null) return { kind: 'failed', problem: classifySignInFailure(response.failure) };
         accessToken = response.accessToken;
       } catch {
@@ -273,7 +276,20 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
         }),
       );
     },
-    signInWithPassword,
+    signInWithPassword: (credentials) => signInThrough(() => auth.signIn(credentials)),
+    signInWithGoogle: (code) =>
+      signInThrough(() =>
+        auth.completeGoogleSignIn === undefined ? Promise.reject(new Error('This Auth client has no Google return.')) : auth.completeGoogleSignIn(code),
+      ),
+    googleAccount: async () => (auth.readGoogleAccount === undefined ? null : auth.readGoogleAccount()),
+    setPassword: async (password) => {
+      if (auth.setPassword === undefined) return 'failed';
+      try {
+        return (await auth.setPassword(password)).failure === null ? 'set' : 'failed';
+      } catch {
+        return 'failed';
+      }
+    },
     recheck,
     getAccessToken: () => auth.getAccessToken(),
     clearNotice: () => {

@@ -11,7 +11,7 @@ export interface GuestPlaceholderPageProps {
   title: string;
 }
 
-// A Guest screen not built yet (Login F1.5, Registration F1.3, the Google entry F1.8): its heading, one line
+// A Guest screen not built yet (the two documents, I9): its heading, one line
 // and a way back to Welcome. It sends no request anywhere.
 export function GuestPlaceholderPage({ title }: GuestPlaceholderPageProps) {
   const toWelcome = useLinkClickHandler(PATHS.welcome);

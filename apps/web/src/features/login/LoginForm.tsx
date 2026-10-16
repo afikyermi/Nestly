@@ -11,7 +11,8 @@ import { TextInput } from '@/components/ui/text-input';
 import { useSession } from '@/hooks/use-session';
 import { useSessionAccount } from '@/hooks/use-session-account';
 import { documentTitle } from '@/lib/document-title';
-import { noticeText, problemText, STOPPED_TEXT, validateLogin, type LoginErrors } from './login-form';
+import { STOPPED_TEXT } from '@/lib/auth-texts';
+import { noticeText, problemText, validateLogin, type LoginErrors } from './login-form';
 
 // The login screen (FR-AUTH-002, UC-02): email and password. The password goes to Auth through the session source and nowhere
 // else; it lives in this component's memory and in the input, and is cleared after a refused sign-in (criterion 5). A success

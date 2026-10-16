@@ -1,4 +1,5 @@
 import { Route, Routes } from 'react-router';
+import { GoogleReturnPage } from '@/pages/google-return/GoogleReturnPage';
 import { GuestPlaceholderPage } from '@/pages/placeholder/GuestPlaceholderPage';
 import { LoginPage } from '@/pages/login/LoginPage';
 import { ProtectedPlaceholderPage } from '@/pages/placeholder/ProtectedPlaceholderPage';
@@ -22,7 +23,7 @@ export function AppRoutes() {
           <Route path={PATHS.welcome} element={<WelcomePage />} />
           <Route path={PATHS.login} element={<LoginPage />} />
           <Route path={PATHS.register} element={<RegisterPage />} />
-          <Route path={PATHS.googleEntry} element={<GuestPlaceholderPage title="המשך עם Google" />} />
+          <Route path={PATHS.googleEntry} element={<GoogleReturnPage />} />
           <Route path={PATHS.recovery} element={<RecoveryPage />} />
           <Route path={PATHS.terms} element={<GuestPlaceholderPage title="תנאי השימוש" />} />
           <Route path={PATHS.privacy} element={<GuestPlaceholderPage title="מדיניות הפרטיות" />} />

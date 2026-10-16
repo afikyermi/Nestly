@@ -49,6 +49,12 @@ export function validateCredentials(email: string, password: string): Credential
   return { ok: false, errors };
 }
 
+/** VAL-003 alone, for the Google user's completion (the email is Google's): the same rule and text as in `validateCredentials`. */
+export function validatePassword(password: string): string | null {
+  const result = registrationCredentialsInput.shape.password.safeParse(password);
+  return result.success ? null : PASSWORD_LENGTH_TEXT;
+}
+
 /** What a failed Auth sign-up means for the screen. */
 export type SignUpProblem = 'taken' | 'weak_password' | 'rate_limited' | 'unavailable' | 'unknown';
 
