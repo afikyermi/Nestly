@@ -90,3 +90,5 @@
 |---|---|---|---|---|
 | S-60 | עקיפות env-file | מחרוזת פקודה בגרשיים (nodemon, ‏concurrently, ‏ssh), ‏npm `--`, משתני shell, ‏globs, נתיבי UNC | ‏debt.md:56 · decisions 13.10 · agent-slim R2-1 | ⚖️ מקובל |
 | S-61 | ‏TEST ENGINEER וקוד המקור | בזמן ריצה טסטים יכולים לקרוא קוד אפליקציה או notes.md; ‏code frame של כשל מראה קוד | ‏debt.md:48, :69 · decisions 13.10 | ⚖️ מקובל |
+| S-62 | ‏CRITIC ו-notes.md דרך נקודה בסוף נתיב | ‏Grep על `.work.` (או `.work..`) בלי glob עובר את ה-guard, ו-Windows פותח את `.work` עצמו — כל notes.md מודפס. דורש עקיפה מכוונת | ‏PR 37, ‏CRITIC re-check bug 1 · decisions 2026-10-16 "PR 37 accepted risks" | ⚖️ מקובל (אפיק, 16.10: ה-guard גדר, לא כספת) |
+| S-63 | עקיפת סריקת הסודות ב-commit | ‏`git add … && git commit --no-verif` (קיצור של אופציה) או `git -c core.hooksPath=… commit` מדלגים על סריקת ה-pre-commit, וה-guard סורק את ה-index לפני ה-add. דורש עקיפה מכוונת | ‏PR 37, ‏CRITIC re-check bug 2 · decisions 2026-10-16 "PR 37 accepted risks" | ⚖️ מקובל (אפיק, 16.10: ה-guard גדר, לא כספת) |

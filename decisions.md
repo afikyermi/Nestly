@@ -147,6 +147,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-16 | Audit decisions (Afik), 1–12: pre-approved merge on green CI + E · batched approvals and a questionnaire per Initiative · local checks before push · one review round, a bug list · a test per AC · a session per part, compact at 200K · simpler guard, no more system building · lean records · two sessions from I3 · S-01 in I2 · account deletion in I9 · 5–7 features a day | 10 |
 | 2026-10-16 | Guard simplified (Afik): secret scan and BUILDER rules kept, also in pre-commit; r4, TEST ENGINEER Bash allowlist, outside-root and reader escalation removed | 10 |
 | 2026-10-16 | I2 questionnaire (Afik): profile Open by default (existing too) · S-01 option a · password change after two security questions · child birthdays on by default · prod migrate by ORCHESTRATOR without approval until launch | 10 |
+| 2026-10-16 | PR 37 accepted risks (Afik): two open guard bugs accepted (S-62 trailing-dot Grep, S-63 secret-scan bypass); the -n bug to debt | 10 |
 
 ## Superseded
 
