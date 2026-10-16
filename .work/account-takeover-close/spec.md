@@ -140,3 +140,7 @@ Approved against the SRS and Afik's Q3/Q4, both parts, 17 criteria. ORCHESTRATOR
 Q-1–Q-4 take their defaults. AR-1 and AR-2 are Afik's (reserved, security model) — asked in one list; part (a) BUILDER
 waits on AR-1; DATA ARCHITECT, TEST ENGINEER and part (b) proceed. The SRS entry for Q3/Q4 (security model, at once)
 rides with part (a)'s PR via `/srs-update`.
+
+**DR-T1 (ORCHESTRATOR, 16.10.2026, after BUILDER's db run):** c4 and c6 read as "every request that passes body
+validation". A malformed body keeps F1.6's 400-before-any-database-work rule; it returns no data and does nothing.
+Reason: no leak either way, and guard-first would add a round trip to every request and break F1.6's approved rule.
