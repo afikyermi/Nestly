@@ -62,9 +62,9 @@
 
 | שדה | הגדרה |
 |---|---|
-| סטטוס | מאושר |
+| סטטוס | מאושר; נוספו אירועי שחזור הסיסמה (F1.6, 15.10.2026) |
 | Actor | System / Admin / Moderator עם AUDIT_LOG_VIEW לצפייה |
-| תיאור | המערכת תרשום Audit Log לכל פעולה ניהולית משמעותית של Admin/Moderator. Moderator בעל AUDIT_LOG_VIEW יכול לצפות בלבד; אין אפשרות לשנות או למחוק רשומות דרך ממשק המוצר. |
+| תיאור | המערכת תרשום Audit Log לכל פעולה ניהולית משמעותית של Admin/Moderator. Moderator בעל AUDIT_LOG_VIEW יכול לצפות בלבד; אין אפשרות לשנות או למחוק רשומות דרך ממשק המוצר. **אירועי שחזור הסיסמה (FR-AUTH-003, כפי שנבנה ב-F1.6):** נרשמים ברשומה נפרדת, בשרת, באותה פעולה שבה הם קורים: `answers_saved` · `answers_changed` · `change_failed` · `change_limited` · `reset_failed` · `reset_limited` · `reset_verified`, ואחריו בדיוק אחת מהתוצאות `reset_completed` · `reset_admin_failed` (קביעת הסיסמה ב-Auth נכשלה) · `reset_revoke_failed` (הסיסמה נקבעה, סיום ה-Sessions נכשל) · `reset_email_mismatch` (האימייל הנוכחי של החשבון אינו האימייל שהוזן) · ומעבר מזהה האימייל: `handle_released` (החשבון איבד את המזהה לטענה חדשה יותר) · `handle_rekeyed` (המזהה עבר לאימייל שבאסימון). כל רשומה: סוג, מזהה משתמש כשידוע, hash של מזהה האימייל, hash של כתובת ה-IP וזמן — בלי תשובה, סיסמה או אימייל. למשתמשים רגילים ולמבקרים אין גישה אליה. |
 | תנאים מוקדמים | פעולה ניהולית בוצעה, או Actor מורשה פתח את מסך Audit. |
 | קלט / Trigger | פעולת ניהול / פתיחת Audit Log. |
 | תהליך מערכת | שמירת Actor, Role, Permission, Action, Target, Timestamp, Result וסיבה כאשר קיימת; בשינוי הרשאה נשמר Before/After. |

@@ -11,8 +11,8 @@
 | PG-001 | Welcome / הצטרפות | WelcomePage | [סקיצה 57(3)](../design/sketches/sk-57-3-welcome.jpeg) | איור סטטי, טקסט מתאר, יצירת חשבון חדש, מעבר לחשבון קיים. |
 | PG-002 | Login | LoginPage | [סקיצה 57(4)](../design/sketches/sk-57-4-login.jpeg) | אימייל, סיסמה, התחברות, שכחת סיסמה, יצירת חשבון. |
 | PG-003 | בחירת סוג חשבון | AccountTypeSelectionPage | נדרש לתהליך | בחירה בין "חשבון אישי" ו"חשבון מקצועי" בכרטיסי בחירה. נכנס יחד עם בעלי המקצוע (§2.5). |
-| PG-004 | הרשמה רגילה — שלב 1 | RegularRegistrationPage / RegularRegistrationFlow | [סקיצה 57(2)](../design/sketches/sk-57-2-register-regular.jpeg) | השלב במסע, שם מלא, מין ההורה (לא חובה), פרטי ילד והוספת ילד, ותאריך לידה משוער בהריון (FR-REG-002). |
-| PG-005 | הרשמה רגילה — שלב 2 | RegularRegistrationPage / RegularRegistrationFlow | [סקיצה 57(2)](../design/sketches/sk-57-2-register-regular.jpeg) | אימייל, סיסמה (VAL-003) ואישור תנאי השימוש ומדיניות הפרטיות. אין טלפון. |
+| PG-004 | הרשמה רגילה — שלב 1 | RegularRegistrationPage / RegularRegistrationFlow | [סקיצה 57(2)](../design/sketches/sk-57-2-register-regular.jpeg) | השלב במסע, שם מלא, מין ההורה (לא חובה), פרטי ילד והוספת ילד, ותאריך לידה משוער בהריון (FR-REG-002). **סדר השדות כפי שנבנה (F1.3, החלטת ORCHESTRATOR מ-14.10.2026; משנה את מסך ההרשמה ב-R2):** השלב במסע → תאריך לידה משוער, מתחת ל"בהריון" → פרטי הילדים ו"הוספת ילד נוסף", מתחת ל"יש לנו ילד או ילדה" → שם מלא → מין ההורה. שדה שנפתח מופיע מתחת לבחירה שפתחה אותו. **נוסח:** כותרת "פרטים אישיים"; תת-כותרת "כדי שהתוכן יתאים למסע." (מ-R2, **נוסח זמני**); רמז "אפשר לבחור יותר מאפשרות אחת."; "מין ההורה (לא חובה)" עם "בחירה"; "תאריך לידה משוער (לא חובה)"; "הוספת ילד נוסף" (FR-REG-003) במקום "הוספת ילד או ילדה" של R2; "חזרה". |
+| PG-005 | הרשמה רגילה — שלב 2 | RegularRegistrationPage / RegularRegistrationFlow | [סקיצה 57(2)](../design/sketches/sk-57-2-register-regular.jpeg) | אימייל, סיסמה (VAL-003) ואישור תנאי השימוש ומדיניות הפרטיות. אין טלפון. בהרשמה עם Google האימייל מ-Google מוצג לקריאה בלבד, והסיסמה נדרשת (FR-AUTH-005, F1.8). |
 | PG-006 | הרשמה מקצועית — שלב 1 | ProfessionalRegistrationPage / ProfessionalRegistrationFlow | [סקיצה 57(1)](../design/sketches/sk-57-1-register-pro.jpeg) | שם מלא, שם עסק (לא חובה), מין, תחום/מקצוע ושנות ניסיון. בלי תאריך לידה. מספר עוסק/ח.פ נאסף באימות (PG-040). |
 | PG-007 | הרשמה מקצועית — שלב 2 | ProfessionalRegistrationPage / ProfessionalRegistrationFlow | [סקיצה 57(1)](../design/sketches/sk-57-1-register-pro.jpeg) | אימייל, סיסמה ואישור תנאים. אין טלפון. |
 | PG-008 | Feed | FeedPage / FeedFeature | [סקיצה 56(1)](../design/sketches/sk-56-1-feed.jpeg), [סקיצה 56](../design/sketches/sk-56-social-network.jpeg) | מסך הנחיתה אחרי התחברות. TopBar, אזור Feed ו-Bottom Navigation. TopBar כולל Hamburger, לוגו, Global Search, Chat ו-Notifications; יצירת פוסט נשארת בתוך FeedFeature ולא כחלק קשיח מה-TopBar. גלילה אינסופית. בכל כרטיס פוסט: לייק, תגובה, שיתוף בפיד ושיתוף קישור (FR-FEED-006/007). |
@@ -58,6 +58,10 @@
 | PG-048 | Story Viewer / Composer | StoryViewerPage / StoryFeature | החלטת אפיק מ-16.10.2026 | יצירת סטורי וצפייה בסטורי של אחרים; בלי לייקים, תגובות ורשימת צופים (FR-FEED-008). |
 | PG-049 | Community Rules | CommunityRulesPage | החלטת אפיק מ-16.10.2026 | שמונת כללי הקהילה (BR-075), מקושר מהתפריט ומחלון הדיווח. |
 | PG-050 | Account Scheduled for Deletion | AccountDeletionFeature | החלטת אפיק מ-16.10.2026 | אחרי התחברות בזמן החרטה: "החשבון שלך מתוזמן למחיקה ב-<תאריך>" עם "ביטול המחיקה" או "התנתקות" (FR-SET-002). |
+| PG-051 | Password Recovery / שחזור סיסמה | PasswordRecoveryPage / PasswordRecoveryFeature | F1.6, החלטת אפיק מ-15.10.2026 | נתיב `/recovery`, מסך Guest, נפתח מ"שכחתי סיסמה" ב-PG-002. כותרת "שחזור סיסמה"; אימייל; שלוש השאלות של FR-AUTH-003 עם ההנחיה "ענו על השתיים שבחרתם בהרשמה"; "סיסמה חדשה" עם הצגה והסתרה; שליחה. שגיאות שדה ומיקוד כמו ב-PG-002 (ERR-003); בזמן שליחה אין שליחה שנייה. תוצאה: "הסיסמה עודכנה. אפשר להתחבר עם הסיסמה החדשה", או ERR-042–044, והסיסמה החדשה נמחקת אחרי כשל (FR-AUTH-003). |
+| PG-052 | Recovery Questions / שאלות לשחזור סיסמה | RecoveryQuestionsPage / PasswordRecoveryFeature | F1.6, החלטת ORCHESTRATOR מ-15.10.2026 (DR-C) | נתיב `/recovery-questions`, בתוך המעטפת. **שמירה ראשונה:** חשבון פעיל בלי תשובות מוחזק כאן אחרי ההרשמה ובכל התחברות, עד השמירה; אין "אחר כך"; נפתחים רק תנאי השימוש ומדיניות הפרטיות. הסבר: "אם תשכחו את הסיסמה, התשובות לשתי שאלות יאפשרו לכם לקבוע סיסמה חדשה. בלי תשובות שמורות, לא נוכל לשחזר סיסמה שנשכחה."; "בחרו שתיים מהשאלות וענו עליהן"; "שמירה"; אחרי השמירה — הפיד. **החלפה** מהתפריט, "שאלות לשחזור סיסמה": "כדי להחליף את השאלות, צריך קודם לענות על השתיים ששמרתם עכשיו."; "ענו על השתיים ששמרתם עכשיו", ואחר כך "בחרו שתיים מהשאלות החדשות וענו עליהן"; הצלחה — "השאלות נשמרו". כשל — ERR-042–044 (FR-AUTH-003, VAL-045). |
+
+**נתיב לא מוכר:** משתמש מחובר שמגיע לנתיב שאינו קיים מועבר לפיד (`/feed`), מסך הנחיתה אחרי התחברות (FR-AUTH-002): הנתיב מוחלף, ואין מסך "לא נמצא" ואין לו נוסח. מבקר שאינו מחובר מנותב לפי FR-AUTH-004 (החלטת ORCHESTRATOR מ-14.10.2026, F1.2).
 
 ## 7.1 Bottom Navigation
 
@@ -85,7 +89,7 @@ TopBar הוא Component גלובלי בתוך AppShell. ב-Regular/Professional 
 
 ### 7.3.1 Hamburger / Side Menu
 
-Side Menu אינו משכפל את ה-Bottom Navigation. Regular: My Groups, Friends, Following Professionals, Account/Privacy/Notification/Terms דרך SettingsPage, Help/Support Request ו-Logout. Professional: My Groups, Following Professionals, Professional Profile Settings, Verification Status, Professional Promotion & Analytics, Billing/Promotions, Settings, Help/Support ו-Logout. Admin/Moderator הם חשבונות מערכת; Admin רואה את כל כלי הניהול ו-Moderator רק יעדים לפי Permission Keys.
+Side Menu אינו משכפל את ה-Bottom Navigation. Regular: My Groups, Friends, Following Professionals, Account/Privacy/Notification/Terms דרך SettingsPage, Help/Support Request, שאלות לשחזור סיסמה (PG-052) ו-Logout. Professional: My Groups, Following Professionals, Professional Profile Settings, Verification Status, Professional Promotion & Analytics, Billing/Promotions, Settings, Help/Support ו-Logout. Admin/Moderator הם חשבונות מערכת; Admin רואה את כל כלי הניהול ו-Moderator רק יעדים לפי Permission Keys.
 
 ### 7.3.2 Global Search
 

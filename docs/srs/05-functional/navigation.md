@@ -20,12 +20,12 @@
 
 | שדה | הגדרה |
 |---|---|
-| סטטוס | מאושר |
+| סטטוס | מאושר; עודכן 15.10.2026 (F1.6) |
 | Actor | Regular User / Professional User / Admin / Moderator |
 | תיאור | לחיצה על אייקון שלושת הפסים תפתח Side Drawer. התפריט ישמש ליעדים משניים/ניהוליים ולא ישכפל את יעדי Bottom Navigation. |
 | תנאים מוקדמים | משתמש מחובר. |
 | קלט / Trigger | לחיצה על Hamburger. |
-| תהליך מערכת | Regular: My Groups → GroupsDirectoryPage; Friends → FriendsPage; Following Professionals → FollowingProfessionalsPage; Account Settings / Privacy & Security / Notification Settings / Terms & Privacy → Sections ב-SettingsPage; Help/Support Request → SupportRequestFeature; כללי הקהילה → CommunityRulesPage (PG-049); פנייה למוקד רפואי → MedicalHotlinesPage (FR-MENU-002); Logout. Professional: My Groups, Following Professionals, Professional Profile Settings, Verification Status → ProfessionalVerificationStatusPage, Promotion & Marketing Tools → ProfessionalPromotionPage/PromotionAnalyticsPage, Billing/Promotions → BillingPromotionsPage, Account/Privacy/Notifications/Terms → SettingsPage, Help/Support Request, כללי הקהילה, פנייה למוקד רפואי ו-Logout. Admin: כל כלי הניהול + Moderator Management + Account/Security + Logout. Moderator: רק כלי ניהול לפי Permission Keys + Account/Security + Logout. |
+| תהליך מערכת | Regular: My Groups → GroupsDirectoryPage; Friends → FriendsPage; Following Professionals → FollowingProfessionalsPage; Account Settings / Privacy & Security / Notification Settings / Terms & Privacy → Sections ב-SettingsPage; Help/Support Request → SupportRequestFeature; כללי הקהילה → CommunityRulesPage (PG-049); פנייה למוקד רפואי → MedicalHotlinesPage (FR-MENU-002); שאלות לשחזור סיסמה → RecoveryQuestionsPage (PG-052, FR-AUTH-003; F1.6); Logout. Professional: My Groups, Following Professionals, Professional Profile Settings, Verification Status → ProfessionalVerificationStatusPage, Promotion & Marketing Tools → ProfessionalPromotionPage/PromotionAnalyticsPage, Billing/Promotions → BillingPromotionsPage, Account/Privacy/Notifications/Terms → SettingsPage, Help/Support Request, כללי הקהילה, פנייה למוקד רפואי ו-Logout. Admin: כל כלי הניהול + Moderator Management + Account/Security + Logout. Moderator: רק כלי ניהול לפי Permission Keys + Account/Security + Logout. |
 | פלט | Side Drawer עם MenuItems מותאמים לחשבון. |
 | מצב לאחר ביצוע | בחירת MenuItem מנווטת ליעד; Logout מסיים Session. |
 | בעל אחריות לוגי (Page / Feature) | SideMenuFeature / SideDrawer / MenuItem |
