@@ -14,6 +14,7 @@
 import { RECOVERY_SCRYPT, type RecoveryAnswersInput } from '@nestly/shared';
 import type { Database } from '../db/client.js';
 import { inIdentityTransaction, type IdentityTx } from '../db/identity-transaction.js';
+import { lockPasswordState } from '../db/password-lock.js';
 import { assumeAuthenticatedRole, assumeRecoveryRole, type RecoverySubjects } from '../db/recovery-transaction.js';
 import { readDatabaseFault } from '../lib/pg-error.js';
 import type { Identity } from '../lib/token-verifier.js';
@@ -90,7 +91,8 @@ async function hashNewAnswers(
   };
 }
 
-function isHandleHeld(error: unknown): boolean {
+/** A re-key or store that lost the handle to another account's claim that is not older. */
+export function isHandleHeld(error: unknown): boolean {
   const fault = readDatabaseFault(error);
   return fault?.code === UNIQUE_VIOLATION && fault.constraint === ANSWERS_HANDLE_KEY;
 }
@@ -154,6 +156,7 @@ export async function storeRecoveryAnswers(
   const subjects = { handle: emailHandle(keys, claim.email), ip: ipHash(keys, client.addressKey), claimedAt };
   try {
     return await inIdentityTransaction(database, identity, async (tx): Promise<StoreResult> => {
+      await lockPasswordState(tx, identity.userId); // Gate 2 A4: never in the middle of an S-01 clear
       if ((await readOwnClaim(tx)) !== undefined) return { kind: 'already_set' };
       const hashes = await hashNewAnswers(deps, keys, answers);
       await releaseOlderHolder(tx, subjects);
@@ -177,6 +180,30 @@ export async function storeRecoveryAnswers(
 }
 
 /**
+ * The caller's own email handle, as a reset of this account would declare it: read first, and re-keyed to the token's email
+ * when stale (the token is newer). `not_set`: no visible answers row. `unavailable`: released and not re-keyable (the caller's
+ * token is stale, or the email is held). Shared by the question change and the password change (F2.0 c10).
+ */
+export async function ownHandleFor(
+  tx: IdentityTx,
+  keys: RecoveryKeys,
+  identity: Identity,
+  claim: HandleClaim | undefined,
+  ip: Buffer,
+): Promise<Buffer | 'not_set' | 'unavailable'> {
+  let own = await readOwnClaim(tx);
+  if (own === undefined) return 'not_set';
+  if (claim !== undefined) {
+    const tokenHandle = emailHandle(keys, claim.email);
+    if (needsRekey(own, tokenHandle, claim.issuedAt)) {
+      await rekeyOwnHandle(tx, identity.userId, { handle: tokenHandle, ip, claimedAt: new Date(claim.issuedAt * 1000) });
+      own = await readOwnClaim(tx);
+    }
+  }
+  return own?.emailHandle ?? 'unavailable';
+}
+
+/**
  * Replaces both answers after the current two are proved, under the same limits as a reset. The account's own handle is
  * read first (and re-keyed to the token's email when stale), so the limits and the audit count the same subject a reset of
  * this account would. A wrong or limited attempt commits its counters and audit row and changes nothing else; the new
@@ -196,17 +223,10 @@ export async function changeRecoveryAnswers(
   const ip = ipHash(keys, client.addressKey);
   try {
     return await inIdentityTransaction(database, identity, async (tx): Promise<ChangeResult> => {
-      let own = await readOwnClaim(tx);
-      if (own === undefined) return { kind: 'not_set' };
-      if (claim !== undefined) {
-        const tokenHandle = emailHandle(keys, claim.email);
-        if (needsRekey(own, tokenHandle, claim.issuedAt)) {
-          await rekeyOwnHandle(tx, identity.userId, { handle: tokenHandle, ip, claimedAt: new Date(claim.issuedAt * 1000) });
-          own = await readOwnClaim(tx);
-        }
-      }
-      if (own?.emailHandle == null) return { kind: 'unavailable' };
-      const subjects = { handle: own.emailHandle, ip };
+      await lockPasswordState(tx, identity.userId); // Gate 2 A4: first, before the throttle row locks
+      const handle = await ownHandleFor(tx, keys, identity, claim, ip);
+      if (handle === 'not_set' || handle === 'unavailable') return { kind: handle };
+      const subjects = { handle, ip };
       const attempt = await guardedAttempt(
         tx,
         { keys, subjects, scrypt: deps.scrypt },

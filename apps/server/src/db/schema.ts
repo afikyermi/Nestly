@@ -10,6 +10,7 @@ import {
   ACCOUNT_STATUSES,
   ACCOUNT_TYPES,
   CHILD_SEXES,
+  IDENTITY_LINK_VERDICTS,
   JOURNEY_STAGES,
   PARENT_GENDERS,
   RECOVERY_EVENT_KINDS,
@@ -216,4 +217,30 @@ export const recoveryEventsInsert = nestly.table('recovery_events', {
   userId: uuid('user_id'),
   handleHash: bytea('handle_hash').notNull(),
   ipHash: bytea('ip_hash').notNull(),
+});
+
+// Account takeover close (I2 F2.0 part a; schema.md). One row per Auth user; the moves are the trigger's
+// (identity_link_checks_transition), the session guard reads it (nestly.session_guard()).
+
+/** FR-AUTH-005 (S-01): the identity link verdict of one Auth user and the state of its clear. No FK (c9). */
+export const identityLinkChecks = nestly.table('identity_link_checks', {
+  userId: uuid('user_id').primaryKey().default(sql`auth.uid()`),
+  verdict: text('verdict', { enum: IDENTITY_LINK_VERDICTS }).notNull(),
+  checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow(),
+  checkedSessionId: uuid('checked_session_id').notNull(),
+  clearedAt: timestamp('cleared_at', { withTimezone: true }),
+  clearingSessionId: uuid('clearing_session_id'),
+  passwordSetAt: timestamp('password_set_at', { withTimezone: true }),
+});
+
+/** INSERT target only. Names exactly the columns granted INSERT to authenticated (migration 20261016100000 §6). */
+export const identityLinkChecksInsert = nestly.table('identity_link_checks', {
+  verdict: text('verdict', { enum: IDENTITY_LINK_VERDICTS }).notNull(),
+  checkedSessionId: uuid('checked_session_id').notNull(),
+});
+
+/** UPDATE target only. Names exactly the columns granted UPDATE to authenticated; the trigger stamps both (cleared_at clock_timestamp(), Gate 2 A1; password_set_at now()). */
+export const identityLinkChecksUpdate = nestly.table('identity_link_checks', {
+  clearedAt: timestamp('cleared_at', { withTimezone: true }),
+  passwordSetAt: timestamp('password_set_at', { withTimezone: true }),
 });

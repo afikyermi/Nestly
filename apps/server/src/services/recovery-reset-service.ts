@@ -5,7 +5,8 @@
 //                  verified attempt a `reset_verified` row. It COMMITS before Auth is called, so a password is never set
 //                  without a committed audit row, and no transaction is open across an HTTP call.
 //   Auth           the four calls of auth-admin.ts (read the account's current email, set the password, then end every
-//                  session). A current email that is not the request's sets nothing: the same `invalid` as a wrong answer.
+//                  session), inside a recovery transaction that holds the user's password-state lock and re-reads the
+//                  verified answers row first (Gate 2 A4; the one Auth call F1.6's rule lets a transaction span). A current email that is not the request's sets nothing: the same `invalid` as a wrong answer.
 //   transaction 2  the one outcome row: reset_completed, reset_admin_failed, reset_revoke_failed or reset_email_mismatch. If
 //                  it fails, the audit ends at reset_verified and one fixed line is logged; the answer still follows Auth's
 //                  outcome.
@@ -15,11 +16,12 @@
 
 import type { RecoveryAnswersInput, RecoveryEventKind } from '@nestly/shared';
 import type { Database } from '../db/client.js';
+import { lockPasswordState } from '../db/password-lock.js';
 import { inRecoveryTransaction } from '../db/recovery-transaction.js';
 import type { RecoveryDependencies } from '../recovery/dependencies.js';
 import { emailHandle, ipHash } from '../recovery/hashing.js';
 import type { RecoveryKeys } from '../recovery/pepper.js';
-import { insertEvent } from '../repositories/recovery-repository.js';
+import { insertEvent, readDeclaredAnswers } from '../repositories/recovery-repository.js';
 import { guardedAttempt } from './recovery-attempt.js';
 
 export interface ResetRequest {
@@ -77,12 +79,15 @@ export async function redeemReset(
   });
   if (first.kind !== 'verified') return first;
 
-  const outcome = await deps.authAdmin.resetPassword({
-    userId: first.userId,
-    email: request.email,
-    password: request.password,
-    clientIp: client.address,
+  // Gate 2 A4: under the user's password-state lock (a held lock is 503, PasswordStateBusy) the verified answers row is read
+  // again — an S-01 clear in between deleted it, and then nothing is set (the same `invalid` as a wrong answer) — and the Auth
+  // calls run before the lock is released, so a reset admitted before a clear lands before the clear's cancel.
+  const outcome = await inRecoveryTransaction(database, subjects, async (tx) => {
+    await lockPasswordState(tx, first.userId);
+    if ((await readDeclaredAnswers(tx))?.userId !== first.userId) return 'gone' as const;
+    return deps.authAdmin.resetPassword({ userId: first.userId, email: request.email, password: request.password, clientIp: client.address });
   });
+  if (outcome === 'gone') return { kind: 'invalid' };
 
   try {
     await inRecoveryTransaction(database, subjects, (tx) =>

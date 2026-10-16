@@ -1,7 +1,8 @@
 // The account state GET /api/me reports (I1 F1.5 part a; FR-AUTH-002, BR-024). The caller is already authenticated. The
 // state is read in a new identity transaction on every call, so a status change is seen by the next request. The words
 // suspended and banned never leave this layer: both are `unavailable`. For an active account the same transaction also says
-// whether recovery answers are saved (F1.6, criterion 6): `set` or `missing`.
+// whether recovery answers are saved (F1.6, criterion 6): `set` or `missing`, and whether the session guard holds the caller to
+// a new password after a takeover clear (F2.0 c7): `mustSetPassword`.
 //
 // When the caller's own answers row carries a handle that is not the token's email (the user changed their Auth email) and
 // the token is newer, a SEPARATE transaction re-keys the handle after the state is read (criterion 23). The state never
@@ -18,7 +19,7 @@ import { readOwnClaim, type OwnClaim } from '../repositories/recovery-repository
 import { needsRekey, rekeyOwnHandle } from './recovery-questions-service.js';
 
 export type AccountState =
-  | { readonly state: 'active'; readonly recoveryQuestions: 'set' | 'missing' }
+  | { readonly state: 'active'; readonly recoveryQuestions: 'set' | 'missing'; readonly mustSetPassword: boolean }
   | { readonly state: 'unavailable' }
   | { readonly state: 'unregistered' };
 
@@ -47,14 +48,16 @@ interface StateRead {
 }
 
 export async function readAccountState(database: Database, identity: Identity, rekey?: HandleRekey): Promise<AccountState> {
-  const { account, own } = await inIdentityTransaction(database, identity, async (tx): Promise<StateRead> => {
+  const { account, own } = await inIdentityTransaction(database, identity, async (tx, guard): Promise<StateRead> => {
     const [status, ...others] = await readOwnStatuses(tx);
     if (others.length > 0) throw new AccountStateFault();
     if (status === undefined) return { account: { state: 'unregistered' }, own: undefined };
     // Fail closed: only the exact word `active` opens the account.
     if (status !== 'active') return { account: { state: 'unavailable' }, own: undefined };
     const claim = await readOwnClaim(tx);
-    return { account: { state: 'active', recoveryQuestions: claim === undefined ? 'missing' : 'set' }, own: claim };
+    // F2.0 c7 (Q-S1): only the session that completed a takeover clear is told to set a new password.
+    const mustSetPassword = guard === 'must_set';
+    return { account: { state: 'active', recoveryQuestions: claim === undefined ? 'missing' : 'set', mustSetPassword }, own: claim };
   });
 
   if (rekey !== undefined && own !== undefined) {

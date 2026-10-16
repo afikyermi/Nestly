@@ -49,7 +49,9 @@ export type RecoveryThrottleSubject = (typeof RECOVERY_THROTTLE_SUBJECTS)[number
  * recovery_events.kind (FR-ADMIN-005). After `reset_verified` the outcome is exactly one of `reset_completed`,
  * `reset_admin_failed`, `reset_revoke_failed` and `reset_email_mismatch` (the account's current Auth email is not the
  * request's). `handle_released` (the account lost its email handle to a newer claim) and `handle_rekeyed` (the account's
- * handle was moved to its token's email) record how the handle changes hands.
+ * handle was moved to its token's email) record how the handle changes hands. F2.0 (FR-AUTH-005, S-01/S-16):
+ * `takeover_cleared`, `password_set_forced` and `first_password_set` are bound to the transaction's subject; the four
+ * `password_change*` kinds record the change after two answers. Migration 20261016100000 lists the same values.
  */
 export const RECOVERY_EVENT_KINDS = [
   'answers_saved',
@@ -65,5 +67,19 @@ export const RECOVERY_EVENT_KINDS = [
   'reset_email_mismatch',
   'handle_released',
   'handle_rekeyed',
+  'takeover_cleared',
+  'password_set_forced',
+  'first_password_set',
+  'password_changed',
+  'password_change_failed',
+  'password_change_limited',
+  'password_change_auth_failed',
 ] as const;
 export type RecoveryEventKind = (typeof RECOVERY_EVENT_KINDS)[number];
+
+/**
+ * identity_link_checks.verdict (F2.0, FR-AUTH-005): `affected` when the Auth user's email identity is older than its google
+ * identity (someone registered the email with a password before the owner signed in with Google).
+ */
+export const IDENTITY_LINK_VERDICTS = ['unaffected', 'affected'] as const;
+export type IdentityLinkVerdict = (typeof IDENTITY_LINK_VERDICTS)[number];

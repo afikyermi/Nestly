@@ -89,3 +89,12 @@ export const recoveryResetRequest = z.strictObject({
   answers: recoveryAnswersInput,
   password: registrationCredentialsInput.shape.password,
 });
+
+/** POST /api/password/forced and POST /api/password/first (F2.0 c7, c11): the new password (VAL-003) and nothing else. */
+export const passwordSetRequest = z.strictObject({ password: registrationCredentialsInput.shape.password });
+
+/** POST /api/password/change (F2.0 c10): the current two answers, then the new password (VAL-003). */
+export const passwordChangeRequest = z.strictObject({
+  current: recoveryAnswersInput,
+  password: registrationCredentialsInput.shape.password,
+});

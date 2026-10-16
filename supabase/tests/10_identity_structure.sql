@@ -132,9 +132,9 @@ select is_empty(
        join pg_catalog.pg_class c     on c.oid = a.attrelid
        join pg_catalog.pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'nestly' and c.relkind in ('r', 'p', 'v', 'm', 'f') and a.attnum > 0 and not a.attisdropped
-        and c.relname not in ('recovery_answers', 'recovery_throttles', 'recovery_events')
+        and c.relname not in ('recovery_answers', 'recovery_throttles', 'recovery_events', 'identity_link_checks')
         and a.attname ~* '(pass|pwd|hash|secret|token|salt|crypt)' $$,
-  '[F1.1-b c10 NFR-SEC-001 · F1.6 scoped] no column of the F1.1/F1.4 tables or any view is named like a password, hash, secret or token (the recovery tables hold peppered answer hashes by design: file 30 checks them)');
+  '[F1.1-b c10 NFR-SEC-001 · F1.6, F2.0 scoped] no column of the F1.1/F1.4 tables or any view is named like a password, hash, secret or token (the recovery tables hold peppered answer hashes by design: file 30 checks them; identity_link_checks.password_set_at is a time: file 40)');
 
 select is(
   (select count(*) from pg_catalog.pg_attrdef d
@@ -342,10 +342,11 @@ select is(
   (select count(*) from pg_catalog.pg_class c
      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')
-      and (has_table_privilege('authenticated', c.oid, 'UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
-           or (c.relname <> 'recovery_answers' and has_any_column_privilege('authenticated', c.oid, 'UPDATE,REFERENCES')))),
+      and (has_table_privilege('authenticated', c.oid, 'UPDATE,TRUNCATE,REFERENCES,TRIGGER')
+           or (c.relname <> 'recovery_answers' and has_table_privilege('authenticated', c.oid, 'DELETE'))
+           or (c.relname not in ('recovery_answers', 'identity_link_checks') and has_any_column_privilege('authenticated', c.oid, 'UPDATE,REFERENCES')))),
   0::bigint,
-  '[F1.1-b c13 · F1.4-a c14 · F1.6 scoped] authenticated holds no table-level UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any table in nestly, and no column-level UPDATE or REFERENCES except on recovery_answers (file 30 lists those columns)');
+  '[F1.1-b c13 · F1.4-a c14 · F1.6, F2.0 scoped] authenticated holds no table-level UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any table in nestly (DELETE on recovery_answers is the F2.0 D1 grant), and no column-level UPDATE or REFERENCES except on recovery_answers and identity_link_checks (files 30 and 40 list those columns)');
 
 -- =====================================================================================================================
 -- Criterion 18 — is_active_account(): caller only, invoker, not an approved definer. [Spec addendum 1]

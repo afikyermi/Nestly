@@ -1,9 +1,13 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import { createDatabase, type Database } from './db/client.js';
+import { PasswordStateBusy } from './db/password-lock.js';
 import { readConfig, type ServerConfig } from './lib/config.js';
 import { createTokenVerifier } from './lib/token-verifier.js';
-import { registerAuthentication } from './plugins/authentication.js';
+import { registerAuthentication, replySessionRefused, type LinkGate } from './plugins/authentication.js';
+import { clientAddress } from './recovery/client-ip.js';
 import { registerMeRoute } from './routes/me.js';
+import { registerPasswordRoutes } from './routes/password.js';
+import { checkIdentityLink } from './services/identity-link-service.js';
 import { createRecoveryDependencies, type RecoveryDependencies } from './recovery/dependencies.js';
 import { registerRecoveryQuestionsRoute } from './routes/recovery-questions.js';
 import { registerRecoveryResetRoute } from './routes/recovery-reset.js';
@@ -54,15 +58,21 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   // Before authentication: the first onRequest hook of the app.
   registerStripBypassHeader(app);
 
+  const recovery = createRecoveryDependencies(deps.recovery);
   registerAuthentication(app, {
     verifier: config.auth === undefined ? undefined : createTokenVerifier(config.auth),
     database,
+    ...(database === undefined ? {} : { linkGate: linkGateFor(database, recovery) }),
   });
 
   // A raw error — from the database, a library or Fastify itself — never reaches the response (conventions, "User-facing
   // errors"): a database message names tables and policies. The log gets the status sent, the error's code and its name
   // — nothing from the request and never the error object: a body-parse message quotes the request body (NFR-PRIV-001).
   app.setErrorHandler((error, request, reply) => {
+    // A token the session guard refused (F2.0): 401 or 503, never a 500, wherever it surfaced.
+    const refused = replySessionRefused(reply, error);
+    if (refused !== undefined) return refused;
+    if (error instanceof PasswordStateBusy) return reply.code(503).send({ error: 'unavailable' });
     const raw = typeof error === 'object' && error !== null && 'statusCode' in error ? error.statusCode : undefined;
     const status = typeof raw === 'number' && raw >= 400 && raw < 500 ? raw : 500;
     const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : undefined;
@@ -72,11 +82,25 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   });
 
   app.get('/api/health', () => ({ status: 'ok' }));
-  const recovery = createRecoveryDependencies(deps.recovery);
   registerMeRoute(app, { database, recovery });
   registerRegistrationRoute(app, { database, clock: deps.clock ?? (() => new Date()) });
   registerRecoveryQuestionsRoute(app, { database, recovery });
   registerRecoveryResetRoute(app, { database, recovery });
+  registerPasswordRoutes(app, { database, recovery });
 
   return app;
+}
+
+/** F2.0: the identity link gate of a Google session's request (services/identity-link-service.ts). */
+function linkGateFor(database: Database, recovery: RecoveryDependencies): LinkGate {
+  return (request, identity, accessToken) => {
+    const address = clientAddress(request.ip);
+    return checkIdentityLink(database, recovery, identity, {
+      accessToken,
+      email: request.verifiedEmail,
+      addressKey: address.key,
+      address: address.forAuth,
+      onFailure: (step, sqlstate) => request.log.warn({ step, sqlstate }, 'identity link check failed'),
+    });
+  };
 }

@@ -39,15 +39,8 @@ export interface GoogleAuthPort {
    * any other user. Rejects when Auth could not answer, so a screen never mistakes a failed read for a user without Google. It tells the completion screen whether to ask for a password.
    */
   readGoogleAccount(): Promise<{ email: string } | null>;
-  /**
-   * Sets the Auth user's password (a Google user has none). Auth's answer "this is already the password" (`same_password`) is a success:
-   * the password is then the one typed, which is what the retry after a failed registration needs.
-   */
-  setPassword(password: string): Promise<SetPasswordResponse>;
+  // No password is ever set from the browser (F2.0 D2, S-16): the server sets it (POST /api/password/first and the F2.0 calls).
 }
-
-/** The result of setting the password: nothing to report on success, the failure's marker fields otherwise. */
-export type SetPasswordResponse = { failure: null } | { failure: AuthFailure };
 
 export interface AuthPort {
   /** Registers the email and password with Auth. The password goes to Auth and nowhere else. */
@@ -369,13 +362,6 @@ export function createAuthPort(
       if (data.user === null) return null;
       const email = data.user.email;
       return data.user.app_metadata.provider === 'google' && email !== undefined ? { email } : null;
-    },
-
-    async setPassword(password) {
-      if (config === undefined) return { failure: NOT_CONFIGURED };
-      const { error } = await getClient(config).updateUser({ password });
-      if (error === null || error.code === 'same_password') return { failure: null };
-      return { failure: { status: error.status, code: error.code, name: error.name } };
     },
 
     subscribe(listener) {

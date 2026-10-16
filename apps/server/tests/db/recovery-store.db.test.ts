@@ -74,7 +74,7 @@ describe('[F1.6 c1 c6 FR-AUTH-003 AC-092] saving the two answers', () => {
     const auth = await bearerFor(ctx, account);
 
     const before = await me(h, auth);
-    expect(jsonOf(before.body)).toEqual({ state: 'active', recoveryQuestions: 'missing' });
+    expect(jsonOf(before.body)).toEqual({ state: 'active', recoveryQuestions: 'missing', mustSetPassword: false });
     expect(await answersJson(ctx, account.id)).toBe(NONE);
 
     const res = await saveAnswers(h, auth);
@@ -83,7 +83,7 @@ describe('[F1.6 c1 c6 FR-AUTH-003 AC-092] saving the two answers', () => {
     expect(String(res.headers['cache-control']).toLowerCase()).toContain('no-store');
 
     expect(await answersJson(ctx, account.id)).not.toBe(NONE);
-    expect(jsonOf((await me(h, auth)).body)).toEqual({ state: 'active', recoveryQuestions: 'set' });
+    expect(jsonOf((await me(h, auth)).body)).toEqual({ state: 'active', recoveryQuestions: 'set', mustSetPassword: false });
   });
 
   it('[F1.6 c1] any pair of the three questions can be saved, in either order', T, async () => {
@@ -120,8 +120,8 @@ describe('[F1.6 c1 c6 FR-AUTH-003 AC-092] saving the two answers', () => {
     const saver = await newAccount(ctx);
     const other = await newAccount(ctx);
     await saveAnswers(h, await bearerFor(ctx, saver));
-    expect(jsonOf((await me(h, await bearerFor(ctx, saver))).body)).toEqual({ state: 'active', recoveryQuestions: 'set' });
-    expect(jsonOf((await me(h, await bearerFor(ctx, other))).body)).toEqual({ state: 'active', recoveryQuestions: 'missing' });
+    expect(jsonOf((await me(h, await bearerFor(ctx, saver))).body)).toEqual({ state: 'active', recoveryQuestions: 'set', mustSetPassword: false });
+    expect(jsonOf((await me(h, await bearerFor(ctx, other))).body)).toEqual({ state: 'active', recoveryQuestions: 'missing', mustSetPassword: false });
   });
 
   it('[F1.6 c6] other states keep {state} alone: a stopped account with saved answers reports unavailable and no recoveryQuestions', T, async () => {
@@ -135,7 +135,7 @@ describe('[F1.6 c1 c6 FR-AUTH-003 AC-092] saving the two answers', () => {
       expect(res.body).toBe('{"state":"unavailable"}');
     }
     await setStatus(ctx, account.id, 'active');
-    expect(jsonOf((await me(h, auth)).body)).toEqual({ state: 'active', recoveryQuestions: 'set' });
+    expect(jsonOf((await me(h, auth)).body)).toEqual({ state: 'active', recoveryQuestions: 'set', mustSetPassword: false });
     const bare = await newBareAuthUser(ctx);
     expect((await me(h, await bearerFor(ctx, bare))).body).toBe('{"state":"unregistered"}');
   });
@@ -198,7 +198,7 @@ describe('[F1.6 c2] an invalid body stores nothing, and the write is one transac
     expect(failed.body).not.toBe(SAVED);
     expect(await answersJson(ctx, account.id), 'the answers row must not survive a failed save').toBe(NONE);
     expect(await kinds(ctx, handle)).toBe(NONE);
-    expect(jsonOf((await me(h, auth)).body)).toEqual({ state: 'active', recoveryQuestions: 'missing' });
+    expect(jsonOf((await me(h, auth)).body)).toEqual({ state: 'active', recoveryQuestions: 'missing', mustSetPassword: false });
 
     await unbreakEvents(ctx);
     const retry = await saveAnswers(h, auth);
@@ -405,7 +405,7 @@ describe('[F1.6 c21 c13] a newer claim on an email releases the older holder', (
 
 // ---------------------------------------------------------------------------------------------------------------------
 describe('[F1.6 c23] /api/me re-keys a stale handle when the token\'s email is different and newer; the body never tells', () => {
-  const BODY = { state: 'active', recoveryQuestions: 'set' };
+  const BODY = { state: 'active', recoveryQuestions: 'set', mustSetPassword: false };
   const stale = async (h: Awaited<ReturnType<typeof startApp>>) => {
     const old = `old-${randomUUID()}@example.invalid`;
     const account = await newAccount(ctx, old);
@@ -454,7 +454,7 @@ describe('[F1.6 c23] /api/me re-keys a stale handle when the token\'s email is d
     expect(await kinds(ctx, handleHex(ctx, s.fresh))).toBe(NONE);
     expect((await me(h, await bearerFor(ctx, stopped, s.fresh, { iat: s.t }))).body).toBe('{"state":"unavailable"}');
     expect(hexOf(record(await answersJson(ctx, stopped.id)).email_handle)).toBe(handleHex(ctx, stopped.email));
-    expect(jsonOf((await me(h, await bearerFor(ctx, bare, s.fresh, { iat: s.t }))).body)).toEqual({ state: 'active', recoveryQuestions: 'missing' });
+    expect(jsonOf((await me(h, await bearerFor(ctx, bare, s.fresh, { iat: s.t }))).body)).toEqual({ state: 'active', recoveryQuestions: 'missing', mustSetPassword: false });
     expect(await answersJson(ctx, bare.id)).toBe(NONE);
   });
 

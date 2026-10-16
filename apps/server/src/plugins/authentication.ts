@@ -5,10 +5,15 @@
 // Answers are fixed: 401 `{ error: 'unauthenticated' }` for every token failure — absent, malformed, wrong key or
 // algorithm, expired, wrong issuer or audience, no user id — and 503 `{ error: 'unavailable' }` when the check cannot
 // be made (configuration missing, key set unreachable). No library text and no hint of which check failed.
+//
+// F2.0 (S-01, FR-AUTH-005): a token from a Google (oauth) session passes the identity link gate before any route runs: the
+// detection, and the takeover clear when it applies, complete first (c1, c3); a pending clear is 503, a stale token 401.
+// For every other token the session guard is read inside each identity transaction, and a refusal there is answered by
+// replySessionRefused below, in every protected route.
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
-import { inIdentityTransaction, type IdentityTx } from '../db/identity-transaction.js';
+import { inIdentityTransaction, SessionRefused, type IdentityTx } from '../db/identity-transaction.js';
 import { TokenRejected, type Identity, type TokenVerifier } from '../lib/token-verifier.js';
 
 /** `<METHOD> <route pattern>`. Anything not listed here is protected, including routes added later. */
@@ -24,6 +29,11 @@ declare module 'fastify' {
      */
     verifiedEmail: string | null;
     verifiedIssuedAt: number | null;
+    /**
+     * The verified bearer token itself, or null (public route). Only for the Auth calls made with the caller's own token
+     * (F2.0: the identity read and the sign-out of the caller's other sessions). Never logged, stored or returned.
+     */
+    accessToken: string | null;
     /** Runs `work` in this request's identity transaction (data-model rule 3). Protected routes only. */
     inIdentityTransaction<T>(work: (tx: IdentityTx) => Promise<T>): Promise<T>;
   }
@@ -34,7 +44,12 @@ export interface AuthenticationDependencies {
   readonly verifier: TokenVerifier | undefined;
   /** Undefined when DATABASE_URL is missing or unusable: every protected request is rejected. */
   readonly database: Database | undefined;
+  /** F2.0: the identity link gate of a request from an oauth session (services/identity-link-service.ts, wired in app.ts). */
+  readonly linkGate?: LinkGate;
 }
+
+/** What the gate answers: the route may run, the token is stale (401), or the request must wait (503). */
+export type LinkGate = (request: FastifyRequest, identity: Identity, accessToken: string) => Promise<'proceed' | 'unauthenticated' | 'unavailable'>;
 
 const BEARER = /^Bearer +(\S+)$/i;
 
@@ -45,6 +60,17 @@ function rejectUnauthenticated(reply: FastifyReply): FastifyReply {
 function rejectUnavailable(reply: FastifyReply): FastifyReply {
   return reply.code(503).send({ error: 'unavailable' });
 }
+
+/**
+ * The answer to a token the session guard refused inside a route (F2.0 c4, c6): stale is 401 like any refused token, a
+ * pending clear (or an unchecked oauth token) is 503. Undefined when `error` is not a refusal, so the route handles it.
+ */
+export function replySessionRefused(reply: FastifyReply, error: unknown): FastifyReply | undefined {
+  if (!(error instanceof SessionRefused)) return undefined;
+  return error.guard === 'stale' || error.guard === 'unauthenticated' ? rejectUnauthenticated(reply) : rejectUnavailable(reply);
+}
+
+const isOAuthSession = (identity: Identity): boolean => identity.authMethods?.includes('oauth') === true;
 
 /** The library's machine code (e.g. ERR_JWT_EXPIRED) when the cause has one; nothing else of the cause. */
 function joseCode(cause: unknown): string | undefined {
@@ -58,11 +84,12 @@ function isPublic(request: FastifyRequest): boolean {
 }
 
 export function registerAuthentication(app: FastifyInstance, deps: AuthenticationDependencies): void {
-  const { verifier, database } = deps;
+  const { verifier, database, linkGate } = deps;
 
   app.decorateRequest('identity', null);
   app.decorateRequest('verifiedEmail', null);
   app.decorateRequest('verifiedIssuedAt', null);
+  app.decorateRequest('accessToken', null);
   app.decorateRequest('inIdentityTransaction', function <T>(
     this: FastifyRequest,
     work: (tx: IdentityTx) => Promise<T>,
@@ -86,6 +113,7 @@ export function registerAuthentication(app: FastifyInstance, deps: Authenticatio
       request.identity = verified.identity;
       request.verifiedEmail = verified.email ?? null;
       request.verifiedIssuedAt = verified.issuedAt ?? null;
+      request.accessToken = token;
     } catch (error) {
       // Never log the error object: its cause is the library's error, which can carry the decoded claims.
       if (error instanceof TokenRejected) {
@@ -96,5 +124,12 @@ export function registerAuthentication(app: FastifyInstance, deps: Authenticatio
       }
       return rejectUnavailable(reply);
     }
+
+    const identity = request.identity;
+    if (identity === null || !isOAuthSession(identity)) return;
+    if (linkGate === undefined) return rejectUnavailable(reply);
+    const gate = await linkGate(request, identity, token);
+    if (gate === 'unauthenticated') return rejectUnauthenticated(reply);
+    if (gate === 'unavailable') return rejectUnavailable(reply);
   });
 }

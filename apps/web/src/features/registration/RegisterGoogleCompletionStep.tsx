@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowBackIcon } from '@/components/ui/icons';
 import { useSessionAccount } from '@/hooks/use-session-account';
 import { useSessionEntry } from '@/hooks/use-session-entry';
+import { setFirstPassword } from '@/services/api/password';
 import { registerAccount } from '@/services/api/register-account';
 import { ConsentField } from './ConsentField';
 import { GENERIC_ERROR_TEXT, RETRY_TEXT, validatePassword } from './step2-form';
@@ -28,8 +29,9 @@ export interface RegisterGoogleCompletionStepProps {
 type Notice = 'retry' | 'generic' | null;
 
 // Step 2 of the completion for a user who came in through Google and has no account (F1.8 criteria 7-10): the password they will use
-// from now on, and the consent. The final action sets the password with Auth first and calls POST /api/register only after that
-// has answered; the body of the register call has no password. The password lives in this field and in a call to Auth, nowhere else.
+// from now on, and the consent. The final action has the server set the password first (POST /api/password/first, F2.0 c11, c16)
+// and calls POST /api/register only after that has answered; the body of the register call has no password. The password lives in
+// this field and in that one call, nowhere else.
 export function RegisterGoogleCompletionStep({ step1, email, onBack, onSignOut, onUnauthenticated }: RegisterGoogleCompletionStepProps) {
   const account = useSessionAccount();
   const sessionEntry = useSessionEntry();
@@ -77,16 +79,16 @@ export function RegisterGoogleCompletionStep({ step1, email, onBack, onSignOut, 
         setNotice('retry');
         return;
       }
-      // Auth first: if the password is not set, no account is created. The form keeps everything but the password.
-      if ((await account.setPassword(password)) === 'failed') {
-        clearPassword();
-        setNotice('generic');
-        return;
-      }
       const token = await account.getAccessToken();
       if (token === null) {
         finished = true;
         onUnauthenticated();
+        return;
+      }
+      // The password first: if it is not set, no account is created. The form keeps everything but the password.
+      if ((await setFirstPassword(token, password)) === 'failed') {
+        clearPassword();
+        setNotice('generic');
         return;
       }
       const outcome = await registerAccount(token, step1);

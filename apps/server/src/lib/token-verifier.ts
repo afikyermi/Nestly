@@ -6,9 +6,17 @@
 import { createRemoteJWKSet, errors, jwtVerify } from 'jose';
 import type { AuthConfig } from './config.js';
 
-/** The caller, as far as a verified token can say: the user id and nothing more. */
+/**
+ * The caller, as far as a verified token can say: the user id, and the three claims that identify the session (F2.0,
+ * DR-S1): `session_id`, `iat` (whole seconds) and the `amr` methods. The session claims go to the database, which compares
+ * them with the identity link check it holds (nestly.session_guard()); they never stand for type, status or permission
+ * (platform rule 14). A claim that is missing or malformed is left out, and the database reads it as NULL.
+ */
 export interface Identity {
   readonly userId: string;
+  readonly sessionId?: string | undefined;
+  readonly issuedAt?: number | undefined;
+  readonly authMethods?: readonly string[] | undefined;
 }
 
 /**
@@ -27,8 +35,8 @@ export class TokenRejected extends Error {
 }
 
 /**
- * What a verified token yields. `identity` is the user id and nothing more: it is all the database and every route but one
- * ever sees. `email` and `issuedAt` (the `iat` claim, whole seconds) are exposed for ONE purpose: the recovery handle
+ * What a verified token yields. `identity` is the user id and the session identifiers: it is all the database and every route
+ * but one ever sees. `email` and `issuedAt` (the `iat` claim, whole seconds) are exposed for ONE purpose: the recovery handle
  * (F1.6, DR-B). The store, change and /api/me paths turn the email into the account's lookup handle, and the issue time
  * orders two claims to the same email (the later wins). Neither is ever used for authorization (platform rule 14).
  */
@@ -61,6 +69,20 @@ const TOKEN_FAILURES: ReadonlySet<string> = new Set([
   errors.JWKSMultipleMatchingKeys.code,
 ]);
 
+const AUTH_METHOD = /^[a-z_]{1,32}$/;
+const MAX_AUTH_METHODS = 8;
+
+/** The `method` of each `amr` entry Supabase wrote ({ method, timestamp }), or undefined when the claim is not that shape. */
+function authMethodsOf(amr: unknown): string[] | undefined {
+  if (!Array.isArray(amr)) return undefined;
+  const methods: string[] = [];
+  for (const entry of amr.slice(0, MAX_AUTH_METHODS)) {
+    const method: unknown = typeof entry === 'object' && entry !== null ? Reflect.get(entry, 'method') : undefined;
+    if (typeof method === 'string' && AUTH_METHOD.test(method)) methods.push(method);
+  }
+  return methods;
+}
+
 function classify(error: unknown): TokenRejected {
   const isTokenFailure = error instanceof errors.JOSEError && TOKEN_FAILURES.has(error.code);
   return new TokenRejected(isTokenFailure ? 'token' : 'unavailable', { cause: error });
@@ -78,6 +100,8 @@ export function createTokenVerifier(config: AuthConfig): TokenVerifier {
     let subject: unknown;
     let email: unknown;
     let issuedAt: unknown;
+    let sessionId: unknown;
+    let amr: unknown;
     try {
       const { payload } = await jwtVerify(token, keySet, {
         algorithms: ALGORITHMS,
@@ -88,14 +112,22 @@ export function createTokenVerifier(config: AuthConfig): TokenVerifier {
       subject = payload.sub;
       email = payload.email;
       issuedAt = payload.iat;
+      sessionId = payload['session_id'];
+      amr = payload['amr'];
     } catch (error) {
       throw classify(error);
     }
     if (typeof subject !== 'string' || !UUID.test(subject)) throw new TokenRejected('token');
+    const iat = typeof issuedAt === 'number' && Number.isInteger(issuedAt) ? issuedAt : undefined;
     return {
-      identity: { userId: subject },
+      identity: {
+        userId: subject,
+        sessionId: typeof sessionId === 'string' && UUID.test(sessionId) ? sessionId : undefined,
+        issuedAt: iat,
+        authMethods: authMethodsOf(amr),
+      },
       email: typeof email === 'string' ? email : undefined,
-      issuedAt: typeof issuedAt === 'number' && Number.isInteger(issuedAt) ? issuedAt : undefined,
+      issuedAt: iat,
     };
   };
 }

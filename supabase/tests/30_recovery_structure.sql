@@ -115,16 +115,17 @@ select set_eq(
             ('recovery_answers.recovery_answers_update_own.w'), ('recovery_answers.recovery_answers_select_recovery.r'),
             ('recovery_answers.recovery_answers_release_recovery.w'),
             ('recovery_throttles.recovery_throttles_select_recovery.r'), ('recovery_throttles.recovery_throttles_insert_recovery.a'),
-            ('recovery_throttles.recovery_throttles_update_recovery.w'), ('recovery_events.recovery_events_insert_recovery.a') $$,
-  '[F1.6-b c3 c5 c13 platform r14] the recovery policies are exactly the nine approved ones: no DELETE or ALL policy, no policy for anon, no SELECT or UPDATE policy on the audit');
+            ('recovery_throttles.recovery_throttles_update_recovery.w'), ('recovery_events.recovery_events_insert_recovery.a'),
+            ('recovery_answers.recovery_answers_delete_clear.d'), ('recovery_events.recovery_events_insert_subject.a') $$,
+  '[F1.6-b c3 c5 c13 platform r14; F2.0-a D1] the recovery policies are exactly the eleven approved ones (nine of F1.6, plus the D1 answers delete and the subject-bound audit insert): no ALL policy, no policy for anon, no SELECT or UPDATE policy on the audit');
 
 select is(
   (select string_agg(c.relname || '.' || pol.polname, ', ' order by c.relname, pol.polname)
      from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname like 'recovery\_%'
       and pol.polroles = array[(select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated')]),
-  'recovery_answers.recovery_answers_insert_own, recovery_answers.recovery_answers_select_own, recovery_answers.recovery_answers_update_own',
-  '[F1.6-a c5] the three own-row policies are TO authenticated only');
+  'recovery_answers.recovery_answers_delete_clear, recovery_answers.recovery_answers_insert_own, recovery_answers.recovery_answers_select_own, recovery_answers.recovery_answers_update_own',
+  '[F1.6-a c5; F2.0-a D1] the three own-row policies and the D1 delete policy are TO authenticated only');
 
 select is(
   (select string_agg(c.relname || '.' || pol.polname, ', ' order by c.relname, pol.polname)
@@ -132,8 +133,8 @@ select is(
     where n.nspname = 'nestly' and c.relname like 'recovery\_%'
       and pol.polroles = array[(select r.oid from pg_catalog.pg_roles r where r.rolname = 'app_recovery')]),
   'recovery_answers.recovery_answers_release_recovery, recovery_answers.recovery_answers_select_recovery, recovery_events.recovery_events_insert_recovery, '
-  || 'recovery_throttles.recovery_throttles_insert_recovery, recovery_throttles.recovery_throttles_select_recovery, recovery_throttles.recovery_throttles_update_recovery',
-  '[F1.6-b c3 c13 c21] the six recovery policies are TO app_recovery only (never PUBLIC, never anon)');
+  || 'recovery_events.recovery_events_insert_subject, recovery_throttles.recovery_throttles_insert_recovery, recovery_throttles.recovery_throttles_select_recovery, recovery_throttles.recovery_throttles_update_recovery',
+  '[F1.6-b c3 c13 c21; F2.0-a] the seven recovery policies are TO app_recovery only (never PUBLIC, never anon)');
 
 select is_empty(
   $$ select c.relname || '.' || pol.polname
@@ -200,10 +201,10 @@ select is(
 select is(
   (select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = 'recovery_answers'
-      and (has_table_privilege('authenticated', c.oid, 'DELETE,TRUNCATE,REFERENCES,TRIGGER,INSERT,UPDATE')
+      and (has_table_privilege('authenticated', c.oid, 'TRUNCATE,REFERENCES,TRIGGER,INSERT,UPDATE')
            or has_any_column_privilege('authenticated', c.oid, 'REFERENCES'))),
   0::bigint,
-  '[F1.6-a c4] authenticated holds no DELETE, TRUNCATE, REFERENCES or TRIGGER on recovery_answers and no table-level INSERT or UPDATE');
+  '[F1.6-a c4; F2.0-a D1] authenticated holds no TRUNCATE, REFERENCES or TRIGGER on recovery_answers and no table-level INSERT or UPDATE (DELETE is the D1 grant, tested in 40_link_structure.sql)');
 
 select is(
   (select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
@@ -318,30 +319,30 @@ select is(
 select is(
   (select string_agg(p.proname, ', ' order by p.proname) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'nestly' and p.proname like 'recovery\_%'),
-  'recovery_claimed_at, recovery_handle, recovery_ip',
-  '[F1.6-a c3 c21] the helpers recovery_handle(), recovery_ip() and recovery_claimed_at() exist');
+  'recovery_claimed_at, recovery_handle, recovery_ip, recovery_subject',
+  '[F1.6-a c3 c21; F2.0-a] the helpers recovery_handle(), recovery_ip(), recovery_claimed_at() and recovery_subject() exist');
 
 select is(
   (select string_agg(p.proname || ':' || p.pronargs::text || ':' || p.prorettype::regtype::text || ':' || p.provolatile::text || ':' || p.prosecdef::text,
                      ', ' order by p.proname)
      from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'nestly' and p.proname like 'recovery\_%'),
-  'recovery_claimed_at:0:timestamp with time zone:s:false, recovery_handle:0:bytea:s:false, recovery_ip:0:bytea:s:false',
+  'recovery_claimed_at:0:timestamp with time zone:s:false, recovery_handle:0:bytea:s:false, recovery_ip:0:bytea:s:false, recovery_subject:0:uuid:s:false',
   '[F1.6-a c3 platform r10] each helper takes no argument, returns bytea (the claim time: timestamptz), is STABLE and SECURITY INVOKER');
 
 select is(
   (select count(*) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'nestly' and p.proname like 'recovery\_%'
       and exists (select 1 from unnest(p.proconfig) as cfg where cfg like 'search_path=%')),
-  3::bigint,
-  '[F1.6 platform r10] all three helpers have a fixed search_path');
+  4::bigint,
+  '[F1.6 platform r10; F2.0-a] all four helpers have a fixed search_path');
 
 select is(
   (select string_agg(p.proname || ':' || r.rolname, ', ' order by p.proname, r.rolname)
      from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
      cross join (values ('app_recovery'), ('authenticated'), ('anon'), ('service_role'), ('app_server'), ('app_jobs')) as r(rolname)
     where n.nspname = 'nestly' and p.proname like 'recovery\_%' and has_function_privilege(r.rolname, p.oid, 'EXECUTE')),
-  'recovery_claimed_at:app_recovery, recovery_handle:app_recovery, recovery_ip:app_recovery',
+  'recovery_claimed_at:app_recovery, recovery_handle:app_recovery, recovery_ip:app_recovery, recovery_subject:app_recovery',
   '[F1.6-a c3 c5] only app_recovery can execute the helpers: authenticated, anon, app_server, app_jobs and PUBLIC cannot');
 
 select is((select count(*) from tests.approved_security_definer()), 0::bigint,
