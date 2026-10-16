@@ -3,15 +3,18 @@ import { useLinkClickHandler } from 'react-router';
 import { PATHS } from '@/app/paths';
 import { AuthLayout } from '@/components/layout/auth-layout';
 import { FormField } from '@/components/shared/form-field';
+import { GoogleButton } from '@/components/shared/google-button';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { PasswordInput } from '@/components/shared/password-input';
 import { Button } from '@/components/ui/button';
 import { ArrowBackIcon } from '@/components/ui/icons';
 import { TextInput } from '@/components/ui/text-input';
+import { useGoogleSignIn } from '@/hooks/use-google-sign-in';
 import { useSession } from '@/hooks/use-session';
 import { useSessionAccount } from '@/hooks/use-session-account';
 import { documentTitle } from '@/lib/document-title';
-import { noticeText, problemText, STOPPED_TEXT, validateLogin, type LoginErrors } from './login-form';
+import { STOPPED_TEXT } from '@/lib/auth-texts';
+import { noticeText, problemText, validateLogin, type LoginErrors } from './login-form';
 
 // The login screen (FR-AUTH-002, UC-02): email and password. The password goes to Auth through the session source and nowhere
 // else; it lives in this component's memory and in the input, and is cleared after a refused sign-in (criterion 5). A success
@@ -19,6 +22,7 @@ import { noticeText, problemText, STOPPED_TEXT, validateLogin, type LoginErrors 
 export function LoginForm() {
   const account = useSessionAccount();
   const { notice } = useSession();
+  const google = useGoogleSignIn();
   const toWelcome = useLinkClickHandler(PATHS.welcome);
   const toRecovery = useLinkClickHandler(PATHS.recovery);
   const toRegister = useLinkClickHandler(PATHS.register);
@@ -108,6 +112,7 @@ export function LoginForm() {
               <Button type="submit" size="lg" block pending={busy} aria-disabled={busy ? true : undefined}>
                 התחברות
               </Button>
+              <GoogleButton busy={google.busy} message={google.message} onPress={google.onPress} buttonRef={google.buttonRef} />
               <Button variant="text" href={PATHS.register} onClick={toRegister} className="self-center">
                 יצירת חשבון חדש
               </Button>

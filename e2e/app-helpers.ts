@@ -32,8 +32,13 @@ export const GUEST_ROUTES: Route[] = [
   { path: '/', h1: WELCOME_H1, title: 'Nestly' },
   { path: '/login', h1: 'התחברות', title: 'התחברות · Nestly' },
   { path: '/register', h1: 'פרטים אישיים', title: 'פרטים אישיים · Nestly' },
-  { path: '/auth/google', h1: GOOGLE, title: 'המשך עם Google · Nestly' },
 ];
+
+/**
+ * F1.8: /auth/google is the Google return handler, no longer a placeholder (FR-AUTH-005, AC-087). The spec (c18) promises a heading, not its
+ * text, and that the placeholder title is gone, so h1 and title are left open here; c3, c5, c18 are asserted in google-buttons.spec.ts.
+ */
+export const GOOGLE_RETURN: Route = { path: '/auth/google', h1: '', title: '' };
 
 /** The four protected placeholders (Q2). */
 export const PROTECTED_ROUTES: Route[] = [

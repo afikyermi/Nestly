@@ -9,6 +9,7 @@ import {
   CREATE,
   DRAWER_TITLE,
   GOOGLE,
+  GOOGLE_RETURN,
   GUEST_ROUTES,
   HAVE_ACCOUNT,
   LEAD,
@@ -28,7 +29,8 @@ import {
 
 test.use({ baseURL: APP, viewport: MOBILE });
 
-const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'];
+const GUEST_PAGES = [...GUEST_ROUTES, GOOGLE_RETURN];
+const AXE_TAGS =['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'];
 const expectUrl = (page: Page, path: string) => expect(page).toHaveURL(APP + path);
 const h1Of = (page: Page) => page.getByRole('heading', { level: 1 });
 const navOf = (page: Page) => page.getByRole('navigation', { name: NAV });
@@ -47,7 +49,7 @@ interface Setup {
   run: (page: Page) => Promise<void>;
 }
 const axeSetups: Setup[] = [
-  ...GUEST_ROUTES.map((r) => ({ name: `Guest ${r.path}`, run: (p: Page) => open(p, r.path, 'signed-out') })),
+  ...GUEST_PAGES.map((r) => ({ name: `Guest ${r.path}`, run: (p: Page) => open(p, r.path, 'signed-out') })),
   ...PROTECTED_ROUTES.map((r) => ({ name: `protected ${r.path}`, run: (p: Page) => open(p, r.path, 'signed-in') })),
   {
     name: 'the open drawer',
@@ -115,6 +117,8 @@ test.describe('titles and focus', () => {
     await expect(page.locator('main')).toBeFocused();
   });
 
+  // F1.8: "המשך עם Google" on Welcome is no longer an in-app navigation (it starts the provider redirect, c16/c17), so it leaves this loop;
+  // focus on the Google return screen (the heading, not main) is F1.8 c18, asserted in google-buttons.spec.ts.
   test('[F1.2 c24][NFR-A11Y-001] after every in-app navigation (Welcome actions, nav links) focus is on main', async ({
     page,
   }) => {
@@ -122,7 +126,6 @@ test.describe('titles and focus', () => {
     for (const [name, path] of [
       [CREATE, '/register'],
       [HAVE_ACCOUNT, '/login'],
-      [GOOGLE, '/auth/google'],
     ] as const) {
       await actionOf(page, name).click();
       await expectUrl(page, path);
@@ -218,12 +221,12 @@ test.describe('titles and focus', () => {
 });
 
 test.describe('RTL and copy', () => {
-  const everyRoute = [...GUEST_ROUTES, ...PROTECTED_ROUTES, { path: '/xyz', h1: '', title: '' }];
+  const everyRoute = [...GUEST_PAGES, ...PROTECTED_ROUTES, { path: '/xyz', h1: '', title: '' }];
   for (const route of everyRoute) {
     test(`[F1.2 c25][rtl-hebrew] ${route.path}: html lang="he" dir="rtl", at 375 no horizontal scroll (loading and resolved)`, async ({
       page,
     }) => {
-      const isGuest = GUEST_ROUTES.some((g) => g.path === route.path);
+      const isGuest = GUEST_PAGES.some((g) => g.path === route.path);
       await page.goto(APP + route.path);
       await waitForSeam(page);
       const check = async (label: string) => {
@@ -254,9 +257,9 @@ test.describe('RTL and copy', () => {
     expect(widths.sw).toBeLessThanOrEqual(widths.cw);
   });
 
-  for (const route of [...GUEST_ROUTES, ...PROTECTED_ROUTES]) {
+  for (const route of [...GUEST_PAGES, ...PROTECTED_ROUTES]) {
     test(`[F1.2 c26][NFR-USAB-003] ${route.path}: rendered copy has no slash gender form`, async ({ page }) => {
-      await open(page, route.path, GUEST_ROUTES.includes(route) ? 'signed-out' : 'signed-in');
+      await open(page, route.path, GUEST_PAGES.includes(route) ? 'signed-out' : 'signed-in');
       await expect(h1Of(page)).toBeVisible();
       const text = await bodyText(page);
       expect(text).not.toMatch(/[א-ת]\/[א-ת]/);

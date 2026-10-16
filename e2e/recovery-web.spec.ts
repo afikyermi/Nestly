@@ -54,6 +54,10 @@ async function setup(page: Page, questions: 'missing' | 'set' = 'set', state: 'a
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
     if (req.url().includes('/token')) return json(route, 200, SESSION);
     if (req.url().includes('/logout')) return route.fulfill({ status: 204, headers: CORS });
+    // F1.8 c7/c10: completion asks the Auth user to tell a Google user from an email+password orphan; this is the latter.
+    if (req.method() === 'GET' && req.url().includes('/auth/v1/user')) {
+      return json(route, 200, { id: 'u-1', email: 'x@example.com', app_metadata: { provider: 'email' } });
+    }
     return json(route, 404, { error: 'unstubbed' });
   });
   await page.route('**/api/me', async (route) => {

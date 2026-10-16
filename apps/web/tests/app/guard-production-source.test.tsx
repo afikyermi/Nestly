@@ -14,7 +14,6 @@ describe('Guest routes render their own placeholder (6, 2, 3)', () => {
   it.each([
     ['/login', 'התחברות'],
     ['/register', 'פרטים אישיים'], // F1.3: /register is registration step 1 (was the placeholder h1 "הרשמה")
-    ['/auth/google', 'המשך עם Google'],
   ])('[F1.2 c6][c2][c3][FR-AUTH-001] %s shows the h1 %s and a back control', async (path, title) => {
     await mountAt(path);
     expect(h1()).toHaveTextContent(title);
@@ -22,11 +21,12 @@ describe('Guest routes render their own placeholder (6, 2, 3)', () => {
     expect(actionNamed('חזרה')).toBeInTheDocument();
   });
 
-  it('[F1.2 c2][c3][FR-AUTH-001][AC-001] "יצירת חשבון חדש" goes to /register, "כבר יש לי חשבון" to /login, "המשך עם Google" to /auth/google, each with a way back', async () => {
+  // F1.8 c3/c14: /auth/google is the Google return route, not a placeholder (no h1 "המשך עם Google", no back control assumed); the
+  // Google button starts the sign-in (P3) instead of navigating to it.
+  it('[F1.2 c2][c3][FR-AUTH-001][AC-001] "יצירת חשבון חדש" goes to /register, "כבר יש לי חשבון" to /login, each with a way back', async () => {
     for (const [action, path] of [
       ['יצירת חשבון חדש', '/register'],
       ['כבר יש לי חשבון', '/login'],
-      ['המשך עם Google', '/auth/google'],
     ] as const) {
       const { unmount } = await mountAt('/');
       expect(h1()).toHaveTextContent(WELCOME);
@@ -45,12 +45,12 @@ describe('Guest routes render their own placeholder (6, 2, 3)', () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('no network in F1.2'));
     const beacon = vi.fn(() => true);
     Object.defineProperty(navigator, 'sendBeacon', { value: beacon, configurable: true });
-    for (const path of ['/login', '/register', '/auth/google']) {
+    for (const path of ['/login', '/register']) {
       const { unmount } = await mountAt(path);
       unmount();
     }
     await mountAt('/');
-    for (const name of ['יצירת חשבון חדש', 'המשך עם Google', 'כבר יש לי חשבון']) {
+    for (const name of ['יצירת חשבון חדש', 'כבר יש לי חשבון']) {
       fireEvent.click(actionNamed(name));
       await screen.findByRole('heading', { level: 1, name: (n) => n !== WELCOME });
       fireEvent.click(actionNamed('חזרה'));

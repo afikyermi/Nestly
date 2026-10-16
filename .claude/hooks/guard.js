@@ -599,9 +599,12 @@ function checkCritic(tool, input, ctx) {
 // runs only explicit test files, and this rule is what keeps a config from changing what they do.
 const TOOL_CONFIG = /^(package(-lock)?\.json|\.npmrc|tsconfig[^/]*\.json|(vitest|playwright)\.[^/]*|[^/]*\.config\.[^/]*)$/i;
 
+// Preview E2E flows (guard-freeze exception, decisions 2026-10-17): one level under e2e-preview/, exact suffix .flow.ts.
+const PREVIEW_FLOW = /^e2e-preview\/[^/]+\.flow\.ts$/;
+
 function testEngineerMayWrite(r) {
   if (isAppImpl(r) || isNotes(r) || TOOL_CONFIG.test(path.posix.basename(r))) return false;
-  return isTestPath(r) || /^\.work\/[^/]+\/[^/]+\.md$/.test(r);
+  return isTestPath(r) || PREVIEW_FLOW.test(r) || /^\.work\/[^/]+\/[^/]+\.md$/.test(r);
 }
 
 // TEST ENGINEER's one shell use: a single test, typecheck or lint run (round 4, dev-speed). tsc takes one -p <tsconfig*.json>,
@@ -669,7 +672,7 @@ function checkTestEngineer(tool, input, ctx) {
   if (EDIT_TOOLS.includes(tool)) {
     const forms = relBoth(input.file_path || input.notebook_path || '', ctx);
     if (!forms.every(testEngineerMayWrite)) {
-      return 'TEST ENGINEER writes only test files (apps/*/tests, packages/*/tests, e2e, supabase/tests, *.test.* / *.spec.*) and .work/<slug>/*.md — never package.json, .npmrc, tsconfig or tool configs, nor notes.md.';
+      return 'TEST ENGINEER writes only test files (apps/*/tests, packages/*/tests, e2e, supabase/tests, e2e-preview/*.flow.ts, *.test.* / *.spec.*) and .work/<slug>/*.md — never package.json, .npmrc, tsconfig or tool configs, nor notes.md.';
     }
     return null;
   }

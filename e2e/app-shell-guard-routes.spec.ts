@@ -9,6 +9,7 @@ import {
   APP,
   CREATE,
   GOOGLE,
+  GOOGLE_RETURN,
   GUEST_ROUTES,
   HAVE_ACCOUNT,
   LEAD,
@@ -42,6 +43,9 @@ test.use({ baseURL: APP, viewport: MOBILE });
 const SHELL_SELECTORS = [`[aria-label="${NAV}"]`, `[aria-label="${MENU_BUTTON}"]`];
 const expectUrl = (page: Page, path: string) => expect(page).toHaveURL(APP + path);
 const h1Of = (page: Page) => page.getByRole('heading', { level: 1 });
+// F1.8 c16/c17: Guest pages carry the Google button's always-present, empty live region (role=status). "No message" means no status
+// region has any text, not that no region exists.
+const expectNoStatusMessage = (page: Page) => expect(page.getByRole('status').filter({ hasText: /\S/ })).toHaveCount(0);
 const navOf = (page: Page) => page.getByRole('navigation', { name: NAV });
 const drawerOf = (page: Page) => page.getByRole('dialog', { name: 'תפריט' });
 const hamburgerOf = (page: Page) => page.getByRole('button', { name: MENU_BUTTON, exact: true });
@@ -167,23 +171,26 @@ test.describe('Welcome', () => {
     await expect(h1Of(page)).toHaveText(WELCOME_H1);
   });
 
-  test('[F1.2 c3][FR-AUTH-005][AC-087] "המשך עם Google" goes to /auth/google placeholder with h1 and back control', async ({
+  // F1.8: "המשך עם Google" on Welcome is a button that starts the provider redirect (c16/c17, google-buttons.spec.ts); /auth/google is the
+  // return handler. Opened bare it is a Guest page with a heading, the c3 failure text in an alert, and links to /login and /register (c5).
+  test('[F1.8 c3][c5][FR-AUTH-005][AC-087] a Guest at /auth/google with no code sees a heading, the failure text and links to /login and /register', async ({
     page,
   }) => {
-    await open(page, '/', 'signed-out');
-    await actionOf(page, GOOGLE).click();
-    await expectUrl(page, '/auth/google');
-    await expect(h1Of(page)).toHaveText(GOOGLE);
-    await actionOf(page, 'חזרה').click();
-    await expectUrl(page, '/');
+    await open(page, '/auth/google', 'signed-out');
+    await expect(h1Of(page)).toBeVisible();
+    await expect(page.getByRole('alert')).toHaveText(
+      'לא הצלחנו להשלים את הכניסה עם Google. אפשר לנסות שוב, או להתחבר עם אימייל וסיסמה.',
+    );
+    await expect(page.locator('main a[href="/login"]')).toHaveCount(1);
+    await expect(page.locator('main a[href="/register"]')).toHaveCount(1);
   });
 
-  test('[F1.2 c3][FR-AUTH-005][AC-087] no Welcome action and no Guest placeholder sends a request to Google, Supabase or /api/*', async ({
+  test('[F1.2 c3][FR-AUTH-005][AC-087] no Welcome navigation action and no Guest page opened bare sends a request to Google, Supabase or /api/*', async ({
     page,
   }) => {
     const urls = recordRequests(page);
     await open(page, '/', 'signed-out');
-    for (const name of [CREATE, GOOGLE, HAVE_ACCOUNT]) {
+    for (const name of [CREATE, HAVE_ACCOUNT]) {
       await actionOf(page, name).click();
       await expect(h1Of(page)).not.toHaveText(WELCOME_H1);
       await actionOf(page, 'חזרה').click();
@@ -193,6 +200,8 @@ test.describe('Welcome', () => {
       await open(page, route.path, 'signed-out');
       await expect(h1Of(page)).toHaveText(route.h1);
     }
+    await open(page, GOOGLE_RETURN.path, 'signed-out');
+    await expect(h1Of(page)).toBeVisible();
     // Same-origin page loads of the app's own routes (e.g. /auth/google) are fine; nothing else leaves the app.
     const bad = urls.filter((u) => {
       const url = new URL(u);
@@ -202,7 +211,7 @@ test.describe('Welcome', () => {
     expect(urls.some((u) => u.startsWith(APP)), 'the recorder saw requests at all').toBe(true);
   });
 
-  for (const route of GUEST_ROUTES) {
+  for (const route of [...GUEST_ROUTES, GOOGLE_RETURN]) {
     test(`[F1.2 c4][FR-AUTH-001][FR-AUTH-002] a signed-in session at ${route.path} is replaced by /feed; the Welcome h1 is never in the DOM`, async ({
       page,
     }) => {
@@ -251,7 +260,7 @@ test.describe('RouteGuard: Guest', () => {
       await expectUrl(page, '/');
       await expect(h1Of(page)).toHaveText(WELCOME_H1);
       await expect(page.getByRole('alert')).toHaveCount(0);
-      await expect(page.getByRole('status')).toHaveCount(0);
+      await expectNoStatusMessage(page);
       expect(await seen(page), 'protected content or shell was rendered, even for one render').toEqual([]);
       expect(await historyLength(page), 'the redirect replaced the history entry').toBe(len);
     });
@@ -312,10 +321,11 @@ test.describe('RouteGuard: Guest', () => {
   test('[F1.2 c6][FR-AUTH-004] the Guest allow-list is exactly the four Guest routes: each one renders its own placeholder to a Guest', async ({
     page,
   }) => {
-    for (const route of GUEST_ROUTES) {
+    for (const route of [...GUEST_ROUTES, GOOGLE_RETURN]) {
       await open(page, route.path, 'signed-out');
       await expectUrl(page, route.path);
-      await expect(h1Of(page)).toHaveText(route.h1);
+      if (route.h1 === '') await expect(h1Of(page)).toBeVisible();
+      else await expect(h1Of(page)).toHaveText(route.h1);
       await expect(navOf(page)).toHaveCount(0);
     }
   });
@@ -353,7 +363,7 @@ test.describe('RouteGuard: loading, session end, fail closed, DR-1', () => {
     await setState(page, 'signed-out');
     await expectUrl(page, '/');
     await expect(h1Of(page)).toHaveText(WELCOME_H1);
-    await expect(page.getByRole('status')).toHaveCount(0);
+    await expectNoStatusMessage(page);
   });
 
   test('[F1.2 c7][FR-AUTH-004] a session that goes back to loading hides the shell and protected content again', async ({
@@ -433,7 +443,7 @@ test.describe('RouteGuard: loading, session end, fail closed, DR-1', () => {
       await drive(page, 'fail');
       await expectUrl(page, '/');
       await expect(h1Of(page)).toHaveText(WELCOME_H1);
-      await expect(page.getByRole('status')).toHaveCount(0);
+      await expectNoStatusMessage(page);
       expect(await seen(page)).toEqual([]);
     });
   }
