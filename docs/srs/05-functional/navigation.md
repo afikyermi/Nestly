@@ -25,7 +25,21 @@
 | תיאור | לחיצה על אייקון שלושת הפסים תפתח Side Drawer. התפריט ישמש ליעדים משניים/ניהוליים ולא ישכפל את יעדי Bottom Navigation. |
 | תנאים מוקדמים | משתמש מחובר. |
 | קלט / Trigger | לחיצה על Hamburger. |
-| תהליך מערכת | Regular: My Groups → GroupsDirectoryPage; Friends → FriendsPage; Following Professionals → FollowingProfessionalsPage; Account Settings / Privacy & Security / Notification Settings / Terms & Privacy → Sections ב-SettingsPage; Help/Support Request → SupportRequestFeature; Logout. Professional: My Groups, Following Professionals, Professional Profile Settings, Verification Status → ProfessionalVerificationStatusPage, Promotion & Marketing Tools → ProfessionalPromotionPage/PromotionAnalyticsPage, Billing/Promotions → BillingPromotionsPage, Account/Privacy/Notifications/Terms → SettingsPage, Help/Support Request ו-Logout. Admin: כל כלי הניהול + Moderator Management + Account/Security + Logout. Moderator: רק כלי ניהול לפי Permission Keys + Account/Security + Logout. |
+| תהליך מערכת | Regular: My Groups → GroupsDirectoryPage; Friends → FriendsPage; Following Professionals → FollowingProfessionalsPage; Account Settings / Privacy & Security / Notification Settings / Terms & Privacy → Sections ב-SettingsPage; Help/Support Request → SupportRequestFeature; כללי הקהילה → CommunityRulesPage (PG-049); פנייה למוקד רפואי → MedicalHotlinesPage (FR-MENU-002); Logout. Professional: My Groups, Following Professionals, Professional Profile Settings, Verification Status → ProfessionalVerificationStatusPage, Promotion & Marketing Tools → ProfessionalPromotionPage/PromotionAnalyticsPage, Billing/Promotions → BillingPromotionsPage, Account/Privacy/Notifications/Terms → SettingsPage, Help/Support Request, כללי הקהילה, פנייה למוקד רפואי ו-Logout. Admin: כל כלי הניהול + Moderator Management + Account/Security + Logout. Moderator: רק כלי ניהול לפי Permission Keys + Account/Security + Logout. |
 | פלט | Side Drawer עם MenuItems מותאמים לחשבון. |
 | מצב לאחר ביצוע | בחירת MenuItem מנווטת ליעד; Logout מסיים Session. |
 | בעל אחריות לוגי (Page / Feature) | SideMenuFeature / SideDrawer / MenuItem |
+
+## FR-MENU-002 — פנייה למוקדי רפואה
+
+| שדה | הגדרה |
+|---|---|
+| סטטוס | מאושר — החלטת אפיק מ-16.10.2026 (I3) |
+| Actor | Regular User / Professional User |
+| תיאור | עמוד קבוע עם כפתורי חיוג למוקדי רפואה: מד"א 101 ומוקדי האחיות של ארבע קופות החולים. המספרים נבדקים מול מקור רשמי בבנייה. העמוד מציג "לא תחליף לטיפול רפואי. במצב חירום — 101". |
+| תנאים מוקדמים | משתמש מחובר. |
+| קלט / Trigger | "פנייה למוקד רפואי" ב-Side Menu, או הקישור מכלל קהילה 2 (BR-075). |
+| תהליך מערכת | הצגת העמוד. לחיצה פותחת חיוג (`tel:`). לחיצות אינן נרשמות. |
+| פלט | PG-047. |
+| מצב לאחר ביצוע | אין שינוי נתונים. |
+| בעל אחריות לוגי (Page / Feature) | MedicalHotlinesPage |

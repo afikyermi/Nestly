@@ -188,6 +188,7 @@ export default tseslint.config(
           "apps/server/tsconfig.json",
           "packages/shared/tsconfig.tests.json",
           "tsconfig.playwright.json",
+          "tsconfig.e2e-preview.json",
         ],
         tsconfigRootDir: root,
       },

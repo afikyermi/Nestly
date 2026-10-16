@@ -132,8 +132,9 @@ select is_empty(
        join pg_catalog.pg_class c     on c.oid = a.attrelid
        join pg_catalog.pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'nestly' and c.relkind in ('r', 'p', 'v', 'm', 'f') and a.attnum > 0 and not a.attisdropped
+        and c.relname not in ('recovery_answers', 'recovery_throttles', 'recovery_events')
         and a.attname ~* '(pass|pwd|hash|secret|token|salt|crypt)' $$,
-  '[F1.1-b c10 NFR-SEC-001] no column anywhere in schema nestly is named like a password, hash, secret or token');
+  '[F1.1-b c10 NFR-SEC-001 · F1.6 scoped] no column of the F1.1/F1.4 tables or any view is named like a password, hash, secret or token (the recovery tables hold peppered answer hashes by design: file 30 checks them)');
 
 select is(
   (select count(*) from pg_catalog.pg_attrdef d
@@ -267,26 +268,28 @@ select is_empty(
        from pg_catalog.pg_policy pol
        join pg_catalog.pg_class c     on c.oid = pol.polrelid
        join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-      where n.nspname = 'nestly' and pol.polcmd not in ('r', 'a') $$,
-  '[F1.1-b c13 platform r14 · F1.4-a c14] no UPDATE, DELETE or ALL policy exists in schema nestly (editing is I2)');
+      where n.nspname = 'nestly' and pol.polcmd not in ('r', 'a')
+        and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents') $$,
+  '[F1.1-b c13 platform r14 · F1.4-a c14 · F1.6 scoped] no UPDATE, DELETE or ALL policy exists on the five F1.1/F1.4 tables (editing is I2; recovery_answers has its own: file 30)');
 
 select is(
   (select string_agg(c.relname || '.' || pol.polname, ', ' order by c.relname, pol.polname)
      from pg_catalog.pg_policy pol
      join pg_catalog.pg_class c     on c.oid = pol.polrelid
      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'nestly' and pol.polcmd = 'a'),
+    where n.nspname = 'nestly' and pol.polcmd = 'a'
+      and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents')),
   'children.children_insert_own, journey_contexts.journey_contexts_insert_own, legal_consents.legal_consents_insert_own, regular_profiles.regular_profiles_insert_own, users.users_insert_own',
-  '[F1.1-b c13 · F1.4-a c14 platform r14] the INSERT policies are exactly the five approved ones, one per table');
+  '[F1.1-b c13 · F1.4-a c14 platform r14 · F1.6 scoped] the INSERT policies on the five F1.1/F1.4 tables are exactly the five approved ones, one per table');
 
 select is_empty(
   $$ select c.relname || '.' || pol.polname
        from pg_catalog.pg_policy pol
        join pg_catalog.pg_class c     on c.oid = pol.polrelid
        join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-      where n.nspname = 'nestly'
+      where n.nspname = 'nestly' and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents')
         and pol.polroles <> array[(select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated')] $$,
-  '[F1.1-b c19 platform r4] every policy in schema nestly is TO authenticated only (not PUBLIC, not anon)');
+  '[F1.1-b c19 platform r4 · F1.6 scoped] every policy on the five F1.1/F1.4 tables is TO authenticated only (not PUBLIC, not anon, not app_recovery)');
 
 select is(has_schema_privilege('authenticated', 'nestly', 'USAGE'), true,
   '[F1.1-b c12] authenticated has USAGE on schema nestly');
@@ -340,9 +343,9 @@ select is(
      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')
       and (has_table_privilege('authenticated', c.oid, 'UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
-           or has_any_column_privilege('authenticated', c.oid, 'UPDATE,REFERENCES'))),
+           or (c.relname <> 'recovery_answers' and has_any_column_privilege('authenticated', c.oid, 'UPDATE,REFERENCES')))),
   0::bigint,
-  '[F1.1-b c13 · F1.4-a c14] authenticated holds no UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any table in nestly');
+  '[F1.1-b c13 · F1.4-a c14 · F1.6 scoped] authenticated holds no table-level UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any table in nestly, and no column-level UPDATE or REFERENCES except on recovery_answers (file 30 lists those columns)');
 
 -- =====================================================================================================================
 -- Criterion 18 — is_active_account(): caller only, invoker, not an approved definer. [Spec addendum 1]

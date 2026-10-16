@@ -8,12 +8,12 @@
 - הגישה לנתונים היא רק דרך שרת המערכת, באמצעות Drizzle. ה-Data API של Supabase כבוי לסכמת המוצר.
 - כל שאילתה רצה בטרנזקציה שנושאת את זהות המשתמש, בתפקיד מסד שאינו יכול לעקוף את RLS. כך RLS נשאר מקור האמת להרשאות, והשרת אינו מסנן שורות לפי הרשאה.
 - רשומת Audit נכתבת בבסיס הנתונים באותה טרנזקציה של הפעולה (NFR-AUDIT-001).
-- אחסון מדיה נשאר TBD (סעיף 12, NFR-MEDIA-001, OP-027). Realtime, כשיופעל, יעביר אות בלבד ולא תוכן (סעיף 12).
+- אחסון מדיה: Supabase Storage (סעיף 12, NFR-MEDIA-001; OP-027 נסגר ב-16.10.2026). Realtime, כשיופעל, יעביר אות בלבד ולא תוכן (סעיף 12).
 - השרת רץ כ-Vercel Functions; משימות רקע רצות בנפרד, בתפקיד מסד משלהן (סעיף 11).
 
 | Entity | מטרה |
 |---|---|
-| User | מזהה, Role, פרטי Login/Contact, סטטוס. |
+| User | מזהה, Role, פרטי Login/Contact, סטטוס — כולל "מתוזמן למחיקה" עם מועד המחיקה (FR-SET-002, BR-073). |
 | RegularProfile | נתוני פרופיל הורה/משתמש. |
 | ProfessionalProfile | מקצוע, שם עסק (לא חובה), ניסיון, נתוני אימות — כולל מספר עוסק/ח.פ שנאסף באימות ולא בהרשמה — דירוגים/מדדים, סטטוס אימות. |
 | Child | שם, מין (VAL-006), תאריך לידה ושיוך להורה. |
@@ -27,13 +27,14 @@
 | ServiceCategory | קטגוריות בעלי מקצוע. |
 | ProfessionalOutreachRequest | בעל מקצוע, משתמש יעד, Post מקור, הודעה ראשונה, סטטוס בקשה. |
 | Conversation / Message | Conversation/Message: משתתפים, context/source, הודעות, זמן, unread/read state וסטטוס. Contexts כוללים Friends, Regular Chat Request, Professional, Marketplace ו-Support. Conversation בין Regular Users אינה נסגרת אוטומטית בעקבות Remove Friend. |
-| Report / ChatBlock | Report: יעד, סיבה, זמן וסטטוס טיפול. ChatBlock: blocker, blocked user, createdAt/removedAt; משפיע על Messaging בלבד ואינו חסימה גלובלית. |
+| Report / ChatBlock | Report: יעד, סיבה, טקסט חופשי אופציונלי, עדיפות בתור (BR-074), זמן וסטטוס טיפול. ChatBlock: blocker, blocked user, createdAt/removedAt; משפיע על Messaging בלבד ואינו חסימה גלובלית. |
 | Article / Tip | תוכן ידע והקשר רלוונטיות. מדריכים לפי סטטוס הם תוכן מערכת: סטטוס ושבוע/שליש/גיל, מקורות, תאריך בדיקה ומצב פרסום (FR-ADMIN-012). |
 | ProfessionalReview | ביקורת של משתמש רגיל על בעל מקצוע: הפנייה המאושרת שהיא נשענת עליה (אחת לכל פנייה), דירוג 1–5, טקסט, זמן וסטטוס (FR-SERV-011). |
 | ProfessionalArticle | מאמר של בעל מקצוע: כותרת, גוף, תחום, סטטוס וזמנים (FR-PRO-003). |
 | Notification | Notification: נמען, Type, Actor/System, Text, Timestamp, Read/Unread, TargetType/TargetId או Deep Link metadata. יצירה/הצגה כפופות ל-NotificationPreference ולהרשאות. |
 | SponsoredProduct | מוצר/תוכן מסחרי מטעם חברה/מותג/ספונסר, עם מקור, מדיה, סטטוס וסימון ממומן. בשלב הראשון נוצר ומנוהל על ידי Admin/Back Office בלבד. |
-| MediaAsset | מטא-דאטה וקישור לקובץ תמונה/סרטון המשויך לפוסט, Listing או ישות מאושרת אחרת. |
+| MediaAsset | מטא-דאטה וקישור לקובץ תמונה/סרטון המשויך לפוסט, סטורי, Listing, מאמר, תמונת פרופיל או ישות מאושרת אחרת, ומצב הבדיקה בשרת (ממתינה / עברה / נכשלה, BR-076). רק הגרסה המטושטשת נשמרת. |
+| Story | סטורי: מחבר, MediaAsset אחד, טקסט קצר אופציונלי, זמן פרסום וזמן תפוגה (24 שעות). נמחק עם התמונה בתום התוקף (FR-FEED-008, BR-077). |
 | SupportRequest | פנייה של משתמש: נושא, מלל, משתמש, זמן, סטטוס, handledBy והיסטוריית תגובות. תגובות חיצוניות מוצגות ב-Support Thread בתוך Chat בשם “Support”; הערות פנימיות אינן מוצגות. |
 | TrackerData | מכלול נתוני המעקב שנשמרים עבור המשתמש/ילד/מסלול לצורך תיעוד, התאמה אישית, מתן טיפים/ידע ושיפור המערכת, בכפוף למטריצת שימוש ותקנון/מדיניות פרטיות. |
 | ModeratorPermission | מיפוי בין Moderator לבין Permission Keys שהוקצו על ידי Admin: SUPPORT_VIEW, SUPPORT_HANDLE, REPORTS_VIEW, CONTENT_MODERATE, MARKETPLACE_MODERATE, USER_VIEW, USER_WARN, USER_SUSPEND, USER_BAN, PROFESSIONAL_VERIFY, ANALYTICS_VIEW, AUDIT_LOG_VIEW, COMMUNITY_CONFIG, SYSTEM_ANNOUNCEMENTS, PRIVATE_GROUP_MODERATE; כולל created/updated metadata. |
@@ -72,7 +73,7 @@
 - RegularProfile יכול להיות קשור ליותר מילד אחד — כפי שנדרש מהסקיצה; המגבלה המדויקת TBD.
 - User יכול להחזיק כמה JourneyContext במקביל (החלטה מ-13.10.2026). איזה מסלול מוצג ראשון בבית — OP-003, ייקבע ב-I6.
 - RegularProfile מחזיק עד 10 ילדים (VAL-040).
-- User → משתמש Auth: מחיקת משתמש Auth נחסמת כל עוד יש לו נתונים במוצר (RESTRICT, החלטה מ-13.10.2026). מחיקה רק בנוהל מחיקה מסודר; מדיניות המחיקה — OP-028.
+- User → משתמש Auth: מחיקת משתמש Auth נחסמת כל עוד יש לו נתונים במוצר (RESTRICT, החלטה מ-13.10.2026). מחיקה רק בנוהל מחיקה מסודר: FR-SET-002, BR-073 (OP-028 נסגר).
 - Conversation מקשרת בין המשתתפים והודעותיהם; ProfessionalOutreachRequest מקושר לפוסט המקור ולבעל המקצוע שיזם את הפנייה.
 - Promotion לא מחליף דירוג אורגני אלא מייצג שכבת חשיפה נפרדת ויכול להיות משויך לפרופיל מקצועי, Marketplace Listing של משתמש או תוכן/מוצר ממומן.
 - MarketplaceListing משויך למפרסם; SponsoredProduct מנוהל בשלב הראשון על ידי Admin. Marketplace Chat מתוך Listing פעיל הוא חריג מורשה לכלל Professional→Regular Outreach.
@@ -130,7 +131,7 @@ NotificationPreference ו-GroupNotificationPreference מסננים אירועי 
 
 | Data Class | Purpose | Retention / Control Rule |
 |---|---|---|
-| Account/Profile/Content | נדרש לתפעול החשבון והתוכן | משך מדויק ייקבע לפי Privacy Policy/שוק ראשון; מחיקה/ייצוא לפי USER_DATA_EXPORT_DELETE ותהליך המשתמש. |
+| Account/Profile/Content | נדרש לתפעול החשבון והתוכן | מחיקת חשבון — BR-073; תמונות — BR-077. משך מדויק ייקבע לפי Privacy Policy/שוק ראשון; מחיקה/ייצוא לפי USER_DATA_EXPORT_DELETE ותהליך המשתמש. |
 | Interaction/Search/Recommendation Events | Personalization + Analytics | Retention period לא ייקבע שרירותית ב-SRS; יש לקבוע לפני Production ולהתאים ל-Notice/Consent. Aggregates יכולים להישמר בנפרד לפי policy. |
 | Tracker/Child Data | Tracking + Organic Context | Retention/control חייבים להיות מפורשים במדיניות; אין Paid Targeting. |
 | Chat/Support | תקשורת ותפעול Support | Retention נקבע לפי policy/operational need; גוף ההודעות לא נכנס ל-personalization/paid analytics. |

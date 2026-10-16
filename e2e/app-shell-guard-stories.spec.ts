@@ -74,7 +74,7 @@ test('[F1.2 c27][NFR-USAB-004] Storybook has stories for the Welcome page and fo
     (f) => f.drawerOpen && f.drawerItems.includes('הגדרות') && f.drawerItems.includes('התנתקות') && f.navLinks.length === 3,
   );
   expect(drawer, 'a story shows the composed shell with the drawer open, holding הגדרות and התנתקות').toBeDefined();
-  expect(drawer?.drawerItems.filter((i) => i !== 'סגירת התפריט')).toEqual(['הגדרות', 'התנתקות']);
+  expect(drawer?.drawerItems.filter((i) => i !== 'סגירת התפריט')).toEqual(['הגדרות', 'שאלות לשחזור סיסמה', 'התנתקות']); // F1.6 c18
 });
 
 test('[F1.2 c27][NFR-A11Y-001] the Welcome story and the composed shell stories have zero axe violations at 375 and 1024', async ({

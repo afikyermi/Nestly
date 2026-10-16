@@ -5,7 +5,8 @@ import type { Locator, Page } from '@playwright/test';
 
 export const APP = 'http://127.0.0.1:4174';
 
-export type SessionState = 'loading' | 'signed-in' | 'signed-out';
+/** 'signed-in-needs-recovery' = signed in, and the account still has no recovery questions (the questions screen opens in setup mode). */
+export type SessionState = 'loading' | 'signed-in' | 'signed-in-needs-recovery' | 'signed-out';
 
 export const WELCOME_H1 = 'הצטרפות ל-Nestly';
 export const LEAD = 'קהילה חמה להורים ולהורים לעתיד, במקום אחד.';
@@ -42,7 +43,7 @@ export const PROTECTED_ROUTES: Route[] = [
   { path: '/settings', h1: 'הגדרות', title: 'הגדרות · Nestly' },
 ];
 
-type DriveMethod = 'set' | 'fail' | 'rejectSignOut' | 'signOutCalls';
+type DriveMethod = 'set' | 'fail' | 'rejectSignOut' | 'signOutCalls' | 'setNeedsRecoveryQuestions';
 
 /** Calls a method of window.nestlyTestSession and returns its result. */
 export async function drive(page: Page, method: DriveMethod, arg?: unknown): Promise<unknown> {
@@ -61,7 +62,12 @@ export async function drive(page: Page, method: DriveMethod, arg?: unknown): Pro
   );
 }
 
-export const setState = (page: Page, state: SessionState): Promise<unknown> => drive(page, 'set', state);
+export async function setState(page: Page, state: SessionState): Promise<unknown> {
+  if (state !== 'signed-in-needs-recovery') return drive(page, 'set', state);
+  // The questions screen fixes its mode when it opens, so the flag is raised before the session becomes signed-in.
+  await drive(page, 'setNeedsRecoveryQuestions', true);
+  return drive(page, 'set', 'signed-in');
+}
 
 export async function signOutCalls(page: Page): Promise<number> {
   const n = await drive(page, 'signOutCalls');

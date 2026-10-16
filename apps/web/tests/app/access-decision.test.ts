@@ -12,7 +12,7 @@ import { GUEST_PATHS, PROTECTED_PATHS } from '../../src/app/paths';
 
 // F1.4 part c adds three Guest placeholders (interface "part c"): recovery (F1.6) and the two consent-document links (I9).
 const GUEST = ['/', '/login', '/register', '/auth/google', '/recovery', '/terms', '/privacy'];
-const PROTECTED = ['/home', '/feed', '/profile', '/settings'];
+const PROTECTED = ['/home', '/feed', '/profile', '/settings', '/recovery-questions'];
 const UNLISTED = [
   '/marketplace',
   '/profile/123',
@@ -39,7 +39,7 @@ describe('the route table (6, Q2)', () => {
   it('[F1.2 c6][FR-AUTH-004][F1.4 c4] the Guest allow-list is exactly the seven Guest routes (the four of F1.2 plus /recovery, /terms, /privacy)', () => {
     expect(Array.from(GUEST_PATHS).sort()).toEqual([...GUEST].sort());
   });
-  it('[F1.2 c6][FR-AUTH-004] the protected routes are exactly the four protected placeholders', () => {
+  it('[F1.2 c6][FR-AUTH-004] the protected routes are exactly the four protected placeholders plus /recovery-questions (F1.6 c17 c18)', () => {
     expect(Array.from(PROTECTED_PATHS).sort()).toEqual([...PROTECTED].sort());
   });
   it('[F1.2 c6][FR-AUTH-004] no route is both Guest and protected', () => {
@@ -114,6 +114,27 @@ describe('signed-out after a session ended (sessionEnded = true): protected path
     for (const path of [...GUEST, ...PROTECTED, ...UNLISTED]) {
       expect(decideAccess('loading', path, true)).toEqual({ kind: 'loading' });
       expect(decideAccess('signed-in', path, true)).toEqual(decideAccess('signed-in', path));
+    }
+  });
+});
+
+// F1.6 Status line (held state) + Amendment 4: an active account without recovery questions is held on /recovery-questions.
+describe('held on the questions screen (F1.6 Status, Amendment 4)', () => {
+  it.each(['/recovery-questions', '/terms', '/privacy'])('[F1.6 c17][Amendment 4][FR-AUTH-004] a held user may open %s', (path) => {
+    expect(decideAccess('signed-in', path, false, true)).toEqual({ kind: 'render' });
+  });
+  it.each(['/feed', '/home', '/profile', '/settings', ...GUEST.filter((p) => !['/terms', '/privacy'].includes(p)), ...UNLISTED])(
+    '[F1.6 c17][FR-AUTH-004] a held user on %s is sent to /recovery-questions',
+    (path) => {
+      expect(decideAccess('signed-in', path, false, true)).toEqual({ kind: 'redirect', to: '/recovery-questions' });
+    },
+  );
+  it.each([...GUEST, ...PROTECTED, ...UNLISTED])('[F1.6 c17] the flag false changes nothing for %s', (path) => {
+    expect(decideAccess('signed-in', path, false, false)).toEqual(decideAccess('signed-in', path));
+  });
+  it.each(['loading', 'signed-out', 'signed-in-no-account'] as const)('[F1.6 c17] the flag does not alter the state %s', (state) => {
+    for (const path of [...GUEST, ...PROTECTED, ...UNLISTED]) {
+      expect(decideAccess(state, path, false, true)).toEqual(decideAccess(state, path));
     }
   });
 });

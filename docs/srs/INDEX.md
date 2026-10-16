@@ -2,7 +2,7 @@
 
 # SRS — אינדקס
 
-**מקור האמת של מוצר Nestly.** SRS v2.15 · 15.10.2026.
+**מקור האמת של מוצר Nestly.** SRS v2.18 · 16.10.2026.
 
 ה-SRS מתוחזק ב-markdown ומפוצל לפי סעיפים. גרסאות ה-Word הקודמות נמצאות ב-[`archive/`](archive/) כהיסטוריה בלבד.
 
@@ -17,7 +17,7 @@
 | 2 | [02-system-overview.md](02-system-overview.md) | תיאור כללי של המערכת |
 | 3 | [03-roles-permissions.md](03-roles-permissions.md) | סוגי משתמשים והרשאות |
 | 4 | [04-architecture.md](04-architecture.md) | ארכיטקטורת Pages, Features ו-Components |
-| 5 | [05-functional/](05-functional/) | דרישות פונקציונליות — 90 FR ב-16 קבצי תחום (ראה למטה) |
+| 5 | [05-functional/](05-functional/) | דרישות פונקציונליות — 93 FR ב-16 קבצי תחום (ראה למטה) |
 | 6 | [06-non-functional.md](06-non-functional.md) | דרישות לא-פונקציונליות |
 | 7 | [07-screens-navigation.md](07-screens-navigation.md) | מסכי מערכת וניווט |
 | 8 | [08-business-rules.md](08-business-rules.md) | חוקים עסקיים (Business Rules) |
@@ -42,22 +42,22 @@
 |---|---|---|---|
 | [auth.md](05-functional/auth.md) | Auth — כניסה והזדהות | FR-AUTH | 5 |
 | [registration.md](05-functional/registration.md) | Registration — הרשמה (רגיל ומקצועי) | FR-REG · FR-PROREG | 7 |
-| [feed.md](05-functional/feed.md) | Feed — פיד, פוסטים והתאמה לשלב | FR-FEED | 7 |
+| [feed.md](05-functional/feed.md) | Feed — פיד, פוסטים והתאמה לשלב | FR-FEED | 8 |
 | [home-tracking.md](05-functional/home-tracking.md) | Home & Tracking — בית, מסלולים ו-Trackers | FR-HOME · FR-TRACK | 6 |
 | [marketplace.md](05-functional/marketplace.md) | Marketplace | FR-MKT | 5 |
 | [services.md](05-functional/services.md) | Services — בעלי מקצוע, פניות וקידום | FR-SERV | 11 |
 | [chat.md](05-functional/chat.md) | Chat | FR-CHAT | 4 |
 | [relationships-groups.md](05-functional/relationships-groups.md) | Relationships & Groups — Friends, Follow וקבוצות | FR-REL · FR-FOLLOW · FR-GRP | 6 |
-| [profile-settings.md](05-functional/profile-settings.md) | Profile, Privacy & Settings — פרופיל, פרטיות והגדרות | FR-PROFILE · FR-PRIV · FR-SET | 4 |
+| [profile-settings.md](05-functional/profile-settings.md) | Profile, Privacy & Settings — פרופיל, פרטיות והגדרות | FR-PROFILE · FR-PRIV · FR-SET | 5 |
 | [search.md](05-functional/search.md) | Search — חיפוש | FR-SEARCH | 1 |
 | [notifications.md](05-functional/notifications.md) | Notifications — התראות | FR-NOTIF | 3 |
-| [navigation.md](05-functional/navigation.md) | Navigation — Top Bar ו-Side Menu | FR-TOP · FR-MENU | 2 |
+| [navigation.md](05-functional/navigation.md) | Navigation — Top Bar ו-Side Menu | FR-TOP · FR-MENU | 3 |
 | [professional.md](05-functional/professional.md) | Professional — דשבורד ואנליטיקה מקצועית | FR-PRO | 3 |
 | [moderation.md](05-functional/moderation.md) | Moderation — דיווחים ואכיפה | FR-MOD | 3 |
 | [admin.md](05-functional/admin.md) | Admin — ניהול מערכת | FR-ADMIN | 12 |
 | [algorithms-data.md](05-functional/algorithms-data.md) | Algorithms & Data — אלגוריתמים ואנליטיקה | FR-ALG · FR-DATA | 11 |
 
-## דרישות פונקציונליות — 90
+## דרישות פונקציונליות — 93
 
 | ID | שם | קובץ |
 |---|---|---|
@@ -80,6 +80,7 @@
 | FR-FEED-005 | פרסום פוסט אנונימי | [feed.md](05-functional/feed.md) |
 | FR-FEED-006 | שיתוף פוסט בפיד | [feed.md](05-functional/feed.md) |
 | FR-FEED-007 | שיתוף קישור לפוסט או לאתר | [feed.md](05-functional/feed.md) |
+| FR-FEED-008 | סטורי | [feed.md](05-functional/feed.md) |
 | FR-HOME-001 | הצגת בית — מעקב ותכנון | [home-tracking.md](05-functional/home-tracking.md) |
 | FR-HOME-002 | הוספת מסלול מעקב | [home-tracking.md](05-functional/home-tracking.md) |
 | FR-HOME-003 | רישום פעילות | [home-tracking.md](05-functional/home-tracking.md) |
@@ -116,12 +117,14 @@
 | FR-PROFILE-002 | ניהול מסלולים/ילדים | [profile-settings.md](05-functional/profile-settings.md) |
 | FR-PRIV-001 | פרטיות פרופיל Regular מול non-Friends | [profile-settings.md](05-functional/profile-settings.md) |
 | FR-SET-001 | Settings ויעדי Side Menu | [profile-settings.md](05-functional/profile-settings.md) |
+| FR-SET-002 | מחיקת חשבון | [profile-settings.md](05-functional/profile-settings.md) |
 | FR-SEARCH-001 | חיפוש | [search.md](05-functional/search.md) |
 | FR-NOTIF-001 | התראות | [notifications.md](05-functional/notifications.md) |
 | FR-NOTIF-002 | הגדרות Notification | [notifications.md](05-functional/notifications.md) |
 | FR-NOTIF-003 | אירועי Notification לפי סוג משתמש | [notifications.md](05-functional/notifications.md) |
 | FR-TOP-001 | Top Bar גלובלי | [navigation.md](05-functional/navigation.md) |
 | FR-MENU-001 | Hamburger / Side Menu | [navigation.md](05-functional/navigation.md) |
+| FR-MENU-002 | פנייה למוקדי רפואה | [navigation.md](05-functional/navigation.md) |
 | FR-PRO-001 | Professional Dashboard | [professional.md](05-functional/professional.md) |
 | FR-PRO-002 | Professional Performance & Promotion Analytics v1 | [professional.md](05-functional/professional.md) |
 | FR-PRO-003 | פרסום מאמר מקצועי | [professional.md](05-functional/professional.md) |
@@ -152,7 +155,7 @@
 | FR-ALG-010 | Group Notification Highlights v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-DATA-001 | Analytics Event Tracking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 
-## קריטריוני קבלה — 98
+## קריטריוני קבלה — 110
 
 > השמות קוצרו לצורך ניווט בלבד. הנוסח המחייב נמצא ב-[15-acceptance.md](15-acceptance.md).
 
@@ -256,17 +259,29 @@
 | AC-096 | הרשמה דורשת בדיקת אדם | [15-acceptance.md](15-acceptance.md) |
 | AC-097 | אין רכישה ב-Marketplace | [15-acceptance.md](15-acceptance.md) |
 | AC-098 | תשלום מדומה בלי פרטי כרטיס | [15-acceptance.md](15-acceptance.md) |
+| AC-099 | חשבון מושעה או חסום נעצר בהתחברות | [15-acceptance.md](15-acceptance.md) |
+| AC-100 | השלמת הרשמה שלא הסתיימה | [15-acceptance.md](15-acceptance.md) |
+| AC-101 | Session נשמר ו-Logout מנקה | [15-acceptance.md](15-acceptance.md) |
+| AC-102 | סטורי פג אחרי 24 שעות | [15-acceptance.md](15-acceptance.md) |
+| AC-103 | מגבלת 10 סטורי ביממה | [15-acceptance.md](15-acceptance.md) |
+| AC-104 | הקטנה וניקוי EXIF בהעלאה | [15-acceptance.md](15-acceptance.md) |
+| AC-105 | תמונה גלויה רק אחרי בדיקה בשרת | [15-acceptance.md](15-acceptance.md) |
+| AC-106 | חלון דיווח ועדיפות בתור | [15-acceptance.md](15-acceptance.md) |
+| AC-107 | אכיפה ידנית ומדרג | [15-acceptance.md](15-acceptance.md) |
+| AC-108 | מחיקת חשבון עם חרטה | [15-acceptance.md](15-acceptance.md) |
+| AC-109 | עמוד מוקדי רפואה | [15-acceptance.md](15-acceptance.md) |
+| AC-110 | חסימה מיידית על סכנה לילד | [15-acceptance.md](15-acceptance.md) |
 
 ## מזהים נוספים
 
 | סוג | נושא | טווח | כמות | קובץ |
 |---|---|---|---|---|
-| BR | חוקים עסקיים | BR-001 … BR-072 | 72 | [08-business-rules.md](08-business-rules.md) |
-| VAL | ולידציות | VAL-001 … VAL-040 | 40 | [09-validations.md](09-validations.md) |
-| ERR | שגיאות ותרחישי קצה | ERR-001 … ERR-036 | 36 | [10-errors-edge-cases.md](10-errors-edge-cases.md) |
-| NFR | דרישות לא-פונקציונליות | NFR-SEC-001 … NFR-SEC-008 | 34 | [06-non-functional.md](06-non-functional.md) |
+| BR | חוקים עסקיים | BR-001 … BR-078 | 78 | [08-business-rules.md](08-business-rules.md) |
+| VAL | ולידציות | VAL-001 … VAL-042 | 42 | [09-validations.md](09-validations.md) |
+| ERR | שגיאות ותרחישי קצה | ERR-001 … ERR-041 | 41 | [10-errors-edge-cases.md](10-errors-edge-cases.md) |
+| NFR | דרישות לא-פונקציונליות | NFR-SEC-001 … NFR-SEC-009 | 35 | [06-non-functional.md](06-non-functional.md) |
 | UC | Use Cases | UC-01 … UC-42 | 42 | [14-use-cases.md](14-use-cases.md) |
-| PG | מסכים | PG-001 … PG-046 | 46 | [07-screens-navigation.md](07-screens-navigation.md) |
-| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-030 | 30 | [appendix-b-open-points.md](appendix-b-open-points.md) |
+| PG | מסכים | PG-001 … PG-050 | 50 | [07-screens-navigation.md](07-screens-navigation.md) |
+| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-034 | 34 | [appendix-b-open-points.md](appendix-b-open-points.md) |
 | ALG | קטלוג האלגוריתמים | ALG-01 … ALG-09 | 9 | [18-algorithms-spec.md](18-algorithms-spec.md) |
 | P-ALG | עקרונות האלגוריתמים | P-ALG-01 … P-ALG-08 | 8 | [18-algorithms-spec.md](18-algorithms-spec.md) |

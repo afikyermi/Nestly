@@ -36,6 +36,8 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
   const listeners = new Set<() => void>();
   let state: SessionState = 'loading';
   let notice: SessionNotice | null = null;
+  // F1.6: the account is active and has not saved its recovery questions. Always changes together with the state.
+  let needsQuestions = false;
   // Bumped whenever the session is replaced or ended, so an answer that arrives for an older session is dropped.
   let epoch = 0;
   let lastCheckAt: number | null = null;
@@ -47,10 +49,11 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
   let signingIn: Promise<SignInResult> | null = null;
   let stopWatching: Array<() => void> = [];
 
-  const apply = (nextState: SessionState, nextNotice: SessionNotice | null) => {
-    if (state === nextState && notice === nextNotice) return;
+  const apply = (nextState: SessionState, nextNotice: SessionNotice | null, nextNeedsQuestions = needsQuestions) => {
+    if (state === nextState && notice === nextNotice && needsQuestions === nextNeedsQuestions) return;
     state = nextState;
     notice = nextNotice;
+    needsQuestions = nextNeedsQuestions;
     for (const listener of [...listeners]) listener();
   };
 
@@ -64,7 +67,7 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
     epoch += 1;
     lastCheckAt = null;
     clearRetry();
-    apply('signed-out', why);
+    apply('signed-out', why, false);
   };
 
   // Work started by an event, not by a caller. If it breaks, the session is treated as signed-out (fail closed) and the break is logged.
@@ -109,9 +112,9 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
       return;
     }
     retryAttempt = 0;
-    if (answer === 'active' || answer === 'unregistered') {
+    if (answer === 'active' || answer === 'active-missing' || answer === 'unregistered') {
       lastCheckAt = now();
-      apply(answer === 'active' ? 'signed-in' : 'signed-in-no-account', null);
+      apply(answer === 'unregistered' ? 'signed-in-no-account' : 'signed-in', null, answer === 'active-missing');
     } else if (answer === 'unavailable') {
       await end('stopped');
     } else if (answer === 'unauthenticated' || answer === 'no-session') {
@@ -135,7 +138,7 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
       const outcome = await auth.restore();
       if (epoch !== startedAt) return;
       if (outcome === 'none') {
-        apply('signed-out', null);
+        apply('signed-out', null, false);
       } else if (outcome === 'refused') {
         endLocally('expired');
       } else if (outcome === 'unreachable') {
@@ -185,10 +188,10 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
         await auth.signOut();
         return { kind: 'failed', problem: 'unavailable' };
       }
-      if (answer === 'active' || answer === 'unregistered') {
+      if (answer === 'active' || answer === 'active-missing' || answer === 'unregistered') {
         lastCheckAt = now();
-        apply(answer === 'active' ? 'signed-in' : 'signed-in-no-account', null);
-        return answer === 'active' ? { kind: 'signed-in' } : { kind: 'unregistered' };
+        apply(answer === 'unregistered' ? 'signed-in-no-account' : 'signed-in', null, answer === 'active-missing');
+        return answer === 'unregistered' ? { kind: 'unregistered' } : { kind: 'signed-in' };
       }
       await auth.signOut();
       return answer === 'unavailable' ? { kind: 'stopped' } : { kind: 'failed', problem: 'unavailable' };
@@ -233,6 +236,7 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
   return {
     getState: () => state,
     getNotice: () => notice,
+    getNeedsRecoveryQuestions: () => needsQuestions,
     subscribe: (listener) => {
       listeners.add(listener);
       watch();
@@ -256,12 +260,16 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
       if (ending > 0) return;
       const startedAt = epoch;
       inBackground(
-        auth.getAccessToken().then((token) => {
+        auth.getAccessToken().then(async (token) => {
           if (token === null || ending > 0 || epoch !== startedAt) return;
+          // F1.6: a new account has no recovery questions yet, and the questions screen must be the first thing it sees, so the
+          // account state is asked once before the session is applied. An answer that cannot be read changes nothing (criterion 19).
+          const answer = await accountState(token).catch((): AccountStateOutcome => 'failed');
+          if (ending > 0 || epoch !== startedAt) return;
           epoch += 1;
           lastCheckAt = now();
           clearRetry();
-          apply('signed-in', null);
+          apply('signed-in', null, answer === 'active-missing');
         }),
       );
     },
@@ -270,6 +278,11 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
     getAccessToken: () => auth.getAccessToken(),
     clearNotice: () => {
       apply(state, null);
+    },
+    markRecoveryQuestionsSet: () => {
+      // A check that began before the save may still answer "missing"; the new epoch drops it, and the next trigger asks again.
+      epoch += 1;
+      apply(state, notice, false);
     },
   };
 }

@@ -131,6 +131,13 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-15 | F1.6 Amendment 2 (CRITIC findings 1-2): current-email check at redeem, stale handle released on store and re-keyed on /api/me; one limited event per subject per lock, IP checked first | 10 |
 | 2026-10-15 | Development speed (A–F): freeze to F1.8 without exceptions · one session and one records pass per feature · path per part, ≤ 2 reviews, 🎨 depth kept · hard 2× tests, TEST ENGINEER reads source · Preview automation · record caps, SRS once per Initiative · full I1–I14 (upd. 10-15 CRITIC round) | 10 |
 | 2026-10-15 | Development speed, CRITIC round: records-only via PR on green CI · per-Initiative SRS update is Standard · a part merges after its review · CRITIC 1.6 checks expected values, reviews after the tests · TEST ENGINEER 2.0 · tsc --noEmit only · lock-file summary in review.diff | 10 |
+| 2026-10-16 | F1.6 merges on automated Preview E2E (E), built first: a fresh random user per run, full flow, deleted at the end; no manual Preview from now on (Afik) | 10 |
+| 2026-10-16 | Before I3–I5 (Afik): deletion with a 30-day grace · 8 community rules · 8 report reasons · manual 5-step ladder · M1–M6 with in-browser blur and a background server check · Stories and medical hotline referral · no lawyer | 10 |
+| 2026-10-16 | Placement: medical hotline referral in I3, Stories in I5 | 10 |
+| 2026-10-16 | The seven open details of the I3–I5 decisions take their defaults (ladder per §4, Stories, hotline page, terms by Claude in I9, grace-period sign-in, demo Stories) | 10 |
+| 2026-10-16 | OP-031–034 (Afik): own open-source image model in app_jobs · ERR-041 copy · audience per post and Story · related data deleted with the account | 10 |
+| 2026-10-16 | E is built inside PR 31, not its own PR; nothing merges to main overnight (Afik) | 10 |
+| 2026-10-16 | F1.6 wrap-up: Amendments 3–4, DATA ARCHITECT c23 (claim order is the server's), N1 to debt | 10 |
 
 ## Superseded
 
@@ -157,8 +164,7 @@ code in TypeScript (entry "Rule 0 reopened").
 
 ~~**First initiative.**~~ **Closed 2026-10-11** — the roadmap and the MVP are decided (entry "D7 closed").
 
-**Media decisions M1–M6.** Before I5 — storage provider, formats and limits, policy for images of minors, EXIF
-stripping, hash scanning, retention (entry "D7 closed").
+~~**Media decisions M1–M6.**~~ **Closed 2026-10-16** — decided by Afik (entry "Decisions before I3–I5").
 
 ~~**GitHub remote.**~~ **Closed 2026-10-11** — github.com/afikyermi/Nestly, public (entry "GitHub remote").
 

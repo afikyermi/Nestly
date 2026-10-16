@@ -4,6 +4,9 @@ import { readConfig, type ServerConfig } from './lib/config.js';
 import { createTokenVerifier } from './lib/token-verifier.js';
 import { registerAuthentication } from './plugins/authentication.js';
 import { registerMeRoute } from './routes/me.js';
+import { createRecoveryDependencies, type RecoveryDependencies } from './recovery/dependencies.js';
+import { registerRecoveryQuestionsRoute } from './routes/recovery-questions.js';
+import { registerRecoveryResetRoute } from './routes/recovery-reset.js';
 import { registerRegistrationRoute } from './routes/register.js';
 import { registerStripBypassHeader } from './plugins/strip-bypass-header.js';
 
@@ -19,10 +22,25 @@ export interface AppDependencies {
   readonly logStream?: { write(message: string): void };
   /** The server's clock, for rules that compare with today. Defaults to the system clock. */
   readonly clock?: () => Date;
+  /** Recovery's pepper, scrypt and Auth calls. Defaults read the environment (recovery/dependencies.ts); a test overrides what it needs. */
+  readonly recovery?: Partial<RecoveryDependencies>;
 }
 
 export function buildApp(deps: AppDependencies = {}): FastifyInstance {
-  const app = Fastify({ logger: deps.logStream === undefined ? false : { level: 'trace', stream: deps.logStream } });
+  // trustProxy trusts one hop only, the one in front of the server (Vercel's edge): `request.ip` is then the entry that hop
+  // added to X-Forwarded-For, never a leftmost value the client supplied. The password-recovery limits and audit hash it.
+  // The logger's request line carries the method and the path only: the default one would write that address.
+  const app = Fastify({
+    trustProxy: (_address, hop) => hop < 1,
+    logger:
+      deps.logStream === undefined
+        ? false
+        : {
+            level: 'trace',
+            stream: deps.logStream,
+            serializers: { req: (request) => ({ method: request.method, url: request.routeOptions.url ?? 'unmatched' }) },
+          },
+  });
   const config = deps.config ?? readConfig(process.env);
   for (const issue of config.issues) app.log.warn(`configuration: ${issue}`);
 
@@ -54,8 +72,11 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   });
 
   app.get('/api/health', () => ({ status: 'ok' }));
-  registerMeRoute(app, { database });
+  const recovery = createRecoveryDependencies(deps.recovery);
+  registerMeRoute(app, { database, recovery });
   registerRegistrationRoute(app, { database, clock: deps.clock ?? (() => new Date()) });
+  registerRecoveryQuestionsRoute(app, { database, recovery });
+  registerRecoveryResetRoute(app, { database, recovery });
 
   return app;
 }

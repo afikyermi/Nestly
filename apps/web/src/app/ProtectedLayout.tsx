@@ -46,6 +46,15 @@ export function ProtectedLayout() {
             הגדרות
           </MenuItem>
           <MenuItem
+            href={PATHS.recoveryQuestions}
+            onNavigate={(href) => {
+              closeMenu();
+              go(href);
+            }}
+          >
+            שאלות לשחזור סיסמה
+          </MenuItem>
+          <MenuItem
             onClick={() => {
               closeMenu();
               void signOut();

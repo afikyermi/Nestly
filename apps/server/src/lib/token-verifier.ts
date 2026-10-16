@@ -26,7 +26,19 @@ export class TokenRejected extends Error {
   }
 }
 
-export type TokenVerifier = (token: string) => Promise<Identity>;
+/**
+ * What a verified token yields. `identity` is the user id and nothing more: it is all the database and every route but one
+ * ever sees. `email` and `issuedAt` (the `iat` claim, whole seconds) are exposed for ONE purpose: the recovery handle
+ * (F1.6, DR-B). The store, change and /api/me paths turn the email into the account's lookup handle, and the issue time
+ * orders two claims to the same email (the later wins). Neither is ever used for authorization (platform rule 14).
+ */
+export interface VerifiedToken {
+  readonly identity: Identity;
+  readonly email: string | undefined;
+  readonly issuedAt: number | undefined;
+}
+
+export type TokenVerifier = (token: string) => Promise<VerifiedToken>;
 
 // Supabase signs access tokens with the project's asymmetric key (ECC P-256). Only ES256 is accepted, so `none`, HS256
 // and any other algorithm are refused before a key is looked up.
@@ -64,6 +76,8 @@ export function createTokenVerifier(config: AuthConfig): TokenVerifier {
 
   return async (token) => {
     let subject: unknown;
+    let email: unknown;
+    let issuedAt: unknown;
     try {
       const { payload } = await jwtVerify(token, keySet, {
         algorithms: ALGORITHMS,
@@ -72,10 +86,16 @@ export function createTokenVerifier(config: AuthConfig): TokenVerifier {
         requiredClaims: ['sub', 'exp'],
       });
       subject = payload.sub;
+      email = payload.email;
+      issuedAt = payload.iat;
     } catch (error) {
       throw classify(error);
     }
     if (typeof subject !== 'string' || !UUID.test(subject)) throw new TokenRejected('token');
-    return { userId: subject };
+    return {
+      identity: { userId: subject },
+      email: typeof email === 'string' ? email : undefined,
+      issuedAt: typeof issuedAt === 'number' && Number.isInteger(issuedAt) ? issuedAt : undefined,
+    };
   };
 }

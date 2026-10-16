@@ -50,10 +50,24 @@
 |---|---|
 | סטטוס | מאושר |
 | Actor | Regular User / Professional User |
-| תיאור | המערכת תרכז Account, Privacy & Security, Notification Settings ו-Terms/Privacy ב-SettingsPage מרכזי. Professional Verification, Promotion ו-Billing יהיו Pages עצמאיים. |
+| תיאור | המערכת תרכז Account (כולל מחיקת חשבון, FR-SET-002), Privacy & Security, Notification Settings ו-Terms/Privacy ב-SettingsPage מרכזי. Professional Verification, Promotion ו-Billing יהיו Pages עצמאיים. |
 | תנאים מוקדמים | Regular או Professional מחובר. |
 | קלט / Trigger | בחירת יעד הגדרות מתוך Side Menu. |
 | תהליך מערכת | SideMenuFeature מנווט ל-SettingsPage ול-Section המתאים, או ל-Page עצמאי עבור Following/Verification/Promotion/Billing. |
 | פלט | עמוד/Section היעד מוצג. |
 | מצב לאחר ביצוע | שינויים נשמרים באמצעות Feature הייעודי. |
 | בעל אחריות לוגי (Page / Feature) | SideMenuFeature / SettingsPage / SettingsFeature |
+
+## FR-SET-002 — מחיקת חשבון
+
+| שדה | הגדרה |
+|---|---|
+| סטטוס | מאושר — החלטת אפיק מ-16.10.2026 (OP-028 נסגר, I3) |
+| Actor | Regular User / Professional User |
+| תיאור | המערכת תאפשר למשתמש למחוק את החשבון שלו, עם תקופת חרטה של 30 יום. בזמן הזה החשבון מוסתר מכולם. מה נמחק ומה נשמר — BR-073. |
+| תנאים מוקדמים | המשתמש מחובר. |
+| קלט / Trigger | "מחיקת חשבון" ב-SettingsPage ואישור. |
+| תהליך מערכת | החשבון מסומן כמתוזמן למחיקה עם התאריך, ה-Session מסתיים, והחשבון ותוכנו מוסתרים מכולם. התחברות בזמן החרטה מציגה "החשבון שלך מתוזמן למחיקה ב-<תאריך>" עם "ביטול המחיקה" או "התנתקות" (PG-050); המחיקה לעולם אינה מתבטלת בשקט. בתום 30 יום job רקע מבצע את המחיקה לפי BR-073, כולל כל התמונות (BR-077). |
+| פלט | אישור שהמחיקה תוזמנה, עם התאריך. |
+| מצב לאחר ביצוע | בזמן החרטה: מוסתר, ניתן לביטול. אחריה: נמחק לפי BR-073. |
+| בעל אחריות לוגי (Page / Feature) | SettingsPage / AccountDeletionFeature |

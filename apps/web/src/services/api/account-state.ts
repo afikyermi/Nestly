@@ -2,6 +2,7 @@
 // text reaches the screen. The server never says suspended or banned: both are `unavailable`.
 export type AccountStateOutcome =
   | 'active'
+  | 'active-missing' // active, and the recovery questions are not saved yet (F1.6)
   | 'unavailable' // a stopped account (suspended or banned)
   | 'unregistered' // an Auth user with no account yet
   | 'unauthenticated' // 401: the server does not accept the token
@@ -27,5 +28,8 @@ export async function fetchAccountState(accessToken: string): Promise<AccountSta
     return 'failed';
   }
   const state: unknown = typeof body === 'object' && body !== null ? Reflect.get(body, 'state') : undefined;
-  return STATES.find((known) => known === state) ?? 'failed';
+  const known = STATES.find((candidate) => candidate === state) ?? 'failed';
+  if (known !== 'active') return known;
+  // F1.6: only an exact "missing" holds the user on the questions screen; "set", an absent field or anything unreadable does not (criterion 19).
+  return typeof body === 'object' && body !== null && Reflect.get(body, 'recoveryQuestions') === 'missing' ? 'active-missing' : 'active';
 }

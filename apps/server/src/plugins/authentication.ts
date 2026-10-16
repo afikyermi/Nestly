@@ -12,12 +12,18 @@ import { inIdentityTransaction, type IdentityTx } from '../db/identity-transacti
 import { TokenRejected, type Identity, type TokenVerifier } from '../lib/token-verifier.js';
 
 /** `<METHOD> <route pattern>`. Anything not listed here is protected, including routes added later. */
-export const PUBLIC_ROUTES: ReadonlySet<string> = new Set(['GET /api/health']);
+export const PUBLIC_ROUTES: ReadonlySet<string> = new Set(['GET /api/health', 'POST /api/recovery/reset']);
 
 declare module 'fastify' {
   interface FastifyRequest {
     /** The verified caller. `null` on a public route. */
     identity: Identity | null;
+    /**
+     * The verified token's email claim and issue time (`iat`), or null (public route, or no claim). Read by the recovery
+     * handle paths only (store, change, /api/me), to build the lookup handle and order two claims; never for authorization.
+     */
+    verifiedEmail: string | null;
+    verifiedIssuedAt: number | null;
     /** Runs `work` in this request's identity transaction (data-model rule 3). Protected routes only. */
     inIdentityTransaction<T>(work: (tx: IdentityTx) => Promise<T>): Promise<T>;
   }
@@ -55,6 +61,8 @@ export function registerAuthentication(app: FastifyInstance, deps: Authenticatio
   const { verifier, database } = deps;
 
   app.decorateRequest('identity', null);
+  app.decorateRequest('verifiedEmail', null);
+  app.decorateRequest('verifiedIssuedAt', null);
   app.decorateRequest('inIdentityTransaction', function <T>(
     this: FastifyRequest,
     work: (tx: IdentityTx) => Promise<T>,
@@ -74,7 +82,10 @@ export function registerAuthentication(app: FastifyInstance, deps: Authenticatio
     if (token === undefined) return rejectUnauthenticated(reply);
 
     try {
-      request.identity = await verifier(token);
+      const verified = await verifier(token);
+      request.identity = verified.identity;
+      request.verifiedEmail = verified.email ?? null;
+      request.verifiedIssuedAt = verified.issuedAt ?? null;
     } catch (error) {
       // Never log the error object: its cause is the library's error, which can carry the decoded claims.
       if (error instanceof TokenRejected) {

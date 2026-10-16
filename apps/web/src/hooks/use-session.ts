@@ -7,6 +7,8 @@ export interface Session {
   state: SessionState;
   /** Why the session ended by itself (expired, or the account is stopped); null otherwise. */
   notice: SessionNotice | null;
+  /** The account is active but has not saved its recovery questions: the guard holds it on the questions screen (F1.6). */
+  needsRecoveryQuestions: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -16,5 +18,6 @@ export function useSession(): Session {
   if (store === null) throw new Error('useSession is used outside a SessionProvider.');
   const state = useSyncExternalStore(store.subscribe, store.getState);
   const notice = useSyncExternalStore(store.subscribe, store.getNotice);
-  return { state, notice, signOut: store.signOut };
+  const needsRecoveryQuestions = useSyncExternalStore(store.subscribe, store.getNeedsRecoveryQuestions);
+  return { state, notice, needsRecoveryQuestions, signOut: store.signOut };
 }

@@ -7,7 +7,8 @@
   "outputDirectory": "apps/web/dist",
   "functions": {
     "api/index.ts": {
-      "includeFiles": "apps/server/src/**"
+      "includeFiles": "apps/server/src/**",
+      "maxDuration": 30
     }
   },
   "rewrites": [

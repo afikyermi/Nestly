@@ -43,3 +43,7 @@
 | PG-044 | AdminSponsoredProductsPage / SponsoredProductManagementFeature | FR-ADMIN-009 / FR-MKT-003/005 | UC-35 | SponsoredProduct, MediaAsset, AuditLogEntry |
 | PG-045 | AdminBetaInvitesPage / BetaAccessFeature | FR-ADMIN-011 | — | BetaInvite, AuditLogEntry |
 | PG-046 | AdminContentPage / SystemContentFeature | FR-ADMIN-012 / FR-HOME-004 | — | Article, AuditLogEntry |
+| PG-047 | MedicalHotlinesPage | FR-MENU-002 | — | — |
+| PG-048 | StoryViewerPage / StoryFeature | FR-FEED-008 | — | Story, MediaAsset |
+| PG-049 | CommunityRulesPage | FR-MOD-001 | — | — |
+| PG-050 | AccountDeletionFeature | FR-SET-002 | — | User, AuditLogEntry |
