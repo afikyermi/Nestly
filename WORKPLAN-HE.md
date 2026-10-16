@@ -28,7 +28,7 @@
 - **ממתין לך (סודות ופעולות):**
   0. **‏E — הסודות (נמסרו לך 16.10 בלילה; לא צריך הגדרה ב-Supabase):** ‏environment ‏`preview-e2e` (בלי reviewers, בלי הגבלת ענפים) ובו `PREVIEW_SUPABASE_SECRET_KEY` (ה-secret key של nestly-preview) ו-`PREVIEW_DB_ADMIN_URL` (‏nestly-preview, משתמש `postgres`, ‏Session pooler 5432). ‏`PREVIEW_TEST_EMAIL`/`PREVIEW_TEST_PASSWORD` מיותרים, אפשר למחוק אחרי ש-E ירוק.
   0א. **בוקר 17.10 — רשימת "רק אתה" מהלילה:**
-     1. ✅ **DR-E1 — הכרעתך: אפשרות 1** (17.10, ‏`decisions.md`): מחיקה ב-SQL כ-`postgres` של nestly-preview, ב-CI בלבד. נבנה עכשיו כהשלמה של E (קריטריונים 8–9), ב-PR נפרד.
+     1. **DR-E1 — הגבלת ה-environment ל-main (חלק מהגבול):** ‏GitHub › ‏Settings › ‏Environments › ‏`preview-e2e` › ‏Deployment branches and tags › ‏Selected branches and tags › ‏Add rule › ‏`main`, ולוודא ש-`PREVIEW_DB_ADMIN_URL` קיים רק שם (לא כ-repository secret); ולמחוק את `PREVIEW_SUPABASE_SECRET_KEY`. ‏PR 33 (המחיקה, ‏CRITIC opus: ‏Validated with Concern) ממתין לזה ול"מזג" שלך.
      2. **‏`PREVIEW_SUPABASE_SECRET_KEY` מיותר** — ‏DATA ARCHITECT בחר במחיקה ב-SQL. אם הזנת אותו, אפשר למחוק אותו מ-`preview-e2e`.
      3. ✅ **זיהוי `*.flow.ts` ב-guard** — אישרת חריג להקפאה (17.10, ‏`decisions.md`), ייבנה עם F1.8.
      4. ✅ **‏migrate ל-production של F1.6** — אישרת, ‏db-production ירוק (ריצה 38860446921, 17.10).

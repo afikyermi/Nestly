@@ -13,3 +13,7 @@ Checked, no finding: deletion set and order · row_security off · rollback when
 - 2 → fix (a): `preview-e2e-cleanup.yml` on `workflow_run` (preview-e2e completed), running main's workflow and code; run id and attempt from the event; the test job no longer declares `environment: preview-e2e`; `preview-e2e` holds `PREVIEW_DB_ADMIN_URL` and is restricted to `main` (Afik sets the branch rule). The knowledge entry states what enforces the boundary: main-only code, a main-restricted environment.
 - 3 → fixed in the same round.
 First real run (38875921919, before these fixes): 14/14, deleted 2 own + 8 leftovers = 10 Auth users and their rows, 0 failed, 0 remaining.
+
+## Re-check (CRITIC opus, fresh run, 2505a41)
+verdict: Validated with Concern. 1 closed (the ordering contract holds; concurrent sweeps safe) · 3 closed · 2 fixed in code, open until Afik restricts environment `preview-e2e` to `main` (and confirms `PREVIEW_DB_ADMIN_URL` exists only as an environment secret); the data-model sentence is true only once the rule exists → merge waits on it.
+New low: workflow-level `concurrency` in preview-e2e-cleanup.yml lets a skipped cleanup cancel a queued real one (own users then wait for the 3 h sweep); fix: job-level concurrency or none. Cost: above 50 pattern users, recovery needs a code change or manual SQL. Round limit reached → both to debt.md.
