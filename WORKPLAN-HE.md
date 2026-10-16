@@ -34,7 +34,7 @@
      4. ✅ **‏migrate ל-production של F1.6** — אישרת, ‏db-production ירוק (ריצה 38860446921, 17.10).
   1. **קובץ יומן מקומי ישן** `.live/events.jsonl` (טקסט מפרומפטים, לא ב-git): מחיקה היא שלך. אחריה אפשר להסיר את `.live/` מ-`.gitignore`.
   2. **מחיקת ענפים מרוחקים שמוזגו:** ‏`ui-wave-1/part-a` עד `part-e`, ‏`chore/i1-prep`, ‏`chore/guard-env-paths` (מוזג), ‏`chore/preview-access` (הוחלף ב-`-v2` אחרי rebase), ‏`chore/records-after-f12` (מוזג).
-  3. **ב-F1.8:** הגדרת Google Cloud והסודות — אנחה אותך צעד-צעד.
+  3. ✅ **ב-F1.8: Google Cloud והסודות — הוגדרו אצלך (17.10).** בתחילת F1.8 אבדוק מה חסר (למשל Redirect URLs ב-Supabase › Authentication › URL Configuration) ואנחה אותך.
   4. ✅ **worktrees ישנים** — נמחקו (15.10, אתה; ‏`git worktree list` מציג רק את התיקייה הראשית). ה-concern מ-PR 30 סגור — לרשום ב-`debt.md` ב-wrap-up.
   5. ✅ **חשבון בדיקה ל-E** — נרשמת ב-nestly-preview; repository secrets ב-GitHub: ‏`PREVIEW_TEST_EMAIL`, ‏`PREVIEW_TEST_PASSWORD` (אם CRITIC יקבע environment אחר — לומר לך). שים לב: החשבון נרשם לפני F1.6, ולכן בכניסה הראשונה הוא יוחזק במסך השאלות.
   6. ✅ **‏baselines של F1.6** — ‏`update-baselines` רץ (38787338192), שישה PNG ב-`e2e/__screenshots__/` (נבדקו בעין). אישרת לי להריץ ולהוריד בעצמי גם בהמשך.
@@ -50,7 +50,7 @@
   - 15.10: ‏F1.4 מוזג (PR 25) ו-migrate רץ על production. ‏PR שיפור הבדיקות מוזג (PR 26): בדיקות מקומיות מלאות, ‏SRS 2.14, ‏CRITIC פעמיים, ‏CI ירוק. הכרעתך: ‏Edge כמו שנבנה.
   - 14.10: ‏F1.1 הושלם, שלושה PRs מוזגו (15, 16, 17). הסכמה הראשונה הוחלה על preview, ו-pgTAP עבר 394/394. ‏F1.2 מוזג (PR 19). ‏Welcome חי ב-production, ואורח מנותב אליו. כלי ה-Preview מוזג (PR 21), ו-F1.3 נפתח. ‏F1.3 מוזג (PR 22). האצת CI מוזגה (PR 23).
 - **להמשך (מסירה ל-session הבא):**
-  0. **מסלול ראשי עכשיו — F1.8, סשן חדש.** ‏F1.6 ו-E מוזגו (‏PR 31, ‏`c0d34d7`, ‏17.10; ‏`.work/password-recovery/result.md`, ‏`.work/preview-e2e/result.md`). **עם F1.8, ובלי שום שינוי נוסף ב-guard:** ‏TEST ENGINEER רשאי לכתוב `e2e-preview/*.flow.ts` (חריג שאישרת, ‏`decisions.md` 17.10), עם טסט ל-guard ו-CRITIC על opus. ‏F1.8 מוסיף קובץ flow משלו ל-`e2e-preview/`, ו-Gate 3 עובר מ-`preview-e2e`. **לפני F1.8:** השלמת E — מחיקת משתמשי הבדיקה (DR-E1 אפשרות 1, ‏PR נפרד, ‏CRITIC opus), כולל ניקוי המשתמשים שנשארו מהריצות הקודמות. ‏F1.8 דורש הגדרת Google Cloud והסודות ("ממתין לך" 3) — אנחה אותך בתחילת הסשן. **משימות נפרדות שנותרו מ-PR 26:** צילומי baseline לשאר המסכים (והסרת בלוק Q3 ב-`e2e/part-f.spec.ts`); הצעת איחוד כפילויות (בלי מחיקה לפני אישורך).
+  0. **מסלול ראשי עכשיו — F1.8, סשן חדש.** ‏F1.6 ו-E מוזגו (‏PR 31, ‏`c0d34d7`, ‏17.10; ‏`.work/password-recovery/result.md`, ‏`.work/preview-e2e/result.md`). **עם F1.8, ובלי שום שינוי נוסף ב-guard:** ‏TEST ENGINEER רשאי לכתוב `e2e-preview/*.flow.ts` (חריג שאישרת, ‏`decisions.md` 17.10), עם טסט ל-guard ו-CRITIC על opus. ‏F1.8 מוסיף קובץ flow משלו ל-`e2e-preview/`, ו-Gate 3 עובר מ-`preview-e2e`. **לפני F1.8:** השלמת E — מחיקת משתמשי הבדיקה (DR-E1 אפשרות 1, ‏PR נפרד, ‏CRITIC opus), כולל ניקוי המשתמשים שנשארו מהריצות הקודמות. ‏Google Cloud ו-Supabase הוגדרו אצלך (17.10, "שינויים בדפדפן"); בתחילת הסשן — בדיקה מה חסר, למשל Redirect URLs. **משימות נפרדות שנותרו מ-PR 26:** צילומי baseline לשאר המסכים (והסרת בלוק Q3 ב-`e2e/part-f.spec.ts`); הצעת איחוד כפילויות (בלי מחיקה לפני אישורך).
   1. **איפה עומדים:** ‏I1: ‏F1.1–F1.4 מוזגו (‏F1.4: ‏PR 25, ‏`0cdd5fa`, ‏migrate ב-production ירוק). ‏PR שיפור הבדיקות מוזג (‏PR 26, ‏`02842b0`). ‏SRS ‏2.15. ‏Production: ‏[nestly-blue.vercel.app](https://nestly-blue.vercel.app). מערך הסוכנים קפוא עד סוף I1, מלבד החריגים שאישרת (האצה, כלל ההמתנה, שיפור הבדיקות).
   2. **הבא בתור:** ‏F1.6 (בסשן שלו), ‏E (PR 2: ‏Preview E2E ב-CI, ‏migrate אוטומטי על preview), ‏F1.8, ואחריהם I2 לפי חלק 8 — **סשן חדש לכל פיצ'ר.** תוכנית ההצגה (חלק 10) רצה במקביל רק במה שלא תלוי בקוד.
   3. ✅ **בוצע ב-`chore/dev-speed`:** ‏`tools/critic-diff.mjs` בלי package-lock, קובצי הסטטוס והיומנים בשורש, ‏`decisions/`, ‏`archive/` ו-`.claude/logs`.
@@ -73,6 +73,7 @@
   - 15.10 · אפיק: ‏migrate מהענף על nestly-preview (ירוק; production דולג), וסיסמת `app_server` ב-nestly-preview אופסה ועודכנה ב-`DATABASE_URL` של Preview. בדיקת ה-Preview עברה.
   - 15.10 · אפיק: סיסמת `app_server` ב-nestly-prod בפורמט SCRAM — נבדק.
   - 15.10 · אפיק אישר migrate ל-production (ריצה 38692342935): ‏db-production ירוק — טבלאות F1.4 ב-nestly-prod.
+  - 17.10 · אפיק — Google Cloud ל-F1.8: פרויקט Nestly · מסך הסכמה External, פורסם ל-production (Branding: ‏home, ‏privacy ו-terms של nestly-blue.vercel.app, ‏authorized domain) · לקוח Web ‏"Nestly web": ‏redirect URIs של nestly-preview ושל nestly-prod, ‏origin ‏nestly-blue.vercel.app · ‏Supabase › nestly-preview וגם nestly-prod › Google מופעל עם ה-Client ID וה-secret (אפיק הזין); ‏"Skip nonce checks" ו-"Allow users without an email" כבויים. לא נבדק עדיין מצד Claude — ייבדק בתחילת F1.8.
 - **היסטוריה:** `archive/WORKPLAN-2026-10.md`. ההחלטות ב-`decisions.md`. הנקודות הפתוחות במוצר ב-`docs/srs/appendix-b-open-points.md`.
 
 ---
