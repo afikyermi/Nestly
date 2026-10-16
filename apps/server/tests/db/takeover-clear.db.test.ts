@@ -14,6 +14,7 @@ import {
   startContext,
   stopContext,
   changeAnswers,
+  entry,
   bearerFor,
   type Context,
 } from '../helpers/recovery-db.js';
@@ -57,6 +58,8 @@ afterAll(async () => {
 });
 
 const NONE = '-';
+// DR-T1: c4 and c6 cover every request that passes body validation; a malformed body keeps F1.6's 400 before the database.
+const VALID_PAIR = [entry('pet', 'Rex'), entry('street', 'Herzl')];
 
 // ---------------------------------------------------------------------------------------------------------------------
 describe('[F2.0-a c1 FR-AUTH-005] detection: who the clear runs for', () => {
@@ -296,8 +299,8 @@ describe('[F2.0-a c4 DR-O1] fail closed while pending', () => {
       const results = [
         await me(h, authorization),
         await saveAnswers(h, authorization),
-        await changeAnswers(h, authorization, [], []),
-        await postPassword(h, 'change', { current: [], password: 'x' }, authorization),
+        await changeAnswers(h, authorization, VALID_PAIR, [entry('nickname', 'Dana'), entry('pet', 'Rex')]),
+        await postPassword(h, 'change', { current: VALID_PAIR, password: 'סיסמה חדשה ארוכה 12345' }, authorization),
         await postPassword(h, 'forced', { password: 'סיסמה חדשה ארוכה 12345' }, authorization),
       ];
       for (const res of results) {
@@ -372,9 +375,9 @@ describe('[F2.0-a c6 DR-O2] tokens issued before the clear are refused', () => {
       const results = [
         await me(h, authorization),
         await saveAnswers(h, authorization),
-        await changeAnswers(h, authorization, [], []),
+        await changeAnswers(h, authorization, VALID_PAIR, [entry('nickname', 'Dana'), entry('pet', 'Rex')]),
         await postPassword(h, 'forced', { password: 'סיסמה חדשה ארוכה 12345' }, authorization),
-        await postPassword(h, 'change', { current: [], password: 'סיסמה חדשה ארוכה 12345' }, authorization),
+        await postPassword(h, 'change', { current: VALID_PAIR, password: 'סיסמה חדשה ארוכה 12345' }, authorization),
       ];
       for (const res of results) expect(res.statusCode, res.body).toBe(401);
     }
