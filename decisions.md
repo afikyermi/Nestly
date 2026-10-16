@@ -141,9 +141,9 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-17 | Guard-freeze exception (Afik): TEST ENGINEER may write `e2e-preview/*.flow.ts`; only that, with the next work (F1.8) | 10 |
 | 2026-10-17 | DR-E1 (Afik, option 1): test-user cleanup by SQL as postgres on nestly-preview, CI env preview-e2e only — approved exception to "nothing bypasses RLS" | 10 |
 | 2026-10-17 | E part 2: own test users always deleted, sweep ≤ 10 oldest, refusal above 50; cleanup as workflow_run on main code, main-only environment | 10 |
-| 2026-10-17 | F1.8 DR-1: Rule L by detect-unlink-sign-out in the return route + server 401 on an OAuth token whose providers hold `email`; probe on final Preview | 10 |
-| 2026-10-17 | F1.8 DR-4 (upd. DR-1): Supabase "Manual linking" on so the return route can unlink; clear name/picture from user_metadata first | 10 |
 | 2026-10-17 | F1.8 DR-2/DR-3: recovery-questions gate unchanged for Google-only accounts (debt); `profile` scope accepted and ignored if `openid email` cannot be forced | 10 |
+| 2026-10-17 | F1.8 (Afik): Rule L not built — takeover risk open in `security-privacy-open.md`; DR-5: Google name/picture never read, cleared from user_metadata | 10 |
+| 2026-10-17 | F1.8 (Afik): a first Google sign-in goes through full registration incl. a password; completion holds until the account exists | 10 |
 
 ## Superseded
 
@@ -151,6 +151,8 @@ Kept for the record; the full entries stay in the archive.
 
 | Date | Decision | Superseded by |
 |---|---|---|
+| 2026-10-17 | F1.8 DR-1: Rule L by detect-unlink-sign-out in the return route + server 401 on an OAuth token whose providers hold `email`; probe on final Preview | 2026-10-17 F1.8 (Afik): Rule L not built |
+| 2026-10-17 | F1.8 DR-4 (upd. DR-1): Supabase "Manual linking" on so the return route can unlink; clear name/picture from user_metadata first | 2026-10-17 F1.8 (Afik): Rule L not built |
 | 2026-09-12 | No role-specific skill files yet | 2026-10-11 Skills introduced (its criterion stands) |
 | 2026-09-12 | IRON RULE — React, JavaScript, CSS, HTML only | 2026-10-11 Rule 0: TypeScript |
 | 2026-09-12 | CI and a PreToolUse hook approved, not yet built | built in WORKPLAN 7.1 and 7.2 |
