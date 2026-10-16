@@ -37,3 +37,24 @@ claim:    Production now runs only on workflow_dispatch. Under the shared `concu
 failure:  A migrate run is in progress. ORCHESTRATOR dispatches the daily batch (`gh workflow run migrate.yml --ref main`), which waits as pending. Another migration PR then merges, and its push-triggered run takes the single pending slot, cancelling the dispatch. The push run applies preview and skips db-production. Production stays behind until the next dispatch, and ORCHESTRATOR has recorded the batch as dispatched. Before this PR the push run also ran production, so the replacement lost nothing.
 fix:      Give the dispatch its own group (for example `group: migrate-${{ github.event_name }}`), so a push cannot replace it while both still serialize on preview. Alternatively, have ORCHESTRATOR confirm the db-production job succeeded on the run it dispatched (`gh run watch`) before recording the batch.
 --- end ---
+
+--- re-check (fresh CRITIC, opus, on e23a529) ---
+bug 1: open — a trailing dot or space gets past the fix: Grep {pattern: ".", path: "C:/Users/Afik/nestly/.work."} with no glob
+       exits 0, and Windows opens `.work` itself, so every notes.md is printed (also ".work..", ".work. ."). Fix: strip trailing
+       "." and " " from each path part on Windows before the .work test, or require the notes-excluding glob/type for such parts.
+bug 2: open — `git add x.ts && git -c core.hooksPath=nul commit -m x` and `git add x.ts && git commit --no-verif -m x` exit 0 in
+       a clone with hooksPath set (git accepts shortened long options); `git update-index --add x.ts && git commit -m x` gets past
+       in a clone without it. Fix: restore the old split rule (any staging command with a commit in one command is blocked), or
+       block every --no-verify prefix, -c core.hooksPath / GIT_CONFIG_* overrides, and add update-index and read-tree.
+bug 3: closed · bug 4: closed · bug 5: closed
+
+--- bug ---
+severity: low
+file:     .claude/hooks/guard.js:396
+claim:    The -n check runs hasShortFlag over every commit argument, option values included.
+failure:  `git commit -m "-nothing"` (or `--author "-n"`) is blocked as --no-verify.
+fix:      Skip option values as commitTakesWorkingTree does (COMMIT_VALUE_OPTS and the -[..][mFCct]$ rule).
+--- end ---
+
+BLOCKER (ORCHESTRATOR, Two strikes / Round limit): bugs 1–2 remain blocking after one fix round and one re-check. PR 37 is not
+merged; the approach goes to Afik.
