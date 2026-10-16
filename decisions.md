@@ -138,6 +138,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-16 | OP-031–034 (Afik): own open-source image model in app_jobs · ERR-041 copy · audience per post and Story · related data deleted with the account | 10 |
 | 2026-10-16 | E is built inside PR 31, not its own PR; nothing merges to main overnight (Afik) | 10 |
 | 2026-10-16 | F1.6 wrap-up: Amendments 3–4, DATA ARCHITECT c23 (claim order is the server's), N1 to debt | 10 |
+| 2026-10-17 | Guard-freeze exception (Afik): TEST ENGINEER may write `e2e-preview/*.flow.ts`; only that, with the next work (F1.8) | 10 |
 
 ## Superseded
 
