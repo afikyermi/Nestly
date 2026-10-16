@@ -252,7 +252,9 @@ decision: other parts of the same feature, the next feature's intake and spec, s
 reserved for Afik in that Initiative into **one questionnaire** (AskUserQuestion, plus `.work/_initiatives/<I>-questions.md`),
 then works without stopping. Production migrations are batched: merges apply to nestly-preview at once; ORCHESTRATOR
 dispatches `migrate` from `main` **once a day or once per Initiative** (`gh workflow run migrate.yml --ref main`) and does
-not wait for Afik: he removed the `db-production` approval until launch (16.10.2026). Merging never waits for it.
+not wait for Afik: he removed the `db-production` approval until launch (16.10.2026). The batch counts only when that
+run's `db-production` job succeeded (`gh run view`); a later push run can replace a pending dispatch, so a cancelled or
+skipped batch is dispatched again. Merging never waits for it.
 
 **Two sessions in parallel from I3 (Afik, 16.10.2026, audit decision 9)** — only once decisions 1 and 2 are working.
 Pairs follow the dependency graph in `.work/_initiatives/roadmap.md` (Amendment 4): I3 ∥ I6 (F6.1–6.5), I4 ∥ I7,

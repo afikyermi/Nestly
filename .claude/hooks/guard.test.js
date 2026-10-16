@@ -180,8 +180,15 @@ test('all: commit is blocked when the staged diff holds a secret', () => {
   g('reset', '-q');
 
   // add and commit in one command: the guard runs before the add, so the pre-commit hook's scan (the same
-  // scanForSecrets) is what sees the staged secret.
+  // scanForSecrets) is what sees the staged secret — allowed only where that hook is enabled (PR 37 CRITIC 2).
+  blocks('all', 'Bash', { command: 'git add leak.ts && git commit -m x' }, repo);
+  g('config', 'core.hooksPath', '.githooks');
   allows('all', 'Bash', { command: 'git add leak.ts && git commit -m x' }, repo);
+  // --no-verify / -n would skip that hook.
+  for (const c of ['git commit -n -m x', 'git commit --no-verify -m x', 'git commit -nm x', 'git add leak.ts && git commit -n -m x']) {
+    blocks('all', 'Bash', { command: c }, repo);
+  }
+  allows('all', 'Bash', { command: 'git commit -m "no n flag here"' }, repo);
   g('add', 'leak.ts');
   assert.ok(require('./guard.js').scanForSecrets(repo, false), 'the pre-commit scan blocks the staged secret');
   g('reset', '-q');

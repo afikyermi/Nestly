@@ -393,8 +393,17 @@ function checkAll(tool, input, ctx) {
 
   const commits = calls.filter((c) => c.sub === 'commit');
   if (commits.length) {
+    if (commits.some((c) => c.args.includes('--no-verify') || hasShortFlag(c.args, 'n'))) {
+      return 'git commit --no-verify / -n skips the pre-commit secret scan, so it is blocked.';
+    }
+    // The scan below sees the index before this command runs, so a commit that shares a command with an add needs the
+    // pre-commit hook (.githooks), which sees the index after the add.
+    const stages = calls.some((c) => ['add', 'stage', 'rm', 'mv', 'stash', 'apply', 'cherry-pick', 'restore', 'checkout'].includes(c.sub));
     for (const c of commits) {
       const repo = c.dir ? abs(c.dir, c.cwd) : c.cwd;
+      if (stages && hooksPathOf(repo) !== '.githooks') {
+        return 'Run `git add` and `git commit` as separate commands here: the pre-commit secret scan is not enabled in this clone (`git config core.hooksPath .githooks`).';
+      }
       const reason = scanForSecrets(repo, commitTakesWorkingTree(c.args));
       if (reason) return reason;
     }
@@ -453,6 +462,14 @@ function hasHead(repo) {
     return true;
   } catch {
     return false;
+  }
+}
+
+function hooksPathOf(repo) {
+  try {
+    return git(repo, ['config', '--get', 'core.hooksPath']).trim();
+  } catch {
+    return '';
   }
 }
 
@@ -548,8 +565,10 @@ function checkReadPath(role, tool, input, ctx) {
   const forms = relBoth(target, ctx);
   if (forms.some(isNotes)) return `${who} does not read notes.md.`;
   if (isFile(realAbs(target))) return null; // one existing file that is not a notes file
-  // .work in any case: some file systems ignore case
-  if (forms.some((r) => reaches(r.toLowerCase(), '.work') || isInside(r.toLowerCase(), '.work')) && !grepExcludesNotes(input)) {
+  // .work in any case: some file systems ignore case. A path outside the root (another drive, a UNC or device alias of
+  // the project, a sibling clone) cannot be judged by these paths, so it needs the same notes-excluding glob or type.
+  const outside = (r) => r === '..' || r.startsWith('../') || path.isAbsolute(r);
+  if (forms.some((r) => outside(r) || reaches(r.toLowerCase(), '.work') || isInside(r.toLowerCase(), '.work')) && !grepExcludesNotes(input)) {
     return `${who} does not read notes.md. A search that reaches .work/ needs a glob or type that cannot match notes.md (e.g. glob "*.ts" or type "ts"), or a narrower path.`;
   }
   return null;

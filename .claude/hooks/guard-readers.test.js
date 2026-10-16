@@ -437,6 +437,24 @@ const uncFwd = (...s) => unc(...s).split('\\').join('/');
 const devicePath = (...s) => `\\\\?\\${path.join(ROOT, ...s)}`;
 const otherDrive = () => (driveLetter().toUpperCase() === 'Z' ? 'Y' : 'Z') + ':\\nestly-x\\';
 
+test('[I-1] critic: UNC alias of the root, Grep on .work with no glob, is blocked', (t) => {
+  if (!winSkip(t)) return;
+  blocks('critic', 'Grep', { pattern: '.', path: unc('.work') });
+  blocks('critic', 'Grep', { pattern: '.', path: uncFwd('.work') });
+  blocks('critic', 'Grep', { pattern: '.', path: unc('.work', 'x') });
+  blocks('critic', 'Grep', { pattern: '.', path: unc() });
+});
+
+test('[PR 37 CRITIC 1] both readers: a Grep outside the root needs a notes-excluding glob or type', () => {
+  for (const role of ['critic', 'test-engineer']) {
+    for (const p of [path.dirname(ROOT), path.join(path.dirname(ROOT), 'other-clone'), otherDrive(), devicePath('.work')]) {
+      blocks(role, 'Grep', { pattern: '.', path: p });
+      allows(role, 'Grep', { pattern: '.', path: p, glob: '*.ts' });
+      allows(role, 'Grep', { pattern: '.', path: p, type: 'ts' });
+    }
+  }
+});
+
 test('[I-1] regression: ordinary in-root absolute paths stay allowed', () => {
   allows('critic', 'Read', { file_path: P('apps', 'web', 'src', 'main.tsx') });
   allows('critic', 'Write', { file_path: P('.work', 's', 'findings.md'), content: 'f' });

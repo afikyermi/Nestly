@@ -16,8 +16,8 @@ WORKPLAN rule in `CLAUDE.md`. Runs **once per feature**, never per part.
 
 ## Preconditions
 
-The Preview passed — ORCHESTRATOR checked it, URL recorded in WORKPLAN (or the change took the Light path) · no
-`Not Ready` stands · CI is green.
+E (automated Preview E2E) is green (or the change took the Light path) · no critical, high or medium bug is
+open · CI is green.
 
 ## Steps
 
