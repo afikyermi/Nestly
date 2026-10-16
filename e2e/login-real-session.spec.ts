@@ -92,6 +92,11 @@ async function setup(page: Page, opts: Setup = {}): Promise<Net> {
       await route.fulfill({ status: 204, headers: CORS });
       return;
     }
+    // F1.8 c7/c10: completion asks the Auth user to tell a Google user from an email+password orphan; this is the latter.
+    if (req.method() === 'GET' && url.includes('/auth/v1/user')) {
+      await json(route, 200, { id: 'u-1', email: EMAIL, app_metadata: { provider: 'email' } });
+      return;
+    }
     await json(route, 404, { error: 'unstubbed' });
   });
   await page.route('**/api/me', async (route) => {
@@ -355,6 +360,7 @@ test.describe('F1.5 c20 keyboard, targets, RTL', () => {
       page.getByRole('button', { name: 'הצגת הסיסמה', exact: true }),
       page.getByRole('link', { name: 'שכחתי סיסמה', exact: true }),
       submit(page),
+      page.getByRole('button', { name: 'המשך עם Google', exact: true }), // F1.8 c16: between the submit and the register link
       page.getByRole('link', { name: 'יצירת חשבון חדש', exact: true }),
     ];
     // The first Tab from a fresh load lands on the first control in order; typing happens in the fields on the way.
@@ -370,7 +376,8 @@ test.describe('F1.5 c20 keyboard, targets, RTL', () => {
       await page.keyboard.press('Tab');
       await expect(next).toBeFocused();
     }
-    // Back to the submit button and activate it from the keyboard.
+    // Back to the submit button (past the Google button) and activate it from the keyboard.
+    await page.keyboard.press('Shift+Tab');
     await page.keyboard.press('Shift+Tab');
     await expect(submit(page)).toBeFocused();
     await page.keyboard.press('Enter');

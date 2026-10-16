@@ -8,6 +8,7 @@ import {
   APP,
   CLOSE,
   DRAWER_TITLE,
+  GOOGLE_RETURN,
   GUEST_ROUTES,
   LINE,
   MENU_BUTTON,
@@ -291,11 +292,13 @@ test.describe('Placeholders', () => {
     });
   }
 
-  for (const route of GUEST_ROUTES.slice(1)) {
-    test(`[F1.2 c22][FR-AUTH-004] the Guest placeholder ${route.path} sends no request to /api/*`, async ({ page }) => {
+  // F1.8: /auth/google is the return handler; opened with no code it makes no /api call either (c13: nothing but the token reaches the server).
+  for (const route of [...GUEST_ROUTES.slice(1), GOOGLE_RETURN]) {
+    test(`[F1.2 c22][FR-AUTH-004] the Guest page ${route.path} sends no request to /api/*`, async ({ page }) => {
       const urls = recordRequests(page);
       await open(page, route.path, 'signed-out');
-      await expect(h1Of(page)).toHaveText(route.h1);
+      if (route.h1 === '') await expect(h1Of(page)).toBeVisible();
+      else await expect(h1Of(page)).toHaveText(route.h1);
       await page.waitForTimeout(300);
       expect(urls.filter((u) => new URL(u).pathname.startsWith('/api/'))).toEqual([]);
     });
