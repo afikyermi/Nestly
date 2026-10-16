@@ -37,7 +37,11 @@ export function GoogleReturn() {
     if (started.current) return;
     started.current = true;
     void navigate(PATHS.googleEntry, { replace: true });
-    if (found.kind !== 'code' || account === null) return;
+    if (found.kind !== 'code') {
+      account?.discardGoogleStart();
+      return;
+    }
+    if (account === null) return;
     account.signInWithGoogle(found.code).then(
       (result) => {
         if (result.kind === 'stopped') setOutcome('stopped');

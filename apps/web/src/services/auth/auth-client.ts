@@ -28,10 +28,12 @@ export interface GoogleAuthPort {
   /** Builds the Google authorize URL (PKCE, scopes openid and email) for `redirectTo`. The verifier stays in the SDK's storage; nothing is navigated here. */
   startGoogleSignIn(redirectTo: string): Promise<GoogleStartResponse>;
   /**
-   * Exchanges the code Google returned for a session, then clears Google's profile keys from the Auth user (DR-5); a failed clear
-   * changes nothing. A missing verifier, a refused or reused code and a client that is not configured are all the same failure.
+   * Exchanges the code Google returned for a session, then clears Google's profile keys from the Auth user (DR-5) and, when that
+   * worked, renews the session once so the token handed back no longer carries them; a failed clear or renewal changes nothing. A missing verifier, a refused or reused code and a client that is not configured are all the same failure.
    */
   completeGoogleSignIn(code: string): Promise<SignInResponse>;
+  /** A return that makes no exchange (cancelled, provider error, no code): removes the PKCE verifier the start left in storage. */
+  discardGoogleStart(): void;
   /**
    * The email of the Auth user when the user came in through Google, asked of Auth with the held session (nothing stored); null for
    * any other user. Rejects when Auth could not answer, so a screen never mistakes a failed read for a user without Google. It tells the completion screen whether to ask for a password.
@@ -340,12 +342,24 @@ export function createAuthPort(
       const present = GOOGLE_PROFILE_KEYS.filter((key) => Object.hasOwn(data.user.user_metadata, key));
       if (present.length > 0) {
         try {
-          await authClient.updateUser({ data: Object.fromEntries(present.map((key) => [key, null])) });
+          const cleared = await authClient.updateUser({ data: Object.fromEntries(present.map((key) => [key, null])) });
+          if (cleared.error === null) {
+            // The token issued with the exchange still carries the keys; a renewed one is issued from the cleared user. A refused or
+            // failed renewal keeps the session as it is: the sign-in goes on with the first token.
+            const renewed = await authClient.refreshSession();
+            if (renewed.error === null && renewed.data.session !== null) {
+              return { accessToken: renewed.data.session.access_token, failure: null };
+            }
+          }
         } catch {
-          // A clear that fails does not stop the sign-in and is not shown (DR-5); the keys are never read, so they only wait.
+          // A clear or renewal that fails does not stop the sign-in and is not shown (DR-5); the keys are never read, so they only wait.
         }
       }
       return { accessToken: data.session.access_token, failure: null };
+    },
+
+    discardGoogleStart() {
+      storage?.removeItem(`${AUTH_STORAGE_KEY}-code-verifier`);
     },
 
     async readGoogleAccount() {

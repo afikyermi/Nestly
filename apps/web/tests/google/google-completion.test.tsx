@@ -17,7 +17,8 @@ const GOOGLE_EMAIL = 'google.person@example.com';
 const ORPHAN_EMAIL = 'orphan.person@example.com';
 const SENTINEL_PW = 'Sentinel-Pw-4821-zq';
 const CONSENT_LABEL = 'אישור תנאי השימוש ומדיניות הפרטיות, והצהרה על גיל 18 ומעלה';
-const GENERIC = 'משהו השתבש. אפשר לנסות שוב';
+const NO_CONSENT = 'יש לאשר את התנאים ואת הצהרת הגיל כדי להמשיך';
+const GENERIC ='משהו השתבש. אפשר לנסות שוב';
 const PW_LENGTH = 'הסיסמה צריכה להכיל לפחות 8 תווים';
 const REFRESH = 'SENTINEL-REFRESH-0e8c';
 
@@ -185,33 +186,70 @@ describe('F1.8 c7 completion mode for a Google user [FR-AUTH-005][AC-100][AC-088
     expect(consentBox()).not.toBeChecked();
   });
 
-  it.each([
-    [PASSWORD_MIN_LENGTH - 1, true],
-    [PASSWORD_MIN_LENGTH, false],
-    [PASSWORD_MAX_LENGTH, false],
-    [PASSWORD_MAX_LENGTH + 1, true],
-  ])('[F1.8 c7][VAL-003] a %i-character password with the consent ticked: final action disabled = %s', async (length, disabled) => {
+  it.each([PASSWORD_MIN_LENGTH - 1, PASSWORD_MAX_LENGTH + 1])(
+    '[F1.8 c7][VAL-003] a %i-character password with the consent ticked: the final action is enabled, pressing shows the password error and sends nothing',
+    async (length) => {
+      const w = world();
+      await googleToCompletion(w);
+      const u = userEvent.setup();
+      await throughStep1(u);
+      fireEvent.change(passwordField(), { target: { value: 'a1'.repeat(length).slice(0, length) } });
+      await u.click(consentBox());
+      expect(isDisabled(finalButton())).toBe(false);
+      await u.click(finalButton());
+      const describedBy = passwordField().getAttribute('aria-describedby') ?? '';
+      expect(describedBy).not.toBe('');
+      const text = describedBy.split(' ').map((id) => document.getElementById(id)?.textContent ?? '').join(' ').trim();
+      expect(text.length).toBeGreaterThan(0);
+      if (length < PASSWORD_MIN_LENGTH) expect(text).toContain(PW_LENGTH);
+      await settle();
+      expect(w.events).toEqual([]);
+      expect(w.passwordBodies).toEqual([]);
+      expect(w.registerBodies).toEqual([]);
+    },
+  );
+
+  it.each([PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH])('[F1.8 c7][VAL-003] a %i-character password with the consent ticked is accepted: updateUser then register', async (length) => {
     const w = world();
     await googleToCompletion(w);
     const u = userEvent.setup();
     await throughStep1(u);
     fireEvent.change(passwordField(), { target: { value: 'a1'.repeat(length).slice(0, length) } });
     await u.click(consentBox());
-    expect(isDisabled(finalButton())).toBe(disabled);
+    await u.click(finalButton());
+    await waitFor(() => expect(w.events).toEqual(['updateUser', 'register']));
   });
 
-  it('[F1.8 c7][AC-088] a valid password without the consent keeps the final action disabled; ticking it enables it', async () => {
+  it('[F1.8 c7][AC-088] a valid password without the consent: the final action is enabled, pressing shows the consent error linked by aria-describedby, and sends nothing', async () => {
     const w = world();
     await googleToCompletion(w);
     const u = userEvent.setup();
     await throughStep1(u);
     await u.type(passwordField(), SENTINEL_PW);
-    expect(isDisabled(finalButton())).toBe(true);
-    await u.click(consentBox());
     expect(isDisabled(finalButton())).toBe(false);
-    await u.click(consentBox());
-    expect(isDisabled(finalButton())).toBe(true);
+    await u.click(finalButton());
+    await screen.findByText(NO_CONSENT);
+    expect(consentBox()).toHaveAccessibleDescription(expect.stringContaining(NO_CONSENT));
+    await settle();
     expect(w.events).toEqual([]);
+    expect(w.registerBodies).toEqual([]);
+  });
+
+  it('[F1.8 c7][AC-088][VAL-003] a 7-character password and no consent: both errors show at once, each linked by aria-describedby, nothing is sent', async () => {
+    const w = world();
+    await googleToCompletion(w);
+    const u = userEvent.setup();
+    await throughStep1(u);
+    fireEvent.change(passwordField(), { target: { value: 'a1b2c3d' } });
+    await u.click(finalButton());
+    await screen.findByText(NO_CONSENT);
+    await screen.findByText(PW_LENGTH);
+    expect(passwordField()).toHaveAccessibleDescription(expect.stringContaining(PW_LENGTH));
+    expect(consentBox()).toHaveAccessibleDescription(expect.stringContaining(NO_CONSENT));
+    await settle();
+    expect(w.events).toEqual([]);
+    expect(w.passwordBodies).toEqual([]);
+    expect(w.registerBodies).toEqual([]);
   });
 
   it('[F1.8 c7][VAL-003] a too-short password shows the same error copy as the email path', async () => {

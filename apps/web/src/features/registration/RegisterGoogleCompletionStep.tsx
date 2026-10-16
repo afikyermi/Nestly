@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { RegistrationStep1 } from '@nestly/shared';
 import { AuthLayout } from '@/components/layout/auth-layout';
 import { FormField } from '@/components/shared/form-field';
@@ -34,25 +34,40 @@ export function RegisterGoogleCompletionStep({ step1, email, onBack, onSignOut, 
   const account = useSessionAccount();
   const sessionEntry = useSessionEntry();
   const running = useRef(false);
+  const formRef = useRef<HTMLFormElement>(null);
   const passwordInput = useRef<HTMLInputElement>(null);
   const consentErrorId = `${useId()}-consent-error`;
   const [password, setPassword] = useState('');
   const [touched, setTouched] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [focusTick, setFocusTick] = useState(0);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
 
   const passwordProblem = validatePassword(password);
   const ready = passwordProblem === null && consent;
+  const consentError = submitted && !consent;
+
+  useEffect(() => {
+    if (focusTick === 0) return;
+    formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+  }, [focusTick]);
 
   function clearPassword() {
     if (passwordInput.current !== null) passwordInput.current.value = '';
     setPassword('');
     setTouched(false);
+    setSubmitted(false);
   }
 
   async function submit() {
-    if (running.current || !ready) return;
+    if (running.current) return;
+    setSubmitted(true);
+    if (!ready) {
+      setFocusTick((tick) => tick + 1);
+      return;
+    }
     running.current = true;
     setBusy(true);
     setNotice(null);
@@ -96,6 +111,7 @@ export function RegisterGoogleCompletionStep({ step1, email, onBack, onSignOut, 
 
   return (
     <form
+      ref={formRef}
       noValidate
       onSubmit={(event) => {
         event.preventDefault();
@@ -110,7 +126,7 @@ export function RegisterGoogleCompletionStep({ step1, email, onBack, onSignOut, 
         }
         actions={
           <>
-            <Button type="submit" size="lg" block pending={busy} disabled={!ready}>
+            <Button type="submit" size="lg" block pending={busy} aria-disabled={busy ? true : undefined}>
               יצירת חשבון
             </Button>
             <Button variant="text" onClick={onSignOut} className="self-center">
@@ -132,7 +148,7 @@ export function RegisterGoogleCompletionStep({ step1, email, onBack, onSignOut, 
               {email}
             </p>
           </div>
-          <FormField label="סיסמה" hint="לפחות 8 תווים" {...(touched && passwordProblem !== null ? { error: passwordProblem } : {})}>
+          <FormField label="סיסמה" hint="לפחות 8 תווים" {...((touched || submitted) && passwordProblem !== null ? { error: passwordProblem } : {})}>
             {(control) => (
               <PasswordInput
                 {...control}
@@ -144,7 +160,7 @@ export function RegisterGoogleCompletionStep({ step1, email, onBack, onSignOut, 
               />
             )}
           </FormField>
-          <ConsentField checked={consent} error={false} errorId={consentErrorId} onCheckedChange={setConsent} />
+          <ConsentField checked={consent} error={consentError} errorId={consentErrorId} onCheckedChange={setConsent} />
           {notice !== null ? <InlineAlert>{notice === 'retry' ? RETRY_TEXT : GENERIC_ERROR_TEXT}</InlineAlert> : null}
           <span role="status" className="sr-only">
             {busy ? 'יוצרים את החשבון' : ''}

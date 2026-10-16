@@ -21,7 +21,7 @@ export type AuthSessionSource = SessionSource & SessionEntry & SessionAccount;
 
 export interface AuthSessionSourceDeps {
   /** The Auth client. Without the Google return (a test fake), a Google return reads as a failure. */
-  auth: AuthSessionPort & Partial<Pick<GoogleAuthPort, 'completeGoogleSignIn' | 'readGoogleAccount' | 'setPassword'>>;
+  auth: AuthSessionPort & Partial<Pick<GoogleAuthPort, 'completeGoogleSignIn' | 'discardGoogleStart' | 'readGoogleAccount' | 'setPassword'>>;
   /** Asks the server for the account state (`GET /api/me`) with this access token. */
   accountState: (accessToken: string) => Promise<AccountStateOutcome>;
   /** The clock, in milliseconds. */
@@ -281,6 +281,9 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
       signInThrough(() =>
         auth.completeGoogleSignIn === undefined ? Promise.reject(new Error('This Auth client has no Google return.')) : auth.completeGoogleSignIn(code),
       ),
+    discardGoogleStart: () => {
+      auth.discardGoogleStart?.();
+    },
     googleAccount: async () => (auth.readGoogleAccount === undefined ? null : auth.readGoogleAccount()),
     setPassword: async (password) => {
       if (auth.setPassword === undefined) return 'failed';

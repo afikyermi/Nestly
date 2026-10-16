@@ -22,8 +22,19 @@ const ACCESS_SIG = 'SENTINEL-ACCESS-55d1';
 const REFRESH = 'SENTINEL-REFRESH-0e8c';
 
 const b64 = (v: unknown): string => Buffer.from(JSON.stringify(v)).toString('base64url');
-const accessToken = (): string =>
-  `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ aud: 'authenticated', role: 'authenticated', sub: 'u1', exp: Math.floor(Date.now() / 1000) + 3600 })}.${ACCESS_SIG}`;
+/** The token the exchange issues carries Google's profile keys and the email in its claims; the refreshed one does not. */
+const accessToken = (dirty = false): string =>
+  `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({
+    aud: 'authenticated',
+    role: 'authenticated',
+    sub: 'u1',
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    ...(dirty ? { email: GOOGLE_EMAIL, user_metadata: { full_name: 'Dana Cohen', name: 'Dana Cohen', avatar_url: 'https://x.invalid/a.png', picture: 'https://x.invalid/a.png' } } : {}),
+  })}.${ACCESS_SIG}`;
+const claimsOf = (token: string): Record<string, unknown> => {
+  const parsed: unknown = JSON.parse(Buffer.from(token.split('.')[1] ?? '', 'base64url').toString('utf8'));
+  return typeof parsed === 'object' && parsed !== null ? Object.fromEntries(Object.entries(parsed)) : {};
+};
 const json = (status: number, body: unknown): Response => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
 function user(metadata: Record<string, unknown>) {
@@ -76,8 +87,9 @@ function build(opts: Options = {}) {
     if (url.pathname.endsWith('/token')) {
       if (opts.exchangeStatus !== undefined && opts.exchangeStatus !== 200) return json(opts.exchangeStatus, { error: 'x', error_description: 'SENTINEL-DESC' });
       const lifetime = 3600;
+      const refreshed = url.search.includes('grant_type=refresh_token');
       return json(200, {
-        access_token: accessToken(),
+        access_token: accessToken(!refreshed),
         token_type: 'bearer',
         expires_in: lifetime,
         expires_at: Math.floor(Date.now() / 1000) + lifetime,
@@ -154,6 +166,7 @@ describe('F1.8 c3 the failure text is one text for every failure [FR-AUTH-005][A
     expect(window.location.pathname).toBe('/auth/google');
     expect(window.location.search).toBe('');
     expect(sessionKeys(b.map)).toEqual([]);
+    if (opts.configured !== false) expect([...b.map.keys()], 'no Auth key at all').toEqual([]);
     expect(b.accountState).not.toHaveBeenCalled();
   });
 });
@@ -166,6 +179,7 @@ describe('F1.8 c4 cancelled consent [FR-AUTH-005][AC-087]', () => {
     expect(document.body.textContent).not.toContain('denied');
     expect(b.calls.filter((c) => c.path.endsWith('/token'))).toEqual([]);
     expect(sessionKeys(b.map)).toEqual([]);
+    expect([...b.map.keys()], 'verifier removed, no Auth key at all').toEqual([]);
     expect(window.location.search).toBe('');
   });
 
@@ -320,7 +334,7 @@ describe('F1.8 c13 + c15 the Google start [NFR-SEC-009][AC-101][FR-AUTH-005]', (
     expect(b.calls).toEqual([]);
   });
 
-  it('[F1.8 c15][NFR-SEC-009] the PKCE verifier stays in the SDK storage: in no URL, no console output, and no other storage key', async () => {
+  it('[F1.8 c15][NFR-SEC-009] between the start and the return the PKCE verifier is only under the SDK verifier key: in no URL, no console output, and no other storage key', async () => {
     const b = build({ verifier: false });
     const started = await b.auth.startGoogleSignIn(REDIRECT);
     const verifier = b.map.get(`${AUTH_STORAGE_KEY}-code-verifier`) ?? '';
@@ -347,7 +361,7 @@ describe('F1.8 c14 /auth/google is Guest-only [FR-AUTH-004][AC-087]', () => {
     const b = build();
     mountAt(`/auth/google?code=${CODE}`, b);
     await waitFor(() => expect(window.location.pathname).toBe('/feed'));
-    const exchanges = () => b.calls.filter((c) => c.path.endsWith('/token')).length;
+    const exchanges = () => b.calls.filter((c) => c.path.endsWith('/token') && c.search.includes('grant_type=pkce')).length;
     expect(exchanges()).toBe(1);
     act(() => {
       window.history.pushState(null, '', '/auth/google?code=SENTINEL-CODE-second');
@@ -379,8 +393,23 @@ describe('F1.8 c13 + c15 what is stored, sent and logged [NFR-SEC-009][AC-101]',
     expect(stored).toContain(REFRESH);
     expect(stored).not.toContain(GOOGLE_EMAIL);
     expect(stored).not.toContain('Dana Cohen');
+    const session: unknown = JSON.parse(stored);
+    const token: unknown = typeof session === 'object' && session !== null ? Reflect.get(session, 'access_token') : undefined;
+    expect(typeof token).toBe('string');
+    const claims = claimsOf(String(token));
+    for (const key of GOOGLE_KEYS) expect(claims, `token claim ${key}`).not.toHaveProperty(key);
+    expect(JSON.stringify(claims.user_metadata ?? {})).not.toMatch(/full_name|avatar_url|picture|Dana/);
+    expect(claims).not.toHaveProperty('email');
     expect(window.localStorage.length).toBe(0);
     expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it('[F1.8 c13][NFR-SEC-009] the status check receives an access token without the Google profile keys', async () => {
+    const b = build();
+    mountAt(`/auth/google?code=${CODE}`, b);
+    await waitFor(() => expect(window.location.pathname).toBe('/feed'));
+    const sent = b.accountState.mock.calls[0]?.[0] ?? '';
+    for (const key of GOOGLE_KEYS) expect(claimsOf(sent), key).not.toHaveProperty(key);
   });
 
   it('[F1.8 c13][NFR-SEC-009] the status check receives only the access token: nothing from the identity goes to the server', async () => {

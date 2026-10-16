@@ -43,6 +43,8 @@ export interface SessionAccount {
   signInWithPassword(credentials: { email: string; password: string }): Promise<SignInResult>;
   /** Google's return (F1.8): exchanges the code for a session, then runs the same status check as for a password. A session survives only if this reports signed-in or unregistered. */
   signInWithGoogle(code: string): Promise<SignInResult>;
+  /** A Google return that made no exchange (cancelled, provider error, no code): drops the PKCE verifier the start left behind. */
+  discardGoogleStart(): void;
   /** The Auth user's email when the user came in through Google (the completion screen then asks for a password); null for any other user. Rejects when Auth could not answer. */
   googleAccount(): Promise<{ email: string } | null>;
   /** Sets the Auth user's password (F1.8 completion). 'failed' covers every refusal and a call that never answered. */

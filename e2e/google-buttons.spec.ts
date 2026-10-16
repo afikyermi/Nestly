@@ -157,7 +157,7 @@ for (const vp of VIEWPORTS) {
       expect(describedBy).not.toBeNull();
       const target = page.locator(`[id="${(describedBy ?? '').split(' ')[0] ?? ''}"]`);
       expect((await target.innerText()).trim().length).toBeGreaterThan(0);
-      await expect(page.getByRole('button', { name: 'יצירת חשבון', exact: true })).toBeDisabled();
+      await expect(page.getByRole('button', { name: 'יצירת חשבון', exact: true })).toBeEnabled();
       await scan(page);
     });
   });
