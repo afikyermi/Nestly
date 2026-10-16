@@ -107,3 +107,16 @@ within what `app_recovery` may already do. **Q-S1** default — `mustSetPassword
 The data-model.md exception (a) text is applied in part (a)'s diff and validated by CRITIC (proposer ≠ validator).
 **Scope move (internal HOW):** spec c16 (F1.8 completion calls c11) moves into part (a), because c13 removes the client
 password call in the same part; part (b) keeps c14, c15, c17.
+
+## Gate 2 amendments — DATA ARCHITECT, 16.10.2026 (BUILDER handoff 4a4ab45..a4df223)
+- **A1 (Finding 4, c6 hole) — changed.** The trigger stamps `cleared_at := pg_catalog.clock_timestamp()` (the time of the
+  UPDATE, which runs after `signOutOthers` returned), not `now()` (transaction start). The order stays as built; no reorder.
+  Test `41_link_policies.sql:317`: assert `cleared_at > transaction start` and `<= clock_timestamp()` after the UPDATE,
+  not `= now()`. `password_set_at` keeps `now()` (no ordering against a token). Residual: Auth's `iat` clock vs the DB
+  clock; skew is assumed sub-second (one Supabase project); no margin added.
+- **A2 (Finding 5) — validated.** `recovery_events_insert_recovery` excludes the three subject-bound kinds; they are
+  writable only through `recovery_events_insert_subject`. Without it a declared handle could log `takeover_cleared` for
+  that handle's account. Keep it, with the test at `41_link_policies.sql` `reset_failed` line as the converse.
+- **A3 (audit FK) — confirmed: NULL.** `first_password_set` (c11) and `takeover_cleared` for a c9 user carry `user_id`
+  NULL: `recovery_events_user_id_fkey` references `nestly.users`, which has no row for them. Test `:421` must insert NULL
+  and expect OK, and expect 23503 for a non-NULL id with no users row.

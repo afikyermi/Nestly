@@ -148,8 +148,10 @@ as $$
 $$;
 
 -- 5. The transition trigger: exactly two moves, anything else raises 42501.
---    clear         OLD affected and pending, an oauth session with a session id: cleared_at := now(), clearing_session_id :=
---                  the caller's session (whatever the statement sent).
+--    clear         OLD affected and pending, an oauth session with a session id: cleared_at := clock_timestamp() — the
+--                  moment of this UPDATE, after the sign-out of the other sessions returned, not the start of the
+--                  transaction (a token refreshed before the sign-out must read stale, c6) — clearing_session_id := the
+--                  caller's session (whatever the statement sent).
 --    password set  OLD cleared, password not set; the caller is the clearing session, or has no own users row (c11):
 --                  password_set_at := now().
 --    verdict, checked_at, checked_session_id and user_id never change. There is no DELETE (no grant, no policy).
@@ -170,7 +172,7 @@ begin
     if not nestly.jwt_is_oauth() or nestly.jwt_session_id() is null then
       raise exception 'identity_link_checks: only an oauth session clears' using errcode = '42501';
     end if;
-    new.cleared_at := now();
+    new.cleared_at := pg_catalog.clock_timestamp();
     new.clearing_session_id := nestly.jwt_session_id();
     return new;
   end if;
@@ -268,7 +270,7 @@ comment on column nestly.identity_link_checks.checked_at is
 comment on column nestly.identity_link_checks.checked_session_id is
   'The session_id claim of the oauth session that wrote the verdict (the insert policy requires the caller''s own).';
 comment on column nestly.identity_link_checks.cleared_at is
-  'When the clear completed (the trigger stamps now()). NULL on an affected row: pending, every session answered 503.';
+  'When the clear completed: the trigger stamps clock_timestamp() at the UPDATE, after the other sessions were signed out, so every token they were issued has iat <= cleared_at (c6). NULL on an affected row: pending, every session answered 503.';
 comment on column nestly.identity_link_checks.clearing_session_id is
   'The session that completed the clear (set by the trigger). Its tokens stay valid; any other session''s token issued no later than cleared_at is stale (401).';
 comment on column nestly.identity_link_checks.password_set_at is
@@ -287,7 +289,7 @@ comment on function nestly.recovery_subject() is
 comment on function nestly.is_active_account() is
   'True only when the caller''s own account exists and is active (platform rule 15) and the session guard is ok or must_set (F2.0: pending, stale and unchecked tokens read nothing). SECURITY INVOKER, caller-only (rule 16).';
 comment on function nestly.identity_link_checks_transition() is
-  'Allows exactly two moves on identity_link_checks: the clear (pending to cleared, oauth session, stamped now() and the caller''s session) and the password set (by the clearing session, or a caller with no users row). Anything else raises 42501.';
+  'Allows exactly two moves on identity_link_checks: the clear (pending to cleared, oauth session, stamped clock_timestamp() and the caller''s session) and the password set (by the clearing session, or a caller with no users row). Anything else raises 42501.';
 
 comment on policy identity_link_checks_select_own on nestly.identity_link_checks is
   'An Auth user reads its own row only (the guard reads it).';
