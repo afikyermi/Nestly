@@ -47,3 +47,43 @@ failed` / `password change failed` `{sqlstate}` · `password change: the outcome
 **Web (c13, c16)**: `AuthClient.setPassword` and `SessionAccount.setPassword` are gone; PG-005 Google completion calls
 `setFirstPassword(token, password)` (`apps/web/src/services/api/password.ts`) → `POST /api/password/first`; anything but 200 →
 password cleared + generic text, no register call (as before).
+
+# interface — F2.0 part (b), web, for TEST ENGINEER
+
+**Session seam.** `mustSetPassword` is a flag beside `needsRecoveryQuestions`, not a new `SessionState` (the states stay four); the
+helper state `signed-in-needs-new-password` = flag on + `signed-in`. Test source (`controllable-session-source.ts`):
+`nestlyTestSession.setMustSetPassword(true)` (as TE assumed). Store/hook: `getMustSetPassword()`, `useSession().mustSetPassword`.
+Real source: `GET /api/me` `state:'active'` + `mustSetPassword === true` (exactly) → `fetchAccountState` returns
+`'active-must-set-password'` → flag on **and** `needsRecoveryQuestions` on (c8: the clear removed the answers). `SessionAccount.markPasswordSet()`
+turns the flag off, leaves the questions hold on, no second `/api/me`.
+
+**Guard** (`decideAccess(state, path, sessionEnded, needsQuestions, mustSetPassword)`, `apps/web/src/app/access.ts`): signed-in with the
+flag → renders only `/set-new-password`, `/terms`, `/privacy` (both exist as placeholder routes, `AppRoutes.tsx`); every other path →
+replace-redirect to `/set-new-password`. The flag is checked before the questions hold. Without the flag `/set-new-password` is not a
+protected path: signed-in → `/feed`, Guest → `/`. `/change-password` joins `PROTECTED_PATHS`; while the questions hold is on it
+redirects to `/recovery-questions` like every other protected path.
+
+**c14 screen** `/set-new-password`, inside the shell (`ProtectedLayout`): h1 and `<title>` "קביעת סיסמה חדשה"; intro "כדי להגן על
+החשבון, צריך לקבוע סיסמה חדשה. הסיסמה הקודמת בוטלה, וכל המכשירים האחרים נותקו מהחשבון."; field label "סיסמה חדשה" (PasswordInput,
+`autocomplete=new-password`), toggle "הצגת הסיסמה"; submit `form button[type=submit]` "שמירת הסיסמה" (`aria-disabled` + pending while
+busy; a second submit while busy sends nothing). Client check VAL-003 → field error "הסיסמה צריכה להכיל לפחות 8 תווים", nothing sent.
+`POST /api/password/forced {password}`: 200 → flag off, replace-navigate to `/recovery-questions` (setup mode). Any other answer, or no
+token → one `role=alert` (InlineAlert) with ERR-044 "לא הצלחנו להשלים את הפעולה כרגע. אפשר לנסות שוב מאוחר יותר", password field
+empty, focus on the alert; 401/409 also re-ask `/api/me` (the guard follows the answer).
+
+**c15 screen** `/change-password` (h1/title "החלפת סיסמה"): intro "כדי להחליף את הסיסמה, צריך קודם לענות על שתי שאלות השחזור ששמרתם.";
+the PG-052 answer group (`RecoveryAnswerFields`, legend "ענו על השתיים ששמרתם עכשיו", three text inputs labelled by the question
+texts, `autocomplete=off`); "סיסמה חדשה" + "הצגת הסיסמה"; submit `form button[type=submit]` "החלפת הסיסמה". Client checks: the answer
+rule (count on the group, length per field) and VAL-003. `POST /api/password/change {current:[{question,answer}×2], password}`:
+200 → `role=status` "הסיסמה הוחלפה. שאר המכשירים נותקו מהחשבון" in place of the intro, answers and password cleared. 401
+`invalid_recovery` → ERR-042 "הפרטים שהוזנו אינם תואמים. אפשר לנסות שוב"; 429 → ERR-043 "בוצעו יותר מדי ניסיונות. אפשר לנסות שוב
+מאוחר יותר"; 503/unreachable/no token → ERR-044 (text above); other 401, 400, 409 → generic "משהו השתבש. אפשר לנסות שוב". Each in the one
+`role=alert` region; the password field is emptied after every answer, the answers kept on failure. No storage, URL, query or history
+state carries them (form `noValidate`, submit prevented, bodies only).
+
+**Side menu**: four items in order — הגדרות (`/settings`) · שאלות לשחזור סיסמה (`/recovery-questions`) · **החלפת סיסמה** (link,
+`/change-password`) · התנתקות (button).
+
+**Stories**: `features/forced-password/ForcedPasswordForm` (Empty, PasswordTooShort, Failed) ·
+`features/password-change/PasswordChangeForm` (Empty, FieldErrors, Changed, Mismatch, Locked, Unavailable — fetch stubbed per story) ·
+`app/ProtectedLayout` (+ ChangePassword, MustSetNewPassword; DrawerOpen now shows four items).
