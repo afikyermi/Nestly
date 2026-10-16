@@ -111,7 +111,7 @@ export function RegisterGoogleCompletionStep({ step1, email, onBack, onSignOut, 
         actions={
           <>
             <Button type="submit" size="lg" block pending={busy} disabled={!ready}>
-              יצירת החשבון
+              יצירת חשבון
             </Button>
             <Button variant="text" onClick={onSignOut} className="self-center">
               התנתקות

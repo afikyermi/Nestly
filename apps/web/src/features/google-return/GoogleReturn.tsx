@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { useLinkClickHandler, useNavigate, useSearchParams } from 'react-router';
+import { useLinkClickHandler, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { PATHS } from '@/app/paths';
 import { AuthLayout } from '@/components/layout/auth-layout';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
 import { useSessionAccount } from '@/hooks/use-session-account';
-import { STOPPED_TEXT } from '@/lib/auth-texts';
+import { GOOGLE_FAILED_TEXT, STOPPED_TEXT } from '@/lib/auth-texts';
 import { documentTitle } from '@/lib/document-title';
-import { GOOGLE_CANCELLED_TEXT, GOOGLE_FAILED_TEXT, readGoogleReturn } from './google-return';
+import { GOOGLE_CANCELLED_TEXT, readGoogleReturn } from './google-return';
 
 type Outcome = 'working' | 'failed' | 'cancelled' | 'stopped';
 
@@ -27,6 +27,7 @@ export function GoogleReturn() {
   const toLogin = useLinkClickHandler(PATHS.login);
   const toRegister = useLinkClickHandler(PATHS.register);
   const [searchParams] = useSearchParams();
+  const { key } = useLocation();
   const [found] = useState(() => readGoogleReturn(searchParams));
   const [outcome, setOutcome] = useState<Outcome>(found.kind === 'code' && account !== null ? 'working' : found.kind === 'cancelled' ? 'cancelled' : 'failed');
   const heading = useRef<HTMLHeadingElement>(null);
@@ -48,9 +49,11 @@ export function GoogleReturn() {
     );
   }, [account, found, navigate]);
 
+  // The key is a dependency on purpose: the replace-navigation above changes the location, and FocusOnNavigation (an earlier sibling,
+  // so its effect runs first in the same commit) then moves focus to `main`. Focusing again on the new key puts it on the heading.
   useEffect(() => {
     if (outcome !== 'working') heading.current?.focus();
-  }, [outcome]);
+  }, [outcome, key]);
 
   const message = outcome === 'working' ? null : ALERT_TEXTS[outcome];
   return (

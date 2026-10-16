@@ -36,10 +36,7 @@
   1. **קובץ יומן מקומי ישן** `.live/events.jsonl` (טקסט מפרומפטים, לא ב-git): מחיקה היא שלך. אחריה אפשר להסיר את `.live/` מ-`.gitignore`.
   2. **מחיקת ענפים מרוחקים שמוזגו:** ‏`ui-wave-1/part-a` עד `part-e`, ‏`chore/i1-prep`, ‏`chore/guard-env-paths` (מוזג), ‏`chore/preview-access` (הוחלף ב-`-v2` אחרי rebase), ‏`chore/records-after-f12` (מוזג).
   3. ✅ **ב-F1.8: Google Cloud והסודות — הוגדרו אצלך (17.10).**
-  3א. **F1.8 — מה חסר ממך ב-Supabase (17.10, אחרי הכרעותיך):**
-     1. ‏Authentication › URL Configuration: ב-**nestly-prod** — ‏Site URL ‏`https://nestly-blue.vercel.app` ו-Redirect URL ‏`https://nestly-blue.vercel.app/auth/google`; ב-**nestly-preview** — ‏Redirect URL ‏`https://nestly-*-afikyermis-projects.vercel.app/auth/google`. אם כבר מוגדר — לכתוב לי מה מופיע.
-     2. לוודא בשני הפרויקטים: "Confirm email" כבוי · "Secure password change" ו-"Require current password when updating" כבויים (אחרת משתמש Google חדש לא יוכל להגדיר סיסמה) · "Allow manual linking" **נשאר כבוי** (‏DR-4 לא נבנה).
-     3. בסוף, ב-Preview הסופי: בדיקות ידניות עם חשבון Google שלך (אנחה אותך).
+  3א. ✅ **F1.8 — הגדרות Supabase בוצעו (17.10, אתה):** בשני הפרויקטים Confirm email, ‏Secure password change, ‏Require current password ו-Allow manual linking כבויים; ‏URL Configuration כמו שביקשתי. ‏Site URL של preview נשאר `http://localhost:3000` (בסדר: ה-redirect של Preview מותר ברשימה). שינוי סיסמה בלי הסיסמה הנוכחית — ‏S-16 ב-`security-privacy-open.md`. נשאר: בדיקות ידניות ב-Preview הסופי עם חשבון Google שלך.
   4. ✅ **worktrees ישנים** — נמחקו (15.10, אתה; ‏`git worktree list` מציג רק את התיקייה הראשית). ה-concern מ-PR 30 סגור — לרשום ב-`debt.md` ב-wrap-up.
   5. ✅ **חשבון בדיקה ל-E** — נרשמת ב-nestly-preview; repository secrets ב-GitHub: ‏`PREVIEW_TEST_EMAIL`, ‏`PREVIEW_TEST_PASSWORD` (אם CRITIC יקבע environment אחר — לומר לך). שים לב: החשבון נרשם לפני F1.6, ולכן בכניסה הראשונה הוא יוחזק במסך השאלות.
   6. ✅ **‏baselines של F1.6** — ‏`update-baselines` רץ (38787338192), שישה PNG ב-`e2e/__screenshots__/` (נבדקו בעין). אישרת לי להריץ ולהוריד בעצמי גם בהמשך.

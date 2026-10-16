@@ -3,14 +3,16 @@ import { PATHS } from '@/app/paths';
 import { AuthLayout } from '@/components/layout/auth-layout';
 import { WelcomeIllustration } from '@/components/shared/illustrations';
 import { Logo } from '@/components/shared/logo';
+import { GoogleButton } from '@/components/shared/google-button';
 import { Button } from '@/components/ui/button';
+import { useGoogleSignIn } from '@/hooks/use-google-sign-in';
 import { documentTitle } from '@/lib/document-title';
 
 // Welcome (PG-001, FR-AUTH-001): what a Guest sees on opening the site. One primary action. The Google
-// action is text-only until F1.8 brings the provider and its branding (FR-AUTH-005, Q4).
+// action is a text button, without the provider's logo (FR-AUTH-005, F1.8).
 export function WelcomePage() {
   const toRegister = useLinkClickHandler(PATHS.register);
-  const toGoogle = useLinkClickHandler(PATHS.googleEntry);
+  const google = useGoogleSignIn();
   const toLogin = useLinkClickHandler(PATHS.login);
   return (
     <main tabIndex={-1}>
@@ -21,9 +23,7 @@ export function WelcomePage() {
             <Button size="lg" block href={PATHS.register} onClick={toRegister}>
               יצירת חשבון חדש
             </Button>
-            <Button variant="soft" size="lg" block href={PATHS.googleEntry} onClick={toGoogle}>
-              המשך עם Google
-            </Button>
+            <GoogleButton busy={google.busy} message={google.message} onPress={google.onPress} buttonRef={google.buttonRef} />
             <Button variant="soft" size="lg" block href={PATHS.login} onClick={toLogin}>
               כבר יש לי חשבון
             </Button>

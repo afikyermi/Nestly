@@ -133,7 +133,7 @@ const settle = () => act(async () => void (await new Promise((r) => setTimeout(r
 const fullName = () => screen.findByLabelText(/^שם מלא/);
 const passwordField = () => screen.getByLabelText('סיסמה', { exact: true });
 const consentBox = () => screen.getByRole('checkbox', { name: CONSENT_LABEL });
-const finalButton = (name = 'יצירת החשבון') => screen.getByRole('button', { name });
+const finalButton = (name = 'יצירת חשבון') => screen.getByRole('button', { name });
 const isDisabled = (el: HTMLElement) => el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true';
 const logs: unknown[][] = [];
 

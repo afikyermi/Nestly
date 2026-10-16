@@ -6,11 +6,13 @@ import { AuthLayout } from '@/components/layout/auth-layout';
 import { ChoiceCardGroup, type ChoiceOption } from '@/components/shared/choice-card-group';
 import { DateInput } from '@/components/shared/date-input';
 import { FormField } from '@/components/shared/form-field';
+import { GoogleButton } from '@/components/shared/google-button';
 import { StepIndicator } from '@/components/shared/step-indicator';
 import { Button } from '@/components/ui/button';
 import { ArrowBackIcon } from '@/components/ui/icons';
 import { SelectInput } from '@/components/ui/select-input';
 import { TextInput } from '@/components/ui/text-input';
+import { useGoogleSignIn } from '@/hooks/use-google-sign-in';
 import { ChildrenSection } from './ChildrenSection';
 import { FieldError, FieldHint } from '@/components/shared/field-message';
 import { EMPTY_CHILD, validateStep1, type ChildForm, type Step1Errors, type Step1Form } from './step1-form';
@@ -56,6 +58,7 @@ export interface RegisterStepOneProps {
 // first "המשך" and are recomputed on every change after it, so one clears as soon as its field is valid.
 export function RegisterStepOne({ form, onFormChange, getToday, onValid, completion }: RegisterStepOneProps) {
   const toWelcome = useLinkClickHandler(PATHS.welcome);
+  const google = useGoogleSignIn();
   const formRef = useRef<HTMLFormElement>(null);
   const [attempts, setAttempts] = useState(0);
   const ids = useId();
@@ -114,6 +117,9 @@ export function RegisterStepOne({ form, onFormChange, getToday, onValid, complet
             <Button type="submit" size="lg" block>
               המשך
             </Button>
+            {completion === undefined ? (
+              <GoogleButton busy={google.busy} message={google.message} onPress={google.onPress} buttonRef={google.buttonRef} />
+            ) : null}
             {completion !== undefined ? (
               <Button variant="text" onClick={completion.onSignOut} className="self-center">
                 התנתקות

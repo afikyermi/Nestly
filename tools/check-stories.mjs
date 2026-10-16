@@ -26,6 +26,7 @@ export const STATES = {
   "shared/step-indicator": 2, // 1 of 2, 2 of 2
   "ui/checkbox": 4, // unchecked, checked, error, required
   "shared/inline-alert": 1, // error
+  "shared/google-button": 3, // default, busy, failed
   "shared/field-message": 2, // hint, error
   "shared/logo": 4, // link default, link big, static default, static big
   "shared/illustrations": 2, // welcome, registration
