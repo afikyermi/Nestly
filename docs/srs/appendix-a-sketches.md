@@ -8,7 +8,7 @@
 |---|---|---|---|
 | [WhatsApp ...18.06.57 (3)](../design/sketches/sk-57-3-welcome.jpeg) | Welcome / הצטרפות ל-Nestly | מזוהה בבירור | [R2 — Welcome](../design/mockups/r2-screens.html#welcome): איור סטטי, כותרת ניטרלית מגדרית |
 | [WhatsApp ...18.06.57 (4)](../design/sketches/sk-57-4-login.jpeg) | Login | מזוהה בבירור | [R2 — Login](../design/mockups/r2-screens.html#login): אימייל בלבד |
-| [WhatsApp ...18.06.57 (2)](../design/sketches/sk-57-2-register-regular.jpeg) | הרשמת משתמש רגיל — שני שלבים | מזוהה; קיימת כפילות/אי-בהירות סביב Email ולכן ה-SRS מגדיר Email פעם אחת לוגית | [R2 — הרשמה](../design/mockups/r2-screens.html#register): בלי טלפון, אישור תנאים בשלב 2 |
+| [WhatsApp ...18.06.57 (2)](../design/sketches/sk-57-2-register-regular.jpeg) | הרשמת משתמש רגיל — שני שלבים | מזוהה; קיימת כפילות/אי-בהירות סביב Email ולכן ה-SRS מגדיר Email פעם אחת לוגית | [R2 — הרשמה](../design/mockups/r2-screens.html#register): בלי טלפון, אישור תנאים בשלב 2. סדר השדות בשלב 1 והנוסח שונו ב-F1.3 (PG-004) |
 | [WhatsApp ...18.06.57 (1)](../design/sketches/sk-57-1-register-pro.jpeg) | הרשמת בעל מקצוע — שני שלבים | מזוהה; השדה שנחשב לא קריא הוא "מספר עוסק (מורשה/פטור)/ח.פ" (OP-006 נסגר) | [R2 — הרשמה מקצועית](../design/mockups/r2-screens.html#register-pro): בלי תאריך לידה, שם עסק לא חובה |
 | [WhatsApp ...18.06.56 (1)](../design/sketches/sk-56-1-feed.jpeg) | עמוד Feed + TopBar + Bottom Navigation | מזוהה בבירור | [R2 — Feed](../design/mockups/r2-screens.html#feed): שורת פעולות, שיתוף, גלילה אינסופית |
 | [WhatsApp ...18.06.56 (2)](../design/sketches/sk-56-2-home.jpeg) | עמוד בית — מעקב ותכנון | מזוהה; שמונה אריחי Tracker, השמיני "אמבטיה" (OP-007 נסגר) | [R2 — בית](../design/mockups/r2-screens.html#home): אריחים ברשת 4×2 |

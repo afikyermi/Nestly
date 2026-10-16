@@ -6,7 +6,7 @@
 |---|---|---|---|---|
 | PG-001 | WelcomePage | FR-AUTH-001/005 | UC-01/UC-02 | — |
 | PG-002 | LoginPage | FR-AUTH-002/003/005 | UC-03 | User |
-| PG-004/005 | RegularRegistrationFlow / BetaAccessFeature | FR-REG-002/003/004 / FR-ADMIN-011 | UC-01 | User, RegularProfile, Child, JourneyContext, LegalConsent, BetaInvite |
+| PG-004/005 | RegularRegistrationFlow / BetaAccessFeature | FR-REG-002/003/004 / FR-AUTH-005 / FR-ADMIN-011 | UC-01 | User, RegularProfile, Child, JourneyContext, LegalConsent, BetaInvite |
 | PG-006/007 | ProfessionalRegistrationFlow | FR-PROREG-001/002/003 | UC-02 | User, ProfessionalProfile, LegalConsent |
 | PG-008 | FeedFeature / PostShareFeature / PersonalizationSignalFeature / RuleBasedRecommendationEngine | FR-FEED-001..007 / FR-ALG-001..004 / FR-ALG-009 | UC-04/36/37/40 | Post (כולל שיתופים), Comment, Reaction, Group, Friendship, ProfessionalFollow, PersonalizationProfile, ContentImpression, RecommendationFeedback, ContentMetadata, AlgorithmConfiguration |
 | PG-009 | HomeTrackingFeature | FR-HOME-001..004 | UC-05/06 | JourneyContext, TrackerEvent, Article |
@@ -47,3 +47,5 @@
 | PG-048 | StoryViewerPage / StoryFeature | FR-FEED-008 | — | Story, MediaAsset |
 | PG-049 | CommunityRulesPage | FR-MOD-001 | — | — |
 | PG-050 | AccountDeletionFeature | FR-SET-002 | — | User, AuditLogEntry |
+| PG-051 | PasswordRecoveryPage / PasswordRecoveryFeature | FR-AUTH-003/004 | UC-03 | User, RecoveryAnswers, RecoveryThrottle, RecoveryEvent |
+| PG-052 | RecoveryQuestionsPage / PasswordRecoveryFeature | FR-AUTH-003 / FR-REG-004 / FR-MENU-001 | UC-01 | User, RecoveryAnswers, RecoveryEvent |
