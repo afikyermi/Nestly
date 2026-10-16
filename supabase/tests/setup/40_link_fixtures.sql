@@ -7,7 +7,7 @@
 --                                      replaces the identity_link_checks row of one Auth user with exactly that state, as postgres
 --                                      (the transition trigger guards UPDATE only; a fixture puts a row in any legal state)
 --   tests.fx_link_state(user)          'verdict/clearedSet/clearingSession/passwordSet' of the row, '-' for none
---   tests.fx_link_cleared_is_now(user) true when cleared_at = now() (the database clock; one transaction shares one now())
+--   tests.fx_link_cleared_in_flight(user) true when transaction start < cleared_at <= clock_timestamp() (A1: stamped at the UPDATE, not at now())
 --   tests.fx_link_answers_put(user, handle_hex)   a valid recovery_answers row for the user (handle NULL when handle_hex is NULL)
 --   tests.fx_link_event_kinds(user)    the audit kinds written for one user_id, oldest first, '-' for none
 --   tests.fx_link_events_json(user)    those audit rows as JSON text
@@ -50,10 +50,10 @@ as $$
     from nestly.identity_link_checks l where l.user_id = p_user), '-')
 $$;
 
-create or replace function tests.fx_link_cleared_is_now(p_user uuid) returns boolean
+create or replace function tests.fx_link_cleared_in_flight(p_user uuid) returns boolean
 language sql security definer set search_path = ''
 as $$
-  select coalesce((select l.cleared_at = now() from nestly.identity_link_checks l where l.user_id = p_user), false)
+  select coalesce((select l.cleared_at > now() and l.cleared_at <= clock_timestamp() from nestly.identity_link_checks l where l.user_id = p_user), false)
 $$;
 
 create or replace function tests.fx_link_answers_put(p_user uuid, p_handle_hex text default null) returns void

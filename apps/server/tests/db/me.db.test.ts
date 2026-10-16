@@ -74,7 +74,7 @@ afterAll(async () => {
 // canonical (sorted-key) form.
 const canon = (body: string): string =>
   JSON.stringify(Object.fromEntries(Object.entries(jsonOf(body)).sort(([left], [right]) => left.localeCompare(right))));
-const ACTIVE = '{"recoveryQuestions":"missing","state":"active"}';
+const ACTIVE = '{"mustSetPassword":false,"recoveryQuestions":"missing","state":"active"}';
 const UNAVAILABLE = '{"state":"unavailable"}';
 const UNREGISTERED = '{"state":"unregistered"}';
 
@@ -156,7 +156,7 @@ describe('[F1.5-a c2 NFR-SEC-001] the body carries the state, one more field for
       const res = await me(app, await bearerFor(who));
       bodies.push(res.body);
       const parsed = jsonOf(res.body);
-      expect(Object.keys(parsed).sort()).toEqual(parsed.state === 'active' ? ['recoveryQuestions', 'state'] : ['state']);
+      expect(Object.keys(parsed).sort()).toEqual(parsed.state === 'active' ? ['mustSetPassword', 'recoveryQuestions', 'state'] : ['state']);
       expect(['active', 'unavailable', 'unregistered']).toContain(parsed.state);
       if (parsed.state === 'active') expect(['set', 'missing']).toContain(parsed.recoveryQuestions);
     }

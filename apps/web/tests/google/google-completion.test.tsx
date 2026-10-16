@@ -1,6 +1,8 @@
 // F1.8 P2b, criteria 7-11 through the whole <App>: a Google Auth user with no account completes registration with a password.
-// The REAL Auth client and session source run over a stubbed Auth server (fetch) and a map storage; POST /api/register is a spy on the
-// global fetch. Derived from .work/google-sign-in/spec.md only; the order of calls is recorded in one shared list.
+// The REAL Auth client and session source run over a stubbed Auth server (fetch) and a map storage; POST /api/password/first and
+// POST /api/register are spies on the global fetch. Derived from .work/google-sign-in/spec.md, and since F2.0 part a from its
+// criterion c16 (.work/account-takeover-close/spec.md; D2): the password is set by the SERVER (POST /api/password/first with the
+// caller's access token), never by an Auth updateUser call from the browser. The order of calls is recorded in one shared list.
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -27,10 +29,10 @@ const accessToken = (): string =>
   `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ aud: 'authenticated', role: 'authenticated', sub: 'u1', exp: Math.floor(Date.now() / 1000) + 3600 })}.SIG`;
 const json = (status: number, body: unknown): Response => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
-type PutAnswer = 'ok' | 'fail' | 'same_password' | 'pending';
+type PutAnswer = 'ok' | 'fail' | 'pending';
 interface Options {
   provider?: 'google' | 'email';
-  /** What each password-setting PUT /user answers, in order; the last one repeats. */
+  /** What each POST /api/password/first answers (ok = 200, fail = 503), in order; the last one repeats. */
   puts?: PutAnswer[];
   /** What each POST /api/register answers, in order; the last one repeats. */
   registers?: Array<201 | 500 | 503 | 'throw'>;
@@ -41,6 +43,8 @@ function world(opts: Options = {}) {
   const email = provider === 'google' ? GOOGLE_EMAIL : ORPHAN_EMAIL;
   const events: string[] = [];
   const passwordBodies: string[] = [];
+  const passwordAuth: Array<string | null> = [];
+  const authPasswordPuts: string[] = [];
   const registerBodies: string[] = [];
   const map = new Map<string, string>();
   map.set(`${AUTH_STORAGE_KEY}-code-verifier`, JSON.stringify('SENTINEL-VERIFIER'));
@@ -78,14 +82,8 @@ function world(opts: Options = {}) {
       });
     }
     if (url.pathname.endsWith('/user') && init?.method === 'PUT') {
-      if (!body.includes('"password"')) return json(200, authUser); // the profile-keys clearing (DR-5), not under test here
-      passwordBodies.push(body);
-      events.push('updateUser');
-      const answer = putPlan.length > 1 ? (putPlan.shift() ?? 'ok') : (putPlan[0] ?? 'ok');
-      if (answer === 'fail') return json(400, { code: 400, error_code: 'weak_password', msg: 'x' });
-      if (answer === 'same_password') return json(422, { code: 422, error_code: 'same_password', msg: 'x' });
-      if (answer === 'pending') await new Promise<void>((resolve) => releasePending.push(resolve));
-      return json(200, authUser);
+      if (body.includes('"password"')) authPasswordPuts.push(body); // the browser must never do this (c13)
+      return json(200, authUser); // the profile-keys clearing (DR-5)
     }
     if (url.pathname.endsWith('/user')) return json(200, authUser);
     return json(404, {});
@@ -93,6 +91,14 @@ function world(opts: Options = {}) {
   const registerPlan = [...(opts.registers ?? [201])];
   vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
     const target = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    if (target.includes('/api/password/first')) {
+      events.push('setPassword');
+      passwordBodies.push(typeof init?.body === 'string' ? init.body : '');
+      passwordAuth.push(new Headers(init?.headers).get('authorization'));
+      const answer = putPlan.length > 1 ? (putPlan.shift() ?? 'ok') : (putPlan[0] ?? 'ok');
+      if (answer === 'pending') return new Promise<Response>((resolve) => releasePending.push(() => resolve(json(200, { ok: true }))));
+      return Promise.resolve(answer === 'fail' ? json(503, { error: 'unavailable' }) : json(200, { ok: true }));
+    }
     if (!target.includes('/api/register')) return Promise.resolve(json(404, {}));
     events.push('register');
     registerBodies.push(typeof init?.body === 'string' ? init.body : '');
@@ -115,7 +121,7 @@ function world(opts: Options = {}) {
     });
     return { auth, source };
   };
-  return { events, passwordBodies, registerBodies, map, boot, releasePending, setOutcome: (o: AccountStateOutcome) => void (outcomes[0] = o) };
+  return { events, passwordBodies, passwordAuth, authPasswordPuts, registerBodies, map, boot, releasePending, setOutcome: (o: AccountStateOutcome) => void (outcomes[0] = o) };
 }
 
 type World = ReturnType<typeof world>;
@@ -209,7 +215,7 @@ describe('F1.8 c7 completion mode for a Google user [FR-AUTH-005][AC-100][AC-088
     },
   );
 
-  it.each([PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH])('[F1.8 c7][VAL-003] a %i-character password with the consent ticked is accepted: updateUser then register', async (length) => {
+  it.each([PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH])('[F1.8 c7][VAL-003] a %i-character password with the consent ticked is accepted: the server password call then register', async (length) => {
     const w = world();
     await googleToCompletion(w);
     const u = userEvent.setup();
@@ -217,7 +223,7 @@ describe('F1.8 c7 completion mode for a Google user [FR-AUTH-005][AC-100][AC-088
     fireEvent.change(passwordField(), { target: { value: 'a1'.repeat(length).slice(0, length) } });
     await u.click(consentBox());
     await u.click(finalButton());
-    await waitFor(() => expect(w.events).toEqual(['updateUser', 'register']));
+    await waitFor(() => expect(w.events).toEqual(['setPassword', 'register']));
   });
 
   it('[F1.8 c7][AC-088] a valid password without the consent: the final action is enabled, pressing shows the consent error linked by aria-describedby, and sends nothing', async () => {
@@ -263,8 +269,8 @@ describe('F1.8 c7 completion mode for a Google user [FR-AUTH-005][AC-100][AC-088
   });
 });
 
-describe('F1.8 c8 ordering: updateUser({ password }) first, then register [FR-REG-004][AC-088]', () => {
-  it('[F1.8 c8] register is not sent while updateUser is pending; after it resolves register follows and the body has no password', async () => {
+describe('F1.8 c8 / F2.0-a c16 ordering: POST /api/password/first first, then register [FR-REG-004][AC-088][FR-AUTH-005]', () => {
+  it('[F1.8 c8] register is not sent while the server password call is pending; after it resolves register follows and the body has no password', async () => {
     const w = world({ puts: ['pending'] });
     await googleToCompletion(w);
     const u = userEvent.setup();
@@ -272,21 +278,23 @@ describe('F1.8 c8 ordering: updateUser({ password }) first, then register [FR-RE
     await u.type(passwordField(), SENTINEL_PW);
     await u.click(consentBox());
     await u.click(finalButton());
-    await waitFor(() => expect(w.events).toEqual(['updateUser']));
+    await waitFor(() => expect(w.events).toEqual(['setPassword']));
     await settle();
-    expect(w.events).toEqual(['updateUser']);
+    expect(w.events).toEqual(['setPassword']);
     await act(async () => {
       w.releasePending.forEach((r) => r());
       await Promise.resolve();
     });
-    await waitFor(() => expect(w.events).toEqual(['updateUser', 'register']));
-    expect(w.passwordBodies[0]).toContain(SENTINEL_PW);
+    await waitFor(() => expect(w.events).toEqual(['setPassword', 'register']));
+    expect(JSON.parse(w.passwordBodies[0] ?? '{}')).toEqual({ password: SENTINEL_PW });
+    expect(w.passwordAuth[0], 'the call carries the signed-in user\'s access token').toMatch(/^Bearer .+/);
+    expect(w.authPasswordPuts, 'F2.0-a c13: the browser never sets a password through Auth').toEqual([]);
     expect(w.registerBodies[0]).not.toContain(SENTINEL_PW);
     expect(w.registerBodies[0]).not.toMatch(/password/i);
     expect(await screen.findByRole('heading', { level: 1, name: 'פיד' })).toBeInTheDocument();
   });
 
-  it('[F1.8 c8] updateUser fails: register is never sent, the user stays on step 2 with the generic text, the password is empty and the consent is kept', async () => {
+  it('[F1.8 c8][F2.0-a c16] the server password call fails (503): register is never sent, the user stays on step 2 with the generic text, the password is empty and the consent is kept', async () => {
     const w = world({ puts: ['fail'] });
     await googleToCompletion(w);
     const u = userEvent.setup();
@@ -296,7 +304,7 @@ describe('F1.8 c8 ordering: updateUser({ password }) first, then register [FR-RE
     await u.click(finalButton());
     await waitFor(() => expect(screen.queryAllByRole('alert').some((a) => (a.textContent ?? '').includes(GENERIC))).toBe(true));
     await settle();
-    expect(w.events).toEqual(['updateUser']);
+    expect(w.events).toEqual(['setPassword']);
     expect(path()).toBe('/register');
     expect(passwordField()).toHaveValue('');
     expect(consentBox()).toBeChecked();
@@ -310,8 +318,8 @@ describe('F1.8 c9 a failed register can be retried [FR-REG-004]', () => {
     ['503', 503 as const],
     ['500', 500 as const],
     ['a network failure', 'throw' as const],
-  ])('[F1.8 c9] register fails with %s: still in completion with an error; the retry sets the password again, then registers; a same_password answer counts as success', async (_label, failure) => {
-    const w = world({ puts: ['ok', 'same_password'], registers: [failure, 201] });
+  ])('[F1.8 c9] register fails with %s: still in completion with an error; the retry sets the password again, then registers; a retry after the failed registration succeeds', async (_label, failure) => {
+    const w = world({ puts: ['ok', 'ok'], registers: [failure, 201] });
     await googleToCompletion(w);
     const u = userEvent.setup();
     await throughStep1(u);
@@ -319,7 +327,7 @@ describe('F1.8 c9 a failed register can be retried [FR-REG-004]', () => {
     await u.click(consentBox());
     await u.click(finalButton());
     await waitFor(() => expect(screen.queryAllByRole('alert').length).toBeGreaterThan(0));
-    expect(w.events).toEqual(['updateUser', 'register']);
+    expect(w.events).toEqual(['setPassword', 'register']);
     expect(path()).toBe('/register');
     const pw = passwordField();
     if (pw instanceof HTMLInputElement && pw.value === '') await u.type(pw, SENTINEL_PW);
@@ -327,7 +335,7 @@ describe('F1.8 c9 a failed register can be retried [FR-REG-004]', () => {
     if (box instanceof HTMLInputElement && !box.checked) await u.click(box);
     await u.click(finalButton());
     expect(await screen.findByRole('heading', { level: 1, name: 'פיד' })).toBeInTheDocument();
-    expect(w.events).toEqual(['updateUser', 'register', 'updateUser', 'register']);
+    expect(w.events).toEqual(['setPassword', 'register', 'setPassword', 'register']);
   });
 
   it('[F1.8 c9] the password is never in web storage, the URL, a register body or the console', async () => {
@@ -363,11 +371,11 @@ describe('F1.8 c10 the email is the Auth user\'s, read-only; an email+password o
     await u.type(passwordField(), SENTINEL_PW);
     await u.click(consentBox());
     await u.click(finalButton());
-    await waitFor(() => expect(w.events).toEqual(['updateUser', 'register']));
+    await waitFor(() => expect(w.events).toEqual(['setPassword', 'register']));
     expect(w.registerBodies[0]).not.toContain(GOOGLE_EMAIL);
   });
 
-  it('[F1.8 c10] an email+password orphan: step 2 has no password field and no updateUser({ password }) call', async () => {
+  it('[F1.8 c10] an email+password orphan: step 2 has no password field and no password call at all', async () => {
     const w = world({ provider: 'email' });
     mountAt('/login', w);
     const u = userEvent.setup();
@@ -381,6 +389,7 @@ describe('F1.8 c10 the email is the Auth user\'s, read-only; an email+password o
     await u.click(screen.getByRole('button', { name: 'יצירת חשבון' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'פיד' })).toBeInTheDocument();
     expect(w.passwordBodies).toEqual([]);
+    expect(w.authPasswordPuts).toEqual([]);
     expect(w.events).toEqual(['register']);
   });
 });

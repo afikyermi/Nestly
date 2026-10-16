@@ -331,7 +331,7 @@ describe('[F1.6 c3 c12 c13] the constants the server and the database share', ()
     expect(RECOVERY_LIMITS.ip).toEqual({ shortFailures: 10, shortWindowSeconds: 900, shortLockSeconds: 900 });
   });
 
-  it('[F1.6 c13 c21 c22 c23] the audit kinds are the thirteen approved ones: Amendment 1 outcomes, then email mismatch, handle released and handle re-keyed', () => {
+  it('[F1.6 c13 c21 c22 c23] the audit kinds are the thirteen approved ones: Amendment 1 outcomes, then email mismatch, handle released and handle re-keyed; F2.0 adds seven', () => {
     expect([...RECOVERY_EVENT_KINDS].sort()).toEqual(
       [
         'answers_saved',
@@ -347,6 +347,13 @@ describe('[F1.6 c3 c12 c13] the constants the server and the database share', ()
         'reset_email_mismatch',
         'handle_released',
         'handle_rekeyed',
+        'takeover_cleared',
+        'password_set_forced',
+        'first_password_set',
+        'password_changed',
+        'password_change_failed',
+        'password_change_limited',
+        'password_change_auth_failed',
       ].sort(),
     );
   });

@@ -49,9 +49,9 @@ select is_empty(
   $$ select c.relname || '.' || a.attname
        from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'nestly' and c.relkind in ('r', 'p', 'v', 'm', 'f') and a.attnum > 0 and not a.attisdropped
-        and c.relname not in ('recovery_answers', 'recovery_throttles', 'recovery_events')
+        and c.relname not in ('recovery_answers', 'recovery_throttles', 'recovery_events', 'identity_link_checks')
         and a.attname ~* '(pass|pwd|hash|secret|token|salt|crypt|email|phone)' $$,
-  '[F1.4-a c14 NFR-SEC-001 · F1.6 scoped] no column of the five F1.1/F1.4 tables holds a password, hash, secret, token, email or phone (the recovery tables hold hashes by design: file 30)');
+  '[F1.4-a c14 NFR-SEC-001 · F1.6, F2.0 scoped] no column of the five F1.1/F1.4 tables holds a password, hash, secret, token, email or phone (the recovery tables hold hashes by design: file 30; identity_link_checks: file 40)');
 
 -- ---- defaults: the owner and the clock come from the database (rules 12, 13; criterion 10 / 14) ------------------------
 select is(
@@ -174,14 +174,14 @@ select is_empty(
 select is(
   (select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')),
-  8::bigint,
-  '[F1.4-a c14 · F1.6-a] schema nestly holds exactly eight tables: the five F1.1/F1.4 ones and the three recovery tables (no table nobody listed)');
+  9::bigint,
+  '[F1.4-a c14 · F1.6-a · F2.0-a] schema nestly holds exactly nine tables: the five F1.1/F1.4 ones, the three recovery tables and identity_link_checks (no table nobody listed)');
 
 select is(
   (select string_agg(c.relname, ', ' order by c.relname) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')),
-  'children, journey_contexts, legal_consents, recovery_answers, recovery_events, recovery_throttles, regular_profiles, users',
-  '[F1.6-a] the eight tables are exactly these names');
+  'children, identity_link_checks, journey_contexts, legal_consents, recovery_answers, recovery_events, recovery_throttles, regular_profiles, users',
+  '[F1.6-a · F2.0-a] the nine tables are exactly these names');
 
 -- ---- policies: the exact list ---------------------------------------------------------------------------------------------
 select set_eq(
@@ -240,9 +240,9 @@ select ok(
 -- ---- grants ---------------------------------------------------------------------------------------------------------------
 select is(
   (select string_agg(c.relname, ', ' order by c.relname) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'nestly' and c.relkind = 'r' and has_table_privilege('authenticated', c.oid, 'SELECT')),
+    where n.nspname = 'nestly' and c.relkind = 'r' and c.relname <> 'identity_link_checks' and has_table_privilege('authenticated', c.oid, 'SELECT')),
   'children, journey_contexts, legal_consents, regular_profiles, users',
-  '[F1.4-a c14] authenticated can SELECT all five tables');
+  '[F1.4-a c14 · F2.0 scoped] authenticated can SELECT all five tables (identity_link_checks: file 40)');
 
 -- Amendment 1 (CRITIC a-1): INSERT is granted per COLUMN, never per table.
 select is_empty(
@@ -308,8 +308,9 @@ select is_empty(
   $$ select c.relname || ':' || p.priv
        from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
        cross join (values ('UPDATE'), ('DELETE'), ('TRUNCATE'), ('REFERENCES'), ('TRIGGER')) as p(priv)
-      where n.nspname = 'nestly' and c.relkind in ('r', 'p') and has_table_privilege('authenticated', c.oid, p.priv) $$,
-  '[F1.4-a c14 criterion 14 amended] authenticated holds no UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any nestly table: owners read, they do not edit (I2)');
+      where n.nspname = 'nestly' and c.relkind in ('r', 'p') and has_table_privilege('authenticated', c.oid, p.priv)
+        and not (c.relname = 'recovery_answers' and p.priv = 'DELETE') $$,
+  '[F1.4-a c14 criterion 14 amended · F2.0 scoped] authenticated holds no UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any nestly table: owners read, they do not edit (I2); the one DELETE is the F2.0 D1 clear of recovery_answers (file 40)');
 
 select is_empty(
   $$ select c.relname || '.' || a.attname
@@ -357,8 +358,8 @@ select is_empty(
 select is_empty(
   $$ select c.relname || '.' || t.tgname
        from pg_catalog.pg_trigger t join pg_catalog.pg_class c on c.oid = t.tgrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-      where n.nspname = 'nestly' and not t.tgisinternal $$,
-  '[F1.4-a c14] no trigger on any nestly table (the limits are constraints, not code)');
+      where n.nspname = 'nestly' and not t.tgisinternal and t.tgname <> 'identity_link_checks_transition' $$,
+  '[F1.4-a c14 · F2.0 scoped] no trigger on any nestly table but the F2.0 transition guard of identity_link_checks (file 40): the limits are constraints, not code');
 
 select is_empty(
   $$ select p.proname from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -368,8 +369,8 @@ select is_empty(
 select is(
   (select string_agg(p.proname, ', ' order by p.proname) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'nestly'),
-  'is_active_account, recovery_claimed_at, recovery_handle, recovery_ip',
-  '[F1.4-a c14 · F1.6-a c3 c21] nestly holds exactly four functions: is_active_account and the three recovery helpers (no other function came with a migration)');
+  'identity_link_checks_transition, is_active_account, jwt_is_oauth, jwt_issued_at, jwt_session_id, recovery_claimed_at, recovery_handle, recovery_ip, recovery_subject, session_guard',
+  '[F1.4-a c14 · F1.6-a c3 c21 · F2.0-a] nestly holds exactly ten functions: is_active_account, the three recovery helpers, the five F2.0 helpers and the F2.0 transition trigger (no other function came with a migration)');
 
 select is_empty(
   $$ select c.relname from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace

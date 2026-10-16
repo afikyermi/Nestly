@@ -225,7 +225,7 @@ select is(tests.fx_link_state(tests.fx_id('a')), 'affected/false/-/false', '[F2.
 
 select is(tests.dml_as('authenticated', pg_temp.cl(tests.fx_id('a'), pg_temp.sid(1)), $q$ update nestly.identity_link_checks set cleared_at = '2000-01-01 00:00:00+00' $q$, true), 'OK:1',
   '[F2.0-a c3] an oauth session clears the pending row (the value it sends is only a trigger)');
-select is(tests.fx_link_cleared_is_now(tests.fx_id('a')), true, '[F2.0-a c3] cleared_at is the database''s now(), not the value the caller sent');
+select is(tests.fx_link_cleared_in_flight(tests.fx_id('a')), true, '[F2.0-a c3 c6 A1] cleared_at is the database clock at the UPDATE (after the transaction started, not now()), not the value the caller sent');
 select is(tests.fx_link_state(tests.fx_id('a')), 'affected/true/' || pg_temp.sid(1) || '/false',
   '[F2.0-a c3 c6] clearing_session_id is the caller''s session; password_set_at is still NULL (the account is must_set)');
 select is(tests.dml_as('authenticated', pg_temp.cl(tests.fx_id('a'), pg_temp.sid(1)), 'update nestly.identity_link_checks set cleared_at = now() where cleared_at is null', false), 'OK:0',
@@ -329,8 +329,8 @@ select is(tests.dml_as('app_recovery', tests.claims(tests.fx_id('f1')), pg_temp.
   '[F2.0-a c9] takeover_cleared with no user is accepted (the unregistered variant has no account row)');
 select is(tests.dml_as('app_recovery', tests.claims(tests.fx_id('f1')), pg_temp.ev('first_password_set', null, repeat('ee', 32), repeat('cc', 32)), false), 'OK:1',
   '[F2.0-a c11] first_password_set with no user is accepted (the F1.8 completion has no account row yet)');
-select is(tests.dml_as('app_recovery', tests.claims(tests.fx_id('f1')), pg_temp.ev('first_password_set', tests.fx_id('f1')::text, repeat('ee', 32), repeat('cc', 32)), false), 'OK:1',
-  '[F2.0-a c11] first_password_set with the subject''s own id is accepted');
+select is(tests.dml_as('app_recovery', tests.claims(tests.fx_id('f1')), pg_temp.ev('first_password_set', tests.fx_id('f1')::text, repeat('ee', 32), repeat('cc', 32)), false), 'ERR:23503',
+  '[F2.0-a c11 A3] first_password_set naming an id with no users row is a foreign-key violation: the audit carries NULL for an unregistered user');
 select alike(tests.dml_as_msg('app_recovery', tests.claims(tests.fx_id('f1')), pg_temp.ev('password_set_forced', null, repeat('ee', 32), repeat('cc', 32)), false), 'ERR:%',
   '[F2.0-a c7] password_set_forced always knows its account: with no user it is refused');
 select alike(tests.dml_as_msg('app_recovery', tests.claims(tests.fx_id('f1')), pg_temp.ev('password_changed', null, repeat('ee', 32), repeat('cc', 32)), false), 'ERR:%',

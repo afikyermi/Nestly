@@ -88,7 +88,17 @@ const APPROVED_F16: ColumnShape[] = [
   col('recovery_events', 'ip_hash', 'bytea', true),
   col('recovery_events', 'occurred_at', TZ, true),
 ];
-const APPROVED_ALL: ColumnShape[] = [...APPROVED, ...APPROVED_F14, ...APPROVED_F16];
+// F2.0 part a (schema.md, identity_link_checks): what the migrated database holds.
+const APPROVED_F20: ColumnShape[] = [
+  col('identity_link_checks', 'user_id', 'uuid', true),
+  col('identity_link_checks', 'verdict', 'text', true),
+  col('identity_link_checks', 'checked_at', TZ, true),
+  col('identity_link_checks', 'checked_session_id', 'uuid', true),
+  col('identity_link_checks', 'cleared_at', TZ, false),
+  col('identity_link_checks', 'clearing_session_id', 'uuid', false),
+  col('identity_link_checks', 'password_set_at', TZ, false),
+];
+const APPROVED_ALL: ColumnShape[] = [...APPROVED, ...APPROVED_F14, ...APPROVED_F16, ...APPROVED_F20];
 const APPROVED_BEFORE_F16: ColumnShape[] = [...APPROVED, ...APPROVED_F14];
 
 const without = (rows: ColumnShape[], table: string, column: string): ColumnShape[] =>

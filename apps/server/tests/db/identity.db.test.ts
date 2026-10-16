@@ -189,12 +189,13 @@ describe('[F1.1-c c23] inside the transaction the caller is `authenticated`, wha
     expect(res.rows[0]).toMatchObject({ cu: 'authenticated', uid: ACCOUNT_B, role: 'authenticated' });
   });
 
-  it.each(CLAIM_SETS)('[F1.1-c c23] platform r14: request.jwt.claims inside the transaction holds exactly the keys {role, sub}: %s', T, async (_label, extra) => {
+  // F2.0 DR-S1 (Gate 2): the session identifiers session_id, iat and amr pass too, when the token has them; nothing else does.
+  it.each(CLAIM_SETS)('[F1.1-c c23 · F2.0-a DR-S1] platform r14: request.jwt.claims inside the transaction holds exactly {role, sub} plus the session identifiers the token had: %s', T, async (_label, extra) => {
     const app = await serverApp();
     const res = await call(app, 'claimkeys', ACCOUNT_A, extra);
     expect(res.status, res.body).toBe(200);
     expect(res.rows).toHaveLength(1);
-    expect(res.rows[0]?.keys).toBe('role,sub');
+    expect(res.rows[0]?.keys).toBe('session_id' in extra ? 'iat,role,session_id,sub' : 'iat,role,sub');
   });
 
   it.each(ROLES)('[F1.1-c c23] role claim %s grants no more than authenticated: the caller reads only its own users row', T, async (_label, extra) => {
