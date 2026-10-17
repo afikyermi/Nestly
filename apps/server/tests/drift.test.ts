@@ -118,7 +118,22 @@ const APPROVED_F24A: ColumnShape[] = [
   col('regular_names', 'user_id', 'uuid', true),
   col('regular_names', 'full_name', 'text', true),
 ];
-const APPROVED_ALL: ColumnShape[] = [...APPROVED, ...APPROVED_F14, ...APPROVED_F16, ...APPROVED_F20, ...APPROVED_F24A];
+// F2.4c1 (schema.md "Migration"): the profile-open limit's Configuration, the per-account open times and the Security events.
+// 4 + 3 + 4 columns; opened_at is a timestamptz array (PostgreSQL's own spelling, format_type()).
+const APPROVED_F24C1: ColumnShape[] = [
+  col('security_limits', 'limit_key', 'text', true),
+  col('security_limits', 'max_count', 'integer', true),
+  col('security_limits', 'window_seconds', 'integer', true),
+  col('security_limits', 'updated_at', TZ, true),
+  col('profile_open_counts', 'user_id', 'uuid', true),
+  col('profile_open_counts', 'opened_at', `${TZ}[]`, true),
+  col('profile_open_counts', 'is_refusal_recorded', 'boolean', true),
+  col('security_events', 'id', 'uuid', true),
+  col('security_events', 'kind', 'text', true),
+  col('security_events', 'user_id', 'uuid', true),
+  col('security_events', 'occurred_at', TZ, true),
+];
+const APPROVED_ALL: ColumnShape[] = [...APPROVED, ...APPROVED_F14, ...APPROVED_F16, ...APPROVED_F20, ...APPROVED_F24A, ...APPROVED_F24C1];
 const APPROVED_BEFORE_F16: ColumnShape[] = [...APPROVED, ...APPROVED_F14];
 
 const without = (rows: ColumnShape[], table: string, column: string): ColumnShape[] =>
@@ -361,6 +376,9 @@ describe('[F1.1-b c10 c20] the db:drift command against the real Drizzle schema'
     ['recovery_throttles.subject_hash of another type', changed(APPROVED_ALL, 'recovery_throttles', 'subject_hash', { type: 'text' })],
     ['recovery_events.user_id not null in the database', changed(APPROVED_ALL, 'recovery_events', 'user_id', { notNull: true })],
     ['recovery_events.ip_hash missing', without(APPROVED_ALL, 'recovery_events', 'ip_hash')],
+    ['security_events missing from the database', APPROVED_ALL.filter((r) => r.table !== 'security_events')],
+    ['security_limits missing from the database', APPROVED_ALL.filter((r) => r.table !== 'security_limits')],
+    ['profile_open_counts.opened_at not an array in the database', changed(APPROVED_ALL, 'profile_open_counts', 'opened_at', { type: TZ })],
   ])('exits non-zero for %s', { timeout: TIMEOUT }, (_label, rows) => {
     const result = drift(JSON.stringify(rows));
     expect(result.error).toBeUndefined();

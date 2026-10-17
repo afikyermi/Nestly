@@ -16,6 +16,8 @@ select is(session_user::text, 'app_server'::text,
   '[F2.3-b c15] session_user is app_server (this file must not run under another login)');
 
 select lives_ok($q$ select tests.fx_pv_build() $q$, '[F2.3-b fixture] V, B (spec fixture), planning-only, no-journey, pregnant-only, pending, no-profile');
+-- F2.4c1: every call to profile_view counts as an open (100 per hour by default); this file's reads are F2.3b's, not the limit's (file 64)
+select lives_ok($q$ select tests.fx_set_limit(10000, 3600) $q$, '[F2.3-b fixture · F2.4-c] the profile-open limit raised to 10000 for this transaction: no read here is refused');
 
 create function pg_temp.id(p_name text) returns uuid language sql as $f$
   select case when p_name in ('p', 's', 'x', 'c') then tests.fx_id_checked(p_name) else tests.fx_pv_id(p_name) end
@@ -29,10 +31,17 @@ create function pg_temp.pvn(p_viewer text, p_target text) returns text language 
   select pg_temp.pv(p_viewer, pg_temp.id(p_target)::text)
 $f$;
 -- the one row the spec expects, as the same jsonb array text
-create function pg_temp.want(p_name text, p_gender text, p_count int, p_ages jsonb, p_pregnant boolean, p_sentence boolean)
+-- F2.4c1 widened the row by four items: V is never a Friend of B here and B has no Friend, so the state is 'none' (null for a
+-- Professional viewer), both lists are empty and the outcome is 'shown' (files 63 and 64 assert them)
+create function pg_temp.want(p_name text, p_gender text, p_count int, p_ages jsonb, p_pregnant boolean, p_sentence boolean, p_rel text default 'none')
 returns text language sql as $f$
   select jsonb_build_array(jsonb_build_object('full_name', p_name, 'gender', p_gender, 'children_count', p_count,
-    'child_ages', p_ages, 'is_pregnant', p_pregnant, 'shows_empty_journey_sentence', p_sentence))::text
+    'child_ages', p_ages, 'is_pregnant', p_pregnant, 'shows_empty_journey_sentence', p_sentence,
+    'relationship', p_rel, 'friends', '[]'::jsonb, 'mutual_friends', '[]'::jsonb, 'outcome', 'shown'))::text
+$f$;
+-- the same row without the viewer's own state
+create function pg_temp.nostate(p_viewer text, p_target text) returns jsonb language sql as $f$
+  select (pg_temp.pvn(p_viewer, p_target)::jsonb -> 0) - 'relationship'
 $f$;
 create function pg_temp.age(p_birth date) returns jsonb language sql as $f$
   select jsonb_build_object('years', tests.fx_age(p_birth, now()) / 12, 'months', tests.fx_age(p_birth, now()) % 12)
@@ -75,8 +84,8 @@ select is(pg_temp.pvn('pv_v', 'pv_b'), pg_temp.want('דנה כהן', null, 2, nu
 
 select is(
   (select pg_catalog.pg_get_function_result(pg_temp.proc('nestly.profile_view(text)'))),
-  'TABLE(full_name text, gender text, children_count smallint, child_ages jsonb, is_pregnant boolean, shows_empty_journey_sentence boolean)',
-  '[F2.3-b c7 c8 c10 P1 P2] the read has exactly six outputs: no age text, child name, sex, birth date, child id or slot, due date, week, journey id, planning status, email, created_at, birthday consent, status or tracker data');
+  'TABLE(full_name text, gender text, children_count smallint, child_ages jsonb, is_pregnant boolean, shows_empty_journey_sentence boolean, relationship text, friends jsonb, mutual_friends jsonb, outcome text)',
+  '[F2.3-b c7 c8 c10 P1 P2 · F2.4-c c17 c18 c19] the read has exactly ten outputs (F2.3b''s six, then the state, the two Friends lists, the outcome): no age text, child name, sex, birth date, child id or slot, due date, week, journey id, planning status, email, created_at, birthday consent, status or tracker data');
 
 select is(
   (select pg_catalog.pg_get_function_arguments(pg_temp.proc('nestly.profile_view(text)'))),
@@ -230,12 +239,12 @@ select is(pg_temp.set_sentence('pv_b', true), 'OK:1', '[F2.3-b fixture] B senten
 -- =====================================================================================================================
 select is(tests.fx_user(pg_temp.id('p')), 'professional/active', '[F2.3-b c11 fixture] P is an active Professional account');
 select isnt(pg_temp.pvn('p', 'pv_b'), '[]', '[F2.3-b c11 OP-020] P gets B''s row (restricted): the comparison below is not of two empty results');
-select is(pg_temp.pvn('p', 'pv_b'), pg_temp.pvn('pv_v', 'pv_b'), '[F2.3-b c11 OP-020] B restricted: P = V item for item');
+select is(pg_temp.nostate('p', 'pv_b'), pg_temp.nostate('pv_v', 'pv_b'), '[F2.3-b c11 OP-020] B restricted: P = V item for item (the relationship state is V''s own, P has none: file 63)');
 select is(pg_temp.set_vis('pv_b', 'open'), 'OK:1', '[F2.3-b fixture] B open');
-select is(pg_temp.pvn('p', 'pv_b'), pg_temp.pvn('pv_v', 'pv_b'), '[F2.3-b c11 OP-020] B open: P = V item for item');
-select is(pg_temp.pvn('p', 'pv_b'), pg_temp.want('דנה כהן', 'woman', 2, pg_temp.b_ages(), true, false),
+select is(pg_temp.nostate('p', 'pv_b'), pg_temp.nostate('pv_v', 'pv_b'), '[F2.3-b c11 OP-020] B open: P = V item for item');
+select is(pg_temp.pvn('p', 'pv_b'), pg_temp.want('דנה כהן', 'woman', 2, pg_temp.b_ages(), true, false, null),
   '[F2.3-b c11] and that is c8''s result');
-select is(pg_temp.pvn('p', 'pv_e'), pg_temp.pvn('pv_v', 'pv_e'), '[F2.3-b c11 c10] P = V on the no-children account too');
+select is(pg_temp.nostate('p', 'pv_e'), pg_temp.nostate('pv_v', 'pv_e'), '[F2.3-b c11 c10] P = V on the no-children account too');
 
 -- =====================================================================================================================
 -- c12 — a change applies on the next read
@@ -415,13 +424,13 @@ select is(
                      || (select string_agg(r.rolname, '+' order by r.rolname) from pg_catalog.pg_roles r where r.oid = any (pol.polroles)),
                      ', ' order by c.relname)
      from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'nestly' and pol.polname like '%\_profile\_view'),
+    where n.nspname = 'nestly' and pol.polname like '%\_profile\_view' and c.relname in ('children', 'journey_contexts', 'regular_profiles', 'users')),
   'children.children_select_profile_view:r:true:app_owner, journey_contexts.journey_contexts_select_profile_view:r:true:app_owner, '
   || 'regular_profiles.regular_profiles_select_profile_view:r:true:app_owner, users.users_select_profile_view:r:true:app_owner',
-  '[F2.3-b c15 c9] the four scoped policies: SELECT only, permissive, TO app_owner only');
+  '[F2.3-b c15 c9] the four F2.3b scoped policies: SELECT only, permissive, TO app_owner only (the seven of F2.4c1: file 64)');
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'nestly' and pol.polname like '%\_profile\_view'
+    where n.nspname = 'nestly' and pol.polname like '%\_profile\_view' and c.relname in ('children', 'journey_contexts', 'regular_profiles', 'users')
       and pg_catalog.pg_get_expr(pol.polqual, pol.polrelid) ~ 'profile_view_target\(\)' and pol.polwithcheck is null),
   4::bigint,
   '[F2.3-b c15] each of them matches only the transaction-local target (profile_view_target()), and none has a WITH CHECK');

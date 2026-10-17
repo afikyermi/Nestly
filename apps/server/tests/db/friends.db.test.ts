@@ -63,9 +63,13 @@ const frCount = async (): Promise<number> => Number(await one(side`select tests.
 const setStatus = async (who: string, status: 'active' | 'suspended' | 'banned'): Promise<void> => {
   await side`select tests.set_status(${who}::uuid, ${status})`;
 };
+// F2.4c1 c24: a send counts as a profile open (100 per hour per account), and these files send from the same fixture accounts
+// far more often than that. The counters of A and B (and their Security events) are cleared with their friendship rows, so
+// F2.4a's assertions are about F2.4a; the production seed is untouched. The limit itself is asserted in profile-view.db.test.ts.
 const purgeAB = async (): Promise<void> => {
   await side`select tests.fx_fr_purge(${ACCOUNT_A}::uuid)`;
   await side`select tests.fx_fr_purge(${ACCOUNT_B}::uuid)`;
+  for (const who of [ACCOUNT_A, ACCOUNT_B, S, X, P, M, D]) await side`select tests.fx_open_reset(${who}::uuid)`;
 };
 async function freshUser(): Promise<string> {
   const [row] = await side`select tests.fx_new_auth_user()::text as id`;
