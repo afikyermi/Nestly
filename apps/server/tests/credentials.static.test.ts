@@ -189,6 +189,12 @@ describe('[F1.6-b c15 FR-AUTH-003] the Auth admin key and the pepper are named i
     expect(namingIn(/SUPABASE_SECRET_KEY/)).toEqual([AUTH_ADMIN_MODULE]);
   });
 
+  it('[gateway-key c9] SUPABASE_PUBLISHABLE_KEY is named under apps/server/src in auth-admin.ts only, and the module does name it', SLOW, () => {
+    const serverSrc = scanned().filter((f) => f.path.startsWith('apps/server/src/'));
+    expect(serverSrc.filter((f) => /(?<![A-Z_])SUPABASE_PUBLISHABLE_KEY/.test(f.text)).map((f) => f.path)).toEqual([AUTH_ADMIN_MODULE]);
+    expect(serverSrc.filter((f) => /sb_publishable_/.test(f.text)).map((f) => f.path)).toEqual([]);
+  });
+
   it('RECOVERY_PEPPER is named in apps/server/src/recovery/pepper.ts and in no other file under apps/, api/ or vercel.json (and the module does name it: not vacuous)', SLOW, () => {
     expect(namingIn(/RECOVERY_PEPPER/)).toEqual([PEPPER_MODULE]);
   });

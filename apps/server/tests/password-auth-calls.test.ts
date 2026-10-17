@@ -16,6 +16,7 @@ afterEach(() => {
 
 const USER = 'a0000000-0000-4000-8000-0000000000a1';
 const KEY = ['sb', 'secret', 'unit-test-key-0123456789'].join('_');
+const PUBLISHABLE = ['sb', 'publishable', 'unit-test-key-9876543210'].join('_');
 
 async function stub(status: number, json: unknown = {}): Promise<{ env: Record<string, string>; seen: Seen[] }> {
   const seen: Seen[] = [];
@@ -33,7 +34,7 @@ async function stub(status: number, json: unknown = {}): Promise<{ env: Record<s
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address: string | AddressInfo | null = server.address();
   if (address === null || typeof address === 'string') throw new Error('no port');
-  return { env: { SUPABASE_SECRET_KEY: KEY, SUPABASE_JWT_ISSUER: `http://127.0.0.1:${address.port}/auth/v1` }, seen };
+  return { env: { SUPABASE_SECRET_KEY: KEY, SUPABASE_PUBLISHABLE_KEY: PUBLISHABLE, SUPABASE_JWT_ISSUER: `http://127.0.0.1:${address.port}/auth/v1` }, seen };
 }
 
 describe('[F2.0-a c11] setUserPassword', () => {
@@ -85,6 +86,7 @@ describe('[F2.0-a c1] readSignInIdentities', () => {
     expect(seen[0]?.method).toBe('GET');
     expect(seen[0]?.path).toMatch(/\/user$/);
     expect(seen[0]?.headers.authorization).toBe('Bearer CALLER-TOKEN');
+    expect(seen[0]?.headers.apikey).toBe(PUBLISHABLE);
     expect(read).toEqual({
       kind: 'ok',
       identities: [
