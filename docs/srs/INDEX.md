@@ -2,7 +2,7 @@
 
 # SRS — אינדקס
 
-**מקור האמת של מוצר Nestly.** SRS v2.20 · 16.10.2026.
+**מקור האמת של מוצר Nestly.** SRS v2.21 · 17.10.2026.
 
 ה-SRS מתוחזק ב-markdown ומפוצל לפי סעיפים. גרסאות ה-Word הקודמות נמצאות ב-[`archive/`](archive/) כהיסטוריה בלבד.
 
@@ -155,7 +155,7 @@
 | FR-ALG-010 | Group Notification Highlights v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-DATA-001 | Analytics Event Tracking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 
-## קריטריוני קבלה — 116
+## קריטריוני קבלה — 125
 
 > השמות קוצרו לצורך ניווט בלבד. הנוסח המחייב נמצא ב-[15-acceptance.md](15-acceptance.md).
 
@@ -277,6 +277,15 @@
 | AC-114 | מסך שאלות השחזור חובה | [15-acceptance.md](15-acceptance.md) |
 | AC-115 | החלפת שאלות השחזור מהתפריט | [15-acceptance.md](15-acceptance.md) |
 | AC-116 | נרמול תשובות השחזור | [15-acceptance.md](15-acceptance.md) |
+| AC-117 | החלפת סיסמה אחרי שתי תשובות | [15-acceptance.md](15-acceptance.md) |
+| AC-118 | ניקוי ההשתלטות בכניסת Google ראשונה | [15-acceptance.md](15-acceptance.md) |
+| AC-119 | פרטיות: ברירת מחדל Open | [15-acceptance.md](15-acceptance.md) |
+| AC-120 | Friend רואה את תצוגת ה-Open | [15-acceptance.md](15-acceptance.md) |
+| AC-121 | דחייה שקטה וביטול בקשה | [15-acceptance.md](15-acceptance.md) |
+| AC-122 | 100 פתיחות פרופיל בשעה | [15-acceptance.md](15-acceptance.md) |
+| AC-123 | מחיקת ילד או הריון אחרי אישור | [15-acceptance.md](15-acceptance.md) |
+| AC-124 | קישור לפרופיל: התחברות ואז הפרופיל | [15-acceptance.md](15-acceptance.md) |
+| AC-125 | תפריט ו-Settings של I2 | [15-acceptance.md](15-acceptance.md) |
 
 ## מזהים נוספים
 
@@ -287,7 +296,7 @@
 | ERR | שגיאות ותרחישי קצה | ERR-001 … ERR-044 | 44 | [10-errors-edge-cases.md](10-errors-edge-cases.md) |
 | NFR | דרישות לא-פונקציונליות | NFR-SEC-001 … NFR-SEC-010 | 36 | [06-non-functional.md](06-non-functional.md) |
 | UC | Use Cases | UC-01 … UC-42 | 42 | [14-use-cases.md](14-use-cases.md) |
-| PG | מסכים | PG-001 … PG-052 | 52 | [07-screens-navigation.md](07-screens-navigation.md) |
-| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-034 | 34 | [appendix-b-open-points.md](appendix-b-open-points.md) |
+| PG | מסכים | PG-001 … PG-054 | 54 | [07-screens-navigation.md](07-screens-navigation.md) |
+| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-036 | 36 | [appendix-b-open-points.md](appendix-b-open-points.md) |
 | ALG | קטלוג האלגוריתמים | ALG-01 … ALG-09 | 9 | [18-algorithms-spec.md](18-algorithms-spec.md) |
 | P-ALG | עקרונות האלגוריתמים | P-ALG-01 … P-ALG-08 | 8 | [18-algorithms-spec.md](18-algorithms-spec.md) |

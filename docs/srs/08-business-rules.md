@@ -40,14 +40,14 @@
 | BR-034 | Admin ו-Moderator הם חשבונות מערכת ואינם מפרסמים, יוצרים Friends, מצטרפים לקבוצות או משתמשים ב-Social Chat. |
 | BR-035 | תוכן מומלץ על בסיס חיפושים, צריכת תוכן או תחומי עניין יוצג ב-Feed בלבד ולא יישלח כ-Notification. |
 | BR-036 | Chat messages יוצגו ב-Chat Center וב-Unread Badge ולא ייווצר עבור כל הודעה Notification רגילה נוספת. |
-| BR-037 | יום הולדת של ילד יכול לשמש Notification לחברים רק אם ההורה אישר שיתוף נתון זה עם Friends. |
+| BR-037 | יום הולדת של ילד יכול לשמש Notification לחברים רק אם ההורה אישר שיתוף נתון זה עם Friends. ברירת המחדל: מאושר, וההורה יכול לכבות (שאלון I2 של אפיק, 16.10.2026). ב-I2 ההסכמה נשמרת בלבד; ההתראה עצמה — I7. |
 | BR-038 | Security/Critical Account Notifications אינן ניתנות לכיבוי בהגדרות Notification. |
 | BR-039 | פוסט מתוך Private Group לא יוצג ב-Global Search למי שאינו Member, גם אם מחרוזת החיפוש מתאימה. |
 | BR-040 | Admin רשאי לגשת לתוכן Private Group לצורך ניהול. Moderator שאינו Member רשאי לגשת רק דרך כלי Moderation ורק עם PRIVATE_GROUP_MODERATE והרשאות הטיפול הנדרשות; הגישה נרשמת ב-Audit Log. |
 | BR-041 | היררכיית Group Roles היא Owner > Admin > Group Moderator > Member. Role נמוך אינו אוכף פעולה על Role שווה/גבוה; Owner אינו ניתן להסרה/עזיבה לפני העברת בעלות. |
 | BR-042 | Regular non-Friend יכול לשלוח Regular Chat Request. Friendship פעילה מאפשרת Chat ישיר; Conversation שכבר נפתחה ממשיכה גם לאחר Remove Friend. |
 | BR-043 | Support communication מוצגת ב-Chat בשם “Support” רק בהקשר SupportRequest. אין Chat חופשי אל Admin/Moderator דרך Support. |
-| BR-044 | Regular User תמיד ניתן לאיתור ב-People Search. Profile Visibility שולט בגישה לפרופיל מצד non-Friends: Restricted מציג רק את ה-Basic Public Profile (§1.4); Open מציג את כל הפרופיל, כאשר מידע על ילדים והריון מוצג רק כ-Journey Summary — מספר ילדים, גילאים, והריון ללא פרטים — ו-Tracker Data אינו מוצג. שמות ילדים ותאריכי לידה אינם מוצגים ל-non-Friend. כשאין ילדים ואין הריון, Journey Summary מציג את המשפט שב-§1.4, אלא אם המשתמש הסתיר אותו במתג בהגדרות הפרטיות. |
+| BR-044 | Regular User תמיד ניתן לאיתור ב-People Search. Profile Visibility שולט בגישה לפרופיל מצד non-Friends: Restricted מציג רק את ה-Basic Public Profile (§1.4); Open מציג את כל הפרופיל, כאשר מידע על ילדים והריון מוצג רק כ-Journey Summary — מספר ילדים, גילאים, והריון ללא פרטים — ו-Tracker Data אינו מוצג. שמות ילדים ותאריכי לידה אינם מוצגים ל-non-Friend. כשאין ילדים ואין הריון, Journey Summary מציג את המשפט שב-§1.4, אלא אם המשתמש הסתיר אותו במתג בהגדרות הפרטיות. Friend רואה את מה ש-Open מציג, בשני המצבים (החלטת אפיק מ-17.10.2026). ברירת המחדל של Profile Visibility היא Open, וגם החשבונות שקדמו להחלטה הועברו ל-Open (שאלון I2 של אפיק, 16.10.2026). |
 | BR-045 | Email ייחודי גלובלית בין כל חשבונות Nestly; אותו Email אינו יכול לשמש גם Regular וגם Professional Account. |
 | BR-046 | בשלב הראשון Sponsored Products מנוהלים על ידי Admin בלבד; אין Brand User עצמאי. |
 | BR-047 | Professional Marketing Tools בשלב הראשון כוללים Profile Promotion, Post Promotion ו-Promotion Analytics; תשלום קונה Reach ואינו משנה Reputation אורגני. |
