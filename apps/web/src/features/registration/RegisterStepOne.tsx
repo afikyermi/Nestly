@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { useLinkClickHandler } from 'react-router';
-import type { RegistrationStep1 } from '@nestly/shared';
+import { JOURNEY_STAGES, type RegistrationStep1 } from '@nestly/shared';
 import { PATHS } from '@/app/paths';
 import { AuthLayout } from '@/components/layout/auth-layout';
 import { ChoiceCardGroup, type ChoiceOption } from '@/components/shared/choice-card-group';
@@ -13,16 +13,13 @@ import { ArrowBackIcon } from '@/components/ui/icons';
 import { SelectInput } from '@/components/ui/select-input';
 import { TextInput } from '@/components/ui/text-input';
 import { useGoogleSignIn } from '@/hooks/use-google-sign-in';
+import { STAGE_LABELS } from '@/lib/child-fields';
 import { GENDER_OPTIONS } from '@/lib/profile-fields';
 import { ChildrenSection } from './ChildrenSection';
 import { FieldError, FieldHint } from '@/components/shared/field-message';
 import { EMPTY_CHILD, validateStep1, type ChildForm, type Step1Errors, type Step1Form } from './step1-form';
 
-const STAGE_OPTIONS: ChoiceOption[] = [
-  { value: 'planning', label: 'מתכננים' },
-  { value: 'pregnant', label: 'בהריון' },
-  { value: 'has_child', label: 'יש לנו ילד או ילדה' },
-];
+const STAGE_OPTIONS: ChoiceOption[] = JOURNEY_STAGES.map((value) => ({ value, label: STAGE_LABELS[value] }));
 
 // VAL-039: planning and pregnant are never chosen together.
 const EXCLUSIVE_STAGES = [['planning', 'pregnant']] as const;

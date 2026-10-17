@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef } from 'react';
-import { CHILD_SEXES, MAX_CHILDREN, type ChildSex } from '@nestly/shared';
+import { MAX_CHILDREN } from '@nestly/shared';
 import { DateInput } from '@/components/shared/date-input';
 import { FormField } from '@/components/shared/form-field';
 import { Button } from '@/components/ui/button';
@@ -7,10 +7,8 @@ import { MinusIcon, PlusIcon } from '@/components/ui/icons';
 import { SelectInput } from '@/components/ui/select-input';
 import { TextInput } from '@/components/ui/text-input';
 import { FieldError } from '@/components/shared/field-message';
+import { BIRTH_DATE_LABEL, CHILDREN_LIMIT_TEXT, CHILD_NAME_LABEL, CHILD_SEX_LABEL, SEX_OPTIONS, SEX_PLACEHOLDER } from '@/lib/child-fields';
 import { EMPTY_CHILD, type ChildErrors, type ChildForm } from './step1-form';
-
-const SEX_LABELS: Record<ChildSex, string> = { boy: 'בן', girl: 'בת', unknown: 'עוד לא ידוע' };
-const SEX_OPTIONS = CHILD_SEXES.map((value) => ({ value, label: SEX_LABELS[value] }));
 
 export interface ChildrenSectionProps {
   children: readonly ChildForm[];
@@ -83,7 +81,7 @@ export function ChildrenSection({ children, errors, onChange }: ChildrenSectionP
         </Button>
         {atMax ? (
           <p id={noteId} className="text-small text-muted-foreground">
-            אפשר להוסיף עד {MAX_CHILDREN} ילדים
+            {CHILDREN_LIMIT_TEXT}
           </p>
         ) : null}
       </div>
@@ -115,19 +113,19 @@ function ChildCard({ child, heading, errors, removable, onChange, onRemove }: Ch
           </Button>
         ) : null}
       </div>
-      <FormField label="שם" {...(errors?.name !== undefined ? { error: errors.name } : {})}>
+      <FormField label={CHILD_NAME_LABEL} {...(errors?.name !== undefined ? { error: errors.name } : {})}>
         {(control) => (
           <TextInput {...control} autoComplete="off" value={child.name} onChange={(event) => onChange({ name: event.target.value })} />
         )}
       </FormField>
-      <FormField label="מין" {...(errors?.sex !== undefined ? { error: errors.sex } : {})}>
+      <FormField label={CHILD_SEX_LABEL} {...(errors?.sex !== undefined ? { error: errors.sex } : {})}>
         {(control) => (
-          <SelectInput {...control} placeholder="בחירה" options={SEX_OPTIONS} value={child.sex} onChange={(sex) => onChange({ sex })} />
+          <SelectInput {...control} placeholder={SEX_PLACEHOLDER} options={SEX_OPTIONS} value={child.sex} onChange={(sex) => onChange({ sex })} />
         )}
       </FormField>
       <div className="flex flex-col gap-1.5">
         <DateInput
-          legend="תאריך לידה"
+          legend={BIRTH_DATE_LABEL}
           value={child.birthDate}
           error={errors?.birthDate !== undefined}
           aria-describedby={errors?.birthDate !== undefined ? birthErrorId : undefined}
