@@ -103,3 +103,113 @@ the column-UPDATE exception list. `20_registration_structure.sql:190-198` policy
 (finding 7). The QUESTION takes its default: the identity transaction stays READ COMMITTED, proven by the c6 server db test.
 BUILDER writes the two `.sql` files exactly as above (as in F2.1); DATA ARCHITECT checks them and updates the knowledge
 files in the same PR. BUILDER ∥ TEST ENGINEER start now on F2.2a.
+
+---
+
+# schema — F2.2b journeys and children: pregnancy, remove, end, birth (journeys-children)
+
+DATA ARCHITECT, 17.10.2026. Contract: `spec.md` c14–c26 + "Gate 1 (F2.2b)": b1 = c14–c15, b2 = c16–c26. Afik: DR-1 A (hard delete),
+DR-2r (no reason stored); Gate 1: DR-2/3/4/6 A. Elevated. One migration per part. The F2.2a part above is as built (PR 41).
+**Change**            **b1** `20261017140000_journey_due_date_update.sql`: `UPDATE (due_date)` on journey_contexts + `journey_contexts_update_own`
+                      (pregnant rows only). Adding a pregnancy reuses the F1.4 INSERT grant/policy; `…_user_id_stage_key` + `…_planning_pregnant_key`
+                      hold c15 under concurrency. **b2** `20261017141000_journeys_children_delete_own.sql`: table `DELETE` on both + `children_delete_own`,
+                      `journey_contexts_delete_own`. Comments redefined. No column/type/CHECK/index/FK/function; no `deleted_at`, `ended_at` or reason.
+**Authorization**     RLS policies only, behind `(select nestly.is_active_account())`. `stage = 'pregnant'` in the UPDATE policy: PUT on a planning or
+                      has_child id → 0 rows → 404 (c14), never 23514 → 500. DELETE policies carry no stage (c19/c23 delete has_child and planning);
+                      which route deletes which stage is targeting (`where … stage =`), not permission. Definer list unchanged; no service role.
+**b1 up**             ```sql
+                      grant update (due_date) on table nestly.journey_contexts to authenticated;
+                      create policy journey_contexts_update_own on nestly.journey_contexts for update to authenticated
+                        using      (user_id = (select auth.uid()) and stage = 'pregnant' and (select nestly.is_active_account()))
+                        with check (user_id = (select auth.uid()) and stage = 'pregnant' and (select nestly.is_active_account()));
+                      comment on policy journey_contexts_update_own on nestly.journey_contexts is 'An active account edits the due date of
+                        its own pregnancy only (FR-PROFILE-002, VAL-044, F2.2b, DR-5 A). stage, user_id, created_at: no grant.';
+                      comment on table nestly.journey_contexts is 'SRS JourneyContext (§13, VAL-039): one row per stage the parent is in,
+                        ticked at registration or added later by the owner (F2.2b). Part of the parent''s account: deleted with the profile.';
+                      ```
+**b2 up**             ```sql
+                      grant delete on table nestly.children, nestly.journey_contexts to authenticated;
+                      create policy children_delete_own on nestly.children for delete to authenticated
+                        using (user_id = (select auth.uid()) and (select nestly.is_active_account()));
+                      create policy journey_contexts_delete_own on nestly.journey_contexts for delete to authenticated
+                        using (user_id = (select auth.uid()) and (select nestly.is_active_account()));
+                      comment on policy children_delete_own on nestly.children is 'An active account removes its own child: hard delete (DR-1 A).';
+                      comment on policy journey_contexts_delete_own on nestly.journey_contexts is 'An active account ends its own journey: hard delete, no reason kept (DR-1 A, DR-2r).';
+                      comment on column nestly.children.slot is 'One of the parent''s ten seats, 1 to 10 (VAL-040); with children_user_id_slot_key
+                        it holds the limit. A freed seat is reused by the next add. Not the display order (created_at, then slot); not data about the child.';
+                      comment on table nestly.journey_contexts is 'SRS JourneyContext (§13, VAL-039): one row per stage the parent is in, ticked at
+                        registration or added later by the owner (F2.2b); an ended stage is deleted, not marked (DR-1 A). Deleted with the profile.';
+                      ```
+**Rollback**          `supabase/rollback/<version>.down.sql` each, as app_owner, one transaction, the F2.1 `current_user` guard. **b1:** `drop policy
+                      journey_contexts_update_own …; revoke update (due_date) … from authenticated;` table comment → the 20261014200000 text;
+                      delete history row `20261017140000`. **b2:** drop both policies; `revoke delete on table nestly.children,
+                      nestly.journey_contexts from authenticated;` slot comment → the 20261014200000 text, table comment → b1's; delete history
+                      row `20261017141000`. Revert each part's routes with it (42501 → 500, closed). Touch no row; user-deleted rows stay gone (DR-1 A).
+**Server write path** id `z.guid()` (else 404, no query) → body → gate (F2.2a) → work, one identity transaction, READ COMMITTED. **Lock (b2; every
+                      route that inserts or deletes a child or journey, F2.2a's add included):** right after the gate `tx.select({ userId:
+                      regularProfiles.userId }).from(regularProfiles).for('no key update')`, exactly 1 row else `JourneysFault`. **R** remove
+                      child: `delete children where id returning id` (0 → 404) → `select 1 from children limit 1` → none → `delete
+                      journey_contexts where stage = 'has_child'` (c19, c21). **E** end pregnancy (a body → 400): `delete … where id = $1 and
+                      stage = 'pregnant' returning id` (0 → 404: B's, unknown, planning, has_child; c20). **B** birth: E's delete first (0 →
+                      404, no child), then the F2.2a add rounds; full → `ChildrenFull` → rollback → 409, pregnancy kept (c22). **P** add pregnancy
+                      (b1; b2 adds the confirmation): confirmed → `delete … where stage = 'planning'`; then insert pregnant `onConflictDoNothing()`
+                      untargeted `.returning(…)`; 0 rows → throw → rollback → 409 `stage_conflict` (c15, c23). **U** due date (b1):
+                      `tx.update(journeyContextsUpdate).set({ dueDate }).where(eq(journeyContextsUpdate.id, id)).returning(…)`, 0 → 404, no lock.
+                      No `where` names a user; RLS confines.
+**has_child ⇔ ≥ 1**   The race: two removals of the last two children each see the other's uncommitted row as still there, both keep has_child;
+                      add vs. remove-last: the remover cannot see the new child and deletes has_child. **Chosen: a row lock on the caller's
+                      `regular_profiles` row, `FOR NO KEY UPDATE`.** It always exists (parent of both tables), is RLS-confined (select and
+                      update_own policies: only one's own row), needs no grant (the F2.1/F2.3a UPDATE grants permit it), and does not block the
+                      `FOR KEY SHARE` of FK checks. The second writer waits, then each of its statements sees the first one's commit. One lock
+                      order (profile first) → no deadlock. Cost: that user's concurrent profile UPDATE waits ms. **Rejected:** the has_child row
+                      (absent on the first add and at zero journeys, deleted by the last removal); a constraint trigger (a deferred check at READ
+                      COMMITTED still misses the other's uncommitted delete unless it locks; splits DR-4 across server and database); the house
+                      advisory lock (try-only: one legitimate write 503s; a blocking one is a second, unconfined idiom); SERIALIZABLE (40001 +
+                      retry). DR-4 stays a server rule: the database does not refuse a has_child delete with children left. Accepted, in writing.
+**Child order**       Order of addition: the server sorts `orderBy(asc(children.createdAt), asc(children.slot))`; slot breaks registration's tie
+                      (one `now()`, slots in entry order); a reused seat shows last (c17). Concurrent adds show in transaction-start order — accepted.
+                      Slot's new meaning (position → seat) follows Gate 1 (F2.2b, ORCHESTRATOR); the column comment records it.
+**Drizzle**           `schema.ts` beside `childrenUpdate`, covered by `drift.test.ts`; deletes use the read models (DELETE names no column). **Backfill:** none.
+                      `/** UPDATE target only. due_date is granted UPDATE (migration 20261017140000), on a pregnant row only (policy). id is for WHERE only (42501). */`
+                      `export const journeyContextsUpdate = nestly.table('journey_contexts', { id: uuid('id').primaryKey(), dueDate: date('due_date', { mode: 'string' }) });`
+**Indexes**           None added. By id: pkeys; `stage = …` + RLS `user_id`: `…_user_id_stage_key`; "any child left": `children_user_id_slot_key`
+                      prefix; lock: `regular_profiles_pkey`. The (created_at, slot) sort is ≤ 10 rows in memory — an index would be pure write cost.
+**Integrity**         No FK points at either table: a delete cascades and orphans nothing. Cascades from regular_profiles unchanged. stage stays
+                      ungranted for UPDATE (DR-5). `due_date` stays `date`, no zone; the −30..+300 window stays server-only (VAL-044).
+**Blast radius**      As F2.2a + `journeys-repository.ts`/`-service.ts` (add gains the lock), `routes/journeys.ts`. `regular_names`/`friendships`
+                      (F2.4a, unbuilt) reference only regular_profiles: untouched, FK checks not blocked. F2.3's view (children count, is_pregnant)
+                      reflects a delete at once — intended. Lock needs regular_profiles' UPDATE grant, else 42501 → 500 (closed). Preview cleanup:
+                      unaffected. Knowledge files (Authorization cells, slot, add-path → lock): DATA ARCHITECT, in each part's PR.
+**Retention §13.4**   Hard delete: gone from the live database at commit (dead tuple vacuumed later); no column, row or log line records it (c11,
+                      c20). Platform backups, if any, keep it for their window — a Privacy Policy item (§13.4 Tracker/Child Data, TBD, legal).
+**Reversible?**       **Yes**, both. User deletions are irreversible by Afik's DR-1 A, already decided. Prod: the batched CI migration.
+
+## pgTAP — new `54_journeys_write.sql` (53 is F2.3b's); as app_server via `tests.as_role` / `tests.dml_as`; every name tagged `[F2.2-b cN]`
+b1 1. `journey_contexts_update_own` cmd `w`, TO authenticated only, both expressions reference `is_active_account` and `stage`; column
+UPDATE exactly {due_date}; no table UPDATE. 2. A: own pregnant due_date set / set null → `OK:1`, stored; no WHERE → `OK:1`; own has_child
+id → `OK:0`; B's id → `OK:0`, B unchanged; `set stage|user_id|created_at|id` → 42501. 3. insert pregnant `on conflict do nothing`: B
+(planning) → `OK:0`, A (has one) → `OK:0`, a user with none → `OK:1`; naming `user_id` → 42501. 4. suspended/banned A: UPDATE `OK:0`,
+INSERT 42501; active again → `OK:1`. anon, bare app_server → 42501. b2 5. both delete policies cmd `d`, TO authenticated only, USING
+references `is_active_account`; table DELETE on exactly these two + recovery_answers. 6. A: own child, own journey by id → `OK:1`, gone;
+B's by id or `user_id` → `OK:0`, B unchanged. 7. suspended/banned A: DELETE `OK:0`; anon, bare app_server → 42501. 8. A at 10 deletes slot
+1, inserts slot 1 → `OK:1`. 9. `regular_profiles for no key update`: A → `OK:1`, suspended A → `OK:0`.
+**Server db tests** (`tests/db/journeys.db.test.ts`, two connections, a barrier holds the first open, ≥ 20 rounds): c15 two POSTs → one
+pregnant; c19 remove the last two concurrently, add while removing the last → has_child ⇔ ≥ 1 child; c17 order; F2.2a c6 green with the lock.
+**Forced-failure seam (c19, c22, c23), no product code:** via `OWNER_DATABASE_URL` (app_owner, as `privacy-backfill.db.test.ts`) the
+test creates `tests.fail_step()` (plpgsql, SECURITY INVOKER, `search_path = ''`, `raise exception 'forced step failure'`) and per step
+one `before insert|delete … for each row when (<row>.user_id = '<victim>' and <row>.stage = …)` trigger, dropped in `finally`; the
+victim-scoped WHEN spares parallel tests. Steps: R = delete child · delete has_child; B = delete pregnant · insert has_child · insert
+child; P = delete planning · insert pregnant. Each failing in turn → 5xx, owner-observed rows as before. Required in CI. BEFORE row
+triggers fire on ON CONFLICT inserts too; EXECUTE is not checked at fire time (if the CI image disagrees, grant it for the test only).
+**Amend (fail by design):** `10_identity_structure.sql:274` allow the three policies; `:349` DELETE exception + the two tables (b2); `:350`
+column-UPDATE exception + journey_contexts (b1). `20_registration_structure.sql:190-198` 12 → 13 (b1) → 15 (b2) policies; `:273` stays 16
+(due_date already has its INSERT ACL); `:282-287`, `:331` + due_date (b1); `:317-320` + DELETE on the two (b2). `51_children_write.sql:63-64,
+124` (b1), `:65-71, 138-141` (b2). `22_registration_owner_only.sql` b1: `:78` → file 54, `:81` → `OK:0`, `:85` → `OK:1`, `:101` → `OK:0`;
+b2: `:82-83, 88-89` → file 54, `:102-103, 106` → `OK:0`; `:126` unchanged-state stays true; anon `:145-147` stay 42501.
+
+**Approved (F2.2b) — ORCHESTRATOR, 17.10.2026.** b1 and b2 as shaped. The `FOR NO KEY UPDATE` lock on the caller's own
+`regular_profiles` row, first in every route that inserts or deletes a child or journey (F2.2a's add path included, in b2 —
+an internal change, noted in b2's notes.md), is the has_child mechanism. `slot` now means one of ten seats; order is
+`created_at, slot` — confirmed. The has_child rule stays in the server (DR-4 is not in the SRS). The 100-line cap is per part.
+pgTAP 54. The test seam via `OWNER_DATABASE_URL` is accepted (test-only, dropped after). FYI to Afik at I2 close: hard-deleted
+rows can survive in platform backups for their retention period (Privacy Policy, §13.4). b1 is built after F2.3a merges.
