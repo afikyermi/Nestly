@@ -45,6 +45,7 @@ export function ProtectedLayout() {
       drawerCloseLabel="סגירת התפריט"
       skipLinkLabel="דילוג לתוכן הראשי"
       onNavigate={go}
+      scrollResetKey={current}
       menu={(closeMenu) => (
         <>
           <MenuItem href={PATHS.friends} current={PATHS.friends === current} onNavigate={leaving(closeMenu)}>

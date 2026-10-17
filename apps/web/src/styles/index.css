@@ -4,19 +4,13 @@
 
 @layer base {
   /* A focused control is never fully hidden under the sticky bars (WCAG 2.2 SC 2.4.11): the top bar is
-     14 spacing units high (56px); the bottom bar, below 1024, 18 (72px). From 1024 the nav is a rail. */
+     14 spacing units high (56px). Below 1024 `main` is the scroller and both bars sit outside it (AppShell), so it needs
+     no such padding; from 1024 the nav is a rail and the document scrolls. */
   html {
     scroll-padding-top: calc(var(--spacing) * 14);
-    scroll-padding-bottom: calc(var(--spacing) * 18);
     font-family: var(--font-sans);
     background-color: var(--color-background);
     color: var(--color-foreground);
-  }
-
-  @media (min-width: 64rem) {
-    html {
-      scroll-padding-bottom: 0;
-    }
   }
 
   body {

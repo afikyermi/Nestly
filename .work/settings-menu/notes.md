@@ -34,3 +34,9 @@
 **Neighbouring**
 - `/home/user/Nestly/pw.scratch.config.ts` (untracked, not mine, from the parallel TEST ENGINEER run) makes `npm run lint` fail with a parserOptions.project error; delete it or exclude it before commit. Lint is otherwise clean.
 - `FocusOnNavigation` focuses `main` on a hash-only change, so the Settings effect has to win by running after it; this relies on effect order (FocusOnNavigation is the earlier sibling). Worth a test if the route tree changes.
+
+**CRITIC round 1 fixes (cf6ec44 follow-up)**
+- Scroll reset: AppShell takes `scrollResetKey` (ProtectedLayout passes the normalized path, so hash-only changes do not reset) and sets `main.scrollTop = 0` in an effect.
+- Keyboard scrolling on a direct load: focusing `main` on load would make the skip link no longer the first Tab stop (e2e part-f [41][17] presses Tab first and expects the A). Chosen instead: a document keydown listener moves focus to `main` (preventScroll) only for the first scroll key (Space, PageUp/Down, Home, End, arrows, no modifiers) while focus is still on `body`; the key then scrolls `main`. Tab order on load is untouched. Not verified in a real browser (default action after focus change in keydown); needs a manual check in Chrome/Firefox/Safari.
+- iOS keyboard: viewport `interactive-widget=resizes-content`; the `html` bottom scroll-padding (and its lg override) is removed, `main` has `scroll-py-4` instead (bars are outside it).
+- Print: `print:h-auto` on the frame, `print:overflow-visible` on `main`.

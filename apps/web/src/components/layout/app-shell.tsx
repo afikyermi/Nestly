@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/cn';
 import { BottomNavigation, type BottomNavigationProps } from '../shared/bottom-navigation';
 import { SideDrawer } from '../shared/side-drawer';
@@ -21,6 +21,8 @@ export interface AppShellProps {
   /** Passed to the navigation: called with an item's href on a plain click (client-side routing). */
   onNavigate?: ((href: string) => void) | undefined;
   topBarActions?: ReactNode;
+  /** Below 1024 `main` scrolls inside the frame: when this changes (the route's path, not its hash) `main` goes back to the top. */
+  scrollResetKey?: string | undefined;
   /** Placement only. */
   className?: string;
 }
@@ -40,6 +42,7 @@ export function AppShell({
   menu,
   onNavigate,
   topBarActions,
+  scrollResetKey,
   className,
 }: AppShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -54,8 +57,27 @@ export function AppShell({
     setDrawerOpen(false);
   };
 
+  useEffect(() => {
+    if (mainRef.current) mainRef.current.scrollTop = 0;
+  }, [scrollResetKey]);
+
+  // On a direct load focus is on `body` and, below 1024, the document no longer scrolls: `main` does. Focus stays where the browser
+  // put it (the skip link must be the first Tab stop), and the first scroll key moves it to `main` so that key scrolls the content.
+  useEffect(() => {
+    const scrollKeys = new Set([' ', 'PageDown', 'PageUp', 'Home', 'End', 'ArrowDown', 'ArrowUp']);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.defaultPrevented) return;
+      if (!scrollKeys.has(event.key)) return;
+      const active = document.activeElement;
+      if (active && active !== document.body) return;
+      mainRef.current?.focus({ preventScroll: true });
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   return (
-    <div className={cn('flex h-dvh flex-col lg:h-auto lg:min-h-dvh', className)}>
+    <div className={cn('flex h-dvh flex-col print:h-auto lg:h-auto lg:min-h-dvh', className)}>
       <a
         href={`#${mainId}`}
         onClick={(event) => {
@@ -90,7 +112,7 @@ export function AppShell({
           id={mainId}
           ref={mainRef}
           tabIndex={-1}
-          className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-5 lg:mx-auto lg:max-w-2xl lg:overflow-visible lg:px-0"
+          className="min-h-0 min-w-0 flex-1 scroll-py-4 overflow-y-auto px-4 py-5 print:overflow-visible lg:mx-auto lg:max-w-2xl lg:overflow-visible lg:px-0"
         >
           {children}
         </main>
