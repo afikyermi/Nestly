@@ -1,3 +1,5 @@
+import { USER_PROFILE_PATTERN } from '@/lib/profile-link';
+
 // The route table (F1.2, Q2). Guest paths are the allow-list: every other path is protected (deny by default).
 export const PATHS = {
   welcome: '/',
@@ -14,6 +16,8 @@ export const PATHS = {
   settings: '/settings',
   /** F2.4b: the Friends page (PG-036), from the side menu. */
   friends: '/friends',
+  /** F2.4c2: another person's profile, `/u/<user id>` (FR-PRIV-001 "Profile/Deep Link"). Protected by pattern: see `userIdOfProfilePath`. */
+  userProfile: USER_PROFILE_PATTERN,
   /** F1.6: save the recovery questions (held there while missing) or change them. */
   recoveryQuestions: '/recovery-questions',
   /** F2.0 c14: set a new password after a takeover clear. Opens only while the session is held there. */

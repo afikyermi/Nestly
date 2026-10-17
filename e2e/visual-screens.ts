@@ -68,4 +68,15 @@ export const SCREENS: Screen[] = [
   { kind: 'story', name: 'friends', id: 'features-friends-friendscontent--lists' },
   { kind: 'story', name: 'friends-empty', id: 'features-friends-friendscontent--empty' },
   { kind: 'story', name: 'friends-remove', id: 'features-friends-friendscontent--remove-dialog' },
+  // F2.4c2 c26, c30: the Friends page gains the copy-my-profile-link button (the three screens above redraw with it); this one is the
+  // clipboard refused, the link shown as text. Story entries (features/friends/FriendsContent.stories.tsx).
+  { kind: 'story', name: 'friends-link-shown', id: 'features-friends-friendscontent--link-shown' },
+  // F2.4c2 c25, c29: another person's profile (features/user-profile/UserProfileContent.stories.tsx): an Open profile, a Restricted one,
+  // a Friend's view, and the unavailable, rate-limited and load-failed states.
+  { kind: 'story', name: 'user-profile', id: 'features-user-profile-userprofilecontent--user-profile' },
+  { kind: 'story', name: 'user-profile-restricted', id: 'features-user-profile-userprofilecontent--user-profile-restricted' },
+  { kind: 'story', name: 'user-profile-friend', id: 'features-user-profile-userprofilecontent--user-profile-friend' },
+  { kind: 'story', name: 'user-profile-unavailable', id: 'features-user-profile-userprofilecontent--user-profile-unavailable' },
+  { kind: 'story', name: 'user-profile-rate-limited', id: 'features-user-profile-userprofilecontent--user-profile-rate-limited' },
+  { kind: 'story', name: 'user-profile-load-failed', id: 'features-user-profile-userprofilecontent--user-profile-load-failed' },
 ];

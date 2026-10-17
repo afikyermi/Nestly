@@ -40,12 +40,13 @@ const lists: FriendLists = {
 };
 const none: FriendLists = { incoming: [], sent: [], friends: [] };
 const loaded = { kind: 'loaded', busy: null, failure: null, status: '', confirm: null } as const;
+const idle = { state: { kind: 'idle' }, busy: false } as const;
 
 /** c13: a request received, one sent, and Friends (one with a Latin name). */
-export const Lists: Story = { args: { view: { ...loaded, lists } } };
+export const Lists: Story = { args: { view: { ...loaded, lists }, copyLink: idle } };
 
 /** c13 (Q1): the three lists, each with its own empty text. */
-export const Empty: Story = { args: { view: { ...loaded, lists: none } } };
+export const Empty: Story = { args: { view: { ...loaded, lists: none }, copyLink: idle } };
 
 /** c13: "הסרה" opened the dialog naming the Friend. */
 export const RemoveDialog: Story = {
@@ -88,3 +89,20 @@ export const Loading: Story = { args: { view: { kind: 'loading' } } };
 export const LoadFailed: Story = { args: { view: { kind: 'load-failed', message: LOAD_FAILED_TEXT } } };
 
 export const AccountStopped: Story = { args: { view: { kind: 'load-failed', message: STOPPED_TEXT } } };
+
+/** F2.4c2 c26: the link is on the clipboard; "הקישור הועתק" shows. */
+export const LinkCopied: Story = { args: { view: { ...loaded, lists }, copyLink: { state: { kind: 'copied' }, busy: false } } };
+
+/** F2.4c2 c26: the clipboard refused; the link shows as selectable text. */
+export const LinkShown: Story = {
+  args: {
+    view: { ...loaded, lists },
+    copyLink: { state: { kind: 'shown', link: 'https://app.nestly.example/u/7a1f0c52-5a0e-4c39-9d47-1f7c2d5e8a99' }, busy: false },
+  },
+};
+
+/** F2.4c2 c26: no link could be made. */
+export const LinkFailed: Story = { args: { view: { ...loaded, lists }, copyLink: { state: { kind: 'failed' }, busy: false } } };
+
+/** F2.4c2 c26: the copy is in flight. */
+export const LinkCopying: Story = { args: { view: { ...loaded, lists }, copyLink: { state: { kind: 'idle' }, busy: true } } };

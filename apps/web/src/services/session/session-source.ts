@@ -53,6 +53,8 @@ export interface SessionAccount {
   recheck(): Promise<void>;
   /** The current access token, renewed if it has expired; null without a session. */
   getAccessToken(): Promise<string | null>;
+  /** The signed-in user's id from Auth; null when unknown. A source that cannot tell leaves this out. Never rejects. */
+  getUserId?(): Promise<string | null>;
   /** Forgets the notice. */
   clearNotice(): void;
   /** The recovery questions were saved: the account no longer needs the questions screen. No second `/api/me` call. */

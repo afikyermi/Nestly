@@ -379,7 +379,9 @@ test.describe('F2.4b c15 [S3 NFR-A11Y-001] accessibility: axe, RTL, focus, keybo
     await openFriends(page);
     const everyName = await main(page).getByRole('button').evaluateAll((els) => els.map((el) => el.getAttribute('aria-label') ?? el.textContent ?? ''));
     const people = [DANA, YOSSI, NOAM, MIRI, AVI].map((p) => p.fullName);
-    for (const name of everyName) {
+    // F2.4c2 c26: the page's own "copy my profile link" button is not a per-person action; excluded by its exact name only.
+    const COPY_MY_LINK = 'העתקת הקישור לפרופיל שלי';
+    for (const name of everyName.filter((n) => n.trim() !== COPY_MY_LINK)) {
       expect(people.some((p) => name.includes(p)), `"${name}" carries a person's name`).toBe(true);
     }
     for (const [scope, verb, who] of [

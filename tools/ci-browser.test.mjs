@@ -1,5 +1,5 @@
 // Repository tests for the CI `browser` job of .github/workflows/ci.yml, from decisions/2026-10.md "Speed-up", change 1:
-// the job runs as a matrix, chrome and edge with two shards each, in parallel. What must not drift: the matrix is exactly
+// the job runs as a matrix, chrome and edge with three shards each, in parallel. What must not drift: the matrix is exactly
 // project x shard (so no browser or shard silently drops out), no leg stops the others, the job stays behind the `changes`
 // filter, each leg installs only its own browser, builds the gallery before it runs, and its report has its own name.
 // They parse the workflow as data and never run it. The YAML reader is tools/workflow-yaml.mjs. Add this file to `test:tools`.
@@ -38,7 +38,7 @@ function browserProblems(job, names) {
     const shards = [matrix.shard ?? []].flat();
     // Pull requests run Chrome only (decisions/2026-10.md "Tests: depth by criterion type"); Edge is `browser-edge`.
     if (JSON.stringify([...projects].sort()) !== JSON.stringify(['chrome'])) problems.push(`matrix.project is [${projects}], not [chrome]`);
-    if (JSON.stringify(shards) !== JSON.stringify(['1', '2'])) problems.push(`matrix.shard is [${shards}], not [1, 2]`);
+    if (JSON.stringify(shards) !== JSON.stringify(['1', '2', '3'])) problems.push(`matrix.shard is [${shards}], not [1, 2, 3]`);
     const unknown = projects.filter((p) => !names.includes(p));
     if (unknown.length > 0) problems.push(`matrix.project [${unknown}] is not a Playwright project (the config has [${names}])`);
     const test = steps.find((s) => /\bplaywright\s+test\b/.test(runOf(s)));
@@ -85,7 +85,7 @@ function browserProblems(job, names) {
 
 const browser = ci.jobs?.browser;
 
-test('[speed-up 1 · test rules] the pull-request browser job is a chrome by shard 1 and 2 matrix, behind `changes`, with a timeout of 10 to 15 minutes', () => {
+test('[speed-up 1 · test rules] the pull-request browser job is a chrome by shards 1, 2 and 3 matrix, behind `changes`, with a timeout of 10 to 15 minutes', () => {
   assert.deepEqual(browserProblems(browser, projectNames), []);
 });
 
@@ -106,7 +106,11 @@ test('[speed-up 1] the browser problem check can fail: every drift from the deci
     'edge added to the PR matrix': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, project: ['chrome', 'edge'] } } }),
     'chrome replaced by edge': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, project: ['edge'] } } }),
     'the PR matrix emptied': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, project: [] } } }),
-    'a third shard that --shard does not divide': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, shard: ['1', '2', '3'] } } }),
+    'a fourth shard that --shard does not divide': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, shard: ['1', '2', '3', '4'] } } }),
+    'a dropped shard (two legs, --shard of 3)': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, shard: ['1', '2'] } } }),
+    'a dropped shard (the middle one)': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, shard: ['1', '3'] } } }),
+    'one shard': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, shard: ['1'] } } }),
+    'shards out of order': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, shard: ['3', '2', '1'] } } }),
     'an extra matrix key': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, os: ['ubuntu-latest'] } } }),
     'timeout 20': () => ({ ...clone(), 'timeout-minutes': '20' }),
     'timeout 5': () => ({ ...clone(), 'timeout-minutes': '5' }),
@@ -120,7 +124,8 @@ test('[speed-up 1] the browser problem check can fail: every drift from the deci
     'continue-on-error': () => ({ ...clone(), 'continue-on-error': 'true' }),
     'no --project flag': () => withStep(clone(), /playwright\s+test/, (s) => ({ run: runOf(s).replace(PROJECT_FLAG, '') })),
     'no --shard flag': () => withStep(clone(), /playwright\s+test/, (s) => ({ run: runOf(s).replace(SHARD_FLAG, '') })),
-    '--shard of 3': () => withStep(clone(), /playwright\s+test/, (s) => ({ run: runOf(s).replace(/\}\}\/2/, '}}/3') })),
+    '--shard of 2 with three legs': () => withStep(clone(), /playwright\s+test/, (s) => ({ run: runOf(s).replace(/\}\}\/3/, '}}/2') })),
+    '--shard of 4 with three legs': () => withStep(clone(), /playwright\s+test/, (s) => ({ run: runOf(s).replace(/\}\}\/3/, '}}/4') })),
     'every browser installed': () => withStep(clone(), /playwright\s+install/, () => ({ run: 'npx playwright install --with-deps' })),
     'both browsers installed': () => withStep(clone(), /playwright\s+install/, () => ({ run: 'npx playwright install --with-deps chrome msedge' })),
     'install ignores the matrix': () => withStep(clone(), /playwright\s+install/, () => ({ run: "npx playwright install --with-deps ${{ github.job }}" })),
@@ -155,7 +160,7 @@ function edgeProblems(job, triggers) {
   const steps = stepsOf(job);
   const matrix = job.strategy?.matrix;
   if (JSON.stringify(Object.keys(matrix ?? {})) !== JSON.stringify(['shard'])) problems.push(`the matrix keys are ${Object.keys(matrix ?? {})}, not exactly shard`);
-  if (JSON.stringify([matrix?.shard ?? []].flat()) !== JSON.stringify(['1', '2'])) problems.push(`matrix.shard is [${matrix?.shard}], not [1, 2]`);
+  if (JSON.stringify([matrix?.shard ?? []].flat()) !== JSON.stringify(['1', '2', '3'])) problems.push(`matrix.shard is [${matrix?.shard}], not [1, 2, 3]`);
   if (String(job.strategy?.['fail-fast']) !== 'false') problems.push('fail-fast is not false');
   if (!needsOf(job).includes('changes')) problems.push('the job does not need `changes`');
   const condition = String(job.if ?? '').trim();
@@ -169,7 +174,7 @@ function edgeProblems(job, triggers) {
   else {
     if (!/--project=edge\b/.test(runOf(test))) problems.push('the playwright step does not run --project=edge');
     const shard = SHARD_FLAG.exec(runOf(test));
-    if (!shard || Number(shard[1]) !== 2) problems.push('the playwright step does not pass --shard=${{ matrix.shard }}/2');
+    if (!shard || Number(shard[1]) !== [matrix?.shard ?? []].flat().length) problems.push('the playwright step does not pass --shard=${{ matrix.shard }}/N with N the matrix length');
   }
   const install = steps.find((s) => /\bplaywright\s+install\b/.test(runOf(s)));
   if (!install) problems.push('no step installs a browser');
@@ -183,7 +188,7 @@ function edgeProblems(job, triggers) {
   return problems;
 }
 
-test('[test rules] Edge runs as its own job: shards 1 and 2, only msedge, never on pull_request, behind the change filter', () => {
+test('[test rules] Edge runs as its own job: shards 1, 2 and 3, only msedge, never on pull_request, behind the change filter', () => {
   assert.deepEqual(edgeProblems(edge, ci.on), []);
 });
 
@@ -204,6 +209,9 @@ test('[test rules] the Edge check can fail: every drift is caught (guards the te
     'fail-fast true': () => ({ ...clone(), strategy: { ...edge.strategy, 'fail-fast': 'true' } }),
     'a project key in the matrix': () => ({ ...clone(), strategy: { ...edge.strategy, matrix: { ...edge.strategy.matrix, project: ['edge'] } } }),
     'one shard': () => ({ ...clone(), strategy: { ...edge.strategy, matrix: { shard: ['1'] } } }),
+    'two shards (a dropped one, --shard of 3)': () => ({ ...clone(), strategy: { ...edge.strategy, matrix: { shard: ['1', '2'] } } }),
+    'a fourth shard': () => ({ ...clone(), strategy: { ...edge.strategy, matrix: { shard: ['1', '2', '3', '4'] } } }),
+    '--shard of 2 with three legs': () => ({ ...clone(), steps: clone().steps.map((s) => (/playwright\s+test/.test(runOf(s)) ? { ...s, run: runOf(s).replace(/\}\}\/3/, '}}/2') } : s)) }),
     'continue-on-error': () => ({ ...clone(), 'continue-on-error': 'true' }),
     'runs chrome': () => ({ ...clone(), steps: clone().steps.map((s) => (/playwright\s+test/.test(runOf(s)) ? { ...s, run: runOf(s).replace('--project=edge', '--project=chrome') } : s)) }),
     'installs chrome too': () => ({ ...clone(), steps: clone().steps.map((s) => (/playwright\s+install/.test(runOf(s)) ? { ...s, run: 'npx playwright install --with-deps chrome msedge' } : s)) }),

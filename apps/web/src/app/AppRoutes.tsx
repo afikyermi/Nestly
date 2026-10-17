@@ -11,6 +11,7 @@ import { RecoveryQuestionsPage } from '@/pages/recovery-questions/RecoveryQuesti
 import { RegisterPage } from '@/pages/register/RegisterPage';
 import { SetNewPasswordPage } from '@/pages/set-new-password/SetNewPasswordPage';
 import { SettingsPage } from '@/pages/settings/SettingsPage';
+import { UserProfilePage } from '@/pages/user-profile/UserProfilePage';
 import { WelcomePage } from '@/pages/welcome/WelcomePage';
 import { FocusOnNavigation } from './FocusOnNavigation';
 import { PATHS } from './paths';
@@ -38,6 +39,7 @@ export function AppRoutes() {
             <Route path={PATHS.profile} element={<ProfilePage />} />
             <Route path={PATHS.settings} element={<SettingsPage />} />
             <Route path={PATHS.friends} element={<FriendsPage />} />
+            <Route path={PATHS.userProfile} element={<UserProfilePage />} />
             <Route path={PATHS.recoveryQuestions} element={<RecoveryQuestionsPage />} />
             <Route path={PATHS.changePassword} element={<ChangePasswordPage />} />
             <Route path={PATHS.setNewPassword} element={<SetNewPasswordPage />} />

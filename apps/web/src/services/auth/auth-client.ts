@@ -4,6 +4,7 @@
 // object (with the email) stays in memory. Everything the rest of the web sees is the two ports below, so a test injects a
 // fake and no SDK type leaves this file.
 import { GoTrueClient } from '@supabase/auth-js';
+import { checkUserId } from '@nestly/shared';
 import { isSecretKey } from './secret-key';
 import { AUTH_STORAGE_KEY } from './storage-key';
 
@@ -63,6 +64,8 @@ export interface AuthSessionPort {
   restore(): Promise<RestoreOutcome>;
   /** The current access token, renewed first if it has expired; null when there is no session. */
   getAccessToken(): Promise<string | null>;
+  /** The signed-in Auth user's id, asked of Auth with the held session (nothing stored); null when there is none or Auth could not answer. Never rejects. */
+  getUserId?(): Promise<string | null>;
   /** Ends the session on this device only (scope local) and clears storage whatever Auth answers. Never rejects; false when Auth could not be told. */
   signOut(): Promise<boolean>;
   /** Calls `listener` for what Auth reports by itself. Returns the function that stops it. */
@@ -291,6 +294,18 @@ export function createAuthPort(
       if (config === undefined) return null;
       const { data } = await getClient(config).getSession();
       return data.session?.access_token ?? null;
+    },
+
+    async getUserId() {
+      if (config === undefined) return null;
+      try {
+        const { data, error } = await getClient(config).getUser();
+        if (error !== null || data.user === null) return null;
+        const checked = checkUserId(data.user.id);
+        return checked.ok ? checked.userId : null;
+      } catch {
+        return null;
+      }
     },
 
     async signOut() {

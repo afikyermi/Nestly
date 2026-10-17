@@ -1,11 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, userEvent, within } from 'storybook/test';
+import { LinkCopierContext, type LinkCopier } from '@/hooks/use-copy-profile-link';
 import { SessionAccountContext } from '@/hooks/use-session-account';
 import type { SessionAccount } from '@/services/session/session-source';
 import { FriendsScreen } from './FriendsScreen';
 
 // The Friends page's flow (F2.4b) with the server stubbed per story: load, accept, remove after a confirmation, and the failures. The
 // drawn states for the baselines are FriendsContent's stories; these play the transitions.
+// A token whose payload names the caller (the web reads only `sub`; the story's server is a stub): {"sub":"7a1f0c52-5a0e-4c39-9d47-1f7c2d5e8a99"}.
+const STORY_TOKEN = `e30.${btoa('{"sub":"7a1f0c52-5a0e-4c39-9d47-1f7c2d5e8a99"}')}.sig`;
 const unused = () => Promise.reject(new Error('Not used by this story.'));
 const account: SessionAccount = {
   signInWithPassword: unused,
@@ -13,18 +16,22 @@ const account: SessionAccount = {
   discardGoogleStart: () => undefined,
   googleAccount: unused,
   recheck: () => Promise.resolve(),
-  getAccessToken: () => Promise.resolve('story-token'),
+  getAccessToken: () => Promise.resolve(STORY_TOKEN),
   clearNotice: () => undefined,
   markRecoveryQuestionsSet: () => undefined,
   endAfterPasswordChange: () => Promise.resolve(),
 };
 
-function Screen() {
+const copier = (writeText: LinkCopier['writeText']): LinkCopier => ({ origin: () => 'https://app.nestly.example', writeText });
+
+function Screen({ writeText = () => Promise.resolve(true) }: { writeText?: LinkCopier['writeText'] }) {
   return (
     <SessionAccountContext value={account}>
-      <main className="px-4 py-5">
-        <FriendsScreen />
-      </main>
+      <LinkCopierContext value={copier(writeText)}>
+        <main className="px-4 py-5">
+          <FriendsScreen />
+        </main>
+      </LinkCopierContext>
     </SessionAccountContext>
   );
 }
@@ -102,5 +109,39 @@ export const RemoveAfterConfirmation: Story = {
     const dialog = within(await within(document.body).findByRole('alertdialog'));
     await userEvent.click(dialog.getByRole('button', { name: 'הסרה' }));
     await expect(await canvas.findByText('עדיין אין חברים ברשימה')).toBeInTheDocument();
+  },
+};
+
+let lastWritten = '';
+
+// F2.4c2 c26: the absolute link of the caller's own profile page, with the user id only, goes to the clipboard.
+export const CopyLink: Story = {
+  beforeEach: serving(okLists, okAction),
+  render: () => (
+    <Screen
+      writeText={(text) => {
+        lastWritten = text;
+        return Promise.resolve(true);
+      }}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(await canvas.findByRole('button', { name: 'העתקת הקישור לפרופיל שלי' }));
+    await expect(await canvas.findByText('הקישור הועתק')).toBeInTheDocument();
+    await expect(lastWritten).toBe('https://app.nestly.example/u/7a1f0c52-5a0e-4c39-9d47-1f7c2d5e8a99');
+  },
+};
+
+// F2.4c2 c26: the clipboard refused; the link is shown as text.
+export const CopyLinkRefused: Story = {
+  beforeEach: serving(okLists, okAction),
+  render: () => <Screen writeText={() => Promise.resolve(false)} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(await canvas.findByRole('button', { name: 'העתקת הקישור לפרופיל שלי' }));
+    await expect(await canvas.findByTestId('friends-link')).toHaveTextContent(
+      'https://app.nestly.example/u/7a1f0c52-5a0e-4c39-9d47-1f7c2d5e8a99',
+    );
   },
 };

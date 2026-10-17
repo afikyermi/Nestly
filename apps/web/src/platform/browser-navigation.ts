@@ -1,6 +1,8 @@
 /** What the Google start needs of the browser: where the app lives, and leaving for another address. A test passes its own. */
 export interface BrowserNavigation {
   origin(): string;
+  /** The path of the page now open. */
+  pathname(): string;
   /** Leaves the app for `url` (a full navigation, so the history keeps this page). */
   leave(url: string): void;
   /** Calls `listener` when the browser shows this page again from its back/forward cache (state kept, nothing reloaded). Returns the stop. */
@@ -11,6 +13,7 @@ export interface BrowserNavigation {
 export function windowNavigation(): BrowserNavigation {
   return {
     origin: () => window.location.origin,
+    pathname: () => window.location.pathname,
     leave: (url) => {
       window.location.assign(url);
     },
