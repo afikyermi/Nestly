@@ -3,10 +3,6 @@
 // Every issue message is a stable code from REGISTRATION_ERROR_CODES; the web app maps codes to ERR-003 texts.
 import { z } from 'zod';
 import {
-  CHILD_BIRTH_DATE_FLOOR,
-  CHILD_NAME_MAX_LENGTH,
-  CHILD_NAME_MIN_LENGTH,
-  CHILD_SEXES,
   DUE_DATE_DAYS_AFTER_TODAY,
   DUE_DATE_DAYS_BEFORE_TODAY,
   FULL_NAME_MAX_LENGTH,
@@ -15,11 +11,10 @@ import {
   MAX_CHILDREN,
   PARENT_GENDERS,
   RAW_NAME_MAX_UNITS,
-  RAW_TOKEN_MAX_UNITS,
-  type ChildSex,
   type JourneyStage,
   type ParentGender,
 } from '../constants/index.js';
+import { CHILD_ERROR_CODES, checkChild, childInput, rawDateParts, rawToken, type RegistrationChild } from './child.js';
 import { addDaysIso, checkDateParts } from './dates.js';
 import { checkName } from './text.js';
 
@@ -35,29 +30,15 @@ export const REGISTRATION_ERROR_CODES = [
   'due_date_out_of_range',
   'children_required',
   'children_too_many',
-  'child_name_required',
-  'child_name_length',
-  'child_sex_required',
-  'child_sex_invalid',
-  'birth_date_required',
-  'birth_date_invalid',
-  'birth_date_future',
-  'birth_date_out_of_range',
+  ...CHILD_ERROR_CODES,
 ] as const;
 export type RegistrationErrorCode = (typeof REGISTRATION_ERROR_CODES)[number];
 
 // Strict at every level and bounded on the raw string, before the transform splits anything into code points
-// (F1.4 criterion 2, the F1.3 debt). The bound failures carry the code of the rule they stand for.
-const token = (code: RegistrationErrorCode) => z.string().max(RAW_TOKEN_MAX_UNITS, code);
-
-const dateParts = (code: RegistrationErrorCode) =>
-  z.strictObject({ day: token(code), month: token(code), year: token(code) });
-
-const childInput = z.strictObject({
-  name: z.string().max(RAW_NAME_MAX_UNITS, 'child_name_length'),
-  sex: token('child_sex_invalid'),
-  birthDate: dateParts('birth_date_invalid'),
-});
+// (F1.4 criterion 2, the F1.3 debt). The bound failures carry the code of the rule they stand for. The child is the shared
+// child rule (validation/child.ts), also read by the own-child add and edit (F2.2a).
+const token = (code: RegistrationErrorCode) => rawToken(code);
+const dateParts = (code: RegistrationErrorCode) => rawDateParts(code);
 
 /** The form as the user left it. Values of an unticked choice may still be here; the output drops them (Q3). */
 export const registrationStep1Input = z.strictObject({
@@ -69,8 +50,6 @@ export const registrationStep1Input = z.strictObject({
 });
 export type RegistrationStep1Input = z.input<typeof registrationStep1Input>;
 
-export type RegistrationChild = { name: string; sex: ChildSex; birthDate: string };
-
 export type RegistrationStep1 = {
   stages: JourneyStage[];
   fullName: string;
@@ -81,9 +60,6 @@ export type RegistrationStep1 = {
 
 function isStage(value: string): value is JourneyStage {
   return JOURNEY_STAGES.some((stage) => stage === value);
-}
-function isChildSex(value: string): value is ChildSex {
-  return CHILD_SEXES.some((sex) => sex === value);
 }
 function isParentGender(value: string): value is ParentGender {
   return PARENT_GENDERS.some((gender) => gender === value);
@@ -138,23 +114,9 @@ export function createRegistrationStep1Schema(today: string) {
       if (input.children.length === 0) fail('children_required', ['children']);
       else {
         input.children.forEach((child, index) => {
-          const childName = checkName(child.name, CHILD_NAME_MIN_LENGTH, CHILD_NAME_MAX_LENGTH);
-          if (!childName.ok) fail(childName.reason === 'empty' ? 'child_name_required' : 'child_name_length', ['children', index, 'name']);
-
-          if (child.sex === '') fail('child_sex_required', ['children', index, 'sex']);
-          else if (!isChildSex(child.sex)) fail('child_sex_invalid', ['children', index, 'sex']);
-
-          const born = checkDateParts(child.birthDate);
-          let birthDate: string | null = null;
-          if (born.kind === 'empty' || born.kind === 'partial') fail('birth_date_required', ['children', index, 'birthDate']);
-          else if (born.kind === 'invalid') fail('birth_date_invalid', ['children', index, 'birthDate']);
-          else if (born.iso > today) fail('birth_date_future', ['children', index, 'birthDate']);
-          else if (born.iso < CHILD_BIRTH_DATE_FLOOR) fail('birth_date_out_of_range', ['children', index, 'birthDate']);
-          else birthDate = born.iso;
-
-          if (childName.ok && isChildSex(child.sex) && birthDate !== null) {
-            children.push({ name: childName.value, sex: child.sex, birthDate });
-          }
+          const checked = checkChild(child, today);
+          if (checked.ok) children.push(checked.value);
+          else for (const issue of checked.issues) fail(issue.code, ['children', index, issue.field]);
         });
       }
     }

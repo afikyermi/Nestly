@@ -84,14 +84,10 @@ from (values
   ('a', $q$ truncate nestly.journey_contexts $q$, 'TRUNCATE journeys'),
   ('a', $q$ select id from nestly.journey_contexts for update $q$, 'SELECT ... FOR UPDATE on journeys'),
   -- children
-  ('a', $q$ update nestly.children set name = 'Renamed' where slot = 1 $q$, 'UPDATE own child name'),
-  ('a', $q$ update nestly.children set birth_date = date '2020-01-01' $q$, 'UPDATE own children birth date'),
   ('a', $q$ update nestly.children set slot = 3 where slot = 2 $q$, 'UPDATE own child slot (moving past the unique)'),
-  ('a', $q$ update nestly.children set sex = 'girl' where false $q$, 'UPDATE that matches no child'),
   ('a', $q$ delete from nestly.children where slot = 2 $q$, 'DELETE own child'),
   ('a', $q$ delete from nestly.children $q$, 'DELETE every child'),
   ('a', $q$ truncate nestly.children $q$, 'TRUNCATE children'),
-  ('a', $q$ select id from nestly.children for update $q$, 'SELECT ... FOR UPDATE on children'),
   -- legal_consents: the record is append-only
   ('a', $q$ update nestly.legal_consents set terms_version = 'rewritten' $q$, 'UPDATE own consent version'),
   ('a', $q$ update nestly.legal_consents set accepted_at = now() $q$, 'UPDATE own consent time'),
@@ -104,13 +100,27 @@ from (values
   -- B acting on A's rows
   ('b', $q$ update nestly.journey_contexts set due_date = null $q$, 'UPDATE the journeys (A''s included)'),
   ('b', $q$ delete from nestly.journey_contexts $q$, 'DELETE the journeys (A''s included)'),
-  ('b', $q$ update nestly.children set name = 'Hijacked' $q$, 'UPDATE the children (A''s included)'),
   ('b', $q$ delete from nestly.children $q$, 'DELETE the children (A''s included)'),
   ('b', $q$ update nestly.legal_consents set terms_version = 'Hijacked' $q$, 'UPDATE the consents (A''s included)'),
   ('b', $q$ delete from nestly.legal_consents $q$, 'DELETE the consents (A''s included)'),
   ('b', format($q$ delete from nestly.children where user_id = %L $q$, tests.fx_id('a')), 'DELETE A''s children by A''s id'),
   ('b', format($q$ update nestly.legal_consents set has_declared_18_plus = true where user_id = %L $q$, tests.fx_id('a')), 'UPDATE A''s consent by A''s id')
 ) as t(who, s, label);
+
+-- F2.2a (schema.md "Amend", 17.10.2026): children gained a column-level UPDATE (name, sex, birth_date) behind children_update_own.
+-- A's own UPDATEs of those columns are asserted in file 51 (they change rows; this file keeps the state unchanged). Re-graded here:
+-- the slot UPDATE above stays 42501; an UPDATE that matches no row is now 0 rows, FOR UPDATE is permitted on own rows, and B's
+-- UPDATE aimed at A's children affects 0 rows.
+select is(tests.dml_as('authenticated', tests.claims(tests.fx_id(t.who)), t.s), t.expected,
+  '[F1.4-a c14 · F2.2a c9 re-graded] ' || t.who || ' ' || t.label || ': ' || t.expected)
+from (values
+  ('a', $q$ update nestly.children set sex = 'girl' where false $q$, 'UPDATE that matches no child', 'OK:0'),
+  ('a', $q$ select id from nestly.children for update $q$, 'SELECT ... FOR UPDATE on own children (needs UPDATE on a column; RLS-confined)', 'OK:2'),
+  ('b', format($q$ update nestly.children set name = 'Hijacked' where user_id = %L $q$, tests.fx_id('a')), 'UPDATE of A''s children by A''s id', 'OK:0'),
+  ('b', $q$ update nestly.children set name = 'Hijacked' where slot = 2 $q$, 'UPDATE of a slot only A has', 'OK:0')
+) as t(who, s, label, expected);
+select is(tests.fx_children(tests.fx_id('a')), '1:Noa:girl:2024-05-10 ; 2:Eli:boy:2022-01-15',
+  '[F2.2a c9 A1] A''s children are what the fixture wrote after B''s attempts');
 
 select is(tests.fx_state(), (select s0 from zz_state),
   '[F1.4-a c14] after every UPDATE / DELETE / TRUNCATE above, all five tables are byte-for-byte what they were (observed as the owner, not through RLS)');

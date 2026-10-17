@@ -113,6 +113,14 @@ export const childrenInsert = nestly.table('children', {
   birthDate: date('birth_date', { mode: 'string' }).notNull(),
 });
 
+/** UPDATE target only. name, sex, birth_date are the columns granted UPDATE to authenticated (migration 20261017110000). id is for WHERE only: it has no UPDATE grant (42501). */
+export const childrenUpdate = nestly.table('children', {
+  id: uuid('id').primaryKey(),
+  name: text('name').notNull(),
+  sex: text('sex', { enum: CHILD_SEXES }).notNull(),
+  birthDate: date('birth_date', { mode: 'string' }).notNull(),
+});
+
 /** INSERT target only. Names exactly the columns granted INSERT (migration 20261014200000 §6). */
 export const legalConsentsInsert = nestly.table('legal_consents', {
   termsVersion: text('terms_version').notNull(),

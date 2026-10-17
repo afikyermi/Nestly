@@ -5,6 +5,7 @@ import { readConfig, type ServerConfig } from './lib/config.js';
 import { createTokenVerifier } from './lib/token-verifier.js';
 import { registerAuthentication, replySessionRefused, type LinkGate } from './plugins/authentication.js';
 import { clientAddress } from './recovery/client-ip.js';
+import { registerJourneysRoutes } from './routes/journeys.js';
 import { registerMeRoute } from './routes/me.js';
 import { registerPasswordRoutes } from './routes/password.js';
 import { registerProfileRoute } from './routes/profile.js';
@@ -37,6 +38,10 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   // The logger's request line carries the method and the path only: the default one would write that address.
   const app = Fastify({
     trustProxy: (_address, hop) => hop < 1,
+    // A path parameter (PUT /api/children/:id, F2.2a) reaches its handler at any length, so the handler's own check answers (404
+    // not_found) instead of the router's 414, whose default body quotes the URL. 16 KiB is Node's whole header limit; no route has
+    // a regular-expression parameter, which is what the router's default of 100 guards.
+    routerOptions: { maxParamLength: 16 * 1024 },
     logger:
       deps.logStream === undefined
         ? false
@@ -83,12 +88,14 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   });
 
   app.get('/api/health', () => ({ status: 'ok' }));
+  const clock = deps.clock ?? (() => new Date());
   registerMeRoute(app, { database, recovery });
-  registerRegistrationRoute(app, { database, clock: deps.clock ?? (() => new Date()) });
+  registerRegistrationRoute(app, { database, clock });
   registerRecoveryQuestionsRoute(app, { database, recovery });
   registerRecoveryResetRoute(app, { database, recovery });
   registerPasswordRoutes(app, { database, recovery });
   registerProfileRoute(app, { database });
+  registerJourneysRoutes(app, { database, clock });
 
   return app;
 }

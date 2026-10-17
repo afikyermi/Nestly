@@ -40,4 +40,12 @@ export const SCREENS: Screen[] = [
   { kind: 'story', name: 'profile-edit-errors', id: 'features-profile-profilecontent--edit-errors' },
   { kind: 'story', name: 'profile-load-failed', id: 'features-profile-profilecontent--load-failed' },
   { kind: 'story', name: 'profile-edit-save-failed', id: 'features-profile-profilecontent--save-failed' },
+  // F2.2a c1-c4, c6, c12, c13: the "המסע שלי" section's states, story entries for the same reason (features/journeys/JourneysContent.stories.tsx).
+  { kind: 'story', name: 'journey-view', id: 'features-journeys-journeyscontent--journey-view' },
+  { kind: 'story', name: 'journey-view-empty', id: 'features-journeys-journeyscontent--journey-view-empty' },
+  { kind: 'story', name: 'journey-load-failed', id: 'features-journeys-journeyscontent--journey-load-failed' },
+  { kind: 'story', name: 'child-form', id: 'features-journeys-journeyscontent--child-form' },
+  { kind: 'story', name: 'child-form-errors', id: 'features-journeys-journeyscontent--child-form-errors' },
+  { kind: 'story', name: 'children-limit', id: 'features-journeys-journeyscontent--children-limit' },
+  { kind: 'story', name: 'journey-save-failed', id: 'features-journeys-journeyscontent--journey-save-failed' },
 ];
