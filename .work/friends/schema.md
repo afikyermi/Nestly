@@ -280,3 +280,8 @@ Tests (`tools/preview-e2e-cleanup.test.mjs`, TEST ENGINEER, same PR) turn red an
 exemption list `['security_limits']` (config, no user rows), never a dummy delete; :475 the pinned order gains `friendships`,
 `regular_names` before `regular_profiles` and `profile_open_counts`, `security_events` after it; :472 unchanged. Add: friendships
 deleted by `requester_id = ${id} or addressee_id = ${id}` (both sides pinned by regex).
+
+## Amendment — migration versions (ORCHESTRATOR, 17.10.2026, from DATA ARCHITECT's as-built check)
+Internal HOW. F2.4a is built as `20261017160000_friendships.sql`, not `20261017130000` (lines 18, 59, 110): the timestamp rule needs a version
+later than main's newest, `20261017150000_profile_view.sql`. **F2.4c1** therefore takes `20261017170000` or later (not `20261017160000`,
+line 136), and its down script deletes **that** version's history row (line 210), never F2.4a's.
