@@ -345,4 +345,31 @@ describe('[F2.4c1 c24 NFR-SEC-006 (1) DR-S] an F2.4a send counts as one open', (
     expect(res.body).not.toMatch(/\d/);
     expect(Object.keys(res.headers).filter((h) => LIMIT_HEADERS.test(h))).toEqual([]);
   });
+
+  // CRITIC (findings-c1.md, medium): a send to an unavailable target answers 404 from a rolled-back transaction, so the count was lost.
+  it.each([['a random uuid', NOBODY], ['a Professional account', P], ['a suspended Regular', S], ['a banned Regular', X]])(
+    '[F2.4c1 c24 c20] open, open, then a send to %s -> 404, and it was counted: the next open is 429',
+    T,
+    async (_label, target) => {
+      await setLimit(3, 3600);
+      const app = await start();
+      expect((await opened(app, hA, ACCOUNT_B)).status).toBe(200);
+      expect((await opened(app, hA, ACCOUNT_B)).status).toBe(200);
+      const res = await sendTo(app, hA, target);
+      expect(res.statusCode, res.body).toBe(404);
+      expect(JSON.parse(res.body)).toEqual({ error: 'unavailable' });
+      expect(await opensOf(ACCOUNT_A), 'the failed send is counted').toBe(3);
+      expect((await opened(app, hA, ACCOUNT_B)).status).toBe(429);
+      expect(await rows(ACCOUNT_A, target)).toBe('');
+    },
+  );
+
+  it('[F2.4c1 c24 c20] the 404 of a send is the same body for every unavailable kind, at the limit or not', T, async () => {
+    await setLimit(3, 3600);
+    const app = await start();
+    const bodies: string[] = [];
+    for (const target of [NOBODY, P, S]) bodies.push((await sendTo(app, hA, target)).body);
+    expect(new Set(bodies).size).toBe(1);
+    expect(JSON.parse(bodies[0] ?? '')).toEqual({ error: 'unavailable' });
+  });
 });
