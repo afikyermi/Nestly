@@ -109,3 +109,5 @@ and is re-gated and split then.
 Reason: SPEC's recommendations; A in DR-1 uses the "Profile/Deep Link" FR-PRIV-001 already names and leaks no email.
 Q1, Q2 take their defaults. **DR-T** (profile-open thresholds) and **DR-2** (what a Friend sees) are reserved → WORKPLAN.
 **DR-6** goes to DATA ARCHITECT at F2.4a's Gate 2; if its shape is a security-model change it joins DR-G1 for Afik.
+
+**Afik, 17.10.2026 (decisions.md 2026-10-17 "I2 reserved items"):** DR-2 → A (a Friend sees F2.3's Open view in both states; children only as the Journey Summary) · DR-T → 100 profile opens per hour per account, as changeable Configuration. F2.4c is unblocked: re-gated and split at its own Gate 1.

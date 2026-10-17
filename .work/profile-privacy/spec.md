@@ -112,3 +112,5 @@ Reason: each is the SPEC recommendation; A keeps NFR-SEC-006 whole and reveals n
 returns the count and "בהריון" in both states; ages are added in a follow-up part once Afik answers. Everything else proceeds.
 If DATA ARCHITECT's shape for the cross-user read needs a new SECURITY DEFINER or changes the security model, Gate 2 says so and
 it becomes a reserved item; otherwise Gate 2 is ORCHESTRATOR's. Code waits for F2.2a on the branch; DATA ARCHITECT runs now.
+
+**Afik, 17.10.2026 (decisions.md 2026-10-17 "I2 reserved items"):** DR-3 → ages in years and months, e.g. "4 חודשים", "שנה ו-3 חודשים" (months at every age). c8 and c14 are rewritten to this format before F2.3b.

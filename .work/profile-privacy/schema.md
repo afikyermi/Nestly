@@ -105,3 +105,5 @@ grant under the existing own-row policy, no INSERT/DELETE, the guarded rollback.
 moves to a later migration with no change to them (finding 3). **F2.3b (c7–c13, c15: `profile_view`) is reserved — DR-G1** (first
 SECURITY DEFINER reading other users' rows = a security-model change) → WORKPLAN "ממתין לך"; it is not built until Afik answers.
 The two QUESTIONs take their defaults (link-check-pending target visible; own id → the non-Friend view).
+
+**Afik, 17.10.2026 (decisions.md 2026-10-17 "I2 reserved items"):** DR-G1 approved as shaped above. F2.3b (c7–c15, `profile_view`) is unblocked, with ages per DR-3 (years and months) added to the function in the same part.

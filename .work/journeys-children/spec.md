@@ -111,3 +111,5 @@ Reason: each is the SPEC recommendation, inside the SRS rules (VAL-039/040, FR-R
 Q1, Q2 take their defaults. **DR-1 and DR-2r are reserved** → WORKPLAN "ממתין לך"; work continues on F2.2a, then F2.3.
 FYI for Afik (not blocking): child names are UGC about minors; nothing leaves the owner in F2.2.
 Code waits for PR 40 (one branch); DATA ARCHITECT runs now on F2.2a.
+
+**Afik, 17.10.2026 (decisions.md 2026-10-17 "I2 reserved items"):** DR-1 → A (hard delete after a confirmation step) · DR-2r → no reason asked or stored; label "סיום מסלול ההריון". F2.2b is unblocked: SPEC writes the remaining criteria, then Gate 1 again.
