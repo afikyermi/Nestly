@@ -195,15 +195,18 @@ select set_eq(
             ('journey_contexts.journey_contexts_update_own.w'), ('journey_contexts.journey_contexts_delete_own.d'),
             ('children.children_select_own.r'), ('children.children_insert_own.a'),
             ('children.children_update_own.w'), ('children.children_delete_own.d'),
-            ('legal_consents.legal_consents_select_own.r'), ('legal_consents.legal_consents_insert_own.a') $$,
-  '[F1.4-a c14 platform r14 · F1.6 scoped · F2.2a c9 · F2.2-b c18] the policies on the five F1.1/F1.4 tables are exactly fifteen: one SELECT and one INSERT per table plus regular_profiles_update_own (F2.1), children_update_own (F2.2a), journey_contexts_update_own (F2.2b1) and the own-row deletes children_delete_own and journey_contexts_delete_own (F2.2b2, DR-1 A), no other UPDATE, DELETE or ALL (the recovery policies: file 30; files 50, 51 and 54 assert the update and delete policies)');
+            ('legal_consents.legal_consents_select_own.r'), ('legal_consents.legal_consents_insert_own.a'),
+            ('users.users_select_profile_view.r'), ('regular_profiles.regular_profiles_select_profile_view.r'),
+            ('children.children_select_profile_view.r'), ('journey_contexts.journey_contexts_select_profile_view.r') $$,
+  '[F1.4-a c14 platform r14 · F1.6 scoped · F2.2a c9 · F2.2-b c18 · F2.3b c15] the policies on the five F1.1/F1.4 tables are exactly nineteen: one SELECT and one INSERT per table plus regular_profiles_update_own (F2.1), children_update_own (F2.2a), journey_contexts_update_own (F2.2b1), the own-row deletes children_delete_own and journey_contexts_delete_own (F2.2b2, DR-1 A) and the four *_select_profile_view (F2.3b, TO app_owner: file 53), no other UPDATE, DELETE or ALL (the recovery policies: file 30; files 50, 51 and 54 assert the update and delete policies)');
 
 select is_empty(
   $$ select c.relname || '.' || pol.polname
        from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'nestly' and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents')
-        and pol.polroles <> array[(select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated')] $$,
-  '[F1.4-a c14 platform r4 · F1.6 scoped] every policy on the five F1.1/F1.4 tables is TO authenticated only (not PUBLIC, not anon, not app_recovery)');
+        and pol.polroles <> array[(select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated')]
+        and pol.polname not like '%\_select\_profile\_view' $$,
+  '[F1.4-a c14 platform r4 · F1.6 scoped · F2.3b c15] every policy on the five F1.1/F1.4 tables is TO authenticated only (not PUBLIC, not anon, not app_recovery), except the four *_select_profile_view TO app_owner (file 53)');
 
 select is_empty(
   $$ select c.relname || '.' || pol.polname
@@ -375,16 +378,17 @@ select is_empty(
       where n.nspname = 'nestly' and not t.tgisinternal and t.tgname <> 'identity_link_checks_transition' $$,
   '[F1.4-a c14 · F2.0 scoped] no trigger on any nestly table but the F2.0 transition guard of identity_link_checks (file 40): the limits are constraints, not code');
 
-select is_empty(
-  $$ select p.proname from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+select set_eq(
+  $$ select p.oid::regprocedure::text from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'nestly' and p.prosecdef $$,
-  '[F1.4-a c14 platform r10] schema nestly holds no SECURITY DEFINER function');
+  $$ select a from tests.approved_security_definer() as a $$,
+  '[F1.4-a c14 platform r10 · F2.3b c15] the SECURITY DEFINER functions in schema nestly are exactly the approved list (F2.3b: profile_view(text))');
 
 select is(
   (select string_agg(p.proname, ', ' order by p.proname) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'nestly'),
-  'identity_link_checks_transition, is_active_account, jwt_is_oauth, jwt_issued_at, jwt_session_id, recovery_claimed_at, recovery_handle, recovery_ip, recovery_subject, session_guard',
-  '[F1.4-a c14 · F1.6-a c3 c21 · F2.0-a] nestly holds exactly ten functions: is_active_account, the three recovery helpers, the five F2.0 helpers and the F2.0 transition trigger (no other function came with a migration)');
+  'child_age_months, identity_link_checks_transition, is_active_account, jwt_is_oauth, jwt_issued_at, jwt_session_id, profile_view, profile_view_target, recovery_claimed_at, recovery_handle, recovery_ip, recovery_subject, session_guard',
+  '[F1.4-a c14 · F1.6-a c3 c21 · F2.0-a · F2.3b c15] nestly holds exactly thirteen functions: is_active_account, the three recovery helpers, the five F2.0 helpers, the F2.0 transition trigger and F2.3b''s profile_view with its two helpers (no other function came with a migration)');
 
 select is_empty(
   $$ select c.relname from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace

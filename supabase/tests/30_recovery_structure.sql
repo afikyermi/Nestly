@@ -345,8 +345,8 @@ select is(
   'recovery_claimed_at:app_recovery, recovery_handle:app_recovery, recovery_ip:app_recovery, recovery_subject:app_recovery',
   '[F1.6-a c3 c5] only app_recovery can execute the helpers: authenticated, anon, app_server, app_jobs and PUBLIC cannot');
 
-select is((select count(*) from tests.approved_security_definer()), 0::bigint,
-  '[F1.6 platform r10, DR-G1] the approved SECURITY DEFINER list is still empty: the recovery flow is a role, not a definer');
+select is((select count(*) from tests.approved_security_definer() as a where a like 'nestly.recovery\_%'), 0::bigint,
+  '[F1.6 platform r10, DR-G1] F1.6 adds no definer to the approved list: the recovery flow is a role, not a definer');
 
 -- ---- fixtures are there, so "no row" results elsewhere are not vacuous ------------------------------------------------------
 select is(tests.fx_user(tests.fx_id('a')), 'regular/active', '[F1.6 fixture] account a exists, regular and active');

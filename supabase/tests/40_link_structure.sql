@@ -275,12 +275,16 @@ select is(
   '[F2.0-a c10 c12] the thirteen F1.6 kinds are still accepted (the CHECK was widened, not replaced)');
 
 -- ---- no new SECURITY DEFINER ------------------------------------------------------------------------------------------------------
-select is((select count(*) from tests.approved_security_definer()), 0::bigint,
-  '[F2.0-a c12 platform r10] the approved SECURITY DEFINER list is still empty: the guard and the clear are policies and a trigger, not definers');
+select is((select count(*) from tests.approved_security_definer() as a
+            where a ~ '^nestly\.(jwt_session_id|jwt_issued_at|jwt_is_oauth|session_guard|recovery_subject|identity_link_checks_transition)\('),
+  0::bigint,
+  '[F2.0-a c12 platform r10] F2.0 adds no definer to the approved list: the guard and the clear are policies and a trigger, not definers');
 
 select is((select count(*) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
-            where n.nspname = 'nestly' and p.prosecdef), 0::bigint,
-  '[F2.0-a c12 platform r10] no function in schema nestly is SECURITY DEFINER');
+            where n.nspname = 'nestly' and p.prosecdef
+              and p.proname in ('jwt_session_id', 'jwt_issued_at', 'jwt_is_oauth', 'session_guard', 'recovery_subject',
+                                'identity_link_checks_transition')), 0::bigint,
+  '[F2.0-a c12 platform r10] no F2.0 function in schema nestly is SECURITY DEFINER');
 
 select * from finish();
 
