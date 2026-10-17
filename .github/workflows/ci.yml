@@ -560,6 +560,8 @@ jobs:
       - name: Server integration tests as app_server (part c)
         env:
           DATABASE_URL: ${{ env.CI_APP_SERVER_DB_URL }}
+          # Only migration-backfill tests (e.g. F2.3a c6) connect as app_owner, to roll back and re-apply the newest migration.
+          OWNER_DATABASE_URL: ${{ env.CI_APP_OWNER_DB_URL }}
         run: npm run test:db -w @nestly/server
 
       - name: Database log on failure

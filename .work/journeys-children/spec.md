@@ -10,20 +10,20 @@
 **Scope**          Regular account, own rows only. A section "המסע שלי" on the profile page (`PATHS.profile`, PG-012) listing the
                    caller's journeys and children. **F2.2a:** view; add and edit a child; ≤ 10 children. **F2.2b:** add a pregnancy,
                    edit its due date, end a pregnancy, remove a child, birth, planning → pregnant (DR-1..DR-6). Validation reuses the
-                   registration rules in `packages/shared`. A row id may appear in a path, never a user id. Shape (names may change,
-                   noted in notes.md): `GET /api/journeys` → `{journeys:[{id, stage, dueDate|null}], children:[{id, name, sex,
-                   birthDate}]}` (children by slot) · `POST /api/children` · `PUT /api/children/:id` · part b: `POST`/`PUT /api/journeys`.
+                   registration rules in `packages/shared`. A row id may appear in a path, never a user id. As built (a, interface.md):
+                   GET/POST/PUT answer the full `OwnJourneys`. Part b, names may change (notes.md): `POST /api/journeys` · `PUT`/`DELETE
+                   /api/journeys/:id` · `DELETE /api/children/:id` · birth `POST /api/journeys/:id/birth`; each 200/201 → `OwnJourneys`.
 **Out of scope**   Choosing or showing an active / first journey (OP-003, I6) · My Stage, Home, Dashboard: nothing reads journeys
                    today, so FR-PROFILE-002's "עדכון My Stage" updates nothing in F2.2 · what another user sees, Journey Summary, Open/
                    Restricted (F2.3/F2.4) · child photos (M1), ChildBirthdayVisibility, birthday notifications · pregnancy week, any
-                   due-date reminder or clock-driven prompt · "מחזור וביוץ" (not in VAL-039) · editing a stage in place (DR-5) ·
-                   reordering children · change history, self-edit audit, analytics events · Professional accounts · account deletion (I9).
-**Data touched**   `nestly.children` (name, sex, birth_date, slot): first UPDATE path, INSERT outside registration. `nestly.journey_contexts`:
-                   INSERT of has_child (c7); part b UPDATE of due_date. Column UPDATE grants and own-row UPDATE policies behind
-                   `is_active_account()`; part b may need DELETE or an end marker (DR-1), which would change the (user_id, stage)
-                   unique key if rows are kept. DATA ARCHITECT owns the shape (Gate 2).
+                   due-date reminder or clock-driven prompt · "מחזור וביוץ" (not in VAL-039) · editing a stage in place (DR-5) · reordering
+                   children · change history, self-edit audit, analytics events · Professional accounts · account deletion (I9) · **part b:**
+                   an end reason (DR-2r) · undo, trash, soft delete (DR-1) · adding or ending "מתכננים" alone (Q5) · removing has_child directly.
+**Data touched**   `nestly.children` (name, sex, birth_date, slot): UPDATE, INSERT outside registration; part b DELETE (hard, DR-1).
+                   `nestly.journey_contexts`: INSERT of has_child (c7); part b INSERT of pregnant, UPDATE of due_date, DELETE of pregnant,
+                   planning, has_child. Own-row grants and policies behind `is_active_account()`. DATA ARCHITECT owns the shape (Gate 2).
 **Risk flags**     F2.2a: minors' data · authorization (own-row writes) · schema → **Elevated**. F2.2b: the same, plus health-related
-                   data (pregnancy) and a possibly destructive change (DR-1) → **Elevated**.
+                   data (pregnancy) and destructive change (hard delete, DR-1) → **Elevated**.
 
 **Acceptance criteria — F2.2a**
 1. 🎨 A has journeys {pregnant, dueDate 2027-03-01}, {has_child} and children נועה (girl, 2023-05-04, slot 1), איתי (boy,
@@ -51,7 +51,7 @@
    is unchanged, and the view shows the new values after a reload. "ביטול" sends nothing. [FR-PROFILE-002, DR-5]
 9. 🔴 pgTAP as `authenticated` with A's claims: SELECT on children and journey_contexts returns only A's rows; UPDATE of B's
    child affects 0 rows; INSERT naming user_id B is denied; UPDATE of a child's user_id, slot or created_at → 42501; DELETE on
-   either table is denied. API: PUT on B's child id, or a non-uuid id → 404 `{error:"not_found"}`, B unchanged. [A1, rules 12, 14, NFR-PRIV-005]
+   either table is denied (part b: superseded by c18). API: PUT on B's child id, or a non-uuid id → 404 `{error:"not_found"}`, B unchanged.
 10. 🔴 Suspended or banned A: every route → 403 `account_unavailable`, no data; pgTAP reads and writes 0 rows. No token or an
     invalid one → 401 and no query. Unregistered → 404 `no_profile`, nothing created. [A9, ERR-037, F2.1 DR-T1]
 11. 🔴 The server runs as `app_server` under `SET LOCAL ROLE authenticated` with A's claims; no service role, no new SECURITY
@@ -62,41 +62,54 @@
 13. 🎨 Every screen listed: zero axe-core violations, RTL, phone and desktop widths; every field labelled; add, edit, save and
     cancel reachable by keyboard alone. [S3, NFR-A11Y-001]
 
-**Acceptance criteria — F2.2b** (c14–c15 need no DR; c16–c18 hold under every DR-1 option; the rest is written after DR-1/2/3/6)
+**Acceptance criteria — F2.2b** (c11–c13 extend to every part-b route and screen; copy not in the SRS is Q1)
 14. 🎨 The pregnancy's "עריכה" opens "תאריך לידה משוער (לא חובה)" in three fields: today−30 and today+300 accepted, −31 and +301
-    refused with the registration range text; partial → "יש להשלים את התאריך או להשאיר אותו ריק"; all cleared → null. [VAL-044]
-15. 🟡 With neither planning nor pregnant, "הוספת הריון" opens the c14 date; a save creates the pregnant journey. With planning or
-    pregnant present the action is not shown, and the API → 409 `{error:"stage_conflict"}`, no row. pgTAP: A cannot UPDATE B's
-    journey, nor a journey's user_id, stage or created_at (42501). [VAL-039, AC-089; planning → pregnant is DR-3]
-16. 🔴 Removing a child or ending a pregnancy takes a confirmation naming the item; cancelling it sends nothing.
-17. 🔴 After a confirmed removal or end, the item is gone from the view and GET, and no longer counts toward 10 (at 10, remove
-    one, an add succeeds). After a pregnancy ends, a new one can be added under c15.
-18. 🔴 pgTAP and API: A cannot remove or end B's rows (0 rows / 404); a suspended A affects 0 rows.
+    refused with the registration range text; partial → "יש להשלים את התאריך או להשאיר אותו ריק"; all cleared → saved null. The
+    server re-checks on its own date (400, registration reason, no change). PUT on a planning or has_child id → 404. [VAL-044, DR-5] Screens: `pregnancy-form`.
+15. 🟡 With neither planning nor pregnant, "הוספת הריון" opens the c14 date (empty allowed); a save creates the pregnant journey,
+    shown in JOURNEY_STAGES order. With pregnant present the action is not shown and POST → 409 `{error:"stage_conflict"}`, no row.
+    Two concurrent POSTs → exactly one pregnant row. [VAL-039, AC-089]
+16. 🔴 "הסרה" on a child, "סיום מסלול ההריון" on the pregnancy and "הוספת הריון" while planning each open a confirmation naming
+    the item: "להסיר את נועה? הפרטים יימחקו ולא ניתן לשחזר אותם" · "לסיים את מסלול ההריון? הפרטים יימחקו ולא ניתן לשחזר אותם" ·
+    "מסלול 'מתכננים' יסתיים ויימחק". "ביטול", Escape or closing sends nothing and the view is unchanged. [DR-1, DR-3] Screens: `journey-confirm`.
+17. 🔴 Confirmed removal of a child: the child row is deleted (no row with its id remains in `nestly.children`), gone from the view
+    and from GET after reload, and it no longer counts: at 10, remove one, "הוספת ילד" is enabled and an add succeeds, the new child
+    shown last. After an ended pregnancy, a new one can be added under c15. [DR-1, VAL-040]
+18. 🔴 pgTAP as `authenticated` with A's claims: DELETE of A's child or journey removes 1 row; DELETE, UPDATE of due_date, or a
+    birth on B's rows affects 0 rows, B unchanged; INSERT of a journey naming user_id B is denied; UPDATE of a journey's user_id,
+    stage or created_at → 42501. API: any part-b route on B's id, an unknown id or a non-uuid → 404 `not_found`, nothing changes. [A1, rules 12, 14]
+19. 🟡 Removing a child while others remain keeps has_child; removing the last child deletes has_child in the same transaction
+    (a forced failure of either leaves both rows). After any two concurrent writes (remove the last two; add one while removing
+    the last), has_child exists if and only if ≥ 1 child exists. [DR-4 — not in the SRS]
+20. 🔴 Ending a pregnancy: no reason field; the DELETE takes no body (a body → 400); the pregnant row is deleted, and no column, row
+    or log line records that it ended or why. That route on a has_child or planning id → 404 (only c19/c23 end those). [DR-1, DR-2r]
+21. 🎨 Zero journeys (DR-6): ending A's only journey, or removing the last child when has_child is the only journey, succeeds; the
+    view shows "עוד לא נבחר שלב במסע" with "הוספת הריון" and "הוספת ילד". [DR-6 — not in the SRS] Screens: `journey-view-none`.
+22. 🔴 Birth: "הלידה התרחשה" on the pregnancy opens the c3 form (empty, c4 rules); a save adds the child (with has_child if
+    missing, c7) and deletes the pregnancy in one transaction. Cancel sends nothing. With 10 children → 409 `children_too_many`,
+    the pregnancy kept, the form shows the c6 text. A forced failure of any step leaves all rows as before. [DR-2, DR-4] Screens: `birth-form`.
+23. 🔴 Planning → pregnant: after the c16 confirmation, POST deletes planning and creates pregnant in one transaction; the view shows
+    "בהריון" and no "מתכננים". A POST with planning present that does not carry the confirmation → 409 `stage_conflict`, both
+    unchanged. A forced failure leaves planning and no pregnant. [DR-3, VAL-039]
+24. 🔴 Suspended or banned A: every part-b route → 403 `account_unavailable`, no row deleted or changed; pgTAP DELETE/UPDATE 0
+    rows. No or invalid token → 401, no query. The web shows ERR-037 / follows ERR-038 as c12; an open dialog closes, nothing sent twice. [A9]
+25. 🎨 A dialog in flight: confirm disabled, a double press sends one request; 5xx or network → it stays open with "הפעולה לא
+    הצליחה. אפשר לנסות שוב" in `role="alert"`, the item still shown. 404 (gone in another tab) → GET refreshes, the item absent, no
+    error. Success → "הפרטים נשמרו" in `role="status"`. [ERR-004, Q3]
+26. 🎨 Dialog a11y: `role="alertdialog"`, `aria-modal`, named by its question; focus opens on "ביטול" (Q4), Tab stays inside,
+    Escape cancels; on cancel focus returns to the opening button, after a delete to the h2 "המסע שלי". "הסרה" keeps that name
+    with `aria-describedby` → the child's row (as "עריכה"). c13 holds on every part-b screen, RTL with `<bdi>` names. [S3, NFR-A11Y-001]
 
-**Open questions**
-- **DECISION REQUEST DR-1 — RESERVED for Afik** (irreversible; minors' and health-related data beyond the SRS; retention §13.4
-  TBD). What "remove a child" and "end a pregnancy" do. A (recommended): hard delete after confirmation — no tracker data exists
-  yet, it matches OP-028's "deleted in full", and it minimises children's data. B: keep the row marked ended (history for I6;
-  needs a retention rule and a new unique key). C: delete a child, keep an ended pregnancy. F2.2b's c16–c18 and later wait; F2.2a does not.
-- **DR-2 (ORCHESTRATOR; spec gap) — birth.** A (recommended): "הלידה התרחשה" on the pregnancy opens the add-child form; one save
-  adds the child (c7) and ends the pregnancy per DR-1, in one transaction. B: no birth action; end and add separately.
-  **DR-2r — RESERVED for Afik** (health data beyond the SRS): whether a reason for an end without a birth is asked or stored, and
-  its wording. Recommended: never asked or stored; neutral "סיום מסלול ההריון".
-- **DR-3 (ORCHESTRATOR)** — a planning parent adds a pregnancy (VAL-039 forbids both). A (recommended): planning ends in the same
-  transaction, after a confirmation line. B: refused until planning is ended. "Ends" follows DR-1.
-- **DR-4 (ORCHESTRATOR; spec gap)** — has_child journey vs children. A (recommended, c7): the first child creates it, the last
-  child's removal ends it (F2.2b). B: independent. Registration keeps has_child ⇔ ≥ 1 child; A keeps that true.
-- **DR-5 (ORCHESTRATOR)** — editable fields. A (recommended, assumed in c8, c14): a child's name, sex, birth date; a pregnancy's
-  due date, clearable; a stage changes only by add or end. B: A plus editing a stage in place, outside VAL-039's flow.
-- **DR-6 (ORCHESTRATOR)** — may the last journey end (zero journeys)? A (recommended): yes; VAL-039's "at least one" is a
-  registration rule, and forcing a stage after a loss is wrong. B: no, refused on the last one.
-- Q1: copy ("המסע שלי", "הוספת ילד", "הוספת הריון", c2/c12 texts) is not in the SRS → **assumed:** as written; reused texts keep
-  their registration wording; dates as dd.mm.yyyy. Record at I2's close.
-- Q2: two tabs editing one child → **assumed:** last write wins.
+**Open questions** (closed ones are records)
+- Closed: DR-1 → A, DR-2r → no reason, "סיום מסלול ההריון" (Afik 17.10, decisions/2026-10.md) · DR-2..DR-6 → A (Gate 1) · Q2 last write wins.
+- Q1: copy not in the SRS (section, action, dialog, c21/c25 texts) → **assumed:** as written; dd.mm.yyyy. Record at I2's close.
+- Q3: deleting an item already gone → **assumed:** API 404; the web refreshes, no error (c25). Q4: dialog focus → **assumed:** "ביטול".
+- Q5 (spec gap; FR-PROFILE-002 says only "הוספה/עריכה"): adding "מתכננים" after registration, or ending it alone → **assumed:** not in
+  F2.2b; a zero-journey parent can add a pregnancy or a child. Record at I2's close.
 - FYI for Afik, not blocking: child names are UGC about minors; nothing leaves the owner in F2.2 (F2.3 owns exposure).
 
-**Size estimate**  Split. **F2.2a** (c1–c13): migration ~40, shared schemas extracted from registration ~40, server ~150, web
-~180 → ~410. **F2.2b** (c14–c18 + the DR-dependent criteria): ~300; c14–c15 can start before DR-1 is answered.
+**Size estimate**  F2.2a (c1–c13) ~410, merged (PR 41). F2.2b ~460 → split: **b1** = c14–c15 (pregnancy add/edit; c18/c24 for its
+routes; no DELETE grant) ~180 · **b2** = c16–c26 (dialog, deletes, birth, planning → pregnant) ~280. Both Elevated.
 
 ## Gate 1 — ORCHESTRATOR, 17.10.2026
 
@@ -111,3 +124,19 @@ Reason: each is the SPEC recommendation, inside the SRS rules (VAL-039/040, FR-R
 Q1, Q2 take their defaults. **DR-1 and DR-2r are reserved** → WORKPLAN "ממתין לך"; work continues on F2.2a, then F2.3.
 FYI for Afik (not blocking): child names are UGC about minors; nothing leaves the owner in F2.2.
 Code waits for PR 40 (one branch); DATA ARCHITECT runs now on F2.2a.
+
+**Afik, 17.10.2026 (decisions.md 2026-10-17 "I2 reserved items"):** DR-1 → A (hard delete after a confirmation step) · DR-2r → no reason asked or stored; label "סיום מסלול ההריון". F2.2b is unblocked: SPEC writes the remaining criteria, then Gate 1 again.
+
+## Re-spec for F2.2b — SPEC, 17.10.2026
+c14–c26 (13, Elevated ≤ 20): c14–c15 tightened (planning case moved to c23, DR-3 A), c16–c18 rewritten for DR-1 A, c19–c26 new.
+Header Scope / Out of scope / Data touched / Risk flags updated for part b; c9's "DELETE denied" marked superseded by c18 (Afik's
+DR-1). New defaults Q3–Q5. Split b1/b2 proposed. **Gate 1 for F2.2b: ORCHESTRATOR**, then DATA ARCHITECT (Gate 2: DELETE grants).
+
+## Gate 1 (F2.2b) — ORCHESTRATOR, 17.10.2026
+
+Approved, split: **F2.2b1** (c14–c15, pregnancy add and due-date edit, no DELETE) · **F2.2b2** (c16–c26, confirmation dialog,
+hard deletes, birth, planning → pregnant, has_child bookkeeping). Elevated. Q1, Q3–Q5 take their defaults (Q5: adding or ending
+"מתכננים" alone is not in F2.2b — record at I2's close).
+**Change control (approved F2.2a text):** c9's "DELETE on either table is denied" is replaced in b2 by c18 (own-row DELETE only),
+and c15's planning case moves to c23 — both follow from Afik's DR-1 A and Gate 1 DR-3 A. Child order becomes order of addition
+(a freed slot is reused), so c3/c17 keep "a new child shows last"; DATA ARCHITECT shapes the order and the has_child race (c19).

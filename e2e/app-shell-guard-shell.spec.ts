@@ -284,8 +284,10 @@ test.describe('Placeholders', () => {
     await expect(page.locator('main')).not.toContainText(LINE);
   });
 
-  // F2.1: /profile is the own-profile screen now (its states: e2e/profile.spec.ts); the other three stay placeholders.
-  for (const route of PROTECTED_ROUTES.filter((r) => r.path !== '/profile')) {
+  // F2.1: /profile is the own-profile screen now (its states: e2e/profile.spec.ts). F2.3a (Gate 1 DR-2 A): /settings holds the privacy
+  // section now; what this test guarded there (its h1, no data without a real session) is in e2e/privacy.spec.ts, "F2.3a c5 c22".
+  // The other two stay placeholders.
+  for (const route of PROTECTED_ROUTES.filter((r) => r.path !== '/profile' && r.path !== '/settings')) {
     test(`[F1.2 c22][FR-AUTH-004][NFR-SEC-002] ${route.path} shows its h1 and the line, and nothing else; no request to /api/* with state forced to signed-in`, async ({
       page,
     }) => {

@@ -114,6 +114,9 @@ export function ChoiceCardGroup(props: ChoiceCardGroupProps) {
               tabIndex={tabbable ? 0 : -1}
               // A plain fieldset cannot carry aria-invalid (only radiogroup can), so in multiple mode each checkbox does.
               aria-invalid={error && multiple ? true : undefined}
+              // The name is the option's label alone; its explanation line is the description, not part of the name.
+              aria-labelledby={`${id}-label`}
+              aria-describedby={option.description ? `${id}-description` : undefined}
               onChange={() => {
                 if (props.multiple === true) props.onChange?.(toggled(options, props.values, props.exclusivePairs ?? [], option.value));
                 else props.onChange?.(option.value);
@@ -146,9 +149,13 @@ export function ChoiceCardGroup(props: ChoiceCardGroupProps) {
                 {selected ? <CheckIcon className="size-4" /> : null}
               </span>
               <span className="flex flex-col">
-                <span className={selected ? 'font-semibold' : undefined}>{option.label}</span>
+                <span id={`${id}-label`} className={selected ? 'font-semibold' : undefined}>
+                  {option.label}
+                </span>
                 {option.description ? (
-                  <span className="text-small text-muted-foreground">{option.description}</span>
+                  <span id={`${id}-description`} className="text-small text-muted-foreground">
+                    {option.description}
+                  </span>
                 ) : null}
               </span>
             </label>

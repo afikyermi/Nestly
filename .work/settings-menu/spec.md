@@ -99,3 +99,5 @@ defaults. Reason: SPEC's recommendations; no promise without a date, no new scre
 **DR-2 is reserved** (legal: "תנאים ופרטיות" in the signed-in app while the documents are I9 placeholders) → WORKPLAN
 "ממתין לך". Until answered, the Terms & Privacy item, c6 and c7 are not built; everything else proceeds.
 Code waits for F2.3 on the branch.
+
+**Afik, 17.10.2026 (decisions.md 2026-10-17 "I2 reserved items"):** DR-2 → A (show "תנאים ופרטיות" in the signed-in app). c6, c7 and the item are in scope.

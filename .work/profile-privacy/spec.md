@@ -54,8 +54,9 @@ target. B's fixture unless stated: full_name "דנה כהן", gender woman; chil
 7. 🔴 B restricted. V's read of B returns exactly: full name, number of children 2, "בהריון". It returns no age, gender, child name,
    sex, birth date, child id or slot, due date, pregnancy week, journey id, planning status, email, created_at, birthday consent,
    or tracker data. [BR-044, VAL-027, AC-054, P1, P2]
-8. 🔴 B open. V's read of B returns exactly: full name, gender (DR-4), number of children 2, the two ages in slot order in the DR-3
-   format, "בהריון". Every other exclusion of c7 holds. gender NULL → no gender item. [FR-PRIV-001, AC-054, P2, P3]
+8. 🔴 B open, today 2026-10-17 in Asia/Jerusalem. V's read of B returns exactly: full name, gender (DR-4), number of children 2, the
+   ages as numbers in slot order — נועה (3 years, 5 months), איתי (1 year, 9 months) — and "בהריון"; no age text. Every other
+   exclusion of c7 holds. gender NULL → no gender item. [FR-PRIV-001, AC-054, P2, P3, DR-3 (Afik 17.10)]
 9. 🔴 No other path: as V, direct SELECTs on every table and view in `nestly` return none of B's children or journey rows, no
    child name, birth date or due date in any state, and no gender while B is restricted. Only the c7/c8 read exposes B. [A1, A8, P2]
 10. 🔴 B with no children and no pregnancy (planning only; and zero journeys), sentence on: in both states V gets the name and the
@@ -66,16 +67,32 @@ target. B's fixture unless stated: full_name "דנה כהן", gender woman; chil
     count 3 on V's next read. [FR-PRIV-001 "מיושמת בכל פתיחת"]
 13. 🔴 Unavailable: B suspended or banned (DR-5), B a Professional account, a random uuid, a non-uuid → V gets 0 rows, identical
     across the four. V suspended or banned → 0 rows for every B. [A9, BR-063, DR-5]
-14. 🟡 Ages are computed in the database from birth_date on the current date in Asia/Jerusalem; birth_date never leaves the
-    database on this path. Boundaries, relative to today: exactly N years → N; one day short → N−1; born today; born 29.02 (DR-3).
+14. 🔴 Ages — database, numbers only (Open, c8): per child, slot order, completed years and months 0–11, computed in the database from
+    birth_date on today's date in Asia/Jerusalem; birth_date never leaves the database on this path; no Hebrew text there. Rule:
+    completed calendar months since birth; the Nth monthly anniversary is the birth day of the month, or the 1st of the next month
+    when that month has no such day; years = months ÷ 12, months = the remainder. Today 2026-10-17, born: 2026-10-17 → (0,0) ·
+    2026-09-18 → (0,0) · 2026-09-17 → (0,1) · 2026-08-17 → (0,2) · 2025-10-18 → (0,11) · 2025-10-17 → (1,0) · 2025-09-17 →
+    (1,1) · 2024-10-18 → (1,11) · 2024-10-17 → (2,0). Born 2024-02-29, on: 2025-02-28 → (0,11) · 2025-03-01 → (1,0) · 2027-02-28
+    → (2,11) · 2028-02-29 → (4,0). Born 2026-01-31, on: 02-28 → (0,0) · 03-01 → (0,1) · 03-30 → (0,1) · 03-31 → (0,2) · 04-30 →
+    (0,2) · 05-01 → (0,3); born 2024-01-31 on 2024-02-29 → (0,0). Time zone, born 2025-10-18: at 2026-10-17T20:59Z (23:59 IDT) →
+    (0,11), at 21:00Z (00:00 IDT 18.10) → (1,0); born 2026-01-01: at 2026-12-31T21:59Z (23:59 IST) → (0,11), 22:00Z → (1,0). The
+    test controls the date and instant (how: DATA ARCHITECT). A birth_date after today: DR-6. [DR-3 Afik; FR-PRIV-001; VAL-005; P2]
 15. 🔴 Runtime runs as `app_server` under `SET LOCAL ROLE authenticated`; no service role. A new SECURITY DEFINER exists only if
     DATA ARCHITECT lists it in data-model.md "Approved exceptions", and the pgTAP list check matches that list. [A8, rules 1, 10]
 16. 🎨 `privacy-settings` and its two failure screens: zero axe-core violations, RTL, phone and desktop widths; the visibility choice
     is a labelled radio group, the toggles expose their state, all reachable and operable by keyboard. [S3, NFR-A11Y-001]
+17. 🟡 Age phrase — web copy, a pure function in `packages/shared` (name may change), Vitest-tested in F2.3b, first rendered by
+    the viewer screen in F2.4c. Input (years, months) → one whole phrase per case, never assembled from fragments that break
+    agreement; no "בן"/"בת" or other sex marker (sex is not in the read, c7), no "גיל" prefix (Q3–Q6): (0,0) "פחות מחודש" ·
+    (0,1) "חודש" · (0,2) "חודשיים" · (0,4) "4 חודשים" · (0,11) "11 חודשים" · (1,0) "שנה" · (1,1) "שנה וחודש" · (1,2) "שנה
+    וחודשיים" · (1,3) "שנה ו-3 חודשים" · (2,0) "שנתיים" · (2,1) "שנתיים וחודש" · (2,2) "שנתיים וחודשיים" · (2,5) "שנתיים ו-5
+    חודשים" · (3,0) "3 שנים" · (3,5) "3 שנים ו-5 חודשים" · (11,0) "11 שנים" · (25,7) "25 שנים ו-7 חודשים". Years negative or not
+    an integer, months outside 0–11 or not an integer → throws; no partial phrase. [DR-3 Afik; NFR-USAB-003; ux-copy-he]
 
 **What F2.4 must add:** the Friend branch (what a Friend sees, FR-REL-001) · Friends and mutual-Friends lists in both states ·
 c7–c13 re-run with a Friend pair, a non-Friend pair, and a removed Friend reverting at once · the message action (I8) · and,
-under DR-1 A, the viewer endpoint and screen with the first entry point, plus the profile-open rate limit (thresholds: I7).
+under DR-1 A, the viewer endpoint and screen with the first entry point, plus the profile-open rate limit (thresholds: I7) ·
+the viewer screen (F2.4c) renders each age with c17's function from c14's numbers, never its own wording.
 
 **Open questions**
 - **DR-1 (ORCHESTRATOR)** — viewer endpoint and screen. **A (recommended):** F2.3 ships the database read only (c7–c15, pgTAP);
@@ -85,17 +102,24 @@ under DR-1 A, the viewer endpoint and screen with the first entry point, plus th
   I7). C: endpoint and a URL-only screen (B's gap, +~200 lines → split).
 - **DR-2 (ORCHESTRATOR)** — where the owner settings live before F2.5. **A (recommended):** PG-038 SettingsPage at its own route
   with only the Privacy & Security section, linked from the profile page until F2.5 adds the menu. B: a section on the profile page.
-- **DR-3 — RESERVED for Afik (minors' data; format not in the SRS)** — how an age reads. **A (recommended):** whole years ("גיל 3"),
-  "פחות משנה" under one, no sex in the wording; 29.02 turns a year older on 01.03. B: months under two years, years after. FYI:
-  any age lets someone who re-reads over time infer the birthday at its tick; A ticks once a year, B monthly. c8 and c14 wait.
+- **DR-3 — decided by Afik 17.10.2026:** years and months, months at every age ("4 חודשים", "שנה ו-3 חודשים") → c8, c14, c17.
 - **DR-4 (ORCHESTRATOR; spec gap — "כל הפרופיל" is not enumerated)** — A (recommended): Open adds the as-built fields beyond the
   basic profile, which today is parent gender only; prefer_not_to_say shown as such, NULL omitted. B: gender never to a non-Friend.
 - **DR-5 (ORCHESTRATOR; spec gap)** — a suspended, banned or deletion-pending target. A (recommended): 0 rows, identical to an
   unknown id (c13). B: shown as "לא זמין" — distinguishable, reveals status.
+- **DR-6 (ORCHESTRATOR; spec gap)** — a birth_date after today in Asia/Jerusalem. VAL-005 is checked by the server only, on its own
+  clock; the column allows it. A (recommended): (0,0), never a negative number. B: that child's age item omitted, count kept.
 - Q1: copy (screen title "פרטיות", option and toggle labels, the one-line explanations, c4 texts) is not in the SRS → **assumed:**
   as written; explanations quote §1.4. Record at I2's close.
 - Q2: one Save for the three settings → **assumed:** yes, as F2.1. Two tabs → last write wins.
-- No reserved item besides DR-3. Birthday consent default on and visibility default Open are Afik's (questionnaire 1, 5).
+- Q3: under one month → **assumed:** "פחות מחודש" (not "0 חודשים"; "נולד/ה" is gendered and a slash form).
+- Q4: a whole number of years → **assumed:** months omitted ("שנה", "שנתיים", "3 שנים"); "months at every age" read as "months
+  shown whenever non-zero, at any age", not "ו-0 חודשים".
+- Q5: one and two → **assumed:** the word forms "חודש", "חודשיים", "שנה", "שנתיים" (Afik's "שנה ו-3"), never "1 חודש" / "2 שנים";
+  the conjunction joins them as "וחודש", "וחודשיים".
+- Q6: 3 and up → **assumed:** digits as Afik wrote them, plural "שנים" also from 11 ("11 שנים", not "11 שנה"), "ו-" with an ASCII
+  hyphen before a digit, as in Afik's example; no "גיל" in the phrase — any label is F2.4c's copy. Record at I2's close.
+- No reserved item open. Birthday consent default on and visibility default Open are Afik's (questionnaire 1, 5).
 
 **Size estimate**  Under DR-1 A: migration + backfill + rollback ~80, the public read object ~60, server route/service/repository
 ~110, shared schema ~20, web screen ~140 → ~410. One part. Under DR-1 B or C, split: F2.3a = c1–c6, c15–c16 (settings);
@@ -112,3 +136,22 @@ Reason: each is the SPEC recommendation; A keeps NFR-SEC-006 whole and reveals n
 returns the count and "בהריון" in both states; ages are added in a follow-up part once Afik answers. Everything else proceeds.
 If DATA ARCHITECT's shape for the cross-user read needs a new SECURITY DEFINER or changes the security model, Gate 2 says so and
 it becomes a reserved item; otherwise Gate 2 is ORCHESTRATOR's. Code waits for F2.2a on the branch; DATA ARCHITECT runs now.
+
+**Afik, 17.10.2026 (decisions.md 2026-10-17 "I2 reserved items"):** DR-3 → ages in years and months, e.g. "4 חודשים", "שנה ו-3 חודשים" (months at every age). c8 and c14 are rewritten to this format before F2.3b.
+
+## Re-spec for F2.3b — SPEC, 17.10.2026 (Gate 1 for this delta: ORCHESTRATOR, open)
+
+F2.3b = c7–c15 + c17, after DR-G1 (Afik: `profile_view` as in schema.md) and DR-3. Changed: c8 (ages as numbers, fixture values
+on 2026-10-17), c14 (rewritten: numbers only, the month rule, the boundary table, now 🔴 for minors' data), DR-3 entry (resolved);
+added c17 (the shared phrase function), DR-6, Q3–Q6, the F2.4 line on c17. Unchanged: c1–c7, c9–c13, c15–c16, DR-1/2/4/5, Q1–Q2.
+Split by layer (Gate 1 DR-1 A): the database returns (years, months) only; the Hebrew phrase is web copy in `packages/shared`,
+tested now, rendered first by F2.4c. Schema.md "Ages later" names "one more output column of DR-3's type": its type is
+DATA ARCHITECT's — c14 only fixes the values. Size (F2.3b): `profile_view` + ages ~70, rollback and list amends ~30, pgTAP
+53 + fixtures ~170, shared function + test ~100 → ~370. One part. 17 criteria, within the Elevated 20.
+
+## Gate 1 (F2.3b re-spec) — ORCHESTRATOR, 17.10.2026
+
+Approved: c8, c14 (database returns completed years and months, Asia/Jerusalem), c17 (shared Hebrew phrase, no בן/בת). **DR-6 →
+A** (a birth_date after today reads (0,0), never negative). Q3–Q6 take their defaults. Over the 100-line cap by the Gate records —
+accepted for this file. SPEC finding 2 (a daily reader learns the exact birth day of the month, hence the full birth date) goes
+to Afik as a refinement of his DR-3 accepted cost; F2.3b is built as decided meanwhile, ages being one additive column.

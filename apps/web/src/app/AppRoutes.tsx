@@ -9,6 +9,7 @@ import { RecoveryPage } from '@/pages/recovery/RecoveryPage';
 import { RecoveryQuestionsPage } from '@/pages/recovery-questions/RecoveryQuestionsPage';
 import { RegisterPage } from '@/pages/register/RegisterPage';
 import { SetNewPasswordPage } from '@/pages/set-new-password/SetNewPasswordPage';
+import { SettingsPage } from '@/pages/settings/SettingsPage';
 import { WelcomePage } from '@/pages/welcome/WelcomePage';
 import { FocusOnNavigation } from './FocusOnNavigation';
 import { PATHS } from './paths';
@@ -34,7 +35,7 @@ export function AppRoutes() {
             <Route path={PATHS.home} element={<ProtectedPlaceholderPage title="בית" />} />
             <Route path={PATHS.feed} element={<ProtectedPlaceholderPage title="פיד" />} />
             <Route path={PATHS.profile} element={<ProfilePage />} />
-            <Route path={PATHS.settings} element={<ProtectedPlaceholderPage title="הגדרות" />} />
+            <Route path={PATHS.settings} element={<SettingsPage />} />
             <Route path={PATHS.recoveryQuestions} element={<RecoveryQuestionsPage />} />
             <Route path={PATHS.changePassword} element={<ChangePasswordPage />} />
             <Route path={PATHS.setNewPassword} element={<SetNewPasswordPage />} />

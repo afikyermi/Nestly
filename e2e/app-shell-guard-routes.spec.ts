@@ -354,7 +354,8 @@ test.describe('RouteGuard: loading, session end, fail closed, DR-1', () => {
     await setState(page, 'signed-in');
     await expectUrl(page, '/settings');
     await expect(h1Of(page)).toHaveText('הגדרות');
-    await expect(page.getByRole('status')).toHaveCount(0);
+    // The guard's loading status is gone. (Since F2.3a /settings holds the privacy section's own status region: not this one.)
+    await expect(page.getByRole('status').filter({ hasText: LOADING })).toHaveCount(0);
   });
 
   test('[F1.2 c7][FR-AUTH-004] loading then signed-out: the user lands on /', async ({ page }) => {

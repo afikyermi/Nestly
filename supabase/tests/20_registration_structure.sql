@@ -269,8 +269,8 @@ select is(
      join pg_catalog.pg_attribute a on a.attrelid = c.oid
     where n.nspname = 'nestly' and c.relkind in ('r', 'p') and a.attnum > 0 and not a.attisdropped and a.attacl is not null
       and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents')),
-  13::bigint,
-  '[F1.4-a c14 rules 12, 13 · CRITIC a-1 · F1.6 scoped] exactly 13 columns of the five F1.1/F1.4 tables carry a column-level ACL');
+  16::bigint,
+  '[F1.4-a c14 rules 12, 13 · CRITIC a-1 · F1.6 scoped · F2.3-a c5] exactly 16 columns of the five F1.1/F1.4 tables carry a column-level ACL: the 13 INSERT columns and F2.3a''s three UPDATE-only settings');
 
 select is_empty(
   $$ select c.relname || '.' || a.attname || ':' || x.grantee::text || ':' || x.privilege_type
@@ -280,10 +280,11 @@ select is_empty(
         and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents')
         and not (x.privilege_type = 'INSERT' and x.grantee = (select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated'))
         and not (x.privilege_type = 'UPDATE' and x.grantee = (select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated')
-                 and c.relname = 'regular_profiles' and a.attname in ('full_name', 'gender'))
+                 and c.relname = 'regular_profiles' and a.attname in ('full_name', 'gender', 'profile_visibility',
+                                                                      'is_empty_journey_sentence_shown', 'is_child_birthday_shared'))
         and not (x.privilege_type = 'UPDATE' and x.grantee = (select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated')
                  and c.relname = 'children' and a.attname in ('name', 'sex', 'birth_date')) $$,
-  '[F1.4-a c14 · CRITIC a-1 · F1.6 scoped · F2.2a c9] on the five F1.1/F1.4 tables every column-level ACL entry is INSERT to authenticated, or the UPDATE of regular_profiles full_name/gender (F2.1) and children name/sex/birth_date (F2.2a): no column-level SELECT or REFERENCES, no other grantee');
+  '[F1.4-a c14 · CRITIC a-1 · F1.6 scoped · F2.2a c9] on the five F1.1/F1.4 tables every column-level ACL entry is INSERT to authenticated, or the UPDATE of regular_profiles full_name/gender (F2.1) and the three privacy settings (F2.3a) and children name/sex/birth_date (F2.2a): no column-level SELECT or REFERENCES, no other grantee');
 
 select is_empty(
   $$ select v.t || '.' || v.col
@@ -324,11 +325,12 @@ select is_empty(
        join pg_catalog.pg_attribute a on a.attrelid = c.oid
       where n.nspname = 'nestly' and c.relkind in ('r', 'p') and a.attnum > 0 and not a.attisdropped
         and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents')
-        and not (c.relname = 'regular_profiles' and a.attname in ('full_name', 'gender'))
+        and not (c.relname = 'regular_profiles' and a.attname in ('full_name', 'gender', 'profile_visibility',
+                                                                  'is_empty_journey_sentence_shown', 'is_child_birthday_shared'))
         and not (c.relname = 'children' and a.attname in ('name', 'sex', 'birth_date'))
         and (has_column_privilege('authenticated', c.oid, a.attnum, 'UPDATE')
              or has_column_privilege('authenticated', c.oid, a.attnum, 'REFERENCES')) $$,
-  '[F1.4-a c14 criterion 14 amended · F1.6 scoped · F2.2a c9] no column of the five F1.1/F1.4 tables can be UPDATEd or REFERENCEd by authenticated beyond regular_profiles full_name/gender (file 50) and children name/sex/birth_date (file 51); recovery_answers has its own column-level UPDATE: file 30');
+  '[F1.4-a c14 criterion 14 amended · F1.6 scoped · F2.2a c9] no column of the five F1.1/F1.4 tables can be UPDATEd or REFERENCEd by authenticated beyond regular_profiles full_name/gender (file 50), the three privacy settings (file 52, which also bars their REFERENCES) and children name/sex/birth_date (file 51); recovery_answers has its own column-level UPDATE: file 30');
 
 select is_empty(
   $$ select c.relname || ':' || r.rolname

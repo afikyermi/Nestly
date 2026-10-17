@@ -8,3 +8,4 @@ export * from './text.js';
 export * from './recovery.js';
 export * from './profile.js';
 export * from './journeys.js';
+export * from './privacy.js';

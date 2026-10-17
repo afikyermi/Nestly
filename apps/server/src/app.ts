@@ -8,6 +8,7 @@ import { clientAddress } from './recovery/client-ip.js';
 import { registerJourneysRoutes } from './routes/journeys.js';
 import { registerMeRoute } from './routes/me.js';
 import { registerPasswordRoutes } from './routes/password.js';
+import { registerPrivacyRoute } from './routes/privacy.js';
 import { registerProfileRoute } from './routes/profile.js';
 import { checkIdentityLink } from './services/identity-link-service.js';
 import { createRecoveryDependencies, type RecoveryDependencies } from './recovery/dependencies.js';
@@ -96,6 +97,7 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerPasswordRoutes(app, { database, recovery });
   registerProfileRoute(app, { database });
   registerJourneysRoutes(app, { database, clock });
+  registerPrivacyRoute(app, { database });
 
   return app;
 }

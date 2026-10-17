@@ -49,9 +49,10 @@ select set_eq(
        from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
        join pg_catalog.pg_attribute a on a.attrelid = c.oid
       where n.nspname = 'nestly' and c.relname = 'regular_profiles' and a.attnum > 0 and not a.attisdropped
+        and a.attname not in ('profile_visibility', 'is_empty_journey_sentence_shown', 'is_child_birthday_shared')
         and has_column_privilege('authenticated', c.oid, a.attnum, 'UPDATE') $$,
   $$ values ('full_name'), ('gender') $$,
-  '[F2.1-a c9 c10 rules 12, 14] authenticated can UPDATE exactly full_name and gender of regular_profiles');
+  '[F2.1-a c9 c10 rules 12, 14] authenticated can UPDATE exactly full_name and gender of regular_profiles, besides F2.3a''s three settings (file 52 owns the full list)');
 select is(has_table_privilege('authenticated', (select c.oid from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace where n.nspname = 'nestly' and c.relname = 'regular_profiles'), 'UPDATE'), false,
   '[F2.1-a c10 rule 12] no table-level UPDATE on regular_profiles (per column only)');
 select is(has_table_privilege('authenticated', (select c.oid from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace where n.nspname = 'nestly' and c.relname = 'regular_profiles'), 'DELETE'), false,
