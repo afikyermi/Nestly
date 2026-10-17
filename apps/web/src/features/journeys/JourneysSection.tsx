@@ -13,6 +13,7 @@ import {
 } from '@/services/api/journeys';
 import { JourneysContent, type JourneysFocus, type JourneysView, type OpenChildForm, type OpenForm, type OpenPregnancyForm } from './JourneysContent';
 import {
+  canAddPregnancy,
   checkChildForm,
   checkDueDateForm,
   dueDateValuesOf,
@@ -54,12 +55,17 @@ function checkForm(form: OpenForm, today: string): FormCheck {
   };
 }
 
-/** The button that opened `form`, to take focus back when it closes. After a pregnancy add, the new pregnancy's "עריכה". */
+/**
+ * The button that opened `form`, to take focus back when it closes. After a pregnancy add (or a refused one, refreshed), the
+ * pregnancy's "עריכה".
+ */
 function openerOf(form: OpenForm, data: OwnJourneys): JourneysFocus['target'] {
   if (form.kind === 'child') return form.target.mode === 'add' ? { kind: 'add' } : { kind: 'edit', childId: form.target.childId };
   if (form.target.mode === 'edit') return { kind: 'edit-journey', journeyId: form.target.journeyId };
   const added = data.journeys.find((journey) => journey.stage === 'pregnant');
-  return added === undefined ? { kind: 'add-pregnancy' } : { kind: 'edit-journey', journeyId: added.id };
+  if (added !== undefined) return { kind: 'edit-journey', journeyId: added.id };
+  // No pregnancy to land on: "הוספת הריון" while it is still offered, else "הוספת ילד", which every view has.
+  return canAddPregnancy(data) ? { kind: 'add-pregnancy' } : { kind: 'add' };
 }
 
 // The "המסע שלי" section's flow (FR-PROFILE-002, PG-012; F2.2a, F2.2b1): load the own journeys and children, show them, add or edit
@@ -180,10 +186,20 @@ export function JourneysSection() {
     setView({ ...current, form: checked.saving });
     try {
       const accessToken = await token();
-      const outcome: JourneysOutcome = accessToken === null ? { kind: 'failed' } : await checked.send(accessToken);
+      let outcome: JourneysOutcome = accessToken === null ? { kind: 'failed' } : await checked.send(accessToken);
       if (outcome.kind === 'journeys') {
         close(form, outcome.journeys, true);
         return;
+      }
+      // 409 stage_conflict: another tab added a pregnancy (or planning) meanwhile. Retrying would only meet the same 409, so the
+      // form closes and the view is read again, with no error (the Q3 pattern of c25); a failed read falls through to the alert.
+      if (outcome.kind === 'stage-conflict' && accessToken !== null) {
+        const fresh = await fetchOwnJourneys(accessToken);
+        if (fresh.kind === 'journeys') {
+          close(form, fresh.journeys, false);
+          return;
+        }
+        if (fresh.kind === 'unauthenticated' || fresh.kind === 'account-unavailable') outcome = fresh;
       }
       // The form keeps what is in it now, including anything typed while the save was in flight.
       const failure = outcome.kind === 'too-many' ? CHILDREN_LIMIT_TEXT : (refused(outcome) ?? SAVE_FAILED_TEXT);

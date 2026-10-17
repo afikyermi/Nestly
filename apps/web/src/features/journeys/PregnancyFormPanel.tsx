@@ -4,7 +4,7 @@ import { DateInput } from '@/components/shared/date-input';
 import { FieldError } from '@/components/shared/field-message';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
-import { DUE_DATE_OPTIONAL_LABEL } from '@/lib/child-fields';
+import { DUE_DATE_FIELD_LABEL } from '@/lib/child-fields';
 
 export interface PregnancyFormPanelProps {
   values: DateParts;
@@ -38,7 +38,8 @@ export function PregnancyFormPanel({ values, error, saving, failure, onChange, o
       ) : null}
       <div className="flex flex-col gap-1.5">
         <DateInput
-          legend={DUE_DATE_OPTIONAL_LABEL}
+          legend={DUE_DATE_FIELD_LABEL}
+          optional
           value={values}
           error={error !== null}
           aria-describedby={error !== null ? errorId : undefined}

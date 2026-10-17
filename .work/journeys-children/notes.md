@@ -90,14 +90,21 @@ Shape for TEST ENGINEER: `interface.md`, F2.2b1 part.
   needs (a planning delete before the insert must roll back). In b1 nothing precedes the insert.
 - POST insert RETURNING `stage` (`journeyContextsInsert` has no id); the re-read gives the id. Internal.
 - "הוספת הריון" only with neither planning nor pregnant (`canAddPregnancy`); with planning it is b2's confirmation (c16/c23).
-  409 `stage_conflict` on the web → the generic save failure (another tab added one); the outcome kind exists (`stage-conflict`).
+  409 `stage_conflict` on the web (CRITIC low, fixed): the form closes and a GET refreshes the view with no error, as c25's Q3
+  pattern for 404; focus → the pregnancy's "עריכה", else "הוספת הריון" while offered, else "הוספת ילד". A failed refresh keeps the
+  form with the generic save failure (401/403 refresh → recheck / ERR-037 as usual). Story `AddPregnancyConflict`.
 - The pregnancy edit form opens **below the journeys card** (not inside it: a card in a card), the row stays with its stored value
   and no buttons; the add form replaces "הוספת הריון". Focus on open → the day field; after a save → the pregnancy's "עריכה" (after an
   add, the new pregnancy's); after cancel → the opener.
 - The pregnancy's "עריכה" keeps the accessible name "עריכה" with `aria-describedby` → the row text, like a child's. Two "עריכה"
   buttons are now possible; my flow stories select by description.
-- Due-date texts and the legend "תאריך לידה משוער (לא חובה)" moved from `features/registration` to `lib/child-fields.ts`
-  (`dueDateErrorTexts`, `DUE_DATE_OPTIONAL_LABEL`); registration reads them, same output.
+- Due-date texts and the legend moved from `features/registration` to `lib/child-fields.ts` (`dueDateErrorTexts`,
+  `DUE_DATE_FIELD_LABEL`); registration reads them.
+- Optional marker (ORCHESTRATOR, after CRITIC): `DateInput` gains `optional`, rendering FormField's "(לא חובה)" in its lighter
+  style (`font-normal text-muted-foreground`), with a real space instead of FormField's `ms-1` so the group's accessible name stays
+  exactly "תאריך לידה משוער (לא חובה)" (TEST ENGINEER's locators). Used by the pregnancy form **and registration step 1's due date**,
+  which rendered it bold too. New story `shared/DateInput` `Optional`. Screens that change: `pregnancy-form`,
+  `pregnancy-form-errors` (and registration step 1 with "בהריון" ticked — not in `visual-screens.ts`).
 - Focus target `name` renamed `field` (first input of whichever form is open).
 
 **Deviations**  none from spec.md / schema.md beyond the ruling above.
@@ -123,5 +130,9 @@ known F1.6 `recovery-store` race flake, green on rerun. Browser (scratch config,
 date empty → "שמירה" → "בהריון · תאריך לידה משוער: לא צוין" above "יש לנו ילד או ילדה", no "הוספת הריון" → the pregnancy's "עריכה" →
 type a date within the window → "שמירה" → shown → reload: same → "עריכה" → day only → "שמירה" → "יש להשלים את התאריך או להשאיר
 אותו ריק". Without the migration, PUT /api/journeys/:id is 500 (fails closed); POST works.
+
+**After CRITIC (409 + marker)**  typecheck · lint · check:stories green; web unit 1042/1042; browser `journeys.spec.ts` +
+`journeys-pregnancy.spec.ts` + `register-step1.spec.ts` + `part-d.spec.ts` 152/152. The `AddPregnancyConflict` play function was
+not run locally (no story-play runner in this repo's local checks); the Storybook build includes it.
 
 **Neighbouring**  `packages/shared/tests/registration-credentials.test.ts` 100 ms timing bounds flake under load (above).

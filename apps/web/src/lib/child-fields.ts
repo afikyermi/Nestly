@@ -50,8 +50,8 @@ export const CHILD_ERROR_TEXTS: Record<ChildErrorCode, string> = {
   birth_date_out_of_range: `התאריך צריך להיות מ-${CHILD_BIRTH_DATE_FLOOR.slice(0, 4)} ואילך`, // DR-3 · ERR-003
 };
 
-/** FR-REG-002 DR-1: the due date's field, optional. */
-export const DUE_DATE_OPTIONAL_LABEL = 'תאריך לידה משוער (לא חובה)';
+/** FR-REG-002 DR-1: the due date's field, shown with DateInput's `optional` marker ("(לא חובה)"). */
+export const DUE_DATE_FIELD_LABEL = 'תאריך לידה משוער';
 
 /** YYYY-MM-DD as D.M.YYYY, the registration range text's format. */
 function shortDayMonthYear(iso: string): string {

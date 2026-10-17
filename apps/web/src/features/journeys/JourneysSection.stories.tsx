@@ -140,3 +140,28 @@ export const AddPregnancy: Story = {
     await expect(canvas.queryByRole('button', { name: 'הוספת הריון' })).not.toBeInTheDocument();
   },
 };
+
+// c15 (CRITIC low): another tab added the pregnancy first. POST answers 409 stage_conflict; the form closes, the view is read
+// again and shows the stored pregnancy, with no error, and focus lands on its "עריכה".
+let conflictGets = 0;
+export const AddPregnancyConflict: Story = {
+  beforeEach: () => {
+    conflictGets = 0;
+    return serving(
+      () => {
+        conflictGets += 1;
+        return Promise.resolve(json(200, { journeys: conflictGets === 1 ? [hasChild] : [pregnant, hasChild], children: [noa] }));
+      },
+      () => Promise.resolve(json(409, { error: 'stage_conflict' })),
+    )();
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(await canvas.findByRole('button', { name: 'הוספת הריון' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'שמירה' }));
+    const edit = await canvas.findByRole('button', { name: 'עריכה', description: /בהריון/ });
+    await expect(edit).toHaveFocus();
+    await expect(canvas.queryByRole('alert')).not.toBeInTheDocument();
+    await expect(canvas.queryByRole('button', { name: 'הוספת הריון' })).not.toBeInTheDocument();
+  },
+};

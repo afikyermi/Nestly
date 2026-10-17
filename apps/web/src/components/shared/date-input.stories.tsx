@@ -17,4 +17,6 @@ export const Filled: Story = { args: { value: { day: '7', month: '6', year: '202
 
 export const ErrorState: Story = { args: { error: true, value: { day: '45', month: '', year: '2026' } } };
 
+export const Optional: Story = { args: { legend: 'תאריך לידה משוער', optional: true } };
+
 export const Disabled: Story = { args: { disabled: true, value: { day: '7', month: '6', year: '2026' } } };

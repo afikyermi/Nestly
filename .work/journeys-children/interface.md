@@ -120,10 +120,10 @@ authenticated; USING and WITH CHECK `user_id = (select auth.uid()) and stage = '
 | view | the pregnancy row (`journey-row`) gets a button "עריכה" (`data-journeys-edit-journey=<id>`, `aria-describedby` → the row text). With neither planning nor pregnant: a button "הוספת הריון" (`data-journeys-add-pregnancy`) under "הוספת ילד". With planning or pregnant: not rendered |
 | pregnancy form (`pregnancy-form`) | edit: in place of the pregnancy row, filled from the stored date (empty when null); add: in place of "הוספת הריון", empty. Fieldset "תאריך לידה משוער (לא חובה)" (יום, חודש, שנה), "שמירה", "ביטול". While any form is open no other action shows. Focus to the day field on open |
 | pregnancy form errors | after the first "שמירה" only, then live: partial → "יש להשלים את התאריך או להשאיר אותו ריק"; not real → the registration "date does not exist" text; out of range → "התאריך צריך להיות בין D.M.YYYY ל-D.M.YYYY" (registration's, today −30 / +300); focus to the first `aria-invalid` field; nothing sent. All cleared → saved as null |
-| saving / save failed / saved | as the child form. 409 `stage_conflict` → the generic save failure (another tab added one); 404 → the generic save failure; 403 → ERR-037 + recheck; 401 → recheck. Saved → focus to the opening button (the pregnancy's "עריכה"; after an add, the new pregnancy's "עריכה") |
+| saving / save failed / saved | as the child form. 409 `stage_conflict` → the form closes and GET refreshes the view, no error (Q3 pattern; CRITIC low), focus to the pregnancy's "עריכה" (else "הוספת הריון" / "הוספת ילד"); a failed refresh → the generic save failure, form kept; 404 → the generic save failure; 403 → ERR-037 + recheck; 401 → recheck. Saved → focus to the opening button (the pregnancy's "עריכה"; after an add, the new pregnancy's "עריכה") |
 
 API client: `apps/web/src/services/api/journeys.ts` — `addOwnPregnancy(token, dueDate)`, `saveOwnDueDate(token, id, dueDate)`
 (`dueDate` = the three parts as typed). Outcome gains `{kind:'stage-conflict'}` (409 `stage_conflict`).
 Stories (`JourneysContent.stories.tsx`): `PregnancyForm`, `PregnancyFormAdd`, `PregnancyFormErrors`, `JourneyViewAddPregnancy`.
-Flow stories (`JourneysSection.stories.tsx`): `EditDueDate`, `AddPregnancy`. `e2e/visual-screens.ts`: `pregnancy-form`,
+Flow stories (`JourneysSection.stories.tsx`): `EditDueDate`, `AddPregnancy`, `AddPregnancyConflict`. `e2e/visual-screens.ts`: `pregnancy-form`,
 `pregnancy-form-errors`, `journey-view-add-pregnancy`.
