@@ -458,11 +458,11 @@ test('[cleanup a] the expected tables are exactly the nestly tables the migratio
   assert.equal(cleanup.EXPECTED_NESTLY_TABLES.length, 11);
 });
 
-test('[cleanup a] the preflight with all eleven tables passes; the eight of before (no identity_link_checks) fails', () => {
+test('[cleanup a] the preflight with all eleven tables passes; the ten left without identity_link_checks fail', () => {
   assert.equal(cleanup.decidePreflight(GOOD_FACTS).ok, true);
-  const eight = GOOD_FACTS.nestlyTables.filter((t) => t !== 'identity_link_checks');
-  assert.equal(eight.length, 10);
-  assert.equal(cleanup.decidePreflight({ ...GOOD_FACTS, nestlyTables: eight }).ok, false);
+  const ten = GOOD_FACTS.nestlyTables.filter((t) => t !== 'identity_link_checks');
+  assert.equal(ten.length, 10);
+  assert.equal(cleanup.decidePreflight({ ...GOOD_FACTS, nestlyTables: ten }).ok, false);
 });
 
 test('[cleanup a] every expected table is deleted from in the user transaction; identity_link_checks just before nestly.users', () => {

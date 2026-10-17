@@ -18,7 +18,8 @@
 --                                            labels sorted, so the order never depends on a clock)
 --   tests.fx_fr_clock(id)                    'resp=t canc=f rem=f' -- which clocks of one row are set
 --   tests.fx_fr_count()                      how many friendship rows exist at all (unfiltered)
---   tests.fx_fr_state()                      md5 over every friendship row (unfiltered)
+--   tests.fx_fr_state()                      md5 over every friendship row, without the two *_status copies (unfiltered)
+--   tests.fx_rn_counts()                     'regular_names rows/regular_profiles rows' (unfiltered); tests.fx_rn_name(id) one stored name
 --   tests.fx_fr_purge(id)                    deletes every row naming id (server db tests clean up A and B with it)
 -- Definers owned by postgres, fixed search_path, executable by app_server only.
 -- =====================================================================================================================
@@ -130,12 +131,24 @@ as $$ select count(*) from nestly.friendships $$;
 create or replace function tests.fx_fr_state() returns text
 language sql stable security definer set search_path = ''
 as $$
-  select md5(coalesce(string_agg(f::text, '|' order by f.id), '')) from nestly.friendships f
+  -- without the two *_status copies: they follow users.status by design (a suspension rewrites them), a test that flips
+  -- a status must still see "no friendship changed"
+  select md5(coalesce(string_agg(row(f.id, f.requester_id, f.addressee_id, f.status, f.requested_at, f.responded_at,
+                                     f.cancelled_at, f.removed_at, f.created_at)::text, '|' order by f.id), ''))
+    from nestly.friendships f
 $$;
 
 create or replace function tests.fx_fr_purge(p_id uuid) returns void
 language sql security definer set search_path = ''
 as $$ delete from nestly.friendships where requester_id = p_id or addressee_id = p_id $$;
+
+create or replace function tests.fx_rn_counts() returns text
+language sql stable security definer set search_path = ''
+as $$ select (select count(*) from nestly.regular_names)::text || '/' || (select count(*) from nestly.regular_profiles)::text $$;
+
+create or replace function tests.fx_rn_name(p_id uuid) returns text
+language sql stable security definer set search_path = ''
+as $$ select n.full_name from nestly.regular_names n where n.user_id = p_id $$;
 
 revoke all on all functions in schema tests from public;
 grant usage on schema tests to app_server;
