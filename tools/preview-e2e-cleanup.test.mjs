@@ -1,9 +1,9 @@
 // preview-e2e cleanup (.work/preview-e2e/spec.md, criteria 8 and 9; A2 and DR-E1 option 1): the DB URL guard, the preflight,
 // victim selection, runCleanup and the cleanup workflow. Split out of preview-e2e.test.mjs to stay under the line budget;
-// the assertions are unchanged. Expected values come from the spec, schema.md (ref xmihorrkegrdlbhpktny, 3 h age, cap of 10,
-// port 5432, the eight tables) and the F1.6 limit, never from the code under test.
+// the assertions are unchanged. Afik 17.10.2026 "Preview cleanup": the ninth table (identity_link_checks) and the manual modes. Expected values come from the spec, schema.md (ref xmihorrkegrdlbhpktny, 3 h age, cap of 10,
+// port 5432, the tables) and the F1.6 limit, never from the code under test.
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
 import { parseYaml, runOf, stepsOf } from './workflow-yaml.mjs';
 
@@ -81,7 +81,7 @@ const GOOD_FACTS = {
   dbUser: 'postgres',
   bypassRls: true,
   canDeleteAuthUsers: true,
-  nestlyTables: ['children', 'journey_contexts', 'legal_consents', 'recovery_answers', 'recovery_events', 'recovery_throttles', 'regular_profiles', 'users'],
+  nestlyTables: ['children', 'identity_link_checks', 'journey_contexts', 'legal_consents', 'recovery_answers', 'recovery_events', 'recovery_throttles', 'regular_profiles', 'users'],
 };
 
 test('[E c8] preflight passes only for the exact expected facts, in any table order', () => {
@@ -382,8 +382,8 @@ const secretIdx = csteps.findIndex((s) => JSON.stringify(s.env ?? {}).includes('
 const pwIdx = steps.findIndex((s) => /playwright test/.test(runOf(s)));
 const summaryIdx = steps.findIndex((s) => /GITHUB_STEP_SUMMARY/.test(runOf(s)));
 
-test('[E c8] the cleanup workflow triggers only on workflow_run completed of preview-e2e', () => {
-  assert.deepEqual(Object.keys(cwf.on), ['workflow_run']);
+test('[E c8] the cleanup workflow triggers only on workflow_run completed of preview-e2e, or by hand (workflow_dispatch)', () => {
+  assert.deepEqual(Object.keys(cwf.on), ['workflow_run', 'workflow_dispatch']);
   assert.deepEqual([...cwf.on.workflow_run.workflows], ['preview-e2e']);
   assert.deepEqual([...cwf.on.workflow_run.types], ['completed']);
 });
@@ -441,4 +441,205 @@ test('[E c8] the test workflow has no cleanup step and no PREVIEW_DB_ADMIN_URL a
 test('[E c8] the test workflow summary is the last step, after Playwright, and does not claim users are left behind', () => {
   assert.ok(pwIdx >= 0 && summaryIdx > pwIdx);
   assert.doesNotMatch(runOf(steps[summaryIdx]), /not deleted|are left|stay on preview|not removed/i);
+});
+
+// ---- Afik 17.10.2026 "Preview cleanup" (a): the ninth table and the delete order ------------------------------------------
+const cliText = read('tools/preview-e2e-cleanup-cli.ts');
+
+test('[cleanup a] the expected tables are exactly the nestly tables the migrations on this branch create', () => {
+  const dir = new URL('supabase/migrations/', ROOT);
+  const sql = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort().map((f) => readFileSync(new URL(f, dir), 'utf8')).join('\n');
+  const code = sql.replace(/--.*$/gm, '');
+  const created = new Set([...code.matchAll(/create\s+table\s+(?:if\s+not\s+exists\s+)?nestly\.([a-z_]+)/gi)].map((m) => m[1]));
+  for (const m of code.matchAll(/drop\s+table\s+(?:if\s+exists\s+)?nestly\.([a-z_]+)/gi)) created.delete(m[1]);
+  assert.doesNotMatch(code, /alter\s+table\s+(?:if\s+exists\s+)?nestly\.[a-z_]+\s+rename\s+to/i, 'a renamed table: update this test');
+  assert.deepEqual([...cleanup.EXPECTED_NESTLY_TABLES], [...created].sort());
+  assert.ok(created.has('identity_link_checks'));
+  assert.equal(cleanup.EXPECTED_NESTLY_TABLES.length, 9);
+});
+
+test('[cleanup a] the preflight with all nine tables passes; the eight of before (no identity_link_checks) fails', () => {
+  assert.equal(cleanup.decidePreflight(GOOD_FACTS).ok, true);
+  const eight = GOOD_FACTS.nestlyTables.filter((t) => t !== 'identity_link_checks');
+  assert.equal(eight.length, 8);
+  assert.equal(cleanup.decidePreflight({ ...GOOD_FACTS, nestlyTables: eight }).ok, false);
+});
+
+test('[cleanup a] every expected table is deleted from in the user transaction; identity_link_checks just before nestly.users', () => {
+  const order = [...cliText.matchAll(/delete from (nestly\.[a-z_]+|auth\.users)/g)].map((m) => m[1]);
+  assert.deepEqual([...new Set(order.filter((t) => t.startsWith('nestly.')))].sort(), cleanup.EXPECTED_NESTLY_TABLES.map((t) => `nestly.${t}`));
+  const users = order.indexOf('nestly.users');
+  assert.equal(order[users - 1], 'nestly.identity_link_checks');
+  assert.equal(order.at(-1), 'auth.users');
+  // the order of the eight before is unchanged
+  assert.deepEqual(order.filter((t) => t !== 'nestly.identity_link_checks'), [
+    'nestly.recovery_throttles', 'nestly.recovery_events', 'nestly.legal_consents', 'nestly.recovery_answers', 'nestly.children',
+    'nestly.journey_contexts', 'nestly.regular_profiles', 'nestly.users', 'auth.users',
+  ]);
+  assert.match(cliText, /counts\['identity_link_checks'\] = \(await tx`delete from nestly\.identity_link_checks where user_id = \$\{id\}`\)\.count/);
+});
+
+// ---- Afik 17.10.2026 "Preview cleanup" (c): the manual modes -------------------------------------------------------------
+test('[cleanup c] mode: workflow_run carries none; workflow_dispatch needs dry-run or backlog; anything else stops', () => {
+  assert.deepEqual(cleanup.parseMode('workflow_run', ''), { ok: true, mode: 'run' });
+  assert.deepEqual(cleanup.parseMode('workflow_run', undefined), { ok: true, mode: 'run' });
+  assert.deepEqual(cleanup.parseMode('workflow_dispatch', 'dry-run'), { ok: true, mode: 'dry-run' });
+  assert.deepEqual(cleanup.parseMode('workflow_dispatch', 'backlog'), { ok: true, mode: 'backlog' });
+  for (const [event, mode] of [['workflow_run', 'backlog'], ['workflow_run', 'dry-run'], [undefined, 'backlog'], ['workflow_dispatch', ''],
+    ['workflow_dispatch', undefined], ['workflow_dispatch', 'BACKLOG'], ['workflow_dispatch', 'run'], ['push', 'backlog']]) {
+    assert.equal(cleanup.parseMode(event, mode).ok, false, `${event}/${mode}`);
+  }
+});
+
+test('[cleanup c] the backlog cap is 50, the same number as the pattern ceiling, which is unchanged', () => {
+  assert.equal(cleanup.MAX_BACKLOG_PER_RUN, 50);
+  assert.equal(cleanup.MAX_PATTERN_USERS, 50);
+});
+
+const HEX = '0123456789abcdef';
+const H = 3600;
+// n pattern users; user i is (base + i) hours old, so the last is the oldest
+const pusers = (n, base = 4, tag = 'p') =>
+  Array.from({ length: n }, (_, i) => ({ id: `${tag}${String(i).padStart(3, '0')}`, email: `nestly-e2e-1-1-${HEX}@gmail.com`, ageSeconds: (base + i) * H }));
+
+test('[cleanup c] backlog selection: oldest first, at most 50, of 120 eligible', () => {
+  const users = pusers(120);
+  const ids = cleanup.selectBacklog(users);
+  assert.equal(ids.length, 50);
+  assert.deepEqual(ids, Array.from({ length: 50 }, (_, i) => `p${String(119 - i).padStart(3, '0')}`));
+});
+
+test('[cleanup c] backlog selection: only users older than 3 h; exactly 3 h and younger stay', () => {
+  const users = [
+    { id: 'young', email: `nestly-e2e-1-1-${HEX}@gmail.com`, ageSeconds: 1 * H },
+    { id: 'edge', email: `nestly-e2e-1-1-${HEX}@gmail.com`, ageSeconds: 3 * H },
+    { id: 'old', email: `nestly-e2e-1-1-${HEX}@gmail.com`, ageSeconds: 3 * H + 1 },
+    { id: 'nullage', email: `nestly-e2e-1-1-${HEX}@gmail.com`, ageSeconds: null },
+  ];
+  assert.deepEqual(cleanup.selectBacklog(users), ['old']);
+  assert.deepEqual(cleanup.selectBacklog(pusers(5, 0)), ['p004']); // ages 0..4 h: only the 4 h one
+});
+
+test('[cleanup c] backlog selection: a non-pattern email is never selected, whatever its age; duplicates count once', () => {
+  const users = [
+    { id: 'alice', email: 'alice@gmail.com', ageSeconds: 100 * H },
+    { id: 'keep', email: 'nestly-e2e-keep-me@gmail.com', ageSeconds: 100 * H },
+    { id: 'evil', email: `nestly-e2e-1-1-${HEX}@gmail.com.evil.com`, ageSeconds: 100 * H },
+    { id: 'ok', email: `nestly-e2e-1-1-${HEX}@gmail.com`, ageSeconds: 10 * H },
+    { id: 'ok', email: `nestly-e2e-1-1-${HEX}@gmail.com`, ageSeconds: 10 * H },
+  ];
+  assert.deepEqual(cleanup.selectBacklog(users), ['ok']);
+  assert.deepEqual(cleanup.selectBacklog([]), []);
+});
+
+test('[cleanup c] the summary: pattern count, older than 3 h, age range in hours; no email or id', () => {
+  const users = [...pusers(3, 1), { id: 'alice', email: 'alice@gmail.com', ageSeconds: 500 * H }];
+  const s = cleanup.summarizeBacklog(users);
+  assert.deepEqual(s, { patternTotal: 3, eligible: 0, oldestHours: 3, newestHours: 1 });
+  assert.deepEqual(cleanup.summarizeBacklog([]), { patternTotal: 0, eligible: 0, oldestHours: null, newestHours: null });
+  assert.equal(cleanup.summarizeBacklog(pusers(60)).eligible, 60);
+  assert.ok(!JSON.stringify(cleanup.summarizeBacklog(pusers(3))).includes('nestly-e2e'));
+});
+
+function backlogClient(over = {}) {
+  const calls = { deleted: [], listed: 0 };
+  const client = {
+    preflight: async () => GOOD_FACTS,
+    listPatternUsers: async () => {
+      calls.listed += 1;
+      return pusers(120);
+    },
+    deleteUser: async (id) => {
+      calls.deleted.push(id);
+      return { 'auth.users': 1, identity_link_checks: 1, users: 1 };
+    },
+    ...over,
+  };
+  return { client, calls };
+}
+
+test('[cleanup c] dry-run: preflight and counts only, nothing is deleted, even with 120 pattern users', async () => {
+  const { client, calls } = backlogClient();
+  const r = await cleanup.runBacklog({ client, mode: 'dry-run', log: () => {} });
+  assert.equal(r.ok, true);
+  assert.equal(calls.deleted.length, 0);
+  assert.equal(r.selected, 0);
+  assert.equal(r.deleted, 0);
+  assert.equal(r.summary.patternTotal, 120);
+  assert.equal(r.summary.eligible, 120);
+});
+
+test('[cleanup c] backlog: deletes the 50 oldest, one transaction each, above the per-run refusal of 50', async () => {
+  const { client, calls } = backlogClient();
+  const r = await cleanup.runBacklog({ client, mode: 'backlog', log: () => {} });
+  assert.equal(r.ok, true);
+  assert.equal(calls.deleted.length, 50);
+  assert.equal(calls.deleted[0], 'p119');
+  assert.equal(r.deleted, 50);
+  assert.equal(r.tableCounts.identity_link_checks, 50);
+});
+
+for (const mode of ['dry-run', 'backlog']) {
+  for (const [label, facts] of [
+    ['no BYPASSRLS', { ...GOOD_FACTS, bypassRls: false }],
+    ['the eight tables of before', { ...GOOD_FACTS, nestlyTables: GOOD_FACTS.nestlyTables.filter((t) => t !== 'identity_link_checks') }],
+    ['an unknown nestly table', { ...GOOD_FACTS, nestlyTables: [...GOOD_FACTS.nestlyTables, 'posts'] }],
+  ]) {
+    test(`[cleanup c] ${mode} refuses on a failed preflight (${label}): users never listed, nothing deleted`, async () => {
+      const { client, calls } = backlogClient({ preflight: async () => facts });
+      const r = await cleanup.runBacklog({ client, mode, log: () => {} });
+      assert.equal(r.ok, false);
+      assert.equal(calls.listed, 0);
+      assert.equal(calls.deleted.length, 0);
+    });
+  }
+}
+
+test('[cleanup c] backlog: a failed user delete fails the run, the others still run, and nothing secret is logged', async () => {
+  const EMAIL = `nestly-e2e-1-1-${HEX}@gmail.com`;
+  const { client, calls } = backlogClient({
+    listPatternUsers: async () => pusers(3),
+    deleteUser: async (id) => {
+      calls.deleted.push(id);
+      if (id === 'p001') throw Object.assign(new Error(`${EMAIL} ${id} ${PW}`), { code: '23503' });
+      return { 'auth.users': 1 };
+    },
+  });
+  const lines = [];
+  const r = await cleanup.runBacklog({ client, mode: 'backlog', log: (l) => lines.push(l) });
+  assert.equal(r.ok, false);
+  assert.equal(calls.deleted.length, 3);
+  assert.equal(r.deleted, 2);
+  assert.equal(r.failedUsers, 1);
+  const everything = `${lines.join('\n')}\n${JSON.stringify(r)}`;
+  for (const secret of [EMAIL, PW, 'p001', 'nestly-e2e']) assert.ok(!everything.includes(secret), `leaked ${secret}`);
+});
+
+test('[cleanup c] the listing throwing fails the run before any delete, without echoing the error', async () => {
+  const { client, calls } = backlogClient({
+    listPatternUsers: async () => {
+      throw new Error(`boom ${PW}`);
+    },
+  });
+  const r = await cleanup.runBacklog({ client, mode: 'backlog', log: () => {} });
+  assert.equal(r.ok, false);
+  assert.equal(calls.deleted.length, 0);
+  assert.ok(!JSON.stringify(r).includes(PW));
+});
+
+test('[cleanup c] the workflow: dispatch input mode is a choice of dry-run (default) and backlog, passed through env only', () => {
+  const input = cwf.on.workflow_dispatch.inputs.mode;
+  assert.equal(input.type, 'choice');
+  assert.equal(input.default, 'dry-run');
+  assert.deepEqual([...input.options], ['dry-run', 'backlog']);
+  assert.match(String(csteps[secretIdx].env.CLEANUP_MODE), /^\$\{\{\s*inputs\.mode\s*\}\}$/);
+  assert.match(String(cjob.if), /github\.event_name == 'workflow_dispatch' && github\.ref == format\('refs\/heads\/\{0\}', github\.event\.repository\.default_branch\)/);
+  assert.match(String(cjob.if), /github\.event_name == 'workflow_run' && github\.event\.workflow_run\.conclusion != 'skipped'/);
+  assert.equal(cjob.environment, 'preview-e2e');
+});
+
+test('[cleanup c] the backlog SQL lists by the same pattern; the delete guard is unchanged', () => {
+  assert.match(cliText, /where email ~ \$\{TEST_EMAIL_PATTERN\}\s+order by created_at asc, id asc`/);
+  assert.match(cliText, /delete from auth\.users where id = \$\{id\} and email ~ \$\{TEST_EMAIL_PATTERN\}/);
+  assert.match(cliText, /for update/);
 });

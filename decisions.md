@@ -152,6 +152,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-17 | Standing rule (Afik): never stop on what an agent can do itself; work around what waits on Afik, one list for him; stop only with no other work · ORCHESTRATOR makes and commits visual baselines itself, after looking at them | 10 |
 | 2026-10-17 | I2 reserved items: F2.2 hard delete, no end reason · ages in years+months · DR-G1 profile_view approved · Friend = Open view · 100 opens/h (config) · terms shown · publishable gateway key | 10 |
 | 2026-10-17 | F2.4c1 DR-L: profile_view also writes the caller's open count and Security event (own rows only) · cleanup tool may delete the test user's security_events first (decision-7 exception, one line) | 10 |
+| 2026-10-17 | Preview cleanup: tool learns identity_link_checks · every part adding a nestly table updates the cleanup tool in the same PR (DATA ARCHITECT checks delete order) · backlog since 16.10 cleaned on preview only, 50 cap unchanged | 10 |
 
 ## Superseded
 

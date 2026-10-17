@@ -155,12 +155,12 @@ F1.6 recovery and F2.0 S-01/S-16 (FR-AUTH-003/005, OP-029) — Afik 2026-10-13, 
     Approved in .work/password-recovery/schema.md · 2026-10-15 (DR-G1, ORCHESTRATOR; release policy: Amendment 2)
 
 ```
-Preview E2E test-user cleanup (DR-E1, option 1) — credential PREVIEW_DB_ADMIN_URL: role `postgres` (BYPASSRLS), nestly-preview
-only, user postgres.xmihorrkegrdlbhpktny, session pooler, port 5432. CI only: `preview-e2e-cleanup` on `workflow_run` (main's
-code, never the deployment sha), in environment `preview-e2e` restricted to `main` (Afik set it 17.10; verified via the API).
-Victims only by the exact `TEST_EMAIL_PATTERN` (e2e-preview/support/test-user.ts). Caps: this run's users uncapped, sweep 10,
-refusal above 50. One transaction per user, SET LOCAL row_security = off (raises, never filters). Fail-closed preflight.
-Rest: .work/preview-e2e/schema.md · decisions/2026-10.md "DR-E1" (Afik, 17.10)
+Preview E2E test-user cleanup (DR-E1, option 1) — credential PREVIEW_DB_ADMIN_URL: role `postgres` (BYPASSRLS), nestly-preview only, user postgres.<preview
+ref>, session pooler, port 5432. CI only, `preview-e2e-cleanup`: main's code (never the deployment sha), in environment `preview-e2e` restricted to `main`
+(Afik, 17.10; verified via API). On `workflow_run`: the per-run cleanup. On manual `workflow_dispatch` (main only): mode `dry-run` (preflight, counts, ages;
+no delete) or `backlog` (≤ 50 oldest pattern users older than 3 h per dispatch). Victims: only the exact `TEST_EMAIL_PATTERN`. Caps unchanged: this run's
+users uncapped, sweep 10, refusal above 50 (workflow_run). One transaction per user, leaf first, SET LOCAL row_security = off (raises, never filters).
+Fail-closed preflight: exactly the nine nestly tables. · .work/preview-e2e/schema.md · decisions/2026-10.md "DR-E1", "Preview cleanup"
 ```
 
 ```
@@ -194,7 +194,7 @@ Proposed by DATA ARCHITECT and approved by ORCHESTRATOR at F1.1 Gate 2, 13.10.20
 | RLS helpers | in `nestly`, `language sql`, `STABLE`, no argument that names a user (caller only), `set search_path = ''` with every name schema-qualified, EXECUTE revoked from PUBLIC and granted to `authenticated` only — except the four recovery helpers (`recovery_handle`, `recovery_ip`, `recovery_claimed_at`, `recovery_subject`), granted to `app_recovery`, not `authenticated`, and `profile_view_target` (F2.3b), granted to no role: only its owner runs it, in `profile_view` and its four `TO app_owner` policies — called as `(select nestly.fn())`. SECURITY INVOKER unless an approved exception says otherwise |
 | Status gate placement | on `users` and `identity_link_checks` there is **no** status gate on SELECT — an account reads its own row in every status (F1.5 DR-1 A; F2.0); on every other table the gate is `(select nestly.is_active_account())`. Seeing the own `users` row never means "active". A table's policy never calls a function that reads the same table (no recursion) |
 | Write grants | INSERT (and, when it comes, UPDATE) is granted **per column**, only on the columns the client's data fills. Identifiers, owner columns, clocks and columns fixed to a constant default (e.g. `regular_profiles.account_type`) are never granted, so their defaults always apply: rules 12–13 are held by privilege, and the policy's WITH CHECK is the second fence. A column the server sets but the policy constrains (e.g. `users.account_type`, `users.status`) is granted, and the policy is its first fence. SELECT stays table-level, except where a column must never be read back: `recovery_answers` has the first column-level SELECT (`authenticated` reads user_id, email_handle, handle_claimed_at, created_at; hashes, salts and the chosen questions are not readable by `authenticated` or `anon`; `app_recovery` reads them for the declared handle only). In Drizzle every write goes through a write-model object (`<table>Insert`) in `schema.ts` that names exactly the granted columns: Drizzle names every column of the object it inserts into, and naming an ungranted column is 42501. Decided F1.4 part a (CRITIC finding 1). Proposed by DATA ARCHITECT (`.work/register-account-create/schema.md` Amendment 1); validated by CRITIC with its wording change (`.work/register-account-create/findings.md`, part a re-check) |
-| Migrations | hand-written SQL in `supabase/migrations/`, applied by the Supabase CLI as `app_owner`, each file and its history row in one transaction. One file = one unit: table + RLS + FORCE + policies + grants + comments. No non-transactional statements. Each has a down script in `supabase/rollback/` |
+| Migrations | hand-written SQL in `supabase/migrations/`, applied by the Supabase CLI as `app_owner`, each file and its history row in one transaction. One file = one unit: table + RLS + FORCE + policies + grants + comments. No non-transactional statements. Each has a down script in `supabase/rollback/`. A part that adds a `nestly` table updates `tools/preview-e2e-cleanup*.ts` (`EXPECTED_NESTLY_TABLES` and the per-user delete order: every row of the user before what it references, RESTRICT FKs satisfied) in the same PR; DATA ARCHITECT checks the delete order at Gate 2 (Afik 17.10.2026, "Preview cleanup" b) |
 | Drizzle | `pgSchema('nestly')` in `apps/server/src/db/schema.ts` mirrors columns, types and nullability for typing only; a CI drift check compares it to the catalog. drizzle-kit never generates or pushes migrations. Policies and functions are SQL only |
 
 ---

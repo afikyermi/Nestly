@@ -10,10 +10,15 @@ export const PREVIEW_PROJECT_REF = 'xmihorrkegrdlbhpktny'; // nestly-preview
 export const SWEEP_AGE_HOURS = 3; // longer than the job's 20 minute timeout: a concurrent run's users are never swept
 export const MAX_SWEEP_PER_RUN = 10; // leftovers (not this run's) deleted per run, oldest first; this run's own users are never capped
 export const MAX_PATTERN_USERS = 50; // more pattern users than this in total: a wrong pattern, delete nothing and fail
+export const MAX_BACKLOG_PER_RUN = MAX_PATTERN_USERS; // backlog mode deletes at most this many of the oldest per dispatch
 
-/** The eight tables the preflight expects in `nestly`, sorted; an unknown table means this design needs re-review. */
+/**
+ * The nine tables the preflight expects in `nestly`, sorted; an unknown table means this design needs re-review. A part that
+ * adds a `nestly` table updates this list and the delete order in the CLI in the same PR (Afik, 17.10.2026).
+ */
 export const EXPECTED_NESTLY_TABLES: readonly string[] = [
   'children',
+  'identity_link_checks',
   'journey_contexts',
   'legal_consents',
   'recovery_answers',
@@ -236,5 +241,131 @@ export async function runCleanup(input: CleanupInput): Promise<CleanupReport> {
     report.ok = false;
     report.reason ??= `${report.leftovers} user(s) of this run remain`;
   }
+  return report;
+}
+
+// ---- the manual modes (workflow_dispatch, Afik 17.10.2026 "Preview cleanup" (c)) ----------------------------------------
+
+export type CleanupMode = 'run' | 'dry-run' | 'backlog';
+export type ModeCheck = { ok: true; mode: CleanupMode } | { ok: false; reason: string };
+
+/**
+ * workflow_run (or no event) is the per-run cleanup and must carry no mode. workflow_dispatch must name dry-run or backlog.
+ * Anything else stops before a connection.
+ */
+export function parseMode(eventName: string | undefined, rawMode: string | undefined): ModeCheck {
+  const mode = rawMode ?? '';
+  if (eventName === 'workflow_dispatch') {
+    if (mode === 'dry-run' || mode === 'backlog') return { ok: true, mode };
+    return { ok: false, reason: 'a manual run needs mode dry-run or backlog' };
+  }
+  if (mode !== '') return { ok: false, reason: 'a mode is allowed only on a manual (workflow_dispatch) run' };
+  return { ok: true, mode: 'run' };
+}
+
+/** One user matching the pattern, as the database returned it; the email stays in memory and is never logged. */
+export interface PatternUser {
+  id: string;
+  email: string;
+  /** now() - created_at, measured by the database; null when created_at is null. */
+  ageSeconds: number | null;
+}
+
+export interface BacklogSummary {
+  patternTotal: number;
+  /** Pattern users older than SWEEP_AGE_HOURS. */
+  eligible: number;
+  /** Age of the oldest and the newest pattern user, hours, one decimal; null when there is none. */
+  oldestHours: number | null;
+  newestHours: number | null;
+}
+
+const isOld = (u: PatternUser, ageHours: number): boolean =>
+  typeof u.ageSeconds === 'number' && Number.isFinite(u.ageSeconds) && u.ageSeconds > ageHours * 3600;
+
+function onlyPattern(users: readonly PatternUser[]): PatternUser[] {
+  const byId = new Map<string, PatternUser>();
+  for (const u of users) if (matchesTestEmail(u.email) && !byId.has(u.id)) byId.set(u.id, u);
+  return [...byId.values()];
+}
+
+/** Counts and the age range only: no email, no id. */
+export function summarizeBacklog(users: readonly PatternUser[], ageHours: number = SWEEP_AGE_HOURS): BacklogSummary {
+  const matching = onlyPattern(users);
+  const ages = matching.map((u) => u.ageSeconds).filter((a): a is number => typeof a === 'number' && Number.isFinite(a));
+  const hours = (s: number): number => Math.round(s / 360) / 10;
+  return {
+    patternTotal: matching.length,
+    eligible: matching.filter((u) => isOld(u, ageHours)).length,
+    oldestHours: ages.length > 0 ? hours(Math.max(...ages)) : null,
+    newestHours: ages.length > 0 ? hours(Math.min(...ages)) : null,
+  };
+}
+
+/** Pattern users older than `ageHours`, oldest first (ties by id), at most `max`. Duplicate ids count once. */
+export function selectBacklog(
+  users: readonly PatternUser[],
+  limits: { ageHours?: number; max?: number } = {},
+): string[] {
+  const ageHours = limits.ageHours ?? SWEEP_AGE_HOURS;
+  const max = limits.max ?? MAX_BACKLOG_PER_RUN;
+  return onlyPattern(users)
+    .filter((u) => isOld(u, ageHours))
+    .sort((a, b) => (b.ageSeconds ?? 0) - (a.ageSeconds ?? 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+    .slice(0, Math.max(0, max))
+    .map((u) => u.id);
+}
+
+export interface BacklogClient {
+  preflight(): Promise<PreflightFacts>;
+  /** Every auth user whose email matches TEST_EMAIL_PATTERN (by the database's own `~`), any age. */
+  listPatternUsers(): Promise<PatternUser[]>;
+  /** The same one-user transaction as the per-run cleanup. */
+  deleteUser(id: string): Promise<DeleteCounts>;
+}
+
+export interface BacklogReport {
+  ok: boolean;
+  reason?: string;
+  mode: 'dry-run' | 'backlog';
+  summary: BacklogSummary | null;
+  selected: number;
+  deleted: number;
+  failedUsers: number;
+  tableCounts: DeleteCounts;
+}
+
+export async function runBacklog(input: {
+  client: BacklogClient;
+  mode: 'dry-run' | 'backlog';
+  log: (line: string) => void;
+}): Promise<BacklogReport> {
+  const { client, mode, log } = input;
+  const report: BacklogReport = { ok: true, mode, summary: null, selected: 0, deleted: 0, failedUsers: 0, tableCounts: {} };
+  const fail = (reason: string): BacklogReport => ({ ...report, ok: false, reason });
+
+  let ids: string[];
+  try {
+    const decision = decidePreflight(await client.preflight());
+    if (!decision.ok) return fail(decision.reason);
+    const users = await client.listPatternUsers();
+    report.summary = summarizeBacklog(users);
+    ids = mode === 'backlog' ? selectBacklog(users) : [];
+  } catch (error) {
+    return fail(`the database step failed before any delete (code ${errorCode(error)})`);
+  }
+  report.selected = ids.length;
+
+  for (const id of ids) {
+    try {
+      const counts = await client.deleteUser(id);
+      if ((counts['auth.users'] ?? 0) > 0) report.deleted += 1;
+      for (const [table, n] of Object.entries(counts)) report.tableCounts[table] = (report.tableCounts[table] ?? 0) + n;
+    } catch (error) {
+      report.failedUsers += 1;
+      log(`a user could not be deleted (backlog, code ${errorCode(error)}); its transaction was rolled back`);
+    }
+  }
+  if (report.failedUsers > 0) return fail(`${report.failedUsers} user(s) could not be deleted`);
   return report;
 }
