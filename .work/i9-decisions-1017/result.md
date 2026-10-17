@@ -9,6 +9,8 @@ editing the original table.
 **D2 — "everything is deleted" and conversations.** BR-073 (16.10) kept conversations for the other side. Read with
 "everything is deleted": the deleted user's messages are deleted; the other side keeps their own messages, against
 "משתמש שנמחק". Reports and enforcement count as security/audit records (90 days). Afik may reverse this in one line.
+**→ Reversed by Afik, 17.10:** BR-073 of 13.10 stands — conversations stay whole for the other side, the deleted user's
+messages under "משתמש שנמחק"; a defined exception to "everything is deleted" (`decisions/2026-10.md`, "Conversations").
 
 **D3 — the lock ladder in detail (NFR-SEC-010).** Per account (email HMAC): failures counted since the last success or
 release; the 3rd → 1 h, the 6th → 24 h, the 9th → permanent. During a lock answers are not checked and the failure is not

@@ -31,9 +31,10 @@ One batch, one version (2.22). Decisions: `decisions/2026-10.md` 17.10 (from "In
 5. **Retention after account deletion** — **BR-073**, **FR-SET-002**, **§13.4** (Account/Profile/Content row and
    Moderation/Audit row), **NFR-SEC-010** retention sentence, **RecoveryThrottle** retention: at the end of the grace every
    row of the account is deleted; security and audit records about it (security events, audit log, recovery audit and
-   counters, reports and enforcement) are kept 90 days from the deletion and then deleted. In BR-073: "שיחות נשמרות לצד
-   השני" becomes — the deleted user's messages are deleted; the other side keeps their own messages against "משתמש
-   שנמחק"; "דיווחים, אכיפה ו-Audit — נשמר רישום מצומצם" becomes "נשמרים 90 יום מהמחיקה ואז נמחקים". BR-077's legal
+   counters, reports and enforcement) are kept 90 days from the deletion and then deleted. **Defined exception (Afik, 17.10, keeping BR-073
+   of 13.10):** conversations stay whole for the other side, and the deleted user's messages show under "משתמש שנמחק" —
+   BR-073's conversation line is unchanged; say in BR-073 and §13.4 that it is the one exception to "everything is
+   deleted". In BR-073, "דיווחים, אכיפה ו-Audit — נשמר רישום מצומצם" becomes "נשמרים 90 יום מהמחיקה ואז נמחקים". BR-077's legal
    handling of child-abuse material is unchanged. Retention for live accounts stays TBD (§13.4, S-20).
 6. **Privacy policy content — BR-078** (and §13.4): the policy is written in general sentences. It includes one sentence
    on the recovery questions (stored only as a keyed hash, used only for recovery, deleted with the account) and one,
