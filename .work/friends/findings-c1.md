@@ -10,4 +10,4 @@ failure:  below the limit, a send to an unknown / Professional / suspended / ban
           Regular?" oracle. The 42501 path loses its count the same way. Untested.
 fix:      when countOpen returns 0 rows, return { kind: 'unavailable' } normally (commit with the count) before reopenDeclined /
           insertRequest. Db test: N=3 — open, open, send to a random uuid (404), next open 429.
-status:   open -> BUILDER (fix) · TEST ENGINEER (regression test)
+status:   fixed eee0d30, test 8d6fc95 — validated by CRITIC 17.10 (residual race on a target state change between countOpen and insert: accepted by CRITIC, at most one count, not attacker-triggerable)
