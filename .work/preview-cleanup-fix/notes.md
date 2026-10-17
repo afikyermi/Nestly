@@ -37,3 +37,7 @@ Afik 17.10.2026, `decisions/2026-10.md` "Preview cleanup" (a) and (c). Incident:
 - 12:41 backlog (run 39033382704): selected 50, deleted 50, 0 failed.
 - 12:44 backlog (run 39033556793): selected 46, deleted 46, 0 failed. 72 remain, all under 3 h.
 - Next: a third backlog run at ~15:45 UTC once they age past 3 h, then the follow-up PR that removes backlog mode.
+- 15:01 the per-run cleanup refused again: 168 pattern users (E adds about 12 per run; refusals let them pile up). Not open-PR tables.
+- 15:46 dry-run (39046511255): 168, 72 older than 3 h. Backlog 39046587343: 50 deleted; backlog 39046785938: 22 deleted; 0 failed.
+  96 remain, all under 3 h. The per-run refusal will recur while E runs often → Afik's decision on WORKPLAN "ממתין לך" (count only
+  the run's own users); backlog stays in the tool until then; next manual round about 18:45 UTC.
