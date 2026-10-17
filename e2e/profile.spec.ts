@@ -87,6 +87,12 @@ async function setup(page: Page, profile: Stored = { fullName: 'דנה כהן', 
     if (net.me === 'unavailable') return json(route, 200, { state: 'unavailable' });
     return json(route, 200, { state: 'active', recoveryQuestions: 'set', mustSetPassword: false });
   });
+  // F2.2a: the profile page also loads "המסע שלי". A planning journey with no children adds no "עריכה" or "נסו שוב" of its own,
+  // so the F2.1 locators below stay unique (.work/journeys-children/spec.md c1, c2).
+  await page.route('**/api/journeys', async (route) => {
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+    return json(route, 200, { journeys: [{ id: 'j-1', stage: 'planning', dueDate: null }], children: [] });
+  });
   await page.route('**/api/profile', async (route) => {
     const req = route.request();
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
