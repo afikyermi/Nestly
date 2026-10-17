@@ -23,7 +23,7 @@
 | UC-17 | צפייה ב-Audit Log | Admin / Moderator עם AUDIT_LOG_VIEW | פתיחת Audit Log → סינון/חיפוש → צפייה בפרטי פעולה. Moderator במצב Read Only; אין שינוי או מחיקה. |
 | UC-18 | אימות Professional | Admin / Moderator עם PROFESSIONAL_VERIFY | פתיחת תור אימות → צפייה בפרטי הבקשה → אישור/דחייה/עדכון סטטוס → Audit Log. |
 | UC-19 | Global Search | Regular / Professional | TopBar → הקלדת חיפוש → Dropdown People/Groups/Posts → בחירת תוצאה או View All → SearchResultsPage → פתיחת Profile/Group/Post בכפוף להרשאות. |
-| UC-20 | יצירת Friendship | Regular + Regular | User A שולח Friend Request → User B מקבל Notification → Accept יוצר Friendship / Decline סוגר בקשה → FriendsPage מתעדכן. |
+| UC-20 | יצירת Friendship | Regular + Regular | User A שולח Friend Request → User B מקבל Notification → Accept יוצר Friendship / Decline סוגר בקשה → FriendsPage מתעדכן. הדחייה שקטה: אצל A הבקשה נשארת ממתינה, ו-A יכול לבטל אותה (FR-REL-001, F2.4). |
 | UC-21 | Follow Professional | Regular/Professional → ProfessionalProfile | פתיחת Professional Profile → Follow/Unfollow → עדכון ProfessionalFollow → New Follower notification בהתאם להגדרות. |
 | UC-22 | הצטרפות לקבוצה | Regular/Professional | Public: Group → Join → Membership מיידית. Private: Group → Request to Join → Owner/Admin Approve/Reject → Membership/Notification מתעדכנים. Invite יוצר GroupInvitation שהמוזמן יכול Accept/Decline. Regular User יכול Recommend Group ל-Friend פעיל; נוצרת Notification בלבד ללא שינוי Membership. |
 | UC-23 | ניהול קבוצה | Group Owner/Admin/Moderator | Group Management → פעולות לפי Owner > Admin > Group Moderator > Member → בדיקת Target Role → ביצוע/חסימה → שמירה. Owner מעביר בעלות לפני עזיבה. |
