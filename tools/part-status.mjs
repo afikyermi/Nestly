@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
+import { CANDIDATE_PREFIX, POLICY, deploys } from './vercel-branch-policy.mjs';
 
 // P1: one read-only snapshot, never a merge/dispatch/retry/polling loop.
 // Usage: node tools/part-status.mjs <PR> [--repo owner/repo] [--no-preview reason]
@@ -73,6 +74,10 @@ export function evaluate(snapshot, { expectedSkips = {}, noPreview = '' } = {}) 
     url: eChecks[0]?.html_url,
   };
   if (!noPreview && e.state !== 'success') blockers.push(`E on ${snapshot.head}: ${e.state}`);
+  // P4: vercel.json deploys only main and ready/**; a PR from any other branch never gets a Preview, so E never runs.
+  if (!noPreview && snapshot.headRef !== undefined && !deploys(POLICY, snapshot.headRef)) {
+    blockers.push(`Head branch ${snapshot.headRef} gets no Preview (vercel.json git.deploymentEnabled): push the candidate to ${CANDIDATE_PREFIX}<part> and open the PR from it`);
+  }
   const main = mainHealth(snapshot.mainRuns);
   for (const c of main) blockers.push(`main ${c.workflow ?? c.name} / ${c.name}: ${outcome(c)} (${c.sha})`);
   const unique = [...new Set(blockers)];
@@ -195,7 +200,7 @@ export function collect({ repo, pr }, read = ghRead, clock = () => new Date().to
   }
   const headAfter = safe(`pulls/${pr}`, { head: {} }).head.sha;
   const mainAfter = safe('branches/main', { commit: {} }).commit.sha;
-  return { head, headAfter, main, mainAfter, state: pull.state, merged: pull.merged, url: pull.html_url, required, checks,
+  return { head, headRef: pull.head.ref, headAfter, main, mainAfter, state: pull.state, merged: pull.merged, url: pull.html_url, required, checks,
     mainRuns: inspected, errors, limitations, observedAt: clock() };
 }
 

@@ -213,3 +213,15 @@ test('[P1] required status/check pagination does not silently drop the second pa
   snapshot.required.push({ context: 'external-gate' });
   assert.match(evaluate(snapshot).blockers.join('\n'), /external-gate: failure/);
 });
+
+test('[P4] a PR whose head branch gets no Preview under vercel.json is a blocker naming the ready/ route', () => {
+  for (const ref of ['ccr-517c29b5-ek8cc9', 'claude/p4-deploy-policy', 'chore/records-after-f18']) {
+    const s = { ...fixture(), headRef: ref };
+    const blockers = evaluate(s).blockers.join('\n');
+    assert.match(blockers, new RegExp(`Head branch ${ref} gets no Preview`), ref);
+    assert.match(blockers, /ready\/<part>/);
+  }
+  for (const ref of ['ready/f3-1', 'main']) assert.deepEqual(evaluate({ ...fixture(), headRef: ref }).blockers, [], ref);
+  assert.deepEqual(evaluate({ ...fixture(), headRef: 'ccr-x' }, { noPreview: 'Afik: records only' }).blockers, [], 'Preview not required');
+  assert.deepEqual(evaluate(fixture()).blockers, [], 'no head ref read: nothing claimed');
+});
