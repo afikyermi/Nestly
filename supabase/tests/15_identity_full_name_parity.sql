@@ -15,11 +15,7 @@ select is(session_user::text, 'app_server'::text,
 select lives_ok(format($q$ select tests.fx_insert_user(%L, 'regular', 'active') $q$, tests.fx_id('f1')),
   '[F1.3-a c1] f1: a regular account (fixture)');
 
-select is(
-  tests.dml_as('none', '', format($q$ select tests.fx_insert_profile(%L, %L, null) $q$, tests.fx_id('f1'), r.name), false),
-  r.expected,
-  '[F1.3-a c1 VAL-001 AC-002] full_name ' || r.label || ' -> ' || r.expected)
-from (values
+create temp table zz_names as select * from (values
   ('one Hebrew letter',                          chr(1488),                                'ERR:23514'),
   ('padded two letters',                         '  ' || chr(1488) || chr(1489) || '  ',   'OK:1'),
   ('60 code points',                             repeat('x', 60),                          'OK:1'),
@@ -40,6 +36,19 @@ from (values
   ('61 chars between spaces',                    ' ' || repeat('x', 61) || ' ',            'ERR:23514'),
   ('hostile text is data',                       'Rob''); drop table users;--',            'OK:1')
 ) as r(label, name, expected);
+
+select is(
+  tests.dml_as('none', '', format($q$ select tests.fx_insert_profile(%L, %L, null) $q$, tests.fx_id('f1'), r.name), false),
+  r.expected,
+  '[F1.3-a c1 VAL-001 AC-002] full_name ' || r.label || ' -> ' || r.expected)
+from zz_names r;
+
+-- F2.1 (FR-PROFILE-001): the same table on the UPDATE path, by the owner (a), each attempt rolled back. Same results.
+select is(
+  tests.dml_as('authenticated', tests.claims(tests.fx_id('a')), format($q$ update nestly.regular_profiles set full_name = %L $q$, r.name), false),
+  r.expected,
+  '[F2.1 c5 c6 c8 VAL-001] UPDATE full_name ' || r.label || ' -> ' || r.expected)
+from zz_names r;
 
 select * from finish();
 

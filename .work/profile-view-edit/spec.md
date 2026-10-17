@@ -103,3 +103,5 @@ Approved, 17 criteria, one part, Elevated. **DR-1 → A** (full name and parent 
 columns; email change is out of I2 and showing it read-only adds nothing the owner needs here). Q1–Q5 take their defaults.
 FYI for Afik (not blocking): the full name is part of the public basic profile — user-generated content, Trust & Safety
 outside this pipeline. Code waits for PR 39 (one branch); DATA ARCHITECT runs now.
+
+**DR-T1 (ORCHESTRATOR, 17.10.2026, TEST ENGINEER return on c11):** a suspended or banned account on `/api/profile` answers **403 `account_unavailable`** — the same as every other gated route since F1.5 (ERR-037 on the web) — with no profile data. Save is labelled "שמירה" and the optional marker is "(לא חובה)", as on the registration step.

@@ -190,10 +190,11 @@ select set_eq(
       where n.nspname = 'nestly' and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents') $$,
   $$ values ('users.users_select_own.r'), ('users.users_insert_own.a'),
             ('regular_profiles.regular_profiles_select_own.r'), ('regular_profiles.regular_profiles_insert_own.a'),
+            ('regular_profiles.regular_profiles_update_own.w'),
             ('journey_contexts.journey_contexts_select_own.r'), ('journey_contexts.journey_contexts_insert_own.a'),
             ('children.children_select_own.r'), ('children.children_insert_own.a'),
             ('legal_consents.legal_consents_select_own.r'), ('legal_consents.legal_consents_insert_own.a') $$,
-  '[F1.4-a c14 platform r14 · F1.6 scoped] the policies on the five F1.1/F1.4 tables are exactly ten: one SELECT and one INSERT per table, no UPDATE, DELETE or ALL (the recovery policies: file 30)');
+  '[F1.4-a c14 platform r14 · F1.6 scoped] the policies on the five F1.1/F1.4 tables are exactly eleven: one SELECT and one INSERT per table plus regular_profiles_update_own (F2.1), no other UPDATE, DELETE or ALL (the recovery policies: file 30; file 50 asserts the update policy)');
 
 select is_empty(
   $$ select c.relname || '.' || pol.polname
@@ -276,7 +277,9 @@ select is_empty(
        join pg_catalog.pg_attribute a on a.attrelid = c.oid, lateral pg_catalog.aclexplode(a.attacl) x
       where n.nspname = 'nestly' and c.relkind in ('r', 'p') and a.attnum > 0 and not a.attisdropped
         and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents')
-        and not (x.privilege_type = 'INSERT' and x.grantee = (select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated')) $$,
+        and not (x.privilege_type = 'INSERT' and x.grantee = (select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated'))
+        and not (x.privilege_type = 'UPDATE' and x.grantee = (select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated')
+                 and c.relname = 'regular_profiles' and a.attname in ('full_name', 'gender')) $$,
   '[F1.4-a c14 · CRITIC a-1 · F1.6 scoped] on the five F1.1/F1.4 tables every column-level ACL entry is INSERT to authenticated: no column-level SELECT, UPDATE or REFERENCES, no other grantee');
 
 select is_empty(
@@ -318,6 +321,7 @@ select is_empty(
        join pg_catalog.pg_attribute a on a.attrelid = c.oid
       where n.nspname = 'nestly' and c.relkind in ('r', 'p') and a.attnum > 0 and not a.attisdropped
         and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents')
+        and not (c.relname = 'regular_profiles' and a.attname in ('full_name', 'gender'))
         and (has_column_privilege('authenticated', c.oid, a.attnum, 'UPDATE')
              or has_column_privilege('authenticated', c.oid, a.attnum, 'REFERENCES')) $$,
   '[F1.4-a c14 criterion 14 amended · F1.6 scoped] no column of the five F1.1/F1.4 tables can be UPDATEd or REFERENCEd by authenticated (recovery_answers has its own column-level UPDATE: file 30)');

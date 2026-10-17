@@ -31,9 +31,10 @@ select is(
      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname in ('users', 'regular_profiles')
       and (has_table_privilege('authenticated', c.oid, 'UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
-           or has_any_column_privilege('authenticated', c.oid, 'UPDATE,REFERENCES'))),
+           or has_any_column_privilege('authenticated', c.oid, 'REFERENCES')
+           or (c.relname = 'users' and has_any_column_privilege('authenticated', c.oid, 'UPDATE')))),
   0::bigint,
-  '[F1.1-b c13 · F1.4-a c14 NFR-SEC-002] authenticated holds no UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on either table, at table or column level (INSERT was granted by F1.4 per column — account_type, status / full_name, gender — and is bounded by the policies)');
+  '[F1.1-b c13 · F1.4-a c14 NFR-SEC-002] authenticated holds no UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on either table at table level, and no column-level UPDATE on users (F2.1 granted regular_profiles full_name and gender: file 50) (INSERT was granted by F1.4 per column — account_type, status / full_name, gender — and is bounded by the policies)');
 -- The attacks below that name id or user_id now fail by privilege, the others by policy; all stay 42501. The policy-reaching
 -- attacks on granted columns only (account_type admin, status suspended) are asserted with their message in file 21 (f3).
 
@@ -93,22 +94,12 @@ from (values
   ('authenticated', 'a', $q$ insert into nestly.regular_profiles (user_id, full_name, gender) values ('a0000000-0000-4000-8000-0000000000a1', 'Alice Changed', 'man')
                             on conflict (user_id) do update set full_name = excluded.full_name $q$,
      'INSERT ... ON CONFLICT DO UPDATE rewriting A''s profile'),
-  ('authenticated', 'a', $q$ update nestly.regular_profiles set full_name = 'Alice Changed' where user_id = auth.uid() $q$,
-     'UPDATE own full_name'),
-  ('authenticated', 'a', $q$ update nestly.regular_profiles set gender = null where user_id = auth.uid() $q$,
-     'UPDATE own gender'),
   ('authenticated', 'a', $q$ update nestly.regular_profiles set account_type = 'regular' where user_id = auth.uid() $q$,
      'UPDATE own profile account_type'),
-  ('authenticated', 'a', $q$ update nestly.regular_profiles set full_name = 'Not Bella' where user_id = 'b0000000-0000-4000-8000-0000000000b2' $q$,
-     'UPDATE another account''s profile'),
-  ('authenticated', 's', $q$ update nestly.regular_profiles set full_name = 'Sara Changed' where user_id = auth.uid() $q$,
-     'UPDATE by a suspended account on its own profile'),
-  ('authenticated', 'a', $q$ update nestly.regular_profiles set full_name = 'Everyone' $q$, 'UPDATE every RegularProfile row'),
   ('authenticated', 'a', $q$ delete from nestly.regular_profiles where user_id = auth.uid() $q$, 'DELETE own RegularProfile'),
   ('authenticated', 'a', $q$ delete from nestly.regular_profiles where user_id = 'b0000000-0000-4000-8000-0000000000b2' $q$, 'DELETE another account''s RegularProfile'),
   ('authenticated', 'a', $q$ delete from nestly.regular_profiles $q$, 'DELETE every RegularProfile row'),
   ('authenticated', 'a', $q$ truncate nestly.regular_profiles $q$, 'TRUNCATE RegularProfile'),
-  ('authenticated', 'a', $q$ select user_id from nestly.regular_profiles for update $q$, 'SELECT ... FOR UPDATE on RegularProfile'),
   -- anon
   ('anon', 'a', $q$ insert into nestly.users (id, account_type, status) values ('f0000000-0000-4000-8000-0000000000f3', 'regular', 'active') $q$, 'anon INSERT into User'),
   ('anon', 'a', $q$ update nestly.users set status = 'active' $q$, 'anon UPDATE of User'),
