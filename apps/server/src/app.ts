@@ -38,6 +38,10 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   // The logger's request line carries the method and the path only: the default one would write that address.
   const app = Fastify({
     trustProxy: (_address, hop) => hop < 1,
+    // A path parameter (PUT /api/children/:id, F2.2a) reaches its handler at any length, so the handler's own check answers (404
+    // not_found) instead of the router's 414, whose default body quotes the URL. 16 KiB is Node's whole header limit; no route has
+    // a regular-expression parameter, which is what the router's default of 100 guards.
+    routerOptions: { maxParamLength: 16 * 1024 },
     logger:
       deps.logStream === undefined
         ? false
