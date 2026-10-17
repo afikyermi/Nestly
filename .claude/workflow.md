@@ -329,11 +329,13 @@ decision: other parts of the same feature, the next feature's intake and spec, s
 
 **Batched approvals (Afik, 16.10.2026, audit decision 2).** Before an Initiative opens, ORCHESTRATOR puts every decision
 reserved for Afik in that Initiative into **one questionnaire** (AskUserQuestion, plus `.work/_initiatives/<I>-questions.md`),
-then works without stopping. Production migrations are batched: merges apply to nestly-preview at once; ORCHESTRATOR
-dispatches `migrate` from `main` **once a day or once per Initiative** (`gh workflow run migrate.yml --ref main`) and does
-not wait for Afik: he removed the `db-production` approval until launch (16.10.2026). The batch counts only when that
-run's `db-production` job succeeded (`gh run view`); a later push run can replace a pending dispatch, so a cancelled or
-skipped batch is dispatched again. Merging never waits for it.
+then works without stopping. **Schema before code (P6, 18.10.2026):** a migration ships in its own PR with no product
+code (CI `schema-gate`), and CI runs main's server tests on its schema (expand check). After it merges (nestly-preview
+applies at once), ORCHESTRATOR dispatches `migrate` from `main` (`gh workflow run migrate.yml --ref main`) without waiting
+for Afik (he removed the `db-production` approval until launch, 16.10.2026); several schema PRs may share one dispatch.
+A product-code PR merges only when `schema-gate` is green: every migration in its tree applied by a successful
+`db-production` job, same name and content; re-run that job once after the dispatch. History is immutable; an
+incompatible change (drop, rename, NOT NULL on old data) is a later contract PR, once no deployed code needs the old shape.
 
 **Two sessions in parallel from I3 (Afik, 16.10.2026, audit decision 9)** — only once decisions 1 and 2 are working.
 Pairs follow the dependency graph in `.work/_initiatives/roadmap.md` (Amendment 4): I3 ∥ I6 (F6.1–6.5), I4 ∥ I7,
