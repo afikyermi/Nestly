@@ -22,22 +22,22 @@ Claims passed to the database: `{sub, role:'authenticated', session_id?, iat?, a
 
 **Gate for oauth tokens** (`amr` contains `oauth`; `apps/server/src/plugins/authentication.ts`, `services/identity-link-service.ts`),
 before the route: no row → `readIdentities` (caller's token) → `affected` iff earliest `email` identity `created_at` < earliest
-`google` → tx 1 (insert `affected` + delete own answers) → tx 2 (`for update nowait`; `cancelPassword`; `signOutOthers`;
+`google` → tx 1 (insert `affected` + delete own answers) → tx 2 (`for update nowait`; `cancelPassword`, which also ends every session (A6);
 mark cleared; `takeover_cleared`, user_id NULL when no users row) → the request runs with guard `must_set`. Any failure →
 503, state stays pending; the next request from a Google session resumes tx 2. A concurrent other Google session of the same
 account ends `stale` (401). `unaffected` is written once; a later sign-in calls nothing.
 
 **Audit kinds** (`recovery_events`): `takeover_cleared` (one per user, unique index), `password_set_forced` (c7),
 `first_password_set` (c11, user_id NULL), `password_change_failed` / `password_change_limited` (c10 attempt, same throttle rows as
-the question change: handle 5/30 min + 15/24 h, IP 10/15 min), `password_changed`, `password_change_auth_failed` (set or sign-out
-not confirmed). Handle = HMAC of the token email (c7, c11, clear) or the account's own answers handle (c10).
+the question change: handle 5/30 min + 15/24 h, IP 10/15 min), `password_changed`, `password_change_auth_failed` (set not
+confirmed). Handle = HMAC of the token email (c7, c11, clear) or the account's own answers handle (c10).
 
 **Test seams** — `buildApp({ database, logStream, recovery })`; `recovery.authAccount` replaces the F2.0 Auth calls
 (`apps/server/src/recovery/dependencies.ts`, `AuthAccountPort`):
 `isConfigured(): boolean` · `readIdentities({accessToken, clientIp}) → {kind:'ok', identities:[{provider, createdAt: Date}]} | {kind:'failed'}` ·
 `cancelPassword({userId}) → 'set'|'failed'` · `setPassword({userId, password}) → 'set'|'failed'` ·
-`signOutOthers({accessToken, clientIp}) → 'done'|'failed'`. The default reads `SUPABASE_SECRET_KEY` + issuer (auth-admin.ts):
-`GET <issuer>/user`, `PUT <issuer>/admin/users/<sub>` (`same_password` → set), `POST <issuer>/logout?scope=others`.
+(`signOutOthers` is gone since A6.) The default reads `SUPABASE_SECRET_KEY` + issuer (auth-admin.ts):
+`GET <issuer>/user`, `PUT <issuer>/admin/users/<sub>` (`same_password` → set).
 `recovery.authAdmin` (F1.6 reset) is unchanged. Tokens: the fixtures' `token({ extra: { session_id, amr: [{method:'oauth'}] } })`.
 
 **Logs** (fixed messages, never body/token/email/id): `identity link check failed` `{step, sqlstate}` (step: `identities read`,
@@ -87,3 +87,23 @@ state carries them (form `noValidate`, submit prevented, bodies only).
 **Stories**: `features/forced-password/ForcedPasswordForm` (Empty, PasswordTooShort, Failed) ·
 `features/password-change/PasswordChangeForm` (Empty, FieldErrors, Changed, Mismatch, Locked, Unavailable — fetch stubbed per story) ·
 `app/ProtectedLayout` (+ ChangePassword, MustSetNewPassword; DrawerOpen now shows four items).
+
+## DR-E / Gate 2 A6 (17.10.2026) — the admin password set ends every session
+
+- **Server.** The clear, c7 and c10 make no sign-out call: `PUT /admin/users/<sub>` ends every session of the user, the
+  caller's refresh included. Tx 2 of the clear: password lock → row lock → re-delete answers → `cancelPassword` → mark cleared →
+  `takeover_cleared`. c10: no revoke-retry; `password_change_auth_failed` only when the set is not confirmed. No token is
+  returned anywhere. The triggering request is still answered (its access token stays valid until expiry).
+- **Database** (migration `20261017090000_link_check_owner_sessions.sql`): `session_guard()` reports `must_set` to ANY non-stale
+  session after a clear (the clearing one, or a token issued after `cleared_at`); the trigger's password-set move accepts the
+  clearing session, a token with `iat > cleared_at`, or a caller with no users row. c7 accordingly accepts any non-stale session.
+- **Web.** c14 forced screen: on 200 the session ends locally and the user lands on `/login` with router state
+  `{ loginNotice: 'password-set' }` → a `role=status` (body text, not an alert): "הסיסמה החדשה נשמרה. אפשר להתחבר איתה עכשיו". The
+  next sign-in with the new password meets the PG-052 setup (answers were deleted). c15 change screen: on 200 the answers are
+  cleared, the session ends locally, `/login` with `{ loginNotice: 'password-changed' }` → `role=status` "הסיסמה הוחלפה. כל
+  המכשירים נותקו, ואפשר להתחבר עם הסיסמה החדשה". The notice lives in router state only (never URL or storage), is ignored when the
+  login screen has its own message, and the state is validated (`loginNoticeText`, `features/login/login-form.ts`).
+  `SessionAccount.markPasswordSet` is replaced by `endAfterPasswordChange()` (signs out, no session notice).
+  F1.8 completion (c11/c16): `POST /api/password/first` → **sign in again** with the Google email and that password
+  (`signInWithPassword`, expects `unregistered`) → `POST /api/register` with the new token → signed in. If the re-sign-in fails: the
+  password field is cleared, generic text, no register call (the password stays set; the user can sign in later and complete).
