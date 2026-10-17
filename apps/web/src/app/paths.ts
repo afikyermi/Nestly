@@ -12,6 +12,8 @@ export const PATHS = {
   feed: '/feed',
   profile: '/profile',
   settings: '/settings',
+  /** F2.4b: the Friends page (PG-036), from the side menu. */
+  friends: '/friends',
   /** F1.6: save the recovery questions (held there while missing) or change them. */
   recoveryQuestions: '/recovery-questions',
   /** F2.0 c14: set a new password after a takeover clear. Opens only while the session is held there. */
@@ -37,6 +39,7 @@ export const PROTECTED_PATHS: readonly string[] = [
   PATHS.feed,
   PATHS.profile,
   PATHS.settings,
+  PATHS.friends,
   PATHS.recoveryQuestions,
   PATHS.changePassword,
 ];

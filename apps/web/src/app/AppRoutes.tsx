@@ -1,5 +1,6 @@
 import { Route, Routes } from 'react-router';
 import { ChangePasswordPage } from '@/pages/change-password/ChangePasswordPage';
+import { FriendsPage } from '@/pages/friends/FriendsPage';
 import { GoogleReturnPage } from '@/pages/google-return/GoogleReturnPage';
 import { GuestPlaceholderPage } from '@/pages/placeholder/GuestPlaceholderPage';
 import { LoginPage } from '@/pages/login/LoginPage';
@@ -36,6 +37,7 @@ export function AppRoutes() {
             <Route path={PATHS.feed} element={<ProtectedPlaceholderPage title="פיד" />} />
             <Route path={PATHS.profile} element={<ProfilePage />} />
             <Route path={PATHS.settings} element={<SettingsPage />} />
+            <Route path={PATHS.friends} element={<FriendsPage />} />
             <Route path={PATHS.recoveryQuestions} element={<RecoveryQuestionsPage />} />
             <Route path={PATHS.changePassword} element={<ChangePasswordPage />} />
             <Route path={PATHS.setNewPassword} element={<SetNewPasswordPage />} />

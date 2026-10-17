@@ -173,7 +173,7 @@ test.describe('AppShell: bottom navigation', () => {
 });
 
 test.describe('AppShell: side menu', () => {
-  test('[F1.2 c19][FR-MENU-001] the drawer titled "תפריט" holds exactly four items in order: הגדרות (link to /settings), שאלות לשחזור סיסמה (link, F1.6 c18), החלפת סיסמה (link, F2.0 c15), התנתקות (button)', async ({
+  test('[F1.2 c19][FR-MENU-001] the drawer titled "תפריט" holds exactly five items in order: חברים (link to /friends, F2.4b c13), הגדרות (link to /settings), שאלות לשחזור סיסמה (link, F1.6 c18), החלפת סיסמה (link, F2.0 c15), התנתקות (button)', async ({
     page,
   }) => {
     await open(page, '/feed', 'signed-in');
@@ -189,6 +189,7 @@ test.describe('AppShell: side menu', () => {
         })),
       );
     expect(items.filter((i) => i.name !== CLOSE)).toEqual([
+      { tag: 'a', name: 'חברים', href: '/friends' }, // F2.4b c13, before Settings (FR-MENU-001)
       { tag: 'a', name: 'הגדרות', href: '/settings' },
       { tag: 'a', name: 'שאלות לשחזור סיסמה', href: '/recovery-questions' }, // F1.6 c18
       { tag: 'a', name: 'החלפת סיסמה', href: '/change-password' }, // F2.0 c15
@@ -198,7 +199,7 @@ test.describe('AppShell: side menu', () => {
       await expect(drawer.locator(`a[href="${dest}"]`)).toHaveCount(0);
     }
     const text = await drawer.innerText();
-    for (const banned of ['חנות', 'יועצים', 'קבוצות', 'חברים', 'עזרה']) expect(text).not.toContain(banned);
+    for (const banned of ['חנות', 'יועצים', 'קבוצות', 'עזרה']) expect(text).not.toContain(banned);
   });
 
   test('[F1.2 c20][FR-MENU-001] activating "הגדרות" closes the drawer, shows Settings (h1 הגדרות) and moves focus to main', async ({
