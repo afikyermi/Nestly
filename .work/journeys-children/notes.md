@@ -136,3 +136,64 @@ type a date within the window → "שמירה" → shown → reload: same → "�
 not run locally (no story-play runner in this repo's local checks); the Storybook build includes it.
 
 **Neighbouring**  `packages/shared/tests/registration-credentials.test.ts` 100 ms timing bounds flake under load (above).
+
+---
+
+# notes — F2.2b2 journeys-children (c16–c26)
+
+**Approach**  Migration `20261017141000_journeys_children_delete_own.sql` + down script exactly as schema.md "b2 up" / "Rollback". Server:
+`DELETE /api/children/:id`, `DELETE /api/journeys/:id`, `POST /api/journeys/:id/birth`; `POST /api/journeys` takes `endPlanning: true`.
+Service: `gateAndLock` (gate, then `regular_profiles … for no key update`, exactly one row else `JourneysFault`) first in every write
+that inserts or deletes a child or journey — `addOwnChild` and `addOwnPregnancy` included (approved internal change to F2.2a/b1);
+`removeOwnChild` (R), `endOwnPregnancy` (E), `recordOwnBirth` (B: delete pregnant, then the add rounds extracted from `addOwnChild` as
+`addChildRounds`). Children read `ORDER BY created_at, slot`. Web: `ConfirmDialog` (new shared component on Radix AlertDialog via
+`ui/dialog.tsx` `AlertPanel`), the confirmation as a third `OpenForm` kind (`confirm`), the birth form as child-form mode `birth`.
+Shape for TEST ENGINEER: `interface.md`, F2.2b2 part.
+
+**Decisions**
+- **Confirmation flag name:** `endPlanning: true` (strict: `true` or absent; `false` → 400 `invalid_body`). Not on PUT.
+- **Planning → pregnant flow:** "הוספת הריון" with planning → the c16 dialog → its confirm sends nothing and opens the c14/c15 pregnancy
+  form; that form's save carries `endPlanning`. So the due date can still be given (c15), and "ביטול" on either step keeps planning.
+  The planning dialog's confirm label is "הוספת הריון" (no spec text for confirm labels; the others repeat the action: "הסרה",
+  "סיום מסלול ההריון"). Q1 — record at I2 close.
+- **Dialog title/description split:** the spec's single line "להסיר את נועה? הפרטים יימחקו…" is the title (question, the name) + the
+  description (the warning), so the dialog is named by its question (c26). Planning has the line as title only.
+- **DELETE body:** `request.body !== undefined` → 400 `invalid_body` on both DELETEs (c20 names the pregnancy one; the child one follows
+  the same rule). A non-JSON body is Fastify's 415, as elsewhere. The web sends neither body nor content type.
+- **Birth focus/404:** after a birth, focus goes to the h2 (the opener is gone, as after a delete). A 404 on birth follows Q3 (refresh,
+  close, no error), since the pregnancy is gone. 409 shows the c6 text in the form.
+- **c24 on the web:** a 403 closes the dialog and replaces the section with ERR-037 (the GET 403 view); a 401 closes it and rechecks.
+  Forms keep their F2.2a behaviour (ERR-037 in the form).
+- **Behind the dialog** the view stays drawn with its buttons (a form hides them; a dialog does not), so "the item still shown" (c25)
+  and focus can return to the opener on cancel. Status "שומרים" during a confirm is under Radix's aria-hidden; the dialog's own
+  pending button and alert carry it.
+- `canAddPregnancy` now means "no pregnancy stored"; `hasPlanning` picks dialog vs form.
+- New shared component registered in `tools/check-stories.mjs` STATES (`shared/confirm-dialog`: 4), as that file's header requires.
+
+**Deviations**  none from spec.md / schema.md.
+
+**Deliberately not done**  No test files; no baselines (new entries and the changed ones listed in interface.md need CI's
+`update-baselines`). Knowledge files (DATA ARCHITECT). SRS (I2 close). No confirmation on the birth (c16 lists three dialogs only).
+
+**Uncertain**
+- I could not run axe or the new Storybook play functions locally on the new screens: the guard refuses a scratch spec file from
+  BUILDER (correctly). TEST ENGINEER's browser specs are the first check of `journey-confirm*`, `journey-view-none`, `birth-form`.
+- The pregnancy row's three buttons wrap under its text on phone width; looks right in my reading of the classes, not seen in a
+  screenshot.
+- Radix AlertDialog's `aria-modal` is set by me explicitly; Radix also hides the rest of the page (aria-hidden). Focus return after
+  close relies on `onCloseAutoFocus` + the section's focus tick both pointing at the same element.
+
+**Local checks**  typecheck · lint · check:budgets · check:stories green. Unit: shared 288/288, server 620/620, web 1042/1042. DB
+stand-in (PG16, scratchpad `localdb.sh`): up → down → up OK, drift none (127 columns / 9 tables); pgTAP all green with TE's
+in-progress 10/20/22/51/54 in the tree, except 01/02 (no MAINTAIN on PG16, known). Server db: `journeys.db.test.ts`,
+`journeys-remove.db.test.ts` (TE's, uncommitted), `children.db.test.ts` 183/183. Storybook build OK. Browser (scratch config,
+Chromium 1194, 2 workers): `journeys.spec.ts` + `journeys-pregnancy.spec.ts` 87/87.
+
+**Preview path**  After the batched migration: parent with has_child + 2 children + pregnancy → "פרופיל" → "המסע שלי" → a child's
+"הסרה" → dialog "להסיר את <name>?", focus on "ביטול" → Escape → nothing changed, focus on "הסרה" → again → "הסרה" → child gone,
+"הפרטים נשמרו", focus on "המסע שלי" → reload: gone. Pregnancy "סיום מסלול ההריון" → confirm → no pregnancy, "הוספת הריון" offered →
+add one → "הלידה התרחשה" → fill a child → "שמירה" → child last, no pregnancy. Remove all children → has_child gone →
+"עוד לא נבחר שלב במסע". A planning-only parent: "הוספת הריון" → "מסלול 'מתכננים' יסתיים ויימחק" → "הוספת הריון" → form → "שמירה" →
+"בהריון" only. Without the migration: every DELETE and the birth are 500 (fail closed); the lock needs only F2.1's grant.
+
+**Neighbouring**  none new.

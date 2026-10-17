@@ -26,6 +26,16 @@ export const RETRY_TEXT = 'נסו שוב';
 export const SAVE_FAILED_TEXT = 'השמירה לא הצליחה. אפשר לנסות שוב'; // c12 · ERR-004
 export const SAVED_TEXT = 'הפרטים נשמרו'; // c12
 export const SAVING_TEXT = 'שומרים';
+// F2.2b2 (Q1: as the spec wrote them; DR-2r's label).
+export const REMOVE_TEXT = 'הסרה';
+export const END_PREGNANCY_TEXT = 'סיום מסלול ההריון';
+export const BIRTH_TEXT = 'הלידה התרחשה';
+export const CANCEL_TEXT = 'ביטול';
+export const NO_JOURNEY_TEXT = 'עוד לא נבחר שלב במסע'; // c21
+export const DELETE_WARNING_TEXT = 'הפרטים יימחקו ולא ניתן לשחזר אותם'; // c16
+export const END_PREGNANCY_QUESTION = 'לסיים את מסלול ההריון?'; // c16
+export const PLANNING_ENDS_TEXT = "מסלול 'מתכננים' יסתיים ויימחק"; // c16, DR-3 A
+export const ACTION_FAILED_TEXT = 'הפעולה לא הצליחה. אפשר לנסות שוב'; // c25 · ERR-004
 
 /** The form as the user left it: the shared rule's input (the select's `""` is "not chosen"). */
 export type ChildFormValues = ChildInput;
@@ -67,9 +77,11 @@ export const EMPTY_DUE_DATE: DateParts = { day: '', month: '', year: '' };
 export const dueDateValuesOf = (journey: OwnJourney): DateParts =>
   journey.dueDate === null ? EMPTY_DUE_DATE : partsOf(journey.dueDate);
 
-/** VAL-039: a pregnancy can be added only with neither a pregnancy nor "מתכננים" (planning → pregnant is F2.2b2's confirmation). */
-export const canAddPregnancy = (data: OwnJourneys): boolean =>
-  data.journeys.every((journey) => journey.stage !== 'pregnant' && journey.stage !== 'planning');
+/** VAL-039: a pregnancy can be added only without one; with "מתכננים" stored it first asks to end it (DR-3 A, c16, c23). */
+export const canAddPregnancy = (data: OwnJourneys): boolean => data.journeys.every((journey) => journey.stage !== 'pregnant');
+
+/** Whether "מתכננים" is stored: adding a pregnancy then ends it, after a confirmation. */
+export const hasPlanning = (data: OwnJourneys): boolean => data.journeys.some((journey) => journey.stage === 'planning');
 
 export type DueDateFormCheck = { ok: true; value: DateParts } | { ok: false; error: string };
 

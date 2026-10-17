@@ -33,7 +33,7 @@ export function checkChildWrite(body: unknown, today: string): ChildWriteCheck {
   return { ok: false, reason: issue === undefined ? 'invalid_body' : issue.code };
 }
 
-/** The path of PUT /api/children/:id. An id that is not a uuid's text form is refused before any query (else 22P02 -> 500). */
+/** The path of PUT and DELETE /api/children/:id. An id that is not a uuid's text form is refused before any query (else 22P02 -> 500). */
 export const childPathParams = z.object({ id: z.guid() });
 
 /** Why a due-date body is refused: a due-date registration code, or `invalid_body` for everything else (shape, keys). */
@@ -48,23 +48,45 @@ export type DueDateInput = z.input<typeof dueDateInput>;
 
 const isDueDateCode = (message: string): message is DueDateErrorCode => DUE_DATE_ERROR_CODES.some((code) => code === message);
 
+/** A raw bound failure carries the due-date code; anything else (an unknown key, a missing field, a non-object) refuses the body. */
+function dueDateBodyReason(issues: readonly z.core.$ZodIssue[]): DueDateWriteReason {
+  const [first] = issues;
+  if (first === undefined || issues.some((issue) => !isDueDateCode(issue.message))) return 'invalid_body';
+  return isDueDateCode(first.message) ? first.message : 'invalid_body';
+}
+
 /**
  * POST /api/journeys and PUT /api/journeys/:id: `{ dueDate: { day, month, year } }`, judged against `today` and `earliestToday`
  * (YYYY-MM-DD, as checkDueDate). The value is YYYY-MM-DD, or null for no due date; a wrong shape is `invalid_body`.
  */
 export function checkDueDateWrite(body: unknown, today: string, earliestToday: string = today): DueDateWriteCheck {
   const parsed = dueDateInput.safeParse(body);
-  if (!parsed.success) {
-    // A raw bound failure carries the due-date code; anything else (an unknown key, a missing field, a non-object) refuses the body.
-    const [first] = parsed.error.issues;
-    if (first === undefined || parsed.error.issues.some((issue) => !isDueDateCode(issue.message))) return { ok: false, reason: 'invalid_body' };
-    return { ok: false, reason: isDueDateCode(first.message) ? first.message : 'invalid_body' };
-  }
+  if (!parsed.success) return { ok: false, reason: dueDateBodyReason(parsed.error.issues) };
   const checked = checkDueDate(parsed.data.dueDate, today, earliestToday);
   return checked.ok ? checked : { ok: false, reason: checked.code };
 }
 
-/** The path of PUT /api/journeys/:id: a uuid's text form, else 404 before any query. */
+/**
+ * POST /api/journeys (F2.2b c15, c23): the due date, and `endPlanning: true` once the parent confirmed that "מתכננים" ends (DR-3 A).
+ * Without it a stored planning journey makes the add a stage_conflict. Strict: no other key; `endPlanning` is `true` or absent.
+ */
+export const pregnancyAddInput = z.strictObject({ dueDate: rawDateParts('due_date_invalid'), endPlanning: z.literal(true).optional() });
+export type PregnancyAddInput = z.input<typeof pregnancyAddInput>;
+
+export type PregnancyAddCheck =
+  | { ok: true; value: { dueDate: string | null; endPlanning: boolean } }
+  | { ok: false; reason: DueDateWriteReason };
+
+/** POST /api/journeys: the body as checkDueDateWrite judges it, plus the planning confirmation. */
+export function checkPregnancyAddWrite(body: unknown, today: string, earliestToday: string = today): PregnancyAddCheck {
+  const parsed = pregnancyAddInput.safeParse(body);
+  if (!parsed.success) return { ok: false, reason: dueDateBodyReason(parsed.error.issues) };
+  const checked = checkDueDate(parsed.data.dueDate, today, earliestToday);
+  if (!checked.ok) return { ok: false, reason: checked.code };
+  return { ok: true, value: { dueDate: checked.value, endPlanning: parsed.data.endPlanning === true } };
+}
+
+/** The path of PUT and DELETE /api/journeys/:id and POST /api/journeys/:id/birth: a uuid's text form, else 404 before any query. */
 export const journeyPathParams = childPathParams;
 
 export const ownJourney = z.object({
@@ -83,8 +105,8 @@ export const ownChild = z.object({
 export type OwnChild = z.infer<typeof ownChild>;
 
 /**
- * GET /api/journeys, and the answer of a child add or edit: the caller's journeys (in the order of JOURNEY_STAGES) and children
- * (by slot). The web checks every answer with it before using it.
+ * GET /api/journeys, and the answer of every write: the caller's journeys (in the order of JOURNEY_STAGES) and children (in the
+ * order they were added). The web checks every answer with it before using it.
  */
 export const ownJourneysResponse = z.object({
   journeys: z.array(ownJourney),
