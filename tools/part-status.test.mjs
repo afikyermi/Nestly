@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { collect, evaluate, formatStatus, ghRead, mainHealth, parseArgs } from './part-status.mjs';
 
@@ -151,6 +152,7 @@ function apiFixture({ changedHead = false, denied = false } = {}) {
       base: { ref: 'main' }, state: 'open', html_url: 'https://github.com/afikyermi/Nestly/pull/57' };
     if (route === 'branches/main') return { commit: { sha: MAIN } };
     if (route.startsWith('pulls/57/files')) return [{ filename: 'apps/server/src/x.ts' }]; // P6
+    if (route.startsWith('contents/tools/')) return { content: Buffer.from(readFileSync(new URL(`../${route.slice(9).split('?')[0]}`, import.meta.url), 'utf8')).toString('base64') }; // P6 self-check
     if (route.startsWith('rules/branches/')) {
       if (denied) throw new Error('GitHub GET failed (HTTP 403)');
       return [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'test', integration_id: 15368 }] } }];
@@ -232,4 +234,15 @@ test('[P6] collect reads every path of the PR, both sides of a rename', () => {
   const snapshot = collect({ repo: 'afikyermi/Nestly', pr: '57' }, read);
   assert.deepEqual(snapshot.files, ['tools/schema-gate2.mjs', 'tools/schema-gate.mjs', 'apps/web/src/a.tsx']);
   assert.match(evaluate(snapshot).blockers.join('\n'), /split it/);
+});
+
+test('[P6] part-status refuses to judge with a checker or gate that differs from the PR base (CRITIC P6 finding 2, re-check 2)', () => {
+  const api = apiFixture();
+  const same = collect({ repo: 'afikyermi/Nestly', pr: '57' }, api.read);
+  assert.ok(!same.errors.some((e) => e.includes('differs from the PR base')), 'identical copies: no blocker');
+  const edited = collect({ repo: 'afikyermi/Nestly', pr: '57' }, api.read, undefined, (file) => (file === 'tools/schema-gate.mjs' ? '// relaxed' : readFileSync(new URL(`../${file}`, import.meta.url), 'utf8')));
+  assert.match(edited.errors.join('\n'), /tools\/schema-gate\.mjs here differs from the PR base's copy/);
+  assert.match(evaluate(edited).blockers.join('\n'), /up-to-date main checkout/);
+  const missing = collect({ repo: 'afikyermi/Nestly', pr: '57' }, api.read, undefined, () => undefined);
+  assert.equal(missing.errors.filter((e) => e.includes('differs from the PR base')).length, 2, 'unreadable local copies block');
 });

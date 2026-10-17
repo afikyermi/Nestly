@@ -72,3 +72,6 @@ CRITIC (opus) reviewed cold, one round, without notes.md. No critical or high; 2
   with `.github/workflows/ci.yml` or `tools/schema-gate.mjs`; part-status runs from ORCHESTRATOR's checkout, not the PR.
   N1 (low): the test now copies the gate to a temporary directory, imports and runs it there; ci.yml documents the
   recovery (Afik merges the one gate-only fix by hand; never fall back to the PR's copy).
+- Re-check 2 (findings-recheck2.md): #2 precondition → mechanism: part-status compares its own file and the gate with
+  the PR base's copies through the API (`contents/<file>?ref=<base sha>`) and blocks on any difference or unreadable copy
+  ("run part-status from an up-to-date main checkout"); tests. N3: the file list is read before `headAfter`.

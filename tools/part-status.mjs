@@ -1,5 +1,7 @@
 import { execFileSync } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { GATE_FILES, PRODUCT } from './schema-gate.mjs';
 
 // P1: one read-only snapshot, never a merge/dispatch/retry/polling loop.
@@ -140,7 +142,12 @@ export function ghRead(endpoint, execute = execFileSync) {
   }
 }
 
-export function collect({ repo, pr }, read = ghRead, clock = () => new Date().toISOString()) {
+/** The files whose local copy must equal the PR base's: this checker and the gate it applies. */
+export const SELF_FILES = ['tools/part-status.mjs', 'tools/schema-gate.mjs'];
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
+const readLocalFile = (file) => { try { return readFileSync(join(ROOT, file), 'utf8'); } catch { return undefined; } };
+
+export function collect({ repo, pr }, read = ghRead, clock = () => new Date().toISOString(), readLocal = readLocalFile) {
   const root = `repos/${repo}`;
   const errors = [];
   const limitations = ['Snapshot only: specialist findings and merge authority are not inferred from checks.'];
@@ -202,10 +209,22 @@ export function collect({ repo, pr }, read = ghRead, clock = () => new Date().to
   for (const [group, unresolved] of groups) if (unresolved.size) {
     limitations.push(`No execution found for skipped main jobs in ${group}: ${[...unresolved].join(', ')}`);
   }
+  // Every path the PR touches (both sides of a rename), for the P6 split rule; read before headAfter so a push in between
+  // shows as "Head changed" (CRITIC P6 N3).
+  const files = all(`pulls/${pr}/files`).flatMap((f) => [f.filename, f.previous_filename].filter(Boolean));
+  // P6 (CRITIC finding 2): this check is only as good as the copy that runs it. The local part-status and schema gate
+  // must equal the PR base's copies, which the PR cannot change; run from a PR's worktree with edited copies → blocker.
+  for (const file of SELF_FILES) {
+    const remote = safe(`contents/${file}?ref=${encodeURIComponent(pull.base.sha ?? pull.base.ref)}`, null);
+    if (remote === null) continue; // already an error (the bootstrap PR, whose base has no gate yet, is reviewed by hand)
+    const ours = readLocal(file);
+    const theirs = typeof remote?.content === 'string' ? Buffer.from(remote.content, 'base64').toString('utf8') : undefined;
+    if (ours === undefined || theirs === undefined || ours.replace(/\r\n/g, '\n') !== theirs.replace(/\r\n/g, '\n')) {
+      errors.push(`${file} here differs from the PR base's copy: run part-status from an up-to-date main checkout, not a PR worktree`);
+    }
+  }
   const headAfter = safe(`pulls/${pr}`, { head: {} }).head.sha;
   const mainAfter = safe('branches/main', { commit: {} }).commit.sha;
-  // Every path the PR touches (both sides of a rename), for the P6 split rule.
-  const files = all(`pulls/${pr}/files`).flatMap((f) => [f.filename, f.previous_filename].filter(Boolean));
   return { head, files, headAfter, main, mainAfter, state: pull.state, merged: pull.merged, url: pull.html_url, required, checks,
     mainRuns: inspected, errors, limitations, observedAt: clock() };
 }
