@@ -3,7 +3,7 @@
 // It makes its own fresh user (the shared fixture user is already registered and has changed its password in
 // password-recovery.flow.ts). Same email pattern as the fixture's, so the sweep covers it. Failed attempts per user: 1 (limit 5);
 // IP-level failures added to the run: 1 per project (limit 10; the recovery flow uses 2 per project).
-import type { Page, Response } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
 
@@ -15,9 +15,6 @@ const nick = (page: Page) => page.getByLabel(/כינו אתכם/);
 const saveButton = (page: Page) => page.getByRole('button', { name: 'שמירה', exact: true });
 const submit = (page: Page) => page.locator('form button[type="submit"]').first();
 const statuses = (page: Page) => page.getByRole('status').filter({ hasText: /\S/ });
-
-const answered = (method: string, path: string, status: number) => (r: Response): boolean =>
-  r.request().method() === method && new URL(r.url()).pathname === path && r.status() === status;
 
 const users = new Map<string, TestUser>();
 function userOf(project: string): TestUser {
@@ -78,10 +75,15 @@ test.describe.serial('F2.0 password change on the Preview [c10 c15]', () => {
     await newPassword(page).fill(`${u.password}-new`);
     await submit(page).click();
     await expect(page.getByRole('alert')).toHaveCount(1);
+    expect((await page.getByRole('alert').first().innerText()).trim(), 'wrong-answer alert text (ERR-042)').toContain('הפרטים שהוזנו אינם תואמים. אפשר לנסות שוב');
     await expect(newPassword(page)).toHaveValue('');
     await pet(page).fill(u.answers.pet);
     await newPassword(page).fill(`${u.password}-new`);
-    await Promise.all([page.waitForResponse(answered('POST', '/api/password/change', 200)), submit(page).click()]);
+    const [response] = await Promise.all([
+      page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/password/change'),
+      submit(page).click(),
+    ]);
+    expect(response.status(), 'change status').toBe(200);
     await expect(statuses(page)).toContainText(/הסיסמה הוחלפה/);
     await expect(page.getByRole('alert')).toHaveCount(0);
   });
