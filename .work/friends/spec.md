@@ -180,3 +180,12 @@ Internal HOW, not a change to an approved criterion.
   showsEmptyJourneySentence, relationship, friends, mutualFriends}` per the shared Zod; 429 `{error:"rate_limited"}`. Accepted.
 - **Re-send after decline then cancel, then B's accept → no request for B.** Not a defect: it is DR-3's silent re-send (the declined row is
   un-cancelled and stays declined, so B sees nothing — asserted in F2.4a). A fresh pending row would reveal the decline. No change.
+
+## Gate 1 clarifications (F2.4c2) — ORCHESTRATOR, 17.10.2026, from BUILDER's return
+- **c27 vs F1.2 "requested path is not kept".** c27 (approved) needs Guest → Login → that profile, so F1.2's rule is narrowed for
+  `/u/:userId` only: the return target rides in router state (never storage) and is dropped once the page has had a session, so a
+  sign-out never leads back. Recorded here per change control; every other protected path keeps F1.2's rule. SRS at I2 close.
+- **Own user id on the web** is read from the token's `sub` (unverified, client-side) only to build the copied link and to route an own
+  link to ProfilePage (DR-O). The server decides every access; not a trust boundary.
+- **A send's 409** (`request_exists`, `already_friends`, `incoming_pending`) refetches and shows F2.4b's c14 text, as c28 says; the
+  refetched state is what the user then sees. Copy review at I2 close.

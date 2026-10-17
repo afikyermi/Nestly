@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 import type { FriendEntry, FriendLists, FriendRequestEntry } from '@nestly/shared';
+import type { CopyLinkState } from '@/hooks/use-copy-profile-link';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Avatar } from '@/components/ui/avatar';
@@ -13,8 +14,12 @@ import {
   friendName,
   FRIENDS_EMPTY_TEXT,
   FRIENDS_TITLE,
+  COPY_LINK_LABEL,
   INCOMING_EMPTY_TEXT,
   INCOMING_TITLE,
+  LINK_COPIED_TEXT,
+  LINK_FAILED_TEXT,
+  LINK_SHOWN_TEXT,
   LOAD_FAILED_TEXT,
   REMOVE_DESCRIPTION,
   REMOVE_LABEL,
@@ -62,8 +67,17 @@ export interface FriendsFocus {
   tick: number;
 }
 
+/** The copy-my-profile-link button (F2.4c2 c26): what it last did, and whether a copy is in flight. */
+export interface CopyLinkView {
+  state: CopyLinkState;
+  busy: boolean;
+}
+
 export interface FriendsContentProps {
   view: FriendsView;
+  /** The copy-link button; absent: not drawn. */
+  copyLink?: CopyLinkView;
+  onCopyLink?: () => void;
   focus?: FriendsFocus;
   onRetry?: () => void;
   onAccept?: (userId: string) => void;
@@ -73,6 +87,28 @@ export interface FriendsContentProps {
   onRemove?: (userId: string) => void;
   onConfirmRemove?: () => void;
   onCancelRemove?: () => void;
+}
+
+// The copy-my-profile-link entry (DR-1 A, c26): the button, and under it what happened. "הקישור הועתק" is quiet; when the clipboard
+// refused, the link itself is shown as text that selects whole on one click. The region is present from the first render.
+function CopyLink({ copyLink, onCopyLink }: { copyLink: CopyLinkView; onCopyLink: (() => void) | undefined }) {
+  const { state, busy } = copyLink;
+  return (
+    <div className="flex flex-col items-start gap-2" data-testid="friends-copy-link">
+      <Button variant="soft" pending={busy} {...(busy ? { 'aria-disabled': true } : {})} onClick={onCopyLink}>
+        {COPY_LINK_LABEL}
+      </Button>
+      <p role="status" data-testid="friends-copy-status" className={state.kind === 'copied' || state.kind === 'shown' ? 'text-body text-muted-foreground' : 'sr-only'}>
+        {state.kind === 'copied' ? LINK_COPIED_TEXT : state.kind === 'shown' ? LINK_SHOWN_TEXT : ''}
+      </p>
+      {state.kind === 'shown' ? (
+        <bdi dir="ltr" data-testid="friends-link" className="max-w-full select-all break-all rounded-md bg-muted px-3 py-2 text-body">
+          {state.link}
+        </bdi>
+      ) : null}
+      {state.kind === 'failed' ? <InlineAlert>{LINK_FAILED_TEXT}</InlineAlert> : null}
+    </div>
+  );
 }
 
 interface RowProps {
@@ -126,7 +162,7 @@ function ListSection({ id, title, emptyText, focusKey, count, children }: ListSe
 // (cancel) and their Friends (remove, after a confirmation naming the Friend), each list with its own empty text. Display only:
 // the actions come in as props. While loading, no list is drawn (c14).
 export function FriendsContent(props: FriendsContentProps) {
-  const { view, focus, onRetry, onAccept, onDecline, onCancelRequest, onRemove, onConfirmRemove, onCancelRemove } = props;
+  const { view, focus, copyLink, onCopyLink, onRetry, onAccept, onDecline, onCancelRequest, onRemove, onConfirmRemove, onCancelRemove } = props;
   const rootRef = useRef<HTMLDivElement>(null);
   const incomingId = useId();
   const sentId = useId();
@@ -162,6 +198,11 @@ export function FriendsContent(props: FriendsContentProps) {
       <p role="status" data-testid="friends-status" className="sr-only">
         {status}
       </p>
+      {copyLink !== undefined ? (
+        <div className="mb-6">
+          <CopyLink copyLink={copyLink} onCopyLink={onCopyLink} />
+        </div>
+      ) : null}
       {view.kind === 'loading' ? (
         <div data-testid="friends-loading" className="flex flex-col gap-4 rounded-lg bg-card p-4 shadow-card md:p-5">
           <Skeleton className="w-2/3" />

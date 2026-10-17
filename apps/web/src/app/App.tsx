@@ -1,6 +1,8 @@
 import { BrowserRouter } from 'react-router';
 import { AuthPortContext } from '@/hooks/use-auth-port';
 import { GoogleSignInContext } from '@/hooks/use-google-sign-in';
+import { LinkCopierContext, type LinkCopier } from '@/hooks/use-copy-profile-link';
+import { windowClipboard } from '@/platform/browser-clipboard';
 import { windowNavigation } from '@/platform/browser-navigation';
 import { browserStorage } from '@/platform/browser-storage';
 import { windowBrowserEvents } from '@/platform/browser-events';
@@ -35,6 +37,9 @@ const productionGoogleSignIn = createGoogleSignIn({
   },
   onRestoredFromCache: (listener) => navigation.onRestoredFromCache(listener),
 });
+// The copy-my-profile-link button (F2.4c2): the app's address and the clipboard.
+const clipboard = windowClipboard();
+const productionLinkCopier: LinkCopier = { origin: () => navigation.origin(), writeText: (text) => clipboard.writeText(text) };
 
 export interface AppProps {
   /** Where the session comes from. The deployed app uses the production source. */
@@ -43,17 +48,21 @@ export interface AppProps {
   authPort?: AuthPort;
   /** What the "המשך עם Google" button does. Default: the real one. Tests pass a fake. */
   googleSignIn?: GoogleSignIn;
+  /** The app's address and the clipboard the copy-link button uses. Default: the browser's. Tests pass a fake. */
+  linkCopier?: LinkCopier;
 }
 
-export function App({ sessionSource = productionSessionSource, authPort = productionAuthPort, googleSignIn = productionGoogleSignIn }: AppProps) {
+export function App({ sessionSource = productionSessionSource, authPort = productionAuthPort, googleSignIn = productionGoogleSignIn, linkCopier = productionLinkCopier }: AppProps) {
   return (
     <AuthPortContext value={authPort}>
       <GoogleSignInContext value={googleSignIn}>
-        <SessionProvider source={sessionSource}>
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </SessionProvider>
+        <LinkCopierContext value={linkCopier}>
+          <SessionProvider source={sessionSource}>
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </SessionProvider>
+        </LinkCopierContext>
       </GoogleSignInContext>
     </AuthPortContext>
   );

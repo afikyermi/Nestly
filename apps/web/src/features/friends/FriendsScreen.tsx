@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FriendLists } from '@nestly/shared';
+import { useCopyProfileLink } from '@/hooks/use-copy-profile-link';
 import { useSessionAccount } from '@/hooks/use-session-account';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
 import { actOnFriend, fetchFriendLists, type FriendAction, type FriendsOutcome } from '@/services/api/friends';
@@ -58,6 +59,7 @@ const FOCUS_AFTER: Record<FriendAction, FriendsFocus['target']> = {
 // session guard ends the session with its notice (ERR-038, ERR-037).
 export function FriendsScreen() {
   const account = useSessionAccount();
+  const copyLink = useCopyProfileLink();
   const [view, setView] = useState<FriendsView>({ kind: 'loading' });
   const [focus, setFocus] = useState<FriendsFocus>({ target: 'message', tick: 0 });
   // Set synchronously when an action starts, so a second press before the next render sends nothing (c14).
@@ -181,5 +183,14 @@ export function FriendsScreen() {
           },
         };
 
-  return <FriendsContent view={view} focus={focus} onRetry={() => void load(true)} {...actions} />;
+  return (
+    <FriendsContent
+      view={view}
+      focus={focus}
+      copyLink={{ state: copyLink.state, busy: copyLink.busy }}
+      onCopyLink={copyLink.copy}
+      onRetry={() => void load(true)}
+      {...actions}
+    />
+  );
 }
