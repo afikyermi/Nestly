@@ -2,7 +2,7 @@
 
 **Expected (spec c2, c3, c10; SRS FR-AUTH-005, FR-AUTH-003 2.20):** the S-01 clear completes ("done") and the caller's
 session keeps working; a password change with the two answers returns 200 and signs out only the other sessions.
-**Actual (suspected, BUILDER's read of GoTrue; confirmation: preview-e2e on PR 39, `password-change.flow.ts`):** the admin
+**Actual (confirmed: preview-e2e run 38984804084, c10 with the right answers → 503):** the admin
 `PUT /admin/users/<id>` with a password deletes every session of the user. Then `POST /logout?scope=others` with the
 caller's token fails → c10 answers 503 with the password changed; the clear's Tx2 rolls back → account stays `pending` →
 503 on every request from a Google session, permanently. c7 also ends the clearing session it requires.
