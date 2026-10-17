@@ -9,7 +9,7 @@ export { TEST_EMAIL_PATTERN };
 export const PREVIEW_PROJECT_REF = 'xmihorrkegrdlbhpktny'; // nestly-preview
 export const SWEEP_AGE_HOURS = 3; // longer than the job's 20 minute timeout: a concurrent run's users are never swept
 export const MAX_SWEEP_PER_RUN = 10; // leftovers (not this run's) deleted per run, oldest first; this run's own users are never capped
-export const MAX_PATTERN_USERS = 50; // more pattern users than this in total: a wrong pattern, delete nothing and fail
+export const MAX_PATTERN_USERS = 50; // more of this run's own users than this: a wrong pattern, delete nothing and fail
 export const MAX_BACKLOG_PER_RUN = MAX_PATTERN_USERS; // backlog mode deletes at most this many of the oldest per dispatch
 
 /**
@@ -125,24 +125,22 @@ export type Selection = { ok: true; victims: Candidate[] } | { ok: false; reason
 
 /**
  * This run's users are always selected. Leftovers (candidates that are not this run's) must arrive oldest first; at most
- * `maxSweep` of them are selected. `patternTotal` is every user matching the pattern, of any age: above `maxPattern`
+ * `maxSweep` of them are selected, and they never count toward the cap. Above `maxPattern` of this run's own users
  * nothing is selected. Duplicate ids count once.
  */
 export function selectVictims(
   candidates: readonly Candidate[],
-  patternTotal: number,
   limits: { maxSweep?: number; maxPattern?: number } = {},
 ): Selection {
   const maxSweep = limits.maxSweep ?? MAX_SWEEP_PER_RUN;
   const maxPattern = limits.maxPattern ?? MAX_PATTERN_USERS;
-  if (!Number.isInteger(patternTotal) || patternTotal < 0) return { ok: false, reason: 'the pattern user count is not a number' };
-  if (patternTotal > maxPattern) {
-    return { ok: false, reason: `${patternTotal} users match the pattern, more than ${maxPattern}: nothing was deleted` };
-  }
   const byId = new Map<string, Candidate>();
   for (const c of candidates) byId.set(c.id, { id: c.id, own: c.own || (byId.get(c.id)?.own ?? false) });
   const all = [...byId.values()];
   const own = all.filter((c) => c.own);
+  if (own.length > maxPattern) {
+    return { ok: false, reason: `${own.length} users of this run match the pattern, more than ${maxPattern}: nothing was deleted` };
+  }
   const swept = all.filter((c) => !c.own).slice(0, maxSweep);
   return { ok: true, victims: [...own, ...swept] };
 }
@@ -155,10 +153,10 @@ export type DeleteCounts = Record<string, number>;
 export interface CleanupClient {
   preflight(): Promise<PreflightFacts>;
   /**
-   * The database's own answer, only by the pattern: this run's users plus users older than SWEEP_AGE_HOURS, oldest first,
-   * and the count of every pattern user of any age.
+   * The database's own answer, only by the pattern: this run's users, plus at most MAX_SWEEP_PER_RUN other users older
+   * than SWEEP_AGE_HOURS, oldest first.
    */
-  findCandidates(runId: string, runAttempt: string): Promise<{ candidates: Candidate[]; patternTotal: number }>;
+  findCandidates(runId: string, runAttempt: string): Promise<{ candidates: Candidate[] }>;
   /** One transaction; throws (after rolling back) on any failure. Resolves with the counts, all zero if already gone. */
   deleteUser(id: string): Promise<DeleteCounts>;
   /** Users of this run still matching the pattern. */
@@ -209,7 +207,7 @@ export async function runCleanup(input: CleanupInput): Promise<CleanupReport> {
     const decision = decidePreflight(await client.preflight());
     if (!decision.ok) return empty(decision.reason);
     const found = await client.findCandidates(runId, runAttempt);
-    const selection = selectVictims(found.candidates, found.patternTotal);
+    const selection = selectVictims(found.candidates);
     if (!selection.ok) return empty(selection.reason);
     victims = selection.victims;
   } catch (error) {

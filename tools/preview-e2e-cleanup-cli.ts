@@ -15,6 +15,7 @@
 import { appendFileSync } from 'node:fs';
 import postgres from 'postgres';
 import {
+  MAX_SWEEP_PER_RUN,
   SWEEP_AGE_HOURS,
   TEST_EMAIL_PATTERN,
   checkCleanupUrl,
@@ -59,15 +60,24 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
     },
     async findCandidates(runId, runAttempt) {
       const prefix = runEmailPrefix(runId, runAttempt);
-      const rows = await sql<{ id: string; own: boolean }[]>`
-        select id::text as id, (email like ${prefix}) as own
+      const own = await sql<{ id: string }[]>`
+        select id::text as id
+          from auth.users
+         where email ~ ${TEST_EMAIL_PATTERN} and email like ${prefix}
+         order by created_at asc, id asc`;
+      const swept = await sql<{ id: string }[]>`
+        select id::text as id
           from auth.users
          where email ~ ${TEST_EMAIL_PATTERN}
-           and (email like ${prefix} or created_at < now() - make_interval(hours => ${SWEEP_AGE_HOURS}))
-         order by created_at asc, id asc`;
-      const total = await sql<{ n: number }[]>`select count(*)::int as n from auth.users where email ~ ${TEST_EMAIL_PATTERN}`;
-      const candidates: Candidate[] = rows.map((r) => ({ id: r.id, own: r.own }));
-      return { candidates, patternTotal: total[0]?.n ?? Number.NaN };
+           and not (email like ${prefix})
+           and created_at < now() - make_interval(hours => ${SWEEP_AGE_HOURS})
+         order by created_at asc, id asc
+         limit ${MAX_SWEEP_PER_RUN}`;
+      const candidates: Candidate[] = [
+        ...own.map((r) => ({ id: r.id, own: true })),
+        ...swept.map((r) => ({ id: r.id, own: false })),
+      ];
+      return { candidates };
     },
     async deleteUser(id): Promise<DeleteCounts> {
       return sql.begin(async (tx) => {
