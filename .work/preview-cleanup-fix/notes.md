@@ -31,3 +31,9 @@ Afik 17.10.2026, `decisions/2026-10.md` "Preview cleanup" (a) and (c). Incident:
                     pass and a line "pattern users: N; older than 3 h: M; ages: …". Then mode backlog, repeated until the
                     count is ≤ 50 and the per-run cleanup passes again on the next preview-e2e run.
 **Neighbouring**    none.
+
+## Backlog cleanup on nestly-preview — 17.10.2026 (ORCHESTRATOR)
+- 12:38 dry-run (run 39033280409): 168 pattern users, 88 older than 3 h, ages 0–13.8 h.
+- 12:41 backlog (run 39033382704): selected 50, deleted 50, 0 failed.
+- 12:44 backlog (run 39033556793): selected 46, deleted 46, 0 failed. 72 remain, all under 3 h.
+- Next: a third backlog run at ~15:45 UTC once they age past 3 h, then the follow-up PR that removes backlog mode.
