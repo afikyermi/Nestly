@@ -169,3 +169,23 @@ password call in the same part; part (b) keeps c14, c15, c17.
     set-password call's own effect. Not a widening, so no Afik decision needed; it goes on "ממתין לך" as an FYI with the
     exception (a) text correction. Ending the caller's own session is stricter than the spec, not a looser security model:
     ORCHESTRATOR decides.
+- **A7 (CRITIC fix-round bug 1, high; DR-E2) — password sessions are not the owner's until the new password.** New forward
+  migration `supabase/migrations/20261017093000_link_check_password_amr.sql` (20261017090000 is applied on nestly-preview
+  and stays), rollback `supabase/rollback/20261017093000_link_check_password_amr.down.sql` (restores the 20261017090000
+  bodies; no data). `create or replace` of two bodies only:
+  - `session_guard()`: after the existing `stale` branch, while `password_set_at` is null, a session other than the clearing
+    one reads `stale` when its `amr` includes `password` **or is missing/not an array** (fail closed); else `must_set`.
+  - Trigger password-set move: allowed only for the clearing session, or a session with `iat > cleared_at` and a readable
+    `amr` without `password`. A6's "no own users row" exemption is dropped: c11 is held to the same rule (it was CRITIC's
+    c11 gap; a post-clear oauth session of a c9 user still passes).
+  - **Server:** no change to the guard handling — `stale` already maps to 401 in the identity transaction, and c7/c11/c10
+    re-read it under the lock (`refuseUnlessProceeding` refuses `stale`). **One change:** `token-verifier.ts`
+    `authMethodsOf` truncates `amr` at 8 entries and drops unrecognised ones, so a `password` entry could vanish and fail
+    open. Make it all-or-nothing: if the array exceeds the cap or any entry is dropped, `authMethods` is undefined (then
+    no `amr` claim → `stale` here, and not oauth for detection).
+  - **Tests flip:** `password.db.test.ts:510-521` (post-clear password session → 401, not set) and pgTAP 41's two `OK:1`
+    cases for a password-amr session (guard → `stale`; trigger → 42501). **New (CRITIC):** a session with `amr=password`,
+    `iat > cleared_at`, before `password_set_at` → 401 on `/api/me`, c7 and c11, password unchanged; pgTAP: same session
+    reads `stale`, missing `amr` reads `stale`, a post-clear `oauth` session reads `must_set` and may set; c11 user with
+    no users row and a password session → 42501. Verifier unit test: 9 entries or an unrecognised entry → no `authMethods`.
+  - **Authority:** stricter than A6, within DR-E2; no Afik item.
