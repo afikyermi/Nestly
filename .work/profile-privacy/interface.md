@@ -68,3 +68,57 @@ Drizzle (`apps/server/src/db/schema.ts`): `regularProfiles` + `profileVisibility
   `features/privacy/PrivacySettingsSection` (flows). `e2e/visual-screens.ts`: `privacy-settings` (…--defaults),
   `privacy-settings-load-failed` (…--load-failed), `privacy-settings-save-failed` (…--save-failed). No baselines.
 - In the e2e build `/settings` has no access token, so the section shows the load failure (as the profile page does).
+
+---
+
+# interface — F2.3b profile-privacy (the cross-user read + the age phrase), for TEST ENGINEER
+
+Scope: spec.md c7–c15, c17. Database only (Gate 1 DR-1 A): **no server route, no Drizzle object, no web UI** in this part.
+
+## Database — `supabase/migrations/20261017150000_profile_view.sql` · down `supabase/rollback/20261017150000_profile_view.down.sql`
+
+As schema.md F2.3b, verbatim in shape.
+
+**`nestly.profile_view(p_target text)`** — plpgsql, VOLATILE, SECURITY DEFINER, owner app_owner, `search_path=""`. EXECUTE:
+`authenticated` only (revoked from PUBLIC; anon, app_server, app_jobs, app_recovery, service_role hold none). Returns 0 or 1 row:
+
+| column | type | value |
+|---|---|---|
+| `full_name` | text | always |
+| `gender` | text | the stored value (incl. `prefer_not_to_say`, or NULL) when Open; NULL when Restricted |
+| `children_count` | smallint | count of the target's children |
+| `child_ages` | jsonb | Open: `[{"years":y,"months":m}, …]` ints, one per child, order `(created_at, slot)`, `[]` with none; Restricted: NULL |
+| `is_pregnant` | boolean | a `pregnant` journey exists |
+| `shows_empty_journey_sentence` | boolean | `children_count = 0 and not is_pregnant and is_empty_journey_sentence_shown` |
+
+0 rows, no error: `p_target` NULL or not a uuid (case-insensitive regex) · caller not `is_active_account()` (suspended, banned,
+link-check pending/stale/unchecked, no users row) · target has no regular_profiles row, is not `active`, or not `regular`.
+Ages use `pg_catalog.now()` (transaction start) — the prosrc contains `child_age_months(c.birth_date, pg_catalog.now())`. The
+GUC `nestly.profile_view_target` is `''` after a call returns rows or not-found (set only after the guard passes; a call that
+returns at the guard never sets it).
+
+**`nestly.child_age_months(p_birth date, p_at timestamptz) returns integer`** — sql, STABLE, SECURITY INVOKER, `search_path=""`,
+no EXECUTE for anyone but the owner (app_owner; tests calling it run as postgres/app_owner, or via `profile_view`). Completed months
+on `timezone('Asia/Jerusalem', p_at)::date`, floored at 0.
+
+**`nestly.profile_view_target() returns uuid`** — sql, STABLE, SECURITY INVOKER, `search_path=""`, no runtime EXECUTE. The GUC as
+uuid, else NULL.
+
+**Policies** (all PERMISSIVE, FOR SELECT, `TO app_owner`, `using (<key> = (select nestly.profile_view_target()))`):
+`users_select_profile_view` (id) · `regular_profiles_select_profile_view` · `children_select_profile_view` ·
+`journey_contexts_select_profile_view` (user_id). Each has a `comment on policy`; all three functions have `comment on function`.
+
+**CI list:** `supabase/ci/rls-gate.sql` → `tests.approved_security_definer()` = `{'nestly.profile_view(text)'}`.
+The existing structure files that pin "no definer" / function lists / policy lists (schema.md "Amend in the same PR": 10_, 13_,
+20_, 30_, 40_) are yours; I did not edit them.
+
+Rollback: app_owner guard → drop profile_view → the 4 policies → profile_view_target → child_age_months → delete history row
+`20261017150000`. Touches no row.
+
+## Shared — `packages/shared/src/format/child-age.ts` (exported from `@nestly/shared`)
+
+```ts
+export function formatChildAge(years: number, months: number): string
+```
+Exactly the c17 phrases. Throws `RangeError` when `years` is not an integer ≥ 0 (incl. NaN, Infinity, 1.5, −1) or `months` is
+not an integer 0–11. Pure, no locale or Intl.

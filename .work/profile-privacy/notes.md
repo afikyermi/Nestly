@@ -77,3 +77,56 @@ sticky bars. Re-run: journeys + profile + privacy specs 128/128, web unit 1042/1
 
 **Neighbouring**  The shell's sticky top bar and bottom navigation (F1.2) can cover a focused or scrolled-to target at 375. There is
 no `scroll-padding` for them (WCAG 2.4.11, focus not obscured). Not caused here, not fixed.
+
+---
+
+# notes — F2.3b profile-privacy (the cross-user read: c7–c15; the age phrase: c17)
+
+**Approach**  Migration `20261017150000_profile_view.sql` + guarded down script, schema.md F2.3b as written: `child_age_months(date,
+timestamptz)` and `profile_view_target()` (invoker, no runtime EXECUTE), the four `*_select_profile_view` policies TO app_owner,
+`profile_view(text)` (definer, app_owner, `search_path ''`, EXECUTE authenticated), a `comment on` for each. `supabase/ci/rls-gate.sql`:
+`tests.approved_security_definer()` = `{'nestly.profile_view(text)'}`. Shared: `formatChildAge(years, months)` in
+`packages/shared/src/format/child-age.ts` (new `format/` folder, exported from the package root). Nothing server-side (DR-1 A: no
+endpoint, so no Drizzle object), no web.
+
+**Decisions**
+- Checked before writing that the definer's caller check works: inside `profile_view` the current user is app_owner, and
+  `is_active_account()` (invoker) reads `users` as app_owner under FORCE RLS. It works because app_owner inherits `authenticated`
+  (bootstrap 01-roles, data-model rule 5), so `users_select_own` applies with the caller's `auth.uid()`. Confirmed by the smoke run.
+- `formatChildAge` builds the (y, m) phrase as "<years phrase> <and-months phrase>", each a complete word form ("שנתיים" + "וחודשיים",
+  "3 שנים" + "ו-5 חודשים"). No adjective or sex marker, so nothing has to agree across the join (c17's "never assembled from
+  fragments that break agreement"). It throws `RangeError`; -0 is accepted as 0.
+- A new folder `format/`, not `validation/` or `constants/`: it is copy formatting, neither.
+
+**Deviations**  none from spec.md or schema.md in the SQL. From schema.md "Knowledge": **not done**, see below.
+
+**Deliberately not done**
+- `.claude/knowledge/data-model.md` "Approved exceptions" entry + the "Open, under rules 16 and 17" line, and the four policies in
+  `data-model-tables.md`. I wrote them, then reverted: `data-model.md` is already at its `check:budgets` budget (260/260) and the
+  entry adds 12 lines (272 → red). Raising the budget is a tools change (frozen, audit decision 7), and the knowledge files were
+  DATA ARCHITECT's in F2.3a. Until the entry lands, the `rls-gate.sql` comment "this list must equal the SECURITY DEFINER entries of
+  data-model.md" is untrue → FINDING to DATA ARCHITECT.
+- The pgTAP structure amendments (10_, 13_, 20_, 30_, 40_) and `53_profile_view.sql`: TEST ENGINEER's. Their edits to 10/13/20/30/40
+  were already in the working tree; I did not stage them.
+- No test files.
+
+**Uncertain**
+- On the local PG16 stand-in, `01_rls_gate_clean` / `02_rls_gate_fires` cannot run (no MAINTAIN), so `definer_not_approved` on the
+  new list is unverified locally; CI (PG17) runs it.
+- The GUC is set only after the guard; a call that returns at the guard never defines `nestly.profile_view_target`, so
+  `current_setting(..., true)` is NULL there, not `''`. schema.md's "GUC '' after a call" holds for calls that pass the guard.
+
+**Local checks**  typecheck · lint · check:budgets · check:stories green. Unit: shared 325/325 (incl. TE's `child-age.test.ts`
+37/37; one run had the 100 ms timing test in `registration-credentials.test.ts` at 119 ms under load, green alone and on rerun),
+server 661/661. DB on the PG16 stand-in (scratchpad `localdb.sh`): `20261017150000_profile_view: up -> down -> up OK`
+(fingerprint restored), drift none (127 columns / 9 tables), pgTAP green incl. TE's amended 10/13/20/30/40, except 01/02 (PG16).
+Smoke (scratchpad `smoke-f23b.sql`, as `authenticated` with V's claims, rolled back): Open → (דנה כהן, woman, 2,
+[{3,5},{1,9}], t, f); Restricted → (דנה כהן, NULL, 2, NULL, t, f); unknown uuid / 'abc' / NULL → 0 rows; V suspended → 0; V with
+the GUC set to B reads 0 rows of B in users, regular_profiles, children, journey_contexts; both helpers → permission denied; GUC ''
+after the call; every c14 boundary row, the four tz instants, future births (0) and 1900-01-01 (1521) as specified.
+
+**Preview path**  Nothing to click: no endpoint or screen in this part (DR-1 A). The read is exercised only by pgTAP (CI db job) after
+the batched migration.
+
+**Neighbouring**  `packages/shared/tests/registration-credentials.test.ts` "a 5 MB email or password is refused fast" asserts < 100 ms
+wall-clock; it failed once at 119 ms under a parallel suite run (flaky by load, not by code).

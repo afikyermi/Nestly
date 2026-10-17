@@ -155,3 +155,7 @@ Approved: c8, c14 (database returns completed years and months, Asia/Jerusalem),
 A** (a birth_date after today reads (0,0), never negative). Q3–Q6 take their defaults. Over the 100-line cap by the Gate records —
 accepted for this file. SPEC finding 2 (a daily reader learns the exact birth day of the month, hence the full birth date) goes
 to Afik as a refinement of his DR-3 accepted cost; F2.3b is built as decided meanwhile, ages being one additive column.
+
+**Change control — ORCHESTRATOR, 17.10.2026 (CRITIC F2.3b low):** c8 and c14 read "in slot order"; they now read **in display
+order (`created_at, slot`), as F2.2b**. Reason: F2.2b's Gate 1 made a removed child's seat reusable, so slot order no longer
+equals the order the owner sees; the function and its test already follow the display order. No data effect (ages only).

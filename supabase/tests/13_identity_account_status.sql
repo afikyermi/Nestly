@@ -222,9 +222,10 @@ select is(tests.as_role('authenticated', tests.claims(tests.fx_id('a')),
 select is(
   tests.as_role('authenticated', tests.claims(tests.fx_id('a')),
     $q$ select count(*)::text from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
-         where n.nspname = 'nestly' and has_function_privilege('authenticated', p.oid, 'EXECUTE') and p.pronargs > 0 $q$),
+         where n.nspname = 'nestly' and has_function_privilege('authenticated', p.oid, 'EXECUTE') and p.pronargs > 0
+           and p.oid::regprocedure::text <> 'nestly.profile_view(text)' $q$),
   '0',
-  '[F1.1-b c18 layer 13] seen from authenticated: no function in schema nestly that it can execute takes an argument');
+  '[F1.1-b c18 layer 13 · F2.3b c15] seen from authenticated: no function in schema nestly that it can execute takes an argument, except the approved profile_view(text), which returns no account status (file 53, c13)');
 
 -- =====================================================================================================================
 -- Debt D1 (CRITIC b-1) — the function checks the caller's OWN row and its STATUS by itself, not through the users policy.

@@ -41,14 +41,14 @@ begin;
 create schema if not exists tests;
 
 -- The approved SECURITY DEFINER functions, as regprocedure text (e.g. 'nestly.fn(uuid)'). This list must equal the
--- SECURITY DEFINER entries of .claude/knowledge/data-model.md → "Approved exceptions" — CRITIC checks that. Today that
--- list holds no function (F1.6's entries are an Auth call sequence and a role, not functions).
+-- SECURITY DEFINER entries of .claude/knowledge/data-model.md → "Approved exceptions" — CRITIC checks that. One function:
+-- F2.3b, DR-G1 (F1.6's entries are an Auth call sequence and a role, not functions).
 create or replace function tests.approved_security_definer()
 returns setof text
 language sql immutable
 set search_path = ''
 as $$
-  select f from unnest(array[]::text[]) as f
+  select f from unnest(array['nestly.profile_view(text)']::text[]) as f
 $$;
 
 create or replace function tests.rls_gate(p_schema name default 'nestly')

@@ -294,8 +294,9 @@ select is_empty(
        join pg_catalog.pg_class c     on c.oid = pol.polrelid
        join pg_catalog.pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'nestly' and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents')
-        and pol.polroles <> array[(select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated')] $$,
-  '[F1.1-b c19 platform r4 · F1.6 scoped] every policy on the five F1.1/F1.4 tables is TO authenticated only (not PUBLIC, not anon, not app_recovery)');
+        and pol.polroles <> array[(select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated')]
+        and pol.polname not like '%\_select\_profile\_view' $$,
+  '[F1.1-b c19 platform r4 · F1.6 scoped · F2.3b c15] every policy on the five F1.1/F1.4 tables is TO authenticated only (not PUBLIC, not anon, not app_recovery), except the four *_select_profile_view policies TO app_owner (file 53 asserts them)');
 
 select is(has_schema_privilege('authenticated', 'nestly', 'USAGE'), true,
   '[F1.1-b c12] authenticated has USAGE on schema nestly');
@@ -381,13 +382,19 @@ select is(
   false,
   '[F1.1-b c18 addendum 1] is_active_account() is SECURITY INVOKER, not a definer');
 
-select is_empty(
-  $$ select p.proname from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+-- F2.3b (DR-G1, Afik 17.10.2026): the first approved definer, nestly.profile_view(text). The definers in nestly are exactly
+-- the approved list, and is_active_account() is not on it (file 53 asserts profile_view itself).
+select set_eq(
+  $$ select p.oid::regprocedure::text from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'nestly' and p.prosecdef $$,
-  '[F1.1-b c18 platform r10] schema nestly holds no SECURITY DEFINER function');
+  $$ select a from tests.approved_security_definer() as a $$,
+  '[F1.1-b c18 platform r10 · F2.3b c15] the SECURITY DEFINER functions in schema nestly are exactly the approved list');
 
-select is((select count(*) from tests.approved_security_definer()), 0::bigint,
-  '[F1.1-b c18 addendum 1] the approved SECURITY DEFINER list is empty: is_active_account() is not an approved exception');
+select is((select count(*) from tests.approved_security_definer()), 1::bigint,
+  '[F1.1-b c18 addendum 1 · F2.3b c15] the approved SECURITY DEFINER list holds one function (profile_view, F2.3b)');
+
+select is((select count(*) from tests.approved_security_definer() as a where a like 'nestly.is\_active\_account(%'), 0::bigint,
+  '[F1.1-b c18 addendum 1] is_active_account() is not an approved exception');
 
 select ok(
   (select exists (select 1 from unnest(p.proconfig) as cfg where cfg like 'search_path=%')
@@ -414,8 +421,9 @@ select is(
 select is_empty(
   $$ select p.proname from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'nestly' and has_function_privilege('authenticated', p.oid, 'EXECUTE')
-        and (p.pronargs > 0 or p.prosecdef) $$,
-  '[F1.1-b c18 layer 13] every function in nestly that authenticated can execute takes no argument and is SECURITY INVOKER');
+        and (p.pronargs > 0 or p.prosecdef)
+        and p.oid::regprocedure::text <> 'nestly.profile_view(text)' $$,
+  '[F1.1-b c18 layer 13 · F2.3b c15] every function in nestly that authenticated can execute takes no argument and is SECURITY INVOKER, except the approved profile_view(text) (one uuid per call, no status: file 53)');
 
 select * from finish();
 
