@@ -161,6 +161,10 @@ select is(pg_temp.guard(tests.fx_id('b'), tests.claims(tests.fx_id('b'))), 'stal
 -- done
 select is(pg_temp.guard(tests.fx_id('b'), pg_temp.cl(tests.fx_id('b'), pg_temp.sid(2), pg_temp.ep('2026-10-16 10:00:01+00'), false)), 'stale',
   '[F2.0-a c6 c7 DR-E2] must_set window: a non-clearing session with amr password, issued after the clear, is stale (a password sign-in racing the cancel is not the owner)');
+select is(pg_temp.guard(tests.fx_id('b'), tests.claims(tests.fx_id('b'), jsonb_build_object('session_id', pg_temp.sid(2), 'iat', pg_temp.ep('2026-10-16 10:00:01+00')))), 'stale',
+  '[F2.0-a c6 c7 A7] must_set window: a non-clearing session with NO amr claim, issued after the clear, is stale (a missing amr fails closed)');
+select is(pg_temp.guard(tests.fx_id('b'), tests.claims(tests.fx_id('b'), jsonb_build_object('session_id', pg_temp.sid(2), 'iat', pg_temp.ep('2026-10-16 10:00:01+00'), 'amr', 'oauth'))), 'stale',
+  '[F2.0-a c6 c7 A7] and one whose amr is not an array (unreadable) is stale too');
 select lives_ok($q$ select tests.fx_link_put(tests.fx_id('b'), 'affected', pg_temp.sid(1)::uuid, timestamptz '2026-10-16 10:00:00.5+00', pg_temp.sid(1)::uuid, timestamptz '2026-10-16 10:05:00+00') $q$,
   '[F2.0 fixture] b has set its new password');
 select is(pg_temp.guard(tests.fx_id('b'), pg_temp.cl(tests.fx_id('b'), pg_temp.sid(1), pg_temp.ep('2026-10-16 09:00:00+00'))), 'ok', '[F2.0-a c5 c7] done: the clearing session is ok');
