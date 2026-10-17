@@ -248,3 +248,5 @@ trailing columns, COMMIT on `limited`, the guarded down — **except DR-L, sent 
 not built; it is last-but-two in the build order, so nothing waits. The cleanup QUESTION goes to Afik with DR-L (default: amend
 `tools/preview-e2e-cleanup-cli.ts:75` to delete the test user's `security_events` first). The section is over the 100-line cap
 because of the exact SQL — accepted.
+
+**Afik, 17.10.2026 (decisions.md "F2.4c1 DR-L"):** DR-L → A; the cleanup-tool line is approved. F2.4c1 is unblocked.
