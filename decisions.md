@@ -64,7 +64,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-11 | Bottom navigation: the services tab is labelled "יועצים" | 10 |
 | 2026-10-11 | R1: palette A (apricot, terracotta), Rubik, centred column with a navigation rail | 10 |
 | 2026-10-11 | The eighth tracker tile is "אמבטיה" — OP-007 closes | 10 |
-| 2026-10-11 | D7 closed: 15 initiatives, MVP is I1–I9; I1 scope and its decided points (upd. 10-13 I1 points) | 10 |
+| 2026-10-11 | D7 closed: 15 initiatives, MVP is I1–I9; I1 scope and its decided points (upd. 10-13 I1 points; 10-17 Initiative order: I9 after I14) | 10 |
 | 2026-10-11 | Elevated path: no diff review by Afik — CRITIC on opus, DATA ARCHITECT, CI, hooks (upd. 10-11 Working rules) | 10 |
 | 2026-10-11 | R2 approved; post card has four icon actions — Like, Comment, Share in feed, Share link | 10 |
 | 2026-10-11 | Repository layout and naming (WORKPLAN 7.0); tests outside src | 10 |
@@ -155,6 +155,15 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-17 | Preview cleanup: tool learns identity_link_checks · every part adding a nestly table updates the cleanup tool in the same PR (DATA ARCHITECT checks delete order) · backlog since 16.10 cleaned on preview only, 50 cap unchanged | 10 |
 | 2026-10-17 | Preview cleanup, per-run limit: the 50 cap counts only the run's own test users; threshold and other safety checks stay; manual scheduled cleanup removed once it works | 10 |
 | 2026-10-17 | Waiting has a ceiling: every wait on a subagent, CI or preview has an expected maximum; past it ORCHESTRATOR checks itself and finishes or restarts a silent agent (upd. same day: cancelled/unstarted check = red; ~10 min for a small change) | 10 |
+| 2026-10-17 | Initiative order: I3–I8, I10–I14, then I9, demo content, presentation, launch; I15 after launch; I3 waits for a system check-and-fix stage Afik starts | 10 |
+| 2026-10-17 | Retention after account deletion: everything deleted except security/audit records, kept 90 days then deleted (upd. same day: conversations stay, BR-073) | 10 |
+| 2026-10-17 | Conversations after account deletion: BR-073 of 13.10 stands — whole for the other side, the deleted user's messages under "משתמש שנמחק"; a defined exception to "everything is deleted" | 10 |
+| 2026-10-17 | Privacy policy in general sentences: one line on recovery questions; OP-036 default — short-lived platform technical logs beside the backups; c20 "no application log line, column or row" | 10 |
+| 2026-10-17 | Gateway key: the password-reset token call stays on the secret key; least privilege is a small debt | 10 |
+| 2026-10-17 | Recovery lock ladder (NFR-SEC-010): 3 → 1 h, 3 more → 24 h, 3 more → permanent, released by support; IP limit stays; lockout DoS accepted (S-65); release tool placed by ORCHESTRATOR (I4) | 10 |
+| 2026-10-17 | Before launch: domain, email service, Supabase Pro | 10 |
+| 2026-10-17 | Browser versions (OP-017) and NFR-PERF/LOAD/AVAIL targets delegated to ORCHESTRATOR | 10 |
+| 2026-10-17 | Sentry (errors only, no Replay/Tracing, no personal data) and Turnstile (Managed; test keys in Preview) set up; code wiring in I9 | 10 |
 
 ## Superseded
 

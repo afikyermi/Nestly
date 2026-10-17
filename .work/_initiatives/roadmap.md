@@ -93,3 +93,36 @@ A4-02 and its plan §4–§5). Each line closes a gap the audit found in this fi
 10. **React Native stays after the Web** (SRS §11): no Expo work in parallel with I2–I14 unless Afik changes §11.
 11. **Open for Afik before the demo:** the admin charts the lecturer demo describes (FR-ADMIN-010/003, DATA-001 full) sit
     in I15, outside the presentation scope (I1–I14). In or out is decided in the demo questionnaire.
+
+## Amendment 5 — 17.10.2026 — I9 moves to the end; recovery lock release in I4
+
+Afik's decisions (`decisions.md` 17.10 "Initiative order", "Recovery lock ladder"). The table at the top keeps its rows;
+**the build order and the dependencies below replace its order and its "Depends on" column.**
+
+1. **Order:** I3 → I4 → I5 → I6 → I7 → I8 → I10 → I11 → I12 → I13 → I14 → **I9** → demo content → the lecturer
+   presentation → launch. **I15** stays after launch. I3 opens only after a system check-and-fix stage that Afik starts.
+2. **No Initiative in I10–I14 depends on I9** (checked against this file: their dependencies are I3, I4, I5, I7, I8, I11,
+   I12). I9 now depends on every Initiative before it, and U1 (account deletion) deletes the data of I10–I14 as well (BR-073).
+3. **I4 adds U2**: the recovery lock ladder (NFR-SEC-010 as changed 17.10) together with the Admin tool that releases a
+   permanent lock (ORCHESTRATOR's placement: `.work/i9-decisions-1017/result.md`, D4). I4 grows from 5 to 6 features;
+   the roadmap from 86 to 87.
+4. **I9's blockers, as of 17.10:** OP-017 and the NFR-PERF/LOAD/AVAIL targets are decided (D5–D6); retention after account
+   deletion is decided (90 days for security/audit records); Sentry and Turnstile are set up (wiring in I9). Still open:
+   retention for live accounts (§13.4). Domain, email and Supabase Pro come before launch, not before I9 opens.
+
+| Order | Initiative | Depends on | Parallel with |
+|---|---|---|---|
+| 1 | I3 Community feed | I2 | I6 (F6.1–F6.5) |
+| 2 | I4 Safety and admin core · **U2** | I3 | I7 |
+| 3 | I5 Media and Stories | I2, I3, I4 | I8 · I10 · I14 |
+| 4 | I6 Home and tracking | I2 (F6.6 ← I4) | I3 |
+| 5 | I7 Notifications and search | I2, I3 | I4 |
+| 6 | I8 Chat and Support | I2, I4, I7 | I5 · I10 · I14 |
+| 7 | I10 Groups | I3, I4, I7 | I5 · I8 · I14 |
+| 8 | I11 Professionals and services | I8, I3, I5 | — |
+| 9 | I12 Marketplace | I5, I8 | I11 |
+| 10 | I13 Monetization | I11, I12 | — |
+| 11 | I14 Moderator team | I4, I7 | I5 · I8 · I10 |
+| 12 | **I9 Launch readiness** · U1 | I1–I8, I10–I14 | — |
+| — | demo content · presentation · **launch** | I9 | — |
+| 13 | I15 Personalization and intelligence | I3, I9, usage data | after launch |

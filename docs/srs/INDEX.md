@@ -2,7 +2,7 @@
 
 # SRS — אינדקס
 
-**מקור האמת של מוצר Nestly.** SRS v2.21 · 17.10.2026.
+**מקור האמת של מוצר Nestly.** SRS v2.22 · 17.10.2026.
 
 ה-SRS מתוחזק ב-markdown ומפוצל לפי סעיפים. גרסאות ה-Word הקודמות נמצאות ב-[`archive/`](archive/) כהיסטוריה בלבד.
 
@@ -17,7 +17,7 @@
 | 2 | [02-system-overview.md](02-system-overview.md) | תיאור כללי של המערכת |
 | 3 | [03-roles-permissions.md](03-roles-permissions.md) | סוגי משתמשים והרשאות |
 | 4 | [04-architecture.md](04-architecture.md) | ארכיטקטורת Pages, Features ו-Components |
-| 5 | [05-functional/](05-functional/) | דרישות פונקציונליות — 93 FR ב-16 קבצי תחום (ראה למטה) |
+| 5 | [05-functional/](05-functional/) | דרישות פונקציונליות — 94 FR ב-16 קבצי תחום (ראה למטה) |
 | 6 | [06-non-functional.md](06-non-functional.md) | דרישות לא-פונקציונליות |
 | 7 | [07-screens-navigation.md](07-screens-navigation.md) | מסכי מערכת וניווט |
 | 8 | [08-business-rules.md](08-business-rules.md) | חוקים עסקיים (Business Rules) |
@@ -54,10 +54,10 @@
 | [navigation.md](05-functional/navigation.md) | Navigation — Top Bar ו-Side Menu | FR-TOP · FR-MENU | 3 |
 | [professional.md](05-functional/professional.md) | Professional — דשבורד ואנליטיקה מקצועית | FR-PRO | 3 |
 | [moderation.md](05-functional/moderation.md) | Moderation — דיווחים ואכיפה | FR-MOD | 3 |
-| [admin.md](05-functional/admin.md) | Admin — ניהול מערכת | FR-ADMIN | 12 |
+| [admin.md](05-functional/admin.md) | Admin — ניהול מערכת | FR-ADMIN | 13 |
 | [algorithms-data.md](05-functional/algorithms-data.md) | Algorithms & Data — אלגוריתמים ואנליטיקה | FR-ALG · FR-DATA | 11 |
 
-## דרישות פונקציונליות — 93
+## דרישות פונקציונליות — 94
 
 | ID | שם | קובץ |
 |---|---|---|
@@ -143,6 +143,7 @@
 | FR-ADMIN-010 | Owner/Admin Intelligence Dashboard v1 | [admin.md](05-functional/admin.md) |
 | FR-ADMIN-011 | רשימת מוזמנים לבטא סגורה | [admin.md](05-functional/admin.md) |
 | FR-ADMIN-012 | ניהול תוכן מערכת — מדריכים לפי סטטוס | [admin.md](05-functional/admin.md) |
+| FR-ADMIN-013 | שחרור נעילת שחזור | [admin.md](05-functional/admin.md) |
 | FR-ALG-001 | איסוף Signals ו-Interest/Intent Profile | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-ALG-002 | Regular User Feed Ranking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-ALG-003 | Professional User Feed Ranking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
@@ -155,7 +156,7 @@
 | FR-ALG-010 | Group Notification Highlights v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-DATA-001 | Analytics Event Tracking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 
-## קריטריוני קבלה — 125
+## קריטריוני קבלה — 126
 
 > השמות קוצרו לצורך ניווט בלבד. הנוסח המחייב נמצא ב-[15-acceptance.md](15-acceptance.md).
 
@@ -286,6 +287,7 @@
 | AC-123 | מחיקת ילד או הריון אחרי אישור | [15-acceptance.md](15-acceptance.md) |
 | AC-124 | קישור לפרופיל: התחברות ואז הפרופיל | [15-acceptance.md](15-acceptance.md) |
 | AC-125 | תפריט ו-Settings של I2 | [15-acceptance.md](15-acceptance.md) |
+| AC-126 | שחרור נעילת שחזור קבועה ע"י Admin | [15-acceptance.md](15-acceptance.md) |
 
 ## מזהים נוספים
 

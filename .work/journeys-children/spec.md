@@ -146,3 +146,8 @@ Israeli device can hold: its UTC date or the next one (F1.4 Q4). It accepts **UT
 outside that; the web keeps −30 / +300 on the device's date. So c14's server half reads: −30 accepted on any server date,
 −31 and +302 refused. The same shared rule serves registration step 1 (F1.4), which refused a device-valid today−30 when the
 UTC and Israeli dates agree — an escape, fixed in this part (escapes.md).
+
+**Afik, 17.10.2026 — c20 wording (OP-036, CRITIC F2.2b2 low).** c20's "no column, row or log line records that it ended"
+reads **"no application log line, column or row records that it ended"**. The platform's technical logs (Vercel request
+log, Supabase Auth log) are kept briefly and are covered by the Privacy Policy, beside the backups (§13.4).
+`decisions.md` 17.10 "Privacy policy".

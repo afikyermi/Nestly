@@ -66,7 +66,7 @@
 | PromotionPerformanceEvent | Impression/Click/ProfileVisit/Follow/ChatStart/other approved event המשויך ל-Promotion ומסומן Paid לצורך הפרדה מ-Organic. |
 | LegalConsent | User, מסמך (Terms / Privacy / הצהרת גיל 18+), גרסה, זמן אישור. נוצר בהרשמה (FR-REG-004) ובכל אישור של גרסה חדשה. |
 | RecoveryAnswers | User, שתי השאלות שנבחרו, לכל תשובה hash איטי (scrypt) עם salt ופרמטרים, מזהה האימייל (hash עם מפתח) וזמן הטענה עליו, זמנים. לעולם לא התשובה עצמה; משתמשים ומבקרים אינם קוראים את ה-hash (FR-AUTH-003, VAL-045, F1.6). מידע אישי. Retention TBD. |
-| RecoveryThrottle | מונה ניסיונות שחזור לפי מזהה אימייל או לפי hash של כתובת IP, חלון ונעילה (NFR-SEC-010). Retention TBD. |
+| RecoveryThrottle | מונה ניסיונות שחזור לפי מזהה אימייל או לפי hash של כתובת IP, חלון ונעילה; למזהה האימייל גם שלב במדרג וסימון נעילה קבועה (NFR-SEC-010, 17.10.2026). Retention: אחרי מחיקת חשבון — 90 יום ואז מחיקה (BR-073); אחרת TBD. |
 | RecoveryEvent | אירוע Audit של שחזור הסיסמה: סוג (FR-ADMIN-005), User כשידוע, hash של מזהה האימייל, hash של כתובת ה-IP וזמן; בלי תשובה, סיסמה או אימייל. Retention TBD. |
 | BetaInvite | אימייל מוזמן, מי הוסיף ומתי, וסטטוס. יחד עם מצב הבטא קובע מי יכול להירשם בתקופת הבטא (FR-ADMIN-011). |
 | AccountTakeoverCheck | מצב ניקוי S-01 לכל חשבון: ממתין או הושלם, ה-Session שביצע אותו, זמן הניקוי וזמן קביעת הסיסמה החדשה (FR-AUTH-005, F2.0). בלי סיסמה, תשובה או אסימון. Retention TBD. |
@@ -138,9 +138,9 @@ NotificationPreference ו-GroupNotificationPreference מסננים אירועי 
 
 | Data Class | Purpose | Retention / Control Rule |
 |---|---|---|
-| Account/Profile/Content | נדרש לתפעול החשבון והתוכן | מחיקת חשבון — BR-073; תמונות — BR-077. משך מדויק ייקבע לפי Privacy Policy/שוק ראשון; מחיקה/ייצוא לפי USER_DATA_EXPORT_DELETE ותהליך המשתמש. |
+| Account/Profile/Content | נדרש לתפעול החשבון והתוכן | מחיקת חשבון — BR-073: הכל נמחק, חוץ מרשומות אבטחה וביקורת (90 יום ואז מחיקה) ומהשיחות שנשמרות לצד השני (החריג המוגדר היחיד; 17.10.2026); תמונות — BR-077. משך מדויק ייקבע לפי Privacy Policy/שוק ראשון; מחיקה/ייצוא לפי USER_DATA_EXPORT_DELETE ותהליך המשתמש. |
 | Interaction/Search/Recommendation Events | Personalization + Analytics | Retention period לא ייקבע שרירותית ב-SRS; יש לקבוע לפני Production ולהתאים ל-Notice/Consent. Aggregates יכולים להישמר בנפרד לפי policy. |
-| Tracker/Child Data | Tracking + Organic Context | Retention/control חייבים להיות מפורשים במדיניות; אין Paid Targeting. הסרת ילד וסיום מסלול מוחקים את השורה מבסיס הנתונים החי מיד, בלי רישום באפליקציה (FR-PROFILE-002). גיבויי Supabase, ולוג הבקשות של Vercel (שורת `DELETE` עם זמן ו-IP, שאפשר להצליב עם לוג ה-Auth), נשארים מחוץ למחיקה הזו לזמן מוגבל; איך מדיניות הפרטיות מציגה אותם — נדרש אישור (OP-036). |
+| Tracker/Child Data | Tracking + Organic Context | Retention/control חייבים להיות מפורשים במדיניות; אין Paid Targeting. הסרת ילד וסיום מסלול מוחקים את השורה מבסיס הנתונים החי מיד, ושום שורת לוג של האפליקציה, עמודה או רשומה אינם רושמים את המחיקה (FR-PROFILE-002). גיבויי Supabase והרישומים הטכניים של הפלטפורמה (לוג הבקשות של Vercel, לוג ה-Auth) נשארים מחוץ למחיקה הזו לזמן קצר, ומדיניות הפרטיות מציינת זאת ליד הגיבויים (BR-078; OP-036 נסגר). |
 | Chat/Support | תקשורת ותפעול Support | Retention נקבע לפי policy/operational need; גוף ההודעות לא נכנס ל-personalization/paid analytics. |
-| Moderation/Audit | Trust/Safety/Audit | Retention TBD לפי market/legal/operational need; מחיקה/שינוי Audit מוגבלים לפי NFR-AUDIT. |
+| Moderation/Audit | Trust/Safety/Audit | אחרי מחיקת חשבון: 90 יום ואז מחיקה (BR-073, 17.10.2026). לחשבון פעיל — Retention TBD לפי market/legal/operational need; מחיקה/שינוי Audit מוגבלים לפי NFR-AUDIT. |
 | Payment/Promotion | Billing/financial record + campaign performance | Retention לפי provider/finance/legal; אין שמירת full card data במערכת. |
