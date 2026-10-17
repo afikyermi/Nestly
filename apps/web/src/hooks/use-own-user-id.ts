@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { userIdOfAccessToken } from '@/lib/access-token';
+import { readOwnUserId } from '@/services/session/own-user-id';
 import { useSessionAccount } from './use-session-account';
 
 /** `loading` until the token is read; then the caller's user id, or null when it cannot be told. */
@@ -12,8 +12,8 @@ export function useOwnUserId(): OwnUserId {
   useEffect(() => {
     let current = true;
     void (async () => {
-      const token = account === null ? null : await account.getAccessToken().catch(() => null);
-      if (current) setOwn({ kind: 'known', userId: token === null ? null : userIdOfAccessToken(token) });
+      const userId = await readOwnUserId(account);
+      if (current) setOwn({ kind: 'known', userId });
     })();
     return () => {
       current = false;

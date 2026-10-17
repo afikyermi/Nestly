@@ -103,7 +103,7 @@ export function AlertPanel({ open, onOpenChange, children, described, finalFocus
 }
 
 export function AlertTitle({ children }: { children: ReactNode }) {
-  return <AlertDialogPrimitive.Title className="text-h3">{children}</AlertDialogPrimitive.Title>;
+  return <AlertDialogPrimitive.Title className="text-h3 wrap-anywhere">{children}</AlertDialogPrimitive.Title>;
 }
 
 export function AlertDescription({ children }: { children: ReactNode }) {

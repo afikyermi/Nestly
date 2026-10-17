@@ -89,7 +89,7 @@ function Summary({ profile }: { profile: ProfileView }) {
   ];
   if (items.length === 0 && !profile.showsEmptyJourneySentence) return null;
   return (
-    <div data-testid="user-profile-summary" className="flex flex-col gap-3 rounded-lg bg-card p-4 text-body text-card-foreground shadow-card md:p-5">
+    <div data-testid="user-profile-summary" className="flex flex-col gap-3 rounded-lg bg-card p-4 text-body text-card-foreground shadow-card wrap-anywhere md:p-5">
       {items.length > 0 ? (
         <dl className="flex flex-col gap-3">
           {items.map((item) => (
@@ -172,11 +172,11 @@ export function UserProfileContent(props: UserProfileContentProps) {
   const heading = loaded !== null ? loaded.profile.fullName : view.kind === 'unavailable' ? UNAVAILABLE_TEXT : TITLE;
 
   return (
-    <div ref={rootRef} className="flex max-w-md flex-col gap-6">
+    <div ref={rootRef} className="flex min-w-0 max-w-md flex-col gap-6">
       <title>{documentTitle(view.kind === 'unavailable' ? UNAVAILABLE_TEXT : TITLE)}</title>
       <div className="flex items-center gap-3">
         {loaded !== null ? <Avatar name={loaded.profile.fullName} decorative /> : null}
-        <h1 tabIndex={-1} className="min-w-0 break-words text-h2">
+        <h1 tabIndex={-1} className="min-w-0 wrap-anywhere text-h2">
           <bdi dir="auto">{heading}</bdi>
         </h1>
       </div>

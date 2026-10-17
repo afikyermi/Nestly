@@ -33,7 +33,7 @@ function PersonList({ title, emptyText, entries, testId }: ListProps) {
                   className="inline-flex min-h-11 w-full items-center gap-3 rounded-sm text-body text-card-foreground no-underline hover:text-primary-strong"
                 >
                   <Avatar name={entry.fullName} decorative />
-                  <span className="min-w-0 flex-1 break-words">
+                  <span className="min-w-0 flex-1 wrap-anywhere">
                     <bdi dir="auto">{entry.fullName}</bdi>
                   </span>
                 </Link>

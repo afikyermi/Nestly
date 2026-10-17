@@ -1,7 +1,10 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useContext, useEffect, useRef, type ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router';
+import { CurrentReturnContext, ReturnTargetContext } from '@/hooks/use-return-target';
 import { useSession } from '@/hooks/use-session';
+import { forgetReturnTarget } from '@/services/auth/return-target';
 import { decideAccess } from './access';
+import { normalizePath, PATHS } from './paths';
 import { SessionLoading } from './SessionLoading';
 
 /** The profile link a Guest opened, carried to Login in router state (memory and history only; never storage). */
@@ -18,17 +21,22 @@ function returnToOf(state: unknown): string | null {
 export function RouteGuard({ children }: { children: ReactNode }) {
   const { state, notice, needsRecoveryQuestions, mustSetPassword } = useSession();
   const location = useLocation();
+  const { storage, landed } = useContext(ReturnTargetContext);
   const hadSession = useRef(false);
+  // The password path carries the link in router state; the Google path comes back to a fresh page and finds it in the one-shot note.
+  const returnTo = returnToOf(location.state) ?? (normalizePath(location.pathname) === PATHS.googleEntry ? landed : null);
   const decision = decideAccess(state, location.pathname, notice !== null, needsRecoveryQuestions, mustSetPassword, {
     fromGuest: !hadSession.current,
-    returnTo: returnToOf(location.state),
+    returnTo,
   });
   useEffect(() => {
     if (state === 'signed-in' || state === 'signed-in-no-account') hadSession.current = true;
-  }, [state]);
+    // Signing out leaves no note of a profile link behind.
+    else if (state === 'signed-out' && hadSession.current) forgetReturnTarget(storage);
+  }, [state, storage]);
   if (decision.kind === 'loading') return <SessionLoading />;
   if (decision.kind === 'redirect') {
     return <Navigate to={decision.to} replace {...(decision.returnTo !== undefined ? { state: { returnTo: decision.returnTo } } : {})} />;
   }
-  return children;
+  return <CurrentReturnContext value={returnTo}>{children}</CurrentReturnContext>;
 }

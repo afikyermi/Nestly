@@ -122,7 +122,7 @@ function PersonRow({ entry, children }: RowProps) {
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-2">
       <Avatar name={entry.fullName} decorative />
-      <span className="min-w-0 flex-1 break-words text-body text-card-foreground">
+      <span className="min-w-0 flex-1 wrap-anywhere text-body text-card-foreground">
         <bdi dir="auto">{entry.fullName}</bdi>
       </span>
       <div className="flex items-center gap-1">{children}</div>

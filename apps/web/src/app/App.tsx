@@ -1,13 +1,16 @@
 import { BrowserRouter } from 'react-router';
 import { AuthPortContext } from '@/hooks/use-auth-port';
 import { GoogleSignInContext } from '@/hooks/use-google-sign-in';
+import { ReturnTargetContext, type ReturnTarget } from '@/hooks/use-return-target';
 import { LinkCopierContext, type LinkCopier } from '@/hooks/use-copy-profile-link';
+import { sessionReturnTarget } from '@/platform/browser-return-target';
 import { windowClipboard } from '@/platform/browser-clipboard';
 import { windowNavigation } from '@/platform/browser-navigation';
 import { browserStorage } from '@/platform/browser-storage';
 import { windowBrowserEvents } from '@/platform/browser-events';
 import { fetchAccountState } from '@/services/api/account-state';
 import { createAuthPort, type AuthPort } from '@/services/auth/auth-client';
+import { takeReturnTarget } from '@/services/auth/return-target';
 import { createGoogleSignIn, type GoogleSignIn } from '@/services/auth/google-sign-in';
 import { AUTH_STORAGE_KEY } from '@/services/auth/storage-key';
 import { createAuthSessionSource } from '@/services/session/auth-session-source';
@@ -37,6 +40,13 @@ const productionGoogleSignIn = createGoogleSignIn({
   },
   onRestoredFromCache: (listener) => navigation.onRestoredFromCache(listener),
 });
+// A profile link held across the round trip to Google (F2.4c2 c27): taken once, only when this page load began on the Google return.
+const returnStorage = sessionReturnTarget();
+const returnTarget: ReturnTarget = {
+  storage: returnStorage,
+  landed: navigation.pathname() === PATHS.googleEntry ? takeReturnTarget(returnStorage, Date.now()) : null,
+};
+
 // The copy-my-profile-link button (F2.4c2): the app's address and the clipboard.
 const clipboard = windowClipboard();
 const productionLinkCopier: LinkCopier = { origin: () => navigation.origin(), writeText: (text) => clipboard.writeText(text) };
@@ -57,11 +67,13 @@ export function App({ sessionSource = productionSessionSource, authPort = produc
     <AuthPortContext value={authPort}>
       <GoogleSignInContext value={googleSignIn}>
         <LinkCopierContext value={linkCopier}>
-          <SessionProvider source={sessionSource}>
-            <BrowserRouter>
-              <AppRoutes />
-            </BrowserRouter>
-          </SessionProvider>
+          <ReturnTargetContext value={returnTarget}>
+            <SessionProvider source={sessionSource}>
+              <BrowserRouter>
+                <AppRoutes />
+              </BrowserRouter>
+            </SessionProvider>
+          </ReturnTargetContext>
         </LinkCopierContext>
       </GoogleSignInContext>
     </AuthPortContext>

@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type RefObject } from 'react';
 import { GOOGLE_FAILED_TEXT } from '@/lib/auth-texts';
+import { forgetReturnTarget, rememberReturnTarget } from '@/services/auth/return-target';
 import type { GoogleSignIn } from '@/services/auth/google-sign-in';
+import { CurrentReturnContext, ReturnTargetContext } from './use-return-target';
 
 // App provides the real starter. Without a provider the default is one that cannot start: the button then shows the failure text and
 // nothing navigates (a story, a test with no Google wiring).
@@ -19,6 +21,8 @@ export interface GoogleButtonState {
 // busy does nothing (the guard is a ref, so a press before the next render is also caught).
 export function useGoogleSignIn(): GoogleButtonState {
   const google = useContext(GoogleSignInContext);
+  const returnTarget = useContext(CurrentReturnContext);
+  const { storage } = useContext(ReturnTargetContext);
   const running = useRef(false);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const [busy, setBusy] = useState(false);
@@ -29,20 +33,24 @@ export function useGoogleSignIn(): GoogleButtonState {
     running.current = true;
     setBusy(true);
     setFailed(false);
+    // F2.4c2 c27: a Guest who came for a profile link keeps it across the round trip to Google.
+    if (returnTarget !== null) rememberReturnTarget(storage, returnTarget, Date.now());
     google.start().then(
       (outcome) => {
         if (outcome === 'left') return;
+        forgetReturnTarget(storage);
         running.current = false;
         setBusy(false);
         setFailed(true);
       },
       () => {
+        forgetReturnTarget(storage);
         running.current = false;
         setBusy(false);
         setFailed(true);
       },
     );
-  }, [google]);
+  }, [google, returnTarget, storage]);
 
   useEffect(() => {
     if (failed) buttonRef.current?.focus();
