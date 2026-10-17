@@ -189,3 +189,5 @@ Internal HOW, not a change to an approved criterion.
   link to ProfilePage (DR-O). The server decides every access; not a trust boundary.
 - **A send's 409** (`request_exists`, `already_friends`, `incoming_pending`) refetches and shows F2.4b's c14 text, as c28 says; the
   refetched state is what the user then sees. Copy review at I2 close.
+- **A remove answered 409/404 on the profile screen** shows F2.4b's remove text "האדם הזה כבר לא ברשימת החברים" (F2.4b low fix), not
+  the request text; accept/decline/cancel keep "הבקשה כבר לא זמינה". c28's "F2.4b c14 message" means the message F2.4b shows for that action.

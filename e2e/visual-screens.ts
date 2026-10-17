@@ -79,13 +79,4 @@ export const SCREENS: Screen[] = [
   { kind: 'story', name: 'user-profile-unavailable', id: 'features-user-profile-userprofilecontent--user-profile-unavailable' },
   { kind: 'story', name: 'user-profile-rate-limited', id: 'features-user-profile-userprofilecontent--user-profile-rate-limited' },
   { kind: 'story', name: 'user-profile-load-failed', id: 'features-user-profile-userprofilecontent--user-profile-load-failed' },
-  // F2.4c2 c26: the `friends` entry above now shows the copy button ("העתקת הקישור לפרופיל שלי"); its baselines are re-made, no new entry.
-  // F2.4c2 c25, c29: another Regular's profile screen. ASSUMED story ids (BUILDER's stories were not read):
-  // features/userprofile/UserProfileContent.stories.tsx with the stories Open, Restricted, Friend, Unavailable, RateLimited, LoadFailed.
-  { kind: 'story', name: 'user-profile', id: 'features-userprofile-userprofilecontent--open' },
-  { kind: 'story', name: 'user-profile-restricted', id: 'features-userprofile-userprofilecontent--restricted' },
-  { kind: 'story', name: 'user-profile-friend', id: 'features-userprofile-userprofilecontent--friend' },
-  { kind: 'story', name: 'user-profile-unavailable', id: 'features-userprofile-userprofilecontent--unavailable' },
-  { kind: 'story', name: 'user-profile-rate-limited', id: 'features-userprofile-userprofilecontent--rate-limited' },
-  { kind: 'story', name: 'user-profile-load-failed', id: 'features-userprofile-userprofilecontent--load-failed' },
 ];
