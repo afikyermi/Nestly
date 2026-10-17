@@ -174,3 +174,9 @@ Internal HOW, not a change to an approved criterion.
 - **c13/c14 copy.** Q1's defaults stand: the empty texts and failure messages are BUILDER's under `ux-copy-he` (ERR-004 for failures);
   tests assert structure (a non-empty text per empty list, a message plus "נסו שוב", a non-empty `role="alert"`). Only "הבקשה כבר לא
   זמינה" is verbatim.
+
+## Gate 1 clarifications (F2.4c1) — ORCHESTRATOR, 17.10.2026, from TEST ENGINEER's return
+- **Viewer response keys** (the spec names statuses and codes only): 200 `{fullName, gender, childrenCount, childAges, isPregnant,
+  showsEmptyJourneySentence, relationship, friends, mutualFriends}` per the shared Zod; 429 `{error:"rate_limited"}`. Accepted.
+- **Re-send after decline then cancel, then B's accept → no request for B.** Not a defect: it is DR-3's silent re-send (the declined row is
+  un-cancelled and stays declined, so B sees nothing — asserted in F2.4a). A fresh pending row would reveal the decline. No change.
