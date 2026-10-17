@@ -670,7 +670,13 @@ describe('[F1.6 c5] a request touches only the caller\'s own rows', () => {
     const a = await accountWithAnswers(ctx, h);
     const b = await accountWithAnswers(ctx, h, [entry('nickname', 'Dudi'), entry('street', 'Allenby')]);
     const rowA = await answersJson(ctx, a.id);
-    const res = await changeAnswers(h, await bearerFor(ctx, b, a.email), [entry('pet', 'Rex'), entry('street', 'Herzl')], [entry('pet', 'Hijack'), entry('street', 'Hijack2')]);
+    // B's token is issued in the second of A's claim, never later: a token newer than A's claim on A's email is criterion
+    // 21's moved email and rightly releases A's handle. Left to the clock, that happened whenever a second ticked between
+    // A's save and this token (main, 17.10.2026 18:46 UTC).
+    const claimedA = /"handle_claimed_at": "([^"]+)"/.exec(rowA)?.[1];
+    expect(claimedA, 'A\'s row has a claim time').toBeDefined();
+    const iat = Math.floor(Date.parse(claimedA ?? '') / 1000);
+    const res = await changeAnswers(h, await bearerFor(ctx, b, a.email, { iat }), [entry('pet', 'Rex'), entry('street', 'Herzl')], [entry('pet', 'Hijack'), entry('street', 'Hijack2')]);
     expect(res.statusCode, res.body).toBe(401);
     expect(await answersJson(ctx, a.id)).toBe(rowA);
   });

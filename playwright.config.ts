@@ -9,6 +9,15 @@ const isCi = process.env['CI'] !== undefined;
 
 export default defineConfig({
   testDir: './e2e',
+  // Timeouts and parallelism (P3, 18.10.2026), measured on main's CI (runs 39059353456, 39069774455):
+  // - Per test, by type. Story/axe and app-flow tests take at most 4 s on CI, so they keep the 30 s default (a hang is
+  //   reported, not hidden). The build tests keep their own 240/300 s (e2e/app-shell-guard-*.spec.ts; at most 114 s).
+  // - Parallelism is per file, never global fullyParallel: only a file whose tests share no state, hooks or order opts
+  //   in with test.describe.configure({ mode: 'parallel' }) (today e2e/a11y.spec.ts). Playwright splits shards by test
+  //   count in file order, so a parallel file's tests spread over every shard and worker.
+  // - On CI the run ends itself before the job's timeout-minutes, so a hang still reports and uploads its report.
+  timeout: 30_000,
+  globalTimeout: isCi ? 12 * 60_000 : 0,
   forbidOnly: isCi,
   retries: isCi ? 1 : 0,
   reporter: isCi ? [['list'], ['html', { open: 'never' }]] : 'list',

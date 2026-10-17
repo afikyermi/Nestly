@@ -230,3 +230,51 @@ test('[test rules] the Edge check can fail: every drift is caught (guards the te
     assert.notDeepEqual(edgeProblems(edge, triggers), [], `a workflow without ${missing} was not caught`);
   }
 });
+
+// P3 (18.10.2026): parallelism per file and timeouts by test type. What must not drift: e2e/a11y.spec.ts stays parallel,
+// nothing turns on a global fullyParallel, the per-test default stays 30 s, the build tests keep their own limits, and the
+// CI run ends itself (globalTimeout) at least two minutes before the browser jobs' timeout-minutes, so a hang still
+// leaves a report.
+const read = (path) => readFileSync(join(root, path), 'utf8');
+
+/** The problems of the parallelism and timeout rules, for a config text, the e2e files and the browser jobs' minutes. */
+function timingProblems(configText, files, jobMinutes) {
+  const problems = [];
+  if (/fullyParallel\s*:\s*true/.test(configText)) problems.push('the config turns on a global fullyParallel');
+  if (!/^\s*timeout:\s*30_000,/m.test(configText)) problems.push('the per-test timeout is not 30_000');
+  const global = /globalTimeout:\s*isCi\s*\?\s*(\d+)\s*\*\s*60_000\s*:\s*0\b/.exec(configText);
+  if (!global) problems.push('no CI globalTimeout of N * 60_000');
+  else {
+    for (const [name, minutes] of Object.entries(jobMinutes)) {
+      if (!(Number(minutes) - Number(global[1]) >= 2)) problems.push(`${name}: timeout-minutes ${minutes} leaves less than 2 minutes over globalTimeout ${global[1]}`);
+    }
+  }
+  if (!/test\.describe\.configure\(\{\s*mode:\s*'parallel'\s*\}\)/.test(files['e2e/a11y.spec.ts'] ?? '')) problems.push('e2e/a11y.spec.ts is not parallel');
+  if (!/test\.setTimeout\(300_000\)/.test(files['e2e/app-shell-guard-build.spec.ts'] ?? '')) problems.push('the build test lost its 300 s limit');
+  if ((files['e2e/app-shell-guard-stories.spec.ts'] ?? '').match(/test\.setTimeout\(240_000\)/g)?.length !== 2) problems.push('the story build tests lost their 240 s limits');
+  return problems;
+}
+
+const e2eFiles = Object.fromEntries(['e2e/a11y.spec.ts', 'e2e/app-shell-guard-build.spec.ts', 'e2e/app-shell-guard-stories.spec.ts'].map((f) => [f, read(f)]));
+const jobMinutes = { browser: browser?.['timeout-minutes'], 'browser-edge': ci.jobs?.['browser-edge']?.['timeout-minutes'] };
+
+test('[P3] a11y runs in parallel, no global fullyParallel, 30 s per test, build limits kept, globalTimeout under the job timeout', () => {
+  assert.deepEqual(timingProblems(config, e2eFiles, jobMinutes), []);
+});
+
+test('[P3] the timing check can fail: every drift is caught (guards the test above)', () => {
+  const a11y = e2eFiles['e2e/a11y.spec.ts'];
+  const mutants = {
+    'global fullyParallel': [config.replace("testDir: './e2e',", "testDir: './e2e',\n  fullyParallel: true,"), e2eFiles, jobMinutes],
+    'per-test timeout 15 s': [config.replace(/timeout: 30_000,/, 'timeout: 15_000,'), e2eFiles, jobMinutes],
+    'no globalTimeout': [config.replace(/\n\s*globalTimeout:[^\n]*/, ''), e2eFiles, jobMinutes],
+    'globalTimeout equal to the job timeout': [config.replace(/globalTimeout: isCi \? \d+/, 'globalTimeout: isCi ? 15'), e2eFiles, jobMinutes],
+    'job timeout cut to the globalTimeout': [config, e2eFiles, { ...jobMinutes, 'browser-edge': '12' }],
+    'a11y back to file order': [config, { ...e2eFiles, 'e2e/a11y.spec.ts': a11y.replace(/test\.describe\.configure\([^)]*\);/, '') }, jobMinutes],
+    'build limit removed': [config, { ...e2eFiles, 'e2e/app-shell-guard-build.spec.ts': '' }, jobMinutes],
+    'one story build limit removed': [config, { ...e2eFiles, 'e2e/app-shell-guard-stories.spec.ts': e2eFiles['e2e/app-shell-guard-stories.spec.ts'].replace('test.setTimeout(240_000)', '') }, jobMinutes],
+  };
+  for (const [label, args] of Object.entries(mutants)) {
+    assert.notDeepEqual(timingProblems(...args), [], `${label} was not caught`);
+  }
+});

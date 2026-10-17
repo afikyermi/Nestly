@@ -156,10 +156,11 @@ jobs:
 
   # Playwright on Chrome against the built gallery and the e2e app build, on every pull request and push: desktop and
   # phone (the specs set their own viewports) and the blocking visual regression (e2e/visual-screens.ts). Three shards in
-  # parallel (decisions.md, 2026-10-14 "Speed-up"; two shards until the suite passed ~2,100 tests, 17.10.2026). Playwright keeps
-  # a file whole in one shard unless it is parallel, and e2e/a11y.spec.ts alone is ~9.6 minutes, so the shard that holds it is
-  # ~11 minutes whatever the shard count; only making that file parallel lowers it. Edge is `browser-edge` below (decisions/2026-10.md "Tests: depth by
-  # criterion type").
+  # parallel (decisions.md, 2026-10-14 "Speed-up"; two shards until the suite passed ~2,100 tests, 17.10.2026). Playwright splits
+  # shards by test count in file order and keeps a non-parallel file in one worker; e2e/a11y.spec.ts (6-10 minutes) is parallel
+  # since P3, so its tests share the shard's workers. Timeouts by test type and the CI globalTimeout, two minutes or more under
+  # timeout-minutes: playwright.config.ts, guarded by tools/ci-browser.test.mjs. Edge is `browser-edge` below
+  # (decisions/2026-10.md "Tests: depth by criterion type").
   browser:
     needs: changes
     if: needs.changes.outputs.web == 'true'
