@@ -18,3 +18,17 @@ No other bug.
 
 ## Re-check — F2.2b1 low (409), fix c14470e, 17.10.2026
 **Fixed.** On 409 the form closes and a GET refreshes the view with no error; focus to the pregnancy's "עריכה", else "הוספת הריון", else "הוספת ילד"; a failing refresh keeps the generic failure; 401/403 on the refresh recheck once. `DateInput` `optional`: accessible name "תאריך לידה משוער (לא חובה)"; callers without it unchanged. New bugs: none.
+
+# findings — F2.2b2 (CRITIC, 17.10.2026, one round)
+
+--- bug ---
+severity: low
+file:     .work/journeys-children/spec.md (c20); data-model-tables.md journey_contexts "Retention"; schema.md "Retention §13.4"
+claim:    c20's "no … log line records that it ended" cannot hold on this platform: Vercel's request log keeps
+          DELETE /api/journeys/<uuid> 200 + time + client IP; Supabase's auth log keeps user id + IP + time on token
+          refresh; matching them ties a pregnancy end to a user. The application itself logs nothing (logger off in
+          production; tests log the route pattern only).
+fix:      Afik decides (privacy): record the platform request-log residue beside the backups FYI (Privacy Policy, §13.4)
+          and reword c20 / the knowledge cell to "no application log line, column or row records it".
+--- end ---
+No code bug. Nothing critical, high or medium.
