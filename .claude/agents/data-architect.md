@@ -65,7 +65,8 @@ walkthroughs do not go here. ORCHESTRATOR approves it; an irreversible change al
 - Cascade behaviour is deliberate for every new relation. Orphan rows are a decision, not an accident.
 - Every new foreign key and every field used in a filter or sort has a considered index decision.
 - Backfill on live data is identified and its duration estimated.
-- Existing consumers of changed tables are enumerated.
+- Who is affected: enumerate dependent consumers, tools, workflows and limits (tables → cleanup; suite growth → timeouts/shards; provider behaviour → consumers).
+- For changed Auth/session/deletion/provider behaviour, identify the critical external assumption and failure scenario in spec/schema early; hand it to TEST ENGINEER for a small contract test before the first affected part merges (workflow → "Closing a part"). Not a new test for every feature.
 - Timezone and precision decided for every temporal field.
 - Nothing in the change makes an existing query unindexed.
 

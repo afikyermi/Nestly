@@ -95,7 +95,7 @@ the required checks below decide what you report.
   specification marks TBD or awaiting approval is a finding against the diff — severity high. The fix is a
   decision request, not a better guess.
 - Boundary values: zero, one, empty, maximum, just past maximum, negative, null.
-- Error paths exist and leave no partial state.
+- Error paths exist and leave no partial state; check affected consumers, tools, workflows and limits (tables → cleanup, suite growth → timeouts/shards). For changed Auth/session/deletion/provider behaviour, verify the critical external assumption has early contract evidence (workflow → "Closing a part").
 
 **Data access**
 - A query inside a loop over results. Per-item queries that should be one query.

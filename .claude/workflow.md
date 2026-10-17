@@ -4,7 +4,6 @@
 **Status:** the single source of truth for sequence, triggers and who enters when.
 Agent definitions describe professions. **This file describes order.** If they disagree, this file wins.
 
----
 
 ## Levels of work
 
@@ -16,7 +15,6 @@ Agent definitions describe professions. **This file describes order.** If they d
 
 An Initiative is approved once. Features inside it then flow without further initiative-level approval.
 
----
 
 ## Artifacts per feature
 
@@ -35,7 +33,6 @@ An Initiative is approved once. Features inside it then flow without further ini
 `spec.md` is a historical record of what was approved. The code is the as-built.
 The maintained as-built descriptions are `.claude/knowledge/data-model.md` and `conventions.md`.
 
----
 
 ## Standard path
 
@@ -45,12 +42,12 @@ The maintained as-built descriptions are `.claude/knowledge/data-model.md` and `
 | 2 | ORCHESTRATOR | classify, pick path, select team — `/feature` | `intake.md` |
 | 3 | **SPEC** | write the contract | `spec.md` |
 | 4 | **ORCHESTRATOR** | ✋ **Gate 1** — approve `spec.md` against the SRS, or return it to SPEC. A reserved point (CLAUDE.md → "Decision authority") goes to WORKPLAN for Afik | approved `spec.md` |
-| 5 | **DATA ARCHITECT** | *only if schema changes* — Gate 2. Policies follow the authorization layers in `.claude/knowledge/data-model.md` | `schema.md` |
+| 5 | **DATA ARCHITECT** | Schema changes → Gate 2; Auth/session/deletion/provider changes → identify the critical external assumption before the first part (see "Closing a part"). Policies follow the authorization layers in `.claude/knowledge/data-model.md` | `schema.md` |
 | 5b | **ALGORITHM & DATA** | *only if the feature uses behavioural signals, ranks or recommends, records analytics events, or places paid content* — purpose map, pipeline, configuration, events, evaluation. Feeds DATA ARCHITECT when tables are needed | `algorithm.md` |
 | 6 | **BUILDER** | branch, implement; calls SCOUT as needed. Hands off green: typecheck · lint · `check:budgets` · `check:stories` · the unit and database tests that run on this machine, on what it touched | diff + `notes.md` |
 | 7 | **Local checks** | 🤖 run by the agent that wrote the files (BUILDER its code, TEST ENGINEER its tests, including typecheck and lint on them). red → that agent fixes before handing off. ORCHESTRATOR runs none of them, and no push or CI wait happens between steps. **Before every push (Afik, 16.10.2026, audit decision 3):** the database tests (pgTAP and db integration) run on this machine when the part touches `supabase/`, `apps/server/` or `packages/shared/`; line budgets run in the git pre-commit hook (`.githooks/`); an older test the part breaks is updated in the same part; a part that touches a shared screen or component runs the whole browser suite | green handoff |
 | 8 | **TEST ENGINEER** | tests derived from `spec.md`, to the depth of each criterion's type and at one layer per behaviour ("Test rules" below). It reads source files for names, routes, exports and seams — never for what to assert. It starts from the spec while BUILDER builds (test files only), and after BUILDER's handoff runs its tests, typecheck and lint on them until they pass or fail for a reason it reports — a test failing against its criterion is a finding, never weakened to pass | test files |
-| 9 | **CRITIC** | review the diff cold, including every invariant in `.claude/knowledge/srs-review-points.md` that the diff touches and the platform rules in `.claude/knowledge/data-model.md`; it writes `findings.md` itself; when the harness refuses the subagent's write, ORCHESTRATOR saves its hand-back verbatim. ALGORITHM & DATA reviews in parallel when step 5b ran. **One review round per part** (see "Verdicts"). **Then one push** for the finished part — code, tests, review, fixes — and GitHub CI (typecheck · tests · lint · RLS checks) on its last commit is the merge condition. ORCHESTRATOR binds the PR to the app's PR monitor and acts on its notification — no polling loops. Red → fix, check locally, push once | `findings.md` (bug list), then green CI |
+| 9 | **CRITIC** | review the diff cold, including every invariant in `.claude/knowledge/srs-review-points.md` that the diff touches and the platform rules in `.claude/knowledge/data-model.md`; it writes `findings.md` itself; when the harness refuses the subagent's write, ORCHESTRATOR saves its hand-back verbatim. ALGORITHM & DATA reviews in parallel when step 5b ran. **One review round per part** (see "Verdicts"). **Then one push** for the finished part — code, tests, review, fixes — and GitHub CI (typecheck · tests · lint · RLS checks) on its last commit is the merge condition. ORCHESTRATOR binds the PR to the app's PR monitor and acts on its notification plus a scheduled deadline check ("Closing a part") — no polling loops. Red → fix, check locally, push once | `findings.md` (bug list), then green CI |
 | 10 | **BUILDER** | address findings | updated diff |
 | 11 | **CRITIC** | re-check **only when it raised a real bug** (critical, high or medium with a failure scenario) — a fresh invocation pointed at `findings.md` and the fix commits; low items are fixed or go to `debt.md` without a re-check | bug list |
 | 12 | **E** | 🤖 automated Preview E2E (`preview-e2e`) on the PR's Preview — no manual Preview | green run |
@@ -60,9 +57,22 @@ The maintained as-built descriptions are `.claude/knowledge/data-model.md` and `
 Step 9 follows step 8: CRITIC reviews a diff that holds the finished tests. Steps 6 and 8 may run in parallel (source vs tests).
 
 **No merge to `main` without green CI on GitHub.** Every path merges through a PR, and only after every
-GitHub Actions check on its latest commit is green (`gh pr checks`). A local run — `npm test`, `npm run ci` — is
+required check and applicable GitHub Actions job on its latest commit succeeds (`gh pr checks`); an expected conditional skip needs its documented reason, never a blanket pass. A local run — `npm test`, `npm run ci` — is
 evidence for the builder, never the gate: the runner is Linux on the `.nvmrc` Node version, and this machine is
 not. A commit pushed after the checks passed needs them to pass again. `result.md` records the run URL.
+
+## Closing a part — P1 (approval: Afik, 17.10.2026)
+- **Every wait:** reason · exactly one next-action owner · expected maximum · next-check timestamp, in the handoff or active task. Notifications are primary; inspect once at the deadline, then set a new deadline. No dense polling or status commits.
+- **Silent agent:** no report or a small change not returned in about 10 minutes → ORCHESTRATOR inspects artifact/progress, stops duplicate work, finishes the small change or restarts/reassigns once. Preserve specialist decision rights and review. A repeated block gets an explicit owner and recovery step, not another unbounded wait.
+- **Current head only:** required cancelled/missing checks block. Inspect the trigger/queue, rerun once only when that current SHA still needs the run and the workflow's authority permits it; repeated failure needs a fix. Old runs cancelled by a newer SHA do not need rerunning. Expected job skips follow their actual conditions; never convert cancellation or missing evidence into success.
+- **Status:** `node tools/part-status.mjs <PR> [--json]` takes one read-only GitHub snapshot: head, required checks, E on that SHA, main health, blockers, time and next owner. It never merges, dispatches or retries. Requires authenticated `gh` on PATH; errors/limits block a complete assessment. Exit 0 = no observed blocker, 1 = blockers, 2 = collection/usage failure; none authorizes merging.
+- **Applicability:** `--expected-skip 'name=reason'` records a verified workflow condition (e.g. Edge on PR); use exact matrix job names. Never use it to excuse an unexpected skip. `--no-preview 'approval/reason'` only where Preview is explicitly out of scope (Afik: P1). E skipped/missing is otherwise not green. Reviewer's findings remain a separate gate.
+- **main health at every part close:** examine the latest relevant job executions, including Edge, cleanup and migrate. Resolve a current unresolved failure before the next part; a later successful equivalent execution on main closes the historical failure. An unrelated success or a skip does not. A deliberate retirement needs explicit evidence; API/history limits mean unknown, not healthy. `/wrap-up` applies this per part even though result/log writing remains per feature.
+- **Stable candidate:** run targeted local tests (including changed screens/stories where applicable), fix, review and bundle records + baselines before pushing. Local commits are fine; not a push per fix. Open the PR before the push intended to produce Preview; if a remote branch is needed, publish it first, open the PR, then send the finished candidate. Do not manufacture an empty push solely for this rule; an already-published final candidate needs inspection of its actual E evidence.
+- **After squash:** use a new branch from updated main per part only if the Claude Code cloud environment supports it. If unknown/unavailable, mark the limitation in the PR/handoff, inspect the next diff against main, and retain a safe supported branch path without force-push. Cloud support is still unproven by P1.
+- **External contract, only when changed:** for Auth/session/deletion/provider behaviour, DATA ARCHITECT names the critical assumption and failure scenario in the existing spec/schema. TEST ENGINEER adds a small contract test before the first affected part merges, against a disposable CI service or an approved non-production provider environment; mocks alone cannot prove provider semantics. No secrets in artifacts and no new production action. Unavailable evidence is a blocker with an owner, not deferred validation after merge. No new contract test for every unrelated feature.
+- **Who is affected:** DATA ARCHITECT and CRITIC include dependent tools, workflows and limits: changed tables → cleanup; suite growth → timeouts/shards; external behaviour → consumers. The existing artifact/finding holds the impact and evidence; no new recurring journal.
+- **Codex improvement tasks:** Afik merges, one approved task/PR at a time; the Claude product-work merge delegation does not authorize Codex to merge. P1's fixtures are explicitly approved despite the general tool-test freeze.
 
 ## Light path
 
@@ -108,7 +118,6 @@ A defect in merged code: behaviour differs from what the SRS, or an approved `sp
 - **No bug fix skips the failing test**, even when its size would fit the Light path.
 - A root cause that needs a schema change goes through DATA ARCHITECT, as on any other path.
 
----
 
 ## The three rules that make the reviews real
 
@@ -125,7 +134,6 @@ These are not style preferences. Remove any one of them and the corresponding ga
 3. **An acceptance criterion a test cannot assert is not an acceptance criterion.**
    TEST ENGINEER that cannot derive a test returns the criterion to SPEC. It does not guess.
 
----
 
 ## Upward channels
 
@@ -144,7 +152,6 @@ One per feature, before code. Its decision owner decides in one line — ORCHEST
 challenge touches a reserved point (CLAUDE.md → "Decision authority"). This is what keeps the team professional
 rather than merely compliant.
 
----
 
 ## Verdicts
 
@@ -176,7 +183,6 @@ code go stale. A commit that implements no requirement says so (`Implements: non
 Merges to `main` are squash: the PR body becomes the squash message, so it carries the `Implements:` line covering the
 whole PR.
 
----
 
 ## Result
 
@@ -197,7 +203,6 @@ And the **evidence**: what was verified, how, and at which commit — tests, CI,
 back after a write. Evidence carried over from an earlier run names its original commit. It is never
 presented as a fresh run.
 
----
 
 ## Domains — cross-cutting concerns without their own agent
 
@@ -233,7 +238,6 @@ what, and when. A domain becomes an agent only through the Agent Necessity Test.
 
 Any agent may raise one — *"do not merge yet, I am still looking"* — stating what it checks; the agent that raised it releases it.
 
----
 
 ## Waiting on Afik — keep working
 
@@ -261,7 +265,6 @@ Pairs follow the dependency graph in `.work/_initiatives/roadmap.md` (Amendment 
 I5 ∥ I8 ∥ I10 ∥ I14. Each session has its own branch; merges that carry a migration go one at a time, rebased on `main`
 first, so the migration chain stays in timestamp order.
 
----
 
 ## Model assignment
 
@@ -283,7 +286,6 @@ features — logs, decisions, sequencing. A builder's context should start fresh
 only the spec plus the code it touches. Mixing the two is the context-rot failure. The handoff costs
 nothing here because the output is a diff, not a summary: CRITIC reads the real artifact.
 
----
 
 ## Test rules — this project
 
@@ -305,7 +307,6 @@ Decided by Afik (14.10.2026) — quality is not lowered; duplication is removed 
   (`result.md` may note it), not a target or a ceiling.
 - **Tools and hooks** — no new tests unless a tool actually broke.
 
----
 
 ## Cost discipline
 
@@ -319,7 +320,6 @@ stopping, except on a reserved item, a real `BLOCKER` or Two strikes.
 - **A new session per part; `/compact` at 200K of context** (Afik, 16.10.2026, audit decision 6). The handoff is the
   PR and `.work/<slug>/`. Long sessions ran at a median 320K and up to 964K.
 
----
 
 ## Changelog
 - 1.1–1.15 (10.10–15.10.2026): each entry is in `git log -- .claude/workflow.md` and in `decisions/2026-10.md`.

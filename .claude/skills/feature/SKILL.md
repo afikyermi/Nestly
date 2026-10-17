@@ -39,6 +39,10 @@ applies them and never restates them.
    ```
 
 8. **Hand off.** If nothing is open, invoke SPEC with a pointer to `intake.md` — not a summary of it.
+   Apply workflow → "Closing a part": include reason/owner/next-check time for any wait; inspect silent small-change
+   agents at ~10 minutes, recover without dense polling. Before a new part, check current main health and the conditional
+   fresh-branch rule after squash. For an Auth/session/deletion/provider change, route the critical external assumption to
+   DATA ARCHITECT and its early contract test to TEST ENGINEER before the first affected part merges.
 
 ## Stop conditions
 
