@@ -140,7 +140,7 @@ NotificationPreference ו-GroupNotificationPreference מסננים אירועי 
 |---|---|---|
 | Account/Profile/Content | נדרש לתפעול החשבון והתוכן | מחיקת חשבון — BR-073; תמונות — BR-077. משך מדויק ייקבע לפי Privacy Policy/שוק ראשון; מחיקה/ייצוא לפי USER_DATA_EXPORT_DELETE ותהליך המשתמש. |
 | Interaction/Search/Recommendation Events | Personalization + Analytics | Retention period לא ייקבע שרירותית ב-SRS; יש לקבוע לפני Production ולהתאים ל-Notice/Consent. Aggregates יכולים להישמר בנפרד לפי policy. |
-| Tracker/Child Data | Tracking + Organic Context | Retention/control חייבים להיות מפורשים במדיניות; אין Paid Targeting. הסרת ילד וסיום מסלול מוחקים את השורה מבסיס הנתונים החי מיד, בלי רישום באפליקציה (FR-PROFILE-002). |
+| Tracker/Child Data | Tracking + Organic Context | Retention/control חייבים להיות מפורשים במדיניות; אין Paid Targeting. הסרת ילד וסיום מסלול מוחקים את השורה מבסיס הנתונים החי מיד, בלי רישום באפליקציה (FR-PROFILE-002). גיבויי Supabase, ולוג הבקשות של Vercel (שורת `DELETE` עם זמן ו-IP, שאפשר להצליב עם לוג ה-Auth), נשארים מחוץ למחיקה הזו לזמן מוגבל; איך מדיניות הפרטיות מציגה אותם — נדרש אישור (OP-036). |
 | Chat/Support | תקשורת ותפעול Support | Retention נקבע לפי policy/operational need; גוף ההודעות לא נכנס ל-personalization/paid analytics. |
 | Moderation/Audit | Trust/Safety/Audit | Retention TBD לפי market/legal/operational need; מחיקה/שינוי Audit מוגבלים לפי NFR-AUDIT. |
 | Payment/Promotion | Billing/financial record + campaign performance | Retention לפי provider/finance/legal; אין שמירת full card data במערכת. |
