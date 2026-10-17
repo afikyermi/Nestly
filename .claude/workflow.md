@@ -334,8 +334,10 @@ code (CI `schema-gate`), and CI runs main's server tests on its schema (expand c
 applies at once), ORCHESTRATOR dispatches `migrate` from `main` (`gh workflow run migrate.yml --ref main`) without waiting
 for Afik (he removed the `db-production` approval until launch, 16.10.2026); several schema PRs may share one dispatch.
 A product-code PR merges only when `schema-gate` is green: every migration in its tree applied by a successful
-`db-production` job, same name and content; re-run that job once after the dispatch. History is immutable; an
-incompatible change (drop, rename, NOT NULL on old data) is a later contract PR, once no deployed code needs the old shape.
+`db-production` job, same name and content. Re-run it once `gh run view` shows that dispatch's `db-production`
+succeeded; a later push run can replace a pending dispatch, so a cancelled or skipped one is dispatched again. History is
+immutable; an incompatible change (drop, rename, NOT NULL on old data) is a later contract PR, once no deployed code
+needs the old shape. A schema PR is rebased on current main and re-run before it merges.
 
 **Two sessions in parallel from I3 (Afik, 16.10.2026, audit decision 9)** — only once decisions 1 and 2 are working.
 Pairs follow the dependency graph in `.work/_initiatives/roadmap.md` (Amendment 4): I3 ∥ I6 (F6.1–6.5), I4 ∥ I7,

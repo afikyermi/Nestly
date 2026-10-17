@@ -3,9 +3,10 @@
 // successful `db-production` job of migrate.yml on a commit whose migrations match by name and content (git blob id).
 // `nestly-review/comparison.md` §3 A and P6. Read only: GitHub REST GETs and local git; it never dispatches anything.
 //
-// Usage (CI `schema-gate`, pull requests): node tools/schema-gate.mjs
+// Usage (CI `schema-gate`, pull requests): node <copy of the BASE commit's tools/schema-gate.mjs>
 //   env GITHUB_REPOSITORY, GITHUB_TOKEN (contents: read, actions: read). The checkout is the merge commit: HEAD^1 = base.
-// Exit 0 = pass, 1 = a problem (the gate is red), 2 = usage. Evidence that cannot be read is a problem, never a pass.
+//   CI runs the base's copy so a pull request never judges itself (CRITIC P6 finding 2): keep this file free of local
+//   imports. Exit 0 = pass, 1 = a problem (the gate is red), 2 = usage. Unreadable evidence is a problem, never a pass.
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
@@ -13,23 +14,39 @@ export const MIGRATION = /^supabase\/migrations\/[^/]+\.sql$/;
 // What Vercel deploys and the database must already serve: the functions, the server, the web app, the shared package.
 export const PRODUCT = /^(?:api\/|apps\/server\/(?:src|api)\/|apps\/web\/(?:src\/|public\/|index\.html$)|packages\/shared\/src\/)/;
 export const PRODUCTION_JOB = 'db-production';
+// The gate itself: changed together with product code, a pull request could relax the rule it is judged by.
+export const GATE_FILES = ['tools/schema-gate.mjs', '.github/workflows/ci.yml'];
 
-/** Migration name → git blob id, from `git ls-tree -r <rev> -- supabase/migrations` output. */
+/**
+ * Every path under supabase/migrations → git blob id, from `git ls-tree -r -z <rev> -- supabase/migrations` (NUL-separated,
+ * never quoted, so a non-ASCII name stays visible: CRITIC P6 finding 1). A record that cannot be read throws.
+ */
 export function parseTree(text) {
   const map = new Map();
-  for (const line of text.split('\n')) {
-    const m = /^\d+ blob ([0-9a-f]{40})\t(.+)$/.exec(line);
-    if (m && MIGRATION.test(m[2])) map.set(m[2], m[1]);
+  for (const record of text.split('\0').filter(Boolean)) {
+    const m = /^\d+ (?:blob|commit|tree) ([0-9a-f]{40})\t([\s\S]+)$/.exec(record);
+    if (!m) throw new Error(`unreadable ls-tree record: ${JSON.stringify(record.slice(0, 80))}`);
+    map.set(m[2], m[1]);
   }
   return map;
 }
 
-/** [{ status, path }] from `git diff --name-status --no-renames` output. */
+/** [{ status, path }] from `git diff -z --name-status --no-renames` (NUL-separated status and path pairs). */
 export function parseChanges(text) {
-  return text.split('\n').filter(Boolean).map((line) => {
-    const [status, path] = line.split('\t');
-    return { status: status.charAt(0), path };
-  });
+  const parts = text.split('\0');
+  if (parts.at(-1) === '') parts.pop();
+  if (parts.length % 2 !== 0) throw new Error('unreadable diff output');
+  const changes = [];
+  for (let i = 0; i < parts.length; i += 2) changes.push({ status: parts[i].charAt(0), path: parts[i + 1] });
+  return changes;
+}
+
+/** What the pull request adds to the migration history, and which deployed product files it changes. */
+export function classify({ changes, base, head }) {
+  return {
+    added: [...head.keys()].filter((name) => !base.has(name)),
+    product: changes.filter((c) => PRODUCT.test(c.path)).map((c) => c.path),
+  };
 }
 
 /**
@@ -39,12 +56,18 @@ export function parseChanges(text) {
 export function evaluate({ changes, base, head, applied }) {
   const problems = [];
   const notes = [];
+  for (const name of head.keys()) {
+    if (!MIGRATION.test(name)) problems.push(`${name} is not a migration file (supabase/migrations/<name>.sql): the gate cannot judge it`);
+  }
   for (const [name, blob] of base) {
     if (!head.has(name)) problems.push(`${name} is deleted: an applied migration stays in the history (add a new one instead)`);
     else if (head.get(name) !== blob) problems.push(`${name} is changed: a migration already on main is immutable (add a new one instead)`);
   }
-  const added = [...head.keys()].filter((name) => !base.has(name));
-  const product = changes.filter((c) => PRODUCT.test(c.path)).map((c) => c.path);
+  const { added, product } = classify({ changes, base, head });
+  const gate = changes.filter((c) => GATE_FILES.includes(c.path)).map((c) => c.path);
+  if (product.length > 0 && gate.length > 0) {
+    problems.push(`changes product code and the gate (${gate.join(', ')}) together: split it — the gate change first, judged by the old gate`);
+  }
   let kind = 'other';
   if (added.length > 0) {
     kind = 'schema';
@@ -83,44 +106,56 @@ export async function findApplied(repo, get) {
   return null;
 }
 
-const git = (args) => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 16 * 1024 * 1024 });
+const gitCli = (args) => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 16 * 1024 * 1024 });
 
-async function main(env) {
+function githubGet(token) {
+  return async (endpoint) => {
+    const res = await fetch(`https://api.github.com/${endpoint}`, {
+      headers: { accept: 'application/vnd.github+json', authorization: `Bearer ${token}`, 'user-agent': 'nestly-schema-gate' },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) throw new Error(`GitHub GET ${endpoint.split('?')[0]}: HTTP ${res.status}`);
+    return res.json();
+  };
+}
+
+/** The gate run; git, GitHub and the log are injected for tests. Returns the exit code. */
+export async function main(env, { git = gitCli, get = githubGet(env.GITHUB_TOKEN ?? ''), log = console.log, warn = console.error } = {}) {
   const repo = env.GITHUB_REPOSITORY ?? '';
   if (!/^[\w-]+\/[\w.-]+$/.test(repo)) {
-    console.error('schema-gate: GITHUB_REPOSITORY is not owner/repo');
+    warn('schema-gate: GITHUB_REPOSITORY is not owner/repo');
     return 2;
   }
-  const changes = parseChanges(git(['diff', '--name-status', '--no-renames', 'HEAD^1', 'HEAD']));
-  const base = parseTree(git(['ls-tree', '-r', 'HEAD^1', '--', 'supabase/migrations']));
-  const head = parseTree(git(['ls-tree', '-r', 'HEAD', '--', 'supabase/migrations']));
+  let changes;
+  let base;
+  let head;
+  try {
+    changes = parseChanges(git(['diff', '-z', '--name-status', '--no-renames', 'HEAD^1', 'HEAD']));
+    base = parseTree(git(['ls-tree', '-r', '-z', 'HEAD^1', '--', 'supabase/migrations']));
+    head = parseTree(git(['ls-tree', '-r', '-z', 'HEAD', '--', 'supabase/migrations']));
+  } catch (error) {
+    log(`::error::the pull request's files could not be read: ${error instanceof Error ? error.message : 'git error'}`);
+    return 1;
+  }
+  const { added, product } = classify({ changes, base, head });
   let applied = null;
-  const needsEvidence = changes.some((c) => PRODUCT.test(c.path)) && ![...head.keys()].some((n) => !base.has(n)) && head.size > 0;
-  if (needsEvidence) {
+  if (product.length > 0 && added.length === 0 && head.size > 0) {
     try {
-      const get = async (endpoint) => {
-        const res = await fetch(`https://api.github.com/${endpoint}`, {
-          headers: { accept: 'application/vnd.github+json', authorization: `Bearer ${env.GITHUB_TOKEN ?? ''}`, 'user-agent': 'nestly-schema-gate' },
-          signal: AbortSignal.timeout(15_000),
-        });
-        if (!res.ok) throw new Error(`GitHub GET ${endpoint.split('?')[0]}: HTTP ${res.status}`);
-        return res.json();
-      };
       const sha = await findApplied(repo, get);
       if (sha !== null) {
         if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error('bad head_sha');
         git(['fetch', '--quiet', '--no-tags', '--depth=1', 'origin', sha]);
-        applied = { sha, tree: parseTree(git(['ls-tree', '-r', sha, '--', 'supabase/migrations'])) };
+        applied = { sha, tree: parseTree(git(['ls-tree', '-r', '-z', sha, '--', 'supabase/migrations'])) };
       }
     } catch (error) {
-      console.error(`schema-gate: ${error instanceof Error ? error.message : 'evidence error'}`);
+      warn(`schema-gate: ${error instanceof Error ? error.message : 'evidence error'}`);
       applied = 'error';
     }
   }
   const verdict = evaluate({ changes, base, head, applied });
-  console.log(`schema-gate: ${verdict.kind} pull request`);
-  for (const n of verdict.notes) console.log(`  ok: ${n}`);
-  for (const p of verdict.problems) console.log(`::error::${p}`);
+  log(`schema-gate: ${verdict.kind} pull request`);
+  for (const n of verdict.notes) log(`  ok: ${n}`);
+  for (const p of verdict.problems) log(`::error::${p}`);
   return verdict.problems.length ? 1 : 0;
 }
 

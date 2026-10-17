@@ -14,7 +14,7 @@ const run = (id, jobs, extra = {}) => ({ id, name: 'CI', workflow_id: 1, event: 
 const fixture = () => ({ head: SHA, headAfter: SHA, main: MAIN, mainAfter: MAIN, state: 'open',
   url: 'https://github.com/afikyermi/Nestly/pull/57', observedAt: '2026-10-17T13:00:00Z',
   required: [{ context: 'typecheck', app_id: 15368 }],
-  checks: ['changes', 'typecheck', 'lint', 'test', 'build', 'preview-e2e'].map((name) => check(name)),
+  checks: ['changes', 'typecheck', 'lint', 'test', 'build', 'schema-gate', 'preview-e2e'].map((name) => check(name)),
   mainRuns: [run(12, [job('test')])], errors: [], limitations: [],
 });
 

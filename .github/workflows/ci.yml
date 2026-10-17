@@ -240,7 +240,9 @@ jobs:
 
   # P6 (schema before code): a pull request that adds a migration carries no product code; one that changes product code
   # waits until every migration in its tree is applied in production (tools/schema-gate.mjs). Read only: it reads the
-  # migrate runs through the API and never dispatches. After migrate runs on main, re-run this job once on the PR.
+  # migrate runs through the API and never dispatches. After migrate's db-production job succeeded on main, re-run this
+  # job once on the PR. It runs the BASE commit's copy of the gate, so a pull request never judges itself (CRITIC P6 2);
+  # only the pull request that adds the gate runs its own copy. part-status counts a missing schema-gate as a blocker.
   schema-gate:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -259,7 +261,16 @@ jobs:
       - name: Schema before code
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: node tools/schema-gate.mjs
+        run: |
+          set -eu
+          gate="${RUNNER_TEMP}/schema-gate.mjs"
+          if git cat-file -e 'HEAD^1:tools/schema-gate.mjs'; then
+            git show 'HEAD^1:tools/schema-gate.mjs' > "${gate}"
+          else
+            echo "::notice::the base has no schema gate yet (the pull request that adds it): running this pull request's copy"
+            cp tools/schema-gate.mjs "${gate}"
+          fi
+          node "${gate}"
 
   audit:
     runs-on: ubuntu-latest

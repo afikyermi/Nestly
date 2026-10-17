@@ -5,7 +5,8 @@ import { pathToFileURL } from 'node:url';
 // Usage: node tools/part-status.mjs <PR> [--repo owner/repo] [--no-preview reason]
 //   [--expected-skip 'check name=reason'] [--json]
 // Authentication is supplied by gh; no token or environment file is read here.
-const CI_NAMES = ['changes', 'typecheck', 'lint', 'test', 'build'];
+// schema-gate (P6): a pull request without it is not green, even if its ci.yml dropped the job.
+const CI_NAMES = ['changes', 'typecheck', 'lint', 'test', 'build', 'schema-gate'];
 const outcome = (c) => c.status === 'completed' ? c.conclusion : c.status;
 const stamp = (c) => c.started_at || c.created_at || '';
 const newest = (rows) => [...rows].sort((a, b) => stamp(b).localeCompare(stamp(a)) || Number(b.id) - Number(a.id));
