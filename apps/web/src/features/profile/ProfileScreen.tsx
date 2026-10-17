@@ -44,6 +44,8 @@ export function ProfileScreen() {
       if (outcome.kind === 'profile') {
         stored.current = outcome.profile;
         setView({ kind: 'view', profile: outcome.profile, saved: false });
+        // "נסו שוב" is gone with the failure: focus goes to the screen's action, as after a save or a cancel.
+        if (afterRetry) focusOn('edit');
         return;
       }
       setView({ kind: 'load-failed', message: refused(outcome) ?? LOAD_FAILED_TEXT });
