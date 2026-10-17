@@ -90,7 +90,11 @@ async function send(tx: IdentityTx, me: string, targetId: string): Promise<SendO
   if (refusal !== undefined) return refusal;
   // c24 (DR-S A): a send counts as one profile open. At the limit nothing below runs and the transaction commits, so the Security event
   // persists; a missing limit raises NS001 instead, which sendFriendRequest answers the same way.
-  if ((await countOpen(tx, targetId)) === 'limited') return OPEN_LIMITED;
+  // No row: the target is not an active Regular (the caller is, classified above). Answered here, not by insertRequest's 23503, which would
+  // abort the transaction and roll the count back (DR-W A: opens of unavailable targets count; else a send is an uncounted oracle).
+  const opened = await countOpen(tx, targetId);
+  if (opened === 'limited') return OPEN_LIMITED;
+  if (opened === undefined) return { kind: 'unavailable' };
   // DR-7 A: when the caller had declined the target's earlier request, that request stands declined; the caller's send reopens it, so
   // the caller may accept it (409 incoming_pending, no second row). If its sender had withdrawn it, it is retired instead and the
   // caller's own request is created below.
