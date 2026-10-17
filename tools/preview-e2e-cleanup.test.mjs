@@ -142,53 +142,56 @@ test('[E c8][E c9] the run prefix is nestly-e2e-<run>-<attempt>-%, and a non-num
 const cands = (n, own = false, tag = 'u') => Array.from({ length: n }, (_, i) => ({ id: `${tag}${i}`, own }));
 
 test("[E c9] this run's users and leftovers are both selected", () => {
-  const r = cleanup.selectVictims([{ id: 'mine', own: true }, { id: 'old', own: false }], 2);
+  const r = cleanup.selectVictims([{ id: 'mine', own: true }, { id: 'old', own: false }]);
   assert.equal(r.ok, true);
   assert.deepEqual(r.victims.map((v) => v.id).sort(), ['mine', 'old']);
-  assert.equal(cleanup.selectVictims([], 0).ok, true);
+  assert.equal(cleanup.selectVictims([]).ok, true);
 });
 
 test("[E c9] this run's users are never capped: 12 own and no leftovers are all selected", () => {
-  const r = cleanup.selectVictims(cands(12, true, 'own'), 12);
+  const r = cleanup.selectVictims(cands(12, true, 'own'));
   assert.equal(r.ok, true);
   assert.equal(r.victims.length, 12);
 });
 
 test("[E c9] own users are all kept and the sweep takes at most 10 leftovers: 12 own + 15 leftovers -> 22", () => {
-  const r = cleanup.selectVictims([...cands(12, true, 'own'), ...cands(15, false, 'old')], 27);
+  const r = cleanup.selectVictims([...cands(12, true, 'own'), ...cands(15, false, 'old')]);
   assert.equal(r.ok, true);
   assert.equal(r.victims.filter((v) => v.own).length, 12);
   assert.equal(r.victims.filter((v) => !v.own).length, 10);
 });
 
 test('[E c9] exactly 10 leftovers are swept, oldest first, when more exist (candidates arrive oldest first)', () => {
-  const r = cleanup.selectVictims(cands(14, false, 'old'), 14);
+  const r = cleanup.selectVictims(cands(14, false, 'old'));
   assert.equal(r.ok, true);
   assert.deepEqual(r.victims.map((v) => v.id), Array.from({ length: 10 }, (_, i) => `old${i}`));
 });
 
 test('[E c9] fewer than 10 leftovers are all swept', () => {
-  const r = cleanup.selectVictims(cands(3, false, 'old'), 3);
+  const r = cleanup.selectVictims(cands(3, false, 'old'));
   assert.equal(r.victims.length, 3);
 });
 
-test('[E c9] 50 pattern users in total is allowed; 51 (or more) selects nothing and fails, even when all are this run\'s', () => {
-  assert.equal(cleanup.selectVictims(cands(5, true, 'own'), 50).ok, true);
-  for (const [list, total] of [[cands(5, true, 'own'), 51], [cands(20, false), 51], [[], 500]]) {
-    const r = cleanup.selectVictims(list, total);
-    assert.equal(r.ok, false);
-    assert.ok(r.reason.length > 0);
-    assert.equal(r.victims, undefined);
-  }
+test("[E c9] Afik 17.10 per-run limit: 50 of this run's users are allowed; 51 select nothing and fail, the reason names this run and 50 and carries a count only", () => {
+  const ok = cleanup.selectVictims(cands(50, true, 'own'));
+  assert.equal(ok.ok, true);
+  assert.equal(ok.victims.length, 50);
+  const r = cleanup.selectVictims(cands(51, true, 'own'));
+  assert.equal(r.ok, false);
+  assert.equal(r.victims, undefined);
+  assert.match(r.reason, /this run/i);
+  assert.match(r.reason, /\b50\b/);
+  assert.doesNotMatch(r.reason, /own\d|@|nestly-e2e/);
 });
 
-test('[E c9] a negative or non-numeric pattern total selects nothing', () => {
-  for (const total of [-1, Number.NaN, undefined, '3']) {
-    assert.equal(cleanup.selectVictims(cands(2, true), total).ok, false, String(total));
-  }
+test("[E c9] Afik 17.10: leftovers do not count toward the 50: 3 own + 60 leftovers select the 3 and at most MAX_SWEEP_PER_RUN leftovers", () => {
+  const r = cleanup.selectVictims([...cands(3, true, 'own'), ...cands(60, false, 'old')]);
+  assert.equal(r.ok, true);
+  assert.equal(r.victims.filter((v) => v.own).length, 3);
+  assert.equal(r.victims.filter((v) => !v.own).length, cleanup.MAX_SWEEP_PER_RUN);
 });
 
-const found = (candidates, patternTotal = candidates.length) => ({ candidates, patternTotal });
+const found = (candidates) => ({ candidates });
 
 // A stub client: records every call so a test can say what was and was not deleted.
 function stubClient(over = {}) {
@@ -269,11 +272,20 @@ test("[E c8] one user's delete failing: the others still run, and the job fails"
   assert.equal(r.deletedOwn, 2);
 });
 
-test('[E c9] more than 50 pattern users in total: no delete is attempted and the cleanup fails', async () => {
-  const { client, calls } = stubClient({ findCandidates: async () => found(cands(11, true), 51) });
+test("[E c9] 51 of this run's own users: no delete is attempted and the cleanup fails", async () => {
+  const { client, calls } = stubClient({ findCandidates: async () => found(cands(51, true, 'own')) });
   const r = await runIt(client);
   assert.equal(r.ok, false);
   assert.equal(calls.deleted.length, 0);
+});
+
+test("[E c9] Afik 17.10: 168 pattern users in total, 3 of them this run's: those 3 and at most MAX_SWEEP_PER_RUN leftovers are deleted, and the cleanup succeeds", async () => {
+  const { client, calls } = stubClient({ findCandidates: async () => found([...cands(3, true, 'own'), ...cands(cleanup.MAX_SWEEP_PER_RUN, false, 'old')]) });
+  const r = await runIt(client);
+  assert.equal(calls.deleted.length, 3 + cleanup.MAX_SWEEP_PER_RUN);
+  assert.equal(r.deletedOwn, 3);
+  assert.equal(r.deletedSwept, cleanup.MAX_SWEEP_PER_RUN);
+  assert.equal(r.ok, true);
 });
 
 test('[E c9] 12 own users and no leftovers: all 12 are deleted and the cleanup succeeds', async () => {
@@ -503,6 +515,11 @@ test('[cleanup a] every expected table is deleted from in the user transaction, 
 test('[F2.4c1 c22] the cleanup never writes security_limits: no delete, update, truncate or insert on the configuration table', () => {
   assert.doesNotMatch(cliText, /(delete\s+from|update|truncate(\s+table)?|insert\s+into)\s+nestly\.security_limits/i);
   assert.ok(cleanup.EXPECTED_NESTLY_TABLES.includes('security_limits'));
+});
+
+test('[E c9] Afik 17.10: the CLI selects this run\'s users by the run prefix and bounds the swept query with MAX_SWEEP_PER_RUN', () => {
+  assert.match(cliText, /email ~ \$\{TEST_EMAIL_PATTERN\} and email like \$\{prefix\}/);
+  assert.match(cliText, /and not \(email like \$\{prefix\}\)[\s\S]*?limit \$\{MAX_SWEEP_PER_RUN\}/);
 });
 
 // ---- Afik 17.10.2026 "Preview cleanup" (c): the manual modes -------------------------------------------------------------
