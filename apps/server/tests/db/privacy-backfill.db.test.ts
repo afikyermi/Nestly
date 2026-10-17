@@ -11,8 +11,10 @@ import { COLD_START_MS } from '../helpers/identity-fixtures.js';
 //   - the rollback removes the settings and leaves profiles, journeys and children unchanged;
 //   - the rollback refuses while any row holds a non-default setting (a re-apply would silently reopen a Restricted profile).
 // It runs the down script and re-applies the migration, so it needs the schema owner: OWNER_DATABASE_URL (app_owner), and
-// DATABASE_URL (app_server) for the tests.* observers. Without OWNER_DATABASE_URL it is skipped: CI's db job must pass it for this
-// test to run there. Rows are read through tests.fx_privacy* (setup/50_privacy_fixtures.sql), which RLS does not filter and which
+// DATABASE_URL (app_server) for the tests.* observers (CI's "Server integration tests" step passes both).
+// ONE-SHOT PROOF of migration 20261017120000, run in the F2.3a PR: it can only roll back the newest migration, so it SKIPS
+// (does not fail) once a newer migration is applied, and when OWNER_DATABASE_URL is absent. From then on it proves nothing; the
+// backfill it proved is a property of that migration and does not change after it. Rows are read through tests.fx_privacy* (setup/50_privacy_fixtures.sql), which RLS does not filter and which
 // work while the columns are absent. Derived from spec.md and schema.md; file names from interface.md.
 
 const T = { timeout: COLD_START_MS };
@@ -24,6 +26,19 @@ const ALL_THREE = 'is_child_birthday_shared,is_empty_journey_sentence_shown,prof
 const B = 'b0000000-0000-4000-8000-0000000000b2';
 const S = '50000000-0000-4000-8000-000000000051';
 const OWNER_URL = process.env.OWNER_DATABASE_URL;
+
+/** Runs only with an owner connection and while VERSION is the newest applied migration (decided before the suite starts). */
+async function newestIsThisMigration(): Promise<boolean> {
+  if (OWNER_URL === undefined || OWNER_URL === '') return false;
+  const probe = postgres(OWNER_URL, { max: 1, prepare: false, onnotice: () => undefined });
+  try {
+    const [row] = await probe`select max(version) as v from supabase_migrations.schema_migrations`;
+    return row?.v === VERSION;
+  } finally {
+    await probe.end({ timeout: 5 });
+  }
+}
+const RUN = await newestIsThisMigration();
 
 let owner: ReturnType<typeof postgres>;
 let side: ReturnType<typeof postgres>;
@@ -70,7 +85,7 @@ async function freshRegular(status: 'active' | 'suspended', name: string): Promi
   return id;
 }
 
-describe.skipIf(OWNER_URL === undefined || OWNER_URL === '')('[F2.3a c6 OP-021] the backfill of existing accounts, and the guarded rollback', () => {
+describe.skipIf(!RUN)('[F2.3a c6 OP-021] the backfill of existing accounts, and the guarded rollback', () => {
   beforeAll(async () => {
     owner = postgres(String(OWNER_URL), { max: 1, prepare: false, onnotice: () => undefined });
     const dbUrl = process.env.DATABASE_URL;
