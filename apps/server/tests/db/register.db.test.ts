@@ -475,3 +475,22 @@ describe('[F1.4-b c13 NFR-PRIV-001] a real registration leaves no password, emai
     for (const res of responses) expect(res.body).not.toMatch(/postgres|nestly\.|constraint|sqlstate|23505|23503|users_pkey|stack/i);
   });
 });
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Escape (F1.4, found in I2 F2.2b1): registration's due date shares the server rule ruled for c14 (.work/journeys-children/spec.md,
+// ORCHESTRATOR 17.10.2026): UTC today-30 .. UTC today+1+300. At CLOCK_NOW (2026-06-15T10:00Z) an Israeli device's date is the
+// UTC date, so its today-30 (2026-05-16) must be accepted; today-31 (2026-05-15) stays refused.
+describe('[F1.4-b c3 · F2.2b c14 escape VAL-044] registration accepts a device-valid today-30 due date', () => {
+  it('[F1.4-b c3 F2.2b c14] pregnant with due date today-30 on the server\'s UTC date -> 201, stored; today-31 -> 400, nothing written', T, async () => {
+    const { app } = await start();
+    const id = await freshUser();
+    const res = await post(app, await bearerFor(id), validBody({ stages: ['pregnant'], dueDate: parts('2026-05-16'), children: [] }));
+    expect(res.statusCode, res.body).toBe(201);
+    expect(await journeys(id)).toBe('pregnant:2026-05-16');
+
+    const other = await freshUser();
+    const refused = await post(app, await bearerFor(other), validBody({ stages: ['pregnant'], dueDate: parts('2026-05-15'), children: [] }));
+    expect(refused.statusCode, refused.body).toBe(400);
+    expect(await counts(other)).toBe('0/0/0/0/0');
+  });
+});

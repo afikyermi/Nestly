@@ -22,6 +22,8 @@ import type { Database } from '../src/db/client.js';
 //   10  no / invalid token -> 401, and no database query runs under that request (every route)
 //   11  the answer and the log of a 5xx hold no child name, sex, birth date (the 2xx, 400 and 409 logs: tests/db/children.db.test.ts)
 // Derived from spec.md only. A Database that refuses on purpose stands in for the real one: a request that reaches it counts.
+// F2.2b1 adds POST /api/journeys and PUT /api/journeys/:id (route names from interface.md): c24 (no / invalid token -> 401, no query)
+// and c11 (a 5xx answer and log hold no due date or stage) on those two routes too.
 
 const SUB = 'f0000000-0000-4000-8000-0000000000f1';
 const CHILD_ID = '11111111-1111-4111-8111-111111111111';
@@ -71,6 +73,12 @@ const ROUTES: Call[] = [
   ['POST', '/api/children', BODY],
   ['PUT', `/api/children/${CHILD_ID}`, BODY],
 ];
+const JOURNEY_ID = '22222222-2222-4222-8222-222222222222';
+const DUE = { dueDate: parts('2027-02-17') };
+const ROUTES_B1: Call[] = [
+  ['POST', '/api/journeys', DUE],
+  ['PUT', `/api/journeys/${JOURNEY_ID}`, DUE],
+];
 const call = ([method, url, payload]: Call, header: string | null) =>
   app.inject({
     method,
@@ -108,6 +116,23 @@ describe('[F2.2a c10 FR-AUTH-004] a missing or invalid session is 401, with no d
     });
   }
 
+  for (const route of ROUTES_B1) {
+    it.each(cases)(`[F2.2b c24] ${route[0]} ${route[1]}, %s -> 401 unauthenticated, nothing reaches the database`, T, async (_label, make) => {
+      await setup();
+      const res = await call(route, await make());
+      expect(res.statusCode).toBe(401);
+      expect(jsonOf(res.body)).toEqual({ error: 'unauthenticated' });
+      expect(stub.attempts()).toBe(0);
+    });
+  }
+
+  it('[F2.2b c24] the 401 comes first on the b1 routes too: a body that would be a 400, an id that is not a uuid', T, async () => {
+    await setup();
+    expect((await call(['POST', '/api/journeys', { dueDate: { day: '1', month: '', year: '' }, userId: 'b0000000-0000-4000-8000-0000000000b2' }], null)).statusCode).toBe(401);
+    expect((await call(['PUT', '/api/journeys/not-a-uuid', DUE], null)).statusCode).toBe(401);
+    expect(stub.attempts()).toBe(0);
+  });
+
   it('[F2.2a c10] the 401 comes first, even for a body that would be a 400 or an id that is not a uuid', T, async () => {
     await setup();
     expect((await call(['POST', '/api/children', { name: '', userId: 'b0000000-0000-4000-8000-0000000000b2' }], null)).statusCode).toBe(401);
@@ -129,6 +154,25 @@ describe('[F2.2a c11 NFR-PRIV-001] a 5xx: the answer and the log hold no child n
       const text = log.text();
       const raw = authorization.replace(/^Bearer /, '');
       for (const secret of [NAME, '2019-03-17', '"year":"2019"', 'girl', '"birthDate"', '"sex"', raw, raw.split('.')[1] ?? raw]) {
+        expect(text, `the log contains ${secret.slice(0, 14)}`).not.toContain(secret);
+      }
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+describe('[F2.2b c11 NFR-PRIV-001] a 5xx on the b1 routes: the answer and the log hold no due date or stage, nor the token', () => {
+  for (const route of ROUTES_B1) {
+    it(`[F2.2b c11] ${route[0]} ${route[1]} that fails in the database (5xx): nothing of the body or the token in the log`, T, async () => {
+      await setup();
+      const authorization = await bearer();
+      const res = await call(route, authorization);
+      expect(res.statusCode).toBeGreaterThanOrEqual(500);
+      expect(stub.attempts()).toBeGreaterThan(0);
+      expect(res.body).not.toContain('2027-02-17');
+      const text = log.text();
+      const raw = authorization.replace(/^Bearer /, '');
+      for (const secret of ['2027-02-17', '"year":"2027"', '"dueDate"', '"stage"', 'pregnant', raw, raw.split('.')[1] ?? raw]) {
         expect(text, `the log contains ${secret.slice(0, 14)}`).not.toContain(secret);
       }
     });

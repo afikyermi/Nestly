@@ -75,14 +75,11 @@ select is(tests.dml_as('authenticated', tests.claims(tests.fx_id(t.who)), t.s), 
   '[F1.4-a c14 criterion 14 amended] refused (42501): ' || t.who || ' ' || t.label)
 from (values
   -- journey_contexts
-  ('a', $q$ update nestly.journey_contexts set due_date = date '2027-09-09' where stage = 'pregnant' $q$, 'UPDATE own journey due date'),
   ('a', $q$ update nestly.journey_contexts set stage = 'planning' where stage = 'has_child' $q$, 'UPDATE own journey stage'),
   ('a', $q$ update nestly.journey_contexts set user_id = auth.uid() $q$, 'UPDATE every journey''s user_id (own rows)'),
-  ('a', $q$ update nestly.journey_contexts set due_date = null where false $q$, 'UPDATE that matches no journey (privilege does not depend on rows)'),
   ('a', $q$ delete from nestly.journey_contexts where stage = 'has_child' $q$, 'DELETE own journey'),
   ('a', $q$ delete from nestly.journey_contexts $q$, 'DELETE every journey'),
   ('a', $q$ truncate nestly.journey_contexts $q$, 'TRUNCATE journeys'),
-  ('a', $q$ select id from nestly.journey_contexts for update $q$, 'SELECT ... FOR UPDATE on journeys'),
   -- children
   ('a', $q$ update nestly.children set slot = 3 where slot = 2 $q$, 'UPDATE own child slot (moving past the unique)'),
   ('a', $q$ delete from nestly.children where slot = 2 $q$, 'DELETE own child'),
@@ -98,7 +95,6 @@ from (values
   ('a', $q$ truncate nestly.legal_consents $q$, 'TRUNCATE consents'),
   ('a', $q$ select id from nestly.legal_consents for update $q$, 'SELECT ... FOR UPDATE on consents'),
   -- B acting on A's rows
-  ('b', $q$ update nestly.journey_contexts set due_date = null $q$, 'UPDATE the journeys (A''s included)'),
   ('b', $q$ delete from nestly.journey_contexts $q$, 'DELETE the journeys (A''s included)'),
   ('b', $q$ delete from nestly.children $q$, 'DELETE the children (A''s included)'),
   ('b', $q$ update nestly.legal_consents set terms_version = 'Hijacked' $q$, 'UPDATE the consents (A''s included)'),
@@ -112,13 +108,21 @@ from (values
 -- the slot UPDATE above stays 42501; an UPDATE that matches no row is now 0 rows, FOR UPDATE is permitted on own rows, and B's
 -- UPDATE aimed at A's children affects 0 rows.
 select is(tests.dml_as('authenticated', tests.claims(tests.fx_id(t.who)), t.s), t.expected,
-  '[F1.4-a c14 · F2.2a c9 re-graded] ' || t.who || ' ' || t.label || ': ' || t.expected)
+  '[F1.4-a c14 · F2.2a c9 · F2.2-b c18 re-graded] ' || t.who || ' ' || t.label || ': ' || t.expected)
 from (values
   ('a', $q$ update nestly.children set sex = 'girl' where false $q$, 'UPDATE that matches no child', 'OK:0'),
   ('a', $q$ select id from nestly.children for update $q$, 'SELECT ... FOR UPDATE on own children (needs UPDATE on a column; RLS-confined)', 'OK:2'),
   ('b', format($q$ update nestly.children set name = 'Hijacked' where user_id = %L $q$, tests.fx_id('a')), 'UPDATE of A''s children by A''s id', 'OK:0'),
-  ('b', $q$ update nestly.children set name = 'Hijacked' where slot = 2 $q$, 'UPDATE of a slot only A has', 'OK:0')
+  ('b', $q$ update nestly.children set name = 'Hijacked' where slot = 2 $q$, 'UPDATE of a slot only A has', 'OK:0'),
+  -- F2.2b1 (schema.md F2.2b "Amend"): journey_contexts gained UPDATE (due_date) behind journey_contexts_update_own (pregnant rows
+  -- only). A's own due-date UPDATE moved to file 54 (it changes a row); the stage and user_id UPDATEs above stay 42501.
+  ('a', $q$ update nestly.journey_contexts set due_date = null where false $q$, 'UPDATE that matches no journey', 'OK:0'),
+  ('a', $q$ select id from nestly.journey_contexts for update $q$, 'SELECT ... FOR UPDATE on own journeys (the UPDATE policy admits the pregnant row only)', 'OK:1'),
+  ('b', $q$ update nestly.journey_contexts set due_date = null $q$, 'UPDATE the journeys (A''s included; B has no pregnancy)', 'OK:0'),
+  ('b', format($q$ update nestly.journey_contexts set due_date = date '2027-09-09' where user_id = %L $q$, tests.fx_id('a')), 'UPDATE of A''s due date by A''s id', 'OK:0')
 ) as t(who, s, label, expected);
+select is(tests.fx_journeys(tests.fx_id('a')), 'has_child:null ; pregnant:2027-03-01',
+  '[F2.2-b c18 A1] A''s journeys are what the fixture wrote after B''s attempts');
 select is(tests.fx_children(tests.fx_id('a')), '1:Noa:girl:2024-05-10 ; 2:Eli:boy:2022-01-15',
   '[F2.2a c9 A1] A''s children are what the fixture wrote after B''s attempts');
 

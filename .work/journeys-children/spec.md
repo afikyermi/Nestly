@@ -140,3 +140,9 @@ hard deletes, birth, planning → pregnant, has_child bookkeeping). Elevated. Q1
 **Change control (approved F2.2a text):** c9's "DELETE on either table is denied" is replaced in b2 by c18 (own-row DELETE only),
 and c15's planning case moves to c23 — both follow from Afik's DR-1 A and Gate 1 DR-3 A. Child order becomes order of addition
 (a freed slot is reused), so c3/c17 keep "a new child shows last"; DATA ARCHITECT shapes the order and the has_child race (c19).
+
+**ORCHESTRATOR, 17.10.2026 — c14 server window (TEST ENGINEER finding 1).** The server judges VAL-044 against every date an
+Israeli device can hold: its UTC date or the next one (F1.4 Q4). It accepts **UTC today−30 … UTC today+1+300** and refuses
+outside that; the web keeps −30 / +300 on the device's date. So c14's server half reads: −30 accepted on any server date,
+−31 and +302 refused. The same shared rule serves registration step 1 (F1.4), which refused a device-valid today−30 when the
+UTC and Israeli dates agree — an escape, fixed in this part (escapes.md).
