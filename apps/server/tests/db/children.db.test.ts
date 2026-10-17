@@ -12,7 +12,7 @@ import { CLOCK_NOW, EMPTY_DATE, buildRegisterApp, captureLog, child, jsonOf, par
 // with the shared rules: the registration reason, trimmed, the boundaries; any other key 400; no row changes), 6 (10 -> 409, and
 // the two races of schema.md: 9 + 2, 5 + 2, on two real connections), 7 (the first child creates has_child, atomically), 8 (edit),
 // 9 (B's id or a non-uuid -> 404), 10 (stopped, unregistered), 11 (the logs of 2xx, 400, 409). Derived from spec.md and schema.md.
-// A's rows are only edited (and put back); every POST runs on a FRESH registered user (no role here can delete a child).
+// A's rows are only edited (and put back); every POST runs on a FRESH registered user (since F2.2b2 a child can be removed, but only by its owner: journeys-remove.db.test.ts).
 
 const T = { timeout: COLD_START_MS };
 const S = '50000000-0000-4000-8000-000000000051';

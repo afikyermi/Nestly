@@ -1,9 +1,11 @@
-// The caller's own journeys and children (I2 F2.2a, F2.2b; FR-PROFILE-002, PG-012): read them, add a child, edit a child, add a
-// pregnancy, edit its due date. The caller is
-// already authenticated; each call is one identity transaction at READ COMMITTED (the Drizzle default; the slot pick depends on
-// each statement seeing new commits). Before any read or write the account itself is read in the same transaction: none (an Auth
-// user who never registered) or not a Regular account → no_profile, nothing created; not active (suspended or banned) →
-// unavailable, one answer, as GET /api/me gives. The words suspended and banned never leave here.
+// The caller's own journeys and children (I2 F2.2a, F2.2b; FR-PROFILE-002, PG-012): read them, add, edit or remove a child, add a
+// pregnancy (ending planning when confirmed), edit its due date, end it, record its birth. The caller is already authenticated; each
+// call is one identity transaction at READ COMMITTED (the Drizzle default; the slot pick depends on each statement seeing new
+// commits). Before any read or write the account itself is read in the same transaction: none (an Auth user who never registered)
+// or not a Regular account → no_profile, nothing created; not active (suspended or banned) → unavailable, one answer, as GET
+// /api/me gives. The words suspended and banned never leave here. Every write that inserts or deletes a child or a journey then
+// locks the caller's own profile row (schema.md F2.2b), so two such writes of one parent run one after the other and has_child
+// exists if and only if a child does (DR-4 A, c19).
 
 import { JOURNEY_STAGES, MAX_CHILDREN, type OwnJourneys, type RegistrationChild } from '@nestly/shared';
 import type { Database } from '../db/client.js';
@@ -11,9 +13,14 @@ import { inIdentityTransaction, type IdentityTx } from '../db/identity-transacti
 import type { Identity } from '../lib/token-verifier.js';
 import { readOwnAccounts } from '../repositories/account-state-repository.js';
 import {
+  deleteOwnChild,
+  deleteOwnJourney,
+  deleteOwnJourneyOfStage,
+  hasOwnChild,
   insertChildInSlot,
   insertHasChildJourney,
   insertPregnantJourney,
+  lockOwnProfile,
   readOwnChildren,
   readOwnJourneys,
   readOwnSlots,
@@ -45,7 +52,7 @@ class ChildrenFull extends Error {
   }
 }
 
-/** Thrown inside the pregnancy add when the insert stored nothing, so that the transaction rolls back (c15; c23 in F2.2b2). */
+/** Thrown inside the pregnancy add when the insert stored nothing, so that the transaction rolls back, a planning delete included (c15, c23). */
 class StageConflict extends Error {
   constructor() {
     super('a pregnant or planning journey exists');
@@ -66,6 +73,17 @@ async function gate(tx: IdentityTx): Promise<Gate> {
   if (account === undefined) return 'no_profile';
   if (account.status !== 'active') return 'unavailable';
   return account.accountType === 'regular' ? 'open' : 'no_profile';
+}
+
+/**
+ * The gate, then the lock on the caller's own profile row for a write that inserts or deletes a child or a journey. An open gate
+ * with no profile row to lock cannot happen (registration writes both); seeing it means a policy is wrong.
+ */
+async function gateAndLock(tx: IdentityTx): Promise<Gate> {
+  const state = await gate(tx);
+  if (state !== 'open') return state;
+  if ((await lockOwnProfile(tx)) !== 1) throw new JourneysFault('not exactly one own profile row to lock');
+  return state;
 }
 
 async function readAll(tx: IdentityTx): Promise<JourneysOutcome> {
@@ -96,20 +114,26 @@ export async function readOwnJourneysAndChildren(database: Database, identity: I
 export async function addOwnChild(database: Database, identity: Identity, child: RegistrationChild): Promise<JourneysOutcome> {
   try {
     return await inIdentityTransaction(database, identity, async (tx) => {
-      const state = await gate(tx);
+      const state = await gateAndLock(tx);
       if (state !== 'open') return { kind: state };
-      for (let round = 0; round < SLOT_PICK_ROUNDS; round += 1) {
-        const slot = lowestFreeSlot(await readOwnSlots(tx));
-        if (slot === undefined) throw new ChildrenFull();
-        await insertHasChildJourney(tx);
-        if (await insertChildInSlot(tx, slot, child)) return readAll(tx);
-      }
-      throw new JourneysFault('no free child slot after the last round');
+      await addChildRounds(tx, child);
+      return readAll(tx);
     });
   } catch (error) {
     if (error instanceof ChildrenFull) return { kind: 'too_many' };
     throw error;
   }
+}
+
+/** The slot pick, the has_child insert and the child insert, in the caller's transaction. All ten seats taken → ChildrenFull thrown. */
+async function addChildRounds(tx: IdentityTx, child: RegistrationChild): Promise<void> {
+  for (let round = 0; round < SLOT_PICK_ROUNDS; round += 1) {
+    const slot = lowestFreeSlot(await readOwnSlots(tx));
+    if (slot === undefined) throw new ChildrenFull();
+    await insertHasChildJourney(tx);
+    if (await insertChildInSlot(tx, slot, child)) return;
+  }
+  throw new JourneysFault('no free child slot after the last round');
 }
 
 /** Edits child `id` (DR-5 A: name, sex, birth date). Last write wins (Q2). Not the caller's, or no such row → not_found. */
@@ -129,14 +153,21 @@ export async function editOwnChild(
 }
 
 /**
- * Adds the pregnant journey (VAL-039, AC-089; F2.2b c15) with its due date or none. A pregnant or a planning journey already
- * there, or a concurrent add that committed first → stage_conflict, nothing written.
+ * Adds the pregnant journey (VAL-039, AC-089; F2.2b c15) with its due date or none. With `endPlanning` (the confirmation of c16,
+ * DR-3 A) the planning journey is deleted first, in the same transaction (c23). A pregnant journey already there, a planning one
+ * not confirmed, or a concurrent add that committed first → stage_conflict, nothing written.
  */
-export async function addOwnPregnancy(database: Database, identity: Identity, dueDate: string | null): Promise<JourneysOutcome> {
+export async function addOwnPregnancy(
+  database: Database,
+  identity: Identity,
+  dueDate: string | null,
+  endPlanning: boolean,
+): Promise<JourneysOutcome> {
   try {
     return await inIdentityTransaction(database, identity, async (tx) => {
-      const state = await gate(tx);
+      const state = await gateAndLock(tx);
       if (state !== 'open') return { kind: state };
+      if (endPlanning) await deleteOwnJourneyOfStage(tx, 'planning');
       if (!(await insertPregnantJourney(tx, dueDate))) throw new StageConflict();
       return readAll(tx);
     });
@@ -160,4 +191,60 @@ export async function editOwnDueDate(
     if (updated > 1) throw new JourneysFault('more than one journey row updated by id');
     return updated === 0 ? { kind: 'not_found' } : readAll(tx);
   });
+}
+
+/**
+ * Removes child `id` (DR-1 A: hard delete; F2.2b c17). The last child's removal deletes has_child in the same transaction (DR-4 A,
+ * c19); then the parent may have no journey at all (DR-6 A, c21). Not the caller's, or no such row → not_found, nothing changes.
+ */
+export async function removeOwnChild(database: Database, identity: Identity, id: string): Promise<JourneysOutcome> {
+  return inIdentityTransaction(database, identity, async (tx) => {
+    const state = await gateAndLock(tx);
+    if (state !== 'open') return { kind: state };
+    const deleted = await deleteOwnChild(tx, id);
+    if (deleted > 1) throw new JourneysFault('more than one child row deleted by id');
+    if (deleted === 0) return { kind: 'not_found' };
+    if (!(await hasOwnChild(tx))) await deleteOwnJourneyOfStage(tx, 'has_child');
+    return readAll(tx);
+  });
+}
+
+/**
+ * Ends pregnancy `id` (DR-1 A, DR-2r: hard delete, no reason; F2.2b c20). It may be the last journey (DR-6 A). Not the caller's,
+ * not a pregnancy (planning and has_child end only as c23 and c19 do), or no such row → not_found, nothing changes.
+ */
+export async function endOwnPregnancy(database: Database, identity: Identity, id: string): Promise<JourneysOutcome> {
+  return inIdentityTransaction(database, identity, async (tx) => {
+    const state = await gateAndLock(tx);
+    if (state !== 'open') return { kind: state };
+    const deleted = await deleteOwnJourney(tx, id, 'pregnant');
+    if (deleted > 1) throw new JourneysFault('more than one journey row deleted by id');
+    return deleted === 0 ? { kind: 'not_found' } : readAll(tx);
+  });
+}
+
+/**
+ * The birth of pregnancy `id` (DR-2 A; F2.2b c22): deletes the pregnancy, then adds the child as addOwnChild does (with has_child
+ * when missing), in one transaction. Not the caller's pregnancy → not_found, no child; ten children → too_many, the pregnancy kept.
+ */
+export async function recordOwnBirth(
+  database: Database,
+  identity: Identity,
+  id: string,
+  child: RegistrationChild,
+): Promise<JourneysOutcome> {
+  try {
+    return await inIdentityTransaction(database, identity, async (tx) => {
+      const state = await gateAndLock(tx);
+      if (state !== 'open') return { kind: state };
+      const deleted = await deleteOwnJourney(tx, id, 'pregnant');
+      if (deleted > 1) throw new JourneysFault('more than one journey row deleted by id');
+      if (deleted === 0) return { kind: 'not_found' };
+      await addChildRounds(tx, child);
+      return readAll(tx);
+    });
+  } catch (error) {
+    if (error instanceof ChildrenFull) return { kind: 'too_many' };
+    throw error;
+  }
 }

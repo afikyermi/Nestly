@@ -6,13 +6,25 @@ import { STOPPED_TEXT } from '@/lib/auth-texts';
 import {
   addOwnChild,
   addOwnPregnancy,
+  endOwnPregnancy,
   fetchOwnJourneys,
+  recordOwnBirth,
+  removeOwnChild,
   saveOwnChild,
   saveOwnDueDate,
   type JourneysOutcome,
 } from '@/services/api/journeys';
-import { JourneysContent, type JourneysFocus, type JourneysView, type OpenChildForm, type OpenForm, type OpenPregnancyForm } from './JourneysContent';
 import {
+  JourneysContent,
+  type ConfirmTarget,
+  type JourneysFocus,
+  type JourneysView,
+  type OpenChildForm,
+  type OpenForm,
+  type OpenPregnancyForm,
+} from './JourneysContent';
+import {
+  ACTION_FAILED_TEXT,
   canAddPregnancy,
   checkChildForm,
   checkDueDateForm,
@@ -20,6 +32,7 @@ import {
   EMPTY_CHILD_FORM,
   EMPTY_DUE_DATE,
   formValuesOf,
+  hasPlanning,
   LOAD_FAILED_TEXT,
   SAVE_FAILED_TEXT,
   type ChildFormValues,
@@ -33,6 +46,17 @@ type FormCheck =
 
 /** The open form's check before anything is sent, against `today`: the form with its errors, or the form in flight and its request. */
 function checkForm(form: OpenForm, today: string): FormCheck {
+  if (form.kind === 'confirm') {
+    const { target } = form;
+    // Ending "מתכננים" sends nothing by itself: confirming it opens the pregnancy form (proceedToPregnancy), never this.
+    if (target.action === 'end-planning') return { ok: false, form };
+    return {
+      ok: true,
+      saving: { ...form, saving: true, failure: null },
+      send: (accessToken) =>
+        target.action === 'remove-child' ? removeOwnChild(accessToken, target.childId) : endOwnPregnancy(accessToken, target.journeyId),
+    };
+  }
   if (form.kind === 'child') {
     const checked = checkChildForm(form.values, today);
     if (!checked.ok) return { ok: false, form: { ...form, errors: checked.errors, failure: null } };
@@ -40,8 +64,11 @@ function checkForm(form: OpenForm, today: string): FormCheck {
     return {
       ok: true,
       saving: { ...form, errors: {}, saving: true, failure: null },
-      send: (accessToken) =>
-        target.mode === 'add' ? addOwnChild(accessToken, checked.value) : saveOwnChild(accessToken, target.childId, checked.value),
+      send: (accessToken) => {
+        if (target.mode === 'add') return addOwnChild(accessToken, checked.value);
+        if (target.mode === 'birth') return recordOwnBirth(accessToken, target.journeyId, checked.value);
+        return saveOwnChild(accessToken, target.childId, checked.value);
+      },
     };
   }
   const checked = checkDueDateForm(form.values, today);
@@ -51,16 +78,33 @@ function checkForm(form: OpenForm, today: string): FormCheck {
     ok: true,
     saving: { ...form, error: null, saving: true, failure: null },
     send: (accessToken) =>
-      target.mode === 'add' ? addOwnPregnancy(accessToken, checked.value) : saveOwnDueDate(accessToken, target.journeyId, checked.value),
+      target.mode === 'add'
+        ? addOwnPregnancy(accessToken, checked.value, target.endPlanning === true)
+        : saveOwnDueDate(accessToken, target.journeyId, checked.value),
   };
 }
 
+/** Whether `form` deletes the item it was opened on: its opener is gone after a save, and a 404 means it is gone already (Q3). */
+const deletes = (form: OpenForm): boolean => form.kind === 'confirm' || (form.kind === 'child' && form.target.mode === 'birth');
+
+/** The button that opened confirmation `target`. */
+function confirmOpener(target: ConfirmTarget): JourneysFocus['target'] {
+  if (target.action === 'remove-child') return { kind: 'remove', childId: target.childId };
+  if (target.action === 'end-pregnancy') return { kind: 'end-pregnancy', journeyId: target.journeyId };
+  return { kind: 'add-pregnancy' };
+}
+
 /**
- * The button that opened `form`, to take focus back when it closes. After a pregnancy add (or a refused one, refreshed), the
- * pregnancy's "עריכה".
+ * The button that opened `form`, to take focus back when it closes. After a removal, an end or a birth that button is gone: the
+ * section's heading (c26). After a pregnancy add (or a refused one, refreshed), the pregnancy's "עריכה".
  */
-function openerOf(form: OpenForm, data: OwnJourneys): JourneysFocus['target'] {
-  if (form.kind === 'child') return form.target.mode === 'add' ? { kind: 'add' } : { kind: 'edit', childId: form.target.childId };
+function openerOf(form: OpenForm, data: OwnJourneys, saved: boolean): JourneysFocus['target'] {
+  if (saved && deletes(form)) return { kind: 'title' };
+  if (form.kind === 'confirm') return confirmOpener(form.target);
+  if (form.kind === 'child') {
+    if (form.target.mode === 'add') return { kind: 'add' };
+    return form.target.mode === 'birth' ? { kind: 'birth', journeyId: form.target.journeyId } : { kind: 'edit', childId: form.target.childId };
+  }
   if (form.target.mode === 'edit') return { kind: 'edit-journey', journeyId: form.target.journeyId };
   const added = data.journeys.find((journey) => journey.stage === 'pregnant');
   if (added !== undefined) return { kind: 'edit-journey', journeyId: added.id };
@@ -68,8 +112,9 @@ function openerOf(form: OpenForm, data: OwnJourneys): JourneysFocus['target'] {
   return canAddPregnancy(data) ? { kind: 'add-pregnancy' } : { kind: 'add' };
 }
 
-// The "המסע שלי" section's flow (FR-PROFILE-002, PG-012; F2.2a, F2.2b1): load the own journeys and children, show them, add or edit
-// a child, add a pregnancy or edit its due date. The server and RLS decide whose rows they are; this section sends a row id only,
+// The "המסע שלי" section's flow (FR-PROFILE-002, PG-012; F2.2a, F2.2b): load the own journeys and children, show them, add, edit or
+// remove a child, add a pregnancy (ending "מתכננים" after a confirmation), edit its due date, end it, record its birth. A removal and
+// an end are confirmed first (DR-1 A). The server and RLS decide whose rows they are; this section sends a row id only,
 // never a user id. A refused token (401) or a stopped account (403) asks the session for the account state again, and the session
 // guard ends the session with its notice (ERR-038, ERR-037). The typed values live in this component's memory only.
 export function JourneysSection() {
@@ -127,8 +172,11 @@ export function JourneysSection() {
     if (current.form !== null) return;
     validating.current = false;
     setView({ ...current, saved: false, form });
-    focusOn({ kind: 'field' });
+    // A confirmation takes focus to its "ביטול" itself (Q4).
+    if (form.kind !== 'confirm') focusOn({ kind: 'field' });
   }
+
+  const confirmation = (target: ConfirmTarget): OpenForm => ({ kind: 'confirm', target, saving: false, failure: null });
 
   const childForm = (target: OpenChildForm['target'], values: ChildFormValues): OpenChildForm => ({
     kind: 'child',
@@ -157,10 +205,22 @@ export function JourneysSection() {
     if (journey !== undefined) open(current, pregnancyForm({ mode: 'edit', journeyId }, dueDateValuesOf(journey)));
   }
 
-  function close(form: OpenForm, data: OwnJourneys, saved: boolean) {
+  function addPregnancy(current: Loaded) {
+    if (hasPlanning(current.data)) open(current, confirmation({ action: 'end-planning' }));
+    else open(current, pregnancyForm({ mode: 'add' }, EMPTY_DUE_DATE));
+  }
+
+  /** "מתכננים" will end (c16 confirmed): the pregnancy form, whose save ends it in the same request (c23). Nothing is sent yet. */
+  function proceedToPregnancy(current: Loaded) {
+    validating.current = false;
+    setView({ ...current, form: pregnancyForm({ mode: 'add', endPlanning: true }, EMPTY_DUE_DATE) });
+    focusOn({ kind: 'field' });
+  }
+
+  function close(form: OpenForm, data: OwnJourneys, saved: boolean, target: JourneysFocus['target'] = openerOf(form, data, saved)) {
     validating.current = false;
     setView({ kind: 'loaded', data, saved, form: null });
-    focusOn(openerOf(form, data));
+    focusOn(target);
   }
 
   function change(current: Loaded, form: OpenChildForm, values: ChildFormValues) {
@@ -175,6 +235,10 @@ export function JourneysSection() {
 
   async function save(current: Loaded, form: OpenForm) {
     if (saving.current) return;
+    if (form.kind === 'confirm' && form.target.action === 'end-planning') {
+      proceedToPregnancy(current);
+      return;
+    }
     const checked = checkForm(form, localDateIso(new Date()));
     if (!checked.ok) {
       validating.current = true;
@@ -191,22 +255,35 @@ export function JourneysSection() {
         close(form, outcome.journeys, true);
         return;
       }
-      // 409 stage_conflict: another tab added a pregnancy (or planning) meanwhile. Retrying would only meet the same 409, so the
-      // form closes and the view is read again, with no error (the Q3 pattern of c25); a failed read falls through to the alert.
-      if (outcome.kind === 'stage-conflict' && accessToken !== null) {
+      // 409 stage_conflict: another tab added a pregnancy meanwhile; 404 on a removal, an end or a birth: another tab removed it
+      // (Q3). Retrying would only meet the same answer, so the form or dialog closes and the view is read again, with no error
+      // (c25); a failed read falls through to the alert.
+      const gone = outcome.kind === 'not-found' && deletes(form);
+      if ((outcome.kind === 'stage-conflict' || gone) && accessToken !== null) {
         const fresh = await fetchOwnJourneys(accessToken);
         if (fresh.kind === 'journeys') {
-          close(form, fresh.journeys, false);
+          close(form, fresh.journeys, false, gone ? { kind: 'title' } : openerOf(form, fresh.journeys, false));
           return;
         }
         if (fresh.kind === 'unauthenticated' || fresh.kind === 'account-unavailable') outcome = fresh;
       }
-      // The form keeps what is in it now, including anything typed while the save was in flight.
-      const failure = outcome.kind === 'too-many' ? CHILDREN_LIMIT_TEXT : (refused(outcome) ?? SAVE_FAILED_TEXT);
+      // A refused token or a stopped account closes a confirmation (c24): the session guard takes over, ERR-037 replaces the view.
+      if (form.kind === 'confirm' && (outcome.kind === 'unauthenticated' || outcome.kind === 'account-unavailable')) {
+        const stopped = refused(outcome);
+        if (stopped === null) close(form, current.data, false);
+        else {
+          setView({ kind: 'load-failed', message: stopped });
+          focusOn({ kind: 'message' });
+        }
+        return;
+      }
+      // The form keeps what is in it now, including anything typed while the save was in flight. A dialog keeps focus on its control.
+      const fallback = form.kind === 'confirm' ? ACTION_FAILED_TEXT : SAVE_FAILED_TEXT;
+      const failure = outcome.kind === 'too-many' ? CHILDREN_LIMIT_TEXT : (refused(outcome) ?? fallback);
       setView((latest) =>
         latest.kind === 'loaded' && latest.form !== null ? { ...latest, form: { ...latest.form, saving: false, failure } } : latest,
       );
-      focusOn({ kind: 'message' });
+      if (form.kind !== 'confirm') focusOn({ kind: 'message' });
     } finally {
       saving.current = false;
     }
@@ -228,8 +305,11 @@ export function JourneysSection() {
         ? {
             onAdd: () => open(loaded, childForm({ mode: 'add' }, EMPTY_CHILD_FORM)),
             onEdit: (childId: string) => edit(loaded, childId),
-            onAddPregnancy: () => open(loaded, pregnancyForm({ mode: 'add' }, EMPTY_DUE_DATE)),
+            onAddPregnancy: () => addPregnancy(loaded),
             onEditJourney: (journeyId: string) => editJourney(loaded, journeyId),
+            onRemove: (childId: string) => open(loaded, confirmation({ action: 'remove-child', childId })),
+            onEndPregnancy: (journeyId: string) => open(loaded, confirmation({ action: 'end-pregnancy', journeyId })),
+            onBirth: (journeyId: string) => open(loaded, childForm({ mode: 'birth', journeyId }, EMPTY_CHILD_FORM)),
           }
         : {})}
       {...(loaded !== null && form?.kind === 'child' ? { onChange: (values: ChildFormValues) => change(loaded, form, values) } : {})}

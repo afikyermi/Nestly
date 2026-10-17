@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef } from 'react';
 import { MAX_CHILDREN, type DateParts, type OwnJourney, type OwnJourneys } from '@nestly/shared';
+import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,12 +11,20 @@ import { PregnancyFormPanel } from './PregnancyFormPanel';
 import {
   ADD_CHILD_TEXT,
   ADD_PREGNANCY_TEXT,
+  BIRTH_TEXT,
   canAddPregnancy,
+  CANCEL_TEXT,
   childDetailsText,
+  DELETE_WARNING_TEXT,
   EDIT_TEXT,
+  END_PREGNANCY_QUESTION,
+  END_PREGNANCY_TEXT,
   journeyText,
   LOAD_FAILED_TEXT,
   LOADING_TEXT,
+  NO_JOURNEY_TEXT,
+  PLANNING_ENDS_TEXT,
+  REMOVE_TEXT,
   RETRY_TEXT,
   SAVED_TEXT,
   SAVING_TEXT,
@@ -24,8 +33,8 @@ import {
   type ChildFormValues,
 } from './journeys-form';
 
-/** Which form is open: a new child, or the stored child `childId`. One at a time. */
-export type ChildFormTarget = { mode: 'add' } | { mode: 'edit'; childId: string };
+/** Which form is open: a new child, the stored child `childId`, or the child born of pregnancy `journeyId` (DR-2 A). One at a time. */
+export type ChildFormTarget = { mode: 'add' } | { mode: 'edit'; childId: string } | { mode: 'birth'; journeyId: string };
 
 export interface OpenChildForm {
   kind: 'child';
@@ -37,7 +46,7 @@ export interface OpenChildForm {
 }
 
 /** Which pregnancy form is open: a new pregnancy, or the due date of the stored pregnancy `journeyId` (F2.2b c14, c15). */
-export type PregnancyFormTarget = { mode: 'add' } | { mode: 'edit'; journeyId: string };
+export type PregnancyFormTarget = { mode: 'add'; endPlanning?: true } | { mode: 'edit'; journeyId: string };
 
 export interface OpenPregnancyForm {
   kind: 'pregnancy';
@@ -48,8 +57,18 @@ export interface OpenPregnancyForm {
   failure: string | null;
 }
 
-/** The one open form of the section, if any. */
-export type OpenForm = OpenChildForm | OpenPregnancyForm;
+/** What a confirmation is about (F2.2b c16): removing child `childId`, ending pregnancy `journeyId`, or ending "מתכננים" (DR-3 A). */
+export type ConfirmTarget = { action: 'remove-child'; childId: string } | { action: 'end-pregnancy'; journeyId: string } | { action: 'end-planning' };
+
+export interface OpenConfirm {
+  kind: 'confirm';
+  target: ConfirmTarget;
+  saving: boolean;
+  failure: string | null;
+}
+
+/** The one open form or confirmation of the section, if any. */
+export type OpenForm = OpenChildForm | OpenPregnancyForm | OpenConfirm;
 
 /** What the section shows. The container (JourneysSection) owns the flow; this draws one state. */
 export type JourneysView =
@@ -64,6 +83,10 @@ export interface JourneysFocus {
     | { kind: 'edit'; childId: string }
     | { kind: 'add-pregnancy' }
     | { kind: 'edit-journey'; journeyId: string }
+    | { kind: 'remove'; childId: string }
+    | { kind: 'end-pregnancy'; journeyId: string }
+    | { kind: 'birth'; journeyId: string }
+    | { kind: 'title' }
     | { kind: 'field' }
     | { kind: 'invalid' }
     | { kind: 'message' };
@@ -78,25 +101,39 @@ export interface JourneysContentProps {
   onEdit?: (childId: string) => void;
   onAddPregnancy?: () => void;
   onEditJourney?: (journeyId: string) => void;
+  onRemove?: (childId: string) => void;
+  onEndPregnancy?: (journeyId: string) => void;
+  onBirth?: (journeyId: string) => void;
   onChange?: (values: ChildFormValues) => void;
   onDueDateChange?: (values: DateParts) => void;
+  /** The open form's save, or the open confirmation's confirm. */
   onSave?: () => void;
+  /** The open form's or confirmation's cancel (Escape too). */
   onCancel?: () => void;
 }
+
+/** The button whose `data-<attribute>` is `id`. */
+const byData = (root: HTMLElement, attribute: string, key: string, id: string): HTMLElement | null =>
+  Array.from(root.querySelectorAll<HTMLElement>(`[data-${attribute}]`)).find((b) => b.dataset[key] === id) ?? null;
 
 function focusTarget(root: HTMLElement, target: JourneysFocus['target']): HTMLElement | null {
   switch (target.kind) {
     case 'add':
       return root.querySelector<HTMLElement>('[data-journeys-add]');
     case 'edit':
-      return Array.from(root.querySelectorAll<HTMLElement>('[data-journeys-edit]')).find((b) => b.dataset.journeysEdit === target.childId) ?? null;
+      return byData(root, 'journeys-edit', 'journeysEdit', target.childId);
     case 'add-pregnancy':
       return root.querySelector<HTMLElement>('[data-journeys-add-pregnancy]');
     case 'edit-journey':
-      return (
-        Array.from(root.querySelectorAll<HTMLElement>('[data-journeys-edit-journey]')).find((b) => b.dataset.journeysEditJourney === target.journeyId) ??
-        null
-      );
+      return byData(root, 'journeys-edit-journey', 'journeysEditJourney', target.journeyId);
+    case 'remove':
+      return byData(root, 'journeys-remove', 'journeysRemove', target.childId);
+    case 'end-pregnancy':
+      return byData(root, 'journeys-end-pregnancy', 'journeysEndPregnancy', target.journeyId);
+    case 'birth':
+      return byData(root, 'journeys-birth', 'journeysBirth', target.journeyId);
+    case 'title':
+      return root.querySelector<HTMLElement>('[data-journeys-title]');
     case 'field':
       return root.querySelector<HTMLElement>('form input');
     case 'invalid':
@@ -106,12 +143,16 @@ function focusTarget(root: HTMLElement, target: JourneysFocus['target']): HTMLEl
   }
 }
 
-// "המסע שלי" on the profile page (FR-PROFILE-002, PG-012; F2.2a, F2.2b1): the parent's journeys and children, a child's add and edit
-// form, a pregnancy's add and due-date form. Display only: the actions come in as props. While a form is open the other actions are
-// not offered, so one form is open at a time. Children's names are user text in any language, so they are isolated.
+// "המסע שלי" on the profile page (FR-PROFILE-002, PG-012; F2.2a, F2.2b): the parent's journeys and children, a child's add, edit and
+// birth form, a pregnancy's add and due-date form, and the confirmation before a removal, an end or planning → pregnant (c16).
+// Display only: the actions come in as props. While a form is open the other actions are not offered, so one form is open at a time;
+// behind a confirmation they stay drawn. Children's names are user text in any language, so they are isolated.
 export function JourneysContent(props: JourneysContentProps) {
-  const { view, focus, onRetry, onAdd, onEdit, onAddPregnancy, onEditJourney, onChange, onDueDateChange, onSave, onCancel } = props;
+  const { view, focus, onRetry, onAdd, onEdit, onAddPregnancy, onEditJourney, onRemove, onEndPregnancy, onBirth } = props;
+  const { onChange, onDueDateChange, onSave, onCancel } = props;
   const rootRef = useRef<HTMLElement>(null);
+  // The latest focus target, for the confirmation's close (it hands focus back after this component's own effect ran).
+  const focusRef = useRef(focus);
   const ids = useId();
   const titleId = `${ids}-title`;
   const limitId = `${ids}-limit`;
@@ -119,6 +160,9 @@ export function JourneysContent(props: JourneysContentProps) {
   useEffect(() => {
     if (focus === undefined || focus.tick === 0 || rootRef.current === null) return;
     focusTarget(rootRef.current, focus.target)?.focus();
+  }, [focus]);
+  useEffect(() => {
+    focusRef.current = focus;
   }, [focus]);
 
   const loaded = view.kind === 'loaded' ? view : null;
@@ -128,6 +172,9 @@ export function JourneysContent(props: JourneysContentProps) {
   const atLimit = loaded !== null && loaded.data.children.length >= MAX_CHILDREN;
   const childForm = form?.kind === 'child' ? form : null;
   const pregnancyForm = form?.kind === 'pregnancy' ? form : null;
+  const confirm = form?.kind === 'confirm' ? form : null;
+  // A form hides the other actions; a confirmation is a modal over the view, which stays as it was.
+  const offering = form === null || confirm !== null;
   const pregnancyPanel = (open: OpenPregnancyForm) => (
     <PregnancyFormPanel
       values={open.values}
@@ -141,16 +188,24 @@ export function JourneysContent(props: JourneysContentProps) {
   );
   const journeyRow = (journey: OwnJourney) => {
     const textId = `${ids}-journey-${journey.id}`;
-    // Only a pregnancy has something to edit: its due date (DR-5 A). A stage changes only by add or end.
-    if (journey.stage !== 'pregnant' || form !== null) return <span id={textId}>{journeyText(journey)}</span>;
+    // Only a pregnancy has actions: its due date (DR-5 A), its birth (DR-2 A), its end (DR-1 A). Other stages change by add or end.
+    if (journey.stage !== 'pregnant' || !offering) return <span id={textId}>{journeyText(journey)}</span>;
     return (
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-3">
         <span id={textId} className="min-w-0 break-words">
           {journeyText(journey)}
         </span>
-        <Button variant="soft" data-journeys-edit-journey={journey.id} aria-describedby={textId} onClick={() => onEditJourney?.(journey.id)}>
-          {EDIT_TEXT}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="soft" data-journeys-edit-journey={journey.id} aria-describedby={textId} onClick={() => onEditJourney?.(journey.id)}>
+            {EDIT_TEXT}
+          </Button>
+          <Button variant="soft" data-journeys-birth={journey.id} aria-describedby={textId} onClick={() => onBirth?.(journey.id)}>
+            {BIRTH_TEXT}
+          </Button>
+          <Button variant="soft" data-journeys-end-pregnancy={journey.id} onClick={() => onEndPregnancy?.(journey.id)}>
+            {END_PREGNANCY_TEXT}
+          </Button>
+        </div>
       </div>
     );
   };
@@ -168,7 +223,8 @@ export function JourneysContent(props: JourneysContentProps) {
 
   return (
     <section ref={rootRef} aria-labelledby={titleId} data-testid="journeys" className="max-w-md">
-      <h2 id={titleId} className="text-h3">
+      {/* Focus lands here after a removal or an end, when the button that opened it is gone (c26). */}
+      <h2 id={titleId} data-journeys-title tabIndex={-1} className="text-h3">
         {SECTION_TITLE}
       </h2>
       {/* One polite region for the section, present from the first render so its changes are announced. Only the confirmation shows. */}
@@ -197,6 +253,12 @@ export function JourneysContent(props: JourneysContentProps) {
         ) : null}
         {loaded !== null ? (
           <div data-testid="journeys-view" className="flex flex-col gap-5">
+            {/* DR-6 A: the last journey may end. */}
+            {loaded.data.journeys.length === 0 ? (
+              <p data-testid="journeys-none" className="rounded-lg bg-card p-4 text-body text-card-foreground shadow-card md:p-5">
+                {NO_JOURNEY_TEXT}
+              </p>
+            ) : null}
             {loaded.data.journeys.length > 0 ? (
               <ul data-testid="journeys-list" className="flex flex-col gap-2 rounded-lg bg-card p-4 text-body text-card-foreground shadow-card md:p-5">
                 {loaded.data.journeys.map((journey) => (
@@ -207,6 +269,7 @@ export function JourneysContent(props: JourneysContentProps) {
               </ul>
             ) : null}
             {pregnancyForm?.target.mode === 'edit' ? pregnancyPanel(pregnancyForm) : null}
+            {childForm?.target.mode === 'birth' ? formPanel(childForm) : null}
             {loaded.data.children.length > 0 ? (
               <ul data-testid="children-list" className="flex flex-col gap-3">
                 {loaded.data.children.map((child) => {
@@ -217,14 +280,19 @@ export function JourneysContent(props: JourneysContentProps) {
                       {editing !== null ? (
                         formPanel(editing)
                       ) : (
-                        <div className="flex items-center justify-between gap-3 rounded-lg bg-card p-4 text-body text-card-foreground shadow-card">
+                        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-card p-4 text-body text-card-foreground shadow-card">
                           <p id={textId} className="min-w-0 break-words">
                             <bdi dir="auto">{child.name}</bdi> · {childDetailsText(child)}
                           </p>
-                          {form === null ? (
-                            <Button variant="soft" data-journeys-edit={child.id} aria-describedby={textId} onClick={() => onEdit?.(child.id)}>
-                              {EDIT_TEXT}
-                            </Button>
+                          {offering ? (
+                            <div className="flex gap-2">
+                              <Button variant="soft" data-journeys-edit={child.id} aria-describedby={textId} onClick={() => onEdit?.(child.id)}>
+                                {EDIT_TEXT}
+                              </Button>
+                              <Button variant="soft" data-journeys-remove={child.id} aria-describedby={textId} onClick={() => onRemove?.(child.id)}>
+                                {REMOVE_TEXT}
+                              </Button>
+                            </div>
                           ) : null}
                         </div>
                       )}
@@ -235,7 +303,7 @@ export function JourneysContent(props: JourneysContentProps) {
             ) : null}
             {childForm?.target.mode === 'add' ? formPanel(childForm) : null}
             {pregnancyForm?.target.mode === 'add' ? pregnancyPanel(pregnancyForm) : null}
-            {form === null ? (
+            {offering ? (
               <div className="flex flex-col gap-1.5">
                 <Button
                   variant="soft"
@@ -254,7 +322,7 @@ export function JourneysContent(props: JourneysContentProps) {
                     {CHILDREN_LIMIT_TEXT}
                   </p>
                 ) : null}
-                {/* VAL-039: with a pregnancy or "מתכננים" stored, a pregnancy cannot be added here (F2.2b c15). */}
+                {/* VAL-039: with a pregnancy stored, a pregnancy cannot be added (c15); with "מתכננים", it asks first (c16, c23). */}
                 {canAddPregnancy(loaded.data) ? (
                   <Button variant="soft" block data-journeys-add-pregnancy className="mt-1.5" onClick={onAddPregnancy}>
                     {ADD_PREGNANCY_TEXT}
@@ -265,6 +333,41 @@ export function JourneysContent(props: JourneysContentProps) {
           </div>
         ) : null}
       </div>
+      {loaded !== null && confirm !== null ? confirmDialog(loaded.data, confirm) : null}
     </section>
   );
+
+  function confirmDialog(data: OwnJourneys, open: OpenConfirm) {
+    const { target } = open;
+    const child = target.action === 'remove-child' ? data.children.find((candidate) => candidate.id === target.childId) : undefined;
+    if (target.action === 'remove-child' && child === undefined) return null;
+    const title =
+      child !== undefined ? (
+        <>
+          להסיר את <bdi dir="auto">{child.name}</bdi>?
+        </>
+      ) : target.action === 'end-pregnancy' ? (
+        END_PREGNANCY_QUESTION
+      ) : (
+        PLANNING_ENDS_TEXT
+      );
+    const confirmLabel = target.action === 'remove-child' ? REMOVE_TEXT : target.action === 'end-pregnancy' ? END_PREGNANCY_TEXT : ADD_PREGNANCY_TEXT;
+    return (
+      <ConfirmDialog
+        open
+        title={title}
+        {...(target.action === 'end-planning' ? {} : { description: DELETE_WARNING_TEXT })}
+        confirmLabel={confirmLabel}
+        cancelLabel={CANCEL_TEXT}
+        pending={open.saving}
+        failure={open.failure}
+        onConfirm={() => onSave?.()}
+        onCancel={() => onCancel?.()}
+        finalFocus={() => {
+          const latest = focusRef.current;
+          return rootRef.current === null || latest === undefined ? null : focusTarget(rootRef.current, latest.target);
+        }}
+      />
+    );
+  }
 }

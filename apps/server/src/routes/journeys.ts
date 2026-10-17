@@ -8,16 +8,22 @@
 //   PUT  /api/children/:id   the same body → 200 the journeys and children after the edit · 404 not_found (not a uuid: no query)
 //   POST /api/journeys       { dueDate:{day, month, year} } (strict; all empty = none) → 201 after adding the pregnancy ·
 //                            409 stage_conflict (a pregnant or planning journey exists)
-//   PUT  /api/journeys/:id   the same body → 200 after the due-date edit · 404 not_found (not a uuid: no query; not a pregnancy)
+//                            { ..., endPlanning: true } after the confirmation (F2.2b2 c23): planning ends in the same transaction
+//   PUT  /api/journeys/:id   { dueDate } → 200 after the due-date edit · 404 not_found (not a uuid: no query; not a pregnancy)
+//   DELETE /api/journeys/:id no body → 200 after ending the pregnancy (DR-1 A, DR-2r) · 404 not_found (also planning, has_child)
+//   POST /api/journeys/:id/birth  the child body → 201 after the birth: the pregnancy deleted, the child added (DR-2 A) · 404 · 409
+//                            children_too_many (the pregnancy kept)
+//   DELETE /api/children/:id no body → 200 after the removal (the last child's takes has_child with it, DR-4 A) · 404 not_found
 //   writes: 400 { error: 'invalid', reason } before any database work, judged against the server's date (c5, c14; the due date
-//   from UTC date − 30 to UTC date + 1 + 300).
+//   from UTC date − 30 to UTC date + 1 + 300); a DELETE with a body → 400 reason invalid_body.
 //   all: 403 account_unavailable · 404 no_profile (nothing created) · 401/503 session guard · 503 · 500; other methods → 405.
 // Logs carry a fixed line and the SQLSTATE, never the body, a name, a sex, a date, a stage, a token or an id (NFR-PRIV-001, c11).
 
-import { checkChildWrite, checkDueDateWrite, childPathParams, journeyPathParams } from '@nestly/shared';
+import { checkChildWrite, checkDueDateWrite, checkPregnancyAddWrite, childPathParams, journeyPathParams } from '@nestly/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
 import { isTransientFailure, readDatabaseFault } from '../lib/pg-error.js';
+import type { Identity } from '../lib/token-verifier.js';
 import { serverEarliestToday, serverToday } from '../lib/server-today.js';
 import { replySessionRefused } from '../plugins/authentication.js';
 import {
@@ -25,7 +31,10 @@ import {
   addOwnPregnancy,
   editOwnChild,
   editOwnDueDate,
+  endOwnPregnancy,
   readOwnJourneysAndChildren,
+  recordOwnBirth,
+  removeOwnChild,
   type JourneysOutcome,
 } from '../services/journeys-service.js';
 
@@ -39,6 +48,7 @@ const JOURNEYS_PATH = '/api/journeys';
 const CHILDREN_PATH = '/api/children';
 const CHILD_PATH = '/api/children/:id';
 const JOURNEY_PATH = '/api/journeys/:id';
+const BIRTH_PATH = '/api/journeys/:id/birth';
 
 function replyOutcome(reply: FastifyReply, outcome: JourneysOutcome, okStatus: 200 | 201): FastifyReply {
   switch (outcome.kind) {
@@ -109,11 +119,12 @@ async function addPregnancy(request: FastifyRequest, reply: FastifyReply, deps: 
   const { identity } = request;
   reply.header('cache-control', 'no-store');
   const now = deps.clock();
-  const checked = checkDueDateWrite(request.body, serverToday(now), serverEarliestToday(now));
+  const checked = checkPregnancyAddWrite(request.body, serverToday(now), serverEarliestToday(now));
   if (!checked.ok) return reply.code(400).send({ error: 'invalid', reason: checked.reason });
   if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
+  const { dueDate, endPlanning } = checked.value;
   try {
-    return replyOutcome(reply, await addOwnPregnancy(deps.database, identity, checked.value), 201);
+    return replyOutcome(reply, await addOwnPregnancy(deps.database, identity, dueDate, endPlanning), 201);
   } catch (error) {
     return replyFailure(request, reply, error, 'pregnancy add failed');
   }
@@ -135,6 +146,38 @@ async function editDueDate(request: FastifyRequest, reply: FastifyReply, deps: J
   }
 }
 
+type DeleteWork = (database: Database, identity: Identity, id: string) => Promise<JourneysOutcome>;
+
+/** DELETE of a child or a pregnancy: id (404, no query) → no body (400) → the work, which answers 200 with the view after it. */
+async function remove(request: FastifyRequest, reply: FastifyReply, deps: JourneysRouteDependencies, work: DeleteWork, line: string) {
+  const { identity } = request;
+  reply.header('cache-control', 'no-store');
+  const params = childPathParams.safeParse(request.params);
+  if (!params.success) return reply.code(404).send({ error: 'not_found' });
+  if (request.body !== undefined) return reply.code(400).send({ error: 'invalid', reason: 'invalid_body' });
+  if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
+  try {
+    return replyOutcome(reply, await work(deps.database, identity, params.data.id), 200);
+  } catch (error) {
+    return replyFailure(request, reply, error, line);
+  }
+}
+
+async function birth(request: FastifyRequest, reply: FastifyReply, deps: JourneysRouteDependencies) {
+  const { identity } = request;
+  reply.header('cache-control', 'no-store');
+  const params = journeyPathParams.safeParse(request.params);
+  if (!params.success) return reply.code(404).send({ error: 'not_found' });
+  const checked = checkChildWrite(request.body, serverToday(deps.clock()));
+  if (!checked.ok) return reply.code(400).send({ error: 'invalid', reason: checked.reason });
+  if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
+  try {
+    return replyOutcome(reply, await recordOwnBirth(deps.database, identity, params.data.id, checked.value), 201);
+  } catch (error) {
+    return replyFailure(request, reply, error, 'birth failed');
+  }
+}
+
 /** Any other method: 405 with the Allow header. Authentication still comes first, like everywhere. */
 function notAllowed(allow: string) {
   return (_request: FastifyRequest, reply: FastifyReply) =>
@@ -147,11 +190,24 @@ export function registerJourneysRoutes(app: FastifyInstance, deps: JourneysRoute
   app.route({ method: ['PUT', 'PATCH', 'DELETE', 'OPTIONS'], url: JOURNEYS_PATH, handler: notAllowed('GET, POST') });
 
   app.route({ method: 'PUT', url: JOURNEY_PATH, handler: (request, reply) => editDueDate(request, reply, deps) });
-  app.route({ method: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'], url: JOURNEY_PATH, handler: notAllowed('PUT') });
+  app.route({
+    method: 'DELETE',
+    url: JOURNEY_PATH,
+    handler: (request, reply) => remove(request, reply, deps, endOwnPregnancy, 'pregnancy end failed'),
+  });
+  app.route({ method: ['GET', 'POST', 'PATCH', 'OPTIONS'], url: JOURNEY_PATH, handler: notAllowed('PUT, DELETE') });
+
+  app.route({ method: 'POST', url: BIRTH_PATH, handler: (request, reply) => birth(request, reply, deps) });
+  app.route({ method: ['GET', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], url: BIRTH_PATH, handler: notAllowed('POST') });
 
   app.route({ method: 'POST', url: CHILDREN_PATH, handler: (request, reply) => add(request, reply, deps) });
   app.route({ method: ['GET', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], url: CHILDREN_PATH, handler: notAllowed('POST') });
 
   app.route({ method: 'PUT', url: CHILD_PATH, handler: (request, reply) => edit(request, reply, deps) });
-  app.route({ method: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'], url: CHILD_PATH, handler: notAllowed('PUT') });
+  app.route({
+    method: 'DELETE',
+    url: CHILD_PATH,
+    handler: (request, reply) => remove(request, reply, deps, removeOwnChild, 'child removal failed'),
+  });
+  app.route({ method: ['GET', 'POST', 'PATCH', 'OPTIONS'], url: CHILD_PATH, handler: notAllowed('PUT, DELETE') });
 }

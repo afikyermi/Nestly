@@ -127,3 +127,78 @@ API client: `apps/web/src/services/api/journeys.ts` — `addOwnPregnancy(token, 
 Stories (`JourneysContent.stories.tsx`): `PregnancyForm`, `PregnancyFormAdd`, `PregnancyFormErrors`, `JourneyViewAddPregnancy`.
 Flow stories (`JourneysSection.stories.tsx`): `EditDueDate`, `AddPregnancy`, `AddPregnancyConflict`. `e2e/visual-screens.ts`: `pregnancy-form`,
 `pregnancy-form-errors`, `journey-view-add-pregnancy`.
+
+---
+
+# interface — F2.2b2 (c16–c26): remove a child, end a pregnancy, birth, planning → pregnant
+
+## Server — `apps/server/src/routes/journeys.ts`
+
+Same auth, `cache-control: no-store`, gate, logs and error answers as F2.2a/b1. No user id anywhere.
+
+| Route | Body | Answers |
+|---|---|---|
+| `DELETE /api/children/:id` | **none** (any body, even `{}` or `null` with a JSON content type → 400 `{error:'invalid', reason:'invalid_body'}`; a non-JSON body → 415 from Fastify) | **200 `OwnJourneys`** after the removal; the last child's removal also deletes has_child (c19) · 404 `{error:'not_found'}` (not a uuid — no query; B's id; unknown or already gone) · 403 / 404 `no_profile` / 401 / 503 / 500 as F2.2a |
+| `DELETE /api/journeys/:id` | **none** (as above) | **200 `OwnJourneys`** after ending the pregnancy · 404 `not_found` (not a uuid; B's; unknown; a **planning or has_child** id — deleted only `where stage = 'pregnant'`) · 403 / 404 `no_profile` / 401 / 503 / 500 |
+| `POST /api/journeys/:id/birth` | the child body of `POST /api/children` (strict, `checkChildWrite`) | **201 `OwnJourneys`**: the pregnancy deleted, the child added last (has_child added when missing), one transaction · 404 `not_found` (id not a uuid; not the caller's pregnancy; no child added) · 400 `{error:'invalid', reason}` (child reasons) · **409 `children_too_many`** (10 stored; pregnancy kept, nothing written) · 403 / 404 `no_profile` / 401 / 503 / 500 |
+| `POST /api/journeys` (changed) | strict `{ dueDate: {day, month, year}, endPlanning?: true }` — `endPlanning` is `true` or absent (`false`, any other value → 400 `invalid_body`) | as b1; with `endPlanning: true` the planning journey (if any) is deleted first in the same transaction (c23). Planning present **without** `endPlanning` → 409 `stage_conflict`, both unchanged. Pregnant present → 409 either way (planning kept: rollback) |
+| other methods | — | 405; `allow`: `PUT, DELETE` on `/api/journeys/:id` and `/api/children/:id`; `POST` on `/api/journeys/:id/birth` |
+
+Check order: DELETE: id (404) → body (400) → gate (403 / 404 no_profile) → lock → delete (0 rows → 404). Birth: id (404) → body (400)
+→ gate → lock → delete pregnant (0 → 404) → F2.2a add rounds (full → 409, rollback). POST /api/journeys: body → gate → lock →
+(endPlanning: delete planning) → insert pregnant (0 → 409, rollback).
+
+**Lock:** every route that inserts or deletes a child or journey (`POST /api/children`, `POST /api/journeys`, both DELETEs, birth)
+runs `select user_id from regular_profiles for no key update` right after the gate; not exactly one row → `JourneysFault` → 500. The
+two PUTs do not lock.
+
+**Order:** children now `ORDER BY created_at, slot` (a freed seat is reused by the next add; that child shows last). `OwnJourneys`
+journeys stay in JOURNEY_STAGES order. Zero journeys is a valid answer (`journeys: []`, DR-6).
+
+Logs (fixed lines, `{sqlstate}` only): `child removal failed` · `pregnancy end failed` · `birth failed`. Nothing records that a row
+was deleted or why (c20).
+
+Layers: `journeys-service.ts` — `removeOwnChild(db, identity, id)`, `endOwnPregnancy(db, identity, id)`, `recordOwnBirth(db,
+identity, id, child)`, `addOwnPregnancy(db, identity, dueDate, endPlanning)` (new 4th argument); `gateAndLock` before every insert
+or delete. `journeys-repository.ts` — `lockOwnProfile`, `hasOwnChild`, `deleteOwnChild`, `deleteOwnJourney(tx, id, stage)`,
+`deleteOwnJourneyOfStage(tx, stage)`; `readOwnChildren` order changed.
+
+Shared (`validation/journeys.ts`): `pregnancyAddInput`, `checkPregnancyAddWrite(body, today, earliestToday) → {ok:true, value:{dueDate,
+endPlanning: boolean}} | {ok:false, reason}` (reasons `DUE_DATE_WRITE_REASONS`), type `PregnancyAddInput`. `checkDueDateWrite` stays
+for PUT (no `endPlanning` there: a PUT with it → 400 `invalid_body`).
+
+Forced-failure steps (schema.md seam): R = delete child · delete has_child; B = delete pregnant · insert has_child · insert child;
+P = delete planning · insert pregnant. Each is its own statement, in that order.
+
+## Database — `supabase/migrations/20261017141000_journeys_children_delete_own.sql`
+
+`grant delete on table nestly.children, nestly.journey_contexts to authenticated` · policies `children_delete_own`,
+`journey_contexts_delete_own` (for delete, to authenticated, USING `user_id = (select auth.uid()) and (select
+nestly.is_active_account())`) · two policy comments · `children.slot` column comment · `journey_contexts` table comment.
+Down: `supabase/rollback/20261017141000_journeys_children_delete_own.down.sql`.
+
+## Web — "המסע שלי"
+
+| State | What renders |
+|---|---|
+| view | pregnancy row: text, then buttons "עריכה" (`data-journeys-edit-journey`), "הלידה התרחשה" (`data-journeys-birth=<id>`, `aria-describedby` → row text), "סיום מסלול ההריון" (`data-journeys-end-pregnancy=<id>`). Child row: "עריכה" and **"הסרה"** (`data-journeys-remove=<id>`, `aria-describedby` → the child's row text, name stays "הסרה"). "הוספת הריון" is shown whenever no pregnancy is stored (**now also with planning**, c16/c23) |
+| none (`journeys-none`, c21) | zero journeys: "עוד לא נבחר שלב במסע" in a card (no `journeys-list`), then "הוספת ילד" and "הוספת הריון" |
+| confirm (`journey-confirm`) | Radix AlertDialog, portaled to `body`: `role="alertdialog"`, `aria-modal="true"`, named by its title, described by the warning. Child: title "להסיר את <bdi>נועה</bdi>?", description "הפרטים יימחקו ולא ניתן לשחזר אותם", confirm "הסרה". Pregnancy: "לסיים את מסלול ההריון?", same description, confirm "סיום מסלול ההריון". Planning: title "מסלול 'מתכננים' יסתיים ויימחק", no description, confirm "הוספת הריון". Cancel "ביטול" (focused on open, Q4). Backdrop press does not close. Behind it the view stays drawn with its buttons |
+| confirm in flight | confirm `aria-disabled` + loader; a second press, Escape and "ביטול" do nothing; one request |
+| confirm failed | 5xx / network / other → dialog stays open, `role="alert"` "הפעולה לא הצליחה. אפשר לנסות שוב" inside it, focus stays on the confirm button. **404 `not_found`** → GET refreshes, dialog closes, no error, focus to h2 "המסע שלי" (a failed refresh → the alert). **403** → dialog closes, the section shows ERR-037 (load-failed view, no retry) + `recheck()`. **401** → dialog closes, view unchanged, `recheck()` (ERR-038) |
+| confirmed | DELETE answer replaces the view; status "הפרטים נשמרו"; focus to the h2 (`data-journeys-title`, `tabIndex=-1`). Cancel/Escape → focus to the opener ("הסרה" / "סיום מסלול ההריון" / "הוספת הריון") |
+| planning → pregnant | confirming the planning dialog sends **nothing**; it opens the pregnancy add form (empty, focus on the day). Its "שמירה" sends `POST /api/journeys {dueDate, endPlanning:true}`; "ביטול" sends nothing and planning stays |
+| birth form (`birth-form`) | "הלידה התרחשה" → the child form (empty, c3/c4 rules) below the journeys card, the pregnancy row without buttons. Save → `POST /api/journeys/:id/birth`; success → view from the answer, status, focus to the h2. 409 → alert "אפשר להוסיף עד 10 ילדים", form kept. 404 → refresh, form closes, no error, focus h2. Cancel → focus back on "הלידה התרחשה" |
+
+API client (`services/api/journeys.ts`): `removeOwnChild(token, id)`, `endOwnPregnancy(token, id)` (DELETE, no body, no content type),
+`recordOwnBirth(token, id, child)`, `addOwnPregnancy(token, dueDate, endPlanning = false)`. Outcome gains `{kind:'not-found'}`
+(404 with `error: 'not_found'`); a child or due-date edit treats it as the generic save failure, as before.
+Component: `components/shared/confirm-dialog.tsx` (`ConfirmDialog`) on `components/ui/dialog.tsx` `AlertPanel` (+ `AlertTitle`,
+`AlertDescription`, `AlertCancel`). Stories `shared/ConfirmDialog`: `Open`, `TitleOnly`, `Pending`, `Failed`.
+Stories (`JourneysContent.stories.tsx`): `JourneyViewNone`, `JourneyConfirm`, `JourneyConfirmEnd`, `JourneyConfirmPlanning`,
+`JourneyConfirmFailed`, `BirthForm`, `BirthFormFull`. Flows (`JourneysSection.stories.tsx`): `RemoveChild`, `RemoveChildCancelled`,
+`RemoveChildGone`, `PlanningToPregnant`, `Birth`. `e2e/visual-screens.ts`: `journey-confirm`, `journey-confirm-planning`,
+`journey-confirm-failed`, `journey-view-none`, `birth-form` (ids `features-journeys-journeyscontent--<same>`).
+Baselines that change: `journey-view` (pregnancy row has three buttons; child rows have "הסרה"), `journey-view-empty` (planning now
+offers "הוספת הריון"), `children-limit`, `child-form*`, `journey-save-failed`, `pregnancy-form*`, `journey-view-add-pregnancy` (child
+rows gain "הסרה").

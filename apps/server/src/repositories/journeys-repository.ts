@@ -1,10 +1,11 @@
 // The caller's own journeys and children (I2 F2.2a, F2.2b; schema.md "Server write path"). Runs inside the caller's identity transaction
-// and nowhere else. No `where` names a user: RLS returns, inserts or updates the caller's own rows or nothing (journey_contexts_*_own,
-// children_*_own, all behind is_active_account()); permission is the database's. Writes go through the write models that name
-// exactly the granted columns, so ids, owners and clocks always take the database's defaults (rules 12, 13).
+// and nowhere else. No `where` names a user: RLS returns, inserts, updates, deletes or locks the caller's own rows or nothing
+// (journey_contexts_*_own, children_*_own, regular_profiles_*_own, all behind is_active_account()); permission is the database's.
+// Inserts and updates go through the write models that name exactly the granted columns, so ids, owners and clocks always take the
+// database's defaults (rules 12, 13). A delete names no column; a stage in its `where` is targeting, not permission.
 
 import type { ChildSex, JourneyStage, RegistrationChild } from '@nestly/shared';
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import {
   children,
   childrenInsert,
@@ -12,6 +13,7 @@ import {
   journeyContexts,
   journeyContextsInsert,
   journeyContextsUpdate,
+  regularProfiles,
 } from '../db/schema.js';
 import type { IdentityTx } from '../db/identity-transaction.js';
 
@@ -33,12 +35,54 @@ export async function readOwnJourneys(tx: IdentityTx): Promise<JourneyRow[]> {
   return tx.select({ id: journeyContexts.id, stage: journeyContexts.stage, dueDate: journeyContexts.dueDate }).from(journeyContexts);
 }
 
-/** The children the caller can see, by slot. */
+/**
+ * The children the caller can see, in the order they were added (F2.2b, schema.md "Child order"): created_at, then slot, which
+ * breaks registration's tie (one now(), slots in entry order). A reused seat shows last (c17).
+ */
 export async function readOwnChildren(tx: IdentityTx): Promise<ChildRow[]> {
   return tx
     .select({ id: children.id, name: children.name, sex: children.sex, birthDate: children.birthDate })
     .from(children)
-    .orderBy(asc(children.slot));
+    .orderBy(asc(children.createdAt), asc(children.slot));
+}
+
+/**
+ * Locks the caller's own regular_profiles row FOR NO KEY UPDATE (F2.2b, schema.md "has_child ⇔ ≥ 1"): first in every write that
+ * inserts or deletes a child or a journey, so a second such write of the same parent waits for the first one's commit and then sees
+ * it. Does not block the FOR KEY SHARE of foreign-key checks. The number of rows locked: 1, or 0 when RLS shows none.
+ */
+export async function lockOwnProfile(tx: IdentityTx): Promise<number> {
+  const rows = await tx.select({ userId: regularProfiles.userId }).from(regularProfiles).for('no key update');
+  return rows.length;
+}
+
+/** Whether the caller has any child left. A fresh statement: it sees the caller's own delete before it. */
+export async function hasOwnChild(tx: IdentityTx): Promise<boolean> {
+  const rows = await tx.select({ id: children.id }).from(children).limit(1);
+  return rows.length > 0;
+}
+
+/** Deletes child `id` (DR-1 A, hard). The id picks the target; RLS decides whether it may. The number of rows deleted. */
+export async function deleteOwnChild(tx: IdentityTx, id: string): Promise<number> {
+  const rows = await tx.delete(children).where(eq(children.id, id)).returning({ id: children.id });
+  return rows.length;
+}
+
+/**
+ * Deletes journey `id` when it is of `stage` (DR-1 A, DR-2r: hard, no reason). The id and stage pick the target; RLS decides whether
+ * it may. A row of another stage is not touched. The number of rows deleted.
+ */
+export async function deleteOwnJourney(tx: IdentityTx, id: string, stage: JourneyStage): Promise<number> {
+  const rows = await tx
+    .delete(journeyContexts)
+    .where(and(eq(journeyContexts.id, id), eq(journeyContexts.stage, stage)))
+    .returning({ id: journeyContexts.id });
+  return rows.length;
+}
+
+/** Deletes the caller's journey of `stage`, if any (has_child after the last child, DR-4 A; planning before a pregnancy, DR-3 A). */
+export async function deleteOwnJourneyOfStage(tx: IdentityTx, stage: JourneyStage): Promise<void> {
+  await tx.delete(journeyContexts).where(eq(journeyContexts.stage, stage));
 }
 
 /** The slots the caller's children take. A fresh statement: under READ COMMITTED it sees every add committed before it. */

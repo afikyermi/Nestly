@@ -52,6 +52,12 @@ export const SCREENS: Screen[] = [
   { kind: 'story', name: 'pregnancy-form', id: 'features-journeys-journeyscontent--pregnancy-form' },
   { kind: 'story', name: 'pregnancy-form-errors', id: 'features-journeys-journeyscontent--pregnancy-form-errors' },
   { kind: 'story', name: 'journey-view-add-pregnancy', id: 'features-journeys-journeyscontent--journey-view-add-pregnancy' },
+  // F2.2b2 c16, c21, c22, c25: the confirmation dialogs, its failure, no journey left, and the birth form.
+  { kind: 'story', name: 'journey-confirm', id: 'features-journeys-journeyscontent--journey-confirm' },
+  { kind: 'story', name: 'journey-confirm-planning', id: 'features-journeys-journeyscontent--journey-confirm-planning' },
+  { kind: 'story', name: 'journey-confirm-failed', id: 'features-journeys-journeyscontent--journey-confirm-failed' },
+  { kind: 'story', name: 'journey-view-none', id: 'features-journeys-journeyscontent--journey-view-none' },
+  { kind: 'story', name: 'birth-form', id: 'features-journeys-journeyscontent--birth-form' },
   // F2.3a c1, c4, c16: the privacy settings section of Settings, story entries for the same reason
   // (features/privacy/PrivacyContent.stories.tsx).
   { kind: 'story', name: 'privacy-settings', id: 'features-privacy-privacycontent--defaults' },

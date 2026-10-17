@@ -36,6 +36,7 @@ export const STATES = {
   "shared/top-bar": 2, // default, with actions
   "shared/bottom-navigation": 2, // three items, five items
   "shared/side-drawer": 2, // closed, open
+  "shared/confirm-dialog": 4, // open, title only, pending, failed
   "layout/app-shell": 2, // with content, short content
 };
 

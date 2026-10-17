@@ -1,11 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { OwnChild, OwnJourneys } from '@nestly/shared';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
-import { CHILD_ERROR_TEXTS, dueDateErrorTexts } from '@/lib/child-fields';
+import { CHILD_ERROR_TEXTS, CHILDREN_LIMIT_TEXT, dueDateErrorTexts } from '@/lib/child-fields';
 import { JourneysContent } from './JourneysContent';
-import { EMPTY_CHILD_FORM, EMPTY_DUE_DATE, LOAD_FAILED_TEXT, SAVE_FAILED_TEXT } from './journeys-form';
+import { ACTION_FAILED_TEXT, EMPTY_CHILD_FORM, EMPTY_DUE_DATE, LOAD_FAILED_TEXT, SAVE_FAILED_TEXT } from './journeys-form';
 
-// The "המסע שלי" section (F2.2a, F2.2b1) in each of its states, drawn from props alone, as it sits in the shell's `main` under the profile: no
+// The "המסע שלי" section (F2.2a, F2.2b) in each of its states, drawn from props alone, as it sits in the shell's `main` under the profile: no
 // server, no timing, so the visual baselines and axe see exactly one state each (e2e/visual-screens.ts).
 function Screen(props: Parameters<typeof JourneysContent>[0]) {
   return (
@@ -195,6 +195,84 @@ export const PregnancyFormAdd: Story = {
       data: childOnly,
       saved: false,
       form: { kind: 'pregnancy', target: { mode: 'add' }, values: EMPTY_DUE_DATE, error: null, saving: false, failure: null },
+    },
+  },
+};
+
+// F2.2b2 c21 (DR-6 A): no journey left — the sentence, with "הוספת ילד" and "הוספת הריון".
+const none: OwnJourneys = { journeys: [], children: [] };
+export const JourneyViewNone: Story = { args: { view: { kind: 'loaded', data: none, saved: false, form: null } } };
+
+// c16, c26: the confirmation before removing a child, named by its question, over the unchanged view; focus on "ביטול".
+export const JourneyConfirm: Story = {
+  args: {
+    view: {
+      kind: 'loaded',
+      data: family,
+      saved: false,
+      form: { kind: 'confirm', target: { action: 'remove-child', childId: noa.id }, saving: false, failure: null },
+    },
+  },
+};
+
+// c16: ending the pregnancy (DR-2r: no reason is asked).
+export const JourneyConfirmEnd: Story = {
+  args: {
+    view: {
+      kind: 'loaded',
+      data: family,
+      saved: false,
+      form: { kind: 'confirm', target: { action: 'end-pregnancy', journeyId: pregnancyId }, saving: false, failure: null },
+    },
+  },
+};
+
+// c16, c23 (DR-3 A): "הוספת הריון" while planning — the confirmation line before the pregnancy form.
+export const JourneyConfirmPlanning: Story = {
+  args: {
+    view: { kind: 'loaded', data: planning, saved: false, form: { kind: 'confirm', target: { action: 'end-planning' }, saving: false, failure: null } },
+  },
+};
+
+// c25: the confirmed removal failed (5xx or network): the dialog stays open with the alert, the child still shown.
+export const JourneyConfirmFailed: Story = {
+  args: {
+    view: {
+      kind: 'loaded',
+      data: family,
+      saved: false,
+      form: { kind: 'confirm', target: { action: 'remove-child', childId: noa.id }, saving: false, failure: ACTION_FAILED_TEXT },
+    },
+  },
+};
+
+// c22 (DR-2 A): "הלידה התרחשה" opens the child form, empty, under the journeys.
+export const BirthForm: Story = {
+  args: {
+    view: {
+      kind: 'loaded',
+      data: family,
+      saved: false,
+      form: { kind: 'child', target: { mode: 'birth', journeyId: pregnancyId }, values: EMPTY_CHILD_FORM, errors: {}, saving: false, failure: null },
+    },
+  },
+};
+
+// c22: ten children stored — the birth is refused (409), the pregnancy kept, the form shows the c6 text.
+export const BirthFormFull: Story = {
+  args: {
+    view: {
+      kind: 'loaded',
+      data: { journeys: [{ id: pregnancyId, stage: 'pregnant', dueDate: '2027-03-01' }, ...ten.journeys], children: ten.children },
+      saved: false,
+      form: {
+        kind: 'child',
+        target: { mode: 'birth', journeyId: pregnancyId },
+        values: filled,
+        errors: {},
+        saving: false,
+        failure: CHILDREN_LIMIT_TEXT,
+      },
     },
   },
 };

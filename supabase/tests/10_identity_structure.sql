@@ -273,8 +273,10 @@ select is_empty(
         and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents')
         and not (c.relname = 'regular_profiles' and pol.polname = 'regular_profiles_update_own' and pol.polcmd = 'w')
         and not (c.relname = 'children' and pol.polname = 'children_update_own' and pol.polcmd = 'w')
-        and not (c.relname = 'journey_contexts' and pol.polname = 'journey_contexts_update_own' and pol.polcmd = 'w') $$,
-  '[F1.1-b c13 platform r14 · F1.4-a c14 · F1.6 scoped · F2.1 c10 · F2.2a c9 · F2.2-b c18] no UPDATE, DELETE or ALL policy exists on the five F1.1/F1.4 tables except regular_profiles_update_own (F2.1), children_update_own (F2.2a) and journey_contexts_update_own (F2.2b1; recovery_answers has its own: file 30; files 50, 51 and 54 assert the policies)');
+        and not (c.relname = 'journey_contexts' and pol.polname = 'journey_contexts_update_own' and pol.polcmd = 'w')
+        and not (c.relname = 'children' and pol.polname = 'children_delete_own' and pol.polcmd = 'd')
+        and not (c.relname = 'journey_contexts' and pol.polname = 'journey_contexts_delete_own' and pol.polcmd = 'd') $$,
+  '[F1.1-b c13 platform r14 · F1.4-a c14 · F1.6 scoped · F2.1 c10 · F2.2a c9 · F2.2-b c18] no UPDATE, DELETE or ALL policy exists on the five F1.1/F1.4 tables except regular_profiles_update_own (F2.1), children_update_own (F2.2a), journey_contexts_update_own (F2.2b1) and the own-row deletes children_delete_own and journey_contexts_delete_own (F2.2b2, DR-1 A; recovery_answers has its own: file 30; files 50, 51 and 54 assert the policies)');
 
 select is(
   (select string_agg(c.relname || '.' || pol.polname, ', ' order by c.relname, pol.polname)
@@ -347,10 +349,10 @@ select is(
      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')
       and (has_table_privilege('authenticated', c.oid, 'UPDATE,TRUNCATE,REFERENCES,TRIGGER')
-           or (c.relname <> 'recovery_answers' and has_table_privilege('authenticated', c.oid, 'DELETE'))
+           or (c.relname not in ('recovery_answers', 'children', 'journey_contexts') and has_table_privilege('authenticated', c.oid, 'DELETE'))
            or (c.relname not in ('recovery_answers', 'identity_link_checks', 'regular_profiles', 'children', 'journey_contexts') and has_any_column_privilege('authenticated', c.oid, 'UPDATE,REFERENCES')))),
   0::bigint,
-  '[F1.1-b c13 · F1.4-a c14 · F1.6, F2.0 scoped · F2.2a c9 · F2.2-b c18] authenticated holds no table-level UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any table in nestly (DELETE on recovery_answers is the F2.0 D1 grant), and no column-level UPDATE or REFERENCES except on recovery_answers, identity_link_checks, regular_profiles, children and journey_contexts (files 30, 40, 50, 51 and 54 list those columns)');
+  '[F1.1-b c13 · F1.4-a c14 · F1.6, F2.0 scoped · F2.2a c9 · F2.2-b c18] authenticated holds no table-level UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any table in nestly (DELETE on recovery_answers is the F2.0 D1 grant; on children and journey_contexts the F2.2b2 own-row delete, file 54), and no column-level UPDATE or REFERENCES except on recovery_answers, identity_link_checks, regular_profiles, children and journey_contexts (files 30, 40, 50, 51 and 54 list those columns)');
 
 -- =====================================================================================================================
 -- Criterion 18 — is_active_account(): caller only, invoker, not an approved definer. [Spec addendum 1]
