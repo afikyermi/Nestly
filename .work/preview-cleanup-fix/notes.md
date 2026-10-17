@@ -41,3 +41,5 @@ Afik 17.10.2026, `decisions/2026-10.md` "Preview cleanup" (a) and (c). Incident:
 - 15:46 dry-run (39046511255): 168, 72 older than 3 h. Backlog 39046587343: 50 deleted; backlog 39046785938: 22 deleted; 0 failed.
   96 remain, all under 3 h. The per-run refusal will recur while E runs often → Afik's decision on WORKPLAN "ממתין לך" (count only
   the run's own users); backlog stays in the tool until then; next manual round about 18:45 UTC.
+- 16:41 first per-run cleanup with the new limit (#51), run 39050427293 after PR 52's E: OK, 22 users removed (this run's own +
+  the bounded sweep), 0 failed. The scheduled manual round (18:54) is cancelled, per Afik. Backlog mode is still in the tool → debt.md.

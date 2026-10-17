@@ -5,9 +5,11 @@ import { GUEST_LANDING, GUEST_PATHS, normalizePath, PATHS, PROTECTED_PATHS, SIGN
 /** `returnTo`: the profile link a Guest opened; the redirect to Login carries it so the sign-in can lead back to it (F2.4c2 c27). */
 export type AccessDecision = { kind: 'loading' } | { kind: 'render' } | { kind: 'redirect'; to: string; returnTo?: string };
 
-const COMPLETION_PATHS: readonly string[] = [PATHS.register, PATHS.terms, PATHS.privacy];
-const QUESTIONS_HELD_PATHS: readonly string[] = [PATHS.recoveryQuestions, PATHS.terms, PATHS.privacy];
-const NEW_PASSWORD_HELD_PATHS: readonly string[] = [PATHS.setNewPassword, PATHS.terms, PATHS.privacy];
+// The two consent documents (placeholders until I9): open to a Guest, and to a signed-in user too (F2.5 c6, Settings links to them).
+const DOCUMENT_PATHS: readonly string[] = [PATHS.terms, PATHS.privacy];
+const COMPLETION_PATHS: readonly string[] = [PATHS.register, ...DOCUMENT_PATHS];
+const QUESTIONS_HELD_PATHS: readonly string[] = [PATHS.recoveryQuestions, ...DOCUMENT_PATHS];
+const NEW_PASSWORD_HELD_PATHS: readonly string[] = [PATHS.setNewPassword, ...DOCUMENT_PATHS];
 const RENDER: AccessDecision = { kind: 'render' };
 const LOADING: AccessDecision = { kind: 'loading' };
 const redirect = (to: string): AccessDecision => ({ kind: 'redirect', to });
@@ -38,6 +40,7 @@ export function decideAccess(
   if (state === 'signed-in') {
     if (mustSetPassword) return NEW_PASSWORD_HELD_PATHS.includes(path) ? RENDER : redirect(PATHS.setNewPassword);
     if (needsQuestions) return QUESTIONS_HELD_PATHS.includes(path) ? RENDER : redirect(PATHS.recoveryQuestions);
+    if (DOCUMENT_PATHS.includes(path)) return RENDER;
     if (isGuestPath) {
       const returnTo = normalizePath(options.returnTo ?? '');
       return redirect(userIdOfProfilePath(returnTo) !== null ? returnTo : SIGNED_IN_LANDING);

@@ -1,4 +1,4 @@
-// F2.3a c1 c2 c6 on the real Preview: sign up (registration sends no privacy setting), open the settings from the profile page's link,
+// F2.3a c1 c2 c6 on the real Preview: sign up (registration sends no privacy setting), open the settings from the side menu ("פרטיות ואבטחה", F2.5 c2; the profile page's temporary link is gone, F2.5 c10),
 // see the defaults (open, both switches on), save restricted / off / off, reload (the three survive), save the defaults back,
 // reload. Derived from .work/profile-privacy/spec.md; route and names from interface.md. It makes its own fresh user (same
 // email pattern as the fixture's, so the cleanup sweep covers it). No recovery attempts are made.
@@ -37,7 +37,7 @@ async function signIn(page: Page, u: TestUser): Promise<void> {
 }
 
 test.describe.serial('F2.3a privacy settings on the Preview [c1 c2 c6]', () => {
-  test('[F2.3a c6 c1 DR-2] a fresh user: the profile link opens /settings with open selected and both switches on', async ({ page }, info) => {
+  test('[F2.3a c6 c1 DR-2] a fresh user: the menu item "פרטיות ואבטחה" opens /settings#privacy with open selected and both switches on', async ({ page }, info) => {
     const u = userOf(info.project.name);
     await page.goto('/register');
     await page.getByRole('group', { name: 'השלב במסע', exact: true }).locator('label').filter({ hasText: /מתכננים/ }).click();
@@ -55,9 +55,9 @@ test.describe.serial('F2.3a privacy settings on the Preview [c1 c2 c6]', () => {
     await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);
     await page.getByRole('button', { name: 'שמירה', exact: true }).click();
     await expect(page).toHaveURL(/\/feed$/);
-    await page.goto('/profile');
-    await main(page).getByRole('link', { name: 'הגדרות פרטיות', exact: true }).click();
-    await expect(page).toHaveURL(/\/settings$/);
+    await page.getByRole('button', { name: 'פתיחת התפריט', exact: true }).click();
+    await page.getByRole('dialog', { name: 'תפריט' }).getByRole('link', { name: 'פרטיות ואבטחה', exact: true }).click();
+    await expect(page).toHaveURL(/\/settings#privacy$/);
     await expect(openRadio(page)).toBeChecked();
     await expect(restrictedRadio(page)).not.toBeChecked();
     await expect(sentenceBox(page)).toBeChecked();
