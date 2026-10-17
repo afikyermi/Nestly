@@ -5,6 +5,10 @@
 # out the default branch - never the deployment sha of the run it cleans up. A branch under test therefore never executes
 # code with the BYPASSRLS credential. The credential is in the GitHub environment `preview-e2e` (restricted to `main`) and in
 # the env of the one cleanup step; the run id and attempt come from the event through env, never interpolated in `run:`.
+#
+# Manual run (Afik 17.10.2026, "Preview cleanup" (c)): workflow_dispatch from main only, input `mode` = dry-run (default:
+# preflight, then counts and the age range of the test users; nothing deleted) or backlog (at most 50 of the oldest test
+# users older than 3 h, same pattern, preflight and per-user transaction). The workflow_run path is unchanged.
 
 name: preview-e2e-cleanup
 
@@ -12,6 +16,13 @@ on:
   workflow_run:
     workflows: [preview-e2e]
     types: [completed]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: dry-run reports counts only - backlog deletes at most 50 of the oldest test users older than 3 h
+        type: choice
+        default: dry-run
+        options: [dry-run, backlog]
 
 permissions:
   contents: read
@@ -23,7 +34,7 @@ concurrency:
 jobs:
   cleanup:
     name: preview-e2e-cleanup
-    if: github.event.workflow_run.conclusion != 'skipped'
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'skipped') || (github.event_name == 'workflow_dispatch' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
     environment: preview-e2e
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -43,4 +54,5 @@ jobs:
           PREVIEW_DB_ADMIN_URL: ${{ secrets.PREVIEW_DB_ADMIN_URL }}
           TARGET_RUN_ID: ${{ github.event.workflow_run.id }}
           TARGET_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          CLEANUP_MODE: ${{ inputs.mode }}
         run: node tools/preview-e2e-cleanup-cli.ts
