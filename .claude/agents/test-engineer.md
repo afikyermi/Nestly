@@ -102,7 +102,7 @@ desktop and the phone viewport.
 ## One layer per behaviour
 
 Each behaviour is asserted once, at the layer that can see it best — never repeated across layers:
-- permissions and data rules → database-level tests
+- permissions and data rules → database-level tests. For changed Auth/session/deletion/provider behaviour, test DATA ARCHITECT's critical assumption from spec/schema before the first affected part merges: disposable CI or an approved non-production provider, not mocks alone; missing evidence → blocker/owner (workflow → "Closing a part"). No new test for unrelated features.
 - logic → unit tests
 - screen behaviour → end-to-end tests
 - a component-level test only for logic that has no expression an end-to-end test can reach

@@ -10,7 +10,13 @@ status or progress file.
 **Commits and pushes:** a log, decision or WORKPLAN update rides with the next work commit; between features it goes
 as a records-only PR (Light), never as a direct push to `main`. Commit locally as often as useful; push only when CI is needed, at the end of a stage, or at the end of a
 session (each push to a PR branch costs a CI run and a Vercel deploy from a daily quota). Merges are squash; the PR body
-carries the `Implements:` line.
+carries the `Implements:` line. Prepare a stable candidate: bundle fixes, records and baselines before the push;
+open the PR before the push intended to trigger Preview (an initial branch push may be needed to open it).
+After squash merge, use a fresh branch from current main for the next part **if the Claude Code cloud environment
+supports it**. If unverified or unavailable, state that in the PR/handoff; do not force-push or assume branch switching works.
+**Bounded waits (Afik, 17.10, P1):** every wait has a reason, one owner and a next-check time. ORCHESTRATOR checks a
+silent small-change agent at about 10 minutes and recovers (finish or restart within existing role/decision authority).
+Use notifications plus the scheduled check, never dense polling. Details and the read-only status tool: workflow → "Closing a part".
 **Operating model:** `.claude/workflow.md` is the canonical pipeline. Read it before routing work.
 **Improvement loop:** `.claude/learning.md`. **Decisions and rejected alternatives:** `decisions.md`.
 
@@ -94,7 +100,7 @@ boundary exactly where all the context is required.
 
 - ❌ **override a specialist's domain verdict.** A critical, high or medium bug from CRITIC (or ALGORITHM & DATA) is
   not yours to dismiss or re-grade. If you disagree, escalate to Afik — you do not resolve it yourself.
-- ❌ write feature code instead of BUILDER
+- ❌ write feature code instead of BUILDER, except the explicitly approved small-change recovery after a silent agent times out (17.10); specialist decision rights still bind
 - ❌ decide schema instead of DATA ARCHITECT
 - ❌ change Scope (add or remove a feature) without Afik, or change an approved `spec.md` without
   recording the change and its reason in `decisions.md`

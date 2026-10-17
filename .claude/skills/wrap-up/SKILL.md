@@ -8,7 +8,10 @@ argument-hint: <slug>
 # /wrap-up — steps 13 and 14
 
 **Version:** 1.3 · the steps are in `.claude/workflow.md` (13, 14, "Result", "Traceability"); the logs and the
-WORKPLAN rule in `CLAUDE.md`. Runs **once per feature**, never per part.
+WORKPLAN rule in `CLAUDE.md`. Result/log writing runs **once per feature**; the closing checks below run **every part**.
+Apply workflow → "Closing a part": every wait has a reason, owner and next-check time; inspect/recover a silent small-change
+agent at ~10 minutes, without dense polling. Before the next part, check main's current unresolved failures (including
+Edge, cleanup and migrate); a later successful equivalent execution resolves history, unrelated green/skip does not.
 
 ## Input
 
@@ -17,7 +20,9 @@ WORKPLAN rule in `CLAUDE.md`. Runs **once per feature**, never per part.
 ## Preconditions
 
 E (automated Preview E2E) is green (or the change took the Light path) · no critical, high or medium bug is
-open · CI is green.
+open · CI is green on the current head. An expected skip needs its actual workflow condition; missing/cancelled required
+checks and missing E (where applicable) block. Use `node tools/part-status.mjs <PR>` and inspect its evidence/limits.
+Prepare the records and baselines before the final candidate push; recheck gates after any new commit is pushed.
 
 ## Steps
 
@@ -31,14 +36,15 @@ open · CI is green.
    (a move, never a delete), so the count starts again with the next task.
 3. **SRS — step 14:** the SRS trace is in `result.md`; the SRS files are updated once per Initiative, at its close
    (`.claude/skills/srs-update/SKILL.md`, steps 1–6), or at once for a decision that changes scope or the security model.
-4. **WORKPLAN:** the task's status in its part table, and the "איפה אנחנו עומדים" block. WORKPLAN keeps only open
-   work and the last finished part: when a part closes, the part it replaces as "last finished" moves verbatim to
-   `archive/WORKPLAN-<YYYY-MM>.md`, and anything still open inside it goes to "פתוח מחלקים שנסגרו".
+4. **WORKPLAN:** update once per Initiative, only the waiting-on-Afik list between Initiatives (CLAUDE.md).
+   Between parts the handoff is the PR and `.work/<slug>/`; retain existing archival history.
 5. **Merge and commit:** stage explicit paths only. The logs, decisions and WORKPLAN go in this same commit — never a
    commit of their own. The message ends with `Implements: FR-…, AC-…` (or `Implements: none — <reason>`) and the
    attribution line. Push once, for CI; the PR body carries the same `Implements:` line, since merges are squash and
    the PR body becomes the squash message (`decisions/2026-10.md`, "Commits and pushes").
-6. **Report** to Afik in Hebrew: what closed, what was logged, what comes next.
+6. **After merge:** inspect main health before the next part; use the workflow's conditional fresh-branch rule after squash.
+   Codex improvement PRs wait for Afik to merge. **Report** in Hebrew: what closed, what was logged, what comes next,
+   and any cloud branch limitation. An unresolved main failure has an owner/recovery step, not an automatic next part.
 
 ## Stop conditions
 
