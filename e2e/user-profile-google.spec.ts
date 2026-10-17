@@ -174,4 +174,72 @@ test.describe('F2.4c2 c27 [FR-AUTH-004] Google sign-in from a profile link', () 
     expect(seen.key, 'no entry for a Login that did not come from a profile').toBeNull();
     expect(net.views).toEqual([]);
   });
+
+  // ---- stale note (CRITIC's last bug): the note must not outlive the Google step it was written for ----
+  interface Provider {
+    complete: boolean;
+    /** sessionStorage as it was at each authorize request. */
+    atRedirect: Array<Record<string, string>>;
+  }
+  /** The provider with a switch: abandoned (aborted) or completed (302 back to the app). */
+  async function switchableGoogle(page: Page): Promise<Provider> {
+    const p: Provider = { complete: false, atRedirect: [] };
+    await page.route(`${AUTHORIZE}**`, async (route) => {
+      p.atRedirect.push(await session(page));
+      if (p.complete) await route.fulfill({ status: 302, headers: { location: `${APP}/auth/google?code=e2e-code` } });
+      else await route.abort('aborted');
+    });
+    return p;
+  }
+  /** Guest at /u/X -> Login -> Google, abandoned; returns the key of the note written. */
+  async function abandonedStart(page: Page, p: Provider): Promise<string> {
+    const seen: Seen = { baseline: [], key: null, written: null };
+    await guestToGoogle(page, seen);
+    await expect.poll(() => p.atRedirect.length).toBeGreaterThan(0);
+    const last = p.atRedirect[p.atRedirect.length - 1] ?? {};
+    const key = Object.keys(last).find((k) => !seen.baseline.includes(k));
+    expect(key, 'the profile link left a note').toBeDefined();
+    return key ?? '';
+  }
+
+  test('[F2.4c2 c27] a Google step abandoned from /u/X, then a plain Login -> Google that completes: the user lands on /feed, no viewer call for X', async ({ page }) => {
+    const net = await setupProfiles(page, world());
+    const p = await switchableGoogle(page);
+    const key = await abandonedStart(page, p);
+    p.complete = true;
+    await page.goto('/login');
+    expect(Object.keys(await session(page)), 'the stale note is gone after the fresh load').not.toContain(key);
+    await page.getByRole('button', { name: GOOGLE, exact: true }).click();
+    await expect.poll(() => pathOf(page)).toBe('/feed');
+    await settle(page);
+    expect(net.views).toEqual([]);
+    expect(await page.content()).not.toContain(NOA);
+  });
+
+  for (const path of ['/login', '/register', '/'] as const) {
+    test(`[F2.4c2 c27] a note present at a fresh load of ${path} (not googleEntry) is gone after that load`, async ({ page }) => {
+      await setupProfiles(page, world());
+      const p = await switchableGoogle(page);
+      const key = await abandonedStart(page, p);
+      expect(Object.keys(await session(page))).toContain(key);
+      await page.goto(path);
+      await settle(page);
+      expect(Object.keys(await session(page))).not.toContain(key);
+      await expectNoProfileInStorage(page, `after loading ${path}`);
+    });
+  }
+
+  test('[F2.4c2 c27] a plain Google start (Register, no target) removes an existing note before it redirects', async ({ page }) => {
+    const net = await setupProfiles(page, world());
+    const p = await switchableGoogle(page);
+    const key = await abandonedStart(page, p);
+    await page.locator('a[href="/register"]').first().click();
+    await expect.poll(() => pathOf(page)).toBe('/register');
+    expect(Object.keys(await session(page)), 'still there: no fresh load happened').toContain(key);
+    const before = p.atRedirect.length;
+    await page.getByRole('button', { name: GOOGLE, exact: true }).click();
+    await expect.poll(() => p.atRedirect.length).toBeGreaterThan(before);
+    expect(Object.keys(p.atRedirect[p.atRedirect.length - 1] ?? {}), 'the old note is removed by the plain start').not.toContain(key);
+    expect(net.views).toEqual([]);
+  });
 });
