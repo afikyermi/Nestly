@@ -46,13 +46,16 @@ export const ProfileCurrent: Story = { render: () => <SignedInAt path={PATHS.pro
 // Settings is reached from the menu, not the navigation: no nav item is current.
 export const SettingsNoneCurrent: Story = { render: () => <SignedInAt path={PATHS.settings} /> };
 
+// F2.4b: the Friends page, reached from the menu (the lists load from the real API, so in Storybook they show the load failure).
+export const FriendsNoneCurrent: Story = { render: () => <SignedInAt path={PATHS.friends} /> };
+
 // F2.0 c15: the password-change screen, reached from the menu.
 export const ChangePassword: Story = { render: () => <SignedInAt path={PATHS.changePassword} /> };
 
 // F2.0 c14: after a takeover clear any route lands on the forced new-password screen.
 export const MustSetNewPassword: Story = { render: () => <SignedInAt path={PATHS.feed} mustSetPassword /> };
 
-// The side menu open: Settings, the recovery questions, the password change and Logout.
+// The side menu open: Friends, Settings, the recovery questions, the password change and Logout.
 export const DrawerOpen: Story = {
   render: () => <SignedInAt path={PATHS.feed} />,
   play: async ({ canvas, userEvent }) => {

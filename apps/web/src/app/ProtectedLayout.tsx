@@ -14,7 +14,7 @@ const NAV_ITEMS = [
 ];
 
 // The AppShell around every protected screen (FR-TOP-001, FR-MENU-001), bound to the router and the
-// session. The TopBar holds only the Hamburger and the Logo; the menu holds Settings, the recovery questions, the password change
+// session. The TopBar holds only the Hamburger and the Logo; the menu holds Friends (F2.4b), Settings, the recovery questions, the password change
 // (F2.0 c15) and Logout.
 export function ProtectedLayout() {
   const { pathname } = useLocation();
@@ -37,6 +37,15 @@ export function ProtectedLayout() {
       onNavigate={go}
       menu={(closeMenu) => (
         <>
+          <MenuItem
+            href={PATHS.friends}
+            onNavigate={(href) => {
+              closeMenu();
+              go(href);
+            }}
+          >
+            חברים
+          </MenuItem>
           <MenuItem
             href={PATHS.settings}
             onNavigate={(href) => {
