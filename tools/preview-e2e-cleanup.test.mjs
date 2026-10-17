@@ -81,7 +81,7 @@ const GOOD_FACTS = {
   dbUser: 'postgres',
   bypassRls: true,
   canDeleteAuthUsers: true,
-  nestlyTables: ['children', 'identity_link_checks', 'journey_contexts', 'legal_consents', 'recovery_answers', 'recovery_events', 'recovery_throttles', 'regular_profiles', 'users'],
+  nestlyTables: ['children', 'friendships', 'identity_link_checks', 'journey_contexts', 'legal_consents', 'recovery_answers', 'recovery_events', 'recovery_throttles', 'regular_names', 'regular_profiles', 'users'],
 };
 
 test('[E c8] preflight passes only for the exact expected facts, in any table order', () => {
@@ -455,14 +455,14 @@ test('[cleanup a] the expected tables are exactly the nestly tables the migratio
   assert.doesNotMatch(code, /alter\s+table\s+(?:if\s+exists\s+)?nestly\.[a-z_]+\s+rename\s+to/i, 'a renamed table: update this test');
   assert.deepEqual([...cleanup.EXPECTED_NESTLY_TABLES], [...created].sort());
   assert.ok(created.has('identity_link_checks'));
-  assert.equal(cleanup.EXPECTED_NESTLY_TABLES.length, 9);
+  assert.equal(cleanup.EXPECTED_NESTLY_TABLES.length, 11);
 });
 
-test('[cleanup a] the preflight with all nine tables passes; the eight of before (no identity_link_checks) fails', () => {
+test('[cleanup a] the preflight with all eleven tables passes; the ten left without identity_link_checks fail', () => {
   assert.equal(cleanup.decidePreflight(GOOD_FACTS).ok, true);
-  const eight = GOOD_FACTS.nestlyTables.filter((t) => t !== 'identity_link_checks');
-  assert.equal(eight.length, 8);
-  assert.equal(cleanup.decidePreflight({ ...GOOD_FACTS, nestlyTables: eight }).ok, false);
+  const ten = GOOD_FACTS.nestlyTables.filter((t) => t !== 'identity_link_checks');
+  assert.equal(ten.length, 10);
+  assert.equal(cleanup.decidePreflight({ ...GOOD_FACTS, nestlyTables: ten }).ok, false);
 });
 
 test('[cleanup a] every expected table is deleted from in the user transaction; identity_link_checks just before nestly.users', () => {
@@ -471,11 +471,13 @@ test('[cleanup a] every expected table is deleted from in the user transaction; 
   const users = order.indexOf('nestly.users');
   assert.equal(order[users - 1], 'nestly.identity_link_checks');
   assert.equal(order.at(-1), 'auth.users');
-  // the order of the eight before is unchanged
+  // the order of the eight before is unchanged; friendships and regular_names (F2.4a) sit after journey_contexts, before regular_profiles
   assert.deepEqual(order.filter((t) => t !== 'nestly.identity_link_checks'), [
     'nestly.recovery_throttles', 'nestly.recovery_events', 'nestly.legal_consents', 'nestly.recovery_answers', 'nestly.children',
-    'nestly.journey_contexts', 'nestly.regular_profiles', 'nestly.users', 'auth.users',
+    'nestly.journey_contexts', 'nestly.friendships', 'nestly.regular_names', 'nestly.regular_profiles', 'nestly.users', 'auth.users',
   ]);
+  assert.match(cliText, /counts\['friendships'\] = \(\s*await tx`delete from nestly\.friendships where requester_id = \$\{id\} or addressee_id = \$\{id\}`\s*\)\.count/);
+  assert.match(cliText, /counts\['regular_names'\] = \(await tx`delete from nestly\.regular_names where user_id = \$\{id\}`\)\.count/);
   assert.match(cliText, /counts\['identity_link_checks'\] = \(await tx`delete from nestly\.identity_link_checks where user_id = \$\{id\}`\)\.count/);
 });
 

@@ -10,6 +10,7 @@ import {
   ACCOUNT_STATUSES,
   ACCOUNT_TYPES,
   CHILD_SEXES,
+  FRIENDSHIP_STATUSES,
   IDENTITY_LINK_VERDICTS,
   JOURNEY_STAGES,
   PARENT_GENDERS,
@@ -275,4 +276,40 @@ export const identityLinkChecksInsert = nestly.table('identity_link_checks', {
 export const identityLinkChecksUpdate = nestly.table('identity_link_checks', {
   clearedAt: timestamp('cleared_at', { withTimezone: true }),
   passwordSetAt: timestamp('password_set_at', { withTimezone: true }),
+});
+
+// Friends (I2 F2.4a; migration 20261017160000; schema.md "Drizzle"). Rows are visible to a party while the other party is active (RLS).
+
+/** SRS Friendship / Friend Request (§13, FR-REL-001): a request and the Friendship it becomes. Cancel is `cancelledAt`, not a status (DR-4 A). */
+export const friendships = nestly.table('friendships', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  requesterId: uuid('requester_id').notNull().default(sql`auth.uid()`),
+  addresseeId: uuid('addressee_id').notNull(),
+  status: text('status', { enum: FRIENDSHIP_STATUSES }).notNull().default('pending'),
+  requesterStatus: text('requester_status', { enum: ACCOUNT_STATUSES }).notNull().default('active'),
+  addresseeStatus: text('addressee_status', { enum: ACCOUNT_STATUSES }).notNull().default('active'),
+  requestedAt: timestamp('requested_at', { withTimezone: true }).notNull().defaultNow(),
+  respondedAt: timestamp('responded_at', { withTimezone: true }),
+  cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+  removedAt: timestamp('removed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** INSERT target only. Names exactly the column granted INSERT to authenticated (migration 20261017160000): the requester is the caller's, set by the database. */
+export const friendshipsInsert = nestly.table('friendships', {
+  addresseeId: uuid('addressee_id').notNull(),
+});
+
+/** UPDATE target only. status and cancelled_at are the columns granted UPDATE (the trigger decides each move); the party ids are for WHERE only (42501 if set). */
+export const friendshipsUpdate = nestly.table('friendships', {
+  requesterId: uuid('requester_id').notNull(),
+  addresseeId: uuid('addressee_id').notNull(),
+  status: text('status', { enum: FRIENDSHIP_STATUSES }).notNull(),
+  cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+});
+
+/** DR-6 A: the full name of a Regular profile, readable by its owner and the other party of a live pair. Read only. */
+export const regularNames = nestly.table('regular_names', {
+  userId: uuid('user_id').primaryKey().default(sql`auth.uid()`),
+  fullName: text('full_name').notNull(),
 });

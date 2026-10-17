@@ -5,6 +5,7 @@ import { readConfig, type ServerConfig } from './lib/config.js';
 import { createTokenVerifier } from './lib/token-verifier.js';
 import { registerAuthentication, replySessionRefused, type LinkGate } from './plugins/authentication.js';
 import { clientAddress } from './recovery/client-ip.js';
+import { registerFriendsRoutes } from './routes/friends.js';
 import { registerJourneysRoutes } from './routes/journeys.js';
 import { registerMeRoute } from './routes/me.js';
 import { registerPasswordRoutes } from './routes/password.js';
@@ -98,6 +99,7 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerProfileRoute(app, { database });
   registerJourneysRoutes(app, { database, clock });
   registerPrivacyRoute(app, { database });
+  registerFriendsRoutes(app, { database });
 
   return app;
 }

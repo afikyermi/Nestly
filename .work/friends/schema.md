@@ -250,3 +250,38 @@ not built; it is last-but-two in the build order, so nothing waits. The cleanup 
 because of the exact SQL — accepted.
 
 **Afik, 17.10.2026 (decisions.md "F2.4c1 DR-L"):** DR-L → A; the cleanup-tool line is approved. F2.4c1 is unblocked.
+
+## Preview cleanup — DATA ARCHITECT, 17.10.2026 (standing rule, data-model.md "Migrations"; Afik 17.10 "Preview cleanup" b)
+Same PR as each migration. `id` = the row locked `for update` in `deleteUser` (auth.users, pattern email). F2.2a/F2.3a/F2.3b add no
+`nestly` table, so the list is still today's nine. `postgres` inherits `app_owner` (bootstrap `01-roles.sql:137`) and runs with
+`row_security = off`: the missing DELETE grants/policies on these tables do not apply to it. No delete trigger on any of them.
+**F2.4a** — EXPECTED_NESTLY_TABLES + `friendships`, `regular_names` (9 → 11, sorted; update the "nine tables" comment).
+Insert both **after `journey_contexts`, before `regular_profiles`** (cli.ts:88 → :89):
+- `counts['friendships'] = delete from nestly.friendships where requester_id = ${id} or addressee_id = ${id}` — both sides. Its four
+  FKs (requester_id, addressee_id → regular_profiles; both status pairs → users) are ON DELETE CASCADE, so the profile delete
+  would remove them anyway; explicit gives the count and keeps "leaf first" visible. Uses both F2.4a single-column indexes.
+- `counts['regular_names'] = delete from nestly.regular_names where user_id = ${id}` — FK to regular_profiles CASCADE; own row only.
+**Rows of another user.** A friendship row belongs to both parties. (a) Test ↔ test: deleted with the first user; the second user's
+transaction finds 0 for it (a concurrent cleanup waits on the row lock, ≤ lock_timeout 5 s, then sees it gone). (b) Test ↔ non-test
+(e.g. Afik's manual preview account): **deleted.** It cannot outlive the test user (the CASCADE FKs remove it with the profile
+whatever the order), and refusing would strand the test user and, past MAX_PATTERN_USERS, stop all cleanup. Effect on the other user
+= an I9 profile delete: the pair, its request or Friendship disappears; the other user's own rows (profile, `regular_names`) are
+never touched — no statement keys on anyone but `id`. Never rewrite the counterparty copy columns (`*_status`); cleanup updates nothing.
+**F2.4c1** — EXPECTED_NESTLY_TABLES + `profile_open_counts`, `security_events`, `security_limits` (11 → 14).
+- `profile_open_counts` (FK user_id → users CASCADE) then `security_events` (FK user_id → users **ON DELETE RESTRICT**), each
+  `delete … where user_id = ${id}`, **after `regular_profiles`, before `identity_link_checks`** (cli.ts:89 → :90): both before `users`,
+  and `identity_link_checks` stays the statement just before `nestly.users` (test.mjs:472). F2.4c1's "cli.ts:75" is stale.
+  Afik DR-L (17.10): the events deletion is allowed for test users in this tool only; RESTRICT stays for every other path (I9 TBD).
+- `security_limits`: configuration, no user FK — **no delete, never touched**; list entry only. Deleting it would fail every later
+  `profile_view` closed (NS001).
+None of the three holds a row about another user (events and counts are keyed on the actor `auth.uid()`), so (b) does not arise.
+Tests (`tools/preview-e2e-cleanup.test.mjs`, TEST ENGINEER, same PR) turn red and are amended: :458 count 9 → 11 → 14; :461 the
+"nine" fixture (GOOD_FACTS :84) gains the tables; :470 requires a `delete from` for **every** expected table — add an explicit
+exemption list `['security_limits']` (config, no user rows), never a dummy delete; :475 the pinned order gains `friendships`,
+`regular_names` before `regular_profiles` and `profile_open_counts`, `security_events` after it; :472 unchanged. Add: friendships
+deleted by `requester_id = ${id} or addressee_id = ${id}` (both sides pinned by regex).
+
+## Amendment — migration versions (ORCHESTRATOR, 17.10.2026, from DATA ARCHITECT's as-built check)
+Internal HOW. F2.4a is built as `20261017160000_friendships.sql`, not `20261017130000` (lines 18, 59, 110): the timestamp rule needs a version
+later than main's newest, `20261017150000_profile_view.sql`. **F2.4c1** therefore takes `20261017170000` or later (not `20261017160000`,
+line 136), and its down script deletes **that** version's history row (line 210), never F2.4a's.

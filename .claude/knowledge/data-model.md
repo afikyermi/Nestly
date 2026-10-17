@@ -1,7 +1,7 @@
 # Data model — as-built
 
 **Maintained by:** DATA ARCHITECT. Updated on every schema change, in the same unit of work.
-**Status:** schema `nestly` exists since I1 F1.1 part b (`nestly.users`, `nestly.regular_profiles`), since I1 F1.4 (`nestly.journey_contexts`, `nestly.children`, `nestly.legal_consents`), since I1 F1.6 (`nestly.recovery_answers`, `nestly.recovery_throttles`, `nestly.recovery_events`), and since I2 F2.0 (`nestly.identity_link_checks`). The "Planned" section maps the SRS for everything not built yet.
+**Status:** schema `nestly` exists since I1 F1.1 part b (`nestly.users`, `nestly.regular_profiles`), since I1 F1.4 (`nestly.journey_contexts`, `nestly.children`, `nestly.legal_consents`), since I1 F1.6 (`nestly.recovery_answers`, `nestly.recovery_throttles`, `nestly.recovery_events`), since I2 F2.0 (`nestly.identity_link_checks`), and since I2 F2.4a (`nestly.friendships`, `nestly.regular_names`). The "Planned" section maps the SRS for everything not built yet.
 
 One of the two maintained as-built descriptions, with its per-table part `data-model-tables.md`; the other is `conventions.md`. Everything else is read from the code.
 
@@ -107,8 +107,8 @@ cascade has run — reserved for Afik. Bootstrap steps, the complete list (anyth
 own-row policies (rule 16). **Resolved for a definer that reads other users' rows** (F2.3b, DR-G1): it reaches them only through `TO app_owner`
 policies scoped to a target it declares in a transaction-local setting and clears; no runtime role is in `app_owner` (rule 1), so the setting opens
 nothing outside it — `nestly.profile_view` below. **Still open** for rule-17 writes into other users' rows and rule-19 audited reads — decided with the first.
-**Backfills:** a constant one has its pattern (F2.3a: `ADD COLUMN … NOT NULL DEFAULT <constant>`, catalog-only, writes no row); a computed one is
-still open.
+**Backfills:** constant (F2.3a): `ADD COLUMN … NOT NULL DEFAULT <constant>`, catalog-only, no row written. Computed (F2.4a DR-B): in the migration's transaction,
+`NO FORCE` on the source, `INSERT … SELECT` as owner, `FORCE` again at once (ACCESS EXCLUSIVE till commit: rule 8 holds at every commit); never at runtime.
 
 ### Approved exceptions
 
@@ -160,7 +160,7 @@ ref>, session pooler, port 5432. CI only, `preview-e2e-cleanup`: main's code (ne
 (Afik, 17.10; verified via API). On `workflow_run`: the per-run cleanup. On manual `workflow_dispatch` (main only): mode `dry-run` (preflight, counts, ages;
 no delete) or `backlog` (≤ 50 oldest pattern users older than 3 h per dispatch). Victims: only the exact `TEST_EMAIL_PATTERN`. Caps unchanged: this run's
 users uncapped, sweep 10, refusal above 50 (workflow_run). One transaction per user, leaf first, SET LOCAL row_security = off (raises, never filters).
-Fail-closed preflight: exactly the nine nestly tables. · .work/preview-e2e/schema.md · decisions/2026-10.md "DR-E1", "Preview cleanup"
+Fail-closed preflight: exactly the eleven nestly tables (F2.4a). · .work/preview-e2e/schema.md · decisions/2026-10.md "DR-E1", "Preview cleanup"
 ```
 
 ```
@@ -193,7 +193,7 @@ Proposed by DATA ARCHITECT and approved by ORCHESTRATOR at F1.1 Gate 2, 13.10.20
 | Delete | no default. Account lifecycle lives in `users.status`. Soft delete, where an entity needs it, is a nullable `deleted_at timestamptz` hidden by its policy — decided per entity against §13.4. Hard delete, no history row, so far: `children` and `journey_contexts` by their owner (F2.2b, Afik DR-1 A); platform backups may hold a deleted row for their window (§13.4, Privacy Policy) |
 | RLS helpers | in `nestly`, `language sql`, `STABLE`, no argument that names a user (caller only), `set search_path = ''` with every name schema-qualified, EXECUTE revoked from PUBLIC and granted to `authenticated` only — except the four recovery helpers (`recovery_handle`, `recovery_ip`, `recovery_claimed_at`, `recovery_subject`), granted to `app_recovery`, not `authenticated`, and `profile_view_target` (F2.3b), granted to no role: only its owner runs it, in `profile_view` and its four `TO app_owner` policies — called as `(select nestly.fn())`. SECURITY INVOKER unless an approved exception says otherwise |
 | Status gate placement | on `users` and `identity_link_checks` there is **no** status gate on SELECT — an account reads its own row in every status (F1.5 DR-1 A; F2.0); on every other table the gate is `(select nestly.is_active_account())`. Seeing the own `users` row never means "active". A table's policy never calls a function that reads the same table (no recursion) |
-| Write grants | INSERT (and, when it comes, UPDATE) is granted **per column**, only on the columns the client's data fills. Identifiers, owner columns, clocks and columns fixed to a constant default (e.g. `regular_profiles.account_type`) are never granted, so their defaults always apply: rules 12–13 are held by privilege, and the policy's WITH CHECK is the second fence. A column the server sets but the policy constrains (e.g. `users.account_type`, `users.status`) is granted, and the policy is its first fence. SELECT stays table-level, except where a column must never be read back: `recovery_answers` has the first column-level SELECT (`authenticated` reads user_id, email_handle, handle_claimed_at, created_at; hashes, salts and the chosen questions are not readable by `authenticated` or `anon`; `app_recovery` reads them for the declared handle only). In Drizzle every write goes through a write-model object (`<table>Insert`) in `schema.ts` that names exactly the granted columns: Drizzle names every column of the object it inserts into, and naming an ungranted column is 42501. Decided F1.4 part a (CRITIC finding 1). Proposed by DATA ARCHITECT (`.work/register-account-create/schema.md` Amendment 1); validated by CRITIC with its wording change (`.work/register-account-create/findings.md`, part a re-check) |
+| Write grants | INSERT (and, when it comes, UPDATE) is granted **per column**, only on the columns the client's data fills. Identifiers, owner columns, clocks and columns fixed to a constant default (e.g. `regular_profiles.account_type`) are never granted, so their defaults always apply: rules 12–13 are held by privilege, and the policy's WITH CHECK is the second fence. One exception: `regular_names.user_id` (F2.4a), INSERT-granted because its trigger names it; WITH CHECK `= auth.uid()` and the composite FK to the own profile fence it. A column the server sets but the policy constrains (e.g. `users.account_type`, `users.status`) is granted, and the policy is its first fence. SELECT stays table-level, except where a column must never be read back: `recovery_answers` has the first column-level SELECT (`authenticated` reads user_id, email_handle, handle_claimed_at, created_at; hashes, salts and the chosen questions are not readable by `authenticated` or `anon`; `app_recovery` reads them for the declared handle only). In Drizzle every write goes through a write-model object (`<table>Insert`) in `schema.ts` that names exactly the granted columns: Drizzle names every column of the object it inserts into, and naming an ungranted column is 42501. Decided F1.4 part a (CRITIC finding 1). Proposed by DATA ARCHITECT (`.work/register-account-create/schema.md` Amendment 1); validated by CRITIC with its wording change (`.work/register-account-create/findings.md`, part a re-check) |
 | Migrations | hand-written SQL in `supabase/migrations/`, applied by the Supabase CLI as `app_owner`, each file and its history row in one transaction. One file = one unit: table + RLS + FORCE + policies + grants + comments. No non-transactional statements. Each has a down script in `supabase/rollback/`. A part that adds a `nestly` table updates `tools/preview-e2e-cleanup*.ts` (`EXPECTED_NESTLY_TABLES` and the per-user delete order: every row of the user before what it references, RESTRICT FKs satisfied) in the same PR; DATA ARCHITECT checks the delete order at Gate 2 (Afik 17.10.2026, "Preview cleanup" b) |
 | Drizzle | `pgSchema('nestly')` in `apps/server/src/db/schema.ts` mirrors columns, types and nullability for typing only; a CI drift check compares it to the catalog. drizzle-kit never generates or pushes migrations. Policies and functions are SQL only |
 
@@ -256,5 +256,5 @@ Never design around these with a guess. Each one is a `DECISION REQUEST` to Afik
 
 ## Entities
 
-All nine tables are in `nestly`, built by `supabase/migrations/` and bootstrap step 2, each migration with a down script in `supabase/rollback/`. The
+All eleven tables are in `nestly`, built by `supabase/migrations/` and bootstrap step 2, each migration with a down script in `supabase/rollback/`. The
 list of migrations by feature, each down script's guard, the write paths, per-table detail, the lock and the new-entity template: `data-model-tables.md`.

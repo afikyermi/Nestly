@@ -102,7 +102,23 @@ const APPROVED_F20: ColumnShape[] = [
   col('identity_link_checks', 'clearing_session_id', 'uuid', false),
   col('identity_link_checks', 'password_set_at', TZ, false),
 ];
-const APPROVED_ALL: ColumnShape[] = [...APPROVED, ...APPROVED_F14, ...APPROVED_F16, ...APPROVED_F20];
+// F2.4a (schema.md "Migration", spec c12): what the migrated database holds. 11 + 2 columns.
+const APPROVED_F24A: ColumnShape[] = [
+  col('friendships', 'id', 'uuid', true),
+  col('friendships', 'requester_id', 'uuid', true),
+  col('friendships', 'addressee_id', 'uuid', true),
+  col('friendships', 'status', 'text', true),
+  col('friendships', 'requester_status', 'text', true),
+  col('friendships', 'addressee_status', 'text', true),
+  col('friendships', 'requested_at', TZ, true),
+  col('friendships', 'responded_at', TZ, false),
+  col('friendships', 'cancelled_at', TZ, false),
+  col('friendships', 'removed_at', TZ, false),
+  col('friendships', 'created_at', TZ, true),
+  col('regular_names', 'user_id', 'uuid', true),
+  col('regular_names', 'full_name', 'text', true),
+];
+const APPROVED_ALL: ColumnShape[] = [...APPROVED, ...APPROVED_F14, ...APPROVED_F16, ...APPROVED_F20, ...APPROVED_F24A];
 const APPROVED_BEFORE_F16: ColumnShape[] = [...APPROVED, ...APPROVED_F14];
 
 const without = (rows: ColumnShape[], table: string, column: string): ColumnShape[] =>

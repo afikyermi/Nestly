@@ -174,14 +174,14 @@ select is_empty(
 select is(
   (select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')),
-  9::bigint,
-  '[F1.4-a c14 · F1.6-a · F2.0-a] schema nestly holds exactly nine tables: the five F1.1/F1.4 ones, the three recovery tables and identity_link_checks (no table nobody listed)');
+  11::bigint,
+  '[F1.4-a c14 · F1.6-a · F2.0-a · F2.4a c12] schema nestly holds exactly eleven tables: the five F1.1/F1.4 ones, the three recovery tables, identity_link_checks and F2.4a''s friendships and regular_names (no table nobody listed)');
 
 select is(
   (select string_agg(c.relname, ', ' order by c.relname) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')),
-  'children, identity_link_checks, journey_contexts, legal_consents, recovery_answers, recovery_events, recovery_throttles, regular_profiles, users',
-  '[F1.6-a · F2.0-a] the nine tables are exactly these names');
+  'children, friendships, identity_link_checks, journey_contexts, legal_consents, recovery_answers, recovery_events, recovery_throttles, regular_names, regular_profiles, users',
+  '[F1.6-a · F2.0-a · F2.4a c12] the eleven tables are exactly these names');
 
 -- ---- policies: the exact list ---------------------------------------------------------------------------------------------
 select set_eq(
@@ -247,8 +247,8 @@ select ok(
 select is(
   (select string_agg(c.relname, ', ' order by c.relname) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind = 'r' and c.relname <> 'identity_link_checks' and has_table_privilege('authenticated', c.oid, 'SELECT')),
-  'children, journey_contexts, legal_consents, regular_profiles, users',
-  '[F1.4-a c14 · F2.0 scoped] authenticated can SELECT all five tables (identity_link_checks: file 40)');
+  'children, friendships, journey_contexts, legal_consents, regular_names, regular_profiles, users',
+  '[F1.4-a c14 · F2.0 scoped · F2.4a c12] authenticated can SELECT the five tables and, from F2.4a, friendships and regular_names (identity_link_checks: file 40)');
 
 -- Amendment 1 (CRITIC a-1): INSERT is granted per COLUMN, never per table.
 select is_empty(
@@ -375,8 +375,8 @@ select is_empty(
 select is_empty(
   $$ select c.relname || '.' || t.tgname
        from pg_catalog.pg_trigger t join pg_catalog.pg_class c on c.oid = t.tgrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-      where n.nspname = 'nestly' and not t.tgisinternal and t.tgname <> 'identity_link_checks_transition' $$,
-  '[F1.4-a c14 · F2.0 scoped] no trigger on any nestly table but the F2.0 transition guard of identity_link_checks (file 40): the limits are constraints, not code');
+      where n.nspname = 'nestly' and not t.tgisinternal and t.tgname not in ('identity_link_checks_transition', 'friendships_transition', 'regular_profiles_name_insert') $$,
+  '[F1.4-a c14 · F2.0 scoped · F2.4a c12] no trigger on any nestly table but the F2.0 transition guard of identity_link_checks (file 40) and F2.4a''s friendships_transition and regular_profiles_name_insert (files 60-62): the limits are constraints, not code');
 
 select set_eq(
   $$ select p.oid::regprocedure::text from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -387,8 +387,8 @@ select set_eq(
 select is(
   (select string_agg(p.proname, ', ' order by p.proname) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'nestly'),
-  'child_age_months, identity_link_checks_transition, is_active_account, jwt_is_oauth, jwt_issued_at, jwt_session_id, profile_view, profile_view_target, recovery_claimed_at, recovery_handle, recovery_ip, recovery_subject, session_guard',
-  '[F1.4-a c14 · F1.6-a c3 c21 · F2.0-a · F2.3b c15] nestly holds exactly thirteen functions: is_active_account, the three recovery helpers, the five F2.0 helpers, the F2.0 transition trigger and F2.3b''s profile_view with its two helpers (no other function came with a migration)');
+  'child_age_months, friendships_transition, identity_link_checks_transition, is_active_account, jwt_is_oauth, jwt_issued_at, jwt_session_id, profile_view, profile_view_target, recovery_claimed_at, recovery_handle, recovery_ip, recovery_subject, regular_names_insert, session_guard',
+  '[F1.4-a c14 · F1.6-a c3 c21 · F2.0-a · F2.3b c15 · F2.4a c12] nestly holds exactly fifteen functions: is_active_account, the three recovery helpers, the five F2.0 helpers, the F2.0 transition trigger, F2.3b''s profile_view with its two helpers, and F2.4a''s friendships_transition and regular_names_insert (no other function came with a migration)');
 
 select is_empty(
   $$ select c.relname from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace

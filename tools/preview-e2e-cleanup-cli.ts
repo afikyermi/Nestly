@@ -86,6 +86,10 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         counts['recovery_answers'] = (await tx`delete from nestly.recovery_answers where user_id = ${id}`).count;
         counts['children'] = (await tx`delete from nestly.children where user_id = ${id}`).count;
         counts['journey_contexts'] = (await tx`delete from nestly.journey_contexts where user_id = ${id}`).count;
+        counts['friendships'] = (
+          await tx`delete from nestly.friendships where requester_id = ${id} or addressee_id = ${id}`
+        ).count;
+        counts['regular_names'] = (await tx`delete from nestly.regular_names where user_id = ${id}`).count;
         counts['regular_profiles'] = (await tx`delete from nestly.regular_profiles where user_id = ${id}`).count;
         counts['identity_link_checks'] = (await tx`delete from nestly.identity_link_checks where user_id = ${id}`).count;
         counts['users'] = (await tx`delete from nestly.users where id = ${id}`).count;

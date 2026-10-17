@@ -13,17 +13,19 @@ export const MAX_PATTERN_USERS = 50; // more pattern users than this in total: a
 export const MAX_BACKLOG_PER_RUN = MAX_PATTERN_USERS; // backlog mode deletes at most this many of the oldest per dispatch
 
 /**
- * The nine tables the preflight expects in `nestly`, sorted; an unknown table means this design needs re-review. A part that
+ * The eleven tables the preflight expects in `nestly`, sorted; an unknown table means this design needs re-review. A part that
  * adds a `nestly` table updates this list and the delete order in the CLI in the same PR (Afik, 17.10.2026).
  */
 export const EXPECTED_NESTLY_TABLES: readonly string[] = [
   'children',
+  'friendships',
   'identity_link_checks',
   'journey_contexts',
   'legal_consents',
   'recovery_answers',
   'recovery_events',
   'recovery_throttles',
+  'regular_names',
   'regular_profiles',
   'users',
 ];

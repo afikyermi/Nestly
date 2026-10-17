@@ -11,15 +11,16 @@ The rules, layers, conventions and approved exceptions stay in `data-model.md`; 
 (F1.4; `.work/register-account-create/`), `20261015200000_recovery_questions.sql` (F1.6; `.work/password-recovery/`), `20261016100000_identity_link_checks.sql`
 (I2 F2.0; `.work/account-takeover-close/`; the guard is in `is_active_account()`), `20261017100000_regular_profiles_update_own.sql` (F2.1; `.work/profile-view-edit/`),
 `20261017120000_profile_privacy.sql` (F2.3a; `.work/profile-privacy/`), `20261017110000_children_update_own.sql`, `20261017140000_journey_due_date_update.sql`,
-`20261017141000_journeys_children_delete_own.sql` (F2.2a, b1, b2; `.work/journeys-children/`), and `20261017150000_profile_view.sql` (F2.3b; `.work/profile-privacy/`;
-no table change). Down scripts in `supabase/rollback/`, in order: F2.3a's refuses while
+`20261017141000_journeys_children_delete_own.sql` (F2.2a, b1, b2; `.work/journeys-children/`), `20261017150000_profile_view.sql` (F2.3b; `.work/profile-privacy/`;
+no table change), and `20261017160000_friendships.sql` (F2.4a; `.work/friends/`). Down scripts in `supabase/rollback/`, in order: F2.4a's refuses while
+`friendships` holds a row (lifts FORCE RLS on it inside its own transaction; `regular_names` is derived and dropped with it); F2.3a's refuses while
 any profile holds a non-default privacy setting (it lifts FORCE RLS inside its own transaction so the check sees every row); F2.0's while `identity_link_checks` or an
 F2.0 event holds a row; F1.6's while `recovery_answers` or `recovery_events` holds a row; F1.4's while any of its three tables holds a row; F1.1's while `nestly.legal_consents`
 exists (safe only while `users` is empty); F2.1's, F2.2's and F2.3b's touch no row (F2.3b's drops `profile_view`, its four policies and two helpers; F2.3a's
 settings stay). Writes: per column (`data-model.md` "Write grants") — F1.4's create path is INSERT only; UPDATE on `recovery_answers`, `recovery_throttles` (F1.6),
-`identity_link_checks` (F2.0, by trigger), and, own row while active, `regular_profiles` (F2.1, F2.3a), `children` (F2.2a), `journey_contexts` (F2.2b: due_date, pregnant only);
+`identity_link_checks` (F2.0, by trigger), `friendships` (F2.4a, a party's row, by trigger), and, own row while active, `regular_profiles` (F2.1, F2.3a), `children` (F2.2a), `journey_contexts` (F2.2b: due_date, pregnant only);
 DELETE: `recovery_answers_delete_clear` (F2.0 D1) and own `children` and `journey_contexts`, hard (F2.2b). After registration, every write that adds or deletes a child or journey first locks the
-own `regular_profiles` row FOR NO KEY UPDATE. All nine tables are in `nestly`.
+own `regular_profiles` row FOR NO KEY UPDATE. No DELETE on `friendships` or `regular_names` for any runtime role. All eleven tables are in `nestly`.
 
 | Column | Type · null · default | Meaning |
 |---|---|---|
@@ -82,8 +83,8 @@ own `regular_profiles` row FOR NO KEY UPDATE. All nine tables are in `nestly`.
 | Not stored | email and login details (stay in auth.users; BR-045 uniqueness is Auth's); no password or hash (NFR-SEC-001). A copy of another user's email would be denormalization → `DECISION REQUEST` | stage and due date (`journey_contexts`), children (`children`) |
 | Owner | the person; `id` is `auth.uid()`, set by the database (rules 12–13) | the Regular account; `user_id` is `auth.uid()`, set by the database (rule 12) |
 | Authorization | RLS + FORCE. `users_select_own` — authenticated reads its own row (`id = auth.uid()`) **in every status** (F1.5 DR-1 A, migration 20261015100000). Seeing the own row does **not** mean the account is active: code or a policy that needs "is the caller active" uses `(select nestly.is_active_account())`, never `exists (select 1 from nestly.users …)`. A suspended or banned account still reads zero rows of every other table (rule 15). `users_insert_own` (F1.4) — creates only its own row (`id = auth.uid()`), only as account_type 'regular' and status 'active' (rule 14; professional registration widens it in its own Gate 2); no status gate at insert, the row does not exist yet. Grants: USAGE on nestly and SELECT → authenticated only; INSERT on (account_type, status) only — id and created_at always default. No UPDATE or DELETE grant or policy. I2's UPDATE will be column-level, excluding account_type and status. `users_select_profile_view` (F2.3b) — see "Cross-user read" below | RLS + FORCE. `regular_profiles_select_own` — authenticated reads its own row, only while `(select nestly.is_active_account())`. `regular_profiles_insert_own` (F1.4) — own row only, under the same gate, so the users row must be inserted first in the same transaction. `regular_profiles_update_own` (F2.1, migration 20261017100000) — the owner edits its own row, USING and WITH CHECK `user_id = auth.uid()` and the same gate; the server updates with no WHERE through `regularProfilesUpdate`. Grants: SELECT → authenticated only; INSERT on (full_name, gender) only — user_id, account_type, created_at and the three privacy settings always default; UPDATE on (full_name, gender) and (F2.3a, migration 20261017120000, same policy, through `regularProfilesPrivacyUpdate`) on (profile_visibility, is_empty_journey_sentence_shown, is_child_birthday_shared), so an UPDATE of user_id, account_type or created_at is 42501. The UPDATE grant and policy also permit the own-row `FOR NO KEY UPDATE` lock of the journeys writes (F2.2b, below). No DELETE grant or policy. `regular_profiles_select_profile_view` (F2.3b) — see "Cross-user read" below |
-| Relations | `users_id_fkey` (id) → auth.users (id) ON DELETE RESTRICT — the anchor FK above, bootstrap step 2, added by postgres. Referenced by regular_profiles through `users_id_account_type_key` UNIQUE (id, account_type), and by legal_consents (ON DELETE RESTRICT) | `regular_profiles_user_fkey` (user_id, account_type) → users (id, account_type) ON DELETE CASCADE — the profile is part of the account. Referenced by journey_contexts and children (ON DELETE CASCADE). Ids never update |
-| Indexes | `users_pkey` (id) — every policy and is_active_account() look up by id. `users_id_account_type_key` — target of the subtype FK; one extra small btree per insert, accepted. None on status: no query filters by it yet | `regular_profiles_pkey` (user_id) — own-row reads, the journeys-write lock, and the cascade lookup from users |
+| Relations | `users_id_fkey` (id) → auth.users (id) ON DELETE RESTRICT — the anchor FK above, bootstrap step 2, added by postgres. Referenced by regular_profiles through `users_id_account_type_key` UNIQUE (id, account_type), by legal_consents (ON DELETE RESTRICT), and by friendships' two status copies through `users_id_status_key` UNIQUE (id, status), ON UPDATE CASCADE (F2.4a): a status change by any path rewrites the copies in the same statement | `regular_profiles_user_fkey` (user_id, account_type) → users (id, account_type) ON DELETE CASCADE — the profile is part of the account. Referenced by journey_contexts and children (ON DELETE CASCADE), friendships (requester_id, addressee_id; ON DELETE CASCADE) and regular_names through `regular_profiles_user_id_full_name_key` UNIQUE (user_id, full_name), ON UPDATE / DELETE CASCADE (F2.4a): a name edit rewrites regular_names. Trigger `regular_profiles_name_insert` (AFTER INSERT) writes the regular_names row. Ids never update |
+| Indexes | `users_pkey` (id) — every policy and is_active_account() look up by id. `users_id_account_type_key` — target of the subtype FK; one extra small btree per insert, accepted. `users_id_status_key` (F2.4a) — target of the status copies; one more btree write per insert and per status change. None on status alone: no query filters by it yet | `regular_profiles_pkey` (user_id) — own-row reads, the journeys-write lock, and the cascade lookup from users. `regular_profiles_user_id_full_name_key` (F2.4a) — target of regular_names' FK; one more btree write per insert and per name edit |
 | Retention | no deleted_at. Hard delete only through the orderly deletion flow (I9, OP-028); RESTRICT blocks deleting the Auth user while this row exists, and a legal_consents row blocks deleting this one. Retention periods: §13.4 TBD | goes with its users row (cascade); OP-028 direction: deleted in full. §13.4 TBD |
 
 **Privacy settings (F2.3a, `.work/profile-privacy/schema.md`).** Three columns on the 1:1 profile, not a table: already Regular-only
@@ -107,7 +108,7 @@ The cross-user read that honours them is `profile_view` (F2.3b, below).
 No index on stage, birth_date, due_date or accepted_at: no query filters or sorts by them across users yet. Each new
 btree is written once per row, at registration — accepted.
 
-**Write order** (rule 11), one identity transaction: users → regular_profiles → journey_contexts → children (slots 1..n
+**Write order** (rule 11), one identity transaction: users → regular_profiles (its trigger → regular_names, F2.4a) → journey_contexts → children (slots 1..n
 in entry order) → legal_consents. Every status gate reads the users row inserted earlier in the same transaction; any
 failure rolls back the whole account. The repository inserts only through the `*Insert` write models in
 `apps/server/src/db/schema.ts` ("Write grants").
@@ -204,6 +205,42 @@ Helpers: `jwt_session_id()`, `jwt_issued_at()`, `jwt_is_oauth()`, `session_guard
 Clear write order: tx 1 insert `affected` + `delete from recovery_answers` (no WHERE, no RETURNING; policy
 `recovery_answers_delete_clear`); tx 2 `select … for update nowait`, Auth cancel and sign-out of other sessions, `update … set
 cleared_at where cleared_at is null returning`, `takeover_cleared` as app_recovery (unique `recovery_events_takeover_cleared_key`).
+
+**`nestly.friendships`, `nestly.regular_names`** (I2 F2.4a, FR-REL-001, VAL-017, BR-029, AC-034, PG-036; migration `20261017160000`,
+`.work/friends/schema.md`, Gate 2 DR-6 A, DR-7 A, DR-B)
+
+| Column | Type · null · default | Meaning |
+|---|---|---|
+| `friendships.id` | uuid PK · `gen_random_uuid()` | the row: one Friend Request and the Friendship it becomes (§13) |
+| `friendships.requester_id` | uuid · not null · `auth.uid()` | who sent it (rule 12); never granted |
+| `friendships.addressee_id` | uuid · not null | who received it; the only column a client INSERTs. CHECK ≠ requester_id |
+| `friendships.status` | text · not null · `'pending'` · CHECK pending / accepted / declined / removed | §13. Moves only through the trigger. **Never returned by an API** (DR-3 A: a decline is silent to the requester; RLS cannot hide a column) |
+| `friendships.requester_status`, `addressee_status` | text · not null · `'active'` | copies of each party's `users.status` under composite FKs ON UPDATE CASCADE — a deliberate denormalization (Gate 2): RLS shows a row only while the other party's copy is active (DR-5 A) without reading the other party's users row. The FK proves equality; never granted, never written by code |
+| `friendships.requested_at` | timestamptz · not null · `now()` | sent; a silent re-send after a withdrawn decline refreshes it (trigger). The list sort |
+| `friendships.responded_at` | timestamptz · null | accepted or declined (trigger). CHECK NULL exactly while pending |
+| `friendships.cancelled_at` | timestamptz · null | the requester withdrew it (DR-4 A: cancel is no status). CHECK only on pending or declined |
+| `friendships.removed_at` | timestamptz · null | either party ended the Friendship (trigger). CHECK NULL exactly unless removed |
+| `friendships.created_at` | timestamptz · not null · `now()` | immutable |
+| `regular_names.user_id` | uuid PK · `auth.uid()` | the profile's owner |
+| `regular_names.full_name` | text · not null | equal to `regular_profiles.full_name` by the composite FK (ON UPDATE CASCADE); no CHECK of its own (the profile's VAL-001 holds) |
+
+| | `friendships` | `regular_names` |
+|---|---|---|
+| Purpose | §13 Friendship / Friend Request between two Regular accounts | DR-6 A: the one column of a profile the other party of a live pair may read (PG-036), without a definer and without the profile row |
+| Not stored | no request message; no history row per move (the clocks are the history); no block | nothing but the name |
+| Owner | both parties; the requester by `default auth.uid()` + WITH CHECK | the profile owner; written by the insert trigger, kept equal by the FK |
+| Authorization | RLS + FORCE. `friendships_select_party` — a party reads the row while active and the other party's copy is 'active'. `friendships_insert_requester` — requester = caller, active, pending, not cancelled, both copies 'active'; the FKs (run as owner) prove the addressee an active Regular account (23503 otherwise). `friendships_update_party` — USING and WITH CHECK = the select rule. **`friendships_transition`** (BEFORE UPDATE, SECURITY INVOKER) is the one place that sees OLD and NEW: immutable id, party ids, created_at; a pure status-copy cascade passes; else exactly addressee pending→accepted / declined · addressee declined→pending (DR-7 A) · requester withdraws pending / declined · requester un-withdraws own declined (silent re-send) · either party accepted→removed; it stamps the clock; anything else 42501. Grants: SELECT; INSERT (addressee_id); UPDATE (status, cancelled_at) → authenticated. No DELETE | RLS + FORCE. `regular_names_select_party` — active caller reads its own row and the other party's of a row it sent (pending, declined, accepted) or received (pending, accepted), never a withdrawn one; the counterparty-active rule is inherited from friendships' RLS. `regular_names_insert_own` — own row, active. Trigger function `regular_names_insert()` SECURITY INVOKER, runs as the registering caller. Grants: SELECT; INSERT (user_id, full_name) — see "Write grants" exception. No UPDATE (the cascade writes it) or DELETE |
+| Relations | requester_id, addressee_id → regular_profiles (user_id) ON DELETE CASCADE (Regular only, BR-029); (requester_id, requester_status), (addressee_id, addressee_status) → users (id, status) ON UPDATE CASCADE ON DELETE CASCADE. The cascade fires the trigger, which lets it through | (user_id, full_name) → regular_profiles (user_id, full_name) ON UPDATE CASCADE ON DELETE CASCADE |
+| Indexes | `friendships_pair_live_key` UNIQUE (least, greatest) WHERE accepted or (pending and not cancelled) — one live row per unordered pair (VAL-017, c3, c4); `friendships_requester_id_addressee_id_key` UNIQUE (requester_id, addressee_id) WHERE declined or open pending — a decline blocks A→B, not B→A (DR-3 A); the server's untargeted `on conflict do nothing` covers both. `friendships_requester_id_idx`, `friendships_addressee_id_idx` — the policies, the lists, the names EXISTS, both cascades. The list sort on requested_at runs on the caller's rows in memory: no index, by decision | `regular_names_pkey` (user_id) — the policy EXISTS joins on it, the cascades |
+| Retention | no DELETE and no deleted_at: every row, removed and withdrawn included, is kept (§13.4 TBD, I9); goes with either profile (cascade) | derived; goes with the profile |
+
+**Server writes** (`friends-repository.ts`, one identity transaction each, keyed by the other person's id, ≤ 1 row by the partial unique
+indexes): send — reopen B's declined A→B (DR-7) → insert `on conflict do nothing` → read the pair → lift own withdrawn decline; accept,
+decline, cancel, remove — one UPDATE each, 0 rows → read the pair (404 vs 409). Lists: live rows (accepted, or pending / declined not
+withdrawn), `requested_at desc, id desc`; names: every `regular_names` row the caller may read. `status` never leaves the service.
+**Backfill (DR-B):** `regular_names` was filled from `regular_profiles` in the migration transaction with FORCE lifted on the source and
+restored before any other statement (`data-model.md` "Backfills"). **Preview cleanup:** both tables deleted before `regular_profiles`,
+friendships by either party (`.work/friends/schema.md` "Preview cleanup").
 
 A new entity adds its columns to the first table — field, type, and its meaning, which is the part that matters — and
 fills every row of the second: purpose in one line; what is not stored; owner, and how that is established;
