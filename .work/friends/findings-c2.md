@@ -17,10 +17,18 @@ decision: ORCHESTRATOR, 17.10 — neither (a) `redirectTo` with a `next` paramet
           read once and removed on the googleEntry landing, re-validated, ignored after 10 minutes; removed on sign-out. Spec
           clarification amended ("never storage" except this one key). Test: Guest → /u/B → Login → Google (stubbed) → B's profile;
           a tampered/expired/non-profile entry → the landing; the key is gone after landing and after sign-out.
-status:   open -> BUILDER (fix) · TEST ENGINEER (test)
+status:   fixed c8c7805, tests in e2e/user-profile-google.spec.ts — validated by CRITIC 17.10
 
 --- bug ---
 severity: low
 file:     e2e/support/profiles-stub.ts:55 (with e2e/support/journeys-stub.ts:85)
 claim:    the stubbed access token is not a JWT, so `sub` is absent and the c26/DR-O tests fail for a fixture reason.
-status:   open -> TEST ENGINEER (fixed in this part)
+status:   fixed (JWT-shaped stub token) — validated by CRITIC 17.10
+
+--- bug --- (CRITIC re-check, 17.10)
+severity: low
+file:     apps/web/src/hooks/use-google-sign-in.ts:1433 · apps/web/src/app/App.tsx:48-52
+claim:    a note left by a Google start that never came back survives a plain Google start and any fresh load, until a sign-out.
+failure:  Guest A: /u/X → Login → Google → Back. Within 10 min user B in the same tab: plain Login → Google → lands on X (learns A's target).
+fix:      every Google start replaces the note (write with a target, remove without); every fresh load removes it, used only on googleEntry.
+status:   open -> BUILDER (fixed in this part — a privacy leak, cheap) · TEST ENGINEER (test)
