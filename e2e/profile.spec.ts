@@ -73,6 +73,7 @@ async function setup(page: Page, profile: Stored = { fullName: 'דנה כהן', 
     if (req.url().includes('/token') && req.url().includes('grant_type=refresh_token') && !net.refreshOk) {
       return json(route, 400, { code: 400, error_code: 'refresh_token_not_found', msg: 'refused' });
     }
+    if (req.url().includes('/token') && req.url().includes('grant_type=refresh_token') && net.shortSession) return json(route, 200, session(Math.floor(Date.now() / 1000) - 60));
     if (req.url().includes('/token')) return json(route, 200, sess());
     if (req.url().includes('/logout')) return route.fulfill({ status: 204, headers: CORS });
     if (req.method() === 'GET' && req.url().includes('/auth/v1/user')) {
@@ -432,8 +433,8 @@ test.describe('F2.1 c11 [ERR-037] a stopped account', () => {
   test('[F2.1 c11 A9] GET answers 403 and the account is stopped: no profile data on the page, the ERR-037 text', async ({ page }) => {
     const net = await setup(page);
     net.get = 403;
-    net.me = 'unavailable';
     await signIn(page);
+    net.me = 'unavailable';
     await page.goto('/profile');
     await expect(page.getByText('הכניסה לחשבון הזה אינה זמינה כרגע').first()).toBeVisible();
     expect(await page.evaluate(() => document.body.innerText)).not.toContain('דנה כהן');
