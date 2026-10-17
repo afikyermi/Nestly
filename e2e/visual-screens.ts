@@ -48,4 +48,9 @@ export const SCREENS: Screen[] = [
   { kind: 'story', name: 'child-form-errors', id: 'features-journeys-journeyscontent--child-form-errors' },
   { kind: 'story', name: 'children-limit', id: 'features-journeys-journeyscontent--children-limit' },
   { kind: 'story', name: 'journey-save-failed', id: 'features-journeys-journeyscontent--journey-save-failed' },
+  // F2.3a c1, c4, c16: the privacy settings section of Settings, story entries for the same reason
+  // (features/privacy/PrivacyContent.stories.tsx).
+  { kind: 'story', name: 'privacy-settings', id: 'features-privacy-privacycontent--defaults' },
+  { kind: 'story', name: 'privacy-settings-load-failed', id: 'features-privacy-privacycontent--load-failed' },
+  { kind: 'story', name: 'privacy-settings-save-failed', id: 'features-privacy-privacycontent--save-failed' },
 ];

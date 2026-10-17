@@ -13,3 +13,7 @@ export type AccountStatus = (typeof ACCOUNT_STATUSES)[number];
 /** The parent's gender (VAL-006, OP-004 closed). Optional: no answer is stored as null, not as a value here. */
 export const PARENT_GENDERS = ['woman', 'man', 'other', 'prefer_not_to_say'] as const;
 export type ParentGender = (typeof PARENT_GENDERS)[number];
+
+/** Who outside Friends sees the full profile (FR-PRIV-001, §1.4 Regular Profile Visibility). Default open (Afik, I2 questionnaire 1). */
+export const PROFILE_VISIBILITIES = ['open', 'restricted'] as const;
+export type ProfileVisibility = (typeof PROFILE_VISIBILITIES)[number];

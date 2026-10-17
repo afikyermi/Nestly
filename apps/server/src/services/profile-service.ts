@@ -28,8 +28,13 @@ const toProfile = (row: ProfileRow): ProfileOutcome => ({
   profile: { fullName: row.fullName, parentGender: row.gender },
 });
 
-/** Why no profile row was visible or updated: a stopped account, or none at all. Fails closed: only `active` reads as no_profile. */
-async function withoutProfile(tx: IdentityTx): Promise<ProfileOutcome> {
+export type NoProfileOutcome = { readonly kind: 'unavailable' } | { readonly kind: 'no_profile' };
+
+/**
+ * Why no profile row was visible or updated: a stopped account, or none at all. Fails closed: only `active` reads as no_profile.
+ * Also the privacy settings' answer (privacy-service.ts): the settings live on the same row.
+ */
+export async function withoutProfile(tx: IdentityTx): Promise<NoProfileOutcome> {
   const [status] = await readOwnStatuses(tx);
   if (status === undefined) return { kind: 'no_profile' };
   // An active account with no profile row is not a Regular one; nothing of a profile exists to show or edit.

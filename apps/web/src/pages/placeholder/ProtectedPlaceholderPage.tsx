@@ -6,7 +6,7 @@ export interface ProtectedPlaceholderPageProps {
   title: string;
 }
 
-// A protected screen not built yet (Home, Feed, Settings), inside the shell's `main`: its heading
+// A protected screen not built yet (Home, Feed), inside the shell's `main`: its heading
 // and one line, nothing else. It reads and sends no data (NFR-SEC-002).
 export function ProtectedPlaceholderPage({ title }: ProtectedPlaceholderPageProps) {
   return (

@@ -13,6 +13,7 @@ import {
   IDENTITY_LINK_VERDICTS,
   JOURNEY_STAGES,
   PARENT_GENDERS,
+  PROFILE_VISIBILITIES,
   RECOVERY_EVENT_KINDS,
   RECOVERY_QUESTION_IDS,
   RECOVERY_THROTTLE_SUBJECTS,
@@ -44,6 +45,10 @@ export const regularProfiles = nestly.table('regular_profiles', {
   fullName: text('full_name').notNull(),
   gender: text('gender', { enum: PARENT_GENDERS }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  // The owner's privacy settings (FR-PRIV-001, BR-037; migration 20261017120000). Defaults are the database's (Afik's).
+  profileVisibility: text('profile_visibility', { enum: PROFILE_VISIBILITIES }).notNull().default('open'),
+  isEmptyJourneySentenceShown: boolean('is_empty_journey_sentence_shown').notNull().default(true),
+  isChildBirthdayShared: boolean('is_child_birthday_shared').notNull().default(true),
 });
 
 /** SRS JourneyContext (§13): one row per stage the parent ticked (VAL-039). Owner reads and creates only (RLS). */
@@ -97,6 +102,13 @@ export const regularProfilesInsert = nestly.table('regular_profiles', {
 export const regularProfilesUpdate = nestly.table('regular_profiles', {
   fullName: text('full_name').notNull(),
   gender: text('gender', { enum: PARENT_GENDERS }),
+});
+
+/** UPDATE target only. Names exactly the privacy columns granted UPDATE to authenticated (migration 20261017120000). */
+export const regularProfilesPrivacyUpdate = nestly.table('regular_profiles', {
+  profileVisibility: text('profile_visibility', { enum: PROFILE_VISIBILITIES }).notNull(),
+  isEmptyJourneySentenceShown: boolean('is_empty_journey_sentence_shown').notNull(),
+  isChildBirthdayShared: boolean('is_child_birthday_shared').notNull(),
 });
 
 /** INSERT target only. Names exactly the columns granted INSERT (migration 20261014200000 §6). */
