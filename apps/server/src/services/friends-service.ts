@@ -9,8 +9,10 @@ import type { FriendLists } from '@nestly/shared';
 import type { Database } from '../db/client.js';
 import { inIdentityTransaction, type IdentityTx } from '../db/identity-transaction.js';
 import { readDatabaseFault } from '../lib/pg-error.js';
+import { OPEN_LIMITED, rateLimitFault, type RateLimited } from '../lib/profile-open-limit.js';
 import type { Identity } from '../lib/token-verifier.js';
 import { readOwnAccounts } from '../repositories/account-state-repository.js';
+import { countOpen } from '../repositories/profile-view-repository.js';
 import {
   cancelRequest,
   insertRequest,
@@ -34,6 +36,7 @@ export type SendOutcome =
   | { readonly kind: 'sent' }
   | { readonly kind: 'unavailable' }
   | { readonly kind: 'conflict'; readonly reason: SendConflict }
+  | RateLimited
   | ActorRefusal;
 
 export type ActionOutcome =
@@ -85,6 +88,9 @@ const SEND_ATTEMPTS = 3;
 async function send(tx: IdentityTx, me: string, targetId: string): Promise<SendOutcome> {
   const refusal = await classifyActor(tx);
   if (refusal !== undefined) return refusal;
+  // c24 (DR-S A): a send counts as one profile open. At the limit nothing below runs and the transaction commits, so the Security event
+  // persists; a missing limit raises NS001 instead, which sendFriendRequest answers the same way.
+  if ((await countOpen(tx, targetId)) === 'limited') return OPEN_LIMITED;
   // DR-7 A: when the caller had declined the target's earlier request, that request stands declined; the caller's send reopens it, so
   // the caller may accept it (409 incoming_pending, no second row). If its sender had withdrawn it, it is retired instead and the
   // caller's own request is created below.
@@ -110,7 +116,7 @@ export async function sendFriendRequest(database: Database, identity: Identity, 
   try {
     return await inIdentityTransaction(database, identity, (tx) => send(tx, identity.userId.toLowerCase(), targetId));
   } catch (error) {
-    const refusal = refusalOf(error);
+    const refusal = rateLimitFault(error) ?? refusalOf(error);
     if (refusal === undefined) throw error;
     return refusal;
   }

@@ -18,10 +18,12 @@ import {
   RECOVERY_EVENT_KINDS,
   RECOVERY_QUESTION_IDS,
   RECOVERY_THROTTLE_SUBJECTS,
+  SECURITY_EVENT_KINDS,
+  SECURITY_LIMIT_KEYS,
   type AccountType,
 } from '@nestly/shared';
 import { sql } from 'drizzle-orm';
-import { boolean, customType, date, pgSchema, smallint, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, customType, date, integer, pgSchema, smallint, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 export const nestly = pgSchema('nestly');
 
@@ -312,4 +314,30 @@ export const friendshipsUpdate = nestly.table('friendships', {
 export const regularNames = nestly.table('regular_names', {
   userId: uuid('user_id').primaryKey().default(sql`auth.uid()`),
   fullName: text('full_name').notNull(),
+});
+
+// The profile-open limit (I2 F2.4c1; migration 20261017170000; schema.md "Drizzle"). Drift only: no write model, never queried here. No runtime
+// role holds a privilege on any of the three; only profile_view (a SECURITY DEFINER) reads and writes them, for the caller's own rows.
+
+/** NFR-SEC-006 / BR-025 Configuration: the stored threshold and window, seeded 100 per 3600 s. A change is a migration (DR-C A). */
+export const securityLimits = nestly.table('security_limits', {
+  limitKey: text('limit_key', { enum: SECURITY_LIMIT_KEYS }).primaryKey(),
+  maxCount: integer('max_count').notNull(),
+  windowSeconds: integer('window_seconds').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Per account, the instants of the opens still inside the window, and whether the current stretch of refusals was recorded. */
+export const profileOpenCounts = nestly.table('profile_open_counts', {
+  userId: uuid('user_id').primaryKey(),
+  openedAt: timestamp('opened_at', { withTimezone: true }).array().notNull().default(sql`'{}'`),
+  isRefusalRecorded: boolean('is_refusal_recorded').notNull().default(false),
+});
+
+/** NFR-SEC-006 (5): a Security event, one per stretch of refused opens. Insert only, by profile_view. */
+export const securityEvents = nestly.table('security_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  kind: text('kind', { enum: SECURITY_EVENT_KINDS }).notNull(),
+  userId: uuid('user_id').notNull(),
+  occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
 });

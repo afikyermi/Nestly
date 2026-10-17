@@ -11,6 +11,7 @@ import { registerMeRoute } from './routes/me.js';
 import { registerPasswordRoutes } from './routes/password.js';
 import { registerPrivacyRoute } from './routes/privacy.js';
 import { registerProfileRoute } from './routes/profile.js';
+import { registerProfileViewRoute } from './routes/profile-view.js';
 import { checkIdentityLink } from './services/identity-link-service.js';
 import { createRecoveryDependencies, type RecoveryDependencies } from './recovery/dependencies.js';
 import { registerRecoveryQuestionsRoute } from './routes/recovery-questions.js';
@@ -100,6 +101,7 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerJourneysRoutes(app, { database, clock });
   registerPrivacyRoute(app, { database });
   registerFriendsRoutes(app, { database });
+  registerProfileViewRoute(app, { database });
 
   return app;
 }
