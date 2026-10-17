@@ -43,24 +43,10 @@ function mint(userId: string, session: string): void {
   set.add(session);
   minted.set(userId, set);
 }
-/** The user and session a bearer token names (its payload; the stand-in does not verify signatures). */
-function tokenSession(accessToken: string): { sub: string; session: string } | undefined {
-  try {
-    const payload: unknown = JSON.parse(Buffer.from(accessToken.split('.')[1] ?? '', 'base64url').toString('utf8'));
-    if (typeof payload !== 'object' || payload === null) return undefined;
-    const sub: unknown = Reflect.get(payload, 'sub');
-    const session: unknown = Reflect.get(payload, 'session_id');
-    return typeof sub === 'string' && typeof session === 'string' ? { sub, session } : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 export interface AuthScript {
   identities?: ReadonlyArray<{ provider: string; createdAt: Date }> | 'failed';
   cancel?: 'set' | 'failed';
   set?: 'set' | 'failed';
-  signOut?: 'done' | 'failed';
   configured?: boolean;
   /** awaited inside cancelPassword (to make two requests overlap) */
   cancelDelayMs?: number;
@@ -75,7 +61,7 @@ export interface AuthScript {
 }
 
 export interface Call {
-  op: 'readIdentities' | 'cancelPassword' | 'setPassword' | 'signOutOthers';
+  op: 'readIdentities' | 'cancelPassword' | 'setPassword';
   input: Record<string, unknown>;
 }
 
@@ -94,7 +80,7 @@ export interface FakeAuth {
 }
 
 export function fakeAuth(initial: AuthScript = {}): FakeAuth {
-  const script: AuthScript = { identities: EMAIL_FIRST, cancel: 'set', set: 'set', signOut: 'done', configured: true, ...initial };
+  const script: AuthScript = { identities: EMAIL_FIRST, cancel: 'set', set: 'set', configured: true, ...initial };
   const calls: Call[] = [];
   const order: string[] = [];
   const revoked = new Set<string>();
@@ -107,13 +93,13 @@ export function fakeAuth(initial: AuthScript = {}): FakeAuth {
     calls.push({ op, input });
     await onCall[op]?.();
   };
-  const port: AuthAccountPort = {
+  const methods: AuthAccountPort = {
     isConfigured: () => script.configured !== false,
-    readIdentities: async (input) => {
+    readIdentities: async (input: Parameters<AuthAccountPort['readIdentities']>[0]) => {
       await record('readIdentities', { ...input });
       return script.identities === 'failed' ? { kind: 'failed' } : { kind: 'ok', identities: script.identities ?? [] };
     },
-    cancelPassword: async (input) => {
+    cancelPassword: async (input: Parameters<AuthAccountPort['cancelPassword']>[0]) => {
       order.push('cancelPassword:start');
       await record('cancelPassword', { ...input });
       if (script.cancelDelayMs) await new Promise((resolve) => setTimeout(resolve, script.cancelDelayMs));
@@ -121,7 +107,7 @@ export function fakeAuth(initial: AuthScript = {}): FakeAuth {
       if (script.cancel !== 'failed') revokeAll(String(input.userId));
       return script.cancel ?? 'set';
     },
-    setPassword: async (input) => {
+    setPassword: async (input: Parameters<AuthAccountPort['setPassword']>[0]) => {
       order.push('setPassword:start');
       await record('setPassword', { ...input });
       if (script.setDelayMs) await new Promise((resolve) => setTimeout(resolve, script.setDelayMs));
@@ -129,17 +115,8 @@ export function fakeAuth(initial: AuthScript = {}): FakeAuth {
       if (script.set !== 'failed') revokeAll(String(input.userId));
       return script.set ?? 'set';
     },
-    signOutOthers: async (input) => {
-      await record('signOutOthers', { ...input });
-      if ((script.signOut ?? 'done') === 'failed') return 'failed';
-      const who = tokenSession(input.accessToken);
-      if (who !== undefined && revoked.has(who.session)) return 'failed'; // GoTrue: 403 session_not_found
-      if (who !== undefined) {
-        for (const id of minted.get(who.sub) ?? []) if (id !== who.session) revoked.add(id);
-      }
-      return 'done';
-    },
   };
+  const port = methods;
   return { port, script, calls, onCall, order, revoked, of: (op) => calls.filter((c) => c.op === op) };
 }
 

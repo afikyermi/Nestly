@@ -153,3 +153,4 @@ clearing one or one issued after `cleared_at`; after success every session ends 
 ends every session, the caller's included; the client signs in with the new password; the revoke-retry bullet goes ·
 c6, c11 unchanged (c11's session also ends; the F1.8 completion must still register). Reason: stricter than the approved
 behaviour, within Afik's rule and AR-1 (fewer Auth calls, no new operation); only the owner can create a post-clear session.
+**DR-E addendum (ORCHESTRATOR, 17.10):** c15 success text stays: after a change the sign-in screen shows a `role=status` containing "הסיסמה הוחלפה" (c15 wording), then the user signs in with the new password. After the c14 forced set the sign-in screen shows the same kind of notice.

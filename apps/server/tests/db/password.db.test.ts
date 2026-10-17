@@ -83,13 +83,15 @@ async function clearedAccount(auth: FakeAuth, h: TakeoverHarness): Promise<{ acc
 
 // ---------------------------------------------------------------------------------------------------------------------
 describe('[F2.0-a c7 FR-AUTH-005] the forced new password', () => {
-  it('[F2.0-a c7] /api/me reports "must set password" to the clearing session only, and not to a session issued after the clear', T, async () => {
+  it('[F2.0-a c7 DR-E] /api/me reports "must set password" to the clearing session and to any session issued after the clear, not to a stale one', T, async () => {
     const auth = fakeAuth();
     const h = await startTakeoverApp(ctx, auth);
     const { account, bearer } = await clearedAccount(auth, h);
     expect(jsonOf((await me(h, bearer)).body)).toEqual({ state: 'active', recoveryQuestions: 'missing', mustSetPassword: true });
     const later = await me(h, await passwordBearer(ctx, account, sessionId(), 10));
-    expect(jsonOf(later.body), 'another post-clear device sees ok, not a screen c7 would refuse').toEqual({ state: 'active', recoveryQuestions: 'missing', mustSetPassword: false });
+    expect(jsonOf(later.body), 'a session issued after the clear is the owner\'s: it is told too').toEqual({ state: 'active', recoveryQuestions: 'missing', mustSetPassword: true });
+    const stale = await me(h, await passwordBearer(ctx, account, sessionId(), -120));
+    expect(stale.statusCode, 'a pre-clear token is stale').toBe(401);
   });
 
   it('[F2.0-a c7] a 7- or 257-character password is a 400 field error and nothing is set (8 and 256 are the edges that pass)', T, async () => {
@@ -136,6 +138,7 @@ describe('[F2.0-a c7 FR-AUTH-005] the forced new password', () => {
     expect(auth.of('setPassword')).toHaveLength(1);
     expect(auth.of('setPassword')[0]?.input).toMatchObject({ userId: account.id, password: NEW_PW });
     expect(await linkState(ctx, account.id)).toBe(`affected/true/${session}/true`);
+    expect(auth.revoked.has(session), 'DR-E: after success every session ends, the clearing one included').toBe(true);
     expect((await linkKinds(ctx, account.id)).split(',')).toEqual(expect.arrayContaining(['takeover_cleared', 'password_set_forced']));
     expect(jsonOf((await me(h, bearer)).body).mustSetPassword).toBe(false);
   });
@@ -151,14 +154,26 @@ describe('[F2.0-a c7 FR-AUTH-005] the forced new password', () => {
     expect(auth.of('setPassword')).toHaveLength(1);
   });
 
-  it('[F2.0-a c7] only the clearing session may set it: a session issued after the clear gets 409 and nothing is set', T, async () => {
+  it('[F2.0-a c7 DR-E] a session issued after the clear may set it (password or Google): 200, set for the JWT subject', T, async () => {
     const auth = fakeAuth();
     const h = await startTakeoverApp(ctx, auth);
     const { account, session } = await clearedAccount(auth, h);
-    const other = await postPassword(h, 'forced', { password: NEW_PW }, await passwordBearer(ctx, account, sessionId(), 10));
-    expect(other.statusCode, other.body).toBe(409);
-    const googleOther = await postPassword(h, 'forced', { password: NEW_PW }, await googleBearer(ctx, account, sessionId(), 10));
-    expect(googleOther.statusCode, googleOther.body).toBe(409);
+    const res = await postPassword(h, 'forced', { password: NEW_PW }, await passwordBearer(ctx, account, sessionId(), 10));
+    expect(res.statusCode, res.body).toBe(200);
+    expect(auth.of('setPassword')[0]?.input).toMatchObject({ userId: account.id, password: NEW_PW });
+    expect(await linkState(ctx, account.id)).toBe(`affected/true/${session}/true`);
+    const again = await postPassword(h, 'forced', { password: NEW_PW }, await googleBearer(ctx, account, sessionId(), 10));
+    expect(again.statusCode, 'a second call is still refused').toBe(409);
+  });
+
+  it('[F2.0-a c7 DR-E] a stale session (a token issued before the clear) is refused with 401 and nothing is set', T, async () => {
+    const auth = fakeAuth();
+    const h = await startTakeoverApp(ctx, auth);
+    const { account, session } = await clearedAccount(auth, h);
+    for (const stale of [await passwordBearer(ctx, account, sessionId(), -120), await googleBearer(ctx, account, sessionId(), -120)]) {
+      const res = await postPassword(h, 'forced', { password: NEW_PW }, stale);
+      expect(res.statusCode, res.body).toBe(401);
+    }
     expect(auth.of('setPassword')).toEqual([]);
     expect(await linkState(ctx, account.id)).toBe(`affected/true/${session}/false`);
   });
@@ -220,17 +235,16 @@ describe('[F2.0-a c10 FR-AUTH-003 S-16] the password change after two answers', 
     const auth = fakeAuth();
     const h = await startTakeoverApp(ctx, auth);
     const account = await accountWithAnswers(ctx, h);
-    const bearer = await passwordBearer(ctx, account);
+    const callerSession = sessionId();
+    const bearer = await passwordBearer(ctx, account, callerSession);
     const res = await postPassword(h, 'change', body(), bearer);
     expect(res.statusCode, res.body).toBe(200);
     expect(res.body).toBe(OK_BODY);
     expect(String(res.headers['cache-control']).toLowerCase()).toContain('no-store');
     expect(auth.of('setPassword')).toHaveLength(1);
     expect(auth.of('setPassword')[0]?.input).toMatchObject({ userId: account.id, password: NEW_PW });
-    expect(auth.of('signOutOthers')).toHaveLength(1);
-    expect(auth.of('signOutOthers')[0]?.input.accessToken).toBe(bearer.replace(/^Bearer /, ''));
+    expect(auth.revoked.has(callerSession), 'DR-E: the caller\'s own session ends too (its refresh fails); the client signs in again').toBe(true);
     expect(await kinds(ctx, handleHex(ctx, account.email))).toBe('answers_saved,password_changed');
-    expect((await me(h, bearer)).statusCode, 'the caller\'s session is kept').toBe(200);
   });
 
   it('[F2.0-a c10] a wrong answer: 401 ERR-042 (the same body as recovery), the password unchanged, the attempt counted and audited', T, async () => {
@@ -242,7 +256,6 @@ describe('[F2.0-a c10 FR-AUTH-003 S-16] the password change after two answers', 
     expect(res.statusCode, res.body).toBe(401);
     expect(res.body).toBe(INVALID_RECOVERY);
     expect(auth.of('setPassword')).toEqual([]);
-    expect(auth.of('signOutOthers')).toEqual([]);
     expect((await throttle(ctx, 'handle', handle)).split('/').slice(0, 2)).toEqual(['1', '1']);
     expect(await kinds(ctx, handle)).toBe('answers_saved,password_change_failed');
   });
@@ -335,24 +348,9 @@ describe('[F2.0-a c10 FR-AUTH-003 S-16] the password change after two answers', 
     const bearer = await passwordBearer(ctx, account);
     const failed = await postPassword(h, 'change', body(), bearer);
     expect(failed.statusCode, failed.body).toBe(503);
-    expect(auth.of('signOutOthers'), 'no sessions are ended for a password that was not set').toEqual([]);
     expect(await kinds(ctx, handleHex(ctx, account.email))).toContain('password_change_auth_failed');
     auth.script.set = 'set';
     expect((await postPassword(h, 'change', body(), bearer)).statusCode).toBe(200);
-  });
-
-  it('[F2.0-a c10 ERR-044] set but the sign-out of the others failed: 503, and a retry revokes', T, async () => {
-    const auth = fakeAuth({ signOut: 'failed' });
-    const h = await startTakeoverApp(ctx, auth);
-    const account = await accountWithAnswers(ctx, h);
-    const bearer = await passwordBearer(ctx, account);
-    const failed = await postPassword(h, 'change', body(), bearer);
-    expect(failed.statusCode, failed.body).toBe(503);
-    expect(auth.of('setPassword')).toHaveLength(1);
-    auth.script.signOut = 'done';
-    const retry = await postPassword(h, 'change', body(), bearer);
-    expect(retry.statusCode, retry.body).toBe(200);
-    expect(auth.of('signOutOthers')).toHaveLength(2);
   });
 
   it('[F2.0-a c10] a Google-first account with saved answers succeeds the same way', T, async () => {

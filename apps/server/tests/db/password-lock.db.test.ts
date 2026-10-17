@@ -143,7 +143,6 @@ describe('[F2.0-a A4] a request that finds the user\'s lock held is 503 `unavail
     expect(res.statusCode, res.body).toBe(503);
     expect(res.body).toBe(UNAVAILABLE);
     expect(auth.of('setPassword')).toEqual([]);
-    expect(auth.of('signOutOthers')).toEqual([]);
     expect((await postPassword(h, 'change', { current: RIGHT, password: NEW_PW }, bearer)).statusCode).toBe(200);
   });
 
@@ -166,7 +165,6 @@ describe('[F2.0-a A4] a request that finds the user\'s lock held is 503 `unavail
     const res = await holdingLock(ctx, account.id, () => me(h, google));
     expect(res.statusCode, res.body).toBe(503);
     expect(auth.of('cancelPassword')).toEqual([]);
-    expect(auth.of('signOutOthers')).toEqual([]);
     expect(await linkState(ctx, account.id)).toBe('-');
     expect((await me(h, google)).statusCode).toBe(200);
   });

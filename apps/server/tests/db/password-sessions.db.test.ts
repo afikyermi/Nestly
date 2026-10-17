@@ -83,15 +83,17 @@ describe('[F2.0-a bug c10 FR-AUTH-003] the password change with the right answer
     expect(audit).not.toContain('password_change_auth_failed');
   });
 
-  it('[F2.0-a bug c10] the other sessions of the account are signed out by the change', T, async () => {
+  it('[F2.0-a bug c10 DR-E] every session of the account is ended by the change, the caller\'s included', T, async () => {
     const auth = fakeAuth();
     const h = await startTakeoverApp(ctx, auth);
     const account = await accountWithAnswers(ctx, h);
     const other = sessionId();
     await passwordBearer(ctx, account, other);
-    const res = await postPassword(h, 'change', { current: RIGHT, password: NEW_PW }, await passwordBearer(ctx, account));
+    const caller = sessionId();
+    const res = await postPassword(h, 'change', { current: RIGHT, password: NEW_PW }, await passwordBearer(ctx, account, caller));
     expect(res.statusCode, res.body).toBe(200);
     expect(auth.revoked.has(other), 'the other device is signed out').toBe(true);
+    expect(auth.revoked.has(caller), 'the caller\'s own refresh fails too').toBe(true);
   });
 
   it('[F2.0-a bug c10] a Google-first account changing its password the same way: 200', T, async () => {

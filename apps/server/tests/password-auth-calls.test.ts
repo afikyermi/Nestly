@@ -1,10 +1,10 @@
 import { createServer, type IncomingHttpHeaders, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
-import { cancelPassword, readSignInIdentities, setUserPassword, signOutOtherSessions } from '../src/recovery/auth-admin.js';
+import { cancelPassword, readSignInIdentities, setUserPassword } from '../src/recovery/auth-admin.js';
 
 // F2.0 part a, the real Auth calls against a loopback stand-in (no database): c11 "Auth's same_password stays a success",
-// c3 (the clear's password is random and never kept; the other sessions end with the CALLER's own token, scope=others),
+// c3 (the clear's password is random and never kept; since A6 the admin set itself ends every session, there is no separate sign-out call),
 // c1 (the identities are read with the caller's token), c12 (the user id is the one given). Derived from spec.md and
 // interface.md "Test seams" (routes of the default port). Real Auth behaviour is the Preview run (c17).
 
@@ -69,21 +69,6 @@ describe('[F2.0-a c3 c2] cancelPassword', () => {
     const [first, second] = seen.map((s) => String(Reflect.get(JSON.parse(s.body), 'password')));
     expect(first?.length).toBeGreaterThanOrEqual(32);
     expect(first).not.toBe(second);
-  });
-});
-
-describe('[F2.0-a c3 c10] signOutOtherSessions', () => {
-  it('[F2.0-a c3] POST /logout with scope=others, authorised by the caller\'s own token (not the project key)', async () => {
-    const { env, seen } = await stub(204);
-    expect(await signOutOtherSessions({ accessToken: 'CALLER-TOKEN', clientIp: undefined }, env)).toBe('done');
-    expect(seen[0]?.method).toBe('POST');
-    expect(seen[0]?.path).toContain('/logout?scope=others');
-    expect(seen[0]?.headers.authorization).toBe('Bearer CALLER-TOKEN');
-  });
-
-  it('[F2.0-a c3 c10] a refusal is "failed"', async () => {
-    const { env } = await stub(401);
-    expect(await signOutOtherSessions({ accessToken: 'CALLER-TOKEN', clientIp: undefined }, env)).toBe('failed');
   });
 });
 

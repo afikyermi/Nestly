@@ -38,6 +38,8 @@ interface Net {
   forcedBodies: unknown[];
   changeBodies: unknown[];
   urls: string[];
+  /** Bodies of the password-grant sign-ins (POST /token), to see which password signed in again. */
+  tokenBodies: string[];
 }
 
 const json = (route: Route, status: number, body: unknown) =>
@@ -46,7 +48,7 @@ const bodyOf = (route: Route): unknown => JSON.parse(route.request().postData() 
 const errorBody = (status: number) => ({ error: status === 401 ? 'invalid_recovery' : status === 429 ? 'rate_limited' : 'unavailable' });
 
 async function setup(page: Page, opts: { mustSet?: boolean; questions?: 'missing' | 'set' } = {}): Promise<Net> {
-  const net: Net = { mustSet: opts.mustSet ?? false, questions: opts.questions ?? 'set', forced: 200, change: 200, hold: null, forcedBodies: [], changeBodies: [], urls: [] };
+  const net: Net = { mustSet: opts.mustSet ?? false, questions: opts.questions ?? 'set', forced: 200, change: 200, hold: null, forcedBodies: [], changeBodies: [], urls: [], tokenBodies: [] };
   await page.addInitScript(() => {
     Reflect.set(window, 'nestlyRealSession', true);
   });
@@ -54,7 +56,10 @@ async function setup(page: Page, opts: { mustSet?: boolean; questions?: 'missing
   await page.route('https://e2e-stub.invalid/auth/v1/**', async (route) => {
     const req = route.request();
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
-    if (req.url().includes('/token')) return json(route, 200, SESSION);
+    if (req.url().includes('/token')) {
+      net.tokenBodies.push(req.postData() ?? '');
+      return json(route, 200, SESSION);
+    }
     if (req.url().includes('/logout')) return route.fulfill({ status: 204, headers: CORS });
     if (req.method() === 'GET' && req.url().includes('/auth/v1/user')) return json(route, 200, { id: 'u-1', email: 'x@example.com', app_metadata: { provider: 'email' } });
     return json(route, 404, { error: 'unstubbed' });
@@ -152,13 +157,19 @@ test.describe('F2.0 c14 forced new-password screen', () => {
     }
   });
 
-  test('[F2.0 c14] submit sends exactly the password once and success leads to the PG-052 setup', async ({ page }) => {
+  test('[F2.0 c14 DR-E] submit sends exactly the password once; success ends every session, so the user is sent to sign in, signs in with the new password and reaches the PG-052 setup', async ({ page }) => {
     const net = await setup(page, { mustSet: true, questions: 'missing' });
     await signIn(page);
     await newPassword(page).fill(NEW_PASSWORD);
     await submit(page).click();
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(statuses(page), 'DR-E addendum: a notice on the sign-in screen after the forced set').toHaveCount(1);
+    await emailField(page).fill(EMAIL);
+    await page.getByLabel('סיסמה', { exact: true }).fill(NEW_PASSWORD);
+    await page.getByRole('button', { name: 'התחברות', exact: true }).click();
     await expect(page).toHaveURL(/\/recovery-questions$/);
     await expect(pet(page)).toBeVisible();
+    expect(net.tokenBodies.at(-1) ?? '', 'the sign-in after the set used the new password').toContain(NEW_PASSWORD);
     expect(net.forcedBodies).toEqual([{ password: NEW_PASSWORD }]);
     expect(net.urls.join('\n')).not.toContain(encodeURIComponent(NEW_PASSWORD));
   });
@@ -227,7 +238,8 @@ test.describe('F2.0 c15 password-change screen and menu entry', () => {
     await openChangePassword(page);
     await fillChange(page);
     await submit(page).click();
-    await expect(statuses(page)).toContainText(/הסיסמה הוחלפה/);
+    await expect(page).toHaveURL(/\/login$/); // DR-E: the change ends every session; the user signs in again
+    await expect(statuses(page)).toContainText(/הסיסמה הוחלפה/); // DR-E addendum: c15 success text on the sign-in screen
     await expect(page.getByRole('alert')).toHaveCount(0);
     expect(net.changeBodies).toHaveLength(1);
     const sent = net.changeBodies[0];
@@ -238,6 +250,11 @@ test.describe('F2.0 c15 password-change screen and menu entry', () => {
       expect(kept).not.toContain(secret);
       expect(net.urls.join('\n')).not.toContain(encodeURIComponent(secret));
     }
+    await emailField(page).fill(EMAIL);
+    await page.getByLabel('סיסמה', { exact: true }).fill(NEW_PASSWORD);
+    await page.getByRole('button', { name: 'התחברות', exact: true }).click();
+    await expect(page).toHaveURL(/\/feed$/);
+    expect(net.tokenBodies.at(-1) ?? '', 'signed in again with the new password').toContain(NEW_PASSWORD);
   });
 
   test('[F2.0 c15] ERR-042, ERR-043 and ERR-044 each show their SRS text and empty the new password', async ({ page }) => {

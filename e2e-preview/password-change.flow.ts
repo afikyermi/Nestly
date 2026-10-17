@@ -13,8 +13,8 @@ const newPassword = (page: Page) => page.getByLabel('סיסמה חדשה', { exa
 const pet = (page: Page) => page.getByLabel(/חיית המחמד/);
 const nick = (page: Page) => page.getByLabel(/כינו אתכם/);
 const saveButton = (page: Page) => page.getByRole('button', { name: 'שמירה', exact: true });
-const submit = (page: Page) => page.locator('form button[type="submit"]').first();
 const statuses = (page: Page) => page.getByRole('status').filter({ hasText: /\S/ });
+const submit = (page: Page) => page.locator('form button[type="submit"]').first();
 
 const users = new Map<string, TestUser>();
 function userOf(project: string): TestUser {
@@ -84,8 +84,9 @@ test.describe.serial('F2.0 password change on the Preview [c10 c15]', () => {
       submit(page).click(),
     ]);
     expect(response.status(), 'change status').toBe(200);
-    await expect(statuses(page)).toContainText(/הסיסמה הוחלפה/);
-    await expect(page.getByRole('alert')).toHaveCount(0);
+    // Gate 2 A6 / DR-E: the change ends every session (the caller's included), so the user is sent to sign in again.
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(statuses(page)).toContainText(/הסיסמה הוחלפה/); // DR-E addendum: the sign-in screen carries the c15 success text
   });
 
   test('[c10] the new password signs in; the old one is refused', async ({ page }, info) => {
