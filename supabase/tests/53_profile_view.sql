@@ -176,8 +176,8 @@ select is(
   (select string_agg(t, ',' order by t)
      from regexp_split_to_table(regexp_replace(tests.dml_as_msg('authenticated', tests.claims(pg_temp.id('pv_b')), pg_temp.scan(false)),
                                                '^ERR:P0001:hits: ', ''), ' ') as t where t <> ''),
-  'children=2,journey_contexts=2,regular_profiles=1,users=1',
-  '[F2.3-b c9 control] the same scan run as B finds exactly B''s rows in the four tables: the scan can fail');
+  'children=2,journey_contexts=2,regular_names=1,regular_profiles=1,users=1',
+  '[F2.3-b c9 control · F2.4a c12] the same scan run as B finds exactly B''s rows in the four tables and B''s own regular_names row (F2.4a): the scan can fail');
 
 -- the helpers are not a path either (schema.md "Authorization": no runtime EXECUTE)
 select is(tests.as_role('authenticated', tests.claims(pg_temp.id('pv_v')), $q$ select nestly.profile_view_target()::text $q$),
