@@ -57,9 +57,11 @@ export interface SessionAccount {
   clearNotice(): void;
   /** The recovery questions were saved: the account no longer needs the questions screen. No second `/api/me` call. */
   markRecoveryQuestionsSet(): void;
-  /** The forced new password was set (F2.0 c14): the session no longer needs the new-password screen, and the recovery questions are still
-   * missing (the clear removed them, c8). No second `/api/me` call. */
-  markPasswordSet(): void;
+  /**
+   * The server set a new password (F2.0 c7, c10): that ended every session of the user, this one included (Gate 2 A6, DR-E). The
+   * session ends here too (no session notice: the screen passes its own to the login screen in router state).
+   */
+  endAfterPasswordChange(): Promise<void>;
 }
 
 export const isSessionAccount = (source: SessionSource): source is SessionSource & SessionAccount =>

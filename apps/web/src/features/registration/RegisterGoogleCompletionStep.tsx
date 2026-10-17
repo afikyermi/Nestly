@@ -29,9 +29,9 @@ export interface RegisterGoogleCompletionStepProps {
 type Notice = 'retry' | 'generic' | null;
 
 // Step 2 of the completion for a user who came in through Google and has no account (F1.8 criteria 7-10): the password they will use
-// from now on, and the consent. The final action has the server set the password first (POST /api/password/first, F2.0 c11, c16)
-// and calls POST /api/register only after that has answered; the body of the register call has no password. The password lives in
-// this field and in that one call, nowhere else.
+// from now on, and the consent. The final action has the server set the password first (POST /api/password/first, F2.0 c11, c16),
+// signs in again with it (the set ends every session, DR-E), and calls POST /api/register only after that; the body of the register
+// call has no password. The password lives in this field, that call and the sign-in to Auth, nowhere else.
 export function RegisterGoogleCompletionStep({ step1, email, onBack, onSignOut, onUnauthenticated }: RegisterGoogleCompletionStepProps) {
   const account = useSessionAccount();
   const sessionEntry = useSessionEntry();
@@ -91,7 +91,26 @@ export function RegisterGoogleCompletionStep({ step1, email, onBack, onSignOut, 
         setNotice('generic');
         return;
       }
-      const outcome = await registerAccount(token, step1);
+      // The server's set ended every session of the user, this one included (F2.0 DR-E): sign in again with the email and the
+      // password just set, so the account is created with a live session. A failure here leaves the password set and no account;
+      // the user can sign in with it later and finish (the email+password completion).
+      const again = await account.signInWithPassword({ email, password });
+      if (again.kind !== 'unregistered') {
+        if (again.kind === 'failed') {
+          clearPassword();
+          setNotice('generic');
+        } else {
+          finished = true; // signed-in (the account exists after all) or stopped: the guard leads on
+        }
+        return;
+      }
+      const fresh = await account.getAccessToken();
+      if (fresh === null) {
+        finished = true;
+        onUnauthenticated();
+        return;
+      }
+      const outcome = await registerAccount(fresh, step1);
       if (outcome === 'created') {
         finished = true;
         sessionEntry.signIn();

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { PATHS } from '@/app/paths';
 import { RecoveryAnswerFields } from '@/components/domain/recovery-answer-fields';
 import { FormField } from '@/components/shared/form-field';
 import { InlineAlert } from '@/components/shared/inline-alert';
@@ -13,9 +15,11 @@ import { CHANGED_TEXT, failureText, INTRO_TEXT, TITLE, validateChange, type Chan
 
 // The password-change screen (FR-AUTH-003, F2.0 c15), inside the shell's `main`, opened from the menu: the two current recovery
 // answers, then a new password. The answers live in this component memory and the inputs, the password in its input only; both go only
-// in the request body. The password is cleared after any answer, the answers after a success.
+// in the request body. The password is cleared after any answer, the answers after a success. A success ends every session (DR-E):
+// the user is signed out and lands on the login screen, which confirms the change (router state, never the URL or storage).
 export function PasswordChangeForm() {
   const account = useSessionAccount();
+  const navigate = useNavigate();
   const formRef = useRef<HTMLFormElement>(null);
   const messageRef = useRef<HTMLDivElement>(null);
   const passwordInput = useRef<HTMLInputElement>(null);
@@ -73,6 +77,11 @@ export function PasswordChangeForm() {
       if (outcome === 'done') {
         setCurrent(EMPTY_ANSWERS);
         setChanged(true);
+        // DR-E: the change ended every session, this one included: signed out here, and the login screen confirms the change.
+        if (account !== null) {
+          await account.endAfterPasswordChange();
+          void navigate(PATHS.login, { replace: true, state: { loginNotice: 'password-changed' } });
+        }
       } else {
         setFailure(outcome === null ? RECOVERY_UNAVAILABLE_TEXT : failureText(outcome));
       }

@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { MemoryRouter } from 'react-router';
 import { userEvent, within } from 'storybook/test';
 import { SessionAccountContext } from '@/hooks/use-session-account';
 import type { SessionAccount } from '@/services/session/session-source';
@@ -16,16 +17,18 @@ const account: SessionAccount = {
   getAccessToken: () => Promise.resolve('story-token'),
   clearNotice: () => undefined,
   markRecoveryQuestionsSet: () => undefined,
-  markPasswordSet: () => undefined,
+  endAfterPasswordChange: () => Promise.resolve(),
 };
 
 function Screen() {
   return (
-    <SessionAccountContext value={account}>
-      <main className="px-4 py-5">
-        <PasswordChangeForm />
-      </main>
-    </SessionAccountContext>
+    <MemoryRouter>
+      <SessionAccountContext value={account}>
+        <main className="px-4 py-5">
+          <PasswordChangeForm />
+        </main>
+      </SessionAccountContext>
+    </MemoryRouter>
   );
 }
 

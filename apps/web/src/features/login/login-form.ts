@@ -10,6 +10,25 @@ export const PASSWORD_REQUIRED_TEXT = 'יש למלא סיסמה'; // FR-AUTH-002
 export const INVALID_CREDENTIALS_TEXT = 'האימייל או הסיסמה שגויים. אפשר לנסות שוב'; // ERR-001: names neither field
 export const SIGN_IN_FAILED_TEXT = 'ההתחברות לא הצליחה. אפשר לנסות שוב';
 export const EXPIRED_TEXT = 'ההתחברות פגה. אפשר להתחבר שוב';
+// F2.0 DR-E (Q-3 meaning): the server set a new password, which signed out every device, this one included. Shown as a status.
+export const PASSWORD_CHANGED_TEXT = 'הסיסמה הוחלפה. כל המכשירים נותקו, ואפשר להתחבר עם הסיסמה החדשה'; // c10, c15 wording
+export const PASSWORD_SET_TEXT = 'הסיסמה החדשה נשמרה. אפשר להתחבר איתה עכשיו'; // c7, c14
+
+/** What a screen may tell the login screen in router state (never the URL or storage): F2.0 c7, c10. */
+export const LOGIN_NOTICES = ['password-changed', 'password-set'] as const;
+export type LoginNotice = (typeof LOGIN_NOTICES)[number];
+
+const LOGIN_NOTICE_TEXTS: Record<LoginNotice, string> = {
+  'password-changed': PASSWORD_CHANGED_TEXT,
+  'password-set': PASSWORD_SET_TEXT,
+};
+
+/** The text of the router-state notice `state.loginNotice`, or null for anything else (state comes from history: never trusted). */
+export function loginNoticeText(state: unknown): string | null {
+  const value: unknown = typeof state === 'object' && state !== null ? Reflect.get(state, 'loginNotice') : undefined;
+  const notice = LOGIN_NOTICES.find((candidate) => candidate === value);
+  return notice === undefined ? null : LOGIN_NOTICE_TEXTS[notice];
+}
 
 const PROBLEM_TEXTS: Record<SignInProblem, string> = {
   invalid_credentials: INVALID_CREDENTIALS_TEXT,

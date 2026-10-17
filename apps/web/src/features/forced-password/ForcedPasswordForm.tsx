@@ -12,7 +12,8 @@ import { setForcedPassword } from '@/services/api/password';
 import { INTRO_TEXT, passwordError, TITLE } from './forced-password-form';
 
 // The forced new-password screen (F2.0 c14), inside the shell's `main`: after a takeover clear the guard holds the session here until
-// a new password is set, then on the recovery questions setup (PG-052). The password lives in the input only (uncontrolled, so React
+// a new password is set. The set ends every session (DR-E), so the user is sent to sign in, and then meets the recovery questions
+// setup (PG-052). The password lives in the input only (uncontrolled, so React
 // never copies it into the markup), goes only in the request body, and is cleared after any failure.
 export function ForcedPasswordForm() {
   const account = useSessionAccount();
@@ -63,9 +64,12 @@ export function ForcedPasswordForm() {
       }
       const outcome = await setForcedPassword(token, password);
       if (outcome === 'set') {
+        // DR-E: the set ended every session, this one included. Signed out here; the login screen says the password changed, and
+        // the next sign-in (with the new password) meets the recovery questions setup, since the clear removed the answers (c8). The
+        // notice travels in router state only.
         if (passwordInput.current !== null) passwordInput.current.value = '';
-        account.markPasswordSet();
-        void navigate(PATHS.recoveryQuestions, { replace: true });
+        await account.endAfterPasswordChange();
+        void navigate(PATHS.login, { replace: true, state: { loginNotice: 'password-set' } });
         return;
       }
       fail();

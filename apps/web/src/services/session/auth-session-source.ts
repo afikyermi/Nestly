@@ -314,10 +314,7 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
       epoch += 1;
       apply(state, notice, false);
     },
-    markPasswordSet: () => {
-      // As above: a check that began before the set may still answer "must set"; the new epoch drops it. The questions stay missing (c8).
-      epoch += 1;
-      apply(state, notice, true, false);
-    },
+    // The server's password set ended every session (DR-E): signed out here, and Auth is told (scope local; it only clears storage).
+    endAfterPasswordChange: () => end(null),
   };
 }
