@@ -62,6 +62,7 @@ test.describe('F2.4b c13 [PG-036 FR-MENU-001] the menu item and the three lists'
     await page.getByRole('button', { name: MENU_BUTTON }).click();
     await page.getByRole('link', { name: TEXT.menu, exact: true }).click();
     await expect.poll(() => pathOf(page)).toBe('/friends');
+    await expect(heading(page, TEXT.friends)).toBeVisible();
     const text = (await main(page).innerText()).replace(/\s+/g, ' ');
     const at = [TEXT.incoming, TEXT.sent, TEXT.friends].map((h) => text.indexOf(h));
     expect(at.every((i) => i >= 0), 'all three headings').toBe(true);
@@ -220,15 +221,21 @@ test.describe('F2.4b c14 [ERR-004] loading, load failure, action failure, double
         await confirm(page);
         const alert = page.getByRole('alert').filter({ hasText: /\S/ });
         await expect(alert.first()).toBeVisible();
-        await expect(main(page).getByText(who.fullName).first()).toBeVisible();
+        // aria-modal hides <main> from role queries while the remove dialog is open, so the entry is looked up by CSS.
+        await expect(page.locator('main').getByText(who.fullName).first()).toBeAttached();
         expect(net.actions).toHaveLength(1);
         // Not moved into Friends by the failed accept.
         if (label === 'accept') await expect(section(page, TEXT.friends).getByText(who.fullName)).toHaveCount(0);
         net.write = 200;
-        if (label === 'remove') await expect(dialog(page)).toHaveCount(0);
-        await expect(button(page)).toBeEnabled();
-        await button(page).click();
-        await confirm(page);
+        if (label === 'remove') {
+          // c14 does not close the dialog on failure: it stays open with its alert, and its own "הסרה" tries again.
+          await expect(dialog(page)).toBeVisible();
+          await expect(dialog(page).getByRole('alert').filter({ hasText: /\S/ }).first()).toBeVisible();
+          await confirm(page);
+        } else {
+          await expect(button(page)).toBeEnabled();
+          await button(page).click();
+        }
         await expect.poll(() => net.actions.length).toBe(2);
       });
     }
