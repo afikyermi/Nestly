@@ -36,6 +36,26 @@ export const GOOGLE_FIRST = [
   { provider: 'email', createdAt: LATER },
 ];
 
+/** Sessions the tests have signed in, by user id: what a real Auth server would hold (filled by the token helpers below). */
+const minted = new Map<string, Set<string>>();
+function mint(userId: string, session: string): void {
+  const set = minted.get(userId) ?? new Set<string>();
+  set.add(session);
+  minted.set(userId, set);
+}
+/** The user and session a bearer token names (its payload; the stand-in does not verify signatures). */
+function tokenSession(accessToken: string): { sub: string; session: string } | undefined {
+  try {
+    const payload: unknown = JSON.parse(Buffer.from(accessToken.split('.')[1] ?? '', 'base64url').toString('utf8'));
+    if (typeof payload !== 'object' || payload === null) return undefined;
+    const sub: unknown = Reflect.get(payload, 'sub');
+    const session: unknown = Reflect.get(payload, 'session_id');
+    return typeof sub === 'string' && typeof session === 'string' ? { sub, session } : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export interface AuthScript {
   identities?: ReadonlyArray<{ provider: string; createdAt: Date }> | 'failed';
   cancel?: 'set' | 'failed';
@@ -46,6 +66,12 @@ export interface AuthScript {
   cancelDelayMs?: number;
   /** awaited inside setPassword, after the call started (a set "in flight") */
   setDelayMs?: number;
+  /**
+   * Real GoTrue: an admin password set (PUT /admin/users/<id>) deletes EVERY session of that user, so a later
+   * `logout?scope=others` with any token of a session that existed before the set fails (403 session_not_found).
+   * Default true; false only for a test that is about something else and wants the old, optimistic stand-in.
+   */
+  revokeSessionsOnAdminSet?: boolean;
 }
 
 export interface Call {
@@ -61,6 +87,8 @@ export interface FakeAuth {
   of: (op: Call['op']) => Call[];
   /** 'op:start' / 'op:end' in the order they happened, across every app that shares this port (F2.0 A4) */
   order: string[];
+  /** the sessions the stand-in has deleted (by session id) */
+  revoked: Set<string>;
   /** runs before each call of that kind answers (to observe the database at that moment) */
   onCall: Partial<Record<Call['op'], () => Promise<void>>>;
 }
@@ -69,6 +97,11 @@ export function fakeAuth(initial: AuthScript = {}): FakeAuth {
   const script: AuthScript = { identities: EMAIL_FIRST, cancel: 'set', set: 'set', signOut: 'done', configured: true, ...initial };
   const calls: Call[] = [];
   const order: string[] = [];
+  const revoked = new Set<string>();
+  const revokeAll = (userId: string): void => {
+    if (script.revokeSessionsOnAdminSet === false) return;
+    for (const id of minted.get(userId) ?? []) revoked.add(id);
+  };
   const onCall: FakeAuth['onCall'] = {};
   const record = async (op: Call['op'], input: Record<string, unknown>): Promise<void> => {
     calls.push({ op, input });
@@ -85,6 +118,7 @@ export function fakeAuth(initial: AuthScript = {}): FakeAuth {
       await record('cancelPassword', { ...input });
       if (script.cancelDelayMs) await new Promise((resolve) => setTimeout(resolve, script.cancelDelayMs));
       order.push('cancelPassword:end');
+      if (script.cancel !== 'failed') revokeAll(String(input.userId));
       return script.cancel ?? 'set';
     },
     setPassword: async (input) => {
@@ -92,14 +126,21 @@ export function fakeAuth(initial: AuthScript = {}): FakeAuth {
       await record('setPassword', { ...input });
       if (script.setDelayMs) await new Promise((resolve) => setTimeout(resolve, script.setDelayMs));
       order.push('setPassword:end');
+      if (script.set !== 'failed') revokeAll(String(input.userId));
       return script.set ?? 'set';
     },
     signOutOthers: async (input) => {
       await record('signOutOthers', { ...input });
-      return script.signOut ?? 'done';
+      if ((script.signOut ?? 'done') === 'failed') return 'failed';
+      const who = tokenSession(input.accessToken);
+      if (who !== undefined && revoked.has(who.session)) return 'failed'; // GoTrue: 403 session_not_found
+      if (who !== undefined) {
+        for (const id of minted.get(who.sub) ?? []) if (id !== who.session) revoked.add(id);
+      }
+      return 'done';
     },
   };
-  return { port, script, calls, onCall, order, of: (op) => calls.filter((c) => c.op === op) };
+  return { port, script, calls, onCall, order, revoked, of: (op) => calls.filter((c) => c.op === op) };
 }
 
 export interface TakeoverHarness extends Harness {
@@ -135,11 +176,11 @@ const nowSeconds = (): number => Math.floor(Date.now() / 1000);
 
 /** A Google session's token. `iatOffset` seconds from now (positive: issued after a clear that happens now). */
 export const googleBearer = (ctx: Context, account: Account, session = sessionId(), iatOffset = 0, claimEmail: string | null = account.email): Promise<string> =>
-  bearerFor(ctx, account, claimEmail, { session_id: session, amr: [{ method: 'oauth' }], iat: nowSeconds() + iatOffset });
+  (mint(account.id, session), bearerFor(ctx, account, claimEmail, { session_id: session, amr: [{ method: 'oauth' }], iat: nowSeconds() + iatOffset }));
 
 /** A password session's token (amr password). */
 export const passwordBearer = (ctx: Context, account: Account, session = sessionId(), iatOffset = 0, claimEmail: string | null = account.email): Promise<string> =>
-  bearerFor(ctx, account, claimEmail, { session_id: session, amr: [{ method: 'password' }], iat: nowSeconds() + iatOffset });
+  (mint(account.id, session), bearerFor(ctx, account, claimEmail, { session_id: session, amr: [{ method: 'password' }], iat: nowSeconds() + iatOffset }));
 
 /** The same token without any session claim (an old-style token). */
 export const bareSessionBearer = (ctx: Context, account: Account): Promise<string> =>
