@@ -18,7 +18,7 @@ function PersonList({ title, emptyText, entries, testId }: ListProps) {
   const id = useId();
   return (
     <section aria-labelledby={id} data-testid={testId}>
-      <h2 id={id} className="text-h3">
+      <h2 id={id} className="text-h3 wrap-anywhere">
         {title}
       </h2>
       <div className="mt-3 rounded-lg bg-card p-4 shadow-card md:p-5">
