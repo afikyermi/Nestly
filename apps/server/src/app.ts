@@ -5,6 +5,7 @@ import { readConfig, type ServerConfig } from './lib/config.js';
 import { createTokenVerifier } from './lib/token-verifier.js';
 import { registerAuthentication, replySessionRefused, type LinkGate } from './plugins/authentication.js';
 import { clientAddress } from './recovery/client-ip.js';
+import { registerJourneysRoutes } from './routes/journeys.js';
 import { registerMeRoute } from './routes/me.js';
 import { registerPasswordRoutes } from './routes/password.js';
 import { registerProfileRoute } from './routes/profile.js';
@@ -83,12 +84,14 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   });
 
   app.get('/api/health', () => ({ status: 'ok' }));
+  const clock = deps.clock ?? (() => new Date());
   registerMeRoute(app, { database, recovery });
-  registerRegistrationRoute(app, { database, clock: deps.clock ?? (() => new Date()) });
+  registerRegistrationRoute(app, { database, clock });
   registerRecoveryQuestionsRoute(app, { database, recovery });
   registerRecoveryResetRoute(app, { database, recovery });
   registerPasswordRoutes(app, { database, recovery });
   registerProfileRoute(app, { database });
+  registerJourneysRoutes(app, { database, clock });
 
   return app;
 }

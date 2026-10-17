@@ -7,10 +7,11 @@
 // constraint name, never the error object: a driver or parser message can quote the body, and the body is a parent's
 // and children's data (NFR-PRIV-001).
 
-import { createRegistrationRequestSchema, addDaysIso } from '@nestly/shared';
+import { createRegistrationRequestSchema } from '@nestly/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
 import { isTransientFailure, readDatabaseFault } from '../lib/pg-error.js';
+import { serverToday } from '../lib/server-today.js';
 import { replySessionRefused } from '../plugins/authentication.js';
 import { createRegistration, hasAccount } from '../services/registration-service.js';
 
@@ -24,10 +25,6 @@ export interface RegisterRouteDependencies {
 }
 
 const PATH = '/api/register';
-
-function serverToday(now: Date): string {
-  return addDaysIso(now.toISOString().slice(0, 10), 1);
-}
 
 async function register(request: FastifyRequest, reply: FastifyReply, deps: RegisterRouteDependencies) {
   const { identity } = request;

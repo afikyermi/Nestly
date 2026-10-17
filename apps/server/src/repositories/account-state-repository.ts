@@ -11,3 +11,9 @@ export async function readOwnStatuses(tx: IdentityTx) {
   const rows = await tx.select({ status: users.status }).from(users).limit(2);
   return rows.map((row) => row.status);
 }
+
+/** The status and account type of the rows the caller can see (users_select_own, any status): one, or none when unregistered. */
+export async function readOwnAccounts(tx: IdentityTx) {
+  // limit 2: more than one row is a fault the service must see, not a row to ignore.
+  return tx.select({ status: users.status, accountType: users.accountType }).from(users).limit(2);
+}
