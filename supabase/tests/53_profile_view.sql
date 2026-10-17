@@ -426,7 +426,7 @@ select is(
   4::bigint,
   '[F2.3-b c15] each of them matches only the transaction-local target (profile_view_target()), and none has a WITH CHECK');
 select is(
-  (select string_agg(m.rolname, ',' order by m.rolname) from pg_catalog.pg_auth_members am
+  (select string_agg(distinct m.rolname::text, ',' order by m.rolname::text) from pg_catalog.pg_auth_members am
      join pg_catalog.pg_roles r on r.oid = am.roleid join pg_catalog.pg_roles m on m.oid = am.member where r.rolname = 'app_owner'),
   'postgres', '[F2.3-b c15 rule 1] app_owner''s only member is postgres');
 select is(
