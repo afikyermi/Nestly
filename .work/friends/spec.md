@@ -151,3 +151,16 @@ built in c1, F2.4a ships without it) · **DR-C → A** (threshold changes by a r
 **DR-O → A** (own link → own profile page, nothing counted). Q3 default. Reason: SPEC's recommendations; DR-C keeps an audit
 trail. Gate 2 must say whether the counter/event write needs a new SECURITY DEFINER — if so it is reserved for Afik. For the I2
 close report: NFR-SEC-006 (5) "reported to Admin" and pattern detection deferred to I4.
+
+## Gate 1 clarifications (F2.4a) — ORCHESTRATOR, 17.10.2026, from TEST ENGINEER's return
+Internal HOW, not a change to an approved criterion.
+- **Routes.** `POST /api/friend-requests` {targetUserId} · `POST /api/friend-requests/:userId/accept|decline` · `DELETE /api/friend-requests/:userId`
+  (cancel) · `DELETE /api/friends/:userId` (remove) · `GET /api/friends` → `{incoming, sent, friends}`, entries `{userId, fullName[, requestedAt]}`.
+  Actions are keyed by the counterpart id (schema.md). One source: `apps/server/tests/helpers/friends-api.ts`.
+- **c5/c9 vs schema.md "0 rows → 404 if no row visible, else 409".** The spec binds: "visible" means a row **in the action's own direction**
+  (accept/decline: requester = $t, addressee = me; cancel: requester = me, addressee = $t; remove: an accepted-or-removed row with $t). So A
+  accepting B's id while only A→B exists → 404 `unavailable` (c5); 409 `request_gone` only when that direction's row exists but is no longer in
+  the required state (c9).
+- **c9 cancel after a decline.** The requester cannot know of a decline (DR-3 silent), so to A a declined row is still "pending": cancel succeeds
+  exactly as on pending (schema.md's requester declined-cancel move), and returns the same response. "No longer pending" in c9 means, from the
+  requester's side, cancelled, accepted or removed.
