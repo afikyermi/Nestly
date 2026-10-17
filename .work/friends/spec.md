@@ -1,30 +1,30 @@
 # F2.4 — Friends: request, accept, decline, cancel, remove; the Friend branch of a profile (friends)
 
 **Problem**        A Regular parent cannot connect with another parent: nothing stores a Friend Request or Friendship, there is no FriendsPage,
-                   no Friend branch of profile visibility, and no way to reach another user — People Search is I7 (DR-1).
-**Requirements**   FR-REL-001 (05-functional/relationships-groups.md) · FR-PRIV-001 (05-functional/profile-settings.md) · BR-029, -034, -044, -063
-                   (08) · VAL-017, -027 (09) · ERR-016, -022, -032 (10) · AC-034, -054, -078 (15) · §1.4, §13 Friendship · NFR-SEC-006 · PG-036 ·
-                   UC-20 · F2.3 Gate 1 DR-1 A, schema.md DR-G1 · F2.5 Q3 · data-model.md layers 4, 5, 13 · review A1, A4, A7–A9, P1, P2, P6, S3.
-**Scope**          Three parts. **F2.4a** schema + API (c1–c12): Friendship with RLS; send, accept, decline, cancel, remove; the caller's three
-                   lists. **F2.4b** (c13–c15): PG-036 and the "חברים" menu item. **F2.4c** (c16–c22): another Regular's profile over the API and on
-                   screen — F2.3's read, Friend branch, Friends and mutual Friends, relationship action, DR-1 entry point, NFR-SEC-006 profile-open
-                   rate limit. Until F2.4c merges, no screen creates a request (API and fixtures only).
-**DR-G1 split**    (F2.3 schema.md: `profile_view`, the first definer reading other users' rows, reserved for Afik.) **Builds without it:** c1–c10,
-                   c12, and c11 with ids only — friendship rows, where the caller is always a party, read no other user's profile. **Needs a
-                   cross-user read:** the names in c11, so all of F2.4b — `regular_profiles` is own-row only, and a row policy there would also
-                   expose gender under Restricted and B's birthday consent (schema.md rejected (a)) → DR-6. **Needs DR-G1:** all of F2.4c
-                   (`profile_view` plus its Friend columns, schema.md "F2.4"; others' Friends lists) — and DR-T, DR-2, DR-1.
-**Out of scope**   Friend Request / Accepted notifications, badges, counts (FR-NOTIF-003, UC-20's notification step — I7) · birthday notifications,
-                   FriendContentNotificationPreference (I7) · direct chat, the message action (I8) · People Search (I7, unless DR-1 C) · any
-                   "people you may know" (not in the SRS) · blocking (no such feature) or reporting a user (I3/I4) · a cap on Friends or requests
-                   (none in the SRS) · Admin/Moderator access (I4) · photos (I5) · Recommend Group (I10) · the feed (I3) · pagination or search
-                   in lists · deletion's effect, retention of declined/removed rows (I9, §13.4 open) · ages anywhere (F2.3 DR-3, reserved).
-**Data touched**   New: Friendship (§13: requester, addressee, status, timestamps); shape, statuses (DR-3, DR-4), pair constraint → DATA ARCHITECT,
-                   Gate 2. Cross-user: names for the lists (DR-6); in c `profile_view`, others' Friendships, an open counter, threshold config, a Security event.
-**Risk flags**     a, c: authorization · schema migration · personal data (c also minors). b: personal data (others' names). All → Elevated.
+                   no Friend branch of profile visibility, and no way to reach another user — People Search is I7.
+**Requirements**   FR-REL-001 (05-functional/relationships-groups.md) · FR-PRIV-001 (05-functional/profile-settings.md) · BR-025, -029, -034, -044,
+                   -063 (08) · VAL-017, -027 (09) · ERR-004, -016, -022, -032, -038 (10) · AC-034, -054, -078 (15) · §1.4 Basic Public Profile,
+                   §13 Friendship, §13.2 · NFR-SEC-005, NFR-SEC-006 (06) · FR-AUTH-004 · PG-036 · UC-20 · F2.3 Gate 1, schema.md DR-G1 · F2.5 Q3 ·
+                   data-model.md layers 4, 5, 13 · review A1, A4, A7–A9, P1, P2, P6, S3 · Afik 17.10.2026 "I2 reserved items" (DR-2, DR-T, DR-G1).
+**Scope**          Four parts. **F2.4a** schema + API (c1–c12). **F2.4b** PG-036 and the "חברים" menu item (c13–c15). **F2.4c1** another
+                   Regular's profile over the API: Friend branch, Friends and mutual Friends, relationship state, the NFR-SEC-006 profile-open
+                   limit and its Security event (c16–c24). **F2.4c2** the screen: UserProfilePage for others, the DR-1 copy-link entry point,
+                   relationship actions (c25–c30). Until F2.4c2 merges, no screen creates a request.
+**Out of scope**   Friend Request / Accepted notifications, badges, counts (FR-NOTIF-003 — I7) · birthday notifications (I7) · direct chat, the
+                   message action (I8) · People Search and its rate limit (I7) · "people you may know" (not in the SRS) · blocking or reporting
+                   (I3/I4) · a cap on Friends or requests · Admin/Moderator access (I4), **including an Admin screen or API to change the
+                   thresholds or to read Security events, and NFR-SEC-006 (5)'s "reported to Admin" delivery** · detection of an "abnormal
+                   pattern" beyond the threshold · photos (I5) · Recommend Group (I10) · the feed (I3) · pagination or search in any list ·
+                   deletion's effect, retention of declined/removed rows (I9) · ages anywhere but F2.3b's `profile_view` output · a share
+                   sheet, QR code, link preview or short link · a profile link to a Professional profile (FR-SERV-003).
+**Data touched**   a: `friendships`, `regular_names` (schema.md, Gate 2 approved). c1: `profile_view` gains the Friend branch and the two lists
+                   (DR-G1 shape, schema.md "F2.4") · new: a per-account profile-open count, the threshold configuration, a Security event store
+                   → DATA ARCHITECT, Gate 2. c2: none.
+**Risk flags**     a, c1: authorization · schema migration · personal data · minors (c1: ages to Friends). b: personal data. c2: personal data,
+                   minors (ages on screen), a link shared outside the app (login-gated). All → Elevated.
 
 **Acceptance criteria** — A, B, C are active Regular accounts; P, M, D are fixture Professional, Moderator, Admin accounts.
-*F2.4a — schema and API*
+*F2.4a — schema and API* (approved; c11 with names per DR-6 A)
 1. 🔴 A sends B a request → 201; one pending row, requester A, addressee B; it is in A's sent list and B's incoming list. As C, no query
    returns it (pgTAP). Body is `{targetUserId}` only; the requester is set by the database. [FR-REL-001, VAL-017, rule 12]
 2. 🔴 Refused targets: P, M, D, a random uuid, B suspended or banned → no row, 404 `unavailable`, identical body across all six. A to A
@@ -45,12 +45,12 @@
 10. 🔴 Stopped: A suspended or banned → every action 403 `account_unavailable`, pgTAP 0 rows. A pending request whose other party is not
     active is in neither list and cannot be accepted; a non-active Friend is absent from the other's list and returns on reactivation,
     the row kept (DR-5). P, M, D as actor → 403, no row. No token → 401, no query. [A9, rule 15, ERR-022, BR-034, A7]
-11. 🔴 `GET` lists returns the caller's incoming, sent and Friends lists only; each entry holds exactly user id, full name (DR-6; until
-    then id only) and, for requests, the request time — no email, gender, children, journeys, account status or privacy setting of the
+11. 🔴 `GET` lists returns the caller's incoming, sent and Friends lists only; each entry holds exactly user id, full name and, for
+    requests, the request time — no email, gender, children, journeys, account status, request status or privacy setting of the
     other user. A new account → three empty lists. [PG-036, P1, P2]
 12. 🔴 Strict shared Zod: a non-uuid id, or any extra key (`requesterId`, `status`, `addresseeId`) → 400, no row. Runtime is `app_server`
     under `SET LOCAL ROLE authenticated`; a SECURITY DEFINER only if listed in data-model.md; rollback removes Friendship only. [A1, A8]
-*F2.4b — FriendsPage (PG-036) — waits on DR-6*
+*F2.4b — FriendsPage (PG-036)* (approved in shape; DR-6 A passed Gate 2)
 13. 🎨 Side menu shows "חברים" to a Regular user (F2.5 Q3) → `/friends`: "בקשות שקיבלת" (אישור · דחייה), "בקשות ששלחת" (ביטול), "החברים
     שלי" (הסרה), each with its own empty text (Q1). Accept moves the entry into "החברים שלי" without a reload. Remove opens a dialog
     naming the Friend, "הסרה" / "ביטול"; "ביטול" sends nothing. Screens: `friends`, `friends-empty`, `friends-remove`. [PG-036, FR-MENU-001]
@@ -58,56 +58,96 @@
     disabled in flight, a double press sends one request. 409 `request_gone` → the list reloads, "הבקשה כבר לא זמינה". [ERR-004]
 15. 🎨 The three screens: zero axe-core violations, RTL, phone and desktop; the dialog traps and returns focus; every action reachable
     by keyboard and named with the person's name. [S3, NFR-A11Y-001]
-*F2.4c — viewer, entry point, Friend branch, rate limit — waits on DR-G1, DR-T, DR-2, DR-1*
-16. 🔴 Every active viewer (Regular non-Friend, Friend, P) reading B gets B's Friends list and the mutual Friends with the viewer, in both
-    visibility states; a non-active Friend is absent; P's mutual list is empty. [§1.4 Basic Public Profile, FR-PRIV-001, OP-020]
-17. 🔴 F2.3 c7–c13 hold over the API for a non-Friend pair and for P. A Friend of B gets the DR-2 view in both of B's states; after
-    Remove, the next read is the non-Friend view of B's current state. [FR-PRIV-001, BR-044, P1, P2]
-18. 🔴 The profile carries the viewer's relationship state — none / sent / received / Friends — and the screen offers send, cancel,
-    accept-or-decline, remove through the F2.4a API; P sees no Friend action. [FR-REL-001, AC-034]
-19. 🔴 The DR-1 entry point. A Guest opening it → Login, then the profile (FR-AUTH-004); every open re-checks access. [A4]
-20. 🔴 With threshold N per window W in configuration, a viewer's N+1th profile open within W → 429, no profile data, the ERR-032
-    message with no threshold in it, one Security event (viewer, time, no profile data); after W, opens succeed. No endpoint lists
-    users without a target id. [AC-078, NFR-SEC-006 (1), (2), (5)]
-21. 🔴 N and W are read from configuration, never code; with no value set, every profile open is refused as in c20 (DR-T). [P6]
-22. 🎨 UserProfilePage for others, its failure and rate-limit screens: zero axe-core violations, RTL, phone and desktop, keyboard. [S3]
+*F2.4c1 — viewer API, Friend branch, profile-open limit* (needs F2.3b and F2.4a merged; not F2.4b). "Open" = one viewer-API request.
+16. 🔴 `GET /api/profiles/:userId` (name may change) returns F2.3b's `profile_view` result: a non-Friend Regular V and P get F2.3b's
+    Restricted or Open view by B's state, item for item. F2.3b's unavailable targets → 404 `unavailable`, one identical body; a non-uuid
+    → 400, no query; no token → 401, no query; viewer suspended or banned → 403 `account_unavailable`. [FR-PRIV-001, BR-044, OP-020, A9]
+17. 🔴 Friend branch (Afik DR-2 A): A, a Friend of B, gets a result equal item for item to F2.3b's Open view of B — ages in its years-and-
+    months text — whether B is open or restricted; still no child name, sex, birth date, due date, pregnancy week, id, slot, email,
+    consent or tracker data. A pending, declined or cancelled request is not a Friendship: both parties get the non-Friend view. After
+    Remove, either party's next read is the non-Friend view of B's current state; a new Friendship gives the Friend view on the next read.
+18. 🔴 The response carries B's Friends and the mutual Friends of viewer and B, each entry exactly user id and full name, in both of B's
+    states and for every viewer; a non-active Friend of B is absent; neither list holds the viewer or B; P's mutual list is empty; B
+    with no Friends → two empty lists. pgTAP as V: no direct SELECT returns a Friendship V is not party to. [§1.4 Basic Public Profile]
+19. 🔴 The response carries the relationship state, exactly one of `none` · `sent` · `received` · `friends`, from F2.4a's rows; after B
+    declines A's request A's state stays `sent` and B's is `none` (DR-3 A). P as viewer gets no state. [FR-REL-001, AC-034]
+20. 🔴 With 100 opens per 3600 s configured, an account's 101st open within the window (DR-W) → 429 `rate_limited` with no profile,
+    lists or state; opens of unavailable targets count. Once the window allows it, opens succeed. Accounts are counted apart (A at the
+    limit, C unaffected); P is counted too. 120 concurrent opens by one account → at most 100 return 200. [NFR-SEC-006 (1), AC-078, ERR-032]
+21. 🔴 The first refused open of an account in a window records exactly one Security event — kind (profile-open limit), the account,
+    the time; no target name, profile or child data — and further refusals in that window record none. The event persists although
+    the request was refused. pgTAP: no Regular or Professional reads, inserts, alters or deletes any Security event, its own included,
+    nor reads, resets or alters any open count. [NFR-SEC-006 (5), ERR-032, AC-078]
+22. 🔴 Configuration (DR-C): N and W are stored values read at each open, never code constants; seeded at 100 and 3600 s. A test that
+    sets N = 3 sees the 4th open refused with no restart or code change. No product API reads or writes them; pgTAP: `authenticated`
+    cannot read or write them. Absent or invalid (0, negative, non-integer) → every open refused as c20, no profile data, no Security
+    event, a server error logged. [NFR-SEC-006 "Configuration … Admin בלבד", BR-025, P6]
+23. 🔴 No response — 200, 404 or 429 — carries a threshold, window, remaining count or reset time; no endpoint returns users without a
+    target id. Runtime `app_server` under `SET LOCAL ROLE authenticated`; SECURITY DEFINERs match data-model.md "Approved exceptions"
+    (pgTAP list check). [NFR-SEC-006 (2), ERR-032 "שאינה חושפת את הספים", A8, DR-G1]
+24. 🔴 (DR-S A; dropped under B) An F2.4a send counts as one open: at the limit, a send → 429 `rate_limited`, no row. [NFR-SEC-006 (1)]
+*F2.4c2 — UserProfilePage for others, copy link, actions* (needs F2.4c1 and F2.4b merged)
+25. 🎨 `/u/:userId` (path may change) shows exactly what c16–c19 return: name, gender when returned, the Journey Summary items (count,
+    ages as returned, "בהריון" or the sentence), "החברים של <name>" and "חברים משותפים", each with its own empty text (Q1); every list
+    entry links to that person's profile. Screens: `user-profile`, `user-profile-restricted`, `user-profile-friend`. [§1.4, FR-PRIV-001]
+26. 🔴 FriendsPage shows "העתקת הקישור לפרופיל שלי" (DR-1 A): it writes the absolute URL of the caller's own `/u/:userId` to the clipboard
+    and shows "הקישור הועתק" in `role="status"`; clipboard refused → the link appears as selectable text. The URL holds the user id only —
+    no name, token or other parameter. [FR-PRIV-001 "Profile/Deep Link", NFR-SEC-006 (4)]
+27. 🔴 A Guest opening a profile link → Login (FR-AUTH-004), then that profile. Every visit calls the API again; after sign-out no
+    profile content stays on screen or in browser storage. The caller's own link → own ProfilePage (F2.1), no viewer call (DR-O). [NFR-SEC-005, A4]
+28. 🎨 Actions by state: `none` "שליחת בקשת חברות" · `sent` "ביטול הבקשה" · `received` "אישור" / "דחייה" · `friends` "הסרה מהחברים" with
+    F2.4b's dialog; each calls F2.4a's API and the state changes without a reload; after accept or remove the profile is fetched again
+    (one open). P as viewer sees no action. Disabled in flight; a double press sends one request; 409 → refetch + F2.4b c14 message. [FR-REL-001]
+29. 🎨 Loading shows no profile. 404 → "הפרופיל לא זמין", one text for every reason. 429 → ERR-032's general message, no number, no
+    countdown, no profile. Other failure → message + "נסו שוב". 401 → ERR-038 as F2.1. Screens: `user-profile-unavailable`,
+    `user-profile-rate-limited`, `user-profile-load-failed`. [ERR-032, ERR-004, ERR-038]
+30. 🎨 c25–c29's screens and FriendsPage with the copy button: zero axe-core violations, RTL, phone and desktop, keyboard; every action
+    and list link named with the person's name. [S3, NFR-A11Y-001]
 
-**Open questions**
-- **DR-1 (ORCHESTRATOR; spec gap) — how a user reaches another user before People Search.** Every honest option opens a profile or looks
-  a user up, so each needs NFR-SEC-006's rate limit (DR-T) and the cross-user read (DR-G1). **A (recommended):** a profile link —
-  "העתקת הקישור לפרופיל שלי" on FriendsPage, shared outside the app; it opens the profile (c16–c19), whose Friends list leads to friends of
-  friends. FR-PRIV-001 already names "Profile/Deep Link"; the copy button is the only new thing. B: request by exact email — not in the
-  SRS; confirms whether an email is registered. C: pull People Search (FR-SEARCH-001) from I7 — a scope change, **reserved for Afik**,
-  plus ALGORITHM & DATA (ALG-008). D: no entry point in I2; "connects with Friends" waits for I7.
-- **DR-T — RESERVED for Afik (open SRS item: NFR-SEC-006 "שיוגדר לפני Production", an I7 questionnaire blocker, Admin-only change)** —
-  profile-open thresholds N per W, per account. No number proposed. Recommendation: answer with DR-G1, pulled forward from I7. Until
-  then c is built and tested with fixture values in tests only, and merges only in c21's fail-closed state.
-- **DR-2 — RESERVED for Afik (minors' data; the SRS defines only the non-Friend view)** — what a Friend sees. Derived floor: Visibility
-  governs non-Friends only (BR-044, FR-PRIV-001), so a Friend of a Restricted user is not held to the basic profile. **A (recommended):**
-  F2.3's Open view in both states, children and pregnancy still only as Journey Summary — least about minors; widening later is possible,
-  a name once shown cannot be taken back. B: plus children's first names. C: names, birth dates, due date.
-- **DR-6 (DATA ARCHITECT shape at Gate 2; reserved for Afik if Gate 2 finds it a security-model change)** — names in the lists. A
-  (recommended to evaluate): invoker RLS only — full_name readable, alone, by the parties of a live pair (e.g. a name-only table the
-  owner's own write keeps in step); no definer. B: a names function on DR-G1's definer pattern — waits on Afik. C: ids only until DR-G1;
-  b waits. Note for CRITIC: under A or B, sending a request to an id returns that id's name outside the profile-open limit.
-- **DR-3 (ORCHESTRATOR; spec gap)** — after Decline. **A (recommended):** silent — B's incoming loses it, A's sent list keeps it; a new A→B
-  (also after A cancels it) never reaches B while the decline stands; B may still request A. B: it leaves A's list; A may resend at once.
-- **DR-4 (ORCHESTRATOR; spec gap: FR-REL-001 has no Cancel)** — A (recommended): include it (c7); §13 lacks a "cancelled" status. B: none.
-- **DR-5 (ORCHESTRATOR; spec gap)** — non-active counterparty. A (recommended): hidden, row kept, back on reactivation (c10). B: "לא זמין".
-- Q1: copy is not in the SRS → **assumed:** as in c13–c14, empty texts by BUILDER (ux-copy-he). Q2 → **assumed:** newest first, no pagination.
+**"Configuration" here** (NFR-SEC-006, BR-025): N = 100 opens and W = 3600 s (Afik DR-T) are stored data the server reads on each open,
+not constants in code, and fail closed (c22). The SRS lets only an Admin holding SECURITY_SETTINGS_MANAGE change them; no Admin role,
+screen or API exists before I4. **In scope now:** the stored values, the seed, the read, fail-closed, and that no product role can read
+or write them. **Later (I4):** an Admin screen/API with that permission and an audit of each change, and Admin reporting of Security
+events. Until then a change follows DR-C. Where and how the values and the event store live is DATA ARCHITECT's, at Gate 2.
 
-**Size estimate**  a ~305 (migration + policies + rollback ~110, server ~170, shared ~25) · b ~220 (+ DR-6's name read ~40) · c ~470 (viewer
-~120, rate limit + config + Security event ~150, screen ~200) → split again at c's Gate 1 (c16–c19 · c20–c22). One part (~1,000) does not fit.
+**Open questions** — new, for F2.4c's Gate 1 (all ORCHESTRATOR's; none reserved)
+- **DR-W (spec gap: "per hour" fixes neither the window nor what counts).** **A (recommended):** a rolling 60-minute window; every open
+  that reaches the database counts, 404s included; refused (429) opens do not; one Security event at the first refusal, none again
+  until an open succeeds. B: fixed clock-hour windows — a burst of 200 across an hour boundary passes.
+- **DR-S (DATA ARCHITECT, F2.4a schema.md: a send returns the target's name outside the limit).** **A (recommended):** a send counts
+  as an open (c24); it touches F2.4a's approved endpoint, recorded as a c1 change. B: not counted — accepted gap: target ids come only
+  from lists already counted or shared links.
+- **DR-C (spec gap: the SRS's changer, an Admin, does not exist before I4).** **A (recommended):** a change is a reviewed migration on
+  the normal pipeline (prod in the batch), recorded in that part's `result.md`. B: an environment variable Afik edits in Vercel — no
+  audit trail, outside the product's "Admin only".
+- **DR-O (spec gap).** The caller's own link. **A (recommended):** own ProfilePage, no viewer call, not counted (c27). B: the viewer API
+  with own id → the non-Friend view (F2.3 schema.md default), counted.
+- Q3: copy for c25–c29 is not in the SRS → **assumed:** as written there; the rest by BUILDER (ux-copy-he), recorded at I2's close.
+
+**Closed (records)** — DR-1 → A, copy-my-profile-link entry (Gate 1, 17.10) · DR-2 → A, Friend sees F2.3's Open view in both states
+(Afik, 17.10) · DR-T → 100 opens/hour/account, changeable Configuration (Afik, 17.10) · DR-G1 → `profile_view` approved (Afik, 17.10) ·
+DR-3 → A, silent decline · DR-4 → A, Cancel included · DR-5 → A, inactive counterparty hidden, row kept (Gate 1) · DR-6 → A,
+`regular_names` · DR-7 → A, B's send reopens A's request · DR-B → FORCE lift in migration (Gate 2) · Q1, Q2 → defaults (Gate 1).
+
+**Size estimate**  a ~305 · b ~220 (+ names ~40) · **c1 ~360** (`profile_view` Friend branch + lists ~90, count + configuration + Security
+event migration and rollback ~90, server route/service/repository + limit ~150, shared Zod ~30) · **c2 ~300** (screen ~200, copy link
+~40, action wiring ~60). Order: F2.3b → F2.4a → c1; F2.4b → c2. c1 and b may run in either order.
 
 ## Gate 1 — ORCHESTRATOR, 17.10.2026
 
-Split approved: **F2.4a** (c1–c12; c11 with ids only until DR-6) **approved**, Elevated. **F2.4b** (c13–c15) approved in shape;
-built once DR-6 has a shape that passes Gate 2 without a reserved item. **F2.4c** (c16–c22) waits for Afik (DR-G1, DR-T, DR-2)
-and is re-gated and split then.
-- **DR-1 → A** (a "copy my profile link" entry point; built in F2.4c). **DR-3 → A** (silent decline). **DR-4 → A** (Cancel
-  included). **DR-5 → A** (an inactive counterparty is hidden, the row kept, shown again on reactivation — as F2.3 DR-5).
-Reason: SPEC's recommendations; A in DR-1 uses the "Profile/Deep Link" FR-PRIV-001 already names and leaks no email.
-Q1, Q2 take their defaults. **DR-T** (profile-open thresholds) and **DR-2** (what a Friend sees) are reserved → WORKPLAN.
-**DR-6** goes to DATA ARCHITECT at F2.4a's Gate 2; if its shape is a security-model change it joins DR-G1 for Afik.
+Split approved: **F2.4a** (c1–c12) **approved**, Elevated. **F2.4b** (c13–c15) approved in shape, built once DR-6 passes Gate 2 (it did,
+DR-6 A). **F2.4c** waited for Afik (DR-G1, DR-T, DR-2), to be re-gated and split. DR-1, DR-3, DR-4, DR-5 → A; Q1, Q2 defaults. Reason:
+SPEC's recommendations; DR-1 A uses the "Profile/Deep Link" FR-PRIV-001 already names and leaks no email.
 
-**Afik, 17.10.2026 (decisions.md 2026-10-17 "I2 reserved items"):** DR-2 → A (a Friend sees F2.3's Open view in both states; children only as the Journey Summary) · DR-T → 100 profile opens per hour per account, as changeable Configuration. F2.4c is unblocked: re-gated and split at its own Gate 1.
+**Afik, 17.10.2026 (decisions.md 2026-10-17 "I2 reserved items"):** DR-2 → A · DR-T → 100 profile opens per hour per account, as
+changeable Configuration · DR-G1 approved. F2.4c re-specced above as F2.4c1 + F2.4c2; its Gate 1 is ORCHESTRATOR's.
+
+## Gate 1 (F2.4c) — ORCHESTRATOR, 17.10.2026
+
+Split approved: **F2.4c1** (c16–c24) after F2.3b and F2.4a are merged; **F2.4c2** (c25–c30) after c1 and F2.4b. Both Elevated
+(c2 adds an external surface: a shareable link, login still required). **DR-W → A** (rolling 60 minutes; 404 opens count, 429
+refusals do not; one Security event per stretch of refusals) · **DR-S → A** (a Friend-request send counts as a profile open;
+built in c1, F2.4a ships without it) · **DR-C → A** (threshold changes by a reviewed migration until the I4 Admin screen) ·
+**DR-O → A** (own link → own profile page, nothing counted). Q3 default. Reason: SPEC's recommendations; DR-C keeps an audit
+trail. Gate 2 must say whether the counter/event write needs a new SECURITY DEFINER — if so it is reserved for Afik. For the I2
+close report: NFR-SEC-006 (5) "reported to Admin" and pattern detection deferred to I4.
