@@ -32,7 +32,11 @@ export const SCREENS: Screen[] = [
   // side menu open with the new item. The menu is opened by the test via `menu: true` below.
   { kind: 'app', name: 'set-new-password', route: '/feed', state: 'signed-in-needs-new-password' },
   { kind: 'app', name: 'password-change', route: '/change-password', state: 'signed-in' },
-  { kind: 'app', name: 'side-menu', route: '/feed', state: 'signed-in', openMenu: true },
+  // F2.5 c1, c12: the same menu, now with the three Settings sections ("side-menu" became "side-menu-open"), and the Settings page.
+  { kind: 'app', name: 'side-menu-open', route: '/feed', state: 'signed-in', openMenu: true },
+  // A story entry: the e2e build's test session has no token, so the app route would show only the privacy load failure; the story
+  // draws the page with the privacy form loaded (pages/settings/SettingsPage.stories.tsx).
+  { kind: 'story', name: 'settings', id: 'pages-settingspage--top' },
   // F2.1 c17: the profile screen's states. Story entries: the e2e build's test session has no access token, so the app route cannot
   // load a profile; each story draws one state from props (features/profile/ProfileContent.stories.tsx).
   { kind: 'story', name: 'profile-view', id: 'features-profile-profilecontent--view' },

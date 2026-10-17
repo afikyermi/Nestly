@@ -197,13 +197,12 @@ test.describe('F2.3a c1 [FR-PRIV-001 BR-037 Q1] the screen with the defaults', (
     expect(openLine).not.toBe(restrictedLine);
   });
 
-  test('[F2.3a c1 Gate 1 DR-2] the profile page links to the settings: "הגדרות פרטיות" opens /settings', async ({ page }) => {
+  test('[F2.3a c1 Gate 1 DR-2][F2.5 c10] the temporary profile-page link "הגדרות פרטיות" is gone (Settings is reached from the menu)', async ({ page }) => {
     await setup(page);
     await signIn(page);
     await page.goto('/profile');
-    await main(page).getByRole('link', { name: T.profileLink, exact: true }).click();
-    await expect.poll(() => pathOf(page)).toBe('/settings');
-    await expect(openRadio(page)).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'פרופיל', exact: true })).toBeVisible();
+    await expect(main(page).getByRole('link', { name: T.profileLink, exact: true })).toHaveCount(0);
   });
 });
 

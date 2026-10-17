@@ -43,8 +43,18 @@ export const FeedCurrent: Story = { render: () => <SignedInAt path={PATHS.feed} 
 
 export const ProfileCurrent: Story = { render: () => <SignedInAt path={PATHS.profile} /> };
 
-// Settings is reached from the menu, not the navigation: no nav item is current.
+// Settings is reached from the menu, not the navigation: no nav item is current. A section's address is the hash (F2.5 c2).
 export const SettingsNoneCurrent: Story = { render: () => <SignedInAt path={PATHS.settings} /> };
+
+export const SettingsAccount: Story = { render: () => <SignedInAt path={`${PATHS.settings}#account`} /> };
+
+// The Privacy section loads from the real API, so in Storybook it shows its load failure (F2.3).
+export const SettingsPrivacy: Story = { render: () => <SignedInAt path={`${PATHS.settings}#privacy`} /> };
+
+export const SettingsTerms: Story = { render: () => <SignedInAt path={`${PATHS.settings}#terms`} /> };
+
+// The consent document opened from Settings by a signed-in user (F2.5 c6, c7): its way back leads to Settings.
+export const TermsFromSettings: Story = { render: () => <SignedInAt path={PATHS.terms} /> };
 
 // F2.4b: the Friends page, reached from the menu (the lists load from the real API, so in Storybook they show the load failure).
 export const FriendsNoneCurrent: Story = { render: () => <SignedInAt path={PATHS.friends} /> };
@@ -55,9 +65,17 @@ export const ChangePassword: Story = { render: () => <SignedInAt path={PATHS.cha
 // F2.0 c14: after a takeover clear any route lands on the forced new-password screen.
 export const MustSetNewPassword: Story = { render: () => <SignedInAt path={PATHS.feed} mustSetPassword /> };
 
-// The side menu open: Friends, Settings, the recovery questions, the password change and Logout.
+// The side menu open: Friends, the three Settings sections, the recovery questions, the password change and Logout.
 export const DrawerOpen: Story = {
   render: () => <SignedInAt path={PATHS.feed} />,
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(await canvas.findByRole('button', { name: 'פתיחת התפריט' }));
+  },
+};
+
+// The menu with the Settings section that is open marked current.
+export const DrawerOpenOnSection: Story = {
+  render: () => <SignedInAt path={`${PATHS.settings}#privacy`} />,
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(await canvas.findByRole('button', { name: 'פתיחת התפריט' }));
   },

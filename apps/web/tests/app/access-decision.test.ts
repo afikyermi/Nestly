@@ -33,6 +33,8 @@ const UNLISTED = [
   '/null',
   '/undefined',
 ];
+// F2.5 c6: signed in, these two Guest paths render (the consent documents are reachable from Settings).
+const CONSENT = ['/terms', '/privacy'];
 const STATES = ['loading', 'signed-in', 'signed-out', 'signed-in-no-account'] as const;
 
 describe('the route table (6, Q2)', () => {
@@ -72,8 +74,23 @@ describe('signed-in (4, 10, DR-1)', () => {
   it.each(PROTECTED)('[F1.2 c5][FR-AUTH-004] %s renders', (path) => {
     expect(decideAccess('signed-in', path)).toEqual({ kind: 'render' });
   });
-  it.each(GUEST)('[F1.2 c4][FR-AUTH-001][FR-AUTH-002] a signed-in user at the Guest route %s is redirected to /feed', (path) => {
+  it.each(GUEST.filter((p) => !CONSENT.includes(p)))('[F1.2 c4][FR-AUTH-001][FR-AUTH-002] a signed-in user at the Guest route %s is redirected to /feed', (path) => {
     expect(decideAccess('signed-in', path)).toEqual({ kind: 'redirect', to: '/feed' });
+  });
+  it.each(CONSENT)('[F2.5 c6][FR-AUTH-004] an active signed-in user can open %s (the consent documents, reachable from Settings)', (path) => {
+    expect(decideAccess('signed-in', path)).toEqual({ kind: 'render' });
+    expect(decideAccess('signed-in', path, true)).toEqual({ kind: 'render' }); // sessionEnded changes nothing for signed-in
+  });
+  it.each(['/terms/x', '/privacy/x', '/terms/..', '/Terms', '/privacy2', '/settings/x', '/settings/..', '/terms%2Fx'])(
+    '[F2.5 c6][FR-AUTH-004] the neighbour path %s is not opened by the /terms and /privacy rule: signed-in -> /feed, signed-out -> /',
+    (path) => {
+      expect(decideAccess('signed-in', path)).toEqual({ kind: 'redirect', to: '/feed' });
+      expect(decideAccess('signed-out', path)).toEqual({ kind: 'redirect', to: '/' });
+    },
+  );
+  it('[F2.5 c6][FR-AUTH-004] signed-out: /settings goes to Welcome (/), and to /login once the session ended', () => {
+    expect(decideAccess('signed-out', '/settings')).toEqual({ kind: 'redirect', to: '/' });
+    expect(decideAccess('signed-out', '/settings', true)).toEqual({ kind: 'redirect', to: '/login' });
   });
   it.each(UNLISTED)('[F1.2 c10][FR-AUTH-004][DR-1] a signed-in user on the unknown path %s is redirected to /feed', (path) => {
     expect(decideAccess('signed-in', path)).toEqual({ kind: 'redirect', to: '/feed' });

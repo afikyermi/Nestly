@@ -173,7 +173,7 @@ test.describe('AppShell: bottom navigation', () => {
 });
 
 test.describe('AppShell: side menu', () => {
-  test('[F1.2 c19][FR-MENU-001] the drawer titled "תפריט" holds exactly five items in order: חברים (link to /friends, F2.4b c13), הגדרות (link to /settings), שאלות לשחזור סיסמה (link, F1.6 c18), החלפת סיסמה (link, F2.0 c15), התנתקות (button)', async ({
+  test('[F1.2 c19][F2.5 c1][FR-MENU-001] the drawer titled "תפריט" holds exactly seven items in order: חברים, חשבון, פרטיות ואבטחה, תנאים ופרטיות (links to /settings sections; terms: DR-2 A), שאלות לשחזור סיסמה, החלפת סיסמה (links), התנתקות (button)', async ({
     page,
   }) => {
     await open(page, '/feed', 'signed-in');
@@ -188,9 +188,16 @@ test.describe('AppShell: side menu', () => {
           href: el.getAttribute('href'),
         })),
       );
-    expect(items.filter((i) => i.name !== CLOSE)).toEqual([
+    const shown = items.filter((i) => i.name !== CLOSE);
+    // The three section items open /settings; the address differs per section (F2.5 c2, Q2), so only the path is fixed here.
+    const sections = shown.filter((i) => ['חשבון', 'פרטיות ואבטחה', 'תנאים ופרטיות'].includes(i.name));
+    for (const s of sections) expect(s.href ?? '', s.name).toMatch(/^\/settings(?:[#/?]|$)/);
+    expect(new Set(sections.map((s) => s.href)).size, 'a distinct address per section').toBe(3);
+    expect(shown.map((i) => ({ ...i, href: i.href?.startsWith('/settings') === true ? '/settings*' : i.href }))).toEqual([
       { tag: 'a', name: 'חברים', href: '/friends' }, // F2.4b c13, before Settings (FR-MENU-001)
-      { tag: 'a', name: 'הגדרות', href: '/settings' },
+      { tag: 'a', name: 'חשבון', href: '/settings*' },
+      { tag: 'a', name: 'פרטיות ואבטחה', href: '/settings*' },
+      { tag: 'a', name: 'תנאים ופרטיות', href: '/settings*' },
       { tag: 'a', name: 'שאלות לשחזור סיסמה', href: '/recovery-questions' }, // F1.6 c18
       { tag: 'a', name: 'החלפת סיסמה', href: '/change-password' }, // F2.0 c15
       { tag: 'button', name: 'התנתקות', href: null },
@@ -199,20 +206,22 @@ test.describe('AppShell: side menu', () => {
       await expect(drawer.locator(`a[href="${dest}"]`)).toHaveCount(0);
     }
     const text = await drawer.innerText();
-    for (const banned of ['חנות', 'יועצים', 'קבוצות', 'עזרה']) expect(text).not.toContain(banned);
+    for (const banned of ['חנות', 'יועצים', 'קבוצות', 'עוקבים', 'מקצועיים במעקב', 'התראות', 'עזרה', 'כללי הקהילה', 'מוקד', 'מחיקת חשבון', 'מחיקה', 'בית', 'פיד', 'פרופיל']) {
+      expect(text, `the drawer must not hold "${banned}"`).not.toContain(banned);
+    }
   });
 
-  test('[F1.2 c20][FR-MENU-001] activating "הגדרות" closes the drawer, shows Settings (h1 הגדרות) and moves focus to main', async ({
+  test('[F1.2 c20][F2.5 c2][FR-MENU-001] activating "חשבון" closes the drawer, shows Settings (h1 הגדרות, the Account h2 focused) with no reload', async ({
     page,
   }) => {
     await open(page, '/feed', 'signed-in');
     await setMarker(page);
     await openDrawer(page);
-    await drawerOf(page).getByRole('link', { name: 'הגדרות' }).click();
-    await expectUrl(page, '/settings');
+    await drawerOf(page).getByRole('link', { name: 'חשבון', exact: true }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/settings');
     await expect(drawerOf(page)).toHaveCount(0);
     await expect(h1Of(page)).toHaveText('הגדרות');
-    await expect(page.locator('main')).toBeFocused();
+    await expect(page.getByRole('heading', { level: 2, name: 'חשבון', exact: true })).toBeFocused();
     expect(await markerAlive(page)).toBe(true);
   });
 

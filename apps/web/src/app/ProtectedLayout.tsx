@@ -3,6 +3,7 @@ import { AppShell } from '@/components/layout/app-shell';
 import { MenuItem } from '@/components/shared/menu-item';
 import { HomeIcon, NestIcon, UserIcon } from '@/components/ui/icons';
 import { useSession } from '@/hooks/use-session';
+import { parseSettingsSection, SETTINGS_SECTIONS, settingsSectionHash } from '@/lib/settings-sections';
 import { normalizePath, PATHS } from './paths';
 
 // The three MVP destinations of a Regular user (AC-005, §7.1). The profile tab shows the generic person
@@ -14,16 +15,25 @@ const NAV_ITEMS = [
 ];
 
 // The AppShell around every protected screen (FR-TOP-001, FR-MENU-001), bound to the router and the
-// session. The TopBar holds only the Hamburger and the Logo; the menu holds Friends (F2.4b), Settings, the recovery questions, the password change
-// (F2.0 c15) and Logout.
+// session. The TopBar holds only the Hamburger and the Logo; the menu holds Friends (F2.4b), one item per Settings section (F2.5),
+// the recovery questions, the password change (F2.0 c15) and Logout. A destination whose feature is not built is absent, not
+// disabled (F2.5 DR-1, as the bottom navigation does for "חנות" and "יועצים").
 export function ProtectedLayout() {
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
   const navigate = useNavigate();
   const { signOut } = useSession();
   const current = normalizePath(pathname);
+  // The Settings section open now (a section's address is the hash of the Settings path), or null.
+  const openSection = current === PATHS.settings ? parseSettingsSection(hash) : null;
+  const here = openSection === null ? current : `${current}${settingsSectionHash(openSection)}`;
   // A click on the screen already open replaces its entry instead of stacking a duplicate.
   const go = (href: string) => {
-    void navigate(href, { replace: href === current });
+    void navigate(href, { replace: href === here });
+  };
+  // A menu item that changes the screen closes the drawer first.
+  const leaving = (closeMenu: () => void) => (href: string) => {
+    closeMenu();
+    go(href);
   };
 
   return (
@@ -37,40 +47,23 @@ export function ProtectedLayout() {
       onNavigate={go}
       menu={(closeMenu) => (
         <>
-          <MenuItem
-            href={PATHS.friends}
-            onNavigate={(href) => {
-              closeMenu();
-              go(href);
-            }}
-          >
+          <MenuItem href={PATHS.friends} current={PATHS.friends === current} onNavigate={leaving(closeMenu)}>
             חברים
           </MenuItem>
-          <MenuItem
-            href={PATHS.settings}
-            onNavigate={(href) => {
-              closeMenu();
-              go(href);
-            }}
-          >
-            הגדרות
-          </MenuItem>
-          <MenuItem
-            href={PATHS.recoveryQuestions}
-            onNavigate={(href) => {
-              closeMenu();
-              go(href);
-            }}
-          >
+          {SETTINGS_SECTIONS.map((section) => (
+            <MenuItem
+              key={section.id}
+              href={`${PATHS.settings}${settingsSectionHash(section.id)}`}
+              current={openSection === section.id}
+              onNavigate={leaving(closeMenu)}
+            >
+              {section.label}
+            </MenuItem>
+          ))}
+          <MenuItem href={PATHS.recoveryQuestions} current={PATHS.recoveryQuestions === current} onNavigate={leaving(closeMenu)}>
             שאלות לשחזור סיסמה
           </MenuItem>
-          <MenuItem
-            href={PATHS.changePassword}
-            onNavigate={(href) => {
-              closeMenu();
-              go(href);
-            }}
-          >
+          <MenuItem href={PATHS.changePassword} current={PATHS.changePassword === current} onNavigate={leaving(closeMenu)}>
             החלפת סיסמה
           </MenuItem>
           <MenuItem

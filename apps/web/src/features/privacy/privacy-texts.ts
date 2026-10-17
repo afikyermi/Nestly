@@ -3,7 +3,7 @@ import type { ChoiceOption } from '@/components/shared/choice-card-group';
 // The privacy settings' texts (F2.3a; Q1: written in spec.md c1 and c4, the explanations from SRS §1.4). This is the only place a
 // setting or a status becomes text on this screen.
 
-export const TITLE = 'פרטיות';
+export const TITLE = 'פרטיות ואבטחה';
 export const VISIBILITY_LEGEND = 'צפייה בפרופיל';
 export const VISIBILITY_OPTIONS: ChoiceOption[] = [
   {
