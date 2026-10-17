@@ -9,6 +9,7 @@
                     זמינה"). Success status lines (sr-only, "הבקשה אושרה" etc.) and the empty/failure copy are mine (Q1, ux-copy-he).
                     After accept/decline/cancel/remove focus goes to the affected list's heading (the button is gone); cancel/Escape of the
                     dialog returns to the opener.
+**Copy (CRITIC low)**  a 404 on remove-Friend shows "האדם הזה כבר לא ברשימת החברים" (FRIEND_GONE_TEXT); accept/decline/cancel keep "הבקשה כבר לא זמינה". Story FriendGone.
 **Deviations**      none.
 **Deliberately not done**   requestedAt is not shown. No next-step in the empty texts (no screen creates a request before F2.4c2).
 **Uncertain**       the `latestTick.current = ...` ref write during render in FriendsContent (lint passes). Hebrew of the sr-only names.

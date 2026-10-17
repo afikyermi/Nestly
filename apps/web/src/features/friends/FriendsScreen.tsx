@@ -9,6 +9,7 @@ import {
   ACTION_FAILED_TEXT,
   CANCELLED_STATUS,
   DECLINED_STATUS,
+  FRIEND_GONE_TEXT,
   GONE_TEXT,
   LOAD_FAILED_TEXT,
   REMOVED_STATUS,
@@ -103,13 +104,13 @@ export function FriendsScreen() {
   }, [load]);
 
   // 409 request_gone (c14): what the list showed is out of date. It reloads in place, keeping the page, and says so.
-  async function reloadAfterGone(): Promise<void> {
+  async function reloadAfterGone(message: string): Promise<void> {
     const run = (loads.current += 1);
     const accessToken = await token();
     const outcome: FriendsOutcome = accessToken === null ? { kind: 'failed' } : await fetchFriendLists(accessToken);
     if (run !== loads.current) return;
     if (outcome.kind === 'lists') {
-      setView({ kind: 'loaded', lists: outcome.lists, busy: null, failure: GONE_TEXT, status: '', confirm: null });
+      setView({ kind: 'loaded', lists: outcome.lists, busy: null, failure: message, status: '', confirm: null });
       focusOn('message');
       return;
     }
@@ -139,7 +140,7 @@ export function FriendsScreen() {
         return;
       }
       if (outcome.kind === 'gone') {
-        await reloadAfterGone();
+        await reloadAfterGone(removing ? FRIEND_GONE_TEXT : GONE_TEXT);
         return;
       }
       // The entry stays (c14); the buttons are live again.

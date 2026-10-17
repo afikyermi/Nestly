@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { FriendLists } from '@nestly/shared';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
 import { FriendsContent } from './FriendsContent';
-import { ACTION_FAILED_TEXT, GONE_TEXT, LOAD_FAILED_TEXT } from './friends-texts';
+import { ACTION_FAILED_TEXT, FRIEND_GONE_TEXT, GONE_TEXT, LOAD_FAILED_TEXT } from './friends-texts';
 
 // The Friends page body (F2.4b) in each of its states, drawn from props alone, as it sits in the shell's `main` under the page's
 // heading: no server, no timing, so the visual baselines and axe see exactly one state each (e2e/visual-screens.ts).
@@ -77,6 +77,9 @@ export const ActionFailed: Story = { args: { view: { ...loaded, lists, failure: 
 
 /** c14: 409 request_gone; the lists were reloaded. */
 export const RequestGone: Story = { args: { view: { ...loaded, lists: { ...lists, incoming: lists.incoming.slice(1) }, failure: GONE_TEXT } } };
+
+/** c14: a removal found no Friendship; the lists were reloaded. */
+export const FriendGone: Story = { args: { view: { ...loaded, lists: { ...lists, friends: lists.friends.slice(1) }, failure: FRIEND_GONE_TEXT } } };
 
 /** c14: loading shows no lists. */
 export const Loading: Story = { args: { view: { kind: 'loading' } } };

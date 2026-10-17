@@ -32,6 +32,7 @@ export const LOADING_TEXT = 'טוענים את החברים';
 export const LOAD_FAILED_TEXT = 'לא הצלחנו לטעון את החברים. אפשר לנסות שוב'; // c14 · ERR-004
 export const ACTION_FAILED_TEXT = 'הפעולה לא הצליחה. אפשר לנסות שוב'; // c14 · ERR-004
 export const GONE_TEXT = 'הבקשה כבר לא זמינה'; // c14
+export const FRIEND_GONE_TEXT = 'האדם הזה כבר לא ברשימת החברים'; // c14: a removal that found no Friendship (CRITIC low)
 
 export const ACCEPTED_STATUS = 'הבקשה אושרה';
 export const DECLINED_STATUS = 'הבקשה נדחתה';
