@@ -28,3 +28,13 @@ Saved verbatim by ORCHESTRATOR: the harness refused CRITIC's own Write. Verdict:
 
 ## ORCHESTRATOR's handling (18.10.2026)
 - 1: `storyIds()` returns sorted ids; a tools test pins it. 2: kept at 12 min knowingly (slowest P3-head step 484 s = 49 % headroom; 600 s was the old a11y-in-one-worker tail that P3 removes); recorded in measurements.md. 3: tightened with mutants. 4: JSON.parse.
+
+## Re-check (CRITIC, finding 1, against 8c32ccc) — CRITIC's text, saved by ORCHESTRATOR (its Write was refused)
+State: **fixed.** `storyIds()` (e2e/helpers.ts:18-21) ends in `.sort()` — default code-unit sort, so the order depends only
+on the id strings; every shard's own Storybook index yields the same sequence and the position-based dealing of
+a11y.spec.ts tests is consistent across shards. Guard: tools/ci-browser.test.mjs:258 asserts the `}).sort();` ending; the
+mutant "storyIds unsorted" (line 281) shows it fails when removed. Other consumers: every storyIds/storiesOf use in e2e/
+checked — most iterate; length checks and `.find(...)` are order-independent. Index-dependent uses: `TOPBAR[0]`
+(part-f.spec.ts:98, :111) is still `shared-topbar--default` ("default" sorts before "with-actions", matches source order;
+the tests need only the Hamburger); `BOTTOMNAV[0]` (part-f.spec.ts:291) changes from ThreeItems to FiveItems — the resize
+test is generic over bar and rail, unaffected. New defects introduced by the fix: none. Next owner: ORCHESTRATOR.
