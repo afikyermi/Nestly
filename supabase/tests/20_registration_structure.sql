@@ -174,14 +174,14 @@ select is_empty(
 select is(
   (select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')),
-  11::bigint,
-  '[F1.4-a c14 · F1.6-a · F2.0-a · F2.4a c12] schema nestly holds exactly eleven tables: the five F1.1/F1.4 ones, the three recovery tables, identity_link_checks and F2.4a''s friendships and regular_names (no table nobody listed)');
+  14::bigint,
+  '[F1.4-a c14 · F1.6-a · F2.0-a · F2.4a c12 · F2.4-c c20 c21 c22] schema nestly holds exactly fourteen tables: the five F1.1/F1.4 ones, the three recovery tables, identity_link_checks, F2.4a''s friendships and regular_names and F2.4c1''s security_limits, profile_open_counts and security_events (no table nobody listed)');
 
 select is(
   (select string_agg(c.relname, ', ' order by c.relname) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')),
-  'children, friendships, identity_link_checks, journey_contexts, legal_consents, recovery_answers, recovery_events, recovery_throttles, regular_names, regular_profiles, users',
-  '[F1.6-a · F2.0-a · F2.4a c12] the eleven tables are exactly these names');
+  'children, friendships, identity_link_checks, journey_contexts, legal_consents, profile_open_counts, recovery_answers, recovery_events, recovery_throttles, regular_names, regular_profiles, security_events, security_limits, users',
+  '[F1.6-a · F2.0-a · F2.4a c12 · F2.4-c c22] the fourteen tables are exactly these names');
 
 -- ---- policies: the exact list ---------------------------------------------------------------------------------------------
 select set_eq(

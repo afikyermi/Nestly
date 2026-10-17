@@ -11,3 +11,4 @@ export * from './profile.js';
 export * from './journeys.js';
 export * from './privacy.js';
 export * from './friends.js';
+export * from './profile-view.js';

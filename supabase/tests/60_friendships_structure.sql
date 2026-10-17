@@ -92,15 +92,16 @@ select set_eq(
        from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'nestly' and c.relname in ('friendships', 'regular_names') $$,
   $$ values ('friendships.friendships_select_party.r'), ('friendships.friendships_insert_requester.a'), ('friendships.friendships_update_party.w'),
-            ('regular_names.regular_names_select_party.r'), ('regular_names.regular_names_insert_own.a') $$,
-  '[F2.4-a c12] exactly five policies: friendships select, insert, update (no delete) and regular_names select, insert');
+            ('regular_names.regular_names_select_party.r'), ('regular_names.regular_names_insert_own.a'),
+            ('friendships.friendships_select_profile_view.r'), ('regular_names.regular_names_select_profile_view.r') $$,
+  '[F2.4-a c12 · F2.4-c c18 c23] exactly seven policies: friendships select, insert, update (no delete) and regular_names select, insert -- five TO authenticated -- and, from F2.4c1, one SELECT each for profile_view TO app_owner (file 64)');
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname in ('friendships', 'regular_names')
       and pol.polroles = array[(select oid from pg_catalog.pg_roles where rolname = 'authenticated')]::oid[]),
   5::bigint,
-  '[F2.4-a c12] all five policies are TO authenticated and nothing else (no public, anon or app_owner policy)');
+  '[F2.4-a c12 · F2.4-c c23] five of the policies are TO authenticated and nothing else, the other two (F2.4c1) TO app_owner only: no public or anon policy');
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace

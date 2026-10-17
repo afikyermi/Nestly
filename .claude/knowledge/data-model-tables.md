@@ -12,15 +12,17 @@ The rules, layers, conventions and approved exceptions stay in `data-model.md`; 
 (I2 F2.0; `.work/account-takeover-close/`; the guard is in `is_active_account()`), `20261017100000_regular_profiles_update_own.sql` (F2.1; `.work/profile-view-edit/`),
 `20261017120000_profile_privacy.sql` (F2.3a; `.work/profile-privacy/`), `20261017110000_children_update_own.sql`, `20261017140000_journey_due_date_update.sql`,
 `20261017141000_journeys_children_delete_own.sql` (F2.2a, b1, b2; `.work/journeys-children/`), `20261017150000_profile_view.sql` (F2.3b; `.work/profile-privacy/`;
-no table change), and `20261017160000_friendships.sql` (F2.4a; `.work/friends/`). Down scripts in `supabase/rollback/`, in order: F2.4a's refuses while
+no table change), `20261017160000_friendships.sql` (F2.4a; `.work/friends/`), and `20261017170000_profile_open_limit.sql` (F2.4c1; `.work/friends/`). Down scripts in `supabase/rollback/`,
+in order: F2.4c1's refuses while `security_events` holds a row (lifts FORCE RLS on it inside its own transaction), restores F2.3b's `profile_view` text
+verbatim, drops its two policies on `friendships` / `regular_names` and its three tables, and deletes only its own history row; F2.4a's refuses while
 `friendships` holds a row (lifts FORCE RLS on it inside its own transaction; `regular_names` is derived and dropped with it); F2.3a's refuses while
 any profile holds a non-default privacy setting (it lifts FORCE RLS inside its own transaction so the check sees every row); F2.0's while `identity_link_checks` or an
 F2.0 event holds a row; F1.6's while `recovery_answers` or `recovery_events` holds a row; F1.4's while any of its three tables holds a row; F1.1's while `nestly.legal_consents`
 exists (safe only while `users` is empty); F2.1's, F2.2's and F2.3b's touch no row (F2.3b's drops `profile_view`, its four policies and two helpers; F2.3a's
 settings stay). Writes: per column (`data-model.md` "Write grants") — F1.4's create path is INSERT only; UPDATE on `recovery_answers`, `recovery_throttles` (F1.6),
-`identity_link_checks` (F2.0, by trigger), `friendships` (F2.4a, a party's row, by trigger), and, own row while active, `regular_profiles` (F2.1, F2.3a), `children` (F2.2a), `journey_contexts` (F2.2b: due_date, pregnant only);
+`identity_link_checks` (F2.0, by trigger), `friendships` (F2.4a, a party's row, by trigger), `profile_open_counts` (F2.4c1, only inside `profile_view`, own row), and, own row while active, `regular_profiles` (F2.1, F2.3a), `children` (F2.2a), `journey_contexts` (F2.2b: due_date, pregnant only);
 DELETE: `recovery_answers_delete_clear` (F2.0 D1) and own `children` and `journey_contexts`, hard (F2.2b). After registration, every write that adds or deletes a child or journey first locks the
-own `regular_profiles` row FOR NO KEY UPDATE. No DELETE on `friendships` or `regular_names` for any runtime role. All eleven tables are in `nestly`.
+own `regular_profiles` row FOR NO KEY UPDATE. No DELETE on `friendships` or `regular_names` for any runtime role; `security_events` is INSERT only, inside `profile_view`. All fourteen tables are in `nestly`.
 
 | Column | Type · null · default | Meaning |
 |---|---|---|
@@ -146,12 +148,14 @@ exception in `data-model.md`, DR-G1). Four SELECT policies, all `TO app_owner`, 
 its one query; no runtime role is a member of `app_owner` (rule 1), so a GUC a caller sets opens nothing. Inside the definer the caller's own
 `TO authenticated` policies still apply (`app_owner` inherits `authenticated`); the function's query names the target, so they add nothing.
 What leaves: full_name, children_count, is_pregnant, shows_empty_journey_sentence; gender and child_ages only when the target is Open (`s.is_full`,
-the one switch F2.4c1 widens); no column of `children` or `journey_contexts` beyond the count, the ages and the presence of a pregnant journey.
+widened by F2.4c1 to the caller's Friends, DR-2 A); no column of `children` or `journey_contexts` beyond the count, the ages and the presence of a pregnant journey.
 Helpers, SECURITY INVOKER, `set search_path = ''`, EXECUTE revoked from PUBLIC and granted to no role (only `app_owner` runs them):
 `profile_view_target()` — the GUC as a uuid, NULL when unset, empty or not a uuid; `child_age_months(date, timestamptz)` — completed calendar
 months from a birth date to the date of an instant in Asia/Jerusalem, floored at 0 (DR-3, DR-6 A); `profile_view` passes `pg_catalog.now()`.
 No table, column, index or grant on a table changed; no backfill. Indexes: each policy and the function's lookups use the existing PK or
-`(user_id, …)` unique keys. Rollback: the down script drops the function, the four policies and the two helpers, touching no row.
+`(user_id, …)` unique keys. Rollback: the down script drops the function, the four policies and the two helpers, touching no row. **F2.4c1** (migration `20261017170000`, Afik DR-L)
+recreates the function with the open count first and four trailing columns (relationship, friends, mutual_friends, outcome), and adds seven more
+`TO app_owner` policies under the same gate: below, and one SELECT each on `friendships`, `regular_names` (table above).
 
 Helper: `nestly.is_active_account()` — true when the caller's own account exists and is active (rule 15). SECURITY
 INVOKER, caller only; checks `id = auth.uid()` and `status` itself rather than trusting the `users` policy.
@@ -229,7 +233,7 @@ cleared_at where cleared_at is null returning`, `takeover_cleared` as app_recove
 | Purpose | §13 Friendship / Friend Request between two Regular accounts | DR-6 A: the one column of a profile the other party of a live pair may read (PG-036), without a definer and without the profile row |
 | Not stored | no request message; no history row per move (the clocks are the history); no block | nothing but the name |
 | Owner | both parties; the requester by `default auth.uid()` + WITH CHECK | the profile owner; written by the insert trigger, kept equal by the FK |
-| Authorization | RLS + FORCE. `friendships_select_party` — a party reads the row while active and the other party's copy is 'active'. `friendships_insert_requester` — requester = caller, active, pending, not cancelled, both copies 'active'; the FKs (run as owner) prove the addressee an active Regular account (23503 otherwise). `friendships_update_party` — USING and WITH CHECK = the select rule. **`friendships_transition`** (BEFORE UPDATE, SECURITY INVOKER) is the one place that sees OLD and NEW: immutable id, party ids, created_at; a pure status-copy cascade passes; else exactly addressee pending→accepted / declined · addressee declined→pending (DR-7 A) · requester withdraws pending / declined · requester un-withdraws own declined (silent re-send) · either party accepted→removed; it stamps the clock; anything else 42501. Grants: SELECT; INSERT (addressee_id); UPDATE (status, cancelled_at) → authenticated. No DELETE | RLS + FORCE. `regular_names_select_party` — active caller reads its own row and the other party's of a row it sent (pending, declined, accepted) or received (pending, accepted), never a withdrawn one; the counterparty-active rule is inherited from friendships' RLS. `regular_names_insert_own` — own row, active. Trigger function `regular_names_insert()` SECURITY INVOKER, runs as the registering caller. Grants: SELECT; INSERT (user_id, full_name) — see "Write grants" exception. No UPDATE (the cascade writes it) or DELETE |
+| Authorization | RLS + FORCE. `friendships_select_party` — a party reads the row while active and the other party's copy is 'active'. `friendships_insert_requester` — requester = caller, active, pending, not cancelled, both copies 'active'; the FKs (run as owner) prove the addressee an active Regular account (23503 otherwise). `friendships_update_party` — USING and WITH CHECK = the select rule. **`friendships_transition`** (BEFORE UPDATE, SECURITY INVOKER) is the one place that sees OLD and NEW: immutable id, party ids, created_at; a pure status-copy cascade passes; else exactly addressee pending→accepted / declined · addressee declined→pending (DR-7 A) · requester withdraws pending / declined · requester un-withdraws own declined (silent re-send) · either party accepted→removed; it stamps the clock; anything else 42501. `friendships_select_profile_view` (F2.4c1) — TO app_owner, accepted rows with both copies 'active' that involve the declared target (`profile_view`'s Friends list). Grants: SELECT; INSERT (addressee_id); UPDATE (status, cancelled_at) → authenticated. No DELETE | RLS + FORCE. `regular_names_select_party` — active caller reads its own row and the other party's of a row it sent (pending, declined, accepted) or received (pending, accepted), never a withdrawn one; the counterparty-active rule is inherited from friendships' RLS. `regular_names_insert_own` — own row, active. Trigger function `regular_names_insert()` SECURITY INVOKER, runs as the registering caller. `regular_names_select_profile_view` (F2.4c1) — TO app_owner, the names of the declared target's accepted Friends, both copies 'active' (correlated EXISTS on friendships). Grants: SELECT; INSERT (user_id, full_name) — see "Write grants" exception. No UPDATE (the cascade writes it) or DELETE |
 | Relations | requester_id, addressee_id → regular_profiles (user_id) ON DELETE CASCADE (Regular only, BR-029); (requester_id, requester_status), (addressee_id, addressee_status) → users (id, status) ON UPDATE CASCADE ON DELETE CASCADE. The cascade fires the trigger, which lets it through | (user_id, full_name) → regular_profiles (user_id, full_name) ON UPDATE CASCADE ON DELETE CASCADE |
 | Indexes | `friendships_pair_live_key` UNIQUE (least, greatest) WHERE accepted or (pending and not cancelled) — one live row per unordered pair (VAL-017, c3, c4); `friendships_requester_id_addressee_id_key` UNIQUE (requester_id, addressee_id) WHERE declined or open pending — a decline blocks A→B, not B→A (DR-3 A); the server's untargeted `on conflict do nothing` covers both. `friendships_requester_id_idx`, `friendships_addressee_id_idx` — the policies, the lists, the names EXISTS, both cascades. The list sort on requested_at runs on the caller's rows in memory: no index, by decision | `regular_names_pkey` (user_id) — the policy EXISTS joins on it, the cascades |
 | Retention | no DELETE and no deleted_at: every row, removed and withdrawn included, is kept (§13.4 TBD, I9); goes with either profile (cascade) | derived; goes with the profile |
@@ -240,7 +244,41 @@ decline, cancel, remove — one UPDATE each, 0 rows → read the pair (404 vs 40
 withdrawn), `requested_at desc, id desc`; names: every `regular_names` row the caller may read. `status` never leaves the service.
 **Backfill (DR-B):** `regular_names` was filled from `regular_profiles` in the migration transaction with FORCE lifted on the source and
 restored before any other statement (`data-model.md` "Backfills"). **Preview cleanup:** both tables deleted before `regular_profiles`,
-friendships by either party (`.work/friends/schema.md` "Preview cleanup").
+friendships by either party; F2.4c1 adds `profile_open_counts`, then `security_events`, after `regular_profiles` and before `identity_link_checks`;
+`security_limits` is listed, never written (14 tables; `.work/friends/schema.md` "Preview cleanup").
+
+**`nestly.security_limits`, `nestly.profile_open_counts`, `nestly.security_events`** (I2 F2.4c1, NFR-SEC-006 (1)(5), BR-025, AC-078, ERR-032;
+migration `20261017170000`, `.work/friends/schema.md` F2.4c1, Gate 2 + Afik DR-L)
+
+| Column | Type · null · default | Meaning |
+|---|---|---|
+| `security_limits.limit_key` | text PK · CHECK in ('profile_open') | which limit (Configuration, NFR-SEC-006) |
+| `security_limits.max_count` | integer · not null · CHECK 1–10000 | N: opens allowed in the window; seeded 100 (Afik DR-T) |
+| `security_limits.window_seconds` | integer · not null · CHECK 1–604800 | W: the rolling window (DR-W A); seeded 3600 |
+| `security_limits.updated_at` | timestamptz · not null · `now()` | when the row was last set |
+| `profile_open_counts.user_id` | uuid PK → users (id) | the account that opened (`auth.uid()` of the call) |
+| `profile_open_counts.opened_at` | timestamptz[] · not null · `'{}'` · CHECK cardinality ≤ 10000 | instants of counted opens inside the window, DB clock; older ones pruned at the next open |
+| `profile_open_counts.is_refusal_recorded` | boolean · not null · false | the current refusal stretch already wrote its event; cleared by the next counted open |
+| `security_events.id` | uuid PK · `gen_random_uuid()` | |
+| `security_events.kind` | text · not null · CHECK in ('profile_open_limit') | what happened; extended by a migration |
+| `security_events.user_id` | uuid · not null → users (id) | the refused account. No target, name or profile data |
+| `security_events.occurred_at` | timestamptz · not null · `now()` | DB clock |
+
+| | `security_limits` | `profile_open_counts` | `security_events` |
+|---|---|---|---|
+| Purpose | the stored threshold and window of a limit (DR-C A: data, never a code constant) | per-account rolling window of profile opens (c20) | NFR-SEC-006 (5): one row for the first refusal of a stretch (c21) |
+| Owner | none: configuration | the account, keyed by `auth.uid()` inside `profile_view` | none set by a client; `user_id = auth.uid()` forced by the policy |
+| Authorization | RLS + FORCE. `security_limits_select_profile_view` — TO app_owner, the profile_open row while a target is declared. No write policy: a change is a migration lifting FORCE in its transaction (DR-B pattern) until I4's Admin screen | RLS + FORCE. `profile_open_counts_{select,insert,update}_profile_view` — TO app_owner, `user_id = auth.uid()` and a declared target (the upsert needs all three) | RLS + FORCE. `security_events_insert_profile_view` — TO app_owner, own account, kind profile_open_limit, declared target. No SELECT (so no RETURNING), UPDATE or DELETE policy |
+| Grants | none to `authenticated`, `anon` or PUBLIC on any of the three (`revoke all`; every verb 42501, c21–c22). Reached only through `profile_view` | same | same |
+| Relations | none | user_id → users ON DELETE CASCADE (working state) | user_id → users ON DELETE **RESTRICT**, as `recovery_events`; the cleanup tool alone deletes a test user's rows (Afik DR-L) |
+| Indexes | pk | pk: the upsert's row lock serializes one account (120 concurrent → ≤ 100 shown); others never wait; one HOT update per open | `security_events_user_id_idx` — the RESTRICT check, I4's per-account read; ≤ 1 insert per refusal stretch |
+| Retention | one row, never deleted (deleting it fails every open closed, NS001) | disposable; every window restarts on rollback | append-only, kept until I9 sets retention (§13.4 TBD) |
+
+**Open semantics** (one `profile_view` call): active caller → declare target → read N, W (absent or invalid → NS001, rollback, no count, no event) →
+upsert own row (lock) → prune instants older than W → ≥ N: first refusal of the stretch inserts the event, sets the flag, returns `limited`, not counted
+(the server COMMITs) → else append `now()`, clear the flag, read the target (unavailable = 0 rows, already counted). The F2.4a send runs the same call first (c24).
+**Lists:** unbounded (no pagination: spec "Out of scope"); per Friend of the target, about six index probes (pk, the two party indexes) for the name policy's
+EXISTS and `is_mutual`. Accepted for the MVP; revisit when an account nears ~1,000 accepted Friends.
 
 A new entity adds its columns to the first table — field, type, and its meaning, which is the part that matters — and
 fills every row of the second: purpose in one line; what is not stored; owner, and how that is established;

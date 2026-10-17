@@ -3,7 +3,8 @@
 // database from the token, and the other person is named in the path or the body by user id only.
 //   POST   /api/friend-requests                  { targetUserId } (strict) → 201 {} · 404 unavailable (one body for a Professional,
 //                                                 Moderator, Admin, an unknown or a stopped target) · 409 request_exists | already_friends |
-//                                                 incoming_pending · 400 invalid (also the caller's own id)
+//                                                 incoming_pending · 400 invalid (also the caller's own id) · 429 rate_limited (a send counts as
+//                                                 one profile open, c24; no row is made)
 //   POST   /api/friend-requests/:userId/accept   the request :userId sent the caller → 200 {}
 //   POST   /api/friend-requests/:userId/decline  the same, declined → 200 {} (the sender is not told, DR-3 A)
 //   DELETE /api/friend-requests/:userId          the caller's own request to :userId withdrawn (DR-4 A) → 200 {}
@@ -20,6 +21,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
 import { isTransientFailure, readDatabaseFault } from '../lib/pg-error.js';
 import { replySessionRefused } from '../plugins/authentication.js';
+import { replyRateLimited } from './rate-limit-reply.js';
 import {
   acceptFriendRequest,
   cancelFriendRequest,
@@ -41,7 +43,7 @@ function replyRefusal(reply: FastifyReply, refusal: ActorRefusal): FastifyReply 
   return reply.code(403).send({ error: refusal.kind === 'stopped' ? 'account_unavailable' : 'forbidden' });
 }
 
-function replySend(reply: FastifyReply, outcome: SendOutcome): FastifyReply {
+function replySend(request: FastifyRequest, reply: FastifyReply, outcome: SendOutcome): FastifyReply {
   switch (outcome.kind) {
     case 'sent':
       return reply.code(201).send({});
@@ -49,6 +51,8 @@ function replySend(reply: FastifyReply, outcome: SendOutcome): FastifyReply {
       return reply.code(404).send({ error: 'unavailable' });
     case 'conflict':
       return reply.code(409).send({ error: outcome.reason });
+    case 'rate_limited':
+      return replyRateLimited(request, reply, outcome);
     default:
       return replyRefusal(reply, outcome);
   }
@@ -103,7 +107,7 @@ async function send(request: FastifyRequest, reply: FastifyReply, deps: FriendsR
   if (!checked.ok || checked.userId === identity?.userId.toLowerCase()) return reply.code(400).send({ error: 'invalid' });
   if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
   try {
-    return replySend(reply, await sendFriendRequest(deps.database, identity, checked.userId));
+    return replySend(request, reply, await sendFriendRequest(deps.database, identity, checked.userId));
   } catch (error) {
     return replyFailure(request, reply, error, 'friend request send failed');
   }
