@@ -31,4 +31,4 @@ file:     apps/web/src/hooks/use-google-sign-in.ts:1433 · apps/web/src/app/App.
 claim:    a note left by a Google start that never came back survives a plain Google start and any fresh load, until a sign-out.
 failure:  Guest A: /u/X → Login → Google → Back. Within 10 min user B in the same tab: plain Login → Google → lands on X (learns A's target).
 fix:      every Google start replaces the note (write with a target, remove without); every fresh load removes it, used only on googleEntry.
-status:   open -> BUILDER (fixed in this part — a privacy leak, cheap) · TEST ENGINEER (test)
+status:   fixed ab31398, tests 01180f7 — validated by CRITIC 17.10
