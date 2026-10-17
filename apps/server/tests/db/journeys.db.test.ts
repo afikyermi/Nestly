@@ -2,6 +2,7 @@ import postgres from 'postgres';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createDatabase, type Database } from '../../src/db/client.js';
 import { ACCOUNT_A, ACCOUNT_B, AUDIENCE, COLD_START_MS, ISSUER, newKey, restoreEnv, startJwks, token, type App, type JwksServer, type TestKey } from '../helpers/identity-fixtures.js';
+import { holdingAfterWork } from '../helpers/hold-transaction.js';
 import { CLOCK_NOW, EMPTY_DATE, buildRegisterApp, captureLog, child, jsonOf, parts, post, validBody } from '../helpers/register-app.js';
 
 // I2 F2.2b1, POST /api/journeys (add a pregnancy) and PUT /api/journeys/:id (edit its due date) against the real database (CI `db`
@@ -16,7 +17,7 @@ import { CLOCK_NOW, EMPTY_DATE, buildRegisterApp, captureLog, child, jsonOf, par
 // The server's window (spec.md, ORCHESTRATOR's c14 ruling of 17.10.2026): UTC today-30 .. UTC today+1+300, every date an Israeli
 // device can hold. So 2026-05-16 (-30), 2027-04-11 (+300) and 2027-04-12 (+301) are accepted; 2026-05-15 (-31) and 2027-04-13
 // (+302) are refused. The web keeps -30 / +300 on the device's date (e2e/journeys-pregnancy.spec.ts).
-// A's pregnancy is only edited (and put back); every POST runs on a FRESH registered user (b1 has no DELETE).
+// A's pregnancy is only edited (and put back); every POST runs on a FRESH registered user. The b2 routes: journeys-remove.db.test.ts.
 
 const T = { timeout: COLD_START_MS };
 const S = '50000000-0000-4000-8000-000000000051';
@@ -316,41 +317,6 @@ describe('[F2.2b c15 VAL-039 AC-089] POST /api/journeys adds a pregnancy when th
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
-/** A Database whose first transaction after arm() does its work and then waits for release() before it commits. */
-function holdingAfterWork(real: Database): { database: Database; arm: () => void; reached: Promise<void>; release: () => void } {
-  let armed = false;
-  let signal: () => void = () => undefined;
-  let open: () => void = () => undefined;
-  const reached = new Promise<void>((resolve) => { signal = resolve; });
-  const gate = new Promise<void>((resolve) => { open = resolve; });
-  const db = new Proxy(real.db, {
-    get(target, prop) {
-      const value: unknown = Reflect.get(target, prop);
-      if (typeof value !== 'function') return value;
-      if (prop !== 'transaction') {
-        const bound: unknown = value.bind(target);
-        return bound;
-      }
-      return (work: unknown, ...rest: unknown[]) => {
-        if (!armed || typeof work !== 'function') {
-          const passed: unknown = Reflect.apply(value, target, [work, ...rest]);
-          return passed;
-        }
-        armed = false;
-        const held = async (tx: unknown): Promise<unknown> => {
-          const out: unknown = await Reflect.apply(work, undefined, [tx]);
-          signal();
-          await gate;
-          return out;
-        };
-        const outcome: unknown = Reflect.apply(value, target, [held, ...rest]);
-        return outcome;
-      };
-    },
-  });
-  return { database: { db, client: real.client, close: () => real.close() }, arm: () => { armed = true; }, reached, release: () => open() };
-}
-
 describe('[F2.2b c15 schema "Server db tests"] two concurrent "add pregnancy" POSTs -> exactly one pregnant row', () => {
   it('[F2.2b c15] 20 rounds, the first transaction held open after its insert: one 201, one 409 stage_conflict, one pregnant row', { timeout: COLD_START_MS * 4 }, async () => {
     for (let round = 1; round <= 20; round += 1) {

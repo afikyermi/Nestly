@@ -192,11 +192,11 @@ select set_eq(
             ('regular_profiles.regular_profiles_select_own.r'), ('regular_profiles.regular_profiles_insert_own.a'),
             ('regular_profiles.regular_profiles_update_own.w'),
             ('journey_contexts.journey_contexts_select_own.r'), ('journey_contexts.journey_contexts_insert_own.a'),
-            ('journey_contexts.journey_contexts_update_own.w'),
+            ('journey_contexts.journey_contexts_update_own.w'), ('journey_contexts.journey_contexts_delete_own.d'),
             ('children.children_select_own.r'), ('children.children_insert_own.a'),
-            ('children.children_update_own.w'),
+            ('children.children_update_own.w'), ('children.children_delete_own.d'),
             ('legal_consents.legal_consents_select_own.r'), ('legal_consents.legal_consents_insert_own.a') $$,
-  '[F1.4-a c14 platform r14 · F1.6 scoped · F2.2a c9 · F2.2-b c18] the policies on the five F1.1/F1.4 tables are exactly thirteen: one SELECT and one INSERT per table plus regular_profiles_update_own (F2.1), children_update_own (F2.2a) and journey_contexts_update_own (F2.2b1), no other UPDATE, DELETE or ALL (the recovery policies: file 30; files 50, 51 and 54 assert the update policies)');
+  '[F1.4-a c14 platform r14 · F1.6 scoped · F2.2a c9 · F2.2-b c18] the policies on the five F1.1/F1.4 tables are exactly fifteen: one SELECT and one INSERT per table plus regular_profiles_update_own (F2.1), children_update_own (F2.2a), journey_contexts_update_own (F2.2b1) and the own-row deletes children_delete_own and journey_contexts_delete_own (F2.2b2, DR-1 A), no other UPDATE, DELETE or ALL (the recovery policies: file 30; files 50, 51 and 54 assert the update and delete policies)');
 
 select is_empty(
   $$ select c.relname || '.' || pol.polname
@@ -319,8 +319,8 @@ select is_empty(
        from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
        cross join (values ('UPDATE'), ('DELETE'), ('TRUNCATE'), ('REFERENCES'), ('TRIGGER')) as p(priv)
       where n.nspname = 'nestly' and c.relkind in ('r', 'p') and has_table_privilege('authenticated', c.oid, p.priv)
-        and not (c.relname = 'recovery_answers' and p.priv = 'DELETE') $$,
-  '[F1.4-a c14 criterion 14 amended · F2.0 scoped] authenticated holds no UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any nestly table: owners read, they do not edit (I2); the one DELETE is the F2.0 D1 clear of recovery_answers (file 40)');
+        and not (c.relname in ('recovery_answers', 'children', 'journey_contexts') and p.priv = 'DELETE') $$,
+  '[F1.4-a c14 criterion 14 amended · F2.0 scoped · F2.2-b c18] authenticated holds no table-level UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any nestly table; the DELETEs are the F2.0 D1 clear of recovery_answers (file 40) and the F2.2b2 own-row removal of children and journeys (DR-1 A, file 54)');
 
 select is_empty(
   $$ select c.relname || '.' || a.attname

@@ -63,13 +63,15 @@ select is(has_table_privilege('authenticated', pg_temp.rel('children'), 'UPDATE'
 -- F2.2b1 (schema.md F2.2b "Amend"): journey_contexts gained UPDATE (due_date) behind journey_contexts_update_own; file 54 asserts it.
 select is(has_table_privilege('authenticated', pg_temp.rel('journey_contexts'), 'UPDATE'), false,
   '[F2.2-a scope · F2.2-b c18 re-graded] no table-level UPDATE on journey_contexts (its one UPDATE column, due_date, is file 54''s)');
-select is(has_table_privilege('authenticated', pg_temp.rel('children'), 'DELETE'), false, '[F2.2-a c9 DR-1] no DELETE on children');
-select is(has_table_privilege('authenticated', pg_temp.rel('journey_contexts'), 'DELETE'), false, '[F2.2-a c9 DR-1] no DELETE on journey_contexts');
+-- F2.2b2 (spec.md "Gate 1 (F2.2b)", change control: c9's "DELETE on either table is denied" is replaced by c18, own-row DELETE only,
+-- Afik's DR-1 A): the DELETE grant and the two own-row policies are asserted in file 54. Kept here: no ALL policy, no TRUNCATE.
+select is(has_table_privilege('authenticated', pg_temp.rel('children'), 'TRUNCATE'), false, '[F2.2-a c9 · F2.2-b c18 re-graded] no TRUNCATE on children');
+select is(has_table_privilege('authenticated', pg_temp.rel('journey_contexts'), 'TRUNCATE'), false, '[F2.2-a c9 · F2.2-b c18 re-graded] no TRUNCATE on journey_contexts');
 select is(
   (select count(*) from pg_catalog.pg_policy pol
-    where pol.polrelid in (pg_temp.rel('children'), pg_temp.rel('journey_contexts')) and pol.polcmd in ('d', '*')),
+    where pol.polrelid in (pg_temp.rel('children'), pg_temp.rel('journey_contexts')) and pol.polcmd = '*'),
   0::bigint,
-  '[F2.2-a c9 DR-1] no DELETE or ALL policy on children or journey_contexts');
+  '[F2.2-a c9 · F2.2-b c18 re-graded] no ALL policy on children or journey_contexts (the DELETE policies: file 54)');
 
 -- =====================================================================================================================
 -- 2. Reads: own rows only (c9)
@@ -128,15 +130,16 @@ select is(tests.fx_children(tests.fx_id('a')), '1:נועה:unknown:2023-05-04 ; 
 select is(tests.fx_journeys(tests.fx_id('a')), (select a_journeys from zz_state), '[F2.2-a c9] A''s journeys unchanged');
 
 -- =====================================================================================================================
--- 4. INSERT naming an owner; DELETE (c9)
+-- 4. INSERT naming an owner (c9); DELETE re-graded by F2.2b2 (c18: own rows only, file 54; another account's rows: 0 rows)
 -- =====================================================================================================================
 select is(pg_temp.upd(t.who, t.s), 'ERR:42501', '[F2.2-a c9 A1 rule 12 schema-4] refused (42501): ' || t.who || ' ' || t.label)
 from (values
   ('a', format($q$ insert into nestly.children (user_id, slot, name, sex, birth_date) values (%L, 5, 'Planted', 'boy', date '2020-01-01') $q$, tests.fx_id('b')), 'INSERT a child naming user_id B'),
   ('a', format($q$ insert into nestly.children (user_id, slot, name, sex, birth_date) values (%L, 5, 'Own', 'boy', date '2020-01-01') $q$, tests.fx_id('a')), 'INSERT a child naming its own user_id'),
-  ('a', format($q$ insert into nestly.journey_contexts (user_id, stage) values (%L, 'has_child') $q$, tests.fx_id('b')), 'INSERT a has_child journey naming user_id B'),
-  ('a', format($q$ delete from nestly.children where id = %L $q$, (select a1 from zz_state)), 'DELETE own child'),
-  ('a', $q$ delete from nestly.journey_contexts where stage = 'has_child' $q$, 'DELETE own journey'),
+  ('a', format($q$ insert into nestly.journey_contexts (user_id, stage) values (%L, 'has_child') $q$, tests.fx_id('b')), 'INSERT a has_child journey naming user_id B')
+) as t(who, s, label);
+select is(pg_temp.upd(t.who, t.s), 'OK:0', '[F2.2-a c9 · F2.2-b c18 re-graded] ' || t.who || ' ' || t.label || ': 0 rows')
+from (values
   ('a', format($q$ delete from nestly.children where id = %L $q$, (select b1 from zz_state)), 'DELETE B''s child'),
   ('a', format($q$ delete from nestly.journey_contexts where user_id = %L $q$, tests.fx_id('b')), 'DELETE B''s journey')
 ) as t(who, s, label);

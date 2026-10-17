@@ -3,7 +3,10 @@
 // The stub plays the server: GET /api/journeys answers the stored journeys and children; POST /api/children appends the child in
 // the next place; PUT /api/children/:id replaces its three fields; POST /api/journeys adds a pregnancy (JOURNEY_STAGES order:
 // planning, pregnant, has_child; 409 stage_conflict when planning or pregnant exists); PUT /api/journeys/:id sets a pregnancy's due
-// date. A write answers the whole GET shape. Dates leave the stub as YYYY-MM-DD.
+// date. A write answers the whole GET shape. Dates leave the stub as YYYY-MM-DD. F2.2b2 (spec c17-c23): DELETE /api/children/:id
+// removes the child (the last one takes has_child with it, c19); DELETE /api/journeys/:id ends a pregnancy (404 for any other
+// stage, c20); POST /api/journeys/:id/birth adds the child and ends the pregnancy (409 children_too_many at 10, c22); POST
+// /api/journeys with `endPlanning: true` (interface.md) ends planning first (c23). An id already gone answers 404 not_found.
 // The clock is fixed at 15.06.2026 12:00 local time, so "today" and "tomorrow" are known dates.
 import { expect } from '@playwright/test';
 import type { Locator, Page, Route } from '@playwright/test';
@@ -45,7 +48,7 @@ export type Sex = keyof typeof SEX;
 
 export interface Journey { id: string; stage: 'planning' | 'pregnant' | 'has_child'; dueDate: string | null }
 export interface Kid { id: string; name: string; sex: Sex; birthDate: string }
-export interface Sent { method: 'POST' | 'PUT'; path: string; body: Record<string, unknown> }
+export interface Sent { method: 'POST' | 'PUT' | 'DELETE'; path: string; body: Record<string, unknown>; raw?: string | null }
 export const STAGE_ORDER: Journey['stage'][] = ['planning', 'pregnant', 'has_child'];
 export const isSex = (v: unknown): v is Sex => typeof v === 'string' && Object.keys(SEX).includes(v);
 
@@ -129,11 +132,17 @@ export async function setup(page: Page, start: { journeys?: Journey[]; kids?: Ki
     const parsed: unknown = JSON.parse(req.postData() ?? 'null');
     const body: Record<string, unknown> = typeof parsed === 'object' && parsed !== null ? Object.fromEntries(Object.entries(parsed)) : {};
     const path = new URL(req.url()).pathname;
-    net.sent.push({ method: 'PUT', path, body });
+    const isDelete = req.method() === 'DELETE';
+    net.sent.push({ method: isDelete ? 'DELETE' : 'PUT', path, body, raw: req.postData() });
     if (net.holdWrite !== null) await net.holdWrite;
     if (net.write === 'abort') return route.abort('connectionreset');
     if (net.write !== 200) return json(route, net.write, { error: writeError(net.write) });
     const at = net.journeys.findIndex((j) => j.id === path.split('/').pop() && j.stage === 'pregnant');
+    if (isDelete) {
+      if (at < 0) return json(route, 404, { error: 'not_found' });
+      net.journeys.splice(at, 1);
+      return json(route, 200, { journeys: net.journeys, children: net.kids });
+    }
     if (at < 0) return json(route, 404, { error: 'not_found' });
     net.journeys[at] = { id: net.journeys[at]?.id ?? '', stage: 'pregnant', dueDate: dueFrom(body) };
     return json(route, 200, { journeys: net.journeys, children: net.kids });
@@ -147,6 +156,7 @@ export async function setup(page: Page, start: { journeys?: Journey[]; kids?: Ki
       if (net.holdWrite !== null) await net.holdWrite;
       if (net.write === 'abort') return route.abort('connectionreset');
       if (net.write !== 200) return json(route, net.write, { error: writeError(net.write) });
+      if (body.endPlanning === true && !net.journeys.some((j) => j.stage === 'pregnant')) net.journeys = net.journeys.filter((j) => j.stage !== 'planning');
       if (net.journeys.some((j) => j.stage === 'pregnant' || j.stage === 'planning')) return json(route, 409, { error: 'stage_conflict' });
       net.journeys.push({ id: 'j-new', stage: 'pregnant', dueDate: dueFrom(body) });
       net.journeys.sort((x, y) => STAGE_ORDER.indexOf(x.stage) - STAGE_ORDER.indexOf(y.stage));
@@ -164,11 +174,18 @@ export async function setup(page: Page, start: { journeys?: Journey[]; kids?: Ki
     const parsed: unknown = JSON.parse(req.postData() ?? 'null');
     const body: Record<string, unknown> = typeof parsed === 'object' && parsed !== null ? Object.fromEntries(Object.entries(parsed)) : {};
     const path = new URL(req.url()).pathname;
-    const method = req.method() === 'PUT' ? 'PUT' : 'POST';
-    net.sent.push({ method, path, body });
+    const method = req.method() === 'PUT' ? 'PUT' : req.method() === 'DELETE' ? 'DELETE' : 'POST';
+    net.sent.push({ method, path, body, raw: req.postData() });
     if (net.holdWrite !== null) await net.holdWrite;
     if (net.write === 'abort') return route.abort('connectionreset');
     if (net.write !== 200) return json(route, net.write, { error: writeError(net.write) });
+    if (method === 'DELETE') {
+      const gone = net.kids.findIndex((k) => k.id === path.split('/').pop());
+      if (gone < 0) return json(route, 404, { error: 'not_found' });
+      net.kids.splice(gone, 1);
+      if (net.kids.length === 0) net.journeys = net.journeys.filter((j) => j.stage !== 'has_child');
+      return json(route, 200, { journeys: net.journeys, children: net.kids });
+    }
     const fields = { name: typeof body.name === 'string' ? body.name.trim() : '', sex: isSex(body.sex) ? body.sex : 'unknown', birthDate: isoFrom(body) };
     if (method === 'POST') {
       const kid: Kid = { id: `c00000${String(90 + net.kids.length)}-0000-4000-8000-000000000099`, ...fields };
@@ -181,6 +198,24 @@ export async function setup(page: Page, start: { journeys?: Journey[]; kids?: Ki
     if (at < 0) return json(route, 404, { error: 'not_found' });
     net.kids[at] = { id, ...fields };
     return json(route, 200, { journeys: net.journeys, children: net.kids });
+  });
+  await page.route(/\/api\/journeys\/[^/?]+\/birth(\?.*)?$/, async (route) => {
+    const req = route.request();
+    if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+    const parsed: unknown = JSON.parse(req.postData() ?? 'null');
+    const body: Record<string, unknown> = typeof parsed === 'object' && parsed !== null ? Object.fromEntries(Object.entries(parsed)) : {};
+    const path = new URL(req.url()).pathname;
+    net.sent.push({ method: 'POST', path, body, raw: req.postData() });
+    if (net.holdWrite !== null) await net.holdWrite;
+    if (net.write === 'abort') return route.abort('connectionreset');
+    if (net.write !== 200) return json(route, net.write, { error: writeError(net.write) });
+    const at = net.journeys.findIndex((j) => j.id === path.split('/')[3] && j.stage === 'pregnant');
+    if (at < 0) return json(route, 404, { error: 'not_found' });
+    if (net.kids.length >= 10) return json(route, 409, { error: 'children_too_many' });
+    net.journeys.splice(at, 1);
+    net.kids.push({ id: `c00000${String(90 + net.kids.length)}-0000-4000-8000-000000000098`, name: typeof body.name === 'string' ? body.name.trim() : '', sex: isSex(body.sex) ? body.sex : 'unknown', birthDate: isoFrom(body) });
+    if (!net.journeys.some((j) => j.stage === 'has_child')) net.journeys.push({ id: 'j-hc', stage: 'has_child', dueDate: null });
+    return json(route, 201, { journeys: net.journeys, children: net.kids });
   });
   return net;
 }

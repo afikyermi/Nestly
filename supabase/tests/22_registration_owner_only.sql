@@ -2,6 +2,9 @@
 -- Criterion 14 as amended at Gate 2 (decisions/2026-10.md): owner-only rows [layer 9 · rules 12, 13, 15].
 --   As user A: reads A's profile, journeys, children and consent. A's UPDATE and DELETE of them are refused and change
 --   nothing (editing is I2). As user B: zero of A's rows visible; UPDATE and DELETE are refused too. As anon: no access.
+--   Re-graded since: F2.2a/F2.2b1 (own UPDATE of children name/sex/birth_date and of a pregnancy's due date) and F2.2b2 (own-row
+--   DELETE of children and journeys, spec.md c18 replacing c9's "DELETE denied", Afik's DR-1 A). Those own writes are asserted in
+--   files 51 and 54; here B's DELETE aimed at A's rows affects 0 rows, and TRUNCATE stays refused.
 --   A suspended or banned account reads zero rows and inserts none. A's update or delete of A's consent changes nothing.
 -- "Refused" = an error 42501 (privilege: no UPDATE/DELETE grant exists); 'OK:0' would not count as refused here.
 -- "Changes nothing" is observed against the real tables through tests.fx_state(), not through what RLS shows.
@@ -77,13 +80,9 @@ from (values
   -- journey_contexts
   ('a', $q$ update nestly.journey_contexts set stage = 'planning' where stage = 'has_child' $q$, 'UPDATE own journey stage'),
   ('a', $q$ update nestly.journey_contexts set user_id = auth.uid() $q$, 'UPDATE every journey''s user_id (own rows)'),
-  ('a', $q$ delete from nestly.journey_contexts where stage = 'has_child' $q$, 'DELETE own journey'),
-  ('a', $q$ delete from nestly.journey_contexts $q$, 'DELETE every journey'),
   ('a', $q$ truncate nestly.journey_contexts $q$, 'TRUNCATE journeys'),
   -- children
   ('a', $q$ update nestly.children set slot = 3 where slot = 2 $q$, 'UPDATE own child slot (moving past the unique)'),
-  ('a', $q$ delete from nestly.children where slot = 2 $q$, 'DELETE own child'),
-  ('a', $q$ delete from nestly.children $q$, 'DELETE every child'),
   ('a', $q$ truncate nestly.children $q$, 'TRUNCATE children'),
   -- legal_consents: the record is append-only
   ('a', $q$ update nestly.legal_consents set terms_version = 'rewritten' $q$, 'UPDATE own consent version'),
@@ -95,11 +94,8 @@ from (values
   ('a', $q$ truncate nestly.legal_consents $q$, 'TRUNCATE consents'),
   ('a', $q$ select id from nestly.legal_consents for update $q$, 'SELECT ... FOR UPDATE on consents'),
   -- B acting on A's rows
-  ('b', $q$ delete from nestly.journey_contexts $q$, 'DELETE the journeys (A''s included)'),
-  ('b', $q$ delete from nestly.children $q$, 'DELETE the children (A''s included)'),
   ('b', $q$ update nestly.legal_consents set terms_version = 'Hijacked' $q$, 'UPDATE the consents (A''s included)'),
   ('b', $q$ delete from nestly.legal_consents $q$, 'DELETE the consents (A''s included)'),
-  ('b', format($q$ delete from nestly.children where user_id = %L $q$, tests.fx_id('a')), 'DELETE A''s children by A''s id'),
   ('b', format($q$ update nestly.legal_consents set has_declared_18_plus = true where user_id = %L $q$, tests.fx_id('a')), 'UPDATE A''s consent by A''s id')
 ) as t(who, s, label);
 
@@ -119,8 +115,19 @@ from (values
   ('a', $q$ update nestly.journey_contexts set due_date = null where false $q$, 'UPDATE that matches no journey', 'OK:0'),
   ('a', $q$ select id from nestly.journey_contexts for update $q$, 'SELECT ... FOR UPDATE on own journeys (the UPDATE policy admits the pregnant row only)', 'OK:1'),
   ('b', $q$ update nestly.journey_contexts set due_date = null $q$, 'UPDATE the journeys (A''s included; B has no pregnancy)', 'OK:0'),
-  ('b', format($q$ update nestly.journey_contexts set due_date = date '2027-09-09' where user_id = %L $q$, tests.fx_id('a')), 'UPDATE of A''s due date by A''s id', 'OK:0')
+  ('b', format($q$ update nestly.journey_contexts set due_date = date '2027-09-09' where user_id = %L $q$, tests.fx_id('a')), 'UPDATE of A''s due date by A''s id', 'OK:0'),
+  -- F2.2b2 (spec.md c18, DR-1 A): own-row DELETE on children and journey_contexts. A's own deletes are file 54's (they change rows);
+  -- B's DELETE aimed at A's rows affects 0 rows.
+  ('b', format($q$ delete from nestly.children where user_id = %L $q$, tests.fx_id('a')), 'DELETE A''s children by A''s id', 'OK:0'),
+  ('b', format($q$ delete from nestly.journey_contexts where user_id = %L $q$, tests.fx_id('a')), 'DELETE A''s journeys by A''s id', 'OK:0'),
+  ('b', $q$ delete from nestly.children where slot = 2 $q$, 'DELETE of a slot only A has', 'OK:0'),
+  ('b', $q$ delete from nestly.journey_contexts where stage = 'has_child' $q$, 'DELETE of a stage only A has', 'OK:0')
 ) as t(who, s, label, expected);
+-- B's DELETE with no WHERE reaches B's own row only (the statement rolled back, so the state check below stays exact).
+select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('b')), t.s, false), 'OK:1',
+  '[F1.4-a c14 · F2.2-b c18 re-graded] b ' || t.label || ': OK:1 (B''s own row only, A''s untouched)')
+from (values ($q$ delete from nestly.journey_contexts $q$, 'DELETE the journeys (A''s included)'),
+             ($q$ delete from nestly.children $q$, 'DELETE the children (A''s included)')) as t(s, label);
 select is(tests.fx_journeys(tests.fx_id('a')), 'has_child:null ; pregnant:2027-03-01',
   '[F2.2-b c18 A1] A''s journeys are what the fixture wrote after B''s attempts');
 select is(tests.fx_children(tests.fx_id('a')), '1:Noa:girl:2024-05-10 ; 2:Eli:boy:2022-01-15',
