@@ -268,6 +268,49 @@ describe('[F2.4a c4 VAL-017] concurrent sends end with exactly one pending row',
   });
 });
 
+describe('[F2.4a c4 c6 DR-3] concurrent re-sends after a decline and a cancel', () => {
+  /** B declines A->B, then A cancels it: the row is declined + cancelled. */
+  async function declinedAndCancelled(app: App): Promise<void> {
+    expect((await sendTo(app, hA, ACCOUNT_B)).statusCode).toBe(201);
+    expect(is2xx((await act(app, hB, 'decline', ACCOUNT_A)).statusCode)).toBe(true);
+    expect(is2xx((await act(app, hA, 'cancel', ACCOUNT_B)).statusCode)).toBe(true);
+  }
+
+  it('[F2.4a c4 c6 DR-3] A->B declined and cancelled, two A->B sends at once, 20 runs: {201, 409 request_exists} each time, one live row, never 404', { timeout: COLD_START_MS * 4 }, async () => {
+    const [one1, two] = [await start(), await start()];
+    for (let run = 1; run <= 20; run += 1) {
+      await purgeAB();
+      await declinedAndCancelled(one1);
+      const [r1, r2] = await Promise.all([sendTo(one1, hA, ACCOUNT_B), sendTo(two, hA, ACCOUNT_B)]);
+      expect([r1.statusCode, r2.statusCode].sort(), `run ${run}: ${r1.body} | ${r2.body}`).toEqual([201, 409]);
+      expect(errorOf(r1.statusCode === 409 ? r1.body : r2.body), `run ${run}`).toBe('request_exists');
+      expect(await rows(ACCOUNT_A, ACCOUNT_B), `run ${run}`).toBe('a>b:declined');
+    }
+  });
+
+  it('[F2.4a c4 c6 DR-3] the same with the first send held open after its work, 20 runs: the second waits, then 409 request_exists', { timeout: COLD_START_MS * 4 }, async () => {
+    for (let run = 1; run <= 20; run += 1) {
+      await purgeAB();
+      await declinedAndCancelled(await start());
+      const holder = holdingAfterWork(createDatabase(url()));
+      const first = await start(holder.database);
+      const second = await start();
+      holder.arm();
+      const p1 = sendTo(first, hA, ACCOUNT_B);
+      const reachedOrDone = await Promise.race([holder.reached.then(() => 'held'), p1.then(() => 'done')]);
+      expect(reachedOrDone, `run ${run}: the first send never opened a transaction to hold`).toBe('held');
+      const p2 = sendTo(second, hA, ACCOUNT_B);
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      holder.release();
+      const [r1, r2] = await Promise.all([p1, p2]);
+      expect([r1.statusCode, r2.statusCode].sort(), `run ${run}: ${r1.body} | ${r2.body}`).toEqual([201, 409]);
+      expect(errorOf(r2.body), `run ${run}`).toBe('request_exists');
+      expect(await rows(ACCOUNT_A, ACCOUNT_B), `run ${run}`).toBe('a>b:declined');
+      await closeAll();
+    }
+  });
+});
+
 // ---------------------------------------------------------------------------------------------------------------------
 describe('[F2.4a c5 FR-REL-001 AC-034] accept', () => {
   it('[F2.4a c5] B accepts: A and B are each in the other\'s Friends list, the request has left both request lists', T, async () => {
@@ -437,6 +480,25 @@ describe('[F2.4a c9 rule 11] transitions', () => {
     }
     expect(await frState()).toBe(before);
     expect(await rows(ACCOUNT_A, ACCOUNT_B)).toBe('a>b:accepted');
+  });
+
+  it('[F2.4a c9 c6 DR-3] B declines, then A cancels: 200 {} like the cancel of a pending request; A->B can be sent again (201)', T, async () => {
+    const app = await start();
+    expect((await sendTo(app, hA, ACCOUNT_B)).statusCode).toBe(201);
+    const pendingCancel = await act(app, hA, 'cancel', ACCOUNT_B);
+    expect(pendingCancel.statusCode, pendingCancel.body).toBe(200);
+    expect(JSON.parse(pendingCancel.body)).toEqual({});
+    await purgeAB();
+    expect((await sendTo(app, hA, ACCOUNT_B)).statusCode).toBe(201);
+    expect(is2xx((await act(app, hB, 'decline', ACCOUNT_A)).statusCode)).toBe(true);
+    const res = await act(app, hA, 'cancel', ACCOUNT_B);
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.body).toBe(pendingCancel.body);
+    expect((await listsOf(app, hA)).sent).toHaveLength(0);
+    expect((await listsOf(app, hB)).incoming).toHaveLength(0);
+    const again = await sendTo(app, hA, ACCOUNT_B);
+    expect(again.statusCode, again.body).toBe(201);
+    expect((await listsOf(app, hB)).incoming, 'B declined it: the re-send stays silent for B (DR-3)').toHaveLength(0);
   });
 
   it('[F2.4a c9] a second remove -> 409, nothing changes', T, async () => {
@@ -657,6 +719,21 @@ describe('[F2.4a c12 A1 A8 rule 12] strict input', () => {
     expect(res.statusCode, res.body).toBeGreaterThanOrEqual(400);
     expect(res.statusCode, res.body).toBeLessThan(500);
     expect(await frCount()).toBe(0);
+  });
+
+  it.each(['accept', 'decline', 'cancel', 'remove'] as const)('[F2.4a c2 c12] %s naming the caller\'s own id -> 400 invalid; an accepted Friendship and a pending sent request of the caller are unchanged', T, async (action: Action) => {
+    const app = await start();
+    const c = await registered(app, 'Carmel Shani');
+    expect((await sendTo(app, hA, ACCOUNT_B)).statusCode).toBe(201);
+    expect(is2xx((await act(app, hB, 'accept', ACCOUNT_A)).statusCode)).toBe(true);
+    expect((await sendTo(app, hA, c.id)).statusCode).toBe(201);
+    const before = await frState();
+    const res = await act(app, hA, action, ACCOUNT_A);
+    expect(res.statusCode, res.body).toBe(400);
+    expect(errorOf(res.body)).toBe('invalid');
+    expect(await frState()).toBe(before);
+    expect(await rows(ACCOUNT_A, ACCOUNT_B)).toBe('a>b:accepted');
+    expect(await rows(ACCOUNT_A, c.id)).toBe('a>b:pending');
   });
 
   it.each(['accept', 'decline', 'cancel', 'remove'] as const)('[F2.4a c12] %s with an id that is not a uuid -> 400, nothing changes', T, async (action: Action) => {

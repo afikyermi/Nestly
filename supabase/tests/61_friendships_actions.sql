@@ -256,6 +256,7 @@ select is(pg_temp.try(t.st, t.cx, 'c', t.set_clause), 'refused',
                ('accepted', false, 'status = ''removed'''), ('declined', false, 'status = ''accepted''')) t(st, cx, set_clause);
 -- and the legal ones really are allowed, so the matrix above is not refusing everything
 select is(pg_temp.try('pending', false, 'b', 'status = ''accepted'''), 'OK:1 a>b:pending -> a>b:accepted', '[F2.4-a c9 c5] control: the addressee''s accept of a pending request works');
+select is(pg_temp.try('declined', false, 'a', 'cancelled_at = now()'), 'OK:1 a>b:declined -> a>b:declined+c', '[F2.4-a c9 c6 DR-3] control: the requester''s cancel of a declined row works (silent decline)');
 select is(pg_temp.try('pending', false, 'a', 'cancelled_at = now()'), 'OK:1 a>b:pending -> a>b:pending+c', '[F2.4-a c9 c7] control: the requester''s cancel of a pending request works');
 
 -- =====================================================================================================================
