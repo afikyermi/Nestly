@@ -226,7 +226,7 @@ test.describe('F2.1 c4 [UC-10] opening and cancelling the edit', () => {
     await expect(genderSelect(page).locator('option[value=""]')).toHaveCount(1);
     await expect(genderSelect(page).locator('option:checked')).toHaveText(LABELS.woman);
     // marked optional: the label says so
-    expect(await page.locator('label', { hasText: /מין ההורה/ }).innerText()).toMatch(/אופציונלי|לא חובה|רשות/);
+    expect(await page.locator('label', { hasText: /מין ההורה/ }).innerText()).toContain('(לא חובה)');
   });
 
   test('[F2.1 c4] "ביטול" returns to the view with nothing sent and the stored values unchanged', async ({ page }) => {
