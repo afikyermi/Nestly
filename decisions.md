@@ -149,6 +149,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-16 | I2 questionnaire (Afik): profile Open by default (existing too) · S-01 option a · password change after two security questions · child birthdays on by default · prod migrate by ORCHESTRATOR without approval until launch | 10 |
 | 2026-10-16 | PR 37 accepted risks (Afik): two open guard bugs accepted (S-62 trailing-dot Grep, S-63 secret-scan bypass); the -n bug to debt | 10 |
 | 2026-10-16 | F2.0 AR-1/AR-2 (Afik): secret-key exception widens to set-password in four flows (S-01 clear, forced new password, change, F1.8 first password); email change via the Auth API stays open to I9 | 10 |
+| 2026-10-17 | Standing rule (Afik): never stop on what an agent can do itself; work around what waits on Afik, one list for him; stop only with no other work · ORCHESTRATOR makes and commits visual baselines itself, after looking at them | 10 |
 
 ## Superseded
 
