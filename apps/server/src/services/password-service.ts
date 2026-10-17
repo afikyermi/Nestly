@@ -6,11 +6,13 @@
 // password set, then commits: a set admitted before an S-01 clear lands before the clear's cancel, never after it. F1.6's
 // "no transaction open across an Auth call" yields here for that one call. A held lock is 503 (PasswordStateBusy).
 //
-//   forced (c7)   the session that completed a takeover clear (guard must_set, re-read under the lock), active account: the
+//   forced (c7)   any non-stale session after a takeover clear (guard must_set, re-read under the lock; A6), active account: the
 //                 row lock, the password set, the row marked done (trigger) and password_set_forced, in one transaction.
 //   change (c10)  two current answers under the recovery limits (the question change's own-handle path and counters) in a
 //                 transaction that commits; then, under the lock, the guard and the answers row re-read and the password
-//                 set; after commit every other session signed out with the caller's token, then the outcome row.
+//                 set; then the outcome row.
+// The admin set ends every session of the user, the caller's included (Gate 2 A6, DR-E): there is no separate sign-out, and
+// after a 200 the client signs in again with the new password. No token is returned.
 //   first (c11)   an Auth user with no account row (the F1.8 completion), re-read under the lock: the password set, a
 //                 takeover clear's row (c9) marked done and first_password_set, in one transaction. Refused for an account
 //                 row, so it cannot bypass c10.
@@ -33,9 +35,8 @@ import { isHandleHeld, ownHandleFor, type HandleClaim } from './recovery-questio
 
 /** What the request brings beyond its identity. */
 export interface PasswordClient {
-  /** The text the IP hash covers (client-ip.ts), and the address for Auth. */
+  /** The text the IP hash covers (client-ip.ts). */
   readonly addressKey: string;
-  readonly address: string | undefined;
 }
 
 export type ForcedResult = { readonly kind: 'set' } | { readonly kind: 'not_required' } | { readonly kind: 'unavailable' };
@@ -140,7 +141,7 @@ export async function changePassword(
   deps: RecoveryDependencies,
   keys: RecoveryKeys,
   identity: Identity,
-  request: { readonly claim: HandleClaim | undefined; readonly accessToken: string; readonly client: PasswordClient },
+  request: { readonly claim: HandleClaim | undefined; readonly client: PasswordClient },
   current: RecoveryAnswersInput,
   password: string,
   logOutcomeNotRecorded: OutcomeLogger,
@@ -167,7 +168,7 @@ export async function changePassword(
   if (first.kind !== 'verified') return first;
 
   // Under the lock: the guard and the verified answers row again (a clear in between deleted it: ERR-042, nothing set), then
-  // the set. After commit the other sessions are signed out. A retry after either failure sets and signs out again.
+  // the set, which also ends every session (A6). A retry after a failed set sets again.
   const verified = first;
   const set = await inIdentityTransaction(database, identity, async (tx) => {
     await lockPasswordState(tx, identity.userId);
@@ -176,9 +177,7 @@ export async function changePassword(
     return deps.authAccount.setPassword({ userId: identity.userId, password });
   });
   if (set === 'gone') return { kind: 'invalid' };
-  const signedOut =
-    set === 'set' ? await deps.authAccount.signOutOthers({ accessToken: request.accessToken, clientIp: request.client.address }) : 'failed';
-  const completed = signedOut === 'done';
+  const completed = set === 'set';
   try {
     await inIdentityTransaction(database, identity, (tx) =>
       audit(tx, verified.subjects, completed ? 'password_changed' : 'password_change_auth_failed', verified.userId),

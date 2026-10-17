@@ -8,9 +8,11 @@
 //   affected   the clear, in this order, each step safe to repeat:
 //                tx 1   the verdict `affected` (= pending) and the caller's recovery answers deleted, in one transaction;
 //                tx 2   the user's password-state lock (A4) and the own row lock (both NOWAIT: a concurrent runner gets 503 at
-//                       once), the answers deleted again (A5), the password cancelled, every
-//                       other session signed out with the caller's token, the row marked cleared by the clearing session
-//                       (trigger), and one takeover_cleared audit row; committed only when every step succeeded.
+//                       once), the answers deleted again (A5), the password cancelled — the admin set also ends every session
+//                       of the user, the caller's refresh included, so it is the revocation (A6) — the row marked cleared by
+//                       the clearing session (trigger), and one takeover_cleared audit row; committed only when all succeeded.
+//                       The triggering request is still answered (its access token stays valid until it expires); the owner
+//                       continues in a new session, which the guard reports as must_set.
 //   pending    a request from any Google session resumes tx 2; a failure leaves it pending, so every session keeps getting
 //              503 and nothing reports success before the clear is done (c3, c4).
 //
@@ -50,7 +52,7 @@ export type LinkCheckOutcome = 'proceed' | 'unauthenticated' | 'unavailable';
 
 /** A step of the clear that Auth did not confirm: thrown inside tx 2 so it rolls back and stays pending. */
 class ClearStepFailed extends Error {
-  constructor(readonly step: 'cancel' | 'sign_out') {
+  constructor(readonly step: 'cancel') {
     super(`takeover clear: ${step} not confirmed`);
     this.name = 'ClearStepFailed';
   }
@@ -107,9 +109,8 @@ async function completeClear(
     const own = await lockOwnLinkCheck(tx);
     if (own === undefined || own.verdict !== 'affected' || own.cleared) return false;
     await deleteOwnAnswers(tx); // A5: answers stored after tx 1 began (still pending, so the policy allows it)
+    // A6: the admin set ends every session of the user (no separate sign-out: the caller's own session is gone after it).
     if ((await deps.authAccount.cancelPassword({ userId: identity.userId })) !== 'set') throw new ClearStepFailed('cancel');
-    const signedOut = await deps.authAccount.signOutOthers({ accessToken: request.accessToken, clientIp: request.address });
-    if (signedOut !== 'done') throw new ClearStepFailed('sign_out');
     if (!(await markCleared(tx))) return false;
     // c9: an Auth user with no account row is audited with no user (the FK needs a users row).
     const userId = (await accountExists(tx)) ? identity.userId : null;
