@@ -13,14 +13,13 @@ export default defineConfig({
   // - Per test, by type. Story/axe and app-flow tests take at most 4 s on CI, so they keep the 30 s default (a hang is
   //   reported, not hidden). The build tests keep their own 240/300 s (e2e/app-shell-guard-*.spec.ts; at most 114 s).
   // - Parallelism is per file, never global fullyParallel: only a file whose tests share no state, hooks or order opts
-  //   in with test.describe.configure({ mode: 'parallel' }) (today e2e/a11y.spec.ts). Playwright splits shards by test
-  //   count in file order, so a parallel file's tests spread over every shard and worker.
+  //   in with test.describe.configure({ mode: 'parallel' }) (today e2e/a11y.spec.ts), so its tests share the workers of
+  //   their shard. Shards are split by test count in file order (no hand-made file lists: a new file is never dropped).
   // - On CI the run ends itself before the job's timeout-minutes, so a hang still reports and uploads its report.
   timeout: 30_000,
   globalTimeout: isCi ? 12 * 60_000 : 0,
-  // - Workers: three on CI (the hosted runner has 4 vCPUs; Playwright's default is half, 2). Measured in P3 on the same
-  //   2,312 tests before it was kept; locally Playwright's default, 50%.
-  workers: isCi ? 3 : '50%',
+  // - Workers: Playwright's default (half the CPUs: 2 on the 4-vCPU runner). Three were measured in P3 on the same 2,312
+  //   tests: each test ran ~35-40% slower and the slowest shard gained ~40 s, within run-to-run noise; not kept.
   forbidOnly: isCi,
   retries: isCi ? 1 : 0,
   reporter: isCi ? [['list'], ['html', { open: 'never' }]] : 'list',
