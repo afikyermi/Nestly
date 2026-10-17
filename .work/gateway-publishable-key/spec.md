@@ -32,5 +32,5 @@
 
 Approved, 11 criteria, one part, Elevated (authentication); CRITIC on opus. The Question takes its default: reset call 2
 (`/token?grant_type=password`) keeps the secret key — out of scope; FYI to Afik in the I2 close report as a possible follow-up
-on the same least-privilege line. **Merge waits for Afik's `SUPABASE_PUBLISHABLE_KEY` in Vercel Preview and Production**
+on the same least-privilege line. **`SUPABASE_PUBLISHABLE_KEY` exists in Vercel since 14.10 (archive WORKPLAN:326) — no merge dependency**
 (WORKPLAN "ממתין לך"); built after F2.3a on the branch.

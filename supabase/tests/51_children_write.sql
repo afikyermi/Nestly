@@ -60,8 +60,9 @@ select set_eq(
   '[F2.2-a c8 c9 DR-5 rules 12, 14] authenticated can UPDATE exactly name, sex and birth_date of children');
 select is(has_table_privilege('authenticated', pg_temp.rel('children'), 'UPDATE'), false,
   '[F2.2-a c9 rule 12] no table-level UPDATE on children (per column only)');
-select is(has_any_column_privilege('authenticated', pg_temp.rel('journey_contexts'), 'UPDATE'), false,
-  '[F2.2-a scope] journey_contexts stays without any UPDATE in F2.2a (due-date edit is F2.2b)');
+-- F2.2b1 (schema.md F2.2b "Amend"): journey_contexts gained UPDATE (due_date) behind journey_contexts_update_own; file 54 asserts it.
+select is(has_table_privilege('authenticated', pg_temp.rel('journey_contexts'), 'UPDATE'), false,
+  '[F2.2-a scope · F2.2-b c18 re-graded] no table-level UPDATE on journey_contexts (its one UPDATE column, due_date, is file 54''s)');
 select is(has_table_privilege('authenticated', pg_temp.rel('children'), 'DELETE'), false, '[F2.2-a c9 DR-1] no DELETE on children');
 select is(has_table_privilege('authenticated', pg_temp.rel('journey_contexts'), 'DELETE'), false, '[F2.2-a c9 DR-1] no DELETE on journey_contexts');
 select is(
@@ -121,7 +122,6 @@ from (values
   ($q$ update nestly.children set created_at = now() $q$, 'UPDATE of created_at'),
   ($q$ update nestly.children set id = gen_random_uuid() where slot = 1 $q$, 'UPDATE of id'),
   ($q$ update nestly.children set name = 'Okay', slot = 3 where slot = 1 $q$, 'a granted column together with slot: the whole statement'),
-  ($q$ update nestly.journey_contexts set due_date = date '2027-04-01' where stage = 'pregnant' $q$, 'UPDATE of a journey (no grant in F2.2a)'),
   ($q$ update nestly.journey_contexts set stage = 'planning' $q$, 'UPDATE of a journey stage (DR-5: a stage changes only by add or end)')
 ) as t(s, label);
 select is(tests.fx_children(tests.fx_id('a')), '1:נועה:unknown:2023-05-04 ; 2:Eli:unknown:2022-01-15', '[F2.2-a c9] nothing changed by the refused UPDATEs');

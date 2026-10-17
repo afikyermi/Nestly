@@ -9,10 +9,10 @@ export const registrationRequestInput = registrationStep1Input.extend({ consent:
 export type RegistrationRequestInput = z.input<typeof registrationRequestInput>;
 
 /**
- * The body judged against `today` (YYYY-MM-DD). The output is the clean step 1: the consent declaration has done its
+ * The body judged against `today` (YYYY-MM-DD; `earliestToday` anchors the due date's lower bound, createRegistrationStep1Schema). The output is the clean step 1: the consent declaration has done its
  * work once it passed, and the consent record's versions come from the server's constants, never from the body.
  */
-export function createRegistrationRequestSchema(today: string) {
+export function createRegistrationRequestSchema(today: string, earliestToday: string = today) {
   return registrationRequestInput
     .transform((body): RegistrationStep1Input => {
       const step1: RegistrationStep1Input = {
@@ -24,5 +24,5 @@ export function createRegistrationRequestSchema(today: string) {
       if (body.parentGender !== undefined) step1.parentGender = body.parentGender;
       return step1;
     })
-    .pipe(createRegistrationStep1Schema(today));
+    .pipe(createRegistrationStep1Schema(today, earliestToday));
 }

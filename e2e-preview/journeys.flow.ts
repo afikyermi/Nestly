@@ -2,6 +2,9 @@
 // reload (the child and "יש לנו ילד או ילדה"), edit it, reload (the new values, same place). Derived from
 // .work/journeys-children/spec.md. It makes its own fresh user (same email pattern as the fixture's, so the cleanup sweep covers
 // it). No recovery attempts are made.
+// F2.2b1 c14 c15: a second fresh user registers with has_child only (neither planning nor pregnant), adds a pregnancy with a due date
+// (POST /api/journeys), edits it (PUT /api/journeys/:id), clears it, each surviving a reload. Dates are relative to the real clock
+// (the Preview server's date), well inside VAL-044's window so the server's own check cannot differ from the browser's.
 import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
@@ -106,5 +109,95 @@ test.describe.serial('F2.2a journeys and children on the Preview [c1 c2 c3 c7 c8
     const first = text.indexOf('נועה רות · עוד לא ידוע · 05.06.2023');
     expect(first).toBeGreaterThanOrEqual(0);
     expect(first).toBeLessThan(text.indexOf('איתי · בן · 10.01.2025'));
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+const usersB1 = new Map<string, TestUser>();
+function b1UserOf(project: string): TestUser {
+  let u = usersB1.get(project);
+  if (u === undefined) {
+    u = generateTestUser(process.env['GITHUB_RUN_ID'] ?? '', process.env['GITHUB_RUN_ATTEMPT'] ?? '');
+    usersB1.set(project, u);
+  }
+  return u;
+}
+/** Today + n days (UTC) as the three typed parts and as the view shows it (dd.mm.yyyy). */
+function inDays(n: number): { parts: [string, string, string]; shown: string } {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + n);
+  const [y, m, day] = [d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()];
+  return { parts: [String(day), String(m), String(y)], shown: `${String(day).padStart(2, '0')}.${String(m).padStart(2, '0')}.${String(y)}` };
+}
+const dueGroup = (page: Page) => page.getByRole('group', { name: 'תאריך לידה משוער (לא חובה)', exact: true });
+const addPregnancy = (page: Page) => page.getByRole('button', { name: 'הוספת הריון', exact: true });
+async function fillDue(page: Page, [d, m, y]: [string, string, string]): Promise<void> {
+  await dueGroup(page).getByLabel('יום', { exact: true }).fill(d);
+  await dueGroup(page).getByLabel('חודש', { exact: true }).fill(m);
+  await dueGroup(page).getByLabel('שנה', { exact: true }).fill(y);
+}
+
+test.describe.serial('F2.2b1 pregnancy add and due-date edit on the Preview [c14 c15]', () => {
+  test('[F2.2b c15] a fresh has_child user: "הוספת הריון" adds a pregnancy with a due date (POST 201); after a reload it shows, before has_child, and the action is gone', async ({ page }, info) => {
+    const u = b1UserOf(info.project.name);
+    await page.goto('/register');
+    await page.getByRole('group', { name: 'השלב במסע', exact: true }).locator('label').filter({ hasText: /יש לנו ילד או ילדה/ }).click();
+    await page.getByLabel(/^שם מלא/).fill('דנה כהן');
+    const card = page.getByRole('group', { name: 'ילד או ילדה 1', exact: true });
+    await card.getByLabel('שם', { exact: true }).fill('נועה');
+    await page.getByRole('group', { name: 'נועה', exact: true }).getByLabel('מין', { exact: true }).selectOption({ label: 'בת' });
+    const birth = page.getByRole('group', { name: 'נועה', exact: true }).getByRole('group', { name: 'תאריך לידה', exact: true });
+    await birth.getByLabel('יום', { exact: true }).fill('4');
+    await birth.getByLabel('חודש', { exact: true }).fill('5');
+    await birth.getByLabel('שנה', { exact: true }).fill('2023');
+    await page.getByRole('button', { name: 'המשך', exact: true }).click();
+    await emailField(page).fill(u.email);
+    await passwordField(page).fill(u.password);
+    const box = page.getByRole('checkbox', { name: /אישור תנאי השימוש/ });
+    await box.focus();
+    await page.keyboard.press('Space');
+    await expect(box).toBeChecked();
+    await page.getByRole('button', { name: 'יצירת חשבון', exact: true }).click();
+    await expect(page).toHaveURL(/\/recovery-questions$/);
+    await page.getByLabel(/חיית המחמד/).fill(u.answers.pet);
+    await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);
+    await saveButton(page).click();
+    await expect(page).toHaveURL(/\/feed$/);
+    await page.goto('/profile');
+    await addPregnancy(page).click();
+    const due = inDays(100);
+    await fillDue(page, due.parts);
+    const [response] = await Promise.all([
+      page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/journeys'),
+      saveButton(page).click(),
+    ]);
+    expect(response.status(), 'POST /api/journeys status').toBe(201);
+    await page.reload();
+    const line = `בהריון · תאריך לידה משוער: ${due.shown}`;
+    await expect(page.getByRole('main').getByText(line)).toBeVisible();
+    const text = await viewText(page);
+    expect(text.indexOf(line)).toBeLessThan(text.indexOf('יש לנו ילד או ילדה'));
+    await expect(addPregnancy(page)).toHaveCount(0);
+  });
+
+  test('[F2.2b c14] edit the due date (PUT 200), reload: the new date; clear all three, reload: "לא צוין"', async ({ page }, info) => {
+    await signIn(page, b1UserOf(info.project.name));
+    const later = inDays(200);
+    await childEdit(page, 'בהריון').click();
+    await expect(dueGroup(page)).toBeVisible();
+    await fillDue(page, later.parts);
+    const [put] = await Promise.all([
+      page.waitForResponse((r) => r.request().method() === 'PUT' && new URL(r.url()).pathname.startsWith('/api/journeys/')),
+      saveButton(page).click(),
+    ]);
+    expect(put.status(), 'PUT /api/journeys/:id status').toBe(200);
+    await page.reload();
+    await expect(page.getByRole('main').getByText(`בהריון · תאריך לידה משוער: ${later.shown}`)).toBeVisible();
+    await childEdit(page, 'בהריון').click();
+    await fillDue(page, ['', '', '']);
+    await saveButton(page).click();
+    await expect(page.getByRole('main').getByText('תאריך לידה משוער: לא צוין')).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole('main').getByText('תאריך לידה משוער: לא צוין')).toBeVisible();
   });
 });

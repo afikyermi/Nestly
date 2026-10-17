@@ -3,8 +3,6 @@
 // Every issue message is a stable code from REGISTRATION_ERROR_CODES; the web app maps codes to ERR-003 texts.
 import { z } from 'zod';
 import {
-  DUE_DATE_DAYS_AFTER_TODAY,
-  DUE_DATE_DAYS_BEFORE_TODAY,
   FULL_NAME_MAX_LENGTH,
   FULL_NAME_MIN_LENGTH,
   JOURNEY_STAGES,
@@ -15,7 +13,7 @@ import {
   type ParentGender,
 } from '../constants/index.js';
 import { CHILD_ERROR_CODES, checkChild, childInput, rawDateParts, rawToken, type RegistrationChild } from './child.js';
-import { addDaysIso, checkDateParts } from './dates.js';
+import { DUE_DATE_ERROR_CODES, checkDueDate } from './due-date.js';
 import { checkName } from './text.js';
 
 export const REGISTRATION_ERROR_CODES = [
@@ -25,9 +23,7 @@ export const REGISTRATION_ERROR_CODES = [
   'full_name_required',
   'full_name_length',
   'parent_gender_invalid',
-  'due_date_partial',
-  'due_date_invalid',
-  'due_date_out_of_range',
+  ...DUE_DATE_ERROR_CODES,
   'children_required',
   'children_too_many',
   ...CHILD_ERROR_CODES,
@@ -65,8 +61,11 @@ function isParentGender(value: string): value is ParentGender {
   return PARENT_GENDERS.some((gender) => gender === value);
 }
 
-/** Registration step 1 against a fixed "today" (YYYY-MM-DD: the device's local date on the web, the server's UTC date plus the Q4 day of tolerance on the server). */
-export function createRegistrationStep1Schema(today: string) {
+/**
+ * Registration step 1 against a fixed "today" (YYYY-MM-DD: the device's local date on the web, the server's UTC date plus the Q4 day
+ * of tolerance on the server). `earliestToday` is the due date's lower anchor only (checkDueDate): the server's UTC date.
+ */
+export function createRegistrationStep1Schema(today: string, earliestToday: string = today) {
   return registrationStep1Input.transform((input, ctx): RegistrationStep1 => {
     const fail = (code: RegistrationErrorCode, path: (string | number)[]) => {
       ctx.issues.push({ code: 'custom', message: code, input, path });
@@ -95,17 +94,13 @@ export function createRegistrationStep1Schema(today: string) {
       else fail('parent_gender_invalid', ['parentGender']);
     }
 
-    // Due date (DR-1): only with the pregnant stage; optional.
+    // Due date (DR-1, VAL-044): only with the pregnant stage; optional.
     let dueDate: string | null = null;
     if (pregnant) {
-      const due = checkDateParts(input.dueDate);
-      if (due.kind === 'partial') fail('due_date_partial', ['dueDate']);
-      else if (due.kind === 'invalid') fail('due_date_invalid', ['dueDate']);
-      else if (due.kind === 'date') {
-        if (due.iso < addDaysIso(today, -DUE_DATE_DAYS_BEFORE_TODAY) || due.iso > addDaysIso(today, DUE_DATE_DAYS_AFTER_TODAY)) {
-          fail('due_date_out_of_range', ['dueDate']);
-        } else dueDate = due.iso;
-      }
+      // The shared due-date rule (validation/due-date.ts), also read by the own pregnancy's add and edit (F2.2b).
+      const due = checkDueDate(input.dueDate, today, earliestToday);
+      if (due.ok) dueDate = due.value;
+      else fail(due.code, ['dueDate']);
     }
 
     // Children (VAL-040, VAL-005, VAL-006): only with the has-child stage.

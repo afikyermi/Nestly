@@ -9,6 +9,8 @@ export interface DateInputProps {
   value?: DateParts;
   /** The fieldset legend, e.g. the name of the date. */
   legend: string;
+  /** Marks the date as optional after the legend, in the lighter style FormField uses. */
+  optional?: boolean;
   error?: boolean;
   disabled?: boolean;
   /** Prefix of the three field ids; generated when absent. */
@@ -30,7 +32,7 @@ const FIELDS: { key: keyof DateParts; label: string }[] = [
 // Three numeric text fields in a fieldset. It emits what was typed and never validates ranges
 // (Zod does, in F1.3). The DOM order is day, month, year, so in the RTL page the day sits at the
 // right edge and the year at the left, the order the R2 mockup draws.
-export function DateInput({ value, legend, error, disabled, idPrefix, 'aria-describedby': describedBy, onChange }: DateInputProps) {
+export function DateInput({ value, legend, optional, error, disabled, idPrefix, 'aria-describedby': describedBy, onChange }: DateInputProps) {
   const generated = useId();
   const prefix = idPrefix ?? generated;
   const [own, setOwn] = useState<DateParts>(EMPTY);
@@ -38,7 +40,16 @@ export function DateInput({ value, legend, error, disabled, idPrefix, 'aria-desc
 
   return (
     <fieldset aria-describedby={describedBy} className="m-0 min-w-0 border-0 p-0">
-      <legend className="mb-1.5 p-0 text-label text-foreground">{legend}</legend>
+      <legend className="mb-1.5 p-0 text-label text-foreground">
+        {legend}
+        {/* FormField's optional marker. A real space, not a margin, so the group's name reads "<legend> (לא חובה)". */}
+        {optional ? (
+          <>
+            {' '}
+            <span className="font-normal text-muted-foreground">(לא חובה)</span>
+          </>
+        ) : null}
+      </legend>
       <div className="grid grid-cols-4 gap-2">
         {FIELDS.map(({ key, label }) => (
           <div key={key} className={cn('flex flex-col gap-1', key === 'year' && 'col-span-2')}>

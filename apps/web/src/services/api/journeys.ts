@@ -1,7 +1,8 @@
-import { ownJourneysResponse, type ChildInput, type OwnJourneys } from '@nestly/shared';
+import { ownJourneysResponse, type ChildInput, type DateParts, type DueDateInput, type OwnJourneys } from '@nestly/shared';
 
-// GET /api/journeys, POST /api/children, PUT /api/children/:id (F2.2a): the signed-in parent's own journeys and children. No user id
-// is ever sent: the server acts on the token's user, and a child is named by its row id only. Only the status, the one `error` code
+// GET /api/journeys, POST /api/children, PUT /api/children/:id (F2.2a), POST /api/journeys, PUT /api/journeys/:id (F2.2b1): the
+// signed-in parent's own journeys and children. No user id is ever sent: the server acts on the token's user, and a child or a
+// journey is named by its row id only. Only the status, the one `error` code
 // and a body that passes the shared response schema are read; no response text reaches the screen. Children's names and dates go
 // in the request body only: not a URL, not storage, not a log line.
 export type JourneysOutcome =
@@ -9,11 +10,12 @@ export type JourneysOutcome =
   | { kind: 'unauthenticated' } // 401: the server does not accept the token
   | { kind: 'account-unavailable' } // 403 account_unavailable: the account is stopped (ERR-037)
   | { kind: 'too-many' } // 409 children_too_many: ten children are stored already (VAL-040)
+  | { kind: 'stage-conflict' } // 409 stage_conflict: a pregnant or planning journey is stored already (VAL-039)
   | { kind: 'failed' }; // anything else: 5xx, 400, 404, an unreadable answer, or the call did not reach the server
 
 const FAILED: JourneysOutcome = { kind: 'failed' };
 
-type Call = { method: 'GET'; path: string } | { method: 'POST' | 'PUT'; path: string; body: ChildInput };
+type Call = { method: 'GET'; path: string } | { method: 'POST' | 'PUT'; path: string; body: ChildInput | DueDateInput };
 
 function errorCode(body: unknown): unknown {
   return typeof body === 'object' && body !== null ? Reflect.get(body, 'error') : undefined;
@@ -42,7 +44,10 @@ async function call(accessToken: string, init: Call): Promise<JourneysOutcome> {
     return FAILED;
   }
   if (response.status === 403) return errorCode(body) === 'account_unavailable' ? { kind: 'account-unavailable' } : FAILED;
-  if (response.status === 409) return errorCode(body) === 'children_too_many' ? { kind: 'too-many' } : FAILED;
+  if (response.status === 409) {
+    const code = errorCode(body);
+    return code === 'children_too_many' ? { kind: 'too-many' } : code === 'stage_conflict' ? { kind: 'stage-conflict' } : FAILED;
+  }
   if (response.status !== 200 && response.status !== 201) return FAILED;
   const parsed = ownJourneysResponse.safeParse(body);
   return parsed.success ? { kind: 'journeys', journeys: parsed.data } : FAILED;
@@ -59,3 +64,11 @@ export const addOwnChild = (accessToken: string, child: ChildInput): Promise<Jou
 /** PUT /api/children/:id with the checked form. The answer is the journeys and children after the edit. */
 export const saveOwnChild = (accessToken: string, id: string, child: ChildInput): Promise<JourneysOutcome> =>
   call(accessToken, { method: 'PUT', path: `/api/children/${encodeURIComponent(id)}`, body: child });
+
+/** POST /api/journeys with the checked due date as typed (all parts empty = none). The answer is the journeys and children after the add. */
+export const addOwnPregnancy = (accessToken: string, dueDate: DateParts): Promise<JourneysOutcome> =>
+  call(accessToken, { method: 'POST', path: '/api/journeys', body: { dueDate } });
+
+/** PUT /api/journeys/:id with the checked due date as typed. The answer is the journeys and children after the edit. */
+export const saveOwnDueDate = (accessToken: string, id: string, dueDate: DateParts): Promise<JourneysOutcome> =>
+  call(accessToken, { method: 'PUT', path: `/api/journeys/${encodeURIComponent(id)}`, body: { dueDate } });

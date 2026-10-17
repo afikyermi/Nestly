@@ -13,7 +13,7 @@ import { ArrowBackIcon } from '@/components/ui/icons';
 import { SelectInput } from '@/components/ui/select-input';
 import { TextInput } from '@/components/ui/text-input';
 import { useGoogleSignIn } from '@/hooks/use-google-sign-in';
-import { STAGE_LABELS } from '@/lib/child-fields';
+import { DUE_DATE_FIELD_LABEL, STAGE_LABELS } from '@/lib/child-fields';
 import { GENDER_OPTIONS } from '@/lib/profile-fields';
 import { ChildrenSection } from './ChildrenSection';
 import { FieldError, FieldHint } from '@/components/shared/field-message';
@@ -142,7 +142,8 @@ export function RegisterStepOne({ form, onFormChange, getToday, onValid, complet
           {pregnant ? (
             <div className="flex flex-col gap-1.5">
               <DateInput
-                legend="תאריך לידה משוער (לא חובה)"
+                legend={DUE_DATE_FIELD_LABEL}
+                optional
                 value={form.dueDate}
                 error={errors.dueDate !== undefined}
                 aria-describedby={errors.dueDate !== undefined ? dueErrorId : undefined}

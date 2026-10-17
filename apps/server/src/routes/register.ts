@@ -11,7 +11,7 @@ import { createRegistrationRequestSchema } from '@nestly/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
 import { isTransientFailure, readDatabaseFault } from '../lib/pg-error.js';
-import { serverToday } from '../lib/server-today.js';
+import { serverEarliestToday, serverToday } from '../lib/server-today.js';
 import { replySessionRefused } from '../plugins/authentication.js';
 import { createRegistration, hasAccount } from '../services/registration-service.js';
 
@@ -30,7 +30,8 @@ async function register(request: FastifyRequest, reply: FastifyReply, deps: Regi
   const { identity } = request;
   if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
 
-  const parsed = createRegistrationRequestSchema(serverToday(deps.clock())).safeParse(request.body);
+  const now = deps.clock();
+  const parsed = createRegistrationRequestSchema(serverToday(now), serverEarliestToday(now)).safeParse(request.body);
   if (!parsed.success) return reply.code(400).send({ error: 'invalid_request' });
 
   try {

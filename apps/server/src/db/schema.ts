@@ -133,6 +133,12 @@ export const childrenUpdate = nestly.table('children', {
   birthDate: date('birth_date', { mode: 'string' }).notNull(),
 });
 
+/** UPDATE target only. due_date is granted UPDATE (migration 20261017140000), on a pregnant row only (policy). id is for WHERE only (42501). */
+export const journeyContextsUpdate = nestly.table('journey_contexts', {
+  id: uuid('id').primaryKey(),
+  dueDate: date('due_date', { mode: 'string' }),
+});
+
 /** INSERT target only. Names exactly the columns granted INSERT (migration 20261014200000 §6). */
 export const legalConsentsInsert = nestly.table('legal_consents', {
   termsVersion: text('terms_version').notNull(),
