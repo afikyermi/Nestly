@@ -12,10 +12,10 @@ export function ProfilePage() {
   return (
     <div className="flex flex-col gap-8">
       <ProfileScreen />
-      <JourneysSection />
       <Button variant="text" href={PATHS.settings} onClick={toSettings} className="self-start">
         הגדרות פרטיות
       </Button>
+      <JourneysSection />
     </div>
   );
 }

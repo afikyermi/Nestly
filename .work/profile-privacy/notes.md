@@ -66,4 +66,14 @@ ChoiceCardGroup gets it (no other caller passes a description today). Re-run: `e
 choice-card stories; `part-d`, `register-step1`, `touch` 243/243 (scratch Chromium config); web unit 1042/1042; typecheck, lint,
 check:stories green.
 
-**Neighbouring**  none new.
+**Fix after CI (PR 42, axe target-size at 375)**  The "הגדרות פרטיות" link was the page's last element. In
+`journeys.spec.ts` "journey-save-failed (375)" the page ends up at scrollY 333, which puts the link at y 771–815: partly under the
+sticky bottom navigation (739–812). axe reported "partially obscured (104×11)". Reproduced with a scratch script
+(scratchpad `diag-link.mjs`). Fix: the link moved from after "המסע שלי" to right after the profile block (same component, same gap).
+That state now passes. Caveat: whether a target is obscured depends on the scroll position. At that same scroll the moved link sits
+under the sticky top bar (−5..39, fully covered, which axe skips). Any target near the viewport edge can be covered by the shell's
+sticky bars. Re-run: journeys + profile + privacy specs 128/128, web unit 1042/1042, typecheck, lint. Visual baselines are story-based
+(ProfileContent, JourneysContent), so they do not change.
+
+**Neighbouring**  The shell's sticky top bar and bottom navigation (F1.2) can cover a focused or scrolled-to target at 375. There is
+no `scroll-padding` for them (WCAG 2.4.11, focus not obscured). Not caused here, not fixed.
