@@ -1,14 +1,13 @@
 ---
 name: wrap-up
-description: Closes a unit of work — result.md, the logs, the SRS update of step 14, WORKPLAN, and the commit with an Implements line. Use after the Preview passes (or after a Light-path change), as `/wrap-up <slug>`.
+description: Prepares records before the candidate push and closes work after the applicable current-head gates. Uses workflow.md for cadence, records, merge authority and P1 closure checks.
 disable-model-invocation: true
 argument-hint: <slug>
 ---
 
 # /wrap-up — steps 13 and 14
 
-**Version:** 1.3 · the steps are in `.claude/workflow.md` (13, 14, "Result", "Traceability"); the logs and the
-WORKPLAN rule in `CLAUDE.md`. Result/log writing runs **once per feature**; the closing checks below run **every part**.
+**Version:** 1.4 · the steps are in `.claude/workflow.md` (13, 14, "Result", "Traceability"); the logs and WORKPLAN cadence are in workflow → Records and commits. Result/log writing runs **once per feature**; the closing checks below run **every part**.
 Apply workflow → "Closing a part": every wait has a reason, owner and next-check time; inspect/recover a silent small-change
 agent at ~10 minutes, without dense polling. Before the next part, check main's current unresolved failures (including
 Edge, cleanup and migrate); a later successful equivalent execution resolves history, unrelated green/skip does not.
@@ -19,10 +18,10 @@ Edge, cleanup and migrate); a later successful equivalent execution resolves his
 
 ## Preconditions
 
-E (automated Preview E2E) is green (or the change took the Light path) · no critical, high or medium bug is
-open · CI is green on the current head. An expected skip needs its actual workflow condition; missing/cancelled required
-checks and missing E (where applicable) block. Use `node tools/part-status.mjs <PR>` and inspect its evidence/limits.
-Prepare the records and baselines before the final candidate push; recheck gates after any new commit is pushed.
+Record preparation can run before CI/E: prepare records and baselines before the candidate push.
+Closure/merge requires workflow → Gates, the selected path and Closing a part on the current head.
+Light alone is not an E exemption. Use `node tools/part-status.mjs <PR>` and inspect its evidence/limits;
+recheck after any pushed commit. Missing/cancelled required evidence blocks.
 
 ## Steps
 
@@ -36,12 +35,11 @@ Prepare the records and baselines before the final candidate push; recheck gates
    (a move, never a delete), so the count starts again with the next task.
 3. **SRS — step 14:** the SRS trace is in `result.md`; the SRS files are updated once per Initiative, at its close
    (`.claude/skills/srs-update/SKILL.md`, steps 1–6), or at once for a decision that changes scope or the security model.
-4. **WORKPLAN:** update once per Initiative, only the waiting-on-Afik list between Initiatives (CLAUDE.md).
+4. **WORKPLAN:** apply workflow → Records and commits.
    Between parts the handoff is the PR and `.work/<slug>/`; retain existing archival history.
-5. **Merge and commit:** stage explicit paths only. The logs, decisions and WORKPLAN go in this same commit — never a
-   commit of their own. The message ends with `Implements: FR-…, AC-…` (or `Implements: none — <reason>`) and the
-   attribution line. Push once, for CI; the PR body carries the same `Implements:` line, since merges are squash and
-   the PR body becomes the squash message (`decisions/2026-10.md`, "Commits and pushes").
+5. **Commit and candidate push:** apply workflow → Records and commits and Traceability. Stage explicit
+   paths; records belong with work, small local commits are allowed. Prepare before pushing; merge only
+   after current-head gates, by the authorized owner (Gates/Closing a part).
 6. **After merge:** inspect main health before the next part; use the workflow's conditional fresh-branch rule after squash.
    Codex improvement PRs wait for Afik to merge. **Report** in Hebrew: what closed, what was logged, what comes next,
    and any cloud branch limitation. An unresolved main failure has an owner/recovery step, not an automatic next part.
@@ -53,8 +51,8 @@ Prepare the records and baselines before the final candidate push; recheck gates
 
 ## Done when
 
-`result.md` exists · WORKPLAN carries today's date · the SRS history has a row if behaviour changed ·
-`git status` is clean.
+Required records exist at workflow cadence, preserved in the work commit; closure evidence names its
+commit and next owner. Do not update WORKPLAN or SRS merely to satisfy a date check.
 
 ## Changelog
 - 1.0 — 2026-10-11 — created (Afik's skills decision). Provisional until 5 features.
@@ -64,3 +62,5 @@ Prepare the records and baselines before the final candidate push; recheck gates
   (Afik, F5). Description: the Preview is passed by ORCHESTRATOR, not by Afik (Afik, stage 4 contradiction 3).
 - 1.3 — 2026-10-15 — once per feature; result ≤ 10 lines with the test ratio; no incidents resolution lines; SRS once
   per Initiative. Decided by Afik (development-speed review).
+
+- P2 — 2026-10-18 — אישור אפיק 17.10: align with canonical authority, sequence and records; no gate removed.

@@ -7,7 +7,7 @@ argument-hint: <what happens, and where>
 
 # /bugfix — open the bug-fix path
 
-**Version:** 1.0 · the path itself is defined in `.claude/workflow.md` → "Bug-fix path". This skill performs its
+**Version:** 1.1 · the path itself is defined in `.claude/workflow.md` → "Bug-fix path". This skill performs its
 first step.
 
 ## Input
@@ -36,7 +36,7 @@ first step.
 ## Stop conditions
 
 - No SRS item or approved spec describes the expected behaviour → this is a requirements gap, not a bug:
-  `DECISION REQUEST` to Afik. Do not write `bug.md` as if it were specified.
+  `DECISION REQUEST` to the owner in CLAUDE.md → Decision authority. Do not write `bug.md` as if it were specified.
 - The report cannot be reproduced → `QUESTION` to Afik, with the default: the bug stays open and is not fixed
   blind.
 
@@ -46,3 +46,5 @@ first step.
 
 ## Changelog
 - 1.0 — 2026-10-11 — created (Afik's skills decision). Provisional until 5 features.
+
+- P2 — 2026-10-18 — אישור אפיק 17.10: align with canonical authority, sequence and records; no gate removed.

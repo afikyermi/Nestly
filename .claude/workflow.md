@@ -1,6 +1,6 @@
 # Workflow — canonical pipeline
 
-**Version:** 1.16
+**Version:** 1.17
 **Status:** the single source of truth for sequence, triggers and who enters when.
 Agent definitions describe professions. **This file describes order.** If they disagree, this file wins.
 
@@ -10,20 +10,59 @@ Agent definitions describe professions. **This file describes order.** If they d
 | Level | Unit | Who approves | State lives in |
 |---|---|---|---|
 | **Initiative** | a cluster of related features with dependencies between them | Afik | `.work/_initiatives/<name>.md` |
-| **Feature** | one shippable change that fits one context window | Afik, via `spec.md` | `.work/<slug>/` |
+| **Feature** | one shippable change that fits one context window | ORCHESTRATOR at Gate 1; reserved points to Afik | `.work/<slug>/` |
 | **Step** | one agent invocation | — | the artifact it writes |
 
 An Initiative is approved once. Features inside it then flow without further initiative-level approval.
 
 
+## Ownership and routing
+
+ORCHESTRATOR owns classification/path/team, sequencing/dependencies, synthesis of readiness, visibility,
+escalation and current artifacts/logs. Select missing specialists when needed. Role boundaries and
+decision rights are in CLAUDE.md → Decision authority; no separate PM agent.
+
+## Mandatory reviews
+
+Cumulative minimums, not maximums.
+
+| Trigger | Who |
+|---|---|
+| schema migration | DATA ARCHITECT + TEST ENGINEER |
+| irreversible or destructive change | DATA ARCHITECT + **Afik** |
+| performance / query-shape risk | DATA ARCHITECT + CRITIC |
+| new external provider | CRITIC |
+| auth / authz / personal data | CRITIC on opus |
+| behavioural signals · ranking or recommendation · analytics events · paid placement | ALGORITHM & DATA, before BUILDER and as reviewer |
+| any new or changed UI | Accessibility and Design consistency domains — see `.claude/workflow.md` |
+| any AI/ML idea | record it in the SRS (Appendix D, or the decided section). No AI/ML agent exists yet — see `.claude/knowledge/ai-ml-readiness.md` |
+| user-generated content | flag for Afik — Trust & Safety review sits outside this pipeline |
+
+## Gates
+
+1. Gate 1: ORCHESTRATOR approves spec against the SRS; the author cannot approve its own contract.
+2. Gate 2: only when the HOW is expensive/hard to reverse (schema, migrations, irreversible changes,
+   external providers). DATA ARCHITECT supplies schema; ORCHESTRATOR approves within its authority.
+3. E: automated Preview E2E; no routine manual Preview. Applicability is defined in each path.
+4. Merge: the Standard path/current-head gates below. Claude product-work delegation is pre-approved;
+   Codex improvement tasks wait for Afik to merge (Closing a part).
+Reserved decisions follow CLAUDE.md. Afik is not asked to replace specialist review by inspecting diffs.
+
+## Parallelism
+
+Within a feature only TEST ENGINEER beside BUILDER (independent test/source files); SCOUT calls freely.
+Reviewer parallelism is the explicit step 9 exception for CRITIC and ALGORITHM & DATA. Across Initiatives,
+use the approved pairs under Waiting on Afik. No shared-file or shared-database independence is assumed.
+
 ## Artifacts per feature
+
 
 ```
 .work/<slug>/
   intake.md     ORCHESTRATOR      classification: SRS IDs, open items, risk flags, path, team (written by /feature)
   spec.md       SPEC              the contract. SRS IDs it implements. acceptance criteria. frozen at Gate 1
   bug.md        ORCHESTRATOR      bug-fix path only, in place of spec.md: expected (SRS ID), actual, reproduction
-  schema.md     DATA ARCHITECT    only when schema changes. this is Gate 2
+  schema.md     DATA ARCHITECT    Gate 2 contract when its trigger applies (see Gates)
   algorithm.md  ALGORITHM & DATA  only when signals, ranking, analytics events or paid placement are involved
   notes.md      BUILDER           decisions and why. CRITIC must not read this
   findings.md   CRITIC            fixed schema
@@ -32,6 +71,27 @@ An Initiative is approved once. Features inside it then flow without further ini
 
 `spec.md` is a historical record of what was approved. The code is the as-built.
 The maintained as-built descriptions are `.claude/knowledge/data-model.md` and `conventions.md`.
+
+### Contract content and budgets
+
+`spec.md` owns observable behaviour: public inputs/outputs, routes or events when contractual, error
+semantics, accessible interactions, ACs/IDs and required test seams. `schema.md` owns data shape,
+constraints, RLS/grants, transaction boundaries, migration/rollback and provider assumptions.
+There is no required `interface.md`. Before retiring an active reference to one, put every unique
+contract item in spec/schema, preserve its source pointer and approval, then update the consumer.
+Historical interface/spec/schema/notes files stay unchanged. Do not copy a second contract to notes.
+If a historical interface is needed by resumed work, cite it until a new part contract carries its
+unique items; do not delete history or silently treat removal as a specification change.
+
+`tools/line-budgets.json` → `workArtifacts` is the numeric source for new spec/schema/notes limits.
+`check:budgets` enforces physical lines, UTF-8 bytes and maximum line bytes; do not fold paragraphs
+into one long line. Its frozen historical path list exempts existing records, including after later
+commits; new paths remain checked after commit. It also checks untracked, non-ignored `.work` contracts.
+A security exception names one exact new path, owner, security reason and scope, with finite line/byte
+caps in `exceptions`. DATA ARCHITECT recommends it; the decision owner in CLAUDE.md approves and records
+it in that part before use. The per-line readability cap still applies. No blanket or stale exceptions.
+Split ordinary oversized work instead; never shorten a security requirement to meet a budget.
+
 
 
 ## Standard path
@@ -47,11 +107,11 @@ The maintained as-built descriptions are `.claude/knowledge/data-model.md` and `
 | 6 | **BUILDER** | branch, implement; calls SCOUT as needed. Hands off green: typecheck · lint · `check:budgets` · `check:stories` · the unit and database tests that run on this machine, on what it touched | diff + `notes.md` |
 | 7 | **Local checks** | 🤖 run by the agent that wrote the files (BUILDER its code, TEST ENGINEER its tests, including typecheck and lint on them). red → that agent fixes before handing off. ORCHESTRATOR runs none of them, and no push or CI wait happens between steps. **Before every push (Afik, 16.10.2026, audit decision 3):** the database tests (pgTAP and db integration) run on this machine when the part touches `supabase/`, `apps/server/` or `packages/shared/`; line budgets run in the git pre-commit hook (`.githooks/`); an older test the part breaks is updated in the same part; a part that touches a shared screen or component runs the whole browser suite | green handoff |
 | 8 | **TEST ENGINEER** | tests derived from `spec.md`, to the depth of each criterion's type and at one layer per behaviour ("Test rules" below). It reads source files for names, routes, exports and seams — never for what to assert. It starts from the spec while BUILDER builds (test files only), and after BUILDER's handoff runs its tests, typecheck and lint on them until they pass or fail for a reason it reports — a test failing against its criterion is a finding, never weakened to pass | test files |
-| 9 | **CRITIC** | review the diff cold, including every invariant in `.claude/knowledge/srs-review-points.md` that the diff touches and the platform rules in `.claude/knowledge/data-model.md`; it writes `findings.md` itself; when the harness refuses the subagent's write, ORCHESTRATOR saves its hand-back verbatim. ALGORITHM & DATA reviews in parallel when step 5b ran. **One review round per part** (see "Verdicts"). **Then one push** for the finished part — code, tests, review, fixes — and GitHub CI (typecheck · tests · lint · RLS checks) on its last commit is the merge condition. ORCHESTRATOR binds the PR to the app's PR monitor and acts on its notification plus a scheduled deadline check ("Closing a part") — no polling loops. Red → fix, check locally, push once | `findings.md` (bug list), then green CI |
+| 9 | **CRITIC** | review the diff cold, including every invariant in `.claude/knowledge/srs-review-points.md` that the diff touches and, for data access, the platform rules plus only affected table sections via the data-model Read map; it writes `findings.md` itself; when the harness refuses the subagent's write, ORCHESTRATOR saves its hand-back verbatim. ALGORITHM & DATA reviews in parallel when step 5b ran. **One review round per part** (see "Verdicts"). **After steps 10–11 when needed, one push** for the finished part — code, tests, review, fixes — and GitHub CI (typecheck · tests · lint · RLS checks) on its last commit is the merge condition. ORCHESTRATOR binds the PR to the app's PR monitor and acts on its notification plus a scheduled deadline check ("Closing a part") — no polling loops. Red → fix, check locally, push once | `findings.md` (bug list), then green CI |
 | 10 | **BUILDER** | address findings | updated diff |
 | 11 | **CRITIC** | re-check **only when it raised a real bug** (critical, high or medium with a failure scenario) — a fresh invocation pointed at `findings.md` and the fix commits; low items are fixed or go to `debt.md` without a re-check | bug list |
 | 12 | **E** | 🤖 automated Preview E2E (`preview-e2e`) on the PR's Preview — no manual Preview | green run |
-| 13 | ORCHESTRATOR | **merge without waiting for Afik** (pre-approved, Afik 16.10.2026, audit decision 1) when GitHub CI and E are green and no critical/high/medium bug from CRITIC is open — day or night; then start the next part in a new session. Afik reviews after the merge. Once per feature: `result.md` (≤ 10 lines). WORKPLAN: once per Initiative | `result.md` |
+| 13 | ORCHESTRATOR | **merge without waiting for Afik** (pre-approved, Afik 16.10.2026, audit decision 1) when GitHub CI and E are green and no critical/high/medium bug from CRITIC is open — day or night; then start the next part in a new session. Afik reviews after the merge. Records are prepared before the candidate push; closure evidence follows **Records and commits** | PR/handoff |
 | 14 | ORCHESTRATOR | the **SRS trace** goes in `result.md` (IDs implemented or changed). The SRS files themselves are updated **once per Initiative**, at its close, with the as-built delta of all its features (`/srs-update`: section files, IDs, §17, version row, index) — and at once only when a decision changes scope or the security model | SRS trace; `docs/srs/` per Initiative |
 
 Step 9 follows step 8: CRITIC reviews a diff that holds the finished tests. Steps 6 and 8 may run in parallel (source vs tests).
@@ -59,7 +119,7 @@ Step 9 follows step 8: CRITIC reviews a diff that holds the finished tests. Step
 **No merge to `main` without green CI on GitHub.** Every path merges through a PR, and only after every
 required check and applicable GitHub Actions job on its latest commit succeeds (`gh pr checks`); an expected conditional skip needs its documented reason, never a blanket pass. A local run — `npm test`, `npm run ci` — is
 evidence for the builder, never the gate: the runner is Linux on the `.nvmrc` Node version, and this machine is
-not. A commit pushed after the checks passed needs them to pass again. `result.md` records the run URL.
+not. A commit pushed after the checks passed needs them to pass again. Record run URLs per **Records and commits**.
 
 ## Closing a part — P1 (approval: Afik, 17.10.2026)
 - **Every wait:** reason · exactly one next-action owner · expected maximum · next-check timestamp, in the handoff or active task. Notifications are primary; inspect once at the deadline, then set a new deadline. No dense polling or status commits.
@@ -88,7 +148,7 @@ If any condition fails mid-work, stop and re-enter the Standard path. Do not fin
 ## Elevated path
 
 Standard, plus: DATA ARCHITECT always · CRITIC on opus. The protection is the reviewers, CI and the hooks.
-Who passes the gates, and what still needs Afik: `CLAUDE.md` → "Human gates" and "Decision authority".
+Who passes the gates, and what still needs Afik: this file → "Gates" and `CLAUDE.md` → "Decision authority".
 
 Entry condition: any risk flag in `CLAUDE.md`.
 
@@ -106,8 +166,8 @@ A defect in merged code: behaviour differs from what the SRS, or an approved `sp
 | 1 | ORCHESTRATOR | write `bug.md` — expected behaviour with its SRS ID, actual behaviour, reproduction steps. classify by the risk flags. add the `escapes.md` entry, with the gate that should have caught it | `bug.md` |
 | 2 | **TEST ENGINEER** | a regression test derived from `bug.md` only — never the code. it must fail on the current code; a test that passes does not reproduce the bug | failing test |
 | 3 | **BUILDER** | the smallest change that fixes the root cause. no refactoring beyond it | diff + `notes.md` |
-| 4 | **CI** | the new test passes and nothing else turned red, on GitHub Actions — see "No merge to `main` without green CI on GitHub" | green build |
-| 5 | **CRITIC** | review the diff cold. skipped only when the fix meets every Light-path condition. any risk flag → Elevated: CRITIC on opus, and DATA ARCHITECT when the fix touches data | bug list |
+| 4 | **Local checks** | the authors check the fix and regression tests, as on the Standard path | green handoff |
+| 5 | **CRITIC, then CI** | cold review; skipped only when every Light condition holds. Any flag → Elevated (mandatory reviewers still apply). After fixes/re-check as in Verdicts, push the finished candidate once for GitHub CI under the same current-head gate as Standard | bug list, then green CI |
 | 6 | **E** | automated Preview E2E — only if the fix is user-visible | green run |
 | 7 | ORCHESTRATOR | merge on the Standard path's pre-approved condition (step 13), `result.md`, step 14 if behaviour the SRS describes changed | `result.md` |
 
@@ -119,7 +179,7 @@ A defect in merged code: behaviour differs from what the SRS, or an approved `sp
 - A root cause that needs a schema change goes through DATA ARCHITECT, as on any other path.
 
 
-## The three rules that make the reviews real
+## Review independence
 
 These are not style preferences. Remove any one of them and the corresponding gate becomes theatre.
 
@@ -130,6 +190,9 @@ These are not style preferences. Remove any one of them and the corresponding ga
    source files for what exists (roles, labels, routes, exports, seams), never for what to assert: a test whose expected
    value is copied from the code asserts that the code does what the code does — zero information — and CRITIC raises it
    as a finding against the test. A test derived from acceptance criteria asserts that the code does what was promised.
+   TEST ENGINEER must not read `notes.md`, nor read implementation as text at test runtime to manufacture
+   assertions; normal imports that execute the behaviour under test are allowed. The historical F1.2
+   source-scan exception remains narrowly file:line evidence (14.10 decision).
 
 3. **An acceptance criterion a test cannot assert is not an acceptance criterion.**
    TEST ENGINEER that cannot derive a test returns the criterion to SPEC. It does not guess.
@@ -137,7 +200,7 @@ These are not style preferences. Remove any one of them and the corresponding ga
 
 ## Upward channels
 
-The channels — who raises each, when, and whether it blocks — are in `CLAUDE.md` → "Message types", which every
+The channels — who raises each, when, and whether it blocks — are in `CLAUDE.md` → "Communication", which every
 agent loads.
 
 ### SPEC CHALLENGE
@@ -158,6 +221,18 @@ rather than merely compliant.
 **A bug list, not a verdict** (Afik, 16.10.2026, audit decision 4). CRITIC returns the bugs it found — each with
 severity, file, a concrete failure scenario and a fix — or "no bugs" explicitly. No `Validated with Concern`.
 
+Canonical finding format (CRITIC and ALGORITHM & DATA):
+```
+--- bug ---
+severity: critical | high | medium | low
+file:     path/to/file.ts:88
+claim:    wrong outcome, exposure or crash, in one sentence
+failure:  concrete input/state → wrong outcome
+fix:      recommended change
+--- end ---
+```
+No observations or unsupported concerns in findings.md. If empty, return `no bugs` explicitly.
+
 | Open bug | Consequence |
 |---|---|
 | critical · high · medium | blocks the merge: BUILDER fixes, CRITIC re-checks only these. ORCHESTRATOR may not reinterpret a severity |
@@ -172,8 +247,8 @@ time. It writes a short impact note and files a `BLOCKER` to Afik about the appr
 **Round limit (Afik, 2026-10-13, every task).** After a blocking bug: one fix round, one re-check, never a third. A
 process or guard task that still fails is not merged — its branch stays, a `debt.md` line, back to `main`, next WORKPLAN
 task without waiting. A product feature stops under Two strikes: `BLOCKER` with an impact note in WORKPLAN, work
-continues on whatever does not depend on it, else the session ends in the return format. Each task ends with one
-WORKPLAN line: merged / stopped (why) / next.
+continues on whatever does not depend on it, else the session ends in the return format. Each task ends with merged / stopped (why) / next in its PR/handoff;
+WORKPLAN changes only at the cadence under Records and commits.
 
 ## Traceability
 
@@ -226,9 +301,9 @@ what, and when. A domain becomes an agent only through the Agent Necessity Test.
 | **Trigger** | any new or changed UI |
 | **BUILDER** | builds with the `design-system` craft skill, next to `accessibility`, `rtl-hebrew` and `ux-copy-he`: semantic tokens only, reuse of existing components, the designed states. Every changed component gets a Storybook story with its states |
 | **CI** | from 9.7, lint rejects physical direction classes, arbitrary Tailwind values, hex outside the tokens source and `@radix-ui` imports outside `components/ui`; a Vitest test holds every token pair in `docs/design/tokens.md` to its WCAG contrast threshold |
-| **TEST ENGINEER** | Playwright screenshots of the changed stories — non-blocking at first, until they prove stable |
+| **TEST ENGINEER** | Apply Test rules → Visual regression to each changed screen/story |
 | **CRITIC** | what lint cannot see: the `design-system` forbidden list 4–10 (duplicated components, two primary actions, pastel-only signals, loud counters, borders as identity, spinner or disabled submit, `dark:`) — one required check |
-| **Preview** | ORCHESTRATOR checks the screens against `docs/design/` and the approved mockups. A change to the visual direction itself (palette, font, layout) is a recorded decision, not a Preview fix |
+| **Visual review** | Before the candidate push, CRITIC checks changed UI against `docs/design/` and approved mockups. ORCHESTRATOR inspects/commits visual baselines. E stays automated; a visual-direction change (palette, font, layout) goes to its decision owner |
 | **Severity** | a broken token or contrast pair on a core flow is `high`; a duplicated component or a second primary action is `medium` |
 | **Revisit** | three design-consistency escapes in `escapes.md` open an Agent Necessity Test for a design agent |
 
@@ -305,7 +380,7 @@ Decided by Afik (14.10.2026) — quality is not lowered; duplication is removed 
 - **A test per criterion, nothing beyond** (Afik, 16.10.2026, audit decision 5) — every acceptance criterion gets its
   test; no hardening past the criteria, also not on a low review item. The test-to-product ratio is information
   (`result.md` may note it), not a target or a ceiling.
-- **Tools and hooks** — no new tests unless a tool actually broke.
+- **Tools and hooks** — no new tests unless a tool actually broke, or Afik explicitly approved the scoped fixtures (P1/P2).
 
 
 ## Cost discipline
@@ -321,6 +396,59 @@ stopping, except on a reserved item, a real `BLOCKER` or Two strikes.
   PR and `.work/<slug>/`. Long sessions ran at a median 320K and up to 964K.
 
 
+## Records and commits
+
+`WORKPLAN-HE.md` is the single status file: current/open work, last closed part, waiting-on-Afik list,
+next task. ORCHESTRATOR reads it each session. Update once per Initiative; between Initiatives only
+its waiting-on-Afik list changes. Closed parts move to `archive/WORKPLAN-<YYYY-MM>.md`.
+Between parts use the PR and `.work/<slug>/` as handoff; no new status/progress journal.
+
+Logs/decisions/WORKPLAN changes belong in the work commit, not a separately pushed records commit.
+Prepare result.md (≤ 10 lines) and applicable records before the candidate push, with checks still pending
+marked honestly. Add that candidate's CI/E run URLs and final closure status to the PR/handoff; no push
+just to backfill evidence after merge. Earlier run evidence in result.md names its original commit.
+Small local commits are allowed. Push only for needed CI, end of stage/session; bundle the stable
+candidate per Closing a part. A records-only task between features may have its own Light PR on
+green CI; never a direct push to main. Squash merges; the PR body carries the Implements line.
+Stage explicit paths only. No force push. Retain records by archiving, never deleting them.
+
+### Log routing
+
+| File | What goes in | Who writes |
+|---|---|---|
+| `decisions.md` | **Afik's decisions only** + rejected alternatives (audit decision 8). ORCHESTRATOR's own decisions go in `.work/<slug>/` | ORCHESTRATOR |
+| `.work/<slug>/findings.md` | **bugs only** — CRITIC's bug list (`.claude/workflow.md`, "Verdicts") | CRITIC |
+| `incidents.md` | real operational events only: prod, a secret, CI red on main, a failed deploy, a loop. A false hook block is one `noise.md` line | ORCHESTRATOR, from hooks/CI |
+| `debt.md` | every low bug not fixed in its part · every neighbouring bug BUILDER reported and did not fix | ORCHESTRATOR, from CRITIC and from `notes.md` |
+| `escapes.md` | defects found **after** merge + which gate should have caught it | ORCHESTRATOR |
+| `noise.md` | findings raised that were not real, or cost more than they saved | ORCHESTRATOR |
+
+**Read the "In force" index at the top of `decisions.md` before proposing an approach.** Full entries and rejected
+alternatives are in `decisions/<YYYY-MM>.md`; read the one an index line points to, or ask SCOUT to search them.
+Re-proposing a rejected alternative wastes Afik's time and your tokens.
+
+## Report material failures
+
+Not only security. Also: migration failed mid-run · CI red on main · CI red over 24h ·
+deploy or preview failed · a hook block that names production, a real secret, an env-file read or a force push · an
+external dependency is down · an agent looped or repeated the same failure three times. Every other hook block — an
+env-glob ambiguity (a jq filter read as a path), a placeholder read as a secret, a reader block — is only counted by `/wrap-up`; when it
+blocked legitimate work it gets one `noise.md` line. The guard's own `incidents.md` line stands as written; nobody adds
+a resolution line — the cause goes in the report to Afik.
+
+## SRS maintenance
+
+Every product change, including technical decisions with an SRS home, reaches the SRS. Team changes
+go to decisions. Record feature SRS traces in result.md. Update SRS files once at Initiative close
+from all as-built deltas; changes to scope or security model enter at once. Follow `/srs-update` and
+`.claude/rules/srs-editing.md` for IDs, INDEX, versioning and Word archive. Do not fill an open point.
+Record every AI/ML idea/decision per `knowledge/ai-ml-readiness.md`: future options in Appendix D,
+decided behaviour in its FR/§18/NFR. Export Word only on request with `node tools/export-srs-docx.js`
+to `exports/Nestly_SRS_v<version>.docx`; fix markdown and re-export, never edit the export.
+
 ## Changelog
+
 - 1.1–1.15 (10.10–15.10.2026): each entry is in `git log -- .claude/workflow.md` and in `decisions/2026-10.md`.
 - 1.16 — 2026-10-16 — audit decisions (Afik, `decisions.md` 2026-10-16 "Audit decisions" 1–6, 8, 9, 12): merge pre-approved on green CI + E with no blocking bug, also at night · questionnaire per Initiative, production migrate batched daily or per Initiative · DB tests local before push, budgets in pre-commit, broken old tests fixed in the part, full browser suite when a shared screen changes · one review round per part, re-check only on a real bug, a bug list instead of verdicts · a test per criterion, ratio is information · a new session per part, compact at 200K · two sessions in parallel from I3 · target 5–7 features a day.
+
+- 1.17 — 2026-10-18 — P2, אישור אפיק 17.10: canonical routing, contracts and records; role/skill references aligned. Historical changes remain in decisions/2026-10.md.

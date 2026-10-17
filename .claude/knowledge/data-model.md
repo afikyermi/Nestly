@@ -1,5 +1,22 @@
 # Data model — as-built
 
+## Read map
+
+For a data-access/schema task, read Authorization enforcement and Platform rules (including the
+approved-exception list). Then read only the affected table sections and their dependency sections
+from [the table index](data-model-tables.md#table-index); do not load the entire table catalog.
+Schema changes also read Schema conventions; new domains read only relevant Planned layers/open points.
+A UI-only part with no data-access change does not need this file.
+
+| Need | Section |
+|---|---|
+| RLS boundary | [Authorization](#authorization-enforcement-layer--decided) |
+| Roles, connections, views, audit, exceptions | [Platform rules](#platform-rules--database-access--decided) |
+| New/changed schema | [Schema conventions](#schema-conventions--decided) |
+| Not yet built | [Planned](#planned--input-from-the-srs-nothing-below-is-built) |
+| Built tables and dependent write/read paths | [Table index](data-model-tables.md#table-index) |
+
+
 **Maintained by:** DATA ARCHITECT. Updated on every schema change, in the same unit of work.
 **Status:** schema `nestly` exists since I1 F1.1 part b (`nestly.users`, `nestly.regular_profiles`), since I1 F1.4 (`nestly.journey_contexts`, `nestly.children`, `nestly.legal_consents`), since I1 F1.6 (`nestly.recovery_answers`, `nestly.recovery_throttles`, `nestly.recovery_events`), since I2 F2.0 (`nestly.identity_link_checks`), since I2 F2.4a (`nestly.friendships`, `nestly.regular_names`), and since I2 F2.4c1 (`nestly.security_limits`, `nestly.profile_open_counts`, `nestly.security_events`). The "Planned" section maps the SRS for everything not built yet.
 
@@ -18,7 +35,7 @@ One of the two maintained as-built descriptions, with its per-table part `data-m
 | **Every table carries RLS policies** | a table with RLS disabled is a defect, not a shortcut |
 | **Application code never filters for permission** — server code included | if code has to remove rows the user should not see, the policy is wrong. Fix the policy. The server authenticates, validates and rate-limits; the database decides who sees what |
 | **The policy is the authorization model** | it must be readable top to bottom and say plainly who may read, write and delete each table |
-| **A new table without a policy does not ship** | this is a `Not Ready`, not a concern |
+| **A new table without a policy does not ship** | this is a blocking bug under workflow → Verdicts |
 
 ### Why, in one line
 
@@ -47,7 +64,7 @@ data without passing through a policy. DATA ARCHITECT designs to them; CRITIC ch
 | 2 | **The request server connects as `app_server`**: LOGIN, NOBYPASSRLS, owns no table. It is granted `authenticated` — and `anon` for guest endpoints; `app_recovery` for the recovery flow only, see Approved exceptions — with `GRANT … TO app_server WITH INHERIT FALSE, SET TRUE` (Postgres 16+; on 15, NOINHERIT on the role does the same). Never a member of `service_role`, so never Supabase's `authenticator` | without inherited privileges, `app_server` can do nothing until a transaction sets a role. A forgotten identity fails closed |
 | 3 | **Identity in every transaction.** The server verifies the JWT (JWKS, asymmetric keys), ignores the token's `role` claim, and inside the transaction runs `SET LOCAL ROLE authenticated` and `set_config('request.jwt.claims', <claims>, true)`. Only transaction-local settings — never session-level. The claims are `{sub, role, session_id, iat, amr}` (F2.0 DR-S1): the last three identify the session for `nestly.session_guard()`, read in the same statement; never type, status or permission (rule 14) | `auth.uid()` in every policy works unchanged. Session-level settings would leak between users through the pooler |
 | 4 | **Guest endpoints** run with `SET LOCAL ROLE anon` and minimal grants, or touch no database at all. They exist only for what a Guest may reach (FR-AUTH-004). Exception: the recovery flow runs as `app_recovery` | anon gets nothing it does not need |
-| 5 | **Connection:** the request server uses Supabase's pooler in transaction mode (port 6543), postgres-js with `prepare: false`, one connection per function instance. **Migrations** run as `app_owner`, a separate owner role, from CI only, through the pooler in **session mode** (port 5432) or a direct connection — never in transaction mode, never at runtime, never from a developer machine against production. Production migrations run only from `main`, after Afik's approval on the GitHub `db-production` environment. Outside the product schema `app_owner` holds exactly two grants and nothing else: **CREATE on the database**, so it can create the product schema and the migration tool's `supabase_migrations` history schema (T5, 7.3); and **`authenticated` `WITH INHERIT TRUE, SET FALSE`**, because on Supabase `postgres` holds USAGE on schema `auth` without grant option, so this membership is the only way `app_owner` can create policies, defaults and functions that call `auth.uid()`, and run them inside its own SECURITY DEFINER functions (T5, P1–P4, 11.10.2026). As built: `supabase/bootstrap/01-roles.sql`. It never runs at runtime (rule 1). Decided 2026-10-11 (7.3); that the pooler accepts a custom role is tested in 7.3 (T3) | transaction mode keeps no session state; DDL and the migration tool's locks need a session. A production write needs a person's approval that a tool enforces |
+| 5 | **Connection:** the request server uses Supabase's pooler in transaction mode (port 6543), postgres-js with `prepare: false`, one connection per function instance. **Migrations** run as `app_owner`, a separate owner role, from CI only, through the pooler in **session mode** (port 5432) or a direct connection — never in transaction mode, never at runtime, never from a developer machine against production. Production migration authority and its temporary pre-launch delegation are defined only in `.claude/workflow.md` → "Batched approvals"; that section never permits a direct developer-machine production path. Outside the product schema `app_owner` holds exactly two grants and nothing else: **CREATE on the database**, so it can create the product schema and the migration tool's `supabase_migrations` history schema (T5, 7.3); and **`authenticated` `WITH INHERIT TRUE, SET FALSE`**, because on Supabase `postgres` holds USAGE on schema `auth` without grant option, so this membership is the only way `app_owner` can create policies, defaults and functions that call `auth.uid()`, and run them inside its own SECURITY DEFINER functions (T5, P1–P4, 11.10.2026). As built: `supabase/bootstrap/01-roles.sql`. It never runs at runtime (rule 1). Decided 2026-10-11 (7.3); that the pooler accepts a custom role is tested in 7.3 (T3) | transaction mode keeps no session state; DDL and the migration tool's locks need a session. Production uses only the authorized CI path; see workflow → Batched approvals |
 | 6 | **Background jobs run as `app_jobs`**, deployed apart from the request functions with their own credentials, which the request functions never hold — SQL jobs in pg_cron run as `app_jobs`, code jobs in a separate Vercel project (decided 2026-10-11, "Hosting"). NOBYPASSRLS, minimal grants. Where a job must read or write across users, it gets an explicit `TO app_jobs` policy on that table, listed below | a compromised request server cannot act as the job runner, and every cross-user reach is a named, reviewable policy |
 
 ### Tables, views and functions
@@ -241,7 +258,8 @@ Read top to bottom. A request passes a layer before it reaches the next one.
 
 ### Open in the SRS — blocks part of the schema
 
-Never design around these with a guess. Each one is a `DECISION REQUEST` to Afik when a feature needs it.
+Never design around these with a guess. Recheck each point's current SRS status; unresolved items go
+to the decision owner in CLAUDE.md. This planned map does not supersede later decisions.
 
 | Open point | Blocks |
 |---|---|

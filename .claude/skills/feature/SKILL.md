@@ -7,7 +7,7 @@ argument-hint: <intent in one or two sentences>
 
 # /feature — classify, route, open the folder
 
-**Version:** 1.0 · the ORCHESTRATOR's intake. Rules live in `CLAUDE.md` and `.claude/workflow.md`; this skill
+**Version:** 1.1 · the ORCHESTRATOR's intake. Rules live in `CLAUDE.md` and `.claude/workflow.md`; this skill
 applies them and never restates them.
 
 ## Input
@@ -22,8 +22,8 @@ applies them and never restates them.
 3. **Risk flags.** Go through every flag in `CLAUDE.md` → "Risk flags". Mark each true or false, with one line
    of reason. No scoring.
 4. **Path.** Choose per `CLAUDE.md` → "Path selection". In doubt, go up a level.
-5. **Team.** Apply `CLAUDE.md` → "Mandatory reviews": list each trigger that fires and who it brings in.
-6. **Size.** If the intent clearly will not fit one context window, propose the split (hard rule 6).
+5. **Team.** Apply workflow → "Mandatory reviews": list each trigger that fires and who it brings in.
+6. **Size.** If the intent clearly will not fit one context window, propose the split (CLAUDE.md → Shared security and review limits).
 7. **Open the folder.** Create `.work/<slug>/` (kebab-case) and write `intake.md`:
 
    ```markdown
@@ -35,10 +35,11 @@ applies them and never restates them.
    **Risk flags**    each flag: true/false — reason
    **Path**          Light | Standard | Elevated — why
    **Team**          who, and which trigger brought them in
-   **Next owner**    SPEC, or Afik if a DECISION REQUEST is open
+   **Next owner**    SPEC, or the decision owner named by CLAUDE.md for an open request
    ```
 
-8. **Hand off.** If nothing is open, invoke SPEC with a pointer to `intake.md` — not a summary of it.
+8. **Hand off.** Follow the selected workflow path (Light skips SPEC); use a pointer to `intake.md`.
+   Apply workflow → Contract content and budgets to new artifacts.
    Apply workflow → "Closing a part": include reason/owner/next-check time for any wait; inspect silent small-change
    agents at ~10 minutes, recover without dense polling. Before a new part, check current main health and the conditional
    fresh-branch rule after squash. For an Auth/session/deletion/provider change, route the critical external assumption to
@@ -46,7 +47,7 @@ applies them and never restates them.
 
 ## Stop conditions
 
-- The intent is not in the SRS → it is a requirements gap: `DECISION REQUEST` to Afik. Stop before SPEC.
+- The intent is not in the SRS → it is a requirements gap: `DECISION REQUEST` to the owner in CLAUDE.md → Decision authority. Stop dependent work before SPEC.
 - The feature depends on an open item → `DECISION REQUEST`. Never route around it with a default.
 - The intent is ambiguous in a way that changes what gets built → `DECISION REQUEST`.
 
@@ -56,3 +57,5 @@ applies them and never restates them.
 
 ## Changelog
 - 1.0 — 2026-10-11 — created (Afik's skills decision). Provisional until 5 features.
+
+- P2 — 2026-10-18 — אישור אפיק 17.10: align with canonical authority, sequence and records; no gate removed.

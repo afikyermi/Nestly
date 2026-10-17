@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # /where — where the work stands
 
-**Version:** 1.0 · reads only, writes nothing.
+**Version:** 1.1 · reads only, writes nothing.
 
 ## Input
 
@@ -19,8 +19,8 @@ None.
 2. List open feature folders: every `.work/<slug>/` (not `_initiatives`) without a `result.md`. For each: the
    latest artifact present (`intake.md`, `spec.md`, `schema.md`, `notes.md`, `findings.md`, `bug.md`) and the
    next-action owner implied by `.claude/workflow.md`.
-3. Run `git status --short` and `git log --oneline -3`. Uncommitted changes are a finding: `CLAUDE.md` requires
-   WORKPLAN to be updated in the same commit as the step.
+3. Run `git status --short` and `git log --oneline -3`. Report uncommitted work; apply workflow →
+   Records and commits for cadence. Local work alone does not require a WORKPLAN edit.
 
 ## Output — to Afik, in Hebrew, at most 15 lines
 
@@ -32,8 +32,8 @@ None.
 
 ## Stop conditions
 
-- The WORKPLAN block is missing, or its date is older than the last commit that changed status → say so, and
-  do not fill the gap with a guess.
+- The WORKPLAN block is missing or conflicts with the current Initiative handoff → say so, never guess.
+  A newer part commit alone does not make the per-Initiative WORKPLAN stale.
 
 ## Done when
 
@@ -41,3 +41,5 @@ Every line cites its source: a WORKPLAN line, a `.work/` path or a git command.
 
 ## Changelog
 - 1.0 — 2026-10-11 — created (Afik's skills decision). Provisional until 5 features.
+
+- P2 — 2026-10-18 — אישור אפיק 17.10: align with canonical authority, sequence and records; no gate removed.
