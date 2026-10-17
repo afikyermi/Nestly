@@ -183,8 +183,10 @@ Internal HOW, not a change to an approved criterion.
 
 ## Gate 1 clarifications (F2.4c2) — ORCHESTRATOR, 17.10.2026, from BUILDER's return
 - **c27 vs F1.2 "requested path is not kept".** c27 (approved) needs Guest → Login → that profile, so F1.2's rule is narrowed for
-  `/u/:userId` only: the return target rides in router state (never storage) and is dropped once the page has had a session, so a
-  sign-out never leads back. Recorded here per change control; every other protected path keeps F1.2's rule. SRS at I2 close.
+  `/u/:userId` only: the return target rides in router state and is dropped once the page has had a session, so a
+  sign-out never leads back. **Amended 17.10 (CRITIC c2 medium):** for the Google OAuth round trip only, a one-shot `sessionStorage`
+  entry holding the validated `/u/<uuid>` path (no profile data) is written right before the redirect, read once and removed on the
+  googleEntry landing, re-validated, ignored after 10 minutes, and removed on sign-out. No other storage. Recorded here per change control; every other protected path keeps F1.2's rule. SRS at I2 close.
 - **Own user id on the web** is read from the token's `sub` (unverified, client-side) only to build the copied link and to route an own
   link to ProfilePage (DR-O). The server decides every access; not a trust boundary.
 - **A send's 409** (`request_exists`, `already_friends`, `incoming_pending`) refetches and shows F2.4b's c14 text, as c28 says; the
