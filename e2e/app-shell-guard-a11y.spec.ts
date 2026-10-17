@@ -181,7 +181,7 @@ test.describe('titles and focus', () => {
     expect(xs[1]).toBeGreaterThan(xs[2] ?? Infinity);
   });
 
-  test('[F1.2 c24][NFR-A11Y-001] the drawer by keyboard: Enter opens, focus moves inside, הגדרות then התנתקות, Enter on הגדרות navigates and focuses main', async ({
+  test('[F1.2 c24][NFR-A11Y-001] the drawer by keyboard: Enter opens, focus moves inside, חשבון then התנתקות, Enter on חשבון navigates and focuses the Account h2 [F2.5 c11]', async ({
     page,
   }) => {
     await open(page, '/feed', 'signed-in');
@@ -190,15 +190,15 @@ test.describe('titles and focus', () => {
     await expect(drawerOf(page)).toBeVisible();
     const inside = await page.evaluate(() => document.activeElement?.closest('[role="dialog"]') != null);
     expect(inside, 'focus is inside the drawer').toBe(true);
-    const names = await tabNames(page, 6);
-    expect(names.indexOf('הגדרות')).toBeGreaterThanOrEqual(0);
-    expect(names.indexOf('התנתקות')).toBeGreaterThan(names.indexOf('הגדרות'));
-    await drawerOf(page).getByRole('link', { name: 'הגדרות' }).focus();
-    expect(await focusedName(page)).toBe('הגדרות');
+    const names = await tabNames(page, 10);
+    expect(names.indexOf('חשבון')).toBeGreaterThanOrEqual(0);
+    expect(names.indexOf('התנתקות')).toBeGreaterThan(names.indexOf('חשבון'));
+    await drawerOf(page).getByRole('link', { name: 'חשבון', exact: true }).focus();
+    expect(await focusedName(page)).toBe('חשבון');
     await page.keyboard.press('Enter');
-    await expectUrl(page, '/settings');
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/settings');
     await expect(drawerOf(page)).toHaveCount(0);
-    await expect(page.locator('main')).toBeFocused();
+    await expect(page.getByRole('heading', { level: 2, name: 'חשבון', exact: true })).toBeFocused();
   });
 
   test('[F1.2 c24][c21][NFR-A11Y-001][FR-MENU-001] Logout by keyboard (Space) signs out once', async ({ page }) => {
