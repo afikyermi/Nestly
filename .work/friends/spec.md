@@ -167,3 +167,10 @@ Internal HOW, not a change to an approved criterion.
 - **Response shapes (BUILDER's choices, accepted).** Success bodies `{}` — 201 on send, 200 on accept/decline/cancel/remove. A caller who is
   P, M, D or has no account row → 403 `forbidden` (c10 says only 403; `account_unavailable` stays for a suspended or banned Regular). The sent
   list keeps an uncancelled declined request (DR-3 silent). No list or body returns `status`.
+
+## Gate 1 clarifications (F2.4b) — ORCHESTRATOR, 17.10.2026, from TEST ENGINEER's return
+- **c13 "to a Regular only".** The web has only Regular sessions until I4/I7 (`/api/me` carries `state` only), so the positive case is
+  asserted; the negative case is enforced by F2.4a's 403 for P/M/D and is re-asserted when a non-Regular web session exists.
+- **c13/c14 copy.** Q1's defaults stand: the empty texts and failure messages are BUILDER's under `ux-copy-he` (ERR-004 for failures);
+  tests assert structure (a non-empty text per empty list, a message plus "נסו שוב", a non-empty `role="alert"`). Only "הבקשה כבר לא
+  זמינה" is verbatim.

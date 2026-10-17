@@ -63,4 +63,9 @@ export const SCREENS: Screen[] = [
   { kind: 'story', name: 'privacy-settings', id: 'features-privacy-privacycontent--defaults' },
   { kind: 'story', name: 'privacy-settings-load-failed', id: 'features-privacy-privacycontent--load-failed' },
   { kind: 'story', name: 'privacy-settings-save-failed', id: 'features-privacy-privacycontent--save-failed' },
+  // F2.4b c13: the Friends page (PG-036), story entries for the same reason. ASSUMED story ids (BUILDER's stories were not read):
+  // features/friends/FriendsContent.stories.tsx with the stories Lists, Empty, RemoveDialog. Change the three ids if BUILDER named them otherwise.
+  { kind: 'story', name: 'friends', id: 'features-friends-friendscontent--lists' },
+  { kind: 'story', name: 'friends-empty', id: 'features-friends-friendscontent--empty' },
+  { kind: 'story', name: 'friends-remove', id: 'features-friends-friendscontent--remove-dialog' },
 ];
