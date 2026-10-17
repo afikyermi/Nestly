@@ -1,7 +1,7 @@
 // The Vercel Deployment Protection bypass for a browser context (spec criterion 4). A request to the deployment origin
 // is fetched with the bypass headers and without following redirects, then fulfilled; every other origin (supabase.co,
 // fonts, http on the same host) continues untouched and never sees the secret. Never use extraHTTPHeaders: they go to
-// every host. A failed fetch aborts the request and its error is dropped, since its call log lists request headers.
+// every host. A failed fetch aborts the request and its error is dropped, since its call log lists request headers; if the route was already settled by a navigation, the abort's own error is dropped as well.
 
 import type { Route } from '@playwright/test';
 
@@ -22,7 +22,13 @@ export function createBypassRouteHandler(targetOrigin: string, secret: string) {
       const response = await route.fetch({ headers, maxRedirects: 0 });
       return await route.fulfill({ response });
     } catch {
-      return route.abort('failed');
+      // A navigation may already have settled the route ("Route is already handled!"): aborting it throws again. That error
+      // is dropped too (like the fetch's), so a settled route never fails the test.
+      try {
+        return await route.abort('failed');
+      } catch {
+        return undefined;
+      }
     }
   };
 }
