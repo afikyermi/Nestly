@@ -84,7 +84,8 @@ function actionHandler(deps: FriendsRouteDependencies, work: Action, line: strin
     const { identity } = request;
     reply.header('cache-control', 'no-store');
     const target = checkUserId(Reflect.get(request.params ?? {}, 'userId'));
-    if (!target.ok) return reply.code(400).send({ error: 'invalid' });
+    // The caller's own id names no other person (VAL-017): invalid, before any database work, as a send does.
+    if (!target.ok || target.userId === identity?.userId.toLowerCase()) return reply.code(400).send({ error: 'invalid' });
     if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
     try {
       return replyAction(reply, await work(deps.database, identity, target.userId));

@@ -80,6 +80,8 @@ function conflictOf(rows: readonly PairRow[], me: string): SendConflict | 'lift_
   return undefined;
 }
 
+const SEND_ATTEMPTS = 3;
+
 async function send(tx: IdentityTx, me: string, targetId: string): Promise<SendOutcome> {
   const refusal = await classifyActor(tx);
   if (refusal !== undefined) return refusal;
@@ -88,16 +90,19 @@ async function send(tx: IdentityTx, me: string, targetId: string): Promise<SendO
   // caller's own request is created below.
   const [reopened] = await reopenDeclined(tx, targetId);
   if (reopened !== undefined && !reopened.isCancelled) return { kind: 'conflict', reason: 'incoming_pending' };
-  const [inserted] = await insertRequest(tx, targetId);
-  if (inserted !== undefined) return { kind: 'sent' };
-  // A live row for the pair holds the place (VAL-017): say which, from what the caller may read.
-  const conflict = conflictOf(await readPair(tx, targetId), me);
-  if (conflict === undefined) return { kind: 'unavailable' };
-  if (conflict === 'lift_cancel') {
+  // A live row for the pair may hold the place (VAL-017): say which, from what the caller may read. A concurrent send, response or
+  // withdrawal can move the pair between the insert, the read and the lift, so the three are retried a bounded number of times; the
+  // answer is `unavailable` only if the caller reads nothing of the pair on the last pass (a decline stays as silent as a pending).
+  for (let attempt = 0; attempt < SEND_ATTEMPTS; attempt += 1) {
+    const [inserted] = await insertRequest(tx, targetId);
+    if (inserted !== undefined) return { kind: 'sent' };
+    const conflict = conflictOf(await readPair(tx, targetId), me);
+    if (conflict === undefined) continue;
+    if (conflict !== 'lift_cancel') return { kind: 'conflict', reason: conflict };
     const [lifted] = await liftCancel(tx, targetId);
-    return lifted === undefined ? { kind: 'unavailable' } : { kind: 'sent' };
+    if (lifted !== undefined) return { kind: 'sent' };
   }
-  return { kind: 'conflict', reason: conflict };
+  return { kind: 'unavailable' };
 }
 
 /** POST /api/friend-requests: one pending row, requester the caller's (c1-c4). `targetId` is lowercase and differs from the caller's. */
