@@ -109,8 +109,8 @@ cascade has run — reserved for Afik. Bootstrap steps, the complete list (anyth
 **Open, under rules 16 and 17** — FORCE RLS (rule 8) holds a SECURITY DEFINER function owned by `app_owner` to the
 table's policies, including those `TO authenticated` (which `app_owner` inherits). **Resolved for caller-only helpers**
 (F1.1 Gate 2): SECURITY INVOKER, reading through the caller's own-row policies (rule 16). **Still open** for definer
-functions that must reach other users' rows (rules 17–19) — decided with the first one — and for backfills: the first
-backfill inside a migration needs a pattern for the same reason.
+functions that must reach other users' rows (rules 17–19) — decided with the first one. **Backfills:** a constant one has
+its pattern (F2.3a: `ADD COLUMN … NOT NULL DEFAULT <constant>`, catalog-only, writes no row); a computed one is still open.
 
 ### Approved exceptions
 
@@ -181,7 +181,7 @@ Proposed by DATA ARCHITECT and approved by ORCHESTRATOR at F1.1 Gate 2, 13.10.20
 | Time | **`timestamptz`** only, default `now()`, microsecond precision, stored UTC; the UI converts to Asia/Jerusalem. Calendar dates (birth date, due date) are `date`. Never `timestamp without time zone` |
 | Naming | snake_case, **plural** tables; singular `<entity>_id` FK columns; `is_`/`has_` booleans; `_at` instants, `_date` dates; constraints `<table>_<column>_<check\|key\|fkey>`; policies `<table>_<command>_<who>`. Never a quoted identifier. Every table and column carries a `COMMENT` with its meaning and SRS id. It still matters under Drizzle: the typed schema catches a wrong column name in TypeScript, not inside raw SQL, policies or functions |
 | Enums | **`text` + a named `CHECK (… in (…))`**, lowercase snake_case values. The value list lives once in `packages/shared`; Drizzle declares `text(…, { enum })` from it. Postgres ENUM rejected: no value drop, `ADD VALUE` breaks atomic migrations |
-| Delete | no default. Account lifecycle lives in `users.status`. Soft delete, where an entity needs it, is a nullable `deleted_at timestamptz` hidden by its policy — decided per entity against §13.4 |
+| Delete | no default. Account lifecycle lives in `users.status`. Soft delete, where an entity needs it, is a nullable `deleted_at timestamptz` hidden by its policy — decided per entity against §13.4. Hard delete, no history row, so far: `children` and `journey_contexts` by their owner (F2.2b, Afik DR-1 A); platform backups may hold a deleted row for their window (§13.4, Privacy Policy) |
 | RLS helpers | in `nestly`, `language sql`, `STABLE`, no argument that names a user (caller only), `set search_path = ''` with every name schema-qualified, EXECUTE revoked from PUBLIC and granted to `authenticated` only — except the four recovery helpers (`recovery_handle`, `recovery_ip`, `recovery_claimed_at`, `recovery_subject`), granted to `app_recovery`, not `authenticated` — called as `(select nestly.fn())`. SECURITY INVOKER unless an approved exception says otherwise |
 | Status gate placement | on `users` and `identity_link_checks` there is **no** status gate on SELECT — an account reads its own row in every status (F1.5 DR-1 A; F2.0); on every other table the gate is `(select nestly.is_active_account())`. Seeing the own `users` row never means "active". A table's policy never calls a function that reads the same table (no recursion) |
 | Write grants | INSERT (and, when it comes, UPDATE) is granted **per column**, only on the columns the client's data fills. Identifiers, owner columns, clocks and columns fixed to a constant default (e.g. `regular_profiles.account_type`) are never granted, so their defaults always apply: rules 12–13 are held by privilege, and the policy's WITH CHECK is the second fence. A column the server sets but the policy constrains (e.g. `users.account_type`, `users.status`) is granted, and the policy is its first fence. SELECT stays table-level, except where a column must never be read back: `recovery_answers` has the first column-level SELECT (`authenticated` reads user_id, email_handle, handle_claimed_at, created_at; hashes, salts and the chosen questions are not readable by `authenticated` or `anon`; `app_recovery` reads them for the declared handle only). In Drizzle every write goes through a write-model object (`<table>Insert`) in `schema.ts` that names exactly the granted columns: Drizzle names every column of the object it inserts into, and naming an ungranted column is 42501. Decided F1.4 part a (CRITIC finding 1). Proposed by DATA ARCHITECT (`.work/register-account-create/schema.md` Amendment 1); validated by CRITIC with its wording change (`.work/register-account-create/findings.md`, part a re-check) |
@@ -247,14 +247,14 @@ Never design around these with a guess. Each one is a `DECISION REQUEST` to Afik
 
 ## Entities
 
-Built by `supabase/migrations/20261014100000_identity_schema.sql` (I1 F1.1 part b) and bootstrap step 2,
-`20261014200000_registration_account.sql` (I1 F1.4 part a; Gate 2 and Amendment 1 in `.work/register-account-create/schema.md`)
-and `20261015200000_recovery_questions.sql` (I1 F1.6; Gate 2 and Amendments 1–2 in `.work/password-recovery/schema.md`), and
-`20261016100000_identity_link_checks.sql` (I2 F2.0; `.work/account-takeover-close/schema.md`; the guard is in `is_active_account()`),
-`20261017100000_regular_profiles_update_own.sql` (I2 F2.1; `.work/profile-view-edit/schema.md`), and `20261017110000_children_update_own.sql` (I2 F2.2a; `.work/journeys-children/schema.md`). Down scripts in `supabase/rollback/`, in order: F2.0's refuses while `identity_link_checks` or an F2.0 event holds a row;
-F1.6's while `recovery_answers` or `recovery_events` holds a row; F1.4's while any of its three tables holds a row; F1.1's while
-`nestly.legal_consents` exists (safe only while `users` and `regular_profiles` are empty). Writes: per column ("Write grants") — F1.4's create path is INSERT only; UPDATE only on `recovery_answers`,
-`recovery_throttles` (F1.6), `identity_link_checks` (F2.0, moves by trigger) `regular_profiles` (F2.1: full_name, gender; own row while active) and `children` (F2.2a: name, sex, birth_date; own row while active); the one DELETE is `recovery_answers_delete_clear`
-(F2.0 D1: own row, while the own link check is pending). All nine tables are in `nestly`. Per-table detail — every column with its meaning, each
-table's purpose, what is not stored, owner, authorization, relations, indexes and retention, the write order and the RLS
-helper — is in `.claude/knowledge/data-model-tables.md`, which also holds the template a new entity fills.
+Built by `supabase/migrations/20261014100000_identity_schema.sql` (I1 F1.1 part b) and bootstrap step 2, `20261014200000_registration_account.sql`
+(F1.4; `.work/register-account-create/`), `20261015200000_recovery_questions.sql` (F1.6; `.work/password-recovery/`), `20261016100000_identity_link_checks.sql`
+(I2 F2.0; `.work/account-takeover-close/`; the guard is in `is_active_account()`), `20261017100000_regular_profiles_update_own.sql` (F2.1; `.work/profile-view-edit/`),
+`20261017120000_profile_privacy.sql` (F2.3a; `.work/profile-privacy/`), and `20261017110000_children_update_own.sql`, `20261017140000_journey_due_date_update.sql`,
+`20261017141000_journeys_children_delete_own.sql` (F2.2a, b1, b2; `.work/journeys-children/`). Down scripts in `supabase/rollback/`, in order: F2.3a's refuses while
+any profile holds a non-default privacy setting (it lifts FORCE RLS inside its own transaction so the check sees every row); F2.0's while `identity_link_checks` or an
+F2.0 event holds a row; F1.6's while `recovery_answers` or `recovery_events` holds a row; F1.4's while any of its three tables holds a row; F1.1's while `nestly.legal_consents`
+exists (safe only while `users` is empty); F2.1's and F2.2's touch no row. Writes: per column ("Write grants") — F1.4's create path is INSERT only; UPDATE on `recovery_answers`, `recovery_throttles` (F1.6),
+`identity_link_checks` (F2.0, by trigger), and, own row while active, `regular_profiles` (F2.1, F2.3a), `children` (F2.2a), `journey_contexts` (F2.2b: due_date, pregnant only);
+DELETE: `recovery_answers_delete_clear` (F2.0 D1) and own `children` and `journey_contexts`, hard (F2.2b). After registration, every write that adds or deletes a child or journey first locks the
+own `regular_profiles` row FOR NO KEY UPDATE. All nine tables are in `nestly`; per-table detail, write paths, the lock's reason and the new-entity template: `data-model-tables.md`.
