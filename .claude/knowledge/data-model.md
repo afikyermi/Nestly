@@ -1,8 +1,7 @@
 # Data model — as-built
 
 **Maintained by:** DATA ARCHITECT. Updated on every schema change, in the same unit of work.
-**Status:** schema `nestly` exists since I1 F1.1 part b (`nestly.users`, `nestly.regular_profiles`), since I1 F1.4 (`nestly.journey_contexts`, `nestly.children`, `nestly.legal_consents`), since I1 F1.6 (`nestly.recovery_answers`, `nestly.recovery_throttles`, `nestly.recovery_events`), and since I2 F2.0 (`nestly.identity_link_checks`). The "Planned"
-section maps the SRS for everything not built yet.
+**Status:** schema `nestly` exists since I1 F1.1 part b (`nestly.users`, `nestly.regular_profiles`), since I1 F1.4 (`nestly.journey_contexts`, `nestly.children`, `nestly.legal_consents`), since I1 F1.6 (`nestly.recovery_answers`, `nestly.recovery_throttles`, `nestly.recovery_events`), and since I2 F2.0 (`nestly.identity_link_checks`). The "Planned" section maps the SRS for everything not built yet.
 
 One of the two maintained as-built descriptions, with its per-table part `data-model-tables.md`; the other is `conventions.md`. Everything else is read from the code.
 
@@ -66,10 +65,9 @@ data without passing through a policy. DATA ARCHITECT designs to them; CRITIC ch
 | 15 | **A suspended or banned account is blocked at once**: `is_active_account()` is checked in RLS, not only when the JWT expires | a token stays valid for its lifetime; the policy is checked on every query |
 | 16 | **Permission Keys are checked in policies through one function**, `has_permission(key)`: STABLE, fixed `search_path`, called as `(select has_permission(...))` so it runs once per statement. **Caller-only helpers — those that answer only for `auth.uid()` and read only rows the caller's own policies already let it read — are SECURITY INVOKER**; `is_active_account()` is one (F1.1 Gate 2). SECURITY DEFINER stays for a helper that must read rows the caller cannot, as an approved exception. Whether `has_permission` needs that is decided with it | one reviewable place for the Moderator model (deny by default, NFR-SEC-002/004), and no per-row cost. A definer that sees no more than the caller gains nothing and costs an exception |
 
-**What CI enforces** (`supabase/ci/rls-gate.sql`, every CI run): the RLS gate covers `nestly` and every other schema
-`app_owner` owns (except the migration tool's history schema, which may hold only the tool's own tables), and fails if
-`nestly` is missing. It flags any materialized view or foreign table in those schemas — neither can carry RLS; allowed
-only via "Approved exceptions" below.
+**What CI enforces** (`supabase/ci/rls-gate.sql`, every CI run): the RLS gate covers `nestly` and every other schema `app_owner` owns (except the
+migration tool's history schema, which may hold only the tool's own tables), and fails if `nestly` is missing. It flags any materialized view or
+foreign table in those schemas — neither can carry RLS; allowed only via "Approved exceptions" below.
 
 ### Writes across users, and audit
 
@@ -80,16 +78,14 @@ only via "Approved exceptions" below.
 | 19 | **Protected reads go through an audited function.** A trigger does not run on SELECT, so revealing an anonymous author (P5, AC-077) and Moderator access to Private Group content (NFR-PRIV-002) go through a dedicated function that returns the data and writes the audit entry in the same call | the read and its record are one operation |
 | 20 | **The real author of an anonymous post is not readable by anyone but the author.** It is kept in a separate table: the author reads their own rows (`author_id = auth.uid()`) — to see, edit and delete their anonymous posts and to get notifications on them. Nobody else reads it; the reveal function (rule 19) is the only other path. Final shape at Gate 2 | RLS hides rows, not columns, and a `security_invoker` view cannot mask a column its caller cannot read. A separate table makes row-level security enough (P4) |
 
-**Realtime, when it comes** (chat, notifications; the MVP polls): Supabase Realtime private channels, authorized by RLS
-policies on `realtime.messages`, carry **signals only** — "something changed on this topic", never content. The client
-then fetches the content through the server, under rule 3. Why: Realtime checks its policy when a client connects and
-keeps it for the connection, so a revoked or suspended user may receive until the token expires (rule 15 cannot hold
-on that channel). Decided 2026-10-11, "Hosting".
+**Realtime, when it comes** (chat, notifications; the MVP polls): Supabase Realtime private channels, authorized by RLS policies on
+`realtime.messages`, carry **signals only** — "something changed on this topic", never content. The client then fetches the content through the
+server, under rule 3. Why: Realtime checks its policy when a client connects and keeps it for the connection, so a revoked or suspended user may
+receive until the token expires (rule 15 cannot hold on that channel). Decided 2026-10-11, "Hosting".
 
-**Connections from functions** (rule 5): each Vercel Function instance holds one pooled connection in transaction
-mode. The Free plan allows 200 pooler clients — watch it as traffic grows. CI migrates through the session-mode pooler
-(IPv4), since the direct connection is IPv6 only on Free; it moves to the direct connection when the IPv4 add-on is
-bought (I9 or later). Decided in 7.3.
+**Connections from functions** (rule 5): each Vercel Function instance holds one pooled connection in transaction mode. The Free plan allows 200
+pooler clients — watch it as traffic grows. CI migrates through the session-mode pooler (IPv4), since the direct connection is IPv6 only on Free; it
+moves to the direct connection when the IPv4 add-on is bought (I9 or later). Decided in 7.3.
 
 **The `auth.users` anchor and bootstrap steps.** Exactly one product table references `auth.users`: the anchor,
 `nestly.users`, through `users_id_fkey`; every other table references the anchor. `app_owner` cannot hold REFERENCES
@@ -106,16 +102,19 @@ cascade has run — reserved for Afik. Bootstrap steps, the complete list (anyth
 2. the anchor's FK to `auth.users` — as built: `supabase/bootstrap/02-anchor-fk.sql`, verified by `02-anchor-fk-check.sql`;
 3. extensions and pg_cron jobs, when needed.
 
-**Open, under rules 16 and 17** — FORCE RLS (rule 8) holds a SECURITY DEFINER function owned by `app_owner` to the
-table's policies, including those `TO authenticated` (which `app_owner` inherits). **Resolved for caller-only helpers**
-(F1.1 Gate 2): SECURITY INVOKER, reading through the caller's own-row policies (rule 16). **Still open** for definer
-functions that must reach other users' rows (rules 17–19) — decided with the first one. **Backfills:** a constant one has
-its pattern (F2.3a: `ADD COLUMN … NOT NULL DEFAULT <constant>`, catalog-only, writes no row); a computed one is still open.
+**Open, under rules 16 and 17** — FORCE RLS (rule 8) holds a SECURITY DEFINER function owned by `app_owner` to the table's policies, including those
+`TO authenticated` (which `app_owner` inherits). **Resolved for caller-only helpers** (F1.1 Gate 2): SECURITY INVOKER, reading through the caller's
+own-row policies (rule 16). **Resolved for a definer that reads other users' rows** (F2.3b, DR-G1): it reaches them only through `TO app_owner`
+policies scoped to a target it declares in a transaction-local setting and clears; no runtime role is in `app_owner` (rule 1), so the setting opens
+nothing outside it — `nestly.profile_view` below. **Still open** for rule-17 writes into other users' rows and rule-19 audited reads — decided with the first.
+**Backfills:** a constant one has its pattern (F2.3a: `ADD COLUMN … NOT NULL DEFAULT <constant>`, catalog-only, writes no row); a computed one is
+still open.
 
 ### Approved exceptions
 
 A SECURITY DEFINER function (rules 10, 16, 17, 18, 19), a `TO app_jobs` policy (rule 6), a role or credential outside
-rules 1–4, or a materialized view or foreign table in a schema `app_owner` owns exists only when it is listed here. Each entry:
+rules 1–4, or a materialized view or foreign table in a schema `app_owner` owns exists only when it is listed here
+(`nestly.is_active_account()` is deliberately not one: it is SECURITY INVOKER, rule 16). Each entry:
 
 ```
 <name> — what it does · why the caller's own rights cannot do it · approved in .work/<slug>/schema.md · date
@@ -152,7 +151,7 @@ F1.6 recovery and F2.0 S-01/S-16 (FR-AUTH-003/005, OP-029) — Afik 2026-10-13, 
     no handle, touch no hash, delete no row; it appends recovery_events (and the three subject-bound kinds of F2.0,
     user_id = the transaction's sub, nestly.recovery_subject(), DR-S2) and reads no audit and no other table.
     Why: a guest endpoint has no auth.uid(), and anon must hold nothing in nestly (rule 7, CI anon_privilege). Not a
-    SECURITY DEFINER function; tests.approved_security_definer() stays empty.
+    SECURITY DEFINER function; adds nothing to tests.approved_security_definer().
     Approved in .work/password-recovery/schema.md · 2026-10-15 (DR-G1, ORCHESTRATOR; release policy: Amendment 2)
 
 ```
@@ -164,7 +163,17 @@ refusal above 50. One transaction per user, SET LOCAL row_security = off (raises
 Rest: .work/preview-e2e/schema.md · decisions/2026-10.md "DR-E1" (Afik, 17.10)
 ```
 
-`nestly.is_active_account()` is deliberately not one: it is SECURITY INVOKER (rule 16).
+```
+nestly.profile_view(text) — one other Regular account's profile as a non-Friend (FR-PRIV-001, BR-044, AC-054, OP-020; F2.4c1 adds the Friend
+branch at its one switch, s.is_full): 0/1 row — full_name, children_count, is_pregnant, shows_empty_journey_sentence; gender and child_ages (jsonb
+[{years, months}], (created_at, slot) order) only when Open; never a child's name, sex, birth date, id or slot, a due date, a setting or a status.
+Caller active (is_active_account(), its auth.uid() check); target active + Regular, else 0 rows, as for an unknown or malformed id; one uuid per
+call. Reach: the 4 *_select_profile_view policies TO app_owner, only the rows of the uuid in the transaction-local GUC nestly.profile_view_target,
+which it sets and clears around its one query; helpers profile_view_target(), child_age_months(date, timestamptz) invoker, no runtime EXECUTE; the
+instant is now(), never a parameter. Owner app_owner; EXECUTE authenticated only; search_path ''. Why: RLS hides rows, not columns — the caller's
+rights would expose names, birth dates, gender under Restricted. Approved, not built (DR-L, F2.4c1): it also writes the caller's open count and
+Security event, own rows only, through TO app_owner policies scoped as above. · .work/profile-privacy/schema.md · Afik 2026-10-17 (DR-G1, DR-L)
+```
 
 ---
 
@@ -182,7 +191,7 @@ Proposed by DATA ARCHITECT and approved by ORCHESTRATOR at F1.1 Gate 2, 13.10.20
 | Naming | snake_case, **plural** tables; singular `<entity>_id` FK columns; `is_`/`has_` booleans; `_at` instants, `_date` dates; constraints `<table>_<column>_<check\|key\|fkey>`; policies `<table>_<command>_<who>`. Never a quoted identifier. Every table and column carries a `COMMENT` with its meaning and SRS id. It still matters under Drizzle: the typed schema catches a wrong column name in TypeScript, not inside raw SQL, policies or functions |
 | Enums | **`text` + a named `CHECK (… in (…))`**, lowercase snake_case values. The value list lives once in `packages/shared`; Drizzle declares `text(…, { enum })` from it. Postgres ENUM rejected: no value drop, `ADD VALUE` breaks atomic migrations |
 | Delete | no default. Account lifecycle lives in `users.status`. Soft delete, where an entity needs it, is a nullable `deleted_at timestamptz` hidden by its policy — decided per entity against §13.4. Hard delete, no history row, so far: `children` and `journey_contexts` by their owner (F2.2b, Afik DR-1 A); platform backups may hold a deleted row for their window (§13.4, Privacy Policy) |
-| RLS helpers | in `nestly`, `language sql`, `STABLE`, no argument that names a user (caller only), `set search_path = ''` with every name schema-qualified, EXECUTE revoked from PUBLIC and granted to `authenticated` only — except the four recovery helpers (`recovery_handle`, `recovery_ip`, `recovery_claimed_at`, `recovery_subject`), granted to `app_recovery`, not `authenticated` — called as `(select nestly.fn())`. SECURITY INVOKER unless an approved exception says otherwise |
+| RLS helpers | in `nestly`, `language sql`, `STABLE`, no argument that names a user (caller only), `set search_path = ''` with every name schema-qualified, EXECUTE revoked from PUBLIC and granted to `authenticated` only — except the four recovery helpers (`recovery_handle`, `recovery_ip`, `recovery_claimed_at`, `recovery_subject`), granted to `app_recovery`, not `authenticated`, and `profile_view_target` (F2.3b), granted to no role: only its owner runs it, in `profile_view` and its four `TO app_owner` policies — called as `(select nestly.fn())`. SECURITY INVOKER unless an approved exception says otherwise |
 | Status gate placement | on `users` and `identity_link_checks` there is **no** status gate on SELECT — an account reads its own row in every status (F1.5 DR-1 A; F2.0); on every other table the gate is `(select nestly.is_active_account())`. Seeing the own `users` row never means "active". A table's policy never calls a function that reads the same table (no recursion) |
 | Write grants | INSERT (and, when it comes, UPDATE) is granted **per column**, only on the columns the client's data fills. Identifiers, owner columns, clocks and columns fixed to a constant default (e.g. `regular_profiles.account_type`) are never granted, so their defaults always apply: rules 12–13 are held by privilege, and the policy's WITH CHECK is the second fence. A column the server sets but the policy constrains (e.g. `users.account_type`, `users.status`) is granted, and the policy is its first fence. SELECT stays table-level, except where a column must never be read back: `recovery_answers` has the first column-level SELECT (`authenticated` reads user_id, email_handle, handle_claimed_at, created_at; hashes, salts and the chosen questions are not readable by `authenticated` or `anon`; `app_recovery` reads them for the declared handle only). In Drizzle every write goes through a write-model object (`<table>Insert`) in `schema.ts` that names exactly the granted columns: Drizzle names every column of the object it inserts into, and naming an ungranted column is 42501. Decided F1.4 part a (CRITIC finding 1). Proposed by DATA ARCHITECT (`.work/register-account-create/schema.md` Amendment 1); validated by CRITIC with its wording change (`.work/register-account-create/findings.md`, part a re-check) |
 | Migrations | hand-written SQL in `supabase/migrations/`, applied by the Supabase CLI as `app_owner`, each file and its history row in one transaction. One file = one unit: table + RLS + FORCE + policies + grants + comments. No non-transactional statements. Each has a down script in `supabase/rollback/` |
@@ -247,14 +256,5 @@ Never design around these with a guess. Each one is a `DECISION REQUEST` to Afik
 
 ## Entities
 
-Built by `supabase/migrations/20261014100000_identity_schema.sql` (I1 F1.1 part b) and bootstrap step 2, `20261014200000_registration_account.sql`
-(F1.4; `.work/register-account-create/`), `20261015200000_recovery_questions.sql` (F1.6; `.work/password-recovery/`), `20261016100000_identity_link_checks.sql`
-(I2 F2.0; `.work/account-takeover-close/`; the guard is in `is_active_account()`), `20261017100000_regular_profiles_update_own.sql` (F2.1; `.work/profile-view-edit/`),
-`20261017120000_profile_privacy.sql` (F2.3a; `.work/profile-privacy/`), and `20261017110000_children_update_own.sql`, `20261017140000_journey_due_date_update.sql`,
-`20261017141000_journeys_children_delete_own.sql` (F2.2a, b1, b2; `.work/journeys-children/`). Down scripts in `supabase/rollback/`, in order: F2.3a's refuses while
-any profile holds a non-default privacy setting (it lifts FORCE RLS inside its own transaction so the check sees every row); F2.0's while `identity_link_checks` or an
-F2.0 event holds a row; F1.6's while `recovery_answers` or `recovery_events` holds a row; F1.4's while any of its three tables holds a row; F1.1's while `nestly.legal_consents`
-exists (safe only while `users` is empty); F2.1's and F2.2's touch no row. Writes: per column ("Write grants") — F1.4's create path is INSERT only; UPDATE on `recovery_answers`, `recovery_throttles` (F1.6),
-`identity_link_checks` (F2.0, by trigger), and, own row while active, `regular_profiles` (F2.1, F2.3a), `children` (F2.2a), `journey_contexts` (F2.2b: due_date, pregnant only);
-DELETE: `recovery_answers_delete_clear` (F2.0 D1) and own `children` and `journey_contexts`, hard (F2.2b). After registration, every write that adds or deletes a child or journey first locks the
-own `regular_profiles` row FOR NO KEY UPDATE. All nine tables are in `nestly`; per-table detail, write paths, the lock's reason and the new-entity template: `data-model-tables.md`.
+All nine tables are in `nestly`, built by `supabase/migrations/` and bootstrap step 2, each migration with a down script in `supabase/rollback/`. The
+list of migrations by feature, each down script's guard, the write paths, per-table detail, the lock and the new-entity template: `data-model-tables.md`.
