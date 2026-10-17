@@ -126,7 +126,7 @@ F1.6 recovery and F2.0 S-01/S-16 (FR-AUTH-003/005, OP-029) — Afik 2026-10-13, 
     new password, the change after two answers, the F1.8 first password (no account row) — key SUPABASE_SECRET_KEY read only
     in apps/server/src/recovery/auth-admin.ts; no other admin operation; the set itself ends every session of the user, the caller's
     included (GoTrue; Gate 2 A6, DR-E: no separate sign-out call), the reset keeps its scope=global logout; each set audited in recovery_events after it (a lost row is logged); every set and the S-01 clear hold the per-user password-state lock (A4). The S-01
-    detection reads the caller's identities with the caller's own token (GET <issuer>/user); it also sends SUPABASE_SECRET_KEY as the gateway `apikey` (the server holds no publishable key; using one needs a new env var, Afik). The reset, resetPassword({userId, email, password,
+    detection reads the caller's identities with the caller's own token (GET <issuer>/user); its gateway `apikey` is SUPABASE_PUBLISHABLE_KEY, as is the reset's logout (caller-token calls); admin calls and the token grant send the secret key; a missing key fails closed, no fallback (Afik, I2). The reset, resetPassword({userId, email, password,
     clientIp}): exactly four calls, in this order — GET <issuer>/admin/users/<uuid> (only email is read and compared, normalised, with the request's email; different or
     missing ends the sequence with no further call: outcome email_mismatch, answered 401 invalid_recovery, audited
     reset_email_mismatch); PUT <issuer>/admin/users/<uuid> {password}; after a 2xx one POST <issuer>/token?grant_type=
@@ -137,7 +137,7 @@ F1.6 recovery and F2.0 S-01/S-16 (FR-AUTH-003/005, OP-029) — Afik 2026-10-13, 
     Why: no database role may set an Auth password (auth.users is outside the product's roles, rule 1); a signed-out user
     has no token; the admin API has no revoke-by-user-id, and a reset that leaves an attacker's session alive does not end
     a takeover; only Auth knows the account's current email (Amendment 2: a password is set only on the account the
-    request's email names now). Fence: credentials.static.test allows the key's name in that one file only and asserts it
+    request's email names now). Fence: credentials.static.test allows each key's name (src/) in that one file only and asserts it
     is there; the admin, token-grant and logout literals appear in that file only; never in .github/. The key is not scoped
     by Supabase (service_role power over the whole project): the fence is the code and the CI check, not the credential.
     Approved in .work/password-recovery/schema.md (Amendment 1; Amendment 2 adds the email read) · 2026-10-15; widened in

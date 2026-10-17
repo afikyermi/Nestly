@@ -17,6 +17,7 @@ const USER = 'a0000000-0000-4000-8000-0000000000a1';
 const PASSWORD = 'סיסמה חדשה ארוכה 123';
 const EMAIL = 'dana.recovery@example.invalid';
 const SECRET_KEY = ['sb', 'secret', 'test_value_that_must_never_leak'].join('_');
+const PUBLISHABLE_KEY = ['sb', 'publishable', 'test_value_that_must_never_leak'].join('_');
 const CLIENT_IP = '203.0.113.9';
 
 const hex = (value: unknown): string => {
@@ -151,7 +152,7 @@ describe('[F1.6 c12] the client address: IPv6 counts by its /64, IPv4-mapped cou
 
 // ---------------------------------------------------------------------------------------------------------------------
 describe('[F1.6 c15] isAdminConfigured: the key and a safe issuer, nothing else', () => {
-  const good = { SUPABASE_SECRET_KEY: SECRET_KEY, SUPABASE_JWT_ISSUER: 'https://nestly-test.example.invalid/auth/v1' };
+  const good = { SUPABASE_SECRET_KEY: SECRET_KEY, SUPABASE_PUBLISHABLE_KEY: PUBLISHABLE_KEY, SUPABASE_JWT_ISSUER: 'https://nestly-test.example.invalid/auth/v1' };
 
   it('[F1.6 c15] a key and an https issuer: configured; a key and a loopback http issuer: configured', () => {
     expect(isAdminConfigured(good)).toBe(true);
@@ -233,7 +234,7 @@ async function authStub(replies: Reply[], read: Reply = READ_OK): Promise<AuthSt
 }
 
 const TOKEN_OK: Reply = { status: 200, json: { access_token: 'ACCESS-TOKEN-FROM-AUTH', refresh_token: 'REFRESH-TOKEN-FROM-AUTH', token_type: 'bearer' } };
-const env = (issuer: string) => ({ SUPABASE_SECRET_KEY: SECRET_KEY, SUPABASE_JWT_ISSUER: issuer });
+const env = (issuer: string) => ({ SUPABASE_SECRET_KEY: SECRET_KEY, SUPABASE_PUBLISHABLE_KEY: PUBLISHABLE_KEY, SUPABASE_JWT_ISSUER: issuer });
 const input = { userId: USER, email: EMAIL, password: PASSWORD, clientIp: CLIENT_IP };
 
 describe('[F1.6 c9 c15 c20 c22] resetPassword: four calls in a fixed order, and exactly one of four outcomes', () => {
