@@ -1,6 +1,7 @@
 export * from './dates.js';
 export * from './names.js';
 export * from './child.js';
+export * from './due-date.js';
 export * from './registration-credentials.js';
 export * from './registration-request.js';
 export * from './registration-step1.js';

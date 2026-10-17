@@ -1,11 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { OwnChild, OwnJourneys } from '@nestly/shared';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
-import { CHILD_ERROR_TEXTS } from '@/lib/child-fields';
+import { CHILD_ERROR_TEXTS, dueDateErrorTexts } from '@/lib/child-fields';
 import { JourneysContent } from './JourneysContent';
-import { EMPTY_CHILD_FORM, LOAD_FAILED_TEXT, SAVE_FAILED_TEXT } from './journeys-form';
+import { EMPTY_CHILD_FORM, EMPTY_DUE_DATE, LOAD_FAILED_TEXT, SAVE_FAILED_TEXT } from './journeys-form';
 
-// The "המסע שלי" section (F2.2a) in each of its states, drawn from props alone, as it sits in the shell's `main` under the profile: no
+// The "המסע שלי" section (F2.2a, F2.2b1) in each of its states, drawn from props alone, as it sits in the shell's `main` under the profile: no
 // server, no timing, so the visual baselines and axe see exactly one state each (e2e/visual-screens.ts).
 function Screen(props: Parameters<typeof JourneysContent>[0]) {
   return (
@@ -80,7 +80,7 @@ export const ChildForm: Story = {
       kind: 'loaded',
       data: family,
       saved: false,
-      form: { target: { mode: 'add' }, values: EMPTY_CHILD_FORM, errors: {}, saving: false, failure: null },
+      form: { kind: 'child', target: { mode: 'add' }, values: EMPTY_CHILD_FORM, errors: {}, saving: false, failure: null },
     },
   },
 };
@@ -92,6 +92,7 @@ export const ChildFormEdit: Story = {
       data: family,
       saved: false,
       form: {
+        kind: 'child',
         target: { mode: 'edit', childId: noa.id },
         values: { name: 'נועה', sex: 'girl', birthDate: { day: '04', month: '05', year: '2023' } },
         errors: {},
@@ -109,6 +110,7 @@ export const ChildFormErrors: Story = {
       data: family,
       saved: false,
       form: {
+        kind: 'child',
         target: { mode: 'add' },
         values: { name: '   ', sex: '', birthDate: { day: '31', month: '2', year: '' } },
         errors: {
@@ -127,7 +129,7 @@ export const ChildrenLimit: Story = { args: { view: { kind: 'loaded', data: ten,
 
 export const Saving: Story = {
   args: {
-    view: { kind: 'loaded', data: family, saved: false, form: { target: { mode: 'add' }, values: filled, errors: {}, saving: true, failure: null } },
+    view: { kind: 'loaded', data: family, saved: false, form: { kind: 'child', target: { mode: 'add' }, values: filled, errors: {}, saving: true, failure: null } },
   },
 };
 
@@ -137,7 +139,62 @@ export const JourneySaveFailed: Story = {
       kind: 'loaded',
       data: family,
       saved: false,
-      form: { target: { mode: 'add' }, values: filled, errors: {}, saving: false, failure: SAVE_FAILED_TEXT },
+      form: { kind: 'child', target: { mode: 'add' }, values: filled, errors: {}, saving: false, failure: SAVE_FAILED_TEXT },
+    },
+  },
+};
+
+// F2.2b1 c14: the pregnancy's due-date form, filled from the stored date (in place of its row's action, under the journeys).
+const pregnancyId = '3c9e1b40-0d7a-4f55-8e21-6b0a9f4d2c01';
+export const PregnancyForm: Story = {
+  args: {
+    view: {
+      kind: 'loaded',
+      data: family,
+      saved: false,
+      form: {
+        kind: 'pregnancy',
+        target: { mode: 'edit', journeyId: pregnancyId },
+        values: { day: '01', month: '03', year: '2027' },
+        error: null,
+        saving: false,
+        failure: null,
+      },
+    },
+  },
+};
+
+// c14: a partial date after the first "שמירה". A fixed "today" keeps the range text stable for the baseline.
+export const PregnancyFormErrors: Story = {
+  args: {
+    view: {
+      kind: 'loaded',
+      data: family,
+      saved: false,
+      form: {
+        kind: 'pregnancy',
+        target: { mode: 'edit', journeyId: pregnancyId },
+        values: { day: '01', month: '', year: '2027' },
+        error: dueDateErrorTexts('2026-10-17').due_date_partial,
+        saving: false,
+        failure: null,
+      },
+    },
+  },
+};
+
+// c15: has_child only — "הוספת הריון" is offered under "הוספת ילד".
+const childOnly: OwnJourneys = { journeys: [{ id: '3c9e1b40-0d7a-4f55-8e21-6b0a9f4d2c02', stage: 'has_child', dueDate: null }], children: [noa] };
+export const JourneyViewAddPregnancy: Story = { args: { view: { kind: 'loaded', data: childOnly, saved: false, form: null } } };
+
+// c15: the add form, empty (a due date is optional), in place of "הוספת הריון".
+export const PregnancyFormAdd: Story = {
+  args: {
+    view: {
+      kind: 'loaded',
+      data: childOnly,
+      saved: false,
+      form: { kind: 'pregnancy', target: { mode: 'add' }, values: EMPTY_DUE_DATE, error: null, saving: false, failure: null },
     },
   },
 };

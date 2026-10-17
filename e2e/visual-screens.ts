@@ -48,6 +48,10 @@ export const SCREENS: Screen[] = [
   { kind: 'story', name: 'child-form-errors', id: 'features-journeys-journeyscontent--child-form-errors' },
   { kind: 'story', name: 'children-limit', id: 'features-journeys-journeyscontent--children-limit' },
   { kind: 'story', name: 'journey-save-failed', id: 'features-journeys-journeyscontent--journey-save-failed' },
+  // F2.2b1 c14, c15: the pregnancy's due-date form, its error, and the add action with has_child only.
+  { kind: 'story', name: 'pregnancy-form', id: 'features-journeys-journeyscontent--pregnancy-form' },
+  { kind: 'story', name: 'pregnancy-form-errors', id: 'features-journeys-journeyscontent--pregnancy-form-errors' },
+  { kind: 'story', name: 'journey-view-add-pregnancy', id: 'features-journeys-journeyscontent--journey-view-add-pregnancy' },
   // F2.3a c1, c4, c16: the privacy settings section of Settings, story entries for the same reason
   // (features/privacy/PrivacyContent.stories.tsx).
   { kind: 'story', name: 'privacy-settings', id: 'features-privacy-privacycontent--defaults' },

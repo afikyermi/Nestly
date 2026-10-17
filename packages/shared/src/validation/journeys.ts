@@ -4,7 +4,8 @@
 // (data-model rules 12, 14). A child is named in a path by its row id only, never by a user id.
 import { z } from 'zod';
 import { CHILD_SEXES, JOURNEY_STAGES } from '../constants/index.js';
-import { CHILD_ERROR_CODES, checkChild, childInput, type ChildErrorCode, type RegistrationChild } from './child.js';
+import { CHILD_ERROR_CODES, checkChild, childInput, rawDateParts, type ChildErrorCode, type RegistrationChild } from './child.js';
+import { DUE_DATE_ERROR_CODES, checkDueDate, type DueDateErrorCode } from './due-date.js';
 
 /** Why a child body is refused: a child field's registration code, or `invalid_body` for everything else (shape, keys). */
 export const CHILD_WRITE_REASONS = [...CHILD_ERROR_CODES, 'invalid_body'] as const;
@@ -34,6 +35,37 @@ export function checkChildWrite(body: unknown, today: string): ChildWriteCheck {
 
 /** The path of PUT /api/children/:id. An id that is not a uuid's text form is refused before any query (else 22P02 -> 500). */
 export const childPathParams = z.object({ id: z.guid() });
+
+/** Why a due-date body is refused: a due-date registration code, or `invalid_body` for everything else (shape, keys). */
+export const DUE_DATE_WRITE_REASONS = [...DUE_DATE_ERROR_CODES, 'invalid_body'] as const;
+export type DueDateWriteReason = (typeof DUE_DATE_WRITE_REASONS)[number];
+
+export type DueDateWriteCheck = { ok: true; value: string | null } | { ok: false; reason: DueDateWriteReason };
+
+/** The pregnancy's due date as typed: three bounded texts, all empty for none. Strict: no other key. */
+export const dueDateInput = z.strictObject({ dueDate: rawDateParts('due_date_invalid') });
+export type DueDateInput = z.input<typeof dueDateInput>;
+
+const isDueDateCode = (message: string): message is DueDateErrorCode => DUE_DATE_ERROR_CODES.some((code) => code === message);
+
+/**
+ * POST /api/journeys and PUT /api/journeys/:id: `{ dueDate: { day, month, year } }`, judged against `today` and `earliestToday`
+ * (YYYY-MM-DD, as checkDueDate). The value is YYYY-MM-DD, or null for no due date; a wrong shape is `invalid_body`.
+ */
+export function checkDueDateWrite(body: unknown, today: string, earliestToday: string = today): DueDateWriteCheck {
+  const parsed = dueDateInput.safeParse(body);
+  if (!parsed.success) {
+    // A raw bound failure carries the due-date code; anything else (an unknown key, a missing field, a non-object) refuses the body.
+    const [first] = parsed.error.issues;
+    if (first === undefined || parsed.error.issues.some((issue) => !isDueDateCode(issue.message))) return { ok: false, reason: 'invalid_body' };
+    return { ok: false, reason: isDueDateCode(first.message) ? first.message : 'invalid_body' };
+  }
+  const checked = checkDueDate(parsed.data.dueDate, today, earliestToday);
+  return checked.ok ? checked : { ok: false, reason: checked.code };
+}
+
+/** The path of PUT /api/journeys/:id: a uuid's text form, else 404 before any query. */
+export const journeyPathParams = childPathParams;
 
 export const ownJourney = z.object({
   id: z.string(),

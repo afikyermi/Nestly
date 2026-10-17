@@ -73,3 +73,57 @@ Page `apps/web/src/pages/profile/ProfilePage.tsx` composes `ProfileScreen` and `
 `LoadFailsThenRetries`, `AddChild`, `SaveWithErrors`, `EditFails`. `e2e/visual-screens.ts` entries: `journey-view`,
 `journey-view-empty`, `journey-load-failed`, `child-form`, `child-form-errors`, `children-limit`, `journey-save-failed`
 (ids `features-journeys-journeyscontent--<same>`).
+
+---
+
+# interface — F2.2b1 (c14, c15): add a pregnancy, edit its due date
+
+## Server — `apps/server/src/routes/journeys.ts`
+
+Same auth, `cache-control: no-store`, gate, logs and error answers as F2.2a. No user id anywhere; a journey is named by its row id.
+
+| Route | Body | Answers |
+|---|---|---|
+| `POST /api/journeys` | strict `{ dueDate: { day: string, month: string, year: string } }` — all three `''` = no due date | **201 `OwnJourneys`** after the add (pregnant in JOURNEY_STAGES order) · 400 `{error:'invalid', reason}` before any DB work · **409 `{error:'stage_conflict'}`** (a pregnant or a planning journey exists; nothing written) · 403 / 404 `no_profile` / 401 / 503 / 500 as F2.2a |
+| `PUT /api/journeys/:id` | the same body | **200 `OwnJourneys`** after the edit · 404 `{error:'not_found'}` (not a uuid — no query; B's id; unknown id; a planning or has_child id — the policy admits pregnant rows only) · 400 / 403 / 404 `no_profile` / 401 / 503 / 500 as POST |
+| other methods | — | 405 `{error:'method_not_allowed'}`; `allow`: `GET, POST` on `/api/journeys`, `PUT` on `/api/journeys/:id` |
+
+Check order on PUT: id (404) → body (400) → gate (403 / 404 no_profile) → update (0 rows → 404 not_found). POST: body → gate → insert.
+`reason` (`DUE_DATE_WRITE_REASONS`): `due_date_partial` (one or two parts empty) · `due_date_invalid` (not a real date, non-digits,
+a part > 32 UTF-16 units) · `due_date_out_of_range` · `invalid_body` (unknown key — `userId`, `user_id`, `stage`, `id` —, missing
+`dueDate`, a non-string part, a non-object). The window is registration's (VAL-044, `checkDueDate`): `today − 30 ≤ due ≤ today + 300`,
+on the server (ORCHESTRATOR ruling, spec.md last block) the lower bound is on the UTC date (`serverEarliestToday`) and the upper on `serverToday` (UTC date + 1, F1.4 Q4): **UTC date −30 .. UTC date + 301** accepted, −31 and +302 refused. Registration step 1 uses the same window.
+The web judges by the device's local date (−30 .. +300).
+
+Logs (fixed lines, `{sqlstate}` only): `pregnancy add failed` · `due date edit failed`. No date, stage or id is logged.
+
+Layers: `journeys-service.ts` `addOwnPregnancy(db, identity, dueDate | null)` (gate → insert pregnant `ON CONFLICT DO NOTHING`
+untargeted, `RETURNING id`; 0 rows → `StageConflict` thrown → rollback → 409) · `editOwnDueDate(db, identity, id, dueDate | null)`
+(gate → `update(journeyContextsUpdate).set({dueDate}).where(id).returning(id)`; 0 → 404). No profile-row lock in b1 (b2).
+Write model `journeyContextsUpdate` (`id` for WHERE only, `dueDate`) in `apps/server/src/db/schema.ts`.
+
+Shared (`packages/shared/src/validation/`): `due-date.ts` — `checkDueDate(parts, today, earliestToday = today) → {ok:true, value: 'YYYY-MM-DD' | null} |
+{ok:false, code}`, `DUE_DATE_ERROR_CODES`, `DueDateErrorCode` (registration step 1 now calls it) · `journeys.ts` — `dueDateInput`
+(strict body), `checkDueDateWrite(body, today, earliestToday = today) → {ok:true, value: string | null} | {ok:false, reason}`, `DUE_DATE_WRITE_REASONS`,
+`journeyPathParams` (`z.guid()`), type `DueDateInput`.
+
+## Database — `supabase/migrations/20261017140000_journey_due_date_update.sql`
+
+`grant update (due_date) on nestly.journey_contexts to authenticated` · policy `journey_contexts_update_own` (for update, to
+authenticated; USING and WITH CHECK `user_id = (select auth.uid()) and stage = 'pregnant' and (select nestly.is_active_account())`)
+· policy comment · table comment redefined. Down: `supabase/rollback/20261017140000_journey_due_date_update.down.sql`.
+
+## Web — "המסע שלי"
+
+| State | What renders |
+|---|---|
+| view | the pregnancy row (`journey-row`) gets a button "עריכה" (`data-journeys-edit-journey=<id>`, `aria-describedby` → the row text). With neither planning nor pregnant: a button "הוספת הריון" (`data-journeys-add-pregnancy`) under "הוספת ילד". With planning or pregnant: not rendered |
+| pregnancy form (`pregnancy-form`) | edit: in place of the pregnancy row, filled from the stored date (empty when null); add: in place of "הוספת הריון", empty. Fieldset "תאריך לידה משוער (לא חובה)" (יום, חודש, שנה), "שמירה", "ביטול". While any form is open no other action shows. Focus to the day field on open |
+| pregnancy form errors | after the first "שמירה" only, then live: partial → "יש להשלים את התאריך או להשאיר אותו ריק"; not real → the registration "date does not exist" text; out of range → "התאריך צריך להיות בין D.M.YYYY ל-D.M.YYYY" (registration's, today −30 / +300); focus to the first `aria-invalid` field; nothing sent. All cleared → saved as null |
+| saving / save failed / saved | as the child form. 409 `stage_conflict` → the generic save failure (another tab added one); 404 → the generic save failure; 403 → ERR-037 + recheck; 401 → recheck. Saved → focus to the opening button (the pregnancy's "עריכה"; after an add, the new pregnancy's "עריכה") |
+
+API client: `apps/web/src/services/api/journeys.ts` — `addOwnPregnancy(token, dueDate)`, `saveOwnDueDate(token, id, dueDate)`
+(`dueDate` = the three parts as typed). Outcome gains `{kind:'stage-conflict'}` (409 `stage_conflict`).
+Stories (`JourneysContent.stories.tsx`): `PregnancyForm`, `PregnancyFormAdd`, `PregnancyFormErrors`, `JourneyViewAddPregnancy`.
+Flow stories (`JourneysSection.stories.tsx`): `EditDueDate`, `AddPregnancy`. `e2e/visual-screens.ts`: `pregnancy-form`,
+`pregnancy-form-errors`, `journey-view-add-pregnancy`.
