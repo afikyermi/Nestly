@@ -101,5 +101,5 @@ the column-UPDATE exception list. `20_registration_structure.sql:190-198` policy
 
 **Approved — ORCHESTRATOR, 17.10.2026.** Reversible, own-row, no new SECURITY DEFINER, no DELETE; DR-1 options stay open
 (finding 7). The QUESTION takes its default: the identity transaction stays READ COMMITTED, proven by the c6 server db test.
-DATA ARCHITECT writes the two `.sql` files and the knowledge-file update in the build unit, before BUILDER's server code runs
-against them; BUILDER ∥ TEST ENGINEER start now on F2.2a.
+BUILDER writes the two `.sql` files exactly as above (as in F2.1); DATA ARCHITECT checks them and updates the knowledge
+files in the same PR. BUILDER ∥ TEST ENGINEER start now on F2.2a.
