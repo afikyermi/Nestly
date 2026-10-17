@@ -18,6 +18,9 @@ export default defineConfig({
   // - On CI the run ends itself before the job's timeout-minutes, so a hang still reports and uploads its report.
   timeout: 30_000,
   globalTimeout: isCi ? 12 * 60_000 : 0,
+  // - Workers: three on CI (the hosted runner has 4 vCPUs; Playwright's default is half, 2). Measured in P3 on the same
+  //   2,312 tests before it was kept; locally Playwright's default, 50%.
+  workers: isCi ? 3 : '50%',
   forbidOnly: isCi,
   retries: isCi ? 1 : 0,
   reporter: isCi ? [['list'], ['html', { open: 'never' }]] : 'list',
