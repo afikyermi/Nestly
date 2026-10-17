@@ -99,7 +99,11 @@ export function AppShell({
         onOpenChange={setDrawerOpen}
         title={drawerTitle}
         closeLabel={drawerCloseLabel}
-        finalFocus={() => (focusMainOnClose.current ? mainRef.current : null)}
+        finalFocus={() => {
+          if (!focusMainOnClose.current) return null;
+          // A screen that puts focus on a heading of its own marks it, and keeps it over `main`.
+          return mainRef.current?.querySelector<HTMLElement>('[data-initial-focus]') ?? mainRef.current;
+        }}
       >
         {typeof menu === 'function' ? menu(closeMenu) : menu}
       </SideDrawer>

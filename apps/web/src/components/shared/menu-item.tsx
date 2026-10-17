@@ -8,6 +8,8 @@ interface MenuItemBase {
   icon?: ReactNode;
   /** Not activatable and announced as disabled; it stays focusable so the screen reader finds it. */
   disabled?: boolean;
+  /** The destination already open: marked with aria-current="page" and a heavier label. */
+  current?: boolean;
   className?: string;
 }
 
@@ -23,12 +25,18 @@ export type MenuItemProps = MenuItemBase &
 const styles = [
   'flex min-h-12 w-full items-center gap-3 rounded-md px-3 py-2 text-start text-body text-foreground no-underline',
   'transition-colors duration-fast ease-standard hover:bg-muted',
+  'aria-[current=page]:bg-primary-soft aria-[current=page]:font-semibold aria-[current=page]:text-primary-strong',
   'aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-transparent',
 ];
 
 export function MenuItem(props: MenuItemProps) {
-  const { children, icon, disabled = false, className } = props;
-  const common = { className: cn(styles, className), 'aria-disabled': disabled ? true : undefined };
+  const { children, icon, disabled = false, current = false, className } = props;
+  const ariaCurrent: 'page' | undefined = current ? 'page' : undefined;
+  const common = {
+    className: cn(styles, className),
+    'aria-disabled': disabled ? true : undefined,
+    'aria-current': ariaCurrent,
+  };
   const content = (
     <>
       {icon !== undefined ? (

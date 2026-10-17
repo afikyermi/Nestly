@@ -19,6 +19,9 @@ export const AsButton: Story = { args: { children: 'התנתקות', icon: <User
 
 export const Disabled: Story = { args: { children: 'בקשת תמיכה', onClick: () => undefined, disabled: true } };
 
+// The destination already open (aria-current="page").
+export const Current: Story = { args: { href: '#account', children: 'חשבון', current: true } };
+
 export const WithoutIcon: Story = { args: { children: 'תנאי שימוש ופרטיות', href: '#terms', icon: undefined } };
 
 export const Stacked: Story = {
