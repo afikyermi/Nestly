@@ -17,7 +17,7 @@ export default defineConfig({
   //   their shard. Shards are split by test count in file order (no hand-made file lists: a new file is never dropped).
   // - On CI the run ends itself before the job's timeout-minutes, so a hang still reports and uploads its report.
   timeout: 30_000,
-  globalTimeout: isCi ? 12 * 60_000 : 0,
+  globalTimeout: isCi ? 13 * 60_000 : 0,
   // - Workers: Playwright's default (half the CPUs: 2 on the 4-vCPU runner). Three were measured in P3 on the same 2,312
   //   tests: each test ran ~35-40% slower and the slowest shard gained ~40 s, within run-to-run noise; not kept.
   forbidOnly: isCi,

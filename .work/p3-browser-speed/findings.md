@@ -27,7 +27,7 @@ Saved verbatim by ORCHESTRATOR: the harness refused CRITIC's own Write. Verdict:
 - Next owner: BUILDER for finding 1 (and 3 if wanted); CRITIC re-checks finding 1 only.
 
 ## ORCHESTRATOR's handling (18.10.2026)
-- 1: `storyIds()` returns sorted ids; a tools test pins it. 2: kept at 12 min knowingly (slowest P3-head step 484 s = 49 % headroom; 600 s was the old a11y-in-one-worker tail that P3 removes); recorded in measurements.md. 3: tightened with mutants. 4: JSON.parse.
+- 1: `storyIds()` returns sorted ids; a tools test pins it. 2: first kept at 12 min; after the final run (584 s) raised to 13 min, the most the ≥ 2 min gap allows; measurements.md. 3: tightened with mutants. 4: JSON.parse.
 
 ## Re-check (CRITIC, finding 1, against 8c32ccc) — CRITIC's text, saved by ORCHESTRATOR (its Write was refused)
 State: **fixed.** `storyIds()` (e2e/helpers.ts:18-21) ends in `.sort()` — default code-unit sort, so the order depends only

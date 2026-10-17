@@ -25,4 +25,4 @@ Reading (honest: run-to-run variance, 380–600 s per shard, is larger than the 
 - Not 50 %. The next lever is shard 2's long file (e2e/motion.spec.ts) — parallel mode only after the same shared-state
   check as a11y; not done here (Afik: focused on a11y).
 - recovery-store.db.test.ts c5: green in both PR runs (`db`), now independent of the clock.
-- globalTimeout (CRITIC P3 finding 2): kept at 12 min knowingly — the slowest P3-head step was 484 s (49 % headroom); the 600 s sample was the a11y-in-one-worker tail that P3 removes.
+- globalTimeout (CRITIC P3 finding 2): first kept at 12 min (484 s seen); the final run took 584 s (23 % headroom), so it is 13 min — the most that keeps the ≥ 2 min gap to the 15 min job (setup ≈ 1 min).
