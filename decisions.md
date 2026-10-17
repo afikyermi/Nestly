@@ -154,7 +154,7 @@ Month = the archive file. "upd." = updated by a later entry, which is listed too
 | 2026-10-17 | F2.4c1 DR-L: profile_view also writes the caller's open count and Security event (own rows only) · cleanup tool may delete the test user's security_events first (decision-7 exception, one line) | 10 |
 | 2026-10-17 | Preview cleanup: tool learns identity_link_checks · every part adding a nestly table updates the cleanup tool in the same PR (DATA ARCHITECT checks delete order) · backlog since 16.10 cleaned on preview only, 50 cap unchanged | 10 |
 | 2026-10-17 | Preview cleanup, per-run limit: the 50 cap counts only the run's own test users; threshold and other safety checks stay; manual scheduled cleanup removed once it works | 10 |
-| 2026-10-17 | Waiting has a ceiling: every wait on a subagent, CI or preview has an expected maximum; past it ORCHESTRATOR checks itself and finishes or restarts a silent agent | 10 |
+| 2026-10-17 | Waiting has a ceiling: every wait on a subagent, CI or preview has an expected maximum; past it ORCHESTRATOR checks itself and finishes or restarts a silent agent (upd. same day: cancelled/unstarted check = red; ~10 min for a small change) | 10 |
 
 ## Superseded
 
