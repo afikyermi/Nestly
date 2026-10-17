@@ -101,3 +101,9 @@ defaults. Reason: SPEC's recommendations; no promise without a date, no new scre
 Code waits for F2.3 on the branch.
 
 **Afik, 17.10.2026 (decisions.md 2026-10-17 "I2 reserved items"):** DR-2 → A (show "תנאים ופרטיות" in the signed-in app). c6, c7 and the item are in scope.
+
+## Gate 1 clarifications — ORCHESTRATOR, 17.10.2026, at build start
+- **Q3 resolved by order of merge:** F2.4b merged first (PR 48) with "חברים" first in the drawer (FR-MENU-001 lists Friends before
+  Settings). F2.5 keeps it: c1's order becomes "חברים", "חשבון", "פרטיות ואבטחה", "תנאים ופרטיות", "שאלות לשחזור סיסמה", "החלפת
+  סיסמה", "התנתקות". Every other c1 assertion stands.
+- **DR-2 → A** (Afik, 17.10.2026, decisions/2026-10.md "I2 reserved items"): "תנאים ופרטיות" is shown; c7 is unblocked.
