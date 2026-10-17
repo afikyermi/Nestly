@@ -300,14 +300,17 @@ describe('[F2.0-a c5 FR-AUTH-005] once, idempotent', () => {
     const h = await startTakeoverApp(ctx, auth);
     const account = await affectedAccount(ctx, h);
     const first = sessionId();
-    expect((await me(h, await googleBearer(ctx, account, first))).statusCode).toBe(200);
+    const firstToken = await googleBearer(ctx, account, first);
+    expect((await me(h, firstToken)).statusCode).toBe(200);
+    expect((await postPassword(h, 'forced', { password: 'סיסמה חדשה ארוכה 12345' }, firstToken)).statusCode, 'reach "done"').toBe(200);
+    expect(await linkState(ctx, account.id)).toBe(`affected/true/${first}/true`);
     const before = await linkKinds(ctx, account.id);
     const callsBefore = auth.calls.length;
     const state = await linkState(ctx, account.id);
 
     const later = await me(h, await googleBearer(ctx, account, sessionId(), 10));
     expect(later.statusCode, later.body).toBe(200);
-    expect(jsonOf(later.body).mustSetPassword, 'only the clearing session is told to set a password').toBe(false);
+    expect(jsonOf(later.body).mustSetPassword, 'after "done" nobody is told to set a password').toBe(false);
     expect(auth.calls.length).toBe(callsBefore);
     expect(await linkKinds(ctx, account.id)).toBe(before);
     expect(await linkState(ctx, account.id)).toBe(state);

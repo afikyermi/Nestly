@@ -239,8 +239,8 @@ select ok(tests.dml_as('authenticated', pg_temp.cl(tests.fx_id('a'), pg_temp.sid
   '[F2.0-a c7 c6 A6] the stale attempt is refused (by the trigger, or hidden by the policy): it never succeeds');
 select is(tests.fx_link_state(tests.fx_id('a')), 'affected/true/' || pg_temp.sid(1) || '/false',
   '[F2.0-a c7 c6 A6] a stale session (token issued before the clear) cannot mark the password set: the row is unchanged');
-select is(tests.dml_as('authenticated', pg_temp.cl(tests.fx_id('a'), pg_temp.sid(2), pg_temp.ep('2026-10-16 23:00:00+00')), 'update nestly.identity_link_checks set password_set_at = now()', false), 'OK:1',
-  '[F2.0-a c7 A6] another session issued after the clear (iat > cleared_at) may mark the password set');
+select is(tests.dml_as('authenticated', pg_temp.cl(tests.fx_id('a'), pg_temp.sid(2), tests.fx_link_epoch_after_clear(tests.fx_id('a'))), 'update nestly.identity_link_checks set password_set_at = now()', false), 'OK:1',
+  '[F2.0-a c7 A6] another session issued after the clear (iat = the second after cleared_at, which is the database clock at the clear) may mark the password set');
 select is(tests.dml_as('authenticated', pg_temp.cl(tests.fx_id('a'), pg_temp.sid(1)), 'update nestly.identity_link_checks set password_set_at = now()', true), 'OK:1',
   '[F2.0-a c7] the clearing session marks the password set');
 select is(tests.fx_link_state(tests.fx_id('a')), 'affected/true/' || pg_temp.sid(1) || '/true', '[F2.0-a c7] the account is done');
