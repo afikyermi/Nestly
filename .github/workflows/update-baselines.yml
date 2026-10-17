@@ -35,3 +35,15 @@ jobs:
           path: e2e/__screenshots__/
           retention-days: 7
           if-no-files-found: error
+      # The artifact host can be unreachable from an agent session; the log is not. Print each PNG's sha256 and its
+      # base64 between markers, so ORCHESTRATOR can rebuild and check them from the job log (Afik, 17.10.2026).
+      - name: Print the baselines into the log
+        run: |
+          cd e2e/__screenshots__
+          for f in *.png; do
+            echo "::group::${f}"
+            echo "BASELINE-BEGIN ${f} $(sha256sum "${f}" | cut -d' ' -f1)"
+            base64 -w 0 "${f}"; echo
+            echo "BASELINE-END ${f}"
+            echo "::endgroup::"
+          done

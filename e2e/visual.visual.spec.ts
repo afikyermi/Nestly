@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { APP, open } from './app-helpers';
+import { APP, MENU_BUTTON, open } from './app-helpers';
 import { DESKTOP, MOBILE, openStory } from './helpers';
 import { SCREENS } from './visual-screens';
 import type { Screen } from './visual-screens';
@@ -21,7 +21,10 @@ test.use({ reducedMotion: 'reduce' });
 
 async function show(page: Page, screen: Screen): Promise<void> {
   if (screen.kind === 'story') await openStory(page, screen.id);
-  else await open(page, screen.route, screen.state);
+  else {
+    await open(page, screen.route, screen.state);
+    if (screen.openMenu === true) await page.getByRole('button', { name: MENU_BUTTON }).click();
+  }
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
 }
 

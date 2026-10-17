@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useLinkClickHandler } from 'react-router';
+import { useLinkClickHandler, useLocation } from 'react-router';
 import { PATHS } from '@/app/paths';
 import { AuthLayout } from '@/components/layout/auth-layout';
 import { FormField } from '@/components/shared/form-field';
@@ -14,7 +14,7 @@ import { useSession } from '@/hooks/use-session';
 import { useSessionAccount } from '@/hooks/use-session-account';
 import { documentTitle } from '@/lib/document-title';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
-import { noticeText, problemText, validateLogin, type LoginErrors } from './login-form';
+import { loginNoticeText, noticeText, problemText, validateLogin, type LoginErrors } from './login-form';
 
 // The login screen (FR-AUTH-002, UC-02): email and password. The password goes to Auth through the session source and nowhere
 // else; it lives in this component's memory and in the input, and is cleared after a refused sign-in (criterion 5). A success
@@ -43,6 +43,9 @@ export function LoginForm() {
   const checked = validating ? validateLogin(email, password) : null;
   const errors: LoginErrors = checked !== null && !checked.ok ? checked.errors : {};
   const shownMessage = message ?? (notice !== null ? noticeText(notice) : null);
+  // F2.0 DR-E: a screen that set a new password says so in router state; shown only while nothing else is to be said.
+  const location = useLocation();
+  const confirmation = shownMessage === null ? loginNoticeText(location.state) : null;
 
   // After a refused submit, focus goes to the first invalid control in document order.
   useEffect(() => {
@@ -120,7 +123,12 @@ export function LoginForm() {
           }
         >
           <h1 className="mt-4 mb-5 text-h1">התחברות</h1>
-          {shownMessage !== null ? (
+          {confirmation !== null ? (
+            // A confirmation, not an error: a status, in body text.
+            <div role="status" className="mb-5 text-body">
+              {confirmation}
+            </div>
+          ) : shownMessage !== null ? (
             <div ref={messageRef} tabIndex={-1} className="mb-5">
               <InlineAlert>{shownMessage}</InlineAlert>
             </div>

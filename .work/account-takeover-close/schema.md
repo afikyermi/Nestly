@@ -136,3 +136,56 @@ password call in the same part; part (b) keeps c14, c15, c17.
   integration); pgTAP: the try-lock call succeeds as `authenticated` and `app_recovery`, a second holder gets false.
 - **A5 (CRITIC bug 2, low) — confirmed.** Tx2 runs `deleteOwnAnswers` again under its locks, before `markCleared` (still
   pending, so the delete policy allows it). With A4 the store cannot overlap Tx1 either; the re-delete stays as the fence.
+- **A6 (escape, PR 38; bug-fix path) — the admin set is the revocation.** Fact (BUILDER's read, Preview run pending): GoTrue's
+  `PUT /admin/users/<id> {password}` deletes every session of the user, the caller's included. So:
+  - **Server.** S-01 clear, c7 and c10 stop calling `logout?scope=others`; the admin set ends all sessions (refresh
+    tokens). Tx2 = lock, re-delete answers, `cancelPassword`, `markCleared`, audit, commit. c10 loses its "set but revoke
+    failed" branch. F1.6 reset unchanged (its later global logout is redundant, harmless). The server returns no tokens.
+  - **Clearing session.** Its access token still passes (exempt from stale), so the triggering request is answered and c7
+    can run until it expires; its refresh fails. **c7 accepted from any non-stale session** (the clearing one, or iat >
+    cleared_at): after the clear the password is cancelled, the answers are gone and every pre-clear token is stale, so a
+    post-clear session can only be the Google/email owner's. `must_set` reported to the same set (replaces Q-S1).
+  - **Migration (new, forward — PR 38 is merged, its file stays):** `supabase/migrations/20261017100000_link_check_owner_sessions.sql`
+    with `create or replace`: `session_guard()` → after the `stale` branch, `when c.password_set_at is null then 'must_set'`
+    (drop the clearing-session test); the trigger's password-set move → allowed when `jwt_session_id() =
+    old.clearing_session_id` or `jwt_issued_at() > old.cleared_at` or no own users row (inline, no self-read). Comments
+    updated. Rollback `supabase/rollback/20261017100000_link_check_owner_sessions.down.sql` restores the 20261016 bodies;
+    no data touched, fully reversible. Stuck `pending` rows resume on the next Google request after deploy (idempotent;
+    that session is revoked by the set, the user signs in with Google once more and gets `must_set`). No backfill.
+  - **Spec criteria (ORCHESTRATOR records the change in spec.md):** c2 "the caller's session keeps working" → "the
+    triggering request is answered; every session's refresh ends, the caller's included". c3 steps: revoke is the
+    cancel-password step itself. c6 unchanged (the rule already exempts the clearing session and passes iat > cleared_at).
+    c7 "only from the clearing session" → "from any non-stale session"; after success all sessions end and the client
+    signs in with the new password. c10 "revokes every other session, keeps the caller's" → "ends every session; the client
+    signs in with the new password"; drop the revoke-retry bullet. c11 unchanged (no account row; its session ends too —
+    the web completes registration after re-sign-in with that password; BUILDER confirm the F1.8 order).
+  - **Tests.** Server: the Auth fake's admin set revokes all sessions incl. the caller's; regression: the clear completes
+    (no stuck pending) and a resumed pending completes; c7 from a post-clear session succeeds, from a stale one 401; c10
+    caller refresh fails after success. pgTAP: guard `must_set` for iat > cleared_at on a non-clearing session; trigger
+    accepts that session, refuses a stale one; the "only clearing session" assertions flip. E: c7/c10/c14 flows sign in
+    again with the new password.
+  - **Authority.** No new admin operation — fewer Auth calls than AR-1 allows. But AR-1's sentence "signing out other
+    sessions uses the caller's own token, not the admin key" is no longer true as built: the sign-out is the approved
+    set-password call's own effect. Not a widening, so no Afik decision needed; it goes on "ממתין לך" as an FYI with the
+    exception (a) text correction. Ending the caller's own session is stricter than the spec, not a looser security model:
+    ORCHESTRATOR decides.
+- **A7 (CRITIC fix-round bug 1, high; DR-E2) — password sessions are not the owner's until the new password.** New forward
+  migration `supabase/migrations/20261017093000_link_check_password_amr.sql` (20261017090000 is applied on nestly-preview
+  and stays), rollback `supabase/rollback/20261017093000_link_check_password_amr.down.sql` (restores the 20261017090000
+  bodies; no data). `create or replace` of two bodies only:
+  - `session_guard()`: after the existing `stale` branch, while `password_set_at` is null, a session other than the clearing
+    one reads `stale` when its `amr` includes `password` **or is missing/not an array** (fail closed); else `must_set`.
+  - Trigger password-set move: allowed only for the clearing session, or a session with `iat > cleared_at` and a readable
+    `amr` without `password`. A6's "no own users row" exemption is dropped: c11 is held to the same rule (it was CRITIC's
+    c11 gap; a post-clear oauth session of a c9 user still passes).
+  - **Server:** no change to the guard handling — `stale` already maps to 401 in the identity transaction, and c7/c11/c10
+    re-read it under the lock (`refuseUnlessProceeding` refuses `stale`). **One change:** `token-verifier.ts`
+    `authMethodsOf` truncates `amr` at 8 entries and drops unrecognised ones, so a `password` entry could vanish and fail
+    open. Make it all-or-nothing: if the array exceeds the cap or any entry is dropped, `authMethods` is undefined (then
+    no `amr` claim → `stale` here, and not oauth for detection).
+  - **Tests flip:** `password.db.test.ts:510-521` (post-clear password session → 401, not set) and pgTAP 41's two `OK:1`
+    cases for a password-amr session (guard → `stale`; trigger → 42501). **New (CRITIC):** a session with `amr=password`,
+    `iat > cleared_at`, before `password_set_at` → 401 on `/api/me`, c7 and c11, password unchanged; pgTAP: same session
+    reads `stale`, missing `amr` reads `stale`, a post-clear `oauth` session reads `must_set` and may set; c11 user with
+    no users row and a password session → 42501. Verifier unit test: 9 entries or an unrecognised entry → no `authMethods`.
+  - **Authority:** stricter than A6, within DR-E2; no Afik item.

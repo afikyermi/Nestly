@@ -72,13 +72,18 @@ const TOKEN_FAILURES: ReadonlySet<string> = new Set([
 const AUTH_METHOD = /^[a-z_]{1,32}$/;
 const MAX_AUTH_METHODS = 8;
 
-/** The `method` of each `amr` entry Supabase wrote ({ method, timestamp }), or undefined when the claim is not that shape. */
+/**
+ * The `method` of each `amr` entry Supabase wrote ({ method, timestamp }), all or nothing (Gate 2 A7): undefined when the claim is
+ * not an array, holds more than MAX_AUTH_METHODS entries, or any entry is not that shape. A dropped entry could have been the
+ * `password` method the guard looks for; with no `amr` at all the database fails closed (a post-clear session reads stale).
+ */
 function authMethodsOf(amr: unknown): string[] | undefined {
-  if (!Array.isArray(amr)) return undefined;
+  if (!Array.isArray(amr) || amr.length > MAX_AUTH_METHODS) return undefined;
   const methods: string[] = [];
-  for (const entry of amr.slice(0, MAX_AUTH_METHODS)) {
+  for (const entry of amr) {
     const method: unknown = typeof entry === 'object' && entry !== null ? Reflect.get(entry, 'method') : undefined;
-    if (typeof method === 'string' && AUTH_METHOD.test(method)) methods.push(method);
+    if (typeof method !== 'string' || !AUTH_METHOD.test(method)) return undefined;
+    methods.push(method);
   }
   return methods;
 }

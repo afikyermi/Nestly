@@ -1,4 +1,5 @@
 import { Route, Routes } from 'react-router';
+import { ChangePasswordPage } from '@/pages/change-password/ChangePasswordPage';
 import { GoogleReturnPage } from '@/pages/google-return/GoogleReturnPage';
 import { GuestPlaceholderPage } from '@/pages/placeholder/GuestPlaceholderPage';
 import { LoginPage } from '@/pages/login/LoginPage';
@@ -6,6 +7,7 @@ import { ProtectedPlaceholderPage } from '@/pages/placeholder/ProtectedPlacehold
 import { RecoveryPage } from '@/pages/recovery/RecoveryPage';
 import { RecoveryQuestionsPage } from '@/pages/recovery-questions/RecoveryQuestionsPage';
 import { RegisterPage } from '@/pages/register/RegisterPage';
+import { SetNewPasswordPage } from '@/pages/set-new-password/SetNewPasswordPage';
 import { WelcomePage } from '@/pages/welcome/WelcomePage';
 import { FocusOnNavigation } from './FocusOnNavigation';
 import { PATHS } from './paths';
@@ -33,6 +35,8 @@ export function AppRoutes() {
             <Route path={PATHS.profile} element={<ProtectedPlaceholderPage title="פרופיל" />} />
             <Route path={PATHS.settings} element={<ProtectedPlaceholderPage title="הגדרות" />} />
             <Route path={PATHS.recoveryQuestions} element={<RecoveryQuestionsPage />} />
+            <Route path={PATHS.changePassword} element={<ChangePasswordPage />} />
+            <Route path={PATHS.setNewPassword} element={<SetNewPasswordPage />} />
           </Route>
         </Routes>
       </RouteGuard>

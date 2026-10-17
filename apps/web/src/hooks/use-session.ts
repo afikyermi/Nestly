@@ -9,6 +9,8 @@ export interface Session {
   notice: SessionNotice | null;
   /** The account is active but has not saved its recovery questions: the guard holds it on the questions screen (F1.6). */
   needsRecoveryQuestions: boolean;
+  /** The session must set a new password after a takeover clear: the guard holds it on the new-password screen (F2.0 c14). */
+  mustSetPassword: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -19,5 +21,6 @@ export function useSession(): Session {
   const state = useSyncExternalStore(store.subscribe, store.getState);
   const notice = useSyncExternalStore(store.subscribe, store.getNotice);
   const needsRecoveryQuestions = useSyncExternalStore(store.subscribe, store.getNeedsRecoveryQuestions);
-  return { state, notice, needsRecoveryQuestions, signOut: store.signOut };
+  const mustSetPassword = useSyncExternalStore(store.subscribe, store.getMustSetPassword);
+  return { state, notice, needsRecoveryQuestions, mustSetPassword, signOut: store.signOut };
 }

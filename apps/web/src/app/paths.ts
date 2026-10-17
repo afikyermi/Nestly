@@ -14,6 +14,10 @@ export const PATHS = {
   settings: '/settings',
   /** F1.6: save the recovery questions (held there while missing) or change them. */
   recoveryQuestions: '/recovery-questions',
+  /** F2.0 c14: set a new password after a takeover clear. Opens only while the session is held there. */
+  setNewPassword: '/set-new-password',
+  /** F2.0 c15: change the password with the two recovery answers, from the menu. */
+  changePassword: '/change-password',
 } as const;
 
 /** The only paths a Guest may open. */
@@ -28,7 +32,14 @@ export const GUEST_PATHS: readonly string[] = [
 ];
 
 /** The screens a signed-in user may open. Any other path sends them to SIGNED_IN_LANDING. */
-export const PROTECTED_PATHS: readonly string[] = [PATHS.home, PATHS.feed, PATHS.profile, PATHS.settings, PATHS.recoveryQuestions];
+export const PROTECTED_PATHS: readonly string[] = [
+  PATHS.home,
+  PATHS.feed,
+  PATHS.profile,
+  PATHS.settings,
+  PATHS.recoveryQuestions,
+  PATHS.changePassword,
+];
 
 /** Where a Guest goes from a protected path (ERR-012, Q3): Welcome. The requested path is not kept. */
 export const GUEST_LANDING = PATHS.welcome;

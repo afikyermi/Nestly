@@ -18,8 +18,9 @@
 //     readSignInIdentities   the caller's own Auth user with the caller's own access token (no admin call): provider and
 //                            creation time of each identity, for the S-01 detection. Nothing else of the user is kept;
 //     cancelPassword         the S-01 clear: sets a random password that is never returned, logged or kept;
-//     setUserPassword        the forced new password (c7), the change after two answers (c10), the F1.8 first password (c11);
-//     signOutOtherSessions   ends every session but the caller's, with the caller's own access token (scope others).
+//     setUserPassword        the forced new password (c7), the change after two answers (c10), the F1.8 first password (c11).
+//   An admin password set ends every session of the user, the caller's included (Gate 2 A6): it is the revocation of the
+//   clear, c7 and c10, so no separate sign-out call is made.
 // The user id is always the JWT subject of the request, never a body field.
 //
 // Nothing is logged here, and no error text of Auth is kept: the outcome is a word the caller audits.
@@ -182,9 +183,6 @@ export type IdentitiesRead = { readonly kind: 'ok'; readonly identities: readonl
 /** `set`: Auth confirmed the password (or answered that it already is that password). `failed`: not confirmed. */
 export type PasswordSetOutcome = 'set' | 'failed';
 
-/** `done`: Auth confirmed that every other session of the user ended. `failed`: not confirmed. */
-export type SignOutOutcome = 'done' | 'failed';
-
 function identitiesOf(body: unknown): SignInIdentity[] | undefined {
   if (typeof body !== 'object' || body === null) return undefined;
   const list: unknown = Reflect.get(body, 'identities');
@@ -259,25 +257,4 @@ export async function setUserPassword(
 /** The S-01 clear: a random password nobody knows replaces the earlier registrant's. Never returned or kept. Never throws. */
 export function cancelPassword(input: { readonly userId: string }, env: Env = process.env): Promise<PasswordSetOutcome> {
   return setUserPassword({ userId: input.userId, password: randomBytes(48).toString('base64url') }, env);
-}
-
-/** Ends every session of the user but the one `accessToken` belongs to (refresh tokens revoked). Never throws. */
-export async function signOutOtherSessions(
-  input: { readonly accessToken: string; readonly clientIp: string | undefined },
-  env: Env = process.env,
-): Promise<SignOutOutcome> {
-  const target = readTarget(env);
-  if (target === undefined) return 'failed';
-  try {
-    const total = AbortSignal.timeout(CALL_TIMEOUT_MS);
-    const signOut = await call(target, total, '/logout?scope=others', {
-      method: 'POST',
-      bearer: input.accessToken,
-      forwardedFor: input.clientIp,
-    });
-    await signOut.body?.cancel();
-    return signOut.ok ? 'done' : 'failed';
-  } catch {
-    return 'failed';
-  }
 }

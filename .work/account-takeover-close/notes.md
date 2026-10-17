@@ -53,3 +53,45 @@ email+password first → `/api/me` 200 `mustSetPassword:true`, old password fail
 
 **Neighbouring**  `db/recovery-store.db.test.ts` "[F1.6 c5] B cannot change A's answers with A's email…" is flaky on the base
 commit too (1 of 3 runs): it fails when the two tokens' `iat` fall in different seconds (the newer claim releases A's handle).
+
+## Part (b) — screens (c14, c15)
+
+**Approach**  `mustSetPassword` rides the session seam as a flag beside `needsRecoveryQuestions` (store, hook, both sources, the test
+source's `setMustSetPassword`); `fetchAccountState` maps `mustSetPassword:true` to `active-must-set-password`. The guard holds a flagged
+session on `/set-new-password` (+ terms, privacy) before the questions hold. Features `forced-password` (c14) and `password-change`
+(c15), each a page, inside `ProtectedLayout`; menu item after the questions item. API: `setForcedPassword` (password.ts, shares one
+POST helper with `setFirstPassword`), `changePassword` (recovery.ts, reuses its status mapping).
+
+**Decisions**
+- Flag, not a fifth `SessionState`: the account is signed-in and active, as with the questions hold; TE's helper already drove it so.
+- A must-set answer turns the questions hold on too (c8: the clear deleted the answers), so `markPasswordSet` needs no second `/api/me`.
+  If answers did exist, the setup save's 409 is already "done" → feed.
+- Forced set 401/409 → ERR-044 text and a recheck of `/api/me` (stale token ends the session; another session loses the flag).
+- Change: password emptied after every answer, answers only after success (PG-051 behaviour). 409 `not_set`, 400 → generic text.
+- Copy Q-3 kept; only "מהחשבון" added for clarity. Change legend reuses PG-052's "ענו על השתיים ששמרתם עכשיו".
+
+**Deviations**  none from spec (b).
+
+**Deliberately not done**  No test files (TE, commit 3942bf3). No visual baselines for `set-new-password`, `password-change`,
+`side-menu` (only CI's `update-baselines` makes them, Linux Chrome). c17 (Afik's Supabase settings).
+
+**Uncertain**
+- The held forced screen still shows nav and menu; any click comes back to it (same as the questions hold).
+- Stories stub `globalThis.fetch` in `beforeEach` for the change states; restored after each story.
+
+**Older tests the part breaks (TE)** — all from the new route or the fourth menu item:
+- `apps/web/tests/app/access-decision.test.ts` "[F1.2 c6] the protected routes are exactly … plus /recovery-questions" (+ `/change-password`).
+- `e2e/app-shell-guard-shell.spec.ts:176` "[F1.2 c19] … exactly three items in order" · `e2e/app-shell-guard-stories.spec.ts:50` "[F1.2 c27]
+  … drawer open" (expects 3 items) · `e2e/app-shell-guard-a11y.spec.ts:184` "[F1.2 c24] the drawer by keyboard" (`tabNames(page, 4)`
+  no longer reaches התנתקות).
+
+**Local checks**  typecheck · lint · check:budgets · check:stories green; web unit 1034/1035 (the one above). Browser suite: Chrome
+channel not installable here (proxy 403), so it ran on the preinstalled Chromium 1194 via a scratch config: 1178 passed, 13 failed,
+13 skipped — the 3 above, 6 missing baselines (the new screens), and 4 pixel diffs on untouched screens (recovery, questions
+change/setup; 238–434 px), read as Chromium-vs-Chrome rendering. TE's `account-takeover-web.spec.ts` all green.
+
+**Preview path**  Sign in on an account where the takeover clear ran (Google sign-in on an email-first account) → any URL shows
+"קביעת סיסמה חדשה" → set a password → "שאלות לשחזור סיסמה" setup → save → feed. Menu → "החלפת סיסמה" → two answers + new password
+→ "הסיסמה הוחלפה…"; another device is signed out; the old password fails at login.
+
+**Neighbouring**  none new.

@@ -153,17 +153,25 @@ select is(pg_temp.guard(tests.fx_id('b'), pg_temp.cl(tests.fx_id('b'), pg_temp.s
   '[F2.0-a c6] another session, token issued before the clear: stale');
 select is(pg_temp.guard(tests.fx_id('b'), pg_temp.cl(tests.fx_id('b'), pg_temp.sid(2), pg_temp.ep('2026-10-16 10:00:00+00'))), 'stale',
   '[F2.0-a c6] another session, token issued in the cleared second: stale (whole-second iat; fails safe)');
-select is(pg_temp.guard(tests.fx_id('b'), pg_temp.cl(tests.fx_id('b'), pg_temp.sid(2), pg_temp.ep('2026-10-16 10:00:01+00'))), 'ok',
-  '[F2.0-a c6 Q-S1] another session, token issued after the clear: ok (it is not told to set a password: c7 would refuse it)');
+select is(pg_temp.guard(tests.fx_id('b'), pg_temp.cl(tests.fx_id('b'), pg_temp.sid(2), pg_temp.ep('2026-10-16 10:00:01+00'))), 'must_set',
+  '[F2.0-a c6 c7 A6] another session, token issued after the clear: must_set (a post-clear session is the owner''s; it is told to set the password too)');
 select is(pg_temp.guard(tests.fx_id('b'), pg_temp.cl(tests.fx_id('b'), pg_temp.sid(2))), 'stale', '[F2.0-a c6] another session, no iat claim: stale');
 select is(pg_temp.guard(tests.fx_id('b'), tests.claims(tests.fx_id('b'), '{"iat":"abc","session_id":"x"}')), 'stale', '[F2.0-a c6 hostile] malformed iat and session_id: stale, not an error');
 select is(pg_temp.guard(tests.fx_id('b'), tests.claims(tests.fx_id('b'))), 'stale', '[F2.0-a c6] a token with no session claims after a clear: stale');
 -- done
+select is(pg_temp.guard(tests.fx_id('b'), pg_temp.cl(tests.fx_id('b'), pg_temp.sid(2), pg_temp.ep('2026-10-16 10:00:01+00'), false)), 'stale',
+  '[F2.0-a c6 c7 DR-E2] must_set window: a non-clearing session with amr password, issued after the clear, is stale (a password sign-in racing the cancel is not the owner)');
+select is(pg_temp.guard(tests.fx_id('b'), tests.claims(tests.fx_id('b'), jsonb_build_object('session_id', pg_temp.sid(2), 'iat', pg_temp.ep('2026-10-16 10:00:01+00')))), 'stale',
+  '[F2.0-a c6 c7 A7] must_set window: a non-clearing session with NO amr claim, issued after the clear, is stale (a missing amr fails closed)');
+select is(pg_temp.guard(tests.fx_id('b'), tests.claims(tests.fx_id('b'), jsonb_build_object('session_id', pg_temp.sid(2), 'iat', pg_temp.ep('2026-10-16 10:00:01+00'), 'amr', 'oauth'))), 'stale',
+  '[F2.0-a c6 c7 A7] and one whose amr is not an array (unreadable) is stale too');
 select lives_ok($q$ select tests.fx_link_put(tests.fx_id('b'), 'affected', pg_temp.sid(1)::uuid, timestamptz '2026-10-16 10:00:00.5+00', pg_temp.sid(1)::uuid, timestamptz '2026-10-16 10:05:00+00') $q$,
   '[F2.0 fixture] b has set its new password');
 select is(pg_temp.guard(tests.fx_id('b'), pg_temp.cl(tests.fx_id('b'), pg_temp.sid(1), pg_temp.ep('2026-10-16 09:00:00+00'))), 'ok', '[F2.0-a c5 c7] done: the clearing session is ok');
 select is(pg_temp.guard(tests.fx_id('b'), pg_temp.cl(tests.fx_id('b'), pg_temp.sid(2), pg_temp.ep('2026-10-16 09:59:59+00'))), 'stale',
   '[F2.0-a c6] done: another session''s pre-clear token stays stale');
+select is(pg_temp.guard(tests.fx_id('b'), pg_temp.cl(tests.fx_id('b'), pg_temp.sid(2), pg_temp.ep('2026-10-16 11:00:00+00'), false)), 'ok',
+  '[F2.0-a c5 c6 DR-E2] done: a fresh password session is ok (the window closes with password_set_at)');
 select is(pg_temp.guard(tests.fx_id('b'), pg_temp.cl(tests.fx_id('b'), pg_temp.sid(2), pg_temp.ep('2026-10-16 11:00:00+00'))), 'ok', '[F2.0-a c5 c6] done: a fresh session is ok');
 
 -- =====================================================================================================================
@@ -234,9 +242,17 @@ select is(tests.dml_as('authenticated', pg_temp.cl(tests.fx_id('a'), pg_temp.sid
   '[F2.0-a c5] an unguarded second clear (even from another oauth session) is refused: a cleared row never re-clears');
 select is(tests.fx_link_state(tests.fx_id('a')), 'affected/true/' || pg_temp.sid(1) || '/false', '[F2.0-a c5] the clearing session is unchanged by the second attempts');
 
--- c7 password set: the clearing session only (or a caller with no users row, c11)
-select is(tests.dml_as('authenticated', pg_temp.cl(tests.fx_id('a'), pg_temp.sid(2), pg_temp.ep('2026-10-16 23:00:00+00')), 'update nestly.identity_link_checks set password_set_at = now()', false), 'ERR:42501',
-  '[F2.0-a c7] another session of the account cannot mark the password set');
+-- c7 password set (A6): the clearing session, a session issued after the clear, or a caller with no users row (c11); never a stale one
+select ok(tests.dml_as('authenticated', pg_temp.cl(tests.fx_id('a'), pg_temp.sid(2), pg_temp.ep('2026-10-16 09:59:59+00')), 'update nestly.identity_link_checks set password_set_at = now()', true) in ('ERR:42501', 'OK:0'),
+  '[F2.0-a c7 c6 A6] the stale attempt is refused (by the trigger, or hidden by the policy): it never succeeds');
+select is(tests.fx_link_state(tests.fx_id('a')), 'affected/true/' || pg_temp.sid(1) || '/false',
+  '[F2.0-a c7 c6 A6] a stale session (token issued before the clear) cannot mark the password set: the row is unchanged');
+select is(tests.dml_as('authenticated', pg_temp.cl(tests.fx_id('a'), pg_temp.sid(2), tests.fx_link_epoch_after_clear(tests.fx_id('a'))), 'update nestly.identity_link_checks set password_set_at = now()', false), 'OK:1',
+  '[F2.0-a c7 A6] another session issued after the clear (iat = the second after cleared_at, which is the database clock at the clear) may mark the password set');
+select ok(tests.dml_as('authenticated', pg_temp.cl(tests.fx_id('a'), pg_temp.sid(2), tests.fx_link_epoch_after_clear(tests.fx_id('a')), false), 'update nestly.identity_link_checks set password_set_at = now()', true) in ('ERR:42501', 'OK:0'),
+  '[F2.0-a c7 DR-E2] a session with amr password issued after the clear cannot mark the password set');
+select is(tests.fx_link_state(tests.fx_id('a')), 'affected/true/' || pg_temp.sid(1) || '/false',
+  '[F2.0-a c7 DR-E2] and the row is unchanged');
 select is(tests.dml_as('authenticated', pg_temp.cl(tests.fx_id('a'), pg_temp.sid(1)), 'update nestly.identity_link_checks set password_set_at = now()', true), 'OK:1',
   '[F2.0-a c7] the clearing session marks the password set');
 select is(tests.fx_link_state(tests.fx_id('a')), 'affected/true/' || pg_temp.sid(1) || '/true', '[F2.0-a c7] the account is done');
@@ -257,12 +273,19 @@ select is(tests.dml_as('authenticated', pg_temp.cl(tests.fx_id('a'), pg_temp.sid
 -- c11: a caller with no users row may mark its own must_set row (the completion step's password is the new password, c9)
 select lives_ok($q$ select tests.fx_link_put(tests.fx_id('f2'), 'affected', pg_temp.sid(1)::uuid, timestamptz '2026-10-16 10:00:00.5+00', pg_temp.sid(1)::uuid) $q$,
   '[F2.0 fixture] f2 (no users row) is cleared, password not set');
+select ok(tests.dml_as('authenticated', pg_temp.cl(tests.fx_id('f2'), pg_temp.sid(3), pg_temp.ep('2026-10-16 10:00:01+00'), false), 'update nestly.identity_link_checks set password_set_at = now()', true) in ('ERR:42501', 'OK:0'),
+  '[F2.0-a c11 DR-E2] an Auth user with no users row cannot mark its first password from a password-amr session issued after the clear');
+select is(tests.fx_link_state(tests.fx_id('f2')), 'affected/true/' || pg_temp.sid(1) || '/false', '[F2.0-a c11 DR-E2] and its row is unchanged');
 select is(tests.dml_as('authenticated', pg_temp.cl(tests.fx_id('f2'), pg_temp.sid(3), pg_temp.ep('2026-10-16 10:00:01+00')), 'update nestly.identity_link_checks set password_set_at = now()', true), 'OK:1',
   '[F2.0-a c9 c11] an Auth user with no users row marks its first password set, from any session');
 select lives_ok($q$ select tests.fx_link_put(tests.fx_id('a'), 'affected', pg_temp.sid(1)::uuid, timestamptz '2026-10-16 10:00:00.5+00', pg_temp.sid(1)::uuid) $q$,
   '[F2.0 fixture] a (WITH a users row) is cleared, password not set');
-select is(tests.dml_as('authenticated', pg_temp.cl(tests.fx_id('a'), pg_temp.sid(3), pg_temp.ep('2026-10-16 10:00:01+00')), 'update nestly.identity_link_checks set password_set_at = now()', false), 'ERR:42501',
-  '[F2.0-a c7 c11] but an account WITH a users row cannot be marked by a session other than the clearing one');
+select is(tests.dml_as('authenticated', pg_temp.cl(tests.fx_id('a'), pg_temp.sid(3), pg_temp.ep('2026-10-16 10:00:01+00')), 'update nestly.identity_link_checks set password_set_at = now()', false), 'OK:1',
+  '[F2.0-a c7 c11 A6] an account WITH a users row is marked by a session issued after the clear, not only by the clearing one');
+select ok(tests.dml_as('authenticated', pg_temp.cl(tests.fx_id('a'), pg_temp.sid(3), pg_temp.ep('2026-10-16 10:00:00+00')), 'update nestly.identity_link_checks set password_set_at = now()', true) in ('ERR:42501', 'OK:0'),
+  '[F2.0-a c7 c6 A6] a token issued in the cleared second is refused (whole-second iat fails safe)');
+select is(tests.fx_link_state(tests.fx_id('a')), 'affected/true/' || pg_temp.sid(1) || '/false',
+  '[F2.0-a c7 c6 A6] a token issued in the cleared second is stale and cannot mark the password set');
 
 -- =====================================================================================================================
 -- D1 / c2 — the answers delete: own row, only while the caller's own link row is pending, no status gate

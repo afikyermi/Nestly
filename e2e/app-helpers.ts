@@ -6,7 +6,7 @@ import type { Locator, Page } from '@playwright/test';
 export const APP = 'http://127.0.0.1:4174';
 
 /** 'signed-in-needs-recovery' = signed in, and the account still has no recovery questions (the questions screen opens in setup mode). */
-export type SessionState = 'loading' | 'signed-in' | 'signed-in-needs-recovery' | 'signed-out';
+export type SessionState = 'loading' | 'signed-in' | 'signed-in-needs-recovery' | 'signed-in-needs-new-password' | 'signed-out';
 
 export const WELCOME_H1 = 'הצטרפות ל-Nestly';
 export const LEAD = 'קהילה חמה להורים ולהורים לעתיד, במקום אחד.';
@@ -48,7 +48,7 @@ export const PROTECTED_ROUTES: Route[] = [
   { path: '/settings', h1: 'הגדרות', title: 'הגדרות · Nestly' },
 ];
 
-type DriveMethod = 'set' | 'fail' | 'rejectSignOut' | 'signOutCalls' | 'setNeedsRecoveryQuestions';
+type DriveMethod = 'set' | 'fail' | 'rejectSignOut' | 'signOutCalls' | 'setNeedsRecoveryQuestions' | 'setMustSetPassword';
 
 /** Calls a method of window.nestlyTestSession and returns its result. */
 export async function drive(page: Page, method: DriveMethod, arg?: unknown): Promise<unknown> {
@@ -68,6 +68,11 @@ export async function drive(page: Page, method: DriveMethod, arg?: unknown): Pro
 }
 
 export async function setState(page: Page, state: SessionState): Promise<unknown> {
+  // F2.0 c14: the forced new-password state, raised the same way (the seam method name is BUILDER's; see interface.md).
+  if (state === 'signed-in-needs-new-password') {
+    await drive(page, 'setMustSetPassword', true);
+    return drive(page, 'set', 'signed-in');
+  }
   if (state !== 'signed-in-needs-recovery') return drive(page, 'set', state);
   // The questions screen fixes its mode when it opens, so the flag is raised before the session becomes signed-in.
   await drive(page, 'setNeedsRecoveryQuestions', true);

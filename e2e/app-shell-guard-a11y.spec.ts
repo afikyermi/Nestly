@@ -190,7 +190,7 @@ test.describe('titles and focus', () => {
     await expect(drawerOf(page)).toBeVisible();
     const inside = await page.evaluate(() => document.activeElement?.closest('[role="dialog"]') != null);
     expect(inside, 'focus is inside the drawer').toBe(true);
-    const names = await tabNames(page, 4);
+    const names = await tabNames(page, 6);
     expect(names.indexOf('הגדרות')).toBeGreaterThanOrEqual(0);
     expect(names.indexOf('התנתקות')).toBeGreaterThan(names.indexOf('הגדרות'));
     await drawerOf(page).getByRole('link', { name: 'הגדרות' }).focus();

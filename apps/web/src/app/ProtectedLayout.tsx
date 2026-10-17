@@ -14,7 +14,8 @@ const NAV_ITEMS = [
 ];
 
 // The AppShell around every protected screen (FR-TOP-001, FR-MENU-001), bound to the router and the
-// session. The TopBar holds only the Hamburger and the Logo; the menu holds Settings and Logout.
+// session. The TopBar holds only the Hamburger and the Logo; the menu holds Settings, the recovery questions, the password change
+// (F2.0 c15) and Logout.
 export function ProtectedLayout() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -53,6 +54,15 @@ export function ProtectedLayout() {
             }}
           >
             שאלות לשחזור סיסמה
+          </MenuItem>
+          <MenuItem
+            href={PATHS.changePassword}
+            onNavigate={(href) => {
+              closeMenu();
+              go(href);
+            }}
+          >
+            החלפת סיסמה
           </MenuItem>
           <MenuItem
             onClick={() => {

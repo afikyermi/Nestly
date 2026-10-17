@@ -31,7 +31,7 @@ declare module 'fastify' {
     verifiedIssuedAt: number | null;
     /**
      * The verified bearer token itself, or null (public route). Only for the Auth calls made with the caller's own token
-     * (F2.0: the identity read and the sign-out of the caller's other sessions). Never logged, stored or returned.
+     * (F2.0: the S-01 identity read). Never logged, stored or returned.
      */
     accessToken: string | null;
     /** Runs `work` in this request's identity transaction (data-model rule 3). Protected routes only. */

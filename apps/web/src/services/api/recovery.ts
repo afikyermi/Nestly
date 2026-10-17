@@ -1,6 +1,6 @@
 import type { AnswerEntry } from '@/lib/recovery-answers';
 
-// The three calls of password recovery (F1.6). Only the status and the one `error` code are read; no response text reaches the
+// The calls of password recovery (F1.6) and the password change with the answers (F2.0 c10). Only the status and the one `error` code are read; no response text reaches the
 // screen. The answers and the password go in the body of the request and nowhere else: not a URL, not storage, not a log line.
 export type RecoveryOutcome =
   | 'done'
@@ -56,3 +56,7 @@ export const saveRecoveryQuestions = (accessToken: string, answers: AnswerEntry[
 /** PUT /api/recovery-questions: the current two answers, then the new pair. 200 is done. */
 export const changeRecoveryQuestions = (accessToken: string, current: AnswerEntry[], answers: AnswerEntry[]): Promise<RecoveryOutcome> =>
   send('/api/recovery-questions', 'PUT', { current, answers }, accessToken, [200]);
+
+/** POST /api/password/change (F2.0 c10, c15): the current two answers and the new password. 200 is done; 409 (no saved answers) is failed. */
+export const changePassword = (accessToken: string, current: AnswerEntry[], password: string): Promise<RecoveryOutcome> =>
+  send('/api/password/change', 'POST', { current, password }, accessToken, [200]);

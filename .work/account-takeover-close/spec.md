@@ -144,3 +144,17 @@ rides with part (a)'s PR via `/srs-update`.
 **DR-T1 (ORCHESTRATOR, 16.10.2026, after BUILDER's db run):** c4 and c6 read as "every request that passes body
 validation". A malformed body keeps F1.6's 400-before-any-database-work rule; it returns no data and does nothing.
 Reason: no leak either way, and guard-first would add a round trip to every request and break F1.6's approved rule.
+
+**DR-E (ORCHESTRATOR, 17.10.2026 — bug-fix path, `bug.md`, schema.md A6):** accepted. The admin password set is the
+revocation of every session (the caller's refresh included); `logout?scope=others` is dropped. Criteria now read:
+**c2** the triggering request is answered; every session's refresh ends, the caller's included · **c3** the revoke step is
+the cancel-password call itself · **c7** accepted (and `mustSetPassword` reported) from any non-stale session — the
+clearing one or one issued after `cleared_at`; after success every session ends and the client signs in again · **c10**
+ends every session, the caller's included; the client signs in with the new password; the revoke-retry bullet goes ·
+c6, c11 unchanged (c11's session also ends; the F1.8 completion must still register). Reason: stricter than the approved
+behaviour, within Afik's rule and AR-1 (fewer Auth calls, no new operation); only the owner can create a post-clear session.
+**DR-E addendum (ORCHESTRATOR, 17.10):** c15 success text stays: after a change the sign-in screen shows a `role=status` containing "הסיסמה הוחלפה" (c15 wording), then the user signs in with the new password. After the c14 forced set the sign-in screen shows the same kind of notice.
+**DR-E2 (ORCHESTRATOR, 17.10.2026, CRITIC fix-round bug 1):** until `password_set_at` is set, a non-clearing session whose
+`amr` includes `password` is treated as stale (401) and may not set the password (c7, c11) — only the clearing session and
+oauth sessions issued after the clear count as the owner's. Reason: a password sign-in racing the cancel can survive it;
+the owner cannot hold a password session in that window (password cancelled, answers deleted).

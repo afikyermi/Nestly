@@ -8,6 +8,7 @@
 --                                      (the transition trigger guards UPDATE only; a fixture puts a row in any legal state)
 --   tests.fx_link_state(user)          'verdict/clearedSet/clearingSession/passwordSet' of the row, '-' for none
 --   tests.fx_link_cleared_in_flight(user) true when transaction start < cleared_at <= clock_timestamp() (A1: stamped at the UPDATE, not at now())
+--   tests.fx_link_epoch_after_clear(user)  floor(epoch(cleared_at)) + 1: the iat of a token issued after the clear
 --   tests.fx_link_answers_put(user, handle_hex)   a valid recovery_answers row for the user (handle NULL when handle_hex is NULL)
 --   tests.fx_link_event_kinds(user)    the audit kinds written for one user_id, oldest first, '-' for none
 --   tests.fx_link_events_json(user)    those audit rows as JSON text
@@ -54,6 +55,13 @@ create or replace function tests.fx_link_cleared_in_flight(p_user uuid) returns 
 language sql security definer set search_path = ''
 as $$
   select coalesce((select l.cleared_at > now() and l.cleared_at <= clock_timestamp() from nestly.identity_link_checks l where l.user_id = p_user), false)
+$$;
+
+-- the whole second after cleared_at, as a token's iat (the guard compares whole seconds): a session issued after the clear
+create or replace function tests.fx_link_epoch_after_clear(p_user uuid) returns bigint
+language sql security definer set search_path = ''
+as $$
+  select floor(extract(epoch from l.cleared_at))::bigint + 1 from nestly.identity_link_checks l where l.user_id = p_user
 $$;
 
 create or replace function tests.fx_link_answers_put(p_user uuid, p_handle_hex text default null) returns void

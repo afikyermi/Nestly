@@ -29,6 +29,13 @@
     outline: 2px solid var(--color-ring);
     outline-offset: 2px;
   }
+
+  /* The main landmark is a programmatic focus target only (tabindex=-1: focus moves there after a navigation, a redirect or the
+     skip link), never a control. Chrome matches :focus-visible on a script focus before any pointer input, which drew the ring as
+     two lines down the content column after the route hold's redirect (F2.0 c14). Focus still moves there; only the ring goes. */
+  main[tabindex="-1"]:focus-visible {
+    outline: none;
+  }
 }
 
 /* Nothing moves under prefers-reduced-motion. Unlayered and !important so no utility

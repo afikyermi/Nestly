@@ -75,7 +75,6 @@ describe('[F2.0-a c1 FR-AUTH-005] detection: who the clear runs for', () => {
     expect(jsonOf(res.body)).toEqual({ state: 'active', recoveryQuestions: 'missing', mustSetPassword: true });
     expect(auth.of('cancelPassword')).toHaveLength(1);
     expect(auth.of('cancelPassword')[0]?.input.userId).toBe(account.id);
-    expect(auth.of('signOutOthers')).toHaveLength(1);
     expect(await linkState(ctx, account.id)).toBe(`affected/true/${session}/false`);
   });
 
@@ -87,7 +86,6 @@ describe('[F2.0-a c1 FR-AUTH-005] detection: who the clear runs for', () => {
     await me(h, bearer);
     expect(auth.of('readIdentities')).toHaveLength(1);
     expect(auth.of('readIdentities')[0]?.input.accessToken).toBe(bearer.replace(/^Bearer /, ''));
-    expect(auth.of('signOutOthers')[0]?.input.accessToken).toBe(bearer.replace(/^Bearer /, ''));
   });
 
   it('[F2.0-a c1] an email-only account (a password session) runs nothing and gets no link row', T, async () => {
@@ -119,7 +117,6 @@ describe('[F2.0-a c1 FR-AUTH-005] detection: who the clear runs for', () => {
     expect(res.statusCode, res.body).toBe(200);
     expect(jsonOf(res.body)).toEqual({ state: 'active', recoveryQuestions: 'set', mustSetPassword: false });
     expect(auth.of('cancelPassword')).toEqual([]);
-    expect(auth.of('signOutOthers')).toEqual([]);
     expect(await linkState(ctx, account.id)).toBe('unaffected/false/-/false');
     expect(await linkKinds(ctx, account.id)).not.toContain('takeover_cleared');
   });
@@ -164,15 +161,17 @@ describe('[F2.0-a c1 FR-AUTH-005] detection: who the clear runs for', () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 describe('[F2.0-a c2 D1 FR-AUTH-005] what the clear leaves behind', () => {
-  it('[F2.0-a c2] the answers are deleted, one clear row is audited with no password, answer or token in it, and the caller\'s session keeps working', T, async () => {
+  it('[F2.0-a c2] the answers are deleted, one clear row is audited with no password, answer or token in it, and every session\'s refresh ends, the caller\'s included', T, async () => {
     const auth = fakeAuth();
     const h = await startTakeoverApp(ctx, auth);
     const account = await affectedAccount(ctx, h);
-    const bearer = await googleBearer(ctx, account);
+    const session = sessionId();
+    const bearer = await googleBearer(ctx, account, session);
     expect(await answersJson(ctx, account.id)).not.toBe(NONE);
 
-    expect((await me(h, bearer)).statusCode).toBe(200);
-    expect((await me(h, bearer)).statusCode, 'the caller\'s session keeps working').toBe(200);
+    expect((await me(h, bearer)).statusCode, 'the triggering request is answered').toBe(200);
+    expect((await me(h, bearer)).statusCode, 'its access token still passes until it expires').toBe(200);
+    expect(auth.revoked.has(session), 'DR-E: every session\'s refresh ends, the caller\'s included').toBe(true);
     expect(await answersJson(ctx, account.id)).toBe(NONE);
 
     const handle = handleHex(ctx, account.email);
@@ -211,23 +210,18 @@ describe('[F2.0-a c2 D1 FR-AUTH-005] what the clear leaves behind', () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 describe('[F2.0-a c3 FR-AUTH-005] order and failure', () => {
-  it('[F2.0-a c3] the answers are cleared and "pending" recorded first, then the password cancelled, then the other sessions ended, then "done"', T, async () => {
+  it('[F2.0-a c3] the answers are cleared and "pending" recorded first, then the password cancelled (which ends every session), then "done"', T, async () => {
     const auth = fakeAuth();
     const h = await startTakeoverApp(ctx, auth);
     const account = await affectedAccount(ctx, h);
     const atCancel: string[] = [];
-    const atSignOut: string[] = [];
     auth.onCall.cancelPassword = async () => {
       atCancel.push(`${await linkState(ctx, account.id)}|${await answersJson(ctx, account.id)}`);
-    };
-    auth.onCall.signOutOthers = async () => {
-      atSignOut.push(await linkState(ctx, account.id));
     };
     const session = sessionId();
     expect((await me(h, await googleBearer(ctx, account, session))).statusCode).toBe(200);
     expect(atCancel).toEqual([`affected/false/-/false|${NONE}`]);
-    expect(atSignOut).toEqual(['affected/false/-/false']);
-    expect(auth.calls.map((c) => c.op)).toEqual(['readIdentities', 'cancelPassword', 'signOutOthers']);
+    expect(auth.calls.map((c) => c.op), 'A6: the cancel-password call is the revoke step').toEqual(['readIdentities', 'cancelPassword']);
     expect(await linkState(ctx, account.id)).toBe(`affected/true/${session}/false`);
   });
 
@@ -246,20 +240,7 @@ describe('[F2.0-a c3 FR-AUTH-005] order and failure', () => {
     auth.script.cancel = 'set';
     const resumed = await me(h, bearer);
     expect(resumed.statusCode, resumed.body).toBe(200);
-    expect(await linkState(ctx, account.id)).toMatch(/^affected\/true\//);
-    expect((await linkKinds(ctx, account.id)).split(',').filter((k) => k === 'takeover_cleared')).toHaveLength(1);
-  });
-
-  it('[F2.0-a c3] the other sessions cannot be ended: 503, no "done"; the retry repeats the safe steps and completes', T, async () => {
-    const auth = fakeAuth({ signOut: 'failed' });
-    const h = await startTakeoverApp(ctx, auth);
-    const account = await affectedAccount(ctx, h);
-    const bearer = await googleBearer(ctx, account);
-    expect((await me(h, bearer)).statusCode).toBe(503);
-    expect(await linkState(ctx, account.id)).toBe('affected/false/-/false');
-    auth.script.signOut = 'done';
-    expect((await me(h, bearer)).statusCode).toBe(200);
-    expect(auth.of('cancelPassword').length, 'each step is safe to repeat').toBeGreaterThanOrEqual(2);
+    expect(jsonOf(resumed.body).mustSetPassword, 'the resumed session is told to set a password').toBe(true);
     expect(await linkState(ctx, account.id)).toMatch(/^affected\/true\//);
     expect((await linkKinds(ctx, account.id)).split(',').filter((k) => k === 'takeover_cleared')).toHaveLength(1);
   });
@@ -319,14 +300,17 @@ describe('[F2.0-a c5 FR-AUTH-005] once, idempotent', () => {
     const h = await startTakeoverApp(ctx, auth);
     const account = await affectedAccount(ctx, h);
     const first = sessionId();
-    expect((await me(h, await googleBearer(ctx, account, first))).statusCode).toBe(200);
+    const firstToken = await googleBearer(ctx, account, first);
+    expect((await me(h, firstToken)).statusCode).toBe(200);
+    expect((await postPassword(h, 'forced', { password: 'סיסמה חדשה ארוכה 12345' }, firstToken)).statusCode, 'reach "done"').toBe(200);
+    expect(await linkState(ctx, account.id)).toBe(`affected/true/${first}/true`);
     const before = await linkKinds(ctx, account.id);
     const callsBefore = auth.calls.length;
     const state = await linkState(ctx, account.id);
 
     const later = await me(h, await googleBearer(ctx, account, sessionId(), 10));
     expect(later.statusCode, later.body).toBe(200);
-    expect(jsonOf(later.body).mustSetPassword, 'only the clearing session is told to set a password').toBe(false);
+    expect(jsonOf(later.body).mustSetPassword, 'after "done" nobody is told to set a password').toBe(false);
     expect(auth.calls.length).toBe(callsBefore);
     expect(await linkKinds(ctx, account.id)).toBe(before);
     expect(await linkState(ctx, account.id)).toBe(state);
@@ -383,7 +367,7 @@ describe('[F2.0-a c6 DR-O2] tokens issued before the clear are refused', () => {
     }
     expect(auth.of('setPassword')).toEqual([]);
     expect((await me(h, clearingToken)).statusCode, 'the clearing session').toBe(200);
-    expect((await me(h, await passwordBearer(ctx, account, sessionId(), 10))).statusCode, 'a session issued after the clear').toBe(200);
+    expect((await me(h, await googleBearer(ctx, account, sessionId(), 10))).statusCode, 'an oauth session issued after the clear').toBe(200);
   });
 
   it('[F2.0-a c6] the same refusal holds while the password is not yet set (after the clear, before c7)', T, async () => {
@@ -408,7 +392,6 @@ describe('[F2.0-a c9] the unregistered variant', () => {
     expect(res.statusCode, res.body).toBe(200);
     expect(res.body).toBe('{"state":"unregistered"}');
     expect(auth.of('cancelPassword')[0]?.input.userId).toBe(bare.id);
-    expect(auth.of('signOutOthers')).toHaveLength(1);
     expect(await linkState(ctx, bare.id)).toBe(`affected/true/${session}/false`);
     const handle = handleHex(ctx, bare.email);
     expect(await kinds(ctx, handle)).toContain('takeover_cleared');

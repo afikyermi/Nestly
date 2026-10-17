@@ -5,6 +5,8 @@
 //   POST /api/password/change  { current, password }   c10 200 · 400 invalid_request · 401 invalid_recovery · 409 not_set
 //                                                          · 429 rate_limited · 503
 //   POST /api/password/first   { password }            c11 200 · 400 invalid_password · 403 forbidden · 503
+// A 200 means the password is set AND every session of the user has ended, the caller's included (the admin set does it,
+// Gate 2 A6): the client signs in again with the new password. No token is returned.
 // The body is judged before any database work; a missing pepper or Auth key is 503 before any step. Logs carry fixed lines
 // and the SQLSTATE, never the body, a password, an answer, a token or an address (NFR-PRIV-001).
 
@@ -42,8 +44,7 @@ function ready(request: FastifyRequest, deps: PasswordRoutesDependencies): Ready
   const keys = deps.recovery.keys();
   if (request.identity === null || deps.database === undefined || keys === undefined) return undefined;
   if (!deps.recovery.authAccount.isConfigured()) return undefined;
-  const address = clientAddress(request.ip);
-  return { database: deps.database, keys, client: { addressKey: address.key, address: address.forAuth } };
+  return { database: deps.database, keys, client: { addressKey: clientAddress(request.ip).key } };
 }
 
 /** The audit handle of c7 and c11 is the token's email claim; a token without one cannot be audited, so nothing is set. */
@@ -95,15 +96,15 @@ async function change(request: FastifyRequest, reply: FastifyReply, deps: Passwo
   const parsed = passwordChangeRequest.safeParse(request.body);
   if (!parsed.success) return reply.code(400).send({ error: 'invalid_request' });
   const env = ready(request, deps);
-  const { identity, accessToken, verifiedEmail: email, verifiedIssuedAt: issuedAt } = request;
-  if (env === undefined || identity === null || accessToken === null) return replyUnavailable(reply);
+  const { identity, verifiedEmail: email, verifiedIssuedAt: issuedAt } = request;
+  if (env === undefined || identity === null) return replyUnavailable(reply);
   try {
     const result = await changePassword(
       env.database,
       deps.recovery,
       env.keys,
       identity,
-      { claim: email === null || issuedAt === null ? undefined : { email, issuedAt }, accessToken, client: env.client },
+      { claim: email === null || issuedAt === null ? undefined : { email, issuedAt }, client: env.client },
       parsed.data.current,
       parsed.data.password,
       (message) => request.log.error(message),

@@ -18,6 +18,8 @@ export interface SessionSource {
   getNotice?(): SessionNotice | null;
   /** True while the signed-in account has not saved its recovery questions (F1.6). A source that cannot tell leaves this out. */
   getNeedsRecoveryQuestions?(): boolean;
+  /** True while the signed-in session must set a new password after a takeover clear (F2.0 c7, c14). A source that cannot tell leaves this out. */
+  getMustSetPassword?(): boolean;
   /** Calls `listener` after every change of state. Returns the function that stops it. */
   subscribe(listener: () => void): () => void;
   /** Ends the session. The source then reports `signed-out`. */
@@ -55,6 +57,11 @@ export interface SessionAccount {
   clearNotice(): void;
   /** The recovery questions were saved: the account no longer needs the questions screen. No second `/api/me` call. */
   markRecoveryQuestionsSet(): void;
+  /**
+   * The server set a new password (F2.0 c7, c10): that ended every session of the user, this one included (Gate 2 A6, DR-E). The
+   * session ends here too (no session notice: the screen passes its own to the login screen in router state).
+   */
+  endAfterPasswordChange(): Promise<void>;
 }
 
 export const isSessionAccount = (source: SessionSource): source is SessionSource & SessionAccount =>
@@ -70,6 +77,8 @@ export interface SessionStore {
   getNotice: () => SessionNotice | null;
   /** True while a signed-in account must still save its recovery questions; false otherwise, and when the source cannot say. */
   getNeedsRecoveryQuestions: () => boolean;
+  /** True while a signed-in session must set a new password (F2.0 c14); false otherwise, and when the source cannot say. */
+  getMustSetPassword: () => boolean;
   subscribe: (listener: () => void) => () => void;
   /** Ends the session. Never rejects: a failed sign-out leaves the store `signed-out`. */
   signOut: () => Promise<void>;
@@ -145,6 +154,17 @@ export function createSessionStore(source: SessionSource, { onError = reportToCo
     }
   };
 
+  const getMustSetPassword = (): boolean => {
+    if (failed) return false;
+    try {
+      return source.getMustSetPassword?.() ?? false;
+    } catch (error) {
+      onError(error);
+      failed = true;
+      return false;
+    }
+  };
+
   const subscribe = (listener: () => void) => {
     listeners.add(listener);
     if (stopSource === null && !failed) {
@@ -184,5 +204,5 @@ export function createSessionStore(source: SessionSource, { onError = reportToCo
     return pendingSignOut;
   };
 
-  return { getState, getNotice, getNeedsRecoveryQuestions, subscribe, signOut };
+  return { getState, getNotice, getNeedsRecoveryQuestions, getMustSetPassword, subscribe, signOut };
 }

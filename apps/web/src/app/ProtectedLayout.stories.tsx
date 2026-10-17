@@ -9,8 +9,16 @@ import { SessionProvider } from './SessionProvider';
 
 // The composed shell, through the real routes and guard, with a signed-in session. Nobody can sign in on
 // the Preview until F1.5, so these stories are where the signed-in shell is seen.
-function SignedInAt({ path }: { path: string }) {
-  const [source] = useState(() => createControllableSessionSource('signed-in'));
+function SignedInAt({ path, mustSetPassword = false }: { path: string; mustSetPassword?: boolean }) {
+  const [source] = useState(() => {
+    const created = createControllableSessionSource('signed-in');
+    // F2.0 c14: held on the new-password screen, with the questions still missing behind it.
+    if (mustSetPassword) {
+      created.setNeedsRecoveryQuestions(true);
+      created.setMustSetPassword(true);
+    }
+    return created;
+  });
   return (
     <SessionProvider source={source}>
       <MemoryRouter initialEntries={[path]}>
@@ -38,7 +46,13 @@ export const ProfileCurrent: Story = { render: () => <SignedInAt path={PATHS.pro
 // Settings is reached from the menu, not the navigation: no nav item is current.
 export const SettingsNoneCurrent: Story = { render: () => <SignedInAt path={PATHS.settings} /> };
 
-// The side menu open: Settings and Logout.
+// F2.0 c15: the password-change screen, reached from the menu.
+export const ChangePassword: Story = { render: () => <SignedInAt path={PATHS.changePassword} /> };
+
+// F2.0 c14: after a takeover clear any route lands on the forced new-password screen.
+export const MustSetNewPassword: Story = { render: () => <SignedInAt path={PATHS.feed} mustSetPassword /> };
+
+// The side menu open: Settings, the recovery questions, the password change and Logout.
 export const DrawerOpen: Story = {
   render: () => <SignedInAt path={PATHS.feed} />,
   play: async ({ canvas, userEvent }) => {
