@@ -367,7 +367,7 @@ describe('[F2.0-a c6 DR-O2] tokens issued before the clear are refused', () => {
     }
     expect(auth.of('setPassword')).toEqual([]);
     expect((await me(h, clearingToken)).statusCode, 'the clearing session').toBe(200);
-    expect((await me(h, await passwordBearer(ctx, account, sessionId(), 10))).statusCode, 'a session issued after the clear').toBe(200);
+    expect((await me(h, await googleBearer(ctx, account, sessionId(), 10))).statusCode, 'an oauth session issued after the clear').toBe(200);
   });
 
   it('[F2.0-a c6] the same refusal holds while the password is not yet set (after the clear, before c7)', T, async () => {

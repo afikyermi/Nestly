@@ -199,7 +199,8 @@ test.describe('F2.0 c14 forced new-password screen', () => {
     await submit(page).click({ timeout: 2000 }).catch(() => undefined);
     await page.keyboard.press('Enter');
     release();
-    await expect(page).toHaveURL(/\/recovery-questions$/);
+    await expect(page).toHaveURL(/\/login$/); // DR-E: the set ends every session; the user signs in again
+    await expect(statuses(page), 'DR-E addendum: a notice on the sign-in screen').toHaveCount(1);
     expect(net.forcedBodies).toHaveLength(1);
   });
 });

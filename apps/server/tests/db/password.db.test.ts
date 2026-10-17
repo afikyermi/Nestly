@@ -88,8 +88,8 @@ describe('[F2.0-a c7 FR-AUTH-005] the forced new password', () => {
     const h = await startTakeoverApp(ctx, auth);
     const { account, bearer } = await clearedAccount(auth, h);
     expect(jsonOf((await me(h, bearer)).body)).toEqual({ state: 'active', recoveryQuestions: 'missing', mustSetPassword: true });
-    const later = await me(h, await passwordBearer(ctx, account, sessionId(), 10));
-    expect(jsonOf(later.body), 'a session issued after the clear is the owner\'s: it is told too').toEqual({ state: 'active', recoveryQuestions: 'missing', mustSetPassword: true });
+    const later = await me(h, await googleBearer(ctx, account, sessionId(), 10));
+    expect(jsonOf(later.body), 'an oauth session issued after the clear is the owner\'s: it is told too').toEqual({ state: 'active', recoveryQuestions: 'missing', mustSetPassword: true });
     const stale = await me(h, await passwordBearer(ctx, account, sessionId(), -120));
     expect(stale.statusCode, 'a pre-clear token is stale').toBe(401);
   });
@@ -154,16 +154,42 @@ describe('[F2.0-a c7 FR-AUTH-005] the forced new password', () => {
     expect(auth.of('setPassword')).toHaveLength(1);
   });
 
-  it('[F2.0-a c7 DR-E] a session issued after the clear may set it (password or Google): 200, set for the JWT subject', T, async () => {
+  it('[F2.0-a c7 DR-E] an oauth session issued after the clear may set it: 200, set for the JWT subject', T, async () => {
     const auth = fakeAuth();
     const h = await startTakeoverApp(ctx, auth);
     const { account, session } = await clearedAccount(auth, h);
-    const res = await postPassword(h, 'forced', { password: NEW_PW }, await passwordBearer(ctx, account, sessionId(), 10));
+    const res = await postPassword(h, 'forced', { password: NEW_PW }, await googleBearer(ctx, account, sessionId(), 10));
     expect(res.statusCode, res.body).toBe(200);
     expect(auth.of('setPassword')[0]?.input).toMatchObject({ userId: account.id, password: NEW_PW });
     expect(await linkState(ctx, account.id)).toBe(`affected/true/${session}/true`);
     const again = await postPassword(h, 'forced', { password: NEW_PW }, await googleBearer(ctx, account, sessionId(), 10));
     expect(again.statusCode, 'a second call is still refused').toBe(409);
+  });
+
+  it('[F2.0-a c7 DR-E2] until the password is set, a session with amr password issued AFTER the clear is stale: 401 on /api/me and c7, nothing set', T, async () => {
+    const auth = fakeAuth();
+    const h = await startTakeoverApp(ctx, auth);
+    const { account, session } = await clearedAccount(auth, h);
+    const racer = await passwordBearer(ctx, account, sessionId(), 10);
+    const asked = await me(h, racer);
+    expect(asked.statusCode, asked.body).toBe(401);
+    const res = await postPassword(h, 'forced', { password: NEW_PW }, racer);
+    expect(res.statusCode, res.body).toBe(401);
+    expect(auth.of('setPassword')).toEqual([]);
+    expect(await linkState(ctx, account.id)).toBe(`affected/true/${session}/false`);
+  });
+
+  it('[F2.0-a c11 DR-E2] the unregistered variant: a password-amr session issued after the clear is refused (401) on /api/me and c11, nothing set', T, async () => {
+    const auth = fakeAuth();
+    const h = await startTakeoverApp(ctx, auth);
+    const bare = await newBareAuthUser(ctx);
+    expect((await me(h, await googleBearer(ctx, bare))).statusCode).toBe(200);
+    auth.calls.length = 0;
+    const racer = await passwordBearer(ctx, bare, sessionId(), 10);
+    expect((await me(h, racer)).statusCode).toBe(401);
+    const res = await postPassword(h, 'first', { password: NEW_PW }, racer);
+    expect(res.statusCode, res.body).toBe(401);
+    expect(auth.of('setPassword')).toEqual([]);
   });
 
   it('[F2.0-a c7 DR-E] a stale session (a token issued before the clear) is refused with 401 and nothing is set', T, async () => {
