@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
+import { GATE_FILES, PRODUCT } from './schema-gate.mjs';
 
 // P1: one read-only snapshot, never a merge/dispatch/retry/polling loop.
 // Usage: node tools/part-status.mjs <PR> [--repo owner/repo] [--no-preview reason]
@@ -49,6 +50,13 @@ export function evaluate(snapshot, { expectedSkips = {}, noPreview = '' } = {}) 
     blockers.push('Head changed during collection; take a new snapshot (do not rerun the old SHA).');
   }
   if (snapshot.state !== 'open' && !snapshot.merged) blockers.push(`PR is ${snapshot.state} without a merge.`);
+  // P6 (CRITIC finding 2): the PR's own ci.yml runs schema-gate, so the "product code and the gate together" rule is
+  // enforced here too, from the PR's file list, where the PR cannot change the rule.
+  const files = snapshot.files ?? [];
+  const gateFiles = files.filter((f) => GATE_FILES.includes(f));
+  if (gateFiles.length > 0 && files.some((f) => PRODUCT.test(f))) {
+    blockers.push(`Changes product code and the schema gate (${gateFiles.join(', ')}) together: split it, the gate change first`);
+  }
   // CI is a project gate even when GitHub branch protection has no required contexts.
   const required = [...snapshot.required, ...CI_NAMES.map((context) => ({ context, appSlug: 'github-actions' }))];
   const results = required.map((rule) => {
@@ -196,7 +204,9 @@ export function collect({ repo, pr }, read = ghRead, clock = () => new Date().to
   }
   const headAfter = safe(`pulls/${pr}`, { head: {} }).head.sha;
   const mainAfter = safe('branches/main', { commit: {} }).commit.sha;
-  return { head, headAfter, main, mainAfter, state: pull.state, merged: pull.merged, url: pull.html_url, required, checks,
+  // Every path the PR touches (both sides of a rename), for the P6 split rule.
+  const files = all(`pulls/${pr}/files`).flatMap((f) => [f.filename, f.previous_filename].filter(Boolean));
+  return { head, files, headAfter, main, mainAfter, state: pull.state, merged: pull.merged, url: pull.html_url, required, checks,
     mainRuns: inspected, errors, limitations, observedAt: clock() };
 }
 

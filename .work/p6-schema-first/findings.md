@@ -67,3 +67,8 @@ CRITIC (opus) reviewed cold, one round, without notes.md. No critical or high; 2
 - 6 (low): spec phrases + `problems.length`, a `failure` production job, and `main()` with injected git/GitHub
   (evidence fetched only when needed; API, fetch and git errors → exit 1).
 - Open (a)(b): measured on the first live schema PR (I3 F3.0). (c): required check on main → Afik's question list.
+- Re-check (findings-recheck.md): #1 fixed; #2 one vector left (the PR's ci.yml run line, e.g. `|| true`, beside product
+  code) → part-status now reads the PR's file list (API, both sides of a rename) and blocks product code changed together
+  with `.github/workflows/ci.yml` or `tools/schema-gate.mjs`; part-status runs from ORCHESTRATOR's checkout, not the PR.
+  N1 (low): the test now copies the gate to a temporary directory, imports and runs it there; ci.yml documents the
+  recovery (Afik merges the one gate-only fix by hand; never fall back to the PR's copy).

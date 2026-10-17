@@ -4,9 +4,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { evaluate, findApplied, main, parseChanges, parseTree, PRODUCT } from './schema-gate.mjs';
-import { readFileSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseYaml, runOf, stepsOf } from './workflow-yaml.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -145,9 +146,19 @@ test('[P6] main(): a schema or records PR needs no evidence and reads none', asy
   }
 });
 
-test('[P6] the gate file is self-contained: CI runs the base commit\'s copy from a temporary path', () => {
-  const source = readFileSync(join(root, 'tools/schema-gate.mjs'), 'utf8');
-  assert.deepEqual([...source.matchAll(/^import .* from '([^']+)';$/gm)].map((m) => m[1]).filter((m) => !m.startsWith('node:')), []);
+// As CI runs it: a lone copy in a temporary directory must load and judge (CRITIC P6 N1: a gate that only works inside
+// tools/ would, once merged, turn every later pull request red, its own fix included).
+test('[P6] the gate runs as a lone copy outside the repository, as CI runs the base commit\'s copy', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'schema-gate-'));
+  try {
+    const copy = join(dir, 'schema-gate.mjs');
+    copyFileSync(join(root, 'tools/schema-gate.mjs'), copy);
+    const lone = await import(pathToFileURL(copy).href);
+    const g = fakeGit({ diff: ch('.work/x/result.md'), trees: { 'HEAD^1': base, HEAD: base } });
+    assert.equal(await lone.main(env, { git: g.git, get: async () => ({}), ...quiet }), 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('[P6] ci.yml: schema-gate runs on pull requests, read-only, and calls the tool', () => {

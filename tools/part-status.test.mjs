@@ -150,6 +150,7 @@ function apiFixture({ changedHead = false, denied = false } = {}) {
     if (route === 'pulls/57') return { head: { sha: ++reads > 1 && changedHead ? OLD : SHA },
       base: { ref: 'main' }, state: 'open', html_url: 'https://github.com/afikyermi/Nestly/pull/57' };
     if (route === 'branches/main') return { commit: { sha: MAIN } };
+    if (route.startsWith('pulls/57/files')) return [{ filename: 'apps/server/src/x.ts' }]; // P6
     if (route.startsWith('rules/branches/')) {
       if (denied) throw new Error('GitHub GET failed (HTTP 403)');
       return [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'test', integration_id: 15368 }] } }];
@@ -212,4 +213,23 @@ test('[P1] required status/check pagination does not silently drop the second pa
   const snapshot = collect({ repo: 'afikyermi/Nestly', pr: '57' }, read);
   snapshot.required.push({ context: 'external-gate' });
   assert.match(evaluate(snapshot).blockers.join('\n'), /external-gate: failure/);
+});
+
+test('[P6] product code and the schema gate in one PR is a blocker, read from the PR file list (CRITIC P6 finding 2)', () => {
+  const text = (files) => evaluate({ ...fixture(), files }).blockers.join('\n');
+  assert.match(text(['apps/server/src/x.ts', '.github/workflows/ci.yml']), /schema gate.*split it/);
+  assert.match(text(['packages/shared/src/v.ts', 'tools/schema-gate.mjs']), /split it/);
+  assert.doesNotMatch(text(['apps/server/src/x.ts', 'tools/other.mjs']), /schema gate/);
+  assert.doesNotMatch(text(['.github/workflows/ci.yml', 'tools/schema-gate.mjs']), /schema gate/, 'a gate-only PR is fine');
+  assert.deepEqual(evaluate(fixture()).blockers, [], 'no file list read: nothing claimed');
+});
+
+test('[P6] collect reads every path of the PR, both sides of a rename', () => {
+  const api = apiFixture();
+  const read = (endpoint) => (endpoint.includes('/pulls/57/files')
+    ? [{ filename: 'tools/schema-gate2.mjs', previous_filename: 'tools/schema-gate.mjs' }, { filename: 'apps/web/src/a.tsx' }]
+    : api.read(endpoint));
+  const snapshot = collect({ repo: 'afikyermi/Nestly', pr: '57' }, read);
+  assert.deepEqual(snapshot.files, ['tools/schema-gate2.mjs', 'tools/schema-gate.mjs', 'apps/web/src/a.tsx']);
+  assert.match(evaluate(snapshot).blockers.join('\n'), /split it/);
 });

@@ -242,7 +242,10 @@ jobs:
   # waits until every migration in its tree is applied in production (tools/schema-gate.mjs). Read only: it reads the
   # migrate runs through the API and never dispatches. After migrate's db-production job succeeded on main, re-run this
   # job once on the PR. It runs the BASE commit's copy of the gate, so a pull request never judges itself (CRITIC P6 2);
-  # only the pull request that adds the gate runs its own copy. part-status counts a missing schema-gate as a blocker.
+  # only the pull request that adds the gate runs its own copy. part-status counts a missing schema-gate as a blocker and,
+  # from the PR's file list, blocks product code changed together with this job or the gate. Recovery if a broken gate
+  # reaches main (every PR then fails here, its fix included): Afik merges that one gate-only fix by hand; never switch
+  # this job to the pull request's copy.
   schema-gate:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
