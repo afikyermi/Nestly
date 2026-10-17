@@ -248,3 +248,13 @@ test('[P4] collect reads vercel.json at the head and marks a fork', () => {
   assert.equal(snapshot.headRef, 'ccr-x');
   assert.equal(snapshot.headFork, true);
 });
+
+test('[P4] the same repository in another letter case is not a fork (CRITIC P4 re-check, low)', () => {
+  const read = (endpoint) => {
+    if (endpoint.endsWith('/pulls/57')) return { head: { sha: SHA, ref: 'ready/x', repo: { full_name: 'AfikYermi/Nestly' } }, base: { ref: 'main' }, state: 'open', html_url: 'u' };
+    if (endpoint.includes('/contents/vercel.json?ref=')) return { content: Buffer.from('{}').toString('base64') };
+    if (endpoint.includes('/branches/')) return { commit: { sha: MAIN } };
+    return endpoint.includes('runs') ? { workflow_runs: [], jobs: [] } : endpoint.includes('check-runs') ? { check_runs: [] } : [];
+  };
+  assert.equal(collect({ repo: 'afikyermi/Nestly', pr: '57' }, read).headFork, false);
+});

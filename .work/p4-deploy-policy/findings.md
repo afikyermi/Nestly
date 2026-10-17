@@ -29,3 +29,8 @@ Saved verbatim by ORCHESTRATOR: the harness refused CRITIC's own Write.
 ## ORCHESTRATOR's handling (18.10.2026)
 - Item 5: checked — `main` has no branch protection and no rulesets (`gh api …/branches/main/protection/required_status_checks` → 404 "Branch not protected"; `rules/branches/main` empty). No required Vercel context.
 - Items 1–4: fixed in the commit after this file (see the PR); CRITIC re-checks items 1–2.
+
+## Re-check (CRITIC, findings 1–2, against f112470) — saved verbatim in substance by ORCHESTRATOR (Write refused)
+- Finding 1: FIXED — `assert.deepEqual(readPolicy(root), { ...POLICY })`; absent/dropped/altered block fails; todo gone; the red `test` job until Afik's step is the intended signal.
+- Finding 2: FIXED (blocker only when `e.state !== 'success'`; policy read from vercel.json at the PR head; finding 3 fork covered by `headFork`), with one NEW LOW: `tools/part-status.mjs:212` compared `full_name` case-sensitively — a casing difference would treat every same-repo PR as a fork (misleading blocker, not a false pass). Fix: `toLowerCase()` both sides.
+- ORCHESTRATOR: the new low is fixed in the next commit (case-insensitive compare + test). Low: no re-check.

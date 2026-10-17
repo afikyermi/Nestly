@@ -209,7 +209,7 @@ export function collect({ repo, pr }, read = ghRead, clock = () => new Date().to
   }
   const headAfter = safe(`pulls/${pr}`, { head: {} }).head.sha;
   const mainAfter = safe('branches/main', { commit: {} }).commit.sha;
-  return { head, headRef: pull.head.ref, headFork: pull.head.repo?.full_name !== repo, headPolicy, headAfter, main, mainAfter, state: pull.state, merged: pull.merged, url: pull.html_url, required, checks,
+  return { head, headRef: pull.head.ref, headFork: pull.head.repo?.full_name?.toLowerCase() !== repo.toLowerCase(), headPolicy, headAfter, main, mainAfter, state: pull.state, merged: pull.merged, url: pull.html_url, required, checks,
     mainRuns: inspected, errors, limitations, observedAt: clock() };
 }
 
