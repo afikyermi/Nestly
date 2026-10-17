@@ -29,7 +29,7 @@ test('[P4] minimatch subset: * stays within a segment, ** spans segments', () =>
   assert.equal(matches('ready/**', 'not-ready/x'), false);
   assert.equal(matches('main', 'main2'), false);
   assert.equal(matches('ma.n', 'main'), false, 'a dot is literal');
-  for (const bad of ['', 'ready/{a,b}', 'feat/?', 'a**', '[ab]', 'a//b', '!main']) assert.equal(unsupported(bad), true, bad);
+  for (const bad of ['', 'ready/{a,b}', 'feat/?', 'a**', '[ab]', 'a//b', '!main', '#main']) assert.equal(unsupported(bad), true, bad);
   assert.throws(() => matches('ready/{a,b}', 'ready/a'));
 });
 
@@ -59,14 +59,10 @@ test('[P4] the POLICY check can fail: each drift is caught (guards the test abov
   for (const [label, policy] of Object.entries(mutants)) assert.ok(caught(policy), `${label} was not caught`);
 });
 
-test('[P4] vercel.json carries POLICY as git.deploymentEnabled', (t) => {
-  const actual = readPolicy(root);
-  if (actual === undefined) {
-    // The agent may not edit vercel.json (deploy configuration): Afik adds the block from the P4 PR by hand.
-    t.todo('vercel.json has no git.deploymentEnabled yet — Afik adds the block from the P4 PR');
-    return;
-  }
-  assert.deepEqual(actual, { ...POLICY });
+// Red until Afik adds the block by hand (the agent may not edit vercel.json, deploy configuration): P4 is not complete
+// without it, and a missing block must never pass (CRITIC P4 finding 1).
+test('[P4] vercel.json carries POLICY as git.deploymentEnabled', () => {
+  assert.deepEqual(readPolicy(root), { ...POLICY }, 'vercel.json lacks the P4 block: Afik adds it from the P4 PR, "Afik\'s step"');
 });
 
 test('[P4] the ignoreCommand builds every candidate: it is pushed before its PR exists', () => {

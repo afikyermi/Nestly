@@ -150,6 +150,7 @@ function apiFixture({ changedHead = false, denied = false } = {}) {
     if (route === 'pulls/57') return { head: { sha: ++reads > 1 && changedHead ? OLD : SHA },
       base: { ref: 'main' }, state: 'open', html_url: 'https://github.com/afikyermi/Nestly/pull/57' };
     if (route === 'branches/main') return { commit: { sha: MAIN } };
+    if (route === `contents/vercel.json?ref=${SHA}`) return { content: Buffer.from('{}').toString('base64') }; // P4
     if (route.startsWith('rules/branches/')) {
       if (denied) throw new Error('GitHub GET failed (HTTP 403)');
       return [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'test', integration_id: 15368 }] } }];
@@ -214,14 +215,36 @@ test('[P1] required status/check pagination does not silently drop the second pa
   assert.match(evaluate(snapshot).blockers.join('\n'), /external-gate: failure/);
 });
 
-test('[P4] a PR whose head branch gets no Preview under vercel.json is a blocker naming the ready/ route', () => {
+test('[P4] while E is not green, a PR whose head gets no Preview (head policy or fork) is a blocker naming ready/', () => {
+  const POLICY = { '**': false, main: true, 'ready/**': true };
+  const noE = (extra) => ({ ...fixture(), checks: fixture().checks.filter((c) => c.name !== 'preview-e2e'), headPolicy: POLICY, ...extra });
+  const text = (s, o) => evaluate(s, o).blockers.join('\n');
   for (const ref of ['ccr-517c29b5-ek8cc9', 'claude/p4-deploy-policy', 'chore/records-after-f18']) {
-    const s = { ...fixture(), headRef: ref };
-    const blockers = evaluate(s).blockers.join('\n');
-    assert.match(blockers, new RegExp(`Head branch ${ref} gets no Preview`), ref);
-    assert.match(blockers, /ready\/<part>/);
+    assert.match(text(noE({ headRef: ref })), new RegExp(`Head branch ${ref} gets no Preview`), ref);
+    assert.match(text(noE({ headRef: ref })), /ready\/<part>/);
   }
-  for (const ref of ['ready/f3-1', 'main']) assert.deepEqual(evaluate({ ...fixture(), headRef: ref }).blockers, [], ref);
-  assert.deepEqual(evaluate({ ...fixture(), headRef: 'ccr-x' }, { noPreview: 'Afik: records only' }).blockers, [], 'Preview not required');
-  assert.deepEqual(evaluate(fixture()).blockers, [], 'no head ref read: nothing claimed');
+  for (const ref of ['ready/f3-1', 'main']) assert.doesNotMatch(text(noE({ headRef: ref })), /gets no Preview/, ref);
+  assert.match(text(noE({ headRef: 'ready/f3-1', headFork: true })), /gets no Preview/, 'a fork never deploys');
+  assert.doesNotMatch(text(noE({ headRef: 'ccr-x', headPolicy: undefined })), /gets no Preview/, 'no policy at the head: every branch deploys');
+  assert.deepEqual(evaluate({ ...fixture(), headRef: 'ccr-x', headPolicy: POLICY }).blockers, [], 'E already green: no false blocker');
+  assert.deepEqual(evaluate(noE({ headRef: 'ccr-x' }), { noPreview: 'Afik: records only' }).blockers, [], 'Preview not required');
+  assert.match(text(noE({ headRef: 'x', headPolicy: { '{a,b}': false } })), /cannot be evaluated/);
+});
+
+test('[P4] collect reads vercel.json at the head and marks a fork', () => {
+  const policy = { '**': false, main: true, 'ready/**': true };
+  const content = Buffer.from(JSON.stringify({ git: { deploymentEnabled: policy } })).toString('base64');
+  const seen = [];
+  const read = (endpoint) => {
+    seen.push(endpoint);
+    if (endpoint.endsWith('/pulls/57')) return { head: { sha: SHA, ref: 'ccr-x', repo: { full_name: 'someone/Nestly' } }, base: { ref: 'main' }, state: 'open', html_url: 'u' };
+    if (endpoint.includes('/contents/vercel.json?ref=')) return { content };
+    if (endpoint.includes('/branches/')) return { commit: { sha: MAIN } };
+    return endpoint.includes('runs') ? { workflow_runs: [], jobs: [] } : endpoint.includes('check-runs') ? { check_runs: [] } : [];
+  };
+  const snapshot = collect({ repo: 'afikyermi/Nestly', pr: '57' }, read);
+  assert.ok(seen.some((e) => e === `repos/afikyermi/Nestly/contents/vercel.json?ref=${SHA}`));
+  assert.deepEqual(snapshot.headPolicy, policy);
+  assert.equal(snapshot.headRef, 'ccr-x');
+  assert.equal(snapshot.headFork, true);
 });

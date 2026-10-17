@@ -18,7 +18,7 @@ export const POLICY = Object.freeze({ '**': false, main: true, 'ready/**': true 
 /** A pattern this file can evaluate exactly as minimatch does for git branch names. */
 export function unsupported(pattern) {
   if (typeof pattern !== 'string' || pattern === '') return true;
-  if (/[?[\]{}()!+@\\]/.test(pattern)) return true;
+  if (/[?[\]{}()!+@\\]/.test(pattern) || pattern.startsWith('#')) return true; // minimatch: a leading # is a comment
   return pattern.split('/').some((seg) => seg === '' || (seg.includes('**') && seg !== '**'));
 }
 
