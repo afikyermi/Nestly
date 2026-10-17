@@ -14,6 +14,9 @@
 //        token, and nothing else of the response is read;
 //     3. a global sign-out with that token, which ends every session of the user, the attacker's and the one call 2 made.
 //     The token is dropped when the function returns: never returned, logged or stored.
+//   Keys: the admin calls and call 2 send the secret key as `apikey`; the two calls that act with a caller's own access token
+//   (call 3, and the identities read) send the publishable key (SUPABASE_PUBLISHABLE_KEY, the gateway key), never the secret
+//   one, and a missing publishable key fails them closed: there is no fallback to the secret key.
 //   F2.0 (AR-1: set-password in four more flows, no other admin operation):
 //     readSignInIdentities   the caller's own Auth user with the caller's own access token (no admin call): provider and
 //                            creation time of each identity, for the S-01 detection. Nothing else of the user is kept;
@@ -30,6 +33,7 @@ import { normalizeRecoveryEmail } from '@nestly/shared';
 import { ENV } from '../lib/config.js';
 
 const SECRET_ENV = 'SUPABASE_SECRET_KEY';
+const PUBLISHABLE_ENV = 'SUPABASE_PUBLISHABLE_KEY';
 const CALL_TIMEOUT_MS = 5_000;
 const TOTAL_TIMEOUT_MS = 12_000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -57,28 +61,50 @@ export type ResetPasswordOutcome = 'completed' | 'admin_failed' | 'revoke_failed
 
 interface Target {
   readonly base: string;
-  readonly key: string;
+  /** The secret key (service_role power): the admin calls and the token grant. Absent when the target was built for the caller-token calls. */
+  readonly secretKey: string | undefined;
+  /** The publishable key: the `apikey` of the calls that act with the caller's own access token. Absent when not required. */
+  readonly publishableKey: string | undefined;
 }
+
+interface Need {
+  readonly secret: boolean;
+  readonly publishable: boolean;
+}
+
+/** What each operation needs: the admin sets only the secret key; the identities read only the publishable key; a reset both. */
+const NEEDS = {
+  admin: { secret: true, publishable: false },
+  callerToken: { secret: false, publishable: true },
+  reset: { secret: true, publishable: true },
+} as const satisfies Record<string, Need>;
 
 function readValue(env: Env, name: string): string | undefined {
   const value = env[name]?.trim();
   return value === undefined || value === '' ? undefined : value;
 }
 
-// Auth is reached over TLS with the secret key. Plain http is accepted on a loopback host only, where a stub of Auth sits.
-function readTarget(env: Env): Target | undefined {
-  const key = readValue(env, SECRET_ENV);
+// Auth is reached over TLS. Plain http is accepted on a loopback host only, where a stub of Auth sits. A key an operation
+// needs and that is missing makes no target: there is no fallback from one key to the other.
+function readTarget(env: Env, need: Need): Target | undefined {
+  const secretKey = readValue(env, SECRET_ENV);
+  const publishableKey = readValue(env, PUBLISHABLE_ENV);
   const issuer = readValue(env, ENV.issuer);
-  if (key === undefined || issuer === undefined || !URL.canParse(issuer)) return undefined;
+  if ((need.secret && secretKey === undefined) || (need.publishable && publishableKey === undefined)) return undefined;
+  if (issuer === undefined || !URL.canParse(issuer)) return undefined;
   const url = new URL(issuer);
   const safe = url.protocol === 'https:' || (url.protocol === 'http:' && LOOPBACK_HOSTS.has(url.hostname));
   if (!safe) return undefined;
-  return { base: issuer.replace(/\/+$/, ''), key };
+  return {
+    base: issuer.replace(/\/+$/, ''),
+    secretKey: need.secret ? secretKey : undefined,
+    publishableKey: need.publishable ? publishableKey : undefined,
+  };
 }
 
-/** Whether a reset can reach Auth at all: the secret key and the issuer URL are set and usable. Reads and calls nothing. */
+/** Whether a reset can reach Auth at all: the secret key, the publishable key and the issuer URL are set and usable. Reads and calls nothing. */
 export function isAdminConfigured(env: Env = process.env): boolean {
-  return readTarget(env) !== undefined;
+  return readTarget(env, NEEDS.reset) !== undefined;
 }
 
 function accessTokenOf(body: unknown): string | undefined {
@@ -94,6 +120,8 @@ function emailOf(body: unknown): string | undefined {
 }
 
 interface CallInit {
+  /** Which key is sent as `apikey`: the secret key, or the publishable key for a call that acts with the caller's own token. */
+  readonly key: 'secret' | 'publishable';
   readonly method: string;
   readonly body?: string;
   readonly bearer?: string;
@@ -101,9 +129,11 @@ interface CallInit {
   readonly forwardedFor?: string | undefined;
 }
 
-/** One call to Auth with the project key, a per-call timeout under the sequence's total. Throws on a network fault. */
+/** One call to Auth with the key `init.key` names, a per-call timeout under the sequence's total. Throws on a network fault. */
 function call(target: Target, total: AbortSignal, path: string, init: CallInit): Promise<Response> {
-  const headers: Record<string, string> = { apikey: target.key, 'content-type': 'application/json' };
+  const apikey = init.key === 'secret' ? target.secretKey : target.publishableKey;
+  if (apikey === undefined) return Promise.reject(new Error('auth key not available'));
+  const headers: Record<string, string> = { apikey, 'content-type': 'application/json' };
   if (init.bearer !== undefined) headers['authorization'] = `Bearer ${init.bearer}`;
   if (init.forwardedFor !== undefined) headers['Sb-Forwarded-For'] = init.forwardedFor;
   return fetch(`${target.base}${path}`, {
@@ -117,7 +147,7 @@ function call(target: Target, total: AbortSignal, path: string, init: CallInit):
 
 /** The four calls, in order. Never throws: every failure is one of the four outcomes. */
 export async function resetPassword(input: ResetPasswordInput, env: Env = process.env): Promise<ResetPasswordOutcome> {
-  const target = readTarget(env);
+  const target = readTarget(env, NEEDS.reset);
   if (target === undefined || !UUID.test(input.userId)) return 'admin_failed';
   const total = AbortSignal.timeout(TOTAL_TIMEOUT_MS);
   const forwarded = input.clientIp;
@@ -125,7 +155,7 @@ export async function resetPassword(input: ResetPasswordInput, env: Env = proces
   // Call 0. Read-only. Only the email is read, and only to compare: a non-2xx or a timeout means nothing was confirmed, so
   // nothing is set; a different (or missing) email means the handle was stale, so nothing is set either.
   try {
-    const read = await call(target, total, `/admin/users/${input.userId}`, { method: 'GET', forwardedFor: forwarded });
+    const read = await call(target, total, `/admin/users/${input.userId}`, { key: 'secret', method: 'GET', forwardedFor: forwarded });
     if (!read.ok) {
       await read.body?.cancel();
       return 'admin_failed';
@@ -139,6 +169,7 @@ export async function resetPassword(input: ResetPasswordInput, env: Env = proces
   // Call 1. A non-2xx, a timeout and a dropped connection all mean "the password was not confirmed as set".
   try {
     const set = await call(target, total, `/admin/users/${input.userId}`, {
+      key: 'secret',
       method: 'PUT',
       body: JSON.stringify({ password: input.password }),
     });
@@ -151,6 +182,7 @@ export async function resetPassword(input: ResetPasswordInput, env: Env = proces
   // Calls 2 and 3. The password is set from here on: any failure is `revoke_failed`.
   try {
     const signIn = await call(target, total, '/token?grant_type=password', {
+      key: 'secret',
       method: 'POST',
       body: JSON.stringify({ email: normalizeRecoveryEmail(input.email), password: input.password }),
       forwardedFor: forwarded,
@@ -162,7 +194,7 @@ export async function resetPassword(input: ResetPasswordInput, env: Env = proces
     const accessToken = accessTokenOf(await signIn.json());
     if (accessToken === undefined) return 'revoke_failed';
 
-    const signOut = await call(target, total, '/logout?scope=global', { method: 'POST', bearer: accessToken, forwardedFor: forwarded });
+    const signOut = await call(target, total, '/logout?scope=global', { key: 'publishable', method: 'POST', bearer: accessToken, forwardedFor: forwarded });
     await signOut.body?.cancel();
     return signOut.ok ? 'completed' : 'revoke_failed';
   } catch {
@@ -215,11 +247,11 @@ export async function readSignInIdentities(
   input: { readonly accessToken: string; readonly clientIp: string | undefined },
   env: Env = process.env,
 ): Promise<IdentitiesRead> {
-  const target = readTarget(env);
+  const target = readTarget(env, NEEDS.callerToken);
   if (target === undefined) return { kind: 'failed' };
   try {
     const total = AbortSignal.timeout(CALL_TIMEOUT_MS);
-    const read = await call(target, total, '/user', { method: 'GET', bearer: input.accessToken, forwardedFor: input.clientIp });
+    const read = await call(target, total, '/user', { key: 'publishable', method: 'GET', bearer: input.accessToken, forwardedFor: input.clientIp });
     if (!read.ok) {
       await read.body?.cancel();
       return { kind: 'failed' };
@@ -236,11 +268,12 @@ export async function setUserPassword(
   input: { readonly userId: string; readonly password: string },
   env: Env = process.env,
 ): Promise<PasswordSetOutcome> {
-  const target = readTarget(env);
+  const target = readTarget(env, NEEDS.admin);
   if (target === undefined || !UUID.test(input.userId)) return 'failed';
   try {
     const total = AbortSignal.timeout(CALL_TIMEOUT_MS);
     const set = await call(target, total, `/admin/users/${input.userId}`, {
+      key: 'secret',
       method: 'PUT',
       body: JSON.stringify({ password: input.password }),
     });
