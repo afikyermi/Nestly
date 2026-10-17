@@ -33,4 +33,11 @@ export const SCREENS: Screen[] = [
   { kind: 'app', name: 'set-new-password', route: '/feed', state: 'signed-in-needs-new-password' },
   { kind: 'app', name: 'password-change', route: '/change-password', state: 'signed-in' },
   { kind: 'app', name: 'side-menu', route: '/feed', state: 'signed-in', openMenu: true },
+  // F2.1 c17: the profile screen's states. Story entries: the e2e build's test session has no access token, so the app route cannot
+  // load a profile; each story draws one state from props (features/profile/ProfileContent.stories.tsx).
+  { kind: 'story', name: 'profile-view', id: 'features-profile-profilecontent--view' },
+  { kind: 'story', name: 'profile-edit', id: 'features-profile-profilecontent--edit' },
+  { kind: 'story', name: 'profile-edit-errors', id: 'features-profile-profilecontent--edit-errors' },
+  { kind: 'story', name: 'profile-load-failed', id: 'features-profile-profilecontent--load-failed' },
+  { kind: 'story', name: 'profile-edit-save-failed', id: 'features-profile-profilecontent--save-failed' },
 ];
