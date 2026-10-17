@@ -108,3 +108,143 @@ and B→A is created. B: insert B→A beside it, so the decline never retires an
 CRITIC (opus) checks specifically: the status-copy ON UPDATE CASCADE, the `regular_names.user_id` INSERT grant, the FORCE lift, and
 that no list returns `status` (DR-3's silent decline). The SQL was not run by DATA ARCHITECT; TEST ENGINEER's pgTAP is its first
 run. Build order on the branch: F2.2a → F2.3a → F2.4a (migrations 110000 → 120000 → 130000).
+
+# schema — F2.4c1 Friend branch, Friends lists, profile-open limit (friends)
+DATA ARCHITECT, 17.10.2026. Contract: `spec.md` c16–c24 + "Gate 1 (F2.4c)" (DR-W/S/C/O A) · Afik DR-2 A, DR-T (100/h). On top of F2.3b
+`20261017150000` (`.work/profile-privacy/schema.md`, its working-tree text of 17.10, "F2.4c1 room"): its body is kept verbatim but for the marked lines.
+**SECURITY DEFINER: none new.** `nestly.profile_view(text)` stays the only one, same signature; `tests.approved_security_definer()` stays
+F2.3b's list. A counter needs definer rights (an invoker that can test its count can read it — c21 forbids; one that cannot, cannot enforce
+N), so the count lives **inside `profile_view`**. This widens the approved definer: it (i) reads B's accepted Friendships and those Friends'
+names, (ii) writes the caller's own counter row and Security event — both only through `TO app_owner` policies open while the function
+has declared a target (DR-G1's shape), (ii) only on `auth.uid()`'s rows. **My reading: not a security-model change** ((i) is the "F2.4" line
+DR-G1 approved; (ii) is the caller's own data), so Gate 2 is ORCHESTRATOR's — unless it reads "a definer that writes" as outside DR-G1 (DR-L).
+
+**Change**        New `security_limits` (Configuration), `profile_open_counts` (rolling window), `security_events` (NFR-SEC-006 (5)); one
+                  `TO app_owner` SELECT policy each on F2.4a's `friendships`, `regular_names`; `profile_view` dropped + recreated, trailing columns
+                  `relationship`, `friends`, `mutual_friends`, `outcome` (F2.3b's six unchanged) and `s.is_full` widened to Friends. **Why** c17 (DR-2 A) · c18 (§1.4) · c19 · c20–c24.
+**Authorization** One point: the body of `profile_view`. `authenticated`/`anon` hold **no grant** on the 3 new tables (42501 on every verb, c21,
+                  c22). Their policies are `TO app_owner` only, gated on `(select nestly.profile_view_target()) is not null` (inside a call);
+                  counts and events also on `user_id = auth.uid()`. Events: INSERT only — nothing reads, updates or deletes one before I4.
+                  Config: SELECT only; a DR-C change is a migration lifting FORCE in-transaction (DR-B pattern), never a write policy.
+**Semantics**     Caller active → declare target → config (absent/out of range → `raise … errcode 'NS001'`: all rolled back, no count, no
+                  event) → lock own counter row → drop instants older than W → **≥ N: refuse** (first refusal of a stretch inserts one event and
+                  sets the flag; row `outcome='limited'`, rest NULL; not counted) → else append `now()`, clear flag → target lookup (unavailable =
+                  0 rows, already counted). The row lock serializes one account (c20: 120 concurrent → ≤ 100); others never wait. DB clock.
+**Server**        GET: `select * from nestly.profile_view($1)`; `limited` → **COMMIT**, 429 (the event persists, c21); NS001 → rollback, log, 429;
+                  0 rows → F2.3b's 404/403; `shown` → strict Zod, 200. **Send (c24):** F2.4a's transaction first runs `select outcome from
+                  nestly.profile_view($t)`; limited/NS001 as above, no friendship statement; else F2.4a unchanged (no profile reaches the server).
+**Migration**     `supabase/migrations/20261017160000_profile_open_limit.sql`, one transaction, F2.1 header, `comment on` every object:
+```sql
+create table nestly.security_limits (limit_key text not null constraint security_limits_pkey primary key constraint security_limits_limit_key_check check (limit_key in ('profile_open')),
+  max_count integer not null constraint security_limits_max_count_check check (max_count between 1 and 10000), window_seconds integer not null
+  constraint security_limits_window_seconds_check check (window_seconds between 1 and 604800), updated_at timestamptz not null default now());
+insert into nestly.security_limits (limit_key, max_count, window_seconds) values ('profile_open', 100, 3600);  -- DR-T, before FORCE
+create table nestly.profile_open_counts (user_id uuid not null constraint profile_open_counts_pkey primary key constraint profile_open_counts_user_id_fkey references nestly.users (id) on delete cascade,
+  opened_at timestamptz[] not null default '{}' constraint profile_open_counts_opened_at_check check (pg_catalog.cardinality(opened_at) <= 10000), is_refusal_recorded boolean not null default false);
+create table nestly.security_events (id uuid not null default gen_random_uuid() constraint security_events_pkey primary key, kind text not null constraint security_events_kind_check check (kind in ('profile_open_limit')),
+  user_id uuid not null constraint security_events_user_id_fkey references nestly.users (id) on delete restrict, occurred_at timestamptz not null default now());
+create index security_events_user_id_idx on nestly.security_events (user_id);
+alter table nestly.security_limits enable row level security, force row level security; alter table nestly.profile_open_counts enable row level security, force row level security;
+alter table nestly.security_events enable row level security, force row level security; revoke all on table nestly.security_limits, nestly.profile_open_counts, nestly.security_events from public, anon, authenticated;
+create policy security_limits_select_profile_view on nestly.security_limits for select to app_owner using (limit_key = 'profile_open' and (select nestly.profile_view_target()) is not null);
+create policy profile_open_counts_select_profile_view on nestly.profile_open_counts for select to app_owner using (user_id = (select auth.uid()) and (select nestly.profile_view_target()) is not null);
+create policy profile_open_counts_insert_profile_view … for insert to app_owner with check (<same>); create policy profile_open_counts_update_profile_view … for update to app_owner using (<same>) with check (<same>);
+create policy security_events_insert_profile_view on nestly.security_events for insert to app_owner with check (user_id = (select auth.uid()) and kind = 'profile_open_limit' and (select nestly.profile_view_target()) is not null);
+create policy friendships_select_profile_view on nestly.friendships for select to app_owner using (status = 'accepted' and requester_status = 'active' and addressee_status = 'active' and (select nestly.profile_view_target()) in (requester_id, addressee_id));
+create policy regular_names_select_profile_view on nestly.regular_names for select to app_owner using (exists (select 1 from nestly.friendships f where f.status = 'accepted' and f.requester_status = 'active'
+  and f.addressee_status = 'active' and ((f.requester_id = (select nestly.profile_view_target()) and f.addressee_id = regular_names.user_id) or (f.addressee_id = (select nestly.profile_view_target()) and f.requester_id = regular_names.user_id))));
+drop function nestly.profile_view(text);
+create function nestly.profile_view(p_target text) returns table (full_name text, gender text, children_count smallint, child_ages jsonb, is_pregnant boolean,
+  shows_empty_journey_sentence boolean, relationship text, friends jsonb, mutual_friends jsonb, outcome text) language plpgsql volatile security definer set search_path = '' as $$
+#variable_conflict use_column
+declare v_me uuid := auth.uid(); v_n integer; v_w integer; v_opens timestamptz[]; v_logged boolean; v_rel text; v_friend boolean;
+begin
+  if p_target is null or p_target !~* '^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$' or not nestly.is_active_account() then return; end if;
+  perform pg_catalog.set_config('nestly.profile_view_target', p_target, true);
+  select l.max_count, l.window_seconds into v_n, v_w from nestly.security_limits l where l.limit_key = 'profile_open';            -- new: c22
+  if v_n is null or v_w is null or v_n < 1 or v_w < 1 then raise exception 'profile_view: profile_open limit missing or invalid' using errcode = 'NS001'; end if;
+  insert into nestly.profile_open_counts as c (user_id) values (v_me) on conflict (user_id) do update set is_refusal_recorded = c.is_refusal_recorded
+    returning c.opened_at, c.is_refusal_recorded into v_opens, v_logged;                                                         -- row lock (c20)
+  v_opens := array(select t from pg_catalog.unnest(v_opens) t where t > pg_catalog.now() - pg_catalog.make_interval(secs => v_w) order by t);
+  if pg_catalog.cardinality(v_opens) >= v_n then                                                                                  -- c20, c21
+    if not v_logged then insert into nestly.security_events (kind, user_id) values ('profile_open_limit', v_me); end if;
+    update nestly.profile_open_counts c set opened_at = v_opens, is_refusal_recorded = true where c.user_id = v_me;
+    perform pg_catalog.set_config('nestly.profile_view_target', '', true);
+    return query select null::text, null::text, null::smallint, null::jsonb, null::boolean, null::boolean, null::text, null::jsonb, null::jsonb, 'limited'::text; return;
+  end if;
+  update nestly.profile_open_counts c set opened_at = v_opens || pg_catalog.now(), is_refusal_recorded = false where c.user_id = v_me;
+  if (select u.account_type from nestly.users u where u.id = v_me) = 'regular' then                                              -- c19; P: NULL
+    select case when bool_or(f.status = 'accepted') then 'friends' when bool_or(f.status = 'pending' and f.cancelled_at is null and f.addressee_id = v_me) then 'received'
+      when bool_or(f.status in ('pending', 'declined') and f.cancelled_at is null and f.requester_id = v_me) then 'sent' else 'none' end into v_rel   -- DR-3 A
+    from nestly.friendships f where (f.requester_id = v_me and f.addressee_id = p_target::uuid) or (f.addressee_id = v_me and f.requester_id = p_target::uuid);
+  end if;
+  v_friend := v_rel is not distinct from 'friends';
+  return query
+    select p.full_name, case when s.is_full then p.gender end, k.n,
+           case when s.is_full then (
+             select coalesce(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object('years', a.m / 12, 'months', a.m % 12)
+                                                  order by c.created_at, c.slot), '[]'::jsonb)
+             from nestly.children c cross join lateral (select nestly.child_age_months(c.birth_date, pg_catalog.now()) as m) a
+             where c.user_id = p.user_id) end,
+           k.pregnant, (k.n = 0 and not k.pregnant and p.is_empty_journey_sentence_shown), v_rel, fl.list, fl.mutual, 'shown'::text   -- new: c18, c19
+    from nestly.regular_profiles p
+    join nestly.users u on u.id = p.user_id and u.status = 'active' and u.account_type = 'regular'
+    cross join lateral (select p.profile_visibility = 'open' or v_friend as is_full) s                                          -- changed: DR-2 A
+    cross join lateral (select (select count(*) from nestly.children c where c.user_id = p.user_id)::smallint as n,
+      exists (select 1 from nestly.journey_contexts j where j.user_id = p.user_id and j.stage = 'pregnant') as pregnant) k
+    cross join lateral (select coalesce(pg_catalog.jsonb_agg(x.e order by x.full_name, x.user_id), '[]'::jsonb) as list,         -- new: c18
+        coalesce(pg_catalog.jsonb_agg(x.e order by x.full_name, x.user_id) filter (where x.is_mutual), '[]'::jsonb) as mutual
+      from (select n.user_id, n.full_name, pg_catalog.jsonb_build_object('userId', n.user_id, 'fullName', n.full_name) as e,
+              exists (select 1 from nestly.friendships m where m.status = 'accepted' and ((m.requester_id = v_me and m.addressee_id = n.user_id)
+                or (m.addressee_id = v_me and m.requester_id = n.user_id))) as is_mutual                                        -- V's rows: _select_party
+            from nestly.friendships f join nestly.regular_names n on n.user_id = case when f.requester_id = p.user_id then f.addressee_id else f.requester_id end
+            where p.user_id in (f.requester_id, f.addressee_id) and f.status = 'accepted' and n.user_id <> v_me) x) fl
+    where p.user_id = p_target::uuid;
+  perform pg_catalog.set_config('nestly.profile_view_target', '', true);
+end $$;
+revoke execute on function nestly.profile_view(text) from public; grant execute on function nestly.profile_view(text) to authenticated;
+```
+**Rollback**      `supabase/rollback/20261017160000_profile_open_limit.down.sql`, app_owner guard, one transaction: `no force` on security_events →
+                  raise if any row (a Security record; after real use a forward migration) → drop `profile_view(text)`, recreate **150000's text
+                  verbatim** + revoke/grant/comment → drop the 2 new friendships/regular_names policies → drop security_events, profile_open_counts
+                  (every window restarts: accepted), security_limits → delete history row `20261017160000`.
+**Backfill**      None: three new tables, one seeded row; no live row written. **Indexes** `security_events_user_id_idx`: the RESTRICT check
+                  on a users delete, I4's per-account read; ≤ 1 insert per refusal stretch. Counts: pk; one HOT update per open (array ≤ N × 8 B;
+                  80 kB at the 10 000 cap). Lists: F2.4a's `friendships_requester_id_idx`/`_addressee_id_idx` + `regular_names_pkey`. Nothing loses one.
+**Integrity**     Counts cascade with the account (working state). Events RESTRICT, as `recovery_events` (retention §13.4 TBD, I9). CHECKs make
+                  0/negative unstorable; the body still fails closed. timestamptz, µs, DB clock. B's lists are unbounded (no pagination: out of scope).
+**Blast radius**  F2.3b's repository + Zod and `53_profile_view.sql` (columns, `'shown'`) · F2.4a send service (c24) · `tools/preview-e2e-cleanup-cli.ts:75`
+                  deletes the victim's `security_events` before `users` (else 23503, loud) · `schema.ts`, `drift.test.ts` (+3 tables) · knowledge
+                  (`data-model.md` profile_view exception entry widened, Entities; `data-model-tables.md`) by DATA ARCHITECT, same PR. **Reversible?** Yes, while no event exists.
+**Drizzle**       `securityLimits`, `profileOpenCounts` (`timestamp('opened_at', { withTimezone: true }).array().notNull()`), `securityEvents`: drift
+                  only, no write model, never queried. Shared: `SECURITY_LIMIT_KEYS`, `SECURITY_EVENT_KINDS`, `RELATIONSHIP_STATES`,
+                  `PROFILE_VIEW_OUTCOMES`; strict Zod `profileViewRow`, list entries `z.strictObject({ userId: uuid, fullName })`.
+
+## pgTAP — `63_profile_view_friend.sql`, `64_profile_open_limit.sql`, fixtures `setup/61_open_limit_fixtures.sql`
+Fixtures (postgres-owned `tests` definers): `fx_set_limit(n, w)`, `fx_drop_limit()`, `fx_break_limit()` (drops the CHECK, sets 0; rolled back),
+`fx_age_opens(id, interval)`, `fx_open_count(id)`, `fx_events(id)`. c17 A Friend of B, restricted and open → B's Open row (gender, child_ages);
+pending/declined/cancelled/removed → non-Friend; new accept → Friend. c18 entries exactly {userId, fullName}; suspended Friend absent, back on
+reactivation; never V or B; P mutual `[]`; none → `[]`,`[]`; as V, friendships shows own rows only. c19 (status × side × cancelled) → state,
+DR-3 pair, P NULL. c20 `fx_set_limit(3, 3600)`: 3 shown, 4th limited (rest NULL); unavailable target counts; `fx_age_opens(3601 s)` → shown;
+C unaffected; P counted. c21 first limited +1 event (columns exactly id, kind, user_id, occurred_at), second +0, after a counted open +1 again;
+as authenticated every verb on the 3 tables → 42501. c22 seed (100, 3600); drop/break → NS001, count and events unchanged. c23 definers =
+`{nestly.profile_view(text)}`; the 7 new policies TO app_owner only; no ACL for authenticated/anon; GUC empty after shown and limited;
+`rls_gate_product()` clean. `tests/db/`: 120 concurrent → ≤ 100 shown; a committed refusal keeps its event; c24 send at the limit → 429, no
+row. **Amend:** `60_friendships_structure.sql`, `62_regular_names.sql` (+1 TO app_owner policy), `53_profile_view.sql` (columns),
+`10_identity_structure.sql` policy lists (except TO app_owner), `20_registration_structure.sql` table count (+3), any list that turns red.
+
+**Open** · **DR-L** (ORCHESTRATOR; Afik's only if read as a security-model change): the count inside `profile_view`. A (recommended): above. B:
+a second definer `profile_open_take()` — reserved, same reach. C: invoker INSERT-only — cannot enforce N without reading it (c21). ·
+**QUESTION** (default: amend): the cleanup line is feature work, not a frozen tool change (audit decision 7); if not, events CASCADE (decides
+I9's retention). · New entities `security_events`, `security_limits` (spec "Data touched"): ORCHESTRATOR here. · F2.3b (150000) merges first; if its body changes before merge, this one follows it.
+SQL not run by DATA ARCHITECT; TEST ENGINEER's pgTAP is its first run. Section over the cap by the SQL block (F2.3b precedent).
+
+## Gate 2 (F2.4c1) — ORCHESTRATOR
+
+**ORCHESTRATOR, 17.10.2026.** Approved as shaped — `security_limits` (seeded 100 / 3600 s, fail closed `NS001`),
+`profile_open_counts`, insert-only `security_events` (ON DELETE RESTRICT), the two `TO app_owner` SELECT policies, the four
+trailing columns, COMMIT on `limited`, the guarded down — **except DR-L, sent to Afik**: it widens DR-G1 from a definer that
+*reads* other users' rows to one that also *writes* (the caller's counter and the Security event). Until he answers, F2.4c1 is
+not built; it is last-but-two in the build order, so nothing waits. The cleanup QUESTION goes to Afik with DR-L (default: amend
+`tools/preview-e2e-cleanup-cli.ts:75` to delete the test user's `security_events` first). The section is over the 100-line cap
+because of the exact SQL — accepted.
