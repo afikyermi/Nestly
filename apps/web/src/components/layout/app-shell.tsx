@@ -25,7 +25,8 @@ export interface AppShellProps {
   className?: string;
 }
 
-// The frame of every protected page: skip link, top bar, primary navigation (bar below 1024, rail from
+// Below 1024 the frame is one screen high and `main` scrolls inside it, so the bottom bar sits under the content and never over it
+// (WCAG 2.5.8: nothing a user can press is covered by the bar). The frame of every protected page: skip link, top bar, primary navigation (bar below 1024, rail from
 // 1024), one main landmark, and the side drawer the Hamburger opens. It knows nothing about routing,
 // auth or data: the route guard wraps it, and the caller passes links and copy in.
 export function AppShell({
@@ -54,7 +55,7 @@ export function AppShell({
   };
 
   return (
-    <div className={cn('flex min-h-dvh flex-col', className)}>
+    <div className={cn('flex h-dvh flex-col lg:h-auto lg:min-h-dvh', className)}>
       <a
         href={`#${mainId}`}
         onClick={(event) => {
@@ -78,7 +79,7 @@ export function AppShell({
         }}
         actions={topBarActions}
       />
-      <div className="flex flex-1 flex-col lg:flex-row lg:gap-6 lg:px-6">
+      <div className="flex min-h-0 flex-1 flex-col lg:min-h-fit lg:flex-row lg:gap-6 lg:px-6">
         <BottomNavigation
           className="order-last lg:order-none"
           items={navItems}
@@ -89,7 +90,7 @@ export function AppShell({
           id={mainId}
           ref={mainRef}
           tabIndex={-1}
-          className="min-w-0 flex-1 px-4 py-5 lg:mx-auto lg:max-w-2xl lg:px-0"
+          className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-5 lg:mx-auto lg:max-w-2xl lg:overflow-visible lg:px-0"
         >
           {children}
         </main>
