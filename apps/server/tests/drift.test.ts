@@ -32,6 +32,10 @@ const APPROVED: ColumnShape[] = [
   col('regular_profiles', 'full_name', 'text', true),
   col('regular_profiles', 'gender', 'text', false),
   col('regular_profiles', 'created_at', TZ, true),
+  // F2.3a (.work/profile-privacy/schema.md "Change"): the three privacy settings, NOT NULL with a default.
+  col('regular_profiles', 'profile_visibility', 'text', true),
+  col('regular_profiles', 'is_empty_journey_sentence_shown', 'boolean', true),
+  col('regular_profiles', 'is_child_birthday_shared', 'boolean', true),
 ];
 
 // F1.4 part a (schema.md, three new tables): what the migrated database really holds, `legal_consents.accepted_at`

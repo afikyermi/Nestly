@@ -123,8 +123,9 @@ select is(
      join pg_catalog.pg_class c     on c.oid = a.attrelid
      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = 'regular_profiles' and c.relkind = 'r' and a.attnum > 0 and not a.attisdropped),
-  'account_type:text:nn, created_at:timestamp with time zone:nn, full_name:text:nn, gender:text:null, user_id:uuid:nn',
-  '[F1.1-b c10 NFR-SEC-001] nestly.regular_profiles has exactly the approved columns: user_id, account_type, full_name, gender (the only nullable one), created_at');
+  'account_type:text:nn, created_at:timestamp with time zone:nn, full_name:text:nn, gender:text:null, '
+  || 'is_child_birthday_shared:boolean:nn, is_empty_journey_sentence_shown:boolean:nn, profile_visibility:text:nn, user_id:uuid:nn',
+  '[F1.1-b c10 NFR-SEC-001 · F2.3-a c6] nestly.regular_profiles has exactly the approved columns: user_id, account_type, full_name, gender (the only nullable one), created_at, and F2.3a''s profile_visibility text, is_empty_journey_sentence_shown and is_child_birthday_shared boolean, all NOT NULL');
 
 select is_empty(
   $$ select c.relname || '.' || a.attname
