@@ -164,3 +164,6 @@ Internal HOW, not a change to an approved criterion.
 - **c9 cancel after a decline.** The requester cannot know of a decline (DR-3 silent), so to A a declined row is still "pending": cancel succeeds
   exactly as on pending (schema.md's requester declined-cancel move), and returns the same response. "No longer pending" in c9 means, from the
   requester's side, cancelled, accepted or removed.
+- **Response shapes (BUILDER's choices, accepted).** Success bodies `{}` — 201 on send, 200 on accept/decline/cancel/remove. A caller who is
+  P, M, D or has no account row → 403 `forbidden` (c10 says only 403; `account_unavailable` stays for a suspended or banned Regular). The sent
+  list keeps an uncancelled declined request (DR-3 silent). No list or body returns `status`.
