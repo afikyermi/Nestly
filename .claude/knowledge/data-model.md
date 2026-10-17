@@ -250,11 +250,11 @@ Never design around these with a guess. Each one is a `DECISION REQUEST` to Afik
 Built by `supabase/migrations/20261014100000_identity_schema.sql` (I1 F1.1 part b) and bootstrap step 2,
 `20261014200000_registration_account.sql` (I1 F1.4 part a; Gate 2 and Amendment 1 in `.work/register-account-create/schema.md`)
 and `20261015200000_recovery_questions.sql` (I1 F1.6; Gate 2 and Amendments 1–2 in `.work/password-recovery/schema.md`), and
-`20261016100000_identity_link_checks.sql` (I2 F2.0; `.work/account-takeover-close/schema.md`; the guard is in `is_active_account()`).
-Down scripts in `supabase/rollback/`, in order: F2.0's refuses while `identity_link_checks` or an F2.0 event holds a row;
+`20261016100000_identity_link_checks.sql` (I2 F2.0; `.work/account-takeover-close/schema.md`; the guard is in `is_active_account()`),
+and `20261017100000_regular_profiles_update_own.sql` (I2 F2.1; `.work/profile-view-edit/schema.md`). Down scripts in `supabase/rollback/`, in order: F2.0's refuses while `identity_link_checks` or an F2.0 event holds a row;
 F1.6's while `recovery_answers` or `recovery_events` holds a row; F1.4's while any of its three tables holds a row; F1.1's while
 `nestly.legal_consents` exists (safe only while `users` and `regular_profiles` are empty). Writes: per column ("Write grants") — F1.4's create path is INSERT only; UPDATE only on `recovery_answers`,
-`recovery_throttles` (F1.6) and `identity_link_checks` (F2.0, moves by trigger); the one DELETE is `recovery_answers_delete_clear`
+`recovery_throttles` (F1.6), `identity_link_checks` (F2.0, moves by trigger) and `regular_profiles` (F2.1: full_name, gender; own row while active); the one DELETE is `recovery_answers_delete_clear`
 (F2.0 D1: own row, while the own link check is pending). All nine tables are in `nestly`. Per-table detail — every column with its meaning, each
 table's purpose, what is not stored, owner, authorization, relations, indexes and retention, the write order and the RLS
 helper — is in `.claude/knowledge/data-model-tables.md`, which also holds the template a new entity fills.

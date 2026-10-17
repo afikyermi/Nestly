@@ -93,6 +93,12 @@ export const regularProfilesInsert = nestly.table('regular_profiles', {
   gender: text('gender', { enum: PARENT_GENDERS }),
 });
 
+/** UPDATE target only. Names exactly the columns granted UPDATE to authenticated (migration 20261017100000). Nullable like the column (drift check). */
+export const regularProfilesUpdate = nestly.table('regular_profiles', {
+  fullName: text('full_name').notNull(),
+  gender: text('gender', { enum: PARENT_GENDERS }),
+});
+
 /** INSERT target only. Names exactly the columns granted INSERT (migration 20261014200000 §6). */
 export const journeyContextsInsert = nestly.table('journey_contexts', {
   stage: text('stage', { enum: JOURNEY_STAGES }).notNull(),

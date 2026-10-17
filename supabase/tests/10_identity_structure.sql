@@ -269,8 +269,9 @@ select is_empty(
        join pg_catalog.pg_class c     on c.oid = pol.polrelid
        join pg_catalog.pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'nestly' and pol.polcmd not in ('r', 'a')
-        and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents') $$,
-  '[F1.1-b c13 platform r14 · F1.4-a c14 · F1.6 scoped] no UPDATE, DELETE or ALL policy exists on the five F1.1/F1.4 tables (editing is I2; recovery_answers has its own: file 30)');
+        and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents')
+        and not (c.relname = 'regular_profiles' and pol.polname = 'regular_profiles_update_own' and pol.polcmd = 'w') $$,
+  '[F1.1-b c13 platform r14 · F1.4-a c14 · F1.6 scoped · F2.1 c10] no UPDATE, DELETE or ALL policy exists on the five F1.1/F1.4 tables except regular_profiles_update_own (F2.1; recovery_answers has its own: file 30; file 50 asserts the policy)');
 
 select is(
   (select string_agg(c.relname || '.' || pol.polname, ', ' order by c.relname, pol.polname)
@@ -344,9 +345,9 @@ select is(
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')
       and (has_table_privilege('authenticated', c.oid, 'UPDATE,TRUNCATE,REFERENCES,TRIGGER')
            or (c.relname <> 'recovery_answers' and has_table_privilege('authenticated', c.oid, 'DELETE'))
-           or (c.relname not in ('recovery_answers', 'identity_link_checks') and has_any_column_privilege('authenticated', c.oid, 'UPDATE,REFERENCES')))),
+           or (c.relname not in ('recovery_answers', 'identity_link_checks', 'regular_profiles') and has_any_column_privilege('authenticated', c.oid, 'UPDATE,REFERENCES')))),
   0::bigint,
-  '[F1.1-b c13 · F1.4-a c14 · F1.6, F2.0 scoped] authenticated holds no table-level UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any table in nestly (DELETE on recovery_answers is the F2.0 D1 grant), and no column-level UPDATE or REFERENCES except on recovery_answers and identity_link_checks (files 30 and 40 list those columns)');
+  '[F1.1-b c13 · F1.4-a c14 · F1.6, F2.0 scoped] authenticated holds no table-level UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any table in nestly (DELETE on recovery_answers is the F2.0 D1 grant), and no column-level UPDATE or REFERENCES except on recovery_answers, identity_link_checks and regular_profiles (files 30, 40 and 50 list those columns)');
 
 -- =====================================================================================================================
 -- Criterion 18 — is_active_account(): caller only, invoker, not an approved definer. [Spec addendum 1]

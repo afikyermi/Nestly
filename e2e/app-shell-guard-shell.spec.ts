@@ -277,7 +277,15 @@ test.describe('AppShell: side menu', () => {
 });
 
 test.describe('Placeholders', () => {
-  for (const route of PROTECTED_ROUTES) {
+  test('[F1.2 c22][F2.1] /profile is no longer a placeholder: it shows the h1 "פרופיל" and not the placeholder line', async ({ page }) => {
+    await open(page, '/profile', 'signed-in');
+    await expect(h1Of(page)).toHaveText('פרופיל');
+    await expect(page).toHaveTitle('פרופיל · Nestly');
+    await expect(page.locator('main')).not.toContainText(LINE);
+  });
+
+  // F2.1: /profile is the own-profile screen now (its states: e2e/profile.spec.ts); the other three stay placeholders.
+  for (const route of PROTECTED_ROUTES.filter((r) => r.path !== '/profile')) {
     test(`[F1.2 c22][FR-AUTH-004][NFR-SEC-002] ${route.path} shows its h1 and the line, and nothing else; no request to /api/* with state forced to signed-in`, async ({
       page,
     }) => {

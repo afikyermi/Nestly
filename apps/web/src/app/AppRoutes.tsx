@@ -4,6 +4,7 @@ import { GoogleReturnPage } from '@/pages/google-return/GoogleReturnPage';
 import { GuestPlaceholderPage } from '@/pages/placeholder/GuestPlaceholderPage';
 import { LoginPage } from '@/pages/login/LoginPage';
 import { ProtectedPlaceholderPage } from '@/pages/placeholder/ProtectedPlaceholderPage';
+import { ProfilePage } from '@/pages/profile/ProfilePage';
 import { RecoveryPage } from '@/pages/recovery/RecoveryPage';
 import { RecoveryQuestionsPage } from '@/pages/recovery-questions/RecoveryQuestionsPage';
 import { RegisterPage } from '@/pages/register/RegisterPage';
@@ -32,7 +33,7 @@ export function AppRoutes() {
           <Route element={<ProtectedLayout />}>
             <Route path={PATHS.home} element={<ProtectedPlaceholderPage title="בית" />} />
             <Route path={PATHS.feed} element={<ProtectedPlaceholderPage title="פיד" />} />
-            <Route path={PATHS.profile} element={<ProtectedPlaceholderPage title="פרופיל" />} />
+            <Route path={PATHS.profile} element={<ProfilePage />} />
             <Route path={PATHS.settings} element={<ProtectedPlaceholderPage title="הגדרות" />} />
             <Route path={PATHS.recoveryQuestions} element={<RecoveryQuestionsPage />} />
             <Route path={PATHS.changePassword} element={<ChangePasswordPage />} />

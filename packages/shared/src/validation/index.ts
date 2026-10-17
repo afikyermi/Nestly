@@ -5,3 +5,4 @@ export * from './registration-request.js';
 export * from './registration-step1.js';
 export * from './text.js';
 export * from './recovery.js';
+export * from './profile.js';

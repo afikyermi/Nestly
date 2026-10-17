@@ -7,6 +7,7 @@ import { registerAuthentication, replySessionRefused, type LinkGate } from './pl
 import { clientAddress } from './recovery/client-ip.js';
 import { registerMeRoute } from './routes/me.js';
 import { registerPasswordRoutes } from './routes/password.js';
+import { registerProfileRoute } from './routes/profile.js';
 import { checkIdentityLink } from './services/identity-link-service.js';
 import { createRecoveryDependencies, type RecoveryDependencies } from './recovery/dependencies.js';
 import { registerRecoveryQuestionsRoute } from './routes/recovery-questions.js';
@@ -87,6 +88,7 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerRecoveryQuestionsRoute(app, { database, recovery });
   registerRecoveryResetRoute(app, { database, recovery });
   registerPasswordRoutes(app, { database, recovery });
+  registerProfileRoute(app, { database });
 
   return app;
 }

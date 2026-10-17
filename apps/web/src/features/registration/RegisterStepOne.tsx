@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { useLinkClickHandler } from 'react-router';
-import { PARENT_GENDERS, type ParentGender, type RegistrationStep1 } from '@nestly/shared';
+import type { RegistrationStep1 } from '@nestly/shared';
 import { PATHS } from '@/app/paths';
 import { AuthLayout } from '@/components/layout/auth-layout';
 import { ChoiceCardGroup, type ChoiceOption } from '@/components/shared/choice-card-group';
@@ -13,6 +13,7 @@ import { ArrowBackIcon } from '@/components/ui/icons';
 import { SelectInput } from '@/components/ui/select-input';
 import { TextInput } from '@/components/ui/text-input';
 import { useGoogleSignIn } from '@/hooks/use-google-sign-in';
+import { GENDER_OPTIONS } from '@/lib/profile-fields';
 import { ChildrenSection } from './ChildrenSection';
 import { FieldError, FieldHint } from '@/components/shared/field-message';
 import { EMPTY_CHILD, validateStep1, type ChildForm, type Step1Errors, type Step1Form } from './step1-form';
@@ -25,14 +26,6 @@ const STAGE_OPTIONS: ChoiceOption[] = [
 
 // VAL-039: planning and pregnant are never chosen together.
 const EXCLUSIVE_STAGES = [['planning', 'pregnant']] as const;
-
-const GENDER_LABELS: Record<ParentGender, string> = {
-  woman: 'אישה',
-  man: 'גבר',
-  other: 'אחר',
-  prefer_not_to_say: 'מעדיפים לא לציין',
-};
-const GENDER_OPTIONS = PARENT_GENDERS.map((value) => ({ value, label: GENDER_LABELS[value] }));
 
 function withoutFreshCards(errors: Step1Errors, children: readonly ChildForm[], fresh: WeakSet<ChildForm>): Step1Errors {
   if (errors.child === undefined) return errors;
