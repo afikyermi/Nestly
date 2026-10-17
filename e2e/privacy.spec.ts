@@ -6,7 +6,7 @@
 import { expect, test } from '@playwright/test';
 import type { Locator, Page, Route } from '@playwright/test';
 import { MOBILE, runAxe } from './helpers';
-import { APP, pathOf } from './app-helpers';
+import { APP, open, pathOf } from './app-helpers';
 
 test.use({ baseURL: APP, viewport: MOBILE });
 
@@ -204,6 +204,31 @@ test.describe('F2.3a c1 [FR-PRIV-001 BR-037 Q1] the screen with the defaults', (
     await main(page).getByRole('link', { name: T.profileLink, exact: true }).click();
     await expect.poll(() => pathOf(page)).toBe('/settings');
     await expect(openRadio(page)).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Takes over what F1.2 c22 guarded on /settings while it was a placeholder (e2e/app-shell-guard-shell.spec.ts): the test session
+// seam forces "signed-in" with no access token and no stub answers /api/privacy. The page keeps its h1 and title, shows no setting
+// and no control, and nothing it sends to /api/* carries a credential.
+test.describe('F2.3a c5 c22 [FR-AUTH-004 NFR-SEC-002] state forced to signed-in, no real session', () => {
+  test('[F2.3a c5 F1.2 c22] /settings: h1 "הגדרות" and its title, the load failure, no value and no control; no credential sent', async ({ page }) => {
+    const api: Array<{ path: string; authorization: string | undefined }> = [];
+    page.on('request', (req) => {
+      const path = new URL(req.url()).pathname;
+      if (path.startsWith('/api/')) api.push({ path, authorization: req.headers()['authorization'] });
+    });
+    await open(page, '/settings', 'signed-in');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('הגדרות');
+    await expect(page).toHaveTitle('הגדרות · Nestly');
+    await expect(main(page).getByText(T.loadFailed)).toBeVisible();
+    await expect(main(page).getByRole('radio')).toHaveCount(0);
+    await expect(main(page).getByRole('checkbox')).toHaveCount(0);
+    await expect(saveButton(page)).toHaveCount(0);
+    for (const word of [T.open, T.restricted, T.sentence, T.birthday]) await expect(main(page).getByText(word, { exact: true })).toHaveCount(0);
+    await page.waitForTimeout(500);
+    expect(api.filter((r) => r.authorization !== undefined && /\S{8,}/.test(r.authorization.replace(/^Bearer\s*/i, ''))),
+      'no /api request carries a token').toEqual([]);
   });
 });
 
