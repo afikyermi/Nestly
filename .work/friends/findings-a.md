@@ -12,7 +12,7 @@ failure:  B declines A->B; A cancels it (200, same as pending); A fires two conc
           between A's read and A's lift.
 fix:      on no row from `liftCancel`, re-read the pair and re-run `conflictOf`, one bounded retry; never `unavailable` while a row of the
           pair is visible to the caller. Db test: declined + cancelled, two concurrent sends -> {201, 409}.
-status:   open -> BUILDER
+status:   fixed 7f6b8a8, tests e3a8e53 — validated by CRITIC 17.10
 
 --- bug ---
 severity: low
@@ -20,7 +20,7 @@ file:     apps/server/src/routes/friends.ts:336-349 (actionHandler) · apps/serv
 claim:    the four action routes accept the caller's own id; remove then ends every Friendship of the caller, and accept/decline/cancel
           answer 403 `account_unavailable`.
 fix:      400 `invalid` when target = caller, before any query (as `send`); optionally require $t to be the other party in remove's WHERE.
-status:   open -> BUILDER (fixed in this part; cheap)
+status:   fixed 7f6b8a8, tests e3a8e53 — validated by CRITIC 17.10
 
 --- bug ---
 severity: low
