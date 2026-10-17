@@ -15,3 +15,6 @@ failure:  Two tabs; tab 1 adds a pregnancy; tab 2 still shows "הוספת הרי
 fix:      On `stage-conflict`, close the form and refresh with GET (the Q3 pattern c25 uses for 404).
 --- end ---
 No other bug.
+
+## Re-check — F2.2b1 low (409), fix c14470e, 17.10.2026
+**Fixed.** On 409 the form closes and a GET refreshes the view with no error; focus to the pregnancy's "עריכה", else "הוספת הריון", else "הוספת ילד"; a failing refresh keeps the generic failure; 401/403 on the refresh recheck once. `DateInput` `optional`: accessible name "תאריך לידה משוער (לא חובה)"; callers without it unchanged. New bugs: none.
