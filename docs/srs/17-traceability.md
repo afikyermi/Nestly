@@ -21,7 +21,7 @@
 | PG-024/025/026 | SupportRequestFeature / SupportInboxFeature / AdminAnalyticsFeature / AdminIntelligenceFeature | FR-ADMIN-001..003/010 / FR-CHAT-004 / FR-DATA-001 | UC-12/13/31/41 | SupportRequest, Conversation/Message, AnalyticsEvent, AnalyticsAggregate, ModeratorPermission, AuditLogEntry, AlgorithmConfiguration |
 | Multiple / ReportAction | ModerationFeature | FR-MOD-001 | UC-26 | Report |
 | PG-027 | AdminAccessControlPage / ModeratorPermissionsFeature | FR-ADMIN-004 | UC-15 | User, ModeratorPermission, AuditLogEntry |
-| PG-028 | AdminUserManagementPage / UserManagementFeature | FR-MOD-002 | UC-16 | User, AccountEnforcement, AuditLogEntry |
+| PG-028 | AdminUserManagementPage / UserManagementFeature / RecoveryLockReleaseFeature | FR-MOD-002 / FR-ADMIN-013 | UC-16 | User, AccountEnforcement, RecoveryThrottle, AuditLogEntry |
 | PG-029 | AdminAuditLogPage / AuditLogFeature | FR-ADMIN-005 | UC-17 | AuditLogEntry |
 | PG-030 | ProfessionalVerificationAdminPage / ProfessionalVerificationAdminFeature | FR-ADMIN-006 | UC-18 | ProfessionalProfile, AuditLogEntry |
 | PG-031 | AdminCommunitySettingsPage / CommunityAdministrationFeature | FR-ADMIN-007 | UC-28 | CommunityConfiguration, AuditLogEntry |
