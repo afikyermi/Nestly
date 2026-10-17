@@ -59,4 +59,11 @@ or the drift test fails against the real schema.
 "פרטיות": "פרופיל פתוח" selected, both checkboxes ticked → choose "פרופיל מוגבל", untick both → "שמירה" → "הפרטים נשמרו" → reload:
 same values. Without the migration on the preview DB, GET and PUT are 500 → "לא הצלחנו לטעון את הגדרות הפרטיות…" (fails closed).
 
+**Fix after TE (a11y, c16)**  The radios' accessible name was the label plus the explanation line (ChoiceCardGroup put the
+description inside the `<label>`). Now each input has `aria-labelledby` → its option-label span and `aria-describedby` → its
+description span; the DOM and the look are unchanged, the native label still selects on click. Shared component, so every
+ChoiceCardGroup gets it (no other caller passes a description today). Re-run: `e2e/privacy.spec.ts` 24/24; a11y on the privacy and
+choice-card stories; `part-d`, `register-step1`, `touch` 243/243 (scratch Chromium config); web unit 1042/1042; typecheck, lint,
+check:stories green.
+
 **Neighbouring**  none new.
