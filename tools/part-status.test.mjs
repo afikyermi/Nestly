@@ -236,13 +236,15 @@ test('[P6] collect reads every path of the PR, both sides of a rename', () => {
   assert.match(evaluate(snapshot).blockers.join('\n'), /split it/);
 });
 
-test('[P6] part-status refuses to judge with a checker or gate that differs from the PR base (CRITIC P6 finding 2, re-check 2)', () => {
+test('[P6] part-status refuses to judge with a checker or gate that differs from current main (CRITIC P6 finding 2, N4)', () => {
   const api = apiFixture();
-  const same = collect({ repo: 'afikyermi/Nestly', pr: '57' }, api.read);
-  assert.ok(!same.errors.some((e) => e.includes('differs from the PR base')), 'identical copies: no blocker');
+  const asked = [];
+  const same = collect({ repo: 'afikyermi/Nestly', pr: '57' }, (e) => { asked.push(e); return api.read(e); });
+  assert.ok(asked.includes(`repos/afikyermi/Nestly/contents/tools/schema-gate.mjs?ref=${MAIN}`), 'compared with current main, not the PR base');
+  assert.ok(!same.errors.some((e) => e.includes('differs from main')), 'identical copies: no blocker');
   const edited = collect({ repo: 'afikyermi/Nestly', pr: '57' }, api.read, undefined, (file) => (file === 'tools/schema-gate.mjs' ? '// relaxed' : readFileSync(new URL(`../${file}`, import.meta.url), 'utf8')));
-  assert.match(edited.errors.join('\n'), /tools\/schema-gate\.mjs here differs from the PR base's copy/);
+  assert.match(edited.errors.join('\n'), /tools\/schema-gate\.mjs here differs from main's copy/);
   assert.match(evaluate(edited).blockers.join('\n'), /up-to-date main checkout/);
   const missing = collect({ repo: 'afikyermi/Nestly', pr: '57' }, api.read, undefined, () => undefined);
-  assert.equal(missing.errors.filter((e) => e.includes('differs from the PR base')).length, 2, 'unreadable local copies block');
+  assert.equal(missing.errors.filter((e) => e.includes('differs from main')).length, 2, 'unreadable local copies block');
 });

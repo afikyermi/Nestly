@@ -142,7 +142,7 @@ export function ghRead(endpoint, execute = execFileSync) {
   }
 }
 
-/** The files whose local copy must equal the PR base's: this checker and the gate it applies. */
+/** The files whose local copy must equal main's: this checker and the gate it applies. */
 export const SELF_FILES = ['tools/part-status.mjs', 'tools/schema-gate.mjs'];
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const readLocalFile = (file) => { try { return readFileSync(join(ROOT, file), 'utf8'); } catch { return undefined; } };
@@ -213,14 +213,14 @@ export function collect({ repo, pr }, read = ghRead, clock = () => new Date().to
   // shows as "Head changed" (CRITIC P6 N3).
   const files = all(`pulls/${pr}/files`).flatMap((f) => [f.filename, f.previous_filename].filter(Boolean));
   // P6 (CRITIC finding 2): this check is only as good as the copy that runs it. The local part-status and schema gate
-  // must equal the PR base's copies, which the PR cannot change; run from a PR's worktree with edited copies → blocker.
+  // must equal current main's copies, which no PR can change; run from a PR worktree or a stale checkout → blocker.
   for (const file of SELF_FILES) {
-    const remote = safe(`contents/${file}?ref=${encodeURIComponent(pull.base.sha ?? pull.base.ref)}`, null);
-    if (remote === null) continue; // already an error (the bootstrap PR, whose base has no gate yet, is reviewed by hand)
+    const remote = safe(`contents/${file}?ref=${main}`, null);
+    if (remote === null) continue; // already an error (until P6 merges, main has no gate: P6 itself is merged by hand)
     const ours = readLocal(file);
     const theirs = typeof remote?.content === 'string' ? Buffer.from(remote.content, 'base64').toString('utf8') : undefined;
     if (ours === undefined || theirs === undefined || ours.replace(/\r\n/g, '\n') !== theirs.replace(/\r\n/g, '\n')) {
-      errors.push(`${file} here differs from the PR base's copy: run part-status from an up-to-date main checkout, not a PR worktree`);
+      errors.push(`${file} here differs from main's copy: run part-status from an up-to-date main checkout, not a PR worktree`);
     }
   }
   const headAfter = safe(`pulls/${pr}`, { head: {} }).head.sha;
