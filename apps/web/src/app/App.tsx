@@ -40,12 +40,11 @@ const productionGoogleSignIn = createGoogleSignIn({
   },
   onRestoredFromCache: (listener) => navigation.onRestoredFromCache(listener),
 });
-// A profile link held across the round trip to Google (F2.4c2 c27): taken once, only when this page load began on the Google return.
+// A profile link held across the round trip to Google (F2.4c2 c27): taken at every load.
 const returnStorage = sessionReturnTarget();
-const returnTarget: ReturnTarget = {
-  storage: returnStorage,
-  landed: navigation.pathname() === PATHS.googleEntry ? takeReturnTarget(returnStorage, Date.now()) : null,
-};
+// Every fresh load removes the note; only a load on the Google return uses what it held.
+const taken = takeReturnTarget(returnStorage, Date.now());
+const returnTarget: ReturnTarget = { storage: returnStorage, landed: navigation.pathname() === PATHS.googleEntry ? taken : null };
 
 // The copy-my-profile-link button (F2.4c2): the app's address and the clipboard.
 const clipboard = windowClipboard();

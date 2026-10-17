@@ -34,7 +34,9 @@ export function useGoogleSignIn(): GoogleButtonState {
     setBusy(true);
     setFailed(false);
     // F2.4c2 c27: a Guest who came for a profile link keeps it across the round trip to Google.
+    // Every start replaces the note: a stale one never outlives a start without a link.
     if (returnTarget !== null) rememberReturnTarget(storage, returnTarget, Date.now());
+    else forgetReturnTarget(storage);
     google.start().then(
       (outcome) => {
         if (outcome === 'left') return;
