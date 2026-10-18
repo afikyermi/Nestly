@@ -133,7 +133,14 @@ const APPROVED_F24C1: ColumnShape[] = [
   col('security_events', 'user_id', 'uuid', true),
   col('security_events', 'occurred_at', TZ, true),
 ];
-const APPROVED_ALL: ColumnShape[] = [...APPROVED, ...APPROVED_F14, ...APPROVED_F16, ...APPROVED_F20, ...APPROVED_F24A, ...APPROVED_F24C1];
+// F3.1a (schema.md, posts): the columns Drizzle declares.
+const APPROVED_F31A: ColumnShape[] = [
+  col('posts', 'id', 'uuid', true),
+  col('posts', 'author_id', 'uuid', false), col('posts', 'audience', 'text', true),
+  col('posts', 'body', 'text', false), col('posts', 'stage_tag', 'text', false),
+  col('posts', 'created_at', TZ, true),
+];
+const APPROVED_ALL: ColumnShape[] = [...APPROVED, ...APPROVED_F14, ...APPROVED_F16, ...APPROVED_F20, ...APPROVED_F24A, ...APPROVED_F24C1, ...APPROVED_F31A];
 const APPROVED_BEFORE_F16: ColumnShape[] = [...APPROVED, ...APPROVED_F14];
 
 const without = (rows: ColumnShape[], table: string, column: string): ColumnShape[] =>
@@ -349,6 +356,7 @@ describe('[F1.1-b c10 c20] the db:drift command against the real Drizzle schema'
     ['a nullable column in the database where Drizzle says not null', changed(APPROVED_ALL, 'users', 'account_type', { notNull: false })],
     ['a not null column in the database where Drizzle says nullable', changed(APPROVED_ALL, 'regular_profiles', 'gender', { notNull: true })],
     ['an empty catalog', []],
+    ['posts.stage_tag missing from the database (F3.1a)', without(APPROVED_ALL, 'posts', 'stage_tag')],
     // [F1.4-a c14] the three new tables are in the Drizzle schema and checked
     ['the catalog of F1.1 alone (the three F1.4 tables missing from the database)', APPROVED],
     ['journey_contexts missing from the database', APPROVED_ALL.filter((r) => r.table !== 'journey_contexts')],
