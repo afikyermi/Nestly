@@ -10,6 +10,7 @@ import { documentTitle } from '@/lib/document-title';
 import { postPath } from '@/lib/post-link';
 import { createPost } from '@/services/api/posts';
 import { checkPostForm, type PostFormErrors, type PostFormValues } from './post-form';
+import { handOverStatus } from './flash-status';
 import { failureText, refusedErrors } from './post-outcome';
 import { PostForm, type PostFormFocus } from './PostForm';
 import { PostLinkButton } from './PostLinkButton';
@@ -57,11 +58,13 @@ function Composer({ memory }: { memory: AudienceMemory }) {
     if (outcome.kind === 'post') {
       // A failed post stores nothing: the choice is remembered only here (c15). The composer stays "sending" until the page is left.
       memory.write(values.audience);
-      void navigate(postPath(outcome.post.id), { state: { status: PUBLISHED_STATUS } });
+      handOverStatus(postPath(outcome.post.id), PUBLISHED_STATUS);
+      void navigate(postPath(outcome.post.id));
       return;
     }
     if (outcome.kind === 'unauthenticated' || outcome.kind === 'account-unavailable') void account?.recheck();
     const refused = refusedErrors(outcome);
+    if (refused !== null) validating.current = true;
     setErrors(refused ?? {});
     setFailure(refused === null ? failureText(outcome, PUBLISH_FAILED_TEXT) : null);
     focusOn(refused === null ? 'message' : 'invalid');
@@ -85,10 +88,11 @@ export function ComposeScreen() {
   if (right === 'not-allowed') {
     return (
       <>
-        <title>{documentTitle(UNAVAILABLE_ACTION_TEXT)}</title>
+        <title>{documentTitle(NEW_POST_LABEL)}</title>
         <h1 tabIndex={-1} className="text-h2">
-          {UNAVAILABLE_ACTION_TEXT}
+          {NEW_POST_LABEL}
         </h1>
+        <p className="mt-1 text-body text-muted-foreground">{UNAVAILABLE_ACTION_TEXT}</p>
         <div className="mt-4">
           <PostLinkButton to={PATHS.feed} variant="text">
             {BACK_TO_FEED_LABEL}

@@ -92,12 +92,10 @@ export function PostForm({ mode, values, errors, saving, failure, focus, onChang
         <FormField label={BODY_LABEL} htmlFor={`${ids}-body`} {...(errors.body !== undefined ? { error: errors.body } : {})}>
           {(control) => <TextArea {...control} value={values.body} onChange={(event) => onChange({ ...values, body: event.target.value })} />}
         </FormField>
-        {/* Rendered only at the limit's last 100 characters (c16): polite. */}
-        {counting ? (
-          <p role="status" data-testid="post-counter" className="text-small text-muted-foreground">
-            {remainingText(left)}
-          </p>
-        ) : null}
+        {/* The polite region is always mounted; it speaks only in the limit's last 100 characters (c16). */}
+        <p role="status" data-testid="post-counter" className="text-small text-muted-foreground empty:sr-only">
+          {counting ? remainingText(left) : ''}
+        </p>
       </div>
       <div className="flex flex-col gap-1.5">
         <ChoiceCardGroup

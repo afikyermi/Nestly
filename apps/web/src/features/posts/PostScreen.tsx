@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { useNavigate } from 'react-router';
 import { PATHS } from '@/app/paths';
 import { useSessionAccount } from '@/hooks/use-session-account';
+import { postPath } from '@/lib/post-link';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
 import { deletePost, editPost, fetchPost, type PostsOutcome } from '@/services/api/posts';
-import { flashStatus } from './flash-status';
+import { handOverStatus, takeStatus } from './flash-status';
 import { checkPostForm, type PostFormValues } from './post-form';
 import { failureText, refusedErrors } from './post-outcome';
 import { PostContent, type PostEdit, type PostFocus, type PostScreenView } from './PostContent';
@@ -19,14 +20,13 @@ type Loaded = Extract<PostScreenView, { kind: 'loaded' }>;
 export function PostScreen({ postId }: { postId: string }) {
   const account = useSessionAccount();
   const navigate = useNavigate();
-  const location = useLocation();
   const [view, setView] = useState<PostScreenView>({ kind: 'loading' });
   const [focus, setFocus] = useState<PostFocus>({ target: 'actions', tick: 0 });
   const validating = useRef(false);
   const busy = useRef(false);
   const loads = useRef(0);
   // "הפוסט פורסם", handed over by the composer: said once, when the post first shows.
-  const arrival = useRef(flashStatus(location.state, PUBLISHED_STATUS));
+  const arrival = useRef(takeStatus(postPath(postId), PUBLISHED_STATUS));
 
   const focusOn = (target: PostFocus['target']) => setFocus((current) => ({ target, tick: current.tick + 1 }));
 
@@ -59,6 +59,13 @@ export function PostScreen({ postId }: { postId: string }) {
     },
     [token, refused, postId],
   );
+
+  // Going Back or Forward ends "just published", even when this screen is the one that history returns to.
+  useEffect(() => {
+    const ended = () => setView((current) => (current.kind === 'loaded' && current.status === PUBLISHED_STATUS ? { ...current, status: '' } : current));
+    window.addEventListener('popstate', ended);
+    return () => window.removeEventListener('popstate', ended);
+  }, []);
 
   useEffect(() => {
     void load(false);
@@ -105,6 +112,7 @@ export function PostScreen({ postId }: { postId: string }) {
         return;
       }
       const fieldErrors = refusedErrors(outcome);
+      if (fieldErrors !== null) validating.current = true;
       const failure = fieldErrors === null ? (refused(outcome) ?? failureText(outcome, SAVE_FAILED_TEXT)) : null;
       setView({ ...current, edit: { ...edit, errors: fieldErrors ?? {}, failure, saving: false } });
       focusOn(fieldErrors === null ? 'message' : 'invalid');
@@ -121,7 +129,8 @@ export function PostScreen({ postId }: { postId: string }) {
       const accessToken = await token();
       const outcome = accessToken === null ? ({ kind: 'failed' } as const) : await deletePost(accessToken, postId);
       if (outcome.kind === 'deleted') {
-        void navigate(PATHS.feed, { state: { status: DELETED_STATUS } });
+        handOverStatus(PATHS.feed, DELETED_STATUS);
+        void navigate(PATHS.feed);
         return;
       }
       if (outcome.kind === 'unavailable') {

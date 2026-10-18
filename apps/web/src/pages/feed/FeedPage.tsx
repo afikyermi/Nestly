@@ -1,5 +1,6 @@
-import { useLocation } from 'react-router';
-import { flashStatus } from '@/features/posts/flash-status';
+import { useState } from 'react';
+import { PATHS } from '@/app/paths';
+import { takeStatus } from '@/features/posts/flash-status';
 import { CHECKING_TEXT, DELETED_STATUS, FEED_TITLE } from '@/features/posts/posts-texts';
 import { WritePostButton } from '@/features/posts/WritePostButton';
 import { usePostingRight } from '@/hooks/use-posting-right';
@@ -7,10 +8,11 @@ import { documentTitle } from '@/lib/document-title';
 import { PLACEHOLDER_TEXT } from '@/pages/placeholder/placeholder-text';
 
 // The feed page (protected; the list arrives with F3.2): its heading, the placeholder line, and "כתיבת פוסט" for a Regular account
-// (F3.1b). A post just deleted leaves "הפוסט נמחק" here, handed over in the navigation state.
+// (F3.1b). A post just deleted leaves "הפוסט נמחק" here, handed over in memory, once.
 export function FeedPage() {
   const right = usePostingRight();
-  const deleted = flashStatus(useLocation().state, DELETED_STATUS);
+  // Taken once: Back or a reload does not say it again.
+  const [deleted] = useState(() => takeStatus(PATHS.feed, DELETED_STATUS));
   // One polite region: the check in progress, else what just happened.
   const status = right === 'checking' ? CHECKING_TEXT : deleted;
   return (

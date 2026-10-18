@@ -27,3 +27,4 @@ without my tracked changes; full Playwright chrome run: see hand-off.
 **Neighbouring**  existing tests assert exact fetch counts after landing on `/feed` (completion.test.tsx c16) and the exact protected-path list
 (access-decision.test.ts c6): both need the feed's profile call and `/posts/new` added (TEST ENGINEER's files, not edited).
 - Fix (TEST ENGINEER finding): a 403 not_allowed on POST/PATCH/DELETE now shows the action's own ERR-004 failure text (screen.md, c17), not UNAVAILABLE_ACTION_TEXT; that text stays only in the Professional block of /posts/new.
+- Lows 1-4 fixed: "הפוסט פורסם"/"הפוסט נמחק" now handed over in memory once (not in history), plus a popstate clear; counter region always mounted; re-validate after 422; Professional view keeps h1/title "כתיבת פוסט".
