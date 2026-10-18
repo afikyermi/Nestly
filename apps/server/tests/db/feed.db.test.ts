@@ -7,11 +7,9 @@ import { createDatabase, type Database } from '../../src/db/client.js';
 import { AUDIENCE, COLD_START_MS, ISSUER, newKey, restoreEnv, startJwks, token, toRecord, type App, type JwksServer, type TestKey } from '../helpers/identity-fixtures.js';
 import { CLOCK_NOW, buildRegisterApp, captureLog, post, refusingDatabase, validBody } from '../helpers/register-app.js';
 
-// I3 F3.2a2, GET /api/feed against the real database under RLS (CI `db` job, as app_server). Criteria c1-c12 of .work/feed-view/spec.md and the
-// Evaluation of .work/_initiatives/I3-algorithm.md; every expected value is hand-computed from the formula there (v1: wFresh 1, half-life 24 h,
-// wFriend .5, wQuality .2, cap 20, wStage 0, 14-day window, page 20, caps 2 per 5) or is a set/order the criteria state. Fixtures:
-// supabase/tests/setup/72_feed_view_fixtures.sql (created_at control). The ranking tests fix asOf in the past with a "top" cursor (score 1e9,
-// tier 0) that sits before every unit, so rows placed relative to ASOF rank exactly as the formula says; the live-asOf tests use DB time.
+// I3 F3.2a2, GET /api/feed under RLS (CI db job, as app_server); criteria c1-c12 of .work/feed-view/spec.md. Expected values are hand-computed from the I3-algorithm.md
+// formula (v1: wFresh 1, half-life 24 h, wFriend .5, wQuality .2, cap 20, 14 days, page 20, caps 2/5). Ranking tests fix asOf in the past with a "top" cursor;
+// created_at comes from supabase/tests/setup/72_feed_view_fixtures.sql. Live tests use DB time.
 
 const T = { timeout: COLD_START_MS };
 const FEED = '/api/feed';
@@ -49,7 +47,6 @@ async function start(database: Database = createDatabase(url()), logStream?: Wri
   toClose.push({ app, database });
   return app;
 }
-/** A Database that keeps the text of every statement it runs (postgres.js `debug`), to check what really reaches the database. */
 function recording(statements: string[]): Database {
   const client = postgres(url(), { max: 1, prepare: false, debug: (_connection: number, query: string) => void statements.push(query) });
   return { db: drizzle({ client }), client, close: () => client.end() };
@@ -113,7 +110,6 @@ const parsePage = (body: string): FeedPageResponse => {
   const raw: unknown = JSON.parse(body);
   return feedPageResponse.parse(raw);
 };
-/** The first page of a live snapshot (asOf = the database's now()): for rows created now. */
 const live = async (app: App, who: Member = V): Promise<string[]> => ids(await page(app, who.header));
 const ids =(p: FeedPageResponse): string[] => p.items.map((i) => i.id);
 const byIdDesc = (list: string[]): string[] => [...list].sort().reverse();
@@ -149,12 +145,8 @@ beforeAll(async () => {
     made.push({ id, header });
   }
   everyone = made;
-  const member = (i: number): Member => {
-    const m = made[i];
-    if (!m) throw new Error(`no member ${i}`);
-    return m;
-  };
-  [V, F, Tm, U, W, Y, K, R, X] = [member(0), member(1), member(2), member(3), member(4), member(5), member(6), member(7), member(8)];
+  const none: Member = { id: '', header: '' };
+  [V = none, F = none, Tm = none, U = none, W = none, Y = none, K = none, R = none, X = none] = made;
   await side`select tests.fx_restrict(${R.id}::uuid)`;
   await closeAll();
 }, COLD_START_MS * 3);
@@ -173,7 +165,6 @@ afterAll(async () => {
   restoreEnv();
 });
 
-// ---------------------------------------------------------------------------------------------------------------------
 describe('[F3.2-a2 c1 FR-FEED-001 BR-065] eligibility is the database\'s: who sees which post', () => {
   it('[F3.2-a2 c1] viewer V sees exactly: own (named, friends-only, anonymous), a friend\'s friends-only, a stranger\'s everyone, a restricted author\'s everyone, a stranger\'s anonymous', T, async () => {
     const app = await start();
@@ -226,7 +217,6 @@ describe('[F3.2-a2 c1 FR-FEED-001 BR-065] eligibility is the database\'s: who se
   });
 });
 
-// ---------------------------------------------------------------------------------------------------------------------
 describe('[F3.2-a2 c3 FR-ALG-002] ordering fixtures, seeded v1, fixed asOf', () => {
   it('[F3.2-a2 c3] a friend\'s post is above an equal stranger\'s, and above a stranger\'s newer one (0.5 beats 12 h of freshness)', T, async () => {
     const app = await start();
@@ -287,7 +277,6 @@ describe('[F3.2-a2 c3 FR-ALG-002] ordering fixtures, seeded v1, fixed asOf', () 
   });
 });
 
-// ---------------------------------------------------------------------------------------------------------------------
 describe('[F3.2-a2 c4] Stage is a signal, never a filter (v1 wStage 0)', () => {
   it('[F3.2-a2 c4] V (pregnant) gets the same set and the id-desc tie order whatever the posts are tagged; no statement reads journey_contexts', T, async () => {
     const statements: string[] = [];
@@ -303,7 +292,6 @@ describe('[F3.2-a2 c4] Stage is a signal, never a filter (v1 wStage 0)', () => {
   });
 });
 
-// ---------------------------------------------------------------------------------------------------------------------
 describe('[F3.2-a2 c5 FR-ALG-002] what n counts (one counted comment on B must beat whatever is uncounted on A)', () => {
   // A has k >= 2 rows that must not count (wrongly counted n=2 gives 0.072 > the 0.0455 of B's one counted comment); B has exactly one.
   const run = async (prepareA: (a: string) => Promise<void>, anonA = false): Promise<void> => {
@@ -341,7 +329,6 @@ describe('[F3.2-a2 c5 FR-ALG-002] what n counts (one counted comment on B must b
   });
 });
 
-// ---------------------------------------------------------------------------------------------------------------------
 describe('[F3.2-a2 c6 c7] the cursor: structure, DB time, microseconds, stability', () => {
   const good = { asOf: ASOF, configVersion: 1, tier: 0, score: 0.5, createdAt: ASOF, id: TOP_ID };
   const raw = (over: Record<string, unknown>): string => b64(JSON.stringify({ ...good, ...over }));
@@ -448,7 +435,6 @@ describe('[F3.2-a2 c6 c7] the cursor: structure, DB time, microseconds, stabilit
   });
 });
 
-// ---------------------------------------------------------------------------------------------------------------------
 describe('[F3.2-a2 c9 c8] nextCursor is built from the last ranked unit, before re-ranking', () => {
   it('[F3.2-a2 c9] the last ranked unit is displaced to mid-page: it sits at slot 3, the cursor is its own, page 2 is exactly the next unit', T, async () => {
     const app = await start();
@@ -480,7 +466,6 @@ describe('[F3.2-a2 c9 c8] nextCursor is built from the last ranked unit, before 
   });
 });
 
-// ---------------------------------------------------------------------------------------------------------------------
 describe('[F3.2-a2 c10 c11] configuration, cold start, empty feed, logs', () => {
   it('[F3.2-a2 c10] the seeded database answers configVersion 1 (numeric weights converted: the friend term of 0.5 is applied)', T, async () => {
     const app = await start();
@@ -534,7 +519,6 @@ describe('[F3.2-a2 c10 c11] configuration, cold start, empty feed, logs', () => 
   });
 });
 
-// ---------------------------------------------------------------------------------------------------------------------
 describe('[F3.2-a2 c12 BR-062 6ב] who may ask, and exactly what a unit holds', () => {
   it('[F3.2-a2 c12] a Professional -> 403 not_allowed and a suspended account -> 403, neither returns post data', T, async () => {
     const app = await start();
@@ -601,7 +585,6 @@ describe('[F3.2-a2 c12 BR-062 6ב] who may ask, and exactly what a unit holds', 
   });
 });
 
-// ---------------------------------------------------------------------------------------------------------------------
 describe('[F3.2-a2 c2 c5] the statements that really run', () => {
   it('[F3.2-a2 c2] ranking and display are separate statements by the allow-list, run as authenticated, in float8; the display fetch cannot order', T, async () => {
     const statements: string[] = [];
@@ -613,7 +596,6 @@ describe('[F3.2-a2 c2 c5] the statements that really run', () => {
     const onPosts = statements.filter((q) => /\b(posts|regular_names|friendships|comments|reactions|algorithm_configurations)\b/i.test(q));
     expect(onPosts.length).toBeGreaterThanOrEqual(2);
     const forbidden = /post_hides|\breports\b|post_authors|reaction_owners|journey_contexts|\bheld_|author_visibility|\b(author_|liker_)?status\b|is_active_account|select\s+\*/i;
-    /** `alias.*` is fine on a CTE whose columns are listed, never on a table. */
     const tableWildcards = (q: string, ctes: Set<string>): string[] => {
       const bound = new Map<string, string>();
       for (const m of q.matchAll(/\b(?:from|join)\s+([\w".]+)\s+(?:as\s+)?([a-z_]\w*)\b/gi)) {
