@@ -350,8 +350,8 @@ select is(
      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')
       and (has_table_privilege('authenticated', c.oid, 'UPDATE,TRUNCATE,REFERENCES,TRIGGER')
-           or (c.relname not in ('recovery_answers', 'children', 'journey_contexts') and has_table_privilege('authenticated', c.oid, 'DELETE'))
-           or (c.relname not in ('recovery_answers', 'identity_link_checks', 'regular_profiles', 'children', 'journey_contexts', 'friendships') and has_any_column_privilege('authenticated', c.oid, 'UPDATE,REFERENCES')))),
+           or (c.relname not in ('recovery_answers', 'children', 'journey_contexts', 'posts', 'post_hides') and has_table_privilege('authenticated', c.oid, 'DELETE'))
+           or (c.relname not in ('recovery_answers', 'identity_link_checks', 'regular_profiles', 'children', 'journey_contexts', 'friendships', 'posts') and has_any_column_privilege('authenticated', c.oid, 'UPDATE,REFERENCES')))),
   0::bigint,
   '[F1.1-b c13 · F1.4-a c14 · F1.6, F2.0 scoped · F2.2a c9 · F2.2-b c18 · F2.4a c12] authenticated holds no table-level UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any table in nestly (DELETE on recovery_answers is the F2.0 D1 grant; on children and journey_contexts the F2.2b2 own-row delete, file 54), and no column-level UPDATE or REFERENCES except on recovery_answers, identity_link_checks, regular_profiles, children, journey_contexts and friendships (files 30, 40, 50, 51, 54 and 61 list those columns)');
 
