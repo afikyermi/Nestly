@@ -329,3 +329,94 @@ test('[audit 18.10] a closed PR that was not merged gets the existing blocker on
   assert.match(blockers, /closed without a merge/);
   assert.doesNotMatch(blockers, /Merge conflict/);
 });
+
+// P1.1 (audit A1): part-status must say green for a correct PR, without losing a real blocker.
+const ciUrl = (runId) => `https://github.com/afikyermi/Nestly/actions/runs/${runId}/job/1`;
+const outcomeOf = (c) => (c.status === 'completed' ? c.conclusion : c.status);
+
+test('[P1.1] main health reads one page of runs: a stated limitation, never a pagination blocker', () => {
+  const api = apiFixture();
+  const asked = [];
+  const read = (url) => {
+    asked.push(url);
+    if (url.includes('actions/runs?branch=main')) {
+      const data = api.read(url);
+      return { workflow_runs: [...data.workflow_runs, ...Array.from({ length: 97 }, (_, i) => run(40 + i, [], { created_at: '2026-10-01T00:00:00Z' }))] };
+    }
+    return url.includes('/jobs') && !/runs\/1[012]\//.test(url) ? { jobs: [] } : api.read(url);
+  };
+  const snapshot = collect({ repo: 'afikyermi/Nestly', pr: '57' }, read);
+  assert.equal(asked.filter((u) => u.includes('actions/runs?branch=main')).length, 1, 'one page only');
+  assert.ok(!snapshot.errors.some((e) => e.includes('Pagination')));
+  assert.ok(snapshot.limitations.some((l) => l.includes('newest 100 main runs')));
+  const broken = collect({ repo: 'afikyermi/Nestly', pr: '57' }, (url) => (url.includes('actions/runs?branch=main') ? {} : api.read(url)));
+  assert.match(evaluate(broken).blockers.join('\n'), /Invalid response: actions\/runs\?branch=main/, 'an unreadable page still blocks');
+});
+
+test('[P1.1] a cancellation on an older main SHA is superseded; on the current main SHA it blocks; an older failure still shows', () => {
+  const e2e = (id, sha, conclusion) => run(id, [], { name: 'preview-e2e', workflow_id: 9, event: 'deployment_status', head_sha: sha, conclusion });
+  assert.deepEqual(mainHealth([e2e(10, OLD, 'cancelled')], MAIN), [], 'no-jobs run cancelled on an older SHA');
+  assert.deepEqual(mainHealth([run(10, [job('test', 'cancelled')], { head_sha: OLD })], MAIN), [], 'a job cancelled on an older SHA');
+  assert.equal(mainHealth([e2e(10, MAIN, 'cancelled')], MAIN).length, 1, 'cancelled on the current SHA counts');
+  assert.equal(mainHealth([run(10, [job('test', 'cancelled')])], MAIN).length, 1);
+  const hidden = mainHealth([run(9, [job('test', 'failure')], { head_sha: OLD }), run(10, [job('test', 'cancelled')], { head_sha: OLD })], MAIN);
+  assert.equal(hidden.length, 1, 'a superseded cancellation cannot erase an older failure');
+  assert.equal(outcomeOf(hidden[0]), 'failure');
+  assert.equal(mainHealth([e2e(10, OLD, 'cancelled')]).length, 1, 'without the main SHA nothing is passed over');
+  const s = fixture(); s.mainRuns = [e2e(10, OLD, 'cancelled')];
+  assert.deepEqual(evaluate(s).blockers, [], 'evaluate passes the main SHA');
+});
+
+test('[P1.1] a job skipped by this head\'s own successful CI run is an expected skip with its reason; any other skip still blocks', () => {
+  const withSkip = (ciRun, url = ciUrl(77)) => ({ ...fixture(), ciRun, checks: [...fixture().checks, check('db', 'skipped', { id: 30, html_url: url })] });
+  const ok = evaluate(withSkip({ id: 77, conclusion: 'success' }));
+  assert.deepEqual(ok.blockers, []);
+  assert.match(ok.expectedSkips.db, /successful CI run 77/);
+  assert.match(formatStatus(ok), /Expected skip: db/);
+  assert.match(evaluate(withSkip({ id: 77, conclusion: 'failure' })).blockers.join('\n'), /Check db: skipped/, 'the CI run did not succeed');
+  assert.match(evaluate(withSkip(undefined)).blockers.join('\n'), /Check db: skipped/, 'no CI run found');
+  assert.match(evaluate(withSkip({ id: 77, conclusion: 'success' }, ciUrl(78))).blockers.join('\n'), /Check db: skipped/, 'a skip from another run');
+  assert.match(evaluate(withSkip({ id: 7, conclusion: 'success' }, ciUrl(77))).blockers.join('\n'), /Check db: skipped/, 'run 7 is not run 77');
+  const required = withSkip({ id: 77, conclusion: 'success' });
+  required.checks = required.checks.map((c) => (c.name === 'test' ? { ...c, conclusion: 'skipped' } : c));
+  assert.match(evaluate(required).blockers.join('\n'), /Required test: skipped/, 'a required check skipped outside the run');
+  const failed = withSkip({ id: 77, conclusion: 'success' });
+  failed.checks.at(-1).conclusion = 'failure';
+  assert.match(evaluate(failed).blockers.join('\n'), /Check db: failure/);
+});
+
+test('[P1.1] E is "not required" for a no-Preview branch only when no product, migration, dependency or deploy file changed', () => {
+  const POLICY = { '**': false, main: true, 'ready/**': true };
+  const noE = (files, extra = {}) => ({ ...fixture(), checks: fixture().checks.filter((c) => c.name !== 'preview-e2e'), headPolicy: POLICY, headRef: 'chore/records', files, ...extra });
+  const records = evaluate(noE(['WORKPLAN-HE.md', 'tools/part-status.mjs', '.claude/workflow.md', '.github/workflows/ci.yml']));
+  assert.deepEqual(records.blockers, []);
+  assert.equal(records.e.state, 'not required');
+  assert.match(records.e.reason, /no Preview by policy for chore\/records/);
+  for (const f of ['apps/web/src/a.tsx', 'apps/server/src/x.ts', 'packages/shared/src/v.ts', 'api/index.ts', 'supabase/migrations/1_x.sql',
+    'package-lock.json', 'package.json', 'apps/web/package.json', 'vercel.json', 'e2e-preview/a.flow.ts']) {
+    assert.match(evaluate(noE(['WORKPLAN-HE.md', f])).blockers.join('\n'), /E on a{40}: missing/, f);
+  }
+  assert.match(evaluate(noE(undefined)).blockers.join('\n'), /E on .*missing/, 'file list not read');
+  assert.match(evaluate(noE([])).blockers.join('\n'), /E on .*missing/, 'empty file list');
+  assert.match(evaluate(noE(['README.md'], { headRef: 'ready/x' })).blockers.join('\n'), /E on .*missing/, 'a ready/ branch gets a Preview: E is required');
+  assert.match(evaluate(noE(['README.md'], { headPolicy: undefined })).blockers.join('\n'), /E on .*missing/, 'no policy: every branch deploys');
+  const failedE = noE(['README.md']);
+  failedE.checks.push(check('preview-e2e', 'failure', { id: 40 }));
+  assert.match(evaluate(failedE).blockers.join('\n'), /E on .*failure/, 'an E that ran and failed is never waived');
+});
+
+test('[P1.1] a merged PR\'s CI run is found by head SHA and branch; an open PR still needs the PR link', () => {
+  const api = apiFixture();
+  const make = ({ merged, runBranch = 'chore/x', prs = [] }) => (url) => {
+    if (url.endsWith('/pulls/57')) return { ...api.read(url), state: merged ? 'closed' : 'open', merged, head: { sha: SHA, ref: 'chore/x' } };
+    if (url.includes('workflows/ci.yml/runs')) return { workflow_runs: [{ ...run(12, []), head_sha: SHA, event: 'pull_request', head_branch: runBranch, pull_requests: prs }] };
+    return api.read(url);
+  };
+  const ci = (cfg) => collect({ repo: 'afikyermi/Nestly', pr: '57' }, make(cfg)).errors.filter((e) => e.startsWith('CI run on current PR head'));
+  assert.deepEqual(ci({ merged: true }), [], 'merged: found by SHA and branch');
+  assert.equal(collect({ repo: 'afikyermi/Nestly', pr: '57' }, make({ merged: true })).ciRun.id, 12);
+  assert.deepEqual(ci({ merged: false }), ['CI run on current PR head: missing'], 'open PR: the link is required');
+  assert.deepEqual(ci({ merged: true, runBranch: 'other' }), ['CI run on current PR head: missing'], 'another branch on the same commit');
+  assert.deepEqual(ci({ merged: true, prs: [{ number: 99 }] }), ['CI run on current PR head: missing'], 'linked to another PR');
+  assert.deepEqual(ci({ merged: false, prs: [{ number: 57 }] }), []);
+});
