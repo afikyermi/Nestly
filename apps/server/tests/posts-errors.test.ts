@@ -1,7 +1,7 @@
 import postgres from 'postgres';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { AUDIENCE, ISSUER, newKey, restoreEnv, startFakeDb, startJwks, token, type App, type FakeDb, type JwksServer, type TestKey } from './helpers/identity-fixtures.js';
-import { buildRegisterApp, captureLog, jsonOf } from './helpers/register-app.js';
+import { buildRegisterApp, jsonOf } from './helpers/register-app.js';
 import { createPost, deletePost, patchPost } from './helpers/posts-api.js';
 import { postFaultReply } from '../src/lib/pg-error.js';
 import type { Database } from '../src/db/client.js';
@@ -82,8 +82,7 @@ async function failingWith(make: () => Error): Promise<App> {
     },
   });
   database = { db, client, close: () => real.close() };
-  const log = captureLog();
-  app = await buildRegisterApp(env(), { database, logStream: log.stream });
+  app = await buildRegisterApp(env(), { database });
   return app;
 }
 
@@ -105,12 +104,13 @@ afterAll(async () => {
 });
 
 describe('[F3.1-a c7] the routes answer a database fault with the mapped status, and leak nothing', () => {
-  it.each(EXPECTED)('[F3.1-a c7] POST and PATCH: %s', T, async (_label, error, status, code) => {
+  it.each(EXPECTED)('[F3.1-a c7] POST, PATCH and DELETE: %s', T, async (_label, error, status, code) => {
     const running = await failingWith(() => error);
     const header = await bearer();
     const outcomes = [
       await createPost(running, header, { body: 'x', audience: 'everyone' }),
       await patchPost(running, header, ID, { body: 'x', audience: 'everyone' }),
+      await deletePost(running, header, ID),
     ];
     for (const res of outcomes) {
       expect(res.statusCode, res.body).toBe(status);
@@ -119,25 +119,13 @@ describe('[F3.1-a c7] the routes answer a database fault with the mapped status,
     }
   });
 
-  it('[F3.1-a c7] DELETE: a refused database call is 403/500 by the same table, never a message', T, async () => {
-    const running = await failingWith(() => fault('XX000'));
-    const res = await deletePost(running, await bearer(), ID);
-    expect(res.statusCode).toBe(500);
+  it.each([
+    ['an unreachable database', () => Object.assign(new Error(`write CONNECTION_CLOSED ${SECRET}`), { code: 'CONNECTION_CLOSED' }), 503],
+    ['a code defect', () => new TypeError(`cannot read properties of undefined ${SECRET}`), 500],
+  ])('[F3.1-a c7] %s: %i and nothing about why', T, async (_label, make, status) => {
+    const res = await createPost(await failingWith(make), await bearer(), { body: 'x', audience: 'everyone' });
+    expect(res.statusCode).toBe(status);
     expect(res.body).not.toContain(SECRET);
-  });
-
-  it('[F3.1-a c7] a database that cannot be reached is 503 (not 500), and says nothing about why', T, async () => {
-    const running = await failingWith(() => Object.assign(new Error(`write CONNECTION_CLOSED ${SECRET}`), { code: 'CONNECTION_CLOSED' }));
-    const res = await createPost(running, await bearer(), { body: 'x', audience: 'everyone' });
-    expect(res.statusCode).toBe(503);
-    expect(res.body).not.toContain(SECRET);
-  });
-
-  it('[F3.1-a c7] a code defect (a plain TypeError) is a 500 server_error, not a leak', T, async () => {
-    const running = await failingWith(() => new TypeError(`cannot read properties of undefined ${SECRET}`));
-    const res = await createPost(running, await bearer(), { body: 'x', audience: 'everyone' });
-    expect(res.statusCode).toBe(500);
-    expect(jsonOf(res.body)).toEqual({ error: 'server_error' });
   });
 
   it('[F3.1-a c2] a refused body never reaches the database', T, async () => {

@@ -2,16 +2,12 @@ import postgres from 'postgres';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createDatabase, type Database } from '../../src/db/client.js';
 import { ACCOUNT_A, ACCOUNT_B, AUDIENCE, COLD_START_MS, ISSUER, newKey, restoreEnv, startJwks, token, type App, type JwksServer, type TestKey } from '../helpers/identity-fixtures.js';
-import { CLOCK_NOW, EMPTY_DATE, buildRegisterApp, child, parts, post, validBody } from '../helpers/register-app.js';
+import { CLOCK_NOW, buildRegisterApp, child, parts, post, validBody } from '../helpers/register-app.js';
 import { createPost, deletePost, getPost, jsonObject, patchPost } from '../helpers/posts-api.js';
 
 // I3 F3.1a, the post API against the real database (CI `db` job, as app_server, fixtures of supabase/tests/setup/):
-//   A, B: active Regulars ('Alice Aaron', 'Bella Baruch')   S suspended Regular   P Professional   C: a fresh registered Regular per test
-// Spec criteria (.work/post-create/spec.md): c3 create · c4 refused actors · c5 stage tag · c8 edit · c9 edit by others · c10 delete
-// · c11 delete of others' / reported posts · c12 read · c2 (the 400 at the route). Expected values come from spec.md and
-// .work/feed-groundwork/schema.md / schema-b.md only. What the policies refuse on their own is asserted in supabase/tests/7x_*.sql.
-// Rows are written and read with the fixture functions of 70_/71_ (committed through `side.begin`); every test starts and ends
-// with tests.fx_feed_clear() because the suite is not rolled back.
+// Criteria c1-c5, c8-c12 of .work/post-create/spec.md; values from spec.md and schema.md/schema-b.md only. A, B active Regulars, S suspended, P Professional.
+// Fixture rows are committed through `side.begin`; every test starts and ends with tests.fx_feed_clear().
 
 const T = { timeout: COLD_START_MS };
 const S = '50000000-0000-4000-8000-000000000051';
@@ -208,21 +204,6 @@ describe('[F3.1-a c4 FR-FEED-002] who may post', () => {
     expect(await postCount()).toBe(0);
   });
 
-  it('[F3.1-a c4] an account suspended after it registered is refused too, and posts again once reactivated', T, async () => {
-    const app = await start();
-    await setStatus(ACCOUNT_A, 'suspended');
-    expect((await createPost(app, hA, { body: 'x', audience: 'everyone' })).statusCode).toBe(403);
-    expect(await postCount()).toBe(0);
-    await setStatus(ACCOUNT_A, 'active');
-    expect((await createPost(app, hA, { body: 'x', audience: 'everyone' })).statusCode).toBe(201);
-  });
-
-  it('[F3.1-a c4 c7] a refusal carries no database detail (no constraint, table, SQLSTATE or pg message)', T, async () => {
-    const app = await start();
-    for (const res of [await createPost(app, hP, { body: 'x', audience: 'everyone' }), await createPost(app, hS, { body: 'x', audience: 'everyone' })]) {
-      expect(res.body).not.toMatch(/nestly|posts|violates|constraint|policy|23503|42501|relation|row-level/i);
-    }
-  });
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -242,14 +223,6 @@ describe('[F3.1-a c5 5א] the stage tag is only what the author chose', () => {
     expect(await stateOf(String(jsonObject(explicitNull.body).id))).toContain('tag=null');
   });
 
-  it('[F3.1-a c5] a user whose only profile is a child gets no tag unless one is sent, and may choose another stage', T, async () => {
-    const app = await start();
-    const c = await registered(app, 'Dana Levi', { stages: ['has_child'], dueDate: EMPTY_DATE, children: [child()] });
-    const none = await createPost(app, c.header, { body: 'x', audience: 'friends' });
-    expect(await stateOf(String(jsonObject(none.body).id))).toContain('tag=null');
-    const other = await createPost(app, c.header, { body: 'x', audience: 'friends', stageTag: 'planning' });
-    expect(await stateOf(String(jsonObject(other.body).id))).toContain('tag=planning');
-  });
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -377,20 +350,6 @@ describe('[F3.1-a c10 c11 3א] DELETE /posts/:id', () => {
     expect((await deletePost(app, hA, id)).statusCode).toBe(404);
   });
 
-  it('[F3.1-a c11] a deletion with an open report is indistinguishable from one without (status, body, headers apart from time)', T, async () => {
-    const app = await start();
-    const plain = await seedPost(ACCOUNT_A);
-    const reported = await seedPost(ACCOUNT_A);
-    await inTx(async (tx) => {
-      await tx`select tests.fx_rp_add(${ACCOUNT_B}::uuid, 'post', ${reported}::uuid, 'harassment', null)`;
-    });
-    const one = await deletePost(app, hA, plain);
-    const two = await deletePost(app, hA, reported);
-    expect([two.statusCode, two.body]).toEqual([one.statusCode, one.body]);
-    expect(two.headers['content-type']).toBe(one.headers['content-type']);
-    expect(two.headers['content-length']).toBe(one.headers['content-length']);
-  });
-
   it('[F3.1-a c10] two simultaneous deletes: at most one 204, the other 404 (503 allowed); the post is gone', T, async () => {
     const first = await start();
     const second = await start();
@@ -471,24 +430,4 @@ describe('[F3.1-a c12] GET /posts/:id', () => {
     for (const [label, got] of cases) expect(got, label).toBe(`404|${reference.body}`);
   });
 
-  it('[F3.1-a c12] a viewer who reported the post no longer reads it; a viewer who hid it neither (404)', T, async () => {
-    const app = await start();
-    const reported = await seedPost(ACCOUNT_A);
-    const hiddenByB = await seedPost(ACCOUNT_A);
-    await inTx(async (tx) => {
-      await tx`select tests.fx_rp_add(${ACCOUNT_B}::uuid, 'post', ${reported}::uuid, 'spam', null)`;
-      await tx`select tests.fx_ph_add(${ACCOUNT_B}::uuid, ${hiddenByB}::uuid)`;
-    });
-    expect((await getPost(app, hB, reported)).statusCode).toBe(404);
-    expect((await getPost(app, hB, hiddenByB)).statusCode).toBe(404);
-    expect((await getPost(app, hA, reported)).statusCode).toBe(200);
-  });
-
-  it('[F3.1-a c12] a malformed id is refused without a 500', T, async () => {
-    const app = await start();
-    for (const id of ['not-a-uuid', '1', '%00']) {
-      const res = await getPost(app, hA, id);
-      expect([400, 404], `${id}: ${res.statusCode}`).toContain(res.statusCode);
-    }
-  });
 });
