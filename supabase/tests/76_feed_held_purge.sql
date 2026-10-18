@@ -71,7 +71,7 @@ select is(pg_temp.del_post('a', current_setting('t.hp')::uuid), '1', '[F3.0-b c1
 select ok((tests.fx_hold_state('post', current_setting('t.hp')::uuid)) like 'status=deleted hours=%', '[F3.0-b c14] the row is kept, marked deleted, with a release time');
 select ok(pg_temp.hours(tests.fx_hold_state('post', current_setting('t.hp')::uuid)) between 0 and 2160, '[F3.0-b c14] the release time is at most 90 days (2160 hours) after the delete');
 select is(pg_temp.seen_post(current_setting('t.hp')::uuid), '000', '[F3.0-b c14] it is hidden from every viewer, its author included');
-select is(pg_temp.n('c', format('nestly.comments where post_id = %L', current_setting('t.hp'))), '0', '[F3.0-b c14] its comments are unreadable');
+select is(pg_temp.n('b', format('nestly.comments where post_id = %L', current_setting('t.hp'))), '0', '[F3.0-b c14] its comments are unreadable to others (a commenter''s own comment is G2: file 75)');
 select is(pg_temp.n('c', format('nestly.reactions where post_id = %L', current_setting('t.hp'))), '0', '[F3.0-b c14] and its likes count 0');
 select is(pg_temp.n('b', format('nestly.reports where id = %L', current_setting('t.hr'))), '1', '[F3.0-b c14] the report is still the reporter''s to read');
 select is(pg_temp.n('a', 'nestly.reports'), '0', '[F3.0-b c14] and not the author''s');

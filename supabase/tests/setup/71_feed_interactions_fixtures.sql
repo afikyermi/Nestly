@@ -16,6 +16,7 @@
 --   tests.fx_rp_list(reporter)                   'kind:status:<target|null>:closed=<t|f>' of every report by one reporter, comma separated
 --   tests.fx_rp_clear()                          deletes every report (a section that counts reports starts clean)
 --   tests.fx_feed_clear()                        deletes every report, like, comment, hide and post (a section that counts rows starts clean)
+--   tests.fx_analyze_posts()                     ANALYZE nestly.posts (the plan test needs the planner's statistics of a populated table)
 --   tests.fx_rp_set(id, status)                  sets a report to handled / expired (closed_at = now()) -- the work of I4 and the purge
 --   tests.fx_hold_state(kind, id)                'none' or 'status=deleted hours=<held_until - held_at in hours>' of a post / comment
 --   tests.fx_hold_exec(sql)                      one UPDATE of held_at / held_until / status on posts or comments as the owner role:
@@ -158,6 +159,14 @@ begin
   delete from nestly.comments;
   delete from nestly.post_hides;
   delete from nestly.posts;
+end
+$f$;
+
+create or replace function tests.fx_analyze_posts() returns void
+language plpgsql security definer set search_path = ''
+as $f$
+begin
+  analyze nestly.posts;
 end
 $f$;
 

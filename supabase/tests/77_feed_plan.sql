@@ -12,8 +12,9 @@ select is(session_user::text, 'app_server'::text, '[F3.0-b c16] session_user is 
 select tests.fx_fr_build();
 
 -- a few rows so that the planner has something to choose from
-select tests.fx_po_add(tests.fx_id('a'), 'everyone') from generate_series(1, 30);
-select tests.fx_po_add(tests.fx_id('a'), 'friends') from generate_series(1, 5);
+select tests.fx_po_add(tests.fx_id('a'), 'everyone') from generate_series(1, 600);
+select tests.fx_po_add(tests.fx_id('a'), 'friends') from generate_series(1, 100);
+select tests.fx_analyze_posts();
 
 create function pg_temp.plan(p_sql text) returns text language plpgsql as $f$
 declare

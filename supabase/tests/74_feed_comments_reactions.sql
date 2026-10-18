@@ -159,7 +159,7 @@ select is(pg_temp.dml('c', pg_temp.cm_sql(current_setting('t.fp')::uuid, 'friend
 select is(pg_temp.cms('a', current_setting('t.fp')::uuid) || pg_temp.cms('c', current_setting('t.fp')::uuid) || pg_temp.cms('b', current_setting('t.fp')::uuid),
   '110', '[F3.0-b c10] the author and the friend read it; a stranger reads 0');
 select tests.fx_fr_purge(pg_temp.id('c'));
-select is(pg_temp.cms('c', current_setting('t.fp')::uuid), '0', '[F3.0-b c10] a removed friend no longer reads the thread of a friends-only post');
+select is(pg_temp.cms('c', current_setting('t.fp')::uuid), '1', '[F3.0-b c10 G2] a removed friend no longer reads the thread of a friends-only post, only their own comment in it');
 
 select pg_temp.reset();
 select set_config('t.p5', pg_temp.post('a')::text, true);
@@ -176,7 +176,7 @@ select tests.set_status(pg_temp.id('c'), 'suspended');
 select is(pg_temp.cms('c', current_setting('t.p5')::uuid), '0', '[F3.0-b c10 rule 15] a suspended viewer reads no comment');
 select tests.set_status(pg_temp.id('c'), 'active');
 select is(pg_temp.dml('b', format($q$ insert into nestly.post_hides (post_id) values (%L) $q$, current_setting('t.p5'))), 'OK:1', '[F3.0-b c10 c16] B hides the post');
-select is(pg_temp.cms('b', current_setting('t.p5')::uuid) || pg_temp.cms('c', current_setting('t.p5')::uuid), '01', '[F3.0-b c10 c16] a viewer who cannot read the post (hidden) reads none of its comments; others still do');
+select is(pg_temp.cms('b', current_setting('t.p5')::uuid) || pg_temp.cms('c', current_setting('t.p5')::uuid), '11', '[F3.0-b c10 c16 G2] a viewer who cannot read the post (hidden) reads none of its comments but their own; others still read it');
 select pg_temp.dml('b', 'delete from nestly.post_hides');
 select set_config('t.p5s', pg_temp.setst(current_setting('t.p5')::uuid, 'hidden')::text, true);
 select is(pg_temp.cms('c', current_setting('t.p5')::uuid) || pg_temp.cms('a', current_setting('t.p5')::uuid), '00', '[F3.0-b c10 BR-065] a post that is no longer active gives none of its comments');
