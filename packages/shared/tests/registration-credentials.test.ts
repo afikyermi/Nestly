@@ -174,13 +174,19 @@ describe('F1.4 criterion 2 [F1.3 debt] the credentials object is strict', () => 
     const letters = creds('x'.repeat(5_000_000), GOOD_PW);
     expect(letters.success).toBe(false);
     expect(issueCodes(letters)).toEqual(['too_big']);
-    // A password of 5 MB: the verdict is the length one, carried by the raw-bound issue; no email issue is added. This half
-    // does NOT prove "not by scanning": today the code-point refine still runs after the raw bound fails (a second, custom
-    // issue) — a product finding reported to Afik on 18.10.2026 (debt.md), not hidden by asserting it here.
+    // A password of 5 MB: the verdict is the length one alone, carried by the raw-bound issue; the code-point check must not
+    // run once the raw bound has failed (no second, custom issue), and no email issue is added (F1.4, debt.md A6).
     const long = creds('a@b.co', 'x'.repeat(5_000_000));
     expect(long.success).toBe(false);
-    expect(new Set(messages(long))).toEqual(new Set(['password_length']));
-    expect(issueCodes(long)).toContain('too_big');
+    expect(issueCodes(long)).toEqual(['too_big']);
+    expect(messages(long)).toEqual(['password_length']);
+  });
+  it('a password of exactly RAW_PASSWORD_MAX_UNITS units still gets the code-point length verdict', () => {
+    // At the raw bound the raw check passes, so the code-point check must still run: 1024 code points > PASSWORD_MAX_LENGTH.
+    const atBound = creds('a@b.co', 'x'.repeat(RAW_PASSWORD_MAX_UNITS));
+    expect(atBound.success).toBe(false);
+    expect(messages(atBound)).toEqual(['password_length']);
+    expect(issueCodes(atBound)).toEqual(['custom']);
   });
 });
 
