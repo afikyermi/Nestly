@@ -55,6 +55,10 @@
       "notes.md": {
         "lines": 30,
         "bytes": 3600
+      },
+      "screen.md": {
+        "lines": 60,
+        "bytes": 7000
       }
     },
     "maxLineBytes": 400,
