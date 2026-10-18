@@ -1,28 +1,28 @@
-# notes — post-create F3.1a (server)
+# notes — post-create F3.1 (a: server, b: web)
 
-**Approach**  Shared `POST_BODY_MAX`, `POST_AUDIENCES`, Zod `createPostSchema`/`updatePostSchema` + `checkCreatePost`/`checkUpdatePost`.
-Fastify `routes/posts.ts` → `services/posts-service.ts` → `repositories/posts-repository.ts`, all in `inIdentityTransaction`. Drizzle mirrors
-`posts`, `postsInsert`, `postsUpdate` added (only the columns used). Delete = `select nestly.delete_post($1::uuid)`.
+**Part a (server)** Shared `POST_BODY_MAX`, Zod `createPostSchema`/`updatePostSchema`; routes `/api/posts[/:id]` → service → repository in
+`inIdentityTransaction`; delete = `delete_post(uuid)`. Errors: 400 `invalid`, 422 `body_required|body_too_long`, 403 `not_allowed`, 404
+`not_found` (one body for missing/unreadable/not yours), 500 `server_error`. `postFaultReply` maps 23514 only on `posts_body_length_check`.
+`postBody` refuses U+0000 as 400. PATCH: any of body/audience/stageTag, at least one; `stageTag:null` clears. No actor pre-check: the DB refuses.
+Not done: anonymity, shares, rate limit, edit snapshot of a reported post (DECISION REQUEST default applies). Lint error in TEST ENGINEER's
+`posts.db.test.ts:62` is not mine.
 
+**Part b (web)** Routes `/posts/new`, `/posts/:id` (protected by pattern, `postIdOfPath`); `features/posts/` (ComposeScreen, PostScreen,
+PostContent, PostForm), `services/api/posts.ts`, new `ui/text-area` (+story, STATES). No anonymous control; `isAnonymous` is never sent.
 **Decisions**
-- URLs sit under `/api` (`/api/posts`, `/api/posts/:id`) like every route; spec wrote `/posts`.
-- Error bodies are the spec's codes: 400 `invalid`, 422 `body_required|body_too_long`, 403 `not_allowed`, 500 `server_error`, 404 `not_found`.
-- 400 for shape/key/enum, 422 only when every issue is a body code. A bad uuid in the path is 404 with no query (journeys pattern).
-- `postFaultReply` in `lib/pg-error.ts`: 23514 only on constraint `posts_body_length_check` → 422; other 23514 → 500. Connection failures stay 503.
-- PATCH takes any of body/audience/stageTag, at least one (else 400); absent = unchanged, `stageTag:null` clears.
-- `isMine` = `author_id` equals caller (display only). No actor pre-check: the DB (FK 23503, policy 42501) refuses Professional/suspended.
-- GET/PATCH/DELETE of unreadable or not-owned post: one 404 body; delete of a held post is the same 204.
-
-**Deviations**  URL prefix `/api` (above). Response of POST/PATCH has no `isMine`; GET has.
-
-**Deliberately not done**  anonymous handling, shares, rate limit, edit snapshot of a reported post (open DECISION REQUEST default applies),
-web (F3.1b), migration (CHECK is already in F3.0b).
-
-**Uncertain**  `isTransientFailure` is not used for posts, so a non-connection pg error such as 40001 is 500, as criterion 7 says.
-
-**Evidence**  typecheck, `check:budgets`, shared tests (380) green; `db-local test --keep` 670 passed (first run collided with another run
-on the shared container). Lint: one error in TEST ENGINEER's `apps/server/tests/db/posts.db.test.ts:62` (type assertion), not mine.
-
-**Neighbouring**  none.
-
-**Follow-up (CRITIC low 1)**  `postBody` refuses U+0000 as `invalid` (400) on POST and PATCH; test pending from TEST ENGINEER.
+- Professional detection: the web had no account type. `usePostingRight` calls GET /api/profile (404 `no_profile` = no parent profile);
+  `profile.ts` gained outcome `no-profile`. Button shows only on `allowed`; composer blocks only on `not-allowed` (unknown lets the form open,
+  the DB refuses with 403). Cost: the feed page now makes one request.
+- Audience memory: key `nestly.post-audience.<userId>`, via `AudienceStorageContext` (App passes `browserStorage`; default none), try/catch,
+  written only after a successful post. Read once when the form first draws.
+- "הפוסט פורסם"/"הפוסט נמחק" travel in router state, accepted only if equal to the known text (`flashStatus`). One `role=status` per screen;
+  in the form it is the counter (speaks at ≤100 left, says "מפרסמים"/"שומרים" while pending).
+- Edit sends all three fields (PATCH, strict). Textarea is `dir=rtl` fixed. Copy is BUILDER's (ux-copy-he): name notice "השם שלכם יוצג לכל
+  מי שיכול לראות את הפוסט" (Afik 6ב), tag label "תגית (לא חובה)", counter, errors, "הפוסט עודכן".
+**Deviations**  none from criteria 14-18.
+**Uncertain**  How TEST ENGINEER stubs "Professional": mine is `/api/profile` 404 `{error:'no_profile'}`. Router-state status disappears
+only on navigation, so a reload of `/posts/:id` keeps it once.
+**Evidence**  typecheck, lint (web), check:budgets, check:stories green; web unit: 7 failures, 2 mine (below), 5 flaky timeouts that also fail
+without my tracked changes; full Playwright chrome run: see hand-off.
+**Neighbouring**  existing tests assert exact fetch counts after landing on `/feed` (completion.test.tsx c16) and the exact protected-path list
+(access-decision.test.ts c6): both need the feed's profile call and `/posts/new` added (TEST ENGINEER's files, not edited).

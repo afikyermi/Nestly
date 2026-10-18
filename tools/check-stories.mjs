@@ -20,6 +20,7 @@ export const STATES = {
   "ui/text-input": 5, // empty, filled, error, disabled, email (ltr)
   "shared/form-field": 4, // basic, hint, error, optional
   "shared/password-input": 5, // empty, filled, rules, error, disabled
+  "ui/text-area": 4, // empty, filled, error, disabled
   "ui/select-input": 4, // placeholder, selected, error, disabled
   "shared/date-input": 4, // empty, filled, error, disabled
   "shared/choice-card-group": 4, // unselected, selected, interactive (focus), error

@@ -1,10 +1,13 @@
 import { Route, Routes } from 'react-router';
 import { ChangePasswordPage } from '@/pages/change-password/ChangePasswordPage';
+import { ComposePostPage } from '@/pages/compose-post/ComposePostPage';
+import { FeedPage } from '@/pages/feed/FeedPage';
 import { FriendsPage } from '@/pages/friends/FriendsPage';
 import { GoogleReturnPage } from '@/pages/google-return/GoogleReturnPage';
 import { GuestPlaceholderPage } from '@/pages/placeholder/GuestPlaceholderPage';
 import { LoginPage } from '@/pages/login/LoginPage';
 import { ProtectedPlaceholderPage } from '@/pages/placeholder/ProtectedPlaceholderPage';
+import { PostPage } from '@/pages/post/PostPage';
 import { ProfilePage } from '@/pages/profile/ProfilePage';
 import { RecoveryPage } from '@/pages/recovery/RecoveryPage';
 import { RecoveryQuestionsPage } from '@/pages/recovery-questions/RecoveryQuestionsPage';
@@ -35,7 +38,9 @@ export function AppRoutes() {
           <Route path={PATHS.privacy} element={<GuestPlaceholderPage title="מדיניות הפרטיות" />} />
           <Route element={<ProtectedLayout />}>
             <Route path={PATHS.home} element={<ProtectedPlaceholderPage title="בית" />} />
-            <Route path={PATHS.feed} element={<ProtectedPlaceholderPage title="פיד" />} />
+            <Route path={PATHS.feed} element={<FeedPage />} />
+            <Route path={PATHS.newPost} element={<ComposePostPage />} />
+            <Route path={PATHS.post} element={<PostPage />} />
             <Route path={PATHS.profile} element={<ProfilePage />} />
             <Route path={PATHS.settings} element={<SettingsPage />} />
             <Route path={PATHS.friends} element={<FriendsPage />} />
