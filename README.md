@@ -44,9 +44,20 @@ nestly/
     ├── package.json        ← תלויות הכלים (docx, postgres), מותקנות רק ב-tools/
     ├── docx2md.ps1         ← ממיר docx ל-markdown, למקרה שיגיע שוב קובץ Word
     ├── db-preview.mjs      ← SQL על nestly-preview בלבד; קורא את .env.preview בעצמו ולא מדפיס אותו
+    ├── db-local.mjs        ← בדיקות ה-DB (test:db) מקומית ב-Docker, באותו image כמו ב-CI, רק על 127.0.0.1 (ראו למטה)
+    ├── branch-delete.mjs   ← מחיקת ענף מרוחק: רק ready/* או ענף שמוזג ל-main; את main לעולם לא
     ├── probes/             ← בדיקות התשתית של 7.3 (T3–T7, P1–P4), על preview בלבד
     ├── build-design-tokens.js, check-stories.mjs, eslint-rules/  ← שערי העיצוב וה-CI
 ```
+
+## בדיקות ה-DB מקומית (Docker)
+
+1. **אחרי הפעלה מחדש של המחשב:** לפתוח את Docker Desktop ולחכות ל-"Engine running". בלי זה הכלי עוצר עם הודעה.
+2. `node tools/db-local.mjs test` — מקים מסד חד-פעמי מאותו image ובאותו סדר כמו ה-job ‏`db` ב-CI, מריץ `npm run test:db`
+   ומוחק את הקונטיינר. בפעם הראשונה הוא מוריד את ה-image ואת ה-Supabase CLI הנעול (כמה דקות).
+3. `--keep` משאיר את הקונטיינר רץ (127.0.0.1:54322); `node tools/db-local.mjs down` מוחק אותו.
+
+הסיסמאות אקראיות לכל הרצה ונשארות בתהליך בלבד. הכלי לא קורא קובצי env ולא פונה לשום מסד מלבד המקומי.
 
 ## היסטוריית התכנון — לפי הסדר
 
