@@ -90,7 +90,7 @@ test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
       await page.keyboard.press('Tab');
       const ring = await page.locator('*:focus').evaluate((e) => {
         const st = getComputedStyle(e);
-        return { href: e.getAttribute('href'), ring: (st.outlineStyle !== 'none' && st.outlineWidth !== '0px') || st.boxShadow !== 'none' };
+        return { href: e.getAttribute('href'), ring: st.outlineStyle !== 'none' && st.outlineWidth !== '0px' };
       });
       expect(ring.ring, 'visible focus').toBe(true);
       hrefs.push(ring.href);
@@ -270,6 +270,11 @@ test.describe('F3.2b c19 [ERR-004 ERR-027] first load, empty, errors', () => {
     await expect.poll(() => net.cursors.length).toBe(1);
     await expect(cards(page)).toHaveCount(0);
     await expect(page.getByRole('progressbar')).toHaveCount(0);
+    // The skeleton: a busy region of decorative blocks (aria-hidden) that takes room on the screen.
+    const blocks = main(page).locator('[aria-busy="true"] [aria-hidden="true"]');
+    expect(await blocks.count()).toBeGreaterThanOrEqual(3);
+    await expect(blocks.first()).toBeVisible();
+    expect((await blocks.first().boundingBox())?.height ?? 0).toBeGreaterThan(0);
     const animated = await main(page).evaluate((m) => [m, ...m.querySelectorAll('*')].filter((e) => getComputedStyle(e).animationName !== 'none').length);
     expect(animated).toBe(0);
     release();

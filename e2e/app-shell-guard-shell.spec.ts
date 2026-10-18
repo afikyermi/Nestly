@@ -313,15 +313,15 @@ test.describe('Placeholders', () => {
     });
   }
 
-  // F3.2b: /feed is the community feed now (its states: e2e/feed.spec.ts). The guard intent stays: with state forced to signed-in the page
-  // asks for nothing but its own two calls, GET /api/profile and GET /api/feed (no /api/me, no other route).
-  test('[F1.2 c22][F3.2b c13][FR-AUTH-004] /feed with state forced to signed-in: h1 "הפיד", and the only /api/* requests are /api/profile and /api/feed', async ({ page }) => {
+  // F3.2b: /feed is the community feed now (its states: e2e/feed.spec.ts). The guard intent stays: with state forced to signed-in and no
+  // session behind it, the page asks the server for nothing at all and shows no card.
+  test('[F1.2 c22][F3.2b c13][FR-AUTH-004] /feed with state forced to signed-in and no session: h1 "הפיד", no /api/* request, no article', async ({ page }) => {
     const urls = recordRequests(page);
     await open(page, '/feed', 'signed-in');
     await expect(h1Of(page)).toHaveText('הפיד');
     await page.waitForTimeout(500);
-    const paths = new Set(urls.map((u) => new URL(u)).filter((u) => u.pathname.startsWith('/api/')).map((u) => u.pathname));
-    expect([...paths].filter((p) => p !== '/api/profile' && p !== '/api/feed')).toEqual([]);
+    expect(urls.filter((u) => new URL(u).pathname.startsWith('/api/'))).toEqual([]);
+    await expect(page.getByRole('article')).toHaveCount(0);
   });
 
   // F1.8: /auth/google is the return handler; opened with no code it makes no /api call either (c13: nothing but the token reaches the server).

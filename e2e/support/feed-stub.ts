@@ -2,7 +2,7 @@
 // packages/shared/src/feed/response.ts (the strict feedPageResponse), the route is GET /api/feed?cursor=. Auth, /api/me, /api/profile and
 // the single-post routes are posts-stub's. The stub plays the server: `answer` decides each GET /api/feed; every request is recorded.
 import type { Page } from '@playwright/test';
-import { CORS, json } from './journeys-stub';
+import { CORS, json, session } from './journeys-stub';
 import { setupPosts } from './posts-stub';
 import type { PostsNet, StoredPost } from './posts-stub';
 
@@ -61,15 +61,31 @@ export interface FeedNet extends PostsNet {
   hold: Promise<void> | null;
   /** False while signing in (the landing page already asks for the feed): such requests get an empty page and are not recorded. */
   armed: boolean;
+  /** The user id the next sign-in or refresh puts in the access token's `sub` (the web names the remembered feed's owner by it). */
+  sub: string;
+}
+
+export const USER_A = 'f0000000-0000-4000-8000-0000000000a1';
+export const USER_B = 'f0000000-0000-4000-8000-0000000000b2';
+/** An unsigned JWT-shaped token naming `sub` (the stub Auth does not verify; the web only reads the claim). */
+export function tokenFor(sub: string): string {
+  const part = (o: object): string => Buffer.from(JSON.stringify(o)).toString('base64url');
+  return `${part({ alg: 'HS256', typ: 'JWT' })}.${part({ sub, role: 'authenticated' })}.sig`;
 }
 
 export async function setupFeed(page: Page, answer: FeedNet['answer'], start: { professional?: boolean; posts?: StoredPost[] } = {}): Promise<FeedNet> {
   const posts = await setupPosts(page, { professional: start.professional === true, ...(start.posts === undefined ? {} : { posts: start.posts }) });
-  const extra: Pick<FeedNet, 'cursors' | 'methods' | 'apiPaths' | 'answer' | 'hold' | 'armed'> = { cursors: [], methods: [], apiPaths: [], answer, hold: null, armed: false };
+  const extra: Pick<FeedNet, 'cursors' | 'methods' | 'apiPaths' | 'answer' | 'hold' | 'armed' | 'sub'> = { cursors: [], methods: [], apiPaths: [], answer, hold: null, armed: false, sub: USER_A };
   const net: FeedNet = Object.assign(posts, extra);
   page.on('request', (req) => {
     const url = new URL(req.url());
     if (net.armed && url.pathname.startsWith('/api/')) net.apiPaths.push(url.pathname);
+  });
+  // Registered after posts-stub's Auth route, so it answers first: a token that names `net.sub`.
+  await page.route('https://e2e-stub.invalid/auth/v1/token**', async (route) => {
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+    const base = session(Math.floor(new Date(2100, 0, 1).getTime() / 1000));
+    return json(route, 200, { ...base, access_token: tokenFor(net.sub), user: { ...base.user, id: net.sub } });
   });
   await page.route(/\/api\/feed(\?.*)?$/, async (route) => {
     const req = route.request();
