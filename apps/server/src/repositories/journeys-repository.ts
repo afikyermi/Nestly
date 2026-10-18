@@ -35,6 +35,12 @@ export async function readOwnJourneys(tx: IdentityTx): Promise<JourneyRow[]> {
   return tx.select({ id: journeyContexts.id, stage: journeyContexts.stage, dueDate: journeyContexts.dueDate }).from(journeyContexts);
 }
 
+/** The distinct stages of the caller's own journeys (F3.2: the feed's Stage set). Selects `stage` and nothing else: no id, no due date. */
+export async function readOwnStages(tx: IdentityTx): Promise<JourneyStage[]> {
+  const rows = await tx.selectDistinct({ stage: journeyContexts.stage }).from(journeyContexts);
+  return rows.map((row) => row.stage);
+}
+
 /**
  * The children the caller can see, in the order they were added (F2.2b, schema.md "Child order"): created_at, then slot, which
  * breaks registration's tie (one now(), slots in entry order). A reused seat shows last (c17).

@@ -182,7 +182,7 @@ export async function readFriendLists(database: Database, identity: Identity): P
     if (refusal !== undefined) return refusal;
     const me = identity.userId.toLowerCase();
     const rows = await readListedRows(tx);
-    const names = await readVisibleNames(tx);
+    const names = await readVisibleNames(tx, [...new Set(rows.map((row) => (row.requesterId === me ? row.addresseeId : row.requesterId)))]);
     const nameOf = new Map(names.map((name) => [name.userId, name.fullName]));
     const lists: FriendLists = { incoming: [], sent: [], friends: [] };
     for (const row of rows) {
