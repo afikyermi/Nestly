@@ -9,7 +9,7 @@ import { CLOCK_NOW, buildRegisterApp, captureLog, post, refusingDatabase, validB
 
 // I3 F3.2a2, GET /api/feed under RLS (CI db job, as app_server); criteria c1-c12 of .work/feed-view/spec.md. Expected values are hand-computed from the I3-algorithm.md
 // formula (v1: wFresh 1, half-life 24 h, wFriend .5, wQuality .2, cap 20, 14 days, page 20, caps 2/5). Ranking tests fix asOf in the past with a "top" cursor;
-// created_at comes from supabase/tests/setup/72_feed_view_fixtures.sql. Live tests use DB time.
+// created_at comes from supabase/tests/setup/72_feed_view_fixtures.sql.
 
 const T = { timeout: COLD_START_MS };
 const FEED = '/api/feed';
@@ -96,8 +96,9 @@ const befriend = (req: Member, addr: Member, status = 'accepted'): Promise<void>
   inTx(async (tx) => void (await tx`select tests.fx_fr_add(${req.id}::uuid, ${addr.id}::uuid, ${status}, false)`));
 const setStatus = (m: Member, status: string): Promise<unknown> => side`select tests.set_status(${m.id}::uuid, ${status})`;
 const statusOf = (id: string, status: string): Promise<unknown> => side`select tests.fx_po_status(${id}::uuid, ${status})`;
-const dbNow = (offset = '0 seconds'): Promise<string> => text(side.unsafe(`select ${DB_TEXT.replace('%s', `now() + interval '${offset}'`)} as v`));
-const dbClock = (): Promise<string> => text(side.unsafe(`select ${DB_TEXT.replace('%s', 'clock_timestamp()')} as v`));
+const dbText = (expr: string): Promise<string> => text(side.unsafe(`select ${DB_TEXT.replace('%s', expr)} as v`));
+const dbNow = (offset: string): Promise<string> => dbText(`now() + interval '${offset}'`);
+const dbClock = (): Promise<string> => dbText('clock_timestamp()');
 
 const feed = (app: App, header: string | null, cursor?: string) =>
   app.inject({ method: 'GET', url: cursor === undefined ? FEED : `${FEED}?cursor=${encodeURIComponent(cursor)}`, headers: header === null ? {} : { authorization: header } });
@@ -106,10 +107,7 @@ async function page(app: App, header: string, cursor?: string): Promise<FeedPage
   expect(res.statusCode, res.body).toBe(200);
   return parsePage(res.body);
 }
-const parsePage = (body: string): FeedPageResponse => {
-  const raw: unknown = JSON.parse(body);
-  return feedPageResponse.parse(raw);
-};
+const parsePage = (body: string): FeedPageResponse => feedPageResponse.parse(toRecord(JSON.parse(body)));
 const live = async (app: App, who: Member = V): Promise<string[]> => ids(await page(app, who.header));
 const ids =(p: FeedPageResponse): string[] => p.items.map((i) => i.id);
 const byIdDesc = (list: string[]): string[] => [...list].sort().reverse();
@@ -133,8 +131,7 @@ beforeAll(async () => {
   key = await newKey('feed-db-key');
   jwks = await startJwks([key]);
   side = postgres(url(), { max: 1, prepare: false, onnotice: () => undefined });
-  const [who] = await side`select session_user::text as su`;
-  expect(who?.su, 'these tests must run as app_server, never as a role that bypasses RLS').toBe('app_server');
+  const [who] = await side`select session_user::text as su`; expect(who?.su, 'these tests must run as app_server, never as a role that bypasses RLS').toBe('app_server');
   const app = await start();
   const made: Member[] = [];
   for (const fullName of NAMES) {
@@ -156,8 +153,7 @@ async function closeAll(): Promise<void> {
     await database.close();
   }
 }
-beforeEach(reset);
-afterEach(closeAll);
+beforeEach(reset); afterEach(closeAll);
 afterAll(async () => {
   await reset();
   await jwks.close();
@@ -180,7 +176,7 @@ describe('[F3.2-a2 c1 FR-FEED-001 BR-065] eligibility is the database\'s: who se
     const remFr = await mk({ by: K, aud: 'friends' });
     const susp = await mk({ by: U });
     const banned = await mk({ by: Y });
-    const gone = await mkAll([{ by: Tm, status: 'removed' }, { by: Tm, status: 'deleted' }, { by: Tm, status: 'hidden' }]);
+    const gone = await mkAll([{ by: Tm, status: 'removed' }, { by: Tm, status: 'deleted' }, { by: Tm, status: 'hidden' }, { by: V, status: 'deleted' }]);
     const hidden = await mk({ by: Tm });
     const reported = await mk({ by: Tm });
     await setStatus(U, 'suspended');
@@ -233,11 +229,11 @@ describe('[F3.2-a2 c3 FR-ALG-002] ordering fixtures, seeded v1, fixed asOf', () 
     expect(await top(app)).toEqual([s0, f24, s1]);
   });
 
-  it('[F3.2-a2 c3] equal scores tie-break created_at desc: stranger@0 (1.0) above friend@24h (0.5+0.5)', T, async () => {
+  it('[F3.2-a2 c3] the half-life is exactly 24 h: friend@24h ties stranger@0 at 1.0 (created_at desc puts the stranger first) and beats a stranger 1 µs older (1 - 8e-12)', T, async () => {
     const app = await start();
     await befriend(V, F);
-    const [f24 = '', s0 = ''] = await mkAll([{ by: F, at: ago(24) }, { by: Tm, at: ago(0) }]);
-    expect(await top(app)).toEqual([s0, f24]);
+    const [f24 = '', s0 = '', s1 = ''] = await mkAll([{ by: F, at: ago(24) }, { by: Tm, at: ago(0) }, { by: U, at: '2026-01-15T11:59:59.999999Z' }]);
+    expect(await top(app)).toEqual([s0, f24, s1]);
   });
 
   it('[F3.2-a2 c3] equal score and created_at tie-break id desc; the same in tier 1', T, async () => {
@@ -293,11 +289,11 @@ describe('[F3.2-a2 c4] Stage is a signal, never a filter (v1 wStage 0)', () => {
 });
 
 describe('[F3.2-a2 c5 FR-ALG-002] what n counts (one counted comment on B must beat whatever is uncounted on A)', () => {
-  // A has k >= 2 rows that must not count (wrongly counted n=2 gives 0.072 > the 0.0455 of B's one counted comment); B has exactly one.
+  // B (1 s older) has exactly one counted comment; whatever A is given must count for nothing, so even one leaked row puts A first.
   const run = async (prepareA: (a: string) => Promise<void>, anonA = false): Promise<void> => {
     const app = await start();
     const a = await mk({ by: anonA ? Y : Tm, anon: anonA, at: ago(3) });
-    const b = await mk({ by: U, at: ago(3) });
+    const b = await mk({ by: U, at: iso(-3 * HOUR - 1000) }); // 1 s older: one leaked row on A ties B's quality and A's freshness wins
     await prepareA(a);
     await comment(W, b, ago(1));
     expect(await top(app)).toEqual([b, a]);
@@ -308,6 +304,12 @@ describe('[F3.2-a2 c5 FR-ALG-002] what n counts (one counted comment on B must b
     run(async (a) => { const c = await comment(Tm, a, ago(1)); await likeComment(K, c, ago(1)); await likeComment(R, c, ago(1)); }));
   it('[F3.2-a2 c5] rows of suspended and banned accounts are not counted', T, () =>
     run(async (a) => { await comments(Y, a, 2, ago(1)); await like(K, a, ago(1)); await setStatus(Y, 'suspended'); await setStatus(K, 'banned'); }));
+  it('[F3.2-a2 c5] a hidden, removed or held comment, and a reply under a hidden parent, are not counted', T, () =>
+    run(async (a) => {
+      const [parent, gone, held] = [await comment(W, a, ago(1)), await comment(U, a, ago(1)), await comment(U, a, ago(1))];
+      await comment(K, a, ago(1), parent);
+      for (const [id, status] of [[parent, 'hidden'], [gone, 'removed'], [held, 'deleted']] as const) await side`select tests.fx_fv_cs(${id}::uuid, ${status})`;
+    }));
   it('[F3.2-a2 c5] rows created after asOf are not counted', T, () => run(async (a) => { await comments(R, a, 2, iso(HOUR)); }));
   it('[F3.2-a2 c5] reports change nothing: the lower id is reported twice and still ranks below the other by id desc', T, async () => {
     const app = await start();
@@ -415,6 +417,13 @@ describe('[F3.2-a2 c6 c7] the cursor: structure, DB time, microseconds, stabilit
     const second = await page(app, V.header, first.nextCursor ?? '');
     expect(ids(second)).toEqual(newestFirst.slice(20));
     expect(second.nextCursor).toBeNull();
+    // the cursor's score is the database's own float8, bit for bit, not a rounded copy (::text::timestamptz: the driver would cut a bound timestamp to ms)
+    const edge = parseFeedCursor(first.nextCursor);
+    const exact = await side.begin(async (tx) => {
+      await tx`select set_config('extra_float_digits', '3', true)`;
+      return text(tx`select power(2::float8, -(extract(epoch from (${ASOF}::text::timestamptz - ${edge?.createdAt ?? ''}::text::timestamptz))::float8 / 3600::float8) / 24::float8)::text as v`);
+    });
+    expect(edge?.score).toBe(Number(exact));
   });
 
   it('[F3.2-a2 c7] 3 pages, 3 posts inserted after asOf and one eligible post deleted between pages: no repeat, none skipped', T, async () => {
