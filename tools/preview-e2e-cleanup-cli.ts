@@ -3,8 +3,8 @@
 //   node tools/preview-e2e-cleanup-cli.ts
 //
 // Modes (parseMode): on workflow_run, the per-run cleanup below. On workflow_dispatch, CLEANUP_MODE = dry-run (the preflight,
-// then the count of pattern users and their age range; nothing deleted) or backlog (the same, then at most 50 of the oldest
-// pattern users older than SWEEP_AGE_HOURS, each in the same one-user transaction) - Afik 17.10.2026, "Preview cleanup" (c).
+// then the count of pattern users and their age range; nothing deleted) - Afik 17.10.2026, "Preview cleanup" (c). The manual
+// `backlog` mode was removed (audit B1).
 //
 // Reads PREVIEW_DB_ADMIN_URL (postgres@nestly-preview through the session pooler), TARGET_RUN_ID and TARGET_RUN_ATTEMPT (the
 // run being cleaned up: workflow_run's id and attempt) from the environment. The URL is checked before anything connects.
@@ -96,6 +96,13 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         counts['recovery_answers'] = (await tx`delete from nestly.recovery_answers where user_id = ${id}`).count;
         counts['children'] = (await tx`delete from nestly.children where user_id = ${id}`).count;
         counts['journey_contexts'] = (await tx`delete from nestly.journey_contexts where user_id = ${id}`).count;
+        // F3.0a: a user's hides first, then every post they wrote (named, or anonymous through post_authors); the cascade takes
+        // others' hides and separation rows, and others' shares of a deleted post keep their row (SET NULL).
+        counts['post_hides'] = (await tx`delete from nestly.post_hides where user_id = ${id}`).count;
+        counts['posts'] = (
+          await tx`delete from nestly.posts
+                    where author_id = ${id} or id in (select post_id from nestly.post_authors where author_id = ${id})`
+        ).count;
         counts['friendships'] = (
           await tx`delete from nestly.friendships where requester_id = ${id} or addressee_id = ${id}`
         ).count;
@@ -145,19 +152,17 @@ function writeSummary(report: CleanupReport): void {
   appendFileSync(file, text);
 }
 
-/** The manual run's step summary and log: counts and ages only. */
+/** The manual dry-run's step summary and log: counts and ages only. */
 function reportBacklog(report: BacklogReport): void {
   const s = report.summary;
   const range = s === null || s.oldestHours === null ? 'none' : `${s.newestHours} h to ${s.oldestHours} h old`;
   const lines = [
     `preview-e2e-cleanup ${report.mode}: ${report.ok ? 'OK' : 'FAILED'}`,
     `- pattern users: ${s?.patternTotal ?? 'unknown'}; older than ${SWEEP_AGE_HOURS} h: ${s?.eligible ?? 'unknown'}; ages: ${range}`,
-    `- selected ${report.selected}, deleted ${report.deleted}, ${report.failedUsers} failed`,
+    '- nothing deleted',
     ...(report.ok ? [] : [`- ${report.reason ?? 'cleanup failed'}`]),
   ];
   for (const l of lines) line(l);
-  const rows = Object.entries(report.tableCounts).map(([table, n]) => `${table}=${n}`).join(' ');
-  if (rows !== '') line(`preview-e2e-cleanup: rows removed: ${rows}`);
   const file = process.env['GITHUB_STEP_SUMMARY'];
   if (file !== undefined && file !== '') appendFileSync(file, `${lines.join('\n')}\n`);
 }
@@ -171,7 +176,7 @@ async function main(): Promise<void> {
   if (mode.mode !== 'run') {
     const { client, close } = createClient(url);
     try {
-      const report = await runBacklog({ client, mode: mode.mode, log: line });
+      const report = await runBacklog({ client, mode: mode.mode });
       reportBacklog(report);
       if (!report.ok) stop(report.reason ?? 'cleanup failed');
     } catch (error) {

@@ -7,8 +7,8 @@
 # the env of the one cleanup step; the run id and attempt come from the event through env, never interpolated in `run:`.
 #
 # Manual run (Afik 17.10.2026, "Preview cleanup" (c)): workflow_dispatch from main only, input `mode` = dry-run (default:
-# preflight, then counts and the age range of the test users; nothing deleted) or backlog (at most 50 of the oldest test
-# users older than 3 h, same pattern, preflight and per-user transaction). The workflow_run path is unchanged.
+# preflight, then counts and the age range of the test users; nothing deleted). The `backlog` mode was removed (audit B1).
+# The workflow_run path is unchanged.
 
 name: preview-e2e-cleanup
 
@@ -19,10 +19,10 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: dry-run reports counts only - backlog deletes at most 50 of the oldest test users older than 3 h
+        description: dry-run reports counts only, nothing is deleted
         type: choice
         default: dry-run
-        options: [dry-run, backlog]
+        options: [dry-run]
 
 permissions:
   contents: read
