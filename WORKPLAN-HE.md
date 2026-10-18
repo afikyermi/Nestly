@@ -17,20 +17,19 @@
 וביקורת מערכת ([`.work/system-audit-1018/audit.md`](.work/system-audit-1018/audit.md)). **מוכן ל-I3 בסשן אחד; לא ל-I3 ∥ I6** לפני P5, ‏P7 ופיצול קבצי הרישום.
 **אחרי הביקורת (החלטות אפיק 1–9):** תקציבים ו-CRITIC מחזיר טקסט ‏(#68) · מחיקה מרוחקת בכלי בדוק ורטרו של ה-guard ‏(#69; ‏37 ענפים נמחקו)
 · ‏test:db מקומי ב-Docker ‏(#70) · ‏P1.1 ‏part-status אמין ‏(#72) · באג הסיסמה ‏(#71). ‏8 (התראות CI): לא. ‏7: בתוכנית לפני I3 ∥ I6.
-**הבא: I3 רק אחרי אישור אפיק.**
+**18.10 בערב: I3 נפתח** (אישור אפיק), ואפיק ענה על כל השאלות השמורות עד סוף הפרויקט ([`afik-list-1018.md`](.work/_initiatives/afik-list-1018.md), ‏roadmap תוספת 6). כל חלק בסשן משלו, ההתקדמות ב-[`.work/progress.md`](.work/progress.md).
 
 **ממתין לך:**
-1. **ענפים שהכלי סירב למחוק (לא מוזגו בקצה שלהם) — ההחלטה שלך:** `ccr-21b5fcdf-l5yns9`, `ccr-517c29b5-ek8cc9`, `chore/preview-access`,
+1. **ענפים שהכלי סירב למחוק — אפיק מוחק ידנית:** `ccr-21b5fcdf-l5yns9`, `ccr-517c29b5-ek8cc9`, `chore/preview-access`,
    `claude/guard-allowlist-implementation-xcv55m`, `wip/i2-f2.5-settings-menu`, `wip/i2-gateway-publishable-key`, `fix/password-abort` (התוכן ב-main דרך #71).
 2. **בדיקה אחת באייפון (לא חוסם):** מתחת ל-1024 המסגרת בגובה מסך אחד ו-`main` גולל בתוכה. ב-iOS המקלדת עלולה לכסות שדה נמוך בטופס (תחזית, בלי מכשיר; ‏debt). פתח את ה-Preview ב-Safari, "החלפת סיסמה", הקלד בשדה האחרון.
 3. **לידיעה:** ‏NFR-SEC-006 (5) — "דיווח ל-Admin" על חריגת פתיחות פרופיל נדחה ל-I4 (נרשם רק `security_events`) · מצב `backlog` הידני של כלי הניקוי עוד בקוד (‏debt; יוסר בחלק הראשון של I3) · ‏low פתוח: נתיבי הסיסמה דורשים גם את המפתח הציבורי כדי להיות "מוכנים" (fail closed, ‏debt) · בכמה commits בענף (לא ב-main) רשום שם מודל שגוי ב-Co-Authored-By.
 4. ✅ **Docker Desktop** הותקן (18.10). בדיקות ה-DB רצות מקומית: `node tools/db-local.mjs test` (אותו image כמו ב-CI). **אחרי הפעלה מחדש של המחשב: לפתוח את Docker Desktop** ולחכות ל-"Engine running".
-5. ישן: למחוק `.live/events.jsonl`; למחוק את הסודות `PREVIEW_SUPABASE_SECRET_KEY`,
-   ‏`PREVIEW_TEST_EMAIL` ו-`PREVIEW_TEST_PASSWORD` שלא בשימוש.
-6. **לפני השקה:** להחזיר את דרישת האישור ב-`db-production` (‏S-59) · דומיין · שירות אימייל · ‏Supabase Pro (אפיק, 17.10).
+5. אפיק מוחק (S-56): הקובץ המקומי `.live/events.jsonl` · ב-GitHub → Settings → Environments → `preview-e2e`: הסוד `PREVIEW_SUPABASE_SECRET_KEY` · ב-GitHub → Settings → Secrets → Actions (repository): `PREVIEW_TEST_EMAIL` ו-`PREVIEW_TEST_PASSWORD`.
+6. **לפני השקה:** הרשימה המלאה ב-`afik-list-1018.md` חלק ב (S-59, דומיין, אימייל, Supabase Pro, Cloudflare, Google OAuth, Vercel Pro או השקה לא מסחרית).
 
 **להמשך:**
-0. **קודם — שלב בדיקה ותיקון של המערכת.** אפיק אומר מתי מתחילים; I3 לא נפתח לפניו.
+0. ✅ שלב הבדיקה והתיקון (#57–#73). I3 נפתח 18.10.
 1. ✅ ‏`I3-algorithm.md` והשאלון (נענה 18.10: ‏1א–8א).
 2. **הצעד הראשון אחרי השאלון:** ‏SPEC אחד ל-I3 — רשימת פיצ'רים וחלקים (roadmap). הסרת מצב `backlog` מכלי הניקוי נכנסת לחלק הראשון.
 3. מ-I3 שני סשנים במקביל (‏I3 ∥ I6) — רק אחרי: P5 (ניקוי שמכיר מעבר סכמה), ‏P7 (מחזור Preview אחד לשני סשנים), פיצול קבצי
