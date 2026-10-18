@@ -115,6 +115,23 @@ describe('cursor [F3.2-a1 c6]', () => {
   ])('rejects %s', (_n, patch) => {
     expect(feedCursor.safeParse({ ...cur, ...patch }).success).toBe(false);
   });
+  it.each([
+    ['2026-02-29 (not a leap year)', '2026-02-29T10:00:00.000000Z'],
+    ['month 13', '2026-13-01T10:00:00.000000Z'],
+    ['day 00', '2026-10-00T10:00:00.000000Z'],
+    ['T24:00:00', '2026-10-18T24:00:00.000000Z'],
+    ['second 60', '2026-10-18T10:00:60.000000Z'],
+  ])('rejects the impossible timestamp %s in both fields', (_n, ts) => {
+    expect(feedCursor.safeParse({ ...cur, asOf: ts }).success).toBe(false);
+    expect(feedCursor.safeParse({ ...cur, createdAt: ts }).success).toBe(false);
+  });
+  it('accepts a real leap day, 2028-02-29', () => {
+    expect(feedCursor.safeParse({ ...cur, asOf: '2028-02-29T10:00:00.000000Z' }).success).toBe(true);
+  });
+  it('cursor text longer than 512 characters parses to null', () => {
+    expect(parseFeedCursor('A'.repeat(513))).toBeNull();
+    expect(parseFeedCursor('A'.repeat(5000))).toBeNull();
+  });
   it('accepts configVersion 0 and tier 1; a missing key and non-objects fail', () => {
     expect(feedCursor.safeParse({ ...cur, configVersion: 0, tier: 1 }).success).toBe(true);
     expect(feedCursor.safeParse({ ...cur, score: undefined }).success).toBe(false);
@@ -145,8 +162,8 @@ describe('re-ranking [F3.2-a1 c8]', () => {
   it('anonymous cap per window; each anonymous unit is its own creator', () => {
     const r = [u('a1', null), u('a2', null), u('a3', null), u('n1', 'N1'), u('n2', 'N2'), u('n3', 'N3')];
     expect(ids(page(r, {}, 6))).toEqual(['a1', 'a2', 'n1', 'n2', 'n3', 'a3']);
-    const own = [u('a1', null), u('a2', null), u('a3', null)];
-    expect(ids(page(own, { maxSameCreatorInWindow: 1, diversityWindow: 3, maxAnonymousInWindow: 3 }))).toEqual(['a1', 'a2', 'a3']);
+    const mixed = [u('a1', null), u('a2', null), u('n1', 'N1')];
+    expect(ids(page(mixed, { maxSameCreatorInWindow: 1, diversityWindow: 3, maxAnonymousInWindow: 3 }))).toEqual(['a1', 'a2', 'n1']);
   });
   it('shares of one original (and the original) are one group: first-ranked kept, rest suppressed', () => {
     expect(ids(page([u('S1', 'X', 'O'), u('S2', 'Y', 'O')]))).toEqual(['S1']);
@@ -196,9 +213,15 @@ describe('response [F3.2-a1 c12]', () => {
     ['a count', { likeCount: 3 }],
     ['source other than organic', { source: 'paid' }],
     ['an anonymous unit carrying an author key', { isAnonymous: true }],
-    ['an anonymous unit that isMine', { isAnonymous: true, isMine: true }],
   ])('rejects %s', (_n, patch) => {
     expect(ok({ ...post, ...patch })).toBe(false);
+  });
+  it('rejects an anonymous unit without author that isMine; an anonymous share is rejected', () => {
+    const { author: _a, ...anonPost } = post;
+    expect(ok({ ...anonPost, isAnonymous: true })).toBe(true);
+    expect(ok({ ...anonPost, isAnonymous: true, isMine: true })).toBe(false);
+    const { author: _b, ...anonShare } = share;
+    expect(ok({ ...anonShare, isAnonymous: true, original: { available: false } })).toBe(false);
   });
   it('rejects extra content on an unavailable original, author on an anonymous original, share fields on a post', () => {
     expect(ok({ ...share, original: { available: false, body: 'leak' } })).toBe(false);

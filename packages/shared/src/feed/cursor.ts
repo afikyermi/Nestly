@@ -31,6 +31,8 @@ export const feedCursor = z.strictObject({
 
 export type FeedCursor = z.infer<typeof feedCursor>;
 
+const MAX_CURSOR_LENGTH = 512;
+
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 
 /** The text the client holds: the cursor as JSON in base64url. The JSON is ASCII only (digits, hex, ISO text), so a char is a byte. */
@@ -65,7 +67,7 @@ function decodeBase64Url(text: string): string | null {
 
 /** Text from the query string to a cursor, or null for anything that is not exactly one: the route answers 400 `cursor_invalid`. */
 export function parseFeedCursor(text: unknown): FeedCursor | null {
-  if (typeof text !== 'string' || !/^[A-Za-z0-9_-]+$/.test(text)) return null;
+  if (typeof text !== 'string' || text.length > MAX_CURSOR_LENGTH || !/^[A-Za-z0-9_-]+$/.test(text)) return null;
   const decoded = decodeBase64Url(text);
   if (decoded === null) return null;
   let json: unknown;

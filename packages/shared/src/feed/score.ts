@@ -32,13 +32,5 @@ export function scorePost(config: FeedConfig, input: ScoreInput): number {
   return config.wFresh * fresh + config.wFriend * friend + config.wQuality * quality + config.wStage * stage;
 }
 
-export type RankKey = { tier: 0 | 1; score: number; createdAt: string; id: string };
-
 /** The order key `(tier asc, score desc, created_at desc, id desc)`. Timestamps are fixed-width text and ids lowercase uuids. */
-export function compareRankKeys(a: RankKey, b: RankKey): number {
-  if (a.tier !== b.tier) return a.tier - b.tier;
-  if (a.score !== b.score) return b.score - a.score;
-  if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? 1 : -1;
-  if (a.id !== b.id) return a.id < b.id ? 1 : -1;
-  return 0;
-}
+export type RankKey = { tier: 0 | 1; score: number; createdAt: string; id: string };

@@ -20,3 +20,4 @@ response.ts (strict unit union + page envelope). All pure, no DOM/Node API (own 
 **Uncertain**       share `body` nullability and whether `sharerText` duplicates `body` for shares: spec literal ("shares add sharerText") followed; a2 maps one source to both.
 **Evidence**        packages/shared typecheck, eslint, vitest (369 pass incl. tests/feed-ranking.test.ts), check-budgets ok.
 **Neighbouring**    none.
+**Review fixes (a1)**  findings-a1 BUILDER items: removed unused compareRankKeys, dropped anonymous-share variants from response union, cursor text capped at 512 chars (null beyond).
