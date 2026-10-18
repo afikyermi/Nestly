@@ -152,6 +152,7 @@ select pg_temp.reset();
 select set_config('t.held', pg_temp.post('a')::text, true);
 select tests.fx_rp_add(pg_temp.id('c'), 'post', current_setting('t.held')::uuid);
 select is(pg_temp.fn('a', format('select nestly.delete_post(%L)::text', current_setting('t.held'))), '1', '[F3.2-a c12 6b BR-065] control: A''s post under an open report is held on delete');
+select ok(tests.fx_po_state(current_setting('t.held')::uuid) like 'status=deleted%', '[F3.2-a c12 6b BR-065] control: the post is actually held (kept, marked deleted)');
 select is(pg_temp.nm('v', 'a'), '0', '[F3.2-a c12 6b BR-065] A''s only post is held: V reads no name of A');
 
 -- =====================================================================================================================
