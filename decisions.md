@@ -62,6 +62,7 @@ Grouped rows retain all current topics. Older wording yields to the named later 
 | 10-17 / 10 | Browser versions and PERF/LOAD/AVAIL delegated; Sentry/Turnstile setup and I9 wiring limits; SRS/WORKPLAN |
 | 10-17 / 10 | P1 + Waiting has a ceiling (אישור אפיק 17.10): workflow Closing a part; tools/part-status; retained by P2 |
 | 10-17 / 10 | P2 — short consistent contracts (אישור אפיק 17.10): canonical rules, indexed reads, archived history, new-artifact line/byte budgets; full entry below in October |
+| 10-18 / 10 | I3 questionnaire 1א–8א: audience everyone (remembered), share only everyone posts, deletion/report hold, no I3 events, author stage tag, anonymous=everyone, reporter-only hide, F3.9 hide-post; I3-questions.md |
 
 ## Superseded and historical navigation
 
