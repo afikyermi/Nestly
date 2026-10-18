@@ -8,7 +8,8 @@ Acceptance (each is a test in tools/part-status.test.mjs, `[P1.1]`, both ways: f
 1. main health reads one page (the newest 100 main runs): a stated limitation, never "Pagination limit"; an invalid page
    still blocks.
 2. `mainHealth(runs, mainSha)`: a cancelled job or no-jobs run on an older main SHA is passed over like a skip only when a
-   newer run of the same workflow and event exists (amended after CRITIC F3); as the group's newest run, or on the current
+   newer run of the same workflow and event exists (amended after CRITIC F3) — for a cancelled job, a newer non-skipped
+   execution of that job (N2); as the group's newest run, or on the current
    main SHA, it blocks; an older failure under it still shows, also through `collect` (F2).
 3. A check skipped inside this head's successful ci.yml run (its URL names that run) is an expected skip with the reason,
    only for the jobs the `changes` filter gates (storybook, browser, browser-edge, db) and never a CI or required job

@@ -16,7 +16,7 @@ const CI_NAMES = ['changes', 'typecheck', 'lint', 'test', 'build', 'schema-gate'
 const FILTER_SKIPPABLE = ['storybook', 'browser', 'browser-edge', 'db'];
 // P1.1: files that build, migrate or test nothing in a Preview. E is waived only when EVERY changed file is one of these
 // (an allow-list; anything else, config included, still needs E — CRITIC P1.1 F4). Preview and Vercel tools excluded.
-export const NO_PREVIEW_FILE = /^(?:\.work\/|\.claude\/|docs\/|archive\/|decisions\/|\.githooks\/|[^/]+\.md$|tools\/(?![^/]*(?:preview|vercel))[^/]+$|\.github\/workflows\/(?![^/]*preview)[^/]+$)/i;
+export const NO_PREVIEW_FILE = /^(?:\.work\/|\.claude\/|docs\/|archive\/|decisions\/|\.githooks\/|[^/]+\.md$|tools\/(?![^/]*(?:preview|vercel|migrate))[^/]+$|\.github\/workflows\/(?![^/]*(?:preview|migrate))[^/]+$)/i;
 // GitHub's pulls/files list stops at 3,000 files without a marker: a list that long is not trusted for the waiver (F5b).
 const FILES_API_CAP = 3000;
 const outcome = (c) => c.status === 'completed' ? c.conclusion : c.status;
@@ -36,20 +36,24 @@ export function latestChecks(rows, sha) {
 // the SAME job/workflow/event can resolve it; unrelated successes cannot.
 // P1.1 (audit A1): a cancellation on an older main SHA, with a newer run of the same workflow and event, was superseded
 // (concurrency), so it is passed over like a skip. On the current main SHA, or as the group's newest run, it still counts
-// (CRITIC P1.1 F3).
+// (CRITIC P1.1 F3). A cancelled job needs a newer execution (not a skip) of the same job: a newer push whose filter skipped
+// it never redid its work (CRITIC P1.1 N2).
 export function mainHealth(runs, mainSha) {
   const latest = new Map();
   const seen = new Set();
+  const executed = new Set();
   for (const run of newest(runs)) {
     const group = `${run.workflow_id}:${run.event}`;
     const newer = seen.has(group);
     seen.add(group);
-    const superseded = (c) => mainSha !== undefined && newer && run.head_sha !== mainSha && c.conclusion === 'cancelled';
+    const oldCancel = (c) => mainSha !== undefined && run.head_sha !== mainSha && c.conclusion === 'cancelled';
+    const superseded = (c) => oldCancel(c) && (c === run ? newer : executed.has(`${group}:${c.name}`));
     for (const job of run.jobs) {
       if (job.conclusion === 'skipped' || superseded(job)) continue;
       const id = `${run.workflow_id}:${run.event}:${job.name}`;
       if (!latest.has(id)) latest.set(id, { ...job, workflow: run.name, sha: run.head_sha, run: run.html_url });
     }
+    for (const job of run.jobs) if (job.conclusion !== 'skipped') executed.add(`${group}:${job.name}`);
     if (!run.jobs.length && run.conclusion !== 'skipped' && !superseded(run)) {
       const id = `${run.workflow_id}:${run.event}:workflow`;
       if (!latest.has(id)) latest.set(id, { ...run, name: `${run.name} (no jobs)`, sha: run.head_sha });

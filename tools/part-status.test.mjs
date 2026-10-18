@@ -333,6 +333,7 @@ test('[audit 18.10] a closed PR that was not merged gets the existing blocker on
 // P1.1 (audit A1): part-status must say green for a correct PR, without losing a real blocker.
 const ciUrl = (runId) => `https://github.com/afikyermi/Nestly/actions/runs/${runId}/job/1`;
 const outcomeOf = (c) => (c.status === 'completed' ? c.conclusion : c.status);
+const e2eLike = (id, sha) => run(id, [], { head_sha: sha, conclusion: 'cancelled' });
 
 test('[P1.1] main health reads one page of runs: a stated limitation, never a pagination blocker', () => {
   const api = apiFixture();
@@ -362,9 +363,12 @@ test('[P1.1] a cancellation on an older main SHA under a newer run of its workfl
   assert.equal(mainHealth([e2e(10, OLD, 'cancelled'), run(11, [job('test')])], MAIN).length, 1, 'a newer run of ANOTHER workflow does not supersede');
   assert.equal(mainHealth([e2e(10, MAIN, 'cancelled'), e2e(9, OLD, 'success')], MAIN).length, 1, 'cancelled on the current SHA counts');
   assert.equal(mainHealth([run(10, [job('test', 'cancelled')])], MAIN).length, 1);
-  const hidden = mainHealth([run(9, [job('test', 'failure')], { head_sha: OLD }), run(10, [job('test', 'cancelled')], { head_sha: OLD }), run(11, [job('test', 'skipped')], { head_sha: OLD })], MAIN);
-  assert.equal(hidden.length, 1, 'a superseded cancellation cannot erase an older failure');
-  assert.equal(outcomeOf(hidden[0]), 'failure');
+  // CRITIC P1.1 N2: a newer run that only SKIPPED the job (its filter saw no change) does not supersede the cancelled job.
+  const skippedOnly = mainHealth([run(9, [job('test', 'failure')], { head_sha: OLD }), run(10, [job('test', 'cancelled')], { head_sha: OLD }), run(11, [job('test', 'skipped')], { head_sha: OLD })], MAIN);
+  assert.equal(skippedOnly.length, 1);
+  assert.equal(outcomeOf(skippedOnly[0]), 'cancelled', 'the cancelled job still counts');
+  const hidden = mainHealth([run(9, [job('test', 'failure')], { head_sha: OLD }), e2eLike(10, OLD), run(11, [job('test', 'skipped')], { head_sha: OLD })], MAIN);
+  assert.equal(outcomeOf(hidden[0]), 'failure', 'a superseded no-jobs cancellation cannot erase an older failure');
   assert.equal(mainHealth([e2e(10, OLD, 'cancelled'), e2e(11, MAIN, 'skipped')]).length, 1, 'without the main SHA nothing is passed over');
   const s = fixture(); s.mainRuns = [e2e(10, OLD, 'cancelled'), e2e(11, MAIN, 'skipped')];
   assert.deepEqual(evaluate(s).blockers, [], 'evaluate passes the main SHA');
@@ -385,7 +389,8 @@ test('[P1.1] collect keeps reading below a cancelled newest run, so an older fai
     };
     const result = evaluate(collect({ repo: 'afikyermi/Nestly', pr: '57' }, read));
     assert.ok(asked.some((u) => u.includes('actions/runs/28/jobs')), 'the older run is read');
-    assert.match(result.blockers.join('\n'), /main preview-e2e \/ e2e: failure/);
+    // A no-jobs cancellation is superseded, so the older failure shows; a cancelled job under a skip-only run counts (N2).
+    assert.match(result.blockers.join('\n'), jobs.length ? /main preview-e2e \/ e2e: cancelled/ : /main preview-e2e \/ e2e: failure/);
   }
 });
 
@@ -428,7 +433,9 @@ test('[P1.1] E is "not required" for a no-Preview branch only when every changed
     // CRITIC P1.1 F4: config the Preview builds from, and the Preview/Vercel tools and workflows.
     'apps/web/vite.config.ts', 'apps/web/tailwind.config.js', 'apps/web/tsconfig.json', 'tsconfig.base.json', '.nvmrc', '.npmrc',
     '.vercelignore', 'apps/server/scripts/x.ts', 'apps/server/tests/a.test.ts', 'e2e/a.spec.ts', 'playwright.config.ts',
-    'tools/vercel-ignore.mjs', 'tools/preview-e2e-cleanup.ts', 'tools/probes/t5.mjs', '.github/workflows/preview-e2e.yml', 'apps/web/README.md']) {
+    'tools/vercel-ignore.mjs', 'tools/preview-e2e-cleanup.ts', 'tools/probes/t5.mjs', '.github/workflows/preview-e2e.yml', 'apps/web/README.md',
+    // CRITIC P1.1 N3: the tools and workflow that migrate the Preview database.
+    '.github/workflows/migrate.yml', 'tools/migrate-url-guard.mjs']) {
     assert.match(evaluate(noE(['WORKPLAN-HE.md', f])).blockers.join('\n'), /E on a{40}: missing/, f);
   }
   assert.match(evaluate(noE(undefined)).blockers.join('\n'), /E on .*missing/, 'file list not read');

@@ -81,3 +81,71 @@ Next owner: BUILDER (fix F1-F4, add tests for a required job skipped inside the 
 - F6: accepted — same commit by exact SHA, so the outcome is the same; noted.
 - Live after the fixes: PR 68 E not required, 4 expected skips, 0 main jobs (only the worktree self-check); PR 69 E required
   (package.json changed).
+
+# Re-check of F1–F4 — CRITIC, returned as text; saved verbatim by ORCHESTRATOR
+
+CRITIC re-check, P1.1 (branch chore/p1-1-part-status). Read: tools/part-status.mjs (full), the P1.1 tests in tools/part-status.test.mjs (lines 333-457), the amended spec.md, the round-1 report, and the ci.yml `changes` filter. I did not read notes.md. I ran nothing, so every verdict below comes from reading the code.
+
+**F1 (high): CLOSED.**
+- `ownSkip` now requires `FILTER_SKIPPABLE.includes(c.name)` (storybook, browser, browser-edge, db) and `!requiredNames.has(c.name)`. `requiredNames` is CI_NAMES plus every required context.
+- A skipped `test`, `typecheck`, `lint`, `build`, `schema-gate` or `changes` inside the successful run no longer gets an expected skip, so each still blocks.
+- A filter job made required also blocks.
+- The loop test at lines 406-410 covers the names above plus `audit`. The test at lines 411-413 covers a required db.
+- The expected values trace to spec criterion 3.
+
+**F2 (medium): CLOSED.**
+- `collect` now uses `passedOver` (skipped or cancelled) for both the pending set and the deletion. A cancelled newest run, or one with no jobs, leaves its group unresolved, so the older run is read and the older failure reaches `mainHealth`.
+- The `(no jobs)` bookkeeping holds in the cases I traced:
+  - A newest run with no jobs that is cancelled or skipped seeds `{'(no jobs)'}`. An older run with jobs takes the `jobs.length` branch and leaves it. An older no-jobs run that did not pass over deletes it. The worst outcome is an extra read.
+  - A newest no-jobs run that failed or is in progress seeds an empty set and stops. `mainHealth` reports it, because it is the group's newest run and so not superseded.
+- The test at lines 373-390 goes through `collect` and `evaluate`, for both a no-jobs cancelled run and a cancelled job, with an older failure. That is the live path the round-1 test missed.
+
+**F3 (medium): CLOSED.**
+- `superseded` now needs `newer` (an earlier-seen run in the same `workflow_id:event`), `head_sha !== mainSha`, and a cancelled conclusion.
+- The group's newest run and any cancellation on the current main SHA still count. Without a main SHA nothing is passed over.
+- The tests at lines 358-370 cover all of these. The amended spec criterion 2 matches the code.
+- The "skipped run counts as newer" rule is the intended A1 case: a cancelled Preview E run is followed by skipped non-Preview deployment runs. It is per workflow, not per job. See the new finding below.
+
+**F4 (medium): CLOSED.**
+- `NO_PREVIEW_FILE` is an allow-list and every file must match it. The regex reads correctly:
+  - Root `*.md` only, since `[^/]+\.md$` has no slash. `apps/web/README.md` is not waived.
+  - Top-level `tools/*` and `.github/workflows/*` only, excluding any filename containing `preview` or `vercel`.
+  - Vite, tailwind and tsconfig files, `tsconfig.base.json`, `.nvmrc`, `.npmrc`, `.vercelignore`, `package.json`, `vercel.json`, `e2e/`, `playwright.config.ts` and `apps/server/*` all fall outside the list, so E is still required.
+- The list-at-3000 and unread-list cases require E. The lowercase `/i` flag is harmless.
+- The test at lines 426-436 asserts each missed path from round 1 and traces to spec criterion 4.
+- `tools/build-design-tokens.js` is waivable, but it only regenerates the committed `tokens.generated.css`, which is under `apps/web/src` and so is product code. That is fine.
+
+**New findings from the fixes**
+
+N1: severity LOW. A PR can still disable the non-required filter jobs by editing its own ci.yml.
+- Scenario: a PR adds `if: false` to `db`, `browser`, `browser-edge` or `storybook`. The run succeeds, the skip is accepted as a filter skip, and the tool prints "Expected skip".
+- Why it is only low: this is inherent in the A1 design, since a skip cannot be told from a filter skip. These jobs are not required, `schema-gate` and the other required jobs stay protected, and the first page of the report still lists the expected skips.
+- Mitigation if wanted: in `evaluate`, accept the skip only when the file list is consistent with the filter. For example, a db skip is not accepted if `supabase/*` or `apps/server/*` changed.
+
+N2: severity LOW. Supersession is per run, not per job.
+- Scenario:
+  1. Main push A changes `supabase/`. Its `db` job is cancelled by concurrency when push B arrives.
+  2. B's `changes` filter diffs only B, so B skips `db`.
+  3. `mainHealth` sees the older cancelled `db` as superseded by a newer run of the same workflow, and B's skip is ignored. Nothing is reported, although A's migration never ran on main.
+- Why it is only low: the PR's own CI ran db before the merge.
+- A fix would require a non-skipped execution of the same job in the newer run.
+- Spec criterion 2 as amended allows this, so it is a decision for ORCHESTRATOR to accept or tighten.
+
+N3: severity LOW. The waiver allows `.github/workflows/migrate.yml` and `tools/migrate-url-guard.mjs`.
+- Both take part in migrating the preview database that E exercises.
+- A change to them without any `supabase/` change would wrongly waive E.
+- If you want it strict, add `migrate` to the exclusion pattern.
+
+Done: re-check of F1-F4 complete. All four are closed. There is no new critical, high or medium bug.
+Artifact: this report, for ORCHESTRATOR to append to .work/p1-1-part-status/findings.md. Reviewed tools/part-status.mjs and tools/part-status.test.mjs.
+Findings: F1, F2, F3 and F4 closed. N1, N2 and N3 are new and low, with no blocking effect.
+Open:
+- N1, N2 and N3 are low-severity decisions for ORCHESTRATOR. Default: accept N2 and record it in the spec. For N3, add `migrate` to the exclusion pattern, which is a one-line change.
+- F5 and F6 stay as round 1 recorded them: F5a and F5b were fixed, and F6 was accepted.
+Next owner: ORCHESTRATOR.
+
+## ORCHESTRATOR (18.10.2026), after the re-check
+- N2: tightened, not accepted — a cancelled JOB is superseded only by a newer non-skipped execution of the same job; a no-jobs
+  cancelled run still by a newer run of its workflow. Tests: a skip-only newer run leaves the cancellation counting.
+- N3: `migrate` excluded from the waivable tools and workflows; tests for migrate.yml and migrate-url-guard.mjs.
+- N1: accepted (inherent: a skip cannot be told from a filter skip; non-required jobs only; the expected skips are listed).
