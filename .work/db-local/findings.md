@@ -77,3 +77,59 @@ Verdict: no critical or high findings. The tool cannot reach a non-local host, a
   order = the runner's C.UTF-8 glob).
 - Proof after the fixes: `node tools/db-local.mjs test` exit 0; test:db 17 files passed, 1 skipped (640 tests); container gone.
 - psql inside the container: accepted (never host psql, which stays blocked).
+
+# Re-check of mediums 1 and 2 (against e3956a6) — CRITIC, returned as text; saved verbatim by ORCHESTRATOR
+
+CRITIC re-check, PR 70 (item 9, branch chore/db-local), commit e3956a6. I re-checked only mediums 1 and 2. I did not read notes.md.
+
+Verdict: both mediums are closed. I found no critical, high or medium issue. I found 3 new low issues.
+
+**Medium 1 (order traced to ci.yml): CLOSED**
+- I traced `ciDbOrder` by hand against the db job (ci.yml:299-607). It yields: auth-functions, auth-functions-check, image-preflight, 01-roles, catalog-fingerprint, 02-anchor-fk, 02-anchor-fk-check, catalog-columns, pgtap-setup, rls-gate, rls-gate-fire, rls-gate-fire-owner, `setup/*`.
+- Dropping `SKIPPED_CI` (catalog-fingerprint, catalog-columns, rls-gate-fire, rls-gate-fire-owner) leaves exactly the local plan. The skip list is asserted both ways: ci minus local equals `Object.keys(SKIPPED_CI)`. A skip therefore cannot grow or shrink silently.
+- `step=` and `check=` in the step-2 block are captured, and so is the fixture loop `for f in supabase/tests/setup/*.sql`.
+- An added step makes `deepEqual` fail, and the self-check with `new-step.sql` proves it. A reorder fails too, because the comparison is order-sensitive.
+- The job regex is bounded by the next `  key:` or end of string, so it does not leak into other jobs.
+
+**Medium 2 (wording and anchor check): CLOSED**
+- The README section and the header now say "the db job's setup, then test:db; not the other gates", and "CI remains the verdict".
+- The anchor check runs in CI's position, after step 2 and before pgtap-setup. The code asserts `startsWith('t | ')` with the same `-A -t -F ' | '` output as ci.yml:528-534.
+- The test only asserts that the anchor check is present in `afterMigrations`. The ok assertion lives in `test()` and is covered only by the manual proof run. That is acceptable.
+
+**New and residual findings (all low)**
+
+1. LOW — tools/db-local.test.mjs:36. The parser is blind to CI SQL that does not take the form `-f supabase/...sql`. A new CI step would stay green if it used:
+   - `psql ... < file`, `--file`, `\i`, or `-f "${var}"` where the variable is not `step`/`check`;
+   - a `-c "..."` statement (the app_server RLS gate and the second run of step 2 are such steps today);
+   - a path outside `supabase/`.
+
+   A repeat of an already-seen file at a later position is also invisible, because of the dedupe (`!order.includes`).
+
+   Scenario: someone adds `psql -c "select ..."` or re-runs rls-gate later in the job, and the local run diverges unnoticed. All of this is covered by the "CI remains the verdict" wording.
+
+   Fix, optional: also match `--file`, `<` and `\i`, or fail on any `psql` line in the db job that the parser did not account for.
+
+2. LOW — README.md:63 and the header of tools/db-local.mjs say "the full list: `SKIPPED_CI` in the tool". `SKIPPED_CI` holds only the 4 SQL files. The README's other skips are not in it: atomicity, step 2 twice, the app_server RLS gate, pg_prove, and P6. The statement is slightly false. Fix: say "SQL files in `SKIPPED_CI`; the rest are listed above".
+
+3. LOW — tools/db-local.mjs:102-107, the SIGINT handler. It is effectively dead code. `test()` is fully synchronous (spawnSync, execFileSync), so the event loop never turns and the handler never runs until `test()` returns.
+   - What actually removes the container on Ctrl-C is the child process dying with the signal, then the throw or non-zero status, then `finally`. The README claim "Ctrl-C removes it" holds by that route, not by the handler.
+   - With a listener installed, the default kill-on-SIGINT is gone. In the readiness loop (lines 113-118), Ctrl-C kills each child (`docker exec`, the sleep) but not the loop. It spins on the killed children up to 120 iterations until "did not become ready", and only then reaches `finally`.
+   - Impact: Ctrl-C during readiness takes a while to finish. The container is still removed, so the failure is benign.
+   - Fix: drop the handler, or check `status === null` or a signal result in the loop and throw.
+
+**Checked and found fine**
+- Install marker: `.installed` is written only after `npm install` returns and `bin` exists. A failed install throws before the marker, so a partial install is redone.
+- `try` placement: `down()` and the listener registration precede `try`, `docker run` is inside it, and `finally` removes the listener and the container.
+- Setup sort: `.sort()` uses code point order, noted in the header and asserted against the CI loop's name order.
+
+**Done:** Re-check of mediums 1 and 2 against e3956a6.
+**Artifact:** tools/db-local.mjs, tools/db-local.test.mjs, README.md, .github/workflows/ci.yml (job db); diff at .work/db-local/review.diff.
+**Findings:** 0 critical, 0 high, 0 medium (1 and 2 closed), 3 low (new: parser blind spots; README "full list" claim; dead SIGINT handler).
+**Open:** none blocking. The lows may be fixed or accepted; none needs my re-check.
+**Next owner:** ORCHESTRATOR (merge decision; the lows are optional).
+
+## ORCHESTRATOR
+- Low 2: README says "the SQL files not run: SKIPPED_CI"; the SKIPPED_CI comment says the README lists the gates without a file.
+- Low 3: SIGINT handler removed; the readiness loop throws on a signal-killed child (→ finally removes the container); README:
+  a container left by Ctrl-C is removed by the next run or `down`.
+- Low 1: accepted — the parser covers every SQL file form the db job uses today; "CI remains the verdict" covers the rest.

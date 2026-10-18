@@ -45,7 +45,7 @@ export function setupPlan(root) {
   };
 }
 
-/** The db job's other gates, not run here: CI runs them on every pull request that touches the database (CRITIC PR 70). */
+/** The SQL files of the db job's other gates, not run here (the README lists the gates without a file): CI runs them on every pull request that touches the database (CRITIC PR 70). */
 export const SKIPPED_CI = {
   'supabase/ci/catalog-fingerprint.sql': 'up→down→up of the newest migration, the second-push no-op, the second run of step 2',
   'supabase/ci/catalog-columns.sql': 'the Drizzle drift check (criterion 20)',
@@ -99,12 +99,6 @@ function test(keep) {
   const plan = setupPlan(ROOT);
   const read = (f) => readFileSync(join(ROOT, f), 'utf8');
   down();
-  // Ctrl-C skips `finally`: remove the container here too.
-  const onSignal = () => {
-    if (!keep) down();
-    process.exit(130);
-  };
-  process.once('SIGINT', onSignal);
   console.log(`starting ${image} on ${HOST}:${PORT}`);
   try {
     sh('docker', dockerRunArgs(image, pw.postgres, pw.jwt));
@@ -113,6 +107,7 @@ function test(keep) {
     for (let i = 0; i < 120 && ok < 3; i++) {
       if (!running()) throw new Error(`the database container exited (see docker logs ${NAME}; --keep keeps it for inspection)`);
       const r = spawnSync('docker', ['exec', '-e', `PGPASSWORD=${pw.postgres}`, NAME, 'psql', '-X', '-q', '-t', '-h', '127.0.0.1', '-U', 'postgres', '-d', 'postgres', '-c', 'select 1'], { stdio: 'ignore' });
+      if (r.signal) throw new Error(`interrupted (${r.signal})`);
       ok = r.status === 0 ? ok + 1 : 0;
       if (ok < 3) spawnSync(process.execPath, ['-e', 'setTimeout(()=>{},2000)']);
     }
@@ -138,7 +133,6 @@ function test(keep) {
     });
     return run.status ?? 1;
   } finally {
-    process.removeListener('SIGINT', onSignal);
     if (keep) console.log(`kept: container ${NAME} on ${HOST}:${PORT} (remove: node tools/db-local.mjs down)`);
     else down();
   }
