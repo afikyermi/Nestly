@@ -81,7 +81,7 @@ const GOOD_FACTS = {
   dbUser: 'postgres',
   bypassRls: true,
   canDeleteAuthUsers: true,
-  nestlyTables: ['children', 'friendships', 'identity_link_checks', 'journey_contexts', 'legal_consents', 'profile_open_counts', 'recovery_answers', 'recovery_events', 'recovery_throttles', 'regular_names', 'regular_profiles', 'security_events', 'security_limits', 'users'],
+  nestlyTables: ['algorithm_configurations', 'children', 'friendships', 'identity_link_checks', 'journey_contexts', 'legal_consents', 'post_authors', 'post_hides', 'posts', 'profile_open_counts', 'recovery_answers', 'recovery_events', 'recovery_throttles', 'regular_names', 'regular_profiles', 'security_events', 'security_limits', 'users'],
 };
 
 test('[E c8] preflight passes only for the exact expected facts, in any table order', () => {
@@ -97,9 +97,9 @@ for (const [label, over] of [
   ['no DELETE on auth.users', { canDeleteAuthUsers: false }],
   ['DELETE on auth.users unknown (null)', { canDeleteAuthUsers: null }],
   ['a missing nestly table', { nestlyTables: GOOD_FACTS.nestlyTables.slice(1) }],
-  ['an extra nestly table', { nestlyTables: [...GOOD_FACTS.nestlyTables, 'posts'] }],
+  ['an extra nestly table', { nestlyTables: [...GOOD_FACTS.nestlyTables, 'comments'] }],
   ['no nestly tables', { nestlyTables: [] }],
-  ['a table swapped for another', { nestlyTables: [...GOOD_FACTS.nestlyTables.slice(1), 'posts'] }],
+  ['a table swapped for another', { nestlyTables: [...GOOD_FACTS.nestlyTables.slice(1), 'comments'] }],
 ]) {
   test(`[E c8] preflight fails closed on ${label}`, () => {
     const r = cleanup.decidePreflight({ ...GOOD_FACTS, ...over });
@@ -307,6 +307,7 @@ test('[E c9] 15 leftovers: exactly 10 are deleted, oldest first, and the cleanup
 for (const [label, facts] of [
   ['no BYPASSRLS', { ...GOOD_FACTS, bypassRls: false }],
   ['an unknown nestly table', { ...GOOD_FACTS, nestlyTables: [...GOOD_FACTS.nestlyTables, 'x'] }],
+  ['a missing F3.0a table', { ...GOOD_FACTS, nestlyTables: GOOD_FACTS.nestlyTables.filter((t) => t !== 'posts') }],
 ]) {
   test(`[E c8] a failed preflight (${label}): the candidates are never read, nothing is deleted, the cleanup fails`, async () => {
     let read = false;
@@ -467,14 +468,22 @@ test('[cleanup a] the expected tables are exactly the nestly tables the migratio
   assert.doesNotMatch(code, /alter\s+table\s+(?:if\s+exists\s+)?nestly\.[a-z_]+\s+rename\s+to/i, 'a renamed table: update this test');
   assert.deepEqual([...cleanup.EXPECTED_NESTLY_TABLES], [...created].sort());
   assert.ok(created.has('identity_link_checks'));
-  assert.equal(cleanup.EXPECTED_NESTLY_TABLES.length, 14);
+  assert.equal(cleanup.EXPECTED_NESTLY_TABLES.length, 18);
+  for (const t of ['algorithm_configurations', 'post_authors', 'post_hides', 'posts']) assert.ok(cleanup.EXPECTED_NESTLY_TABLES.includes(t), t);
 });
 
-test('[cleanup a] the preflight with all fourteen tables passes; the thirteen left without identity_link_checks fail', () => {
+test('[cleanup a] the preflight with all eighteen tables passes; the seventeen left without identity_link_checks fail', () => {
+  assert.equal(GOOD_FACTS.nestlyTables.length, 18);
   assert.equal(cleanup.decidePreflight(GOOD_FACTS).ok, true);
-  const thirteen = GOOD_FACTS.nestlyTables.filter((t) => t !== 'identity_link_checks');
-  assert.equal(thirteen.length, 13);
-  assert.equal(cleanup.decidePreflight({ ...GOOD_FACTS, nestlyTables: thirteen }).ok, false);
+  const seventeen = GOOD_FACTS.nestlyTables.filter((t) => t !== 'identity_link_checks');
+  assert.equal(seventeen.length, 17);
+  assert.equal(cleanup.decidePreflight({ ...GOOD_FACTS, nestlyTables: seventeen }).ok, false);
+});
+
+test('[F3.0a c19] the preflight fails closed when any of the four F3.0a tables is missing', () => {
+  for (const t of ['algorithm_configurations', 'post_authors', 'post_hides', 'posts']) {
+    assert.equal(cleanup.decidePreflight({ ...GOOD_FACTS, nestlyTables: GOOD_FACTS.nestlyTables.filter((x) => x !== t) }).ok, false, t);
+  }
 });
 
 test('[F2.4c1 c20 c21 c22] the preflight fails closed when any of the three F2.4c1 tables is missing', () => {
@@ -485,13 +494,14 @@ test('[F2.4c1 c20 c21 c22] the preflight fails closed when any of the three F2.4
 
 // Tables with no row about a user: configuration. They are listed as expected tables and never deleted from (F2.4c1 schema.md
 // "Preview cleanup": deleting security_limits would make every later profile_view fail closed).
-const NO_DELETE = ['security_limits'];
+// F3.0a: algorithm_configurations is configuration too (never written); post_authors goes by cascade from posts, so its own delete is optional.
+const NO_DELETE = ['security_limits', 'algorithm_configurations'];
 
 test('[cleanup a] every expected table is deleted from in the user transaction, but the configuration tables; identity_link_checks just before nestly.users', () => {
   const order = [...cliText.matchAll(/delete from (nestly\.[a-z_]+|auth\.users)/g)].map((m) => m[1]);
   assert.deepEqual(
-    [...new Set(order.filter((t) => t.startsWith('nestly.')))].sort(),
-    cleanup.EXPECTED_NESTLY_TABLES.filter((t) => !NO_DELETE.includes(t)).map((t) => `nestly.${t}`),
+    [...new Set(order.filter((t) => t.startsWith('nestly.') && t !== 'nestly.post_authors'))].sort(),
+    cleanup.EXPECTED_NESTLY_TABLES.filter((t) => !NO_DELETE.includes(t) && t !== 'post_authors').map((t) => `nestly.${t}`),
   );
   const users = order.indexOf('nestly.users');
   assert.equal(order[users - 1], 'nestly.identity_link_checks');
@@ -499,7 +509,12 @@ test('[cleanup a] every expected table is deleted from in the user transaction, 
   // friendships and regular_names (F2.4a) sit after journey_contexts, before regular_profiles; profile_open_counts and
   // security_events (F2.4c1, both keyed on the user, security_events ON DELETE RESTRICT) after regular_profiles, before
   // identity_link_checks and nestly.users
-  assert.deepEqual(order.filter((t) => t !== 'nestly.identity_link_checks'), [
+  // F3.0a (schema.md): post_hides then posts per user, after the recovery rows and before regular_profiles
+  const at = (t) => order.indexOf(t);
+  assert.ok(at('nestly.post_hides') >= 0 && at('nestly.post_hides') < at('nestly.posts'), 'post_hides before posts');
+  assert.ok(at('nestly.recovery_answers') < at('nestly.post_hides') && at('nestly.posts') < at('nestly.regular_profiles'), 'posts between the recovery rows and regular_profiles');
+  assert.equal(order.filter((t) => t === 'nestly.posts').length, 1);
+  assert.deepEqual(order.filter((t) => !['nestly.identity_link_checks', 'nestly.post_hides', 'nestly.posts', 'nestly.post_authors'].includes(t)), [
     'nestly.recovery_throttles', 'nestly.recovery_events', 'nestly.legal_consents', 'nestly.recovery_answers', 'nestly.children',
     'nestly.journey_contexts', 'nestly.friendships', 'nestly.regular_names', 'nestly.regular_profiles',
     'nestly.profile_open_counts', 'nestly.security_events', 'nestly.users', 'auth.users',
@@ -510,6 +525,13 @@ test('[cleanup a] every expected table is deleted from in the user transaction, 
   assert.match(cliText, /counts\['profile_open_counts'\] = \(\s*await tx`delete from nestly\.profile_open_counts where user_id = \$\{id\}`\s*\)\.count/);
   assert.match(cliText, /counts\['security_events'\] = \(\s*await tx`delete from nestly\.security_events where user_id = \$\{id\}`\s*\)\.count/);
   assert.match(cliText, /counts\['identity_link_checks'\] = \(await tx`delete from nestly\.identity_link_checks where user_id = \$\{id\}`\)\.count/);
+});
+
+test('[F3.0a c19] the cleanup deletes the hides of the user and the posts the user wrote, named or anonymous, and never writes the configuration', () => {
+  assert.match(cliText, /delete from nestly\.post_hides where user_id = \$\{id\}/);
+  assert.match(cliText, /delete from nestly\.posts\s+where author_id = \$\{id\}\s+or id in \(select post_id from nestly\.post_authors where author_id = \$\{id\}\)/);
+  assert.doesNotMatch(cliText, /(delete\s+from|update|truncate(\s+table)?|insert\s+into)\s+nestly\.algorithm_configurations/i);
+  assert.ok(cleanup.EXPECTED_NESTLY_TABLES.includes('algorithm_configurations'));
 });
 
 test('[F2.4c1 c22] the cleanup never writes security_limits: no delete, update, truncate or insert on the configuration table', () => {
@@ -523,20 +545,27 @@ test('[E c9] Afik 17.10: the CLI selects this run\'s users by the run prefix and
 });
 
 // ---- Afik 17.10.2026 "Preview cleanup" (c): the manual modes -------------------------------------------------------------
-test('[cleanup c] mode: workflow_run carries none; workflow_dispatch needs dry-run or backlog; anything else stops', () => {
+test('[cleanup c] mode: workflow_run carries none; workflow_dispatch needs dry-run; backlog and anything else stops (F3.0a c19)', () => {
   assert.deepEqual(cleanup.parseMode('workflow_run', ''), { ok: true, mode: 'run' });
   assert.deepEqual(cleanup.parseMode('workflow_run', undefined), { ok: true, mode: 'run' });
   assert.deepEqual(cleanup.parseMode('workflow_dispatch', 'dry-run'), { ok: true, mode: 'dry-run' });
-  assert.deepEqual(cleanup.parseMode('workflow_dispatch', 'backlog'), { ok: true, mode: 'backlog' });
   for (const [event, mode] of [['workflow_run', 'backlog'], ['workflow_run', 'dry-run'], [undefined, 'backlog'], ['workflow_dispatch', ''],
     ['workflow_dispatch', undefined], ['workflow_dispatch', 'BACKLOG'], ['workflow_dispatch', 'run'], ['push', 'backlog']]) {
     assert.equal(cleanup.parseMode(event, mode).ok, false, `${event}/${mode}`);
   }
 });
 
-test('[cleanup c] the backlog cap is 50, the same number as the pattern ceiling, which is unchanged', () => {
-  assert.equal(cleanup.MAX_BACKLOG_PER_RUN, 50);
+test('[F3.0a c19 B1] the backlog mode is gone: no cap, no selector, the parser rejects it; the pattern ceiling is unchanged', () => {
+  assert.equal(cleanup.MAX_BACKLOG_PER_RUN, undefined);
+  assert.equal(cleanup.selectBacklog, undefined);
   assert.equal(cleanup.MAX_PATTERN_USERS, 50);
+  assert.equal(cleanup.parseMode('workflow_dispatch', 'backlog ').ok, false);
+});
+
+test('[F3.0a c19 B1] no backlog mode anywhere in the CLI or the workflow code (comments aside)', () => {
+  const noComments = (t) => t.replace(/^\s*(\/\/|#).*$/gm, '');
+  assert.doesNotMatch(noComments(cliText), /['"`]backlog['"`]|MAX_BACKLOG|selectBacklog/);
+  assert.doesNotMatch(noComments(cleanupText), /backlog/i);
 });
 
 const HEX = '0123456789abcdef';
@@ -544,36 +573,6 @@ const H = 3600;
 // n pattern users; user i is (base + i) hours old, so the last is the oldest
 const pusers = (n, base = 4, tag = 'p') =>
   Array.from({ length: n }, (_, i) => ({ id: `${tag}${String(i).padStart(3, '0')}`, email: `nestly-e2e-1-1-${HEX}@gmail.com`, ageSeconds: (base + i) * H }));
-
-test('[cleanup c] backlog selection: oldest first, at most 50, of 120 eligible', () => {
-  const users = pusers(120);
-  const ids = cleanup.selectBacklog(users);
-  assert.equal(ids.length, 50);
-  assert.deepEqual(ids, Array.from({ length: 50 }, (_, i) => `p${String(119 - i).padStart(3, '0')}`));
-});
-
-test('[cleanup c] backlog selection: only users older than 3 h; exactly 3 h and younger stay', () => {
-  const users = [
-    { id: 'young', email: `nestly-e2e-1-1-${HEX}@gmail.com`, ageSeconds: 1 * H },
-    { id: 'edge', email: `nestly-e2e-1-1-${HEX}@gmail.com`, ageSeconds: 3 * H },
-    { id: 'old', email: `nestly-e2e-1-1-${HEX}@gmail.com`, ageSeconds: 3 * H + 1 },
-    { id: 'nullage', email: `nestly-e2e-1-1-${HEX}@gmail.com`, ageSeconds: null },
-  ];
-  assert.deepEqual(cleanup.selectBacklog(users), ['old']);
-  assert.deepEqual(cleanup.selectBacklog(pusers(5, 0)), ['p004']); // ages 0..4 h: only the 4 h one
-});
-
-test('[cleanup c] backlog selection: a non-pattern email is never selected, whatever its age; duplicates count once', () => {
-  const users = [
-    { id: 'alice', email: 'alice@gmail.com', ageSeconds: 100 * H },
-    { id: 'keep', email: 'nestly-e2e-keep-me@gmail.com', ageSeconds: 100 * H },
-    { id: 'evil', email: `nestly-e2e-1-1-${HEX}@gmail.com.evil.com`, ageSeconds: 100 * H },
-    { id: 'ok', email: `nestly-e2e-1-1-${HEX}@gmail.com`, ageSeconds: 10 * H },
-    { id: 'ok', email: `nestly-e2e-1-1-${HEX}@gmail.com`, ageSeconds: 10 * H },
-  ];
-  assert.deepEqual(cleanup.selectBacklog(users), ['ok']);
-  assert.deepEqual(cleanup.selectBacklog([]), []);
-});
 
 test('[cleanup c] the summary: pattern count, older than 3 h, age range in hours; no email or id', () => {
   const users = [...pusers(3, 1), { id: 'alice', email: 'alice@gmail.com', ageSeconds: 500 * H }];
@@ -606,27 +605,15 @@ test('[cleanup c] dry-run: preflight and counts only, nothing is deleted, even w
   const r = await cleanup.runBacklog({ client, mode: 'dry-run', log: () => {} });
   assert.equal(r.ok, true);
   assert.equal(calls.deleted.length, 0);
-  assert.equal(r.selected, 0);
-  assert.equal(r.deleted, 0);
   assert.equal(r.summary.patternTotal, 120);
   assert.equal(r.summary.eligible, 120);
 });
 
-test('[cleanup c] backlog: deletes the 50 oldest, one transaction each, above the per-run refusal of 50', async () => {
-  const { client, calls } = backlogClient();
-  const r = await cleanup.runBacklog({ client, mode: 'backlog', log: () => {} });
-  assert.equal(r.ok, true);
-  assert.equal(calls.deleted.length, 50);
-  assert.equal(calls.deleted[0], 'p119');
-  assert.equal(r.deleted, 50);
-  assert.equal(r.tableCounts.identity_link_checks, 50);
-});
-
-for (const mode of ['dry-run', 'backlog']) {
+for (const mode of ['dry-run']) {
   for (const [label, facts] of [
     ['no BYPASSRLS', { ...GOOD_FACTS, bypassRls: false }],
-    ['the eight tables of before', { ...GOOD_FACTS, nestlyTables: GOOD_FACTS.nestlyTables.filter((t) => t !== 'identity_link_checks') }],
-    ['an unknown nestly table', { ...GOOD_FACTS, nestlyTables: [...GOOD_FACTS.nestlyTables, 'posts'] }],
+    ['a table missing', { ...GOOD_FACTS, nestlyTables: GOOD_FACTS.nestlyTables.filter((t) => t !== 'posts') }],
+    ['an unknown nestly table', { ...GOOD_FACTS, nestlyTables: [...GOOD_FACTS.nestlyTables, 'comments'] }],
   ]) {
     test(`[cleanup c] ${mode} refuses on a failed preflight (${label}): users never listed, nothing deleted`, async () => {
       const { client, calls } = backlogClient({ preflight: async () => facts });
@@ -638,43 +625,23 @@ for (const mode of ['dry-run', 'backlog']) {
   }
 }
 
-test('[cleanup c] backlog: a failed user delete fails the run, the others still run, and nothing secret is logged', async () => {
-  const EMAIL = `nestly-e2e-1-1-${HEX}@gmail.com`;
-  const { client, calls } = backlogClient({
-    listPatternUsers: async () => pusers(3),
-    deleteUser: async (id) => {
-      calls.deleted.push(id);
-      if (id === 'p001') throw Object.assign(new Error(`${EMAIL} ${id} ${PW}`), { code: '23503' });
-      return { 'auth.users': 1 };
-    },
-  });
-  const lines = [];
-  const r = await cleanup.runBacklog({ client, mode: 'backlog', log: (l) => lines.push(l) });
-  assert.equal(r.ok, false);
-  assert.equal(calls.deleted.length, 3);
-  assert.equal(r.deleted, 2);
-  assert.equal(r.failedUsers, 1);
-  const everything = `${lines.join('\n')}\n${JSON.stringify(r)}`;
-  for (const secret of [EMAIL, PW, 'p001', 'nestly-e2e']) assert.ok(!everything.includes(secret), `leaked ${secret}`);
-});
-
 test('[cleanup c] the listing throwing fails the run before any delete, without echoing the error', async () => {
   const { client, calls } = backlogClient({
     listPatternUsers: async () => {
       throw new Error(`boom ${PW}`);
     },
   });
-  const r = await cleanup.runBacklog({ client, mode: 'backlog', log: () => {} });
+  const r = await cleanup.runBacklog({ client, mode: 'dry-run', log: () => {} });
   assert.equal(r.ok, false);
   assert.equal(calls.deleted.length, 0);
   assert.ok(!JSON.stringify(r).includes(PW));
 });
 
-test('[cleanup c] the workflow: dispatch input mode is a choice of dry-run (default) and backlog, passed through env only', () => {
+test('[cleanup c] the workflow: dispatch input mode is a choice of dry-run only (default), passed through env only', () => {
   const input = cwf.on.workflow_dispatch.inputs.mode;
   assert.equal(input.type, 'choice');
   assert.equal(input.default, 'dry-run');
-  assert.deepEqual([...input.options], ['dry-run', 'backlog']);
+  assert.deepEqual([...input.options], ['dry-run']);
   assert.match(String(csteps[secretIdx].env.CLEANUP_MODE), /^\$\{\{\s*inputs\.mode\s*\}\}$/);
   assert.match(String(cjob.if), /github\.event_name == 'workflow_dispatch' && github\.ref == format\('refs\/heads\/\{0\}', github\.event\.repository\.default_branch\)/);
   assert.match(String(cjob.if), /github\.event_name == 'workflow_run' && github\.event\.workflow_run\.conclusion != 'skipped'/);
