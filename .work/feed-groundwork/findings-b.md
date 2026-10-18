@@ -49,3 +49,6 @@ Returned as text; saved verbatim by ORCHESTRATOR.
 - 1 → DATA ARCHITECT decides the shape, BUILDER implements, TEST ENGINEER adds the pgTAP case; CRITIC re-checks.
 - 2 → ORCHESTRATOR adds the schema-b entry (and F3.0a's deferred as-built text) to data-model.md with the Edit tool in this PR; CRITIC re-checks.
 - 3 → TEST ENGINEER, with the fix round. F3.1's body-length CHECK (post-create c6) is folded into this migration in the same round.
+
+## Round 2 (CRITIC opus, 18.10) — summary of returned text
+Findings 1, 2, 3: fixed (9b21005, d72ff93, 8c3f651). No new critical/high/medium. Rule 1: no recursion (reports → comments → posts). G2 kept. posts_body_length_check purely additive and safe. Open: none.
