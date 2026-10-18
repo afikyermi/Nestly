@@ -6,11 +6,11 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const CODE_EXT = new Set(['.js', '.mjs', '.cjs', '.ts', '.tsx', '.mts', '.cts']);
-const WORK_NAMES = ['spec.md', 'schema.md', 'notes.md'];
+const WORK_NAMES = ['spec.md', 'schema.md', 'notes.md', 'screen.md'];
 const object = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const positive = (value) => Number.isSafeInteger(value) && value > 0;
 const workPath = (rel) => typeof rel === 'string' &&
-  /^\.work\/(?:[^/\\*?:\[\]]+\/)+(spec|schema|notes)\.md$/.test(rel) &&
+  /^\.work\/(?:[^/\\*?:\[\]]+\/)+(spec|schema|notes|screen)\.md$/.test(rel) &&
   !rel.split('/').some((part) => part === '.' || part === '..');
 
 function validateWorkConfig(work) {

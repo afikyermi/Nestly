@@ -323,6 +323,7 @@ function workConfig() {
         'spec.md': { lines: 100, bytes: 12000 },
         'schema.md': { lines: 150, bytes: 18000 },
         'notes.md': { lines: 30, bytes: 3600 },
+        'screen.md': { lines: 60, bytes: 7000 },
       },
       maxLineBytes: 400,
       historical: ['.work/old/spec.md'],
@@ -452,6 +453,11 @@ test('P2: malformed work config is rejected instead of disabling prospective che
     assert.equal(r.status, 1, r.out);
     assert.match(r.stderr, /workArtifacts/);
   }
+  const cfg = workConfig();
+  delete cfg.workArtifacts.limits['screen.md'];
+  const r = run({}, cfg);
+  assert.equal(r.status, 1, r.out);
+  assert.match(r.stderr, /screen\.md/);
 });
 
 test('P2: always-read byte budgets detect folded context independently of lines', () => {

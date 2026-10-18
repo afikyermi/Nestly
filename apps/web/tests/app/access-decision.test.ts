@@ -12,7 +12,7 @@ import { GUEST_PATHS, PROTECTED_PATHS } from '../../src/app/paths';
 
 // F1.4 part c adds three Guest placeholders (interface "part c"): recovery (F1.6) and the two consent-document links (I9).
 const GUEST = ['/', '/login', '/register', '/auth/google', '/recovery', '/terms', '/privacy'];
-const PROTECTED = ['/home', '/feed', '/profile', '/settings', '/recovery-questions', '/change-password', '/friends'];
+const PROTECTED = ['/home', '/feed', '/profile', '/settings', '/recovery-questions', '/change-password', '/friends', '/posts/new'];
 const UNLISTED = [
   '/marketplace',
   '/profile/123',
@@ -41,8 +41,13 @@ describe('the route table (6, Q2)', () => {
   it('[F1.2 c6][FR-AUTH-004][F1.4 c4] the Guest allow-list is exactly the seven Guest routes (the four of F1.2 plus /recovery, /terms, /privacy)', () => {
     expect(Array.from(GUEST_PATHS).sort()).toEqual([...GUEST].sort());
   });
-  it('[F1.2 c6][FR-AUTH-004] the protected routes are exactly the four protected placeholders plus /recovery-questions (F1.6 c17 c18), /change-password (F2.0 c15) and /friends (F2.4b c13)', () => {
+  it('[F1.2 c6][FR-AUTH-004] the protected routes are exactly the four protected placeholders plus /recovery-questions (F1.6 c17 c18), /change-password (F2.0 c15) /friends (F2.4b c13) and /posts/new (F3.1b)', () => {
     expect(Array.from(PROTECTED_PATHS).sort()).toEqual([...PROTECTED].sort());
+  });
+  it('[F3.1b][FR-AUTH-004] one post page, /posts/<uuid>, is protected: a Guest is redirected, a signed-in user renders it', () => {
+    const path = '/posts/d0000000-0000-4000-8000-000000000001';
+    expect(decideAccess('signed-out', path)).not.toEqual({ kind: 'render' });
+    expect(decideAccess('signed-in', path)).toEqual({ kind: 'render' });
   });
   it('[F1.2 c6][FR-AUTH-004] no route is both Guest and protected', () => {
     expect(Array.from(GUEST_PATHS).filter((p) => Array.from(PROTECTED_PATHS).includes(p))).toEqual([]);

@@ -2,6 +2,7 @@ import { BrowserRouter } from 'react-router';
 import { AuthPortContext } from '@/hooks/use-auth-port';
 import { GoogleSignInContext } from '@/hooks/use-google-sign-in';
 import { ReturnTargetContext, type ReturnTarget } from '@/hooks/use-return-target';
+import { AudienceStorageContext } from '@/hooks/use-audience-memory';
 import { LinkCopierContext, type LinkCopier } from '@/hooks/use-copy-profile-link';
 import { sessionReturnTarget } from '@/platform/browser-return-target';
 import { windowClipboard } from '@/platform/browser-clipboard';
@@ -65,15 +66,17 @@ export function App({ sessionSource = productionSessionSource, authPort = produc
   return (
     <AuthPortContext value={authPort}>
       <GoogleSignInContext value={googleSignIn}>
-        <LinkCopierContext value={linkCopier}>
-          <ReturnTargetContext value={returnTarget}>
-            <SessionProvider source={sessionSource}>
-              <BrowserRouter>
-                <AppRoutes />
-              </BrowserRouter>
-            </SessionProvider>
-          </ReturnTargetContext>
-        </LinkCopierContext>
+        <AudienceStorageContext value={browserStorage}>
+          <LinkCopierContext value={linkCopier}>
+            <ReturnTargetContext value={returnTarget}>
+              <SessionProvider source={sessionSource}>
+                <BrowserRouter>
+                  <AppRoutes />
+                </BrowserRouter>
+              </SessionProvider>
+            </ReturnTargetContext>
+          </LinkCopierContext>
+        </AudienceStorageContext>
       </GoogleSignInContext>
     </AuthPortContext>
   );

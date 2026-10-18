@@ -69,6 +69,7 @@ Grouped rows retain all current topics. Older wording yields to the named later 
 | 10-18 / 10 | I3 questionnaire 1א–8א: audience everyone (remembered), share only everyone posts, deletion/report hold, no I3 events, author stage tag, anonymous=everyone, reporter-only hide, F3.9 hide-post; I3-questions.md |
 | 10-18 / 10 | Project reserved points (afik-list-1018): I4 user block, child reports top; I6 period charts; no pro verification; demo coupons; ANALYTICS_VIEW per-user no names; admin charts in demo; roadmap Amendment 6 |
 | 10-18 / 10 | F3.0–F3.2 answers: reported comment/user visible; Restricted ≠ posts; expired report kept; S-34/S-35; 6ב full author names |
+| 10-18 / 10 | Screen contract: screen.md annex of spec (SPEC 1.6, BUILDER 1.8, TE 2.4, CRITIC 1.10; workflow; budgets) |
 
 ## Superseded and historical navigation
 

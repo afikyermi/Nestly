@@ -7,7 +7,8 @@ export type ProfileOutcome =
   | { kind: 'profile'; profile: OwnProfile }
   | { kind: 'unauthenticated' } // 401: the server does not accept the token
   | { kind: 'account-unavailable' } // 403 account_unavailable: the account is stopped (ERR-037)
-  | { kind: 'failed' }; // anything else: 5xx, 400, 404, an unreadable answer, or the call did not reach the server
+  | { kind: 'no-profile' } // 404 no_profile: no parent profile behind the account (a Professional); F3.1b reads it as "cannot write a post"
+  | { kind: 'failed' }; // anything else: 5xx, 400, another 404, an unreadable answer, or the call did not reach the server
 
 const FAILED: ProfileOutcome = { kind: 'failed' };
 
@@ -36,6 +37,10 @@ async function call(accessToken: string, init: { method: 'GET' } | { method: 'PU
   if (response.status === 403) {
     const code: unknown = typeof body === 'object' && body !== null ? Reflect.get(body, 'error') : undefined;
     return code === 'account_unavailable' ? { kind: 'account-unavailable' } : FAILED;
+  }
+  if (response.status === 404) {
+    const code: unknown = typeof body === 'object' && body !== null ? Reflect.get(body, 'error') : undefined;
+    return code === 'no_profile' ? { kind: 'no-profile' } : FAILED;
   }
   if (response.status !== 200) return FAILED;
   const parsed = ownProfileResponse.safeParse(body);
