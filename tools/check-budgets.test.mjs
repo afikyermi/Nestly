@@ -314,3 +314,150 @@ test('criterion 12: this repository passes with the default config (exit 0, "bud
   assert.equal(r.status, 0, r.out);
   assert.match(r.stdout, /budgets: ok/);
 });
+
+// P2: prospective contract limits; these are task-approved tool tests (אישור אפיק 17.10).
+function workConfig() {
+  return baseConfig({
+    workArtifacts: {
+      limits: {
+        'spec.md': { lines: 100, bytes: 12000 },
+        'schema.md': { lines: 150, bytes: 18000 },
+        'notes.md': { lines: 30, bytes: 3600 },
+      },
+      maxLineBytes: 400,
+      historical: ['.work/old/spec.md'],
+      exceptions: {},
+    },
+  });
+}
+
+test('P2: each new contract passes at its line cap and fails one line above', () => {
+  const cfg = workConfig();
+  for (const [name, cap] of Object.entries(cfg.workArtifacts.limits)) {
+    const file = `.work/new/${name}`;
+    assert.equal(run({ [file]: lines(cap.lines) }, cfg).status, 0, name);
+    const over = run({ [file]: lines(cap.lines + 1) }, cfg);
+    assert.equal(over.status, 1, name);
+    assert.match(lineFor(over.stderr, file), /lines.*UTF-8 bytes.*caps/);
+  }
+});
+
+test('P2: untracked contracts and nested part paths are checked before git add', () => {
+  const file = '.work/feature/part-a/notes.md';
+  const r = run({ [file]: lines(31), '.work/feature/result.md': lines(999) }, workConfig(), [file]);
+  assert.equal(r.status, 1, r.out);
+  assert.match(r.stderr, /part-a\/notes\.md: 31 lines/);
+  assert.doesNotMatch(r.stderr, /result\.md/);
+});
+
+test('P2: historical oversized artifacts remain exempt; a new copy is not history', () => {
+  const cfg = workConfig();
+  assert.equal(run({ '.work/old/spec.md': 'long paragraph '.repeat(2000) }, cfg).status, 0);
+  const copied = run({ '.work/renamed/spec.md': lines(101) }, cfg);
+  assert.equal(copied.status, 1, copied.out);
+});
+
+test('P2: a new contract remains checked after commit, without needing base history', () => {
+  const file = '.work/new/spec.md';
+  const { dir, configPath } = setup({ [file]: lines(101) }, workConfig());
+  try {
+    const commit = spawnSync('git', ['-c', 'user.name=Budget Test', '-c', 'user.email=budget@example.test',
+      'commit', '-qm', 'fixture'], { cwd: dir, encoding: 'utf8' });
+    assert.equal(commit.status, 0, commit.stderr);
+    const result = exec(['--config', configPath, '--root', dir]);
+    assert.equal(result.status, 1, result.out);
+    assert.match(result.stderr, /spec\.md: 101 lines/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(configPath, { force: true });
+  }
+});
+
+test('P2: measures UTF-8 bytes (Hebrew and emoji), not JS string length', () => {
+  const file = '.work/new/notes.md';
+  // 30 physical lines, each 120 bytes including LF; exactly 3600 bytes.
+  const exact = ('א'.repeat(57) + '😀x\n').repeat(30);
+  assert.equal(Buffer.byteLength(exact), 3600);
+  const pass = run({ [file]: exact }, workConfig());
+  assert.equal(pass.status, 0, pass.out);
+  assert.match(lineFor(pass.stdout, file), /30 lines \/ 3600 UTF-8 bytes/);
+  const over = run({ [file]: exact.replace('😀x', '😀א') }, workConfig());
+  assert.equal(over.status, 1, over.out);
+  assert.match(lineFor(over.stderr, file), /3601 UTF-8 bytes/);
+});
+
+test('P2: folded paragraphs fail even below aggregate line/byte limits', () => {
+  const file = '.work/new/spec.md';
+  assert.equal(run({ [file]: 'x'.repeat(400) }, workConfig()).status, 0);
+  const r = run({ [file]: 'x'.repeat(401) }, workConfig());
+  assert.equal(r.status, 1, r.out);
+  assert.match(r.stderr, /spec\.md:1: line exceeds 400 UTF-8 bytes/);
+});
+
+test('P2: CRLF and absent final newline count physical lines and actual on-disk bytes', () => {
+  const file = '.work/new/notes.md';
+  const r = run({ [file]: 'א\r\n😀' }, workConfig());
+  assert.equal(r.status, 0, r.out);
+  assert.match(lineFor(r.stdout, file), /2 lines \/ 8 UTF-8 bytes/);
+});
+
+const securityException = () => ({
+  kind: 'security', owner: 'DATA ARCHITECT', reason: 'Threat scenarios need explicit cases',
+  scope: 'This part and these authorization cases only', lines: 110, bytes: 13000,
+});
+
+test('P2: exact-path security exception has finite limits and reports its owner', () => {
+  const file = '.work/security/spec.md';
+  const cfg = workConfig();
+  cfg.workArtifacts.exceptions[file] = securityException();
+  const pass = run({ [file]: lines(110) }, cfg);
+  assert.equal(pass.status, 0, pass.out);
+  assert.match(pass.stdout, /security exception, owner: DATA ARCHITECT/);
+  assert.equal(run({ [file]: lines(111) }, cfg).status, 1);
+  assert.equal(run({ [file]: lines(110), '.work/other/spec.md': lines(101) }, cfg).status, 1);
+  // Exception does not excuse folding prose.
+  assert.match(run({ [file]: lines(101) + 'x'.repeat(401) }, cfg).stderr, /wrap prose/);
+});
+
+test('P2: incomplete, unbounded, non-security and wildcard exceptions fail closed', () => {
+  for (const [key, value] of [['owner', ''], ['reason', ' '], ['scope', null], ['kind', 'convenience'],
+    ['lines', 100.5], ['bytes', -1], ['bytes', null]]) {
+    const cfg = workConfig();
+    cfg.workArtifacts.exceptions['.work/security/spec.md'] = { ...securityException(), [key]: value };
+    const r = run({ '.work/security/spec.md': lines(101) }, cfg);
+    assert.equal(r.status, 1, `${key}: ${r.out}`);
+    assert.match(r.stderr, /security exception/);
+  }
+  const cfg = workConfig();
+  cfg.workArtifacts.exceptions['.work/*/spec.md'] = securityException();
+  assert.equal(run({ '.work/security/spec.md': lines(101) }, cfg).status, 1);
+});
+
+test('P2: stale exceptions cannot silently become a permanent higher ceiling', () => {
+  for (const file of ['.work/missing/spec.md', '.work/old/spec.md', '.work/small/spec.md']) {
+    const cfg = workConfig();
+    cfg.workArtifacts.exceptions[file] = securityException();
+    const r = run({ '.work/old/spec.md': lines(120), '.work/small/spec.md': lines(10) }, cfg);
+    assert.equal(r.status, 1, r.out);
+    assert.match(r.stderr, /stale security exception/);
+  }
+});
+
+test('P2: malformed work config is rejected instead of disabling prospective checks', () => {
+  for (const update of [{ historical: ['../spec.md'] }, { historical: ['.work/a/spec.md', '.work/a/spec.md'] },
+    { limits: {} }, { maxLineBytes: 0 }, { exceptions: [] }]) {
+    const cfg = workConfig();
+    Object.assign(cfg.workArtifacts, update);
+    const r = run({}, cfg);
+    assert.equal(r.status, 1, r.out);
+    assert.match(r.stderr, /workArtifacts/);
+  }
+});
+
+test('P2: always-read byte budgets detect folded context independently of lines', () => {
+  const cfg = baseConfig({ alwaysRead: { 'CLAUDE.md': { lines: 10, bytes: 20 } } });
+  assert.equal(run({ 'CLAUDE.md': 'א'.repeat(10) }, cfg).status, 0);
+  const r = run({ 'CLAUDE.md': 'א'.repeat(11) }, cfg);
+  assert.equal(r.status, 1, r.out);
+  assert.match(r.stderr, /1 lines \/ 22 UTF-8 bytes.*20 bytes/);
+});

@@ -5,8 +5,8 @@ description: Combines the bug lists of CRITIC and ALGORITHM & DATA into one outc
 
 # synthesize — one outcome from two reviews
 
-**Version:** 1.1 · writes nothing. The rule is in `.claude/workflow.md` → "Verdicts"; the limits on the ORCHESTRATOR
-are in `CLAUDE.md` → "You must never".
+**Version:** 1.2 · writes nothing. The rule is in `.claude/workflow.md` → "Verdicts"; the limits on the ORCHESTRATOR
+are in `CLAUDE.md` → "Shared security and review limits" and "Decision authority".
 
 ## Input
 
@@ -35,3 +35,5 @@ One outcome is stated, every bug appears in the account, and every disagreement 
 ## Changelog
 - 1.0 — 2026-10-11 — created (Afik's skills decision). Provisional until 5 features.
 - 1.1 — 2026-10-16 — bug lists instead of verdicts; a debt line per unfixed low bug (Afik, audit decision 4; PR 37 CRITIC 3).
+
+- P2 — 2026-10-18 — אישור אפיק 17.10: align with canonical authority, sequence and records; no gate removed.

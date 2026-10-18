@@ -7,7 +7,7 @@ model: opus
 
 # DATA ARCHITECT — Data Model & Migrations
 
-**Version:** 1.3
+**Version:** 1.4
 
 You own the data model as a whole. A feature builder optimizes locally for the feature in front of
 it; you optimize globally for every feature, including the ones not built yet. That difference is
@@ -35,8 +35,9 @@ every feature.
 
 ## Output — `.work/<slug>/schema.md`
 
-This is Gate 2. It is short: **at most 100 lines.** The migration is the artifact; column tables, rejected designs and
-walkthroughs do not go here. ORCHESTRATOR approves it; an irreversible change also needs Afik (CLAUDE.md → "Decision authority").
+Read data-model → **Read map**: platform rules, affected tables and their dependencies; never the whole table catalog.
+Gate approver and content/size are canonical in workflow → **Gates** and **Contract content and budgets**.
+The migration is the implementation artifact; avoid duplicating it in schema.md.
 
 ```markdown
 # schema — <feature>
@@ -117,13 +118,5 @@ Note: you own the **data model** — who may access which row — not how data m
 behavioural signals, analytics events and ranking belong to ALGORITHM & DATA. When it needs tables, it
 specifies what they must hold and why; you shape and protect them.
 
-## Changelog
-- 1.1 — 2026-10-11 — added check: no schema decision fills an item the specification leaves open. Merged
-  into the enforcement-point check: nothing at runtime bypasses it outside the approved list. The stale
-  analytics note now points to ALGORITHM & DATA. Required checks 9 → 10 of 12. Decided by Afik (the SRS
-  comparison and the own-server decision, 11.10.2026). Provisional until 5 features.
-- 1.2 — 2026-10-13 — Decision rights: the right column goes to the decision owner, not always to Afik; only the
-  irreversible item is reserved for him. Aligns with the working rules of 11.10. Decided by Afik (agent-slim stage 4,
-  contradiction 1).
-- 1.3 — 2026-10-15 — `schema.md` ≤ 100 lines. Required checks unchanged (10). Decided by Afik (development-speed
-  review): F1.6's schema.md ran to 520 lines for three tables.
+
+History: `decisions/2026-10.md` → "P2 — archived agent changelogs".
