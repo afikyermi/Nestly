@@ -102,7 +102,7 @@ test.describe('titles and focus', () => {
     await navOf(page).getByRole('link', { name: 'פרופיל', exact: true }).click();
     await expect(page).toHaveTitle('פרופיל · Nestly');
     await navOf(page).getByRole('link', { name: 'פיד', exact: true }).click();
-    await expect(page).toHaveTitle('פיד · Nestly');
+    await expect(page).toHaveTitle('הפיד · Nestly');
   });
 
   test('[F1.2 c24][NFR-A11Y-001] after a redirect (Guest at /feed) focus is on the new screen main', async ({ page }) => {
@@ -136,7 +136,7 @@ test.describe('titles and focus', () => {
     }
     await open(page, '/settings', 'signed-in');
     for (const route of PROTECTED_ROUTES.slice(0, 3)) {
-      await navOf(page).getByRole('link', { name: route.h1, exact: true }).click();
+      await navOf(page).getByRole('link', { name: route.nav ?? route.h1, exact: true }).click();
       await expectUrl(page, route.path);
       await expect(page.locator('main'), route.path).toBeFocused();
     }

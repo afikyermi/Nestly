@@ -131,6 +131,10 @@ const dataOf = (body: string | undefined): unknown => {
   const parsed: unknown = JSON.parse(body ?? '{}');
   return typeof parsed === 'object' && parsed !== null ? Reflect.get(parsed, 'data') : undefined;
 };
+/** The landing page now asks GET /api/feed (F3.2b): an empty page, so only the sign-in's own alerts can show. */
+const stubFeed = (): void => {
+  vi.stubGlobal('fetch', () => Promise.resolve(new Response(JSON.stringify({ items: [], nextCursor: null, configVersion: 1 }), { status: 200, headers: { 'content-type': 'application/json' } })));
+};
 const settle =() => act(async () => void (await new Promise((r) => setTimeout(r, 30))));
 const sessionKeys = (map: Map<string, string>) => [...map.keys()].filter((k) => k === AUTH_STORAGE_KEY);
 const logs: unknown[][] = [];
@@ -141,6 +145,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe('F1.8 c3 the failure text is one text for every failure [FR-AUTH-005][AC-087][ERR-001]', () => {
@@ -310,6 +315,7 @@ describe('F1.8 c12 Google profile keys are cleared, never read [DR-5][FR-AUTH-00
   });
 
   it('[F1.8 c12][DR-5] a failed clear does not block sign-in and shows nothing', async () => {
+    stubFeed();
     const b = build({ clearStatus: 500 });
     mountAt(`/auth/google?code=${CODE}`, b);
     await waitFor(() => expect(window.location.pathname).toBe('/feed'));
@@ -359,6 +365,7 @@ describe('F1.8 c13 + c15 the Google start [NFR-SEC-009][AC-101][FR-AUTH-005]', (
 
 describe('F1.8 c14 /auth/google is Guest-only [FR-AUTH-004][AC-087]', () => {
   it('[F1.8 c14][FR-AUTH-004] signed in, /auth/google?code goes to the landing page and exchanges no code', async () => {
+    stubFeed();
     const b = build();
     mountAt(`/auth/google?code=${CODE}`, b);
     await waitFor(() => expect(window.location.pathname).toBe('/feed'));

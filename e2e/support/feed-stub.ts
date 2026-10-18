@@ -59,19 +59,22 @@ export interface FeedNet extends PostsNet {
   answer: (cursor: string | null, n: number) => Answer;
   /** While set, every feed answer waits for it. */
   hold: Promise<void> | null;
+  /** False while signing in (the landing page already asks for the feed): such requests get an empty page and are not recorded. */
+  armed: boolean;
 }
 
 export async function setupFeed(page: Page, answer: FeedNet['answer'], start: { professional?: boolean; posts?: StoredPost[] } = {}): Promise<FeedNet> {
   const posts = await setupPosts(page, { professional: start.professional === true, ...(start.posts === undefined ? {} : { posts: start.posts }) });
-  const extra: Pick<FeedNet, 'cursors' | 'methods' | 'apiPaths' | 'answer' | 'hold'> = { cursors: [], methods: [], apiPaths: [], answer, hold: null };
+  const extra: Pick<FeedNet, 'cursors' | 'methods' | 'apiPaths' | 'answer' | 'hold' | 'armed'> = { cursors: [], methods: [], apiPaths: [], answer, hold: null, armed: false };
   const net: FeedNet = Object.assign(posts, extra);
   page.on('request', (req) => {
     const url = new URL(req.url());
-    if (url.pathname.startsWith('/api/')) net.apiPaths.push(url.pathname);
+    if (net.armed && url.pathname.startsWith('/api/')) net.apiPaths.push(url.pathname);
   });
   await page.route(/\/api\/feed(\?.*)?$/, async (route) => {
     const req = route.request();
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+    if (!net.armed) return json(route, 200, EMPTY);
     const n = net.cursors.length;
     const cursor = new URL(req.url()).searchParams.get('cursor');
     net.cursors.push(cursor);
@@ -79,7 +82,7 @@ export async function setupFeed(page: Page, answer: FeedNet['answer'], start: { 
     if (net.hold !== null) await net.hold;
     const out = net.answer(cursor, n);
     if (out === 'abort') return route.abort('connectionreset');
-    if (typeof out === 'number') return json(route, out, { error: 'internal' });
+    if (typeof out === 'number') return json(route, out, { error: out === 403 ? 'not_allowed' : 'internal' });
     return json(route, 200, out);
   });
   return net;

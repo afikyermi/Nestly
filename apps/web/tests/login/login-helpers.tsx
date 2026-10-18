@@ -23,7 +23,7 @@ export const GENERIC = 'משהו השתבש. אפשר לנסות שוב';
 export const STOPPED = 'הכניסה לחשבון הזה אינה זמינה כרגע';
 export const EXPIRED = 'ההתחברות פגה. אפשר להתחבר שוב';
 export const WELCOME = 'הצטרפות ל-Nestly';
-export const PROTECTED_H1 = ['בית', 'פיד', 'פרופיל', 'הגדרות'];
+export const PROTECTED_H1 = ['בית', 'פיד', 'הפיד', 'פרופיל', 'הגדרות'];
 
 export const okAnswer: SignInAnswer = { accessToken: 'tok', failure: null };
 export const failureAnswer = (failure: { status?: number; code?: string; name?: string }): SignInAnswer => ({

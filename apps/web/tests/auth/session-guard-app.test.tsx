@@ -15,7 +15,7 @@ type Restore = Awaited<ReturnType<Auth['restore']>>;
 
 const CREDS = { email: 'dana.cohen@example.com', password: 'correct horse 42 zq' };
 const WELCOME = 'הצטרפות ל-Nestly';
-const PROTECTED_H1 = ['בית', 'פיד', 'פרופיל', 'הגדרות'];
+const PROTECTED_H1 = ['בית', 'פיד', 'הפיד', 'פרופיל', 'הגדרות'];
 const protectedHeading = () => screen.queryByRole('heading', { level: 1, name: (n) => PROTECTED_H1.includes(n) });
 
 function mount(path: string, over: { restore?: Restore; outcomes?: Outcome[]; signOut?: boolean } = {}) {
@@ -121,20 +121,20 @@ describe('[F1.5 c11] reload with a stored session', () => {
 describe('[F1.5 c7] signed-in users and Guest routes', () => {
   it.each(['/login', '/register'])('a signed-in user opening %s is sent to /feed', async (p) => {
     const m = mount(p, { restore: 'session', outcomes: ['active'] });
-    expect(await screen.findByRole('heading', { level: 1, name: 'פיד' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'הפיד' })).toBeInTheDocument();
     expect(path()).toBe('/feed');
     m.stop();
   });
 
-  it('[AC-004] sign-in with credentials Auth accepts and an active account: /login is replaced by /feed, focus on main, title "פיד · Nestly"', async () => {
+  it('[AC-004] sign-in with credentials Auth accepts and an active account: /login is replaced by /feed, focus on main, title "הפיד · Nestly"', async () => {
     const m = mount('/login', { restore: 'none', outcomes: ['active'] });
     await flush();
     expect(path()).toBe('/login');
     const before = window.history.length;
     await signInThroughSource(m.source);
-    expect(await screen.findByRole('heading', { level: 1, name: 'פיד' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'הפיד' })).toBeInTheDocument();
     expect(path()).toBe('/feed');
-    expect(document.title).toBe('פיד · Nestly');
+    expect(document.title).toBe('הפיד · Nestly');
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('main')));
     expect(window.history.length).toBe(before); // replaced, not pushed
     m.stop();
@@ -165,7 +165,7 @@ describe('[F1.5 c8][c9] no protected screen at any moment', () => {
 
   it('[c8] a stopped account noticed on a visible tab: the user leaves the protected page for /login; no protected content afterwards', async () => {
     const m = mount('/feed', { restore: 'session', outcomes: ['active', 'unavailable'] });
-    expect(await screen.findByRole('heading', { level: 1, name: 'פיד' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'הפיד' })).toBeInTheDocument();
     m.advance(61_000);
     await m.tabVisible();
     await waitFor(() => expect(path()).toBe('/login'));
@@ -194,7 +194,7 @@ describe('[F1.5 c14][FR-MENU-001] logout from the menu', () => {
 
   it('ends the Auth session once, and the guard sends to / (Welcome) with no protected content left', async () => {
     const m = mount('/feed', { restore: 'session', outcomes: ['active'] });
-    await screen.findByRole('heading', { level: 1, name: 'פיד' });
+    await screen.findByRole('heading', { level: 1, name: 'הפיד' });
     await logout();
     expect(await screen.findByRole('heading', { level: 1, name: WELCOME })).toBeInTheDocument();
     expect(path()).toBe('/');
@@ -210,7 +210,7 @@ describe('[F1.5 c14][FR-MENU-001] logout from the menu', () => {
     await userEvent.setup().click(screen.getByRole('link', { name: 'כבר יש לי חשבון' }));
     await waitFor(() => expect(path()).toBe('/login'));
     await signInThroughSource(m.source);
-    await screen.findByRole('heading', { level: 1, name: 'פיד' });
+    await screen.findByRole('heading', { level: 1, name: 'הפיד' });
     await logout();
     await screen.findByRole('heading', { level: 1, name: WELCOME });
     act(() => window.history.back());
@@ -223,7 +223,7 @@ describe('[F1.5 c14][FR-MENU-001] logout from the menu', () => {
 
   it('when the Auth sign-out call fails the user is still signed out (fail closed)', async () => {
     const m = mount('/feed', { restore: 'session', outcomes: ['active'], signOut: false });
-    await screen.findByRole('heading', { level: 1, name: 'פיד' });
+    await screen.findByRole('heading', { level: 1, name: 'הפיד' });
     await logout();
     expect(await screen.findByRole('heading', { level: 1, name: WELCOME })).toBeInTheDocument();
     expect(protectedHeading()).toBeNull();

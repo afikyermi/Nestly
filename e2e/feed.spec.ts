@@ -16,21 +16,24 @@ const SIZES = [
   { label: 'desktop', viewport: DESKTOP },
   { label: 'phone', viewport: MOBILE },
 ] as const;
-// The existing ERR-004 loading text of the app (posts-texts LOAD_FAILED_TEXT), referenced by screen.md "Open 1".
-const LOAD_FAILED = 'לא הצלחנו לטעון את הפוסט. אפשר לנסות שוב';
+// The feed load-failure text (screen.md, screen challenge 3, ERR-004).
+const LOAD_FAILED = 'לא הצלחנו לטעון את הפיד. אפשר לנסות שוב';
 
-async function open(page: Page, path = '/feed'): Promise<void> {
+/** Signs in (the landing page's own feed request is not recorded), then opens the feed afresh. */
+async function open(page: Page, net: FeedNet, path = '/feed'): Promise<void> {
   await page.goto('/login');
   await page.getByRole('textbox', { name: 'אימייל', exact: true }).fill(EMAIL);
   await page.getByLabel('סיסמה', { exact: true }).fill('Zq-7-unique-pw-marker-91');
   await page.getByRole('button', { name: 'התחברות', exact: true }).click();
   await expect.poll(() => pathOf(page)).not.toBe('/login');
+  await page.waitForLoadState('networkidle');
+  net.armed = true;
   await page.goto(path);
 }
 const list = (page: Page) => page.getByRole('feed', { name: 'פוסטים בפיד' });
 const cards = (page: Page) => list(page).getByRole('article');
 const retry = (page: Page) => page.getByRole('button', { name: 'נסו שוב', exact: true });
-const loadedStatus = (page: Page) => page.getByRole('status').filter({ hasText: /^נטענו \d+ פוסטים נוספים$/ });
+const loadedStatus = (page: Page) => page.getByRole('status').filter({ hasText: /^(נטענו \d+ פוסטים נוספים|נטען פוסט אחד נוסף)$/ });
 const toEnd = (page: Page) => cards(page).last().scrollIntoViewIfNeeded();
 const holdNext = (net: FeedNet): (() => void) => {
   let release = (): void => undefined;
@@ -52,7 +55,7 @@ test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
     test(`[c13] ${label}: main, h1 "הפיד", "כתיבת פוסט" above the list, cards in server order, the only product request is GET /feed; axe`, async ({ page }) => {
       await page.setViewportSize(viewport);
       const net = await setupFeed(page, () => pageOf([named(3), named(1), named(2)], null));
-      await open(page);
+      await open(page, net);
       await expect(page.getByRole('heading', { level: 1, name: 'הפיד', exact: true })).toBeVisible();
       await expect(main(page)).toBeVisible();
       await expect(cards(page)).toHaveCount(3);
@@ -66,29 +69,33 @@ test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
       await scan(page);
     });
   }
-  test('[c13] a Professional still sees the placeholder: no list, no feed request', async ({ page }) => {
-    const net = await setupFeed(page, () => EMPTY, { professional: true });
-    await open(page);
-    await expect(page.getByRole('heading', { level: 1, name: 'פיד', exact: true })).toBeVisible();
-    await page.waitForTimeout(500); // the account check answers after the heading; a list or a request must not appear later
+  test('[c13] a Professional still sees the placeholder: no list, no alert, no feed request', async ({ page }) => {
+    const net = await setupFeed(page, () => 403, { professional: true });
+    await open(page, net);
+    await expect(page.getByRole('heading', { level: 1, name: 'הפיד', exact: true })).toBeVisible();
+    await expect(main(page).getByText('המסך הזה ייפתח בקרוב.')).toBeVisible();
+    await page.waitForTimeout(500); // the profile check answers after the heading; a list, an alert or a request must not appear later
     await expect(list(page)).toHaveCount(0);
+    await expect(main(page).getByRole('alert')).toHaveCount(0);
     expect(net.cursors).toEqual([]);
   });
   test('[c13][c14] keyboard: after "כתיבת פוסט" the Tab order is each card\'s time link, in server order; the focus is visible', async ({ page }) => {
-    await setupFeed(page, () => pageOf(range(1, 4), null));
-    await open(page);
+    const net = await setupFeed(page, () => pageOf(range(1, 4), null));
+    await open(page, net);
     await expect(cards(page)).toHaveCount(4);
     await page.getByRole('link', { name: 'כתיבת פוסט', exact: true }).focus();
-    for (const n of [1, 2, 3, 4]) {
+    // A card may take a stop of its own (APG feed: tabindex 0) before its link: collect every stop up to the last link.
+    const hrefs: Array<string | null> = [];
+    for (let i = 0; i < 12 && hrefs.filter((h) => h !== null).length < 4; i += 1) {
       await page.keyboard.press('Tab');
-      const el = page.locator('*:focus');
-      await expect(el).toHaveAttribute('href', `/posts/${id(n)}`);
-      const ring = await el.evaluate((e) => {
-        const s = getComputedStyle(e);
-        return (s.outlineStyle !== 'none' && s.outlineWidth !== '0px') || s.boxShadow !== 'none';
+      const ring = await page.locator('*:focus').evaluate((e) => {
+        const st = getComputedStyle(e);
+        return { href: e.getAttribute('href'), ring: (st.outlineStyle !== 'none' && st.outlineWidth !== '0px') || st.boxShadow !== 'none' };
       });
-      expect(ring, 'visible focus').toBe(true);
+      expect(ring.ring, 'visible focus').toBe(true);
+      hrefs.push(ring.href);
     }
+    expect(hrefs.filter((h) => h !== null)).toEqual([1, 2, 3, 4].map((n) => `/posts/${id(n)}`));
   });
 });
 
@@ -97,13 +104,13 @@ test.describe('F3.2b c14 c15 c17 [FR-FEED-001 BR-065] the card', () => {
     test(`[c14][c15] ${label}: a named card — author, audience, tag, plain-text body, the time link only, no button; axe`, async ({ page }) => {
       await page.setViewportSize(viewport);
       const body = 'שורה ראשונה\nשורה שניה <script>alert(1)</script>';
-      await setupFeed(page, () =>
+      const net = await setupFeed(page, () =>
         pageOf([
           named(1, { author: { name: 'דנה כהן' }, audience: 'friends', stageTag: 'pregnant', body, createdAt: '2026-06-14T09:30:00.000Z' }),
           named(2, { author: { name: null } }),
           named(3),
         ], null));
-      await open(page);
+      await open(page, net);
       await expect(cards(page)).toHaveCount(3);
       await expect(list(page)).toHaveAttribute('role', 'feed');
       for (let i = 0; i < 3; i += 1) {
@@ -125,7 +132,7 @@ test.describe('F3.2b c14 c15 c17 [FR-FEED-001 BR-065] the card', () => {
       const text = first.locator('[dir="auto"]');
       expect(await text.innerText()).toContain('שורה ראשונה\nשורה שניה <script>alert(1)</script>');
       await expect(main(page).locator('script')).toHaveCount(0);
-      await expect(page.getByRole('article', { name: 'חבר/ת בקהילה', exact: true })).toHaveCount(1);
+      await expect(page.getByRole('article', { name: 'מהקהילה', exact: true })).toHaveCount(1);
       await expect(cards(page).nth(2)).toContainText('כולם');
       for (const label2 of ['מתכננים', 'בהריון', 'יש לנו ילד או ילדה']) await expect(cards(page).nth(2)).not.toContainText(label2);
       await expect(page.getByText(/^\d+$/)).toHaveCount(0); // no counts
@@ -133,8 +140,8 @@ test.describe('F3.2b c14 c15 c17 [FR-FEED-001 BR-065] the card', () => {
     });
     test(`[c17] ${label}: a share — sharer text above the quote with the original's header; a gone original says so and stays listed`, async ({ page }) => {
       await page.setViewportSize(viewport);
-      await setupFeed(page, () => pageOf([share(1, originalOf(5)), share(2, { available: false }), named(3)], null));
-      await open(page);
+      const net = await setupFeed(page, () => pageOf([share(1, originalOf(5)), share(2, { available: false }), named(3)], null));
+      await open(page, net);
       await expect(cards(page)).toHaveCount(3);
       const a = cards(page).nth(0);
       await expect(page.getByRole('article', { name: 'כותבת מספר 1', exact: true })).toHaveCount(1);
@@ -163,8 +170,8 @@ test.describe('F3.2b c16 [BR-062] the anonymous unit', () => {
   for (const { label, viewport } of SIZES) {
     test(`[c16] ${label}: in server order, header "אנונימי", no name, avatar or link but the time; nothing author-related in the DOM`, async ({ page }) => {
       await page.setViewportSize(viewport);
-      await setupFeed(page, () => pageOf([named(1), anonymous(2), named(3)], null));
-      await open(page);
+      const net = await setupFeed(page, () => pageOf([named(1), anonymous(2), named(3)], null));
+      await open(page, net);
       await expect(cards(page)).toHaveCount(3);
       expect(await cards(page).evaluateAll((els) => els.map((e) => e.getAttribute('aria-labelledby') !== null))).toEqual([true, true, true]);
       await expect(page.getByRole('article', { name: 'אנונימי', exact: true })).toHaveCount(1);
@@ -172,7 +179,7 @@ test.describe('F3.2b c16 [BR-062] the anonymous unit', () => {
       await expect(a).toContainText('גוף הפוסט 2');
       await expect(a.getByRole('link')).toHaveCount(1);
       await expect(a.locator('img, [role="img"], svg:not([aria-hidden="true"])')).toHaveCount(0);
-      await expect(a).not.toContainText('חבר/ת בקהילה');
+      await expect(a).not.toContainText('מהקהילה');
       await expect(a).not.toContainText('כותבת מספר 2');
       const ids = await a.evaluate((el) => [el, ...el.querySelectorAll('[data-testid]')].map((e) => e.getAttribute('data-testid') ?? ''));
       expect(ids.filter((t) => /author|name|avatar|user/i.test(t))).toEqual([]);
@@ -180,8 +187,8 @@ test.describe('F3.2b c16 [BR-062] the anonymous unit', () => {
     });
   }
   test('[c16] an anonymous unit that carries an author (a malformed answer) never puts the name in the page', async ({ page }) => {
-    await setupFeed(page, () => pageOf([named(1), anonymous(2, { author: { name: 'דנה סודית' } })], null));
-    await open(page);
+    const net = await setupFeed(page, () => pageOf([named(1), anonymous(2, { author: { name: 'דנה סודית' } })], null));
+    await open(page, net);
     await expect(page.getByRole('heading', { level: 1, name: 'הפיד', exact: true })).toBeVisible();
     await page.waitForTimeout(500); // the answer is read asynchronously; the name must not appear later
     expect(await page.content()).not.toContain('דנה סודית');
@@ -193,7 +200,7 @@ test.describe('F3.2b c18 [FR-FEED-004] infinite scroll', () => {
     test(`[c18] ${label}: the end of the list requests the next page with the cursor, busy only while loading, one polite status, de-duplicated; no more button, no footer`, async ({ page }) => {
       await page.setViewportSize(viewport);
       const net = await setupFeed(page, twoPages([named(12), ...range(13, 16)]));
-      await open(page);
+      await open(page, net);
       await expect(cards(page)).toHaveCount(12);
       await expect(list(page)).not.toHaveAttribute('aria-busy', 'true');
       await expect(main(page).getByRole('button')).toHaveCount(0);
@@ -214,7 +221,7 @@ test.describe('F3.2b c18 [FR-FEED-004] infinite scroll', () => {
   }
   test('[c18] rapid scroll while a page loads sends one request; focus stays; new cards follow in tab order; nothing is requested after the last page', async ({ page }) => {
     const net = await setupFeed(page, twoPages(range(13, 16)));
-    await open(page);
+    await open(page, net);
     await expect(cards(page)).toHaveCount(12);
     const keep = cards(page).nth(2).getByRole('link');
     await keep.focus();
@@ -226,16 +233,25 @@ test.describe('F3.2b c18 [FR-FEED-004] infinite scroll', () => {
     await expect(cards(page)).toHaveCount(16);
     await expect(keep).toBeFocused();
     await cards(page).nth(11).getByRole('link').focus();
+    // The next stop is the new card 13 itself or its link (a card may take a stop of its own).
     await page.keyboard.press('Tab');
-    await expect(page.locator('*:focus')).toHaveAttribute('href', `/posts/${id(13)}`);
+    await expect(page.locator('article:has(*:focus), article:focus')).toContainText('גוף הפוסט 13');
     for (let i = 0; i < 3; i += 1) await toEnd(page);
     await page.waitForTimeout(500); // a generous bound: a request after nextCursor null would have been sent by now
     expect(net.cursors).toHaveLength(2);
     await expect(loadedStatus(page)).toHaveCount(1);
   });
+  test('[c18] one new post after de-duplication is announced in the singular', async ({ page }) => {
+    const net = await setupFeed(page, twoPages([named(12), named(13)]));
+    await open(page, net);
+    await expect(cards(page)).toHaveCount(12);
+    await toEnd(page);
+    await expect(cards(page)).toHaveCount(13);
+    await expect(loadedStatus(page)).toHaveText('נטען פוסט אחד נוסף');
+  });
   test('[c18] restarted:true replaces the list', async ({ page }) => {
-    await setupFeed(page, twoPages(range(100, 103), { restarted: true }));
-    await open(page);
+    const net = await setupFeed(page, twoPages(range(100, 103), { restarted: true }));
+    await open(page, net);
     await expect(cards(page)).toHaveCount(12);
     await toEnd(page);
     await expect(cards(page)).toHaveCount(4);
@@ -249,7 +265,7 @@ test.describe('F3.2b c19 [ERR-004 ERR-027] first load, empty, errors', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const net = await setupFeed(page, () => pageOf(range(1, 3), null));
     const release = holdNext(net);
-    await open(page);
+    await open(page, net);
     await expect(page.getByRole('heading', { level: 1, name: 'הפיד', exact: true })).toBeVisible();
     await expect.poll(() => net.cursors.length).toBe(1);
     await expect(cards(page)).toHaveCount(0);
@@ -262,8 +278,8 @@ test.describe('F3.2b c19 [ERR-004 ERR-027] first load, empty, errors', () => {
   for (const { label, viewport } of SIZES) {
     test(`[c19] ${label}: empty — the text, one action "כתיבת פוסט", an aria-hidden SVG; axe`, async ({ page }) => {
       await page.setViewportSize(viewport);
-      await setupFeed(page, () => EMPTY);
-      await open(page);
+      const net = await setupFeed(page, () => EMPTY);
+      await open(page, net);
       await expect(main(page).getByText('עוד אין פוסטים בפיד', { exact: true })).toBeVisible();
       await expect(main(page).getByRole('link', { name: 'כתיבת פוסט', exact: true })).toHaveCount(1);
       await expect(main(page).getByRole('button')).toHaveCount(0);
@@ -274,7 +290,7 @@ test.describe('F3.2b c19 [ERR-004 ERR-027] first load, empty, errors', () => {
     test(`[c19] ${label}: a first-page error shows an alert and "נסו שוב", which asks for the first page again; axe`, async ({ page }) => {
       await page.setViewportSize(viewport);
       const net = await setupFeed(page, (_c, n) => (n === 0 ? 500 : pageOf(range(1, 3), null)));
-      await open(page);
+      await open(page, net);
       const alert = main(page).getByRole('alert');
       await expect(alert).toContainText(LOAD_FAILED);
       expect(await alert.innerText()).not.toMatch(/500|internal|error|undefined|fetch|zod/i);
@@ -287,7 +303,7 @@ test.describe('F3.2b c19 [ERR-004 ERR-027] first load, empty, errors', () => {
     test(`[c19] ${label}: a later-page error keeps the cards, the alert follows the last one, "נסו שוב" re-sends the same cursor`, async ({ page }) => {
       await page.setViewportSize(viewport);
       const net = await setupFeed(page, (cursor, n) => (cursor === null ? pageOf(range(1, 12), 'c1') : n === 1 ? 500 : pageOf(range(13, 15), null)));
-      await open(page);
+      await open(page, net);
       await expect(cards(page)).toHaveCount(12);
       await toEnd(page);
       const alert = main(page).getByRole('alert');
@@ -310,7 +326,7 @@ test.describe('F3.2b c20 [FR-FEED-004] back, reload, to top', () => {
     test(`[c20] ${label}: back from /posts/:id keeps the loaded cards and the scroll; a reload starts anew`, async ({ page }) => {
       await page.setViewportSize(viewport);
       const net = await setupFeed(page, pages(), { posts: [stored(20)] });
-      await open(page);
+      await open(page, net);
       await expect(cards(page)).toHaveCount(12);
       await toEnd(page);
       await expect(cards(page)).toHaveCount(24);
@@ -332,8 +348,8 @@ test.describe('F3.2b c20 [FR-FEED-004] back, reload, to top', () => {
     });
     test(`[c20] ${label}: "חזרה למעלה" only after a long scroll, 44x44, moves focus to the heading`, async ({ page }) => {
       await page.setViewportSize(viewport);
-      await setupFeed(page, pages());
-      await open(page);
+      const net = await setupFeed(page, pages());
+      await open(page, net);
       await expect(cards(page)).toHaveCount(12);
       const top = page.getByRole('button', { name: 'חזרה למעלה', exact: true });
       await expect(top).toHaveCount(0);

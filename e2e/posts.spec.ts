@@ -50,7 +50,7 @@ test.describe('F3.1b c14 [FR-FEED-002] the entry point', () => {
   test('[c14] a Professional has no link on the feed, and /posts/new shows "הפעולה אינה זמינה" without the form', async ({ page }) => {
     await setupPosts(page, { professional: true });
     await open(page, '/feed');
-    await expect(page.getByRole('heading', { level: 1, name: 'פיד' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'הפיד' })).toBeVisible();
     await page.waitForTimeout(500); // the posting-right check answers after the heading; a link must not appear later
     await expect(page.getByRole('link', { name: 'כתיבת פוסט' })).toHaveCount(0);
     await page.goto('/posts/new');
