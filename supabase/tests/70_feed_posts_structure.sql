@@ -127,7 +127,13 @@ select is(
 select is(
   (select count(*) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'nestly' and (p.proname like 'post%' or p.proname like 'algorithm%')),
-  3::bigint, '[F3.0a c17] exactly three functions came with F3.0a (schema.md)');
+  4::bigint, '[F3.0a c17] exactly four functions came with F3.0a (schema.md + the hide-own-post guard, ORCHESTRATOR decision on CRITIC finding 1)');
+
+select is(
+  (select string_agg(p.proname, ', ' order by p.proname) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'nestly' and (p.proname like 'post%' or p.proname like 'algorithm%')),
+  'algorithm_configurations_guard, post_hides_insert_guard, posts_insert_author, posts_insert_prepare',
+  '[F3.0a c17] the four are insert/update guards; none is a view, impression, click or dwell recorder');
 
 select is(
   (select count(*) from pg_catalog.pg_trigger t join pg_catalog.pg_class c on c.oid = t.tgrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace

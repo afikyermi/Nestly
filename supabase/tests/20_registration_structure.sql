@@ -375,8 +375,8 @@ select is_empty(
 select is_empty(
   $$ select c.relname || '.' || t.tgname
        from pg_catalog.pg_trigger t join pg_catalog.pg_class c on c.oid = t.tgrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-      where n.nspname = 'nestly' and not t.tgisinternal and t.tgname not in ('identity_link_checks_transition', 'friendships_transition', 'regular_profiles_name_insert', 'posts_insert_prepare', 'posts_insert_author', 'algorithm_configurations_guard') $$,
-  '[F1.4-a c14 · F2.0 scoped · F2.4a c12] no trigger on any nestly table but the F2.0 transition guard of identity_link_checks (file 40) and F2.4a''s friendships_transition and regular_profiles_name_insert (files 60-62) and F3.0a''s posts_insert_prepare, posts_insert_author and algorithm_configurations_guard (files 70-72): the limits are constraints, not code');
+      where n.nspname = 'nestly' and not t.tgisinternal and t.tgname not in ('identity_link_checks_transition', 'friendships_transition', 'regular_profiles_name_insert', 'posts_insert_prepare', 'posts_insert_author', 'algorithm_configurations_guard', 'post_hides_insert_guard') $$,
+  '[F1.4-a c14 · F2.0 scoped · F2.4a c12] no trigger on any nestly table but the F2.0 transition guard of identity_link_checks (file 40) and F2.4a''s friendships_transition and regular_profiles_name_insert (files 60-62) and F3.0a''s posts_insert_prepare, posts_insert_author, algorithm_configurations_guard and post_hides_insert_guard (files 70-72): the limits are constraints, not code');
 
 select set_eq(
   $$ select p.oid::regprocedure::text from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -387,8 +387,8 @@ select set_eq(
 select is(
   (select string_agg(p.proname, ', ' order by p.proname) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'nestly'),
-  'algorithm_configurations_guard, child_age_months, friendships_transition, identity_link_checks_transition, is_active_account, jwt_is_oauth, jwt_issued_at, jwt_session_id, posts_insert_author, posts_insert_prepare, profile_view, profile_view_target, recovery_claimed_at, recovery_handle, recovery_ip, recovery_subject, regular_names_insert, session_guard',
-  '[F1.4-a c14 · F1.6-a c3 c21 · F2.0-a · F2.3b c15 · F2.4a c12] nestly holds exactly eighteen functions (F3.0a c17: three trigger functions, no recording one): is_active_account, the three recovery helpers, the five F2.0 helpers, the F2.0 transition trigger, F2.3b''s profile_view with its two helpers, and F2.4a''s friendships_transition and regular_names_insert (no other function came with a migration)');
+  'algorithm_configurations_guard, child_age_months, friendships_transition, identity_link_checks_transition, is_active_account, jwt_is_oauth, jwt_issued_at, jwt_session_id, post_hides_insert_guard, posts_insert_author, posts_insert_prepare, profile_view, profile_view_target, recovery_claimed_at, recovery_handle, recovery_ip, recovery_subject, regular_names_insert, session_guard',
+  '[F1.4-a c14 · F1.6-a c3 c21 · F2.0-a · F2.3b c15 · F2.4a c12] nestly holds exactly nineteen functions (F3.0a c17: four trigger functions, no recording one): is_active_account, the three recovery helpers, the five F2.0 helpers, the F2.0 transition trigger, F2.3b''s profile_view with its two helpers, and F2.4a''s friendships_transition and regular_names_insert (no other function came with a migration)');
 
 select is_empty(
   $$ select c.relname from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
