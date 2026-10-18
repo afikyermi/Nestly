@@ -350,7 +350,9 @@ const interpreterAt = (seg) => seg.findIndex((t) => INTERPRETER.test(commandName
 function segmentNamesEnv(seg, text, subst) {
   const [patterns, code] = [patternTokens(seg, subst), interpreterAt(seg)];
   const [from, to] = (code >= 0 && scriptOf(seg, code)) || [0, 0];
-  const jqText = /^(jq|gh)$/.test(commandName(seg)); // an exempt jq program is still scanned as text
+  // A jq program is not a glob (`.[]`, --jq, -q pass), but its text is still read: `include ".env"` loads a file (guard
+  // retro 6א, Afik 18.10.2026: only a real env-file name blocks; tests in guard-retro.test.js and guard-env.test.js).
+  const jqText = /^(jq|gh)$/.test(commandName(seg));
   const asText = (k) => (text || (code >= 0 && k > code)) && (k < from || k >= to);
   return seg.some((t, k) => (/\$\(|`/.test(t) && mentionsEnv(t)) || (!patterns.has(k) && (tokenNamesEnv(t) || (asText(k) && mentionsEnv(t)))) || (patterns.has(k) && jqText && mentionsEnv(t)));
 }
@@ -387,7 +389,7 @@ function checkAll(tool, input, ctx) {
       const force =
         args.some((a) => /^--(force|force-with-lease|force-if-includes|mirror|delete|prune)(=|$)/.test(a) || /^\+/.test(a) || /^:/.test(a)) ||
         hasShortFlag(args, 'f') || hasShortFlag(args, 'd');
-      if (force) return critical('Force push, mirror push and remote deletes are blocked (decisions.md, 2026-10-11). Only Afik does these, by hand.');
+      if (force) return critical('Force push, mirror push and raw remote deletes are blocked (decisions.md, 2026-10-11). A merged or ready/* branch is deleted only through `node tools/branch-delete.mjs <branch>` (Afik 18.10.2026); main and force pushes stay Afik\'s.');
     }
   }
 
@@ -447,10 +449,25 @@ const SECRET_PATTERNS = [
   ['an OpenAI API key', new RegExp('\\bsk-' + '(proj-)?[A-Za-z0-9_-]{32,}')],
   ['a Slack token', new RegExp('\\bxox' + '[baprs]-[A-Za-z0-9-]{10,}')],
   ['a Stripe live key', new RegExp('\\b[rs]k_' + 'live_[A-Za-z0-9]{16,}')],
-  ['a database URL with a password', /\bpostgres(?:ql)?:\/\/[^:\s/@]+:([^@\s]+)@/],
+  ['a database URL with a password', /\bpostgres(?:ql)?:\/\/[^:\s/@]+:([^@\s]+)@(\[[^\]\s]*\]|[^:/\s?#'"`]*)/],
 ];
 
 const PLACEHOLDER = /^(password|pass|postgres|\*+|x+)$|^your-|[<[${]/i;
+// Guard retro 6ג (Afik 18.10.2026): in a test file or a document only, a known placeholder database URL is not a secret —
+// a placeholder password word, or a local/example host. A Supabase host is never a placeholder; every other kind of secret
+// (keys, tokens, JWTs) stays blocked in every file.
+const TEST_OR_DOC = /(^|\/)(tests?|e2e|e2e-preview|docs)\/|\.(test|spec)\.[cm]?[jt]sx?$|\.md$/i;
+const PLACEHOLDER_WORD = /^(…|\.\.\.|secret|test|changeme|example|pw|pwd)$/i;
+const PLACEHOLDER_HOST = /^(localhost|127\.0\.0\.1|\[::1\]|::1|db|postgres|host\.docker\.internal|example\.(com|org|net)|[a-z0-9.-]+\.(invalid|example|test|localhost))$/i;
+// The URL as written up to whitespace or a quote. It is a placeholder only if nothing in it can name a second host or hide a
+// real password (CRITIC PR 69 #4): one "@", no "," host list, no host=/hostaddr= in the query, no "supabase" anywhere.
+function placeholderDbUrl(file, password, host, url) {
+  if (PLACEHOLDER.test(password)) return true;
+  if (!TEST_OR_DOC.test(file)) return false;
+  if ((url.match(/@/g) || []).length !== 1 || /supabase\./i.test(url) || /[?&](host|hostaddr)=/i.test(url)) return false;
+  if (url.slice(url.indexOf('@') + 1).split(/[/?#]/)[0].includes(',')) return false;
+  return PLACEHOLDER_WORD.test(password) || PLACEHOLDER_HOST.test(host);
+}
 
 function git(repo, args) {
   return execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 20000 });
@@ -481,7 +498,8 @@ function scanForSecrets(repo, workingTree) {
     let diff;
     try {
       names = git(repo, [...base, '--name-only', '--no-ext-diff']).split('\n').filter(Boolean);
-      diff = git(repo, [...base, '--no-color', '--no-ext-diff', '-U0']);
+      // Fixed prefixes and repo-root paths: no clone setting (diff.dstPrefix, diff.noprefix, diff.relative) can rename a file.
+      diff = git(repo, [...base, '--no-color', '--no-ext-diff', '--src-prefix=a/', '--dst-prefix=b/', '--no-relative', '-U0']);
     } catch {
       return 'Could not read the staged diff to check it for secrets, so the commit is blocked.';
     }
@@ -490,20 +508,25 @@ function scanForSecrets(repo, workingTree) {
       if (/^\.env(rc|\..+)?$/.test(b) && !b.endsWith('.example')) return critical(`A .env file is staged (${n}). It must never be committed.`);
     }
     let header = false;
+    let file = '';
     for (const line of diff.split('\n')) {
       if (line.startsWith('diff --git ')) {
         header = true;
+        file = '';
         continue;
       }
+      if (header && line.startsWith('+++ ')) file = slash(line.slice(4).replace(/\t.*$/, '').replace(/^"?b\//, '').replace(/"$/, ''));
       if (line.startsWith('@@')) {
         header = false;
         continue;
       }
       if (header || !line.startsWith('+')) continue;
       for (const [what, re] of SECRET_PATTERNS) {
-        const m = re.exec(line);
-        if (!m) continue;
-        if (what === 'a database URL with a password' && PLACEHOLDER.test(m[1])) continue;
+        // Every database URL on the line is judged, so a placeholder cannot shadow a real one after it.
+        const db = what === 'a database URL with a password';
+        const ms = db ? [...line.matchAll(new RegExp(re.source, 'g'))] : [re.exec(line)].filter(Boolean);
+        if (ms.length === 0) continue;
+        if (db && ms.every((m) => placeholderDbUrl(file, m[1], m[2] ?? '', line.slice(m.index).split(/[\s'"`]/)[0]))) continue;
         return critical(`The changes being committed contain what looks like ${what}. Remove it, and rotate it if it is real. The repo is public.`);
       }
     }
