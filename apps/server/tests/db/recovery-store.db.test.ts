@@ -394,7 +394,12 @@ describe('[F1.6 c21 c13] a newer claim on an email releases the older holder', (
       if (retry.statusCode === 503) expect(retry.body).toContain('unavailable');
     }
     const holders = [];
-    for (const account of [holder, middle, newest]) if (record(await answersJson(ctx, account.id)).email_handle !== null) holders.push(account.id);
+    // A claimant refused twice (503, then 503 on the retry) has no answers row: the fixture returns NONE, not JSON. It
+    // holds nothing (main 18.10.2026: JSON.parse('-') failed the race whenever both attempts of one claimant lost).
+    for (const account of [holder, middle, newest]) {
+      const row = await answersJson(ctx, account.id);
+      if (row !== NONE && record(row).email_handle !== null) holders.push(account.id);
+    }
     expect(holders, 'exactly one account holds the handle').toHaveLength(1);
     const [winner] = holders;
     expect([holder.id, middle.id, newest.id]).toContain(winner);
@@ -670,7 +675,16 @@ describe('[F1.6 c5] a request touches only the caller\'s own rows', () => {
     const a = await accountWithAnswers(ctx, h);
     const b = await accountWithAnswers(ctx, h, [entry('nickname', 'Dudi'), entry('street', 'Allenby')]);
     const rowA = await answersJson(ctx, a.id);
-    const res = await changeAnswers(h, await bearerFor(ctx, b, a.email), [entry('pet', 'Rex'), entry('street', 'Herzl')], [entry('pet', 'Hijack'), entry('street', 'Hijack2')]);
+    // B's token is issued in the second of A's claim, never later: a token newer than A's claim on A's email is criterion
+    // 21's moved email and rightly releases A's handle. Left to the clock, that happened whenever a second ticked between
+    // A's save and this token (main, 17.10.2026 18:46 UTC).
+    const parsedA: unknown = JSON.parse(rowA);
+    const claimedA = typeof parsedA === 'object' && parsedA !== null && 'handle_claimed_at' in parsedA && typeof parsedA.handle_claimed_at === 'string'
+      ? parsedA.handle_claimed_at
+      : undefined;
+    expect(claimedA, 'A\'s row has a claim time').toBeDefined();
+    const iat = Math.floor(Date.parse(claimedA ?? '') / 1000);
+    const res = await changeAnswers(h, await bearerFor(ctx, b, a.email, { iat }), [entry('pet', 'Rex'), entry('street', 'Herzl')], [entry('pet', 'Hijack'), entry('street', 'Hijack2')]);
     expect(res.statusCode, res.body).toBe(401);
     expect(await answersJson(ctx, a.id)).toBe(rowA);
   });
