@@ -133,13 +133,11 @@ const APPROVED_F24C1: ColumnShape[] = [
   col('security_events', 'user_id', 'uuid', true),
   col('security_events', 'occurred_at', TZ, true),
 ];
-// F3.1a (feed-groundwork schema.md, posts): the columns the Drizzle schema declares; the migrated table holds more.
+// F3.1a (schema.md, posts): the columns Drizzle declares.
 const APPROVED_F31A: ColumnShape[] = [
   col('posts', 'id', 'uuid', true),
-  col('posts', 'author_id', 'uuid', false),
-  col('posts', 'audience', 'text', true),
-  col('posts', 'body', 'text', false),
-  col('posts', 'stage_tag', 'text', false),
+  col('posts', 'author_id', 'uuid', false), col('posts', 'audience', 'text', true),
+  col('posts', 'body', 'text', false), col('posts', 'stage_tag', 'text', false),
   col('posts', 'created_at', TZ, true),
 ];
 const APPROVED_ALL: ColumnShape[] = [...APPROVED, ...APPROVED_F14, ...APPROVED_F16, ...APPROVED_F20, ...APPROVED_F24A, ...APPROVED_F24C1, ...APPROVED_F31A];

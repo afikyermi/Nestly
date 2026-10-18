@@ -40,9 +40,7 @@ const EXPECTED: Array<[string, Error, number, string]> = [
 ];
 
 describe('[F3.1-a c7] postFaultReply, the mapping itself', () => {
-  it.each(EXPECTED)('[F3.1-a c7] %s', (_label, error, status, code) => {
-    expect(postFaultReply(error)).toEqual({ status, error: code });
-  });
+  it.each(EXPECTED)('[F3.1-a c7] %s', (_label, error, status, code) => expect(postFaultReply(error)).toEqual({ status, error: code }));
 
   it('[F3.1-a c7] a failure that is not the database\'s is left to the caller (undefined)', () => {
     expect(postFaultReply(new TypeError(SECRET))).toBeUndefined();

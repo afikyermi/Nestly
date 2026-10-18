@@ -11,9 +11,7 @@ const SCHEMAS = [
 ] as const;
 
 describe('[F3.1-a c1] body length VAL', () => {
-  it('[F3.1-a c1] the limit is 2,000', () => {
-    expect(POST_BODY_MAX).toBe(2000);
-  });
+  it('[F3.1-a c1] the limit is 2,000', () => expect(POST_BODY_MAX).toBe(2000));
 
   it.each(['', '   ', '\n\t '])('[F3.1-a c1] %j fails body_required', (body) => {
     const result = createPostSchema.safeParse({ ...ok, body });
@@ -38,13 +36,9 @@ describe('[F3.1-a c1] body length VAL', () => {
     expect(createPostSchema.safeParse({ ...ok, body: '😀'.repeat(2001) }).success).toBe(false);
   });
 
-  it('[F3.1-a c1] the cap is counted after trimming', () => {
-    expect(createPostSchema.safeParse({ ...ok, body: ` ${'א'.repeat(2000)} ` }).success).toBe(true);
-  });
+  it('[F3.1-a c1] the cap is counted after trimming', () => expect(createPostSchema.safeParse({ ...ok, body: ` ${'א'.repeat(2000)} ` }).success).toBe(true));
 
-  it.each([null, undefined, 5, ['x']])('[F3.1-a c1] a non-string body %j is refused', (body) => {
-    expect(createPostSchema.safeParse({ ...ok, body }).success).toBe(false);
-  });
+  it.each([null, undefined, 5, ['x']])('[F3.1-a c1] a non-string body %j is refused', (body) => expect(createPostSchema.safeParse({ ...ok, body }).success).toBe(false));
 });
 
 describe.each(SCHEMAS)('[F3.1-a c2] %s is strict (BR-062, VAL-036)', (_name, schema) => {
@@ -55,25 +49,15 @@ describe.each(SCHEMAS)('[F3.1-a c2] %s is strict (BR-062, VAL-036)', (_name, sch
 
   it('[F3.1-a c1] a body containing U+0000 is refused', () => expect(schema.safeParse({ ...ok, body: 'hello\u0000' }).success).toBe(false));
 
-  it('[F3.1-a c2] an unknown key is rejected', () => {
-    expect(schema.safeParse({ ...ok, topic: 'x' }).success).toBe(false);
-  });
+  it('[F3.1-a c2] an unknown key is rejected', () => expect(schema.safeParse({ ...ok, topic: 'x' }).success).toBe(false));
 
-  it.each(['public', 'Everyone', '', null, 1])('[F3.1-a c2] audience %j is rejected', (audience) => {
-    expect(schema.safeParse({ ...ok, audience }).success).toBe(false);
-  });
+  it.each(['public', 'Everyone', '', null, 1])('[F3.1-a c2] audience %j is rejected', (audience) => expect(schema.safeParse({ ...ok, audience }).success).toBe(false));
 
-  it.each(['everyone', 'friends'])('[F3.1-a c2] audience %s is valid', (audience) => {
-    expect(schema.safeParse({ ...ok, audience }).success).toBe(true);
-  });
+  it.each(['everyone', 'friends'])('[F3.1-a c2] audience %s is valid', (audience) => expect(schema.safeParse({ ...ok, audience }).success).toBe(true));
 
-  it.each(['topic-x', '', 'Pregnant', 5])('[F3.1-a c2] stageTag %j is rejected', (stageTag) => {
-    expect(schema.safeParse({ ...ok, stageTag }).success).toBe(false);
-  });
+  it.each(['topic-x', '', 'Pregnant', 5])('[F3.1-a c2] stageTag %j is rejected', (stageTag) => expect(schema.safeParse({ ...ok, stageTag }).success).toBe(false));
 
-  it.each(JOURNEY_STAGES)('[F3.1-a c2] stageTag %s is valid', (stageTag) => {
-    expect(schema.safeParse({ ...ok, stageTag }).success).toBe(true);
-  });
+  it.each(JOURNEY_STAGES)('[F3.1-a c2] stageTag %s is valid', (stageTag) => expect(schema.safeParse({ ...ok, stageTag }).success).toBe(true));
 
   it('[F3.1-a c2] stageTag null and absent are valid', () => {
     expect(schema.safeParse({ ...ok, stageTag: null }).success).toBe(true);
