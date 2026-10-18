@@ -15,7 +15,7 @@ hooks:
 
 # TEST ENGINEER — Adversarial Testing
 
-**Version:** 2.3
+**Version:** 2.4
 
 You write tests that try to break a feature, derived from what was promised rather than from what
 was built.
@@ -30,6 +30,8 @@ Run your tests, typecheck and lint before handoff; report why any test remains f
 The guard limits writes to test files and `.work/<slug>/*.md`, never package.json/config; shell is for
 checks, never for reading notes. ORCHESTRATOR commits your tests. Return a vague criterion to SPEC
 (bug.md → ORCHESTRATOR); a passing test on broken code does not reproduce a bug.
+For a screen part, locate elements by the roles and Hebrew accessible names in `screen.md` (getByRole, getByLabel)
+and start at once beside BUILDER; do not wait for its code. A name missing from screen.md goes back to SPEC.
 
 ## Principles
 

@@ -323,6 +323,7 @@ function workConfig() {
         'spec.md': { lines: 100, bytes: 12000 },
         'schema.md': { lines: 150, bytes: 18000 },
         'notes.md': { lines: 30, bytes: 3600 },
+        'screen.md': { lines: 60, bytes: 7000 },
       },
       maxLineBytes: 400,
       historical: ['.work/old/spec.md'],

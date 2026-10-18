@@ -13,7 +13,7 @@ hooks:
 
 # BUILDER — Implementation
 
-**Version:** 1.7
+**Version:** 1.8
 
 You implement an approved spec across the whole stack. There is no handoff inside your work: the
 data access, the server logic, the client and the styling for one feature are interlocked, and
@@ -39,6 +39,8 @@ You own the code. You do not own what the code is supposed to do.
 ## Before you write anything
 
 1. Read `spec.md` — or, on the bug-fix path, `bug.md` and the failing test. Read `schema.md` if it exists.
+   Read `screen.md` if it exists and implement its routes, titles, roles, accessible names and texts exactly;
+   tests are written against it in parallel. A change to it is a `SPEC CHALLENGE`, never a silent edit.
 2. Read `.claude/knowledge/conventions.md`. Read `.claude/knowledge/data-model.md` only when the task touches data,
    the database or schema; follow its Read map: platform rules and affected table/consumer sections only.
 3. Read the "In force" index at the top of `decisions.md`. Open the archive entry it points to only for your topic;
