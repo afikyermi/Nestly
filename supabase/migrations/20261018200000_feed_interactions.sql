@@ -581,11 +581,17 @@ create policy reports_update_jobs on nestly.reports
 
 revoke all on table nestly.comments, nestly.reactions, nestly.reaction_owners, nestly.reports from public, anon;
 
+-- held_xact and liker_status are never granted (schema-b.md): column-level SELECT on every other column. Policies still read them;
+-- a client 'select *' on posts, comments and reactions is 42501 by design.
+revoke select on table nestly.posts from authenticated;
+grant select (id, author_id, author_status, is_anonymous, anonymous_post_id, audience, body, stage_tag, is_share, shared_post_id, status,
+              created_at, held_at, held_until) on table nestly.posts to authenticated;
 grant update (status) on table nestly.posts to authenticated;
-grant select, delete on table nestly.comments to authenticated;
+grant select (id, post_id, parent_id, author_id, author_status, is_by_post_author, body, status, held_at, held_until, created_at),
+      delete on table nestly.comments to authenticated;
 grant insert (post_id, parent_id, body),
       update (status) on table nestly.comments to authenticated;
-grant select, delete on table nestly.reactions to authenticated;
+grant select (id, post_id, comment_id, target_id, is_by_author, created_at), delete on table nestly.reactions to authenticated;
 grant insert (post_id, comment_id) on table nestly.reactions to authenticated;
 grant select on table nestly.reaction_owners to authenticated;
 grant insert (reaction_id, target_id) on table nestly.reaction_owners to authenticated;

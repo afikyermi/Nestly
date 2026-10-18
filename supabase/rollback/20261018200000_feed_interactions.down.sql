@@ -75,6 +75,8 @@ comment on policy posts_update_author on nestly.posts is
   'The author (named, or through post_authors) edits audience, body and tag of an active post (column grant); the status cannot be changed.';
 
 revoke update (status) on table nestly.posts from authenticated;
+revoke select on table nestly.posts from authenticated;
+grant select on table nestly.posts to authenticated;  -- F3.0a's table-level grant back
 revoke select, delete on table nestly.posts from app_jobs;
 revoke usage on schema nestly from app_jobs;
 

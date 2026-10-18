@@ -14,6 +14,11 @@
 **Not done** moderated post delete by its author: schema-b has no branch (CRITIC F3.0a finding 1, second half). Nothing under apps/ or packages/.
 **Uncertain** `xid8` held branch tested in-transaction only; the author of a post they reported-hid is impossible (own reports refused).
 **Evidence** up→down→up by psql; db-local test: 640 green; typecheck, eslint tools, check:budgets green. TE's 70/71/20/10/13 and tool-test expectations need b updates (see report).
+**TE finding 1 (18.10)** SELECT for authenticated on posts, comments, reactions is column-level, without
+posts/comments.held_xact and reactions.liker_status; policies and triggers still read them.
+F3.1+ builders: `select *` / `returning *` on these three tables is 42501 for the app role; list columns.
+Other "never granted" columns (author_id, is_by_post_author, reactions.is_by_author) stay readable
+because tests 74 filter on them; reported.
 **Neighbouring** posts_body_check btrim; a hold with no report purges at the next run (harmless).
 
 **Deferred protected-file edits** (data-model.md)
