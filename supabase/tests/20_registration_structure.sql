@@ -247,8 +247,8 @@ select ok(
 select is(
   (select string_agg(c.relname, ', ' order by c.relname) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind = 'r' and c.relname <> 'identity_link_checks' and has_table_privilege('authenticated', c.oid, 'SELECT')),
-  'algorithm_configurations, children, comments, friendships, journey_contexts, legal_consents, post_authors, post_hides, posts, reaction_owners, reactions, regular_names, regular_profiles, reports, users',
-  '[F1.4-a c14 · F2.0 scoped · F2.4a c12 · F3.0a c1 · F3.0-b c1] authenticated can SELECT the five tables and, from F2.4a, friendships and regular_names, from F3.0a the four feed tables, from F3.0b comments, reactions, reaction_owners and reports (identity_link_checks: file 40)');
+  'algorithm_configurations, children, friendships, journey_contexts, legal_consents, post_authors, post_hides, reaction_owners, regular_names, regular_profiles, reports, users',
+  '[F1.4-a c14 · F2.0 scoped · F2.4a c12 · F3.0a c1 · F3.0-b c1 c12 c14] authenticated holds table-level SELECT on the five tables and, from F2.4a, friendships and regular_names, from F3.0a algorithm_configurations, post_authors and post_hides, from F3.0b reaction_owners and reports; posts, comments and reactions carry column-level SELECT only (held_xact and liker_status never granted: files 70 and 73); identity_link_checks: file 40');
 
 -- Amendment 1 (CRITIC a-1): INSERT is granted per COLUMN, never per table.
 select is_empty(

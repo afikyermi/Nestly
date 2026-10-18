@@ -68,8 +68,23 @@ select is(
      from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace,
           unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']) p
     where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and has_table_privilege('authenticated', c.oid, p)),
-  'comments=DELETE, comments=SELECT, reaction_owners=SELECT, reactions=DELETE, reactions=SELECT, reports=SELECT',
-  '[F3.0-b c1 c12 c15] authenticated holds table-level SELECT on all four and DELETE on comments and reactions only: no table-wide INSERT/UPDATE, reports never deleted or updated');
+  'comments=DELETE, reaction_owners=SELECT, reactions=DELETE, reports=SELECT',
+  '[F3.0-b c1 c12 c15 finding 1] authenticated holds table-level SELECT on reaction_owners and reports (comments and reactions: column-level, next test) and DELETE on comments and reactions only: no table-wide INSERT/UPDATE, reports never deleted or updated');
+
+select is(
+  (select string_agg(c.relname || '.' || a.attname, ', ' order by c.relname, a.attname)
+     from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'nestly' and c.relname in ('comments', 'reactions') and a.attnum > 0 and not a.attisdropped
+      and has_column_privilege('authenticated', c.oid, a.attnum, 'SELECT')),
+  'comments.author_id, comments.author_status, comments.body, comments.created_at, comments.held_at, comments.held_until, comments.id, comments.is_by_post_author, '
+  || 'comments.parent_id, comments.post_id, comments.status, reactions.comment_id, reactions.created_at, reactions.id, reactions.is_by_author, reactions.post_id, reactions.target_id',
+  '[F3.0-b finding 1 c12 c14] authenticated may SELECT exactly these comments and reactions columns: everything but comments.held_xact and reactions.liker_status');
+
+select is(
+  (select count(*) from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'nestly' and ((c.relname = 'comments' and a.attname = 'held_xact') or (c.relname = 'reactions' and a.attname = 'liker_status'))
+      and a.attnum > 0 and not a.attisdropped),
+  2::bigint, '[F3.0-b finding 1 c14] comments.held_xact and reactions.liker_status exist (the never-readable test is not vacuous)');
 
 select is(
   (select string_agg(c.relname || '.' || a.attname, ', ' order by c.relname, a.attname)

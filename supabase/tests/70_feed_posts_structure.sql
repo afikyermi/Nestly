@@ -67,8 +67,22 @@ select is(
      from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace,
           unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']) p
     where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and has_table_privilege('authenticated', c.oid, p)),
-  'algorithm_configurations=SELECT, post_authors=SELECT, post_hides=DELETE, post_hides=SELECT, posts=DELETE, posts=SELECT',
-  '[F3.0-a c1 c18] authenticated holds table-level SELECT on all four, DELETE on posts and post_hides only; no INSERT/UPDATE table-wide, no TRUNCATE/REFERENCES/TRIGGER');
+  'algorithm_configurations=SELECT, post_authors=SELECT, post_hides=DELETE, post_hides=SELECT, posts=DELETE',
+  '[F3.0-a c1 c18 · F3.0-b finding 1] authenticated holds table-level SELECT on algorithm_configurations, post_authors and post_hides (posts: column-level, next test), DELETE on posts and post_hides only; no INSERT/UPDATE table-wide, no TRUNCATE/REFERENCES/TRIGGER');
+
+select is(
+  (select string_agg(a.attname, ', ' order by a.attname)
+     from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'nestly' and c.relname = 'posts' and a.attnum > 0 and not a.attisdropped
+      and has_column_privilege('authenticated', c.oid, a.attnum, 'SELECT')),
+  'anonymous_post_id, audience, author_id, author_status, body, created_at, held_at, held_until, id, is_anonymous, is_share, shared_post_id, stage_tag, status',
+  '[F3.0-b finding 1 c14] authenticated may SELECT exactly these posts columns: everything but held_xact');
+
+select is(
+  (select count(*) from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'nestly' and c.relname = 'posts' and a.attname = 'held_xact' and a.attnum > 0 and not a.attisdropped
+      and not has_column_privilege('authenticated', c.oid, a.attnum, 'SELECT')),
+  1::bigint, '[F3.0-b finding 1 c14] posts.held_xact exists and is not selectable by authenticated (the previous test is not vacuous)');
 
 select is(
   (select string_agg(c.relname || '.' || a.attname, ', ' order by c.relname, a.attname)
