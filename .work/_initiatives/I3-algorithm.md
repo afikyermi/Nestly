@@ -1,9 +1,10 @@
 # algorithm — I3 Community feed (FR-ALG-002 subset)
 
 **Author:** ALGORITHM & DATA, 18.10.2026 · **Revised** 18.10.2026 (own review findings 4–9, `.work/feed-groundwork/algorithm-review.md`;
-Afik's final decisions of 18.10 on reported comments/users and on "restricted" profiles, relayed by ORCHESTRATOR).
-**Status:** DR-1..DR-4 (incl. DR-4b) answered by Afik (`I3-questions.md` → "תשובות" and his 18.10 final decisions), DR-5
-decided by ORCHESTRATOR. Still open for Afik: DR-6 (suspension correlation of anonymous posts); it does not block F3.2.
+Afik's final decisions of 18.10 on reported comments/users and on "restricted" profiles, relayed by ORCHESTRATOR) · 18.10.2026
+(F3.2a2 review low 4, `.work/feed-view/findings-a2.md`: Pipeline 6 lists the score inputs not bounded by `asOf`; DR-6 decided).
+**Status:** DR-1..DR-4 (incl. DR-4b) and DR-6 answered by Afik (`I3-questions.md` → "תשובות" and his 18.10 final decisions;
+DR-6: 4א, 18.10), DR-5 decided by ORCHESTRATOR. Nothing open for Afik in this file.
 **Scope:** the Regular User feed of I3 (FR-FEED-001..007, FR-MOD-001 report action, FR-ALG-002 subset; roadmap I3 row).
 Not in I3: Interest/Intent and the profile (FR-ALG-001, I15), Negative Feedback/Exploration (FR-ALG-009, I15; only "hide
 this post" enters I3 as F3.9, answer 8א), Groups (I10), Follows and the Professional feed (FR-ALG-003, I11), Sponsored
@@ -93,9 +94,17 @@ Rule-based, no ML/LLM (P-ALG-01, BR-049). Any learned component is a separate re
    query as a float8 parameter and compared with the same float8 expression — PostgreSQL's shortest-exact float8 output and
    the IEEE double of JS make the round trip exact. `asOf` and `created_at` travel as ISO text with full microseconds, never
    through a JS `Date` (millisecond precision would break the keyset). `configVersion` is an integer ≥ 0 (0 =
-   `fallback-recency-v0`). Every input to the score is bounded by `asOf`, so pages do not reorder. A post deleted, removed
-   or made ineligible after `asOf` simply drops out (RLS); an unlike can shift one unit across a page edge — the client
-   de-duplicates by unit id. Refresh (MVP polling) starts a new snapshot. Later pages read the pinned version by
+   `fallback-recency-v0`). Bounded by `asOf`: the candidate set (`created_at ≤ asOf`), `ageHours` and the Likes/Comments
+   in `n`. **Not** bounded by `asOf` — accepted limitations (F3.2a2 review, low 4): (i) **Friendship** — a friendship
+   accepted or removed between pages flips the Friend term (and, for friends-only posts, eligibility through RLS) on
+   later pages; (ii) **the viewer's Stage set**, when `wStage > 0` — it is re-derived per page from the viewer's current
+   JourneyContexts, so a Stage added or removed between pages flips `stageMatch`; (iii) an unlike, a comment removed or
+   a liker/commenter suspended after `asOf` lowers `n` (RLS hides the row; `created_at ≤ asOf` cannot restore it); (iv) a
+   post deleted, removed or made ineligible after `asOf` drops out (RLS). Each can move a unit across a page edge: the
+   client de-duplicates by unit id, so a repeat is never shown twice, but a unit whose score rose above the cursor can
+   be **skipped** until the next refresh. Accepted because these are rare, viewer-driven or moderation events, binding
+   them to `asOf` would need history tables (friendship and Stage as-of) for little gain, and a refresh restores the full
+   list. Refresh (MVP polling) starts a new snapshot. Later pages read the pinned version by
    `(surface, version)` — still readable after a newer version becomes active; if that row is missing or fails Zod, the
    next page starts a new snapshot from the top (no mixed versions in one list).
 
@@ -203,12 +212,12 @@ until I15 events exist; by configVersion. No metric is reported per user.
   `I3-questions.md` → "לידיעה בלבד"): AC-060 passes in I3 for Eligibility-first, Social (Friends), Freshness, Quality,
   Diversity and no ML; every other clause is asserted in the Initiative that brings its data (I10, I11, I15). Config
   changes only by migration reviewed by ALGORITHM & DATA until the I15 admin tool (BR-059).
-- **DR-6 Suspension correlation of anonymous posts** (owner: Afik — privacy; from review finding 8; open). When an author
-  is suspended, banned, enters deletion grace or is reactivated, their named **and** anonymous posts disappear or reappear
-  in the same statement (BR-065, BR-073 require hiding both). Someone watching the feed at that moment can see an anonymous
-  post vanish together with a named author's posts and link the two. Options: (a) accept — it needs a watcher at the exact
-  moment and one of rare moderation events; record it in `security-privacy-open.md`; (b) keep anonymous posts of a
-  suspended author visible — contradicts BR-065/BR-073 and leaves a sanctioned author's content up; (c) hide anonymous
-  posts with a random delay — only blurs the link, adds a job and a window where sanctioned content stays visible.
-  **Recommend (a)**, recorded in `security-privacy-open.md` as accepted with a revisit in I4 (moderation), because the
-  alternatives either break an approved rule or buy little protection for real cost.
+- **DR-6 Suspension correlation of anonymous posts** — **decided 4א (Afik, 18.10): option (a), accepted;** recorded in
+  `security-privacy-open.md` as **S-34**. Closed. Background (from review finding 8): when an author is suspended,
+  banned, enters deletion grace or is reactivated, their named **and** anonymous posts disappear or reappear in the same
+  statement (BR-065, BR-073 require hiding both). Someone watching the feed at that moment can see an anonymous post
+  vanish together with a named author's posts and link the two. Options were: (a) accept — it needs a watcher at the
+  exact moment and one of rare moderation events; (b) keep anonymous posts of a suspended author visible — contradicts
+  BR-065/BR-073 and leaves a sanctioned author's content up; (c) hide anonymous posts with a random delay — only blurs
+  the link, adds a job and a window where sanctioned content stays visible. ALGORITHM & DATA recommended (a) with a
+  revisit in I4 (moderation).

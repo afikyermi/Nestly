@@ -102,7 +102,11 @@ export async function readListedRows(tx: IdentityTx): Promise<ListedRow[]> {
     .orderBy(desc(friendships.requestedAt), desc(friendships.id));
 }
 
-/** The full names the caller may read: its own, and the other party's of each live row (regular_names_select_party). */
-export async function readVisibleNames(tx: IdentityTx): Promise<{ userId: string; fullName: string }[]> {
-  return tx.select({ userId: regularNames.userId, fullName: regularNames.fullName }).from(regularNames);
+/**
+ * The full names, among those of `userIds`, that the caller may read (the policies on regular_names decide which). The ids pick the rows
+ * to look at, so the cost follows the lists and not the number of users; they are not a filter for permission.
+ */
+export async function readVisibleNames(tx: IdentityTx, userIds: readonly string[]): Promise<{ userId: string; fullName: string }[]> {
+  if (userIds.length === 0) return [];
+  return tx.select({ userId: regularNames.userId, fullName: regularNames.fullName }).from(regularNames).where(inArray(regularNames.userId, [...userIds]));
 }
