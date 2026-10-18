@@ -82,7 +82,7 @@ test('[6ג] a placeholder database URL in a test file or a document is not a sec
     { 'apps/server/tests/db/a.test.ts': `const url = '${pg('app_server', 'secret', 'localhost:54322')}/postgres';\n` },
     { 'docs/setup.md': `Use ${pg('app_owner', '…', 'db.example.com')}/postgres\n` },
     { 'e2e/fixtures.ts': `export const U = '${pg('u', 'changeme', '127.0.0.1:5432')}/x';\n` },
-    { '.work/x/schema.md': `${pg('app_owner', 'password1', 'localhost')}/postgres\n` },
+    { '.work/x/schema.md': `${pg('app_owner', 'password', 'localhost')}/postgres\n` },
   ]) {
     assert.equal(scanForSecrets(repoWith(files), false), null, Object.keys(files)[0]);
   }
@@ -99,4 +99,27 @@ test('[6ג] the real protection stays: product code, Supabase hosts, a real URL 
   ]) {
     assert.ok(scanForSecrets(repoWith(files), false), Object.keys(files)[0]);
   }
+});
+
+test('[6ג, CRITIC PR 69 #4] a placeholder look cannot hide a real host or password: query host, host lists, a second @', () => {
+  for (const line of [
+    `${pg('postgres.abc', 'Zq9realpw', 'localhost:6543')}/postgres?host=aws-0-eu-central-1.pooler.${'supa'}base.com`,
+    `${pg('u', 'Zq9realpw', 'localhost:5432')},db.abc.${'supa'}base.co:5432/postgres`,
+    `${pg('u', 'test@Zq9real', 'prod.rds.amazonaws.com')}/db`,
+    `${pg('u', 'secret', 'localhost')}/x?hostaddr=10.0.0.5`,
+    `${pg('u', 'pass2024', 'prod.rds.amazonaws.com')}/db`,
+  ]) {
+    assert.ok(scanForSecrets(repoWith({ 'docs/x.md': `${line}\n` }), false), line);
+  }
+});
+
+test('[6ג, CRITIC PR 69 #5] each line is tied to its own file, whatever the clone sets for diff prefixes', () => {
+  const repo = repoWith({ 'docs/setup.md': `${pg('u', 'secret', 'localhost')}/x\n`, 'apps/server/src/db.ts': `const url = '${pg('app', 'anything', 'localhost')}/x';\n` });
+  assert.ok(scanForSecrets(repo, false), 'the product file is still scanned strictly next to a doc');
+  execFileSync('git', ['-C', repo, 'config', 'diff.dstPrefix', 'docs/']);
+  execFileSync('git', ['-C', repo, 'config', 'diff.noprefix', 'true']);
+  assert.ok(scanForSecrets(repo, false), 'diff.dstPrefix=docs/ does not make a product file a document');
+  const docsOnly = repoWith({ 'docs/setup.md': `${pg('u', 'secret', 'localhost')}/x\n` });
+  execFileSync('git', ['-C', docsOnly, 'config', 'diff.noprefix', 'true']);
+  assert.equal(scanForSecrets(docsOnly, false), null, 'a real document still passes with odd diff settings');
 });

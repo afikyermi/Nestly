@@ -457,12 +457,15 @@ const PLACEHOLDER = /^(password|pass|postgres|\*+|x+)$|^your-|[<[${]/i;
 // a placeholder password word, or a local/example host. A Supabase host is never a placeholder; every other kind of secret
 // (keys, tokens, JWTs) stays blocked in every file.
 const TEST_OR_DOC = /(^|\/)(tests?|e2e|e2e-preview|docs)\/|\.(test|spec)\.[cm]?[jt]sx?$|\.md$/i;
-const PLACEHOLDER_WORD = /^(…|\.\.\.|secret|test|changeme|example|pw|pwd|password\d*|pass\d*)$/i;
+const PLACEHOLDER_WORD = /^(…|\.\.\.|secret|test|changeme|example|pw|pwd)$/i;
 const PLACEHOLDER_HOST = /^(localhost|127\.0\.0\.1|\[::1\]|::1|db|postgres|host\.docker\.internal|example\.(com|org|net)|[a-z0-9.-]+\.(invalid|example|test|localhost))$/i;
-const SUPABASE_HOST = /(^|\.)supabase\.(co|com|net|in)$/i;
-function placeholderDbUrl(file, password, host) {
+// The URL as written up to whitespace or a quote. It is a placeholder only if nothing in it can name a second host or hide a
+// real password (CRITIC PR 69 #4): one "@", no "," host list, no host=/hostaddr= in the query, no "supabase" anywhere.
+function placeholderDbUrl(file, password, host, url) {
   if (PLACEHOLDER.test(password)) return true;
-  if (!TEST_OR_DOC.test(file) || SUPABASE_HOST.test(host)) return false;
+  if (!TEST_OR_DOC.test(file)) return false;
+  if ((url.match(/@/g) || []).length !== 1 || /supabase\./i.test(url) || /[?&](host|hostaddr)=/i.test(url)) return false;
+  if (url.slice(url.indexOf('@') + 1).split(/[/?#]/)[0].includes(',')) return false;
   return PLACEHOLDER_WORD.test(password) || PLACEHOLDER_HOST.test(host);
 }
 
@@ -495,7 +498,8 @@ function scanForSecrets(repo, workingTree) {
     let diff;
     try {
       names = git(repo, [...base, '--name-only', '--no-ext-diff']).split('\n').filter(Boolean);
-      diff = git(repo, [...base, '--no-color', '--no-ext-diff', '-U0']);
+      // Fixed prefixes and repo-root paths: no clone setting (diff.dstPrefix, diff.noprefix, diff.relative) can rename a file.
+      diff = git(repo, [...base, '--no-color', '--no-ext-diff', '--src-prefix=a/', '--dst-prefix=b/', '--no-relative', '-U0']);
     } catch {
       return 'Could not read the staged diff to check it for secrets, so the commit is blocked.';
     }
@@ -511,7 +515,7 @@ function scanForSecrets(repo, workingTree) {
         file = '';
         continue;
       }
-      if (header && line.startsWith('+++ ')) file = slash(line.slice(4).replace(/^"?b\//, '').replace(/"$/, ''));
+      if (header && line.startsWith('+++ ')) file = slash(line.slice(4).replace(/\t.*$/, '').replace(/^"?b\//, '').replace(/"$/, ''));
       if (line.startsWith('@@')) {
         header = false;
         continue;
@@ -522,7 +526,7 @@ function scanForSecrets(repo, workingTree) {
         const db = what === 'a database URL with a password';
         const ms = db ? [...line.matchAll(new RegExp(re.source, 'g'))] : [re.exec(line)].filter(Boolean);
         if (ms.length === 0) continue;
-        if (db && ms.every((m) => placeholderDbUrl(file, m[1], m[2] ?? ''))) continue;
+        if (db && ms.every((m) => placeholderDbUrl(file, m[1], m[2] ?? '', line.slice(m.index).split(/[\s'"`]/)[0]))) continue;
         return critical(`The changes being committed contain what looks like ${what}. Remove it, and rotate it if it is real. The repo is public.`);
       }
     }

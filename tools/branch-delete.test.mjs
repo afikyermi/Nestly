@@ -2,7 +2,7 @@
 // when merged at its current tip; odd names refused. The facts are injected; no git or network. Add to `test:tools`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { decide } from './branch-delete.mjs';
+import { decide, deleteArgs } from './branch-delete.mjs';
 
 const TIP = 'a'.repeat(40);
 const OTHER = 'b'.repeat(40);
@@ -32,4 +32,16 @@ test('[item 5] another branch only when merged at its current tip', () => {
 test('[item 5] a missing branch or an odd name is refused (no option injection, no ranges)', () => {
   assert.equal(decide('feat/x', { exists: false, tip: null, ancestorOfMain: false, mergedPrHeads: [] }).ok, false);
   for (const b of ['--force', '-d', 'a..b', 'a//b', 'a b', 'a;rm', '']) assert.equal(decide(b, exists({ ancestorOfMain: true })).ok, false, b);
+});
+
+test('[item 5, CRITIC PR 69 #1] a ref-like name is refused before any lookup: a decoy cannot aim the delete at another ref', () => {
+  for (const b of ['refs/heads/feat/unmerged', 'refs/tags/v1', 'heads/feat/x', 'tags/v1', 'remotes/origin/main', 'REFS/heads/x']) {
+    assert.equal(decide(b, exists({ ancestorOfMain: true, mergedPrHeads: [TIP] })).ok, false, b);
+    assert.throws(() => deleteArgs(b, TIP), /refused/, b);
+  }
+});
+
+test('[item 5, CRITIC PR 69 #1-2] the delete pushes the full ref name with a lease on the approved tip', () => {
+  assert.deepEqual(deleteArgs('ready/p4-proof', TIP), ['push', 'origin', `--force-with-lease=refs/heads/ready/p4-proof:${TIP}`, ':refs/heads/ready/p4-proof']);
+  for (const [b, tip] of [['main', TIP], ['feat/x', 'not-a-sha'], ['feat/x/', TIP], ['x.lock', TIP]]) assert.throws(() => deleteArgs(b, tip), /refused/, b);
 });
