@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["fra1"],
+  "git": { "deploymentEnabled": { "**": false, "main": true, "ready/**": true } },
   "ignoreCommand": "node tools/vercel-ignore.mjs",
   "installCommand": "npm install",
   "buildCommand": "npm run build -w @nestly/web",
