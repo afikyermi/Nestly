@@ -126,3 +126,25 @@ Afik's decisions (`decisions.md` 17.10 "Initiative order", "Recovery lock ladder
 | 12 | **I9 Launch readiness** · U1 | I1–I8, I10–I14 | — |
 | — | demo content · presentation · **launch** | I9 | — |
 | 13 | I15 Personalization and intelligence | I3, I9, usage data | after launch |
+
+## Amendment 6 — 18.10.2026 — project-wide reserved points
+
+Afik's final answers to `.work/_initiatives/afik-list-1018.md` (`decisions/2026-10.md` 18.10 "Project-wide reserved points").
+
+1. **I4 adds** a user block (mutual; hides posts, comments and profile both ways; ends the Friendship): one feature, 6 → 7.
+   Reports of "content endangering a child" get top priority in the Admin queue (no external hotline link).
+2. **I5:** the server nudity model is picked by ALGORITHM & DATA under `ai-ml-readiness.md`; Story audience preselected "everyone".
+3. **I6:** every Tracker collects its data, only the user sees it, and every Tracker, the cycle included, has charts over a
+   period the user picks (FR-TRACK-001 grows; OP-008 answered with minimal fields). More work inside I6's existing features.
+4. **I7:** People Search limit 60 per hour per account (OP-035).
+5. **I11 drops** professional verification entirely (OP-005, FR-PROREG-003, VAL-008's verification use): 10 → 9 features.
+   Outreach only as "Offer Help", ≤ 10 a day (OP-010); location = city/area from a list (§12).
+6. **I12:** listing rules per the list's 11א (OP-012). Coupons and affiliate are not in the MVP; **sample coupons, marked as
+   samples, enter for the lecturer demo** (OP-023). **I13:** simulated prices marked "מחיר לדוגמה" (OP-030).
+7. **I14 adds** the admin charts FR-ADMIN-010/003 (moved from I15, visible to the Admin or a holder of the permission);
+   ANALYTICS_VIEW sees all data including per-user and small groups, without names or identifying details. I14 4 → 5;
+   I15 keeps its other items.
+8. **I9:** live-account retention per 15א (§13.4); no Gmail normalisation; child age ≤ 18 and due date ≤ 10 months ahead;
+   Vercel Hobby until launch, Pro or non-commercial decided before launch.
+
+Counts: I4 7 · I11 9 · I14 5 → **88** features in all (I3 10 included).
