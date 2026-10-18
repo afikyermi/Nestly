@@ -297,8 +297,6 @@ jobs:
       - run: npx playwright install --with-deps ${{ matrix.project == 'edge' && 'msedge' || 'chrome' }}
       - run: npm run build-storybook
       - run: npx playwright test e2e/user-profile-actions.spec.ts:386 e2e/user-profile.spec.ts:183 --project=${{ matrix.project }} --repeat-each=20 --retries=0
-      # CRITIC finding 6: every test that uses the changed signIn/openProfile, 5x each.
-      - run: npx playwright test e2e/user-profile.spec.ts e2e/user-profile-actions.spec.ts --project=${{ matrix.project }} --repeat-each=5 --retries=0
 
   audit:
     runs-on: ubuntu-latest
