@@ -83,6 +83,8 @@ describe('[F1.5 c16][FR-REG-004] the completion screen', () => {
   });
 });
 
+const urlOf = (u: Parameters<typeof fetch>[0]): string => (typeof u === 'string' ? u : u instanceof URL ? u.href : u instanceof Request ? u.url : '');
+
 describe('[F1.5 c16] submitting the completion', () => {
   it('[c16][AC-091] 201: POST /api/register with the held session and no sign-up; then /feed; the body carries step 1 and consent, never email or password', async () => {
     const fetchSpy = stubRegister(201);
@@ -92,8 +94,9 @@ describe('[F1.5 c16] submitting the completion', () => {
     await finish(u);
     expect(await screen.findByRole('heading', { level: 1, name: 'פיד' })).toBeInTheDocument();
     expect(path()).toBe('/feed');
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchSpy.mock.calls[0] ?? [];
+    const registerCalls = fetchSpy.mock.calls.filter(([u]) => urlOf(u).includes('/api/register')); // the feed then asks /api/profile (F3.1b)
+    expect(registerCalls).toHaveLength(1);
+    const [url, init] = registerCalls[0] ?? [];
     const target = typeof url === 'string' ? url : url instanceof URL ? url.href : url instanceof Request ? url.url : '';
     expect(target).toContain('/api/register');
     expect(init?.method).toBe('POST');
@@ -142,7 +145,7 @@ describe('[F1.5 c16] submitting the completion', () => {
     expect(path()).toBe('/register');
     await u.click(screen.getByRole('button', { name: 'יצירת חשבון' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'פיד' })).toBeInTheDocument();
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy.mock.calls.filter(([u]) => urlOf(u).includes('/api/register'))).toHaveLength(2);
     m.stop();
   });
 
