@@ -11,6 +11,14 @@ import { CANDIDATE_PREFIX, deploys } from './vercel-branch-policy.mjs';
 // Authentication is supplied by gh; no token or environment file is read here.
 // schema-gate (P6): a pull request without it is not green, even if its ci.yml dropped the job.
 const CI_NAMES = ['changes', 'typecheck', 'lint', 'test', 'build', 'schema-gate'];
+// P1.1: the only jobs ci.yml's `changes` filter may skip (their `if` reads needs.changes). Never a CI_NAMES or required
+// job: a PR could add `if: false` to its own copy of ci.yml (CRITIC P1.1 F1).
+const FILTER_SKIPPABLE = ['storybook', 'browser', 'browser-edge', 'db'];
+// P1.1: files that build, migrate or test nothing in a Preview. E is waived only when EVERY changed file is one of these
+// (an allow-list; anything else, config included, still needs E — CRITIC P1.1 F4). Preview and Vercel tools excluded.
+export const NO_PREVIEW_FILE = /^(?:\.work\/|\.claude\/|docs\/|archive\/|decisions\/|\.githooks\/|[^/]+\.md$|tools\/(?![^/]*(?:preview|vercel|migrate))[^/]+$|\.github\/workflows\/(?![^/]*(?:preview|migrate))[^/]+$)/i;
+// GitHub's pulls/files list stops at 3,000 files without a marker: a list that long is not trusted for the waiver (F5b).
+const FILES_API_CAP = 3000;
 const outcome = (c) => c.status === 'completed' ? c.conclusion : c.status;
 const stamp = (c) => c.started_at || c.created_at || '';
 const newest = (rows) => [...rows].sort((a, b) => stamp(b).localeCompare(stamp(a)) || Number(b.id) - Number(a.id));
@@ -26,15 +34,27 @@ export function latestChecks(rows, sha) {
 
 // A later skip cannot erase a previous failure. A later successful execution of
 // the SAME job/workflow/event can resolve it; unrelated successes cannot.
-export function mainHealth(runs) {
+// P1.1 (audit A1): a cancellation on an older main SHA, with a newer run of the same workflow and event, was superseded
+// (concurrency), so it is passed over like a skip. On the current main SHA, or as the group's newest run, it still counts
+// (CRITIC P1.1 F3). A cancelled job needs a newer execution (not a skip) of the same job: a newer push whose filter skipped
+// it never redid its work (CRITIC P1.1 N2).
+export function mainHealth(runs, mainSha) {
   const latest = new Map();
+  const seen = new Set();
+  const executed = new Set();
   for (const run of newest(runs)) {
+    const group = `${run.workflow_id}:${run.event}`;
+    const newer = seen.has(group);
+    seen.add(group);
+    const oldCancel = (c) => mainSha !== undefined && run.head_sha !== mainSha && c.conclusion === 'cancelled';
+    const superseded = (c) => oldCancel(c) && (c === run ? newer : executed.has(`${group}:${c.name}`));
     for (const job of run.jobs) {
-      if (job.conclusion === 'skipped') continue;
+      if (job.conclusion === 'skipped' || superseded(job)) continue;
       const id = `${run.workflow_id}:${run.event}:${job.name}`;
       if (!latest.has(id)) latest.set(id, { ...job, workflow: run.name, sha: run.head_sha, run: run.html_url });
     }
-    if (!run.jobs.length && run.conclusion !== 'skipped') {
+    for (const job of run.jobs) if (job.conclusion !== 'skipped') executed.add(`${group}:${job.name}`);
+    if (!run.jobs.length && run.conclusion !== 'skipped' && !superseded(run)) {
       const id = `${run.workflow_id}:${run.event}:workflow`;
       if (!latest.has(id)) latest.set(id, { ...run, name: `${run.name} (no jobs)`, sha: run.head_sha });
     }
@@ -42,7 +62,7 @@ export function mainHealth(runs) {
   return [...latest.values()].filter((job) => outcome(job) !== 'success');
 }
 
-export function evaluate(snapshot, { expectedSkips = {}, noPreview = '' } = {}) {
+export function evaluate(snapshot, { expectedSkips: givenSkips = {}, noPreview = '' } = {}) {
   const checks = latestChecks(snapshot.checks, snapshot.head);
   // Non-Preview deployment_status events intentionally skip E. They cannot
   // erase a real execution on this SHA, nor satisfy E if it never executed.
@@ -65,6 +85,15 @@ export function evaluate(snapshot, { expectedSkips = {}, noPreview = '' } = {}) 
   if (gateFiles.length > 0 && files.some((f) => PRODUCT.test(f))) {
     blockers.push(`Changes product code and the schema gate (${gateFiles.join(', ')}) together: split it, the gate change first`);
   }
+  // P1.1 (audit A1): a job skipped inside this head's successful ci.yml run was skipped by that run's own `changes` filter:
+  // an expected skip with that reason. A skip from any other run still needs --expected-skip.
+  const ciRun = snapshot.ciRun;
+  const requiredNames = new Set([...CI_NAMES, ...snapshot.required.map((r) => r.context)]);
+  const ownSkip = (c) => FILTER_SKIPPABLE.includes(c.name) && !requiredNames.has(c.name) &&
+    outcome(c) === 'skipped' && c.app?.slug === 'github-actions' && ciRun?.conclusion === 'success' &&
+    typeof c.html_url === 'string' && c.html_url.includes(`/actions/runs/${ciRun.id}/`);
+  const expectedSkips = { ...givenSkips };
+  for (const c of checks) if (ownSkip(c) && !expectedSkips[c.name]) expectedSkips[c.name] = `skipped by its successful CI run ${ciRun.id} (changes filter)`;
   // CI is a project gate even when GitHub branch protection has no required contexts.
   const required = [...snapshot.required, ...CI_NAMES.map((context) => ({ context, appSlug: 'github-actions' }))];
   const results = required.map((rule) => {
@@ -85,21 +114,28 @@ export function evaluate(snapshot, { expectedSkips = {}, noPreview = '' } = {}) 
       blockers.push(`Check ${c.name}: ${state}`);
     }
   }
-  const e = noPreview ? { state: 'not required', reason: noPreview } : {
-    state: eChecks.length ? outcome(eChecks[0]) : 'missing', sha: snapshot.head,
-    url: eChecks[0]?.html_url,
-  };
-  if (!noPreview && e.state !== 'success') blockers.push(`E on ${snapshot.head}: ${e.state}`);
   // P4: under the head's own vercel.json policy (main and ready/**), a PR from another branch, or from a fork, never gets a
   // Preview, so E never runs: say why while E is not green (CRITIC P4 findings 2-3).
   let noDeploy = false;
   try {
     noDeploy = snapshot.headRef !== undefined && (snapshot.headFork === true || !deploys(snapshot.headPolicy, snapshot.headRef));
   } catch (error) { blockers.push(`vercel.json policy at the head cannot be evaluated: ${error.message}`); }
-  if (!noPreview && e.state !== 'success' && noDeploy) {
+  // P1.1 (audit A1): a records/tooling PR gets no Preview by policy, and needs none when the file list (read) touches nothing
+  // the Preview runs or builds from. Any such file, or an unread file list, still requires E.
+  const nothingToPreview = Array.isArray(snapshot.files) && files.length > 0 && files.length < FILES_API_CAP &&
+    files.every((f) => NO_PREVIEW_FILE.test(f) && !PRODUCT.test(f));
+  const policyNoPreview = !noPreview && noDeploy && nothingToPreview && !eChecks.length
+    ? `no Preview by policy for ${snapshot.headRef}, and every changed file is records, docs or tooling` : '';
+  const eReason = noPreview || policyNoPreview;
+  const e = eReason ? { state: 'not required', reason: eReason } : {
+    state: eChecks.length ? outcome(eChecks[0]) : 'missing', sha: snapshot.head,
+    url: eChecks[0]?.html_url,
+  };
+  if (!eReason && e.state !== 'success') blockers.push(`E on ${snapshot.head}: ${e.state}`);
+  if (!eReason && e.state !== 'success' && noDeploy) {
     blockers.push(`Head branch ${snapshot.headRef} gets no Preview (vercel.json git.deploymentEnabled): push the candidate to ${CANDIDATE_PREFIX}<part> and open the PR from it`);
   }
-  const main = mainHealth(snapshot.mainRuns);
+  const main = mainHealth(snapshot.mainRuns, snapshot.main);
   for (const c of main) blockers.push(`main ${c.workflow ?? c.name} / ${c.name}: ${outcome(c)} (${c.sha})`);
   const unique = [...new Set(blockers)];
   let nextAction = 'Verify reviewer findings, coverage limits and merge authority; this snapshot is not merge approval.';
@@ -213,11 +249,21 @@ export function collect({ repo, pr }, read = ghRead, clock = () => new Date().to
     status: s.state === 'pending' ? 'in_progress' : 'completed', conclusion: s.state, html_url: s.target_url });
   // The run head must also match: stale green check contexts cannot stand in for a current CI run.
   const ciRuns = all(`actions/workflows/ci.yml/runs?head_sha=${head}&event=pull_request`, 'workflow_runs');
-  const ci = newest(ciRuns.filter((r) => r.head_sha === head && r.pull_requests?.some((p) => p.number === Number(pr))))[0];
+  // P1.1 (audit A1): after a merge GitHub drops the run's pull_requests link, so a merged PR's run is found by its head SHA
+  // and head branch (the SHA is already exact; the branch keeps another PR's run on the same commit from standing in).
+  const ofThisPr = (r) => r.pull_requests?.some((p) => p.number === Number(pr)) ||
+    (pull.merged === true && !r.pull_requests?.length && r.head_branch === pull.head.ref);
+  const ci = newest(ciRuns.filter((r) => r.head_sha === head && ofThisPr(r)))[0];
   if (!ci || ci.status !== 'completed' || ci.conclusion !== 'success') errors.push(`CI run on current PR head: ${ci ? outcome(ci) : 'missing'}`);
-  // Main health covers the available main history, up to GitHub's filtered-run 1,000-result ceiling.
-  // Jobs are read only while a newer skipped job has not yet had its last execution identified.
-  const mainRuns = all('actions/runs?branch=main', 'workflow_runs');
+  // P1.1 (audit A1): main health covers the newest 100 main runs (one page); main has far more, so a deeper read only
+  // ever hit the pagination ceiling. Jobs are read only while a newer skipped job has not had its last execution identified.
+  const page = safe('actions/runs?branch=main&per_page=100', { workflow_runs: [] });
+  const mainRuns = Array.isArray(page?.workflow_runs) ? page.workflow_runs : [];
+  if (!Array.isArray(page?.workflow_runs)) errors.push('Invalid response: actions/runs?branch=main');
+  limitations.push(`main health covers the newest ${mainRuns.length} main runs only (one page): an unresolved failure in a workflow that last ran before them is not seen.`);
+  // A cancelled job, or a cancelled run with no jobs, is passed over like a skip by mainHealth, so it leaves its group
+  // unresolved too: the older run under it is still read (CRITIC P1.1 F2).
+  const passedOver = (j) => j.conclusion === 'skipped' || j.conclusion === 'cancelled';
   const groups = new Map();
   const inspected = [];
   for (const run of newest(mainRuns)) {
@@ -225,8 +271,10 @@ export function collect({ repo, pr }, read = ghRead, clock = () => new Date().to
     const unresolved = groups.get(group);
     if (unresolved && unresolved.size === 0) continue;
     const jobs = all(`actions/runs/${run.id}/jobs?filter=latest`, 'jobs');
-    if (!unresolved) groups.set(group, new Set(jobs.filter((j) => j.conclusion === 'skipped').map((j) => j.name)));
-    else for (const job of jobs) if (job.conclusion !== 'skipped') unresolved.delete(job.name);
+    const pending = jobs.length ? jobs.filter(passedOver).map((j) => j.name) : passedOver(run) ? ['(no jobs)'] : [];
+    if (!unresolved) groups.set(group, new Set(pending));
+    else if (jobs.length) for (const job of jobs) { if (!passedOver(job)) unresolved.delete(job.name); }
+    else if (!passedOver(run)) unresolved.delete('(no jobs)');
     inspected.push({ ...run, jobs });
   }
   // Missing main CI is never silently healthy, even if another workflow passed.
@@ -235,7 +283,7 @@ export function collect({ repo, pr }, read = ghRead, clock = () => new Date().to
     errors.push(`main CI on current main SHA: ${mainCI ? outcome(mainCI) : 'missing'}`);
   }
   for (const [group, unresolved] of groups) if (unresolved.size) {
-    limitations.push(`No execution found for skipped main jobs in ${group}: ${[...unresolved].join(', ')}`);
+    limitations.push(`No execution found for skipped or cancelled main jobs in ${group}: ${[...unresolved].join(', ')}`);
   }
   // Every path the PR touches (both sides of a rename), for the P6 split rule; read before headAfter so a push in between
   // shows as "Head changed" (CRITIC P6 N3).
@@ -253,7 +301,7 @@ export function collect({ repo, pr }, read = ghRead, clock = () => new Date().to
   }
   const headAfter = safe(`pulls/${pr}`, { head: {} }).head.sha;
   const mainAfter = safe('branches/main', { commit: {} }).commit.sha;
-  return { head, files, mergeable: pull.mergeable, mergeState: pull.mergeable_state, headRef: pull.head.ref, headFork: pull.head.repo?.full_name?.toLowerCase() !== repo.toLowerCase(), headPolicy, headAfter, main, mainAfter, state: pull.state, merged: pull.merged, url: pull.html_url, required, checks,
+  return { head, files, ciRun: ci ? { id: ci.id, conclusion: outcome(ci) } : undefined, mergeable: pull.mergeable, mergeState: pull.mergeable_state, headRef: pull.head.ref, headFork: pull.head.repo?.full_name?.toLowerCase() !== repo.toLowerCase(), headPolicy, headAfter, main, mainAfter, state: pull.state, merged: pull.merged, url: pull.html_url, required, checks,
     mainRuns: inspected, errors, limitations, observedAt: clock() };
 }
 
