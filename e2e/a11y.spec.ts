@@ -3,6 +3,10 @@ import { expect, test } from '@playwright/test';
 import { MOBILE, openStory, runAxe, storyIds } from './helpers';
 
 test.use({ viewport: MOBILE });
+// P3: the largest file of the suite (~550 tests, 6-10 minutes in one worker). Each test opens its own page on the
+// read-only static gallery and shares no state, hooks or order with another, so Playwright may spread them over the
+// workers and shards (playwright.config.ts, "Timeouts and parallelism"). This file only: no global fullyParallel.
+test.describe.configure({ mode: 'parallel' });
 
 const ids = storyIds();
 

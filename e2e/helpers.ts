@@ -4,7 +4,10 @@ import type { Page } from '@playwright/test';
 
 const root = process.cwd();
 
-/** Every story id of the built Storybook, from storybook-static/index.json. */
+/**
+ * Every story id of the built Storybook, from storybook-static/index.json, sorted: each shard job builds its own index,
+ * and a parallel file's tests are dealt to shards by position, so the order must depend on the ids alone (P3, CRITIC 1).
+ */
 export function storyIds(): string[] {
   const parsed: unknown = JSON.parse(readFileSync(path.join(root, 'apps/web/storybook-static/index.json'), 'utf8'));
   if (typeof parsed !== 'object' || parsed === null || !('entries' in parsed)) {
@@ -15,7 +18,7 @@ export function storyIds(): string[] {
   return Object.keys(entries).filter((id) => {
     const value: unknown = Reflect.get(entries, id);
     return typeof value === 'object' && value !== null && 'type' in value && value.type === 'story';
-  });
+  }).sort();
 }
 
 export const MOBILE = { width: 375, height: 812 };

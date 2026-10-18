@@ -156,10 +156,11 @@ jobs:
 
   # Playwright on Chrome against the built gallery and the e2e app build, on every pull request and push: desktop and
   # phone (the specs set their own viewports) and the blocking visual regression (e2e/visual-screens.ts). Three shards in
-  # parallel (decisions.md, 2026-10-14 "Speed-up"; two shards until the suite passed ~2,100 tests, 17.10.2026). Playwright keeps
-  # a file whole in one shard unless it is parallel, and e2e/a11y.spec.ts alone is ~9.6 minutes, so the shard that holds it is
-  # ~11 minutes whatever the shard count; only making that file parallel lowers it. Edge is `browser-edge` below (decisions/2026-10.md "Tests: depth by
-  # criterion type").
+  # parallel (decisions.md, 2026-10-14 "Speed-up"; two shards until the suite passed ~2,100 tests, 17.10.2026). Playwright splits
+  # shards by test count in file order and keeps a non-parallel file in one worker; e2e/a11y.spec.ts (6-10 minutes) is parallel
+  # since P3, so its tests share the shard's workers. Timeouts by test type and the CI globalTimeout, two minutes or more under
+  # timeout-minutes: playwright.config.ts, guarded by tools/ci-browser.test.mjs. Edge is `browser-edge` below
+  # (decisions/2026-10.md "Tests: depth by criterion type").
   browser:
     needs: changes
     if: needs.changes.outputs.web == 'true'
@@ -238,6 +239,43 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  # P6 (schema before code): a pull request that adds a migration carries no product code; one that changes product code
+  # waits until every migration in its tree is applied in production (tools/schema-gate.mjs). Read only: it reads the
+  # migrate runs through the API and never dispatches. After migrate's db-production job succeeded on main, re-run this
+  # job once on the PR. It runs the BASE commit's copy of the gate, so a pull request never judges itself (CRITIC P6 2);
+  # only the pull request that adds the gate runs its own copy. part-status counts a missing schema-gate as a blocker and,
+  # from the PR's file list, blocks product code changed together with this job or the gate. Recovery if a broken gate
+  # reaches main (every PR then fails here, its fix included): Afik merges that one gate-only fix by hand; never switch
+  # this job to the pull request's copy.
+  schema-gate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Schema before code
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          gate="${RUNNER_TEMP}/schema-gate.mjs"
+          if git cat-file -e 'HEAD^1:tools/schema-gate.mjs'; then
+            git show 'HEAD^1:tools/schema-gate.mjs' > "${gate}"
+          else
+            echo "::notice::the base has no schema gate yet (the pull request that adds it): running this pull request's copy"
+            cp tools/schema-gate.mjs "${gate}"
+          fi
+          node "${gate}"
+
   audit:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -275,6 +313,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # HEAD^1 is the base for the P6 expand check (last db step).
+          fetch-depth: 2
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
@@ -565,6 +605,33 @@ jobs:
           # Only migration-backfill tests (e.g. F2.3a c6) connect as app_owner, to roll back and re-apply the newest migration.
           OWNER_DATABASE_URL: ${{ env.CI_APP_OWNER_DB_URL }}
         run: npm run test:db -w @nestly/server
+
+      # P6 (schema before code): a pull request that adds a migration must keep main's code working, because main is
+      # deployed while the migration waits for production. main's own server integration tests run here, unchanged, on
+      # this pull request's database (old code, expanded schema). Any other event, or no new migration: nothing to prove.
+      - name: Main's server tests against this pull request's schema (P6 expand check)
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DATABASE_URL: ${{ env.CI_APP_SERVER_DB_URL }}
+          OWNER_DATABASE_URL: ${{ env.CI_APP_OWNER_DB_URL }}
+        run: |
+          set -eu
+          if [ "${EVENT_NAME}" != pull_request ]; then
+            echo "::notice::not a pull request: the expand check runs on pull requests only"
+            exit 0
+          fi
+          added="$(git diff --name-only --diff-filter=A 'HEAD^1' HEAD -- supabase/migrations)"
+          if [ -z "${added}" ]; then
+            echo "::notice::no new migration: the expand check is not needed"
+            exit 0
+          fi
+          echo "new migrations:"
+          echo "${added}"
+          base="${RUNNER_TEMP}/base"
+          git worktree add --detach "${base}" 'HEAD^1'
+          cd "${base}"
+          npm ci
+          npm run test:db -w @nestly/server
 
       - name: Database log on failure
         if: failure()
