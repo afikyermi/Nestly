@@ -65,7 +65,7 @@ use the approved pairs under Waiting on Afik. No shared-file or shared-database 
   schema.md     DATA ARCHITECT    Gate 2 contract when its trigger applies (see Gates)
   algorithm.md  ALGORITHM & DATA  only when signals, ranking, analytics events or paid placement are involved
   notes.md      BUILDER           decisions and why. CRITIC must not read this
-  findings.md   CRITIC            fixed schema
+  findings.md   CRITIC (text; ORCHESTRATOR saves it verbatim)   fixed schema
   result.md     ORCHESTRATOR      execution × quality, planned vs actual, SRS IDs implemented or changed
 ```
 
@@ -423,7 +423,7 @@ Stage explicit paths only. No force push. Retain records by archiving, never del
 | File | What goes in | Who writes |
 |---|---|---|
 | `decisions.md` | **Afik's decisions only** + rejected alternatives (audit decision 8). ORCHESTRATOR's own decisions go in `.work/<slug>/` | ORCHESTRATOR |
-| `.work/<slug>/findings.md` | **bugs only** — CRITIC's bug list (`.claude/workflow.md`, "Verdicts") | CRITIC |
+| `.work/<slug>/findings.md` | **bugs only** — CRITIC's bug list (`.claude/workflow.md`, "Verdicts") | ORCHESTRATOR, CRITIC's returned text verbatim |
 | `incidents.md` | real operational events only: prod, a secret, CI red on main, a failed deploy, a loop. A false hook block is one `noise.md` line | ORCHESTRATOR, from hooks/CI |
 | `debt.md` | every low bug not fixed in its part · every neighbouring bug BUILDER reported and did not fix | ORCHESTRATOR, from CRITIC and from `notes.md` |
 | `escapes.md` | defects found **after** merge + which gate should have caught it | ORCHESTRATOR |
