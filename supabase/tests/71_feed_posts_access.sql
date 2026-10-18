@@ -273,10 +273,8 @@ select ok(pg_temp.refused(tests.dml_as('authenticated', tests.claims(null), $q$ 
   '[F3.0-a c6] authenticated with no identity cannot post');
 select ok(pg_temp.refused(tests.dml_as('app_server', tests.claims(pg_temp.id('a')), $q$ insert into nestly.posts (audience, body) values ('everyone', 'x') $q$)),
   '[F3.0-a c1 rule 2] app_server as itself cannot write posts');
-
--- very long text is not a crash (the length cap belongs to F3.1)
-select is(pg_temp.dml('a', format($q$ insert into nestly.posts (audience, body) values ('everyone', %L) $q$, repeat('x', 100000)), false), 'OK:1',
-  '[F3.0-a c6] a very long text is accepted: no limit before F3.1');
+-- very long text is not a crash: since F3.1-a c6 (carried by F3.0b) it is refused cleanly by the 2,000-character cap
+select is(pg_temp.dml('a', format($q$ insert into nestly.posts (audience, body) values ('everyone', %L) $q$, repeat('x', 100000)), false), 'ERR:23514',  '[F3.0-a c6][F3.1-a c6] a very long text is refused with 23514, not a crash: the 2,000-character cap');
 select is(pg_temp.dml('a', format($q$ insert into nestly.posts (audience, body) values ('everyone', %L) $q$, $b$'; drop table nestly.posts; -- <script>$b$), false), 'OK:1',
   '[F3.0-a c6] hostile text is stored as text');
 

@@ -78,13 +78,13 @@ select is(
       and has_column_privilege('authenticated', c.oid, a.attnum, 'SELECT')),
   'comments.author_id, comments.author_status, comments.body, comments.created_at, comments.held_at, comments.held_until, comments.id, comments.is_by_post_author, '
   || 'comments.parent_id, comments.post_id, comments.status, reactions.comment_id, reactions.created_at, reactions.id, reactions.is_by_author, reactions.post_id, reactions.target_id',
-  '[F3.0-b finding 1 c12 c14] authenticated may SELECT exactly these comments and reactions columns: everything but comments.held_xact and reactions.liker_status');
+  '[F3.0-b finding 1 c12 c14 b-1] authenticated may SELECT exactly these comments and reactions columns: everything but comments.held_xact, comments.parent_status and reactions.liker_status');
 
 select is(
   (select count(*) from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'nestly' and ((c.relname = 'comments' and a.attname = 'held_xact') or (c.relname = 'reactions' and a.attname = 'liker_status'))
+    where n.nspname = 'nestly' and ((c.relname = 'comments' and a.attname in ('held_xact', 'parent_status')) or (c.relname = 'reactions' and a.attname = 'liker_status'))
       and a.attnum > 0 and not a.attisdropped),
-  2::bigint, '[F3.0-b finding 1 c14] comments.held_xact and reactions.liker_status exist (the never-readable test is not vacuous)');
+  3::bigint, '[F3.0-b finding 1 c14 b-1] comments.held_xact, comments.parent_status and reactions.liker_status exist (the never-readable test is not vacuous)');
 
 select is(
   (select string_agg(c.relname || '.' || a.attname, ', ' order by c.relname, a.attname)
@@ -106,9 +106,48 @@ select is(
 select is(
   (select count(*) from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and a.attnum > 0 and not a.attisdropped
-      and ((c.relname in ('posts', 'comments') and a.attname = 'held_xact') or (c.relname = 'reactions' and a.attname = 'liker_status'))
+      and ((c.relname in ('posts', 'comments') and a.attname = 'held_xact') or (c.relname = 'comments' and a.attname = 'parent_status') or (c.relname = 'reactions' and a.attname = 'liker_status'))
       and has_column_privilege('authenticated', c.oid, a.attnum, 'SELECT')),
-  0::bigint, '[F3.0-b c12 c14] the holding transaction and the liker-status copy are never readable');
+  0::bigint, '[F3.0-b c12 c14 b-1] the holding transaction, the parent-status copy and the liker-status copy are never readable');
+
+select is(
+  (select count(*) from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'nestly' and c.relname = 'comments' and a.attname = 'parent_status' and a.attnum > 0 and not a.attisdropped
+      and (has_column_privilege('authenticated', c.oid, a.attnum, 'INSERT') or has_column_privilege('authenticated', c.oid, a.attnum, 'UPDATE')
+           or has_column_privilege('authenticated', c.oid, a.attnum, 'REFERENCES'))),
+  0::bigint, '[F3.0-b c13 c14 b-1] comments.parent_status is neither insertable, updatable nor referenceable by authenticated');
+
+-- ---- b-1 / F3.1-a c6: constraints named by schema-b.md --------------------------------------------------------------------------
+select is(
+  (select string_agg(con.conname || ':' || con.contype::text, ', ' order by con.conname)
+     from pg_catalog.pg_constraint con join pg_catalog.pg_class c on c.oid = con.conrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'nestly' and ((c.relname = 'comments' and con.conname in ('comments_id_post_id_status_key', 'comments_id_post_id_key', 'comments_parent_status_check'))
+                                 or (c.relname = 'posts' and con.conname = 'posts_body_length_check'))),
+  'comments_id_post_id_status_key:u, comments_parent_status_check:c, posts_body_length_check:c',
+  '[F3.0-b c10 c13 b-1][F3.1-a c6] the status-carrying unique key, the parent-status check and the body-length check exist; comments_id_post_id_key is gone');
+
+select is(
+  (select pg_catalog.pg_get_constraintdef(con.oid) from pg_catalog.pg_constraint con join pg_catalog.pg_class c on c.oid = con.conrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'nestly' and c.relname = 'comments' and con.conname = 'comments_id_post_id_status_key'),
+  'UNIQUE (id, post_id, status)', '[F3.0-b b-1] the reply foreign-key target is exactly (id, post_id, status)');
+
+select is(
+  (select string_agg(
+            (select string_agg(a.attname::text, ',' order by k.ord) from unnest(con.conkey) with ordinality k(attnum, ord)
+               join pg_catalog.pg_attribute a on a.attrelid = con.conrelid and a.attnum = k.attnum)
+            || '->' ||
+            (select string_agg(a.attname::text, ',' order by k.ord) from unnest(con.confkey) with ordinality k(attnum, ord)
+               join pg_catalog.pg_attribute a on a.attrelid = con.confrelid and a.attnum = k.attnum)
+            || ' upd=' || con.confupdtype::text || ' del=' || con.confdeltype::text, '; ')
+     from pg_catalog.pg_constraint con join pg_catalog.pg_class c on c.oid = con.conrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'nestly' and c.relname = 'comments' and con.contype = 'f' and con.confrelid = con.conrelid),
+  'parent_id,post_id,parent_status->id,post_id,status upd=c del=c',
+  '[F3.0-b c10 c13 b-1] the only self-reference of comments is (parent_id, post_id, parent_status) -> (id, post_id, status), ON UPDATE and ON DELETE CASCADE');
+
+select ok(
+  (select pg_catalog.pg_get_constraintdef(con.oid) like '%char_length(body) <= 2000%' from pg_catalog.pg_constraint con join pg_catalog.pg_class c on c.oid = con.conrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'nestly' and c.relname = 'posts' and con.conname = 'posts_body_length_check'),
+  '[F3.1-a c6] the body cap is 2,000 characters');
 
 select is(
   (select string_agg(c.relname || '.' || a.attname, ', ' order by c.relname, a.attname)

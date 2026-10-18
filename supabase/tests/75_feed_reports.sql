@@ -232,15 +232,24 @@ select tests.fx_rp_add(pg_temp.id('c'), 'post', current_setting('t.apost')::uuid
 select tests.fx_rp_add(pg_temp.id('a'), 'user', pg_temp.id('c'), 'harassment');
 select tests.fx_rp_add(pg_temp.id('c'), 'user', pg_temp.id('b'), 'harassment');
 select tests.fx_rp_add(pg_temp.id('a'), 'comment', current_setting('t.b_cm')::uuid, 'spam');
+-- CRITIC 3: the user also owns a held post and a held comment, each with an open report by another user (the 23514 path)
+select set_config('t.hpost', pg_temp.post('c')::text, true);
+select set_config('t.hcm', tests.fx_cm_add(pg_temp.id('c'), current_setting('t.apost')::uuid, 'c held comment')::text, true);
+select tests.fx_rp_add(pg_temp.id('b'), 'post', current_setting('t.hpost')::uuid, 'harassment');
+select tests.fx_rp_add(pg_temp.id('b'), 'comment', current_setting('t.hcm')::uuid, 'harassment');
+select is(pg_temp.fn('c', format('select nestly.delete_post(%L)::text', current_setting('t.hpost'))), '1', '[F3.0-b c19 CRITIC 3] control: the held post is held (delete_post returns 1)');
+select is(pg_temp.fn('c', format('select nestly.delete_comment(%L)::text', current_setting('t.hcm'))), '1', '[F3.0-b c19 CRITIC 3] control: the held comment is held');
+select is(tests.fx_hold_state('post', current_setting('t.hpost')::uuid) like 'status=deleted%' and tests.fx_hold_state('comment', current_setting('t.hcm')::uuid) like 'status=deleted%', true, '[F3.0-b c19 CRITIC 3] control: both rows are kept, marked deleted');
 select set_config('t.n_cm', tests.fx_cm_count()::text, true), set_config('t.n_rx', tests.fx_rx_count()::text, true), set_config('t.n_rp', tests.fx_rp_count()::text, true);
-select lives_ok(format('select tests.fx_cleanup_user(%L)', pg_temp.id('c')), '[F3.0-b c19 B1] a user owning posts, comments, a like and reports (all open) is deleted without error');
-select is(tests.fx_cm_count(), current_setting('t.n_cm')::bigint - 4, '[F3.0-b c19] four comments went: theirs (two), the reply to theirs, the one on their post');
+select lives_ok(format('select tests.fx_cleanup_user(%L)', pg_temp.id('c')), '[F3.0-b c19 B1] a user owning posts, comments, a like, reports (all open), a held post and a held comment is deleted without error');
+select is(tests.fx_cm_count(), current_setting('t.n_cm')::bigint - 5, '[F3.0-b c19 CRITIC 3] five comments went: theirs (three, one held), the reply to theirs, the one on their post');
 select is(tests.fx_cm_state(current_setting('t.b_cm')::uuid) ~ '^status=active', true, '[F3.0-b c19] another user''s comment on a surviving post stays');
 select is(tests.fx_rx_count(), current_setting('t.n_rx')::bigint - 3, '[F3.0-b c19] three likes went: theirs, on their post, on their comment');
 select is(tests.fx_ro_count(), tests.fx_rx_count(), '[F3.0-b c19] with no orphan owner row');
-select is(tests.fx_rp_count(), current_setting('t.n_rp')::bigint - 5, '[F3.0-b c19] five reports went: by them (two), on them, on their post, on their comment');
+select is(tests.fx_rp_count(), current_setting('t.n_rp')::bigint - 7, '[F3.0-b c19 CRITIC 3] seven reports went: by them (two), on them, on their post, on their comment, on their held post, on their held comment');
 select is(tests.fx_rp_list(pg_temp.id('a')), format('comment:open:%s:closed=f', current_setting('t.b_cm')), '[F3.0-b c19] the unrelated report remains');
 select is(tests.fx_po_state(current_setting('t.upost')::uuid) is null and tests.fx_po_state(current_setting('t.uanon')::uuid) is null, true, '[F3.0-b c19] their posts are gone');
+select is(tests.fx_hold_state('post', current_setting('t.hpost')::uuid) || tests.fx_hold_state('comment', current_setting('t.hcm')::uuid), 'nonenone', '[F3.0-b c19 CRITIC 3] the held post and the held comment are deleted, no row left');
 
 select * from finish();
 

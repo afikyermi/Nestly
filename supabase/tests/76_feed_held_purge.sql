@@ -201,6 +201,57 @@ select ok(pg_temp.purge() !~ '^ERR', '[F3.0-b c14] purge');
 select is(tests.fx_hold_state('comment', current_setting('t.k2')::uuid), 'none', '[F3.0-b c14] a handled report releases a held comment before the time');
 select ok(tests.fx_rp_list(pg_temp.id('a')) ~ 'comment:handled:null:closed=t','[F3.0-b c14] and keeps its handled status');
 
+-- =====================================================================================================================
+-- c13 c14 b-1 (CRITIC finding 1) -- a reply with an open report holds its parent comment; the replies of a held comment
+-- Post by A. K = top-level comment by C (no report of its own). R = reply to K by B, with X's open report (X = C here: a reporter
+-- other than R's author and than the post's author). Readers: A = post author, B = R's author, C = third reader.
+-- =====================================================================================================================
+select set_config('t.bp', pg_temp.post('a')::text, true);
+select set_config('t.bk', tests.fx_cm_add(pg_temp.id('c'), current_setting('t.bp')::uuid, 'top-level K')::text, true);
+select set_config('t.br', tests.fx_cm_add(pg_temp.id('b'), current_setting('t.bp')::uuid, 'reply R', current_setting('t.bk')::uuid)::text, true);
+select tests.fx_rx_add(pg_temp.id('a'), null, current_setting('t.br')::uuid);
+select set_config('t.brr', tests.fx_rp_add(pg_temp.id('c'), 'comment', current_setting('t.br')::uuid, 'harassment')::text, true);
+select is(pg_temp.seen_cm(current_setting('t.br')::uuid), '111', '[F3.0-b c14 b-1] control: before K is deleted R is read by everyone');
+select is(pg_temp.n('c', format('nestly.reactions where comment_id = %L', current_setting('t.br'))), '1', '[F3.0-b c14 b-1] control: and its like counts');
+select is(pg_temp.del_cm('c', current_setting('t.bk')::uuid), '1', '[F3.0-b c13 c14 b-1] K''s author deletes K: one row handled (K is held because of the open report on R)');
+select ok((tests.fx_hold_state('comment', current_setting('t.bk')::uuid)) like 'status=deleted hours=%', '[F3.0-b c14 b-1] K is kept, marked deleted, with a release time');
+select ok(pg_temp.hours(tests.fx_hold_state('comment', current_setting('t.bk')::uuid)) between 0 and 2160, '[F3.0-b c14 b-1] of at most 90 days');
+select is(pg_temp.n('c', format('nestly.comments where id = %L', current_setting('t.br'))), '0', '[F3.0-b c14 b-1] R is unreadable to a third reader');
+select is(pg_temp.n('a', format('nestly.comments where id = %L', current_setting('t.br'))), '0', '[F3.0-b c14 b-1] and to the post''s author');
+select is(pg_temp.n('b', format('nestly.comments where id = %L', current_setting('t.br'))), '1', '[F3.0-b c14 b-1 G2] R''s own author still reads it');
+select is(pg_temp.n('a', format('nestly.reactions where comment_id = %L', current_setting('t.br'))), '0', '[F3.0-b c14 b-1] R''s like does not count for the post''s author');
+select is(pg_temp.n('c', format('nestly.reactions where comment_id = %L', current_setting('t.br'))), '0', '[F3.0-b c14 b-1] nor for a third reader');
+select is(pg_temp.n('a', format('nestly.comments where post_id = %L', current_setting('t.bp'))), '0', '[F3.0-b c14 b-1] the thread of K shows neither K nor R');
+select ok(pg_temp.dml('b', format($q$ insert into nestly.comments (post_id, parent_id, body) values (%L, %L, 'reply under held') $q$, current_setting('t.bp'), current_setting('t.bk'))) in ('ERR:42501', 'ERR:23503'),
+  '[F3.0-b c10 c14 b-1] a new reply under the held K is refused (42501 or 23503)');
+select is(tests.fx_cm_id(current_setting('t.bp')::uuid, 'reply under held'), null, '[F3.0-b c14 b-1] and no such reply row exists');
+select is(pg_temp.dml('b', format($q$ select parent_status from nestly.comments where id = %L $q$, current_setting('t.br'))), 'ERR:42501', '[F3.0-b b-1] parent_status is not selectable');
+select is(pg_temp.dml('b', format($q$ insert into nestly.comments (post_id, parent_status, body) values (%L, 'deleted', 'forged') $q$, current_setting('t.bp'))), 'ERR:42501', '[F3.0-b b-1] and not insertable');
+select is(pg_temp.dml('b', format($q$ update nestly.comments set parent_status = 'active' where id = %L $q$, current_setting('t.br'))), 'ERR:42501', '[F3.0-b b-1] nor updatable');
+-- not before the release time
+select ok(pg_temp.purge() !~ '^ERR', '[F3.0-b c14 b-1] purge before the release time');
+select ok(tests.fx_cm_state(current_setting('t.bk')::uuid) is not null and tests.fx_cm_state(current_setting('t.br')::uuid) is not null, '[F3.0-b c14 b-1] K and R are both kept');
+select is(pg_temp.n('c', format('nestly.reports where id = %L and status = ''open'' and comment_id = %L and closed_at is null', current_setting('t.brr'), current_setting('t.br'))), '1', '[F3.0-b c14 b-1] and the report stays open on R');
+-- after the release time
+select tests.fx_hold_shift('comment', current_setting('t.bk')::uuid, interval '91 days');
+select ok(pg_temp.purge() !~ '^ERR', '[F3.0-b c14 b-1] purge after K''s release time');
+select is(pg_temp.n('c', format('nestly.reports where id = %L and status = ''expired'' and closed_at is not null and comment_id is null and post_id is null and reported_user_id is null', current_setting('t.brr'))), '1', '[F3.0-b c14 b-1 Afik default] the report on R became expired, closed, with no target');
+select is(tests.fx_cm_state(current_setting('t.bk')::uuid), null, '[F3.0-b c14 b-1] K is gone');
+select is(tests.fx_cm_state(current_setting('t.br')::uuid), null, '[F3.0-b c13 c14 b-1] and R with it');
+select is(tests.fx_ro_count(), tests.fx_rx_count(), '[F3.0-b c14 b-1] with no orphan like owner');
+select is(pg_temp.n('c', format('nestly.reports where id = %L', current_setting('t.brr'))), '1', '[F3.0-b c14 b-1] and the reporter still reads the expired report');
+
+-- R''s own author can still delete R while K is held
+select set_config('t.bp2', pg_temp.post('a')::text, true);
+select set_config('t.bk2', tests.fx_cm_add(pg_temp.id('c'), current_setting('t.bp2')::uuid, 'top-level K2')::text, true);
+select set_config('t.br2', tests.fx_cm_add(pg_temp.id('b'), current_setting('t.bp2')::uuid, 'reply R2', current_setting('t.bk2')::uuid)::text, true);
+select tests.fx_rp_add(pg_temp.id('a'), 'comment', current_setting('t.br2')::uuid, 'spam');
+select pg_temp.del_cm('c', current_setting('t.bk2')::uuid);
+select is(pg_temp.n('b', format('nestly.comments where id = %L', current_setting('t.br2'))), '1', '[F3.0-b c13 c14 b-1] control: R2''s author reads R2 under the held K2');
+select is(pg_temp.del_cm('b', current_setting('t.br2')::uuid), '1', '[F3.0-b c13 b-1] R2''s author deletes R2 under the held K2: one row handled');
+select ok((tests.fx_hold_state('comment', current_setting('t.br2')::uuid)) like 'status=deleted%', '[F3.0-b c14 b-1] R2 is held in its own right (it has an open report)');
+select is(pg_temp.n('b', format('nestly.comments where id = %L', current_setting('t.br2'))), '0', '[F3.0-b c14 b-1] and after the commit nobody reads it');
+
 select * from finish();
 
 rollback;
