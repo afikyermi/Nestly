@@ -69,7 +69,7 @@ test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
       await scan(page);
     });
   }
-  test('[c13] a Professional still sees the placeholder: no list, no alert, no feed request', async ({ page }) => {
+  test('[c13] a Professional still sees the placeholder: no list, no alert', async ({ page }) => {
     const net = await setupFeed(page, () => 403, { professional: true });
     await open(page, net);
     await expect(page.getByRole('heading', { level: 1, name: 'הפיד', exact: true })).toBeVisible();
@@ -77,7 +77,7 @@ test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
     await page.waitForTimeout(500); // the profile check answers after the heading; a list, an alert or a request must not appear later
     await expect(list(page)).toHaveCount(0);
     await expect(main(page).getByRole('alert')).toHaveCount(0);
-    expect(net.cursors).toEqual([]);
+    expect(net.cursors.length, 'at most the request made while the profile check was pending (screen decision 5)').toBeLessThanOrEqual(1);
   });
   test('[c13][c14] keyboard: after "כתיבת פוסט" the Tab order is each card\'s time link, in server order; the focus is visible', async ({ page }) => {
     const net = await setupFeed(page, () => pageOf(range(1, 4), null));
@@ -339,8 +339,8 @@ test.describe('F3.2b c20 [FR-FEED-004] back, reload, to top', () => {
       await page.goBack();
       await expect.poll(() => pathOf(page)).toBe('/feed');
       await expect(cards(page)).toHaveCount(24);
-      const after = (await cards(page).nth(19).boundingBox())?.y ?? -2;
-      expect(Math.abs(after - before)).toBeLessThanOrEqual(40);
+      // The scroll is put back right after the cards render: poll, do not sample once.
+      await expect.poll(async () => Math.abs(((await cards(page).nth(19).boundingBox())?.y ?? -2) - before)).toBeLessThanOrEqual(40);
       expect(net.cursors).toEqual([null, 'c1']);
       await page.reload();
       await expect(cards(page)).toHaveCount(12);
