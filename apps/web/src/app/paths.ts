@@ -1,3 +1,4 @@
+import { POST_PATTERN } from '@/lib/post-link';
 import { USER_PROFILE_PATTERN } from '@/lib/profile-link';
 
 // The route table (F1.2, Q2). Guest paths are the allow-list: every other path is protected (deny by default).
@@ -16,6 +17,9 @@ export const PATHS = {
   settings: '/settings',
   /** F2.4b: the Friends page (PG-036), from the side menu. */
   friends: '/friends',
+  /** F3.1b: the post composer, and one post (`/posts/<post id>`; protected by pattern, see `postIdOfPath`). */
+  newPost: '/posts/new',
+  post: POST_PATTERN,
   /** F2.4c2: another person's profile, `/u/<user id>` (FR-PRIV-001 "Profile/Deep Link"). Protected by pattern: see `userIdOfProfilePath`. */
   userProfile: USER_PROFILE_PATTERN,
   /** F1.6: save the recovery questions (held there while missing) or change them. */
@@ -44,6 +48,7 @@ export const PROTECTED_PATHS: readonly string[] = [
   PATHS.profile,
   PATHS.settings,
   PATHS.friends,
+  PATHS.newPost,
   PATHS.recoveryQuestions,
   PATHS.changePassword,
 ];
