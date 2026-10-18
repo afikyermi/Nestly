@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavigationType, useNavigationType } from 'react-router';
 import { FEED_LOAD_FAILED_TEXT } from './feed-texts';
 import { useSessionAccount } from '@/hooks/use-session-account';
+import { userIdOfAccessToken } from '@/lib/access-token';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
 import { fetchFeedPage } from '@/services/api/feed';
 import { forgetFeed, recallFeed, rememberFeed, type FeedScroll } from './feed-memory';
@@ -21,13 +22,16 @@ export interface FeedFlow {
 // Back's restore. The server and RLS decide what is in the feed; this only asks, keeps what came (the service validates it) and never
 // reads, builds or shows a cursor. A refused token (401) or a stopped account (403) asks the session for the account state again
 // (ERR-038, ERR-037).
-export function useFeed(enabled: boolean): FeedFlow {
+export function useFeed(onRestart: () => void): FeedFlow {
   const account = useSessionAccount();
   const navigationType = useNavigationType();
   const [state, setState] = useState<FeedState>(INITIAL_FEED);
   const [restoredScroll, setRestoredScroll] = useState<FeedScroll | null>(null);
   const busy = useRef(false);
   const runs = useRef(0);
+  const owner = useRef<string | null>(null);
+  const restarted = useRef(onRestart);
+  restarted.current = onRestart;
 
   const run = useCallback(
     async (cursor: string | null, afterRetry: boolean) => {
@@ -40,6 +44,8 @@ export function useFeed(enabled: boolean): FeedFlow {
       if (id !== runs.current) return;
       if (outcome.kind === 'page') {
         busy.current = false;
+        if (token !== null) owner.current = userIdOfAccessToken(token);
+        if (cursor !== null && outcome.page.restarted === true) restarted.current();
         setState((current) => withPage(current, outcome.page, cursor === null, afterRetry));
         return;
       }
@@ -55,25 +61,39 @@ export function useFeed(enabled: boolean): FeedFlow {
     [account],
   );
 
-  // Back (a history pop) brings the remembered pages and scroll back (the memory ends with the session); anything else starts a new snapshot.
+  // Back (a history pop) brings the remembered pages and scroll back, only when the current token names the user they were kept for (else
+  // they are forgotten and the feed is fetched); anything else starts a new snapshot.
   useEffect(() => {
-    if (!enabled) return;
-    const saved = navigationType === NavigationType.Pop ? recallFeed() : null;
-    if (saved === null) {
+    let cancelled = false;
+    const start = () => {
       forgetFeed();
       void run(null, false);
-    } else {
-      setState({ ...INITIAL_FEED, phase: 'ready', items: saved.items, nextCursor: saved.nextCursor });
-      setRestoredScroll(saved.scroll);
+    };
+    if (navigationType !== NavigationType.Pop) start();
+    else {
+      void (async () => {
+        const token = account === null ? null : await account.getAccessToken().catch(() => null);
+        if (cancelled) return;
+        const current = token === null ? null : userIdOfAccessToken(token);
+        const saved = recallFeed(current);
+        if (saved === null) {
+          start();
+          return;
+        }
+        owner.current = current;
+        setState({ ...INITIAL_FEED, phase: 'ready', items: saved.items, nextCursor: saved.nextCursor });
+        setRestoredScroll(saved.scroll);
+      })();
     }
     return () => {
+      cancelled = true;
       runs.current += 1;
       busy.current = false;
     };
-  }, [enabled, run, account, navigationType]);
+  }, [run, account, navigationType]);
 
   useEffect(() => {
-    if (state.phase === 'ready' || state.phase === 'more-error') rememberFeed(state.items, state.nextCursor);
+    if (state.phase === 'ready' || state.phase === 'more-error') rememberFeed(state.items, state.nextCursor, owner.current);
   }, [state.phase, state.items, state.nextCursor]);
 
   const loadMore = useCallback(() => {

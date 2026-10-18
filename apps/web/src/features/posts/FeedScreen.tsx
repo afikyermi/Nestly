@@ -19,13 +19,20 @@ import { useSentinel } from './use-sentinel';
 export function FeedScreen() {
   const right = usePostingRight();
   const professional = right === 'not-allowed';
-  const { state, loadMore, retry, restoredScroll } = useFeed(right !== 'checking' && !professional);
-  // Taken once: Back or a reload does not say it again.
-  const [deleted] = useState(() => takeStatus(PATHS.feed, DELETED_STATUS));
   const rootRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const toTopRef = useRef<() => void>(() => undefined);
+  // A new snapshot replaces the list: focus that was inside it would drop to the page, so it goes to the heading, at the top.
+  const { state, loadMore, retry, restoredScroll } = useFeed(() => {
+    if (rootRef.current?.querySelector('[role="feed"]')?.contains(document.activeElement) !== true) return;
+    headingRef.current?.focus();
+    toTopRef.current();
+  });
+  // Taken once: Back or a reload does not say it again.
+  const [deleted] = useState(() => takeStatus(PATHS.feed, DELETED_STATUS));
   const { far, toTop } = useFeedScroll(rootRef, restoredScroll);
-  const sentinelRef = useSentinel(state.phase === 'ready' && !state.loading && state.nextCursor !== null, loadMore);
+  toTopRef.current = toTop;
+  const sentinelRef =useSentinel(state.phase === 'ready' && !state.loading && state.nextCursor !== null, loadMore);
 
   // One polite region: the check in progress, else the page just loaded (a no-break space after every other one makes equal texts speak
   // again), else what just happened.
