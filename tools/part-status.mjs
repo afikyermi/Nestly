@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { GATE_FILES, PRODUCT } from './schema-gate.mjs';
+import { CANDIDATE_PREFIX, deploys } from './vercel-branch-policy.mjs';
 
 // P1: one read-only snapshot, never a merge/dispatch/retry/polling loop.
 // Usage: node tools/part-status.mjs <PR> [--repo owner/repo] [--no-preview reason]
@@ -84,6 +85,15 @@ export function evaluate(snapshot, { expectedSkips = {}, noPreview = '' } = {}) 
     url: eChecks[0]?.html_url,
   };
   if (!noPreview && e.state !== 'success') blockers.push(`E on ${snapshot.head}: ${e.state}`);
+  // P4: under the head's own vercel.json policy (main and ready/**), a PR from another branch, or from a fork, never gets a
+  // Preview, so E never runs: say why while E is not green (CRITIC P4 findings 2-3).
+  let noDeploy = false;
+  try {
+    noDeploy = snapshot.headRef !== undefined && (snapshot.headFork === true || !deploys(snapshot.headPolicy, snapshot.headRef));
+  } catch (error) { blockers.push(`vercel.json policy at the head cannot be evaluated: ${error.message}`); }
+  if (!noPreview && e.state !== 'success' && noDeploy) {
+    blockers.push(`Head branch ${snapshot.headRef} gets no Preview (vercel.json git.deploymentEnabled): push the candidate to ${CANDIDATE_PREFIX}<part> and open the PR from it`);
+  }
   const main = mainHealth(snapshot.mainRuns);
   for (const c of main) blockers.push(`main ${c.workflow ?? c.name} / ${c.name}: ${outcome(c)} (${c.sha})`);
   const unique = [...new Set(blockers)];
@@ -168,6 +178,10 @@ export function collect({ repo, pr }, read = ghRead, clock = () => new Date().to
   };
   const pull = read(`${root}/pulls/${pr}`);
   const head = pull.head.sha;
+  // P4: the deploy policy of vercel.json at the head (undefined when absent: every branch deploys, Vercel's default).
+  const vercel = safe(`contents/vercel.json?ref=${head}`, undefined);
+  let headPolicy;
+  try { headPolicy = vercel?.content ? JSON.parse(Buffer.from(vercel.content, 'base64').toString('utf8'))?.git?.deploymentEnabled : undefined; } catch { errors.push('Invalid vercel.json at the PR head'); }
   const base = encodeURIComponent(pull.base.ref);
   const main = read(`${root}/branches/main`).commit.sha;
   const rules = all(`rules/branches/${base}`);
@@ -225,7 +239,7 @@ export function collect({ repo, pr }, read = ghRead, clock = () => new Date().to
   }
   const headAfter = safe(`pulls/${pr}`, { head: {} }).head.sha;
   const mainAfter = safe('branches/main', { commit: {} }).commit.sha;
-  return { head, files, headAfter, main, mainAfter, state: pull.state, merged: pull.merged, url: pull.html_url, required, checks,
+  return { head, files, headRef: pull.head.ref, headFork: pull.head.repo?.full_name?.toLowerCase() !== repo.toLowerCase(), headPolicy, headAfter, main, mainAfter, state: pull.state, merged: pull.merged, url: pull.html_url, required, checks,
     mainRuns: inspected, errors, limitations, observedAt: clock() };
 }
 

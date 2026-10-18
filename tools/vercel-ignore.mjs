@@ -3,6 +3,7 @@
 // VERCEL_GIT_PULL_REQUEST_ID when the PR existed at push time, so a branch pushed before its PR is also looked up on
 // GitHub (public API, read-only, no token; decisions.md, 2026-10-14 "Speed-up"). If the lookup fails: build.
 import { pathToFileURL } from 'node:url';
+import { CANDIDATE_PREFIX } from './vercel-branch-policy.mjs';
 
 const TIMEOUT_MS = 5000;
 
@@ -11,6 +12,8 @@ export function decide(env, prs) {
   const ref = env.VERCEL_GIT_COMMIT_REF ?? '';
   const pr = env.VERCEL_GIT_PULL_REQUEST_ID ?? '';
   if (ref === 'main') return { build: true, reason: 'branch is main' };
+  // P4: vercel.json lets only main and ready/** deploy; a candidate is pushed before its PR exists, so it always builds.
+  if (ref.startsWith(CANDIDATE_PREFIX)) return { build: true, reason: `branch "${ref}" is a candidate (${CANDIDATE_PREFIX})` };
   if (pr !== '') return { build: true, reason: `branch "${ref}" has open PR #${pr}` };
   if (prs === null) return { build: true, reason: `branch "${ref}": the GitHub lookup failed, building to be safe` };
   if (typeof prs === 'number' && prs > 0) return { build: true, reason: `branch "${ref}" has an open PR on GitHub` };
