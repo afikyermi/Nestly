@@ -26,6 +26,8 @@
 3. **לידיעה:** ‏NFR-SEC-006 (5) — "דיווח ל-Admin" על חריגת פתיחות פרופיל נדחה ל-I4 (נרשם רק `security_events`) · מצב `backlog` הידני של כלי הניקוי עוד בקוד (‏debt; יוסר בחלק הראשון של I3) · ‏low פתוח: נתיבי הסיסמה דורשים גם את המפתח הציבורי כדי להיות "מוכנים" (fail closed, ‏debt) · בכמה commits בענף (לא ב-main) רשום שם מודל שגוי ב-Co-Authored-By.
 4. ✅ **Docker Desktop** הותקן (18.10). בדיקות ה-DB רצות מקומית: `node tools/db-local.mjs test` (אותו image כמו ב-CI). **אחרי הפעלה מחדש של המחשב: לפתוח את Docker Desktop** ולחכות ל-"Engine running".
 5. אפיק מוחק (S-56): הקובץ המקומי `.live/events.jsonl` · ב-GitHub → Settings → Environments → `preview-e2e`: הסוד `PREVIEW_SUPABASE_SECRET_KEY` · ב-GitHub → Settings → Secrets → Actions (repository): `PREVIEW_TEST_EMAIL` ו-`PREVIEW_TEST_PASSWORD`.
+7. **שאלות פתוחות מ-F3.0 (לא חוסם; פועל לפי ⭐):** (3) דיווח פתוח כשתוכן מוחזק מגיע ל-90 יום — ⭐ הדיווח נשמר כ"פג" בלי התוכן · (4) השעיית כותב מסתירה יחד פוסטים בשמו ופוסטים אנונימיים (קישור אפשרי) — ⭐ סיכון מקובל, נרשם ב-security-privacy-open.
+8. **עריכות בקבצים מוגנים שממתינות לאישורך (לא דחוף):** `.claude/knowledge/data-model.md` — טבלאות הפיד של F3.0a, ועדכון החריג של כלי הניקוי (בלי backlog, 18 טבלאות). הטקסט ב-`.work/feed-groundwork/notes.md`.
 6. **לפני השקה:** הרשימה המלאה ב-`afik-list-1018.md` חלק ב (S-59, דומיין, אימייל, Supabase Pro, Cloudflare, Google OAuth, Vercel Pro או השקה לא מסחרית).
 
 **להמשך:**

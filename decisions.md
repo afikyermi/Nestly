@@ -68,6 +68,7 @@ Grouped rows retain all current topics. Older wording yields to the named later 
 | 10-18 / 10 | After the audit: budgets 40,000/9,000 · CRITIC returns text (saved verbatim; CRITIC 1.9) · guard retro and merged/ready remote delete · password fix, P1.1 before I3; records split, P5, P7 before I3 ∥ I6 · local test:db |
 | 10-18 / 10 | I3 questionnaire 1א–8א: audience everyone (remembered), share only everyone posts, deletion/report hold, no I3 events, author stage tag, anonymous=everyone, reporter-only hide, F3.9 hide-post; I3-questions.md |
 | 10-18 / 10 | Project reserved points (afik-list-1018): I4 user block, child reports top; I6 period charts; no pro verification; demo coupons; ANALYTICS_VIEW per-user no names; admin charts in demo; roadmap Amendment 6 |
+| 10-18 / 10 | Reported comment/user stays visible to all; Restricted profile has no effect on posts (audience, feed, sharing); SRS at I3 close |
 
 ## Superseded and historical navigation
 
