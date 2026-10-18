@@ -353,6 +353,16 @@ upsert own row (lock) → prune instants older than W → ≥ N: first refusal o
 **Lists:** unbounded (no pagination: spec "Out of scope"); per Friend of the target, about six index probes (pk, the two party indexes) for the name policy's
 EXISTS and `is_mutual`. Accepted for the MVP; revisit when an account nears ~1,000 accepted Friends.
 
+## Feed tables (I3 F3.0)
+
+Built by `20261018100000_feed_posts.sql` (F3.0a: posts, post_authors, post_hides, algorithm_configurations + v1 seed) and `20261018200000_feed_interactions.sql`
+(F3.0b: comments, reactions, reaction_owners, reports; held deletion, `delete_post`, `delete_comment`, `purge_held_content`); contracts and every column, policy and
+grant: `.work/feed-groundwork/schema.md`, `schema-b.md`. Rules in short: eligibility only in `posts_select_viewer` (viewer and author active, status, audience/
+friendship, anonymous never via friendship, own hides and reported posts excluded); anonymous author only in `post_authors` (owner-only, rule 20); denormalised
+`author_status`, `liker_status`, `parent_status` kept by composite FKs ON UPDATE CASCADE; no policy reads its own table (row checks in invoker triggers);
+column-level SELECT (no `select *` for the app); deletion via the two functions — immediate, or held ≤ 90 days while a report is open, purged by `app_jobs`.
+Down scripts refuse while their tables hold a row. Cleanup order per user: reports, reactions, post_hides, comments, posts.
+
 ## New entity template
 
 A new entity adds its columns to the first table — field, type, and its meaning, which is the part that matters — and

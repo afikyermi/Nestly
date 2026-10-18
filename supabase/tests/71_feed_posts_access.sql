@@ -92,8 +92,9 @@ select is(pg_temp.sees('b', current_setting('t.p1')::uuid), '0', '[F3.0-a c2 rul
 select tests.set_status(pg_temp.id('b'), 'active');
 
 select is(pg_temp.sees('b', pg_temp.setst(current_setting('t.p1')::uuid, st.s)), '0', '[F3.0-a c2 BR-065] post status ' || st.s || ': 0 rows')
-  from (values ('hidden'), ('removed'), ('deleted')) st(s);
+  from (values ('hidden'), ('removed')) st(s);
 select is(pg_temp.sees('a', current_setting('t.p1')::uuid), '0', '[F3.0-a c2] and not even to its author');
+select is(pg_temp.sees('b', pg_temp.setst(current_setting('t.p1')::uuid, 'deleted')), '0', '[F3.0-a c2 BR-065] post status deleted: 0 rows (the author in the transaction that held it: file 76)');
 
 -- =====================================================================================================================
 -- c3 -- audience (OP-033)
@@ -240,7 +241,7 @@ select is(tests.fx_po_state(current_setting('t.w')::uuid), current_setting('t.w_
 
 select ok(pg_temp.refused(pg_temp.dml('a', format($q$ update nestly.posts set status = %L where id = %L $q$, st.s, current_setting('t.e1')))),
   '[F3.0-a c6 BR-073] the author cannot set status ' || st.s)
-  from (values ('hidden'), ('removed'), ('deleted'), ('active')) st(s);
+  from (values ('hidden'), ('removed')) st(s);
 select ok(pg_temp.refused(pg_temp.dml('a', format($q$ update nestly.posts set author_id = %L where id = %L $q$, pg_temp.id('b'), current_setting('t.e1')))),
   '[F3.0-a c6] nor change the author');
 select ok(pg_temp.refused(pg_temp.dml('a', format($q$ update nestly.posts set is_anonymous = true where id = %L $q$, current_setting('t.e1')))),
@@ -272,10 +273,8 @@ select ok(pg_temp.refused(tests.dml_as('authenticated', tests.claims(null), $q$ 
   '[F3.0-a c6] authenticated with no identity cannot post');
 select ok(pg_temp.refused(tests.dml_as('app_server', tests.claims(pg_temp.id('a')), $q$ insert into nestly.posts (audience, body) values ('everyone', 'x') $q$)),
   '[F3.0-a c1 rule 2] app_server as itself cannot write posts');
-
--- very long text is not a crash (the length cap belongs to F3.1)
-select is(pg_temp.dml('a', format($q$ insert into nestly.posts (audience, body) values ('everyone', %L) $q$, repeat('x', 100000)), false), 'OK:1',
-  '[F3.0-a c6] a very long text is accepted: no limit before F3.1');
+-- very long text is not a crash: since F3.1-a c6 (carried by F3.0b) it is refused cleanly by the 2,000-character cap
+select is(pg_temp.dml('a', format($q$ insert into nestly.posts (audience, body) values ('everyone', %L) $q$, repeat('x', 100000)), false), 'ERR:23514',  '[F3.0-a c6][F3.1-a c6] a very long text is refused with 23514, not a crash: the 2,000-character cap');
 select is(pg_temp.dml('a', format($q$ insert into nestly.posts (audience, body) values ('everyone', %L) $q$, $b$'; drop table nestly.posts; -- <script>$b$), false), 'OK:1',
   '[F3.0-a c6] hostile text is stored as text');
 

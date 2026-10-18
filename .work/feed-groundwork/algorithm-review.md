@@ -13,3 +13,5 @@ Findings (summary of the reviewer's text, severities and owners unchanged):
 ORCHESTRATOR: finding 3 reopens Gate 2's "Accepted" (yes). Findings 1–3 → DATA ARCHITECT, validated by A&D. 4–7, 9 → A&D edits I3-algorithm.md before F3.2. 8 → Afik.
 
 **Validation (A&D, 18.10):** findings 1–3 fixed in schema.md / schema-b.md and spec re-amend; no new findings. Side finding (likes drop together on suspension) joins DR-6 for Afik, default accept.
+- **ORCHESTRATOR 18.10 (TE finding 3):** intended — after G2 a commenter keeps reading (and can delete) their own active comment under a post that is held; the held post itself stays hidden from everyone (c14 applies to the held content).
+- **ORCHESTRATOR 18.10 (BUILDER column grants):** posts.author_id, comments.author_id, comments.is_by_post_author, reactions.is_by_author stay readable (named author/commenter display, the המחבר mark; anonymous author_id is NULL). Only held_xact (posts, comments) and reactions.liker_status are excluded. reaction_owners.user_id / reports.reporter_id: owner-only rows by RLS.

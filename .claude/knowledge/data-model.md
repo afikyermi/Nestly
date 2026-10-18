@@ -174,10 +174,12 @@ F1.6 recovery and F2.0 S-01/S-16 (FR-AUTH-003/005, OP-029) — Afik 2026-10-13, 
 ```
 Preview E2E test-user cleanup (DR-E1, option 1) — credential PREVIEW_DB_ADMIN_URL: role `postgres` (BYPASSRLS), nestly-preview only, user postgres.<preview
 ref>, session pooler, port 5432. CI only, `preview-e2e-cleanup`: main's code (never the deployment sha), in environment `preview-e2e` restricted to `main`
-(Afik, 17.10; verified via API). On `workflow_run`: the per-run cleanup. On manual `workflow_dispatch` (main only): mode `dry-run` (preflight, counts, ages;
-no delete) or `backlog` (≤ 50 oldest pattern users older than 3 h per dispatch). Victims: only the exact `TEST_EMAIL_PATTERN`. Caps unchanged: this run's
-users uncapped, sweep 10, refusal above 50 (workflow_run). One transaction per user, leaf first, SET LOCAL row_security = off (raises, never filters).
-Fail-closed preflight: exactly the fourteen nestly tables (F2.4c1; security_limits listed, never written). · .work/preview-e2e/schema.md · decisions/2026-10.md "DR-E1", "Preview cleanup"
+(Afik, 17.10; verified via API). On `workflow_run`: the per-run cleanup. On manual `workflow_dispatch` (main only): mode `dry-run` only (preflight, counts,
+ages; no delete; `backlog` removed in F3.0a). Victims: only the exact `TEST_EMAIL_PATTERN`. Caps unchanged: this run's
+users uncapped, sweep 10, refusal above 50 (workflow_run). One transaction per user, leaf first, SET LOCAL row_security = off (raises, never filters); feed rows per
+user before friendships: reports, reactions (reaction_owners by cascade), post_hides, comments, posts (post_authors by cascade).
+Fail-closed preflight: exactly the twenty-two nestly tables (F2.4c1 fourteen; F3.0a +4, F3.0b +4; security_limits and algorithm_configurations listed, never
+written). · .work/preview-e2e/schema.md, .work/feed-groundwork/schema.md, schema-b.md · decisions/2026-10.md "DR-E1", "Preview cleanup"
 ```
 
 ```
@@ -190,6 +192,12 @@ target active + Regular, else 0 rows (still counted). Reach: 11 *_profile_view p
 nestly.profile_view_target holds the target it sets and clears: reads the target's rows (4), its accepted Friendships and Friends' names (2); config, and only auth.uid()'s
 count row and events (5; events INSERT only). Helpers profile_view_target(), child_age_months() invoker, no runtime EXECUTE; now(), never a parameter. Owner app_owner;
 EXECUTE authenticated; search_path ''. Why: RLS hides rows, not columns; an invoker that can test its count can read it (c21). · .work/profile-privacy/, .work/friends/schema.md · Afik 2026-10-17 (DR-G1, DR-L)
+```
+
+```
+F3.0b purge — TO app_jobs policies on posts, comments, reports: read held rows (and replies of a held comment) and the open reports on them, delete held rows,
+expire open reports past release; purge_held_content() invoker, EXECUTE app_jobs only · a job has no auth.uid() and must reach every user's held rows (rule 6);
+app_server is never a member of app_jobs · .work/feed-groundwork/schema-b.md · 2026-10-18
 ```
 
 ---
@@ -274,5 +282,7 @@ to the decision owner in CLAUDE.md. This planned map does not supersede later de
 
 ## Entities
 
-All fourteen tables are in `nestly`, built by `supabase/migrations/` and bootstrap step 2, each migration with a down script in `supabase/rollback/`. The
+All twenty-two tables are in `nestly` (feed tables of F3.0: posts, post_authors, post_hides, algorithm_configurations, comments, reactions, reaction_owners,
+reports — FORCE RLS, client policies TO authenticated gated by is_active_account(), column-level SELECT without held_xact/liker_status/parent_status, no SECURITY
+DEFINER; post_authors and reaction_owners owner-only; policies never read their own table, row checks in invoker triggers), built by `supabase/migrations/` and bootstrap step 2, each migration with a down script in `supabase/rollback/`. The
 list of migrations by feature, each down script's guard, the write paths, per-table detail, the lock and the new-entity template: `data-model-tables.md`.
