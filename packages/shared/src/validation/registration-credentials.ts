@@ -40,7 +40,7 @@ const email = z
 /** VAL-003: not trimmed, no composition rule; spaces and Hebrew allowed. Length in code points. */
 const password = z
   .string()
-  .max(RAW_PASSWORD_MAX_UNITS, 'password_length')
+  .max(RAW_PASSWORD_MAX_UNITS, { error: 'password_length', abort: true })
   .refine(
     (value) => {
       const length = codePointLength(value);
