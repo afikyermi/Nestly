@@ -38,6 +38,27 @@ export function isConnectionFailure(error: unknown): boolean {
   return false;
 }
 
+/** The constraint of F3.1 criterion 6: a post's text is at most POST_BODY_MAX code points. */
+const POST_BODY_LENGTH_CONSTRAINT = 'posts_body_length_check';
+
+export interface PostFaultReply {
+  readonly status: 403 | 422 | 500;
+  readonly error: 'not_allowed' | 'body_too_long' | 'server_error';
+}
+
+/**
+ * What a post write the database refused answers (F3.1 criterion 7). 23514 on the body-length CHECK is 422; 42501 (policy or privilege) and
+ * 23503 (a foreign key: not a Regular account) are 403; any other database error is 500. Never the message, constraint or table name.
+ * `undefined`: the failure did not come from the database (the caller handles it).
+ */
+export function postFaultReply(error: unknown): PostFaultReply | undefined {
+  const fault = readDatabaseFault(error);
+  if (fault === undefined) return undefined;
+  if (fault.code === '23514' && fault.constraint === POST_BODY_LENGTH_CONSTRAINT) return { status: 422, error: 'body_too_long' };
+  if (fault.code === '42501' || fault.code === '23503') return { status: 403, error: 'not_allowed' };
+  return { status: 500, error: 'server_error' };
+}
+
 /** SQLSTATE class 23 (a constraint) and 42501 (a privilege or policy): the same input fails the same way again. */
 function isDeterministicFault(code: string): boolean {
   return code.startsWith('23') || code === '42501';
