@@ -11,3 +11,4 @@
 | 18.10 | F3.0a ✅ | PR #75 מוזג (main 6f05793), CI + E ירוקים; `migrate` ל-production הצליח (run 39148084013) | F3.0b בענף `work/feed-groundwork-b` (BUILDER ∥ TEST ENGINEER) → CRITIC → PR `ready/feed-groundwork-b` | עריכת `data-model.md` (באצווה) · שאלות 3–4 | 8% |
 | 18.10 | F3.0b (מועמד) | CRITIC סבב 2: כל הממצאים תוקנו. כולל מגבלת 2000 תווים לפוסט (F3.1). ענף `ready/feed-groundwork-b` → PR סכמה | מיזוג על CI ירוק → `migrate` → F3.1a (שרת), spec מאושר ב-`.work/post-create/spec.md` | שאלות 3–5 | 15% |
 | 18.10 | F3.0b ✅ — F3.0 הושלם | PR #76 מוזג (main 8d3a489), CI + E ירוקים; `migrate` ל-production הצליח (run 39153825796) | F3.1a (שרת) בענף `work/post-create-a`: BUILDER ∥ TEST ENGINEER → CRITIC → PR | שאלות 3–5 | 15% |
+| 18.10 | F3.1a (מועמד) | שרת כתיבת/עריכת/מחיקת פוסט; CRITIC עבר (low אחד תוקן). החלטות אפיק 3–6 נרשמו | PR `ready/post-create-a` → מיזוג; במקביל PR סכמה לשמות (6ב) בעץ `nestly-wt-names`; אחר כך F3.1b ו-F3.2a1 | שאלה 7 (שמות מגיבים) | 20% |
