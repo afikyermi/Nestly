@@ -353,18 +353,40 @@ test('[P1.1] main health reads one page of runs: a stated limitation, never a pa
   assert.match(evaluate(broken).blockers.join('\n'), /Invalid response: actions\/runs\?branch=main/, 'an unreadable page still blocks');
 });
 
-test('[P1.1] a cancellation on an older main SHA is superseded; on the current main SHA it blocks; an older failure still shows', () => {
+test('[P1.1] a cancellation on an older main SHA under a newer run of its workflow is superseded; otherwise it blocks; an older failure still shows', () => {
   const e2e = (id, sha, conclusion) => run(id, [], { name: 'preview-e2e', workflow_id: 9, event: 'deployment_status', head_sha: sha, conclusion });
-  assert.deepEqual(mainHealth([e2e(10, OLD, 'cancelled')], MAIN), [], 'no-jobs run cancelled on an older SHA');
-  assert.deepEqual(mainHealth([run(10, [job('test', 'cancelled')], { head_sha: OLD })], MAIN), [], 'a job cancelled on an older SHA');
-  assert.equal(mainHealth([e2e(10, MAIN, 'cancelled')], MAIN).length, 1, 'cancelled on the current SHA counts');
+  assert.deepEqual(mainHealth([e2e(10, OLD, 'cancelled'), e2e(11, MAIN, 'skipped')], MAIN), [], 'no-jobs run cancelled on an older SHA, newer run exists');
+  assert.deepEqual(mainHealth([run(10, [job('test', 'cancelled')], { head_sha: OLD }), run(11, [job('test')])], MAIN), [], 'a job cancelled on an older SHA, newer run exists');
+  // CRITIC P1.1 F3: the group's newest run is never passed over (a workflow that did not fire again).
+  assert.equal(mainHealth([e2e(10, OLD, 'cancelled')], MAIN).length, 1, 'lone old cancellation counts');
+  assert.equal(mainHealth([e2e(10, OLD, 'cancelled'), run(11, [job('test')])], MAIN).length, 1, 'a newer run of ANOTHER workflow does not supersede');
+  assert.equal(mainHealth([e2e(10, MAIN, 'cancelled'), e2e(9, OLD, 'success')], MAIN).length, 1, 'cancelled on the current SHA counts');
   assert.equal(mainHealth([run(10, [job('test', 'cancelled')])], MAIN).length, 1);
-  const hidden = mainHealth([run(9, [job('test', 'failure')], { head_sha: OLD }), run(10, [job('test', 'cancelled')], { head_sha: OLD })], MAIN);
+  const hidden = mainHealth([run(9, [job('test', 'failure')], { head_sha: OLD }), run(10, [job('test', 'cancelled')], { head_sha: OLD }), run(11, [job('test', 'skipped')], { head_sha: OLD })], MAIN);
   assert.equal(hidden.length, 1, 'a superseded cancellation cannot erase an older failure');
   assert.equal(outcomeOf(hidden[0]), 'failure');
-  assert.equal(mainHealth([e2e(10, OLD, 'cancelled')]).length, 1, 'without the main SHA nothing is passed over');
-  const s = fixture(); s.mainRuns = [e2e(10, OLD, 'cancelled')];
+  assert.equal(mainHealth([e2e(10, OLD, 'cancelled'), e2e(11, MAIN, 'skipped')]).length, 1, 'without the main SHA nothing is passed over');
+  const s = fixture(); s.mainRuns = [e2e(10, OLD, 'cancelled'), e2e(11, MAIN, 'skipped')];
   assert.deepEqual(evaluate(s).blockers, [], 'evaluate passes the main SHA');
+});
+
+test('[P1.1] collect keeps reading below a cancelled newest run, so an older failure reaches main health (CRITIC P1.1 F2)', () => {
+  const api = apiFixture();
+  const e2eRun = (id, sha, conclusion) => ({ ...run(id, []), name: 'preview-e2e', workflow_id: 9, event: 'deployment_status', head_sha: sha, conclusion });
+  for (const [newest, jobs] of [[e2eRun(30, OLD, 'cancelled'), []], [e2eRun(30, OLD, 'success'), [job('e2e', 'cancelled')]]]) {
+    const asked = [];
+    const read = (url) => {
+      asked.push(url);
+      if (url.includes('actions/runs?branch=main')) return { workflow_runs: [...api.read(url).workflow_runs, e2eRun(31, MAIN, 'skipped'), newest, e2eRun(28, OLD, 'failure')] };
+      if (url.includes('actions/runs/31/jobs')) return { jobs: [job('e2e', 'skipped')] };
+      if (url.includes('actions/runs/30/jobs')) return { jobs };
+      if (url.includes('actions/runs/28/jobs')) return { jobs: [job('e2e', 'failure')] };
+      return api.read(url);
+    };
+    const result = evaluate(collect({ repo: 'afikyermi/Nestly', pr: '57' }, read));
+    assert.ok(asked.some((u) => u.includes('actions/runs/28/jobs')), 'the older run is read');
+    assert.match(result.blockers.join('\n'), /main preview-e2e \/ e2e: failure/);
+  }
 });
 
 test('[P1.1] a job skipped by this head\'s own successful CI run is an expected skip with its reason; any other skip still blocks', () => {
@@ -380,12 +402,21 @@ test('[P1.1] a job skipped by this head\'s own successful CI run is an expected 
   const required = withSkip({ id: 77, conclusion: 'success' });
   required.checks = required.checks.map((c) => (c.name === 'test' ? { ...c, conclusion: 'skipped' } : c));
   assert.match(evaluate(required).blockers.join('\n'), /Required test: skipped/, 'a required check skipped outside the run');
+  // CRITIC P1.1 F1: a PR's own ci.yml can skip any job and still succeed; only the filter's jobs, never a CI or required one.
+  for (const name of ['test', 'typecheck', 'lint', 'build', 'schema-gate', 'changes', 'audit']) {
+    const inside = withSkip({ id: 77, conclusion: 'success' });
+    inside.checks = inside.checks.filter((c) => c.name !== name).concat(check(name, 'skipped', { id: 31, html_url: ciUrl(77) }));
+    assert.match(evaluate(inside).blockers.join('\n'), new RegExp(`${name}: skipped`), `${name} skipped inside the successful run`);
+  }
+  const requiredDb = withSkip({ id: 77, conclusion: 'success' });
+  requiredDb.required.push({ context: 'db', app_id: 15368 });
+  assert.match(evaluate(requiredDb).blockers.join('\n'), /Required db: skipped/, 'a filter job made required is not auto-skipped');
   const failed = withSkip({ id: 77, conclusion: 'success' });
   failed.checks.at(-1).conclusion = 'failure';
   assert.match(evaluate(failed).blockers.join('\n'), /Check db: failure/);
 });
 
-test('[P1.1] E is "not required" for a no-Preview branch only when no product, migration, dependency or deploy file changed', () => {
+test('[P1.1] E is "not required" for a no-Preview branch only when every changed file is records, docs or tooling', () => {
   const POLICY = { '**': false, main: true, 'ready/**': true };
   const noE = (files, extra = {}) => ({ ...fixture(), checks: fixture().checks.filter((c) => c.name !== 'preview-e2e'), headPolicy: POLICY, headRef: 'chore/records', files, ...extra });
   const records = evaluate(noE(['WORKPLAN-HE.md', 'tools/part-status.mjs', '.claude/workflow.md', '.github/workflows/ci.yml']));
@@ -393,11 +424,17 @@ test('[P1.1] E is "not required" for a no-Preview branch only when no product, m
   assert.equal(records.e.state, 'not required');
   assert.match(records.e.reason, /no Preview by policy for chore\/records/);
   for (const f of ['apps/web/src/a.tsx', 'apps/server/src/x.ts', 'packages/shared/src/v.ts', 'api/index.ts', 'supabase/migrations/1_x.sql',
-    'package-lock.json', 'package.json', 'apps/web/package.json', 'vercel.json', 'e2e-preview/a.flow.ts']) {
+    'package-lock.json', 'package.json', 'apps/web/package.json', 'vercel.json', 'e2e-preview/a.flow.ts',
+    // CRITIC P1.1 F4: config the Preview builds from, and the Preview/Vercel tools and workflows.
+    'apps/web/vite.config.ts', 'apps/web/tailwind.config.js', 'apps/web/tsconfig.json', 'tsconfig.base.json', '.nvmrc', '.npmrc',
+    '.vercelignore', 'apps/server/scripts/x.ts', 'apps/server/tests/a.test.ts', 'e2e/a.spec.ts', 'playwright.config.ts',
+    'tools/vercel-ignore.mjs', 'tools/preview-e2e-cleanup.ts', 'tools/probes/t5.mjs', '.github/workflows/preview-e2e.yml', 'apps/web/README.md']) {
     assert.match(evaluate(noE(['WORKPLAN-HE.md', f])).blockers.join('\n'), /E on a{40}: missing/, f);
   }
   assert.match(evaluate(noE(undefined)).blockers.join('\n'), /E on .*missing/, 'file list not read');
   assert.match(evaluate(noE([])).blockers.join('\n'), /E on .*missing/, 'empty file list');
+  assert.match(evaluate(noE(Array.from({ length: 3000 }, (_, i) => `docs/${i}.md`))).blockers.join('\n'), /E on .*missing/, 'a list at the API cap is not trusted');
+  assert.deepEqual(evaluate(noE(['debt.md', '.work/x/spec.md', 'docs/a.md', 'decisions/2026-10.md', '.githooks/pre-commit', 'tools/check-budgets.mjs'])).blockers, []);
   assert.match(evaluate(noE(['README.md'], { headRef: 'ready/x' })).blockers.join('\n'), /E on .*missing/, 'a ready/ branch gets a Preview: E is required');
   assert.match(evaluate(noE(['README.md'], { headPolicy: undefined })).blockers.join('\n'), /E on .*missing/, 'no policy: every branch deploys');
   const failedE = noE(['README.md']);
