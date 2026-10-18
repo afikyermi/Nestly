@@ -1,30 +1,21 @@
-# notes — feed-groundwork F3.0a
+# notes — feed-groundwork
 
-**Approach**  Migration `20261018100000_feed_posts.sql` per schema.md (4 tables, v1 seed, 3 SECURITY INVOKER triggers, policies, grants, indexes, comments) + guarded down script. Cleanup tool: 18 tables, post_hides then posts before friendships, `backlog` removed.
+**F3.0a** Migration `20261018100000_feed_posts.sql` per schema.md; cleanup tool 18 tables, `backlog` removed; finding 1: `post_hides_insert_guard` (invoker trigger, 42501).
 
+## F3.0b
+**Approach** `20261018200000_feed_interactions.sql` + guarded down script per schema-b.md; cleanup tool 22 tables (reports, reactions, post_hides, comments, posts per user).
 **Decisions**
-- Two checks on `posts.audience`: `posts_audience_value_check` (list) and `posts_audience_check` (anonymous and friends).
-- Down script drops the three policies that read post_hides/post_authors first. Refuses unless the config is exactly the seed.
-- `runBacklog`/`summarizeBacklog` keep their names (dry-run only, TE's tests import them). `selectBacklog`, `MAX_BACKLOG_PER_RUN`, the mode, the workflow option gone; debt row closed.
+- `content_hold()` refuses non-`active→deleted` only for `current_user = 'authenticated'`; the owner role may set any status (moderation, fixtures) and the trigger keeps held_* consistent with the CHECK.
+- reports_select_jobs is `status in ('open','expired')`: the UPDATE's new row is checked against the SELECT policy, so `open` alone made the purge fail 42501.
+- Body/details checks use `~ '[^[:space:]]'`, not `btrim` (btrim trims spaces only; a newline-only body passed). Posts' `btrim` check has the same gap (neighbouring).
+- Down script drops reactions_delete_owner first (reads reaction_owners). Restores F3.0a's two policies verbatim.
+**Deviations** the two above (schema-b says btrim, `open`).
+**Not done** moderated post delete by its author: schema-b has no branch (CRITIC F3.0a finding 1, second half). Nothing under apps/ or packages/.
+**Uncertain** `xid8` held branch tested in-transaction only; the author of a post they reported-hid is impossible (own reports refused). A commenter who reported a post cannot delete their own comment on it (post unreadable).
+**Evidence** up→down→up by psql; db-local test: 640 green; typecheck, eslint tools, check:budgets green. TE's 70/71/20/10/13 and tool-test expectations need b updates (see report).
+**Neighbouring** posts_body_check btrim; a hold with no report purges at the next run (harmless).
 
-**Deviations**  none.
-
-**Finding 1** (refuse a hide of one's own post): BEFORE INSERT invoker trigger `post_hides_insert_guard`, 42501 like the other triggers, when the caller is posts.author_id or has a post_authors row. A trigger, not a policy: a policy reading posts would break c5/c16. Body does not name post_hides (c16). TE files 20 and 70 count functions (now four).
-
-**Deliberately not done**  F3.0b; Drizzle mirrors (F3.1); TRUNCATE guard on the config (no role holds it).
-
-**Uncertain**
-- pgTAP run by psql (no pg_prove). Failing, in TE's files: 20_registration_structure (14 to 18 tables, trigger/function/grant lists), 70 test 22 (pg_depend lists the policy twice: needs distinct), 71 (`missing FROM-clause entry for "st"`), 72 (`is(numeric, integer, unknown)`); fixture `fx_cleanup_user` fails on legal_consents.
-- I removed the shared `nestly-local-db` container once with `db-local down` while TE used it; later runs used a scratch copy on another port.
-
-**Evidence**  `db-local test`: 640 tests green (before TE's files). Scratch DB: up-down-up; anonymous insert writes the separation row; deleting it cascades the post; suspension rewrites author_status on all three copies. typecheck, eslint tools, check:budgets, cleanup tool tests (86) green. CI-only gates not run.
-
-**Neighbouring**  none.
-
-**Deferred protected-file edits** (data-model.md, "Preview E2E test-user cleanup" exception)
-1. Replace "or `backlog` (≤ 50 oldest pattern users older than 3 h per dispatch)" with "only (`backlog` removed 18.10, audit B1)".
-   Replace "exactly the fourteen nestly tables" with "exactly the eighteen nestly tables (F3.0a adds algorithm_configurations,
-   post_authors, post_hides, posts; security_limits and algorithm_configurations never written)". Add "post_hides, then posts, per user before friendships".
-2. As-built: posts, post_authors, post_hides, algorithm_configurations: FORCE RLS, policies TO authenticated gated by is_active_account().
-   No policy reads posts. author_status FK copies; deferred circular FK for anonymous posts. post_authors readable by its author only
-   (rule 20, S-26). Config append-only by trigger. No SECURITY DEFINER. · .work/feed-groundwork/schema.md
+**Deferred protected-file edits** (data-model.md)
+1. Approved exceptions, add: `F3.0b purge — TO app_jobs policies on posts, comments, reports: read held rows and the open reports on them, delete held rows, expire open reports past release · a job has no auth.uid() and must reach every user's held rows (rule 6) · .work/feed-groundwork/schema-b.md · 2026-10-18`.
+2. Cleanup exception (a, still open): drop `backlog`; "exactly the twenty-two nestly tables" (a +4, b +4: comments, reaction_owners, reactions, reports); order: reports, reactions, post_hides, comments, posts per user before friendships.
+3. As-built: posts, post_authors, post_hides, comments, reactions, reaction_owners, reports: FORCE RLS, client policies TO authenticated gated by is_active_account(); no SECURITY DEFINER; app_jobs holds USAGE on nestly, SELECT/DELETE posts+comments, SELECT/UPDATE(status, closed_at) reports, EXECUTE purge_held_content. post_authors readable by its author only.

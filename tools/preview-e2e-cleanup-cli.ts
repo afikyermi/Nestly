@@ -96,9 +96,30 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         counts['recovery_answers'] = (await tx`delete from nestly.recovery_answers where user_id = ${id}`).count;
         counts['children'] = (await tx`delete from nestly.children where user_id = ${id}`).count;
         counts['journey_contexts'] = (await tx`delete from nestly.journey_contexts where user_id = ${id}`).count;
-        // F3.0a: a user's hides first, then every post they wrote (named, or anonymous through post_authors); the cascade takes
-        // others' hides and separation rows, and others' shares of a deleted post keep their row (SET NULL).
+        // F3.0b (schema-b.md "Cleanup tool"). P(U) = U's posts (named, or anonymous through post_authors); C(U) = comments by U, on P(U),
+        // or replying to U's. Reports first: no open report survives into a cascade, so reports_open_target_check never fires.
+        counts['reports'] = (
+          await tx`delete from nestly.reports
+                    where reporter_id = ${id} or reported_user_id = ${id}
+                       or post_id in (select id from nestly.posts
+                                       where author_id = ${id} or id in (select post_id from nestly.post_authors where author_id = ${id}))
+                       or comment_id in (select id from nestly.comments
+                                          where author_id = ${id}
+                                             or post_id in (select id from nestly.posts
+                                                             where author_id = ${id} or id in (select post_id from nestly.post_authors where author_id = ${id}))
+                                             or parent_id in (select id from nestly.comments where author_id = ${id}))`
+        ).count;
+        counts['reactions'] = (
+          await tx`delete from nestly.reactions where id in (select reaction_id from nestly.reaction_owners where user_id = ${id})`
+        ).count;
+        // F3.0a: a user's hides, then their comments (replies go with them), then every post they wrote; the cascade takes others'
+        // hides, likes and separation rows, and others' shares of a deleted post keep their row (SET NULL).
         counts['post_hides'] = (await tx`delete from nestly.post_hides where user_id = ${id}`).count;
+        counts['comments'] = (
+          await tx`delete from nestly.comments
+                    where author_id = ${id}
+                       or (author_id is null and post_id in (select post_id from nestly.post_authors where author_id = ${id}))`
+        ).count;
         counts['posts'] = (
           await tx`delete from nestly.posts
                     where author_id = ${id} or id in (select post_id from nestly.post_authors where author_id = ${id})`
