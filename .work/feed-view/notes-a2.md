@@ -21,3 +21,4 @@ fallback, cursor, re-rank and the answer shape (`feedPageResponse.parse` before 
 **Evidence**  server+shared typecheck, eslint, check-budgets, check-stories ok; static/route/friends unit tests 80 pass; full server db suite on private container
 (54326, removed): 664 pass before the extra_float_digits change; feed paging smoke (25 posts, 2 pages, share display) ok after it. feed.db.test.ts needs TE's fixtures.
 **Neighbouring**  `tools/db-local.mjs` fails on `supabase db push` here without `?sslmode=disable` on the db-url (CLI 2.120.0 tries TLS); not changed.
+- A&D low 5: viewer Stage set is now bound as one array parameter (`any(${sql.param([...stages])}::text[])`, empty array allowed) instead of string_to_array over a comma-joined text; compiled SQL checked (one `$1::text[]`), DB-backed tests not run here.

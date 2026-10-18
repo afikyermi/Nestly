@@ -147,7 +147,7 @@ export function rankingStatement(parameters: RankingParameters): SQL {
                 + (select count(*) from nestly.comments m where m.post_id = t.id and not m.is_by_post_author and m.created_at <= ${asOf}::timestamptz)
               )::float8) / ln(1::float8 + ${config.qualityCap}::float8),
               1::float8)
-          + ${config.wStage}::float8 * (case when t.stage_tag = any(string_to_array(${stages.join(',')}, ',')) then 1::float8 else 0::float8 end)
+          + ${config.wStage}::float8 * (case when t.stage_tag = any(${sql.param([...stages])}::text[]) then 1::float8 else 0::float8 end)
         end as score
       from tiered t
     )
