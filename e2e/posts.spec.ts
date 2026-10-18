@@ -54,6 +54,7 @@ test.describe('F3.1b c14 [FR-FEED-002] the entry point', () => {
     await page.waitForTimeout(500); // the posting-right check answers after the heading; a link must not appear later
     await expect(page.getByRole('link', { name: 'כתיבת פוסט' })).toHaveCount(0);
     await page.goto('/posts/new');
+    await expect(page.getByRole('heading', { level: 1, name: 'כתיבת פוסט' })).toBeVisible();
     await expect(main(page).getByText('הפעולה אינה זמינה')).toBeVisible();
     await expect(body(page)).toHaveCount(0);
     await expect(publish(page)).toHaveCount(0);
@@ -84,6 +85,24 @@ test.describe('F3.1b c17 [FR-FEED-002 ERR-004] publishing', () => {
       await scan(page);
     });
   }
+  test('[c17] "הפוסט פורסם" shows only right after publishing: not after "חזרה לפיד" then Back, nor after reload', async ({ page }) => {
+    await setupPosts(page);
+    await open(page, '/posts/new');
+    await body(page).fill('רק עכשיו');
+    await publish(page).click();
+    const status = page.getByRole('status').filter({ hasText: 'הפוסט פורסם' });
+    await expect(status).toBeVisible();
+    const postPath = pathOf(page);
+    await page.getByRole('link', { name: 'חזרה לפיד' }).click();
+    await expect.poll(() => pathOf(page)).toBe('/feed');
+    await page.goBack();
+    await expect.poll(() => pathOf(page)).toBe(postPath);
+    await expect(main(page).getByText('רק עכשיו')).toBeVisible();
+    await expect(status).toHaveCount(0);
+    await page.reload();
+    await expect(main(page).getByText('רק עכשיו')).toBeVisible();
+    await expect(status).toHaveCount(0);
+  });
   test('[c17] no tag chosen: no tag line on the page, and stageTag is null or absent in the request', async ({ page }) => {
     const net = await setupPosts(page);
     await open(page, '/posts/new');
@@ -153,7 +172,7 @@ test.describe('F3.1b c18 [FR-FEED-002] the own-post page', () => {
     await setupPosts(page);
     await open(page, `/posts/${POST_ID}`);
     await expect(main(page).getByText('שאלה על שינה')).toBeVisible();
-    await expect(page.getByRole('status').filter({ hasText: /S/ })).toHaveCount(0); // a status text only right after publishing
+    await expect(page.getByRole('status').filter({ hasText: 'הפוסט פורסם' })).toHaveCount(0); // a status text only right after publishing
     await expect(button(page, 'עריכה')).toBeVisible();
     await expect(button(page, 'מחיקה')).toBeVisible();
     await page.goto(`/posts/${OTHERS.id}`);
@@ -241,6 +260,9 @@ test.describe('F3.1b c18 [FR-FEED-002] the own-post page', () => {
     await dialog(page).getByRole('button', { name: 'מחיקת הפוסט', exact: true }).click();
     await expect.poll(() => pathOf(page)).toBe('/feed');
     await expect(page.getByRole('status').filter({ hasText: 'הפוסט נמחק' })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole('heading', { level: 1, name: 'פיד' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'הפוסט נמחק' })).toHaveCount(0);
     expect(net.deletes).toEqual([POST_ID, POST_ID]);
     expect(net.posts.some((p) => p.id === MINE.id)).toBe(false);
   });

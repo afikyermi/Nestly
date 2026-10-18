@@ -55,8 +55,23 @@ describe('F3.1b c15 [OP-033 Afik 1א] the audience choice and its memory', () =>
     expect(everyone()).toHaveProperty('checked', true);
     expect(friends()).toHaveProperty('checked', false);
   });
+  /** Produces the stored entry through a real successful "חברים בלבד" post, so the key format is the product's own. */
+  async function rememberFriends(storage: ReturnType<typeof memoryStorage>) {
+    createPost.mockResolvedValue({ kind: 'post', post: { ...published, audience: 'friends' } });
+    const first = mount(storage);
+    await screen.findByRole('radiogroup', { name: 'מי יראה את הפוסט' });
+    type('שלום');
+    await userEvent.click(friends());
+    await userEvent.click(publish());
+    await screen.findByText('post page');
+    expect(stored(storage)).toHaveLength(1);
+    first.unmount();
+  }
   it.each(['', 'nobody', 'EVERYONE', '{"a":1}'])('[c15] an invalid stored value %j preselects "כולם"', async (bad) => {
-    mount(memoryStorage({ [`nestly.post-audience.${USER}`]: bad }));
+    const storage = memoryStorage();
+    await rememberFriends(storage);
+    for (const [key] of stored(storage)) storage.data.set(key, bad);
+    mount(storage);
     await screen.findByRole('radiogroup', { name: 'מי יראה את הפוסט' });
     expect(everyone()).toHaveProperty('checked', true);
   });
@@ -108,7 +123,14 @@ describe('F3.1b c15 [OP-033 Afik 1א] the audience choice and its memory', () =>
     expect(stored(storage)).toEqual([]);
   });
   it('[c15] a stored value of another user id is not used', async () => {
-    mount(memoryStorage({ 'nestly.post-audience.someone-else': 'friends' }));
+    const storage = memoryStorage();
+    await rememberFriends(storage);
+    // Re-key the real entry to another user id by swapping this user's id in the key.
+    const [key, value] = stored(storage)[0] ?? ['', ''];
+    expect(key).toContain(USER);
+    storage.data.delete(key);
+    storage.data.set(key.replace(USER, 'f0000000-0000-4000-8000-0000000000f2'), value);
+    mount(storage);
     await screen.findByRole('radiogroup', { name: 'מי יראה את הפוסט' });
     expect(everyone()).toHaveProperty('checked', true);
   });
@@ -124,7 +146,7 @@ describe('F3.1b c16 [NFR-A11Y-001 VAL] composer accessibility', () => {
     expect(document.getElementById(group.getAttribute('aria-describedby') ?? '')?.textContent).toBe('התגית תוצג לקוראים');
     expect(screen.getByRole('radio', { name: 'בלי תגית' })).toHaveProperty('checked', true);
     for (const name of ['מתכננים', 'בהריון', 'יש לנו ילד או ילדה']) expect(screen.getByRole('radio', { name })).toBeTruthy();
-    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByRole('status').textContent).toBe(''); // the region is always there (WCAG 4.1.3), silent until 100 left
     expect(screen.getByRole('form', { name: 'כתיבת פוסט' }).getAttribute('aria-describedby')).toBeTruthy();
   });
   it.each([
@@ -143,7 +165,7 @@ describe('F3.1b c16 [NFR-A11Y-001 VAL] composer accessibility', () => {
     mount(memoryStorage());
     await screen.findByRole('textbox', { name: 'מה תרצו לשתף?' });
     type('א'.repeat(1899));
-    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByRole('status').textContent).toBe('');
     type(`${'א'.repeat(1998)}😀`);
     expect(screen.getByRole('status').textContent).toMatch(/נותר תו אחד/);
   });
