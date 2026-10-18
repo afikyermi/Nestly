@@ -29,8 +29,9 @@ select is(
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables())
+      and pol.polname !~ '_jobs$'
       and pol.polroles <> array[(select oid from pg_catalog.pg_roles where rolname = 'authenticated')]::oid[]),
-  0::bigint, '[F3.0-a c1 platform r4 · c5] every policy on the new tables is TO authenticated only (none for PUBLIC, anon, app_owner, app_jobs)');
+  0::bigint, '[F3.0-a c1 platform r4 · c5] every policy on the new tables is TO authenticated only (none for PUBLIC, anon, app_owner; F3.0b adds the *_jobs policies of the purge, file 73)');
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
@@ -39,7 +40,7 @@ select is(
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables())
+    where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and pol.polname !~ '_jobs$'
       and (coalesce(pg_catalog.pg_get_expr(pol.polqual, pol.polrelid), '') || coalesce(pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid), ''))
           !~ 'is_active_account\(\)'),
   0::bigint, '[F3.0-a c1 c2 platform r15] every policy is gated by is_active_account()');
@@ -52,10 +53,8 @@ select is(
            or has_any_column_privilege('service_role', c.oid, 'SELECT,INSERT,UPDATE,REFERENCES')
            or has_table_privilege('service_role', c.oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
            or has_any_column_privilege('app_server', c.oid, 'SELECT,INSERT,UPDATE,REFERENCES')
-           or has_table_privilege('app_server', c.oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
-           or has_any_column_privilege('app_jobs', c.oid, 'SELECT,INSERT,UPDATE,REFERENCES')
-           or has_table_privilege('app_jobs', c.oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'))),
-  0::bigint, '[F3.0-a c1 platform r1 r7] anon, service_role, app_server and app_jobs hold no privilege on any new table');
+           or has_table_privilege('app_server', c.oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'))),
+  0::bigint, '[F3.0-a c1 platform r1 r7] anon, service_role and app_server hold no privilege on any new table (app_jobs: the purge grants of F3.0b, file 73)');
 
 select is(
   (select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace,
@@ -84,8 +83,8 @@ select is(
      from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and a.attnum > 0 and not a.attisdropped
       and has_column_privilege('authenticated', c.oid, a.attnum, 'UPDATE')),
-  'posts.audience, posts.body, posts.stage_tag',
-  '[F3.0-a c6 c4] authenticated may UPDATE exactly audience, body and tag: not the anonymous flag, status, author or share reference');
+  'posts.audience, posts.body, posts.stage_tag, posts.status',
+  '[F3.0-a c6 c4] authenticated may UPDATE exactly audience, body, tag and (F3.0b, the move to deleted) status: not the anonymous flag, author or share reference');
 
 -- ---- c1: functions --------------------------------------------------------------------------------------------------------------
 select is(
@@ -107,9 +106,9 @@ select is(
 select is(
   (select string_agg(c.relname, ', ' order by c.relname) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')),
-  'algorithm_configurations, children, friendships, identity_link_checks, journey_contexts, legal_consents, post_authors, post_hides, posts, profile_open_counts, '
-  || 'recovery_answers, recovery_events, recovery_throttles, regular_names, regular_profiles, security_events, security_limits, users',
-  '[F3.0-a c17] schema nestly holds exactly the fourteen earlier tables plus the four schema.md names: no events table');
+  'algorithm_configurations, children, comments, friendships, identity_link_checks, journey_contexts, legal_consents, post_authors, post_hides, posts, profile_open_counts, '
+  || 'reaction_owners, reactions, recovery_answers, recovery_events, recovery_throttles, regular_names, regular_profiles, reports, security_events, security_limits, users',
+  '[F3.0-a c17 F3.0-b c1] schema nestly holds exactly the fourteen earlier tables plus the schema.md and schema-b.md names (22): no events table');
 
 select is(
   (select count(*) from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
@@ -147,10 +146,10 @@ select is((select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespa
 
 -- ---- c5: no policy outside post_authors reads it for SELECT ---------------------------------------------------------------------
 select is(
-  (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+  (select coalesce(string_agg(c.relname || '.' || pol.polname, ', ' order by c.relname, pol.polname), '(none)') from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname <> 'post_authors' and pol.polcmd in ('r', '*')
       and (coalesce(pg_catalog.pg_get_expr(pol.polqual, pol.polrelid), '')) ~ 'post_authors'),
-  0::bigint, '[F3.0-a c5 rule 20] no SELECT policy of another table reads post_authors');
+  'comments.comments_select_viewer, posts.posts_select_viewer', '[F3.0-a c5 F3.0-b c11 rule 20] only the two SELECT policies that carry the held branch (the author reads their own held row) read post_authors: no other table policy does');
 
 -- ---- c16: nothing depends on the hide table except its own objects and posts_select_viewer -------------------------------------------
 select is(

@@ -81,7 +81,7 @@ const GOOD_FACTS = {
   dbUser: 'postgres',
   bypassRls: true,
   canDeleteAuthUsers: true,
-  nestlyTables: ['algorithm_configurations', 'children', 'friendships', 'identity_link_checks', 'journey_contexts', 'legal_consents', 'post_authors', 'post_hides', 'posts', 'profile_open_counts', 'recovery_answers', 'recovery_events', 'recovery_throttles', 'regular_names', 'regular_profiles', 'security_events', 'security_limits', 'users'],
+  nestlyTables: ['algorithm_configurations', 'children', 'comments', 'friendships', 'identity_link_checks', 'journey_contexts', 'legal_consents', 'post_authors', 'post_hides', 'posts', 'profile_open_counts', 'reaction_owners', 'reactions', 'recovery_answers', 'recovery_events', 'recovery_throttles', 'regular_names', 'regular_profiles', 'reports', 'security_events', 'security_limits', 'users'],
 };
 
 test('[E c8] preflight passes only for the exact expected facts, in any table order', () => {
@@ -468,20 +468,26 @@ test('[cleanup a] the expected tables are exactly the nestly tables the migratio
   assert.doesNotMatch(code, /alter\s+table\s+(?:if\s+exists\s+)?nestly\.[a-z_]+\s+rename\s+to/i, 'a renamed table: update this test');
   assert.deepEqual([...cleanup.EXPECTED_NESTLY_TABLES], [...created].sort());
   assert.ok(created.has('identity_link_checks'));
-  assert.equal(cleanup.EXPECTED_NESTLY_TABLES.length, 18);
-  for (const t of ['algorithm_configurations', 'post_authors', 'post_hides', 'posts']) assert.ok(cleanup.EXPECTED_NESTLY_TABLES.includes(t), t);
+  assert.equal(cleanup.EXPECTED_NESTLY_TABLES.length, 22);
+  for (const t of ['algorithm_configurations', 'post_authors', 'post_hides', 'posts', 'comments', 'reaction_owners', 'reactions', 'reports']) assert.ok(cleanup.EXPECTED_NESTLY_TABLES.includes(t), t);
 });
 
-test('[cleanup a] the preflight with all eighteen tables passes; the seventeen left without identity_link_checks fail', () => {
-  assert.equal(GOOD_FACTS.nestlyTables.length, 18);
+test('[cleanup a] the preflight with all twenty-two tables passes; the twenty-one left without identity_link_checks fail', () => {
+  assert.equal(GOOD_FACTS.nestlyTables.length, 22);
   assert.equal(cleanup.decidePreflight(GOOD_FACTS).ok, true);
-  const seventeen = GOOD_FACTS.nestlyTables.filter((t) => t !== 'identity_link_checks');
-  assert.equal(seventeen.length, 17);
-  assert.equal(cleanup.decidePreflight({ ...GOOD_FACTS, nestlyTables: seventeen }).ok, false);
+  const rest = GOOD_FACTS.nestlyTables.filter((t) => t !== 'identity_link_checks');
+  assert.equal(rest.length, 21);
+  assert.equal(cleanup.decidePreflight({ ...GOOD_FACTS, nestlyTables: rest }).ok, false);
 });
 
 test('[F3.0a c19] the preflight fails closed when any of the four F3.0a tables is missing', () => {
   for (const t of ['algorithm_configurations', 'post_authors', 'post_hides', 'posts']) {
+    assert.equal(cleanup.decidePreflight({ ...GOOD_FACTS, nestlyTables: GOOD_FACTS.nestlyTables.filter((x) => x !== t) }).ok, false, t);
+  }
+});
+
+test('[F3.0-b c19] the preflight fails closed when any of the four F3.0b tables is missing', () => {
+  for (const t of ['comments', 'reaction_owners', 'reactions', 'reports']) {
     assert.equal(cleanup.decidePreflight({ ...GOOD_FACTS, nestlyTables: GOOD_FACTS.nestlyTables.filter((x) => x !== t) }).ok, false, t);
   }
 });
@@ -495,13 +501,14 @@ test('[F2.4c1 c20 c21 c22] the preflight fails closed when any of the three F2.4
 // Tables with no row about a user: configuration. They are listed as expected tables and never deleted from (F2.4c1 schema.md
 // "Preview cleanup": deleting security_limits would make every later profile_view fail closed).
 // F3.0a: algorithm_configurations is configuration too (never written); post_authors goes by cascade from posts, so its own delete is optional.
+// F3.0b: reaction_owners goes by cascade from reactions (a like is deleted through its id-free row).
 const NO_DELETE = ['security_limits', 'algorithm_configurations'];
 
 test('[cleanup a] every expected table is deleted from in the user transaction, but the configuration tables; identity_link_checks just before nestly.users', () => {
   const order = [...cliText.matchAll(/delete from (nestly\.[a-z_]+|auth\.users)/g)].map((m) => m[1]);
   assert.deepEqual(
     [...new Set(order.filter((t) => t.startsWith('nestly.') && t !== 'nestly.post_authors'))].sort(),
-    cleanup.EXPECTED_NESTLY_TABLES.filter((t) => !NO_DELETE.includes(t) && t !== 'post_authors').map((t) => `nestly.${t}`),
+    cleanup.EXPECTED_NESTLY_TABLES.filter((t) => !NO_DELETE.includes(t) && t !== 'post_authors' && t !== 'reaction_owners').map((t) => `nestly.${t}`),
   );
   const users = order.indexOf('nestly.users');
   assert.equal(order[users - 1], 'nestly.identity_link_checks');
@@ -514,7 +521,11 @@ test('[cleanup a] every expected table is deleted from in the user transaction, 
   assert.ok(at('nestly.post_hides') >= 0 && at('nestly.post_hides') < at('nestly.posts'), 'post_hides before posts');
   assert.ok(at('nestly.recovery_answers') < at('nestly.post_hides') && at('nestly.posts') < at('nestly.regular_profiles'), 'posts between the recovery rows and regular_profiles');
   assert.equal(order.filter((t) => t === 'nestly.posts').length, 1);
-  assert.deepEqual(order.filter((t) => !['nestly.identity_link_checks', 'nestly.post_hides', 'nestly.posts', 'nestly.post_authors'].includes(t)), [
+  // F3.0b (schema-b.md "Cleanup tool"): reports, then likes, then a's hides; comments before posts
+  assert.ok(at('nestly.reports') >= 0 && at('nestly.reports') < at('nestly.reactions') && at('nestly.reactions') < at('nestly.post_hides'), 'reports, reactions, hides');
+  assert.ok(at('nestly.post_hides') < at('nestly.comments') && at('nestly.comments') < at('nestly.posts'), 'comments between the hides and the posts');
+  assert.ok(at('nestly.recovery_answers') < at('nestly.reports'), 'F3.0b rows after the recovery rows');
+  assert.deepEqual(order.filter((t) => !['nestly.identity_link_checks', 'nestly.post_hides', 'nestly.posts', 'nestly.post_authors', 'nestly.reports', 'nestly.reactions', 'nestly.comments'].includes(t)), [
     'nestly.recovery_throttles', 'nestly.recovery_events', 'nestly.legal_consents', 'nestly.recovery_answers', 'nestly.children',
     'nestly.journey_contexts', 'nestly.friendships', 'nestly.regular_names', 'nestly.regular_profiles',
     'nestly.profile_open_counts', 'nestly.security_events', 'nestly.users', 'auth.users',
@@ -532,6 +543,16 @@ test('[F3.0a c19] the cleanup deletes the hides of the user and the posts the us
   assert.match(cliText, /delete from nestly\.posts\s+where author_id = \$\{id\}\s+or id in \(select post_id from nestly\.post_authors where author_id = \$\{id\}\)/);
   assert.doesNotMatch(cliText, /(delete\s+from|update|truncate(\s+table)?|insert\s+into)\s+nestly\.algorithm_configurations/i);
   assert.ok(cleanup.EXPECTED_NESTLY_TABLES.includes('algorithm_configurations'));
+});
+
+test('[F3.0-b c19] the cleanup deletes the reports, likes and comments with the schema-b.md selections, and never a report by update or by lifting the constraint', () => {
+  assert.match(cliText, /delete from nestly\.reports\s+where reporter_id = \$\{id\} or reported_user_id = \$\{id\}/);
+  assert.match(cliText, /or post_id in \(select id from nestly\.posts/);
+  assert.match(cliText, /or comment_id in \(select id from nestly\.comments/);
+  assert.match(cliText, /parent_id in \(select id from nestly\.comments where author_id = \$\{id\}\)/);
+  assert.match(cliText, /delete from nestly\.reactions where id in \(select reaction_id from nestly\.reaction_owners where user_id = \$\{id\}\)/);
+  assert.match(cliText, /delete from nestly\.comments\s+where author_id = \$\{id\}\s+or \(author_id is null and post_id in \(select post_id from nestly\.post_authors where author_id = \$\{id\}\)\)/);
+  assert.doesNotMatch(cliText, /update\s+nestly\.reports|disable trigger|session_replication_role/i);
 });
 
 test('[F2.4c1 c22] the cleanup never writes security_limits: no delete, update, truncate or insert on the configuration table', () => {

@@ -179,8 +179,9 @@ select is_empty(
        join pg_catalog.pg_class c     on c.oid = a.attrelid
        join pg_catalog.pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'nestly' and c.relkind in ('r', 'p') and a.attnum > 0 and not a.attisdropped
-        and (a.attidentity <> '' or a.attgenerated <> '') $$,
-  '[F1.1-b c11 NFR-SEC-006] no column in schema nestly is an identity or generated column');
+        and (a.attidentity <> '' or a.attgenerated <> '')
+        and not (c.relname = 'reactions' and a.attname = 'target_id') $$,
+  '[F1.1-b c11 NFR-SEC-006 · F3.0-b c12] no column in schema nestly is an identity or generated column, but reactions.target_id (generated coalesce of the two target columns: the owner row''s foreign-key target)');
 
 select is_empty(
   $$ select c.relname || '.' || a.attname
@@ -350,8 +351,8 @@ select is(
      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')
       and (has_table_privilege('authenticated', c.oid, 'UPDATE,TRUNCATE,REFERENCES,TRIGGER')
-           or (c.relname not in ('recovery_answers', 'children', 'journey_contexts', 'posts', 'post_hides') and has_table_privilege('authenticated', c.oid, 'DELETE'))
-           or (c.relname not in ('recovery_answers', 'identity_link_checks', 'regular_profiles', 'children', 'journey_contexts', 'friendships', 'posts') and has_any_column_privilege('authenticated', c.oid, 'UPDATE,REFERENCES')))),
+           or (c.relname not in ('recovery_answers', 'children', 'journey_contexts', 'posts', 'post_hides', 'comments', 'reactions') and has_table_privilege('authenticated', c.oid, 'DELETE'))
+           or (c.relname not in ('recovery_answers', 'identity_link_checks', 'regular_profiles', 'children', 'journey_contexts', 'friendships', 'posts', 'comments') and has_any_column_privilege('authenticated', c.oid, 'UPDATE,REFERENCES')))),
   0::bigint,
   '[F1.1-b c13 · F1.4-a c14 · F1.6, F2.0 scoped · F2.2a c9 · F2.2-b c18 · F2.4a c12] authenticated holds no table-level UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any table in nestly (DELETE on recovery_answers is the F2.0 D1 grant; on children and journey_contexts the F2.2b2 own-row delete, file 54), and no column-level UPDATE or REFERENCES except on recovery_answers, identity_link_checks, regular_profiles, children, journey_contexts and friendships (files 30, 40, 50, 51, 54 and 61 list those columns)');
 
@@ -413,17 +414,18 @@ select is(
   (select count(*) from pg_catalog.pg_proc p
      join pg_catalog.pg_namespace n on n.oid = p.pronamespace
      cross join (values ('anon'), ('service_role'), ('app_server'), ('app_jobs')) as r(rolname)
-    where n.nspname = 'nestly' and has_function_privilege(r.rolname, p.oid, 'EXECUTE')),
+    where n.nspname = 'nestly' and has_function_privilege(r.rolname, p.oid, 'EXECUTE')
+      and not (r.rolname = 'app_jobs' and p.proname = 'purge_held_content')),
   0::bigint,
-  '[F1.1-b c19 platform r4,r7] no function in schema nestly is executable by anon, service_role, app_server or app_jobs (so not by PUBLIC either)');
+  '[F1.1-b c19 platform r4,r7 · F3.0-b c14] no function in schema nestly is executable by anon, service_role, app_server or app_jobs (so not by PUBLIC either), but the purge, executable by app_jobs only');
 
 -- No function that authenticated can execute returns another account's status: each one takes no argument and is not a definer.
 select is_empty(
   $$ select p.proname from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'nestly' and has_function_privilege('authenticated', p.oid, 'EXECUTE')
         and (p.pronargs > 0 or p.prosecdef)
-        and p.oid::regprocedure::text <> 'nestly.profile_view(text)' $$,
-  '[F1.1-b c18 layer 13 · F2.3b c15] every function in nestly that authenticated can execute takes no argument and is SECURITY INVOKER, except the approved profile_view(text) (one uuid per call, no status: file 53)');
+        and p.oid::regprocedure::text not in ('nestly.profile_view(text)', 'nestly.delete_post(uuid)', 'nestly.delete_comment(uuid)') $$,
+  '[F1.1-b c18 layer 13 · F2.3b c15] every function in nestly that authenticated can execute takes no argument and is SECURITY INVOKER, except the approved profile_view(text) (one uuid per call, no status: file 53) and F3.0b''s delete_post(uuid) / delete_comment(uuid) (the caller''s own content, RLS decides)');
 
 select * from finish();
 

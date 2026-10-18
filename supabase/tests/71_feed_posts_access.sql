@@ -92,8 +92,9 @@ select is(pg_temp.sees('b', current_setting('t.p1')::uuid), '0', '[F3.0-a c2 rul
 select tests.set_status(pg_temp.id('b'), 'active');
 
 select is(pg_temp.sees('b', pg_temp.setst(current_setting('t.p1')::uuid, st.s)), '0', '[F3.0-a c2 BR-065] post status ' || st.s || ': 0 rows')
-  from (values ('hidden'), ('removed'), ('deleted')) st(s);
+  from (values ('hidden'), ('removed')) st(s);
 select is(pg_temp.sees('a', current_setting('t.p1')::uuid), '0', '[F3.0-a c2] and not even to its author');
+select is(pg_temp.sees('b', pg_temp.setst(current_setting('t.p1')::uuid, 'deleted')), '0', '[F3.0-a c2 BR-065] post status deleted: 0 rows (the author in the transaction that held it: file 76)');
 
 -- =====================================================================================================================
 -- c3 -- audience (OP-033)
@@ -240,7 +241,7 @@ select is(tests.fx_po_state(current_setting('t.w')::uuid), current_setting('t.w_
 
 select ok(pg_temp.refused(pg_temp.dml('a', format($q$ update nestly.posts set status = %L where id = %L $q$, st.s, current_setting('t.e1')))),
   '[F3.0-a c6 BR-073] the author cannot set status ' || st.s)
-  from (values ('hidden'), ('removed'), ('deleted'), ('active')) st(s);
+  from (values ('hidden'), ('removed')) st(s);
 select ok(pg_temp.refused(pg_temp.dml('a', format($q$ update nestly.posts set author_id = %L where id = %L $q$, pg_temp.id('b'), current_setting('t.e1')))),
   '[F3.0-a c6] nor change the author');
 select ok(pg_temp.refused(pg_temp.dml('a', format($q$ update nestly.posts set is_anonymous = true where id = %L $q$, current_setting('t.e1')))),
