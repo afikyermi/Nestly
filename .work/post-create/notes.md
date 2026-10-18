@@ -24,3 +24,5 @@ web (F3.1b), migration (CHECK is already in F3.0b).
 on the shared container). Lint: one error in TEST ENGINEER's `apps/server/tests/db/posts.db.test.ts:62` (type assertion), not mine.
 
 **Neighbouring**  none.
+
+**Follow-up (CRITIC low 1)**  `postBody` refuses U+0000 as `invalid` (400) on POST and PATCH; test pending from TEST ENGINEER.

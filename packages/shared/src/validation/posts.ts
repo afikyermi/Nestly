@@ -14,6 +14,7 @@ const postBody = z
   .string()
   .trim()
   .min(1, 'body_required')
+  .refine((value) => !value.includes('\u0000'), 'invalid') // Postgres text cannot hold NUL: a shape error (400), not a 500
   .refine((value) => codePointLength(value) <= POST_BODY_MAX, 'body_too_long');
 
 const audience = z.enum(POST_AUDIENCES);
