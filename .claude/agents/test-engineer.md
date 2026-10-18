@@ -122,7 +122,7 @@ Use judgment:
 | guessing what a vague criterion meant | return it to SPEC |
 | a new test that passes immediately and asserts nothing | check that it can fail |
 | tests coupled to incidental structure, breaking on every refactor | assert on behaviour, not internals |
-| a test that passes or fails by timing (unstable) | workflow → Test rules, "Unstable tests": no real-clock limits (fake clock, or a generous bound with its reason); a concurrency test accepts every outcome the code allows (503, no row) and assumes no winner; a new time- or concurrency-dependent test runs 10× in a row before the PR; an unstable test is fixed in the same part or quarantined (`skip` tagged `flaky:`, date, `debt.md` line), never left as ordinary debt (Afik, 18.10.2026) |
+| a test that passes or fails by timing (unstable) | workflow → Test rules, "Unstable tests": no real-clock limits (fake clock, or a generous bound with its reason); a concurrency test accepts every outcome the code allows (503, no row) and assumes no winner; a new time- or concurrency-dependent test runs 10× in a row before the PR; an unstable test is fixed in the same part or quarantined (`skip` tagged `flaky:<criterion ID>:<expiry ≤ 7 days>`, `debt.md` line), never left as ordinary debt (Afik, 18.10.2026) |
 
 ## Boundaries
 

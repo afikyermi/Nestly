@@ -174,7 +174,9 @@ describe('F1.4 criterion 2 [F1.3 debt] the credentials object is strict', () => 
     const letters = creds('x'.repeat(5_000_000), GOOD_PW);
     expect(letters.success).toBe(false);
     expect(issueCodes(letters)).toEqual(['too_big']);
-    // A password of 5 MB: the verdict is the length one, carried by the raw-bound issue; no email issue is added.
+    // A password of 5 MB: the verdict is the length one, carried by the raw-bound issue; no email issue is added. This half
+    // does NOT prove "not by scanning": today the code-point refine still runs after the raw bound fails (a second, custom
+    // issue) — a product finding reported to Afik on 18.10.2026 (debt.md), not hidden by asserting it here.
     const long = creds('a@b.co', 'x'.repeat(5_000_000));
     expect(long.success).toBe(false);
     expect(new Set(messages(long))).toEqual(new Set(['password_length']));
@@ -253,26 +255,22 @@ describe('F1.4 criterion 2 [F1.3 debt] raw bounds run before code-point splittin
       'birth_date_invalid',
     );
   });
-  it('a 5 MB name is rejected in under 100 ms (no code-point splitting of 5 million characters)', () => {
-    const big = 'x'.repeat(5_000_000);
-    step1.safeParse(body({ fullName: 'דנה כהן' })); // warm-up
-    const t0 = Date.now();
-    const r = step1.safeParse(body({ fullName: big }));
-    const ms = Date.now() - t0;
+  // No wall-clock limit (step 11, 18.10.2026): the raw bound stops the pipe, so the only issue is its too_big; code-point
+  // splitting of 5 million characters would add the name rule's own (custom) issue.
+  it('a 5 MB name is rejected by the raw bound alone (no code-point splitting of 5 million characters)', () => {
+    const r = step1.safeParse(body({ fullName: 'x'.repeat(5_000_000) }));
     expect(r.success).toBe(false);
-    expect(ms, `took ${ms.toFixed(1)} ms`).toBeLessThan(100);
-    expect(stepCodes(body({ fullName: big }))).toContain('full_name_length');
+    expect(issueCodes(r)).toEqual(['too_big']);
+    expect(messages(r)).toEqual(['full_name_length']);
   });
-  it('a 5 MB emoji name (2 units per code point) and a 5 MB child name are also rejected fast', () => {
+  it('a 5 MB emoji name (2 units per code point) and a 5 MB child name are also rejected by the raw bound alone', () => {
     for (const input of [
       body({ fullName: '😀'.repeat(2_500_000) }),
       body({ stages: ['has_child'], children: [kid({ name: 'x'.repeat(5_000_000) })] }),
     ]) {
-      const t0 = Date.now();
       const r = step1.safeParse(input);
-      const ms = Date.now() - t0;
       expect(r.success).toBe(false);
-      expect(ms, `took ${ms.toFixed(1)} ms`).toBeLessThan(100);
+      expect(issueCodes(r)).toEqual(['too_big']);
     }
   });
   it('the bound is on UTF-16 units: 600 units pass the bound (and fail the 60-code-point rule), 601 fail the bound', () => {

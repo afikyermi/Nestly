@@ -129,7 +129,7 @@ not. A commit pushed after the checks passed needs them to pass again. Record ru
 - **Applicability:** `--expected-skip 'name=reason'` records a verified workflow condition (e.g. Edge on PR); use exact matrix job names. Never use it to excuse an unexpected skip. `--no-preview 'approval/reason'` only where Preview is explicitly out of scope (Afik: P1). E skipped/missing is otherwise not green. Reviewer's findings remain a separate gate.
 - **main health at every part close:** examine the latest relevant job executions, including Edge, cleanup and migrate. Resolve a current unresolved failure before the next part; a later successful equivalent execution on main closes the historical failure. An unrelated success or a skip does not. A deliberate retirement needs explicit evidence; API/history limits mean unknown, not healthy. `/wrap-up` applies this per part even though result/log writing remains per feature.
 - **Stable candidate:** run targeted local tests (including changed screens/stories where applicable), fix, review and bundle records + baselines before pushing. Local commits are fine; not a push per fix. Only `main` and `ready/<part>` deploy (vercel.json, P4): push the finished candidate once as a new branch `ready/<part>` (no force push) and open the PR from it; fixes go there. Work and records branches never deploy. An already-published final candidate needs inspection of its actual E evidence.
-- **After squash:** use a new branch from updated main per part only if the Claude Code cloud environment supports it. If unknown/unavailable, mark the limitation in the PR/handoff, inspect the next diff against main, and retain a safe supported branch path without force-push. Cloud support is still unproven by P1.
+- **After squash:** each part starts on a new branch from updated main, never a force push; the cloud GitHub proxy allows new branch names (P4 live proof, 18.10).
 - **External contract, only when changed:** for Auth/session/deletion/provider behaviour, DATA ARCHITECT names the critical assumption and failure scenario in the existing spec/schema. TEST ENGINEER adds a small contract test before the first affected part merges, against a disposable CI service or an approved non-production provider environment; mocks alone cannot prove provider semantics. No secrets in artifacts and no new production action. Unavailable evidence is a blocker with an owner, not deferred validation after merge. No new contract test for every unrelated feature.
 - **Who is affected:** DATA ARCHITECT and CRITIC include dependent tools, workflows and limits: changed tables → cleanup; suite growth → timeouts/shards; external behaviour → consumers. The existing artifact/finding holds the impact and evidence; no new recurring journal.
 - **Codex improvement tasks:** Afik merges, one approved task/PR at a time; the Claude product-work merge delegation does not authorize Codex to merge. P1's fixtures are explicitly approved despite the general tool-test freeze.
@@ -374,18 +374,19 @@ Decided by Afik (14.10.2026) — quality is not lowered; duplication is removed 
 - **One layer per behaviour** — permissions → pgTAP · logic → Vitest · screen behaviour → Playwright; a component test
   only for logic with no e2e expression.
 - **Devices** — every 🎨 criterion at desktop (1024) and phone (375).
-- **Browsers** — PRs run e2e on Chrome only; Edge (`browser-edge`) runs on every merge to `main` and by hand,
-  after the merge, so it never blocks the deploy.
+- **Browsers** — PRs: Chrome, desktop + phone; Edge (`browser-edge`) runs after every merge to `main` and by hand, so it
+  never blocks the deploy; a release gate before the deploy is open for Afik (WORKPLAN).
 - **Visual regression** — screenshots block for every touched screen, desktop and phone; noise is stabilised, never
   switched off; a new screen gets its baseline in the same PR; `e2e/visual-screens.ts` is opt-in: SPEC names, TEST
   ENGINEER lists and CRITIC checks each 🎨 screen.
-- **A test per criterion, nothing beyond** (audit 5) — no hardening past the criteria; the ratio is information only.
+- **A test per criterion, nothing beyond** (audit 5) — no hardening past the criteria, also not on a low review item.
 - **Tools and hooks** — no new tests unless a tool broke, or Afik approved scoped fixtures (P1/P2).
 - **Unstable tests** (Afik, 18.10.2026) — no real-clock limits: a fake clock, or a generous bound with its reason. A
   concurrency test accepts every outcome the code allows (503, no row) and never assumes the winner. A new time- or
   concurrency-dependent test runs 10× in a row before the PR. An unstable test is never ordinary debt: fix it in the
-  same part, or quarantine it (`skip` tagged `flaky:`, a date, a `debt.md` line) so it never blocks. A failure of a
-  listed unstable test: one rerun, record, continue; a new failure: stop and investigate.
+  same part, or quarantine it (`skip` tagged `flaky:<criterion ID>:<expiry ≤ 7 days>`, Afik is told; expired = a
+  blocker at part close). Listed = a `debt.md` line tagged `flaky:` (test, first failure, owner) after a
+  diagnosis. A listed test failing: one rerun, record, continue; any other: stop and investigate.
 
 
 ## Cost discipline

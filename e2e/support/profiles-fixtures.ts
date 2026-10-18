@@ -68,6 +68,8 @@ export const text = async (page: Page): Promise<string> => (await main(page).inn
 export const storageDump = (page: Page): Promise<string> =>
   page.evaluate(() => JSON.stringify([Object.entries(localStorage), Object.entries(sessionStorage)]));
 
+// Precondition: a user with no returnTo, no mustSetPassword and no needsQuestions lands on /feed (access.ts); a fixture user in
+// any of those states lands elsewhere and this wait times out (CRITIC PR 65 finding 5).
 export async function signIn(page: Page): Promise<void> {
   // DOM-ready is enough: the next steps wait for their own elements, and a slow subresource must not hold "load" for 30 s.
   await page.goto('/login', { waitUntil: 'domcontentloaded' });
