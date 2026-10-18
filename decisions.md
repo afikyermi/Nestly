@@ -48,7 +48,7 @@ Grouped rows retain all current topics. Older wording yields to the named later 
 | 10-14 / 10 | F1.4 Gates/amendment, column INSERT grants, direct web Auth, taken-email/password rule, transaction 503; data-model/SRS |
 | 10-15 / 10 | F1.4 Auth error/retry handling and held-token fields; F1.5 Gate/session/registration completion/terms/privacy/platform fence; full entries |
 | 10-14–16 / 10 | Pace/speed-up A–F and CRITIC round, tests by criterion, one layer, browser matrix and visual tolerance; later Audit 1–6/8/12 and P2 supersede caps/interface/CI ordering; workflow Test rules |
-| 10-14–17 / 10 | Waiting on Afik, standing autonomy/baselines, audit batching/parallel sessions; workflow Waiting on Afik. Production pre-launch delegation remains only in Batched approvals |
+| 10-14–17 / 10 | Waiting on Afik, standing autonomy/baselines, audit batching (cadence superseded 10-18 P6)/parallel sessions; workflow Waiting on Afik. Production pre-launch delegation remains only in Batched approvals |
 | 10-15 / 10 | Lecturer presentation plan v2/answers: finish product, demo via product, normal login; supersedes presentation tooling/split |
 | 10-15–16 / 10 | F1.6 recovery, Gate 1/Gate 2/amendments/wrap-up; recovery key rejected; data-model exceptions/SRS; later lock ladder below |
 | 10-16–17 / 10 | Automated E, DR-E1 test-user cleanup, part 2 trusted-main cleanup/50 cap; later per-run limit and table-update obligation; data-model exceptions and cleanup tools |
@@ -62,6 +62,8 @@ Grouped rows retain all current topics. Older wording yields to the named later 
 | 10-17 / 10 | Browser versions and PERF/LOAD/AVAIL delegated; Sentry/Turnstile setup and I9 wiring limits; SRS/WORKPLAN |
 | 10-17 / 10 | P1 + Waiting has a ceiling (אישור אפיק 17.10): workflow Closing a part; tools/part-status; retained by P2 |
 | 10-17 / 10 | P2 — short consistent contracts (אישור אפיק 17.10): canonical rules, indexed reads, archived history, new-artifact line/byte budgets; full entry below in October |
+| 10-18 / 10 | P6 schema before code: migrate right after the schema PR, before its code; supersedes 10-16 audit item 2 batching; workflow Batched approvals |
+| 10-18 / 10 | Branch auto-delete; only main and ready/** deploy (vercel.json, P4); workflow Stable candidate |
 | 10-18 / 10 | I3 questionnaire 1א–8א: audience everyone (remembered), share only everyone posts, deletion/report hold, no I3 events, author stage tag, anonymous=everyone, reporter-only hide, F3.9 hide-post; I3-questions.md |
 
 ## Superseded and historical navigation
