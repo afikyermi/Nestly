@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ciPins, localUrl, setupPlan } from './db-local.mjs';
+import { SKIPPED_CI, ciPins, dockerRunArgs, localUrl, setupPlan } from './db-local.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const ci = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8');
@@ -28,20 +28,39 @@ test('[6ד] the database URL is always 127.0.0.1:54322; nothing else can be buil
   }
 });
 
-test('[9] the SQL runs in CI order: auth functions, checks and roles, then after the migrations step 2, pgTAP setup, the RLS gate and every fixture', () => {
+/** The SQL files the db job of ci.yml runs, in first-run order: every `-f <file>`, `step=`/`check=` file and the fixture loop. */
+function ciDbOrder(yml) {
+  const job = /\n {2}db:\n([\s\S]*?)(?=\n {2}[\w-]+:\n|$)/.exec(yml)?.[1];
+  assert.ok(job, 'ci.yml has a db job');
+  const order = [];
+  for (const m of job.matchAll(/(?:-f\s+|\b(?:step|check)=)"?(supabase\/[\w./-]+\.sql)|for f in (supabase\/tests\/setup)\/\*\.sql/g)) {
+    const file = m[1] ?? `${m[2]}/*`;
+    if (!order.includes(file)) order.push(file);
+  }
+  return order;
+}
+
+test('[9] the setup SQL is the db job of ci.yml, in its order; only the listed gates are skipped (CRITIC PR 70 finding 1)', () => {
   const plan = setupPlan(root);
-  assert.deepEqual(plan.asAdmin, ['supabase/ci/auth-functions.sql']);
-  assert.deepEqual(plan.beforeRoles, ['supabase/ci/auth-functions-check.sql', 'supabase/ci/image-preflight.sql', 'supabase/bootstrap/01-roles.sql']);
-  assert.deepEqual(plan.afterMigrations.slice(0, 3), ['supabase/bootstrap/02-anchor-fk.sql', 'supabase/ci/pgtap-setup.sql', 'supabase/ci/rls-gate.sql']);
-  const fixtures = plan.afterMigrations.slice(3);
-  assert.ok(fixtures.length > 0 && fixtures.every((f) => f.startsWith('supabase/tests/setup/')));
+  const fixtures = plan.afterMigrations.filter((f) => f.startsWith('supabase/tests/setup/'));
+  assert.ok(fixtures.length > 0);
   assert.deepEqual(fixtures, [...fixtures].sort(), 'in name order, as the CI loop');
-  for (const f of ['auth-functions.sql', 'image-preflight.sql', 'pgtap-setup.sql', 'rls-gate.sql']) assert.ok(ci.includes(`supabase/ci/${f}`), `ci.yml runs ${f}`);
+  const local = [...plan.asAdmin, ...plan.beforeRoles, ...plan.afterMigrations.filter((f) => !fixtures.includes(f)), 'supabase/tests/setup/*'];
+  const ciOrder = ciDbOrder(ci);
+  // Every CI file is either run here, in the same order, or an explicitly listed skip; nothing else.
+  assert.deepEqual(ciOrder.filter((f) => !(f in SKIPPED_CI)), local);
+  assert.deepEqual(Object.keys(SKIPPED_CI).sort(), ciOrder.filter((f) => !local.includes(f)).sort());
+  assert.ok(plan.afterMigrations.includes(plan.anchorCheck), 'the anchor check runs (its ok is asserted)');
+  // The parser itself: a step CI adds, or a reorder, changes what it reads.
+  const added = ci.replace('-f supabase/ci/rls-gate.sql', '-f supabase/ci/rls-gate.sql\n          psql -f supabase/ci/new-step.sql');
+  assert.notDeepEqual(ciDbOrder(added).filter((f) => !(f in SKIPPED_CI)), local);
 });
 
-test('[6ד] the tool never reads an env file and never names a remote project', () => {
+test('[6ד] the container is published on 127.0.0.1 only, and the tool names no env file or remote project', () => {
+  const args = dockerRunArgs('supabase/postgres:1.2.3.4', 'p', 'j');
+  assert.equal(args[args.indexOf('--publish') + 1], '127.0.0.1:54322:5432');
+  assert.equal(args.at(-1), 'supabase/postgres:1.2.3.4');
   const src = readFileSync(join(root, 'tools/db-local.mjs'), 'utf8');
   assert.doesNotMatch(src, /['"`][^'"`\n]*\.env(\.[\w-]+)?['"`]/, 'no string naming an env file');
   assert.doesNotMatch(src, /dotenv|supabase\.co|pooler\.supabase|process\.env\.(DATABASE_URL|OWNER_DATABASE_URL|APP_OWNER)/);
-  assert.match(src, /const HOST = '127\.0\.0\.1';/);
 });

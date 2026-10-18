@@ -1,6 +1,6 @@
 // The CI `db` job's database, on this machine (Afik 18.10.2026, items 6ד and 9): a disposable Supabase Postgres in Docker on
-// 127.0.0.1 only, built like CI — the same image and CLI pin read from .github/workflows/ci.yml, the same files in the same
-// order — then `npm run test:db`. Passwords are random per run and live only in this process; no env file is read, and no
+// 127.0.0.1 only, set up like CI — the same image and CLI pin read from .github/workflows/ci.yml, the db job's setup files in
+// its order — then `npm run test:db`. Not the db job's other gates (SKIPPED_CI below): CI remains the verdict. Passwords are random per run and live only in this process; no env file is read, and no
 // other host is ever reached. psql runs inside the container (`docker exec`), never on the host.
 //
 // Usage: node tools/db-local.mjs test [--keep]     build, run test:db, remove the container (--keep leaves it running)
@@ -8,7 +8,7 @@
 // Needs Docker Desktop running (after a restart, open Docker Desktop first and wait for "Engine running").
 import { execFileSync, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -33,22 +33,41 @@ export function localUrl(user, password) {
   return `postgresql://${user}:${password}@${HOST}:${PORT}/postgres`;
 }
 
-/** The SQL files in CI's order (job db), relative to the repository root. */
+/** The SQL files in CI's order (job db), relative to the repository root. The anchor check must return ok = t, as in CI.
+ * Fixtures sort by code point, as the runner's C.UTF-8 glob does. */
 export function setupPlan(root) {
   const setup = readdirSync(join(root, 'supabase/tests/setup')).filter((f) => f.endsWith('.sql')).sort();
   return {
     asAdmin: ['supabase/ci/auth-functions.sql'],
     beforeRoles: ['supabase/ci/auth-functions-check.sql', 'supabase/ci/image-preflight.sql', 'supabase/bootstrap/01-roles.sql'],
-    afterMigrations: ['supabase/bootstrap/02-anchor-fk.sql', 'supabase/ci/pgtap-setup.sql', 'supabase/ci/rls-gate.sql', ...setup.map((f) => `supabase/tests/setup/${f}`)],
+    afterMigrations: ['supabase/bootstrap/02-anchor-fk.sql', 'supabase/bootstrap/02-anchor-fk-check.sql', 'supabase/ci/pgtap-setup.sql', 'supabase/ci/rls-gate.sql', ...setup.map((f) => `supabase/tests/setup/${f}`)],
+    anchorCheck: 'supabase/bootstrap/02-anchor-fk-check.sql',
   };
+}
+
+/** The db job's other gates, not run here: CI runs them on every pull request that touches the database (CRITIC PR 70). */
+export const SKIPPED_CI = {
+  'supabase/ci/catalog-fingerprint.sql': 'up→down→up of the newest migration, the second-push no-op, the second run of step 2',
+  'supabase/ci/catalog-columns.sql': 'the Drizzle drift check (criterion 20)',
+  'supabase/ci/rls-gate-fire.sql': 'the RLS gate fire checks (criterion 4)',
+  'supabase/ci/rls-gate-fire-owner.sql': 'the RLS gate fire checks as app_owner (criterion 4)',
+};
+
+/** The container, published on 127.0.0.1 only. */
+export function dockerRunArgs(image, postgresPassword, jwtSecret) {
+  return ['run', '--detach', '--name', NAME, '--publish', `${HOST}:${PORT}:5432`, '--env', `POSTGRES_PASSWORD=${postgresPassword}`,
+    '--env', `JWT_SECRET=${jwtSecret}`, '--env', 'JWT_EXP=3600', image];
 }
 
 const sh = (cmd, args, opts = {}) => execFileSync(cmd, args, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], ...opts });
 
-function psql(user, password, sql, label) {
-  const r = spawnSync('docker', ['exec', '-i', '-e', `PGPASSWORD=${password}`, NAME, 'psql', '-X', '-q', '-v', 'ON_ERROR_STOP=1', '-h', '127.0.0.1', '-p', '5432', '-U', user, '-d', 'postgres', '-f', '-'], { input: sql, encoding: 'utf8' });
+function psql(user, password, sql, label, extra = []) {
+  const r = spawnSync('docker', ['exec', '-i', '-e', `PGPASSWORD=${password}`, NAME, 'psql', '-X', '-q', ...extra, '-v', 'ON_ERROR_STOP=1', '-h', '127.0.0.1', '-p', '5432', '-U', user, '-d', 'postgres', '-f', '-'], { input: sql, encoding: 'utf8' });
   if (r.status !== 0) throw new Error(`${label} failed as ${user}: ${(r.stderr || '').split('\n').slice(0, 5).join(' ')}`);
+  return r.stdout;
 }
+
+const running = () => spawnSync('docker', ['inspect', '-f', '{{.State.Running}}', NAME], { encoding: 'utf8' }).stdout?.trim() === 'true';
 
 function down() {
   spawnSync('docker', ['rm', '-f', NAME], { stdio: 'ignore' });
@@ -58,9 +77,12 @@ function down() {
 function supabaseCli(version) {
   const prefix = join(tmpdir(), `nestly-supabase-cli-${version}`);
   const bin = join(prefix, 'node_modules', 'supabase', 'dist', 'supabase.js');
-  if (!existsSync(bin)) {
+  // The marker is written only after a complete install, so an interrupted one is redone, not reused.
+  const done = join(prefix, '.installed');
+  if (!existsSync(done)) {
     console.log(`installing the pinned Supabase CLI ${version} (once, into ${prefix})`);
     sh(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['install', '--no-save', '--no-audit', '--no-fund', '--prefix', prefix, `supabase@${version}`], { shell: process.platform === 'win32', stdio: 'inherit' });
+    if (existsSync(bin)) writeFileSync(done, version);
   }
   if (!existsSync(bin)) throw new Error(`the Supabase CLI was not found at ${bin}`);
   return bin;
@@ -77,12 +99,19 @@ function test(keep) {
   const plan = setupPlan(ROOT);
   const read = (f) => readFileSync(join(ROOT, f), 'utf8');
   down();
+  // Ctrl-C skips `finally`: remove the container here too.
+  const onSignal = () => {
+    if (!keep) down();
+    process.exit(130);
+  };
+  process.once('SIGINT', onSignal);
   console.log(`starting ${image} on ${HOST}:${PORT}`);
-  sh('docker', ['run', '--detach', '--name', NAME, '--publish', `${HOST}:${PORT}:5432`, '--env', `POSTGRES_PASSWORD=${pw.postgres}`, '--env', `JWT_SECRET=${pw.jwt}`, '--env', 'JWT_EXP=3600', image]);
   try {
+    sh('docker', dockerRunArgs(image, pw.postgres, pw.jwt));
     // Ready = three logins in a row as postgres (the image restarts the server after its init scripts), as in CI.
     let ok = 0;
     for (let i = 0; i < 120 && ok < 3; i++) {
+      if (!running()) throw new Error(`the database container exited (see docker logs ${NAME}; --keep keeps it for inspection)`);
       const r = spawnSync('docker', ['exec', '-e', `PGPASSWORD=${pw.postgres}`, NAME, 'psql', '-X', '-q', '-t', '-h', '127.0.0.1', '-U', 'postgres', '-d', 'postgres', '-c', 'select 1'], { stdio: 'ignore' });
       ok = r.status === 0 ? ok + 1 : 0;
       if (ok < 3) spawnSync(process.execPath, ['-e', 'setTimeout(()=>{},2000)']);
@@ -94,7 +123,14 @@ function test(keep) {
     console.log('applying the migrations as app_owner (supabase db push, as CI)');
     const push = spawnSync(process.execPath, [supabaseCli(cli), 'db', 'push', '--db-url', localUrl('app_owner', pw.app_owner), '--yes', '--skip-vault', '--agent', 'no'], { cwd: ROOT, stdio: 'inherit' });
     if (push.status !== 0) throw new Error('supabase db push failed');
-    for (const f of plan.afterMigrations) psql('postgres', pw.postgres, read(f), f);
+    for (const f of plan.afterMigrations) {
+      if (f !== plan.anchorCheck) {
+        psql('postgres', pw.postgres, read(f), f);
+        continue;
+      }
+      const anchor = psql('postgres', pw.postgres, read(f), f, ['-A', '-t', '-F', ' | ']).trim();
+      if (!anchor.startsWith('t | ')) throw new Error(`${f}: ok is not true (${anchor})`);
+    }
     console.log('running npm run test:db -w @nestly/server');
     const run = spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['run', 'test:db', '-w', '@nestly/server'], {
       cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32',
@@ -102,6 +138,7 @@ function test(keep) {
     });
     return run.status ?? 1;
   } finally {
+    process.removeListener('SIGINT', onSignal);
     if (keep) console.log(`kept: container ${NAME} on ${HOST}:${PORT} (remove: node tools/db-local.mjs down)`);
     else down();
   }
