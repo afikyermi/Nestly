@@ -76,7 +76,7 @@ of a split carries its own risk flags, since each part takes its own path.
 ## Screen contract — `.work/<slug>/screen.md` (parts with a screen only)
 
 With the part's spec, its screens only (existing screen: new or changed controls only). TEST ENGINEER tests from it
-beside BUILDER, who implements it exactly; CRITIC compares. Copy and names are unreserved (Afik 17.10): you decide
+beside BUILDER, who implements it exactly; CRITIC compares. Copy and names are unreserved (Afik 18.10, decisions "Screen contract"): you decide
 them by ux-copy-he. Repeated texts (ERR catalog, "נסו שוב", navigation) are referenced, never rewritten.
 ```markdown
 # <part> — screen contract

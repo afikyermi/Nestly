@@ -79,11 +79,11 @@ semantics, accessible interactions, ACs/IDs and required test seams. `schema.md`
 constraints, RLS/grants, transaction boundaries, migration/rollback and provider assumptions.
 There is no required `interface.md`. `screen.md` (a screen part's routes, roles, Hebrew names, state texts) is an
 annex of spec.md, not a second contract: SPEC owns it, writes it before the build, Gate 1 approves both together.
-Before retiring an active reference to interface.md, move every unique item to spec/schema, then update the consumer.
-Historical interface/spec/schema/notes files stay unchanged; do not copy a second contract to notes. Resumed work
-cites a historical interface until a new part contract carries its items; never delete history or treat removal as a spec change.
+Before retiring an active reference to interface.md, put every unique contract item in spec/schema, preserve its source pointer and approval, then update the consumer.
+Historical interface/spec/schema/notes files stay unchanged; do not copy a second contract to notes. If resumed work needs a historical
+interface, cite it until a new part contract carries its unique items; never delete history or silently treat removal as a specification change.
 
-`tools/line-budgets.json` → `workArtifacts` is the numeric source for new spec/schema/notes limits.
+`tools/line-budgets.json` → `workArtifacts` is the numeric source for new spec/schema/notes/screen limits.
 `check:budgets` enforces physical lines, UTF-8 bytes and maximum line bytes; do not fold paragraphs
 into one long line. Its frozen historical path list exempts existing records, including after later
 commits; new paths remain checked after commit. It also checks untracked, non-ignored `.work` contracts.
@@ -101,7 +101,7 @@ Split ordinary oversized work instead; never shorten a security requirement to m
 | 1 | Afik or ORCHESTRATOR | intent, one or two sentences — from Afik, or the next item in WORKPLAN | — |
 | 2 | ORCHESTRATOR | classify, pick path, select team — `/feature` | `intake.md` |
 | 3 | **SPEC** | write the contract; a part with a screen also gets the screen contract (agents/spec.md) | `spec.md` (+ `screen.md`) |
-| 4 | **ORCHESTRATOR** | ✋ **Gate 1** — approve `spec.md` (and `screen.md`) against the SRS, or return it to SPEC. A reserved point (CLAUDE.md → "Decision authority") goes to WORKPLAN for Afik | approved `spec.md` |
+| 4 | **ORCHESTRATOR** | ✋ **Gate 1** — approve `spec.md` (and `screen.md`) against the SRS, or return it to SPEC. A reserved point (CLAUDE.md → "Decision authority") goes to WORKPLAN for Afik | approved `spec.md` (+ `screen.md`) |
 | 5 | **DATA ARCHITECT** | Schema changes → Gate 2; Auth/session/deletion/provider changes → identify the critical external assumption before the first part (see "Closing a part"). Policies follow the authorization layers in `.claude/knowledge/data-model.md` | `schema.md` |
 | 5b | **ALGORITHM & DATA** | *only if the feature uses behavioural signals, ranks or recommends, records analytics events, or places paid content* — purpose map, pipeline, configuration, events, evaluation. Feeds DATA ARCHITECT when tables are needed | `algorithm.md` |
 | 6 | **BUILDER** | branch, implement; calls SCOUT as needed. Hands off green: typecheck · lint · `check:budgets` · `check:stories` · the unit and database tests that run on this machine, on what it touched | diff + `notes.md` |
@@ -211,7 +211,7 @@ problem:      why — cost, risk, or not implementable as written
 alternative:  what instead, and what changes for the user
 ```
 
-One per feature, before code. Its decision owner decides in one line — ORCHESTRATOR, or Afik when the
+One per feature, before code. A screen.md item (missing or duplicate name, missing state) may be raised at any time outside that limit: ORCHESTRATOR decides, SPEC amends screen.md, BUILDER and TEST ENGINEER both receive the change. Its decision owner decides in one line — ORCHESTRATOR, or Afik when the
 challenge touches a reserved point (CLAUDE.md → "Decision authority"). This is what keeps the team professional
 rather than merely compliant.
 

@@ -453,6 +453,11 @@ test('P2: malformed work config is rejected instead of disabling prospective che
     assert.equal(r.status, 1, r.out);
     assert.match(r.stderr, /workArtifacts/);
   }
+  const cfg = workConfig();
+  delete cfg.workArtifacts.limits['screen.md'];
+  const r = run({}, cfg);
+  assert.equal(r.status, 1, r.out);
+  assert.match(r.stderr, /screen\.md/);
 });
 
 test('P2: always-read byte budgets detect folded context independently of lines', () => {

@@ -31,7 +31,7 @@ The guard limits writes to test files and `.work/<slug>/*.md`, never package.jso
 checks, never for reading notes. ORCHESTRATOR commits your tests. Return a vague criterion to SPEC
 (bug.md → ORCHESTRATOR); a passing test on broken code does not reproduce a bug.
 For a screen part, locate elements by the roles and Hebrew accessible names in `screen.md` (getByRole, getByLabel)
-and start at once beside BUILDER; do not wait for its code. A name missing from screen.md goes back to SPEC.
+and start at once beside BUILDER; do not wait for its code. A name missing from screen.md is a screen.md SPEC CHALLENGE (workflow); never write screen.md or spec.md yourself.
 
 ## Principles
 
