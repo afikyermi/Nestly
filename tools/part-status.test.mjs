@@ -149,7 +149,7 @@ function apiFixture({ changedHead = false, denied = false } = {}) {
     calls.push(endpoint);
     const route = endpoint.replace('repos/afikyermi/Nestly/', '');
     if (route === 'pulls/57') return { head: { sha: ++reads > 1 && changedHead ? OLD : SHA },
-      base: { ref: 'main' }, state: 'open', html_url: 'https://github.com/afikyermi/Nestly/pull/57' };
+      base: { ref: 'main' }, state: 'open', mergeable: true, mergeable_state: 'clean', html_url: 'https://github.com/afikyermi/Nestly/pull/57' };
     if (route === 'branches/main') return { commit: { sha: MAIN } };
     if (route === `contents/vercel.json?ref=${SHA}`) return { content: Buffer.from('{}').toString('base64') }; // P4
     if (route.startsWith('pulls/57/files')) return [{ filename: 'apps/server/src/x.ts' }]; // P6
@@ -303,7 +303,29 @@ test('[audit 18.10] a merge conflict is a blocker with its cause; a clean or mer
   assert.doesNotMatch(text({ state: 'closed', merged: true, mergeable: false, mergeState: 'dirty' }), /Merge conflict/, 'after a merge it does not matter');
 });
 
-test('[audit 18.10] an open PR whose mergeability GitHub has not computed yet is a stated limitation', () => {
-  const snapshot = collect({ repo: 'afikyermi/Nestly', pr: '57' }, apiFixture().read);
-  assert.ok(snapshot.limitations.some((l) => l.includes('mergeability')), 'the fixture PR carries no mergeable field');
+test('[audit 18.10] null mergeability is read once more; still null is a stated limitation; computed on the re-read is used', () => {
+  const api = apiFixture();
+  const withPull = (answers) => {
+    let n = 0;
+    return (endpoint) => {
+      if (endpoint.endsWith('/pulls/57') && n < answers.length) return { ...api.read(endpoint), ...answers[n++] };
+      return api.read(endpoint);
+    };
+  };
+  const pauses = [];
+  const pause = (ms) => pauses.push(ms);
+  const still = collect({ repo: 'afikyermi/Nestly', pr: '57' }, withPull([{ mergeable: null, mergeable_state: 'unknown' }, { mergeable: null, mergeable_state: 'unknown' }]), undefined, undefined, pause);
+  assert.deepEqual(pauses, [2000], 'one pause, one re-read');
+  assert.ok(still.limitations.some((l) => l.includes('mergeability')));
+  const later = collect({ repo: 'afikyermi/Nestly', pr: '57' }, withPull([{ mergeable: null, mergeable_state: 'unknown' }, { mergeable: false, mergeable_state: 'dirty' }]), undefined, undefined, pause);
+  assert.ok(!later.limitations.some((l) => l.includes('mergeability')));
+  assert.match(evaluate(later).blockers.join('\n'), /Merge conflict with the base/, 'the conflict found on the re-read is a blocker');
+  const known = collect({ repo: 'afikyermi/Nestly', pr: '57' }, api.read, undefined, undefined, () => assert.fail('no pause when known'));
+  assert.ok(!known.limitations.some((l) => l.includes('mergeability')));
+});
+
+test('[audit 18.10] a closed PR that was not merged gets the existing blocker only, not the conflict one', () => {
+  const blockers = evaluate({ ...fixture(), state: 'closed', merged: false, mergeable: false, mergeState: 'dirty' }).blockers.join('\n');
+  assert.match(blockers, /closed without a merge/);
+  assert.doesNotMatch(blockers, /Merge conflict/);
 });

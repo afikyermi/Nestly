@@ -54,7 +54,7 @@ export function evaluate(snapshot, { expectedSkips = {}, noPreview = '' } = {}) 
   }
   if (snapshot.state !== 'open' && !snapshot.merged) blockers.push(`PR is ${snapshot.state} without a merge.`);
   // Audit 18.10 (PR 65 stalled ~30 min): with a merge conflict GitHub builds no merge commit, so no pull_request CI ever
-  // starts; the checks alone show only "missing". Name the cause. GitHub may not have computed it yet: a limitation, not green.
+  // starts; the checks alone show only "missing". Name the cause. Not computed after two reads: a stated limitation.
   if (snapshot.state === 'open' && (snapshot.mergeable === false || snapshot.mergeState === 'dirty')) {
     blockers.push('Merge conflict with the base (mergeable_state dirty): CI cannot start. Merge the base into the branch (no force push), then a new snapshot');
   }
@@ -162,7 +162,9 @@ export const SELF_FILES = ['tools/part-status.mjs', 'tools/schema-gate.mjs'];
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const readLocalFile = (file) => { try { return readFileSync(join(ROOT, file), 'utf8'); } catch { return undefined; } };
 
-export function collect({ repo, pr }, read = ghRead, clock = () => new Date().toISOString(), readLocal = readLocalFile) {
+const sleepSync = (ms) => { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); };
+
+export function collect({ repo, pr }, read = ghRead, clock = () => new Date().toISOString(), readLocal = readLocalFile, pause = sleepSync) {
   const root = `repos/${repo}`;
   const errors = [];
   const limitations = ['Snapshot only: specialist findings and merge authority are not inferred from checks.'];
@@ -181,8 +183,14 @@ export function collect({ repo, pr }, read = ghRead, clock = () => new Date().to
     errors.push(`Pagination limit reached: ${endpoint}; data may be incomplete.`);
     return rows;
   };
-  const pull = read(`${root}/pulls/${pr}`);
-  if (pull.state === 'open' && (pull.mergeable === null || pull.mergeable === undefined)) limitations.push('GitHub had not computed mergeability yet: take another snapshot before relying on it.');
+  let pull = read(`${root}/pulls/${pr}`);
+  // GitHub computes mergeability lazily: the first read after the base moves can say null. Read once more (CRITIC PR 67 F1).
+  const unknown = (p) => p.state === 'open' && (p.mergeable === null || p.mergeable === undefined);
+  if (unknown(pull)) {
+    pause(2000);
+    pull = read(`${root}/pulls/${pr}`);
+  }
+  if (unknown(pull)) limitations.push('GitHub had not computed mergeability yet (read twice): take a new snapshot before relying on it.');
   const head = pull.head.sha;
   // P4: the deploy policy of vercel.json at the head (undefined when absent: every branch deploys, Vercel's default).
   const vercel = safe(`contents/vercel.json?ref=${head}`, undefined);
