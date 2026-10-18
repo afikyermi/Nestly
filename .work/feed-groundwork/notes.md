@@ -21,7 +21,5 @@ Other "never granted" columns (author_id, is_by_post_author, reactions.is_by_aut
 because tests 74 filter on them; reported.
 **Neighbouring** posts_body_check btrim; a hold with no report purges at the next run (harmless).
 
-**Deferred protected-file edits** (data-model.md)
-1. Approved exceptions, add: `F3.0b purge — TO app_jobs policies on posts, comments, reports: read held rows and the open reports on them, delete held rows, expire open reports past release · a job has no auth.uid() and must reach every user's held rows (rule 6) · .work/feed-groundwork/schema-b.md · 2026-10-18`.
-2. Cleanup exception (a, still open): drop `backlog`; "exactly the twenty-two nestly tables" (a +4, b +4: comments, reaction_owners, reactions, reports); order: reports, reactions, post_hides, comments, posts per user before friendships.
-3. As-built: posts, post_authors, post_hides, comments, reactions, reaction_owners, reports: FORCE RLS, client policies TO authenticated gated by is_active_account(); no SECURITY DEFINER; app_jobs holds USAGE on nestly, SELECT/DELETE posts+comments, SELECT/UPDATE(status, closed_at) reports, EXECUTE purge_held_content. post_authors readable by its author only.
+Done by ORCHESTRATOR 18.10 (data-model.md exceptions + Entities, data-model-tables.md Feed tables).
+**Fix b-1 (CRITIC 1)** comments.parent_status + FK/key/CHECK per schema-b; viewer, purge, jobs policies know a held parent; posts_body_length_check (down drops it).

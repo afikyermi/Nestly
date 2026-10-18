@@ -92,6 +92,7 @@ drop table nestly.comments;
 
 alter table nestly.posts
   drop constraint posts_held_check,
+  drop constraint posts_body_length_check,
   drop column held_at,
   drop column held_until,
   drop column held_xact;

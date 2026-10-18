@@ -32,12 +32,17 @@ alter table nestly.posts
     and (held_at is null) = (held_xact is null)
     and (held_until is null or held_until <= held_at + interval '2160 hours'));
 
+-- A post's text, and a share's, is capped at 2000 characters (NULL passes). Comments: F3.3 sets the cap.
+alter table nestly.posts
+  add constraint posts_body_length_check check (char_length(body) <= 2000);
+
 -- 2. comments (FR-FEED-003). UNIQUE (id, post_id) is the target of the reply FK, which keeps a reply on its parent's post (c10).
 create table nestly.comments (
   id                 uuid        not null default gen_random_uuid()
     constraint comments_pkey primary key,
   post_id            uuid        not null,
   parent_id          uuid,
+  parent_status      text        not null default 'active',
   author_id          uuid        default auth.uid(),
   author_status      text        not null default 'active',
   is_by_post_author  boolean     not null default false,
@@ -49,7 +54,8 @@ create table nestly.comments (
   held_until         timestamptz,
   held_xact          xid8,
   created_at         timestamptz not null default now(),
-  constraint comments_id_post_id_key unique (id, post_id),
+  constraint comments_id_post_id_status_key unique (id, post_id, status),
+  constraint comments_parent_status_check check (parent_id is not null or parent_status = 'active'),
   constraint comments_author_id_check check (author_id is not null or is_by_post_author),
   constraint comments_held_check check (
     (status = 'deleted') = (held_at is not null)
@@ -58,8 +64,8 @@ create table nestly.comments (
     and (held_until is null or held_until <= held_at + interval '2160 hours')),
   constraint comments_post_id_fkey foreign key (post_id)
     references nestly.posts (id) on delete cascade,
-  constraint comments_parent_id_fkey foreign key (parent_id, post_id)
-    references nestly.comments (id, post_id) on delete cascade,
+  constraint comments_parent_id_fkey foreign key (parent_id, post_id, parent_status)
+    references nestly.comments (id, post_id, status) on update cascade on delete cascade,
   constraint comments_author_id_fkey foreign key (author_id)
     references nestly.regular_profiles (user_id) on delete cascade,
   constraint comments_author_status_fkey foreign key (author_id, author_status)
@@ -372,7 +378,10 @@ begin
                       where c.id = rp.comment_id
                         and ((c.status = 'deleted' and c.held_until <= now())
                              or exists (select 1 from nestly.posts p
-                                         where p.id = c.post_id and p.status = 'deleted' and p.held_until <= now()))));
+                                         where p.id = c.post_id and p.status = 'deleted' and p.held_until <= now())
+                             or (c.parent_status = 'deleted'
+                                 and exists (select 1 from nestly.comments pc
+                                              where pc.id = c.parent_id and pc.status = 'deleted' and pc.held_until <= now())))));
 
   for r in select c.id from nestly.comments c where c.status = 'deleted' order by c.held_at, c.id loop
     begin
@@ -477,7 +486,7 @@ alter policy posts_update_author on nestly.posts
 create policy comments_select_viewer on nestly.comments
   for select to authenticated
   using ((select nestly.is_active_account()) and (
-    (status = 'active' and (author_id is null or author_status = 'active')
+    (status = 'active' and parent_status = 'active' and (author_id is null or author_status = 'active')
       and exists (select 1 from nestly.posts p where p.id = comments.post_id))
     or (status = 'active' and author_id = (select auth.uid()))
     or (status = 'deleted' and held_xact = pg_catalog.pg_current_xact_id_if_assigned() and (
@@ -557,7 +566,7 @@ create policy posts_delete_jobs on nestly.posts
 
 create policy comments_select_jobs on nestly.comments
   for select to app_jobs
-  using (status = 'deleted' or exists (select 1 from nestly.posts p where p.id = comments.post_id));
+  using (status = 'deleted' or parent_status = 'deleted' or exists (select 1 from nestly.posts p where p.id = comments.post_id));
 
 create policy comments_delete_jobs on nestly.comments
   for delete to app_jobs
@@ -576,7 +585,10 @@ create policy reports_update_jobs on nestly.reports
                 where c.id = reports.comment_id
                   and ((c.status = 'deleted' and c.held_until <= now())
                        or exists (select 1 from nestly.posts p
-                                   where p.id = c.post_id and p.status = 'deleted' and p.held_until <= now())))))
+                                   where p.id = c.post_id and p.status = 'deleted' and p.held_until <= now())
+                       or (c.parent_status = 'deleted'
+                           and exists (select 1 from nestly.comments pc
+                                        where pc.id = c.parent_id and pc.status = 'deleted' and pc.held_until <= now()))))))
   with check (status = 'expired');
 
 revoke all on table nestly.comments, nestly.reactions, nestly.reaction_owners, nestly.reports from public, anon;
@@ -612,6 +624,7 @@ comment on table nestly.comments is
 comment on column nestly.comments.id is 'The comment.';
 comment on column nestly.comments.post_id is 'The post; the comment goes with it.';
 comment on column nestly.comments.parent_id is 'The top-level comment this replies to, on the same post (composite FK); NULL on a top-level comment. Replies go with their parent.';
+comment on column nestly.comments.parent_status is 'Copy of the parent comment''s status (composite FK, ON UPDATE CASCADE): a reply under a non-active parent is hidden (comments_select_viewer). Never granted.';
 comment on column nestly.comments.author_id is 'The commenter (default auth.uid()); NULL only for the real author of an anonymous post (comments_insert_prepare). Never granted to a client.';
 comment on column nestly.comments.author_status is 'Copy of the commenter''s users.status (composite FK, ON UPDATE CASCADE): visibility only.';
 comment on column nestly.comments.is_by_post_author is 'AC-076 "המחבר": set by comments_insert_prepare, never granted.';
@@ -678,11 +691,11 @@ comment on policy posts_update_author on nestly.posts is
 comment on policy posts_select_jobs on nestly.posts is 'Approved exception (rule 6, F3.0b purge): the job role reads held posts.';
 comment on policy posts_delete_jobs on nestly.posts is 'Approved exception (rule 6, F3.0b purge): the job role deletes held posts.';
 comment on policy comments_select_viewer on nestly.comments is
-  'An active comment of an active commenter on a post the viewer can read (the post''s RLS carries audience, hides and reporter-hides); a commenter always reads their own active comment, even once the post is unreadable to them (reported or hid it), so they can delete it; the author reads a held comment only in the holding transaction.';
+  'An active comment of an active commenter on a post the viewer can read (the post''s RLS carries audience, hides and reporter-hides); a reply under a non-active parent is hidden; a commenter always reads their own active comment, even once the post is unreadable to them (reported or hid it), so they can delete it; the author reads a held comment only in the holding transaction.';
 comment on policy comments_insert_commenter on nestly.comments is 'An active account comments as itself, or as the real author of an anonymous post it wrote (author_id NULL, marked), on a readable post.';
 comment on policy comments_update_commenter on nestly.comments is 'The commenter changes the status of an active comment from active to deleted (content_hold); no editing in I3.';
 comment on policy comments_delete_commenter on nestly.comments is 'The commenter (or the real author of an anonymous post, for their NULL-id comment) deletes the comment.';
-comment on policy comments_select_jobs on nestly.comments is 'Approved exception (rule 6, F3.0b purge): the job role reads held comments and the comments of held posts.';
+comment on policy comments_select_jobs on nestly.comments is 'Approved exception (rule 6, F3.0b purge): the job role reads held comments, the replies of held comments and the comments of held posts.';
 comment on policy comments_delete_jobs on nestly.comments is 'Approved exception (rule 6, F3.0b purge): the job role deletes held comments.';
 comment on policy reactions_select_reader on nestly.reactions is 'Whoever can read the target reads its like rows of active likers; an unreadable target gives nothing.';
 comment on policy reactions_insert_reader on nestly.reactions is 'An active account likes a readable post or comment.';
