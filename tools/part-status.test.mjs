@@ -293,3 +293,17 @@ test('[P6] part-status refuses to judge with a checker or gate that differs from
   const missing = collect({ repo: 'afikyermi/Nestly', pr: '57' }, api.read, undefined, () => undefined);
   assert.equal(missing.errors.filter((e) => e.includes('differs from main')).length, 2, 'unreadable local copies block');
 });
+
+test('[audit 18.10] a merge conflict is a blocker with its cause; a clean or merged PR is not blocked by it', () => {
+  const text = (extra) => evaluate({ ...fixture(), ...extra }).blockers.join('\n');
+  assert.match(text({ mergeable: false, mergeState: 'dirty' }), /Merge conflict with the base.*CI cannot start/);
+  assert.match(text({ mergeable: null, mergeState: 'dirty' }), /Merge conflict/, 'dirty alone is enough');
+  assert.doesNotMatch(text({ mergeable: true, mergeState: 'clean' }), /Merge conflict/);
+  assert.doesNotMatch(text({ mergeable: true, mergeState: 'blocked' }), /Merge conflict/, 'blocked = required checks pending, reported by the checks');
+  assert.doesNotMatch(text({ state: 'closed', merged: true, mergeable: false, mergeState: 'dirty' }), /Merge conflict/, 'after a merge it does not matter');
+});
+
+test('[audit 18.10] an open PR whose mergeability GitHub has not computed yet is a stated limitation', () => {
+  const snapshot = collect({ repo: 'afikyermi/Nestly', pr: '57' }, apiFixture().read);
+  assert.ok(snapshot.limitations.some((l) => l.includes('mergeability')), 'the fixture PR carries no mergeable field');
+});
