@@ -14,6 +14,7 @@ import {
   IDENTITY_LINK_VERDICTS,
   JOURNEY_STAGES,
   PARENT_GENDERS,
+  POST_AUDIENCES,
   PROFILE_VISIBILITIES,
   RECOVERY_EVENT_KINDS,
   RECOVERY_QUESTION_IDS,
@@ -340,4 +341,32 @@ export const securityEvents = nestly.table('security_events', {
   kind: text('kind', { enum: SECURITY_EVENT_KINDS }).notNull(),
   userId: uuid('user_id').notNull(),
   occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Posts (I3 F3.1a; migrations 20261018100000, 20261018200000; schema.md, schema-b.md). SELECT is column-level (held_xact is never granted), so a
+// query names its columns. Only the columns F3.1 reads or writes are declared (the drift check compares Drizzle to the database).
+
+/** SRS Post (§13, FR-FEED-002): a text post as its author and an eligible viewer read it (RLS). `body` is null only for a share. */
+export const posts = nestly.table('posts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  authorId: uuid('author_id'),
+  audience: text('audience', { enum: POST_AUDIENCES }).notNull(),
+  body: text('body'),
+  stageTag: text('stage_tag', { enum: JOURNEY_STAGES }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** INSERT target only. Names the columns F3.1 inserts, all granted INSERT to authenticated; the author is the caller's, set by the database. */
+export const postsInsert = nestly.table('posts', {
+  audience: text('audience', { enum: POST_AUDIENCES }).notNull(),
+  body: text('body'),
+  stageTag: text('stage_tag', { enum: JOURNEY_STAGES }),
+});
+
+/** UPDATE target only. audience, body and stage_tag are the columns granted UPDATE for a post's text; id is for WHERE only (42501 if set). */
+export const postsUpdate = nestly.table('posts', {
+  id: uuid('id').primaryKey(),
+  audience: text('audience', { enum: POST_AUDIENCES }).notNull(),
+  body: text('body'),
+  stageTag: text('stage_tag', { enum: JOURNEY_STAGES }),
 });

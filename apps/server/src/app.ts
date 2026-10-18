@@ -9,6 +9,7 @@ import { registerFriendsRoutes } from './routes/friends.js';
 import { registerJourneysRoutes } from './routes/journeys.js';
 import { registerMeRoute } from './routes/me.js';
 import { registerPasswordRoutes } from './routes/password.js';
+import { registerPostsRoutes } from './routes/posts.js';
 import { registerPrivacyRoute } from './routes/privacy.js';
 import { registerProfileRoute } from './routes/profile.js';
 import { registerProfileViewRoute } from './routes/profile-view.js';
@@ -102,6 +103,7 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerPrivacyRoute(app, { database });
   registerFriendsRoutes(app, { database });
   registerProfileViewRoute(app, { database });
+  registerPostsRoutes(app, { database });
 
   return app;
 }
