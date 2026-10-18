@@ -261,7 +261,7 @@ test.describe('F3.1b c18 [FR-FEED-002] the own-post page', () => {
     await expect.poll(() => pathOf(page)).toBe('/feed');
     await expect(page.getByRole('status').filter({ hasText: 'הפוסט נמחק' })).toBeVisible();
     await page.reload();
-    await expect(page.getByRole('heading', { level: 1, name: 'פיד' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'הפיד' })).toBeVisible();
     await expect(page.getByRole('status').filter({ hasText: 'הפוסט נמחק' })).toHaveCount(0);
     expect(net.deletes).toEqual([POST_ID, POST_ID]);
     expect(net.posts.some((p) => p.id === MINE.id)).toBe(false);

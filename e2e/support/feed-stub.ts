@@ -1,0 +1,86 @@
+// Shared by e2e/feed.spec.ts (I3 F3.2b, criteria 13-20). Derived from .work/feed-view/spec.md and screen.md only; the response shape is
+// packages/shared/src/feed/response.ts (the strict feedPageResponse), the route is GET /api/feed?cursor=. Auth, /api/me, /api/profile and
+// the single-post routes are posts-stub's. The stub plays the server: `answer` decides each GET /api/feed; every request is recorded.
+import type { Page } from '@playwright/test';
+import { CORS, json } from './journeys-stub';
+import { setupPosts } from './posts-stub';
+import type { PostsNet, StoredPost } from './posts-stub';
+
+export const id = (n: number): string => `e0000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+
+export type Unit = Record<string, unknown>;
+export interface FeedPage { items: Unit[]; nextCursor: string | null; configVersion: number; restarted?: boolean }
+/** What one GET /api/feed gets: a page, a failure status, or a dropped connection. */
+export type Answer = FeedPage | number | 'abort';
+
+export const named = (n: number, over: Unit = {}): Unit => ({
+  id: id(n),
+  kind: 'post',
+  source: 'organic',
+  body: `גוף הפוסט ${n}`,
+  audience: 'everyone',
+  stageTag: null,
+  createdAt: `2026-06-14T09:${String(10 + (n % 50))}:00.000Z`,
+  isMine: false,
+  isAnonymous: false,
+  author: { name: `כותבת מספר ${n}` },
+  ...over,
+});
+export const anonymous = (n: number, over: Unit = {}): Unit => {
+  const base = named(n);
+  delete base.author;
+  return { ...base, isAnonymous: true, ...over };
+};
+export const originalOf = (n: number, over: Unit = {}): Unit => ({
+  available: true,
+  id: id(n),
+  body: `גוף המקור ${n}`,
+  audience: 'everyone',
+  createdAt: '2026-06-13T08:00:00.000Z',
+  isAnonymous: false,
+  author: { name: `מחברת המקור ${n}` },
+  ...over,
+});
+export const share = (n: number, original: Unit, over: Unit = {}): Unit => {
+  return { ...named(n), kind: 'share', body: null, sharerText: `מה שהוספתי ${n}`, original, ...over };
+};
+export const range = (from: number, to: number): Unit[] => Array.from({ length: to - from + 1 }, (_v, i) => named(from + i));
+export const pageOf = (items: Unit[], nextCursor: string | null, extra: Partial<FeedPage> = {}): FeedPage => ({ items, nextCursor, configVersion: 1, ...extra });
+export const EMPTY: FeedPage = pageOf([], null);
+
+export interface FeedNet extends PostsNet {
+  /** The `cursor` of every GET /api/feed, in order (null: none sent). */
+  cursors: Array<string | null>;
+  /** Methods of every /api/feed request (all must be GET). */
+  methods: string[];
+  /** Every request path under /api/ the page made. */
+  apiPaths: string[];
+  /** Decides the answer to a request (n is 0-based). */
+  answer: (cursor: string | null, n: number) => Answer;
+  /** While set, every feed answer waits for it. */
+  hold: Promise<void> | null;
+}
+
+export async function setupFeed(page: Page, answer: FeedNet['answer'], start: { professional?: boolean; posts?: StoredPost[] } = {}): Promise<FeedNet> {
+  const posts = await setupPosts(page, { professional: start.professional === true, ...(start.posts === undefined ? {} : { posts: start.posts }) });
+  const extra: Pick<FeedNet, 'cursors' | 'methods' | 'apiPaths' | 'answer' | 'hold'> = { cursors: [], methods: [], apiPaths: [], answer, hold: null };
+  const net: FeedNet = Object.assign(posts, extra);
+  page.on('request', (req) => {
+    const url = new URL(req.url());
+    if (url.pathname.startsWith('/api/')) net.apiPaths.push(url.pathname);
+  });
+  await page.route(/\/api\/feed(\?.*)?$/, async (route) => {
+    const req = route.request();
+    if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+    const n = net.cursors.length;
+    const cursor = new URL(req.url()).searchParams.get('cursor');
+    net.cursors.push(cursor);
+    net.methods.push(req.method());
+    if (net.hold !== null) await net.hold;
+    const out = net.answer(cursor, n);
+    if (out === 'abort') return route.abort('connectionreset');
+    if (typeof out === 'number') return json(route, out, { error: 'internal' });
+    return json(route, 200, out);
+  });
+  return net;
+}
