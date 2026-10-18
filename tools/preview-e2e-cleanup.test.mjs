@@ -631,7 +631,7 @@ test('[cleanup c] the listing throwing fails the run before any delete, without 
       throw new Error(`boom ${PW}`);
     },
   });
-  const r = await cleanup.runBacklog({ client, mode: 'backlog', log: () => {} });
+  const r = await cleanup.runBacklog({ client, mode: 'dry-run', log: () => {} });
   assert.equal(r.ok, false);
   assert.equal(calls.deleted.length, 0);
   assert.ok(!JSON.stringify(r).includes(PW));

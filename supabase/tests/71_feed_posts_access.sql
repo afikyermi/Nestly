@@ -416,6 +416,19 @@ select is(pg_temp.dml('b', format($q$ insert into nestly.post_hides (post_id) va
 select is(tests.fx_ph_count(), 1::bigint, '[F3.0a c16] one hide row');
 select is(pg_temp.dml('a', format($q$ delete from nestly.posts where id = %L $q$, current_setting('t.h'))), 'OK:1', '[F3.0a c16 c13] deleting the hidden post takes the hide with it');
 select is(tests.fx_ph_count(), 0::bigint, '[F3.0a c16 c13] no orphan hide');
+-- own post: a hide of one's own post is refused (findings 1, ORCHESTRATOR); named: author = caller; anonymous: caller holds its post_authors row
+select pg_temp.reset();
+select set_config('t.o1', pg_temp.post('a', 'everyone')::text, true);
+select set_config('t.o2', pg_temp.post('a', 'everyone', true)::text, true);
+select ok(pg_temp.refused(pg_temp.dml('a', format($q$ insert into nestly.post_hides (post_id) values (%L) $q$, current_setting('t.o1')))), '[F3.0a c16] the author cannot hide their own named post');
+select ok(pg_temp.refused(pg_temp.dml('a', format($q$ insert into nestly.post_hides (post_id) values (%L) $q$, current_setting('t.o2')))), '[F3.0a c16] the author cannot hide their own anonymous post');
+select is(tests.fx_ph_count(), 0::bigint, '[F3.0a c16] and no hide row exists after either refusal');
+select is(pg_temp.sees('a', current_setting('t.o1')::uuid) || pg_temp.sees('a', current_setting('t.o2')::uuid), '11', '[F3.0a c16] the author still sees both posts');
+select is(pg_temp.dml('a', format($q$ update nestly.posts set body = 'edited' where id = %L $q$, current_setting('t.o1'))), 'OK:1', '[F3.0a c16] the author can still update own post afterwards');
+select is(pg_temp.dml('a', format($q$ delete from nestly.posts where id = %L $q$, current_setting('t.o1'))), 'OK:1', '[F3.0a c16] and delete it');
+select is(pg_temp.dml('b', format($q$ insert into nestly.post_hides (post_id) values (%L) $q$, current_setting('t.o2'))), 'OK:1', '[F3.0a c16] another user''s hide of the anonymous post still works');
+select is(pg_temp.sees('b', current_setting('t.o2')::uuid), '0', '[F3.0a c16] and hides it from them');
+
 
 -- =====================================================================================================================
 -- c19 -- the Preview cleanup order leaves nothing of a user who owns every F3.0a row kind
