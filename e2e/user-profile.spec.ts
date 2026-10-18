@@ -185,7 +185,11 @@ test.describe('F2.4c2 c27 [NFR-SEC-005 FR-AUTH-004 DR-O] guests, fresh calls, si
     await openProfile(page, NOA_ID, NOA);
     expect(viewsOf(net, NOA_ID)).toBe(1);
     await friendsSection(page, NOA).getByRole('link', { name: new RegExp(esc(DANA.fullName)) }).click();
-    await expect(main(page).getByText(DANA.fullName, { exact: true }).first()).toBeVisible();
+    // Dana's page itself, not her name: "דנה לוי" is already in Noa's friends list, so seeing it proved nothing, and a slow
+    // browser (Edge on main, 18.10.2026) could go Back before Dana's screen rendered — Noa's screen never left (one call).
+    await expect.poll(() => pathOf(page)).toBe(`/u/${DANA.userId}`);
+    await expect(main(page).getByRole('heading', { level: 1, name: DANA.fullName, exact: true })).toBeVisible();
+    await expect.poll(() => viewsOf(net, DANA.userId)).toBe(1);
     const stored = net.profiles[NOA_ID];
     if (stored === undefined) throw new Error('fixture');
     stored.view = { ...stored.view, fullName: 'נועה בן דוד-לוי', childrenCount: 3 };
