@@ -135,4 +135,14 @@ describe('[F3.1-a c7] the routes answer a database fault with the mapped status,
     expect((await createPost(running, header, { body: '   ', audience: 'everyone' })).statusCode).toBe(422);
     expect((await patchPost(running, header, ID, { body: 'x', audience: 'everyone', authorId: SUB })).statusCode).toBe(400);
   });
+
+  it('[F3.1-a c1] a body with U+0000 is 400 invalid on POST and PATCH, and never reaches the database', T, async () => {
+    const running = await failingWith(() => new Error('the database must not be asked'));
+    const header = await bearer();
+    const nul = { body: 'hello\u0000', audience: 'everyone' };
+    for (const res of [await createPost(running, header, nul), await patchPost(running, header, ID, nul)]) {
+      expect(res.statusCode, res.body).toBe(400);
+      expect(jsonOf(res.body)).toEqual({ error: 'invalid' });
+    }
+  });
 });
