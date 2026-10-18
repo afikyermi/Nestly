@@ -9,6 +9,8 @@
 
 **Deviations**  none.
 
+**Finding 1** (refuse a hide of one's own post): BEFORE INSERT invoker trigger `post_hides_insert_guard`, 42501 like the other triggers, when the caller is posts.author_id or has a post_authors row. A trigger, not a policy: a policy reading posts would break c5/c16. Body does not name post_hides (c16). TE files 20 and 70 count functions (now four).
+
 **Deliberately not done**  F3.0b; Drizzle mirrors (F3.1); TRUNCATE guard on the config (no role holds it).
 
 **Uncertain**

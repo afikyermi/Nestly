@@ -15,7 +15,7 @@
 --                "is the author active" without reading users. Posting is Regular-only (FKs to regular_profiles).
 -- No policy of any table reads posts: the "is that original readable" check of a share runs in a BEFORE INSERT invoker trigger, as a
 -- separate query under the same RLS (an RLS expansion that meets a relation already being expanded raises "infinite recursion").
--- No SECURITY DEFINER: tests.approved_security_definer() is unchanged. All three functions are SECURITY INVOKER.
+-- No SECURITY DEFINER: tests.approved_security_definer() is unchanged. All four functions are SECURITY INVOKER.
 --
 -- Applied by the Supabase CLI as app_owner, in one transaction with its history row. Down script:
 -- supabase/rollback/20261018100000_feed_posts.down.sql (refuses once a post, separation row or hide exists, or the config holds more than the seed).
@@ -138,6 +138,22 @@ begin
 end
 $$;
 
+create function nestly.post_hides_insert_guard()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  -- a viewer's hide of their own post, named or anonymous, is refused (CRITIC finding 1); both reads run under the caller's RLS
+  if exists (select 1 from nestly.posts p where p.id = new.post_id and p.author_id = new.user_id)
+     or exists (select 1 from nestly.post_authors pa where pa.post_id = new.post_id and pa.author_id = new.user_id) then
+    raise exception 'posts: a post cannot be hidden by its own author' using errcode = '42501';
+  end if;
+  return new;
+end
+$$;
+
 create function nestly.algorithm_configurations_guard()
 returns trigger
 language plpgsql
@@ -156,6 +172,7 @@ $$;
 
 revoke execute on function nestly.posts_insert_prepare() from public;
 revoke execute on function nestly.posts_insert_author() from public;
+revoke execute on function nestly.post_hides_insert_guard() from public;
 revoke execute on function nestly.algorithm_configurations_guard() from public;
 
 create trigger posts_insert_prepare
@@ -165,6 +182,10 @@ create trigger posts_insert_prepare
 create trigger posts_insert_author
   after insert on nestly.posts
   for each row execute function nestly.posts_insert_author();
+
+create trigger post_hides_insert_guard
+  before insert on nestly.post_hides
+  for each row execute function nestly.post_hides_insert_guard();
 
 -- 6. RLS, grants and policies. Every policy: TO authenticated, gated by the caller's own active account (rule 15).
 alter table nestly.posts enable row level security, force row level security;
@@ -363,6 +384,8 @@ comment on function nestly.posts_insert_prepare() is
   'SECURITY INVOKER. Before insert: sets is_share, anonymous_post_id and a NULL author_id on an anonymous post; for a share, reads the original under the caller''s RLS and refuses (42501) one that is friends-only, anonymous, a share, not active or unreadable (BR-064/065, VAL-038).';
 comment on function nestly.posts_insert_author() is
   'SECURITY INVOKER. After insert of an anonymous post: writes its post_authors row for the caller (rule 20).';
+comment on function nestly.post_hides_insert_guard() is
+  'SECURITY INVOKER. Before insert on post_hides: refuses (42501) a hide of the caller''s own post, named (posts.author_id) or anonymous (post_authors row).';
 comment on function nestly.algorithm_configurations_guard() is
   'SECURITY INVOKER. Refuses every UPDATE and DELETE except retiring a version (is_active true to false): the table is append-only.';
 comment on policy posts_select_viewer on nestly.posts is

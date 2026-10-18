@@ -10,7 +10,7 @@
 --           a forward migration (data-model rule 7). FORCE RLS would hide every row from app_owner, so it is lifted inside this
 --           transaction first and the checks are real.
 -- Restores: drops post_hides, post_authors, posts, algorithm_configurations (with their policies, indexes, constraints and
---           triggers), the three functions; deletes the history row.
+--           triggers), the four functions; deletes the history row.
 -- =====================================================================================================================
 
 begin;
@@ -61,6 +61,7 @@ drop table nestly.algorithm_configurations;
 
 drop function nestly.posts_insert_prepare();
 drop function nestly.posts_insert_author();
+drop function nestly.post_hides_insert_guard();
 drop function nestly.algorithm_configurations_guard();
 
 delete from supabase_migrations.schema_migrations where version = '20261018100000';
