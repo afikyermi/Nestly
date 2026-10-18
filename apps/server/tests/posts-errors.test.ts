@@ -6,9 +6,8 @@ import { createPost, deletePost, patchPost } from './helpers/posts-api.js';
 import { postFaultReply } from '../src/lib/pg-error.js';
 import type { Database } from '../src/db/client.js';
 
-// F3.1a criterion 7 (.work/post-create/spec.md): 23514 on the body CHECK -> 422 body_too_long; 42501 and 23503 -> 403 not_allowed;
-// any other pg error -> 500 server_error; no response carries a pg message, constraint or table name. A Database that fails on
-// purpose stands in for the real one, as in me-route.test.ts. (What the real database raises is asserted in tests/db/posts.db.test.ts.)
+// F3.1a c7 (.work/post-create/spec.md): 23514 on the body CHECK -> 422 body_too_long; 42501, 23503 -> 403 not_allowed; other pg -> 500 server_error;
+// nothing pg-specific leaks. A Database that fails on purpose stands in for the real one (real faults: tests/db/posts.db.test.ts).
 
 const SUB = 'f0000000-0000-4000-8000-0000000000f1';
 const ID = 'f0000000-0000-4000-8000-0000000000f2';
@@ -134,15 +133,7 @@ describe('[F3.1-a c7] the routes answer a database fault with the mapped status,
     expect((await createPost(running, header, { body: 'x', audience: 'everyone', isAnonymous: true })).statusCode).toBe(400);
     expect((await createPost(running, header, { body: '   ', audience: 'everyone' })).statusCode).toBe(422);
     expect((await patchPost(running, header, ID, { body: 'x', audience: 'everyone', authorId: SUB })).statusCode).toBe(400);
-  });
-
-  it('[F3.1-a c1] a body with U+0000 is 400 invalid on POST and PATCH, and never reaches the database', T, async () => {
-    const running = await failingWith(() => new Error('the database must not be asked'));
-    const header = await bearer();
-    const nul = { body: 'hello\u0000', audience: 'everyone' };
-    for (const res of [await createPost(running, header, nul), await patchPost(running, header, ID, nul)]) {
-      expect(res.statusCode, res.body).toBe(400);
-      expect(jsonOf(res.body)).toEqual({ error: 'invalid' });
-    }
+    const nul = { body: 'hello\u0000', audience: 'everyone' }; // c1: U+0000 is 400 invalid, not a 500 from the database
+    for (const res of [await createPost(running, header, nul), await patchPost(running, header, ID, nul)]) expect([res.statusCode, jsonOf(res.body)]).toEqual([400, { error: 'invalid' }]);
   });
 });

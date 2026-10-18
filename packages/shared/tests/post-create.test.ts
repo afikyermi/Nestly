@@ -47,15 +47,13 @@ describe('[F3.1-a c1] body length VAL', () => {
   });
 });
 
-it.each(SCHEMAS)('[F3.1-a c1] %s refuses a body containing U+0000', (_name, schema) => {
-  expect(schema.safeParse({ ...ok, body: 'hello\u0000' }).success).toBe(false);
-});
-
 describe.each(SCHEMAS)('[F3.1-a c2] %s is strict (BR-062, VAL-036)', (_name, schema) => {
   it.each(['isAnonymous', 'authorId', 'status', 'sharedPostId', 'id'])('[F3.1-a c2] key %s is rejected', (key) => {
     expect(schema.safeParse({ ...ok, [key]: key === 'isAnonymous' ? false : 'x' }).success).toBe(false);
     expect(schema.safeParse({ ...ok, [key]: key === 'isAnonymous' ? true : null }).success).toBe(false);
   });
+
+  it('[F3.1-a c1] a body containing U+0000 is refused', () => expect(schema.safeParse({ ...ok, body: 'hello\u0000' }).success).toBe(false));
 
   it('[F3.1-a c2] an unknown key is rejected', () => {
     expect(schema.safeParse({ ...ok, topic: 'x' }).success).toBe(false);
