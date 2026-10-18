@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { RegistrationIllustration, WelcomeIllustration } from './illustrations';
+import { EmptyFeedIllustration, RegistrationIllustration, WelcomeIllustration } from './illustrations';
 
 const meta = {
   title: 'shared/Illustrations',
@@ -12,3 +12,5 @@ type Story = StoryObj<typeof meta>;
 export const Welcome: Story = { render: () => <WelcomeIllustration /> };
 
 export const Registration: Story = { render: () => <RegistrationIllustration /> };
+
+export const EmptyFeed: Story = { render: () => <EmptyFeedIllustration /> };

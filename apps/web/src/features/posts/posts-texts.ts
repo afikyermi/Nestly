@@ -4,7 +4,7 @@ import { POST_BODY_MAX, type PostAudience } from '@nestly/shared';
 // .work/post-create/spec.md criteria 14-18; the rest is BUILDER's (ux-copy-he), recorded in notes.md. Gender-neutral (NFR-USAB-003).
 
 export const NEW_POST_LABEL = 'כתיבת פוסט';
-export const FEED_TITLE = 'פיד';
+export const FEED_TITLE = 'הפיד'; // F3.2b c13 (was 'פיד')
 export const UNAVAILABLE_ACTION_TEXT = 'הפעולה אינה זמינה'; // c14: a Professional opens the composer
 export const CHECKING_TEXT = 'בודקים אם אפשר לכתוב פוסט';
 

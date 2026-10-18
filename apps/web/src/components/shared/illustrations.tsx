@@ -75,3 +75,15 @@ export function RegistrationIllustration({ className }: IllustrationProps) {
     </Svg>
   );
 }
+
+// The empty feed: a small, quiet nest with two leaves. Nothing figurative.
+export function EmptyFeedIllustration({ className }: IllustrationProps) {
+  return (
+    <Svg width={96} height={72} className={className}>
+      <circle cx={48} cy={38} r={32} className="fill-accent-soft" />
+      <path d="M22 42h52" className="stroke-primary-strong" strokeWidth={2.5} strokeLinecap="round" fill="none" />
+      <path d="M24 42c0 12 11 18 24 18s24-6 24-18" className="fill-primary-soft stroke-primary-strong" strokeWidth={2.5} />
+      <path d="M62 30c6-2 10-8 10-14M66 22c4 0 6-1 8-4" className="stroke-success" strokeWidth={2.5} strokeLinecap="round" fill="none" />
+    </Svg>
+  );
+}
