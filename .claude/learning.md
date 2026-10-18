@@ -1,11 +1,28 @@
 # Learning & Evals
 
-**Version:** 1.1 (15.10.2026: §9, the TEST ENGINEER rule's wording follows Afik's development-speed decision)
+**Version:** 1.2 (P2, אישור אפיק 17.10: governance/promotion moved here; agent history archived)
 **Owner of the procedure:** ORCHESTRATOR prepares. **Afik approves.** No agent amends itself.
 
 This file closes the loop. Without it, `escapes.md` and `noise.md` are data nobody reads.
 
 ---
+
+## 0. Governance and knowledge promotion
+
+**Freeze (Afik, 16.10, audit decision 7):** no more system building until Afik approves a scoped change
+to CLAUDE, agents, skills, workflow, learning, guard, settings or tools. P1 and P2 are scoped approvals
+(אישור אפיק 17.10), not removal of the freeze. Work around legitimate blocks within the rules and
+record one noise.md line. The guard is a fence; effortful bypass remains an accepted risk, not a task.
+
+Definitions and skills describe professions. Product facts belong in knowledge/task context.
+Never promote hypotheses, rejected alternatives, unapproved recommendations, temporary information
+or unvalidated claims to knowledge. A proposer and a different validator are required: BUILDER
+proposes a convention; CRITIC or DATA ARCHITECT validates before promotion. `.work` is append-only
+history, never source of truth. Knowledge has conventions, data-model, srs-review-points and
+ai-ml-readiness; skill categories are process, retrieval and stack craft (see §6).
+
+Both escapes and noise are required (§2); a pattern is at least three occurrences (§4). Most learning
+belongs in knowledge, not a near-capacity definition. Read this file before proposing model changes.
 
 ## 1. What learning means here — and what it does not
 
@@ -142,7 +159,7 @@ grow a checklist around the budget.
 - **`SKILL.md` aims for 200 lines and never exceeds 500.** Detail goes into supporting files.
 - **A skill never restates** `CLAUDE.md`, `workflow.md`, `.claude/knowledge/` or the SRS. It points to them.
 - **Skill changes follow §5–§8:** evidence, diagnosis, provisional for 5 features, never stacked. Each
-  `SKILL.md` carries a version and a changelog.
+  `SKILL.md` carries a version and a changelog. Agent history lives in the monthly decision archive.
 
 ---
 
@@ -153,12 +170,9 @@ grow a checklist around the budget.
 | a check added, removed or reworded · an output field changed | patch — `1.0 → 1.1` |
 | role boundary · decision rights · escalation · a principle | major — `1.x → 2.0` |
 
-On the first amendment, add to the bottom of the file:
-
-```markdown
-## Changelog
-- 1.1 — 2026-11-02 — added check: <what>. removed: <what>. evidence: escapes 3×. (provisional until 5 features)
-```
+Keep the version in the definition. Append its change record, evidence and provisional period to
+`decisions/<YYYY-MM>.md`, and keep a pointer in the agent definition. Do not regrow agent changelogs.
+Skills may keep a short changelog; older entries may move to the same archive without deletion.
 
 One line per change. It must name the evidence. A change without evidence in the log is an opinion,
 and opinions are how this model drifts back into the 11-agent version of itself.

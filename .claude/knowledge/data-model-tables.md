@@ -1,11 +1,31 @@
 # Data model — as-built tables
 
+## Table index
+
+Read only affected tables and the dependencies named below, plus the shared platform rules via
+[data-model Read map](data-model.md#read-map). Search headings and read bounded ranges; this index
+does not instruct loading every link. Column sections and rule matrices are both part of a table contract.
+
+| Tables | Columns / rules and dependencies |
+|---|---|
+| users, regular_profiles | Columns: users / regular_profiles; Rules: users and regular_profiles; identity link checks for session gate |
+| journey_contexts, children, legal_consents | Their Columns sections; Rules: journeys, children and consents; Registration and journey writes (profile lock) |
+| recovery_answers, recovery_throttles, recovery_events | Their Columns sections; Rules: recovery; Identity link checks for takeover |
+| identity_link_checks | Identity link checks; Rules: recovery; users/session guard |
+| friendships, regular_names | Friendships and regular names; users/regular_profiles FKs; Cross-user profile read |
+| security_limits, profile_open_counts, security_events | Profile open limits and security events; Cross-user profile read |
+| profile_view consumers | Cross-user profile read plus the affected input/output table sections above |
+| Schema changes | Migration and rollback map; New entity template; affected consumer/cleanup order |
+
+
 **Maintained by:** DATA ARCHITECT, with `data-model.md`, of which this file is the per-table part: columns and the
 per-table matrices of every built table, the write order, the RLS helpers and the list of migrations with their down scripts.
 The rules, layers, conventions and approved exceptions stay in `data-model.md`; on any conflict, the migration in
-`supabase/migrations/` wins. Read it when a task touches a built table.
+`supabase/migrations/` wins. Use the index when a task touches a built table; migrations prove the as-built, the SRS defines required behaviour.
 
 ---
+
+## Migration and rollback map
 
 **Migrations.** Built by `supabase/migrations/20261014100000_identity_schema.sql` (I1 F1.1 part b) and bootstrap step 2, `20261014200000_registration_account.sql`
 (F1.4; `.work/register-account-create/`), `20261015200000_recovery_questions.sql` (F1.6; `.work/password-recovery/`), `20261016100000_identity_link_checks.sql`
@@ -24,12 +44,19 @@ settings stay). Writes: per column (`data-model.md` "Write grants") — F1.4's c
 DELETE: `recovery_answers_delete_clear` (F2.0 D1) and own `children` and `journey_contexts`, hard (F2.2b). After registration, every write that adds or deletes a child or journey first locks the
 own `regular_profiles` row FOR NO KEY UPDATE. No DELETE on `friendships` or `regular_names` for any runtime role; `security_events` is INSERT only, inside `profile_view`. All fourteen tables are in `nestly`.
 
+## Columns: users
+
 | Column | Type · null · default | Meaning |
 |---|---|---|
 | `users.id` | uuid PK · default `auth.uid()` | the account id = the Supabase Auth user id (JWT sub); never set by the client |
 | `users.account_type` | text · not null · no default | regular · professional · admin · moderator (SRS Role, §3, BR-016). Fixed at creation, never changes. The only source of account type (rule 14) |
 | `users.status` | text · not null · no default | active · suspended · banned (FR-MOD-002, BR-024): whether the account may use the product now. A warning is not a status; suspension end dates belong to AccountEnforcement (later) |
 | `users.created_at` | timestamptz · not null · `now()` | when the Nestly row was created, not the Auth sign-up |
+
+## Columns: regular_profiles
+
+| Column | Type · null · default | Meaning |
+|---|---|---|
 | `regular_profiles.user_id` | uuid PK · default `auth.uid()` | the owning account, = `users.id` |
 | `regular_profiles.account_type` | text · not null · default `'regular'` · CHECK = `'regular'` | with the composite FK, only a Regular account can hold a profile (BR-016, layer 2) |
 | `regular_profiles.full_name` | text · not null | VAL-001: CHECK `char_length(btrim(full_name))` between 2 and 60 (SRS 2.12, decided 13.10.2026); char_length counts code points |
@@ -38,11 +65,21 @@ own `regular_profiles` row FOR NO KEY UPDATE. No DELETE on `friendships` or `reg
 | `regular_profiles.is_empty_journey_sentence_shown` | boolean · not null · default true | §1.4, OP-021: whether the Journey Summary sentence for no children and no pregnancy is shown. F2.3a |
 | `regular_profiles.is_child_birthday_shared` | boolean · not null · default true | SRS ChildBirthdayVisibility (§13, BR-037): one switch per parent; a child's birthday in notifications to Friends. Stored only; nothing reads it before I7. F2.3a |
 | `regular_profiles.created_at` | timestamptz · not null · `now()` | row creation |
+
+## Columns: journey_contexts
+
+| Column | Type · null · default | Meaning |
+|---|---|---|
 | `journey_contexts.id` | uuid PK · `gen_random_uuid()` | stable handle for later references (trackers, I6) |
 | `journey_contexts.user_id` | uuid · not null · `auth.uid()` | the owning Regular account (rule 12) |
 | `journey_contexts.stage` | text · not null · no default | VAL-039: planning · pregnant · has_child. At most one row per stage per user; planning never together with pregnant |
 | `journey_contexts.due_date` | date · null | estimated due date (§13, health-related). CHECK: only on a pregnant journey. NULL = not given; the owner may set or clear it later (F2.2b). The −30..+300-day window around today is server only (VAL-044, clock-dependent) |
 | `journey_contexts.created_at` | timestamptz · not null · `now()` | row creation |
+
+## Columns: children
+
+| Column | Type · null · default | Meaning |
+|---|---|---|
 | `children.id` | uuid PK · `gen_random_uuid()` | the child's row id |
 | `children.user_id` | uuid · not null · `auth.uid()` | the parent, the owner (rule 12) |
 | `children.slot` | smallint · not null | one of the parent's ten seats, CHECK 1–10 (VAL-040); with `children_user_id_slot_key` it holds the limit. A freed seat is reused by the next add (lowest free). **Not the display order** — that is `created_at`, then `slot` (F2.2b). Not data about the child |
@@ -50,12 +87,22 @@ own `regular_profiles` row FOR NO KEY UPDATE. No DELETE on `friendships` or `reg
 | `children.sex` | text · not null | VAL-006: boy · girl · unknown. Required |
 | `children.birth_date` | date · not null | CHECK ≥ 1900-01-01. "Not in the future" (VAL-005) is server only (clock-dependent) |
 | `children.created_at` | timestamptz · not null · `now()` | row creation |
+
+## Columns: legal_consents
+
+| Column | Type · null · default | Meaning |
+|---|---|---|
 | `legal_consents.id` | uuid PK · `gen_random_uuid()` | the acceptance event's id |
 | `legal_consents.user_id` | uuid · not null · `auth.uid()` | the account that accepted — any account type (FR-PROREG-002 reuses it) |
 | `legal_consents.terms_version` | text · not null | the Terms of Use version accepted, CHECK 1–64 chars. From the server's constant, never the client (AC-084) — enforced by the server; the database cannot know where a string came from |
 | `legal_consents.privacy_version` | text · not null | the Privacy Policy version accepted; same check and source |
 | `legal_consents.has_declared_18_plus` | boolean · not null | the 18+ declaration was made in this acceptance (BR-068). CHECK = true: a row without it cannot exist |
 | `legal_consents.accepted_at` | timestamptz · not null · `now()` | when the user accepted: the database clock. Never granted; the insert policy refuses any value but `now()` |
+
+## Columns: recovery_answers
+
+| Column | Type · null · default | Meaning |
+|---|---|---|
 | `recovery_answers.user_id` | uuid PK · default `auth.uid()` | the account (rules 12–13) |
 | `recovery_answers.email_handle` | bytea · null · UNIQUE · CHECK 32 bytes | HMAC-SHA256(K_handle, lower(trim(email))) of the email claim of the token that made the most recent claim. A lookup key for the signed-out redeem, never an identity claim (rule 14). NULL = released: no email finds the row. Released by a newer claim or re-keyed by its owner |
 | `recovery_answers.handle_claimed_at` | timestamptz · null | the `iat` (whole seconds, UTC) of the token whose email set the handle; the later claim wins. CHECK: NULL exactly when `email_handle` is NULL |
@@ -64,6 +111,11 @@ own `regular_profiles` row FOR NO KEY UPDATE. No DELETE on `friendships` or `reg
 | `recovery_answers.answer_salt_1`, `answer_salt_2` | bytea · not null · CHECK 16 bytes · CHECK the two differ | random salt per answer |
 | `recovery_answers.scrypt_log_n` · `scrypt_r` · `scrypt_p` | smallint · not null | scrypt parameters, CHECK log_n 15–17 (N ≥ 2^15, ≤ 128 MiB per verification), r 8–16, p 1–4 |
 | `recovery_answers.created_at` | timestamptz · not null · `now()` | first save. Never granted; changes are dated in `recovery_events` |
+
+## Columns: recovery_throttles
+
+| Column | Type · null · default | Meaning |
+|---|---|---|
 | `recovery_throttles.subject_kind` | text · not null | handle · ip. PK part 1 |
 | `recovery_throttles.subject_hash` | bytea · not null · CHECK 32 bytes | the email handle (known or not) or HMAC-SHA256(K_ip, client IP; IPv6 by its /64). PK part 2. Never the email or the address |
 | `recovery_throttles.short_window_started_at` | timestamptz · null | start of the short window (handle 30 min · IP 15 min). NULL = no failure counted. Windows start at the first failure after the last expired; they do not slide |
@@ -72,12 +124,19 @@ own `regular_profiles` row FOR NO KEY UPDATE. No DELETE on `friendships` or `reg
 | `recovery_throttles.long_failures` | smallint · not null · 0 | failures in the 24-hour window. CHECK ≥ 0, and 0 for an IP |
 | `recovery_throttles.locked_until` | timestamptz · null | while later than `now()`, every attempt on the subject is answered 429. A limited attempt changes no counter |
 | `recovery_throttles.limited_noted_until` | timestamptz · null | the `locked_until` for which a limited event was already written: one limited event per subject per lock |
+
+## Columns: recovery_events
+
+| Column | Type · null · default | Meaning |
+|---|---|---|
 | `recovery_events.id` | uuid PK · `gen_random_uuid()` | |
 | `recovery_events.kind` | text · not null | answers_saved · answers_changed · change_failed · change_limited · reset_verified · reset_completed · reset_failed · reset_limited · reset_admin_failed · reset_revoke_failed · reset_email_mismatch · handle_released · handle_rekeyed. After reset_verified exactly one of reset_completed, reset_admin_failed, reset_revoke_failed, reset_email_mismatch. Chosen by the server |
 | `recovery_events.user_id` | uuid · null | the account the declared handle belongs to, forced by the insert policy. CHECK: NULL only for reset_failed and reset_limited (a handle with no account). For handle_released, the account that lost the handle |
 | `recovery_events.handle_hash` | bytea · not null · CHECK 32 bytes | the declared handle. Never the email |
 | `recovery_events.ip_hash` | bytea · not null · CHECK 32 bytes | the declared client address, keyed hash. Never the address |
 | `recovery_events.occurred_at` | timestamptz · not null · `now()` | the database clock. Never granted |
+
+## Rules: users and regular_profiles
 
 | | `users` | `regular_profiles` |
 |---|---|---|
@@ -97,6 +156,8 @@ rollback:** the down script lifts FORCE RLS inside its own transaction, refuses 
 re-apply would silently reopen a Restricted profile), then restores FORCE; after the first real choice the way back is a forward fix.
 The cross-user read that honours them is `profile_view` (F2.3b, below).
 
+## Rules: journeys, children and consents
+
 | | `journey_contexts` | `children` | `legal_consents` |
 |---|---|---|---|
 | Purpose | SRS JourneyContext (§13, VAL-039) — one row per stage the parent is in, ticked at registration or added later by the owner (F2.2b); an ended stage is deleted, not marked | SRS Child (§13) — minors' data: exactly name, sex and birth date, plus mechanics | SRS LegalConsent (§13, FR-REG-004, BR-068) — one row per acceptance event holding the full set accepted; the latest row is the current consent state |
@@ -109,6 +170,8 @@ The cross-user read that honours them is `profile_view` (F2.3b, below).
 
 No index on stage, birth_date, due_date or accepted_at: no query filters or sorts by them across users yet. Each new
 btree is written once per row, at registration — accepted.
+
+## Registration and journey writes
 
 **Write order** (rule 11), one identity transaction: users → regular_profiles (its trigger → regular_names, F2.4a) → journey_contexts → children (slots 1..n
 in entry order) → legal_consents. Every status gate reads the users row inserted earlier in the same transaction; any
@@ -141,6 +204,8 @@ pregnant `on conflict do nothing` (the two unique keys hold one); 0 rows → rol
 **Read order:** children `order by created_at, slot` (slot breaks registration's one-`now()` tie; a reused seat shows last);
 journeys in `JOURNEY_STAGES` order in the server.
 
+## Cross-user profile read
+
 **Cross-user read — `nestly.profile_view(text)`** (F2.3b, migration `20261017150000`, `.work/profile-privacy/schema.md`; the approved
 exception in `data-model.md`, DR-G1). Four SELECT policies, all `TO app_owner`, USING `<owner column> = (select nestly.profile_view_target())`:
 `users_select_profile_view` (id), `regular_profiles_select_profile_view`, `children_select_profile_view`, `journey_contexts_select_profile_view`
@@ -159,6 +224,8 @@ recreates the function with the open count first and four trailing columns (rela
 
 Helper: `nestly.is_active_account()` — true when the caller's own account exists and is active (rule 15). SECURITY
 INVOKER, caller only; checks `id = auth.uid()` and `status` itself rather than trusting the `users` policy.
+
+## Rules: recovery
 
 | | `recovery_answers` | `recovery_throttles` | `recovery_events` |
 |---|---|---|---|
@@ -185,6 +252,8 @@ Helpers: `nestly.recovery_handle()`, `nestly.recovery_ip()`, `nestly.recovery_cl
 declared with `set_config('nestly.recovery_handle' | 'nestly.recovery_ip' | 'nestly.recovery_claimed_at', …, true)`; unset
 or empty is NULL and matches no row. SECURITY INVOKER, caller-free, EXECUTE to app_recovery only.
 
+## Identity link checks
+
 **`nestly.identity_link_checks`** (I2 F2.0, FR-AUTH-005, S-01; migration `20261016100000`, `.work/account-takeover-close/schema.md`)
 
 | Column | Type · null · default | Meaning |
@@ -209,6 +278,8 @@ Helpers: `jwt_session_id()`, `jwt_issued_at()`, `jwt_is_oauth()`, `session_guard
 Clear write order: tx 1 insert `affected` + `delete from recovery_answers` (no WHERE, no RETURNING; policy
 `recovery_answers_delete_clear`); tx 2 `select … for update nowait`, Auth cancel and sign-out of other sessions, `update … set
 cleared_at where cleared_at is null returning`, `takeover_cleared` as app_recovery (unique `recovery_events_takeover_cleared_key`).
+
+## Friendships and regular names
 
 **`nestly.friendships`, `nestly.regular_names`** (I2 F2.4a, FR-REL-001, VAL-017, BR-029, AC-034, PG-036; migration `20261017160000`,
 `.work/friends/schema.md`, Gate 2 DR-6 A, DR-7 A, DR-B)
@@ -247,6 +318,8 @@ restored before any other statement (`data-model.md` "Backfills"). **Preview cle
 friendships by either party; F2.4c1 adds `profile_open_counts`, then `security_events`, after `regular_profiles` and before `identity_link_checks`;
 `security_limits` is listed, never written (14 tables; `.work/friends/schema.md` "Preview cleanup").
 
+## Profile open limits and security events
+
 **`nestly.security_limits`, `nestly.profile_open_counts`, `nestly.security_events`** (I2 F2.4c1, NFR-SEC-006 (1)(5), BR-025, AC-078, ERR-032;
 migration `20261017170000`, `.work/friends/schema.md` F2.4c1, Gate 2 + Afik DR-L)
 
@@ -279,6 +352,8 @@ upsert own row (lock) → prune instants older than W → ≥ N: first refusal o
 (the server COMMITs) → else append `now()`, clear the flag, read the target (unavailable = 0 rows, already counted). The F2.4a send runs the same call first (c24).
 **Lists:** unbounded (no pagination: spec "Out of scope"); per Friend of the target, about six index probes (pk, the two party indexes) for the name policy's
 EXISTS and `is_mutual`. Accepted for the MVP; revisit when an account nears ~1,000 accepted Friends.
+
+## New entity template
 
 A new entity adds its columns to the first table — field, type, and its meaning, which is the part that matters — and
 fills every row of the second: purpose in one line; what is not stored; owner, and how that is established;

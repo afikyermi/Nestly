@@ -7,7 +7,7 @@ argument-hint: <the decision, in Afik's words>
 
 # /decision — record it once, correctly
 
-**Version:** 1.1 · the format and the index rules are at the top of `decisions.md`. Full entries are append-only.
+**Version:** 1.2 · the format and the index rules are at the top of `decisions.md`. Full entries are append-only.
 
 ## Input
 
@@ -27,9 +27,8 @@ argument-hint: <the decision, in Afik's words>
    - product behaviour, or a technical decision the SRS has a place for → tell Afik that `/srs-update` is needed
    - a change to the agent team → the affected file in `.claude/`
    - an item WORKPLAN tracks → the WORKPLAN line
-6. **No commit of its own.** The entry and the index line go into the next work commit (`decisions/2026-10.md`,
-   "Commits and pushes"). If no work commit follows in this session, commit them at its end with explicit paths and
-   `Implements: none — decision` and the attribution line.
+6. **Commit with the work:** follow workflow → Records and commits. Do not push a separate records
+   commit for an active task; a records-only task between features uses its own Light PR.
 
 ## Stop conditions
 
@@ -45,3 +44,5 @@ a search finds no second entry for the same decision.
 - 1.0 — 2026-10-11 — created (Afik's skills decision). Provisional until 5 features.
 - 1.1 — 2026-10-13 — entries go to `decisions/<YYYY-MM>.md` with a line in the index; no commit of its own (Afik,
   agent-slim stage 3).
+
+- P2 — 2026-10-18 — אישור אפיק 17.10: align with canonical authority, sequence and records; no gate removed.

@@ -8,7 +8,7 @@ paths:
 
 # security-craft — how to attack this stack before someone else does
 
-**Version:** 1.0 · this skill is **how** to probe. **What** must hold is defined elsewhere, and is not restated
+**Version:** 1.1 · this skill is **how** to probe. **What** must hold is defined elsewhere, and is not restated
 here:
 - CRITIC's required checks
 - `.claude/knowledge/srs-review-points.md`
@@ -67,7 +67,7 @@ suspended account. The server's own check is an early exit; the test is whether 
 3. A request body spread into a write
 4. `sql.raw()` or string-built SQL with input
 5. `dangerouslySetInnerHTML` without a decision and sanitization
-6. Trusting a JWT claim beyond the user ID
+6. Trusting JWT claims for type/status/permission; verified session claims follow data-model Platform rule 3
 7. A secret in a `VITE_` variable or in `packages/shared`
 8. An endpoint that lists users without a query
 9. A raw error message in a response
@@ -86,3 +86,5 @@ Every probe the diff touches has a result: a finding with its failure scenario, 
 ## Changelog
 - 1.0 — 2026-10-11 — created (Afik's skills decision). Named security-craft so that the built-in
   /security-review stays available. Provisional until 5 features.
+
+- P2 — 2026-10-18 — אישור אפיק 17.10: align with canonical authority, sequence and records; no gate removed.
