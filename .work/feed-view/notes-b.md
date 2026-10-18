@@ -24,3 +24,4 @@ browser beyond the e2e run. IntersectionObserver root = `main` when it scrolls (
 - screen.md/spec c14 string "חבר/ת בקהילה" trips `tests/app/source-scans.test.ts` (F1.2 c26, no slash gender form). Needs an agreed
   exception in that scan or a neutral string (e.g. "חבר או חברה בקהילה"); implemented as the contract says.
 - session-guard-app tests (and e2e posts.spec) find the h1 "פיד" exactly; the h1 is now "הפיד".
+- Back restore (c20): the feed memory no longer keys on the Auth user id (unresolvable in the e2e stub, so nothing was ever remembered); it belongs to the session and RouteGuard forgets it on sign-out.

@@ -4,7 +4,6 @@ import { FEED_LOAD_FAILED_TEXT } from './feed-texts';
 import { useSessionAccount } from '@/hooks/use-session-account';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
 import { fetchFeedPage } from '@/services/api/feed';
-import { readOwnUserId } from '@/services/session/own-user-id';
 import { forgetFeed, recallFeed, rememberFeed, type FeedScroll } from './feed-memory';
 import { INITIAL_FEED, withPage, type FeedState } from './feed-state';
 
@@ -29,7 +28,6 @@ export function useFeed(enabled: boolean): FeedFlow {
   const [restoredScroll, setRestoredScroll] = useState<FeedScroll | null>(null);
   const busy = useRef(false);
   const runs = useRef(0);
-  const owner = useRef<string | null>(null);
 
   const run = useCallback(
     async (cursor: string | null, afterRetry: boolean) => {
@@ -41,8 +39,6 @@ export function useFeed(enabled: boolean): FeedFlow {
       const outcome = token === null ? ({ kind: 'failed' } as const) : await fetchFeedPage(token, cursor);
       if (id !== runs.current) return;
       if (outcome.kind === 'page') {
-        owner.current ??= await readOwnUserId(account);
-        if (id !== runs.current) return;
         busy.current = false;
         setState((current) => withPage(current, outcome.page, cursor === null, afterRetry));
         return;
@@ -59,32 +55,25 @@ export function useFeed(enabled: boolean): FeedFlow {
     [account],
   );
 
-  // Back (a history pop) brings the remembered pages and scroll back, for the same user; anything else starts a new snapshot.
+  // Back (a history pop) brings the remembered pages and scroll back (the memory ends with the session); anything else starts a new snapshot.
   useEffect(() => {
     if (!enabled) return;
-    let current = true;
-    void (async () => {
-      const userId = navigationType === NavigationType.Pop ? await readOwnUserId(account) : null;
-      if (!current) return;
-      const saved = recallFeed(userId);
-      if (saved === null) {
-        forgetFeed();
-        void run(null, false);
-        return;
-      }
-      owner.current = saved.userId;
+    const saved = navigationType === NavigationType.Pop ? recallFeed() : null;
+    if (saved === null) {
+      forgetFeed();
+      void run(null, false);
+    } else {
       setState({ ...INITIAL_FEED, phase: 'ready', items: saved.items, nextCursor: saved.nextCursor });
       setRestoredScroll(saved.scroll);
-    })();
+    }
     return () => {
-      current = false;
       runs.current += 1;
       busy.current = false;
     };
   }, [enabled, run, account, navigationType]);
 
   useEffect(() => {
-    if (owner.current !== null && (state.phase === 'ready' || state.phase === 'more-error')) rememberFeed(owner.current, state.items, state.nextCursor);
+    if (state.phase === 'ready' || state.phase === 'more-error') rememberFeed(state.items, state.nextCursor);
   }, [state.phase, state.items, state.nextCursor]);
 
   const loadMore = useCallback(() => {

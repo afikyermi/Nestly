@@ -1,5 +1,6 @@
 import { useContext, useEffect, useRef, type ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router';
+import { forgetFeed } from '@/features/posts/feed-memory';
 import { CurrentReturnContext, ReturnTargetContext } from '@/hooks/use-return-target';
 import { useSession } from '@/hooks/use-session';
 import { forgetReturnTarget } from '@/services/auth/return-target';
@@ -31,8 +32,11 @@ export function RouteGuard({ children }: { children: ReactNode }) {
   });
   useEffect(() => {
     if (state === 'signed-in' || state === 'signed-in-no-account') hadSession.current = true;
-    // Signing out leaves no note of a profile link behind.
-    else if (state === 'signed-out' && hadSession.current) forgetReturnTarget(storage);
+    // Signing out leaves no note of a profile link and no remembered feed behind.
+    else if (state === 'signed-out' && hadSession.current) {
+      forgetReturnTarget(storage);
+      forgetFeed();
+    }
   }, [state, storage]);
   if (decision.kind === 'loading') return <SessionLoading />;
   if (decision.kind === 'redirect') {
