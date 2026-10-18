@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavigationType, useNavigationType } from 'react-router';
-import { LOAD_FAILED_TEXT } from './posts-texts';
+import { FEED_LOAD_FAILED_TEXT } from './feed-texts';
 import { useSessionAccount } from '@/hooks/use-session-account';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
 import { fetchFeedPage } from '@/services/api/feed';
@@ -53,7 +53,7 @@ export function useFeed(enabled: boolean): FeedFlow {
         setState((current) => ({ ...current, phase: 'blocked', loading: false }));
         return;
       }
-      const message = outcome.kind === 'account-unavailable' ? STOPPED_TEXT : LOAD_FAILED_TEXT;
+      const message = outcome.kind === 'account-unavailable' ? STOPPED_TEXT : FEED_LOAD_FAILED_TEXT;
       setState((current) => ({ ...current, phase: cursor === null ? 'first-error' : 'more-error', loading: false, message }));
     },
     [account],
