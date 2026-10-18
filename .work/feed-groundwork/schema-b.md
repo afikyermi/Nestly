@@ -1,6 +1,5 @@
 # schema — F3.0b feed-groundwork: comments, reactions, reports, held deletion, purge
-DATA ARCHITECT, 18.10.2026; revised 18.10 for A&D 3 (likes count only from active likers) and Afik's report-policy decision.
-Contract: `spec.md` c10–c12, c13 (comment), c14, c15, c16 (reporter) + Gate 1/2. Elevated. Builds on `schema.md`
+DATA ARCHITECT, 18.10.2026; revised 18.10 for A&D 3 (likes count only from active likers) and Afik's report-policy decision. Contract: `spec.md` c10–c12, c13 (comment), c14, c15, c16 (reporter) + Gate 1/2. Elevated. Builds on `schema.md`
 (F3.0a; its rules 1–3 hold here). No SECURITY DEFINER. New: `TO app_jobs` policies for the purge — an approved-exception entry (rule 6), below.
 **Change** New `comments`, `reactions`, `reaction_owners`, `reports`; posts gains the held state; functions `content_hold()` (trigger),
 `delete_post(uuid)`, `delete_comment(uuid)`, `purge_held_content()`, three insert triggers — all SECURITY INVOKER, `search_path ''`.
@@ -12,7 +11,6 @@ reporter included (Afik 18.10) — no report clause in comments' or users' polic
 **Why the held branch.** Postgres checks the new row of an `UPDATE … WHERE` against SELECT policies, so an author could not move their post to
 `deleted` if no policy showed it. The branch shows it only inside the holding transaction: `held_xact = pg_current_xact_id_if_assigned()`
 (NULL in every read-only transaction, different in every later one). After commit no one, author included, reads it (c14).
-
 | Column | Type · null · default | Meaning / constraint |
 |---|---|---|
 | `posts.held_at`, `held_until` | timestamptz · null | trigger-stamped `now()`, `now() + interval '2160 hours'` (90 d, DST-proof). CHECK `posts_held_check`: `(status = 'deleted') = (held_at is not null)`, both and `held_xact` NULL together, `held_until <= held_at + interval '2160 hours'` (later refused, c14) |
@@ -38,7 +36,6 @@ reporter included (Afik 18.10) — no report clause in comments' or users' polic
 | `reports.reason` | text · not null · CHECK in (child_safety, harassment, sexual_violent_hateful, personal_information, medical_misinformation, impersonation, spam, other) | §3 order is I4's queue, not stored |
 | `reports.details` | text · null | CHECK `details is null or btrim(details) <> ''`, `reason <> 'other' or details is not null`. Cap with F3.7's Zod |
 | `reports.status`, `closed_at`, `created_at` | text not null `'open'` CHECK open/handled/expired · timestamptz null · now() | CHECK `(closed_at is null) = (status = 'open')`. handled: I4; expired: the purge (DR below) |
-
 UNIQUE (reporter_id, post_id), (reporter_id, comment_id), (reporter_id, reported_user_id): one report per person and target (c15).
 **Authorization** (TO authenticated, gate `(select nestly.is_active_account())`; uid = `(select auth.uid())`)
 - `content_hold()` BEFORE UPDATE OF status on posts and comments: only active→deleted, stamps held_*; else 42501 (author never sets hidden/removed).
@@ -48,8 +45,8 @@ UNIQUE (reporter_id, post_id), (reporter_id, comment_id), (reporter_id, reported
 - `comments_insert_prepare()` BEFORE INSERT: a parent must be readable (RLS) and top-level, else 42501; own post_authors row for the post →
   `author_id := null, is_by_post_author := true`; named post author → flag true; else false.
 - `comments_select_viewer` `(status = 'active' and (author_id is null or author_status = 'active') and exists (posts p where p.id = comments.post_id))`
-  OR the held branch (ownership: `author_id = uid or (author_id is null and exists own post_authors for post_id)`). The post's RLS carries
-  eligibility, audience, hides and reporter-hides into every comment.
+  OR the own branch `(status = 'active' and author_id = uid)` (G2 below) OR the held branch (ownership: `author_id = uid or (author_id is null and exists
+  own post_authors for post_id)`). The post's RLS carries eligibility, audience, hides and reporter-hides into every other comment.
 - `comments_insert_commenter` WITH CHECK `status = 'active'`, post readable, and `author_id = uid` or `(author_id is null and is_by_post_author and
   exists own post_authors)`. `comments_update_commenter` (status) / `comments_delete_commenter`: the ownership test. Grants: SELECT, INSERT
   (post_id, parent_id, body), UPDATE (status), DELETE.
@@ -68,9 +65,7 @@ UNIQUE (reporter_id, post_id), (reporter_id, comment_id), (reporter_id, reported
   comments) → `expired`, `closed_at = now()`; (2) each held row deleted in its own subtransaction; 23514 (an open report, release not reached) → kept.
   Policies TO app_jobs: `posts_{select,delete}_jobs`, `comments_delete_jobs` USING `status = 'deleted'`; `comments_select_jobs` `status = 'deleted'
   or exists (posts p where p.id = post_id)`; `reports_select_jobs` `status = 'open'`; `reports_update_jobs` USING open and target held past release,
-  WITH CHECK `status = 'expired'`. Grants app_jobs: USAGE on nestly; SELECT, DELETE on posts, comments; SELECT, UPDATE (status, closed_at) on reports.
-  pgTAP reaches app_jobs through a CI-only postgres fixture; app_server never gets app_jobs (rule 6).
-
+  WITH CHECK `status = 'expired'`. Grants app_jobs: USAGE on nestly; SELECT, DELETE on posts, comments; SELECT, UPDATE (status, closed_at) on reports. pgTAP reaches app_jobs through a CI-only postgres fixture; app_server never gets app_jobs (rule 6).
 **Approved exception (data-model, this PR):** `F3.0b purge — TO app_jobs policies on posts, comments, reports: read held rows and the open reports
 on them, delete held rows, expire open reports past release · a job has no auth.uid() and must reach every user's held rows (rule 6) ·
 .work/feed-groundwork/schema-b.md · 2026-10-18`.
@@ -92,6 +87,11 @@ like stops counting; reactivation restores it. **Denormalization — ORCHESTRATO
 with an open report is held and purged by the job, never cascaded away; the `users` row goes only once none remains (the CHECK and RESTRICT
 on `reports.reporter_id` make any shortcut fail 23514 / 23503). I9 never lifts `reports_open_target_check`, never deletes or expires an open report
 to unblock a cascade, and decides the reporter's own reports (RESTRICT) and the "deleted user" comment row additively.
+**Own-content deletion (3א), 18.10.** G2 fix now: the own branch above lets a commenter who can no longer read the post (reported it, 7א, or hid it) read,
+`delete_comment` and hold their own active comment. It reads no other table (rule 1; no post_authors, c5). Insert/reply still need the post readable;
+the own like it allows is is_by_author (quality excludes it). G1 defer, owner I4: nothing sets hidden/removed before I4 (content_hold, no grant). I4's migration that first sets them must
+let the author delete moderated content: an own branch for those statuses in both SELECT policies (or Afik's call that authors never see moderated content),
+and content_hold accepting hidden/removed→deleted (a moderated row usually has an open report, so it holds). I4 entry condition; I4's spec carries it.
 **Cleanup tool** (same PR) `EXPECTED_NESTLY_TABLES` +4 → 22 (`comments`, `reaction_owners`, `reactions`, `reports`). P(U) = U's posts (a);
 C(U) = comments `where author_id = U or post_id in P(U) or parent_id in (comments where author_id = U)`. Per user, before a's steps: (1) `reports
 where reporter_id = U or reported_user_id = U or post_id in P(U) or comment_id in C(U)`; (2) `reactions where id in (reaction_owners where user_id =
