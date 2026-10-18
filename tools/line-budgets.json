@@ -6,11 +6,11 @@
     },
     ".claude/workflow.md": {
       "lines": 460,
-      "bytes": 37000
+      "bytes": 40000
     },
     "decisions.md": {
       "lines": 120,
-      "bytes": 8192
+      "bytes": 9000
     },
     "WORKPLAN-HE.md": 200,
     ".claude/agents/algorithm-data.md": 150,
