@@ -93,23 +93,24 @@ select set_eq(
       where n.nspname = 'nestly' and c.relname in ('friendships', 'regular_names') $$,
   $$ values ('friendships.friendships_select_party.r'), ('friendships.friendships_insert_requester.a'), ('friendships.friendships_update_party.w'),
             ('regular_names.regular_names_select_party.r'), ('regular_names.regular_names_insert_own.a'),
+            ('regular_names.regular_names_select_post_reader.r'),
             ('friendships.friendships_select_profile_view.r'), ('regular_names.regular_names_select_profile_view.r') $$,
-  '[F2.4-a c12 · F2.4-c c18 c23] exactly seven policies: friendships select, insert, update (no delete) and regular_names select, insert -- five TO authenticated -- and, from F2.4c1, one SELECT each for profile_view TO app_owner (file 64)');
+  '[F2.4-a c12 · F2.4-c c18 c23] exactly eight policies: friendships select, insert, update (no delete) and regular_names select, insert -- five TO authenticated -- from F2.4c1 one SELECT each for profile_view TO app_owner (file 64) -- and, from F3.2 (6b), regular_names_select_post_reader (file 79)');
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname in ('friendships', 'regular_names')
       and pol.polroles = array[(select oid from pg_catalog.pg_roles where rolname = 'authenticated')]::oid[]),
-  5::bigint,
-  '[F2.4-a c12 · F2.4-c c23] five of the policies are TO authenticated and nothing else, the other two (F2.4c1) TO app_owner only: no public or anon policy');
+  6::bigint,
+  '[F2.4-a c12 · F2.4-c c23 · F3.2 6b] six of the policies are TO authenticated (the five and the F3.2 post-reader policy) and nothing else, the other two (F2.4c1) TO app_owner only: no public or anon policy');
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname in ('friendships', 'regular_names')
       and (coalesce(pg_catalog.pg_get_expr(pol.polqual, pol.polrelid), '') || coalesce(pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid), ''))
           ~ 'is_active_account\(\)'),
-  5::bigint,
-  '[F2.4-a c10 c12 platform r15] every policy is gated by is_active_account(): a suspended or banned account sees and writes nothing');
+  6::bigint,
+  '[F2.4-a c10 c12 platform r15] every TO authenticated policy (six since F3.2 6b) is gated by is_active_account(): a suspended or banned account sees and writes nothing');
 
 select ok(
   (select pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid) ~ 'requester_id = \( SELECT auth\.uid\(\)'
