@@ -21,7 +21,7 @@
 1. **מהביקורת (18.10, ⭐ בקובץ):** ‏A3 להגדיל את תקציב הבתים של workflow.md ו-decisions.md · ‏A4 ‏CRITIC מחזיר טקסט ואני שומר (לא כותב קובץ) · ‏A6 חלק תיקון לבאג הסיסמה (סריקה אחרי מגבלת האורך) · ‏B5/B7 בעלים אחד לקבצי הרישום ביום, ופיצול debt/incidents/noise/escapes לקובץ לכל רשומה · ‏B6 למחוק ענפים ישנים, כולל `ready/p4-proof` ו-`claude/guard-allowlist-implementation-xcv55m` · ‏C6 התראות CI.
 2. **בדיקה אחת באייפון (לא חוסם):** מתחת ל-1024 המסגרת בגובה מסך אחד ו-`main` גולל בתוכה. ב-iOS המקלדת עלולה לכסות שדה נמוך בטופס (תחזית, בלי מכשיר; ‏debt). פתח את ה-Preview ב-Safari, "החלפת סיסמה", הקלד בשדה האחרון.
 3. **לידיעה:** ‏NFR-SEC-006 (5) — "דיווח ל-Admin" על חריגת פתיחות פרופיל נדחה ל-I4 (נרשם רק `security_events`) · מצב `backlog` הידני של כלי הניקוי עוד בקוד (‏debt; יוסר בחלק הראשון של I3) · ‏low פתוח: נתיבי הסיסמה דורשים גם את המפתח הציבורי כדי להיות "מוכנים" (fail closed, ‏debt) · בכמה commits בענף (לא ב-main) רשום שם מודל שגוי ב-Co-Authored-By.
-4. **Docker Desktop** — בדיקות ה-DB המקומיות (החלטה 3) צריכות Docker. עד שתתקין, הן רצות רק ב-CI.
+4. ✅ **Docker Desktop** הותקן (18.10). בדיקות ה-DB רצות מקומית: `node tools/db-local.mjs test` (אותו image כמו ב-CI). **אחרי הפעלה מחדש של המחשב: לפתוח את Docker Desktop** ולחכות ל-"Engine running".
 5. ישן: למחוק `.live/events.jsonl`; למחוק ענפים מרוחקים שמוזגו; למחוק את הסודות `PREVIEW_SUPABASE_SECRET_KEY`,
    ‏`PREVIEW_TEST_EMAIL` ו-`PREVIEW_TEST_PASSWORD` שלא בשימוש.
 6. **לפני השקה:** להחזיר את דרישת האישור ב-`db-production` (‏S-59) · דומיין · שירות אימייל · ‏Supabase Pro (אפיק, 17.10).
