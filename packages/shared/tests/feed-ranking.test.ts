@@ -196,13 +196,14 @@ describe('response [F3.2-a1 c12]', () => {
   const post = { id: ID, kind: 'post', source: 'organic', body: 'x', audience: 'everyone', stageTag: null, createdAt: '2026-10-18T09:00:00.000Z', isMine: false, isAnonymous: false, author: { name: 'Dana Levi' } };
   const ok = (v: unknown) => feedUnit.safeParse(v).success;
   const share = { ...post, kind: 'share', body: null, sharerText: 'hi' };
-  const orig = { available: true, id: ID, body: 'o', audience: 'everyone', createdAt: post.createdAt, isAnonymous: true };
+  const orig = { available: true, id: ID, body: 'o', audience: 'everyone', createdAt: post.createdAt, isAnonymous: false, author: { name: null } };
   it('accepts named (name or null), anonymous without author, shares with available/unavailable original', () => {
     expect(ok(post)).toBe(true);
     expect(ok({ ...post, author: { name: null } })).toBe(true);
     expect(ok({ id: ID, kind: 'post', source: 'organic', body: 'x', audience: 'everyone', stageTag: null, createdAt: post.createdAt, isMine: false, isAnonymous: true })).toBe(true);
     expect(ok({ ...share, original: orig })).toBe(true);
-    expect(ok({ ...share, original: { ...orig, isAnonymous: false, author: { name: null } } })).toBe(true);
+    expect(ok({ ...share, original: { ...orig, author: { name: 'N' } } })).toBe(true);
+    expect(ok({ ...share, original: { ...orig, isAnonymous: true, author: undefined } })).toBe(false);
     expect(ok({ ...share, original: { available: false } })).toBe(true);
   });
   it.each([
@@ -217,15 +218,15 @@ describe('response [F3.2-a1 c12]', () => {
     expect(ok({ ...post, ...patch })).toBe(false);
   });
   it('rejects an anonymous unit without author that isMine; an anonymous share is rejected', () => {
-    const { author: _a, ...anonPost } = post;
+    const anonPost = { id: ID, kind: 'post', source: 'organic', body: 'x', audience: 'everyone', stageTag: null, createdAt: post.createdAt, isMine: false };
     expect(ok({ ...anonPost, isAnonymous: true })).toBe(true);
     expect(ok({ ...anonPost, isAnonymous: true, isMine: true })).toBe(false);
-    const { author: _b, ...anonShare } = share;
+    const anonShare = { ...anonPost, kind: 'share', body: null, sharerText: 'hi' };
     expect(ok({ ...anonShare, isAnonymous: true, original: { available: false } })).toBe(false);
   });
-  it('rejects extra content on an unavailable original, author on an anonymous original, share fields on a post', () => {
+  it('rejects extra content on an unavailable original, share fields on a post', () => {
     expect(ok({ ...share, original: { available: false, body: 'leak' } })).toBe(false);
-    expect(ok({ ...share, original: { ...orig, author: { name: 'N' } } })).toBe(false);
+    expect(ok({ ...share, original: { ...orig, isAnonymous: true, author: { name: 'N' } } })).toBe(false);
     expect(ok({ ...post, sharerText: 'no share fields on a post' })).toBe(false);
   });
   it('page envelope is strict and carries configVersion', () => {
