@@ -1,6 +1,6 @@
 # I3 — Community feed and sharing · medical hotline referral (draft)
 
-**Draft, not approved. I3 is not open.** Prepared on 18.10.2026 (Afik's overnight instructions, task 4) from
+**Draft; Afik answered the questionnaire on 18.10.2026 (1א–8א, `I3-questions.md` → "תשובות"). I3 is not open.** Prepared on 18.10.2026 (Afik's overnight instructions, task 4) from
 `roadmap.md` (I3 row, Amendments 1, 3, 4, 5) and the SRS. Status lives only in `WORKPLAN-HE.md` part 8. Reserved points
 are in `I3-questions.md`; the ranking and data-use rules are in `I3-algorithm.md` (ALGORITHM & DATA). Runs under
 `workflow.md` 1.16 (path per part, one review round per part, merge on green CI + E, a new session per part).
@@ -28,8 +28,9 @@ I3's post body has no media and FR-FEED-002's images are I5's.
 | F3.6 | `share-link` | link to a post or the site (WhatsApp, email, copy, device share sheet); unguessable id; generic preview; sign-in then back to the post; "unavailable" for a viewer without permission | FR-FEED-007 · BR-067 · NFR-PRIV-007 · NFR-SEC-005/006 | new external surface (public URL, preview) → **Elevated** | F3.5 |
 | F3.7 | `report` | report a post, comment or user: separate window over a slightly blurred screen, the 8 decided reasons ("content that endangers a child" first), optional free text; stored for I4's queue | FR-MOD-001 (report action) · decisions 16.10 "Before I3–I5" (3) | personal data · minors → **Elevated** | F3.3 |
 | F3.8 | `medical-hotlines` | fixed page of `tel:` buttons (MDA 101 and the four HMOs' nurse lines, verified at build), "לא תחליף לטיפול רפואי", from the menu and community rule 2; taps not recorded | FR-MENU-002 · AC-109 · decision 16.10 "seven open details" (4) | none expected → **Standard** | I2 |
+| F3.9 | `hide-post` | "hide this post" for oneself only; not a ranking signal, not stored as feedback (Afik 8א); "not interested" stays in I15 | FR-ALG-009 (subset: hide only) · P-ALG-06 | personal data → **Elevated** (+ ALGORITHM & DATA) | F3.2 |
 
-**9 features** as in the roadmap (10 if Afik answers 8א: F3.9 `hide-post`, "hide this post" for oneself only, not a signal) (FEED-001..007 with FEED-004 inside the feed and ranking, MOD-001, the hotline page);
+**10 features**: the roadmap's 9 plus F3.9 `hide-post` (Afik 8א) (FEED-001..007 with FEED-004 inside the feed and ranking, MOD-001, the hotline page);
 F3.0 is groundwork, not a feature. F3.8 is independent and can run in the second session beside F3.1–F3.3.
 
 ## Placement notes (ORCHESTRATOR, unreserved)
@@ -47,7 +48,7 @@ F3.0 is groundwork, not a feature. F3.8 is independent and can run in the second
 - DR-1–DR-4 → `I3-questions.md` 6, 5, 4, 7. DR-5 (ORCHESTRATOR): AC-060 is tested in I3 on eligibility first, Friends,
   freshness, quality, diversity and no ML; its other clauses in the Initiative that brings their data (I10, I11, I15).
   Ranking configuration changes only by a migration reviewed by ALGORITHM & DATA until I15's Admin tool (BR-059, AC-073).
-- Known deviation to record in the I3 spec: P-ALG-06 (negative feedback) is not met in the MVP unless 8א.
+- P-ALG-06: met in the MVP by F3.9's hide only (8א); "not interested" and its ranking effect stay in I15.
 
 ## Decided inputs
 
