@@ -10,8 +10,9 @@
 - Body/details checks use `~ '[^[:space:]]'`, not `btrim` (btrim trims spaces only; a newline-only body passed). Posts' `btrim` check has the same gap (neighbouring).
 - Down script drops reactions_delete_owner first (reads reaction_owners). Restores F3.0a's two policies verbatim.
 **Deviations** the two above (schema-b says btrim, `open`).
+**Decisions (G2, 18.10)** comments_select_viewer gains the own active branch (author_id = uid): a commenter who reported or hid the post can read and delete their own comment. G1 deferred to I4.
 **Not done** moderated post delete by its author: schema-b has no branch (CRITIC F3.0a finding 1, second half). Nothing under apps/ or packages/.
-**Uncertain** `xid8` held branch tested in-transaction only; the author of a post they reported-hid is impossible (own reports refused). A commenter who reported a post cannot delete their own comment on it (post unreadable).
+**Uncertain** `xid8` held branch tested in-transaction only; the author of a post they reported-hid is impossible (own reports refused).
 **Evidence** up→down→up by psql; db-local test: 640 green; typecheck, eslint tools, check:budgets green. TE's 70/71/20/10/13 and tool-test expectations need b updates (see report).
 **Neighbouring** posts_body_check btrim; a hold with no report purges at the next run (harmless).
 

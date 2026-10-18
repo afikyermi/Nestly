@@ -479,6 +479,7 @@ create policy comments_select_viewer on nestly.comments
   using ((select nestly.is_active_account()) and (
     (status = 'active' and (author_id is null or author_status = 'active')
       and exists (select 1 from nestly.posts p where p.id = comments.post_id))
+    or (status = 'active' and author_id = (select auth.uid()))
     or (status = 'deleted' and held_xact = pg_catalog.pg_current_xact_id_if_assigned() and (
       author_id = (select auth.uid())
       or (author_id is null
@@ -671,7 +672,7 @@ comment on policy posts_update_author on nestly.posts is
 comment on policy posts_select_jobs on nestly.posts is 'Approved exception (rule 6, F3.0b purge): the job role reads held posts.';
 comment on policy posts_delete_jobs on nestly.posts is 'Approved exception (rule 6, F3.0b purge): the job role deletes held posts.';
 comment on policy comments_select_viewer on nestly.comments is
-  'An active comment of an active commenter on a post the viewer can read (the post''s RLS carries audience, hides and reporter-hides); the author reads a held comment only in the holding transaction.';
+  'An active comment of an active commenter on a post the viewer can read (the post''s RLS carries audience, hides and reporter-hides); a commenter always reads their own active comment, even once the post is unreadable to them (reported or hid it), so they can delete it; the author reads a held comment only in the holding transaction.';
 comment on policy comments_insert_commenter on nestly.comments is 'An active account comments as itself, or as the real author of an anonymous post it wrote (author_id NULL, marked), on a readable post.';
 comment on policy comments_update_commenter on nestly.comments is 'The commenter changes the status of an active comment from active to deleted (content_hold); no editing in I3.';
 comment on policy comments_delete_commenter on nestly.comments is 'The commenter (or the real author of an anonymous post, for their NULL-id comment) deletes the comment.';
