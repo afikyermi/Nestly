@@ -9,3 +9,6 @@
 ## ALGORITHM & DATA review (parallel, 18.10) — summary
 No high/medium; core matches I3-algorithm.md. Low 1 (a2): numeric weights come back as strings → convert (::float8 or validated Number) in the repository + integration test seeded v1 → configVersion 1. Nit 2: response accepts an anonymous share (DB forbids) → drop that union member. Nit 3: cap cursor text length (≤ 512) before decoding. N1–N4: treated as closed for a1 (items #2–#11 of its review verified).
 **ORCHESTRATOR routing:** BUILDER — remove compareRankKeys, drop the anonymous-share variant, cap cursor text at 512. TEST ENGINEER — CRITIC 1–3. a2 contract — numeric weights conversion + configVersion 1 integration test.
+
+## Round 2 (CRITIC opus, 18.10)
+Findings 1–4 fixed (f0b4483, 1845f00). New low: the 512-cap test cannot fail (inputs are already invalid) → debt.md. No new critical/high/medium.
