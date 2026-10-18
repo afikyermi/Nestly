@@ -276,28 +276,6 @@ jobs:
           fi
           node "${gate}"
 
-  # TEMPORARY (step 11 proof, reverted before merge): the fixed e2e tests 20 times each, Chrome and Edge, on Linux.
-  flaky-proof:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-    strategy:
-      fail-fast: false
-      matrix:
-        project: [chrome, edge]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps ${{ matrix.project == 'edge' && 'msedge' || 'chrome' }}
-      - run: npm run build-storybook
-      - run: npx playwright test e2e/user-profile-actions.spec.ts:386 e2e/user-profile.spec.ts:183 --project=${{ matrix.project }} --repeat-each=20 --retries=0
-
   audit:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -322,7 +300,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.db == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 20
     env:
       # The image the pinned CLI itself uses; PostgreSQL 17.11, the minor of nestly-preview and nestly-prod.
       SUPABASE_POSTGRES_IMAGE: supabase/postgres:17.11.0.004
@@ -626,18 +604,7 @@ jobs:
           DATABASE_URL: ${{ env.CI_APP_SERVER_DB_URL }}
           # Only migration-backfill tests (e.g. F2.3a c6) connect as app_owner, to roll back and re-apply the newest migration.
           OWNER_DATABASE_URL: ${{ env.CI_APP_OWNER_DB_URL }}
-        # TEMPORARY (step 11 proof, reverted before merge): the whole db suite 5 times in a row, then the fixed file 20 times.
-        run: |
-          set -eu
-          for i in 1 2 3 4 5; do
-            echo "::group::test:db run ${i}/5"
-            npm run test:db -w @nestly/server
-            echo "::endgroup::"
-            echo "PROOF test:db run ${i}/5 green"
-          done
-          cd apps/server
-          npx vitest run --no-file-parallelism tests/db/recovery-store.db.test.ts --repeats 19
-          echo "PROOF recovery-store x20 green"
+        run: npm run test:db -w @nestly/server
 
       # P6 (schema before code): a pull request that adds a migration must keep main's code working, because main is
       # deployed while the migration waits for production. main's own server integration tests run here, unchanged, on
