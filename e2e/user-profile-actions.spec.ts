@@ -400,7 +400,7 @@ test.describe('F2.4c2 c30 [S3 NFR-A11Y-001] axe, RTL, phone and desktop, keyboar
       if (close === 'cancel') await dialog(page).getByRole('button', { name: TEXT.dialogCancel, exact: true }).click();
       else await page.keyboard.press('Escape');
       await expect(dialog(page)).toHaveCount(0);
-      expect(await opener.evaluate((el) => el === document.activeElement), `focus back on the opener after ${close}`).toBe(true);
+      await expect(opener, `focus back on the opener after ${close}`).toBeFocused();
     }
   });
 

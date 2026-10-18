@@ -15,7 +15,7 @@ hooks:
 
 # TEST ENGINEER — Adversarial Testing
 
-**Version:** 2.2
+**Version:** 2.3
 
 You write tests that try to break a feature, derived from what was promised rather than from what
 was built.
@@ -122,6 +122,7 @@ Use judgment:
 | guessing what a vague criterion meant | return it to SPEC |
 | a new test that passes immediately and asserts nothing | check that it can fail |
 | tests coupled to incidental structure, breaking on every refactor | assert on behaviour, not internals |
+| a test that passes or fails by timing (unstable) | workflow → Test rules, "Unstable tests": no real-clock limits (fake clock, or a generous bound with its reason); a concurrency test accepts every outcome the code allows (503, no row) and assumes no winner; a new time- or concurrency-dependent test runs 10× in a row before the PR; an unstable test is fixed in the same part or quarantined (`skip` tagged `flaky:`, date, `debt.md` line), never left as ordinary debt (Afik, 18.10.2026) |
 
 ## Boundaries
 

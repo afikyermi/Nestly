@@ -69,18 +69,22 @@ export const storageDump = (page: Page): Promise<string> =>
   page.evaluate(() => JSON.stringify([Object.entries(localStorage), Object.entries(sessionStorage)]));
 
 export async function signIn(page: Page): Promise<void> {
-  await page.goto('/login');
+  // DOM-ready is enough: the next steps wait for their own elements, and a slow subresource must not hold "load" for 30 s.
+  await page.goto('/login', { waitUntil: 'domcontentloaded' });
   await page.getByRole('textbox', { name: 'אימייל', exact: true }).fill(EMAIL);
   await page.getByLabel('סיסמה', { exact: true }).fill(PASSWORD);
   await page.getByRole('button', { name: 'התחברות', exact: true }).click();
-  await expect.poll(() => pathOf(page)).not.toBe('/login');
+  // Wait for the app's final landing (/feed, SIGNED_IN_LANDING), not just "left /login": after login the app navigates again, and a
+  // goto issued meanwhile aborts with net::ERR_ABORTED (frame detached).
+  await expect.poll(() => pathOf(page)).toBe('/feed');
 }
 /** Signed in, straight to /u/<id> (a full load: the real session survives it), the person's name on screen. */
 export async function openProfile(page: Page, id: string, name: string): Promise<void> {
   await signIn(page);
-  await page.goto(`/u/${id}`);
+  await page.goto(`/u/${id}`, { waitUntil: 'domcontentloaded' });
   expect(pathOf(page)).toBe(`/u/${id}`);
-  await expect(main(page).getByText(name, { exact: true }).first()).toBeVisible();
+  // 20 s, not the 5 s default: with 8 browsers on one machine the profile request can take longer than 5 s; a wrong screen still fails.
+  await expect(main(page).getByText(name, { exact: true }).first()).toBeVisible({ timeout: 20_000 });
 }
 /** The outermost element that holds this heading and none of the other list's heading: that list's section. */
 export function listSection(page: Page, name: string, other: string): Locator {

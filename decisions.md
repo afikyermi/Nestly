@@ -64,6 +64,7 @@ Grouped rows retain all current topics. Older wording yields to the named later 
 | 10-17 / 10 | P2 — short consistent contracts (אישור אפיק 17.10): canonical rules, indexed reads, archived history, new-artifact line/byte budgets; full entry below in October |
 | 10-18 / 10 | P6 schema before code: migrate right after the schema PR, before its code; supersedes 10-16 audit item 2 batching; workflow Batched approvals |
 | 10-18 / 10 | Branch auto-delete; only main and ready/** deploy (vercel.json, P4); workflow Stable candidate |
+| 10-18 / 10 | Unstable tests: no real-clock limits, all concurrency outcomes, 10× before PR, fix or quarantine; workflow Test rules, TEST ENGINEER 2.3 |
 | 10-18 / 10 | I3 questionnaire 1א–8א: audience everyone (remembered), share only everyone posts, deletion/report hold, no I3 events, author stage tag, anonymous=everyone, reporter-only hide, F3.9 hide-post; I3-questions.md |
 
 ## Superseded and historical navigation

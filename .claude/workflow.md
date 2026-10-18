@@ -370,21 +370,22 @@ nothing here because the output is a diff, not a summary: CRITIC reads the real 
 
 Decided by Afik (14.10.2026) — quality is not lowered; duplication is removed and tests aim at real problems. From F1.5.
 
-- **Depth by type** — SPEC marks each criterion 🔴 / 🎨 / 🟡; TEST ENGINEER covers it to that depth (its definition).
-- **One layer per behaviour** — permissions → pgTAP · logic → unit (Vitest) · screen behaviour → e2e (Playwright) ·
-  a component Vitest test only for logic with no e2e expression.
+- **Depth by type** — SPEC marks each criterion 🔴 / 🎨 / 🟡; TEST ENGINEER covers it to that depth.
+- **One layer per behaviour** — permissions → pgTAP · logic → Vitest · screen behaviour → Playwright; a component test
+  only for logic with no e2e expression.
 - **Devices** — every 🎨 criterion at desktop (1024) and phone (375).
-- **Browsers** — pull requests run e2e on Chrome only (desktop + phone). Edge (job `browser-edge`) runs on every merge
-  to `main` and by hand (`workflow_dispatch`): after the merge, so it does not block the production deploy. A release
-  gate before the deploy is an open question for Afik (WORKPLAN).
-- **Visual regression** — Playwright screenshots are blocking for every screen the feature touches, desktop and phone.
-  Noise is stabilised (fonts, animation, clock, data), never switched off. A screen without a baseline gets one in the
-  same PR. The list `e2e/visual-screens.ts` is opt-in — only a listed screen is compared — so SPEC names every screen a
-  🎨 criterion touches, TEST ENGINEER lists each one, and CRITIC checks the list against the 🎨 criteria.
-- **A test per criterion, nothing beyond** (Afik, 16.10.2026, audit decision 5) — every acceptance criterion gets its
-  test; no hardening past the criteria, also not on a low review item. The test-to-product ratio is information
-  (`result.md` may note it), not a target or a ceiling.
-- **Tools and hooks** — no new tests unless a tool actually broke, or Afik explicitly approved the scoped fixtures (P1/P2).
+- **Browsers** — PRs run e2e on Chrome only; Edge (`browser-edge`) runs on every merge to `main` and by hand,
+  after the merge, so it never blocks the deploy.
+- **Visual regression** — screenshots block for every touched screen, desktop and phone; noise is stabilised, never
+  switched off; a new screen gets its baseline in the same PR; `e2e/visual-screens.ts` is opt-in: SPEC names, TEST
+  ENGINEER lists and CRITIC checks each 🎨 screen.
+- **A test per criterion, nothing beyond** (audit 5) — no hardening past the criteria; the ratio is information only.
+- **Tools and hooks** — no new tests unless a tool broke, or Afik approved scoped fixtures (P1/P2).
+- **Unstable tests** (Afik, 18.10.2026) — no real-clock limits: a fake clock, or a generous bound with its reason. A
+  concurrency test accepts every outcome the code allows (503, no row) and never assumes the winner. A new time- or
+  concurrency-dependent test runs 10× in a row before the PR. An unstable test is never ordinary debt: fix it in the
+  same part, or quarantine it (`skip` tagged `flaky:`, a date, a `debt.md` line) so it never blocks. A failure of a
+  listed unstable test: one rerun, record, continue; a new failure: stop and investigate.
 
 
 ## Cost discipline

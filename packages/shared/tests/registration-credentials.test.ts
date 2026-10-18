@@ -162,15 +162,23 @@ describe('F1.4 criterion 2 [F1.3 debt] the credentials object is strict', () => 
       expect(registrationCredentialsInput.safeParse(bad).success).toBe(false);
     }
   });
-  it('a 5 MB email or password is refused fast, by length, not by scanning', () => {
-    creds('a@b.co', GOOD_PW); // warm-up
-    for (const [email, password] of [['x'.repeat(5_000_000), GOOD_PW], ['a@b.co', 'x'.repeat(5_000_000)]] as const) {
-      const t0 = Date.now();
-      const r = creds(email, password);
-      const ms = Date.now() - t0;
-      expect(r.success).toBe(false);
-      expect(ms, `took ${ms.toFixed(1)} ms`).toBeLessThan(100);
-    }
+  // No wall-clock limit (a loaded machine made one flaky). "By length, not by scanning" is shown by the verdict: an input that
+  // a scan would judge differently is refused with the length verdict only.
+  it('a 5 MB email or password is refused by length, not by scanning', () => {
+    // A scan (trim, then look for the shape) would call 5 MB of spaces "email_required"; the length check says "email_invalid" only.
+    const spaces = creds(' '.repeat(5_000_000), GOOD_PW);
+    expect(spaces.success).toBe(false);
+    expect(messages(spaces)).toEqual(['email_invalid']);
+    expect(issueCodes(spaces)).toEqual(['too_big']);
+    // The same for a 5 MB run of letters (a scan would say "email_invalid" for no "@": the code tells them apart).
+    const letters = creds('x'.repeat(5_000_000), GOOD_PW);
+    expect(letters.success).toBe(false);
+    expect(issueCodes(letters)).toEqual(['too_big']);
+    // A password of 5 MB: the verdict is the length one, carried by the raw-bound issue; no email issue is added.
+    const long = creds('a@b.co', 'x'.repeat(5_000_000));
+    expect(long.success).toBe(false);
+    expect(new Set(messages(long))).toEqual(new Set(['password_length']));
+    expect(issueCodes(long)).toContain('too_big');
   });
 });
 
