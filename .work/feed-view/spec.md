@@ -70,3 +70,4 @@ b web (c13–20) ~450, after a1 against the shared response, merges after a2. Ea
 
 **Gate 1 (ORCHESTRATOR, 18.10.2026):** approved with A&D findings 1–12 validated; N1–N4 applied (A&D re-validates at a1 review).
 Split a1 → a2 → b accepted; the regular_names policy (6ב) ships as a schema PR before a2.
+**ORCHESTRATOR 18.10 (a1 test open items):** c9 = the last of the first pageSize units in ranked order (the extra +1 unit only signals "more"); a named original requires `author` (author.name nullable).
