@@ -26,3 +26,6 @@ Reading (honest: run-to-run variance, 380–600 s per shard, is larger than the 
   check as a11y; not done here (Afik: focused on a11y).
 - recovery-store.db.test.ts c5: green in both PR runs (`db`), now independent of the clock.
 - globalTimeout (CRITIC P3 finding 2): first kept at 12 min (484 s seen); the final run took 584 s (23 % headroom), so it is 13 min — the most that keeps the ≥ 2 min gap to the 15 min job (setup ≈ 1 min).
+- 18.10.2026 (Afik, option 1): a second flake in the same file, `[F1.6 c21 concurrency]` (recovery-store.db.test.ts),
+  failed on PR 62's `db` run 39098676177: when both attempts of one claimant got 503, its answers row is absent, the
+  fixture returns `-`, and `JSON.parse('-')` threw. The code's 503 is what c21 allows; the test now counts `-` as no row.

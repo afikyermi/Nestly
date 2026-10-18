@@ -394,7 +394,12 @@ describe('[F1.6 c21 c13] a newer claim on an email releases the older holder', (
       if (retry.statusCode === 503) expect(retry.body).toContain('unavailable');
     }
     const holders = [];
-    for (const account of [holder, middle, newest]) if (record(await answersJson(ctx, account.id)).email_handle !== null) holders.push(account.id);
+    // A claimant refused twice (503, then 503 on the retry) has no answers row: the fixture returns NONE, not JSON. It
+    // holds nothing (main 18.10.2026: JSON.parse('-') failed the race whenever both attempts of one claimant lost).
+    for (const account of [holder, middle, newest]) {
+      const row = await answersJson(ctx, account.id);
+      if (row !== NONE && record(row).email_handle !== null) holders.push(account.id);
+    }
     expect(holders, 'exactly one account holds the handle').toHaveLength(1);
     const [winner] = holders;
     expect([holder.id, middle.id, newest.id]).toContain(winner);
