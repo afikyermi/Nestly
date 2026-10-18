@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { collect, evaluate, formatStatus, ghRead, mainHealth, parseArgs } from './part-status.mjs';
 
@@ -14,7 +15,7 @@ const run = (id, jobs, extra = {}) => ({ id, name: 'CI', workflow_id: 1, event: 
 const fixture = () => ({ head: SHA, headAfter: SHA, main: MAIN, mainAfter: MAIN, state: 'open',
   url: 'https://github.com/afikyermi/Nestly/pull/57', observedAt: '2026-10-17T13:00:00Z',
   required: [{ context: 'typecheck', app_id: 15368 }],
-  checks: ['changes', 'typecheck', 'lint', 'test', 'build', 'preview-e2e'].map((name) => check(name)),
+  checks: ['changes', 'typecheck', 'lint', 'test', 'build', 'schema-gate', 'preview-e2e'].map((name) => check(name)),
   mainRuns: [run(12, [job('test')])], errors: [], limitations: [],
 });
 
@@ -150,6 +151,8 @@ function apiFixture({ changedHead = false, denied = false } = {}) {
     if (route === 'pulls/57') return { head: { sha: ++reads > 1 && changedHead ? OLD : SHA },
       base: { ref: 'main' }, state: 'open', html_url: 'https://github.com/afikyermi/Nestly/pull/57' };
     if (route === 'branches/main') return { commit: { sha: MAIN } };
+    if (route.startsWith('pulls/57/files')) return [{ filename: 'apps/server/src/x.ts' }]; // P6
+    if (route.startsWith('contents/tools/')) return { content: Buffer.from(readFileSync(new URL(`../${route.slice(9).split('?')[0]}`, import.meta.url), 'utf8')).toString('base64') }; // P6 self-check
     if (route.startsWith('rules/branches/')) {
       if (denied) throw new Error('GitHub GET failed (HTTP 403)');
       return [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'test', integration_id: 15368 }] } }];
@@ -212,4 +215,36 @@ test('[P1] required status/check pagination does not silently drop the second pa
   const snapshot = collect({ repo: 'afikyermi/Nestly', pr: '57' }, read);
   snapshot.required.push({ context: 'external-gate' });
   assert.match(evaluate(snapshot).blockers.join('\n'), /external-gate: failure/);
+});
+
+test('[P6] product code and the schema gate in one PR is a blocker, read from the PR file list (CRITIC P6 finding 2)', () => {
+  const text = (files) => evaluate({ ...fixture(), files }).blockers.join('\n');
+  assert.match(text(['apps/server/src/x.ts', '.github/workflows/ci.yml']), /schema gate.*split it/);
+  assert.match(text(['packages/shared/src/v.ts', 'tools/schema-gate.mjs']), /split it/);
+  assert.doesNotMatch(text(['apps/server/src/x.ts', 'tools/other.mjs']), /schema gate/);
+  assert.doesNotMatch(text(['.github/workflows/ci.yml', 'tools/schema-gate.mjs']), /schema gate/, 'a gate-only PR is fine');
+  assert.deepEqual(evaluate(fixture()).blockers, [], 'no file list read: nothing claimed');
+});
+
+test('[P6] collect reads every path of the PR, both sides of a rename', () => {
+  const api = apiFixture();
+  const read = (endpoint) => (endpoint.includes('/pulls/57/files')
+    ? [{ filename: 'tools/schema-gate2.mjs', previous_filename: 'tools/schema-gate.mjs' }, { filename: 'apps/web/src/a.tsx' }]
+    : api.read(endpoint));
+  const snapshot = collect({ repo: 'afikyermi/Nestly', pr: '57' }, read);
+  assert.deepEqual(snapshot.files, ['tools/schema-gate2.mjs', 'tools/schema-gate.mjs', 'apps/web/src/a.tsx']);
+  assert.match(evaluate(snapshot).blockers.join('\n'), /split it/);
+});
+
+test('[P6] part-status refuses to judge with a checker or gate that differs from current main (CRITIC P6 finding 2, N4)', () => {
+  const api = apiFixture();
+  const asked = [];
+  const same = collect({ repo: 'afikyermi/Nestly', pr: '57' }, (e) => { asked.push(e); return api.read(e); });
+  assert.ok(asked.includes(`repos/afikyermi/Nestly/contents/tools/schema-gate.mjs?ref=${MAIN}`), 'compared with current main, not the PR base');
+  assert.ok(!same.errors.some((e) => e.includes('differs from main')), 'identical copies: no blocker');
+  const edited = collect({ repo: 'afikyermi/Nestly', pr: '57' }, api.read, undefined, (file) => (file === 'tools/schema-gate.mjs' ? '// relaxed' : readFileSync(new URL(`../${file}`, import.meta.url), 'utf8')));
+  assert.match(edited.errors.join('\n'), /tools\/schema-gate\.mjs here differs from main's copy/);
+  assert.match(evaluate(edited).blockers.join('\n'), /up-to-date main checkout/);
+  const missing = collect({ repo: 'afikyermi/Nestly', pr: '57' }, api.read, undefined, () => undefined);
+  assert.equal(missing.errors.filter((e) => e.includes('differs from main')).length, 2, 'unreadable local copies block');
 });

@@ -27,6 +27,8 @@ every feature.
 > reviewed. The same rule expressed in one reviewable place can be.
 
 - Reversibility is a design property, not an afterthought. Write the rollback before the migration.
+- Schema before code (workflow → Batched approvals, P6): an expand migration ships alone and keeps main's code working
+  (defaults, NOT NULL, triggers, grants and RLS included); dependent code after the production apply; contract later.
 - Unknown blast radius is not the same as no blast radius.
 - Denormalize deliberately and in writing, never under schedule pressure.
 - An index is a decision with a write cost. Say why.
@@ -45,7 +47,7 @@ The migration is the implementation artifact; avoid duplicating it in schema.md.
 **Change**            tables, fields, types, constraints. before → after
 **Why**               what in the spec requires it
 **Authorization**     who may read/write what, and where that rule is enforced
-**Migration**         the forward steps, in order
+**Migration**         the forward steps, in order; phase: expand (compatible with main's code) or contract
 **Rollback**          the reverse steps. if none exists, say so explicitly and why
 **Backfill**          needed? on live data? how long? safe to interrupt?
 **Indexes**           added/changed, the query each serves, the write cost accepted
