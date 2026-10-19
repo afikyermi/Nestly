@@ -14,7 +14,7 @@ Annex of spec.md c9-15 + direction.md "דפוסי אינטראקציה". Copy pe
 |---|---|---|---|
 | sheet | dialog | דיווח על פוסט · דיווח על תגובה · דיווח על פרופיל | aria-modal; h2 = name; backdrop blur 4px, page inert, no scroll or URL change; Back/Esc/outside close (c10) |
 | intro | paragraph | הדיווח מגיע רק לצוות Nestly, ולא נשלחת עליו הודעה לאף אחד | aria-describedby of the dialog |
-| reasons | radiogroup | סיבת הדיווח | visible legend "מה הבעיה?"; none checked (c11) |
+| reasons | radiogroup | מה הבעיה? | name = the visible legend (WCAG 2.5.3); none checked (c11) |
 | radios 1-8 | radio | תוכן שמסכן ילד · הטרדה או בריונות · תוכן מיני, אלים או מסית · חשיפת פרטים אישיים · מידע רפואי מסוכן או מטעה · התחזות · ספאם או פרסום לא קשור · אחר | this order; keys child_safety … other; first gets focus (c11) |
 | spam hint | text | כולל פוסט פרסומי בלי שיתוף ידע | under radio 7, its aria-describedby |
 | details | textbox | פרטים נוספים | multiline, dir=auto; hint "לא חובה. בבחירת 'אחר' צריך לכתוב מה הבעיה" (c11) |
@@ -37,3 +37,4 @@ Annex of spec.md c9-15 + direction.md "דפוסי אינטראקציה". Copy pe
 | rule 2 link | link | מוקדי רפואה | only once F3.8 is merged; else plain text (c14) |
 | closing line | paragraph | הפרת כלל מובילה להסרת התוכן ולצעדי אכיפה | BR-075 last line |
 **States** static: no loading, empty or error state; no request (c14). **Other** axe 0 at 375 px and desktop; targets ≥ 44×44 px (c15).
+**Amendment (ORCHESTRATOR, 19.10):** the reasons radiogroup is named by its visible legend "מה הבעיה?", not "סיבת הדיווח" (WCAG 2.5.3 label-in-name).
