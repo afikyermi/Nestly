@@ -114,3 +114,61 @@ export function AlertDescription({ children }: { children: ReactNode }) {
 export function AlertCancel({ children }: { children: ReactNode }) {
   return <AlertDialogPrimitive.Cancel asChild>{children}</AlertDialogPrimitive.Cancel>;
 }
+
+interface SheetPanelProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** The panel body: a SheetTitle (the dialog's name) and a SheetDescription, which describes it. */
+  children: ReactNode;
+  /** Called as the panel opens, with the panel: the caller moves focus in (the default, the first focusable, is not used). */
+  onOpened?: ((panel: HTMLElement) => void) | undefined;
+  /** Where focus goes when the panel closes. Unset, or returning null: the element focused when it opened. */
+  finalFocus?: (() => HTMLElement | null) | undefined;
+}
+
+// The sheet of an action done in place (direction.md "דפוסי אינטראקציה": share and report; F3.7 c10, F3.5/F3.6 reuse it): below 1024 px a
+// bottom sheet, from 1024 px a small window in the middle. role="dialog", aria-modal, portaled over a backdrop that blurs the page by 4 px; a
+// focus trap, the page scroll locked and the rest of the page inert (Radix Dialog). Escape and a press outside close it (onOpenChange(false));
+// Back is the screen's (useBackCloses), since only the screen owns the history. Controlled: the element focused when it opened is remembered
+// and given focus back when it closes, unless `finalFocus` names another.
+export function SheetPanel({ open, onOpenChange, children, onOpened, finalFocus }: SheetPanelProps) {
+  const opener = useRef<HTMLElement | null>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-dialog bg-foreground/40 backdrop-blur-xs" />
+        <DialogPrimitive.Content
+          ref={panel}
+          aria-modal="true"
+          onOpenAutoFocus={(event) => {
+            // Runs before Radix moves focus in, so the active element is still the opener.
+            opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+            if (onOpened === undefined || panel.current === null) return;
+            event.preventDefault();
+            onOpened(panel.current);
+          }}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            (finalFocus?.() ?? opener.current)?.focus();
+          }}
+          className={cn(
+            'fixed inset-x-0 bottom-0 z-dialog flex max-h-dvh flex-col gap-4 overflow-y-auto rounded-t-lg bg-card p-card-padding',
+            'text-card-foreground shadow-raised',
+            'lg:inset-0 lg:m-auto lg:h-fit lg:w-full lg:max-w-md lg:rounded-lg',
+          )}
+        >
+          {children}
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  );
+}
+
+export function SheetTitle({ children }: { children: ReactNode }) {
+  return <DialogPrimitive.Title className="text-h3">{children}</DialogPrimitive.Title>;
+}
+
+export function SheetDescription({ children }: { children: ReactNode }) {
+  return <DialogPrimitive.Description className="text-body text-muted-foreground">{children}</DialogPrimitive.Description>;
+}

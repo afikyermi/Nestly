@@ -30,6 +30,8 @@ export const PATHS = {
   changePassword: '/change-password',
   /** F3.8: the medical hotlines page (PG-047, FR-MENU-002), from the side menu; BR-075 rule 2 links here (PG-049, its own part). */
   medicalHotlines: '/medical-hotlines',
+  /** F3.7: the community rules page (PG-049, BR-075, Q2: signed-in only), from the side menu and the report window. */
+  communityRules: '/community-rules',
 } as const;
 
 /** The only paths a Guest may open. */
@@ -54,6 +56,7 @@ export const PROTECTED_PATHS: readonly string[] = [
   PATHS.recoveryQuestions,
   PATHS.changePassword,
   PATHS.medicalHotlines,
+  PATHS.communityRules,
 ];
 
 /** Where a Guest goes from a protected path (ERR-012, Q3): Welcome. The requested path is not kept. */

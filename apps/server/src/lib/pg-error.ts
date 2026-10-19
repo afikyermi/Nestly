@@ -112,6 +112,40 @@ export function hideFaultReply(error: unknown): HideFaultReply | undefined {
   return { status: 500, error: 'server_error' };
 }
 
+/** The report CHECKs of F3.7 (migrations 20261018200000, 20261019200000): the reporter's own account, the text cap, blank text, `other` without text. */
+const REPORT_SELF_CONSTRAINT = 'reports_self_check';
+const REPORT_DETAILS_REQUIRED_CONSTRAINT = 'reports_other_details_check';
+/** One report per person and post: a repeat on a post is 404 like every other refused post (c4); on a comment or user, 409 (c5). */
+const REPORT_POST_KEY_CONSTRAINT = 'reports_reporter_post_key';
+
+export interface ReportFaultReply {
+  readonly status: 400 | 404 | 409 | 500;
+  readonly error: 'invalid' | 'details_required' | 'unavailable' | 'already_reported' | 'server_error';
+}
+
+/**
+ * What a report the database refused answers (F3.7 c3-c5; i3-rest-schema SQLSTATE contract). 42501 (reports_insert_check: a post or comment the
+ * reporter cannot read or wrote, a post they already reported; or the insert policy), 23503 (an unknown target) and 23514 on reports_self_check
+ * (their own account) are one 404 unavailable; 23505 (one report per person and target) is 409 already_reported on a comment or user, and 404
+ * on a post (reports_reporter_post_key: a concurrent repeat that passed the trigger); 23514 on reports_other_details_check is 400
+ * details_required and on any other report CHECK (the text cap, blank text) 400 invalid; any other database error is 500. By code and
+ * constraint only, never the message. `undefined`: the failure did not come from the database.
+ */
+export function reportFaultReply(error: unknown): ReportFaultReply | undefined {
+  const fault = readDatabaseFault(error);
+  if (fault === undefined) return undefined;
+  if (fault.code === '42501' || fault.code === '23503') return { status: 404, error: 'unavailable' };
+  if (fault.code === '23505') {
+    return fault.constraint === REPORT_POST_KEY_CONSTRAINT ? { status: 404, error: 'unavailable' } : { status: 409, error: 'already_reported' };
+  }
+  if (fault.code === '23514') {
+    if (fault.constraint === REPORT_SELF_CONSTRAINT) return { status: 404, error: 'unavailable' };
+    if (fault.constraint === REPORT_DETAILS_REQUIRED_CONSTRAINT) return { status: 400, error: 'details_required' };
+    return { status: 400, error: 'invalid' };
+  }
+  return { status: 500, error: 'server_error' };
+}
+
 /** The project's own SQLSTATEs (class NS) a guard raises for a refused input (i3-rest-schema): the same input is refused again. */
 const DETERMINISTIC_PROJECT_CODES: ReadonlySet<string> = new Set(['NS003', 'NS004']);
 

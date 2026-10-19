@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { formatChildAge, type ProfileView, type RelationshipState } from '@nestly/shared';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
+import { ReportSheet, type ReportSheetProps } from '@/components/domain/report-sheet';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { documentTitle } from '@/lib/document-title';
 import { DIALOG_CANCEL_LABEL, RATE_LIMITED_TEXT, REMOVE_DESCRIPTION, REMOVE_LABEL, removeTitle, RETRY_LABEL } from '@/lib/friend-texts';
 import { GENDER_LABELS } from '@/lib/profile-fields';
+import { REPORT_PROFILE_LABEL } from '@/lib/report-texts';
 import { PersonLists } from './PersonLists';
 import {
   ACCEPT_LABEL,
@@ -74,9 +76,14 @@ export interface UserProfileContentProps {
   onRemove?: () => void;
   onConfirmRemove?: () => void;
   onCancelRemove?: () => void;
+  /** Opens the report window (F3.7 c9); the button shows on a loaded profile only. */
+  onReport?: () => void;
+  /** The report window (F3.7 c10), open while set; it closes onto the report button. */
+  report?: Omit<ReportSheetProps, 'finalFocus'> | null;
 }
 
 const FOCUS_ACTION = '[data-profile-action] button, [data-profile-action] a';
+const REPORT_BUTTON = '[data-profile-report]';
 
 // The Journey Summary (§1.4, FR-PRIV-001): the count, the ages when returned, "בהריון", or the sentence; exactly what the API returned.
 function Summary({ profile }: { profile: ProfileView }) {
@@ -153,9 +160,9 @@ function Actions({ name, relationship, busy, locked, props }: ActionsProps) {
 
 // Another person's profile (§1.4 Basic Public Profile, FR-PRIV-001, FR-REL-001; F2.4c2) inside the shell's `main`: the name, the
 // Journey Summary as returned, the person's Friends and the Friends in common, and the actions of the relationship. Display only: the
-// actions come in as props. While loading, no profile is drawn (c29). The document title is generic: no name outlives the screen.
+// actions come in as props. While loading, no profile is drawn (c29). F3.7: a quiet "דיווח על הפרופיל" and its window. The document title is generic: no name outlives the screen.
 export function UserProfileContent(props: UserProfileContentProps) {
-  const { view, focus, onRetry, onConfirmRemove, onCancelRemove } = props;
+  const { view, focus, onRetry, onConfirmRemove, onCancelRemove, onReport, report = null } = props;
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -219,6 +226,13 @@ export function UserProfileContent(props: UserProfileContentProps) {
           {loaded.profile.relationship !== null ? (
             <Actions name={loaded.profile.fullName} relationship={loaded.profile.relationship} busy={loaded.busy} locked={locked} props={props} />
           ) : null}
+          {/* F3.7 c9: quiet, below the relationship actions; named "דיווח על הפרופיל של <name>" (screen.md). The own profile never comes here. */}
+          <div>
+            <Button variant="text" data-profile-report onClick={onReport}>
+              {REPORT_PROFILE_LABEL}
+              <span className="sr-only"> {friendName(loaded.profile.fullName)}</span>
+            </Button>
+          </div>
           <Summary profile={loaded.profile} />
           <PersonLists name={loaded.profile.fullName} friends={loaded.profile.friends} mutualFriends={loaded.profile.mutualFriends} />
           {loaded.confirm !== null ? (
@@ -235,6 +249,7 @@ export function UserProfileContent(props: UserProfileContentProps) {
               finalFocus={() => rootRef.current?.querySelector<HTMLElement>(FOCUS_ACTION) ?? null}
             />
           ) : null}
+          {report !== null ? <ReportSheet {...report} finalFocus={() => rootRef.current?.querySelector<HTMLElement>(REPORT_BUTTON) ?? null} /> : null}
         </>
       ) : null}
     </div>

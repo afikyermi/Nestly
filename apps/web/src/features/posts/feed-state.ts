@@ -106,13 +106,15 @@ export function withoutHidden(items: readonly FeedUnit[], hiddenIds: readonly st
   return hiddenIds.length === 0 ? [...items] : items.filter((unit) => !hiddenIds.includes(unit.id));
 }
 
-/** What a finished hide or undo leaves (F3.9 c9, c11): the unit no longer pending, and the status and focus the screen contract names. */
+/** What a finished hide, undo, delete or report leaves (F3.9 c9, c11; F3.7 c13): the unit no longer pending, and the status and focus the screen contract names. */
 export type HideResult =
   | { kind: 'hidden'; status: string }
   | { kind: 'unhidden'; status: string }
   | { kind: 'removed'; status: string }
   | { kind: 'hide-failed'; status: string }
-  | { kind: 'undo-failed'; status: string };
+  | { kind: 'undo-failed'; status: string }
+  /** F3.7: a report that keeps the card (404 unavailable): what happened is said, focus back on its "⋯". */
+  | { kind: 'noted'; status: string };
 
 export function withHideResult(state: FeedState, unitId: string, result: HideResult): FeedState {
   const seq = (state.hideFocus?.seq ?? 0) + 1;
@@ -129,6 +131,7 @@ export function withHideResult(state: FeedState, unitId: string, result: HideRes
       return { ...base, items: state.items.filter((unit) => unit.id !== unitId), hiddenIds: state.hiddenIds.filter((id) => id !== unitId), hideFocus: { target: 'index', index, seq } };
     }
     case 'hide-failed':
+    case 'noted':
       return { ...base, hideFocus: { target: 'more', unitId, seq } };
     case 'undo-failed':
       return { ...base, hideFocus: { target: 'undo', unitId, seq } };

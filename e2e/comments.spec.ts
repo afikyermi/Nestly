@@ -57,6 +57,19 @@ const alert = (page: Page, text: string) => page.getByRole('alert').filter({ has
 const item = (page: Page, text: string) => list(page).getByRole('listitem').filter({ hasText: text }).first();
 /** A reply: the innermost match. */
 const reply = (page: Page, text: string) => list(page).getByRole('listitem').filter({ hasText: text }).last();
+// F3.7 c9: the visible delete button moved into the comment's "⋯" menu ("פעולות נוספות לתגובה" -> menuitem "מחיקה"; F3.3's confirmation follows).
+const moreBtn = (scope: Locator) => scope.getByRole('button', { name: 'פעולות נוספות לתגובה', exact: true }).first();
+const menuItem = (page: Page, name: string) => page.getByRole('menuitem', { name, exact: true });
+async function openDelete(page: Page, scope: Locator): Promise<void> {
+  await moreBtn(scope).click();
+  await menuItem(page, 'מחיקה').click();
+}
+async function offersDelete(page: Page, scope: Locator): Promise<boolean> {
+  await moreBtn(scope).click();
+  const offered = (await menuItem(page, 'מחיקה').count()) === 1;
+  await page.keyboard.press('Escape');
+  return offered;
+}
 /** The post's like: the first "לייק" in the region (top of it, c15). */
 const postLike = (page: Page) => btn(region(page), 'לייק').first();
 const box = (page: Page) => page.getByRole('textbox', { name: 'כתיבת תגובה', exact: true });
@@ -102,12 +115,13 @@ test.describe('F3.3 c15 [FR-FEED-001] the thread', () => {
     expect(await page.evaluate((): unknown => Reflect.get(window, '__x'))).toBeUndefined();
     await expect(para.locator('script')).toHaveCount(0);
   });
-  test('[c15][c16] "מחיקה" only on my comments; "השבה" only on top-level comments', async ({ page }) => {
+  test('[c15][c16][F3.7 c9] no visible "מחיקה" button; "מחיקה" is offered in the menu of my comments only; "השבה" only on top-level comments', async ({ page }) => {
     await start(page);
-    await expect(btn(list(page), 'מחיקה')).toHaveCount(2);
-    await expect(btn(item(page, 'שלי\nשורה'), 'מחיקה').first()).toBeVisible();
-    await expect(btn(item(page, 'שלום מנועה'), 'מחיקה')).toHaveCount(0);
-    await expect(btn(item(page, 'תשובה מהמחברת'), 'מחיקה')).toHaveCount(0);
+    await expect(btn(list(page), 'מחיקה')).toHaveCount(0);
+    expect(await offersDelete(page, item(page, 'שלי\nשורה'))).toBe(true);
+    expect(await offersDelete(page, reply(page, 'השבה שלי'))).toBe(true);
+    expect(await offersDelete(page, item(page, 'שלום מנועה'))).toBe(false);
+    expect(await offersDelete(page, item(page, 'תשובה מהמחברת'))).toBe(false);
     await expect(btn(list(page), 'השבה')).toHaveCount(4);
     await expect(list(page).getByRole('list', { name: 'השבות' }).getByRole('button', { name: 'השבה', exact: true })).toHaveCount(0);
   });
@@ -121,7 +135,7 @@ test.describe('F3.3 c16 [AC-076, VAL-036, BR-062] "המחבר"', () => {
     await expect(b).toContainText('תשובה מהמחברת');
     await expect(b.getByRole('img')).toHaveCount(0);
     await expect(b.getByRole('link')).toHaveCount(0);
-    await expect(btn(b, 'מחיקה')).toHaveCount(0);
+    expect(await offersDelete(page, b)).toBe(false);
     const html = await b.evaluate((el) => el.outerHTML);
     expect(html).not.toMatch(/נועה|דנה|מהקהילה|data-testid|href=|src=/);
     expect(html).not.toContain(OTHERS_ID);
@@ -129,7 +143,7 @@ test.describe('F3.3 c16 [AC-076, VAL-036, BR-062] "המחבר"', () => {
   test('[c16] byAuthor with isMine and no author shows "המחבר" and a delete button (the anonymous post author, G2)', async ({ page }) => {
     await start(page, [top(7, 'אני כתבתי', [], { byAuthor: true, isMine: true, author: undefined })]);
     const b = list(page).getByRole('listitem', { name: 'המחבר', exact: true });
-    await expect(btn(b, 'מחיקה')).toBeVisible();
+    expect(await offersDelete(page, b)).toBe(true);
     await expect(page.getByText('דנה כהן')).toHaveCount(0);
   });
 });
@@ -373,7 +387,7 @@ test.describe('F3.3 c17 [VAL-036] the composer', () => {
     expect(net.sends.map((s) => String(s.body).trim())).toEqual(['תודה רבה']);
     const last = list(page).locator(':scope > li').last();
     await expect(last).toContainText('תודה רבה');
-    await expect(btn(last, 'מחיקה')).toBeVisible();
+    expect(await offersDelete(page, last)).toBe(true);
   });
   test('[c17] a failed send keeps the text and alerts "התגובה לא נשלחה. אפשר לנסות שוב"; the next try works', async ({ page }) => {
     const net = await start(page, thread(), (n) => {
@@ -438,14 +452,14 @@ test.describe('F3.3 c17 [VAL-036] the composer', () => {
 test.describe('F3.3 c18 [FR-FEED-001] delete my comment', () => {
   test('[c18] the dialog names the stakes; cancel is focused; Esc and cancel change nothing', async ({ page }) => {
     const net = await start(page);
-    await btn(item(page, 'שלי\nשורה'), 'מחיקה').first().click();
+    await openDelete(page, item(page, 'שלי\nשורה'));
     await expect(confirm(page)).toBeVisible();
     await expect(confirm(page)).toContainText('המחיקה מיידית ולצמיתות');
     await expect(confirm(page)).toContainText('גם ההשבות אליה יימחקו');
     await expect(btn(confirm(page), 'ביטול')).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(confirm(page)).toHaveCount(0);
-    await btn(item(page, 'שלי\nשורה'), 'מחיקה').first().click();
+    await openDelete(page, item(page, 'שלי\nשורה'));
     await btn(confirm(page), 'ביטול').click();
     await expect(confirm(page)).toHaveCount(0);
     expect(net.calls.filter((c) => c.startsWith('DELETE /api/comments/'))).toEqual([]);
@@ -453,13 +467,13 @@ test.describe('F3.3 c18 [FR-FEED-001] delete my comment', () => {
   });
   test('[c18] a reply\'s dialog does not mention replies', async ({ page }) => {
     await start(page);
-    await btn(reply(page, 'השבה שלי'), 'מחיקה').click();
+    await openDelete(page, reply(page, 'השבה שלי'));
     await expect(confirm(page)).toContainText('המחיקה מיידית ולצמיתות');
     await expect(confirm(page)).not.toContainText('גם ההשבות');
   });
   test('[c18] confirming removes the comment and its replies, says "התגובה נמחקה" and focuses the heading', async ({ page }) => {
     const net = await start(page);
-    await btn(item(page, 'שלי\nשורה'), 'מחיקה').first().click();
+    await openDelete(page, item(page, 'שלי\nשורה'));
     await btn(confirm(page), 'מחיקת התגובה').click();
     await expect(confirm(page)).toHaveCount(0);
     await expect(page.getByText('שורה שניה')).toHaveCount(0);
@@ -473,7 +487,7 @@ test.describe('F3.3 c18 [FR-FEED-001] delete my comment', () => {
     const net = await start(page, thread(), (n) => {
       n.fail.remove = 500;
     });
-    await btn(reply(page, 'השבה שלי'), 'מחיקה').click();
+    await openDelete(page, reply(page, 'השבה שלי'));
     await btn(confirm(page), 'מחיקת התגובה').click();
     await expect(confirm(page).getByRole('alert').filter({ hasText: 'המחיקה לא הצליחה. אפשר לנסות שוב' })).toBeVisible();
     await expect(confirm(page)).toBeVisible();
@@ -483,9 +497,11 @@ test.describe('F3.3 c18 [FR-FEED-001] delete my comment', () => {
     await expect(page.getByText('השבה שלי')).toHaveCount(0);
     await expect(status(page, 'התגובה נמחקה')).toBeVisible();
   });
-  test('[c18] keyboard only: Enter on "מחיקה" opens the dialog on cancel; Tab reaches the confirm button', async ({ page }) => {
+  test('[c18][F3.7 c9] keyboard only: Enter on the "⋯" and on "מחיקה" opens the dialog on cancel; Tab reaches the confirm button', async ({ page }) => {
     await start(page);
-    await btn(item(page, 'שלי\nשורה'), 'מחיקה').first().focus();
+    await moreBtn(item(page, 'שלי\nשורה')).focus();
+    await page.keyboard.press('Enter');
+    await expect(menuItem(page, 'מחיקה')).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(btn(confirm(page), 'ביטול')).toBeFocused();
     await page.keyboard.press('Tab');
@@ -497,12 +513,12 @@ test.describe('F3.3 c18 [FR-FEED-001] delete my comment', () => {
 
 test.describe('F3.3 c20 [NFR accessibility] axe, touch size, focus', () => {
   for (const { label, viewport } of SIZES) {
-    test(`[c20] ${label}: the thread passes axe; like, reply and delete are at least 44x44 with a visible focus`, async ({ page }) => {
+    test(`[c20] ${label}: the thread passes axe; like, reply and the comment menu button are at least 44x44 with a visible focus`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await start(page);
       await expect(list(page)).toBeVisible();
       await scan(page);
-      for (const control of [postLike(page), btn(item(page, 'שלום מנועה'), 'לייק, 2'), btn(item(page, 'שלום מנועה'), 'השבה'), btn(item(page, 'שלי\nשורה'), 'מחיקה').first()]) {
+      for (const control of [postLike(page), btn(item(page, 'שלום מנועה'), 'לייק, 2'), btn(item(page, 'שלום מנועה'), 'השבה'), moreBtn(item(page, 'שלי\nשורה'))]) {
         const size = await control.boundingBox();
         expect(size?.width ?? 0).toBeGreaterThanOrEqual(44);
         expect(size?.height ?? 0).toBeGreaterThanOrEqual(44);
@@ -520,7 +536,7 @@ test.describe('F3.3 c20 [NFR accessibility] axe, touch size, focus', () => {
       await start(page);
       await btn(item(page, 'ללא שם'), 'השבה').click();
       await scan(page);
-      await btn(item(page, 'שלי\nשורה'), 'מחיקה').first().click();
+      await openDelete(page, item(page, 'שלי\nשורה'));
       await expect(confirm(page)).toBeVisible();
       await scan(page);
     });

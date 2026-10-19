@@ -3,6 +3,8 @@ import type { CommentView } from '@nestly/shared';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { LikeButton } from '@/components/shared/like-button';
 import { Button } from '@/components/ui/button';
+import { MoreActionsMenu } from '@/components/ui/more-actions-menu';
+import { COMMENT_MORE_LABEL, REPORT_COMMENT_ITEM } from '@/lib/report-texts';
 import { formatPostTime } from '@/lib/format-post-time';
 import { hasMoreReplies, type ThreadItem } from './comments-state';
 import {
@@ -17,6 +19,7 @@ import {
   REPLY_LABEL,
 } from './comments-texts';
 import { MEMBER_FALLBACK_LABEL } from './feed-texts';
+import { MORE_ACTIONS_MENU_LABEL } from './hide-texts';
 import { RETRY_LABEL } from './posts-texts';
 
 /**
@@ -26,9 +29,19 @@ import { RETRY_LABEL } from './posts-texts';
 const authorLine = (comment: CommentView): string =>
   comment.author !== undefined ? (comment.author.name ?? MEMBER_FALLBACK_LABEL) : comment.byAuthor ? AUTHOR_LABEL : MEMBER_FALLBACK_LABEL;
 
+/** The "⋯" menu of every comment and reply (F3.7 c9): one open at a time; the viewer's own has "מחיקה", anyone else's "דיווח על התגובה". */
+export interface CommentMenu {
+  openId: string | null;
+  onOpenChange: (commentId: string, open: boolean) => void;
+  /** A press outside the open menu, with what was pressed (it may be a link). */
+  onPressOutside?: (target: EventTarget | null) => void;
+  onDelete: (commentId: string) => void;
+  onReport: (commentId: string) => void;
+}
+
 export interface CommentActions {
   onLike: (commentId: string) => void;
-  onDelete: (commentId: string) => void;
+  menu: CommentMenu;
 }
 
 interface CommentBlockProps extends CommentActions {
@@ -39,8 +52,9 @@ interface CommentBlockProps extends CommentActions {
 }
 
 // One comment or reply (F3.3 w1; FR-FEED-003): the author line, the time, the text and its actions. The text is the person's own, so it is
-// plain text (never markup), keeps its line breaks and takes its own direction. The item is named by its author line.
-function CommentBlock({ comment, onReply, onLike, onDelete, children }: CommentBlockProps) {
+// plain text (never markup), keeps its line breaks and takes its own direction. The item is named by its author line. Its "⋯" sits in the
+// author line, before the text and the replies, so it is the first menu button inside the item (focus returns to it after the menu's action).
+function CommentBlock({ comment, onReply, onLike, menu, children }: CommentBlockProps) {
   const authorId = useId();
   return (
     <li
@@ -53,9 +67,23 @@ function CommentBlock({ comment, onReply, onLike, onDelete, children }: CommentB
         <span id={authorId} className="text-label">
           {authorLine(comment)}
         </span>
-        <time dateTime={comment.createdAt} className="text-small text-muted-foreground">
-          {formatPostTime(comment.createdAt)}
-        </time>
+        <div className="flex items-center gap-1">
+          <time dateTime={comment.createdAt} className="text-small text-muted-foreground">
+            {formatPostTime(comment.createdAt)}
+          </time>
+          <MoreActionsMenu
+            label={COMMENT_MORE_LABEL}
+            menuLabel={MORE_ACTIONS_MENU_LABEL}
+            items={
+              comment.isMine
+                ? [{ key: 'delete', label: COMMENT_DELETE_LABEL, onSelect: () => menu.onDelete(comment.id) }]
+                : [{ key: 'report', label: REPORT_COMMENT_ITEM, onSelect: () => menu.onReport(comment.id) }]
+            }
+            open={menu.openId === comment.id}
+            onOpenChange={(open) => menu.onOpenChange(comment.id, open)}
+            {...(menu.onPressOutside === undefined ? {} : { onPressOutside: menu.onPressOutside })}
+          />
+        </div>
       </div>
       <p dir="auto" className="whitespace-pre-wrap wrap-anywhere">
         {comment.body}
@@ -65,11 +93,6 @@ function CommentBlock({ comment, onReply, onLike, onDelete, children }: CommentB
         {onReply !== undefined ? (
           <Button variant="text" data-reply-button onClick={onReply}>
             {REPLY_LABEL}
-          </Button>
-        ) : null}
-        {comment.isMine ? (
-          <Button variant="text" data-delete-button onClick={() => onDelete(comment.id)}>
-            {COMMENT_DELETE_LABEL}
           </Button>
         ) : null}
       </div>
@@ -87,14 +110,14 @@ export interface CommentItemProps extends CommentActions {
 }
 
 // A top-level comment with its replies (one level), the button for the replies not loaded yet, and the reply box when it is open here.
-export function CommentItem({ item, onReply, onMoreReplies, onLike, onDelete, replyBox }: CommentItemProps) {
+export function CommentItem({ item, onReply, onMoreReplies, onLike, menu, replyBox }: CommentItemProps) {
   const more = hasMoreReplies(item);
   return (
-    <CommentBlock comment={item} onReply={() => onReply(item.id)} onLike={onLike} onDelete={onDelete}>
+    <CommentBlock comment={item} onReply={() => onReply(item.id)} onLike={onLike} menu={menu}>
       {item.replies.length > 0 ? (
         <ul aria-label={REPLIES_LIST_LABEL} className="flex flex-col gap-2 border-s-2 border-border ps-3">
           {item.replies.map((reply) => (
-            <CommentBlock key={reply.id} comment={reply} onLike={onLike} onDelete={onDelete} />
+            <CommentBlock key={reply.id} comment={reply} onLike={onLike} menu={menu} />
           ))}
         </ul>
       ) : null}

@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { PATHS } from '@/app/paths';
+import { useBackCloses } from '@/hooks/use-back-closes';
+import { reportSheetProps, useReport, type ReportResult } from '@/hooks/use-report';
+import { ALREADY_REPORTED_STATUS, POST_REPORTED_STATUS, REPORT_POST_ITEM, REPORT_UNAVAILABLE_STATUS } from '@/lib/report-texts';
 import { postPath } from '@/lib/post-link';
 import { useSessionAccount } from '@/hooks/use-session-account';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
@@ -9,6 +12,7 @@ import { handOverStatus, takeEdit } from './flash-status';
 import { checkPostForm, type AnonymousMode, type PostFormValues } from './post-form';
 import { failureText, refusedErrors } from './post-outcome';
 import { CommentsSection } from './CommentsSection';
+import { outsidePressHandler } from './outside-press';
 import { PostContent, type PostEdit, type PostFocus, type PostScreenView } from './PostContent';
 import { DELETE_FAILED_TEXT, DELETED_STATUS, LOAD_FAILED_TEXT, SAVE_FAILED_TEXT, UPDATED_STATUS } from './posts-texts';
 
@@ -34,6 +38,26 @@ export function PostScreen({ postId }: { postId: string }) {
   const wantsEdit = useRef(editAsked);
 
   const focusOn = (target: PostFocus['target']) => setFocus((current) => ({ target, tick: current.tick + 1 }));
+
+  // F3.7: a post the viewer did not write has a "⋯" with "דיווח על הפוסט". Filed (or filed before), the post is not shown to them again
+  // (7א): it is replaced by the paragraph and "חזרה לפיד", focus on it. 404: the post stays and the status says so (focus back on "⋯").
+  const [menuOpen, setMenuOpen] = useState(false);
+  const report = useReport((_target, result: ReportResult) => {
+    if (result === 'unavailable') {
+      setView((current) => (current.kind === 'loaded' ? { ...current, status: REPORT_UNAVAILABLE_STATUS } : current));
+      return;
+    }
+    setView({ kind: 'reported', text: result === 'received' ? POST_REPORTED_STATUS : ALREADY_REPORTED_STATUS });
+    focusOn('message');
+  });
+  // Back while the report is in flight keeps the window (the hook adds its entry again). A press outside the menu: as the feed's (F3.9).
+  const back = useBackCloses(menuOpen || report.draft !== null, () => {
+    if (report.draft?.sending === true) return false;
+    setMenuOpen(false);
+    report.cancel();
+    return true;
+  });
+  const pressedOutside = outsidePressHandler(back);
 
   // What a refused answer means beyond this screen: the session guard is told to look again.
   const refused = useCallback(
@@ -184,5 +208,23 @@ export function PostScreen({ postId }: { postId: string }) {
         asAnonymousAuthor={loaded.post.isAnonymous && loaded.post.isMine}
       />
     );
-  return <PostContent view={view} focus={focus} onRetry={() => void load(true)} {...actions} thread={thread} />;
+  // F3.7 c9: a post the viewer did not write (isMine is the server's: an anonymous post's own author has it too, and gets no report).
+  const moreActions =
+    loaded === null || loaded.post.isMine || loaded.edit !== null
+      ? []
+      : [{ key: 'report', label: REPORT_POST_ITEM, onSelect: () => report.start({ kind: 'post', id: postId }) }];
+  return (
+    <PostContent
+      view={view}
+      focus={focus}
+      onRetry={() => void load(true)}
+      {...actions}
+      thread={thread}
+      moreActions={moreActions}
+      menuOpen={menuOpen}
+      onMenuOpenChange={setMenuOpen}
+      onMenuPressOutside={pressedOutside}
+      report={report.draft === null ? null : reportSheetProps(report, report.draft, PATHS.communityRules)}
+    />
+  );
 }

@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RelationshipState } from '@nestly/shared';
+import { PATHS } from '@/app/paths';
+import { useBackCloses } from '@/hooks/use-back-closes';
+import { reportSheetProps, useReport, type ReportResult } from '@/hooks/use-report';
 import { useSessionAccount } from '@/hooks/use-session-account';
+import { ALREADY_REPORTED_STATUS, REPORT_RECEIVED_STATUS, REPORT_UNAVAILABLE_STATUS } from '@/lib/report-texts';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
 import { ACTION_FAILED_TEXT, FRIEND_GONE_TEXT, GONE_TEXT, RATE_LIMITED_TEXT } from '@/lib/friend-texts';
 import { actOnFriend, sendFriendRequest, type FriendAction, type FriendsOutcome } from '@/services/api/friends';
@@ -26,6 +30,13 @@ const STATUS_OF: Record<Action, string> = {
   remove: REMOVED_STATUS,
 };
 
+/** F3.7 c13: a profile report changes nothing on the screen (Afik 18.10): what happened is said, and focus goes back to the button. */
+const REPORT_STATUS: Record<ReportResult, string> = {
+  received: REPORT_RECEIVED_STATUS,
+  'already-reported': ALREADY_REPORTED_STATUS,
+  unavailable: REPORT_UNAVAILABLE_STATUS,
+};
+
 /** The state a done action moves to without asking the server. Accept and remove are not here: they fetch the profile again (c28). */
 const MOVES_TO: Partial<Record<Action, RelationshipState>> = { send: 'sent', cancel: 'none', decline: 'none' };
 
@@ -43,6 +54,17 @@ export function UserProfileScreen({ userId }: { userId: string }) {
   const loads = useRef(0);
 
   const focusOn = (target: UserProfileFocus['target']) => setFocus((current) => ({ target, tick: current.tick + 1 }));
+
+  // F3.7: the report window over the profile; Back closes it and stays here (direction.md).
+  const report = useReport((_target, result) =>
+    setView((latest) => (latest.kind === 'loaded' ? { ...latest, failure: null, status: REPORT_STATUS[result] } : latest)),
+  );
+  // Back while the report is in flight keeps the window (the hook adds its entry again).
+  useBackCloses(report.draft !== null, () => {
+    if (report.draft?.sending === true) return false;
+    report.cancel();
+    return true;
+  });
 
   // What a refused answer means beyond this screen: the session guard is told to look again.
   const refused = useCallback(
@@ -147,6 +169,11 @@ export function UserProfileScreen({ userId }: { userId: string }) {
             setView({ ...loaded, failure: null, status: '', confirm: { saving: false, failure: null } });
           },
           onConfirmRemove: () => void act(loaded, 'remove'),
+          onReport: () => {
+            if (acting.current) return;
+            setView({ ...loaded, status: '' });
+            report.start({ kind: 'user', id: userId });
+          },
           onCancelRemove: () => {
             // Nothing is sent. The dialog stays while the removal is in flight.
             if (acting.current) return;
@@ -154,5 +181,13 @@ export function UserProfileScreen({ userId }: { userId: string }) {
           },
         };
 
-  return <UserProfileContent view={view} focus={focus} onRetry={() => void open(null, true)} {...actions} />;
+  return (
+    <UserProfileContent
+      view={view}
+      focus={focus}
+      onRetry={() => void open(null, true)}
+      {...actions}
+      report={report.draft === null ? null : reportSheetProps(report, report.draft, PATHS.communityRules)}
+    />
+  );
 }

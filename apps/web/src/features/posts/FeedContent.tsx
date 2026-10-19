@@ -2,6 +2,7 @@ import { useEffect, useRef, type Ref, type RefObject } from 'react';
 import type { FeedUnit } from '@nestly/shared';
 import { EmptyFeedIllustration } from '@/components/shared/illustrations';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
+import { ReportSheet, type ReportSheetProps } from '@/components/domain/report-sheet';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
 import type { MoreActionsItem } from '@/components/ui/more-actions-menu';
@@ -34,6 +35,8 @@ export interface FeedContentProps {
   confirm?: { unitId: string; saving: boolean; failure: string | null } | null;
   onConfirmDelete?: () => void;
   onCancelDelete?: () => void;
+  /** The report window of a card (F3.7 c10), open while set; it closes onto the card's "⋯", or where the card's removal sends focus. */
+  report?: { unitId: string; sheet: Omit<ReportSheetProps, 'finalFocus'> } | null;
 }
 
 function cardOf(list: HTMLElement | null, unitId: string): HTMLElement | undefined {
@@ -69,7 +72,7 @@ function SkeletonCards() {
 // F3.9: a card the viewer hid here is drawn as its placeholder in the same place; after a hide or an undo, focus goes where hideFocus says.
 export function FeedContent(props: FeedContentProps) {
   const { state, sentinelRef, onRetry, onToggleLike, actionsFor, onUndoHide, headingRef, openMenuId = null, onMenuOpenChange } = props;
-  const { confirm = null, onConfirmDelete, onCancelDelete, onMenuPressOutside } = props;
+  const { confirm = null, onConfirmDelete, onCancelDelete, onMenuPressOutside, report = null } = props;
   const { phase, loading, items, message, focusIndex, hiddenIds, pendingHideIds, hideFocus } = state;
   const listRef = useRef<HTMLDivElement>(null);
   const latestFocus = useRef(hideFocus);
@@ -83,7 +86,7 @@ export function FeedContent(props: FeedContentProps) {
     if (hideFocus !== null) (hideFocusElement(listRef.current, hideFocus) ?? headingRef?.current)?.focus();
   }, [hideFocus, headingRef]);
 
-  // The confirmation closes onto its card's "⋯" (cancel, Esc, Back), or, the card deleted, where the removal sends focus.
+  // The confirmation (and the report window) closes onto its card's "⋯" (cancel, Esc, Back), or, the card gone, where the removal sends focus.
   const afterConfirm = (unitId: string): HTMLElement | null => {
     const more = cardOf(listRef.current, unitId)?.querySelector<HTMLElement>('[data-more-actions]');
     if (more !== null && more !== undefined) return more;
@@ -162,6 +165,7 @@ export function FeedContent(props: FeedContentProps) {
           finalFocus={() => afterConfirm(confirm.unitId)}
         />
       ) : null}
+      {report !== null ? <ReportSheet {...report.sheet} finalFocus={() => afterConfirm(report.unitId)} /> : null}
     </div>
   );
 }

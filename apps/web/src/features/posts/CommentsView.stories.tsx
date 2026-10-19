@@ -4,10 +4,11 @@ import { CommentsView } from './CommentsView';
 import { EMPTY_COMPOSER, freshItem, type ThreadItem, type ThreadState } from './comments-state';
 import { SEND_FAILED_TEXT } from './comments-texts';
 import { DELETE_FAILED_TEXT } from './posts-texts';
+import { REPORT_FAILED_TEXT } from '@/lib/report-texts';
 import type { CommentWrites } from './use-comment-writes';
 import type { ThreadFlow } from './use-comments';
 
-// The comments region (F3.3 w1) in each of its states, drawn from props alone, as it sits under a post.
+// The comments region (F3.3 w1; F3.7's "⋯" and report window) in each of its states, drawn from props alone, as it sits under a post.
 const noop = () => undefined;
 const writes: CommentWrites = {
   root: EMPTY_COMPOSER,
@@ -38,11 +39,46 @@ function flowOf(thread: ThreadState): ThreadFlow {
   };
 }
 
-function Screen(props: { thread: ThreadState; writes?: Partial<CommentWrites>; asAnonymousAuthor?: boolean }) {
+/** A comment's "⋯" menu open (F3.7), the report window over the region, or the anonymous post's own author (F3.4 c14). */
+interface ScreenProps {
+  thread: ThreadState;
+  writes?: Partial<CommentWrites>;
+  openMenuId?: string;
+  report?: { commentId: string; failure?: string };
+  asAnonymousAuthor?: boolean;
+}
+
+function Screen(props: ScreenProps) {
+  const report =
+    props.report === undefined
+      ? null
+      : {
+          commentId: props.report.commentId,
+          sheet: {
+            targetKind: 'comment' as const,
+            reason: props.report.failure === undefined ? null : ('harassment' as const),
+            details: '',
+            errors: {},
+            sending: false,
+            failure: props.report.failure ?? null,
+            focus: { field: 'reason' as const, tick: 0 },
+            rulesHref: '/community-rules',
+            onReasonChange: noop,
+            onDetailsChange: noop,
+            onSend: noop,
+            onCancel: noop,
+          },
+        };
   return (
     <main className="px-4 py-5">
       <div className="max-w-md">
-        <CommentsView flow={flowOf(props.thread)} writes={{ ...writes, ...props.writes }} asAnonymousAuthor={props.asAnonymousAuthor ?? false} />
+        <CommentsView
+          flow={flowOf(props.thread)}
+          writes={{ ...writes, ...props.writes }}
+          asAnonymousAuthor={props.asAnonymousAuthor ?? false}
+          menu={{ openId: props.openMenuId ?? null, onOpenChange: noop, onPressOutside: noop, onReport: noop }}
+          report={report}
+        />
       </div>
     </main>
   );
@@ -104,3 +140,8 @@ export const DeleteFailed: Story = {
 export const AsAnonymousAuthor: Story = {
   args: { thread: { ...base, items: [first, author] }, writes: { reply: { ...EMPTY_COMPOSER, parentId: first.id, text: '' } }, asAnonymousAuthor: true },
 };
+// F3.7: another person's comment's "⋯" (report), the viewer's own (delete, moved from F3.3's button), and the report window.
+export const OthersCommentMenu: Story = { args: { thread: { ...base, items: [first] }, openMenuId: first.id } };
+export const OwnCommentMenu: Story = { args: { thread: { ...base, items: [author] }, openMenuId: author.id } };
+export const ReportOpen: Story = { args: { thread: { ...base, items: [first] }, report: { commentId: first.id } } };
+export const ReportFailed: Story = { args: { thread: { ...base, items: [first] }, report: { commentId: first.id, failure: REPORT_FAILED_TEXT } } };

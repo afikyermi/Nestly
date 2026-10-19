@@ -1,5 +1,6 @@
 import { Route, Routes } from 'react-router';
 import { ChangePasswordPage } from '@/pages/change-password/ChangePasswordPage';
+import { CommunityRulesPage } from '@/pages/community-rules/CommunityRulesPage';
 import { NewPostRedirect } from '@/pages/compose-post/NewPostRedirect';
 import { FeedPage } from '@/pages/feed/FeedPage';
 import { FriendsPage } from '@/pages/friends/FriendsPage';
@@ -49,6 +50,7 @@ export function AppRoutes() {
             <Route path={PATHS.recoveryQuestions} element={<RecoveryQuestionsPage />} />
             <Route path={PATHS.changePassword} element={<ChangePasswordPage />} />
             <Route path={PATHS.medicalHotlines} element={<MedicalHotlinesPage />} />
+            <Route path={PATHS.communityRules} element={<CommunityRulesPage />} />
             <Route path={PATHS.setNewPassword} element={<SetNewPasswordPage />} />
           </Route>
         </Routes>
