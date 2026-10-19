@@ -10,7 +10,11 @@ Comment added on `reports_details_length_check` (pattern of comments_body_length
 **Deliberately not done**   pgTAP (TE), PR-B, `lib/pg-error.ts` NS002–NS005 (product code, feature PRs), `post_hides_insert_owner` policy comment
 still says "the FK proves the post exists" (now the guard's NS004 does first; schema.md lists no comment change for it).
 **Uncertain**       Down scripts not exercised by db-local (catalog-fingerprint is CI-only); checked by a manual down→up, see Evidence.
+N1 cost: per name, EXISTS over the commenter's comments until the first readable one (schema.md "Indexes"); fine at MVP.
 **Evidence**        typecheck, lint, check:budgets green. `db-local test` without N1: 21 files / 757 passed, 5 skipped (main's suite green).
 pgTAP is not run by db-local; ran it informally as supabase_admin + SET ROLE app_server: migration-caused failures 20#42, 20#44, 70#20/21/26,
 71#179/180 (rest are harness artifacts: session_user, "app_server without SET ROLE"). File 20 is not in schema.md's amendment list.
-**Neighbouring**    none.
+With N1: 755 passed, 2 failed — exactly the two `[F3.3-b1 c7]` assertions (D1). Manual down N1 → down PR-A → up PR-A → up N1 in the
+local container (as app_owner): catalog fingerprint (functions+comments, policies, constraints, triggers) returns to each prior value.
+**Neighbouring**    `tools/db-local.mjs` uses one fixed container name/port: parallel worktrees (wt/f34) recreate it mid-run → false
+"password authentication failed for app_server" failures. Two of my runs were void for that; reran when free.
