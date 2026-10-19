@@ -29,9 +29,11 @@ until then fixtures come from the harness (as F3.2). The action row is this part
    to others; other commenters keep `author`. On a named post the author's comment keeps `author`. The real id is in no response, error or log.
 7. 🔴 [I b1] `author.name` = what `regular_names` returns to the viewer under RLS, else null. One fixture table (self, friend, request
    counterparty, stranger → expected) holds the expectation, so a policy change edits the table, not code.
-8. 🔴 [I b1] `GET /posts/:id/comments?cursor=`: `{items, nextCursor}`; top-level oldest first (`createdAt, id`), 20 a page, each with all
-   `replies` oldest first; empty → `{items:[],nextCursor:null}`; invalid cursor → 400 `cursor_invalid`; unreadable post → 404. Absent: suspended
-   or banned commenter, held comment, reply under a held parent. Present: a reported comment (Afik 18.10), a `restricted` commenter's. Delete between pages: no repeat, no skip.
+8. 🔴 [I b1] `GET /posts/:id/comments?cursor=`: `{items, nextCursor}`; top-level oldest first (`createdAt, id`), 20 a page; each item carries its first 3
+   `replies` oldest first and `replyCount` (RLS-visible replies under it, none whose parent isn't visible); empty → `{items:[],nextCursor:null}`; invalid cursor → 400 `cursor_invalid`;
+   unreadable post → 404. Absent: suspended or banned commenter, held comment, reply under a held parent. Present: a reported comment (Afik 18.10), a `restricted` commenter's. Delete between pages: no repeat, no skip.
+   `GET /api/comments/:id/replies?cursor=` → `{items, nextCursor}`, replies oldest first, 20 a page, keyset (`createdAt, id`), first call from the oldest (client merges by id);
+   invalid, extra-key or non-reply cursor → 400 `cursor_invalid`; parent unknown, itself a reply, held, or on an unreadable post → 404 `comment_unavailable`, one identical body; 401/403 as c4; 25 replies = 3 inline + pages of 20 and 5 without repeat or skip.
 9. 🔴 [I b1] `DELETE /comments/:id`: commenter → 204, row, replies, likes gone; with an open report → 204, gone for every reader, same response.
    Another's comment (post author too) or unknown → 404, unchanged. G2: own comment deletable after hiding or reporting the post, and by an anonymous post's author.
 10. 🔴 [I b2] `PUT`/`DELETE /posts/:id/like` and `/comments/:id/like` (active Regular, readable target) → 204, idempotent (repeat PUT: one like;
@@ -48,22 +50,22 @@ until then fixtures come from the harness (as F3.2). The action row is this part
     `/posts/:id#comments`; share and anonymous cards too, no author data added. Click: count ±1 at once, quick double click one request, failure reverts with the screen.md status. Scroll and the single `GET /feed` unchanged.
 14. 🎨 [E w2] Like, open the post, go back: the restored card shows the new state. The comments link lands on the "תגובות" heading, focused.
 15. 🎨 [U w1] Post page: region "תגובות" with the post's like and count; thread `ul`, replies nested `ul`; each: name, time, plain-text body (`dir=auto`),
-    like, "השבה" (top-level only), "מחיקה" (`isMine`). Name = `author.name ?? "מהקהילה"`, so Afik's open answer needs no web change.
+    like, "השבה" (top-level only), "מחיקה" (`isMine`); "הצגת עוד השבות" when `replyCount` exceeds the loaded replies. Name = `author.name ?? "מהקהילה"`, so Afik's open answer needs no web change.
 16. 🔴 [U+E w1] `byAuthor` without `author` shows "המחבר": no name, avatar, link; DOM, props, test ids hold no author data; delete shows for `isMine`.
 17. 🎨 [E w1] Composer (comment, reply): blank → field message, focus on box; 1,001 → too-long message; counter at 100 left or fewer; success appends the
     server comment, clears, status "התגובה נוספה"; failure keeps text with alert; double click sends one request.
 18. 🎨 [E w1] Delete: alertdialog (cancel focused, Esc cancels); confirm removes comment and replies, status "התגובה נמחקה", focus on heading; failure keeps dialog with alert. Others' comments show no delete.
-19. 🎨 [E w1] Loading, empty (composer stays), error with "נסו שוב", "עוד תגובות" when `nextCursor` (its error keeps the list); post 404 unchanged; like failure reverts.
+19. 🎨 [E w1] Loading, empty (composer stays), error with "נסו שוב", "עוד תגובות" when `nextCursor` and "הצגת עוד השבות" when replies remain (each error keeps the list); post 404 unchanged; like failure reverts.
 20. 🎨 [E w1+w2] axe 0 at 375 px on both screens; like, reply, delete, comments link ≥44×44 px, visible focus; only this spec's requests.
 
 **Open questions**
 - **DECISION REQUEST (Afik, privacy; question 7 pending):** may a stranger see a commenter's name? ⭐ names only as `regular_names` RLS allows
   (self, friends, request counterparties), else "מהקהילה". An answer is a schema PR on that policy; c7, c15 absorb it; open names add one copy notice.
 - Length 1,000 → **decided (unreserved):** half a post; ~175 Hebrew words fit a supportive answer.
-- Rate limit (SRS silent) → **assumed:** none beyond the platform's. Replies unbounded, loaded with the parent; 20 top-level a page.
+- Rate limit (SRS silent) → **assumed:** none beyond the platform's. Replies: 3 inline, rest 20 a page (ORCHESTRATOR, CRITIC b1); 20 top-level a page.
 - Own-content like → **assumed:** allowed. Comment on a share → **assumed:** on the share row. A&D after Gate 1: I3-algorithm.md allow-list; S-34 widened; DATA ARCHITECT: column comments vs grants.
 
 **Size estimate**  ~1,500 lines: **five PRs.** a CHECK+pgTAP (c1) ~50, DATA ARCHITECT, P6 · b1 shared + comments (c2-9) ~450, after a · b2 likes, counts,
 feed (c10-12) ~400, after b1 · w1 post page (c15-19, c20) ~450, `LikeButton` here, after b2 · w2 feed card (c13-14, c20) ~250, after w1.
 
-**Gate 1 (ORCHESTRATOR, 19.10):** spec.md + screen.md approved after A&D findings 1–4, 6, 8 validated (I3-algorithm.md amended). Split a → b1 → b2 → w1 → w2 accepted.
+**Gate 1 (ORCHESTRATOR, 19.10):** spec.md + screen.md approved after A&D findings 1–4, 6, 8 validated (I3-algorithm.md amended). Split a → b1 → b2 → w1 → w2 accepted. Re-stated after SPEC's c8 rewrite (bounded replies, ORCHESTRATOR decision 19.10, findings-b1.md).

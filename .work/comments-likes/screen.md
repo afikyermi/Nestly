@@ -20,6 +20,7 @@ Both after the body, inside the article; share and anonymous cards too (a share'
 | body | paragraph | the comment text | plain text, line breaks kept, `dir="auto"`; `<script>` as text |
 | comment like | button | לייק · לייק, N | as the card (c15) |
 | reply | button | השבה | top-level only; opens the reply box, focus to its textbox (c15, c17) |
+| more replies | button | הצגת עוד השבות | after a comment's replies, only while `replyCount` exceeds those loaded; pending "טוענים"; new replies append, focus stays on the button, or on the first new reply when the button disappears (c15, c19) |
 | delete | button | מחיקה | only when `isMine` (c16, c18) |
 | form | form | כתיבת תגובה · כתיבת השבה | below the thread; the same form for a reply (c17) |
 | text | textbox | כתיבת תגובה · כתיבת השבה | visible label, dir=rtl; invalid: aria-invalid + aria-describedby to field-message |
@@ -35,6 +36,7 @@ Both after the body, inside the article; share and anonymous cards too (a share'
 **Status** (polite) send "התגובה נוספה" · delete "התגובה נמחקה", focus on the heading · like failure as above.
 **Errors** thread load: inline-alert "לא הצלחנו לטעון את התגובות. אפשר לנסות שוב" + "נסו שוב".
 · more: list kept, alert after the last comment + "נסו שוב" (same cursor). · send: "התגובה לא נשלחה. אפשר לנסות שוב", text kept.
+· more replies: replies kept, alert under that comment's replies "לא הצלחנו לטעון את ההשבות. אפשר לנסות שוב" + "נסו שוב"; 404 (parent gone): the comment's block shows "התגובה אינה זמינה".
 · delete: dialog stays, "המחיקה לא הצליחה. אפשר לנסות שוב".
 **Other** axe 0 at 375 px; like, reply, delete, comments link ≥44×44 px, visible focus (c20). Professional: no new control.
 **Open (default none)** If question 7 opens names to everyone: a line under the textbox "השם שלכם יוצג לכל מי שיכול לראות את התגובה" (copy only).

@@ -59,6 +59,35 @@ export function postFaultReply(error: unknown): PostFaultReply | undefined {
   return { status: 500, error: 'server_error' };
 }
 
+/** The constraint of F3.3 criterion 1: a comment's or reply's text is at most COMMENT_BODY_MAX code points. */
+const COMMENT_BODY_LENGTH_CONSTRAINT = 'comments_body_length_check';
+
+export interface CommentFaultReply {
+  readonly status: 400 | 403 | 404 | 422 | 500;
+  readonly error: 'parent_invalid' | 'not_allowed' | 'post_unavailable' | 'body_too_long' | 'server_error';
+}
+
+/** What was asked: a comment (`create`), a reply to a parent (`create_reply`), or any other statement. */
+export type CommentOperation = 'create' | 'create_reply' | 'other';
+
+/**
+ * What a comment write the database refused answers (F3.3 criteria 2-5). 23514 on the body-length CHECK is 422. On a create, 23503 and 42501
+ * (the post or the parent went away or became unusable between the reads and the insert) are 400 parent_invalid for a reply, else 404
+ * post_unavailable. Elsewhere 42501 is 403 and 23503 is 404. Any other database error is 500.
+ * Never the message, constraint or table name. `undefined`: the failure did not come from the database (the caller handles it).
+ */
+export function commentFaultReply(error: unknown, operation: CommentOperation = 'other'): CommentFaultReply | undefined {
+  const fault = readDatabaseFault(error);
+  if (fault === undefined) return undefined;
+  if (fault.code === '23514' && fault.constraint === COMMENT_BODY_LENGTH_CONSTRAINT) return { status: 422, error: 'body_too_long' };
+  if (fault.code === '42501' || fault.code === '23503') {
+    if (operation === 'create_reply') return { status: 400, error: 'parent_invalid' };
+    if (operation === 'create') return { status: 404, error: 'post_unavailable' };
+    return fault.code === '42501' ? { status: 403, error: 'not_allowed' } : { status: 404, error: 'post_unavailable' };
+  }
+  return { status: 500, error: 'server_error' };
+}
+
 /** SQLSTATE class 23 (a constraint) and 42501 (a privilege or policy): the same input fails the same way again. */
 function isDeterministicFault(code: string): boolean {
   return code.startsWith('23') || code === '42501';

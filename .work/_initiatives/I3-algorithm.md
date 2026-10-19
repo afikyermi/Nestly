@@ -4,7 +4,9 @@
 Afik's final decisions of 18.10 on reported comments/users and on "restricted" profiles, relayed by ORCHESTRATOR) · 18.10.2026
 (F3.2a2 review low 4, `.work/feed-view/findings-a2.md`: Pipeline 6 lists the score inputs not bounded by `asOf`; DR-6 decided) ·
 19.10.2026 (F3.3 review finding 5, `.work/comments-likes/algorithm-review.md`: displayed counts and the viewer's own like-state
-added to the purpose map; display and like-state statements added beside the ranking allow-list).
+added to the purpose map; display and like-state statements added beside the ranking allow-list) · 19.10.2026 (F3.3 b1 CRITIC
+open item, `.work/comments-likes/findings-b1.md`: comment-thread `isMine` may read the caller's own `post_authors` row; section
+"Comment-thread statement" added).
 **Status:** DR-1..DR-4 (incl. DR-4b) and DR-6 answered by Afik (`I3-questions.md` → "תשובות" and his 18.10 final decisions;
 DR-6: 4א, 18.10), DR-5 decided by ORCHESTRATOR. Nothing open for Afik in this file.
 **Scope:** the Regular User feed of I3 (FR-FEED-001..007, FR-MOD-001 report action, FR-ALG-002 subset; roadmap I3 row).
@@ -27,6 +29,7 @@ Rule-based, no ML/LLM (P-ALG-01, BR-049). Any learned component is a separate re
 | Count of Likes and Comments by active users other than the author (counts only, never who; precise `n` in **Pipeline** 3) | Quality component | FR-ALG-002 "engagement/quality signals"; §18.2 Regular Explicit "Like/Reaction, Comment/Reply → Organic Ranking" |
 | Displayed counts: `count(*)` of RLS-visible likes per post or comment and of RLS-visible comments + replies per post (author's own included, no `asOf`) | display only (`likeCount`, `commentCount` on cards, post page, comments); never ranking, never fed into `n` | FR-FEED-001 (like and comment on every card); F3.3 spec c11 |
 | Viewer's own likes (`reaction_owners` rows RLS returns to the viewer) | the viewer's own like-state display only (`likedByMe`); **never ranking**, never display counts, never another viewer | FR-FEED-001; F3.3 spec c12; data-model rule 20 (owners readable by the owner only) |
+| Viewer's own `post_authors` row (RLS returns only the caller's own) — for comments with `author_id` NULL | the caller's own `isMine` on comments in the comment thread only; **never ranking**, never any count, never another viewer (**Comment-thread statement** below) | FR-FEED-003 (delete own comment); data-model rule 20 (owner readable by the owner only); schema-b `comments.author_id` NULL only for the real author on their anonymous post |
 | Viewer's derived Stage set (from own JourneyContexts; never DOB, name or child id), passed to the feed query as a bound parameter | Stage component | FR-FEED-004, BR-050, P-ALG-04; §13.2 Child/Journey "algorithms through derived Stage" |
 | `posts.stage_tag` — the author's optional, explicitly chosen tag | Stage component | answer 5א (DR-2); FR-FEED-004 input |
 | Viewer's own hides and own **post** reports | eligibility only, inside RLS; never read by the feed query | answers 8א (F3.9) and 7א (DR-4, posts only) |
@@ -37,7 +40,7 @@ Rule-based, no ML/LLM (P-ALG-01, BR-049). Any learned component is a separate re
 
 | Input | Rule that excludes it |
 |---|---|
-| Real author of an anonymous post — for scoring, diversity, dedup or any join | FR-FEED-005 rule 3, BR-062, AC-076; data-model rule 20 (not readable). Each anonymous post is its own creator for diversity |
+| Real author of an anonymous post — for scoring, diversity, dedup or any join | FR-FEED-005 rule 3, BR-062, AC-076; data-model rule 20 (not readable). Each anonymous post is its own creator for diversity. Sole exception: the caller's **own** `post_authors` row for their own `isMine` in the comment thread (**Comment-thread statement**) |
 | Impressions, opens, dwell, scroll depth, share-link clicks | answer 4א (DR-3): no usage events in I3; FR-FEED-001/004/007 event post-conditions move to I15 with DATA-001 |
 | Interest/Intent profile, search data | FR-ALG-001 (I15), FR-ALG-008 (I7); not built |
 | Not Interested / Show Less, and a hide as a ranking signal | FR-ALG-009 (I15). "Hide this post" (F3.9) acts only as viewer-only eligibility in RLS and is never a signal (answer 8א) |
@@ -51,6 +54,7 @@ Rule-based, no ML/LLM (P-ALG-01, BR-049). Any learned component is a separate re
 | Viewer or author sex, age, any other profile field (as a score input) | no approved ranking purpose (§13.2 Regular Profile) |
 | Likes on comments — as a ranking input | not a post-quality signal in I3; a comment's like is about the comment (shown only as that comment's displayed `likeCount`) |
 | Viewer's own likes / `reaction_owners` — as a ranking input, in display counts, or for anyone but the owner | purpose limited to own like-state (purpose map); who liked is never shown (F3.3 out of scope "who liked") |
+| `post_authors` — as a ranking input, in any count (`n`, `likeCount`, `commentCount`, `replyCount`), in any filter/order/keyset, or for anyone but the owner | purpose limited to the caller's own comment `isMine` (purpose map) |
 | Paid/sponsored anything | no Sponsored in I3; the organic score has no paid input (P-ALG-05, AC-062) |
 | Medical-hotline taps | decision 2026-10-16 "seven open details" (4): taps are not recorded |
 
@@ -159,6 +163,33 @@ aggregation. Its result sets only `likedByMe` for the viewer and is never passed
 `reaction_owners` stays **forbidden in the ranking and display statements**; a reference there is a FINDING, high.
 Responses never emit `user_id` or `is_by_author`.
 
+### Comment-thread statement — `isMine` (F3.3 b1; decided 19.10.2026, `.work/comments-likes/findings-b1.md` Open)
+
+**Allowed.** The comment-thread statements (`apps/server/src/repositories/comments-repository.ts` `selectComments`, used
+by the single-comment read, the top-level page, the replies read and the replies page) are the **only** application
+statements that may read `post_authors`, and only as this select-list expression:
+`case when c.author_id is null then exists (select 1 from nestly.post_authors pa where pa.post_id = c.post_id and
+pa.author_id = (select auth.uid())) else c.author_id = (select auth.uid()) end` → `isMine`.
+
+Why: the purpose is the caller's own authorship shown to that caller only (FR-FEED-003 delete own comment; data-model
+rule 20, the owner row is readable by its owner only — `post_authors_select_author`). `comments.author_id` is NULL only
+for the real author on their anonymous post (CHECK `author_id is not null or is_by_post_author`, schema-b), so the
+expression mirrors the database's own ownership test and tells the caller nothing they do not already know. For any
+other caller the EXISTS is false (RLS returns no row), which equals a named comment that is not theirs — no oracle.
+
+Conditions (each a FINDING, high, if broken): (a) select list only, a boolean scalar EXISTS per row — no join, no count,
+no `post_authors` column read beyond the test or emitted; (b) no `where`, `order by`, keyset, limit or grouping depends
+on it or on `post_authors`; (c) no `pa.author_id = …` copy as a permission filter anywhere else — the test names the
+caller's own row and RLS already limits rows to it; (d) `isMine` is per caller, never cached, shared or returned to
+another viewer, and the response never emits `author_id`; (e) never an input to ranking, `n`, `likeCount`,
+`commentCount` or `replyCount`. `isMine` drives display only (delete control, own mark); deletion authority stays with
+`delete_comment` / RLS.
+
+**Still forbidden:** `post_authors` in the feed ranking query, the feed display statement, the like-state statement, and
+**every count aggregate**. In particular **b2** (likes on comments, `likeCount`, `likedByMe` on comments) and the
+`replyCount` / `commentCount` statements must not reference `post_authors` (FINDING, high). A static test asserts that
+`post_authors` appears in the server repositories only inside this `isMine` expression.
+
 ## Configuration
 
 One AlgorithmConfiguration row per version, surface `regular_feed`, append-only, one active; validated by a shared Zod
@@ -206,7 +237,9 @@ diversity caps, anonymous Friend term = 0, share dedup · stability: no duplicat
 concurrent inserts after `asOf`, including scores that differ only in the last float8 bits · fallback: active row invalid →
 previous valid version; none valid → version 0 · F3.3: ids, order, cursor and score identical before/after the display and
 like-state statements are added; `likedByMe` false for the viewer when only another user liked; static test that
-`reaction_owners` appears only in the like-state statement.
+`reaction_owners` appears only in the like-state statement · F3.3 b1: `isMine` true for the real author on their own
+anonymous-post "המחבר" comment and false for every other viewer of that comment; static test that `post_authors` appears
+only in the `isMine` expression.
 **After launch (success + guards, never one proxy, §18.8):** success = share of eligible posts that receive a
 meaningful interaction (a comment from a non-author) within 48 h, in total and for new creators (first 30 days).
 Guards: report rate per 1,000 delivered posts · creator concentration (top 10% creators' share of interactions) ·
