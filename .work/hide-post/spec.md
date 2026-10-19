@@ -75,3 +75,5 @@ feed screen or reloads; then permanent in the MVP.
 **Combined PR with F3.8:** ~440 product lines → **one PR**, 13 + 7 = 20 criteria (= the Elevated cap), **Elevated**, ALGORITHM & DATA on
 c6. If S1–S3 are late, F3.8 ships alone. Any further criterion forces a split.
 **Gate 1 amendment (ORCHESTRATOR, 19.10, TEST ENGINEER return):** c1 — post page and like route 404 `not_found`; comments 404 `post_unavailable`.
+
+**Gate 1 amendment (ORCHESTRATOR 19.10, CRITIC low 3):** c8 — the viewer's own SHARE card offers "מחיקת הפוסט" only (a share is immutable, NS005); own named posts keep edit + delete.
