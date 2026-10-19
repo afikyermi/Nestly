@@ -9,6 +9,8 @@ export interface BackCloses {
   closingByPointer: () => void;
   /** A link pressed outside the overlay: its entry is taken back first, then `path` opens, so no overlay entry stays under it. */
   followAfterClose: (path: string) => void;
+  /** True while a closed overlay's entry is still being taken back (or a close by an outside press is settling). */
+  closing: () => boolean;
 }
 
 /** How long a close by an outside press waits before taking its entry back: the press's click (a link's navigation) comes first. */
@@ -60,7 +62,18 @@ export function useBackCloses(open: boolean, onBack: () => boolean): BackCloses 
   const here = useRef(location);
   here.current = location;
 
+  // A step back over the overlay entry is asynchronous (a history traversal). Until it lands, a navigation started meanwhile would be undone
+  // by it (F3.9 c10: a link opened right after "הסתרת הפוסט" came back to the feed with its screen state), so `closing` tells the screen to
+  // hold such a link and hand it to followAfterClose.
+  const stepping = useRef(false);
+  const stepBack = useCallback(() => {
+    stepping.current = true;
+    void navigate(-1);
+  }, [navigate]);
+
   const push = useCallback(() => {
+    // A new overlay entry goes on top of whatever the last step back left: that step back no longer guards a link (closing() is false).
+    stepping.current = false;
     hold(true);
     const { pathname, search, hash } = here.current;
     const state: unknown = here.current.state;
@@ -78,7 +91,7 @@ export function useBackCloses(open: boolean, onBack: () => boolean): BackCloses 
     } else if (!open && pushed.current) {
       hold(false);
       if (!byPointer.current) {
-        void navigate(-1);
+        stepBack();
         return;
       }
       byPointer.current = false;
@@ -86,7 +99,7 @@ export function useBackCloses(open: boolean, onBack: () => boolean): BackCloses 
       cancelSettling();
       const timer = setTimeout(() => {
         settling = null;
-        if (here.current.key === entry && isOverlayState(here.current.state)) void navigate(-1);
+        if (here.current.key === entry && isOverlayState(here.current.state)) stepBack();
       }, POINTER_SETTLE_MS);
       settling = { key: entry, timer, owner: self.current };
     }
@@ -94,6 +107,7 @@ export function useBackCloses(open: boolean, onBack: () => boolean): BackCloses 
 
   useEffect(() => {
     const overlayEntry = isOverlayState(location.state);
+    if (!overlayEntry) stepping.current = false;
     if (pending.current !== null && !overlayEntry) {
       const path = pending.current;
       pending.current = null;
@@ -136,14 +150,19 @@ export function useBackCloses(open: boolean, onBack: () => boolean): BackCloses 
     (path: string) => {
       cancelSettling();
       byPointer.current = false;
-      if (pushed.current || isOverlayState(here.current.state)) {
+      if (stepping.current) {
+        // The overlay entry is already being taken back: open the link once that has landed.
+        pending.current = path;
+      } else if (pushed.current || isOverlayState(here.current.state)) {
         hold(false);
         pending.current = path;
-        void navigate(-1);
+        stepBack();
       } else void navigate(path);
     },
     [navigate],
   );
 
-  return { leaveTo, closingByPointer, followAfterClose };
+  const closing = useCallback(() => stepping.current || (settling !== null && settling.owner === self.current), []);
+
+  return { leaveTo, closingByPointer, followAfterClose, closing };
 }
