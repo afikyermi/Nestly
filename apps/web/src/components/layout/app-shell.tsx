@@ -7,8 +7,8 @@ import { TopBar } from '../shared/top-bar';
 /**
  * The shell's action bar: an element a screen may portal one floating action into ("חזרה למעלה", F3.2b c20). Below 1024 it is a row of its own
  * between `main` and the bottom bar, so it never covers anything in `main`; from 1024 it is fixed 24 px from the inline-end edge, in the gutter
- * beside the centred column (at 1024 px the gutter is 116 px: what goes in it must fit, e.g. an icon only below 1280). Empty, it takes no
- * space. Null outside a shell.
+ * beside the centred column (at 1024 px the gutter is 116 px: what goes in it must fit, e.g. an icon only while the shell, a size
+ * container, is narrower than 72rem; the tokens define no xl breakpoint). Empty, it takes no space. Null outside a shell.
  */
 export const ShellActionBarContext = createContext<HTMLElement | null>(null);
 
@@ -94,7 +94,7 @@ export function AppShell({
   }, []);
 
   return (
-    <div className={cn('flex h-dvh flex-col print:h-auto lg:h-auto lg:min-h-dvh', className)}>
+    <div className={cn('@container flex h-dvh flex-col print:h-auto lg:h-auto lg:min-h-dvh', className)}>
       <a
         href={`#${mainId}`}
         onClick={(event) => {

@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ShellActionBarContext } from '@/components/layout/app-shell';
 import { postLinkOf, shareTargetOf, type FeedUnit, type PostView } from '@nestly/shared';
@@ -81,6 +81,7 @@ export function FeedScreen() {
     setCardFocus((tick) => tick + 1);
   };
   const actionBar = useContext(ShellActionBarContext);
+  const toTopLabelId = useId();
   const { far, toTop } = useFeedScroll(rootRef, restoredScroll, right !== 'checking' && own.kind !== 'loading');
   toTopRef.current = toTop;
   const sentinelRef =useSentinel(state.phase === 'ready' && !state.loading && state.nextCursor !== null, loadMore);
@@ -246,14 +247,15 @@ export function FeedScreen() {
             <Button
               variant="soft"
               className="shadow-card"
+              aria-labelledby={toTopLabelId}
               onClick={() => {
                 toTop();
                 headingRef.current?.focus();
               }}
             >
-              {/* 1024-1279 px: only the icon fits in the gutter beside the column (the text stays the name); elsewhere the text. */}
-              <ArrowUpIcon className="hidden size-5 lg:max-xl:block" />
-              <span className="lg:max-xl:sr-only">{TO_TOP_LABEL}</span>
+              {/* A shell narrower than 72rem (from 1024 px): only the icon fits beside the column; the hidden text still names it. */}
+              <ArrowUpIcon className="hidden size-5 lg:@max-6xl:block" />
+              <span id={toTopLabelId} className="lg:@max-6xl:hidden">{TO_TOP_LABEL}</span>
             </Button>,
             actionBar,
           )
