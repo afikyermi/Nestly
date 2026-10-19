@@ -9,6 +9,7 @@ import { APP, pathOf } from './app-helpers';
 import { DESKTOP, MOBILE } from './helpers';
 import { EMAIL, main, scan } from './support/journeys-stub';
 import { pageOf, range, setupFeed } from './support/feed-stub';
+import { DELETE_ITEM, EDIT_ITEM, POST_MORE, chooseFromPostMenu, postMore } from './support/post-menu';
 import { MINE, POST_ID, setupPosts } from './support/posts-stub';
 import type { StoredPost } from './support/posts-stub';
 import { FAILED, PUBLISHED, anonToggle, audienceGroup, bodyBox, composer, feedCards, feedStatus, openFeedAt, publishButton, timeLinkOf } from './support/composer';
@@ -152,17 +153,22 @@ test.describe('professional-posting c9 [FR-FEED-002 ERR-004] publishing', () => 
 
 test.describe('professional-posting c11 [FR-FEED-002 3א] the own post page', () => {
   for (const { label, viewport } of SIZES) {
-    test(`[c11] ${label}: "עריכה" and "מחיקה" for the author; the audience label is "מי יראה את הפוסט: כולם", no tag line; the edit form shows "${FIXED_LINE}" and no audience or tag group; axe`, async ({ page }) => {
+    test(`[c11] ${label}: "${EDIT_ITEM}" and "${DELETE_ITEM}" in "${POST_MORE}" for the author (ux-polish-b c3), no visible "עריכה" or "מחיקה" button; the audience label is "מי יראה את הפוסט: כולם", no tag line; the edit form shows "${FIXED_LINE}" and no audience or tag group; axe`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await setupPosts(page, { posts: [proPost()], professional: true });
       await openPost(page, `/posts/${POST_ID}`);
       await expect(main(page).getByText('שאלה על שינה')).toBeVisible();
-      await expect(button(page, 'עריכה')).toBeVisible();
-      await expect(button(page, 'מחיקה')).toBeVisible();
+      await expect(button(page, 'עריכה')).toHaveCount(0);
+      await expect(button(page, 'מחיקה')).toHaveCount(0);
       await expect(main(page).getByText('מי יראה את הפוסט: כולם')).toBeVisible();
       await expect(main(page).getByText(/^תגית:/)).toHaveCount(0);
       await scan(page);
-      await button(page, 'עריכה').click();
+      await postMore(page).click();
+      await expect(page.getByRole('menu', { name: 'פעולות נוספות', exact: true }).getByRole('menuitem')).toHaveText([EDIT_ITEM, DELETE_ITEM]);
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('menu')).toHaveCount(0);
+      await expect(postMore(page)).toBeFocused();
+      await chooseFromPostMenu(page, EDIT_ITEM);
       const form = page.getByRole('form', { name: 'עריכת פוסט' });
       await expect(form).toBeVisible();
       await expect(form.getByRole('textbox')).toHaveValue('שאלה על שינה\nבשעות הלילה');
@@ -177,7 +183,7 @@ test.describe('professional-posting c11 [FR-FEED-002 3א] the own post page', ()
   test('[c11] saving shows the update and keeps the post everyone / untagged', async ({ page }) => {
     const net = await setupPosts(page, { posts: [proPost()], professional: true });
     await openPost(page, `/posts/${POST_ID}`);
-    await button(page, 'עריכה').click();
+    await chooseFromPostMenu(page, EDIT_ITEM);
     await page.getByRole('form', { name: 'עריכת פוסט' }).getByRole('textbox').fill('הטקסט החדש');
     await button(page, 'שמירה').click();
     await expect(page.getByRole('status').filter({ hasText: 'הפוסט עודכן' })).toBeVisible();
@@ -193,7 +199,7 @@ test.describe('professional-posting c11 [FR-FEED-002 3א] the own post page', ()
   test('[c11] cancel saves nothing', async ({ page }) => {
     const net = await setupPosts(page, { posts: [proPost()], professional: true });
     await openPost(page, `/posts/${POST_ID}`);
-    await button(page, 'עריכה').click();
+    await chooseFromPostMenu(page, EDIT_ITEM);
     await page.getByRole('form', { name: 'עריכת פוסט' }).getByRole('textbox').fill('לא יישמר');
     await button(page, 'ביטול').click();
     await expect(page.getByRole('form', { name: 'עריכת פוסט' })).toHaveCount(0);
@@ -202,7 +208,7 @@ test.describe('professional-posting c11 [FR-FEED-002 3א] the own post page', ()
   test('[c11] delete as F3.1 c18: the dialog, confirming goes to the feed with "הפוסט נמחק"', async ({ page }) => {
     const net = await setupPosts(page, { posts: [proPost()], professional: true });
     await openPost(page, `/posts/${POST_ID}`);
-    await button(page, 'מחיקה').click();
+    await chooseFromPostMenu(page, DELETE_ITEM);
     const dialog = page.getByRole('alertdialog', { name: 'למחוק את הפוסט?' });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'ביטול', exact: true })).toBeFocused();
@@ -211,11 +217,15 @@ test.describe('professional-posting c11 [FR-FEED-002 3א] the own post page', ()
     await expect(page.getByRole('status').filter({ hasText: 'הפוסט נמחק' })).toBeVisible();
     expect(net.deletes).toEqual([POST_ID]);
   });
-  test('[c11] a Professional on another person\'s post sees neither "עריכה" nor "מחיקה"', async ({ page }) => {
+  test('[c11] a Professional on another person\'s post sees neither the visible buttons nor the author menu items', async ({ page }) => {
     await setupPosts(page, { posts: [proPost({ isMine: false })], professional: true });
     await openPost(page, `/posts/${POST_ID}`);
     await expect(main(page).getByText('שאלה על שינה')).toBeVisible();
     await expect(button(page, 'עריכה')).toHaveCount(0);
     await expect(button(page, 'מחיקה')).toHaveCount(0);
+    await postMore(page).click(); // another person's post still has a "⋯" (report), with no author items
+    await expect(page.getByRole('menuitem').first()).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: EDIT_ITEM, exact: true })).toHaveCount(0);
+    await expect(page.getByRole('menuitem', { name: DELETE_ITEM, exact: true })).toHaveCount(0);
   });
 });
