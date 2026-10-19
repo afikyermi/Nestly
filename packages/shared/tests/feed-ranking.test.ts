@@ -193,14 +193,14 @@ describe('nextCursor source [F3.2-a1 c9]', () => {
 });
 
 describe('response [F3.2-a1 c12]', () => {
-  const post = { id: ID, kind: 'post', source: 'organic', body: 'x', audience: 'everyone', stageTag: null, createdAt: '2026-10-18T09:00:00.000Z', isMine: false, isAnonymous: false, author: { name: 'Dana Levi' } };
+  const post = { id: ID, kind: 'post', source: 'organic', body: 'x', audience: 'everyone', stageTag: null, createdAt: '2026-10-18T09:00:00.000Z', isMine: false, isAnonymous: false, author: { name: 'Dana Levi' }, likeCount: 0, commentCount: 0, likedByMe: false };
   const ok = (v: unknown) => feedUnit.safeParse(v).success;
   const share = { ...post, kind: 'share', body: null, sharerText: 'hi' };
   const orig = { available: true, id: ID, body: 'o', audience: 'everyone', createdAt: post.createdAt, isAnonymous: false, author: { name: null } };
   it('accepts named (name or null), anonymous without author, shares with available/unavailable original', () => {
     expect(ok(post)).toBe(true);
     expect(ok({ ...post, author: { name: null } })).toBe(true);
-    expect(ok({ id: ID, kind: 'post', source: 'organic', body: 'x', audience: 'everyone', stageTag: null, createdAt: post.createdAt, isMine: false, isAnonymous: true })).toBe(true);
+    expect(ok({ id: ID, kind: 'post', source: 'organic', body: 'x', audience: 'everyone', stageTag: null, createdAt: post.createdAt, isMine: false, isAnonymous: true, likeCount: 0, commentCount: 0, likedByMe: false })).toBe(true);
     expect(ok({ ...share, original: orig })).toBe(true);
     expect(ok({ ...share, original: { ...orig, author: { name: 'N' } } })).toBe(true);
     expect(ok({ ...share, original: { ...orig, isAnonymous: true, author: undefined } })).toBe(false);
@@ -211,14 +211,16 @@ describe('response [F3.2-a1 c12]', () => {
     ['score', { score: 1 }],
     ['tier', { tier: 0 }],
     ['isFriend', { isFriend: true }],
-    ['a count', { likeCount: 3 }],
+    ['n', { n: 3 }],
+    ['a liker identity', { userId: ID }],
+    ['a negative count', { likeCount: -1 }],
     ['source other than organic', { source: 'paid' }],
     ['an anonymous unit carrying an author key', { isAnonymous: true }],
   ])('rejects %s', (_n, patch) => {
     expect(ok({ ...post, ...patch })).toBe(false);
   });
   it('rejects an anonymous unit without author that isMine; an anonymous share is rejected', () => {
-    const anonPost = { id: ID, kind: 'post', source: 'organic', body: 'x', audience: 'everyone', stageTag: null, createdAt: post.createdAt, isMine: false };
+    const anonPost = { id: ID, kind: 'post', source: 'organic', body: 'x', audience: 'everyone', stageTag: null, createdAt: post.createdAt, isMine: false, likeCount: 0, commentCount: 0, likedByMe: false };
     expect(ok({ ...anonPost, isAnonymous: true })).toBe(true);
     expect(ok({ ...anonPost, isAnonymous: true, isMine: true })).toBe(false);
     const anonShare = { ...anonPost, kind: 'share', body: null, sharerText: 'hi' };

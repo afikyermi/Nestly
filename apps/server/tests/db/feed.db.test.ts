@@ -571,7 +571,7 @@ describe('[F3.2-a2 c12 BR-062 6ב] who may ask, and exactly what a unit holds', 
     }
     expect(res.body).not.toContain(F.id);
     expect(res.body).not.toContain('Fiona Friend');
-    expect(res.body).not.toMatch(/authorId|"score"|"tier"|isFriend|"count"|likeCount|commentCount/);
+    expect(res.body).not.toMatch(/authorId|"score"|"tier"|isFriend|"count"|"n":|userId|user_id|is_by_author/);
   });
 
   it('[F3.2-a2 c12 BR-065] a share lists sharerText and its original (fields only); an original that became unavailable shows {available: false} and no original content', T, async () => {

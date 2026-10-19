@@ -32,6 +32,7 @@ import {
   readTopLevelPostId,
   type CommentRow,
 } from '../repositories/comments-repository.js';
+import { readLikeCounts, readLikedTargetIds } from '../repositories/likes-repository.js';
 import { readPost } from '../repositories/posts-repository.js';
 
 /** The caller cannot comment or read a thread: a stopped account (ERR-037), or an account that is not a Regular parent's. */
@@ -43,7 +44,11 @@ export type CreateOutcome =
   | { readonly kind: 'parent_invalid' }
   | CommentRefusal;
 export type ThreadOutcome = { readonly kind: 'thread'; readonly page: CommentThreadPage } | { readonly kind: 'post_unavailable' } | CommentRefusal;
-export type RepliesOutcome = { readonly kind: 'replies'; readonly page: CommentReplyPage } | { readonly kind: 'comment_unavailable' } | { readonly kind: 'cursor_invalid' } | CommentRefusal;
+export type RepliesOutcome =
+  | { readonly kind: 'replies'; readonly page: CommentReplyPage }
+  | { readonly kind: 'comment_unavailable' }
+  | { readonly kind: 'cursor_invalid' }
+  | CommentRefusal;
 export type RemoveOutcome = { readonly kind: 'deleted' } | { readonly kind: 'not_found' } | CommentRefusal;
 
 /** More than one row for one primary key (or none after an insert) cannot happen; seeing it means a policy is wrong. */
@@ -63,8 +68,19 @@ async function classifyViewer(tx: IdentityTx): Promise<CommentRefusal | undefine
   return account.accountType === 'regular' ? undefined : { kind: 'forbidden' };
 }
 
-function viewOf(row: CommentRow): CommentView {
+/** What a comment shows of its likes: the count the viewer can read and whether one of them is theirs (F3.3 c11, c12). Never who. */
+type CommentLikes = (id: string) => Pick<CommentView, 'likeCount' | 'likedByMe'>;
+
+/** The like counts and the viewer's own likes of the given comments, two statements by id, after the comments themselves are read. */
+async function likesOf(tx: IdentityTx, ids: readonly string[]): Promise<CommentLikes> {
+  const counts = await readLikeCounts(tx, 'comment', ids);
+  const liked = await readLikedTargetIds(tx, ids);
+  return (id) => ({ likeCount: counts.get(id) ?? 0, likedByMe: liked.has(id) });
+}
+
+function viewOf(row: CommentRow, likes: CommentLikes): CommentView {
   return {
+    ...likes(row.id),
     id: row.id,
     parentId: row.parentId,
     body: row.body,
@@ -83,55 +99,82 @@ export async function createComment(database: Database, identity: Identity, post
     if ((await readPost(tx, postId)).length === 0) return { kind: 'post_unavailable' };
     const parentId = input.parentId ?? null;
     if (parentId !== null && (await readTopLevelComment(tx, postId, parentId)).length === 0) return { kind: 'parent_invalid' };
-    const ids = await insertComment(tx, { postId, parentId, body: input.body });
+    const ids = await insertComment(tx, {
+      postId,
+      parentId,
+      body: input.body,
+    });
     const [id] = ids;
     if (ids.length !== 1 || id === undefined) throw new CommentsFault('unexpected number of comments rows');
     const [row] = await readComment(tx, id);
     if (row === undefined) throw new CommentsFault('the new comment is not readable');
-    return { kind: 'comment', comment: viewOf(row) };
+    return {
+      kind: 'comment',
+      comment: viewOf(row, await likesOf(tx, [row.id])),
+    };
   });
 }
 
 /** GET: one page of top-level comments, oldest first, each with its first replies (oldest first) and the count of all of them. */
 export async function readThread(database: Database, identity: Identity, postId: string, cursor: CommentCursor | null): Promise<ThreadOutcome> {
-  return inIdentityTransaction(database, identity, async (tx): Promise<ThreadOutcome> => {
-    const refusal = await classifyViewer(tx);
-    if (refusal !== undefined) return refusal;
-    if ((await readPost(tx, postId)).length === 0) return { kind: 'post_unavailable' };
-    const fetched = await readTopLevelPage(tx, postId, cursor, COMMENT_PAGE_SIZE + 1);
-    const top = fetched.slice(0, COMMENT_PAGE_SIZE);
-    const topIds = top.map((row) => row.id);
-    const replies = await readFirstReplies(tx, topIds, COMMENT_INLINE_REPLIES);
-    const counts = await readReplyCounts(tx, topIds);
-    const items = top.map((row) => ({
-      ...viewOf(row),
-      replies: replies.filter((reply) => reply.parentId === row.id).map(viewOf),
-      replyCount: counts.get(row.id) ?? 0,
-    }));
-    const last = top[top.length - 1];
-    const nextCursor = fetched.length > COMMENT_PAGE_SIZE && last !== undefined ? serializeCommentCursor({ createdAt: last.cursorAt, id: last.id }) : null;
-    return { kind: 'thread', page: { items, nextCursor } };
-  });
+  return inIdentityTransaction(
+    database,
+    identity,
+    async (tx): Promise<ThreadOutcome> => {
+      const refusal = await classifyViewer(tx);
+      if (refusal !== undefined) return refusal;
+      if ((await readPost(tx, postId)).length === 0) return { kind: 'post_unavailable' };
+      const fetched = await readTopLevelPage(tx, postId, cursor, COMMENT_PAGE_SIZE + 1);
+      const top = fetched.slice(0, COMMENT_PAGE_SIZE);
+      const topIds = top.map((row) => row.id);
+      const replies = await readFirstReplies(tx, topIds, COMMENT_INLINE_REPLIES);
+      const counts = await readReplyCounts(tx, topIds);
+      const likes = await likesOf(tx, [...topIds, ...replies.map((reply) => reply.id)]);
+      const items = top.map((row) => ({
+        ...viewOf(row, likes),
+        replies: replies.filter((reply) => reply.parentId === row.id).map((reply) => viewOf(reply, likes)),
+        replyCount: counts.get(row.id) ?? 0,
+      }));
+      const last = top[top.length - 1];
+      const nextCursor =
+        fetched.length > COMMENT_PAGE_SIZE && last !== undefined ? serializeCommentCursor({ createdAt: last.cursorAt, id: last.id }) : null;
+      return { kind: 'thread', page: { items, nextCursor } };
+    },
+    { isolationLevel: 'repeatable read' },
+  );
 }
 
 /** GET: one page of the replies of a top-level comment, oldest first. An unknown, reply, held or unreadable-post parent is one outcome. */
 export async function readReplies(database: Database, identity: Identity, commentId: string, cursor: CommentCursor | null): Promise<RepliesOutcome> {
-  return inIdentityTransaction(database, identity, async (tx): Promise<RepliesOutcome> => {
-    const refusal = await classifyViewer(tx);
-    if (refusal !== undefined) return refusal;
-    const [postId] = await readTopLevelPostId(tx, commentId);
-    if (postId === undefined || (await readPost(tx, postId)).length === 0) return { kind: 'comment_unavailable' };
-    // A cursor names the last reply of the previous page: a readable row of another parent is not one. A row gone since (deleted) still pages on.
-    if (cursor !== null) {
-      const [parentOfCursor, ...more] = await readParentOf(tx, cursor.id);
-      if (more.length === 0 && parentOfCursor !== undefined && parentOfCursor !== commentId) return { kind: 'cursor_invalid' };
-    }
-    const fetched = await readReplyPage(tx, commentId, cursor, COMMENT_REPLY_PAGE_SIZE + 1);
-    const rows = fetched.slice(0, COMMENT_REPLY_PAGE_SIZE);
-    const last = rows[rows.length - 1];
-    const nextCursor = fetched.length > COMMENT_REPLY_PAGE_SIZE && last !== undefined ? serializeCommentCursor({ createdAt: last.cursorAt, id: last.id }) : null;
-    return { kind: 'replies', page: { items: rows.map(viewOf), nextCursor } };
-  });
+  return inIdentityTransaction(
+    database,
+    identity,
+    async (tx): Promise<RepliesOutcome> => {
+      const refusal = await classifyViewer(tx);
+      if (refusal !== undefined) return refusal;
+      const [postId] = await readTopLevelPostId(tx, commentId);
+      if (postId === undefined || (await readPost(tx, postId)).length === 0) return { kind: 'comment_unavailable' };
+      // A cursor names the last reply of the previous page: a readable row of another parent is not one. A row gone since (deleted) still pages on.
+      if (cursor !== null) {
+        const [parentOfCursor, ...more] = await readParentOf(tx, cursor.id);
+        if (more.length === 0 && parentOfCursor !== undefined && parentOfCursor !== commentId) return { kind: 'cursor_invalid' };
+      }
+      const fetched = await readReplyPage(tx, commentId, cursor, COMMENT_REPLY_PAGE_SIZE + 1);
+      const rows = fetched.slice(0, COMMENT_REPLY_PAGE_SIZE);
+      const last = rows[rows.length - 1];
+      const nextCursor =
+        fetched.length > COMMENT_REPLY_PAGE_SIZE && last !== undefined ? serializeCommentCursor({ createdAt: last.cursorAt, id: last.id }) : null;
+      const likes = await likesOf(
+        tx,
+        rows.map((row) => row.id),
+      );
+      return {
+        kind: 'replies',
+        page: { items: rows.map((row) => viewOf(row, likes)), nextCursor },
+      };
+    },
+    { isolationLevel: 'repeatable read' },
+  );
 }
 
 /** DELETE (3א): immediate and permanent, or held when a report is open: the same `deleted` for the commenter either way. */

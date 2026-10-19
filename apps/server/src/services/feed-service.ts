@@ -19,12 +19,17 @@ import type { Identity } from '../lib/token-verifier.js';
 import { readOwnAccounts } from '../repositories/account-state-repository.js';
 import { readDisplayPosts, readFeedConfigRows, readRankedPosts, readSnapshotClock, type DisplayPost } from '../repositories/feed-repository.js';
 import { readOwnStages } from '../repositories/journeys-repository.js';
+import { readCommentCounts, readLikeCounts, readLikedTargetIds } from '../repositories/likes-repository.js';
 
 /** The caller cannot read a feed: a stopped account (ERR-037), or an account that is not a Regular parent's. */
 export type FeedRefusal = { readonly kind: 'stopped' } | { readonly kind: 'forbidden' };
 
 export type FeedOutcome =
-  | { readonly kind: 'page'; readonly page: FeedPageResponse; readonly fallback: FeedConfigFallback | null }
+  | {
+      readonly kind: 'page';
+      readonly page: FeedPageResponse;
+      readonly fallback: FeedConfigFallback | null;
+    }
   | { readonly kind: 'cursor_invalid' }
   | FeedRefusal;
 
@@ -45,15 +50,39 @@ async function classifyViewer(tx: IdentityTx): Promise<FeedRefusal | undefined> 
   return account.accountType === 'regular' ? undefined : { kind: 'forbidden' };
 }
 
+/** The displayed counts and the viewer's own like-state of one unit (F3.3): read after the ranking, never an input to it. */
+interface UnitReactions {
+  readonly likeCount: number;
+  readonly commentCount: number;
+  readonly likedByMe: boolean;
+}
+
 /** The unit as the answer carries it, or undefined for a row that cannot be one (a shape the database forbids): it is left out. */
-function unitOf(row: DisplayPost): FeedUnit | undefined {
-  const common = { id: row.id, source: 'organic', audience: row.audience, stageTag: row.stageTag, createdAt: row.createdAt } as const;
+function unitOf(row: DisplayPost, reactions: UnitReactions): FeedUnit | undefined {
+  const common = {
+    id: row.id,
+    source: 'organic',
+    audience: row.audience,
+    stageTag: row.stageTag,
+    createdAt: row.createdAt,
+    ...reactions,
+  } as const;
   if (row.isAnonymous) {
     // The real author is not read anywhere; an anonymous unit is never the caller's and has no author key. A share is never anonymous.
     if (row.isShare || row.body === null) return undefined;
-    return { ...common, kind: 'post', body: row.body, isMine: false, isAnonymous: true };
+    return {
+      ...common,
+      kind: 'post',
+      body: row.body,
+      isMine: false,
+      isAnonymous: true,
+    };
   }
-  const named = { isMine: row.isMine, isAnonymous: false, author: { name: row.authorName } } as const;
+  const named = {
+    isMine: row.isMine,
+    isAnonymous: false,
+    author: { name: row.authorName },
+  } as const;
   if (!row.isShare) return row.body === null ? undefined : { ...common, kind: 'post', body: row.body, ...named };
   const { originalId, originalBody, originalAudience, originalCreatedAt, originalIsAnonymous } = row;
   const original =
@@ -69,37 +98,74 @@ function unitOf(row: DisplayPost): FeedUnit | undefined {
         } as const)
       : ({ available: false } as const);
   // A share's own text is `sharerText`; `body` stays empty (a1 findings, "For a2").
-  return { ...common, kind: 'share', body: null, sharerText: row.body, original, ...named };
+  return {
+    ...common,
+    kind: 'share',
+    body: null,
+    sharerText: row.body,
+    original,
+    ...named,
+  };
 }
 
-/** GET /feed: one page. `cursor` is null for a first page; a structurally valid cursor whose `asOf` is in the database's future is refused. */
-export async function readFeedPage(database: Database, identity: Identity, cursor: FeedCursor | null): Promise<FeedOutcome> {
-  return inIdentityTransaction(database, identity, async (tx): Promise<FeedOutcome> => {
-    const refusal = await classifyViewer(tx);
-    if (refusal !== undefined) return refusal;
-    const clock = await readSnapshotClock(tx, cursor === null ? null : cursor.asOf);
-    if (!clock.isCursorUsable) return { kind: 'cursor_invalid' };
+/** One page, inside the caller's transaction. `cursor` is null for a first page; a cursor whose `asOf` is in the database's future is refused. */
+async function readPage(tx: IdentityTx, cursor: FeedCursor | null): Promise<FeedOutcome> {
+  const refusal = await classifyViewer(tx);
+  if (refusal !== undefined) return refusal;
+  const clock = await readSnapshotClock(tx, cursor === null ? null : cursor.asOf);
+  if (!clock.isCursorUsable) return { kind: 'cursor_invalid' };
 
-    const resolution = resolveFeedConfig(await readFeedConfigRows(tx), cursor === null ? null : cursor.configVersion);
-    const { config, configVersion } = resolution;
-    // A cursor pinned to a version that cannot be used is dropped: the page is a new first page of a new snapshot.
-    const after = cursor !== null && !resolution.restarted ? cursor : null;
-    const asOf = after === null ? clock.nowText : after.asOf;
-    const stages = config.wStage > 0 ? await readOwnStages(tx) : [];
+  const resolution = resolveFeedConfig(await readFeedConfigRows(tx), cursor === null ? null : cursor.configVersion);
+  const { config, configVersion } = resolution;
+  // A cursor pinned to a version that cannot be used is dropped: the page is a new first page of a new snapshot.
+  const after = cursor !== null && !resolution.restarted ? cursor : null;
+  const asOf = after === null ? clock.nowText : after.asOf;
+  const stages = config.wStage > 0 ? await readOwnStages(tx) : [];
 
-    const ranked = await readRankedPosts(tx, { asOf, config, stages, after });
-    const selection = selectFeedPage(ranked, config);
-    const display = new Map((await readDisplayPosts(tx, selection.units.map((unit) => unit.id))).map((row) => [row.id, row]));
-    const items: FeedUnit[] = [];
-    for (const unit of selection.units) {
-      const row = display.get(unit.id); // gone since the ranking statement: no longer readable, so not listed
-      const item = row === undefined ? undefined : unitOf(row);
-      if (item !== undefined) items.push(item);
-    }
-    const last = selection.cursorFrom;
-    const nextCursor =
-      last === null ? null : serializeFeedCursor({ asOf, configVersion, tier: last.tier, score: last.score, createdAt: last.createdAt, id: last.id });
-    const page = feedPageResponse.parse({ items, nextCursor, configVersion, ...(resolution.restarted ? { restarted: true } : {}) });
-    return { kind: 'page', page, fallback: resolution.fallback };
+  const ranked = await readRankedPosts(tx, { asOf, config, stages, after });
+  const selection = selectFeedPage(ranked, config);
+  const pageIds = selection.units.map((unit) => unit.id);
+  const display = new Map((await readDisplayPosts(tx, pageIds)).map((row) => [row.id, row]));
+  // F3.3: the displayed counts and the viewer's own likes, by the page's ids, after the order is fixed. None of them reaches the ranking.
+  const likeCounts = await readLikeCounts(tx, 'post', pageIds);
+  const commentCounts = await readCommentCounts(tx, pageIds);
+  const liked = await readLikedTargetIds(tx, pageIds);
+  const items: FeedUnit[] = [];
+  for (const unit of selection.units) {
+    const row = display.get(unit.id); // gone since the ranking statement: no longer readable, so not listed
+    const reactions = {
+      likeCount: likeCounts.get(unit.id) ?? 0,
+      commentCount: commentCounts.get(unit.id) ?? 0,
+      likedByMe: liked.has(unit.id),
+    };
+    const item = row === undefined ? undefined : unitOf(row, reactions);
+    if (item !== undefined) items.push(item);
+  }
+  const last = selection.cursorFrom;
+  const nextCursor =
+    last === null
+      ? null
+      : serializeFeedCursor({
+          asOf,
+          configVersion,
+          tier: last.tier,
+          score: last.score,
+          createdAt: last.createdAt,
+          id: last.id,
+        });
+  const page = feedPageResponse.parse({
+    items,
+    nextCursor,
+    configVersion,
+    ...(resolution.restarted ? { restarted: true } : {}),
   });
+  return { kind: 'page', page, fallback: resolution.fallback };
+}
+
+/**
+ * GET /feed: one page, in one transaction at REPEATABLE READ: the ranking, the display, the counts and the viewer's likes read one snapshot, so a
+ * like the viewer's own state shows is also in the count.
+ */
+export async function readFeedPage(database: Database, identity: Identity, cursor: FeedCursor | null): Promise<FeedOutcome> {
+  return inIdentityTransaction(database, identity, (tx) => readPage(tx, cursor), { isolationLevel: 'repeatable read' });
 }

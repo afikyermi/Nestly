@@ -25,7 +25,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const common = { source: 'organic', audience: 'everyone', stageTag: null, createdAt: '2026-10-18T09:00:00.000Z' } as const;
+const common = { source: 'organic', audience: 'everyone', stageTag: null, createdAt: '2026-10-18T09:00:00.000Z', likeCount: 0, commentCount: 0, likedByMe: false } as const;
 const named: FeedUnit = {
   ...common,
   id: '7a1f0c52-5a0e-4c39-9d47-1f7c2d5e8a01',

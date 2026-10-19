@@ -84,7 +84,7 @@ export async function setupPosts(page: Page, start: { posts?: StoredPost[]; prof
     const found = net.posts.find((p) => p.id === id);
     if (req.method() === 'GET') {
       if (net.read !== 200) return json(route, net.read, { error: 'server_error' });
-      return found === undefined ? json(route, 404, { error: 'not_found' }) : json(route, 200, found);
+      return found === undefined ? json(route, 404, { error: 'not_found' }) : json(route, 200, { ...found, likeCount: 0, commentCount: 0, likedByMe: false });
     }
     if (found === undefined || !found.isMine) return json(route, 404, { error: 'not_found' });
     if (req.method() === 'PATCH') {

@@ -8,6 +8,7 @@ import type { PostAudience, PostReadView, PostView, PostWrite } from '@nestly/sh
 import type { Database } from '../db/client.js';
 import { inIdentityTransaction } from '../db/identity-transaction.js';
 import type { Identity } from '../lib/token-verifier.js';
+import { readCommentCounts, readLikeCounts, readLikedTargetIds } from '../repositories/likes-repository.js';
 import { deletePost, insertPost, readPost, updatePost, type PostRow } from '../repositories/posts-repository.js';
 
 export type PostOutcome<T> = { readonly kind: 'post'; readonly post: T } | { readonly kind: 'not_found' };
@@ -34,25 +35,57 @@ function single(rows: readonly PostRow[]): PostRow | undefined {
 }
 
 function viewOf(row: PostRow): PostView {
-  return { id: row.id, body: row.body, audience: row.audience, stageTag: row.stageTag, createdAt: row.createdAt.toISOString() };
+  return {
+    id: row.id,
+    body: row.body,
+    audience: row.audience,
+    stageTag: row.stageTag,
+    createdAt: row.createdAt.toISOString(),
+  };
 }
 
 /** POST: the caller's post. A refusal by the database (23503, 42501, 23514) propagates and rolls back. */
 export async function createPost(database: Database, identity: Identity, input: NewPost): Promise<PostView> {
   return inIdentityTransaction(database, identity, async (tx) => {
-    const row = single(await insertPost(tx, { body: input.body, audience: input.audience, stageTag: input.stageTag ?? null }));
+    const row = single(
+      await insertPost(tx, {
+        body: input.body,
+        audience: input.audience,
+        stageTag: input.stageTag ?? null,
+      }),
+    );
     if (row === undefined) throw new PostsFault();
     return viewOf(row);
   });
 }
 
-/** GET: the post if the caller may read it; `isMine` says whether the caller is its author (display only, not a permission). */
+/**
+ * GET: the post if the caller may read it; `isMine` says whether the caller is its author (display only, not a permission). The displayed counts
+ * and the viewer's own like come from the same snapshot (F3.3 c11, c12): one REPEATABLE READ transaction. A post the caller cannot read is 404, not 0.
+ */
 export async function readPostById(database: Database, identity: Identity, id: string): Promise<PostOutcome<PostReadView>> {
-  return inIdentityTransaction(database, identity, async (tx): Promise<PostOutcome<PostReadView>> => {
-    const row = single(await readPost(tx, id));
-    if (row === undefined) return { kind: 'not_found' };
-    return { kind: 'post', post: { ...viewOf(row), isMine: row.authorId !== null && row.authorId === identity.userId.toLowerCase() } };
-  });
+  return inIdentityTransaction(
+    database,
+    identity,
+    async (tx): Promise<PostOutcome<PostReadView>> => {
+      const row = single(await readPost(tx, id));
+      if (row === undefined) return { kind: 'not_found' };
+      const likeCount = (await readLikeCounts(tx, 'post', [row.id])).get(row.id) ?? 0;
+      const commentCount = (await readCommentCounts(tx, [row.id])).get(row.id) ?? 0;
+      const likedByMe = (await readLikedTargetIds(tx, [row.id])).has(row.id);
+      return {
+        kind: 'post',
+        post: {
+          ...viewOf(row),
+          isMine: row.authorId !== null && row.authorId === identity.userId.toLowerCase(),
+          likeCount,
+          commentCount,
+          likedByMe,
+        },
+      };
+    },
+    { isolationLevel: 'repeatable read' },
+  );
 }
 
 /** PATCH: the named columns of the author's post. 0 rows: not found, whatever the reason. */

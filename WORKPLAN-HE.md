@@ -30,6 +30,7 @@
 8. **עריכת CLAUDE.md (לא דחוף, באישורך):** בטבלת Communication, השורה SPEC CHALLENGE: "once before code; screen.md items any time — workflow" (CRITIC low 7 על חוזה המסך).
 9. **guard ב-worktree (לא דחוף; ה-guard קפוא):** ה-guard מחשב נתיבים מתיקיית הבסיס, ולכן ב-worktree תחת `.work/wt/` הוא חוסם כל כתיבה של TEST ENGINEER לקובצי טסט (גם e2e ו-apps/web/tests, וגם supabase/tests/setup) (F3.2a2, 18.10). עד שיתוקן: TEST ENGINEER כותב רק בתיקייה הראשית.
 10. **עריכה בקובץ מוגן (לא דחוף, באישורך):** `.claude/knowledge/data-model-tables.md` "Feed tables": שורה על המגבלה comments_body_length_check (1000 תווים) ועל תיקון תיאורי העמודות (F3.3a, `.work/comments-likes/schema.md`).
+11. **שאלה 8 (פרטיות, לא חוסם; פועל לפי ברירת המחדל):** משתמש שסימן לייק לפוסט שהפך לא נגיש לו (למשל "חברים בלבד" אחרי הסרת חברות) לא יכול לבטל את הלייק, והלייק ממשיך להיספר אצל מי שרואה את הפוסט. ⭐ להשאיר כך (לא מזהה אף אחד); החלופה: לאפשר לבטל לייק עצמי גם על יעד לא נגיש (שינוי מדיניות מחיקה, DATA ARCHITECT).
 6. **לפני השקה:** הרשימה המלאה ב-`afik-list-1018.md` חלק ב (S-59, דומיין, אימייל, Supabase Pro, Cloudflare, Google OAuth, Vercel Pro או השקה לא מסחרית).
 
 **להמשך:**

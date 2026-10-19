@@ -102,8 +102,8 @@ export function PostScreen({ postId }: { postId: string }) {
       const accessToken = await token();
       const outcome = accessToken === null ? ({ kind: 'failed' } as const) : await editPost(accessToken, postId, checked.value);
       if (outcome.kind === 'post') {
-        // The editor is the author: the stored post answers without `isMine`.
-        setView({ ...current, post: { ...outcome.post, isMine: true }, status: UPDATED_STATUS, failure: null, edit: null, confirm: null });
+        // The editor is the author: the stored post answers without `isMine` or the counts, which stay as read.
+        setView({ ...current, post: { ...current.post, ...outcome.post, isMine: true }, status: UPDATED_STATUS, failure: null, edit: null, confirm: null });
         focusOn('actions');
         return;
       }
