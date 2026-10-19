@@ -94,6 +94,7 @@ function unitOf(row: DisplayPost, reactions: UnitReactions): FeedUnit | undefine
           audience: originalAudience,
           createdAt: originalCreatedAt,
           isAnonymous: false,
+          isMine: row.originalIsMine,
           author: { name: row.originalAuthorName },
         } as const)
       : ({ available: false } as const);

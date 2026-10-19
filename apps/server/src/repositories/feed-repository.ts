@@ -186,6 +186,7 @@ const displayRow = z.object({
   originalAudience: z.enum(POST_AUDIENCES).nullable(),
   originalCreatedAt: z.string().nullable(),
   originalIsAnonymous: z.boolean().nullable(),
+  originalIsMine: z.boolean(),
   originalAuthorName: z.string().nullable(),
 });
 
@@ -194,7 +195,7 @@ export type DisplayPost = z.infer<typeof displayRow>;
 /**
  * The display statement: the text, the audience, the author's name where the caller's policy shows one, and the original of a share
  * where the caller may read it, for the page's ids only. A post no longer readable is simply absent. The author's id never leaves the
- * statement: `is_mine` is computed here.
+ * statement: `is_mine` and the original's `originalIsMine` (F3.5 c7) are computed here.
  */
 export function displayStatement(ids: readonly string[]): SQL {
   return sql`
@@ -204,6 +205,7 @@ export function displayStatement(ids: readonly string[]): SQL {
            n.full_name as "authorName",
            o.id as "originalId", o.body as "originalBody", o.audience as "originalAudience",
            ${isoText(sql`o.created_at`)} as "originalCreatedAt", o.is_anonymous as "originalIsAnonymous",
+           coalesce(o.author_id = (select auth.uid()), false) as "originalIsMine",
            oa.full_name as "originalAuthorName"
     from nestly.posts p
     left join nestly.regular_names n on n.user_id = p.author_id

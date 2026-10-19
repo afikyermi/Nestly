@@ -15,9 +15,11 @@ export interface AppShellProps {
   skipLinkLabel: string;
   /**
    * The drawer body, for example MenuItems. As a function it receives `closeMenu`, for an item that changes the
-   * screen (navigates, signs out): the drawer closes and focus moves to `main`, not back to the Hamburger.
+   * screen (navigates, signs out): the drawer closes and focus moves to `main`, not back to the Hamburger. And
+   * `closeMenuThen`, for an item that opens a window over the screen (F3.6 "שיתוף Nestly"): the drawer closes, focus
+   * goes back to the Hamburger, and only then `then` runs, so the window opens from the Hamburger and returns focus to it.
    */
-  menu: ReactNode | ((closeMenu: () => void) => ReactNode);
+  menu: ReactNode | ((closeMenu: () => void, closeMenuThen: (then: () => void) => void) => ReactNode);
   /** Passed to the navigation: called with an item's href on a plain click (client-side routing). */
   onNavigate?: ((href: string) => void) | undefined;
   topBarActions?: ReactNode;
@@ -54,6 +56,12 @@ export function AppShell({
   const mainId = useId();
   const closeMenu = () => {
     focusMainOnClose.current = true;
+    setDrawerOpen(false);
+  };
+  const afterClose = useRef<(() => void) | null>(null);
+  const closeMenuThen = (then: () => void) => {
+    focusMainOnClose.current = false;
+    afterClose.current = then;
     setDrawerOpen(false);
   };
 
@@ -123,12 +131,19 @@ export function AppShell({
         title={drawerTitle}
         closeLabel={drawerCloseLabel}
         finalFocus={() => {
+          const then = afterClose.current;
+          if (then !== null) {
+            // Runs right after the drawer has given focus back to the Hamburger.
+            afterClose.current = null;
+            queueMicrotask(then);
+            return menuButtonRef.current;
+          }
           if (!focusMainOnClose.current) return null;
           // A screen that puts focus on a heading of its own marks it, and keeps it over `main`.
           return mainRef.current?.querySelector<HTMLElement>('[data-initial-focus]') ?? mainRef.current;
         }}
       >
-        {typeof menu === 'function' ? menu(closeMenu) : menu}
+        {typeof menu === 'function' ? menu(closeMenu, closeMenuThen) : menu}
       </SideDrawer>
     </div>
   );

@@ -1,8 +1,11 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { ANONYMOUS_AUTHOR_LABEL, type PostReadView } from '@nestly/shared';
+import { ANONYMOUS_AUTHOR_LABEL, type PostPageView } from '@nestly/shared';
 import { PATHS } from '@/app/paths';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { ReportSheet, type ReportSheetProps } from '@/components/domain/report-sheet';
+import { ShareLinkSheet, type ShareLinkSheetProps } from '@/components/domain/share-link-sheet';
+import { ShareInFeedIcon, ShareLinkIcon } from '@/components/ui/icons';
+import { SHARE_LINK_LABEL } from '@/lib/share-link-texts';
 import { MoreActionsMenu, type MoreActionsItem } from '@/components/ui/more-actions-menu';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
@@ -13,6 +16,9 @@ import { documentTitle } from '@/lib/document-title';
 import type { PostFormErrors, PostFormValues } from './post-form';
 import { PostForm, type PostFormFocus } from './PostForm';
 import { PostLinkButton } from './PostLinkButton';
+import { PostShareView } from './PostShareView';
+import { ShareFeedSheet, type ShareFeedSheetProps } from './ShareFeedSheet';
+import { SHARE_IN_FEED_LABEL } from './share-texts';
 import { MORE_ACTIONS_LABEL, MORE_ACTIONS_MENU_LABEL } from './hide-texts';
 import {
   ANONYMOUS_OWN_NOTE,
@@ -48,7 +54,7 @@ export type PostScreenView =
   | { kind: 'reported'; text: string } // F3.7 c13: the viewer reported this post; it is not shown to them again
   | {
       kind: 'loaded';
-      post: PostReadView;
+      post: PostPageView;
       /** The polite status line: what just happened. Empty: nothing. */
       status: string;
       /** The last action's failure (a delete that did not go through). */
@@ -82,6 +88,14 @@ export interface PostContentProps {
   onMenuPressOutside?: (target: EventTarget | null) => void;
   /** The report window (F3.7 c10), open while set; it closes onto the "⋯", or onto the reported paragraph. */
   report?: Omit<ReportSheetProps, 'finalFocus'> | null;
+  /** "שיתוף בפיד" (F3.5 c9) and "שיתוף קישור" (F3.6 c3): each given only when the post can be shared or linked. */
+  onShareInFeed?: (() => void) | undefined;
+  onShareLink?: (() => void) | undefined;
+  /** The share-in-feed window (F3.5 c10) and the share-link window (F3.6 c4), open while set; each closes onto its button. */
+  shareFeed?: Omit<ShareFeedSheetProps, 'finalFocus'> | null;
+  shareLink?: Omit<ShareLinkSheetProps, 'finalFocus'> | null;
+  /** A page-level alert (F3.5 c11: the share was refused for the caller). Empty: none. */
+  pageAlert?: string;
 }
 
 const FOCUS_ACTION = '[data-post-action] button';
@@ -89,11 +103,13 @@ const FOCUS_MORE = '[data-more-actions]';
 
 // One post (FR-FEED-002; F3.1b) inside the shell's `main`: its text, who sees it and its tag; for the author "עריכה" and "מחיקה",
 // an anonymous post's "אנונימי" header for every reader and, for its author only, the note that only they see it (F3.4 c12);
-// the edit form and the delete confirmation; for anyone else the "⋯" menu with "דיווח על הפוסט" and its window (F3.7). Display only: what
+// the edit form and the delete confirmation; for anyone else the "⋯" menu with "דיווח על הפוסט" and its window (F3.7). A share shows its
+// sharer, text and original (F3.5 c12) and has "מחיקה" only; a post or share that can be shared has "שיתוף בפיד" and "שיתוף קישור". Display only: what
 // the actions do comes in as props. The text is the user's own, so it is isolated and keeps its line breaks.
 export function PostContent(props: PostContentProps) {
   const { view, focus, onRetry, onEdit, onEditChange, onEditSave, onEditCancel, onDelete, onConfirmDelete, onCancelDelete, thread } = props;
   const { moreActions = [], menuOpen, onMenuOpenChange, onMenuPressOutside, report = null } = props;
+  const { onShareInFeed, onShareLink, shareFeed = null, shareLink = null, pageAlert = '' } = props;
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -120,6 +136,7 @@ export function PostContent(props: PostContentProps) {
       <p role="status" data-testid="post-status" className={cn(status !== '' && view.kind === 'loaded' ? 'text-body text-muted-foreground' : 'sr-only')}>
         {status}
       </p>
+      {pageAlert !== '' ? <InlineAlert>{pageAlert}</InlineAlert> : null}
       {view.kind === 'loading' ? (
         <div data-testid="post-loading" className="flex flex-col gap-4 rounded-lg bg-card p-4 shadow-card md:p-5">
           <Skeleton className="w-2/3" />
@@ -201,9 +218,13 @@ export function PostContent(props: PostContentProps) {
                 {ANONYMOUS_OWN_NOTE}
               </p>
             ) : null}
-            <p data-testid="post-body" dir="rtl" className="whitespace-pre-wrap wrap-anywhere">
-              {loaded.post.body ?? ''}
-            </p>
+            {loaded.post.kind === 'share' ? (
+              <PostShareView share={loaded.post} />
+            ) : (
+              <p data-testid="post-body" dir="rtl" className="whitespace-pre-wrap wrap-anywhere">
+                {loaded.post.body ?? ''}
+              </p>
+            )}
             <p data-testid="post-audience" className="text-small text-muted-foreground">
               {audienceLine(loaded.post.audience)}
             </p>
@@ -212,12 +233,28 @@ export function PostContent(props: PostContentProps) {
                 {tagLine(STAGE_LABELS[loaded.post.stageTag])}
               </p>
             ) : null}
+            {onShareInFeed !== undefined || onShareLink !== undefined ? (
+              <div className="flex flex-wrap items-center gap-x-2">
+                {onShareInFeed === undefined ? null : (
+                  <Button iconOnly label={SHARE_IN_FEED_LABEL} data-share-feed onClick={onShareInFeed}>
+                    <ShareInFeedIcon className="size-5" />
+                  </Button>
+                )}
+                {onShareLink === undefined ? null : (
+                  <Button iconOnly label={SHARE_LINK_LABEL} data-share-link onClick={onShareLink}>
+                    <ShareLinkIcon className="size-5" />
+                  </Button>
+                )}
+              </div>
+            ) : null}
           </article>
           {loaded.post.isMine ? (
             <div data-post-action className="flex flex-wrap items-center gap-2">
-              <Button variant="soft" aria-disabled={locked ? true : undefined} onClick={onEdit}>
-                {EDIT_LABEL}
-              </Button>
+              {loaded.post.kind === 'post' ? (
+                <Button variant="soft" aria-disabled={locked ? true : undefined} onClick={onEdit}>
+                  {EDIT_LABEL}
+                </Button>
+              ) : null}
               <Button variant="text" aria-disabled={locked ? true : undefined} onClick={onDelete}>
                 {DELETE_LABEL}
               </Button>
@@ -251,6 +288,8 @@ export function PostContent(props: PostContentProps) {
           finalFocus={() => rootRef.current?.querySelector<HTMLElement>(`[data-post-message], ${FOCUS_MORE}`) ?? rootRef.current?.querySelector<HTMLElement>('h1') ?? null}
         />
       ) : null}
+      {shareFeed !== null ? <ShareFeedSheet {...shareFeed} finalFocus={() => rootRef.current?.querySelector<HTMLElement>('[data-share-feed]') ?? null} /> : null}
+      {shareLink !== null ? <ShareLinkSheet {...shareLink} finalFocus={() => rootRef.current?.querySelector<HTMLElement>('[data-share-link]') ?? null} /> : null}
     </div>
   );
 }

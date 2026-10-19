@@ -4,9 +4,11 @@
 //   POST   { body, audience, stageTag?, isAnonymous? } (strict) → 201 { id, body, audience, stageTag, createdAt, isAnonymous } · 400 invalid ·
 //          422 body_required | body_too_long | audience_not_allowed (anonymous and friends-only) · 403 not_allowed (not an active Regular
 //          account, from the database)
-//   GET    /:id → 200 the same plus isMine and the counts · 404 not_found (also not a uuid: no query; also not readable: one body for every reason)
+//   GET    /:id → 200 the same plus kind "post", isMine and the counts, or a share's view (F3.5 c7: kind "share", sharerText, author,
+//          original) · 404 not_found (also not a uuid: no query; also not readable: one body for every reason). Cache-Control
+//          "private, no-store" on every answer (F3.6 c6, NFR-SEC-005): no shared or stored copy outlives a change of audience.
 //   PATCH  /:id { body?, audience?, stageTag? } (strict, at least one; stageTag null clears; isAnonymous refused) → 200 the stored post · 400 ·
-//          422 (audience_not_allowed: friends-only on an anonymous post) · 403 · 404
+//          400 share_not_editable (a share, F3.5 c8) · 422 (audience_not_allowed: friends-only on an anonymous post) · 403 · 404
 //   DELETE /:id no body → 204 (also a post held for an open report: the author never learns of a report) · 404 not_found
 //   all: 401/503 session guard · 503 · 500 server_error. Any other method → 405 with Allow.
 // Logs carry a fixed line and the SQLSTATE, never the body, an id or a tag (NFR-PRIV-001).
@@ -58,7 +60,7 @@ async function create(request: FastifyRequest, reply: FastifyReply, deps: PostsR
 
 async function read(request: FastifyRequest, reply: FastifyReply, deps: PostsRouteDependencies) {
   const { identity } = request;
-  reply.header('cache-control', 'no-store');
+  reply.header('cache-control', 'private, no-store');
   const params = postPathParams.safeParse(request.params);
   if (!params.success) return reply.code(404).send(NOT_FOUND);
   if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
@@ -81,6 +83,7 @@ async function edit(request: FastifyRequest, reply: FastifyReply, deps: PostsRou
   try {
     const outcome = await editPost(deps.database, identity, params.data.id.toLowerCase(), checked.value);
     if (outcome.kind === 'audience_not_allowed') return reply.code(422).send({ error: 'audience_not_allowed' });
+    if (outcome.kind === 'share_not_editable') return reply.code(400).send({ error: 'share_not_editable' });
     return outcome.kind === 'post' ? reply.code(200).send(outcome.post) : reply.code(404).send(NOT_FOUND);
   } catch (error) {
     return replyFailure(request, reply, error, 'post edit failed');

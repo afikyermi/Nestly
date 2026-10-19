@@ -4,8 +4,10 @@ import { GoogleSignInContext } from '@/hooks/use-google-sign-in';
 import { ReturnTargetContext, type ReturnTarget } from '@/hooks/use-return-target';
 import { AudienceStorageContext } from '@/hooks/use-audience-memory';
 import { LinkCopierContext, type LinkCopier } from '@/hooks/use-copy-profile-link';
+import { DeviceShareContext } from '@/hooks/use-share-link';
 import { sessionReturnTarget } from '@/platform/browser-return-target';
 import { windowClipboard } from '@/platform/browser-clipboard';
+import { windowDeviceShare, type DeviceShare } from '@/platform/browser-share';
 import { windowNavigation } from '@/platform/browser-navigation';
 import { browserStorage } from '@/platform/browser-storage';
 import { windowBrowserEvents } from '@/platform/browser-events';
@@ -50,6 +52,8 @@ const returnTarget: ReturnTarget = { storage: returnStorage, landed: navigation.
 // The copy-my-profile-link button (F2.4c2): the app's address and the clipboard.
 const clipboard = windowClipboard();
 const productionLinkCopier: LinkCopier = { origin: () => navigation.origin(), writeText: (text) => clipboard.writeText(text) };
+// The share-link window's "אפשרויות נוספות" (F3.6): the device's own share sheet, where the browser has one.
+const productionDeviceShare = windowDeviceShare();
 
 export interface AppProps {
   /** Where the session comes from. The deployed app uses the production source. */
@@ -60,21 +64,27 @@ export interface AppProps {
   googleSignIn?: GoogleSignIn;
   /** The app's address and the clipboard the copy-link button uses. Default: the browser's. Tests pass a fake. */
   linkCopier?: LinkCopier;
+  /** The device share sheet of the share-link window. Default: the browser's. Tests pass a fake. */
+  deviceShare?: DeviceShare;
 }
 
-export function App({ sessionSource = productionSessionSource, authPort = productionAuthPort, googleSignIn = productionGoogleSignIn, linkCopier = productionLinkCopier }: AppProps) {
+export function App(props: AppProps) {
+  const { sessionSource = productionSessionSource, authPort = productionAuthPort, googleSignIn = productionGoogleSignIn } = props;
+  const { linkCopier = productionLinkCopier, deviceShare = productionDeviceShare } = props;
   return (
     <AuthPortContext value={authPort}>
       <GoogleSignInContext value={googleSignIn}>
         <AudienceStorageContext value={browserStorage}>
           <LinkCopierContext value={linkCopier}>
-            <ReturnTargetContext value={returnTarget}>
-              <SessionProvider source={sessionSource}>
-                <BrowserRouter>
-                  <AppRoutes />
-                </BrowserRouter>
-              </SessionProvider>
-            </ReturnTargetContext>
+            <DeviceShareContext value={deviceShare}>
+              <ReturnTargetContext value={returnTarget}>
+                <SessionProvider source={sessionSource}>
+                  <BrowserRouter>
+                    <AppRoutes />
+                  </BrowserRouter>
+                </SessionProvider>
+              </ReturnTargetContext>
+            </DeviceShareContext>
           </LinkCopierContext>
         </AudienceStorageContext>
       </GoogleSignInContext>

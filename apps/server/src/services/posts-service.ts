@@ -5,17 +5,17 @@
 // the stage tag is what the author chose, or none (5א). Faults (a refusal or a constraint) are thrown and mapped by the route. An anonymous
 // post is written and answered like any other; its real author is the database's (post_authors) and never part of an answer.
 
-import type { PostAudience, PostReadView, PostView, PostWrite } from '@nestly/shared';
+import type { PostAudience, PostPageView, PostView, PostWrite, ShareOriginal } from '@nestly/shared';
 import type { Database } from '../db/client.js';
 import { inIdentityTransaction } from '../db/identity-transaction.js';
 import { readDatabaseFault } from '../lib/pg-error.js';
 import type { Identity } from '../lib/token-verifier.js';
 import { readCommentCounts, readLikeCounts, readLikedTargetIds } from '../repositories/likes-repository.js';
-import { deletePost, insertPost, readPostAnonymity, readPostDetail, updatePost, type PostRow } from '../repositories/posts-repository.js';
+import { deletePost, insertPost, readPostKind, readPostDetail, updatePost, type PostDetailRow, type PostRow } from '../repositories/posts-repository.js';
 
 export type PostOutcome<T> = { readonly kind: 'post'; readonly post: T } | { readonly kind: 'not_found' };
-/** PATCH also answers that an anonymous post cannot become friends-only (F3.4 c6). */
-export type EditOutcome = PostOutcome<PostView> | { readonly kind: 'audience_not_allowed' };
+/** PATCH also answers that an anonymous post cannot become friends-only (F3.4 c6), and that a share cannot be edited (F3.5 c8). */
+export type EditOutcome = PostOutcome<PostView> | { readonly kind: 'audience_not_allowed' } | { readonly kind: 'share_not_editable' };
 export type DeleteOutcome = { readonly kind: 'deleted' } | { readonly kind: 'not_found' };
 
 /** What a new post is made of: the text and the audience, the author's own tag choice or none, and whether it is anonymous (absent: named). */
@@ -50,6 +50,24 @@ function viewOf(row: PostRow): PostView {
   };
 }
 
+/** A share's original as the post page shows it (F3.5 c7, BR-065): available only when the caller's policies return it whole, named. */
+function originalOf(row: PostDetailRow): ShareOriginal {
+  const { originalId, originalBody, originalAudience, originalCreatedAt, originalIsAnonymous } = row;
+  if (originalId === null || originalBody === null || originalAudience === null || originalCreatedAt === null || originalIsAnonymous !== false) {
+    return { available: false };
+  }
+  return {
+    available: true,
+    id: originalId,
+    body: originalBody,
+    audience: originalAudience,
+    createdAt: originalCreatedAt,
+    isAnonymous: false,
+    isMine: row.originalIsMine,
+    author: { name: row.originalAuthorName },
+  };
+}
+
 /** POST: the caller's post. A refusal by the database (23503, 42501, 23514) propagates and rolls back, the post_authors row with it. */
 export async function createPost(database: Database, identity: Identity, input: NewPost): Promise<PostView> {
   return inIdentityTransaction(database, identity, async (tx) => {
@@ -71,11 +89,11 @@ export async function createPost(database: Database, identity: Identity, input: 
  * it in SQL (display only, not a permission; no second comparison here). The displayed counts
  * and the viewer's own like come from the same snapshot (F3.3 c11, c12): one REPEATABLE READ transaction. A post the caller cannot read is 404, not 0.
  */
-export async function readPostById(database: Database, identity: Identity, id: string): Promise<PostOutcome<PostReadView>> {
+export async function readPostById(database: Database, identity: Identity, id: string): Promise<PostOutcome<PostPageView>> {
   return inIdentityTransaction(
     database,
     identity,
-    async (tx): Promise<PostOutcome<PostReadView>> => {
+    async (tx): Promise<PostOutcome<PostPageView>> => {
       const rows = await readPostDetail(tx, id);
       if (rows.length > 1) throw new PostsFault();
       const [row] = rows;
@@ -83,9 +101,32 @@ export async function readPostById(database: Database, identity: Identity, id: s
       const likeCount = (await readLikeCounts(tx, 'post', [row.id])).get(row.id) ?? 0;
       const commentCount = (await readCommentCounts(tx, [row.id])).get(row.id) ?? 0;
       const likedByMe = (await readLikedTargetIds(tx, [row.id])).has(row.id);
+      // F3.5 c7: a share answers its sharer, text and original (never anonymous: the database forbids it); a plain post its fields as before.
+      if (row.isShare && !row.isAnonymous) {
+        return {
+          kind: 'post',
+          post: {
+            kind: 'share',
+            id: row.id,
+            body: null,
+            sharerText: row.body,
+            audience: row.audience,
+            stageTag: row.stageTag,
+            createdAt: row.createdAt,
+            isAnonymous: false,
+            isMine: row.isMine,
+            author: { name: row.authorName },
+            original: originalOf(row),
+            likeCount,
+            commentCount,
+            likedByMe,
+          },
+        };
+      }
       return {
         kind: 'post',
         post: {
+          kind: 'post',
           id: row.id,
           body: row.body,
           audience: row.audience,
@@ -106,13 +147,16 @@ export async function readPostById(database: Database, identity: Identity, id: s
 /**
  * PATCH: the named columns of the author's post. 0 rows: not found, whatever the reason. A friends-only audience on an anonymous post is
  * refused by the database before posts_audience_check is reached (the new row fails the update's RLS checks first: 42501), so when the post
- * the caller reads is anonymous and the audience asked is "friends", that 42501 is named audience_not_allowed. Any other fault propagates.
+ * the caller reads is anonymous and the audience asked is "friends", that 42501 is named audience_not_allowed. A share the caller reads is
+ * refused before any update (F3.5 c8: delete and share again); the database refuses it too (NS005, mapped by the route). Any other fault propagates.
  */
 export async function editPost(database: Database, identity: Identity, id: string, changes: PostWrite): Promise<EditOutcome> {
   let anonymousToFriends = false;
   try {
     return await inIdentityTransaction(database, identity, async (tx): Promise<EditOutcome> => {
-      if (changes.audience === 'friends') anonymousToFriends = (await readPostAnonymity(tx, id)).some((row) => row.isAnonymous);
+      const read = await readPostKind(tx, id);
+      if (read.some((row) => row.isShare)) return { kind: 'share_not_editable' };
+      anonymousToFriends = changes.audience === 'friends' && read.some((row) => row.isAnonymous);
       const row = single(await updatePost(tx, id, changes));
       return row === undefined ? { kind: 'not_found' } : { kind: 'post', post: viewOf(row) };
     });

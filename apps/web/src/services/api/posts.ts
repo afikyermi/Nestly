@@ -1,4 +1,4 @@
-import { postReadView, postView, type PostCreate, type PostReadView, type PostView, type PostWrite } from '@nestly/shared';
+import { postPageView, postView, type PostCreate, type PostPageView, type PostView, type PostWrite } from '@nestly/shared';
 
 // POST /api/posts, GET|PATCH|DELETE /api/posts/:id (F3.1b; FR-FEED-002, OP-033). No author id is ever sent: the server acts on the
 // token's user. A post is named by its row id in the path only. Only the status, the one `error` code and a body that passes the
@@ -60,9 +60,9 @@ async function call<T extends PostView>(accessToken: string, init: Call, schema:
 export const createPost = (accessToken: string, write: PostCreate): Promise<PostsOutcome> =>
   call(accessToken, { method: 'POST', path: '/api/posts', body: write }, postView);
 
-/** GET /api/posts/:id. The answer says whether the post is the caller's. */
-export const fetchPost = (accessToken: string, postId: string): Promise<PostsOutcome<PostReadView>> =>
-  call(accessToken, { method: 'GET', path: `/api/posts/${encodeURIComponent(postId)}` }, postReadView);
+/** GET /api/posts/:id. The answer says whether the post is the caller's; a share answers its sharer, text and original (F3.5 c7). */
+export const fetchPost = (accessToken: string, postId: string): Promise<PostsOutcome<PostPageView>> =>
+  call(accessToken, { method: 'GET', path: `/api/posts/${encodeURIComponent(postId)}` }, postPageView);
 
 /** PATCH /api/posts/:id with the changed values. The answer is the stored post (without `isMine`). */
 export const editPost = (accessToken: string, postId: string, write: PostWrite): Promise<PostsOutcome> =>

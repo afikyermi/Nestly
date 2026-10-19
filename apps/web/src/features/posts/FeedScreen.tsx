@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import type { FeedUnit, PostView } from '@nestly/shared';
+import { postLinkOf, shareTargetOf, type FeedUnit, type PostView } from '@nestly/shared';
+import { InlineAlert } from '@/components/shared/inline-alert';
+import { shareLinkSheetProps, useShareLink } from '@/hooks/use-share-link';
+import { SHARE_LINK_LABEL } from '@/lib/share-link-texts';
 import type { MoreActionsItem } from '@/components/ui/more-actions-menu';
 import { useBackCloses } from '@/hooks/use-back-closes';
 import { reportSheetProps, useReport } from '@/hooks/use-report';
@@ -12,7 +15,9 @@ import { CHECKING_TEXT, CONFIRM_DELETE_LABEL, DELETED_STATUS, FEED_TITLE, PUBLIS
 import { EDIT_ITEM_LABEL, HIDE_LABEL } from './hide-texts';
 import { FeedComposer } from './FeedComposer';
 import { takeComposerRequest } from './compose-draft';
-import { publishedUnit } from './post-unit';
+import { publishedUnit, sharedUnit } from './post-unit';
+import { SHARE_FAILED_TEXT, SHARED_STATUS } from './share-texts';
+import { shareFeedSheetValues, useShareInFeed } from './use-share-in-feed';
 import { useOwnUserId } from '@/hooks/use-own-user-id';
 import { usePostingProfile } from '@/hooks/use-posting-right';
 import { cn } from '@/lib/cn';
@@ -31,6 +36,8 @@ type Overlay = { kind: 'menu'; unitId: string } | { kind: 'confirm'; unitId: str
 // the cards in the server's order with infinite scroll. A Professional keeps the placeholder line and no list. A post just deleted leaves
 // "הפוסט נמחק" here, handed over in memory, once. Every card has a "⋯" menu (F3.9): edit and delete on the viewer's own named card, else hide
 // (with undo in place) and report (F3.7). The posting right only decides the composer and the placeholder; the server decides who has a feed.
+// A card that can be shared has "שיתוף בפיד" (F3.5: the window over the feed, the new share first in the list at once) and one with a link
+// "שיתוף קישור" (F3.6); a Professional has neither.
 export function FeedScreen() {
   const { right, fullName } = usePostingProfile();
   const own = useOwnUserId();
@@ -39,7 +46,7 @@ export function FeedScreen() {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const toTopRef = useRef<() => void>(() => undefined);
   // A new snapshot replaces the list: focus that was inside it would drop to the page, so it goes to the heading, at the top.
-  const { state, loadMore, retry, toggleLike, hide, undoHide, remove, addPublished, reported, restoredScroll } = useFeed(() => {
+  const { state, loadMore, retry, toggleLike, hide, undoHide, remove, addPublished, addShared, reported, restoredScroll } = useFeed(() => {
     if (rootRef.current?.querySelector('[role="feed"]')?.contains(document.activeElement) !== true) return;
     headingRef.current?.focus();
     toTopRef.current();
@@ -81,11 +88,24 @@ export function FeedScreen() {
   // F3.7: the report window of a card (from its menu) shares the menu's one history entry.
   const report = useReport((target, result) => reported(target.id, result));
   const reportSending = report.draft?.sending === true;
-  // Back while the delete or the report is in flight keeps its dialog (and the hook adds its entry again, so the next Back still closes it).
-  const { leaveTo, closingByPointer, followAfterClose, closing } = useBackCloses(overlay !== null || report.draft !== null, () => {
-    if (saving || reportSending) return false;
+  // F3.5: the share-in-feed window; a share that went through is first in the list at once. A refusal of the caller closes it onto a page alert.
+  const [pageAlert, setPageAlert] = useState('');
+  const shareFeed = useShareInFeed(
+    own.kind === 'known' ? own.userId : null,
+    (share) => addShared(sharedUnit(share), SHARED_STATUS),
+    () => setPageAlert(SHARE_FAILED_TEXT),
+  );
+  const shareSending = shareFeed.draft?.sending === true;
+  // F3.6: the share-link window of a card; nothing is sent.
+  const shareLink = useShareLink();
+  const sheetOpen = report.draft !== null || shareFeed.draft !== null || shareLink.sheet !== null;
+  // Back while the delete, the report or the share is in flight keeps its dialog (and the hook adds its entry again, so the next Back still closes it).
+  const { leaveTo, closingByPointer, followAfterClose, closing } = useBackCloses(overlay !== null || sheetOpen, () => {
+    if (saving || reportSending || shareSending) return false;
     setOverlay(null);
     report.cancel();
+    shareFeed.cancel();
+    shareLink.close();
     return true;
   });
   const confirmDelete = async (unitId: string) => {
@@ -119,6 +139,21 @@ export function FeedScreen() {
           { key: 'report', label: REPORT_POST_ITEM, onSelect: () => report.start({ kind: 'post', id: unit.id }) },
         ];
 
+  const shareActionsFor = (unit: FeedUnit) => {
+    if (professional) return {};
+    const link = postLinkOf(shareLink.origin, unit);
+    return {
+      onShareInFeed:
+        shareTargetOf(unit) === null
+          ? undefined
+          : () => {
+              setPageAlert('');
+              shareFeed.start(unit);
+            },
+      onShareLink: link === null ? undefined : () => shareLink.openPost(link, unit.id),
+    };
+  };
+
   // One polite region: the check in progress, else the page just loaded (a no-break space after every other one makes equal texts speak
   // again), else what just happened.
   const loaded = state.announcement === '' ? '' : state.announcement + (state.announcementTick % 2 === 0 ? ' ' : '');
@@ -151,6 +186,29 @@ export function FeedScreen() {
         if (!saving) setOverlay(null);
       }}
       report={report.draft === null ? null : { unitId: report.draft.target.id, sheet: reportSheetProps(report, report.draft, PATHS.communityRules) }}
+      shareActionsFor={shareActionsFor}
+      shareFeed={
+        shareFeed.draft === null
+          ? null
+          : {
+              unitId: shareFeed.draft.openerId,
+              sheet: {
+                ...shareFeedSheetValues(shareFeed.draft),
+                onTextChange: shareFeed.changeText,
+                onAudienceChange: shareFeed.changeAudience,
+                onSend: shareFeed.send,
+                onCancel: shareFeed.cancel,
+              },
+            }
+      }
+      shareLink={
+        shareLink.sheet === null
+          ? null
+          : {
+              unitId: shareLink.sheet.openerId ?? '',
+              sheet: shareLinkSheetProps(shareLink, shareLink.sheet, SHARE_LINK_LABEL),
+            }
+      }
     />
   );
   const write = (
@@ -170,6 +228,11 @@ export function FeedScreen() {
       <p role="status" data-testid="feed-status" className={cn(visible ? 'mt-1 text-body text-muted-foreground' : 'sr-only')}>
         {status}
       </p>
+      {pageAlert !== '' ? (
+        <div className="mt-2">
+          <InlineAlert>{pageAlert}</InlineAlert>
+        </div>
+      ) : null}
       {none ? <p className="mt-1 text-body text-muted-foreground">{PLACEHOLDER_TEXT}</p> : null}
       {/* One fixed place, before the list or the empty state: a form sending a post survives the feed changing phase. */}
       {write}

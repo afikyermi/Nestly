@@ -36,6 +36,15 @@ const postDetailRow = z.object({
   createdAt: z.iso.datetime(),
   isAnonymous: z.boolean(),
   isMine: z.boolean(),
+  isShare: z.boolean(),
+  authorName: z.string().nullable(),
+  originalId: z.guid().nullable(),
+  originalBody: z.string().nullable(),
+  originalAudience: z.enum(POST_AUDIENCES).nullable(),
+  originalCreatedAt: z.iso.datetime().nullable(),
+  originalIsAnonymous: z.boolean().nullable(),
+  originalIsMine: z.boolean(),
+  originalAuthorName: z.string().nullable(),
 });
 
 export type PostDetailRow = z.infer<typeof postDetailRow>;
@@ -53,18 +62,24 @@ export async function readPost(tx: IdentityTx, id: string): Promise<ReadablePost
   return tx.select(readableColumns).from(posts).where(eq(posts.id, id));
 }
 
+const postKindRow = z.object({ isAnonymous: z.boolean(), isShare: z.boolean() });
+
 /**
- * Whether the post is anonymous, when the caller may read it (RLS): read by PATCH only, to name the database's refusal of a friends-only
- * audience on an anonymous post (F3.4 c6). Not a permission and not the author: the update's own policy still decides who edits.
+ * Whether the post is anonymous or a share, when the caller may read it (RLS): read by PATCH only, to name the database's refusal of a
+ * friends-only audience on an anonymous post (F3.4 c6) and to refuse the edit of a share before it is tried (F3.5 c8). Not a permission and
+ * not the author: the update's own policy still decides who edits. `is_share` is not in the Drizzle schema (the drift list), hence SQL.
  */
-export async function readPostAnonymity(tx: IdentityTx, id: string): Promise<{ isAnonymous: boolean }[]> {
-  return tx.select({ isAnonymous: posts.isAnonymous }).from(posts).where(eq(posts.id, id));
+export async function readPostKind(tx: IdentityTx, id: string): Promise<{ isAnonymous: boolean; isShare: boolean }[]> {
+  const rows = await tx.execute(sql`select p.is_anonymous as "isAnonymous", p.is_share as "isShare" from nestly.posts p where p.id = ${id}::uuid`);
+  return z.array(postKindRow).parse(rows);
 }
 
 /**
  * The post page's read (GET /posts/:id only): the post when the caller may read it, and `isMine`, display only. For an anonymous post
  * `isMine` is whether the caller's own post_authors row exists (RLS shows a caller only their own); for a named one, whether the caller is
- * its author. One expression for both, so they cannot disagree.
+ * its author. One expression for both, so they cannot disagree. A share (F3.5 c7) adds its sharer's name and its original, each where the
+ * caller's own policies show it (regular_names, posts_select_viewer): an original the caller cannot read is absent (null columns), and
+ * `originalIsMine` is computed here, so no author id leaves the statement. A plain post reads no name (its fields are unchanged).
  */
 export async function readPostDetail(tx: IdentityTx, id: string): Promise<PostDetailRow[]> {
   const rows = await tx.execute(sql`
@@ -73,8 +88,15 @@ export async function readPostDetail(tx: IdentityTx, id: string): Promise<PostDe
            p.is_anonymous as "isAnonymous",
            case when p.author_id is null
                 then exists (select 1 from nestly.post_authors pa where pa.post_id = p.id and pa.author_id = (select auth.uid()))
-                else p.author_id = (select auth.uid()) end as "isMine"
+                else p.author_id = (select auth.uid()) end as "isMine",
+           p.is_share as "isShare", n.full_name as "authorName",
+           o.id as "originalId", o.body as "originalBody", o.audience as "originalAudience",
+           to_char(o.created_at at time zone 'UTC', ${isoMs}) as "originalCreatedAt", o.is_anonymous as "originalIsAnonymous",
+           coalesce(o.author_id = (select auth.uid()), false) as "originalIsMine", oa.full_name as "originalAuthorName"
     from nestly.posts p
+    left join nestly.regular_names n on p.is_share and n.user_id = p.author_id
+    left join nestly.posts o on o.id = p.shared_post_id
+    left join nestly.regular_names oa on oa.user_id = o.author_id
     where p.id = ${id}::uuid`);
   return z.array(postDetailRow).parse(rows);
 }

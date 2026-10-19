@@ -1,8 +1,12 @@
 import { Outlet, useLocation, useNavigate } from 'react-router';
+import { ShareLinkSheet } from '@/components/domain/share-link-sheet';
 import { AppShell } from '@/components/layout/app-shell';
 import { MenuItem } from '@/components/shared/menu-item';
 import { HomeIcon, NestIcon, UserIcon } from '@/components/ui/icons';
+import { useBackCloses } from '@/hooks/use-back-closes';
 import { useSession } from '@/hooks/use-session';
+import { shareLinkSheetProps, useShareLink } from '@/hooks/use-share-link';
+import { SHARE_SITE_LABEL } from '@/lib/share-link-texts';
 import { RULES_TITLE } from '@/pages/community-rules/community-rules-texts';
 import { HOTLINES_TITLE } from '@/pages/medical-hotlines/medical-hotlines-texts';
 import { parseSettingsSection, SETTINGS_SECTIONS, settingsSectionHash } from '@/lib/settings-sections';
@@ -18,7 +22,8 @@ const NAV_ITEMS = [
 
 // The AppShell around every protected screen (FR-TOP-001, FR-MENU-001), bound to the router and the
 // session. The TopBar holds only the Hamburger and the Logo; the menu holds Friends (F2.4b), the community rules (F3.7, PG-049), one item per Settings section (F2.5),
-// the medical hotlines page (F3.8, FR-MENU-001 order), the recovery questions, the password change (F2.0 c15) and Logout. A destination whose feature is not built is absent, not
+// the medical hotlines page (F3.8, FR-MENU-001 order), the recovery questions, the password change (F2.0 c15), "שיתוף Nestly" (F3.6 c11: the
+// site link's window, for Regular and Professional alike; no post data) and Logout. A destination whose feature is not built is absent, not
 // disabled (F2.5 DR-1, as the bottom navigation does for "חנות" and "יועצים").
 export function ProtectedLayout() {
   const { pathname, hash } = useLocation();
@@ -37,6 +42,12 @@ export function ProtectedLayout() {
     closeMenu();
     go(href);
   };
+  // F3.6 c11: the site link's window, over whatever screen is open; Back, Escape, a press outside or "סגירה" close it onto the Hamburger.
+  const shareLink = useShareLink();
+  useBackCloses(shareLink.sheet !== null, () => {
+    shareLink.close();
+    return true;
+  });
 
   return (
     <AppShell
@@ -48,7 +59,7 @@ export function ProtectedLayout() {
       skipLinkLabel="דילוג לתוכן הראשי"
       onNavigate={go}
       scrollResetKey={current}
-      menu={(closeMenu) => (
+      menu={(closeMenu, closeMenuThen) => (
         <>
           <MenuItem href={PATHS.friends} current={PATHS.friends === current} onNavigate={leaving(closeMenu)}>
             חברים
@@ -75,6 +86,7 @@ export function ProtectedLayout() {
           <MenuItem href={PATHS.changePassword} current={PATHS.changePassword === current} onNavigate={leaving(closeMenu)}>
             החלפת סיסמה
           </MenuItem>
+          <MenuItem onClick={() => closeMenuThen(shareLink.openSite)}>{SHARE_SITE_LABEL}</MenuItem>
           <MenuItem
             onClick={() => {
               closeMenu();
@@ -87,6 +99,7 @@ export function ProtectedLayout() {
       )}
     >
       <Outlet />
+      {shareLink.sheet !== null ? <ShareLinkSheet {...shareLinkSheetProps(shareLink, shareLink.sheet, SHARE_SITE_LABEL)} /> : null}
     </AppShell>
   );
 }

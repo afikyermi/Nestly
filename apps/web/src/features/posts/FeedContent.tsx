@@ -3,6 +3,7 @@ import type { FeedUnit } from '@nestly/shared';
 import { EmptyFeedIllustration } from '@/components/shared/illustrations';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { ReportSheet, type ReportSheetProps } from '@/components/domain/report-sheet';
+import { ShareLinkSheet, type ShareLinkSheetProps } from '@/components/domain/share-link-sheet';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
 import type { MoreActionsItem } from '@/components/ui/more-actions-menu';
@@ -10,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { CONFIRM_DELETE_LABEL, DELETE_DESCRIPTION, DELETE_TITLE, DELETING_TEXT, DIALOG_CANCEL_LABEL, RETRY_LABEL } from './posts-texts';
 import { FeedCard } from './FeedCard';
 import { HiddenPostCard } from './HiddenPostCard';
+import { ShareFeedSheet, type ShareFeedSheetProps } from './ShareFeedSheet';
 import type { FeedState, HideFocus } from './feed-state';
 import { EMPTY_FEED_TEXT, FEED_LIST_LABEL } from './feed-texts';
 
@@ -37,6 +39,12 @@ export interface FeedContentProps {
   onCancelDelete?: () => void;
   /** The report window of a card (F3.7 c10), open while set; it closes onto the card's "⋯", or where the card's removal sends focus. */
   report?: { unitId: string; sheet: Omit<ReportSheetProps, 'finalFocus'> } | null;
+  /** A card's share actions (F3.5 c9, F3.6 c3): each given only when the unit can be shared or linked. */
+  shareActionsFor?: (unit: FeedUnit) => { onShareInFeed?: (() => void) | undefined; onShareLink?: (() => void) | undefined };
+  /** The share-in-feed window of a card (F3.5 c10), open while set; it closes onto the card's "שיתוף בפיד". */
+  shareFeed?: { unitId: string; sheet: Omit<ShareFeedSheetProps, 'finalFocus'> } | null;
+  /** The share-link window of a card (F3.6 c4), open while set; it closes onto the card's "שיתוף קישור". */
+  shareLink?: { unitId: string; sheet: Omit<ShareLinkSheetProps, 'finalFocus'> } | null;
 }
 
 function cardOf(list: HTMLElement | null, unitId: string): HTMLElement | undefined {
@@ -72,7 +80,7 @@ function SkeletonCards() {
 // F3.9: a card the viewer hid here is drawn as its placeholder in the same place; after a hide or an undo, focus goes where hideFocus says.
 export function FeedContent(props: FeedContentProps) {
   const { state, sentinelRef, onRetry, onToggleLike, actionsFor, onUndoHide, headingRef, openMenuId = null, onMenuOpenChange } = props;
-  const { confirm = null, onConfirmDelete, onCancelDelete, onMenuPressOutside, report = null } = props;
+  const { confirm = null, onConfirmDelete, onCancelDelete, onMenuPressOutside, report = null, shareActionsFor, shareFeed = null, shareLink = null } = props;
   const { phase, loading, items, message, focusIndex, hiddenIds, pendingHideIds, hideFocus } = state;
   const listRef = useRef<HTMLDivElement>(null);
   const latestFocus = useRef(hideFocus);
@@ -93,6 +101,10 @@ export function FeedContent(props: FeedContentProps) {
     const focus = latestFocus.current;
     return (focus === null ? null : hideFocusElement(listRef.current, focus)) ?? headingRef?.current ?? null;
   };
+
+  // A share window closes onto the button that opened it (its card stays), else where a removal sends focus.
+  const afterShare = (unitId: string, selector: string): HTMLElement | null =>
+    cardOf(listRef.current, unitId)?.querySelector<HTMLElement>(selector) ?? afterConfirm(unitId);
 
   if (phase === 'blocked') return null;
   if (phase === 'ready' && items.length === 0) {
@@ -141,6 +153,7 @@ export function FeedContent(props: FeedContentProps) {
               position={index + 1}
               {...(onToggleLike === undefined ? {} : { onToggleLike: () => onToggleLike(unit.id) })}
               {...(actionsFor === undefined ? {} : { actions: actionsFor(unit) })}
+              {...(shareActionsFor === undefined ? {} : shareActionsFor(unit))}
               menuOpen={openMenuId === unit.id}
               {...(onMenuOpenChange === undefined ? {} : { onMenuOpenChange: (open: boolean) => onMenuOpenChange(unit.id, open) })}
               {...(onMenuPressOutside === undefined ? {} : { onMenuPressOutside })}
@@ -166,6 +179,8 @@ export function FeedContent(props: FeedContentProps) {
         />
       ) : null}
       {report !== null ? <ReportSheet {...report.sheet} finalFocus={() => afterConfirm(report.unitId)} /> : null}
+      {shareFeed !== null ? <ShareFeedSheet {...shareFeed.sheet} finalFocus={() => afterShare(shareFeed.unitId, '[data-share-feed]')} /> : null}
+      {shareLink !== null ? <ShareLinkSheet {...shareLink.sheet} finalFocus={() => afterShare(shareLink.unitId, '[data-share-link]')} /> : null}
     </div>
   );
 }

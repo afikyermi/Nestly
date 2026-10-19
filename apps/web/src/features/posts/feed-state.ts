@@ -144,3 +144,11 @@ export function withPublished(state: FeedState, unit: FeedUnit): FeedState {
   if (state.phase === 'first-error') return state;
   return { ...state, items: [unit, ...state.items.filter((item) => item.id !== unit.id)], likeStatus: '' };
 }
+
+/**
+ * A share just made by the viewer (F3.5 c11): it joins the top of the loaded list as a published post does, and what happened is said in the
+ * action channel (the hide statuses' region and tick). Focus is not moved: it goes back to the "שיתוף בפיד" that opened the window.
+ */
+export function withShared(state: FeedState, unit: FeedUnit, status: string): FeedState {
+  return { ...withPublished(state, unit), likeStatus: '', hideStatus: status, hideStatusTick: state.hideStatusTick + 1 };
+}
