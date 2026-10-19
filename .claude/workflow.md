@@ -101,7 +101,7 @@ Split ordinary oversized work instead; never shorten a security requirement to m
 | 1 | Afik or ORCHESTRATOR | intent, one or two sentences — from Afik, or the next item in WORKPLAN | — |
 | 2 | ORCHESTRATOR | classify, pick path, select team — `/feature` | `intake.md` |
 | 3 | **SPEC** | write the contract; a part with a screen also gets the screen contract (agents/spec.md) | `spec.md` (+ `screen.md`) |
-| 4 | **ORCHESTRATOR** | ✋ **Gate 1** — approve `spec.md` (and `screen.md`) against the SRS, or return it to SPEC. A reserved point (CLAUDE.md → "Decision authority") goes to WORKPLAN for Afik | approved `spec.md` (+ `screen.md`) |
+| 4 | **ORCHESTRATOR** | ✋ **Gate 1** — approve `spec.md` (and `screen.md`) against the SRS and `docs/design/direction.md`, or return it to SPEC. A reserved point (CLAUDE.md → "Decision authority") goes to WORKPLAN for Afik | approved `spec.md` (+ `screen.md`) |
 | 5 | **DATA ARCHITECT** | Schema changes → Gate 2; Auth/session/deletion/provider changes → identify the critical external assumption before the first part (see "Closing a part"). Policies follow the authorization layers in `.claude/knowledge/data-model.md` | `schema.md` |
 | 5b | **ALGORITHM & DATA** | *only if the feature uses behavioural signals, ranks or recommends, records analytics events, or places paid content* — purpose map, pipeline, configuration, events, evaluation. Feeds DATA ARCHITECT when tables are needed | `algorithm.md` |
 | 6 | **BUILDER** | branch, implement; calls SCOUT as needed. Hands off green: typecheck · lint · `check:budgets` · `check:stories` · the unit and database tests that run on this machine, on what it touched | diff + `notes.md` |
@@ -298,7 +298,7 @@ what, and when. A domain becomes an agent only through the Agent Necessity Test.
 
 | | |
 |---|---|
-| **Trigger** | any new or changed UI |
+| **Trigger** | any new or changed UI. **Afik 19.10:** SPEC follows `docs/design/direction.md` in every screen.md; a central screen (feed, profile, post, chat, home, group) gets ≤3 lines in WORKPLAN "ממתין לך" before its build, which does not wait; Afik's "הערת UX" notes go to WORKPLAN "הערות UX של אפיק" and run in a "ליטוש UX" part at each Initiative's end |
 | **BUILDER** | builds with the `design-system` craft skill, next to `accessibility`, `rtl-hebrew` and `ux-copy-he`: semantic tokens only, reuse of existing components, the designed states. Every changed component gets a Storybook story with its states |
 | **CI** | from 9.7, lint rejects physical direction classes, arbitrary Tailwind values, hex outside the tokens source and `@radix-ui` imports outside `components/ui`; a Vitest test holds every token pair in `docs/design/tokens.md` to its WCAG contrast threshold |
 | **TEST ENGINEER** | Apply Test rules → Visual regression to each changed screen/story |
@@ -445,7 +445,7 @@ a resolution line — the cause goes in the report to Afik.
 ## SRS maintenance
 
 Every product change, including technical decisions with an SRS home, reaches the SRS. Team changes
-go to decisions. Record feature SRS traces in result.md. Update SRS files once at Initiative close
+go to decisions. Record feature SRS traces in result.md. Every UX change (decision, note, deviation fix) enters the Initiative's "שינויים ל-SRS" list at once; an Initiative does not close with an open line (Afik 19.10). Update SRS files once at Initiative close
 from all as-built deltas; changes to scope or security model enter at once. Follow `/srs-update` and
 `.claude/rules/srs-editing.md` for IDs, INDEX, versioning and Word archive. Do not fill an open point.
 Record every AI/ML idea/decision per `knowledge/ai-ml-readiness.md`: future options in Appendix D,

@@ -66,3 +66,19 @@ hotline page details, Stories in I5. Open for Afik: `I3-questions.md`.
 
 Every AC in scope has a test named after its ID · the I3 production migrate batch succeeded · the SRS updated once at
 I3's close (`/srs-update`) · security/privacy items opened in I3 are in `security-privacy-open.md`.
+
+## שינויים ל-SRS (נכנסים ב-/srs-update; I3 לא נסגרת עם שורה פתוחה)
+
+| # | שינוי | מקור | מצב |
+|---|---|---|---|
+| 1 | שמות מלאים למגיבים (Q7 ב) | decisions 19.10 | פתוח |
+| 2 | `audience_not_allowed` (422) לאנונימי + חברים | F3.4 spec | פתוח |
+| 3 | כללי טקסט דיווח (1,000 תווים) ודיווח חוזר; שורת "TBD Report Escalation" ב-§11 | F3.7 spec | פתוח |
+| 4 | BR-064/AC-080: Restricted לא חוסם שיתוף; טווח AC-079–083 | F3.5/F3.6 specs | פתוח |
+| 5 | FR-ALG-009/AC-064/UC-40 מול 8א; `post_hides` ב-§13 | F3.9 spec | פתוח |
+| 6 | דפוסי אינטראקציה (direction.md): כתיבה במקום בראש הפיד במקום עמוד נפרד | אפיק 19.10 (UX) | פתוח |
+| 7 | ליטוש UX של I3: הסטיות מבדיקת המסכים (רשימה למטה) | אפיק 19.10 (UX) | פתוח |
+
+## ליטוש UX של I3
+
+(נכתב אחרי בדיקת מסכי I1–I3 מול direction.md → "דפוסי אינטראקציה".)

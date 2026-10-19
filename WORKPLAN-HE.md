@@ -27,12 +27,16 @@
 4. ✅ **Docker Desktop** הותקן (18.10). בדיקות ה-DB רצות מקומית: `node tools/db-local.mjs test` (אותו image כמו ב-CI). **אחרי הפעלה מחדש של המחשב: לפתוח את Docker Desktop** ולחכות ל-"Engine running".
 5. אפיק מוחק (S-56): הקובץ המקומי `.live/events.jsonl` · ב-GitHub → Settings → Environments → `preview-e2e`: הסוד `PREVIEW_SUPABASE_SECRET_KEY` · ב-GitHub → Settings → Secrets → Actions (repository): `PREVIEW_TEST_EMAIL` ו-`PREVIEW_TEST_PASSWORD`.
 7. **DECISION REQUEST (guard, לא דחוף; ה-guard קפוא):** לחסום כתיבה של TEST ENGINEER ל-`screen.md` ול-`spec.md` בשינוי הבא של ה-guard (CRITIC 18.10, שינוי חוזה המסך). עד אז: כלל כתוב ב-test-engineer.md.
-9. **guard ב-worktree (לא דחוף; ה-guard קפוא):** ה-guard מחשב נתיבים מתיקיית הבסיס, ולכן ב-worktree תחת `.work/wt/` הוא חוסם כל כתיבה של TEST ENGINEER לקובצי טסט (גם e2e ו-apps/web/tests, וגם supabase/tests/setup) (F3.2a2, 18.10). עד שיתוקן: TEST ENGINEER כותב רק בתיקייה הראשית.
+9. **guard ב-worktree (לא דחוף; ה-guard קפוא):** ה-guard מחשב נתיבים מתיקיית הבסיס, ולכן ב-worktree תחת `.work/wt/` הוא חוסם כל כתיבה של TEST ENGINEER לקובצי טסט (גם e2e ו-apps/web/tests, וגם supabase/tests/setup) (F3.2a2, 18.10). עד שיתוקן: TEST ENGINEER כותב רק בתיקייה הראשית. **19.10:** גם worktree מחוץ ל-repo (`C:UsersAfik
+estly-wt-pgtap`) חסום, כך ש-TE אחד בכל פעם (צוואר בקבוק בקצב #88).
 10. **guard — תור לרטרו הבא (לא עכשיו; ה-guard קפוא), יחד עם 7 ו-9:** חסימות ה-.env מ-19.10 ב-incidents.md היו שגויות: פקודות `sed` של TEST ENGINEER על קובצי e2e, בלי גישה ל-.env. לתקן את התבנית.
 12. **I3 בריצה (19.10, אישור אפיק: עד סוף I3 בלי עצירה):** Q7 = ב (שם מלא למגיבים) ו-Q8 = ⭐ נרשמו כסופיות (decisions 19.10). יומן החלקים ב-[`.work/progress.md`](.work/progress.md). **שאלות שמחכות לך:** סעיפים 13–14.
 13. **שאלה F3.4 (פרטיות, לא חוסם; בונים לפי ⭐):** האם הודעת הפוסט האנונימי אומרת שהצוות רואה מי כתב (FR-FEED-005 r.6)? ⭐ כן: "השם שלכם לא יוצג לאף אחד בקהילה. צוות Nestly יכול לראות מי כתב, רק לבטיחות ואכיפה" · חלופה: רק "השם מוסתר". ענה: ⭐ / חלופה.
 14. **Q7 — חוסם רק את מדיניות השמות (PR-A2), השאר ממשיך:** כדי להחיל את Q7 ב, שתי בדיקות ב-main ‏(`comments.db.test.ts` ‏[F3.3-b1 c7], שמצפות לשם `null` לזר) צריכות skip לפני ה-migration. מסווג ההרשאות חסם את זה כ"הסרת טסט אבטחה". בחר: (א) לאשר את ה-skip החד-פעמי (הבדיקות חוזרות עם הציפייה החדשה ב-PR-A2) · (ב) אתה ממזג את PR-A2 ידנית למרות שלב ה-expand.
 6. **לפני השקה:** הרשימה המלאה ב-`afik-list-1018.md` חלק ב (S-59, דומיין, אימייל, Supabase Pro, Cloudflare, Google OAuth, Vercel Pro או השקה לא מסחרית).
+
+**הערות UX של אפיק** (נאספות כאן ומבוצעות בחלק "ליטוש UX" בסוף כל יוזמה; כל אחת נרשמת גם ב"שינויים ל-SRS" של היוזמה):
+- 19.10 — דפוסי אינטראקציה (פייסבוק) ב-`docs/design/direction.md`; כתיבה בעמוד נפרד (F3.1b) היא סטייה ומתוקנת בתוך I3. בדיקת המסכים הקיימים: רשימת הליטוש ב-`.work/_initiatives/I3-community-feed.md`.
 
 **להמשך:**
 0. ✅ שלב הבדיקה והתיקון (#57–#73). I3 נפתח 18.10.
