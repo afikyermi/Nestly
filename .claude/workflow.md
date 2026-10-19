@@ -50,7 +50,7 @@ Reserved decisions follow CLAUDE.md. Afik is not asked to replace specialist rev
 
 ## Parallelism
 
-Within a feature only TEST ENGINEER beside BUILDER (independent test/source files); SCOUT calls freely.
+Within a feature only TEST ENGINEER beside BUILDER (independent test/source files); SCOUT calls freely. Across features: the Overlap rule under Batched approvals.
 Reviewer parallelism is the explicit step 9 exception for CRITIC and ALGORITHM & DATA. Across Initiatives,
 use the approved pairs under Waiting on Afik. No shared-file or shared-database independence is assumed.
 
@@ -129,7 +129,7 @@ not. A commit pushed after the checks passed needs them to pass again. Record ru
 - **Applicability:** `--expected-skip 'name=reason'` records a verified workflow condition (e.g. Edge on PR); use exact matrix job names. Never use it to excuse an unexpected skip. `--no-preview 'approval/reason'` only where Preview is explicitly out of scope (Afik: P1). E skipped/missing is otherwise not green. Reviewer's findings remain a separate gate.
 - **main health at every part close:** examine the latest relevant job executions, including Edge, cleanup and migrate. Resolve a current unresolved failure before the next part; a later successful equivalent execution on main closes the historical failure. An unrelated success or a skip does not. A deliberate retirement needs explicit evidence; API/history limits mean unknown, not healthy. `/wrap-up` applies this per part even though result/log writing remains per feature.
 - **Stable candidate:** run targeted local tests (including changed screens/stories where applicable), fix, review and bundle records + baselines before pushing. Local commits are fine; not a push per fix. Only `main` and `ready/<part>` deploy (vercel.json, P4): push the finished candidate once as a new branch `ready/<part>` (no force push) and open the PR from it; fixes go there. Work and records branches never deploy. An already-published final candidate needs inspection of its actual E evidence.
-- **After squash:** each part starts on a new branch from updated main, never a force push; the cloud GitHub proxy allows new branch names (P4 live proof, 18.10).
+- **After squash:** each part starts on a new branch from updated main (or, under Overlap, is rebased on it before its candidate push), never a force push; the cloud GitHub proxy allows new branch names (P4 live proof, 18.10).
 - **External contract, only when changed:** for Auth/session/deletion/provider behaviour, DATA ARCHITECT names the critical assumption and failure scenario in the existing spec/schema. TEST ENGINEER adds a small contract test before the first affected part merges, against a disposable CI service or an approved non-production provider environment; mocks alone cannot prove provider semantics. No secrets in artifacts and no new production action. Unavailable evidence is a blocker with an owner, not deferred validation after merge. No new contract test for every unrelated feature.
 - **Who is affected:** DATA ARCHITECT and CRITIC include dependent tools, workflows and limits: changed tables → cleanup; suite growth → timeouts/shards; external behaviour → consumers. The existing artifact/finding holds the impact and evidence; no new recurring journal.
 - **Codex improvement tasks:** Afik merges, one approved task/PR at a time; the Claude product-work merge delegation does not authorize Codex to merge. P1's fixtures are explicitly approved despite the general tool-test freeze.
@@ -152,7 +152,7 @@ Who passes the gates, and what still needs Afik: this file → "Gates" and `CLAU
 
 Entry condition: any risk flag in `CLAUDE.md`.
 
-**Path per part (Afik, 15.10.2026).** A split spec marks each part's risk flags; the part, not the feature, takes the path. **PR cadence (Afik, 19.10.2026):** one PR per feature, server and screen together; split only above the size threshold in agents/spec.md; small infrastructure is never split from its feature.
+**Path per part (Afik, 15.10.2026).** A split spec marks each part's risk flags; the part, not the feature, takes the path. **PR cadence (Afik, 19.10.2026):** one PR per feature, server and screen together; split only above the size threshold in agents/spec.md; small infrastructure (never a migration — P6) is never split from its feature. A PR with any flagged part runs Elevated as a whole.
 A part with no flag — a screen — runs Standard: CRITIC on sonnet, no DATA ARCHITECT, and still the full 🎨 depth
 (screenshots, axe, keyboard, desktop and phone). **Reviews: one round per part** (Afik, 16.10.2026, audit decision 4).
 **A part merges only after its review:** parts that share a review merge together.
@@ -329,7 +329,7 @@ decision: other parts of the same feature, the next feature's intake and spec, s
 
 **Batched approvals (Afik, 16.10.2026, audit decision 2).** Before an Initiative opens, ORCHESTRATOR puts every decision
 reserved for Afik in that Initiative into **one questionnaire** (AskUserQuestion, plus `.work/_initiatives/<I>-questions.md`),
-then works without stopping. **Schema first per Initiative (Afik, 19.10.2026):** DATA ARCHITECT designs the Initiative's (or a large slice's) schema at its start; it ships in one or two migration-only PRs, so the parts after it are code only. While a PR waits for CI and E, the next feature starts in a worktree (BUILDER there; TEST ENGINEER writes in the main checkout). **Schema before code (P6, 18.10.2026):** a migration ships in its own PR with no product
+then works without stopping. **Schema first per Initiative (Afik, 19.10.2026):** SPEC first writes the specs of the Initiative (or a large slice) and Gate 1 approves them; then DATA ARCHITECT designs their schema (Gate 2) and it ships in one or two migration-only PRs, so the parts after it are code only; pgTAP derives from those approved specs. **Overlap:** while a PR waits for CI and E, a next feature that does not depend on it may start (BUILDER in a worktree; TEST ENGINEER on a tests branch in the main checkout); ORCHESTRATOR merges code and tests into one branch before steps 8–9 and rebases it on main after the waiting PR merges, before the candidate push. **Schema before code (P6, 18.10.2026):** a migration ships in its own PR with no product
 code (CI `schema-gate`), and CI runs main's server tests on its schema (expand check). After it merges (nestly-preview
 applies at once), ORCHESTRATOR dispatches `migrate` from `main` (`gh workflow run migrate.yml --ref main`) without waiting
 for Afik (he removed the `db-production` approval until launch, 16.10.2026); several schema PRs may share one dispatch.

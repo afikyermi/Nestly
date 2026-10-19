@@ -70,7 +70,7 @@ of a split carries its own risk flags, since each part takes its own path.
 **Open questions**
 - <question> → **assumed if unanswered:** <the default that will be used>
 
-**Size estimate**  ~N product lines. One PR per feature (server + screen; small infrastructure stays with its feature). Split only above ~900 product lines or 20 criteria — one CRITIC round must read it whole
+**Size estimate**  ~N product lines. One PR per feature (server + screen; small infrastructure — never a migration, P6 — stays with its feature). Split only above ~900 product lines, the criteria cap above (12/20), or one context window (CLAUDE.md)
 ```
 
 ## Screen contract — `.work/<slug>/screen.md` (parts with a screen only)
