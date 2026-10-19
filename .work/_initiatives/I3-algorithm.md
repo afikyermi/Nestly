@@ -2,7 +2,9 @@
 
 **Author:** ALGORITHM & DATA, 18.10.2026 · **Revised** 18.10.2026 (own review findings 4–9, `.work/feed-groundwork/algorithm-review.md`;
 Afik's final decisions of 18.10 on reported comments/users and on "restricted" profiles, relayed by ORCHESTRATOR) · 18.10.2026
-(F3.2a2 review low 4, `.work/feed-view/findings-a2.md`: Pipeline 6 lists the score inputs not bounded by `asOf`; DR-6 decided).
+(F3.2a2 review low 4, `.work/feed-view/findings-a2.md`: Pipeline 6 lists the score inputs not bounded by `asOf`; DR-6 decided) ·
+19.10.2026 (F3.3 review finding 5, `.work/comments-likes/algorithm-review.md`: displayed counts and the viewer's own like-state
+added to the purpose map; display and like-state statements added beside the ranking allow-list).
 **Status:** DR-1..DR-4 (incl. DR-4b) and DR-6 answered by Afik (`I3-questions.md` → "תשובות" and his 18.10 final decisions;
 DR-6: 4א, 18.10), DR-5 decided by ORCHESTRATOR. Nothing open for Afik in this file.
 **Scope:** the Regular User feed of I3 (FR-FEED-001..007, FR-MOD-001 report action, FR-ALG-002 subset; roadmap I3 row).
@@ -23,6 +25,8 @@ Rule-based, no ML/LLM (P-ALG-01, BR-049). Any learned component is a separate re
 | Anonymity flag | eligibility path + exclusion from every social computation | FR-FEED-005 rule 3, BR-062, AC-076 |
 | `created_at` | Freshness, snapshot bound, tie-break | FR-ALG-002 "Freshness"; §18.3 step 3 |
 | Count of Likes and Comments by active users other than the author (counts only, never who; precise `n` in **Pipeline** 3) | Quality component | FR-ALG-002 "engagement/quality signals"; §18.2 Regular Explicit "Like/Reaction, Comment/Reply → Organic Ranking" |
+| Displayed counts: `count(*)` of RLS-visible likes per post or comment and of RLS-visible comments + replies per post (author's own included, no `asOf`) | display only (`likeCount`, `commentCount` on cards, post page, comments); never ranking, never fed into `n` | FR-FEED-001 (like and comment on every card); F3.3 spec c11 |
+| Viewer's own likes (`reaction_owners` rows RLS returns to the viewer) | the viewer's own like-state display only (`likedByMe`); **never ranking**, never display counts, never another viewer | FR-FEED-001; F3.3 spec c12; data-model rule 20 (owners readable by the owner only) |
 | Viewer's derived Stage set (from own JourneyContexts; never DOB, name or child id), passed to the feed query as a bound parameter | Stage component | FR-FEED-004, BR-050, P-ALG-04; §13.2 Child/Journey "algorithms through derived Stage" |
 | `posts.stage_tag` — the author's optional, explicitly chosen tag | Stage component | answer 5א (DR-2); FR-FEED-004 input |
 | Viewer's own hides and own **post** reports | eligibility only, inside RLS; never read by the feed query | answers 8א (F3.9) and 7א (DR-4, posts only) |
@@ -45,7 +49,8 @@ Rule-based, no ML/LLM (P-ALG-01, BR-049). Any learned component is a separate re
 | Mutual-friend counts, friends-of-friends | not an approved I3 signal; boosting a non-Friend by graph proximity reveals the graph (§13.2 "do not expose the full graph") |
 | Author's Profile Visibility (open / restricted) — for eligibility, audience, sharing or score | Afik, 18.10: "restricted" limits only viewing the profile page and has no relation to posts; `author_visibility` is dropped from posts (DATA ARCHITECT) |
 | Viewer or author sex, age, any other profile field (as a score input) | no approved ranking purpose (§13.2 Regular Profile) |
-| Likes on comments | not a post-quality signal in I3; a comment's like is about the comment |
+| Likes on comments — as a ranking input | not a post-quality signal in I3; a comment's like is about the comment (shown only as that comment's displayed `likeCount`) |
+| Viewer's own likes / `reaction_owners` — as a ranking input, in display counts, or for anyone but the owner | purpose limited to own like-state (purpose map); who liked is never shown (F3.3 out of scope "who liked") |
 | Paid/sponsored anything | no Sponsored in I3; the organic score has no paid input (P-ALG-05, AC-062) |
 | Medical-hotline taps | decision 2026-10-16 "seven open details" (4): taps are not recorded |
 
@@ -130,6 +135,30 @@ filter), `author_visibility` / Profile Visibility in any role (filter, eligibili
 being dropped from posts), any other profile field as a score input, `held_*` columns, chat/support/tracker/child tables,
 and any table or column not in the allow-list above.
 
+### Display statement and like-state statement (F3.3; checked in its review)
+
+Three statements per page, separate and run in **one transaction at REPEATABLE READ** (so `likeCount ≥` the viewer's own
+like when `likedByMe` is true): (1) the ranking query above, unchanged; (2) the display statement; (3) the like-state
+statement. None feeds another's order, cursor or score; `n` and the displayed counts differ and never feed each other.
+
+**Display statement** — besides the display columns above, it may add only:
+
+| Source | Allowed use |
+|---|---|
+| `reactions` | `count(*)` grouped by `post_id` or `comment_id`, for the page's post ids or the thread's comment ids → `likeCount` |
+| `comments` | `count(*)` grouped by `post_id` → `commentCount` (top-level + replies the thread renders; a reply only when its parent row is RLS-visible) |
+
+Over RLS-visible rows only; author's own included; **no** predicate on `status`, `author_status`, `liker_status`,
+`is_by_author`, `is_by_post_author`, `created_at` / `asOf`, and no `user_id` or any column that identifies a liker or
+commenter. `reaction_owners` is **forbidden** here (FINDING, high).
+
+**Like-state statement (`likedByMe`)** — the only statement that may read `reaction_owners`, exactly:
+`select target_id from reaction_owners where target_id = any($pageIds)` — no `user_id = …` predicate (RLS already limits
+the rows to the viewer's own; an app copy is a forbidden permission filter), no join to any other table, no count, no
+aggregation. Its result sets only `likedByMe` for the viewer and is never passed to the ranking or display statement.
+`reaction_owners` stays **forbidden in the ranking and display statements**; a reference there is a FINDING, high.
+Responses never emit `user_id` or `is_by_author`.
+
 ## Configuration
 
 One AlgorithmConfiguration row per version, surface `regular_feed`, append-only, one active; validated by a shared Zod
@@ -175,7 +204,9 @@ reported stays visible to that viewer; a "restricted" author's posts are eligibl
 ordering fixtures: deterministic expected orders for fixed seeds, Friend vs non-Friend, decay, quality cap, Stage match,
 diversity caps, anonymous Friend term = 0, share dedup · stability: no duplicate or skipped unit across pages under
 concurrent inserts after `asOf`, including scores that differ only in the last float8 bits · fallback: active row invalid →
-previous valid version; none valid → version 0.
+previous valid version; none valid → version 0 · F3.3: ids, order, cursor and score identical before/after the display and
+like-state statements are added; `likedByMe` false for the viewer when only another user liked; static test that
+`reaction_owners` appears only in the like-state statement.
 **After launch (success + guards, never one proxy, §18.8):** success = share of eligible posts that receive a
 meaningful interaction (a comment from a non-author) within 48 h, in total and for new creators (first 30 days).
 Guards: report rate per 1,000 delivered posts · creator concentration (top 10% creators' share of interactions) ·
