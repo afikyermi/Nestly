@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import type { PostReadView } from '@nestly/shared';
+import { ANONYMOUS_AUTHOR_LABEL, type PostReadView } from '@nestly/shared';
 import { PATHS } from '@/app/paths';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { InlineAlert } from '@/components/shared/inline-alert';
@@ -12,6 +12,7 @@ import type { PostFormErrors, PostFormValues } from './post-form';
 import { PostForm, type PostFormFocus } from './PostForm';
 import { PostLinkButton } from './PostLinkButton';
 import {
+  ANONYMOUS_OWN_NOTE,
   audienceLine,
   BACK_TO_FEED_LABEL,
   CONFIRM_DELETE_LABEL,
@@ -73,6 +74,7 @@ export interface PostContentProps {
 const FOCUS_ACTION = '[data-post-action] button';
 
 // One post (FR-FEED-002; F3.1b) inside the shell's `main`: its text, who sees it and its tag; for the author "עריכה" and "מחיקה",
+// an anonymous post's "אנונימי" header for every reader and, for its author only, the note that only they see it (F3.4 c12);
 // the edit form and the delete confirmation. Display only: what the actions do comes in as props. The text is the user's own, so it
 // is isolated and keeps its line breaks.
 export function PostContent(props: PostContentProps) {
@@ -141,6 +143,7 @@ export function PostContent(props: PostContentProps) {
           onChange={(values) => onEditChange?.(values)}
           onSubmit={() => onEditSave?.()}
           {...(onEditCancel !== undefined ? { onCancel: onEditCancel } : {})}
+          anonymous={loaded.post.isAnonymous}
         />
       ) : null}
       {loaded !== null && editing === null ? (
@@ -151,6 +154,16 @@ export function PostContent(props: PostContentProps) {
             </div>
           ) : null}
           <article data-testid="post" className="flex flex-col gap-3 rounded-lg bg-card p-4 text-body text-card-foreground shadow-card md:p-5">
+            {loaded.post.isAnonymous ? (
+              <p data-testid="post-author" className="text-label">
+                {ANONYMOUS_AUTHOR_LABEL}
+              </p>
+            ) : null}
+            {loaded.post.isAnonymous && loaded.post.isMine ? (
+              <p data-testid="post-own-note" className="text-small text-muted-foreground">
+                {ANONYMOUS_OWN_NOTE}
+              </p>
+            ) : null}
             <p data-testid="post-body" dir="rtl" className="whitespace-pre-wrap wrap-anywhere">
               {loaded.post.body ?? ''}
             </p>

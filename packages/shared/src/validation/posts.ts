@@ -1,12 +1,14 @@
-// Write and read a text post (I3 F3.1a; FR-FEED-002, OP-033, BR-062, VAL-036; Afik 1א, 5א). The web checks what it sends and the server
-// checks again, by the same rule. Both bodies are strict objects: `isAnonymous`, `authorId`, `status`, `sharedPostId` and `id` are refused,
-// because the author is the caller's by the database, a post is always a named active text post here (anonymity is F3.4's), and status
-// moves only by the database. The stage tag is the author's own choice (5א), one of JOURNEY_STAGES or none; nothing derives it.
+// Write and read a text post (I3 F3.1a, F3.4; FR-FEED-002, FR-FEED-005, OP-033, BR-062, VAL-036; Afik 1א, 5א, 6א). The web checks what it
+// sends and the server checks again, by the same rule. Both bodies are strict objects: `authorId`, `status`, `sharedPostId` and `id` are
+// refused, because the author is the caller's by the database and status moves only by the database. `isAnonymous` is chosen once, on
+// create (absent = false); an anonymous post is always for everyone (6א), so with "friends" it is `audience_not_allowed`. An edit refuses
+// `isAnonymous` either way: anonymity never changes after posting. The stage tag is the author's own choice (5א), one of JOURNEY_STAGES or
+// none; nothing derives it.
 import { z } from 'zod';
 import { JOURNEY_STAGES, POST_AUDIENCES, POST_BODY_MAX, type JourneyStage, type PostAudience } from '../constants/index.js';
 import { codePointLength } from './text.js';
 
-export const POST_ERROR_CODES = ['body_required', 'body_too_long'] as const;
+export const POST_ERROR_CODES = ['body_required', 'body_too_long', 'audience_not_allowed'] as const;
 export type PostErrorCode = (typeof POST_ERROR_CODES)[number];
 
 /** Trimmed, 1..POST_BODY_MAX code points. The two failures carry their code as the issue message. */
@@ -20,8 +22,10 @@ const postBody = z
 const audience = z.enum(POST_AUDIENCES);
 const stageTag = z.enum(JOURNEY_STAGES).nullable();
 
-/** POST /api/posts: `{ body, audience, stageTag? }` and nothing else. */
-export const createPostSchema = z.strictObject({ body: postBody, audience, stageTag: stageTag.optional() });
+/** POST /api/posts: `{ body, audience, stageTag?, isAnonymous? }` and nothing else; an anonymous post is never friends-only. */
+export const createPostSchema = z
+  .strictObject({ body: postBody, audience, stageTag: stageTag.optional(), isAnonymous: z.boolean().optional() })
+  .refine((value) => !(value.isAnonymous === true && value.audience === 'friends'), 'audience_not_allowed');
 
 /** PATCH /api/posts/:id: any of the three, at least one. Absent = unchanged; `stageTag: null` clears the tag. */
 export const updatePostSchema = z
@@ -37,38 +41,61 @@ export interface PostWrite {
   readonly stageTag?: JourneyStage | null;
 }
 
-export type PostWriteCheck =
-  | { ok: true; value: PostWrite }
-  | { ok: false; reason: 'invalid' }
-  | { ok: false; reason: PostErrorCode };
+/** A create adds the one-time anonymity choice; present only when the body named it. */
+export interface PostCreate extends PostWrite {
+  readonly isAnonymous?: boolean;
+}
+
+export type PostCheck<T> = { ok: true; value: T } | { ok: false; reason: 'invalid' } | { ok: false; reason: PostErrorCode };
+export type PostWriteCheck = PostCheck<PostWrite>;
+export type PostCreateCheck = PostCheck<PostCreate>;
 
 const isPostErrorCode = (message: string): message is PostErrorCode => POST_ERROR_CODES.some((code) => code === message);
 
-/** A shape, key or enum problem is `invalid` (400); a body that is only empty or too long is its code (422). */
-function judge(result: ReturnType<typeof createPostSchema.safeParse> | ReturnType<typeof updatePostSchema.safeParse>): PostWriteCheck {
-  if (result.success) {
-    const { body, audience: chosen, stageTag: tag } = result.data;
-    return {
-      ok: true,
-      value: { ...(body === undefined ? {} : { body }), ...(chosen === undefined ? {} : { audience: chosen }), ...(tag === undefined ? {} : { stageTag: tag }) },
-    };
-  }
-  const messages = result.error.issues.map((issue) => issue.message);
+/** The parsed fields, with each absent key left out (not set to undefined). */
+interface ParsedWrite {
+  readonly body?: string | undefined;
+  readonly audience?: PostAudience | undefined;
+  readonly stageTag?: JourneyStage | null | undefined;
+}
+
+const writeOf = ({ body, audience: chosen, stageTag: tag }: ParsedWrite): PostWrite => ({
+  ...(body === undefined ? {} : { body }),
+  ...(chosen === undefined ? {} : { audience: chosen }),
+  ...(tag === undefined ? {} : { stageTag: tag }),
+});
+
+/** A shape, key or enum problem is `invalid` (400); an empty or too long text, or an anonymous friends-only post, is its code (422). */
+function refusal(error: z.ZodError): Exclude<PostWriteCheck, { ok: true }> {
+  const messages = error.issues.map((issue) => issue.message);
   const [first] = messages;
   if (first !== undefined && messages.every(isPostErrorCode)) return { ok: false, reason: isPostErrorCode(first) ? first : 'invalid' };
   return { ok: false, reason: 'invalid' };
 }
 
-export const checkCreatePost = (body: unknown): PostWriteCheck => judge(createPostSchema.safeParse(body));
-export const checkUpdatePost = (body: unknown): PostWriteCheck => judge(updatePostSchema.safeParse(body));
+export function checkCreatePost(body: unknown): PostCreateCheck {
+  const result = createPostSchema.safeParse(body);
+  if (!result.success) return refusal(result.error);
+  const { isAnonymous } = result.data;
+  return { ok: true, value: { ...writeOf(result.data), ...(isAnonymous === undefined ? {} : { isAnonymous }) } };
+}
 
-/** A post as the server answers it. `isMine` only on a read (GET). `body` is null only for a share (F3.5), which F3.1 never writes. */
+export function checkUpdatePost(body: unknown): PostWriteCheck {
+  const result = updatePostSchema.safeParse(body);
+  return result.success ? { ok: true, value: writeOf(result.data) } : refusal(result.error);
+}
+
+/**
+ * A post as the server answers it. `isMine` only on a read (GET). `body` is null only for a share (F3.5), which F3.1 never writes.
+ * `isAnonymous` says the post carries no name (FR-FEED-005); no answer ever carries an author id.
+ */
 export const postView = z.strictObject({
   id: z.guid(),
   body: z.string().nullable(),
   audience,
   stageTag,
   createdAt: z.iso.datetime(),
+  isAnonymous: z.boolean(),
 });
 /** The read adds `isMine` and the displayed counts (F3.3 c11, c12): `likeCount`, `commentCount` over the rows the viewer can read; `likedByMe` is the viewer's own. */
 export const postReadView = postView.extend({

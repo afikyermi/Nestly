@@ -11,8 +11,13 @@ export const CHECKING_TEXT = 'בודקים אם אפשר לכתוב פוסט';
 export const BODY_LABEL = 'מה תרצו לשתף?';
 export const AUDIENCE_LEGEND = 'מי יראה את הפוסט'; // c15
 export const AUDIENCE_LABELS: Record<PostAudience, string> = { everyone: 'כולם', friends: 'חברים בלבד' };
-/** Afik 6ב: a post is never anonymous here, and the composer says whose name it carries. */
+/** Afik 6ב: a named post says whose name it carries. */
 export const NAME_NOTICE_TEXT = 'השם שלכם יוצג לכל מי שיכול לראות את הפוסט';
+// F3.4 (.work/anonymous-post/screen.md). The anonymous notice is the ⭐ text of Gate 1 decision 2, until Afik answers the DR on staff access.
+export const ANONYMOUS_LABEL = 'פרסום אנונימי';
+export const ANONYMOUS_NOTICE_TEXT = 'השם שלכם לא יוצג לאף אחד בקהילה. צוות Nestly יכול לראות מי כתב, רק לבטיחות ואכיפה';
+export const ANONYMOUS_OWN_NOTE = 'פרסמתם את הפוסט הזה באופן אנונימי. רק אתם רואים את ההודעה הזו';
+export const ANONYMOUS_FIXED_TEXT = 'הפוסט אנונימי ומוצג לכולם. אי אפשר לשנות את זה';
 export const TAG_LEGEND = 'תגית (לא חובה)';
 export const NO_TAG_LABEL = 'בלי תגית'; // c16
 export const TAG_HINT_TEXT = 'התגית תוצג לקוראים'; // c16

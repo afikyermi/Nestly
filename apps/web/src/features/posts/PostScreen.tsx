@@ -6,13 +6,16 @@ import { postPath } from '@/lib/post-link';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
 import { deletePost, editPost, fetchPost, type PostsOutcome } from '@/services/api/posts';
 import { handOverStatus, takeStatus } from './flash-status';
-import { checkPostForm, type PostFormValues } from './post-form';
+import { checkPostForm, type AnonymousMode, type PostFormValues } from './post-form';
 import { failureText, refusedErrors } from './post-outcome';
 import { CommentsSection } from './CommentsSection';
 import { PostContent, type PostEdit, type PostFocus, type PostScreenView } from './PostContent';
 import { DELETE_FAILED_TEXT, DELETED_STATUS, LOAD_FAILED_TEXT, PUBLISHED_STATUS, SAVE_FAILED_TEXT, UPDATED_STATUS } from './posts-texts';
 
 type Loaded = Extract<PostScreenView, { kind: 'loaded' }>;
+
+/** An anonymous post's edit sends the text and the tag only: its audience and anonymity never change (F3.4 c13). */
+const anonymousMode = (current: Loaded): AnonymousMode => (current.post.isAnonymous ? 'edit' : 'none');
 
 // One post's flow (FR-FEED-002, Afik 3א; F3.1b): open it, and for its author edit it or delete it after a confirmation. The server and
 // RLS decide who may read, edit or delete; this screen sends the post id in the path and never an author id. A post that is missing,
@@ -84,13 +87,13 @@ export function PostScreen({ postId }: { postId: string }) {
   }
 
   function changeEdit(current: Loaded, edit: PostEdit, values: PostFormValues) {
-    const checked = validating.current ? checkPostForm(values) : null;
+    const checked = validating.current ? checkPostForm(values, anonymousMode(current)) : null;
     setView({ ...current, edit: { ...edit, values, errors: checked !== null && !checked.ok ? checked.errors : {} } });
   }
 
   async function saveEdit(current: Loaded, edit: PostEdit) {
     if (busy.current) return;
-    const checked = checkPostForm(edit.values);
+    const checked = checkPostForm(edit.values, anonymousMode(current));
     if (!checked.ok) {
       validating.current = true;
       setView({ ...current, edit: { ...edit, errors: checked.errors, failure: checked.errors.other ?? null } });
@@ -173,6 +176,14 @@ export function PostScreen({ postId }: { postId: string }) {
               }),
         };
 
-  const thread = loaded === null ? undefined : <CommentsSection postId={postId} liked={loaded.post.likedByMe} likes={loaded.post.likeCount} />;
+  const thread =
+    loaded === null ? undefined : (
+      <CommentsSection
+        postId={postId}
+        liked={loaded.post.likedByMe}
+        likes={loaded.post.likeCount}
+        asAnonymousAuthor={loaded.post.isAnonymous && loaded.post.isMine}
+      />
+    );
   return <PostContent view={view} focus={focus} onRetry={() => void load(true)} {...actions} thread={thread} />;
 }

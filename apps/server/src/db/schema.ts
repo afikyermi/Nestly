@@ -343,8 +343,8 @@ export const securityEvents = nestly.table('security_events', {
   occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-// Posts (I3 F3.1a; migrations 20261018100000, 20261018200000; schema.md, schema-b.md). SELECT is column-level (held_xact is never granted), so a
-// query names its columns. Only the columns F3.1 reads or writes are declared (the drift check compares Drizzle to the database).
+// Posts (I3 F3.1a, F3.4; migrations 20261018100000, 20261018200000; schema.md, schema-b.md). SELECT is column-level (held_xact is never granted),
+// so a query names its columns. Only the columns F3.1 and F3.4 read or write are declared (the drift check compares Drizzle to the database).
 
 /** SRS Post (§13, FR-FEED-002): a text post as its author and an eligible viewer read it (RLS). `body` is null only for a share. */
 export const posts = nestly.table('posts', {
@@ -354,10 +354,13 @@ export const posts = nestly.table('posts', {
   body: text('body'),
   stageTag: text('stage_tag', { enum: JOURNEY_STAGES }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  /** FR-FEED-005: set at insert only (no UPDATE grant); an anonymous post has no author_id and is never friends-only. */
+  isAnonymous: boolean('is_anonymous').notNull().default(false),
 });
 
-/** INSERT target only. Names the columns F3.1 inserts, all granted INSERT to authenticated; the author is the caller's, set by the database. */
+/** INSERT target only. Names the columns F3.1 and F3.4 insert, all granted INSERT to authenticated; the author is the caller's, set by the database. */
 export const postsInsert = nestly.table('posts', {
+  isAnonymous: boolean('is_anonymous').notNull().default(false),
   audience: text('audience', { enum: POST_AUDIENCES }).notNull(),
   body: text('body'),
   stageTag: text('stage_tag', { enum: JOURNEY_STAGES }),

@@ -38,11 +38,11 @@ function flowOf(thread: ThreadState): ThreadFlow {
   };
 }
 
-function Screen(props: { thread: ThreadState; writes?: Partial<CommentWrites> }) {
+function Screen(props: { thread: ThreadState; writes?: Partial<CommentWrites>; asAnonymousAuthor?: boolean }) {
   return (
     <main className="px-4 py-5">
       <div className="max-w-md">
-        <CommentsView flow={flowOf(props.thread)} writes={{ ...writes, ...props.writes }} />
+        <CommentsView flow={flowOf(props.thread)} writes={{ ...writes, ...props.writes }} asAnonymousAuthor={props.asAnonymousAuthor ?? false} />
       </div>
     </main>
   );
@@ -99,4 +99,8 @@ export const ReplyOpen: Story = {
 export const DeleteConfirm: Story = { args: { thread: { ...base, items: [first] }, writes: { confirm: { commentId: first.id, topLevel: true, saving: false, failure: null } } } };
 export const DeleteFailed: Story = {
   args: { thread: { ...base, items: [first] }, writes: { confirm: { commentId: first.id, topLevel: true, saving: false, failure: DELETE_FAILED_TEXT } } },
+};
+// F3.4 c14: the real author of an anonymous post: both boxes say their comments show as "המחבר".
+export const AsAnonymousAuthor: Story = {
+  args: { thread: { ...base, items: [first, author] }, writes: { reply: { ...EMPTY_COMPOSER, parentId: first.id, text: '' } }, asAnonymousAuthor: true },
 };
