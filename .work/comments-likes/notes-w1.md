@@ -13,3 +13,4 @@
 **Uncertain**       the exact description text for a top-level delete is two lines (second in a `span`), so "המחיקה מיידית ולצמיתות" matches as its own text. Existing e2e that open /posts/:id without mocking the comments endpoints get a failed thread load (alert), not a crash.
 **Evidence**        typecheck, lint, check:budgets, check:stories, web unit tests (1088) green; Playwright chrome result below.
 **Neighbouring**    none.
+- F3.3w1 c20: LikeButton keeps aria-label "לייק, N" and now renders one visible span "לייק N" (was two aria-hidden spans with no space, axe label-content-name-mismatch).

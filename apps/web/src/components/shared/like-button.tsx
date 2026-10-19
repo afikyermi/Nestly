@@ -13,7 +13,7 @@ export interface LikeButtonProps {
 }
 
 // A like toggle on a post or comment (FR-FEED-001): a heart, the word and the count. The pressed state is never colour alone (the heart is
-// filled and `aria-pressed` is set). Display only: what toggling does comes in as onToggle. The target is at least 44×44 px.
+// filled and `aria-pressed` is set). The visible text "<label> <count>" sits inside the accessible name (WCAG 2.5.3). Display only: what toggling does comes in as onToggle. The target is at least 44×44 px.
 export function LikeButton({ label, count, liked, onToggle }: LikeButtonProps) {
   return (
     <button
@@ -28,8 +28,10 @@ export function LikeButton({ label, count, liked, onToggle }: LikeButtonProps) {
       )}
     >
       <HeartIcon className={cn('size-5', liked && 'fill-current')} />
-      <span aria-hidden="true">{label}</span>
-      {count > 0 ? <span aria-hidden="true">{count.toLocaleString('en-US')}</span> : null}
+      <span>
+        {label}
+        {count > 0 ? ` ${count.toLocaleString('en-US')}` : null}
+      </span>
     </button>
   );
 }
