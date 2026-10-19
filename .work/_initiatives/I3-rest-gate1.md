@@ -23,3 +23,8 @@ Reason: F3.9 builds the card menu F3.7 reuses; F3.7 builds PG-049, whose rule 2 
 - PR-B (pg_cron bootstrap, prod run by Afik) is decoupled from F3.7: earliest held-content release is 16.01.2027 (90 days
   from F3.0b), so F3.7 does not wait. PR-B builds after I3's features; Afik's prod run → WORKPLAN; deadline in security-privacy-open.
   E1 fallback order as schema.md (A2 approved by DATA ARCHITECT; C is Afik's).
+
+## UX direction (Afik 19.10) — Gate 1 amendments
+- Specs F3.5, F3.6, F3.7, F3.9 amended to direction.md "דפוסי אינטראקציה" (audit + decisions in I3-community-feed.md "ליטוש UX של I3").
+- New part `feed-composer` approved (D1–D7). Confirmed: kept text on reopen keeps the anonymous toggle state ("unchecked on every open" = a new post); focus after success → the new card; dead "הפוסט פורסם" on the post page removed.
+- Order: PR-A → F3.4 → feed-composer → F3.8+F3.9 → F3.7 (sheet primitive) → F3.5 → F3.6 → UX polish → /srs-update.
