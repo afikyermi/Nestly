@@ -44,3 +44,7 @@ Reason: F3.9 builds the card menu F3.7 reuses; F3.7 builds PG-049, whose rule 2 
 - Professional reports: allowed (F3.7 as built; Professionals now read the feed). professional-posting spec's "reports refused" line is superseded.
 - Expand-safety: main's `apps/server/tests/db/posts.db.test.ts:193` (Professional POST refused) breaks under PR-A3 → Afik asked (one-time skip, as Q7) — WORKPLAN 16.
 - Existing gap (not new): active Admin/Moderator can read posts/comments/reactions/names at the DB level; only server account-type checks refuse → security-privacy-open, resolve in I4.
+## ux-polish — Gate 1 (ORCHESTRATOR, 19.10)
+- Split approved: B (windows/history/edit in place/small fixes; Standard) before A (comments inside the card; Elevated — the anonymous-card isMine read via GET /posts/:id must not leak the author).
+- Item 7 confirm stays (irreversible, FR-PROFILE-002 DR-3) · item 8 confirm stays (not unilaterally reversible; consistent with "confirm only irreversible") · item 9 closed (F3.9 c13) · 3b edit in place on the card.
+- Defaults accepted: B Q1–Q3, A Q1 (one comments request per card near the viewport — perf → debt), A Q2–Q4.
