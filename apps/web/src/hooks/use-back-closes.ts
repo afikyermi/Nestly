@@ -72,6 +72,8 @@ export function useBackCloses(open: boolean, onBack: () => boolean): BackCloses 
   }, [navigate]);
 
   const push = useCallback(() => {
+    // A new overlay entry goes on top of whatever the last step back left: that step back no longer guards a link (closing() is false).
+    stepping.current = false;
     hold(true);
     const { pathname, search, hash } = here.current;
     const state: unknown = here.current.state;
