@@ -150,7 +150,7 @@ test.describe('F3.3 c19 [FR-FEED-001] paging, states and errors', () => {
       n.fail.more = 500;
     });
     await btn(region(page), 'עוד תגובות').click();
-    await expect(region(page).getByRole('alert')).toBeVisible();
+    await expect(region(page).getByRole('alert').filter({ hasText: 'לא הצלחנו לטעון עוד תגובות. אפשר לנסות שוב' })).toBeVisible();
     await expect(list(page).locator(':scope > li')).toHaveCount(20);
     net.fail.more = null;
     await btn(region(page), 'נסו שוב').click();
@@ -327,6 +327,8 @@ test.describe('F3.3 c17 [VAL-036] the composer', () => {
     await expect(f.getByText('לא נותרו תווים')).toBeVisible();
     await box(page).fill('א'.repeat(1005));
     await expect(f.getByText('התגובה ארוכה ב-5 תווים מהמותר')).toBeVisible();
+    await box(page).fill('א'.repeat(1001));
+    await expect(f.getByText('התגובה ארוכה בתו אחד מהמותר')).toBeVisible();
   });
   test('[c17] a sent comment appends the server\'s version (trimmed), clears the box and says "התגובה נוספה"', async ({ page }) => {
     const net = await start(page);
@@ -439,7 +441,7 @@ test.describe('F3.3 c18 [FR-FEED-001] delete my comment', () => {
     });
     await btn(reply(page, 'השבה שלי'), 'מחיקה').click();
     await btn(confirm(page), 'מחיקת התגובה').click();
-    await expect(alert(page, 'המחיקה לא הצליחה. אפשר לנסות שוב')).toBeVisible();
+    await expect(confirm(page).getByRole('alert').filter({ hasText: 'המחיקה לא הצליחה. אפשר לנסות שוב' })).toBeVisible();
     await expect(confirm(page)).toBeVisible();
     await expect(reply(page, 'השבה שלי')).toBeVisible();
     net.fail.remove = null;
