@@ -67,3 +67,5 @@ until then fixtures come from the harness (as F3.2). The action row is this part
 
 **Size estimate**  ~1,500 lines: **five PRs.** a CHECK+pgTAP (c1) ~50, DATA ARCHITECT, P6 · b1 shared + comments (c2-9) ~450, after a · b2 likes, counts,
 feed (c10-12) ~400, after b1 · w1 post page (c15-19, c20) ~450, `LikeButton` here, after b2 · w2 feed card (c13-14, c20) ~250, after w1.
+
+**Gate 1 (ORCHESTRATOR, 19.10):** spec.md + screen.md approved after A&D findings 1–4, 6, 8 validated (I3-algorithm.md amended). Split a → b1 → b2 → w1 → w2 accepted. Re-stated after SPEC's c8 rewrite (bounded replies, ORCHESTRATOR decision 19.10, findings-b1.md).

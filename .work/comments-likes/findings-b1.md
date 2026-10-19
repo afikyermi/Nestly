@@ -10,3 +10,6 @@ Checked, no finding: identity transaction, no permission filters, isMine reads p
 - 2, 3, 4a, 4b: fixed in b1. 4c: kept — spec c13 (F3.1) and A&D's F3.3 static checks require static repository tests; recorded as the accepted pattern (debt to formalise in workflow when Afik is available).
 - A&D asked to confirm post_authors (own row, RLS) in the thread statement for isMine and add the allow-list line.
 - ORCHESTRATOR 19.10: c8 "non-reply cursor → 400" means a cursor whose id is an existing non-reply (top-level) comment; an unknown id in a well-formed cursor is valid (keyset must survive a deleted cursor row).
+
+## Round 2 (CRITIC opus, 19.10)
+Finding 1 and lows 2, 3, 4a, 4b fixed (ce49474, fc7b69f); 4c accepted. A&D isMine conditions (a)–(e) hold. New lows → debt.md: reply-count/inline/page queries scan all replies of a parent (no (parent_id, created_at, id) index); A&D to name the inline-replies statement in the allow-list.
