@@ -203,7 +203,8 @@ jobs:
 
   # Edge (SRS NFR-QA-001) is not run per pull request. It runs on every push to main (after the merge, in parallel with
   # Vercel's production deploy, so it does not block the deploy) and on workflow_dispatch, behind the same change filter.
-  # The visual regression is Chrome only.
+  # The visual regression is Chrome only. Five shards, as Chrome: three shards held ~1,050 tests each and hit the CI
+  # globalTimeout (playwright.config.ts) on main, failing whichever test ran at the cutoff.
   browser-edge:
     needs: changes
     if: needs.changes.outputs.web == 'true' && github.event_name != 'pull_request'
@@ -212,7 +213,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -231,7 +232,7 @@ jobs:
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
       - run: npx playwright install --with-deps msedge
       - run: npm run build-storybook
-      - run: npx playwright test --project=edge --shard=${{ matrix.shard }}/3
+      - run: npx playwright test --project=edge --shard=${{ matrix.shard }}/5
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:

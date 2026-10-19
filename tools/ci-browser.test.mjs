@@ -1,5 +1,5 @@
 // Repository tests for the CI `browser` job of .github/workflows/ci.yml, from decisions/2026-10.md "Speed-up", change 1:
-// the job runs as a matrix of parallel shards. Updated for decisions/2026-10.md 19.10 "Merge and local-test throughput", item 2: the PR Chrome job has five shards, Edge stays three. What must not drift: the matrix is exactly
+// the job runs as a matrix of parallel shards. Updated for decisions/2026-10.md 19.10 "Merge and local-test throughput", item 2: the PR Chrome job has five shards, Edge has five too (19.10, run 39282719287: three shards hit the 13-minute globalTimeout). What must not drift: the matrix is exactly
 // project x shard (so no browser or shard silently drops out), no leg stops the others, the job stays behind the `changes`
 // filter, each leg installs only its own browser, builds the gallery before it runs, and its report has its own name.
 // They parse the workflow as data and never run it. The YAML reader is tools/workflow-yaml.mjs. Add this file to `test:tools`.
@@ -163,7 +163,7 @@ function edgeProblems(job, triggers) {
   const steps = stepsOf(job);
   const matrix = job.strategy?.matrix;
   if (JSON.stringify(Object.keys(matrix ?? {})) !== JSON.stringify(['shard'])) problems.push(`the matrix keys are ${Object.keys(matrix ?? {})}, not exactly shard`);
-  if (JSON.stringify([matrix?.shard ?? []].flat()) !== JSON.stringify(['1', '2', '3'])) problems.push(`matrix.shard is [${matrix?.shard}], not [1, 2, 3]`);
+  if (JSON.stringify([matrix?.shard ?? []].flat()) !== JSON.stringify(['1', '2', '3', '4', '5'])) problems.push(`matrix.shard is [${matrix?.shard}], not [1, 2, 3, 4, 5]`);
   if (String(job.strategy?.['fail-fast']) !== 'false') problems.push('fail-fast is not false');
   if (!needsOf(job).includes('changes')) problems.push('the job does not need `changes`');
   const condition = String(job.if ?? '').trim();
@@ -191,7 +191,7 @@ function edgeProblems(job, triggers) {
   return problems;
 }
 
-test('[test rules] Edge runs as its own job: shards 1, 2 and 3, only msedge, never on pull_request, behind the change filter', () => {
+test('[test rules] Edge runs as its own job: shards 1 to 5, only msedge, never on pull_request, behind the change filter', () => {
   assert.deepEqual(edgeProblems(edge, ci.on), []);
 });
 
@@ -212,9 +212,13 @@ test('[test rules] the Edge check can fail: every drift is caught (guards the te
     'fail-fast true': () => ({ ...clone(), strategy: { ...edge.strategy, 'fail-fast': 'true' } }),
     'a project key in the matrix': () => ({ ...clone(), strategy: { ...edge.strategy, matrix: { ...edge.strategy.matrix, project: ['edge'] } } }),
     'one shard': () => ({ ...clone(), strategy: { ...edge.strategy, matrix: { shard: ['1'] } } }),
-    'two shards (a dropped one, --shard of 3)': () => ({ ...clone(), strategy: { ...edge.strategy, matrix: { shard: ['1', '2'] } } }),
-    'a fourth shard': () => ({ ...clone(), strategy: { ...edge.strategy, matrix: { shard: ['1', '2', '3', '4'] } } }),
-    '--shard of 2 with three legs': () => ({ ...clone(), steps: clone().steps.map((s) => (/playwright\s+test/.test(runOf(s)) ? { ...s, run: runOf(s).replace(/\}\}\/3/, '}}/2') } : s)) }),
+    'the old three shards (--shard of 5)': () => ({ ...clone(), strategy: { ...edge.strategy, matrix: { shard: ['1', '2', '3'] } } }),
+    'a dropped last shard (four legs, --shard of 5)': () => ({ ...clone(), strategy: { ...edge.strategy, matrix: { shard: ['1', '2', '3', '4'] } } }),
+    'a dropped middle shard': () => ({ ...clone(), strategy: { ...edge.strategy, matrix: { shard: ['1', '2', '4', '5'] } } }),
+    'a sixth shard': () => ({ ...clone(), strategy: { ...edge.strategy, matrix: { shard: ['1', '2', '3', '4', '5', '6'] } } }),
+    'shards out of order': () => ({ ...clone(), strategy: { ...edge.strategy, matrix: { shard: ['5', '4', '3', '2', '1'] } } }),
+    '--shard of 3 with five legs': () => ({ ...clone(), steps: clone().steps.map((s) => (/playwright\s+test/.test(runOf(s)) ? { ...s, run: runOf(s).replace(/\}\}\/5/, '}}/3') } : s)) }),
+    '--shard of 6 with five legs': () => ({ ...clone(), steps: clone().steps.map((s) => (/playwright\s+test/.test(runOf(s)) ? { ...s, run: runOf(s).replace(/\}\}\/5/, '}}/6') } : s)) }),
     'continue-on-error': () => ({ ...clone(), 'continue-on-error': 'true' }),
     'runs chrome': () => ({ ...clone(), steps: clone().steps.map((s) => (/playwright\s+test/.test(runOf(s)) ? { ...s, run: runOf(s).replace('--project=edge', '--project=chrome') } : s)) }),
     'installs chrome too': () => ({ ...clone(), steps: clone().steps.map((s) => (/playwright\s+install/.test(runOf(s)) ? { ...s, run: 'npx playwright install --with-deps chrome msedge' } : s)) }),
