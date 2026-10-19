@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -p tsconfig.json && vite build",
     "build:e2e": "vite build --mode e2e --outDir dist-e2e",
-    "preview:e2e": "vite preview --outDir dist-e2e --host 127.0.0.1 --port 4174 --strictPort",
+    "preview:e2e": "vite preview --outDir dist-e2e --host 127.0.0.1 --strictPort",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.node.json",
     "test": "vitest run",
     "storybook": "storybook dev -p 6006",

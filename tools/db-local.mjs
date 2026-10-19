@@ -3,20 +3,38 @@
 // its order — then `npm run test:db`. Not the db job's other gates (SKIPPED_CI below): CI remains the verdict. Passwords are random per run and live only in this process; no env file is read, and no
 // other host is ever reached. psql runs inside the container (`docker exec`), never on the host.
 //
-// Usage: node tools/db-local.mjs test [--keep]     build, run test:db, remove the container (--keep leaves it running)
-//        node tools/db-local.mjs down              remove the container
+// One container and one port per checkout, derived from the checkout's root path (checkoutInstance), so two checkouts or
+// worktrees never collide; `down` removes only this checkout's container.
+//
+// Usage: node tools/db-local.mjs test [--keep]             build, run test:db, remove the container (--keep leaves it running)
+//        node tools/db-local.mjs pgtap [--keep] [files…]   build the same database, run the pgTAP files as CI's pg_prove step does
+//                                                          (as app_server, search_path pgtap,tests; every file under supabase/tests
+//                                                          except setup/ when none given); non-zero on a `not ok`, a plan mismatch or an error
+//        node tools/db-local.mjs down                      remove this checkout's container
 // Needs Docker Desktop running (after a restart, open Docker Desktop first and wait for "Engine running").
 import { execFileSync, spawnSync } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const NAME = 'nestly-local-db';
 const HOST = '127.0.0.1';
-const PORT = 54322;
+const PORT_BASE = 54400;
+const PORT_COUNT = 500;
+
+/** The container name and host port of one checkout: a pure function of its root path (case and separators folded on
+ * Windows), so a checkout always gets the same pair and two checkouts differ. The name carries 32 bits of the hash, so two
+ * checkouts never share a container; two sharing a port (1 in 500) fail at docker run, loudly. Ports 54400-54899. */
+export function checkoutInstance(root) {
+  let norm = resolve(root).replace(/\\/g, '/').replace(/\/+$/, '');
+  if (process.platform === 'win32') norm = norm.toLowerCase();
+  const hash = createHash('sha256').update(norm).digest('hex');
+  return { name: `nestly-local-db-${hash.slice(0, 8)}`, port: PORT_BASE + (parseInt(hash.slice(8, 16), 16) % PORT_COUNT) };
+}
+
+const { name: NAME, port: PORT } = checkoutInstance(ROOT);
 
 /** The image and the CLI version CI pins (ci.yml, job db). Throws when either is missing: never a guess. */
 export function ciPins(ciYml) {
@@ -27,10 +45,51 @@ export function ciPins(ciYml) {
   return { image, cli };
 }
 
-/** A database URL for this tool: always 127.0.0.1:54322, never another host. */
-export function localUrl(user, password) {
+/** A database URL for this tool: always 127.0.0.1 and a port in the tool's range, never another host. */
+export function localUrl(user, password, port) {
   if (!/^[a-z_]+$/.test(user) || !/^[0-9a-f]{64}$/.test(password)) throw new Error('bad local credentials');
-  return `postgresql://${user}:${password}@${HOST}:${PORT}/postgres`;
+  if (!Number.isInteger(port) || port < PORT_BASE || port >= PORT_BASE + PORT_COUNT) throw new Error('bad local port');
+  return `postgresql://${user}:${password}@${HOST}:${port}/postgres`;
+}
+
+/** The command line: `test [--keep]`, `pgtap [--keep] [files…]`, `down`. Anything else is null (usage). */
+export function parseArgs(argv) {
+  const [cmd, ...rest] = argv;
+  const keep = rest.includes('--keep');
+  const others = rest.filter((a) => a !== '--keep');
+  if (cmd === 'down' && rest.length === 0) return { cmd, keep: false, files: [] };
+  if (cmd === 'test' && others.length === 0) return { cmd, keep, files: [] };
+  if (cmd === 'pgtap' && others.every((a) => !a.startsWith('-'))) return { cmd, keep, files: others };
+  return null;
+}
+
+/** The pgTAP files to run: the named ones (existing .sql under supabase/tests, not setup/), or CI's list (every .sql under
+ * supabase/tests except setup/, sorted). Paths come back relative to the root, with forward slashes. Throws on anything else. */
+export function pgtapFiles(root, named) {
+  const all = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? all(join(dir, e.name)) : [join(dir, e.name)]));
+  const rel = (f) => relative(root, f).replace(/\\/g, '/');
+  const ci = all(join(root, 'supabase/tests')).map(rel).filter((f) => f.endsWith('.sql') && !f.startsWith('supabase/tests/setup/')).sort();
+  if (named.length === 0) {
+    if (ci.length === 0) throw new Error('no pgTAP test file under supabase/tests: the suite is missing');
+    return ci;
+  }
+  return named.map((n) => {
+    const f = rel(resolve(root, n));
+    if (!ci.includes(f)) throw new Error(`${n} is not a pgTAP test file under supabase/tests (setup/ files are fixtures)`);
+    return f;
+  });
+}
+
+/** Reads one pgTAP file's psql output as pg_prove would: failed on any `not ok`, a missing plan, or a plan that differs from the count. */
+export function tapVerdict(out) {
+  const lines = out.split('\n');
+  const notOk = lines.filter((l) => /^not ok\b/.test(l));
+  const ok = lines.filter((l) => /^ok\b/.test(l)).length;
+  const plan = lines.map((l) => /^1\.\.(\d+)\s*$/.exec(l)).find(Boolean);
+  const problems = [...notOk];
+  if (!plan) problems.push('no plan (1..N) in the output');
+  else if (Number(plan[1]) !== ok + notOk.length) problems.push(`plan 1..${plan[1]} but ${ok + notOk.length} results`);
+  return { ok, failed: problems.length > 0, problems };
 }
 
 /** The SQL files in CI's order (job db), relative to the repository root. The anchor check must return ok = t, as in CI.
@@ -54,8 +113,8 @@ export const SKIPPED_CI = {
 };
 
 /** The container, published on 127.0.0.1 only. */
-export function dockerRunArgs(image, postgresPassword, jwtSecret) {
-  return ['run', '--detach', '--name', NAME, '--publish', `${HOST}:${PORT}:5432`, '--env', `POSTGRES_PASSWORD=${postgresPassword}`,
+export function dockerRunArgs(image, postgresPassword, jwtSecret, name, port) {
+  return ['run', '--detach', '--name', name, '--publish', `${HOST}:${port}:5432`, '--env', `POSTGRES_PASSWORD=${postgresPassword}`,
     '--env', `JWT_SECRET=${jwtSecret}`, '--env', 'JWT_EXP=3600', image];
 }
 
@@ -88,7 +147,8 @@ function supabaseCli(version) {
   return bin;
 }
 
-function test(keep) {
+/** Builds the database as CI's db job does, runs `work(pw)` against it and returns its exit status. */
+function withDatabase(keep, work) {
   try {
     sh('docker', ['info', '--format', '{{.ServerVersion}}']);
   } catch {
@@ -101,7 +161,7 @@ function test(keep) {
   down();
   console.log(`starting ${image} on ${HOST}:${PORT}`);
   try {
-    sh('docker', dockerRunArgs(image, pw.postgres, pw.jwt));
+    sh('docker', dockerRunArgs(image, pw.postgres, pw.jwt, NAME, PORT));
     // Ready = three logins in a row as postgres (the image restarts the server after its init scripts), as in CI.
     let ok = 0;
     for (let i = 0; i < 120 && ok < 3; i++) {
@@ -116,7 +176,7 @@ function test(keep) {
     for (const f of plan.beforeRoles) psql('postgres', pw.postgres, read(f), f);
     psql('postgres', pw.postgres, `alter role app_owner password '${pw.app_owner}'; alter role app_server password '${pw.app_server}';`, 'role passwords');
     console.log('applying the migrations as app_owner (supabase db push, as CI)');
-    const push = spawnSync(process.execPath, [supabaseCli(cli), 'db', 'push', '--db-url', localUrl('app_owner', pw.app_owner), '--yes', '--skip-vault', '--agent', 'no'], { cwd: ROOT, stdio: 'inherit' });
+    const push = spawnSync(process.execPath, [supabaseCli(cli), 'db', 'push', '--db-url', `${localUrl('app_owner', pw.app_owner, PORT)}?sslmode=disable`, '--yes', '--skip-vault', '--agent', 'no'], { cwd: ROOT, stdio: 'inherit' });
     if (push.status !== 0) throw new Error('supabase db push failed');
     for (const f of plan.afterMigrations) {
       if (f !== plan.anchorCheck) {
@@ -126,34 +186,64 @@ function test(keep) {
       const anchor = psql('postgres', pw.postgres, read(f), f, ['-A', '-t', '-F', ' | ']).trim();
       if (!anchor.startsWith('t | ')) throw new Error(`${f}: ok is not true (${anchor})`);
     }
-    console.log('running npm run test:db -w @nestly/server');
-    const run = spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['run', 'test:db', '-w', '@nestly/server'], {
-      cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32',
-      env: { ...process.env, DATABASE_URL: localUrl('app_server', pw.app_server), OWNER_DATABASE_URL: localUrl('app_owner', pw.app_owner) },
-    });
-    return run.status ?? 1;
+    return work(pw);
   } finally {
     if (keep) console.log(`kept: container ${NAME} on ${HOST}:${PORT} (remove: node tools/db-local.mjs down)`);
     else down();
   }
 }
 
+function test(keep) {
+  return withDatabase(keep, (pw) => {
+    console.log('running npm run test:db -w @nestly/server');
+    const run = spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['run', 'test:db', '-w', '@nestly/server'], {
+      cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32',
+      env: { ...process.env, DATABASE_URL: localUrl('app_server', pw.app_server, PORT), OWNER_DATABASE_URL: localUrl('app_owner', pw.app_owner, PORT) },
+    });
+    return run.status ?? 1;
+  });
+}
+
+/** CI's "pgTAP suite with pg_prove as app_server": each file as app_server with search_path pgtap,tests, in name order.
+ * pg_prove is not in the image, so the files go through psql in the container and tapVerdict reads the TAP. */
+function pgtap(files, keep) {
+  const list = pgtapFiles(ROOT, files);
+  return withDatabase(keep, (pw) => {
+    let bad = 0;
+    for (const f of list) {
+      const r = spawnSync('docker', ['exec', '-i', '-e', `PGPASSWORD=${pw.app_server}`, '-e', 'PGOPTIONS=-c search_path=pgtap,tests', NAME, 'psql', '-X', '-q', '-A', '-t', '-v', 'ON_ERROR_STOP=1', '-h', '127.0.0.1', '-p', '5432', '-U', 'app_server', '-d', 'postgres', '-f', '-'],
+        { input: readFileSync(join(ROOT, f), 'utf8'), encoding: 'utf8' });
+      const v = tapVerdict(r.stdout ?? '');
+      const sqlError = /ERROR:/.test(r.stderr ?? '');
+      const failed = r.status !== 0 || sqlError || v.failed;
+      if (failed) bad++;
+      console.log(`${failed ? 'FAIL' : 'ok  '} ${f} (${v.ok} ok)`);
+      if (failed) {
+        for (const p of v.problems) console.log(`  ${p}`);
+        if (r.status !== 0 || sqlError) console.log(`  psql exit ${r.status}: ${(r.stderr ?? '').split('\n').slice(0, 6).join(' | ')}`);
+      }
+    }
+    console.log(`${list.length - bad}/${list.length} pgTAP files passed`);
+    return bad === 0 ? 0 : 1;
+  });
+}
+
 function main(argv) {
-  const [cmd, ...rest] = argv;
-  if (cmd === 'down') {
+  const args = parseArgs(argv);
+  if (!args) {
+    console.error('usage: node tools/db-local.mjs test [--keep] | pgtap [--keep] [files…] | down');
+    return 2;
+  }
+  if (args.cmd === 'down') {
     down();
     return 0;
   }
-  if (cmd === 'test') {
-    try {
-      return test(rest.includes('--keep'));
-    } catch (e) {
-      console.error(`db-local: ${e instanceof Error ? e.message : String(e)}`);
-      return 1;
-    }
+  try {
+    return args.cmd === 'test' ? test(args.keep) : pgtap(args.files, args.keep);
+  } catch (e) {
+    console.error(`db-local: ${e instanceof Error ? e.message : String(e)}`);
+    return 1;
   }
-  console.error('usage: node tools/db-local.mjs test [--keep] | down');
-  return 2;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) process.exitCode = main(process.argv.slice(2));

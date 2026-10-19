@@ -1,10 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
+import { APP_PORT, STORYBOOK_PORT } from './playwright.ports.ts';
 
 // Playwright runs against the built Storybook, served as static files (UI wave 1).
 // Browsers per SRS NFR-QA-001: Chrome and Edge. Pull requests run Chrome only; Edge runs after a merge to main and on
 // demand (decisions/2026-10.md "Tests: depth by criterion type"). The tests live in e2e/. Visual regression
 // (*.visual.spec.ts) runs in Chrome only: its baselines are Linux Chrome renderings.
-const PORT = 6007;
+const PORT = STORYBOOK_PORT;
 const isCi = process.env['CI'] !== undefined;
 
 export default defineConfig({
@@ -42,8 +43,8 @@ export default defineConfig({
     },
     // The app itself, built in the e2e mode (test-only session source), for the I1 F1.2 flows.
     {
-      command: 'npm run build:e2e -w @nestly/web && npm run preview:e2e -w @nestly/web',
-      url: 'http://127.0.0.1:4174',
+      command: `npm run build:e2e -w @nestly/web && npm run preview:e2e -w @nestly/web -- --port ${APP_PORT}`,
+      url: `http://127.0.0.1:${APP_PORT}`,
       reuseExistingServer: !isCi,
       timeout: 180_000,
     },

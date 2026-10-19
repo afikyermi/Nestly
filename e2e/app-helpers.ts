@@ -1,9 +1,11 @@
 // F1.2 app-shell-guard: helpers for the app specs. Derived from .work/app-shell-guard/spec.md only.
 // The session is driven through window.nestlyTestSession, which exists only in the e2e build.
-// The app server (build:e2e + preview:e2e on 4174) is started by the webServer entry in playwright.config.ts.
+// The app server (build:e2e + preview:e2e on APP_PORT) is started by the webServer entry in playwright.config.ts.
 import type { Locator, Page } from '@playwright/test';
 
-export const APP = 'http://127.0.0.1:4174';
+import { APP_PORT } from '../playwright.ports';
+
+export const APP = `http://127.0.0.1:${APP_PORT}`;
 
 /** 'signed-in-needs-recovery' = signed in, and the account still has no recovery questions (the questions screen opens in setup mode). */
 export type SessionState = 'loading' | 'signed-in' | 'signed-in-needs-recovery' | 'signed-in-needs-new-password' | 'signed-out';
