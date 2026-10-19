@@ -18,7 +18,7 @@ import { usePostingProfile } from '@/hooks/use-posting-right';
 import { cn } from '@/lib/cn';
 import { PLACEHOLDER_TEXT } from '@/pages/placeholder/placeholder-text';
 import { FeedContent } from './FeedContent';
-import { outsidePressHandler } from './outside-press';
+import { holdLinksWhileClosing, outsidePressHandler } from './outside-press';
 import { TO_TOP_LABEL } from './feed-texts';
 import { useFeed } from './use-feed';
 import { useFeedScroll } from './feed-scroll';
@@ -82,7 +82,7 @@ export function FeedScreen() {
   const report = useReport((target, result) => reported(target.id, result));
   const reportSending = report.draft?.sending === true;
   // Back while the delete or the report is in flight keeps its dialog (and the hook adds its entry again, so the next Back still closes it).
-  const { leaveTo, closingByPointer, followAfterClose } = useBackCloses(overlay !== null || report.draft !== null, () => {
+  const { leaveTo, closingByPointer, followAfterClose, closing } = useBackCloses(overlay !== null || report.draft !== null, () => {
     if (saving || reportSending) return false;
     setOverlay(null);
     report.cancel();
@@ -94,6 +94,7 @@ export function FeedScreen() {
     setOverlay((now) => (now?.kind !== 'confirm' || now.unitId !== unitId ? now : result.ok ? null : { ...now, saving: false, failure: result.failure }));
   };
   const pressedOutside = outsidePressHandler({ closingByPointer, followAfterClose });
+  useEffect(() => holdLinksWhileClosing({ closing, followAfterClose }), [closing, followAfterClose]);
   const actionsFor = (unit: FeedUnit): MoreActionsItem[] =>
     unit.isMine
       ? [
