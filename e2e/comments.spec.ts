@@ -293,7 +293,39 @@ test.describe('F3.3 c15/c19 [FR-FEED-001] likes', () => {
   });
 });
 
+test.describe('F3.3 c15 [FR-FEED-001] a Professional', () => {
+  test('[c15] sees the post but no like, no comment box, no reply, no retry and no load-error alert (thread 403 not_allowed)', async ({ page }) => {
+    const net = await setupComments(page, thread(), { professional: true });
+    net.fail.thread = 403;
+    await open(page, POST);
+    await expect(page.getByRole('heading', { level: 1, name: 'פוסט' })).toBeVisible();
+    await page.waitForTimeout(500); // the thread answers after the post; nothing may appear later
+    await expect(page.getByRole('button', { name: /^לייק/ })).toHaveCount(0);
+    await expect(page.getByRole('textbox', { name: /^כתיבת (תגובה|השבה)$/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'השבה', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'נסו שוב', exact: true })).toHaveCount(0);
+    await expect(alert(page, LOAD_FAILED)).toHaveCount(0);
+  });
+});
+
 test.describe('F3.3 c17 [VAL-036] the composer', () => {
+  test('[c17] a NUL character gets its own message and nothing is sent', async ({ page }) => {
+    const net = await start(page);
+    await box(page).fill('שלום\u0000עולם');
+    await btn(form(page), 'שליחה').click();
+    await expect(form(page).getByText('יש בטקסט תו שאי אפשר לשמור. אפשר להסיר אותו ולנסות שוב')).toBeVisible();
+    await expect(form(page).getByText(/ארוכה/)).toHaveCount(0);
+    expect(net.sends).toEqual([]);
+  });
+  test('[c17] the counter counts the trimmed text: 1,000 characters and a trailing newline are not "over" and are sent', async ({ page }) => {
+    const net = await start(page);
+    await box(page).fill(`${'א'.repeat(1000)}\n`);
+    await expect(form(page).getByText('לא נותרו תווים')).toBeVisible();
+    await expect(form(page).getByText(/ארוכה/)).toHaveCount(0);
+    await btn(form(page), 'שליחה').click();
+    await expect(status(page, 'התגובה נוספה')).toBeVisible();
+    expect(net.sends).toHaveLength(1);
+  });
   test('[c17] blank or spaces: the field message shows, the box is focused and invalid, nothing is sent', async ({ page }) => {
     const net = await start(page);
     await box(page).fill('   ');

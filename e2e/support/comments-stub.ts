@@ -68,7 +68,7 @@ const asRecord = (text: string | null): Record<string, unknown> => {
 };
 const failWith = (route: Route, f: Exclude<Fail, null>) => (f === 'abort' ? route.abort('connectionreset') : json(route, f, { error: 'server_error' }));
 
-export async function setupComments(page: Page, tops: StubTop[] = []): Promise<CommentsNet> {
+export async function setupComments(page: Page, tops: StubTop[] = [], opts: { professional?: boolean } = {}): Promise<CommentsNet> {
   const net: CommentsNet = {
     tops,
     post: { likeCount: 0, likedByMe: false },
@@ -88,7 +88,7 @@ export async function setupComments(page: Page, tops: StubTop[] = []): Promise<C
     net.stray.push(`${route.request().method()} ${new URL(route.request().url()).pathname}`);
     return json(route, 404, { error: 'unstubbed' });
   });
-  await setupPosts(page);
+  await setupPosts(page, opts.professional === true ? { professional: true } : {});
   await page.route(/\/api\/posts\/[^/?]+(\?.*)?$/, async (route) => {
     const req = route.request();
     if (req.method() !== 'GET' || !req.url().includes(OTHERS_ID)) return route.fallback();
