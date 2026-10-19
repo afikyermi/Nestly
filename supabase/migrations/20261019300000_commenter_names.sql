@@ -25,3 +25,6 @@ create policy regular_names_select_comment_reader on nestly.regular_names
 
 comment on policy regular_names_select_comment_reader on nestly.regular_names is
   'An active account reads the name of a user who wrote a comment or reply that the account can read (comments_select_viewer, via the EXISTS under the caller''s RLS: post readability, held/deleted, parent and commenter status; Afik 19.10 Q7 B). The real author of an anonymous post comments with author_id NULL ("המחבר"), which never equals a user id: no name, post_authors untouched.';
+
+comment on table nestly.post_hides is
+  'Afik 7א: a viewer''s own hide of a post. Read and written by its owner only. Two things read it: posts_select_viewer and post_hides_insert_guard (20261019200000), both only to hide or guard the viewer''s own hides; never a ranking input.';
