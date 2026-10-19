@@ -104,6 +104,7 @@ describe('[professional-posting c5 R1] the account type is read to choose a prof
       const service = code(read(`../src/services/${name}-service.ts`));
       expect(service).not.toMatch(/['"](professional|regular)['"]/);
       const uses = [...service.matchAll(/accountTypes*(===|!==|==|!=)s*['"](w+)['"]/g)];
+      expect(uses.length).toBeGreaterThanOrEqual(1);
       for (const use of uses) expect(['admin', 'moderator']).toContain(use[2]);
     });
   }
