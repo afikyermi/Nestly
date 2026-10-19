@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { PATHS } from '@/app/paths';
-import { useSessionAccount } from '@/hooks/use-session-account';
 import { postPath } from '@/lib/post-link';
+import { useSessionAccount } from '@/hooks/use-session-account';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
 import { deletePost, editPost, fetchPost, type PostsOutcome } from '@/services/api/posts';
-import { handOverStatus, takeEdit, takeStatus } from './flash-status';
+import { handOverStatus, takeEdit } from './flash-status';
 import { checkPostForm, type AnonymousMode, type PostFormValues } from './post-form';
 import { failureText, refusedErrors } from './post-outcome';
 import { CommentsSection } from './CommentsSection';
 import { PostContent, type PostEdit, type PostFocus, type PostScreenView } from './PostContent';
-import { DELETE_FAILED_TEXT, DELETED_STATUS, LOAD_FAILED_TEXT, PUBLISHED_STATUS, SAVE_FAILED_TEXT, UPDATED_STATUS } from './posts-texts';
+import { DELETE_FAILED_TEXT, DELETED_STATUS, LOAD_FAILED_TEXT, SAVE_FAILED_TEXT, UPDATED_STATUS } from './posts-texts';
 
 type Loaded = Extract<PostScreenView, { kind: 'loaded' }>;
 
@@ -29,8 +29,6 @@ export function PostScreen({ postId }: { postId: string }) {
   const validating = useRef(false);
   const busy = useRef(false);
   const loads = useRef(0);
-  // "הפוסט פורסם", handed over by the composer: said once, when the post first shows.
-  const arrival = useRef(takeStatus(postPath(postId), PUBLISHED_STATUS));
   // "עריכת הפוסט" from a feed card's menu (F3.9 c13): the post opens with its edit form, once.
   const [editAsked] = useState(() => takeEdit(postPath(postId)));
   const wantsEdit = useRef(editAsked);
@@ -56,9 +54,8 @@ export function PostScreen({ postId }: { postId: string }) {
       const outcome = accessToken === null ? ({ kind: 'failed' } as const) : await fetchPost(accessToken, postId);
       if (run !== loads.current) return;
       if (outcome.kind === 'post') {
-        const loaded: Loaded = { kind: 'loaded', post: outcome.post, status: arrival.current, failure: null, edit: null, confirm: null };
+        const loaded: Loaded = { kind: 'loaded', post: outcome.post, status: '', failure: null, edit: null, confirm: null };
         setView(loaded);
-        arrival.current = '';
         if (wantsEdit.current) {
           wantsEdit.current = false;
           if (outcome.post.isMine) startEdit(loaded);
@@ -72,13 +69,6 @@ export function PostScreen({ postId }: { postId: string }) {
     },
     [token, refused, postId],
   );
-
-  // Going Back or Forward ends "just published", even when this screen is the one that history returns to.
-  useEffect(() => {
-    const ended = () => setView((current) => (current.kind === 'loaded' && current.status === PUBLISHED_STATUS ? { ...current, status: '' } : current));
-    window.addEventListener('popstate', ended);
-    return () => window.removeEventListener('popstate', ended);
-  }, []);
 
   useEffect(() => {
     void load(false);

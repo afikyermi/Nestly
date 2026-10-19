@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode, type Ref, type RefObject } from 'react';
+import { useEffect, useRef, type Ref, type RefObject } from 'react';
 import type { FeedUnit } from '@nestly/shared';
 import { EmptyFeedIllustration } from '@/components/shared/illustrations';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
@@ -14,8 +14,6 @@ import { EMPTY_FEED_TEXT, FEED_LIST_LABEL } from './feed-texts';
 
 export interface FeedContentProps {
   state: Pick<FeedState, 'phase' | 'loading' | 'items' | 'message' | 'focusIndex' | 'hiddenIds' | 'pendingHideIds' | 'hideFocus'>;
-  /** The empty state's one action ("כתיבת פוסט"), or nothing when the account may not write. */
-  emptyAction?: ReactNode;
   /** Put on the hidden element after the last card; the screen watches it to ask for the next page. */
   sentinelRef?: Ref<HTMLDivElement>;
   onRetry?: () => void;
@@ -70,7 +68,7 @@ function SkeletonCards() {
 // hidden sentinel comes near. Focus never moves when a page loads; after a retry that worked it goes to the first card it brought.
 // F3.9: a card the viewer hid here is drawn as its placeholder in the same place; after a hide or an undo, focus goes where hideFocus says.
 export function FeedContent(props: FeedContentProps) {
-  const { state, emptyAction, sentinelRef, onRetry, onToggleLike, actionsFor, onUndoHide, headingRef, openMenuId = null, onMenuOpenChange } = props;
+  const { state, sentinelRef, onRetry, onToggleLike, actionsFor, onUndoHide, headingRef, openMenuId = null, onMenuOpenChange } = props;
   const { confirm = null, onConfirmDelete, onCancelDelete, onMenuPressOutside } = props;
   const { phase, loading, items, message, focusIndex, hiddenIds, pendingHideIds, hideFocus } = state;
   const listRef = useRef<HTMLDivElement>(null);
@@ -99,7 +97,6 @@ export function FeedContent(props: FeedContentProps) {
       <div data-testid="feed-empty" className="mt-8 flex flex-col items-center gap-4 text-center">
         <EmptyFeedIllustration />
         <p className="text-body text-muted-foreground">{EMPTY_FEED_TEXT}</p>
-        {emptyAction}
       </div>
     );
   }
