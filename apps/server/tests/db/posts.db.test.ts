@@ -190,7 +190,8 @@ describe('[F3.1-a c4 FR-FEED-002] who may post', () => {
     expect(await stateOf(id)).toContain('body=post body');
   });
 
-  it('[F3.1-a c4] a Professional → 403, no row', T, async () => {
+  // superseded by Afik's decision (19.10, item 16): Professionals post; restored with the new expectation in PR-A3
+  it.skip('[F3.1-a c4] a Professional → 403, no row', T, async () => {
     const app = await start();
     const res = await createPost(app, hP, { body: 'x', audience: 'everyone' });
     expect(res.statusCode, res.body).toBe(403);
