@@ -91,6 +91,9 @@ test.describe('F3.7 c10 c13 [FR-MOD-001] reporting a profile', () => {
         await reportButton(page).click();
         const box = sheet(page, 'user');
         await expect(box).toBeVisible();
+        await expect(radios(box).first()).toBeFocused();
+        // Ready = the layer's own post-open work has run (Radix arms its outside-press listener, the screen pushes its Back entry, in the frames after it shows): two frames and a task, no clock.
+        await page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(done, 0)))));
         if (close === 'Escape') await page.keyboard.press('Escape');
         else if (close === 'outside') await page.mouse.click(3, 3);
         else if (close === 'cancel') await cancelButton(box).click();
