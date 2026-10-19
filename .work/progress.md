@@ -24,3 +24,4 @@
 | 19.10 | F3.3b1 ✅ · F3.3b2 (בבנייה) | PR #85 מוזג (main 21949c9) | b2: BUILDER ב-`.work/wt/b2` (ענף `work/comments-likes-b2`) ∥ TEST ENGINEER בתיקייה הראשית (`work/comments-likes-b2-tests`) → מיזוג ענפים → CRITIC + A&D → PR → w1 → w2 | ממתין לך 7–10 | 72% |
 | 19.10 | F3.3b2 (מועמד) | לייקים וספירות; CRITIC סבב 2 נקי; flake ישן ב-feed-owner ייצב | PR `ready/comments-likes-b2` → מיזוג → w1 (מסך התגובות בעמוד הפוסט): screen.md קיים | ממתין לך 7–11 (Q8 חדש) | 78% |
 | 19.10 | F3.3b2 ✅ · F3.3w1 (בבנייה) | PR #86 מוזג (main b2cbdce) | w1: BUILDER ב-`.work/wt/w1` ∥ TEST ENGINEER בתיקייה הראשית (`work/comments-likes-w1-tests`) מ-screen.md → מיזוג → CRITIC → PR → w2 (שורת פעולות בכרטיס) | ממתין לך 7–11 | 80% |
+| 19.10 | F3.3w1 (מועמד) | תגובות ולייקים בעמוד הפוסט; CRITIC סבב 2 נקי; TE במקביל ל-BUILDER: כן | PR `ready/comments-likes-w1` → מיזוג → w2 (שורת פעולות בכרטיס בפיד) | ממתין לך 7–11 | 85% |

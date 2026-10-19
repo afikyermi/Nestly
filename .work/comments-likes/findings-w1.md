@@ -8,3 +8,6 @@
 - NUL message (copy): "יש בטקסט תו שאי אפשר לשמור. אפשר להסיר אותו ולנסות שוב".
 - Delete 404 → treated as deleted, status "התגובה נמחקה" (accepted; added to screen.md).
 - w2 note: #comments focus vs PostContent's own focus effect → w2 e2e.
+
+## Round 2 (CRITIC opus, 19.10)
+Findings 1–4 fixed (2d769e2, 6c2911f). Region after the profile check: no regression (latency only). Note for w2: focus pulled to #comments heading after the delay — covered by the w2 e2e.
