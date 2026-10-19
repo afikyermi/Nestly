@@ -66,13 +66,13 @@ create function pg_temp.cd(p_table text, p_col text) returns text language sql a
 $f$;
 
 select is(pg_temp.cd('posts', 'author_id'),
-  'The named author (database default auth.uid(), a Regular profile); NULL on an anonymous post (set by posts_insert_prepare). Readable under posts_select_viewer (column SELECT grant; the server joins names on it); no INSERT or UPDATE grant. API responses never emit it.',
+  'The named author (database default auth.uid(), a Regular or Professional account; posts_author_status_fkey proves it in users); NULL on an anonymous post (set by posts_insert_prepare). Readable under posts_select_viewer (column SELECT grant; the server joins names on it); no INSERT or UPDATE grant. API responses never emit it.',
   '[F3.3-a finding 8] posts.author_id description matches its grants');
 select is(pg_temp.cd('post_authors', 'author_id'),
   'The real author (default auth.uid(); a Regular profile). Readable only by that author (post_authors_select_author, table SELECT grant); no INSERT or UPDATE grant. API responses never emit it.',
   '[F3.3-a finding 8] post_authors.author_id description matches its grants');
 select is(pg_temp.cd('comments', 'author_id'),
-  'The commenter (default auth.uid()); NULL only for the real author of an anonymous post (comments_insert_prepare). Readable under comments_select_viewer (column SELECT grant; the server joins names on it); no INSERT or UPDATE grant. API responses never emit it.',
+  'The commenter (default auth.uid(), a Regular or Professional account; comments_author_status_fkey proves it in users); NULL only for the real author of an anonymous post (comments_insert_prepare). Readable under comments_select_viewer (column SELECT grant; the server joins names on it); no INSERT or UPDATE grant. API responses never emit it.',
   '[F3.3-a finding 8] comments.author_id description matches its grants');
 select is(pg_temp.cd('comments', 'is_by_post_author'),
   'AC-076 "המחבר": set by comments_insert_prepare. Readable under comments_select_viewer (column SELECT grant; the server renders byAuthor from it); no INSERT or UPDATE grant.',
@@ -81,7 +81,7 @@ select is(pg_temp.cd('reactions', 'is_by_author'),
   'The liker is the content''s author (reactions_insert_prepare); the quality count excludes it. Readable under reactions_select_reader (column SELECT grant; ranking SQL reads it); no INSERT or UPDATE grant. Carries no identity. API responses never emit it.',
   '[F3.3-a finding 8] reactions.is_by_author description matches its grants');
 select is(pg_temp.cd('reaction_owners', 'user_id'),
-  'The liker (default auth.uid(); a Regular profile). Readable only by that liker (reaction_owners_select_owner, table SELECT grant); no INSERT or UPDATE grant. API responses never emit it.',
+  'The liker (default auth.uid(), a Regular or Professional account; reaction_owners_liker_status_fkey proves it in users). Readable only by that liker (reaction_owners_select_owner, table SELECT grant); no INSERT or UPDATE grant. API responses never emit it.',
   '[F3.3-a finding 8] reaction_owners.user_id description matches its grants');
 select is(pg_temp.cd('reports', 'reporter_id'),
   'The reporter (default auth.uid()); ON DELETE RESTRICT: I9 decides the minimal record. Readable only by that reporter (reports_select_reporter, table SELECT grant); no INSERT or UPDATE grant. API responses never emit it.',

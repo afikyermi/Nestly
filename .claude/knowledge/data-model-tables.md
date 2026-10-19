@@ -371,6 +371,19 @@ hidden by the hider → `NS004` (unknown uuid included: no 23503 oracle); own po
 **Share immutable**: `posts_update_share_guard` (new, BEFORE UPDATE OF audience, body, stage_tag WHEN old.is_share) → `NS005` on any change; status and
 the author_status cascade unaffected. **Report text**: `reports_details_length_check` ≤ 1000 code points. SQLSTATE class `NS` is the project's own
 (`NS001` profile_view); the server maps by code (`lib/pg-error.ts`). Down: restores the two functions verbatim from F3.0a, drops the guard and the CHECK; data-free, no refuse guard.
+I3 PR-A3 (`20261019400000_professional_posting.sql`; `.work/professional-posting/schema.md`, Afik 19.10 DR-1..3): **Professionals post, comment
+and like.** RLS helper `caller_account_type()` (new; language sql, STABLE, SECURITY INVOKER, `search_path ''`, EXECUTE authenticated only): the
+caller's own `users.account_type` while active, else NULL; caller-only through `users_select_own` (rule 16), no exception. Dropped:
+`posts_author_id_fkey`, `comments_author_id_fkey`, `reaction_owners_user_id_fkey` (→ regular_profiles); the status FKs → users stay and still prove
+the author and cascade a users delete (a regular_profiles delete alone no longer cascades feed rows; nothing deletes a profile apart from its user).
+`posts_insert_author` adds: caller `regular`, or `professional` and not anonymous, `audience = 'everyone'`, `stage_tag` NULL; `posts_update_author`
+WITH CHECK adds the same terms without the anonymous one (USING unchanged); `comments_insert_commenter` and `reactions_insert_reader` add: caller
+`regular` or `professional`. Admin, Moderator and stopped accounts → 42501; a Professional's anonymous, friends or tagged post → 42501 (RLS runs
+before `posts_audience_check`). Unchanged: `post_authors` and its FK → regular_profiles (anonymous posts Regular-only), every SELECT policy (a
+Professional reads as a Regular non-friend; friendships are Regular-only), the share/hide guards (a Professional share or hide stays 42501),
+`regular_names` (a Professional has no row: no name). No `followers` audience yet (I11, with Follow). Down: refuses while a posts (named), comments
+or reaction_owners row has an author/liker without a regular_profiles row (FORCE lifted for the check, put back); else restores the policies, FKs and
+comments verbatim and drops the helper.
 
 ## New entity template
 

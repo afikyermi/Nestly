@@ -116,7 +116,7 @@ select set_config('t.f1', pg_temp.post('a', 'friends')::text, true);
 select ok(pg_temp.refused(pg_temp.dml('b', pg_temp.cm_sql(current_setting('t.f1')::uuid, 'sneak'))), '[F3.0-b c10] insert on a friends-only post of a non-friend is refused');
 select ok(pg_temp.refused(pg_temp.dml('b', pg_temp.cm_sql(gen_random_uuid(), 'nowhere'))), '[F3.0-b c10] insert on a post that does not exist is refused');
 select ok(pg_temp.refused(pg_temp.dml('b', pg_temp.cm_sql(null, 'nowhere'))), '[F3.0-b c10] insert with no post is refused');
-select ok(pg_temp.refused(pg_temp.dml('p', pg_temp.cm_sql(pg_temp.post('a'), 'pro'))), '[F3.0-b c10 Gate 2] a Professional does not comment in I3');
+select is(pg_temp.dml('p', pg_temp.cm_sql(pg_temp.post('a'), 'pro'), false), 'OK:1', '[F3.10-a c7 FR-FEED-003] a Professional comments on a readable post (supersedes F3.0-b c10 Gate 2; the rest in file 85)');
 select ok(pg_temp.refused(pg_temp.dml('s', pg_temp.cm_sql(pg_temp.post('a'), 'susp'))), '[F3.0-b c10 rule 15] a suspended viewer cannot comment');
 select ok(pg_temp.refused(pg_temp.dml('x', pg_temp.cm_sql(pg_temp.post('a'), 'ban'))), '[F3.0-b c10 rule 15] a banned viewer cannot comment');
 select ok(pg_temp.refused(tests.dml_as('anon', tests.claims(pg_temp.id('b')), pg_temp.cm_sql(pg_temp.post('a'), 'anon'))), '[F3.0-b c10 rule 3] anon cannot comment');
@@ -252,7 +252,7 @@ select is(pg_temp.rxs('b', current_setting('t.lf')::uuid) || pg_temp.rxs('b', cu
 select is(pg_temp.rxs('a', current_setting('t.lf')::uuid) || pg_temp.rxs('a', current_setting('t.lfc')::uuid), '11', '[F3.0-b c12] and the same likes count 1 for a viewer who can read it');
 select set_config('t.lh', pg_temp.setst(pg_temp.post('a'), 'hidden')::text, true);
 select ok(pg_temp.refused(pg_temp.dml('b', pg_temp.rx_sql(current_setting('t.lh')::uuid))), '[F3.0-b c12 BR-065] a post that is not active takes no like');
-select ok(pg_temp.refused(pg_temp.dml('p', pg_temp.rx_sql(current_setting('t.lp')::uuid))), '[F3.0-b c12 Gate 2] a Professional does not like in I3');
+select is(pg_temp.dml('p', pg_temp.rx_sql(current_setting('t.lp')::uuid), false), 'OK:1', '[F3.10-a c7 FR-FEED-003] a Professional likes a readable post (supersedes F3.0-b c12 Gate 2; the rest in file 85)');
 select ok(pg_temp.refused(pg_temp.dml('s', pg_temp.rx_sql(current_setting('t.lp')::uuid))) and pg_temp.refused(pg_temp.dml('x', pg_temp.rx_sql(current_setting('t.lp')::uuid))),
   '[F3.0-b c12 rule 15] a suspended or banned user cannot like');
 select ok(pg_temp.refused(tests.dml_as('anon', tests.claims(pg_temp.id('b')), pg_temp.rx_sql(current_setting('t.lp')::uuid))), '[F3.0-b c12 rule 3] anon cannot like');

@@ -173,8 +173,8 @@ select is(tests.fx_po_state(current_setting('t.an')::uuid) ~ 'aud=everyone anon=
 
 select is(pg_temp.dml('p', $q$ insert into nestly.posts (audience, is_anonymous, body) values ('everyone', true, 'x') $q$) like 'ERR:%', true,
   '[F3.0-a c4 FR-FEED-005] a Professional''s anonymous insert is refused');
-select is(pg_temp.dml('p', $q$ insert into nestly.posts (audience, body) values ('everyone', 'x') $q$) like 'ERR:%', true,
-  '[F3.0-a c4 Gate 2] a Professional''s ordinary insert is refused too (posting is Regular-only in I3)');
+select is(pg_temp.dml('p', $q$ insert into nestly.posts (audience, body) values ('everyone', 'x') $q$, false), 'OK:1',
+  '[F3.10-a c1 FR-FEED-002] a Professional''s ordinary named everyone insert is accepted (supersedes F3.0-a c4 Gate 2; the rest in file 85)');
 
 -- =====================================================================================================================
 -- c5 -- author separation (rule 20, AC-075, S-26)
