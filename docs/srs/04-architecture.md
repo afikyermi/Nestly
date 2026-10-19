@@ -34,7 +34,7 @@
 | Shared UI Component | TextArea | קלט טקסט רב-שורות לשימוש בטפסים ופוסטים. |
 | Shared UI Component | SelectInput | בחירה מתוך רשימה; האפשרויות והפעולה נקבעות על ידי ה-Feature. |
 | Shared UI Component | DateInput | בחירת תאריך לשימוש בהרשמה, מסלולים וטפסים נוספים. |
-| Shared UI Component | Modal / Dialog | מעטפת חלון קופץ כללית שמקבלת תוכן ופעולות מבחוץ; אינה קשורה לטופס מסוים. |
+| Shared UI Component | Modal / Dialog | מעטפת חלון קופץ כללית שמקבלת תוכן ופעולות מבחוץ; אינה קשורה לטופס מסוים. **כפי שנבנה ב-I3:** גם מעטפת אחת לגיליון מלמטה (מתחת ל-1024px) ולחלון קטן (מ-1024px), שמשמשת את השיתוף, שיתוף הקישור והדיווח; כל חלון נסגר ב-Back, ב-Esc ובלחיצה מחוצה לו, ובחלון אישור לחיצה בחוץ היא ביטול (`docs/design/direction.md`). |
 | Shared UI Component | Avatar | תמונת/ייצוג משתמש לשימוש בפיד, פרופילים, תגובות וכדומה. |
 | Shared UI Component | Badge | תג מידע כללי, למשל Sponsored, סטטוס או אימות; התוכן נקבע מבחוץ. |
 | Shared UI Component | GlobalSearchInput | קלט חיפוש גלובלי משותף. מקבל value/events בלבד; SearchFeature מנהל את הישויות, הרשאות התוצאות, ה-Dropdown והניווט. |
@@ -65,15 +65,17 @@
 | Page | WelcomePage / LoginPage / AccountTypeSelectionPage | מסכי כניסה והרשמה; מרכיבים Shared UI ו-Flows רלוונטיים. |
 | Page | RegularRegistrationPage / ProfessionalRegistrationPage | מסכי ההרשמה; מרכיבים את Flow ההרשמה והרכיבים הכלליים. |
 | Page | FeedPage / HomeTrackingPage / MarketplacePage | מסכי הליבה המרכזיים לאחר התחברות. |
+| Page | PostPage | עמוד פוסט בודד (PG-055): הפוסט, השיתוף או המקור שלו, ושרשור התגובות המלא; מרכיב את PostInteractionFeature ו-PostShareFeature (I3). |
 | Page | ServicesDirectoryPage / ProfessionalProfilePage | מסכי איתור וצפייה בבעלי מקצוע. |
 | Page | UserProfilePage / MarketplaceDetailPage | מסכי פרופיל משתמש ופרטי Marketplace Listing/מוצר ממומן. |
 | Page | SearchResultsPage / NotificationsPage / ChatPage | מסכי תוצאות חיפוש, היסטוריית התראות ומרכז שיחות מלא. |
 | Shared UI Component | MediaUploader | רכיב להוספת תמונות/סרטונים במקומות שבהם מדיה מותרת. סוגי קבצים ומגבלות מועברים מה-Feature המשתמש בו. בכל העלאה: הקטנה, ניקוי EXIF/GPS וטשטוש בדפדפן לפני השליחה (NFR-MEDIA-001, BR-076). |
-| Domain Reusable Component | ReportAction | פעולת דיווח רב-שימושית לתוכן/משתמש. נפתחת כחלון נפרד מעל מסך מטושטש מעט, עם סיבה, טקסט חופשי וקישור לכללי הקהילה (FR-MOD-001). יעד הדיווח, סיבת הדיווח והמשך ה-flow נקבעים על ידי ModerationFeature. |
+| Domain Reusable Component | ReportAction | פעולת דיווח רב-שימושית לתוכן/משתמש. נפתחת כחלון נפרד מעל מסך מטושטש מעט, עם סיבה, טקסט חופשי וקישור לכללי הקהילה (FR-MOD-001). יעד הדיווח, סיבת הדיווח והמשך ה-flow נקבעים על ידי ModerationFeature. **כפי שנבנה ב-I3:** בגיליון מלמטה או בחלון קטן (Modal / Dialog), מתפריט "⋯" של פוסט ושל תגובה ומכפתור בפרופיל. |
+| Feature / Container | UserBlockFeature | מנהל חסימת משתמש הדדית: הסתרת פוסטים, תגובות ופרופיל בשני הכיוונים וסיום ה-Friendship (FR-REL-002, I4). |
 | Feature / Container | ProfessionalDashboardFeature | מנהל KPI מקצועיים מצטברים: Profile Views, Followers, Organic Reach/Engagement, Chat Starts ו-Promotion Analytics. Organic ו-Paid מוצגים בנפרד; אין חשיפת זהויות/חיפושים של משתמשים בודדים. |
 | Feature / Container | SupportRequestFeature | מנהל שליחת פנייה מסווגת ושיוכה למשתמש. כאשר Support משיב, התגובה מוזרמת ל-Support Thread ב-Chat תחת זהות “Support”, בלי להפוך את הערוץ ל-Chat חברתי חופשי. |
 | Feature / Container | SupportInboxFeature | מנהל תיבת פניות, סינון, סטטוס, הערות פנימיות ותגובות. SUPPORT_HANDLE מאפשר תגובה בשם “Support”; האינטראקציה נשמרת במסגרת SupportRequest. |
-| Feature / Container | AdminAnalyticsFeature | מנהל תצוגת Analytics/Intelligence מצטברת. Admin בעל גישה מלאה; Moderator יכול לצפות רק עם ANALYTICS_VIEW ובסקופ מאושר. מקבל Aggregates מ-AdminIntelligenceFeature. |
+| Feature / Container | AdminAnalyticsFeature | מנהל תצוגת Analytics/Intelligence. Admin בעל גישה מלאה; Moderator יכול לצפות רק עם ANALYTICS_VIEW, בהיקף שמוגדר ב-FR-ADMIN-010. מקבל את הנתונים מ-AdminIntelligenceFeature. |
 | Feature / Container | ModerationFeature | מנהל דיווחים ותוכן בעייתי. Admin בעל גישה מלאה; Moderator פועל לפי REPORTS_VIEW, CONTENT_MODERATE ו-MARKETPLACE_MODERATE. |
 | Page | ProfessionalDashboardPage | מסך הבית העסקי של Professional User. מחליף את חוויית המעקב ההורי עבור חשבון מקצועי. |
 | Page | SupportInboxPage / AdminAnalyticsPage | SupportInboxPage נגיש ל-Admin ול-Moderator עם SUPPORT_VIEW; פעולות טיפול דורשות SUPPORT_HANDLE. AdminAnalyticsPage נגיש ל-Admin ול-Moderator עם ANALYTICS_VIEW בלבד. |
@@ -81,12 +83,12 @@
 | Page | AdminAccessControlPage | מסך ניהול Moderator והרשאותיו. נגיש ל-Admin בלבד ומציג את Permission Matrix המאושרת ואת מצב ההרשאות לכל Moderator. |
 | Feature / Container | UserManagementFeature | מנהל צפייה תפעולית במשתמשים ופעולות Warning / Suspension / Ban / Unban בהתאם ל-Permission Keys; Admin בעל גישה מלאה. |
 | Feature / Container | AuditLogFeature | רושם פעולות ניהוליות באופן אוטומטי ומציג Audit Log. Admin בעל גישה מלאה; Moderator עם AUDIT_LOG_VIEW מקבל צפייה בלבד. |
-| Feature / Container | ProfessionalVerificationAdminFeature | מנהל תור/סטטוס אימות Professional. Admin בעל גישה מלאה; Moderator פועל רק עם PROFESSIONAL_VERIFY. |
+| Feature / Container | ~~ProfessionalVerificationAdminFeature~~ — **בוטל** | אין אימות מקצועי (OP-005 נסגר, 18.10.2026). |
 | Feature / Container | CommunityAdministrationFeature | מנהל קטגוריות, סיבות דיווח ותצורות קהילה תפעוליות. Moderator פועל רק עם COMMUNITY_CONFIG. |
 | Feature / Container | SystemAnnouncementsFeature | מנהל הודעות מערכת רשמיות. Moderator פועל רק עם SYSTEM_ANNOUNCEMENTS. |
 | Page | AdminUserManagementPage | מסך ניהול משתמשים ואכיפה. Admin מלא; Moderator רואה/פועל לפי USER_VIEW / USER_WARN / USER_SUSPEND / USER_BAN. |
 | Page | AdminAuditLogPage | מסך Audit. Admin מלא; Moderator עם AUDIT_LOG_VIEW בצפייה בלבד. |
-| Page | ProfessionalVerificationAdminPage | מסך אימות Professional. Admin מלא; Moderator עם PROFESSIONAL_VERIFY. |
+| Page | ~~ProfessionalVerificationAdminPage~~ — **בוטל** | אין אימות מקצועי (OP-005 נסגר, 18.10.2026). |
 | Page | AdminCommunitySettingsPage | מסך הגדרות קהילה תפעוליות. Admin מלא; Moderator עם COMMUNITY_CONFIG. |
 | Page | AdminAnnouncementsPage | מסך הודעות מערכת. Admin מלא; Moderator עם SYSTEM_ANNOUNCEMENTS. |
 | Shared UI Component | DropdownPanel | מעטפת Dropdown כללית ל-Search, Notifications ו-Chat. מקבלת תוכן ופעולות מבחוץ ואינה מכילה לוגיקה עסקית. |
@@ -106,7 +108,7 @@
 | Page | GroupsDirectoryPage / GroupPage / GroupManagementPage | מסכי גילוי/הקבוצות שלי, צפייה בקבוצה וניהול קבוצה בהתאם ל-Public/Private ולתפקיד. |
 | Page | FriendsPage | מסך Friends ובקשות חברות עבור Regular User בלבד. |
 | Feature / Container | PasswordRecoveryFeature | מנהל את תהליך שחזור הסיסמה מתוך Login. ערוץ האימות המדויק נשאר TBD עד להחלטה; ה-Feature אחראי ל-state, ולידציה והחלפת הסיסמה לאחר אימות. |
-| Feature / Container | ProfessionalVerificationFeature | מנהל את נתוני האימות והסטטוס בצד Professional User; כללי המקצוע/מסמכים ושיטת האימות נקבעים בנפרד. |
+| Feature / Container | ~~ProfessionalVerificationFeature~~ — **בוטל** | אין אימות מקצועי (OP-005 נסגר, 18.10.2026). |
 | Feature / Container | MarketplacePromotionFeature | מנהל קידום בתשלום של Marketplace Listing בבעלות Regular User, בנפרד מקידום Professional Profile. |
 | Page | TrackerPage / BreastfeedingTrackerPage / ArticlePage | TrackerPage הוא עמוד ייעודי לסוג מעקב; BreastfeedingTrackerPage הוא מימוש ייעודי להנקה; ArticlePage מציג טיפ/מאמר מלא. |
 | Page | AdminModerationPage | מסך תור דיווחים וטיפול ב-Moderation. Admin בעל גישה מלאה; Moderator פועל לפי REPORTS_VIEW וביצוע פעולות תוכן לפי CONTENT_MODERATE / MARKETPLACE_MODERATE והרשאות אכיפה רלוונטיות. |
@@ -114,7 +116,7 @@
 | Feature / Container | SettingsFeature | מנהל SettingsPage ו-Sections של Account, Privacy & Security, Notifications ו-Terms/Privacy. |
 | Page | SettingsPage | עמוד הגדרות מרכזי ל-Account, Privacy & Security, Notifications ו-Terms/Privacy. |
 | Page | FollowingProfessionalsPage | רשימת Professional Profiles במעקב עם פתיחה ו-Unfollow. |
-| Page | ProfessionalVerificationStatusPage | סטטוס אימות והשלבים/מידע הזמינים ל-Professional User. |
+| Page | ~~ProfessionalVerificationStatusPage~~ — **בוטל** | אין אימות מקצועי (OP-005 נסגר, 18.10.2026). |
 | Page | ProfessionalPromotionPage / PromotionAnalyticsPage | ניהול Profile Promotion, Post Promotion ותוצאות הקידום המקצועי. |
 | Page | BillingPromotionsPage | ריכוז רכישות/קידומים מקצועיים וסטטוסי תשלום; ספק סליקה/חשבוניות TBD. |
 | Page | CreateGroupPage | יצירת Public/Private Group על ידי Regular או Professional; היוצר הופך ל-Group Owner. |
@@ -122,11 +124,11 @@
 | Page | AdminSponsoredProductsPage | מסך Admin לניהול Sponsored Products; אין Brand User בשלב הראשון. |
 | Feature / Container | PersonalizationSignalFeature | קולט אירועי חיפוש/צריכה/אינטראקציה מאושרים ומעדכן Interest Profile ו-Intent Signals. אינו משתמש בתוכן Chat/Support; עבור Professional אינו משתמש ב-Child/Tracker Data. |
 | Feature / Container | RuleBasedRecommendationEngine | מנוע v1 דטרמיניסטי ל-Candidate Generation, Ranking ו-Re-ranking עבור Feed, Professionals, Marketplace/Products ו-Contextual Guidance. הכללים והמשקולות ניתנים להגדרה באמצעות AlgorithmConfiguration. |
-| Feature / Container | RecommendationFeedbackFeature | מנהל Not Interested / Hide / Show Less ואת השפעתם על Creator/Topic/Source ברמת המשתמש. |
+| Feature / Container | RecommendationFeedbackFeature | מנהל Not Interested / Show Less ואת השפעתם על Creator/Topic/Source ברמת המשתמש. "הסתרת הפוסט" נשמרת כאן ב-PostHide בלבד ואינה משפיעה על הדירוג (FR-ALG-009). |
 | Feature / Container | AnalyticsEventFeature | רושם Event Taxonomy אחיד ל-Impression, Open, Dwell, Search, Engagement, Conversion ו-Administrative metrics ללא שמירת גוף Chat/Support באירועי Analytics כלליים. |
-| Feature / Container | AdminIntelligenceFeature | מחשב Aggregates ל-Owner/Admin: Lifecycle, Retention, Feed/Search, Groups, Professionals, Marketplace, Promotion, Moderation/Support ו-Recommendation Quality. ברירת המחדל בתצוגה היא Aggregate. |
+| Feature / Container | AdminIntelligenceFeature | מחשב נתונים ל-Owner/Admin: Lifecycle, Retention, Feed/Search, Groups, Professionals, Marketplace, Promotion, Moderation/Support ו-Recommendation Quality — גם ברמת משתמש בודד, בלי שמות ובלי פרטים מזהים (FR-ADMIN-010, החלטת אפיק מ-18.10.2026). |
 | Feature / Container | ContentMetadataFeature | מחזיק Topic/Category/Stage metadata לצורכי v1 באמצעות שדות מובנים, Group/Category context, Tags ומילות מפתח. סיווג סמנטי אוטומטי/Embeddings הוא Future Enhancement. |
-| Shared UI Component | OverflowMenu | תפריט "⋯" לפעולות משניות בכרטיס או במסך. במובייל נפתח כ-sheet מלמטה. הפעולות מוזנות מבחוץ (החלטות עיצוב מ-11.10.2026). |
+| Shared UI Component | OverflowMenu | תפריט "⋯" לפעולות משניות בכרטיס או במסך. במובייל נפתח כ-sheet מלמטה. הפעולות מוזנות מבחוץ (החלטות עיצוב מ-11.10.2026). **כפי שנבנה ב-I3:** תפריט אחד לכל כרטיס, לכל תגובה ולכותב בעמוד הפוסט; נסגר ב-Back, ב-Esc ובלחיצה בחוץ, ולחיצה אחת על "⋯" אחר פותחת אותו. |
 | Shared UI Component | Tooltip | תווית קצרה לכפתור אייקון, בריחוף ובמיקוד. ניתנת לסגירה ואינה מסתירה תוכן (WCAG 1.4.13). |
 | Shared UI Component | Toast | הודעת מצב קצרה ושקטה, ב-live region. אינה המקום היחיד למידע חשוב, ו-Toast עם פעולה אינו נעלם לבד. |
 | Shared UI Component | EmptyState | מצב ריק: הסבר קצר ופעולה אחת לצעד הבא. התוכן מוזן מבחוץ. |

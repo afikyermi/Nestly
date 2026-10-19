@@ -34,12 +34,12 @@
 
 | שדה | הגדרה |
 |---|---|
-| סטטוס | מאושר — Core metrics מוגדרים ב-FR-ADMIN-010 ובסעיף 18.6 |
+| סטטוס | מאושר — Core metrics מוגדרים ב-FR-ADMIN-010 ובסעיף 18.6. **נבנה ב-I14 ונכנס ל-MVP** (הועבר מ-I15, החלטת אפיק מ-18.10.2026): הגרפים גלויים ל-Admin או למי שיש לו ההרשאה (ANALYTICS_VIEW) |
 | Actor | Admin / Moderator עם ANALYTICS_VIEW |
-| תיאור | המערכת תאפשר ל-Admin לנתח פניות Support ומידע תפעולי/שימוש. שכבת Owner/Admin Intelligence המלאה מוגדרת ב-FR-ADMIN-010; Moderator עם ANALYTICS_VIEW רואה רק scope מאושר. |
+| תיאור | המערכת תאפשר ל-Admin לנתח פניות Support ומידע תפעולי/שימוש. שכבת Owner/Admin Intelligence המלאה מוגדרת ב-FR-ADMIN-010; Moderator עם ANALYTICS_VIEW רואה את מה ש-FR-ADMIN-010 מגדיר להרשאה. |
 | תנאים מוקדמים | קיימים נתוני פניות/שימוש; Admin מחובר או Moderator מחובר עם ANALYTICS_VIEW. |
 | קלט / Trigger | Support Requests + Analytics Aggregates מאושרים. |
-| תהליך מערכת | Aggregation לפי period/domain/segment; Organic/Paid נפרדים; ברירת מחדל Aggregate. |
+| תהליך מערכת | Aggregation לפי period/domain/segment; Organic/Paid נפרדים. היקף הנתונים, כולל רמת משתמש בודד, לפי FR-ADMIN-010. |
 | פלט | Support metrics + קישור/גישה ל-Admin Intelligence KPIs. |
 | מצב לאחר ביצוע | המידע זמין לניהול וקבלת החלטות תפעוליות ומוצריות. |
 | בעל אחריות לוגי (Page / Feature) | AdminAnalyticsPage / AdminAnalyticsFeature |
@@ -50,7 +50,7 @@
 |---|---|
 | סטטוס | מאושר |
 | Actor | Admin |
-| תיאור | המערכת תאפשר ל-Admin בלבד ליצור/להשבית Moderator ולהקצות, לשנות ולבטל את Permission Keys המאושרים: SUPPORT_VIEW, SUPPORT_HANDLE, REPORTS_VIEW, CONTENT_MODERATE, MARKETPLACE_MODERATE, USER_VIEW, USER_WARN, USER_SUSPEND, USER_BAN, PROFESSIONAL_VERIFY, ANALYTICS_VIEW, AUDIT_LOG_VIEW, COMMUNITY_CONFIG, SYSTEM_ANNOUNCEMENTS, PRIVATE_GROUP_MODERATE. |
+| תיאור | המערכת תאפשר ל-Admin בלבד ליצור/להשבית Moderator ולהקצות, לשנות ולבטל את Permission Keys המאושרים: SUPPORT_VIEW, SUPPORT_HANDLE, REPORTS_VIEW, CONTENT_MODERATE, MARKETPLACE_MODERATE, USER_VIEW, USER_WARN, USER_SUSPEND, USER_BAN, ANALYTICS_VIEW, AUDIT_LOG_VIEW, COMMUNITY_CONFIG, SYSTEM_ANNOUNCEMENTS, PRIVATE_GROUP_MODERATE. PROFESSIONAL_VERIFY בוטלה עם האימות המקצועי (OP-005 נסגר, 18.10.2026). |
 | תנאים מוקדמים | Admin מחובר וקיים משתמש Moderator. |
 | קלט / Trigger | בחירת Moderator + בחירת Permission Keys להוספה/הסרה או השבתת Moderator. |
 | תהליך מערכת | שמירת מיפוי ההרשאות, אכיפה בצד השרת ועדכון הגישה למודולים/פעולות. כל שינוי נשמר ב-Audit Log עם מצב לפני/אחרי. |
@@ -69,22 +69,22 @@
 | קלט / Trigger | פעולת ניהול / פתיחת Audit Log. |
 | תהליך מערכת | שמירת Actor, Role, Permission, Action, Target, Timestamp, Result וסיבה כאשר קיימת; בשינוי הרשאה נשמר Before/After. |
 | פלט | רשומת Audit חדשה או רשימת רשומות בהתאם להרשאה. |
-| מצב לאחר ביצוע | הפעולה ניתנת למעקב. מדיניות Retention תוגדר במסגרת Data Governance. |
+| מצב לאחר ביצוע | הפעולה ניתנת למעקב. Retention לחשבון פעיל: 12 חודשים (§13.4, החלטת אפיק מ-18.10.2026). |
 | בעל אחריות לוגי (Page / Feature) | AdminAuditLogPage / AuditLogFeature |
 
-## FR-ADMIN-006 — טיפול בבקשת Professional Verification
+## FR-ADMIN-006 — טיפול בבקשת Professional Verification (בוטל)
 
 | שדה | הגדרה |
 |---|---|
-| סטטוס | מאושר ברמת ה-flow; כללי מסמכים/מקצועות נשארים לפי OP-005 |
-| Actor | Admin / Moderator עם PROFESSIONAL_VERIFY |
-| תיאור | המערכת תאפשר לגורם מורשה לבחון בקשת אימות מקצועי ולעדכן את סטטוס האימות. |
-| תנאים מוקדמים | קיימת בקשת/מידע אימות Professional. Admin מחובר או Moderator עם PROFESSIONAL_VERIFY. |
-| קלט / Trigger | פתיחת בקשת אימות מתוך ProfessionalVerificationAdminPage. |
-| תהליך מערכת | הצגת פרטי האימות הזמינים; בחירת Approve / Reject / עדכון סטטוס בהתאם לכללים שיוגדרו; שמירת Actor, זמן ותוצאה ב-Audit Log. |
-| פלט | סטטוס האימות המקצועי מתעדכן. |
-| מצב לאחר ביצוע | ProfessionalProfile משקף את סטטוס האימות החדש; הפעולה נרשמת ב-Audit Log. |
-| בעל אחריות לוגי (Page / Feature) | ProfessionalVerificationAdminPage / ProfessionalVerificationAdminFeature |
+| סטטוס | **בוטל** — החלטת אפיק מ-18.10.2026: אין אימות של בעלי מקצוע (OP-005 נסגר). ההגדרה נשמרת לרציפות המזהים |
+| Actor | — |
+| תיאור | ~~המערכת תאפשר לגורם מורשה לבחון בקשת אימות מקצועי ולעדכן את סטטוס האימות.~~ אין בקשות אימות, תור אימות או סטטוס אימות. |
+| תנאים מוקדמים | — |
+| קלט / Trigger | — |
+| תהליך מערכת | — |
+| פלט | — |
+| מצב לאחר ביצוע | — |
+| בעל אחריות לוגי (Page / Feature) | — |
 
 ## FR-ADMIN-007 — ניהול תצורות קהילה
 
@@ -132,12 +132,12 @@
 
 | שדה | הגדרה |
 |---|---|
-| סטטוס | מאושר — חובה ל-v1 |
+| סטטוס | מאושר — חובה ל-v1. **נבנה ב-I14 ונכנס ל-MVP** (הועבר מ-I15, החלטת אפיק מ-18.10.2026): הגרפים גלויים ל-Admin או למי שיש לו ההרשאה (ANALYTICS_VIEW) |
 | Actor | Admin / Moderator with ANALYTICS_VIEW |
-| תיאור | AdminAnalyticsPage יציג Owner/Admin Intelligence מצטבר עבור Lifecycle/Retention, Feed/Search, Groups, Professionals, Marketplace, Promotions, Support/Moderation ו-Recommendation Quality. Admin מלא; Moderator רק בסקופ שהוקצה לו. |
+| תיאור | AdminAnalyticsPage יציג Owner/Admin Intelligence עבור Lifecycle/Retention, Feed/Search, Groups, Professionals, Marketplace, Promotions, Support/Moderation ו-Recommendation Quality. Admin מלא. **ANALYTICS_VIEW** (החלטת אפיק מ-18.10.2026): רואה את כל הנתונים, גם ברמת משתמש בודד וגם בקבוצות קטנות, בלי מינימום, בלי שמות ובלי פרטים מזהים — מספרים ונתונים רלוונטיים בלבד. |
 | תנאים מוקדמים | קיימים AnalyticsEvent/Aggregate data והרשאת צפייה. |
 | קלט / Trigger | בחירת תקופה, domain ו-segment מאושר. |
-| תהליך מערכת | טעינת Aggregates לפי סעיף 18.6; Organic ו-Paid מופרדים; ברירת מחדל Aggregate ולא user-level. |
+| תהליך מערכת | טעינת הנתונים לפי סעיף 18.6; Organic ו-Paid מופרדים; גם ברמת משתמש בודד, בלי שמות ובלי פרטים מזהים. |
 | פלט | Dashboards/KPIs/filters המאפשרים זיהוי trends, funnels, demand/supply gaps ואיכות Recommendation. |
 | מצב לאחר ביצוע | Admin יכול לקבל החלטות Product/Operations על בסיס מדדים; Raw Chat/Support/Tracker אינם מוצגים כ-dashboard analytics. |
 | בעל אחריות לוגי (Page / Feature) | AdminAnalyticsPage / AdminAnalyticsFeature / AdminIntelligenceFeature |

@@ -50,10 +50,10 @@
 |---|---|
 | סטטוס | מאושר; כפי שנבנה ב-I2 (F2.5, 17.10.2026) |
 | Actor | Regular User / Professional User |
-| תיאור | המערכת תרכז Account (כולל מחיקת חשבון, FR-SET-002), Privacy & Security, Notification Settings ו-Terms/Privacy ב-SettingsPage מרכזי. Professional Verification, Promotion ו-Billing יהיו Pages עצמאיים. |
+| תיאור | המערכת תרכז Account (כולל מחיקת חשבון, FR-SET-002), Privacy & Security, Notification Settings ו-Terms/Privacy ב-SettingsPage מרכזי. Promotion ו-Billing יהיו Pages עצמאיים. אין אימות מקצועי (OP-005 נסגר, 18.10.2026). |
 | תנאים מוקדמים | Regular או Professional מחובר. |
 | קלט / Trigger | בחירת יעד הגדרות מתוך Side Menu. |
-| תהליך מערכת | SideMenuFeature מנווט ל-SettingsPage ול-Section המתאים, או ל-Page עצמאי עבור Following/Verification/Promotion/Billing. **כפי שנבנה (F2.5):** SettingsPage (`/settings`, "הגדרות") עם שלושה Sections, ולכל אחד כתובת משלו (`#account`, `#privacy`, `#terms`) שנשמרת ב-reload: **"חשבון"** — קישור "עריכת פרופיל"; **"פרטיות ואבטחה"** — הגדרות הפרטיות (FR-PRIV-001) וקישורים ל"שאלות לשחזור סיסמה" ול"החלפת סיסמה"; **"תנאים ופרטיות"** — "תנאי השימוש" ו"מדיניות הפרטיות", שמוצגים גם במערכת אחרי ההתחברות (החלטת אפיק מ-17.10.2026, F2.5 DR-2), עם "חזרה להגדרות". מחיקת חשבון (FR-SET-002) ו-Notification Settings אינם מוצגים עד שייבנו (DR-1, DR-3 — החלטות ORCHESTRATOR מ-17.10.2026). |
+| תהליך מערכת | SideMenuFeature מנווט ל-SettingsPage ול-Section המתאים, או ל-Page עצמאי עבור Following/Promotion/Billing. **כפי שנבנה (F2.5):** SettingsPage (`/settings`, "הגדרות") עם שלושה Sections, ולכל אחד כתובת משלו (`#account`, `#privacy`, `#terms`) שנשמרת ב-reload: **"חשבון"** — קישור "עריכת פרופיל"; **"פרטיות ואבטחה"** — הגדרות הפרטיות (FR-PRIV-001) וקישורים ל"שאלות לשחזור סיסמה" ול"החלפת סיסמה"; **"תנאים ופרטיות"** — "תנאי השימוש" ו"מדיניות הפרטיות", שמוצגים גם במערכת אחרי ההתחברות (החלטת אפיק מ-17.10.2026, F2.5 DR-2), עם "חזרה להגדרות". מחיקת חשבון (FR-SET-002) ו-Notification Settings אינם מוצגים עד שייבנו (DR-1, DR-3 — החלטות ORCHESTRATOR מ-17.10.2026). |
 | פלט | עמוד/Section היעד מוצג. |
 | מצב לאחר ביצוע | שינויים נשמרים באמצעות Feature הייעודי. |
 | בעל אחריות לוגי (Page / Feature) | SideMenuFeature / SettingsPage / SettingsFeature |
