@@ -57,14 +57,19 @@ export function FeedScreen() {
   const actionsFor = (unit: FeedUnit): MoreActionsItem[] =>
     unit.isMine
       ? [
-          {
-            key: 'edit',
-            label: EDIT_ITEM_LABEL,
-            onSelect: () => {
-              handOverEdit(postPath(unit.id));
-              leaveTo(postPath(unit.id));
-            },
-          },
+          // A share's text cannot be edited (F3.5, NS005): its own menu offers delete only.
+          ...(unit.kind === 'share'
+            ? []
+            : [
+                {
+                  key: 'edit',
+                  label: EDIT_ITEM_LABEL,
+                  onSelect: () => {
+                    handOverEdit(postPath(unit.id));
+                    leaveTo(postPath(unit.id));
+                  },
+                },
+              ]),
           { key: 'delete', label: CONFIRM_DELETE_LABEL, onSelect: () => setOverlay({ kind: 'confirm', unitId: unit.id, saving: false, failure: null }) },
         ]
       : [{ key: 'hide', label: HIDE_LABEL, onSelect: () => hide(unit.id), disabled: state.pendingHideIds.includes(unit.id) }];
