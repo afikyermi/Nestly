@@ -5,6 +5,8 @@ import { DESKTOP, MOBILE } from './helpers';
 import { EMAIL } from './support/journeys-stub';
 import { ANON_MINE, ANON_MINE_ID, ANON_OTHERS, ANON_OTHERS_ID, MINE, OTHERS, setupPosts } from './support/posts-stub';
 import { setupComments, top } from './support/comments-stub';
+import { pageOf, range, setupFeed } from './support/feed-stub';
+import { anonToggle, feedCards, openComposer, openFeedAt } from './support/composer';
 
 // Visual regression for the screens F3.4 touches (.work/anonymous-post/spec.md c11-c14; Afik's test rules 14.10.2026): each state at phone (375) and desktop (1024)
 // against a committed baseline, e2e/__screenshots__/<name>-<size>.png, made on Linux Chrome only (the `update-baselines` workflow); a missing baseline FAILS.
@@ -34,17 +36,22 @@ for (const { label, viewport } of SIZES) {
       await page.setViewportSize(viewport);
     });
 
-    test('composer, toggle unchecked', async ({ page }) => {
-      await setupPosts(page);
-      await open(page, '/posts/new');
-      await expect(page.getByRole('checkbox', { name: 'פרסום אנונימי', exact: true })).not.toBeChecked();
+    // The composer is the button at the top of /feed that opens in place (feed-composer c2, c12): the baselines are retaken there.
+    test('composer open in the feed, toggle unchecked', async ({ page }) => {
+      const net = await setupFeed(page, () => pageOf(range(1, 3), null));
+      await openFeedAt(page, net);
+      await expect(feedCards(page)).toHaveCount(3);
+      await openComposer(page);
+      await expect(anonToggle(page)).not.toBeChecked();
       await shot(page, 'anonymous-composer', label);
     });
 
-    test('composer, toggle checked (audience group gone, anonymous notice)', async ({ page }) => {
-      await setupPosts(page);
-      await open(page, '/posts/new');
-      await page.getByRole('checkbox', { name: 'פרסום אנונימי', exact: true }).check();
+    test('composer open in the feed, toggle checked (audience group gone, anonymous notice)', async ({ page }) => {
+      const net = await setupFeed(page, () => pageOf(range(1, 3), null));
+      await openFeedAt(page, net);
+      await expect(feedCards(page)).toHaveCount(3);
+      await openComposer(page);
+      await anonToggle(page).check();
       await expect(page.getByRole('radiogroup', { name: 'מי יראה את הפוסט' })).toHaveCount(0);
       await shot(page, 'anonymous-composer-checked', label);
     });

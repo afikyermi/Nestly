@@ -1,6 +1,6 @@
 import { Route, Routes } from 'react-router';
 import { ChangePasswordPage } from '@/pages/change-password/ChangePasswordPage';
-import { ComposePostPage } from '@/pages/compose-post/ComposePostPage';
+import { NewPostRedirect } from '@/pages/compose-post/NewPostRedirect';
 import { FeedPage } from '@/pages/feed/FeedPage';
 import { FriendsPage } from '@/pages/friends/FriendsPage';
 import { GoogleReturnPage } from '@/pages/google-return/GoogleReturnPage';
@@ -40,7 +40,7 @@ export function AppRoutes() {
           <Route element={<ProtectedLayout />}>
             <Route path={PATHS.home} element={<ProtectedPlaceholderPage title="בית" />} />
             <Route path={PATHS.feed} element={<FeedPage />} />
-            <Route path={PATHS.newPost} element={<ComposePostPage />} />
+            <Route path={PATHS.newPost} element={<NewPostRedirect />} />
             <Route path={PATHS.post} element={<PostPage />} />
             <Route path={PATHS.profile} element={<ProfilePage />} />
             <Route path={PATHS.settings} element={<SettingsPage />} />

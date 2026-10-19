@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { MemoryRouter } from 'react-router';
 import type { PostReadView } from '@nestly/shared';
 import { PostContent } from './PostContent';
-import { DELETE_FAILED_TEXT, LOAD_FAILED_TEXT, PUBLISHED_STATUS, SAVE_FAILED_TEXT } from './posts-texts';
+import { DELETE_FAILED_TEXT, LOAD_FAILED_TEXT, SAVE_FAILED_TEXT } from './posts-texts';
 
 // One post (F3.1b) in each of its states, drawn from props alone, as it sits in the shell's `main`. Links need a router.
 function Screen(props: Parameters<typeof PostContent>[0]) {
@@ -39,7 +39,7 @@ const post: PostReadView = {
 const loaded = { kind: 'loaded', status: '', failure: null, edit: null, confirm: null } as const;
 const editValues = { body: post.body ?? '', audience: post.audience, stageTag: 'has_child' } as const;
 
-export const Published: Story = { args: { view: { ...loaded, post, status: PUBLISHED_STATUS } } };
+export const Loaded: Story = { args: { view: { ...loaded, post } } };
 export const OthersPost: Story = { args: { view: { ...loaded, post: { ...post, isMine: false, stageTag: null, audience: 'everyone' } } } };
 export const Editing: Story = {
   args: { view: { ...loaded, post, edit: { values: editValues, errors: {}, saving: false, failure: null } } },

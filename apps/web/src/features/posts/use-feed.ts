@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { FeedUnit } from '@nestly/shared';
 import { NavigationType, useNavigationType } from 'react-router';
 import { FEED_LOAD_FAILED_TEXT } from './feed-texts';
 import { useSessionAccount } from '@/hooks/use-session-account';
@@ -10,7 +11,7 @@ import { deletePost } from '@/services/api/posts';
 import { setHidden } from '@/services/api/post-hides';
 import { LIKE_FAILED_TEXT } from './comments-texts';
 import { forgetFeed, recallFeed, rememberFeed, type FeedScroll } from './feed-memory';
-import { INITIAL_FEED, withHideResult, withLike, withoutHidden, withPage, type FeedState, type HideResult } from './feed-state';
+import { INITIAL_FEED, withHideResult, withLike, withoutHidden, withPage, withPublished, type FeedState, type HideResult } from './feed-state';
 import { HIDDEN_STATUS, HIDE_FAILED_TEXT, OWN_POST_HIDE_TEXT, UNDO_FAILED_TEXT, UNHIDDEN_STATUS } from './hide-texts';
 import { DELETE_FAILED_TEXT, DELETED_STATUS, POST_UNAVAILABLE_TEXT } from './posts-texts';
 import { failureText } from './post-outcome';
@@ -28,6 +29,8 @@ export interface FeedFlow {
   undoHide: (unitId: string) => void;
   /** Delete the viewer's own post (one DELETE; F3.9 c13): on 204 or 404 the card goes and "הפוסט נמחק" is said; else the failure text. */
   remove: (unitId: string) => Promise<{ ok: true } | { ok: false; failure: string }>;
+  /** A post just published by the viewer goes first in the loaded list (no request; the next snapshot shows only the server's order). */
+  addPublished: (unit: FeedUnit) => void;
   /** The scroll to go back to when the list came from memory, else null. */
   restoredScroll: FeedScroll | null;
 }
@@ -185,6 +188,8 @@ export function useFeed(onRestart: () => void): FeedFlow {
     [account],
   );
 
+  const addPublished = useCallback((unit: FeedUnit) => setState((current) => withPublished(current, unit)), []);
+
   return {
     state,
     remove,
@@ -193,6 +198,7 @@ export function useFeed(onRestart: () => void): FeedFlow {
     toggleLike: (unitId) => void toggleLike(unitId),
     hide: (unitId) => void changeHidden(unitId, true),
     undoHide: (unitId) => void changeHidden(unitId, false),
+    addPublished,
     restoredScroll,
   };
 }
