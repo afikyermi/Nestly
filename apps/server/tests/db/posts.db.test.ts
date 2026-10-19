@@ -190,11 +190,21 @@ describe('[F3.1-a c4 FR-FEED-002] who may post', () => {
     expect(await stateOf(id)).toContain('body=post body');
   });
 
-  // superseded by Afik's decision (19.10, item 16): Professionals post; restored with the new expectation in PR-A3
-  it.skip('[F3.1-a c4] a Professional → 403, no row', T, async () => {
+  it('[FR-FEED-002 professional-posting c1] a Professional posts a named everyone post with no tag → 201 (supersedes F3.1-a c4)', T, async () => {
     const app = await start();
     const res = await createPost(app, hP, { body: 'x', audience: 'everyone' });
-    expect(res.statusCode, res.body).toBe(403);
+    expect(res.statusCode, res.body).toBe(201);
+    expect(jsonObject(res.body)).toMatchObject({ audience: 'everyone', stageTag: null, isAnonymous: false });
+    expect(await postCount()).toBe(1);
+    expect(await stateOf(String(jsonObject(res.body).id))).toBe(`status=active aud=everyone anon=f author=${P} tag=null share=f body=x`);
+  });
+
+  it('[FR-FEED-002 professional-posting c1] a Professional: anonymous, friends or a stage tag → 403, no row', T, async () => {
+    const app = await start();
+    for (const extra of [{ isAnonymous: true }, { audience: 'friends' }, { stageTag: 'pregnant' }]) {
+      const res = await createPost(app, hP, { body: 'x', audience: 'everyone', ...extra });
+      expect(res.statusCode, res.body).toBe(403);
+    }
     expect(await postCount()).toBe(0);
   });
 
