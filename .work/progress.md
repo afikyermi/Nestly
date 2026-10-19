@@ -28,6 +28,7 @@
 | 19.10 | F3.3w1 ✅ · F3.3w2 (נעצר למסירה) | #87 (w1) ו-#88 (קצב PR, לא יושם) מוזגו · main ‏b4c9d1f | סשן חדש: F3.3w2, ראו "מסירה 19.10" למטה | סעיף 11 (Q8) | 85% |
 | 19.10 | F3.3w2 (מועמד) · Gate 1+2 יתרת I3 | w2: TE ירוק, CRITIC 3 low → debt. ‏Specs F3.4–F3.9 + Gate 1 ‏(`.work/_initiatives/I3-rest-gate1.md`), A&D, Gate 2 ‏(`.work/i3-rest-schema/schema.md`). משך: 08:46→ · TE 24 ד׳ · CRITIC 2 ד׳ · המתנת CI/E: ב-PR | PR `ready/comments-likes-w2` → מיזוג · ‏PR-A סכמה (BUILDER ב-`.work/wt/schema`) → migrate → F3.4 | 13 (נוסח אנונימי), ‏14 (skip ל-Q7) | 87% |
 
+| 19.10 | F3.3w2 ✅ #90 · PR-A ✅ #91 · כלים ✅ #92 · F3.4 ✅ #93 · F3.8+F3.9 ✅ #94 | w2 08:46→09:39 (CI+E ~25 ד׳) · PR-A 10:45→11:31 (תיקון תגים) · F3.4 09:12→14:08 (c6, baselines) · F3.8+F3.9 →14:45. ‏migrate PR-A ✅ (run 39223430902) | ראו "מסירה 19.10 ערב" | סעיף 16 | 92% |
 ## מסירה 19.10 — לסשן הבא
 
 **החלק הבא: F3.3w2** (לייק וקישור תגובות בכרטיס הפיד). screen.md ‏(`.work/comments-likes/screen.md`) כולל את החלטות ORCHESTRATOR ל-w2.
@@ -39,3 +40,12 @@
 - **תהליך תקוע:** אין. רצים רק `node.exe` של שרת ה-MCP של PDF ‏(PID 19952 ו-2848) ו-`situation-room/server.mjs` ‏(PID 13524), ואף אחד מהם לא שלנו. שרידי ה-Playwright כבר לא רצים.
 - **שאלה שמחכה לאפיק:** Q8 (‏WORKPLAN סעיף 11). Q7 (שמות מגיבים; ברירת מחדל: לפי RLS בלבד, ואחרת "מהקהילה"): לא מצאתי לה רשומה. הסשן הבא יבדוק ב-`.work/comments-likes/` אם היא עדיין פתוחה.
 - **אחרי w2:** ‏F3.4–F3.9 וסגירת I3 (‏/srs-update; השוואת מספר ה-PRs והזמן לפני ואחרי שינוי הקצב: לפניו כ-17 PRs של 35–55 דקות כל אחד).
+
+## מסירה 19.10 ערב (מצב חי, ~15:10)
+
+- **פתוחים ב-GitHub:** #96 PR-A2 (Q7, migration; CI) → אחרי מיזוג: `gh workflow run migrate.yml --ref main` · #97 feed-composer (ready/feed-composer-2; אותו עץ כמו #95; CI).
+- **PR-A3** (בעל מקצוע כותב; migration) — ענף `work/professional-posting` בתיקייה הראשית: migration 63a0382 + pgTAP 49f21e1 + רשומות; CRITIC נקי (1 low → debt). חוסם: **סעיף 16 לאפיק** (skip חד-פעמי ל-`apps/server/tests/db/posts.db.test.ts:193`). אחרי: PR → migrate → חלק הקוד של professional-posting (spec `.work/professional-posting/`, A&D R1–R6).
+- **F3.7** — `.work/wt/f37`, ענף `work/report` (d835358 = commit אחד מעל ready/feed-composer 781bf16): CRITIC + בדיקה חוזרת + 2 בדיקות rebase נקיים. אחרי ש-#97 ימוזג: `git rebase --onto origin/main 781bf16` (עץ זהה), push `ready/report`, PR, baselines.
+- **F3.5+F3.6** — `.work/wt/share`, ענף `work/sharing` (על F3.7): BUILDER 87db4f1 ✅; TEST ENGINEER רץ. אחריו CRITIC opus (direction.md) → אחרי F3.7.
+- **אחר כך:** ליטוש UX של I3 (רשימה ב-`I3-community-feed.md`: #2, 3b, 3c, 5, 5b, 5c, 5d, 7, 8, 9) · `/srs-update` ("שינויים ל-SRS" שורות 1–7) · I11-commitments (שורת followers + שם/תג; הקובץ נכנס עם #97) · I3-algorithm.md R1–R5 (A&D) · השוואת PRs/שעות.
+- **לקח:** מועמד מוערם אחרי squash מתנגש כשהקבצים חופפים → rebase --onto main (עץ זהה) והרצה מלאה.
