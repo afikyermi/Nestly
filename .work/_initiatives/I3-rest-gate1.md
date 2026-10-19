@@ -28,3 +28,4 @@ Reason: F3.9 builds the card menu F3.7 reuses; F3.7 builds PG-049, whose rule 2 
 - Specs F3.5, F3.6, F3.7, F3.9 amended to direction.md "דפוסי אינטראקציה" (audit + decisions in I3-community-feed.md "ליטוש UX של I3").
 - New part `feed-composer` approved (D1–D7). Confirmed: kept text on reopen keeps the anonymous toggle state ("unchecked on every open" = a new post); focus after success → the new card; dead "הפוסט פורסם" on the post page removed.
 - Order: PR-A → F3.4 → feed-composer → F3.8+F3.9 → F3.7 (sheet primitive) → F3.5+F3.6 (one PR, Afik 19.10) → UX polish → /srs-update.
+- PR-A CRITIC low 1 (ORCHESTRATOR): a repeat hide of a post that became unreadable returns 204 (c1 "repeat passes" wins over c2); nothing exposed. Low 2 (post_hides comment) fixed in PR-A2.
