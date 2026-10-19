@@ -57,6 +57,9 @@ test.describe('F3.2b c20 [FR-FEED-004 NFR-SEC-001] the remembered feed belongs t
     let who: 'A' | 'B' = 'A';
     const net = await setupFeed(page, (cursor) => (who === 'A' ? forA(cursor) : forB()), { posts: [post3] });
     await startOnPost(page, net);
+    // The post page has settled before the swap, so no in-flight refresh can write A's session back over B's.
+    await expect(page.getByText('גוף הפוסט 3', { exact: true })).toBeVisible();
+    await page.waitForLoadState('networkidle');
     // Another tab signed in as B: the shared session storage now holds B's token; this tab was never signed out.
     const swapped = await page.evaluate((token) => {
       const key = 'nestly-auth';
@@ -69,6 +72,7 @@ test.describe('F3.2b c20 [FR-FEED-004 NFR-SEC-001] the remembered feed belongs t
     }, tokenFor(USER_B));
     expect(swapped, 'the session is stored under nestly-auth').toBe(true);
     who = 'B';
+    net.sub = USER_B; // any refresh from here on names B
     await page.goBack();
     await expect.poll(() => pathOf(page)).toBe('/feed');
     await expect(body(page, 51)).toHaveCount(1);
