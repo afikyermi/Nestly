@@ -103,7 +103,7 @@ describe('[professional-posting c5 R1] the account type is read to choose a prof
     it(`[professional-posting c5] ${name}-service.ts reads the account type only to refuse Admin and Moderator, never to tell a Professional from a Regular`, () => {
       const service = code(read(`../src/services/${name}-service.ts`));
       expect(service).not.toMatch(/['"](professional|regular)['"]/);
-      const uses = [...service.matchAll(/accountTypes*(===|!==|==|!=)s*['"](w+)['"]/g)];
+      const uses = [...service.matchAll(/accountType\s*(===|!==|==|!=)\s*['"](\w+)['"]/g)];
       expect(uses.length).toBeGreaterThanOrEqual(1);
       for (const use of uses) expect(['admin', 'moderator']).toContain(use[2]);
     });
