@@ -1,8 +1,16 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { createContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/cn';
 import { BottomNavigation, type BottomNavigationProps } from '../shared/bottom-navigation';
 import { SideDrawer } from '../shared/side-drawer';
 import { TopBar } from '../shared/top-bar';
+
+/**
+ * The shell's action bar: an element a screen may portal one floating action into ("חזרה למעלה", F3.2b c20). Below 1024 it is a row of its own
+ * between `main` and the bottom bar, so it never covers anything in `main`; from 1024 it is fixed 24 px from the inline-end edge, in the gutter
+ * beside the centred column (at 1024 px the gutter is 116 px: what goes in it must fit, e.g. an icon only while the shell, a size
+ * container, is narrower than 72rem; the tokens define no xl breakpoint). Empty, it takes no space. Null outside a shell.
+ */
+export const ShellActionBarContext = createContext<HTMLElement | null>(null);
 
 export interface AppShellProps {
   /** The page, rendered inside `main`. */
@@ -15,9 +23,11 @@ export interface AppShellProps {
   skipLinkLabel: string;
   /**
    * The drawer body, for example MenuItems. As a function it receives `closeMenu`, for an item that changes the
-   * screen (navigates, signs out): the drawer closes and focus moves to `main`, not back to the Hamburger.
+   * screen (navigates, signs out): the drawer closes and focus moves to `main`, not back to the Hamburger. And
+   * `closeMenuThen`, for an item that opens a window over the screen (F3.6 "שיתוף Nestly"): the drawer closes, focus
+   * goes back to the Hamburger, and only then `then` runs, so the window opens from the Hamburger and returns focus to it.
    */
-  menu: ReactNode | ((closeMenu: () => void) => ReactNode);
+  menu: ReactNode | ((closeMenu: () => void, closeMenuThen: (then: () => void) => void) => ReactNode);
   /** Passed to the navigation: called with an item's href on a plain click (client-side routing). */
   onNavigate?: ((href: string) => void) | undefined;
   topBarActions?: ReactNode;
@@ -46,6 +56,7 @@ export function AppShell({
   className,
 }: AppShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [actionBar, setActionBar] = useState<HTMLDivElement | null>(null);
   const mainRef = useRef<HTMLElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   // Set by closeMenu, read when the drawer closes: Escape, the close control and the backdrop keep
@@ -54,6 +65,12 @@ export function AppShell({
   const mainId = useId();
   const closeMenu = () => {
     focusMainOnClose.current = true;
+    setDrawerOpen(false);
+  };
+  const afterClose = useRef<(() => void) | null>(null);
+  const closeMenuThen = (then: () => void) => {
+    focusMainOnClose.current = false;
+    afterClose.current = then;
     setDrawerOpen(false);
   };
 
@@ -77,7 +94,7 @@ export function AppShell({
   }, []);
 
   return (
-    <div className={cn('flex h-dvh flex-col print:h-auto lg:h-auto lg:min-h-dvh', className)}>
+    <div className={cn('@container flex h-dvh flex-col print:h-auto lg:h-auto lg:min-h-dvh', className)}>
       <a
         href={`#${mainId}`}
         onClick={(event) => {
@@ -114,8 +131,9 @@ export function AppShell({
           tabIndex={-1}
           className="min-h-0 min-w-0 flex-1 scroll-py-4 overflow-y-auto px-4 py-5 print:overflow-visible lg:mx-auto lg:max-w-2xl lg:overflow-visible lg:px-0"
         >
-          {children}
+          <ShellActionBarContext value={actionBar}>{children}</ShellActionBarContext>
         </main>
+        <div ref={setActionBar} className="flex justify-end px-4 py-2 empty:hidden lg:fixed lg:end-6 lg:bottom-6 lg:z-sticky lg:p-0" />
       </div>
       <SideDrawer
         open={drawerOpen}
@@ -123,12 +141,19 @@ export function AppShell({
         title={drawerTitle}
         closeLabel={drawerCloseLabel}
         finalFocus={() => {
+          const then = afterClose.current;
+          if (then !== null) {
+            // Runs right after the drawer has given focus back to the Hamburger.
+            afterClose.current = null;
+            queueMicrotask(then);
+            return menuButtonRef.current;
+          }
           if (!focusMainOnClose.current) return null;
           // A screen that puts focus on a heading of its own marks it, and keeps it over `main`.
           return mainRef.current?.querySelector<HTMLElement>('[data-initial-focus]') ?? mainRef.current;
         }}
       >
-        {typeof menu === 'function' ? menu(closeMenu) : menu}
+        {typeof menu === 'function' ? menu(closeMenu, closeMenuThen) : menu}
       </SideDrawer>
     </div>
   );

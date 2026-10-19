@@ -173,7 +173,7 @@ test.describe('AppShell: bottom navigation', () => {
 });
 
 test.describe('AppShell: side menu', () => {
-  test('[F1.2 c19][F2.5 c1][FR-MENU-001] the drawer titled "תפריט" holds exactly nine items in order: חברים, כללי הקהילה (F3.7 c14, PG-049), חשבון, פרטיות ואבטחה, תנאים ופרטיות (links to /settings sections; terms: DR-2 A), פנייה למוקד רפואי (F3.8), שאלות לשחזור סיסמה, החלפת סיסמה (links), התנתקות (button)', async ({
+  test('[F1.2 c19][F2.5 c1][FR-MENU-001] the drawer titled "תפריט" holds exactly ten items in order: חברים, כללי הקהילה (F3.7 c14, PG-049), חשבון, פרטיות ואבטחה, תנאים ופרטיות (links to /settings sections; terms: DR-2 A), פנייה למוקד רפואי (F3.8), שאלות לשחזור סיסמה, החלפת סיסמה (links), שיתוף Nestly (button, F3.6 c11), התנתקות (button)', async ({
     page,
   }) => {
     await open(page, '/feed', 'signed-in');
@@ -202,6 +202,7 @@ test.describe('AppShell: side menu', () => {
       { tag: 'a', name: 'פנייה למוקד רפואי', href: '/medical-hotlines' }, // F3.8
       { tag: 'a', name: 'שאלות לשחזור סיסמה', href: '/recovery-questions' }, // F1.6 c18
       { tag: 'a', name: 'החלפת סיסמה', href: '/change-password' }, // F2.0 c15
+      { tag: 'button', name: 'שיתוף Nestly', href: null }, // F3.6 c11, just before the logout
       { tag: 'button', name: 'התנתקות', href: null },
     ]);
     for (const dest of ['/home', '/feed', '/profile']) {

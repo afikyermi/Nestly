@@ -581,7 +581,7 @@ describe('[F3.2-a2 c12 BR-062 6ב] who may ask, and exactly what a unit holds', 
     const available = (await page(app, V.header)).items.find((i) => i.id === share);
     expect(available).toMatchObject({ kind: 'share', sharerText: 'my take on it', author: { name: 'Uri Second' } });
     const o = toRecord(toRecord(available).original);
-    expect(Object.keys(o).sort()).toEqual(['audience', 'author', 'available', 'body', 'createdAt', 'id', 'isAnonymous']);
+    expect(Object.keys(o).sort()).toEqual(['audience', 'author', 'available', 'body', 'createdAt', 'id', 'isAnonymous', 'isMine']); // F3.5 c7 amends F3.2 c12: original.isMine
     expect(o).toMatchObject({ available: true, id: original, body: 'the original words', audience: 'everyone', isAnonymous: false, author: { name: 'Tamar Stranger' } });
     for (const makeUnavailable of [() => statusOf(original, 'removed'), async () => { await statusOf(original, 'active'); await setStatus(Tm, 'suspended'); }]) {
       await makeUnavailable();

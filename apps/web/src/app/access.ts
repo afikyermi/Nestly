@@ -1,9 +1,10 @@
 import { postIdOfPath } from '@/lib/post-link';
 import { userIdOfProfilePath } from '@/lib/profile-link';
+import { isReturnPath } from '@/lib/return-path';
 import type { SessionState } from '@/services/session/session-source';
 import { GUEST_LANDING, GUEST_PATHS, normalizePath, PATHS, PROTECTED_PATHS, SIGNED_IN_LANDING } from './paths';
 
-/** `returnTo`: the profile link a Guest opened; the redirect to Login carries it so the sign-in can lead back to it (F2.4c2 c27). */
+/** `returnTo`: the profile or post link a Guest opened; the redirect to Login carries it so the sign-in can lead back to it (F2.4c2 c27, F3.6 c8). */
 export type AccessDecision = { kind: 'loading' } | { kind: 'render' } | { kind: 'redirect'; to: string; returnTo?: string };
 
 // The two consent documents (placeholders until I9): open to a Guest, and to a signed-in user too (F2.5 c6, Settings links to them).
@@ -25,8 +26,9 @@ const redirect = (to: string): AccessDecision => ({ kind: 'redirect', to });
 // `mustSetPassword` (F2.0 c14): the session must set a new password after a takeover clear; it holds before the questions do, and the
 // new-password screen opens only while it holds.
 // `options.fromGuest` (F2.4c2 c27, default true): the visitor has had no session in this page load. A Guest who opens a profile link
-// (`/u/<id>`) then goes to Login, carrying the link; one who has just signed out or whose session ended goes where every
-// protected path leads. `options.returnTo`: that carried link, followed once the sign-in is done; only a profile link is followed.
+// (`/u/<id>`) or a post link (`/posts/<id>`, F3.6 c8) then goes to Login, carrying the link; one who has just signed out or whose
+// session ended goes where every protected path leads. `options.returnTo`: that carried link, followed once the sign-in is done; only a
+// profile or post link is followed (isReturnPath: the open-redirect allow-list, F3.6 c9).
 export function decideAccess(
   state: SessionState,
   pathname: string,
@@ -44,7 +46,7 @@ export function decideAccess(
     if (DOCUMENT_PATHS.includes(path)) return RENDER;
     if (isGuestPath) {
       const returnTo = normalizePath(options.returnTo ?? '');
-      return redirect(userIdOfProfilePath(returnTo) !== null ? returnTo : SIGNED_IN_LANDING);
+      return redirect(isReturnPath(returnTo) ? returnTo : SIGNED_IN_LANDING);
     }
     return PROTECTED_PATHS.includes(path) || userIdOfProfilePath(path) !== null || postIdOfPath(path) !== null ? RENDER : redirect(SIGNED_IN_LANDING);
   }
@@ -52,7 +54,7 @@ export function decideAccess(
   // step links to.
   if (state === 'signed-in-no-account') return COMPLETION_PATHS.includes(path) ? RENDER : redirect(PATHS.register);
   if (isGuestPath) return RENDER;
-  if ((options.fromGuest ?? true) && !sessionEnded && userIdOfProfilePath(path) !== null) {
+  if ((options.fromGuest ?? true) && !sessionEnded && isReturnPath(path)) {
     return { kind: 'redirect', to: PATHS.login, returnTo: path };
   }
   return redirect(sessionEnded ? PATHS.login : GUEST_LANDING);

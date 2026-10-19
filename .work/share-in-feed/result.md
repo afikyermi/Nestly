@@ -1,0 +1,6 @@
+# result — F3.5 share-in-feed + F3.6 share-link (one PR, Afik 19.10)
+**Done:** share a post into one's feed (optional text, reference only, share of a share → original, "no longer available", inserted at the top at once); share link (WhatsApp/email/copy/device sheet; unguessable id; generic static preview post.html, noindex; Guest sign-in returns to /posts/<uuid> via an allow-list); site share item; Professionals get no share controls; back-to-top moved off the list (shell action bar; icon-only < 1152 px).
+**Execution:** Succeeded · **Quality:** Good (low 4 → polish 5f; tooltip → 5e). **Path:** Elevated · BUILDER ∥ TE (worktree) · TE found back-to-top overlap (fixed) · CRITIC opus: covered in one round (Afik's condition held); 2 medium + 1 low fixed, re-check clean.
+**SRS trace:** FR-FEED-006, FR-FEED-007, BR-064–067, VAL-038, AC-079–083 (AC range corrected), NFR-PRIV-007, NFR-SEC-005/006; SRS-changes row 4.
+**Evidence (local, 4e09e95):** e2e feed/share/app-shell 168 pass (Chrome, 375/1024/1280); db 856 pass; six-simultaneous shares 10×; share-preview build test in test:build. F3.6 E2 (real WhatsApp preview) → Afik's production device check.
+**Timing:** BUILDER 38 min + fixes ~35 · TE 45 min + reruns · CRITIC 4 + re-check 1. CI/E: see PR.

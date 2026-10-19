@@ -2,6 +2,9 @@ import { useId } from 'react';
 import { Link } from 'react-router';
 import { ANONYMOUS_AUTHOR_LABEL, type FeedUnit } from '@nestly/shared';
 import { LikeButton } from '@/components/shared/like-button';
+import { Button } from '@/components/ui/button';
+import { ShareInFeedIcon, ShareLinkIcon } from '@/components/ui/icons';
+import { SHARE_LINK_LABEL } from '@/lib/share-link-texts';
 import { MoreActionsMenu, type MoreActionsItem } from '@/components/ui/more-actions-menu';
 import { AUDIENCE_LABELS } from './posts-texts';
 import { COMMENTS_TITLE, LIKE_LABEL } from './comments-texts';
@@ -10,6 +13,7 @@ import { formatPostTime } from '@/lib/format-post-time';
 import { postPath } from '@/lib/post-link';
 import { MEMBER_FALLBACK_LABEL, ORIGINAL_UNAVAILABLE_TEXT } from './feed-texts';
 import { MORE_ACTIONS_LABEL, MORE_ACTIONS_MENU_LABEL } from './hide-texts';
+import { SHARE_IN_FEED_LABEL } from './share-texts';
 
 type Original = Extract<FeedUnit, { kind: 'share' }>['original'];
 
@@ -48,6 +52,10 @@ export interface FeedCardProps {
   position: number;
   /** The like. Without it the card has no action row (the viewer may not like or comment). */
   onToggleLike?: () => void;
+  /** "שיתוף בפיד" (F3.5 c9): given only when the unit can be shared (shareTargetOf); absent, never disabled, otherwise. */
+  onShareInFeed?: (() => void) | undefined;
+  /** "שיתוף קישור" (F3.6 c3): given only when the unit has a link (postLinkOf); absent, never disabled, otherwise. */
+  onShareLink?: (() => void) | undefined;
   /** The items of this card's "more actions" menu (F3.9 c8; per card: the screen decides them). None or empty: no menu. */
   actions?: readonly MoreActionsItem[];
   /** Controlled menu: open, and the change it asks for (the screen closes it on Back too). Unset: the menu keeps its own state. */
@@ -58,12 +66,14 @@ export interface FeedCardProps {
 }
 
 // One unit of the feed (F3.2b c14-c17; F3.3 c13): a post, an anonymous post (only "אנונימי": no name, avatar or link) or a share with its
-// original, and after the body an action row: the like and the link to the post's comments (a share's counts are its own). Display
+// original, and after the body an action row: the like, the link to the post's comments (a share's counts are its own) and, where the unit
+// can be shared, "שיתוף בפיד" and "שיתוף קישור" (F3.5 c9, F3.6 c3: tab order like, comments, share in feed, share link, time). Display
 // only: the like comes in as onToggleLike. The time link follows the row in the DOM (tab order: like, comments, time) and is placed
 // beside the author line by flex order. The card is a tab stop so a screen reader's feed navigation can reach it; its name is its author
 // line. The text is the user's own, so it is plain text (never markup). F3.9 c8: the card ends with the "more actions" menu, last in the
 // tab order; its items come in as actions.
-export function FeedCard({ unit, position, onToggleLike, actions = [], menuOpen, onMenuOpenChange, onMenuPressOutside }: FeedCardProps) {
+export function FeedCard(props: FeedCardProps) {
+  const { unit, position, onToggleLike, onShareInFeed, onShareLink, actions = [], menuOpen, onMenuOpenChange, onMenuPressOutside } = props;
   const authorId = useId();
   const author = unit.isAnonymous ? ANONYMOUS_AUTHOR_LABEL : (unit.author.name ?? MEMBER_FALLBACK_LABEL);
   return (
@@ -104,6 +114,16 @@ export function FeedCard({ unit, position, onToggleLike, actions = [], menuOpen,
             {COMMENTS_TITLE}
             {unit.commentCount > 0 ? ` ${unit.commentCount.toLocaleString('en-US')}` : null}
           </Link>
+          {onShareInFeed === undefined ? null : (
+            <Button iconOnly label={SHARE_IN_FEED_LABEL} data-share-feed onClick={onShareInFeed}>
+              <ShareInFeedIcon className="size-5" />
+            </Button>
+          )}
+          {onShareLink === undefined ? null : (
+            <Button iconOnly label={SHARE_LINK_LABEL} data-share-link onClick={onShareLink}>
+              <ShareLinkIcon className="size-5" />
+            </Button>
+          )}
         </div>
       )}
       <Link

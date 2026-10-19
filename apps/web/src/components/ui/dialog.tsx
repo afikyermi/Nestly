@@ -118,8 +118,10 @@ export function AlertCancel({ children }: { children: ReactNode }) {
 interface SheetPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** The panel body: a SheetTitle (the dialog's name) and a SheetDescription, which describes it. */
+  /** The panel body: a SheetTitle (the dialog's name) and, when `described`, a SheetDescription, which describes it. */
   children: ReactNode;
+  /** Whether the body holds a SheetDescription (default true); without one the dialog has no aria-describedby (F3.5, F3.6). */
+  described?: boolean;
   /** Called as the panel opens, with the panel: the caller moves focus in (the default, the first focusable, is not used). */
   onOpened?: ((panel: HTMLElement) => void) | undefined;
   /** Where focus goes when the panel closes. Unset, or returning null: the element focused when it opened. */
@@ -131,7 +133,7 @@ interface SheetPanelProps {
 // focus trap, the page scroll locked and the rest of the page inert (Radix Dialog). Escape and a press outside close it (onOpenChange(false));
 // Back is the screen's (useBackCloses), since only the screen owns the history. Controlled: the element focused when it opened is remembered
 // and given focus back when it closes, unless `finalFocus` names another.
-export function SheetPanel({ open, onOpenChange, children, onOpened, finalFocus }: SheetPanelProps) {
+export function SheetPanel({ open, onOpenChange, children, described = true, onOpened, finalFocus }: SheetPanelProps) {
   const opener = useRef<HTMLElement | null>(null);
   const panel = useRef<HTMLDivElement>(null);
   return (
@@ -141,6 +143,7 @@ export function SheetPanel({ open, onOpenChange, children, onOpened, finalFocus 
         <DialogPrimitive.Content
           ref={panel}
           aria-modal="true"
+          {...(described ? {} : { 'aria-describedby': undefined })}
           onOpenAutoFocus={(event) => {
             // Runs before Radix moves focus in, so the active element is still the opener.
             opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;

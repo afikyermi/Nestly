@@ -41,6 +41,7 @@ export const originalOf = (n: number, over: Unit = {}): Unit => ({
   audience: 'everyone',
   createdAt: '2026-06-13T08:00:00.000Z',
   isAnonymous: false,
+  isMine: false,
   author: { name: `מחברת המקור ${n}` },
   ...over,
 });

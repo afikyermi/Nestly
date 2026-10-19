@@ -4,3 +4,4 @@ export * from './score.js';
 export * from './rerank.js';
 export * from './response.js';
 export * from './labels.js';
+export * from './share-target.js';

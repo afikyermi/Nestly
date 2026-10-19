@@ -94,7 +94,7 @@ export async function setupComments(page: Page, tops: StubTop[] = [], opts: { pr
     const req = route.request();
     if (req.method() !== 'GET' || !req.url().includes(OTHERS_ID)) return route.fallback();
     if (net.read !== 200) return json(route, net.read, { error: 'not_found' });
-    return json(route, 200, { id: OTHERS_ID, body: 'פוסט של מישהי אחרת', audience: 'everyone', stageTag: null, createdAt: '2026-06-14T09:00:00.000Z', isMine: false, isAnonymous: false, ...net.post, commentCount: net.tops.length });
+    return json(route, 200, { kind: 'post', id: OTHERS_ID, body: 'פוסט של מישהי אחרת', audience: 'everyone', stageTag: null, createdAt: '2026-06-14T09:00:00.000Z', isMine: false, isAnonymous: false, ...net.post, commentCount: net.tops.length });
   });
   await page.route(/\/api\/posts\/[^/?]+\/comments(\?.*)?$/, async (route) => {
     const req = route.request();

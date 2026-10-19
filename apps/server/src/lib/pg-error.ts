@@ -44,22 +44,44 @@ const POST_BODY_LENGTH_CONSTRAINT = 'posts_body_length_check';
 const POST_AUDIENCE_CONSTRAINT = 'posts_audience_check';
 
 export interface PostFaultReply {
-  readonly status: 403 | 422 | 500;
-  readonly error: 'not_allowed' | 'body_too_long' | 'audience_not_allowed' | 'server_error';
+  readonly status: 400 | 403 | 422 | 500;
+  readonly error: 'share_not_editable' | 'not_allowed' | 'body_too_long' | 'audience_not_allowed' | 'server_error';
 }
 
 /**
  * What a post write the database refused answers (F3.1 criterion 7, F3.4 c3). 23514 on the body-length CHECK is 422 body_too_long, on the
  * anonymous-audience CHECK 422 audience_not_allowed (told apart by the constraint's name); 42501 (policy or privilege) and
- * 23503 (a foreign key: not a Regular account) are 403; any other database error is 500. Never the message, constraint or table name.
+ * 23503 (a foreign key: not a Regular account) are 403; NS005 (posts_update_share_guard: the edit of a share, F3.5 c8) is 400
+ * share_not_editable; any other database error is 500. Never the message, constraint or table name.
  * `undefined`: the failure did not come from the database (the caller handles it).
  */
 export function postFaultReply(error: unknown): PostFaultReply | undefined {
   const fault = readDatabaseFault(error);
   if (fault === undefined) return undefined;
+  if (fault.code === 'NS005') return { status: 400, error: 'share_not_editable' };
   if (fault.code === '23514' && fault.constraint === POST_BODY_LENGTH_CONSTRAINT) return { status: 422, error: 'body_too_long' };
   if (fault.code === '23514' && fault.constraint === POST_AUDIENCE_CONSTRAINT) return { status: 422, error: 'audience_not_allowed' };
   if (fault.code === '42501' || fault.code === '23503') return { status: 403, error: 'not_allowed' };
+  return { status: 500, error: 'server_error' };
+}
+
+export interface ShareFaultReply {
+  readonly status: 403 | 422 | 500;
+  readonly error: 'not_shareable' | 'not_allowed' | 'body_too_long' | 'server_error';
+}
+
+/**
+ * What a share the database refused answers (F3.5 c3, c5, c6; i3-rest-schema SQLSTATE contract). NS002 (posts_insert_prepare: every
+ * unshareable original, one code, no reason) is 403 not_shareable; 42501 (the trigger's caller gate, a policy or a privilege) and 23503 (a
+ * foreign key) are 403 not_allowed; 23514 on the body-length CHECK is 422 body_too_long; any other database error is 500. By code only, never
+ * the message. `undefined`: the failure did not come from the database (the caller handles it).
+ */
+export function shareFaultReply(error: unknown): ShareFaultReply | undefined {
+  const fault = readDatabaseFault(error);
+  if (fault === undefined) return undefined;
+  if (fault.code === 'NS002') return { status: 403, error: 'not_shareable' };
+  if (fault.code === '42501' || fault.code === '23503') return { status: 403, error: 'not_allowed' };
+  if (fault.code === '23514' && fault.constraint === POST_BODY_LENGTH_CONSTRAINT) return { status: 422, error: 'body_too_long' };
   return { status: 500, error: 'server_error' };
 }
 
@@ -147,7 +169,7 @@ export function reportFaultReply(error: unknown): ReportFaultReply | undefined {
 }
 
 /** The project's own SQLSTATEs (class NS) a guard raises for a refused input (i3-rest-schema): the same input is refused again. */
-const DETERMINISTIC_PROJECT_CODES: ReadonlySet<string> = new Set(['NS003', 'NS004']);
+const DETERMINISTIC_PROJECT_CODES: ReadonlySet<string> = new Set(['NS002', 'NS003', 'NS004', 'NS005']);
 
 /** SQLSTATE class 23 (a constraint), 42501 (a privilege or policy) and the guards' NS codes: the same input fails the same way again. */
 function isDeterministicFault(code: string): boolean {

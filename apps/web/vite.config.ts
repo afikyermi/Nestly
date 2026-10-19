@@ -26,6 +26,9 @@ export default defineConfig(({ mode }) => {
     conditions: ['source', ...defaultClientConditions],
   },
   ssr: { resolve: { conditions: ['source', ...defaultServerConditions] } },
+  // Two entries of the same app (F3.6 c7, BR-067): post.html differs from index.html only in its fixed link-preview tags, and vercel.json
+  // serves it for every /posts/* address, so a crawler sees one page whatever the post (no SSR, no per-post content).
+  build: { rollupOptions: { input: { main: fileURLToPath(new URL('./index.html', import.meta.url)), post: fileURLToPath(new URL('./post.html', import.meta.url)) } } },
   server: {
     proxy: { '/api': 'http://127.0.0.1:3000' },
   },
