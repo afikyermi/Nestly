@@ -113,12 +113,20 @@ export function FeedCard(props: FeedCardProps) {
           {onToggleLike === undefined ? null : (
             <div className="order-3 w-full flex flex-wrap items-center gap-x-2">
               <LikeButton label={LIKE_LABEL} count={unit.likeCount} liked={unit.likedByMe} onToggle={onToggleLike} />
-              {/* ux-polish-a c9: a button (no navigation): focus goes to this card's comment field. */}
+              {/* ux-polish-a c9: a button (no navigation): focus goes to this card's comment field; without one (an anonymous card before
+                  its read, a failed read, a post gone), to what the comment area shows instead. */}
               <button
                 type="button"
                 data-comments-button=""
                 aria-label={unit.commentCount > 0 ? `${COMMENTS_TITLE}, ${unit.commentCount.toLocaleString('en-US')}` : COMMENTS_TITLE}
-                onClick={(event) => event.currentTarget.closest('article')?.querySelector<HTMLElement>('[data-comment-field] textarea')?.focus()}
+                onClick={(event) => {
+                  const area = event.currentTarget.closest('article')?.querySelector<HTMLElement>('[data-card-comments]');
+                  const target =
+                    area?.querySelector<HTMLElement>('[data-comment-field] textarea') ??
+                    area?.querySelector<HTMLElement>('[data-comments-fallback]') ??
+                    area?.querySelector<HTMLElement>('[data-comment-id]');
+                  target?.focus();
+                }}
                 className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md px-2 text-label text-muted-foreground transition-colors duration-fast ease-standard hover:bg-muted"
               >
                 {COMMENTS_TITLE}

@@ -10,14 +10,15 @@ state (`withCommentCount`, `withStatus`), so Back restores "תגובות, N" (c1
 `ConfirmDialog` (keeps ux-polish-b c11's one-dialog scan); comment reports reuse the feed's `useReport`.
 Exported: `COMMENT_REPORT_STATUS` (CommentsSection), `problemOf` (use-comment-writes). "תגובות" is a native
 `<button>` (Button forbids `aria-label` beside visible text); it focuses `[data-comment-field] textarea`.
-c10 scroll: `feed-scroll.ts` sets `history.scrollRestoration = 'manual'` while the feed is mounted (restored on
-unmount); otherwise the browser put back the scroll from when the overlay entry was pushed. The feed already
+c10 scroll: `feed-scroll.ts` sets `history.scrollRestoration = 'manual'` while the feed is mounted ('auto' on
+unmount, CRITIC M1); otherwise the browser put back the scroll from when the overlay entry was pushed. The feed already
 restores its own scroll for Back from a post. In-card field and reply-box forms are unnamed (coordinator 19.10).
 **Deviations**      None. Anonymous card whose GET /posts/:id fails: no field, load-failure alert + "נסו שוב"
 (re-sends the failed read); 404 → "הפוסט אינו זמין". 403 on the first comments read: no comment area.
 **Deliberately not done**   Comment area while the card's edit form is open; hide placeholders; Professional UI.
-**Uncertain**       "השבה" on an anonymous card before `isMine` answers opens a box that is drawn only once it
-answers. `latestOf` reads the last render (a send in the same tick as a keystroke: as the post page). No
+CRITIC fix: in-card "שליחה" is soft; with no field "השבה" stores nothing and "תגובות" focuses the loading lines,
+"נסו שוב", the 404 line or the first comment.
+**Uncertain**       `latestOf` reads the last render (a send in the same tick as a keystroke: as the post page). No
 IntersectionObserver (jsdom): cards never load.
 **Evidence**        typecheck, lint (src), check:budgets, check:stories, web unit 1282/1282 with
 `--testTimeout=60000` (at 5 s, machine-load timeouts in login/registration/composer suites, unrelated). No E2E run.

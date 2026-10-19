@@ -108,7 +108,8 @@ export function useFeedCommentWrites(flow: FeedCommentsFlow, api: CommentApi, re
     changeRoot: (unit, text) => flow.edit(unit, (current) => ({ ...current, root: edit(current.root, text) })),
     sendRoot: (unit) => void send(unit, null),
     openReply: (unit, parentId) => {
-      if (busy.current.has(unit.id)) return;
+      // No reply box without its notice: an anonymous card before its authorship read answers keeps no draft.
+      if (busy.current.has(unit.id) || flow.latestOf(unit).asAuthor === null) return;
       flow.edit(unit, (current) => ({ ...current, reply: current.reply?.parentId === parentId ? current.reply : { ...EMPTY_COMPOSER, parentId, focusTick: 1 } }));
     },
     changeReply: (unit, text) =>

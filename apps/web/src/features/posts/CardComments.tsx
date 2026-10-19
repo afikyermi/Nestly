@@ -65,12 +65,18 @@ export function CardComments({ thread, menu, actions }: CardCommentsProps) {
   const items = shownItems(thread);
   const { reply } = thread;
   const failed = thread.phase === 'error' || thread.authorRead === 'error';
+  // An anonymous card whose authorship read is still out: no field yet, so an empty thread shows the loading lines meanwhile.
+  const waitingForAuthor = thread.asAuthor === null && thread.authorRead !== 'error' && thread.phase === 'ready';
 
   return (
     <div ref={areaRef} data-card-comments="" className="order-4 flex w-full min-w-0 flex-col gap-3">
-      {thread.phase === 'gone' ? <p className="text-body text-muted-foreground">{POST_UNAVAILABLE_TEXT}</p> : null}
-      {thread.phase === 'idle' || thread.phase === 'loading' ? (
-        <div className="flex flex-col gap-3">
+      {thread.phase === 'gone' ? (
+        <p data-comments-fallback="" tabIndex={-1} className="text-body text-muted-foreground">
+          {POST_UNAVAILABLE_TEXT}
+        </p>
+      ) : null}
+      {thread.phase === 'idle' || thread.phase === 'loading' || (waitingForAuthor && items.length === 0) ? (
+        <div data-comments-fallback="" tabIndex={-1} className="flex flex-col gap-3">
           <span className="sr-only">{COMMENTS_LOADING_TEXT}</span>
           <Skeleton className="w-1/3" />
           <Skeleton className="w-2/3" />
@@ -79,7 +85,7 @@ export function CardComments({ thread, menu, actions }: CardCommentsProps) {
       {failed && thread.phase !== 'gone' ? (
         <div className="flex flex-col items-start gap-3">
           <InlineAlert>{COMMENTS_LOAD_FAILED_TEXT}</InlineAlert>
-          <Button variant="soft" onClick={actions.onRetry}>
+          <Button variant="soft" data-comments-fallback="" onClick={actions.onRetry}>
             {RETRY_LABEL}
           </Button>
         </div>
@@ -99,6 +105,7 @@ export function CardComments({ thread, menu, actions }: CardCommentsProps) {
                   <CommentComposer
                     mode="reply"
                     named={false}
+                    sendVariant="soft"
                     state={reply}
                     notice={notice}
                     onChange={actions.onReplyChange}
@@ -126,7 +133,7 @@ export function CardComments({ thread, menu, actions }: CardCommentsProps) {
       ) : null}
       {notice !== null && thread.phase !== 'gone' ? (
         <div data-comment-field="">
-          <CommentComposer mode="comment" named={false} state={thread.root} notice={notice} onChange={actions.onRootChange} onSend={actions.onRootSend} />
+          <CommentComposer mode="comment" named={false} sendVariant="soft" state={thread.root} notice={notice} onChange={actions.onRootChange} onSend={actions.onRootSend} />
         </div>
       ) : null}
     </div>
