@@ -38,3 +38,9 @@ Reason: F3.9 builds the card menu F3.7 reuses; F3.7 builds PG-049, whose rule 2 
 ## professional-posting — Gate 1 (ORCHESTRATOR, 19.10) after Afik DR-1..3 (all ⭐)
 - Approved with DR-1 yes (feed read, comment, reply, like; N4 in scope), DR-2 "everyone" only (DB-enforced), DR-3 "מהקהילה" until I11 (I11 commitment: name + "יועץ · <תחום>" before Professional registration).
 - Order: PR-A2 (Q7) and PR-A3 (Professional schema) are separate migration PRs; the code part follows feed-composer.
+
+## professional-posting — Gate 2 (ORCHESTRATOR, 19.10): `.work/professional-posting/schema.md` approved (PR-A3)
+- `followers` NOT added now: DATA ARCHITECT shows it is not simple (new restriction in both Regular branches + shared/server/web type changes in a migration-only PR); per Afik's condition ("if not complicated") I11 adds Follow + `followers` (DB check, policies, shared enum) as one unit.
+- Professional reports: allowed (F3.7 as built; Professionals now read the feed). professional-posting spec's "reports refused" line is superseded.
+- Expand-safety: main's `apps/server/tests/db/posts.db.test.ts:193` (Professional POST refused) breaks under PR-A3 → Afik asked (one-time skip, as Q7) — WORKPLAN 16.
+- Existing gap (not new): active Admin/Moderator can read posts/comments/reactions/names at the DB level; only server account-type checks refuse → security-privacy-open, resolve in I4.
