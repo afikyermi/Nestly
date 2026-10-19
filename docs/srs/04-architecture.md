@@ -36,7 +36,7 @@
 | Shared UI Component | DateInput | בחירת תאריך לשימוש בהרשמה, מסלולים וטפסים נוספים. |
 | Shared UI Component | Modal / Dialog | מעטפת חלון קופץ כללית שמקבלת תוכן ופעולות מבחוץ; אינה קשורה לטופס מסוים. **כפי שנבנה ב-I3:** גם מעטפת אחת לגיליון מלמטה (מתחת ל-1024px) ולחלון קטן (מ-1024px), שמשמשת את השיתוף, שיתוף הקישור והדיווח; כל חלון נסגר ב-Back, ב-Esc ובלחיצה מחוצה לו, ובחלון אישור לחיצה בחוץ היא ביטול (`docs/design/direction.md`). |
 | Shared UI Component | Avatar | תמונת/ייצוג משתמש לשימוש בפיד, פרופילים, תגובות וכדומה. |
-| Shared UI Component | Badge | תג מידע כללי, למשל Sponsored, סטטוס או אימות; התוכן נקבע מבחוץ. |
+| Shared UI Component | Badge | תג מידע כללי, למשל Sponsored או סטטוס; התוכן נקבע מבחוץ. (אין תג אימות — OP-005 נסגר, 18.10.2026.) |
 | Shared UI Component | GlobalSearchInput | קלט חיפוש גלובלי משותף. מקבל value/events בלבד; SearchFeature מנהל את הישויות, הרשאות התוצאות, ה-Dropdown והניווט. |
 | Domain Reusable Component | PostCard | תצוגת פוסט חוזרת ברשימות/פיד. מקבלת נתוני פוסט ואירועי פעולה מבחוץ. |
 | Domain Reusable Component | MarketplaceItemCard | כרטיס Marketplace רב-שימושי שמקבל סוג מקור/קידום מבחוץ ומציג וריאציה מתאימה: Listing אורגני של משתמש, Listing מקודם של משתמש, או מוצר ממומן של חברה/ספונסר. |
@@ -126,7 +126,7 @@
 | Feature / Container | RuleBasedRecommendationEngine | מנוע v1 דטרמיניסטי ל-Candidate Generation, Ranking ו-Re-ranking עבור Feed, Professionals, Marketplace/Products ו-Contextual Guidance. הכללים והמשקולות ניתנים להגדרה באמצעות AlgorithmConfiguration. |
 | Feature / Container | RecommendationFeedbackFeature | מנהל Not Interested / Show Less ואת השפעתם על Creator/Topic/Source ברמת המשתמש. "הסתרת הפוסט" נשמרת כאן ב-PostHide בלבד ואינה משפיעה על הדירוג (FR-ALG-009). |
 | Feature / Container | AnalyticsEventFeature | רושם Event Taxonomy אחיד ל-Impression, Open, Dwell, Search, Engagement, Conversion ו-Administrative metrics ללא שמירת גוף Chat/Support באירועי Analytics כלליים. |
-| Feature / Container | AdminIntelligenceFeature | מחשב נתונים ל-Owner/Admin: Lifecycle, Retention, Feed/Search, Groups, Professionals, Marketplace, Promotion, Moderation/Support ו-Recommendation Quality — גם ברמת משתמש בודד, בלי שמות ובלי פרטים מזהים (FR-ADMIN-010, החלטת אפיק מ-18.10.2026). |
+| Feature / Container | AdminIntelligenceFeature | מחשב נתונים ל-Owner/Admin: Lifecycle, Retention, Feed/Search, Groups, Professionals, Marketplace, Promotion, Moderation/Support ו-Recommendation Quality — גם ברמת משתמש בודד, בלי שמות ובלי פרטים מזהים (FR-ADMIN-010, החלטת אפיק מ-18.10.2026). אילו תחומים זמינים ב-I14 לפני אירועי I15 — OP-039. |
 | Feature / Container | ContentMetadataFeature | מחזיק Topic/Category/Stage metadata לצורכי v1 באמצעות שדות מובנים, Group/Category context, Tags ומילות מפתח. סיווג סמנטי אוטומטי/Embeddings הוא Future Enhancement. |
 | Shared UI Component | OverflowMenu | תפריט "⋯" לפעולות משניות בכרטיס או במסך. במובייל נפתח כ-sheet מלמטה. הפעולות מוזנות מבחוץ (החלטות עיצוב מ-11.10.2026). **כפי שנבנה ב-I3:** תפריט אחד לכל כרטיס, לכל תגובה ולכותב בעמוד הפוסט; נסגר ב-Back, ב-Esc ובלחיצה בחוץ, ולחיצה אחת על "⋯" אחר פותחת אותו. |
 | Shared UI Component | Tooltip | תווית קצרה לכפתור אייקון, בריחוף ובמיקוד. ניתנת לסגירה ואינה מסתירה תוכן (WCAG 1.4.13). |

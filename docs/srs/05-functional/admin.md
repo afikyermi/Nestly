@@ -34,7 +34,7 @@
 
 | שדה | הגדרה |
 |---|---|
-| סטטוס | מאושר — Core metrics מוגדרים ב-FR-ADMIN-010 ובסעיף 18.6. **נבנה ב-I14 ונכנס ל-MVP** (הועבר מ-I15, החלטת אפיק מ-18.10.2026): הגרפים גלויים ל-Admin או למי שיש לו ההרשאה (ANALYTICS_VIEW) |
+| סטטוס | מאושר — Core metrics מוגדרים ב-FR-ADMIN-010 ובסעיף 18.6. **נבנה ב-I14 ונכנס ל-MVP** (הועבר מ-I15, החלטת אפיק מ-18.10.2026): הגרפים גלויים ל-Admin או למי שיש לו ההרשאה (ANALYTICS_VIEW). אירועי השימוש נאספים רק מ-I15 (4א), ולכן אילו מדדים מוצגים ב-I14 — פתוח, OP-039 (נדרש אישור) |
 | Actor | Admin / Moderator עם ANALYTICS_VIEW |
 | תיאור | המערכת תאפשר ל-Admin לנתח פניות Support ומידע תפעולי/שימוש. שכבת Owner/Admin Intelligence המלאה מוגדרת ב-FR-ADMIN-010; Moderator עם ANALYTICS_VIEW רואה את מה ש-FR-ADMIN-010 מגדיר להרשאה. |
 | תנאים מוקדמים | קיימים נתוני פניות/שימוש; Admin מחובר או Moderator מחובר עם ANALYTICS_VIEW. |
@@ -132,7 +132,7 @@
 
 | שדה | הגדרה |
 |---|---|
-| סטטוס | מאושר — חובה ל-v1. **נבנה ב-I14 ונכנס ל-MVP** (הועבר מ-I15, החלטת אפיק מ-18.10.2026): הגרפים גלויים ל-Admin או למי שיש לו ההרשאה (ANALYTICS_VIEW) |
+| סטטוס | מאושר — חובה ל-v1. **נבנה ב-I14 ונכנס ל-MVP** (הועבר מ-I15, החלטת אפיק מ-18.10.2026): הגרפים גלויים ל-Admin או למי שיש לו ההרשאה (ANALYTICS_VIEW). אירועי השימוש (§13.3) נאספים רק מ-I15 (4א); אילו תחומים מחושבים ב-I14 מטבלאות המוצר ואילו ממתינים לאירועים — פתוח, OP-039 (נדרש אישור) |
 | Actor | Admin / Moderator with ANALYTICS_VIEW |
 | תיאור | AdminAnalyticsPage יציג Owner/Admin Intelligence עבור Lifecycle/Retention, Feed/Search, Groups, Professionals, Marketplace, Promotions, Support/Moderation ו-Recommendation Quality. Admin מלא. **ANALYTICS_VIEW** (החלטת אפיק מ-18.10.2026): רואה את כל הנתונים, גם ברמת משתמש בודד וגם בקבוצות קטנות, בלי מינימום, בלי שמות ובלי פרטים מזהים — מספרים ונתונים רלוונטיים בלבד. |
 | תנאים מוקדמים | קיימים AnalyticsEvent/Aggregate data והרשאת צפייה. |

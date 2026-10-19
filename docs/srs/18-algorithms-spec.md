@@ -68,11 +68,11 @@
 
 ## 18.6 Owner/Admin Intelligence — Core Metrics v1
 
-**היקף הצפייה (החלטת אפיק מ-18.10.2026, BR-058):** מחזיק ANALYTICS_VIEW רואה את כל הנתונים, גם ברמת משתמש בודד וגם בקבוצות קטנות, בלי מינימום, בלי שמות ובלי פרטים מזהים — מספרים ונתונים רלוונטיים בלבד. נבנה ב-I14.
+**היקף הצפייה (החלטת אפיק מ-18.10.2026, BR-058):** מחזיק ANALYTICS_VIEW רואה את כל הנתונים, גם ברמת משתמש בודד וגם בקבוצות קטנות, בלי מינימום, בלי שמות ובלי פרטים מזהים — מספרים ונתונים רלוונטיים בלבד. נבנה ב-I14; מדדים שתלויים באירועי שימוש (§13.3, מ-I15) — OP-039. סגמנט שלב או ילדים נשאר Aggregate בלבד עד החלטה נפרדת.
 
 | תחום | Core Metrics | Segmentation / הערה |
 |---|---|---|
-| User Lifecycle | Registrations, onboarding completion, active users, D1/D7/D30 retention, return rate | Role, period, Stage/Profession segment רק אם מותר וב-Aggregate |
+| User Lifecycle | Registrations, onboarding completion, active users, D1/D7/D30 retention, return rate | Role, period, Profession — לפי BR-058 (גם ברמת משתמש, בלי שמות); Stage segment — רק אם מותר וב-Aggregate |
 | Feed / Recommendation | Impressions, opens, dwell, reactions/comments/saves, hide/not interested, reports, downstream profile/product/group opens | Organic/Paid, content type, surface, algorithm/config version |
 | Search | queries, zero-result rate, result CTR, top normalized queries, demand vs available results | Entity type, period; raw user query not exposed to Professionals |
 | Groups | members, active members, joins, posts/comments, report rate, join approval time | Public/Private, group; privacy preserved |

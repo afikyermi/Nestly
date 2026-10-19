@@ -67,11 +67,11 @@
 | AnalyticsAggregate | מדדים מצטברים לפי period/surface/entity/segment מאושר לצורך Admin/Professional dashboards. |
 | PromotionPerformanceEvent | Impression/Click/ProfileVisit/Follow/ChatStart/other approved event המשויך ל-Promotion ומסומן Paid לצורך הפרדה מ-Organic. |
 | LegalConsent | User, מסמך (Terms / Privacy / הצהרת גיל 18+), גרסה, זמן אישור. נוצר בהרשמה (FR-REG-004) ובכל אישור של גרסה חדשה. |
-| RecoveryAnswers | User, שתי השאלות שנבחרו, לכל תשובה hash איטי (scrypt) עם salt ופרמטרים, מזהה האימייל (hash עם מפתח) וזמן הטענה עליו, זמנים. לעולם לא התשובה עצמה; משתמשים ומבקרים אינם קוראים את ה-hash (FR-AUTH-003, VAL-045, F1.6). מידע אישי. Retention TBD. |
+| RecoveryAnswers | User, שתי השאלות שנבחרו, לכל תשובה hash איטי (scrypt) עם salt ופרמטרים, מזהה האימייל (hash עם מפתח) וזמן הטענה עליו, זמנים. לעולם לא התשובה עצמה; משתמשים ומבקרים אינם קוראים את ה-hash (FR-AUTH-003, VAL-045, F1.6). מידע אישי. Retention לחשבון פעיל: אינו מכוסה ב-§13.4 — TBD במסגרת OP-028; אחרי מחיקת חשבון — BR-073. |
 | RecoveryThrottle | מונה ניסיונות שחזור לפי מזהה אימייל או לפי hash של כתובת IP, חלון ונעילה; למזהה האימייל גם שלב במדרג וסימון נעילה קבועה (NFR-SEC-010, 17.10.2026). Retention: אחרי מחיקת חשבון — 90 יום ואז מחיקה (BR-073); לחשבון פעיל — יום אחרי שהמונה פג (§13.4). |
 | RecoveryEvent | אירוע Audit של שחזור הסיסמה: סוג (FR-ADMIN-005), User כשידוע, hash של מזהה האימייל, hash של כתובת ה-IP וזמן; בלי תשובה, סיסמה או אימייל. Retention: 12 חודשים לחשבון פעיל (§13.4). |
 | BetaInvite | אימייל מוזמן, מי הוסיף ומתי, וסטטוס. יחד עם מצב הבטא קובע מי יכול להירשם בתקופת הבטא (FR-ADMIN-011). |
-| AccountTakeoverCheck | מצב ניקוי S-01 לכל חשבון: ממתין או הושלם, ה-Session שביצע אותו, זמן הניקוי וזמן קביעת הסיסמה החדשה (FR-AUTH-005, F2.0). בלי סיסמה, תשובה או אסימון. Retention TBD. |
+| AccountTakeoverCheck | מצב ניקוי S-01 לכל חשבון: ממתין או הושלם, ה-Session שביצע אותו, זמן הניקוי וזמן קביעת הסיסמה החדשה (FR-AUTH-005, F2.0). בלי סיסמה, תשובה או אסימון. Retention לחשבון פעיל: אינו מכוסה ב-§13.4 — TBD במסגרת OP-028; אחרי מחיקת חשבון — BR-073. |
 | ProfileOpenCount | מונה פתיחות הפרופיל של כל חשבון בחלון ההגבלה (NFR-SEC-006). נכתב ונקרא רק בבסיס הנתונים, בשורה של הצופה עצמו; משתמשים אינם קוראים, מאפסים או משנים אותו. Retention: יום אחרי שהמונה פג (§13.4). |
 | SecurityConfiguration | ערכי סף של הגבלות Security, כגון 100 פתיחות פרופיל ב-3,600 שניות (NFR-SEC-006). שינוי — Admin בלבד (SECURITY_SETTINGS_MANAGE); עד I4 ב-migration. ממשק המוצר אינו קורא ואינו כותב אותם. |
 | SecurityEvent | אירוע Security: סוג (למשל חריגה מהגבלת פתיחת הפרופילים), החשבון והזמן; בלי יעד, פרופיל או נתוני ילד. משתמשים אינם קוראים, משנים או מוחקים אירוע, גם את שלהם (NFR-SEC-006, ERR-032). Retention: 12 חודשים לחשבון פעיל (§13.4, I9). |
@@ -111,8 +111,8 @@ NotificationPreference ו-GroupNotificationPreference מסננים אירועי 
 | Professional Profile | profession, experience, ratings, content/activity | Directory, organic matching, profile, Professional analytics | Paid boost לא משנה organic reputation. אין נתוני אימות (OP-005 נסגר, 18.10.2026) | Public/eligible users; owner/admin |
 | Social Graph | Friendship, ProfessionalFollow, Group Membership | Feed candidates, social relevance, notifications | לא לחשוף graph מלא לצדדים שלישיים | המשתמש/Features הרלוונטיים |
 | Content & Metadata | Posts/Comments/Groups/Listings/Products/Articles + topic/stage/category tags | Search, Feed, Ranking, Moderation, analytics | Private Group content לפי membership/admin exception בלבד. זהות המחבר של Anonymous Post אינה נחשפת למשתמשי קהילה. Admin רואה אותה; Moderator רק בטיפול בדיווח על הפוסט, עם Audit (FR-FEED-005). תגית השלב של פוסט היא בחירת המחבר בלבד ואינה נגזרת מ-Child/Journey Data (FR-FEED-004). שם הכותב — BR-079 | לפי content visibility |
-| Search Data | normalized query, filters, result count, clicks | Search ranking, current intent, zero-result/demand analytics | Raw query לא מוצג ל-Professional; Chat/Support לא נגזרים ל-query | System/Admin aggregate; user personalization |
-| Interaction / Exposure | impression, open, dwell, like, comment, save, profile/product open | Interest/Intent, Ranking evaluation, Admin analytics | Dwell אינו Satisfaction יחיד; מינימום metadata נדרש | System; Admin aggregate; Professional own aggregates |
+| Search Data | normalized query, filters, result count, clicks | Search ranking, current intent, zero-result/demand analytics | Raw query לא מוצג ל-Professional; Chat/Support לא נגזרים ל-query | System; Admin ו-ANALYTICS_VIEW לפי BR-058 (גם ברמת משתמש, בלי שמות ובלי פרטים מזהים); user personalization |
+| Interaction / Exposure | impression, open, dwell, like, comment, save, profile/product open | Interest/Intent, Ranking evaluation, Admin analytics | Dwell אינו Satisfaction יחיד; מינימום metadata נדרש | System; Admin ו-ANALYTICS_VIEW לפי BR-058 (גם ברמת משתמש, בלי שמות ובלי פרטים מזהים); Professional own aggregates |
 | Negative Feedback | Not Interested, Show Less | Suppression/Re-ranking, recommendation quality | לא משמש אכיפה על משתמש אחר כשלעצמו | System + user preference |
 | Post Hide | הסתרת פוסט (PostHide) | הוצאת הפוסט מהפיד ומעמוד הפוסט של המשתמש בלבד | לא Signal ולא קלט לדירוג (8א); לא נחשף לכותב או למשתמשים אחרים. שימוש במדדים מצטברים (§18.6, §18.8) — TBD (OP-037) | המשתמש לשורות שלו בלבד |
 | Location | עיר או אזור שהמשתמש בוחר מרשימה (החלטת אפיק מ-18.10.2026) | Services לפי אזור (FR-SERV-002), Marketplace relevance | אין GPS, אין מיקום מדויק, אין מפה ואין בקשת הרשאת מיקום (§12); paid usage רק לפי policy/consent future decision | User-controlled; features scoped |
@@ -125,7 +125,7 @@ NotificationPreference ו-GroupNotificationPreference מסננים אירועי 
 
 ## 13.3 Event Taxonomy v1
 
-ב-I3 אין אף Event, טבלת אירועים או רישום של צפייה, חשיפה, לחיצה או זמן שהייה (החלטת אפיק מ-18.10.2026, 4א); הטקסונומיה נבנית ב-I15 עם FR-DATA-001.
+ב-I3 אין אף Event, טבלת אירועים או רישום של צפייה, חשיפה, לחיצה או זמן שהייה (החלטת אפיק מ-18.10.2026, 4א); הטקסונומיה נבנית ב-I15 עם FR-DATA-001. גרפי ה-Admin נבנים ב-I14 (FR-ADMIN-010/003); אילו מהם זמינים לפני האירועים — OP-039.
 
 | קבוצת Event | Events עיקריים | Metadata מרכזי |
 |---|---|---|
@@ -142,7 +142,7 @@ NotificationPreference ו-GroupNotificationPreference מסננים אירועי 
 
 ## 13.4 Retention, User Control & Purpose Boundaries
 
-**תקופות שמירה לחשבון פעיל** (החלטת אפיק מ-18.10.2026, 15א; נבנה ב-I9): אירועי אבטחה, Audit ושחזור — 12 חודשים · דיווחים שטופלו — 12 חודשים (כמו הספירה ב-BR-074) · התראות — 90 יום · מוני הגבלת קצב — יום אחרי שפגו · תוכן שנמחק — מיד (BR-080). אחרי מחיקת חשבון חל BR-073.
+**תקופות שמירה לחשבון פעיל** (החלטת אפיק מ-18.10.2026, 15א; נבנה ב-I9): אירועי אבטחה, Audit ושחזור — 12 חודשים · דיווחים שטופלו — 12 חודשים (כמו הספירה ב-BR-074) · התראות — 90 יום · מוני הגבלת קצב — יום אחרי שפגו · תוכן שנמחק — מיד (BR-080). אחרי מחיקת חשבון חל BR-073. **לא מכוסים כאן**, ונשארים TBD במסגרת OP-028: RecoveryAnswers ו-AccountTakeoverCheck לחשבון פעיל, וכל שורה בטבלה שלמטה שמסומנת "ייקבע".
 
 | Data Class | Purpose | Retention / Control Rule |
 |---|---|---|
