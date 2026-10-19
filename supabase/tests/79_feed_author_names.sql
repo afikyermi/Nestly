@@ -43,8 +43,8 @@ $f$;
 -- =====================================================================================================================
 -- 1 structure
 -- =====================================================================================================================
-select is((select count(*) from pg_catalog.pg_policies where schemaname = 'nestly' and tablename = 'regular_names'), 4::bigint,
-  '[F3.2-a c12 6b] regular_names has exactly four policies (the three earlier ones plus the post-reader policy)');
+select is((select count(*) from pg_catalog.pg_policies where schemaname = 'nestly' and tablename = 'regular_names'), 5::bigint,
+  '[F3.2-a c12 6b] regular_names has exactly five policies (the earlier four plus the comment-reader policy, F3.4 N1)');
 select is((select permissive || '/' || cmd || '/' || roles::text from pg_catalog.pg_policies
             where schemaname = 'nestly' and tablename = 'regular_names' and policyname = 'regular_names_select_post_reader'),
   'PERMISSIVE/SELECT/{authenticated}', '[F3.2-a c12 6b] the post-reader policy exists: permissive, SELECT, TO authenticated only');
@@ -170,13 +170,13 @@ select is(pg_temp.nm('a', 'a'), '1', '[F3.2-a c12 6b] A with no post reads its o
 select is(tests.n_as(pg_temp.id('a'), 'nestly.regular_names'), '1', '[F3.2-a c12 6b] and only its own (nobody else posted)');
 
 -- =====================================================================================================================
--- 10 commenters are not covered (Open item, default A)
+-- 10 commenters: superseded by Afik Q7 B (19.10) — a commenter's name follows the readable comment (file 81)
 -- =====================================================================================================================
 select pg_temp.reset();
 select set_config('t.cp', pg_temp.post('a')::text, true);
 select tests.fx_cm_add(pg_temp.id('c'), current_setting('t.cp')::uuid, 'a comment by C');
 select is(tests.n_as(pg_temp.id('v'), format('nestly.comments where post_id = %L', current_setting('t.cp'))), '1', '[F3.2-a c12 6b] control: V reads C''s comment');
-select is(pg_temp.nm('v', 'c'), '0', '[F3.2-a c12 6b Open default A] C has no post: V reads no name of C through the comment');
+select is(pg_temp.nm('v', 'c'), '1', '[F3.2-a c12 6b Q7 B F3.4 N1] C has no post but V reads C''s comment: V reads C''s name through it (was 0 under default A)');
 select is(pg_temp.nm('v', 'a'), '1', '[F3.2-a c12 6b] V reads the post author''s name');
 
 -- =====================================================================================================================

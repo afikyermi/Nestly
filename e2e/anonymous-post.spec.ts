@@ -1,7 +1,7 @@
 // I3 F3.4 (real browser, real session source, network stubbed). Derived from .work/anonymous-post/spec.md criteria 11-14 and 16 and from screen.md
 // (roles and Hebrew names) only. The server half is apps/server/tests/db/anonymous-post.db.test.ts; the payload/remembered-audience logic of c11 is
 // apps/web/tests/posts-composer.test.tsx. c15 (a stranger sees a commenter's full name) is the F3.3 c15 rendering test of e2e/comments.spec.ts; its real-data
-// half waits for the regular_names policy (schema PR-A2). Visual baselines: e2e/anonymous-post.visual.spec.ts. The stub plays the server: e2e/support/posts-stub.ts, comments-stub.ts.
+// half is at the DB layer: apps/server/tests/db/comments.db.test.ts "[F3.3-b1 c7]" (stranger → full name, regular_names_select_comment_reader). Visual baselines: e2e/anonymous-post.visual.spec.ts. The stub plays the server: e2e/support/posts-stub.ts, comments-stub.ts.
 import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import { APP, pathOf } from './app-helpers';
