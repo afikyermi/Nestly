@@ -382,4 +382,27 @@ test.describe('F3.2b c20 [FR-FEED-004] back, reload, to top', () => {
       await expect(page.getByRole('heading', { level: 1, name: 'הפיד', exact: true })).toBeFocused();
     });
   }
+
+  for (const width of [1024, 1280]) {
+    test(`[c20] ${width}px: after a long scroll the "חזרה למעלה" box does not intersect main's box; icon-only from 1024 to 1279 with the name, text from 1280`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 });
+      const net = await setupFeed(page, pages());
+      await open(page, net);
+      await expect(cards(page)).toHaveCount(12);
+      await toEnd(page);
+      await expect(cards(page)).toHaveCount(24);
+      await toEnd(page);
+      const top = page.getByRole('button', { name: 'חזרה למעלה', exact: true });
+      await expect(top).toBeVisible();
+      const [b, m] = [await top.boundingBox(), await main(page).boundingBox()];
+      expect(b).not.toBeNull();
+      expect(m).not.toBeNull();
+      const [bb, mm] = [b ?? { x: 0, y: 0, width: 0, height: 0 }, m ?? { x: 0, y: 0, width: 0, height: 0 }];
+      const apart = bb.x + bb.width <= mm.x || mm.x + mm.width <= bb.x || bb.y + bb.height <= mm.y || mm.y + mm.height <= bb.y;
+      expect(apart, `button ${JSON.stringify(bb)} vs main ${JSON.stringify(mm)}`).toBe(true);
+      const visibleText = (await top.innerText()).trim();
+      if (width < 1280) expect(visibleText, 'icon-only').toBe('');
+      else expect(visibleText).toContain('חזרה למעלה');
+    });
+  }
 });
