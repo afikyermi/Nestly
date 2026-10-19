@@ -49,8 +49,8 @@ const holdNext = (net: FeedNet): (() => void) => {
 const twoPages = (second: ReturnType<typeof range>, extra = {}): FeedNet['answer'] => (cursor) =>
   cursor === null ? pageOf(range(1, 12), 'c+1/=') : pageOf(second, null, extra);
 const timeLink = (card: Locator) => card.locator('a:has(time)');
-/** Any button in the list region that is not a card's like: a "more" control would be one (F3.2b c18: none). */
-const moreButtons = (page: Page) => main(page).getByRole('button').filter({ hasNotText: /^לייק/ });
+/** Any button that is not a card's like or the "חזרה למעלה" (taller cards now reach its threshold): a "more" control would be one (F3.2b c18: none). */
+const moreButtons = (page: Page) => main(page).getByRole('button').filter({ hasNotText: /^(לייק|חזרה למעלה)/ });
 const hasLinkTo = (card: Locator, href: string) => expect(timeLink(card)).toHaveAttribute('href', href);
 
 test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
