@@ -72,6 +72,13 @@ export interface FeedNet extends PostsNet {
   likeAnswer: number | 'abort';
   /** While set, every like call waits for it. */
   holdLike: Promise<void> | null;
+  /** F3.9: "METHOD /api/posts/:id/hide" of every hide / undo call, in order. */
+  hideCalls: string[];
+  /** What PUT (hide) and DELETE (undo) /api/posts/:id/hide answer: 204, a failure status (404 post_unavailable, 409 own_post, other: server_error) or a dropped connection. */
+  hideAnswer: number | 'abort';
+  undoAnswer: number | 'abort';
+  /** While set, every hide / undo call waits for it. */
+  holdHide: Promise<void> | null;
 }
 
 export const USER_A = 'f0000000-0000-4000-8000-0000000000a1';
@@ -84,8 +91,9 @@ export function tokenFor(sub: string): string {
 
 export async function setupFeed(page: Page, answer: FeedNet['answer'], start: { professional?: boolean; posts?: StoredPost[] } = {}): Promise<FeedNet> {
   const posts = await setupPosts(page, { professional: start.professional === true, ...(start.posts === undefined ? {} : { posts: start.posts }) });
-  const extra: Pick<FeedNet, 'cursors' | 'methods' | 'apiPaths' | 'answer' | 'hold' | 'armed' | 'sub' | 'likeCalls' | 'likeAnswer' | 'holdLike'> = {
+  const extra: Pick<FeedNet, 'cursors' | 'methods' | 'apiPaths' | 'answer' | 'hold' | 'armed' | 'sub' | 'likeCalls' | 'likeAnswer' | 'holdLike' | 'hideCalls' | 'hideAnswer' | 'undoAnswer' | 'holdHide'> = {
     cursors: [], methods: [], apiPaths: [], answer, hold: null, armed: false, sub: USER_A, likeCalls: [], likeAnswer: 204, holdLike: null,
+    hideCalls: [], hideAnswer: 204, undoAnswer: 204, holdHide: null,
   };
   const net: FeedNet = Object.assign(posts, extra);
   page.on('request', (req) => {
@@ -120,6 +128,19 @@ export async function setupFeed(page: Page, answer: FeedNet['answer'], start: { 
     if (net.holdLike !== null) await net.holdLike;
     if (net.likeAnswer === 'abort') return route.abort('connectionreset');
     if (net.likeAnswer !== 204) return json(route, net.likeAnswer, { error: 'internal' });
+    return route.fulfill({ status: 204, headers: CORS });
+  });
+  // F3.9: PUT|DELETE /api/posts/:id/hide (204 by default).
+  await page.route(/\/api\/posts\/[^/?]+\/hide$/, async (route) => {
+    const req = route.request();
+    if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+    net.hideCalls.push(`${req.method()} ${new URL(req.url()).pathname}`);
+    if (net.holdHide !== null) await net.holdHide;
+    const out = req.method() === 'PUT' ? net.hideAnswer : net.undoAnswer;
+    if (out === 'abort') return route.abort('connectionreset');
+    if (out === 404) return json(route, 404, { error: 'post_unavailable' });
+    if (out === 409) return json(route, 409, { error: 'own_post' });
+    if (out !== 204) return json(route, out, { error: 'server_error' });
     return route.fulfill({ status: 204, headers: CORS });
   });
   await page.route(/\/api\/posts\/[^/?]+\/comments(\?.*)?$/, async (route) => {
