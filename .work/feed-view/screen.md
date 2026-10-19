@@ -31,3 +31,4 @@ Annex of spec.md c13-20 + Afik 6ב. Copy per ux-copy-he (gender-neutral); spec s
 (3) alert text → "לא הצלחנו לטעון את הפיד. אפשר לנסות שוב".
 (4) N=1 → "נטען פוסט אחד נוסף"; N>1 "נטענו N פוסטים נוספים".
 (5) unknown/pending profile check: the feed is requested; a 403 not_allowed shows the placeholder.
+**ORCHESTRATOR 19.10:** the "אנונימי" header for an anonymous original (c12/c17) is struck: impossible (DB forbids sharing anonymous posts; schema literal false).
