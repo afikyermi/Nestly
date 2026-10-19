@@ -40,3 +40,7 @@ Both after the body, inside the article; share and anonymous cards too (a share'
 · delete: dialog stays, "המחיקה לא הצליחה. אפשר לנסות שוב".
 **Other** axe 0 at 375 px; like, reply, delete, comments link ≥44×44 px, visible focus (c20). Professional: no new control.
 **Open (default none)** If question 7 opens names to everyone: a line under the textbox "השם שלכם יוצג לכל מי שיכול לראות את התגובה" (copy only).
+**Screen challenges w1 (ORCHESTRATOR, 19.10):** (1) "עוד תגובות" failure alert: "לא הצלחנו לטעון עוד תגובות. אפשר לנסות שוב" + "נסו שוב".
+(2) Reply box: a separate form under its comment, name "כתיבת השבה"; the main form keeps "כתיבת תגובה". (3) Like failure: role=status (polite);
+delete failure: role=alert inside the dialog. (4) Counter one over: "התגובה ארוכה בתו אחד מהמותר"; N>1 "התגובה ארוכה ב-N תווים מהמותר".
+(5) "טוענים" is the button's own name while pending; "התגובה אינה זמינה" is a plain paragraph in the replies area. (6) Like button name "לייק" at 0, "לייק, N" at N ≥ 1.
