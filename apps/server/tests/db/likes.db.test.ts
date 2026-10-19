@@ -246,6 +246,17 @@ describe.each<LikeKind>(['post', 'comment'])('[F3.3-b2 c10] PUT|DELETE like on a
     expect(await count('fx_rx_count')).toBe(1);
   });
 
+  it('[F3.3-b2 c10 professional-posting c7 S-66] an Admin and a Moderator → 403 on like PUT and DELETE; no row is written or removed', T, async () => {
+    const app = await start();
+    const id = await target(kind);
+    await seedLike(X, kind, id);
+    for (const who of ['fr_d', 'fr_m']) {
+      const h = await bearerFor(await text(side`select tests.fx_fr_id(${who})::text as v`));
+      for (const send of [putLike, deleteLike]) expect((await send(app, h, kind, id)).statusCode, who).toBe(403);
+    }
+    expect(await count('fx_rx_count')).toBe(1);
+  });
+
   it('[F3.3-b2 c10] a malformed, unknown or unreadable target → the same 404 for PUT and DELETE, never 204, and no row', T, async () => {
     const app = await start();
     const unreadable: string[] = [];
