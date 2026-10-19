@@ -48,3 +48,4 @@ Reason: F3.9 builds the card menu F3.7 reuses; F3.7 builds PG-049, whose rule 2 
 - Split approved: B (windows/history/edit in place/small fixes; Standard) before A (comments inside the card; Elevated — the anonymous-card isMine read via GET /posts/:id must not leak the author).
 - Item 7 confirm stays (irreversible, FR-PROFILE-002 DR-3) · item 8 confirm stays (not unilaterally reversible; consistent with "confirm only irreversible") · item 9 closed (F3.9 c13) · 3b edit in place on the card.
 - Defaults accepted: B Q1–Q3, A Q1 (one comments request per card near the viewport — perf → debt), A Q2–Q4.
+- ux-polish-b (ORCHESTRATOR): card edit uses PATCH /api/posts/:id (F3.1 as built) — spec's "PUT" is a wording slip; F2 tooltip fixed by rendering inside a landmark, not by excluding the axe rule.
