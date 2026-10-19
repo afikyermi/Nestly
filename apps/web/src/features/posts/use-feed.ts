@@ -11,7 +11,7 @@ import { deletePost } from '@/services/api/posts';
 import { setHidden } from '@/services/api/post-hides';
 import { LIKE_FAILED_TEXT } from './comments-texts';
 import { forgetFeed, recallFeed, rememberFeed, type FeedScroll } from './feed-memory';
-import { INITIAL_FEED, withHideResult, withLike, withoutHidden, withPage, withPublished, type FeedState, type HideResult } from './feed-state';
+import { INITIAL_FEED, withHideResult, withLike, withoutHidden, withPage, withPublished, withShared, type FeedState, type HideResult } from './feed-state';
 import { HIDDEN_STATUS, HIDE_FAILED_TEXT, OWN_POST_HIDE_TEXT, UNDO_FAILED_TEXT, UNHIDDEN_STATUS } from './hide-texts';
 import { DELETE_FAILED_TEXT, DELETED_STATUS, POST_UNAVAILABLE_TEXT } from './posts-texts';
 import { failureText } from './post-outcome';
@@ -33,6 +33,8 @@ export interface FeedFlow {
   remove: (unitId: string) => Promise<{ ok: true } | { ok: false; failure: string }>;
   /** A post just published by the viewer goes first in the loaded list (no request; the next snapshot shows only the server's order). */
   addPublished: (unit: FeedUnit) => void;
+  /** A share just made by the viewer goes first in the loaded list, and `status` is said (F3.5 c11; no request). */
+  addShared: (unit: FeedUnit, status: string) => void;
   /**
    * After a report of a unit's post (F3.7 c13; 7א): filed or already filed, the card goes (also from Back's memory) and the status is said;
    * 404, the card stays and the status is said. The report itself is the window's (useReport).
@@ -196,6 +198,7 @@ export function useFeed(onRestart: () => void): FeedFlow {
   );
 
   const addPublished = useCallback((unit: FeedUnit) => setState((current) => withPublished(current, unit)), []);
+  const addShared = useCallback((unit: FeedUnit, status: string) => setState((current) => withShared(current, unit, status)), []);
   const reported = useCallback((unitId: string, result: ReportResult) => {
     const outcome: HideResult =
       result === 'unavailable'
@@ -214,6 +217,7 @@ export function useFeed(onRestart: () => void): FeedFlow {
     hide: (unitId) => void changeHidden(unitId, true),
     undoHide: (unitId) => void changeHidden(unitId, false),
     addPublished,
+    addShared,
     restoredScroll,
   };
 }

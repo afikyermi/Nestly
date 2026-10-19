@@ -63,7 +63,7 @@ const share: FeedUnit = {
   isMine: false,
   isAnonymous: false,
   author: { name: 'דנה כהן' },
-  original: { available: true, id: named.id, body: 'הטיפ הכי טוב שקיבלתי: לישון כשהתינוק ישן.', audience: 'everyone', createdAt: '2026-10-17T20:30:00.000Z', isAnonymous: false, author: { name: 'מיכל ברק' } },
+  original: { available: true, id: named.id, body: 'הטיפ הכי טוב שקיבלתי: לישון כשהתינוק ישן.', audience: 'everyone', createdAt: '2026-10-17T20:30:00.000Z', isAnonymous: false, isMine: false, author: { name: 'מיכל ברק' } },
 };
 
 export const Share: Story = { args: { unit: share, position: 1 } };
@@ -81,3 +81,9 @@ export const OwnNamed: Story = {
     ],
   },
 };
+
+// F3.5 c9, F3.6 c3: a card that can be shared has "שיתוף בפיד" and "שיתוף קישור" after "תגובות" (icon buttons, the name as tooltip).
+export const Shareable: Story = { args: { unit: named, position: 1, onShareInFeed: () => undefined, onShareLink: () => undefined } };
+
+// The viewer's own post: a link, but no share into the own feed (FR-FEED-006).
+export const OwnLinkOnly: Story = { args: { unit: { ...named, isMine: true }, position: 1, onShareLink: () => undefined } };

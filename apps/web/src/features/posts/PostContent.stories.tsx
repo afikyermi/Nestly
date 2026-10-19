@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { MemoryRouter } from 'react-router';
-import type { PostReadView } from '@nestly/shared';
+import type { PostReadView, ShareReadView } from '@nestly/shared';
 import { PostContent } from './PostContent';
 import { DELETE_FAILED_TEXT, LOAD_FAILED_TEXT, SAVE_FAILED_TEXT } from './posts-texts';
 import { POST_REPORTED_STATUS, REPORT_POST_ITEM, REPORT_UNAVAILABLE_STATUS } from '@/lib/report-texts';
@@ -26,6 +26,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const post: PostReadView = {
+  kind: 'post',
   id: '7a1f0c52-5a0e-4c39-9d47-1f7c2d5e8a01',
   body: 'איך אתם מתמודדים עם לילות בלי שינה?\nאשמח לשמוע רעיונות.',
   audience: 'friends',
@@ -90,3 +91,34 @@ export const DeleteFailed: Story = { args: { view: { ...loaded, post, confirm: {
 export const Loading: Story = { args: { view: { kind: 'loading' } } };
 export const Unavailable: Story = { args: { view: { kind: 'unavailable' } } };
 export const LoadFailed: Story = { args: { view: { kind: 'load-failed', message: LOAD_FAILED_TEXT } } };
+// F3.5 c12: a share's page: the sharer and their text, the original in a quote with "לפוסט המקורי"; the share actions (c9, F3.6 c3).
+const shareView: ShareReadView = {
+  kind: 'share',
+  id: '9c4d2a61-1f7b-4e83-b5a0-6d8e3f2c1a03',
+  body: null,
+  sharerText: 'מסכימה לגמרי עם מה שנכתב כאן.',
+  audience: 'everyone',
+  stageTag: null,
+  createdAt: '2026-10-18T10:00:00.000Z',
+  isAnonymous: false,
+  isMine: false,
+  author: { name: 'דנה כהן' },
+  original: {
+    available: true,
+    id: '7a1f0c52-5a0e-4c39-9d47-1f7c2d5e8a01',
+    body: 'הטיפ הכי טוב שקיבלתי: לישון כשהתינוק ישן.',
+    audience: 'everyone',
+    createdAt: '2026-10-17T20:30:00.000Z',
+    isAnonymous: false,
+    isMine: false,
+    author: { name: 'מיכל ברק' },
+  },
+  likeCount: 0,
+  commentCount: 0,
+  likedByMe: false,
+};
+export const Share: Story = { args: { view: { ...loaded, post: shareView }, moreActions, onShareInFeed: noop, onShareLink: noop } };
+// The sharer's own share: "מחיקה" and no "עריכה" (c8); the original no longer available (AC-081): no quote, no link, no share action.
+export const OwnShareOriginalUnavailable: Story = { args: { view: { ...loaded, post: { ...shareView, isMine: true, original: { available: false } } } } };
+// The caller was refused a share (403): the page alert (c11).
+export const ShareRefusedAlert: Story = { args: { view: { ...loaded, post: others }, moreActions, onShareInFeed: noop, pageAlert: 'השיתוף לא פורסם. אפשר לנסות שוב' } };

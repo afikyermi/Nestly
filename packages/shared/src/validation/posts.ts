@@ -97,8 +97,12 @@ export const postView = z.strictObject({
   createdAt: z.iso.datetime(),
   isAnonymous: z.boolean(),
 });
-/** The read adds `isMine` and the displayed counts (F3.3 c11, c12): `likeCount`, `commentCount` over the rows the viewer can read; `likedByMe` is the viewer's own. */
+/**
+ * The read adds `isMine` and the displayed counts (F3.3 c11, c12): `likeCount`, `commentCount` over the rows the viewer can read; `likedByMe`
+ * is the viewer's own. `kind: "post"` tells it from a share's read (F3.5 c7, `shareReadView`).
+ */
 export const postReadView = postView.extend({
+  kind: z.literal('post'),
   isMine: z.boolean(),
   likeCount: z.number().int().nonnegative(),
   commentCount: z.number().int().nonnegative(),

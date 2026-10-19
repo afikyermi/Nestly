@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { postLinkOf, shareTargetOf } from '@nestly/shared';
+import { useOwnUserId } from '@/hooks/use-own-user-id';
+import { shareLinkSheetProps, useShareLink } from '@/hooks/use-share-link';
+import { SHARE_LINK_LABEL } from '@/lib/share-link-texts';
 import { PATHS } from '@/app/paths';
 import { useBackCloses } from '@/hooks/use-back-closes';
 import { reportSheetProps, useReport, type ReportResult } from '@/hooks/use-report';
@@ -14,6 +18,8 @@ import { failureText, refusedErrors } from './post-outcome';
 import { CommentsSection } from './CommentsSection';
 import { outsidePressHandler } from './outside-press';
 import { PostContent, type PostEdit, type PostFocus, type PostScreenView } from './PostContent';
+import { SHARE_FAILED_TEXT, SHARED_STATUS } from './share-texts';
+import { shareFeedSheetValues, useShareInFeed } from './use-share-in-feed';
 import { DELETE_FAILED_TEXT, DELETED_STATUS, LOAD_FAILED_TEXT, SAVE_FAILED_TEXT, UPDATED_STATUS } from './posts-texts';
 
 type Loaded = Extract<PostScreenView, { kind: 'loaded' }>;
@@ -50,11 +56,24 @@ export function PostScreen({ postId }: { postId: string }) {
     setView({ kind: 'reported', text: result === 'received' ? POST_REPORTED_STATUS : ALREADY_REPORTED_STATUS });
     focusOn('message');
   });
-  // Back while the report is in flight keeps the window (the hook adds its entry again). A press outside the menu: as the feed's (F3.9).
-  const back = useBackCloses(menuOpen || report.draft !== null, () => {
-    if (report.draft?.sending === true) return false;
+  // F3.5, F3.6: the share-in-feed and share-link windows over the page. A share that went through is said here; a refusal of the caller
+  // closes the window onto a page alert.
+  const own = useOwnUserId();
+  const [pageAlert, setPageAlert] = useState('');
+  const shareFeed = useShareInFeed(
+    own.kind === 'known' ? own.userId : null,
+    () => setView((current) => (current.kind === 'loaded' ? { ...current, status: SHARED_STATUS } : current)),
+    () => setPageAlert(SHARE_FAILED_TEXT),
+  );
+  const shareLink = useShareLink();
+  // Back while the report or the share is in flight keeps the window (the hook adds its entry again). A press outside the menu: as the feed's (F3.9).
+  const sheetOpen = report.draft !== null || shareFeed.draft !== null || shareLink.sheet !== null;
+  const back = useBackCloses(menuOpen || sheetOpen, () => {
+    if (report.draft?.sending === true || shareFeed.draft?.sending === true) return false;
     setMenuOpen(false);
     report.cancel();
+    shareFeed.cancel();
+    shareLink.close();
     return true;
   });
   const pressedOutside = outsidePressHandler(back);
@@ -88,7 +107,9 @@ export function PostScreen({ postId }: { postId: string }) {
         if (afterRetry) focusOn('actions');
         return;
       }
-      setView(outcome.kind === 'unavailable' ? { kind: 'unavailable' } : { kind: 'load-failed', message: refused(outcome) ?? LOAD_FAILED_TEXT });
+      // F3.6 c10: a caller the server refuses (403 not_allowed: a Professional) sees the same "הפוסט אינו זמין" as a 404, nothing else.
+      const denied = outcome.kind === 'unavailable' || outcome.kind === 'not-allowed';
+      setView(denied ? { kind: 'unavailable' } : { kind: 'load-failed', message: refused(outcome) ?? LOAD_FAILED_TEXT });
       if (afterRetry) focusOn('message');
     },
     [token, refused, postId],
@@ -102,9 +123,11 @@ export function PostScreen({ postId }: { postId: string }) {
   }, [load]);
 
   function startEdit(current: Loaded) {
-    if (busy.current || current.post.body === null) return;
+    // A share is never edited (F3.5 c8): delete and share again.
+    const { post } = current;
+    if (busy.current || post.kind !== 'post' || post.body === null) return;
     validating.current = false;
-    const values: PostFormValues = { body: current.post.body, audience: current.post.audience, stageTag: current.post.stageTag ?? '' };
+    const values: PostFormValues = { body: post.body, audience: post.audience, stageTag: post.stageTag ?? '' };
     setView({ ...current, status: '', failure: null, edit: { values, errors: {}, saving: false, failure: null } });
     setFocus((latest) => ({ target: 'body', tick: latest.tick + 1 }));
   }
@@ -115,7 +138,8 @@ export function PostScreen({ postId }: { postId: string }) {
   }
 
   async function saveEdit(current: Loaded, edit: PostEdit) {
-    if (busy.current) return;
+    const { post } = current;
+    if (busy.current || post.kind !== 'post') return;
     const checked = checkPostForm(edit.values, anonymousMode(current));
     if (!checked.ok) {
       validating.current = true;
@@ -130,7 +154,7 @@ export function PostScreen({ postId }: { postId: string }) {
       const outcome = accessToken === null ? ({ kind: 'failed' } as const) : await editPost(accessToken, postId, checked.value);
       if (outcome.kind === 'post') {
         // The editor is the author: the stored post answers without `isMine` or the counts, which stay as read.
-        setView({ ...current, post: { ...current.post, ...outcome.post, isMine: true }, status: UPDATED_STATUS, failure: null, edit: null, confirm: null });
+        setView({ ...current, post: { ...post, ...outcome.post, isMine: true }, status: UPDATED_STATUS, failure: null, edit: null, confirm: null });
         focusOn('actions');
         return;
       }
@@ -213,6 +237,9 @@ export function PostScreen({ postId }: { postId: string }) {
     loaded === null || loaded.post.isMine || loaded.edit !== null
       ? []
       : [{ key: 'report', label: REPORT_POST_ITEM, onSelect: () => report.start({ kind: 'post', id: postId }) }];
+  // F3.5 c9, F3.6 c3: the share actions exist only for what can be shared or linked (a share: its original). Never disabled.
+  const target = loaded === null || loaded.edit !== null ? null : shareTargetOf(loaded.post);
+  const link = loaded === null || loaded.edit !== null ? null : postLinkOf(shareLink.origin, loaded.post);
   return (
     <PostContent
       view={view}
@@ -225,6 +252,32 @@ export function PostScreen({ postId }: { postId: string }) {
       onMenuOpenChange={setMenuOpen}
       onMenuPressOutside={pressedOutside}
       report={report.draft === null ? null : reportSheetProps(report, report.draft, PATHS.communityRules)}
+      onShareInFeed={
+        target === null || loaded === null
+          ? undefined
+          : () => {
+              setPageAlert('');
+              shareFeed.start(loaded.post);
+            }
+      }
+      onShareLink={link === null || loaded === null ? undefined : () => shareLink.openPost(link, loaded.post.id)}
+      shareFeed={
+        shareFeed.draft === null
+          ? null
+          : {
+              ...shareFeedSheetValues(shareFeed.draft),
+              onTextChange: shareFeed.changeText,
+              onAudienceChange: shareFeed.changeAudience,
+              onSend: shareFeed.send,
+              onCancel: shareFeed.cancel,
+            }
+      }
+      shareLink={
+        shareLink.sheet === null
+          ? null
+          : shareLinkSheetProps(shareLink, shareLink.sheet, SHARE_LINK_LABEL)
+      }
+      pageAlert={pageAlert}
     />
   );
 }

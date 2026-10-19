@@ -33,7 +33,7 @@ export function useGoogleSignIn(): GoogleButtonState {
     running.current = true;
     setBusy(true);
     setFailed(false);
-    // F2.4c2 c27: a Guest who came for a profile link keeps it across the round trip to Google.
+    // F2.4c2 c27, F3.6 c8: a Guest who came for a profile or post link keeps it across the round trip to Google.
     // Every start replaces the note: a stale one never outlives a start without a link.
     if (returnTarget !== null) rememberReturnTarget(storage, returnTarget, Date.now());
     else forgetReturnTarget(storage);
