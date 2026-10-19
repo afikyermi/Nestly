@@ -356,7 +356,8 @@ describe('[F3.3-b2 c11] displayed counts', () => {
     await seedLike(F, 'post', share);
     const body = await feedBody(app, X);
     expect([unit(body, share).likeCount, unit(body, share).commentCount]).toEqual([2, 1]);
-    expect([unit(body, original).likeCount, unit(body, original).commentCount]).toEqual([1, 2]);
+    const orig = await postView(app, X, original); // the feed shows an original under its share, so read it on its own page
+    expect([orig.likeCount, orig.commentCount]).toEqual([1, 2]);
   });
 
   it('[F3.3-b2 c11] commentCount = comments + replies of visible parents: a held parent hides its replies (even the viewer\'s own) and a suspended commenter is absent; card count = rendered items', T, async () => {

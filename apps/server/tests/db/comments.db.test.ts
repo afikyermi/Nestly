@@ -153,7 +153,7 @@ describe('[F3.3-b1 c2 c3] POST /posts/:id/comments', () => {
     expect(res.statusCode, res.body).toBe(201);
     const { comment } = toRecord(JSON.parse(res.body));
     const c = toRecord(comment);
-    expect(Object.keys(c).sort()).toEqual(['author', 'body', 'byAuthor', 'createdAt', 'id', 'isMine', 'parentId']);
+    expect(Object.keys(c).sort()).toEqual(['author', 'body', 'byAuthor', 'createdAt', 'id', 'isMine', 'likeCount', 'likedByMe', 'parentId']);
     expect(c).toMatchObject({ parentId: null, body: 'תודה על השיתוף 💛', isMine: true, byAuthor: false, author: { name: 'Cora Commenter' } });
     expect(Number.isNaN(Date.parse(String(c.createdAt)))).toBe(false);
     expectNoForbiddenKeys(res.body);
