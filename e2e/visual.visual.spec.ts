@@ -4,6 +4,7 @@ import { APP, MENU_BUTTON, open } from './app-helpers';
 import { DESKTOP, MOBILE, openStory } from './helpers';
 import { SCREENS } from './visual-screens';
 import type { Screen } from './visual-screens';
+import { STORYBOOK_PORT } from '../playwright.ports';
 
 // Visual regression (Afik's test rules, 14.10.2026): every listed screen, at phone (375) and desktop (1024), compared with a
 // committed baseline. Noise is stabilised, never switched off: fonts are awaited, animations and the caret are disabled by
@@ -36,7 +37,7 @@ test('visual: screen names are unique and safe as file names', () => {
 
 test('visual: a story screen opens in Storybook', async ({ page }) => {
   await show(page, { kind: 'story', id: 'ui-button--primary', name: 'probe' });
-  expect(page.url().startsWith('http://127.0.0.1:6007')).toBe(true);
+  expect(page.url().startsWith(`http://127.0.0.1:${STORYBOOK_PORT}`)).toBe(true);
   await expect(page.locator('body.sb-show-main')).toBeAttached();
 });
 
