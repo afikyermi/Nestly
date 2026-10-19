@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-import { APP_PORT, STORYBOOK_PORT } from './playwright.ports';
+import { APP_PORT, STORYBOOK_PORT } from './playwright.ports.ts';
 
 // Playwright runs against the built Storybook, served as static files (UI wave 1).
 // Browsers per SRS NFR-QA-001: Chrome and Edge. Pull requests run Chrome only; Edge runs after a merge to main and on
