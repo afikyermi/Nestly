@@ -110,7 +110,7 @@ export async function setupPosts(page: Page, start: { posts?: StoredPost[]; prof
     }
     net.deletes.push(id);
     if (net.remove === 'abort') return route.abort('connectionreset');
-    if (net.remove !== 204) return json(route, net.remove, { error: 'server_error' });
+    if (net.remove !== 204) return json(route, net.remove, { error: net.remove === 404 ? 'not_found' : 'server_error' });
     net.posts = net.posts.filter((p) => p.id !== id);
     return route.fulfill({ status: 204, headers: CORS });
   });

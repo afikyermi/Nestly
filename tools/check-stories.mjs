@@ -39,6 +39,7 @@ export const STATES = {
   "shared/side-drawer": 2, // closed, open
   "shared/confirm-dialog": 4, // open, title only, pending, failed
   "shared/like-button": 4, // no likes, with count, liked, interactive
+  "ui/more-actions-menu": 4, // closed, open, own card, item pending
   "layout/app-shell": 2, // with content, short content
 };
 

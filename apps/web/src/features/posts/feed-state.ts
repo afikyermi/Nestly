@@ -7,6 +7,14 @@ import { loadedMoreText } from './feed-texts';
  */
 export type FeedPhase = 'initial' | 'ready' | 'first-error' | 'more-error' | 'blocked';
 
+/**
+ * Where focus goes after a hide or an undo (F3.9 screen.md), once per `seq`: the placeholder's undo button, the card's "more" button, or the
+ * card now at `index` (after one was removed; none left: the heading).
+ */
+export type HideFocus =
+  | { readonly target: 'undo' | 'more'; readonly unitId: string; readonly seq: number }
+  | { readonly target: 'index'; readonly index: number; readonly seq: number };
+
 export interface FeedState {
   phase: FeedPhase;
   /** A request is in flight. */
@@ -23,6 +31,15 @@ export interface FeedState {
   focusIndex: number | null;
   /** What the polite region says about a like (its failure); empty otherwise. */
   likeStatus: string;
+  /** Units the viewer hid on this screen: each shows the placeholder with undo, in place, while the screen stays mounted (F3.9 c9). */
+  hiddenIds: readonly string[];
+  /** Units with a hide or an undo in flight: one request at a time per unit (c9). */
+  pendingHideIds: readonly string[];
+  /** What the polite region says about a hide or an undo; empty otherwise. */
+  hideStatus: string;
+  /** Counts the hide statuses, so two equal texts in a row are still spoken. */
+  hideStatusTick: number;
+  hideFocus: HideFocus | null;
 }
 
 export const INITIAL_FEED: FeedState = {
@@ -35,6 +52,11 @@ export const INITIAL_FEED: FeedState = {
   announcementTick: 0,
   focusIndex: null,
   likeStatus: '',
+  hiddenIds: [],
+  pendingHideIds: [],
+  hideStatus: '',
+  hideStatusTick: 0,
+  hideFocus: null,
 };
 
 /** The units of `page` not shown yet (by unit id), each once. */
@@ -64,6 +86,9 @@ export function withPage(state: FeedState, page: FeedPageResponse, firstPage: bo
     announcementTick: announced ? state.announcementTick + 1 : state.announcementTick,
     focusIndex: afterRetry && added.length > 0 ? kept.length : null,
     likeStatus: '',
+    hideStatus: '',
+    // A new snapshot drops the placeholders with the cards they stood for.
+    ...(replace ? { hiddenIds: [], hideFocus: null } : {}),
   };
 }
 
@@ -72,4 +97,38 @@ export function withLike(items: readonly FeedUnit[], id: string, liked: boolean)
   return items.map((unit) =>
     unit.id !== id || unit.likedByMe === liked ? unit : { ...unit, likedByMe: liked, likeCount: Math.max(0, unit.likeCount + (liked ? 1 : -1)) },
   );
+}
+
+/** The units to keep for Back (F3.2 c20): a unit hidden on this screen is not restored, and neither is its placeholder (F3.9 c10). */
+export function withoutHidden(items: readonly FeedUnit[], hiddenIds: readonly string[]): FeedUnit[] {
+  return hiddenIds.length === 0 ? [...items] : items.filter((unit) => !hiddenIds.includes(unit.id));
+}
+
+/** What a finished hide or undo leaves (F3.9 c9, c11): the unit no longer pending, and the status and focus the screen contract names. */
+export type HideResult =
+  | { kind: 'hidden'; status: string }
+  | { kind: 'unhidden'; status: string }
+  | { kind: 'removed'; status: string }
+  | { kind: 'hide-failed'; status: string }
+  | { kind: 'undo-failed'; status: string };
+
+export function withHideResult(state: FeedState, unitId: string, result: HideResult): FeedState {
+  const seq = (state.hideFocus?.seq ?? 0) + 1;
+  const pendingHideIds = state.pendingHideIds.filter((id) => id !== unitId);
+  const base = { ...state, pendingHideIds, likeStatus: '', hideStatus: result.status, hideStatusTick: state.hideStatusTick + 1 };
+  switch (result.kind) {
+    case 'hidden':
+      return { ...base, hiddenIds: [...state.hiddenIds.filter((id) => id !== unitId), unitId], hideFocus: { target: 'undo', unitId, seq } };
+    case 'unhidden':
+      return { ...base, hiddenIds: state.hiddenIds.filter((id) => id !== unitId), hideFocus: { target: 'more', unitId, seq } };
+    case 'removed': {
+      const index = state.items.findIndex((unit) => unit.id === unitId);
+      if (index < 0) return base;
+      return { ...base, items: state.items.filter((unit) => unit.id !== unitId), hiddenIds: state.hiddenIds.filter((id) => id !== unitId), hideFocus: { target: 'index', index, seq } };
+    }
+    case 'hide-failed':
+      return { ...base, hideFocus: { target: 'more', unitId, seq } };
+    case 'undo-failed':
+      return { ...base, hideFocus: { target: 'undo', unitId, seq } };
+  }
 }

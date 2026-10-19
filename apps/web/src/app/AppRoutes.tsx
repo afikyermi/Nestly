@@ -6,6 +6,7 @@ import { FriendsPage } from '@/pages/friends/FriendsPage';
 import { GoogleReturnPage } from '@/pages/google-return/GoogleReturnPage';
 import { GuestPlaceholderPage } from '@/pages/placeholder/GuestPlaceholderPage';
 import { LoginPage } from '@/pages/login/LoginPage';
+import { MedicalHotlinesPage } from '@/pages/medical-hotlines/MedicalHotlinesPage';
 import { ProtectedPlaceholderPage } from '@/pages/placeholder/ProtectedPlaceholderPage';
 import { PostPage } from '@/pages/post/PostPage';
 import { ProfilePage } from '@/pages/profile/ProfilePage';
@@ -47,6 +48,7 @@ export function AppRoutes() {
             <Route path={PATHS.userProfile} element={<UserProfilePage />} />
             <Route path={PATHS.recoveryQuestions} element={<RecoveryQuestionsPage />} />
             <Route path={PATHS.changePassword} element={<ChangePasswordPage />} />
+            <Route path={PATHS.medicalHotlines} element={<MedicalHotlinesPage />} />
             <Route path={PATHS.setNewPassword} element={<SetNewPasswordPage />} />
           </Route>
         </Routes>

@@ -48,9 +48,11 @@ const holdNext = (net: FeedNet): (() => void) => {
 /** Two pages: 1..12 then `second` after cursor "c+1/=" (an opaque value that needs URL-encoding); later pages are empty. */
 const twoPages = (second: ReturnType<typeof range>, extra = {}): FeedNet['answer'] => (cursor) =>
   cursor === null ? pageOf(range(1, 12), 'c+1/=') : pageOf(second, null, extra);
+const more = (card: Locator) => card.getByRole('button', { name: 'פעולות נוספות לפוסט', exact: true });
 const timeLink = (card: Locator) => card.locator('a:has(time)');
 /** Any button that is not a card's like or the "חזרה למעלה" (taller cards now reach its threshold): a "more" control would be one (F3.2b c18: none). */
-const moreButtons = (page: Page) => main(page).getByRole('button').filter({ hasNotText: /^(לייק|חזרה למעלה)/ });
+// F3.9 c8 amendment: every card now also has its "⋯" menu button ("פעולות נוספות לפוסט"); it is not a "load more" control, so it is excluded by name.
+const moreButtons = (page: Page) => main(page).getByRole('button', { name: /^(?!לייק|חזרה למעלה|פעולות נוספות לפוסט)/ });
 const hasLinkTo = (card: Locator, href: string) => expect(timeLink(card)).toHaveAttribute('href', href);
 
 test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
@@ -82,14 +84,14 @@ test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
     await expect(main(page).getByRole('alert')).toHaveCount(0);
     expect(net.cursors.length, 'at most the request made while the profile check was pending (screen decision 5)').toBeLessThanOrEqual(1);
   });
-  test('[c13][c14] keyboard: after "כתיבת פוסט" the Tab order is, per card in server order, "לייק", then "תגובות", then its time link (screen.md); the focus is visible', async ({ page }) => {
+  test('[c13][c14] keyboard: after "כתיבת פוסט" the Tab order is, per card in server order, "לייק", then "תגובות", then its time link, then its "⋯" menu button (screen.md; F3.9 c8 amends F3.2b); the focus is visible', async ({ page }) => {
     const net = await setupFeed(page, () => pageOf(range(1, 4), null));
     await open(page, net);
     await expect(cards(page)).toHaveCount(4);
     await page.getByRole('link', { name: 'כתיבת פוסט', exact: true }).focus();
     // A card may take a stop of its own (APG feed: tabindex 0): such stops (the article itself) are dropped.
     const stops: string[] = [];
-    for (let i = 0; i < 30 && stops.length < 12; i += 1) {
+    for (let i = 0; i < 40 && stops.length < 16; i += 1) {
       await page.keyboard.press('Tab');
       const at = await page.locator('*:focus').evaluate((e) => {
         const st = getComputedStyle(e);
@@ -98,7 +100,7 @@ test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
       expect(at.ring, 'visible focus').toBe(true);
       if (at.tag !== 'ARTICLE') stops.push(at.href ?? at.tag);
     }
-    expect(stops).toEqual([1, 2, 3, 4].flatMap((n) => ['BUTTON', `/posts/${id(n)}#comments`, `/posts/${id(n)}`]));
+    expect(stops).toEqual([1, 2, 3, 4].flatMap((n) => ['BUTTON', `/posts/${id(n)}#comments`, `/posts/${id(n)}`, 'BUTTON'])); // F3.9 c8: the "⋯" button is last
   });
 });
 
@@ -120,7 +122,7 @@ test.describe('F3.2b c14 c15 c17 [FR-FEED-001 BR-065] the card', () => {
         const c = cards(page).nth(i);
         await expect(c).toHaveAttribute('aria-posinset', String(i + 1));
         await expect(c).toHaveAttribute('aria-setsize', '-1');
-        await expect(c.getByRole('button')).toHaveCount(1); // F3.3 c13: the like is the card's only button
+        await expect(c.getByRole('button')).toHaveCount(2); // F3.3 c13 + F3.9 c8: the like and the "⋯" menu button
         await expect(c.getByRole('link')).toHaveCount(2); // the time link and "תגובות"
         await expect(timeLink(c)).toHaveAttribute('href', `/posts/${id(i + 1)}`);
         await expect(c.locator('img, [role="img"]')).toHaveCount(0);
@@ -158,12 +160,12 @@ test.describe('F3.2b c14 c15 c17 [FR-FEED-001 BR-065] the card', () => {
       await expect(quote.locator('img')).toHaveCount(0);
       const sharer = a.getByText('מה שהוספתי 1', { exact: true });
       expect(await sharer.evaluate((s, q) => Boolean(s.compareDocumentPosition(q) & Node.DOCUMENT_POSITION_FOLLOWING), await quote.elementHandle())).toBe(true);
-      await expect(a.getByRole('button')).toHaveCount(1); // the like only
+      await expect(a.getByRole('button')).toHaveCount(2); // the like and the "⋯" menu button (F3.9 c8)
       const gone = cards(page).nth(1);
       await expect(gone).toContainText('הפוסט המקורי כבר לא זמין');
       await expect(gone.locator('blockquote')).toHaveCount(0);
       await expect(gone).toContainText('מה שהוספתי 2');
-      await expect(gone.getByRole('button')).toHaveCount(1); // a gone original does not take the share's own like away
+      await expect(gone.getByRole('button')).toHaveCount(2); // a gone original does not take the share's own like away (the like and the "⋯" menu button, F3.9 c8)
       await scan(page);
     });
   }
@@ -235,7 +237,7 @@ test.describe('F3.2b c18 [FR-FEED-004] infinite scroll', () => {
     release();
     await expect(cards(page)).toHaveCount(16);
     await expect(keep).toBeFocused();
-    await timeLink(cards(page).nth(11)).focus();
+    await more(cards(page).nth(11)).focus(); // F3.9 c8: the "⋯" button is the last stop of a card
     // The next stop is the new card 13 itself or its link (a card may take a stop of its own).
     await page.keyboard.press('Tab');
     await expect(page.locator('article:has(*:focus), article:focus')).toContainText('גוף הפוסט 13');

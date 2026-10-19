@@ -28,6 +28,8 @@ export const PATHS = {
   setNewPassword: '/set-new-password',
   /** F2.0 c15: change the password with the two recovery answers, from the menu. */
   changePassword: '/change-password',
+  /** F3.8: the medical hotlines page (PG-047, FR-MENU-002), from the side menu; BR-075 rule 2 links here (PG-049, its own part). */
+  medicalHotlines: '/medical-hotlines',
 } as const;
 
 /** The only paths a Guest may open. */
@@ -51,6 +53,7 @@ export const PROTECTED_PATHS: readonly string[] = [
   PATHS.newPost,
   PATHS.recoveryQuestions,
   PATHS.changePassword,
+  PATHS.medicalHotlines,
 ];
 
 /** Where a Guest goes from a protected path (ERR-012, Q3): Welcome. The requested path is not kept. */

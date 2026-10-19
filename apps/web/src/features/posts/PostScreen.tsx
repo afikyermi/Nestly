@@ -5,7 +5,7 @@ import { useSessionAccount } from '@/hooks/use-session-account';
 import { postPath } from '@/lib/post-link';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
 import { deletePost, editPost, fetchPost, type PostsOutcome } from '@/services/api/posts';
-import { handOverStatus, takeStatus } from './flash-status';
+import { handOverStatus, takeEdit, takeStatus } from './flash-status';
 import { checkPostForm, type AnonymousMode, type PostFormValues } from './post-form';
 import { failureText, refusedErrors } from './post-outcome';
 import { CommentsSection } from './CommentsSection';
@@ -31,6 +31,9 @@ export function PostScreen({ postId }: { postId: string }) {
   const loads = useRef(0);
   // "הפוסט פורסם", handed over by the composer: said once, when the post first shows.
   const arrival = useRef(takeStatus(postPath(postId), PUBLISHED_STATUS));
+  // "עריכת הפוסט" from a feed card's menu (F3.9 c13): the post opens with its edit form, once.
+  const [editAsked] = useState(() => takeEdit(postPath(postId)));
+  const wantsEdit = useRef(editAsked);
 
   const focusOn = (target: PostFocus['target']) => setFocus((current) => ({ target, tick: current.tick + 1 }));
 
@@ -53,8 +56,14 @@ export function PostScreen({ postId }: { postId: string }) {
       const outcome = accessToken === null ? ({ kind: 'failed' } as const) : await fetchPost(accessToken, postId);
       if (run !== loads.current) return;
       if (outcome.kind === 'post') {
-        setView({ kind: 'loaded', post: outcome.post, status: arrival.current, failure: null, edit: null, confirm: null });
+        const loaded: Loaded = { kind: 'loaded', post: outcome.post, status: arrival.current, failure: null, edit: null, confirm: null };
+        setView(loaded);
         arrival.current = '';
+        if (wantsEdit.current) {
+          wantsEdit.current = false;
+          if (outcome.post.isMine) startEdit(loaded);
+          return;
+        }
         if (afterRetry) focusOn('actions');
         return;
       }

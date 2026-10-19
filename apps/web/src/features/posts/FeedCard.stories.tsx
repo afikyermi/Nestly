@@ -3,13 +3,14 @@ import { MemoryRouter } from 'react-router';
 import type { FeedUnit } from '@nestly/shared';
 import { FeedCard } from './FeedCard';
 
-// A feed card (F3.2b, F3.3 c13) in each of its kinds, with its action row (like, comments link), drawn from props alone. The links need a router.
+// A feed card (F3.2b, F3.3 c13) in each of its kinds, with its action row (like, comments link) and
+// the "more actions" button on every card (F3.9 c8), drawn from props alone. The links need a router.
 function Screen(props: Parameters<typeof FeedCard>[0]) {
   return (
     <MemoryRouter>
       <main className="px-4 py-5">
         <div role="feed" aria-label="פוסטים בפיד">
-          <FeedCard onToggleLike={() => undefined} {...props} />
+          <FeedCard onToggleLike={() => undefined} actions={[{ key: 'hide', label: 'הסתרת הפוסט', onSelect: () => undefined }]} {...props} />
         </div>
       </main>
     </MemoryRouter>
@@ -68,3 +69,15 @@ const share: FeedUnit = {
 export const Share: Story = { args: { unit: share, position: 1 } };
 
 export const ShareOriginalUnavailable: Story = { args: { unit: { ...share, original: { available: false } }, position: 1 } };
+
+// The viewer's own named card: its menu holds edit and delete (F3.9 c13).
+export const OwnNamed: Story = {
+  args: {
+    unit: { ...named, isMine: true },
+    position: 1,
+    actions: [
+      { key: 'edit', label: 'עריכת הפוסט', onSelect: () => undefined },
+      { key: 'delete', label: 'מחיקת הפוסט', onSelect: () => undefined },
+    ],
+  },
+};
