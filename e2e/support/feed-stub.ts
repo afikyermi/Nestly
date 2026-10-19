@@ -66,6 +66,12 @@ export interface FeedNet extends PostsNet {
   armed: boolean;
   /** The user id the next sign-in or refresh puts in the access token's `sub` (the web names the remembered feed's owner by it). */
   sub: string;
+  /** "METHOD /api/(posts|comments)/:id/like" of every like call, in order. */
+  likeCalls: string[];
+  /** What a like call answers: 204, a failure status or a dropped connection. */
+  likeAnswer: number | 'abort';
+  /** While set, every like call waits for it. */
+  holdLike: Promise<void> | null;
 }
 
 export const USER_A = 'f0000000-0000-4000-8000-0000000000a1';
@@ -78,7 +84,9 @@ export function tokenFor(sub: string): string {
 
 export async function setupFeed(page: Page, answer: FeedNet['answer'], start: { professional?: boolean; posts?: StoredPost[] } = {}): Promise<FeedNet> {
   const posts = await setupPosts(page, { professional: start.professional === true, ...(start.posts === undefined ? {} : { posts: start.posts }) });
-  const extra: Pick<FeedNet, 'cursors' | 'methods' | 'apiPaths' | 'answer' | 'hold' | 'armed' | 'sub'> = { cursors: [], methods: [], apiPaths: [], answer, hold: null, armed: false, sub: USER_A };
+  const extra: Pick<FeedNet, 'cursors' | 'methods' | 'apiPaths' | 'answer' | 'hold' | 'armed' | 'sub' | 'likeCalls' | 'likeAnswer' | 'holdLike'> = {
+    cursors: [], methods: [], apiPaths: [], answer, hold: null, armed: false, sub: USER_A, likeCalls: [], likeAnswer: 204, holdLike: null,
+  };
   const net: FeedNet = Object.assign(posts, extra);
   page.on('request', (req) => {
     const url = new URL(req.url());
@@ -103,6 +111,20 @@ export async function setupFeed(page: Page, answer: FeedNet['answer'], start: { 
     if (out === 'abort') return route.abort('connectionreset');
     if (typeof out === 'number') return json(route, out, { error: out === 403 ? 'not_allowed' : 'internal' });
     return json(route, 200, out);
+  });
+  // F3.3 w2: PUT|DELETE /api/(posts|comments)/:id/like (204 by default) and the post page's thread (empty), so a card's link can be followed.
+  await page.route(/\/api\/(posts|comments)\/[^/?]+\/like$/, async (route) => {
+    const req = route.request();
+    if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+    net.likeCalls.push(`${req.method()} ${new URL(req.url()).pathname}`);
+    if (net.holdLike !== null) await net.holdLike;
+    if (net.likeAnswer === 'abort') return route.abort('connectionreset');
+    if (net.likeAnswer !== 204) return json(route, net.likeAnswer, { error: 'internal' });
+    return route.fulfill({ status: 204, headers: CORS });
+  });
+  await page.route(/\/api\/posts\/[^/?]+\/comments(\?.*)?$/, async (route) => {
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+    return json(route, 200, { items: [], nextCursor: null });
   });
   return net;
 }

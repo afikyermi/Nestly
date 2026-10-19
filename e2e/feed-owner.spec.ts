@@ -30,7 +30,7 @@ async function startOnPost(page: Page, net: FeedNet): Promise<void> {
   net.armed = true;
   await page.goto('/feed');
   await expect(cards(page)).toHaveCount(12);
-  await cards(page).nth(2).getByRole('link').click();
+  await cards(page).nth(2).locator('a:has(time)').click();
   await expect.poll(() => pathOf(page)).toBe(`/posts/${id(3)}`);
 }
 

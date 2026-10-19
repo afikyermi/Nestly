@@ -1,0 +1,25 @@
+# I3 rest — Gate 1 (ORCHESTRATOR, 19.10.2026)
+
+Approved against the SRS, with the decisions below (unreserved unless marked). Specs: `.work/anonymous-post/`,
+`.work/share-in-feed/`, `.work/share-link/`, `.work/report/`, `.work/medical-hotlines/`, `.work/hide-post/`.
+
+**PRs (cadence #88):** one schema PR (all Schema needs) → F3.4 → F3.8+F3.9 (one PR, Elevated) → F3.7 → F3.5 → F3.6.
+Reason: F3.9 builds the card menu F3.7 reuses; F3.7 builds PG-049, whose rule 2 links F3.8; F3.6 depends on F3.5.
+
+1. F3.4 Q (real author in I3): confirmed — no Admin read path before I4; only the author reads it; I4 adds the audited read.
+2. F3.4 DR (reserved, privacy terms): composer notice that staff can see the author → WORKPLAN "ממתין לך"; build uses ⭐ text.
+3. F3.7 Q2: PG-049 community rules built in F3.7, signed-in only. Q1 1,000 code points, Q3, Q4: defaults accepted.
+4. F3.5/F3.6: two PRs (24 criteria > 20). Restricted does not block sharing (Afik 18.10). Own-post share refused (FR-FEED-006).
+   Defaults accepted; F3.6 E2 real WhatsApp preview verifiable only on production → WORKPLAN device check, not blocking.
+5. F3.9: hide stored on the server (FR-ALG-009 "העדפה נשמרת", 8א); AC-064 ranking effect stays I15. Q1–Q3 defaults.
+6. One card options menu: F3.7 names ("פעולות נוספות לפוסט" / "פעולות נוספות"); F3.9 builds it, F3.7 adds "דיווח".
+7. F3.8 DR-1: an HMO without a listed nurse line → its published 24/7 medical/call-centre number, labelled, source URL + date.
+8. SRS deltas for I3 close (/srs-update): Q7 names, audience_not_allowed, report text/repeat rules, stale TBD Report
+   Escalation row, BR-064/AC-080 Restricted, AC range 079–083, FR-ALG-009/AC-064/UC-40 vs 8א, post_hides in §13.
+
+## Gate 2 (ORCHESTRATOR, 19.10) — `.work/i3-rest-schema/schema.md` approved
+- PR-A (migration, P6) as designed; SQLSTATEs 42501/NS002–NS005/23514 bind the specs' error mappings.
+- D1 → option 1 (skip blocked by the permission classifier → Afik, WORKPLAN 14; N1 split into PR-A2, rest of PR-A proceeds): F3.3w2's PR skips the two `[F3.3-b1 c7]` null-name assertions (reason: Afik Q7 B, restored by PR-A); PR-A merges after it.
+- PR-B (pg_cron bootstrap, prod run by Afik) is decoupled from F3.7: earliest held-content release is 16.01.2027 (90 days
+  from F3.0b), so F3.7 does not wait. PR-B builds after I3's features; Afik's prod run → WORKPLAN; deadline in security-privacy-open.
+  E1 fallback order as schema.md (A2 approved by DATA ARCHITECT; C is Afik's).

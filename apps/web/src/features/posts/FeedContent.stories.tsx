@@ -10,7 +10,7 @@ function Screen(props: Parameters<typeof FeedContent>[0]) {
   return (
     <MemoryRouter>
       <main className="px-4 py-5">
-        <FeedContent {...props} />
+        <FeedContent onToggleLike={() => undefined} {...props} />
       </main>
     </MemoryRouter>
   );

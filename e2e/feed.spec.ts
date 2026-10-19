@@ -48,7 +48,10 @@ const holdNext = (net: FeedNet): (() => void) => {
 /** Two pages: 1..12 then `second` after cursor "c+1/=" (an opaque value that needs URL-encoding); later pages are empty. */
 const twoPages = (second: ReturnType<typeof range>, extra = {}): FeedNet['answer'] => (cursor) =>
   cursor === null ? pageOf(range(1, 12), 'c+1/=') : pageOf(second, null, extra);
-const hasLinkTo = (card: Locator, href: string) => expect(card.getByRole('link')).toHaveAttribute('href', href);
+const timeLink = (card: Locator) => card.locator('a:has(time)');
+/** Any button that is not a card's like or the "חזרה למעלה" (taller cards now reach its threshold): a "more" control would be one (F3.2b c18: none). */
+const moreButtons = (page: Page) => main(page).getByRole('button').filter({ hasNotText: /^(לייק|חזרה למעלה)/ });
+const hasLinkTo = (card: Locator, href: string) => expect(timeLink(card)).toHaveAttribute('href', href);
 
 test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
   for (const { label, viewport } of SIZES) {
@@ -79,23 +82,23 @@ test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
     await expect(main(page).getByRole('alert')).toHaveCount(0);
     expect(net.cursors.length, 'at most the request made while the profile check was pending (screen decision 5)').toBeLessThanOrEqual(1);
   });
-  test('[c13][c14] keyboard: after "כתיבת פוסט" the Tab order is each card\'s time link, in server order; the focus is visible', async ({ page }) => {
+  test('[c13][c14] keyboard: after "כתיבת פוסט" the Tab order is, per card in server order, "לייק", then "תגובות", then its time link (screen.md); the focus is visible', async ({ page }) => {
     const net = await setupFeed(page, () => pageOf(range(1, 4), null));
     await open(page, net);
     await expect(cards(page)).toHaveCount(4);
     await page.getByRole('link', { name: 'כתיבת פוסט', exact: true }).focus();
-    // A card may take a stop of its own (APG feed: tabindex 0) before its link: collect every stop up to the last link.
-    const hrefs: Array<string | null> = [];
-    for (let i = 0; i < 12 && hrefs.filter((h) => h !== null).length < 4; i += 1) {
+    // A card may take a stop of its own (APG feed: tabindex 0): such stops (the article itself) are dropped.
+    const stops: string[] = [];
+    for (let i = 0; i < 30 && stops.length < 12; i += 1) {
       await page.keyboard.press('Tab');
-      const ring = await page.locator('*:focus').evaluate((e) => {
+      const at = await page.locator('*:focus').evaluate((e) => {
         const st = getComputedStyle(e);
-        return { href: e.getAttribute('href'), ring: st.outlineStyle !== 'none' && st.outlineWidth !== '0px' };
+        return { tag: e.tagName, href: e.getAttribute('href'), ring: st.outlineStyle !== 'none' && st.outlineWidth !== '0px' };
       });
-      expect(ring.ring, 'visible focus').toBe(true);
-      hrefs.push(ring.href);
+      expect(at.ring, 'visible focus').toBe(true);
+      if (at.tag !== 'ARTICLE') stops.push(at.href ?? at.tag);
     }
-    expect(hrefs.filter((h) => h !== null)).toEqual([1, 2, 3, 4].map((n) => `/posts/${id(n)}`));
+    expect(stops).toEqual([1, 2, 3, 4].flatMap((n) => ['BUTTON', `/posts/${id(n)}#comments`, `/posts/${id(n)}`]));
   });
 });
 
@@ -117,16 +120,16 @@ test.describe('F3.2b c14 c15 c17 [FR-FEED-001 BR-065] the card', () => {
         const c = cards(page).nth(i);
         await expect(c).toHaveAttribute('aria-posinset', String(i + 1));
         await expect(c).toHaveAttribute('aria-setsize', '-1');
-        await expect(c.getByRole('button')).toHaveCount(0);
-        await expect(c.getByRole('link')).toHaveCount(1);
-        await expect(c.getByRole('link')).toHaveAttribute('href', `/posts/${id(i + 1)}`);
+        await expect(c.getByRole('button')).toHaveCount(1); // F3.3 c13: the like is the card's only button
+        await expect(c.getByRole('link')).toHaveCount(2); // the time link and "תגובות"
+        await expect(timeLink(c)).toHaveAttribute('href', `/posts/${id(i + 1)}`);
         await expect(c.locator('img, [role="img"]')).toHaveCount(0);
         await expect(c.locator('time')).toHaveCount(1);
       }
       const first = cards(page).first();
       await expect(page.getByRole('article', { name: 'דנה כהן', exact: true })).toHaveCount(1);
       await expect(first.locator('time')).toHaveAttribute('datetime', '2026-06-14T09:30:00.000Z');
-      await expect(first.getByRole('link').locator('time')).toHaveCount(1);
+      await expect(timeLink(first).locator('time')).toHaveCount(1);
       await expect(first).toContainText('חברים בלבד');
       await expect(first).toContainText('בהריון');
       const text = first.locator('[dir="auto"]');
@@ -155,12 +158,12 @@ test.describe('F3.2b c14 c15 c17 [FR-FEED-001 BR-065] the card', () => {
       await expect(quote.locator('img')).toHaveCount(0);
       const sharer = a.getByText('מה שהוספתי 1', { exact: true });
       expect(await sharer.evaluate((s, q) => Boolean(s.compareDocumentPosition(q) & Node.DOCUMENT_POSITION_FOLLOWING), await quote.elementHandle())).toBe(true);
-      await expect(a.getByRole('button')).toHaveCount(0);
+      await expect(a.getByRole('button')).toHaveCount(1); // the like only
       const gone = cards(page).nth(1);
       await expect(gone).toContainText('הפוסט המקורי כבר לא זמין');
       await expect(gone.locator('blockquote')).toHaveCount(0);
       await expect(gone).toContainText('מה שהוספתי 2');
-      await expect(gone.getByRole('button')).toHaveCount(0);
+      await expect(gone.getByRole('button')).toHaveCount(1); // a gone original does not take the share's own like away
       await scan(page);
     });
   }
@@ -177,7 +180,7 @@ test.describe('F3.2b c16 [BR-062] the anonymous unit', () => {
       await expect(page.getByRole('article', { name: 'אנונימי', exact: true })).toHaveCount(1);
       const a = cards(page).nth(1);
       await expect(a).toContainText('גוף הפוסט 2');
-      await expect(a.getByRole('link')).toHaveCount(1);
+      await expect(a.getByRole('link')).toHaveCount(2); // time and "תגובות": no author link
       await expect(a.locator('img, [role="img"], svg:not([aria-hidden="true"])')).toHaveCount(0);
       await expect(a).not.toContainText('מהקהילה');
       await expect(a).not.toContainText('כותבת מספר 2');
@@ -203,7 +206,7 @@ test.describe('F3.2b c18 [FR-FEED-004] infinite scroll', () => {
       await open(page, net);
       await expect(cards(page)).toHaveCount(12);
       await expect(list(page)).not.toHaveAttribute('aria-busy', 'true');
-      await expect(main(page).getByRole('button')).toHaveCount(0);
+      await expect(moreButtons(page)).toHaveCount(0);
       await expect(main(page).locator('footer')).toHaveCount(0);
       const release = holdNext(net);
       await toEnd(page);
@@ -214,7 +217,7 @@ test.describe('F3.2b c18 [FR-FEED-004] infinite scroll', () => {
       await expect(loadedStatus(page)).toHaveText('נטענו 4 פוסטים נוספים');
       await expect(loadedStatus(page)).toHaveCount(1);
       expect(net.cursors).toEqual([null, 'c+1/=']);
-      await expect(main(page).getByRole('button')).toHaveCount(0);
+      await expect(moreButtons(page)).toHaveCount(0);
       await expect(main(page).locator('footer')).toHaveCount(0);
       await scan(page);
     });
@@ -223,7 +226,7 @@ test.describe('F3.2b c18 [FR-FEED-004] infinite scroll', () => {
     const net = await setupFeed(page, twoPages(range(13, 16)));
     await open(page, net);
     await expect(cards(page)).toHaveCount(12);
-    const keep = cards(page).nth(2).getByRole('link');
+    const keep = timeLink(cards(page).nth(2));
     await keep.focus();
     const release = holdNext(net);
     for (let i = 0; i < 5; i += 1) await toEnd(page);
@@ -232,7 +235,7 @@ test.describe('F3.2b c18 [FR-FEED-004] infinite scroll', () => {
     release();
     await expect(cards(page)).toHaveCount(16);
     await expect(keep).toBeFocused();
-    await cards(page).nth(11).getByRole('link').focus();
+    await timeLink(cards(page).nth(11)).focus();
     // The next stop is the new card 13 itself or its link (a card may take a stop of its own).
     await page.keyboard.press('Tab');
     await expect(page.locator('article:has(*:focus), article:focus')).toContainText('גוף הפוסט 13');
@@ -287,7 +290,7 @@ test.describe('F3.2b c19 [ERR-004 ERR-027] first load, empty, errors', () => {
       await open(page, net);
       await expect(main(page).getByText('עוד אין פוסטים בפיד', { exact: true })).toBeVisible();
       await expect(main(page).getByRole('link', { name: 'כתיבת פוסט', exact: true })).toHaveCount(1);
-      await expect(main(page).getByRole('button')).toHaveCount(0);
+      await expect(moreButtons(page)).toHaveCount(0);
       await expect(main(page).locator('svg[aria-hidden="true"]')).not.toHaveCount(0);
       await expect(cards(page)).toHaveCount(0);
       await scan(page);
@@ -339,7 +342,7 @@ test.describe('F3.2b c20 [FR-FEED-004] back, reload, to top', () => {
       await target.scrollIntoViewIfNeeded();
       const before = (await target.boundingBox())?.y ?? -1;
       await hasLinkTo(target, `/posts/${id(20)}`);
-      await target.getByRole('link').click();
+      await timeLink(target).click();
       await expect.poll(() => pathOf(page)).toBe(`/posts/${id(20)}`);
       await page.goBack();
       await expect.poll(() => pathOf(page)).toBe('/feed');

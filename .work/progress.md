@@ -26,6 +26,7 @@
 | 19.10 | F3.3b2 ✅ · F3.3w1 (בבנייה) | PR #86 מוזג (main b2cbdce) | w1: BUILDER ב-`.work/wt/w1` ∥ TEST ENGINEER בתיקייה הראשית (`work/comments-likes-w1-tests`) מ-screen.md → מיזוג → CRITIC → PR → w2 (שורת פעולות בכרטיס) | ממתין לך 7–11 | 80% |
 | 19.10 | F3.3w1 (מועמד) | תגובות ולייקים בעמוד הפוסט; CRITIC סבב 2 נקי; TE במקביל ל-BUILDER: כן | PR `ready/comments-likes-w1` → מיזוג → w2 (שורת פעולות בכרטיס בפיד) | ממתין לך 7–11 | 85% |
 | 19.10 | F3.3w1 ✅ · F3.3w2 (נעצר למסירה) | #87 (w1) ו-#88 (קצב PR, לא יושם) מוזגו · main ‏b4c9d1f | סשן חדש: F3.3w2, ראו "מסירה 19.10" למטה | סעיף 11 (Q8) | 85% |
+| 19.10 | F3.3w2 (מועמד) · Gate 1+2 יתרת I3 | w2: TE ירוק, CRITIC 3 low → debt. ‏Specs F3.4–F3.9 + Gate 1 ‏(`.work/_initiatives/I3-rest-gate1.md`), A&D, Gate 2 ‏(`.work/i3-rest-schema/schema.md`). משך: 08:46→ · TE 24 ד׳ · CRITIC 2 ד׳ · המתנת CI/E: ב-PR | PR `ready/comments-likes-w2` → מיזוג · ‏PR-A סכמה (BUILDER ב-`.work/wt/schema`) → migrate → F3.4 | 13 (נוסח אנונימי), ‏14 (skip ל-Q7) | 87% |
 
 ## מסירה 19.10 — לסשן הבא
 
