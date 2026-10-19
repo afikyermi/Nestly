@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { DropdownMenu } from 'radix-ui';
 import { MoreIcon } from './icons';
 import { Tooltip } from './tooltip';
@@ -51,9 +51,12 @@ export interface MoreActionsMenuProps {
 export function MoreActionsMenu({ label, menuLabel, items, defaultOpen = false, open, onOpenChange, onPressOutside }: MoreActionsMenuProps) {
   const menuNameId = useId();
   const buttonRef = useRef<HTMLButtonElement>(null);
+  // The tooltip that shows when focus returns to the button is drawn inside `main` (the portal's default, `body`, is outside every landmark: axe "region").
+  const [main, setMain] = useState<HTMLElement | null>(null);
+  useEffect(() => setMain(buttonRef.current?.closest<HTMLElement>('main') ?? null), []);
   return (
     <DropdownMenu.Root modal={false} defaultOpen={defaultOpen} {...(open === undefined ? {} : { open })} {...(onOpenChange === undefined ? {} : { onOpenChange })}>
-      <Tooltip label={label}>
+      <Tooltip label={label} container={main}>
         <DropdownMenu.Trigger asChild>
           <button
             ref={buttonRef}
