@@ -431,6 +431,8 @@ describe('[F3.4 c7 AC-075 FR-FEED-005 r.1 6א] the leak scan: nothing a reader g
     const theirs = await seedComment(C, anon, 'a reader speaks');
     const reply = await addComment(app, A.header, anon, { body: 'author reply', parentId: theirs });
     expect(reply.statusCode, reply.body).toBe(201);
+    await setAt(anon, ago(1)); // the 'top' feed page below shows posts created before its asOf
+    await setAt(named, ago(2));
     const authorCommentId = String(toRecord(toRecord(JSON.parse(own.body)).comment).id);
     expect((await putLike(app, V.header, 'post', anon)).statusCode).toBe(204);
     expect((await putLike(app, X.header, 'comment', authorCommentId)).statusCode).toBe(204);

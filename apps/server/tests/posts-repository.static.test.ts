@@ -98,7 +98,7 @@ describe('[F3.1-a c13] posts repository, static', () => {
     expect(holders).toHaveLength(1);
     const name = holders[0]?.[1] ?? '';
     expect(name).not.toBe('readPost');
-    const word = new RegExp(`\b${name}\b`);
+    const word = new RegExp(String.raw`\b${name}\b`);
     const importers: string[] = [];
     const walk = (relative: string): void => {
       for (const entry of readdirSync(new URL(`../src/${relative}`, import.meta.url), { withFileTypes: true })) {

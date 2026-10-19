@@ -139,6 +139,7 @@ const APPROVED_F31A: ColumnShape[] = [
   col('posts', 'author_id', 'uuid', false), col('posts', 'audience', 'text', true),
   col('posts', 'body', 'text', false), col('posts', 'stage_tag', 'text', false),
   col('posts', 'created_at', TZ, true),
+  col('posts', 'is_anonymous', 'boolean', true),
 ];
 const APPROVED_ALL: ColumnShape[] = [...APPROVED, ...APPROVED_F14, ...APPROVED_F16, ...APPROVED_F20, ...APPROVED_F24A, ...APPROVED_F24C1, ...APPROVED_F31A];
 const APPROVED_BEFORE_F16: ColumnShape[] = [...APPROVED, ...APPROVED_F14];
