@@ -3,13 +3,13 @@ import { MemoryRouter } from 'react-router';
 import type { FeedUnit } from '@nestly/shared';
 import { FeedCard } from './FeedCard';
 
-// A feed card (F3.2b) in each of its kinds, drawn from props alone. The link needs a router.
+// A feed card (F3.2b, F3.3 c13) in each of its kinds, with its action row (like, comments link), drawn from props alone. The links need a router.
 function Screen(props: Parameters<typeof FeedCard>[0]) {
   return (
     <MemoryRouter>
       <main className="px-4 py-5">
         <div role="feed" aria-label="פוסטים בפיד">
-          <FeedCard {...props} />
+          <FeedCard onToggleLike={() => undefined} {...props} />
         </div>
       </main>
     </MemoryRouter>
@@ -37,6 +37,8 @@ const named: FeedUnit = {
 };
 
 export const Named: Story = { args: { unit: named, position: 1 } };
+
+export const LikedWithCounts: Story = { args: { unit: { ...named, likedByMe: true, likeCount: 12, commentCount: 3 }, position: 1 } };
 
 export const WithTagAndFriendsOnly: Story = { args: { unit: { ...named, stageTag: 'pregnant', audience: 'friends' }, position: 2 } };
 

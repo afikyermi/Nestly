@@ -5,8 +5,10 @@ import { useSessionAccount } from '@/hooks/use-session-account';
 import { userIdOfAccessToken } from '@/lib/access-token';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
 import { fetchFeedPage } from '@/services/api/feed';
+import { setLike } from '@/services/api/likes';
+import { LIKE_FAILED_TEXT } from './comments-texts';
 import { forgetFeed, recallFeed, rememberFeed, type FeedScroll } from './feed-memory';
-import { INITIAL_FEED, withPage, type FeedState } from './feed-state';
+import { INITIAL_FEED, withLike, withPage, type FeedState } from './feed-state';
 
 export interface FeedFlow {
   state: FeedState;
@@ -14,6 +16,8 @@ export interface FeedFlow {
   loadMore: () => void;
   /** Send the failed request again: the first page, or the same cursor. */
   retry: () => void;
+  /** Toggle the viewer's like on a unit: the count moves at once, one request at a time per unit, reverted when it fails. */
+  toggleLike: (unitId: string) => void;
   /** The scroll to go back to when the list came from memory, else null. */
   restoredScroll: FeedScroll | null;
 }
@@ -28,6 +32,9 @@ export function useFeed(onRestart: () => void): FeedFlow {
   const [state, setState] = useState<FeedState>(INITIAL_FEED);
   const [restoredScroll, setRestoredScroll] = useState<FeedScroll | null>(null);
   const busy = useRef(false);
+  const flying = useRef(new Set<string>());
+  const latest = useRef(state);
+  latest.current = state;
   const runs = useRef(0);
   const owner = useRef<string | null>(null);
   const restarted = useRef(onRestart);
@@ -105,5 +112,26 @@ export function useFeed(onRestart: () => void): FeedFlow {
     else if (state.phase === 'more-error' && state.nextCursor !== null) void run(state.nextCursor, true);
   }, [run, state.phase, state.nextCursor]);
 
-  return { state, loadMore, retry, restoredScroll };
+  const toggleLike = useCallback(
+    async (unitId: string) => {
+      if (flying.current.has(unitId)) return;
+      const before = latest.current.items.find((unit) => unit.id === unitId)?.likedByMe;
+      if (before === undefined) return;
+      flying.current.add(unitId);
+      const apply = (liked: boolean, likeStatus: string) => setState((current) => ({ ...current, likeStatus, items: withLike(current.items, unitId, liked) }));
+      apply(!before, '');
+      try {
+        const token = account === null ? null : await account.getAccessToken().catch(() => null);
+        const outcome = token === null ? ({ kind: 'failed' } as const) : await setLike(token, 'posts', unitId, !before);
+        if (outcome.kind === 'done') return;
+        if (outcome.kind === 'unauthenticated' || outcome.kind === 'account-unavailable') void account?.recheck();
+        apply(before, outcome.kind === 'account-unavailable' ? STOPPED_TEXT : LIKE_FAILED_TEXT);
+      } finally {
+        flying.current.delete(unitId);
+      }
+    },
+    [account],
+  );
+
+  return { state, loadMore, retry, toggleLike: (unitId) => void toggleLike(unitId), restoredScroll };
 }

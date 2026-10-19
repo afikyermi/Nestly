@@ -21,6 +21,8 @@ export interface FeedState {
   announcementTick: number;
   /** Position (0-based) of the card focus moves to after a successful retry, else null. */
   focusIndex: number | null;
+  /** What the polite region says about a like (its failure); empty otherwise. */
+  likeStatus: string;
 }
 
 export const INITIAL_FEED: FeedState = {
@@ -32,6 +34,7 @@ export const INITIAL_FEED: FeedState = {
   announcement: '',
   announcementTick: 0,
   focusIndex: null,
+  likeStatus: '',
 };
 
 /** The units of `page` not shown yet (by unit id), each once. */
@@ -60,5 +63,13 @@ export function withPage(state: FeedState, page: FeedPageResponse, firstPage: bo
     announcement: announced ? loadedMoreText(added.length) : '',
     announcementTick: announced ? state.announcementTick + 1 : state.announcementTick,
     focusIndex: afterRetry && added.length > 0 ? kept.length : null,
+    likeStatus: '',
   };
+}
+
+/** One unit's like set to `liked` (the count moves by one when it changed); the other units are the same objects. A unit not in the list is ignored. */
+export function withLike(items: readonly FeedUnit[], id: string, liked: boolean): FeedUnit[] {
+  return items.map((unit) =>
+    unit.id !== id || unit.likedByMe === liked ? unit : { ...unit, likedByMe: liked, likeCount: Math.max(0, unit.likeCount + (liked ? 1 : -1)) },
+  );
 }
