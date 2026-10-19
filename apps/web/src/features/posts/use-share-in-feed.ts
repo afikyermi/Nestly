@@ -6,9 +6,12 @@ import { STOPPED_TEXT } from '@/lib/auth-texts';
 import { createShare } from '@/services/api/shares';
 import { NOT_SHAREABLE_TEXT, SHARE_FAILED_TEXT } from './share-texts';
 
-/** What the window quotes of the post being shared (c10): its author's name (null: "מהקהילה"), text, audience and time. */
+/**
+ * What the window quotes of the post being shared (c10): its author (a null name: "מהקהילה"; no author: the name is not known here, as on a
+ * plain post's own page, and the line is left out), text, audience and time.
+ */
 export interface ShareQuote {
-  name: string | null;
+  author: { name: string | null } | null;
   body: string;
   audience: PostAudience;
   createdAt: string;
@@ -49,10 +52,10 @@ export interface ShareInFeedFlow {
 function quoteOf(unit: FeedUnit | PostPageView): ShareQuote | null {
   if (unit.kind === 'share') {
     const { original } = unit;
-    return original.available ? { name: original.author.name, body: original.body, audience: original.audience, createdAt: original.createdAt } : null;
+    return original.available ? { author: original.author, body: original.body, audience: original.audience, createdAt: original.createdAt } : null;
   }
   if (unit.isAnonymous || unit.body === null) return null;
-  return { name: 'author' in unit ? unit.author.name : null, body: unit.body, audience: unit.audience, createdAt: unit.createdAt };
+  return { author: 'author' in unit ? unit.author : null, body: unit.body, audience: unit.audience, createdAt: unit.createdAt };
 }
 
 // The share-in-feed window's flow (F3.5 c10, c11; FR-FEED-006): one window at a time, the text and the audience (preselected from the

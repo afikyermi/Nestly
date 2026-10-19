@@ -25,17 +25,16 @@ export class SharesFault extends Error {
 
 /**
  * POST /posts/:id/shares: the caller's share of `postId`, or of its original when `postId` is a share the caller can read (BR-066). A refusal
- * by the database (NS002, 42501, 23514) propagates and rolls back. The answer is the share as GET /posts/:id reads it, in a second identity
- * transaction after the insert committed (the post page's read is one function, F3.4 c5).
+ * by the database (NS002, 42501, 23514) propagates and rolls back. The answer is the share as GET /posts/:id reads it, read in the same
+ * identity transaction: a failed read-back rolls the share back, so a retry cannot leave a duplicate.
  */
 export async function createShare(database: Database, identity: Identity, postId: string, input: NewShare): Promise<ShareReadView> {
-  const id = await inIdentityTransaction(database, identity, async (tx) => {
+  return inIdentityTransaction(database, identity, async (tx) => {
     const [source] = await readSharedPostId(tx, postId);
     const [row] = await insertShare(tx, { text: input.text, audience: input.audience, sharedPostId: source?.sharedPostId ?? postId });
     if (row === undefined) throw new SharesFault('a share insert returned no row');
-    return row.id;
+    const outcome = await readPostById(database, identity, row.id, tx);
+    if (outcome.kind !== 'post' || outcome.post.kind !== 'share') throw new SharesFault('a new share does not read as one');
+    return outcome.post;
   });
-  const outcome = await readPostById(database, identity, id);
-  if (outcome.kind !== 'post' || outcome.post.kind !== 'share') throw new SharesFault('a new share does not read as one');
-  return outcome.post;
 }

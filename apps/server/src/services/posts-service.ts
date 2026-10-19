@@ -7,7 +7,7 @@
 
 import type { PostAudience, PostPageView, PostView, PostWrite, ShareOriginal } from '@nestly/shared';
 import type { Database } from '../db/client.js';
-import { inIdentityTransaction } from '../db/identity-transaction.js';
+import { inIdentityTransaction, type IdentityTx } from '../db/identity-transaction.js';
 import { readDatabaseFault } from '../lib/pg-error.js';
 import type { Identity } from '../lib/token-verifier.js';
 import { readCommentCounts, readLikeCounts, readLikedTargetIds } from '../repositories/likes-repository.js';
@@ -89,59 +89,56 @@ export async function createPost(database: Database, identity: Identity, input: 
  * it in SQL (display only, not a permission; no second comparison here). The displayed counts
  * and the viewer's own like come from the same snapshot (F3.3 c11, c12): one REPEATABLE READ transaction. A post the caller cannot read is 404, not 0.
  */
-export async function readPostById(database: Database, identity: Identity, id: string): Promise<PostOutcome<PostPageView>> {
-  return inIdentityTransaction(
-    database,
-    identity,
-    async (tx): Promise<PostOutcome<PostPageView>> => {
-      const rows = await readPostDetail(tx, id);
-      if (rows.length > 1) throw new PostsFault();
-      const [row] = rows;
-      if (row === undefined) return { kind: 'not_found' };
-      const likeCount = (await readLikeCounts(tx, 'post', [row.id])).get(row.id) ?? 0;
-      const commentCount = (await readCommentCounts(tx, [row.id])).get(row.id) ?? 0;
-      const likedByMe = (await readLikedTargetIds(tx, [row.id])).has(row.id);
-      // F3.5 c7: a share answers its sharer, text and original (never anonymous: the database forbids it); a plain post its fields as before.
-      if (row.isShare && !row.isAnonymous) {
-        return {
-          kind: 'post',
-          post: {
-            kind: 'share',
-            id: row.id,
-            body: null,
-            sharerText: row.body,
-            audience: row.audience,
-            stageTag: row.stageTag,
-            createdAt: row.createdAt,
-            isAnonymous: false,
-            isMine: row.isMine,
-            author: { name: row.authorName },
-            original: originalOf(row),
-            likeCount,
-            commentCount,
-            likedByMe,
-          },
-        };
-      }
+export async function readPostById(database: Database, identity: Identity, id: string, within?: IdentityTx): Promise<PostOutcome<PostPageView>> {
+  const read = async (tx: IdentityTx): Promise<PostOutcome<PostPageView>> => {
+    const rows = await readPostDetail(tx, id);
+    if (rows.length > 1) throw new PostsFault();
+    const [row] = rows;
+    if (row === undefined) return { kind: 'not_found' };
+    const likeCount = (await readLikeCounts(tx, 'post', [row.id])).get(row.id) ?? 0;
+    const commentCount = (await readCommentCounts(tx, [row.id])).get(row.id) ?? 0;
+    const likedByMe = (await readLikedTargetIds(tx, [row.id])).has(row.id);
+    // F3.5 c7: a share answers its sharer, text and original (never anonymous: the database forbids it); a plain post its fields as before.
+    if (row.isShare && !row.isAnonymous) {
       return {
         kind: 'post',
         post: {
-          kind: 'post',
+          kind: 'share',
           id: row.id,
-          body: row.body,
+          body: null,
+          sharerText: row.body,
           audience: row.audience,
           stageTag: row.stageTag,
           createdAt: row.createdAt,
-          isAnonymous: row.isAnonymous,
+          isAnonymous: false,
           isMine: row.isMine,
+          author: { name: row.authorName },
+          original: originalOf(row),
           likeCount,
           commentCount,
           likedByMe,
         },
       };
-    },
-    { isolationLevel: 'repeatable read' },
-  );
+    }
+    return {
+      kind: 'post',
+      post: {
+        kind: 'post',
+        id: row.id,
+        body: row.body,
+        audience: row.audience,
+        stageTag: row.stageTag,
+        createdAt: row.createdAt,
+        isAnonymous: row.isAnonymous,
+        isMine: row.isMine,
+        likeCount,
+        commentCount,
+        likedByMe,
+      },
+    };
+  };
+  // F3.5 c3: a share just inserted is read back inside its own transaction (`within`), so a failed read rolls the share back.
+  return within === undefined ? inIdentityTransaction(database, identity, read, { isolationLevel: 'repeatable read' }) : read(within);
 }
 
 /**
