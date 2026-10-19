@@ -26,7 +26,8 @@ feed screen or reloads; then permanent in the MVP.
 
 **Acceptance criteria** (U unit · I integration, real DB, RLS · P pgTAP · E e2e)
 1. 🔴 [I] `PUT /posts/:id/hide`, active Regular, a post they can read and did not write → 204, no body; one own row. Repeat → 204, one
-   row. Then, new snapshot and a second session: `GET /feed` omits it; `GET /posts/:id` and its comments/likes → 404 `post_unavailable`.
+   row. Then, new snapshot and a second session: `GET /feed` omits it; `GET /posts/:id` and the like route → 404 `not_found`, body
+   identical to an unknown id's (F3.1's route; no existence oracle); the comments thread → 404 `post_unavailable`.
 2. 🔴 [I+P] Unreadable → 404 `post_unavailable`, one identical body, 0 rows: a non-friend's friends-only post, deleted/held/removed post,
    suspended author's post, a post the caller reported, an unknown uuid. Non-uuid id or any body → 400. pgTAP: S1.
 3. 🔴 [I] Own post, named or anonymous → 409 `own_post`, 0 rows; no author id in the response. [F3.0 guard]
@@ -73,3 +74,4 @@ feed screen or reloads; then permanent in the MVP.
 ~15). S1–S3 ship in DATA ARCHITECT's I3 schema PR first. One part.
 **Combined PR with F3.8:** ~440 product lines → **one PR**, 13 + 7 = 20 criteria (= the Elevated cap), **Elevated**, ALGORITHM & DATA on
 c6. If S1–S3 are late, F3.8 ships alone. Any further criterion forces a split.
+**Gate 1 amendment (ORCHESTRATOR, 19.10, TEST ENGINEER return):** c1 — post page and like route 404 `not_found`; comments 404 `post_unavailable`.
