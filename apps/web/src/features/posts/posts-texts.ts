@@ -5,7 +5,6 @@ import { POST_BODY_MAX, type PostAudience } from '@nestly/shared';
 
 export const NEW_POST_LABEL = 'כתיבת פוסט';
 export const FEED_TITLE = 'הפיד'; // F3.2b c13 (was 'פיד')
-export const UNAVAILABLE_ACTION_TEXT = 'הפעולה אינה זמינה'; // c14: a Professional opens the composer
 export const CHECKING_TEXT = 'בודקים אם אפשר לכתוב פוסט';
 
 export const BODY_LABEL = 'מה תרצו לשתף?';

@@ -1,12 +1,14 @@
 // I3 F3.4 (real browser, real session source, network stubbed). Derived from .work/anonymous-post/spec.md criteria 11-14 and 16 and from screen.md
 // (roles and Hebrew names) only. The server half is apps/server/tests/db/anonymous-post.db.test.ts; the payload/remembered-audience logic of c11 is
 // apps/web/tests/posts-composer.test.tsx. c15 (a stranger sees a commenter's full name) is the F3.3 c15 rendering test of e2e/comments.spec.ts; its real-data
-// half waits for the regular_names policy (schema PR-A2). Visual baselines: e2e/anonymous-post.visual.spec.ts. The stub plays the server: e2e/support/posts-stub.ts, comments-stub.ts.
+// half waits for the regular_names policy (schema PR-A2). c11 is asserted in the feed composer (feed-composer c3, c8). Visual baselines: e2e/anonymous-post.visual.spec.ts. The stub plays the server: e2e/support/posts-stub.ts, comments-stub.ts.
 import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import { APP, pathOf } from './app-helpers';
 import { DESKTOP, MOBILE } from './helpers';
 import { EMAIL, main, scan } from './support/journeys-stub';
+import { pageOf, range, setupFeed } from './support/feed-stub';
+import { FAILED, acceptLeave, feedCards, feedStatus, openComposer, openFeedAt } from './support/composer';
 import { ANON_MINE, ANON_MINE_ID, ANON_OTHERS, ANON_OTHERS_ID, MINE, OTHERS, OTHERS_ID, POST_ID, setupPosts } from './support/posts-stub';
 import { setupComments, top } from './support/comments-stub';
 import type { CommentsNet, StubTop } from './support/comments-stub';
@@ -28,8 +30,6 @@ const FIXED_LINE = 'הפוסט אנונימי ומוצג לכולם. אי אפש
 const NAME_NOTICE_COMMENT = 'השם שלכם יוצג לכל מי שיכול לראות את התגובה';
 const AUTHOR_NOTICE = 'בפוסט הזה התגובות שלכם מוצגות תחת "המחבר", בלי השם שלכם';
 const SAVE_FAILED = 'השמירה לא הצליחה. אפשר לנסות שוב';
-const FAILED = 'הפרסום לא הצליח. אפשר לנסות שוב';
-const ANON_PATH = /^\/posts\/d0000000-/;
 
 async function open(page: Page, path: string): Promise<void> {
   await page.goto('/login');
@@ -52,15 +52,22 @@ async function describedBy(el: Locator): Promise<string[]> {
 const list = (page: Page) => page.getByRole('list', { name: 'רשימת התגובות', exact: true });
 const rootBox = (page: Page) => page.getByRole('textbox', { name: 'כתיבת תגובה', exact: true });
 const replyBox = (page: Page) => page.getByRole('textbox', { name: 'כתיבת השבה', exact: true });
+/** Three server cards, then the feed is armed and opened at /feed (the composer is the button at its top). */
+const feedAt = async (page: Page) => {
+  const net = await setupFeed(page, () => pageOf(range(1, 3), null));
+  await openFeedAt(page, net);
+  await expect(feedCards(page)).toHaveCount(3);
+  return net;
+};
 const sizeOf = async (el: Locator) => (await el.boundingBox()) ?? { width: 0, height: 0 };
 
 // ---------------------------------------------------------------------------------------------------------------------
-test.describe('F3.4 c11 [FR-FEED-005 r.1] the composer toggle', () => {
+test.describe('F3.4 c11 [FR-FEED-005 r.1] the composer toggle (in the feed: feed-composer c3, c8)', () => {
   for (const { label, viewport } of SIZES) {
     test(`[c11 c16] ${label}: unchecked on open; checking removes the audience group and swaps the name notice for the anonymous one; unchecking restores the earlier choice; axe in both states`, async ({ page }) => {
       await page.setViewportSize(viewport);
-      await setupPosts(page);
-      await open(page, '/posts/new');
+      await feedAt(page);
+      await openComposer(page);
       await expect(toggle(page)).not.toBeChecked();
       await expect(group(page)).toBeVisible();
       await expect(page.getByText(NAME_NOTICE_POST)).toBeVisible();
@@ -88,65 +95,103 @@ test.describe('F3.4 c11 [FR-FEED-005 r.1] the composer toggle', () => {
   }
 
   test('[c11] the checkbox sits after the textbox and before the audience in the page order', async ({ page }) => {
-    await setupPosts(page);
-    await open(page, '/posts/new');
+    await feedAt(page);
+    await openComposer(page);
     const y = async (el: Locator) => (await el.boundingBox())?.y ?? -1;
     expect(await y(toggle(page))).toBeGreaterThan(await y(body(page)));
     expect(await y(toggle(page))).toBeLessThan(await y(group(page)));
   });
 
-  test('[c11] submit while checked sends isAnonymous:true and audience "everyone" (even after "חברים בלבד" was picked) and lands on the anonymous post page', async ({ page }) => {
-    const net = await setupPosts(page);
-    await open(page, '/posts/new');
-    await body(page).fill('שאלה רגישה');
-    await card(page, 'חברים בלבד').click();
-    await toggle(page).check();
-    await publish(page).click();
-    await expect(page.getByRole('status').filter({ hasText: 'הפוסט פורסם' })).toBeVisible();
-    expect(pathOf(page)).toMatch(ANON_PATH);
-    expect(net.creates).toHaveLength(1);
-    expect(net.creates[0]).toMatchObject({ body: 'שאלה רגישה', audience: 'everyone', isAnonymous: true });
-    expect(Object.keys(net.creates[0] ?? {}).filter((k) => /author|user|email|name/i.test(k))).toEqual([]);
-    await expect(main(page).getByText(ANON_LABEL, { exact: true })).toBeVisible();
-    await expect(main(page).getByText(OWN_NOTE)).toBeVisible();
-  });
+  for (const { label, viewport } of SIZES) {
+    test(`[c11 fc c8] ${label}: submit while checked sends isAnonymous:true and audience "everyone" (even after "חברים בלבד" was picked); the new first card is "אנונימי" for "כולם" with no name or author data; the remembered audience is unchanged; axe`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      const net = await feedAt(page);
+      // A named "חברים בלבד" post first, so there is a remembered audience for the anonymous one to leave alone (F3.4 c11).
+      await openComposer(page);
+      await body(page).fill('פוסט רגיל לחברים');
+      await card(page, 'חברים בלבד').click();
+      await publish(page).click();
+      await expect(feedCards(page)).toHaveCount(4);
 
-  test('[c11] the toggle is never remembered: after an anonymous post and after a reload the composer opens unchecked', async ({ page }) => {
-    await setupPosts(page);
-    await open(page, '/posts/new');
-    await body(page).fill('פעם אחת');
+      await openComposer(page);
+      await body(page).fill('שאלה רגישה');
+      await card(page, 'חברים בלבד').click();
+      await toggle(page).check();
+      await publish(page).click();
+      await expect(feedCards(page)).toHaveCount(5);
+      expect(net.creates).toHaveLength(2);
+      expect(net.creates[1]).toMatchObject({ body: 'שאלה רגישה', audience: 'everyone', isAnonymous: true });
+      expect(Object.keys(net.creates[1] ?? {}).filter((k) => /author|user|email|name/i.test(k))).toEqual([]);
+      expect(pathOf(page)).toBe('/feed');
+      expect(net.cursors, 'no GET /feed after either post').toEqual([null]);
+
+      const first = feedCards(page).first();
+      await expect(first).toHaveAttribute('aria-posinset', '1');
+      await expect(first).toContainText('שאלה רגישה');
+      await expect(page.getByRole('article', { name: ANON_LABEL, exact: true })).toHaveCount(1);
+      await expect(first).toContainText('כולם');
+      await expect(first).not.toContainText('חברים בלבד');
+      await expect(first).not.toContainText('דנה כהן');
+      await expect(first).not.toContainText('מהקהילה');
+      await expect(first.getByRole('link')).toHaveCount(2); // the time link and "תגובות": no author link
+      const ids = await first.evaluate((el) => [el, ...el.querySelectorAll('[data-testid]')].map((e) => e.getAttribute('data-testid') ?? ''));
+      expect(ids.filter((t) => /author|name|avatar|user/i.test(t))).toEqual([]);
+      expect(await first.evaluate((el) => el.outerHTML)).not.toContain('דנה כהן');
+      await expect(first).toBeFocused();
+      await expect(feedStatus(page)).toHaveText('הפוסט פורסם');
+      await scan(page);
+
+      // The remembered audience is the earlier "חברים בלבד"; the toggle starts unchecked.
+      await openComposer(page);
+      await expect(toggle(page)).not.toBeChecked();
+      await expect(page.getByRole('radio', { name: 'חברים בלבד' })).toBeChecked();
+    });
+  }
+
+  test('[c11] the toggle is never stored: after an anonymous post a new composer is unchecked; storage holds neither the flag nor the text; a reload opens unchecked', async ({ page }) => {
+    const net = await feedAt(page);
+    await openComposer(page);
+    await body(page).fill('טקסט סודי שלא נשמר');
     await toggle(page).check();
+    expect(await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }))).not.toMatch(/anonym|טקסט סודי/i);
     await publish(page).click();
-    await expect.poll(() => pathOf(page)).toMatch(ANON_PATH);
-    await page.goto('/posts/new');
+    await expect(feedCards(page)).toHaveCount(4);
+    await openComposer(page);
     await expect(toggle(page)).not.toBeChecked();
     await expect(group(page)).toBeVisible();
+    await expect(body(page)).toHaveValue('');
     await toggle(page).check();
+    await body(page).fill('עוד טקסט');
+    acceptLeave(page); // the browser asks before leaving with unsent text (c6); the test leaves
     await page.reload();
+    await openComposer(page);
     await expect(toggle(page)).not.toBeChecked();
-    expect(await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }))).not.toMatch(/anonym/i);
+    await expect(body(page)).toHaveValue('');
+    expect(await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }))).not.toMatch(/anonym|טקסט|עוד/i);
+    expect(net.creates).toHaveLength(1);
   });
 
-  test('[c11] a failed anonymous post (403, 5xx, network, 422 audience_not_allowed): the composer stays, text and a checked toggle kept, the F3.1b alert and nothing technical', async ({ page }) => {
-    const net = await setupPosts(page);
-    await open(page, '/posts/new');
+  test('[c11 fc c10] a failed anonymous post (403, 5xx, network, 422 audience_not_allowed): the composer stays, text and a checked toggle kept, the F3.1b alert and nothing technical; no card added', async ({ page }) => {
+    const net = await feedAt(page);
+    await openComposer(page);
     await body(page).fill('הטקסט שלי');
     await toggle(page).check();
     for (const status of [403, 500, 422, 'abort'] as const) {
       net.create = status;
       await publish(page).click();
       await expect(page.getByRole('alert').filter({ hasText: FAILED })).toBeVisible();
-      expect(pathOf(page)).toBe('/posts/new');
+      expect(pathOf(page)).toBe('/feed');
       await expect(body(page)).toHaveValue('הטקסט שלי');
       await expect(toggle(page)).toBeChecked();
       await expect(group(page)).toHaveCount(0);
+      await expect(feedCards(page)).toHaveCount(3);
       expect(await page.getByRole('alert').first().innerText()).not.toMatch(/403|422|500|not_allowed|audience_not_allowed|server_error|fetch/i);
     }
   });
 
   test('[c11 c16] keyboard only: Space toggles, focus stays on the checkbox, the audience group leaves the tab order, Enter on "פרסום" sends it anonymously', async ({ page }) => {
-    const net = await setupPosts(page);
-    await open(page, '/posts/new');
+    const net = await feedAt(page);
+    await openComposer(page);
     await body(page).focus();
     await page.keyboard.type('בלי עכבר');
     await page.keyboard.press('Tab');
@@ -163,15 +208,15 @@ test.describe('F3.4 c11 [FR-FEED-005 r.1] the composer toggle', () => {
     await page.keyboard.press('Tab');
     await expect(publish(page)).toBeFocused();
     await page.keyboard.press('Enter');
-    await expect.poll(() => pathOf(page)).toMatch(ANON_PATH);
+    await expect(feedCards(page)).toHaveCount(4);
     expect(net.creates).toHaveLength(1);
     expect(net.creates[0]).toMatchObject({ audience: 'everyone', isAnonymous: true });
   });
 
   test('[c16] phone: the checkbox (or the label that is its target) is at least 44x44 px and shows a visible focus', async ({ page }) => {
     await page.setViewportSize(MOBILE);
-    await setupPosts(page);
-    await open(page, '/posts/new');
+    await feedAt(page);
+    await openComposer(page);
     const label = page.locator('label').filter({ has: toggle(page) });
     const own = await sizeOf(toggle(page));
     const target = await sizeOf(label.first());
@@ -190,9 +235,11 @@ test.describe('F3.4 c11 [FR-FEED-005 r.1] the composer toggle', () => {
   });
 
   test('[c11] a Professional has no composer and so no new control', async ({ page }) => {
-    await setupPosts(page, { professional: true });
-    await open(page, '/posts/new');
-    await expect(main(page).getByText('הפעולה אינה זמינה')).toBeVisible();
+    const net = await setupFeed(page, () => 403, { professional: true });
+    await openFeedAt(page, net);
+    await expect(page.getByRole('heading', { level: 1, name: 'הפיד' })).toBeVisible();
+    await page.waitForTimeout(500); // the posting-right check answers after the heading; a control must not appear later
+    await expect(body(page)).toHaveCount(0);
     await expect(toggle(page)).toHaveCount(0);
     await expect(page.getByRole('checkbox')).toHaveCount(0);
   });

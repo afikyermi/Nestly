@@ -50,10 +50,12 @@ export interface PostFormProps {
   focus?: PostFormFocus;
   onChange: (values: PostFormValues) => void;
   onSubmit: () => void;
-  /** Edit only: leaves the form without sending. */
+  /** Leaves the form without sending: "ביטול" shows only when given. */
   onCancel?: () => void;
   /** Create: the "פרסום אנונימי" box is checked. Edit: the post is anonymous (its audience is fixed). Default false. */
   anonymous?: boolean;
+  /** Create only: the first line only (text and send); the box, the audience and the tag are not shown yet (feed-composer c2). */
+  compact?: boolean;
   /** Create only: the box was toggled. */
   onAnonymousChange?: (checked: boolean) => void;
 }
@@ -62,7 +64,7 @@ export interface PostFormProps {
 // post, an optional stage tag. A checked box takes the audience group out (an anonymous post is for everyone) and swaps the name notice for
 // the anonymous one; the edit of an anonymous post shows a fixed line instead of the group. Display only: what submitting does comes in as props.
 export function PostForm(props: PostFormProps) {
-  const { mode, values, errors, saving, failure, focus, onChange, onSubmit, onCancel, anonymous = false, onAnonymousChange } = props;
+  const { mode, values, errors, saving, failure, focus, onChange, onSubmit, onCancel, anonymous = false, onAnonymousChange, compact = false } = props;
   const formRef = useRef<HTMLFormElement>(null);
   const ids = useId();
   const noticeId = `${ids}-notice`;
@@ -85,7 +87,7 @@ export function PostForm(props: PostFormProps) {
       ref={formRef}
       data-testid="post-form"
       aria-label={mode === 'create' ? NEW_POST_LABEL : EDIT_FORM_LABEL}
-      aria-describedby={mode === 'create' ? noticeId : undefined}
+      aria-describedby={mode === 'create' && !compact ? noticeId : undefined}
       noValidate
       className="flex flex-col gap-6"
       onSubmit={(event) => {
@@ -107,7 +109,7 @@ export function PostForm(props: PostFormProps) {
           {counting ? remainingText(left) : ''}
         </p>
       </div>
-      {mode === 'create' ? (
+      {mode === 'create' && !compact ? (
         <div className="flex flex-col gap-1.5">
           <Checkbox checked={anonymous} onCheckedChange={(checked) => onAnonymousChange?.(checked)}>
             {ANONYMOUS_LABEL}
@@ -116,7 +118,7 @@ export function PostForm(props: PostFormProps) {
         </div>
       ) : null}
       {mode === 'edit' && anonymous ? <p className="text-small text-muted-foreground">{ANONYMOUS_FIXED_TEXT}</p> : null}
-      {anonymous ? null : (
+      {anonymous || compact ? null : (
         <div className="flex flex-col gap-1.5">
           <ChoiceCardGroup
             legend={AUDIENCE_LEGEND}
@@ -130,19 +132,21 @@ export function PostForm(props: PostFormProps) {
           {mode === 'create' ? <FieldHint id={noticeId}>{NAME_NOTICE_TEXT}</FieldHint> : null}
         </div>
       )}
-      <div className="flex flex-col gap-1.5">
-        <ChoiceCardGroup
-          legend={TAG_LEGEND}
-          name="post-stage-tag"
-          options={TAG_OPTIONS}
-          value={values.stageTag}
-          aria-describedby={tagHintId}
-          onChange={(value) => {
-            if (value === '' || isStageTag(value)) onChange({ ...values, stageTag: value });
-          }}
-        />
-        <FieldHint id={tagHintId}>{TAG_HINT_TEXT}</FieldHint>
-      </div>
+      {compact ? null : (
+        <div className="flex flex-col gap-1.5">
+          <ChoiceCardGroup
+            legend={TAG_LEGEND}
+            name="post-stage-tag"
+            options={TAG_OPTIONS}
+            value={values.stageTag}
+            aria-describedby={tagHintId}
+            onChange={(value) => {
+              if (value === '' || isStageTag(value)) onChange({ ...values, stageTag: value });
+            }}
+          />
+          <FieldHint id={tagHintId}>{TAG_HINT_TEXT}</FieldHint>
+        </div>
+      )}
       <div className="flex flex-col gap-3">
         <Button type="submit" size="lg" block pending={saving} disabled={saving}>
           {label}

@@ -72,7 +72,9 @@ export function freshUnits(shown: readonly FeedUnit[], page: readonly FeedUnit[]
 /** A loaded page joins the list (de-duplicated by unit id), or replaces it: the first page and `restarted` (a new snapshot). */
 export function withPage(state: FeedState, page: FeedPageResponse, firstPage: boolean, afterRetry: boolean): FeedState {
   const replace = firstPage || page.restarted === true;
-  const kept = replace ? [] : state.items;
+  // A post the viewer published while the first page was loading stays first when it arrives; the server's copy is dropped. A first-page retry is a new snapshot (c9).
+  const own = firstPage && state.phase === 'initial' ? state.items : [];
+  const kept = replace ? own : state.items;
   const added = freshUnits(kept, page.items);
   const announced = !replace && added.length > 0;
   return {
@@ -131,4 +133,11 @@ export function withHideResult(state: FeedState, unitId: string, result: HideRes
     case 'undo-failed':
       return { ...base, hideFocus: { target: 'undo', unitId, seq } };
   }
+}
+
+/** A post just published joins the top of the loaded list, once (feed-composer c7, c9). A new snapshot replaces the list, and with it this unit. */
+export function withPublished(state: FeedState, unit: FeedUnit): FeedState {
+  // After a failed first page the error stands alone; the retry brings the server's order only (c9).
+  if (state.phase === 'first-error') return state;
+  return { ...state, items: [unit, ...state.items.filter((item) => item.id !== unit.id)], likeStatus: '' };
 }

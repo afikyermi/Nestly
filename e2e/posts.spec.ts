@@ -1,12 +1,16 @@
-// I3 F3.1b (real browser, real session source, network stubbed). Derived from .work/post-create/spec.md criteria 14, 17, 18 and
-// screen.md (roles and Hebrew names); the unit half (15, 16) is apps/web/tests/posts-composer.test.tsx. The server half is F3.1a's.
-// The stub plays the server: e2e/support/posts-stub.ts. Visual baselines are not listed here: SPEC names no story ids yet (see report).
+// I3 F3.1b (real browser, real session source, network stubbed), amended by feed-composer (.work/feed-composer/spec.md): the composer is the
+// button at the top of /feed that opens in place, so criteria 14 and 17 are asserted there (c1, c7, c10 of feed-composer). Derived from
+// .work/post-create/spec.md criteria 14, 17, 18, .work/feed-composer/spec.md and screen.md (roles and Hebrew names); the unit half (15, 16) is
+// apps/web/tests/posts-composer.test.tsx. The server half is F3.1a's. The stub plays the server: e2e/support/feed-stub.ts, posts-stub.ts.
+// The rest of the in-feed composer (open, collapse and keep, redirect, leave prompt, order after paging) is e2e/feed-composer.spec.ts.
 import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import { APP, pathOf } from './app-helpers';
 import { DESKTOP, MOBILE } from './helpers';
-import { EMAIL, main, scan } from './support/journeys-stub';
+import { CORS, EMAIL, json, main, scan } from './support/journeys-stub';
+import { pageOf, range, setupFeed } from './support/feed-stub';
 import { MINE, OTHERS, POST_ID, setupPosts } from './support/posts-stub';
+import { FAILED, PUBLISHED, acceptLeave, anonToggle, bodyBox, choice, composer, feedCards, feedStatus, openComposer, openFeedAt, publishButton, timeLinkOf } from './support/composer';
 
 test.use({ baseURL: APP });
 
@@ -14,8 +18,6 @@ const SIZES = [
   { label: 'desktop', viewport: DESKTOP },
   { label: 'phone', viewport: MOBILE },
 ] as const;
-const FAILED = 'הפרסום לא הצליח. אפשר לנסות שוב';
-const POST_PATH = /^\/posts\/d0000000-/;
 
 async function open(page: Page, path: string): Promise<void> {
   await page.goto('/login');
@@ -25,48 +27,56 @@ async function open(page: Page, path: string): Promise<void> {
   await expect.poll(() => pathOf(page)).not.toBe('/login');
   await page.goto(path);
 }
-const body = (page: Page) => page.getByRole('textbox', { name: 'מה תרצו לשתף?' });
-const publish = (page: Page) => page.getByRole('button', { name: 'פרסום', exact: true });
+const body = bodyBox;
+const publish = publishButton;
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
 const dialog = (page: Page) => page.getByRole('alertdialog', { name: 'למחוק את הפוסט?' });
 /** The radio input is visually hidden; its card (the label text) is what a person presses. */
-const card = (page: Page, name: string) => page.getByRole('radiogroup').getByText(name, { exact: true });
-const choose = (page: Page, name: string) => card(page, name).click();
+const card = choice;
+const choose = (page: Page, name: string) => choice(page, name).click();
 const heightOf = async (el: Locator) => (await el.boundingBox())?.height ?? 0;
+/** Three server cards, then the feed is armed and opened at /feed. */
+const FEED = () => pageOf(range(1, 3), null);
+const feedAt = async (page: Page) => {
+  const net = await setupFeed(page, FEED);
+  await openFeedAt(page, net);
+  await expect(feedCards(page)).toHaveCount(3);
+  return net;
+};
 
-test.describe('F3.1b c14 [FR-FEED-002] the entry point', () => {
-  test('[c14] a Regular sees "כתיבת פוסט" on the feed, it leads to /posts/new; the feed has no anonymous control, the composer has exactly one (F3.4 c11)', async ({ page }) => {
-    await setupPosts(page);
-    await open(page, '/feed');
-    const link = page.getByRole('link', { name: 'כתיבת פוסט', exact: true });
-    await expect(link).toHaveAttribute('href', '/posts/new');
-    await link.click();
-    await expect(page.getByRole('heading', { level: 1, name: 'כתיבת פוסט' })).toBeVisible();
-    expect(pathOf(page)).toBe('/posts/new');
+test.describe('F3.1b c14 [FR-FEED-002] the entry point (feed-composer c1)', () => {
+  test('[c14] a Regular sees the form "כתיבת פוסט" on the feed (no button or link); idle it has no anonymous control, once the field has focus it has exactly one (F3.4 c11)', async ({ page }) => {
+    await feedAt(page);
+    await expect(composer(page)).toBeVisible();
+    await expect(bodyBox(page)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'כתיבת פוסט' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'כתיבת פוסט' })).toHaveCount(0);
+    await expect(page.getByRole('checkbox')).toHaveCount(0);
+    await openComposer(page);
+    expect(pathOf(page)).toBe('/feed');
+    await expect(page.getByRole('heading', { level: 1, name: 'כתיבת פוסט' })).toHaveCount(0); // no page, no h1 of that name (feed-composer c11)
     await expect(page.getByRole('checkbox')).toHaveCount(1); // F3.4 amends F3.1b c14: "פרסום אנונימי", and nothing else of the kind
-    await expect(page.getByRole('checkbox', { name: 'פרסום אנונימי', exact: true })).toBeVisible();
+    await expect(anonToggle(page)).toBeVisible();
     await expect(page.getByRole('switch')).toHaveCount(0);
   });
-  test('[c14] a Professional has no link on the feed, and /posts/new shows "הפעולה אינה זמינה" without the form', async ({ page }) => {
-    await setupPosts(page, { professional: true });
-    await open(page, '/feed');
+  test('[c14] a Professional has no composer form on the feed', async ({ page }) => {
+    const net = await setupFeed(page, () => 403, { professional: true });
+    await openFeedAt(page, net);
     await expect(page.getByRole('heading', { level: 1, name: 'הפיד' })).toBeVisible();
-    await page.waitForTimeout(500); // the posting-right check answers after the heading; a link must not appear later
-    await expect(page.getByRole('link', { name: 'כתיבת פוסט' })).toHaveCount(0);
-    await page.goto('/posts/new');
-    await expect(page.getByRole('heading', { level: 1, name: 'כתיבת פוסט' })).toBeVisible();
-    await expect(main(page).getByText('הפעולה אינה זמינה')).toBeVisible();
-    await expect(body(page)).toHaveCount(0);
-    await expect(publish(page)).toHaveCount(0);
+    await page.waitForTimeout(500); // the posting-right check answers after the heading; the form must not appear later
+    await expect(bodyBox(page)).toHaveCount(0);
+    await expect(composer(page)).toHaveCount(0);
   });
 });
 
-test.describe('F3.1b c17 [FR-FEED-002 ERR-004] publishing', () => {
+test.describe('F3.1b c17 [FR-FEED-002 ERR-004] publishing (feed-composer c7, c10)', () => {
   for (const { label, viewport } of SIZES) {
-    test(`[c17] ${label}: a post with "חברים בלבד" and a tag lands on its page: status, text, audience, tag, back link; axe`, async ({ page }) => {
+    test(`[c17][fc c7] ${label}: a post with "חברים בלבד" and a tag becomes the first card at once: no new feed request, status, text, audience, tag, time link, focus; the composer resets; axe`, async ({ page }) => {
       await page.setViewportSize(viewport);
-      const net = await setupPosts(page);
-      await open(page, '/posts/new');
+      const net = await setupFeed(page, FEED);
+      await openFeedAt(page, net);
+      await expect(feedCards(page)).toHaveCount(3);
+      await openComposer(page);
       await expect(page.getByText('השם שלכם יוצג לכל מי שיכול לראות את הפוסט')).toBeVisible();
       await expect(page.getByRole('radio', { name: 'כולם' })).toBeChecked();
       await expect(page.getByRole('radio', { name: 'בלי תגית' })).toBeChecked();
@@ -75,79 +85,108 @@ test.describe('F3.1b c17 [FR-FEED-002 ERR-004] publishing', () => {
       await choose(page, 'חברים בלבד');
       await choose(page, 'בהריון');
       await publish(page).click();
-      await expect(page.getByRole('status').filter({ hasText: 'הפוסט פורסם' })).toBeVisible();
-      expect(pathOf(page)).toMatch(POST_PATH);
+      await expect(feedCards(page)).toHaveCount(4);
       expect(net.creates).toEqual([{ body: 'שלום לכולם\nשאלה קטנה', audience: 'friends', stageTag: 'pregnant' }]);
-      await expect(main(page).getByText('שלום לכולם')).toBeVisible();
-      await expect(main(page).getByText('מי יראה את הפוסט: חברים בלבד')).toBeVisible();
-      await expect(main(page).getByText('תגית: בהריון')).toBeVisible();
-      await expect(page.getByRole('link', { name: 'חזרה לפיד' })).toHaveAttribute('href', '/feed');
+      expect(pathOf(page)).toBe('/feed');
+      expect(net.cursors, 'no GET /feed after the post').toEqual([null]);
+      await expect(composer(page)).toBeVisible(); // the form resets and goes idle
+      await expect(bodyBox(page)).toHaveValue('');
+      await expect(anonToggle(page)).toHaveCount(0);
+      const newId = net.posts[net.posts.length - 1]?.id ?? '';
+      const first = feedCards(page).first();
+      for (let i = 0; i < 4; i += 1) await expect(feedCards(page).nth(i)).toHaveAttribute('aria-posinset', String(i + 1));
+      await expect(page.getByRole('article', { name: 'דנה כהן', exact: true })).toHaveCount(1);
+      await expect(first).toContainText('שלום לכולם');
+      await expect(first).toContainText('שאלה קטנה');
+      await expect(first).toContainText('חברים בלבד');
+      await expect(first).toContainText('בהריון');
+      await expect(timeLinkOf(first)).toHaveAttribute('href', `/posts/${newId}`);
+      await expect(first.getByRole('button', { name: /לייק/ })).toHaveCount(1);
+      await expect(first.getByRole('link', { name: /תגובות/ })).toHaveCount(1);
+      await expect(first.getByText(/^\d+$/)).toHaveCount(0); // no counts yet
+      await expect(first).toBeFocused();
+      await expect(feedStatus(page)).toHaveText(PUBLISHED);
+      await expect(feedStatus(page)).toBeVisible();
       await scan(page);
+      // The composer starts anew: empty, unchecked, the remembered "חברים בלבד", "בלי תגית".
+      await openComposer(page);
+      await expect(body(page)).toHaveValue('');
+      await expect(anonToggle(page)).not.toBeChecked();
+      await expect(page.getByRole('radio', { name: 'חברים בלבד' })).toBeChecked();
+      await expect(page.getByRole('radio', { name: 'בלי תגית' })).toBeChecked();
     });
   }
-  test('[c17] "הפוסט פורסם" shows only right after publishing: not after "חזרה לפיד" then Back, nor after reload', async ({ page }) => {
-    await setupPosts(page);
-    await open(page, '/posts/new');
-    await body(page).fill('רק עכשיו');
+  test('[c17][fc c7] a profile answer without a full name shows the new card as "מהקהילה"', async ({ page }) => {
+    const net = await setupFeed(page, FEED);
+    await page.route('**/api/profile', async (route) => {
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+      return json(route, 200, { fullName: '', parentGender: 'woman' });
+    });
+    await openFeedAt(page, net);
+    await openComposer(page);
+    await body(page).fill('בלי שם');
     await publish(page).click();
-    const status = page.getByRole('status').filter({ hasText: 'הפוסט פורסם' });
-    await expect(status).toBeVisible();
-    const postPath = pathOf(page);
-    await page.getByRole('link', { name: 'חזרה לפיד' }).click();
-    await expect.poll(() => pathOf(page)).toBe('/feed');
-    await page.goBack();
-    await expect.poll(() => pathOf(page)).toBe(postPath);
-    await expect(main(page).getByText('רק עכשיו')).toBeVisible();
-    await expect(status).toHaveCount(0);
-    await page.reload();
-    await expect(main(page).getByText('רק עכשיו')).toBeVisible();
-    await expect(status).toHaveCount(0);
+    await expect(feedCards(page)).toHaveCount(4);
+    await expect(page.getByRole('article', { name: 'מהקהילה', exact: true })).toHaveCount(1);
+    await expect(feedCards(page).first()).toContainText('בלי שם');
+    await expect(feedCards(page).first()).not.toContainText('דנה כהן');
   });
-  test('[c17] no tag chosen: no tag line on the page, and stageTag is null or absent in the request', async ({ page }) => {
-    const net = await setupPosts(page);
-    await open(page, '/posts/new');
+  test('[c17] no tag chosen: no tag text on the card, and stageTag is null or absent in the request', async ({ page }) => {
+    const net = await feedAt(page);
+    await openComposer(page);
     await body(page).fill('הודעה פשוטה');
     await publish(page).click();
-    await expect(main(page).getByText('הודעה פשוטה')).toBeVisible();
-    await expect(main(page).getByText(/^תגית:/)).toHaveCount(0);
+    await expect(feedCards(page).first()).toContainText('הודעה פשוטה');
+    for (const tag of ['מתכננים', 'בהריון', 'יש לנו ילד או ילדה']) await expect(feedCards(page).first()).not.toContainText(tag);
     expect(net.creates[0]?.stageTag ?? null).toBeNull();
   });
-  for (const [name, status] of [['403', 403], ['5xx', 500], ['network', 'abort']] as const) {
-    test(`[c17] ${name}: the composer stays, text and choices kept, a Hebrew alert with no technical detail`, async ({ page }) => {
-      const net = await setupPosts(page);
+  for (const [name, status] of [['403', 403], ['5xx', 500], ['network', 'abort'], ['422 audience_not_allowed', 422]] as const) {
+    test(`[c17][fc c10] ${name}: the composer stays open, text and choices kept, a Hebrew alert in it with focus and no technical detail; no card added`, async ({ page }) => {
+      const net = await feedAt(page);
       net.create = status;
-      await open(page, '/posts/new');
+      await openComposer(page);
       await body(page).fill('הטקסט שלי');
       await choose(page, 'חברים בלבד');
       await publish(page).click();
-      await expect(page.getByRole('alert').filter({ hasText: FAILED })).toBeVisible();
-      expect(pathOf(page)).toBe('/posts/new');
+      const alert = composer(page).getByRole('alert').filter({ hasText: FAILED });
+      await expect(alert).toBeVisible();
+      await expect(page.locator('[role="alert"]:focus-within, *:focus:has([role="alert"])')).toHaveCount(1); // focus on the alert, or on the message that holds it (F3.1b)
+      expect(pathOf(page)).toBe('/feed');
       await expect(body(page)).toHaveValue('הטקסט שלי');
       await expect(page.getByRole('radio', { name: 'חברים בלבד' })).toBeChecked();
-      expect(await page.getByRole('alert').first().innerText()).not.toMatch(/403|500|not_allowed|server_error|fetch/i);
+      expect(await alert.innerText()).not.toMatch(/403|422|500|not_allowed|audience_not_allowed|server_error|fetch/i);
+      await expect(feedCards(page)).toHaveCount(3);
+      await expect(feedStatus(page)).not.toHaveText(PUBLISHED);
+      // Nothing was remembered by the failed post: after a reload the composer opens on "כולם".
+      acceptLeave(page); // unsent text asks before leaving (c6)
+      await page.reload();
+      await openComposer(page);
+      await expect(page.getByRole('radio', { name: 'כולם' })).toBeChecked();
     });
   }
   test('[c17 c16] a double click on "פרסום" sends one request; the pending button is "מפרסמים" and disabled', async ({ page }) => {
-    const net = await setupPosts(page);
+    const net = await feedAt(page);
     let release: () => void = () => undefined;
     net.holdCreate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    await open(page, '/posts/new');
+    await openComposer(page);
     await body(page).fill('פעם אחת');
     await publish(page).dblclick();
     await expect(button(page, 'מפרסמים')).toBeDisabled();
     release();
-    await expect.poll(() => pathOf(page)).toMatch(POST_PATH);
+    await expect(feedCards(page)).toHaveCount(4);
     expect(net.creates).toHaveLength(1);
   });
-  test('[c17 c16] keyboard only: Tab reaches the anonymous checkbox (F3.4), the audience group, the tag group and "פרסום"; Enter on it publishes', async ({ page }) => {
-    const net = await setupPosts(page);
-    await open(page, '/posts/new');
-    await body(page).focus();
+  test('[c17 c16] keyboard only: Tab from the heading reaches the text field and reveals the options, Tab reaches the anonymous checkbox (F3.4), the audience group, the tag group and "פרסום"; Enter on it publishes', async ({ page }) => {
+    const net = await feedAt(page);
+    await page.getByRole('heading', { level: 1, name: 'הפיד' }).focus();
+    await page.keyboard.press('Tab');
+    await expect(body(page)).toBeFocused();
+    await expect(anonToggle(page)).toBeVisible();
     await page.keyboard.type('בלי עכבר');
     await page.keyboard.press('Tab');
-    await expect(page.getByRole('checkbox', { name: 'פרסום אנונימי', exact: true })).toBeFocused(); // F3.4 c11: after the textbox, before the audience
+    await expect(anonToggle(page)).toBeFocused(); // F3.4 c11: after the textbox, before the audience
     await page.keyboard.press('Tab');
     await expect(page.getByRole('radio', { name: 'כולם' })).toBeFocused();
     await page.keyboard.press('Tab');
@@ -155,13 +194,13 @@ test.describe('F3.1b c17 [FR-FEED-002 ERR-004] publishing', () => {
     await page.keyboard.press('Tab');
     await expect(publish(page)).toBeFocused();
     await page.keyboard.press('Enter');
-    await expect.poll(() => pathOf(page)).toMatch(POST_PATH);
+    await expect(feedCards(page)).toHaveCount(4);
     expect(net.creates).toHaveLength(1);
   });
   test('[c16] phone: the submit button and every radio option are at least 44 px tall', async ({ page }) => {
     await page.setViewportSize(MOBILE);
-    await setupPosts(page);
-    await open(page, '/posts/new');
+    await feedAt(page);
+    await openComposer(page);
     expect(await heightOf(publish(page))).toBeGreaterThanOrEqual(44);
     for (const name of ['כולם', 'חברים בלבד', 'בלי תגית', 'מתכננים', 'בהריון', 'יש לנו ילד או ילדה']) {
       expect(await heightOf(card(page, name).locator('xpath=ancestor-or-self::label[1]')), name).toBeGreaterThanOrEqual(44);

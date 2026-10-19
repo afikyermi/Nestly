@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { MemoryRouter } from 'react-router';
 import type { FeedUnit } from '@nestly/shared';
 import { FeedContent } from './FeedContent';
-import { PostLinkButton } from './PostLinkButton';
 import { FEED_LOAD_FAILED_TEXT } from './feed-texts';
 
 // The feed list and its states (F3.2b), as it sits in the shell's `main`. Links need a router.
@@ -51,7 +50,7 @@ export const Loading: Story = { args: { state: { ...ready, phase: 'initial', loa
 export const Cards: Story = { args: { state: ready } };
 export const LoadingMore: Story = { args: { state: { ...ready, loading: true } } };
 export const Empty: Story = {
-  args: { state: { ...ready, items: [] }, emptyAction: <PostLinkButton to="/posts/new">כתיבת פוסט</PostLinkButton> },
+  args: { state: { ...ready, items: [] } },
 };
 export const FirstPageFailed: Story = { args: { state: { ...ready, phase: 'first-error', items: [], message: FEED_LOAD_FAILED_TEXT } } };
 export const LaterPageFailed: Story = { args: { state: { ...ready, phase: 'more-error', message: FEED_LOAD_FAILED_TEXT } } };

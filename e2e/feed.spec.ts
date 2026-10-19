@@ -50,14 +50,14 @@ const twoPages = (second: ReturnType<typeof range>, extra = {}): FeedNet['answer
   cursor === null ? pageOf(range(1, 12), 'c+1/=') : pageOf(second, null, extra);
 const more = (card: Locator) => card.getByRole('button', { name: 'פעולות נוספות לפוסט', exact: true });
 const timeLink = (card: Locator) => card.locator('a:has(time)');
-/** Any button that is not a card's like or the "חזרה למעלה" (taller cards now reach its threshold): a "more" control would be one (F3.2b c18: none). */
-// F3.9 c8 amendment: every card now also has its "⋯" menu button ("פעולות נוספות לפוסט"); it is not a "load more" control, so it is excluded by name.
-const moreButtons = (page: Page) => main(page).getByRole('button', { name: /^(?!לייק|חזרה למעלה|פעולות נוספות לפוסט)/ });
+/** Any button that is not a card's like, the "חזרה למעלה" or the composer's "פרסום" (taller cards now reach its threshold): a "more" control would be one (F3.2b c18: none). */
+// F3.9 c8 amendment: every card also has its "⋯" menu button ("פעולות נוספות לפוסט"); it is not a "load more" control.
+const moreButtons = (page: Page) => main(page).getByRole('button', { name: /^(?!לייק|חזרה למעלה|פרסום|פעולות נוספות לפוסט)/ });
 const hasLinkTo = (card: Locator, href: string) => expect(timeLink(card)).toHaveAttribute('href', href);
 
 test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
   for (const { label, viewport } of SIZES) {
-    test(`[c13] ${label}: main, h1 "הפיד", "כתיבת פוסט" above the list, cards in server order, the only product request is GET /feed; axe`, async ({ page }) => {
+    test(`[c13] ${label}: main, h1 "הפיד", the form "כתיבת פוסט" above the list, cards in server order, the only product request is GET /feed; axe`, async ({ page }) => {
       await page.setViewportSize(viewport);
       const net = await setupFeed(page, () => pageOf([named(3), named(1), named(2)], null));
       await open(page, net);
@@ -65,8 +65,10 @@ test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
       await expect(main(page)).toBeVisible();
       await expect(cards(page)).toHaveCount(3);
       expect(await cards(page).evaluateAll((els) => els.map((e) => e.textContent?.match(/גוף הפוסט \d/)?.[0]))).toEqual(['גוף הפוסט 3', 'גוף הפוסט 1', 'גוף הפוסט 2']);
-      const write = page.getByRole('link', { name: 'כתיבת פוסט', exact: true });
-      await expect(write).toHaveAttribute('href', '/posts/new');
+      const write = page.getByRole('form', { name: 'כתיבת פוסט' }); // feed-composer c1: the always-open form, no button or link
+      await expect(write).toBeVisible();
+      await expect(page.getByRole('button', { name: 'כתיבת פוסט' })).toHaveCount(0);
+      await expect(page.getByRole('link', { name: 'כתיבת פוסט' })).toHaveCount(0);
       const [w, l] = [await write.boundingBox(), await list(page).boundingBox()];
       expect(w?.y ?? 0).toBeLessThan(l?.y ?? 0);
       expect(net.methods).toEqual(['GET']);
@@ -84,11 +86,11 @@ test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
     await expect(main(page).getByRole('alert')).toHaveCount(0);
     expect(net.cursors.length, 'at most the request made while the profile check was pending (screen decision 5)').toBeLessThanOrEqual(1);
   });
-  test('[c13][c14] keyboard: after "כתיבת פוסט" the Tab order is, per card in server order, "לייק", then "תגובות", then its time link, then its "⋯" menu button (screen.md; F3.9 c8 amends F3.2b); the focus is visible', async ({ page }) => {
+  test('[c13][c14] keyboard: after the composer’s "פרסום" the Tab order is, per card in server order, "לייק", then "תגובות", then its time link, then its "⋯" menu button (screen.md; F3.9 c8 amends F3.2b); the focus is visible', async ({ page }) => {
     const net = await setupFeed(page, () => pageOf(range(1, 4), null));
     await open(page, net);
     await expect(cards(page)).toHaveCount(4);
-    await page.getByRole('link', { name: 'כתיבת פוסט', exact: true }).focus();
+    await page.getByRole('button', { name: 'פרסום', exact: true }).focus();
     // A card may take a stop of its own (APG feed: tabindex 0): such stops (the article itself) are dropped.
     const stops: string[] = [];
     for (let i = 0; i < 40 && stops.length < 16; i += 1) {
@@ -286,12 +288,18 @@ test.describe('F3.2b c19 [ERR-004 ERR-027] first load, empty, errors', () => {
     await expect(cards(page)).toHaveCount(3);
   });
   for (const { label, viewport } of SIZES) {
-    test(`[c19] ${label}: empty — the text, one action "כתיבת פוסט", an aria-hidden SVG; axe`, async ({ page }) => {
+    test(`[c19] ${label}: empty — the text with no action of its own, the form "כתיבת פוסט" above it, an aria-hidden SVG; axe`, async ({ page }) => {
       await page.setViewportSize(viewport);
       const net = await setupFeed(page, () => EMPTY);
       await open(page, net);
       await expect(main(page).getByText('עוד אין פוסטים בפיד', { exact: true })).toBeVisible();
-      await expect(main(page).getByRole('link', { name: 'כתיבת פוסט', exact: true })).toHaveCount(1);
+      const form = main(page).getByRole('form', { name: 'כתיבת פוסט' }); // feed-composer c1: the form, in its place, is the only action
+      await expect(form).toBeVisible();
+      const [f, t] = [await form.boundingBox(), await main(page).getByText('עוד אין פוסטים בפיד', { exact: true }).boundingBox()];
+      expect(f?.y ?? 0).toBeLessThan(t?.y ?? 0);
+      await expect(main(page).getByRole('button', { name: 'כתיבת פוסט' })).toHaveCount(0);
+      await expect(main(page).getByRole('link', { name: 'כתיבת פוסט' })).toHaveCount(0);
+      await expect(main(page).getByRole('button')).toHaveCount(1); // the form's "פרסום" is the only button in the empty feed
       await expect(moreButtons(page)).toHaveCount(0);
       await expect(main(page).locator('svg[aria-hidden="true"]')).not.toHaveCount(0);
       await expect(cards(page)).toHaveCount(0);
