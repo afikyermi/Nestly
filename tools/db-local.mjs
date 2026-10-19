@@ -211,15 +211,16 @@ function pgtap(files, keep) {
   return withDatabase(keep, (pw) => {
     let bad = 0;
     for (const f of list) {
-      const r = spawnSync('docker', ['exec', '-i', '-e', `PGPASSWORD=${pw.app_server}`, '-e', 'PGOPTIONS=-c search_path=pgtap,tests', NAME, 'psql', '-X', '-q', '-A', '-t', '-h', '127.0.0.1', '-p', '5432', '-U', 'app_server', '-d', 'postgres', '-f', '-'],
+      const r = spawnSync('docker', ['exec', '-i', '-e', `PGPASSWORD=${pw.app_server}`, '-e', 'PGOPTIONS=-c search_path=pgtap,tests', NAME, 'psql', '-X', '-q', '-A', '-t', '-v', 'ON_ERROR_STOP=1', '-h', '127.0.0.1', '-p', '5432', '-U', 'app_server', '-d', 'postgres', '-f', '-'],
         { input: readFileSync(join(ROOT, f), 'utf8'), encoding: 'utf8' });
       const v = tapVerdict(r.stdout ?? '');
-      const failed = r.status !== 0 || v.failed;
+      const sqlError = /ERROR:/.test(r.stderr ?? '');
+      const failed = r.status !== 0 || sqlError || v.failed;
       if (failed) bad++;
       console.log(`${failed ? 'FAIL' : 'ok  '} ${f} (${v.ok} ok)`);
       if (failed) {
         for (const p of v.problems) console.log(`  ${p}`);
-        if (r.status !== 0) console.log(`  psql exit ${r.status}: ${(r.stderr ?? '').split('\n').slice(0, 6).join(' | ')}`);
+        if (r.status !== 0 || sqlError) console.log(`  psql exit ${r.status}: ${(r.stderr ?? '').split('\n').slice(0, 6).join(' | ')}`);
       }
     }
     console.log(`${list.length - bad}/${list.length} pgTAP files passed`);
