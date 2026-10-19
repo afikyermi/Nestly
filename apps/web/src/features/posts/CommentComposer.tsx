@@ -14,8 +14,8 @@ export interface CommentComposerProps {
   /** A comment under the post, or a reply under a comment: the label and the box's name. */
   mode: 'comment' | 'reply';
   state: ComposerState;
-  /** Whose name the comment carries (F3.4 c14): under the box, linked by aria-describedby. */
-  notice: string;
+  /** Whose name the comment carries (F3.4 c14): under the box, linked by aria-describedby. Null: no notice (a Professional, DR-3). */
+  notice: string | null;
   onChange: (text: string) => void;
   onSend: () => void;
   /** Reply only: closes the box without sending. */
@@ -52,7 +52,7 @@ export function CommentComposer({ mode, state, notice, onChange, onSend, onCance
     >
       {failure !== null ? <InlineAlert>{failure}</InlineAlert> : null}
       <div className="flex flex-col gap-1.5">
-        <FormField label={label} htmlFor={`${ids}-text`} hint={notice} {...(error === null ? {} : { error: error === 'required' ? COMMENT_REQUIRED_TEXT : error === 'invalid' ? COMMENT_INVALID_TEXT : COMMENT_TOO_LONG_TEXT })}>
+        <FormField label={label} htmlFor={`${ids}-text`} {...(notice === null ? {} : { hint: notice })} {...(error === null ? {} : { error: error === 'required' ? COMMENT_REQUIRED_TEXT : error === 'invalid' ? COMMENT_INVALID_TEXT : COMMENT_TOO_LONG_TEXT })}>
           {(control) => <TextArea {...control} rows={3} value={text} onChange={(event) => onChange(event.target.value)} />}
         </FormField>
         {/* The polite region is always mounted; it speaks only in the limit's last 100 characters. */}

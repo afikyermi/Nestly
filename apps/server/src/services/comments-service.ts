@@ -1,7 +1,7 @@
 // Comments and replies (I3 F3.3 b1; FR-FEED-003, AC-076; Afik 3א, 18.10). The caller is already authenticated; each call is one identity
 // transaction. The database decides everything about permission (who may comment, who reads a comment, who deletes one); this layer names
 // the outcome. "post_unavailable" is one outcome for a missing post and one the caller may not read; "parent_invalid" is one for every
-// parent that cannot take a reply. A stopped or non-Regular account is told apart first (403), as the feed does. The answer never carries an
+// parent that cannot take a reply. A stopped account, an Admin or a Moderator is told apart first (403), as the feed does. The answer never carries an
 // author id: the real author of an anonymous post comes back as `byAuthor` with no `author` key.
 
 import {
@@ -35,7 +35,7 @@ import {
 import { readLikeCounts, readLikedTargetIds } from '../repositories/likes-repository.js';
 import { readPost } from '../repositories/posts-repository.js';
 
-/** The caller cannot comment or read a thread: a stopped account (ERR-037), or an account that is not a Regular parent's. */
+/** The caller cannot comment or read a thread: a stopped account (ERR-037), or an Admin or Moderator account (DR-1: a Professional may). */
 export type CommentRefusal = { readonly kind: 'stopped' } | { readonly kind: 'forbidden' };
 
 export type CreateOutcome =
@@ -65,7 +65,9 @@ async function classifyViewer(tx: IdentityTx): Promise<CommentRefusal | undefine
   const [account] = accounts;
   if (account === undefined) return { kind: 'forbidden' };
   if (account.status !== 'active') return { kind: 'stopped' };
-  return account.accountType === 'regular' ? undefined : { kind: 'forbidden' };
+  // Admin and Moderator are refused here (their writes also by RLS; their reads only here, security-privacy-open). A Regular or a
+  // Professional account passes (DR-1): what each may write and read is the database's.
+  return account.accountType === 'admin' || account.accountType === 'moderator' ? { kind: 'forbidden' } : undefined;
 }
 
 /** What a comment shows of its likes: the count the viewer can read and whether one of them is theirs (F3.3 c11, c12). Never who. */

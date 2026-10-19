@@ -1,6 +1,6 @@
 // Like and unlike a post or a comment (I3 F3.3 b2; FR-FEED-001; Afik 6ב). The caller is already authenticated; each call is one identity
 // transaction. The database decides who may like what (the insert policy: the target must be readable) and whose like is removed (the delete
-// policy: the caller's own). This layer tells a stopped or non-Regular account apart first (403, as the comments do), names "unavailable" for a
+// policy: the caller's own). This layer tells a stopped, Admin or Moderator account apart first (403, as the comments do), names "unavailable" for a
 // target that is missing or not readable (one outcome, so the answer never tells them apart), and makes both calls idempotent.
 
 import type { Database } from '../db/client.js';
@@ -15,7 +15,7 @@ import {
   type LikeTarget,
 } from '../repositories/likes-repository.js';
 
-/** The caller cannot like: a stopped account (ERR-037), or an account that is not a Regular parent's. */
+/** The caller cannot like: a stopped account (ERR-037), or an Admin or Moderator account (DR-1: a Professional may). */
 export type LikeRefusal = { readonly kind: 'stopped' } | { readonly kind: 'forbidden' };
 
 export type LikeOutcome = { readonly kind: 'done' } | { readonly kind: 'not_found' } | LikeRefusal;
@@ -34,7 +34,9 @@ async function classifyViewer(tx: IdentityTx): Promise<LikeRefusal | undefined> 
   const [account] = accounts;
   if (account === undefined) return { kind: 'forbidden' };
   if (account.status !== 'active') return { kind: 'stopped' };
-  return account.accountType === 'regular' ? undefined : { kind: 'forbidden' };
+  // Admin and Moderator are refused here (their writes also by RLS; their reads only here, security-privacy-open). A Regular or a
+  // Professional account passes (DR-1): what each may write and read is the database's.
+  return account.accountType === 'admin' || account.accountType === 'moderator' ? { kind: 'forbidden' } : undefined;
 }
 
 async function isReadable(tx: IdentityTx, target: LikeTarget, id: string): Promise<boolean> {

@@ -1,7 +1,9 @@
 // The community feed (I3 F3.2 a2; FR-FEED-001, FR-ALG-002, ERR-027, BR-065; I3-algorithm.md). The caller is already authenticated; one page is
 // one identity transaction. The database decides who may see which post, count and name (row policies); this layer reads the configuration
 // and the snapshot clock, asks the ranking statement for the page, re-ranks it (shared), reads the display fields by the page's ids and
-// builds the answer. The viewer's Stage is read only when the configuration gives it weight. An empty feed is a page, never an error.
+// builds the answer. The viewer's own account type chooses the ranking profile and nothing else (AC-061; algorithm-review.md R1, R2): a
+// Regular parent gets every term, a Professional the content signals only; Admin and Moderator have no feed. The viewer's Stage is read only
+// for the Regular profile and only when the configuration gives it weight. An empty feed is a page, never an error.
 
 import {
   feedPageResponse,
@@ -12,16 +14,25 @@ import {
   type FeedCursor,
   type FeedPageResponse,
   type FeedUnit,
+  type AccountType,
 } from '@nestly/shared';
 import type { Database } from '../db/client.js';
 import { inIdentityTransaction, type IdentityTx } from '../db/identity-transaction.js';
 import type { Identity } from '../lib/token-verifier.js';
 import { readOwnAccounts } from '../repositories/account-state-repository.js';
-import { readDisplayPosts, readFeedConfigRows, readRankedPosts, readSnapshotClock, type DisplayPost } from '../repositories/feed-repository.js';
+import {
+  readDisplayPosts,
+  readFeedConfigRows,
+  readRankedPosts,
+  readSnapshotClock,
+  type DisplayPost,
+  type RankingParameters,
+  type RankingProfile,
+} from '../repositories/feed-repository.js';
 import { readOwnStages } from '../repositories/journeys-repository.js';
 import { readCommentCounts, readLikeCounts, readLikedTargetIds } from '../repositories/likes-repository.js';
 
-/** The caller cannot read a feed: a stopped account (ERR-037), or an account that is not a Regular parent's. */
+/** The caller cannot read a feed: a stopped account (ERR-037), or an account that is neither a Regular parent's nor a Professional's. */
 export type FeedRefusal = { readonly kind: 'stopped' } | { readonly kind: 'forbidden' };
 
 export type FeedOutcome =
@@ -41,13 +52,33 @@ export class FeedFault extends Error {
   }
 }
 
-async function classifyViewer(tx: IdentityTx): Promise<FeedRefusal | undefined> {
+/** The ranking profile of an account type (AC-061, DR-1): Regular → every term, Professional → content signals; Admin and Moderator → none. */
+export function rankingProfileOf(accountType: AccountType): RankingProfile | null {
+  switch (accountType) {
+    case 'regular':
+      return 'regular';
+    case 'professional':
+      return 'content';
+    case 'admin':
+    case 'moderator':
+      return null;
+  }
+}
+
+/** Whether the page reads the viewer's own Stage (R2): never for the content profile, whatever `wStage` is; for a Regular only above 0. */
+export function readsViewerStages(profile: RankingProfile, wStage: number): boolean {
+  return profile === 'regular' && wStage > 0;
+}
+
+/** The caller's ranking profile, or why there is no feed. The account type is read here only, to choose the profile (R1: never a row filter). */
+async function classifyViewer(tx: IdentityTx): Promise<FeedRefusal | { readonly kind: 'viewer'; readonly profile: RankingProfile }> {
   const accounts = await readOwnAccounts(tx);
   if (accounts.length > 1) throw new FeedFault('more than one own users row');
   const [account] = accounts;
   if (account === undefined) return { kind: 'forbidden' };
   if (account.status !== 'active') return { kind: 'stopped' };
-  return account.accountType === 'regular' ? undefined : { kind: 'forbidden' };
+  const profile = rankingProfileOf(account.accountType);
+  return profile === null ? { kind: 'forbidden' } : { kind: 'viewer', profile };
 }
 
 /** The displayed counts and the viewer's own like-state of one unit (F3.3): read after the ranking, never an input to it. */
@@ -111,8 +142,8 @@ function unitOf(row: DisplayPost, reactions: UnitReactions): FeedUnit | undefine
 
 /** One page, inside the caller's transaction. `cursor` is null for a first page; a cursor whose `asOf` is in the database's future is refused. */
 async function readPage(tx: IdentityTx, cursor: FeedCursor | null): Promise<FeedOutcome> {
-  const refusal = await classifyViewer(tx);
-  if (refusal !== undefined) return refusal;
+  const viewer = await classifyViewer(tx);
+  if (viewer.kind !== 'viewer') return viewer;
   const clock = await readSnapshotClock(tx, cursor === null ? null : cursor.asOf);
   if (!clock.isCursorUsable) return { kind: 'cursor_invalid' };
 
@@ -121,9 +152,13 @@ async function readPage(tx: IdentityTx, cursor: FeedCursor | null): Promise<Feed
   // A cursor pinned to a version that cannot be used is dropped: the page is a new first page of a new snapshot.
   const after = cursor !== null && !resolution.restarted ? cursor : null;
   const asOf = after === null ? clock.nowText : after.asOf;
-  const stages = config.wStage > 0 ? await readOwnStages(tx) : [];
+  // The Stage is read in the Regular branch only: the content profile's statement has no Stage term to give it to.
+  const parameters: RankingParameters =
+    viewer.profile === 'regular'
+      ? { profile: 'regular', asOf, config, after, stages: readsViewerStages(viewer.profile, config.wStage) ? await readOwnStages(tx) : [] }
+      : { profile: 'content', asOf, config, after };
 
-  const ranked = await readRankedPosts(tx, { asOf, config, stages, after });
+  const ranked = await readRankedPosts(tx, parameters);
   const selection = selectFeedPage(ranked, config);
   const pageIds = selection.units.map((unit) => unit.id);
   const display = new Map((await readDisplayPosts(tx, pageIds)).map((row) => [row.id, row]));

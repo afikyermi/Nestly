@@ -2,7 +2,7 @@
 // anything here (401 before anything else, and no database query). No route input names a user or a post; eligibility is the database's.
 //   GET    ?cursor=<opaque, optional> → 200 { items, nextCursor, configVersion, restarted? } (an empty feed is items [], nextCursor null)
 //          400 cursor_invalid (a cursor that is not exactly one the server issued in shape, an unknown query key, or an `asOf` the database
-//          has not reached; no ranking query runs) · 403 account_unavailable (stopped account) | not_allowed (not a Regular account)
+//          has not reached; no ranking query runs) · 403 account_unavailable (stopped account) | not_allowed (an Admin or Moderator account)
 //   all:   401/503 session guard · 503 · 500 server_error. Any other method → 405 with Allow.
 // Logs carry a fixed line, the SQLSTATE and, for a configuration fallback, its version and class: never the cursor text or a post id.
 

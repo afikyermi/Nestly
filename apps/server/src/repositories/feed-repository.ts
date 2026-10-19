@@ -2,7 +2,8 @@
 // caller's identity transaction and nowhere else. Which posts, counts and names the caller reads is the database's (row policies on
 // posts, comments, reactions, friendships and regular_names): nothing here narrows rows for permission, and the statements name only
 // what the allow-list names. Every SELECT is column-level and lists its columns.
-//   - the ranking statement: candidates, score (double precision, the expression of packages/shared/src/feed/score.ts), tier, keyset
+//   - the ranking statement: candidates, score (double precision, the expression of packages/shared/src/feed/score.ts), tier, keyset;
+//     a Professional viewer's `content` profile (AC-061, algorithm-review.md R2) has no Friend or Stage term and reads no friendship or tag
 //   - the display statement: a separate read by the page's ids; it fills in text and names and can never change the order
 //   - the configuration rows and the snapshot clock
 // Timestamps leave the database as text with six fractional digits (the cursor's own format) and come back as text: never a JS Date.
@@ -67,7 +68,14 @@ export async function readSnapshotClock(tx: IdentityTx, cursorAsOf: string | nul
 
 // ---- the ranking statement -----------------------------------------------------------------------------------------------------------
 
-export interface RankingParameters {
+/**
+ * Which score ranks the viewer's page (AC-061; algorithm-review.md R2). `regular`: every term. `content` (a Professional viewer): the content
+ * signals only, Freshness and Quality; the Friend and Stage terms are left out of the statement (not multiplied by 0), so it reads no
+ * friendship, no Stage and no tag. The profile is chosen from the viewer's own account; it is never a row filter.
+ */
+export type RankingProfile = 'regular' | 'content';
+
+interface RankingBase {
   readonly asOf: string;
   readonly config: {
     readonly wFresh: number;
@@ -79,11 +87,18 @@ export interface RankingParameters {
     readonly scoredWindowDays: number;
     readonly pageSize: number;
   };
-  /** The viewer's derived Stage set, empty unless the weight is above 0. A bound parameter. */
-  readonly stages: readonly string[];
   /** The last unit of the previous page in ranked order, or null on a first page. */
   readonly after: { readonly tier: 0 | 1; readonly score: number; readonly createdAt: string; readonly id: string } | null;
 }
+
+export type RankingParameters =
+  | (RankingBase & {
+      /** Absent means `regular` (F3.2's callers). */
+      readonly profile?: 'regular';
+      /** The viewer's derived Stage set, empty unless the weight is above 0. A bound parameter. */
+      readonly stages: readonly string[];
+    })
+  | (RankingBase & { readonly profile: 'content' });
 
 export interface RankedPost {
   readonly id: string;
@@ -114,15 +129,45 @@ function afterCursor(after: RankingParameters['after']): SQL {
         or (s.created_at = ${after.createdAt}::timestamptz and s.id < ${after.id}::uuid))))))`;
 }
 
+/** The terms of the score inside tier 0. The `regular` text is F3.2's, byte for byte; `content` keeps two of its terms, unchanged. */
+function scoreTerms(parameters: RankingParameters): SQL {
+  const { asOf, config } = parameters;
+  const fresh = sql`${config.wFresh}::float8 * power(2::float8, -t.age_hours / ${config.halfLifeHours}::float8)`;
+  const quality = sql`${config.wQuality}::float8 * least(
+              ln(1::float8 + (
+                (select count(*) from nestly.reactions r where r.post_id = t.id and not r.is_by_author and r.created_at <= ${asOf}::timestamptz)
+                + (select count(*) from nestly.comments m where m.post_id = t.id and not m.is_by_post_author and m.created_at <= ${asOf}::timestamptz)
+              )::float8) / ln(1::float8 + ${config.qualityCap}::float8),
+              1::float8)`;
+  if (parameters.profile === 'content') {
+    return sql`${fresh}
+          + ${quality}`;
+  }
+  const friend = sql`${config.wFriend}::float8 * (case
+              when t.is_anonymous or t.author_id is null then 0::float8
+              when exists (
+                select 1 from nestly.friendships f
+                where f.status = 'accepted'
+                  and ((f.requester_id = (select auth.uid()) and f.addressee_id = t.author_id)
+                    or (f.addressee_id = (select auth.uid()) and f.requester_id = t.author_id))
+              ) then 1::float8 else 0::float8 end)`;
+  const stage = sql`${config.wStage}::float8 * (case when t.stage_tag = any(${sql.param([...parameters.stages])}::text[]) then 1::float8 else 0::float8 end)`;
+  return sql`${fresh}
+          + ${friend}
+          + ${quality}
+          + ${stage}`;
+}
+
 /**
  * The ranking statement: `pageSize + 1` posts of the snapshot in ranked order. Every input is bounded by `asOf`; the counts are over the rows
- * the caller's policies show (a count, never who); the whole score is double precision.
+ * the caller's policies show (a count, never who); the whole score is double precision. The `content` profile does not select the tag.
  */
 export function rankingStatement(parameters: RankingParameters): SQL {
-  const { asOf, config, stages, after } = parameters;
+  const { asOf, config, after } = parameters;
+  const tagColumn = parameters.profile === 'content' ? sql`` : sql`p.stage_tag, `;
   return sql`
     with candidates as (
-      select p.id, p.author_id, p.is_anonymous, p.shared_post_id, p.stage_tag, p.created_at,
+      select p.id, p.author_id, p.is_anonymous, p.shared_post_id, ${tagColumn}p.created_at,
              extract(epoch from (${asOf}::timestamptz - p.created_at))::float8 / 3600::float8 as age_hours
       from nestly.posts p
       where p.created_at <= ${asOf}::timestamptz
@@ -132,22 +177,7 @@ export function rankingStatement(parameters: RankingParameters): SQL {
     ), scored as (
       select t.id, t.author_id, t.is_anonymous, t.shared_post_id, t.created_at, t.tier,
         case when t.tier = 1 then 0::float8 else
-          ${config.wFresh}::float8 * power(2::float8, -t.age_hours / ${config.halfLifeHours}::float8)
-          + ${config.wFriend}::float8 * (case
-              when t.is_anonymous or t.author_id is null then 0::float8
-              when exists (
-                select 1 from nestly.friendships f
-                where f.status = 'accepted'
-                  and ((f.requester_id = (select auth.uid()) and f.addressee_id = t.author_id)
-                    or (f.addressee_id = (select auth.uid()) and f.requester_id = t.author_id))
-              ) then 1::float8 else 0::float8 end)
-          + ${config.wQuality}::float8 * least(
-              ln(1::float8 + (
-                (select count(*) from nestly.reactions r where r.post_id = t.id and not r.is_by_author and r.created_at <= ${asOf}::timestamptz)
-                + (select count(*) from nestly.comments m where m.post_id = t.id and not m.is_by_post_author and m.created_at <= ${asOf}::timestamptz)
-              )::float8) / ln(1::float8 + ${config.qualityCap}::float8),
-              1::float8)
-          + ${config.wStage}::float8 * (case when t.stage_tag = any(${sql.param([...stages])}::text[]) then 1::float8 else 0::float8 end)
+          ${scoreTerms(parameters)}
         end as score
       from tiered t
     )

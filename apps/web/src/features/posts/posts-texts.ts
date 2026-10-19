@@ -17,6 +17,8 @@ export const ANONYMOUS_LABEL = 'פרסום אנונימי';
 export const ANONYMOUS_NOTICE_TEXT = 'השם שלכם לא יוצג לאף אחד בקהילה. צוות Nestly יכול לראות מי כתב, רק לבטיחות ואכיפה';
 export const ANONYMOUS_OWN_NOTE = 'פרסמתם את הפוסט הזה באופן אנונימי. רק אתם רואים את ההודעה הזו';
 export const ANONYMOUS_FIXED_TEXT = 'הפוסט אנונימי ומוצג לכולם. אי אפשר לשנות את זה';
+/** professional-posting D3: in place of the audience group, for an account whose posts are for everyone only. */
+export const EVERYONE_ONLY_TEXT = 'הפוסט יוצג לכולם';
 export const TAG_LEGEND = 'תגית (לא חובה)';
 export const NO_TAG_LABEL = 'בלי תגית'; // c16
 export const TAG_HINT_TEXT = 'התגית תוצג לקוראים'; // c16

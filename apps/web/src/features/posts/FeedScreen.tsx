@@ -46,16 +46,19 @@ type Overlay =
   | { kind: 'confirm'; unitId: string; saving: boolean; failure: string | null; comment?: { id: string; topLevel: boolean } | undefined }
   | null;
 
-// The feed screen of a Regular account (FR-FEED-001; F3.2b, feed-composer): the heading, one polite region, the composer (always open), and
-// the cards in the server's order with infinite scroll. A Professional keeps the placeholder line and no list. A post just deleted leaves
-// "הפוסט נמחק" here, handed over in memory, once. Every card has a "⋯" menu (F3.9): edit and delete on the viewer's own named card, else hide
-// (with undo in place) and report (F3.7). The posting right only decides the composer and the placeholder; the server decides who has a feed.
+// The feed screen of a Regular or a Professional account (FR-FEED-001; F3.2b, feed-composer, professional-posting): the heading, one polite
+// region, the composer (always open), and the cards in the server's order with infinite scroll. An account the server gives no feed keeps
+// the placeholder line, no composer and no list. A post just deleted leaves "הפוסט נמחק" here, handed over in memory, once. Every card has a
+// "⋯" menu (F3.9): edit and delete on the viewer's own named card, else hide (with undo in place; not offered to a Professional, F3.9 c7) and
+// report (F3.7). The posting right only decides the composer and the hide item; the server decides who has a feed.
 // A card that can be shared has "שיתוף בפיד" (F3.5: the window over the feed, the new share first in the list at once) and one with a link
 // "שיתוף קישור" (F3.6); a Professional has neither. Every card with the like control holds its comments (ux-polish-a): asked when it comes near.
 export function FeedScreen() {
   const { right, fullName } = usePostingProfile();
   const own = useOwnUserId();
-  const professional = right === 'not-allowed';
+  // A Professional (no parent profile, D1) may not hide a post (post_hides_insert_guard): the item is not offered.
+  const professional = right === 'everyone-only';
+  const canHide = !professional;
   const rootRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const toTopRef = useRef<() => void>(() => undefined);
@@ -155,7 +158,7 @@ export function FeedScreen() {
           { key: 'delete', label: CONFIRM_DELETE_LABEL, onSelect: () => setOverlay({ kind: 'confirm', unitId: unit.id, saving: false, failure: null }) },
         ]
       : [
-          { key: 'hide', label: HIDE_LABEL, onSelect: () => hide(unit.id), disabled: state.pendingHideIds.includes(unit.id) },
+          ...(canHide ? [{ key: 'hide', label: HIDE_LABEL, onSelect: () => hide(unit.id), disabled: state.pendingHideIds.includes(unit.id) }] : []),
           // F3.7 c9: every card the viewer did not write, an anonymous one included (its isMine is false); a share is reported as itself.
           { key: 'report', label: REPORT_POST_ITEM, onSelect: () => report.start({ kind: 'post', id: unit.id }) },
         ];
@@ -221,7 +224,7 @@ export function FeedScreen() {
   const action = failedLike !== '' ? failedLike : hidden;
   const status = right === 'checking' ? CHECKING_TEXT : action !== '' ? action : loaded !== '' ? loaded : published ? PUBLISHED_STATUS : deleted;
   const visible = right === 'checking' ? deleted !== '' : action !== '' || (loaded === '' && (published || deleted !== ''));
-  const none = professional || state.phase === 'blocked';
+  const none = state.phase === 'blocked';
   const content = none ? null : (
     <FeedContent
       state={state}
@@ -280,7 +283,7 @@ export function FeedScreen() {
       }
     />
   );
-  const write = (
+  const write = none ? null : (
     <FeedComposer
       right={right}
       own={own}

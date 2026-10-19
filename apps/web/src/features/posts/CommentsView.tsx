@@ -34,6 +34,8 @@ export interface CommentsViewProps {
   landOnHeading?: boolean;
   /** The caller is the real author of this anonymous post: their comments show as "המחבר", and the boxes say so (F3.4 c14). */
   asAnonymousAuthor?: boolean;
+  /** The writer's comments carry their name, so the boxes say so (Q7). False for a Professional: no name is shown (DR-3), no notice. Default true. */
+  namesWriter?: boolean;
   /** The comments' "⋯" menus (F3.7 c9): which one is open, and their items' actions (delete is the writes'). */
   menu: Omit<CommentMenu, 'onDelete'>;
   /** The report window of a comment (F3.7 c10), open while set; it closes onto that comment's "⋯". */
@@ -43,8 +45,8 @@ export interface CommentsViewProps {
 // The comments region under a post (F3.3 w1; FR-FEED-003): the post's like, the thread (top-level comments, one level of replies), the
 // comment box, the delete confirmation and the report window (F3.7). Display only: the requests come from the hooks. The heading is the focus target of the
 // comments link, of a delete and of the pages that bring new comments.
-export function CommentsView({ flow, writes, landOnHeading = false, asAnonymousAuthor = false, menu, report = null }: CommentsViewProps) {
-  const notice = asAnonymousAuthor ? COMMENT_AUTHOR_NOTICE_TEXT : COMMENT_NAME_NOTICE_TEXT;
+export function CommentsView({ flow, writes, landOnHeading = false, asAnonymousAuthor = false, namesWriter = true, menu, report = null }: CommentsViewProps) {
+  const notice = asAnonymousAuthor ? COMMENT_AUTHOR_NOTICE_TEXT : namesWriter ? COMMENT_NAME_NOTICE_TEXT : null;
   const { thread, focus } = flow;
   const { root, reply, confirm } = writes;
   const regionRef = useRef<HTMLElement>(null);
