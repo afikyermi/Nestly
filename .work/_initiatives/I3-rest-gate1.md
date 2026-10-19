@@ -49,3 +49,4 @@ Reason: F3.9 builds the card menu F3.7 reuses; F3.7 builds PG-049, whose rule 2 
 - Item 7 confirm stays (irreversible, FR-PROFILE-002 DR-3) · item 8 confirm stays (not unilaterally reversible; consistent with "confirm only irreversible") · item 9 closed (F3.9 c13) · 3b edit in place on the card.
 - Defaults accepted: B Q1–Q3, A Q1 (one comments request per card near the viewport — perf → debt), A Q2–Q4.
 - ux-polish-b (ORCHESTRATOR): card edit uses PATCH /api/posts/:id (F3.1 as built) — spec's "PUT" is a wording slip; F2 tooltip fixed by rendering inside a landmark, not by excluding the axe rule.
+- ux-polish-a c11 intermittent (1/10) 'no preview refetch after Back' — likely the step-back race fixed by #103 (hide-restore); after rebasing on main with #103, run c11 20×; if still failing → BUILDER.
