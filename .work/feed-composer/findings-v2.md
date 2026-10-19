@@ -6,3 +6,4 @@
 4. sending ref per instance: leave during send, return, resend → duplicate post; first response wipes the new draft. Fix: in-flight state at module level next to the draft (or clear on send, restore on failure).
 5. Hygiene: mis-indented `)}`, stale comments from the button design.
 All → BUILDER now (same agent); TEST ENGINEER extends c7 and adds the idle-first-press test. No re-check (lows).
+Rebase-conflict review (sonnet, once): both features survive; earlier 5 lows fixed; 1 new low — a send that fails after leaving and returning shows no alert and an empty field until the next remount → debt.md.
