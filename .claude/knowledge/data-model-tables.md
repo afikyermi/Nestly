@@ -362,6 +362,8 @@ friendship, anonymous never via friendship, own hides and reported posts exclude
 `author_status`, `liker_status`, `parent_status` kept by composite FKs ON UPDATE CASCADE; no policy reads its own table (row checks in invoker triggers);
 column-level SELECT (no `select *` for the app); deletion via the two functions — immediate, or held ≤ 90 days while a report is open, purged by `app_jobs`.
 Down scripts refuse while their tables hold a row. Cleanup order per user: reports, reactions, post_hides, comments, posts.
+F3.3a (`20261019100000_comment_body_cap.sql`): `comments_body_length_check` ≤ 1000 code points (replies included); seven column comments now state
+the real grants (readable under the named RLS policy, no INSERT/UPDATE grant; six never emitted in a response); two cap texts updated (posts.body 2,000, comments.body 1–1,000). F3.3b2: likedByMe only via `likes-repository`.
 
 ## New entity template
 

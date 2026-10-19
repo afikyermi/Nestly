@@ -27,10 +27,9 @@
 4. ✅ **Docker Desktop** הותקן (18.10). בדיקות ה-DB רצות מקומית: `node tools/db-local.mjs test` (אותו image כמו ב-CI). **אחרי הפעלה מחדש של המחשב: לפתוח את Docker Desktop** ולחכות ל-"Engine running".
 5. אפיק מוחק (S-56): הקובץ המקומי `.live/events.jsonl` · ב-GitHub → Settings → Environments → `preview-e2e`: הסוד `PREVIEW_SUPABASE_SECRET_KEY` · ב-GitHub → Settings → Secrets → Actions (repository): `PREVIEW_TEST_EMAIL` ו-`PREVIEW_TEST_PASSWORD`.
 7. **DECISION REQUEST (guard, לא דחוף; ה-guard קפוא):** לחסום כתיבה של TEST ENGINEER ל-`screen.md` ול-`spec.md` בשינוי הבא של ה-guard (CRITIC 18.10, שינוי חוזה המסך). עד אז: כלל כתוב ב-test-engineer.md.
-8. **עריכת CLAUDE.md (לא דחוף, באישורך):** בטבלת Communication, השורה SPEC CHALLENGE: "once before code; screen.md items any time — workflow" (CRITIC low 7 על חוזה המסך).
 9. **guard ב-worktree (לא דחוף; ה-guard קפוא):** ה-guard מחשב נתיבים מתיקיית הבסיס, ולכן ב-worktree תחת `.work/wt/` הוא חוסם כל כתיבה של TEST ENGINEER לקובצי טסט (גם e2e ו-apps/web/tests, וגם supabase/tests/setup) (F3.2a2, 18.10). עד שיתוקן: TEST ENGINEER כותב רק בתיקייה הראשית.
-10. **עריכה בקובץ מוגן (לא דחוף, באישורך):** `.claude/knowledge/data-model-tables.md` "Feed tables": שורה על המגבלה comments_body_length_check (1000 תווים) ועל תיקון תיאורי העמודות (F3.3a, `.work/comments-likes/schema.md`).
 11. **שאלה 8 (פרטיות, לא חוסם; פועל לפי ברירת המחדל):** משתמש שסימן לייק לפוסט שהפך לא נגיש לו (למשל "חברים בלבד" אחרי הסרת חברות) לא יכול לבטל את הלייק, והלייק ממשיך להיספר אצל מי שרואה את הפוסט. ⭐ להשאיר כך (לא מזהה אף אחד); החלופה: לאפשר לבטל לייק עצמי גם על יעד לא נגיש (שינוי מדיניות מחיקה, DATA ARCHITECT).
+12. **מסירה 19.10 (לסשן הבא; פירוט ב-[`.work/progress.md`](.work/progress.md)):** F3.3w1 מוזג (#87); שינוי קצב ה-PR מוזג (#88) אבל לא יושם בסשן הזה, ומיישמים אותו מהסשן הבא. **החלק הבא: F3.3w2** (לייק וקישור תגובות בכרטיס הפיד). הוא באמצע, ונשמר ב-commit בשני ענפים שנדחפו. **guard:** חסימות ה-.env מ-19.10 היו חסימות שגויות, לא ניסיון אמיתי: הפקודות שנחסמו היו `sed` של TEST ENGINEER על קובצי e2e, בלי גישה ל-.env. כדאי לתקן את התבנית כשה-guard נפתח. **שאלות שמחכות לך:** רק סעיף 11.
 6. **לפני השקה:** הרשימה המלאה ב-`afik-list-1018.md` חלק ב (S-59, דומיין, אימייל, Supabase Pro, Cloudflare, Google OAuth, Vercel Pro או השקה לא מסחרית).
 
 **להמשך:**
