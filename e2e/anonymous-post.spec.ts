@@ -235,15 +235,7 @@ test.describe('F3.4 c11 [FR-FEED-005 r.1] the composer toggle (in the feed: feed
     expect(outline).not.toMatch(/^none\|0px\|none\|none\|0px\|none$/);
   });
 
-  test('[c11] a Professional has no composer and so no new control', async ({ page }) => {
-    const net = await setupFeed(page, () => 403, { professional: true });
-    await openFeedAt(page, net);
-    await expect(page.getByRole('heading', { level: 1, name: 'הפיד' })).toBeVisible();
-    await page.waitForTimeout(500); // the posting-right check answers after the heading; a control must not appear later
-    await expect(body(page)).toHaveCount(0);
-    await expect(toggle(page)).toHaveCount(0);
-    await expect(page.getByRole('checkbox')).toHaveCount(0);
-  });
+  // F3.4 c11's "a Professional has no composer and so no new control" is superseded by professional-posting c8 (a composer without the anonymous control): e2e/professional-posting.spec.ts.
 });
 
 // ---------------------------------------------------------------------------------------------------------------------

@@ -15,7 +15,6 @@ import { deleteLike, putLike, type LikeKind } from '../helpers/likes-api.js';
 
 const T = { timeout: COLD_START_MS };
 const S = '50000000-0000-4000-8000-000000000051'; // suspended fixture account
-const P = 'd0000000-0000-4000-8000-0000000000d4'; // Professional fixture account
 const NOBODY = '99999999-9999-4999-8999-999999999999';
 const T0 = Date.parse('2026-01-15T12:00:00Z');
 const HOUR = 3_600_000;
@@ -29,7 +28,6 @@ const NAMES = ['Adi Author', 'Cora Commenter', 'Fiona Friend', 'Xavi Stranger', 
 let AU: Member, C: Member, F: Member, X: Member, Y: Member, O: Member, R: Member;
 let everyone: Member[] = [];
 let hS: string;
-let hP: string;
 let key: TestKey;
 let jwks: JwksServer;
 let side: ReturnType<typeof postgres>;
@@ -165,7 +163,7 @@ beforeAll(async () => {
   side = postgres(url(), { max: 1, prepare: false, onnotice: () => undefined });
   const [who] = await side`select session_user::text as su`;
   expect(who?.su, 'these tests must run as app_server, never as a role that bypasses RLS').toBe('app_server');
-  [hS, hP] = await Promise.all([bearerFor(S), bearerFor(P)]);
+  hS = await bearerFor(S);
   const app = await start();
   const made: Member[] = [];
   for (const fullName of NAMES) {
@@ -237,13 +235,12 @@ describe.each<LikeKind>(['post', 'comment'])('[F3.3-b2 c10] PUT|DELETE like on a
     expect(await count('fx_rx_count')).toBe(2);
   });
 
-  it('[F3.3-b2 c10] no token → 401; a Professional and a suspended account → 403; none writes or removes a row', T, async () => {
+  it('[F3.3-b2 c10 professional-posting c7] no token → 401; a suspended account → 403; none writes or removes a row (amended: a Professional may now like)', T, async () => {
     const app = await start();
     const id = await target(kind);
     await seedLike(X, kind, id);
     for (const send of [putLike, deleteLike]) {
       expect((await send(app, null, kind, id)).statusCode).toBe(401);
-      expect((await send(app, hP, kind, id)).statusCode).toBe(403);
       expect((await send(app, hS, kind, id)).statusCode).toBe(403);
     }
     expect(await count('fx_rx_count')).toBe(1);

@@ -510,15 +510,15 @@ test.describe('feed-composer c11 [FR-FEED-002] /posts/new', () => {
     await expect(composer(page)).toHaveCount(0);
     await expect(bodyBox(page)).toHaveCount(0);
   });
-  test('[c11] a Professional opening /posts/new ends on the /feed placeholder: no form, no "כתיבת פוסט"', async ({ page }) => {
-    const net = await setupFeed(page, () => 403, { professional: true });
+  // Amended by professional-posting c10 (Afik 19.10): a Professional has the composer, so /posts/new ends on /feed with focus in the text field.
+  test('[c11][professional-posting c10] a Professional opening /posts/new ends on /feed with focus in the text field "מה תרצו לשתף?": the form is there, no page named "כתיבת פוסט"', async ({ page }) => {
+    const net = await setupFeed(page, FEED, { professional: true });
     await openFeedAt(page, net, '/posts/new');
     await expect.poll(() => pathOf(page)).toBe('/feed');
-    await expect(main(page).getByText('המסך הזה ייפתח בקרוב.')).toBeVisible();
-    await page.waitForTimeout(500); // the right check answers after the heading; nothing may appear later
-    await expect(composer(page)).toHaveCount(0);
-    await expect(bodyBox(page)).toHaveCount(0);
+    await expect(composer(page)).toBeVisible();
+    await expect(bodyBox(page)).toBeFocused();
     await expect(page.getByRole('heading', { level: 1, name: 'כתיבת פוסט' })).toHaveCount(0);
+    await expect(main(page).getByText('המסך הזה ייפתח בקרוב.')).toHaveCount(0);
     await expect(page.getByText('הפעולה אינה זמינה')).toHaveCount(0);
   });
 });

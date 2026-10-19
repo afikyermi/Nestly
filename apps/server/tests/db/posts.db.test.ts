@@ -442,3 +442,108 @@ describe('[F3.1-a c12] GET /posts/:id', () => {
   });
 
 });
+
+// ---------------------------------------------------------------------------------------------------------------------
+// professional-posting c2, c3 (.work/professional-posting/spec.md): an active Professional's named, everyone, untagged post.
+describe('[professional-posting c2] POST /posts by a Professional', () => {
+  it('[professional-posting c2] 201 isAnonymous:false; the response carries no author id; the stored row is the caller\'s and has no post_authors row', T, async () => {
+    const app = await start();
+    const res = await createPost(app, hP, { body: 'מקצועי', audience: 'everyone' });
+    expect(res.statusCode, res.body).toBe(201);
+    expect(jsonObject(res.body).isAnonymous).toBe(false);
+    expect(res.body).not.toContain(P);
+    expect(await scalar(side`select tests.fx_pa_count() as v`)).toBe('0');
+  });
+
+  it('[professional-posting c2][AC-076] isAnonymous:true → 403 not_allowed; 0 posts and 0 post_authors', T, async () => {
+    const app = await start();
+    const res = await createPost(app, hP, { body: 'x', audience: 'everyone', isAnonymous: true });
+    expect(res.statusCode, res.body).toBe(403);
+    expect(jsonObject(res.body).error).toBe('not_allowed');
+    expect(await postCount()).toBe(0);
+    expect(await scalar(side`select tests.fx_pa_count() as v`)).toBe('0');
+  });
+
+  it('[professional-posting c2] audience friends, or any stageTag → 403 and no row; "followers" → 400 (Zod) and no row', T, async () => {
+    const app = await start();
+    for (const extra of [{ audience: 'friends' }, { stageTag: 'pregnant' }, { stageTag: 'planning' }, { stageTag: 'has_child' }]) {
+      const res = await createPost(app, hP, { body: 'x', audience: 'everyone', ...extra });
+      expect(res.statusCode, `${JSON.stringify(extra)}: ${res.body}`).toBe(403);
+    }
+    expect((await createPost(app, hP, { body: 'x', audience: 'followers' })).statusCode).toBe(400);
+    expect(await postCount()).toBe(0);
+  });
+
+  it('[professional-posting c2] a suspended Professional is refused: 403 and no row', T, async () => {
+    const app = await start();
+    await setStatus(P, 'suspended');
+    try {
+      const res = await createPost(app, hP, { body: 'x', audience: 'everyone' });
+      expect(res.statusCode, res.body).toBe(403);
+      expect(await postCount()).toBe(0);
+    } finally {
+      await setStatus(P, 'active');
+    }
+  });
+});
+
+describe('[professional-posting c3 FR-FEED-002 3א] a Professional edits, deletes and reads', () => {
+  it('[professional-posting c3] PATCH body → 200; audience friends or a stageTag → 403 and the row is unchanged', T, async () => {
+    const app = await start();
+    const id = String(jsonObject((await createPost(app, hP, { body: 'first', audience: 'everyone' })).body).id);
+    const res = await patchPost(app, hP, id, { body: ' second ', audience: 'everyone' });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(jsonObject(res.body)).toMatchObject({ id, body: 'second', audience: 'everyone', stageTag: null });
+    const before = await stateOf(id);
+    expect(before).toBe(`status=active aud=everyone anon=f author=${P} tag=null share=f body=second`);
+    for (const extra of [{ audience: 'friends' }, { stageTag: 'pregnant' }]) {
+      const refused = await patchPost(app, hP, id, { body: 'changed', audience: 'everyone', ...extra });
+      expect(refused.statusCode, `${JSON.stringify(extra)}: ${refused.body}`).toBe(403);
+    }
+    expect(await stateOf(id)).toBe(before);
+  });
+
+  it('[professional-posting c3] DELETE → 204, also with an open report; afterwards GET is 404 for everyone', T, async () => {
+    const app = await start();
+    const plain = String(jsonObject((await createPost(app, hP, { body: 'a', audience: 'everyone' })).body).id);
+    const reported = String(jsonObject((await createPost(app, hP, { body: 'b', audience: 'everyone' })).body).id);
+    await inTx(async (tx) => {
+      await tx`select tests.fx_rp_add(${ACCOUNT_B}::uuid, 'post', ${reported}::uuid, 'spam', null)`;
+    });
+    expect((await deletePost(app, hP, plain)).statusCode).toBe(204);
+    expect((await deletePost(app, hP, reported)).statusCode).toBe(204);
+    for (const id of [plain, reported]) {
+      expect((await getPost(app, hP, id)).statusCode).toBe(404);
+      expect((await getPost(app, hB, id)).statusCode).toBe(404);
+    }
+  });
+
+  it('[professional-posting c3] another user\'s PATCH and DELETE of a Professional\'s post → 404, row unchanged; a Professional on a Regular\'s post → 404', T, async () => {
+    const app = await start();
+    const id = String(jsonObject((await createPost(app, hP, { body: 'mine', audience: 'everyone' })).body).id);
+    const before = await stateOf(id);
+    expect((await patchPost(app, hB, id, { body: 'hijack', audience: 'everyone' })).statusCode).toBe(404);
+    expect((await deletePost(app, hB, id)).statusCode).toBe(404);
+    expect(await stateOf(id)).toBe(before);
+    const regular = await seedPost(ACCOUNT_A, 'everyone', 'regular');
+    expect((await patchPost(app, hP, regular, { body: 'hijack', audience: 'everyone' })).statusCode).toBe(404);
+    expect((await deletePost(app, hP, regular)).statusCode).toBe(404);
+    expect(await stateOf(regular)).toContain('body=regular');
+  });
+
+  it('[professional-posting c3] GET /posts/:id: isMine is true only for the Professional author; a Professional reads a Regular\'s everyone post with isMine false, not a friends one', T, async () => {
+    const app = await start();
+    const id = String(jsonObject((await createPost(app, hP, { body: 'pro', audience: 'everyone' })).body).id);
+    expect(jsonObject((await getPost(app, hP, id)).body).isMine).toBe(true);
+    const theirs = await getPost(app, hB, id);
+    expect(theirs.statusCode, theirs.body).toBe(200);
+    expect(jsonObject(theirs.body).isMine).toBe(false);
+    expect(theirs.body).not.toContain(P);
+    const regular = await seedPost(ACCOUNT_A, 'everyone', 'regular');
+    const friends = await seedPost(ACCOUNT_A, 'friends', 'friends only');
+    const read = await getPost(app, hP, regular);
+    expect(read.statusCode, read.body).toBe(200);
+    expect(jsonObject(read.body).isMine).toBe(false);
+    expect((await getPost(app, hP, friends)).statusCode).toBe(404);
+  });
+});

@@ -75,15 +75,17 @@ test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
       await scan(page);
     });
   }
-  test('[c13] a Professional still sees the placeholder: no list, no alert', async ({ page }) => {
-    const net = await setupFeed(page, () => 403, { professional: true });
+  // Amended by professional-posting c12 (Afik 19.10, DR-1): a Professional reads the feed. Supersedes F3.2b c13 ("a Professional still sees the placeholder").
+  test('[c13][professional-posting c12] a Professional sees the list, not the placeholder: the cards are there and no alert', async ({ page }) => {
+    const net = await setupFeed(page, () => pageOf(range(1, 3), null), { professional: true });
     await open(page, net);
     await expect(page.getByRole('heading', { level: 1, name: 'הפיד', exact: true })).toBeVisible();
-    await expect(main(page).getByText('המסך הזה ייפתח בקרוב.')).toBeVisible();
-    await page.waitForTimeout(500); // the profile check answers after the heading; a list, an alert or a request must not appear later
-    await expect(list(page)).toHaveCount(0);
+    await expect(cards(page)).toHaveCount(3);
+    await page.waitForTimeout(500); // the profile check answers after the list; the placeholder must not appear later
+    await expect(main(page).getByText('המסך הזה ייפתח בקרוב.')).toHaveCount(0);
     await expect(main(page).getByRole('alert')).toHaveCount(0);
-    expect(net.cursors.length, 'at most the request made while the profile check was pending (screen decision 5)').toBeLessThanOrEqual(1);
+    await expect(cards(page)).toHaveCount(3);
+    expect(net.methods.every((m) => m === 'GET')).toBe(true);
   });
   test('[c13][c14] keyboard: after the composer’s "פרסום" the Tab order is, per card in server order, "לייק", then "תגובות", then "שיתוף בפיד", then "שיתוף קישור", then its time link, then its "⋯" menu button (screen.md; F3.9 c8, F3.5 and F3.6 amend F3.2b); the focus is visible', async ({ page }) => {
     const net = await setupFeed(page, () => pageOf(range(1, 4), null));

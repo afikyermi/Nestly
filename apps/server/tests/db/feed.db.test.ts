@@ -22,7 +22,6 @@ const TOP_ID = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
 const topCursor = (asOf = ASOF): string => serializeFeedCursor({ asOf, configVersion: 1, tier: 0, score: 1e9, createdAt: asOf, id: TOP_ID });
 const b64 = (text: string): string => Buffer.from(text).toString('base64url');
 const DB_TEXT = `to_char((%s) at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
-const P = 'd0000000-0000-4000-8000-0000000000d4';
 const S = '50000000-0000-4000-8000-000000000051';
 
 interface Member { id: string; header: string }
@@ -529,18 +528,21 @@ describe('[F3.2-a2 c10 c11] configuration, cold start, empty feed, logs', () => 
 });
 
 describe('[F3.2-a2 c12 BR-062 6ב] who may ask, and exactly what a unit holds', () => {
-  it('[F3.2-a2 c12] a Professional -> 403 not_allowed and a suspended account -> 403, neither returns post data', T, async () => {
+  it('[F3.2-a2 c12 professional-posting c6] an Admin and a Moderator -> 403 not_allowed and a suspended account -> 403, none returns post data (amended: a Professional now reads the feed)', T, async () => {
     const app = await start();
     await mk({ by: Tm });
-    const prof = await feed(app, await bearerFor(P));
+    const prof = await feed(app, await bearerFor(await text(side`select tests.fx_fr_id('fr_d')::text as v`)));
     expect(prof.statusCode, prof.body).toBe(403);
     expect(errorOf(prof.body)).toBe('not_allowed');
+    const moderator = await feed(app, await bearerFor(await text(side`select tests.fx_fr_id('fr_m')::text as v`)));
+    expect(moderator.statusCode, moderator.body).toBe(403);
+    expect(errorOf(moderator.body)).toBe('not_allowed');
     const susp = await feed(app, await bearerFor(S));
     expect(susp.statusCode, susp.body).toBe(403);
     await setStatus(V, 'suspended');
     const own = await feed(app, V.header);
     expect(own.statusCode, own.body).toBe(403);
-    for (const res of [prof, susp, own]) expect(res.body).not.toMatch(/items|"id"|post body/);
+    for (const res of [prof, moderator, susp, own]) expect(res.body).not.toMatch(/items|"id"|post body/);
   });
 
   it('[F3.2-a2 c12] a cursor from another viewer grants nothing: X with V\'s cursor sees no friends-only post of V\'s friend', T, async () => {

@@ -173,14 +173,18 @@ test.describe('F3.3 c13 [FR-FEED-001] the action row', () => {
     await expect(cards(page).first().getByRole('button', { name: 'לייק, 4', exact: true })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  test('[c13] a Professional gets no feed, so no like button and no comments link', async ({ page }) => {
-    const net = await setupFeed(page, () => 403, { professional: true });
+  // Amended by professional-posting c12 (Afik 19.10, DR-1): a Professional's cards carry "לייק" and "תגובות" like a Regular's. Supersedes F3.3 c13 here.
+  test('[c13][professional-posting c12] a Professional sees "לייק" and "תגובות" on every card; pressing "לייק" sends the like', async ({ page }) => {
+    const net = await setupFeed(page, () => pageOf([named(1), named(2)], null), { professional: true, posts: [stored(1), stored(2)] });
     await open(page, net);
-    await expect(page.getByRole('heading', { level: 1, name: 'הפיד', exact: true })).toBeVisible();
-    await page.waitForTimeout(500); // the profile check answers after the heading
-    await expect(main(page).getByRole('button', { name: /^לייק/ })).toHaveCount(0);
-    await expect(main(page).getByRole('button', { name: /^תגובות/ })).toHaveCount(0);
-    expect(net.likeCalls).toEqual([]);
+    await expect(cards(page)).toHaveCount(2);
+    for (let i = 0; i < 2; i += 1) {
+      await expect(like(cards(page).nth(i))).toHaveCount(1);
+      await expect(comments(cards(page).nth(i))).toHaveCount(1);
+    }
+    await like(cards(page).first()).click();
+    await expect(like(cards(page).first())).toHaveAttribute('aria-pressed', 'true');
+    expect(net.likeCalls).toEqual([`PUT /api/posts/${id(1)}/like`]);
   });
 });
 

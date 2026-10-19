@@ -9,6 +9,7 @@ import {
   parseFeedCursor,
   rankTier,
   resolveFeedConfig,
+  scoreContentPost,
   scorePost,
   selectFeedPage,
   serializeFeedCursor,
@@ -238,5 +239,27 @@ describe('response [F3.2-a1 c12]', () => {
     expect(feedPageResponse.safeParse({ items: [], nextCursor: null, configVersion: 0 }).success).toBe(true);
     expect(feedPageResponse.safeParse({ items: [], nextCursor: null, configVersion: 0, total: 3 }).success).toBe(false);
     expect(feedPageResponse.safeParse({ items: [], nextCursor: null }).success).toBe(false);
+  });
+});
+
+// professional-posting c6 (algorithm-review.md R2): the content profile is Freshness + Quality; the Friend and Stage terms are omitted.
+describe('content profile [professional-posting c6 R2]', () => {
+  const heavy: FeedConfig = { ...V1, wFriend: 2, wStage: 2 };
+  const content = (ageHours: number, n: number, cfg = heavy) => scoreContentPost(cfg, { ageHours, n });
+  it('is wFresh*2^(-age/halfLife) + wQuality*min(ln(1+n)/ln(1+cap), 1), whatever wFriend and wStage are', () => {
+    expect(content(0, 0)).toBeCloseTo(1, 12);
+    expect(content(24, 0)).toBeCloseTo(0.5, 12);
+    expect(content(0, 3)).toBeCloseTo(1 + (0.2 * Math.log(4)) / Math.log(21), 12);
+    expect(content(0, 200)).toBeCloseTo(1.2, 12);
+    expect(content(12, 5, heavy)).toBe(content(12, 5, V1));
+  });
+  it('equals the Regular score of a post with no Friend term and no Stage match (one reference for the fixtures)', () => {
+    for (const [ageHours, n] of [[0, 0], [5, 2], [48, 7], [300, 40]] as const) {
+      expect(content(ageHours, n)).toBe(score({ ageHours, n, isFriend: false, stageTag: null, viewerStages: ['pregnant'] }, heavy));
+    }
+  });
+  it('is 0 past the scored window (tier 1) and just inside it still scores', () => {
+    expect(content(14 * 24 + 1, 5)).toBe(0);
+    expect(content(14 * 24, 0)).toBeGreaterThan(0);
   });
 });

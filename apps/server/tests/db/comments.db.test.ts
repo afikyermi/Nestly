@@ -12,7 +12,6 @@ import { jsonObject } from '../helpers/posts-api.js';
 
 const T = { timeout: COLD_START_MS };
 const S = '50000000-0000-4000-8000-000000000051'; // suspended fixture account
-const P = 'd0000000-0000-4000-8000-0000000000d4'; // Professional fixture account
 const NOBODY = '99999999-9999-4999-8999-999999999999';
 const T0 = Date.parse('2026-01-15T12:00:00Z');
 
@@ -21,7 +20,6 @@ const NAMES = ['Adi Author', 'Cora Commenter', 'Fiona Friend', 'Quinn Requester'
 let AU: Member, C: Member, F: Member, Q: Member, X: Member, R: Member, O: Member;
 let everyone: Member[] = [];
 let hS: string;
-let hP: string;
 let key: TestKey;
 let jwks: JwksServer;
 let side: ReturnType<typeof postgres>;
@@ -111,7 +109,7 @@ beforeAll(async () => {
   side = postgres(url(), { max: 1, prepare: false, onnotice: () => undefined });
   const [who] = await side`select session_user::text as su`;
   expect(who?.su, 'these tests must run as app_server, never as a role that bypasses RLS').toBe('app_server');
-  [hS, hP] = await Promise.all([bearerFor(S), bearerFor(P)]);
+  hS = await bearerFor(S);
   const app = await start();
   const made: Member[] = [];
   for (const fullName of NAMES) {
@@ -205,11 +203,10 @@ describe('[F3.3-b1 c2 c3] POST /posts/:id/comments', () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 describe('[F3.3-b1 c4] who may comment where', () => {
-  it('[F3.3-b1 c4] no token → 401; a Professional and a suspended account → 403; none writes a row', T, async () => {
+  it('[F3.3-b1 c4 professional-posting c7] no token → 401; a suspended account → 403; none writes a row (amended: a Professional may now comment)', T, async () => {
     const app = await start();
     const postId = await seedPost(AU);
     expect((await addComment(app, null, postId, { body: 'x' })).statusCode).toBe(401);
-    expect((await addComment(app, hP, postId, { body: 'x' })).statusCode).toBe(403);
     expect((await addComment(app, hS, postId, { body: 'x' })).statusCode).toBe(403);
     expect(await count('fx_cm_count')).toBe(0);
   });
