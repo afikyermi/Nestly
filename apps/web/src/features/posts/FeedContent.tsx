@@ -1,4 +1,4 @@
-import { useEffect, useRef, type Ref, type RefObject } from 'react';
+import { useEffect, useRef, type ReactNode, type Ref, type RefObject } from 'react';
 import type { FeedUnit } from '@nestly/shared';
 import { EmptyFeedIllustration } from '@/components/shared/illustrations';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import type { MoreActionsItem } from '@/components/ui/more-actions-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CONFIRM_DELETE_LABEL, DELETE_DESCRIPTION, DELETE_TITLE, DELETING_TEXT, DIALOG_CANCEL_LABEL, RETRY_LABEL } from './posts-texts';
+import { DELETE_COMMENT_CONFIRM_LABEL, DELETE_COMMENT_REPLIES_NOTE, DELETE_COMMENT_TITLE } from './comments-texts';
 import { FeedCard } from './FeedCard';
 import { HiddenPostCard } from './HiddenPostCard';
 import { ShareFeedSheet, type ShareFeedSheetProps } from './ShareFeedSheet';
@@ -39,12 +40,20 @@ export interface FeedContentProps {
   onEditChange?: (values: CardEdit['values']) => void;
   onEditSave?: () => void;
   onEditCancel?: () => void;
-  /** The delete confirmation of the viewer's own card (F3.9 c13), open while set. */
-  confirm?: { unitId: string; saving: boolean; failure: string | null } | null;
+  /**
+   * The delete confirmation of the viewer's own card (F3.9 c13), or of the viewer's own comment in a card (`comment`; ux-polish-a c7, F3.3's
+   * texts): one dialog over the feed, open while set.
+   */
+  confirm?: { unitId: string; saving: boolean; failure: string | null; comment?: { id: string; topLevel: boolean } | undefined } | null;
   onConfirmDelete?: () => void;
   onCancelDelete?: () => void;
-  /** The report window of a card (F3.7 c10), open while set; it closes onto the card's "⋯", or where the card's removal sends focus. */
-  report?: { unitId: string; sheet: Omit<ReportSheetProps, 'finalFocus'> } | null;
+  /**
+   * The report window of a card (F3.7 c10), open while set; it closes onto the card's "⋯", or where the card's removal sends focus. A comment's
+   * (ux-polish-a c7) closes onto that comment's "⋯".
+   */
+  report?: { unitId: string; sheet: Omit<ReportSheetProps, 'finalFocus'> } | { commentId: string; sheet: Omit<ReportSheetProps, 'finalFocus'> } | null;
+  /** A card's comment area (ux-polish-a), drawn inside the card with its like control. */
+  commentsFor?: (unit: FeedUnit) => ReactNode;
   /** A card's share actions (F3.5 c9, F3.6 c3): each given only when the unit can be shared or linked. */
   shareActionsFor?: (unit: FeedUnit) => { onShareInFeed?: (() => void) | undefined; onShareLink?: (() => void) | undefined };
   /** The share-in-feed window of a card (F3.5 c10), open while set; it closes onto the card's "שיתוף בפיד". */
@@ -87,7 +96,7 @@ function SkeletonCards() {
 export function FeedContent(props: FeedContentProps) {
   const { state, sentinelRef, onRetry, onToggleLike, actionsFor, onUndoHide, headingRef, openMenuId = null, onMenuOpenChange } = props;
   const { edit = null, onEditChange, onEditSave, onEditCancel } = props;
-  const { confirm = null, onConfirmDelete, onCancelDelete, onMenuPressOutside, report = null, shareActionsFor, shareFeed = null, shareLink = null } = props;
+  const { confirm = null, onConfirmDelete, onCancelDelete, onMenuPressOutside, report = null, shareActionsFor, shareFeed = null, shareLink = null, commentsFor } = props;
   const { phase, loading, items, message, focusIndex, hiddenIds, pendingHideIds, hideFocus } = state;
   const listRef = useRef<HTMLDivElement>(null);
   const latestFocus = useRef(hideFocus);
@@ -107,6 +116,13 @@ export function FeedContent(props: FeedContentProps) {
     if (more !== null && more !== undefined) return more;
     const focus = latestFocus.current;
     return (focus === null ? null : hideFocusElement(listRef.current, focus)) ?? headingRef?.current ?? null;
+  };
+
+  // A comment's confirmation or report window closes onto its "⋯"; the comment gone (a delete), onto its card's "תגובות" (ux-polish-a c7).
+  const afterComment = (commentId: string, unitId: string | null): HTMLElement | null => {
+    const more = listRef.current?.querySelector<HTMLElement>(`[data-comment-id="${commentId}"] [data-more-actions]`);
+    if (more !== null && more !== undefined) return more;
+    return (unitId === null ? null : cardOf(listRef.current, unitId)?.querySelector<HTMLElement>('[data-comments-button]')) ?? headingRef?.current ?? null;
   };
 
   // A share window closes onto the button that opened it (its card stays), else where a removal sends focus.
@@ -172,6 +188,7 @@ export function FeedContent(props: FeedContentProps) {
               menuOpen={openMenuId === unit.id}
               {...(onMenuOpenChange === undefined ? {} : { onMenuOpenChange: (open: boolean) => onMenuOpenChange(unit.id, open) })}
               {...(onMenuPressOutside === undefined ? {} : { onMenuPressOutside })}
+              {...(commentsFor === undefined ? {} : { comments: commentsFor(unit) })}
             />
           ),
         )}
@@ -182,18 +199,25 @@ export function FeedContent(props: FeedContentProps) {
       {confirm !== null ? (
         <ConfirmDialog
           open
-          title={DELETE_TITLE}
-          description={DELETE_DESCRIPTION}
-          confirmLabel={confirm.saving ? DELETING_TEXT : CONFIRM_DELETE_LABEL}
+          title={confirm.comment === undefined ? DELETE_TITLE : DELETE_COMMENT_TITLE}
+          description={
+            <>
+              {DELETE_DESCRIPTION}
+              {confirm.comment?.topLevel === true ? <span className="block">{DELETE_COMMENT_REPLIES_NOTE}</span> : null}
+            </>
+          }
+          confirmLabel={confirm.saving ? DELETING_TEXT : confirm.comment === undefined ? CONFIRM_DELETE_LABEL : DELETE_COMMENT_CONFIRM_LABEL}
           cancelLabel={DIALOG_CANCEL_LABEL}
           pending={confirm.saving}
           failure={confirm.failure}
           onConfirm={() => onConfirmDelete?.()}
           onCancel={() => onCancelDelete?.()}
-          finalFocus={() => afterConfirm(confirm.unitId)}
+          finalFocus={() => (confirm.comment === undefined ? afterConfirm(confirm.unitId) : afterComment(confirm.comment.id, confirm.unitId))}
         />
       ) : null}
-      {report !== null ? <ReportSheet {...report.sheet} finalFocus={() => afterConfirm(report.unitId)} /> : null}
+      {report !== null ? (
+        <ReportSheet {...report.sheet} finalFocus={() => ('commentId' in report ? afterComment(report.commentId, null) : afterConfirm(report.unitId))} />
+      ) : null}
       {shareFeed !== null ? <ShareFeedSheet {...shareFeed.sheet} finalFocus={() => afterShare(shareFeed.unitId, '[data-share-feed]')} /> : null}
       {shareLink !== null ? <ShareLinkSheet {...shareLink.sheet} finalFocus={() => afterShare(shareLink.unitId, '[data-share-link]')} /> : null}
     </div>

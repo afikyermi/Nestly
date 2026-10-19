@@ -165,3 +165,17 @@ export function withPublished(state: FeedState, unit: FeedUnit): FeedState {
 export function withShared(state: FeedState, unit: FeedUnit, status: string): FeedState {
   return { ...withPublished(state, unit), likeStatus: '', hideStatus: status, hideStatusTick: state.hideStatusTick + 1 };
 }
+
+/** What the action channel says (the hide statuses' region and tick): an outcome of a card's comments that moves no count (ux-polish-a c7, c8). */
+export function withStatus(state: FeedState, status: string): FeedState {
+  return { ...state, likeStatus: '', hideStatus: status, hideStatusTick: state.hideStatusTick + 1 };
+}
+
+/**
+ * A comment added to or deleted from a card (ux-polish-a c4, c5, c7): its "תגובות, N" moves by `delta` (never below 0), kept for Back with the
+ * rest of the list (c11), and `status` is said in the action channel.
+ */
+export function withCommentCount(state: FeedState, unitId: string, delta: number, status: string): FeedState {
+  const items = state.items.map((unit) => (unit.id !== unitId ? unit : { ...unit, commentCount: Math.max(0, unit.commentCount + delta) }));
+  return withStatus({ ...state, items }, status);
+}

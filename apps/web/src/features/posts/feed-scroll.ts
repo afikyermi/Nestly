@@ -27,6 +27,17 @@ export function useFeedScroll(rootRef: RefObject<HTMLElement | null>, restoreTo:
   const [far, setFar] = useState(false);
   const restoring = useRef(false);
 
+  // ux-polish-a c10: Back that closes an overlay (a menu, a confirmation, a window) stays at the same scroll. Left to the browser, it would
+  // put back the scroll the feed's entry had when the overlay's entry was added (before the reader scrolled to another "⋯"). The feed puts
+  // its own scroll back for Back from a post (below), so the browser's restore is off while the feed is open.
+  useEffect(() => {
+    const before = window.history.scrollRestoration;
+    window.history.scrollRestoration = 'manual';
+    return () => {
+      window.history.scrollRestoration = before;
+    };
+  }, []);
+
   useEffect(() => {
     const root = rootRef.current;
     const update = () => {

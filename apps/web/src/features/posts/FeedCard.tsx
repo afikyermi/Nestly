@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { ANONYMOUS_AUTHOR_LABEL, type FeedUnit } from '@nestly/shared';
 import { LikeButton } from '@/components/shared/like-button';
@@ -51,18 +51,20 @@ export interface FeedCardProps {
   onEditChange?: Parameters<typeof PostForm>[0]['onChange'];
   onEditSave?: () => void;
   onEditCancel?: () => void;
+  /** The card's comment area (ux-polish-a), drawn after the "⋯" (last in the tab order), only with the like control. */
+  comments?: ReactNode;
 }
 
-// One unit of the feed (F3.2b c14-c17; F3.3 c13): a post, an anonymous post (only "אנונימי": no name, avatar or link) or a share with its
-// original, and after the body an action row: the like, the link to the post's comments (a share's counts are its own) and, where the unit
+// One unit of the feed (F3.2b c14-c17; F3.3 c13; ux-polish-a): a post, an anonymous post (only "אנונימי": no name, avatar or link) or a share with its
+// original, and after the body an action row: the like, the "תגובות" button (to the card's comment field; a share's counts are its own) and, where the unit
 // can be shared, "שיתוף בפיד" and "שיתוף קישור" (F3.5 c9, F3.6 c3: tab order like, comments, share in feed, share link, time). Display
 // only: the like comes in as onToggleLike. The time link follows the row in the DOM (tab order: like, comments, time) and is placed
 // beside the author line by flex order. The card is a tab stop so a screen reader's feed navigation can reach it; its name is its author
 // line. The text is the user's own, so it is plain text (never markup). F3.9 c8: the card ends with the "more actions" menu, last in the
-// tab order; its items come in as actions.
+// tab order before the comment area (ux-polish-a c9); its items come in as actions.
 export function FeedCard(props: FeedCardProps) {
   const { unit, position, onToggleLike, onShareInFeed, onShareLink, actions = [], menuOpen, onMenuOpenChange, onMenuPressOutside } = props;
-  const { edit, onEditChange, onEditSave, onEditCancel } = props;
+  const { edit, onEditChange, onEditSave, onEditCancel, comments } = props;
   const authorId = useId();
   const author = unit.isAnonymous ? ANONYMOUS_AUTHOR_LABEL : (unit.author.name ?? MEMBER_FALLBACK_LABEL);
   return (
@@ -111,14 +113,17 @@ export function FeedCard(props: FeedCardProps) {
           {onToggleLike === undefined ? null : (
             <div className="order-3 w-full flex flex-wrap items-center gap-x-2">
               <LikeButton label={LIKE_LABEL} count={unit.likeCount} liked={unit.likedByMe} onToggle={onToggleLike} />
-              <Link
-                to={{ pathname: postPath(unit.id), hash: '#comments' }}
+              {/* ux-polish-a c9: a button (no navigation): focus goes to this card's comment field. */}
+              <button
+                type="button"
+                data-comments-button=""
                 aria-label={unit.commentCount > 0 ? `${COMMENTS_TITLE}, ${unit.commentCount.toLocaleString('en-US')}` : COMMENTS_TITLE}
+                onClick={(event) => event.currentTarget.closest('article')?.querySelector<HTMLElement>('[data-comment-field] textarea')?.focus()}
                 className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md px-2 text-label text-muted-foreground transition-colors duration-fast ease-standard hover:bg-muted"
               >
                 {COMMENTS_TITLE}
                 {unit.commentCount > 0 ? ` ${unit.commentCount.toLocaleString('en-US')}` : null}
-              </Link>
+              </button>
               {onShareInFeed === undefined ? null : (
                 <Button iconOnly label={SHARE_IN_FEED_LABEL} data-share-feed onClick={onShareInFeed}>
                   <ShareInFeedIcon className="size-5" />
@@ -149,6 +154,7 @@ export function FeedCard(props: FeedCardProps) {
               />
             </div>
           )}
+          {onToggleLike === undefined ? null : comments}
         </>
       )}
     </article>

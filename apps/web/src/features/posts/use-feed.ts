@@ -21,6 +21,8 @@ import {
   withPage,
   withPublished,
   withShared,
+  withCommentCount,
+  withStatus,
   type FeedState,
   type HideResult,
 } from './feed-state';
@@ -58,6 +60,10 @@ export interface FeedFlow {
   gone: (unitId: string) => void;
   /** A card's edit form closed without saving: focus goes to its "⋯". */
   editClosed: (unitId: string) => void;
+  /** A card's comments changed (ux-polish-a): its count moves by `delta` and `status` is said; kept for Back (c11). */
+  commented: (unitId: string, delta: number, status: string) => void;
+  /** Says `status` in the action channel (a comment's like failure or report outcome). */
+  said: (status: string) => void;
   /** The scroll to go back to when the list came from memory, else null. */
   restoredScroll: FeedScroll | null;
 }
@@ -220,6 +226,8 @@ export function useFeed(onRestart: () => void): FeedFlow {
   const edited = useCallback((unitId: string, post: PostView) => setState((now) => withEdited(now, unitId, post, UPDATED_STATUS)), []);
   const gone = useCallback((unitId: string) => setState((now) => withHideResult(now, unitId, { kind: 'removed', status: POST_UNAVAILABLE_TEXT })), []);
   const editClosed = useCallback((unitId: string) => setState((now) => withMoreFocus(now, unitId)), []);
+  const commented = useCallback((unitId: string, delta: number, status: string) => setState((now) => withCommentCount(now, unitId, delta, status)), []);
+  const said = useCallback((status: string) => setState((now) => withStatus(now, status)), []);
   const reported = useCallback((unitId: string, result: ReportResult) => {
     const outcome: HideResult =
       result === 'unavailable'
@@ -242,6 +250,8 @@ export function useFeed(onRestart: () => void): FeedFlow {
     undoHide: (unitId) => void changeHidden(unitId, false),
     addPublished,
     addShared,
+    commented,
+    said,
     restoredScroll,
   };
 }

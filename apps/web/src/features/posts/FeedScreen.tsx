@@ -29,16 +29,29 @@ import { useFeed } from './use-feed';
 import { useCardEdit } from './use-card-edit';
 import { useFeedScroll } from './feed-scroll';
 import { useSentinel } from './use-sentinel';
+import { CardComments } from './CardComments';
+import { COMMENT_REPORT_STATUS } from './CommentsSection';
+import { useCommentApi } from './use-comment-api';
+import { useFeedComments } from './use-feed-comments';
+import { useFeedCommentWrites } from './use-feed-comment-writes';
+import { useNearCards } from './use-near-cards';
 
-/** What is open over the feed: one card's menu, or its delete confirmation (with its request state). */
-type Overlay = { kind: 'menu'; unitId: string } | { kind: 'confirm'; unitId: string; saving: boolean; failure: string | null } | null;
+/**
+ * What is open over the feed: one card's menu, one comment's menu (ux-polish-a c10), or the delete confirmation of a card or of a comment in it
+ * (with its request state).
+ */
+type Overlay =
+  | { kind: 'menu'; unitId: string }
+  | { kind: 'comment-menu'; unitId: string; commentId: string }
+  | { kind: 'confirm'; unitId: string; saving: boolean; failure: string | null; comment?: { id: string; topLevel: boolean } | undefined }
+  | null;
 
 // The feed screen of a Regular account (FR-FEED-001; F3.2b, feed-composer): the heading, one polite region, the composer (always open), and
 // the cards in the server's order with infinite scroll. A Professional keeps the placeholder line and no list. A post just deleted leaves
 // "הפוסט נמחק" here, handed over in memory, once. Every card has a "⋯" menu (F3.9): edit and delete on the viewer's own named card, else hide
 // (with undo in place) and report (F3.7). The posting right only decides the composer and the placeholder; the server decides who has a feed.
 // A card that can be shared has "שיתוף בפיד" (F3.5: the window over the feed, the new share first in the list at once) and one with a link
-// "שיתוף קישור" (F3.6); a Professional has neither.
+// "שיתוף קישור" (F3.6); a Professional has neither. Every card with the like control holds its comments (ux-polish-a): asked when it comes near.
 export function FeedScreen() {
   const { right, fullName } = usePostingProfile();
   const own = useOwnUserId();
@@ -47,7 +60,7 @@ export function FeedScreen() {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const toTopRef = useRef<() => void>(() => undefined);
   // A new snapshot replaces the list: focus that was inside it would drop to the page, so it goes to the heading, at the top.
-  const { state, loadMore, retry, toggleLike, hide, undoHide, remove, addPublished, addShared, reported, edited, gone, editClosed, restoredScroll } = useFeed(() => {
+  const { state, loadMore, retry, toggleLike, hide, undoHide, remove, addPublished, addShared, reported, edited, gone, editClosed, commented, said, restoredScroll } = useFeed(() => {
     if (rootRef.current?.querySelector('[role="feed"]')?.contains(document.activeElement) !== true) return;
     headingRef.current?.focus();
     toTopRef.current();
@@ -89,8 +102,13 @@ export function FeedScreen() {
   // the confirmation while its delete is in flight is not possible (the dialog stays).
   const [overlay, setOverlay] = useState<Overlay>(null);
   const saving = overlay?.kind === 'confirm' && overlay.saving;
-  // F3.7: the report window of a card (from its menu) shares the menu's one history entry.
-  const report = useReport((target, result) => reported(target.id, result));
+  // ux-polish-a: the comments inside the cards; what they change in a card's count, and what they say, goes to the feed.
+  const commentApi = useCommentApi();
+  const commentsReport = { onCount: commented, onStatus: said };
+  const comments = useFeedComments(commentApi, commentsReport);
+  const commentWrites = useFeedCommentWrites(comments, commentApi, commentsReport);
+  // F3.7: the report window of a card or of a comment (from its menu) shares the menu's one history entry. A reported comment stays (c13).
+  const report = useReport((target, result) => (target.kind === 'comment' ? said(COMMENT_REPORT_STATUS[result]) : reported(target.id, result)));
   const reportSending = report.draft?.sending === true;
   // F3.5: the share-in-feed window; a share that went through is first in the list at once. A refusal of the caller closes it onto a page alert.
   const [pageAlert, setPageAlert] = useState('');
@@ -112,9 +130,11 @@ export function FeedScreen() {
     shareLink.close();
     return true;
   });
-  const confirmDelete = async (unitId: string) => {
-    setOverlay({ kind: 'confirm', unitId, saving: true, failure: null });
-    const result = await remove(unitId);
+  const confirmDelete = async (unitId: string, comment: { id: string; topLevel: boolean } | undefined) => {
+    const unit = state.items.find((candidate) => candidate.id === unitId);
+    if (comment !== undefined && unit === undefined) return;
+    setOverlay({ kind: 'confirm', unitId, saving: true, failure: null, comment });
+    const result = comment === undefined || unit === undefined ? await remove(unitId) : await commentWrites.remove(unit, comment.id);
     setOverlay((now) => (now?.kind !== 'confirm' || now.unitId !== unitId ? now : result.ok ? null : { ...now, saving: false, failure: result.failure }));
   };
   const pressedOutside = outsidePressHandler({ closingByPointer, followAfterClose });
@@ -155,6 +175,43 @@ export function FeedScreen() {
     };
   };
 
+  // ux-polish-a c1: a card asks for its comments once, when it first comes near (a hidden card's placeholder has no comment area).
+  const nearKey = state.items.map((unit) => `${unit.id}${state.hiddenIds.includes(unit.id) ? '-' : ''}`).join(' ') + (cardEdit.edit?.unitId ?? '');
+  useNearCards(rootRef, nearKey, (unitId) => {
+    const unit = state.items.find((candidate) => candidate.id === unitId);
+    if (unit !== undefined && !state.hiddenIds.includes(unitId)) comments.near(unit);
+  });
+  // A card's comment area: its comments' "⋯" share the feed's one overlay (c10): one open at a time, Back closes it.
+  const commentsFor = (unit: FeedUnit) => {
+    const thread = comments.threadOf(unit);
+    return (
+      <CardComments
+        thread={thread}
+        menu={{
+          openId: overlay?.kind === 'comment-menu' && overlay.unitId === unit.id ? overlay.commentId : null,
+          onPressOutside: pressedOutside,
+          onOpenChange: (commentId, open) =>
+            setOverlay((now) => (open ? { kind: 'comment-menu', unitId: unit.id, commentId } : now?.kind === 'comment-menu' && now.commentId === commentId ? null : now)),
+          onDelete: (commentId) =>
+            setOverlay({ kind: 'confirm', unitId: unit.id, saving: false, failure: null, comment: { id: commentId, topLevel: thread.items.some((item) => item.id === commentId) } }),
+          onReport: (commentId) => report.start({ kind: 'comment', id: commentId }),
+        }}
+        actions={{
+          onRetry: () => comments.retry(unit),
+          onMore: () => comments.showMore(unit),
+          onMoreReplies: (commentId) => comments.showMoreReplies(unit, commentId),
+          onLike: (commentId) => comments.toggleLike(unit, commentId),
+          onReply: (commentId) => commentWrites.openReply(unit, commentId),
+          onRootChange: (text) => commentWrites.changeRoot(unit, text),
+          onRootSend: () => commentWrites.sendRoot(unit),
+          onReplyChange: (text) => commentWrites.changeReply(unit, text),
+          onReplySend: () => commentWrites.sendReply(unit),
+          onReplyCancel: () => commentWrites.cancelReply(unit),
+        }}
+      />
+    );
+  };
+
   // One polite region: the check in progress, else the page just loaded (a no-break space after every other one makes equal texts speak
   // again), else what just happened.
   const loaded = state.announcement === '' ? '' : state.announcement + (state.announcementTick % 2 === 0 ? ' ' : '');
@@ -185,12 +242,19 @@ export function FeedScreen() {
       }
       confirm={overlay?.kind === 'confirm' ? overlay : null}
       onConfirmDelete={() => {
-        if (overlay?.kind === 'confirm' && !saving) void confirmDelete(overlay.unitId);
+        if (overlay?.kind === 'confirm' && !saving) void confirmDelete(overlay.unitId, overlay.comment);
       }}
       onCancelDelete={() => {
         if (!saving) setOverlay(null);
       }}
-      report={report.draft === null ? null : { unitId: report.draft.target.id, sheet: reportSheetProps(report, report.draft, PATHS.communityRules) }}
+      report={
+        report.draft === null
+          ? null
+          : report.draft.target.kind === 'comment'
+            ? { commentId: report.draft.target.id, sheet: reportSheetProps(report, report.draft, PATHS.communityRules) }
+            : { unitId: report.draft.target.id, sheet: reportSheetProps(report, report.draft, PATHS.communityRules) }
+      }
+      commentsFor={commentsFor}
       shareActionsFor={shareActionsFor}
       shareFeed={
         shareFeed.draft === null
