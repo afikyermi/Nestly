@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import type { PostReadView } from '@nestly/shared';
 import { PATHS } from '@/app/paths';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
@@ -66,6 +66,8 @@ export interface PostContentProps {
   onDelete?: () => void;
   onConfirmDelete?: () => void;
   onCancelDelete?: () => void;
+  /** The comments region, drawn below the post (F3.3); it keeps its own state while the post is edited. */
+  thread?: ReactNode;
 }
 
 const FOCUS_ACTION = '[data-post-action] button';
@@ -74,7 +76,7 @@ const FOCUS_ACTION = '[data-post-action] button';
 // the edit form and the delete confirmation. Display only: what the actions do comes in as props. The text is the user's own, so it
 // is isolated and keeps its line breaks.
 export function PostContent(props: PostContentProps) {
-  const { view, focus, onRetry, onEdit, onEditChange, onEditSave, onEditCancel, onDelete, onConfirmDelete, onCancelDelete } = props;
+  const { view, focus, onRetry, onEdit, onEditChange, onEditSave, onEditCancel, onDelete, onConfirmDelete, onCancelDelete, thread } = props;
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -192,6 +194,7 @@ export function PostContent(props: PostContentProps) {
           ) : null}
         </>
       ) : null}
+      {loaded !== null ? thread : null}
     </div>
   );
 }

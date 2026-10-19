@@ -8,6 +8,7 @@ import {
   createLucideIcon,
   Eye,
   EyeOff,
+  Heart,
   House,
   LoaderCircle,
   Menu,
@@ -63,6 +64,7 @@ export const LoaderIcon = icon(LoaderCircle);
 export const NestIcon = icon(Nest);
 export const BagIcon = icon(ShoppingBag);
 export const SparkIcon = icon(Sparkles);
+export const HeartIcon = icon(Heart);
 // Directional icons point the reading direction's way: mirrored under rtl.
 // Back points to the end side (right in Hebrew), forward to the start side (left).
 export const ArrowBackIcon = icon(ArrowLeft, true);
