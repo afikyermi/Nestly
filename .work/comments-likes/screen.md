@@ -44,3 +44,4 @@ Both after the body, inside the article; share and anonymous cards too (a share'
 (2) Reply box: a separate form under its comment, name "כתיבת השבה"; the main form keeps "כתיבת תגובה". (3) Like failure: role=status (polite);
 delete failure: role=alert inside the dialog. (4) Counter one over: "התגובה ארוכה בתו אחד מהמותר"; N>1 "התגובה ארוכה ב-N תווים מהמותר".
 (5) "טוענים" is the button's own name while pending; "התגובה אינה זמינה" is a plain paragraph in the replies area. (6) Like button name "לייק" at 0, "לייק, N" at N ≥ 1.
+**ORCHESTRATOR 19.10 (w1 review):** NUL in a body → "יש בטקסט תו שאי אפשר לשמור. אפשר להסיר אותו ולנסות שוב"; delete 404 → treated as deleted, status "התגובה נמחקה"; Professional (or a thread 403 not_allowed): no region controls, no retry.
