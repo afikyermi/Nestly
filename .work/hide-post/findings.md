@@ -33,3 +33,8 @@ fix:      If Back pops while saving, push the overlay entry again (or on failure
 --- end ---
 
 ORCHESTRATOR: 1 and 4 → BUILDER (same agent, fix round) → CRITIC re-check of 1. 2 → I3 UX-polish item 5 (shared dialog: outside click = cancel, never the action) and "שינויים ל-SRS" row 7, as CRITIC's fix routes it. 3 → spec c8 amended (own share: delete only, NS005); TEST ENGINEER re-cites the test.
+
+## Re-check (opus, fresh — fix >60 lines), 19.10.2026: bug 1 fixed, bug 4 fixed. Two new lows:
+- low A — FeedScreen.tsx:68-74: a held outside click is replayed as navigate(path); the bottom-nav item of the open screen pushes a duplicate /feed (dead first Back). Fix: let the link's own handler run after the overlay entry is gone / honour replace-on-same-location.
+- low B — use-back-closes.ts:52-67: reopening an overlay within the 400 ms timer stacks a second overlay entry; Back then leaves the menu open. Fix: reuse the pending entry on reopen; clear byPointer when an outside press does not close.
+ORCHESTRATOR: A and B → I3 UX-polish item 5b (history overlay); debt.md until then. Open: no e2e for bug 4's path (TEST ENGINEER may add under c13 in polish).
