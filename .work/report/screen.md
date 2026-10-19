@@ -8,7 +8,7 @@ Annex of spec.md c9-15 + direction.md "דפוסי אינטראקציה". Copy pe
 | comment menu | menu | פעולות נוספות | arrows; Back, Esc, outside click close; focus back to "⋯" (c9) |
 | own: delete | menuitem | מחיקה | replaces F3.3's delete button; opens F3.3's confirm, same status (c9) |
 | others: report | menuitem | דיווח על התגובה | opens the report sheet (c9) |
-| profile report | button | דיווח על הפרופיל | `/u/:id` loaded states only, quiet style, below the actions (c9) |
+| profile report | button | דיווח על הפרופיל של {name} | visible text "דיווח על הפרופיל" (inside the name); `/u/:id` loaded states only, quiet style, below the actions (c9) |
 ## Report sheet (shared primitive; <1024 px bottom sheet, ≥1024 small window)
 | Control | Role | Accessible name (Hebrew) | Note (state, criterion) |
 |---|---|---|---|
@@ -38,3 +38,4 @@ Annex of spec.md c9-15 + direction.md "דפוסי אינטראקציה". Copy pe
 | closing line | paragraph | הפרת כלל מובילה להסרת התוכן ולצעדי אכיפה | BR-075 last line |
 **States** static: no loading, empty or error state; no request (c14). **Other** axe 0 at 375 px and desktop; targets ≥ 44×44 px (c15).
 **Amendment (ORCHESTRATOR, 19.10):** the reasons radiogroup is named by its visible legend "מה הבעיה?", not "סיבת הדיווח" (WCAG 2.5.3 label-in-name).
+**Amendment 2 (ORCHESTRATOR, 19.10):** profile report name "דיווח על הפרופיל של {name}" (F2.4c2 c30) · rules page: BR-075 text without SRS IDs is approved (rule 7: "פוסט אנונימי רק דרך האפשרות לפרסם באופן אנונימי"); rule 4's automatic blurring describes policy built in I5.
