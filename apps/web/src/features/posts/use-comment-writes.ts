@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { checkCreateComment } from '@nestly/shared';
 import { createComment, deleteComment } from '@/services/api/comments';
-import { COMMENT_REQUIRED_TEXT, COMMENT_TOO_LONG_TEXT, REMOVED_STATUS, SENT_STATUS, SEND_FAILED_TEXT } from './comments-texts';
+import { COMMENT_INVALID_TEXT, COMMENT_REQUIRED_TEXT, COMMENT_TOO_LONG_TEXT, REMOVED_STATUS, SENT_STATUS, SEND_FAILED_TEXT } from './comments-texts';
 import { DELETE_FAILED_TEXT } from './posts-texts';
 import { EMPTY_COMPOSER, freshItem, mergeById, withoutComment, type ComposerState, type ThreadItem } from './comments-state';
 import type { CommentApi } from './use-comment-api';
@@ -38,11 +38,11 @@ export interface CommentWrites {
 function problemOf(text: string): ComposerState['error'] {
   const checked = checkCreateComment({ body: text });
   if (checked.ok) return null;
-  return checked.reason === 'body_required' ? 'required' : 'long';
+  return checked.reason === 'body_required' ? 'required' : checked.reason === 'invalid' ? 'invalid' : 'long';
 }
 
 export const composerMessage = (error: ComposerState['error']): string | undefined =>
-  error === 'required' ? COMMENT_REQUIRED_TEXT : error === 'long' ? COMMENT_TOO_LONG_TEXT : undefined;
+  error === 'required' ? COMMENT_REQUIRED_TEXT : error === 'long' ? COMMENT_TOO_LONG_TEXT : error === 'invalid' ? COMMENT_INVALID_TEXT : undefined;
 
 // The writes of the comments region (F3.3 w1): the comment box, the one reply box and deleting your own comment. The server and RLS decide
 // who may comment and delete; this sends the text and the parent's id (never an author id), keeps what the server answers and, on a failure,

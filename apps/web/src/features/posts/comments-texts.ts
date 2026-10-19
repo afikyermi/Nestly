@@ -27,6 +27,7 @@ export const LIKE_FAILED_TEXT = 'הלייק לא נשמר. אפשר לנסות �
 
 export const COMMENT_REQUIRED_TEXT = 'יש לכתוב משהו לפני השליחה';
 export const COMMENT_TOO_LONG_TEXT = `התגובה ארוכה מדי. אפשר לקצר אותה עד ${COMMENT_BODY_MAX.toLocaleString('en-US')} תווים`;
+export const COMMENT_INVALID_TEXT = 'יש בטקסט תו שאי אפשר לשמור. אפשר להסיר אותו ולנסות שוב';
 
 export const SENT_STATUS = 'התגובה נוספה';
 export const REMOVED_STATUS = 'התגובה נמחקה';

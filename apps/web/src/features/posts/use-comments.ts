@@ -64,6 +64,10 @@ export function useComments(postId: string, post: { liked: boolean; likes: numbe
           if (first !== undefined && outcome.value.nextCursor === null) focusOn({ kind: 'comment', id: first.id });
           return;
         }
+        if (outcome.kind === 'not-allowed' && cursor === null) {
+          setThread((current) => ({ ...current, phase: 'denied' }));
+          return;
+        }
         const message = refused(outcome);
         setThread((current) => ({ ...current, ...(cursor === null ? { phase: 'error' as const } : { more: 'error' as const }), ...(message === null ? {} : { status: message }) }));
       } finally {

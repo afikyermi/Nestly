@@ -58,6 +58,7 @@ export function CommentsView({ flow, writes, landOnHeading = false }: CommentsVi
     }
   }, [focus]);
 
+  if (thread.phase === 'denied') return null;
   const status = thread.phase === 'loading' ? COMMENTS_LOADING_TEXT : thread.status;
   const deleteButton = (id: string) => regionRef.current?.querySelector<HTMLElement>(`[data-comment-id="${id}"] [data-delete-button]`) ?? null;
 

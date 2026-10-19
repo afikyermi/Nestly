@@ -14,3 +14,5 @@
 **Evidence**        typecheck, lint, check:budgets, check:stories, web unit tests (1088) green; Playwright chrome result below.
 **Neighbouring**    none.
 - F3.3w1 c20: LikeButton keeps aria-label "לייק, N" and now renders one visible span "לייק N" (was two aria-hidden spans with no space, axe label-content-name-mismatch).
+
+CRITIC round 1 fixes (19.10): no comments region for a Professional (posting right not-allowed or thread 403 not_allowed, no retry); NUL body has its own message (COMMENT_INVALID_TEXT); the counter counts the trimmed text.

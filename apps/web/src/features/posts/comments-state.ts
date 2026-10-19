@@ -13,7 +13,8 @@ export interface ThreadItem extends CommentView {
   repliesDone: boolean;
 }
 
-export type Phase = 'loading' | 'ready' | 'error';
+/** `denied`: the server answered 403 not_allowed (an account that does not take part in comments): the region shows nothing. */
+export type Phase = 'loading' | 'ready' | 'error' | 'denied';
 
 export interface ThreadState {
   phase: Phase;
@@ -29,7 +30,7 @@ export interface ThreadState {
 
 export interface ComposerState {
   text: string;
-  error: 'required' | 'long' | null;
+  error: 'required' | 'long' | 'invalid' | null;
   sending: boolean;
   failure: string | null;
   /** Counts the requests to focus the box; 0: none. */
@@ -49,8 +50,8 @@ export const freshItem = (comment: CommentView): ThreadItem => ({ ...comment, re
 /** Whether "הצגת עוד השבות" shows: the server counts more replies than are loaded and the last page was not read yet. */
 export const hasMoreReplies = (item: ThreadItem): boolean => item.replyCount > item.replies.length && !item.repliesDone;
 
-/** Characters left before the limit, in code points like the server counts them (negative: over). */
-export const commentCharactersLeft = (text: string): number => COMMENT_BODY_MAX - codePointLength(text);
+/** Characters left before the limit, in code points like the server counts them (negative: over) of the trimmed text, the one the rule checks. */
+export const commentCharactersLeft = (text: string): number => COMMENT_BODY_MAX - codePointLength(text.trim());
 
 const older = (a: { createdAt: string; id: string }, b: { createdAt: string; id: string }): number =>
   a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.id < b.id ? -1 : 1;

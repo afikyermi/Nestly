@@ -4,7 +4,7 @@ import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
 import { TextArea } from '@/components/ui/text-area';
 import { commentCharactersLeft, type ComposerState } from './comments-state';
-import { COMMENT_REQUIRED_TEXT, COMMENT_TOO_LONG_TEXT, COMMENT_FORM_LABEL, commentRemainingText, REPLY_FORM_LABEL, SEND_LABEL, SENDING_TEXT } from './comments-texts';
+import { COMMENT_INVALID_TEXT, COMMENT_REQUIRED_TEXT, COMMENT_TOO_LONG_TEXT, COMMENT_FORM_LABEL, commentRemainingText, REPLY_FORM_LABEL, SEND_LABEL, SENDING_TEXT } from './comments-texts';
 import { CANCEL_LABEL } from './posts-texts';
 
 /** The counter speaks only at this many characters left or fewer. */
@@ -46,7 +46,7 @@ export function CommentComposer({ mode, state, onChange, onSend, onCancel }: Com
     >
       {failure !== null ? <InlineAlert>{failure}</InlineAlert> : null}
       <div className="flex flex-col gap-1.5">
-        <FormField label={label} htmlFor={`${ids}-text`} {...(error === null ? {} : { error: error === 'required' ? COMMENT_REQUIRED_TEXT : COMMENT_TOO_LONG_TEXT })}>
+        <FormField label={label} htmlFor={`${ids}-text`} {...(error === null ? {} : { error: error === 'required' ? COMMENT_REQUIRED_TEXT : error === 'invalid' ? COMMENT_INVALID_TEXT : COMMENT_TOO_LONG_TEXT })}>
           {(control) => <TextArea {...control} rows={3} value={text} onChange={(event) => onChange(event.target.value)} />}
         </FormField>
         {/* The polite region is always mounted; it speaks only in the limit's last 100 characters. */}
