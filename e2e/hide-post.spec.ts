@@ -227,16 +227,18 @@ test.describe('F3.9 c8 [FR-ALG-009] the open menu leaves no dead history entry',
     await cards(page).nth(8).scrollIntoViewIfNeeded();
     await more(cards(page).nth(8)).click();
     await expect(menu(page)).toBeVisible();
-    const scroll = await page.evaluate(() => Math.round(window.scrollY)); // read with the menu open: the position the user leaves from
+    const link = cards(page).nth(9).locator('a:has(time)');
+    await link.scrollIntoViewIfNeeded(); // the click would scroll it into view: settle first, so the scroll is read where the user really leaves from
+    const scroll = await page.evaluate(() => Math.round(window.scrollY)); // read with the menu open, right before leaving
     expect(scroll).toBeGreaterThan(0);
-    await cards(page).nth(9).locator('a:has(time)').click();
+    await link.click();
     await expect.poll(() => pathOf(page)).toBe(`/posts/${id(10)}`);
     await page.goBack();
     await expect.poll(() => pathOf(page)).toBe('/feed');
     await expect(menu(page)).toHaveCount(0);
     expect(onFeed(page), 'Back from the post page lands on the feed').toBe(true);
-    await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBeGreaterThan(scroll - 150);
-    expect(Math.abs((await page.evaluate(() => Math.round(window.scrollY))) - scroll), 'same scroll').toBeLessThanOrEqual(150);
+    // The scroll is put back right after the cards render (it may be sampled mid-restore): poll until it is where the user left, same tolerance.
+    await expect.poll(async () => Math.abs((await page.evaluate(() => Math.round(window.scrollY))) - scroll), 'same scroll').toBeLessThanOrEqual(150);
     await page.goBack();
     await expect.poll(() => onFeed(page), 'the next Back leaves /feed: no dead overlay entry').toBe(false);
   });
