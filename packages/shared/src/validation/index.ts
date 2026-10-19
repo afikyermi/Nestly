@@ -14,3 +14,4 @@ export * from './friends.js';
 export * from './profile-view.js';
 export * from './posts.js';
 export * from './comments.js';
+export * from './post-hides.js';

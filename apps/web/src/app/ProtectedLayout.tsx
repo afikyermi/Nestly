@@ -3,6 +3,7 @@ import { AppShell } from '@/components/layout/app-shell';
 import { MenuItem } from '@/components/shared/menu-item';
 import { HomeIcon, NestIcon, UserIcon } from '@/components/ui/icons';
 import { useSession } from '@/hooks/use-session';
+import { HOTLINES_TITLE } from '@/pages/medical-hotlines/medical-hotlines-texts';
 import { parseSettingsSection, SETTINGS_SECTIONS, settingsSectionHash } from '@/lib/settings-sections';
 import { normalizePath, PATHS } from './paths';
 
@@ -16,7 +17,7 @@ const NAV_ITEMS = [
 
 // The AppShell around every protected screen (FR-TOP-001, FR-MENU-001), bound to the router and the
 // session. The TopBar holds only the Hamburger and the Logo; the menu holds Friends (F2.4b), one item per Settings section (F2.5),
-// the recovery questions, the password change (F2.0 c15) and Logout. A destination whose feature is not built is absent, not
+// the medical hotlines page (F3.8, FR-MENU-001 order), the recovery questions, the password change (F2.0 c15) and Logout. A destination whose feature is not built is absent, not
 // disabled (F2.5 DR-1, as the bottom navigation does for "חנות" and "יועצים").
 export function ProtectedLayout() {
   const { pathname, hash } = useLocation();
@@ -61,6 +62,9 @@ export function ProtectedLayout() {
               {section.label}
             </MenuItem>
           ))}
+          <MenuItem href={PATHS.medicalHotlines} current={PATHS.medicalHotlines === current} onNavigate={leaving(closeMenu)}>
+            {HOTLINES_TITLE}
+          </MenuItem>
           <MenuItem href={PATHS.recoveryQuestions} current={PATHS.recoveryQuestions === current} onNavigate={leaving(closeMenu)}>
             שאלות לשחזור סיסמה
           </MenuItem>

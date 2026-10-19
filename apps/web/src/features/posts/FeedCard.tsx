@@ -2,12 +2,14 @@ import { useId } from 'react';
 import { Link } from 'react-router';
 import { ANONYMOUS_AUTHOR_LABEL, type FeedUnit } from '@nestly/shared';
 import { LikeButton } from '@/components/shared/like-button';
+import { MoreActionsMenu, type MoreActionsItem } from '@/components/ui/more-actions-menu';
 import { AUDIENCE_LABELS } from './posts-texts';
 import { COMMENTS_TITLE, LIKE_LABEL } from './comments-texts';
 import { STAGE_LABELS } from '@/lib/child-fields';
 import { formatPostTime } from '@/lib/format-post-time';
 import { postPath } from '@/lib/post-link';
 import { MEMBER_FALLBACK_LABEL, ORIGINAL_UNAVAILABLE_TEXT } from './feed-texts';
+import { MORE_ACTIONS_LABEL, MORE_ACTIONS_MENU_LABEL } from './hide-texts';
 
 type Original = Extract<FeedUnit, { kind: 'share' }>['original'];
 
@@ -46,14 +48,20 @@ export interface FeedCardProps {
   position: number;
   /** The like. Without it the card has no action row (the viewer may not like or comment). */
   onToggleLike?: () => void;
+  /** The items of this card's "more actions" menu (F3.9 c8; per card: the screen decides them). None or empty: no menu. */
+  actions?: readonly MoreActionsItem[];
+  /** Controlled menu: open, and the change it asks for (the screen closes it on Back too). Unset: the menu keeps its own state. */
+  menuOpen?: boolean;
+  onMenuOpenChange?: (open: boolean) => void;
 }
 
 // One unit of the feed (F3.2b c14-c17; F3.3 c13): a post, an anonymous post (only "אנונימי": no name, avatar or link) or a share with its
 // original, and after the body an action row: the like and the link to the post's comments (a share's counts are its own). Display
 // only: the like comes in as onToggleLike. The time link follows the row in the DOM (tab order: like, comments, time) and is placed
 // beside the author line by flex order. The card is a tab stop so a screen reader's feed navigation can reach it; its name is its author
-// line. The text is the user's own, so it is plain text (never markup).
-export function FeedCard({ unit, position, onToggleLike }: FeedCardProps) {
+// line. The text is the user's own, so it is plain text (never markup). F3.9 c8: the card ends with the "more actions" menu, last in the
+// tab order; its items come in as actions.
+export function FeedCard({ unit, position, onToggleLike, actions = [], menuOpen, onMenuOpenChange }: FeedCardProps) {
   const authorId = useId();
   const author = unit.isAnonymous ? ANONYMOUS_AUTHOR_LABEL : (unit.author.name ?? MEMBER_FALLBACK_LABEL);
   return (
@@ -61,6 +69,7 @@ export function FeedCard({ unit, position, onToggleLike }: FeedCardProps) {
       aria-labelledby={authorId}
       aria-posinset={position}
       aria-setsize={-1}
+      data-unit-id={unit.id}
       tabIndex={0}
       className="flex flex-wrap items-start gap-x-3 gap-y-3 rounded-lg bg-card p-4 text-body text-card-foreground shadow-card md:p-5"
     >
@@ -101,6 +110,17 @@ export function FeedCard({ unit, position, onToggleLike }: FeedCardProps) {
       >
         <time dateTime={unit.createdAt}>{formatPostTime(unit.createdAt)}</time>
       </Link>
+      {actions.length === 0 ? null : (
+        <div className="order-2">
+          <MoreActionsMenu
+            label={MORE_ACTIONS_LABEL}
+            menuLabel={MORE_ACTIONS_MENU_LABEL}
+            items={actions}
+            {...(menuOpen === undefined ? {} : { open: menuOpen })}
+            {...(onMenuOpenChange === undefined ? {} : { onOpenChange: onMenuOpenChange })}
+          />
+        </div>
+      )}
     </article>
   );
 }

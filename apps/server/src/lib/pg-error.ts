@@ -92,9 +92,32 @@ export function commentFaultReply(error: unknown, operation: CommentOperation = 
   return { status: 500, error: 'server_error' };
 }
 
-/** SQLSTATE class 23 (a constraint) and 42501 (a privilege or policy): the same input fails the same way again. */
+export interface HideFaultReply {
+  readonly status: 403 | 404 | 409 | 500;
+  readonly error: 'not_allowed' | 'post_unavailable' | 'own_post' | 'server_error';
+}
+
+/**
+ * What a hide the database refused answers (F3.9 c2, c3, c7; i3-rest-schema SQLSTATE contract). NS004 (unknown, or not readable to the caller)
+ * is 404 post_unavailable; NS003 (the caller's own post, named or anonymous) is 409 own_post; 42501 (not an active Regular account: the guard's
+ * caller gate, a policy or a privilege) is 403 not_allowed; any other database error is 500. By code only, never the message.
+ * `undefined`: the failure did not come from the database (the caller handles it).
+ */
+export function hideFaultReply(error: unknown): HideFaultReply | undefined {
+  const fault = readDatabaseFault(error);
+  if (fault === undefined) return undefined;
+  if (fault.code === 'NS004') return { status: 404, error: 'post_unavailable' };
+  if (fault.code === 'NS003') return { status: 409, error: 'own_post' };
+  if (fault.code === '42501') return { status: 403, error: 'not_allowed' };
+  return { status: 500, error: 'server_error' };
+}
+
+/** The project's own SQLSTATEs (class NS) a guard raises for a refused input (i3-rest-schema): the same input is refused again. */
+const DETERMINISTIC_PROJECT_CODES: ReadonlySet<string> = new Set(['NS003', 'NS004']);
+
+/** SQLSTATE class 23 (a constraint), 42501 (a privilege or policy) and the guards' NS codes: the same input fails the same way again. */
 function isDeterministicFault(code: string): boolean {
-  return code.startsWith('23') || code === '42501';
+  return code.startsWith('23') || code === '42501' || DETERMINISTIC_PROJECT_CODES.has(code);
 }
 
 /**

@@ -6,9 +6,14 @@ import { userIdOfAccessToken } from '@/lib/access-token';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
 import { fetchFeedPage } from '@/services/api/feed';
 import { setLike } from '@/services/api/likes';
+import { deletePost } from '@/services/api/posts';
+import { setHidden } from '@/services/api/post-hides';
 import { LIKE_FAILED_TEXT } from './comments-texts';
 import { forgetFeed, recallFeed, rememberFeed, type FeedScroll } from './feed-memory';
-import { INITIAL_FEED, withLike, withPage, type FeedState } from './feed-state';
+import { INITIAL_FEED, withHideResult, withLike, withoutHidden, withPage, type FeedState, type HideResult } from './feed-state';
+import { HIDDEN_STATUS, HIDE_FAILED_TEXT, OWN_POST_HIDE_TEXT, UNDO_FAILED_TEXT, UNHIDDEN_STATUS } from './hide-texts';
+import { DELETE_FAILED_TEXT, DELETED_STATUS, POST_UNAVAILABLE_TEXT } from './posts-texts';
+import { failureText } from './post-outcome';
 
 export interface FeedFlow {
   state: FeedState;
@@ -18,6 +23,11 @@ export interface FeedFlow {
   retry: () => void;
   /** Toggle the viewer's like on a unit: the count moves at once, one request at a time per unit, reverted when it fails. */
   toggleLike: (unitId: string) => void;
+  /** Hide a unit for the viewer (one PUT; F3.9 c9), or undo that hide (one DELETE). One request at a time per unit. */
+  hide: (unitId: string) => void;
+  undoHide: (unitId: string) => void;
+  /** Delete the viewer's own post (one DELETE; F3.9 c13): on 204 or 404 the card goes and "הפוסט נמחק" is said; else the failure text. */
+  remove: (unitId: string) => Promise<{ ok: true } | { ok: false; failure: string }>;
   /** The scroll to go back to when the list came from memory, else null. */
   restoredScroll: FeedScroll | null;
 }
@@ -28,11 +38,13 @@ export interface FeedFlow {
 // (ERR-038, ERR-037).
 export function useFeed(onRestart: () => void): FeedFlow {
   const account = useSessionAccount();
-  const navigationType = useNavigationType();
+  // How the screen was reached, read once: an overlay's own history entry (a card's menu, F3.9) changes the type without leaving the feed.
+  const [navigationType] = useState(useNavigationType());
   const [state, setState] = useState<FeedState>(INITIAL_FEED);
   const [restoredScroll, setRestoredScroll] = useState<FeedScroll | null>(null);
   const busy = useRef(false);
   const flying = useRef(new Set<string>());
+  const flyingHides = useRef(new Set<string>());
   const latest = useRef(state);
   latest.current = state;
   const runs = useRef(0);
@@ -100,8 +112,8 @@ export function useFeed(onRestart: () => void): FeedFlow {
   }, [run, account, navigationType]);
 
   useEffect(() => {
-    if (state.phase === 'ready' || state.phase === 'more-error') rememberFeed(state.items, state.nextCursor, owner.current);
-  }, [state.phase, state.items, state.nextCursor]);
+    if (state.phase === 'ready' || state.phase === 'more-error') rememberFeed(withoutHidden(state.items, state.hiddenIds), state.nextCursor, owner.current);
+  }, [state.phase, state.items, state.nextCursor, state.hiddenIds]);
 
   const loadMore = useCallback(() => {
     if (state.phase === 'ready' && state.nextCursor !== null) void run(state.nextCursor, false);
@@ -118,7 +130,8 @@ export function useFeed(onRestart: () => void): FeedFlow {
       const before = latest.current.items.find((unit) => unit.id === unitId)?.likedByMe;
       if (before === undefined) return;
       flying.current.add(unitId);
-      const apply = (liked: boolean, likeStatus: string) => setState((current) => ({ ...current, likeStatus, items: withLike(current.items, unitId, liked) }));
+      const apply = (liked: boolean, likeStatus: string) =>
+        setState((current) => ({ ...current, likeStatus, hideStatus: '', items: withLike(current.items, unitId, liked) }));
       apply(!before, '');
       try {
         const token = account === null ? null : await account.getAccessToken().catch(() => null);
@@ -133,5 +146,53 @@ export function useFeed(onRestart: () => void): FeedFlow {
     [account],
   );
 
-  return { state, loadMore, retry, toggleLike: (unitId) => void toggleLike(unitId), restoredScroll };
+  // A hide or an undo (F3.9 c9, c11): the card changes only on the server's answer, never before it. The placeholder stays only while this
+  // screen is mounted; a hidden unit is never kept for Back (the remember effect above).
+  const changeHidden = useCallback(
+    async (unitId: string, hidden: boolean) => {
+      if (flyingHides.current.has(unitId)) return;
+      const current = latest.current;
+      if (!current.items.some((unit) => unit.id === unitId) || current.hiddenIds.includes(unitId) === hidden) return;
+      flyingHides.current.add(unitId);
+      setState((now) => ({ ...now, pendingHideIds: [...now.pendingHideIds, unitId] }));
+      const token = account === null ? null : await account.getAccessToken().catch(() => null);
+      const outcome = token === null ? ({ kind: 'failed' } as const) : await setHidden(token, unitId, hidden);
+      flyingHides.current.delete(unitId);
+      if (outcome.kind === 'unauthenticated' || outcome.kind === 'account-unavailable') void account?.recheck();
+      const stopped = outcome.kind === 'account-unavailable' ? STOPPED_TEXT : undefined;
+      let result: HideResult;
+      if (outcome.kind === 'done') result = hidden ? { kind: 'hidden', status: HIDDEN_STATUS } : { kind: 'unhidden', status: UNHIDDEN_STATUS };
+      else if (!hidden) result = { kind: 'undo-failed', status: stopped ?? UNDO_FAILED_TEXT };
+      else if (outcome.kind === 'unavailable') result = { kind: 'removed', status: POST_UNAVAILABLE_TEXT };
+      else if (outcome.kind === 'own-post') result = { kind: 'hide-failed', status: OWN_POST_HIDE_TEXT };
+      else result = { kind: 'hide-failed', status: stopped ?? HIDE_FAILED_TEXT };
+      setState((now) => withHideResult(now, unitId, result));
+    },
+    [account],
+  );
+
+  const remove = useCallback(
+    async (unitId: string): Promise<{ ok: true } | { ok: false; failure: string }> => {
+      const token = account === null ? null : await account.getAccessToken().catch(() => null);
+      const outcome = token === null ? ({ kind: 'failed' } as const) : await deletePost(token, unitId);
+      if (outcome.kind === 'deleted' || outcome.kind === 'unavailable') {
+        setState((now) => withHideResult(now, unitId, { kind: 'removed', status: DELETED_STATUS }));
+        return { ok: true };
+      }
+      if (outcome.kind === 'unauthenticated' || outcome.kind === 'account-unavailable') void account?.recheck();
+      return { ok: false, failure: outcome.kind === 'account-unavailable' ? STOPPED_TEXT : failureText(outcome, DELETE_FAILED_TEXT) };
+    },
+    [account],
+  );
+
+  return {
+    state,
+    remove,
+    loadMore,
+    retry,
+    toggleLike: (unitId) => void toggleLike(unitId),
+    hide: (unitId) => void changeHidden(unitId, true),
+    undoHide: (unitId) => void changeHidden(unitId, false),
+    restoredScroll,
+  };
 }

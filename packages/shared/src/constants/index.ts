@@ -6,3 +6,4 @@ export * from './registration.js';
 export * from './friends.js';
 export * from './posts.js';
 export * from './comments.js';
+export * from './medical-hotlines.js';
