@@ -24,6 +24,9 @@ export const named = (n: number, over: Unit = {}): Unit => ({
   isMine: false,
   isAnonymous: false,
   author: { name: `כותבת מספר ${n}` },
+  likeCount: 0,
+  commentCount: 0,
+  likedByMe: false,
   ...over,
 });
 export const anonymous = (n: number, over: Unit = {}): Unit => {

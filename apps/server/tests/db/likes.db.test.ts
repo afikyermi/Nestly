@@ -474,6 +474,28 @@ describe('[F3.3-b2 c12] likedByMe and the ranking', () => {
     for (const q of counts) expect(q).not.toMatch(/reaction_owners|post_authors|liker_status|author_status|\bstatus\b|is_by_|created_at|user_id/i);
   });
 
+  it('[F3.3-b2 c12] on the feed, the post page, the thread and the replies page the transaction runs begin → set transaction isolation level repeatable read → set local role, in that order', T, async () => {
+    const postId = await seedPost(AU);
+    const top = await seedComment(C, postId, 1);
+    await seedComment(F, postId, 2, top);
+    const reads: Array<[string, (app: App) => Promise<{ statusCode: number }>]> = [
+      ['GET /feed', (a) => a.inject({ method: 'GET', url: feedUrl(), headers: { authorization: X.header } })],
+      ['GET /posts/:id', (a) => getPost(a, X.header, postId)],
+      ['GET /posts/:id/comments', (a) => listComments(a, X.header, postId)],
+      ['GET /comments/:id/replies', (a) => listReplies(a, X.header, top)],
+    ];
+    for (const [name, run] of reads) {
+      const statements: string[] = [];
+      const app = await start(undefined, recording(statements));
+      expect((await run(app)).statusCode, name).toBe(200);
+      const at = (pattern: RegExp): number => statements.findIndex((q) => pattern.test(q));
+      const [begin, level, role] = [at(/^\s*begin\b/i), at(/set\s+transaction\s+isolation\s+level\s+repeatable\s+read/i), at(/set\s+local\s+role/i)];
+      expect([begin, level, role].every((i) => i >= 0), `${name}: ${JSON.stringify(statements.slice(0, 4))}`).toBe(true);
+      expect(begin < level && level < role, `${name}: begin ${begin}, level ${level}, role ${role}`).toBe(true);
+      expect(level, `${name}: nothing between begin and the isolation level`).toBe(begin + 1);
+    }
+  });
+
   it('[F3.3-b2 c11 c12] the owner row is not readable through any count: Y sees likeCount 1 and likedByMe false for X\'s like, and no response names X', T, async () => {
     const app = await start();
     const postId = await seedPost(AU);

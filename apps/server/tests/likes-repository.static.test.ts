@@ -49,3 +49,21 @@ describe('[F3.3-b2 c11] the display counts, static', () => {
     }
   });
 });
+
+describe('[F3.3-b2 c12] placement of reaction_owners in all of src, static', () => {
+  const walk = (base: URL): URL[] =>
+    readdirSync(base, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(new URL(`${e.name}/`, base)) : e.name.endsWith('.ts') ? [new URL(e.name, base)] : []));
+  const root = new URL('../src/', import.meta.url);
+  const hits = walk(root).map((f) => ({ path: f.pathname, text: code(readFileSync(f, 'utf8')) })).filter(({ text }) => /\breaction_owners\b|\breactionOwners\b/.test(text));
+
+  it('[F3.3-b2 c12] the table is named in code in likes-repository.ts only, and only inside readLikedTargetIds', () => {
+    expect(hits.map((h) => h.path.split('/').pop())).toEqual(['likes-repository.ts']);
+    const text = hits[0]?.text ?? '';
+    const start = text.indexOf('function readLikedTargetIds');
+    expect(start).toBeGreaterThan(-1);
+    const end = text.indexOf('\n}\n', start);
+    expect(end).toBeGreaterThan(start);
+    const outside = text.slice(0, start) + text.slice(end);
+    expect(outside).not.toMatch(/\breaction_owners\b|\breactionOwners\b/);
+  });
+});
