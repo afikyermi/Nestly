@@ -1,0 +1,5 @@
+# result — I3 ux-polish-b (windows, history, in-place edit, small fixes)
+**Done:** every window/confirm closes on Back and outside press (outside = cancel), pending requests keep dialogs open; side menu shares one history entry (no dead Back; sign-out after the entry is popped; same-screen nav replaces); one press on another "⋯" opens it, focus to its first item; card edit in place (PATCH); post-page author "⋯" (share: delete only); to-top tooltip inside main; one OriginalQuote + MenuItem target/rel; journeys/friends confirms kept (D2–D3); item 9 closed.
+**Execution:** Succeeded · **Quality:** Good. **Path:** Standard · BUILDER ∥ TE (TE restarted once after a stall) · TE found F1–F3 (fixed; 4 older regressions) · CRITIC sonnet 1 low → fixed.
+**SRS trace:** direction.md "דפוסי אינטראקציה"; SRS-changes row 7 (polish items 3b, 3c, 5, 5b–5f, 7–9).
+**Evidence (local, 1e55c85):** ux-polish-b + affected older specs 255 pass, friends 32/32, journeys-remove 135/135 (×3); keyboard.spec needs Storybook → CI.
