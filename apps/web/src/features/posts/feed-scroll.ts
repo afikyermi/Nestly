@@ -43,12 +43,13 @@ export function useFeedScroll(rootRef: RefObject<HTMLElement | null>, restoreTo:
   useEffect(() => {
     if (restoreTo === null || !settled) return;
     restoring.current = true;
+    // "חזרה למעלה" first: below 1024 its row shortens `main`, and a position set while `main` is still taller is clamped (F3.2 c20).
+    setFar(Math.max(restoreTo.main, restoreTo.page) > LONG_SCROLL_PX);
     const frame = requestAnimationFrame(() => {
       const container = scroller(rootRef.current);
       if (container !== null) container.scrollTop = restoreTo.main;
       window.scrollTo(0, restoreTo.page);
       restoring.current = false;
-      setFar(Math.max(restoreTo.main, restoreTo.page) > LONG_SCROLL_PX);
     });
     return () => {
       cancelAnimationFrame(frame);
