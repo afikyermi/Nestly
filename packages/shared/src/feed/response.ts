@@ -1,5 +1,5 @@
 // The feed response (I3 F3.2 a1; FR-FEED-001, FR-FEED-005 r.3, BR-062, BR-065). Strict on purpose: no author id, score, tier, friend
-// flag or count can ride along, and an anonymous unit has no `author` key at all (not a null one). The server builds the answer with
+// flag or ranking count can ride along (only the displayed likeCount, commentCount and likedByMe do, F3.3), and an anonymous unit has no `author` key at all (not a null one). The server builds the answer with
 // it and the web checks every answer with it.
 import { z } from 'zod';
 import { JOURNEY_STAGES } from '../constants/index.js';
@@ -9,7 +9,10 @@ const author = z.strictObject({ name: z.string().nullable() });
 const unitId = z.guid();
 const createdAt = z.iso.datetime();
 
-const common = { id: unitId, source: z.literal('organic'), audience, stageTag: z.enum(JOURNEY_STAGES).nullable(), createdAt };
+/** The displayed counts and the viewer's own like-state (F3.3 c11, c12): never the score's `n`, never who liked. */
+const reactions = { likeCount: z.number().int().nonnegative(), commentCount: z.number().int().nonnegative(), likedByMe: z.boolean() };
+
+const common = { id: unitId, source: z.literal('organic'), audience, stageTag: z.enum(JOURNEY_STAGES).nullable(), createdAt, ...reactions };
 const named = { isMine: z.boolean(), isAnonymous: z.literal(false), author };
 const anonymousPost = { isMine: z.literal(false), isAnonymous: z.literal(true) };
 

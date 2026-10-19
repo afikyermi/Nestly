@@ -31,6 +31,9 @@ const post: PostReadView = {
   stageTag: 'has_child',
   createdAt: '2026-10-18T09:00:00.000Z',
   isMine: true,
+  likeCount: 0,
+  commentCount: 0,
+  likedByMe: false,
 };
 const loaded = { kind: 'loaded', status: '', failure: null, edit: null, confirm: null } as const;
 const editValues = { body: post.body ?? '', audience: post.audience, stageTag: 'has_child' } as const;

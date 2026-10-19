@@ -70,7 +70,13 @@ export const postView = z.strictObject({
   stageTag,
   createdAt: z.iso.datetime(),
 });
-export const postReadView = postView.extend({ isMine: z.boolean() });
+/** The read adds `isMine` and the displayed counts (F3.3 c11, c12): `likeCount`, `commentCount` over the rows the viewer can read; `likedByMe` is the viewer's own. */
+export const postReadView = postView.extend({
+  isMine: z.boolean(),
+  likeCount: z.number().int().nonnegative(),
+  commentCount: z.number().int().nonnegative(),
+  likedByMe: z.boolean(),
+});
 
 export type PostView = z.infer<typeof postView>;
 export type PostReadView = z.infer<typeof postReadView>;

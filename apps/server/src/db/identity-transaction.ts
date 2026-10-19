@@ -71,13 +71,21 @@ export async function rereadGuard(tx: IdentityTx): Promise<SessionGuard> {
   return row.guard;
 }
 
+/** What a product transaction may ask for beyond its identity: a stricter isolation level (F3.3: one snapshot for a page's three reads). */
+export interface IdentityTransactionOptions {
+  readonly isolationLevel?: 'repeatable read';
+}
+
 /** A product transaction. Throws SessionRefused (and rolls back) unless the guard is `ok` or `must_set`. */
 export async function inIdentityTransaction<T>(
   database: Database,
   identity: Identity,
   work: (tx: IdentityTx, guard: ProceedGuard) => Promise<T>,
+  options: IdentityTransactionOptions = {},
 ): Promise<T> {
   return database.db.transaction(async (tx) => {
+    // Before any query takes the snapshot (the role and the claims are set after it): one snapshot for everything the work reads.
+    if (options.isolationLevel === 'repeatable read') await tx.execute(sql`set transaction isolation level repeatable read`);
     const guard = await enter(tx, identity);
     if (guard !== 'ok' && guard !== 'must_set') throw new SessionRefused(guard);
     return work(tx, guard);
