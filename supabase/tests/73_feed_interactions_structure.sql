@@ -121,10 +121,15 @@ select is(
 select is(
   (select string_agg(con.conname || ':' || con.contype::text, ', ' order by con.conname)
      from pg_catalog.pg_constraint con join pg_catalog.pg_class c on c.oid = con.conrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'nestly' and ((c.relname = 'comments' and con.conname in ('comments_id_post_id_status_key', 'comments_id_post_id_key', 'comments_parent_status_check'))
+    where n.nspname = 'nestly' and ((c.relname = 'comments' and con.conname in ('comments_id_post_id_status_key', 'comments_id_post_id_key', 'comments_parent_status_check', 'comments_body_length_check'))
                                  or (c.relname = 'posts' and con.conname = 'posts_body_length_check'))),
-  'comments_id_post_id_status_key:u, comments_parent_status_check:c, posts_body_length_check:c',
-  '[F3.0-b c10 c13 b-1][F3.1-a c6] the status-carrying unique key, the parent-status check and the body-length check exist; comments_id_post_id_key is gone');
+  'comments_body_length_check:c, comments_id_post_id_status_key:u, comments_parent_status_check:c, posts_body_length_check:c',
+  '[F3.0-b c10 c13 b-1][F3.1-a c6][F3.3-a c1] the status-carrying unique key, the parent-status check and the body-length checks exist; comments_id_post_id_key is gone');
+
+select is(
+  (select pg_catalog.pg_get_constraintdef(con.oid) from pg_catalog.pg_constraint con join pg_catalog.pg_class c on c.oid = con.conrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'nestly' and c.relname = 'comments' and con.conname = 'comments_body_length_check'),
+  'CHECK ((char_length(body) <= 1000))', '[F3.3-a c1] the comment body cap is 1,000 characters');
 
 select is(
   (select pg_catalog.pg_get_constraintdef(con.oid) from pg_catalog.pg_constraint con join pg_catalog.pg_class c on c.oid = con.conrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
