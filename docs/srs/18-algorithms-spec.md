@@ -19,13 +19,15 @@
 
 | משתמש / Signal | מקורות | שימוש |
 |---|---|---|
-| Regular — Explicit | Search, Follow Professional, Join Group, Save, Like/Reaction, Comment/Reply, Friend/Group actions, Not Interested/Hide | Organic Ranking + current intent |
+| Regular — Explicit | Search, Follow Professional, Join Group, Save, Like/Reaction, Comment/Reply, Friend/Group actions, Not Interested | Organic Ranking + current intent |
 | Regular — Implicit | Impression, Open, Dwell, profile/product/article open, sequence of topic consumption | Interest/Intent scoring; Dwell אינו Signal יחיד |
 | Regular — Context | Stage/JourneyContext; Tracker category/summary only for approved contextual guidance | Organic only; no paid targeting from Child/Tracker |
 | Regular — Social | Friends, joined Groups, followed Professionals | Social relevance/candidate generation |
 | Professional — Explicit/Implicit | Profession/category, Groups, Professional follows, Search, content interactions, profile/content activity | Professional feed/relevance; no Child/Tracker |
-| Negative | Not Interested, Hide, Show Less, report/quality flags where policy permits | Suppression/re-ranking; reports primarily moderation |
+| Negative | Not Interested, Show Less, report/quality flags where policy permits | Suppression/re-ranking; reports primarily moderation |
 | Sponsored context | Current surface/query/category, active campaign, permitted non-sensitive context | Sponsored eligibility/paid ranking only |
+
+**הסתרת פוסט אינה Signal** (החלטת אפיק מ-18.10.2026, 8א): היא מוציאה פוסט אחד מה-Eligibility של המשתמש שהסתיר, ואינה קלט ל-Scoring, ל-Re-ranking או ל-Interest/Intent (FR-ALG-009). דיווח על פוסט מוציא אותו מה-Eligibility של המדווח בלבד ואינו קלט לדירוג (BR-074).
 
 ## 18.3 Ranking Pipeline v1
 
@@ -36,29 +38,29 @@
 | 3. Scoring | Stage/Interest/Intent/Social/Quality/Freshness או Profession/Category לפי actor | משקולות configurable/versioned. |
 | 4. Re-ranking | Negative feedback, creator/topic/source diversity, exploration, safety, sponsored frequency cap | לא עוקף Eligibility. |
 | 5. Delivery | Feed/Search/Directory/Marketplace/Guidance/Notifications Highlights | Sponsored label + source retained. |
-| 6. Measurement | Impression/Open/Dwell/Engagement/Hide/Conversion | Events כוללים algorithm/config version. |
+| 6. Measurement | Impression/Open/Dwell/Engagement/Not Interested/Conversion | Events כוללים algorithm/config version. ב-I3 אין Events (4א); מ-I15. |
 
 ## 18.4 Algorithm Catalog — חובה ל-v1
 
 | ID | Surface / מטרה | Inputs מרכזיים | Output | הגבלות |
 |---|---|---|---|---|
 | ALG-01 | Regular Feed | Stage + Interest/Intent + Friends/Groups/Follows + Quality + Freshness | Ordered Feed + modules | Diversity/negative feedback; Paid separate |
-| ALG-02 | Professional Feed | Profession + Groups + Professional follows + Search/consumption + Quality/Freshness | Professional Feed | No Child/Tracker signals |
+| ALG-02 | Professional Feed | Profession + Groups + Professional follows + Search/consumption + Quality/Freshness | Professional Feed | No Child/Tracker signals; ב-I3 — תוכן בלבד, בלי Friend ו-Stage (FR-ALG-003) |
 | ALG-03 | Contextual Guidance | Stage + approved Topic/Tracker category/summary | Tips/Articles | General/non-diagnostic; organic only |
-| ALG-04 | Professional Matching | Service/query/intent + location-if-permitted + quality/activity/ratings | Professional ranking | Paid not in organic score |
-| ALG-05 | Marketplace/Product | Query/category/intent + freshness + location-if-permitted + status | Organic item ranking | Promoted/Sponsored separate |
+| ALG-04 | Professional Matching | Service/query/intent + area (עיר או אזור מרשימה, §12) + quality/activity/ratings | Professional ranking | Paid not in organic score; אין GPS |
+| ALG-05 | Marketplace/Product | Query/category/intent + freshness + area (עיר או אזור מרשימה, §12) + status | Organic item ranking | Promoted/Sponsored separate; אין GPS |
 | ALG-06 | Sponsored Placement | Surface/query/category + active campaign + permitted context | Sponsored units | No Child/Tracker/Chat/Support targeting; label/frequency cap |
 | ALG-07 | Global Search | Authorization + exact/prefix/keyword + relevance/freshness tie-break | People/Groups/Posts results | No semantic AI required |
-| ALG-08 | Negative Feedback & Diversity | Not Interested/Hide/Show Less + feed composition | Suppression/diverse feed | Exploration from eligible content only |
+| ALG-08 | Negative Feedback & Diversity | Not Interested/Show Less + feed composition | Suppression/diverse feed | Exploration from eligible content only; הסתרת פוסט אינה קלט (8א) |
 | ALG-09 | Group Highlights | Direct events + announcement/pinned + configurable engagement threshold | Highlights notifications | Deterministic v1 |
 
 ## 18.5 Paid Promotion — כללי דירוג ומדידה
 
 | סוג | Eligibility/Ranking | תשלום משפיע? | השפעה |
 |---|---|---|---|
-| Organic Professional | Relevance/quality/activity/ratings/verification | לא | Organic rank/reputation |
+| Organic Professional | Relevance/quality/activity/ratings (אין אות אימות — OP-005 נסגר, 18.10.2026) | לא | Organic rank/reputation |
 | Professional Profile/Post Promotion | Sponsored eligibility + campaign + relevance | כן | Paid Reach; Promotion Analytics |
-| Marketplace Listing Organic | Query/category/intent/freshness/location-if-permitted | לא | Organic Marketplace rank |
+| Marketplace Listing Organic | Query/category/intent/freshness/area (עיר או אזור מרשימה, §12) | לא | Organic Marketplace rank |
 | Promoted Marketplace Listing | Organic eligibility + paid campaign | כן | Paid Marketplace slot/unit |
 | Sponsored Product | Admin-managed product + surface/query/category relevance + active campaign | כן | Sponsored Product unit |
 
@@ -66,9 +68,11 @@
 
 ## 18.6 Owner/Admin Intelligence — Core Metrics v1
 
+**היקף הצפייה (החלטת אפיק מ-18.10.2026, BR-058):** מחזיק ANALYTICS_VIEW רואה את כל הנתונים, גם ברמת משתמש בודד וגם בקבוצות קטנות, בלי מינימום, בלי שמות ובלי פרטים מזהים — מספרים ונתונים רלוונטיים בלבד. נבנה ב-I14; מדדים שתלויים באירועי שימוש (§13.3, מ-I15) — OP-039. סגמנט שלב או ילדים נשאר Aggregate בלבד עד החלטה נפרדת.
+
 | תחום | Core Metrics | Segmentation / הערה |
 |---|---|---|
-| User Lifecycle | Registrations, onboarding completion, active users, D1/D7/D30 retention, return rate | Role, period, Stage/Profession segment רק אם מותר וב-Aggregate |
+| User Lifecycle | Registrations, onboarding completion, active users, D1/D7/D30 retention, return rate | Role, period, Profession — לפי BR-058 (גם ברמת משתמש, בלי שמות); Stage segment — רק אם מותר וב-Aggregate |
 | Feed / Recommendation | Impressions, opens, dwell, reactions/comments/saves, hide/not interested, reports, downstream profile/product/group opens | Organic/Paid, content type, surface, algorithm/config version |
 | Search | queries, zero-result rate, result CTR, top normalized queries, demand vs available results | Entity type, period; raw user query not exposed to Professionals |
 | Groups | members, active members, joins, posts/comments, report rate, join approval time | Public/Private, group; privacy preserved |

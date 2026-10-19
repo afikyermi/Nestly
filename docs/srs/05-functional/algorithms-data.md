@@ -10,7 +10,7 @@
 | Actor | System / Regular User / Professional User |
 | תיאור | המערכת תאסוף Personalization Signals מאושרים ותתחזק Interest Profile ו-Intent Signals נגזרים לצורך התאמה אורגנית. ה-Profile הנגזר אינו גלוי ל-Professional/Advertiser. |
 | תנאים מוקדמים | Session פעיל והאירוע מותר לפי Privacy/Data Rules. |
-| קלט / Trigger | Search, Impression/Dwell, Open, Like/Reaction, Comment, Save, Follow, Group Membership, Profile/Product open, Not Interested/Hide; ל-Regular גם Stage. תוכן Chat/Support מוחרג. |
+| קלט / Trigger | Search, Impression/Dwell, Open, Like/Reaction, Comment, Save, Follow, Group Membership, Profile/Product open, Not Interested/Show Less; ל-Regular גם Stage. תוכן Chat/Support מוחרג. הסתרת פוסט אינה Signal (FR-ALG-009; החלטת אפיק מ-18.10.2026, 8א). |
 | תהליך מערכת | נרמול האירוע → שיוך Topic/Context → עדכון Score מצטבר עם Freshness/Decay. משקולות/Decay נשמרים ב-AlgorithmConfiguration ולא Hard-coded. |
 | פלט | Interest/Intent scores לפי Topic/Context. |
 | מצב לאחר ביצוע | Signals זמינים ל-Ranking עתידי וניתנים ל-Audit ברמת Configuration/Event metadata. |
@@ -20,23 +20,23 @@
 
 | שדה | הגדרה |
 |---|---|
-| סטטוס | מאושר — חובה ל-v1 |
+| סטטוס | מאושר — חובה ל-v1; חלקו נבנה ב-I3 (19.10.2026) |
 | Actor | Regular User / System |
-| תיאור | המערכת תדרג Feed Units עבור Regular User לפי שילוב Stage, Interest/Intent, Social Relevance, Group/Follow context, Content Quality, Freshness ו-Diversity. |
+| תיאור | המערכת תדרג Feed Units עבור Regular User לפי שילוב Stage, Interest/Intent, Social Relevance, Group/Follow context, Content Quality, Freshness ו-Diversity. **כפי שנבנה ב-I3:** מאגר אורגני אחד — הפוסטים של הצופה, של ה-Friends שלו ופוסטי "כולם" (כולל אנונימיים ושיתופים); ציון דטרמיניסטי עם גרסה מ-Freshness, Friend, Quality (לייקים ותגובות של אחרים) ו-Stage Match לפי תגית המחבר (FR-FEED-004); Re-ranking שמאחד שיתופים של אותו מקור ומגביל פריטים של אותו יוצר ופוסטים אנונימיים בחלון רציף; Cold Start לפי ERR-027. ספירות, ציונים וזהויות אינם מוחזרים ללקוח. Interest/Intent, Groups ו-Follows נכנסים עם הנתונים שלהם (I10, I11, I15), וכך גם שאר הסעיפים של AC-060. |
 | תנאים מוקדמים | Regular User מחובר וקיימים Candidates מורשים. |
 | קלט / Trigger | Friends/Groups/Follows, Stage, Interest/Intent, Content Metadata, engagement/quality signals, Negative Feedback, eligibility. |
-| תהליך מערכת | Authorization/Eligibility → Candidate Generation → Rule-Based Scoring → Re-ranking לגיוון/בטיחות/Negative Feedback → שילוב Sponsored eligible בנפרד. Anonymous Post אינו נכנס כ-Candidate ואינו מקבל Social Relevance דרך הגרף החברתי של המחבר (FR-FEED-005). |
+| תהליך מערכת | Authorization/Eligibility → Candidate Generation → Rule-Based Scoring → Re-ranking לגיוון/בטיחות/Negative Feedback → שילוב Sponsored eligible בנפרד. Anonymous Post אינו נכנס כ-Candidate ואינו מקבל Social Relevance דרך הגרף החברתי של המחבר (FR-FEED-005). **כפי שנבנה ב-I3:** כשהתצורה הפעילה חסרה או אינה תקינה — הגרסה התקינה האחרונה, ואם אין — תצורה מובנית לפי זמן בלבד (ERR-030). עד כלי ה-Admin (I15) התצורה משתנה רק ב-migration שנבדק (BR-059). |
 | פלט | Feed ordered list עם Organic/Sponsored labeling. |
-| מצב לאחר ביצוע | Impression/Interaction נרשמים; Organic Score אינו מושפע מתשלום. |
+| מצב לאחר ביצוע | Impression/Interaction נרשמים (מ-I15; 4א); Organic Score אינו מושפע מתשלום. |
 | בעל אחריות לוגי (Page / Feature) | FeedFeature / RuleBasedRecommendationEngine |
 
 ## FR-ALG-003 — Professional User Feed Ranking v1
 
 | שדה | הגדרה |
 |---|---|
-| סטטוס | מאושר — חובה ל-v1 |
+| סטטוס | מאושר — חובה ל-v1; חלקו נבנה ב-I3 (19.10.2026) |
 | Actor | Professional User / System |
-| תיאור | Professional Feed מותאם לתחום מקצועי, Groups, Professionals במעקב, Search/Consumption ו-Content Quality; אין שימוש ב-Child/Journey/Tracker Data של חשבון אחר או של Professional. |
+| תיאור | Professional Feed מותאם לתחום מקצועי, Groups, Professionals במעקב, Search/Consumption ו-Content Quality; אין שימוש ב-Child/Journey/Tracker Data של חשבון אחר או של Professional. **כפי שנבנה ב-I3 (החלטת אפיק מ-19.10.2026, DR-1):** Professional קורא את פיד הקהילה בפרופיל דירוג של תוכן בלבד — אותו מאגר שרואה Regular שאינו Friend, בלי רכיב Friend ובלי רכיב Stage, ובלי קריאה של מסלולים או ילדים (AC-061). תחום מקצועי, Groups ו-Follows נכנסים ב-I11. |
 | תנאים מוקדמים | Professional User מחובר. |
 | קלט / Trigger | Profession/Service Categories, Followed Professionals, Group Membership, Searches, content interactions, quality/freshness, negative feedback. |
 | תהליך מערכת | Eligibility → Candidate Generation של Posts/Questions/Professional/Group/Business-relevant units → Ranking/Re-ranking. Sponsored מוצג רק אם relevant ומסומן. |
@@ -64,9 +64,9 @@
 |---|---|
 | סטטוס | מאושר — חובה ל-v1 |
 | Actor | Regular User / System |
-| תיאור | דירוג אורגני של Professional ייקבע לפי התאמת שירות/Query/Intent, Location אם אושרה, איכות/Helpful Activity, Ratings, Profile completeness/verification לפי צורך, Freshness ו-Negative Feedback. |
+| תיאור | דירוג אורגני של Professional ייקבע לפי התאמת שירות/Query/Intent, Location אם אושרה, איכות/Helpful Activity, Ratings, Profile completeness, Freshness ו-Negative Feedback. אין אות אימות — האימות המקצועי הוסר (OP-005 נסגר, 18.10.2026). |
 | תנאים מוקדמים | Professional פעיל וזמין להצגה; המשתמש נמצא ב-Services/Recommendation context. |
-| קלט / Trigger | ServiceCategory, Search/Intent, coarse location permission, professional quality/activity signals, user feedback. |
+| קלט / Trigger | ServiceCategory, Search/Intent, location (עיר או אזור מרשימה, §12), professional quality/activity signals, user feedback. |
 | תהליך מערכת | Eligibility → Relevance score → Quality/reliability signals → Re-ranking. Paid Promotion אינו חלק מה-Organic score. |
 | פלט | Professional results/recommendations אורגניים מדורגים. |
 | מצב לאחר ביצוע | Profile view/follow/chat-start נרשמים למדידה; זהות המחפש אינה נחשפת ב-Professional Analytics. |
@@ -118,14 +118,14 @@
 
 | שדה | הגדרה |
 |---|---|
-| סטטוס | מאושר — חובה ל-v1 |
+| סטטוס | מאושר — חובה ל-v1. "הסתרת הפוסט" נבנתה ב-I3 (19.10.2026); Not Interested ו-Show Less — I15 |
 | Actor | Regular User / Professional User / System |
-| תיאור | המערכת תאפשר Not Interested/Hide/Show Less ותשתמש במשוב להפחתת תוכן דומה; Re-ranking ימנע חזרתיות יתר של Creator/Topic/Source וישאיר מקום ל-Exploration רלוונטי. |
+| תיאור | המערכת תאפשר Not Interested/Show Less ותשתמש במשוב להפחתת תוכן דומה; Re-ranking ימנע חזרתיות יתר של Creator/Topic/Source וישאיר מקום ל-Exploration רלוונטי. **הסתרת פוסט** (החלטת אפיק מ-18.10.2026, 8א): "הסתרת הפוסט" בתפריט "⋯" של כרטיס בפיד מסתירה פוסט אחד מהמשתמש עצמו בלבד. היא אינה Signal, אינה נשמרת כ-RecommendationFeedback ואינה משנה את הדירוג של שום פריט אחר, למשתמש או לאחרים. הכותב ושאר הקוראים ממשיכים לראות את הפוסט, המונים אינם משתנים, ואף אחד אינו יודע על ההסתרה. אי אפשר להסתיר פוסט של המשתמש עצמו, גם אנונימי. **כפי שנבנה ב-I3:** הכרטיס הופך במקום ל"הפוסט הוסתר" עם "ביטול ההסתרה", עד שהמשתמש עוזב את הפיד או טוען אותו מחדש; אחר כך ההסתרה קבועה ב-MVP, ואין רשימת פוסטים מוסתרים. הסתרת שיתוף מסתירה את השיתוף בלבד; שיתוף של פוסט מוסתר מציג "הפוסט המקורי כבר לא זמין" (BR-065). ב-I3 — ל-Regular בלבד. |
 | תנאים מוקדמים | Recommendation/Feed unit מוצג. |
 | קלט / Trigger | Feedback explicit + current feed composition. |
-| תהליך מערכת | שמירת RecommendationFeedback → suppression/score reduction לפי creator/topic/source → diversity pass → exploration candidates שעברו Eligibility. אחוזים וספים ניתנים לכיול ב-Configuration. |
+| תהליך מערכת | שמירת RecommendationFeedback → suppression/score reduction לפי creator/topic/source → diversity pass → exploration candidates שעברו Eligibility. אחוזים וספים ניתנים לכיול ב-Configuration. הסתרת פוסט נשמרת בשרת (PostHide, §13) ומוציאה את הפוסט מה-Eligibility של המשתמש בלבד, גם במכשיר אחר ואחרי התחברות מחדש; היא נמחקת עם ביטול ההסתרה, עם מחיקת הפוסט או עם מחיקת החשבון. |
 | פלט | Feed מגוון יותר ומותאם למשוב המשתמש. |
-| מצב לאחר ביצוע | העדפה נשמרת ומשפיעה על Re-ranking עתידי. |
+| מצב לאחר ביצוע | העדפה נשמרת ומשפיעה על Re-ranking עתידי (Not Interested/Show Less, I15). |
 | בעל אחריות לוגי (Page / Feature) | RecommendationFeedbackFeature / RuleBasedRecommendationEngine |
 
 ## FR-ALG-010 — Group Notification Highlights v1

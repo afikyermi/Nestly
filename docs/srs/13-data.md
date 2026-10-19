@@ -15,31 +15,33 @@
 |---|---|
 | User | מזהה, Role, פרטי Login/Contact, סטטוס — כולל "מתוזמן למחיקה" עם מועד המחיקה (FR-SET-002, BR-073). |
 | RegularProfile | נתוני פרופיל הורה/משתמש. |
-| ProfessionalProfile | מקצוע, שם עסק (לא חובה), ניסיון, נתוני אימות — כולל מספר עוסק/ח.פ שנאסף באימות ולא בהרשמה — דירוגים/מדדים, סטטוס אימות. |
+| ProfessionalProfile | מקצוע, שם עסק (לא חובה), ניסיון, דירוגים/מדדים. אין נתוני אימות, מספר עוסק/ח.פ או סטטוס אימות — האימות המקצועי הוסר (OP-005 נסגר, החלטת אפיק מ-18.10.2026). |
 | Child | שם, מין (VAL-006), תאריך לידה ושיוך להורה. מוצג לפי סדר ההוספה; הסרה היא מחיקה מלאה (FR-PROFILE-002). |
 | JourneyContext | סוג מסלול: מתכננים, הריון ולידה, ילד/ה, מחזור וביוץ; סטטוס פעיל; בהריון — תאריך לידה משוער (לא חובה). למשתמש יכולים להיות כמה במקביל (החלטה מ-13.10.2026; VAL-039). סיום מסלול הוא מחיקה מלאה, בלי סיבה ובלי רישום; "יש לנו ילד או ילדה" קיים אם ורק אם יש לפחות ילד אחד (FR-PROFILE-002). |
-| TrackerEvent | סוג Tracker, timestamp ונתוני האירוע; האירועים מהווים חלק מ-Tracker Data המשויך למשתמש/ילד/מסלול. |
-| Post | מחבר (נשמר תמיד), סימון אנונימיות, תוכן, זמן, קהילה/הקשר, סטטוס. בפוסט אנונימי זהות המחבר אינה נחשפת למשתמשי קהילה (FR-FEED-005). שיתוף בפיד הוא פוסט של המשתף עם הפניה לפוסט המקורי ובלי עותק של תוכנו (FR-FEED-006, BR-065). |
-| Comment / Reaction | אינטראקציות לתוכן. Comment יכול לכלול parentCommentId עבור Reply ו-Mention references לפי הצורך; Reaction נשמר לפי סוג האינטראקציה שיוגדר. |
+| TrackerEvent | סוג Tracker, timestamp ונתוני האירוע; האירועים מהווים חלק מ-Tracker Data המשויך למשתמש/ילד/מסלול. השדות לכל סוג — FR-TRACK-001 (OP-008 נסגר, 18.10.2026); גלויים רק למשתמש עצמו. |
+| Post | מחבר (נשמר תמיד), סימון אנונימיות, תוכן, זמן, קהילה/הקשר, סטטוס. בפוסט אנונימי זהות המחבר אינה נחשפת למשתמשי קהילה (FR-FEED-005). שיתוף בפיד הוא פוסט של המשתף עם הפניה לפוסט המקורי ובלי עותק של תוכנו (FR-FEED-006, BR-065). **כפי שנבנה ב-I3:** טקסט (VAL-046); קהל "כולם" / "חברים בלבד", והערך "עוקבים בלבד" שמור ל-Professional מ-I11 (VAL-049); תגית שלב אופציונלית שהמחבר בחר (FR-FEED-004); סימון אנונימיות שנקבע ביצירה ואינו משתנה; מחבר Regular או Professional פעיל. בפוסט אנונימי מזהה המחבר אינו נשמר בשורת הפוסט אלא ברשומה נפרדת, שרק המחבר קורא (Admin ו-Moderator — מ-I4, FR-FEED-005 כלל 6). סטטוס: פעיל, מוסתר, הוסר, או נמחק-ממתין — מחיקה תחת דיווח פתוח, עם מועד שחרור של 90 יום לכל היותר (BR-080). אין שדות שימוש, צפייה או חשיפה (4א). |
+| Comment / Reaction | אינטראקציות לתוכן. Comment יכול לכלול parentCommentId עבור Reply ו-Mention references לפי הצורך; Reaction נשמר לפי סוג האינטראקציה שיוגדר. **כפי שנבנה ב-I3:** Comment — פוסט, מגיב, תגובת-אב לתשובה (רמה אחת, VAL-047), טקסט, סטטוס כמו ב-Post (כולל נמחק-ממתין, BR-080), וסימון "המחבר" שבסיס הנתונים קובע לתגובת המחבר בפוסט האנונימי שלו (ואז בלי מזהה מגיב גלוי). Reaction — "לייק" אחד לכל משתמש ויעד (פוסט או תגובה), בשתי רשומות: רשומה בלי מזהה, שכל מי שרשאי לראות את היעד סופר; ורשומת בעלות, שרק בעל הלייק קורא. לייקים ותגובות של חשבון שאינו פעיל אינם נספרים. |
 | Group / Membership | Group עם type Public/Private, מטא-דאטה, בעלות וסטטוס; Membership משייך משתמש לקבוצה ומכיל סטטוס חברות. תפקידי קבוצה נשמרים בנפרד מ-System Roles. |
-| MarketplaceListing | Listing מסחרי של משתמש: מוצר למכירה/מסירה, בעלים, תוכן, מדיה, סטטוס, מקור וקידום. |
+| MarketplaceListing | Listing מסחרי של משתמש: מוצר למכירה/מסירה, בעלים, תוכן, מדיה, סטטוס, מקור וקידום. השדות, הסימון "נמכר/נמסר" ותפוגה אחרי 60 יום — FR-MKT-002 (OP-012 נסגר, 18.10.2026). |
 | Promotion | קמפיין/חשיפה ממומנת, יעד, תקופה, בעלים. |
 | ServiceCategory | קטגוריות בעלי מקצוע. |
-| ProfessionalOutreachRequest | בעל מקצוע, משתמש יעד, Post מקור, הודעה ראשונה, סטטוס בקשה. |
+| ProfessionalOutreachRequest | בעל מקצוע, משתמש יעד, Post מקור, הודעה ראשונה, סטטוס בקשה. אחת לכל בעל מקצוע ופוסט, ועד 10 ביום לכל בעל מקצוע (FR-SERV-008, OP-010). |
 | Conversation / Message | Conversation/Message: משתתפים, context/source, הודעות, זמן, unread/read state וסטטוס. Contexts כוללים Friends, Regular Chat Request, Professional, Marketplace ו-Support. Conversation בין Regular Users אינה נסגרת אוטומטית בעקבות Remove Friend. |
-| Report / ChatBlock | Report: יעד, סיבה, טקסט חופשי אופציונלי, עדיפות בתור (BR-074), זמן וסטטוס טיפול. ChatBlock: blocker, blocked user, createdAt/removedAt; משפיע על Messaging בלבד ואינו חסימה גלובלית. |
+| Report / ChatBlock | Report: יעד, סיבה, טקסט חופשי אופציונלי, עדיפות בתור (BR-074), זמן וסטטוס טיפול. ChatBlock: blocker, blocked user, createdAt/removedAt; משפיע על Messaging בלבד ואינו חסימה גלובלית. **כפי שנבנה ב-I3:** Report — מדווח, יעד אחד (פוסט, תגובה או משתמש), אחת משמונה הסיבות, טקסט עד 1,000 תווים (VAL-048), זמן וסטטוס "פתוח" או "פג תוקף" (BR-080); אחד לכל מדווח ויעד; רק המדווח קורא את הדיווח שלו, ואין עדכון או מחיקה מהממשק. סיבות הדיווח קבועות בבסיס הנתונים, כך שעריכה ב-FR-ADMIN-007 תדרוש שינוי סכמה. עותק הטקסט המדווח — מ-I4. |
+| UserBlock | חסימת משתמש מלאה והדדית (FR-REL-002, החלטת אפיק מ-18.10.2026): החוסם, החסום וזמן. נפרדת מ-ChatBlock. השדות והמבנה המדויקים — בתכנון I4. |
+| PostHide | הסתרת פוסט על ידי משתמש (FR-ALG-009; החלטת אפיק מ-18.10.2026, 8א): משתמש, פוסט וזמן. רק בעל השורה קורא, יוצר ומוחק אותה; אינה פוסט של המשתמש עצמו. משמשת רק להוצאת הפוסט מהפיד ומעמוד הפוסט של בעל השורה, ואינה קלט לדירוג או לשום חישוב אחר. נמחקת עם ביטול ההסתרה, עם הפוסט ועם החשבון. |
 | Article / Tip | תוכן ידע והקשר רלוונטיות. מדריכים לפי סטטוס הם תוכן מערכת: סטטוס ושבוע/שליש/גיל, מקורות, תאריך בדיקה ומצב פרסום (FR-ADMIN-012). |
 | ProfessionalReview | ביקורת של משתמש רגיל על בעל מקצוע: הפנייה המאושרת שהיא נשענת עליה (אחת לכל פנייה), דירוג 1–5, טקסט, זמן וסטטוס (FR-SERV-011). |
 | ProfessionalArticle | מאמר של בעל מקצוע: כותרת, גוף, תחום, סטטוס וזמנים (FR-PRO-003). |
-| Notification | Notification: נמען, Type, Actor/System, Text, Timestamp, Read/Unread, TargetType/TargetId או Deep Link metadata. יצירה/הצגה כפופות ל-NotificationPreference ולהרשאות. |
+| Notification | Notification: נמען, Type, Actor/System, Text, Timestamp, Read/Unread, TargetType/TargetId או Deep Link metadata. יצירה/הצגה כפופות ל-NotificationPreference ולהרשאות. Retention: 90 יום (§13.4). |
 | SponsoredProduct | מוצר/תוכן מסחרי מטעם חברה/מותג/ספונסר, עם מקור, מדיה, סטטוס וסימון ממומן. בשלב הראשון נוצר ומנוהל על ידי Admin/Back Office בלבד. |
 | MediaAsset | מטא-דאטה וקישור לקובץ תמונה/סרטון המשויך לפוסט, סטורי, Listing, מאמר, תמונת פרופיל או ישות מאושרת אחרת, ומצב הבדיקה בשרת (ממתינה / עברה / נכשלה, BR-076). רק הגרסה המטושטשת נשמרת. |
 | Story | סטורי: מחבר, MediaAsset אחד, טקסט קצר אופציונלי, זמן פרסום וזמן תפוגה (24 שעות). נמחק עם התמונה בתום התוקף (FR-FEED-008, BR-077). |
 | SupportRequest | פנייה של משתמש: נושא, מלל, משתמש, זמן, סטטוס, handledBy והיסטוריית תגובות. תגובות חיצוניות מוצגות ב-Support Thread בתוך Chat בשם “Support”; הערות פנימיות אינן מוצגות. |
-| TrackerData | מכלול נתוני המעקב שנשמרים עבור המשתמש/ילד/מסלול לצורך תיעוד, התאמה אישית, מתן טיפים/ידע ושיפור המערכת, בכפוף למטריצת שימוש ותקנון/מדיניות פרטיות. |
-| ModeratorPermission | מיפוי בין Moderator לבין Permission Keys שהוקצו על ידי Admin: SUPPORT_VIEW, SUPPORT_HANDLE, REPORTS_VIEW, CONTENT_MODERATE, MARKETPLACE_MODERATE, USER_VIEW, USER_WARN, USER_SUSPEND, USER_BAN, PROFESSIONAL_VERIFY, ANALYTICS_VIEW, AUDIT_LOG_VIEW, COMMUNITY_CONFIG, SYSTEM_ANNOUNCEMENTS, PRIVATE_GROUP_MODERATE; כולל created/updated metadata. |
+| TrackerData | מכלול נתוני המעקב שנשמרים עבור המשתמש/ילד/מסלול לצורך תיעוד, התאמה אישית, מתן טיפים/ידע ושיפור המערכת, בכפוף למטריצת שימוש ותקנון/מדיניות פרטיות. רק המשתמש עצמו רואה אותם (FR-TRACK-001, החלטת אפיק מ-18.10.2026). |
+| ModeratorPermission | מיפוי בין Moderator לבין Permission Keys שהוקצו על ידי Admin: SUPPORT_VIEW, SUPPORT_HANDLE, REPORTS_VIEW, CONTENT_MODERATE, MARKETPLACE_MODERATE, USER_VIEW, USER_WARN, USER_SUSPEND, USER_BAN, ANALYTICS_VIEW, AUDIT_LOG_VIEW, COMMUNITY_CONFIG, SYSTEM_ANNOUNCEMENTS, PRIVATE_GROUP_MODERATE; כולל created/updated metadata. PROFESSIONAL_VERIFY בוטל עם הסרת האימות המקצועי (OP-005 נסגר, 18.10.2026). |
 | AccountEnforcement | פעולת אכיפה על חשבון: Target User, Action (Warn/Suspend/Ban/Unban), Reason, Actor, Permission, זמן, משך/מועד סיום במקרה Suspension וסטטוס. |
-| AuditLogEntry | רשומת Audit: Actor, Role, Permission, Action, Target, Timestamp, Result, Reason לפי הצורך ו-Before/After בשינויים רלוונטיים. Retention TBD. |
+| AuditLogEntry | רשומת Audit: Actor, Role, Permission, Action, Target, Timestamp, Result, Reason לפי הצורך ו-Before/After בשינויים רלוונטיים. Retention: 12 חודשים לחשבון פעיל (§13.4). |
 | Friendship | קשר בין שני Regular Users: requester, addressee, status Pending/Accepted/Declined/Removed, ביטול של השולח, timestamps. לכל זוג קשר פעיל אחד לכל היותר. Declined אינו נחשף לשולח, והסטטוס אינו מוחזר לאף צד (FR-REL-001, F2.4). |
 | ProfessionalFollow | Follower User, Target ProfessionalProfile, createdAt; יעד Follow תמיד ProfessionalProfile. |
 | GroupJoinRequest | User, Group, status Pending/Approved/Rejected, requestedAt, decidedBy/decidedAt. |
@@ -59,20 +61,20 @@
 | ContentImpression | רשומת/אירוע חשיפה של Recommendation/Feed unit: user/session, entity, surface, position, organic/paid, algorithm/config version ומשך חשיפה אם זמין. |
 | SearchEvent | Query normalized, surface, filters, result count/zero-result ו-result click. Raw query אינו נחשף ל-Professional Analytics. |
 | PersonalizationProfile | Interest/Intent scores נגזרים לפי Topic/Context. v1 Rule-Based; אינו כולל גוף Chat/Support ואינו חשוף ל-Professional/Advertiser. |
-| RecommendationFeedback | Not Interested / Hide / Show Less והיעד creator/topic/source לצורך Re-ranking. |
+| RecommendationFeedback | Not Interested / Show Less והיעד creator/topic/source לצורך Re-ranking (I15). הסתרת פוסט נשמרת ב-PostHide ואינה Feedback (8א). |
 | ContentMetadata | Topic/Category/Stage/Service/Product metadata לצורכי Eligibility/Ranking; v1 מבוסס שדות מובנים, Group/category context, tags/keywords ו-curation. |
-| AlgorithmConfiguration | גרסת weights/thresholds/decay/diversity/exploration/frequency caps. שינוי Admin Only דרך ALGORITHM_AI_CONFIG ונרשם ב-Audit. |
+| AlgorithmConfiguration | גרסת weights/thresholds/decay/diversity/exploration/frequency caps. שינוי Admin Only דרך ALGORITHM_AI_CONFIG ונרשם ב-Audit. **כפי שנבנה ב-I3:** גרסה, משטח (`regular_feed`), סימון פעילה (אחת לכל משטח), זמן, יוצר וסיבה; גרסה אינה מתעדכנת ואינה נמחקת — שינוי הוא גרסה חדשה. עד כלי ה-Admin (I15) גרסה חדשה נוצרת רק ב-migration שנבדק (BR-059). |
 | AnalyticsAggregate | מדדים מצטברים לפי period/surface/entity/segment מאושר לצורך Admin/Professional dashboards. |
 | PromotionPerformanceEvent | Impression/Click/ProfileVisit/Follow/ChatStart/other approved event המשויך ל-Promotion ומסומן Paid לצורך הפרדה מ-Organic. |
 | LegalConsent | User, מסמך (Terms / Privacy / הצהרת גיל 18+), גרסה, זמן אישור. נוצר בהרשמה (FR-REG-004) ובכל אישור של גרסה חדשה. |
-| RecoveryAnswers | User, שתי השאלות שנבחרו, לכל תשובה hash איטי (scrypt) עם salt ופרמטרים, מזהה האימייל (hash עם מפתח) וזמן הטענה עליו, זמנים. לעולם לא התשובה עצמה; משתמשים ומבקרים אינם קוראים את ה-hash (FR-AUTH-003, VAL-045, F1.6). מידע אישי. Retention TBD. |
-| RecoveryThrottle | מונה ניסיונות שחזור לפי מזהה אימייל או לפי hash של כתובת IP, חלון ונעילה; למזהה האימייל גם שלב במדרג וסימון נעילה קבועה (NFR-SEC-010, 17.10.2026). Retention: אחרי מחיקת חשבון — 90 יום ואז מחיקה (BR-073); אחרת TBD. |
-| RecoveryEvent | אירוע Audit של שחזור הסיסמה: סוג (FR-ADMIN-005), User כשידוע, hash של מזהה האימייל, hash של כתובת ה-IP וזמן; בלי תשובה, סיסמה או אימייל. Retention TBD. |
+| RecoveryAnswers | User, שתי השאלות שנבחרו, לכל תשובה hash איטי (scrypt) עם salt ופרמטרים, מזהה האימייל (hash עם מפתח) וזמן הטענה עליו, זמנים. לעולם לא התשובה עצמה; משתמשים ומבקרים אינם קוראים את ה-hash (FR-AUTH-003, VAL-045, F1.6). מידע אישי. Retention לחשבון פעיל: אינו מכוסה ב-§13.4 — TBD במסגרת OP-028; אחרי מחיקת חשבון — BR-073. |
+| RecoveryThrottle | מונה ניסיונות שחזור לפי מזהה אימייל או לפי hash של כתובת IP, חלון ונעילה; למזהה האימייל גם שלב במדרג וסימון נעילה קבועה (NFR-SEC-010, 17.10.2026). Retention: אחרי מחיקת חשבון — 90 יום ואז מחיקה (BR-073); לחשבון פעיל — יום אחרי שהמונה פג (§13.4). |
+| RecoveryEvent | אירוע Audit של שחזור הסיסמה: סוג (FR-ADMIN-005), User כשידוע, hash של מזהה האימייל, hash של כתובת ה-IP וזמן; בלי תשובה, סיסמה או אימייל. Retention: 12 חודשים לחשבון פעיל (§13.4). |
 | BetaInvite | אימייל מוזמן, מי הוסיף ומתי, וסטטוס. יחד עם מצב הבטא קובע מי יכול להירשם בתקופת הבטא (FR-ADMIN-011). |
-| AccountTakeoverCheck | מצב ניקוי S-01 לכל חשבון: ממתין או הושלם, ה-Session שביצע אותו, זמן הניקוי וזמן קביעת הסיסמה החדשה (FR-AUTH-005, F2.0). בלי סיסמה, תשובה או אסימון. Retention TBD. |
-| ProfileOpenCount | מונה פתיחות הפרופיל של כל חשבון בחלון ההגבלה (NFR-SEC-006). נכתב ונקרא רק בבסיס הנתונים, בשורה של הצופה עצמו; משתמשים אינם קוראים, מאפסים או משנים אותו. Retention TBD. |
+| AccountTakeoverCheck | מצב ניקוי S-01 לכל חשבון: ממתין או הושלם, ה-Session שביצע אותו, זמן הניקוי וזמן קביעת הסיסמה החדשה (FR-AUTH-005, F2.0). בלי סיסמה, תשובה או אסימון. Retention לחשבון פעיל: אינו מכוסה ב-§13.4 — TBD במסגרת OP-028; אחרי מחיקת חשבון — BR-073. |
+| ProfileOpenCount | מונה פתיחות הפרופיל של כל חשבון בחלון ההגבלה (NFR-SEC-006). נכתב ונקרא רק בבסיס הנתונים, בשורה של הצופה עצמו; משתמשים אינם קוראים, מאפסים או משנים אותו. Retention: יום אחרי שהמונה פג (§13.4). |
 | SecurityConfiguration | ערכי סף של הגבלות Security, כגון 100 פתיחות פרופיל ב-3,600 שניות (NFR-SEC-006). שינוי — Admin בלבד (SECURITY_SETTINGS_MANAGE); עד I4 ב-migration. ממשק המוצר אינו קורא ואינו כותב אותם. |
-| SecurityEvent | אירוע Security: סוג (למשל חריגה מהגבלת פתיחת הפרופילים), החשבון והזמן; בלי יעד, פרופיל או נתוני ילד. משתמשים אינם קוראים, משנים או מוחקים אירוע, גם את שלהם (NFR-SEC-006, ERR-032). Retention TBD (I9). |
+| SecurityEvent | אירוע Security: סוג (למשל חריגה מהגבלת פתיחת הפרופילים), החשבון והזמן; בלי יעד, פרופיל או נתוני ילד. משתמשים אינם קוראים, משנים או מוחקים אירוע, גם את שלהם (NFR-SEC-006, ERR-032). Retention: 12 חודשים לחשבון פעיל (§13.4, I9). |
 
 ## 13.1 קשרים מרכזיים
 
@@ -86,6 +88,7 @@
 - MarketplaceListing משויך למפרסם; SponsoredProduct מנוהל בשלב הראשון על ידי Admin. Marketplace Chat מתוך Listing פעיל הוא חריג מורשה לכלל Professional→Regular Outreach.
 - TrackerData מורכב מאירועי המעקב והקשריהם ונשמר לפי המשתמש/הילד/מסלול.
 - SupportRequest משויך למשתמש ולנושא וכולל סטטוס והיסטוריית תגובות. Admin מלא; Moderator לפי SUPPORT_VIEW/HANDLE. תגובה חיצונית מופיעה ב-Chat כ-Support Thread בשם “Support”.
+- התגובות, הלייקים וההסתרות של פוסט נמחקים יחד איתו כשהכותב מוחק אותו (BR-080); שיתוף אינו נמחק עם המקור שלו (BR-065). כל אחד מהם נקרא רק כשהפוסט זמין לצופה (RLS).
 
 Friendship קיים רק בין Regular Users. הוא מאפשר Chat ישיר אך אינו תנאי לבקשת שיחה; RegularChatRequest משמש non-Friends. Remove Friend אינו סוגר Conversation שכבר נפתחה.
 
@@ -105,28 +108,31 @@ NotificationPreference ו-GroupNotificationPreference מסננים אירועי 
 | Regular Profile — Public | Basic Public Profile (§1.4): שם, תמונה, Journey Summary ללא גילאים, Friends ו-Friends משותפים; Profile Visibility | People Search, profile display, social features | Restricted מגביל non-Friend ל-Basic Public Profile; Open, וכל צפייה של Friend, חושפים את הפרופיל עם Journey Summary מלא, ללא שמות ילדים, תאריכי לידה, פרטי הריון ו-Tracker Data; לא נגזר Paid target מזהות אישית | משתמשים לפי Visibility |
 | Child / Journey Context | DOB/Stage/JourneyContext, child association | My Stage, organic contextual relevance, trackers | Child DOB/identifiers אינם Paid Targeting ואינם מועברים ל-Professional/Advertiser דרך ערוצי Targeting, Analytics או Dashboard. ל-non-Friend הם אינם מוצגים: מוצג רק Journey Summary — מספר ילדים, גילאים (ב-Open ול-Friend, בשנים ובחודשים) והריון ללא פרטים — באופן זהה לצופה Regular ול-Professional (FR-PRIV-001) | Regular owner; Admin לפי הרשאה; algorithms דרך derived Stage; non-Friend רק Journey Summary |
 | Tracker Data | Tracker type/events/summary | Tracking history; organic non-diagnostic tips/context | ללא Paid Targeting; ללא Professional access; ללא medical diagnosis/inference | Regular owner; restricted Admin access; ContextualContentFeature לפי purpose |
-| Professional Profile | profession, experience, verification, ratings, content/activity | Directory, organic matching, profile, Professional analytics | Paid boost לא משנה organic reputation | Public/eligible users; owner/admin |
+| Professional Profile | profession, experience, ratings, content/activity | Directory, organic matching, profile, Professional analytics | Paid boost לא משנה organic reputation. אין נתוני אימות (OP-005 נסגר, 18.10.2026) | Public/eligible users; owner/admin |
 | Social Graph | Friendship, ProfessionalFollow, Group Membership | Feed candidates, social relevance, notifications | לא לחשוף graph מלא לצדדים שלישיים | המשתמש/Features הרלוונטיים |
-| Content & Metadata | Posts/Comments/Groups/Listings/Products/Articles + topic/stage/category tags | Search, Feed, Ranking, Moderation, analytics | Private Group content לפי membership/admin exception בלבד. זהות המחבר של Anonymous Post אינה נחשפת למשתמשי קהילה. Admin רואה אותה; Moderator רק בטיפול בדיווח על הפוסט, עם Audit (FR-FEED-005) | לפי content visibility |
-| Search Data | normalized query, filters, result count, clicks | Search ranking, current intent, zero-result/demand analytics | Raw query לא מוצג ל-Professional; Chat/Support לא נגזרים ל-query | System/Admin aggregate; user personalization |
-| Interaction / Exposure | impression, open, dwell, like, comment, save, profile/product open | Interest/Intent, Ranking evaluation, Admin analytics | Dwell אינו Satisfaction יחיד; מינימום metadata נדרש | System; Admin aggregate; Professional own aggregates |
-| Negative Feedback | Not Interested, Hide, Show Less | Suppression/Re-ranking, recommendation quality | לא משמש אכיפה על משתמש אחר כשלעצמו | System + user preference |
-| Location | coarse/precise permission-dependent location | Services proximity, Marketplace relevance לפי הרשאה | אין איסוף ללא permission; paid usage רק לפי policy/consent future decision | User-controlled; features scoped |
+| Content & Metadata | Posts/Comments/Groups/Listings/Products/Articles + topic/stage/category tags | Search, Feed, Ranking, Moderation, analytics | Private Group content לפי membership/admin exception בלבד. זהות המחבר של Anonymous Post אינה נחשפת למשתמשי קהילה. Admin רואה אותה; Moderator רק בטיפול בדיווח על הפוסט, עם Audit (FR-FEED-005). תגית השלב של פוסט היא בחירת המחבר בלבד ואינה נגזרת מ-Child/Journey Data (FR-FEED-004). שם הכותב — BR-079 | לפי content visibility |
+| Search Data | normalized query, filters, result count, clicks | Search ranking, current intent, zero-result/demand analytics | Raw query לא מוצג ל-Professional; Chat/Support לא נגזרים ל-query | System; Admin ו-ANALYTICS_VIEW לפי BR-058 (גם ברמת משתמש, בלי שמות ובלי פרטים מזהים); user personalization |
+| Interaction / Exposure | impression, open, dwell, like, comment, save, profile/product open | Interest/Intent, Ranking evaluation, Admin analytics | Dwell אינו Satisfaction יחיד; מינימום metadata נדרש | System; Admin ו-ANALYTICS_VIEW לפי BR-058 (גם ברמת משתמש, בלי שמות ובלי פרטים מזהים); Professional own aggregates |
+| Negative Feedback | Not Interested, Show Less | Suppression/Re-ranking, recommendation quality | לא משמש אכיפה על משתמש אחר כשלעצמו | System + user preference |
+| Post Hide | הסתרת פוסט (PostHide) | הוצאת הפוסט מהפיד ומעמוד הפוסט של המשתמש בלבד | לא Signal ולא קלט לדירוג (8א); לא נחשף לכותב או למשתמשים אחרים. שימוש במדדים מצטברים (§18.6, §18.8) — TBD (OP-037) | המשתמש לשורות שלו בלבד |
+| Location | עיר או אזור שהמשתמש בוחר מרשימה (החלטת אפיק מ-18.10.2026) | Services לפי אזור (FR-SERV-002), Marketplace relevance | אין GPS, אין מיקום מדויק, אין מפה ואין בקשת הרשאת מיקום (§12); paid usage רק לפי policy/consent future decision | User-controlled; features scoped |
 | Chat Metadata | conversation ids, timestamps, unread/read state, context | Messaging operation, unread counters, limited aggregate metrics | Message body אינו personalization/paid signal | Participants; system operation; admin only when authorized |
 | Chat Content | message body/attachments אם יאושרו | Messaging בלבד, moderation/report if user submits/authorized | אסור Personalization/Recommendation/Paid Targeting | Participants; authorized moderation only |
 | Support Data | category, status, thread messages, handler metadata | Support handling; aggregate issue analytics | Support message body אינו personalization/paid signal | User + Admin/Moderator authorized |
 | Promotion / Payment | campaign target, budget/period/status, transaction/provider refs | Paid delivery, billing, promotion analytics | Organic score/reputation נפרדים; card data לפי gateway policy | Owner/Professional for own campaign; Admin finance |
-| Moderation / Audit | reports, actions, reasons, before/after, actor/target | Trust & Safety, compliance, audit | לא משמש ad targeting | Admin/Moderator לפי permissions |
+| Moderation / Audit | reports, actions, reasons, before/after, actor/target | Trust & Safety, compliance, audit | לא משמש ad targeting. דיווח אינו קלט לדירוג; הוא רק מוציא את הפוסט המדווח מהפיד של המדווח (BR-074) | Admin/Moderator לפי permissions; המדווח לדיווח שלו בלבד |
 | Derived Interest / Intent | topic/context scores + freshness | Organic personalization, candidate ranking; limited sponsored eligibility only from permitted non-sensitive sources | לא כולל Tracker/Child private data ל-Paid; לא נחשף למפרסם | System; Admin debugging under permission |
 
 ## 13.3 Event Taxonomy v1
+
+ב-I3 אין אף Event, טבלת אירועים או רישום של צפייה, חשיפה, לחיצה או זמן שהייה (החלטת אפיק מ-18.10.2026, 4א); הטקסונומיה נבנית ב-I15 עם FR-DATA-001. גרפי ה-Admin נבנים ב-I14 (FR-ADMIN-010/003); אילו מהם זמינים לפני האירועים — OP-039.
 
 | קבוצת Event | Events עיקריים | Metadata מרכזי |
 |---|---|---|
 | Exposure | content_impression / recommendation_impression / promotion_impression | entity, surface, position, organic/paid, algorithm/config version |
 | Consumption | content_open / dwell / article_open / profile_view / marketplace_open | entity, duration if available, source surface |
 | Engagement | reaction / comment / reply / save / share-if-added | entity, actor, context |
-| Negative Feedback | not_interested / hide / show_less | entity, creator/topic/source target |
+| Negative Feedback | not_interested / show_less | entity, creator/topic/source target |
 | Search | search_submit / search_result_click | normalized query, result count, zero-result, entity clicked |
 | Relationship | friend_request / friend_accept / follow / unfollow / group_join | relationship type + target |
 | Messaging Conversion | chat_start / chat_request_accept / offer_help_accept | context source only; no message body |
@@ -136,11 +142,15 @@ NotificationPreference ו-GroupNotificationPreference מסננים אירועי 
 
 ## 13.4 Retention, User Control & Purpose Boundaries
 
+**תקופות שמירה לחשבון פעיל** (החלטת אפיק מ-18.10.2026, 15א; נבנה ב-I9): אירועי אבטחה, Audit ושחזור — 12 חודשים · דיווחים שטופלו — 12 חודשים (כמו הספירה ב-BR-074) · התראות — 90 יום · מוני הגבלת קצב — יום אחרי שפגו · תוכן שנמחק — מיד (BR-080). אחרי מחיקת חשבון חל BR-073. **לא מכוסים כאן**, ונשארים TBD במסגרת OP-028: RecoveryAnswers ו-AccountTakeoverCheck לחשבון פעיל, וכל שורה בטבלה שלמטה שמסומנת "ייקבע".
+
 | Data Class | Purpose | Retention / Control Rule |
 |---|---|---|
-| Account/Profile/Content | נדרש לתפעול החשבון והתוכן | מחיקת חשבון — BR-073: הכל נמחק, חוץ מרשומות אבטחה וביקורת (90 יום ואז מחיקה) ומהשיחות שנשמרות לצד השני (החריג המוגדר היחיד; 17.10.2026); תמונות — BR-077. משך מדויק ייקבע לפי Privacy Policy/שוק ראשון; מחיקה/ייצוא לפי USER_DATA_EXPORT_DELETE ותהליך המשתמש. |
+| Account/Profile/Content | נדרש לתפעול החשבון והתוכן | מחיקת חשבון — BR-073: הכל נמחק, חוץ מרשומות אבטחה וביקורת (90 יום ואז מחיקה) ומהשיחות שנשמרות לצד השני (החריג המוגדר היחיד; 17.10.2026); תמונות — BR-077. משך מדויק ייקבע לפי Privacy Policy/שוק ראשון; מחיקה/ייצוא לפי USER_DATA_EXPORT_DELETE ותהליך המשתמש. פוסט או תגובה שהכותב מחק — נמחקים מיד; תחת דיווח פתוח — מוסתרים מכולם עד הטיפול, לכל היותר 90 יום, ואז נמחקים על ידי משימת רקע (BR-080). הסתרת פוסט נשמרת עד שהמשתמש מבטל אותה, עד מחיקת הפוסט או עד מחיקת החשבון. |
+| Notifications | הצגת התראות | 90 יום (החלטת אפיק מ-18.10.2026, 15א). |
+| Rate-limit counters | הגבלת קצב (NFR-SEC-006, NFR-SEC-010) | יום אחרי שהמונה פג (15א). |
 | Interaction/Search/Recommendation Events | Personalization + Analytics | Retention period לא ייקבע שרירותית ב-SRS; יש לקבוע לפני Production ולהתאים ל-Notice/Consent. Aggregates יכולים להישמר בנפרד לפי policy. |
 | Tracker/Child Data | Tracking + Organic Context | Retention/control חייבים להיות מפורשים במדיניות; אין Paid Targeting. הסרת ילד וסיום מסלול מוחקים את השורה מבסיס הנתונים החי מיד, ושום שורת לוג של האפליקציה, עמודה או רשומה אינם רושמים את המחיקה (FR-PROFILE-002). גיבויי Supabase והרישומים הטכניים של הפלטפורמה (לוג הבקשות של Vercel, לוג ה-Auth) נשארים מחוץ למחיקה הזו לזמן קצר, ומדיניות הפרטיות מציינת זאת ליד הגיבויים (BR-078; OP-036 נסגר). |
 | Chat/Support | תקשורת ותפעול Support | Retention נקבע לפי policy/operational need; גוף ההודעות לא נכנס ל-personalization/paid analytics. |
-| Moderation/Audit | Trust/Safety/Audit | אחרי מחיקת חשבון: 90 יום ואז מחיקה (BR-073, 17.10.2026). לחשבון פעיל — Retention TBD לפי market/legal/operational need; מחיקה/שינוי Audit מוגבלים לפי NFR-AUDIT. |
+| Moderation/Audit | Trust/Safety/Audit | אחרי מחיקת חשבון: 90 יום ואז מחיקה (BR-073, 17.10.2026). לחשבון פעיל: אירועי אבטחה, Audit ושחזור — 12 חודשים; דיווחים שטופלו — 12 חודשים (15א); מחיקה/שינוי Audit מוגבלים לפי NFR-AUDIT. דיווח על תוכן מחוק שהגיע למועד השחרור נשמר כ"פג תוקף", בלי היעד ובלי התוכן (BR-080). |
 | Payment/Promotion | Billing/financial record + campaign performance | Retention לפי provider/finance/legal; אין שמירת full card data במערכת. |

@@ -17,7 +17,7 @@
 | AC-011 | בעל מקצוע יכול לשלוח Message Request אחת בלבד בעקבות אותו פוסט של משתמש רגיל. |
 | AC-012 | לפני Accept של Message Request לא נפתח Chat מלא בין בעל המקצוע למשתמש הרגיל. |
 | AC-013 | לאחר Accept שני הצדדים יכולים להתכתב ללא מגבלת מספר הודעות. |
-| AC-014 | אין Rate Limit כללי על מספר פוסטים/משתמשים שונים; ניסיון שני של אותו בעל מקצוע על אותו Post נחסם. |
+| AC-014 | שלושה חלקים, שכל אחד נבדק לבד (OP-010, החלטת אפיק מ-18.10.2026): **(א) פנייה אחת לפוסט** — ניסיון שני של אותו בעל מקצוע על אותו Post נחסם, ופנייה של בעל מקצוע אחר על אותו Post מתקבלת. **(ב) עד 10 ביום** — הפנייה ה-10 של בעל מקצוע באותו יום מתקבלת וה-11 נחסמת; מעבר לכך אין מגבלה על מספר הפוסטים או המשתמשים השונים. **(ג) רק לפוסט שמבקש עזרה** — פנייה לפוסט שאינו מבקש עזרה נחסמת; ממתין ל-OP-038 (איך פוסט מסומן ככזה), ואינו נבדק עד ההחלטה. |
 | AC-015 | עריכת פרופיל נשמרת ומשתקפת במסכים הרלוונטיים. |
 | AC-016 | Guest שאינו מחובר אינו יכול לפתוח Feed/Marketplace/פרופילים/Tracking ומנותב ל-Welcome/Login. |
 | AC-017 | ההרשמה, רגילה ומקצועית, אינה כוללת שדה טלפון (הוסר ב-11.10.2026). |
@@ -32,7 +32,7 @@
 | AC-026 | Moderator ללא Permission Key נדרש מקבל Access Denied גם אם ניסה להגיע ישירות ל-API/Route; לאחר הקצאת ההרשאה על ידי Admin, הגישה נפתחת בהתאם. |
 | AC-027 | Moderator עם USER_BAN יכול לחסום חשבון Regular/Professional במלואו ולבצע Unban; Moderator ללא USER_BAN אינו יכול לבצע אף אחת מהפעולות הללו. Moderator אינו יכול להפעיל Ban/Unban על Admin, על עצמו או על Moderator אחר. |
 | AC-028 | Moderator עם USER_SUSPEND יכול להשעות חשבון זמנית רק לאחר בחירת משתמש יעד, סיבה ומשך/מועד סיום. |
-| AC-029 | כל Warning/Suspension/Ban/Unban, שינוי Permission, טיפול בפנייה, Moderation ואימות Professional יוצר AuditLogEntry עם Actor, Action, Target, Timestamp ו-Result. |
+| AC-029 | כל Warning/Suspension/Ban/Unban, שינוי Permission, טיפול בפנייה ו-Moderation יוצר AuditLogEntry עם Actor, Action, Target, Timestamp ו-Result. (אימות Professional הוסר — OP-005 נסגר, 18.10.2026.) |
 | AC-030 | Moderator עם AUDIT_LOG_VIEW יכול לצפות ולסנן Audit Log אך אינו יכול לשנות או למחוק רשומה. |
 | AC-031 | אף Permission של Moderator אינו מאפשר גישה לפעולות Admin Only; ניסיון גישה נדחה בצד ה-Backend. |
 | AC-032 | SUPPORT_HANDLE דורשת SUPPORT_VIEW; USER_WARN/USER_SUSPEND/USER_BAN דורשות USER_VIEW; Moderator שאינו Member צריך PRIVATE_GROUP_MODERATE בנוסף להרשאת טיפול כדי לגשת לתוכן Private Group. |
@@ -46,11 +46,11 @@
 | AC-040 | Notification dropdown מציג unread state ו-Deep Link; NotificationsPage מאפשר Mark all as read. Chat messages אינן מופיעות כהתראות כפולות. |
 | AC-041 | Regular/Professional יכולים לשנות Notification Preferences במולטי-סלקט/Toggles; Security/Critical אינן ניתנות לכיבוי ב-In-App; Group preference תומכת All/Highlights/Off. בשלב Mobile, קטגוריה מאופשרת יכולה להישלח גם כ-Push רק כאשר Push מופעל והרשאת מערכת ההפעלה קיימת. |
 | AC-042 | Recommendation המבוססת על חיפוש/צריכת תוכן אינה נוצרת כ-Notification ומופיעה רק במסגרת Feed/Recommendation logic. |
-| AC-043 | Professional Notification Center אינו כולל Friend Requests או Birthdays, אך יכול לכלול New Follower, Verification, Promotion, Moderation, Group ו-System events. |
+| AC-043 | Professional Notification Center אינו כולל Friend Requests, Birthdays או אירועי אימות מקצועי, אך יכול לכלול New Follower, Promotion, Moderation, Group ו-System events (OP-005 נסגר, 18.10.2026). |
 | AC-044 | Moderator מקבל Notification ניהולי רק אם Permission מתאים לתחום האירוע; Admin יכול לקבל את כלל אירועי הניהול. |
 | AC-045 | Chat dropdown מציג Conversations/Requests. Friends Chat ישיר; non-Friends Regular Chat Request; Conversation קיימת ממשיכה לאחר Remove Friend; Professional→Regular Offer Help למעט Marketplace; ChatBlock מונע הודעות בלבד. |
 | AC-046 | Birthday notification לילד נוצר רק כאשר ההורה התיר שיתוף זה עם Friends. |
-| AC-047 | Admin או Moderator עם PROFESSIONAL_VERIFY יכולים לפתוח בקשת Professional Verification ולעדכן אותה ל-Approved/Rejected/Status אחר שהוגדר; הפעולה נרשמת ב-Audit Log. |
+| AC-047 | ~~Admin או Moderator עם PROFESSIONAL_VERIFY יכולים לפתוח בקשת Professional Verification ולעדכן אותה.~~ — **בוטל**: אין אימות מקצועי (OP-005 נסגר, החלטת אפיק מ-18.10.2026). |
 | AC-048 | Community Administration נגיש ל-Admin ול-Moderator עם COMMUNITY_CONFIG בלבד; שינוי תצורה נרשם ב-Audit Log. |
 | AC-049 | System Announcements ניתנים ליצירה/עריכה/פרסום/הסרה על ידי Admin או Moderator עם SYSTEM_ANNOUNCEMENTS בלבד; הפעולה נרשמת ב-Audit Log. |
 | AC-050 | Regular User יכול להמליץ על Group רק ל-Friendship פעילה; הפעולה שולחת Notification עם Deep Link לקבוצה ואינה מצרפת את הנמען אוטומטית. |
@@ -64,17 +64,17 @@
 | AC-058 | Sponsored Product ניתן לניהול בשלב הראשון רק על ידי Admin ומוצג בסימון מסחרי נפרד מ-User Listing. |
 | AC-059 | Marketplace Listing פעיל מאפשר Professional→Regular Chat ישיר בהקשר ה-Listing; מחוץ ל-Marketplace יוזמת Professional כפופה ל-Offer Help. |
 | AC-060 | Regular Feed מחיל Authorization/Eligibility לפני Ranking ומשתמש ב-Stage, Interest/Intent, Social/Group/Follow, Quality, Freshness ו-Diversity ללא תלות ב-ML/LLM. |
-| AC-061 | Professional Feed אינו משתמש ב-Child/Journey/Tracker Data ומבוסס profession/groups/follows/search/content signals בלבד. |
+| AC-061 | Professional Feed אינו משתמש ב-Child/Journey/Tracker Data ומבוסס profession/groups/follows/search/content signals בלבד. ב-I3: Professional מקבל את פוסטי "כולם" ואת הפוסטים שלו, בדירוג תוכן בלבד — בלי רכיב Friend, בלי רכיב Stage ובלי שום קריאה של מסלולים, ילדים או Friendship (FR-ALG-003). |
 | AC-062 | Paid Promotion אינו משנה Organic Score/Reputation; כל Paid unit מסומן ומדווח בנפרד. |
 | AC-063 | Sponsored candidate שנכשל Privacy/Safety/Relevance eligibility אינו מוצג גם אם Campaign פעיל/משולם. |
-| AC-064 | Not Interested/Hide/Show Less משפיעים על ranking עתידי לפי creator/topic/source וניתנים למדידה. |
+| AC-064 | Not Interested/Show Less משפיעים על ranking עתידי לפי creator/topic/source וניתנים למדידה (I15). הסתרת פוסט אינה משפיעה על ranking (AC-127; החלטת אפיק מ-18.10.2026, 8א). |
 | AC-065 | Global Search מבצע Authorization לפני דירוג ומיישם Exact/Prefix/Keyword ranking; Semantic AI אינו דרישת v1. |
 | AC-066 | Group Highlights פועל ללא ML לפי direct events, announcements/pinned ו-threshold configurable; All/Highlights/Off מכובד. |
 | AC-067 | Chat/Support message body אינו נכתב ל-PersonalizationProfile ואינו משמש Recommendation/Paid Targeting. |
 | AC-068 | Child DOB/identifiers ו-Tracker Data אינם משמשים Paid Targeting ואינם נחשפים ב-Professional Analytics. |
 | AC-069 | Tracker-based guidance מציגה רק תוכן כללי ולא-אבחוני; בהיעדר mapping מאושר המערכת מתעלמת מה-signal. |
 | AC-070 | AnalyticsEvent כולל eventId/timestamp והמערכת מונעת ספירה כפולה של eventId זהה; כשל event logging אינו חוסם את הפעולה העסקית. |
-| AC-071 | Admin Analytics מציג לפחות Lifecycle/Retention, Feed, Search, Groups, Professionals, Marketplace, Promotions, Support/Moderation ו-Recommendation Quality ב-aggregate. |
+| AC-071 | Admin Analytics מציג לפחות Lifecycle/Retention, Feed, Search, Groups, Professionals, Marketplace, Promotions, Support/Moderation ו-Recommendation Quality. **ב-I14:** תחום שמדדיו תלויים באירועי שימוש (§13.3 — חשיפה, פתיחה, זמן שהייה, חיפוש, הקלקה), שנאספים רק מ-I15 (4א), ממתין ל-OP-039 ואינו נבדק עד ההחלטה. מחזיק ANALYTICS_VIEW מקבל את הנתונים גם ברמת משתמש בודד וגם בקבוצות קטנות, בלי מינימום גודל קבוצה, ואף תשובה אינה כוללת שם או פרט מזהה (BR-058, FR-ADMIN-010; החלטת אפיק מ-18.10.2026). |
 | AC-072 | Professional Dashboard/Promotion Analytics מציגים own-account aggregates ומפרידים Organic/Paid ללא user identities או raw search queries. |
 | AC-073 | כל שינוי AlgorithmConfiguration דורש Admin ALGORITHM_AI_CONFIG, יוצר configVersion חדש ונרשם ב-Audit עם Before/After. |
 | AC-074 | בשלב Web אין Email/SMS/Push להתראות חברתיות/קבוצתיות/Marketplace/Promotion שוטפות — הן In-App בלבד. בשלב Mobile ניתן Push לקטגוריות מאופשרות ובהרשאת מערכת ההפעלה; חסימת Push אינה מוחקת את ה-Notification מתוך Nestly. Email/SMS נשמרים לתהליכים טכניים/חשבון/אבטחה בלבד. |
@@ -83,7 +83,7 @@
 | AC-077 | Moderator יכול לחשוף את זהות המחבר של Anonymous Post רק מתוך טיפול בדיווח על אותו פוסט, עם REPORTS_VIEW ו-CONTENT_MODERATE, וכל חשיפה יוצרת AuditLogEntry. בלי אחת ההרשאות, או מחוץ לטיפול בדיווח, החשיפה נדחית. |
 | AC-078 | לא ניתן לשלוף רשימת משתמשים ללא מחרוזת חיפוש. חריגה מסף הקצב בחיפוש או בפתיחת פרופילים נחסמת ונרשמת כאירוע Security. מזהי משתמש ופרופיל אינם רציפים. פתיחת פרופילים: עד 100 בשעה לכל חשבון (NFR-SEC-006, AC-122). |
 | AC-079 | שיתוף בפיד מציג את המשתף, את הטקסט שלו ואת הפוסט המקורי, שנטען בכל צפייה לפי הרשאות הצופה (FR-FEED-006). |
-| AC-080 | בפוסט אנונימי, בתוכן מקבוצה פרטית, בפוסט של כותב שהפרופיל שלו Restricted ובתוכן ממומן אין כפתורי שיתוף, ובקשת שיתוף ישירה ל-API נדחית (BR-064). |
+| AC-080 | בפוסט "חברים בלבד", בפוסט אנונימי, בתוכן מקבוצה פרטית ובתוכן ממומן אין כפתורי שיתוף, ובקשת שיתוף ישירה ל-API נדחית בתשובה אחת שאינה מציינת סיבה. Profile Visibility של הכותב (Restricted) אינה חוסמת שיתוף (BR-064, BR-044; החלטות אפיק מ-18.10.2026). **פוסט של המשתמש עצמו** (כפי שנבנה ב-F3.5 וב-F3.6, החלטת ORCHESTRATOR; BR-064): שיתוף בפיד של פוסט של המשתף עצמו, או של שיתוף שלו, נדחה באותה תשובה; שיתוף קישור לפוסט בשם של המשתמש עצמו, בקהל "כולם", זמין. |
 | AC-081 | כשהפוסט המקורי נמחק, הוסתר או הוסר, השיתוף מציג "הפוסט המקורי כבר לא זמין", ושום תוכן או תמונה מהמקור אינם מוחזרים, גם לא ב-API (BR-065). |
 | AC-082 | קישור לפוסט שנפתח על ידי מי שאינו מחובר מוביל להתחברות, ואחריה לפוסט. משתמש מחובר בלי הרשאה מקבל מצב "לא זמין" (FR-FEED-007). |
 | AC-083 | התצוגה המקדימה של קישור לפוסט אינה כוללת שם כותב, טקסט או תמונה (BR-067). |
@@ -128,5 +128,13 @@
 | AC-122 | הפתיחה ה-101 של פרופילים בתוך 60 דקות על ידי אותו חשבון נחסמת בלי נתוני פרופיל, עם ERR-032 ואירוע Security אחד לרצף; אף תשובה אינה חושפת סף, חלון או מספר שנותר; שינוי הסף חל בפתיחה הבאה בלי שינוי קוד (NFR-SEC-006). |
 | AC-123 | הסרת ילד וסיום מסלול ההריון דורשים אישור בחלון; אחריו הפריט נמחק לגמרי ואינו ניתן לשחזור; בסיום הריון לא נשאלת סיבה; הסרת הילד האחרון מסירה את "יש לנו ילד או ילדה" (FR-PROFILE-002, F2.2). |
 | AC-124 | מבקר שפותח קישור לפרופיל (`/u/<מזהה>`) מנותב להתחברות ואחריה לאותו פרופיל; אחרי Logout לא נשאר תוכן פרופיל במסך או באחסון הדפדפן; הקישור של המשתמש עצמו פותח את הפרופיל שלו (FR-AUTH-004, FR-PRIV-001, F2.4c2). |
-| AC-125 | התפריט של Regular ב-I2 מציג רק יעדים שנבנו, לפי הסדר "חברים", "חשבון", "פרטיות ואבטחה", "תנאים ופרטיות", "שאלות לשחזור סיסמה", "החלפת סיסמה", "התנתקות"; בחירת Section פותחת את SettingsPage עם הכותרת שלו במיקוד; תנאי השימוש ומדיניות הפרטיות נפתחים גם למשתמש מחובר (FR-MENU-001, FR-SET-001, F2.5). |
+| AC-125 | התפריט של Regular ב-I2 מציג רק יעדים שנבנו, לפי הסדר "חברים", "חשבון", "פרטיות ואבטחה", "תנאים ופרטיות", "שאלות לשחזור סיסמה", "החלפת סיסמה", "התנתקות"; בחירת Section פותחת את SettingsPage עם הכותרת שלו במיקוד; תנאי השימוש ומדיניות הפרטיות נפתחים גם למשתמש מחובר (FR-MENU-001, FR-SET-001, F2.5). ב-I3 נוספו "כללי הקהילה", "פנייה למוקד רפואי" ו"שיתוף Nestly", בסדר שב-FR-MENU-001. |
 | AC-126 | Admin משחרר נעילת שחזור קבועה מ-Admin User Management: הספירה מתאפסת, הניסיון הבא נבדק כרגיל, נוצרת AuditLogEntry; השחרור אינו מחבר את המשתמש ואינו משנה סיסמה; משתמש שאינו Admin נדחה גם ב-API (FR-ADMIN-013, NFR-SEC-010). |
+| AC-127 | "הסתרת הפוסט" מסירה את הפוסט מהפיד ומעמוד הפוסט של המסתיר בלבד, גם אחרי טעינה מחדש ובמכשיר אחר; הכותב ושאר הקוראים ממשיכים לראות אותו, עם אותם מונים, ושום תשובה אינה מציינת הסתרה או מי הסתיר. עבור כל פריט אחר, מפתח הדירוג (tier, score) שמחזירה שאילתת הדירוג של הפיד בשרת — שכבה פנימית, שאינה נחשפת ב-API — זהה לפני ההסתרה ואחריה, אצל המסתיר ואצל צופה אחר. פוסט של המשתמש עצמו, גם אנונימי, אינו ניתן להסתרה; "ביטול ההסתרה" מחזיר אותו למקומו (FR-ALG-009; החלטת אפיק מ-18.10.2026, 8א). |
+| AC-128 | קורא רואה את השם המלא של הכותב בכל פוסט בשם, ובכל תגובה ותשובה, שהוא רשאי לראות, גם כשאינו Friend של הכותב; בפוסט אנונימי ובתגובת "המחבר" אין שם, ואף תשובה של השרת אינה כוללת את מזהה המחבר; פוסט ותגובה של Professional מוצגים תחת "מהקהילה" עד I11 (BR-079). |
+| AC-129 | ב-`/feed` מוצג שדה "מה תרצו לשתף?" פתוח בראש הפיד, בלי כפתור "כתיבת פוסט"; האפשרויות נפתחות במקום, בלי שינוי כתובת ובלי חלון. פרסום שולח בקשה אחת (גם בלחיצה כפולה), מוסיף את הפוסט ראשון בפיד שנטען בלי בקשת `GET /feed` נוספת, מציג "הפוסט פורסם" ומעביר את המיקוד לכרטיס החדש. `/posts/new` מוביל ל-`/feed` עם מיקוד בשדה. טקסט שלא נשלח נשמר במעבר בתוך האפליקציה ואינו נשמר באחסון הדפדפן; אחרי התנתקות או טעינה מחדש השדה ריק (FR-FEED-002). |
+| AC-130 | Professional פעיל מפרסם פוסט בשמו בקהל "כולם", בלי תגית: נשמרת שורה אחת. פוסט אנונימי, "חברים בלבד", "עוקבים בלבד" או תגית שלב של Professional נדחים ואינם יוצרים שורה (ERR-045); בשדה הכתיבה שלו אין "פרסום אנונימי", בחירת קהל או תגית, ומוצגת השורה "הפוסט יוצג לכולם". Professional מקבל את הפיד, מגיב, עונה ועושה לייק; בתגובות ובלייקים שלו על הפוסט שלו, וכשהוא מושעה, הם אינם נספרים בדירוג. Admin ו-Moderator נדחים (FR-FEED-002, FR-FEED-003, AC-061; החלטות אפיק מ-19.10.2026). |
+| AC-131 | מחיקת פוסט או תגובה על ידי הכותב, בלי דיווח פתוח, מוחקת אותם מיד ולצמיתות עם התגובות, התשובות, הלייקים וההסתרות שלהם; שיתוף של פוסט שנמחק נשאר ומציג "הפוסט המקורי כבר לא זמין". כשיש דיווח פתוח, הכותב מקבל את אותה תשובה בדיוק, התוכן אינו מוחזר לאף אחד, כולל הכותב, והוא נמחק כשהדיווח טופל או אחרי 90 יום לכל היותר, לא לפני (BR-080). |
+| AC-132 | דיווח על פוסט מסיר אותו מהפיד ומעמוד הפוסט של המדווח בלבד; דיווח על תגובה או על משתמש, גם "תוכן שמסכן ילד", אינו משנה דבר לאף אחד, כולל המדווח. ניסיון שני של אותו משתמש על אותו יעד אינו יוצר דיווח (ERR-046), ושני משתמשים שונים יוצרים שני דיווחים. דיווח על תוכן של המדווח עצמו, על עצמו או על יעד שאינו זמין לו מקבל תשובת "לא זמין" אחת. לפני הדיווח ואחריו הצד המדווח מקבל תשובות זהות מכל המסכים, ורק המדווח קורא את הדיווח (FR-MOD-001, BR-074, VAL-048). |
+| AC-133 | בפיד ובעמוד הפוסט: חלון השיתוף, חלון שיתוף הקישור, חלון הדיווח ותפריט "⋯" נפתחים בלי שינוי כתובת ובלי גלילה — גיליון מלמטה מתחת ל-1024px וחלון קטן מ-1024px. כל חלון, תפריט וחלון אישור, וגם ה-Side Menu, נסגרים ב-Back, ב-Esc ובלחיצה מחוצה להם בלי לשלוח בקשה; המיקוד חוזר למי שפתח אותם, וה-Back הבא עוזב את המסך כרגיל. לחיצה מחוץ לחלון אישור היא ביטול, ולעולם לא הפעולה; בזמן שבקשה של חלון ממתינה הוא נשאר פתוח. כשתפריט "⋯" פתוח, לחיצה אחת על "⋯" אחר פותחת אותו. Back מעמוד פוסט מחזיר לאותו מקום בפיד (`docs/design/direction.md`, NFR-USAB-004). |
+| AC-134 | בכרטיס עם תגובות מוצגות עד שתי התגובות הראשונות, "הצגת עוד תגובות" ושדה "כתיבת תגובה"; כרטיס בלי תגובות אינו שולח בקשת תגובות. תגובה, "השבה", לייק על תגובה, מחיקת תגובה ודיווח עליה מתבצעים בתוך הכרטיס, בלי מעבר עמוד, ו"תגובות, N" מתעדכן. "עריכת הפוסט" בכרטיס פותחת את טופס העריכה במקום הטקסט, בלי שינוי כתובת; שמירה מעדכנת את הכרטיס ו"ביטול" אינו שולח דבר. בעמוד הפוסט עריכה ומחיקה של הכותב נמצאות בתפריט "⋯" ולא ככפתורים גלויים (FR-FEED-001, FR-FEED-002, FR-FEED-003). |

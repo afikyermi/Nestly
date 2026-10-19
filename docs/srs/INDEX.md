@@ -2,7 +2,7 @@
 
 # SRS — אינדקס
 
-**מקור האמת של מוצר Nestly.** SRS v2.22 · 17.10.2026.
+**מקור האמת של מוצר Nestly.** SRS v2.24 · 19.10.2026.
 
 ה-SRS מתוחזק ב-markdown ומפוצל לפי סעיפים. גרסאות ה-Word הקודמות נמצאות ב-[`archive/`](archive/) כהיסטוריה בלבד.
 
@@ -17,7 +17,7 @@
 | 2 | [02-system-overview.md](02-system-overview.md) | תיאור כללי של המערכת |
 | 3 | [03-roles-permissions.md](03-roles-permissions.md) | סוגי משתמשים והרשאות |
 | 4 | [04-architecture.md](04-architecture.md) | ארכיטקטורת Pages, Features ו-Components |
-| 5 | [05-functional/](05-functional/) | דרישות פונקציונליות — 94 FR ב-16 קבצי תחום (ראה למטה) |
+| 5 | [05-functional/](05-functional/) | דרישות פונקציונליות — 95 FR ב-16 קבצי תחום (ראה למטה) |
 | 6 | [06-non-functional.md](06-non-functional.md) | דרישות לא-פונקציונליות |
 | 7 | [07-screens-navigation.md](07-screens-navigation.md) | מסכי מערכת וניווט |
 | 8 | [08-business-rules.md](08-business-rules.md) | חוקים עסקיים (Business Rules) |
@@ -47,7 +47,7 @@
 | [marketplace.md](05-functional/marketplace.md) | Marketplace | FR-MKT | 5 |
 | [services.md](05-functional/services.md) | Services — בעלי מקצוע, פניות וקידום | FR-SERV | 11 |
 | [chat.md](05-functional/chat.md) | Chat | FR-CHAT | 4 |
-| [relationships-groups.md](05-functional/relationships-groups.md) | Relationships & Groups — Friends, Follow וקבוצות | FR-REL · FR-FOLLOW · FR-GRP | 6 |
+| [relationships-groups.md](05-functional/relationships-groups.md) | Relationships & Groups — Friends, Follow וקבוצות | FR-REL · FR-FOLLOW · FR-GRP | 7 |
 | [profile-settings.md](05-functional/profile-settings.md) | Profile, Privacy & Settings — פרופיל, פרטיות והגדרות | FR-PROFILE · FR-PRIV · FR-SET | 5 |
 | [search.md](05-functional/search.md) | Search — חיפוש | FR-SEARCH | 1 |
 | [notifications.md](05-functional/notifications.md) | Notifications — התראות | FR-NOTIF | 3 |
@@ -57,7 +57,7 @@
 | [admin.md](05-functional/admin.md) | Admin — ניהול מערכת | FR-ADMIN | 13 |
 | [algorithms-data.md](05-functional/algorithms-data.md) | Algorithms & Data — אלגוריתמים ואנליטיקה | FR-ALG · FR-DATA | 11 |
 
-## דרישות פונקציונליות — 94
+## דרישות פונקציונליות — 95
 
 | ID | שם | קובץ |
 |---|---|---|
@@ -72,7 +72,7 @@
 | FR-REG-004 | הרשמת משתמש רגיל — Credentials | [registration.md](05-functional/registration.md) |
 | FR-PROREG-001 | הרשמת בעל מקצוע — פרטים מקצועיים | [registration.md](05-functional/registration.md) |
 | FR-PROREG-002 | הרשמת בעל מקצוע — Credentials | [registration.md](05-functional/registration.md) |
-| FR-PROREG-003 | אימות מקצועי | [registration.md](05-functional/registration.md) |
+| FR-PROREG-003 | אימות מקצועי (בוטל) | [registration.md](05-functional/registration.md) |
 | FR-FEED-001 | הצגת Feed | [feed.md](05-functional/feed.md) |
 | FR-FEED-002 | יצירת פוסט/שאלה | [feed.md](05-functional/feed.md) |
 | FR-FEED-003 | תגובה ואינטראקציה | [feed.md](05-functional/feed.md) |
@@ -108,6 +108,7 @@
 | FR-CHAT-003 | בקשת שיחה בין Regular Users שאינם Friends | [chat.md](05-functional/chat.md) |
 | FR-CHAT-004 | Support Thread בתוך Chat | [chat.md](05-functional/chat.md) |
 | FR-REL-001 | מודל Friends בין משתמשים רגילים | [relationships-groups.md](05-functional/relationships-groups.md) |
+| FR-REL-002 | חסימת משתמש | [relationships-groups.md](05-functional/relationships-groups.md) |
 | FR-FOLLOW-001 | Follow ל-Professional Profile | [relationships-groups.md](05-functional/relationships-groups.md) |
 | FR-GRP-001 | סוגי קבוצות וחשיפת תוכן | [relationships-groups.md](05-functional/relationships-groups.md) |
 | FR-GRP-002 | הצטרפות, בקשות והזמנות לקבוצה | [relationships-groups.md](05-functional/relationships-groups.md) |
@@ -136,7 +137,7 @@
 | FR-ADMIN-003 | ניתוח פניות ושימוש במערכת | [admin.md](05-functional/admin.md) |
 | FR-ADMIN-004 | ניהול הרשאות Moderator | [admin.md](05-functional/admin.md) |
 | FR-ADMIN-005 | Audit Log לפעולות ניהוליות | [admin.md](05-functional/admin.md) |
-| FR-ADMIN-006 | טיפול בבקשת Professional Verification | [admin.md](05-functional/admin.md) |
+| FR-ADMIN-006 | טיפול בבקשת Professional Verification (בוטל) | [admin.md](05-functional/admin.md) |
 | FR-ADMIN-007 | ניהול תצורות קהילה | [admin.md](05-functional/admin.md) |
 | FR-ADMIN-008 | ניהול הודעות מערכת | [admin.md](05-functional/admin.md) |
 | FR-ADMIN-009 | ניהול Sponsored Products | [admin.md](05-functional/admin.md) |
@@ -156,7 +157,7 @@
 | FR-ALG-010 | Group Notification Highlights v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-DATA-001 | Analytics Event Tracking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 
-## קריטריוני קבלה — 126
+## קריטריוני קבלה — 134
 
 > השמות קוצרו לצורך ניווט בלבד. הנוסח המחייב נמצא ב-[15-acceptance.md](15-acceptance.md).
 
@@ -175,7 +176,7 @@
 | AC-011 | Message Request אחת לכל פוסט | [15-acceptance.md](15-acceptance.md) |
 | AC-012 | אין Chat מלא לפני Accept | [15-acceptance.md](15-acceptance.md) |
 | AC-013 | התכתבות ללא מגבלה לאחר Accept | [15-acceptance.md](15-acceptance.md) |
-| AC-014 | אין Rate Limit כללי; ניסיון שני לאותו Post נחסם | [15-acceptance.md](15-acceptance.md) |
+| AC-014 | Offer Help: רק לבקשת עזרה, עד 10 ביום, אחת לפוסט | [15-acceptance.md](15-acceptance.md) |
 | AC-015 | עריכת פרופיל נשמרת ומשתקפת | [15-acceptance.md](15-acceptance.md) |
 | AC-016 | Guest מנותב ל-Welcome/Login | [15-acceptance.md](15-acceptance.md) |
 | AC-017 | אין שדה טלפון בהרשמה | [15-acceptance.md](15-acceptance.md) |
@@ -208,7 +209,7 @@
 | AC-044 | Moderator מקבל התראות ניהול לפי הרשאה | [15-acceptance.md](15-acceptance.md) |
 | AC-045 | כללי Chat Dropdown ופתיחת שיחה | [15-acceptance.md](15-acceptance.md) |
 | AC-046 | התראת יום הולדת רק בהסכמת ההורה | [15-acceptance.md](15-acceptance.md) |
-| AC-047 | אימות Professional מתעדכן ונרשם ב-Audit | [15-acceptance.md](15-acceptance.md) |
+| AC-047 | בוטל: אימות Professional | [15-acceptance.md](15-acceptance.md) |
 | AC-048 | Community Administration רק עם COMMUNITY_CONFIG | [15-acceptance.md](15-acceptance.md) |
 | AC-049 | System Announcements רק עם SYSTEM_ANNOUNCEMENTS | [15-acceptance.md](15-acceptance.md) |
 | AC-050 | המלצה על Group רק ל-Friend פעיל | [15-acceptance.md](15-acceptance.md) |
@@ -225,14 +226,14 @@
 | AC-061 | Professional Feed ללא Child/Tracker Data | [15-acceptance.md](15-acceptance.md) |
 | AC-062 | Paid לא משנה Organic Score | [15-acceptance.md](15-acceptance.md) |
 | AC-063 | Sponsored שנכשל ב-Eligibility אינו מוצג | [15-acceptance.md](15-acceptance.md) |
-| AC-064 | משוב שלילי משפיע על Ranking עתידי | [15-acceptance.md](15-acceptance.md) |
+| AC-064 | Not Interested/Show Less משפיעים על Ranking; הסתרה לא | [15-acceptance.md](15-acceptance.md) |
 | AC-065 | Search: Authorization לפני דירוג, ללא Semantic AI | [15-acceptance.md](15-acceptance.md) |
 | AC-066 | Group Highlights ללא ML | [15-acceptance.md](15-acceptance.md) |
 | AC-067 | תוכן Chat/Support לא משמש התאמה אישית | [15-acceptance.md](15-acceptance.md) |
 | AC-068 | Child/Tracker Data לא משמשים Paid Targeting | [15-acceptance.md](15-acceptance.md) |
 | AC-069 | הכוונת Tracker כללית ולא-אבחונית | [15-acceptance.md](15-acceptance.md) |
 | AC-070 | AnalyticsEvent עם eventId וללא ספירה כפולה | [15-acceptance.md](15-acceptance.md) |
-| AC-071 | Admin Analytics מציג את כל התחומים ב-Aggregate | [15-acceptance.md](15-acceptance.md) |
+| AC-071 | Admin Analytics: כל התחומים, גם למשתמש בודד, בלי שמות | [15-acceptance.md](15-acceptance.md) |
 | AC-072 | Professional Analytics — own-account aggregates בלבד | [15-acceptance.md](15-acceptance.md) |
 | AC-073 | שינוי AlgorithmConfiguration: Admin, גרסה ו-Audit | [15-acceptance.md](15-acceptance.md) |
 | AC-074 | ערוצי התראה: Web רק In-App; Mobile גם Push בהרשאה | [15-acceptance.md](15-acceptance.md) |
@@ -241,7 +242,7 @@
 | AC-077 | חשיפת מחבר אנונימי ע"י Moderator — רק בדיווח, עם Audit | [15-acceptance.md](15-acceptance.md) |
 | AC-078 | אין שליפה גורפת של משתמשים; הגבלת קצב | [15-acceptance.md](15-acceptance.md) |
 | AC-079 | שיתוף בפיד: המשתף, הטקסט והמקור לפי הרשאות | [15-acceptance.md](15-acceptance.md) |
-| AC-080 | אין שיתוף לאנונימי, לקבוצה פרטית, ל-Restricted ולממומן | [15-acceptance.md](15-acceptance.md) |
+| AC-080 | אין שיתוף ל"חברים בלבד", לאנונימי, לקבוצה פרטית ולממומן | [15-acceptance.md](15-acceptance.md) |
 | AC-081 | מקור שנמחק: "לא זמין" ובלי תוכן | [15-acceptance.md](15-acceptance.md) |
 | AC-082 | קישור: התחברות ואז הפוסט; בלי הרשאה — לא זמין | [15-acceptance.md](15-acceptance.md) |
 | AC-083 | תצוגה מקדימה של קישור בלי תוכן | [15-acceptance.md](15-acceptance.md) |
@@ -288,17 +289,25 @@
 | AC-124 | קישור לפרופיל: התחברות ואז הפרופיל | [15-acceptance.md](15-acceptance.md) |
 | AC-125 | תפריט ו-Settings של I2 | [15-acceptance.md](15-acceptance.md) |
 | AC-126 | שחרור נעילת שחזור קבועה ע"י Admin | [15-acceptance.md](15-acceptance.md) |
+| AC-127 | הסתרת פוסט לעצמי, בלי השפעה על דירוג | [15-acceptance.md](15-acceptance.md) |
+| AC-128 | שם מלא לכותב ולמגיב | [15-acceptance.md](15-acceptance.md) |
+| AC-129 | שדה כתיבה פתוח בראש הפיד | [15-acceptance.md](15-acceptance.md) |
+| AC-130 | Professional מפרסם בשמו, קורא ומגיב | [15-acceptance.md](15-acceptance.md) |
+| AC-131 | מחיקה מיידית; תחת דיווח — מוסתר עד 90 יום | [15-acceptance.md](15-acceptance.md) |
+| AC-132 | תוצאות דיווח ודיווח חוזר | [15-acceptance.md](15-acceptance.md) |
+| AC-133 | חלונות, תפריטים ו-Back במקום | [15-acceptance.md](15-acceptance.md) |
+| AC-134 | תגובות ועריכה בתוך הכרטיס | [15-acceptance.md](15-acceptance.md) |
 
 ## מזהים נוספים
 
 | סוג | נושא | טווח | כמות | קובץ |
 |---|---|---|---|---|
-| BR | חוקים עסקיים | BR-001 … BR-078 | 78 | [08-business-rules.md](08-business-rules.md) |
-| VAL | ולידציות | VAL-001 … VAL-045 | 45 | [09-validations.md](09-validations.md) |
-| ERR | שגיאות ותרחישי קצה | ERR-001 … ERR-044 | 44 | [10-errors-edge-cases.md](10-errors-edge-cases.md) |
+| BR | חוקים עסקיים | BR-001 … BR-080 | 80 | [08-business-rules.md](08-business-rules.md) |
+| VAL | ולידציות | VAL-001 … VAL-049 | 49 | [09-validations.md](09-validations.md) |
+| ERR | שגיאות ותרחישי קצה | ERR-001 … ERR-046 | 46 | [10-errors-edge-cases.md](10-errors-edge-cases.md) |
 | NFR | דרישות לא-פונקציונליות | NFR-SEC-001 … NFR-SEC-010 | 36 | [06-non-functional.md](06-non-functional.md) |
 | UC | Use Cases | UC-01 … UC-42 | 42 | [14-use-cases.md](14-use-cases.md) |
-| PG | מסכים | PG-001 … PG-054 | 54 | [07-screens-navigation.md](07-screens-navigation.md) |
-| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-036 | 36 | [appendix-b-open-points.md](appendix-b-open-points.md) |
+| PG | מסכים | PG-001 … PG-055 | 55 | [07-screens-navigation.md](07-screens-navigation.md) |
+| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-040 | 40 | [appendix-b-open-points.md](appendix-b-open-points.md) |
 | ALG | קטלוג האלגוריתמים | ALG-01 … ALG-09 | 9 | [18-algorithms-spec.md](18-algorithms-spec.md) |
 | P-ALG | עקרונות האלגוריתמים | P-ALG-01 … P-ALG-08 | 8 | [18-algorithms-spec.md](18-algorithms-spec.md) |
