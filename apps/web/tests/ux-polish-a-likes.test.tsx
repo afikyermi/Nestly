@@ -52,9 +52,10 @@ function stubNet(liked: boolean): Net {
 async function mount(liked = false) {
   const net = stubNet(liked);
   const report = { onCount: vi.fn(), onStatus: vi.fn() };
-  const api = { token: async () => 'tok', refused: () => null };
+  const api = { token: () => Promise.resolve('tok'), refused: () => null };
   const hook = renderHook(() => useFeedComments(api, report));
   await act(async () => {
+    await Promise.resolve();
     hook.result.current.near(unit);
   });
   await waitFor(() => expect(hook.result.current.threadOf(unit).items).toHaveLength(1));
@@ -74,10 +75,12 @@ describe('ux-polish-a c8 [FR-FEED-001] comment likes in the card', () => {
       release = resolve;
     });
     await act(async () => {
+    await Promise.resolve();
       hook.result.current.toggleLike(unit, COMMENT);
     });
     expect(mineOf()).toEqual({ count: 3, liked: true });
     await act(async () => {
+    await Promise.resolve();
       release();
     });
     expect(net.likes).toEqual([`PUT /api/comments/${COMMENT}/like`]);
@@ -87,6 +90,7 @@ describe('ux-polish-a c8 [FR-FEED-001] comment likes in the card', () => {
   it('[ua c8] an unlike moves the count -1 at once, one DELETE', async () => {
     const { net, hook, mineOf } = await mount(true);
     await act(async () => {
+    await Promise.resolve();
       hook.result.current.toggleLike(unit, COMMENT);
     });
     expect(mineOf()).toEqual({ count: 1, liked: false });
@@ -100,10 +104,12 @@ describe('ux-polish-a c8 [FR-FEED-001] comment likes in the card', () => {
       release = resolve;
     });
     await act(async () => {
+    await Promise.resolve();
       hook.result.current.toggleLike(unit, COMMENT);
       hook.result.current.toggleLike(unit, COMMENT);
     });
     await act(async () => {
+    await Promise.resolve();
       release();
     });
     expect(net.likes).toHaveLength(1);
@@ -114,6 +120,7 @@ describe('ux-polish-a c8 [FR-FEED-001] comment likes in the card', () => {
     const { net, report, hook, mineOf } = await mount(false);
     net.status = status;
     await act(async () => {
+    await Promise.resolve();
       hook.result.current.toggleLike(unit, COMMENT);
     });
     await waitFor(() => expect(mineOf()).toEqual({ count: 2, liked: false }));
@@ -124,6 +131,7 @@ describe('ux-polish-a c8 [FR-FEED-001] comment likes in the card', () => {
     const { net, report, hook, mineOf } = await mount(true);
     net.status = 500;
     await act(async () => {
+    await Promise.resolve();
       hook.result.current.toggleLike(unit, COMMENT);
     });
     await waitFor(() => expect(mineOf()).toEqual({ count: 2, liked: true }));

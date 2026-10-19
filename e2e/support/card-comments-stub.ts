@@ -30,6 +30,8 @@ export interface CardNet {
   holdThread: Promise<void> | null;
   holdSend: Promise<void> | null;
   holdRead: Promise<void> | null;
+  /** A failure status for GET /api/posts/:id (the anonymous card's isMine read). */
+  failRead: number | null;
   /** "METHOD /path?query" of every comments, replies and delete call, in order. */
   calls: string[];
   /** Post ids read by GET /api/posts/:id, in order. */
@@ -68,6 +70,7 @@ export async function setupCardComments(page: Page, items: Unit[], threads: Reco
     holdThread: null,
     holdSend: null,
     holdRead: null,
+    failRead: null,
     calls: [],
     reads: [],
     sends: [],
@@ -81,6 +84,7 @@ export async function setupCardComments(page: Page, items: Unit[], threads: Reco
     net.reads.push(pid);
     if (net.holdRead !== null) await net.holdRead;
     if (net.gone.has(pid)) return json(route, 404, { error: 'not_found' });
+    if (net.failRead !== null) return json(route, net.failRead, { error: 'server_error' });
     return route.fallback();
   });
   await page.route(/\/api\/posts\/[^/?]+\/comments(\?.*)?$/, async (route) => {

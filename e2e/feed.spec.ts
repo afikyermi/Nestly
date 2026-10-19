@@ -48,11 +48,10 @@ const holdNext = (net: FeedNet): (() => void) => {
 /** Two pages: 1..12 then `second` after cursor "c+1/=" (an opaque value that needs URL-encoding); later pages are empty. */
 const twoPages = (second: ReturnType<typeof range>, extra = {}): FeedNet['answer'] => (cursor) =>
   cursor === null ? pageOf(range(1, 12), 'c+1/=') : pageOf(second, null, extra);
-const more = (card: Locator) => card.getByRole('button', { name: 'פעולות נוספות לפוסט', exact: true });
 const timeLink = (card: Locator) => card.locator('a:has(time)');
 /** Any button that is not a card's like, the "חזרה למעלה" or the composer's "פרסום" (taller cards now reach its threshold): a "more" control would be one (F3.2b c18: none). */
 // F3.9 c8 amendment: every card also has its "⋯" menu button ("פעולות נוספות לפוסט"); it is not a "load more" control.
-const moreButtons = (page: Page) => main(page).getByRole('button', { name: /^(?!לייק|חזרה למעלה|פרסום|פעולות נוספות לפוסט|שיתוף בפיד|שיתוף קישור)/ });
+const moreButtons = (page: Page) => main(page).getByRole('button', { name: /^(?!לייק|חזרה למעלה|פרסום|פעולות נוספות לפוסט|שיתוף בפיד|שיתוף קישור|תגובות|שליחה|פעולות נוספות לתגובה)/ }); // ux-polish-a: the comments button, the field's "שליחה" and the comment "⋯" belong to the card
 const hasLinkTo = (card: Locator, href: string) => expect(timeLink(card)).toHaveAttribute('href', href);
 
 test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
@@ -162,12 +161,12 @@ test.describe('F3.2b c14 c15 c17 [FR-FEED-001 BR-065] the card', () => {
       await expect(quote.locator('img')).toHaveCount(0);
       const sharer = a.getByText('מה שהוספתי 1', { exact: true });
       expect(await sharer.evaluate((s, q) => Boolean(s.compareDocumentPosition(q) & Node.DOCUMENT_POSITION_FOLLOWING), await quote.elementHandle())).toBe(true);
-      await expect(a.getByRole('button')).toHaveCount(4); // the like and the "⋯" menu button (F3.9 c8), "שיתוף בפיד" and "שיתוף קישור" of its available everyone original (F3.5 c9, F3.6 c3)
+      await expect(a.getByRole('button')).toHaveCount(6); // ux-polish-a c9 adds the comments button and the field's "שליחה"; the like and the "⋯" menu button (F3.9 c8), "שיתוף בפיד" and "שיתוף קישור" of its available everyone original (F3.5 c9, F3.6 c3)
       const gone = cards(page).nth(1);
       await expect(gone).toContainText('הפוסט המקורי כבר לא זמין');
       await expect(gone.locator('blockquote')).toHaveCount(0);
       await expect(gone).toContainText('מה שהוספתי 2');
-      await expect(gone.getByRole('button')).toHaveCount(2); // a gone original does not take the share's own like away (the like and the "⋯" menu button, F3.9 c8)
+      await expect(gone.getByRole('button')).toHaveCount(4); // ux-polish-a c9: comments and "שליחה" join; a gone original does not take the share's own like away (the like and the "⋯" menu button, F3.9 c8)
       await scan(page);
     });
   }
@@ -239,7 +238,7 @@ test.describe('F3.2b c18 [FR-FEED-004] infinite scroll', () => {
     release();
     await expect(cards(page)).toHaveCount(16);
     await expect(keep).toBeFocused();
-    await more(cards(page).nth(11)).focus(); // F3.9 c8: the "⋯" button is the last stop of a card
+    await cards(page).nth(11).getByRole('button', { name: 'שליחה', exact: true }).focus(); // ux-polish-a c9: the field's "שליחה" is the last stop of a card
     // The next stop is the new card 13 itself or its link (a card may take a stop of its own).
     await page.keyboard.press('Tab');
     await expect(page.locator('article:has(*:focus), article:focus')).toContainText('גוף הפוסט 13');

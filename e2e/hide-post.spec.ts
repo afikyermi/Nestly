@@ -126,7 +126,7 @@ test.describe('F3.9 c8 [FR-ALG-009 FR-FEED-002] one menu on every card', () => {
         await expect(button).toHaveAttribute('aria-haspopup', 'menu');
         await expect(button).toHaveAttribute('aria-expanded', 'false');
         const order = await card.locator('a[href], button').evaluateAll((els) => els.map((e) => (e.getAttribute('aria-label') ?? e.textContent ?? '').replace(/\s+/g, ' ').trim()));
-        expect(order.at(-1), `card ${i + 1}: the menu button is last`).toBe(MORE);
+        expect(order.slice(order.indexOf(MORE) + 1).filter((n) => n !== 'שליחה' && n !== 'נסו שוב'), `card ${i + 1}: only the comment field's controls (ux-polish-a c9) follow the menu button`).toEqual([]);
         expect(order.filter((n) => n === MORE), `card ${i + 1}: one menu`).toHaveLength(1);
         expect(order.length, `card ${i + 1}: like, comments, time link, menu`).toBeGreaterThanOrEqual(4);
         const box = await button.boundingBox();

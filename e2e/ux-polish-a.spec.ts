@@ -32,8 +32,9 @@ const cards = feedCards;
 const card = (page: Page, i: number) => cards(page).nth(i);
 const list = (c: Locator) => c.getByRole('list', { name: 'רשימת התגובות', exact: true });
 const field = (c: Locator) => c.getByRole('textbox', { name: 'כתיבת תגובה', exact: true });
-const form = (c: Locator) => c.getByRole('form', { name: 'כתיבת תגובה', exact: true });
-const replyForm = (c: Locator) => c.getByRole('form', { name: 'כתיבת השבה', exact: true });
+// screen.md (60ecc9f): the in-card comment and reply forms are unnamed, so they are found by the textbox they hold.
+const form = (c: Locator) => c.locator('form').filter({ has: c.page().getByRole('textbox', { name: 'כתיבת תגובה', exact: true }) });
+const replyForm = (c: Locator) => c.locator('form').filter({ has: c.page().getByRole('textbox', { name: 'כתיבת השבה', exact: true }) });
 const btn = (scope: Page | Locator, name: string | RegExp) => scope.getByRole('button', { name, ...(typeof name === 'string' ? { exact: true } : {}) });
 const commentsBtn = (c: Locator) => c.getByRole('button', { name: /^תגובות/ });
 const moreOfComment = (scope: Locator) => scope.getByRole('button', { name: 'פעולות נוספות לתגובה', exact: true }).first();
@@ -449,6 +450,18 @@ test.describe('ux-polish-a c6 [AC-075, AC-076, FR-FEED-005 r.1] anonymity 🔴',
     expect(net.feed.cursors).toEqual([null]);
   });
 
+  test('[ua c6] a failed isMine read of an anonymous card shows no field, the load-failure text and "נסו שוב", which asks again', async ({ page }) => {
+    const net = await start(page, items(), { [id(ANON)]: [top(701, 'אחרת')] }, { posts: posts(true), tweak: (n) => { n.failRead = 500; } });
+    const c = card(page, 0);
+    await expect(alertIn(c, LOAD_FAILED)).toBeVisible();
+    await expect(field(c)).toHaveCount(0);
+    await expect(c.getByText(NAME_NOTICE)).toHaveCount(0);
+    net.failRead = null;
+    await btn(c, 'נסו שוב').click();
+    await expect(field(c)).toBeVisible();
+    await expect(c.getByText(AUTHOR_NOTICE)).toBeVisible();
+  });
+
   test('[ua c6] hostile input: a <script> in a comment body shows as text and does not run; line breaks are kept', async ({ page }) => {
     await start(page, [named(1, { commentCount: 1 })], { [id(1)]: [top(101, `שורה\nשניה <script>${SCRIPT}</script>`)] });
     const para = card(page, 0).locator('p[dir="auto"]').filter({ hasText: 'שניה' });
@@ -501,7 +514,8 @@ test.describe('ux-polish-a c7 [FR-FEED-001, FR-MOD-001] the comment "⋯"', () =
     await btn(confirmDialog(page), 'מחיקת התגובה').click();
     await expect(alertIn(confirmDialog(page), 'המחיקה לא הצליחה. אפשר לנסות שוב')).toBeVisible();
     await expect(confirmDialog(page)).toBeVisible();
-    await expect(c.getByText('שלי עם השבות')).toBeVisible();
+    // a modal dialog hides the feed from role queries (aria-hidden), so the card is found by its position
+    await expect(page.locator('[aria-posinset="1"]').getByText('שלי עם השבות')).toBeVisible();
     net.fail.remove = null;
     await btn(confirmDialog(page), 'ביטול').click();
     await expect(confirmDialog(page)).toHaveCount(0);
@@ -558,7 +572,7 @@ test.describe('ux-polish-a c9 [FR-FEED-001] the "תגובות" button', () => {
     });
   }
 
-  test('[ua c9] Tab order inside a card: like, comments, share in feed, share link, time link, card "⋯", each shown comment (like, "השבה", "⋯"), "הצגת עוד תגובות", the field, "שליחה"', async ({ page }) => {
+  test('[ua c9] Tab order inside a card: like, comments, share in feed, share link, time link, card "⋯", each shown comment ("⋯", like, "השבה": screen.md 60ecc9f), "הצגת עוד תגובות", the field, "שליחה"', async ({ page }) => {
     await start(page, [named(1, { commentCount: 5 })], { [id(1)]: many(5) });
     const c = card(page, 0);
     await expect(shown(c)).toHaveCount(2);
@@ -575,7 +589,7 @@ test.describe('ux-polish-a c9 [FR-FEED-001] the "תגובות" button', () => {
     expect(lead).toEqual(['BUTTON', 'BUTTON', 'BUTTON', 'BUTTON', 'A', 'BUTTON']);
     const rest = names.slice(6);
     const at = (needle: RegExp) => rest.findIndex((n) => needle.test(n));
-    const order = [at(/לייק/), at(/השבה/), at(/פעולות נוספות לתגובה/), at(/הצגת עוד תגובות/), at(/^TEXTAREA|^INPUT/), at(/שליחה/)];
+    const order = [at(/פעולות נוספות לתגובה/), at(/לייק/), at(/השבה/), at(/הצגת עוד תגובות/), at(/^TEXTAREA|^INPUT/), at(/שליחה/)];
     expect(order.every((n) => n >= 0), JSON.stringify(rest)).toBe(true);
     expect([...order].sort((a, b) => a - b), JSON.stringify(rest)).toEqual(order);
   });
