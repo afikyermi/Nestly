@@ -82,14 +82,14 @@ test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
     await expect(main(page).getByRole('alert')).toHaveCount(0);
     expect(net.cursors.length, 'at most the request made while the profile check was pending (screen decision 5)').toBeLessThanOrEqual(1);
   });
-  test('[c13][c14] keyboard: after "כתיבת פוסט" the Tab order is, per card in server order, its time link, then "לייק", then "תגובות"; the focus is visible', async ({ page }) => {
+  test('[c13][c14] keyboard: after "כתיבת פוסט" the Tab order is, per card in server order, "לייק", then "תגובות", then its time link (screen.md); the focus is visible', async ({ page }) => {
     const net = await setupFeed(page, () => pageOf(range(1, 4), null));
     await open(page, net);
     await expect(cards(page)).toHaveCount(4);
     await page.getByRole('link', { name: 'כתיבת פוסט', exact: true }).focus();
     // A card may take a stop of its own (APG feed: tabindex 0): such stops (the article itself) are dropped.
     const stops: string[] = [];
-    for (let i = 0; i < 30 && stops.filter((s) => s.endsWith('#comments')).length < 4; i += 1) {
+    for (let i = 0; i < 30 && stops.length < 12; i += 1) {
       await page.keyboard.press('Tab');
       const at = await page.locator('*:focus').evaluate((e) => {
         const st = getComputedStyle(e);
@@ -98,7 +98,7 @@ test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
       expect(at.ring, 'visible focus').toBe(true);
       if (at.tag !== 'ARTICLE') stops.push(at.href ?? at.tag);
     }
-    expect(stops).toEqual([1, 2, 3, 4].flatMap((n) => [`/posts/${id(n)}`, 'BUTTON', `/posts/${id(n)}#comments`]));
+    expect(stops).toEqual([1, 2, 3, 4].flatMap((n) => ['BUTTON', `/posts/${id(n)}#comments`, `/posts/${id(n)}`]));
   });
 });
 

@@ -153,6 +153,7 @@ test.describe('F3.3 c13 [FR-FEED-001] the action row', () => {
         net.likeAnswer = answer;
         await like(cards(page).first()).click();
         await expect(failed(page)).toHaveCount(1);
+        await expect(like(cards(page).first())).toBeFocused();
         await expect(cards(page).first().getByRole('button', { name: 'לייק', exact: true })).toHaveAttribute('aria-pressed', 'false');
         await expect(main(page).getByRole('alert')).toHaveCount(0);
         expect(await failed(page).innerText()).not.toMatch(/500|internal|error|undefined|fetch/i);
@@ -167,6 +168,7 @@ test.describe('F3.3 c13 [FR-FEED-001] the action row', () => {
     net.likeAnswer = 500;
     await like(cards(page).first()).click();
     await expect(failed(page)).toHaveCount(1);
+    await expect(like(cards(page).first())).toBeFocused();
     await expect(cards(page).first().getByRole('button', { name: 'לייק, 4', exact: true })).toHaveAttribute('aria-pressed', 'true');
   });
 
@@ -217,4 +219,11 @@ test.describe('F3.3 c14 [FR-FEED-001] the comments link and Back', () => {
     await expect(cards(page).nth(1).getByRole('button', { name: 'לייק', exact: true })).toHaveAttribute('aria-pressed', 'false');
     expect(net.cursors).toEqual([null]);
   });
+});
+
+test('[c13] counts from 1,000 up are plain digits with he-IL grouping', async ({ page }) => {
+  const net = await setupFeed(page, () => pageOf([named(1, { likeCount: 1234, commentCount: 12345 })], null));
+  await open(page, net);
+  await expect(cards(page).first().getByRole('button', { name: 'לייק, 1,234', exact: true })).toBeVisible();
+  await expect(cards(page).first().getByRole('link', { name: 'תגובות, 12,345', exact: true })).toBeVisible();
 });
