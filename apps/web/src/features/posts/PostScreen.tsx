@@ -8,6 +8,7 @@ import { deletePost, editPost, fetchPost, type PostsOutcome } from '@/services/a
 import { handOverStatus, takeStatus } from './flash-status';
 import { checkPostForm, type PostFormValues } from './post-form';
 import { failureText, refusedErrors } from './post-outcome';
+import { CommentsSection } from './CommentsSection';
 import { PostContent, type PostEdit, type PostFocus, type PostScreenView } from './PostContent';
 import { DELETE_FAILED_TEXT, DELETED_STATUS, LOAD_FAILED_TEXT, PUBLISHED_STATUS, SAVE_FAILED_TEXT, UPDATED_STATUS } from './posts-texts';
 
@@ -172,5 +173,6 @@ export function PostScreen({ postId }: { postId: string }) {
               }),
         };
 
-  return <PostContent view={view} focus={focus} onRetry={() => void load(true)} {...actions} />;
+  const thread = loaded === null ? undefined : <CommentsSection postId={postId} liked={loaded.post.likedByMe} likes={loaded.post.likeCount} />;
+  return <PostContent view={view} focus={focus} onRetry={() => void load(true)} {...actions} thread={thread} />;
 }
