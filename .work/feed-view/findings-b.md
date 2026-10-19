@@ -8,3 +8,6 @@
 6. low — feed.spec.ts c19 first-load never asserts a skeleton; c13 focus ring check always true (shadow-card). TEST ENGINEER.
 Open: anonymous original in c12/c17/screen.md is impossible (schema literal false; DB forbids) — ORCHESTRATOR strikes it (decided earlier).
 Routing: BUILDER 1, 4, 5 · TEST ENGINEER 2, 3, 6 · CRITIC re-checks 1–4.
+
+## Round 2 (CRITIC opus, 19.10)
+Findings 1–6 fixed (a177b41, de4b5b7, 3355284). New lows → debt.md: A (scroll restore waits on /api/profile; a hang loses the restore, a late answer jumps to a stale position), B (owner change mid-session without sign-out: loadMore under B stores A's items under owner B; exposure = cards already on screen).

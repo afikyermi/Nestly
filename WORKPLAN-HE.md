@@ -28,7 +28,7 @@
 5. אפיק מוחק (S-56): הקובץ המקומי `.live/events.jsonl` · ב-GitHub → Settings → Environments → `preview-e2e`: הסוד `PREVIEW_SUPABASE_SECRET_KEY` · ב-GitHub → Settings → Secrets → Actions (repository): `PREVIEW_TEST_EMAIL` ו-`PREVIEW_TEST_PASSWORD`.
 7. **DECISION REQUEST (guard, לא דחוף; ה-guard קפוא):** לחסום כתיבה של TEST ENGINEER ל-`screen.md` ול-`spec.md` בשינוי הבא של ה-guard (CRITIC 18.10, שינוי חוזה המסך). עד אז: כלל כתוב ב-test-engineer.md.
 8. **עריכת CLAUDE.md (לא דחוף, באישורך):** בטבלת Communication, השורה SPEC CHALLENGE: "once before code; screen.md items any time — workflow" (CRITIC low 7 על חוזה המסך).
-9. **guard ב-worktree (לא דחוף; ה-guard קפוא):** ה-guard מחשב נתיבים מתיקיית הבסיס, ולכן ב-worktree תחת `.work/wt/` הוא חוסם כתיבה של TEST ENGINEER ל-`supabase/tests/setup` (F3.2a2, 18.10). עד שיתוקן: fixtures של SQL נכתבים רק בתיקייה הראשית.
+9. **guard ב-worktree (לא דחוף; ה-guard קפוא):** ה-guard מחשב נתיבים מתיקיית הבסיס, ולכן ב-worktree תחת `.work/wt/` הוא חוסם כל כתיבה של TEST ENGINEER לקובצי טסט (גם e2e ו-apps/web/tests, וגם supabase/tests/setup) (F3.2a2, 18.10). עד שיתוקן: TEST ENGINEER כותב רק בתיקייה הראשית.
 6. **לפני השקה:** הרשימה המלאה ב-`afik-list-1018.md` חלק ב (S-59, דומיין, אימייל, Supabase Pro, Cloudflare, Google OAuth, Vercel Pro או השקה לא מסחרית).
 
 **להמשך:**
