@@ -1,5 +1,5 @@
 // Repository tests for the CI `browser` job of .github/workflows/ci.yml, from decisions/2026-10.md "Speed-up", change 1:
-// the job runs as a matrix, chrome and edge with three shards each, in parallel. What must not drift: the matrix is exactly
+// the job runs as a matrix of parallel shards. Updated for decisions/2026-10.md 19.10 "Merge and local-test throughput", item 2: the PR Chrome job has five shards, Edge stays three. What must not drift: the matrix is exactly
 // project x shard (so no browser or shard silently drops out), no leg stops the others, the job stays behind the `changes`
 // filter, each leg installs only its own browser, builds the gallery before it runs, and its report has its own name.
 // They parse the workflow as data and never run it. The YAML reader is tools/workflow-yaml.mjs. Add this file to `test:tools`.
@@ -38,7 +38,7 @@ function browserProblems(job, names) {
     const shards = [matrix.shard ?? []].flat();
     // Pull requests run Chrome only (decisions/2026-10.md "Tests: depth by criterion type"); Edge is `browser-edge`.
     if (JSON.stringify([...projects].sort()) !== JSON.stringify(['chrome'])) problems.push(`matrix.project is [${projects}], not [chrome]`);
-    if (JSON.stringify(shards) !== JSON.stringify(['1', '2', '3'])) problems.push(`matrix.shard is [${shards}], not [1, 2, 3]`);
+    if (JSON.stringify(shards.map(String)) !== JSON.stringify(['1', '2', '3', '4', '5'])) problems.push(`matrix.shard is [${shards}], not [1, 2, 3, 4, 5]`);
     const unknown = projects.filter((p) => !names.includes(p));
     if (unknown.length > 0) problems.push(`matrix.project [${unknown}] is not a Playwright project (the config has [${names}])`);
     const test = steps.find((s) => /\bplaywright\s+test\b/.test(runOf(s)));
@@ -85,7 +85,7 @@ function browserProblems(job, names) {
 
 const browser = ci.jobs?.browser;
 
-test('[speed-up 1 · test rules] the pull-request browser job is a chrome by shards 1, 2 and 3 matrix, behind `changes`, with a timeout of 10 to 15 minutes', () => {
+test('[speed-up 1 · test rules] the pull-request browser job is a chrome by shards 1 to 5 matrix, behind `changes`, with a timeout of 10 to 15 minutes', () => {
   assert.deepEqual(browserProblems(browser, projectNames), []);
 });
 
@@ -106,11 +106,14 @@ test('[speed-up 1] the browser problem check can fail: every drift from the deci
     'edge added to the PR matrix': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, project: ['chrome', 'edge'] } } }),
     'chrome replaced by edge': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, project: ['edge'] } } }),
     'the PR matrix emptied': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, project: [] } } }),
-    'a fourth shard that --shard does not divide': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, shard: ['1', '2', '3', '4'] } } }),
-    'a dropped shard (two legs, --shard of 3)': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, shard: ['1', '2'] } } }),
-    'a dropped shard (the middle one)': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, shard: ['1', '3'] } } }),
+    'a sixth shard': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, shard: ['1', '2', '3', '4', '5', '6'] } } }),
+    'the old three shards': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, shard: ['1', '2', '3'] } } }),
+    'a dropped last shard (four legs)': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, shard: ['1', '2', '3', '4'] } } }),
+    'a dropped middle shard': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, shard: ['1', '2', '4', '5'] } } }),
+    'a dropped first shard': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, shard: ['2', '3', '4', '5'] } } }),
     'one shard': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, shard: ['1'] } } }),
-    'shards out of order': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, shard: ['3', '2', '1'] } } }),
+    'shards out of order': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, shard: ['5', '4', '3', '2', '1'] } } }),
+    'two shards swapped': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, shard: ['1', '3', '2', '4', '5'] } } }),
     'an extra matrix key': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, os: ['ubuntu-latest'] } } }),
     'timeout 20': () => ({ ...clone(), 'timeout-minutes': '20' }),
     'timeout 5': () => ({ ...clone(), 'timeout-minutes': '5' }),
@@ -124,8 +127,8 @@ test('[speed-up 1] the browser problem check can fail: every drift from the deci
     'continue-on-error': () => ({ ...clone(), 'continue-on-error': 'true' }),
     'no --project flag': () => withStep(clone(), /playwright\s+test/, (s) => ({ run: runOf(s).replace(PROJECT_FLAG, '') })),
     'no --shard flag': () => withStep(clone(), /playwright\s+test/, (s) => ({ run: runOf(s).replace(SHARD_FLAG, '') })),
-    '--shard of 2 with three legs': () => withStep(clone(), /playwright\s+test/, (s) => ({ run: runOf(s).replace(/\}\}\/3/, '}}/2') })),
-    '--shard of 4 with three legs': () => withStep(clone(), /playwright\s+test/, (s) => ({ run: runOf(s).replace(/\}\}\/3/, '}}/4') })),
+    '--shard divisor 3 with five legs': () => withStep(clone(), /playwright\s+test/, (s) => ({ run: runOf(s).replace(/\}\}\/5/, '}}/3') })),
+    '--shard divisor 6 with five legs': () => withStep(clone(), /playwright\s+test/, (s) => ({ run: runOf(s).replace(/\}\}\/5/, '}}/6') })),
     'every browser installed': () => withStep(clone(), /playwright\s+install/, () => ({ run: 'npx playwright install --with-deps' })),
     'both browsers installed': () => withStep(clone(), /playwright\s+install/, () => ({ run: 'npx playwright install --with-deps chrome msedge' })),
     'install ignores the matrix': () => withStep(clone(), /playwright\s+install/, () => ({ run: "npx playwright install --with-deps ${{ github.job }}" })),
