@@ -22,8 +22,8 @@ export interface FeedScrollControl {
 }
 
 // What the feed needs from scrolling (F3.2b c20): whether the reader is far down, the position kept for Back, and putting a remembered
-// position back. The shell's own reset to the top runs after a screen mounts, so the restore waits for the next frame.
-export function useFeedScroll(rootRef: RefObject<HTMLElement | null>, restoreTo: FeedScroll | null): FeedScrollControl {
+// position back. The shell's own reset to the top runs after a screen mounts, so the restore waits for the next frame and for `settled` (the posting-right check adds "כתיבת פוסט" above the list).
+export function useFeedScroll(rootRef: RefObject<HTMLElement | null>, restoreTo: FeedScroll | null, settled: boolean): FeedScrollControl {
   const [far, setFar] = useState(false);
   const restoring = useRef(false);
 
@@ -41,7 +41,7 @@ export function useFeedScroll(rootRef: RefObject<HTMLElement | null>, restoreTo:
   }, [rootRef]);
 
   useEffect(() => {
-    if (restoreTo === null) return;
+    if (restoreTo === null || !settled) return;
     restoring.current = true;
     const frame = requestAnimationFrame(() => {
       const container = scroller(rootRef.current);
@@ -54,7 +54,7 @@ export function useFeedScroll(rootRef: RefObject<HTMLElement | null>, restoreTo:
       cancelAnimationFrame(frame);
       restoring.current = false;
     };
-  }, [rootRef, restoreTo]);
+  }, [rootRef, restoreTo, settled]);
 
   const toTop = useCallback(() => {
     const container = scroller(rootRef.current);

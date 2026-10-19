@@ -30,7 +30,7 @@ export function FeedScreen() {
   });
   // Taken once: Back or a reload does not say it again.
   const [deleted] = useState(() => takeStatus(PATHS.feed, DELETED_STATUS));
-  const { far, toTop } = useFeedScroll(rootRef, restoredScroll);
+  const { far, toTop } = useFeedScroll(rootRef, restoredScroll, right !== 'checking');
   toTopRef.current = toTop;
   const sentinelRef =useSentinel(state.phase === 'ready' && !state.loading && state.nextCursor !== null, loadMore);
 

@@ -26,3 +26,4 @@ browser beyond the e2e run. IntersectionObserver root = `main` when it scrolls (
 - session-guard-app tests (and e2e posts.spec) find the h1 "פיד" exactly; the h1 is now "הפיד".
 - Back restore (c20): the feed memory no longer keys on the Auth user id (unresolvable in the e2e stub, so nothing was ever remembered); it belongs to the session and RouteGuard forgets it on sign-out.
 - CRITIC round 1 fixes 1, 4, 5: the memory now carries the token owner (userIdOfAccessToken) and Back restores only for a known equal owner (else forget and fetch); the feed is requested without waiting for /api/profile (403 -> placeholder; the posting right only drives the button); a `restarted` replace with focus in the list moves focus to the h1 and scrolls to top.
+- c20 Back landed 60 px off: scroll was restored before the posting-right check added "כתיבת פוסט" above the list; the restore now waits for the check (feed-scroll `settled`).
