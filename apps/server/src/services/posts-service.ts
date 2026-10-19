@@ -8,11 +8,14 @@
 import type { PostAudience, PostReadView, PostView, PostWrite } from '@nestly/shared';
 import type { Database } from '../db/client.js';
 import { inIdentityTransaction } from '../db/identity-transaction.js';
+import { readDatabaseFault } from '../lib/pg-error.js';
 import type { Identity } from '../lib/token-verifier.js';
 import { readCommentCounts, readLikeCounts, readLikedTargetIds } from '../repositories/likes-repository.js';
-import { deletePost, insertPost, readPostDetail, updatePost, type PostRow } from '../repositories/posts-repository.js';
+import { deletePost, insertPost, readPostAnonymity, readPostDetail, updatePost, type PostRow } from '../repositories/posts-repository.js';
 
 export type PostOutcome<T> = { readonly kind: 'post'; readonly post: T } | { readonly kind: 'not_found' };
+/** PATCH also answers that an anonymous post cannot become friends-only (F3.4 c6). */
+export type EditOutcome = PostOutcome<PostView> | { readonly kind: 'audience_not_allowed' };
 export type DeleteOutcome = { readonly kind: 'deleted' } | { readonly kind: 'not_found' };
 
 /** What a new post is made of: the text and the audience, the author's own tag choice or none, and whether it is anonymous (absent: named). */
@@ -100,12 +103,23 @@ export async function readPostById(database: Database, identity: Identity, id: s
   );
 }
 
-/** PATCH: the named columns of the author's post. 0 rows: not found, whatever the reason. */
-export async function editPost(database: Database, identity: Identity, id: string, changes: PostWrite): Promise<PostOutcome<PostView>> {
-  return inIdentityTransaction(database, identity, async (tx): Promise<PostOutcome<PostView>> => {
-    const row = single(await updatePost(tx, id, changes));
-    return row === undefined ? { kind: 'not_found' } : { kind: 'post', post: viewOf(row) };
-  });
+/**
+ * PATCH: the named columns of the author's post. 0 rows: not found, whatever the reason. A friends-only audience on an anonymous post is
+ * refused by the database before posts_audience_check is reached (the new row fails the update's RLS checks first: 42501), so when the post
+ * the caller reads is anonymous and the audience asked is "friends", that 42501 is named audience_not_allowed. Any other fault propagates.
+ */
+export async function editPost(database: Database, identity: Identity, id: string, changes: PostWrite): Promise<EditOutcome> {
+  let anonymousToFriends = false;
+  try {
+    return await inIdentityTransaction(database, identity, async (tx): Promise<EditOutcome> => {
+      if (changes.audience === 'friends') anonymousToFriends = (await readPostAnonymity(tx, id)).some((row) => row.isAnonymous);
+      const row = single(await updatePost(tx, id, changes));
+      return row === undefined ? { kind: 'not_found' } : { kind: 'post', post: viewOf(row) };
+    });
+  } catch (error) {
+    if (anonymousToFriends && readDatabaseFault(error)?.code === '42501') return { kind: 'audience_not_allowed' };
+    throw error;
+  }
 }
 
 /** DELETE (3א): immediate and permanent, or held when a report is open: the same `deleted` for the author either way. */

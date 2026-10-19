@@ -80,6 +80,7 @@ async function edit(request: FastifyRequest, reply: FastifyReply, deps: PostsRou
   if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
   try {
     const outcome = await editPost(deps.database, identity, params.data.id.toLowerCase(), checked.value);
+    if (outcome.kind === 'audience_not_allowed') return reply.code(422).send({ error: 'audience_not_allowed' });
     return outcome.kind === 'post' ? reply.code(200).send(outcome.post) : reply.code(404).send(NOT_FOUND);
   } catch (error) {
     return replyFailure(request, reply, error, 'post edit failed');

@@ -54,6 +54,14 @@ export async function readPost(tx: IdentityTx, id: string): Promise<ReadablePost
 }
 
 /**
+ * Whether the post is anonymous, when the caller may read it (RLS): read by PATCH only, to name the database's refusal of a friends-only
+ * audience on an anonymous post (F3.4 c6). Not a permission and not the author: the update's own policy still decides who edits.
+ */
+export async function readPostAnonymity(tx: IdentityTx, id: string): Promise<{ isAnonymous: boolean }[]> {
+  return tx.select({ isAnonymous: posts.isAnonymous }).from(posts).where(eq(posts.id, id));
+}
+
+/**
  * The post page's read (GET /posts/:id only): the post when the caller may read it, and `isMine`, display only. For an anonymous post
  * `isMine` is whether the caller's own post_authors row exists (RLS shows a caller only their own); for a named one, whether the caller is
  * its author. One expression for both, so they cannot disagree.

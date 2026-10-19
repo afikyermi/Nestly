@@ -7,6 +7,10 @@ checkbox, notices, post-page header and own note, fixed line on edit, comment-bo
 **Decisions**       Anonymous create sends `audience:"everyone"`; the audience choice stays in state and returns on uncheck; the
 remembered audience is written only for named posts. Anonymous edit sends body and stageTag only (no audience). Named create still
 omits `isAnonymous` from the request (F3.1 request shape unchanged). The ⭐ in screen.md is read as the pending-text marker, not copy.
+c6 fix (19.10): PATCH `audience:"friends"` on an anonymous post never reaches `posts_audience_check`: RLS checks the new row
+first (UPDATE…RETURNING applies posts_select_viewer to it; author_id NULL fails the friends branch) → 42501 → was 403. `editPost` now
+reads the readable row's `is_anonymous` (`readPostAnonymity`, only when audience is "friends") and names that 42501 alone
+`audience_not_allowed` (422); a non-author still gets 0 rows → 404. No schema change; all db tests green locally.
 **Deviations**      none.
 **Deliberately not done**   N1 policy (PR-A2) and any migration. c9 and c10/c15 expectations need N1: tests for TEST ENGINEER.
 **Uncertain**       Anonymous insert RETURNING relies on posts_select_viewer passing for an author_id-NULL "everyone" row (it should);
