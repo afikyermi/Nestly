@@ -320,6 +320,22 @@ test.describe('F3.5 c11 [AC-079] the outcomes', () => {
     await expect(feedCards(page)).toHaveCount(1);
   });
 
+  test('[c10] the quote: from a feed card it shows the author name; from the page of a plain post (author unknown there) it shows no name line and never "מהקהילה"', async ({ page }) => {
+    const net = await setupShare(page, () => pageOf([named(1)], null), { posts: [{ ...storedMine(2), isMine: false }] });
+    net.views[id(2)] = postView(2, { body: 'גוף הפוסט בעמוד' });
+    await openFeedAt(page, net);
+    let box = await openWindow(page, feedCards(page).first());
+    await expect(box.getByRole('blockquote')).toContainText('כותבת מספר 1');
+    await cancel(box).click();
+    await page.goto(`/posts/${id(2)}`);
+    await expect(page.getByRole('heading', { level: 1, name: 'פוסט', exact: true })).toBeVisible();
+    box = await openWindow(page, page.getByRole('main'));
+    const quote = box.getByRole('blockquote');
+    await expect(quote).toContainText('גוף הפוסט בעמוד');
+    await expect(quote).not.toContainText('מהקהילה');
+    await expect(quote).not.toContainText('כותבת מספר');
+  });
+
   test('[c11] from the post page: success closes the window, says "השיתוף פורסם" and returns focus to the opener; the page stays', async ({ page }) => {
     const net = await setupShare(page, () => pageOf([], null), { posts: [{ ...storedMine(1), isMine: false }] });
     net.views[id(1)] = postView(1);
