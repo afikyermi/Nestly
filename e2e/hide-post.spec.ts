@@ -213,52 +213,49 @@ test.describe('F3.9 c8 [FR-ALG-009 FR-FEED-002] one menu on every card', () => {
   });
 });
 
-/** The position of the current history entry (Navigation API, Chromium): a dead entry shows as an index that did not move back. */
-const entryIndex = (page: Page): Promise<number> =>
-  page.evaluate(() => {
-    const nav: unknown = Reflect.get(window, 'navigation');
-    const current: unknown = typeof nav === 'object' && nav !== null ? Reflect.get(nav, 'currentEntry') : undefined;
-    const index: unknown = typeof current === 'object' && current !== null ? Reflect.get(current, 'index') : undefined;
-    if (typeof index !== 'number') throw new Error('no Navigation API');
-    return index;
-  });
+// The feed under test is opened at /feed?probe=1: the entry before it is the sign-in landing (no probe). A dead overlay entry is a history entry
+// that is still /feed?probe=1, so "Back leaves the feed" is "the URL no longer carries the probe" (the Navigation API is not usable here).
+const PROBE = '/feed?probe=1';
+const onFeed = (page: Page): boolean => page.url().includes('probe=1');
 
 test.describe('F3.9 c8 [FR-ALG-009] the open menu leaves no dead history entry', () => {
   test('[c8] menu open, then a time link of another card: /posts/:id; Back returns to /feed at the same scroll; the next Back leaves /feed (no dead entry)', async ({ page }) => {
     const items = Array.from({ length: 12 }, (_v, i) => named(i + 1));
-    const net = await serverFeed(page, items, { posts: [stored(3)] });
-    await open(page, net);
+    const net = await serverFeed(page, items, { posts: [stored(10)] });
+    await open(page, net, PROBE);
     await expect(cards(page)).toHaveCount(12);
     await cards(page).nth(8).scrollIntoViewIfNeeded();
-    const scroll = await page.evaluate(() => Math.round(window.scrollY));
-    expect(scroll).toBeGreaterThan(0);
-    const start = await entryIndex(page);
-    await more(cards(page).first()).click();
+    await more(cards(page).nth(8)).click();
     await expect(menu(page)).toBeVisible();
-    await cards(page).nth(2).locator('a:has(time)').click();
-    await expect.poll(() => pathOf(page)).toBe(`/posts/${id(3)}`);
+    const scroll = await page.evaluate(() => Math.round(window.scrollY)); // read with the menu open: the position the user leaves from
+    expect(scroll).toBeGreaterThan(0);
+    await cards(page).nth(9).locator('a:has(time)').click();
+    await expect.poll(() => pathOf(page)).toBe(`/posts/${id(10)}`);
     await page.goBack();
     await expect.poll(() => pathOf(page)).toBe('/feed');
     await expect(menu(page)).toHaveCount(0);
-    expect(await entryIndex(page), 'Back from the post page lands on the feed entry itself, not on a dead overlay entry').toBe(start);
+    expect(onFeed(page), 'Back from the post page lands on the feed').toBe(true);
     await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBeGreaterThan(scroll - 150);
     expect(Math.abs((await page.evaluate(() => Math.round(window.scrollY))) - scroll), 'same scroll').toBeLessThanOrEqual(150);
     await page.goBack();
-    expect(await entryIndex(page), 'the next Back leaves the feed entry').toBe(start - 1);
+    await expect.poll(() => onFeed(page), 'the next Back leaves /feed: no dead overlay entry').toBe(false);
   });
 
   test('[c8] menu open, then a reload: the first Back leaves /feed (no dead overlay entry)', async ({ page }) => {
     const net = await serverFeed(page, OTHERS());
-    await open(page, net);
+    await open(page, net, PROBE);
     await expect(cards(page)).toHaveCount(3);
-    const start = await entryIndex(page);
     await more(cards(page).first()).click();
     await expect(menu(page)).toBeVisible();
     await page.reload();
     await expect(cards(page)).toHaveCount(3);
     await expect(menu(page)).toHaveCount(0);
+    // After a reload the app steps back over the leftover menu entry (which reloads): let it settle on the feed.
+    await page.waitForLoadState('load');
+    await expect(cards(page)).toHaveCount(3);
+    await page.waitForTimeout(500);
     await page.goBack();
-    expect(await entryIndex(page), 'one Back from the reloaded feed goes to the entry before the feed').toBe(start - 1);
+    await expect.poll(() => onFeed(page), 'one Back from the reloaded feed leaves /feed').toBe(false);
   });
 });
 
