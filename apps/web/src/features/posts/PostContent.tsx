@@ -27,10 +27,8 @@ import {
   CONFIRM_DELETE_LABEL,
   DELETE_DESCRIPTION,
   DELETING_TEXT,
-  DELETE_LABEL,
   DELETE_TITLE,
   DIALOG_CANCEL_LABEL,
-  EDIT_LABEL,
   LOAD_FAILED_TEXT,
   LOADING_TEXT,
   POST_TITLE,
@@ -70,11 +68,9 @@ export interface PostContentProps {
   view: PostScreenView;
   focus?: PostFocus;
   onRetry?: () => void;
-  onEdit?: () => void;
   onEditChange?: (values: PostFormValues) => void;
   onEditSave?: () => void;
   onEditCancel?: () => void;
-  onDelete?: () => void;
   onConfirmDelete?: () => void;
   onCancelDelete?: () => void;
   /** The comments region, drawn below the post (F3.3); it keeps its own state while the post is edited. */
@@ -98,16 +94,17 @@ export interface PostContentProps {
   pageAlert?: string;
 }
 
-const FOCUS_ACTION = '[data-post-action] button';
+// The author's "⋯" of the post (ux-polish-b c3): where focus returns after an edit, a cancelled delete.
+const FOCUS_ACTION = '[data-post-own] [data-more-actions]';
 const FOCUS_MORE = '[data-more-actions]';
 
-// One post (FR-FEED-002; F3.1b) inside the shell's `main`: its text, who sees it and its tag; for the author "עריכה" and "מחיקה",
+// One post (FR-FEED-002; F3.1b) inside the shell's `main`: its text, who sees it and its tag; for the author "עריכת הפוסט" and "מחיקת הפוסט" under "⋯",
 // an anonymous post's "אנונימי" header for every reader and, for its author only, the note that only they see it (F3.4 c12);
 // the edit form and the delete confirmation; for anyone else the "⋯" menu with "דיווח על הפוסט" and its window (F3.7). A share shows its
 // sharer, text and original (F3.5 c12) and has "מחיקה" only; a post or share that can be shared has "שיתוף בפיד" and "שיתוף קישור". Display only: what
 // the actions do comes in as props. The text is the user's own, so it is isolated and keeps its line breaks.
 export function PostContent(props: PostContentProps) {
-  const { view, focus, onRetry, onEdit, onEditChange, onEditSave, onEditCancel, onDelete, onConfirmDelete, onCancelDelete, thread } = props;
+  const { view, focus, onRetry, onEditChange, onEditSave, onEditCancel, onConfirmDelete, onCancelDelete, thread } = props;
   const { moreActions = [], menuOpen, onMenuOpenChange, onMenuPressOutside, report = null } = props;
   const { onShareInFeed, onShareLink, shareFeed = null, shareLink = null, pageAlert = '' } = props;
   const rootRef = useRef<HTMLDivElement>(null);
@@ -124,7 +121,6 @@ export function PostContent(props: PostContentProps) {
   const editing = loaded?.edit ?? null;
   const status = view.kind === 'loading' ? LOADING_TEXT : (loaded?.status ?? '');
   const heading = POST_TITLE;
-  const locked = loaded !== null && loaded.confirm?.saving === true;
 
   return (
     <div ref={rootRef} className="flex min-w-0 max-w-md flex-col gap-6">
@@ -197,7 +193,7 @@ export function PostContent(props: PostContentProps) {
           ) : null}
           <article data-testid="post" className="flex flex-col gap-3 rounded-lg bg-card p-4 text-body text-card-foreground shadow-card md:p-5">
             {moreActions.length > 0 ? (
-              <div className="-mt-2 -me-2 flex justify-end">
+              <div {...(loaded.post.isMine ? { 'data-post-own': '' } : {})} className="-mt-2 -me-2 flex justify-end">
                 <MoreActionsMenu
                   label={MORE_ACTIONS_LABEL}
                   menuLabel={MORE_ACTIONS_MENU_LABEL}
@@ -248,18 +244,6 @@ export function PostContent(props: PostContentProps) {
               </div>
             ) : null}
           </article>
-          {loaded.post.isMine ? (
-            <div data-post-action className="flex flex-wrap items-center gap-2">
-              {loaded.post.kind === 'post' ? (
-                <Button variant="soft" aria-disabled={locked ? true : undefined} onClick={onEdit}>
-                  {EDIT_LABEL}
-                </Button>
-              ) : null}
-              <Button variant="text" aria-disabled={locked ? true : undefined} onClick={onDelete}>
-                {DELETE_LABEL}
-              </Button>
-            </div>
-          ) : null}
           <div>
             <PostLinkButton to={PATHS.feed} variant="text">
               {BACK_TO_FEED_LABEL}

@@ -59,9 +59,15 @@ export function UserProfileScreen({ userId }: { userId: string }) {
   const report = useReport((_target, result) =>
     setView((latest) => (latest.kind === 'loaded' ? { ...latest, failure: null, status: REPORT_STATUS[result] } : latest)),
   );
-  // Back while the report is in flight keeps the window (the hook adds its entry again).
-  useBackCloses(report.draft !== null, () => {
-    if (report.draft?.sending === true) return false;
+  // The remove-friend confirmation shares the one entry (ux-polish-b c4). Back while the report or the removal is in flight keeps the window
+  // (the hook adds its entry again).
+  const latestView = useRef(view);
+  latestView.current = view;
+  const removing = view.kind === 'loaded' && view.confirm !== null;
+  useBackCloses(report.draft !== null || removing, () => {
+    const now = latestView.current;
+    if (report.draft?.sending === true || (now.kind === 'loaded' && now.confirm?.saving === true)) return false;
+    setView((latest) => (latest.kind === 'loaded' && latest.confirm !== null ? { ...latest, confirm: null } : latest));
     report.cancel();
     return true;
   });

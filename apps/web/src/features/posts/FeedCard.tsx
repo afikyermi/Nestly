@@ -11,11 +11,12 @@ import { COMMENTS_TITLE, LIKE_LABEL } from './comments-texts';
 import { STAGE_LABELS } from '@/lib/child-fields';
 import { formatPostTime } from '@/lib/format-post-time';
 import { postPath } from '@/lib/post-link';
-import { MEMBER_FALLBACK_LABEL, ORIGINAL_UNAVAILABLE_TEXT } from './feed-texts';
+import { MEMBER_FALLBACK_LABEL } from './feed-texts';
+import { OriginalQuote } from './OriginalQuote';
 import { MORE_ACTIONS_LABEL, MORE_ACTIONS_MENU_LABEL } from './hide-texts';
+import { PostForm } from './PostForm';
+import type { CardEdit } from './use-card-edit';
 import { SHARE_IN_FEED_LABEL } from './share-texts';
-
-type Original = Extract<FeedUnit, { kind: 'share' }>['original'];
 
 const AUDIENCE_CLASS = 'text-small text-muted-foreground';
 
@@ -25,24 +26,6 @@ function Text({ children }: { children: string }) {
     <p dir="auto" className="order-3 w-full whitespace-pre-wrap wrap-anywhere">
       {children}
     </p>
-  );
-}
-
-function OriginalBlock({ original }: { original: Original }) {
-  if (!original.available) {
-    return <p className="order-3 w-full rounded-md bg-muted p-3 text-small text-muted-foreground">{ORIGINAL_UNAVAILABLE_TEXT}</p>;
-  }
-  return (
-    <blockquote className="order-3 w-full flex flex-col gap-2 rounded-md bg-muted p-3">
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <span className="text-label">{original.author.name ?? MEMBER_FALLBACK_LABEL}</span>
-        <span className={AUDIENCE_CLASS}>{AUDIENCE_LABELS[original.audience]}</span>
-        <time dateTime={original.createdAt} className={AUDIENCE_CLASS}>
-          {formatPostTime(original.createdAt)}
-        </time>
-      </div>
-      <Text>{original.body}</Text>
-    </blockquote>
   );
 }
 
@@ -63,6 +46,11 @@ export interface FeedCardProps {
   onMenuOpenChange?: (open: boolean) => void;
   /** A press outside the open menu closed it. */
   onMenuPressOutside?: (target: EventTarget | null) => void;
+  /** The edit form open in this card (ux-polish-b c1): it replaces the body and the action row; the header stays. */
+  edit?: Omit<CardEdit, 'unitId'> | undefined;
+  onEditChange?: Parameters<typeof PostForm>[0]['onChange'];
+  onEditSave?: () => void;
+  onEditCancel?: () => void;
 }
 
 // One unit of the feed (F3.2b c14-c17; F3.3 c13): a post, an anonymous post (only "אנונימי": no name, avatar or link) or a share with its
@@ -74,6 +62,7 @@ export interface FeedCardProps {
 // tab order; its items come in as actions.
 export function FeedCard(props: FeedCardProps) {
   const { unit, position, onToggleLike, onShareInFeed, onShareLink, actions = [], menuOpen, onMenuOpenChange, onMenuPressOutside } = props;
+  const { edit, onEditChange, onEditSave, onEditCancel } = props;
   const authorId = useId();
   const author = unit.isAnonymous ? ANONYMOUS_AUTHOR_LABEL : (unit.author.name ?? MEMBER_FALLBACK_LABEL);
   return (
@@ -96,53 +85,71 @@ export function FeedCard(props: FeedCardProps) {
           ) : null}
         </div>
       </header>
-      {unit.kind === 'post' ? <Text>{unit.body}</Text> : null}
-      {unit.kind === 'share' ? (
-        <>
-          {unit.sharerText !== null ? <Text>{unit.sharerText}</Text> : null}
-          <OriginalBlock original={unit.original} />
-        </>
-      ) : null}
-      {onToggleLike === undefined ? null : (
-        <div className="order-3 w-full flex flex-wrap items-center gap-x-2">
-          <LikeButton label={LIKE_LABEL} count={unit.likeCount} liked={unit.likedByMe} onToggle={onToggleLike} />
-          <Link
-            to={{ pathname: postPath(unit.id), hash: '#comments' }}
-            aria-label={unit.commentCount > 0 ? `${COMMENTS_TITLE}, ${unit.commentCount.toLocaleString('en-US')}` : COMMENTS_TITLE}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md px-2 text-label text-muted-foreground transition-colors duration-fast ease-standard hover:bg-muted"
-          >
-            {COMMENTS_TITLE}
-            {unit.commentCount > 0 ? ` ${unit.commentCount.toLocaleString('en-US')}` : null}
-          </Link>
-          {onShareInFeed === undefined ? null : (
-            <Button iconOnly label={SHARE_IN_FEED_LABEL} data-share-feed onClick={onShareInFeed}>
-              <ShareInFeedIcon className="size-5" />
-            </Button>
-          )}
-          {onShareLink === undefined ? null : (
-            <Button iconOnly label={SHARE_LINK_LABEL} data-share-link onClick={onShareLink}>
-              <ShareLinkIcon className="size-5" />
-            </Button>
-          )}
-        </div>
-      )}
-      <Link
-        to={postPath(unit.id)}
-        className="order-2 inline-flex min-h-11 min-w-11 items-center rounded-sm text-small text-muted-foreground underline underline-offset-4"
-      >
-        <time dateTime={unit.createdAt}>{formatPostTime(unit.createdAt)}</time>
-      </Link>
-      {actions.length === 0 ? null : (
-        <div className="order-2">
-          <MoreActionsMenu
-            label={MORE_ACTIONS_LABEL}
-            menuLabel={MORE_ACTIONS_MENU_LABEL}
-            items={actions}
-            {...(menuOpen === undefined ? {} : { open: menuOpen })}
-            {...(onMenuOpenChange === undefined ? {} : { onOpenChange: onMenuOpenChange })}
-            {...(onMenuPressOutside === undefined ? {} : { onPressOutside: onMenuPressOutside })}
+      {edit !== undefined && unit.kind === 'post' ? (
+        <div className="order-3 w-full">
+          <PostForm
+            mode="edit"
+            values={edit.values}
+            errors={edit.errors}
+            saving={edit.saving}
+            failure={edit.failure}
+            focus={edit.focus}
+            onChange={(values) => onEditChange?.(values)}
+            onSubmit={() => onEditSave?.()}
+            {...(onEditCancel === undefined ? {} : { onCancel: onEditCancel })}
           />
         </div>
+      ) : (
+        <>
+          {unit.kind === 'post' ? <Text>{unit.body}</Text> : null}
+          {unit.kind === 'share' ? (
+            <>
+              {unit.sharerText !== null ? <Text>{unit.sharerText}</Text> : null}
+              <OriginalQuote className="order-3 w-full" quote={unit.original.available ? unit.original : null} />
+            </>
+          ) : null}
+          {onToggleLike === undefined ? null : (
+            <div className="order-3 w-full flex flex-wrap items-center gap-x-2">
+              <LikeButton label={LIKE_LABEL} count={unit.likeCount} liked={unit.likedByMe} onToggle={onToggleLike} />
+              <Link
+                to={{ pathname: postPath(unit.id), hash: '#comments' }}
+                aria-label={unit.commentCount > 0 ? `${COMMENTS_TITLE}, ${unit.commentCount.toLocaleString('en-US')}` : COMMENTS_TITLE}
+                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md px-2 text-label text-muted-foreground transition-colors duration-fast ease-standard hover:bg-muted"
+              >
+                {COMMENTS_TITLE}
+                {unit.commentCount > 0 ? ` ${unit.commentCount.toLocaleString('en-US')}` : null}
+              </Link>
+              {onShareInFeed === undefined ? null : (
+                <Button iconOnly label={SHARE_IN_FEED_LABEL} data-share-feed onClick={onShareInFeed}>
+                  <ShareInFeedIcon className="size-5" />
+                </Button>
+              )}
+              {onShareLink === undefined ? null : (
+                <Button iconOnly label={SHARE_LINK_LABEL} data-share-link onClick={onShareLink}>
+                  <ShareLinkIcon className="size-5" />
+                </Button>
+              )}
+            </div>
+          )}
+          <Link
+            to={postPath(unit.id)}
+            className="order-2 inline-flex min-h-11 min-w-11 items-center rounded-sm text-small text-muted-foreground underline underline-offset-4"
+          >
+            <time dateTime={unit.createdAt}>{formatPostTime(unit.createdAt)}</time>
+          </Link>
+          {actions.length === 0 ? null : (
+            <div className="order-2">
+              <MoreActionsMenu
+                label={MORE_ACTIONS_LABEL}
+                menuLabel={MORE_ACTIONS_MENU_LABEL}
+                items={actions}
+                {...(menuOpen === undefined ? {} : { open: menuOpen })}
+                {...(onMenuOpenChange === undefined ? {} : { onOpenChange: onMenuOpenChange })}
+                {...(onMenuPressOutside === undefined ? {} : { onPressOutside: onMenuPressOutside })}
+              />
+            </div>
+          )}
+        </>
       )}
     </article>
   );

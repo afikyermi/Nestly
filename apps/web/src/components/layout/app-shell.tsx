@@ -28,6 +28,10 @@ export interface AppShellProps {
    * goes back to the Hamburger, and only then `then` runs, so the window opens from the Hamburger and returns focus to it.
    */
   menu: ReactNode | ((closeMenu: () => void, closeMenuThen: (then: () => void) => void) => ReactNode);
+  /** The drawer's state when the caller owns it (the router-aware layout closes it on Back); unset: the shell keeps its own. */
+  menuOpen?: boolean | undefined;
+  /** The drawer opened or closed (any way: the Hamburger, its close control, Escape, a press outside, an item). */
+  onMenuOpenChange?: ((open: boolean) => void) | undefined;
   /** Passed to the navigation: called with an item's href on a plain click (client-side routing). */
   onNavigate?: ((href: string) => void) | undefined;
   topBarActions?: ReactNode;
@@ -50,12 +54,19 @@ export function AppShell({
   drawerCloseLabel,
   skipLinkLabel,
   menu,
+  menuOpen,
+  onMenuOpenChange,
   onNavigate,
   topBarActions,
   scrollResetKey,
   className,
 }: AppShellProps) {
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const drawerOpen = menuOpen ?? ownOpen;
+  const setDrawerOpen = (next: boolean) => {
+    setOwnOpen(next);
+    onMenuOpenChange?.(next);
+  };
   const [actionBar, setActionBar] = useState<HTMLDivElement | null>(null);
   const mainRef = useRef<HTMLElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);

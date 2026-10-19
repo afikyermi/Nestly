@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FriendLists } from '@nestly/shared';
+import { useBackCloses } from '@/hooks/use-back-closes';
 import { useCopyProfileLink } from '@/hooks/use-copy-profile-link';
 import { useSessionAccount } from '@/hooks/use-session-account';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
@@ -67,6 +68,16 @@ export function FriendsScreen() {
   const loads = useRef(0);
 
   const focusOn = (target: FriendsFocus['target']) => setFocus((current) => ({ target, tick: current.tick + 1 }));
+
+  // The remove-friend confirmation closes on Back (one history entry while it is open; ux-polish-b c4). Back while the removal is in flight keeps it.
+  const latestView = useRef(view);
+  latestView.current = view;
+  useBackCloses(view.kind === 'loaded' && view.confirm !== null, () => {
+    const now = latestView.current;
+    if (now.kind === 'loaded' && now.confirm?.saving === true) return false;
+    setView((latest) => (latest.kind === 'loaded' && latest.confirm !== null ? { ...latest, confirm: null } : latest));
+    return true;
+  });
 
   // What a refused answer means beyond this page: the session guard is told to look again.
   const refused = useCallback(

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { localDateIso, type DateParts, type OwnJourneys } from '@nestly/shared';
+import { useBackCloses } from '@/hooks/use-back-closes';
 import { useSessionAccount } from '@/hooks/use-session-account';
 import { CHILDREN_LIMIT_TEXT } from '@/lib/child-fields';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
@@ -293,6 +294,17 @@ export function JourneysSection() {
     if (saving.current) return;
     close(form, current.data, false);
   }
+
+  // The confirmation closes on Back as "ביטול" (one history entry while it is open; ux-polish-b c4); in flight it stays. The forms are in the page, not windows.
+  const latestView = useRef(view);
+  latestView.current = view;
+  useBackCloses(view.kind === 'loaded' && view.form?.kind === 'confirm', () => {
+    const now = latestView.current;
+    if (now.kind !== 'loaded' || now.form?.kind !== 'confirm') return true;
+    if (saving.current) return false;
+    cancel(now, now.form);
+    return true;
+  });
 
   const loaded = view.kind === 'loaded' ? view : null;
   const form = loaded?.form ?? null;

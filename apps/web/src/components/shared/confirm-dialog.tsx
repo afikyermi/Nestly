@@ -18,14 +18,14 @@ export interface ConfirmDialogProps {
   /** Why the last confirm failed, shown in the dialog as an alert. */
   failure?: string | null;
   onConfirm: () => void;
-  /** Cancel, Escape: the caller closes the dialog (or keeps it while `pending`). */
+  /** Cancel, Escape, a press on the backdrop: the caller closes the dialog (or keeps it while `pending`). */
   onCancel: () => void;
   /** Where focus goes when it closes; unset or null: back to the element that opened it. */
   finalFocus?: (() => HTMLElement | null) | undefined;
 }
 
 // A confirmation before an action that cannot be undone (SRS §4.2 Modal). Display only: what confirming does comes in as
-// onConfirm. Focus opens on cancel, stays inside, Escape cancels, and goes back to the opener (or `finalFocus`) on close.
+// onConfirm. Focus opens on cancel, stays inside, Escape and a backdrop press cancel (the screen's Back too, via useBackCloses), and goes back to the opener (or `finalFocus`) on close.
 export function ConfirmDialog(props: ConfirmDialogProps) {
   const { open, title, description, confirmLabel, cancelLabel, pending = false, failure = null, onConfirm, onCancel, finalFocus } = props;
   return (

@@ -13,6 +13,7 @@ import { FeedCard } from './FeedCard';
 import { HiddenPostCard } from './HiddenPostCard';
 import { ShareFeedSheet, type ShareFeedSheetProps } from './ShareFeedSheet';
 import type { FeedState, HideFocus } from './feed-state';
+import type { CardEdit } from './use-card-edit';
 import { EMPTY_FEED_TEXT, FEED_LIST_LABEL } from './feed-texts';
 
 export interface FeedContentProps {
@@ -33,6 +34,11 @@ export interface FeedContentProps {
   onMenuOpenChange?: (unitId: string, open: boolean) => void;
   /** A press outside an open menu closed it (the press may be a link: the screen must not undo it). */
   onMenuPressOutside?: (target: EventTarget | null) => void;
+  /** The edit form open in a card (ux-polish-b c1); one card at a time. */
+  edit?: CardEdit | null;
+  onEditChange?: (values: CardEdit['values']) => void;
+  onEditSave?: () => void;
+  onEditCancel?: () => void;
   /** The delete confirmation of the viewer's own card (F3.9 c13), open while set. */
   confirm?: { unitId: string; saving: boolean; failure: string | null } | null;
   onConfirmDelete?: () => void;
@@ -80,6 +86,7 @@ function SkeletonCards() {
 // F3.9: a card the viewer hid here is drawn as its placeholder in the same place; after a hide or an undo, focus goes where hideFocus says.
 export function FeedContent(props: FeedContentProps) {
   const { state, sentinelRef, onRetry, onToggleLike, actionsFor, onUndoHide, headingRef, openMenuId = null, onMenuOpenChange } = props;
+  const { edit = null, onEditChange, onEditSave, onEditCancel } = props;
   const { confirm = null, onConfirmDelete, onCancelDelete, onMenuPressOutside, report = null, shareActionsFor, shareFeed = null, shareLink = null } = props;
   const { phase, loading, items, message, focusIndex, hiddenIds, pendingHideIds, hideFocus } = state;
   const listRef = useRef<HTMLDivElement>(null);
@@ -154,6 +161,14 @@ export function FeedContent(props: FeedContentProps) {
               {...(onToggleLike === undefined ? {} : { onToggleLike: () => onToggleLike(unit.id) })}
               {...(actionsFor === undefined ? {} : { actions: actionsFor(unit) })}
               {...(shareActionsFor === undefined ? {} : shareActionsFor(unit))}
+              {...(edit !== null && edit.unitId === unit.id
+                ? {
+                    edit,
+                    ...(onEditChange === undefined ? {} : { onEditChange }),
+                    ...(onEditSave === undefined ? {} : { onEditSave }),
+                    ...(onEditCancel === undefined ? {} : { onEditCancel }),
+                  }
+                : {})}
               menuOpen={openMenuId === unit.id}
               {...(onMenuOpenChange === undefined ? {} : { onMenuOpenChange: (open: boolean) => onMenuOpenChange(unit.id, open) })}
               {...(onMenuPressOutside === undefined ? {} : { onMenuPressOutside })}

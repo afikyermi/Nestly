@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { FeedUnit } from '@nestly/shared';
+import type { FeedUnit, PostView } from '@nestly/shared';
 import { NavigationType, useNavigationType } from 'react-router';
 import { FEED_LOAD_FAILED_TEXT } from './feed-texts';
 import { useSessionAccount } from '@/hooks/use-session-account';
@@ -11,9 +11,21 @@ import { deletePost } from '@/services/api/posts';
 import { setHidden } from '@/services/api/post-hides';
 import { LIKE_FAILED_TEXT } from './comments-texts';
 import { forgetFeed, recallFeed, rememberFeed, type FeedScroll } from './feed-memory';
-import { INITIAL_FEED, withHideResult, withLike, withoutHidden, withPage, withPublished, withShared, type FeedState, type HideResult } from './feed-state';
+import {
+  INITIAL_FEED,
+  withEdited,
+  withHideResult,
+  withLike,
+  withMoreFocus,
+  withoutHidden,
+  withPage,
+  withPublished,
+  withShared,
+  type FeedState,
+  type HideResult,
+} from './feed-state';
 import { HIDDEN_STATUS, HIDE_FAILED_TEXT, OWN_POST_HIDE_TEXT, UNDO_FAILED_TEXT, UNHIDDEN_STATUS } from './hide-texts';
-import { DELETE_FAILED_TEXT, DELETED_STATUS, POST_UNAVAILABLE_TEXT } from './posts-texts';
+import { DELETE_FAILED_TEXT, DELETED_STATUS, POST_UNAVAILABLE_TEXT, UPDATED_STATUS } from './posts-texts';
 import { failureText } from './post-outcome';
 import type { ReportResult } from '@/hooks/use-report';
 import { ALREADY_REPORTED_STATUS, POST_REPORTED_STATUS, REPORT_UNAVAILABLE_STATUS } from '@/lib/report-texts';
@@ -40,6 +52,12 @@ export interface FeedFlow {
    * 404, the card stays and the status is said. The report itself is the window's (useReport).
    */
   reported: (unitId: string, result: ReportResult) => void;
+  /** An own post saved from its card (ux-polish-b c2): the card shows it, "הפוסט עודכן" is said, focus goes to its "⋯". */
+  edited: (unitId: string, post: PostView) => void;
+  /** The edit of a card found its post gone (404): the card goes and "הפוסט אינו זמין" is said, focus as a removal. */
+  gone: (unitId: string) => void;
+  /** A card's edit form closed without saving: focus goes to its "⋯". */
+  editClosed: (unitId: string) => void;
   /** The scroll to go back to when the list came from memory, else null. */
   restoredScroll: FeedScroll | null;
 }
@@ -199,6 +217,9 @@ export function useFeed(onRestart: () => void): FeedFlow {
 
   const addPublished = useCallback((unit: FeedUnit) => setState((current) => withPublished(current, unit)), []);
   const addShared = useCallback((unit: FeedUnit, status: string) => setState((current) => withShared(current, unit, status)), []);
+  const edited = useCallback((unitId: string, post: PostView) => setState((now) => withEdited(now, unitId, post, UPDATED_STATUS)), []);
+  const gone = useCallback((unitId: string) => setState((now) => withHideResult(now, unitId, { kind: 'removed', status: POST_UNAVAILABLE_TEXT })), []);
+  const editClosed = useCallback((unitId: string) => setState((now) => withMoreFocus(now, unitId)), []);
   const reported = useCallback((unitId: string, result: ReportResult) => {
     const outcome: HideResult =
       result === 'unavailable'
@@ -211,6 +232,9 @@ export function useFeed(onRestart: () => void): FeedFlow {
     state,
     remove,
     reported,
+    edited,
+    gone,
+    editClosed,
     loadMore,
     retry,
     toggleLike: (unitId) => void toggleLike(unitId),

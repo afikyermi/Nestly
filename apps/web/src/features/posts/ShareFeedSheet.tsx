@@ -6,8 +6,7 @@ import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
 import { SheetPanel, SheetTitle } from '@/components/ui/dialog';
 import { TextArea } from '@/components/ui/text-area';
-import { formatPostTime } from '@/lib/format-post-time';
-import { MEMBER_FALLBACK_LABEL } from './feed-texts';
+import { OriginalQuote } from './OriginalQuote';
 import { AUDIENCE_LABELS, BODY_TOO_LONG_TEXT, RETRY_LABEL, remainingText } from './posts-texts';
 import {
   SHARE_AUDIENCE_LEGEND,
@@ -68,18 +67,7 @@ export function ShareFeedSheet(props: ShareFeedSheetProps) {
       finalFocus={finalFocus}
     >
       <SheetTitle>{SHARE_IN_FEED_LABEL}</SheetTitle>
-      <blockquote className="flex flex-col gap-2 rounded-md bg-muted p-3 text-body">
-        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          {quote.author !== null ? <span className="text-label">{quote.author.name ?? MEMBER_FALLBACK_LABEL}</span> : null}
-          <span className="text-small text-muted-foreground">{AUDIENCE_LABELS[quote.audience]}</span>
-          <time dateTime={quote.createdAt} className="text-small text-muted-foreground">
-            {formatPostTime(quote.createdAt)}
-          </time>
-        </div>
-        <p dir="auto" className="whitespace-pre-wrap wrap-anywhere">
-          {quote.body}
-        </p>
-      </blockquote>
+      <OriginalQuote quote={quote} />
       <form
         ref={formRef}
         noValidate

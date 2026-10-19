@@ -7,7 +7,7 @@ export interface BackCloses {
   leaveTo: (path: string) => void;
   /** The overlay is about to close because of a press outside it: the press may be a link, so its entry is taken back only once that settles. */
   closingByPointer: () => void;
-  /** A link pressed outside the overlay: its entry is taken back first, then `path` opens, so no overlay entry stays under it. */
+  /** A link pressed outside the overlay: its entry is taken back first, then `path` opens (not when it is this very screen), so no overlay entry stays under it. */
   followAfterClose: (path: string) => void;
   /** True while a closed overlay's entry is still being taken back (or a close by an outside press is settling). */
   closing: () => boolean;
@@ -85,11 +85,18 @@ export function useBackCloses(open: boolean, onBack: () => boolean): BackCloses 
       // Opened again while the last close by an outside press is still settling: its entry is still the current one, so it is taken over
       // instead of stacking a second one under it (else Back would land on that stale entry and close nothing).
       const reuse = settling !== null && settling.key === here.current.key && isOverlayState(here.current.state);
+      // Another instance still holds the current overlay entry (one press moved from its "⋯" to this one's, the close not yet seen): shared.
+      const shared = holders.size > 0 && isOverlayState(here.current.state);
       cancelSettling();
-      if (reuse) hold(true);
+      if (reuse || shared) hold(true);
       else push();
     } else if (!open && pushed.current) {
       hold(false);
+      if (holders.size > 0) {
+        // Another instance holds the entry now: the last one to let go takes it back.
+        byPointer.current = false;
+        return;
+      }
       if (!byPointer.current) {
         stepBack();
         return;
@@ -99,7 +106,7 @@ export function useBackCloses(open: boolean, onBack: () => boolean): BackCloses 
       cancelSettling();
       const timer = setTimeout(() => {
         settling = null;
-        if (here.current.key === entry && isOverlayState(here.current.state)) stepBack();
+        if (holders.size === 0 && here.current.key === entry && isOverlayState(here.current.state)) stepBack();
       }, POINTER_SETTLE_MS);
       settling = { key: entry, timer, owner: self.current };
     }
@@ -121,7 +128,7 @@ export function useBackCloses(open: boolean, onBack: () => boolean): BackCloses 
     }
     if (!pushed.current && holders.size === 0 && overlayEntry && settling === null && pending.current === null && steppedOverKey !== location.key) {
       steppedOverKey = location.key;
-      void navigate(-1);
+      stepBack();
     }
   }, [location, navigate, push]);
 
@@ -155,7 +162,9 @@ export function useBackCloses(open: boolean, onBack: () => boolean): BackCloses 
         pending.current = path;
       } else if (pushed.current || isOverlayState(here.current.state)) {
         hold(false);
-        pending.current = path;
+        const { pathname, search, hash } = here.current;
+        // The screen already open (the navigation's own item, with a menu open): the overlay entry goes and nothing is added in its place.
+        if (path !== `${pathname}${search}${hash}`) pending.current = path;
         stepBack();
       } else void navigate(path);
     },

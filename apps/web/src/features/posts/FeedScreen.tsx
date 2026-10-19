@@ -1,4 +1,4 @@
-import { useContext, useEffect, useId, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ShellActionBarContext } from '@/components/layout/app-shell';
 import { postLinkOf, shareTargetOf, type FeedUnit, type PostView } from '@nestly/shared';
@@ -9,11 +9,8 @@ import type { MoreActionsItem } from '@/components/ui/more-actions-menu';
 import { useBackCloses } from '@/hooks/use-back-closes';
 import { reportSheetProps, useReport } from '@/hooks/use-report';
 import { REPORT_POST_ITEM } from '@/lib/report-texts';
-import { postPath } from '@/lib/post-link';
 import { PATHS } from '@/app/paths';
-import { Button } from '@/components/ui/button';
-import { ArrowUpIcon } from '@/components/ui/icons';
-import { handOverEdit, takeStatus } from './flash-status';
+import { takeStatus } from './flash-status';
 import { CHECKING_TEXT, CONFIRM_DELETE_LABEL, DELETED_STATUS, FEED_TITLE, PUBLISHED_STATUS } from './posts-texts';
 import { EDIT_ITEM_LABEL, HIDE_LABEL } from './hide-texts';
 import { FeedComposer } from './FeedComposer';
@@ -27,8 +24,9 @@ import { cn } from '@/lib/cn';
 import { PLACEHOLDER_TEXT } from '@/pages/placeholder/placeholder-text';
 import { FeedContent } from './FeedContent';
 import { holdLinksWhileClosing, outsidePressHandler } from './outside-press';
-import { TO_TOP_LABEL } from './feed-texts';
+import { ToTopButton } from './ToTopButton';
 import { useFeed } from './use-feed';
+import { useCardEdit } from './use-card-edit';
 import { useFeedScroll } from './feed-scroll';
 import { useSentinel } from './use-sentinel';
 
@@ -49,7 +47,7 @@ export function FeedScreen() {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const toTopRef = useRef<() => void>(() => undefined);
   // A new snapshot replaces the list: focus that was inside it would drop to the page, so it goes to the heading, at the top.
-  const { state, loadMore, retry, toggleLike, hide, undoHide, remove, addPublished, addShared, reported, restoredScroll } = useFeed(() => {
+  const { state, loadMore, retry, toggleLike, hide, undoHide, remove, addPublished, addShared, reported, edited, gone, editClosed, restoredScroll } = useFeed(() => {
     if (rootRef.current?.querySelector('[role="feed"]')?.contains(document.activeElement) !== true) return;
     headingRef.current?.focus();
     toTopRef.current();
@@ -81,11 +79,12 @@ export function FeedScreen() {
     setCardFocus((tick) => tick + 1);
   };
   const actionBar = useContext(ShellActionBarContext);
-  const toTopLabelId = useId();
   const { far, toTop } = useFeedScroll(rootRef, restoredScroll, right !== 'checking' && own.kind !== 'loading');
   toTopRef.current = toTop;
   const sentinelRef =useSentinel(state.phase === 'ready' && !state.loading && state.nextCursor !== null, loadMore);
 
+  // The edit form of an own card, in place (ux-polish-b c1, c2): the saved post, a post found gone and a closed form go back into the feed's state.
+  const cardEdit = useCardEdit(edited, gone, editClosed);
   // A card's menu and its confirmation (F3.9 c8, c13; direction.md): one open at a time; Back closes it and stays in the feed. Closing
   // the confirmation while its delete is in flight is not possible (the dialog stays).
   const [overlay, setOverlay] = useState<Overlay>(null);
@@ -105,7 +104,7 @@ export function FeedScreen() {
   const shareLink = useShareLink();
   const sheetOpen = report.draft !== null || shareFeed.draft !== null || shareLink.sheet !== null;
   // Back while the delete, the report or the share is in flight keeps its dialog (and the hook adds its entry again, so the next Back still closes it).
-  const { leaveTo, closingByPointer, followAfterClose, closing } = useBackCloses(overlay !== null || sheetOpen, () => {
+  const { closingByPointer, followAfterClose, closing } = useBackCloses(overlay !== null || sheetOpen, () => {
     if (saving || reportSending || shareSending) return false;
     setOverlay(null);
     report.cancel();
@@ -130,10 +129,7 @@ export function FeedScreen() {
                 {
                   key: 'edit',
                   label: EDIT_ITEM_LABEL,
-                  onSelect: () => {
-                    handOverEdit(postPath(unit.id));
-                    leaveTo(postPath(unit.id));
-                  },
+                  onSelect: () => cardEdit.start(unit),
                 },
               ]),
           { key: 'delete', label: CONFIRM_DELETE_LABEL, onSelect: () => setOverlay({ kind: 'confirm', unitId: unit.id, saving: false, failure: null }) },
@@ -176,6 +172,10 @@ export function FeedScreen() {
       onRetry={retry}
       onToggleLike={toggleLike}
       actionsFor={actionsFor}
+      edit={cardEdit.edit}
+      onEditChange={cardEdit.change}
+      onEditSave={cardEdit.save}
+      onEditCancel={cardEdit.cancel}
       onUndoHide={undoHide}
       headingRef={headingRef}
       openMenuId={overlay?.kind === 'menu' ? overlay.unitId : null}
@@ -245,19 +245,12 @@ export function FeedScreen() {
       {/* F3.2b c20: in the shell's action bar (never over a card's controls), only after a long scroll. */}
       {far && actionBar !== null
         ? createPortal(
-            <Button
-              variant="soft"
-              className="shadow-card"
-              aria-labelledby={toTopLabelId}
+            <ToTopButton
               onClick={() => {
                 toTop();
                 headingRef.current?.focus();
               }}
-            >
-              {/* A shell narrower than 72rem (from 1024 px): only the icon fits beside the column; the hidden text still names it. */}
-              <ArrowUpIcon className="hidden size-5 lg:@max-6xl:block" />
-              <span id={toTopLabelId} className="lg:@max-6xl:hidden">{TO_TOP_LABEL}</span>
-            </Button>,
+            />,
             actionBar,
           )
         : null}

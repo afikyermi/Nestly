@@ -27,8 +27,6 @@ export const PUBLISHING_TEXT = 'מפרסמים';
 export const SAVE_LABEL = 'שמירה';
 export const SAVING_TEXT = 'שומרים';
 export const CANCEL_LABEL = 'ביטול';
-export const EDIT_LABEL = 'עריכה'; // c18
-export const DELETE_LABEL = 'מחיקה'; // c18
 export const BACK_TO_FEED_LABEL = 'חזרה לפיד'; // c17
 export const RETRY_LABEL = 'נסו שוב';
 

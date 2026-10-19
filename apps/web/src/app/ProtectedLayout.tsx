@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { ShareLinkSheet } from '@/components/domain/share-link-sheet';
 import { AppShell } from '@/components/layout/app-shell';
@@ -37,17 +38,24 @@ export function ProtectedLayout() {
   const go = (href: string) => {
     void navigate(href, { replace: href === here });
   };
-  // A menu item that changes the screen closes the drawer first.
-  const leaving = (closeMenu: () => void) => (href: string) => {
-    closeMenu();
-    go(href);
-  };
   // F3.6 c11: the site link's window, over whatever screen is open; Back, Escape, a press outside or "סגירה" close it onto the Hamburger.
   const shareLink = useShareLink();
-  useBackCloses(shareLink.sheet !== null, () => {
+  // The side menu and that window share the one history entry: Back closes either and stays (direction.md; ux-polish-b c6). Between the press on
+  // "שיתוף Nestly" and the window opening (the menu hands focus back first) the entry is kept by `openingSite`.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [openingSite, setOpeningSite] = useState(false);
+  const { leaveTo } = useBackCloses(menuOpen || openingSite || shareLink.sheet !== null, () => {
+    setMenuOpen(false);
+    setOpeningSite(false);
     shareLink.close();
     return true;
   });
+  // A menu item that changes the screen closes the drawer first and takes the menu's entry as its own, so Back from there returns to this screen
+  // with no menu open. The screen already open: only the menu closes.
+  const leaving = (closeMenu: () => void) => (href: string) => {
+    closeMenu();
+    if (href !== here) leaveTo(href);
+  };
 
   return (
     <AppShell
@@ -57,6 +65,8 @@ export function ProtectedLayout() {
       drawerTitle="תפריט"
       drawerCloseLabel="סגירת התפריט"
       skipLinkLabel="דילוג לתוכן הראשי"
+      menuOpen={menuOpen}
+      onMenuOpenChange={setMenuOpen}
       onNavigate={go}
       scrollResetKey={current}
       menu={(closeMenu, closeMenuThen) => (
@@ -86,7 +96,17 @@ export function ProtectedLayout() {
           <MenuItem href={PATHS.changePassword} current={PATHS.changePassword === current} onNavigate={leaving(closeMenu)}>
             החלפת סיסמה
           </MenuItem>
-          <MenuItem onClick={() => closeMenuThen(shareLink.openSite)}>{SHARE_SITE_LABEL}</MenuItem>
+          <MenuItem
+            onClick={() => {
+              setOpeningSite(true);
+              closeMenuThen(() => {
+                shareLink.openSite();
+                setOpeningSite(false);
+              });
+            }}
+          >
+            {SHARE_SITE_LABEL}
+          </MenuItem>
           <MenuItem
             onClick={() => {
               closeMenu();

@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { MemoryRouter } from 'react-router';
 import { expect, userEvent, within } from 'storybook/test';
 import { LinkCopierContext, type LinkCopier } from '@/hooks/use-copy-profile-link';
 import { SessionAccountContext } from '@/hooks/use-session-account';
@@ -26,13 +27,15 @@ const copier = (writeText: LinkCopier['writeText']): LinkCopier => ({ origin: ()
 
 function Screen({ writeText = () => Promise.resolve(true) }: { writeText?: LinkCopier['writeText'] }) {
   return (
-    <SessionAccountContext value={account}>
-      <LinkCopierContext value={copier(writeText)}>
-        <main className="px-4 py-5">
-          <FriendsScreen />
-        </main>
-      </LinkCopierContext>
-    </SessionAccountContext>
+    <MemoryRouter>
+      <SessionAccountContext value={account}>
+        <LinkCopierContext value={copier(writeText)}>
+          <main className="px-4 py-5">
+            <FriendsScreen />
+          </main>
+        </LinkCopierContext>
+      </SessionAccountContext>
+    </MemoryRouter>
   );
 }
 

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
 import { postLinkOf, shareTargetOf } from '@nestly/shared';
 import { useOwnUserId } from '@/hooks/use-own-user-id';
 import { shareLinkSheetProps, useShareLink } from '@/hooks/use-share-link';
@@ -8,19 +7,20 @@ import { PATHS } from '@/app/paths';
 import { useBackCloses } from '@/hooks/use-back-closes';
 import { reportSheetProps, useReport, type ReportResult } from '@/hooks/use-report';
 import { ALREADY_REPORTED_STATUS, POST_REPORTED_STATUS, REPORT_POST_ITEM, REPORT_UNAVAILABLE_STATUS } from '@/lib/report-texts';
-import { postPath } from '@/lib/post-link';
 import { useSessionAccount } from '@/hooks/use-session-account';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
 import { deletePost, editPost, fetchPost, type PostsOutcome } from '@/services/api/posts';
-import { handOverStatus, takeEdit } from './flash-status';
+import { handOverStatus } from './flash-status';
 import { checkPostForm, type AnonymousMode, type PostFormValues } from './post-form';
 import { failureText, refusedErrors } from './post-outcome';
+import type { MoreActionsItem } from '@/components/ui/more-actions-menu';
 import { CommentsSection } from './CommentsSection';
 import { outsidePressHandler } from './outside-press';
 import { PostContent, type PostEdit, type PostFocus, type PostScreenView } from './PostContent';
 import { SHARE_FAILED_TEXT, SHARED_STATUS } from './share-texts';
 import { shareFeedSheetValues, useShareInFeed } from './use-share-in-feed';
-import { DELETE_FAILED_TEXT, DELETED_STATUS, LOAD_FAILED_TEXT, SAVE_FAILED_TEXT, UPDATED_STATUS } from './posts-texts';
+import { CONFIRM_DELETE_LABEL, DELETE_FAILED_TEXT, DELETED_STATUS, LOAD_FAILED_TEXT, SAVE_FAILED_TEXT, UPDATED_STATUS } from './posts-texts';
+import { EDIT_ITEM_LABEL } from './hide-texts';
 
 type Loaded = Extract<PostScreenView, { kind: 'loaded' }>;
 
@@ -33,15 +33,13 @@ const anonymousMode = (current: Loaded): AnonymousMode => (current.post.isAnonym
 // account state again, and the session guard ends the session with its notice (ERR-038, ERR-037).
 export function PostScreen({ postId }: { postId: string }) {
   const account = useSessionAccount();
-  const navigate = useNavigate();
   const [view, setView] = useState<PostScreenView>({ kind: 'loading' });
+  const latestView = useRef(view);
+  latestView.current = view;
   const [focus, setFocus] = useState<PostFocus>({ target: 'actions', tick: 0 });
   const validating = useRef(false);
   const busy = useRef(false);
   const loads = useRef(0);
-  // "עריכת הפוסט" from a feed card's menu (F3.9 c13): the post opens with its edit form, once.
-  const [editAsked] = useState(() => takeEdit(postPath(postId)));
-  const wantsEdit = useRef(editAsked);
 
   const focusOn = (target: PostFocus['target']) => setFocus((current) => ({ target, tick: current.tick + 1 }));
 
@@ -66,10 +64,14 @@ export function PostScreen({ postId }: { postId: string }) {
     () => setPageAlert(SHARE_FAILED_TEXT),
   );
   const shareLink = useShareLink();
-  // Back while the report or the share is in flight keeps the window (the hook adds its entry again). A press outside the menu: as the feed's (F3.9).
+  // The delete confirmation shares the one history entry (ux-polish-b c4). Back while the report, the share or the delete is in flight keeps the
+  // window (the hook adds its entry again). A press outside the menu: as the feed's (F3.9).
   const sheetOpen = report.draft !== null || shareFeed.draft !== null || shareLink.sheet !== null;
-  const back = useBackCloses(menuOpen || sheetOpen, () => {
-    if (report.draft?.sending === true || shareFeed.draft?.sending === true) return false;
+  const confirming = view.kind === 'loaded' && view.confirm !== null;
+  const back = useBackCloses(menuOpen || sheetOpen || confirming, () => {
+    const now = latestView.current;
+    if (report.draft?.sending === true || shareFeed.draft?.sending === true || (now.kind === 'loaded' && now.confirm?.saving === true)) return false;
+    if (now.kind === 'loaded' && now.confirm !== null) setView({ ...now, confirm: null });
     setMenuOpen(false);
     report.cancel();
     shareFeed.cancel();
@@ -99,11 +101,6 @@ export function PostScreen({ postId }: { postId: string }) {
       if (outcome.kind === 'post') {
         const loaded: Loaded = { kind: 'loaded', post: outcome.post, status: '', failure: null, edit: null, confirm: null };
         setView(loaded);
-        if (wantsEdit.current) {
-          wantsEdit.current = false;
-          if (outcome.post.isMine) startEdit(loaded);
-          return;
-        }
         if (afterRetry) focusOn('actions');
         return;
       }
@@ -181,7 +178,7 @@ export function PostScreen({ postId }: { postId: string }) {
       const outcome = accessToken === null ? ({ kind: 'failed' } as const) : await deletePost(accessToken, postId);
       if (outcome.kind === 'deleted') {
         handOverStatus(PATHS.feed, DELETED_STATUS);
-        void navigate(PATHS.feed);
+        back.leaveTo(PATHS.feed);
         return;
       }
       if (outcome.kind === 'unavailable') {
@@ -201,10 +198,6 @@ export function PostScreen({ postId }: { postId: string }) {
     loaded === null
       ? {}
       : {
-          onEdit: () => startEdit(loaded),
-          onDelete: () => {
-            if (!busy.current) setView({ ...loaded, status: '', failure: null, confirm: { saving: false, failure: null } });
-          },
           onConfirmDelete: () => void confirmDelete(loaded),
           onCancelDelete: () => {
             // Nothing is sent. The dialog stays while the delete is in flight.
@@ -232,11 +225,23 @@ export function PostScreen({ postId }: { postId: string }) {
         asAnonymousAuthor={loaded.post.isAnonymous && loaded.post.isMine}
       />
     );
-  // F3.7 c9: a post the viewer did not write (isMine is the server's: an anonymous post's own author has it too, and gets no report).
-  const moreActions =
-    loaded === null || loaded.post.isMine || loaded.edit !== null
+  // The "⋯" of the post (ux-polish-b c3): the author's edit (not on a share, F3.5 c8) and delete, else F3.7 c9's report for a post the viewer did
+  // not write (isMine is the server's: an anonymous post's own author has it too, and gets no report).
+  const moreActions: MoreActionsItem[] =
+    loaded === null || loaded.edit !== null
       ? []
-      : [{ key: 'report', label: REPORT_POST_ITEM, onSelect: () => report.start({ kind: 'post', id: postId }) }];
+      : loaded.post.isMine
+        ? [
+            ...(loaded.post.kind === 'post' ? [{ key: 'edit', label: EDIT_ITEM_LABEL, onSelect: () => startEdit(loaded) }] : []),
+            {
+              key: 'delete',
+              label: CONFIRM_DELETE_LABEL,
+              onSelect: () => {
+                if (!busy.current) setView({ ...loaded, status: '', failure: null, confirm: { saving: false, failure: null } });
+              },
+            },
+          ]
+        : [{ key: 'report', label: REPORT_POST_ITEM, onSelect: () => report.start({ kind: 'post', id: postId }) }];
   // F3.5 c9, F3.6 c3: the share actions exist only for what can be shared or linked (a share: its original). Never disabled.
   const target = loaded === null || loaded.edit !== null ? null : shareTargetOf(loaded.post);
   const link = loaded === null || loaded.edit !== null ? null : postLinkOf(shareLink.origin, loaded.post);

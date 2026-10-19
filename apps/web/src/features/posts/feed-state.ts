@@ -1,4 +1,4 @@
-import type { FeedPageResponse, FeedUnit } from '@nestly/shared';
+import type { FeedPageResponse, FeedUnit, PostView } from '@nestly/shared';
 import { loadedMoreText } from './feed-texts';
 
 /**
@@ -136,6 +136,19 @@ export function withHideResult(state: FeedState, unitId: string, result: HideRes
     case 'undo-failed':
       return { ...base, hideFocus: { target: 'undo', unitId, seq } };
   }
+}
+
+/** An own post saved from its card (ux-polish-b c2): the card shows the stored text, audience and tag; "הפוסט עודכן" is said, focus goes back to its "⋯". */
+export function withEdited(state: FeedState, unitId: string, post: PostView, status: string): FeedState {
+  const items = state.items.map((unit) =>
+    unit.id !== unitId || unit.kind !== 'post' || post.body === null ? unit : { ...unit, body: post.body, audience: post.audience, stageTag: post.stageTag },
+  );
+  return withHideResult({ ...state, items }, unitId, { kind: 'noted', status });
+}
+
+/** Focus goes to a card's "⋯" and nothing is said (its edit form closed without saving). */
+export function withMoreFocus(state: FeedState, unitId: string): FeedState {
+  return { ...state, hideFocus: { target: 'more', unitId, seq: (state.hideFocus?.seq ?? 0) + 1 } };
 }
 
 /** A post just published joins the top of the loaded list, once (feed-composer c7, c9). A new snapshot replaces the list, and with it this unit. */

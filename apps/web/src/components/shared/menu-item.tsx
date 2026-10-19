@@ -15,11 +15,12 @@ interface MenuItemBase {
 
 // `href` renders a link, `onClick` a button; the two are mutually exclusive, and one of them is required.
 // A link may take `onNavigate`: called with the href on a plain click, in place of the browser following
-// it (client-side routing); a modified click (new tab, new window) is still the browser's.
+// it (client-side routing); a modified click (new tab, new window) is still the browser's. A link may also take `target` and `rel` (an
+// outside app opened in a new window).
 export type MenuItemProps = MenuItemBase &
   (
-    | { href: string; onNavigate?: (href: string) => void; onClick?: undefined }
-    | { href?: undefined; onNavigate?: undefined; onClick: () => void }
+    | { href: string; onNavigate?: (href: string) => void; target?: string; rel?: string; onClick?: undefined }
+    | { href?: undefined; onNavigate?: undefined; target?: undefined; rel?: undefined; onClick: () => void }
   );
 
 const styles = [
@@ -49,11 +50,13 @@ export function MenuItem(props: MenuItemProps) {
   );
 
   if (props.href !== undefined) {
-    const { href, onNavigate } = props;
+    const { href, onNavigate, target, rel } = props;
     return (
       <a
         {...common}
         href={href}
+        {...(target === undefined ? {} : { target })}
+        {...(rel === undefined ? {} : { rel })}
         onClick={(event: MouseEvent<HTMLAnchorElement>) => {
           if (disabled) {
             event.preventDefault();
