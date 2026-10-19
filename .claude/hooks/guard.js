@@ -552,9 +552,39 @@ function realAbs(p) {
   }
 }
 
+function readText(p) {
+  try {
+    return fs.readFileSync(p, 'utf8').trim();
+  } catch {
+    return null;
+  }
+}
+
+// The root of a linked git worktree of this project that holds a, or null (Afik 19.10: roles keep their path rules in
+// worktrees). Verified both ways: <wt>/.git names <root>/.git/worktrees/<n>, whose gitdir file names <wt>/.git back.
+// Only under .work/wt/<n>/ or outside the project, so a planted .git file inside the tree cannot re-root a path.
+function worktreeRoot(a, root) {
+  const same = (x, y) => fold(slash(realAbs(x))) === fold(slash(realAbs(y)));
+  for (let d = path.dirname(a); ; d = path.dirname(d)) {
+    if (same(d, root)) return null;
+    const dotGit = path.join(d, '.git');
+    if (isFile(dotGit)) {
+      const m = /^gitdir:\s*(.+)$/.exec(readText(dotGit) || '');
+      if (!m) return null;
+      const gitdir = path.resolve(d, m[1]);
+      const back = readText(path.join(gitdir, 'gitdir'));
+      if (!same(path.dirname(gitdir), path.join(root, '.git', 'worktrees')) || !back || !same(path.resolve(gitdir, back), dotGit)) return null;
+      const r = fold(slash(path.relative(realAbs(root), realAbs(d))));
+      return /^\.work\/wt\/[^/]+$/.test(r) || r.startsWith('../') || path.isAbsolute(r) ? d : null;
+    }
+    if (path.dirname(d) === d) return null;
+  }
+}
+
 function relBoth(p, ctx) {
   const a = abs(p, ctx.cwd);
-  return [fold(slash(path.relative(ctx.root, a))), fold(slash(path.relative(realAbs(ctx.root), realAbs(a))))];
+  const base = worktreeRoot(a, ctx.root) || ctx.root;
+  return [fold(slash(path.relative(base, a))), fold(slash(path.relative(realAbs(base), realAbs(a))))];
 }
 
 // The path a tool call names (a Glob's literal prefix may itself be absolute).
@@ -680,7 +710,7 @@ const RUNS_TESTS = /\b(vitest|jest|playwright)\b|\bnpm\s+(t|test|run\s+test[\w:-
 function checkBuilder(tool, input, ctx) {
   if (['Write', 'Edit', 'MultiEdit', 'NotebookEdit'].includes(tool)) {
     const r = rel(input.file_path || input.notebook_path || '', ctx.root, ctx.cwd);
-    if (isTestPath(r)) return 'BUILDER does not write tests. Test files belong to TEST ENGINEER.';
+    if (isTestPath(r) || relBoth(input.file_path || input.notebook_path || '', ctx).some(isTestPath)) return 'BUILDER does not write tests. Test files belong to TEST ENGINEER.';
     return null;
   }
   if (tool !== 'Bash') return null;

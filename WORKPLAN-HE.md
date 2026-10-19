@@ -27,7 +27,7 @@
 4. ✅ **Docker Desktop** הותקן (18.10). בדיקות ה-DB רצות מקומית: `node tools/db-local.mjs test` (אותו image כמו ב-CI). **אחרי הפעלה מחדש של המחשב: לפתוח את Docker Desktop** ולחכות ל-"Engine running".
 5. אפיק מוחק (S-56): הקובץ המקומי `.live/events.jsonl` · ב-GitHub → Settings → Environments → `preview-e2e`: הסוד `PREVIEW_SUPABASE_SECRET_KEY` · ב-GitHub → Settings → Secrets → Actions (repository): `PREVIEW_TEST_EMAIL` ו-`PREVIEW_TEST_PASSWORD`.
 7. **DECISION REQUEST (guard, לא דחוף; ה-guard קפוא):** לחסום כתיבה של TEST ENGINEER ל-`screen.md` ול-`spec.md` בשינוי הבא של ה-guard (CRITIC 18.10, שינוי חוזה המסך). עד אז: כלל כתוב ב-test-engineer.md.
-9. **guard ב-worktree (לא דחוף; ה-guard קפוא):** ה-guard מחשב נתיבים מתיקיית הבסיס, ולכן ב-worktree תחת `.work/wt/` הוא חוסם כל כתיבה של TEST ENGINEER לקובצי טסט (גם e2e ו-apps/web/tests, וגם supabase/tests/setup) (F3.2a2, 18.10). עד שיתוקן: TEST ENGINEER כותב רק בתיקייה הראשית. **19.10:** גם worktree מחוץ ל-repo (`C:UsersAfik
+9. ✅ **guard ב-worktree (אפיק אישר 19.10):** ה-guard שופט נתיבים יחסית לשורש של worktree מקושר ומאומת (תחת `.work/wt/` או מחוץ ל-repo). ‏TEST ENGINEER כותב טסטים בכל worktree, ו-BUILDER חסום מטסטים גם שם.
 estly-wt-pgtap`) חסום, כך ש-TE אחד בכל פעם (צוואר בקבוק בקצב #88).
 10. **guard — תור לרטרו הבא (לא עכשיו; ה-guard קפוא), יחד עם 7 ו-9:** חסימות ה-.env מ-19.10 ב-incidents.md היו שגויות: פקודות `sed` של TEST ENGINEER על קובצי e2e, בלי גישה ל-.env. לתקן את התבנית.
 12. **I3 בריצה (19.10, אישור אפיק: עד סוף I3 בלי עצירה):** Q7 = ב (שם מלא למגיבים) ו-Q8 = ⭐ נרשמו כסופיות (decisions 19.10). יומן החלקים ב-[`.work/progress.md`](.work/progress.md). **שאלות שמחכות לך:** סעיפים 13–14; תצוגה מקדימה 15 (לא חוסם).
