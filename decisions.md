@@ -70,7 +70,7 @@ Grouped rows retain all current topics. Older wording yields to the named later 
 | 10-18 / 10 | Project reserved points (afik-list-1018): I4 user block, child reports top; I6 period charts; no pro verification; demo coupons; ANALYTICS_VIEW per-user no names; admin charts in demo; roadmap Amendment 6 |
 | 10-18 / 10 | F3.0–F3.2 answers: reported comment/user visible; Restricted ≠ posts; expired report kept; S-34/S-35; 6ב full author names |
 | 10-18 / 10 | Screen contract: screen.md annex of spec (agents, workflow, budgets) |
-| 10-19 / 10 | PR cadence: schema first; 1 PR per feature; split > 900 lines or 20 criteria |
+| 10-19 / 10 | PR cadence: schema first, 1 PR/feature, split >900 lines or 12/20 criteria · Q7 B · Q8 keep |
 
 ## Superseded and historical navigation
 
