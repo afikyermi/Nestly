@@ -44,7 +44,7 @@ export function ProtectedLayout() {
   // "שיתוף Nestly" and the window opening (the menu hands focus back first) the entry is kept by `openingSite`.
   const [menuOpen, setMenuOpen] = useState(false);
   const [openingSite, setOpeningSite] = useState(false);
-  const { leaveTo } = useBackCloses(menuOpen || openingSite || shareLink.sheet !== null, () => {
+  const { leaveTo, closeThen } = useBackCloses(menuOpen || openingSite || shareLink.sheet !== null, () => {
     setMenuOpen(false);
     setOpeningSite(false);
     shareLink.close();
@@ -110,7 +110,8 @@ export function ProtectedLayout() {
           <MenuItem
             onClick={() => {
               closeMenu();
-              void signOut();
+              // The menu's entry goes first, so sign-out starts from the screen's own entry, as it did before the menu had one.
+              closeThen(() => void signOut());
             }}
           >
             התנתקות

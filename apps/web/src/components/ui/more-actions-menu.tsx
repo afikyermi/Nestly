@@ -1,7 +1,21 @@
-import { useId, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { DropdownMenu } from 'radix-ui';
 import { MoreIcon } from './icons';
 import { Tooltip } from './tooltip';
+
+// Focus lands on the first item however the menu was opened: Radix does it for the keyboard only, and a press leaves it on the menu itself
+// (ux-polish-b c8). Runs after Radix has placed focus.
+function FocusFirstItem() {
+  const marker = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      const items = marker.current?.parentElement?.querySelectorAll<HTMLElement>('[role=menuitem]');
+      Array.from(items ?? []).find((item) => !item.hasAttribute('data-disabled'))?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  return <span ref={marker} hidden />;
+}
 
 export interface MoreActionsItem {
   /** Stable key within the menu. */
@@ -37,8 +51,6 @@ export interface MoreActionsMenuProps {
 export function MoreActionsMenu({ label, menuLabel, items, defaultOpen = false, open, onOpenChange, onPressOutside }: MoreActionsMenuProps) {
   const menuNameId = useId();
   const buttonRef = useRef<HTMLButtonElement>(null);
-  // Set when the press that closes this menu landed on another menu's button: that button opens its menu and keeps the focus.
-  const handedOver = useRef(false);
   return (
     <DropdownMenu.Root modal={false} defaultOpen={defaultOpen} {...(open === undefined ? {} : { open })} {...(onOpenChange === undefined ? {} : { onOpenChange })}>
       <Tooltip label={label}>
@@ -56,26 +68,19 @@ export function MoreActionsMenu({ label, menuLabel, items, defaultOpen = false, 
       </Tooltip>
       <DropdownMenu.Content
         aria-labelledby={menuNameId}
-        onPointerDownOutside={(event) => {
-          const pressed = event.detail.originalEvent.target;
-          const other = pressed instanceof Element ? pressed.closest('[data-more-actions]') : null;
-          handedOver.current = other !== null && other !== buttonRef.current;
-          onPressOutside?.(pressed);
-        }}
+        onPointerDownOutside={(event) => onPressOutside?.(event.detail.originalEvent.target)}
         onCloseAutoFocus={(event) => {
           // Every close returns focus to the button, an outside click included (a non-modal menu would leave it where the click went) -
           // except a press on another "⋯", whose menu is opening and would lose its focus (one press switches, ux-polish-b c8).
           event.preventDefault();
-          if (handedOver.current) {
-            handedOver.current = false;
-            return;
-          }
+          if (document.querySelector('[data-more-actions][aria-expanded="true"]') !== null) return;
           buttonRef.current?.focus();
         }}
         align="end"
         sideOffset={4}
         className="z-popover min-w-44 rounded-md bg-card p-1 text-body text-card-foreground shadow-card"
       >
+        <FocusFirstItem />
         <span id={menuNameId} hidden>
           {menuLabel}
         </span>

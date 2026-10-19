@@ -10,6 +10,9 @@ export function ToTopButton({ onClick }: { onClick: () => void }) {
   const labelId = useId();
   const textRef = useRef<HTMLSpanElement>(null);
   const [iconOnly, setIconOnly] = useState(false);
+  // The button sits in the shell's action bar, outside every landmark: its tooltip is drawn in `main` (axe "region").
+  const [main, setMain] = useState<HTMLElement | null>(null);
+  useEffect(() => setMain(document.querySelector<HTMLElement>('main')), []);
   useEffect(() => {
     const text = textRef.current;
     if (text === null) return;
@@ -22,7 +25,7 @@ export function ToTopButton({ onClick }: { onClick: () => void }) {
     return () => observer.disconnect();
   }, []);
   return (
-    <Tooltip label={TO_TOP_LABEL} disabled={!iconOnly}>
+    <Tooltip label={TO_TOP_LABEL} disabled={!iconOnly} container={main}>
       <Button variant="soft" className="shadow-card" aria-labelledby={labelId} onClick={onClick}>
         <ArrowUpIcon className="hidden size-5 lg:@max-6xl:block" />
         <span ref={textRef} id={labelId} className="lg:@max-6xl:hidden">

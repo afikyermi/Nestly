@@ -11,6 +11,8 @@ export interface BackCloses {
   followAfterClose: (path: string) => void;
   /** True while a closed overlay's entry is still being taken back (or a close by an outside press is settling). */
   closing: () => boolean;
+  /** The overlay's entry is taken back first, then `run` (an action that changes the session, e.g. sign-out): it starts from the screen's own entry, as without the overlay. */
+  closeThen: (run: () => void) => void;
 }
 
 /** How long a close by an outside press waits before taking its entry back: the press's click (a link's navigation) comes first. */
@@ -56,6 +58,7 @@ export function useBackCloses(open: boolean, onBack: () => boolean): BackCloses 
   }, []);
   const byPointer = useRef(false);
   const pending = useRef<string | null>(null);
+  const pendingRun = useRef<(() => void) | null>(null);
   const back = useRef(onBack);
   back.current = onBack;
   // The latest location: the address the overlay entry repeats, and whether that entry is still the current one when a close settles.
@@ -115,6 +118,12 @@ export function useBackCloses(open: boolean, onBack: () => boolean): BackCloses 
   useEffect(() => {
     const overlayEntry = isOverlayState(location.state);
     if (!overlayEntry) stepping.current = false;
+    if (pendingRun.current !== null && !overlayEntry) {
+      const run = pendingRun.current;
+      pendingRun.current = null;
+      run();
+      return;
+    }
     if (pending.current !== null && !overlayEntry) {
       const path = pending.current;
       pending.current = null;
@@ -126,7 +135,7 @@ export function useBackCloses(open: boolean, onBack: () => boolean): BackCloses 
       if (!back.current()) push();
       return;
     }
-    if (!pushed.current && holders.size === 0 && overlayEntry && settling === null && pending.current === null && steppedOverKey !== location.key) {
+    if (!pushed.current && holders.size === 0 && overlayEntry && settling === null && pending.current === null && pendingRun.current === null && steppedOverKey !== location.key) {
       steppedOverKey = location.key;
       stepBack();
     }
@@ -173,5 +182,16 @@ export function useBackCloses(open: boolean, onBack: () => boolean): BackCloses 
 
   const closing = useCallback(() => stepping.current || (settling !== null && settling.owner === self.current), []);
 
-  return { leaveTo, closingByPointer, followAfterClose, closing };
+  const closeThen = useCallback(
+    (run: () => void) => {
+      if (pushed.current || isOverlayState(here.current.state)) {
+        hold(false);
+        pendingRun.current = run;
+        stepBack();
+      } else run();
+    },
+    [stepBack, hold],
+  );
+
+  return { leaveTo, closingByPointer, followAfterClose, closing, closeThen };
 }

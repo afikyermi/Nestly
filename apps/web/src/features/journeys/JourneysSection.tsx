@@ -271,7 +271,9 @@ export function JourneysSection() {
       // A refused token or a stopped account closes a confirmation (c24): the session guard takes over, ERR-037 replaces the view.
       if (form.kind === 'confirm' && (outcome.kind === 'unauthenticated' || outcome.kind === 'account-unavailable')) {
         const stopped = refused(outcome);
-        if (stopped === null) close(form, current.data, false);
+        // Refused token: the session guard is told to look again and takes the screen to login. The dialog stays until it does, with its failure (closing
+        // it here would send the history Back at the very moment the guard replaces the entry).
+        if (stopped === null) setView((latest) => (latest.kind === 'loaded' && latest.form !== null ? { ...latest, form: { ...latest.form, saving: false, failure: ACTION_FAILED_TEXT } } : latest));
         else {
           setView({ kind: 'load-failed', message: stopped });
           focusOn({ kind: 'message' });
