@@ -196,7 +196,7 @@ describe('response [F3.2-a1 c12]', () => {
   const post = { id: ID, kind: 'post', source: 'organic', body: 'x', audience: 'everyone', stageTag: null, createdAt: '2026-10-18T09:00:00.000Z', isMine: false, isAnonymous: false, author: { name: 'Dana Levi' }, likeCount: 0, commentCount: 0, likedByMe: false };
   const ok = (v: unknown) => feedUnit.safeParse(v).success;
   const share = { ...post, kind: 'share', body: null, sharerText: 'hi' };
-  const orig = { available: true, id: ID, body: 'o', audience: 'everyone', createdAt: post.createdAt, isAnonymous: false, author: { name: null } };
+  const orig = { available: true, id: ID, body: 'o', audience: 'everyone', createdAt: post.createdAt, isAnonymous: false, isMine: false, author: { name: null } }; // F3.5 c7 amends F3.2 c12: original.isMine
   it('accepts named (name or null), anonymous without author, shares with available/unavailable original', () => {
     expect(ok(post)).toBe(true);
     expect(ok({ ...post, author: { name: null } })).toBe(true);
@@ -205,6 +205,9 @@ describe('response [F3.2-a1 c12]', () => {
     expect(ok({ ...share, original: { ...orig, author: { name: 'N' } } })).toBe(true);
     expect(ok({ ...share, original: { ...orig, isAnonymous: true, author: undefined } })).toBe(false);
     expect(ok({ ...share, original: { available: false } })).toBe(true);
+    expect(ok({ ...share, original: { ...orig, isMine: true } })).toBe(true); // F3.5 c7
+    expect(ok({ ...share, original: { ...orig, isMine: undefined } })).toBe(false); // F3.5 c7: the available original always says whose it is
+    expect(ok({ ...share, original: { available: false, isMine: false } })).toBe(false); // an unavailable original holds nothing
   });
   it.each([
     ['authorId', { authorId: ID }],

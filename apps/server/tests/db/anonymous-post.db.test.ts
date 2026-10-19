@@ -271,7 +271,7 @@ describe('[F3.4 c4 FR-FEED-005 r.1] GET /posts/:id on an anonymous post', () => 
     await befriend(V, A);
     const id = await seedPost(A, true, 'everyone', 'anon words');
     await seedPost(X, true); // a stranger with an anonymous post of their own must not read as the author of A's
-    const keys = ['audience', 'body', 'commentCount', 'createdAt', 'id', 'isAnonymous', 'isMine', 'likeCount', 'likedByMe', 'stageTag'];
+    const keys = ['audience', 'body', 'commentCount', 'createdAt', 'id', 'isAnonymous', 'isMine', 'kind', 'likeCount', 'likedByMe', 'stageTag'];
     for (const [who, mine] of [[A, true], [V, false], [X, false], [C, false]] as const) {
       const res = await getPost(app, who.header, id);
       expect(res.statusCode, res.body).toBe(200);
