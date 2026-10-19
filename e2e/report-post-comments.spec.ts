@@ -174,9 +174,7 @@ test.describe('F3.7 c9 [FR-MOD-001, F3.3 c18] one "⋯" on every comment and rep
         const [first, second] = order === 'post first' ? [postMore(page), commentButton] : [commentButton, postMore(page)];
         await first.click();
         await expect(menu(page)).toBeVisible();
-        // While a menu is open the first press on another "⋯" only closes the first menu; a second press, after the close settles, opens the other.
-        await second.click();
-        await page.waitForTimeout(150);
+        // ux-polish-b c8: with a menu open, one press on another "⋯" closes the first and opens the other.
         await second.click();
         await expect(menu(page)).toBeVisible();
         await expect(second).toHaveAttribute('aria-expanded', 'true');
