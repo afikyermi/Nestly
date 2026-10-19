@@ -656,19 +656,35 @@ test.describe('ux-polish-a c10 [FR-FEED-001] one overlay on /feed', () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 test.describe('ux-polish-a c11 [FR-FEED-001] Back to the feed', () => {
-  test('[ua c11] add and delete comments in a card, open another post, Back: the card shows the updated "תגובות, N" and its preview loads again, collapsed', async ({ page }) => {
-    const net = await start(page, [named(1, { commentCount: 2 }), named(2)], { [id(1)]: [top(101, 'ראשונה'), top(102, 'שלי למחיקה', [], { isMine: true, author: { name: 'דנה כהן' } })] }, { posts: [stored(1), stored(2)] });
+  const overlayState = (page: Page) => page.evaluate(() => JSON.stringify(history.state));
+  test('[ua c11] add and delete comments in a card, hide one card and report another, open a post, Back: the card shows the updated "תגובות, N" and its preview loads again, collapsed; the hidden and reported cards stay absent (F3.9 c10, F3.7 c13)', async ({ page }) => {
+    const net = await start(page, [named(1, { commentCount: 2 }), named(2), named(3), named(4)], { [id(1)]: [top(101, 'ראשונה'), top(102, 'שלי למחיקה', [], { isMine: true, author: { name: 'דנה כהן' } })] }, { posts: [stored(1), stored(2), stored(3), stored(4)] });
+    const base = await overlayState(page);
     const c = card(page, 0);
     await field(c).fill('תוספת');
     await btn(form(c), 'שליחה').click();
     await expect(status(page, 'התגובה נוספה')).toBeVisible();
     await moreOfComment(item(c, 'שלי למחיקה')).click();
     await page.getByRole('menuitem', { name: 'מחיקה', exact: true }).click();
-    await btn(page.getByRole('alertdialog', { name: 'למחוק את התגובה?', exact: true }), 'מחיקת התגובה').click();
+    const confirmDialog = page.getByRole('alertdialog', { name: 'למחוק את התגובה?', exact: true });
+    await btn(confirmDialog, 'מחיקת התגובה').click();
     await expect(status(page, 'התגובה נמחקה')).toBeVisible();
+    await expect(confirmDialog).toHaveCount(0);
+    await expect.poll(() => overlayState(page), "the confirmation's history entry is popped").toBe(base);
     await expect(commentsBtn(c)).toHaveAccessibleName('תגובות, 2');
-    await card(page, 1).getByRole('link').filter({ has: page.locator('time') }).click();
-    await expect.poll(() => pathOf(page)).toBe(`/posts/${id(2)}`);
+    // hide card 2, report card 3
+    await card(page, 1).getByRole('button', { name: 'פעולות נוספות לפוסט', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'הסתרת הפוסט', exact: true }).click();
+    await expect.poll(() => overlayState(page)).toBe(base);
+    await card(page, 2).getByRole('button', { name: 'פעולות נוספות לפוסט', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'דיווח על הפוסט', exact: true }).click();
+    await choose(sheet(page, 'post'), 1);
+    await sendButton(sheet(page, 'post')).click();
+    await expect(sheet(page, 'post')).toHaveCount(0);
+    await expect.poll(() => overlayState(page)).toBe(base);
+    await expect(page.getByText('גוף הפוסט 3', { exact: true })).toHaveCount(0);
+    await cards(page).filter({ hasText: 'גוף הפוסט 4' }).locator('a:has(time)').click();
+    await expect.poll(() => pathOf(page)).toBe(`/posts/${id(4)}`);
     const before = commentCalls(net, 1).filter((x) => x.startsWith('GET')).length;
     await page.goBack();
     await expect.poll(() => pathOf(page)).toBe('/feed');
@@ -676,6 +692,31 @@ test.describe('ux-polish-a c11 [FR-FEED-001] Back to the feed', () => {
     await expect.poll(() => commentCalls(net, 1).filter((x) => x.startsWith('GET')).length).toBe(before + 1);
     await expect(item(card(page, 0), 'ראשונה')).toBeVisible();
     await expect(shown(card(page, 0))).toHaveCount(2);
+    await expect(cards(page).filter({ hasText: 'גוף הפוסט 2' })).toHaveCount(0);
+    await expect(cards(page).filter({ hasText: 'גוף הפוסט 3' })).toHaveCount(0);
+    await expect(cards(page)).toHaveCount(2);
+  });
+
+  test('[ua c11] 1024 px: feed, post, Back, post again, a link elsewhere, Back: the post page is at the window scroll it was left at', async ({ page }) => {
+    await page.setViewportSize(DESKTOP);
+    await start(page, [named(1, { commentCount: 40 })], { [id(1)]: many(40) }, { posts: [stored(1)] });
+    const open = () => card(page, 0).locator('a:has(time)').click();
+    await open();
+    await expect.poll(() => pathOf(page)).toBe(`/posts/${id(1)}`);
+    await page.goBack();
+    await expect.poll(() => pathOf(page)).toBe('/feed');
+    await open();
+    await expect.poll(() => pathOf(page)).toBe(`/posts/${id(1)}`);
+    await expect(page.getByRole('region', { name: 'תגובות', exact: true })).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, 400));
+    await expect.poll(() => scrollY(page)).toBeGreaterThan(300);
+    const left = await scrollY(page);
+    const link = page.getByRole('navigation').getByRole('link').first();
+    await link.click();
+    await expect.poll(() => pathOf(page)).not.toBe(`/posts/${id(1)}`);
+    await page.goBack();
+    await expect.poll(() => pathOf(page)).toBe(`/posts/${id(1)}`);
+    await expect.poll(async () => Math.abs((await scrollY(page)) - left)).toBeLessThanOrEqual(2);
   });
 });
 
