@@ -101,6 +101,9 @@ I3's close (`/srs-update`) · security/privacy items opened in I3 are in `securi
 | 3c | עמוד הפוסט (`PostScreen.tsx`, `PostContent.tsx`) | לכותב: "⋯" עם עריכה ומחיקה במקום כפתורים גלויים, כמו בכרטיס (CRITIC F3.7 bug 3) | S |
 | 5c | חלונות אישור (`PostScreen.tsx`, `UserProfileScreen.tsx`) | אישור מחיקת פוסט והסרת חבר נסגרים ב-Back (CRITIC F3.7 bug 2) | S |
 | 5d | `more-actions-menu.tsx` | כשתפריט "⋯" פתוח, לחיצה על "⋯" אחר רק סוגרת את הראשון; צריך לחיצה שנייה (F3.7 BUILDER) | S |
+| 5b | היסטוריית חלונות (`use-back-closes.ts`, `FeedScreen.tsx`) | CRITIC F3.9 lows A–B: לחיצה על "פיד" כשהתפריט פתוח דוחפת /feed כפול; פתיחה חוזרת תוך 400 ms יוצרת רשומה כפולה ו-Back לא סוגר; טסט e2e ל-Back בזמן מחיקה | S |
+| 5e | `FeedScreen.tsx` "חזרה למעלה" | בין 1024 ל-1279 כפתור אייקון בלי tooltip (NFR-USAB-004) | S |
+| 5f | חלון השיתוף | אפשרויות השיתוף מעתיקות את MenuItem; ציטוט המקור מצויר שלוש פעמים — רכיב משותף (CRITIC F3.5 low 4) | S |
 | 7 | מסלולים (`JourneysContent.tsx:352`) | אישור על "סיום תכנון" — רק אם הפעולה לא הפיכה (להכריע בחלק) | S |
 | 8 | חברים (`FriendsContent.tsx:283`) | הסרת חבר: נשאר אישור (הצד השני צריך לאשר מחדש, לא הפיך לבד) — לרשום כחריג | S |
 | 9 | מחיקה מהפיד | נשארים בפיד והכרטיס יורד (אחרי 3) | S |
