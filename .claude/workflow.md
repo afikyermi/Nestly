@@ -152,7 +152,7 @@ Who passes the gates, and what still needs Afik: this file → "Gates" and `CLAU
 
 Entry condition: any risk flag in `CLAUDE.md`.
 
-**Path per part (Afik, 15.10.2026).** A split spec marks each part's risk flags; the part, not the feature, takes the path.
+**Path per part (Afik, 15.10.2026).** A split spec marks each part's risk flags; the part, not the feature, takes the path. **PR cadence (Afik, 19.10.2026):** one PR per feature, server and screen together; split only above the size threshold in agents/spec.md; small infrastructure is never split from its feature.
 A part with no flag — a screen — runs Standard: CRITIC on sonnet, no DATA ARCHITECT, and still the full 🎨 depth
 (screenshots, axe, keyboard, desktop and phone). **Reviews: one round per part** (Afik, 16.10.2026, audit decision 4).
 **A part merges only after its review:** parts that share a review merge together.
@@ -329,7 +329,7 @@ decision: other parts of the same feature, the next feature's intake and spec, s
 
 **Batched approvals (Afik, 16.10.2026, audit decision 2).** Before an Initiative opens, ORCHESTRATOR puts every decision
 reserved for Afik in that Initiative into **one questionnaire** (AskUserQuestion, plus `.work/_initiatives/<I>-questions.md`),
-then works without stopping. **Schema before code (P6, 18.10.2026):** a migration ships in its own PR with no product
+then works without stopping. **Schema first per Initiative (Afik, 19.10.2026):** DATA ARCHITECT designs the Initiative's (or a large slice's) schema at its start; it ships in one or two migration-only PRs, so the parts after it are code only. While a PR waits for CI and E, the next feature starts in a worktree (BUILDER there; TEST ENGINEER writes in the main checkout). **Schema before code (P6, 18.10.2026):** a migration ships in its own PR with no product
 code (CI `schema-gate`), and CI runs main's server tests on its schema (expand check). After it merges (nestly-preview
 applies at once), ORCHESTRATOR dispatches `migrate` from `main` (`gh workflow run migrate.yml --ref main`) without waiting
 for Afik (he removed the `db-production` approval until launch, 16.10.2026); several schema PRs may share one dispatch.

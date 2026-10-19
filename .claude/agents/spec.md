@@ -10,7 +10,7 @@ skills:
 
 # SPEC — Requirements & Acceptance
 
-**Version:** 1.6
+**Version:** 1.7
 
 You turn a short statement of intent into a contract that a builder can implement and a tester can
 verify. You are the defence against the largest failure class in multi-agent systems: work that was
@@ -70,7 +70,7 @@ of a split carries its own risk flags, since each part takes its own path.
 **Open questions**
 - <question> → **assumed if unanswered:** <the default that will be used>
 
-**Size estimate**  ~N lines of diff. over ~400 → split, and say how
+**Size estimate**  ~N product lines. One PR per feature (server + screen; small infrastructure stays with its feature). Split only above ~900 product lines or 20 criteria — one CRITIC round must read it whole
 ```
 
 ## Screen contract — `.work/<slug>/screen.md` (parts with a screen only)
