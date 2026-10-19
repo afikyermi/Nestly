@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { FeedUnit, PostView } from '@nestly/shared';
 import type { MoreActionsItem } from '@/components/ui/more-actions-menu';
 import { useBackCloses } from '@/hooks/use-back-closes';
+import { reportSheetProps, useReport } from '@/hooks/use-report';
+import { REPORT_POST_ITEM } from '@/lib/report-texts';
 import { postPath } from '@/lib/post-link';
 import { PATHS } from '@/app/paths';
 import { Button } from '@/components/ui/button';
@@ -16,6 +18,7 @@ import { usePostingProfile } from '@/hooks/use-posting-right';
 import { cn } from '@/lib/cn';
 import { PLACEHOLDER_TEXT } from '@/pages/placeholder/placeholder-text';
 import { FeedContent } from './FeedContent';
+import { outsidePressHandler } from './outside-press';
 import { TO_TOP_LABEL } from './feed-texts';
 import { useFeed } from './use-feed';
 import { useFeedScroll } from './feed-scroll';
@@ -27,7 +30,7 @@ type Overlay = { kind: 'menu'; unitId: string } | { kind: 'confirm'; unitId: str
 // The feed screen of a Regular account (FR-FEED-001; F3.2b, feed-composer): the heading, one polite region, the composer (always open), and
 // the cards in the server's order with infinite scroll. A Professional keeps the placeholder line and no list. A post just deleted leaves
 // "הפוסט נמחק" here, handed over in memory, once. Every card has a "⋯" menu (F3.9): edit and delete on the viewer's own named card, else hide
-// (with undo in place). The posting right only decides the composer and the placeholder; the server decides who has a feed.
+// (with undo in place) and report (F3.7). The posting right only decides the composer and the placeholder; the server decides who has a feed.
 export function FeedScreen() {
   const { right, fullName } = usePostingProfile();
   const own = useOwnUserId();
@@ -36,7 +39,7 @@ export function FeedScreen() {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const toTopRef = useRef<() => void>(() => undefined);
   // A new snapshot replaces the list: focus that was inside it would drop to the page, so it goes to the heading, at the top.
-  const { state, loadMore, retry, toggleLike, hide, undoHide, remove, addPublished, restoredScroll } = useFeed(() => {
+  const { state, loadMore, retry, toggleLike, hide, undoHide, remove, addPublished, reported, restoredScroll } = useFeed(() => {
     if (rootRef.current?.querySelector('[role="feed"]')?.contains(document.activeElement) !== true) return;
     headingRef.current?.focus();
     toTopRef.current();
@@ -75,10 +78,14 @@ export function FeedScreen() {
   // the confirmation while its delete is in flight is not possible (the dialog stays).
   const [overlay, setOverlay] = useState<Overlay>(null);
   const saving = overlay?.kind === 'confirm' && overlay.saving;
-  // Back while the delete is in flight keeps the dialog (and the hook adds its entry again, so the next Back still closes it).
-  const { leaveTo, closingByPointer, followAfterClose } = useBackCloses(overlay !== null, () => {
-    if (saving) return false;
+  // F3.7: the report window of a card (from its menu) shares the menu's one history entry.
+  const report = useReport((target, result) => reported(target.id, result));
+  const reportSending = report.draft?.sending === true;
+  // Back while the delete or the report is in flight keeps its dialog (and the hook adds its entry again, so the next Back still closes it).
+  const { leaveTo, closingByPointer, followAfterClose } = useBackCloses(overlay !== null || report.draft !== null, () => {
+    if (saving || reportSending) return false;
     setOverlay(null);
+    report.cancel();
     return true;
   });
   const confirmDelete = async (unitId: string) => {
@@ -86,22 +93,7 @@ export function FeedScreen() {
     const result = await remove(unitId);
     setOverlay((now) => (now?.kind !== 'confirm' || now.unitId !== unitId ? now : result.ok ? null : { ...now, saving: false, failure: result.failure }));
   };
-  // A press outside an open menu closes it. When the press is an in-app link (another card's time link, a navigation item), its click is
-  // held and replayed once the menu's history entry is gone, so the link is never undone and no dead entry stays under it.
-  const pressedOutside = (target: EventTarget | null) => {
-    closingByPointer();
-    const link = target instanceof Element ? target.closest('a[href]') : null;
-    if (!(link instanceof HTMLAnchorElement) || link.origin !== window.location.origin || link.target !== '') return;
-    const hold = (event: MouseEvent) => {
-      document.removeEventListener('click', hold, true);
-      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-      if (!(event.target instanceof Node) || !link.contains(event.target)) return;
-      event.preventDefault();
-      event.stopPropagation();
-      followAfterClose(`${link.pathname}${link.search}${link.hash}`);
-    };
-    document.addEventListener('click', hold, true);
-  };
+  const pressedOutside = outsidePressHandler({ closingByPointer, followAfterClose });
   const actionsFor = (unit: FeedUnit): MoreActionsItem[] =>
     unit.isMine
       ? [
@@ -120,7 +112,11 @@ export function FeedScreen() {
               ]),
           { key: 'delete', label: CONFIRM_DELETE_LABEL, onSelect: () => setOverlay({ kind: 'confirm', unitId: unit.id, saving: false, failure: null }) },
         ]
-      : [{ key: 'hide', label: HIDE_LABEL, onSelect: () => hide(unit.id), disabled: state.pendingHideIds.includes(unit.id) }];
+      : [
+          { key: 'hide', label: HIDE_LABEL, onSelect: () => hide(unit.id), disabled: state.pendingHideIds.includes(unit.id) },
+          // F3.7 c9: every card the viewer did not write, an anonymous one included (its isMine is false); a share is reported as itself.
+          { key: 'report', label: REPORT_POST_ITEM, onSelect: () => report.start({ kind: 'post', id: unit.id }) },
+        ];
 
   // One polite region: the check in progress, else the page just loaded (a no-break space after every other one makes equal texts speak
   // again), else what just happened.
@@ -153,6 +149,7 @@ export function FeedScreen() {
       onCancelDelete={() => {
         if (!saving) setOverlay(null);
       }}
+      report={report.draft === null ? null : { unitId: report.draft.target.id, sheet: reportSheetProps(report, report.draft, PATHS.communityRules) }}
     />
   );
   const write = (

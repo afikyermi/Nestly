@@ -2,6 +2,8 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { ANONYMOUS_AUTHOR_LABEL, type PostReadView } from '@nestly/shared';
 import { PATHS } from '@/app/paths';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
+import { ReportSheet, type ReportSheetProps } from '@/components/domain/report-sheet';
+import { MoreActionsMenu, type MoreActionsItem } from '@/components/ui/more-actions-menu';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,6 +13,7 @@ import { documentTitle } from '@/lib/document-title';
 import type { PostFormErrors, PostFormValues } from './post-form';
 import { PostForm, type PostFormFocus } from './PostForm';
 import { PostLinkButton } from './PostLinkButton';
+import { MORE_ACTIONS_LABEL, MORE_ACTIONS_MENU_LABEL } from './hide-texts';
 import {
   ANONYMOUS_OWN_NOTE,
   audienceLine,
@@ -42,6 +45,7 @@ export type PostScreenView =
   | { kind: 'loading' }
   | { kind: 'unavailable' } // 404: one text for every reason
   | { kind: 'load-failed'; message: string }
+  | { kind: 'reported'; text: string } // F3.7 c13: the viewer reported this post; it is not shown to them again
   | {
       kind: 'loaded';
       post: PostReadView;
@@ -69,16 +73,27 @@ export interface PostContentProps {
   onCancelDelete?: () => void;
   /** The comments region, drawn below the post (F3.3); it keeps its own state while the post is edited. */
   thread?: ReactNode;
+  /** The "more actions" items of a post the viewer did not write (F3.7 c9: report). None or empty: no menu. */
+  moreActions?: readonly MoreActionsItem[];
+  /** Controlled menu: open, and the change it asks for (the screen closes it on Back too). */
+  menuOpen?: boolean;
+  onMenuOpenChange?: (open: boolean) => void;
+  /** A press outside the open menu, with what was pressed (it may be a link). */
+  onMenuPressOutside?: (target: EventTarget | null) => void;
+  /** The report window (F3.7 c10), open while set; it closes onto the "⋯", or onto the reported paragraph. */
+  report?: Omit<ReportSheetProps, 'finalFocus'> | null;
 }
 
 const FOCUS_ACTION = '[data-post-action] button';
+const FOCUS_MORE = '[data-more-actions]';
 
 // One post (FR-FEED-002; F3.1b) inside the shell's `main`: its text, who sees it and its tag; for the author "עריכה" and "מחיקה",
 // an anonymous post's "אנונימי" header for every reader and, for its author only, the note that only they see it (F3.4 c12);
-// the edit form and the delete confirmation. Display only: what the actions do comes in as props. The text is the user's own, so it
-// is isolated and keeps its line breaks.
+// the edit form and the delete confirmation; for anyone else the "⋯" menu with "דיווח על הפוסט" and its window (F3.7). Display only: what
+// the actions do comes in as props. The text is the user's own, so it is isolated and keeps its line breaks.
 export function PostContent(props: PostContentProps) {
   const { view, focus, onRetry, onEdit, onEditChange, onEditSave, onEditCancel, onDelete, onConfirmDelete, onCancelDelete, thread } = props;
+  const { moreActions = [], menuOpen, onMenuOpenChange, onMenuPressOutside, report = null } = props;
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -132,6 +147,16 @@ export function PostContent(props: PostContentProps) {
           ) : null}
         </div>
       ) : null}
+      {view.kind === 'reported' ? (
+        <div data-testid="post-reported" className="flex flex-col items-start gap-4">
+          <p data-post-message tabIndex={-1} className="text-body">
+            {view.text}
+          </p>
+          <PostLinkButton to={PATHS.feed} variant="text">
+            {BACK_TO_FEED_LABEL}
+          </PostLinkButton>
+        </div>
+      ) : null}
       {loaded !== null && editing !== null ? (
         <PostForm
           mode="edit"
@@ -154,6 +179,18 @@ export function PostContent(props: PostContentProps) {
             </div>
           ) : null}
           <article data-testid="post" className="flex flex-col gap-3 rounded-lg bg-card p-4 text-body text-card-foreground shadow-card md:p-5">
+            {moreActions.length > 0 ? (
+              <div className="-mt-2 -me-2 flex justify-end">
+                <MoreActionsMenu
+                  label={MORE_ACTIONS_LABEL}
+                  menuLabel={MORE_ACTIONS_MENU_LABEL}
+                  items={moreActions}
+                  {...(menuOpen === undefined ? {} : { open: menuOpen })}
+                  {...(onMenuOpenChange === undefined ? {} : { onOpenChange: onMenuOpenChange })}
+                  {...(onMenuPressOutside === undefined ? {} : { onPressOutside: onMenuPressOutside })}
+                />
+              </div>
+            ) : null}
             {loaded.post.isAnonymous ? (
               <p data-testid="post-author" className="text-label">
                 {ANONYMOUS_AUTHOR_LABEL}
@@ -208,6 +245,12 @@ export function PostContent(props: PostContentProps) {
         </>
       ) : null}
       {loaded !== null ? thread : null}
+      {report !== null ? (
+        <ReportSheet
+          {...report}
+          finalFocus={() => rootRef.current?.querySelector<HTMLElement>(`[data-post-message], ${FOCUS_MORE}`) ?? rootRef.current?.querySelector<HTMLElement>('h1') ?? null}
+        />
+      ) : null}
     </div>
   );
 }

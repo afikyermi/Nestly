@@ -7,3 +7,4 @@ export * from './friends.js';
 export * from './posts.js';
 export * from './comments.js';
 export * from './medical-hotlines.js';
+export * from './reports.js';

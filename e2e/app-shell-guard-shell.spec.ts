@@ -173,7 +173,7 @@ test.describe('AppShell: bottom navigation', () => {
 });
 
 test.describe('AppShell: side menu', () => {
-  test('[F1.2 c19][F2.5 c1][FR-MENU-001] the drawer titled "תפריט" holds exactly eight items in order: חברים, חשבון, פרטיות ואבטחה, תנאים ופרטיות (links to /settings sections; terms: DR-2 A), פנייה למוקד רפואי (F3.8 c5), שאלות לשחזור סיסמה, החלפת סיסמה (links), התנתקות (button)', async ({
+  test('[F1.2 c19][F2.5 c1][FR-MENU-001] the drawer titled "תפריט" holds exactly nine items in order: חברים, כללי הקהילה (F3.7 c14, PG-049), חשבון, פרטיות ואבטחה, תנאים ופרטיות (links to /settings sections; terms: DR-2 A), פנייה למוקד רפואי (F3.8), שאלות לשחזור סיסמה, החלפת סיסמה (links), התנתקות (button)', async ({
     page,
   }) => {
     await open(page, '/feed', 'signed-in');
@@ -195,10 +195,11 @@ test.describe('AppShell: side menu', () => {
     expect(new Set(sections.map((s) => s.href)).size, 'a distinct address per section').toBe(3);
     expect(shown.map((i) => ({ ...i, href: i.href?.startsWith('/settings') === true ? '/settings*' : i.href }))).toEqual([
       { tag: 'a', name: 'חברים', href: '/friends' }, // F2.4b c13, before Settings (FR-MENU-001)
+      { tag: 'a', name: 'כללי הקהילה', href: '/community-rules' }, // F3.7 c14, right after Friends
       { tag: 'a', name: 'חשבון', href: '/settings*' },
       { tag: 'a', name: 'פרטיות ואבטחה', href: '/settings*' },
       { tag: 'a', name: 'תנאים ופרטיות', href: '/settings*' },
-      { tag: 'a', name: 'פנייה למוקד רפואי', href: '/medical-hotlines' }, // F3.8 c5 (FR-MENU-001: after תנאים ופרטיות, before the recovery questions)
+      { tag: 'a', name: 'פנייה למוקד רפואי', href: '/medical-hotlines' }, // F3.8
       { tag: 'a', name: 'שאלות לשחזור סיסמה', href: '/recovery-questions' }, // F1.6 c18
       { tag: 'a', name: 'החלפת סיסמה', href: '/change-password' }, // F2.0 c15
       { tag: 'button', name: 'התנתקות', href: null },
@@ -207,7 +208,7 @@ test.describe('AppShell: side menu', () => {
       await expect(drawer.locator(`a[href="${dest}"]`)).toHaveCount(0);
     }
     const text = await drawer.innerText();
-    for (const banned of ['חנות', 'יועצים', 'קבוצות', 'עוקבים', 'מקצועיים במעקב', 'התראות', 'עזרה', 'כללי הקהילה', 'מחיקת חשבון', 'מחיקה', 'בית', 'פיד', 'פרופיל']) {
+    for (const banned of ['חנות', 'יועצים', 'קבוצות', 'עוקבים', 'מקצועיים במעקב', 'התראות', 'עזרה', 'מחיקת חשבון', 'מחיקה', 'בית', 'פיד', 'פרופיל']) {
       expect(text, `the drawer must not hold "${banned}"`).not.toContain(banned);
     }
   });

@@ -1,9 +1,10 @@
 // I3 F3.3 w1 criteria 15 and 16 (unit), derived from .work/comments-likes/spec.md and screen.md only: who a comment is by, what it shows,
 // and which actions it offers. The journeys (paging, composer, delete, likes) are e2e/comments.spec.ts. A comment is drawn from props alone.
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { CommentThreadItem, CommentView } from '@nestly/shared';
 import { describe, expect, it, vi } from 'vitest';
-import { CommentItem } from '@/features/posts/CommentItem';
+import { CommentItem, type CommentMenu } from '@/features/posts/CommentItem';
 import { itemOf } from '@/features/posts/comments-state';
 
 const ID = (n: number) => `e0000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -21,8 +22,14 @@ const view = (n: number, extra: Partial<CommentView> = {}): CommentView => ({
 });
 const thread = (n: number, extra: Partial<CommentView> = {}, replies: CommentView[] = [], replyCount = replies.length): CommentThreadItem => ({ ...view(n, extra), replies, replyCount });
 
-function draw(item: CommentThreadItem) {
-  return render(<ul><CommentItem item={itemOf(item)} onLike={vi.fn()} onDelete={vi.fn()} onReply={vi.fn()} onMoreReplies={vi.fn()} /></ul>);
+// F3.7 c9: the delete button moved into the comment's "⋯" menu (menu.onDelete), next to "דיווח על התגובה" (menu.onReport); the menu is controlled by openId.
+function draw(item: CommentThreadItem, menu: Partial<CommentMenu> = {}) {
+  const full: CommentMenu = { openId: null, onOpenChange: vi.fn(), onDelete: vi.fn(), onReport: vi.fn(), ...menu };
+  return render(
+    <ul>
+      <CommentItem item={itemOf(item)} onLike={vi.fn()} onReply={vi.fn()} onMoreReplies={vi.fn()} menu={full} />
+    </ul>,
+  );
 }
 
 describe('F3.3 c15 [FR-FEED-001] the name rule', () => {
@@ -55,13 +62,40 @@ describe('F3.3 c16 [AC-076, VAL-036] "המחבר"', () => {
 });
 
 describe('F3.3 c15/c16 the actions a comment offers', () => {
-  it('[c16] "מחיקה" shows only for isMine', () => {
+  it('[F3.7 c9] every comment and reply has one "פעולות נוספות לתגובה" button, and no visible "מחיקה" button any more', () => {
     draw(thread(1, { isMine: false }, [view(2, { isMine: true }), view(3)]));
-    expect(screen.getAllByRole('button', { name: 'מחיקה' })).toHaveLength(1);
-  });
-  it('[c16] a comment of someone else has no delete, even the post author\'s "המחבר"', () => {
-    draw(thread(1, { byAuthor: true, author: undefined, isMine: false }));
+    const more = screen.getAllByRole('button', { name: 'פעולות נוספות לתגובה' });
+    expect(more).toHaveLength(3);
+    for (const button of more) expect(button.getAttribute('aria-haspopup')).toBe('menu');
     expect(screen.queryByRole('button', { name: 'מחיקה' })).toBeNull();
+    expect(screen.queryByRole('menuitem')).toBeNull();
+  });
+  it('[F3.7 c9][c16] my comment\'s menu holds "מחיקה" only, and choosing it deletes that comment', async () => {
+    const onDelete = vi.fn();
+    const onReport = vi.fn();
+    draw(thread(1, { isMine: true }), { openId: ID(1), onDelete, onReport });
+    const items = screen.getAllByRole('menuitem');
+    expect(items.map((i) => i.textContent)).toEqual(['מחיקה']);
+    await userEvent.click(items[0] ?? document.body);
+    expect(onDelete).toHaveBeenCalledWith(ID(1));
+    expect(onReport).not.toHaveBeenCalled();
+  });
+  it('[F3.7 c9][c16] another person\'s comment\'s menu holds "דיווח על התגובה" only and no delete, even the post author\'s "המחבר"; choosing it reports that comment', async () => {
+    const onDelete = vi.fn();
+    const onReport = vi.fn();
+    draw(thread(1, { byAuthor: true, author: undefined, isMine: false }), { openId: ID(1), onDelete, onReport });
+    const items = screen.getAllByRole('menuitem');
+    expect(items.map((i) => i.textContent)).toEqual(['דיווח על התגובה']);
+    await userEvent.click(items[0] ?? document.body);
+    expect(onReport).toHaveBeenCalledWith(ID(1));
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+  it('[F3.7 c9] a reply\'s menu follows the same rule: mine deletes, another\'s reports', () => {
+    const { unmount } = draw(thread(1, {}, [view(2, { isMine: true })]), { openId: ID(2) });
+    expect(screen.getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['מחיקה']);
+    unmount();
+    draw(thread(1, { isMine: true }, [view(2)]), { openId: ID(2) });
+    expect(screen.getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['דיווח על התגובה']);
   });
   it('[c15] "השבה" is on the top-level comment only', () => {
     draw(thread(1, {}, [view(2), view(3)]));

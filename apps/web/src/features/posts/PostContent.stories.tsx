@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router';
 import type { PostReadView } from '@nestly/shared';
 import { PostContent } from './PostContent';
 import { DELETE_FAILED_TEXT, LOAD_FAILED_TEXT, SAVE_FAILED_TEXT } from './posts-texts';
+import { POST_REPORTED_STATUS, REPORT_POST_ITEM, REPORT_UNAVAILABLE_STATUS } from '@/lib/report-texts';
 
 // One post (F3.1b) in each of its states, drawn from props alone, as it sits in the shell's `main`. Links need a router.
 function Screen(props: Parameters<typeof PostContent>[0]) {
@@ -40,7 +41,37 @@ const loaded = { kind: 'loaded', status: '', failure: null, edit: null, confirm:
 const editValues = { body: post.body ?? '', audience: post.audience, stageTag: 'has_child' } as const;
 
 export const Loaded: Story = { args: { view: { ...loaded, post } } };
-export const OthersPost: Story = { args: { view: { ...loaded, post: { ...post, isMine: false, stageTag: null, audience: 'everyone' } } } };
+// Someone else's post: the "⋯" with "דיווח על הפוסט" (F3.7 c9).
+const others: PostReadView = { ...post, isMine: false, stageTag: null, audience: 'everyone' };
+const noop = () => undefined;
+const moreActions = [{ key: 'report', label: REPORT_POST_ITEM, onSelect: noop }];
+export const OthersPost: Story = { args: { view: { ...loaded, post: others }, moreActions } };
+export const OthersPostMenu: Story = { args: { view: { ...loaded, post: others }, moreActions, menuOpen: true } };
+// F3.7 c13: the report went through: the post is replaced by the paragraph and "חזרה לפיד".
+export const Reported: Story = { args: { view: { kind: 'reported', text: POST_REPORTED_STATUS } } };
+// 404 on the report: the post stays, the status says so.
+export const ReportUnavailable: Story = { args: { view: { ...loaded, post: others, status: REPORT_UNAVAILABLE_STATUS }, moreActions } };
+// The report window over the post.
+export const ReportOpen: Story = {
+  args: {
+    view: { ...loaded, post: others },
+    moreActions,
+    report: {
+      targetKind: 'post',
+      reason: null,
+      details: '',
+      errors: {},
+      sending: false,
+      failure: null,
+      focus: { field: 'reason', tick: 0 },
+      rulesHref: '/community-rules',
+      onReasonChange: noop,
+      onDetailsChange: noop,
+      onSend: noop,
+      onCancel: noop,
+    },
+  },
+};
 export const Editing: Story = {
   args: { view: { ...loaded, post, edit: { values: editValues, errors: {}, saving: false, failure: null } } },
 };

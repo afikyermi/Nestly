@@ -83,4 +83,22 @@ export const SCREENS: Screen[] = [
   { kind: 'story', name: 'user-profile-unavailable', id: 'features-user-profile-userprofilecontent--user-profile-unavailable' },
   { kind: 'story', name: 'user-profile-rate-limited', id: 'features-user-profile-userprofilecontent--user-profile-rate-limited' },
   { kind: 'story', name: 'user-profile-load-failed', id: 'features-user-profile-userprofilecontent--user-profile-load-failed' },
+  // F3.7 c10-c13, c15: the report sheet (below 1024 px a bottom sheet, from 1024 px a small window) for each target and in each state, a comment's and an
+  // other's "⋯" menu, the post and profile outcomes, and the Community Rules page (PG-049). Story entries; baselines only from the update-baselines workflow.
+  { kind: 'story', name: 'report-sheet-post', id: 'domain-reportsheet--post' },
+  { kind: 'story', name: 'report-sheet-comment', id: 'domain-reportsheet--comment' },
+  { kind: 'story', name: 'report-sheet-profile', id: 'domain-reportsheet--profile' },
+  { kind: 'story', name: 'report-sheet-no-reason', id: 'domain-reportsheet--no-reason' },
+  { kind: 'story', name: 'report-sheet-other-without-text', id: 'domain-reportsheet--other-without-text' },
+  { kind: 'story', name: 'report-sheet-too-long', id: 'domain-reportsheet--too-long' },
+  { kind: 'story', name: 'report-sheet-sending', id: 'domain-reportsheet--sending' },
+  { kind: 'story', name: 'report-sheet-failed', id: 'domain-reportsheet--failed' },
+  { kind: 'story', name: 'comment-menu-others', id: 'features-posts-commentsview--others-comment-menu' },
+  { kind: 'story', name: 'comment-menu-own', id: 'features-posts-commentsview--own-comment-menu' },
+  { kind: 'story', name: 'comment-report-open', id: 'features-posts-commentsview--report-open' },
+  { kind: 'story', name: 'post-report-open', id: 'features-posts-postcontent--report-open' },
+  { kind: 'story', name: 'post-reported', id: 'features-posts-postcontent--reported' },
+  { kind: 'story', name: 'post-report-unavailable', id: 'features-posts-postcontent--report-unavailable' },
+  { kind: 'story', name: 'user-profile-report-open', id: 'features-user-profile-userprofilecontent--report-open' },
+  { kind: 'story', name: 'community-rules', id: 'pages-communityrulespage--default' },
 ];

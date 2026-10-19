@@ -1,11 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
+import { ReportSheet, type ReportSheetProps } from '@/components/domain/report-sheet';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { LikeButton } from '@/components/shared/like-button';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CommentComposer } from './CommentComposer';
-import { CommentItem } from './CommentItem';
+import { CommentItem, type CommentMenu } from './CommentItem';
 import {
   COMMENT_AUTHOR_NOTICE_TEXT,
   COMMENT_NAME_NOTICE_TEXT,
@@ -33,12 +34,16 @@ export interface CommentsViewProps {
   landOnHeading?: boolean;
   /** The caller is the real author of this anonymous post: their comments show as "המחבר", and the boxes say so (F3.4 c14). */
   asAnonymousAuthor?: boolean;
+  /** The comments' "⋯" menus (F3.7 c9): which one is open, and their items' actions (delete is the writes'). */
+  menu: Omit<CommentMenu, 'onDelete'>;
+  /** The report window of a comment (F3.7 c10), open while set; it closes onto that comment's "⋯". */
+  report?: { commentId: string; sheet: Omit<ReportSheetProps, 'finalFocus'> } | null;
 }
 
 // The comments region under a post (F3.3 w1; FR-FEED-003): the post's like, the thread (top-level comments, one level of replies), the
-// comment box, and the delete confirmation. Display only: the requests come from the hooks. The heading is the focus target of the
+// comment box, the delete confirmation and the report window (F3.7). Display only: the requests come from the hooks. The heading is the focus target of the
 // comments link, of a delete and of the pages that bring new comments.
-export function CommentsView({ flow, writes, landOnHeading = false, asAnonymousAuthor = false }: CommentsViewProps) {
+export function CommentsView({ flow, writes, landOnHeading = false, asAnonymousAuthor = false, menu, report = null }: CommentsViewProps) {
   const notice = asAnonymousAuthor ? COMMENT_AUTHOR_NOTICE_TEXT : COMMENT_NAME_NOTICE_TEXT;
   const { thread, focus } = flow;
   const { root, reply, confirm } = writes;
@@ -65,7 +70,8 @@ export function CommentsView({ flow, writes, landOnHeading = false, asAnonymousA
 
   if (thread.phase === 'denied') return null;
   const status = thread.phase === 'loading' ? COMMENTS_LOADING_TEXT : thread.status;
-  const deleteButton = (id: string) => regionRef.current?.querySelector<HTMLElement>(`[data-comment-id="${id}"] [data-delete-button]`) ?? null;
+  // A comment's own "⋯" is the first menu button inside its item (its replies' come after it).
+  const moreButton = (id: string) => regionRef.current?.querySelector<HTMLElement>(`[data-comment-id="${id}"] [data-more-actions]`) ?? null;
 
   return (
     <section ref={regionRef} aria-labelledby="comments" data-testid="comments" className="flex min-w-0 flex-col gap-4">
@@ -100,7 +106,7 @@ export function CommentsView({ flow, writes, landOnHeading = false, asAnonymousA
               key={item.id}
               item={item}
               onLike={(id) => flow.toggleLike('comments', id)}
-              onDelete={writes.askDelete}
+              menu={{ ...menu, onDelete: writes.askDelete }}
               onReply={writes.openReply}
               onMoreReplies={flow.showMoreReplies}
               replyBox={
@@ -146,9 +152,10 @@ export function CommentsView({ flow, writes, landOnHeading = false, asAnonymousA
           failure={confirm.failure}
           onConfirm={writes.confirmDelete}
           onCancel={writes.cancelDelete}
-          finalFocus={() => deleteButton(confirm.commentId) ?? headingRef.current}
+          finalFocus={() => moreButton(confirm.commentId) ?? headingRef.current}
         />
       ) : null}
+      {report !== null ? <ReportSheet {...report.sheet} finalFocus={() => moreButton(report.commentId) ?? headingRef.current} /> : null}
     </section>
   );
 }

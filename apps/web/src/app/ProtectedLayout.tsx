@@ -3,6 +3,7 @@ import { AppShell } from '@/components/layout/app-shell';
 import { MenuItem } from '@/components/shared/menu-item';
 import { HomeIcon, NestIcon, UserIcon } from '@/components/ui/icons';
 import { useSession } from '@/hooks/use-session';
+import { RULES_TITLE } from '@/pages/community-rules/community-rules-texts';
 import { HOTLINES_TITLE } from '@/pages/medical-hotlines/medical-hotlines-texts';
 import { parseSettingsSection, SETTINGS_SECTIONS, settingsSectionHash } from '@/lib/settings-sections';
 import { normalizePath, PATHS } from './paths';
@@ -16,7 +17,7 @@ const NAV_ITEMS = [
 ];
 
 // The AppShell around every protected screen (FR-TOP-001, FR-MENU-001), bound to the router and the
-// session. The TopBar holds only the Hamburger and the Logo; the menu holds Friends (F2.4b), one item per Settings section (F2.5),
+// session. The TopBar holds only the Hamburger and the Logo; the menu holds Friends (F2.4b), the community rules (F3.7, PG-049), one item per Settings section (F2.5),
 // the medical hotlines page (F3.8, FR-MENU-001 order), the recovery questions, the password change (F2.0 c15) and Logout. A destination whose feature is not built is absent, not
 // disabled (F2.5 DR-1, as the bottom navigation does for "חנות" and "יועצים").
 export function ProtectedLayout() {
@@ -51,6 +52,9 @@ export function ProtectedLayout() {
         <>
           <MenuItem href={PATHS.friends} current={PATHS.friends === current} onNavigate={leaving(closeMenu)}>
             חברים
+          </MenuItem>
+          <MenuItem href={PATHS.communityRules} current={PATHS.communityRules === current} onNavigate={leaving(closeMenu)}>
+            {RULES_TITLE}
           </MenuItem>
           {SETTINGS_SECTIONS.map((section) => (
             <MenuItem

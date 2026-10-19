@@ -10,6 +10,7 @@ import { registerFeedRoutes } from './routes/feed.js';
 import { registerFriendsRoutes } from './routes/friends.js';
 import { registerLikesRoutes } from './routes/likes.js';
 import { registerPostHidesRoutes } from './routes/post-hides.js';
+import { registerReportsRoutes } from './routes/reports.js';
 import { registerJourneysRoutes } from './routes/journeys.js';
 import { registerMeRoute } from './routes/me.js';
 import { registerPasswordRoutes } from './routes/password.js';
@@ -112,6 +113,7 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerCommentsRoutes(app, { database });
   registerLikesRoutes(app, { database });
   registerPostHidesRoutes(app, { database });
+  registerReportsRoutes(app, { database });
 
   return app;
 }

@@ -436,7 +436,11 @@ test.describe('F3.4 c14 [Q7 FR-FEED-005 r.1] the comment and reply composer noti
     await start(page, ANON_OTHERS_ID, [top(2, 'תשובת כותבת הפוסט', [], { byAuthor: true, author: undefined }), ...some()]);
     const item = list(page).getByRole('listitem', { name: 'המחבר', exact: true });
     await expect(item).toContainText('תשובת כותבת הפוסט');
-    await expect(button(item, 'מחיקה')).toHaveCount(0);
+    // F3.7 c9: delete is no longer a visible button; it is a menu item of the comment's "⋯", and a stranger's menu offers only the report.
+    await button(item, 'פעולות נוספות לתגובה').first().click();
+    await expect(page.getByRole('menuitem', { name: 'מחיקה', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('menuitem', { name: 'דיווח על התגובה', exact: true })).toHaveCount(1);
+    await page.keyboard.press('Escape');
     expect(await item.evaluate((el) => el.outerHTML)).not.toMatch(/דנה|נועה|data-testid|href=|src=/);
   });
 

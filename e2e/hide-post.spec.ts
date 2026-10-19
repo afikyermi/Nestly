@@ -21,6 +21,7 @@ const PHONE_375 = { width: 375, height: 812 };
 
 const MORE = 'פעולות נוספות לפוסט';
 const MENU = 'פעולות נוספות';
+const REPORT = 'דיווח על הפוסט';
 const HIDE = 'הסתרת הפוסט';
 const EDIT = 'עריכת הפוסט';
 const DELETE = 'מחיקת הפוסט';
@@ -139,10 +140,10 @@ test.describe('F3.9 c8 [FR-ALG-009 FR-FEED-002] one menu on every card', () => {
     const net = await setupFeed(page, () => pageOf(MIXED(), null));
     await open(page, net);
     const expected: Array<[number, string[]]> = [
-      [0, [HIDE]],
-      [1, [HIDE]], // someone else's anonymous post
+      [0, [HIDE, REPORT]], // F3.7 c9: "דיווח על הפוסט" on every card that is not mine
+      [1, [HIDE, REPORT]], // someone else's anonymous post
       [2, [EDIT, DELETE]], // own named card
-      [3, [HIDE]], // someone else's share
+      [3, [HIDE, REPORT]], // someone else's share
       [4, [DELETE]], // own share: amended c8 (Gate 1, CRITIC low 3): "מחיקת הפוסט" only, a share is immutable (NS005)
     ];
     for (const [i, names] of expected) {
@@ -154,14 +155,14 @@ test.describe('F3.9 c8 [FR-ALG-009 FR-FEED-002] one menu on every card', () => {
     }
   });
 
-  test("[c8][c11] the viewer's own anonymous card (isMine false from the feed) offers hide, not edit or delete", async ({ page }) => {
+  test("[c8][c11] the viewer's own anonymous card (isMine false from the feed) offers hide and (F3.7 c9) report, not edit or delete", async ({ page }) => {
     const net = await setupFeed(page, () => pageOf([anonymous(1)], null));
     await open(page, net);
     await more(cards(page).first()).click();
     await expect(item(page, HIDE)).toBeVisible();
     await expect(item(page, EDIT)).toHaveCount(0);
     await expect(item(page, DELETE)).toHaveCount(0);
-    await expect(page.getByRole('menuitem', { name: 'דיווח על הפוסט' }), 'F3.7 adds the report item, not F3.9').toHaveCount(0);
+    await expect(page.getByRole('menuitem', { name: REPORT, exact: true }), 'F3.7 c9: the own anonymous card (isMine false) shows the report item').toHaveCount(1);
   });
 
   test('[c8] keyboard: Enter and Space open the menu with focus on the first item; the arrows move; Esc closes and returns focus to the button', async ({ page }) => {

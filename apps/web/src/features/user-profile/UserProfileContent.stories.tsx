@@ -108,3 +108,24 @@ export const UserProfileRateLimited: Story = { args: { view: { kind: 'rate-limit
 export const UserProfileLoadFailed: Story = { args: { view: { kind: 'load-failed', message: LOAD_FAILED_TEXT } } };
 
 export const AccountStopped: Story = { args: { view: { kind: 'load-failed', message: STOPPED_TEXT } } };
+
+// F3.7 c10: the report window over the profile ("דיווח על הפרופיל" is on every loaded profile, below the actions).
+export const ReportOpen: Story = {
+  args: {
+    view: { ...loaded, profile: open },
+    report: {
+      targetKind: 'user',
+      reason: null,
+      details: '',
+      errors: {},
+      sending: false,
+      failure: null,
+      focus: { field: 'reason', tick: 0 },
+      rulesHref: '/community-rules',
+      onReasonChange: () => undefined,
+      onDetailsChange: () => undefined,
+      onSend: () => undefined,
+      onCancel: () => undefined,
+    },
+  },
+};

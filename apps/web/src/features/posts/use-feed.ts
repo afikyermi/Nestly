@@ -15,6 +15,8 @@ import { INITIAL_FEED, withHideResult, withLike, withoutHidden, withPage, withPu
 import { HIDDEN_STATUS, HIDE_FAILED_TEXT, OWN_POST_HIDE_TEXT, UNDO_FAILED_TEXT, UNHIDDEN_STATUS } from './hide-texts';
 import { DELETE_FAILED_TEXT, DELETED_STATUS, POST_UNAVAILABLE_TEXT } from './posts-texts';
 import { failureText } from './post-outcome';
+import type { ReportResult } from '@/hooks/use-report';
+import { ALREADY_REPORTED_STATUS, POST_REPORTED_STATUS, REPORT_UNAVAILABLE_STATUS } from '@/lib/report-texts';
 
 export interface FeedFlow {
   state: FeedState;
@@ -31,6 +33,11 @@ export interface FeedFlow {
   remove: (unitId: string) => Promise<{ ok: true } | { ok: false; failure: string }>;
   /** A post just published by the viewer goes first in the loaded list (no request; the next snapshot shows only the server's order). */
   addPublished: (unit: FeedUnit) => void;
+  /**
+   * After a report of a unit's post (F3.7 c13; 7א): filed or already filed, the card goes (also from Back's memory) and the status is said;
+   * 404, the card stays and the status is said. The report itself is the window's (useReport).
+   */
+  reported: (unitId: string, result: ReportResult) => void;
   /** The scroll to go back to when the list came from memory, else null. */
   restoredScroll: FeedScroll | null;
 }
@@ -189,10 +196,18 @@ export function useFeed(onRestart: () => void): FeedFlow {
   );
 
   const addPublished = useCallback((unit: FeedUnit) => setState((current) => withPublished(current, unit)), []);
+  const reported = useCallback((unitId: string, result: ReportResult) => {
+    const outcome: HideResult =
+      result === 'unavailable'
+        ? { kind: 'noted', status: REPORT_UNAVAILABLE_STATUS }
+        : { kind: 'removed', status: result === 'received' ? POST_REPORTED_STATUS : ALREADY_REPORTED_STATUS };
+    setState((now) => withHideResult(now, unitId, outcome));
+  }, []);
 
   return {
     state,
     remove,
+    reported,
     loadMore,
     retry,
     toggleLike: (unitId) => void toggleLike(unitId),
