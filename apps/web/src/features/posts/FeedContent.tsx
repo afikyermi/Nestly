@@ -15,6 +15,8 @@ export interface FeedContentProps {
   /** Put on the hidden element after the last card; the screen watches it to ask for the next page. */
   sentinelRef?: Ref<HTMLDivElement>;
   onRetry?: () => void;
+  /** The like of a card; without it the cards carry no action row. */
+  onToggleLike?: (unitId: string) => void;
 }
 
 function SkeletonCards() {
@@ -34,7 +36,7 @@ function SkeletonCards() {
 // The feed's list and its states (F3.2b c14, c18, c19): skeleton cards, the cards as a `feed`, the empty state, and the errors. Display
 // only: the requests come from the screen. There is no "more" button and no footer; the page after the last card is asked for when the
 // hidden sentinel comes near. Focus never moves when a page loads; after a retry that worked it goes to the first card it brought.
-export function FeedContent({ state, emptyAction, sentinelRef, onRetry }: FeedContentProps) {
+export function FeedContent({ state, emptyAction, sentinelRef, onRetry, onToggleLike }: FeedContentProps) {
   const { phase, loading, items, message, focusIndex } = state;
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -75,7 +77,7 @@ export function FeedContent({ state, emptyAction, sentinelRef, onRetry }: FeedCo
       >
         {phase === 'initial' ? <SkeletonCards /> : null}
         {items.map((unit, index) => (
-          <FeedCard key={unit.id} unit={unit} position={index + 1} />
+          <FeedCard key={unit.id} unit={unit} position={index + 1} {...(onToggleLike === undefined ? {} : { onToggleLike: () => onToggleLike(unit.id) })} />
         ))}
         {phase === 'ready' ? <div ref={sentinelRef} aria-hidden="true" data-testid="feed-sentinel" className="h-px" /> : null}
       </div>

@@ -23,7 +23,7 @@ export function FeedScreen() {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const toTopRef = useRef<() => void>(() => undefined);
   // A new snapshot replaces the list: focus that was inside it would drop to the page, so it goes to the heading, at the top.
-  const { state, loadMore, retry, restoredScroll } = useFeed(() => {
+  const { state, loadMore, retry, toggleLike, restoredScroll } = useFeed(() => {
     if (rootRef.current?.querySelector('[role="feed"]')?.contains(document.activeElement) !== true) return;
     headingRef.current?.focus();
     toTopRef.current();
@@ -37,8 +37,9 @@ export function FeedScreen() {
   // One polite region: the check in progress, else the page just loaded (a no-break space after every other one makes equal texts speak
   // again), else what just happened.
   const loaded = state.announcement === '' ? '' : state.announcement + (state.announcementTick % 2 === 0 ? ' ' : '');
-  const status = right === 'checking' ? CHECKING_TEXT : loaded !== '' ? loaded : deleted;
-  const visible = right === 'checking' ? deleted !== '' : loaded === '' && deleted !== '';
+  const failedLike = state.likeStatus;
+  const status = right === 'checking' ? CHECKING_TEXT : failedLike !== '' ? failedLike : loaded !== '' ? loaded : deleted;
+  const visible = right === 'checking' ? deleted !== '' : failedLike !== '' || (loaded === '' && deleted !== '');
   const none = professional || state.phase === 'blocked';
   const empty = state.phase === 'ready' && state.items.length === 0;
   const write = <WritePostButton right={right} />;
@@ -53,7 +54,7 @@ export function FeedScreen() {
       </p>
       {none ? <p className="mt-1 text-body text-muted-foreground">{PLACEHOLDER_TEXT}</p> : null}
       {empty ? null : write}
-      {none ? null : <FeedContent state={state} emptyAction={write} sentinelRef={sentinelRef} onRetry={retry} />}
+      {none ? null : <FeedContent state={state} emptyAction={write} sentinelRef={sentinelRef} onRetry={retry} onToggleLike={toggleLike} />}
       {far ? (
         <div className="sticky bottom-4 mt-4 flex justify-end">
           <Button
