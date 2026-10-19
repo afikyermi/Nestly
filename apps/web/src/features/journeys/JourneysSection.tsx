@@ -268,18 +268,8 @@ export function JourneysSection() {
         }
         if (fresh.kind === 'unauthenticated' || fresh.kind === 'account-unavailable') outcome = fresh;
       }
-      // A refused token or a stopped account closes a confirmation (c24): the session guard takes over, ERR-037 replaces the view.
-      if (form.kind === 'confirm' && (outcome.kind === 'unauthenticated' || outcome.kind === 'account-unavailable')) {
-        const stopped = refused(outcome);
-        // Refused token: the session guard is told to look again and takes the screen to login. The dialog stays until it does, with its failure (closing
-        // it here would send the history Back at the very moment the guard replaces the entry).
-        if (stopped === null) setView((latest) => (latest.kind === 'loaded' && latest.form !== null ? { ...latest, form: { ...latest.form, saving: false, failure: ACTION_FAILED_TEXT } } : latest));
-        else {
-          setView({ kind: 'load-failed', message: stopped });
-          focusOn({ kind: 'message' });
-        }
-        return;
-      }
+      // A refused token or a stopped account (c24) keeps a confirmation open with its failure (ERR-037 text for a stopped account): the session guard takes
+      // over the screen, and closing the dialog here would send the history Back at the very moment the guard replaces the entry.
       // The form keeps what is in it now, including anything typed while the save was in flight. A dialog keeps focus on its control.
       const fallback = form.kind === 'confirm' ? ACTION_FAILED_TEXT : SAVE_FAILED_TEXT;
       const failure = outcome.kind === 'too-many' ? CHILDREN_LIMIT_TEXT : (refused(outcome) ?? fallback);
