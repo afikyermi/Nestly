@@ -346,10 +346,9 @@ describe('[F3.3-b1 c7] author.name is what regular_names returns to the viewer u
     { viewer: () => C, relation: 'self', expected: 'Cora Commenter' },
     { viewer: () => F, relation: 'friend', expected: 'Cora Commenter' },
     { viewer: () => Q, relation: 'request counterparty', expected: 'Cora Commenter' },
-    { viewer: () => X, relation: 'stranger', expected: null },
+    { viewer: () => X, relation: 'stranger', expected: 'Cora Commenter' }, // Afik Q7 B (19.10): was null before the comment-reader policy
   ];
-  // superseded by Afik Q7 B (19.10, approved skip); restored with the new expectation in PR-A2
-  it.skip('[F3.3-b1 c7] the table rows (self, friend, request counterparty, stranger) hold in the thread and in the create answer', T, async () => {
+  it('[F3.3-b1 c7] the table rows (self, friend, request counterparty, stranger) hold in the thread and in the create answer', T, async () => {
     const app = await start();
     const postId = await seedPost(AU);
     await befriend(F, C, 'accepted');
@@ -361,8 +360,7 @@ describe('[F3.3-b1 c7] author.name is what regular_names returns to the viewer u
     }
   });
 
-  // superseded by Afik Q7 B (19.10, approved skip); restored with the new expectation in PR-A2
-  it.skip('[F3.3-b1 c7] the post\'s named author is named to a stranger; a Restricted commenter is present in the thread', T, async () => {
+  it('[F3.3-b1 c7] the post\'s named author is named to a stranger; a Restricted commenter is present in the thread', T, async () => {
     const app = await start();
     const postId = await seedPost(AU);
     await seedComment(AU, postId, 1, 'by author');
@@ -370,7 +368,23 @@ describe('[F3.3-b1 c7] author.name is what regular_names returns to the viewer u
     const rows = items((await listComments(app, X.header, postId)).body);
     expect(rows.map((r) => r.body)).toEqual(['by author', 'by restricted']);
     expect(toRecord(rows[0]?.author)).toEqual({ name: 'Adi Author' });
-    expect(toRecord(rows[1]?.author)).toEqual({ name: null });
+    expect(toRecord(rows[1]?.author)).toEqual({ name: 'Rina Restricted' }); // Q7 B: every comment the reader may see carries its commenter's full name
+  });
+
+  it('[F3.4 c10 Q7 B] a stranger sees the full name on a comment and on a reply; the "המחבר" comment of an anonymous post author keeps no author key and names nobody', T, async () => {
+    const app = await start();
+    const named = await seedPost(AU);
+    const top = await seedComment(C, named, 1, 'top');
+    await seedComment(F, named, 2, 'reply', top);
+    const [first] = items((await listComments(app, X.header, named)).body);
+    expect(toRecord(first?.author)).toEqual({ name: 'Cora Commenter' });
+    expect(repliesOf(first ?? {}).map((r) => toRecord(r.author))).toEqual([{ name: 'Fiona Friend' }]);
+    const anon = await seedPost(AU, 'everyone', true);
+    await seedComment(AU, anon, 1, 'the author speaks');
+    const rows = items((await listComments(app, X.header, anon)).body);
+    expect(rows).toHaveLength(1);
+    expect('author' in (rows[0] ?? {})).toBe(false);
+    expect(JSON.stringify(rows)).not.toContain('Adi Author');
   });
 });
 
