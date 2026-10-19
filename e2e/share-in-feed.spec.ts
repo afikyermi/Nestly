@@ -10,6 +10,7 @@ import { DESKTOP_1280, scan } from './support/journeys-stub';
 import { anonymous, named, pageOf, range, share } from './support/feed-stub';
 import type { Unit } from './support/feed-stub';
 import { id, originalOf, postView, setupShare, shareView } from './support/share-stub';
+import { DELETE_ITEM, chooseFromPostMenu } from './support/post-menu';
 import type { ShareNet } from './support/share-stub';
 import { bodyBox, choice, feedCards, feedStatus, openComposer, openFeedAt, publishButton } from './support/composer';
 import type { StoredPost } from './support/posts-stub';
@@ -403,14 +404,15 @@ test.describe('F3.5 c12 [AC-081] the share view on the post page', () => {
     await scan(page);
   });
 
-  test('[c12][c8] the sharer sees "מחיקה" and no "עריכה"; deleting keeps the F3.1b dialog and the status "הפוסט נמחק"', async ({ page }) => {
+  test('[c12][c8] the sharer sees "מחיקת הפוסט" in the "⋯" and no "עריכה" (ux-polish-b c3); deleting keeps the F3.1b dialog and the status "הפוסט נמחק"', async ({ page }) => {
     const net = await setupShare(page, () => pageOf([], null), { posts: [storedMine(5)] });
     net.views[id(5)] = shareView(5, original, { isMine: true, sharerText: 'שלי' });
     await startPost(page, net, id(5));
     const main = page.getByRole('main');
     await expect(main.getByRole('button', { name: 'עריכה', exact: true })).toHaveCount(0);
     await expect(main.getByRole('link', { name: 'עריכה', exact: true })).toHaveCount(0);
-    await main.getByRole('button', { name: 'מחיקה', exact: true }).click();
+    await expect(main.getByRole('button', { name: 'מחיקה', exact: true })).toHaveCount(0); // ux-polish-b c3: no visible "מחיקה" button
+    await chooseFromPostMenu(page, DELETE_ITEM);
     const dialog = page.getByRole('alertdialog', { name: 'למחוק את הפוסט?' });
     await expect(dialog).toBeVisible();
     await dialog.getByRole('button', { name: 'מחיקת הפוסט', exact: true }).click();

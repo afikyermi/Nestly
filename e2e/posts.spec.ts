@@ -10,6 +10,7 @@ import { DESKTOP, MOBILE } from './helpers';
 import { CORS, EMAIL, json, main, scan } from './support/journeys-stub';
 import { pageOf, range, setupFeed } from './support/feed-stub';
 import { MINE, OTHERS, POST_ID, setupPosts } from './support/posts-stub';
+import { DELETE_ITEM, EDIT_ITEM, chooseFromPostMenu, menuItem, postMore } from './support/post-menu';
 import { FAILED, PUBLISHED, acceptLeave, anonToggle, bodyBox, choice, composer, feedCards, feedStatus, openComposer, openFeedAt, publishButton, timeLinkOf } from './support/composer';
 
 test.use({ baseURL: APP });
@@ -208,18 +209,27 @@ test.describe('F3.1b c17 [FR-FEED-002 ERR-004] publishing (feed-composer c7, c10
   });
 });
 
-test.describe('F3.1b c18 [FR-FEED-002] the own-post page', () => {
+test.describe('F3.1b c18 [FR-FEED-002] the own-post page (author actions in the "⋯": ux-polish-b c3)', () => {
   test('[c18] the author sees "עריכה" and "מחיקה"; another person\'s post shows neither; a missing one shows the 404 text and link', async ({ page }) => {
     await setupPosts(page);
     await open(page, `/posts/${POST_ID}`);
     await expect(main(page).getByText('שאלה על שינה')).toBeVisible();
     await expect(page.getByRole('status').filter({ hasText: 'הפוסט פורסם' })).toHaveCount(0); // a status text only right after publishing
-    await expect(button(page, 'עריכה')).toBeVisible();
-    await expect(button(page, 'מחיקה')).toBeVisible();
+    // ux-polish-b c3 supersedes the visible buttons: the author's edit and delete are items of the post's "⋯"; no "עריכה" / "מחיקה" button remains.
+    await expect(button(page, 'עריכה')).toHaveCount(0);
+    await expect(button(page, 'מחיקה')).toHaveCount(0);
+    await postMore(page).click();
+    await expect(menuItem(page, EDIT_ITEM)).toBeVisible();
+    await expect(menuItem(page, DELETE_ITEM)).toBeVisible();
+    await page.keyboard.press('Escape');
     await page.goto(`/posts/${OTHERS.id}`);
     await expect(main(page).getByText('פוסט של מישהי אחרת')).toBeVisible();
     await expect(button(page, 'עריכה')).toHaveCount(0);
     await expect(button(page, 'מחיקה')).toHaveCount(0);
+    await postMore(page).click();
+    await expect(menuItem(page, EDIT_ITEM)).toHaveCount(0);
+    await expect(menuItem(page, DELETE_ITEM)).toHaveCount(0);
+    await page.keyboard.press('Escape');
     await page.goto('/posts/d0000000-0000-4000-8000-0000000000ff');
     await expect(main(page).getByText('הפוסט אינו זמין')).toBeVisible();
     await expect(page.getByRole('link', { name: 'חזרה לפיד' })).toHaveAttribute('href', '/feed');
@@ -237,7 +247,7 @@ test.describe('F3.1b c18 [FR-FEED-002] the own-post page', () => {
   test('[c18] edit opens the form prefilled without the name notice; cancel saves nothing; saving shows the update', async ({ page }) => {
     const net = await setupPosts(page);
     await open(page, `/posts/${POST_ID}`);
-    await button(page, 'עריכה').click();
+    await chooseFromPostMenu(page, EDIT_ITEM);
     const form = page.getByRole('form', { name: 'עריכת פוסט' });
     await expect(body(page)).toHaveValue('שאלה על שינה\nבשעות הלילה');
     await expect(page.getByRole('radio', { name: 'כולם' })).toBeChecked();
@@ -248,7 +258,7 @@ test.describe('F3.1b c18 [FR-FEED-002] the own-post page', () => {
     await expect(form).toHaveCount(0);
     expect(net.edits).toHaveLength(0);
     await expect(main(page).getByText('שאלה על שינה')).toBeVisible();
-    await button(page, 'עריכה').click();
+    await chooseFromPostMenu(page, EDIT_ITEM);
     await body(page).fill('הטקסט החדש');
     await choose(page, 'חברים בלבד');
     await choose(page, 'בלי תגית');
@@ -263,7 +273,7 @@ test.describe('F3.1b c18 [FR-FEED-002] the own-post page', () => {
     const net = await setupPosts(page);
     net.edit = 500;
     await open(page, `/posts/${POST_ID}`);
-    await button(page, 'עריכה').click();
+    await chooseFromPostMenu(page, EDIT_ITEM);
     await body(page).fill('נשאר');
     await button(page, 'שמירה').click();
     await expect(page.getByRole('alert').filter({ hasText: 'השמירה לא הצליחה. אפשר לנסות שוב' })).toBeVisible();
@@ -275,14 +285,14 @@ test.describe('F3.1b c18 [FR-FEED-002] the own-post page', () => {
       const net = await setupPosts(page);
       await open(page, `/posts/${POST_ID}`);
       await scan(page);
-      await button(page, 'מחיקה').click();
+      await chooseFromPostMenu(page, DELETE_ITEM);
       await expect(dialog(page)).toBeVisible();
       await expect(dialog(page)).toContainText('המחיקה מיידית ולצמיתות');
       await expect(dialog(page).getByRole('button', { name: 'ביטול', exact: true })).toBeFocused();
       await scan(page);
       await page.keyboard.press('Escape');
       await expect(dialog(page)).toHaveCount(0);
-      await button(page, 'מחיקה').click();
+      await chooseFromPostMenu(page, DELETE_ITEM);
       await dialog(page).getByRole('button', { name: 'ביטול', exact: true }).click();
       await expect(dialog(page)).toHaveCount(0);
       expect(net.deletes).toHaveLength(0);
@@ -293,7 +303,7 @@ test.describe('F3.1b c18 [FR-FEED-002] the own-post page', () => {
     const net = await setupPosts(page);
     net.remove = 500;
     await open(page, `/posts/${POST_ID}`);
-    await button(page, 'מחיקה').click();
+    await chooseFromPostMenu(page, DELETE_ITEM);
     await dialog(page).getByRole('button', { name: 'מחיקת הפוסט', exact: true }).click();
     await expect(page.getByRole('alert').filter({ hasText: 'המחיקה לא הצליחה. אפשר לנסות שוב' })).toBeVisible();
     await expect(dialog(page)).toBeVisible();

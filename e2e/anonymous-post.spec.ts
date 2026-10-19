@@ -11,6 +11,7 @@ import { pageOf, range, setupFeed } from './support/feed-stub';
 import { FAILED, acceptLeave, feedCards, feedStatus, openComposer, openFeedAt } from './support/composer';
 import { ANON_MINE, ANON_MINE_ID, ANON_OTHERS, ANON_OTHERS_ID, MINE, OTHERS, OTHERS_ID, POST_ID, setupPosts } from './support/posts-stub';
 import { setupComments, top } from './support/comments-stub';
+import { DELETE_ITEM, EDIT_ITEM, chooseFromPostMenu, menuItem, postMore } from './support/post-menu';
 import type { CommentsNet, StubTop } from './support/comments-stub';
 
 test.use({ baseURL: APP });
@@ -257,8 +258,13 @@ test.describe('F3.4 c12 [FR-FEED-005 r.1 AC-075] the post page of an anonymous p
     expect(await y(header)).toBeLessThan(await y(main(page).getByText('שאלה אנונימית שלי')));
     await expect(main(page).getByText(OWN_NOTE)).toBeVisible();
     await expect(main(page).getByText('מי יראה את הפוסט: כולם')).toBeVisible();
-    await expect(button(page, 'עריכה')).toBeVisible();
-    await expect(button(page, 'מחיקה')).toBeVisible();
+    // ux-polish-b c3 supersedes the visible buttons: the real author's edit and delete are items of the post's "⋯".
+    await expect(button(page, 'עריכה')).toHaveCount(0);
+    await expect(button(page, 'מחיקה')).toHaveCount(0);
+    await postMore(page).click();
+    await expect(menuItem(page, EDIT_ITEM)).toBeVisible();
+    await expect(menuItem(page, DELETE_ITEM)).toBeVisible();
+    await page.keyboard.press('Escape');
 
     await page.goto(`/posts/${ANON_OTHERS_ID}`);
     await expect(main(page).getByText('שאלה אנונימית של מישהי')).toBeVisible();
@@ -266,6 +272,10 @@ test.describe('F3.4 c12 [FR-FEED-005 r.1 AC-075] the post page of an anonymous p
     await expect(main(page).getByText(OWN_NOTE)).toHaveCount(0);
     await expect(button(page, 'עריכה')).toHaveCount(0);
     await expect(button(page, 'מחיקה')).toHaveCount(0);
+    await postMore(page).click();
+    await expect(menuItem(page, EDIT_ITEM)).toHaveCount(0);
+    await expect(menuItem(page, DELETE_ITEM)).toHaveCount(0);
+    await page.keyboard.press('Escape');
   });
 
   test('[c12] a named post (own or not) shows no "אנונימי" header and no own note', async ({ page }) => {
@@ -306,7 +316,7 @@ test.describe('F3.4 c13 [FR-FEED-005] editing an anonymous post', () => {
       await page.setViewportSize(viewport);
       const net = await setupPosts(page, { posts: [{ ...ANON_MINE }] });
       await open(page, `/posts/${ANON_MINE_ID}`);
-      await button(page, 'עריכה').click();
+      await chooseFromPostMenu(page, EDIT_ITEM);
       const form = page.getByRole('form', { name: 'עריכת פוסט' });
       await expect(form).toBeVisible();
       await expect(group(page)).toHaveCount(0);
@@ -331,7 +341,7 @@ test.describe('F3.4 c13 [FR-FEED-005] editing an anonymous post', () => {
   test('[c13] a named post\'s edit form is unchanged: the audience group, no fixed line, no checkbox', async ({ page }) => {
     await setupPosts(page, { posts: [{ ...MINE }] });
     await open(page, `/posts/${POST_ID}`);
-    await button(page, 'עריכה').click();
+    await chooseFromPostMenu(page, EDIT_ITEM);
     await expect(group(page)).toBeVisible();
     await expect(page.getByText(FIXED_LINE)).toHaveCount(0);
     await expect(page.getByRole('checkbox')).toHaveCount(0);
@@ -340,7 +350,7 @@ test.describe('F3.4 c13 [FR-FEED-005] editing an anonymous post', () => {
   test('[c13] a failed save (5xx, and 422 audience_not_allowed) keeps the form and the text with the save-failed alert, nothing technical', async ({ page }) => {
     const net = await setupPosts(page, { posts: [{ ...ANON_MINE }] });
     await open(page, `/posts/${ANON_MINE_ID}`);
-    await button(page, 'עריכה').click();
+    await chooseFromPostMenu(page, EDIT_ITEM);
     await body(page).fill('נשאר');
     for (const status of [500, 422] as const) {
       net.edit = status;
@@ -354,7 +364,9 @@ test.describe('F3.4 c13 [FR-FEED-005] editing an anonymous post', () => {
   test('[c13] keyboard only: the form is reachable and saves with Enter on "שמירה"', async ({ page }) => {
     const net = await setupPosts(page, { posts: [{ ...ANON_MINE }] });
     await open(page, `/posts/${ANON_MINE_ID}`);
-    await button(page, 'עריכה').focus();
+    await postMore(page).focus();
+    await page.keyboard.press('Enter');
+    await expect(menuItem(page, EDIT_ITEM)).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(body(page)).toBeVisible();
     await body(page).focus();

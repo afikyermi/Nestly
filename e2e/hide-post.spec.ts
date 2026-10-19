@@ -502,15 +502,7 @@ test.describe('F3.9 c13 [FR-FEED-002] own items', () => {
   const MINE = (): Unit[] => [named(1), named(2, { isMine: true }), named(3)];
   const OWN = (): StoredPost[] => [stored(2, { isMine: true })];
 
-  test('[c13] "עריכת הפוסט" opens /posts/:id with its edit form open', async ({ page }) => {
-    const net = await serverFeed(page, MINE(), { posts: OWN() });
-    await open(page, net);
-    await more(cards(page).nth(1)).click();
-    await item(page, EDIT).click();
-    await expect.poll(() => pathOf(page)).toBe(`/posts/${id(2)}`);
-    await expect(page.getByRole('form', { name: 'עריכת פוסט' })).toBeVisible();
-    await expect(page.getByRole('textbox', { name: 'מה תרצו לשתף?' })).toHaveValue('גוף הפוסט 2');
-  });
+  // [c13] "עריכת הפוסט" opening /posts/:id with its edit form is superseded by ux-polish-b c1: the edit opens in place on the card (e2e/ux-polish-b.spec.ts).
 
   test('[c13] "מחיקת הפוסט" opens the alertdialog "למחוק את הפוסט?" with its description and focus on "ביטול"; Esc and "ביטול" close it and focus returns to the button', async ({ page }) => {
     const net = await serverFeed(page, MINE(), { posts: OWN() });
