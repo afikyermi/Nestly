@@ -48,11 +48,32 @@ export function FeedScreen() {
   // the confirmation while its delete is in flight is not possible (the dialog stays).
   const [overlay, setOverlay] = useState<Overlay>(null);
   const saving = overlay?.kind === 'confirm' && overlay.saving;
-  const { leaveTo } = useBackCloses(overlay !== null, () => setOverlay((now) => (now?.kind === 'confirm' && now.saving ? now : null)));
+  // Back while the delete is in flight keeps the dialog (and the hook adds its entry again, so the next Back still closes it).
+  const { leaveTo, closingByPointer, followAfterClose } = useBackCloses(overlay !== null, () => {
+    if (saving) return false;
+    setOverlay(null);
+    return true;
+  });
   const confirmDelete = async (unitId: string) => {
     setOverlay({ kind: 'confirm', unitId, saving: true, failure: null });
     const result = await remove(unitId);
     setOverlay((now) => (now?.kind !== 'confirm' || now.unitId !== unitId ? now : result.ok ? null : { ...now, saving: false, failure: result.failure }));
+  };
+  // A press outside an open menu closes it. When the press is an in-app link (another card's time link, a navigation item), its click is
+  // held and replayed once the menu's history entry is gone, so the link is never undone and no dead entry stays under it.
+  const pressedOutside = (target: EventTarget | null) => {
+    closingByPointer();
+    const link = target instanceof Element ? target.closest('a[href]') : null;
+    if (!(link instanceof HTMLAnchorElement) || link.origin !== window.location.origin || link.target !== '') return;
+    const hold = (event: MouseEvent) => {
+      document.removeEventListener('click', hold, true);
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      if (!(event.target instanceof Node) || !link.contains(event.target)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      followAfterClose(`${link.pathname}${link.search}${link.hash}`);
+    };
+    document.addEventListener('click', hold, true);
   };
   const actionsFor = (unit: FeedUnit): MoreActionsItem[] =>
     unit.isMine
@@ -108,6 +129,7 @@ export function FeedScreen() {
           onUndoHide={undoHide}
           headingRef={headingRef}
           openMenuId={overlay?.kind === 'menu' ? overlay.unitId : null}
+          onMenuPressOutside={pressedOutside}
           onMenuOpenChange={(unitId, open) =>
             setOverlay((now) => (open ? { kind: 'menu', unitId } : now?.kind === 'menu' && now.unitId === unitId ? null : now))
           }

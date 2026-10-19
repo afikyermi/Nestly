@@ -53,6 +53,8 @@ export interface FeedCardProps {
   /** Controlled menu: open, and the change it asks for (the screen closes it on Back too). Unset: the menu keeps its own state. */
   menuOpen?: boolean;
   onMenuOpenChange?: (open: boolean) => void;
+  /** A press outside the open menu closed it. */
+  onMenuPressOutside?: (target: EventTarget | null) => void;
 }
 
 // One unit of the feed (F3.2b c14-c17; F3.3 c13): a post, an anonymous post (only "אנונימי": no name, avatar or link) or a share with its
@@ -61,7 +63,7 @@ export interface FeedCardProps {
 // beside the author line by flex order. The card is a tab stop so a screen reader's feed navigation can reach it; its name is its author
 // line. The text is the user's own, so it is plain text (never markup). F3.9 c8: the card ends with the "more actions" menu, last in the
 // tab order; its items come in as actions.
-export function FeedCard({ unit, position, onToggleLike, actions = [], menuOpen, onMenuOpenChange }: FeedCardProps) {
+export function FeedCard({ unit, position, onToggleLike, actions = [], menuOpen, onMenuOpenChange, onMenuPressOutside }: FeedCardProps) {
   const authorId = useId();
   const author = unit.isAnonymous ? ANONYMOUS_AUTHOR_LABEL : (unit.author.name ?? MEMBER_FALLBACK_LABEL);
   return (
@@ -118,6 +120,7 @@ export function FeedCard({ unit, position, onToggleLike, actions = [], menuOpen,
             items={actions}
             {...(menuOpen === undefined ? {} : { open: menuOpen })}
             {...(onMenuOpenChange === undefined ? {} : { onOpenChange: onMenuOpenChange })}
+            {...(onMenuPressOutside === undefined ? {} : { onPressOutside: onMenuPressOutside })}
           />
         </div>
       )}

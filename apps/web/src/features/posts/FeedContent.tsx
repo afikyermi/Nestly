@@ -30,6 +30,8 @@ export interface FeedContentProps {
   /** The card whose menu is open (one at a time; the screen also closes it on Back), and the change a menu asks for. */
   openMenuId?: string | null;
   onMenuOpenChange?: (unitId: string, open: boolean) => void;
+  /** A press outside an open menu closed it (the press may be a link: the screen must not undo it). */
+  onMenuPressOutside?: (target: EventTarget | null) => void;
   /** The delete confirmation of the viewer's own card (F3.9 c13), open while set. */
   confirm?: { unitId: string; saving: boolean; failure: string | null } | null;
   onConfirmDelete?: () => void;
@@ -69,7 +71,7 @@ function SkeletonCards() {
 // F3.9: a card the viewer hid here is drawn as its placeholder in the same place; after a hide or an undo, focus goes where hideFocus says.
 export function FeedContent(props: FeedContentProps) {
   const { state, emptyAction, sentinelRef, onRetry, onToggleLike, actionsFor, onUndoHide, headingRef, openMenuId = null, onMenuOpenChange } = props;
-  const { confirm = null, onConfirmDelete, onCancelDelete } = props;
+  const { confirm = null, onConfirmDelete, onCancelDelete, onMenuPressOutside } = props;
   const { phase, loading, items, message, focusIndex, hiddenIds, pendingHideIds, hideFocus } = state;
   const listRef = useRef<HTMLDivElement>(null);
   const latestFocus = useRef(hideFocus);
@@ -141,6 +143,7 @@ export function FeedContent(props: FeedContentProps) {
               {...(actionsFor === undefined ? {} : { actions: actionsFor(unit) })}
               menuOpen={openMenuId === unit.id}
               {...(onMenuOpenChange === undefined ? {} : { onMenuOpenChange: (open: boolean) => onMenuOpenChange(unit.id, open) })}
+              {...(onMenuPressOutside === undefined ? {} : { onMenuPressOutside })}
             />
           ),
         )}

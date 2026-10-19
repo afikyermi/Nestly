@@ -24,6 +24,8 @@ export interface MoreActionsMenuProps {
   /** Controlled: whether the menu is open, and the change it asks for (the caller may close it on Back as well). */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** A press outside the open menu, which closes it, with what was pressed (it may be a link). */
+  onPressOutside?: (target: EventTarget | null) => void;
 }
 
 // An icon button that opens a short menu of actions on one thing (F3.9 c8; the menu F3.7 extends). Radix gives the menu pattern:
@@ -32,7 +34,7 @@ export interface MoreActionsMenuProps {
 // landmarks stay valid while the menu is open; the menu is not portaled, so it stays inside the page's landmarks too. Display only: what
 // each item does comes in as onSelect. The button carries `data-more-actions` so a screen can return focus to it after an action. Button
 // and items are at least 44×44 px.
-export function MoreActionsMenu({ label, menuLabel, items, defaultOpen = false, open, onOpenChange }: MoreActionsMenuProps) {
+export function MoreActionsMenu({ label, menuLabel, items, defaultOpen = false, open, onOpenChange, onPressOutside }: MoreActionsMenuProps) {
   const menuNameId = useId();
   const buttonRef = useRef<HTMLButtonElement>(null);
   return (
@@ -52,6 +54,7 @@ export function MoreActionsMenu({ label, menuLabel, items, defaultOpen = false, 
       </Tooltip>
       <DropdownMenu.Content
         aria-labelledby={menuNameId}
+        onPointerDownOutside={(event) => onPressOutside?.(event.detail.originalEvent.target)}
         onCloseAutoFocus={(event) => {
           // Every close returns focus to the button, an outside click included (a non-modal menu would leave it where the click went).
           event.preventDefault();
