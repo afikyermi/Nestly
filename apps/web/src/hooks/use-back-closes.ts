@@ -166,14 +166,15 @@ export function useBackCloses(open: boolean, onBack: () => boolean): BackCloses 
     (path: string) => {
       cancelSettling();
       byPointer.current = false;
+      const { pathname, search, hash } = here.current;
+      const sameScreen = path === `${pathname}${search}${hash}`;
       if (stepping.current) {
-        // The overlay entry is already being taken back: open the link once that has landed.
-        pending.current = path;
+        // The overlay entry is already being taken back: open the link once that has landed (not when it is this very screen).
+        if (!sameScreen) pending.current = path;
       } else if (pushed.current || isOverlayState(here.current.state)) {
         hold(false);
-        const { pathname, search, hash } = here.current;
         // The screen already open (the navigation's own item, with a menu open): the overlay entry goes and nothing is added in its place.
-        if (path !== `${pathname}${search}${hash}`) pending.current = path;
+        if (!sameScreen) pending.current = path;
         stepBack();
       } else void navigate(path);
     },
