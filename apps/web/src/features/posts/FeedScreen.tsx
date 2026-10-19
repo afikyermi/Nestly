@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { ShellActionBarContext } from '@/components/layout/app-shell';
 import { postLinkOf, shareTargetOf, type FeedUnit, type PostView } from '@nestly/shared';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { shareLinkSheetProps, useShareLink } from '@/hooks/use-share-link';
@@ -77,6 +79,7 @@ export function FeedScreen() {
     setPublished(true);
     setCardFocus((tick) => tick + 1);
   };
+  const actionBar = useContext(ShellActionBarContext);
   const { far, toTop } = useFeedScroll(rootRef, restoredScroll, right !== 'checking' && own.kind !== 'loading');
   toTopRef.current = toTop;
   const sentinelRef =useSentinel(state.phase === 'ready' && !state.loading && state.nextCursor !== null, loadMore);
@@ -236,20 +239,22 @@ export function FeedScreen() {
       {/* One fixed place, before the list or the empty state: a form sending a post survives the feed changing phase. */}
       {write}
       {content}
-      {far ? (
-        <div className="sticky bottom-4 mt-4 flex justify-end">
-          <Button
-            variant="soft"
-            className="shadow-card"
-            onClick={() => {
-              toTop();
-              headingRef.current?.focus();
-            }}
-          >
-            {TO_TOP_LABEL}
-          </Button>
-        </div>
-      ) : null}
+      {/* F3.2b c20: in the shell's action bar (never over a card's controls), only after a long scroll. */}
+      {far && actionBar !== null
+        ? createPortal(
+            <Button
+              variant="soft"
+              className="shadow-card"
+              onClick={() => {
+                toTop();
+                headingRef.current?.focus();
+              }}
+            >
+              {TO_TOP_LABEL}
+            </Button>,
+            actionBar,
+          )
+        : null}
     </div>
   );
 }

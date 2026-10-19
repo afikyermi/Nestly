@@ -1,8 +1,15 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { createContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/cn';
 import { BottomNavigation, type BottomNavigationProps } from '../shared/bottom-navigation';
 import { SideDrawer } from '../shared/side-drawer';
 import { TopBar } from '../shared/top-bar';
+
+/**
+ * The shell's action bar: an element a screen may portal one floating action into ("חזרה למעלה", F3.2b c20). Below 1024 it is a row of its own
+ * between `main` and the bottom bar, so it never covers anything in `main`; from 1024 it sits in the inline-end corner, beside the centred
+ * column. Empty, it takes no space. Null outside a shell.
+ */
+export const ShellActionBarContext = createContext<HTMLElement | null>(null);
 
 export interface AppShellProps {
   /** The page, rendered inside `main`. */
@@ -48,6 +55,7 @@ export function AppShell({
   className,
 }: AppShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [actionBar, setActionBar] = useState<HTMLDivElement | null>(null);
   const mainRef = useRef<HTMLElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   // Set by closeMenu, read when the drawer closes: Escape, the close control and the backdrop keep
@@ -122,8 +130,9 @@ export function AppShell({
           tabIndex={-1}
           className="min-h-0 min-w-0 flex-1 scroll-py-4 overflow-y-auto px-4 py-5 print:overflow-visible lg:mx-auto lg:max-w-2xl lg:overflow-visible lg:px-0"
         >
-          {children}
+          <ShellActionBarContext value={actionBar}>{children}</ShellActionBarContext>
         </main>
+        <div ref={setActionBar} className="flex justify-end px-4 py-2 empty:hidden lg:fixed lg:end-6 lg:bottom-6 lg:z-sticky lg:p-0" />
       </div>
       <SideDrawer
         open={drawerOpen}
