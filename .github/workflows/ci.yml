@@ -155,8 +155,9 @@ jobs:
       - run: npm run build-storybook
 
   # Playwright on Chrome against the built gallery and the e2e app build, on every pull request and push: desktop and
-  # phone (the specs set their own viewports) and the blocking visual regression (e2e/visual-screens.ts). Three shards in
-  # parallel (decisions.md, 2026-10-14 "Speed-up"; two shards until the suite passed ~2,100 tests, 17.10.2026). Playwright splits
+  # phone (the specs set their own viewports) and the blocking visual regression (e2e/visual-screens.ts). Five shards in
+  # parallel (decisions.md, 2026-10-14 "Speed-up"; two shards until the suite passed ~2,100 tests, 17.10.2026; three until 19.10.2026,
+  # decisions/2026-10.md "Merge and local-test throughput"). The suite runs on e2e stubs only, and every shard is its own runner. Playwright splits
   # shards by test count in file order and keeps a non-parallel file in one worker; e2e/a11y.spec.ts (6-10 minutes) is parallel
   # since P3, so its tests share the shard's workers. Timeouts by test type and the CI globalTimeout, two minutes or more under
   # timeout-minutes: playwright.config.ts, guarded by tools/ci-browser.test.mjs. Edge is `browser-edge` below
@@ -170,7 +171,7 @@ jobs:
       fail-fast: false
       matrix:
         project: [chrome]
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -191,7 +192,7 @@ jobs:
       # Only this job's browser; Edge is installed in `browser-edge`.
       - run: npx playwright install --with-deps chrome
       - run: npm run build-storybook
-      - run: npx playwright test --project=${{ matrix.project }} --shard=${{ matrix.shard }}/3
+      - run: npx playwright test --project=${{ matrix.project }} --shard=${{ matrix.shard }}/5
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:

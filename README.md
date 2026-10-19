@@ -56,7 +56,8 @@ nestly/
 2. `node tools/db-local.mjs test` — מקים מסד חד-פעמי מאותו image, מריץ את קובצי ההקמה של ה-job ‏`db` ב-CI באותו סדר
    (כולל בדיקת ה-anchor FK), מריץ `npm run test:db` ומוחק את הקונטיינר. בפעם הראשונה הוא מוריד את ה-image ואת
    ה-Supabase CLI הנעול (כמה דקות).
-3. `--keep` משאיר את הקונטיינר רץ (127.0.0.1:54322); `node tools/db-local.mjs down` מוחק אותו. אם נשאר קונטיינר (Ctrl-C), ההרצה הבאה או `down` מוחקות אותו.
+3. `--keep` משאיר את הקונטיינר רץ (127.0.0.1, ביציאה מהטווח 54400–54899 שנגזרת מנתיב ה-checkout; שם הקונטיינר `nestly-local-db-<8 תווים>` נגזר מאותו נתיב, כך ששני checkouts או worktrees לא מתנגשים); `node tools/db-local.mjs down` מוחק רק את הקונטיינר של ה-checkout הזה. אם נשאר קונטיינר (Ctrl-C), ההרצה הבאה או `down` מוחקות אותו.
+4. `node tools/db-local.mjs pgtap [קבצים…]` — מקים את אותו מסד ומריץ את קובצי ה-pgTAP כמו שלב ה-pg_prove ב-CI (כ-`app_server`, ‏`search_path=pgtap,tests`); בלי קבצים — כולם, בסדר שמות. קוד יציאה שונה מ-0 על `not ok`, על אי-התאמה בין התכנית לספירה או על שגיאה.
 
 **זה לא ה-CI כולו.** השערים האחרים של ה-job לא רצים כאן: up→down→up של המיגרציה האחרונה, push שני בלי שינוי,
 בדיקת האטומיות, הרצה שנייה של שלב 2, בדיקת ה-drift של Drizzle, ה-fire checks של שער ה-RLS, שער ה-RLS כ-app_server,
