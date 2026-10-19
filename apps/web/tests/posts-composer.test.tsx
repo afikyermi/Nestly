@@ -222,3 +222,112 @@ describe('F3.1b c16 [NFR-A11Y-001 VAL] composer accessibility', () => {
     expect(createPost).toHaveBeenCalledWith('tok', { body: 'שלום', audience: 'everyone', stageTag: null });
   });
 });
+
+// F3.4 c11 (.work/anonymous-post/spec.md, screen.md "Composer"): the logic half. The visible half (notice swap, focus, keyboard, axe) is e2e/anonymous-post.spec.ts.
+describe('F3.4 c11 [FR-FEED-005 r.1 r.3] the anonymous toggle: payload and what is remembered', () => {
+  const GROUP = 'מי יראה את הפוסט';
+  const toggle = () => screen.getByRole('checkbox', { name: 'פרסום אנונימי' });
+  /** The second argument of the first createPost call, as a plain record. */
+  const sentPayload = (): Record<string, unknown> => {
+    const call: unknown[] = createPost.mock.calls[0] ?? [];
+    const sent = call[1];
+    return typeof sent === 'object' && sent !== null ? Object.fromEntries(Object.entries(sent)) : {};
+  };
+
+  it('[c11] the toggle is unchecked on open; checking it removes the audience group, unchecking brings it back on the earlier choice', async () => {
+    mount(memoryStorage());
+    await screen.findByRole('radiogroup', { name: GROUP });
+    expect(toggle()).toHaveProperty('checked', false);
+    await userEvent.click(friends());
+    await userEvent.click(toggle());
+    expect(toggle()).toHaveProperty('checked', true);
+    expect(screen.queryByRole('radiogroup', { name: GROUP })).toBeNull();
+    await userEvent.click(toggle());
+    expect(screen.getByRole('radiogroup', { name: GROUP })).toBeTruthy();
+    expect(friends()).toHaveProperty('checked', true);
+  });
+
+  it('[c11] checked: the request carries isAnonymous:true and audience "everyone" (even after "חברים בלבד" was picked first), nothing else about the author', async () => {
+    createPost.mockResolvedValue({ kind: 'post', post: { ...published, isAnonymous: true } });
+    mount(memoryStorage());
+    await screen.findByRole('radiogroup', { name: GROUP });
+    type('שאלה רגישה');
+    await userEvent.click(friends());
+    await userEvent.click(toggle());
+    await userEvent.click(publish());
+    await screen.findByText('post page');
+    expect(createPost).toHaveBeenCalledTimes(1);
+    expect(createPost).toHaveBeenCalledWith('tok', expect.objectContaining({ body: 'שאלה רגישה', audience: 'everyone', isAnonymous: true }));
+    expect(Object.keys(sentPayload()).filter((k) => /author|user|name|email/i.test(k))).toEqual([]);
+  });
+
+  it('[c11] an anonymous post leaves the remembered audience untouched and writes no anonymity flag; the next composer opens unchecked on the earlier choice', async () => {
+    const storage = memoryStorage();
+    // A real "חברים בלבד" post makes the product's own entry; the anonymous post after it must change nothing.
+    createPost.mockResolvedValue({ kind: 'post', post: { ...published, audience: 'friends' } });
+    const first = mount(storage);
+    await screen.findByRole('radiogroup', { name: GROUP });
+    type('ראשון');
+    await userEvent.click(friends());
+    await userEvent.click(publish());
+    await screen.findByText('post page');
+    first.unmount();
+    const entries = stored(storage);
+    expect(entries).toHaveLength(1);
+
+    createPost.mockResolvedValue({ kind: 'post', post: { ...published, isAnonymous: true } });
+    const second = mount(storage);
+    await screen.findByRole('radiogroup', { name: GROUP });
+    expect(friends()).toHaveProperty('checked', true);
+    type('שני');
+    await userEvent.click(toggle());
+    await userEvent.click(publish());
+    await screen.findByText('post page');
+    second.unmount();
+    expect(stored(storage)).toEqual(entries);
+
+    mount(storage);
+    await screen.findByRole('radiogroup', { name: GROUP });
+    expect(toggle()).toHaveProperty('checked', false);
+    expect(friends()).toHaveProperty('checked', true);
+  });
+
+  it('[c11] an anonymous post as the first one ever stores nothing at all', async () => {
+    const storage = memoryStorage();
+    createPost.mockResolvedValue({ kind: 'post', post: { ...published, isAnonymous: true } });
+    mount(storage);
+    await screen.findByRole('radiogroup', { name: GROUP });
+    type('שלום');
+    await userEvent.click(toggle());
+    await userEvent.click(publish());
+    await screen.findByText('post page');
+    expect(stored(storage)).toEqual([]);
+  });
+
+  it('[c11] a named post does not send isAnonymous:true', async () => {
+    createPost.mockResolvedValue({ kind: 'post', post: published });
+    mount(memoryStorage());
+    await screen.findByRole('radiogroup', { name: GROUP });
+    type('שלום');
+    await userEvent.click(toggle());
+    await userEvent.click(toggle());
+    await userEvent.click(publish());
+    await screen.findByText('post page');
+    const sent = sentPayload();
+    expect(sent.isAnonymous ?? false).toBe(false);
+    expect(sent.audience).toBe('everyone');
+  });
+
+  it('[c11] a failed anonymous post keeps the text and the toggle checked (the F3.1b alert, choices kept)', async () => {
+    createPost.mockResolvedValue({ kind: 'failed' });
+    mount(memoryStorage());
+    await screen.findByRole('radiogroup', { name: GROUP });
+    type('הטקסט שלי');
+    await userEvent.click(toggle());
+    await userEvent.click(publish());
+    await screen.findByRole('alert');
+    expect(text()).toHaveProperty('value', 'הטקסט שלי');
+    expect(toggle()).toHaveProperty('checked', true);
+    expect(screen.queryByRole('radiogroup', { name: GROUP })).toBeNull();
+  });
+});

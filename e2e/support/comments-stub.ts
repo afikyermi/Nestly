@@ -5,6 +5,7 @@
 import type { Page, Route } from '@playwright/test';
 import { CORS, NOW, json } from './journeys-stub';
 import { OTHERS_ID, setupPosts } from './posts-stub';
+import type { StoredPost } from './posts-stub';
 
 export interface StubComment {
   id: string;
@@ -68,7 +69,7 @@ const asRecord = (text: string | null): Record<string, unknown> => {
 };
 const failWith = (route: Route, f: Exclude<Fail, null>) => (f === 'abort' ? route.abort('connectionreset') : json(route, f, { error: 'server_error' }));
 
-export async function setupComments(page: Page, tops: StubTop[] = [], opts: { professional?: boolean } = {}): Promise<CommentsNet> {
+export async function setupComments(page: Page, tops: StubTop[] = [], opts: { professional?: boolean; posts?: StoredPost[]; /** F3.4 c14: the caller is the real author of an anonymous post; the server answers her comment as "המחבר" (byAuthor, no author). */ anonymousAuthor?: boolean } = {}): Promise<CommentsNet> {
   const net: CommentsNet = {
     tops,
     post: { likeCount: 0, likedByMe: false },
@@ -88,12 +89,12 @@ export async function setupComments(page: Page, tops: StubTop[] = [], opts: { pr
     net.stray.push(`${route.request().method()} ${new URL(route.request().url()).pathname}`);
     return json(route, 404, { error: 'unstubbed' });
   });
-  await setupPosts(page, opts.professional === true ? { professional: true } : {});
+  await setupPosts(page, { ...(opts.professional === true ? { professional: true } : {}), ...(opts.posts === undefined ? {} : { posts: opts.posts }) });
   await page.route(/\/api\/posts\/[^/?]+(\?.*)?$/, async (route) => {
     const req = route.request();
     if (req.method() !== 'GET' || !req.url().includes(OTHERS_ID)) return route.fallback();
     if (net.read !== 200) return json(route, net.read, { error: 'not_found' });
-    return json(route, 200, { id: OTHERS_ID, body: 'פוסט של מישהי אחרת', audience: 'everyone', stageTag: null, createdAt: '2026-06-14T09:00:00.000Z', isMine: false, ...net.post, commentCount: net.tops.length });
+    return json(route, 200, { id: OTHERS_ID, body: 'פוסט של מישהי אחרת', audience: 'everyone', stageTag: null, createdAt: '2026-06-14T09:00:00.000Z', isMine: false, isAnonymous: false, ...net.post, commentCount: net.tops.length });
   });
   await page.route(/\/api\/posts\/[^/?]+\/comments(\?.*)?$/, async (route) => {
     const req = route.request();
@@ -115,7 +116,12 @@ export async function setupComments(page: Page, tops: StubTop[] = [], opts: { pr
     if (net.holdSend !== null) await net.holdSend;
     if (net.fail.send !== null) return failWith(route, net.fail.send);
     const parent = net.tops.find((t) => t.id === sent.parentId);
-    const made = comment(500 + net.sends.length, String(sent.body).trim(), { parentId: parent?.id ?? null, isMine: true, author: { name: 'דנה כהן' }, createdAt: NOW.toISOString() });
+    const made = comment(500 + net.sends.length, String(sent.body).trim(), {
+      parentId: parent?.id ?? null,
+      isMine: true,
+      createdAt: NOW.toISOString(),
+      ...(opts.anonymousAuthor === true ? { byAuthor: true, author: undefined } : { author: { name: 'דנה כהן' } }),
+    });
     if (parent === undefined) net.tops.push({ ...made, all: [] });
     else parent.all.push(made);
     return json(route, 201, { comment: view(made) });

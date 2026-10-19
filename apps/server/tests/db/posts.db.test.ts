@@ -119,8 +119,8 @@ describe('[F3.1-a c3 FR-FEED-002] POST /posts', () => {
     const res = await createPost(app, hA, { body: '  שאלה לכולן 😀  ', audience: 'everyone' });
     expect(res.statusCode, res.body).toBe(201);
     const out = jsonObject(res.body);
-    expect(Object.keys(out).sort()).toEqual(['audience', 'body', 'createdAt', 'id', 'stageTag']);
-    expect(out).toMatchObject({ body: 'שאלה לכולן 😀', audience: 'everyone', stageTag: null });
+    expect(Object.keys(out).sort()).toEqual(['audience', 'body', 'createdAt', 'id', 'isAnonymous', 'stageTag']); // F3.4 c2 amends F3.1 c3: a named post's 201 gains isAnonymous:false
+    expect(out).toMatchObject({ body: 'שאלה לכולן 😀', audience: 'everyone', stageTag: null, isAnonymous: false });
     expect(Number.isNaN(Date.parse(String(out.createdAt)))).toBe(false);
     expect(await stateOf(String(out.id))).toBe(`status=active aud=everyone anon=f author=${ACCOUNT_A} tag=null share=f body=שאלה לכולן 😀`);
   });
@@ -141,9 +141,9 @@ describe('[F3.1-a c3 FR-FEED-002] POST /posts', () => {
     expect(await postCount()).toBe(1);
   });
 
-  it('[F3.1-a c2] a forbidden key (isAnonymous, authorId, status, sharedPostId, id) is a 400 and writes no row', T, async () => {
+  it('[F3.1-a c2] a forbidden key (authorId, status, sharedPostId, id) is a 400 and writes no row', T, async () => {
     const app = await start();
-    for (const extra of [{ isAnonymous: true }, { isAnonymous: false }, { authorId: ACCOUNT_B }, { status: 'removed' }, { sharedPostId: NOBODY }, { id: NOBODY }]) {
+    for (const extra of [{ authorId: ACCOUNT_B }, { status: 'removed' }, { sharedPostId: NOBODY }, { id: NOBODY }]) { // F3.4 c1: isAnonymous is valid on create now
       const res = await createPost(app, hA, { body: 'x', audience: 'everyone', ...extra });
       expect(res.statusCode, `${JSON.stringify(extra)}: ${res.body}`).toBe(400);
     }
