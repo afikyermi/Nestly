@@ -11,7 +11,7 @@ import { putLike } from '../helpers/likes-api.js';
 
 // I3 F3.4 (.work/anonymous-post/spec.md), the server half against the real database under RLS (CI `db` job, as app_server): criteria c2, c3, c4, c6, c7, c8.
 // c1 is packages/shared/tests/post-create.test.ts, c3's 23514 mapping is apps/server/tests/posts-errors.test.ts, c5 the two *.static.test.ts files.
-// Criteria c9 (pgTAP) and c10 (Q7 names) wait for the regular_names policy (schema PR-A2) and are not here. Expected values come from the spec only.
+// Criterion c9 (pgTAP) is supabase/tests/81_feed_commenter_names.sql; c10 (Q7 names) is apps/server/tests/db/comments.db.test.ts "[F3.4 c10 Q7 B]". Expected values come from the spec only.
 // Fixture rows are committed through `side.begin`; every test starts and ends with tests.fx_feed_clear().
 
 const T = { timeout: COLD_START_MS };
