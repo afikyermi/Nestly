@@ -1,5 +1,6 @@
 import { useContext, useEffect, useRef, type ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router';
+import { forgetDraft } from '@/features/posts/compose-draft';
 import { forgetFeed } from '@/features/posts/feed-memory';
 import { CurrentReturnContext, ReturnTargetContext } from '@/hooks/use-return-target';
 import { useSession } from '@/hooks/use-session';
@@ -36,6 +37,7 @@ export function RouteGuard({ children }: { children: ReactNode }) {
     else if (state === 'signed-out' && hadSession.current) {
       forgetReturnTarget(storage);
       forgetFeed();
+      forgetDraft();
     }
   }, [state, storage]);
   if (decision.kind === 'loading') return <SessionLoading />;

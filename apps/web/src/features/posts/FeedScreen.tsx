@@ -1,15 +1,18 @@
-import { useRef, useState } from 'react';
-import type { FeedUnit } from '@nestly/shared';
+import { useEffect, useRef, useState } from 'react';
+import type { FeedUnit, PostView } from '@nestly/shared';
 import type { MoreActionsItem } from '@/components/ui/more-actions-menu';
 import { useBackCloses } from '@/hooks/use-back-closes';
 import { postPath } from '@/lib/post-link';
 import { PATHS } from '@/app/paths';
 import { Button } from '@/components/ui/button';
 import { handOverEdit, takeStatus } from './flash-status';
-import { CHECKING_TEXT, CONFIRM_DELETE_LABEL, DELETED_STATUS, FEED_TITLE } from './posts-texts';
+import { CHECKING_TEXT, CONFIRM_DELETE_LABEL, DELETED_STATUS, FEED_TITLE, PUBLISHED_STATUS } from './posts-texts';
 import { EDIT_ITEM_LABEL, HIDE_LABEL } from './hide-texts';
-import { WritePostButton } from './WritePostButton';
-import { usePostingRight } from '@/hooks/use-posting-right';
+import { FeedComposer } from './FeedComposer';
+import { takeComposerRequest } from './compose-draft';
+import { publishedUnit } from './post-unit';
+import { useOwnUserId } from '@/hooks/use-own-user-id';
+import { usePostingProfile } from '@/hooks/use-posting-right';
 import { cn } from '@/lib/cn';
 import { PLACEHOLDER_TEXT } from '@/pages/placeholder/placeholder-text';
 import { FeedContent } from './FeedContent';
@@ -21,26 +24,50 @@ import { useSentinel } from './use-sentinel';
 /** What is open over the feed: one card's menu, or its delete confirmation (with its request state). */
 type Overlay = { kind: 'menu'; unitId: string } | { kind: 'confirm'; unitId: string; saving: boolean; failure: string | null } | null;
 
-// The feed screen of a Regular account (FR-FEED-001; F3.2b, F3.1b): the heading, one polite region, "כתיבת פוסט", and the cards in the
-// server's order with infinite scroll. A Professional keeps the placeholder line and no list. A post just deleted leaves "הפוסט נמחק"
-// here, handed over in memory, once. Every card has a "⋯" menu (F3.9): edit and delete on the viewer's own named card, else hide (with
-// undo in place). The posting right only decides the button and the placeholder; the server decides who has a feed.
-
+// The feed screen of a Regular account (FR-FEED-001; F3.2b, feed-composer): the heading, one polite region, the composer (always open), and
+// the cards in the server's order with infinite scroll. A Professional keeps the placeholder line and no list. A post just deleted leaves
+// "הפוסט נמחק" here, handed over in memory, once. Every card has a "⋯" menu (F3.9): edit and delete on the viewer's own named card, else hide
+// (with undo in place). The posting right only decides the composer and the placeholder; the server decides who has a feed.
 export function FeedScreen() {
-  const right = usePostingRight();
+  const { right, fullName } = usePostingProfile();
+  const own = useOwnUserId();
   const professional = right === 'not-allowed';
   const rootRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const toTopRef = useRef<() => void>(() => undefined);
   // A new snapshot replaces the list: focus that was inside it would drop to the page, so it goes to the heading, at the top.
-  const { state, loadMore, retry, toggleLike, hide, undoHide, remove, restoredScroll } = useFeed(() => {
+  const { state, loadMore, retry, toggleLike, hide, undoHide, remove, addPublished, restoredScroll } = useFeed(() => {
     if (rootRef.current?.querySelector('[role="feed"]')?.contains(document.activeElement) !== true) return;
     headingRef.current?.focus();
     toTopRef.current();
   });
   // Taken once: Back or a reload does not say it again.
   const [deleted] = useState(() => takeStatus(PATHS.feed, DELETED_STATUS));
-  const { far, toTop } = useFeedScroll(rootRef, restoredScroll, right !== 'checking');
+  // The composer: focus in the text when /posts/new sent here (taken once, so a reload shows it idle). A success moves focus to the new
+  // card (D6). "הפוסט פורסם" is this visit's only: Back and reload do not repeat it.
+  const [focusText] = useState(() => takeComposerRequest());
+  const [published, setPublished] = useState(false);
+  const [cardFocus, setCardFocus] = useState(0);
+  useEffect(() => {
+    if (cardFocus === 0) return;
+    // No list yet (the first page has not come): focus goes to the heading, not to the page.
+    (rootRef.current?.querySelector<HTMLElement>('[role="feed"] article') ?? headingRef.current)?.focus();
+  }, [cardFocus]);
+  // A post sent while the first page had failed leaves focus on the heading, also after the retry brought the list (c9).
+  const headingAfterRetry = useRef(false);
+  useEffect(() => {
+    if (headingAfterRetry.current && state.phase === 'ready') {
+      headingAfterRetry.current = false;
+      headingRef.current?.focus();
+    }
+  }, [state.phase]);
+  const onPublished = (post: PostView) => {
+    headingAfterRetry.current = state.phase === 'first-error';
+    addPublished(publishedUnit(post, fullName));
+    setPublished(true);
+    setCardFocus((tick) => tick + 1);
+  };
+  const { far, toTop } = useFeedScroll(rootRef, restoredScroll, right !== 'checking' && own.kind !== 'loading');
   toTopRef.current = toTop;
   const sentinelRef =useSentinel(state.phase === 'ready' && !state.loading && state.nextCursor !== null, loadMore);
 
@@ -102,11 +129,40 @@ export function FeedScreen() {
   // A hide or an undo (F3.9): what happened, in the same region; the tick makes two equal texts in a row speak again.
   const hidden = state.hideStatus === '' ? '' : state.hideStatus + (state.hideStatusTick % 2 === 0 ? ' ' : '');
   const action = failedLike !== '' ? failedLike : hidden;
-  const status = right === 'checking' ? CHECKING_TEXT : action !== '' ? action : loaded !== '' ? loaded : deleted;
-  const visible = right === 'checking' ? deleted !== '' : action !== '' || (loaded === '' && deleted !== '');
+  const status = right === 'checking' ? CHECKING_TEXT : action !== '' ? action : loaded !== '' ? loaded : published ? PUBLISHED_STATUS : deleted;
+  const visible = right === 'checking' ? deleted !== '' : action !== '' || (loaded === '' && (published || deleted !== ''));
   const none = professional || state.phase === 'blocked';
-  const empty = state.phase === 'ready' && state.items.length === 0;
-  const write = <WritePostButton right={right} />;
+  const content = none ? null : (
+    <FeedContent
+      state={state}
+      sentinelRef={sentinelRef}
+      onRetry={retry}
+      onToggleLike={toggleLike}
+      actionsFor={actionsFor}
+      onUndoHide={undoHide}
+      headingRef={headingRef}
+      openMenuId={overlay?.kind === 'menu' ? overlay.unitId : null}
+      onMenuPressOutside={pressedOutside}
+      onMenuOpenChange={(unitId, open) =>
+        setOverlay((now) => (open ? { kind: 'menu', unitId } : now?.kind === 'menu' && now.unitId === unitId ? null : now))
+      }
+      confirm={overlay?.kind === 'confirm' ? overlay : null}
+      onConfirmDelete={() => {
+        if (overlay?.kind === 'confirm' && !saving) void confirmDelete(overlay.unitId);
+      }}
+      onCancelDelete={() => {
+        if (!saving) setOverlay(null);
+      }}
+    />
+  );
+  const write = (
+    <FeedComposer
+      right={right}
+      own={own}
+      focusText={focusText}
+      onPublished={onPublished}
+    />
+  );
 
   return (
     <div ref={rootRef}>
@@ -117,31 +173,9 @@ export function FeedScreen() {
         {status}
       </p>
       {none ? <p className="mt-1 text-body text-muted-foreground">{PLACEHOLDER_TEXT}</p> : null}
-      {empty ? null : write}
-      {none ? null : (
-        <FeedContent
-          state={state}
-          emptyAction={write}
-          sentinelRef={sentinelRef}
-          onRetry={retry}
-          onToggleLike={toggleLike}
-          actionsFor={actionsFor}
-          onUndoHide={undoHide}
-          headingRef={headingRef}
-          openMenuId={overlay?.kind === 'menu' ? overlay.unitId : null}
-          onMenuPressOutside={pressedOutside}
-          onMenuOpenChange={(unitId, open) =>
-            setOverlay((now) => (open ? { kind: 'menu', unitId } : now?.kind === 'menu' && now.unitId === unitId ? null : now))
-          }
-          confirm={overlay?.kind === 'confirm' ? overlay : null}
-          onConfirmDelete={() => {
-            if (overlay?.kind === 'confirm' && !saving) void confirmDelete(overlay.unitId);
-          }}
-          onCancelDelete={() => {
-            if (!saving) setOverlay(null);
-          }}
-        />
-      )}
+      {/* One fixed place, before the list or the empty state: a form sending a post survives the feed changing phase. */}
+      {write}
+      {content}
       {far ? (
         <div className="sticky bottom-4 mt-4 flex justify-end">
           <Button

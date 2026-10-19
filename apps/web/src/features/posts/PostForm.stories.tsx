@@ -24,6 +24,7 @@ type Story = StoryObj<typeof meta>;
 const empty = { body: '', audience: 'everyone', stageTag: '' } as const;
 
 export const Empty: Story = { args: { values: empty } };
+export const Idle: Story = { args: { values: empty, compact: true } };
 export const FriendsWithTag: Story = { args: { values: { body: 'שאלה לקבוצה', audience: 'friends', stageTag: 'pregnant' } } };
 export const NearLimit: Story = { args: { values: { ...empty, body: 'א'.repeat(1950) } } };
 export const Invalid: Story = { args: { values: empty, errors: { body: BODY_REQUIRED_TEXT } } };

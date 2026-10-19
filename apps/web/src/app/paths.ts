@@ -17,7 +17,7 @@ export const PATHS = {
   settings: '/settings',
   /** F2.4b: the Friends page (PG-036), from the side menu. */
   friends: '/friends',
-  /** F3.1b: the post composer, and one post (`/posts/<post id>`; protected by pattern, see `postIdOfPath`). */
+  /** F3.1b: `/posts/new` is only a redirect to the feed with the composer open (feed-composer); one post is `/posts/<post id>` (protected by pattern, see `postIdOfPath`). */
   newPost: '/posts/new',
   post: POST_PATTERN,
   /** F2.4c2: another person's profile, `/u/<user id>` (FR-PRIV-001 "Profile/Deep Link"). Protected by pattern: see `userIdOfProfilePath`. */
