@@ -25,3 +25,16 @@
 | 19.10 | F3.3b2 (מועמד) | לייקים וספירות; CRITIC סבב 2 נקי; flake ישן ב-feed-owner ייצב | PR `ready/comments-likes-b2` → מיזוג → w1 (מסך התגובות בעמוד הפוסט): screen.md קיים | ממתין לך 7–11 (Q8 חדש) | 78% |
 | 19.10 | F3.3b2 ✅ · F3.3w1 (בבנייה) | PR #86 מוזג (main b2cbdce) | w1: BUILDER ב-`.work/wt/w1` ∥ TEST ENGINEER בתיקייה הראשית (`work/comments-likes-w1-tests`) מ-screen.md → מיזוג → CRITIC → PR → w2 (שורת פעולות בכרטיס) | ממתין לך 7–11 | 80% |
 | 19.10 | F3.3w1 (מועמד) | תגובות ולייקים בעמוד הפוסט; CRITIC סבב 2 נקי; TE במקביל ל-BUILDER: כן | PR `ready/comments-likes-w1` → מיזוג → w2 (שורת פעולות בכרטיס בפיד) | ממתין לך 7–11 | 85% |
+| 19.10 | F3.3w1 ✅ · F3.3w2 (נעצר למסירה) | #87 (w1) ו-#88 (קצב PR, לא יושם) מוזגו · main ‏b4c9d1f | סשן חדש: F3.3w2, ראו "מסירה 19.10" למטה | סעיף 11 (Q8) | 85% |
+
+## מסירה 19.10 — לסשן הבא
+
+**החלק הבא: F3.3w2** (לייק וקישור תגובות בכרטיס הפיד). screen.md ‏(`.work/comments-likes/screen.md`) כולל את החלטות ORCHESTRATOR ל-w2.
+- `work/comments-likes-w2` (נדחף, ‏025f777, ‏worktree ‏`.work/wt/w2`): הקוד של BUILDER. **להמשיך.**
+- `work/comments-likes-w2-tests` (נדחף, ‏bba1c4e, בתיקייה הראשית): ממוזגים בו w2, ‏w1 ו-main הישן, ובנוסף רשומות w2 (‏cb6e0ec) וטסטי e2e של TEST ENGINEER במצב WIP, עדיין לא ירוקים (feed-actions, ‏feed, ‏feed-owner, ‏comments). **להמשיך:** למזג אליו את main ‏(b4c9d1f; צפוי קונפליקט קטן ב-incidents.md וב-progress.md), ‏TE מסיים להריץ e2e, אחריו CRITIC ‏(opus), ‏PR `ready/comments-likes-w2`, ומיזוג.
+- **למחוק** (מוזגו או שאין בהם תוכן ייחודי): worktrees ‏`.work/wt/b1` (יש בו קובץ scratch שלא נשמר, ‏`apps/server/tests/b1-smoke.scratch.ts`, שה-hook לא נתן ל-BUILDER למחוק. אפשר למחוק), ‏`.work/wt/b2` ו-`.work/wt/w1` (השינוי המקומי ב-screen.md כבר נמצא בענף w2-tests), עם הענפים שלהם. גם הענף המקומי `process/pr-cadence` מוזג (#88).
+- **קצב PR (#88):** מיישמים מהסשן הבא: ‏SPEC ל-F3.4–F3.9, ‏Gate 1, סכמה ב-PR אחד או שניים, ואחר כך PR אחד לכל פיצ'ר. CRITIC השאיר 3 lows פתוחים ‏(`.work/process-cadence/findings.md`, סבב 2): שלב 13 לא מזכיר Overlap · אחרי rebase עם קונפליקט אין בדיקה חוזרת של CRITIC · שורת האינדקס ב-decisions אומרת "20 criteria" (הכלל: 12/20).
+- **guard ו-.env:** כל חסימות ה-.env מ-19.10 (ב-incidents.md) היו חסימות שגויות על פקודות `sed` של TEST ENGINEER בקובצי e2e. לא היה ניסיון לגשת ל-.env.
+- **תהליך תקוע:** אין. רצים רק `node.exe` של שרת ה-MCP של PDF ‏(PID 19952 ו-2848) ו-`situation-room/server.mjs` ‏(PID 13524), ואף אחד מהם לא שלנו. שרידי ה-Playwright כבר לא רצים.
+- **שאלה שמחכה לאפיק:** Q8 (‏WORKPLAN סעיף 11). Q7 (שמות מגיבים; ברירת מחדל: לפי RLS בלבד, ואחרת "מהקהילה"): לא מצאתי לה רשומה. הסשן הבא יבדוק ב-`.work/comments-likes/` אם היא עדיין פתוחה.
+- **אחרי w2:** ‏F3.4–F3.9 וסגירת I3 (‏/srs-update; השוואת מספר ה-PRs והזמן לפני ואחרי שינוי הקצב: לפניו כ-17 PRs של 35–55 דקות כל אחד).
