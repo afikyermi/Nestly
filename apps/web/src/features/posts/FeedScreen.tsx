@@ -12,6 +12,7 @@ import { REPORT_POST_ITEM } from '@/lib/report-texts';
 import { postPath } from '@/lib/post-link';
 import { PATHS } from '@/app/paths';
 import { Button } from '@/components/ui/button';
+import { ArrowUpIcon } from '@/components/ui/icons';
 import { handOverEdit, takeStatus } from './flash-status';
 import { CHECKING_TEXT, CONFIRM_DELETE_LABEL, DELETED_STATUS, FEED_TITLE, PUBLISHED_STATUS } from './posts-texts';
 import { EDIT_ITEM_LABEL, HIDE_LABEL } from './hide-texts';
@@ -251,7 +252,9 @@ export function FeedScreen() {
                 headingRef.current?.focus();
               }}
             >
-              {TO_TOP_LABEL}
+              {/* 1024-1279 px: only the icon fits in the gutter beside the column (the text stays the name); elsewhere the text. */}
+              <ArrowUpIcon className="hidden size-5 lg:max-xl:block" />
+              <span className="lg:max-xl:sr-only">{TO_TOP_LABEL}</span>
             </Button>,
             actionBar,
           )

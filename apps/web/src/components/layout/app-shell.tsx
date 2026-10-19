@@ -6,8 +6,9 @@ import { TopBar } from '../shared/top-bar';
 
 /**
  * The shell's action bar: an element a screen may portal one floating action into ("חזרה למעלה", F3.2b c20). Below 1024 it is a row of its own
- * between `main` and the bottom bar, so it never covers anything in `main`; from 1024 it sits in the inline-end corner, beside the centred
- * column. Empty, it takes no space. Null outside a shell.
+ * between `main` and the bottom bar, so it never covers anything in `main`; from 1024 it is fixed 24 px from the inline-end edge, in the gutter
+ * beside the centred column (at 1024 px the gutter is 116 px: what goes in it must fit, e.g. an icon only below 1280). Empty, it takes no
+ * space. Null outside a shell.
  */
 export const ShellActionBarContext = createContext<HTMLElement | null>(null);
 

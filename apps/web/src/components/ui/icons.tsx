@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  ArrowUp,
   Check,
   ChevronDown,
   ChevronRight,
@@ -74,6 +75,8 @@ export const PhoneIcon = icon(Phone);
 // F3.5, F3.6: share into one's feed (a repost), and send a link out of the app.
 export const ShareInFeedIcon = icon(Repeat2);
 export const ShareLinkIcon = icon(Share2);
+// F3.2b c20: "חזרה למעלה" where only its icon fits (1024-1279 px, beside the column).
+export const ArrowUpIcon = icon(ArrowUp);
 // Directional icons point the reading direction's way: mirrored under rtl.
 // Back points to the end side (right in Hebrew), forward to the start side (left).
 export const ArrowBackIcon = icon(ArrowLeft, true);

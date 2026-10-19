@@ -11,7 +11,7 @@ const meta = {
   component: ShareFeedSheet,
   parameters: { layout: 'fullscreen' },
   args: {
-    quote: { name: 'מיכל ברק', body: 'הטיפ הכי טוב שקיבלתי: לישון כשהתינוק ישן.', audience: 'everyone', createdAt: '2026-10-17T20:30:00.000Z' },
+    quote: { author: { name: 'מיכל ברק' }, body: 'הטיפ הכי טוב שקיבלתי: לישון כשהתינוק ישן.', audience: 'everyone', createdAt: '2026-10-17T20:30:00.000Z' },
     text: '',
     audience: 'everyone',
     tooLong: false,
@@ -50,7 +50,7 @@ export const Empty: Story = { render: (args) => <Demo {...args} /> };
 
 // The audience the composer stored (1א): "חברים בלבד"; an author whose name is not shown: "מהקהילה".
 export const FriendsNoName: Story = {
-  args: { audience: 'friends', quote: { name: null, body: 'מישהו מכיר גן טוב באזור?', audience: 'everyone', createdAt: '2026-10-17T20:30:00.000Z' } },
+  args: { audience: 'friends', quote: { author: { name: null }, body: 'מישהו מכיר גן טוב באזור?', audience: 'everyone', createdAt: '2026-10-17T20:30:00.000Z' } },
   render: (args) => <Demo {...args} />,
 };
 
@@ -69,5 +69,11 @@ export const NotShareable: Story = {
 // ERR-004: no answer; "נסו שוב", the text kept.
 export const Failed: Story = {
   args: { text: 'שווה לקרוא', failure: { text: 'השיתוף לא פורסם. אפשר לנסות שוב', retry: true } },
+  render: (args) => <Demo {...args} />,
+};
+
+// Shared from a plain post's own page: its author is not known there, so the name line is left out (no "מהקהילה").
+export const UnknownAuthor: Story = {
+  args: { quote: { author: null, body: 'מישהו מכיר גן טוב באזור?', audience: 'everyone', createdAt: '2026-10-17T20:30:00.000Z' } },
   render: (args) => <Demo {...args} />,
 };
