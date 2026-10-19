@@ -364,6 +364,13 @@ column-level SELECT (no `select *` for the app); deletion via the two functions 
 Down scripts refuse while their tables hold a row. Cleanup order per user: reports, reactions, post_hides, comments, posts.
 F3.3a (`20261019100000_comment_body_cap.sql`): `comments_body_length_check` ≤ 1000 code points (replies included); seven column comments now state
 the real grants (readable under the named RLS policy, no INSERT/UPDATE grant; six never emitted in a response); two cap texts updated (posts.body 2,000, comments.body 1–1,000). F3.3b2: likedByMe only via `likes-repository`.
+I3 rest PR-A (`20261019200000_feed_i3_rest.sql`; `.work/i3-rest-schema/schema.md`): no table, policy or grant. **Share** (`posts_insert_prepare`, replaced):
+a caller without a readable own `regular_profiles` row → 42501 first; then every refusal of the original (unknown/unreadable, friends-only, anonymous, a share,
+not active, **own post**, FR-FEED-006) → `NS002`. **Hide** (`post_hides_insert_guard`, replaced): caller gate 42501; post neither readable nor already
+hidden by the hider → `NS004` (unknown uuid included: no 23503 oracle); own post → `NS003`; a repeat hide reaches the PK (`on conflict do nothing` → 0).
+**Share immutable**: `posts_update_share_guard` (new, BEFORE UPDATE OF audience, body, stage_tag WHEN old.is_share) → `NS005` on any change; status and
+the author_status cascade unaffected. **Report text**: `reports_details_length_check` ≤ 1000 code points. SQLSTATE class `NS` is the project's own
+(`NS001` profile_view); the server maps by code (`lib/pg-error.ts`). Down: restores the two functions verbatim from F3.0a, drops the guard and the CHECK; data-free, no refuse guard.
 
 ## New entity template
 
