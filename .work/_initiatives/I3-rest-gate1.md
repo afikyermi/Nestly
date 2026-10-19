@@ -27,4 +27,4 @@ Reason: F3.9 builds the card menu F3.7 reuses; F3.7 builds PG-049, whose rule 2 
 ## UX direction (Afik 19.10) — Gate 1 amendments
 - Specs F3.5, F3.6, F3.7, F3.9 amended to direction.md "דפוסי אינטראקציה" (audit + decisions in I3-community-feed.md "ליטוש UX של I3").
 - New part `feed-composer` approved (D1–D7). Confirmed: kept text on reopen keeps the anonymous toggle state ("unchecked on every open" = a new post); focus after success → the new card; dead "הפוסט פורסם" on the post page removed.
-- Order: PR-A → F3.4 → feed-composer → F3.8+F3.9 → F3.7 (sheet primitive) → F3.5 → F3.6 → UX polish → /srs-update.
+- Order: PR-A → F3.4 → feed-composer → F3.8+F3.9 → F3.7 (sheet primitive) → F3.5+F3.6 (one PR, Afik 19.10) → UX polish → /srs-update.
