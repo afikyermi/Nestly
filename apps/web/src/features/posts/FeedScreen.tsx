@@ -283,7 +283,10 @@ export function FeedScreen() {
       }
     />
   );
-  const write = none ? null : (
+  // An account without a parent profile (D1 reads it as a Professional) gets the composer only after the feed's first answer, so an
+  // account the server gives no feed (403, `blocked`: Admin, Moderator) never sees it, not even briefly. A Regular's composer stays from
+  // the first paint (feed-composer c1, c7). The phase never returns to `initial`; a focus asked by /posts/new is taken when it mounts.
+  const write = none || (right === 'everyone-only' && state.phase === 'initial') ? null : (
     <FeedComposer
       right={right}
       own={own}
