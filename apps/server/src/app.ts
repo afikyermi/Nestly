@@ -8,6 +8,7 @@ import { clientAddress } from './recovery/client-ip.js';
 import { registerCommentsRoutes } from './routes/comments.js';
 import { registerFeedRoutes } from './routes/feed.js';
 import { registerFriendsRoutes } from './routes/friends.js';
+import { registerLikesRoutes } from './routes/likes.js';
 import { registerJourneysRoutes } from './routes/journeys.js';
 import { registerMeRoute } from './routes/me.js';
 import { registerPasswordRoutes } from './routes/password.js';
@@ -108,6 +109,7 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerPostsRoutes(app, { database });
   registerFeedRoutes(app, { database });
   registerCommentsRoutes(app, { database });
+  registerLikesRoutes(app, { database });
 
   return app;
 }

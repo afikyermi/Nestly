@@ -60,6 +60,9 @@ export const commentView = z.strictObject({
   isMine: z.boolean(),
   byAuthor: z.boolean(),
   author: z.strictObject({ name: z.string().nullable() }).optional(),
+  /** F3.3 c11, c12: the likes the viewer can read on this comment (the author's own included), and whether one of them is the viewer's. */
+  likeCount: z.number().int().nonnegative(),
+  likedByMe: z.boolean(),
 });
 /** `replies`: the first COMMENT_INLINE_REPLIES, oldest first; `replyCount`: all the replies the viewer can read under it. */
 export const commentThreadItem = commentView.extend({ replies: z.array(commentView), replyCount: z.number().int().nonnegative() });
