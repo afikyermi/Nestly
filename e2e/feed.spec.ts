@@ -93,7 +93,7 @@ test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
     await page.getByRole('button', { name: 'פרסום', exact: true }).focus();
     // A card may take a stop of its own (APG feed: tabindex 0): such stops (the article itself) are dropped.
     const stops: string[] = [];
-    for (let i = 0; i < 80 && stops.length < 24; i += 1) {
+    for (let i = 0; i < 120 && stops.length < 32; i += 1) {
       await page.keyboard.press('Tab');
       const at = await page.locator('*:focus').evaluate((e) => {
         const st = getComputedStyle(e);
@@ -102,7 +102,7 @@ test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
       expect(at.ring, 'visible focus').toBe(true);
       if (at.tag !== 'ARTICLE') stops.push(at.href ?? at.tag);
     }
-    expect(stops).toEqual([1, 2, 3, 4].flatMap((n) => ['BUTTON', `/posts/${id(n)}#comments`, 'BUTTON', 'BUTTON', `/posts/${id(n)}`, 'BUTTON'])); // F3.5 c9, F3.6 c3: "שיתוף בפיד" and "שיתוף קישור" follow "תגובות"; F3.9 c8: the "⋯" button is last
+    expect(stops).toEqual([1, 2, 3, 4].flatMap((n) => ['BUTTON', 'BUTTON', 'BUTTON', 'BUTTON', `/posts/${id(n)}`, 'BUTTON', 'TEXTAREA', 'BUTTON'])); // F3.5 c9, F3.6 c3: "שיתוף בפיד" and "שיתוף קישור" follow "תגובות"; F3.9 c8: the "⋯" button follows the time link; ux-polish-a c9: "תגובות" is a BUTTON and the field and "שליחה" close the card
   });
 });
 
@@ -124,8 +124,8 @@ test.describe('F3.2b c14 c15 c17 [FR-FEED-001 BR-065] the card', () => {
         const c = cards(page).nth(i);
         await expect(c).toHaveAttribute('aria-posinset', String(i + 1));
         await expect(c).toHaveAttribute('aria-setsize', '-1');
-        await expect(c.getByRole('button')).toHaveCount(i === 0 ? 2 : 4); // F3.3 c13 + F3.9 c8: the like and the "⋯" menu button; F3.5 c9 + F3.6 c3: a card that is for everyone and not mine adds "שיתוף בפיד" and "שיתוף קישור" (card 1 is friends-only)
-        await expect(c.getByRole('link')).toHaveCount(2); // the time link and "תגובות"
+        await expect(c.getByRole('button')).toHaveCount(i === 0 ? 4 : 6); // ux-polish-a c9: the comments button and the field's "שליחה" join; F3.3 c13 + F3.9 c8: the like and the "⋯" menu button; F3.5 c9 + F3.6 c3: a card that is for everyone and not mine adds "שיתוף בפיד" and "שיתוף קישור" (card 1 is friends-only)
+        await expect(c.getByRole('link')).toHaveCount(1); // the time link only: ux-polish-a c9 made "תגובות" a button
         await expect(timeLink(c)).toHaveAttribute('href', `/posts/${id(i + 1)}`);
         await expect(c.locator('img, [role="img"]')).toHaveCount(0);
         await expect(c.locator('time')).toHaveCount(1);
@@ -184,7 +184,7 @@ test.describe('F3.2b c16 [BR-062] the anonymous unit', () => {
       await expect(page.getByRole('article', { name: 'אנונימי', exact: true })).toHaveCount(1);
       const a = cards(page).nth(1);
       await expect(a).toContainText('גוף הפוסט 2');
-      await expect(a.getByRole('link')).toHaveCount(2); // time and "תגובות": no author link
+      await expect(a.getByRole('link')).toHaveCount(1); // the time link only (ux-polish-a c9): no author link
       await expect(a.locator('img, [role="img"], svg:not([aria-hidden="true"])')).toHaveCount(0);
       await expect(a).not.toContainText('מהקהילה');
       await expect(a).not.toContainText('כותבת מספר 2');

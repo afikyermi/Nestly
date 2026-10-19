@@ -103,7 +103,7 @@ test.describe('F3.1b c17 [FR-FEED-002 ERR-004] publishing (feed-composer c7, c10
       await expect(first).toContainText('בהריון');
       await expect(timeLinkOf(first)).toHaveAttribute('href', `/posts/${newId}`);
       await expect(first.getByRole('button', { name: /לייק/ })).toHaveCount(1);
-      await expect(first.getByRole('link', { name: /תגובות/ })).toHaveCount(1);
+      await expect(first.getByRole('button', { name: /^תגובות/ })).toHaveCount(1);
       await expect(first.getByText(/^\d+$/)).toHaveCount(0); // no counts yet
       await expect(first).toBeFocused();
       await expect(feedStatus(page)).toHaveText(PUBLISHED);

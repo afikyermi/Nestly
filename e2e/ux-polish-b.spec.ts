@@ -119,7 +119,7 @@ test.describe('ux-polish-b c1 [FR-FEED-002] a card edits in place', () => {
       await expect(card).toHaveAttribute('aria-posinset', position ?? '');
       await expect(card.locator('p', { hasText: 'גוף הפוסט 2' }), 'the body text is replaced by the form').toHaveCount(0);
       await expect(like(card), 'the action row is replaced').toHaveCount(0);
-      await expect(card.getByRole('link', { name: /^תגובות/ })).toHaveCount(0);
+      await expect(card.getByRole('button', { name: /^תגובות/ })).toHaveCount(0); // ux-polish-a c9: a button now
       await expect(like(cards(page).first())).toBeVisible();
       await expect(like(cards(page).nth(2))).toBeVisible();
       expect(page.url()).toBe(url); // no navigation; that no history entry is left behind is asserted by the Back test below (one Back leaves the feed)

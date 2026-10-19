@@ -134,7 +134,7 @@ test.describe('F3.4 c11 [FR-FEED-005 r.1] the composer toggle (in the feed: feed
       await expect(first).not.toContainText('חברים בלבד');
       await expect(first).not.toContainText('דנה כהן');
       await expect(first).not.toContainText('מהקהילה');
-      await expect(first.getByRole('link')).toHaveCount(2); // the time link and "תגובות": no author link
+      await expect(first.getByRole('link')).toHaveCount(1); // the time link only (ux-polish-a c9: "תגובות" is a button): no author link
       const ids = await first.evaluate((el) => [el, ...el.querySelectorAll('[data-testid]')].map((e) => e.getAttribute('data-testid') ?? ''));
       expect(ids.filter((t) => /author|name|avatar|user/i.test(t))).toEqual([]);
       expect(await first.evaluate((el) => el.outerHTML)).not.toContain('דנה כהן');
