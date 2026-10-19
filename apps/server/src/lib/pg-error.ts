@@ -59,6 +59,28 @@ export function postFaultReply(error: unknown): PostFaultReply | undefined {
   return { status: 500, error: 'server_error' };
 }
 
+/** The constraint of F3.3 criterion 1: a comment's or reply's text is at most COMMENT_BODY_MAX code points. */
+const COMMENT_BODY_LENGTH_CONSTRAINT = 'comments_body_length_check';
+
+export interface CommentFaultReply {
+  readonly status: 403 | 404 | 422 | 500;
+  readonly error: 'not_allowed' | 'post_unavailable' | 'body_too_long' | 'server_error';
+}
+
+/**
+ * What a comment write the database refused answers (F3.3 criteria 2-5). 23514 on the body-length CHECK is 422; 42501 (policy, privilege or an
+ * unusable parent) is 403; 23503 (a foreign key: the post or the parent went away since the check) is 404; any other database error is 500.
+ * Never the message, constraint or table name. `undefined`: the failure did not come from the database (the caller handles it).
+ */
+export function commentFaultReply(error: unknown): CommentFaultReply | undefined {
+  const fault = readDatabaseFault(error);
+  if (fault === undefined) return undefined;
+  if (fault.code === '23514' && fault.constraint === COMMENT_BODY_LENGTH_CONSTRAINT) return { status: 422, error: 'body_too_long' };
+  if (fault.code === '42501') return { status: 403, error: 'not_allowed' };
+  if (fault.code === '23503') return { status: 404, error: 'post_unavailable' };
+  return { status: 500, error: 'server_error' };
+}
+
 /** SQLSTATE class 23 (a constraint) and 42501 (a privilege or policy): the same input fails the same way again. */
 function isDeterministicFault(code: string): boolean {
   return code.startsWith('23') || code === '42501';
