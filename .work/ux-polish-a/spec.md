@@ -38,15 +38,16 @@ ORCHESTRATOR may choose Elevated for that reason.
 4. 🎨 [U+E] The field at the bottom of every card with the like control (shares and anonymous cards too) behaves as F3.3 c17
    (blank, 1,001, counter, double press = one request, failure keeps the text). Success appends the server comment last in the
    card's list (shown, also when collapsed), clears the field, "תגובות, N" +1, status "התגובה נוספה" in the feed's status region;
-   focus stays in the field.
+   focus stays in the field. The card's `<form>` has no accessible name (not a landmark); its textbox is named "כתיבת תגובה".
 5. 🎨 [U+E] Reply in place: "השבה" on a shown top-level comment opens F3.3's reply box under it inside the card, focus in it;
    success appends the reply under that comment (shown) and "תגובות, N" +1; "ביטול" closes it, focus back on "השבה". At most one
-   reply box per card.
+   reply box per card. Its `<form>` has no accessible name (not a landmark); its textbox is named "כתיבת השבה".
 6. 🔴 [U+E] Anonymity (AC-075, AC-076; F3.3 c16; F3.4 c14): a `byAuthor` comment shows "המחבר" with no name, avatar or link; the
    card's DOM, props and test ids hold no author data. On an anonymous card the real author gets F3.4's "המחבר" notice under the
    field and reply box, everyone else the name notice; the card learns this only from `GET /posts/:id` `isMine` (F3.4 c4–c5's
-   approved read); until that answers, an anonymous card shows no field. `GET /feed`, its SQL and the F3.2 c2 / F3.4 c8 static
-   tests are unchanged. No "report user" path from an "המחבר" comment.
+   approved read); until that answers, an anonymous card shows no field. If that read fails, the card shows no field and F3.3's
+   load-failure text "לא הצלחנו לטעון את התגובות. אפשר לנסות שוב" (ERR-004) with "נסו שוב" (one new read). `GET /feed`, its SQL
+   and the F3.2 c2 / F3.4 c8 static tests are unchanged. No "report user" path from an "המחבר" comment.
 7. 🎨 [U+E] Comment "⋯" (F3.7 names): own → "מחיקה" → F3.3's confirmation; confirm removes the comment and its replies from the
    card, "תגובות, N" drops by the removed count, status "התגובה נמחקה", focus on the card's "תגובות"; failure keeps the dialog with
    F3.3's text. Others' → "דיווח על התגובה" → F3.7's sheet over the feed; outcomes per F3.7 c13 (status, comment stays, focus on its "⋯").
@@ -54,15 +55,16 @@ ORCHESTRATOR may choose Elevated for that reason.
    with F3.3's like status.
 9. 🎨 [U+E] The action row's "תגובות" becomes a button (supersedes F3.3 c13/c14's link, for the card only); name "תגובות" /
    "תגובות, N" unchanged; activating it moves focus to that card's field, with no navigation and the URL unchanged. Tab order per
-   card: like, comments, share in feed, share link, time link, card "⋯", then each shown comment (like, "השבה", "⋯"), "הצגת עוד
-   תגובות", the field, "שליחה".
+   card: like, comments, share in feed, share link, time link, card "⋯", then each shown comment in CommentItem's existing order
+   ("⋯", like, "השבה", as on the post page), "הצגת עוד תגובות", the field, "שליחה".
 10. 🎨 [E] One overlay on /feed: card "⋯", comment "⋯", the comment confirmation and the report sheet; one press switches between
     any two "⋯" (card or comment, same or another card); Back closes the open one and stays on /feed at the same scroll; the next
     Back leaves the feed (no dead entry).
 11. 🎨 [E] After adding and deleting comments in a card, open another post and Back: the restored card shows the updated
     "תגובות, N" and its preview loads again, collapsed; hidden and reported cards stay absent (F3.9 c10, F3.7 c13).
 12. 🎨 [E] axe 0 at 375 px and 1024 px: preview, expanded with replies, reply box, field with each notice, load error, comment menu
-    open; new controls ≥44×44 px, visible focus; RTL; keyboard only. A card without the like control shows no comment area.
+    open, two or more cards with fields (landmark-unique); new controls ≥44×44 px, visible focus; RTL; keyboard only. A card
+    without the like control shows no comment area.
 
 **Open questions**
 - Q1 Request count: scrolling a page of 20 cards can send up to 20 comment requests (one per card with comments that comes near)
@@ -76,3 +78,6 @@ ORCHESTRATOR may choose Elevated for that reason.
 **Size estimate**  ~460 product lines: the thread view shared by the post page and the card ~120 · per-card comment state (lazy
 load, expand, writes, likes) ~170 · card area, field, notices ~90 · feed overlay wiring (menus, confirmation, report) ~60 ·
 "תגובות" button ~20. One PR, after ux-polish-b.
+
+**Amendment (ORCHESTRATOR, Gate 1 screen items):** unnamed card form, textbox "כתיבת תגובה" (c4, c12) · in-comment Tab order "⋯", like, "השבה" (c9) · failed anonymous-card read: no field, F3.3 load-failure text + "נסו שוב" (c6).
+**Amendment 2 (ORCHESTRATOR):** the in-card reply `<form>` is unnamed too; its textbox keeps "כתיבת השבה" (c5).
