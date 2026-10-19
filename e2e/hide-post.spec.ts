@@ -143,7 +143,7 @@ test.describe('F3.9 c8 [FR-ALG-009 FR-FEED-002] one menu on every card', () => {
       [1, [HIDE]], // someone else's anonymous post
       [2, [EDIT, DELETE]], // own named card
       [3, [HIDE]], // someone else's share
-      [4, [DELETE]], // own share: assumption (BUILDER, fb0ebf1); the spec is silent on an own share's menu, shares are immutable (F3.5)
+      [4, [DELETE]], // own share: amended c8 (Gate 1, CRITIC low 3): "מחיקת הפוסט" only, a share is immutable (NS005)
     ];
     for (const [i, names] of expected) {
       await more(cards(page).nth(i)).click();
@@ -210,6 +210,55 @@ test.describe('F3.9 c8 [FR-ALG-009 FR-FEED-002] one menu on every card', () => {
     await expect(cards(page)).toHaveCount(3);
     await expect(button).toBeFocused();
     expect(net.hideCalls).toEqual([]);
+  });
+});
+
+/** The position of the current history entry (Navigation API, Chromium): a dead entry shows as an index that did not move back. */
+const entryIndex = (page: Page): Promise<number> =>
+  page.evaluate(() => {
+    const nav: unknown = Reflect.get(window, 'navigation');
+    const current: unknown = typeof nav === 'object' && nav !== null ? Reflect.get(nav, 'currentEntry') : undefined;
+    const index: unknown = typeof current === 'object' && current !== null ? Reflect.get(current, 'index') : undefined;
+    if (typeof index !== 'number') throw new Error('no Navigation API');
+    return index;
+  });
+
+test.describe('F3.9 c8 [FR-ALG-009] the open menu leaves no dead history entry', () => {
+  test('[c8] menu open, then a time link of another card: /posts/:id; Back returns to /feed at the same scroll; the next Back leaves /feed (no dead entry)', async ({ page }) => {
+    const items = Array.from({ length: 12 }, (_v, i) => named(i + 1));
+    const net = await serverFeed(page, items, { posts: [stored(3)] });
+    await open(page, net);
+    await expect(cards(page)).toHaveCount(12);
+    await cards(page).nth(8).scrollIntoViewIfNeeded();
+    const scroll = await page.evaluate(() => Math.round(window.scrollY));
+    expect(scroll).toBeGreaterThan(0);
+    const start = await entryIndex(page);
+    await more(cards(page).first()).click();
+    await expect(menu(page)).toBeVisible();
+    await cards(page).nth(2).locator('a:has(time)').click();
+    await expect.poll(() => pathOf(page)).toBe(`/posts/${id(3)}`);
+    await page.goBack();
+    await expect.poll(() => pathOf(page)).toBe('/feed');
+    await expect(menu(page)).toHaveCount(0);
+    expect(await entryIndex(page), 'Back from the post page lands on the feed entry itself, not on a dead overlay entry').toBe(start);
+    await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBeGreaterThan(scroll - 150);
+    expect(Math.abs((await page.evaluate(() => Math.round(window.scrollY))) - scroll), 'same scroll').toBeLessThanOrEqual(150);
+    await page.goBack();
+    expect(await entryIndex(page), 'the next Back leaves the feed entry').toBe(start - 1);
+  });
+
+  test('[c8] menu open, then a reload: the first Back leaves /feed (no dead overlay entry)', async ({ page }) => {
+    const net = await serverFeed(page, OTHERS());
+    await open(page, net);
+    await expect(cards(page)).toHaveCount(3);
+    const start = await entryIndex(page);
+    await more(cards(page).first()).click();
+    await expect(menu(page)).toBeVisible();
+    await page.reload();
+    await expect(cards(page)).toHaveCount(3);
+    await expect(menu(page)).toHaveCount(0);
+    await page.goBack();
+    expect(await entryIndex(page), 'one Back from the reloaded feed goes to the entry before the feed').toBe(start - 1);
   });
 });
 
