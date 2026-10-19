@@ -92,7 +92,7 @@ describe('[F1.5 c16] submitting the completion', () => {
     const u = user();
     await throughStep1(u);
     await finish(u);
-    expect(await screen.findByRole('heading', { level: 1, name: 'פיד' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'הפיד' })).toBeInTheDocument();
     expect(path()).toBe('/feed');
     const registerCalls = fetchSpy.mock.calls.filter(([u]) => urlOf(u).includes('/api/register')); // the feed then asks /api/profile (F3.1b)
     expect(registerCalls).toHaveLength(1);
@@ -117,7 +117,7 @@ describe('[F1.5 c16] submitting the completion', () => {
     const u = user();
     await throughStep1(u);
     await finish(u);
-    expect(await screen.findByRole('heading', { level: 1, name: 'פיד' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'הפיד' })).toBeInTheDocument();
     expect(m.accountState).toHaveBeenCalledTimes(2);
     m.stop();
   });
@@ -144,7 +144,7 @@ describe('[F1.5 c16] submitting the completion', () => {
     await waitAlert(RETRY);
     expect(path()).toBe('/register');
     await u.click(screen.getByRole('button', { name: 'יצירת חשבון' }));
-    expect(await screen.findByRole('heading', { level: 1, name: 'פיד' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'הפיד' })).toBeInTheDocument();
     expect(fetchSpy.mock.calls.filter(([u]) => urlOf(u).includes('/api/register'))).toHaveLength(2);
     m.stop();
   });

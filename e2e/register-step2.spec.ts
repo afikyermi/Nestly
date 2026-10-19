@@ -150,9 +150,9 @@ test.describe('F1.4 criteria 8, 11, 12 (web) [AC-091 · ERR-004] the journey', (
     const stubs = await stub(page, [AUTH_OK], [ROUTE_201]);
     await toStep2(page);
     await fillAndSubmit(page);
-    await expect(h1Of(page)).toHaveText('פיד');
+    await expect(h1Of(page)).toHaveText('הפיד');
     expect(pathOf(page)).toBe('/feed');
-    await expect(page).toHaveTitle('פיד · Nestly');
+    await expect(page).toHaveTitle('הפיד · Nestly');
     await expect(page.locator('main')).toBeFocused();
 
     expect(stubs.authCalls).toHaveLength(1);
@@ -175,7 +175,7 @@ test.describe('F1.4 criteria 8, 11, 12 (web) [AC-091 · ERR-004] the journey', (
     await expect(consent(page)).toBeChecked();
 
     await retry(page).click();
-    await expect(h1Of(page)).toHaveText('פיד');
+    await expect(h1Of(page)).toHaveText('הפיד');
     expect(stubs.authCalls, 'one sign-up in total').toHaveLength(1);
     expect(stubs.registerCalls).toHaveLength(2);
     expect(stubs.registerCalls[1]?.headers['authorization']).toBe(stubs.registerCalls[0]?.headers['authorization']);
@@ -189,7 +189,7 @@ test.describe('F1.4 criteria 8, 11, 12 (web) [AC-091 · ERR-004] the journey', (
     await expect(alertWith(page, RETRY)).toBeVisible();
     await expect(email(page)).toHaveValue(EMAIL);
     await retry(page).click();
-    await expect(h1Of(page)).toHaveText('פיד');
+    await expect(h1Of(page)).toHaveText('הפיד');
     expect(stubs.authCalls).toHaveLength(1);
     expect(stubs.registerCalls).toHaveLength(2);
   });
@@ -201,7 +201,7 @@ test.describe('F1.4 criteria 8, 11, 12 (web) [AC-091 · ERR-004] the journey', (
     await expect(alertWith(page, RETRY)).toBeVisible();
     expect(stubs.registerCalls).toHaveLength(0);
     await retry(page).click();
-    await expect(h1Of(page)).toHaveText('פיד');
+    await expect(h1Of(page)).toHaveText('הפיד');
     expect(stubs.authCalls).toHaveLength(2);
     expect(stubs.registerCalls).toHaveLength(1);
   });
@@ -218,7 +218,7 @@ test.describe('F1.4 criteria 8, 11, 12 (web) [AC-091 · ERR-004] the journey', (
     await page.keyboard.type('zzz');
     await expect(email(page)).toHaveValue(EMAIL);
     await retry(page).click();
-    await expect(h1Of(page)).toHaveText('פיד');
+    await expect(h1Of(page)).toHaveText('הפיד');
     expect(stubs.authCalls, 'one sign-up in total').toHaveLength(1);
     expect(stubs.registerCalls).toHaveLength(2);
   });
@@ -257,7 +257,7 @@ test.describe('F1.4 criteria 8, 11, 12 (web) [AC-091 · ERR-004] the journey', (
     expect(await bodyText(page)).not.toContain('SECRET_RAW_AUTH_MESSAGE');
     expect(stubs.registerCalls).toHaveLength(0);
     await retry(page).click();
-    await expect(h1Of(page)).toHaveText('פיד');
+    await expect(h1Of(page)).toHaveText('הפיד');
     expect(stubs.authCalls, 'sign-up called twice').toHaveLength(2);
     expect(stubs.registerCalls, 'one account request').toHaveLength(1);
   });
@@ -389,7 +389,7 @@ test.describe('F1.4 criterion 13 [NFR-PRIV-001 · NFR-SEC-001] the password goes
     const stubs = await stub(page, [AUTH_OK], [ROUTE_201]);
     await toStep2(page);
     await fillAndSubmit(page);
-    await expect(h1Of(page)).toHaveText('פיד');
+    await expect(h1Of(page)).toHaveText('הפיד');
     await page.waitForTimeout(300);
 
     // the password and the email leave the browser only in the sign-up call to Auth
@@ -439,7 +439,7 @@ test.describe('F1.4 criterion 13 [NFR-PRIV-001 · NFR-SEC-001] the password goes
     await stub(page, [AUTH_OK], [ROUTE_201]);
     await toStep2(page);
     await fillAndSubmit(page);
-    await expect(h1Of(page)).toHaveText('פיד');
+    await expect(h1Of(page)).toHaveText('הפיד');
     await page.waitForTimeout(300);
     const raw = await page.evaluate(() => localStorage.getItem('nestly-auth'));
     expect(raw, 'the Auth session is persisted under nestly-auth').not.toBeNull();
@@ -563,7 +563,7 @@ test.describe('F1.4 criterion 17 [WCAG 2.1.1 · 2.4.3 · 2.5.8 · NFR-USAB-004] 
         expect(b.y > a.y + 2 || (Math.abs(b.y - a.y) <= 2 && b.x < a.x), `"${a.label}" -> "${b.label}" follows the visual order`).toBe(true);
       }
       await page.keyboard.press('Enter');
-      await expect(h1Of(page)).toHaveText('פיד');
+      await expect(h1Of(page)).toHaveText('הפיד');
       await expect(page.locator('main')).toBeFocused();
     });
   }
@@ -612,7 +612,7 @@ test.describe('F1.4 criterion 17 [WCAG 2.1.1 · 2.4.3 · 2.5.8 · NFR-USAB-004] 
     await submit(page).dispatchEvent('click');
     await submit(page).focus();
     await page.keyboard.press('Enter');
-    await expect(h1Of(page)).toHaveText('פיד');
+    await expect(h1Of(page)).toHaveText('הפיד');
     expect(stubs.authCalls).toHaveLength(1);
     expect(stubs.registerCalls).toHaveLength(1);
   });

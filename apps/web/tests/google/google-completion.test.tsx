@@ -291,7 +291,7 @@ describe('F1.8 c8 / F2.0-a c16 ordering: POST /api/password/first first, then re
     expect(w.authPasswordPuts, 'F2.0-a c13: the browser never sets a password through Auth').toEqual([]);
     expect(w.registerBodies[0]).not.toContain(SENTINEL_PW);
     expect(w.registerBodies[0]).not.toMatch(/password/i);
-    expect(await screen.findByRole('heading', { level: 1, name: 'פיד' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'הפיד' })).toBeInTheDocument();
   });
 
   it('[F1.8 c8][F2.0-a c16] the server password call fails (503): register is never sent, the user stays on step 2 with the generic text, the password is empty and the consent is kept', async () => {
@@ -334,7 +334,7 @@ describe('F1.8 c9 a failed register can be retried [FR-REG-004]', () => {
     const box = consentBox();
     if (box instanceof HTMLInputElement && !box.checked) await u.click(box);
     await u.click(finalButton());
-    expect(await screen.findByRole('heading', { level: 1, name: 'פיד' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'הפיד' })).toBeInTheDocument();
     expect(w.events).toEqual(['setPassword', 'register', 'setPassword', 'register']);
   });
 
@@ -387,7 +387,7 @@ describe('F1.8 c10 the email is the Auth user\'s, read-only; an email+password o
     expect(screen.queryByLabelText('סיסמה', { exact: true })).toBeNull();
     await u.click(consentBox());
     await u.click(screen.getByRole('button', { name: 'יצירת חשבון' }));
-    expect(await screen.findByRole('heading', { level: 1, name: 'פיד' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'הפיד' })).toBeInTheDocument();
     expect(w.passwordBodies).toEqual([]);
     expect(w.authPasswordPuts).toEqual([]);
     expect(w.events).toEqual(['register']);
@@ -415,7 +415,7 @@ describe('F1.8 c11 no protected route before the account exists [FR-AUTH-004][AC
     first.unmount();
     mountAt(p, w);
     await waitFor(() => expect(path()).toBe('/register'));
-    expect(screen.queryByRole('heading', { level: 1, name: /^(פיד|הגדרות|בית|פרופיל)$/ })).toBeNull();
+    expect(screen.queryByRole('heading', { level: 1, name: /^(פיד|הפיד|הגדרות|בית|פרופיל)$/ })).toBeNull();
     await fullName();
   });
 });

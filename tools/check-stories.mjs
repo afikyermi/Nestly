@@ -30,7 +30,7 @@ export const STATES = {
   "shared/google-button": 3, // default, busy, failed
   "shared/field-message": 2, // hint, error
   "shared/logo": 4, // link default, link big, static default, static big
-  "shared/illustrations": 2, // welcome, registration
+  "shared/illustrations": 3, // welcome, registration, empty feed
   "layout/auth-layout": 3, // welcome, login, registration step
   "ui/avatar": 5, // initials, single word, no name, beside a name (decorative), small
   "shared/menu-item": 4, // link, button, disabled, without icon

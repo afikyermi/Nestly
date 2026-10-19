@@ -155,7 +155,7 @@ describe('[F1.5 c8][FR-MOD-002] a stopped account at sign-in', () => {
 
   it('[c8][c13 screen] a stopped account noticed on a visible tab: /login with the stopped text; nothing protected afterwards', async () => {
     const m = mountApp('/feed', { restore: 'session', outcomes: ['active', 'unavailable'] });
-    await screen.findByRole('heading', { level: 1, name: 'פיד' });
+    await screen.findByRole('heading', { level: 1, name: 'הפיד' });
     m.advance(61_000);
     await m.tabVisible();
     await waitFor(() => expect(path()).toBe('/login'));
@@ -166,7 +166,7 @@ describe('[F1.5 c8][FR-MOD-002] a stopped account at sign-in', () => {
 
   it('[c8] the last attempt wins over an older notice: stopped, then wrong password shows only ERR-001', async () => {
     const m = mountApp('/feed', { restore: 'session', outcomes: ['active', 'unavailable'], signIn: failureAnswer({ status: 400, code: 'invalid_credentials' }) });
-    await screen.findByRole('heading', { level: 1, name: 'פיד' });
+    await screen.findByRole('heading', { level: 1, name: 'הפיד' });
     m.advance(61_000);
     await m.tabVisible();
     await waitAlert(STOPPED);
@@ -204,7 +204,7 @@ describe('[F1.5 c11] an expired session ends on /login with its text', () => {
     const m = mountApp('/login', { restore: 'refused', signIn: okAnswer, outcomes: ['active'] });
     await waitAlert(EXPIRED);
     await submitLogin(user());
-    expect(await screen.findByRole('heading', { level: 1, name: 'פיד' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'הפיד' })).toBeInTheDocument();
     expect(path()).toBe('/feed');
     m.stop();
   });

@@ -149,7 +149,7 @@ test.describe('AppShell: bottom navigation', () => {
         .evaluateAll((els) =>
           els.map((el) => ({ name: (el.getAttribute('aria-label') ?? el.textContent ?? '').trim(), value: el.getAttribute('aria-current') })),
         );
-      expect(current).toEqual([{ name: route.h1, value: 'page' }]);
+      expect(current).toEqual([{ name: route.nav ?? route.h1, value: 'page' }]);
     });
   }
 
@@ -164,7 +164,7 @@ test.describe('AppShell: bottom navigation', () => {
     const [home, feed, profile] = PROTECTED_ROUTES;
     if (home === undefined || feed === undefined || profile === undefined) throw new Error('routes missing');
     for (const route of [home, feed, profile, home, profile, feed]) {
-      await navOf(page).getByRole('link', { name: route.h1, exact: true }).click();
+      await navOf(page).getByRole('link', { name: route.nav ?? route.h1, exact: true }).click();
       await expectUrl(page, route.path);
       await expect(h1Of(page)).toHaveText(route.h1);
       expect(await markerAlive(page), `no reload going to ${route.path}`).toBe(true);
@@ -297,7 +297,7 @@ test.describe('Placeholders', () => {
   // F2.1: /profile is the own-profile screen now (its states: e2e/profile.spec.ts). F2.3a (Gate 1 DR-2 A): /settings holds the privacy
   // section now; what this test guarded there (its h1, no data without a real session) is in e2e/privacy.spec.ts, "F2.3a c5 c22".
   // The other two stay placeholders.
-  for (const route of PROTECTED_ROUTES.filter((r) => r.path !== '/profile' && r.path !== '/settings')) {
+  for (const route of PROTECTED_ROUTES.filter((r) => r.path !== '/profile' && r.path !== '/settings' && r.path !== '/feed')) {
     test(`[F1.2 c22][FR-AUTH-004][NFR-SEC-002] ${route.path} shows its h1 and the line, and nothing else; no request to /api/* with state forced to signed-in`, async ({
       page,
     }) => {
@@ -312,6 +312,17 @@ test.describe('Placeholders', () => {
       expect(urls.filter((u) => new URL(u).pathname.startsWith('/api/'))).toEqual([]);
     });
   }
+
+  // F3.2b: /feed is the community feed now (its states: e2e/feed.spec.ts). The guard intent stays: with state forced to signed-in and no
+  // session behind it, the page asks the server for nothing at all and shows no card.
+  test('[F1.2 c22][F3.2b c13][FR-AUTH-004] /feed with state forced to signed-in and no session: h1 "הפיד", no /api/* request, no article', async ({ page }) => {
+    const urls = recordRequests(page);
+    await open(page, '/feed', 'signed-in');
+    await expect(h1Of(page)).toHaveText('הפיד');
+    await page.waitForTimeout(500);
+    expect(urls.filter((u) => new URL(u).pathname.startsWith('/api/'))).toEqual([]);
+    await expect(page.getByRole('article')).toHaveCount(0);
+  });
 
   // F1.8: /auth/google is the return handler; opened with no code it makes no /api call either (c13: nothing but the token reaches the server).
   for (const route of [...GUEST_ROUTES.slice(1), GOOGLE_RETURN]) {

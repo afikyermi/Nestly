@@ -17,3 +17,4 @@
 | 18.10 | F3.2a1 ✅ | PR #79 מוזג (main c8c5aa0) | F3.2a2 (שרת הפיד) ב-worktree `.work/wt/feed-a1`, ענף `work/feed-view-a2` (BUILDER ∥ TEST ENGINEER) · F3.1b (ווב) בתיקייה הראשית, ענף `work/post-create-b` (BUILDER; TEST ENGINEER אחריו) | שאלה 7 | 35% |
 | 19.10 | F3.1b (מועמד) | מסך כתיבת פוסט, החלק הראשון לפי חוזה המסך; CRITIC עבר (6 low תוקנו). TEST ENGINEER עבד במקביל ל-BUILDER: כן | PR `ready/post-create-b` → מיזוג → בתיקייה הראשית ענף `work/feed-view-a2`: fixture + תיקוני טסטים → PR → F3.2b | ממתין לך 7–9 (guard, CLAUDE.md) | 40% |
 | 19.10 | F3.1b ✅ · F3.2a2 (מועמד) | PR #81 מוזג (main 9dd487c). F3.2a2: fixture + תיקוני טסטים, CRITIC ו-A&D עברו | PR `ready/feed-view-a2` → מיזוג → F3.2b (מסך הפיד) מ-screen.md מאושר | ממתין לך 7–9 | 45% |
+| 19.10 | F3.2 ✅ (a1 #79, a2 #82) · F3.2b (מועמד) | מסך הפיד; CRITIC סבב 2 נקי; TEST ENGINEER במקביל ל-BUILDER: כן | PR `ready/feed-view-b` → מיזוג → F3.3 (תגובות ולייקים): SPEC + screen.md | ממתין לך 7–9 | 55% |

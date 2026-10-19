@@ -25,3 +25,10 @@ Annex of spec.md c13-20 + Afik 6ב. Copy per ux-copy-he (gender-neutral); spec s
 
 **Open (defaults)** 1) alert text: ERR-004 text for loading failure, as in the posts load error, not new copy. 2) Card name: aria-labelledby on the author element. 3) "ניסיון חוזר" is the spec's string; F3.1b uses "נסו שוב" — keep "ניסיון חוזר" per c19.
 **Gate 1 (ORCHESTRATOR, 19.10):** approved with spec.md. Retry label = the app's existing "נסו שוב" (repeated texts are referenced; overrides c19 wording). h1 "הפיד" per c13 (F3.1b text and test follow in b). Alert text = ERR-004 loading text.
+**Screen challenges (ORCHESTRATOR, 19.10):**
+(1) null author name → "מהקהילה" (no slash form; F1.2 c26 gender scan).
+(2) role=feed only while cards exist; alerts sit right after the feed element.
+(3) alert text → "לא הצלחנו לטעון את הפיד. אפשר לנסות שוב".
+(4) N=1 → "נטען פוסט אחד נוסף"; N>1 "נטענו N פוסטים נוספים".
+(5) unknown/pending profile check: the feed is requested; a 403 not_allowed shows the placeholder.
+**ORCHESTRATOR 19.10:** the "אנונימי" header for an anonymous original (c12/c17) is struck: impossible (DB forbids sharing anonymous posts; schema literal false).

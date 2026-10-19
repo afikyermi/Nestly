@@ -144,7 +144,7 @@ test.describe('F1.5 c10 [NFR-SEC-001] no leaks, against the real session source'
   test('[F1.5 c10][precondition] the real source is running: window.nestlyTestSession is absent and sign-in calls the Auth URL', async ({ page }) => {
     const net = await setup(page);
     await login(page);
-    await expect(h1Of(page)).toHaveText('פיד');
+    await expect(h1Of(page)).toHaveText('הפיד');
     expect(await page.evaluate(() => Reflect.has(window, 'nestlyTestSession'))).toBe(false);
     expect(net.tokenCalls).toHaveLength(1);
     expect(net.meCalls).toHaveLength(1);
@@ -154,7 +154,7 @@ test.describe('F1.5 c10 [NFR-SEC-001] no leaks, against the real session source'
   test('[F1.5 c10] the password is only in the body of the Auth password-grant request: no URL, header, other body, console line or the DOM', async ({ page }) => {
     const net = await setup(page);
     await login(page);
-    await expect(h1Of(page)).toHaveText('פיד');
+    await expect(h1Of(page)).toHaveText('הפיד');
     expect(net.tokenCalls[0]?.postData ?? '').toContain(PASSWORD);
     for (const r of net.all) {
       const isTokenCall = net.tokenCalls.some((t) => t.url === r.url && t.postData === r.postData && t.method === r.method);
@@ -170,7 +170,7 @@ test.describe('F1.5 c10 [NFR-SEC-001] no leaks, against the real session source'
   test('[F1.5 c10][F1.4 c13 changed] after login the web storage holds only nestly-auth, with the session fields and neither email nor password', async ({ page }) => {
     await setup(page);
     await login(page);
-    await expect(h1Of(page)).toHaveText('פיד');
+    await expect(h1Of(page)).toHaveText('הפיד');
     expect(await storageKeys(page)).toEqual([STORAGE_KEY]);
     expect(await sessionKeys(page)).toEqual([]);
     const raw = await storedAuth(page);
@@ -207,7 +207,7 @@ test.describe('F1.5 c10 [NFR-SEC-001] no leaks, against the real session source'
   test('[F1.5 c10] after logout the web storage is empty', async ({ page }) => {
     const net = await setup(page);
     await login(page);
-    await expect(h1Of(page)).toHaveText('פיד');
+    await expect(h1Of(page)).toHaveText('הפיד');
     await logoutFromMenu(page);
     await expect(h1Of(page)).toHaveText(WELCOME_H1);
     expect(await storageKeys(page)).toEqual([]);
@@ -219,9 +219,9 @@ test.describe('F1.5 c10 [NFR-SEC-001] no leaks, against the real session source'
   test('[F1.5 c10][c11] a reload with a stored session stays signed in without the login screen, and the storage is unchanged in shape', async ({ page }) => {
     await setup(page);
     await login(page);
-    await expect(h1Of(page)).toHaveText('פיד');
+    await expect(h1Of(page)).toHaveText('הפיד');
     await page.reload();
-    await expect(h1Of(page)).toHaveText('פיד');
+    await expect(h1Of(page)).toHaveText('הפיד');
     expect(pathOf(page)).toBe('/feed');
     expect(await storageKeys(page)).toEqual([STORAGE_KEY]);
   });
@@ -238,7 +238,7 @@ test.describe('F1.5 c14 [FR-MENU-001] logout and Back, against the real session 
   test('[F1.5 c14] menu "התנתקות": storage cleared, URL /, Welcome; browser Back never renders a protected screen', async ({ page }) => {
     const net = await setup(page);
     await login(page);
-    await expect(h1Of(page)).toHaveText('פיד');
+    await expect(h1Of(page)).toHaveText('הפיד');
     await page.goto('/profile');
     await expect(h1Of(page)).toHaveText('פרופיל');
     await watch(page, { selectors: ['nav[aria-label="ניווט ראשי"]'] });
@@ -260,7 +260,7 @@ test.describe('F1.5 c14 [FR-MENU-001] logout and Back, against the real session 
   test('[F1.5 c14] a protected URL typed after logout leads to Welcome, not to the page', async ({ page }) => {
     await setup(page);
     await login(page);
-    await expect(h1Of(page)).toHaveText('פיד');
+    await expect(h1Of(page)).toHaveText('הפיד');
     await logoutFromMenu(page);
     await expect(h1Of(page)).toHaveText(WELCOME_H1);
     await page.goto('/settings');
@@ -272,7 +272,7 @@ test.describe('F1.5 c14 [FR-MENU-001] logout and Back, against the real session 
     await setup(page);
     await page.route('https://e2e-stub.invalid/auth/v1/logout**', (route) => route.abort('connectionreset'));
     await login(page);
-    await expect(h1Of(page)).toHaveText('פיד');
+    await expect(h1Of(page)).toHaveText('הפיד');
     await logoutFromMenu(page);
     await expect(h1Of(page)).toHaveText(WELCOME_H1);
     expect(await storageKeys(page)).toEqual([]);
@@ -340,7 +340,7 @@ for (const vp of VIEWPORTS) {
     test(`[F1.5 c20] menu open on a protected screen (${vp.name})`, async ({ page }) => {
       await setup(page);
       await login(page);
-      await expect(h1Of(page)).toHaveText('פיד');
+      await expect(h1Of(page)).toHaveText('הפיד');
       await page.getByRole('button', { name: MENU_BUTTON }).click();
       await expect(page.getByRole('button', { name: 'התנתקות', exact: true })).toBeVisible();
       await scan(page);
@@ -381,7 +381,7 @@ test.describe('F1.5 c20 keyboard, targets, RTL', () => {
     await page.keyboard.press('Shift+Tab');
     await expect(submit(page)).toBeFocused();
     await page.keyboard.press('Enter');
-    await expect(h1Of(page)).toHaveText('פיד');
+    await expect(h1Of(page)).toHaveText('הפיד');
     expect(net.tokenCalls).toHaveLength(1);
     expect(net.tokenCalls[0]?.postData ?? '').toContain(EMAIL);
   });

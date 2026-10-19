@@ -25,6 +25,8 @@ export interface Route {
   path: string;
   h1: string;
   title: string;
+  /** The nav link name when it differs from the h1 (the feed: link "פיד", h1 "הפיד"). */
+  nav?: string;
 }
 
 /** The four Guest routes (Q2). */
@@ -43,7 +45,7 @@ export const GOOGLE_RETURN: Route = { path: '/auth/google', h1: '', title: '' };
 /** The four protected placeholders (Q2). */
 export const PROTECTED_ROUTES: Route[] = [
   { path: '/home', h1: 'בית', title: 'בית · Nestly' },
-  { path: '/feed', h1: 'פיד', title: 'פיד · Nestly' },
+  { path: '/feed', h1: 'הפיד', title: 'הפיד · Nestly', nav: 'פיד' },
   { path: '/profile', h1: 'פרופיל', title: 'פרופיל · Nestly' },
   { path: '/settings', h1: 'הגדרות', title: 'הגדרות · Nestly' },
 ];

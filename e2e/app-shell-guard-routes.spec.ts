@@ -60,12 +60,12 @@ async function openDrawer(page: Page): Promise<void> {
 // ---------------------------------------------------------------------------------------------
 
 test.describe('harness controls', () => {
-  test('[F1.2 c5][c7] control: the render watcher DOES see protected content when a signed-in user opens /feed', async ({
+  test('[F1.2 c5][c7] control: the render watcher DOES see protected content when a signed-in user opens /home (a placeholder; /feed is the feed since F3.2b)', async ({
     page,
   }) => {
     await watch(page, { texts: [LINE], selectors: SHELL_SELECTORS });
-    await open(page, '/feed', 'signed-in');
-    await expect(h1Of(page)).toHaveText('פיד');
+    await open(page, '/home', 'signed-in');
+    await expect(h1Of(page)).toHaveText('בית');
     const hits = await seen(page);
     expect(hits).toContain(`text:${LINE}`);
     expect(hits.some((h) => h.startsWith('selector:'))).toBe(true);
@@ -222,7 +222,7 @@ test.describe('Welcome', () => {
       const len = await historyLength(page);
       await setState(page, 'signed-in');
       await expectUrl(page, '/feed');
-      await expect(h1Of(page)).toHaveText('פיד');
+      await expect(h1Of(page)).toHaveText('הפיד');
       expect(await seen(page)).toEqual([]);
       expect(await historyLength(page), 'replaced, not pushed').toBe(len);
     });
@@ -371,13 +371,13 @@ test.describe('RouteGuard: loading, session end, fail closed, DR-1', () => {
     page,
   }) => {
     await open(page, '/feed', 'signed-in');
-    await expect(h1Of(page)).toHaveText('פיד');
+    await expect(h1Of(page)).toHaveText('הפיד');
     await setState(page, 'loading');
     await expect(page.getByRole('status')).toHaveText(LOADING);
     await expect(navOf(page)).toHaveCount(0);
     await expect(page.getByText(LINE)).toHaveCount(0);
     await setState(page, 'signed-in');
-    await expect(h1Of(page)).toHaveText('פיד');
+    await expect(h1Of(page)).toHaveText('הפיד');
   });
 
   test('[F1.2 c8][FR-AUTH-004] signed-in to signed-out in place: content leaves the DOM, URL becomes /, no document reload', async ({
@@ -454,7 +454,7 @@ test.describe('RouteGuard: loading, session end, fail closed, DR-1', () => {
   }) => {
     const errors = recordErrors(page);
     await open(page, '/feed', 'signed-in');
-    await expect(h1Of(page)).toHaveText('פיד');
+    await expect(h1Of(page)).toHaveText('הפיד');
     await drive(page, 'fail');
     await expectUrl(page, '/');
     await expect(h1Of(page)).toHaveText(WELCOME_H1);
@@ -473,7 +473,7 @@ test.describe('RouteGuard: loading, session end, fail closed, DR-1', () => {
       const len = await historyLength(page);
       await setState(page, 'signed-in');
       await expectUrl(page, '/feed');
-      await expect(h1Of(page)).toHaveText('פיד');
+      await expect(h1Of(page)).toHaveText('הפיד');
       expect(await seen(page)).toEqual([]);
       expect(await historyLength(page), 'replace, not push').toBe(len);
       await expect(page.getByText(/404|לא נמצא/)).toHaveCount(0);
