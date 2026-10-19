@@ -16,3 +16,7 @@ export const listComments = (app: App, header: string | null, postId: string, cu
   app.inject({ method: 'GET', url: cursor === undefined ? commentsUrl(postId) : `${commentsUrl(postId)}?cursor=${encodeURIComponent(cursor)}`, headers: headersOf(header, false) });
 export const deleteComment = (app: App, header: string | null, id: string) =>
   app.inject({ method: 'DELETE', url: commentUrl(id), headers: headersOf(header, false) });
+
+export const repliesUrl = (commentId: string): string => `/api/comments/${commentId}/replies`;
+export const listReplies = (app: App, header: string | null, commentId: string, cursor?: string) =>
+  app.inject({ method: 'GET', url: cursor === undefined ? repliesUrl(commentId) : `${repliesUrl(commentId)}?cursor=${encodeURIComponent(cursor)}`, headers: headersOf(header, false) });

@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { createDatabase, type Database } from '../../src/db/client.js';
 import { AUDIENCE, COLD_START_MS, ISSUER, newKey, restoreEnv, startJwks, token, toRecord, type App, type JwksServer, type TestKey } from '../helpers/identity-fixtures.js';
 import { buildRegisterApp, captureLog, CLOCK_NOW, post, validBody } from '../helpers/register-app.js';
-import { addComment, deleteComment, listComments } from '../helpers/comments-api.js';
+import { addComment, deleteComment, listComments, listReplies } from '../helpers/comments-api.js';
 import { jsonObject } from '../helpers/posts-api.js';
 
 // I3 F3.3-b1, the comment API against the real database (CI `db` job, as app_server); criteria c2-c9 of .work/comments-likes/spec.md.
@@ -325,6 +325,21 @@ describe('[F3.3-b1 c6 AC-076 VAL-036] "המחבר"', () => {
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
+describe('[F3.3-b1 c6] isMine on "המחבר"', () => {
+  it('[F3.3-b1 c6] true only for the real author of an anonymous post; false for the readers, a friend, and any other commenter, in the thread and its replies', T, async () => {
+    const app = await start();
+    const postId = await seedPost(AU, 'everyone', true);
+    await befriend(F, AU, 'accepted');
+    const top = await seedComment(AU, postId, 1, 'author top');
+    await seedComment(AU, postId, 2, 'author reply', top);
+    await seedComment(C, postId, 3, 'other');
+    const mine = (viewer: Member) => listComments(app, viewer.header, postId).then((r) => items(r.body).map((i) => [i.isMine, ...repliesOf(i).map((x) => x.isMine)]));
+    expect(await mine(AU)).toEqual([[true, true], [false]]);
+    for (const other of [F, X, C, Q]) expect(await mine(other), other.id).toEqual([[false, false], [other === C]]);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
 describe('[F3.3-b1 c7] author.name is what regular_names returns to the viewer under RLS', () => {
   // One fixture table: a policy change edits this table, not code. Commenter C on a named post by AU. null = the viewer is not allowed the name.
   const NAME_TABLE: Array<{ viewer: () => Member; relation: 'self' | 'friend' | 'request counterparty' | 'stranger'; expected: string | null }> = [
@@ -518,5 +533,126 @@ describe('[F3.3-b1 c9] DELETE /comments/:id', () => {
     for (const code of codes) expect([204, 404, 503]).toContain(code);
     expect(codes.filter((c) => c === 204).length).toBeLessThanOrEqual(1);
     expect(await count('fx_cm_count')).toBe(codes.includes(204) ? 0 : 1);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+describe('[F3.3-b1 c8] replies are bounded: 3 inline, replyCount, GET /comments/:id/replies', () => {
+  const pageOf = (body: string): { rows: string[]; next: unknown } => ({ rows: bodiesOf(body), next: toRecord(JSON.parse(body)).nextCursor });
+
+  it('[F3.3-b1 c8] a parent with 25 replies carries the oldest 3 and replyCount 25; the replies call pages 20 then 5 from the oldest, no repeat, no skip', T, async () => {
+    const app = await start();
+    const postId = await seedPost(AU);
+    const top = await seedComment(C, postId, 1, 'top');
+    const ids: string[] = [];
+    for (let i = 1; i <= 25; i++) ids.push(await seedComment(i % 2 ? X : F, postId, 10 + i, `r${i}`, top));
+    const [item] = items((await listComments(app, X.header, postId)).body);
+    expect(item?.replyCount).toBe(25);
+    expect(repliesOf(item ?? {}).map((r) => r.body)).toEqual(['r1', 'r2', 'r3']);
+    expectNoForbiddenKeys(JSON.stringify(item));
+    const one = await listReplies(app, X.header, top);
+    expect(one.statusCode, one.body).toBe(200);
+    const first = pageOf(one.body);
+    expect(first.rows).toEqual(Array.from({ length: 20 }, (_, i) => `r${i + 1}`));
+    expect(typeof first.next).toBe('string');
+    expect((await deleteComment(app, F.header, ids[19] ?? '')).statusCode).toBe(204); // the cursor row itself goes between the pages
+    expect((await deleteComment(app, X.header, ids[22] ?? '')).statusCode).toBe(204);
+    const two = pageOf((await listReplies(app, X.header, top, String(first.next))).body);
+    expect(two.rows).toEqual(['r21', 'r22', 'r24', 'r25']);
+    expect(two.next).toBeNull();
+    expectNoForbiddenKeys(one.body);
+  });
+
+  it('[F3.3-b1 c8] replyCount counts only replies the reader may see: a held reply and a suspended replier\'s are not counted', T, async () => {
+    const app = await start();
+    const postId = await seedPost(AU);
+    const top = await seedComment(C, postId, 1, 'top');
+    await seedComment(F, postId, 2, 'visible', top);
+    const held = await seedComment(F, postId, 3, 'held', top);
+    await seedComment(O, postId, 4, 'by suspended', top);
+    await report(X, 'comment', held);
+    await deleteComment(app, F.header, held);
+    await setStatus(O.id, 'suspended');
+    const [item] = items((await listComments(app, X.header, postId)).body);
+    expect(item?.replyCount).toBe(1);
+    expect(repliesOf(item ?? {}).map((r) => r.body)).toEqual(['visible']);
+    expect(bodiesOf((await listReplies(app, X.header, top)).body)).toEqual(['visible']);
+  });
+
+  it('[F3.3-b1 c8] a parent without replies: replyCount 0, and the replies call is {items:[],nextCursor:null}', T, async () => {
+    const app = await start();
+    const postId = await seedPost(AU);
+    const top = await seedComment(C, postId, 1);
+    const [item] = items((await listComments(app, X.header, postId)).body);
+    expect([item?.replyCount, repliesOf(item ?? {})]).toEqual([0, []]);
+    expect(jsonObject((await listReplies(app, X.header, top)).body)).toEqual({ items: [], nextCursor: null });
+  });
+
+  it('[F3.3-b1 c8] a malformed or extra-key cursor → 400 cursor_invalid', T, async () => {
+    const app = await start();
+    const postId = await seedPost(AU);
+    const top = await seedComment(C, postId, 1);
+    const reply = await seedComment(X, postId, 2, 'r', top);
+    const at = '2026-01-15T12:00:00.000000Z';
+    for (const bad of ['garbage', `${at}~${reply}~x`, `${at}~`, `${at}~not-a-uuid`]) {
+      const res = await listReplies(app, X.header, top, bad);
+      expect(res.statusCode, bad).toBe(400);
+      expect(errorOf(res.body)).toBe('cursor_invalid');
+    }
+  });
+
+  it('[F3.3-b1 c8] a cursor whose id is a top-level (non-reply) comment → 400 cursor_invalid', T, async () => {
+    const app = await start();
+    const postId = await seedPost(AU);
+    const top = await seedComment(C, postId, 1);
+    await seedComment(X, postId, 2, 'r', top);
+    const res = await listReplies(app, X.header, top, `2026-01-15T12:00:00.000000Z~${top}`);
+    expect([res.statusCode, errorOf(res.body)]).toEqual([400, 'cursor_invalid']);
+  });
+
+  it('[F3.3-b1 c8] an unknown id, a reply, a held parent and a parent on an unreadable post → one identical 404 comment_unavailable; 401 without a token', T, async () => {
+    const app = await start();
+    const postId = await seedPost(AU);
+    const closed = await seedPost(AU, 'friends');
+    const top = await seedComment(C, postId, 1);
+    const reply = await seedComment(X, postId, 2, 'r', top);
+    const heldTop = await seedComment(F, postId, 3, 'held');
+    const onClosed = await seedComment(AU, closed, 4);
+    await report(X, 'comment', heldTop);
+    await deleteComment(app, F.header, heldTop);
+    const reference = await listReplies(app, X.header, NOBODY);
+    expect(reference.statusCode).toBe(404);
+    expect(errorOf(reference.body)).toBe('comment_unavailable');
+    for (const id of [reply, heldTop, onClosed, 'not-a-uuid']) {
+      const res = await listReplies(app, X.header, id);
+      expect(`${res.statusCode}|${res.body}`, id).toBe(`404|${reference.body}`);
+    }
+    expect((await listReplies(app, null, top)).statusCode).toBe(401);
+    expect([403, 404]).toContain((await listReplies(app, hS, top)).statusCode);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+describe('[F3.3-b1 c8 c9] more G2 and absence', () => {
+  it('[F3.3-b1 c9 G2] the commenter still deletes their comment after hiding the post for themselves (post_hides)', T, async () => {
+    const app = await start();
+    const postId = await seedPost(AU);
+    const id = await seedComment(C, postId, 1);
+    await inTx(async (tx) => void (await tx`select tests.fx_ph_add(${C.id}::uuid, ${postId}::uuid)`));
+    expect((await deleteComment(app, C.header, id)).statusCode).toBe(204);
+    expect(await count('fx_cm_count')).toBe(0);
+  });
+
+  it('[F3.3-b1 c8] a banned commenter\'s comment, and a banned replier\'s reply, are absent', T, async () => {
+    const app = await start();
+    const postId = await seedPost(AU);
+    await seedComment(O, postId, 1, 'by banned');
+    const top = await seedComment(C, postId, 2, 'by active');
+    await seedComment(O, postId, 3, 'reply by banned', top);
+    await setStatus(O.id, 'banned');
+    const rows = items((await listComments(app, X.header, postId)).body);
+    expect(rows.map((r) => r.body)).toEqual(['by active']);
+    expect(rows[0]?.replyCount).toBe(0);
+    expect(repliesOf(rows[0] ?? {})).toEqual([]);
   });
 });
