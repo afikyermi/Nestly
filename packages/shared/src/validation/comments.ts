@@ -61,12 +61,17 @@ export const commentView = z.strictObject({
   byAuthor: z.boolean(),
   author: z.strictObject({ name: z.string().nullable() }).optional(),
 });
-export const commentThreadItem = commentView.extend({ replies: z.array(commentView) });
+/** `replies`: the first COMMENT_INLINE_REPLIES, oldest first; `replyCount`: all the replies the viewer can read under it. */
+export const commentThreadItem = commentView.extend({ replies: z.array(commentView), replyCount: z.number().int().nonnegative() });
 export const commentThreadPage = z.strictObject({ items: z.array(commentThreadItem), nextCursor: z.string().nullable() });
+
+/** GET /api/comments/:id/replies: one page of replies, oldest first. */
+export const commentReplyPage = z.strictObject({ items: z.array(commentView), nextCursor: z.string().nullable() });
 
 export type CommentView = z.infer<typeof commentView>;
 export type CommentThreadItem = z.infer<typeof commentThreadItem>;
 export type CommentThreadPage = z.infer<typeof commentThreadPage>;
+export type CommentReplyPage = z.infer<typeof commentReplyPage>;
 
 const COMMENT_CURSOR = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z)~([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 

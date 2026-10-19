@@ -4,6 +4,7 @@
 //   POST   { body, parentId? } (strict) → 201 { comment } · 400 invalid | parent_invalid · 422 body_required | body_too_long ·
 //          404 post_unavailable (missing, or not readable: one body for every reason) · 403 account_unavailable | not_allowed
 //   GET    ?cursor= → 200 { items, nextCursor } · 400 cursor_invalid · 404 post_unavailable · 403 as above
+//   GET    /comments/:id/replies ?cursor= → 200 { items, nextCursor } · 400 cursor_invalid · 404 comment_unavailable (unknown, a reply, held or on an unreadable post: one body) · 403 as above
 //   DELETE /comments/:id no body → 204 (also a comment held for an open report) · 404 not_found (not a uuid, unknown or not the caller's) · 403
 //   all: 401/503 session guard · 503 · 500 server_error. Any other method → 405 with Allow.
 // Logs carry a fixed line and the SQLSTATE, never the body or an id (NFR-PRIV-001).
@@ -11,9 +12,9 @@
 import { checkCreateComment, commentPathParams, parseCommentCursor } from '@nestly/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
-import { commentFaultReply, isConnectionFailure, readDatabaseFault } from '../lib/pg-error.js';
+import { commentFaultReply, isConnectionFailure, readDatabaseFault, type CommentOperation } from '../lib/pg-error.js';
 import { replySessionRefused } from '../plugins/authentication.js';
-import { createComment, readThread, removeComment, type CommentRefusal } from '../services/comments-service.js';
+import { createComment, readReplies, readThread, removeComment, type CommentRefusal } from '../services/comments-service.js';
 
 export interface CommentsRouteDependencies {
   readonly database: Database | undefined;
@@ -21,14 +22,16 @@ export interface CommentsRouteDependencies {
 
 const POST_COMMENTS_PATH = '/api/posts/:id/comments';
 const COMMENT_PATH = '/api/comments/:id';
+const REPLIES_PATH = '/api/comments/:id/replies';
 const NOT_FOUND = { error: 'not_found' };
 const POST_UNAVAILABLE = { error: 'post_unavailable' };
+const COMMENT_UNAVAILABLE = { error: 'comment_unavailable' };
 
-function replyFailure(request: FastifyRequest, reply: FastifyReply, error: unknown, line: string): FastifyReply {
+function replyFailure(request: FastifyRequest, reply: FastifyReply, error: unknown, line: string, operation: CommentOperation = 'other'): FastifyReply {
   const refused = replySessionRefused(reply, error);
   if (refused !== undefined) return refused;
   request.log.error({ sqlstate: readDatabaseFault(error)?.code }, line);
-  const fault = commentFaultReply(error);
+  const fault = commentFaultReply(error, operation);
   if (fault !== undefined) return reply.code(fault.status).send({ error: fault.error });
   if (isConnectionFailure(error)) return reply.code(503).send({ error: 'unavailable' });
   return reply.code(500).send({ error: 'server_error' });
@@ -68,7 +71,7 @@ async function create(request: FastifyRequest, reply: FastifyReply, deps: Commen
         return replyRefusal(reply, outcome);
     }
   } catch (error) {
-    return replyFailure(request, reply, error, 'comment create failed');
+    return replyFailure(request, reply, error, 'comment create failed', checked.value.parentId === undefined ? 'create' : 'create_reply');
   }
 }
 
@@ -92,6 +95,31 @@ async function read(request: FastifyRequest, reply: FastifyReply, deps: Comments
     }
   } catch (error) {
     return replyFailure(request, reply, error, 'comment thread read failed');
+  }
+}
+
+async function readReplyList(request: FastifyRequest, reply: FastifyReply, deps: CommentsRouteDependencies) {
+  const { identity } = request;
+  reply.header('cache-control', 'no-store');
+  const params = commentPathParams.safeParse(request.params);
+  if (!params.success) return reply.code(404).send(COMMENT_UNAVAILABLE);
+  const cursor = cursorOf(request.query);
+  if (cursor === null) return reply.code(400).send({ error: 'cursor_invalid' });
+  if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
+  try {
+    const outcome = await readReplies(deps.database, identity, params.data.id.toLowerCase(), cursor ?? null);
+    switch (outcome.kind) {
+      case 'replies':
+        return reply.code(200).send(outcome.page);
+      case 'cursor_invalid':
+        return reply.code(400).send({ error: 'cursor_invalid' });
+      case 'comment_unavailable':
+        return reply.code(404).send(COMMENT_UNAVAILABLE);
+      default:
+        return replyRefusal(reply, outcome);
+    }
+  } catch (error) {
+    return replyFailure(request, reply, error, 'comment replies read failed');
   }
 }
 
@@ -130,4 +158,7 @@ export function registerCommentsRoutes(app: FastifyInstance, deps: CommentsRoute
 
   app.route({ method: 'DELETE', url: COMMENT_PATH, handler: (request, reply) => remove(request, reply, deps) });
   app.route({ method: ['GET', 'POST', 'PUT', 'PATCH', 'OPTIONS'], url: COMMENT_PATH, handler: notAllowed('DELETE') });
+
+  app.route({ method: 'GET', url: REPLIES_PATH, handler: (request, reply) => readReplyList(request, reply, deps) });
+  app.route({ method: ['POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], url: REPLIES_PATH, handler: notAllowed('GET') });
 }

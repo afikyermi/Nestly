@@ -16,3 +16,4 @@
 (port 54330, removed). The new SQL is not in that suite; I ran a throwaway smoke (anonymous "המחבר" with no author key and isMine, reply under reply
 → parent_invalid, other's delete 404, unknown post 404, paging 20+3 without repeat) — it caught a cursor-case bug, fixed. TE's comments.db.test.ts is the real proof.
 **Neighbouring**  none. Leftover: untracked `apps/server/tests/b1-smoke.scratch.ts` (my throwaway; a hook blocked me deleting it) — delete, never commit.
+F3.3b1 round 2: replies bounded (3 inline + replyCount; GET /api/comments/:id/replies, 20 a page; a cursor naming a readable row of another parent is cursor_invalid, a deleted cursor row pages on), commentFaultReply takes the create operation (23503/42501 → parent_invalid or post_unavailable), delete count Zod-parsed.

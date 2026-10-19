@@ -8,3 +8,9 @@ export const COMMENT_BODY_MAX = 1000;
 
 /** Top-level comments on one page of a thread (F3.3 criterion 8). Replies are not counted: they come with their parent. */
 export const COMMENT_PAGE_SIZE = 20;
+
+/** Replies carried inline with each top-level comment of a thread page (F3.3 criterion 8); the rest come from the replies endpoint. */
+export const COMMENT_INLINE_REPLIES = 3;
+
+/** Replies on one page of GET /api/comments/:id/replies (F3.3 criterion 8). */
+export const COMMENT_REPLY_PAGE_SIZE = 20;

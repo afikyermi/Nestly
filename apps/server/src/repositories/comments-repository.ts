@@ -81,22 +81,86 @@ export async function readTopLevelPage(
     );
 }
 
-/** Every readable reply of the given top-level comments, oldest first, with the id of the parent. */
-export async function readReplies(tx: IdentityTx, parentIds: readonly string[]): Promise<CommentRow[]> {
-  if (parentIds.length === 0) return [];
-  const ids = sql.join(
-    parentIds.map((id) => sql`${id}::uuid`),
+const idList = (ids: readonly string[]): SQL =>
+  sql.join(
+    ids.map((id) => sql`${id}::uuid`),
     sql`, `,
   );
+
+/** The first `limit` readable replies of each of the given top-level comments, oldest first, with the id of the parent. */
+export async function readFirstReplies(tx: IdentityTx, parentIds: readonly string[], limit: number): Promise<CommentRow[]> {
+  if (parentIds.length === 0) return [];
+  return z.array(commentRow.extend({ parentId: z.guid() })).parse(
+    await tx.execute(sql`
+      select r.id, r."parentId", r.body, r."createdAt", r."cursorAt", r."byAuthor", r."isMine", r."hasAuthor", r."authorName"
+      from (
+        select c.id, c.parent_id as "parentId", c.body, c.created_at,
+               to_char(c.created_at at time zone 'UTC', ${isoMs}) as "createdAt",
+               to_char(c.created_at at time zone 'UTC', ${isoUs}) as "cursorAt",
+               c.is_by_post_author as "byAuthor",
+               case when c.author_id is null
+                    then exists (select 1 from nestly.post_authors pa where pa.post_id = c.post_id and pa.author_id = (select auth.uid()))
+                    else c.author_id = (select auth.uid()) end as "isMine",
+               c.author_id is not null as "hasAuthor",
+               n.full_name as "authorName",
+               row_number() over (partition by c.parent_id order by c.created_at asc, c.id asc) as rn
+        from nestly.comments c
+        left join nestly.regular_names n on n.user_id = c.author_id
+        where c.parent_id in (${idList(parentIds)})) r
+      where r.rn <= ${limit}
+      order by r.created_at asc, r.id asc`),
+  );
+}
+
+/** How many readable replies each of the given top-level comments has (as the caller's policy shows them: none under a parent it cannot read). */
+export async function readReplyCounts(tx: IdentityTx, parentIds: readonly string[]): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  if (parentIds.length === 0) return counts;
+  const rows = z
+    .array(z.object({ parentId: z.guid(), replyCount: z.number().int().nonnegative() }))
+    .parse(
+      await tx.execute(
+        sql`select c.parent_id as "parentId", count(*)::int as "replyCount" from nestly.comments c where c.parent_id in (${idList(parentIds)}) group by c.parent_id`,
+      ),
+    );
+  for (const row of rows) counts.set(row.parentId, row.replyCount);
+  return counts;
+}
+
+/** The post of the readable top-level comment `id`: none for an unknown, unreadable or reply row. */
+export async function readTopLevelPostId(tx: IdentityTx, id: string): Promise<string[]> {
+  const rows = await tx.execute(sql`select c.post_id as "postId" from nestly.comments c where c.id = ${id}::uuid and c.parent_id is null`);
+  return z.array(z.object({ postId: z.guid() })).parse(rows).map((row) => row.postId);
+}
+
+/** The parent of the readable comment `id` (null for a top-level one); no row for an unknown or unreadable id, e.g. a cursor row deleted between pages. */
+export async function readParentOf(tx: IdentityTx, id: string): Promise<Array<string | null>> {
+  const rows = await tx.execute(sql`select c.parent_id as "parentId" from nestly.comments c where c.id = ${id}::uuid`);
+  return z.array(z.object({ parentId: z.guid().nullable() })).parse(rows).map((row) => row.parentId);
+}
+
+/** One page of the readable replies of a top-level comment, oldest first: at most `limit` rows after the cursor `(created_at, id)`. */
+export async function readReplyPage(
+  tx: IdentityTx,
+  parentId: string,
+  after: { createdAt: string; id: string } | null,
+  limit: number,
+): Promise<CommentRow[]> {
+  const keyset =
+    after === null ? sql`true` : sql`(c.created_at, c.id) > (${after.createdAt}::timestamptz, ${after.id}::uuid)`;
   return z
-    .array(commentRow.extend({ parentId: z.guid() }))
-    .parse(await tx.execute(sql`${selectComments} where c.parent_id in (${ids}) order by c.created_at asc, c.id asc`));
+    .array(commentRow)
+    .parse(
+      await tx.execute(
+        sql`${selectComments} where c.parent_id = ${parentId}::uuid and ${keyset} order by c.created_at asc, c.id asc limit ${limit}`,
+      ),
+    );
 }
 
 /** delete_comment(uuid) deletes the caller's comment, or holds it when it has an open report. Returns the row count: 1, or 0 for not theirs. */
 export async function deleteComment(tx: IdentityTx, id: string): Promise<number> {
-  const rows = await tx.execute(sql`select nestly.delete_comment(${id}::uuid) as deleted`);
+  const rows = z.array(z.object({ deleted: z.number().int().nonnegative() })).parse(await tx.execute(sql`select nestly.delete_comment(${id}::uuid) as deleted`));
   const [row] = rows;
-  const deleted: unknown = row === undefined ? undefined : Reflect.get(row, 'deleted');
-  return typeof deleted === 'number' ? deleted : 0;
+  if (rows.length !== 1 || row === undefined) throw new Error('delete_comment returned an unexpected result');
+  return row.deleted;
 }
