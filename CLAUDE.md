@@ -116,7 +116,7 @@ disagreements and decision needs. One task/next action, one owner.
 | QUESTION | reasonable default stated; nonblocking, work proceeds if unanswered |
 | BLOCKER | no reasonable default; work stopped, owner must handle |
 | DECISION REQUEST | requires owner above; reserved points block dependent work for Afik |
-| SPEC CHALLENGE | once before code; format and handling in workflow |
+| SPEC CHALLENGE | once before code; screen.md items anytime (workflow) |
 | MATERIAL CHANGE | affected branch pauses; Change control above |
 
 Every role returns: **Done** (one line) · **Artifact** · **Findings** (or none) · **Open**
