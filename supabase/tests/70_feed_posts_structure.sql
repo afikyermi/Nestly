@@ -140,13 +140,13 @@ select is(
 select is(
   (select count(*) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'nestly' and (p.proname like 'post%' or p.proname like 'algorithm%')),
-  4::bigint, '[F3.0-a c17] exactly four functions came with F3.0a (schema.md + the hide-own-post guard, ORCHESTRATOR decision on CRITIC finding 1)');
+  5::bigint, '[F3.0-a c17 · F3.5 c8] exactly five functions: four came with F3.0a (schema.md + the hide-own-post guard) and posts_update_share_guard (I3 rest PR-A)');
 
 select is(
   (select string_agg(p.proname, ', ' order by p.proname) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'nestly' and (p.proname like 'post%' or p.proname like 'algorithm%')),
-  'algorithm_configurations_guard, post_hides_insert_guard, posts_insert_author, posts_insert_prepare',
-  '[F3.0-a c17] the four are insert/update guards; none is a view, impression, click or dwell recorder');
+  'algorithm_configurations_guard, post_hides_insert_guard, posts_insert_author, posts_insert_prepare, posts_update_share_guard',
+  '[F3.0-a c17 · F3.5 c8] the five are insert/update guards; none is a view, impression, click or dwell recorder');
 
 select is(
   (select count(*) from pg_catalog.pg_trigger t join pg_catalog.pg_class c on c.oid = t.tgrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
@@ -179,8 +179,8 @@ select is(
 
 select is(
   (select count(*) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'nestly' and p.prosrc ~ 'post_hides'),
-  0::bigint, '[F3.0-a c16] no function body mentions post_hides');
+    where n.nspname = 'nestly' and p.prosrc ~ 'post_hides' and p.proname <> 'post_hides_insert_guard'),
+  0::bigint, '[F3.0-a c16] no function body but the table''s own guard post_hides_insert_guard mentions post_hides');
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
