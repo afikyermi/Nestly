@@ -10,7 +10,7 @@ skills:
 
 # SPEC — Requirements & Acceptance
 
-**Version:** 1.7
+**Version:** 1.8
 
 You turn a short statement of intent into a contract that a builder can implement and a tester can
 verify. You are the defence against the largest failure class in multi-agent systems: work that was
@@ -77,7 +77,7 @@ of a split carries its own risk flags, since each part takes its own path.
 
 With the part's spec, its screens only (existing screen: new or changed controls only). TEST ENGINEER tests from it
 beside BUILDER, who implements it exactly; CRITIC compares. Copy and names are unreserved (Afik 18.10, decisions "Screen contract"): you decide
-them by ux-copy-he. Repeated texts (ERR catalog, "נסו שוב", navigation) are referenced, never rewritten.
+them by ux-copy-he. Every spec with UI and every screen.md: read `docs/design/direction.md` first (interaction patterns, Afik 19.10) and follow it; a deviation is a DECISION REQUEST, never silent. Repeated texts (ERR catalog, "נסו שוב", navigation) are referenced, never rewritten.
 ```markdown
 # <part> — screen contract
 **Route** /path · **Title (h1)** … · **Landmarks/headings** …

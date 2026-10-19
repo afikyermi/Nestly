@@ -35,14 +35,31 @@ describe('[F3.3-b1 c3 c9] comments repository, static', () => {
     expect(repository).not.toMatch(/set\s+(local\s+)?role|set_config|service_role|bypassrls|security\s+definer/i);
   });
 
-  it('[F3.3-b1 c6] post_authors appears in the repositories only inside the isMine select expression: no where, order, keyset, limit, group or count', () => {
-    const dir = new URL('../src/repositories/', import.meta.url);
-    const files = readdirSync(dir).filter((f) => f.endsWith('.ts'));
+  // F3.4 c5 replaces the F3.3-b1 c6 test (.work/anonymous-post/algorithm-review.md, "Static-test wording" 1): two pinned isMine expressions, one per repository.
+  const PINNED: Record<string, RegExp> = {
+    'comments-repository.ts': /case when c\.author_id is null[\s\S]*?end as "isMine"/g,
+    'posts-repository.ts': /case when p\.author_id is null[\s\S]*?end as "isMine"/g,
+  };
+
+  it('[F3.4 c5] post_authors appears in the repositories only inside the two pinned isMine expressions (exists (, (select auth.uid()); no join, count(, order by, group by, limit)', () => {
+    const files = readdirSync(new URL('../src/repositories/', import.meta.url)).filter((f) => f.endsWith('.ts'));
     expect(files).toContain('comments-repository.ts');
+    expect(files).toContain('posts-repository.ts');
     for (const file of files) {
-      const text = code(read(`../src/repositories/${file}`)).replace(ISMINE, '');
+      let text = code(read(`../src/repositories/${file}`));
+      const pinned = PINNED[file];
+      if (pinned !== undefined) {
+        const matches = text.match(pinned) ?? [];
+        expect(matches.length, file).toBeGreaterThan(0);
+        for (const m of matches) {
+          expect(m, file).toMatch(/post_authors/);
+          expect(m, file).toMatch(/exists\s*\(/i);
+          expect(m, file).toMatch(/\(select auth\.uid\(\)\)/);
+          expect(m, file).not.toMatch(/\bjoin\b|count\s*\(|order\s+by|group\s+by|\blimit\b/i);
+        }
+        text = text.replace(pinned, '');
+      }
       expect(text, file).not.toMatch(/post_authors/i);
     }
-    expect(isMine.every((e) => /post_authors/.test(e))).toBe(true);
   });
 });

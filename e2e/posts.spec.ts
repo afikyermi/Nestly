@@ -35,7 +35,7 @@ const choose = (page: Page, name: string) => card(page, name).click();
 const heightOf = async (el: Locator) => (await el.boundingBox())?.height ?? 0;
 
 test.describe('F3.1b c14 [FR-FEED-002] the entry point', () => {
-  test('[c14] a Regular sees "כתיבת פוסט" on the feed, it leads to /posts/new; no anonymous control anywhere', async ({ page }) => {
+  test('[c14] a Regular sees "כתיבת פוסט" on the feed, it leads to /posts/new; the feed has no anonymous control, the composer has exactly one (F3.4 c11)', async ({ page }) => {
     await setupPosts(page);
     await open(page, '/feed');
     const link = page.getByRole('link', { name: 'כתיבת פוסט', exact: true });
@@ -43,8 +43,8 @@ test.describe('F3.1b c14 [FR-FEED-002] the entry point', () => {
     await link.click();
     await expect(page.getByRole('heading', { level: 1, name: 'כתיבת פוסט' })).toBeVisible();
     expect(pathOf(page)).toBe('/posts/new');
-    await expect(page.getByText(/אנונימי/)).toHaveCount(0);
-    await expect(page.getByRole('checkbox')).toHaveCount(0);
+    await expect(page.getByRole('checkbox')).toHaveCount(1); // F3.4 amends F3.1b c14: "פרסום אנונימי", and nothing else of the kind
+    await expect(page.getByRole('checkbox', { name: 'פרסום אנונימי', exact: true })).toBeVisible();
     await expect(page.getByRole('switch')).toHaveCount(0);
   });
   test('[c14] a Professional has no link on the feed, and /posts/new shows "הפעולה אינה זמינה" without the form', async ({ page }) => {
@@ -141,11 +141,13 @@ test.describe('F3.1b c17 [FR-FEED-002 ERR-004] publishing', () => {
     await expect.poll(() => pathOf(page)).toMatch(POST_PATH);
     expect(net.creates).toHaveLength(1);
   });
-  test('[c17 c16] keyboard only: Tab reaches the audience group, the tag group and "פרסום"; Enter on it publishes', async ({ page }) => {
+  test('[c17 c16] keyboard only: Tab reaches the anonymous checkbox (F3.4), the audience group, the tag group and "פרסום"; Enter on it publishes', async ({ page }) => {
     const net = await setupPosts(page);
     await open(page, '/posts/new');
     await body(page).focus();
     await page.keyboard.type('בלי עכבר');
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('checkbox', { name: 'פרסום אנונימי', exact: true })).toBeFocused(); // F3.4 c11: after the textbox, before the audience
     await page.keyboard.press('Tab');
     await expect(page.getByRole('radio', { name: 'כולם' })).toBeFocused();
     await page.keyboard.press('Tab');

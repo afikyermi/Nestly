@@ -32,7 +32,7 @@ const EXPECTED: Array<[string, Error, number, string]> = [
   ['42501 (policy or privilege)', fault('42501'), 403, 'not_allowed'],
   ['23503 (not a Regular account)', fault('23503', 'posts_author_id_fkey'), 403, 'not_allowed'],
   ['42501, wrapped', wrapped(fault('42501')), 403, 'not_allowed'],
-  ['23514 on another CHECK', fault('23514', 'posts_audience_check'), 500, 'server_error'],
+  ['23514 on another CHECK', fault('23514', 'posts_something_else_check'), 500, 'server_error'],
   ['23514 with no constraint named', fault('23514'), 500, 'server_error'],
   ['23505 (unique)', fault('23505', 'posts_pkey'), 500, 'server_error'],
   ['XX000 (internal)', fault('XX000'), 500, 'server_error'],
@@ -128,10 +128,51 @@ describe('[F3.1-a c7] the routes answer a database fault with the mapped status,
   it('[F3.1-a c2] a refused body never reaches the database', T, async () => {
     const running = await failingWith(() => new Error('the database must not be asked'));
     const header = await bearer();
-    expect((await createPost(running, header, { body: 'x', audience: 'everyone', isAnonymous: true })).statusCode).toBe(400);
+    expect((await createPost(running, header, { body: 'x', audience: 'everyone', isAnonymous: 'yes' })).statusCode).toBe(400); // F3.4 c1: true/false are valid on create, a non-boolean is not
+    expect((await patchPost(running, header, ID, { body: 'x', audience: 'everyone', isAnonymous: true })).statusCode).toBe(400);
+    expect((await patchPost(running, header, ID, { isAnonymous: false })).statusCode).toBe(400);
     expect((await createPost(running, header, { body: '   ', audience: 'everyone' })).statusCode).toBe(422);
     expect((await patchPost(running, header, ID, { body: 'x', audience: 'everyone', authorId: SUB })).statusCode).toBe(400);
     const nul = { body: 'hello\u0000', audience: 'everyone' }; // c1: U+0000 is 400 invalid, not a 500 from the database
     for (const res of [await createPost(running, header, nul), await patchPost(running, header, ID, nul)]) expect([res.statusCode, jsonOf(res.body)]).toEqual([400, { error: 'invalid' }]);
+  });
+});
+
+// F3.4 c3 (.work/anonymous-post/spec.md): the database's posts_audience_check (23514) on a payload that got past Zod is 422 audience_not_allowed, told apart
+// from the body CHECK by its constraint name; nothing from the database leaks. FR-FEED-005 r.3.
+const AUDIENCE_CHECK = 'posts_audience_check';
+describe('[F3.4 c3 FR-FEED-005] 23514 on the audience CHECK', () => {
+  it.each([
+    ['direct', fault('23514', AUDIENCE_CHECK)],
+    ['wrapped by Drizzle', wrapped(fault('23514', AUDIENCE_CHECK))],
+  ])('[F3.4 c3] postFaultReply, %s: 422 audience_not_allowed', (_label, error) => {
+    expect(postFaultReply(error)).toEqual({ status: 422, error: 'audience_not_allowed' });
+  });
+
+  it('[F3.4 c3] the body CHECK is still body_too_long: the two 23514 are told apart by constraint', () => {
+    expect(postFaultReply(fault('23514', BODY_CHECK))).toEqual({ status: 422, error: 'body_too_long' });
+    expect(postFaultReply(fault('23514', AUDIENCE_CHECK))).not.toEqual(postFaultReply(fault('23514', BODY_CHECK)));
+  });
+
+  it('[F3.4 c3] an anonymous create the database refuses on the audience CHECK answers 422 audience_not_allowed and leaks no database text', T, async () => {
+    const running = await failingWith(() => fault('23514', AUDIENCE_CHECK));
+    const res = await createPost(running, await bearer(), { body: 'x', audience: 'everyone', isAnonymous: true });
+    expect(res.statusCode, res.body).toBe(422);
+    expect(jsonOf(res.body)).toEqual({ error: 'audience_not_allowed' });
+    expect(res.body).not.toMatch(new RegExp(`${SECRET}|violates|posts|constraint|23514|relation`, 'i'));
+  });
+
+  it('[F3.4 c6] an edit the database refuses on the audience CHECK (an anonymous post moved to friends) answers 422 audience_not_allowed', T, async () => {
+    const running = await failingWith(() => fault('23514', AUDIENCE_CHECK));
+    const res = await patchPost(running, await bearer(), ID, { audience: 'friends' });
+    expect(res.statusCode, res.body).toBe(422);
+    expect(jsonOf(res.body)).toEqual({ error: 'audience_not_allowed' });
+    expect(res.body).not.toMatch(new RegExp(`${SECRET}|violates|posts|constraint|23514|relation`, 'i'));
+  });
+
+  it('[F3.4 c1] anonymous with "friends" is refused before the database is asked: 422 audience_not_allowed', T, async () => {
+    const running = await failingWith(() => new Error('the database must not be asked'));
+    const res = await createPost(running, await bearer(), { body: 'x', audience: 'friends', isAnonymous: true });
+    expect([res.statusCode, jsonOf(res.body)]).toEqual([422, { error: 'audience_not_allowed' }]);
   });
 });

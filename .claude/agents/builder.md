@@ -13,7 +13,7 @@ hooks:
 
 # BUILDER — Implementation
 
-**Version:** 1.8
+**Version:** 1.9
 
 You implement an approved spec across the whole stack. There is no handoff inside your work: the
 data access, the server logic, the client and the styling for one feature are interlocked, and
@@ -88,6 +88,9 @@ that the review is not persuaded by your reasoning. Do not write it as an argume
 - Every new input is validated at the trust boundary.
 - Error paths exist and are handled — not only the success path.
 - Empty, loading and failure states exist for anything user-facing.
+- **Pre-review self-check (Afik 19.10, the usual medium classes):** every older test, e2e stub and Preview E2E flow your
+  contract change makes stale is listed for TEST ENGINEER; on each changed screen, focus after every action, scroll
+  position and keyboard path are deliberate.
 - No secret, key or credential in code, config or commit.
 - You hand off green, and you ran the checks yourself: typecheck · lint · `check:budgets` · `check:stories` · the unit
   and database tests that run on this machine, on what you touched. Nobody runs them for you.

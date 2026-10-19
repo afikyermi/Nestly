@@ -5,15 +5,15 @@ community. The feed already renders shares (F3.2 c12/c17), but nothing can creat
 **Requirements**   FR-FEED-006 (05-functional/feed.md) · BR-064, BR-065, BR-066 (08-business-rules.md) · VAL-038 (09-validations.md) · ERR-033,
 ERR-034 (10-errors-edge-cases.md) · AC-079, AC-080, AC-081 (15-acceptance.md) · Afik 2א (only "everyone" posts) · Afik 18.10 (decisions/2026-10.md:2253:
 Restricted has no relation to posts or sharing; supersedes the Restricted clause of BR-064/AC-080) · OP-033 + 1א (audience per post) · §13 Post (a share is
-the sharer's post). Built on F3.0a schema (`posts.is_share`, `shared_post_id`, `posts_insert_prepare`), F3.2 feed unit, F3.3 action row.
+the sharer's post) · docs/design/direction.md "דפוסי אינטראקציה" (Afik 19.10). Built on F3.0a schema, F3.2 feed unit, F3.3 action row, F3.7 sheet primitive.
 **Note**           The I3 row cites "AC-079–086 (share part)": the share ACs are AC-079–083 only; AC-084–086 are registration (084) or cancelled (085, 086).
 AC-082/083 belong to F3.6.
 **Scope**          Shared Zod and pure share-target function · server `POST /posts/:id/shares`, share view on `GET /posts/:id`, PATCH refusal on a share ·
-web: "שיתוף בפיד" action on feed cards and the post page, share dialog, share view on `/posts/:id`.
+web: "שיתוף בפיד" action on feed cards and the post page, share window in F3.7's sheet primitive, new share at the top of the loaded feed, share view on `/posts/:id`.
 **Out of scope**   Share link, WhatsApp/email/copy, link preview (F3.6) · notification to the original author (FR-NOTIF-003 → I7, with all notifications) ·
 share events or analytics (4א → I15) · share count, "who shared" list · editing a share (delete and share again) · sharing a comment, profile, child,
 Journey Summary, Tracker data or message: no control exists for any of them · anonymous share (DB forbids) · private-group and sponsored content (none
-exist before I10/I12) · Professional sharing (I11) · inserting the new share into the loaded feed list (it appears on the next load) · a "one share per
+exist before I10/I12) · Professional sharing (I11) · building the sheet primitive (F3.7 owns it) · in-card comments (I3 UX-polish part) · a "one share per
 post" limit · rate limit · ranking change (shares are already in the organic pool and deduplicated, F3.2 c8) · stage tag on a share · images (I5).
 **Data touched**   `posts`: insert of a share row (`body` = sharer text, `audience`, `shared_post_id`); reads of posts, regular_names under RLS. One trigger
 change (Schema needs). Delete via the existing `delete_post`.
@@ -44,13 +44,14 @@ change (Schema needs). Delete via the existing `delete_post`.
    row). `PATCH /posts/:id` on a share → 400 `share_not_editable`, row unchanged.
 9. 🎨 [U] "שיתוף בפיד" button on a card (after "תגובות") and on the post page exactly when `shareTargetOf` ≠ null; otherwise absent, never disabled
    (BR-064). Professional: none. Anonymous cards gain no author data.
-10. 🎨 [E] Dialog (screen.md): quote of the original (name, body), optional text, audience preselected as the composer does (1א, same stored choice),
-    counter at ≤100 left, too-long message; "שיתוף" sends one request (double click); Esc or cancel sends none and returns focus to the button.
-    Success: closes, polite "השיתוף פורסם", focus on the button, chosen audience stored; on reload the share card shows sharer, text and original (AC-079).
-11. 🎨 [E] `not_shareable` → alert in the dialog "אי אפשר לשתף את הפוסט הזה" (no reason), text kept; network or 5xx → the screen.md retry alert, text kept;
-    403 `not_allowed` → dialog closes with the ERR-004 alert; nothing stored on failure.
+10. 🎨 [E] Share window in F3.7's primitive (bottom sheet below 1024 px, small window from 1024 px; direction.md): quote of the original (name, body),
+    optional text, audience preselected as the composer does (1א, same stored choice), counter at ≤100 left, too-long message; "שיתוף" sends one request
+    (double click). Back, Esc, outside click or "ביטול" close it with no request; the feed neither scrolls nor navigates; focus returns to the opener.
+11. 🎨 [E] Success: the window closes, polite "השיתוף פורסם", focus on the opener; on /feed the server's share is inserted at once at the top of the loaded
+    list (sharer, text, original; ids deduplicated; no new `GET /feed`); on reload it is in the feed (AC-079). `not_shareable` → alert in the window
+    "אי אפשר לשתף את הפוסט הזה" (no reason), text kept; network/5xx → screen.md retry alert, text kept; 403 `not_allowed` → closes, ERR-004 alert; nothing stored.
 12. 🎨 [U+E] Post page of a share: sharer header and text, original in a quote with link "לפוסט המקורי" to its page, or "הפוסט המקורי כבר לא זמין" with
-    no original content (AC-081); the sharer sees "מחיקה", nobody sees "עריכה"; F3.3 comments region unchanged. axe 0 at 375 px; new controls ≥44×44 px.
+    no original content (AC-081); the sharer sees "מחיקה", nobody sees "עריכה"; F3.3 comments region unchanged. axe 0 at 375 px and 1280 px; new controls ≥44×44 px.
 
 **Schema needs** (DATA ARCHITECT, I3 remaining-schema migration; no SQL here)
 - `posts_insert_prepare`: also refuse a share whose original's named author is the caller (c5, own post; FR-FEED-006 "פוסט של משתמש אחר").
@@ -66,4 +67,5 @@ change (Schema needs). Delete via the existing `delete_post`.
 - Original hidden or reported by the viewer → **assumed** shows "not available" to that viewer (as built: RLS excludes it).
 - AC-080 Restricted clause and BR-064/065 Restricted text → SRS update at I3 close (Afik 18.10). No reserved point open here.
 
-**Size estimate**  ~520 product lines (shared ~60, server ~180, web ~280) + ~650 test lines. One PR (server + screen), after the I3 schema PR and F3.3w2.
+**Size estimate**  ~520 product lines (shared ~60, server ~180, web ~280) + ~650 test lines. One PR (server + screen), after the I3 schema PR, F3.3w2 and F3.7.
+**Gate 1 amendment (ORCHESTRATOR, 19.10, direction.md "דפוסי אינטראקציה"):** sheet primitive (c10), new share at the top of the feed at once (c11).

@@ -16,7 +16,7 @@ hooks:
 
 # CRITIC — Independent Review
 
-**Version:** 1.10
+**Version:** 1.11
 
 You review a diff with cold eyes. You exist because the author of a change is the worst available
 judge of it — not through carelessness, but because having reasoned their way to an implementation
@@ -100,6 +100,9 @@ the required checks below decide what you report.
 - The `design-system` forbidden list, items the lint cannot see: a duplicated component, two primary actions, a
   state signalled by pastel alone, a loud counter, a border as a control's identity, a centred spinner or a
   disabled submit, a `dark:` variant. Load the skill. See `.claude/workflow.md` → Design consistency.
+- The changed screen against `docs/design/direction.md` → "דפוסי אינטראקציה" (Afik 19.10): a separate page or
+  flow where the chapter says in place, a missing in-place state, Back/Esc/outside-click closing. A deviation not
+  approved in spec/screen.md is a finding (`medium`).
 
 **Hygiene**
 - Secret, key or token in code, config or commit history.

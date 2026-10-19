@@ -63,14 +63,14 @@ Grouped rows retain all current topics. Older wording yields to the named later 
 | 10-17 / 10 | P1 + Waiting has a ceiling (אישור אפיק 17.10): workflow Closing a part; tools/part-status; retained by P2 |
 | 10-17 / 10 | P2 — short consistent contracts (אישור אפיק 17.10): canonical rules, indexed reads, archived history, new-artifact line/byte budgets; full entry below in October |
 | 10-18 / 10 | P6 schema before code: migrate right after the schema PR, before its code; supersedes 10-16 audit item 2 batching; workflow Batched approvals |
-| 10-18 / 10 | Branch auto-delete; only main and ready/** deploy (vercel.json, P4); workflow Stable candidate |
-| 10-18 / 10 | Unstable tests: no real-clock limits, all concurrency outcomes, 10× before PR, fix or quarantine; workflow Test rules, TEST ENGINEER 2.3 |
+| 10-18 / 10 | Branch auto-delete; only main and ready/** deploy (vercel.json, P4) |
+| 10-18 / 10 | Unstable tests: no real-clock limits, all concurrency outcomes, 10× before PR, fix or quarantine |
 | 10-18 / 10 | After the audit: budgets 40,000/9,000 · CRITIC returns text (saved verbatim; CRITIC 1.9) · guard retro and merged/ready remote delete · password fix, P1.1 before I3; records split, P5, P7 before I3 ∥ I6 · local test:db |
 | 10-18 / 10 | I3 questionnaire 1א–8א: audience everyone (remembered), share only everyone posts, deletion/report hold, no I3 events, author stage tag, anonymous=everyone, reporter-only hide, F3.9 hide-post; I3-questions.md |
 | 10-18 / 10 | Project reserved points (afik-list-1018): I4 user block, child reports top; I6 period charts; no pro verification; demo coupons; ANALYTICS_VIEW per-user no names; admin charts in demo; roadmap Amendment 6 |
 | 10-18 / 10 | F3.0–F3.2 answers: reported comment/user visible; Restricted ≠ posts; expired report kept; S-34/S-35; 6ב full author names |
-| 10-18 / 10 | Screen contract: screen.md annex of spec (agents, workflow, budgets) |
-| 10-19 / 10 | PR cadence: schema first, 1 PR/feature, split >900 lines or 12/20 criteria · Q7 B · Q8 keep |
+| 10-18 / 10 | Screen contract: screen.md annex of spec |
+| 10-19 / 10 | PR cadence (schema first, 1 PR/feature, split >900 lines or 12/20 criteria) · Q7 B, Q8 keep · UX patterns · guard worktrees · fix rounds · stacked PRs, 5 shards, db-local per checkout |
 
 ## Superseded and historical navigation
 

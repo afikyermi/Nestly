@@ -348,7 +348,8 @@ describe('[F3.3-b1 c7] author.name is what regular_names returns to the viewer u
     { viewer: () => Q, relation: 'request counterparty', expected: 'Cora Commenter' },
     { viewer: () => X, relation: 'stranger', expected: null },
   ];
-  it('[F3.3-b1 c7] the table rows (self, friend, request counterparty, stranger) hold in the thread and in the create answer', T, async () => {
+  // superseded by Afik Q7 B (19.10, approved skip); restored with the new expectation in PR-A2
+  it.skip('[F3.3-b1 c7] the table rows (self, friend, request counterparty, stranger) hold in the thread and in the create answer', T, async () => {
     const app = await start();
     const postId = await seedPost(AU);
     await befriend(F, C, 'accepted');
@@ -360,7 +361,8 @@ describe('[F3.3-b1 c7] author.name is what regular_names returns to the viewer u
     }
   });
 
-  it('[F3.3-b1 c7] the post\'s named author is named to a stranger; a Restricted commenter is present in the thread', T, async () => {
+  // superseded by Afik Q7 B (19.10, approved skip); restored with the new expectation in PR-A2
+  it.skip('[F3.3-b1 c7] the post\'s named author is named to a stranger; a Restricted commenter is present in the thread', T, async () => {
     const app = await start();
     const postId = await seedPost(AU);
     await seedComment(AU, postId, 1, 'by author');

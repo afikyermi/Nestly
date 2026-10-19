@@ -6,7 +6,7 @@ import {
   POST_BODY_MAX,
   type JourneyStage,
   type PostAudience,
-  type PostWrite,
+  type PostCreate,
 } from '@nestly/shared';
 import { GENERIC_ERROR_TEXT } from '@/lib/auth-texts';
 import { BODY_REQUIRED_TEXT, BODY_TOO_LONG_TEXT } from './posts-texts';
@@ -24,7 +24,13 @@ export interface PostFormErrors {
   other?: string;
 }
 
-export type PostFormCheck = { ok: true; value: PostWrite } | { ok: false; errors: PostFormErrors };
+export type PostFormCheck = { ok: true; value: PostCreate } | { ok: false; errors: PostFormErrors };
+
+/**
+ * Which anonymous post the form writes (FR-FEED-005): none (a named post, or its edit); a new anonymous post (always for everyone, the
+ * audience choice kept aside, not sent); or the edit of one (the text and the tag only: its audience and anonymity never change).
+ */
+export type AnonymousMode = 'none' | 'create' | 'edit';
 
 export const isAudience = (value: string): value is PostAudience => POST_AUDIENCES.some((audience) => audience === value);
 export const isStageTag = (value: string): value is JourneyStage => JOURNEY_STAGES.some((stage) => stage === value);
@@ -32,14 +38,19 @@ export const isStageTag = (value: string): value is JourneyStage => JOURNEY_STAG
 /** Characters left before the limit, in code points like the server counts them (negative: over). */
 export const charactersLeft = (body: string): number => POST_BODY_MAX - codePointLength(body);
 
-/** The same shared rule the server applies (FR-FEED-002; VAL on the post text). The stored text is the trimmed one. */
-export function checkPostForm(values: PostFormValues): PostFormCheck {
+/** The same shared rule the server applies (FR-FEED-002, FR-FEED-005; VAL on the post text). The stored text is the trimmed one. */
+export function checkPostForm(values: PostFormValues, anonymous: AnonymousMode = 'none'): PostFormCheck {
   const result = checkCreatePost({
     body: values.body,
-    audience: values.audience,
+    audience: anonymous === 'none' ? values.audience : 'everyone',
     stageTag: values.stageTag === '' ? null : values.stageTag,
+    ...(anonymous === 'create' ? { isAnonymous: true } : {}),
   });
-  if (result.ok) return result;
+  if (result.ok) {
+    if (anonymous !== 'edit') return result;
+    const { body, stageTag } = result.value;
+    return { ok: true, value: { ...(body === undefined ? {} : { body }), ...(stageTag === undefined ? {} : { stageTag }) } };
+  }
   if (result.reason === 'body_required') return { ok: false, errors: { body: BODY_REQUIRED_TEXT } };
   if (result.reason === 'body_too_long') return { ok: false, errors: { body: BODY_TOO_LONG_TEXT } };
   return { ok: false, errors: { other: GENERIC_ERROR_TEXT } };

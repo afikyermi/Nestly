@@ -552,9 +552,48 @@ function realAbs(p) {
   }
 }
 
-function relBoth(p, ctx) {
-  const a = abs(p, ctx.cwd);
-  return [fold(slash(path.relative(ctx.root, a))), fold(slash(path.relative(realAbs(ctx.root), realAbs(a))))];
+function readText(p) {
+  try {
+    return fs.readFileSync(p, 'utf8').trim();
+  } catch {
+    return null;
+  }
+}
+
+// The root of a linked git worktree of this project that holds a, or null (Afik 19.10: roles keep their path rules in
+// worktrees). Verified both ways: <wt>/.git names <root>/.git/worktrees/<n>, whose gitdir file names <wt>/.git back.
+// Only under .work/wt/<n>/ or outside the project, so a planted .git file inside the tree cannot re-root a path.
+function worktreeRoot(a, root) {
+  const same = (x, y) => fold(slash(realAbs(x))) === fold(slash(realAbs(y)));
+  for (let d = path.dirname(a); ; d = path.dirname(d)) {
+    if (same(d, root)) return null;
+    const dotGit = path.join(d, '.git');
+    if (isFile(dotGit)) {
+      // An unverified .git file (submodule, planted, pruned) is skipped: the walk goes on to an enclosing worktree.
+      const m = /^gitdir:\s*(.+)$/.exec(readText(dotGit) || '');
+      const gitdir = m ? path.resolve(d, m[1]) : '';
+      const back = gitdir ? readText(path.join(gitdir, 'gitdir')) : null;
+      if (back && same(path.dirname(gitdir), path.join(root, '.git', 'worktrees')) && same(path.resolve(gitdir, back), dotGit)) {
+        const r = fold(slash(path.relative(realAbs(root), realAbs(d))));
+        if (/^\.work\/wt\/[^/]+$/.test(r) || r.startsWith('../') || path.isAbsolute(r)) return d;
+      }
+    }
+    if (path.dirname(d) === d) return null;
+  }
+}
+
+// Each form gets its own base: the as-written path and the link-resolved path may sit in different checkouts.
+function relBoth(p, ctx, cwd = ctx.cwd) {
+  const a = abs(p, cwd);
+  const ra = realAbs(a);
+  const base = worktreeRoot(a, ctx.root) || ctx.root;
+  const realBase = worktreeRoot(ra, ctx.root) || ctx.root;
+  return [fold(slash(path.relative(base, a))), fold(slash(path.relative(realAbs(realBase), ra)))];
+}
+
+// BUILDER: a test path in the main checkout's view or in its worktree's view.
+function anyTestPath(p, ctx, cwd = ctx.cwd) {
+  return isTestPath(rel(p, ctx.root, cwd)) || relBoth(p, ctx, cwd).some(isTestPath);
 }
 
 // The path a tool call names (a Glob's literal prefix may itself be absolute).
@@ -679,8 +718,7 @@ const RUNS_TESTS = /\b(vitest|jest|playwright)\b|\bnpm\s+(t|test|run\s+test[\w:-
 
 function checkBuilder(tool, input, ctx) {
   if (['Write', 'Edit', 'MultiEdit', 'NotebookEdit'].includes(tool)) {
-    const r = rel(input.file_path || input.notebook_path || '', ctx.root, ctx.cwd);
-    if (isTestPath(r)) return 'BUILDER does not write tests. Test files belong to TEST ENGINEER.';
+    if (anyTestPath(input.file_path || input.notebook_path || '', ctx)) return 'BUILDER does not write tests. Test files belong to TEST ENGINEER.';
     return null;
   }
   if (tool !== 'Bash') return null;
@@ -703,7 +741,7 @@ function checkBuilder(tool, input, ctx) {
       if (t) targets.push(t);
     }
     for (const t of targets) {
-      if (isTestPath(rel(t, ctx.root, cwd))) return 'BUILDER does not write tests. Test files belong to TEST ENGINEER.';
+      if (anyTestPath(t, ctx, cwd)) return 'BUILDER does not write tests. Test files belong to TEST ENGINEER.';
     }
     const writes =
       WRITE_VERB.test(name) ||
@@ -712,11 +750,11 @@ function checkBuilder(tool, input, ctx) {
       (name === 'git' && seg.some((a) => ['checkout', 'restore', 'rm', 'mv', 'apply', 'stash', 'clean'].includes(a))) ||
       (name === 'git' && seg.includes('reset') && seg.includes('--hard'));
     if (!writes) continue;
-    if (isTestPath(here)) return 'BUILDER does not change files inside a test folder.';
+    if (isTestPath(here) || anyTestPath('.', ctx, cwd)) return 'BUILDER does not change files inside a test folder.';
     const text = fold(slash(seg.join(' ')));
     if (/(^|[\s"'=/:])(apps\/[^/\s]+\/tests|packages\/[^/\s]+\/tests|e2e|supabase\/tests)(\/|\s|["']|$)/.test(text) ||
         /\.(test|spec)\.[cm]?[jt]sx?\b/.test(text) ||
-        seg.slice(1).some((a) => !a.startsWith('-') && isTestPath(rel(a, ctx.root, cwd)))) {
+        seg.slice(1).some((a) => !a.startsWith('-') && anyTestPath(a, ctx, cwd))) {
       return 'BUILDER does not change test files from the shell. Test files belong to TEST ENGINEER.';
     }
   }

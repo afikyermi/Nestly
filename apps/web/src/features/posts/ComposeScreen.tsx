@@ -17,10 +17,12 @@ import { PostLinkButton } from './PostLinkButton';
 import { BACK_TO_FEED_LABEL, CHECKING_TEXT, NEW_POST_LABEL, PUBLISH_FAILED_TEXT, PUBLISHED_STATUS, UNAVAILABLE_ACTION_TEXT } from './posts-texts';
 
 // The composer, which starts on the audience stored for this user (OP-033, Afik 1א). The typed values live in this component's memory only.
+// "פרסום אנונימי" starts unchecked on every open and is never stored (F3.4 c11); while checked, the audience choice is kept aside, not sent.
 function Composer({ memory }: { memory: AudienceMemory }) {
   const account = useSessionAccount();
   const navigate = useNavigate();
   const [values, setValues] = useState<PostFormValues>(() => ({ body: '', audience: memory.read() ?? 'everyone', stageTag: '' }));
+  const [anonymous, setAnonymous] = useState(false);
   const [errors, setErrors] = useState<PostFormErrors>({});
   const [failure, setFailure] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -31,17 +33,25 @@ function Composer({ memory }: { memory: AudienceMemory }) {
 
   const focusOn = (target: PostFormFocus['target']) => setFocus((current) => ({ target, tick: current.tick + 1 }));
 
+  function revalidate(next: PostFormValues, nextAnonymous: boolean) {
+    if (!validating.current) return;
+    const checked = checkPostForm(next, nextAnonymous ? 'create' : 'none');
+    setErrors(checked.ok ? {} : checked.errors);
+  }
+
   function change(next: PostFormValues) {
     setValues(next);
-    if (validating.current) {
-      const checked = checkPostForm(next);
-      setErrors(checked.ok ? {} : checked.errors);
-    }
+    revalidate(next, anonymous);
+  }
+
+  function toggleAnonymous(checked: boolean) {
+    setAnonymous(checked);
+    revalidate(values, checked);
   }
 
   async function submit() {
     if (sending.current) return;
-    const checked = checkPostForm(values);
+    const checked = checkPostForm(values, anonymous ? 'create' : 'none');
     if (!checked.ok) {
       validating.current = true;
       setErrors(checked.errors);
@@ -56,8 +66,9 @@ function Composer({ memory }: { memory: AudienceMemory }) {
     const token = account === null ? null : await account.getAccessToken().catch(() => null);
     const outcome = token === null ? ({ kind: 'failed' } as const) : await createPost(token, checked.value);
     if (outcome.kind === 'post') {
-      // A failed post stores nothing: the choice is remembered only here (c15). The composer stays "sending" until the page is left.
-      memory.write(values.audience);
+      // A failed post stores nothing: the choice is remembered only here (c15), and never by an anonymous post (F3.4 c11). The composer
+      // stays "sending" until the page is left.
+      if (!anonymous) memory.write(values.audience);
       handOverStatus(postPath(outcome.post.id), PUBLISHED_STATUS);
       void navigate(postPath(outcome.post.id));
       return;
@@ -73,7 +84,18 @@ function Composer({ memory }: { memory: AudienceMemory }) {
   }
 
   return (
-    <PostForm mode="create" values={values} errors={errors} saving={saving} failure={failure} focus={focus} onChange={change} onSubmit={() => void submit()} />
+    <PostForm
+      mode="create"
+      values={values}
+      errors={errors}
+      saving={saving}
+      failure={failure}
+      focus={focus}
+      anonymous={anonymous}
+      onAnonymousChange={toggleAnonymous}
+      onChange={change}
+      onSubmit={() => void submit()}
+    />
   );
 }
 

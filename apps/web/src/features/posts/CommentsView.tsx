@@ -7,6 +7,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { CommentComposer } from './CommentComposer';
 import { CommentItem } from './CommentItem';
 import {
+  COMMENT_AUTHOR_NOTICE_TEXT,
+  COMMENT_NAME_NOTICE_TEXT,
   COMMENTS_EMPTY_TEXT,
   COMMENTS_LIST_LABEL,
   COMMENTS_LOAD_FAILED_TEXT,
@@ -29,12 +31,15 @@ export interface CommentsViewProps {
   writes: CommentWrites;
   /** The page was opened at `#comments`: focus goes to the heading once, when the region first shows. */
   landOnHeading?: boolean;
+  /** The caller is the real author of this anonymous post: their comments show as "המחבר", and the boxes say so (F3.4 c14). */
+  asAnonymousAuthor?: boolean;
 }
 
 // The comments region under a post (F3.3 w1; FR-FEED-003): the post's like, the thread (top-level comments, one level of replies), the
 // comment box, and the delete confirmation. Display only: the requests come from the hooks. The heading is the focus target of the
 // comments link, of a delete and of the pages that bring new comments.
-export function CommentsView({ flow, writes, landOnHeading = false }: CommentsViewProps) {
+export function CommentsView({ flow, writes, landOnHeading = false, asAnonymousAuthor = false }: CommentsViewProps) {
+  const notice = asAnonymousAuthor ? COMMENT_AUTHOR_NOTICE_TEXT : COMMENT_NAME_NOTICE_TEXT;
   const { thread, focus } = flow;
   const { root, reply, confirm } = writes;
   const regionRef = useRef<HTMLElement>(null);
@@ -100,7 +105,7 @@ export function CommentsView({ flow, writes, landOnHeading = false }: CommentsVi
               onMoreReplies={flow.showMoreReplies}
               replyBox={
                 reply !== null && reply.parentId === item.id ? (
-                  <CommentComposer mode="reply" state={reply} onChange={writes.changeReply} onSend={writes.sendReply} onCancel={writes.cancelReply} />
+                  <CommentComposer mode="reply" state={reply} notice={notice} onChange={writes.changeReply} onSend={writes.sendReply} onCancel={writes.cancelReply} />
                 ) : undefined
               }
             />
@@ -124,7 +129,7 @@ export function CommentsView({ flow, writes, landOnHeading = false }: CommentsVi
           </Button>
         </div>
       ) : null}
-      {thread.phase === 'ready' ? <CommentComposer mode="comment" state={root} onChange={writes.changeRoot} onSend={writes.sendRoot} /> : null}
+      {thread.phase === 'ready' ? <CommentComposer mode="comment" state={root} notice={notice} onChange={writes.changeRoot} onSend={writes.sendRoot} /> : null}
       {confirm !== null ? (
         <ConfirmDialog
           open

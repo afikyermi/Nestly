@@ -30,6 +30,7 @@ const post: PostReadView = {
   audience: 'friends',
   stageTag: 'has_child',
   createdAt: '2026-10-18T09:00:00.000Z',
+  isAnonymous: false,
   isMine: true,
   likeCount: 0,
   commentCount: 0,
@@ -45,6 +46,13 @@ export const Editing: Story = {
 };
 export const EditFailed: Story = {
   args: { view: { ...loaded, post, edit: { values: editValues, errors: {}, saving: false, failure: SAVE_FAILED_TEXT } } },
+};
+// F3.4: an anonymous post, as its author (the own note, edit and delete) and as anyone else; its edit form has no audience group.
+const anonymousPost: PostReadView = { ...post, audience: 'everyone', isAnonymous: true };
+export const AnonymousAsAuthor: Story = { args: { view: { ...loaded, post: anonymousPost } } };
+export const AnonymousAsReader: Story = { args: { view: { ...loaded, post: { ...anonymousPost, isMine: false } } } };
+export const AnonymousEditing: Story = {
+  args: { view: { ...loaded, post: anonymousPost, edit: { values: { ...editValues, audience: 'everyone' }, errors: {}, saving: false, failure: null } } },
 };
 export const DeleteConfirm: Story = { args: { view: { ...loaded, post, confirm: { saving: false, failure: null } } } };
 export const DeleteFailed: Story = { args: { view: { ...loaded, post, confirm: { saving: false, failure: DELETE_FAILED_TEXT } } } };

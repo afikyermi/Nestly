@@ -1,4 +1,4 @@
-import { postReadView, postView, type PostReadView, type PostView, type PostWrite } from '@nestly/shared';
+import { postReadView, postView, type PostCreate, type PostReadView, type PostView, type PostWrite } from '@nestly/shared';
 
 // POST /api/posts, GET|PATCH|DELETE /api/posts/:id (F3.1b; FR-FEED-002, OP-033). No author id is ever sent: the server acts on the
 // token's user. A post is named by its row id in the path only. Only the status, the one `error` code and a body that passes the
@@ -8,7 +8,7 @@ export type PostsOutcome<T = PostView> =
   | { kind: 'post'; post: T }
   | { kind: 'deleted' } // 204
   | { kind: 'unavailable' } // 404 not_found: one answer for missing, not readable and not yours
-  | { kind: 'refused'; reason: 'body_required' | 'body_too_long' } // 422
+  | { kind: 'refused'; reason: 'body_required' | 'body_too_long' } // 422 (audience_not_allowed is 'failed': the form cannot send it)
   | { kind: 'not-allowed' } // 403 not_allowed: the database refused (a Professional, a stopped account)
   | { kind: 'unauthenticated' } // 401
   | { kind: 'account-unavailable' } // 403 account_unavailable: the session guard (ERR-037)
@@ -18,7 +18,7 @@ const FAILED = { kind: 'failed' } as const;
 
 type Call =
   | { method: 'GET' | 'DELETE'; path: string }
-  | { method: 'POST' | 'PATCH'; path: string; body: PostWrite };
+  | { method: 'POST' | 'PATCH'; path: string; body: PostCreate };
 
 function errorCode(body: unknown): unknown {
   return typeof body === 'object' && body !== null ? Reflect.get(body, 'error') : undefined;
@@ -56,8 +56,8 @@ async function call<T extends PostView>(accessToken: string, init: Call, schema:
   return parsed.success ? { kind: 'post', post: parsed.data } : FAILED;
 }
 
-/** POST /api/posts with the checked values. The answer is the stored post. */
-export const createPost = (accessToken: string, write: PostWrite): Promise<PostsOutcome> =>
+/** POST /api/posts with the checked values (`isAnonymous` only for an anonymous post). The answer is the stored post. */
+export const createPost = (accessToken: string, write: PostCreate): Promise<PostsOutcome> =>
   call(accessToken, { method: 'POST', path: '/api/posts', body: write }, postView);
 
 /** GET /api/posts/:id. The answer says whether the post is the caller's. */

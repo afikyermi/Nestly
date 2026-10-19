@@ -19,6 +19,7 @@ const GUARD = path.join(__dirname, 'guard.js');
 const ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-test-'));
 fs.writeFileSync(path.join(ROOT, 'incidents.md'), '# Incidents\n');
 const P = (...s) => path.join(ROOT, ...s);
+const P2 = (...s) => path.join(...s);
 
 // A clean throwaway git repo with one commit, for rules that read the staged diff.
 function ROOT_REPO() {
@@ -453,6 +454,57 @@ test('a block is logged to .claude/logs/blocks.jsonl without the command, and an
   assert.strictEqual(added[0].tool, 'Bash');
   assert.doesNotMatch(JSON.stringify(added[0]), /TOPSECRET/);
   assert.strictEqual(fs.readFileSync(P('incidents.md'), 'utf8'), beforeInc, 'an ordinary block does not touch incidents.md');
+});
+
+test('worktrees (Afik 19.10): role path rules apply relative to a verified linked worktree root', () => {
+  const repo = ROOT_REPO();
+  const g = (...x) => execFileSync('git', ['-C', repo, ...x], { encoding: 'utf8' });
+  const inner = path.join(repo, '.work', 'wt', 'w1');
+  const outer = `${repo}-sibling`;
+  g('worktree', 'add', '-q', '-b', 'w1', inner);
+  g('worktree', 'add', '-q', '-b', 'w2', outer);
+  for (const wt of [inner, outer]) {
+    for (const f of [['e2e', 'a.spec.ts'], ['supabase', 'tests', '82_x.sql'], ['apps', 'web', 'tests', 'a.test.tsx'], ['.work', 'f', 'spec-notes.md']]) {
+      allows('test-engineer', 'Write', { file_path: path.join(wt, ...f) }, repo);
+    }
+    blocks('test-engineer', 'Write', { file_path: path.join(wt, 'apps', 'web', 'src', 'a.ts') }, repo);
+    blocks('test-engineer', 'Write', { file_path: path.join(wt, 'package.json') }, repo);
+    blocks('test-engineer', 'Read', { file_path: path.join(wt, '.work', 'f', 'notes.md') }, repo);
+    blocks('critic', 'Read', { file_path: path.join(wt, '.work', 'f', 'notes.md') }, repo);
+    blocks('builder', 'Write', { file_path: path.join(wt, 'supabase', 'tests', '82_x.sql') }, repo);
+    allows('builder', 'Write', { file_path: path.join(wt, 'apps', 'web', 'src', 'a.ts') }, repo);
+  }
+  // A .git file planted inside the tree, or one not linked back from <root>/.git/worktrees, re-roots nothing.
+  const planted = path.join(repo, 'apps', 'web', 'src', 'x');
+  fs.mkdirSync(planted, { recursive: true });
+  fs.writeFileSync(path.join(planted, '.git'), `gitdir: ${path.join(repo, '.git', 'worktrees', 'w1')}\n`);
+  blocks('test-engineer', 'Write', { file_path: path.join(planted, 'e2e', 'evil.ts') }, repo);
+  const fake = path.join(repo, '.work', 'wt', 'fake');
+  fs.mkdirSync(fake, { recursive: true });
+  fs.writeFileSync(path.join(fake, '.git'), `gitdir: ${path.join(repo, '.git', 'worktrees', 'w1')}\n`);
+  blocks('test-engineer', 'Write', { file_path: path.join(fake, 'e2e', 'evil.ts') }, repo);
+  // A real, cross-linked worktree in a forbidden place inside the tree re-roots nothing either (the location limit).
+  const forbidden = path.join(repo, 'apps', 'web', 'src', 'wt3');
+  g('worktree', 'add', '-q', '-b', 'w3', forbidden);
+  blocks('test-engineer', 'Write', { file_path: path.join(forbidden, 'e2e', 'support', 'x.ts') }, repo);
+  // A junction inside a worktree that lands in the main checkout is judged by where it lands.
+  fs.mkdirSync(P2(repo, 'apps', 'web', 'src'), { recursive: true });
+  fs.mkdirSync(P2(inner, 'e2e'), { recursive: true });
+  fs.symlinkSync(path.join(repo, 'apps', 'web', 'src'), path.join(inner, 'e2e', 'l'), 'junction');
+  blocks('test-engineer', 'Write', { file_path: path.join(inner, 'e2e', 'l', 'x.test.ts') }, repo);
+  fs.mkdirSync(P2(repo, 'supabase', 'tests'), { recursive: true });
+  fs.mkdirSync(P2(inner, 'apps', 'web', 'src'), { recursive: true });
+  fs.symlinkSync(path.join(repo, 'supabase', 'tests'), path.join(inner, 'apps', 'web', 'src', 'l'), 'junction');
+  blocks('builder', 'Write', { file_path: path.join(inner, 'apps', 'web', 'src', 'l', '82_x.sql') }, repo);
+  // BUILDER's shell inside a worktree: redirections and cd into a test folder are judged in the worktree's view.
+  for (const wt of [inner, outer]) {
+    const sh = (command) => JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd: wt });
+    for (const c of ['echo x > supabase/tests/82_x.sql', "cat > e2e/support/x.ts <<'EOF'\nx\nEOF", 'cd supabase/tests && touch 82_x.sql']) {
+      blocks('builder', 'Bash', sh(c), repo);
+    }
+  }
+  g('worktree', 'remove', '--force', outer);
+  g('worktree', 'remove', '--force', forbidden);
 });
 
 test.after(() => fs.rmSync(ROOT, { recursive: true, force: true }));

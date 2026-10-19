@@ -12,6 +12,8 @@ export interface StoredPost {
   stageTag: 'planning' | 'pregnant' | 'has_child' | null;
   createdAt: string;
   isMine: boolean;
+  /** F3.4: absent = a named post. */
+  isAnonymous?: boolean;
 }
 export interface PostsNet {
   posts: StoredPost[];
@@ -32,6 +34,11 @@ export const POST_ID = 'd0000000-0000-4000-8000-000000000001';
 export const OTHERS_ID = 'd0000000-0000-4000-8000-000000000002';
 export const MINE: StoredPost = { id: POST_ID, body: 'שאלה על שינה\nבשעות הלילה', audience: 'everyone', stageTag: 'pregnant', createdAt: '2026-06-14T09:00:00.000Z', isMine: true };
 export const OTHERS: StoredPost = { ...MINE, id: OTHERS_ID, body: 'פוסט של מישהי אחרת', stageTag: null, isMine: false };
+// F3.4 (.work/anonymous-post/spec.md c12-c14): an anonymous post as its real author reads it (isMine true), and as anyone else does. The server never sends an author.
+export const ANON_MINE_ID = 'd0000000-0000-4000-8000-000000000003';
+export const ANON_OTHERS_ID = 'd0000000-0000-4000-8000-000000000004';
+export const ANON_MINE: StoredPost = { ...MINE, id: ANON_MINE_ID, body: 'שאלה אנונימית שלי', stageTag: null, isMine: true, isAnonymous: true };
+export const ANON_OTHERS: StoredPost = { ...OTHERS, id: ANON_OTHERS_ID, body: 'שאלה אנונימית של מישהי', isMine: false, isAnonymous: true };
 
 export async function setupPosts(page: Page, start: { posts?: StoredPost[]; professional?: boolean } = {}): Promise<PostsNet> {
   const net: PostsNet = { posts: [...(start.posts ?? [MINE, OTHERS])], create: 201, edit: 200, remove: 204, read: 200, holdCreate: null, creates: [], edits: [], deletes: [] };
@@ -65,7 +72,8 @@ export async function setupPosts(page: Page, start: { posts?: StoredPost[]; prof
     net.creates.push(body);
     if (net.holdCreate !== null) await net.holdCreate;
     if (net.create === 'abort') return route.abort('connectionreset');
-    if (net.create !== 201) return json(route, net.create, { error: net.create === 403 ? 'not_allowed' : 'server_error' });
+    if (body.isAnonymous === true && body.audience === 'friends') return json(route, 422, { error: 'audience_not_allowed' });
+    if (net.create !== 201) return json(route, net.create, { error: net.create === 403 ? 'not_allowed' : net.create === 422 ? 'audience_not_allowed' : 'server_error' });
     const stored: StoredPost = {
       id: `d0000000-0000-4000-8000-${String(100 + net.creates.length).padStart(12, '0')}`,
       body: String(body.body).trim(),
@@ -73,9 +81,10 @@ export async function setupPosts(page: Page, start: { posts?: StoredPost[]; prof
       stageTag: body.stageTag === 'planning' || body.stageTag === 'pregnant' || body.stageTag === 'has_child' ? body.stageTag : null,
       createdAt: NOW.toISOString(),
       isMine: true,
+      isAnonymous: body.isAnonymous === true,
     };
     net.posts.push(stored);
-    return json(route, 201, { id: stored.id, body: stored.body, audience: stored.audience, stageTag: stored.stageTag, createdAt: stored.createdAt });
+    return json(route, 201, { id: stored.id, body: stored.body, audience: stored.audience, stageTag: stored.stageTag, createdAt: stored.createdAt, isAnonymous: stored.isAnonymous === true });
   });
   await page.route(/\/api\/posts\/[^/?]+(\?.*)?$/, async (route) => {
     const req = route.request();
@@ -84,7 +93,7 @@ export async function setupPosts(page: Page, start: { posts?: StoredPost[]; prof
     const found = net.posts.find((p) => p.id === id);
     if (req.method() === 'GET') {
       if (net.read !== 200) return json(route, net.read, { error: 'server_error' });
-      return found === undefined ? json(route, 404, { error: 'not_found' }) : json(route, 200, { ...found, likeCount: 0, commentCount: 0, likedByMe: false });
+      return found === undefined ? json(route, 404, { error: 'not_found' }) : json(route, 200, { ...found, isAnonymous: found.isAnonymous === true, likeCount: 0, commentCount: 0, likedByMe: false });
     }
     if (found === undefined || !found.isMine) return json(route, 404, { error: 'not_found' });
     if (req.method() === 'PATCH') {
@@ -92,11 +101,12 @@ export async function setupPosts(page: Page, start: { posts?: StoredPost[]; prof
       const body: Record<string, unknown> = typeof sent === 'object' && sent !== null ? Object.fromEntries(Object.entries(sent)) : {};
       net.edits.push(body);
       if (net.edit === 'abort') return route.abort('connectionreset');
-      if (net.edit !== 200) return json(route, net.edit, { error: 'server_error' });
+      if (found.isAnonymous === true && body.audience === 'friends') return json(route, 422, { error: 'audience_not_allowed' });
+      if (net.edit !== 200) return json(route, net.edit, { error: net.edit === 422 ? 'audience_not_allowed' : 'server_error' });
       if (typeof body.body === 'string') found.body = body.body.trim();
       if (body.audience === 'friends' || body.audience === 'everyone') found.audience = body.audience;
       if ('stageTag' in body) found.stageTag = body.stageTag === 'planning' || body.stageTag === 'pregnant' || body.stageTag === 'has_child' ? body.stageTag : null;
-      return json(route, 200, { id: found.id, body: found.body, audience: found.audience, stageTag: found.stageTag, createdAt: found.createdAt });
+      return json(route, 200, { id: found.id, body: found.body, audience: found.audience, stageTag: found.stageTag, createdAt: found.createdAt, isAnonymous: found.isAnonymous === true });
     }
     net.deletes.push(id);
     if (net.remove === 'abort') return route.abort('connectionreset');

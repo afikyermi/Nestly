@@ -15,6 +15,9 @@ export const REPLY_FORM_LABEL = 'כתיבת השבה';
 export const SEND_LABEL = 'שליחה';
 export const SENDING_TEXT = 'שולחים';
 export const COMMENT_DELETE_LABEL = 'מחיקה';
+// F3.4 (Afik Q7 → B; .work/anonymous-post/screen.md): under the comment and reply box, whose name the comment carries.
+export const COMMENT_NAME_NOTICE_TEXT = 'השם שלכם יוצג לכל מי שיכול לראות את התגובה';
+export const COMMENT_AUTHOR_NOTICE_TEXT = 'בפוסט הזה התגובות שלכם מוצגות תחת "המחבר", בלי השם שלכם';
 
 export const COMMENTS_LOADING_TEXT = 'טוענים את התגובות';
 export const COMMENTS_EMPTY_TEXT = 'עוד אין תגובות. אפשר לכתוב את התגובה הראשונה';

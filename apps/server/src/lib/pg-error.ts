@@ -40,14 +40,17 @@ export function isConnectionFailure(error: unknown): boolean {
 
 /** The constraint of F3.1 criterion 6: a post's text is at most POST_BODY_MAX code points. */
 const POST_BODY_LENGTH_CONSTRAINT = 'posts_body_length_check';
+/** The constraint of F3.4 criteria 3 and 6: an anonymous post is never friends-only (FR-FEED-005, 6א). */
+const POST_AUDIENCE_CONSTRAINT = 'posts_audience_check';
 
 export interface PostFaultReply {
   readonly status: 403 | 422 | 500;
-  readonly error: 'not_allowed' | 'body_too_long' | 'server_error';
+  readonly error: 'not_allowed' | 'body_too_long' | 'audience_not_allowed' | 'server_error';
 }
 
 /**
- * What a post write the database refused answers (F3.1 criterion 7). 23514 on the body-length CHECK is 422; 42501 (policy or privilege) and
+ * What a post write the database refused answers (F3.1 criterion 7, F3.4 c3). 23514 on the body-length CHECK is 422 body_too_long, on the
+ * anonymous-audience CHECK 422 audience_not_allowed (told apart by the constraint's name); 42501 (policy or privilege) and
  * 23503 (a foreign key: not a Regular account) are 403; any other database error is 500. Never the message, constraint or table name.
  * `undefined`: the failure did not come from the database (the caller handles it).
  */
@@ -55,6 +58,7 @@ export function postFaultReply(error: unknown): PostFaultReply | undefined {
   const fault = readDatabaseFault(error);
   if (fault === undefined) return undefined;
   if (fault.code === '23514' && fault.constraint === POST_BODY_LENGTH_CONSTRAINT) return { status: 422, error: 'body_too_long' };
+  if (fault.code === '23514' && fault.constraint === POST_AUDIENCE_CONSTRAINT) return { status: 422, error: 'audience_not_allowed' };
   if (fault.code === '42501' || fault.code === '23503') return { status: 403, error: 'not_allowed' };
   return { status: 500, error: 'server_error' };
 }

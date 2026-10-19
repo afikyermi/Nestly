@@ -28,4 +28,7 @@ export const FriendsWithTag: Story = { args: { values: { body: 'שאלה לקב�
 export const NearLimit: Story = { args: { values: { ...empty, body: 'א'.repeat(1950) } } };
 export const Invalid: Story = { args: { values: empty, errors: { body: BODY_REQUIRED_TEXT } } };
 export const Saving: Story = { args: { values: { ...empty, body: 'שלום' }, saving: true } };
+// F3.4: "פרסום אנונימי" checked: no audience group, the anonymous notice; and the edit of an anonymous post, with its fixed line.
+export const Anonymous: Story = { args: { values: { ...empty, body: 'שאלה רגישה' }, anonymous: true } };
+export const AnonymousEdit: Story = { args: { mode: 'edit', values: { ...empty, body: 'שאלה רגישה' }, anonymous: true, onCancel: () => undefined } };
 export const Failed: Story = { args: { values: { ...empty, body: 'שלום' }, failure: PUBLISH_FAILED_TEXT } };

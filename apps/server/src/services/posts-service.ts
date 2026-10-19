@@ -1,24 +1,29 @@
-// Text posts (I3 F3.1a; FR-FEED-002, OP-033, Afik 3א/5א). The caller is already authenticated; each call is one identity transaction.
+// Text posts (I3 F3.1a, F3.4; FR-FEED-002, FR-FEED-005, OP-033, Afik 3א/5א/6א). The caller is already authenticated; each call is one identity transaction.
 // The database decides everything about permission: who may post (the FKs: a Professional is 23503; a stopped account 42501), who reads
 // a post (posts_select_viewer), who edits it and who deletes it. This layer only names the outcome. "Not found" is one outcome for a
 // missing post, one the caller may not read and one that is not theirs, so the answer never tells them apart. Nothing reads journey_contexts:
-// the stage tag is what the author chose, or none (5א). Faults (a refusal or a constraint) are thrown and mapped by the route.
+// the stage tag is what the author chose, or none (5א). Faults (a refusal or a constraint) are thrown and mapped by the route. An anonymous
+// post is written and answered like any other; its real author is the database's (post_authors) and never part of an answer.
 
 import type { PostAudience, PostReadView, PostView, PostWrite } from '@nestly/shared';
 import type { Database } from '../db/client.js';
 import { inIdentityTransaction } from '../db/identity-transaction.js';
+import { readDatabaseFault } from '../lib/pg-error.js';
 import type { Identity } from '../lib/token-verifier.js';
 import { readCommentCounts, readLikeCounts, readLikedTargetIds } from '../repositories/likes-repository.js';
-import { deletePost, insertPost, readPost, updatePost, type PostRow } from '../repositories/posts-repository.js';
+import { deletePost, insertPost, readPostAnonymity, readPostDetail, updatePost, type PostRow } from '../repositories/posts-repository.js';
 
 export type PostOutcome<T> = { readonly kind: 'post'; readonly post: T } | { readonly kind: 'not_found' };
+/** PATCH also answers that an anonymous post cannot become friends-only (F3.4 c6). */
+export type EditOutcome = PostOutcome<PostView> | { readonly kind: 'audience_not_allowed' };
 export type DeleteOutcome = { readonly kind: 'deleted' } | { readonly kind: 'not_found' };
 
-/** What a new post is made of: the text and the audience, and the author's own tag choice or none. */
+/** What a new post is made of: the text and the audience, the author's own tag choice or none, and whether it is anonymous (absent: named). */
 export interface NewPost {
   readonly body: string;
   readonly audience: PostAudience;
   readonly stageTag?: PostRow['stageTag'] | undefined;
+  readonly isAnonymous?: boolean | undefined;
 }
 
 /** More than one row for one primary key (or none after an insert) cannot happen; seeing it means a policy is wrong. */
@@ -41,10 +46,11 @@ function viewOf(row: PostRow): PostView {
     audience: row.audience,
     stageTag: row.stageTag,
     createdAt: row.createdAt.toISOString(),
+    isAnonymous: row.isAnonymous,
   };
 }
 
-/** POST: the caller's post. A refusal by the database (23503, 42501, 23514) propagates and rolls back. */
+/** POST: the caller's post. A refusal by the database (23503, 42501, 23514) propagates and rolls back, the post_authors row with it. */
 export async function createPost(database: Database, identity: Identity, input: NewPost): Promise<PostView> {
   return inIdentityTransaction(database, identity, async (tx) => {
     const row = single(
@@ -52,6 +58,7 @@ export async function createPost(database: Database, identity: Identity, input: 
         body: input.body,
         audience: input.audience,
         stageTag: input.stageTag ?? null,
+        isAnonymous: input.isAnonymous ?? false,
       }),
     );
     if (row === undefined) throw new PostsFault();
@@ -60,7 +67,8 @@ export async function createPost(database: Database, identity: Identity, input: 
 }
 
 /**
- * GET: the post if the caller may read it; `isMine` says whether the caller is its author (display only, not a permission). The displayed counts
+ * GET: the post if the caller may read it; `isMine` says whether the caller is its author, named or anonymous, as the post-detail read computes
+ * it in SQL (display only, not a permission; no second comparison here). The displayed counts
  * and the viewer's own like come from the same snapshot (F3.3 c11, c12): one REPEATABLE READ transaction. A post the caller cannot read is 404, not 0.
  */
 export async function readPostById(database: Database, identity: Identity, id: string): Promise<PostOutcome<PostReadView>> {
@@ -68,7 +76,9 @@ export async function readPostById(database: Database, identity: Identity, id: s
     database,
     identity,
     async (tx): Promise<PostOutcome<PostReadView>> => {
-      const row = single(await readPost(tx, id));
+      const rows = await readPostDetail(tx, id);
+      if (rows.length > 1) throw new PostsFault();
+      const [row] = rows;
       if (row === undefined) return { kind: 'not_found' };
       const likeCount = (await readLikeCounts(tx, 'post', [row.id])).get(row.id) ?? 0;
       const commentCount = (await readCommentCounts(tx, [row.id])).get(row.id) ?? 0;
@@ -76,8 +86,13 @@ export async function readPostById(database: Database, identity: Identity, id: s
       return {
         kind: 'post',
         post: {
-          ...viewOf(row),
-          isMine: row.authorId !== null && row.authorId === identity.userId.toLowerCase(),
+          id: row.id,
+          body: row.body,
+          audience: row.audience,
+          stageTag: row.stageTag,
+          createdAt: row.createdAt,
+          isAnonymous: row.isAnonymous,
+          isMine: row.isMine,
           likeCount,
           commentCount,
           likedByMe,
@@ -88,12 +103,23 @@ export async function readPostById(database: Database, identity: Identity, id: s
   );
 }
 
-/** PATCH: the named columns of the author's post. 0 rows: not found, whatever the reason. */
-export async function editPost(database: Database, identity: Identity, id: string, changes: PostWrite): Promise<PostOutcome<PostView>> {
-  return inIdentityTransaction(database, identity, async (tx): Promise<PostOutcome<PostView>> => {
-    const row = single(await updatePost(tx, id, changes));
-    return row === undefined ? { kind: 'not_found' } : { kind: 'post', post: viewOf(row) };
-  });
+/**
+ * PATCH: the named columns of the author's post. 0 rows: not found, whatever the reason. A friends-only audience on an anonymous post is
+ * refused by the database before posts_audience_check is reached (the new row fails the update's RLS checks first: 42501), so when the post
+ * the caller reads is anonymous and the audience asked is "friends", that 42501 is named audience_not_allowed. Any other fault propagates.
+ */
+export async function editPost(database: Database, identity: Identity, id: string, changes: PostWrite): Promise<EditOutcome> {
+  let anonymousToFriends = false;
+  try {
+    return await inIdentityTransaction(database, identity, async (tx): Promise<EditOutcome> => {
+      if (changes.audience === 'friends') anonymousToFriends = (await readPostAnonymity(tx, id)).some((row) => row.isAnonymous);
+      const row = single(await updatePost(tx, id, changes));
+      return row === undefined ? { kind: 'not_found' } : { kind: 'post', post: viewOf(row) };
+    });
+  } catch (error) {
+    if (anonymousToFriends && readDatabaseFault(error)?.code === '42501') return { kind: 'audience_not_allowed' };
+    throw error;
+  }
 }
 
 /** DELETE (3א): immediate and permanent, or held when a report is open: the same `deleted` for the author either way. */
