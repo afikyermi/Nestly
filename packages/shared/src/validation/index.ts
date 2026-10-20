@@ -17,5 +17,6 @@ export * from './comments.js';
 export * from './post-hides.js';
 export * from './reports.js';
 export * from './shares.js';
+export * from './blocks.js';
 export * from './admin.js';
 export * from './trackers.js';
