@@ -8,6 +8,8 @@ import { ALREADY_REPORTED_STATUS, REPORT_RECEIVED_STATUS, REPORT_UNAVAILABLE_STA
 import { STOPPED_TEXT } from '@/lib/auth-texts';
 import { ACTION_FAILED_TEXT, FRIEND_GONE_TEXT, GONE_TEXT, RATE_LIMITED_TEXT } from '@/lib/friend-texts';
 import { actOnFriend, sendFriendRequest, type FriendAction, type FriendsOutcome } from '@/services/api/friends';
+import { blockUser } from '@/services/api/blocks';
+import { BLOCK_FAILED_TEXT } from '@/lib/block-texts';
 import { fetchUserProfile, type ProfileViewOutcome } from '@/services/api/profile-view';
 import { UserProfileContent, type UserProfileFocus, type UserProfileView } from './UserProfileContent';
 import {
@@ -64,10 +66,11 @@ export function UserProfileScreen({ userId }: { userId: string }) {
   const latestView = useRef(view);
   latestView.current = view;
   const removing = view.kind === 'loaded' && view.confirm !== null;
-  useBackCloses(report.draft !== null || removing, () => {
+  const blocking = view.kind === 'loaded' && view.block !== undefined && view.block !== null;
+  useBackCloses(report.draft !== null || removing || blocking, () => {
     const now = latestView.current;
-    if (report.draft?.sending === true || (now.kind === 'loaded' && now.confirm?.saving === true)) return false;
-    setView((latest) => (latest.kind === 'loaded' && latest.confirm !== null ? { ...latest, confirm: null } : latest));
+    if (report.draft?.sending === true || (now.kind === 'loaded' && (now.confirm?.saving === true || now.block?.saving === true))) return false;
+    setView((latest) => (latest.kind === 'loaded' && (latest.confirm !== null || (latest.block ?? null) !== null) ? { ...latest, confirm: null, block: null } : latest));
     report.cancel();
     return true;
   });
@@ -161,6 +164,31 @@ export function UserProfileScreen({ userId }: { userId: string }) {
     }
   }
 
+  // FR-REL-002: the block, from its dialog. Done: the profile is no longer shown (the database hides it both ways from now on).
+  async function block(current: Loaded): Promise<void> {
+    if (acting.current) return;
+    acting.current = true;
+    setView({ ...current, failure: null, status: '', block: { saving: true, failure: null } });
+    try {
+      const accessToken = await token();
+      const outcome = accessToken === null ? ({ kind: 'failed' } as const) : await blockUser(accessToken, userId);
+      if (outcome.kind === 'done') {
+        loads.current += 1;
+        setView({ kind: 'blocked' });
+        focusOn('message');
+        return;
+      }
+      if (outcome.kind === 'gone') {
+        setView({ kind: 'unavailable' });
+        return;
+      }
+      const failure = refused(outcome) ?? BLOCK_FAILED_TEXT;
+      setView((latest) => (latest.kind === 'loaded' ? { ...latest, block: { saving: false, failure } } : latest));
+    } finally {
+      acting.current = false;
+    }
+  }
+
   const loaded = view.kind === 'loaded' ? view : null;
   const actions =
     loaded === null
@@ -175,6 +203,15 @@ export function UserProfileScreen({ userId }: { userId: string }) {
             setView({ ...loaded, failure: null, status: '', confirm: { saving: false, failure: null } });
           },
           onConfirmRemove: () => void act(loaded, 'remove'),
+          onBlock: () => {
+            if (acting.current) return;
+            setView({ ...loaded, failure: null, status: '', block: { saving: false, failure: null } });
+          },
+          onConfirmBlock: () => void block(loaded),
+          onCancelBlock: () => {
+            if (acting.current) return;
+            setView({ ...loaded, block: null });
+          },
           onReport: () => {
             if (acting.current) return;
             setView({ ...loaded, status: '' });

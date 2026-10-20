@@ -80,9 +80,10 @@ describe('ux-polish-b c11 [NFR-USAB-004 FR-PROFILE-002 DR-1 DR-3 FR-REL-001] con
     );
   });
 
-  it('[c11] one dialog each on the feed, the post page, the comments, /u/:id and /friends (a later part adds none: the card edit is not a dialog)', () => {
-    for (const file of ['features/posts/FeedContent.tsx', 'features/posts/PostContent.tsx', 'features/posts/CommentsView.tsx', 'features/user-profile/UserProfileContent.tsx', 'features/friends/FriendsContent.tsx']) {
+  it('[c11] one dialog each on the feed, the post page, the comments and /friends (a later part adds none: the card edit is not a dialog); /u/:id has the remove-friend dialog and the block dialog (FR-REL-002)', () => {
+    for (const file of ['features/posts/FeedContent.tsx', 'features/posts/PostContent.tsx', 'features/posts/CommentsView.tsx', 'features/friends/FriendsContent.tsx']) {
       expect(count(file), file).toBe(1);
     }
+    expect(count('features/user-profile/UserProfileContent.tsx')).toBe(2);
   });
 });

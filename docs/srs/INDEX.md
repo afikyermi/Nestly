@@ -157,7 +157,7 @@
 | FR-ALG-010 | Group Notification Highlights v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-DATA-001 | Analytics Event Tracking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 
-## קריטריוני קבלה — 134
+## קריטריוני קבלה — 137
 
 > השמות קוצרו לצורך ניווט בלבד. הנוסח המחייב נמצא ב-[15-acceptance.md](15-acceptance.md).
 
@@ -297,6 +297,9 @@
 | AC-132 | תוצאות דיווח ודיווח חוזר | [15-acceptance.md](15-acceptance.md) |
 | AC-133 | חלונות, תפריטים ו-Back במקום | [15-acceptance.md](15-acceptance.md) |
 | AC-134 | תגובות ועריכה בתוך הכרטיס | [15-acceptance.md](15-acceptance.md) |
+| AC-135 | חסימת משתמש מהפרופיל | [15-acceptance.md](15-acceptance.md) |
+| AC-136 | חסימה הדדית ומה היא מסתירה | [15-acceptance.md](15-acceptance.md) |
+| AC-137 | רשימת החסומים וביטול חסימה | [15-acceptance.md](15-acceptance.md) |
 
 ## מזהים נוספים
 

@@ -58,6 +58,7 @@ async function setup(page: Page): Promise<Net> {
     });
   await answer('me', async (route) => json(route, 200, net.me === 'active' ? { state: 'active', recoveryQuestions: 'set', mustSetPassword: false } : { state: 'unavailable' }));
   await answer('profile', async (route) => json(route, 200, { fullName: 'דנה כהן', parentGender: 'woman' }));
+  await answer('blocks', async (route) => json(route, 200, { blocked: [] })); // the blocked list in Settings (FR-REL-002), empty
   await answer('journeys', async (route) => json(route, 200, { journeys: [{ id: 'j-1', stage: 'planning', dueDate: null }], children: [] }));
   await answer('privacy', async (route) => {
     if (net.get === 'hold') await held;
