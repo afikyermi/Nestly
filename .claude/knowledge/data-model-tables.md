@@ -15,6 +15,7 @@ does not instruct loading every link. Column sections and rule matrices are both
 | friendships, regular_names | Friendships and regular names; users/regular_profiles FKs; Cross-user profile read |
 | security_limits, profile_open_counts, security_events | Profile open limits and security events; Cross-user profile read |
 | profile_view consumers | Cross-user profile read plus the affected input/output table sections above |
+| staff_roles, moderator_permissions, audit_log, report_reasons, user_enforcements | Safety and admin core |
 | Schema changes | Migration and rollback map; New entity template; affected consumer/cleanup order |
 
 
@@ -384,6 +385,27 @@ Professional reads as a Regular non-friend; friendships are Regular-only), the s
 `regular_names` (a Professional has no row: no name). No `followers` audience yet (I11, with Follow). Down: refuses while a posts (named), comments
 or reaction_owners row has an author/liker without a regular_profiles row (FORCE lifted for the check, put back); else restores the policies, FKs and
 comments verbatim and drops the helper.
+
+## Safety and admin core (I4)
+
+Built by `20261020100000_staff_audit_core.sql` and `20261020200000_moderation_enforcement.sql` (down scripts in `supabase/rollback/`; the
+Super Admin is created by `supabase/bootstrap/03-super-admin.sql`, run by Afik). No SECURITY DEFINER, no policy for app_jobs.
+
+| Table | Columns and meaning | Authorization |
+|---|---|---|
+| `staff_roles` | user_id PK, account_type (admin or moderator), account_status; a mirror of `users` by composite FKs, filled by the trigger `users_staff_mirror`, so a policy on `users` can ask "is the caller staff" without reading `users` | RLS + FORCE; SELECT own active row only; nobody writes |
+| `moderator_permissions` | (user_id, permission_key) PK; the 14 assignable keys (CHECK; Admin-only keys cannot be stored); granted_by | SELECT own; the Admin (written out, not `has_permission`, which reads this table) selects, inserts, deletes; audited by trigger with Before/After |
+| `audit_log` | id, actor_id (default auth.uid()), actor_role, permission_key, action, target_kind, target_id, result, reason, before_state, after_state, occurred_at | SELECT Admin or AUDIT_LOG_VIEW; INSERT own actor and role only (column grant); trigger refuses UPDATE and DELETE |
+| `report_reasons` | key PK, label, priority 1-4, sort_order, is_active, is_core; seeded with the eight reasons; `reports.reason` references it | SELECT any active account; INSERT/UPDATE COMMUNITY_CONFIG; `report_reasons_guard` keeps child_safety at priority 1 and core reasons active, audits Before/After |
+| `user_enforcements` | user_id, actor_id, kind (warning, suspension, reinstate, ban, unban), reason, duration_hours, suspended_until, report_id, is_child_safety, suggested_kind/hours, is_step_skipped | SELECT USER_VIEW and own; INSERT by key per kind (USER_WARN, USER_SUSPEND, USER_BAN), never on oneself, a Moderator never on staff; BEFORE trigger computes the ladder (last 12 months) and the suspension end; AFTER trigger changes `users.status` and appends the audit entry |
+
+Other changes: `users.suspended_until`; `users_status_guard` (a staff status change needs its enforcement row from the same transaction and the key
+for that change; an account may end its own expired suspension); `reports` gains target_text (copy of the reported text), resolution, handled_by,
+handler_note and `reports_handle_guard`; staff read policies on reports, posts and comments that have a report; content moderation
+(`posts_update_staff`, `comments_update_staff`, `content_hold` replaced, `content_moderation_audit`); the author's delete over hidden or removed
+content (`nestly.own_delete` setting named by `delete_post`/`delete_comment` and the four `*_own_moderated` policies); `reveal_post_author(uuid)`
+(the audited reveal, rule 19, invoker, opened by the settings `nestly.reveal_post`/`nestly.reveal_user`). Cleanup order: user_enforcements,
+moderator_permissions, staff_roles before security_events; `audit_log` and `report_reasons` are never deleted.
 
 ## New entity template
 

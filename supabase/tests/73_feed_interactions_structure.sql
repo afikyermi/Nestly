@@ -100,8 +100,8 @@ select is(
      from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and (c.relname = any (pg_temp.new_tables()) or (c.relname = 'posts' and a.attname = 'status')) and a.attnum > 0 and not a.attisdropped
       and has_column_privilege('authenticated', c.oid, a.attnum, 'UPDATE')),
-  'comments.status, posts.status',
-  '[F3.0-b c13 c14] authenticated may UPDATE only comments.status and posts.status besides a''s columns (the move to deleted); no like or report is updatable');
+  'comments.status, posts.status, reports.closed_at, reports.handled_by, reports.handler_note, reports.resolution, reports.status',
+  '[F3.0-b c13 c14 · I4] authenticated may UPDATE only comments.status and posts.status besides a''s columns (the move to deleted or a moderator''s move), and the five handling columns of a report (staff only, by reports_update_staff: file 90); no like is updatable');
 
 select is(
   (select count(*) from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
@@ -228,9 +228,12 @@ select is(
 -- ---- c15: the eight decided reasons, nothing else ---------------------------------------------------------------------------------
 select is(
   (select count(*) from unnest(array['child_safety', 'harassment', 'sexual_violent_hateful', 'personal_information', 'medical_misinformation', 'impersonation', 'spam', 'other']) r(code)
-    where exists (select 1 from pg_catalog.pg_constraint con join pg_catalog.pg_class c on c.oid = con.conrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-                   where n.nspname = 'nestly' and c.relname = 'reports' and con.contype = 'c' and pg_catalog.pg_get_constraintdef(con.oid) like '%reason%''' || r.code || '''%')),
-  8::bigint, '[F3.0-b c15] a reason constraint names each of the eight decided reasons (decisions-before-i3-i5 section 3)');
+    where tests.as_role('authenticated', tests.claims(tests.fx_id('a')), format($q$ select count(*)::text from nestly.report_reasons where key = %L and is_active $q$, r.code)) = '1'),
+  8::bigint, '[F3.0-b c15 · I4] the report_reasons list holds each of the eight decided reasons, active (the reports.reason foreign key replaced the CHECK; FR-ADMIN-007)');
+select is(
+  (select count(*) from pg_catalog.pg_constraint con join pg_catalog.pg_class c on c.oid = con.conrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'nestly' and c.relname = 'reports' and con.conname = 'reports_reason_fkey' and con.contype = 'f'),
+  1::bigint, '[F3.0-b c15 · I4] reports.reason references report_reasons'); 
 
 select is(
   (select count(*) from pg_catalog.pg_constraint con join pg_catalog.pg_class c on c.oid = con.conrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
@@ -245,14 +248,15 @@ select is(
        join pg_catalog.pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'nestly' and c.relname = 'reports'
         and pg_describe_object(dep.classid, dep.objid, dep.objsubid) !~ 'reports'
+        and pg_describe_object(dep.classid, dep.objid, dep.objsubid) !~ '(_staff on table|user_enforcements)'
         and dep.deptype <> 'i') x),
   'policy posts_select_viewer on table nestly.posts',
-  '[F3.0-b c16 7א] only posts_select_viewer depends on reports besides the table''s own objects: no other policy, function or view, never a ranking input');
+  '[F3.0-b c16 7א · I4] only posts_select_viewer (and the staff policies and the enforcement link, file 90) depends on reports besides the table''s own objects: no other policy, function or view, never a ranking input');
 
 select is(
   (select coalesce(string_agg(c.relname || '.' || pol.polname, ', ' order by c.relname, pol.polname), '(none)')
      from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'nestly' and c.relname <> 'reports'
+    where n.nspname = 'nestly' and c.relname <> 'reports' and pol.polname !~ '_staff$'
       and (coalesce(pg_catalog.pg_get_expr(pol.polqual, pol.polrelid), '') || coalesce(pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid), '')) ~ '\mreports\M'),
   'posts.posts_select_viewer',
   '[F3.0-b c16 Afik 18.10] no policy of comments, users or any other table reads reports: a reported comment or user is hidden from nobody');
