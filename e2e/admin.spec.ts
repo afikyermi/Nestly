@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { APP, MENU_BUTTON, pathOf } from './app-helpers';
 import { DESKTOP_1280, EMAIL, main } from './support/journeys-stub';
-import { CHILD_REPORT, POST_CHILD, POST_SPAM, USER_RINA, setupAdmin } from './support/admin-stub';
+import { CHILD_REPORT, ID, POST_CHILD, POST_SPAM, USER_RINA, setupAdmin } from './support/admin-stub';
 
 test.use({ baseURL: APP, viewport: DESKTOP_1280 });
 
@@ -166,5 +166,19 @@ test.describe('[I5 Afik 20.10] the image approval queue', () => {
       { decision: 'approved', isChild: true },
       { decision: 'suspected', isChild: false },
     ]);
+  });
+});
+
+test.describe('[I5 BR-076] an image removed after a report', () => {
+  test('[I5 BR-076] CONTENT_MODERATE with REPORTS_VIEW removes a reported post\'s image that had passed', async ({ page }) => {
+    const net = await setupAdmin(page);
+    await signIn(page);
+    await page.goto('/admin/reports');
+    await page.getByRole('listitem').filter({ hasText: 'ספאם' }).getByRole('button', { name: 'פתיחת הדיווח' }).click();
+    const images = page.getByRole('list', { name: 'התמונות בפוסט' });
+    await images.getByRole('button', { name: 'הסרת התמונה', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'התמונה הוסרה' })).toBeVisible();
+    await expect(images.getByText('התמונה לא אושרה לפי מדיניות התמונות')).toBeVisible();
+    expect(net.sent.filter((s) => s.path.endsWith('/removal'))).toEqual([{ method: 'POST', path: `/api/admin/media/${ID(72)}/removal`, body: { suspected: false } }]);
   });
 });

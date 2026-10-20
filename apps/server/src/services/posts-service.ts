@@ -12,9 +12,9 @@ import { readDatabaseFault } from '../lib/pg-error.js';
 import type { Identity } from '../lib/token-verifier.js';
 import { readCommentCounts, readLikeCounts, readLikedTargetIds } from '../repositories/likes-repository.js';
 import type { MediaStorage } from '../media/storage-admin.js';
-import { attachImage, readImagesOfPosts } from '../repositories/media-repository.js';
+import { attachImage, readImagesOfPosts, type PostImageRow } from '../repositories/media-repository.js';
 import { deletePost, insertPost, readPostKind, readPostDetail, updatePost, type PostDetailRow, type PostRow } from '../repositories/posts-repository.js';
-import { imageViews } from './media-service.js';
+import { withUrls } from './media-service.js';
 
 export type PostOutcome<T> = { readonly kind: 'post'; readonly post: T } | { readonly kind: 'not_found' };
 /** PATCH also answers that an anonymous post cannot become friends-only (F3.4 c6), and that a share cannot be edited (F3.5 c8). */
@@ -39,13 +39,17 @@ export class ImageNotAvailable extends Error {
   }
 }
 
-/** I5: the images of these posts the caller may read, by post, in order, with read addresses signed after the read. */
-export async function imagesByPost(tx: IdentityTx, storage: MediaStorage | undefined, postIds: readonly string[]): Promise<Map<string, MediaImage[]>> {
+/** I5: the image rows of these posts the caller may read, in order. Inside the caller's transaction; no network call. */
+export async function readPostImageRows(tx: IdentityTx, storage: MediaStorage | undefined, postIds: readonly string[]): Promise<PostImageRow[]> {
+  if (storage === undefined || postIds.length === 0) return [];
+  return readImagesOfPosts(tx, postIds);
+}
+
+/** I5: those rows' views by post, in order, with read addresses signed after the transaction (no connection held during the call). */
+export async function imagesByPost(storage: MediaStorage | undefined, rows: readonly PostImageRow[]): Promise<Map<string, MediaImage[]>> {
   const out = new Map<string, MediaImage[]>();
-  if (storage === undefined || postIds.length === 0) return out;
-  const rows = await readImagesOfPosts(tx, postIds);
-  if (rows.length === 0) return out;
-  const views = await imageViews(storage, rows);
+  if (storage === undefined || rows.length === 0) return out;
+  const views = await withUrls(storage, rows);
   for (const row of rows) {
     const view = views.get(row.id);
     if (view === undefined) continue;
@@ -101,7 +105,7 @@ function originalOf(row: PostDetailRow): ShareOriginal {
  * image the caller may not attach, propagates and rolls everything back, the post_authors row with it.
  */
 export async function createPost(database: Database, identity: Identity, input: NewPost, storage?: MediaStorage): Promise<PostView> {
-  return inIdentityTransaction(database, identity, async (tx) => {
+  const { view, imageRows } = await inIdentityTransaction(database, identity, async (tx) => {
     const row = single(
       await insertPost(tx, {
         body: input.body,
@@ -115,9 +119,10 @@ export async function createPost(database: Database, identity: Identity, input: 
     for (const [position, imageId] of ids.entries()) {
       if (!(await attachImage(tx, imageId, row.id, position))) throw new ImageNotAvailable();
     }
-    const images = ids.length === 0 ? undefined : (await imagesByPost(tx, storage, [row.id])).get(row.id);
-    return { ...viewOf(row), ...(images === undefined ? {} : { images }) };
+    return { view: viewOf(row), imageRows: ids.length === 0 ? [] : await readPostImageRows(tx, storage, [row.id]) };
   });
+  const images = (await imagesByPost(storage, imageRows)).get(view.id);
+  return { ...view, ...(images === undefined ? {} : { images }) };
 }
 
 /**
@@ -132,6 +137,7 @@ export async function readPostById(
   within?: IdentityTx,
   storage?: MediaStorage,
 ): Promise<PostOutcome<PostPageView>> {
+  let imageRows: PostImageRow[] = [];
   const read = async (tx: IdentityTx): Promise<PostOutcome<PostPageView>> => {
     const rows = await readPostDetail(tx, id);
     if (rows.length > 1) throw new PostsFault();
@@ -162,11 +168,10 @@ export async function readPostById(
         },
       };
     }
-    const images = (await imagesByPost(tx, storage, [row.id])).get(row.id);
+    imageRows = await readPostImageRows(tx, storage, [row.id]);
     return {
       kind: 'post',
       post: {
-        ...(images === undefined ? {} : { images }),
         kind: 'post',
         id: row.id,
         body: row.body,
@@ -182,7 +187,11 @@ export async function readPostById(
     };
   };
   // F3.5 c3: a share just inserted is read back inside its own transaction (`within`), so a failed read rolls the share back.
-  return within === undefined ? inIdentityTransaction(database, identity, read, { isolationLevel: 'repeatable read' }) : read(within);
+  if (within !== undefined) return read(within);
+  const outcome = await inIdentityTransaction(database, identity, read, { isolationLevel: 'repeatable read' });
+  if (outcome.kind !== 'post' || outcome.post.kind !== 'post') return outcome;
+  const images = (await imagesByPost(storage, imageRows)).get(outcome.post.id);
+  return images === undefined ? outcome : { kind: 'post', post: { ...outcome.post, images } };
 }
 
 /**

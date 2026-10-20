@@ -202,8 +202,16 @@ export async function readQueue(tx: IdentityTx, limit: number): Promise<QueueRow
 
 const returnedId = z.array(z.object({ id: z.guid() }));
 
+/** Thrown inside the identity transaction when a decision's status move did not apply, so the marks written before it roll back too. */
+export class DecisionNotApplied extends Error {
+  constructor() {
+    super('media: the decision did not apply');
+  }
+}
+
 /** A staff decision on a queued image: the marks first (the child mark; a suspicion, which forces a held rejection), then the status. False
- *  when the database did not apply it (not queued, not permitted, gone). */
+ *  when there is no review to mark; throws DecisionNotApplied when the status did not move (not queued any more, not permitted, gone), so
+ *  the caller's transaction drops the marks with it. */
 export async function decideImage(tx: IdentityTx, id: string, decision: 'approved' | 'rejected' | 'suspected', isChild: boolean): Promise<boolean> {
   const suspected = decision === 'suspected';
   const marked = await tx.execute(sql`
@@ -215,7 +223,8 @@ export async function decideImage(tx: IdentityTx, id: string, decision: 'approve
     update nestly.media_assets set status = ${suspected ? 'rejected' : decision}
     where id = ${id}::uuid and status = 'queued'
     returning id`);
-  return returnedId.parse(rows).length === 1;
+  if (returnedId.parse(rows).length !== 1) throw new DecisionNotApplied();
+  return true;
 }
 
 /** Whether the caller may remove a checked image after a report (CONTENT_MODERATE and REPORTS_VIEW now). Picks the answer only. */
@@ -226,7 +235,8 @@ export async function canRemoveCheckedImage(tx: IdentityTx): Promise<boolean> {
 }
 
 /** Removes an image that had passed (or was approved), after a report: rejected, or rejected and held as a suspicion of child abuse (M6).
- *  The database requires a report on its post or uploader, or the suspicion (media_assets_update_guard). False when it did not apply. */
+ *  The database requires a report on its post or uploader, or the suspicion (media_assets_update_guard). False when the suspicion could not
+ *  be marked; throws DecisionNotApplied when the status did not move, so a suspicion written first rolls back with it. */
 export async function removeCheckedImage(tx: IdentityTx, id: string, suspected: boolean): Promise<boolean> {
   if (suspected) {
     const marked = await tx.execute(sql`
@@ -239,5 +249,6 @@ export async function removeCheckedImage(tx: IdentityTx, id: string, suspected: 
     update nestly.media_assets set status = 'rejected'
     where id = ${id}::uuid and status in ('passed', 'approved')
     returning id`);
-  return returnedId.parse(rows).length === 1;
+  if (returnedId.parse(rows).length !== 1) throw new DecisionNotApplied();
+  return true;
 }

@@ -121,7 +121,13 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
       return json(route, 200, {
         targetKind: kind,
         targetId: id,
-        content: { text: 'טקסט הפוסט שדווח', status: 'active', isAnonymous: false },
+        content: {
+          text: 'טקסט הפוסט שדווח',
+          status: 'active',
+          isAnonymous: false,
+          // I5: the spam post carries one image that passed the check
+          ...(id === POST_SPAM ? { images: [{ id: ID(72), state: 'ready', url: null, width: 800, height: 600 }] } : {}),
+        },
         // The child-safety post's oldest report has another reason: the ban must cite the child-safety one (AC-110).
         reports: [
           { id: ID(8), status: 'open', reason: 'spam', reasonLabel: 'ספאם או פרסום לא קשור', details: null, copiedText: 'טקסט הפוסט שדווח', createdAt: '2026-06-13T09:00:00.000Z' },

@@ -19,18 +19,16 @@ export interface ImageModel {
 }
 
 /** NudeNet's input: pad bottom/right to a square (black), resize to 320, RGB, scaled to 0..1, channels first. */
-async function tensorOf(image: Uint8Array): Promise<Float32Array> {
-  const base = sharp(image, { limitInputPixels: 50_000_000 }).rotate().removeAlpha();
-  const meta = await base.metadata();
-  const width = meta.autoOrient?.width ?? meta.width;
-  const height = meta.autoOrient?.height ?? meta.height;
-  if (width === undefined || height === undefined) throw new Error('nudenet: unreadable image');
-  const side = Math.max(width, height);
-  const { data } = await base
-    .extend({ bottom: side - height, right: side - width, background: { r: 0, g: 0, b: 0 } })
-    .resize(SIDE, SIDE, { fit: 'fill' })
+export async function tensorOf(image: Uint8Array): Promise<Float32Array> {
+  // One step: scale the longer side to 320 keeping the aspect ratio, and pad the rest black at the bottom and right (sharp applies an
+  // extend() after resize() whatever the call order, so the padding is the resize's own).
+  const { data, info } = await sharp(image, { limitInputPixels: 50_000_000 })
+    .rotate()
+    .removeAlpha()
+    .resize(SIDE, SIDE, { fit: 'contain', position: 'left top', background: { r: 0, g: 0, b: 0 } })
     .raw()
     .toBuffer({ resolveWithObject: true });
+  if (info.width !== SIDE || info.height !== SIDE || info.channels !== 3) throw new Error('nudenet: unexpected input shape');
   const plane = SIDE * SIDE;
   const out = new Float32Array(3 * plane);
   for (let i = 0; i < plane; i++) {

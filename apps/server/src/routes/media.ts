@@ -17,7 +17,7 @@ import { inIdentityTransaction } from '../db/identity-transaction.js';
 import { isTransientFailure, readDatabaseFault } from '../lib/pg-error.js';
 import { replySessionRefused } from '../plugins/authentication.js';
 import { readProfilePhotos } from '../repositories/media-repository.js';
-import { imageViews, removeProfilePhoto, setProfilePhoto, StorageUnavailable, uploadImage, type MediaDependencies } from '../services/media-service.js';
+import { withUrls, removeProfilePhoto, setProfilePhoto, StorageUnavailable, uploadImage, type MediaDependencies } from '../services/media-service.js';
 
 export interface MediaRouteDependencies {
   readonly database: Database | undefined;
@@ -76,7 +76,7 @@ export function registerMediaRoutes(app: FastifyInstance, deps: MediaRouteDepend
       if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
       try {
         const rows = await inIdentityTransaction(deps.database, identity, (tx) => readProfilePhotos(tx, [identity.userId.toLowerCase()]));
-        const views = await imageViews(deps.media.storage, rows);
+        const views = await withUrls(deps.media.storage, rows);
         const first = rows[0];
         return reply.code(200).send({ photo: first === undefined ? null : (views.get(first.id) ?? null) });
       } catch (error) {

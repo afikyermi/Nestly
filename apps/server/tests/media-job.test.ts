@@ -6,7 +6,7 @@ import { readJobsConfig } from '../src/jobs/config.js';
 import { isAuthorized } from '../src/jobs/handler.js';
 import { runMediaJob, type MediaJobDependencies } from '../src/jobs/media-check.js';
 import type { JobDb } from '../src/jobs/media-job-repository.js';
-import { bestScores, loadNudeNet, type ImageModel } from '../src/jobs/nudenet.js';
+import { bestScores, loadNudeNet, tensorOf, type ImageModel } from '../src/jobs/nudenet.js';
 
 // I5 (Afik 20.10.2026, decisions-in-force.md §2, §7; BR-076 as replaced; AC-105): the background check's rule, its configuration, its secret
 // and one run against a stand-in database and storage. What the job may touch is the database's (TO app_media_jobs policies, pgTAP file 93).
@@ -61,6 +61,16 @@ describe('[Afik 20.10] the model', () => {
     expect(best['FEMALE_GENITALIA_COVERED']).toBeCloseTo(0.7);
     expect(best['FACE_FEMALE']).toBeCloseTo(0.2);
     expect(best['BUTTOCKS_EXPOSED']).toBe(0);
+  });
+  it('a portrait photo keeps its proportions: scaled into 320 and padded black on the right, never squashed or scrambled', async () => {
+    const white = new Uint8Array(await sharp({ create: { width: 600, height: 1000, channels: 3, background: { r: 255, g: 255, b: 255 } } }).png().toBuffer());
+    const tensor = await tensorOf(white);
+    const plane = 320 * 320;
+    expect(tensor.length).toBe(3 * plane);
+    expect(tensor[0], 'top left is the photo').toBeCloseTo(1);
+    expect(tensor[319 * 320 + 100], 'bottom, inside the photo (192 wide)').toBeCloseTo(1);
+    expect(tensor[319], 'top right is padding').toBe(0);
+    expect(tensor[160 * 320 + 300], 'the right band is padding all the way down').toBe(0);
   });
   it('[AC-105] NudeNet loads and scores a plain picture with no blocking label', T, async () => {
     const model = await loadNudeNet();
@@ -121,7 +131,7 @@ function fakeJobStorage(over: Partial<JobStorage> = {}) {
       removed.push(...ids);
       return Promise.resolve<StorageOutcome>('ok');
     },
-    listImagesBefore: () => Promise.resolve([]),
+    listImagesBefore: () => Promise.resolve({ ids: [], more: false }),
     writeTrainingSample: (id) => {
       training.push(id);
       return Promise.resolve<StorageOutcome>('ok');
@@ -157,18 +167,27 @@ describe('[AC-105 BR-077 Afik 20.10] one run of the job', () => {
   it('checks pending images: passed, blocked, unsure, and a failure that stays pending or goes to the queue at the limit', async () => {
     const pending = [ID(1), ID(2), ID(3), ID(4)].map((id) => ({ id, attempts: 0 }));
     const { db, calls } = fakeDb({ pending: () => Promise.resolve([...pending, { id: ID(5), attempts: 2 }]) });
-    const store = fakeJobStorage({ listImagesBefore: () => Promise.resolve([ID(90), ID(91)]) });
+    const store = fakeJobStorage({ listImagesBefore: () => Promise.resolve({ ids: [ID(90), ID(91)], more: false }) });
     const report = await runMediaJob(deps(db, store.storage, model({ '1': { FACE_FEMALE: 0.9 }, '2': { FEMALE_BREAST_EXPOSED: 0.91 }, '3': { BUTTOCKS_EXPOSED: 0.3 } }, new Set([4, 5]))));
     expect(report).toMatchObject({ checked: 5, passed: 1, queued: 2, failed: 2, swept: 1 });
     expect(calls).toEqual([`passed:${ID(1)}`, `queued:blocked:${ID(2)}`, `queued:unsure:${ID(3)}`, `failed:stay:${ID(4)}`, `failed:queue:${ID(5)}`, 'stories']);
     expect(store.removed, 'the sweep removes the file that has no row, never one that has').toEqual([ID(91)]);
   });
 
-  it('when the model cannot load, every pending image counts a failed attempt and nothing passes (fail closed)', async () => {
-    const { db, calls } = fakeDb({ pending: () => Promise.resolve([{ id: ID(1), attempts: 0 }]) });
+  it('when the model cannot load, nothing passes and no image is charged an attempt: all stay pending (fail closed)', async () => {
+    const { db, calls } = fakeDb({ pending: () => Promise.resolve([{ id: ID(1), attempts: 2 }]) });
     const report = await runMediaJob(deps(db, fakeJobStorage().storage, () => Promise.reject(new Error('no model'))));
-    expect(report).toMatchObject({ checked: 1, passed: 0, failed: 1 });
-    expect(calls).toEqual([`failed:stay:${ID(1)}`, 'stories']);
+    expect(report).toMatchObject({ checked: 0, passed: 0, failed: 0 });
+    expect(calls).toEqual(['stories']);
+  });
+  it('an image another run already moved never stops this run', async () => {
+    const { db } = fakeDb({
+      pending: () => Promise.resolve([{ id: ID(1), attempts: 2 }, { id: ID(2), attempts: 0 }]),
+      markQueued: () => Promise.reject(new Error('policy')),
+      markFailed: () => Promise.reject(new Error('policy')),
+    });
+    const report = await runMediaJob(deps(db, fakeJobStorage().storage, model({ '1': { FEMALE_BREAST_EXPOSED: 0.9 }, '2': { FACE_FEMALE: 0.9 } })));
+    expect(report).toMatchObject({ checked: 2, passed: 1, failed: 1 });
   });
 
   it('[Afik 20.10] copies a decided blocked image (a child\'s too) into the training bucket under the index row\'s id; a failed copy keeps no row', async () => {
@@ -191,6 +210,27 @@ describe('[AC-105 BR-077 Afik 20.10] one run of the job', () => {
     expect(store.removed).toEqual([ID(8), ID(9)]);
     const broken = fakeJobStorage({ removeImages: () => Promise.resolve('failed') });
     expect((await runMediaJob(deps(fakeDb({ purgeImages: async (remove) => ((await remove([ID(8)])) ? 1 : 0) }).db, broken.storage, model({})))).purged).toBe(0);
+  });
+});
+
+describe('[BR-077] the sweep of files with no row', () => {
+  it('reads the bucket page after page, past live files, until the files are newer than a day', async () => {
+    const offsets: number[] = [];
+    const pages = [
+      { ids: Array.from({ length: 1000 }, (_, i) => ID(1000 + i)), more: true },
+      { ids: [ID(5000), ID(5001)], more: false },
+    ];
+    const store = fakeJobStorage({
+      listImagesBefore: (_before, _limit, offset) => {
+        offsets.push(offset);
+        return Promise.resolve(pages[offsets.length - 1]);
+      },
+    });
+    const { db } = fakeDb({ knownImageIds: (ids) => Promise.resolve(new Set(ids.filter((id) => id !== ID(5001)))) });
+    const report = await runMediaJob(deps(db, store.storage, model({})));
+    expect(offsets).toEqual([0, 1000]);
+    expect(report.swept).toBe(1);
+    expect(store.removed).toEqual([ID(5001)]);
   });
 });
 

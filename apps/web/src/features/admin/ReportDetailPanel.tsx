@@ -5,6 +5,7 @@ import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
 import { TextArea } from '@/components/ui/text-area';
 import { formatAdminTime } from './admin-format';
+import { ReportImages } from './ReportImages';
 import {
   ACTIONS_HEADING,
   ANONYMOUS_NOTE,
@@ -89,6 +90,7 @@ export function ReportDetailPanel({ detail, permissions, revealed, pending, fail
               </p>
               <p className="text-small text-muted-foreground">{CONTENT_STATUS_LABELS[content.status] ?? content.status}</p>
               {content.isAnonymous ? <p className="text-small">{ANONYMOUS_NOTE}</p> : null}
+              {content.images === undefined || content.images.length === 0 ? null : <ReportImages images={content.images} permissions={permissions} />}
             </>
           )}
         </div>

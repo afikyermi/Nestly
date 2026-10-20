@@ -163,3 +163,7 @@ export const MEDIA_SUSPECT_LABEL = 'חשד לפגיעה בילד';
 export const MEDIA_SUSPECT_HINT = 'התמונה תוסר, תישמר 90 יום לטיפול ולא תוצג לאיש. מי שהעלה אותה יראה הודעת דחייה רגילה.';
 export const MEDIA_DECIDED_TEXT = 'ההחלטה נשמרה';
 export const MEDIA_GONE_TEXT = 'התמונה כבר טופלה או הוסרה';
+export const REPORT_IMAGES_LABEL = 'התמונות בפוסט';
+export const reportImageAlt = (index: number, total: number): string => (total === 1 ? 'התמונה בפוסט המדווח' : `תמונה ${index + 1} מתוך ${total} בפוסט המדווח`);
+export const REPORT_IMAGE_REMOVE_LABEL = 'הסרת התמונה';
+export const REPORT_IMAGE_REMOVED_TEXT = 'התמונה הוסרה';

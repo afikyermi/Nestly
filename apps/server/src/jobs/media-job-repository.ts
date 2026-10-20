@@ -87,7 +87,9 @@ export function createJobDb(sql: Sql): JobDb {
       await sql`update nestly.media_assets set check_attempts = least(check_attempts + 1, 20) where id = ${id} and status = 'pending'`;
     },
     async trainable(limit) {
+      // random order: an image whose copy keeps failing never holds the batch against the others
       return z.array(trainRow).parse(await sql`
+        select * from (
         select m.id, m.mime, case when m.status = 'rejected' then 'blocked' else 'allowed' end as label, r.queue_reason as source,
                r.is_child, m.decided_at::text as decided_at
         from nestly.media_assets m join nestly.media_reviews r on r.media_id = m.id
@@ -100,6 +102,8 @@ export function createJobDb(sql: Sql): JobDb {
         where not m.is_held and not m.is_file_removed
           and not exists (select 1 from nestly.media_reviews r where r.media_id = m.id and r.is_suspected)
           and not exists (select 1 from nestly.media_training_samples t where t.source_media_id = m.id)
+        ) trainable
+        order by random()
         limit ${limit}`);
     },
     async addSample(image, copy) {

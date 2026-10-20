@@ -62,11 +62,6 @@ export async function uploadImage(database: Database, identity: Identity, deps: 
   return { kind: 'uploaded', image };
 }
 
-/** The image views of rows read inside `tx` (signed after the read). */
-export async function imageViews<T extends ImageRow>(storage: MediaStorage, rows: readonly T[]): Promise<Map<string, MediaImage>> {
-  return withUrls(storage, rows);
-}
-
 export type PhotoOutcome = { readonly kind: 'set'; readonly photo: MediaImage } | { readonly kind: 'removed' } | { readonly kind: 'not_available' };
 
 /** PUT /api/profile/photo: one of the caller's own profile images becomes the photo; the replaced image is gone at once (BR-077). */

@@ -8,7 +8,7 @@ import type { Database } from '../db/client.js';
 import { inIdentityTransaction } from '../db/identity-transaction.js';
 import type { Identity } from '../lib/token-verifier.js';
 import type { MediaStorage } from '../media/storage-admin.js';
-import { canModerateContent, canRemoveCheckedImage, decideImage, readQueue, removeCheckedImage } from '../repositories/media-repository.js';
+import { DecisionNotApplied, canModerateContent, canRemoveCheckedImage, decideImage, readQueue, removeCheckedImage } from '../repositories/media-repository.js';
 
 const QUEUE_PAGE = 50;
 
@@ -51,7 +51,12 @@ export type DecideOutcome = { readonly kind: 'decided' } | { readonly kind: 'not
 
 /** One decision; `not_found` when the database did not apply it (not queued any more, not the caller's to decide, or gone). */
 export async function decideQueuedImage(database: Database, identity: Identity, id: string, decision: MediaDecision, isChild: boolean): Promise<DecideOutcome> {
-  return inIdentityTransaction(database, identity, async (tx) => ((await decideImage(tx, id, decision, isChild)) ? { kind: 'decided' } : { kind: 'not_found' }));
+  try {
+    return await inIdentityTransaction(database, identity, async (tx) => ((await decideImage(tx, id, decision, isChild)) ? { kind: 'decided' } : { kind: 'not_found' }));
+  } catch (error) {
+    if (error instanceof DecisionNotApplied) return { kind: 'not_found' };
+    throw error;
+  }
 }
 
 export type RemovalOutcome = { readonly kind: 'removed' } | { readonly kind: 'forbidden' } | { readonly kind: 'not_found' };
@@ -59,8 +64,13 @@ export type RemovalOutcome = { readonly kind: 'removed' } | { readonly kind: 'fo
 /** A checked image removed after a report, or as a suspicion (M6). `not_found` when the database did not apply it (not checked, no report
  *  and no suspicion, not readable by the caller, or gone). */
 export async function removeImageAfterReport(database: Database, identity: Identity, id: string, suspected: boolean): Promise<RemovalOutcome> {
-  return inIdentityTransaction(database, identity, async (tx): Promise<RemovalOutcome> => {
-    if (!(await canRemoveCheckedImage(tx))) return { kind: 'forbidden' };
-    return (await removeCheckedImage(tx, id, suspected)) ? { kind: 'removed' } : { kind: 'not_found' };
-  });
+  try {
+    return await inIdentityTransaction(database, identity, async (tx): Promise<RemovalOutcome> => {
+      if (!(await canRemoveCheckedImage(tx))) return { kind: 'forbidden' };
+      return (await removeCheckedImage(tx, id, suspected)) ? { kind: 'removed' } : { kind: 'not_found' };
+    });
+  } catch (error) {
+    if (error instanceof DecisionNotApplied) return { kind: 'not_found' };
+    throw error;
+  }
 }

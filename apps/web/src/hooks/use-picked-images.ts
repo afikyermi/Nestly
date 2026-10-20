@@ -35,7 +35,8 @@ export function usePickedImages(kind: MediaKind = 'post', max: number = POST_MAX
   const [items, setItems] = useState<PickedImage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const next = useRef(1);
-  const count = useRef(0);
+  /** The pictures shown now (uploading or ready): the count against `max`. */
+  const live = useRef(new Set<number>());
 
   const upload = useCallback(
     async (key: number, file: File) => {
@@ -47,7 +48,7 @@ export function usePickedImages(kind: MediaKind = 'post', max: number = POST_MAX
         return;
       }
       if (outcome?.kind === 'unauthenticated' || outcome?.kind === 'account-unavailable') void account?.recheck();
-      count.current -= 1;
+      if (!live.current.delete(key)) return; // removed while it uploaded: already out of the count and the list
       setItems((now) => now.filter((item) => item.key !== key));
       setError(!shrunk.ok ? SHRINK_FAILED_TEXT : outcome?.kind === 'unsupported' ? TYPE_REFUSED_TEXT : UPLOAD_FAILED_TEXT);
     },
@@ -58,7 +59,7 @@ export function usePickedImages(kind: MediaKind = 'post', max: number = POST_MAX
     (files: readonly File[]) => {
       setError(null);
       for (const file of files) {
-        if (count.current >= max) {
+        if (live.current.size >= max) {
           setError(imageCountLimitText(max));
           return;
         }
@@ -71,7 +72,7 @@ export function usePickedImages(kind: MediaKind = 'post', max: number = POST_MAX
           continue;
         }
         const key = next.current++;
-        count.current += 1;
+        live.current.add(key);
         setItems((now) => [...now, { key, status: 'uploading' }]);
         void upload(key, file);
       }
@@ -80,7 +81,7 @@ export function usePickedImages(kind: MediaKind = 'post', max: number = POST_MAX
   );
 
   const remove = useCallback((key: number) => {
-    count.current -= 1;
+    live.current.delete(key);
     setItems((now) => now.filter((item) => item.key !== key));
     setError(null);
   }, []);

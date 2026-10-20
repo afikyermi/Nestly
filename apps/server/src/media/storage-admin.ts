@@ -152,8 +152,9 @@ export interface JobStorage {
   /** The bytes of an image, for the check and for the training copy. */
   readImage(id: string): Promise<Uint8Array | undefined>;
   removeImages(ids: readonly string[]): Promise<StorageOutcome>;
-  /** The ids of the files in the image bucket created before `before` (the sweep of files that have no row), at most `limit`. */
-  listImagesBefore(before: Date, limit: number): Promise<string[] | undefined>;
+  /** One page of the image bucket, oldest first, from `offset`: the ids of files created before `before` (the sweep of files that have no
+   *  row), and whether the listing goes on past this page. */
+  listImagesBefore(before: Date, limit: number, offset: number): Promise<{ ids: string[]; more: boolean } | undefined>;
   writeTrainingSample(id: string, bytes: Uint8Array, mime: string): Promise<StorageOutcome>;
   /** A training file's bytes, read only after `recordAccess` has written the access event (Afik 20.10.2026: every access audited); a
    *  failed record reads nothing. The only read of the training bucket. */
@@ -167,25 +168,27 @@ export function createJobStorage(env: Env = process.env): JobStorage {
     isConfigured: () => target !== undefined,
     readImage: (id) => get(target, MEDIA_BUCKET, id),
     removeImages: (ids) => remove(target, MEDIA_BUCKET, ids),
-    listImagesBefore: async (before, limit) => {
+    listImagesBefore: async (before, limit, offset) => {
       if (target === undefined) return undefined;
       try {
         const response = await call(target, `/object/list/${MEDIA_BUCKET}`, {
           method: 'POST',
-          body: JSON.stringify({ prefix: '', limit, offset: 0, sortBy: { column: 'created_at', order: 'asc' } }),
+          body: JSON.stringify({ prefix: '', limit, offset, sortBy: { column: 'created_at', order: 'asc' } }),
           contentType: 'application/json',
         });
         if (!response.ok) return undefined;
         const rows: unknown = await response.json();
         if (!Array.isArray(rows)) return undefined;
         const ids: string[] = [];
+        let reachedNewer = false;
         for (const row of rows) {
           if (typeof row !== 'object' || row === null) continue;
           const name: unknown = Reflect.get(row, 'name');
           const created: unknown = Reflect.get(row, 'created_at');
-          if (typeof name === 'string' && UUID.test(name) && typeof created === 'string' && new Date(created) < before) ids.push(name);
+          if (typeof created === 'string' && new Date(created) >= before) reachedNewer = true;
+          else if (typeof name === 'string' && UUID.test(name) && typeof created === 'string') ids.push(name);
         }
-        return ids;
+        return { ids, more: rows.length === limit && !reachedNewer };
       } catch {
         return undefined;
       }

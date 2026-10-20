@@ -135,7 +135,7 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerPostHidesRoutes(app, { database });
   registerReportsRoutes(app, { database });
   registerSharesRoutes(app, { database });
-  registerAdminReadRoutes(app, { database });
+  registerAdminReadRoutes(app, { database, storage: media.storage });
   registerAdminActionRoutes(app, { database });
 
   return app;

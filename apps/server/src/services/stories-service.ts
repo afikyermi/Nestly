@@ -11,7 +11,7 @@ import type { Identity } from '../lib/token-verifier.js';
 import type { MediaStorage } from '../media/storage-admin.js';
 import { readVisibleNames } from '../repositories/friends-repository.js';
 import { countOwnStoriesToday, insertStory, readLiveStories } from '../repositories/media-repository.js';
-import { imageViews } from './media-service.js';
+import { withUrls } from './media-service.js';
 
 export type CreateStoryOutcome =
   | { readonly kind: 'created'; readonly id: string }
@@ -44,7 +44,7 @@ export async function readStories(database: Database, identity: Identity, storag
     const authors = [...new Set(live.map((row) => row.authorId))];
     return { rows: live, names: new Map((await readVisibleNames(tx, authors)).map((n) => [n.userId, n.fullName])), postedToday: await countOwnStoriesToday(tx) };
   });
-  const views = await imageViews(
+  const views = await withUrls(
     storage,
     rows.map((row) => ({ id: row.mediaId, status: row.status, width: row.width, height: row.height })),
   );

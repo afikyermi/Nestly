@@ -1,6 +1,7 @@
 // The admin core's requests and answers (FR-MOD-002, FR-MOD-003, FR-ADMIN-005; BR-074). The web checks what it sends and the server checks again, by
 // the same rules. Every body is strict. Who may do what is the database's (RLS and the Permission Keys); nothing here decides it.
 import { z } from 'zod';
+import { mediaImage } from '../media/index.js';
 import {
   ENFORCEMENT_KINDS,
   MODERATION_STATUSES,
@@ -172,7 +173,13 @@ export const reportDetailBody = z.object({
   targetKind: z.enum(REPORT_TARGET_KINDS),
   targetId: z.guid(),
   content: z
-    .object({ text: z.string().nullable(), status: z.string(), isAnonymous: z.boolean() })
+    .object({
+      text: z.string().nullable(),
+      status: z.string(),
+      isAnonymous: z.boolean(),
+      /** I5: a reported post's images the staff member may see (with CONTENT_MODERATE and REPORTS_VIEW one that had passed can be removed). */
+      images: z.array(mediaImage).optional(),
+    })
     .nullable(),
   reports: z.array(z.object({ id: z.guid(), status: z.enum(['open', 'handled', 'expired']), reasonLabel: z.string(), reason: z.string(), details: z.string().nullable(), copiedText: z.string().nullable(), createdAt: z.string() })),
   user: targetUser.nullable(),

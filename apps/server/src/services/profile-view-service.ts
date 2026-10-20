@@ -14,7 +14,8 @@ import { readOwnAccounts } from '../repositories/account-state-repository.js';
 import { openProfile } from '../repositories/profile-view-repository.js';
 import type { MediaStorage } from '../media/storage-admin.js';
 import { readProfilePhotos } from '../repositories/media-repository.js';
-import { imageViews } from './media-service.js';
+import type { PhotoRow } from '../repositories/media-repository.js';
+import { withUrls } from './media-service.js';
 import type { ActorRefusal } from './friends-service.js';
 
 export type ViewOutcome =
@@ -37,8 +38,9 @@ async function classifyViewer(tx: IdentityTx): Promise<ActorRefusal | undefined>
 
 /** GET /api/profiles/:userId. `targetId` is a lowercase uuid's text form (the route checked it). */
 export async function readUserProfile(database: Database, identity: Identity, targetId: string, storage?: MediaStorage): Promise<ViewOutcome> {
+  let photoRow: PhotoRow | undefined;
   try {
-    return await inIdentityTransaction(database, identity, async (tx): Promise<ViewOutcome> => {
+    const outcome = await inIdentityTransaction(database, identity, async (tx): Promise<ViewOutcome> => {
       const refusal = await classifyViewer(tx);
       if (refusal !== undefined) return refusal;
       const [row, ...others] = await openProfile(tx, targetId);
@@ -46,8 +48,7 @@ export async function readUserProfile(database: Database, identity: Identity, ta
       if (others.length > 0) throw new Error('profile_view returned more than one row');
       if (row.outcome === 'limited') return OPEN_LIMITED;
       // I5: the target's photo as the caller's policies show it (profile_photos_select_viewer: passed or approved only, for another person)
-      const photos = storage === undefined ? [] : await readProfilePhotos(tx, [targetId]);
-      const photo = photos[0] === undefined || storage === undefined ? null : ((await imageViews(storage, photos)).get(photos[0].id) ?? null);
+      photoRow = storage === undefined ? undefined : (await readProfilePhotos(tx, [targetId]))[0];
       // Fails closed: a `shown` row with a missing field is a database fault, not a partial profile (the open rolls back with it).
       return {
         kind: 'profile',
@@ -61,10 +62,13 @@ export async function readUserProfile(database: Database, identity: Identity, ta
           relationship: row.relationship,
           friends: row.friends,
           mutualFriends: row.mutual_friends,
-          ...(photo === null ? {} : { photo }),
         }),
       };
     });
+    // the read address is signed after the transaction, so no connection waits on Storage
+    if (outcome.kind !== 'profile' || photoRow === undefined || storage === undefined) return outcome;
+    const photo = (await withUrls(storage, [photoRow])).get(photoRow.id);
+    return photo === undefined ? outcome : { kind: 'profile', profile: profileViewResponse.parse({ ...outcome.profile, photo }) };
   } catch (error) {
     const limited = rateLimitFault(error);
     if (limited === undefined) throw error;

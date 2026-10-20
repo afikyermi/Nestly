@@ -46,6 +46,7 @@ const MARGIN_MS = 8_000;
 const CHECK_BATCH = 25;
 const TRAIN_BATCH = 20;
 const DAY_MS = 24 * 60 * 60 * 1000;
+const SWEEP_PAGE = 1_000;
 
 const rounded = (scores: Record<string, number>): Record<string, number> =>
   Object.fromEntries(Object.entries(scores).map(([label, value]) => [label, Math.round(value * 10_000) / 10_000]));
@@ -53,12 +54,13 @@ const rounded = (scores: Record<string, number>): Record<string, number> =>
 async function checkPending(deps: MediaJobDependencies, report: MediaJobReport): Promise<void> {
   const rows = await deps.db.pending(CHECK_BATCH);
   if (rows.length === 0) return;
-  const model = await deps.model().catch(() => undefined); // unavailable: every image below counts a failed attempt
+  // The model unavailable is the system's failure, not the images': they stay pending (hidden from others) and nobody's attempt is counted.
+  const model = await deps.model().catch(() => undefined);
+  if (model === undefined) return;
   for (const row of rows) {
     if (deps.timeLeft() < MARGIN_MS) return;
     report.checked += 1;
     try {
-      if (model === undefined) throw new Error('model unavailable');
       const bytes = await deps.storage.readImage(row.id);
       if (bytes === undefined) throw new Error('file unavailable');
       const scores = await model.score(bytes);
@@ -71,8 +73,10 @@ async function checkPending(deps: MediaJobDependencies, report: MediaJobReport):
         report.queued += 1;
       }
     } catch {
+      // Also reached when another run already moved this image (runs may overlap: each upload and decision asks for one); the policy then
+      // refuses the write, and counting the attempt below changes nothing or fails quietly. One image never stops the run.
       report.failed += 1;
-      await deps.db.markFailed(row.id, row.attempts + 1 >= deps.config.maxAttempts);
+      await deps.db.markFailed(row.id, row.attempts + 1 >= deps.config.maxAttempts).catch(() => undefined);
     }
   }
 }
@@ -89,11 +93,18 @@ async function copyTrainingSamples(deps: MediaJobDependencies, report: MediaJobR
 }
 
 async function sweepOrphans(deps: MediaJobDependencies, report: MediaJobReport): Promise<void> {
-  const listed = await deps.storage.listImagesBefore(new Date(Date.now() - DAY_MS), 1000);
-  if (listed === undefined || listed.length === 0) return;
-  const known = await deps.db.knownImageIds(listed);
-  const orphans = listed.filter((id) => !known.has(id));
-  if (orphans.length > 0 && (await deps.storage.removeImages(orphans)) === 'ok') report.swept += orphans.length;
+  const before = new Date(Date.now() - DAY_MS);
+  let offset = 0;
+  while (deps.timeLeft() > MARGIN_MS) {
+    const page = await deps.storage.listImagesBefore(before, SWEEP_PAGE, offset);
+    if (page === undefined) return;
+    const known = await deps.db.knownImageIds(page.ids);
+    const orphans = page.ids.filter((id) => !known.has(id));
+    const removed = orphans.length > 0 && (await deps.storage.removeImages(orphans)) === 'ok';
+    if (removed) report.swept += orphans.length;
+    if (!page.more) return;
+    offset += SWEEP_PAGE - (removed ? orphans.length : 0); // the removed files no longer take a place in the listing
+  }
 }
 
 export async function runMediaJob(deps: MediaJobDependencies): Promise<MediaJobReport> {
