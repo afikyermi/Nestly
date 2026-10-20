@@ -100,23 +100,24 @@ select set_eq(
             ('friendships.friendships_block_insert.a'), ('friendships.friendships_block_update.w'),
             ('regular_names.regular_names_block_hide.r'), ('regular_names.regular_names_select_blocker.r'),
             ('regular_names.regular_names_select_conversation.r'), ('regular_names.regular_names_select_request_sent.r'),
-            ('regular_names.regular_names_select_request_received.r'), ('regular_names.regular_names_select_support.r') $$,
-  '[F2.4-a c12 · F2.4-c c18 c23 · I4 · I8] exactly twenty-one policies (I8 adds the three chat name reads and the Support name read, file 94; blocking adds three restrictive ones and the blocker''s read of its blocked list, file 91; I4 adds regular_names_select_staff and regular_names_select_reveal, file 90; the notifications add friendships_select_notify and regular_names_select_search TO app_owner, file 90); of the first nine: friendships select, insert, update (no delete) and regular_names select, insert -- five TO authenticated -- from F2.4c1 one SELECT each for profile_view TO app_owner (file 64) -- and, from F3.2 (6b), regular_names_select_post_reader (file 79) and, from F3.4 N1 (Q7 B), regular_names_select_comment_reader (file 81)');
+            ('regular_names.regular_names_select_request_received.r'), ('regular_names.regular_names_select_support.r'),
+            ('friendships.friendships_select_analytics.r') $$,
+  '[F2.4-a c12 · F2.4-c c18 c23 · I4 · I8 · I14] exactly twenty-two policies (I14 adds friendships_select_analytics, counts on the analytics screen only, file 95; I8 adds the three chat name reads and the Support name read, file 94; blocking adds three restrictive ones and the blocker''s read of its blocked list, file 91; I4 adds regular_names_select_staff and regular_names_select_reveal, file 90; the notifications add friendships_select_notify and regular_names_select_search TO app_owner, file 90); of the first nine: friendships select, insert, update (no delete) and regular_names select, insert -- five TO authenticated -- from F2.4c1 one SELECT each for profile_view TO app_owner (file 64) -- and, from F3.2 (6b), regular_names_select_post_reader (file 79) and, from F3.4 N1 (Q7 B), regular_names_select_comment_reader (file 81)');
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname in ('friendships', 'regular_names')
       and pol.polroles = array[(select oid from pg_catalog.pg_roles where rolname = 'authenticated')]::oid[]),
-  16::bigint,
-  '[F2.4-a c12 · F2.4-c c23 · F3.2 6b · I4] sixteen of the policies are TO authenticated (I8: the three chat name reads and the Support name read, file 94; blocking: three restrictive ones and regular_names_select_blocker, file 91; I4: the staff read; the reveal read is TO app_owner) (the five, the F3.2 post-reader and the F3.4 comment-reader policy) and nothing else, the other two (F2.4c1) TO app_owner only: no public or anon policy');
+  17::bigint,
+  '[F2.4-a c12 · F2.4-c c23 · F3.2 6b · I4 · I14] seventeen of the policies are TO authenticated (I14: friendships_select_analytics, file 95; I8: the three chat name reads and the Support name read, file 94; blocking: three restrictive ones and regular_names_select_blocker, file 91; I4: the staff read; the reveal read is TO app_owner) (the five, the F3.2 post-reader and the F3.4 comment-reader policy) and nothing else, the other two (F2.4c1) TO app_owner only: no public or anon policy');
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname in ('friendships', 'regular_names')
       and (coalesce(pg_catalog.pg_get_expr(pol.polqual, pol.polrelid), '') || coalesce(pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid), ''))
           ~ 'is_active_account\(\)'),
-  13::bigint,
-  '[F2.4-a c10 c12 platform r15] every permissive TO authenticated policy (seven since F3.4 N1, eight with I4''s staff read, nine with the blocker''s read, thirteen with I8''s four) is gated by is_active_account(): a suspended or banned account sees and writes nothing (the restrictive block policies only narrow them, file 91)');
+  14::bigint,
+  '[F2.4-a c10 c12 platform r15] every permissive TO authenticated policy (seven since F3.4 N1, eight with I4''s staff read, nine with the blocker''s read, thirteen with I8''s four, fourteen with I14''s analytics read) is gated by is_active_account(): a suspended or banned account sees and writes nothing (the restrictive block policies only narrow them, file 91)');
 
 select ok(
   (select pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid) ~ 'requester_id = \( SELECT auth\.uid\(\)'
