@@ -15,7 +15,7 @@
 -- EXPECTED RESULT (4 rows, every `ok` = true):
 --
 --   role       | ok | login | super | bypassrls | repl  | createrole | createdb | inherit | create_on_db
---   app_jobs   | t  | false | false | false     | false | false      | false    | false   | false
+--   app_jobs   | t  | true  | false | false     | false | false      | false    | false   | false
 --   app_owner  | t  | true  | false | false     | false | false      | false    | true    | true
 --   app_recovery | t | false | false | false     | false | false      | false    | false   | false
 --   app_server | t  | true  | false | false     | false | false      | false    | false   | false
@@ -39,7 +39,7 @@
 
 with expected(role, login, inherit, create_on_db, member_of, held_by) as (
   values
-    ('app_jobs',   false, false, false,
+    ('app_jobs',   true,  false, false,
      '(none)',
      'postgres(i=f s=f a=t) by supabase_admin'),
     ('app_owner',  true,  true,  true,

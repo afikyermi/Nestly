@@ -19,6 +19,7 @@ does not instruct loading every link. Column sections and rule matrices are both
 | staff_roles, moderator_permissions, audit_log, report_reasons, user_enforcements | Safety and admin core |
 
 | tracker_events, cycle_entries, status_guides | Trackers, cycle and status guides (I6); children for the child FK |
+| media_assets, profile_photos, stories, media_training_samples | Media and Stories (I5); posts and post_authors (attach), friendships (Story audience), Safety and admin core (CONTENT_MODERATE, audit) |
 | Schema changes | Migration and rollback map; New entity template; affected consumer/cleanup order |
 
 
@@ -416,6 +417,23 @@ read, delete or hold their OWN hidden or removed post or comment (`*_own_moderat
 owns, so it is not a definer; (c) `reports.target_text`, `handled_by` and `resolution` are readable by the reporter of that report (column grants cannot differ by policy); the API never
 returns them. The definer functions: `audit_trigger()` appends every Audit entry (the Actor is auth.uid() with its staff role and a valid session); `reveal_post_author(uuid)` names the
 post and author in transaction-local settings that open one row each to the owner role (`*_select_reveal` TO app_owner).
+
+## Media and Stories (I5)
+
+Built by `20261021500000_media_stories.sql` (down script in `supabase/rollback/`, refuses while any of the four tables holds a row). Image files are
+never in the database: private Supabase Storage buckets `media` (file name = `media_assets.id`) and `media-training` (file name =
+`media_training_samples.id`), reached only by the server's storage module (data-model.md, approved exceptions, I5). No new SECURITY DEFINER.
+
+| Table | Columns and meaning | Authorization |
+|---|---|---|
+| `media_assets` | id, owner_id (auth.uid(), never granted), owner_status (composite FK), kind post/profile/story, status pending/passed/queued/approved/rejected/suspected, mime jpeg/png/webp, width/height ≤ 2048, byte_size, post_id + position 0–3 (unique pair: ≤ 4 per post; FK SET NULL (post_id, position)), is_child, queue_reason blocked/unsure/error, scores, check_attempts, checked_at, decided_by (SET NULL), decided_at, purge_after (suspected + 90 days) | Owner reads own (a Story image 25 h); others only passed/approved through a readable post, profile photo or Story; CONTENT_MODERATE reads queued and decided; INSERT Regular/Professional, pending and unattached; owner attaches to own post once; staff decide a queued one (`media_assets_update_guard` sets who/when, suspected ⇒ is_child); owner deletes own (not suspected); app_jobs reads all, moves pending → passed/queued, purges per BR-077 |
+| `profile_photos` | user_id PK (auth.uid()), user_status, media_id (unique, own profile image), media_status (composite FK copy), updated_at | Owner reads own in any state; others when passed/approved; INSERT/UPDATE/DELETE own (Regular/Professional); a replaced image row is deleted by `profile_photos_replaced` |
+| `stories` | id, author_id (Regular), author_status, media_id (unique, own story image from the last hour), media_status, caption ≤ 500 (product limit VAL-042), audience everyone/friends, created_at, expires_at = created_at + 24 h | Unexpired only; author at once, others after the image passed, by audience; INSERT Regular, ≤ 10 per 24 h under a per-author advisory lock (`stories_prepare`, NS021 = ERR-040); no UPDATE or client DELETE (the image's delete takes it) |
+| `media_training_samples` | id, source_media_id (unique, no FK), label blocked/allowed, queue_reason blocked/unsure, mime, decided_at, created_at, expires_at (12 months) | SELECT ALGORITHM_AI_CONFIG (the Admin); INSERT app_jobs only, only for an approved/rejected blocked or unsure image not marked with a child and not suspected; DELETE app_jobs at expiry |
+
+Audit: `media_assets_decision_audit` (AFTER UPDATE OF status, queued → approved/rejected/suspected) → `audit_trigger()` branch `media_<status>`, key
+CONTENT_MODERATE, After = status, kind, isChild, queueReason, trainingSet. Cleanup order per user: stories, profile_photos, media_assets before
+post_hides; `media_training_samples` names no user and is never written by the cleanup.
 
 ## Trackers, cycle and status guides (I6)
 

@@ -29,9 +29,10 @@ anchor and bootstrap steps". Anything else that needs `postgres` is a `DECISION 
    ```sql
    alter role app_owner  password '…';
    alter role app_server password '…';
+   alter role app_jobs   password '…';
    ```
-   Until you do this, neither role can log in. `app_jobs` is NOLOGIN for now and gets no password (see the header
-   of `01-roles.sql`).
+   Until you do this, none of the three can log in. `app_jobs` is the background jobs' role (I5: the image check); its
+   connection string goes to Vercel as `APP_JOBS_DATABASE_URL` only (see the header of `01-roles.sql`).
 3. Run `01-roles-check.sql`. Expect 4 rows, all with `ok = true`. The expected values are in its header.
 4. Wait about 20 seconds after setting a password before you use it. The pooler caches role credentials.
 5. Put the `app_owner` connection string in the GitHub environment (`db-preview` / `db-production`). The
