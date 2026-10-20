@@ -3,6 +3,7 @@
 // it and the web checks every answer with it.
 import { z } from 'zod';
 import { JOURNEY_STAGES } from '../constants/index.js';
+import { publishedAnnouncement } from '../validation/team.js';
 
 const audience = z.enum(['everyone', 'friends']);
 const author = z.strictObject({ name: z.string().nullable() });
@@ -43,6 +44,8 @@ export const feedPageResponse = z.strictObject({
   configVersion: z.number().int().min(0),
   /** True when the cursor's version could not be used and this page is a new first page. */
   restarted: z.boolean().optional(),
+  /** I14 (FR-ADMIN-008): the published System Announcements, newest first, on the first page only. */
+  announcements: z.array(publishedAnnouncement).optional(),
 });
 
 export type FeedUnit = z.infer<typeof feedUnit>;

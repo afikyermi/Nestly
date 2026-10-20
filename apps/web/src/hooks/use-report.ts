@@ -1,9 +1,9 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { checkCreateReport, reportDetailsProblem, type ReportReason, type ReportTargetKind } from '@nestly/shared';
 import { useSessionAccount } from '@/hooks/use-session-account';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
 import { REPORT_FAILED_TEXT } from '@/lib/report-texts';
-import { fileReport, type ReportRequest } from '@/services/api/reports';
+import { fetchReportReasons, fileReport, type ReportRequest } from '@/services/api/reports';
 import type { ReportSheetProps } from '@/components/domain/report-sheet';
 
 /** What is reported: a post, a comment (or reply) or another person's account, by its id. */
@@ -38,6 +38,8 @@ export type ReportResult = 'received' | 'already-reported' | 'unavailable';
 
 export interface ReportFlow {
   draft: ReportDraft | null;
+  /** The community's current reasons (FR-ADMIN-007), read when a window first opens; undefined until then or when unreadable. */
+  reasons: ReadonlyArray<{ key: ReportReason; label: string }> | undefined;
   /** Opens the window for a target, empty: nothing chosen, nothing written. */
   start: (target: ReportTarget) => void;
   chooseReason: (reason: ReportReason) => void;
@@ -71,6 +73,27 @@ export function useReport(onDone: (target: ReportTarget, result: ReportResult) =
   done.current = onDone;
   const latest = useRef(draft);
   latest.current = draft;
+  const [reasons, setReasons] = useState<ReadonlyArray<{ key: ReportReason; label: string }> | undefined>(undefined);
+  const asked = useRef(false);
+
+  // The reasons are read once, when the first window opens; until they arrive (or if they cannot be read) the built-in list shows.
+  const open = draft !== null;
+  useEffect(() => {
+    if (!open || asked.current || account === null) return;
+    asked.current = true;
+    let live = true;
+    void account
+      .getAccessToken()
+      .then((token) => (token === null ? null : fetchReportReasons(token)))
+      .catch(() => null)
+      .then((items) => {
+        if (live && items !== null) setReasons(items);
+      });
+    return () => {
+      live = false;
+      if (reasons === undefined) asked.current = false;
+    };
+  }, [open, account, reasons]);
 
   const start = useCallback((target: ReportTarget) => {
     if (busy.current) return;
@@ -121,6 +144,7 @@ export function useReport(onDone: (target: ReportTarget, result: ReportResult) =
 
   return {
     draft,
+    reasons,
     start,
     chooseReason: (reason) => change(reason, latest.current?.details ?? ''),
     changeDetails: (text) => change(latest.current?.reason ?? null, text),
@@ -135,6 +159,7 @@ export function useReport(onDone: (target: ReportTarget, result: ReportResult) =
 export function reportSheetProps(flow: ReportFlow, draft: ReportDraft, rulesHref: string) {
   return {
     targetKind: draft.target.kind,
+    reasons: flow.reasons,
     reason: draft.reason,
     details: draft.details,
     errors: draft.errors,

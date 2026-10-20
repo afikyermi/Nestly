@@ -1,4 +1,4 @@
-import { reportErrorBody, reportReceivedBody, type ReportReason, type ReportTargetKind } from '@nestly/shared';
+import { activeReportReasonsBody, isReportReason, reportErrorBody, reportReceivedBody, type ReportReason, type ReportTargetKind } from '@nestly/shared';
 
 // POST /api/reports (F3.7; FR-MOD-001). The body names the target, the reason and the text; never the reporter (the server acts on the token's
 // user). Only the status and the error code are read; no response text reaches the screen, and nothing about a report is ever read back.
@@ -45,4 +45,20 @@ export async function fileReport(accessToken: string, report: ReportRequest): Pr
   if (response.status === 404 && parsed.data.error === 'unavailable') return { kind: 'unavailable' };
   if (response.status === 409 && parsed.data.error === 'already_reported') return { kind: 'already-reported' };
   return FAILED;
+}
+
+/** GET /api/report-reasons (FR-ADMIN-007): the reasons a reporter may choose now, in their order; null when the list cannot be read
+ *  (the window then offers the built-in list, and the database still refuses a switched-off reason). */
+export async function fetchReportReasons(accessToken: string): Promise<Array<{ key: ReportReason; label: string }> | null> {
+  try {
+    const response = await fetch('/api/report-reasons', { headers: { authorization: `Bearer ${accessToken}` }, cache: 'no-store' });
+    if (response.status !== 200) return null;
+    const parsed = activeReportReasonsBody.safeParse(await response.json().catch(() => undefined));
+    if (!parsed.success) return null;
+    const items: Array<{ key: ReportReason; label: string }> = [];
+    for (const item of parsed.data.items) if (isReportReason(item.key)) items.push({ key: item.key, label: item.label });
+    return items.length > 0 ? items : null;
+  } catch {
+    return null;
+  }
 }

@@ -30,12 +30,16 @@ import {
 /** The counter speaks only at this many characters left or fewer. */
 const COUNTER_FROM = 100;
 
-const OPTIONS = REPORT_REASONS.map((reason) => ({ value: reason, label: REASON_LABELS[reason], ...(reason === 'spam' ? { description: SPAM_HINT } : {}) }));
-const isReason = (value: string): value is ReportReason => REPORT_REASONS.some((reason) => reason === value);
+/** The built-in list, used until (or when) the community's current list cannot be read. */
+const DEFAULT_REASONS: ReadonlyArray<{ key: ReportReason; label: string }> = REPORT_REASONS.map((reason) => ({ key: reason, label: REASON_LABELS[reason] }));
+const optionsOf = (reasons: ReadonlyArray<{ key: ReportReason; label: string }>) =>
+  reasons.map(({ key, label }) => ({ value: key, label, ...(key === 'spam' ? { description: SPAM_HINT } : {}) }));
 
 export interface ReportSheetProps {
   /** What is reported: the window's name. */
   targetKind: ReportTargetKind;
+  /** The reasons a reporter may choose now, in their order (FR-ADMIN-007); the built-in list when absent. */
+  reasons?: ReadonlyArray<{ key: ReportReason; label: string }> | undefined;
   reason: ReportReason | null;
   details: string;
   errors: { reason?: 'required'; details?: 'required' | 'long' | 'invalid' };
@@ -63,7 +67,8 @@ const detailsMessage = (error: ReportSheetProps['errors']['details']): string | 
 // sending does comes in as props. Focus starts on the first reason and stays inside; the text is the person's own, so it takes its own
 // direction and nothing in it is markup.
 export function ReportSheet(props: ReportSheetProps) {
-  const { targetKind, reason, details, errors, sending, failure, focus, rulesHref, onReasonChange, onDetailsChange, onSend, onCancel, finalFocus } = props;
+  const { targetKind, reasons = DEFAULT_REASONS, reason, details, errors, sending, failure, focus, rulesHref, onReasonChange, onDetailsChange, onSend, onCancel, finalFocus } = props;
+  const shown = reasons.length > 0 ? reasons : DEFAULT_REASONS;
   const ids = useId();
   const formRef = useRef<HTMLFormElement>(null);
   const reasonErrorId = `${ids}-reason-error`;
@@ -100,12 +105,13 @@ export function ReportSheet(props: ReportSheetProps) {
           <ChoiceCardGroup
             legend={REASONS_LEGEND}
             name={`${ids}-reason`}
-            options={OPTIONS}
+            options={optionsOf(shown)}
             value={reason}
             error={errors.reason !== undefined}
             aria-describedby={errors.reason !== undefined ? reasonErrorId : undefined}
             onChange={(value) => {
-              if (isReason(value)) onReasonChange(value);
+              const chosen = shown.find((item) => item.key === value);
+              if (chosen !== undefined) onReasonChange(chosen.key);
             }}
           />
           {errors.reason !== undefined ? <FieldError id={reasonErrorId}>{REASON_REQUIRED_TEXT}</FieldError> : null}

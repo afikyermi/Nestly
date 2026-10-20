@@ -1,4 +1,4 @@
-import { REPORT_DETAILS_MAX, type ReportReason, type ReportTargetKind } from '@nestly/shared';
+import { REPORT_DETAILS_MAX, type CoreReportReason, type ReportTargetKind } from '@nestly/shared';
 
 // The report window's texts and the entry points' names (F3.7). Written in .work/report/screen.md; gender-neutral (NFR-USAB-003). The reasons
 // are FR-MOD-001's, in its order (REPORT_REASONS); the spam hint is its parenthesis. The menu's own name, "פעולות נוספות", is F3.9's.
@@ -10,7 +10,7 @@ export const REPORT_PROFILE_LABEL = 'דיווח על הפרופיל';
 export const REPORT_TITLES: Record<ReportTargetKind, string> = { post: 'דיווח על פוסט', comment: 'דיווח על תגובה', user: 'דיווח על פרופיל' };
 export const REPORT_INTRO = 'הדיווח מגיע רק לצוות Nestly, ולא נשלחת עליו הודעה לאף אחד';
 export const REASONS_LEGEND = 'מה הבעיה?';
-export const REASON_LABELS: Record<ReportReason, string> = {
+export const REASON_LABELS: Record<CoreReportReason, string> = {
   child_safety: 'תוכן שמסכן ילד',
   harassment: 'הטרדה או בריונות',
   sexual_violent_hateful: 'תוכן מיני, אלים או מסית',
