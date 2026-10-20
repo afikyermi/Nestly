@@ -1,101 +1,74 @@
 # תוכנית עבודה — Nestly
 
-**מסמך חי וקצר.** מתעדכן פעם ב-Initiative; בין Initiatives משתנה רק "ממתין לך" (הכרעתך 16.10, החלטה 8).
-ההיסטוריה המלאה: [archive/WORKPLAN-2026-10.md](archive/WORKPLAN-2026-10.md).
-**מקרא:** ✅ בוצע · 🔄 בתהליך · ⏳ ממתין להכרעה · ⏸️ נדחה בהכרעה · ⬜ לא התחיל
+**סטטוס קצר בלבד.** הכללים: `CLAUDE.md`. ההחלטות ומפת ה-Initiatives: `decisions-in-force.md`. המוצר: `docs/srs/`.
+**מקרא:** ✅ בוצע · 🔄 בתהליך · ⏳ ממתין להכרעה · ⬜ לא התחיל
 
----
+## מטרה ותאריכים
+- **26.10:** כל ה-SRS בנוי (I4–I14 ו-I9; ‏I15 אחרי ההשקה). **27.10:** המרצה בודק.
+- **24.10 בחצות:** אין פיצ'ר חדש. **25–26.10:** חבילת הטסטים המלאה, ‏Edge וטסטי התמונות ורענון baselines, תיקון באגים (הרשימה למטה), משתמשי דמו ותוכן דמו דרך המוצר (`docs/lecturer-demo-plan-HE.md`), בדיקת SRS מול קוד, טבלת סטטוס FR ב-`17-traceability.md`, ייצוא Word.
 
 ## איפה אנחנו עומדים
+**עודכן:** 20.10.2026 · **SRS:** 2.25 · **Production:** [nestly-blue.vercel.app](https://nestly-blue.vercel.app)
+- ✅ I1 חשבונות וגישה · ✅ I2 פרופיל, פרטיות ו-Friends · ✅ I3 פיד קהילתי, שיתוף ומוקדי רפואה.
+- ✅ שלב א של האיפוס (20.10): ניקוי התהליך, ‏CI חדש, ניקוי ה-SRS.
 
-**עודכן:** 20.10.2026 · **SRS:** 2.24 · **מצב:** ‏**I3 הושלם** (20.10, PR 75–108): פיד קהילתי, פוסטים אנונימיים, תגובות ולייקים, שיתוף בפיד וקישור שיתוף, דיווח, מוקדי רפואה, הסתרה, בעל מקצוע כותב, ליטוש UX. כל ה-migrations רצו ב-production; ה-SRS עודכן ל-2.24 (#107). השוואת קצב ה-PR: [`.work/progress.md`](.work/progress.md). נשאר רק PR-B (תזמון המחיקה הסופית, ממתין לך — סעיף 23). **הבא: I4.** ‏**I2 הושלם** (PR 38–54): ‏S-01 ו-S-16 (F2.0), פרופיל (F2.1), מסלולים וילדים
-(F2.2), פרטיות ו-`profile_view` (F2.3), ‏Friends ופרופיל של משתמש אחר (F2.4), הגדרות ותפריט (F2.5), מפתח ה-gateway הציבורי,
-ותיקון כלי הניקוי של ה-Preview. כל ה-migrations רצו ב-production. ה-SRS עודכן ל-2.21 בסגירה. **17.10:** הכרעות אפיק נרשמו
-(סדר: I9 לסוף · שמירה אחרי מחיקה · מדיניות פרטיות · מדרג נעילת שחזור · Sentry ו-Turnstile הוקמו — [`.work/i9-decisions-1017/`](.work/i9-decisions-1017/)).
-**18.10 — שלב התיקון:** מוזגו P1 ‏(#57), ‏P2 ‏(#58), ‏P6 סכמה לפני קוד ‏(#62), ‏P3 ‏(#59), ‏P4 מדיניות פריסה ‏(#60, הוכחה חיה עברה)
-והכנת I3 ‏(#61: ‏`I3-algorithm.md`, השאלון נענה 1א–8א, ‏10 פיצ'רים). אחריהם: תיקון main ‏(#64), הבדיקות הלא יציבות וכלליהן ‏(#65), בדיקת 2.4.11 ‏(#66), ruleset על main (‏`schema-gate` חובה),
-וביקורת מערכת ([`.work/system-audit-1018/audit.md`](.work/system-audit-1018/audit.md)). **מוכן ל-I3 בסשן אחד; לא ל-I3 ∥ I6** לפני P5, ‏P7 ופיצול קבצי הרישום.
-**אחרי הביקורת (החלטות אפיק 1–9):** תקציבים ו-CRITIC מחזיר טקסט ‏(#68) · מחיקה מרוחקת בכלי בדוק ורטרו של ה-guard ‏(#69; ‏37 ענפים נמחקו)
-· ‏test:db מקומי ב-Docker ‏(#70) · ‏P1.1 ‏part-status אמין ‏(#72) · באג הסיסמה ‏(#71). ‏8 (התראות CI): לא. ‏7: בתוכנית לפני I3 ∥ I6.
-**18.10 בערב: I3 נפתח** (אישור אפיק), ואפיק ענה על כל השאלות השמורות עד סוף הפרויקט ([`afik-list-1018.md`](.work/_initiatives/afik-list-1018.md), ‏roadmap תוספת 6). כל חלק בסשן משלו, ההתקדמות ב-[`.work/progress.md`](.work/progress.md).
+| # | Initiative | פיצ'רים | תלוי ב | מצב |
+|---|---|---|---|---|
+| I4 | בטיחות וניהול · Super Admin · מדרג נעילת שחזור וכלי שחרור · חסימת משתמש | 7 | — | ⬜ |
+| I6 | בית ומעקב | 6 | — (מדריכי סטטוס ← I4) | ⬜ |
+| I7 | התראות וחיפוש | 4 | — | ⬜ |
+| I5 | מדיה וסטוריז (מדיניות התמונות החדשה) | 5 | I4 | ⬜ |
+| I8 | שיחות ו-Support | 5 | I4, I7 | ⬜ |
+| I10 | קבוצות | 5 | I4, I7 | ⬜ |
+| I14 | צוות Moderators · גרפי אדמין | 5 | I4, I7 | ⬜ |
+| I11 | בעלי מקצוע ושירותים | 9 | I5, I8 | ⬜ |
+| I12 | Marketplace | 5 | I5, I8 | ⬜ |
+| I13 | מונטיזציה (תשלום מדומה) | 5 | I11, I12 | ⬜ |
+| I9 | מוכנות להשקה · מחיקת חשבון · Sentry · Turnstile — אחרון | 6 | כל השאר | ⬜ |
 
-**ממתין לך:**
-1. **ענפים שהכלי סירב למחוק — אפיק מוחק ידנית:** `ccr-21b5fcdf-l5yns9`, `ccr-517c29b5-ek8cc9`, `chore/preview-access`,
-   `claude/guard-allowlist-implementation-xcv55m`, `wip/i2-f2.5-settings-menu`, `wip/i2-gateway-publishable-key`, `fix/password-abort` (התוכן ב-main דרך #71).
-2. **בדיקה אחת באייפון (לא חוסם):** מתחת ל-1024 המסגרת בגובה מסך אחד ו-`main` גולל בתוכה. ב-iOS המקלדת עלולה לכסות שדה נמוך בטופס (תחזית, בלי מכשיר; ‏debt). פתח את ה-Preview ב-Safari, "החלפת סיסמה", הקלד בשדה האחרון.
-3. **לידיעה:** ‏NFR-SEC-006 (5) — "דיווח ל-Admin" על חריגת פתיחות פרופיל נדחה ל-I4 (נרשם רק `security_events`) · מצב `backlog` הידני של כלי הניקוי עוד בקוד (‏debt; יוסר בחלק הראשון של I3) · ‏low פתוח: נתיבי הסיסמה דורשים גם את המפתח הציבורי כדי להיות "מוכנים" (fail closed, ‏debt) · בכמה commits בענף (לא ב-main) רשום שם מודל שגוי ב-Co-Authored-By.
-4. ✅ **Docker Desktop** הותקן (18.10). בדיקות ה-DB רצות מקומית: `node tools/db-local.mjs test` (אותו image כמו ב-CI). **אחרי הפעלה מחדש של המחשב: לפתוח את Docker Desktop** ולחכות ל-"Engine running".
-5. אפיק מוחק (S-56): הקובץ המקומי `.live/events.jsonl` · ב-GitHub → Settings → Environments → `preview-e2e`: הסוד `PREVIEW_SUPABASE_SECRET_KEY` · ב-GitHub → Settings → Secrets → Actions (repository): `PREVIEW_TEST_EMAIL` ו-`PREVIEW_TEST_PASSWORD`.
-7. **DECISION REQUEST (guard, לא דחוף; ה-guard קפוא):** לחסום כתיבה של TEST ENGINEER ל-`screen.md` ול-`spec.md` בשינוי הבא של ה-guard (CRITIC 18.10, שינוי חוזה המסך). עד אז: כלל כתוב ב-test-engineer.md.
-9. ✅ **guard ב-worktree (אפיק אישר 19.10):** ה-guard שופט נתיבים יחסית לשורש של worktree מקושר ומאומת (תחת `.work/wt/` או מחוץ ל-repo). ‏TEST ENGINEER כותב טסטים בכל worktree, ו-BUILDER חסום מטסטים גם שם.
-estly-wt-pgtap`) חסום, כך ש-TE אחד בכל פעם (צוואר בקבוק בקצב #88).
-10. **guard — תור לרטרו הבא (לא עכשיו; ה-guard קפוא), יחד עם 7 ו-9:** חסימות ה-.env מ-19.10 ב-incidents.md היו שגויות: פקודות `sed` של TEST ENGINEER על קובצי e2e, בלי גישה ל-.env. לתקן את התבנית.
-12. ✅ **I3 הושלם (20.10; רצה עד הסוף בלי עצירה, אישור אפיק 19.10):** Q7 = ב (שם מלא למגיבים) ו-Q8 = ⭐ נרשמו כסופיות (decisions 19.10). יומן החלקים ב-[`.work/progress.md`](.work/progress.md). **שאלות שמחכות לך:** סעיפים 17–23 (23 חוסם רק את PR-B).
-13. ✅ נוסח אנונימי: ⭐ (אפיק 19.10).
-14. ✅ ‏Q7: ‏skip חד-פעמי אושר (א, אפיק 19.10); הבדיקות חוזרות ב-PR-A2.
-15. ✅ כתיבה בפיד: הוכרע (אפיק 19.10) — שדה פתוח תמיד; בעל מקצוע כותב פוסטים.
-17. **OP-037 (פרטיות, לא חוסם; ל-I15):** האם ספירות מצטברות של "הסתרת פוסט" יכולות להזין את Admin Intelligence ב-I15? ⭐ (א) לא — הסתרה נשארת רק אצל מי שהסתיר (עקבי עם 8א) · (ב) כן, ספירות מצטברות בלבד למנהל, בלי זהות ובלי השפעה על דירוג.
-18. **‏§18.6 ו-ANALYTICS_VIEW (קטינים, לא חוסם; ל-I15):** סעיף 14 שלך (נתונים לכל משתמש בלי שמות) — האם הוא חל גם על שורות שנוגעות לילדים ("Stage / Content Coverage", "User Lifecycle")? ⭐ (א) לא — שורות הילדים נשארות Aggregate בלבד · (ב) כן, לכל משתמש בלי פרטים מזהים.
-19. **OP-039 (לא חוסם; ל-I14):** הזזת גרפי המנהל ל-I14 (18.10) מתנגשת עם איסוף אירועים רק מ-I15 (4א). ⭐ (א) ב-I14 רק גרפים שמחושבים מטבלאות המוצר (משתמשים, פוסטים, דיווחים); פיד/חיפוש/המלצות מחכים ל-I15 · (ב) מקדימים איסוף אירועים מינימלי ל-I14.
-20. **OP-040 (קטינים, לא חוסם; ל-I9):** גבול הגיל של ילד ותאריך לידה צפוי. ⭐ (א) ילד עד יום ההולדת ה-18 (לא כולל); לידה צפויה עד 300 יום קדימה, כמו היום · (ב) אחר — כתוב.
-21. **כללי דיווח שנבנו ב-F3.7 (מדיניות דיווח, שמור לך):** משתמש מדווח פעם אחת על כל יעד, וסף 3 הדיווחים סופר אנשים ולא דיווחים. ⭐ (א) מאשר כמו שנבנה · (ב) לשנות — כתוב. בנוסף, בקווים הרפואיים: אצל מאוחדת "מוקד טלפוני 24/7" במקום "קו אחות" (אומת באתר הרשמי 19.10) — ⭐ מאשר.
-22. **OP-038 (לא חוסם; ל-I11):** איך פוסט מסומן כ"מבקש עזרה" (תנאי ל-Offer Help, OP-010). ⭐ (א) תיבת סימון "מבקש/ת עזרה" בכתיבת הפוסט · (ב) אחר — כתוב.
-23. **PR-B — תזמון המחיקה הסופית (חוסם רק את PR-B; יעד: לפני 16.01.2027, ‏S-67):** (א) **הכרעה (מודל אבטחה, שמור לך):** בדיקה הראתה ש-pg_cron לא מצליח להריץ job כ-`app_jobs` (תפקיד בלי login). הפתרון ש-DATA ARCHITECT אישר (A2): ה-job שייך ל-postgres ומריץ `set role app_jobs; select nestly.purge_held_content()`, כך שהמחיקה עצמה רצה כ-app_jobs תחת RLS. זה משנה את נוסח כלל 6 שלך ("jobs ב-pg_cron רצים כ-app_jobs"): ה-session שייך ל-postgres. ⭐ לאשר (טסט 86 נועל את הפקודה, ‏E1 מוכיח שהמעבר קורה; CRITIC בלי ממצא חוסם). (ב) **להחיל** את `.work/i3-rest-schema/pr-b-2010/ci-yml-for-afik.diff` (בענף) על ci.yml — קובץ שער שסוכנים לא עורכים. (ג) אחרי מיזוג: הרצה על nestly-preview כולל E1 (סוכן), ואז **הרצה שלך ב-production** לפי README שלבים 3–4. draft PR #109 (ענף `work/purge-schedule`).
-6. **לפני השקה:** הרשימה המלאה ב-`afik-list-1018.md` חלק ב (S-59, דומיין, אימייל, Supabase Pro, Cloudflare, Google OAuth, Vercel Pro או השקה לא מסחרית).
+**סה"כ שנותר:** 62 פיצ'רים. עד 3 במקביל: מתחילים ב-I4, ‏I6, ‏I7.
 
-**הערות UX של אפיק** (נאספות כאן ומבוצעות בחלק "ליטוש UX" בסוף כל יוזמה; כל אחת נרשמת גם ב"שינויים ל-SRS" של היוזמה):
-- 19.10 — דפוסי אינטראקציה (פייסבוק) ב-`docs/design/direction.md`; כתיבה בעמוד נפרד (F3.1b) היא סטייה ומתוקנת בתוך I3. בדיקת המסכים הקיימים: רשימת הליטוש ב-`.work/_initiatives/I3-community-feed.md`.
-- 19.10 (סעיף 15, סופי) — שדה כתיבה פתוח תמיד בראש הפיד, בלי כפתור. בעל מקצוע רשאי לכתוב פוסטים (לא אנונימי); ב-I3 נפתחת ההרשאה (שרת, RLS, מסך). **התחייבות ל-I11:** תג "יועץ · תחום" בכרטיס הפוסט (לא "בעל מקצוע"; אפיק 19.10), כשהתחום קיים.
+## ממתין לך
+1. **רישיון מודל התמונות (I5; חוסם רק את בדיקת ה-ML ב-I5):** המודל שמתאים למדיניות (NudeNet: מזהה חזה, ישבן ואיברי מין חשופים; חינם, רץ בשרת) ברישיון **AGPL-3.0**, כולל המשקולות. המשמעות: קוד השרת צריך להיות זמין בקוד פתוח תואם AGPL למשתמשים (המאגר כבר ציבורי). ⭐ (א) לקבל AGPL ולהשתמש ב-NudeNet · (ב) ‏nsfwjs ‏(MIT) — חלש: בלי זיהוי לפי איבר, הנקה תזוהה באופן לא צפוי · (ג) בלי מודל — כל תמונה לתור האדמין.
+2. **תמונות של ילדים שסומנו (I5; קטינים):** אמבטיה, חיתול, חוף — המודל לא מבחין בגיל ויסמן אותן. ⭐ (א) כמו כל תמונה: לתור האדמין, ולא נכנסות לסט האימון אם רואים בהן ילד · (ב) אחר — כתוב.
+3. **OP-037 (פרטיות; ל-I15):** ספירות מצטברות של "הסתרת פוסט" ל-Admin Intelligence? ⭐ (א) לא · (ב) כן, מצטבר בלבד, בלי זהות ובלי השפעה על דירוג.
+4. **‏§18.6 ו-ANALYTICS_VIEW (קטינים; ל-I14):** האם "נתונים לכל משתמש בלי שמות" חל גם על שורות של ילדים? ⭐ (א) לא — שורות ילדים מצטברות בלבד · (ב) כן.
+5. **OP-039 (ל-I14):** גרפי המנהל ב-I14 מול איסוף אירועים רק מ-I15. ⭐ (א) ב-I14 רק גרפים מטבלאות המוצר · (ב) איסוף אירועים מינימלי ב-I14.
+6. **OP-040 (קטינים; ל-I9):** ⭐ (א) ילד עד יום ההולדת ה-18 (לא כולל); לידה צפויה עד 300 יום קדימה · (ב) אחר.
+7. **כללי דיווח שנבנו (מדיניות דיווח):** דיווח אחד לכל יעד; סף 3 דיווחים סופר אנשים. ⭐ (א) מאשר · (ב) לשנות. ובקווים הרפואיים: מאוחדת "מוקד טלפוני 24/7" במקום "קו אחות" — ⭐ מאשר.
+8. **OP-038 (ל-I11):** סימון פוסט "מבקש עזרה". ⭐ (א) תיבת סימון בכתיבת הפוסט · (ב) אחר.
+9. **PR-B — תזמון המחיקה הסופית (draft PR #109, ענף `work/purge-schedule`; יעד לפני 16.01.2027):** pg_cron לא מריץ job כ-`app_jobs` (בלי login). ⭐ לאשר: ה-job שייך ל-postgres ומריץ `set role app_jobs; select nestly.purge_held_content()` — המחיקה עצמה רצה כ-app_jobs תחת RLS. אחרי אישור: מיזוג, הרצה ב-Preview, ואז הרצה שלך ב-production.
+10. **ענפים למחיקה ידנית:** `ccr-21b5fcdf-l5yns9`, `ccr-517c29b5-ek8cc9`, `chore/preview-access`, `claude/guard-allowlist-implementation-xcv55m`, `wip/i2-f2.5-settings-menu`, `wip/i2-gateway-publishable-key`, `fix/password-abort`.
+11. **סודות למחיקה (S-56):** הקובץ המקומי `.live/events.jsonl` · GitHub → Settings → Environments → `preview-e2e`: ‏`PREVIEW_SUPABASE_SECRET_KEY` · GitHub → Settings → Secrets → Actions: ‏`PREVIEW_TEST_EMAIL`, ‏`PREVIEW_TEST_PASSWORD`.
+12. **בדיקות במכשיר:** אייפון — מקלדת מעל שדה נמוך ("החלפת סיסמה") · גיליון השיתוף · חיוג בלחיצה למוקד · ב-I5: העלאת HEIC/Android.
+13. **I4:** ליצור את חשבון ה-Super Admin. **I6:** לאשר את המדריכים (BR-070).
+14. **לפני השקה:** משתני Sentry/Turnstile · דומיין ו-DNS · אימייל/SMTP ו"שינוי אימייל מאובטח" (S-64) · ‏Supabase Pro · סריקת CSAM של Cloudflare · פרסום מסך ההסכמה של Google OAuth · החזרת דרישת האישור ב-`db-production` (S-59) · בחינה חוזרת של S-17/S-18/S-40 · ‏Vercel Pro או השקה לא מסחרית.
 
-**התחייבויות ל-I11 (אפיק 19.10):** האפשרות "עוקבים בלבד" לפוסט של בעל מקצוע נבנית יחד עם Follow · שם ותג "יועץ · תחום" לפני פתיחת הרשמת בעלי מקצוע.
+## טסטים לא יציבים
+(טסט שנכשל ועבר בהרצה חוזרת אחת: שורה כאן, לא חוסם. כישלון שחוזר חוסם.)
 
-**להמשך:**
-0. ✅ שלב הבדיקה והתיקון (#57–#73). I3 נפתח 18.10.
-1. ✅ ‏`I3-algorithm.md` והשאלון (נענה 18.10: ‏1א–8א).
-2. **הצעד הראשון אחרי השאלון:** ‏SPEC אחד ל-I3 — רשימת פיצ'רים וחלקים (roadmap). הסרת מצב `backlog` מכלי הניקוי נכנסת לחלק הראשון.
-3. מ-I3 שני סשנים במקביל (‏I3 ∥ I6) — רק אחרי: P5 (ניקוי שמכיר מעבר סכמה), ‏P7 (מחזור Preview אחד לשני סשנים), פיצול קבצי
-   הרישום (B7) ובדיקת תפוגה של הסגר ב-CI (A5). ‏P1.1 ✅ ‏(#72).
-
-**פתוח בלי הכרעה עכשיו:** ‏`actions/checkout@v4` ו-`setup-node@v4` על Node 20 שיוצא משימוש · ‏`ubuntu-latest` עובר
-ל-Ubuntu 26 ב-19.10 — לבדוק את ריצת ה-CI הראשונה אחריו.
-
-**כללי העבודה מעכשיו** (`workflow.md` 1.16): מיזוג בלי לחכות לך כש-CI ו-E ירוקים ואין באג חמור פתוח, גם בלילה ·
-‏migrate ל-production מיד אחרי PR של סכמה ולפני הקוד (P6, 18.10) · מועמד בענף `ready/<part>` · סבב ביקורת אחד לחלק, ופלט של רשימת באגים · טסט לכל AC · סשן חדש לכל חלק, ודחיסה
-ב-200K · שני סשנים במקביל מ-I3 · יעד: 5–7 פיצ'רים ביום.
-
-**Production:** [nestly-blue.vercel.app](https://nestly-blue.vercel.app).
-
----
-
-## חלק 8 — בניית המוצר: Initiatives 🔄
-
-ההיקף המאושר: [roadmap.md](.work/_initiatives/roadmap.md), כולל תוספת 4 (16.10: מחיקת חשבון, ‏S-01 ופערי הבדיקה) ותוספת 5
-(17.10: **I9 עובר לסוף**). **סדר הבנייה:** ‏I3–I8, ‏I10–I14, ואז I9, ואחריו תוכן הדמו, ההצגה למרצה וההשקה; ‏I15 אחרי ההשקה.
-הטבלה לפי מספר, לא לפי סדר.
-המסלול נקבע לכל **חלק** לפי דגלי הסיכון. לפני כל Initiative: רשימת פיצ'רים וחלקים, ושאלון אחד.
-
-| # | Initiative | MVP | פיצ'רים | תלוי ב | חוסם לפני פתיחה | מצב |
-|---|---|---|---|---|---|---|
-| I1 | חשבונות וגישה | ✅ | 7 | — | — | ✅ (16.10) |
-| I2 | פרופיל, פרטיות ו-Friends · **S-01 ו-S-16 בחלק הראשון** | ✅ | 5 | I1 | — | ✅ (17.10) |
-| I3 | פיד קהילתי ושיתוף · הפניה למוקדי רפואה | ✅ | 9 | I2 | `algorithm.md` | ✅ (20.10) |
-| I4 | בטיחות וניהול, ליבה · חשבון Super Admin · **U2 מדרג נעילת שחזור וכלי שחרור** | ✅ | 6 | I3 | — | ⬜ הבא |
-| I5 | מדיה וסטוריז · מריץ jobs בחלק הראשון | ✅ | 5 | I2, I3, I4 | — | ⬜ |
-| I6 | בית ומעקב | ✅ | 6 | I2 (‏F6.6 ← I4) | OP-003 · OP-008 · שדות מחזור | ⬜ |
-| I7 | התראות וחיפוש | ✅ | 4 | I2, I3 | ספי rate limit · רשימת אירועים | ⬜ |
-| I8 | שיחות ו-Support | ✅ | 5 | I2, I4, I7 | נושאי פנייה | ⬜ |
-| I9 | מוכנות להשקה · **U1 מחיקת חשבון** · ניטור (Sentry) · ‏Turnstile · גיבוי — **אחרון לפני ההשקה** | ✅ | 6 | I1–I8, I10–I14 | Retention לחשבון חי | ⬜ |
-| I10 | קבוצות | — | 5 | I3, I4, I7 | קטגוריות · Highlights | ⬜ |
-| I11 | בעלי מקצוע ושירותים | — | 10 | I8, I3, I5 | OP-005 · OP-010 · OP-016 · קטגוריות · מיקום · מחיר | ⬜ |
-| I12 | Marketplace | — | 5 | I5, I8 | OP-012 · קופונים · affiliate | ⬜ |
-| I13 | מונטיזציה (תשלום מדומה) | — | 5 | I11, I12 | OP-030 מחירון | ⬜ |
-| I14 | צוות Moderators · יצירת חשבונות Moderator | — | 4 | I4, I7 | קהל הודעות מערכת · ANALYTICS_VIEW | ⬜ |
-| I15 | התאמה אישית ו-Intelligence | — | 5 | I3, I9 | Retention של אירועים · משקולות | ⬜ |
-
-**סה"כ:** 87 פיצ'רים. **מקביליות מ-I3:** ‏I3 ∥ I6 (F6.1–6.5) · ‏I4 ∥ I7 · ‏I5 ∥ I8 ∥ I10 ∥ I14.
-
-## חלק 10 — הצגה למרצה 🔄
-
-[מסמך הרעיון](docs/lecturer-demo-idea-HE.md) · [התוכנית](docs/lecturer-demo-plan-HE.md). שלב א (המוצר, I1–I14) 🔄 ‏I1 ✅ ‏I2 ✅.
-הבא אחריו: מדריכים (אחרי I6), ‏I9, תוכן הדמו, הכנסה דרך ה-API והזזת זמנים, ההצגה. **פתוח לשאלון ההצגה:** גרפי האדמין
-(FR-ADMIN-010/003, ‏DATA-001) נמצאים ב-I15, מחוץ להיקף ההצגה — בפנים או בחוץ.
+## באגים לטיפול ב-25–26.10
+מתוך יומן החוב שנמחק ב-20.10 (בהיסטוריית git). 🔒 = אבטחה או פרטיות.
+1. 🔒 db-production: שגיאת libpq עלולה לצטט את סיסמת ה-owner ביומן ציבורי, אין PGSSLMODE, ו-matview/foreign table עוברים את ה-gate (ממצאים 1–4 של identity-platform a, נדרשים לפני כל אישור db-production) — .github/workflows/migrate.yml
+2. 🔒 Actions ו-supabase CLI מוצמדים לתגיות שאפשר להזיז ולא ל-SHA, כולל ה-job שמחזיק את credential הייצור — .github/workflows/migrate.yml, .github/workflows/ci.yml
+3. 🔒 סוד ה-bypass של Vercel חשוף: preview-smoke רץ מה-commit שנפרס עם secret של המאגר, ו-flow של e2e יכול לבקש את ה-fixture או את PREVIEW_E2E_BYPASS_FILE — .github/workflows/preview-smoke.yml, e2e-preview/support/fixtures.ts:39
+4. 🔒 לשרת אין logger: כשלי config ו-500 לא נרשמים בשום מקום; ברישום עתידי של אובייקט השגיאה ייכתב ה-payload של jose (אימייל), ושורת 5xx בלי stack — apps/server/src/app.ts, apps/server/src/plugins/authentication.ts
+5. 🔒 סכמת שלב 1 בהרשמה: z.object רגיל (מפתחות זרים נמחקים ולא נדחים) ואין חסם גודל לפני הפיצול ל-code points — packages/shared/src/validation/registration-step1.ts
+6. 🔒 שחזור סיסמה: מפתוח מחדש של ה-handle מאפס את מוני ה-throttle; אין ניקוי לשורות recovery_throttles שפגו ואין retention לאירועי audit של השחזור — apps/server/src/recovery
+7. 🔒 איפוס הסיסמה עדיין שולח את המפתח הסודי ב-/token, כשמפתח ה-publishable מספיק (least privilege) — apps/server/src/recovery/auth-admin.ts:184
+8. 🔒 כותב לא יכול למחוק פוסט או תגובה במצב hidden/removed (RLS); נסגר במיגרציה של I4 — posts_select_viewer, comments_select_viewer, content_hold
+9. 🔒 purge_held_content() לא בודק current_user = 'app_jobs'; רק פקודת ה-job המוצמדת מונעת הרצה כ-postgres — supabase/migrations (פונקציית ה-purge של F3.0b)
+10. 🔒 החלפת בעלי ה-token בלי sign-out: loadMore שומר את הכרטיסים של A תחת B, ו-Back משחזר אותם ל-B — apps/web/src/features/posts/use-feed.ts
+11. 🔒 פערי בדיקה: PATCH של מי שאינו הכותב על פוסט אנונימי (404 ולא 422, מניעת oracle), ושורה מוחזקת שנחשפת לכותב שלה אחרי commit (שתי טרנזקציות) — apps/server/tests/db/anonymous-post.db.test.ts, supabase/tests/76_feed_held_purge.sql
+12. משתמש Auth בלי שורות nestly אחרי sign-up שנכשל באמצע: לבדוק אם F1.5 סגר את זה (סומן "must close at F1.5", לא סומן paid) — מסלול ההרשמה ב-apps/server
+13. ‏/terms ו-/privacy הם נתיבי Guest, ולכן משתמש מחובר מנותב מהם ואינו יכול לקרוא את מה שאישר (I9) — apps/web/src/app (החלטת גישה)
+14. נתיבי הסיסמה נחסמים ב-isAdminConfigured כשחסר SUPABASE_PUBLISHABLE_KEY, אף שאינם משתמשים בו (fail closed) — apps/server/src/recovery/dependencies.ts:52
+15. מיגרציות ו-DB: down script שמבצע drop schema cascade גם אחרי מיגרציות מאוחרות יותר; מיגרציה שנערכה אחרי dispatch מדולגת ב-Preview; drift לא משווה ערכי enum/CHECK ורשימת העמודות קשיחה; נתיבי הסירוב של bootstrap 02 לא נבדקים — supabase/rollback/20261014100000_identity_schema.down.sql, .github/workflows/migrate.yml, apps/server/scripts/drift.ts, supabase/bootstrap/02-anchor-fk.sql
+16. נגישות (WCAG 2.4.11): ה-scroll-padding מותאם ידנית לגובה הבר; ‏/profile ו-/settings לא נבדקים ב-focus-not-obscured; מקלדת ב-iOS עלולה לכסות שדות — apps/web/src/styles/index.css:10, e2e/focus-not-obscured.spec.ts, apps/web/index.html:5
+17. פיד, UX: לייק שנכשל אחרי יציאה מהפיד לא מבוטל בזיכרון; הודעת הכשל מוצגת רק מתחת ל-h1; שחזור הגלילה מחכה ל-/api/profile בלי timeout; כשל שליחה אחרי חזרה לא מציג ERR-004 — use-feed.ts, FeedScreen.tsx, feed-scroll.ts, FeedComposer.tsx (apps/web/src/features/posts)
+18. ניווט והיסטוריה: מצבי מרוץ ב-useBackCloses (stepping/pending); usePostScroll מפסיק בכל לחיצה, מפת המיקומים לא מוגבלת, ה-scroller נבחר פעם אחת — apps/web/src/hooks/use-back-closes.ts, apps/web/src/features/posts/post-scroll.ts, outside-press.ts
+19. ביצועים: כל עמוד פיד מדרג את כל המאגר בלי תקרת מועמדים; סריקת כל התשובות לכל הורה (חסר אינדקס); בקשת תגובות אחת לכל כרטיס — apps/server/src/repositories/feed-repository.ts, comments-repository.ts
+20. בדיקות חלשות או חסרות: אורך cursor (512) לא מוכח; אין unit ל-withLike; reset של refreshRefused; מונה הכישלונות באי-התאמת אימייל; טלפון ב-post Back; ports; sslmode; SECRET_ENV מיובא מהקוד הנבדק — feed-ranking.test.ts, feed-state.ts, auth-client.ts:176-179, e2e/ux-polish-a.spec.ts, playwright.ports.ts, tools/db-local.mjs, tools/preview-e2e.test.mjs:282
+21. e2e/CI לא יציבים: ‏route.abort על route שכבר טופל; ספירת הצלחה לפני commit; concurrency משותף ב-preview-e2e ו-cleanup; אין trace ב-CI; ה-cleanup נתקע מעל 50 משתמשים — e2e-preview/support/bypass.ts:25, e2e-preview/password-recovery.flow.ts:107, .github/workflows/preview-e2e-cleanup.yml:57-59, playwright.config.ts
+22. CI/כלים (מינורי): ‏.mts/.cts מחוץ ל-lint; validateConfig ב-check-budgets; cache ריק של Playwright; כשל ב-changes מדלג על db; בדיקות cleanup שקוראות SQL כטקסט; db-local לא מריץ pgTAP; בדיקת ה-expand ב-P6 — eslint.config.mjs:140, tools/check-budgets.mjs, .github/workflows/ci.yml, tools/preview-e2e-cleanup.test.mjs:447, tools/db-local.mjs
+23. הערות מטעות (טריוויאלי): held_xact "Never granted", ההערה של post_hides, כותרות בדיקה (anonymous-post:14, 74_feed…:112), README של rollback ב-bootstrap / 01-roles-check.sql:35, ProtectedLayout.stories; תפקידי probe ישנים ב-nestly-preview

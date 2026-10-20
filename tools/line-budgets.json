@@ -4,29 +4,15 @@
       "lines": 160,
       "bytes": 8192
     },
-    ".claude/workflow.md": {
-      "lines": 460,
-      "bytes": 40000
-    },
-    "decisions.md": {
-      "lines": 120,
-      "bytes": 9000
-    },
     "WORKPLAN-HE.md": 200,
-    ".claude/agents/algorithm-data.md": 150,
-    ".claude/agents/builder.md": 200,
-    ".claude/agents/critic.md": 230,
-    ".claude/agents/data-architect.md": 140,
-    ".claude/agents/scout.md": 100,
-    ".claude/agents/spec.md": 170,
-    ".claude/agents/test-engineer.md": 180,
     ".claude/knowledge/conventions.md": 220,
     ".claude/knowledge/data-model.md": 290,
-    ".claude/knowledge/srs-review-points.md": 100,
-    ".claude/knowledge/ai-ml-readiness.md": 90,
     ".claude/skills/srs-lookup/SKILL.md": 50,
-    ".claude/skills/security-craft/SKILL.md": 100,
-    ".claude/rules/srs-editing.md": 30
+    ".claude/rules/srs-editing.md": 30,
+    "decisions-in-force.md": {
+      "lines": 160,
+      "bytes": 12000
+    }
   },
   "code": {
     "max": 400,
@@ -40,80 +26,5 @@
         "reason": "835 lines after stage 1; size accepted by Afik 2026-10-13; split not pursued"
       }
     }
-  },
-  "workArtifacts": {
-    "baseline": "3aab0c7ff468d89061851d5a77f2953b0f1fd6bc",
-    "limits": {
-      "spec.md": {
-        "lines": 100,
-        "bytes": 12000
-      },
-      "schema.md": {
-        "lines": 150,
-        "bytes": 18000
-      },
-      "notes.md": {
-        "lines": 30,
-        "bytes": 3600
-      },
-      "screen.md": {
-        "lines": 60,
-        "bytes": 7000
-      }
-    },
-    "maxLineBytes": 400,
-    "historical": [
-      ".work/account-takeover-close/notes.md",
-      ".work/account-takeover-close/schema.md",
-      ".work/account-takeover-close/spec.md",
-      ".work/agent-slim/notes.md",
-      ".work/app-shell-guard/notes.md",
-      ".work/app-shell-guard/spec.md",
-      ".work/debt-before-f15/notes.md",
-      ".work/dev-speed/notes.md",
-      ".work/dev-speed/spec.md",
-      ".work/friends/schema.md",
-      ".work/friends/spec.md",
-      ".work/gateway-publishable-key/spec.md",
-      ".work/google-sign-in/notes.md",
-      ".work/google-sign-in/spec.md",
-      ".work/guard-allowlist/notes.md",
-      ".work/guard-env-paths/notes.md",
-      ".work/guard-notes-case/notes.md",
-      ".work/identity-platform/notes.md",
-      ".work/identity-platform/schema.md",
-      ".work/identity-platform/spec.md",
-      ".work/journeys-children/notes.md",
-      ".work/journeys-children/schema.md",
-      ".work/journeys-children/spec.md",
-      ".work/login-session/notes.md",
-      ".work/login-session/schema.md",
-      ".work/login-session/spec.md",
-      ".work/password-recovery/notes.md",
-      ".work/password-recovery/schema.md",
-      ".work/password-recovery/spec.md",
-      ".work/preview-access/notes.md",
-      ".work/preview-cleanup-fix/notes.md",
-      ".work/preview-e2e/notes.md",
-      ".work/preview-e2e/schema.md",
-      ".work/preview-e2e/spec.md",
-      ".work/profile-privacy/notes.md",
-      ".work/profile-privacy/schema.md",
-      ".work/profile-privacy/spec.md",
-      ".work/profile-view-edit/notes.md",
-      ".work/profile-view-edit/schema.md",
-      ".work/profile-view-edit/spec.md",
-      ".work/register-account-create/notes.md",
-      ".work/register-account-create/schema.md",
-      ".work/register-account-create/spec.md",
-      ".work/register-profile-step/notes.md",
-      ".work/register-profile-step/spec.md",
-      ".work/settings-menu/notes.md",
-      ".work/settings-menu/spec.md",
-      ".work/test-rules/notes.md",
-      ".work/ui-wave-1/notes.md",
-      ".work/ui-wave-1/spec.md"
-    ],
-    "exceptions": {}
   }
 }

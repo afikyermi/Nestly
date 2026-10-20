@@ -1,9 +1,0 @@
-# result — I1 F1.8 google-sign-in
-
-**Execution:** Succeeded · **Quality:** Good — merged PR 35 (`9ece04e`, 16.10.2026); CRITIC (opus) Validated with Concern, three low fixed, re-check Validated with Concern.
-**Planned vs actual:** spec ~700 lines → 51 files, +2607/−69; product +789, tests +1375 (1.74×, under 2×). First CI red: 22 old e2e tests made stale by F1.8 (only F1.8 files were run locally) — fixed in tests, no product change.
-**SRS trace:** implemented FR-AUTH-005, AC-087, AC-088, AC-099, AC-100, AC-101, VAL-003, NFR-SEC-009. Changed (Afik 17.10, enters SRS at I1 close): a first Google sign-in sets a password (FR-AUTH-005/FR-REG-004 "בלי סיסמה" out); AC-087 "only the email" → Supabase's identities table keeps Google's name/picture (DR-5); c13 "no email" means none outside the token. Rule L not built → S-01.
-**Evidence:** CI run 38919342071 green on `8e71212`; preview-e2e 38919402939, 32/32 incl. `e2e-preview/google-sign-in.flow.ts` at 375 and 1280; cleanup 38919649294 green; Preview nestly-git-feat-google-sign-in-afikyermis-projects.vercel.app — Afik's manual checks 1–5 passed (16.10).
-**As-built correction (Afik, check 5):** after `updateUser({password})` email+password sign-in works, but `app_metadata.providers` stays `[google]` — the spec's Gate 1 note ("the first password adds an `email` identity") overstated; never infer "has a password" from `providers`.
-**Hook blocks:** 24 this task — test-engineer/reader 18 (git/wc/eslint on non-test files, cap measuring), builder/builder 4 (sed on a test path), all/r4 1 (git add+commit in one), all/r4-critical 1 (ORCHESTRATOR's `--jq`, env-glob false positive).
-**Logs:** debt.md 3 lines (S-53 flow files, BUILDER may write flow files, c13 wording) + PR 30 worktrees concern closed · noise.md 2 lines · security-privacy-open.md created (S-01…S-61).

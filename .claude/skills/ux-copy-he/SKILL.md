@@ -4,7 +4,7 @@ description: Hebrew interface copy for Nestly — gender-neutral phrasing, error
 user-invocable: false
 paths:
   - "apps/web/**"
-  - ".work/**/screen.md"
+  - "docs/design/**"
 ---
 
 # ux-copy-he — what the user reads

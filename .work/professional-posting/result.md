@@ -1,6 +1,0 @@
-# result — professional-posting (code part; schema in PR-A3 #101)
-**Done:** Professionals post (named, "everyone" only in I3, no tag, never anonymous; composer shows "הפוסט יוצג לכולם"), read the feed with a content-only ranking profile (no Friend/Stage term, no journey/children read; Regular SQL byte-identical), comment, reply and like; names show "מהקהילה" until I11; Admin/Moderator stay refused (S-66 until I4); composer waits for the feed only for no-profile callers.
-**Execution:** Succeeded · **Quality:** Good. **Path:** Elevated · A&D 5b (2 medium + 1 low on spec, fixed) · BUILDER ∥ TE (worktree) · CRITIC opus 1 medium (Admin/Moderator tests) + 2 low → fixed, re-check clean · A&D step 9 1 low → fixed, validated.
-**SRS trace:** FR-FEED-001/002/003 (Professional actors), FR-FEED-005 (unchanged), AC-061; SRS-changes rows 6d–6f; I11 commitments (name + "יועץ · <תחום>" tag, followers audience).
-**Evidence (local, eef6d3c):** db 851 pass; composer unit 28/28; feed-composer + professional-posting e2e 55/55; static c5/c14 19/19.
-**Timing:** spec + A&D ~25 min · DATA ARCHITECT 8 · PR-A3 BUILDER 12 + TE 17 · code BUILDER 35 + TE ~60 · reviews ~10. CI/E: see PR (GitHub Actions outage 19.10 18:49–).

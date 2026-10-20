@@ -8,7 +8,7 @@ paths:
 
 # accessibility — WCAG 2.2 AA in practice
 
-**Version:** 1.1 · the requirement: SRS NFR-A11Y-001. Who checks what, and when: `.claude/workflow.md` → "Domains"
+**Version:** 1.1 · the requirement: SRS NFR-A11Y-001.
 → Accessibility. The binding constraints: `.claude/knowledge/conventions.md` → Accessibility. This skill is how to
 build it.
 

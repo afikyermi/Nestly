@@ -1,4 +1,0 @@
-# result — F3.2a2 feed server
-**Done:** GET /api/feed?cursor= in the identity transaction: config resolve (weights ::float8, fallback/restart), DB-clock asOf (future rejected), Stage read only when wStage > 0, ranking SQL under RLS (float8 score, keyset, pageSize+1, extra_float_digits=3), re-ranking + cursor via shared a1, display read by ids (is_mine in SQL, 6ב names, sharerText), strict response; readVisibleNames narrowed to listed ids.
-**Path:** Elevated · BUILDER ∥ TEST ENGINEER · CRITIC opus (0 crit/high/med, 3 low) ∥ A&D (2 medium + 3 low, tests) → fixed; fixture written in the main checkout (guard path issue in worktrees, WORKPLAN).
-**SRS trace:** FR-FEED-001, FR-FEED-004 (signal), FR-ALG-002 subset, AC-060 subset (DR-5), BR-065, FR-FEED-005 r.3, Afik 6ב/7א/4א. **Tests:** server db 702 pass, feed db 10× green; tests + fixture 832 : 416 (2.0×).

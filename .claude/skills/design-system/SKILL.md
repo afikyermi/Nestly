@@ -15,7 +15,6 @@ paths:
   states, layout).
 - **The values:** `docs/design/tokens.md` — the spec. Code source from 9.7: `packages/shared/src/design-tokens/`;
   if the two disagree, the code is fixed or the spec changes by a recorded decision.
-- **Who checks what:** `.claude/workflow.md` → "Domains" → Design consistency.
 
 Accessibility is `accessibility`, direction and dates are `rtl-hebrew`, wording is `ux-copy-he`.
 
