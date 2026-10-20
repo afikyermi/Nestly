@@ -39,6 +39,7 @@ drop policy user_enforcements_select_analytics on nestly.user_enforcements;
 drop policy friendships_select_analytics on nestly.friendships;
 drop function nestly.analytics_reader();
 
+drop trigger staff_roles_joined_audit on nestly.staff_roles;
 drop policy users_insert_moderator on nestly.users;
 drop policy staff_roles_insert_invited on nestly.staff_roles;
 revoke insert on table nestly.staff_roles from authenticated;
@@ -47,6 +48,7 @@ drop table nestly.system_announcements;
 drop function nestly.system_announcements_prepare();
 drop table nestly.moderator_invitations;
 drop function nestly.moderator_invitations_guard();
+drop function nestly.caller_redeemed_invitation();
 drop function nestly.moderator_invite_hash();
 
 create or replace function nestly.audit_trigger()

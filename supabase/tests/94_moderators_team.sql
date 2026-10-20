@@ -95,6 +95,8 @@ select is(pg_temp.inv('n2', pg_temp.h('h3'), format($q$ update nestly.moderator_
 select is(pg_temp.dml('d', format($q$ update nestly.moderator_invitations set revoked_at = now() - interval '1 day' where code_hash = %L $q$, pg_temp.h('h3'))), 'OK:1',
   '[I14 c3 FR-ADMIN-004] the Admin revokes an open invitation');
 select is(tests.fx_mt_invitation(pg_temp.h('h3')), 'accepted:false revoked:true', '[I14 c3] it is revoked');
+select is(pg_temp.n('d', format($q$nestly.moderator_invitations where code_hash = %L and revoked_at = now()$q$, pg_temp.h('h3'))), '1',
+  '[I14 c3] stamped with the database clock, not the time sent');
 select is(pg_temp.dml('d', format($q$ update nestly.moderator_invitations set revoked_at = now() where code_hash = %L $q$, pg_temp.h('h3'))), 'OK:0',
   '[I14 c3] a revoked invitation is not revoked again (0 rows)');
 select is(tests.fx_sf_audit('moderator_invitation_revoked'), 1::bigint, '[I14 c3 BR-026] the revocation is in the Audit Log');
@@ -102,34 +104,56 @@ select is(pg_temp.dml('d', format($q$ update nestly.moderator_invitations set ac
   '[I14 c3] the Admin cannot mark an invitation accepted (42501)');
 
 -- ---- redeeming: the account becomes a Moderator with no key (FR-ADMIN-004, BR-023) --------------------------------------------------
+-- The redeem route's order, in one transaction: mark the invitation (accepted_by), then create the users row.
+create function pg_temp.mark(p_who text, p_hash text) returns text language sql as $f$
+  select pg_temp.inv(p_who, p_hash, format($q$ update nestly.moderator_invitations set accepted_by = %L where code_hash = %L $q$, pg_temp.id(p_who), p_hash))
+$f$;
+create function pg_temp.join_as(p_who text, p_hash text, p_type text default 'moderator') returns text language sql as $f$
+  select pg_temp.inv(p_who, p_hash, format($q$ insert into nestly.users (account_type, status) values (%L, 'active') $q$, p_type))
+$f$;
+-- a marked invitation whose account never comes: the deferred foreign key, checked now instead of at commit, as the redeem route's
+-- transaction would (its role is still authenticated when it commits)
+create function pg_temp.fk_now(p_who text) returns text language plpgsql as $f$
+declare v text := 'OK';
+begin
+  perform set_config('request.jwt.claims', tests.claims(pg_temp.id(p_who)), true);
+  set local role authenticated;
+  begin
+    set constraints nestly.moderator_invitations_accepted_by_fkey immediate;
+  exception when others then
+    v := 'ERR:' || sqlstate;
+  end;
+  set constraints nestly.moderator_invitations_accepted_by_fkey deferred;
+  reset role;
+  perform set_config('request.jwt.claims', '', true);
+  return v;
+end
+$f$;
+
 select is(pg_temp.dml('n1', $$ insert into nestly.users (account_type, status) values ('moderator', 'active') $$), 'ERR:42501',
   '[I14 c4 BR-022] no Moderator account without a code (42501)');
-select is(pg_temp.inv('n1', repeat('f', 64), $$ insert into nestly.users (account_type, status) values ('moderator', 'active') $$), 'ERR:42501',
-  '[I14 c4] a wrong code creates nothing (42501)');
-select is(pg_temp.inv('n1', pg_temp.h('h3'), $$ insert into nestly.users (account_type, status) values ('moderator', 'active') $$), 'ERR:42501',
-  '[I14 c4] a revoked invitation creates nothing (42501)');
-select is(pg_temp.inv('n1', pg_temp.h('h1'), $$ insert into nestly.users (account_type, status) values ('admin', 'active') $$), 'ERR:42501',
-  '[I14 c4 BR-021] an invitation never creates an Admin (42501)');
-select is(pg_temp.inv('n1', pg_temp.h('h1'), $$ insert into nestly.users (account_type, status) values ('moderator', 'active') $$), 'OK:1',
-  '[I14 c4 FR-ADMIN-004] with a valid code the account is created as a Moderator');
+select is(pg_temp.join_as('n1', pg_temp.h('h1')), 'ERR:42501', '[I14 c4] nor with a code it has not marked (42501)');
+select is(pg_temp.mark('n1', repeat('f', 64)), 'OK:0', '[I14 c4] a wrong code marks nothing (0 rows)');
+select is(pg_temp.mark('n1', pg_temp.h('h3')), 'OK:0', '[I14 c4] a revoked invitation cannot be marked (0 rows)');
+select is(pg_temp.mark('m0', pg_temp.h('h1')), 'OK:0', '[I14 c4 BR-027] an existing Moderator cannot take an invitation (0 rows)');
+select is(pg_temp.mark('a', pg_temp.h('h1')), 'ERR:42501', '[I14 c4 BR-016] nor can an existing account (42501)');
+select is(pg_temp.mark('n1', pg_temp.h('h1')), 'OK:1', '[I14 c4 FR-ADMIN-004] the holder of a valid code marks it');
+select is(pg_temp.mark('n2', pg_temp.h('h1')), 'OK:0', '[I14 c4] a second account cannot take the same code (0 rows)');
+select is(pg_temp.join_as('n2', pg_temp.h('h1')), 'ERR:42501', '[I14 c4] nor become a Moderator with it (42501)');
+select is(pg_temp.ninv('n2', pg_temp.h('h1'), 'nestly.moderator_invitations'), '0', '[I14 c4] and no longer reads it');
+select is(pg_temp.fk_now('n1'), 'ERR:23503', '[I14 c4] a marked invitation without its Moderator account cannot commit (23503): one code, one Moderator');
+select is(pg_temp.join_as('n1', pg_temp.h('h1'), 'admin'), 'ERR:42501', '[I14 c4 BR-021] an invitation never creates an Admin (42501)');
+select is(pg_temp.join_as('n1', pg_temp.h('h1')), 'OK:1', '[I14 c4 FR-ADMIN-004] the marked invitation creates the account as a Moderator');
+select is(pg_temp.fk_now('n1'), 'OK', '[I14 c4] and the transaction can commit');
 select is(pg_temp.n('n1', $$nestly.staff_roles where account_type = 'moderator'$$), '1', '[I14 c4] its staff role exists');
-select is(pg_temp.inv('n1', pg_temp.h('h1'), format($q$ update nestly.moderator_invitations set accepted_by = %L where code_hash = %L $q$, pg_temp.id('n1'), pg_temp.h('h1'))), 'OK:1',
-  '[I14 c4] and the invitation is marked as theirs in the same transaction');
 select is(tests.fx_mt_invitation(pg_temp.h('h1')), 'accepted:true revoked:false', '[I14 c4] the invitation is used');
+select is(pg_temp.ninv('n1', pg_temp.h('h1'), 'nestly.moderator_invitations'), '1', '[I14 c4] its Moderator still reads it');
 select is(tests.fx_sf_audit('moderator_joined'), 1::bigint, '[I14 c4 BR-026] the new Moderator is in the Audit Log');
 select is(tests.as_role('authenticated', tests.claims(pg_temp.id('n1')), $$ select count(*)::text from unnest(array['REPORTS_VIEW', 'USER_VIEW', 'ANALYTICS_VIEW',
   'SYSTEM_ANNOUNCEMENTS', 'COMMUNITY_CONFIG', 'MODERATOR_MANAGE']) k where nestly.has_permission(k) $$), '0', '[I14 c4 BR-023 AC-026] a new Moderator holds no key (deny by default)');
-select is(pg_temp.inv('n2', pg_temp.h('h1'), $$ insert into nestly.users (account_type, status) values ('moderator', 'active') $$), 'ERR:42501',
-  '[I14 c4] a used invitation creates nothing more (42501)');
-select is(pg_temp.inv('n2', pg_temp.h('h1'), format($q$ update nestly.moderator_invitations set accepted_by = %L where code_hash = %L $q$, pg_temp.id('n2'), pg_temp.h('h1'))), 'OK:0',
-  '[I14 c4] nor can it be taken over (0 rows)');
-select is(pg_temp.inv('a', pg_temp.h('h2'), $$ insert into nestly.users (account_type, status) values ('moderator', 'active') $$), 'ERR:23505',
-  '[I14 c4 BR-016] an existing account cannot turn into a Moderator (23505)');
-select is(pg_temp.inv('n2', pg_temp.h('h2'), format($q$ update nestly.moderator_invitations set accepted_by = %L where code_hash = %L $q$, pg_temp.id('n2'), pg_temp.h('h2'))), 'ERR:42501',
-  '[I14 c4] an invitation is marked only by the Moderator it created (42501)');
+select is(pg_temp.mark('n1', pg_temp.h('h2')), 'OK:0', '[I14 c4] a Moderator cannot take a second invitation (0 rows)');
 select tests.fx_mt_expire(pg_temp.h('h4'));
-select is(pg_temp.inv('n3', pg_temp.h('h4'), $$ insert into nestly.users (account_type, status) values ('moderator', 'active') $$), 'ERR:42501',
-  '[I14 c4] an expired invitation creates nothing (42501)');
+select is(pg_temp.mark('n3', pg_temp.h('h4')), 'OK:0', '[I14 c4] an expired invitation cannot be marked (0 rows)');
 select is(pg_temp.dml('d', format($q$ insert into nestly.moderator_permissions (user_id, permission_key) values (%L, 'REPORTS_VIEW') $q$, pg_temp.id('n1'))), 'OK:1',
   '[I14 c5 FR-ADMIN-004 AC-026] the Admin assigns the new Moderator a key');
 select is(tests.as_role('authenticated', tests.claims(pg_temp.id('n1')), $$ select nestly.has_permission('REPORTS_VIEW')::text $$), 'true',
@@ -157,6 +181,7 @@ select is(pg_temp.n('a', 'nestly.system_announcements'), '0', '[I14 c7] a user r
 select is(pg_temp.n('m0', 'nestly.system_announcements'), '0', '[I14 c7] a Moderator without the key reads no draft');
 select is(pg_temp.n('m3', 'nestly.system_announcements'), '2', '[I14 c7 AC-049] the key holder reads every one');
 select is(pg_temp.dml('m3', $$ update nestly.system_announcements set body = 'האתר ייסגר לשעתיים' where title = 'תחזוקה' $$), 'OK:1', '[I14 c7 FR-ADMIN-008] and edits');
+select is(pg_temp.dml('m3', $$ update nestly.system_announcements set body = 'האתר ייסגר לשעתיים' where title = 'תחזוקה' $$), 'OK:0', '[I14 c7 BR-026] an edit that changes nothing writes nothing (0 rows, no audit entry)');
 select is(pg_temp.dml('m4', $$ update nestly.system_announcements set status = 'published' $$), 'OK:0', '[I14 c7 AC-049] another Moderator publishes nothing (0 rows)');
 select is(pg_temp.dml('a', $$ update nestly.system_announcements set status = 'published' $$), 'OK:0', '[I14 c7 AC-049] a user publishes nothing (0 rows)');
 select is(pg_temp.dml('m3', $$ update nestly.system_announcements set status = 'published' where title = 'תחזוקה' $$), 'OK:1', '[I14 c7 FR-ADMIN-008] the key holder publishes');
@@ -188,7 +213,9 @@ select is(pg_temp.na('m4', 'posts'), pg_temp.n('m4', 'nestly.posts'), '[I14 c11 
 select is(pg_temp.na('a', 'users'), '1', '[I14 c11] a user still reads only its own account');
 select is(pg_temp.n('m3', 'nestly.users'), '1', '[I14 c11] outside the analytics screen ANALYTICS_VIEW reads only its own account');
 select is(pg_temp.n('m3', 'nestly.friendships'), pg_temp.n('m0', 'nestly.friendships'), '[I14 c11] and no Friendship beyond what any Moderator reads');
+select ok(tests.fx_mt_count('children') > 0, '[I14 c12 fixture] there are child rows');
 select is(pg_temp.na('m3', 'children'), '0', '[I14 c12 open item 6 (a)] no child row is opened by the analytics screen');
+select is(pg_temp.na('d', 'children'), '0', '[I14 c12 open item 6 (a)] not even to the Admin');
 
 select * from finish();
 rollback;

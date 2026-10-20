@@ -61,7 +61,7 @@ as $$
 declare
   v bigint;
 begin
-  if p_rel not in ('users', 'posts', 'comments', 'reactions', 'reports', 'user_enforcements', 'friendships') then
+  if p_rel not in ('users', 'posts', 'comments', 'reactions', 'reports', 'user_enforcements', 'friendships', 'children') then
     raise exception 'tests.fx_mt_count: not an analytics table: %', p_rel;
   end if;
   execute format('select count(*) from nestly.%I', p_rel) into v;

@@ -7,21 +7,24 @@
 --
 -- moderator_invitations   How a Moderator account comes to exist (FR-ADMIN-004 "create"): the Admin issues a one-time invitation; the server
 --                 keeps only the SHA-256 of its random code and shows the code once. The invited person creates an Auth account and redeems
---                 the code: in one transaction their users row is created as a Moderator (users_insert_moderator) and the invitation marks
---                 them (accepted_by). The code travels in the transaction-local setting nestly.moderator_invite (its hash); knowing it is
---                 the only way to read or claim the row. Valid 7 days; the Admin revokes an open one. Deactivating a Moderator is the
---                 existing Admin ban (user_enforcements, I4), not part of this file.
--- staff_roles     gains one INSERT path: the mirror trigger of a Moderator who redeems a valid invitation (users_staff_mirror runs as the caller).
+--                 the code in one transaction: first the invitation is marked theirs (accepted_by; only by an account that has no Nestly row
+--                 yet), then their users row is created as a Moderator (users_insert_moderator: only with the invitation they just marked).
+--                 accepted_by references users DEFERRABLE INITIALLY DEFERRED, so a marked invitation without its account fails at commit:
+--                 one code makes exactly one Moderator. The code travels in the transaction-local setting nestly.moderator_invite (its hash).
+--                 Valid 7 days; the Admin revokes an open one. Deactivating a Moderator is the existing Admin ban (user_enforcements, I4).
+-- staff_roles     gains one INSERT path, the mirror of that new Moderator (users_staff_mirror runs as the caller), and its audit entry
+--                 (moderator_joined), written when the new staff role exists.
 -- system_announcements   Official announcements: a draft, published, then removed (final). SYSTEM_ANNOUNCEMENTS (the Admin always) reads
 --                 every one and writes; every active account reads the published ones. The database stamps the times.
 -- analytics       *_select_analytics on users, posts, comments, reactions, reports, user_enforcements and friendships: ANALYTICS_VIEW (the
 --                 Admin always), only in a transaction that named the purpose in nestly.analytics_view (the users_select_staff pattern of I4,
 --                 deviation (a) in data-model-tables.md): the server answers counts only, never a name, a text or an id. No child,
 --                 journey, tracker, chat or support row is opened (Afik's open item 6, default (a): children only in aggregate, and I14 shows none).
--- audit_trigger() replaced   the same function with branches for invitations (invited, revoked, joined) and announcements (created, edited,
+-- audit_trigger() replaced   the same function with branches for invitations (invited, revoked), the new Moderator (joined, on staff_roles) and announcements (created, edited,
 --                 published, removed). Everything else in it is verbatim from 20261021500000_media_stories.sql. No new SECURITY DEFINER.
 -- Phase: expand. Down script: supabase/rollback/20261021900000_moderators_team.down.sql.
 -- =====================================================================================================================
+
 
 -- 1. moderator_invitations --------------------------------------------------------------------------------------------------------
 create table nestly.moderator_invitations (
@@ -43,6 +46,7 @@ create table nestly.moderator_invitations (
   constraint moderator_invitations_accepted_by_key unique (accepted_by),
   constraint moderator_invitations_invited_by_fkey foreign key (invited_by) references nestly.users (id) on delete restrict,
   constraint moderator_invitations_accepted_by_fkey foreign key (accepted_by) references nestly.users (id) on delete cascade
+    deferrable initially deferred
 );
 
 create index moderator_invitations_invited_by_idx on nestly.moderator_invitations (invited_by);
@@ -67,9 +71,11 @@ create policy moderator_invitations_select_admin on nestly.moderator_invitations
   for select to authenticated
   using ((select nestly.caller_staff_role()) = 'admin');
 
+-- the holder of a code reads that invitation while it is open, and afterwards only if it became theirs
 create policy moderator_invitations_select_invitee on nestly.moderator_invitations
   for select to authenticated
-  using (code_hash = (select nestly.moderator_invite_hash()));
+  using (code_hash = (select nestly.moderator_invite_hash())
+    and ((accepted_by is null and revoked_at is null and expires_at > now()) or accepted_by = (select auth.uid())));
 
 create policy moderator_invitations_insert_admin on nestly.moderator_invitations
   for insert to authenticated
@@ -81,17 +87,20 @@ create policy moderator_invitations_update_admin on nestly.moderator_invitations
   using ((select nestly.caller_staff_role()) = 'admin' and accepted_by is null and revoked_at is null)
   with check ((select nestly.caller_staff_role()) = 'admin' and accepted_by is null and revoked_at is not null);
 
+-- no staff member (the Admin included) marks an invitation as theirs
 create policy moderator_invitations_update_invitee on nestly.moderator_invitations
   for update to authenticated
-  using (code_hash = (select nestly.moderator_invite_hash()) and accepted_by is null and revoked_at is null and expires_at > now())
-  with check (accepted_by = (select auth.uid()) and revoked_at is null);
+  using (code_hash = (select nestly.moderator_invite_hash()) and accepted_by is null and revoked_at is null and expires_at > now()
+    and (select nestly.caller_staff_role()) is null)
+  with check (accepted_by = (select auth.uid()) and revoked_at is null and (select nestly.caller_staff_role()) is null);
 
 revoke all on table nestly.moderator_invitations from public, anon;
 grant select on table nestly.moderator_invitations to authenticated;
 grant insert (code_hash, note) on table nestly.moderator_invitations to authenticated;
 grant update (accepted_by, revoked_at) on table nestly.moderator_invitations to authenticated;
 
--- The state moves once, stamped by the database: revoked by the Admin, or accepted by the caller who just became a Moderator with it.
+-- The state moves once, stamped by the database: revoked by the Admin while open, or marked by an account that has no Nestly row yet
+-- (it becomes the Moderator in the same transaction; the deferred foreign key holds it to that).
 create function nestly.moderator_invitations_guard()
 returns trigger
 language plpgsql
@@ -108,8 +117,8 @@ begin
   if new.accepted_by is distinct from old.accepted_by then
     if old.accepted_by is not null or old.revoked_at is not null or old.expires_at <= pg_catalog.now()
        or new.accepted_by is distinct from auth.uid()
-       or not exists (select 1 from nestly.staff_roles sr where sr.user_id = auth.uid() and sr.account_type = 'moderator') then
-      raise exception 'moderator_invitations: an invitation is accepted once, by the Moderator it created' using errcode = '42501';
+       or exists (select 1 from nestly.users u where u.id = auth.uid()) then
+      raise exception 'moderator_invitations: an open invitation is redeemed once, by an account that has no Nestly row yet' using errcode = '42501';
     end if;
     new.accepted_at := pg_catalog.now();
   end if;
@@ -123,20 +132,29 @@ create trigger moderator_invitations_guard
   before update on nestly.moderator_invitations
   for each row execute function nestly.moderator_invitations_guard();
 
--- 2. A Moderator account from a valid invitation (and its staff_roles mirror, written by users_staff_mirror as the caller) -----------
+-- 2. A Moderator account from the invitation the caller marked in this transaction (and its staff_roles mirror) ----------------------
+create function nestly.caller_redeemed_invitation()
+returns boolean
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select exists (select 1 from nestly.moderator_invitations i
+                  where i.code_hash = nestly.moderator_invite_hash() and i.accepted_by = auth.uid())
+$$;
+
+revoke execute on function nestly.caller_redeemed_invitation() from public;
+grant execute on function nestly.caller_redeemed_invitation() to authenticated;
+
 create policy users_insert_moderator on nestly.users
   for insert to authenticated
-  with check (id = (select auth.uid()) and account_type = 'moderator' and status = 'active'
-    and exists (select 1 from nestly.moderator_invitations i
-                 where i.code_hash = (select nestly.moderator_invite_hash())
-                   and i.accepted_by is null and i.revoked_at is null and i.expires_at > now()));
+  with check (id = (select auth.uid()) and account_type = 'moderator' and status = 'active' and (select nestly.caller_redeemed_invitation()));
 
 create policy staff_roles_insert_invited on nestly.staff_roles
   for insert to authenticated
   with check (user_id = (select auth.uid()) and account_type = 'moderator' and account_status = 'active'
-    and exists (select 1 from nestly.moderator_invitations i
-                 where i.code_hash = (select nestly.moderator_invite_hash())
-                   and i.accepted_by is null and i.revoked_at is null and i.expires_at > now()));
+    and (select nestly.caller_redeemed_invitation()));
 
 grant insert (user_id, account_type, account_status) on table nestly.staff_roles to authenticated;
 
@@ -206,6 +224,8 @@ begin
     end if;
     if new.status = 'published' then new.published_at := pg_catalog.now(); end if;
     if new.status = 'removed' then new.removed_at := pg_catalog.now(); end if;
+  elsif new.title is not distinct from old.title and new.body is not distinct from old.body then
+    return null; -- nothing changes: no row is written and nothing is audited
   end if;
   new.updated_at := pg_catalog.now();
   return new;
@@ -233,19 +253,25 @@ revoke execute on function nestly.analytics_reader() from public;
 grant execute on function nestly.analytics_reader() to authenticated;
 
 create policy users_select_analytics on nestly.users
-  for select to authenticated using ((select nestly.analytics_reader()));
+  for select to authenticated using (pg_catalog.current_setting('nestly.analytics_view', true) = 'on' and (select nestly.analytics_reader()));
 create policy posts_select_analytics on nestly.posts
-  for select to authenticated using ((select nestly.is_active_account()) and (select nestly.analytics_reader()));
+  for select to authenticated
+  using (pg_catalog.current_setting('nestly.analytics_view', true) = 'on' and (select nestly.is_active_account()) and (select nestly.analytics_reader()));
 create policy comments_select_analytics on nestly.comments
-  for select to authenticated using ((select nestly.is_active_account()) and (select nestly.analytics_reader()));
+  for select to authenticated
+  using (pg_catalog.current_setting('nestly.analytics_view', true) = 'on' and (select nestly.is_active_account()) and (select nestly.analytics_reader()));
 create policy reactions_select_analytics on nestly.reactions
-  for select to authenticated using ((select nestly.is_active_account()) and (select nestly.analytics_reader()));
+  for select to authenticated
+  using (pg_catalog.current_setting('nestly.analytics_view', true) = 'on' and (select nestly.is_active_account()) and (select nestly.analytics_reader()));
 create policy reports_select_analytics on nestly.reports
-  for select to authenticated using ((select nestly.is_active_account()) and (select nestly.analytics_reader()));
+  for select to authenticated
+  using (pg_catalog.current_setting('nestly.analytics_view', true) = 'on' and (select nestly.is_active_account()) and (select nestly.analytics_reader()));
 create policy user_enforcements_select_analytics on nestly.user_enforcements
-  for select to authenticated using ((select nestly.is_active_account()) and (select nestly.analytics_reader()));
+  for select to authenticated
+  using (pg_catalog.current_setting('nestly.analytics_view', true) = 'on' and (select nestly.is_active_account()) and (select nestly.analytics_reader()));
 create policy friendships_select_analytics on nestly.friendships
-  for select to authenticated using ((select nestly.is_active_account()) and (select nestly.analytics_reader()));
+  for select to authenticated
+  using (pg_catalog.current_setting('nestly.analytics_view', true) = 'on' and (select nestly.is_active_account()) and (select nestly.analytics_reader()));
 
 -- 5. The audit trigger, replaced with the invitation and announcement branches -----------------------------------------------------
 create or replace function nestly.audit_trigger()
@@ -347,7 +373,7 @@ begin
     v_target := (v_new ->> 'media_id')::uuid;
     v_after := pg_catalog.jsonb_build_object('isChild', v_new -> 'is_child', 'purgeAfter', v_new ->> 'purge_after');
   elsif tg_table_name = 'moderator_invitations' then
-    -- FR-ADMIN-004: the Admin invites (or revokes an invitation); the invited person joins as a Moderator. Never the code or its hash.
+    -- FR-ADMIN-004: the Admin invites or revokes an invitation (its redemption is audited on staff_roles). Never the code or its hash.
     if tg_op = 'INSERT' then
       v_key := 'MODERATOR_MANAGE';
       v_action := 'moderator_invited';
@@ -361,11 +387,13 @@ begin
       v_target := (v_new ->> 'id')::uuid;
       v_before := pg_catalog.jsonb_build_object('note', v_old ->> 'note');
     else
-      v_action := 'moderator_joined';
-      v_kind := 'user';
-      v_target := (v_new ->> 'accepted_by')::uuid;
-      v_after := pg_catalog.jsonb_build_object('invitationId', v_new ->> 'id', 'note', v_new ->> 'note');
+      raise exception 'audit_trigger: only an invitation issued or revoked is audited here' using errcode = '42501';
     end if;
+  elsif tg_table_name = 'staff_roles' then
+    -- FR-ADMIN-004: a Moderator created from an invitation (the new staff role exists now, so the entry carries it as the actor).
+    v_action := 'moderator_joined';
+    v_kind := 'user';
+    v_target := (v_new ->> 'user_id')::uuid;
   elsif tg_table_name = 'system_announcements' then
     -- FR-ADMIN-008, AC-049: created, edited, published or removed. Before/After carry the status, the title and the body's length.
     v_key := 'SYSTEM_ANNOUNCEMENTS';
@@ -392,9 +420,19 @@ revoke execute on function nestly.audit_trigger() from public;
 
 comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement, an Admin''s creation, edit, publication or hiding of a status guide, a staff decision on an image or a suspicion marked on one, a Moderator invitation issued, revoked or redeemed, or a System Announcement created, edited, published or removed: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
 
-create trigger moderator_invitations_audit
-  after insert or update on nestly.moderator_invitations
+create trigger moderator_invitations_audit_insert
+  after insert on nestly.moderator_invitations
   for each row execute function nestly.audit_trigger();
+
+create trigger moderator_invitations_audit_revoke
+  after update of revoked_at on nestly.moderator_invitations
+  for each row when (old.revoked_at is null and new.revoked_at is not null)
+  execute function nestly.audit_trigger();
+
+create trigger staff_roles_joined_audit
+  after insert on nestly.staff_roles
+  for each row when (new.account_type = 'moderator')
+  execute function nestly.audit_trigger();
 
 create trigger system_announcements_audit
   after insert or update on nestly.system_announcements
@@ -404,7 +442,7 @@ create trigger system_announcements_audit
 comment on table nestly.moderator_invitations is 'FR-ADMIN-004 (create a Moderator): a one-time invitation the Admin issues. Only the SHA-256 of its random code is kept; the code is shown once. Redeemed in one transaction with the new Moderator account (users_insert_moderator); valid 7 days; the Admin revokes an open one. Audited.';
 comment on column nestly.moderator_invitations.id is 'The invitation.';
 comment on column nestly.moderator_invitations.code_hash is 'SHA-256 (hex) of the one-time code; the code itself is never stored.';
-comment on column nestly.moderator_invitations.note is 'Who it is for, in the Admin''s words (2-80 characters); shown to the Admin only.';
+comment on column nestly.moderator_invitations.note is 'Who it is for, in the Admin''s words (2-80 characters). Readable by the Admin and, while it is open or theirs, by the holder of the code; the screens show it to the Admin only.';
 comment on column nestly.moderator_invitations.invited_by is 'The Admin who issued it (default auth.uid()).';
 comment on column nestly.moderator_invitations.created_at is 'When it was issued.';
 comment on column nestly.moderator_invitations.expires_at is 'Seven days after issue; an expired invitation cannot be redeemed.';
@@ -412,14 +450,15 @@ comment on column nestly.moderator_invitations.accepted_by is 'The Moderator acc
 comment on column nestly.moderator_invitations.accepted_at is 'When it was redeemed (the database clock).';
 comment on column nestly.moderator_invitations.revoked_at is 'When the Admin revoked it (the database clock); a revoked invitation cannot be redeemed.';
 comment on function nestly.moderator_invite_hash() is 'SECURITY INVOKER. The hash of the invitation code the server named in this transaction (nestly.moderator_invite), or NULL.';
-comment on function nestly.moderator_invitations_guard() is 'BEFORE UPDATE, SECURITY INVOKER. An invitation moves once: revoked by the Admin while open, or accepted by the caller who is now the Moderator it created, before it expires. The times are the database''s.';
+comment on function nestly.moderator_invitations_guard() is 'BEFORE UPDATE, SECURITY INVOKER. An invitation moves once: revoked by the Admin while open, or marked before it expires by a caller that has no Nestly row yet (the deferred foreign key then requires that caller''s Moderator account by commit). The times are the database''s.';
 comment on policy moderator_invitations_select_admin on nestly.moderator_invitations is 'The Admin reads every invitation (FR-ADMIN-004, PG-027).';
 comment on policy moderator_invitations_select_invitee on nestly.moderator_invitations is 'Whoever holds the code (its hash named in nestly.moderator_invite) reads that one invitation.';
 comment on policy moderator_invitations_insert_admin on nestly.moderator_invitations is 'The Admin issues an invitation naming itself.';
 comment on policy moderator_invitations_update_admin on nestly.moderator_invitations is 'The Admin revokes an open invitation.';
-comment on policy moderator_invitations_update_invitee on nestly.moderator_invitations is 'The holder of the code marks a valid open invitation as theirs (with the guard: only once they are its Moderator).';
-comment on policy users_insert_moderator on nestly.users is 'FR-ADMIN-004: an Auth account becomes a Moderator only with a valid open invitation whose code it holds (nestly.moderator_invite); no key comes with it (deny by default, BR-023).';
-comment on policy staff_roles_insert_invited on nestly.staff_roles is 'The staff mirror of a Moderator created from a valid invitation (users_staff_mirror runs as the caller).';
+comment on policy moderator_invitations_update_invitee on nestly.moderator_invitations is 'The holder of the code, never a staff member, marks a valid open invitation as theirs (with the guard: only an account with no Nestly row yet).';
+comment on policy users_insert_moderator on nestly.users is 'FR-ADMIN-004: an Auth account becomes a Moderator only with the invitation it marked in this transaction (its code named in nestly.moderator_invite); no key comes with it (deny by default, BR-023).';
+comment on policy staff_roles_insert_invited on nestly.staff_roles is 'The staff mirror of a Moderator created from an invitation (users_staff_mirror runs as the caller); its insert is audited as moderator_joined (staff_roles_joined_audit).';
+comment on function nestly.caller_redeemed_invitation() is 'SECURITY INVOKER. Whether the invitation whose code the server named in this transaction is marked as the caller''s (read through moderator_invitations_select_invitee).';
 comment on table nestly.system_announcements is 'SRS SystemAnnouncement (FR-ADMIN-008, PG-032): an official announcement. draft -> published -> removed (final), or draft -> removed. SYSTEM_ANNOUNCEMENTS (the Admin always) writes and reads all; every active account reads the published ones. Audited.';
 comment on column nestly.system_announcements.id is 'The announcement.';
 comment on column nestly.system_announcements.title is 'The title, 2-80 characters.';
