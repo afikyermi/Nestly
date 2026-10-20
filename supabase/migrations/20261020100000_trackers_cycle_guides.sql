@@ -138,7 +138,7 @@ create policy tracker_events_insert_own on nestly.tracker_events
   for insert to authenticated
   with check (user_id = (select auth.uid()) and (select nestly.is_active_account())
     and (select nestly.caller_account_type()) = 'regular'
-    and exists (select 1 from nestly.children c where c.id = tracker_events.child_id));
+    and exists (select 1 from nestly.children c where c.id = tracker_events.child_id and c.user_id = (select auth.uid())));
 create policy tracker_events_update_own on nestly.tracker_events
   for update to authenticated
   using (user_id = (select auth.uid()) and (select nestly.is_active_account()))

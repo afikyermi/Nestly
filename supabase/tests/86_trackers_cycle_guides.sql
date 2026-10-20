@@ -70,6 +70,12 @@ select set_eq(
 select set_eq(
   $$ select a.attname::text from pg_catalog.pg_attribute a
       where a.attrelid = pg_temp.rel('cycle_entries') and a.attnum > 0 and not a.attisdropped
+        and has_column_privilege('authenticated', a.attrelid, a.attnum, 'UPDATE') $$,
+  $$ values ('start_date'), ('cycle_length_days') $$,
+  '[I6] authenticated can UPDATE exactly start_date and cycle_length_days of cycle_entries');
+select set_eq(
+  $$ select a.attname::text from pg_catalog.pg_attribute a
+      where a.attrelid = pg_temp.rel('cycle_entries') and a.attnum > 0 and not a.attisdropped
         and has_column_privilege('authenticated', a.attrelid, a.attnum, 'INSERT') $$,
   $$ values ('start_date'), ('cycle_length_days') $$,
   '[I6 rules 12 13] authenticated can INSERT exactly start_date and cycle_length_days');
@@ -102,7 +108,7 @@ select is(pg_temp.dml('a', pg_temp.ev((select b1 from zz_i6), 'bottle', 'occurre
   '[I6 layer 9] and the reverse (42501)');
 select is(pg_temp.dml('a', format($q$ insert into nestly.tracker_events (user_id, child_id, kind, occurred_at, amount_ml) values (%L, %L, 'bottle', now(), 50) $q$,
   pg_temp.id('b'), (select a1 from zz_i6))), 'ERR:42501', '[I6 rule 12] the owner column cannot be sent (42501)');
-select is(pg_temp.dml('p', pg_temp.ev(gen_random_uuid(), 'bath', 'occurred_at', 'now()')), 'ERR:42501', '[I6] a Professional cannot log an event (42501)');
+select is(pg_temp.dml('p', pg_temp.ev((select a1 from zz_i6), 'bath', 'occurred_at', 'now()')), 'ERR:42501', '[I6] a Professional cannot log an event, even naming a real child (42501)');
 select is(tests.fx_te_count(), 1::bigint, '[I6] the refusals wrote no row');
 
 select tests.set_status(pg_temp.id('a'), 'suspended');
@@ -187,8 +193,15 @@ select is(pg_temp.dml('a', $$ insert into nestly.cycle_entries (start_date, cycl
 select is(pg_temp.dml('a', format($q$ insert into nestly.cycle_entries (user_id, start_date, cycle_length_days) values (%L, '2026-08-20', 28) $q$, pg_temp.id('b'))), 'ERR:42501', '[I6 rule 12] the owner column cannot be sent (42501)');
 select is(pg_temp.dml('p', $$ insert into nestly.cycle_entries (start_date, cycle_length_days) values ('2026-08-20', 28) $$), 'ERR:42501', '[I6] a Professional cannot save a cycle entry (42501)');
 select is(pg_temp.dml('a', $$ update nestly.cycle_entries set cycle_length_days = 30 $$), 'OK:1', '[I6 CRUD] the owner edits the length');
+select is(pg_temp.dml('a', format($q$ update nestly.cycle_entries set user_id = %L $q$, pg_temp.id('b'))), 'ERR:42501', '[I6 rule 12] the owner of an entry cannot be changed (42501)');
 select tests.set_status(pg_temp.id('a'), 'suspended');
 select is(tests.n_as(pg_temp.id('a'), 'nestly.cycle_entries'), '0', '[I6 rule 15] a suspended owner reads 0');
+select is(pg_temp.dml('a', 'update nestly.cycle_entries set cycle_length_days = 29'), 'OK:0', '[I6 rule 15] a suspended owner updates 0 entries');
+select is(pg_temp.dml('a', 'delete from nestly.cycle_entries'), 'OK:0', '[I6 rule 15] a suspended owner deletes 0 entries');
+select tests.set_status(pg_temp.id('a'), 'banned');
+select is(pg_temp.dml('a', 'update nestly.cycle_entries set cycle_length_days = 29'), 'OK:0', '[I6 rule 15] a banned owner updates 0 entries');
+select is(pg_temp.dml('a', 'delete from nestly.cycle_entries'), 'OK:0', '[I6 rule 15] a banned owner deletes 0 entries');
+select tests.set_status(pg_temp.id('a'), 'suspended');
 select is(pg_temp.dml('a', $$ insert into nestly.cycle_entries (start_date, cycle_length_days) values ('2026-08-20', 28) $$), 'ERR:42501', '[I6 rule 15] a suspended owner cannot write (42501)');
 select tests.set_status(pg_temp.id('a'), 'active');
 select is(pg_temp.dml('a', 'delete from nestly.cycle_entries'), 'OK:1', '[I6 CRUD] the owner deletes the entry');
@@ -217,7 +230,7 @@ select is(pg_temp.dml('a', $$ insert into nestly.status_guides (stage_kind, titl
 select is(tests.fx_sg_exec(format($q$ update nestly.status_guides set status = 'hidden' where id = %L $q$, tests.fx_sg_id('planning'))), 'OK:1', '[I6 AC-095] a guide is hidden');
 select is(tests.n_as(pg_temp.id('a'), 'nestly.status_guides'), '0', '[I6 AC-095] and no user reads it');
 select is(tests.fx_sg_exec(format($q$ update nestly.status_guides set range_from = 5 where id = %L $q$, tests.fx_sg_id('planning'))), 'ERR:23514', '[I6] a planning guide has no range (23514)');
-select is(tests.fx_sg_exec(format($q$ update nestly.status_guides set range_to = 5 where id = %L $q$, tests.fx_sg_id('pregnancy', 14))), 'OK:1', '[I6] a pregnancy range inside 1..42 passes');
+select is(tests.fx_sg_exec(format($q$ update nestly.status_guides set range_to = 20 where id = %L $q$, tests.fx_sg_id('pregnancy', 14))), 'OK:1', '[I6] a pregnancy range inside 1..42 passes');
 select is(tests.fx_sg_exec(format($q$ update nestly.status_guides set range_to = 43 where id = %L $q$, tests.fx_sg_id('pregnancy', 14))), 'ERR:23514', '[I6] a pregnancy range past week 42 is refused');
 select is(tests.fx_sg_count(), 9::bigint, '[I6] no guide was added or removed by the refusals');
 
