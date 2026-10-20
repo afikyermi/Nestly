@@ -51,7 +51,6 @@ export const ACTION_LABELS: Record<string, string> = {
   author_revealed: 'חשיפת מחבר אנונימי',
   report_handled: 'סגירת דיווח',
   report_reason_changed: 'שינוי סיבת דיווח',
-  recovery_lock_released: 'שחרור נעילת שחזור',
 };
 export const TARGET_LABELS: Record<string, string> = {
   user: 'משתמש',

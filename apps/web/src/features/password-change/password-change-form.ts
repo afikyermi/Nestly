@@ -2,6 +2,7 @@ import { registrationCredentialsInput } from '@nestly/shared';
 import { GENERIC_ERROR_TEXT } from '@/lib/auth-texts';
 import { checkAnswers, type AnswerEntry, type AnswerErrors, type AnswerValues } from '@/lib/recovery-answers';
 import {
+  RECOVERY_LOCKED_DAY_TEXT,
   RECOVERY_LOCKED_TEXT,
   RECOVERY_MISMATCH_TEXT,
   RECOVERY_PASSWORD_LENGTH_TEXT,
@@ -19,6 +20,7 @@ export const CHANGED_TEXT = 'הסיסמה הוחלפה. שאר המכשירים 
 const FAILURE_TEXTS: Record<Exclude<RecoveryOutcome, 'done'>, string> = {
   mismatch: RECOVERY_MISMATCH_TEXT, // ERR-042
   locked: RECOVERY_LOCKED_TEXT, // ERR-043
+  'locked-day': RECOVERY_LOCKED_DAY_TEXT, // ERR-043, the ladder's 24-hour lock (NFR-SEC-010)
   unavailable: RECOVERY_UNAVAILABLE_TEXT, // ERR-044
   failed: GENERIC_ERROR_TEXT,
 };
