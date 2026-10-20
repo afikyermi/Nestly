@@ -61,8 +61,10 @@ The purge schedule: pg_cron runs `nestly.purge_held_content()` daily at 03:17 UT
    it switches to `app_jobs` before the purge (command `set role app_jobs; select nestly.purge_held_content()`).
    After this, `01-roles-check.sql` expects the extra `postgres(i=f s=t a=f) by postgres` row on `app_jobs`.
 3. Run `03-cron-check.sql`. Expect one row with `ok = true`. The expected values are in its header.
-4. The first `succeeded` row in `cron.job_run_details` for the job proves it runs (E1 in
-   `.work/i3-rest-schema/schema.md`): on nestly-preview, look the next day, before running this on prod.
+4. Before prod: on nestly-preview run `03-cron.sql`, `03-cron-check.sql` and `supabase/ci/cron-e1.sql`; expect the
+   "E1 passed" notice, then check that `cron.job` holds no e1 probe jobs (`select jobname from cron.job where jobname like 'nestly_e1%'`
+   returns nothing). The next day, a `succeeded` row in `cron.job_run_details` for the real job proves it runs. Only then
+   does Afik run step 3 on prod.
 
 Undo: `03-cron-down.sql` (the extension stays). Run it before the down script of `20261018200000_feed_interactions`,
 which drops the function the job calls. It is safe to run twice, and afterwards the step-1 check is back to its

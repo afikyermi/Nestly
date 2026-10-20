@@ -25,8 +25,8 @@ index 91335ef..0a13871 100644
 +          esac
 +          roles="$(psql -X -q -A -t -F ' | ' -v ON_ERROR_STOP=1 -f supabase/bootstrap/01-roles-check.sql)"
 +          echo "${roles}"
-+          if echo "${roles}" | awk -F ' [|] ' '$2 != "t" { bad = 1 } END { exit !bad }'; then
-+            echo "::error::01-roles-check.sql: a role is not ok after step 3"
++          if [ -z "${roles}" ] || [ "$(echo "${roles}" | wc -l)" -ne 4 ] || echo "${roles}" | awk -F ' [|] ' '$2 != "t" { bad = 1 } END { exit !bad }'; then
++            echo "::error::01-roles-check.sql: expected 4 role rows, all ok, after step 3"
 +            exit 1
 +          fi
 +

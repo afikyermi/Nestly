@@ -26,6 +26,12 @@ end
 $$;
 
 revoke app_jobs from postgres;
-revoke usage on schema cron from app_jobs;
+do $$
+begin
+  if to_regnamespace('cron') is not null then
+    revoke usage on schema cron from app_jobs;
+  end if;
+end
+$$;
 
 commit;
