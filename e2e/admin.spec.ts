@@ -127,7 +127,7 @@ test.describe('[I4 FR-MOD-002] accounts and enforcement', () => {
     await expect(page.getByText('לא נמצאו משתמשים')).toHaveCount(0);
     await page.getByLabel('חיפוש לפי שם').fill('רינה');
     await page.getByRole('button', { name: 'חיפוש', exact: true }).click();
-    await page.getByRole('listitem').filter({ hasText: 'רינה כהן' }).getByRole('button', { name: 'פתיחת החשבון של רינה כהן' }).click();
+    await page.getByRole('listitem').filter({ hasText: 'רינה כהן' }).getByRole('button', { name: 'פתיחה החשבון של רינה כהן' }).click();
     const panel = page.getByRole('region', { name: 'אכיפה' });
     await expect(panel).toContainText('המדרג מציע: אזהרה');
     await panel.getByRole('button', { name: 'ביצוע הפעולה' }).click();

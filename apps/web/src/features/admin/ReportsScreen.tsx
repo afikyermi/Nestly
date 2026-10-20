@@ -21,7 +21,7 @@ import {
   NOT_APPLICABLE_TEXT,
   NOT_FOUND_TEXT,
   OPEN_ITEM_LABEL,
-  openItemLabel,
+  openItemRest,
   PRIORITY_LABELS,
   QUEUE_EMPTY_TEXT,
   QUEUE_LIST_LABEL,
@@ -230,8 +230,9 @@ export function ReportsScreen({ permissions }: { permissions: readonly Permissio
                 </p>
                 {item.isRising ? <p className="text-small">{RISING_TEXT}</p> : null}
               </div>
-              <Button variant="soft" aria-label={openItemLabel(KIND_LABELS[item.targetKind], item.topReasonLabel)} onClick={() => void loadDetail(item)}>
+              <Button variant="soft" onClick={() => void loadDetail(item)}>
                 {OPEN_ITEM_LABEL}
+                <span className="sr-only"> {openItemRest(KIND_LABELS[item.targetKind], item.topReasonLabel)}</span>
               </Button>
             </li>
           ))}

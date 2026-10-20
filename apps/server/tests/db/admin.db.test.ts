@@ -291,7 +291,9 @@ describe('[I4 FR-MOD-002 BR-074 AC-027 AC-028 AC-107 AC-110] enforcement', () =>
 
   it('the user list needs USER_VIEW and a search narrows it by name', T, async () => {
     const all = await listUsers(database, id(banner), 'Rina');
-    expect(all.kind === 'ok' && all.users.length > 0 && all.users.every((u) => u.fullName === 'Rina Reporter')).toBe(true);
+    // other test files leave accounts behind, so: every row matches the text, and the account searched for is among them
+    expect(all.kind === 'ok' && all.users.every((u) => (u.fullName ?? '').toLowerCase().includes('rina'))).toBe(true);
+    expect(all.kind === 'ok' && all.users.some((u) => u.userId === reporter && u.fullName === 'Rina Reporter')).toBe(true);
     expect((await readUser(database, id(banner), NOBODY)).kind).toBe('not_found');
   });
 });

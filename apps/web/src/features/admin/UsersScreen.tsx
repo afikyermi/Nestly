@@ -19,7 +19,7 @@ import {
   NOT_APPLICABLE_TEXT,
   NOT_FOUND_TEXT,
   OPEN_USER_LABEL,
-  openUserLabel,
+  openUserRest,
   REASON_REQUIRED_TEXT,
   SEARCH_BUTTON_LABEL,
   SEARCH_LABEL,
@@ -128,8 +128,9 @@ export function UsersScreen({ permissions }: { permissions: readonly PermissionK
               <p>
                 {row.fullName ?? NO_NAME_TEXT} · {ACCOUNT_TYPE_LABELS[row.accountType]} · {STATUS_LABELS[row.status]}
               </p>
-              <Button variant="soft" aria-label={openUserLabel(row.fullName ?? NO_NAME_TEXT)} onClick={() => void open(row.userId)}>
+              <Button variant="soft" onClick={() => void open(row.userId)}>
                 {OPEN_USER_LABEL}
+                <span className="sr-only"> {openUserRest(row.fullName ?? NO_NAME_TEXT)}</span>
               </Button>
             </li>
           ))}

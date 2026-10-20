@@ -72,8 +72,8 @@ export const PRIORITY_LABELS: Record<number, string> = { 1: 'עדיפות עלי
 export const RISING_TEXT = 'עלה בתור (3 דיווחים או יותר)';
 export const reportCountText = (n: number): string => (n === 1 ? 'דיווח אחד' : `${n.toLocaleString('en-US')} דיווחים`);
 export const OPEN_ITEM_LABEL = 'פתיחת הדיווח';
-/** The accessible name of a queue line's button: which line it opens. */
-export const openItemLabel = (kind: string, reason: string): string => `${OPEN_ITEM_LABEL}: ${kind}, ${reason}`;
+/** Read after the visible label by screen readers only: which line the button opens. */
+export const openItemRest = (kind: string, reason: string): string => `${kind}, ${reason}`;
 export const DETAIL_TITLE = 'פרטי הדיווח';
 export const CONTENT_HEADING = 'התוכן המדווח';
 export const CONTENT_GONE_TEXT = 'התוכן כבר לא קיים';
@@ -105,8 +105,8 @@ export const ACCOUNT_TYPE_LABELS = { regular: 'הורה', professional: 'בעל 
 export const STATUS_LABELS = { active: 'פעיל', suspended: 'מושעה', banned: 'חסום' } as const;
 export const NO_NAME_TEXT = 'ללא שם';
 export const OPEN_USER_LABEL = 'פתיחה';
-/** The accessible name of an account line's button: whose account it opens. */
-export const openUserLabel = (name: string): string => `פתיחת החשבון של ${name}`;
+/** Read after the visible label by screen readers only: whose account the button opens. */
+export const openUserRest = (name: string): string => `החשבון של ${name}`;
 export const BACK_TO_LIST_LABEL = 'חזרה לרשימה';
 export const ENFORCEMENT_HEADING = 'אכיפה';
 export const HISTORY_HEADING = 'היסטוריית אכיפה';
