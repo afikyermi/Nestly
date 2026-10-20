@@ -4,12 +4,13 @@
 //   POST {admin}/content/moderate  { targetKind, targetId, status, reason }                                    → 200 {}
 //   POST {admin}/reports/reveal    { postId }                                                                  → 200 { userId, fullName }
 //   POST {admin}/enforcements      { userId, kind, reason, durationHours?, reportId?, childSafety? }           → 200 the account's state
+//   POST {admin}/recovery-releases { userId, reason? }                                                         → 200 {} (FR-ADMIN-013, the Admin only)
 //   all: 400 invalid | reason_required · 401/503 session guard · 403 forbidden · 404 not_found · 409 not_applicable · 500. Any other method → 405.
 
-import { checkEnforce, checkHandleReports, checkModerateContent, checkRevealAuthor } from '@nestly/shared';
+import { checkEnforce, checkHandleReports, checkModerateContent, checkRecoveryRelease, checkRevealAuthor } from '@nestly/shared';
 import type { FastifyInstance, RouteHandlerMethod } from 'fastify';
 import type { Database } from '../db/client.js';
-import { enforce, handleReports, moderateContent, revealAnonymousAuthor } from '../services/admin-service.js';
+import { enforce, handleReports, moderateContent, releaseRecoveryLock, revealAnonymousAuthor } from '../services/admin-service.js';
 import { answer } from './admin-reply.js';
 
 /** {admin} in the route list above. */
@@ -69,5 +70,14 @@ export function registerAdminActionRoutes(app: FastifyInstance, deps: AdminActio
       () => enforce(database, identity, body.value),
       (ok) => ({ status: ok.user.status, suspendedUntil: ok.user.suspendedUntil }),
     );
+  });
+
+  post(`${ADMIN}/recovery-releases`, (request, reply) => {
+    const body = checkRecoveryRelease(request.body);
+    if (!body.ok) return reply.code(400).send({ error: 'invalid' });
+    if (request.identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
+    const { identity } = request;
+    const database = deps.database;
+    return answer(request, reply, 'admin recovery release failed', () => releaseRecoveryLock(database, identity, body.value), () => ({}));
   });
 }

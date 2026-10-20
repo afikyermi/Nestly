@@ -19,12 +19,12 @@ export function AdminReportsPage() {
 }
 
 export function AdminUsersPage() {
-  const { permissions } = useOutletContext<AdminContext>();
+  const { permissions, role } = useOutletContext<AdminContext>();
   return (
     <>
       <title>{documentTitle(USERS_TITLE)}</title>
       <h2 className="mb-4 text-h3">{USERS_TITLE}</h2>
-      <UsersScreen permissions={permissions} />
+      <UsersScreen permissions={permissions} role={role} />
     </>
   );
 }

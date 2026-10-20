@@ -8,7 +8,9 @@
 //   5. read the declared handle's answers row (zero or one), after both locks so a concurrent change is seen;
 //   6. compute exactly two scrypt hashes and compare them in constant time. A missing row, or a stored pair that is not
 //      the submitted pair, is run against a fixed dummy salt, so every failure costs the same two computations;
-//   7. on a mismatch: count one failure on the IP and the handle, append the "failed" event.
+//   7. on a mismatch: count one failure on the IP and one on the handle's lock ladder (NFR-SEC-010: the 3rd locks for 1 hour, the 6th
+//      for 24 hours, the 9th for good), append the "failed" event; on a match the ladder restarts from zero. Before the handle's state
+//      is read, a release by the Admin newer than the ladder's start restarts it (FR-ADMIN-013).
 // The caller then commits (every outcome but a thrown error commits: the counters and the audit are the point).
 // Nothing is logged here, and nothing but hashes, counts and kinds is ever written.
 
@@ -31,12 +33,16 @@ import {
 } from '../recovery/hashing.js';
 import type { RecoveryKeys } from '../recovery/pepper.js';
 import {
+  applyRelease,
   ensureThrottleRow,
   insertEvent,
   lockThrottle,
   markLimitedNoted,
   readDeclaredAnswers,
   recordFailure,
+  recordHandleFailure,
+  recordHandleSuccess,
+  type LadderLimits,
   type RecoveryEvent,
   type ThrottleLimits,
   type ThrottleState,
@@ -54,22 +60,11 @@ export interface AttemptKinds {
 }
 
 export type AttemptResult =
-  | { readonly kind: 'limited'; readonly retryAfterSeconds: number }
+  | { readonly kind: 'limited'; readonly retryAfterSeconds: number; readonly permanent: boolean }
   | { readonly kind: 'mismatch' }
   | { readonly kind: 'match'; readonly userId: string };
 
-const HANDLE_LIMITS: ThrottleLimits = {
-  short: {
-    failures: RECOVERY_LIMITS.handle.shortFailures,
-    windowSeconds: RECOVERY_LIMITS.handle.shortWindowSeconds,
-    lockSeconds: RECOVERY_LIMITS.handle.shortLockSeconds,
-  },
-  long: {
-    failures: RECOVERY_LIMITS.handle.longFailures,
-    windowSeconds: RECOVERY_LIMITS.handle.longWindowSeconds,
-    lockSeconds: RECOVERY_LIMITS.handle.longLockSeconds,
-  },
-};
+const HANDLE_LADDER: LadderLimits = { steps: RECOVERY_LIMITS.handle.ladder, permanentAt: RECOVERY_LIMITS.handle.permanentAt };
 
 const IP_LIMITS: ThrottleLimits = {
   short: {
@@ -132,7 +127,7 @@ async function limited(
     await markLimitedNoted(tx, subject);
     await insertEvent(tx, { kind: kinds.limited, ...event });
   }
-  return { kind: 'limited', retryAfterSeconds: state.retryAfterSeconds };
+  return { kind: 'limited', retryAfterSeconds: state.retryAfterSeconds, permanent: state.permanent };
 }
 
 export async function guardedAttempt(
@@ -153,6 +148,7 @@ export async function guardedAttempt(
   }
 
   await ensureThrottleRow(tx, 'handle', subjects.handle);
+  await applyRelease(tx);
   const handleState = await lockThrottle(tx, 'handle');
   const stored = await readDeclaredAnswers(tx);
   const event = { userId: stored?.userId ?? null, handleHash: subjects.handle, ipHash: subjects.ip };
@@ -160,9 +156,10 @@ export async function guardedAttempt(
 
   if (!(await answersMatch(context, stored, submitted)) || stored === undefined) {
     await recordFailure(tx, 'ip', IP_LIMITS);
-    await recordFailure(tx, 'handle', HANDLE_LIMITS);
+    await recordHandleFailure(tx, HANDLE_LADDER);
     await insertEvent(tx, { kind: kinds.failed, ...event });
     return { kind: 'mismatch' };
   }
+  await recordHandleSuccess(tx);
   return { kind: 'match', userId: stored.userId };
 }

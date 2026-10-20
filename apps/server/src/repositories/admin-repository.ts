@@ -284,6 +284,11 @@ export async function revealAuthor(tx: IdentityTx, postId: string): Promise<{ us
   return row;
 }
 
+/** FR-ADMIN-013: records a release of the account's recovery lock; the policy allows the Admin only, and the audit trigger writes the entry. */
+export async function insertRecoveryRelease(tx: IdentityTx, userId: string, reason: string | undefined): Promise<void> {
+  await tx.execute(sql`insert into nestly.recovery_lock_releases (user_id, reason) values (${userId}::uuid, ${reason ?? null})`);
+}
+
 /** Records one enforcement action; the triggers apply the status change and write the Audit entry. */
 export async function insertEnforcement(tx: IdentityTx, request: EnforceRequest): Promise<void> {
   await enableStaffView(tx);

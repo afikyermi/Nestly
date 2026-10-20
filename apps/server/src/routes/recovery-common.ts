@@ -21,7 +21,9 @@ export function replyInvalidRecovery(reply: FastifyReply): FastifyReply {
   return reply.code(401).send({ error: 'invalid_recovery' });
 }
 
-export function replyRateLimited(reply: FastifyReply, retryAfterSeconds: number): FastifyReply {
+/** ERR-043: a lock is 429 `rate_limited` with retry-after; the permanent lock of the ladder (NFR-SEC-010) is 429 `recovery_locked`, with no retry. */
+export function replyRateLimited(reply: FastifyReply, retryAfterSeconds: number, permanent = false): FastifyReply {
+  if (permanent) return reply.code(429).send({ error: 'recovery_locked' });
   return reply.code(429).header('retry-after', String(retryAfterSeconds)).send({ error: 'rate_limited' });
 }
 

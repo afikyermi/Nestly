@@ -18,10 +18,12 @@ import {
   hexOf,
   ipHex,
   kinds,
+  ladder,
   newAccount,
   nextIp,
   recordsOf,
   resetFor,
+  releaseByAdmin,
   setStatus,
   shift,
   startApp,
@@ -66,6 +68,7 @@ const NONE = '-';
 const OK = '{"ok":true}';
 const INVALID = '{"error":"invalid_recovery"}';
 const LIMITED = '{"error":"rate_limited"}';
+const LOCKED_FOR_GOOD = '{"error":"recovery_locked"}';
 const UNAVAILABLE = '{"error":"unavailable"}';
 
 /** The parts of a response that must not tell two failures apart. */
@@ -191,7 +194,7 @@ describe('[F1.6 c10 c11] every failure is the same 401, with the same work, coun
       const handle = handleHex(ctx, email);
       const res = await attemptReset(h, { ...body, email }, ip);
       expect(res.statusCode, label).toBe(401);
-      expect((await throttle(ctx, 'handle', handle)).split('/')[0], `${label}: handle counter`).toBe('1');
+      expect((await ladder(ctx, handle)).split('/')[0], `${label}: the handle's ladder`).toBe('1');
       expect((await throttle(ctx, 'ip', ipHex(ctx, ip))).split('/')[0], `${label}: IP counter`).toBe('1');
       const last = (await kinds(ctx, handle)).split(',').pop();
       expect(last, `${label}: audit`).toBe('reset_failed');
@@ -204,7 +207,7 @@ describe('[F1.6 c10 c11] every failure is the same 401, with the same work, coun
     const unknown = unknownEmail();
     const seen: string[] = [];
     for (const email of [known.email, unknown]) {
-      for (let i = 1; i <= 5; i += 1) {
+      for (let i = 1; i <= 3; i += 1) {
         const res = await attemptReset(h, resetFor(email, wrongFirst));
         expect(res.statusCode, `${email} #${i}`).toBe(401);
         seen.push(shapeOf(res));
@@ -224,12 +227,12 @@ describe('[F1.6 c10 c11] every failure is the same 401, with the same work, coun
     }
     expect(locked[0]).toBe(locked[1]);
     for (const seconds of retry) {
-      expect(seconds).toBeGreaterThan(1700);
-      expect(seconds).toBeLessThanOrEqual(1800);
+      expect(seconds).toBeGreaterThan(3500);
+      expect(seconds).toBeLessThanOrEqual(3600);
     }
     expect(Math.abs((retry[0] ?? 0) - (retry[1] ?? 0))).toBeLessThanOrEqual(5);
-    expect(await throttle(ctx, 'handle', handleHex(ctx, unknown))).toMatch(/^5\/5\/true\//);
-    expect(await throttle(ctx, 'handle', handleHex(ctx, unknown))).toBe(await throttle(ctx, 'handle', handleHex(ctx, known.email)));
+    expect(await ladder(ctx, handleHex(ctx, unknown))).toBe('3/false/true');
+    expect(await ladder(ctx, handleHex(ctx, unknown))).toBe(await ladder(ctx, handleHex(ctx, known.email)));
   });
 
   it('[F1.6 c10] a wrong attempt never reaches Auth and never changes the stored answers', T, async () => {
@@ -278,16 +281,17 @@ describe('[F1.6 c14] a malformed request is 400, before any lookup, and uncounte
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
-describe('[F1.6 c12] limits: per account, per address, per day; the window ends; the stored address is a keyed hash', () => {
-  it('[F1.6 c12] the 6th attempt on one handle within 30 minutes is 429 with retry-after, even with the right answers and from another address', T, async () => {
+describe('[F1.6 c12 NFR-SEC-010 AC-113] limits: the account\'s lock ladder, the address; the stored address is a keyed hash', () => {
+  it('[AC-113] the 4th attempt on one handle after three failures is 429 with retry-after (about an hour), even with the right answers and from another address', T, async () => {
     const h = await startApp(ctx);
     const account = await accountWithAnswers(ctx, h);
     const handle = handleHex(ctx, account.email);
-    for (let i = 1; i <= 5; i += 1) {
+    for (let i = 1; i <= 3; i += 1) {
       const res = await attemptReset(h, resetFor(account.email, wrongFirst));
       expect(res.statusCode, `failure ${i}: ${res.body}`).toBe(401);
     }
-    const countersBefore = await throttle(ctx, 'handle', handle);
+    const countersBefore = await ladder(ctx, handle);
+    expect(countersBefore).toBe('3/false/true');
     h.spy.reset();
     const limited = await attemptReset(h, resetFor(account.email, RIGHT), nextIp());
     expect(limited.statusCode, limited.body).toBe(429);
@@ -295,77 +299,106 @@ describe('[F1.6 c12] limits: per account, per address, per day; the window ends;
     expect(String(limited.headers['cache-control']).toLowerCase()).toContain('no-store');
     const retry = Number(limited.headers['retry-after']);
     expect(Number.isInteger(retry)).toBe(true);
-    expect(retry).toBeGreaterThan(0);
-    expect(retry).toBeLessThanOrEqual(1800);
+    expect(retry).toBeGreaterThan(3500);
+    expect(retry).toBeLessThanOrEqual(3600);
     expect(h.spy.calls(), 'a limited attempt does no hashing').toBe(0);
     expect(h.admin.calls, 'and never reaches Auth').toEqual([]);
-    expect(await throttle(ctx, 'handle', handle), 'a limited attempt is not a failure: no counter moves').toBe(countersBefore);
+    expect(await ladder(ctx, handle), 'a limited attempt is not a failure: the ladder does not move').toBe(countersBefore);
     expect((await kinds(ctx, handle)).split(',').pop()).toBe('reset_limited');
   });
 
-  it('[F1.6 c12] the 5th failure itself is still a 401 (the lock starts after it), and the lock does not depend on the address', T, async () => {
+  it('[AC-113] the 3rd failure itself is still a 401 (the lock starts after it), and the lock does not depend on the address', T, async () => {
     const h = await startApp(ctx);
     const account = await accountWithAnswers(ctx, h);
-    const fifth: string[] = [];
-    for (let i = 1; i <= 5; i += 1) fifth.push((await attemptReset(h, resetFor(account.email, wrongFirst))).body);
-    expect(fifth.every((body) => body === INVALID)).toBe(true);
+    const third: string[] = [];
+    for (let i = 1; i <= 3; i += 1) third.push((await attemptReset(h, resetFor(account.email, wrongFirst))).body);
+    expect(third.every((body) => body === INVALID)).toBe(true);
     for (let i = 0; i < 3; i += 1) expect((await attemptReset(h, resetFor(account.email, RIGHT))).statusCode).toBe(429);
   });
 
-  it('[F1.6 c12] after the window a correct attempt succeeds (the lock and the window are over)', T, async () => {
+  it('[AC-113] after the hour a correct attempt succeeds and restarts the ladder from zero', T, async () => {
     const h = await startApp(ctx);
     const account = await accountWithAnswers(ctx, h);
     const handle = handleHex(ctx, account.email);
-    for (let i = 0; i < 5; i += 1) await attemptReset(h, resetFor(account.email, wrongFirst));
+    for (let i = 0; i < 3; i += 1) await attemptReset(h, resetFor(account.email, wrongFirst));
     expect((await attemptReset(h, resetFor(account.email, RIGHT))).statusCode).toBe(429);
-    await shift(ctx, 'handle', handle, '29 minutes');
-    expect((await attemptReset(h, resetFor(account.email, RIGHT))).statusCode, 'still locked 29 minutes in').toBe(429);
+    await shift(ctx, 'handle', handle, '59 minutes');
+    expect((await attemptReset(h, resetFor(account.email, RIGHT))).statusCode, 'still locked 59 minutes in').toBe(429);
     await shift(ctx, 'handle', handle, '2 minutes');
     const later = await attemptReset(h, resetFor(account.email, RIGHT));
     expect(later.statusCode, later.body).toBe(200);
     expect(h.admin.calls).toHaveLength(1);
+    expect(await ladder(ctx, handle), 'a success restarts the count').toBe('0/false/false');
   });
 
-  it('[F1.6 c12] failures spread over more than 30 minutes do not lock: the window does not slide', T, async () => {
+  it('[NFR-SEC-010] failures are counted with no window: spread over days they still climb the ladder', T, async () => {
     const h = await startApp(ctx);
     const account = await accountWithAnswers(ctx, h);
     const handle = handleHex(ctx, account.email);
-    for (let i = 0; i < 4; i += 1) await attemptReset(h, resetFor(account.email, wrongFirst));
-    await shift(ctx, 'handle', handle, '31 minutes');
-    for (let i = 0; i < 4; i += 1) {
-      const res = await attemptReset(h, resetFor(account.email, wrongFirst));
-      expect(res.statusCode, res.body).toBe(401);
-    }
-    const right = await attemptReset(h, resetFor(account.email, RIGHT));
-    expect(right.statusCode, right.body).toBe(200);
+    for (let i = 0; i < 2; i += 1) await attemptReset(h, resetFor(account.email, wrongFirst));
+    await shift(ctx, 'handle', handle, '3 days');
+    expect((await attemptReset(h, resetFor(account.email, wrongFirst))).statusCode).toBe(401);
+    expect((await attemptReset(h, resetFor(account.email, RIGHT))).statusCode, 'the 3rd failure, days later, locks').toBe(429);
   });
 
-  it('[F1.6 c12] 15 failures in 24 hours lock for 24 hours, even though no 30 minute window reached 5', { timeout: 120_000 }, async () => {
+  it('[AC-113] the 6th failure locks for 24 hours; after the day a correct attempt succeeds', { timeout: 120_000 }, async () => {
     const h = await startApp(ctx);
     const account = await accountWithAnswers(ctx, h);
     const handle = handleHex(ctx, account.email);
-    let failures = 0;
-    for (let cycle = 0; cycle < 4; cycle += 1) {
-      const inCycle = cycle < 3 ? 4 : 3;
-      for (let i = 0; i < inCycle; i += 1) {
-        const res = await attemptReset(h, resetFor(account.email, wrongFirst));
-        failures += 1;
-        expect(res.statusCode, `failure ${failures}: ${res.body}`).toBe(401);
-      }
-      if (cycle < 3) await shift(ctx, 'handle', handle, '31 minutes');
-    }
-    expect(failures).toBe(15);
+    for (let i = 0; i < 3; i += 1) await attemptReset(h, resetFor(account.email, wrongFirst));
+    await shift(ctx, 'handle', handle, '61 minutes');
+    for (let i = 4; i <= 6; i += 1) expect((await attemptReset(h, resetFor(account.email, wrongFirst))).statusCode, `failure ${i}`).toBe(401);
     h.spy.reset();
     const locked = await attemptReset(h, resetFor(account.email, RIGHT));
     expect(locked.statusCode, locked.body).toBe(429);
     expect(locked.body).toBe(LIMITED);
     const retry = Number(locked.headers['retry-after']);
-    expect(retry, 'the day lock is far longer than the 30 minute one').toBeGreaterThan(3600);
+    expect(retry, 'the day lock is far longer than the hour').toBeGreaterThan(86_000);
     expect(retry).toBeLessThanOrEqual(86_400);
     expect(h.spy.calls()).toBe(0);
     await shift(ctx, 'handle', handle, '25 hours');
     const free = await attemptReset(h, resetFor(account.email, RIGHT));
     expect(free.statusCode, free.body).toBe(200);
+  });
+
+  it('[AC-113] the 9th failure locks for good: 429 recovery_locked with no retry-after, still so a month later, right answers or not; the same for an unknown email', { timeout: 120_000 }, async () => {
+    const h = await startApp(ctx);
+    for (const email of [(await accountWithAnswers(ctx, h)).email, unknownEmail()]) {
+      const handle = handleHex(ctx, email);
+      for (let round = 0; round < 3; round += 1) {
+        for (let i = 0; i < 3; i += 1) expect((await attemptReset(h, resetFor(email, wrongFirst))).statusCode, `${email} round ${round}`).toBe(401);
+        if (round < 2) await shift(ctx, 'handle', handle, '25 hours');
+      }
+      expect(await ladder(ctx, handle)).toBe('9/true/true');
+      for (const answers of [RIGHT, wrongFirst]) {
+        const res = await attemptReset(h, resetFor(email, answers));
+        expect(res.statusCode, res.body).toBe(429);
+        expect(res.body).toBe(LOCKED_FOR_GOOD);
+        expect(res.headers['retry-after']).toBeUndefined();
+      }
+      await shift(ctx, 'handle', handle, '30 days');
+      expect((await attemptReset(h, resetFor(email, RIGHT))).body, 'a month later').toBe(LOCKED_FOR_GOOD);
+      expect(await ladder(ctx, handle), 'limited attempts do not move the ladder').toBe('9/true/true');
+    }
+  });
+
+  it('[FR-ADMIN-013 AC-126] after the Admin releases a permanent lock the next attempt is checked as usual from zero; the release itself signs nobody in', { timeout: 120_000 }, async () => {
+    const h = await startApp(ctx);
+    const account = await accountWithAnswers(ctx, h);
+    const handle = handleHex(ctx, account.email);
+    for (let round = 0; round < 3; round += 1) {
+      for (let i = 0; i < 3; i += 1) await attemptReset(h, resetFor(account.email, wrongFirst));
+      if (round < 2) await shift(ctx, 'handle', handle, '25 hours');
+    }
+    expect((await attemptReset(h, resetFor(account.email, RIGHT))).body).toBe(LOCKED_FOR_GOOD);
+    expect(await releaseByAdmin(ctx, account.id)).toBe('OK:1');
+    expect(h.admin.calls, 'the release asks Auth for nothing').toEqual([]);
+    expect(await ladder(ctx, handle), 'the release is applied at the next attempt').toBe('9/true/true');
+    const wrong = await attemptReset(h, resetFor(account.email, wrongFirst));
+    expect(wrong.statusCode, `checked as usual: ${wrong.body}`).toBe(401);
+    expect(await ladder(ctx, handle), 'counted from zero').toBe('1/false/false');
+    const right = await attemptReset(h, resetFor(account.email, RIGHT));
+    expect(right.statusCode, right.body).toBe(200);
   });
 
   it('[F1.6 c12] the 11th failure from one address in 15 minutes is 429 for ANY handle, a known one with the right answers included; another address is unaffected; after the window it is free', { timeout: 120_000 }, async () => {
@@ -475,16 +508,16 @@ describe('[F1.6 c12] limits: per account, per address, per day; the window ends;
 
 // ---------------------------------------------------------------------------------------------------------------------
 describe('[F1.6 c12 concurrency] the limits hold under parallel attempts and a double submit is harmless', () => {
-  it('[F1.6 c12] six simultaneous wrong attempts on one handle (six instances): exactly five are 401, one is 429, the counter says five', { timeout: 120_000 }, async () => {
+  it('[F1.6 c12 AC-113] four simultaneous wrong attempts on one handle (four instances): exactly three are 401, one is 429, the ladder says three', { timeout: 120_000 }, async () => {
     const seed = await startApp(ctx);
     const account = await accountWithAnswers(ctx, seed);
-    const apps = await Promise.all(Array.from({ length: 6 }, () => startApp(ctx)));
+    const apps = await Promise.all(Array.from({ length: 4 }, () => startApp(ctx)));
     const results = await Promise.all(apps.map((h) => attemptReset(h, resetFor(account.email, wrongFirst))));
     const statuses = results.map((r) => r.statusCode).sort();
-    expect(statuses, JSON.stringify(results.map((r) => r.body))).toEqual([401, 401, 401, 401, 401, 429]);
-    expect((await throttle(ctx, 'handle', handleHex(ctx, account.email))).split('/')[0]).toBe('5');
+    expect(statuses, JSON.stringify(results.map((r) => r.body))).toEqual([401, 401, 401, 429]);
+    expect((await ladder(ctx, handleHex(ctx, account.email))).split('/')[0]).toBe('3');
     const trail = (await kinds(ctx, handleHex(ctx, account.email))).split(',');
-    expect(trail.filter((k) => k === 'reset_failed')).toHaveLength(5);
+    expect(trail.filter((k) => k === 'reset_failed')).toHaveLength(3);
     expect(trail.filter((k) => k === 'reset_limited')).toHaveLength(1);
   });
 
@@ -543,10 +576,10 @@ describe('[F1.6 c13] the audit: one row per attempt, in the same transaction, no
   it('[F1.6 c13] a limited attempt writes reset_limited, and an unknown handle\'s limited attempt has no user id', T, async () => {
     const h = await startApp(ctx);
     const email = unknownEmail();
-    for (let i = 0; i < 5; i += 1) await attemptReset(h, resetFor(email, wrongFirst));
+    for (let i = 0; i < 3; i += 1) await attemptReset(h, resetFor(email, wrongFirst));
     await attemptReset(h, resetFor(email, RIGHT));
     const events = recordsOf(await eventsJson(ctx, handleHex(ctx, email)));
-    expect(events.map((e) => e.kind)).toEqual(['reset_failed', 'reset_failed', 'reset_failed', 'reset_failed', 'reset_failed', 'reset_limited']);
+    expect(events.map((e) => e.kind)).toEqual(['reset_failed', 'reset_failed', 'reset_failed', 'reset_limited']);
     expect(events.every((e) => e.user_id === null)).toBe(true);
   });
 
@@ -554,7 +587,7 @@ describe('[F1.6 c13] the audit: one row per attempt, in the same transaction, no
     const h = await startApp(ctx);
     const account = await accountWithAnswers(ctx, h);
     const handle = handleHex(ctx, account.email);
-    for (let i = 0; i < 5; i += 1) await attemptReset(h, resetFor(account.email, wrongFirst));
+    for (let i = 0; i < 3; i += 1) await attemptReset(h, resetFor(account.email, wrongFirst));
     expect((await attemptReset(h, resetFor(account.email, RIGHT))).statusCode).toBe(429);
     const locked = await throttle(ctx, 'handle', handle);
     const after = await kinds(ctx, handle);
@@ -565,20 +598,20 @@ describe('[F1.6 c13] the audit: one row per attempt, in the same transaction, no
     expect(await kinds(ctx, handle), 'no further audit row for the submitted email').toBe(after);
     expect(await throttle(ctx, 'handle', handle), 'the handle row is untouched').toBe(locked);
 
-    await shift(ctx, 'handle', handle, '31 minutes');
-    for (let i = 0; i < 5; i += 1) await attemptReset(h, resetFor(account.email, wrongFirst));
+    await shift(ctx, 'handle', handle, '61 minutes');
+    for (let i = 0; i < 3; i += 1) await attemptReset(h, resetFor(account.email, wrongFirst));
     expect((await attemptReset(h, resetFor(account.email, RIGHT))).statusCode).toBe(429);
     expect((await attemptReset(h, resetFor(account.email, RIGHT))).statusCode).toBe(429);
     const trail = (await kinds(ctx, handle)).split(',');
     expect(trail.filter((k) => k === 'reset_limited'), 'one row for the first lock and one for the second').toHaveLength(2);
-    expect(trail.filter((k) => k === 'reset_failed')).toHaveLength(10);
+    expect(trail.filter((k) => k === 'reset_failed')).toHaveLength(6);
   });
 
   it('[F1.6 c13 concurrency] eight simultaneous attempts on a locked handle: all 429, exactly one reset_limited row', { timeout: 120_000 }, async () => {
     const seed = await startApp(ctx);
     const account = await accountWithAnswers(ctx, seed);
     const handle = handleHex(ctx, account.email);
-    for (let i = 0; i < 5; i += 1) await attemptReset(seed, resetFor(account.email, wrongFirst));
+    for (let i = 0; i < 3; i += 1) await attemptReset(seed, resetFor(account.email, wrongFirst));
     const apps = await Promise.all(Array.from({ length: 8 }, () => startApp(ctx)));
     const results = await Promise.all(apps.map((h) => attemptReset(h, resetFor(account.email, RIGHT))));
     expect(results.map((r) => r.statusCode)).toEqual(Array(8).fill(429));

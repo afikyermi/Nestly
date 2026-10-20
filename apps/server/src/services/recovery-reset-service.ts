@@ -40,7 +40,7 @@ export interface ResetClient {
 export type ResetResult =
   | { readonly kind: 'ok' }
   | { readonly kind: 'invalid' }
-  | { readonly kind: 'limited'; readonly retryAfterSeconds: number }
+  | { readonly kind: 'limited'; readonly retryAfterSeconds: number; readonly permanent: boolean }
   | { readonly kind: 'unavailable' };
 
 /** One fixed line when the outcome row could not be written. It carries no id, hash or address. */
@@ -56,7 +56,7 @@ const OUTCOME_KIND = {
 type Verified =
   | { readonly kind: 'verified'; readonly userId: string }
   | { readonly kind: 'invalid' }
-  | { readonly kind: 'limited'; readonly retryAfterSeconds: number };
+  | { readonly kind: 'limited'; readonly retryAfterSeconds: number; readonly permanent: boolean };
 
 export async function redeemReset(
   database: Database,
@@ -72,7 +72,7 @@ export async function redeemReset(
 
   const first = await inRecoveryTransaction<Verified>(database, subjects, async (tx) => {
     const attempt = await guardedAttempt(tx, context, request.answers, { failed: 'reset_failed', limited: 'reset_limited' });
-    if (attempt.kind === 'limited') return { kind: 'limited', retryAfterSeconds: attempt.retryAfterSeconds };
+    if (attempt.kind === 'limited') return { kind: 'limited', retryAfterSeconds: attempt.retryAfterSeconds, permanent: attempt.permanent };
     if (attempt.kind === 'mismatch') return { kind: 'invalid' };
     await insertEvent(tx, { kind: 'reset_verified', userId: attempt.userId, ...eventBase });
     return { kind: 'verified', userId: attempt.userId };

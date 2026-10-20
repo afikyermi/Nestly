@@ -5,8 +5,9 @@ import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
 import { TextInput } from '@/components/ui/text-input';
 import { useAdminCall } from '@/hooks/use-admin-call';
-import { enforceUser, fetchUser, fetchUsers } from '@/services/api/admin';
+import { enforceUser, fetchUser, fetchUsers, releaseRecoveryLock } from '@/services/api/admin';
 import { EnforcementPanel } from './EnforcementPanel';
+import { RecoveryLockPanel } from './RecoveryLockPanel';
 import {
   ACCOUNT_TYPE_LABELS,
   ACTION_FAILED_TEXT,
@@ -21,6 +22,7 @@ import {
   OPEN_USER_LABEL,
   openUserRest,
   REASON_REQUIRED_TEXT,
+  RECOVERY_RELEASED_TEXT,
   SEARCH_BUTTON_LABEL,
   SEARCH_LABEL,
   STATUS_LABELS,
@@ -32,7 +34,7 @@ type Users = { kind: 'idle' } | { kind: 'loading' } | { kind: 'failed' } | { kin
 
 // The accounts screen (PG-028, FR-MOD-002, NFR-SEC-006 (2)): a search by name, never a list of everyone, and the enforcement panel of one account. The
 // accounts and names it shows are the ones the database lets a USER_VIEW holder read on this screen.
-export function UsersScreen({ permissions }: { permissions: readonly PermissionKey[] }) {
+export function UsersScreen({ permissions, role }: { permissions: readonly PermissionKey[]; role: 'admin' | 'moderator' }) {
   const call = useAdminCall();
   const [search, setSearch] = useState('');
   const [users, setUsers] = useState<Users>({ kind: 'idle' });
@@ -40,6 +42,8 @@ export function UsersScreen({ permissions }: { permissions: readonly PermissionK
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [status, setStatus] = useState('');
+  const [releasing, setReleasing] = useState(false);
+  const [releaseFailure, setReleaseFailure] = useState<string | null>(null);
   const busy = useRef(false);
 
   const find = useCallback(
@@ -81,6 +85,23 @@ export function UsersScreen({ permissions }: { permissions: readonly PermissionK
     }
   }
 
+  // FR-ADMIN-013: the Admin releases the account's recovery lock. The database allows the Admin only and writes the audit entry.
+  async function release(reason: string | undefined) {
+    if (user === null || busy.current) return;
+    busy.current = true;
+    setReleasing(true);
+    setReleaseFailure(null);
+    setStatus('');
+    try {
+      const outcome = await call((token) => releaseRecoveryLock(token, { userId: user.userId, ...(reason === undefined ? {} : { reason }) }));
+      if (outcome.kind === 'ok') setStatus(RECOVERY_RELEASED_TEXT);
+      else setReleaseFailure(outcome.kind === 'forbidden' ? FORBIDDEN_TEXT : outcome.kind === 'not-found' ? NOT_FOUND_TEXT : ACTION_FAILED_TEXT);
+    } finally {
+      busy.current = false;
+      setReleasing(false);
+    }
+  }
+
   if (user !== null) {
     return (
       <div className="flex flex-col gap-5">
@@ -91,6 +112,7 @@ export function UsersScreen({ permissions }: { permissions: readonly PermissionK
               setUser(null);
               setStatus('');
               setFailure(null);
+              setReleaseFailure(null);
               if (search.trim() !== '') void find(search.trim());
             }}
           >
@@ -99,6 +121,7 @@ export function UsersScreen({ permissions }: { permissions: readonly PermissionK
         </div>
         {status === '' ? null : <p role="status">{status}</p>}
         <EnforcementPanel user={user} permissions={permissions} pending={pending} failure={failure} onSubmit={(request) => void enforce(request)} />
+        {role === 'admin' ? <RecoveryLockPanel pending={releasing} failure={releaseFailure} onRelease={(reason) => void release(reason)} /> : null}
       </div>
     );
   }

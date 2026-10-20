@@ -47,6 +47,8 @@ export interface ThrottleLimits {
 
 export interface ThrottleState {
   readonly locked: boolean;
+  /** NFR-SEC-010: the handle is locked for good (the 9th failure); only a release by the Admin lifts it. */
+  readonly permanent: boolean;
   /** Seconds until the lock ends; meaningful only while `locked`. */
   readonly retryAfterSeconds: number;
   /** Whether a limited event was already written for this very lock (limited_noted_until = locked_until). */
@@ -66,7 +68,13 @@ export interface RecoveryEvent {
   readonly ipHash: Buffer;
 }
 
-const throttleStateRows = z.array(z.object({ locked: z.boolean(), retry_after: z.number().int(), noted: z.boolean() }));
+const throttleStateRows = z.array(z.object({ locked: z.boolean(), permanent: z.boolean(), retry_after: z.number().int(), noted: z.boolean() }));
+
+/** The lock ladder of a handle (NFR-SEC-010): the failure counts that lock it, for how long, and the count that locks it for good. */
+export interface LadderLimits {
+  readonly steps: ReadonlyArray<{ readonly failures: number; readonly lockSeconds: number }>;
+  readonly permanentAt: number;
+}
 
 // --- as authenticated ---------------------------------------------------------------------------------------------------
 
@@ -152,15 +160,17 @@ export async function ensureThrottleRow(tx: IdentityTx, kind: RecoveryThrottleSu
  */
 export async function lockThrottle(tx: IdentityTx, kind: RecoveryThrottleSubject): Promise<ThrottleState> {
   const result = await tx.execute(sql`
-    select (locked_until is not null and locked_until > now()) as locked,
-           greatest(1, ceil(extract(epoch from (locked_until - now()))))::integer as retry_after,
+    select (is_locked_permanently or (locked_until is not null and locked_until > now())) as locked,
+           is_locked_permanently as permanent,
+           (case when is_locked_permanently or locked_until is null or locked_until = 'infinity'::timestamptz or locked_until <= now() then 1
+                 else greatest(1, ceil(extract(epoch from (locked_until - now())))) end)::integer as retry_after,
            (limited_noted_until is not null and limited_noted_until = locked_until) as noted
     from nestly.recovery_throttles
     where subject_kind = ${kind}
     for update`);
   const [row, ...others] = throttleStateRows.parse(result);
   if (row === undefined || others.length > 0) throw new Error('recovery_throttles row missing or duplicated for a declared subject');
-  return { locked: row.locked, retryAfterSeconds: row.retry_after, noted: row.noted };
+  return { locked: row.locked, permanent: row.permanent, retryAfterSeconds: row.retry_after, noted: row.noted };
 }
 
 /** Records that the limited event of the declared subject's current lock has been written (one per subject per lock). */
@@ -212,6 +222,45 @@ export async function recordFailure(tx: IdentityTx, kind: RecoveryThrottleSubjec
           else t.locked_until end
     from nxt n
     where t.subject_kind = n.subject_kind and t.subject_hash = n.subject_hash`);
+}
+
+/**
+ * FR-ADMIN-013, AC-126: a release by the Admin later than the declared handle's ladder start restarts the ladder from zero and lifts its
+ * lock (the release gives no access: the attempt is then checked as usual). app_recovery sees only the declared handle's account's
+ * releases (recovery_lock_releases_select_recovery), so no `where` names an account. Runs after the handle row is locked.
+ */
+export async function applyRelease(tx: IdentityTx): Promise<void> {
+  await tx.execute(sql`
+    update nestly.recovery_throttles t
+    set ladder_failures = 0, is_locked_permanently = false, locked_until = null, limited_noted_until = null, ladder_started_at = r.latest
+    from (select max(released_at) as latest from nestly.recovery_lock_releases) r
+    where t.subject_kind = 'handle' and r.latest is not null and r.latest > coalesce(t.ladder_started_at, '-infinity'::timestamptz)`);
+}
+
+/**
+ * NFR-SEC-010: counts one failure on the declared handle's ladder, in one statement with the database clock. Reaching a step locks the
+ * handle for that step's time (the later of the current lock and now() plus it); reaching `permanentAt` locks it for good.
+ */
+export async function recordHandleFailure(tx: IdentityTx, ladder: LadderLimits): Promise<void> {
+  const next = sql`(t.ladder_failures + 1)`;
+  const steps = sql.join(
+    ladder.steps.map((step) => sql`when ${next} = ${step.failures}::integer then greatest(t.locked_until, now() + make_interval(secs => ${step.lockSeconds}::integer))`),
+    sql` `,
+  );
+  await tx.execute(sql`
+    update nestly.recovery_throttles t
+    set ladder_failures = least(${next}, 32767),
+        is_locked_permanently = t.is_locked_permanently or ${next} >= ${ladder.permanentAt}::integer,
+        locked_until = case when ${next} >= ${ladder.permanentAt}::integer then 'infinity'::timestamptz ${steps} else t.locked_until end
+    where t.subject_kind = 'handle'`);
+}
+
+/** A success (AC-113): the declared handle's ladder restarts from zero. */
+export async function recordHandleSuccess(tx: IdentityTx): Promise<void> {
+  await tx.execute(sql`
+    update nestly.recovery_throttles
+    set ladder_failures = 0, ladder_started_at = now()
+    where subject_kind = 'handle'`);
 }
 
 /** Appends one audit row. The policy forces `userId` to the account of the declared handle (or none). */

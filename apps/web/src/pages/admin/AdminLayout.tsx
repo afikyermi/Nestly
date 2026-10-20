@@ -8,6 +8,7 @@ import { ADMIN_NAV_LABEL, ADMIN_NO_SCREENS_TEXT, ADMIN_TITLE, LOADING_TEXT, TAB_
 /** What the admin pages read from the layout: the keys the account holds (presentation only; the database decides). */
 export interface AdminContext {
   permissions: readonly PermissionKey[];
+  role: 'admin' | 'moderator';
 }
 
 /** The tabs built so far, with their paths. */
@@ -36,7 +37,7 @@ export function AdminLayout() {
   }
   if (access.kind === 'none') return <Navigate to={PATHS.feed} replace />;
   const tabs = ADMIN_TABS.filter(({ tab }) => access.permissions.includes(TAB_KEYS[tab]));
-  const context: AdminContext = { permissions: access.permissions };
+  const context: AdminContext = { permissions: access.permissions, role: access.role };
   return (
     <>
       <title>{documentTitle(ADMIN_TITLE)}</title>

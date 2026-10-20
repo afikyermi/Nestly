@@ -13,6 +13,7 @@ import {
   readReportDetail,
   readReportQueue,
   readUser,
+  releaseRecoveryLock,
   revealAnonymousAuthor,
 } from '../../src/services/admin-service.js';
 import { AUDIENCE, COLD_START_MS, ISSUER, newKey, restoreEnv, startJwks, token, type App, type JwksServer, type TestKey } from '../helpers/identity-fixtures.js';
@@ -295,6 +296,20 @@ describe('[I4 FR-MOD-002 BR-074 AC-027 AC-028 AC-107 AC-110] enforcement', () =>
     expect(all.kind === 'ok' && all.users.every((u) => (u.fullName ?? '').toLowerCase().includes('rina'))).toBe(true);
     expect(all.kind === 'ok' && all.users.some((u) => u.userId === reporter && u.fullName === 'Rina Reporter')).toBe(true);
     expect((await readUser(database, id(banner), NOBODY)).kind).toBe('not_found');
+  });
+});
+
+describe('[I4 FR-ADMIN-013 AC-126] releasing a recovery lock', () => {
+  it('the Admin releases an account\'s lock and it is audited with the note; a Moderator (any key), the account itself and an unknown account are refused', T, async () => {
+    const before = await auditCount('recovery_lock_released');
+    expect(await releaseRecoveryLock(database, id(admin), { userId: reporter, reason: 'asked through support' })).toEqual({ kind: 'ok' });
+    expect(await auditCount('recovery_lock_released')).toBe(before + 1);
+    await grant(content, ['USER_VIEW', 'USER_WARN', 'USER_SUSPEND', 'USER_BAN']);
+    expect((await releaseRecoveryLock(database, id(content), { userId: reporter })).kind).toBe('forbidden');
+    expect((await releaseRecoveryLock(database, id(reporter), { userId: reporter })).kind).toBe('forbidden');
+    expect((await releaseRecoveryLock(database, id(admin), { userId: admin })).kind).toBe('forbidden');
+    expect((await releaseRecoveryLock(database, id(admin), { userId: NOBODY })).kind).toBe('not_found');
+    expect(await auditCount('recovery_lock_released')).toBe(before + 1);
   });
 });
 

@@ -1,6 +1,6 @@
 import { GENERIC_ERROR_TEXT } from '@/lib/auth-texts';
 import { checkAnswers, type AnswerEntry, type AnswerErrors, type AnswerValues } from '@/lib/recovery-answers';
-import { RECOVERY_LOCKED_TEXT, RECOVERY_MISMATCH_TEXT } from '@/lib/recovery-texts';
+import { RECOVERY_LOCKED_PERMANENTLY_TEXT, RECOVERY_LOCKED_TEXT, RECOVERY_MISMATCH_TEXT } from '@/lib/recovery-texts';
 import type { RecoveryOutcome } from '@/services/api/recovery';
 
 // The questions screen texts (F1.6 criteria 17, 18) and its check before anything is sent. This is the only place a status becomes
@@ -14,6 +14,7 @@ export const CHANGED_TEXT = 'השאלות נשמרו';
 
 export const saveFailureText = (outcome: Exclude<RecoveryOutcome, 'done'>): string => {
   if (outcome === 'locked') return RECOVERY_LOCKED_TEXT;
+  if (outcome === 'locked-permanently') return RECOVERY_LOCKED_PERMANENTLY_TEXT;
   if (outcome === 'mismatch') return RECOVERY_MISMATCH_TEXT;
   return outcome === 'unavailable' ? SAVE_FAILED_TEXT : GENERIC_ERROR_TEXT;
 };

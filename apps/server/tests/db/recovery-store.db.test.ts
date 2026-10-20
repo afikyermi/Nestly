@@ -621,13 +621,13 @@ describe('[F1.6 c4 c5] answers already set: POST is 409 and changes nothing; PUT
     expect(await answersJson(ctx, account.id)).toBe(NONE);
   });
 
-  it('[F1.6 c4 c12] failed changes are counted against the same limits: after five, even the right current answers get 429 with retry-after, from any address, and the reset is limited too', T, async () => {
+  it('[F1.6 c4 c12 AC-113] failed changes are counted on the same ladder: after three, even the right current answers get 429 with retry-after, from any address, and the reset is limited too', T, async () => {
     const h = await startApp(ctx);
     const account = await newAccount(ctx);
     const auth = await bearerFor(ctx, account);
     await saveAnswers(h, auth);
     const next = [entry('nickname', 'Dudi'), entry('street', 'Allenby')];
-    for (let i = 1; i <= 5; i += 1) {
+    for (let i = 1; i <= 3; i += 1) {
       const res = await changeAnswers(h, auth, [entry('pet', 'Wrong'), entry('street', 'Herzl')], next);
       expect(res.statusCode, `failure ${i}: ${res.body}`).toBe(401);
     }
@@ -636,16 +636,16 @@ describe('[F1.6 c4 c5] answers already set: POST is 409 and changes nothing; PUT
     expect(limited.statusCode, limited.body).toBe(429);
     expect(jsonOf(limited.body)).toEqual({ error: 'rate_limited' });
     expect(Number(limited.headers['retry-after'])).toBeGreaterThan(0);
-    expect(Number(limited.headers['retry-after'])).toBeLessThanOrEqual(1800);
+    expect(Number(limited.headers['retry-after'])).toBeLessThanOrEqual(3600);
     expect(h.spy.calls(), 'a limited attempt does no hashing').toBe(0);
-    expect(await kinds(ctx, handleHex(ctx, account.email))).toBe('answers_saved,change_failed,change_failed,change_failed,change_failed,change_failed,change_limited');
+    expect(await kinds(ctx, handleHex(ctx, account.email))).toBe('answers_saved,change_failed,change_failed,change_failed,change_limited');
 
     const reset = await attemptReset(h, resetFor(account.email));
     expect(reset.statusCode, reset.body).toBe(429);
     expect(h.admin.calls).toEqual([]);
 
-    // after the window the right current answers work again
-    await shift(ctx, 'handle', handleHex(ctx, account.email), '31 minutes');
+    // after the hour the right current answers work again
+    await shift(ctx, 'handle', handleHex(ctx, account.email), '61 minutes');
     const later = await changeAnswers(h, auth, [entry('pet', 'Rex'), entry('street', 'Herzl')], next);
     expect(later.statusCode, later.body).toBe(200);
   });

@@ -13,6 +13,7 @@ import {
   type HandleReportsRequest,
   type ModerateContentRequest,
   type QueueItem,
+  type RecoveryReleaseRequest,
   type ReportDetail,
   type ReportTargetKind,
   type TargetUser,
@@ -91,3 +92,6 @@ export const enforceUser = (token: string, request: EnforceRequest): Promise<Adm
 export const fetchUsers = (token: string, search: string): Promise<AdminOutcome<UserList>> =>
   call(token, 'GET', `/api/admin/users?q=${encodeURIComponent(search)}`, userListBody);
 export const fetchUser = (token: string, id: string): Promise<AdminOutcome<TargetUser>> => call(token, 'GET', `/api/admin/users/${id}`, targetUser);
+/** POST /api/admin/recovery-releases (FR-ADMIN-013): the Admin releases the account's recovery lock; the next attempt is checked from zero. */
+export const releaseRecoveryLock = (token: string, request: RecoveryReleaseRequest): Promise<AdminOutcome<unknown>> =>
+  call(token, 'POST', '/api/admin/recovery-releases', anything, request);
