@@ -1,0 +1,228 @@
+import postgres from 'postgres';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { createDatabase, type Database } from '../../src/db/client.js';
+import { ACCOUNT_A, ACCOUNT_B, AUDIENCE, COLD_START_MS, ISSUER, newKey, restoreEnv, startJwks, token, type App, type JwksServer, type TestKey } from '../helpers/identity-fixtures.js';
+import { CLOCK_NOW, buildRegisterApp, jsonOf } from '../helpers/register-app.js';
+import { createPost } from '../helpers/posts-api.js';
+import { addComment } from '../helpers/comments-api.js';
+import { sendTo } from '../helpers/friends-api.js';
+
+// FR-NOTIF-001/002/003 and FR-SEARCH-001 / FR-ALG-008 through the API, against the real database (CI `db` job, as app_server).
+// A = Alice Aaron, B = Bella Baruch (10_ fixtures), M the Moderator of 60_ fixtures. Notifications are created by the database's own
+// triggers as a side effect of the real actions below; the tests only read them. Every row of A, B is cleared before and after each test.
+// What the policies refuse on their own is asserted once in supabase/tests/90_notifications_search.sql.
+
+const T = { timeout: COLD_START_MS };
+const M = '60000000-0000-4000-8000-0000000000a1';
+const NAME_A = 'Alice Aaron';
+const NAME_B = 'Bella Baruch';
+
+let key: TestKey;
+let jwks: JwksServer;
+let side: ReturnType<typeof postgres>;
+const toClose: Array<{ app: App; database: Database }> = [];
+
+function url(): string {
+  const value = process.env.DATABASE_URL;
+  if (!value) throw new Error('DATABASE_URL is not set: the db job must run these tests as app_server through it');
+  return value;
+}
+const env = () => ({ SUPABASE_JWKS_URL: jwks.url, SUPABASE_JWT_ISSUER: ISSUER, SUPABASE_JWT_AUDIENCE: AUDIENCE, DATABASE_URL: url() });
+async function start(): Promise<App> {
+  const database = createDatabase(url());
+  const app = await buildRegisterApp(env(), { database, clock: () => CLOCK_NOW });
+  toClose.push({ app, database });
+  return app;
+}
+const bearerFor = async (sub: string): Promise<string> => `Bearer ${await token({ key, sub })}`;
+const get = (app: App, header: string, path: string) => app.inject({ method: 'GET', url: path, headers: { authorization: header } });
+const post = (app: App, header: string, path: string) => app.inject({ method: 'POST', url: path, headers: { authorization: header } });
+const put = (app: App, header: string, path: string, payload: unknown) =>
+  app.inject({ method: 'PUT', url: path, headers: { authorization: header, 'content-type': 'application/json' }, payload: JSON.stringify(payload) });
+
+interface Item { id: string; type: string; actorName: string | null; targetKind: string; targetId: string; isRead: boolean }
+async function list(app: App, header: string): Promise<{ items: Item[]; unreadCount: number }> {
+  const res = await get(app, header, '/api/notifications');
+  expect(res.statusCode, res.body).toBe(200);
+  return JSON.parse(res.body) as { items: Item[]; unreadCount: number };
+}
+const clear = async (): Promise<void> => {
+  await side`select tests.fx_nt_purge()`;
+  for (const who of [ACCOUNT_A, ACCOUNT_B]) {
+    await side`select tests.fx_fr_purge(${who}::uuid)`;
+    await side`select tests.fx_open_reset(${who}::uuid)`;
+  }
+  await side`select tests.fx_ns_set_limit(60, 3600)`;
+};
+
+let hA: string;
+let hB: string;
+let hM: string;
+
+beforeAll(async () => {
+  key = await newKey('notifications-db-key');
+  jwks = await startJwks([key]);
+  side = postgres(url(), { max: 1, prepare: false, onnotice: () => undefined });
+  const [who] = await side`select session_user::text as su`;
+  expect(who?.su, 'these tests must run as app_server, never as a role that bypasses RLS').toBe('app_server');
+  hA = await bearerFor(ACCOUNT_A);
+  hB = await bearerFor(ACCOUNT_B);
+  hM = await bearerFor(M);
+}, COLD_START_MS);
+beforeEach(clear);
+afterEach(async () => {
+  for (const { app, database } of toClose.splice(0)) {
+    await app.close();
+    await database.close();
+  }
+  await clear();
+});
+afterAll(async () => {
+  await jwks.close();
+  await side.end({ timeout: 5 });
+  restoreEnv();
+});
+
+describe('[FR-NOTIF-001 AC-040] the bell, the list, mark read', () => {
+  it('a Friend Request notifies the addressee with the sender\'s name and a link to the sender; Mark as read, then Mark all', T, async () => {
+    const app = await start();
+    expect((await sendTo(app, hA, ACCOUNT_B)).statusCode).toBe(201);
+    const b = await list(app, hB);
+    expect(b.unreadCount).toBe(1);
+    expect(b.items).toHaveLength(1);
+    expect(b.items[0]).toMatchObject({ type: 'friend_request', actorName: NAME_A, targetKind: 'user', targetId: ACCOUNT_A, isRead: false });
+    expect((await list(app, hA)).items, 'the sender is not notified').toHaveLength(0);
+    const read = await post(app, hB, `/api/notifications/${b.items[0]?.id}/read`);
+    expect(read.statusCode, read.body).toBe(200);
+    expect((await list(app, hB)).unreadCount).toBe(0);
+    expect((await post(app, hA, `/api/notifications/${b.items[0]?.id}/read`)).statusCode, 'not A\'s notification').toBe(404);
+    expect((await post(app, hB, '/api/notifications/read-all')).statusCode).toBe(200);
+  });
+
+  it('a comment notifies the post\'s author, a reply the comment\'s author; Mark all as read clears the bell', T, async () => {
+    const app = await start();
+    const created = await createPost(app, hA, { body: 'שאלה על שינה', audience: 'everyone' });
+    expect(created.statusCode, created.body).toBe(201);
+    const postId = String(jsonOf(created.body).id);
+    const commented = await addComment(app, hB, postId, { body: 'תשובה' });
+    expect(commented.statusCode, commented.body).toBe(201);
+    const a = await list(app, hA);
+    expect(a.items[0]).toMatchObject({ type: 'post_comment', actorName: NAME_B, targetKind: 'post', targetId: postId });
+    const replied = await addComment(app, hA, postId, { body: 'תודה', parentId: String(jsonOf(commented.body).id) });
+    expect(replied.statusCode, replied.body).toBe(201);
+    expect((await list(app, hB)).items.map((i) => i.type)).toEqual(['comment_reply']);
+    expect((await post(app, hA, '/api/notifications/read-all')).statusCode).toBe(200);
+    expect((await list(app, hA)).unreadCount).toBe(0);
+  });
+
+  it('an Admin or Moderator account is refused (403 forbidden); a Guest gets 401 and no query', T, async () => {
+    const app = await start();
+    const res = await get(app, hM, '/api/notifications');
+    expect(res.statusCode).toBe(403);
+    expect(jsonOf(res.body).error).toBe('forbidden');
+    const guest = await app.inject({ method: 'GET', url: '/api/notifications' });
+    expect(guest.statusCode).toBe(401);
+  });
+});
+
+describe('[FR-NOTIF-002 FR-NOTIF-003 AC-041] preferences', () => {
+  it('a category switched off creates no notification; switched on again it does; every category is listed, on by default', T, async () => {
+    const app = await start();
+    const first = await get(app, hA, '/api/notification-preferences');
+    expect(first.statusCode, first.body).toBe(200);
+    const body = JSON.parse(first.body) as { categories: { category: string; isEnabled: boolean }[] };
+    expect(body.categories.map((c) => [c.category, c.isEnabled])).toEqual([['friends', true], ['comments', true], ['shares', true], ['friend_posts', true]]);
+    expect((await put(app, hA, '/api/notification-preferences/categories/comments', { isEnabled: false })).statusCode).toBe(200);
+    const created = await createPost(app, hA, { body: 'x post', audience: 'everyone' });
+    const postId = String(jsonOf(created.body).id);
+    await addComment(app, hB, postId, { body: 'muted' });
+    expect((await list(app, hA)).items).toHaveLength(0);
+    expect((await put(app, hA, '/api/notification-preferences/categories/comments', { isEnabled: true })).statusCode).toBe(200);
+    await addComment(app, hB, postId, { body: 'heard' });
+    expect((await list(app, hA)).items.map((i) => i.type)).toEqual(['post_comment']);
+  });
+
+  it('only a known category with a strict body is accepted (400); the security category does not exist as a switch', T, async () => {
+    const app = await start();
+    expect((await put(app, hA, '/api/notification-preferences/categories/security', { isEnabled: false })).statusCode).toBe(400);
+    expect((await put(app, hA, '/api/notification-preferences/categories/comments', { isEnabled: false, extra: 1 })).statusCode).toBe(400);
+    expect((await put(app, hA, '/api/notification-preferences/categories/comments', {})).statusCode).toBe(400);
+  });
+
+  it('a new post of a Friend notifies only after the user chose to follow that Friend, and never for an anonymous post', T, async () => {
+    const app = await start();
+    expect((await sendTo(app, hA, ACCOUNT_B)).statusCode).toBe(201);
+    expect((await post(app, hB, `/api/friend-requests/${ACCOUNT_A}/accept`)).statusCode).toBe(200);
+    expect((await list(app, hA)).items.map((i) => i.type)).toEqual(['friend_accepted']);
+    const prefs = JSON.parse((await get(app, hB, '/api/notification-preferences')).body) as { friends: { userId: string; isEnabled: boolean }[] };
+    expect(prefs.friends).toEqual([{ userId: ACCOUNT_A, fullName: NAME_A, isEnabled: false }]);
+    await createPost(app, hA, { body: 'before following', audience: 'everyone' });
+    expect((await list(app, hB)).items.map((i) => i.type)).toEqual(['friend_request']);
+    expect((await put(app, hB, `/api/notification-preferences/friends/${ACCOUNT_A}`, { isEnabled: true })).statusCode).toBe(200);
+    await createPost(app, hA, { body: 'after following', audience: 'everyone' });
+    await createPost(app, hA, { body: 'anonymous after following', audience: 'everyone', isAnonymous: true });
+    expect((await list(app, hB)).items.map((i) => i.type).sort()).toEqual(['friend_post', 'friend_request']);
+    expect((await put(app, hA, `/api/notification-preferences/friends/${M}`, { isEnabled: true })).statusCode, 'not a Friend').toBe(404);
+  });
+});
+
+describe('[FR-SEARCH-001 AC-039 AC-065 AC-078] search', () => {
+  const find = async (app: App, header: string, q: string, type = 'all') =>
+    get(app, header, `/api/search?q=${encodeURIComponent(q)}&type=${type}`);
+
+  it('finds a person by name and a post by its words, ranked after authorization; never the caller; groups are empty', T, async () => {
+    const app = await start();
+    await createPost(app, hA, { body: 'מי מכירה יועצת שינה טובה?', audience: 'everyone' });
+    await createPost(app, hA, { body: 'פוסט לחברים בלבד על שינה', audience: 'friends' });
+    const res = await find(app, hB, 'שינה');
+    expect(res.statusCode, res.body).toBe(200);
+    const body = JSON.parse(res.body) as { people: unknown[]; groups: unknown[]; posts: { snippet: string; authorName: string | null }[]; peopleLimited: boolean };
+    expect(body.posts.map((p) => p.snippet)).toEqual(['מי מכירה יועצת שינה טובה?']);
+    expect(body.posts[0]?.authorName).toBe(NAME_A);
+    expect(body.groups).toEqual([]);
+    const people = JSON.parse((await find(app, hB, 'alice', 'people')).body) as { people: { userId: string; fullName: string }[] };
+    expect(people.people).toEqual([{ userId: ACCOUNT_A, fullName: NAME_A }]);
+    const self = JSON.parse((await find(app, hA, 'alice', 'people')).body) as { people: unknown[] };
+    expect(self.people).toEqual([]);
+  });
+
+  it('no query, a one-character query and another key are 400; nothing is listed without a query (AC-078)', T, async () => {
+    const app = await start();
+    for (const path of ['/api/search', '/api/search?q=', '/api/search?q=a', '/api/search?q=alice&x=1', '/api/search?q=alice&type=users']) {
+      expect((await get(app, hB, path)).statusCode, path).toBe(400);
+    }
+    expect((await app.inject({ method: 'GET', url: '/api/search?q=alice' })).statusCode).toBe(401);
+  });
+
+  it('the People Search limit: over it 429 for people, and "peopleLimited" with the posts still answered for all; one Security event', T, async () => {
+    const app = await start();
+    await side`select tests.fx_ns_set_limit(2, 3600)`;
+    expect((await find(app, hB, 'alice', 'people')).statusCode).toBe(200);
+    expect((await find(app, hB, 'alice', 'people')).statusCode).toBe(200);
+    const limited = await find(app, hB, 'alice', 'people');
+    expect(limited.statusCode).toBe(429);
+    expect(jsonOf(limited.body)).toEqual({ error: 'rate_limited' });
+    const all = JSON.parse((await find(app, hB, 'alice')).body) as { peopleLimited: boolean; people: unknown[] };
+    expect(all.peopleLimited).toBe(true);
+    expect(all.people).toEqual([]);
+    const [events] = await side`select tests.fx_ns_events(${ACCOUNT_B}::uuid) as n`;
+    expect(Number(events?.n)).toBe(1);
+  });
+
+  it('a Moderator is refused (403); the typed text is never stored, only the detected topic, for 30 days', T, async () => {
+    const app = await start();
+    expect((await find(app, hM, 'alice')).statusCode).toBe(403);
+    const before = await side`select tests.fx_si_count(${ACCOUNT_B}::uuid) as n`;
+    await find(app, hB, 'יועצת שינה לתינוק');
+    await find(app, hB, 'alice');
+    const after = await side`select tests.fx_si_count(${ACCOUNT_B}::uuid) as n`;
+    expect(Number(after[0]?.n) - Number(before[0]?.n), 'sleep and baby_health? only the topics found; "alice" has none').toBeGreaterThanOrEqual(1);
+    const stored = await side`select tests.fx_si_topics(${ACCOUNT_B}::uuid) as t`;
+    expect(String(stored[0]?.t)).toContain('sleep');
+    expect(String(stored[0]?.t)).not.toContain('יועצת');
+    await side`select tests.fx_si_age(${ACCOUNT_B}::uuid, interval '31 days')`;
+    const [purged] = await side`select tests.fx_si_purge() as n`;
+    expect(Number(purged?.n)).toBeGreaterThanOrEqual(1);
+  });
+});
+
