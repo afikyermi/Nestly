@@ -20,9 +20,10 @@ React + TypeScript + Tailwind (Vite) · Fastify + TypeScript · Zod in `packages
 - You are the only orchestrator. Run up to 3 builder subagents in parallel, each in its own worktree (`.work/wt/<name>`) on a different initiative, respecting dependencies:
   I8 after I4 and I7; I5 after I4; I10, I14 after I4 and I7; I11, I12 after I5 and I8; I13 after I11 and I12; I9 last.
   Start with I4, I6 and I7 in parallel.
-- Builders run on Sonnet; Opus only for `/code-review`.
+- Builders run on Opus until 24.10 (at most 2 in parallel), then Sonnet; `/code-review` on Opus.
 - A builder does the whole feature: server + web + tests + SRS update, then one PR. Rebase before merge. Merge on green CI. Migrations merge one at a time.
 - A migration that adds a table also updates `EXPECTED_NESTLY_TABLES` and the deletion order in `tools/preview-e2e-cleanup.ts`.
+- Before every merge, check that the latest run on main is green. A PR that touches shared files (layout, app shell, menu, routing) runs the full Chrome suite (dispatch) before merge, not just the changed specs.
 - A red nightly run or red main is fixed before any new merge. A test that fails and passes on one rerun gets a line in WORKPLAN and does not block the merge; only a repeating failure blocks.
 - Tests: pgTAP for permissions, server tests for rules, one Playwright test per new screen's main flow (desktop). No new visual baselines, no phone duplicates.
 - Sensitive parts (authorization, minors/health data, media, deletion, money): `/code-review` on the diff before the PR.

@@ -2,7 +2,7 @@
 
 # SRS — אינדקס
 
-**מקור האמת של מוצר Nestly.** SRS v2.25 · 20.10.2026.
+**מקור האמת של מוצר Nestly.** SRS v2.27 · 20.10.2026.
 
 ה-SRS מתוחזק ב-markdown ומפוצל לפי סעיפים. גרסאות ה-Word הקודמות נמצאות ב-[`archive/`](archive/) כהיסטוריה בלבד.
 
@@ -144,7 +144,7 @@
 | FR-ADMIN-010 | Owner/Admin Intelligence Dashboard v1 | [admin.md](05-functional/admin.md) |
 | FR-ADMIN-011 | רשימת מוזמנים לבטא סגורה | [admin.md](05-functional/admin.md) |
 | FR-ADMIN-012 | ניהול תוכן מערכת — מדריכים לפי סטטוס | [admin.md](05-functional/admin.md) |
-| FR-ADMIN-013 | שחרור נעילת שחזור | [admin.md](05-functional/admin.md) |
+| FR-ADMIN-013 | שחרור נעילת שחזור (בוטל) | [admin.md](05-functional/admin.md) |
 | FR-ALG-001 | איסוף Signals ו-Interest/Intent Profile | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-ALG-002 | Regular User Feed Ranking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-ALG-003 | Professional User Feed Ranking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
@@ -288,7 +288,7 @@
 | AC-123 | מחיקת ילד או הריון אחרי אישור | [15-acceptance.md](15-acceptance.md) |
 | AC-124 | קישור לפרופיל: התחברות ואז הפרופיל | [15-acceptance.md](15-acceptance.md) |
 | AC-125 | סדר התפריט ומסך ההגדרות | [15-acceptance.md](15-acceptance.md) |
-| AC-126 | שחרור נעילת שחזור קבועה ע"י Admin | [15-acceptance.md](15-acceptance.md) |
+| AC-126 | בוטל: שחרור נעילת שחזור | [15-acceptance.md](15-acceptance.md) |
 | AC-127 | הסתרת פוסט לעצמי, בלי השפעה על דירוג | [15-acceptance.md](15-acceptance.md) |
 | AC-128 | שם מלא לכותב ולמגיב | [15-acceptance.md](15-acceptance.md) |
 | AC-129 | שדה כתיבה פתוח בראש הפיד | [15-acceptance.md](15-acceptance.md) |

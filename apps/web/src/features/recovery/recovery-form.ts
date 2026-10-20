@@ -2,6 +2,7 @@ import { registrationCredentialsInput } from '@nestly/shared';
 import { EMAIL_INVALID_TEXT, EMAIL_REQUIRED_TEXT, GENERIC_ERROR_TEXT } from '@/lib/auth-texts';
 import { checkAnswers, type AnswerEntry, type AnswerErrors, type AnswerValues } from '@/lib/recovery-answers';
 import {
+  RECOVERY_LOCKED_DAY_TEXT,
   RECOVERY_LOCKED_TEXT,
   RECOVERY_MISMATCH_TEXT,
   RECOVERY_PASSWORD_LENGTH_TEXT,
@@ -17,6 +18,7 @@ export const RESET_DONE_TEXT = 'הסיסמה עודכנה. אפשר להתחבר
 const FAILURE_TEXTS: Record<Exclude<RecoveryOutcome, 'done'>, string> = {
   mismatch: RECOVERY_MISMATCH_TEXT,
   locked: RECOVERY_LOCKED_TEXT,
+  'locked-day': RECOVERY_LOCKED_DAY_TEXT, // ERR-043, the ladder's 24-hour lock (NFR-SEC-010)
   unavailable: RECOVERY_UNAVAILABLE_TEXT,
   failed: GENERIC_ERROR_TEXT,
 };
