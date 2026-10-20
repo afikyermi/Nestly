@@ -18,7 +18,6 @@ does not instruct loading every link. Column sections and rule matrices are both
 | profile_view consumers | Cross-user profile read plus the affected input/output table sections above |
 | staff_roles, moderator_permissions, audit_log, report_reasons, user_enforcements | Safety and admin core |
 | user_blocks | Blocking a user (I4); Friendships and regular names; Notifications and People Search |
-| recovery_lock_releases | Recovery lock release (I4); Columns: recovery_throttles |
 
 | tracker_events, cycle_entries, status_guides | Trackers, cycle and status guides (I6); children for the child FK |
 | media_assets, media_reviews, profile_photos, stories, media_training_candidates, media_training_samples, media_training_events | Media and Stories (I5); posts and post_authors (attach), friendships (Story audience), Safety and admin core (CONTENT_MODERATE, audit) |
@@ -131,9 +130,6 @@ own `regular_profiles` row FOR NO KEY UPDATE. No DELETE on `friendships` or `reg
 | `recovery_throttles.long_failures` | smallint · not null · 0 | failures in the 24-hour window. CHECK ≥ 0, and 0 for an IP |
 | `recovery_throttles.locked_until` | timestamptz · null | while later than `now()`, every attempt on the subject is answered 429. A limited attempt changes no counter |
 | `recovery_throttles.limited_noted_until` | timestamptz · null | the `locked_until` for which a limited event was already written: one limited event per subject per lock |
-| `recovery_throttles.ladder_failures` | smallint · not null · 0 | NFR-SEC-010 ladder, handles only: failures since the last success or release (3rd → 1 h, 6th → 24 h, 9th → permanent). CHECK: 0 for an IP |
-| `recovery_throttles.ladder_started_at` | timestamptz · null | when the ladder count last restarted (success or applied release); a later release resets it at the next attempt |
-| `recovery_throttles.is_locked_permanently` | boolean · not null · false | set at the 9th failure; cleared only through a release by the Admin (FR-ADMIN-013). Handles only |
 
 ## Columns: recovery_events
 
@@ -432,8 +428,8 @@ never in the database: private Supabase Storage buckets `media` (file name = `me
 
 | Table | Columns and meaning | Authorization |
 |---|---|---|
-| `media_assets` | id, owner_id (auth.uid(), never granted; FK SET NULL on account deletion), owner_status, kind post/profile/story, status pending/passed/queued/approved/rejected, mime jpeg/png/webp, width/height ≤ 2048, byte_size ≤ 5 MB, post_id + position 0–3 (≤ 4 per post), is_held (a suspicion: never granted), check_attempts, checked_at, decided_by, decided_at (not granted), is_file_removed | Owner reads own (Story image 25 h) in every state, a held image exactly as a rejected one; others only passed/approved through a readable post, profile photo or Story; CONTENT_MODERATE reads queued and decided; INSERT Regular/Professional, pending, unattached; owner attaches to own post once; staff decide a queued one, or (with REPORTS_VIEW) reject a checked one after a report or as a suspicion (`media_assets_update_guard` sets who/when/is_held); owner deletes own, never queued or rejected; job: reads all, pending → passed/queued (review first), rejected file removed after the training copy, purge per BR-077 (never queued or held early; held after 90 days) |
-| `media_reviews` | media_id PK, queue_reason blocked/unsure/error, scores, is_child, is_suspected, suspected_by, suspected_at, purge_after (+90 days) | Staff only (CONTENT_MODERATE): read; mark child or suspicion on a queued image, a suspicion on a checked one with REPORTS_VIEW; never withdrawn (`media_reviews_guard`); job writes the reason once |
+| `media_assets` | id, owner_id (auth.uid(), never granted; FK SET NULL on account deletion), owner_status, kind post/profile/story, status pending/passed/queued/approved/rejected, mime jpeg/png/webp, width/height ≤ 2048, byte_size ≤ 5 MB, post_id + position 0–3 (≤ 4 per post), is_held (a suspicion: never granted), check_attempts, checked_at, decided_by, decided_at (not granted), is_file_removed | Owner reads own (Story image 25 h) in every state, a held image exactly as a rejected one; others only passed/approved through a readable post, profile photo or Story; CONTENT_MODERATE reads queued and decided; INSERT Regular/Professional, pending, unattached; owner attaches to own post once; staff decide a queued one, or (with REPORTS_VIEW) reject a checked one after a report handled with action taken (`media_assets_update_guard` sets who/when/is_held); a suspicion on a checked one rejects and holds it in the same statement (`media_reviews_suspicion_reject`); a rejection from passed after a handled report makes it a training candidate (`media_assets_training_candidate`); owner deletes own, never queued or rejected; job: reads all, pending → passed/queued (review first), rejected file removed after the training copy, purge per BR-077 (never queued or held early; held after 90 days) |
+| `media_reviews` | media_id PK, queue_reason blocked/unsure/error, scores, is_child, is_suspected, suspected_by, suspected_at, purge_after (+90 days) | Staff only (CONTENT_MODERATE): read; mark child or suspicion on a queued image, a suspicion on a checked one with REPORTS_VIEW (rejects and holds the image at once); never withdrawn (`media_reviews_guard`); job writes the reason once |
 | `profile_photos` | user_id PK, user_status, media_id (unique; own image by FK (media_id, user_id)), media_status (composite FK copy), updated_at | Owner reads own in any state; others when passed/approved; RESTRICTIVE `profile_photos_block_hide`; a replaced image row is deleted by `profile_photos_replaced` unless queued or rejected |
 | `stories` | id, author_id (Regular), author_status, media_id (unique; own Story image from the last hour; SET NULL when the image goes), media_status, caption ≤ 200, audience everyone/friends, created_at, expires_at = created_at + 24 h | Unexpired only; author at once, others after the image passed, by audience; RESTRICTIVE `stories_block_hide`; INSERT Regular with an image, ≤ 10 per 24 h counted on rows (tombstones too) under a per-author lock (`stories_prepare`, NS021); no UPDATE or client DELETE; job deletes expired |
 | `media_training_candidates` | media_id PK, created_at | Written in the moderator's transaction by `media_training_candidate()` (reports handled with action taken, or a reported post removed): images removed after a non-child-safety report; job reads |
@@ -514,18 +510,6 @@ post cannot be hidden); regular_names hidden (not on the admin screens, not insi
 `regular_names_select_blocker`); regular_profiles hidden; friendships: no new request and no accept across a block. `notify_deliver()` skips a
 notification across a block. No SECURITY DEFINER. Cleanup: user_blocks before friendships. Retention: lifted rows kept with the accounts;
 cascades with either account.
-
-## Recovery lock release (I4)
-
-`20261021300000_recovery_lock_ladder.sql` (NFR-SEC-010, FR-ADMIN-013, AC-113, AC-126).
-
-| Table | Columns and meaning | Authorization |
-|---|---|---|
-| `recovery_lock_releases` | id, user_id (whose lock), released_by (default auth.uid()), reason (optional, ≤ 1000), released_at; both FKs to users ON DELETE CASCADE; index (user_id, released_at desc) | RLS + FORCE; INSERT a holder of RECOVERY_LOCK_RELEASE (the Admin) in its own name, never for itself (grant on user_id, reason); SELECT that key; `app_recovery` reads user_id and released_at of the declared handle's account only; no UPDATE or DELETE; `audit_trigger()` appends `recovery_lock_released` |
-
-The server applies a release at the next attempt (as `app_recovery`): a release later than `ladder_started_at` zeroes the ladder and lifts the lock.
-A release signs nobody in and changes no password. `authenticated` still holds nothing on recovery_throttles or recovery_events. Cleanup:
-recovery_lock_releases (of or by the user) before users. Retention: kept with the account; the audit entry stays in audit_log.
 
 ## New entity template
 

@@ -228,16 +228,29 @@ select is(pg_temp.attach('a', 'r1', 'a_rej', 0) || pg_temp.attach('a', 'r2', 'a_
   'OK:1OK:1OK:1OK:1OK:1OK:1', '[F5.1-a c7] control');
 select is(pg_temp.decide('m2', 'r1', 'rejected'), 'ERR:42501', '[F5.1-a c7] a checked image is not rejected without a report or a suspicion');
 select ok(tests.fx_rp_add(pg_temp.id('b'), 'post', (select v from po where k = 'a_rej')) is not null, '[F5.1-a c7] control: B reports the post');
+select is(pg_temp.decide('m2', 'r1', 'rejected'), 'ERR:42501', '[F5.1-a c7] an open report is no ground: it is handled first');
+select ok(tests.fx_rp_add(pg_temp.id('b'), 'user', pg_temp.id('a')) is not null, '[F5.1-a c7] control: B reports the uploader too');
+select is(pg_temp.dml('d', format($q$ update nestly.reports set status = 'handled', resolution = 'dismissed' where reported_user_id = %L and status = 'open' $q$, pg_temp.id('a'))),
+  'OK:1', '[F5.1-a c7] control: the Admin dismisses the report on the uploader');
+select is(pg_temp.decide('m2', 'r1', 'rejected'), 'ERR:42501', '[F5.1-a c7] a dismissed report is no ground either');
+select is(pg_temp.dml('m2', format($q$ update nestly.reports set status = 'handled', resolution = 'action_taken' where post_id = %L and status = 'open' $q$, (select v from po where k = 'a_rej'))),
+  'OK:1', '[F5.1-a c7] the moderator closes the report on the post with action taken');
 select is(pg_temp.decide('m3', 'r1', 'rejected'), 'OK:0', '[F5.1-a c7 §3.2] without REPORTS_VIEW, staff cannot reject a checked image');
-select is(pg_temp.decide('m2', 'r1', 'rejected'), 'OK:1', '[F5.1-a c7 C1] after a report, staff reject the image that had passed');
+select is(pg_temp.decide('m2', 'r1', 'rejected'), 'OK:1', '[F5.1-a c7 C1] after a report handled with action taken, staff reject the image that had passed');
 select is(pg_temp.n('a', pg_temp.m('r1') || ' and status = ''rejected'''), '1', '[F5.1-a c7 ERR-041] the uploader sees an ordinary rejection');
 select is(pg_temp.n('b', pg_temp.m('r1')), '0', '[F5.1-a c7] and nobody else sees the image any more');
 select is(pg_temp.dml('m3', format('insert into nestly.media_reviews (media_id, is_suspected) values (%L, true)', pg_temp.i('r3'))), 'ERR:42501',
   '[F5.1-a c7 C2] a suspicion on a checked image needs REPORTS_VIEW too');
 select is(pg_temp.dml('m2', format('insert into nestly.media_reviews (media_id, is_suspected) values (%L, true)', pg_temp.i('r3'))), 'OK:1',
   '[F5.1-a c7 C2 M6] CONTENT_MODERATE with REPORTS_VIEW marks a suspicion on a checked image');
-select is(pg_temp.decide('m2', 'r3', 'rejected'), 'OK:1', '[F5.1-a c7 C2 M6] and rejects it, held');
-select is(tests.fx_media_held(pg_temp.i('r3')::uuid), true, '[F5.1-a c7 M6] held');
+select is(pg_temp.n('a', pg_temp.m('r3') || ' and status = ''rejected'''), '1', '[F5.1-a c7 M6] the suspicion rejects the checked image at once (no second step)');
+select is(tests.fx_media_held(pg_temp.i('r3')::uuid), true, '[F5.1-a c7 M6] and holds it');
+select is(pg_temp.n('b', pg_temp.m('r3')), '0', '[F5.1-a c7 M6] nobody else sees it any more');
+select is(pg_temp.dml('a', format('delete from nestly.media_assets where id = %L', pg_temp.i('r3')), false), 'OK:0', '[F5.1-a c7 M6] the uploader cannot delete it (evidence kept)');
+select is(pg_temp.job(format('delete from nestly.media_assets where id = %L', pg_temp.i('r3'))), 'OK:0', '[F5.1-a c7 M6] nor can the job purge it before 90 days');
+select is(pg_temp.decide('m2', 'r3', 'rejected'), 'OK:0', '[F5.1-a c7 M6] there is nothing left to decide');
+select is((select after_state->>'heldAsSuspected' from tests.fx_audit_rows() where action = 'media_rejected' and target_id = pg_temp.i('r3')::uuid), 'true',
+  '[F5.1-a c7 M6 BR-026] the rejection is audited as held, in the name of the staff member who marked the suspicion');
 select is(pg_temp.q('a', format('select row(kind, status, mime, width, height, byte_size)::text from %s', pg_temp.m('r3'))),
           pg_temp.q('a', format('select row(kind, status, mime, width, height, byte_size)::text from %s', pg_temp.m('r1'))),
   '[F5.1-a c7 C1] a checked image turned suspected reads to the uploader as one rejected after a report');
@@ -286,10 +299,8 @@ select is(pg_temp.dml('m2', format('insert into nestly.media_training_candidates
 select is(pg_temp.sample('rp1', 'blocked', 'reported'), 'OK:1', '[F5.1-a c9 Afik 20.10] the job adds the candidate to the training set (label blocked)');
 select is(pg_temp.sample('cs1', 'blocked', 'reported'), 'ERR:42501', '[F5.1-a c9 C2] not the child-safety one');
 select is(pg_temp.sample('a3', 'blocked', 'reported'), 'ERR:42501', '[F5.1-a c9] not the image of a post that was not removed');
-select is(pg_temp.dml('m2', format($q$ update nestly.reports set status = 'handled', resolution = 'action_taken' where post_id = %L and status = 'open' $q$, (select v from po where k = 'a_rej'))),
-  'OK:1', '[F5.1-a c9] the report on the post whose image was rejected is closed with action taken');
 select is(pg_temp.jobq(format('select string_agg(media_id::text, '','') from nestly.media_training_candidates where media_id in (%L, %L, %L)', pg_temp.i('r1'), pg_temp.i('r2'), pg_temp.i('r3'))),
-  pg_temp.i('r1'), '[F5.1-a c9 Afik 20.10] the image rejected after the report is a candidate; the post''s still visible image and the suspected one are not');
+  pg_temp.i('r1'), '[F5.1-a c9 Afik 20.10] the image rejected after the handled report is a candidate; the post''s still visible image and the suspected one are not');
 select is(pg_temp.job(format('update nestly.media_assets set is_file_removed = true where id = %L', pg_temp.i('r1'))), 'OK:0',
   '[F5.1-a c9] a candidate''s file stays until its training copy exists');
 select is(pg_temp.sample('r1', 'blocked', 'reported'), 'OK:1', '[F5.1-a c9] the job copies it');
@@ -300,6 +311,9 @@ select is(pg_temp.job(format('delete from nestly.media_training_samples where so
 select is(pg_temp.dml('m2', format('update nestly.media_reviews set is_suspected = true where media_id = %L', pg_temp.i('q1'))), 'OK:1',
   '[F5.1-a c9 C2 M6] staff mark a suspicion on an approved image already in the training set');
 select is(pg_temp.sample('q1', 'allowed', 'blocked', true), 'ERR:42501', '[F5.1-a c9 C2] a suspected image is never copied again');
+select is(tests.fx_media_held(pg_temp.i('q1')::uuid), true, '[F5.1-a c9 M6] the approved image is rejected and held by the suspicion');
+select is(pg_temp.job(format($q$ insert into nestly.media_training_events (sample_id, action, purpose, source, label) select id, 'accessed', 'training', source, label from nestly.media_training_samples where source_media_id = %L $q$,
+  pg_temp.i('q1'))), 'ERR:42501', '[F5.1-a c9 C2 M6] the job cannot record a training read of a sample whose image became suspected');
 create temp table smp (k text primary key, v uuid);
 grant all on smp to public;
 insert into smp values ('q1', pg_temp.sample_id('q1'));
@@ -403,7 +417,10 @@ begin
     m := pg_temp.up('a', 'story');
     insert into img values ('sn:' || m, m);
     v := pg_temp.dml('a', format($q$ insert into nestly.stories (media_id, audience) values (%L, 'everyone') $q$, m));
-    exit when v <> 'OK:1';
+    if v <> 'OK:1' then
+      delete from img where k = 'sn:' || m;  -- the refused one has no Story: never pick it below
+      exit;
+    end if;
   end loop;
   return v;
 end

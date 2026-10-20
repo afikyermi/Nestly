@@ -7,7 +7,7 @@
 -- Order:    revert the media server, jobs and web code first, then run this.
 -- Safe:     only while the seven tables hold no row (FORCE RLS is lifted first, so the check is real). Files in storage are not touched:
 --           they are not the database's.
--- Restores: audit_trigger() as 20261021300000_recovery_lock_ladder.sql left it (text and comment); drops the two training-candidate
+-- Restores: audit_trigger() as 20261021100000_status_guides_admin.sql left it (text and comment); drops the two training-candidate
 --           triggers on reports and posts, the seven tables, their triggers, functions and policies, and app_media_jobs' schema usage;
 --           deletes only its own history row. Audit entries already written stay: the log is append-only.
 -- =====================================================================================================================
@@ -45,6 +45,8 @@ drop trigger media_reviews_suspicion_audit_insert on nestly.media_reviews;
 drop trigger media_reviews_suspicion_audit_update on nestly.media_reviews;
 drop trigger reports_training_candidate on nestly.reports;
 drop trigger posts_training_candidate on nestly.posts;
+drop trigger media_assets_training_candidate on nestly.media_assets;
+drop trigger media_reviews_suspicion_reject on nestly.media_reviews;
 
 create or replace function nestly.audit_trigger()
 returns trigger
@@ -128,12 +130,6 @@ begin
     v_after := pg_catalog.jsonb_build_object('status', v_new ->> 'status', 'title', v_new ->> 'title', 'stageKind', v_new ->> 'stage_kind',
       'rangeFrom', v_new -> 'range_from', 'rangeTo', v_new -> 'range_to', 'sourceCheckedOn', v_new ->> 'source_checked_on',
       'bodyChars', pg_catalog.char_length(v_new ->> 'body'), 'bodyChanged', tg_op = 'UPDATE' and v_new ->> 'body' is distinct from v_old ->> 'body');
-  elsif tg_table_name = 'recovery_lock_releases' then
-    v_key := 'RECOVERY_LOCK_RELEASE';
-    v_action := 'recovery_lock_released';
-    v_kind := 'user';
-    v_target := (v_new ->> 'user_id')::uuid;
-    v_reason := nullif(v_new ->> 'reason', '');
   else
     raise exception 'audit_trigger: not attached to %', tg_table_name;
   end if;
@@ -145,7 +141,7 @@ $$;
 
 revoke execute on function nestly.audit_trigger() from public;
 
-comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement, an Admin''s creation, edit, publication or hiding of a status guide, or a recovery lock release: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
+comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement or an Admin''s creation, edit, publication or hiding of a status guide: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
 
 -- one statement: the policies of these tables refer to one another
 drop table nestly.media_training_events, nestly.media_training_samples, nestly.media_training_candidates, nestly.stories,
@@ -156,6 +152,7 @@ drop function nestly.media_training_candidate();
 drop function nestly.stories_prepare();
 drop function nestly.profile_photos_replaced();
 drop function nestly.profile_photos_prepare();
+drop function nestly.media_reviews_suspicion_reject();
 drop function nestly.media_reviews_guard();
 drop function nestly.media_assets_update_guard();
 
