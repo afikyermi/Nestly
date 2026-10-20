@@ -312,7 +312,7 @@ test.describe('F2.5 c6 [FR-AUTH-004 ERR-012] the route guard, in the browser', (
 
 // ---------------------------------------------------------------------------------------------------------------------
 test.describe('F2.5 c8 [A9 FR-AUTH-004] Settings makes no request of its own', () => {
-  test('[F2.5 c8] opening Settings and visiting every section sends only the privacy GET', async ({ page }) => {
+  test('[F2.5 c8 FR-REL-002] opening Settings and visiting every section sends only the privacy GET and the blocked list GET', async ({ page }) => {
     const net = await signedInAtFeed(page);
     await page.waitForTimeout(300);
     net.calls.length = 0;
@@ -321,7 +321,7 @@ test.describe('F2.5 c8 [A9 FR-AUTH-004] Settings makes no request of its own', (
       await expect(h2(page, name)).toBeFocused();
     }
     await page.waitForTimeout(500);
-    expect([...new Set(net.calls)]).toEqual(['GET /api/privacy']);
+    expect([...new Set(net.calls)].sort()).toEqual(['GET /api/blocks', 'GET /api/privacy']);
   });
 
   test('[F2.5 c8 ERR-037] a suspended or banned account never renders Settings: the same screen as /profile, no privacy GET', async ({ page }) => {
