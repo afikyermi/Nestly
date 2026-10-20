@@ -81,7 +81,7 @@ const GOOD_FACTS = {
   dbUser: 'postgres',
   bypassRls: true,
   canDeleteAuthUsers: true,
-  nestlyTables: ['algorithm_configurations', 'children', 'comments', 'friendships', 'identity_link_checks', 'journey_contexts', 'legal_consents', 'post_authors', 'post_hides', 'posts', 'profile_open_counts', 'reaction_owners', 'reactions', 'recovery_answers', 'recovery_events', 'recovery_throttles', 'regular_names', 'regular_profiles', 'reports', 'security_events', 'security_limits', 'users'],
+  nestlyTables: ['algorithm_configurations', 'children', 'comments', 'friend_content_notification_preferences', 'friendships', 'identity_link_checks', 'journey_contexts', 'legal_consents', 'notification_preferences', 'notifications', 'people_search_counts', 'post_authors', 'post_hides', 'posts', 'profile_open_counts', 'reaction_owners', 'reactions', 'recovery_answers', 'recovery_events', 'recovery_throttles', 'regular_names', 'regular_profiles', 'reports', 'security_events', 'security_limits', 'users'],
 };
 
 test('[E c8] preflight passes only for the exact expected facts, in any table order', () => {
@@ -468,15 +468,15 @@ test('[cleanup a] the expected tables are exactly the nestly tables the migratio
   assert.doesNotMatch(code, /alter\s+table\s+(?:if\s+exists\s+)?nestly\.[a-z_]+\s+rename\s+to/i, 'a renamed table: update this test');
   assert.deepEqual([...cleanup.EXPECTED_NESTLY_TABLES], [...created].sort());
   assert.ok(created.has('identity_link_checks'));
-  assert.equal(cleanup.EXPECTED_NESTLY_TABLES.length, 22);
+  assert.equal(cleanup.EXPECTED_NESTLY_TABLES.length, 26);
   for (const t of ['algorithm_configurations', 'post_authors', 'post_hides', 'posts', 'comments', 'reaction_owners', 'reactions', 'reports']) assert.ok(cleanup.EXPECTED_NESTLY_TABLES.includes(t), t);
 });
 
-test('[cleanup a] the preflight with all twenty-two tables passes; the twenty-one left without identity_link_checks fail', () => {
-  assert.equal(GOOD_FACTS.nestlyTables.length, 22);
+test('[cleanup a] the preflight with all twenty-six tables passes; the twenty-five left without identity_link_checks fail', () => {
+  assert.equal(GOOD_FACTS.nestlyTables.length, 26);
   assert.equal(cleanup.decidePreflight(GOOD_FACTS).ok, true);
   const rest = GOOD_FACTS.nestlyTables.filter((t) => t !== 'identity_link_checks');
-  assert.equal(rest.length, 21);
+  assert.equal(rest.length, 25);
   assert.equal(cleanup.decidePreflight({ ...GOOD_FACTS, nestlyTables: rest }).ok, false);
 });
 
@@ -488,6 +488,12 @@ test('[F3.0a c19] the preflight fails closed when any of the four F3.0a tables i
 
 test('[F3.0-b c19] the preflight fails closed when any of the four F3.0b tables is missing', () => {
   for (const t of ['comments', 'reaction_owners', 'reactions', 'reports']) {
+    assert.equal(cleanup.decidePreflight({ ...GOOD_FACTS, nestlyTables: GOOD_FACTS.nestlyTables.filter((x) => x !== t) }).ok, false, t);
+  }
+});
+
+test('[notifications] the preflight fails closed when any of the four notification and search tables is missing', () => {
+  for (const t of ['notifications', 'notification_preferences', 'friend_content_notification_preferences', 'people_search_counts']) {
     assert.equal(cleanup.decidePreflight({ ...GOOD_FACTS, nestlyTables: GOOD_FACTS.nestlyTables.filter((x) => x !== t) }).ok, false, t);
   }
 });
@@ -527,8 +533,9 @@ test('[cleanup a] every expected table is deleted from in the user transaction, 
   assert.ok(at('nestly.recovery_answers') < at('nestly.reports'), 'F3.0b rows after the recovery rows');
   assert.deepEqual(order.filter((t) => !['nestly.identity_link_checks', 'nestly.post_hides', 'nestly.posts', 'nestly.post_authors', 'nestly.reports', 'nestly.reactions', 'nestly.comments'].includes(t)), [
     'nestly.recovery_throttles', 'nestly.recovery_events', 'nestly.legal_consents', 'nestly.recovery_answers', 'nestly.children',
-    'nestly.journey_contexts', 'nestly.friendships', 'nestly.regular_names', 'nestly.regular_profiles',
-    'nestly.profile_open_counts', 'nestly.security_events', 'nestly.users', 'auth.users',
+    'nestly.journey_contexts', 'nestly.notifications', 'nestly.notification_preferences', 'nestly.friend_content_notification_preferences',
+    'nestly.friendships', 'nestly.regular_names', 'nestly.regular_profiles',
+    'nestly.profile_open_counts', 'nestly.people_search_counts', 'nestly.security_events', 'nestly.users', 'auth.users',
   ]);
   assert.ok(order.indexOf('nestly.security_events') < order.indexOf('nestly.identity_link_checks'));
   assert.match(cliText, /counts\['friendships'\] = \(\s*await tx`delete from nestly\.friendships where requester_id = \$\{id\} or addressee_id = \$\{id\}`\s*\)\.count/);

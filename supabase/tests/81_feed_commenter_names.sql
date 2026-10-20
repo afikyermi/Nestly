@@ -34,8 +34,8 @@ $f$;
 -- =====================================================================================================================
 -- 1 structure and recursion guard
 -- =====================================================================================================================
-select is((select count(*) from pg_catalog.pg_policies where schemaname = 'nestly' and tablename = 'regular_names'), 5::bigint,
-  '[F3.4-a c9 N1] regular_names has exactly five policies');
+select is((select count(*) from pg_catalog.pg_policies where schemaname = 'nestly' and tablename = 'regular_names'), 6::bigint,
+  '[F3.4-a c9 N1] regular_names has exactly six policies (the sixth is People Search''s, file 90)');
 select is((select permissive || '/' || cmd || '/' || roles::text from pg_catalog.pg_policies
             where schemaname = 'nestly' and tablename = 'regular_names' and policyname = 'regular_names_select_comment_reader'),
   'PERMISSIVE/SELECT/{authenticated}', '[F3.4-a c9 N1] the comment-reader policy exists: permissive, SELECT, TO authenticated only');

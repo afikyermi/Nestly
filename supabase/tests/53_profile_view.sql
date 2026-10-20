@@ -377,13 +377,13 @@ select is(tests.as_role('anon', null,
     format($q$ select count(*)::text from nestly.profile_view(%L) $q$, tests.fx_pv_id('pv_b'))),
   'ERR:42501', '[F2.3-b c15 platform r4] anon cannot call profile_view');
 
-select is((select array_agg(a order by a) from tests.approved_security_definer() as a)::text, '{nestly.profile_view(text)}',
-  '[F2.3-b c15 A8 rule 10 DR-G1] the approved SECURITY DEFINER list is exactly {nestly.profile_view(text)}');
+select is((select array_agg(a order by a) from tests.approved_security_definer() as a)::text, '{nestly.notify_comment(),nestly.notify_friendship(),nestly.notify_post(),nestly.profile_view(text),"nestly.search_people(text,integer,integer)"}',
+  '[F2.3-b c15 A8 rule 10 DR-G1] the approved SECURITY DEFINER list is profile_view(text) and, from the notifications, the three notification triggers and search_people (file 90)');
 select set_eq(
   $$ select p.oid::regprocedure::text from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'nestly' and p.prosecdef $$,
-  $$ values ('nestly.profile_view(text)') $$,
-  '[F2.3-b c15] profile_view(text) is the only SECURITY DEFINER function in nestly');
+  $$ values ('nestly.profile_view(text)'), ('nestly.notify_comment()'), ('nestly.notify_friendship()'), ('nestly.notify_post()'), ('nestly.search_people(text,integer,integer)') $$,
+  '[F2.3-b c15] profile_view(text), the three notification triggers and search_people are the only SECURITY DEFINER functions in nestly');
 select is((select p.proowner::regrole::text from pg_catalog.pg_proc p where p.oid = pg_temp.proc('nestly.profile_view(text)')),
   'app_owner', '[F2.3-b c15] profile_view is owned by app_owner');
 select is((select p.proconfig from pg_catalog.pg_proc p where p.oid = pg_temp.proc('nestly.profile_view(text)')),

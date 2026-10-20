@@ -29,7 +29,7 @@ select is(
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables())
-      and pol.polname !~ '_jobs$'
+      and pol.polname !~ '_(jobs|notify)$'
       and pol.polroles <> array[(select oid from pg_catalog.pg_roles where rolname = 'authenticated')]::oid[]),
   0::bigint, '[F3.0-a c1 platform r4 · c5] every policy on the new tables is TO authenticated only (none for PUBLIC, anon, app_owner; F3.0b adds the *_jobs policies of the purge, file 73)');
 
@@ -40,7 +40,7 @@ select is(
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and pol.polname !~ '_jobs$'
+    where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and pol.polname !~ '_(jobs|notify)$'
       and (coalesce(pg_catalog.pg_get_expr(pol.polqual, pol.polrelid), '') || coalesce(pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid), ''))
           !~ 'is_active_account\(\)'),
   0::bigint, '[F3.0-a c1 c2 platform r15] every policy is gated by is_active_account()');
@@ -120,9 +120,10 @@ select is(
 select is(
   (select string_agg(c.relname, ', ' order by c.relname) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')),
-  'algorithm_configurations, children, comments, friendships, identity_link_checks, journey_contexts, legal_consents, post_authors, post_hides, posts, profile_open_counts, '
+  'algorithm_configurations, children, comments, friend_content_notification_preferences, friendships, identity_link_checks, journey_contexts, legal_consents, notification_preferences, notifications, '
+  || 'people_search_counts, post_authors, post_hides, posts, profile_open_counts, '
   || 'reaction_owners, reactions, recovery_answers, recovery_events, recovery_throttles, regular_names, regular_profiles, reports, security_events, security_limits, users',
-  '[F3.0-a c17 F3.0-b c1] schema nestly holds exactly the fourteen earlier tables plus the schema.md and schema-b.md names (22): no events table');
+  '[F3.0-a c17 F3.0-b c1] schema nestly holds exactly the fourteen earlier tables plus the schema.md and schema-b.md names, plus the four notification and search tables (26): no events table');
 
 select is(
   (select count(*) from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace

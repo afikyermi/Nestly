@@ -41,14 +41,17 @@ begin;
 create schema if not exists tests;
 
 -- The approved SECURITY DEFINER functions, as regprocedure text (e.g. 'nestly.fn(uuid)'). This list must equal the
--- SECURITY DEFINER entries of .claude/knowledge/data-model.md → "Approved exceptions" — CRITIC checks that. One function:
--- F2.3b, DR-G1 (F1.6's entries are an Auth call sequence and a role, not functions).
+-- SECURITY DEFINER entries of .claude/knowledge/data-model.md → "Approved exceptions" — CRITIC checks that. profile_view:
+-- F2.3b, DR-G1 (F1.6's entries are an Auth call sequence and a role, not functions). The notification triggers and People Search:
+-- rule 17, one narrow function per kind of write into another user's rows.
 create or replace function tests.approved_security_definer()
 returns setof text
 language sql immutable
 set search_path = ''
 as $$
-  select f from unnest(array['nestly.profile_view(text)']::text[]) as f
+  select f from unnest(array[
+    'nestly.profile_view(text)', 'nestly.notify_friendship()', 'nestly.notify_comment()', 'nestly.notify_post()',
+    'nestly.search_people(text,integer,integer)']::text[]) as f
 $$;
 
 create or replace function tests.rls_gate(p_schema name default 'nestly')
