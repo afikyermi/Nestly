@@ -35,6 +35,11 @@ async function stubGuides(page: Page, mode: 'admin' | 'forbidden' = 'admin'): Pr
   return guides;
 }
 
+/** GET /api/admin/access: the staff role the shell shows tabs by (the Guides tab is the Admin's only). */
+async function stubAccess(page: Page, role: 'admin' | 'moderator'): Promise<void> {
+  await page.route('**/api/admin/access', (route) => json(route, 200, { staff: true, role, permissions: role === 'admin' ? ['AUDIT_LOG_VIEW'] : ['REPORTS_VIEW'] }));
+}
+
 async function signIn(page: Page, path: string): Promise<void> {
   await page.goto('/login');
   await page.getByRole('textbox', { name: 'אימייל', exact: true }).fill(EMAIL);
@@ -42,16 +47,20 @@ async function signIn(page: Page, path: string): Promise<void> {
   await page.getByRole('button', { name: 'התחברות', exact: true }).click();
   await expect.poll(() => pathOf(page)).not.toBe('/login');
   await page.goto(path);
-  expect(pathOf(page)).toBe(path);
+  await expect.poll(() => pathOf(page)).toContain(path);
 }
 
 test.describe('I6 admin guides [FR-ADMIN-012 BR-070 AC-095]', () => {
   test('the Admin sees drafts awaiting approval, adds a draft, and publishes and hides a guide with a confirmation', async ({ page }) => {
     await setup(page);
     const guides = await stubGuides(page);
-    await signIn(page, '/admin/guides');
+    await stubAccess(page, 'admin');
+    await signIn(page, '/admin');
     const m = main(page);
-    await expect(m.getByRole('heading', { name: 'ניהול מדריכים', level: 1 })).toBeVisible();
+    await m.getByRole('navigation', { name: 'מסכי הניהול' }).getByRole('link', { name: 'מדריכים', exact: true }).click();
+    await expect.poll(() => pathOf(page)).toBe('/admin/guides');
+    await expect(m.getByRole('heading', { name: 'ניהול', level: 1 })).toBeVisible();
+    await expect(m.getByRole('heading', { name: 'ניהול מדריכים', level: 2 })).toBeVisible();
     await expect(m.getByText('המידע אינו מחליף ייעוץ רפואי').first()).toBeVisible();
     const list = m.getByRole('list', { name: 'המדריכים' });
     await expect(list.getByText('טיוטה, ממתין לאישור')).toHaveCount(2);
@@ -80,10 +89,12 @@ test.describe('I6 admin guides [FR-ADMIN-012 BR-070 AC-095]', () => {
     await expect(second.getByText('מוסתר', { exact: true })).toBeVisible();
   });
 
-  test('a signed-in account that is not an Admin is told it has no permission', async ({ page }) => {
+  test('a Moderator has no Guides tab, and at the address is told it has no permission', async ({ page }) => {
     await setup(page);
     await stubGuides(page, 'forbidden');
+    await stubAccess(page, 'moderator');
     await signIn(page, '/admin/guides');
+    await expect(main(page).getByRole('navigation', { name: 'מסכי הניהול' }).getByRole('link', { name: 'מדריכים' })).toHaveCount(0);
     await expect(main(page).getByText('אין הרשאה לניהול מדריכים.')).toBeVisible();
   });
 });

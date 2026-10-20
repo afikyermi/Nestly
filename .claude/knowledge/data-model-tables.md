@@ -17,6 +17,7 @@ does not instruct loading every link. Column sections and rule matrices are both
 | notifications, notification_preferences, friend_content_notification_preferences, people_search_counts | Notifications and People Search; Profile open limits and security events (the limit pattern); Friendships and regular names |
 | profile_view consumers | Cross-user profile read plus the affected input/output table sections above |
 | staff_roles, moderator_permissions, audit_log, report_reasons, user_enforcements | Safety and admin core |
+| user_blocks | Blocking a user (I4); Friendships and regular names; Notifications and People Search |
 
 | tracker_events, cycle_entries, status_guides | Trackers, cycle and status guides (I6); children for the child FK |
 | Schema changes | Migration and rollback map; New entity template; affected consumer/cleanup order |
@@ -427,13 +428,15 @@ No SECURITY DEFINER, no function; `tests.approved_security_definer()` unchanged.
 | Purpose | FR-TRACK-001/002: one event of a child's tracker (breastfeeding, bottle, sleep, diaper, medicine, growth, vaccine, bath) | FR-TRACK-001: a cycle start date and the user's average length; the ovulation window is computed from the latest entry, never stored | FR-HOME-004, FR-ADMIN-012, BR-070: system content per stage (planning; pregnancy by weeks 1..42; parenting by child age in months 0..216) |
 | Columns | id, user_id (default auth.uid()), child_id, kind, occurred_at, ended_at, amount_ml, choice, name, dosage, weight_kg, height_cm, head_cm, note, created_at | id, user_id, start_date, cycle_length_days (15..60), created_at | id, stage_kind, range_from, range_to, title, body, source, source_checked_on, status (draft, published, hidden), published_at, created_at |
 | Not stored | no photo, no sharing, no free-form extra fields (OP-008) | no symptoms, no relations (OP-008) | no per-user state; no read counters |
-| Authorization | owner only, active account: `tracker_events_select_own`, `_insert_own` (also Regular and a child the caller can read), `_update_own`, `_delete_own`. INSERT per column (no id, user_id, created_at); UPDATE per column without kind and child_id. Nobody else reads: Admin, Moderator and Professional included (layer 9, BR-053) | owner only, same shape: `cycle_entries_select_own`, `_insert_own`, `_update_own`, `_delete_own` | `status_guides_select_published` (status = 'published', active account). No write grant to any runtime role; the admin management adds its own policies |
+| Authorization | owner only, active account: `tracker_events_select_own`, `_insert_own` (also Regular and a child the caller can read), `_update_own`, `_delete_own`. INSERT per column (no id, user_id, created_at); UPDATE per column without kind and child_id. Nobody else reads: Admin, Moderator and Professional included (layer 9, BR-053) | owner only, same shape: `cycle_entries_select_own`, `_insert_own`, `_update_own`, `_delete_own` | `status_guides_select_published` (status = 'published', active account); from `20261021100000_status_guides_admin.sql`: `status_guides_select_admin`, `_insert_admin` (a draft only), `_update_admin`, all `caller_staff_role() = 'admin'` (FR-ADMIN-012 is Admin only; no Permission Key covers guides, so a Moderator with every key is refused). INSERT per content column, UPDATE per content column and status; no DELETE (a guide is hidden). `status_guides_prepare` stamps `published_at`; `audit_trigger()` (replaced with one more branch, still the one definer) appends created, edited, published, hidden and unpublished with Before/After (never the text) |
 | Constraints | `tracker_events_fields_check`: the fields each kind needs and no others; end not before start for breastfeeding and sleep (AC-023) | unique (user_id, start_date) | published needs `source_checked_on` and `published_at` (BR-070); planning has no range |
 | Relations | user_id -> regular_profiles (cascade); child_id -> children (cascade: a removed child takes its events) | user_id -> regular_profiles (cascade) | none |
 | Indexes | (user_id, kind, occurred_at desc): the page's history and period; (child_id): the cascade | (user_id, start_date desc): history and latest | partial (stage_kind, range_from) where published: the home lookup |
 | Retention | hard delete by the owner | hard delete by the owner | the nine seed rows are drafts awaiting approval; `hidden` keeps the row |
 
 Preview cleanup: the user's tracker_events and cycle_entries are deleted before `children`; `status_guides` is content and is never written by the cleanup.
+
+I7 Intent Signal (`20261021200000_feed_intent_weight.sql`, FR-ALG-008, Afik 20.10.2026): `algorithm_configurations` gains `w_intent` (0–2) and `intent_half_life_hours` (1–720), catalog-only: versions stored before them (v1) read 0.5 and 168; a later version's defaults are 0 and 168. No row written, no table, policy or grant.
 
 ## Notifications and People Search
 
@@ -470,6 +473,21 @@ FR-SEARCH-001, FR-ALG-008, BR-035/038/061/063, VAL-037, AC-040/041/042/074/078; 
 Rows: id and full name of other active Regular accounts, ranked exact name, name prefix, a word prefix, anywhere; then name and id; at most 50 per call, offset up to 200.
 Posts are searched by the server through the caller's own RLS (`posts_select_viewer`), so hides, audience, Friends-only and later blocks and Private Groups apply with no search code.
 **Cleanup order:** the three notification tables after `journey_contexts`, `search_intents` and `people_search_counts` after `profile_open_counts`.
+
+## Blocking a user (I4)
+
+`20261021250000_user_blocks.sql` (FR-REL-002, BR-011). A block is mutual in effect and separate from Chat Block.
+
+| Table | Columns and meaning | Authorization |
+|---|---|---|
+| `user_blocks` | id; blocker_id (default auth.uid()); blocked_id with blocked_account_type (regular · professional) and blocked_status (default active), composite FKs to users (id, account_type) and (id, status) — never staff, active at the block; created_at; lifted_at (unblock, set once by the trigger). One block in force per pair (partial unique index) | RLS + FORCE; SELECT both parties while in force, the blocker also its lifted rows; INSERT an active Regular or Professional account in its own name (grant on blocked_id, blocked_account_type), at most 20 per 24 hours (NS021); UPDATE lifted_at by the blocker only (unblock); no DELETE; AFTER INSERT trigger (invoker) ends the pair's Friendship and open requests |
+
+Effect: `block_peer_ids()` (invoker, no argument) drives six RESTRICTIVE policies TO authenticated, which app_owner inherits inside the definers
+(profile_view, search_people, the notification definers): posts and comments of the other party hidden (never from REPORTS_VIEW; an anonymous
+post cannot be hidden); regular_names hidden (not on the admin screens, not inside the audited reveal, not the blocker's own blocked list —
+`regular_names_select_blocker`); regular_profiles hidden; friendships: no new request and no accept across a block. `notify_deliver()` skips a
+notification across a block. No SECURITY DEFINER. Cleanup: user_blocks before friendships. Retention: lifted rows kept with the accounts;
+cascades with either account.
 
 ## New entity template
 

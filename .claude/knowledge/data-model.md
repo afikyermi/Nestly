@@ -200,8 +200,8 @@ owned by app_owner, fixed search_path, each one kind of write into another user'
 accepted; a decline is silent), `notify_comment()` (a comment on my post, the real author of an anonymous post included; a reply to my comment; never to oneself), `notify_post()` (a share
 of my post; a named post of a Friend to the Friends who chose to follow that Friend) - no EXECUTE for any runtime role - and `search_people(text, integer, integer)` (EXECUTE authenticated:
 counts the call against the people_search limit, returns id and full name of active Regular accounts for a query of 2 to 100 characters, at most 50 rows). Conditions: (1) no "new post of a
-Friend" for an anonymous post (AC-076); (2) no query returns nothing, and never an Admin, Moderator or inactive account; mutual blocks excluded by a follow-up migration after I4's block table;
-(3) no notification between users who blocked each other (same follow-up), and every notification respects the recipient's preferences. Each declares a scope in a transaction-local setting
+Friend" for an anonymous post (AC-076); (2) no query returns nothing, and never an Admin, Moderator or inactive account; blocked pairs excluded both ways (user_blocks);
+(3) no notification between users who blocked each other (notify_deliver, `20261021250000_user_blocks.sql`), and every notification respects the recipient's preferences. Each declares a scope in a transaction-local setting
 (`nestly.notify_scope`, `nestly.search_scope`) that opens its eight `TO app_owner` policies on posts, post_authors, comments, friendships, users, regular_names, security_limits and
 security_events (plus the new tables'), and clears it; no runtime role is a member of app_owner. `notify_deliver()` is SECURITY INVOKER, run only by those definers. No like creates a notification.
 Also the retention job's `TO app_jobs` policies `search_intents_select_jobs` / `search_intents_delete_jobs` (rows older than 30 days) and `purge_search_intents()` (EXECUTE app_jobs only; rule 6).
@@ -211,7 +211,7 @@ Also the retention job's `TO app_jobs` policies `search_intents_select_jobs` / `
 F3.0b purge — TO app_jobs policies on posts, comments, reports: read held rows (and replies of a held comment) and the open reports on them, delete held rows,
 expire open reports past release; purge_held_content() invoker, EXECUTE app_jobs only · a job has no auth.uid() and must reach every user's held rows (rule 6);
 app_server is never a member of app_jobs · .work/feed-groundwork/schema-b.md · 2026-10-18
-I4 (rules 18, 19; approved by Afik 20.10.2026) — nestly.audit_trigger(): the one trigger function that appends every Audit entry; nestly.reveal_post_author(uuid): the audited read of an anonymous author (REPORTS_VIEW + CONTENT_MODERATE, a valid session, an OPEN report; writes author_revealed with the report id in the same call). Both SECURITY DEFINER, owner app_owner, search_path '', reading only through policies TO app_owner scoped to auth.uid() or to the one row the function named · no role holds INSERT on audit_log and authenticated cannot read post_authors, so the definer is the only writer/reader · details and deviations: data-model-tables.md "Safety and admin core"
+I4 (rules 18, 19; approved by Afik 20.10.2026) — nestly.audit_trigger(): the one trigger function that appends every Audit entry (I6 adds the status_guides branch, FR-ADMIN-012, 21.10.2026); nestly.reveal_post_author(uuid): the audited read of an anonymous author (REPORTS_VIEW + CONTENT_MODERATE, a valid session, an OPEN report; writes author_revealed with the report id in the same call). Both SECURITY DEFINER, owner app_owner, search_path '', reading only through policies TO app_owner scoped to auth.uid() or to the one row the function named · no role holds INSERT on audit_log and authenticated cannot read post_authors, so the definer is the only writer/reader · details and deviations: data-model-tables.md "Safety and admin core"
 ```
 
 ---

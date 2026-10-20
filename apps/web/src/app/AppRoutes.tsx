@@ -1,4 +1,6 @@
 import { Route, Routes } from 'react-router';
+import { AdminAuditPage, AdminReportsPage, AdminUsersPage } from '@/pages/admin/AdminPages';
+import { AdminIndex, AdminLayout } from '@/pages/admin/AdminLayout';
 import { ChangePasswordPage } from '@/pages/change-password/ChangePasswordPage';
 import { AdminGuidesPage } from '@/pages/admin-guides/AdminGuidesPage';
 import { CommunityRulesPage } from '@/pages/community-rules/CommunityRulesPage';
@@ -43,7 +45,6 @@ export function AppRoutes() {
           <Route element={<ProtectedLayout />}>
             <Route path={PATHS.home} element={<HomePage />} />
             <Route path={PATHS.tracker} element={<TrackerPage />} />
-            <Route path={PATHS.adminGuides} element={<AdminGuidesPage />} />
             <Route path={PATHS.feed} element={<FeedPage />} />
             <Route path={PATHS.newPost} element={<NewPostRedirect />} />
             <Route path={PATHS.post} element={<PostPage />} />
@@ -56,6 +57,13 @@ export function AppRoutes() {
             <Route path={PATHS.medicalHotlines} element={<MedicalHotlinesPage />} />
             <Route path={PATHS.communityRules} element={<CommunityRulesPage />} />
             <Route path={PATHS.setNewPassword} element={<SetNewPasswordPage />} />
+            <Route path={PATHS.admin} element={<AdminLayout />}>
+              <Route index element={<AdminIndex />} />
+              <Route path="reports" element={<AdminReportsPage />} />
+              <Route path="users" element={<AdminUsersPage />} />
+              <Route path="audit" element={<AdminAuditPage />} />
+              <Route path="guides" element={<AdminGuidesPage />} />
+            </Route>
           </Route>
         </Routes>
       </RouteGuard>

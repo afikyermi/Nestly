@@ -5,6 +5,8 @@ import { readConfig, type ServerConfig } from './lib/config.js';
 import { createTokenVerifier } from './lib/token-verifier.js';
 import { registerAuthentication, replySessionRefused, type LinkGate } from './plugins/authentication.js';
 import { clientAddress } from './recovery/client-ip.js';
+import { registerAdminActionRoutes } from './routes/admin-actions.js';
+import { registerAdminReadRoutes } from './routes/admin-read.js';
 import { registerCommentsRoutes } from './routes/comments.js';
 import { registerFeedRoutes } from './routes/feed.js';
 import { registerFriendsRoutes } from './routes/friends.js';
@@ -124,6 +126,8 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerPostHidesRoutes(app, { database });
   registerReportsRoutes(app, { database });
   registerSharesRoutes(app, { database });
+  registerAdminReadRoutes(app, { database });
+  registerAdminActionRoutes(app, { database });
 
   return app;
 }
