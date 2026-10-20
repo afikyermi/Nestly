@@ -297,8 +297,8 @@ select is_empty(
        join pg_catalog.pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'nestly' and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents')
         and pol.polroles <> array[(select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated')]
-        and pol.polname not like '%\_select\_profile\_view' $$,
-  '[F1.1-b c19 platform r4 · F1.6 scoped · F2.3b c15] every policy on the five F1.1/F1.4 tables is TO authenticated only (not PUBLIC, not anon, not app_recovery), except the four *_select_profile_view policies TO app_owner (file 53 asserts them)');
+        and pol.polname not like '%\_select\_profile\_view' and pol.polname <> 'users_select_search' $$,
+  '[F1.1-b c19 platform r4 · F1.6 scoped · F2.3b c15] every policy on the five F1.1/F1.4 tables is TO authenticated only (not PUBLIC, not anon, not app_recovery), except the four *_select_profile_view policies and users_select_search TO app_owner (files 53 and 90 assert them)');
 
 select is(has_schema_privilege('authenticated', 'nestly', 'USAGE'), true,
   '[F1.1-b c12] authenticated has USAGE on schema nestly');
@@ -353,7 +353,7 @@ select is(
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')
       and (has_table_privilege('authenticated', c.oid, 'UPDATE,TRUNCATE,REFERENCES,TRIGGER')
            or (c.relname not in ('recovery_answers', 'children', 'journey_contexts', 'posts', 'post_hides', 'comments', 'reactions', 'tracker_events', 'cycle_entries', 'moderator_permissions') and has_table_privilege('authenticated', c.oid, 'DELETE'))
-           or (c.relname not in ('recovery_answers', 'identity_link_checks', 'regular_profiles', 'children', 'journey_contexts', 'friendships', 'posts', 'comments', 'tracker_events', 'cycle_entries', 'users', 'reports', 'report_reasons') and has_any_column_privilege('authenticated', c.oid, 'UPDATE,REFERENCES')))),
+           or (c.relname not in ('recovery_answers', 'identity_link_checks', 'regular_profiles', 'children', 'journey_contexts', 'friendships', 'posts', 'comments', 'tracker_events', 'cycle_entries', 'users', 'reports', 'report_reasons', 'notifications', 'notification_preferences', 'friend_content_notification_preferences') and has_any_column_privilege('authenticated', c.oid, 'UPDATE,REFERENCES')))),
   0::bigint,
   '[F1.1-b c13 · F1.4-a c14 · F1.6, F2.0 scoped · F2.2a c9 · F2.2-b c18 · F2.4a c12] authenticated holds no table-level UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any table in nestly (DELETE on recovery_answers is the F2.0 D1 grant; on children and journey_contexts the F2.2b2 own-row delete, file 54), and no column-level UPDATE or REFERENCES except on recovery_answers, identity_link_checks, regular_profiles, children, journey_contexts and friendships (files 30, 40, 50, 51, 54 and 61 list those columns); I6''s tracker_events and cycle_entries are owner-only with own-row UPDATE and DELETE (file 86)');
 
@@ -392,8 +392,8 @@ select set_eq(
   $$ select a from tests.approved_security_definer() as a $$,
   '[F1.1-b c18 platform r10 · F2.3b c15] the SECURITY DEFINER functions in schema nestly are exactly the approved list');
 
-select is((select count(*) from tests.approved_security_definer()), 3::bigint,
-  '[F1.1-b c18 addendum 1 · F2.3b c15 · I4] the approved SECURITY DEFINER list holds three functions (profile_view, F2.3b; audit_trigger and reveal_post_author, I4, approved by Afik 20.10.2026)');
+select is((select count(*) from tests.approved_security_definer()), 7::bigint,
+  '[F1.1-b c18 addendum 1 · F2.3b c15 · I4] the approved SECURITY DEFINER list holds seven functions (profile_view, F2.3b; audit_trigger and reveal_post_author, I4; the three notification triggers and search_people, rule 17; approved by Afik 20.10.2026)');
 
 select is((select count(*) from tests.approved_security_definer() as a where a like 'nestly.is\_active\_account(%'), 0::bigint,
   '[F1.1-b c18 addendum 1] is_active_account() is not an approved exception');
@@ -416,7 +416,7 @@ select is(
      join pg_catalog.pg_namespace n on n.oid = p.pronamespace
      cross join (values ('anon'), ('service_role'), ('app_server'), ('app_jobs')) as r(rolname)
     where n.nspname = 'nestly' and has_function_privilege(r.rolname, p.oid, 'EXECUTE')
-      and not (r.rolname = 'app_jobs' and p.proname = 'purge_held_content')),
+      and not (r.rolname = 'app_jobs' and p.proname in ('purge_held_content', 'purge_search_intents'))),
   0::bigint,
   '[F1.1-b c19 platform r4,r7 · F3.0-b c14] no function in schema nestly is executable by anon, service_role, app_server or app_jobs (so not by PUBLIC either), but the purge, executable by app_jobs only');
 
@@ -426,7 +426,7 @@ select is_empty(
       where n.nspname = 'nestly' and has_function_privilege('authenticated', p.oid, 'EXECUTE')
         and (p.pronargs > 0 or p.prosecdef)
         and p.oid::regprocedure::text not in ('nestly.profile_view(text)', 'nestly.delete_post(uuid)', 'nestly.delete_comment(uuid)',
-          'nestly.has_permission(text)', 'nestly.reveal_post_author(uuid)') $$,
+          'nestly.has_permission(text)', 'nestly.reveal_post_author(uuid)', 'nestly.search_people(text,integer,integer)') $$,
   '[F1.1-b c18 layer 13 · F2.3b c15] every function in nestly that authenticated can execute takes no argument and is SECURITY INVOKER, except the approved profile_view(text) (one uuid per call, no status: file 53) and F3.0b''s delete_post(uuid) / delete_comment(uuid) (the caller''s own content, RLS decides), and the I4 invoker functions has_permission(text) and reveal_post_author(uuid)');
 
 select * from finish();

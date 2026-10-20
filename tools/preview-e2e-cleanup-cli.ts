@@ -98,6 +98,14 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         counts['cycle_entries'] = (await tx`delete from nestly.cycle_entries where user_id = ${id}`).count;
         counts['children'] = (await tx`delete from nestly.children where user_id = ${id}`).count;
         counts['journey_contexts'] = (await tx`delete from nestly.journey_contexts where user_id = ${id}`).count;
+        // Notifications and their preferences reference only users (ON DELETE CASCADE); search counts likewise. Nothing references them.
+        counts['notifications'] = (
+          await tx`delete from nestly.notifications where recipient_id = ${id} or actor_id = ${id}`
+        ).count;
+        counts['notification_preferences'] = (await tx`delete from nestly.notification_preferences where user_id = ${id}`).count;
+        counts['friend_content_notification_preferences'] = (
+          await tx`delete from nestly.friend_content_notification_preferences where user_id = ${id} or friend_id = ${id}`
+        ).count;
         // F3.0b (schema-b.md "Cleanup tool"). P(U) = U's posts (named, or anonymous through post_authors); C(U) = comments by U, on P(U),
         // or replying to U's. Reports first: no open report survives into a cascade, so reports_open_target_check never fires.
         counts['reports'] = (
@@ -132,6 +140,8 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         counts['regular_names'] = (await tx`delete from nestly.regular_names where user_id = ${id}`).count;
         counts['regular_profiles'] = (await tx`delete from nestly.regular_profiles where user_id = ${id}`).count;
         counts['profile_open_counts'] = (await tx`delete from nestly.profile_open_counts where user_id = ${id}`).count;
+        counts['search_intents'] = (await tx`delete from nestly.search_intents where user_id = ${id}`).count;
+        counts['people_search_counts'] = (await tx`delete from nestly.people_search_counts where user_id = ${id}`).count;
         // Afik DR-L (17.10.2026): a test user's Security events may be deleted here only; the FK stays RESTRICT for every other path.
         // security_limits is configuration with no user: never touched (deleting it would fail every later profile_view closed).
         counts['user_enforcements'] = (await tx`delete from nestly.user_enforcements where user_id = ${id}`).count;
