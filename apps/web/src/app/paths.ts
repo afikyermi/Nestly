@@ -22,6 +22,10 @@ export const PATHS = {
   post: POST_PATTERN,
   /** F2.4c2: another person's profile, `/u/<user id>` (FR-PRIV-001 "Profile/Deep Link"). Protected by pattern: see `userIdOfProfilePath`. */
   userProfile: USER_PROFILE_PATTERN,
+  /** FR-NOTIF-001 (PG-018): the notifications page, from the bell. */
+  notifications: '/notifications',
+  /** FR-SEARCH-001 (PG-017): the search results, `/search?q=<text>`. */
+  search: '/search',
   /** F1.6: save the recovery questions (held there while missing) or change them. */
   recoveryQuestions: '/recovery-questions',
   /** F2.0 c14: set a new password after a takeover clear. Opens only while the session is held there. */
@@ -52,6 +56,8 @@ export const PROTECTED_PATHS: readonly string[] = [
   PATHS.profile,
   PATHS.settings,
   PATHS.friends,
+  PATHS.notifications,
+  PATHS.search,
   PATHS.newPost,
   PATHS.recoveryQuestions,
   PATHS.changePassword,

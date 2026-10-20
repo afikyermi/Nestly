@@ -3,6 +3,9 @@ import { Outlet, useLocation, useNavigate } from 'react-router';
 import { ShareLinkSheet } from '@/components/domain/share-link-sheet';
 import { AppShell } from '@/components/layout/app-shell';
 import { MenuItem } from '@/components/shared/menu-item';
+import { NotificationBell } from '@/features/notifications/NotificationBell';
+import { NotificationsProvider } from '@/features/notifications/NotificationsProvider';
+import { SearchBox } from '@/features/search/SearchBox';
 import { HomeIcon, NestIcon, UserIcon } from '@/components/ui/icons';
 import { useBackCloses } from '@/hooks/use-back-closes';
 import { useSession } from '@/hooks/use-session';
@@ -58,7 +61,14 @@ export function ProtectedLayout() {
   };
 
   return (
+    <NotificationsProvider>
     <AppShell
+      topBarActions={
+        <>
+          <SearchBox />
+          <NotificationBell />
+        </>
+      }
       navItems={NAV_ITEMS.map((item) => ({ ...item, current: item.href === current }))}
       navLabel="ניווט ראשי"
       menuLabel="פתיחת התפריט"
@@ -122,5 +132,6 @@ export function ProtectedLayout() {
       <Outlet />
       {shareLink.sheet !== null ? <ShareLinkSheet {...shareLinkSheetProps(shareLink, shareLink.sheet, SHARE_SITE_LABEL)} /> : null}
     </AppShell>
+    </NotificationsProvider>
   );
 }

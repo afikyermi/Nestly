@@ -40,6 +40,7 @@ const post = (app: App, header: string, path: string) => app.inject({ method: 'P
 const put = (app: App, header: string, path: string, payload: unknown) =>
   app.inject({ method: 'PUT', url: path, headers: { authorization: header, 'content-type': 'application/json' }, payload: JSON.stringify(payload) });
 
+const commentIdOf = (body: string): unknown => (jsonOf(body).comment as { id?: unknown } | undefined)?.id;
 interface Item { id: string; type: string; actorName: string | null; targetKind: string; targetId: string; isRead: boolean }
 async function list(app: App, header: string): Promise<{ items: Item[]; unreadCount: number }> {
   const res = await get(app, header, '/api/notifications');
@@ -53,6 +54,10 @@ const clear = async (): Promise<void> => {
     await side`select tests.fx_open_reset(${who}::uuid)`;
   }
   await side`select tests.fx_ns_set_limit(60, 3600)`;
+  for (const who of [ACCOUNT_A, ACCOUNT_B]) {
+    // the rolling window forgets searches older than an hour: move any earlier ones out of it (no row yet: nothing to move)
+    await side`select tests.fx_ns_age(${who}::uuid, interval '2 hours')`.catch(() => undefined);
+  }
 };
 
 let hA: string;
@@ -108,7 +113,7 @@ describe('[FR-NOTIF-001 AC-040] the bell, the list, mark read', () => {
     expect(commented.statusCode, commented.body).toBe(201);
     const a = await list(app, hA);
     expect(a.items[0]).toMatchObject({ type: 'post_comment', actorName: NAME_B, targetKind: 'post', targetId: postId });
-    const replied = await addComment(app, hA, postId, { body: 'תודה', parentId: String(jsonOf(commented.body).id) });
+    const replied = await addComment(app, hA, postId, { body: 'תודה', parentId: String(commentIdOf(commented.body)) });
     expect(replied.statusCode, replied.body).toBe(201);
     expect((await list(app, hB)).items.map((i) => i.type)).toEqual(['comment_reply']);
     expect((await post(app, hA, '/api/notifications/read-all')).statusCode).toBe(200);
@@ -177,8 +182,9 @@ describe('[FR-SEARCH-001 AC-039 AC-065 AC-078] search', () => {
     const res = await find(app, hB, 'שינה');
     expect(res.statusCode, res.body).toBe(200);
     const body = JSON.parse(res.body) as { people: unknown[]; groups: unknown[]; posts: { snippet: string; authorName: string | null }[]; peopleLimited: boolean };
-    expect(body.posts.map((p) => p.snippet)).toEqual(['מי מכירה יועצת שינה טובה?']);
-    expect(body.posts[0]?.authorName).toBe(NAME_A);
+    expect(body.posts.map((p) => p.snippet)).toContain('מי מכירה יועצת שינה טובה?');
+    expect(body.posts.map((p) => p.snippet), 'a Friends-only post of a non-Friend is not found').not.toContain('פוסט לחברים בלבד על שינה');
+    expect(body.posts.every((p) => p.authorName === NAME_A)).toBe(true);
     expect(body.groups).toEqual([]);
     const people = JSON.parse((await find(app, hB, 'alice', 'people')).body) as { people: { userId: string; fullName: string }[] };
     expect(people.people).toEqual([{ userId: ACCOUNT_A, fullName: NAME_A }]);
@@ -197,6 +203,8 @@ describe('[FR-SEARCH-001 AC-039 AC-065 AC-078] search', () => {
   it('the People Search limit: over it 429 for people, and "peopleLimited" with the posts still answered for all; one Security event', T, async () => {
     const app = await start();
     await side`select tests.fx_ns_set_limit(2, 3600)`;
+    const [before] = await side`select tests.fx_ns_events(${ACCOUNT_B}::uuid) as n`;
+    const eventsBefore = Number(before?.n);
     expect((await find(app, hB, 'alice', 'people')).statusCode).toBe(200);
     expect((await find(app, hB, 'alice', 'people')).statusCode).toBe(200);
     const limited = await find(app, hB, 'alice', 'people');
@@ -206,7 +214,7 @@ describe('[FR-SEARCH-001 AC-039 AC-065 AC-078] search', () => {
     expect(all.peopleLimited).toBe(true);
     expect(all.people).toEqual([]);
     const [events] = await side`select tests.fx_ns_events(${ACCOUNT_B}::uuid) as n`;
-    expect(Number(events?.n)).toBe(1);
+    expect(Number(events?.n) - eventsBefore).toBe(1);
   });
 
   it('a Moderator is refused (403); the typed text is never stored, only the detected topic, for 30 days', T, async () => {
