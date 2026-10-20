@@ -79,6 +79,10 @@ create or replace function tests.fx_audit_rows() returns setof nestly.audit_log
 language sql stable security definer set search_path = ''
 as $$ select * from nestly.audit_log order by occurred_at, id $$;
 
+create or replace function tests.fx_sf_revoke_all(p_user uuid) returns void
+language sql security definer set search_path = ''
+as $$ delete from nestly.moderator_permissions where user_id = p_user $$;
+
 create or replace function tests.fx_sf_audit(p_action text) returns bigint
 language sql stable security definer set search_path = ''
 as $$ select count(*) from nestly.audit_log where action = p_action $$;
@@ -172,6 +176,8 @@ grant execute on function tests.dml_staff(text, text, boolean) to app_server;
 grant execute on function tests.fn_staff(text, text) to app_server;
 
 revoke all on function tests.fx_sf_grant(uuid, text[]) from public;
+revoke all on function tests.fx_sf_revoke_all(uuid) from public;
+grant execute on function tests.fx_sf_revoke_all(uuid) to app_server;
 revoke all on function tests.fx_sf_staff_count() from public;
 revoke all on function tests.fx_audit_rows() from public;
 revoke all on function tests.fx_sf_audit(text) from public;
