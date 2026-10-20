@@ -113,8 +113,8 @@ select is(
      join pg_catalog.pg_class c     on c.oid = a.attrelid
      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = 'users' and c.relkind = 'r' and a.attnum > 0 and not a.attisdropped),
-  'account_type:text:nn, created_at:timestamp with time zone:nn, id:uuid:nn, status:text:nn',
-  '[F1.1-b c10 NFR-SEC-001] nestly.users has exactly the approved columns: id uuid, account_type text, status text, created_at timestamptz, all NOT NULL');
+  'account_type:text:nn, created_at:timestamp with time zone:nn, id:uuid:nn, status:text:nn, suspended_until:timestamp with time zone:null',
+  '[F1.1-b c10 NFR-SEC-001 · I4] nestly.users has exactly the approved columns: id uuid, account_type text, status text, created_at timestamptz, all NOT NULL, and the nullable suspended_until (end of a suspension)');
 
 select is(
   (select string_agg(a.attname || ':' || format_type(a.atttypid, a.atttypmod) || ':' || case when a.attnotnull then 'nn' else 'null' end,
@@ -276,7 +276,8 @@ select is_empty(
         and not (c.relname = 'children' and pol.polname = 'children_update_own' and pol.polcmd = 'w')
         and not (c.relname = 'journey_contexts' and pol.polname = 'journey_contexts_update_own' and pol.polcmd = 'w')
         and not (c.relname = 'children' and pol.polname = 'children_delete_own' and pol.polcmd = 'd')
-        and not (c.relname = 'journey_contexts' and pol.polname = 'journey_contexts_delete_own' and pol.polcmd = 'd') $$,
+        and not (c.relname = 'journey_contexts' and pol.polname = 'journey_contexts_delete_own' and pol.polcmd = 'd')
+        and not (c.relname = 'users' and pol.polname in ('users_update_staff', 'users_update_own_expired_suspension') and pol.polcmd = 'w') $$,
   '[F1.1-b c13 platform r14 · F1.4-a c14 · F1.6 scoped · F2.1 c10 · F2.2a c9 · F2.2-b c18] no UPDATE, DELETE or ALL policy exists on the five F1.1/F1.4 tables except regular_profiles_update_own (F2.1), children_update_own (F2.2a), journey_contexts_update_own (F2.2b1) and the own-row deletes children_delete_own and journey_contexts_delete_own (F2.2b2, DR-1 A; recovery_answers has its own: file 30; files 50, 51 and 54 assert the policies)');
 
 select is(
@@ -351,8 +352,8 @@ select is(
      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')
       and (has_table_privilege('authenticated', c.oid, 'UPDATE,TRUNCATE,REFERENCES,TRIGGER')
-           or (c.relname not in ('recovery_answers', 'children', 'journey_contexts', 'posts', 'post_hides', 'comments', 'reactions', 'tracker_events', 'cycle_entries') and has_table_privilege('authenticated', c.oid, 'DELETE'))
-           or (c.relname not in ('recovery_answers', 'identity_link_checks', 'regular_profiles', 'children', 'journey_contexts', 'friendships', 'posts', 'comments', 'tracker_events', 'cycle_entries') and has_any_column_privilege('authenticated', c.oid, 'UPDATE,REFERENCES')))),
+           or (c.relname not in ('recovery_answers', 'children', 'journey_contexts', 'posts', 'post_hides', 'comments', 'reactions', 'tracker_events', 'cycle_entries', 'moderator_permissions') and has_table_privilege('authenticated', c.oid, 'DELETE'))
+           or (c.relname not in ('recovery_answers', 'identity_link_checks', 'regular_profiles', 'children', 'journey_contexts', 'friendships', 'posts', 'comments', 'tracker_events', 'cycle_entries', 'users', 'reports', 'report_reasons') and has_any_column_privilege('authenticated', c.oid, 'UPDATE,REFERENCES')))),
   0::bigint,
   '[F1.1-b c13 · F1.4-a c14 · F1.6, F2.0 scoped · F2.2a c9 · F2.2-b c18 · F2.4a c12] authenticated holds no table-level UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any table in nestly (DELETE on recovery_answers is the F2.0 D1 grant; on children and journey_contexts the F2.2b2 own-row delete, file 54), and no column-level UPDATE or REFERENCES except on recovery_answers, identity_link_checks, regular_profiles, children, journey_contexts and friendships (files 30, 40, 50, 51, 54 and 61 list those columns); I6''s tracker_events and cycle_entries are owner-only with own-row UPDATE and DELETE (file 86)');
 
@@ -391,8 +392,8 @@ select set_eq(
   $$ select a from tests.approved_security_definer() as a $$,
   '[F1.1-b c18 platform r10 · F2.3b c15] the SECURITY DEFINER functions in schema nestly are exactly the approved list');
 
-select is((select count(*) from tests.approved_security_definer()), 1::bigint,
-  '[F1.1-b c18 addendum 1 · F2.3b c15] the approved SECURITY DEFINER list holds one function (profile_view, F2.3b)');
+select is((select count(*) from tests.approved_security_definer()), 3::bigint,
+  '[F1.1-b c18 addendum 1 · F2.3b c15 · I4] the approved SECURITY DEFINER list holds three functions (profile_view, F2.3b; audit_trigger and reveal_post_author, I4, approved by Afik 20.10.2026)');
 
 select is((select count(*) from tests.approved_security_definer() as a where a like 'nestly.is\_active\_account(%'), 0::bigint,
   '[F1.1-b c18 addendum 1] is_active_account() is not an approved exception');
@@ -424,8 +425,9 @@ select is_empty(
   $$ select p.proname from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'nestly' and has_function_privilege('authenticated', p.oid, 'EXECUTE')
         and (p.pronargs > 0 or p.prosecdef)
-        and p.oid::regprocedure::text not in ('nestly.profile_view(text)', 'nestly.delete_post(uuid)', 'nestly.delete_comment(uuid)') $$,
-  '[F1.1-b c18 layer 13 · F2.3b c15] every function in nestly that authenticated can execute takes no argument and is SECURITY INVOKER, except the approved profile_view(text) (one uuid per call, no status: file 53) and F3.0b''s delete_post(uuid) / delete_comment(uuid) (the caller''s own content, RLS decides)');
+        and p.oid::regprocedure::text not in ('nestly.profile_view(text)', 'nestly.delete_post(uuid)', 'nestly.delete_comment(uuid)',
+          'nestly.has_permission(text)', 'nestly.reveal_post_author(uuid)') $$,
+  '[F1.1-b c18 layer 13 · F2.3b c15] every function in nestly that authenticated can execute takes no argument and is SECURITY INVOKER, except the approved profile_view(text) (one uuid per call, no status: file 53) and F3.0b''s delete_post(uuid) / delete_comment(uuid) (the caller''s own content, RLS decides), and the I4 invoker functions has_permission(text) and reveal_post_author(uuid)');
 
 select * from finish();
 

@@ -127,7 +127,7 @@ select is(pg_temp.n('b', 'nestly.reports'), '0', '[F3.0-b c15 rule 15] a suspend
 select tests.set_status(pg_temp.id('b'), 'active');
 select is(tests.dml_as('anon', tests.claims(pg_temp.id('b')), 'select 1 from nestly.reports'), 'ERR:42501', '[F3.0-b c15 rule 3] anon reads no reports');
 select is(pg_temp.dml('b', 'update nestly.reports set reason = ''other'''), 'ERR:42501', '[F3.0-b c15] a report cannot be edited by the reporter');
-select is(pg_temp.dml('b', 'update nestly.reports set status = ''handled'', closed_at = now()'), 'ERR:42501', '[F3.0-b c15] nor closed by them');
+select is(pg_temp.dml('b', 'update nestly.reports set status = ''handled'', closed_at = now()'), 'OK:0', '[F3.0-b c15 · I4] nor closed by them (the handling columns are granted for staff; no policy opens the row to its reporter, so no row is touched)');
 select is(pg_temp.dml('b', 'delete from nestly.reports'), 'ERR:42501', '[F3.0-b c15] nor withdrawn');
 select is(pg_temp.dml('a', 'delete from nestly.reports'), 'ERR:42501', '[F3.0-b c15] nor deleted by the reported party');
 select is(tests.fx_rp_count(), 2::bigint, '[F3.0-b c15] the rows are unchanged');

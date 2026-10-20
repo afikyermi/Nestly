@@ -117,7 +117,7 @@ cascade has run — reserved for Afik. Bootstrap steps, the complete list (anyth
 `DECISION REQUEST`):
 1. create `app_owner`, `app_server`, `app_jobs` and `app_recovery` and their grants, and `grant app_owner to postgres`;
 2. the anchor's FK to `auth.users` — as built: `supabase/bootstrap/02-anchor-fk.sql`, verified by `02-anchor-fk-check.sql`;
-3. extensions and pg_cron jobs, when needed.
+3. the single Super Admin (`supabase/bootstrap/03-super-admin.sql`, run once per environment by Afik, a separate Auth account; approved by Afik 20.10.2026); later: extensions and pg_cron jobs, when needed.
 
 **Open, under rules 16 and 17** — FORCE RLS (rule 8) holds a SECURITY DEFINER function owned by `app_owner` to the table's policies, including those
 `TO authenticated` (which `app_owner` inherits). **Resolved for caller-only helpers** (F1.1 Gate 2): SECURITY INVOKER, reading through the caller's
@@ -178,7 +178,7 @@ ref>, session pooler, port 5432. CI only, `preview-e2e-cleanup`: main's code (ne
 ages; no delete; `backlog` removed in F3.0a). Victims: only the exact `TEST_EMAIL_PATTERN`. Caps unchanged: this run's
 users uncapped, sweep 10, refusal above 50 (workflow_run). One transaction per user, leaf first, SET LOCAL row_security = off (raises, never filters); feed rows per
 user before friendships: reports, reactions (reaction_owners by cascade), post_hides, comments, posts (post_authors by cascade).
-Fail-closed preflight: exactly the twenty-five nestly tables (F2.4c1 fourteen; F3.0a +4, F3.0b +4, I6 +3; security_limits, algorithm_configurations and status_guides listed, never
+Fail-closed preflight: exactly the thirty nestly tables (F2.4c1 fourteen; F3.0a +4, F3.0b +4, I6 +3, I4 +5; security_limits, algorithm_configurations, status_guides, report_reasons and audit_log listed, never
 written). · .work/preview-e2e/schema.md, .work/feed-groundwork/schema.md, schema-b.md · decisions/2026-10.md "DR-E1", "Preview cleanup"
 ```
 
@@ -198,6 +198,7 @@ EXECUTE authenticated; search_path ''. Why: RLS hides rows, not columns; an invo
 F3.0b purge — TO app_jobs policies on posts, comments, reports: read held rows (and replies of a held comment) and the open reports on them, delete held rows,
 expire open reports past release; purge_held_content() invoker, EXECUTE app_jobs only · a job has no auth.uid() and must reach every user's held rows (rule 6);
 app_server is never a member of app_jobs · .work/feed-groundwork/schema-b.md · 2026-10-18
+I4 (rules 18, 19; approved by Afik 20.10.2026) — nestly.audit_trigger(): the one trigger function that appends every Audit entry; nestly.reveal_post_author(uuid): the audited read of an anonymous author (REPORTS_VIEW + CONTENT_MODERATE, a valid session, an OPEN report; writes author_revealed with the report id in the same call). Both SECURITY DEFINER, owner app_owner, search_path '', reading only through policies TO app_owner scoped to auth.uid() or to the one row the function named · no role holds INSERT on audit_log and authenticated cannot read post_authors, so the definer is the only writer/reader · details and deviations: data-model-tables.md "Safety and admin core"
 ```
 
 ---
@@ -281,7 +282,7 @@ to the decision owner in CLAUDE.md. This planned map does not supersede later de
 
 ## Entities
 
-All twenty-five tables are in `nestly` (feed tables of F3.0: posts, post_authors, post_hides, algorithm_configurations, comments, reactions, reaction_owners,
+All thirty tables are in `nestly` (feed tables of F3.0: posts, post_authors, post_hides, algorithm_configurations, comments, reactions, reaction_owners,
 reports — FORCE RLS, client policies TO authenticated gated by is_active_account(), column-level SELECT without held_xact/liker_status/parent_status, no SECURITY
 DEFINER; post_authors and reaction_owners owner-only; policies never read their own table, row checks in invoker triggers), built by `supabase/migrations/` and bootstrap step 2, each migration with a down script in `supabase/rollback/`. The
 list of migrations by feature, each down script's guard, the write paths, per-table detail, the lock and the new-entity template: `data-model-tables.md`.

@@ -201,12 +201,12 @@ select is(pg_temp.opn('pv_e', 'pv_b'), 'shown', '[F2.4-c c22] and the open is sh
 -- =====================================================================================================================
 -- c23 -- the fence: one definer, three closed tables, seven scoped policies
 -- =====================================================================================================================
-select is((select array_agg(a order by a) from tests.approved_security_definer() as a)::text, '{nestly.profile_view(text)}',
+select is((select array_agg(a order by a) from tests.approved_security_definer() as a)::text, '{nestly.audit_trigger(),nestly.profile_view(text),nestly.reveal_post_author(uuid)}',
   '[F2.4-c c23 A8 rule 10 DR-G1 DR-L] the approved SECURITY DEFINER list is still exactly {nestly.profile_view(text)}');
 select set_eq(
   $$ select p.oid::regprocedure::text from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'nestly' and p.prosecdef $$,
-  $$ values ('nestly.profile_view(text)') $$,
+  $$ values ('nestly.profile_view(text)'), ('nestly.audit_trigger()'), ('nestly.reveal_post_author(uuid)') $$,
   '[F2.4-c c23] profile_view(text) is the only SECURITY DEFINER function in nestly: the counter and the event add none');
 select is(
   (select string_agg(c.relname || ':' || c.relrowsecurity::text || ':' || c.relforcerowsecurity::text || ':' || pg_catalog.pg_get_userbyid(c.relowner),

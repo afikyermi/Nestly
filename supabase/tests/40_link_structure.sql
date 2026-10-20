@@ -80,8 +80,8 @@ select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = 'identity_link_checks'
       and coalesce(pg_catalog.pg_get_expr(pol.polqual, pol.polrelid), pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid)) ~ 'auth\.uid\(\)'),
-  3::bigint,
-  '[F2.0-a c12] each policy tests auth.uid(): the JWT subject only');
+  4::bigint,
+  '[F2.0-a c12 · I4] each policy tests auth.uid(): the JWT subject only (three TO authenticated, and the owner-role read of the definer functions)');
 
 select ok(
   (select pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid) ~ 'jwt_is_oauth' and pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid) ~ 'jwt_session_id'
