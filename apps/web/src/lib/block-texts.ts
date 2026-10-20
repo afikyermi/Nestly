@@ -5,6 +5,7 @@ export const BLOCK_LABEL = 'חסימה';
 export const blockTitle = (name: string): string => `לחסום את ${name}?`;
 export const BLOCK_DESCRIPTION = 'הפוסטים, התגובות והפרופיל של כל אחד מכם לא יוצגו לשני, והחברות ביניכם תסתיים. אפשר לבטל את החסימה בהגדרות';
 export const BLOCK_FAILED_TEXT = 'החסימה לא בוצעה. אפשר לנסות שוב';
+export const BLOCK_LIMIT_TEXT = 'הגעתם למספר החסימות המרבי ל-24 שעות. אפשר לנסות שוב מאוחר יותר';
 export const BLOCKED_TITLE = 'החשבון נחסם';
 export const BLOCKED_TEXT = 'אפשר לבטל את החסימה בהגדרות, ברשימת המשתמשים החסומים';
 export const BLOCKED_LINK_LABEL = 'למשתמשים החסומים';

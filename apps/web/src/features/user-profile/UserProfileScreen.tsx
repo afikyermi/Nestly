@@ -9,7 +9,7 @@ import { STOPPED_TEXT } from '@/lib/auth-texts';
 import { ACTION_FAILED_TEXT, FRIEND_GONE_TEXT, GONE_TEXT, RATE_LIMITED_TEXT } from '@/lib/friend-texts';
 import { actOnFriend, sendFriendRequest, type FriendAction, type FriendsOutcome } from '@/services/api/friends';
 import { blockUser } from '@/services/api/blocks';
-import { BLOCK_FAILED_TEXT } from '@/lib/block-texts';
+import { BLOCK_FAILED_TEXT, BLOCK_LIMIT_TEXT } from '@/lib/block-texts';
 import { fetchUserProfile, type ProfileViewOutcome } from '@/services/api/profile-view';
 import { UserProfileContent, type UserProfileFocus, type UserProfileView } from './UserProfileContent';
 import {
@@ -182,7 +182,7 @@ export function UserProfileScreen({ userId }: { userId: string }) {
         setView({ kind: 'unavailable' });
         return;
       }
-      const failure = refused(outcome) ?? BLOCK_FAILED_TEXT;
+      const failure = outcome.kind === 'rate-limited' ? BLOCK_LIMIT_TEXT : (refused(outcome) ?? BLOCK_FAILED_TEXT);
       setView((latest) => (latest.kind === 'loaded' ? { ...latest, block: { saving: false, failure } } : latest));
     } finally {
       acting.current = false;

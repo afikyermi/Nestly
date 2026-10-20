@@ -7,9 +7,9 @@ export const blockPathParams = z.object({ id: z.guid() });
 
 /**
  * What a refused block answers: 400 `invalid` (not a uuid, a body, or the caller's own id), 404 `user_unavailable` (no such account),
- * 403 `not_allowed` (the caller may not block: not an active Regular or Professional account).
+ * 403 `not_allowed` (the caller may not block: not an active Regular or Professional account), 429 `rate_limited` (20 blocks in 24 hours).
  */
-export const BLOCK_ERROR_CODES = ['invalid', 'user_unavailable', 'not_allowed'] as const;
+export const BLOCK_ERROR_CODES = ['invalid', 'user_unavailable', 'not_allowed', 'rate_limited'] as const;
 export type BlockErrorCode = (typeof BLOCK_ERROR_CODES)[number];
 export const blockErrorBody = z.object({ error: z.enum(BLOCK_ERROR_CODES) });
 

@@ -1,7 +1,8 @@
 // Blocking a user (FR-REL-002). Signed in: the authentication hook has run before anything here (401 before the body is read, and no query).
 // The blocker is the caller's by the database; the path names the other account only.
 //   PUT    /api/users/:id/block   no body → 204 (also a repeat) · 400 invalid (not a uuid, a body, or the caller's own id) · 404 user_unavailable
-//                                 (no such account) · 403 not_allowed (not an active Regular or Professional account)
+//                                 (no active Regular or Professional account by that id: staff are never blocked) · 403 not_allowed (the
+//                                 caller is not an active Regular or Professional account) · 429 rate_limited (20 blocks in 24 hours)
 //   DELETE /api/users/:id/block   no body → 204 (also when there was no block: no oracle) · 400 invalid
 //   GET    /api/blocks            → 200 { blocked: [{ userId, fullName, blockedAt }] } newest first
 //   all: 401/503 session guard · 503 · 500 server_error. Any other method → 405 with Allow.
@@ -29,7 +30,7 @@ function replyFailure(request: FastifyRequest, reply: FastifyReply, error: unkno
   return reply.code(500).send({ error: 'server_error' });
 }
 
-const STATUS: Record<Exclude<BlockOutcome['kind'], 'done'>, number> = { invalid: 400, user_unavailable: 404, not_allowed: 403 };
+const STATUS: Record<Exclude<BlockOutcome['kind'], 'done'>, number> = { invalid: 400, user_unavailable: 404, not_allowed: 403, rate_limited: 429 };
 
 function change(action: typeof blockUser, deps: BlocksRouteDependencies) {
   return async (request: FastifyRequest, reply: FastifyReply) => {

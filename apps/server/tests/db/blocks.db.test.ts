@@ -124,12 +124,14 @@ describe('[FR-REL-002] blocking a user', () => {
     expect((await deleteBlock(app, await bearer(blocker), blocked)).statusCode).toBe(204);
   });
 
-  it("refusals: one's own id and a bad id are 400, an unknown account 404, a staff account may not block", T, async () => {
+  it("refusals: one's own id and a bad id are 400, an unknown or staff account 404, a staff account may not block", T, async () => {
     expect(JSON.parse((await putBlock(app, await bearer(blocker), blocker)).body)).toEqual({ error: 'invalid' });
     expect((await putBlock(app, await bearer(blocker), 'not-a-uuid')).statusCode).toBe(400);
     const unknown = await putBlock(app, await bearer(blocker), NOBODY);
     expect([unknown.statusCode, JSON.parse(unknown.body)]).toEqual([404, { error: 'user_unavailable' }]);
-    expect(await blockUser(database, { userId: staff }, blocked)).toEqual({ kind: 'not_allowed' }); // the route answers 403 not_allowed
+    expect(await blockUser(database, { userId: staff }, blocked)).toEqual({ kind: 'not_allowed' }); // a staff account does not block: 403
+    const ofStaff = await putBlock(app, await bearer(blocker), staff);
+    expect([ofStaff.statusCode, JSON.parse(ofStaff.body)], 'a staff account cannot be blocked').toEqual([404, { error: 'user_unavailable' }]);
     expect((await putBlock(app, null, blocked)).statusCode).toBe(401);
   });
 });

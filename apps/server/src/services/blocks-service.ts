@@ -1,7 +1,7 @@
 // Blocking a user (FR-REL-002): mutual in effect, it hides posts, comments and the profile both ways and ends the Friendship. The caller is
 // already authenticated; each call is one identity transaction. The database decides who may block (an active Regular or Professional
 // account), whose block is lifted and everything a block hides; this layer only refuses the caller's own id before the work and names a
-// database refusal by its SQLSTATE (42501 not allowed, 23503 no such account).
+// database refusal by its SQLSTATE (42501 not allowed, 23503 no account that can be blocked, NS021 the daily limit of 20 blocks).
 
 import type { BlockedAccount } from '@nestly/shared';
 import type { Database } from '../db/client.js';
@@ -10,7 +10,12 @@ import { readDatabaseFault } from '../lib/pg-error.js';
 import type { Identity } from '../lib/token-verifier.js';
 import { deleteBlock, insertBlock, readBlocked } from '../repositories/blocks-repository.js';
 
-export type BlockOutcome = { readonly kind: 'done' } | { readonly kind: 'invalid' } | { readonly kind: 'user_unavailable' } | { readonly kind: 'not_allowed' };
+export type BlockOutcome =
+  | { readonly kind: 'done' }
+  | { readonly kind: 'invalid' }
+  | { readonly kind: 'user_unavailable' }
+  | { readonly kind: 'not_allowed' }
+  | { readonly kind: 'rate_limited' };
 
 /** PUT: the caller blocks the account (a repeat is the same answer). */
 export async function blockUser(database: Database, identity: Identity, blockedId: string): Promise<BlockOutcome> {
@@ -28,6 +33,8 @@ export async function blockUser(database: Database, identity: Identity, blockedI
         return { kind: 'user_unavailable' };
       case '23514':
         return { kind: 'invalid' };
+      case 'NS021':
+        return { kind: 'rate_limited' };
       default:
         throw error;
     }

@@ -9,6 +9,7 @@ export type BlocksOutcome =
   | { kind: 'unauthenticated' } // 401
   | { kind: 'account-unavailable' } // 403 account_unavailable: the account is stopped (ERR-037)
   | { kind: 'gone' } // 404 user_unavailable: no such account any more
+  | { kind: 'rate-limited' } // 429 rate_limited: 20 blocks in 24 hours
   | { kind: 'failed' }; // anything else: 5xx, 400, 403 not_allowed, an unreadable answer, or the call did not reach the server
 
 const FAILED: BlocksOutcome = { kind: 'failed' };
@@ -32,6 +33,7 @@ async function call(accessToken: string, method: 'GET' | 'PUT' | 'DELETE', path:
   }
   if (response.status === 403) return errorCode(body) === 'account_unavailable' ? { kind: 'account-unavailable' } : FAILED;
   if (response.status === 404) return errorCode(body) === 'user_unavailable' ? { kind: 'gone' } : FAILED;
+  if (response.status === 429) return errorCode(body) === 'rate_limited' ? { kind: 'rate-limited' } : FAILED;
   if (response.status !== 200 || method !== 'GET') return FAILED;
   const parsed = blockedListResponse.safeParse(body);
   return parsed.success ? { kind: 'list', blocked: parsed.data.blocked } : FAILED;
