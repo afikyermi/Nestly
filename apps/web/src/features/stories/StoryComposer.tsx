@@ -86,7 +86,7 @@ export function StoryComposer({ open, memory, onClose, onPublished }: StoryCompo
         {failure !== null ? <InlineAlert>{failure}</InlineAlert> : null}
         {picture.error !== null ? <InlineAlert>{picture.error}</InlineAlert> : null}
         {image === undefined ? null : image.image === undefined ? (
-          <p role="status" className="grid aspect-[3/4] max-h-80 place-items-center rounded-md bg-muted text-small text-muted-foreground">
+          <p role="status" className="grid aspect-3/4 max-h-80 place-items-center rounded-md bg-muted text-small text-muted-foreground">
             {UPLOADING_TEXT}
           </p>
         ) : (

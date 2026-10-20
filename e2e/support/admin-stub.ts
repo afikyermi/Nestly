@@ -20,6 +20,8 @@ export interface Net {
   userStatus: 'active' | 'suspended' | 'banned';
   history: Array<{ kind: string; reason: string; createdAt: string; stepSkipped: boolean }>;
   auditPages: number;
+  /** I5: the image approval queue's items (ids). */
+  mediaQueue: string[];
   sent: Sent[];
 }
 
@@ -39,6 +41,7 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
     userStatus: 'active',
     history: [],
     auditPages: 2,
+    mediaQueue: [ID(70), ID(71)],
     sent: [],
     ...start,
   };
@@ -89,7 +92,27 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
         if (kind === 'ban') net.userStatus = 'banned';
         return json(route, 200, { status: net.userStatus, suspendedUntil: net.userStatus === 'suspended' ? '2026-06-16T09:00:00.000Z' : null });
       }
+      if (path.startsWith('/api/admin/media/')) {
+        net.mediaQueue = net.mediaQueue.filter((id) => !path.includes(id));
+        return json(route, 200, {});
+      }
       return json(route, 200, {});
+    }
+    if (path === '/api/admin/media-queue') {
+      return json(route, 200, {
+        items: net.mediaQueue.map((id, index) => ({
+          id,
+          kind: index === 0 ? 'post' : 'profile',
+          queueReason: index === 0 ? 'blocked' : 'unsure',
+          topLabel: 'FEMALE_BREAST_EXPOSED',
+          topScore: index === 0 ? 0.82 : 0.31,
+          isChild: false,
+          createdAt: '2026-06-14T09:00:00.000Z',
+          url: null,
+          width: 800,
+          height: 600,
+        })),
+      });
     }
     if (path === '/api/admin/access') return json(route, 200, net.staff ? { staff: true, role: 'admin', permissions: net.permissions } : { staff: false });
     if (path === '/api/admin/reports') return json(route, 200, { items: net.queue });

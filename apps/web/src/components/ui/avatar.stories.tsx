@@ -33,7 +33,7 @@ export const Small: Story = { args: { name: 'נועה רז', size: 'sm' } };
 
 const PHOTO =
   'data:image/svg+xml;utf8,' +
-  encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" fill="#bcd4e6"/><circle cx="48" cy="40" r="20" fill="#f4c9a8"/></svg>');
+  encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" fill="lightsteelblue"/><circle cx="48" cy="40" r="20" fill="peachpuff"/></svg>');
 
 // I5: a profile photo the viewer may see replaces the initials; the name stays its accessible name.
 export const Photo: Story = { args: { name: 'נועה רז', src: PHOTO } };

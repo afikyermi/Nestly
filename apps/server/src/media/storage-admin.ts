@@ -67,16 +67,21 @@ async function put(target: Target | undefined, bucket: string, id: string, bytes
   }
 }
 
+/** Storage removes at most this many objects per call. */
+const REMOVE_CHUNK = 1_000;
+
 async function remove(target: Target | undefined, bucket: string, ids: readonly string[]): Promise<StorageOutcome> {
   if (target === undefined) return 'unconfigured';
-  if (ids.length === 0) return 'ok';
   try {
-    const response = await call(target, `/object/${bucket}`, {
-      method: 'DELETE',
-      body: JSON.stringify({ prefixes: ids.map(objectPath) }),
-      contentType: 'application/json',
-    });
-    return response.ok ? 'ok' : 'failed';
+    for (let start = 0; start < ids.length; start += REMOVE_CHUNK) {
+      const response = await call(target, `/object/${bucket}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ prefixes: ids.slice(start, start + REMOVE_CHUNK).map(objectPath) }),
+        contentType: 'application/json',
+      });
+      if (!response.ok) return 'failed';
+    }
+    return 'ok';
   } catch {
     return 'failed';
   }
@@ -150,6 +155,9 @@ export interface JobStorage {
   /** The ids of the files in the image bucket created before `before` (the sweep of files that have no row), at most `limit`. */
   listImagesBefore(before: Date, limit: number): Promise<string[] | undefined>;
   writeTrainingSample(id: string, bytes: Uint8Array, mime: string): Promise<StorageOutcome>;
+  /** A training file's bytes, read only after `recordAccess` has written the access event (Afik 20.10.2026: every access audited); a
+   *  failed record reads nothing. The only read of the training bucket. */
+  readTrainingSample(id: string, recordAccess: (id: string) => Promise<boolean>): Promise<Uint8Array | undefined>;
   removeTrainingSamples(ids: readonly string[]): Promise<StorageOutcome>;
 }
 
@@ -183,6 +191,10 @@ export function createJobStorage(env: Env = process.env): JobStorage {
       }
     },
     writeTrainingSample: (id, bytes, mime) => put(target, TRAINING_BUCKET, id, bytes, mime),
+    readTrainingSample: async (id, recordAccess) => {
+      if (target === undefined || !UUID.test(id) || !(await recordAccess(id))) return undefined;
+      return get(target, TRAINING_BUCKET, id);
+    },
     removeTrainingSamples: (ids) => remove(target, TRAINING_BUCKET, ids),
   };
 }

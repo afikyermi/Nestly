@@ -1,7 +1,7 @@
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import { verdictOf } from '@nestly/shared';
-import type { JobStorage, StorageOutcome } from '../src/media/storage-admin.js';
+import { createJobStorage, type JobStorage, type StorageOutcome } from '../src/media/storage-admin.js';
 import { readJobsConfig } from '../src/jobs/config.js';
 import { isAuthorized } from '../src/jobs/handler.js';
 import { runMediaJob, type MediaJobDependencies } from '../src/jobs/media-check.js';
@@ -9,10 +9,10 @@ import type { JobDb } from '../src/jobs/media-job-repository.js';
 import { bestScores, loadNudeNet, type ImageModel } from '../src/jobs/nudenet.js';
 
 // I5 (Afik 20.10.2026, decisions-in-force.md §2, §7; BR-076 as replaced; AC-105): the background check's rule, its configuration, its secret
-// and one run against a stand-in database and storage. What the job may touch is the database's (TO app_jobs policies, pgTAP file 91).
+// and one run against a stand-in database and storage. What the job may touch is the database's (TO app_media_jobs policies, pgTAP file 93).
 const T = { timeout: 60_000 };
 const ID = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
-const URL_PARTS = ['postgresql', '://', 'app_jobs.abcdefgh', ':', 'pw', '@', 'aws-0.pooler.supabase.com:6543/postgres'];
+const URL_PARTS = ['postgresql', '://', 'app_media_jobs.abcdefgh', ':', 'pw', '@', 'aws-0.pooler.supabase.com:6543/postgres'];
 
 describe('[AC-105 Afik 20.10] the decision rule', () => {
   const t = { blockThreshold: 0.6, lowThreshold: 0.25 };
@@ -28,11 +28,13 @@ describe('[AC-105 Afik 20.10] the decision rule', () => {
 });
 
 describe('[Afik 20.10 §7] the job configuration and its secret', () => {
-  it('uses only an app_jobs connection string; thresholds are configuration with safe defaults', () => {
-    expect(readJobsConfig({ APP_JOBS_DATABASE_URL: URL_PARTS.join(''), CRON_SECRET: 'x'.repeat(32) }).databaseUrl).toBe(URL_PARTS.join(''));
+  it('uses only an app_media_jobs connection string; thresholds are configuration with safe defaults', () => {
+    expect(readJobsConfig({ APP_MEDIA_JOBS_DATABASE_URL: URL_PARTS.join(''), CRON_SECRET: 'x'.repeat(32) }).databaseUrl).toBe(URL_PARTS.join(''));
     const other = [...URL_PARTS];
     other[2] = 'app_server.abcdefgh';
-    expect(readJobsConfig({ APP_JOBS_DATABASE_URL: other.join('') }).databaseUrl).toBeUndefined();
+    expect(readJobsConfig({ APP_MEDIA_JOBS_DATABASE_URL: other.join('') }).databaseUrl).toBeUndefined();
+    other[2] = 'app_jobs.abcdefgh';
+    expect(readJobsConfig({ APP_MEDIA_JOBS_DATABASE_URL: other.join('') }).databaseUrl, 'not even the SQL jobs role').toBeUndefined();
     expect(readJobsConfig({}).blockThreshold).toBe(0.6);
     expect(readJobsConfig({}).lowThreshold).toBe(0.25);
     expect(readJobsConfig({ MEDIA_CHECK_BLOCK_THRESHOLD: '0.5', MEDIA_CHECK_LOW_THRESHOLD: '0.9' }).lowThreshold).toBe(0.5);
@@ -87,17 +89,22 @@ function fakeDb(over: Partial<JobDb> = {}) {
       return Promise.resolve();
     },
     trainable: () => Promise.resolve([]),
-    addSample: async (image, _months, copy) => {
+    addSample: async (image, copy) => {
       const ok = await copy(`sample-of-${image.id}`);
       calls.push(`sample:${ok ? 'kept' : 'rolled-back'}:${image.id}`);
       return ok;
     },
     removeRejectedFiles: () => Promise.resolve(0),
-    purgeImages: async (_bound, remove) => {
+    recordAccess: () => Promise.resolve(true),
+    purgeStories: () => {
+      calls.push('stories');
+      return Promise.resolve(0);
+    },
+    purgeImages: async (remove) => {
       const ids: string[] = [];
       return ids.length === 0 || (await remove(ids)) ? ids.length : 0;
     },
-    expireSamples: () => Promise.resolve(0),
+    pruneSamples: () => Promise.resolve(0),
     knownImageIds: (ids) => Promise.resolve(new Set(ids.filter((id) => id === ID(90)))),
     ...over,
   };
@@ -119,6 +126,7 @@ function fakeJobStorage(over: Partial<JobStorage> = {}) {
       training.push(id);
       return Promise.resolve<StorageOutcome>('ok');
     },
+    readTrainingSample: () => Promise.resolve(undefined),
     removeTrainingSamples: () => Promise.resolve<StorageOutcome>('ok'),
     ...over,
   };
@@ -141,7 +149,7 @@ const deps = (db: JobDb, storage: JobStorage, m: () => Promise<ImageModel>): Med
   db,
   storage,
   model: m,
-  config: { blockThreshold: 0.6, lowThreshold: 0.25, maxAttempts: 3, trainingRetentionMonths: 6 },
+  config: { blockThreshold: 0.6, lowThreshold: 0.25, maxAttempts: 3 },
   timeLeft: () => 60_000,
 });
 
@@ -152,7 +160,7 @@ describe('[AC-105 BR-077 Afik 20.10] one run of the job', () => {
     const store = fakeJobStorage({ listImagesBefore: () => Promise.resolve([ID(90), ID(91)]) });
     const report = await runMediaJob(deps(db, store.storage, model({ '1': { FACE_FEMALE: 0.9 }, '2': { FEMALE_BREAST_EXPOSED: 0.91 }, '3': { BUTTOCKS_EXPOSED: 0.3 } }, new Set([4, 5]))));
     expect(report).toMatchObject({ checked: 5, passed: 1, queued: 2, failed: 2, swept: 1 });
-    expect(calls).toEqual([`passed:${ID(1)}`, `queued:blocked:${ID(2)}`, `queued:unsure:${ID(3)}`, `failed:stay:${ID(4)}`, `failed:queue:${ID(5)}`]);
+    expect(calls).toEqual([`passed:${ID(1)}`, `queued:blocked:${ID(2)}`, `queued:unsure:${ID(3)}`, `failed:stay:${ID(4)}`, `failed:queue:${ID(5)}`, 'stories']);
     expect(store.removed, 'the sweep removes the file that has no row, never one that has').toEqual([ID(91)]);
   });
 
@@ -160,7 +168,7 @@ describe('[AC-105 BR-077 Afik 20.10] one run of the job', () => {
     const { db, calls } = fakeDb({ pending: () => Promise.resolve([{ id: ID(1), attempts: 0 }]) });
     const report = await runMediaJob(deps(db, fakeJobStorage().storage, () => Promise.reject(new Error('no model'))));
     expect(report).toMatchObject({ checked: 1, passed: 0, failed: 1 });
-    expect(calls).toEqual([`failed:stay:${ID(1)}`]);
+    expect(calls).toEqual([`failed:stay:${ID(1)}`, 'stories']);
   });
 
   it('[Afik 20.10] copies a decided blocked image (a child\'s too) into the training bucket under the index row\'s id; a failed copy keeps no row', async () => {
@@ -172,17 +180,17 @@ describe('[AC-105 BR-077 Afik 20.10] one run of the job', () => {
     const broken = fakeDb({ trainable: () => Promise.resolve([image]) });
     const failing = fakeJobStorage({ writeTrainingSample: () => Promise.resolve('failed') });
     expect((await runMediaJob(deps(broken.db, failing.storage, model({})))).trained).toBe(0);
-    expect(broken.calls).toEqual([`sample:rolled-back:${ID(7)}`]);
-    expect(calls).toEqual([`sample:kept:${ID(7)}`]);
+    expect(broken.calls).toEqual([`sample:rolled-back:${ID(7)}`, 'stories']);
+    expect(calls).toEqual([`sample:kept:${ID(7)}`, 'stories']);
   });
 
   it('[BR-077] purges the rows the delete policy names together with their files; a failed removal counts nothing', async () => {
-    const purge = (ok: boolean): JobDb['purgeImages'] => async (_bound, remove) => ((await remove([ID(8), ID(9)])) && ok ? 2 : 0);
+    const purge = (ok: boolean): JobDb['purgeImages'] => async (remove) => ((await remove([ID(8), ID(9)])) && ok ? 2 : 0);
     const store = fakeJobStorage();
     expect((await runMediaJob(deps(fakeDb({ purgeImages: purge(true) }).db, store.storage, model({})))).purged).toBe(2);
     expect(store.removed).toEqual([ID(8), ID(9)]);
     const broken = fakeJobStorage({ removeImages: () => Promise.resolve('failed') });
-    expect((await runMediaJob(deps(fakeDb({ purgeImages: async (_b, remove) => ((await remove([ID(8)])) ? 1 : 0) }).db, broken.storage, model({})))).purged).toBe(0);
+    expect((await runMediaJob(deps(fakeDb({ purgeImages: async (remove) => ((await remove([ID(8)])) ? 1 : 0) }).db, broken.storage, model({})))).purged).toBe(0);
   });
 });
 
@@ -205,9 +213,39 @@ describe('[Afik 20.10] a rejected image\'s file and the retention', () => {
     expect(order).toEqual(['train', 'release']);
     expect(store.removed).toContain(ID(30));
   });
-  it('a sample is kept 6 months unless configured otherwise (1 to 24)', () => {
-    expect(readJobsConfig({}).trainingRetentionMonths).toBe(6);
-    expect(readJobsConfig({ MEDIA_TRAINING_RETENTION_MONTHS: '12' }).trainingRetentionMonths).toBe(12);
-    expect(readJobsConfig({ MEDIA_TRAINING_RETENTION_MONTHS: '30' }).trainingRetentionMonths).toBe(6);
+  it('prunes the samples the policy releases (6 months, or a suspected image) with their training files', async () => {
+    const removedSamples: string[] = [];
+    const store = fakeJobStorage({
+      removeTrainingSamples: (ids) => {
+        removedSamples.push(...ids);
+        return Promise.resolve<StorageOutcome>('ok');
+      },
+    });
+    const { db } = fakeDb({ pruneSamples: async (remove) => ((await remove([ID(40)])) ? 1 : 0) });
+    expect((await runMediaJob(deps(db, store.storage, model({})))).pruned).toBe(1);
+    expect(removedSamples).toEqual([ID(40)]);
+  });
+  it('[H3] a training file is read only after its access is recorded; a failed record reads nothing', async () => {
+    const reads: string[] = [];
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (input) => {
+      reads.push(input instanceof Request ? input.url : input.toString());
+      return Promise.resolve(new Response(new Uint8Array([9])));
+    };
+    try {
+      const storage = createJobStorage({ SUPABASE_SECRET_KEY: 'k'.repeat(40), SUPABASE_JWT_ISSUER: 'https://example.supabase.co/auth/v1' });
+      const order: string[] = [];
+      const ok = await storage.readTrainingSample(ID(41), (id) => {
+        order.push(`record:${id}`);
+        return Promise.resolve(true);
+      });
+      expect(ok).toEqual(new Uint8Array([9]));
+      expect(order).toEqual([`record:${ID(41)}`]);
+      expect(reads).toEqual([`https://example.supabase.co/storage/v1/object/authenticated/media-training/${ID(41)}`]);
+      expect(await storage.readTrainingSample(ID(42), () => Promise.resolve(false))).toBeUndefined();
+      expect(reads.length, 'no read without its record').toBe(1);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
   });
 });

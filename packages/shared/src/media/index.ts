@@ -111,6 +111,8 @@ export const mediaQueueItem = z.strictObject({
   /** The label the model scored highest among those it checks, and that score (0 to 1); null when the check failed. */
   topLabel: z.string().nullable(),
   topScore: z.number().min(0).max(1).nullable(),
+  /** Staff marked "יש בתמונה ילד" (kept with the decision; it does not keep the image out of the training set). */
+  isChild: z.boolean(),
   createdAt: z.iso.datetime(),
   url: z.string().url().nullable(),
   width: z.number().int(),
@@ -118,6 +120,11 @@ export const mediaQueueItem = z.strictObject({
 });
 export type MediaQueueItem = z.infer<typeof mediaQueueItem>;
 export const mediaQueueResponse = z.strictObject({ items: z.array(mediaQueueItem) });
+
+/** POST /api/admin/media/:id/removal: a checked image removed after a report, or as a suspicion of child abuse (CONTENT_MODERATE and
+ *  REPORTS_VIEW). The uploader sees the same rejection either way. */
+export const mediaRemovalBody = z.strictObject({ suspected: z.boolean() });
+export type MediaRemovalBody = z.infer<typeof mediaRemovalBody>;
 export type MediaQueueResponse = z.infer<typeof mediaQueueResponse>;
 
 // ---- the background check (decisions-in-force.md §2) ----------------------------------------------------------------------------
@@ -125,7 +132,7 @@ export type MediaQueueResponse = z.infer<typeof mediaQueueResponse>;
 export const BLOCKING_LABELS = ['FEMALE_GENITALIA_EXPOSED', 'MALE_GENITALIA_EXPOSED', 'BUTTOCKS_EXPOSED', 'ANUS_EXPOSED', 'FEMALE_BREAST_EXPOSED'] as const;
 
 /** The default thresholds (configuration on the server): at or above T_block the image is blocked, between T_low and T_block unsure. */
-export const MEDIA_CHECK_DEFAULTS = { blockThreshold: 0.6, lowThreshold: 0.25, maxAttempts: 3, trainingRetentionMonths: 6 } as const;
+export const MEDIA_CHECK_DEFAULTS = { blockThreshold: 0.6, lowThreshold: 0.25, maxAttempts: 3 } as const;
 
 export type CheckVerdict = { readonly status: 'passed' } | { readonly status: 'queued'; readonly reason: 'blocked' | 'unsure' };
 

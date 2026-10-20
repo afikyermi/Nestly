@@ -274,8 +274,8 @@ describe('[I5 Afik 20.10] the storage and job fences', () => {
       .map((f) => f.path);
   const inJob = (path: string): boolean => path.startsWith('apps/server/src/jobs/') || path === 'apps/server/api/jobs.ts' || path === 'api/jobs.ts';
 
-  it('APP_JOBS_DATABASE_URL is named only in src/jobs/config.ts (and it does name it)', SLOW, () => {
-    expect(namingIn(/APP_JOBS_DATABASE_URL/)).toEqual(['apps/server/src/jobs/config.ts']);
+  it('APP_MEDIA_JOBS_DATABASE_URL is named only in src/jobs/config.ts (and it does name it)', SLOW, () => {
+    expect(namingIn(/APP_MEDIA_JOBS_DATABASE_URL/)).toEqual(['apps/server/src/jobs/config.ts']);
   });
 
   it('CRON_SECRET is named only in src/jobs/config.ts and the upload route\'s caller media/job-kick.ts', SLOW, () => {
@@ -299,6 +299,6 @@ describe('[I5 Afik 20.10] the storage and job fences', () => {
   });
 
   it('the storage key never reaches the web app or the CI configuration', SLOW, () => {
-    expect(namingIn(/SUPABASE_SECRET_KEY|APP_JOBS_DATABASE_URL/).filter((path) => path.startsWith('apps/web/'))).toEqual([]);
+    expect(namingIn(/SUPABASE_SECRET_KEY|APP_MEDIA_JOBS_DATABASE_URL/).filter((path) => path.startsWith('apps/web/'))).toEqual([]);
   });
 });

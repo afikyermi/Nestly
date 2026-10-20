@@ -1,18 +1,15 @@
 import {
   mediaImage,
-  mediaQueueResponse,
   profilePhotoResponse,
   storiesResponse,
   storyCreatedResponse,
-  type MediaDecision,
   type MediaImage,
   type MediaKind,
-  type MediaQueueResponse,
   type StoriesResponse,
   type StoryAudience,
 } from '@nestly/shared';
 
-// Images, the profile photo, Stories and the approval queue (I5). Only the status, the one `error` code and a body that passes the shared
+// Images, the profile photo and Stories (I5; the approval queue's calls are services/api/admin.ts). Only the status, the one `error` code and a body that passes the shared
 // schema are read; no response text reaches the screen. An image travels as its own bytes (already shrunk by the browser), never in a URL.
 export type MediaOutcome<T> =
   | { kind: 'ok'; value: T }
@@ -86,8 +83,3 @@ export const fetchStories = (accessToken: string): Promise<MediaOutcome<StoriesR
   call(accessToken, '/api/stories', { method: 'GET' }, parse(storiesResponse));
 export const createStory = (accessToken: string, input: { mediaId: string; caption?: string; audience: StoryAudience }): Promise<MediaOutcome<string>> =>
   call(accessToken, '/api/stories', { method: 'POST', body: JSON.stringify(input), type: 'application/json' }, (body) => parse(storyCreatedResponse)(body)?.id);
-
-export const fetchMediaQueue = (accessToken: string): Promise<MediaOutcome<MediaQueueResponse>> =>
-  call(accessToken, '/api/admin/media-queue', { method: 'GET' }, parse(mediaQueueResponse));
-export const decideMedia = (accessToken: string, id: string, decision: MediaDecision, isChild: boolean): Promise<MediaOutcome<null>> =>
-  call(accessToken, `/api/admin/media/${encodeURIComponent(id)}/decision`, { method: 'POST', body: JSON.stringify({ decision, isChild }), type: 'application/json' }, () => null);

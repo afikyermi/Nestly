@@ -8,10 +8,10 @@ import { z } from 'zod';
 import type { MediaKind, MediaState, StoryAudience } from '@nestly/shared';
 import type { IdentityTx } from '../db/identity-transaction.js';
 
-const STATUSES = ['pending', 'passed', 'queued', 'approved', 'rejected', 'suspected'] as const;
+const STATUSES = ['pending', 'passed', 'queued', 'approved', 'rejected'] as const;
 export type MediaStatus = (typeof STATUSES)[number];
 
-/** What a reader is shown: checked images are ready; the uploader's unchecked ones pending; a refused one (rejected or suspected alike) rejected. */
+/** What a reader is shown: checked images are ready; the uploader's unchecked ones pending; a refused one rejected (a suspicion reads the same: the database never tells). */
 export function stateOf(status: MediaStatus): MediaState {
   if (status === 'passed' || status === 'approved') return 'ready';
   if (status === 'pending' || status === 'queued') return 'pending';
@@ -84,7 +84,13 @@ export async function readProfilePhotos(tx: IdentityTx, userIds: readonly string
   return z.array(photoRow).parse(rows);
 }
 
-/** Sets the caller's photo to one of their profile images; the previous image's id (its row is deleted by the database), or null. */
+async function imageRowGone(tx: IdentityTx, id: string): Promise<boolean> {
+  const rows = await tx.execute(sql`select 1 as one from nestly.media_assets where id = ${id}::uuid`);
+  return rows.length === 0;
+}
+
+/** Sets the caller's photo to one of their profile images. `previous` is the replaced image's id when the database deleted its row (BR-077),
+ *  so its file may go too; null when there was none or its row stays (a queued or rejected image is kept for staff and the purge). */
 export async function setOwnProfilePhoto(tx: IdentityTx, mediaId: string): Promise<{ previous: string | null }> {
   const current = z
     .array(z.object({ mediaId: z.guid() }))
@@ -96,18 +102,21 @@ export async function setOwnProfilePhoto(tx: IdentityTx, mediaId: string): Promi
   } else {
     await tx.execute(sql`update nestly.profile_photos set media_id = ${mediaId}::uuid where user_id = (select auth.uid())`);
   }
-  return { previous: previous === mediaId ? null : previous };
+  if (previous === null || previous === mediaId) return { previous: null };
+  return { previous: (await imageRowGone(tx, previous)) ? previous : null };
 }
 
-/** Removes the caller's photo and its image row; the image id that was removed, or null when there was none. */
+/** Removes the caller's photo and, where the database allows it, its image row. The image id whose row was deleted (its file may go), or
+ *  null (no photo, or the row stays: a queued or rejected image). */
 export async function removeOwnProfilePhoto(tx: IdentityTx): Promise<string | null> {
   const rows = z
     .array(z.object({ mediaId: z.guid() }))
     .max(1)
     .parse(await tx.execute(sql`delete from nestly.profile_photos where user_id = (select auth.uid()) returning media_id as "mediaId"`));
   const mediaId = rows[0]?.mediaId ?? null;
-  if (mediaId !== null) await tx.execute(sql`delete from nestly.media_assets where id = ${mediaId}::uuid`);
-  return mediaId;
+  if (mediaId === null) return null;
+  const deleted = await tx.execute(sql`delete from nestly.media_assets where id = ${mediaId}::uuid returning id`);
+  return deleted.length === 1 ? mediaId : null;
 }
 
 // ---- Stories -------------------------------------------------------------------------------------------------------------------
@@ -166,6 +175,7 @@ const queueRow = z.object({
   kind: z.enum(['post', 'profile', 'story']),
   queueReason: z.enum(['blocked', 'unsure', 'error']),
   scores: z.record(z.string(), z.number()).nullable(),
+  isChild: z.boolean(),
   createdAt: z.string(),
   width: z.number().int(),
   height: z.number().int(),
@@ -178,22 +188,56 @@ export async function canModerateContent(tx: IdentityTx): Promise<boolean> {
   return z.array(z.object({ ok: z.boolean() })).length(1).parse(rows)[0]?.ok ?? false;
 }
 
-/** The queued images the caller may decide (media_assets_select_staff), oldest first. */
+/** The queued images the caller may decide (media_assets_select_staff), with their staff-only review (media_reviews_select_staff), oldest first. */
 export async function readQueue(tx: IdentityTx, limit: number): Promise<QueueRow[]> {
   const rows = await tx.execute(sql`
-    select id, kind, queue_reason as "queueReason", scores, ${iso(sql.raw('created_at'))} as "createdAt", width, height
-    from nestly.media_assets
-    where status = 'queued'
-    order by created_at asc, id asc
+    select m.id, m.kind, r.queue_reason as "queueReason", r.scores, r.is_child as "isChild", ${iso(sql.raw('m.created_at'))} as "createdAt",
+           m.width, m.height
+    from nestly.media_assets m join nestly.media_reviews r on r.media_id = m.id
+    where m.status = 'queued'
+    order by m.created_at asc, m.id asc
     limit ${limit}`);
   return z.array(queueRow).parse(rows);
 }
 
-/** A staff decision on a queued image; false when the database did not apply it (not queued, not permitted, gone). */
+const returnedId = z.array(z.object({ id: z.guid() }));
+
+/** A staff decision on a queued image: the marks first (the child mark; a suspicion, which forces a held rejection), then the status. False
+ *  when the database did not apply it (not queued, not permitted, gone). */
 export async function decideImage(tx: IdentityTx, id: string, decision: 'approved' | 'rejected' | 'suspected', isChild: boolean): Promise<boolean> {
+  const suspected = decision === 'suspected';
+  const marked = await tx.execute(sql`
+    update nestly.media_reviews set is_child = ${isChild || suspected}, is_suspected = (is_suspected or ${suspected})
+    where media_id = ${id}::uuid
+    returning media_id as id`);
+  if (returnedId.parse(marked).length !== 1) return false;
   const rows = await tx.execute(sql`
-    update nestly.media_assets set status = ${decision}, is_child = ${isChild}
+    update nestly.media_assets set status = ${suspected ? 'rejected' : decision}
     where id = ${id}::uuid and status = 'queued'
     returning id`);
-  return z.array(z.object({ id: z.guid() })).parse(rows).length === 1;
+  return returnedId.parse(rows).length === 1;
+}
+
+/** Whether the caller may remove a checked image after a report (CONTENT_MODERATE and REPORTS_VIEW now). Picks the answer only. */
+export async function canRemoveCheckedImage(tx: IdentityTx): Promise<boolean> {
+  const rows = await tx.execute(sql`
+    select coalesce(nestly.has_permission('CONTENT_MODERATE') and nestly.has_permission('REPORTS_VIEW'), false) as ok`);
+  return z.array(z.object({ ok: z.boolean() })).length(1).parse(rows)[0]?.ok ?? false;
+}
+
+/** Removes an image that had passed (or was approved), after a report: rejected, or rejected and held as a suspicion of child abuse (M6).
+ *  The database requires a report on its post or uploader, or the suspicion (media_assets_update_guard). False when it did not apply. */
+export async function removeCheckedImage(tx: IdentityTx, id: string, suspected: boolean): Promise<boolean> {
+  if (suspected) {
+    const marked = await tx.execute(sql`
+      insert into nestly.media_reviews (media_id, is_child, is_suspected) values (${id}::uuid, true, true)
+      on conflict (media_id) do update set is_child = true, is_suspected = true
+      returning media_id as id`);
+    if (returnedId.parse(marked).length !== 1) return false;
+  }
+  const rows = await tx.execute(sql`
+    update nestly.media_assets set status = 'rejected'
+    where id = ${id}::uuid and status in ('passed', 'approved')
+    returning id`);
+  return returnedId.parse(rows).length === 1;
 }

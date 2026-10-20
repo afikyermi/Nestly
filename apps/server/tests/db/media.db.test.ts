@@ -10,7 +10,7 @@ import { CLOCK_NOW, buildRegisterApp, post, validBody } from '../helpers/registe
 
 // I5 against the real database (CI `db` job, as app_server; fixtures of supabase/tests/setup/), with Storage replaced by an in-memory fake:
 // uploads (FR-FEED-002, AC-104, AC-105), a post's images, the profile photo (FR-PROFILE-001, BR-077), Stories (FR-FEED-008, AC-102, AC-103,
-// ERR-040) and the approval queue (Afik 20.10.2026). The background check's moves are made as app_jobs through the CI-only fixture.
+// ERR-040) and the approval queue (Afik 20.10.2026). The background check's moves are made as app_media_jobs through the CI-only fixture.
 
 const T = { timeout: COLD_START_MS };
 const ADMIN = '60000000-0000-4000-8000-0000000000a2'; // 60_'s fr_d
@@ -65,15 +65,17 @@ const json = (app: App, header: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE
   app.inject({ method, url: path, headers: { authorization: header, ...(payload === undefined ? {} : { 'content-type': 'application/json' }) }, ...(payload === undefined ? {} : { payload: JSON.stringify(payload) }) });
 const imageId = (body: string): string => z.object({ id: z.guid(), state: z.literal('pending') }).parse(JSON.parse(body)).id;
 
-/** The background check's move, as app_jobs (the CI-only fixture lets app_server become it inside one transaction). */
-async function jobSets(id: string, status: 'passed' | 'queued', reason: 'blocked' | 'unsure' | null = null): Promise<void> {
+/** The background check's move, as app_media_jobs (the CI-only fixture lets app_server become it inside one transaction); a queued image
+ *  gets its staff-only review first, as the job writes it. */
+async function jobSets(id: string, status: 'passed' | 'queued', reason: 'blocked' | 'unsure' = 'blocked'): Promise<void> {
   await side.begin(async (tx) => {
     await tx`select 1`;
-    await tx`select tests.fx_jobs_on()`;
-    await tx`set local role app_jobs`;
-    await tx`update nestly.media_assets set status = ${status}, queue_reason = ${reason} where id = ${id}::uuid and status = 'pending'`;
+    await tx`select tests.fx_media_jobs_on()`;
+    await tx`set local role app_media_jobs`;
+    if (status === 'queued') await tx`insert into nestly.media_reviews (media_id, queue_reason, scores) values (${id}::uuid, ${reason}, '{"FEMALE_BREAST_EXPOSED": 0.8}')`;
+    await tx`update nestly.media_assets set status = ${status} where id = ${id}::uuid and status = 'pending'`;
     await tx`reset role`;
-    await tx`select tests.fx_jobs_off()`;
+    await tx`select tests.fx_media_jobs_off()`;
   });
 }
 
@@ -176,6 +178,12 @@ describe('[FR-PROFILE-001 BR-077] the profile photo', () => {
     expect((await json(app, a.header, 'DELETE', '/api/profile/photo')).statusCode).toBe(204);
     expect(fake.removed).toContain(two);
     expect(JSON.parse((await json(app, a.header, 'GET', '/api/profile/photo')).body)).toEqual({ photo: null });
+    const queued = imageId((await upload(app, a.header, 'profile')).body);
+    expect((await json(app, a.header, 'PUT', '/api/profile/photo', { mediaId: queued })).statusCode).toBe(200);
+    await jobSets(queued, 'queued');
+    const next = imageId((await upload(app, a.header, 'profile')).body);
+    expect((await json(app, a.header, 'PUT', '/api/profile/photo', { mediaId: next })).statusCode).toBe(200);
+    expect(fake.removed, '[C3] a queued photo replaced keeps its file: staff still decide it').not.toContain(queued);
   });
 });
 
@@ -226,5 +234,38 @@ describe('[Afik 20.10] the approval queue', () => {
     const seen = z.object({ images: z.array(z.object({ id: z.guid(), state: z.string() })).optional() }).parse(JSON.parse((await json(app, b.header, 'GET', `/api/posts/${created.id}`)).body));
     expect(seen.images?.map((i) => i.state)).toEqual(['ready']);
     expect((await json(app, admin, 'POST', `/api/admin/media/${media}/decision`, { decision: 'maybe', isChild: false })).statusCode).toBe(400);
+  });
+
+  it('[M6 C1] a suspected image reads to its uploader exactly as a rejected one', T, async () => {
+    const { app } = await start();
+    const a = await registered(app, 'Held Author');
+    const admin = await bearerFor(ADMIN);
+    const suspected = imageId((await upload(app, a.header, 'profile')).body);
+    const rejected = imageId((await upload(app, a.header, 'profile')).body);
+    await jobSets(suspected, 'queued');
+    await jobSets(rejected, 'queued');
+    expect((await json(app, admin, 'POST', `/api/admin/media/${suspected}/decision`, { decision: 'suspected', isChild: true })).statusCode).toBe(200);
+    expect((await json(app, admin, 'POST', `/api/admin/media/${rejected}/decision`, { decision: 'rejected', isChild: false })).statusCode).toBe(200);
+    const read = async (id: string) => {
+      const res = await json(app, a.header, 'PUT', '/api/profile/photo', { mediaId: id });
+      return [res.statusCode, res.body];
+    };
+    expect(await read(suspected)).toEqual(await read(rejected));
+  });
+
+  it('a checked image is removed only after a report, by CONTENT_MODERATE with REPORTS_VIEW; a user gets 403', T, async () => {
+    const { app } = await start();
+    const a = await registered(app, 'Reported Author');
+    const b = await registered(app, 'Reporter');
+    const admin = await bearerFor(ADMIN);
+    const media = imageId((await upload(app, a.header, 'post')).body);
+    const created = z.object({ id: z.guid() }).parse(JSON.parse((await json(app, a.header, 'POST', '/api/posts', { body: 'דיווח', audience: 'everyone', imageIds: [media] })).body));
+    await jobSets(media, 'passed');
+    expect((await json(app, b.header, 'POST', `/api/admin/media/${media}/removal`, { suspected: false })).statusCode).toBe(403);
+    expect((await json(app, admin, 'POST', `/api/admin/media/${media}/removal`, { suspected: false })).statusCode, 'no report yet').toBe(404);
+    expect((await json(app, b.header, 'POST', '/api/reports', { targetKind: 'post', targetId: created.id, reason: 'spam' })).statusCode).toBeLessThan(300);
+    expect((await json(app, admin, 'POST', `/api/admin/media/${media}/removal`, { suspected: false })).statusCode).toBe(200);
+    const seen = z.object({ images: z.array(z.object({ id: z.guid() })).optional() }).parse(JSON.parse((await json(app, b.header, 'GET', `/api/posts/${created.id}`)).body));
+    expect(seen.images ?? [], 'gone for readers').toEqual([]);
   });
 });

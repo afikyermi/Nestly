@@ -35,6 +35,8 @@ export const PATHS = {
   adminReports: '/admin/reports',
   adminUsers: '/admin/users',
   adminAudit: '/admin/audit',
+  /** I5: the image approval queue (CONTENT_MODERATE). */
+  adminMedia: '/admin/media',
   /** F3.7: the community rules page (PG-049, BR-075, Q2: signed-in only), from the side menu and the report window. */
   communityRules: '/community-rules',
 } as const;
@@ -66,6 +68,7 @@ export const PROTECTED_PATHS: readonly string[] = [
   PATHS.adminReports,
   PATHS.adminUsers,
   PATHS.adminAudit,
+  PATHS.adminMedia,
 ];
 
 /** Where a Guest goes from a protected path (ERR-012, Q3): Welcome. The requested path is not kept. */

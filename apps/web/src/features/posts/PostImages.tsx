@@ -22,7 +22,7 @@ export function PostImages({ images, className }: PostImagesProps) {
           image={image}
           alt={imageAlt(index, images.length)}
           fit={single ? 'contain' : 'cover'}
-          className={single ? 'max-h-[28rem] w-full' : 'aspect-square w-full'}
+          className={single ? 'max-h-112 w-full' : 'aspect-square w-full'}
         />
       ))}
     </div>

@@ -27,7 +27,7 @@ test.describe('[I4] the admin shell', () => {
     await expect.poll(() => pathOf(page)).toBe('/admin/reports');
     await expect(page.getByRole('heading', { level: 1, name: 'ניהול' })).toBeVisible();
     const tabs = page.getByRole('navigation', { name: 'מסכי הניהול' });
-    await expect(tabs.getByRole('link')).toHaveText(['דיווחים', 'משתמשים', 'יומן פעולות']);
+    await expect(tabs.getByRole('link')).toHaveText(['דיווחים', 'משתמשים', 'יומן פעולות', 'תמונות לבדיקה']);
   });
 
   test('[I4 AC-031] an account that is not staff has no admin entry and /admin leads back to the feed', async ({ page }) => {
@@ -142,5 +142,29 @@ test.describe('[I4 FR-MOD-002] accounts and enforcement', () => {
     expect(net.sent[0]).toMatchObject({ body: { userId: USER_RINA, kind: 'suspension', durationHours: 72, reason: 'הטרדה חוזרת' } });
     await expect(page.getByRole('region', { name: 'אכיפה' })).toContainText('מושעה');
     expect(pathOf(page)).toBe('/admin/users');
+  });
+});
+
+test.describe('[I5 Afik 20.10] the image approval queue', () => {
+  test('[I5 BR-076] a CONTENT_MODERATE holder approves one image with the child mark and marks a suspicion on another; each leaves the queue', async ({ page }) => {
+    const net = await setupAdmin(page, { permissions: ['CONTENT_MODERATE'] });
+    await signIn(page);
+    await page.goto('/admin');
+    await expect.poll(() => pathOf(page)).toBe('/admin/media');
+    await expect(page.getByRole('heading', { level: 2, name: 'תמונות לבדיקה' })).toBeVisible();
+    const items = page.getByRole('list', { name: 'תמונות שממתינות לבדיקה' }).getByRole('listitem');
+    await expect(items).toHaveCount(2);
+    await expect(items.first()).toContainText('נחסמה בבדיקה');
+    await items.first().getByRole('checkbox', { name: 'יש בתמונה ילד' }).check();
+    await items.first().getByRole('button', { name: 'אישור', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'ההחלטה נשמרה' })).toBeVisible();
+    await expect(items).toHaveCount(1);
+    await items.first().getByRole('button', { name: 'חשד לפגיעה בילד' }).click();
+    await expect(page.getByText('אין תמונות שממתינות לבדיקה')).toBeVisible();
+    const decisions = net.sent.filter((s) => s.path.endsWith('/decision')).map((s) => s.body);
+    expect(decisions).toEqual([
+      { decision: 'approved', isChild: true },
+      { decision: 'suspected', isChild: false },
+    ]);
   });
 });

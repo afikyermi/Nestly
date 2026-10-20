@@ -33,7 +33,7 @@ export function StoryViewer({ group, onClose }: StoryViewerProps) {
       <SheetTitle>{title}</SheetTitle>
       {current === undefined ? null : (
         <div className="flex flex-col gap-3">
-          <MediaTile image={current.image} alt={title} fit="contain" className="max-h-[60dvh] w-full" />
+          <MediaTile image={current.image} alt={title} fit="contain" className="max-h-96 w-full" />
           {current.caption !== null ? (
             <p dir="auto" className="whitespace-pre-wrap wrap-anywhere text-body">
               {current.caption}

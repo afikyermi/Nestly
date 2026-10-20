@@ -4,7 +4,7 @@ import { MediaTile } from './media-tile';
 // A tiny inline picture so the stories need no network.
 const PICTURE =
   'data:image/svg+xml;utf8,' +
-  encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="#bcd4e6"/><circle cx="200" cy="150" r="70" fill="#f4c9a8"/></svg>');
+  encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="lightsteelblue"/><circle cx="200" cy="150" r="70" fill="peachpuff"/></svg>');
 const base = { id: '11111111-1111-4111-8111-111111111111', width: 400, height: 300 };
 
 const meta = {

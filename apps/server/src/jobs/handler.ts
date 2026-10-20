@@ -1,6 +1,6 @@
 // The background job's entry (I5; Afik 20.10.2026, decisions-in-force.md §7): POST or GET /api/jobs/media-check with
 // `Authorization: Bearer <the job secret>` (Vercel cron sends it daily; the upload route sends it after an upload). Anything else is 401 with no
-// work. Connects as app_jobs with its own connection string, one connection, closed when the run ends. Answers counts only.
+// work. Connects as app_media_jobs with its own connection string, one connection, closed when the run ends. Answers counts only.
 
 import { timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
