@@ -186,7 +186,9 @@ export const trackerEventDto = z.object({
   note: z.string().nullable(),
 });
 export type TrackerEventDto = z.infer<typeof trackerEventDto>;
-export const trackerEventsResponse = z.object({ events: z.array(trackerEventDto) });
+/** `truncated`: the period holds more events than one answer carries; the newest are returned. */
+export const trackerEventsResponse = z.object({ events: z.array(trackerEventDto), truncated: z.boolean() });
+export const TRACKER_EVENTS_LIMIT = 1000;
 
 export const cycleEntryDto = z.object({ id: z.string(), startDate: z.string(), cycleLengthDays: z.number() });
 export type CycleEntryDto = z.infer<typeof cycleEntryDto>;
@@ -197,6 +199,7 @@ const ovulationWindowDto = z.object({
   windowStart: z.string(),
   windowEnd: z.string(),
   nextCycleStart: z.string(),
+  expectedNextStart: z.string(),
 });
 export const cycleResponse = z.object({ entries: z.array(cycleEntryDto), window: ovulationWindowDto.nullable() });
 export type CycleResponse = z.infer<typeof cycleResponse>;

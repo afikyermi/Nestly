@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuthedCall } from '@/hooks/use-authed-call';
 import { PATHS } from '@/app/paths';
 import { fetchOwnJourneys } from '@/services/api/journeys';
-import { addEvent, editEvent, fetchEvents, removeEvent, type ApiResult } from '@/services/api/trackers';
+import { addEvent, editEvent, fetchEvents, removeEvent, type ApiResult, type EventsView } from '@/services/api/trackers';
 import { CHART_PER_DAY, CHART_UNIT, ERROR_TEXT, FORM_TEXT, GROWTH_METRICS, HISTORY_TEXT, PAGE_LABEL } from '@/lib/tracker-texts';
 import { DEFAULT_PERIOD_DAYS, lastDays, PeriodPicker } from './PeriodPicker';
 import { TrackerFormPanel } from './TrackerFormPanel';
@@ -33,7 +33,8 @@ export function TrackerScreen({ kind }: { kind: TrackerKind }) {
   const [children, setChildren] = useState<Child[] | null>(null);
   const [childFilter, setChildFilter] = useState('');
   const [period, setPeriod] = useState<Period>(() => lastDays(DEFAULT_PERIOD_DAYS));
-  const [events, setEvents] = useState<TrackerEventDto[] | null>(null);
+  const [view, setView] = useState<EventsView | null>(null);
+  const events = view?.events ?? null;
   const [loadFailed, setLoadFailed] = useState(false);
   const [form, setForm] = useState<EventForm | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
@@ -60,15 +61,19 @@ export function TrackerScreen({ kind }: { kind: TrackerKind }) {
     } else setLoadFailed(true);
   }, [call]);
 
+  // Growth is measured per child: charting two children's weights as one line means nothing, so it always has one child chosen.
+  const shownChild = kind === 'growth' && childFilter === '' ? (children?.[0]?.id ?? '') : childFilter;
+
   const loadEvents = useCallback(async () => {
+    if (children === null) return;
     const run = (loads.current += 1);
-    const result = await call((token) => fetchEvents(token, kind, childFilter === '' ? null : childFilter, period));
+    const result = await call((token) => fetchEvents(token, kind, shownChild === '' ? null : shownChild, period));
     if (run !== loads.current) return;
     if (result.kind === 'ok') {
-      setEvents(result.value);
+      setView(result.value);
       setLoadFailed(false);
     } else setLoadFailed(true);
-  }, [call, kind, childFilter, period]);
+  }, [call, kind, shownChild, period, children]);
 
   useEffect(() => {
     void loadChildren();
@@ -140,6 +145,7 @@ export function TrackerScreen({ kind }: { kind: TrackerKind }) {
     <div className="flex flex-col gap-6">
       <p className="text-small text-muted-foreground">{HISTORY_TEXT.privateNote}</p>
       <p role="status" className="min-h-6 text-small text-muted-foreground">{status}</p>
+      {loadFailed ? <InlineAlert>{ERROR_TEXT.loadFailed}</InlineAlert> : null}
       <TrackerFormPanel
         kind={kind}
         form={form}
@@ -161,7 +167,7 @@ export function TrackerScreen({ kind }: { kind: TrackerKind }) {
         {children.length > 1 ? (
           <FormField label={FORM_TEXT.child} className="max-w-60">
             {(control) => (
-              <SelectInput {...control} placeholder={HISTORY_TEXT.allChildren} value={childFilter} options={children.map((c) => ({ value: c.id, label: c.name }))} onChange={setChildFilter} />
+              <SelectInput {...control} placeholder={HISTORY_TEXT.allChildren} value={shownChild} options={children.map((c) => ({ value: c.id, label: c.name }))} onChange={setChildFilter} />
             )}
           </FormField>
         ) : null}
@@ -170,6 +176,7 @@ export function TrackerScreen({ kind }: { kind: TrackerKind }) {
             {(control) => <SelectInput {...control} placeholder="מדד" value={metric} options={growthOptions} onChange={(v) => setMetric(v === 'height' || v === 'head' ? v : 'weight')} />}
           </FormField>
         ) : null}
+        {view?.truncated === true ? <p className="text-small text-muted-foreground">{HISTORY_TEXT.truncated}</p> : null}
         {events === null ? (
           <Skeleton className="h-40 w-full" />
         ) : (

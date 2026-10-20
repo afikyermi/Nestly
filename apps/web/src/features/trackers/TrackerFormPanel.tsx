@@ -7,6 +7,7 @@ import { TextArea } from '@/components/ui/text-area';
 import { TextInput } from '@/components/ui/text-input';
 import { DIAPER_LABEL, FORM_TEXT, SIDE_LABEL } from '@/lib/tracker-texts';
 import { DateTimeFields } from './DateTimeFields';
+import { DurationTimer } from './DurationTimer';
 import { dateTimeOf, type EventForm } from './tracker-form';
 
 export interface TrackerFormPanelProps {
@@ -53,20 +54,10 @@ export function TrackerFormPanel({ kind, form, children, editing, pending, error
           )}
         </FormField>
       ) : null}
-      <DateTimeFields
-        legend={ranged ? FORM_TEXT.start : FORM_TEXT.when}
-        value={form.start}
-        onChange={(start) => set({ start })}
-        {...(ranged ? { nowLabel: FORM_TEXT.startNow, onNow: () => set({ start: dateTimeOf(new Date()) }) } : {})}
-      />
+      {ranged && !editing ? <DurationTimer onStart={(at) => set({ start: dateTimeOf(at) })} onStop={(at) => set({ end: dateTimeOf(at) })} /> : null}
+      <DateTimeFields legend={ranged ? FORM_TEXT.start : FORM_TEXT.when} value={form.start} onChange={(start) => set({ start })} />
       {ranged ? (
-        <DateTimeFields
-          legend={FORM_TEXT.end}
-          value={form.end}
-          onChange={(end) => set({ end })}
-          nowLabel={FORM_TEXT.endNow}
-          onNow={() => set({ end: dateTimeOf(new Date()) })}
-        />
+        <DateTimeFields legend={FORM_TEXT.end} value={form.end} onChange={(end) => set({ end })} />
       ) : null}
       {kind === 'breastfeeding' ? (
         <FormField label={FORM_TEXT.side}>

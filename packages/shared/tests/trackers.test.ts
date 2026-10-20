@@ -8,6 +8,7 @@ import {
   currentWindow,
   israelDay,
   israelDayStart,
+  israelInstant,
   matchGuides,
   stageContexts,
   windowOfCycle,
@@ -71,12 +72,20 @@ describe('[F6.0-a c3 FR-TRACK-001] the cycle and the ovulation window', () => {
       windowStart: '2026-10-10',
       windowEnd: '2026-10-16',
       nextCycleStart: '2026-10-29',
+      expectedNextStart: '2026-10-29',
     });
   });
   it('moves an old entry forward to the window not yet over, and gives none without an entry', () => {
     expect(currentWindow('2026-10-01', 28, '2026-10-20')?.windowStart).toBe('2026-11-07');
     expect(currentWindow('2026-10-01', 28, '2026-10-12')?.windowStart).toBe('2026-10-10');
     expect(currentWindow(null, null, '2026-10-12')).toBeNull();
+  });
+  it('the next cycle expected is the first projected start after today, even when the window shown is a cycle later', () => {
+    const late = currentWindow('2026-10-01', 28, '2026-10-20');
+    expect(late?.windowStart).toBe('2026-11-07');
+    expect(late?.expectedNextStart).toBe('2026-10-29');
+    expect(currentWindow('2026-10-01', 28, '2026-10-12')?.expectedNextStart).toBe('2026-10-29');
+    expect(currentWindow('2026-10-01', 28, '2026-10-29')?.expectedNextStart).toBe('2026-11-26');
   });
 });
 
@@ -118,6 +127,15 @@ describe('[F6.0-a c5 FR-TRACK-001] days in Israel and the chart of a period', ()
     expect(israelDay(new Date('2026-07-01T21:30:00Z'))).toBe('2026-07-02');
     expect(israelDayStart('2026-07-02').toISOString()).toBe('2026-07-01T21:00:00.000Z');
     expect(israelDayStart('2026-12-02').toISOString()).toBe('2026-12-01T22:00:00.000Z');
+  });
+  it('reads a wall-clock time with the offset of that time, on the days the clocks change', () => {
+    // 25.10.2026: summer time ends at 02:00 (UTC+3 -> UTC+2); midnight is still +3, 08:30 is +2.
+    expect(israelInstant('2026-10-25', 8 * 60 + 30).toISOString()).toBe('2026-10-25T06:30:00.000Z');
+    expect(israelDayStart('2026-10-25').toISOString()).toBe('2026-10-24T21:00:00.000Z');
+    // 26.03.2027: summer time starts at 02:00 (UTC+2 -> UTC+3); midnight is +2, 08:30 is +3.
+    expect(israelInstant('2027-03-26', 8 * 60 + 30).toISOString()).toBe('2027-03-26T05:30:00.000Z');
+    expect(israelDayStart('2027-03-26').toISOString()).toBe('2027-03-25T22:00:00.000Z');
+    expect(israelInstant('2026-07-01', 15 * 60).toISOString()).toBe('2026-07-01T12:00:00.000Z');
   });
   it('accepts a period of at most 366 days, in order', () => {
     expect(checkPeriod('2026-10-01', '2026-10-07').ok).toBe(true);

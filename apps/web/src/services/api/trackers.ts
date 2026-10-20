@@ -17,6 +17,7 @@ export type ApiResult<T> =
   | { kind: 'ok'; value: T }
   | { kind: 'unauthenticated' } // 401
   | { kind: 'account-unavailable' } // 403 account_unavailable (ERR-037)
+  | { kind: 'no-profile' } // 404 no_profile: not a Regular account (a Professional has no home tracking)
   | { kind: 'not-found' } // 404 not_found
   | { kind: 'duplicate-date' } // 409 duplicate_date: a cycle entry for that day exists
   | { kind: 'invalid'; reason: string } // 400 invalid: the server refused the values
@@ -55,7 +56,10 @@ async function request<T>(
   }
   const code = field(json, 'error');
   if (response.status === 403) return code === 'account_unavailable' ? { kind: 'account-unavailable' } : FAILED;
-  if (response.status === 404) return code === 'not_found' ? { kind: 'not-found' } : FAILED;
+  if (response.status === 404) {
+    if (code === 'no_profile') return { kind: 'no-profile' };
+    return code === 'not_found' ? { kind: 'not-found' } : FAILED;
+  }
   if (response.status === 409) return code === 'duplicate_date' ? { kind: 'duplicate-date' } : FAILED;
   if (response.status === 400) {
     const reason = field(json, 'reason');
@@ -77,14 +81,20 @@ const parsed =
 export const fetchHome = (token: string): Promise<ApiResult<HomeResponse>> =>
   request(token, 'GET', '/api/home', undefined, parsed<HomeResponse>(homeResponse));
 
-export const fetchEvents = (token: string, kind: TrackerKind, childId: string | null, period: Period): Promise<ApiResult<TrackerEventDto[]>> => {
+export const fetchEvents = (token: string, kind: TrackerKind, childId: string | null, period: Period): Promise<ApiResult<EventsView>> => {
   const query = new URLSearchParams({ kind, from: period.from, to: period.to });
   if (childId !== null) query.set('childId', childId);
   return request(token, 'GET', `/api/trackers/events?${query.toString()}`, undefined, (json) => {
     const result = trackerEventsResponse.safeParse(json);
-    return result.success ? result.data.events : null;
+    return result.success ? result.data : null;
   });
 };
+
+/** The events of a period; `truncated`: there were more than one answer carries (the newest are shown). */
+export interface EventsView {
+  events: TrackerEventDto[];
+  truncated: boolean;
+}
 
 /** The body of a write: the kind's fields as the shared validation names them (see checkTrackerEventWrite). */
 export type EventBody = Record<string, unknown>;

@@ -1,4 +1,4 @@
-import { checkDateParts, israelDay, israelDayStart, type TrackerEventDto, type TrackerKind } from '@nestly/shared';
+import { checkDateParts, israelDay, israelInstant, type TrackerEventDto, type TrackerKind } from '@nestly/shared';
 import type { DateParts } from '@/components/shared/date-input';
 import { ERROR_TEXT } from '@/lib/tracker-texts';
 import type { EventBody } from '@/services/api/trackers';
@@ -62,7 +62,7 @@ export function toInstant(value: DateTimeText): string | null {
   const time = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(value.time.trim());
   if (day.kind !== 'date' || time === null) return null;
   const minutes = Number(time[1]) * 60 + Number(time[2]);
-  return new Date(israelDayStart(day.iso).getTime() + minutes * 60_000).toISOString();
+  return israelInstant(day.iso, minutes).toISOString();
 }
 
 /** A typed number (a comma is a decimal point), or null when empty; NaN when it is not a number. */

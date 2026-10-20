@@ -1,7 +1,7 @@
 // GET/POST /api/trackers/events, PUT/DELETE /api/trackers/events/:id (I6; FR-TRACK-001/002, AC-007, AC-023). The caller's own events of
 // the eight child trackers. Health data about minors: owner only, decided by RLS. Signed in: the authentication hook has run before
 // anything here (401 before the body is read, and no database query). No route takes a user id; an event is named by its row id.
-//   GET    ?kind&childId?&from&to  → 200 { events:[…] } for the Israeli days from..to (at most 366) · 400 invalid_query
+//   GET    ?kind&childId?&from&to  → 200 { events:[…], truncated } (the newest 1000 at most) for the Israeli days from..to (at most 366) · 400 invalid_query
 //   POST   { kind, childId, occurredAt, …the kind's fields } (strict) → 201 { saved:true } · 404 not_found (not the caller's child)
 //   PUT    /:id { kind, occurredAt, …} → 200 { saved:true } · 404 not_found (not a uuid: no query; not the caller's; other kind)
 //   DELETE /:id no body → 200 { saved:true } · 404 not_found
@@ -30,7 +30,7 @@ async function list(request: FastifyRequest, reply: FastifyReply, deps: Trackers
   const { identity } = request;
   if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
   try {
-    return replyOutcome(reply, await readEvents(deps.database, identity, query.data.kind, query.data.childId, period.value), 200, (events) => ({ events }));
+    return replyOutcome(reply, await readEvents(deps.database, identity, query.data.kind, query.data.childId, period.value), 200, (view) => view);
   } catch (error) {
     return replyFailure(request, reply, error, 'tracker events read failed');
   }

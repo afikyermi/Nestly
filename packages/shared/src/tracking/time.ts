@@ -27,13 +27,21 @@ function offsetMinutes(at: Date): number {
   return Math.round((asUtc - Math.floor(at.getTime() / 1000) * 1000) / 60_000);
 }
 
-/** The instant an Israeli day starts. */
-export function israelDayStart(day: string): Date {
+/**
+ * The instant of a wall-clock time in Israel: `minutes` after midnight of `day`. The offset is looked up at the target time itself
+ * (twice, so a time next to a clock change lands right), not at midnight: on 25.10.2026 and 26.03.2027 midnight and 08:30 differ.
+ */
+export function israelInstant(day: string, minutes: number): Date {
   const [y, m, d] = day.split('-').map(Number);
-  const guess = Date.UTC(y ?? 0, (m ?? 1) - 1, d ?? 1);
+  const guess = Date.UTC(y ?? 0, (m ?? 1) - 1, d ?? 1) + minutes * 60_000;
   const first = guess - offsetMinutes(new Date(guess)) * 60_000;
   const second = guess - offsetMinutes(new Date(first)) * 60_000;
   return new Date(second);
+}
+
+/** The instant an Israeli day starts. */
+export function israelDayStart(day: string): Date {
+  return israelInstant(day, 0);
 }
 
 /** A period of whole days, both ends included. */

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { addDaysIso, buildCycleSeries, checkDateParts, israelDay, type CycleEntryDto, type CycleResponse, type Period } from '@nestly/shared';
+import { buildCycleSeries, checkDateParts, israelDay, type CycleEntryDto, type CycleResponse, type Period } from '@nestly/shared';
 import { BarChart } from '@/components/shared/bar-chart';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { DateInput, type DateParts } from '@/components/shared/date-input';
@@ -11,7 +11,7 @@ import { TextInput } from '@/components/ui/text-input';
 import { useAuthedCall } from '@/hooks/use-authed-call';
 import { CYCLE_TEXT, ERROR_TEXT, FORM_TEXT, HISTORY_TEXT, PAGE_LABEL } from '@/lib/tracker-texts';
 import { addCycle, editCycle, fetchCycle, removeCycle } from '@/services/api/trackers';
-import { DEFAULT_PERIOD_DAYS, lastDays, PeriodPicker } from './PeriodPicker';
+import { lastDays, PeriodPicker, YEAR_PERIOD_DAYS } from './PeriodPicker';
 
 const EMPTY: DateParts = { day: '', month: '', year: '' };
 const dayFormat = new Intl.DateTimeFormat('he-IL', { timeZone: 'UTC', dateStyle: 'medium' });
@@ -39,7 +39,7 @@ export function CycleScreen() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('');
-  const [period, setPeriod] = useState<Period>(() => lastDays(DEFAULT_PERIOD_DAYS * 6));
+  const [period, setPeriod] = useState<Period>(() => lastDays(YEAR_PERIOD_DAYS));
   const [removing, setRemoving] = useState<{ entry: CycleEntryDto; pending: boolean; failure: string | null } | null>(null);
   const busy = useRef(false);
 
@@ -59,7 +59,8 @@ export function CycleScreen() {
     if (busy.current) return;
     const day = checkDateParts(start);
     const days = /^\d{1,2}$/.test(length.trim()) ? Number(length.trim()) : Number.NaN;
-    if (day.kind !== 'date' || day.iso > addDaysIso(israelDay(new Date()), 0)) return setError(ERROR_TEXT.cycleDate);
+    if (day.kind !== 'date') return setError(ERROR_TEXT.cycleDateInvalid);
+    if (day.iso > israelDay(new Date())) return setError(ERROR_TEXT.cycleDate);
     if (!(days >= 15 && days <= 60)) return setError(ERROR_TEXT.cycleLength);
     busy.current = true;
     setSaving(true);
@@ -74,7 +75,7 @@ export function CycleScreen() {
       setStart(EMPTY);
       await load();
     } else if (result.kind === 'duplicate-date') setError(ERROR_TEXT.duplicateDate);
-    else if (result.kind === 'invalid') setError(result.reason === 'length_invalid' ? ERROR_TEXT.cycleLength : ERROR_TEXT.cycleDate);
+    else if (result.kind === 'invalid') setError(result.reason === 'length_invalid' ? ERROR_TEXT.cycleLength : ERROR_TEXT.cycleDateInvalid);
     else setError(ERROR_TEXT.failed);
   }
 
@@ -118,7 +119,7 @@ export function CycleScreen() {
             </p>
             <p className="text-small text-muted-foreground">
               {CYCLE_TEXT.nextStart}
-              {showDay(window.nextCycleStart)}
+              {showDay(window.expectedNextStart)}
             </p>
             <p className="text-small text-muted-foreground">{CYCLE_TEXT.windowNote}</p>
           </>
@@ -151,7 +152,7 @@ export function CycleScreen() {
       </form>
       <section aria-labelledby="cycle-chart-heading" className="flex flex-col gap-3">
         <h2 id="cycle-chart-heading" className="text-h3">{HISTORY_TEXT.chartTitle}</h2>
-        <PeriodPicker onChange={setPeriod} />
+        <PeriodPicker initial="year" onChange={setPeriod} />
         <BarChart
           title={`${PAGE_LABEL.cycle}, ${CYCLE_TEXT.chartTitle}`}
           unit={CYCLE_TEXT.daysSuffix}
@@ -165,7 +166,7 @@ export function CycleScreen() {
       <section aria-labelledby="cycle-history-heading" className="flex flex-col gap-3">
         <h2 id="cycle-history-heading" className="text-h3">{CYCLE_TEXT.history}</h2>
         {view.entries.length === 0 ? (
-          <p className="rounded-lg bg-muted p-4 text-body text-muted-foreground">{HISTORY_TEXT.empty}</p>
+          <p className="rounded-lg bg-muted p-4 text-body text-muted-foreground">{CYCLE_TEXT.historyEmpty}</p>
         ) : (
           <ul aria-label={CYCLE_TEXT.history} className="flex flex-col gap-2">
             {view.entries.map((entry) => (

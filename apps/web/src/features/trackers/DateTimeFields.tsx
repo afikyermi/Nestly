@@ -9,13 +9,10 @@ export interface DateTimeFieldsProps {
   legend: string;
   value: DateTimeText;
   onChange: (value: DateTimeText) => void;
-  /** A quiet text button that stamps the current moment (a timer's start or stop, FR-TRACK-002). */
-  nowLabel?: string;
-  onNow?: () => void;
 }
 
 // A date (three fields) and a time (HH:MM) as texts, with the optional "now" stamp. Judging them is formToBody's job.
-export function DateTimeFields({ legend, value, onChange, nowLabel, onNow }: DateTimeFieldsProps) {
+export function DateTimeFields({ legend, value, onChange }: DateTimeFieldsProps) {
   const id = useId();
   return (
     <div className="flex flex-col gap-3" role="group" aria-label={legend}>
@@ -25,11 +22,6 @@ export function DateTimeFields({ legend, value, onChange, nowLabel, onNow }: Dat
           <TextInput {...control} dir="ltr" value={value.time} onChange={(event) => onChange({ ...value, time: event.target.value })} />
         )}
       </FormField>
-      {nowLabel !== undefined && onNow !== undefined ? (
-        <button type="button" onClick={onNow} className="min-h-11 self-start rounded-sm px-1 text-label text-primary-strong underline underline-offset-4">
-          {nowLabel}
-        </button>
-      ) : null}
     </div>
   );
 }

@@ -22,7 +22,7 @@ async function stubApi(page: Page): Promise<Net> {
   await page.route('**/api/home', async (route) => {
     if (pre(route)) return route.fulfill({ status: 204, headers: CORS });
     const latest = net.cycle[0];
-    const cycle = latest ? { cycleStart: latest.startDate, ovulationDay: '2026-06-20', windowStart: '2026-06-15', windowEnd: '2026-06-21', nextCycleStart: '2026-07-04' } : null;
+    const cycle = latest ? { cycleStart: latest.startDate, ovulationDay: '2026-06-20', windowStart: '2026-06-15', windowEnd: '2026-06-21', nextCycleStart: '2026-07-04', expectedNextStart: '2026-07-04' } : null;
     return json(route, 200, {
       contexts: [
         { kind: 'pregnancy', dueDate: '2027-03-01', week: 27, trimester: 2 },
@@ -39,7 +39,7 @@ async function stubApi(page: Page): Promise<Net> {
     const id = url.pathname.split('/')[4];
     if (req.method() === 'GET') {
       const kind = url.searchParams.get('kind');
-      return json(route, 200, { events: net.events.filter((e) => e.kind === kind).map((e) => ({ amountMl: null, choice: null, name: null, dosage: null, weightKg: null, heightCm: null, headCm: null, note: null, ...e })) });
+      return json(route, 200, { truncated: false, events: net.events.filter((e) => e.kind === kind).map((e) => ({ amountMl: null, choice: null, name: null, dosage: null, weightKg: null, heightCm: null, headCm: null, note: null, ...e })) });
     }
     net.posts.push(`${req.method()} ${url.pathname}`);
     if (req.method() === 'DELETE') {
@@ -56,7 +56,7 @@ async function stubApi(page: Page): Promise<Net> {
     if (pre(route)) return route.fulfill({ status: 204, headers: CORS });
     if (req.method() === 'GET') {
       const latest = net.cycle[0];
-      const window = latest ? { cycleStart: latest.startDate, ovulationDay: '2026-06-20', windowStart: '2026-06-15', windowEnd: '2026-06-21', nextCycleStart: '2026-07-04' } : null;
+      const window = latest ? { cycleStart: latest.startDate, ovulationDay: '2026-06-20', windowStart: '2026-06-15', windowEnd: '2026-06-21', nextCycleStart: '2026-07-04', expectedNextStart: '2026-07-04' } : null;
       return json(route, 200, { entries: net.cycle, window });
     }
     const data = body(route);
@@ -141,6 +141,19 @@ test.describe('I6 trackers [FR-TRACK-001/002 AC-007 AC-023]', () => {
     await m.getByLabel('שעה, סיום').fill('10:20');
     await m.getByRole('button', { name: 'שמירה', exact: true }).click();
     await expect(m.getByRole('list', { name: 'היסטוריה' }).getByText(/שמאל · 20 דקות/)).toBeVisible();
+  });
+
+  test('[FR-TRACK-002] the timer stamps the start and the end of a sleep', async ({ page }) => {
+    await setup(page, { journeys: [], kids: A_KIDS.slice(0, 1) });
+    await stubApi(page);
+    await signIn(page, '/trackers/sleep');
+    const m = main(page);
+    await m.getByRole('button', { name: 'התחלת טיימר', exact: true }).click();
+    await expect(m.getByRole('timer')).toBeVisible();
+    await m.getByRole('button', { name: 'עצירת טיימר', exact: true }).click();
+    await expect(m.getByRole('timer')).toHaveCount(0);
+    await m.getByRole('button', { name: 'שמירה', exact: true }).click();
+    await expect(m.getByRole('list', { name: 'היסטוריה' }).getByText(/דקות/)).toBeVisible();
   });
 
   test('a period can be picked: the history and the chart load for it', async ({ page }) => {

@@ -27,12 +27,13 @@ export function lastDays(days: number, now: Date = new Date()): Period {
 }
 
 export const DEFAULT_PERIOD_DAYS = PRESET_DAYS.month;
+export const YEAR_PERIOD_DAYS = PRESET_DAYS.year;
 
 const EMPTY: DateParts = { day: '', month: '', year: '' };
 
 // The period of a chart and a history: a preset (7 days, 30 days, 3 months, a year) or a range of two days the user types (FR-TRACK-001).
-export function PeriodPicker({ onChange }: { onChange: (period: Period) => void }) {
-  const [preset, setPreset] = useState<Preset>('month');
+export function PeriodPicker({ onChange, initial = 'month' }: { onChange: (period: Period) => void; initial?: PresetKey }) {
+  const [preset, setPreset] = useState<Preset>(initial);
   const [from, setFrom] = useState<DateParts>(EMPTY);
   const [to, setTo] = useState<DateParts>(EMPTY);
   const [error, setError] = useState(false);

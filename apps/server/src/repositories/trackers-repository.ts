@@ -3,7 +3,7 @@
 // nothing (tracker_events_*_own, cycle_entries_*_own, status_guides_select_published). The kind, child and period in a `where` are the
 // page's query, not permission. Writes go through the write models that name exactly the granted columns (rules 12, 13).
 
-import type { CycleEntryDto, GuideRow, TrackerEventDto, TrackerEventValue, TrackerKind } from '@nestly/shared';
+import { TRACKER_EVENTS_LIMIT, type CycleEntryDto, type GuideRow, type TrackerEventDto, type TrackerEventValue, type TrackerKind } from '@nestly/shared';
 import { and, desc, eq, gte, lt } from 'drizzle-orm';
 import {
   cycleEntries,
@@ -16,7 +16,6 @@ import {
 } from '../db/schema.js';
 import type { IdentityTx } from '../db/identity-transaction.js';
 
-const EVENT_LIMIT = 1000;
 const CYCLE_LIMIT = 200;
 
 const eventColumns = {
@@ -81,12 +80,12 @@ function columnsOf(value: TrackerEventValue) {
   };
 }
 
-/** The events of a kind in [start, end), newest first, for one child or all the caller can see. */
-export async function listEvents(tx: IdentityTx, kind: TrackerKind, childId: string | undefined, start: Date, end: Date): Promise<TrackerEventDto[]> {
+/** The events of a kind in [start, end), newest first, for one child or all the caller can see. `truncated`: there were more than the limit. */
+export async function listEvents(tx: IdentityTx, kind: TrackerKind, childId: string | undefined, start: Date, end: Date): Promise<{ events: TrackerEventDto[]; truncated: boolean }> {
   const conditions = [eq(trackerEvents.kind, kind), gte(trackerEvents.occurredAt, start), lt(trackerEvents.occurredAt, end)];
   if (childId !== undefined) conditions.push(eq(trackerEvents.childId, childId));
-  const rows = await tx.select(eventColumns).from(trackerEvents).where(and(...conditions)).orderBy(desc(trackerEvents.occurredAt)).limit(EVENT_LIMIT);
-  return rows.map(toDto);
+  const rows = await tx.select(eventColumns).from(trackerEvents).where(and(...conditions)).orderBy(desc(trackerEvents.occurredAt)).limit(TRACKER_EVENTS_LIMIT + 1);
+  return { events: rows.slice(0, TRACKER_EVENTS_LIMIT).map(toDto), truncated: rows.length > TRACKER_EVENTS_LIMIT };
 }
 
 /** Inserts an event for a child. A child that is not the caller's is refused by the policy (42501). */

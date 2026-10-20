@@ -27,8 +27,6 @@ export const FORM_TEXT = {
   date: 'תאריך',
   time: 'שעה',
   timeHint: 'למשל 08:30',
-  startNow: 'התחלה עכשיו',
-  endNow: 'סיום עכשיו',
   amountMl: 'כמות במ״ל',
   side: 'צד',
   sidePlaceholder: 'בחירת צד',
@@ -48,6 +46,12 @@ export const FORM_TEXT = {
   bathDone: 'אמבטיה בוצעה',
 } as const;
 
+export const TIMER_TEXT = {
+  start: 'התחלת טיימר',
+  stop: 'עצירת טיימר',
+  elapsed: 'זמן שעבר:',
+} as const;
+
 export const ERROR_TEXT = {
   time: 'יש להזין תאריך ושעה תקינים.',
   endBeforeStart: 'זמן הסיום לא יכול להיות מוקדם מזמן ההתחלה.',
@@ -59,7 +63,8 @@ export const ERROR_TEXT = {
   retry: 'ניסיון חוזר',
   duplicateDate: 'כבר יש מחזור שהתחיל בתאריך הזה.',
   cycleLength: 'האורך הממוצע של מחזור הוא בין 15 ל-60 ימים.',
-  cycleDate: 'יש להזין תאריך התחלה שאינו עתידי.',
+  cycleDate: 'תאריך ההתחלה לא יכול להיות בעתיד.',
+  cycleDateInvalid: 'יש להזין תאריך התחלה תקין.',
 } as const;
 
 export const HISTORY_TEXT = {
@@ -74,8 +79,9 @@ export const HISTORY_TEXT = {
   keep: 'ביטול',
   chartTitle: 'גרף לפי תקופה',
   privateNote: 'הנתונים נראים רק לך.',
-  noChild: 'כדי לרשום מעקב אפשר להוסיף ילד בפרופיל.',
-  addChild: 'הוספת ילד בפרופיל',
+  noChild: 'כדי לרשום מעקב אפשר להוסיף ילד או ילדה בפרופיל.',
+  addChild: 'הוספת ילד או ילדה בפרופיל',
+  truncated: 'בתקופה שנבחרה יש יותר רישומים ממה שמוצג. מוצגים הרישומים האחרונים. אפשר לבחור תקופה קצרה יותר.',
   allChildren: 'כל הילדים',
 } as const;
 
@@ -112,7 +118,8 @@ export const CYCLE_TEXT = {
   windowTitle: 'חלון ביוץ משוער',
   windowNone: 'אחרי שמירת מחזור יוצג כאן חלון ביוץ משוער.',
   windowNote: 'זו הערכה בלבד, מחושבת מתאריך ההתחלה ומהאורך הממוצע. היא אינה תחליף לייעוץ רפואי.',
-  nextStart: 'המחזור הבא צפוי להתחיל ב',
+  nextStart: 'המחזור הבא צפוי להתחיל ב-',
+  historyEmpty: 'עדיין לא נשמר מחזור.',
   history: 'מחזורים שנשמרו',
   chartTitle: 'אורך מחזור לפי תאריך התחלה',
   daysSuffix: 'ימים',
@@ -131,11 +138,11 @@ export const HOME_TEXT = {
   cycleWindow: 'חלון ביוץ משוער',
   cycleEstimate: 'הערכה בלבד',
   addRouteTitle: 'הוספת מסלול מעקב',
-  addChildOrPregnancy: 'ילד או הריון, בפרופיל',
+  addChildOrPregnancy: 'ילד או ילדה, או הריון, בפרופיל',
   addCycle: 'מחזור וביוץ',
-  noRoutes: 'עדיין אין מסלול מעקב. אפשר להוסיף ילד, הריון או מחזור.',
+  noRoutes: 'עדיין אין מסלול מעקב. אפשר להוסיף ילד או ילדה, הריון או מחזור.',
   trackersTitle: 'יומן פעולות',
-  trackersNeedChild: 'מעקב אחרי ילד נפתח אחרי הוספת ילד בפרופיל.',
+  trackersNeedChild: 'מעקב אחרי ילד או ילדה נפתח אחרי הוספת ילד או ילדה בפרופיל.',
   guidesTitle: 'טיפים ומאמרים',
   guidesEmpty: 'טיפים ומאמרים לפי השלב יופיעו כאן.',
   guideSource: 'מקורות',

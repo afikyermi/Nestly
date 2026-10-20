@@ -66,7 +66,7 @@ const ok = <T>(value: T): Outcome<T> => ({ kind: 'ok', value });
 
 export function readEvents(database: Database, identity: Identity, kind: TrackerKind, childId: string | undefined, period: Period) {
   const { start, end } = periodBounds(period);
-  return run<TrackerEventDto[]>(database, identity, async (tx) => ok(await listEvents(tx, kind, childId, start, end)));
+  return run<{ events: TrackerEventDto[]; truncated: boolean }>(database, identity, async (tx) => ok(await listEvents(tx, kind, childId, start, end)));
 }
 
 /** A child that is not the caller's is refused by the policy (42501): the same answer as an unknown child. */
