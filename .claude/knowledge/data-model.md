@@ -166,7 +166,7 @@ F1.6 recovery and F2.0 S-01/S-16 (FR-AUTH-003/005, OP-029) — Afik 2026-10-13, 
     recovery_answers releases the declared handle (email_handle and handle_claimed_at to NULL) only on a row whose claim
     is older than the declared one (nestly.recovery_claimed_at(), policy recovery_answers_release_recovery) — it can set
     no handle, touch no hash, delete no row; it appends recovery_events (and the three subject-bound kinds of F2.0,
-    user_id = the transaction's sub, nestly.recovery_subject(), DR-S2) and reads no audit and no other table, except (I4, `20261021300000`, Afik's approval asked 20.10.2026) user_id and released_at of recovery_lock_releases for the declared handle's account; it also writes the three ladder columns of recovery_throttles, and a trigger refuses lifting a permanent lock without such a release.
+    user_id = the transaction's sub, nestly.recovery_subject(), DR-S2) and reads no audit and no other table; I4 adds only UPDATE of recovery_throttles.ladder_failures (column grant, `20261021300000`, NFR-SEC-010, Afik 20.10.2026).
     Why: a guest endpoint has no auth.uid(), and anon must hold nothing in nestly (rule 7, CI anon_privilege). Not a
     SECURITY DEFINER function; adds nothing to tests.approved_security_definer().
     Approved in .work/password-recovery/schema.md · 2026-10-15 (DR-G1, ORCHESTRATOR; release policy: Amendment 2)
@@ -211,7 +211,7 @@ Also the retention job's `TO app_jobs` policies `search_intents_select_jobs` / `
 F3.0b purge — TO app_jobs policies on posts, comments, reports: read held rows (and replies of a held comment) and the open reports on them, delete held rows,
 expire open reports past release; purge_held_content() invoker, EXECUTE app_jobs only · a job has no auth.uid() and must reach every user's held rows (rule 6);
 app_server is never a member of app_jobs · .work/feed-groundwork/schema-b.md · 2026-10-18
-I4 (rules 18, 19; approved by Afik 20.10.2026) — nestly.audit_trigger(): the one trigger function that appends every Audit entry (I6 adds the status_guides branch, FR-ADMIN-012, 21.10.2026; I4 the recovery lock release, `20261021300000`); nestly.reveal_post_author(uuid): the audited read of an anonymous author (REPORTS_VIEW + CONTENT_MODERATE, a valid session, an OPEN report; writes author_revealed with the report id in the same call). Both SECURITY DEFINER, owner app_owner, search_path '', reading only through policies TO app_owner scoped to auth.uid() or to the one row the function named · no role holds INSERT on audit_log and authenticated cannot read post_authors, so the definer is the only writer/reader · details and deviations: data-model-tables.md "Safety and admin core"
+I4 (rules 18, 19; approved by Afik 20.10.2026) — nestly.audit_trigger(): the one trigger function that appends every Audit entry (I6 adds the status_guides branch, FR-ADMIN-012, 21.10.2026); nestly.reveal_post_author(uuid): the audited read of an anonymous author (REPORTS_VIEW + CONTENT_MODERATE, a valid session, an OPEN report; writes author_revealed with the report id in the same call). Both SECURITY DEFINER, owner app_owner, search_path '', reading only through policies TO app_owner scoped to auth.uid() or to the one row the function named · no role holds INSERT on audit_log and authenticated cannot read post_authors, so the definer is the only writer/reader · details and deviations: data-model-tables.md "Safety and admin core"
 ```
 
 ---
