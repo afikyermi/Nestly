@@ -18,7 +18,7 @@ does not instruct loading every link. Column sections and rule matrices are both
 | profile_view consumers | Cross-user profile read plus the affected input/output table sections above |
 | staff_roles, moderator_permissions, audit_log, report_reasons, user_enforcements | Safety and admin core |
 | user_blocks | Blocking a user (I4); Friendships and regular names; Notifications and People Search |
-| chat_requests, conversations, messages, chat_blocks, chat_reads, support_requests, support_messages | Chat and Support (I8); Friendships and regular names; Blocking a user; Safety and admin core (audit) |
+| chat_requests, conversations, messages, chat_blocks, chat_reads, support_requests, support_messages, reported_message_views | Chat and Support (I8); Friendships and regular names; Blocking a user; Safety and admin core (reports, audit) |
 
 | tracker_events, cycle_entries, status_guides | Trackers, cycle and status guides (I6); children for the child FK |
 | media_assets, media_reviews, profile_photos, stories, media_training_candidates, media_training_samples, media_training_events | Media and Stories (I5); posts and post_authors (attach), friendships (Story audience), Safety and admin core (CONTENT_MODERATE, audit) |
@@ -515,23 +515,28 @@ cascades with either account.
 
 ## Chat and Support (I8)
 
-`20261022100000_chat_support.sql` (FR-CHAT-001..004, FR-ADMIN-001/002, FR-SERV-009, BR-011, BR-034, BR-036, BR-042, BR-043, VAL-024..026).
-Every table RLS + FORCE, policies TO authenticated gated by `is_active_account()`, per-column write grants, no DELETE, no SECURITY DEFINER.
+`20261022100000_chat_support.sql` (FR-CHAT-001..004, FR-ADMIN-001/002, FR-SERV-009, BR-011, BR-034, BR-036, BR-042, BR-043, VAL-024..026;
+Afik 20.10.2026, decisions-in-force.md §9). Every table RLS + FORCE, policies TO authenticated gated by `is_active_account()`, per-column write
+grants, no DELETE (§9.2: chat and Support rows go only with the account, I9), no SECURITY DEFINER. Daily limits are invoker triggers over the
+caller's own rows (always readable to it) under `pg_advisory_xact_lock(81xx, hashtext(caller))`, so concurrent inserts of one account count in turn.
 
 | Table | Columns and meaning | Authorization |
 |---|---|---|
-| `chat_requests` | id; requester_id (default auth.uid()), target_id — both FK regular_profiles; opening_message (1–2000, not blank); status pending · accepted · declined; requester_status/target_status copies (FK users (id, status) on update cascade); created_at; responded_at. One pending/accepted row per unordered pair | SELECT a party while the other is active and no user block stands; INSERT (target_id, opening_message) a Regular to a Regular who is not a Friend, no conversation between them, no user block, no Chat Block; trigger: 20 per 24 h (NS022), none after the target declined this requester (NS024); UPDATE (status) the target only, pending → accepted (no Chat Block) or declined, once (trigger) |
-| `conversations` | id; context friends · request; user_a < user_b (FK regular_profiles) with a_status/b_status copies; chat_request_id (request only); created_at. One per pair | SELECT a party while the other is active and no user block stands; INSERT a party, friends while an accepted Friendship holds, request from that pair's accepted request; no UPDATE |
-| `messages` | id; conversation_id; sender_id (default auth.uid()); body (1–2000); created_at; index (conversation_id, created_at desc) | SELECT through the conversation (parties); INSERT (conversation_id, body) a party in its own name while no Chat Block stands either way; no UPDATE |
-| `chat_blocks` | id; blocker_id (default auth.uid()); blocked_id + blocked_account_type (regular · professional, composite FK users); created_at; lifted_at (set once by trigger) | SELECT both parties while standing, the blocker its lifted rows; INSERT a Regular or Professional in its own name; UPDATE lifted_at by the blocker |
-| `chat_reads` | id; user_id (default auth.uid()); conversation_id or support_request_id (exactly one); last_read_at (trigger: now()) | owner only; INSERT for a visible conversation or its own Support request; UPDATE last_read_at |
-| `support_requests` | id; user_id (default auth.uid()); topic (account · bug · privacy_safety · usage · suggestion · other); body (1–2000); status open · in_progress · closed; created_at, updated_at, closed_at (trigger) | SELECT own, and SUPPORT_VIEW all; INSERT (topic, body) a Regular or Professional, 5 per 24 h (NS023); UPDATE (status) SUPPORT_HANDLE; status change audited (`support_status_changed`) |
-| `support_messages` | id; support_request_id; author_kind user · support (trigger, from `caller_staff_role()`); is_internal (staff only); body (1–2000); created_at. No staff identity stored | SELECT the owner without internal notes, SUPPORT_VIEW all; INSERT the owner while not closed; SUPPORT_HANDLE a reply (not closed) or an internal note; a Support row audited (`support_replied` / `support_note_added`) |
+| `chat_requests` | id; requester_id (default auth.uid()); target_id + target_account_type (regular · professional, composite FK users: never staff); opening_message (1–2000, not blank); status pending · accepted · declined · cancelled; requester_status/target_status copies (FK users (id, status) on update cascade); created_at; responded_at. One pending/accepted row per unordered pair | SELECT the requester always (own rows), the target while the requester is active; INSERT (target_id, target_account_type, opening_message) I8: a Regular to a Regular who is not a Friend, no conversation, no user block, no Chat Block; trigger: 20 per 24 h, every status (NS022). A decline is no block (§9.3). UPDATE (status) from pending once: the target accepts (active requester, no user or Chat Block) or declines; the requester cancels. A user block ends a pending one (`user_blocks_end_relations`) |
+| `conversations` | id; context friends · request; user_a < user_b (FK users (id, status) with a_status/b_status copies: the account anchor, so I11/I12 can add contexts); chat_request_id (request only); created_at. One per pair | SELECT a party while the other is active and no user block stands; INSERT a party, friends while an accepted Friendship holds, request from that pair's accepted request; no UPDATE |
+| `messages` | id; conversation_id; sender_id (default auth.uid()); body (1–2000); created_at; index (conversation_id, created_at desc) | SELECT through the conversation (parties); `messages_select_staff`: REPORTS_VIEW under `nestly.staff_view`, only a reported message whose view row this caller wrote in this transaction (§9.6); INSERT (conversation_id, body) a party in its own name while no Chat Block stands either way (§9.4); no UPDATE |
+| `chat_blocks` | id; blocker_id (default auth.uid()); blocked_id + blocked_account_type (regular · professional, composite FK users); created_at; lifted_at (set once by trigger) | SELECT both parties while standing, the blocker its lifted rows; INSERT a Regular or Professional in its own name, 20 per 24 h lifted included (NS025); UPDATE lifted_at by the blocker |
+| `chat_reads` | id; user_id (default auth.uid()); conversation_id or support_request_id (exactly one); last_read_at (trigger: now()) | owner only (no read receipts, §9.5); INSERT for a visible conversation or its own Support request; UPDATE last_read_at |
+| `support_requests` | id; user_id (default auth.uid()); topic (account · bug · privacy_safety · usage · suggestion · other, §9.1); body (1–2000); status open · in_progress · closed (closed is final); created_at, updated_at, closed_at (trigger) | SELECT own, and SUPPORT_VIEW all under `nestly.staff_view`; INSERT (topic, body) a Regular or Professional, 5 per 24 h (NS023); UPDATE (status) SUPPORT_HANDLE under `nestly.staff_view`; status change audited (`support_status_changed`) |
+| `support_messages` | id; support_request_id; author_kind user · support (trigger, from `caller_staff_role()`); is_internal (staff only); body (1–2000); created_at. No staff identity stored | SELECT the owner without internal notes, SUPPORT_VIEW all under `nestly.staff_view`; INSERT the owner while not closed; SUPPORT_HANDLE a reply (not closed) or an internal note; a Support row audited (`support_replied` / `support_note_added`) |
+| `reported_message_views` | id; report_id (FK reports, cascade); viewer_id (default auth.uid(), FK users restrict); view_xact (default pg_current_xact_id()); created_at | SELECT own rows; INSERT (report_id) REPORTS_VIEW under `nestly.staff_view` for a message report; audited (`reported_message_viewed`); no UPDATE |
 
-Names: `regular_names_select_chat` (the other party of one's conversation, own request, or a pending request to one) and
-`regular_names_select_support` (SUPPORT_VIEW under `nestly.staff_view`). `audit_trigger()` gains the two Support branches (triggers with WHEN:
-status change; author_kind = support). Cleanup: chat_reads, support_messages, support_requests, messages, conversations, chat_requests,
-chat_blocks before user_blocks. Retention of chat and Support rows: an open item (SRS §13.4); kept with the accounts, cascade with them.
+`reports` gains message_id (FK messages SET NULL, unique per reporter; target_kind 'message'); `reports_insert_check` requires a message the
+reporter can read and did not send; its text is never copied (target_text stays NULL). A message report is handled with a user key
+(`reports_update_staff`). Names: `regular_names_select_conversation`, `_request_sent`, `_request_received` (each one indexed lookup) and
+`regular_names_select_support` (SUPPORT_VIEW under `nestly.staff_view`). `audit_trigger()` gains three branches (WHEN: status change;
+author_kind = support; every view). Cleanup: reported_message_views by viewer, then reports (including those on the user's messages), …,
+chat_reads, support_messages, support_requests, messages, conversations, chat_requests, chat_blocks before user_blocks.
 
 ## New entity template
 

@@ -3,10 +3,12 @@
 -- Outside supabase/migrations on purpose: the CLI never applies it.
 --
 -- Run as:   app_owner, in one transaction. CI runs it once per build (up -> down -> up) against the disposable database.
---           Against nestly-preview or nestly-prod it is a destructive change: Afik only (CLAUDE.md hard rule 7).
--- Safe:     only while none of the seven tables holds a row (refuses otherwise: messages and requests would be lost).
--- Restores: audit_trigger() as 20261021100000 left it (run before the down script of any later migration that replaces it, reverse
---           order); the two regular_names policies, the triggers, functions and tables go; the history row is deleted.
+--           Against nestly-preview or nestly-prod it is a destructive change: Afik only.
+-- Safe:     only while none of the eight new tables holds a row and no report names a message (refuses otherwise: messages,
+--           requests and reports would be lost).
+-- Restores: audit_trigger() as 20261021500000 left it (run before the down script of any later migration that replaces it, reverse
+--           order); reports_insert_check(), user_blocks_end_relations() and reports_update_staff as before; the reports constraints and
+--           column; the regular_names policies, the triggers, functions and tables go; the history row is deleted.
 -- =====================================================================================================================
 
 begin;
@@ -18,14 +20,16 @@ begin
   end if;
   if exists (select 1 from nestly.chat_requests) or exists (select 1 from nestly.conversations) or exists (select 1 from nestly.messages)
      or exists (select 1 from nestly.chat_blocks) or exists (select 1 from nestly.chat_reads) or exists (select 1 from nestly.support_requests)
-     or exists (select 1 from nestly.support_messages) then
-    raise exception 'a chat or Support table holds a row: the down script refuses';
+     or exists (select 1 from nestly.support_messages) or exists (select 1 from nestly.reported_message_views)
+     or exists (select 1 from nestly.reports where target_kind = 'message') then
+    raise exception 'a chat or Support table, or a message report, holds a row: the down script refuses';
   end if;
 end
 $$;
 
 drop trigger support_requests_audit on nestly.support_requests;
 drop trigger support_messages_audit on nestly.support_messages;
+drop trigger reported_message_views_audit on nestly.reported_message_views;
 
 create or replace function nestly.audit_trigger()
 returns trigger
@@ -109,6 +113,22 @@ begin
     v_after := pg_catalog.jsonb_build_object('status', v_new ->> 'status', 'title', v_new ->> 'title', 'stageKind', v_new ->> 'stage_kind',
       'rangeFrom', v_new -> 'range_from', 'rangeTo', v_new -> 'range_to', 'sourceCheckedOn', v_new ->> 'source_checked_on',
       'bodyChars', pg_catalog.char_length(v_new ->> 'body'), 'bodyChanged', tg_op = 'UPDATE' and v_new ->> 'body' is distinct from v_old ->> 'body');
+  elsif tg_table_name = 'media_assets' then
+    -- FR-FEED-002 / BR-076 (Afik 20.10.2026): a staff decision on an image (a queued one approved or rejected; a checked one rejected after
+    -- a report or as a suspicion). heldAsSuspected: the image is kept 90 days and never enters the training set.
+    v_key := 'CONTENT_MODERATE';
+    v_action := 'media_' || (v_new ->> 'status');
+    v_kind := 'media';
+    v_target := (v_new ->> 'id')::uuid;
+    v_before := pg_catalog.jsonb_build_object('status', v_old ->> 'status');
+    v_after := pg_catalog.jsonb_build_object('status', v_new ->> 'status', 'mediaKind', v_new ->> 'kind', 'heldAsSuspected', v_new -> 'is_held');
+  elsif tg_table_name = 'media_reviews' then
+    -- M6: a suspicion of child abuse marked on an image (staff only; the uploader is never told).
+    v_key := 'CONTENT_MODERATE';
+    v_action := 'media_suspected';
+    v_kind := 'media';
+    v_target := (v_new ->> 'media_id')::uuid;
+    v_after := pg_catalog.jsonb_build_object('isChild', v_new -> 'is_child', 'purgeAfter', v_new ->> 'purge_after');
   else
     raise exception 'audit_trigger: not attached to %', tg_table_name;
   end if;
@@ -119,9 +139,80 @@ end
 $$;
 
 revoke execute on function nestly.audit_trigger() from public;
-comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement or an Admin''s creation, edit, publication or hiding of a status guide: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
 
-drop policy regular_names_select_chat on nestly.regular_names;
+comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement, an Admin''s creation, edit, publication or hiding of a status guide, a staff decision on an image or a suspicion marked on one: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
+
+create or replace function nestly.reports_insert_check()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  uid uuid := (select auth.uid());
+  target record;
+begin
+  if new.post_id is not null then
+    -- a readable post that is not the reporter's own; absent and unreadable look the same (no oracle)
+    select p.author_id into target from nestly.posts p where p.id = new.post_id;
+    if not found
+       or target.author_id = uid
+       or exists (select 1 from nestly.post_authors pa where pa.post_id = new.post_id and pa.author_id = uid) then
+      raise exception 'reports: the post cannot be reported' using errcode = '42501';
+    end if;
+  elsif new.comment_id is not null then
+    select c.author_id, c.post_id into target from nestly.comments c where c.id = new.comment_id;
+    if not found
+       or target.author_id = uid
+       or (target.author_id is null
+           and exists (select 1 from nestly.post_authors pa where pa.post_id = target.post_id and pa.author_id = uid)) then
+      raise exception 'reports: the comment cannot be reported' using errcode = '42501';
+    end if;
+  end if;
+  return new;
+end
+$$;
+
+comment on function nestly.reports_insert_check() is
+  'SECURITY INVOKER. Before insert: a reported post or comment must be readable to the reporter and not their own (42501), named or through post_authors.';
+
+create or replace function nestly.user_blocks_end_relations()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  update nestly.friendships f set status = 'removed'
+    where f.status = 'accepted'
+      and ((f.requester_id = new.blocker_id and f.addressee_id = new.blocked_id)
+        or (f.addressee_id = new.blocker_id and f.requester_id = new.blocked_id));
+  update nestly.friendships f set status = 'declined'
+    where f.status = 'pending' and f.cancelled_at is null
+      and f.addressee_id = new.blocker_id and f.requester_id = new.blocked_id;
+  update nestly.friendships f set cancelled_at = pg_catalog.now()
+    where f.status = 'pending' and f.cancelled_at is null
+      and f.requester_id = new.blocker_id and f.addressee_id = new.blocked_id;
+  return new;
+end
+$$;
+
+comment on function nestly.user_blocks_end_relations() is 'Trigger on user_blocks insert: ends the pair''s Friendship and open Friend Requests with the blocker''s own rights. SECURITY INVOKER.';
+
+drop policy reports_update_staff on nestly.reports;
+create policy reports_update_staff on nestly.reports
+  for update to authenticated
+  using ((select nestly.is_active_account()) and (select nestly.has_permission('REPORTS_VIEW')) and status = 'open'
+    and (case target_kind
+           when 'user' then ((select nestly.has_permission('USER_WARN')) or (select nestly.has_permission('USER_SUSPEND'))
+                             or (select nestly.has_permission('USER_BAN')))
+           else (select nestly.has_permission('CONTENT_MODERATE')) end))
+  with check (status = 'handled');
+comment on policy reports_update_staff on nestly.reports is 'An open report is closed by staff with REPORTS_VIEW and at least one moderation key (AC-022).';
+
+drop policy regular_names_select_conversation on nestly.regular_names;
+drop policy regular_names_select_request_sent on nestly.regular_names;
+drop policy regular_names_select_request_received on nestly.regular_names;
 drop policy regular_names_select_support on nestly.regular_names;
 
 -- the policies that name another new table go first, so the tables can drop in any order
@@ -129,8 +220,30 @@ drop policy chat_requests_insert_requester on nestly.chat_requests;
 drop policy chat_requests_update_target on nestly.chat_requests;
 drop policy conversations_insert_party on nestly.conversations;
 drop policy messages_insert_party on nestly.messages;
+drop policy messages_select_staff on nestly.messages;
 drop policy chat_reads_insert_own on nestly.chat_reads;
+drop policy reported_message_views_insert_staff on nestly.reported_message_views;
 
+revoke insert (message_id) on table nestly.reports from authenticated;
+drop index nestly.reports_message_id_idx;
+alter table nestly.reports drop constraint reports_open_target_check;
+alter table nestly.reports add constraint reports_open_target_check check (
+  status <> 'open'
+  or case target_kind
+       when 'post' then post_id is not null
+       when 'comment' then comment_id is not null
+       else reported_user_id is not null
+     end);
+alter table nestly.reports drop constraint reports_one_target_check;
+alter table nestly.reports add constraint reports_one_target_check check (num_nonnulls(post_id, comment_id, reported_user_id) <= 1);
+alter table nestly.reports drop constraint reports_target_kind_check;
+alter table nestly.reports add constraint reports_target_kind_check check (target_kind in ('post', 'comment', 'user'));
+alter table nestly.reports drop constraint reports_reporter_message_key;
+alter table nestly.reports drop constraint reports_message_id_fkey;
+alter table nestly.reports drop column message_id;
+comment on column nestly.reports.target_kind is 'post, comment or user; survives the target''s SET NULL.';
+
+drop table nestly.reported_message_views;
 drop table nestly.chat_reads;
 drop table nestly.support_messages;
 drop table nestly.support_requests;
@@ -142,6 +255,7 @@ drop table nestly.chat_requests;
 drop function nestly.chat_requests_transition();
 drop function nestly.chat_requests_insert_limit();
 drop function nestly.chat_blocks_lift_guard();
+drop function nestly.chat_blocks_insert_limit();
 drop function nestly.chat_reads_stamp();
 drop function nestly.support_requests_transition();
 drop function nestly.support_requests_insert_limit();
