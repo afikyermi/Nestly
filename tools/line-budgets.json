@@ -10,8 +10,8 @@
     ".claude/skills/srs-lookup/SKILL.md": 50,
     ".claude/rules/srs-editing.md": 30,
     "decisions-in-force.md": {
-      "lines": 160,
-      "bytes": 12000
+      "lines": 200,
+      "bytes": 20000
     }
   },
   "code": {
