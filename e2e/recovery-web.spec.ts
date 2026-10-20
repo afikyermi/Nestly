@@ -185,6 +185,21 @@ test.describe('F1.6 c16 [FR-AUTH-003] /recovery', () => {
     expect(texts.join('\n')).not.toMatch(/\d/);
   });
 
+  test('[NFR-SEC-010 AC-113 ERR-043] a 24-hour lock of the ladder says to try again in 24 hours', async ({ page }) => {
+    await setup(page);
+    // registered after setup, so it answers first: the 6th failure locked recovery for 24 hours
+    await page.route('**/api/recovery/reset', async (route) => {
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+      return json(route, 429, { error: 'recovery_locked_day' });
+    });
+    await openReset(page);
+    await fillReset(page);
+    await resetSubmit(page).click();
+    await expect(page.getByRole('alert')).toHaveCount(1);
+    expect(await alertText(page)).toBe('בוצעו יותר מדי ניסיונות. אפשר לנסות שוב בעוד 24 שעות');
+    await expect(newPassword(page)).toHaveValue('');
+  });
+
   test('[F1.6 c16] busy: a second submit while the first is in flight sends nothing', async ({ page }) => {
     const net = await setup(page);
     let release: () => void = () => undefined;

@@ -39,6 +39,7 @@ export const STATES = {
   "shared/bottom-navigation": 2, // three items, five items
   "shared/side-drawer": 2, // closed, open
   "shared/confirm-dialog": 4, // open, title only, pending, failed
+  "shared/bar-chart": 4, // week, single point, empty, many days
   "shared/like-button": 4, // no likes, with count, liked, interactive
   "ui/more-actions-menu": 4, // closed, open, own card, item pending
   "layout/app-shell": 2, // with content, short content

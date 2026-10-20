@@ -55,7 +55,7 @@ export type ChangeResult =
   | { readonly kind: 'changed' }
   | { readonly kind: 'not_set' }
   | { readonly kind: 'invalid' }
-  | { readonly kind: 'limited'; readonly retryAfterSeconds: number }
+  | { readonly kind: 'limited'; readonly retryAfterSeconds: number; readonly dayLock: boolean }
   /** The own handle is stale or released and could not be re-keyed (the caller's token is stale, or the email is held). */
   | { readonly kind: 'unavailable' };
 
@@ -233,7 +233,7 @@ export async function changeRecoveryAnswers(
         current,
         { failed: 'change_failed', limited: 'change_limited' },
       );
-      if (attempt.kind === 'limited') return { kind: 'limited', retryAfterSeconds: attempt.retryAfterSeconds };
+      if (attempt.kind === 'limited') return { kind: 'limited', retryAfterSeconds: attempt.retryAfterSeconds, dayLock: attempt.dayLock };
       if (attempt.kind === 'mismatch') return { kind: 'invalid' };
 
       const hashes = await hashNewAnswers(deps, keys, next);

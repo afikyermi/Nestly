@@ -11,7 +11,7 @@
 --   tests.fx_recovery_events_json(handle_hex)        the audit rows themselves as JSON text (for "no answer / password / email in it")
 --   tests.fx_recovery_answers_json(user_id)          the stored answers row of one account as JSON text ('-' for none)
 --   tests.fx_recovery_throttle(kind, subject_hex)    'short/long/locked/shortWindow/longWindow' of one counter row ('-' for none)
---   tests.fx_recovery_ladder(handle_hex)           'failures/permanent/locked' of a handle's lock ladder (NFR-SEC-010) ('-' for none)
+--   tests.fx_recovery_ladder(handle_hex)             'failures/locked' of a handle's lock ladder (NFR-SEC-010) ('-' for none)
 --   tests.fx_recovery_shift(kind, subject_hex, by)   moves a counter row's windows and lock `by` into the past (the DB clock
 --                                                    decides everything, so a test moves state with SQL, not with a clock)
 --   tests.fx_recovery_break_events(handle_hex, kind) makes an audit INSERT fail for that handle (and kind, '' = any), to force a
@@ -66,12 +66,12 @@ as $$
     where t.subject_kind = p_kind and t.subject_hash = decode(p_subject_hex, 'hex')), '-')
 $$;
 
--- NFR-SEC-010: the handle's lock ladder, 'failures/permanent/locked' ('-' for none).
+-- NFR-SEC-010: the handle's lock ladder, 'failures/locked' ('-' for none).
 create or replace function tests.fx_recovery_ladder(p_subject_hex text) returns text
 language sql security definer set search_path = ''
 as $$
   select coalesce((
-    select t.ladder_failures || '/' || t.is_locked_permanently::text || '/' || (t.is_locked_permanently or coalesce(t.locked_until > now(), false))::text
+    select t.ladder_failures || '/' || coalesce(t.locked_until > now(), false)::text
     from nestly.recovery_throttles t
     where t.subject_kind = 'handle' and t.subject_hash = decode(p_subject_hex, 'hex')), '-')
 $$;

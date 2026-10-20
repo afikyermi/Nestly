@@ -1,5 +1,6 @@
 import { POST_PATTERN } from '@/lib/post-link';
 import { USER_PROFILE_PATTERN } from '@/lib/profile-link';
+import { TRACKER_PATTERN } from '@/lib/tracker-link';
 
 // The route table (F1.2, Q2). Guest paths are the allow-list: every other path is protected (deny by default).
 export const PATHS = {
@@ -39,6 +40,8 @@ export const PATHS = {
   adminMedia: '/admin/media',
   /** F3.7: the community rules page (PG-049, BR-075, Q2: signed-in only), from the side menu and the report window. */
   communityRules: '/community-rules',
+  /** I6: one tracker page, `/trackers/<kind>` (the eight child trackers and `cycle`). Protected by pattern: see `trackerPageOfPath`. */
+  tracker: TRACKER_PATTERN,
 } as const;
 
 /** The only paths a Guest may open. */

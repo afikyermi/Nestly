@@ -132,6 +132,8 @@ export const answersJson = (ctx: Context, id: string): Promise<string> => text(c
 /** 'shortFailures/longFailures/locked/shortWindowSet/longWindowSet' or '-' */
 export const throttle = (ctx: Context, kind: 'handle' | 'ip', subject: string): Promise<string> =>
   text(ctx.side`select tests.fx_recovery_throttle(${kind}, ${subject}) as v`);
+/** NFR-SEC-010: a handle's lock ladder, 'failures/locked' or '-'. */
+export const ladder = (ctx: Context, handle: string): Promise<string> => text(ctx.side`select tests.fx_recovery_ladder(${handle}) as v`);
 export async function shift(ctx: Context, kind: 'handle' | 'ip', subject: string, by: string): Promise<void> {
   await ctx.side`select tests.fx_recovery_shift(${kind}, ${subject}, ${by}::interval)`;
 }

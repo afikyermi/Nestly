@@ -29,7 +29,7 @@
 --                         before it reads a file; each event names a real sample.
 --
 -- The job role app_media_jobs (bootstrap step 1; rule 6) reaches these tables only through TO app_media_jobs policies and column grants.
--- audit_trigger() (rule 18) gains one branch for staff decisions and suspicions; the rest is the text of 20261021300000, unchanged.
+-- audit_trigger() (rule 18) gains one branch for staff decisions and suspicions; the rest is the text of 20261021100000, unchanged.
 -- No new SECURITY DEFINER function. Phase: expand. Down script: supabase/rollback/20261021500000_media_stories.down.sql.
 -- =====================================================================================================================
 
@@ -231,7 +231,8 @@ begin
     return new;
   end if;
   if new.status is distinct from old.status then
-    -- a staff decision (BR-076 as of 20.10.2026): a queued image approved or rejected; a passed or approved one rejected only as a suspicion
+    -- a staff decision (BR-076 as of 20.10.2026): a queued image approved or rejected; a passed or approved one rejected after a report (not
+    -- a dismissed one) or as a suspicion
     if not (select nestly.has_permission('CONTENT_MODERATE')) then
       raise exception 'media: a decision needs CONTENT_MODERATE' using errcode = '42501';
     end if;
@@ -244,9 +245,11 @@ begin
         raise exception 'media: a suspected image is rejected' using errcode = '23514';
       end if;
     elsif old.status in ('passed', 'approved') and new.status = 'rejected' then
-      -- after a report on its post or its uploader, or as a suspicion (the uploader sees the same rejection either way)
+      -- after a report on its post or its uploader that is open (the moderator acts, then closes it) or was handled with action taken; a
+      -- dismissed report is no ground. Or as a suspicion. The uploader sees the same rejection either way.
       if not (select nestly.has_permission('REPORTS_VIEW')) or not (v_suspected
-          or exists (select 1 from nestly.reports r where (old.post_id is not null and r.post_id = old.post_id) or r.reported_user_id = old.owner_id)) then
+          or exists (select 1 from nestly.reports r where (r.status = 'open' or r.resolution = 'action_taken')
+                       and ((old.post_id is not null and r.post_id = old.post_id) or r.reported_user_id = old.owner_id))) then
         raise exception 'media: a checked image is removed only after a report or as a suspicion' using errcode = '42501';
       end if;
     else
@@ -316,6 +319,34 @@ $$;
 create trigger media_reviews_guard
   before insert or update on nestly.media_reviews
   for each row execute function nestly.media_reviews_guard();
+
+-- M6: a suspicion marked on a checked image (passed, or approved from the queue) rejects and holds it at once, in the same statement, as
+-- the staff member who marked it: no second step leaves a suspected image visible, deletable by its uploader or purgeable early. The update
+-- goes through media_assets_update_guard (CONTENT_MODERATE + REPORTS_VIEW, is_held from the suspicion, decided_by/at) and is audited.
+-- A queued suspected image stays in the queue, hidden, until staff reject it (the guard refuses its approval).
+create function nestly.media_reviews_suspicion_reject()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  if current_user = 'authenticated' and new.is_suspected and (tg_op = 'INSERT' or not old.is_suspected) then
+    update nestly.media_assets set status = 'rejected' where id = new.media_id and status in ('passed', 'approved');
+    -- another staff member rejected it (not as a suspicion) between this suspicion's check and now: refuse, so the suspicion is never
+    -- recorded on an image left rejected but not held (M6); the caller retries and sees the image as it is now
+    if not found and exists (select 1 from nestly.media_assets m where m.id = new.media_id and m.status = 'rejected') then
+      raise exception 'media: the image was decided meanwhile; the suspicion was not recorded' using errcode = '40001';
+    end if;
+  end if;
+  return null;
+end
+$$;
+
+create trigger media_reviews_suspicion_reject
+  after insert or update of is_suspected on nestly.media_reviews
+  for each row when (new.is_suspected)
+  execute function nestly.media_reviews_suspicion_reject();
 
 create function nestly.profile_photos_prepare()
 returns trigger
@@ -395,7 +426,8 @@ create trigger stories_prepare
   for each row execute function nestly.stories_prepare();
 
 -- Training candidates (Afik 20.10.2026: images removed after a report are model misses). Runs in the moderator's transaction, as the
--- moderator, when a post report is handled with action taken or a reported post is removed: every image of that post that the model passed
+-- moderator, when a post report is handled with action taken, a reported post is removed, or an image is rejected from passed after such a
+-- report: every image of that post that the model passed
 -- and that is now removed (the post removed, or the image rejected from passed) becomes a candidate, unless any report on the post is a
 -- child-safety report or the image is suspected. The insert policy checks all of it again.
 create function nestly.media_training_candidate()
@@ -406,8 +438,12 @@ set search_path = ''
 as $$
 declare
   v_post uuid;
+  v_owner uuid;
 begin
-  if tg_table_name = 'reports' then v_post := new.post_id; else v_post := new.id; end if;
+  if tg_table_name = 'posts' then v_post := new.id; else v_post := new.post_id; end if;
+  -- the uploader (a child-safety report on the uploader excludes the image too): the image row's own owner when it fired the trigger, else the
+  -- post's named author (an anonymous post's author is not readable here; its post reports still count)
+  if tg_table_name = 'media_assets' then v_owner := new.owner_id; else v_owner := (select p.author_id from nestly.posts p where p.id = v_post); end if;
   if current_user <> 'authenticated' or v_post is null
      or not (select nestly.has_permission('REPORTS_VIEW')) or not (select nestly.has_permission('CONTENT_MODERATE')) then
     return null;
@@ -418,7 +454,9 @@ begin
    where m.post_id = v_post
      and exists (select 1 from nestly.reports r where r.post_id = v_post and r.status = 'handled' and r.resolution = 'action_taken')
      and not exists (select 1 from nestly.reports r where r.post_id = v_post and r.reason = 'child_safety')
+     and (v_owner is null or not exists (select 1 from nestly.reports r where r.reported_user_id = v_owner and r.reason = 'child_safety'))
      and not exists (select 1 from nestly.media_reviews v where v.media_id = m.id and (v.is_suspected or v.queue_reason is not null))
+     and (tg_table_name <> 'media_assets' or m.id = new.id)
      and (m.status = 'rejected' or (m.status in ('passed', 'approved') and exists (select 1 from nestly.posts p where p.id = v_post and p.status = 'removed')))
   on conflict do nothing;
   return null;
@@ -433,6 +471,11 @@ create trigger reports_training_candidate
 create trigger posts_training_candidate
   after update of status on nestly.posts
   for each row when (new.status = 'removed' and old.status is distinct from 'removed')
+  execute function nestly.media_training_candidate();
+
+create trigger media_assets_training_candidate
+  after update of status on nestly.media_assets
+  for each row when (new.status = 'rejected' and old.status = 'passed' and new.post_id is not null)
   execute function nestly.media_training_candidate();
 
 -- The training set's access record: every add and every removal, in the same transaction, as the job.
@@ -457,7 +500,7 @@ create trigger media_training_samples_log
   after insert or delete on nestly.media_training_samples
   for each row execute function nestly.media_training_samples_log();
 
-revoke execute on function nestly.media_assets_update_guard(), nestly.media_reviews_guard(), nestly.profile_photos_prepare(),
+revoke execute on function nestly.media_assets_update_guard(), nestly.media_reviews_guard(), nestly.media_reviews_suspicion_reject(), nestly.profile_photos_prepare(),
   nestly.profile_photos_replaced(), nestly.stories_prepare(), nestly.media_training_candidate(), nestly.media_training_samples_log() from public;
 
 -- 3. RLS. Every client policy is TO authenticated and gated by is_active_account(); the TO app_media_jobs ones are the check, the training
@@ -529,7 +572,9 @@ create policy media_assets_update_jobs_file on nestly.media_assets
 create policy media_assets_delete_jobs on nestly.media_assets
   for delete to app_media_jobs
   using (
-    (is_held and exists (select 1 from nestly.media_reviews r where r.media_id = media_assets.id and r.purge_after <= now()))
+    (is_held and exists (select 1 from nestly.media_reviews r where r.media_id = media_assets.id and r.purge_after <= now())
+      -- a sample of it is deleted first (it is deletable while this row says held): it never outlives the row that marks it suspected
+      and not exists (select 1 from nestly.media_training_samples t where t.source_media_id = media_assets.id))
     or (not is_held and status <> 'queued' and (status <> 'rejected' or is_file_removed) and (
       (kind = 'story' and created_at <= now() - interval '25 hours'
         and not exists (select 1 from nestly.stories s where s.media_id = media_assets.id and s.expires_at > now()))
@@ -686,9 +731,15 @@ create policy media_training_events_select_jobs on nestly.media_training_events
 create policy media_training_events_insert_jobs on nestly.media_training_events
   for insert to app_media_jobs
   with check (
-    (action in ('added', 'accessed') and exists (
+    (action = 'added' and exists (
       select 1 from nestly.media_training_samples t
       where t.id = media_training_events.sample_id and t.source = media_training_events.source and t.label = media_training_events.label))
+    -- a read for training: never of a sample whose image has since become suspected or held (that sample is only to be deleted)
+    or (action = 'accessed' and exists (
+      select 1 from nestly.media_training_samples t
+      where t.id = media_training_events.sample_id and t.source = media_training_events.source and t.label = media_training_events.label
+        and not exists (select 1 from nestly.media_reviews r where r.media_id = t.source_media_id and r.is_suspected)
+        and not exists (select 1 from nestly.media_assets m where m.id = t.source_media_id and m.is_held)))
     or (action in ('expired', 'removed')
       and not exists (select 1 from nestly.media_training_samples t where t.id = media_training_events.sample_id)
       and exists (select 1 from nestly.media_training_events e
@@ -738,7 +789,7 @@ grant delete on table nestly.media_training_samples to app_media_jobs;
 grant select (sample_id, action, source, label) on table nestly.media_training_events to app_media_jobs;
 grant insert (sample_id, action, purpose, source, label) on table nestly.media_training_events to app_media_jobs;
 
--- 5. The Audit Log: audit_trigger() gains the media branches (rule 18); the rest is the text of 20261021300000, unchanged.
+-- 5. The Audit Log: audit_trigger() gains the media branches (rule 18); the rest is the text of 20261021100000, unchanged.
 create or replace function nestly.audit_trigger()
 returns trigger
 language plpgsql
@@ -821,12 +872,6 @@ begin
     v_after := pg_catalog.jsonb_build_object('status', v_new ->> 'status', 'title', v_new ->> 'title', 'stageKind', v_new ->> 'stage_kind',
       'rangeFrom', v_new -> 'range_from', 'rangeTo', v_new -> 'range_to', 'sourceCheckedOn', v_new ->> 'source_checked_on',
       'bodyChars', pg_catalog.char_length(v_new ->> 'body'), 'bodyChanged', tg_op = 'UPDATE' and v_new ->> 'body' is distinct from v_old ->> 'body');
-  elsif tg_table_name = 'recovery_lock_releases' then
-    v_key := 'RECOVERY_LOCK_RELEASE';
-    v_action := 'recovery_lock_released';
-    v_kind := 'user';
-    v_target := (v_new ->> 'user_id')::uuid;
-    v_reason := nullif(v_new ->> 'reason', '');
   elsif tg_table_name = 'media_assets' then
     -- FR-FEED-002 / BR-076 (Afik 20.10.2026): a staff decision on an image (a queued one approved or rejected; a checked one rejected after
     -- a report or as a suspicion). heldAsSuspected: the image is kept 90 days and never enters the training set.
@@ -854,7 +899,7 @@ $$;
 
 revoke execute on function nestly.audit_trigger() from public;
 
-comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement, an Admin''s creation, edit, publication or hiding of a status guide, a recovery lock release, a staff decision on an image or a suspicion marked on one: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
+comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement, an Admin''s creation, edit, publication or hiding of a status guide, a staff decision on an image or a suspicion marked on one: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
 
 create trigger media_assets_decision_audit
   after update of status on nestly.media_assets
@@ -941,14 +986,17 @@ comment on column nestly.media_training_events.label is 'The sample''s label.';
 comment on column nestly.media_training_events.occurred_at is 'When.';
 comment on function nestly.media_assets_update_guard() is 'SECURITY INVOKER. Who may change which column of media_assets: the job moves a pending image to passed or queued (a queued one has its reason first) and records a rejected image''s removed file; staff with CONTENT_MODERATE decide a queued image, or reject a checked one with REPORTS_VIEW after a report or as a suspicion (who, when and the hold set here); the uploader attaches an unattached post image to a post of their own.';
 comment on function nestly.media_reviews_guard() is 'SECURITY INVOKER. The job writes the queue reason and scores once; staff mark a child or a suspicion (who, when and purge_after = +90 days set here); a suspicion is never withdrawn.';
+comment on function nestly.media_reviews_suspicion_reject() is 'SECURITY INVOKER. After a suspicion is marked: rejects and holds the image at once when it was passed or approved, as the staff member who marked it (through media_assets_update_guard and the audit).';
 comment on function nestly.profile_photos_prepare() is 'SECURITY INVOKER. The image must be a profile image the caller can read and not rejected (that it is the caller''s own is the foreign key''s check); copies its status.';
 comment on function nestly.profile_photos_replaced() is 'SECURITY INVOKER. A replaced profile photo''s image row is deleted at once (BR-077), under the owner''s delete policy (never a queued or rejected image).';
 comment on function nestly.stories_prepare() is 'SECURITY INVOKER. At most 10 Stories in 24 hours per author, counted on Story rows under a per-author lock (NS021, ERR-040); the image is a Story image from the last hour, not rejected (42501); sets the clocks.';
-comment on function nestly.media_training_candidate() is 'SECURITY INVOKER, in the moderator''s transaction. After a post report is handled with action taken, or a reported post is removed: the post''s images that passed and are now removed become training candidates, unless a report on the post is a child-safety report or the image is suspected.';
+comment on function nestly.media_training_candidate() is 'SECURITY INVOKER, in the moderator''s transaction. After a post report is handled with action taken, a reported post is removed, or an image is rejected from passed after such a report: the post''s images that passed and are now removed become training candidates, unless a report on the post is a child-safety report or the image is suspected.';
 comment on function nestly.media_training_samples_log() is 'SECURITY INVOKER. Every sample added or deleted is recorded in media_training_events in the same transaction (expired at its 6 months, otherwise removed).';
 comment on trigger media_assets_decision_audit on nestly.media_assets is 'Every staff decision on an image is appended to the Audit Log in the same transaction (rule 18).';
 comment on trigger media_reviews_suspicion_audit_insert on nestly.media_reviews is 'A suspicion marked on a checked image is appended to the Audit Log (M6, rule 18).';
 comment on trigger media_reviews_suspicion_audit_update on nestly.media_reviews is 'A suspicion marked on an image that already has a review (queued, or approved from the queue) is appended to the Audit Log (M6, rule 18).';
+comment on trigger media_reviews_suspicion_reject on nestly.media_reviews is 'M6: a suspicion on a passed or approved image rejects and holds it in the same statement.';
+comment on trigger media_assets_training_candidate on nestly.media_assets is 'An image rejected from passed after a handled report becomes a training candidate (unless suspected or after a child-safety report).';
 comment on policy media_assets_select_owner on nestly.media_assets is 'The uploader reads their own images (a Story image for its day), in every state; a suspected image reads exactly as a rejected one.';
 comment on policy media_assets_select_viewer on nestly.media_assets is 'Others read an image only after it passed or was approved, through a post, profile photo or Story they can read.';
 comment on policy media_assets_select_staff on nestly.media_assets is 'CONTENT_MODERATE reads the queue and the decided images (never the uploader: owner_id is not granted).';
