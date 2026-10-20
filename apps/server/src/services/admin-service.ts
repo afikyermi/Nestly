@@ -17,6 +17,9 @@ import type {
   UserList,
 } from '@nestly/shared';
 import type { Database } from '../db/client.js';
+import type { MediaStorage } from '../media/storage-admin.js';
+import type { PostImageRow } from '../repositories/media-repository.js';
+import { imagesByPost, readPostImageRows } from './posts-service.js';
 import { inIdentityTransaction, type IdentityTx } from '../db/identity-transaction.js';
 import { readDatabaseFault } from '../lib/pg-error.js';
 import type { Identity } from '../lib/token-verifier.js';
@@ -121,14 +124,17 @@ export async function readReportDetail(
   identity: Identity,
   kind: ReportTargetKind,
   targetId: string,
+  storage?: MediaStorage,
 ): Promise<Outcome<{ detail: ReportDetail }>> {
-  return inIdentityTransaction(database, identity, async (tx) => {
+  let imageRows: PostImageRow[] = [];
+  const outcome = await inIdentityTransaction(database, identity, async (tx): Promise<Outcome<{ detail: ReportDetail }>> => {
     const gate = await require_(tx, 'REPORTS_VIEW');
     if (refused(gate)) return gate;
     const reports = await readReportsOn(tx, kind, targetId);
     if (reports.length === 0) return { kind: 'not_found' };
     // A chat message is never read here: staff open it by its own audited call (§9.6), which also names its sender.
     const content = kind === 'user' || kind === 'message' ? undefined : await readContent(tx, kind, targetId);
+    if (kind === 'post' && content !== undefined) imageRows = await readPostImageRows(tx, storage, [targetId]);
     // The account an enforcement would act on: the reported account, or the named author of the content (an anonymous author is revealed
     // by its own audited call, never here). Needs USER_VIEW; without it the screen shows no account.
     const userId = kind === 'user' ? targetId : (content?.authorId ?? undefined);
@@ -145,6 +151,10 @@ export async function readReportDetail(
       },
     };
   });
+  // I5: the reported post's images, as the staff member's policies show them, signed after the transaction
+  if (outcome.kind !== 'ok' || outcome.detail.content === null || imageRows.length === 0) return outcome;
+  const images = (await imagesByPost(storage, imageRows)).get(targetId);
+  return images === undefined ? outcome : { ...outcome, detail: { ...outcome.detail, content: { ...outcome.detail.content, images } } };
 }
 
 /** Closes the open reports on a target; with `moderation`, moves the content in the same transaction (a failure rolls both back). */

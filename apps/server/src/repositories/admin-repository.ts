@@ -6,6 +6,7 @@
 import {
   PERMISSION_KEYS,
   REPORT_TARGET_KINDS,
+  REPORT_RESOLUTIONS,
   ladderSuggestion,
   violationWeight,
   type AuditEntry,
@@ -133,6 +134,8 @@ export interface ReportRow {
   reasonLabel: string;
   details: string | null;
   copiedText: string | null;
+  /** How a handled report was closed (null while open or expired). */
+  resolution: ReportResolution | null;
   createdAt: string;
 }
 
@@ -148,12 +151,13 @@ export async function readReportsOn(tx: IdentityTx, kind: ReportTargetKind, targ
         reasonLabel: z.string(),
         details: z.string().nullable(),
         copiedText: z.string().nullable(),
+        resolution: z.enum(REPORT_RESOLUTIONS).nullable(),
         createdAt: z.string(),
       }),
     )
     .parse(
       await tx.execute(sql`
-        select r.id, r.status, r.reason, rr.label as "reasonLabel", r.details, r.target_text as "copiedText",
+        select r.id, r.status, r.reason, rr.label as "reasonLabel", r.details, r.target_text as "copiedText", r.resolution,
                to_char(r.created_at at time zone 'UTC', ${isoMs}) as "createdAt"
         from nestly.reports r join nestly.report_reasons rr on rr.key = r.reason
         where ${column} = ${targetId}::uuid

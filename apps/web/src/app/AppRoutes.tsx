@@ -1,5 +1,5 @@
 import { Route, Routes } from 'react-router';
-import { AdminAuditPage, AdminReportsPage, AdminSupportPage, AdminUsersPage } from '@/pages/admin/AdminPages';
+import { AdminAuditPage, AdminMediaPage, AdminReportsPage, AdminSupportPage, AdminUsersPage } from '@/pages/admin/AdminPages';
 import { AdminIndex, AdminLayout } from '@/pages/admin/AdminLayout';
 import { ChangePasswordPage } from '@/pages/change-password/ChangePasswordPage';
 import { ChatPage } from '@/pages/chat/ChatPage';
@@ -72,6 +72,7 @@ export function AppRoutes() {
               <Route path="audit" element={<AdminAuditPage />} />
               <Route path="support" element={<AdminSupportPage />} />
               <Route path="guides" element={<AdminGuidesPage />} />
+              <Route path="media" element={<AdminMediaPage />} />
             </Route>
           </Route>
         </Routes>

@@ -20,6 +20,7 @@ import { PostShareView } from './PostShareView';
 import { ShareFeedSheet, type ShareFeedSheetProps } from './ShareFeedSheet';
 import { SHARE_IN_FEED_LABEL } from './share-texts';
 import { MORE_ACTIONS_LABEL, MORE_ACTIONS_MENU_LABEL } from './hide-texts';
+import { PostImages } from './PostImages';
 import {
   ANONYMOUS_OWN_NOTE,
   audienceLine,
@@ -220,9 +221,12 @@ export function PostContent(props: PostContentProps) {
             {loaded.post.kind === 'share' ? (
               <PostShareView share={loaded.post} />
             ) : (
-              <p data-testid="post-body" dir="rtl" className="whitespace-pre-wrap wrap-anywhere">
-                {loaded.post.body ?? ''}
-              </p>
+              <>
+                <p data-testid="post-body" dir="rtl" className="whitespace-pre-wrap wrap-anywhere">
+                  {loaded.post.body ?? ''}
+                </p>
+                <PostImages images={loaded.post.images} />
+              </>
             )}
             <p data-testid="post-audience" className="text-small text-muted-foreground">
               {audienceLine(loaded.post.audience)}

@@ -45,6 +45,8 @@ export const PATHS = {
   /** I8: the Support form and the caller's requests (FR-ADMIN-001), from the side menu; one request is `/support/<id>` (`supportIdOfPath`). */
   support: '/support',
   supportThread: SUPPORT_THREAD_PATTERN,
+  /** I5: the image approval queue (CONTENT_MODERATE). */
+  adminMedia: '/admin/media',
   /** F3.7: the community rules page (PG-049, BR-075, Q2: signed-in only), from the side menu and the report window. */
   communityRules: '/community-rules',
   /** I6: one tracker page, `/trackers/<kind>` (the eight child trackers and `cycle`). Protected by pattern: see `trackerPageOfPath`. */
@@ -84,6 +86,7 @@ export const PROTECTED_PATHS: readonly string[] = [
   PATHS.chat,
   PATHS.support,
   PATHS.adminGuides,
+  PATHS.adminMedia,
 ];
 
 /** Where a Guest goes from a protected path (ERR-012, Q3): Welcome. The requested path is not kept. */

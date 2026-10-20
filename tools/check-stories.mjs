@@ -33,7 +33,8 @@ export const STATES = {
   "shared/logo": 4, // link default, link big, static default, static big
   "shared/illustrations": 3, // welcome, registration, empty feed
   "layout/auth-layout": 3, // welcome, login, registration step
-  "ui/avatar": 5, // initials, single word, no name, beside a name (decorative), small
+  "ui/avatar": 7, // initials, single word, no name, beside a name (decorative), small, photo (I5), large photo (I5)
+  "shared/media-tile": 4, // ready, pending, rejected, unavailable (I5)
   "shared/menu-item": 4, // link, button, disabled, without icon
   "shared/top-bar": 2, // default, with actions
   "shared/bottom-navigation": 2, // three items, five items

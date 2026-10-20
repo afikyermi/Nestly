@@ -183,10 +183,10 @@ describe("part e addenda: MenuItem takes exactly one of href or onClick (type le
     assert.equal(ok, false);
   });
 
-  it("[36] control: Avatar accepts size sm and md, and rejects another size", () => {
+  it("[36] control: Avatar accepts size sm, md and lg (I5: the profile photo), and rejects another size", () => {
     const avatar = `import { Avatar } from "@/components/ui/avatar";\n`;
-    assert.equal(compile(`${avatar}export const A = () => <><Avatar size="sm" /><Avatar size="md" name="x" decorative /></>;\n`).ok, true);
-    assert.equal(compile(`${avatar}export const A = () => <Avatar size="lg" />;\n`).ok, false);
+    assert.equal(compile(`${avatar}export const A = () => <><Avatar size="sm" /><Avatar size="md" name="x" decorative /><Avatar size="lg" /></>;\n`).ok, true);
+    assert.equal(compile(`${avatar}export const A = () => <Avatar size="xl" />;\n`).ok, false);
   });
 });
 
