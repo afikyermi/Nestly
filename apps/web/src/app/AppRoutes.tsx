@@ -4,6 +4,7 @@ import { AdminIndex, AdminLayout } from '@/pages/admin/AdminLayout';
 import { ChangePasswordPage } from '@/pages/change-password/ChangePasswordPage';
 import { ChatPage } from '@/pages/chat/ChatPage';
 import { ConversationPage } from '@/pages/chat/ConversationPage';
+import { AdminGuidesPage } from '@/pages/admin-guides/AdminGuidesPage';
 import { CommunityRulesPage } from '@/pages/community-rules/CommunityRulesPage';
 import { NewPostRedirect } from '@/pages/compose-post/NewPostRedirect';
 import { FeedPage } from '@/pages/feed/FeedPage';
@@ -70,6 +71,7 @@ export function AppRoutes() {
               <Route path="users" element={<AdminUsersPage />} />
               <Route path="audit" element={<AdminAuditPage />} />
               <Route path="support" element={<AdminSupportPage />} />
+              <Route path="guides" element={<AdminGuidesPage />} />
             </Route>
           </Route>
         </Routes>

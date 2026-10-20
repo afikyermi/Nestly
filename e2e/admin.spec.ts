@@ -27,7 +27,7 @@ test.describe('[I4] the admin shell', () => {
     await expect.poll(() => pathOf(page)).toBe('/admin/reports');
     await expect(page.getByRole('heading', { level: 1, name: 'ניהול' })).toBeVisible();
     const tabs = page.getByRole('navigation', { name: 'מסכי הניהול' });
-    await expect(tabs.getByRole('link')).toHaveText(['דיווחים', 'משתמשים', 'יומן פעולות']);
+    await expect(tabs.getByRole('link')).toHaveText(['דיווחים', 'משתמשים', 'יומן פעולות', 'מדריכים']);
   });
 
   test('[I4 AC-031] an account that is not staff has no admin entry and /admin leads back to the feed', async ({ page }) => {
@@ -41,7 +41,7 @@ test.describe('[I4] the admin shell', () => {
   });
 
   test('[I4 AC-031] a Moderator sees only the screens its keys allow', async ({ page }) => {
-    await setupAdmin(page, { permissions: ['AUDIT_LOG_VIEW'] });
+    await setupAdmin(page, { role: 'moderator', permissions: ['AUDIT_LOG_VIEW'] });
     await signIn(page);
     await page.goto('/admin');
     await expect.poll(() => pathOf(page)).toBe('/admin/audit');
