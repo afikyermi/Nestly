@@ -110,6 +110,8 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         // or replying to U's. Reports first: no open report survives into a cascade, so reports_open_target_check never fires.
         // I8: a staff member's views of reported messages first (others' views go with the reports below, by cascade).
         counts['reported_message_views'] = (await tx`delete from nestly.reported_message_views where viewer_id = ${id}`).count;
+        // I10: a staff member's views of reported Private Group content likewise (others' views go with the reports below, by cascade).
+        counts['private_group_content_views'] = (await tx`delete from nestly.private_group_content_views where viewer_id = ${id}`).count;
         counts['reports'] = (
           await tx`delete from nestly.reports
                     where reporter_id = ${id} or reported_user_id = ${id}
@@ -121,7 +123,11 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
                                           where author_id = ${id}
                                              or post_id in (select id from nestly.posts
                                                              where author_id = ${id} or id in (select post_id from nestly.post_authors where author_id = ${id}))
-                                             or parent_id in (select id from nestly.comments where author_id = ${id}))`
+                                             or parent_id in (select id from nestly.comments where author_id = ${id}))
+                       or post_id in (select id from nestly.posts
+                                       where group_id in (select group_id from nestly.group_members where user_id = ${id} and role = 'owner'))
+                       or comment_id in (select id from nestly.comments
+                                          where group_id in (select group_id from nestly.group_members where user_id = ${id} and role = 'owner'))`
         ).count;
         counts['reactions'] = (
           await tx`delete from nestly.reactions where id in (select reaction_id from nestly.reaction_owners where user_id = ${id})`
@@ -144,6 +150,21 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
           await tx`delete from nestly.posts
                     where author_id = ${id} or id in (select post_id from nestly.post_authors where author_id = ${id})`
         ).count;
+        // Groups (I10): the Groups the user owns go with everything in them (members and their copies, requests, invitations, blocks, modes,
+        // recommendations, and every post, comment and like in them, by cascade; their reports were deleted above). Then the user's own rows
+        // in other Groups; staff answers on others' requests and blocks keep their row (decided_by, banned_by and created_by are SET NULL).
+        counts['groups'] = (
+          await tx`delete from nestly.groups where id in (select group_id from nestly.group_members where user_id = ${id} and role = 'owner')`
+        ).count;
+        counts['group_recommendations'] = (
+          await tx`delete from nestly.group_recommendations where sender_id = ${id} or recipient_id = ${id}`
+        ).count;
+        counts['group_invitations'] = (await tx`delete from nestly.group_invitations where inviter_id = ${id} or invitee_id = ${id}`).count;
+        counts['group_join_requests'] = (await tx`delete from nestly.group_join_requests where user_id = ${id}`).count;
+        counts['group_bans'] = (await tx`delete from nestly.group_bans where user_id = ${id}`).count;
+        counts['group_notification_preferences'] = (await tx`delete from nestly.group_notification_preferences where user_id = ${id}`).count;
+        counts['group_access'] = (await tx`delete from nestly.group_access where user_id = ${id}`).count;
+        counts['group_members'] = (await tx`delete from nestly.group_members where user_id = ${id}`).count;
         // Chat and Support (I8): the user's read markers, Support requests (their threads and others' markers go with them), the
         // conversations either way (messages and markers go with them), then requests and Chat Blocks either way.
         counts['chat_reads'] = (await tx`delete from nestly.chat_reads where user_id = ${id}`).count;
