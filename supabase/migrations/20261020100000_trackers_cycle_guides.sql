@@ -19,7 +19,7 @@
 -- "Backfills"); rule 8 holds at every commit.
 --
 -- Applied by the Supabase CLI as app_owner, in one transaction with its history row. Down script:
--- supabase/rollback/20261020100000_trackers_cycle_guides.down.sql (drops the three tables; destroys the data in them).
+-- supabase/rollback/20261020400000_trackers_cycle_guides.down.sql (drops the three tables; destroys the data in them).
 -- =====================================================================================================================
 
 -- 1. tracker_events

@@ -389,7 +389,7 @@ comments verbatim and drops the helper.
 
 ## Trackers, cycle and status guides (I6)
 
-Migration `20261020100000_trackers_cycle_guides.sql`, down script `supabase/rollback/20261020100000_trackers_cycle_guides.down.sql` (destroys the data of the three tables).
+Migration `20261020400000_trackers_cycle_guides.sql`, down script `supabase/rollback/20261020400000_trackers_cycle_guides.down.sql` (destroys the data of the three tables).
 No SECURITY DEFINER, no function; `tests.approved_security_definer()` unchanged. All three tables: RLS + FORCE, policies TO authenticated only, nothing to anon.
 
 | | tracker_events | cycle_entries | status_guides |
@@ -408,7 +408,7 @@ Preview cleanup: the user's tracker_events and cycle_entries are deleted before 
 ## Notifications and People Search
 
 **`nestly.notifications`, `nestly.notification_preferences`, `nestly.friend_content_notification_preferences`, `nestly.people_search_counts`, `nestly.search_intents`** (FR-NOTIF-001/002/003,
-FR-SEARCH-001, FR-ALG-008, BR-035/038/061/063, VAL-037, AC-040/041/042/074/078; migration `20261020100000`; Afik 18.10.2026: 60 searches per hour; 90-day retention)
+FR-SEARCH-001, FR-ALG-008, BR-035/038/061/063, VAL-037, AC-040/041/042/074/078; migration `20261020400000`; Afik 18.10.2026: 60 searches per hour; 90-day retention)
 
 | Column | Type · null · default | Meaning |
 |---|---|---|

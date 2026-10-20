@@ -1,5 +1,5 @@
 -- =====================================================================================================================
--- Down script for supabase/migrations/20261020100000_notifications_search.sql (notifications, preferences, People Search).
+-- Down script for supabase/migrations/20261020400000_notifications_search.sql (notifications, preferences, People Search).
 -- Outside supabase/migrations on purpose: the CLI never applies it.
 --
 -- Run as:   app_owner, in one transaction. CI runs it once per build (up -> down -> up) against the disposable database.
@@ -87,6 +87,6 @@ alter table nestly.security_limits add constraint security_limits_limit_key_chec
 comment on constraint security_limits_limit_key_check on nestly.security_limits is 'The only limit today.';
 alter table nestly.security_limits force row level security;
 
-delete from supabase_migrations.schema_migrations where version = '20261020100000';
+delete from supabase_migrations.schema_migrations where version = '20261020400000';
 
 commit;

@@ -32,7 +32,7 @@
 -- No like creates a notification: a like's author is not exposed anywhere (reaction_owners is owner-only), and FR-NOTIF-003 lists none.
 --
 -- Applied by the Supabase CLI as app_owner, in one transaction with its history row. Down script:
--- supabase/rollback/20261020100000_notifications_search.down.sql (refuses while any of the new tables or a people_search event holds a row).
+-- supabase/rollback/20261020400000_notifications_search.down.sql (refuses while any of the new tables or a people_search event holds a row).
 -- =====================================================================================================================
 
 -- 1. notifications ---------------------------------------------------------------------------------------------------
