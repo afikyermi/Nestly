@@ -81,7 +81,7 @@ const GOOD_FACTS = {
   dbUser: 'postgres',
   bypassRls: true,
   canDeleteAuthUsers: true,
-  nestlyTables: ['algorithm_configurations', 'audit_log', 'children', 'comments', 'cycle_entries', 'friend_content_notification_preferences', 'friendships', 'identity_link_checks', 'journey_contexts', 'legal_consents', 'media_assets', 'media_reviews', 'media_training_candidates', 'media_training_events', 'media_training_samples', 'moderator_permissions', 'notification_preferences', 'notifications', 'people_search_counts', 'post_authors', 'post_hides', 'posts', 'profile_open_counts', 'profile_photos', 'reaction_owners', 'reactions', 'recovery_answers', 'recovery_events', 'recovery_throttles', 'regular_names', 'regular_profiles', 'report_reasons', 'reports', 'search_intents', 'security_events', 'security_limits', 'staff_roles', 'status_guides', 'stories', 'tracker_events', 'user_blocks', 'user_enforcements', 'users'],
+  nestlyTables: ['algorithm_configurations', 'audit_log', 'children', 'comments', 'cycle_entries', 'friend_content_notification_preferences', 'friendships', 'identity_link_checks', 'journey_contexts', 'legal_consents', 'media_assets', 'media_reviews', 'media_training_candidates', 'media_training_events', 'media_training_samples', 'moderator_invitations', 'moderator_permissions', 'notification_preferences', 'notifications', 'people_search_counts', 'post_authors', 'post_hides', 'posts', 'profile_open_counts', 'profile_photos', 'reaction_owners', 'reactions', 'recovery_answers', 'recovery_events', 'recovery_throttles', 'regular_names', 'regular_profiles', 'report_reasons', 'reports', 'search_intents', 'security_events', 'security_limits', 'staff_roles', 'status_guides', 'stories', 'system_announcements', 'tracker_events', 'user_blocks', 'user_enforcements', 'users'],
 };
 
 test('[E c8] preflight passes only for the exact expected facts, in any table order', () => {
@@ -468,15 +468,15 @@ test('[cleanup a] the expected tables are exactly the nestly tables the migratio
   assert.doesNotMatch(code, /alter\s+table\s+(?:if\s+exists\s+)?nestly\.[a-z_]+\s+rename\s+to/i, 'a renamed table: update this test');
   assert.deepEqual([...cleanup.EXPECTED_NESTLY_TABLES], [...created].sort());
   assert.ok(created.has('identity_link_checks'));
-  assert.equal(cleanup.EXPECTED_NESTLY_TABLES.length, 43);
+  assert.equal(cleanup.EXPECTED_NESTLY_TABLES.length, 45);
   for (const t of ['algorithm_configurations', 'post_authors', 'post_hides', 'posts', 'comments', 'reaction_owners', 'reactions', 'reports']) assert.ok(cleanup.EXPECTED_NESTLY_TABLES.includes(t), t);
 });
 
-test('[cleanup a] the preflight with all forty-three tables passes; the forty-two left without identity_link_checks fail', () => {
-  assert.equal(GOOD_FACTS.nestlyTables.length, 43);
+test('[cleanup a] the preflight with all forty-five tables passes; the forty-four left without identity_link_checks fail', () => {
+  assert.equal(GOOD_FACTS.nestlyTables.length, 45);
   assert.equal(cleanup.decidePreflight(GOOD_FACTS).ok, true);
   const rest = GOOD_FACTS.nestlyTables.filter((t) => t !== 'identity_link_checks');
-  assert.equal(rest.length, 42);
+  assert.equal(rest.length, 44);
   assert.equal(cleanup.decidePreflight({ ...GOOD_FACTS, nestlyTables: rest }).ok, false);
 });
 
@@ -510,7 +510,9 @@ test('[F2.4c1 c20 c21 c22] the preflight fails closed when any of the three F2.4
 // F3.0b: reaction_owners goes by cascade from reactions (a like is deleted through its id-free row).
 // I5: media_training_samples and media_training_events name no user (the job alone writes them); media_reviews and
 // media_training_candidates go by cascade from media_assets.
-const NO_DELETE = ['security_limits', 'algorithm_configurations', 'status_guides', 'report_reasons', 'audit_log', 'media_training_samples', 'media_training_events', 'media_reviews', 'media_training_candidates'];
+// I14: moderator_invitations and system_announcements are written by staff only (a test user is never staff); an invitation
+// accepted by an account goes with it by cascade.
+const NO_DELETE = ['security_limits', 'algorithm_configurations', 'status_guides', 'report_reasons', 'audit_log', 'media_training_samples', 'media_training_events', 'media_reviews', 'media_training_candidates', 'moderator_invitations', 'system_announcements'];
 
 test('[cleanup a] every expected table is deleted from in the user transaction, but the configuration tables; identity_link_checks just before nestly.users', () => {
   const order = [...cliText.matchAll(/delete from (nestly\.[a-z_]+|auth\.users)/g)].map((m) => m[1]);
