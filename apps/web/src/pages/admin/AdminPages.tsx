@@ -3,11 +3,12 @@ import { AnalyticsScreen } from '@/features/admin/AnalyticsScreen';
 import { AnnouncementsScreen } from '@/features/admin/AnnouncementsScreen';
 import { AuditLogScreen } from '@/features/admin/AuditLogScreen';
 import { CommunityScreen } from '@/features/admin/CommunityScreen';
+import { MediaQueueScreen } from '@/features/admin/MediaQueueScreen';
 import { ReportsScreen } from '@/features/admin/ReportsScreen';
 import { TeamScreen } from '@/features/admin/TeamScreen';
 import { UsersScreen } from '@/features/admin/UsersScreen';
 import { ANALYTICS_TITLE, ANNOUNCEMENTS_TITLE, COMMUNITY_TITLE, TEAM_TITLE } from '@/features/admin/team-texts';
-import { AUDIT_TITLE, REPORTS_TITLE, USERS_TITLE } from '@/features/admin/admin-texts';
+import { AUDIT_TITLE, MEDIA_QUEUE_TITLE, REPORTS_TITLE, USERS_TITLE } from '@/features/admin/admin-texts';
 import { documentTitle } from '@/lib/document-title';
 import type { AdminContext } from './AdminLayout';
 
@@ -80,6 +81,16 @@ export function AdminAnalyticsPage() {
       <title>{documentTitle(ANALYTICS_TITLE)}</title>
       <h2 className="mb-4 text-h3">{ANALYTICS_TITLE}</h2>
       <AnalyticsScreen />
+    </>
+  );
+}
+
+export function AdminMediaPage() {
+  return (
+    <>
+      <title>{documentTitle(MEDIA_QUEUE_TITLE)}</title>
+      <h2 className="mb-4 text-h3">{MEDIA_QUEUE_TITLE}</h2>
+      <MediaQueueScreen />
     </>
   );
 }

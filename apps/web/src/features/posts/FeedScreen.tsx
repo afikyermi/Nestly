@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ShellActionBarContext } from '@/components/layout/app-shell';
 import { postLinkOf, shareTargetOf, type FeedUnit, type PostView } from '@nestly/shared';
@@ -54,7 +54,8 @@ type Overlay =
 // report (F3.7). The posting right only decides the composer and the hide item; the server decides who has a feed.
 // A card that can be shared has "שיתוף בפיד" (F3.5: the window over the feed, the new share first in the list at once) and one with a link
 // "שיתוף קישור" (F3.6); a Professional has neither. Every card with the like control holds its comments (ux-polish-a): asked when it comes near.
-export function FeedScreen() {
+/** I5: the page passes the Stories tray (a feature of its own), shown under the heading. */
+export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
   const { right, fullName } = usePostingProfile();
   const own = useOwnUserId();
   // A Professional (no parent profile, D1) may not hide a post (post_hides_insert_guard): the item is not offered.
@@ -311,6 +312,7 @@ export function FeedScreen() {
       ) : null}
       {none ? <p className="mt-1 text-body text-muted-foreground">{PLACEHOLDER_TEXT}</p> : null}
       <SystemNotices notices={state.notices} />
+      {none ? null : stories}
       {/* One fixed place, before the list or the empty state: a form sending a post survives the feed changing phase. */}
       {write}
       {content}

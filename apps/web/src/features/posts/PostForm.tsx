@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { JOURNEY_STAGES, POST_AUDIENCES } from '@nestly/shared';
 import { ChoiceCardGroup, type ChoiceOption } from '@/components/shared/choice-card-group';
 import { FieldHint } from '@/components/shared/field-message';
@@ -64,6 +64,8 @@ export interface PostFormProps {
    * tag group, no name notice; the fixed line "הפוסט יוצג לכולם" stands in for the audience group. Default false.
    */
   everyoneOnly?: boolean;
+  /** I5: the composer's pictures (create only, shown with the rest of the options): rendered after the text. */
+  attachments?: ReactNode;
 }
 
 // The composer and the edit form (FR-FEED-002, FR-FEED-005, OP-033; F3.1b, F3.4): the text, "פרסום אנונימי" (create only), who sees the
@@ -71,7 +73,7 @@ export interface PostFormProps {
 // the anonymous one; the edit of an anonymous post shows a fixed line instead of the group. A writer whose posts are for everyone only (a
 // Professional) gets the text, one fixed line and the button. Display only: what submitting does comes in as props.
 export function PostForm(props: PostFormProps) {
-  const { mode, values, errors, saving, failure, focus, onChange, onSubmit, onCancel, anonymous = false, onAnonymousChange, compact = false, everyoneOnly = false } = props;
+  const { mode, values, errors, saving, failure, focus, onChange, onSubmit, onCancel, anonymous = false, onAnonymousChange, compact = false, everyoneOnly = false, attachments } = props;
   const formRef = useRef<HTMLFormElement>(null);
   const ids = useId();
   const noticeId = `${ids}-notice`;
@@ -156,6 +158,8 @@ export function PostForm(props: PostFormProps) {
           <FieldHint id={tagHintId}>{TAG_HINT_TEXT}</FieldHint>
         </div>
       )}
+      {/* I5: the pictures come after the options, just before "פרסום" (the text, then its options, keep their keyboard order) */}
+      {mode === 'create' && !compact && attachments !== undefined ? attachments : null}
       <div className="flex flex-col gap-3">
         <Button type="submit" size="lg" block pending={saving} disabled={saving}>
           {label}

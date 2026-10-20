@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { APP, MENU_BUTTON, pathOf } from './app-helpers';
 import { DESKTOP_1280, EMAIL, main } from './support/journeys-stub';
-import { CHILD_REPORT, POST_CHILD, POST_SPAM, USER_RINA, setupAdmin } from './support/admin-stub';
+import { CHILD_REPORT, ID, POST_CHILD, POST_SPAM, USER_RINA, setupAdmin } from './support/admin-stub';
 
 test.use({ baseURL: APP, viewport: DESKTOP_1280 });
 
@@ -27,7 +27,7 @@ test.describe('[I4] the admin shell', () => {
     await expect.poll(() => pathOf(page)).toBe('/admin/reports');
     await expect(page.getByRole('heading', { level: 1, name: 'ניהול' })).toBeVisible();
     const tabs = page.getByRole('navigation', { name: 'מסכי הניהול' });
-    await expect(tabs.getByRole('link')).toHaveText(['דיווחים', 'משתמשים', 'יומן פעולות', 'מדריכים', 'צוות']); // I14: the team is the Admin's
+    await expect(tabs.getByRole('link')).toHaveText(['דיווחים', 'משתמשים', 'יומן פעולות', 'מדריכים', 'תמונות לבדיקה', 'צוות']); // I5 the image queue; I14 the team (the Admin's)
   });
 
   test('[I4 AC-031] an account that is not staff has no admin entry and /admin leads back to the feed', async ({ page }) => {
@@ -142,5 +142,43 @@ test.describe('[I4 FR-MOD-002] accounts and enforcement', () => {
     expect(net.sent[0]).toMatchObject({ body: { userId: USER_RINA, kind: 'suspension', durationHours: 72, reason: 'הטרדה חוזרת' } });
     await expect(page.getByRole('region', { name: 'אכיפה' })).toContainText('מושעה');
     expect(pathOf(page)).toBe('/admin/users');
+  });
+});
+
+test.describe('[I5 Afik 20.10] the image approval queue', () => {
+  test('[I5 BR-076] a CONTENT_MODERATE holder approves one image with the child mark and marks a suspicion on another; each leaves the queue', async ({ page }) => {
+    const net = await setupAdmin(page, { role: 'moderator', permissions: ['CONTENT_MODERATE'] });
+    await signIn(page);
+    await page.goto('/admin');
+    await expect.poll(() => pathOf(page)).toBe('/admin/media');
+    await expect(page.getByRole('heading', { level: 2, name: 'תמונות לבדיקה' })).toBeVisible();
+    const items = page.getByRole('list', { name: 'תמונות שממתינות לבדיקה' }).getByRole('listitem');
+    await expect(items).toHaveCount(2);
+    await expect(items.first()).toContainText('נחסמה בבדיקה');
+    await items.first().getByRole('checkbox', { name: 'יש בתמונה ילד' }).check();
+    await items.first().getByRole('button', { name: 'אישור', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'ההחלטה נשמרה' })).toBeVisible();
+    await expect(items).toHaveCount(1);
+    await items.first().getByRole('button', { name: 'חשד לפגיעה בילד' }).click();
+    await expect(page.getByText('אין תמונות שממתינות לבדיקה')).toBeVisible();
+    const decisions = net.sent.filter((s) => s.path.endsWith('/decision')).map((s) => s.body);
+    expect(decisions).toEqual([
+      { decision: 'approved', isChild: true },
+      { decision: 'suspected', isChild: false },
+    ]);
+  });
+});
+
+test.describe('[I5 BR-076] an image removed after a report', () => {
+  test('[I5 BR-076] CONTENT_MODERATE with REPORTS_VIEW removes a reported post\'s image that had passed', async ({ page }) => {
+    const net = await setupAdmin(page);
+    await signIn(page);
+    await page.goto('/admin/reports');
+    await page.getByRole('listitem').filter({ hasText: 'ספאם' }).getByRole('button', { name: 'פתיחת הדיווח' }).click();
+    const images = page.getByRole('list', { name: 'התמונות בפוסט' });
+    await images.getByRole('button', { name: 'הסרת התמונה', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'התמונה הוסרה' })).toBeVisible();
+    await expect(images.getByText('התמונה לא אושרה לפי מדיניות התמונות')).toBeVisible();
+    expect(net.sent.filter((s) => s.path.endsWith('/removal'))).toEqual([{ method: 'POST', path: `/api/admin/media/${ID(72)}/removal`, body: { suspected: false } }]);
   });
 });

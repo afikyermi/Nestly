@@ -12,6 +12,7 @@ import { REPORT_TARGET_KINDS, checkAuditQuery } from '@nestly/shared';
 import type { FastifyInstance, RouteHandlerMethod } from 'fastify';
 import { z } from 'zod';
 import type { Database } from '../db/client.js';
+import type { MediaStorage } from '../media/storage-admin.js';
 import { listUsers, readAccessOrNone, readAudit, readReportDetail, readReportQueue, readUser } from '../services/admin-service.js';
 import { answer } from './admin-reply.js';
 
@@ -20,6 +21,8 @@ const ADMIN = '/api/admin';
 
 export interface AdminRouteDependencies {
   readonly database: Database | undefined;
+  /** I5: signs a reported post's image addresses (after the RLS-checked read). */
+  readonly storage?: MediaStorage;
 }
 
 const idParam = z.guid().transform((value) => value.toLowerCase());
@@ -66,7 +69,7 @@ export function registerAdminReadRoutes(app: FastifyInstance, deps: AdminRouteDe
     if (request.identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
     const { identity } = request;
     const database = deps.database;
-    return answer(request, reply, 'admin report detail failed', () => readReportDetail(database, identity, params.data.kind, params.data.id), (ok) => ok.detail);
+    return answer(request, reply, 'admin report detail failed', () => readReportDetail(database, identity, params.data.kind, params.data.id, deps.storage), (ok) => ok.detail);
   });
 
   get(`${ADMIN}/users`, (request, reply) => {

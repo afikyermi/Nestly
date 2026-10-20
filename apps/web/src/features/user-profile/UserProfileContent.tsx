@@ -194,7 +194,7 @@ export function UserProfileContent(props: UserProfileContentProps) {
     <div ref={rootRef} className="flex min-w-0 max-w-md flex-col gap-6">
       <title>{documentTitle(view.kind === 'unavailable' ? UNAVAILABLE_TEXT : TITLE)}</title>
       <div className="flex items-center gap-3">
-        {loaded !== null ? <Avatar name={loaded.profile.fullName} decorative /> : null}
+        {loaded !== null ? <Avatar name={loaded.profile.fullName} decorative src={loaded.profile.photo?.state === 'ready' ? loaded.profile.photo.url : null} /> : null}
         <h1 tabIndex={-1} className="min-w-0 wrap-anywhere text-h2">
           <bdi dir="auto">{heading}</bdi>
         </h1>

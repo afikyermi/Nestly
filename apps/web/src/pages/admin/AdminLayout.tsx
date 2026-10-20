@@ -20,6 +20,7 @@ export const ADMIN_TABS: ReadonlyArray<{ tab: AdminTab; path: string }> = [
   { tab: 'users', path: PATHS.adminUsers },
   { tab: 'audit', path: PATHS.adminAudit },
   { tab: 'guides', path: PATHS.adminGuides },
+  { tab: 'media', path: PATHS.adminMedia },
   { tab: 'team', path: PATHS.adminTeam },
   { tab: 'community', path: PATHS.adminCommunity },
   { tab: 'announcements', path: PATHS.adminAnnouncements },
@@ -29,6 +30,7 @@ export const ADMIN_TABS: ReadonlyArray<{ tab: AdminTab; path: string }> = [
 /** AC-044: what waits on a tab, from the staff inbox (an area the keys do not cover is absent, so no badge). */
 function waiting(tab: AdminTab, inbox: StaffInbox): number {
   if (tab === 'reports') return inbox.openReports ?? 0;
+  if (tab === 'media') return inbox.queuedImages ?? 0;
   return 0;
 }
 

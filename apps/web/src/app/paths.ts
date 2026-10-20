@@ -36,6 +36,8 @@ export const PATHS = {
   adminReports: '/admin/reports',
   adminUsers: '/admin/users',
   adminAudit: '/admin/audit',
+  /** I5: the image approval queue (CONTENT_MODERATE). */
+  adminMedia: '/admin/media',
   /** F3.7: the community rules page (PG-049, BR-075, Q2: signed-in only), from the side menu and the report window. */
   communityRules: '/community-rules',
   /** I6: one tracker page, `/trackers/<kind>` (the eight child trackers and `cycle`). Protected by pattern: see `trackerPageOfPath`. */
@@ -82,6 +84,7 @@ export const PROTECTED_PATHS: readonly string[] = [
   PATHS.adminUsers,
   PATHS.adminAudit,
   PATHS.adminGuides,
+  PATHS.adminMedia,
   PATHS.adminTeam,
   PATHS.adminCommunity,
   PATHS.adminAnnouncements,
