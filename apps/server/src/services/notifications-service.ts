@@ -33,7 +33,7 @@ export type NotificationsOutcome =
 export async function readNotifications(database: Database, identity: Identity): Promise<NotificationsOutcome> {
   return inIdentityTransaction(database, identity, async (tx): Promise<NotificationsOutcome> => {
     const member = await classifyMember(tx);
-    if (isRefusal(member)) return member as MemberRefusal;
+    if (isRefusal(member)) return member;
     const rows = await readLatest(tx, NOTIFICATIONS_PAGE_SIZE);
     const unreadCount = await countUnread(tx);
     const actorIds = [...new Set(rows.flatMap((row) => (row.actorId === null ? [] : [row.actorId])))];
@@ -60,7 +60,7 @@ export type MarkOutcome = { readonly kind: 'done' } | { readonly kind: 'unavaila
 export async function markRead(database: Database, identity: Identity, id: string): Promise<MarkOutcome> {
   return inIdentityTransaction(database, identity, async (tx): Promise<MarkOutcome> => {
     const member = await classifyMember(tx);
-    if (isRefusal(member)) return member as MemberRefusal;
+    if (isRefusal(member)) return member;
     return (await markOneRead(tx, id)).length === 0 ? { kind: 'unavailable' } : { kind: 'done' };
   });
 }
@@ -69,7 +69,7 @@ export async function markRead(database: Database, identity: Identity, id: strin
 export async function markEverythingRead(database: Database, identity: Identity): Promise<MarkOutcome> {
   return inIdentityTransaction(database, identity, async (tx): Promise<MarkOutcome> => {
     const member = await classifyMember(tx);
-    if (isRefusal(member)) return member as MemberRefusal;
+    if (isRefusal(member)) return member;
     await markAllRead(tx);
     return { kind: 'done' };
   });
@@ -83,7 +83,7 @@ export type PreferencesOutcome =
 export async function readPreferences(database: Database, identity: Identity): Promise<PreferencesOutcome> {
   return inIdentityTransaction(database, identity, async (tx): Promise<PreferencesOutcome> => {
     const member = await classifyMember(tx);
-    if (isRefusal(member)) return member as MemberRefusal;
+    if (isRefusal(member)) return member;
     const stored = new Map((await readCategoryRows(tx)).map((row) => [row.category, row.isEnabled]));
     const categories = NOTIFICATION_CATEGORIES.map((category): NotificationPreference => ({ category, isEnabled: stored.get(category) ?? true }));
     if (member.kind !== 'regular') return { kind: 'ok', categories: categories.filter((c) => c.category !== 'friends' && c.category !== 'friend_posts'), friends: [] };
@@ -106,7 +106,7 @@ export type WriteOutcome = { readonly kind: 'done' } | { readonly kind: 'unavail
 export async function setCategory(database: Database, identity: Identity, category: (typeof NOTIFICATION_CATEGORIES)[number], isEnabled: boolean): Promise<WriteOutcome> {
   return inIdentityTransaction(database, identity, async (tx): Promise<WriteOutcome> => {
     const member = await classifyMember(tx);
-    if (isRefusal(member)) return member as MemberRefusal;
+    if (isRefusal(member)) return member;
     await writeCategory(tx, category, isEnabled);
     return { kind: 'done' };
   });
@@ -117,7 +117,7 @@ export async function setFriendFollow(database: Database, identity: Identity, fr
   try {
     return await inIdentityTransaction(database, identity, async (tx): Promise<WriteOutcome> => {
       const member = await classifyMember(tx);
-      if (isRefusal(member)) return member as MemberRefusal;
+      if (isRefusal(member)) return member;
       if (member.kind !== 'regular') return { kind: 'forbidden' };
       await writeFollow(tx, friendId, isEnabled);
       return { kind: 'done' };

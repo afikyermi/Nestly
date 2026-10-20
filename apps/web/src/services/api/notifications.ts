@@ -45,7 +45,7 @@ async function call(accessToken: string, init: Call): Promise<NotificationsOutco
   } catch {
     return { kind: 'failed' };
   }
-  const code = typeof body === 'object' && body !== null ? Reflect.get(body, 'error') : undefined;
+  const code: unknown = typeof body === 'object' && body !== null ? Reflect.get(body, 'error') : undefined;
   if (response.status === 403) return code === 'account_unavailable' ? { kind: 'account-unavailable' } : { kind: 'failed' };
   if (response.status === 404) return { kind: 'gone' };
   if (response.status !== 200) return { kind: 'failed' };

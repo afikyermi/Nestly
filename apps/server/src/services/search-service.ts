@@ -36,7 +36,7 @@ export async function search(database: Database, identity: Identity, text: strin
   try {
     return await inIdentityTransaction(database, identity, async (tx): Promise<SearchOutcome> => {
       const member = await classifyMember(tx);
-      if (isRefusal(member)) return member as MemberRefusal;
+      if (isRefusal(member)) return member;
       const response: SearchResponse = { people: [], groups: [], posts: [], peopleLimited: false };
       if (type === 'all' || type === 'people') {
         const found = await searchPeople(tx, text, SEARCH_RESULT_LIMIT);

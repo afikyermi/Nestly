@@ -26,7 +26,7 @@ export async function fetchSearch(accessToken: string, text: string, type: Searc
   } catch {
     return { kind: 'failed' };
   }
-  const code = typeof body === 'object' && body !== null ? Reflect.get(body, 'error') : undefined;
+  const code: unknown = typeof body === 'object' && body !== null ? Reflect.get(body, 'error') : undefined;
   if (response.status === 429) return code === 'rate_limited' ? { kind: 'rate-limited' } : { kind: 'failed' };
   if (response.status === 403) return code === 'account_unavailable' ? { kind: 'account-unavailable' } : { kind: 'failed' };
   if (response.status !== 200) return { kind: 'failed' };

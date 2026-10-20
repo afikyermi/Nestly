@@ -1,4 +1,5 @@
 import postgres from 'postgres';
+import { z } from 'zod';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createDatabase, type Database } from '../../src/db/client.js';
 import { ACCOUNT_A, ACCOUNT_B, AUDIENCE, COLD_START_MS, ISSUER, newKey, restoreEnv, startJwks, token, type App, type JwksServer, type TestKey } from '../helpers/identity-fixtures.js';
@@ -40,12 +41,15 @@ const post = (app: App, header: string, path: string) => app.inject({ method: 'P
 const put = (app: App, header: string, path: string, payload: unknown) =>
   app.inject({ method: 'PUT', url: path, headers: { authorization: header, 'content-type': 'application/json' }, payload: JSON.stringify(payload) });
 
-const commentIdOf = (body: string): unknown => (jsonOf(body).comment as { id?: unknown } | undefined)?.id;
-interface Item { id: string; type: string; actorName: string | null; targetKind: string; targetId: string; isRead: boolean }
-async function list(app: App, header: string): Promise<{ items: Item[]; unreadCount: number }> {
+const commentIdOf = (body: string): unknown => z.object({ comment: z.object({ id: z.string() }) }).parse(jsonOf(body)).comment.id;
+const listBody = z.object({
+  items: z.array(z.object({ id: z.string(), type: z.string(), actorName: z.string().nullable(), targetKind: z.string(), targetId: z.string(), isRead: z.boolean() })),
+  unreadCount: z.number(),
+});
+async function list(app: App, header: string): Promise<z.infer<typeof listBody>> {
   const res = await get(app, header, '/api/notifications');
   expect(res.statusCode, res.body).toBe(200);
-  return JSON.parse(res.body) as { items: Item[]; unreadCount: number };
+  return listBody.parse(JSON.parse(res.body));
 }
 const clear = async (): Promise<void> => {
   await side`select tests.fx_nt_purge()`;
@@ -135,7 +139,7 @@ describe('[FR-NOTIF-002 FR-NOTIF-003 AC-041] preferences', () => {
     const app = await start();
     const first = await get(app, hA, '/api/notification-preferences');
     expect(first.statusCode, first.body).toBe(200);
-    const body = JSON.parse(first.body) as { categories: { category: string; isEnabled: boolean }[] };
+    const body = z.object({ categories: z.array(z.object({ category: z.string(), isEnabled: z.boolean() })) }).parse(JSON.parse(first.body));
     expect(body.categories.map((c) => [c.category, c.isEnabled])).toEqual([['friends', true], ['comments', true], ['shares', true], ['friend_posts', true]]);
     expect((await put(app, hA, '/api/notification-preferences/categories/comments', { isEnabled: false })).statusCode).toBe(200);
     const created = await createPost(app, hA, { body: 'x post', audience: 'everyone' });
@@ -159,7 +163,7 @@ describe('[FR-NOTIF-002 FR-NOTIF-003 AC-041] preferences', () => {
     expect((await sendTo(app, hA, ACCOUNT_B)).statusCode).toBe(201);
     expect((await post(app, hB, `/api/friend-requests/${ACCOUNT_A}/accept`)).statusCode).toBe(200);
     expect((await list(app, hA)).items.map((i) => i.type)).toEqual(['friend_accepted']);
-    const prefs = JSON.parse((await get(app, hB, '/api/notification-preferences')).body) as { friends: { userId: string; isEnabled: boolean }[] };
+    const prefs = z.object({ friends: z.array(z.object({ userId: z.string(), fullName: z.string(), isEnabled: z.boolean() })) }).parse(JSON.parse((await get(app, hB, '/api/notification-preferences')).body));
     expect(prefs.friends).toEqual([{ userId: ACCOUNT_A, fullName: NAME_A, isEnabled: false }]);
     await createPost(app, hA, { body: 'before following', audience: 'everyone' });
     expect((await list(app, hB)).items.map((i) => i.type)).toEqual(['friend_request']);
@@ -181,14 +185,15 @@ describe('[FR-SEARCH-001 AC-039 AC-065 AC-078] search', () => {
     await createPost(app, hA, { body: 'פוסט לחברים בלבד על שינה', audience: 'friends' });
     const res = await find(app, hB, 'שינה');
     expect(res.statusCode, res.body).toBe(200);
-    const body = JSON.parse(res.body) as { people: unknown[]; groups: unknown[]; posts: { snippet: string; authorName: string | null }[]; peopleLimited: boolean };
+    const body = z.object({ groups: z.array(z.unknown()), posts: z.array(z.object({ snippet: z.string(), authorName: z.string().nullable() })) }).parse(JSON.parse(res.body));
     expect(body.posts.map((p) => p.snippet)).toContain('מי מכירה יועצת שינה טובה?');
     expect(body.posts.map((p) => p.snippet), 'a Friends-only post of a non-Friend is not found').not.toContain('פוסט לחברים בלבד על שינה');
     expect(body.posts.every((p) => p.authorName === NAME_A)).toBe(true);
     expect(body.groups).toEqual([]);
-    const people = JSON.parse((await find(app, hB, 'alice', 'people')).body) as { people: { userId: string; fullName: string }[] };
+    const peopleBody = z.object({ people: z.array(z.object({ userId: z.string(), fullName: z.string() })) });
+    const people = peopleBody.parse(JSON.parse((await find(app, hB, 'alice', 'people')).body));
     expect(people.people).toEqual([{ userId: ACCOUNT_A, fullName: NAME_A }]);
-    const self = JSON.parse((await find(app, hA, 'alice', 'people')).body) as { people: unknown[] };
+    const self = peopleBody.parse(JSON.parse((await find(app, hA, 'alice', 'people')).body));
     expect(self.people).toEqual([]);
   });
 
@@ -210,7 +215,7 @@ describe('[FR-SEARCH-001 AC-039 AC-065 AC-078] search', () => {
     const limited = await find(app, hB, 'alice', 'people');
     expect(limited.statusCode).toBe(429);
     expect(jsonOf(limited.body)).toEqual({ error: 'rate_limited' });
-    const all = JSON.parse((await find(app, hB, 'alice')).body) as { peopleLimited: boolean; people: unknown[] };
+    const all = z.object({ peopleLimited: z.boolean(), people: z.array(z.unknown()) }).parse(JSON.parse((await find(app, hB, 'alice')).body));
     expect(all.peopleLimited).toBe(true);
     expect(all.people).toEqual([]);
     const [events] = await side`select tests.fx_ns_events(${ACCOUNT_B}::uuid) as n`;

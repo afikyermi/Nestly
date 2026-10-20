@@ -1,8 +1,14 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { NotificationList } from './NotificationList';
-import { useNotifications } from './NotificationsProvider';
-import { EMPTY_TEXT, LOAD_FAILED_TEXT, MARK_ALL_LABEL, MARK_FAILED_TEXT, RETRY_LABEL } from './notification-texts';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { NotificationList } from "./NotificationList";
+import { useNotifications } from "./NotificationsProvider";
+import {
+  EMPTY_TEXT,
+  LOAD_FAILED_TEXT,
+  MARK_ALL_LABEL,
+  MARK_FAILED_TEXT,
+  RETRY_LABEL,
+} from "./notification-texts";
 
 // The notifications page (FR-NOTIF-001, AC-040): the latest notifications with their unread state and deep link, and "סימון הכול כנקרא".
 // The data is the provider's, the same the bell shows; marking read here updates the bell at once.
@@ -10,8 +16,9 @@ export function NotificationsScreen() {
   const { state, refresh, markAll, markOne } = useNotifications();
   const [markFailed, setMarkFailed] = useState(false);
 
-  if (state.kind === 'loading') return <p role="status" className="text-muted-foreground" />;
-  if (state.kind !== 'ready') {
+  if (state.kind === "loading")
+    return <p role="status" className="text-muted-foreground" />;
+  if (state.kind !== "ready") {
     return (
       <div>
         <p role="alert">{LOAD_FAILED_TEXT}</p>

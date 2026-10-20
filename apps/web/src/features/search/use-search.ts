@@ -1,13 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
-import { normalizeSearchText, SEARCH_QUERY_MIN, type SearchResponse } from '@nestly/shared';
-import { useSessionAccount } from '@/hooks/use-session-account';
-import { fetchSearch } from '@/services/api/search';
+import { useEffect, useRef, useState } from "react";
+import {
+  normalizeSearchText,
+  SEARCH_QUERY_MIN,
+  type SearchResponse,
+} from "@nestly/shared";
+import { useSessionAccount } from "@/hooks/use-session-account";
+import { fetchSearch } from "@/services/api/search";
 
 export type SearchView =
-  | { kind: 'idle' }
-  | { kind: 'loading' }
-  | { kind: 'results'; data: SearchResponse }
-  | { kind: 'failed' };
+  | { kind: "idle" }
+  | { kind: "loading" }
+  | { kind: "results"; data: SearchResponse }
+  | { kind: "failed" };
 
 /** Results are kept for a minute per text: the dropdown and the results screen share one search, so one typed text counts once (NFR-SEC-006). */
 const CACHE_MS = 60_000;
@@ -22,33 +26,43 @@ export const DEBOUNCE_MS = 600;
  */
 export function useSearch(text: string, enabled = true, retry = 0): SearchView {
   const account = useSessionAccount();
-  const [view, setView] = useState<SearchView>({ kind: 'idle' });
+  const [view, setView] = useState<SearchView>({ kind: "idle" });
   const runs = useRef(0);
   const normalized = normalizeSearchText(text);
 
   useEffect(() => {
     const run = (runs.current += 1);
     if (!enabled || [...normalized].length < SEARCH_QUERY_MIN) {
-      setView({ kind: 'idle' });
+      setView({ kind: "idle" });
       return;
     }
     const hit = cache.get(normalized);
     if (retry === 0 && hit !== undefined && Date.now() - hit.at < CACHE_MS) {
-      setView({ kind: 'results', data: hit.data });
+      setView({ kind: "results", data: hit.data });
       return;
     }
-    setView({ kind: 'loading' });
+    setView({ kind: "loading" });
     const timer = setTimeout(() => {
       void (async () => {
-        const accessToken = account === null ? null : await account.getAccessToken().catch(() => null);
-        const outcome = accessToken === null ? ({ kind: 'failed' } as const) : await fetchSearch(accessToken, normalized, 'all');
+        const accessToken =
+          account === null
+            ? null
+            : await account.getAccessToken().catch(() => null);
+        const outcome =
+          accessToken === null
+            ? ({ kind: "failed" } as const)
+            : await fetchSearch(accessToken, normalized, "all");
         if (run !== runs.current) return;
-        if (outcome.kind === 'results') {
+        if (outcome.kind === "results") {
           cache.set(normalized, { at: Date.now(), data: outcome.data });
-          setView({ kind: 'results', data: outcome.data });
+          setView({ kind: "results", data: outcome.data });
         } else {
-          if (outcome.kind === 'unauthenticated' || outcome.kind === 'account-unavailable') void account?.recheck();
-          setView({ kind: 'failed' });
+          if (
+            outcome.kind === "unauthenticated" ||
+            outcome.kind === "account-unavailable"
+          )
+            void account?.recheck();
+          setView({ kind: "failed" });
         }
       })();
     }, DEBOUNCE_MS);

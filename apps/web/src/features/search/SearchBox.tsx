@@ -1,12 +1,20 @@
-import { useId, useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router';
-import { PATHS } from '@/app/paths';
-import { inputStyles } from '@/components/ui/text-input';
-import { SearchIcon } from '@/components/ui/icons';
-import { cn } from '@/lib/cn';
-import { SearchResults } from './SearchResults';
-import { useSearch } from './use-search';
-import { FAILED_TEXT, LOADING_TEXT, PROMPT_TEXT, SEARCH_LABEL, SEARCH_PLACEHOLDER_LABEL, SUBMIT_LABEL, VIEW_ALL_LABEL } from './search-texts';
+import { useId, useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router";
+import { PATHS } from "@/app/paths";
+import { inputStyles } from "@/components/ui/text-input";
+import { SearchIcon } from "@/components/ui/icons";
+import { cn } from "@/lib/cn";
+import { SearchResults } from "./SearchResults";
+import { useSearch } from "./use-search";
+import {
+  FAILED_TEXT,
+  LOADING_TEXT,
+  PROMPT_TEXT,
+  SEARCH_LABEL,
+  SEARCH_PLACEHOLDER_LABEL,
+  SUBMIT_LABEL,
+  VIEW_ALL_LABEL,
+} from "./search-texts";
 
 export function searchPath(text: string): string {
   return `${PATHS.search}?q=${encodeURIComponent(text)}`;
@@ -16,33 +24,38 @@ export function searchPath(text: string): string {
 // התוצאות". It searches after a pause in typing, from two characters, and shares its results with the results screen. Below 768 the bar holds
 // a search icon that opens the results screen, where the field is. Enter opens the results screen at once.
 export function SearchBox() {
-  const [text, setText] = useState('');
+  const [text, setText] = useState("");
   const [focused, setFocused] = useState(false);
   const navigate = useNavigate();
   const panelId = useId();
   const view = useSearch(text, focused);
-  const open = focused && text.trim() !== '';
+  const open = focused && text.trim() !== "";
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (text.trim() === '') return;
+    if (text.trim() === "") return;
     setFocused(false);
     void navigate(searchPath(text.trim()));
   };
 
   return (
     <>
-      <Link to={PATHS.search} aria-label={SEARCH_LABEL} className="inline-flex size-11 items-center justify-center rounded-md text-foreground hover:bg-muted md:hidden">
+      <Link
+        to={PATHS.search}
+        aria-label={SEARCH_LABEL}
+        className="inline-flex size-11 items-center justify-center rounded-md text-foreground hover:bg-muted md:hidden"
+      >
         <SearchIcon />
       </Link>
       <form
         role="search"
         onSubmit={submit}
         onBlur={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
+          if (!event.currentTarget.contains(event.relatedTarget))
+            setFocused(false);
         }}
         onKeyDown={(event) => {
-          if (event.key === 'Escape') setFocused(false);
+          if (event.key === "Escape") setFocused(false);
         }}
         className="relative hidden md:block"
       >
@@ -58,19 +71,37 @@ export function SearchBox() {
           aria-expanded={open}
           onFocus={() => setFocused(true)}
           onChange={(event) => setText(event.target.value)}
-          className={cn(inputStyles, 'min-h-11 w-64 lg:w-80')}
+          className={cn(inputStyles, "min-h-11 w-64 lg:w-80")}
         />
         <button type="submit" className="sr-only">
           {SUBMIT_LABEL}
         </button>
         {open ? (
-          <div id={panelId} className="absolute end-0 top-full z-popover mt-1 w-[26rem] max-w-[90vw] rounded-md bg-card p-3 text-card-foreground shadow-card">
-            {view.kind === 'idle' ? <p className="text-small text-muted-foreground">{PROMPT_TEXT}</p> : null}
-            {view.kind === 'loading' ? <p role="status" className="text-small text-muted-foreground">{LOADING_TEXT}</p> : null}
-            {view.kind === 'failed' ? <p role="alert" className="text-small">{FAILED_TEXT}</p> : null}
-            {view.kind === 'results' ? (
+          <div
+            id={panelId}
+            className="absolute end-0 top-full z-popover mt-1 w-96 rounded-md bg-card p-3 text-card-foreground shadow-card"
+          >
+            {view.kind === "idle" ? (
+              <p className="text-small text-muted-foreground">{PROMPT_TEXT}</p>
+            ) : null}
+            {view.kind === "loading" ? (
+              <p role="status" className="text-small text-muted-foreground">
+                {LOADING_TEXT}
+              </p>
+            ) : null}
+            {view.kind === "failed" ? (
+              <p role="alert" className="text-small">
+                {FAILED_TEXT}
+              </p>
+            ) : null}
+            {view.kind === "results" ? (
               <>
-                <SearchResults data={view.data} type="all" limit={3} onChoose={() => setFocused(false)} />
+                <SearchResults
+                  data={view.data}
+                  type="all"
+                  limit={3}
+                  onChoose={() => setFocused(false)}
+                />
                 <Link
                   to={searchPath(text.trim())}
                   onClick={() => setFocused(false)}
