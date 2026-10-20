@@ -15,6 +15,7 @@ import type { ReportsNet } from './support/report-stub';
 import {
   KEYS, REASONS, T, TITLE, cancelButton, choose, detailsBox, expectFocusIn, expectFocusRing, expectTouchTarget, menu, radios, scrollY, sendButton, sheet, status,
 } from './support/report-ui';
+import { afterPaint } from './support/post-menu';
 
 test.use({ baseURL: APP });
 
@@ -75,6 +76,7 @@ test.describe('F3.7 c9 [FR-MOD-001] the entry point on the feed card', () => {
       for (const close of ['Escape', 'outside', 'Back'] as const) {
         await button.click();
         await expect(menu(page)).toBeVisible();
+        await afterPaint(page);
         if (close === 'Escape') await page.keyboard.press('Escape');
         else if (close === 'outside') await page.mouse.click(5, 5);
         else await page.goBack();
@@ -128,6 +130,7 @@ test.describe('F3.7 c10 [direction "דפוסי אינטראקציה"] the shared
         await page.keyboard.press('PageDown');
         expect(await scrollY(page), `${close}: no scroll behind`).toBe(at);
         expect(pathOf(page), `${close}: the address`).toBe('/feed');
+        await afterPaint(page);
         if (close === 'Escape') await page.keyboard.press('Escape');
         else if (close === 'outside') await page.mouse.click(3, 3);
         else if (close === 'cancel') await cancelButton(box).click();

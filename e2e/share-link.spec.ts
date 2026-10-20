@@ -13,6 +13,7 @@ import type { Unit } from './support/feed-stub';
 import { id, originalOf, postView, setupShare } from './support/share-stub';
 import type { ShareNet } from './support/share-stub';
 import { feedCards, openFeedAt } from './support/composer';
+import { afterPaint } from './support/post-menu';
 
 test.use({ baseURL: APP });
 
@@ -204,6 +205,7 @@ test.describe('F3.6 c4 [FR-FEED-007, NFR-PRIV-007] the ShareSheet', () => {
         await page.mouse.wheel(0, 600);
         await page.keyboard.press('PageDown');
         expect(await scrollY(page), `${close}: no scroll behind`).toBe(at);
+        await afterPaint(page);
         if (close === 'Escape') await page.keyboard.press('Escape');
         else if (close === 'outside') await page.mouse.click(3, 3);
         else if (close === 'close') await closeButton(box).click();
@@ -319,6 +321,7 @@ test.describe('F3.6 c11 [FR-FEED-007] "שיתוף Nestly" in the side menu', () 
       const box = sheetOf(page, SITE);
       await expect(box).toBeVisible();
       await expect(whatsapp(box)).toBeFocused(); // the sheet has finished opening before it is closed
+      await afterPaint(page);
       if (close === 'Escape') await page.keyboard.press('Escape');
       else if (close === 'outside') await page.mouse.click(3, 3);
       else await page.goBack();
