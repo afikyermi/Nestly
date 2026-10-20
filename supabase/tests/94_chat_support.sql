@@ -10,7 +10,7 @@ begin;
 
 select * from no_plan();
 
-select is(session_user::text, 'app_server'::text, '[I8 fixture] session_user is app_server (this file must not run under another login)');
+select is(session_user::text, 'app_server'::text, '[F8.1-a c0] session_user is app_server (this file must not run under another login)');
 
 select tests.fx_fr_build();
 
