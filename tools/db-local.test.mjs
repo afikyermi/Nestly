@@ -51,15 +51,30 @@ test('[9] the setup SQL is the db job of ci.yml, in its order; only the listed g
   const fixtures = plan.afterMigrations.filter((f) => f.startsWith('supabase/tests/setup/'));
   assert.ok(fixtures.length > 0);
   assert.deepEqual(fixtures, [...fixtures].sort(), 'in name order, as the CI loop');
-  const local = [...plan.asAdmin, ...plan.beforeRoles, ...plan.afterMigrations.filter((f) => !fixtures.includes(f)), 'supabase/tests/setup/*'];
+  // Local-only: the step 3 down/up round trip (db-local repeats checks and runs 03-cron-down.sql; CI runs 03 twice and its checks once, I3 PR-B).
+  // The CI file list is in first-run order, so the local list is compared by first occurrence, without the local-only down script.
+  const LOCAL_ONLY = ['supabase/bootstrap/03-cron-down.sql'];
+  // E1 runs in CI after pgTAP (the probes would break pgTAP 86), not here: db-local runs no pg_prove step after it.
+  const E1_SKIP = { 'supabase/ci/cron-e1.sql': 'E1 contract test, after pgTAP 86 (I3 PR-B)' };
+  const skipped = { ...SKIPPED_CI, ...E1_SKIP };
+  const all = [...plan.asAdmin, ...plan.beforeRoles, ...plan.afterMigrations.filter((f) => !fixtures.includes(f)), 'supabase/tests/setup/*'];
+  const local = all.filter((f, i) => all.indexOf(f) === i && !LOCAL_ONLY.includes(f));
+  for (const f of LOCAL_ONLY) assert.ok(plan.afterMigrations.includes(f), `${f} is part of the local round trip`);
+  // The round trip is down, then up again, with the step-1 check in both states.
+  const seq = plan.afterMigrations;
+  const down = seq.indexOf('supabase/bootstrap/03-cron-down.sql');
+  assert.ok(seq.indexOf('supabase/bootstrap/03-cron.sql') < down && seq.indexOf('supabase/bootstrap/03-cron.sql', down) > down, '03 runs before and again after the down script');
+  assert.ok(seq.slice(down).includes('supabase/bootstrap/01-roles-check.sql'), 'the step-1 check runs after the down script');
+  assert.deepEqual(plan.okChecks['supabase/bootstrap/01-roles-check.sql'], { col: 1, rows: 4 });
   const ciOrder = ciDbOrder(ci);
   // Every CI file is either run here, in the same order, or an explicitly listed skip; nothing else.
-  assert.deepEqual(ciOrder.filter((f) => !(f in SKIPPED_CI)), local);
-  assert.deepEqual(Object.keys(SKIPPED_CI).sort(), ciOrder.filter((f) => !local.includes(f)).sort());
+  // (Expected to FAIL until Afik applies .work/i3-rest-schema/pr-b-2010/ci-yml-for-afik.diff to ci.yml: db-local already runs step 3.)
+  assert.deepEqual(ciOrder.filter((f) => !(f in skipped)), local);
+  assert.deepEqual(Object.keys(skipped).sort(), ciOrder.filter((f) => !local.includes(f)).sort());
   assert.ok(plan.afterMigrations.includes(plan.anchorCheck), 'the anchor check runs (its ok is asserted)');
   // The parser itself: a step CI adds, or a reorder, changes what it reads.
   const added = ci.replace('-f supabase/ci/rls-gate.sql', '-f supabase/ci/rls-gate.sql\n          psql -f supabase/ci/new-step.sql');
-  assert.notDeepEqual(ciDbOrder(added).filter((f) => !(f in SKIPPED_CI)), local);
+  assert.notDeepEqual(ciDbOrder(added).filter((f) => !(f in skipped)), local);
 });
 
 test('[6ד · 19.10 item 3] the container is named per checkout, published on 127.0.0.1 only, and the tool names no env file or remote project', () => {
