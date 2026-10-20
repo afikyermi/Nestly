@@ -26,7 +26,10 @@
 --     app_recovery (none)
 --     app_server   anon(i=f s=t a=f), app_recovery(i=f s=t a=f), authenticated(i=f s=t a=f)
 --   held_by:
---     app_jobs     postgres(i=f s=f a=t) by supabase_admin
+--     app_jobs     before step 3: postgres(i=f s=f a=t) by supabase_admin
+--                  after step 3 (03-cron.sql ran: a cron.job named nestly_purge_held_content owned by postgres exists):
+--                  postgres(i=f s=f a=t) by supabase_admin, postgres(i=f s=t a=f) by postgres
+--                  (the persistent SET membership that lets the job run `set role app_jobs`; the grantor must be postgres)
 --     app_owner    postgres(i=f s=f a=t) by supabase_admin, postgres(i=t s=f a=f) by postgres
 --     app_recovery app_server(i=f s=t a=f) by postgres, postgres(i=f s=f a=t) by supabase_admin
 --     app_server   postgres(i=f s=f a=t) by supabase_admin
@@ -41,7 +44,15 @@ with expected(role, login, inherit, create_on_db, member_of, held_by) as (
   values
     ('app_jobs',   false, false, false,
      '(none)',
-     'postgres(i=f s=f a=t) by supabase_admin'),
+     case when (
+       -- cron.job is read through query_to_xml so this file still parses where pg_cron is not installed
+       select coalesce((xpath('/row/c/text()', query_to_xml(
+         $q$select count(*) as c from cron.job where jobname = 'nestly_purge_held_content' and username = 'postgres'$q$,
+         false, true, '')))[1]::text::int, 0)
+       where to_regclass('cron.job') is not null
+     ) > 0
+     then 'postgres(i=f s=f a=t) by supabase_admin, postgres(i=f s=t a=f) by postgres'
+     else 'postgres(i=f s=f a=t) by supabase_admin' end),
     ('app_owner',  true,  true,  true,
      'authenticated(i=t s=f a=f)',
      'postgres(i=f s=f a=t) by supabase_admin, postgres(i=t s=f a=f) by postgres'),

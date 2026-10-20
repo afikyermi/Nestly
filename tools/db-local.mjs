@@ -99,8 +99,10 @@ export function setupPlan(root) {
   return {
     asAdmin: ['supabase/ci/auth-functions.sql'],
     beforeRoles: ['supabase/ci/auth-functions-check.sql', 'supabase/ci/image-preflight.sql', 'supabase/bootstrap/01-roles.sql'],
-    afterMigrations: ['supabase/bootstrap/02-anchor-fk.sql', 'supabase/bootstrap/02-anchor-fk-check.sql', 'supabase/ci/pgtap-setup.sql', 'supabase/ci/rls-gate.sql', ...setup.map((f) => `supabase/tests/setup/${f}`)],
+    afterMigrations: ['supabase/bootstrap/02-anchor-fk.sql', 'supabase/bootstrap/02-anchor-fk-check.sql', 'supabase/bootstrap/03-cron.sql', 'supabase/bootstrap/03-cron-check.sql', 'supabase/bootstrap/01-roles-check.sql', 'supabase/bootstrap/03-cron-down.sql', 'supabase/bootstrap/03-cron-down.sql', 'supabase/bootstrap/01-roles-check.sql', 'supabase/bootstrap/03-cron.sql', 'supabase/bootstrap/03-cron-check.sql', 'supabase/bootstrap/01-roles-check.sql', 'supabase/ci/pgtap-setup.sql', 'supabase/ci/rls-gate.sql', ...setup.map((f) => `supabase/tests/setup/${f}`)],
     anchorCheck: 'supabase/bootstrap/02-anchor-fk-check.sql',
+    // Check files: exactly `rows` rows, each with ok = t in column `col` (0 for anchor and cron, 1 for roles after the role name). The step 3 down/up round trip runs in the list, so the step-1 check is proven in both states.
+    okChecks: { 'supabase/bootstrap/02-anchor-fk-check.sql': { col: 0, rows: 1 }, 'supabase/bootstrap/03-cron-check.sql': { col: 0, rows: 1 }, 'supabase/bootstrap/01-roles-check.sql': { col: 1, rows: 4 } },
   };
 }
 
@@ -179,12 +181,14 @@ function withDatabase(keep, work) {
     const push = spawnSync(process.execPath, [supabaseCli(cli), 'db', 'push', '--db-url', `${localUrl('app_owner', pw.app_owner, PORT)}?sslmode=disable`, '--yes', '--skip-vault', '--agent', 'no'], { cwd: ROOT, stdio: 'inherit' });
     if (push.status !== 0) throw new Error('supabase db push failed');
     for (const f of plan.afterMigrations) {
-      if (f !== plan.anchorCheck) {
+      if (!(f in plan.okChecks)) {
         psql('postgres', pw.postgres, read(f), f);
         continue;
       }
-      const anchor = psql('postgres', pw.postgres, read(f), f, ['-A', '-t', '-F', ' | ']).trim();
-      if (!anchor.startsWith('t | ')) throw new Error(`${f}: ok is not true (${anchor})`);
+      const out = psql('postgres', pw.postgres, read(f), f, ['-A', '-t', '-F', ' | ']).trim();
+      const rows = out.split('\n');
+      const { col, rows: want } = plan.okChecks[f];
+      if (!out || rows.length !== want || !rows.every((row) => row.split(' | ')[col] === 't')) throw new Error(`${f}: ok is not true (${out})`);
     }
     return work(pw);
   } finally {

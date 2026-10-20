@@ -1,0 +1,50 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 91335ef..0a13871 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -535,6 +535,30 @@ jobs:
+             *) echo "::error::02-anchor-fk-check.sql: ok is not true"; exit 1 ;;
+           esac
+ 
++      # Bootstrap step 3 (I3 PR-B, DATA ARCHITECT 20.10 fallback A2): the purge schedule, as postgres, after the migrations
++      # that create the function. Twice (idempotent), then its check, then step 1's check in its "after step 3" state.
++      - name: Bootstrap step 3 (purge schedule) as postgres, twice, then its check and the step-1 check
++        env:
++          PGUSER: postgres
++          PGPASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
++        run: |
++          set -eu
++          psql -X -q -v ON_ERROR_STOP=1 -f supabase/bootstrap/03-cron.sql
++          psql -X -q -v ON_ERROR_STOP=1 -f supabase/bootstrap/03-cron.sql
++          result="$(psql -X -q -A -t -F ' | ' -v ON_ERROR_STOP=1 -f supabase/bootstrap/03-cron-check.sql)"
++          echo "ok | extension | jobs | schedule | command | username | active | database | nestly_jobs | app_jobs_jobs | no_cron_usage | set_membership"
++          echo "${result}"
++          case "${result}" in
++            "t | "*) ;;
++            *) echo "::error::03-cron-check.sql: ok is not true"; exit 1 ;;
++          esac
++          roles="$(psql -X -q -A -t -F ' | ' -v ON_ERROR_STOP=1 -f supabase/bootstrap/01-roles-check.sql)"
++          echo "${roles}"
++          if [ -z "${roles}" ] || [ "$(echo "${roles}" | wc -l)" -ne 4 ] || echo "${roles}" | awk -F ' [|] ' '$2 != "t" { bad = 1 } END { exit !bad }'; then
++            echo "::error::01-roles-check.sql: expected 4 role rows, all ok, after step 3"
++            exit 1
++          fi
++
+       # Criterion 20. Every column the Drizzle schema names exists in the migrated database with the same type and
+       # nullability. The catalog is read as postgres; the comparison is apps/server/scripts/db-drift.ts.
+       - name: The Drizzle schema matches the migrated database (criterion 20)
+@@ -598,6 +622,14 @@ jobs:
+           # shellcheck disable=SC2086
+           pg_prove --host "${PGHOST}" --port "${PGPORT}" --dbname "${PGDATABASE}" --username app_server ${files}
+ 
++      # E1 (I3 PR-B): the real schedule works. Runs after pgTAP 86 because its probe jobs mention nestly (86 asserts that no
++      # other job does). Probes unschedule themselves; the script fails naming the probe that did not meet its expectation.
++      - name: E1 contract test, pg_cron runs the purge command as app_jobs (outside pgTAP)
++        env:
++          PGUSER: postgres
++          PGPASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
++        run: psql -X -q -v ON_ERROR_STOP=1 -f supabase/ci/cron-e1.sql
++
+       # Part c, criteria 23-26: the server's integration tests (apps/server/tests/db/) against this database, connected
+       # as app_server through DATABASE_URL like a deployed function. The JWKS is served by the tests themselves (local
+       # ES256 keys); nothing reaches Supabase Auth. Vitest fails when the folder holds no test file, on purpose.

@@ -104,3 +104,6 @@ Docs in PR-B: bootstrap README step 3, `01-roles.sql` app_jobs header (first job
 
 ## Reversible?
 Yes — PR-A has a data-free down script; PR-B has `03-cron-down.sql`. No DECISION REQUEST to Afik for irreversibility.
+
+## PR-B revision 20.10 — E1 failed; A2 confirmed
+Superseding PR-B/E1 above where they conflict: `.work/i3-rest-schema/pr-b-2010/schema.md` (job owned by postgres, command `set role app_jobs; select nestly.purge_held_content()`).
