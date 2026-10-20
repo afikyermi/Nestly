@@ -30,6 +30,11 @@ export const PATHS = {
   changePassword: '/change-password',
   /** F3.8: the medical hotlines page (PG-047, FR-MENU-002), from the side menu; BR-075 rule 2 links here (PG-049, its own part). */
   medicalHotlines: '/medical-hotlines',
+  /** I4: the admin shell and its screens (FR-MOD-003, FR-ADMIN-005, PG-028); the server tells staff from the rest. */
+  admin: '/admin',
+  adminReports: '/admin/reports',
+  adminUsers: '/admin/users',
+  adminAudit: '/admin/audit',
   /** F3.7: the community rules page (PG-049, BR-075, Q2: signed-in only), from the side menu and the report window. */
   communityRules: '/community-rules',
 } as const;
@@ -57,6 +62,10 @@ export const PROTECTED_PATHS: readonly string[] = [
   PATHS.changePassword,
   PATHS.medicalHotlines,
   PATHS.communityRules,
+  PATHS.admin,
+  PATHS.adminReports,
+  PATHS.adminUsers,
+  PATHS.adminAudit,
 ];
 
 /** Where a Guest goes from a protected path (ERR-012, Q3): Welcome. The requested path is not kept. */

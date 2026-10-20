@@ -136,6 +136,21 @@ begin
     v_after := pg_catalog.jsonb_build_object('kind', v_new ->> 'kind', 'durationHours', v_new -> 'duration_hours', 'suspendedUntil', v_new -> 'suspended_until',
       'suggestedKind', v_new ->> 'suggested_kind', 'suggestedHours', v_new -> 'suggested_hours', 'stepSkipped', v_new -> 'is_step_skipped',
       'childSafety', v_new -> 'is_child_safety', 'reportId', v_new -> 'report_id');
+  elsif tg_table_name = 'status_guides' then
+    -- FR-ADMIN-012: an Admin-only action (no assignable Permission Key applies). Before/After carry what the guide is, not its text.
+    v_action := case
+      when tg_op = 'INSERT' then 'guide_created'
+      when v_new ->> 'status' is distinct from v_old ->> 'status' then case v_new ->> 'status'
+        when 'published' then 'guide_published' when 'hidden' then 'guide_hidden' else 'guide_unpublished' end
+      else 'guide_edited' end;
+    v_kind := 'guide';
+    v_target := (v_new ->> 'id')::uuid;
+    v_before := case when tg_op = 'UPDATE' then pg_catalog.jsonb_build_object('status', v_old ->> 'status', 'title', v_old ->> 'title',
+      'stageKind', v_old ->> 'stage_kind', 'rangeFrom', v_old -> 'range_from', 'rangeTo', v_old -> 'range_to',
+      'sourceCheckedOn', v_old ->> 'source_checked_on', 'bodyChars', pg_catalog.char_length(v_old ->> 'body')) end;
+    v_after := pg_catalog.jsonb_build_object('status', v_new ->> 'status', 'title', v_new ->> 'title', 'stageKind', v_new ->> 'stage_kind',
+      'rangeFrom', v_new -> 'range_from', 'rangeTo', v_new -> 'range_to', 'sourceCheckedOn', v_new ->> 'source_checked_on',
+      'bodyChars', pg_catalog.char_length(v_new ->> 'body'), 'bodyChanged', tg_op = 'UPDATE' and v_new ->> 'body' is distinct from v_old ->> 'body');
   elsif tg_table_name = 'recovery_lock_releases' then
     v_key := 'RECOVERY_LOCK_RELEASE';
     v_action := 'recovery_lock_released';
@@ -158,7 +173,7 @@ create trigger recovery_lock_releases_audit
   for each row execute function nestly.audit_trigger();
 
 -- 4. Comments.
-comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement or a recovery lock release: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
+comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement, an Admin''s creation, edit, publication or hiding of a status guide, or a recovery lock release: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
 comment on column nestly.recovery_throttles.ladder_failures is
   'NFR-SEC-010: failures since the last success or release, handles only (0 for an IP). The 3rd locks for 1 hour, the 6th for 24 hours, the 9th for good.';
 comment on column nestly.recovery_throttles.ladder_started_at is

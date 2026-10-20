@@ -14,7 +14,7 @@ import { readDatabaseFault } from '../lib/pg-error.js';
 import type { Identity } from '../lib/token-verifier.js';
 import { emailHandle, ipHash } from '../recovery/hashing.js';
 import type { RecoveryKeys } from '../recovery/pepper.js';
-import { readOwnStatuses } from '../repositories/account-state-repository.js';
+import { liftOwnExpiredSuspension, readOwnStatuses } from '../repositories/account-state-repository.js';
 import { readOwnClaim, type OwnClaim } from '../repositories/recovery-repository.js';
 import { needsRekey, rekeyOwnHandle } from './recovery-questions-service.js';
 
@@ -52,8 +52,8 @@ export async function readAccountState(database: Database, identity: Identity, r
     const [status, ...others] = await readOwnStatuses(tx);
     if (others.length > 0) throw new AccountStateFault();
     if (status === undefined) return { account: { state: 'unregistered' }, own: undefined };
-    // Fail closed: only the exact word `active` opens the account.
-    if (status !== 'active') return { account: { state: 'unavailable' }, own: undefined };
+    // Fail closed: only the exact word `active` opens the account. A suspension whose end time has passed ends here (FR-MOD-002).
+    if (status !== 'active' && !(status === 'suspended' && (await liftOwnExpiredSuspension(tx)))) return { account: { state: 'unavailable' }, own: undefined };
     const claim = await readOwnClaim(tx);
     // F2.0 c7 (Q-S1): only the session that completed a takeover clear is told to set a new password.
     const mustSetPassword = guard === 'must_set';
