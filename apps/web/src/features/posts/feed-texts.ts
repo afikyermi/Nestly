@@ -9,3 +9,5 @@ export const TO_TOP_LABEL = 'חזרה למעלה';
 
 export const loadedMoreText = (count: number): string =>
   count === 1 ? 'נטען פוסט אחד נוסף' : `נטענו ${count.toLocaleString('en-US')} פוסטים נוספים`;
+/** I14 (FR-ADMIN-008): the region of the published System Announcements at the top of the feed. */
+export const SYSTEM_NOTICES_LABEL = 'הודעות מערכת';

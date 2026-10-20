@@ -10,7 +10,8 @@ export type AccessDecision = { kind: 'loading' } | { kind: 'render' } | { kind: 
 
 // The two consent documents (placeholders until I9): open to a Guest, and to a signed-in user too (F2.5 c6, Settings links to them).
 const DOCUMENT_PATHS: readonly string[] = [PATHS.terms, PATHS.privacy];
-const COMPLETION_PATHS: readonly string[] = [PATHS.register, ...DOCUMENT_PATHS];
+// I14: the team invitation page too: the invited person signs up there and redeems the code with that session.
+const COMPLETION_PATHS: readonly string[] = [PATHS.register, PATHS.joinTeam, ...DOCUMENT_PATHS];
 const QUESTIONS_HELD_PATHS: readonly string[] = [PATHS.recoveryQuestions, ...DOCUMENT_PATHS];
 const NEW_PASSWORD_HELD_PATHS: readonly string[] = [PATHS.setNewPassword, ...DOCUMENT_PATHS];
 const RENDER: AccessDecision = { kind: 'render' };

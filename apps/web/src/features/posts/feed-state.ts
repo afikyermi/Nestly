@@ -1,4 +1,4 @@
-import type { FeedPageResponse, FeedUnit, PostView } from '@nestly/shared';
+import type { FeedPageResponse, FeedUnit, PostView, PublishedAnnouncement } from '@nestly/shared';
 import { loadedMoreText } from './feed-texts';
 
 /**
@@ -17,6 +17,8 @@ export type HideFocus =
 
 export interface FeedState {
   phase: FeedPhase;
+  /** I14 (FR-ADMIN-008): the published System Announcements, from the first page. */
+  notices: PublishedAnnouncement[];
   /** A request is in flight. */
   loading: boolean;
   items: FeedUnit[];
@@ -44,6 +46,7 @@ export interface FeedState {
 
 export const INITIAL_FEED: FeedState = {
   phase: 'initial',
+  notices: [],
   loading: false,
   items: [],
   nextCursor: null,
@@ -81,6 +84,7 @@ export function withPage(state: FeedState, page: FeedPageResponse, firstPage: bo
     ...state,
     phase: 'ready',
     loading: false,
+    notices: replace ? (page.announcements ?? []) : state.notices,
     items: [...kept, ...added],
     nextCursor: page.nextCursor,
     message: '',
