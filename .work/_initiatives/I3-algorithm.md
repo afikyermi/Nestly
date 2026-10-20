@@ -6,13 +6,19 @@ Afik's final decisions of 18.10 on reported comments/users and on "restricted" p
 19.10.2026 (F3.3 review finding 5, `.work/comments-likes/algorithm-review.md`: displayed counts and the viewer's own like-state
 added to the purpose map; display and like-state statements added beside the ranking allow-list) · 19.10.2026 (F3.3 b1 CRITIC
 open item, `.work/comments-likes/findings-b1.md`: comment-thread `isMine` may read the caller's own `post_authors` row; section
-"Comment-thread statement" added).
+"Comment-thread statement" added) · 19.10.2026 (professional-posting, `.work/professional-posting/algorithm-review.md` R1–R5;
+Afik's professional-posting DR-1..DR-3 of 19.10: a Professional viewer reads the feed on the **content profile**, Professional
+authors' `everyone` posts are candidates; Scope, Purpose map, Excluded, Pipeline 1–3 and 6, allow-list, Configuration,
+Evaluation and Fallbacks revised).
 **Status:** DR-1..DR-4 (incl. DR-4b) and DR-6 answered by Afik (`I3-questions.md` → "תשובות" and his 18.10 final decisions;
-DR-6: 4א, 18.10), DR-5 decided by ORCHESTRATOR. Nothing open for Afik in this file.
-**Scope:** the Regular User feed of I3 (FR-FEED-001..007, FR-MOD-001 report action, FR-ALG-002 subset; roadmap I3 row).
+DR-6: 4א, 18.10), DR-5 decided by ORCHESTRATOR; professional-posting DR-1..DR-3 answered by Afik 19.10 (that spec's
+"Decided"). Nothing open for Afik in this file.
+**Scope:** the community feed of I3 — Regular Users on the **regular profile**, Professional Users on the **content profile**
+(FR-FEED-001..007, FR-MOD-001 report action, FR-ALG-002 subset; AC-061 "content signals" only; roadmap I3 row).
 Not in I3: Interest/Intent and the profile (FR-ALG-001, I15), Negative Feedback/Exploration (FR-ALG-009, I15; only "hide
-this post" enters I3 as F3.9, answer 8א), Groups (I10), Follows and the Professional feed (FR-ALG-003, I11), Sponsored
-(FR-ALG-007, I13), DATA-001 in full (I15).
+this post" enters I3 as F3.9, answer 8א), Groups (I10), Follows and the Professional feed's profession/groups/follows
+signals and a `professional_feed` surface (FR-ALG-003, AC-061, I11), Organic Professional matching (FR-ALG-005, Services;
+never a feed input), Sponsored (FR-ALG-007, I13), DATA-001 in full (I15).
 Rule-based, no ML/LLM (P-ALG-01, BR-049). Any learned component is a separate reserved decision (CLAUDE.md item 6).
 
 ## Purpose map
@@ -20,18 +26,19 @@ Rule-based, no ML/LLM (P-ALG-01, BR-049). Any learned component is a separate re
 | Input | Purpose in I3 | Approved by |
 |---|---|---|
 | Viewer identity, account status (active) | eligibility only | P-ALG-02; §13.2 Account/Role; data-model rule 15 |
+| Viewer `account_type` (read once by `classifyViewer` via `readOwnAccounts`) | choose the ranking profile (`regular` / `content`) and refuse Admin/Moderator; **never** a row filter, never a score input | AC-061; professional-posting DR-1 (Afik 19.10); that spec's c5 |
 | Author account status (active, not suspended/banned, not in deletion grace) | eligibility only | BR-065; BR-073 (hidden from everyone in grace); BR-024 |
 | Post `status` (active / hidden / removed / deleted) | eligibility only | BR-064, BR-065; §18.3 step 1 "active status" |
 | Post audience ("friends only" / "everyone") | eligibility only | FR-FEED-002, OP-033; anonymous is always "everyone" (answer 6א) |
-| Friendship (viewer ↔ named author, accepted, both active) | eligibility (friends-only posts) and the Social component of the score | FR-REL-001; §13.2 Social Graph "Feed candidates, social relevance"; §18.2 Regular Social |
+| Friendship (viewer ↔ named author, accepted, both active) | eligibility (friends-only posts) and the Social component of the score — **regular profile only** | FR-REL-001; §13.2 Social Graph "Feed candidates, social relevance"; §18.2 Regular Social |
 | Anonymity flag | eligibility path + exclusion from every social computation | FR-FEED-005 rule 3, BR-062, AC-076 |
 | `created_at` | Freshness, snapshot bound, tie-break | FR-ALG-002 "Freshness"; §18.3 step 3 |
-| Count of Likes and Comments by active users other than the author (counts only, never who; precise `n` in **Pipeline** 3) | Quality component | FR-ALG-002 "engagement/quality signals"; §18.2 Regular Explicit "Like/Reaction, Comment/Reply → Organic Ranking" |
+| Count of Likes and Comments by active users other than the author (counts only, never who; precise `n` in **Pipeline** 3) | Quality component (both profiles) | FR-ALG-002 "engagement/quality signals"; AC-061 "content signals"; §18.2 Regular Explicit "Like/Reaction, Comment/Reply → Organic Ranking" |
 | Displayed counts: `count(*)` of RLS-visible likes per post or comment and of RLS-visible comments + replies per post (author's own included, no `asOf`) | display only (`likeCount`, `commentCount` on cards, post page, comments); never ranking, never fed into `n` | FR-FEED-001 (like and comment on every card); F3.3 spec c11 |
 | Viewer's own likes (`reaction_owners` rows RLS returns to the viewer) | the viewer's own like-state display only (`likedByMe`); **never ranking**, never display counts, never another viewer | FR-FEED-001; F3.3 spec c12; data-model rule 20 (owners readable by the owner only) |
 | Viewer's own `post_authors` row (RLS returns only the caller's own) — for comments with `author_id` NULL | the caller's own `isMine` on comments in the comment thread only; **never ranking**, never any count, never another viewer (**Comment-thread statement** below) | FR-FEED-003 (delete own comment); data-model rule 20 (owner readable by the owner only); schema-b `comments.author_id` NULL only for the real author on their anonymous post |
-| Viewer's derived Stage set (from own JourneyContexts; never DOB, name or child id), passed to the feed query as a bound parameter | Stage component | FR-FEED-004, BR-050, P-ALG-04; §13.2 Child/Journey "algorithms through derived Stage" |
-| `posts.stage_tag` — the author's optional, explicitly chosen tag | Stage component | answer 5א (DR-2); FR-FEED-004 input |
+| Viewer's derived Stage set (from own JourneyContexts; never DOB, name or child id), passed to the feed query as a bound parameter | Stage component — **regular profile only** | FR-FEED-004, BR-050, P-ALG-04; §13.2 Child/Journey "algorithms through derived Stage" |
+| `posts.stage_tag` — the author's optional, explicitly chosen tag | Stage component — **regular profile only**; for any viewer also a display label | answer 5א (DR-2); FR-FEED-004 input |
 | Viewer's own hides and own **post** reports | eligibility only, inside RLS; never read by the feed query | answers 8א (F3.9) and 7א (DR-4, posts only) |
 | Share reference (original post id) | duplicate suppression in re-ranking; the original is re-checked per viewer | FR-FEED-006, BR-065, BR-066, VAL-038; only "everyone" posts are shareable (answer 2א) |
 | AlgorithmConfiguration (pinned or active version) | weights, caps, decay, page size | P-ALG-07, BR-059, §13 AlgorithmConfiguration |
@@ -41,6 +48,9 @@ Rule-based, no ML/LLM (P-ALG-01, BR-049). Any learned component is a separate re
 | Input | Rule that excludes it |
 |---|---|
 | Real author of an anonymous post — for scoring, diversity, dedup or any join | FR-FEED-005 rule 3, BR-062, AC-076; data-model rule 20 (not readable). Each anonymous post is its own creator for diversity. Sole exception: the caller's **own** `post_authors` row for their own `isMine` in the comment thread (**Comment-thread statement**) |
+| For a Professional viewer (content profile): `friendships` (any read, any term), `journey_contexts` / `readOwnStages`, `posts.stage_tag` as an order, score or keyset input, `children`, tracker data | AC-061; FR-ALG-003 (no Child/Journey/Tracker data); R1–R2 of `.work/professional-posting/algorithm-review.md`. `stage_tag` stays a display field |
+| Author `account_type` — for eligibility, score, diversity or any join | R4: a Professional author's Friend term is 0 by data (`friendships` FKs → `regular_profiles`, BR-029) and Stage term 0 by the DB refusal of their `stage_tag` (professional-posting D2); no special case |
+| Profession, ServiceCategory, Follows, Group membership, Professional rating/quality signals | AC-061 profession/groups/follows and FR-ALG-003 are I11; FR-ALG-005 is Services matching, not the feed |
 | Impressions, opens, dwell, scroll depth, share-link clicks | answer 4א (DR-3): no usage events in I3; FR-FEED-001/004/007 event post-conditions move to I15 with DATA-001 |
 | Interest/Intent profile, search data | FR-ALG-001 (I15), FR-ALG-008 (I7); not built |
 | Not Interested / Show Less, and a hide as a ranking signal | FR-ALG-009 (I15). "Hide this post" (F3.9) acts only as viewer-only eligibility in RLS and is never a signal (answer 8א) |
@@ -67,14 +77,26 @@ Rule-based, no ML/LLM (P-ALG-01, BR-049). Any learned component is a separate re
    posts reachable only through the everyone path, never through Friendship (FR-FEED-005 r.3; 6א makes friends-only
    anonymous impossible) · not hidden by the viewer (8א) · not reported by the viewer (7א, posts only) · from I5: any image
    not yet passed the server check is invisible to others (BR-076). The author's Profile Visibility plays no part (Afik,
-   18.10). Comments carry no reporter clause: a reported comment stays visible to its reporter. DATA ARCHITECT owns the
-   policy shape; pgTAP proves each line.
-2. **Candidate generation.** One organic pool: own posts · Friends' posts (both audiences) · everyone-audience posts of
-   any active Regular author, anonymous included, whatever their Profile Visibility · shares (a share is a Post of the
-   sharer; its original is loaded per viewer, BR-065). Snapshot bound: `created_at ≤ asOf`. No Professional, Group or paid
-   units in I3.
-3. **Scoring (deterministic).** For posts with age ≤ `scoredWindowDays` (tier 0):
+   18.10). Comments carry no reporter clause: a reported comment stays visible to its reporter. An active **Professional
+   viewer** is admitted exactly as a Regular non-friend — own posts + `everyone` posts (data-model rule 5; professional-posting
+   N4, R1); `friendships` read policies are **not** extended to Professionals. No app predicate on audience, author type or
+   `account_type` in any feed SQL. DATA ARCHITECT owns the policy shape; pgTAP proves each line.
+2. **Candidate generation.** One organic pool: own posts · Friends' posts (both audiences; empty for a Professional viewer)
+   · everyone-audience posts of any active Regular **or Professional** author, anonymous included (a Professional author's
+   posts are named, `everyone` and untagged only — professional-posting N1/N2, AC-076), whatever their Profile Visibility ·
+   shares (a share is a Post of the sharer; its original is loaded per viewer, BR-065). Snapshot bound: `created_at ≤ asOf`.
+   No Group or paid units in I3.
+3. **Scoring (deterministic).** For posts with age ≤ `scoredWindowDays` (tier 0), **regular profile**:
    `score = wFresh·2^(−ageHours/halfLifeHours) + wFriend·[named author is viewer's Friend] + wQuality·min(ln(1+n)/ln(1+qualityCap), 1) + wStage·stageMatch`
+   - **Profiles (R2).** The viewer's `account_type`, read once by `classifyViewer`, selects the profile. **content**
+     (Professional viewer) = the formula with the Friend and Stage terms **omitted, not multiplied by 0**:
+     `score = wFresh·2^(−ageHours/halfLifeHours) + wQuality·min(ln(1+n)/ln(1+qualityCap), 1)` (tier 1: 0), with the same
+     float8 typing, `n`, `asOf` bound, tier, order key and keyset. Its ranking SQL references no `friendships`,
+     `stage_tag`, Stage array parameter or `auth.uid()`; `readOwnStages` is **not called**, whatever `wStage` is. The
+     regular profile's ranking SQL stays byte-identical to F3.2's. The shared reference `scorePost` carries both profiles.
+   - **Professional authors (R4).** No special case and no read of the author's account type: the Friend term is 0 by
+     data (`friendships` FKs → `regular_profiles`, BR-029), the Stage term 0 by the DB refusal of their `stage_tag`. A
+     Professional's posts count as one named creator for diversity, like any named author.
    - `ageHours` = `extract(epoch from (asOf − created_at)) / 3600`, measured from `asOf` (not now).
    - **`n`, precisely** = (a) Likes on **the post itself** (`reactions.post_id = post.id`; likes on its comments do not
      count) with `is_by_author = false` and `created_at ≤ asOf`, **plus** (b) Comments on the post, **top-level and replies**,
@@ -83,7 +105,10 @@ Rule-based, no ML/LLM (P-ALG-01, BR-049). Any learned component is a separate re
      comments count. The liker part depends on DATA ARCHITECT's change (likes carry liker status without identity,
      `liker_status = 'active'` in `reactions_select_reader`); F3.2 does not pass review before it is merged. The author is
      excluded by the trigger-set flags alone (named author and the anonymous "המחבר" alike), never by reading the author.
-     Counts only: no join reveals who liked or commented. Reports never change `n`.
+     Counts only: no join reveals who liked or commented. Reports never change `n`. **Professional engagement (R5)**
+     counts like any active user's; on their own post the triggers' `author_id = uid` test sets `is_by_author` /
+     `is_by_post_author` = true, so it never enters `n`; a stopped Professional's likes and comments leave `n` (status
+     copies). pgTAP proves it (professional-posting c7).
    - `stageMatch` = 1 when `posts.stage_tag` is set and is in the viewer's derived Stage set (bound parameter), else 0.
      A viewer with no Stage or a post with no tag gives 0.
    - Anonymous posts: the Friend term is 0 by construction. Older posts (tier 1) follow in pure recency with `score = 0`.
@@ -91,9 +116,9 @@ Rule-based, no ML/LLM (P-ALG-01, BR-049). Any learned component is a separate re
      `ln` and the division in float8). Never `numeric`: a numeric score would not survive the JS round trip and the keyset
      would skip or repeat units. The query returns score as float8 and the driver maps it to a JS `number` (no string mapping).
    Order key: `(tier asc, score desc, created_at desc, id desc)`. Score is computed in the query over RLS output.
-4. **Re-ranking.** Applied per page, over eligible units only: (a) creator diversity — at most `maxSameCreatorInWindow`
-   units by one named creator in any `diversityWindow` consecutive units; (b) source diversity — at most
-   `maxAnonymousInWindow` anonymous units per window (uses the flag only); (c) one unit per original post per page
+4. **Re-ranking.** Applied per page, over eligible units only, identical for both profiles: (a) creator diversity — at most
+   `maxSameCreatorInWindow` units by one named creator in any `diversityWindow` consecutive units; (b) source diversity — at
+   most `maxAnonymousInWindow` anonymous units per window (uses the flag only); (c) one unit per original post per page
    (original vs its shares; BR-066 keeps chains flat). Displaced units move down, never out. No exploration slot in I3
    (exploration needs ALG-009; the everyone pool already gives non-Friend exposure).
 5. **Delivery.** Units labelled `organic`; response carries `configVersion` and an opaque cursor. Shares whose original
@@ -109,7 +134,8 @@ Rule-based, no ML/LLM (P-ALG-01, BR-049). Any learned component is a separate re
    later pages; (ii) **the viewer's Stage set**, when `wStage > 0` — it is re-derived per page from the viewer's current
    JourneyContexts, so a Stage added or removed between pages flips `stageMatch`; (iii) an unlike, a comment removed or
    a liker/commenter suspended after `asOf` lowers `n` (RLS hides the row; `created_at ≤ asOf` cannot restore it); (iv) a
-   post deleted, removed or made ineligible after `asOf` drops out (RLS). Each can move a unit across a page edge: the
+   post deleted, removed or made ineligible after `asOf` drops out (RLS). (i) and (ii) do not arise on the content
+   profile (no Friend or Stage input). Each can move a unit across a page edge: the
    client de-duplicates by unit id, so a repeat is never shown twice, but a unit whose score rose above the cursor can
    be **skipped** until the next refresh. Accepted because these are rare, viewer-driven or moderation events, binding
    them to `asOf` would need history tables (friendship and Stage as-of) for little gain, and a refresh restores the full
@@ -123,20 +149,23 @@ The ranking query (candidates, score, order, keyset) may reference **only**:
 
 | Source | Allowed columns / use |
 |---|---|
-| `posts` | `id`, `author_id` (Friend term, creator diversity), `is_anonymous`, `is_share`, `shared_post_id` (dedup), `stage_tag`, `created_at` |
-| `friendships` | the accepted-friendship test between the viewer and a named `author_id`, for the Friend term only |
+| `posts` | `id`, `author_id` (Friend term, creator diversity), `is_anonymous`, `is_share`, `shared_post_id` (dedup), `stage_tag` (regular profile only), `created_at` |
+| `friendships` | the accepted-friendship test between the viewer and a named `author_id`, for the Friend term only — regular profile only |
 | `comments` | `count(*)` per `post_id` with `is_by_post_author = false` and `created_at ≤ asOf` |
 | `reactions` | `count(*)` per `post_id` with `is_by_author = false` and `created_at ≤ asOf` |
 | `algorithm_configurations` | the row for `surface = 'regular_feed'` and the pinned/active `version` |
-| Bound parameters | `asOf`, the cursor tuple, the viewer's derived Stage set, the configuration values; viewer identity only through the identity transaction (`auth.uid()`) |
+| Bound parameters | `asOf`, the cursor tuple, the viewer's derived Stage set (regular profile only), the configuration values; viewer identity only through the identity transaction (`auth.uid()`; regular profile only) |
 
+**Content profile** (R2): this allow-list minus `friendships`, `stage_tag`, the Stage parameter and `auth.uid()`; no
+array parameter. A static test proves it on the rendered SQL with `wFriend`, `wStage` > 0 (professional-posting c14).
 Display columns (body, audience label, author display data, the share's original) are fetched for the page's ids after
 ordering, under the same RLS, and never influence order.
 **Forbidden in the feed SQL** (a reference is a FINDING, high): `post_hides`, `reports`, `post_authors`, `reaction_owners`,
 `journey_contexts` (the viewer's Stage is derived by a separate own-data read and bound as a parameter), any predicate on
 `status`, `author_status`, `liker_status` or `is_active_account()` (RLS already applies them; an app copy is a permission
 filter), `author_visibility` / Profile Visibility in any role (filter, eligibility or score — Afik 18.10; the column is
-being dropped from posts), any other profile field as a score input, `held_*` columns, chat/support/tracker/child tables,
+being dropped from posts), `account_type` or the accounts table in any role (the profile is chosen in the service by
+`classifyViewer`), any other profile field as a score input, `held_*` columns, chat/support/tracker/child tables,
 and any table or column not in the allow-list above.
 
 ### Display statement and like-state statement (F3.3; checked in its review)
@@ -196,16 +225,18 @@ One AlgorithmConfiguration row per version, surface `regular_feed`, append-only,
 schema (ranges below). Stored versions are integers > 0; **`configVersion` 0 is reserved for the built-in
 `fallback-recency-v0`** and is never stored. Before/after is the previous row; every row has `version`, `createdAt`,
 `createdBy`, `reason`. All rows of the surface are readable (versioned constants, no personal data) — required by
-pagination pinning and by the last-known-good fallback.
+pagination pinning and by the last-known-good fallback. Both profiles read the same surface and pinned/active version;
+the content profile does not apply `wFriend` or `wStage`. No new row, key or surface in I3 (a `professional_feed` surface
+is I11, FR-ALG-003).
 
 | Key | Default | Allowed range |
 |---|---|---|
 | `wFresh` | 1.0 | 0–5 |
 | `halfLifeHours` | 24 | 1–336 |
-| `wFriend` | 0.5 | 0–5 |
+| `wFriend` | 0.5 (regular profile only) | 0–5 |
 | `wQuality` | 0.2 | 0–2 |
 | `qualityCap` | 20 | 1–1000 |
-| `wStage` | **0** in v1 (no post carries a tag before F3.1); a later version may raise it | 0–2 |
+| `wStage` | **0** in v1 (no post carries a tag before F3.1); a later version may raise it; regular profile only | 0–2 |
 | `scoredWindowDays` | 14 | 1–90 |
 | `maxSameCreatorInWindow` / `diversityWindow` | 2 / 5 | 1–window / 3–20 |
 | `maxAnonymousInWindow` | 2 (per `diversityWindow`) | 1–window |
@@ -217,7 +248,8 @@ The feed reads configuration as `authenticated`; no role has a write grant (gran
 
 ## Events
 
-**I3 adds no analytics events** (answer 4א, DR-3). FR-FEED-001/004 impression and FR-FEED-007 share-link event
+**I3 adds no analytics events** (answer 4א, DR-3; unchanged for Professional viewers, professional-posting R6).
+FR-FEED-001/004 impression and FR-FEED-007 share-link event
 post-conditions move to I15 with DATA-001, where purpose, retention (§13.4 TBD) and user explanation are set. Likes,
 comments, shares, hides and reports are product rows, not events.
 For I15, the only allowed shape is §13.3 / FR-DATA-001 / AC-070: `eventId` (unique, idempotent),
@@ -239,12 +271,17 @@ previous valid version; none valid → version 0 · F3.3: ids, order, cursor and
 like-state statements are added; `likedByMe` false for the viewer when only another user liked; static test that
 `reaction_owners` appears only in the like-state statement · F3.3 b1: `isMine` true for the real author on their own
 anonymous-post "המחבר" comment and false for every other viewer of that comment; static test that `post_authors` appears
-only in the `isMine` expression.
+only in the `isMine` expression · professional-posting: a Professional's `everyone` post ranks exactly as a Regular
+non-friend's untagged post of the same age and `n` (c4); content profile with `wFriend` = `wStage` = 2 equals the shared
+reference, `readOwnStages` 0 calls, and at `wStage` = 0 a Professional and a Regular with no friends and no journey see
+the same ids and order (c6); static: content SQL holds no `friendships`, `journey_contexts`, `children`, `stage_tag`,
+`auth.uid` or array parameter, regular SQL unchanged (c14); no `account_type` in feed SQL or write gates (c5); pgTAP:
+a Professional's likes/comments count in `n`, on their own post and once stopped they do not (c7).
 **After launch (success + guards, never one proxy, §18.8):** success = share of eligible posts that receive a
 meaningful interaction (a comment from a non-author) within 48 h, in total and for new creators (first 30 days).
 Guards: report rate per 1,000 delivered posts · creator concentration (top 10% creators' share of interactions) ·
 anonymous-post reply rate · empty-feed rate for users with no Friends. Measured from product rows in aggregate (BR-058)
-until I15 events exist; by configVersion. No metric is reported per user.
+until I15 events exist; by configVersion and profile. No metric is reported per user.
 
 ## Fallbacks
 
@@ -253,6 +290,7 @@ until I15 events exist; by configVersion. No metric is reported per user.
 | Active config missing or fails Zod | last known good = the highest-version row of the surface **below the active version** (or the highest row, if none is active) that passes Zod — readable because every row of the surface is readable; if none, the built-in `fallback-recency-v0` = `configVersion` 0: wFresh 1, every other weight 0, same caps and page size as the v1 defaults — pure recency, tested. The response and cursor carry the version actually used; an error is reported without personal data |
 | Pinned version (cursor) missing or invalid | new snapshot from the top under the rule above |
 | New user, no Friends | everyone pool + own posts, same scoring (Friend term 0) |
+| Professional viewer | content profile under the same configuration and the same fallbacks; v0 orders both profiles alike (recency) |
 | Empty feed (no eligible post) | empty state with "write a post" / "find friends" (copy: SPEC); never fill with ineligible or paid units |
 | Viewer has no Stage | Stage component 0 (FR-FEED-004 "continues without Stage") |
 | Original of a share unavailable | the share stays, original replaced by the unavailable state (BR-065) |
@@ -285,3 +323,8 @@ until I15 events exist; by configVersion. No metric is reported per user.
   BR-065/BR-073 and leaves a sanctioned author's content up; (c) hide anonymous posts with a random delay — only blurs
   the link, adds a job and a window where sanctioned content stays visible. ALGORITHM & DATA recommended (a) with a
   revisit in I4 (moderation).
+- **professional-posting DR-1..DR-3** — **answered (Afik, 19.10, final; `.work/professional-posting/spec.md` "Decided"):**
+  Professionals read, comment, reply and like in I3 on the content profile, I11 adds profession/groups/follows; their
+  posts are "everyone" only in I3 ("followers only" in I11, never "friends"); shown as "מהקהילה" with no name until I11.
+  Closed. AC-061 passes in I3 for its "content signals" and no Child/Journey/Tracker clause; profession/groups/follows/
+  search are asserted in I11 (same rule as DR-5).
