@@ -407,7 +407,7 @@ Preview cleanup: the user's tracker_events and cycle_entries are deleted before 
 
 ## Notifications and People Search
 
-**`nestly.notifications`, `nestly.notification_preferences`, `nestly.friend_content_notification_preferences`, `nestly.people_search_counts`** (FR-NOTIF-001/002/003,
+**`nestly.notifications`, `nestly.notification_preferences`, `nestly.friend_content_notification_preferences`, `nestly.people_search_counts`, `nestly.search_intents`** (FR-NOTIF-001/002/003,
 FR-SEARCH-001, FR-ALG-008, BR-035/038/061/063, VAL-037, AC-040/041/042/074/078; migration `20261020100000`; Afik 18.10.2026: 60 searches per hour; 90-day retention)
 
 | Column | Type · null · default | Meaning |
@@ -424,6 +424,7 @@ FR-SEARCH-001, FR-ALG-008, BR-035/038/061/063, VAL-037, AC-040/041/042/074/078; 
 | `notification_preferences.is_in_app_enabled`, `is_push_enabled` | boolean · true · false | In-App flag; Push flag stored for the Mobile stage, never sent on Web. CHECK: the `security` category cannot be off |
 | `friend_content_notification_preferences.user_id`, `friend_id`, `is_enabled` | uuid · uuid · boolean true | PK (user, friend): "tell me when this Friend posts". Insert needs an accepted Friendship; off by default (no row) |
 | `people_search_counts.user_id`, `searched_at`, `is_refusal_recorded` | uuid PK · timestamptz[] · boolean | as `profile_open_counts`: the instants inside the window |
+| `search_intents.user_id`, `topic`, `created_at` | uuid (`auth.uid()`) · text (format CHECK) · timestamptz | Intent Signal (Afik 20.10.2026): the topic or category the fixed rules detected for a search - never the typed text. Owner reads and inserts (Regular/Professional); no update, no client delete; deleted after 30 days by `purge_search_intents()` (EXECUTE app_jobs only, `search_intents_{select,delete}_jobs` policies); the schedule is the retention job's. Not readable by Admin through the product |
 | `security_limits` | | gains the `people_search` row (seeded 60 / 3600 s); `security_events.kind` gains `people_search_limit` |
 
 | | `notifications` | preferences (both) | `people_search_counts` |
@@ -438,7 +439,7 @@ FR-SEARCH-001, FR-ALG-008, BR-035/038/061/063, VAL-037, AC-040/041/042/074/078; 
 `security_limits`; absent or invalid raises `NS001`), the call over the limit returns one row `outcome = 'limited'` and records one `people_search_limit` event per stretch.
 Rows: id and full name of other active Regular accounts, ranked exact name, name prefix, a word prefix, anywhere; then name and id; at most 50 per call, offset up to 200.
 Posts are searched by the server through the caller's own RLS (`posts_select_viewer`), so hides, audience, Friends-only and later blocks and Private Groups apply with no search code.
-**Cleanup order:** the three notification tables after `journey_contexts`, `people_search_counts` after `profile_open_counts`.
+**Cleanup order:** the three notification tables after `journey_contexts`, `search_intents` and `people_search_counts` after `profile_open_counts`.
 
 ## New entity template
 

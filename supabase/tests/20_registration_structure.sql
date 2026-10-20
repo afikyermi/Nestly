@@ -174,14 +174,14 @@ select is_empty(
 select is(
   (select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')),
-  29::bigint,
-  '[F1.4-a c14 · F1.6-a · F2.0-a · F2.4a c12 · F2.4-c c20 c21 c22 · F3.0a c17 · F3.0-b c1] schema nestly holds exactly twenty-nine tables, I6''s cycle_entries, status_guides and tracker_events, the four notification and search tables (notifications, notification_preferences, friend_content_notification_preferences, people_search_counts), F3.0b''s comments, reactions, reaction_owners and reports and F3.0a''s algorithm_configurations, post_authors, post_hides and posts on top of fourteen: the five F1.1/F1.4 ones, the three recovery tables, identity_link_checks, F2.4a''s friendships and regular_names and F2.4c1''s security_limits, profile_open_counts and security_events (no table nobody listed)');
+  30::bigint,
+  '[F1.4-a c14 · F1.6-a · F2.0-a · F2.4a c12 · F2.4-c c20 c21 c22 · F3.0a c17 · F3.0-b c1] schema nestly holds exactly thirty tables, the Intent Signal table search_intents, I6''s cycle_entries, status_guides and tracker_events, the four notification and search tables (notifications, notification_preferences, friend_content_notification_preferences, people_search_counts), F3.0b''s comments, reactions, reaction_owners and reports and F3.0a''s algorithm_configurations, post_authors, post_hides and posts on top of fourteen: the five F1.1/F1.4 ones, the three recovery tables, identity_link_checks, F2.4a''s friendships and regular_names and F2.4c1''s security_limits, profile_open_counts and security_events (no table nobody listed)');
 
 select is(
   (select string_agg(c.relname, ', ' order by c.relname) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')),
-  'algorithm_configurations, children, comments, cycle_entries, friend_content_notification_preferences, friendships, identity_link_checks, journey_contexts, legal_consents, notification_preferences, notifications, people_search_counts, post_authors, post_hides, posts, profile_open_counts, reaction_owners, reactions, recovery_answers, recovery_events, recovery_throttles, regular_names, regular_profiles, reports, security_events, security_limits, status_guides, tracker_events, users',
-  '[F1.6-a · F2.0-a · F2.4a c12 · F2.4-c c22 · F3.0a c17 · F3.0-b c1] the twenty-nine tables are exactly these names');
+  'algorithm_configurations, children, comments, cycle_entries, friend_content_notification_preferences, friendships, identity_link_checks, journey_contexts, legal_consents, notification_preferences, notifications, people_search_counts, post_authors, post_hides, posts, profile_open_counts, reaction_owners, reactions, recovery_answers, recovery_events, recovery_throttles, regular_names, regular_profiles, reports, search_intents, security_events, security_limits, status_guides, tracker_events, users',
+  '[F1.6-a · F2.0-a · F2.4a c12 · F2.4-c c22 · F3.0a c17 · F3.0-b c1] the thirty tables are exactly these names');
 
 -- ---- policies: the exact list ---------------------------------------------------------------------------------------------
 select set_eq(
@@ -248,7 +248,7 @@ select ok(
 select is(
   (select string_agg(c.relname, ', ' order by c.relname) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind = 'r' and c.relname <> 'identity_link_checks' and has_table_privilege('authenticated', c.oid, 'SELECT')),
-  'algorithm_configurations, children, cycle_entries, friend_content_notification_preferences, friendships, journey_contexts, legal_consents, notification_preferences, notifications, post_authors, post_hides, reaction_owners, regular_names, regular_profiles, reports, status_guides, tracker_events, users',
+  'algorithm_configurations, children, cycle_entries, friend_content_notification_preferences, friendships, journey_contexts, legal_consents, notification_preferences, notifications, post_authors, post_hides, reaction_owners, regular_names, regular_profiles, reports, search_intents, status_guides, tracker_events, users',
   '[F1.4-a c14 · F2.0 scoped · F2.4a c12 · F3.0a c1 · F3.0-b c1 c12 c14] authenticated holds table-level SELECT on the five tables and, from F2.4a, friendships and regular_names, from F3.0a algorithm_configurations, post_authors and post_hides, from F3.0b reaction_owners and reports, and the notification tables notifications, notification_preferences and friend_content_notification_preferences, from I6 tracker_events, cycle_entries and status_guides; posts, comments and reactions carry column-level SELECT only (held_xact and liker_status never granted: files 70 and 73); identity_link_checks: file 40');
 
 -- Amendment 1 (CRITIC a-1): INSERT is granted per COLUMN, never per table.
@@ -347,7 +347,7 @@ select is_empty(
       where n.nspname = 'nestly' and c.relkind in ('r', 'p')
         and (has_table_privilege(r.rolname, c.oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
              or has_any_column_privilege(r.rolname, c.oid, 'SELECT,INSERT,UPDATE,REFERENCES'))
-        and not (r.rolname = 'app_jobs' and c.relname in ('posts', 'comments', 'reports')) $$,
+        and not (r.rolname = 'app_jobs' and c.relname in ('posts', 'comments', 'reports', 'search_intents')) $$,
   '[F1.4-a c14 platform r1, r7 · F3.0-b c14] anon, service_role, app_server and app_jobs hold no privilege on any nestly table, new ones included, but app_jobs on posts, comments and reports (the approved purge exception: exact grants in file 73)');
 
 select is(
@@ -389,8 +389,8 @@ select set_eq(
 select is(
   (select string_agg(p.proname, ', ' order by p.proname) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'nestly'),
-  'algorithm_configurations_guard, caller_account_type, child_age_months, comments_insert_prepare, content_hold, delete_comment, delete_post, friendships_transition, identity_link_checks_transition, is_active_account, jwt_is_oauth, jwt_issued_at, jwt_session_id, notifications_read_guard, notify_comment, notify_deliver, notify_friendship, notify_post, notify_scope, post_hides_insert_guard, posts_insert_author, posts_insert_prepare, posts_update_share_guard, profile_view, profile_view_target, purge_held_content, reactions_insert_owner, reactions_insert_prepare, recovery_claimed_at, recovery_handle, recovery_ip, recovery_subject, regular_names_insert, reports_insert_check, search_people, search_scope, session_guard',
-  '[F1.4-a c14 · F1.6-a c3 c21 · F2.0-a · F2.3b c15 · F2.4a c12] nestly holds exactly thirty-seven functions (notifications add notifications_read_guard, notify_comment, notify_deliver, notify_friendship, notify_post, notify_scope, search_people and search_scope) (I3 rest PR-A adds posts_update_share_guard; professional-posting adds the RLS helper caller_account_type) (F3.0a c17: four trigger functions, no recording one; F3.0-b: delete_post, delete_comment, purge_held_content, content_hold and the four insert trigger functions, none records a view): is_active_account, the three recovery helpers, the five F2.0 helpers, the F2.0 transition trigger, F2.3b''s profile_view with its two helpers, and F2.4a''s friendships_transition and regular_names_insert (no other function came with a migration)');
+  'algorithm_configurations_guard, caller_account_type, child_age_months, comments_insert_prepare, content_hold, delete_comment, delete_post, friendships_transition, identity_link_checks_transition, is_active_account, jwt_is_oauth, jwt_issued_at, jwt_session_id, notifications_read_guard, notify_comment, notify_deliver, notify_friendship, notify_post, notify_scope, post_hides_insert_guard, posts_insert_author, posts_insert_prepare, posts_update_share_guard, profile_view, profile_view_target, purge_held_content, purge_search_intents, reactions_insert_owner, reactions_insert_prepare, recovery_claimed_at, recovery_handle, recovery_ip, recovery_subject, regular_names_insert, reports_insert_check, search_people, search_scope, session_guard',
+  '[F1.4-a c14 · F1.6-a c3 c21 · F2.0-a · F2.3b c15 · F2.4a c12] nestly holds exactly thirty-eight functions (and purge_search_intents) (notifications add notifications_read_guard, notify_comment, notify_deliver, notify_friendship, notify_post, notify_scope, search_people and search_scope) (I3 rest PR-A adds posts_update_share_guard; professional-posting adds the RLS helper caller_account_type) (F3.0a c17: four trigger functions, no recording one; F3.0-b: delete_post, delete_comment, purge_held_content, content_hold and the four insert trigger functions, none records a view): is_active_account, the three recovery helpers, the five F2.0 helpers, the F2.0 transition trigger, F2.3b''s profile_view with its two helpers, and F2.4a''s friendships_transition and regular_names_insert (no other function came with a migration)');
 
 select is_empty(
   $$ select c.relname from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace

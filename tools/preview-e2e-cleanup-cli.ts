@@ -140,6 +140,7 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         counts['regular_names'] = (await tx`delete from nestly.regular_names where user_id = ${id}`).count;
         counts['regular_profiles'] = (await tx`delete from nestly.regular_profiles where user_id = ${id}`).count;
         counts['profile_open_counts'] = (await tx`delete from nestly.profile_open_counts where user_id = ${id}`).count;
+        counts['search_intents'] = (await tx`delete from nestly.search_intents where user_id = ${id}`).count;
         counts['people_search_counts'] = (await tx`delete from nestly.people_search_counts where user_id = ${id}`).count;
         // Afik DR-L (17.10.2026): a test user's Security events may be deleted here only; the FK stays RESTRICT for every other path.
         // security_limits is configuration with no user: never touched (deleting it would fail every later profile_view closed).

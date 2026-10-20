@@ -15,6 +15,9 @@
 --                                     A missing row means the default: on. Security/critical cannot be switched off (BR-038).
 -- friend_content_notification_preferences   per user and Friend: "tell me when this Friend posts" (FR-NOTIF-003). Off by default.
 -- people_search_counts                the rolling count of People Search calls per account (as profile_open_counts).
+-- search_intents                     Intent Signal (Afik 20.10.2026): per search, the topic or product category the fixed rules detected (never the
+--                                     typed text), the user and the date. Owner reads and inserts; deleted after 30 days by purge_search_intents()
+--                                     (EXECUTE app_jobs only; the schedule is the retention job's).
 -- security_limits / security_events   extended: the people_search limit (seed 60 per 3600 s) and the people_search_limit event.
 --
 -- SECURITY DEFINER (data-model.md "Approved exceptions", rule 17 — one narrow function per kind of write into another user's rows):
@@ -91,6 +94,60 @@ create table nestly.people_search_counts (
     constraint people_search_counts_searched_at_check check (pg_catalog.cardinality(searched_at) <= 10000),
   is_refusal_recorded boolean       not null default false
 );
+
+-- 4a. search_intents. No update, no client delete.
+create table nestly.search_intents (
+  id         uuid        not null default gen_random_uuid()
+    constraint search_intents_pkey primary key,
+  user_id    uuid        not null default auth.uid()
+    constraint search_intents_user_id_fkey references nestly.users (id) on delete cascade,
+  topic      text        not null
+    constraint search_intents_topic_check check (topic ~ '^[a-z][a-z0-9_]{0,39}$'),
+  created_at timestamptz not null default now()
+);
+
+create index search_intents_user_created_idx on nestly.search_intents (user_id, created_at desc);
+create index search_intents_created_idx on nestly.search_intents (created_at);
+
+alter table nestly.search_intents enable row level security, force row level security;
+revoke all on table nestly.search_intents from public, anon, authenticated;
+grant select on nestly.search_intents to authenticated;
+grant insert (topic) on nestly.search_intents to authenticated;
+grant select, delete on nestly.search_intents to app_jobs;
+
+create policy search_intents_select_own on nestly.search_intents
+  for select to authenticated
+  using ((select nestly.is_active_account()) and user_id = (select auth.uid()));
+
+create policy search_intents_insert_own on nestly.search_intents
+  for insert to authenticated
+  with check ((select nestly.caller_account_type()) in ('regular', 'professional') and user_id = (select auth.uid()));
+
+create policy search_intents_select_jobs on nestly.search_intents
+  for select to app_jobs
+  using (created_at < now() - interval '30 days');
+
+create policy search_intents_delete_jobs on nestly.search_intents
+  for delete to app_jobs
+  using (created_at < now() - interval '30 days');
+
+create function nestly.purge_search_intents()
+returns integer
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  n integer;
+begin
+  delete from nestly.search_intents where created_at < pg_catalog.now() - interval '30 days';
+  get diagnostics n = row_count;
+  return n;
+end
+$$;
+
+revoke execute on function nestly.purge_search_intents() from public;
+grant execute on function nestly.purge_search_intents() to app_jobs;
 
 -- 5. The Configuration and the Security event kind are extended. security_limits has no write policy (a change is a migration):
 --    FORCE is lifted for the one insert and put back at once, in this transaction.
@@ -478,6 +535,16 @@ revoke execute on function nestly.search_people(text, integer, integer) from pub
 grant  execute on function nestly.search_people(text, integer, integer) to authenticated;
 
 -- 12. Comments ------------------------------------------------------------------------------------------------------
+comment on table nestly.search_intents is 'Intent Signal (FR-ALG-008, Afik 20.10.2026): one row per search with the topic or product category the fixed rules detected - never the typed text. The owner reads and inserts; no update; deleted after 30 days by purge_search_intents(). Not shown to Admin or any professional.';
+comment on column nestly.search_intents.id is 'Row id.';
+comment on column nestly.search_intents.user_id is 'The searcher; auth.uid() by default.';
+comment on column nestly.search_intents.topic is 'The detected topic or category (a fixed list in the shared package); format-checked only.';
+comment on column nestly.search_intents.created_at is 'When the search happened; the signal decays with it and the row is deleted after 30 days.';
+comment on policy search_intents_select_own on nestly.search_intents is 'Own rows.';
+comment on policy search_intents_insert_own on nestly.search_intents is 'Regular or Professional, own row.';
+comment on policy search_intents_select_jobs on nestly.search_intents is 'The retention job reads rows older than 30 days.';
+comment on policy search_intents_delete_jobs on nestly.search_intents is 'The retention job deletes rows older than 30 days.';
+comment on function nestly.purge_search_intents() is 'Deletes search intents older than 30 days; returns the number. SECURITY INVOKER, EXECUTE app_jobs only; scheduled by the retention job.';
 comment on constraint security_limits_limit_key_check on nestly.security_limits is 'The limits that exist: profile_open and people_search.';
 comment on constraint security_events_kind_check on nestly.security_events is 'The kinds of Security event: profile_open_limit and people_search_limit; extended by a migration.';
 comment on table nestly.notifications is

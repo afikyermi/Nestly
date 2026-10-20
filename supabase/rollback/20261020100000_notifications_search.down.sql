@@ -27,6 +27,7 @@ alter table nestly.notifications no force row level security;
 alter table nestly.notification_preferences no force row level security;
 alter table nestly.friend_content_notification_preferences no force row level security;
 alter table nestly.people_search_counts no force row level security;
+alter table nestly.search_intents no force row level security;
 alter table nestly.security_events no force row level security;
 
 do $$
@@ -35,6 +36,7 @@ begin
      or exists (select 1 from nestly.notification_preferences)
      or exists (select 1 from nestly.friend_content_notification_preferences)
      or exists (select 1 from nestly.people_search_counts)
+     or exists (select 1 from nestly.search_intents)
      or exists (select 1 from nestly.security_events where kind = 'people_search_limit') then
     raise exception 'a notifications or search table holds a row (or a people_search_limit event exists): rolling back would delete user data or a Security record. Stop: forward fix, or Afik''s decision';
   end if;
@@ -63,6 +65,8 @@ drop policy comments_select_notify on nestly.comments;
 drop policy post_authors_select_notify on nestly.post_authors;
 drop policy posts_select_notify on nestly.posts;
 
+drop function nestly.purge_search_intents();
+drop table nestly.search_intents;
 drop table nestly.people_search_counts;
 drop table nestly.friend_content_notification_preferences;
 drop table nestly.notification_preferences;

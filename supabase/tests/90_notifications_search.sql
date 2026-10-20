@@ -367,6 +367,9 @@ select is(
   'TABLE(user_id uuid, full_name text, outcome text)',
   '[search BR-063 BR-044] only the id and the full name leave the function');
 
+select is(pg_temp.sp('c', 'moderator'), '', '[search condition 2 AC-078] a Moderator account is never returned');
+select is(pg_temp.sp('c', 'admin'), '', '[search condition 2 AC-078] nor an Admin');
+
 -- the limit (AC-078): stored data, a rolling window, a Security event once per stretch
 select tests.fx_ns_set_limit(3, 3600);
 select is(tests.fx_ns_limit(), '3/3600', '[search NFR-SEC-006] the Configuration is changed with no restart and no code change');
@@ -394,6 +397,31 @@ select is(tests.fx_ns_count(pg_temp.id('a')), 1, '[search] and counts nothing (t
 select tests.fx_ns_drop_limit();
 select is(tests.fx_ns_limit(), 'none', '[search] (control) the limit is gone');
 select is(pg_temp.sp('a', 'bella'), 'ERR:NS001', '[search NFR-SEC-006] an absent limit fails closed');
+
+-- ---- the conditions of the approval (Afik 20.10.2026) --------------------------------------------------------------------
+
+-- ---- Intent Signal: search_intents (Afik 20.10.2026) -----------------------------------------------------------------------
+select pg_temp.reset();
+select is(pg_temp.dml('a', $q$ insert into nestly.search_intents (topic) values ('sleep') $q$), 'OK:1', '[intent FR-ALG-008] the searcher stores the topic of a search');
+select is(pg_temp.dml('a', $q$ insert into nestly.search_intents (topic) values ('Typed Text With Spaces') $q$), 'ERR:23514', '[intent] only a topic of a fixed shape: never the typed text');
+select is(pg_temp.dml('a', format($q$ insert into nestly.search_intents (user_id, topic) values (%L, 'sleep') $q$, pg_temp.id('b'))), 'ERR:42501', '[intent platform r12] nor on behalf of another account');
+select is(pg_temp.dml('d', $q$ insert into nestly.search_intents (topic) values ('sleep') $q$), 'ERR:42501', '[intent] an Admin stores none');
+select is(pg_temp.n('a', 'nestly.search_intents'), '1', '[intent] the owner reads their own');
+select is(pg_temp.n('b', 'nestly.search_intents'), '0', '[intent BR-058] nobody else reads them');
+select is(pg_temp.n('d', 'nestly.search_intents'), '0', '[intent BR-058] not even an Admin, through the product');
+select is(pg_temp.dml('a', $q$ update nestly.search_intents set topic = 'x' $q$), 'ERR:42501', '[intent] a row is never updated');
+select is(pg_temp.dml('a', $q$ delete from nestly.search_intents $q$), 'ERR:42501', '[intent] and never deleted by the client');
+select is(
+  (select string_agg(a.attname, ', ' order by a.attname) from pg_catalog.pg_attribute a
+    where a.attrelid = (select oid from pg_catalog.pg_class where relname = 'search_intents' and relnamespace = 'nestly'::regnamespace)
+      and a.attnum > 0 and not a.attisdropped),
+  'created_at, id, topic, user_id', '[intent] a row holds the topic, the user and the date - no text');
+select tests.fx_si_age(pg_temp.id('a'), interval '31 days');
+select is(tests.fx_si_purge(), 1, '[intent] the retention job deletes a topic row after 30 days');
+select is(tests.fx_si_count(pg_temp.id('a')), 0::bigint, '[intent] and it is gone');
+select is(pg_temp.dml('a', $q$ insert into nestly.search_intents (topic) values ('sleep') $q$), 'OK:1', '[intent] a fresh row');
+select is(tests.fx_si_purge(), 0, '[intent] a row younger than 30 days stays');
+select is(tests.as_role('authenticated', tests.claims(pg_temp.id('a')), 'select nestly.purge_search_intents()::text'), 'ERR:42501', '[intent] a signed-in account cannot run the purge');
 
 select * from finish();
 

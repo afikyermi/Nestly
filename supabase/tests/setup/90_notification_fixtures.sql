@@ -153,6 +153,19 @@ begin
 end
 $$;
 
+create or replace function tests.fx_si_age(p_user uuid, p_age interval) returns void
+language sql security definer set search_path = ''
+as $$ update nestly.search_intents set created_at = created_at - p_age where user_id = p_user $$;
+
+create or replace function tests.fx_si_count(p_user uuid) returns bigint
+language sql stable security definer set search_path = ''
+as $$ select count(*) from nestly.search_intents where user_id = p_user $$;
+
+-- the purge, run as the job role (a definer owned by postgres cannot SET ROLE, so it runs the same statement the job runs)
+create or replace function tests.fx_si_purge() returns integer
+language sql security definer set search_path = ''
+as $$ select nestly.purge_search_intents() $$;
+
 create or replace function tests.fx_ns_events(p_id uuid) returns integer
 language sql stable security definer set search_path = ''
 as $$ select count(*)::integer from nestly.security_events e where e.user_id = p_id and e.kind = 'people_search_limit' $$;
