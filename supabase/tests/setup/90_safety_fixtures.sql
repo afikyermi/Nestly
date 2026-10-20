@@ -116,6 +116,61 @@ begin
 end
 $$;
 
+-- A statement run as `authenticated` with the claims AND the admin screens' purpose named (nestly.staff_view = on), as the admin routes do before
+-- they read accounts. 'OK:<rows>' or 'ERR:<sqlstate>'; the statement is kept unless p_keep is false.
+create or replace function tests.dml_staff(p_claims text, p_sql text, p_keep boolean default true) returns text
+language plpgsql
+as $$
+declare
+  v text;
+  n bigint;
+begin
+  perform set_config('request.jwt.claims', coalesce(p_claims, ''), true);
+  set local role authenticated;
+  perform set_config('nestly.staff_view', 'on', true);
+  begin
+    execute p_sql;
+    get diagnostics n = row_count;
+    v := 'OK:' || n;
+    if not p_keep then
+      raise exception 'rollback this statement' using errcode = 'ZZ001';
+    end if;
+  exception
+    when sqlstate 'ZZ001' then null;
+    when others then v := 'ERR:' || sqlstate;
+  end;
+  reset role;
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('nestly.staff_view', '', true);
+  return v;
+end
+$$;
+
+create or replace function tests.fn_staff(p_claims text, p_sql text) returns text
+language plpgsql
+as $$
+declare
+  v text;
+begin
+  perform set_config('request.jwt.claims', coalesce(p_claims, ''), true);
+  set local role authenticated;
+  perform set_config('nestly.staff_view', 'on', true);
+  begin
+    execute p_sql into v;
+  exception when others then v := 'ERR:' || sqlstate;
+  end;
+  reset role;
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('nestly.staff_view', '', true);
+  return v;
+end
+$$;
+
+revoke all on function tests.dml_staff(text, text, boolean) from public;
+revoke all on function tests.fn_staff(text, text) from public;
+grant execute on function tests.dml_staff(text, text, boolean) to app_server;
+grant execute on function tests.fn_staff(text, text) to app_server;
+
 revoke all on function tests.fx_sf_grant(uuid, text[]) from public;
 revoke all on function tests.fx_sf_staff_count() from public;
 revoke all on function tests.fx_audit_rows() from public;

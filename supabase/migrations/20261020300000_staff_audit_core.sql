@@ -213,10 +213,12 @@ create policy audit_log_insert_actor on nestly.audit_log
   for insert to authenticated
   with check (actor_id = (select auth.uid()) and actor_role = (select nestly.caller_staff_role()));
 
--- Staff read accounts: the Admin all, a Moderator with USER_VIEW (account type and status only; the users table holds nothing else).
+-- Staff read accounts: the Admin all, a Moderator with USER_VIEW (account type and status only; the users table holds nothing else). Only in a
+-- transaction that has named the purpose in nestly.staff_view: every other service reads "the caller's own row" with no WHERE, and an Admin's
+-- ordinary request must keep seeing exactly one row there.
 create policy users_select_staff on nestly.users
   for select to authenticated
-  using ((select nestly.has_permission('USER_VIEW')));
+  using (pg_catalog.current_setting('nestly.staff_view', true) = 'on' and (select nestly.has_permission('USER_VIEW')));
 
 revoke all on table nestly.staff_roles, nestly.moderator_permissions, nestly.audit_log from public, anon;
 grant select on table nestly.staff_roles to authenticated;
@@ -296,7 +298,7 @@ comment on policy moderator_permissions_insert_admin on nestly.moderator_permiss
 comment on policy moderator_permissions_delete_admin on nestly.moderator_permissions is 'Only the Admin revokes a key.';
 comment on policy audit_log_select_viewer on nestly.audit_log is 'The Admin, or a Moderator with AUDIT_LOG_VIEW, reads the log (view only).';
 comment on policy audit_log_insert_actor on nestly.audit_log is 'A staff member appends an entry naming itself and its own role; entries are never changed.';
-comment on policy users_select_staff on nestly.users is 'Staff read accounts: the Admin all, a Moderator with USER_VIEW (SRS §3.1). The function reads staff_roles and moderator_permissions only, never users.';
+comment on policy users_select_staff on nestly.users is 'Staff read accounts: the Admin all, a Moderator with USER_VIEW (SRS §3.1), only in a transaction that set nestly.staff_view to on (the admin screens); other requests see the own row only. The function reads staff_roles and moderator_permissions only, never users.';
 comment on index nestly.moderator_permissions_granted_by_idx is 'The RESTRICT check on a users delete.';
 comment on index nestly.audit_log_occurred_at_idx is 'The log screen: newest first.';
 comment on index nestly.audit_log_actor_id_idx is 'The RESTRICT check on a users delete; one actor''s actions.';

@@ -12,7 +12,7 @@ begin;
 
 select * from no_plan();
 
-select is(session_user::text, 'app_server'::text, '[I4 fixture] session_user is app_server (this file must not run under another login)');
+select is(session_user::text, 'app_server'::text, '[F4.0-a c1 I4 fixture] session_user is app_server (this file must not run under another login)');
 
 select tests.fx_fr_build();
 
@@ -34,6 +34,10 @@ $f$;
 create function pg_temp.n(p_who text, p_rel text) returns text language sql as $f$
   select tests.n_as(pg_temp.id(p_who), p_rel)
 $f$;
+-- reads of accounts by staff name their purpose (nestly.staff_view), as the admin routes do
+create function pg_temp.nview(p_who text, p_rel text) returns text language sql as $f$
+  select tests.fn_staff(tests.claims(pg_temp.id(p_who)), 'select count(*)::text from ' || p_rel)
+$f$;
 create function pg_temp.sees(p_who text, p_post uuid) returns text language sql as $f$
   select pg_temp.n(p_who, format('nestly.posts where id = %L', p_post))
 $f$;
@@ -53,7 +57,7 @@ create function pg_temp.moderate(p_who text, p_table text, p_id uuid, p_status t
            p_reason, p_table, p_status, p_id))
 $f$;
 create function pg_temp.enforce(p_who text, p_target text, p_kind text, p_hours integer default null, p_reason text default 'because', p_child boolean default false) returns text language sql as $f$
-  select tests.dml_as('authenticated', tests.claims(pg_temp.id(p_who)),
+  select tests.dml_staff(tests.claims(pg_temp.id(p_who)),
     format($q$ insert into nestly.user_enforcements (user_id, kind, reason, duration_hours, is_child_safety) values (%L, %L, %L, %L, %L) $q$,
            pg_temp.id(p_target), p_kind, p_reason, p_hours, p_child))
 $f$;
@@ -87,9 +91,11 @@ select is(tests.dml_as('anon', tests.claims(pg_temp.id('d')), 'select 1 from nes
 select is(pg_temp.dml('d', format($q$ insert into nestly.staff_roles (user_id, account_type) values (%L, 'admin') $q$, pg_temp.id('a')), false), 'ERR:42501', '[BR-021 I4] nobody inserts a staff row');
 select is(pg_temp.dml('d', 'update nestly.staff_roles set account_type = ''admin''', false), 'ERR:42501', '[I4] nobody updates a staff row');
 select is(pg_temp.dml('d', 'delete from nestly.staff_roles', false), 'ERR:42501', '[I4] nobody deletes a staff row');
-select is(pg_temp.n('d', 'nestly.users where account_type in (''admin'', ''moderator'')'), tests.fx_sf_staff_count()::text, '[FR-ADMIN-004 I4] the Admin reads every staff account');
-select is(pg_temp.n('m0', 'nestly.users where account_type in (''admin'', ''moderator'')'), '1', '[I4] a Moderator without USER_VIEW reads only its own users row');
-select is(pg_temp.n('m5', 'nestly.users') > '1', true, '[SRS 3.1 I4] a Moderator with USER_VIEW reads accounts');
+select is(pg_temp.nview('d', 'nestly.users where account_type in (''admin'', ''moderator'')'), tests.fx_sf_staff_count()::text, '[FR-ADMIN-004 I4] the Admin reads every staff account (on the admin screens)');
+select is(pg_temp.n('d', 'nestly.users'), '1', '[I4 P6] in an ordinary request even the Admin sees its own users row only: services read "the caller''s row" with no WHERE');
+select is(pg_temp.nview('m0', 'nestly.users where account_type in (''admin'', ''moderator'')'), '1', '[I4] a Moderator without USER_VIEW reads only its own users row');
+select is(pg_temp.nview('m5', 'nestly.users') > '1', true, '[SRS 3.1 I4] a Moderator with USER_VIEW reads accounts');
+select is(pg_temp.nview('a', 'nestly.users'), '1', '[I4] a Regular account naming the purpose still reads its own row only');
 select is(pg_temp.perm('a', 'REPORTS_VIEW'), 'false', '[AC-031 I4] a Regular account holds no permission');
 select is(pg_temp.perm('m0', 'REPORTS_VIEW'), 'false', '[AC-031 I4] a Moderator with no key holds none (deny by default)');
 select is(pg_temp.perm('d', 'REPORTS_VIEW'), 'true', '[AC-025 I4] the Admin holds every key without a mapping');
@@ -238,7 +244,7 @@ select is(pg_temp.fn('b', 'select count(*)::text from nestly.posts'), '0', '[FR-
 select is(tests.fx_sf_enf(pg_temp.id('b')), 'warning:warning:f,suspension:suspension:f', '[BR-074 I4] the second step of the ladder, followed (24 hours)');
 select is((select (after_state->>'suspendedUntil') is not null from tests.fx_audit_rows() where action = 'user_suspend' limit 1), true, '[AC-029 I4] the end time is in the Audit entry');
 select is(pg_temp.enforce('m5', 'b', 'suspension', 24), 'ERR:42501', '[AC-028 I4] USER_BAN alone cannot suspend');
-select is(pg_temp.dml('m4', format($q$ update nestly.users set status = 'active', suspended_until = null where id = %L $q$, pg_temp.id('b')), false), 'ERR:42501', '[AC-107 I4] a status cannot be changed without its enforcement record');
+select is(tests.dml_staff(tests.claims(pg_temp.id('m4')), format($q$ update nestly.users set status = 'active', suspended_until = null where id = %L $q$, pg_temp.id('b')), false), 'ERR:42501', '[AC-107 I4] a status cannot be changed without its enforcement record');
 select is(pg_temp.dml('b', 'update nestly.users set status = ''active'', suspended_until = null'), 'OK:0', '[FR-MOD-002 I4] the suspended account cannot lift it before the end time');
 select is(pg_temp.enforce('m4', 'b', 'reinstate'), 'OK:1', '[FR-MOD-002 I4] a Moderator with USER_SUSPEND ends it early');
 select is(pg_temp.status_of('b'), 'active', '[FR-MOD-002 I4] active again');
