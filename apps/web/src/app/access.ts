@@ -10,7 +10,8 @@ export type AccessDecision = { kind: 'loading' } | { kind: 'render' } | { kind: 
 
 // The two consent documents (placeholders until I9): open to a Guest, and to a signed-in user too (F2.5 c6, Settings links to them).
 const DOCUMENT_PATHS: readonly string[] = [PATHS.terms, PATHS.privacy];
-const COMPLETION_PATHS: readonly string[] = [PATHS.register, ...DOCUMENT_PATHS];
+// I14: the team invitation page too: the invited person signs up there and redeems the code with that session.
+const COMPLETION_PATHS: readonly string[] = [PATHS.register, PATHS.joinTeam, ...DOCUMENT_PATHS];
 const QUESTIONS_HELD_PATHS: readonly string[] = [PATHS.recoveryQuestions, ...DOCUMENT_PATHS];
 const NEW_PASSWORD_HELD_PATHS: readonly string[] = [PATHS.setNewPassword, ...DOCUMENT_PATHS];
 const RENDER: AccessDecision = { kind: 'render' };
@@ -44,7 +45,8 @@ export function decideAccess(
   if (state === 'signed-in') {
     if (mustSetPassword) return NEW_PASSWORD_HELD_PATHS.includes(path) ? RENDER : redirect(PATHS.setNewPassword);
     if (needsQuestions) return QUESTIONS_HELD_PATHS.includes(path) ? RENDER : redirect(PATHS.recoveryQuestions);
-    if (DOCUMENT_PATHS.includes(path)) return RENDER;
+    // I14: the team invitation page says to a signed-in account why it cannot join with that account (a staff account is separate)
+    if (DOCUMENT_PATHS.includes(path) || path === PATHS.joinTeam) return RENDER;
     if (isGuestPath) {
       const returnTo = normalizePath(options.returnTo ?? '');
       return redirect(isReturnPath(returnTo) ? returnTo : SIGNED_IN_LANDING);

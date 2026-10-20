@@ -16,6 +16,7 @@ import { registerBlocksRoutes } from './routes/blocks.js';
 import { registerReportsRoutes } from './routes/reports.js';
 import { registerSharesRoutes } from './routes/shares.js';
 import { registerAdminGuidesRoutes } from './routes/admin-guides.js';
+import { registerTeamRoutes } from './routes/team.js';
 import { registerCycleRoutes } from './routes/cycle.js';
 import { registerHomeRoute } from './routes/home.js';
 import { registerJourneysRoutes } from './routes/journeys.js';
@@ -147,6 +148,7 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerBlocksRoutes(app, { database });
   registerAdminReadRoutes(app, { database, storage: media.storage });
   registerAdminActionRoutes(app, { database });
+  registerTeamRoutes(app, { database });
 
   return app;
 }

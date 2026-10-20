@@ -19,10 +19,20 @@ export const REPORT_REASONS = [
   'spam',
   'other',
 ] as const;
-export type ReportReason = (typeof REPORT_REASONS)[number];
+/** The eight reasons every installation starts with (their labels are the web's fallback when the list cannot be read). */
+export type CoreReportReason = (typeof REPORT_REASONS)[number];
+/** A reason a reporter may choose: a core one, or one the community settings added (FR-ADMIN-007; the key is the server's). */
+export type ReportReason = CoreReportReason | `custom_${string}`;
+/** The shape of an added reason's key (`custom_` and 8 hex characters). */
+export const CUSTOM_REPORT_REASON = /^custom_[0-9a-f]{8}$/;
 
 /**
  * The longest report text, in code points (F3.7 Q1; "SRS gap": the VAL id is assigned at I3's SRS update). The database enforces the same
  * number with `char_length(details) <= 1000` (reports_details_length_check), so a change is a migration and this constant together.
  */
 export const REPORT_DETAILS_MAX = 1000;
+
+/** A core reason or an added one's key (the web keeps only these from the server's list). */
+export function isReportReason(value: string): value is ReportReason {
+  return REPORT_REASONS.some((reason) => reason === value) || CUSTOM_REPORT_REASON.test(value);
+}

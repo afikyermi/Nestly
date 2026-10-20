@@ -20,8 +20,11 @@ export const TAB_LABELS = {
   users: 'משתמשים',
   audit: 'יומן פעולות',
   media: 'תמונות לבדיקה',
-  reasons: 'סיבות דיווח',
   guides: 'מדריכים',
+  team: 'צוות',
+  community: 'הגדרות קהילה',
+  announcements: 'הודעות מערכת',
+  analytics: 'נתונים',
 } as const;
 export type AdminTab = keyof typeof TAB_LABELS;
 
@@ -31,8 +34,11 @@ export const TAB_KEYS: Record<AdminTab, PermissionKey | 'ADMIN'> = {
   users: 'USER_VIEW',
   audit: 'AUDIT_LOG_VIEW',
   media: 'CONTENT_MODERATE',
-  reasons: 'COMMUNITY_CONFIG',
   guides: 'ADMIN',
+  team: 'ADMIN',
+  community: 'COMMUNITY_CONFIG',
+  announcements: 'SYSTEM_ANNOUNCEMENTS',
+  analytics: 'ANALYTICS_VIEW',
 };
 
 // ---- the audit log
@@ -58,6 +64,13 @@ export const ACTION_LABELS: Record<string, string> = {
   media_approved: 'אישור תמונה',
   media_rejected: 'דחיית תמונה',
   media_suspected: 'חשד לפגיעה בילד בתמונה',
+  moderator_invited: 'הזמנת מודרטור',
+  moderator_invitation_revoked: 'ביטול הזמנת מודרטור',
+  moderator_joined: 'הצטרפות מודרטור',
+  announcement_created: 'יצירת הודעת מערכת',
+  announcement_edited: 'עריכת הודעת מערכת',
+  announcement_published: 'פרסום הודעת מערכת',
+  announcement_removed: 'הסרת הודעת מערכת',
 };
 export const TARGET_LABELS: Record<string, string> = {
   user: 'משתמש',
@@ -66,6 +79,8 @@ export const TARGET_LABELS: Record<string, string> = {
   report: 'דיווח',
   report_reason: 'סיבת דיווח',
   media: 'תמונה',
+  moderator_invitation: 'הזמנת מודרטור',
+  announcement: 'הודעת מערכת',
 };
 export const actionLabel = (action: string): string => ACTION_LABELS[action] ?? action;
 export const targetLabel = (kind: string): string => TARGET_LABELS[kind] ?? kind;

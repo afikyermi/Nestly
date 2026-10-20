@@ -11,8 +11,8 @@ import { decideAccess } from '../../src/app/access';
 import { GUEST_PATHS, PROTECTED_PATHS } from '../../src/app/paths';
 
 // F1.4 part c adds three Guest placeholders (interface "part c"): recovery (F1.6) and the two consent-document links (I9).
-const GUEST = ['/', '/login', '/register', '/auth/google', '/recovery', '/terms', '/privacy'];
-const PROTECTED = ['/home', '/feed', '/profile', '/settings', '/recovery-questions', '/change-password', '/friends', '/posts/new', '/medical-hotlines', '/community-rules', '/admin', '/admin/reports', '/admin/users', '/admin/audit', '/admin/guides', '/admin/media'];
+const GUEST = ['/', '/login', '/register', '/auth/google', '/recovery', '/terms', '/privacy', '/team/join'];
+const PROTECTED = ['/home', '/feed', '/profile', '/settings', '/recovery-questions', '/change-password', '/friends', '/posts/new', '/medical-hotlines', '/community-rules', '/admin', '/admin/reports', '/admin/users', '/admin/audit', '/admin/guides', '/admin/media', '/admin/team', '/admin/community', '/admin/announcements', '/admin/analytics'];
 const UNLISTED = [
   '/marketplace',
   '/profile/123',
@@ -35,13 +35,15 @@ const UNLISTED = [
 ];
 // F2.5 c6: signed in, these two Guest paths render (the consent documents are reachable from Settings).
 const CONSENT = ['/terms', '/privacy'];
+// I14: the team invitation page renders for a signed-in account too (it explains that a staff account is a separate one).
+const SIGNED_IN_GUEST = [...CONSENT, '/team/join'];
 const STATES = ['loading', 'signed-in', 'signed-out', 'signed-in-no-account'] as const;
 
 describe('the route table (6, Q2)', () => {
-  it('[F1.2 c6][FR-AUTH-004][F1.4 c4] the Guest allow-list is exactly the seven Guest routes (the four of F1.2 plus /recovery, /terms, /privacy)', () => {
+  it('[F1.2 c6][FR-AUTH-004][F1.4 c4] the Guest allow-list is exactly the eight Guest routes (the four of F1.2 plus /recovery, /terms, /privacy, and I14 /team/join)', () => {
     expect(Array.from(GUEST_PATHS).sort()).toEqual([...GUEST].sort());
   });
-  it('[F1.2 c6][FR-AUTH-004] the protected routes are exactly the four protected placeholders plus /recovery-questions (F1.6 c17 c18), /change-password (F2.0 c15) /friends (F2.4b c13) /posts/new (F3.1b), /medical-hotlines (F3.8) /community-rules (F3.7) and the admin shell with its tabs (reports, users, audit, guides; I5 adds the image queue)', () => {
+  it('[F1.2 c6][FR-AUTH-004] the protected routes are exactly the four protected placeholders plus /recovery-questions (F1.6 c17 c18), /change-password (F2.0 c15) /friends (F2.4b c13) /posts/new (F3.1b), /medical-hotlines (F3.8) /community-rules (F3.7) and the admin shell with its tabs (reports, users, audit, guides; I5 the image queue; I14 team, community, announcements, analytics)', () => {
     expect(Array.from(PROTECTED_PATHS).sort()).toEqual([...PROTECTED].sort());
   });
   it('[F3.1b][FR-AUTH-004] one post page, /posts/<uuid>, is protected: a Guest is redirected, a signed-in user renders it', () => {
@@ -79,7 +81,7 @@ describe('signed-in (4, 10, DR-1)', () => {
   it.each(PROTECTED)('[F1.2 c5][FR-AUTH-004] %s renders', (path) => {
     expect(decideAccess('signed-in', path)).toEqual({ kind: 'render' });
   });
-  it.each(GUEST.filter((p) => !CONSENT.includes(p)))('[F1.2 c4][FR-AUTH-001][FR-AUTH-002] a signed-in user at the Guest route %s is redirected to /feed', (path) => {
+  it.each(GUEST.filter((p) => !SIGNED_IN_GUEST.includes(p)))('[F1.2 c4][FR-AUTH-001][FR-AUTH-002] a signed-in user at the Guest route %s is redirected to /feed', (path) => {
     expect(decideAccess('signed-in', path)).toEqual({ kind: 'redirect', to: '/feed' });
   });
   it.each(CONSENT)('[F2.5 c6][FR-AUTH-004] an active signed-in user can open %s (the consent documents, reachable from Settings)', (path) => {
@@ -104,10 +106,10 @@ describe('signed-in (4, 10, DR-1)', () => {
 
 // F1.5 criterion 15 [FR-AUTH-004]: the fourth state "signed in, no account yet" (DR-2) and the session that ended (notice -> /login).
 describe('signed-in-no-account: only /register (completion), F1.5 c15 DR-2', () => {
-  it.each(['/register', '/terms', '/privacy'])('[F1.5 c15][Amendment 1][FR-AUTH-004] %s renders (completion and the consent documents it links to)', (path) => {
+  it.each(['/register', '/terms', '/privacy', '/team/join'])('[F1.5 c15][Amendment 1][FR-AUTH-004][I14] %s renders (completion, the consent documents it links to, and the team invitation, redeemed with that session)', (path) => {
     expect(decideAccess('signed-in-no-account', path)).toEqual({ kind: 'render' });
   });
-  it.each([...GUEST.filter((p) => !['/register', '/terms', '/privacy'].includes(p)), ...PROTECTED, ...UNLISTED])(
+  it.each([...GUEST.filter((p) => !['/register', '/terms', '/privacy', '/team/join'].includes(p)), ...PROTECTED, ...UNLISTED])(
     '[F1.5 c15][FR-AUTH-004] %s redirects to /register',
     (path) => {
       expect(decideAccess('signed-in-no-account', path)).toEqual({ kind: 'redirect', to: '/register' });
