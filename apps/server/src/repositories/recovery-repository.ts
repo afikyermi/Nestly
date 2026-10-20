@@ -47,6 +47,8 @@ export interface ThrottleLimits {
 
 export interface ThrottleState {
   readonly locked: boolean;
+  /** NFR-SEC-010: the handle's failures since the last success (0 for an IP); from the ladder's 24-hour step on, a lock is a 24-hour one. */
+  readonly ladderFailures: number;
   /** Seconds until the lock ends; meaningful only while `locked`. */
   readonly retryAfterSeconds: number;
   /** Whether a limited event was already written for this very lock (limited_noted_until = locked_until). */
@@ -66,7 +68,15 @@ export interface RecoveryEvent {
   readonly ipHash: Buffer;
 }
 
-const throttleStateRows = z.array(z.object({ locked: z.boolean(), retry_after: z.number().int(), noted: z.boolean() }));
+const throttleStateRows = z.array(z.object({ locked: z.boolean(), ladder_failures: z.number().int(), retry_after: z.number().int(), noted: z.boolean() }));
+
+/** The lock ladder of a handle (NFR-SEC-010): the failure that locks it for an hour, and the failure from which each one locks it for 24 hours. */
+export interface LadderLimits {
+  readonly hourLockAt: number;
+  readonly hourLockSeconds: number;
+  readonly dayLockFrom: number;
+  readonly dayLockSeconds: number;
+}
 
 // --- as authenticated ---------------------------------------------------------------------------------------------------
 
@@ -153,6 +163,7 @@ export async function ensureThrottleRow(tx: IdentityTx, kind: RecoveryThrottleSu
 export async function lockThrottle(tx: IdentityTx, kind: RecoveryThrottleSubject): Promise<ThrottleState> {
   const result = await tx.execute(sql`
     select (locked_until is not null and locked_until > now()) as locked,
+           ladder_failures::integer as ladder_failures,
            greatest(1, ceil(extract(epoch from (locked_until - now()))))::integer as retry_after,
            (limited_noted_until is not null and limited_noted_until = locked_until) as noted
     from nestly.recovery_throttles
@@ -160,7 +171,7 @@ export async function lockThrottle(tx: IdentityTx, kind: RecoveryThrottleSubject
     for update`);
   const [row, ...others] = throttleStateRows.parse(result);
   if (row === undefined || others.length > 0) throw new Error('recovery_throttles row missing or duplicated for a declared subject');
-  return { locked: row.locked, retryAfterSeconds: row.retry_after, noted: row.noted };
+  return { locked: row.locked, ladderFailures: row.ladder_failures, retryAfterSeconds: row.retry_after, noted: row.noted };
 }
 
 /** Records that the limited event of the declared subject's current lock has been written (one per subject per lock). */
@@ -212,6 +223,31 @@ export async function recordFailure(tx: IdentityTx, kind: RecoveryThrottleSubjec
           else t.locked_until end
     from nxt n
     where t.subject_kind = n.subject_kind and t.subject_hash = n.subject_hash`);
+}
+
+/**
+ * NFR-SEC-010: counts one failure on the declared handle's ladder, in one statement with the database clock. The `hourLockAt`-th failure
+ * locks the handle for an hour; from `dayLockFrom` on every failure locks it for 24 hours (the later of the current lock and now() plus
+ * the step). A failure is only ever counted while the handle is not locked, so after a 24-hour lock the next failure locks it again.
+ */
+export async function recordHandleFailure(tx: IdentityTx, ladder: LadderLimits): Promise<void> {
+  const next = sql`(t.ladder_failures + 1)`;
+  await tx.execute(sql`
+    update nestly.recovery_throttles t
+    set ladder_failures = least(${next}, 32767),
+        locked_until = case
+          when ${next} >= ${ladder.dayLockFrom}::integer then greatest(t.locked_until, now() + make_interval(secs => ${ladder.dayLockSeconds}::integer))
+          when ${next} = ${ladder.hourLockAt}::integer then greatest(t.locked_until, now() + make_interval(secs => ${ladder.hourLockSeconds}::integer))
+          else t.locked_until end
+    where t.subject_kind = 'handle'`);
+}
+
+/** A success (AC-113): the declared handle's ladder restarts from zero. */
+export async function recordHandleSuccess(tx: IdentityTx): Promise<void> {
+  await tx.execute(sql`
+    update nestly.recovery_throttles
+    set ladder_failures = 0
+    where subject_kind = 'handle' and ladder_failures <> 0`);
 }
 
 /** Appends one audit row. The policy forces `userId` to the account of the declared handle (or none). */

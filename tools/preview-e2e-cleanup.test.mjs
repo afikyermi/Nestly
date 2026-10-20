@@ -81,7 +81,7 @@ const GOOD_FACTS = {
   dbUser: 'postgres',
   bypassRls: true,
   canDeleteAuthUsers: true,
-  nestlyTables: ['algorithm_configurations', 'audit_log', 'chat_blocks', 'chat_reads', 'chat_requests', 'children', 'comments', 'conversations', 'cycle_entries', 'friend_content_notification_preferences', 'friendships', 'identity_link_checks', 'journey_contexts', 'legal_consents', 'messages', 'moderator_permissions', 'notification_preferences', 'notifications', 'people_search_counts', 'post_authors', 'post_hides', 'posts', 'profile_open_counts', 'reaction_owners', 'reactions', 'recovery_answers', 'recovery_events', 'recovery_throttles', 'regular_names', 'regular_profiles', 'report_reasons', 'reports', 'search_intents', 'security_events', 'security_limits', 'staff_roles', 'status_guides', 'support_messages', 'support_requests', 'tracker_events', 'user_blocks', 'user_enforcements', 'users'],
+  nestlyTables: ['algorithm_configurations', 'audit_log', 'chat_blocks', 'chat_reads', 'chat_requests', 'children', 'comments', 'conversations', 'cycle_entries', 'friend_content_notification_preferences', 'friendships', 'identity_link_checks', 'journey_contexts', 'legal_consents', 'media_assets', 'media_reviews', 'media_training_candidates', 'media_training_events', 'media_training_samples', 'messages', 'moderator_permissions', 'notification_preferences', 'notifications', 'people_search_counts', 'post_authors', 'post_hides', 'posts', 'profile_open_counts', 'profile_photos', 'reaction_owners', 'reactions', 'recovery_answers', 'recovery_events', 'recovery_throttles', 'regular_names', 'regular_profiles', 'report_reasons', 'reports', 'search_intents', 'security_events', 'security_limits', 'staff_roles', 'status_guides', 'stories', 'support_messages', 'support_requests', 'tracker_events', 'user_blocks', 'user_enforcements', 'users'],
 };
 
 test('[E c8] preflight passes only for the exact expected facts, in any table order', () => {
@@ -508,7 +508,9 @@ test('[F2.4c1 c20 c21 c22] the preflight fails closed when any of the three F2.4
 // "Preview cleanup": deleting security_limits would make every later profile_view fail closed).
 // F3.0a: algorithm_configurations is configuration too (never written); post_authors goes by cascade from posts, so its own delete is optional.
 // F3.0b: reaction_owners goes by cascade from reactions (a like is deleted through its id-free row).
-const NO_DELETE = ['security_limits', 'algorithm_configurations', 'status_guides', 'report_reasons', 'audit_log'];
+// I5: media_training_samples and media_training_events name no user (the job alone writes them); media_reviews and
+// media_training_candidates go by cascade from media_assets.
+const NO_DELETE = ['security_limits', 'algorithm_configurations', 'status_guides', 'report_reasons', 'audit_log', 'media_training_samples', 'media_training_events', 'media_reviews', 'media_training_candidates'];
 
 test('[cleanup a] every expected table is deleted from in the user transaction, but the configuration tables; identity_link_checks just before nestly.users', () => {
   const order = [...cliText.matchAll(/delete from (nestly\.[a-z_]+|auth\.users)/g)].map((m) => m[1]);
@@ -534,11 +536,14 @@ test('[cleanup a] every expected table is deleted from in the user transaction, 
   assert.deepEqual(order.filter((t) => !['nestly.identity_link_checks', 'nestly.post_hides', 'nestly.posts', 'nestly.post_authors', 'nestly.reports', 'nestly.reactions', 'nestly.comments'].includes(t)), [
     'nestly.recovery_throttles', 'nestly.recovery_events', 'nestly.legal_consents', 'nestly.recovery_answers', 'nestly.tracker_events', 'nestly.cycle_entries', 'nestly.children',
     'nestly.journey_contexts', 'nestly.notifications', 'nestly.notification_preferences', 'nestly.friend_content_notification_preferences',
+    'nestly.stories', 'nestly.profile_photos', 'nestly.media_assets',
     'nestly.chat_reads', 'nestly.support_messages', 'nestly.support_requests', 'nestly.messages', 'nestly.conversations', 'nestly.chat_requests', 'nestly.chat_blocks',
     'nestly.user_blocks', 'nestly.friendships', 'nestly.regular_names', 'nestly.regular_profiles',
     'nestly.profile_open_counts', 'nestly.search_intents', 'nestly.people_search_counts', 'nestly.user_enforcements', 'nestly.moderator_permissions', 'nestly.staff_roles', 'nestly.security_events', 'nestly.users', 'auth.users',
   ]);
   assert.ok(order.indexOf('nestly.security_events') < order.indexOf('nestly.identity_link_checks'));
+  // I5: Stories and the profile photo before the images they point at; all three before regular_profiles (stories reference it)
+  assert.ok(at('nestly.stories') < at('nestly.media_assets') && at('nestly.profile_photos') < at('nestly.media_assets') && at('nestly.media_assets') < at('nestly.regular_profiles'));
   assert.match(cliText, /counts\['friendships'\] = \(\s*await tx`delete from nestly\.friendships where requester_id = \$\{id\} or addressee_id = \$\{id\}`\s*\)\.count/);
   assert.match(cliText, /counts\['regular_names'\] = \(await tx`delete from nestly\.regular_names where user_id = \$\{id\}`\)\.count/);
   assert.match(cliText, /counts\['profile_open_counts'\] = \(\s*await tx`delete from nestly\.profile_open_counts where user_id = \$\{id\}`\s*\)\.count/);
