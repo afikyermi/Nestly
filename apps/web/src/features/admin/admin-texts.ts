@@ -20,15 +20,17 @@ export const TAB_LABELS = {
   users: 'משתמשים',
   audit: 'יומן פעולות',
   reasons: 'סיבות דיווח',
+  guides: 'מדריכים',
 } as const;
 export type AdminTab = keyof typeof TAB_LABELS;
 
-/** The key each tab needs (the Admin holds all of them). */
-export const TAB_KEYS: Record<AdminTab, PermissionKey> = {
+/** The key each tab needs (the Admin holds all of them); 'ADMIN' marks a screen for the Admin role only (FR-ADMIN-012: status guides). */
+export const TAB_KEYS: Record<AdminTab, PermissionKey | 'ADMIN'> = {
   reports: 'REPORTS_VIEW',
   users: 'USER_VIEW',
   audit: 'AUDIT_LOG_VIEW',
   reasons: 'COMMUNITY_CONFIG',
+  guides: 'ADMIN',
 };
 
 // ---- the audit log
