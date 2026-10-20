@@ -174,14 +174,14 @@ select is_empty(
 select is(
   (select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')),
-  22::bigint,
-  '[F1.4-a c14 · F1.6-a · F2.0-a · F2.4a c12 · F2.4-c c20 c21 c22 · F3.0a c17 · F3.0-b c1] schema nestly holds exactly twenty-two tables, F3.0b''s comments, reactions, reaction_owners and reports and F3.0a''s algorithm_configurations, post_authors, post_hides and posts on top of fourteen: the five F1.1/F1.4 ones, the three recovery tables, identity_link_checks, F2.4a''s friendships and regular_names and F2.4c1''s security_limits, profile_open_counts and security_events (no table nobody listed)');
+  25::bigint,
+  '[F1.4-a c14 · F1.6-a · F2.0-a · F2.4a c12 · F2.4-c c20 c21 c22 · F3.0a c17 · F3.0-b c1] schema nestly holds exactly twenty-five tables, I6's cycle_entries, status_guides and tracker_events, F3.0b''s comments, reactions, reaction_owners and reports and F3.0a''s algorithm_configurations, post_authors, post_hides and posts on top of fourteen: the five F1.1/F1.4 ones, the three recovery tables, identity_link_checks, F2.4a''s friendships and regular_names and F2.4c1''s security_limits, profile_open_counts and security_events (no table nobody listed)');
 
 select is(
   (select string_agg(c.relname, ', ' order by c.relname) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')),
-  'algorithm_configurations, children, comments, friendships, identity_link_checks, journey_contexts, legal_consents, post_authors, post_hides, posts, profile_open_counts, reaction_owners, reactions, recovery_answers, recovery_events, recovery_throttles, regular_names, regular_profiles, reports, security_events, security_limits, users',
-  '[F1.6-a · F2.0-a · F2.4a c12 · F2.4-c c22 · F3.0a c17 · F3.0-b c1] the twenty-two tables are exactly these names');
+  'algorithm_configurations, children, comments, cycle_entries, friendships, identity_link_checks, journey_contexts, legal_consents, post_authors, post_hides, posts, profile_open_counts, reaction_owners, reactions, recovery_answers, recovery_events, recovery_throttles, regular_names, regular_profiles, reports, security_events, security_limits, status_guides, tracker_events, users',
+  '[F1.6-a · F2.0-a · F2.4a c12 · F2.4-c c22 · F3.0a c17 · F3.0-b c1] the twenty-five tables are exactly these names');
 
 -- ---- policies: the exact list ---------------------------------------------------------------------------------------------
 select set_eq(
