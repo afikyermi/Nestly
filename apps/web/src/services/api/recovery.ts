@@ -6,7 +6,7 @@ export type RecoveryOutcome =
   | 'done'
   | 'mismatch' // 401 invalid_recovery: the details do not match
   | 'locked' // 429 rate_limited: locked for a while (ERR-043)
-  | 'locked-permanently' // 429 recovery_locked: the 9th failure locked recovery for good (NFR-SEC-010); only the Admin releases it
+  | 'locked-day' // 429 recovery_locked_day: a 24-hour lock of the account's ladder (NFR-SEC-010)
   | 'unavailable' // 503, or the call did not reach the server: worth trying again
   | 'failed'; // anything else, including a refused token or a body the server will not take
 
@@ -34,8 +34,8 @@ async function send(
   if (success.includes(response.status)) return 'done';
   if (response.status === 503) return 'unavailable';
   if (response.status !== 401 && response.status !== 429) return 'failed';
-  // A 401 with a token is either "the token is not accepted" or "the current answers do not match"; a 429 a lock for a while or for
-  // good. Only the code tells.
+  // A 401 with a token is either "the token is not accepted" or "the current answers do not match"; a 429 a lock for a while or a
+  // 24-hour one. Only the code tells.
   let code: unknown;
   try {
     const parsed: unknown = await response.json();
@@ -43,7 +43,7 @@ async function send(
   } catch {
     return response.status === 429 ? 'locked' : 'failed';
   }
-  if (response.status === 429) return code === 'recovery_locked' ? 'locked-permanently' : 'locked';
+  if (response.status === 429) return code === 'recovery_locked_day' ? 'locked-day' : 'locked';
   return code === 'invalid_recovery' ? 'mismatch' : 'failed';
 }
 

@@ -9,8 +9,7 @@
 //   6. compute exactly two scrypt hashes and compare them in constant time. A missing row, or a stored pair that is not
 //      the submitted pair, is run against a fixed dummy salt, so every failure costs the same two computations;
 //   7. on a mismatch: count one failure on the IP and one on the handle's lock ladder (NFR-SEC-010: the 3rd locks for 1 hour, the 6th
-//      for 24 hours, the 9th for good), append the "failed" event; on a match the ladder restarts from zero. Before the handle's state
-//      is read, a release by the Admin newer than the ladder's start restarts it (FR-ADMIN-013).
+//      and every later one for 24 hours), append the "failed" event; on a match the ladder restarts from zero.
 // The caller then commits (every outcome but a thrown error commits: the counters and the audit are the point).
 // Nothing is logged here, and nothing but hashes, counts and kinds is ever written.
 
@@ -33,7 +32,6 @@ import {
 } from '../recovery/hashing.js';
 import type { RecoveryKeys } from '../recovery/pepper.js';
 import {
-  applyRelease,
   ensureThrottleRow,
   insertEvent,
   lockThrottle,
@@ -60,11 +58,12 @@ export interface AttemptKinds {
 }
 
 export type AttemptResult =
-  | { readonly kind: 'limited'; readonly retryAfterSeconds: number; readonly permanent: boolean }
+  /** `dayLock`: the handle is under a 24-hour lock of the ladder (ERR-043 then says so); otherwise a 1-hour or an IP lock. */
+  | { readonly kind: 'limited'; readonly retryAfterSeconds: number; readonly dayLock: boolean }
   | { readonly kind: 'mismatch' }
   | { readonly kind: 'match'; readonly userId: string };
 
-const HANDLE_LADDER: LadderLimits = { steps: RECOVERY_LIMITS.handle.ladder, permanentAt: RECOVERY_LIMITS.handle.permanentAt };
+const HANDLE_LADDER: LadderLimits = RECOVERY_LIMITS.handle;
 
 const IP_LIMITS: ThrottleLimits = {
   short: {
@@ -127,7 +126,11 @@ async function limited(
     await markLimitedNoted(tx, subject);
     await insertEvent(tx, { kind: kinds.limited, ...event });
   }
-  return { kind: 'limited', retryAfterSeconds: state.retryAfterSeconds, permanent: state.permanent };
+  return {
+    kind: 'limited',
+    retryAfterSeconds: state.retryAfterSeconds,
+    dayLock: subject === 'handle' && state.ladderFailures >= HANDLE_LADDER.dayLockFrom,
+  };
 }
 
 export async function guardedAttempt(
@@ -148,7 +151,6 @@ export async function guardedAttempt(
   }
 
   await ensureThrottleRow(tx, 'handle', subjects.handle);
-  await applyRelease(tx);
   const handleState = await lockThrottle(tx, 'handle');
   const stored = await readDeclaredAnswers(tx);
   const event = { userId: stored?.userId ?? null, handleHash: subjects.handle, ipHash: subjects.ip };

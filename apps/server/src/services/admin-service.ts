@@ -11,7 +11,6 @@ import type {
   ModerateContentRequest,
   PermissionKey,
   QueueItem,
-  RecoveryReleaseRequest,
   ReportDetail,
   ReportTargetKind,
   TargetUser,
@@ -25,7 +24,6 @@ import {
   closeReports,
   hasOpenReports,
   insertEnforcement,
-  insertRecoveryRelease,
   moveContent,
   readAuditPage,
   readContent,
@@ -77,19 +75,10 @@ async function missingOrRefused(tx: IdentityTx, kind: ReportTargetKind, targetId
   return (await hasOpenReports(tx, kind, targetId)) ? { kind: 'forbidden' } : { kind: 'not_found' };
 }
 
-/** Thrown inside a transaction to roll back what it already wrote and answer with a refusal (see guarded). */
-class RollbackRefusal extends Error {
-  constructor(readonly refusal: Refusal) {
-    super(refusal.kind);
-    this.name = 'RollbackRefusal';
-  }
-}
-
 async function guarded<T>(work: () => Promise<Outcome<T>>): Promise<Outcome<T>> {
   try {
     return await work();
   } catch (error) {
-    if (error instanceof RollbackRefusal) return error.refusal;
     const refusal = databaseRefusal(error);
     if (refusal === undefined) throw error;
     return refusal;
@@ -169,13 +158,7 @@ export async function handleReports(database: Database, identity: Identity, requ
         if ((await moveContent(tx, request.targetKind, request.targetId, request.moderation.status)) === 0) return missingOrRefused(tx, request.targetKind, request.targetId);
       }
       const closed = await closeReports(tx, request.targetKind, request.targetId, request.resolution, request.note ?? request.moderation?.reason);
-      if (closed === 0) {
-        const refusal = await missingOrRefused(tx, request.targetKind, request.targetId);
-        // A move already made (the reports were closed concurrently) must not stay without its closing: roll it back.
-        if (request.moderation !== undefined) throw new RollbackRefusal(refusal);
-        return refusal;
-      }
-      return { kind: 'ok', closed };
+      return closed === 0 ? missingOrRefused(tx, request.targetKind, request.targetId) : { kind: 'ok', closed };
     }),
   );
 }
@@ -215,19 +198,6 @@ export async function enforce(database: Database, identity: Identity, request: E
       await insertEnforcement(tx, request);
       const user = await readTargetUser(tx, request.userId);
       return user === undefined ? { kind: 'not_found' } : { kind: 'ok', user };
-    }),
-  );
-}
-
-/**
- * FR-ADMIN-013, AC-126: the Admin releases an account's recovery lock. The database decides who may (RECOVERY_LOCK_RELEASE, the Admin's key;
- * 42501 otherwise) and writes the audit entry; the release signs nobody in and changes no password. An account that does not exist is 404.
- */
-export async function releaseRecoveryLock(database: Database, identity: Identity, request: RecoveryReleaseRequest): Promise<Outcome<object>> {
-  return guarded(() =>
-    inIdentityTransaction(database, identity, async (tx): Promise<Outcome<object>> => {
-      await insertRecoveryRelease(tx, request.userId, request.reason);
-      return { kind: 'ok' };
     }),
   );
 }

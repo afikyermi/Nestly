@@ -22,18 +22,18 @@ export const RAW_ANSWER_MAX_UNITS = 600;
  */
 export const RECOVERY_SCRYPT = { logN: 15, r: 8, p: 1 } as const;
 
-/** NFR-SEC-010 (Afik 17.10.2026). All counts and locks use the database clock; the values are fixed, not configurable. */
+/** NFR-SEC-010 (Afik 17.10 and 20.10.2026). All counts and locks use the database clock; the values are fixed, not configurable. */
 export const RECOVERY_LIMITS = {
   /**
-   * Per account (email handle), the lock ladder: failures are counted from the last success or release, with no window; the 3rd locks
-   * recovery for 1 hour, the 6th for 24 hours, and the 9th for good (only the Admin releases it, FR-ADMIN-013).
+   * Per account (email handle), the lock ladder (Afik 20.10.2026): failures are counted from the last success, with no window; the 3rd
+   * locks recovery for 1 hour, the 6th for 24 hours, and after that every further failure locks it again for 24 hours until a success
+   * resets the count. There is no permanent lock.
    */
   handle: {
-    ladder: [
-      { failures: 3, lockSeconds: 60 * 60 },
-      { failures: 6, lockSeconds: 24 * 60 * 60 },
-    ],
-    permanentAt: 9,
+    hourLockAt: 3,
+    hourLockSeconds: 60 * 60,
+    dayLockFrom: 6,
+    dayLockSeconds: 24 * 60 * 60,
   },
   /** Per client address (IPv6 by its /64): 10 failures in 15 minutes lock it for 15 minutes. */
   ip: {

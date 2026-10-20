@@ -319,14 +319,8 @@ describe('[F1.6 c3 c12 c13] the constants the server and the database share', ()
     expect(RECOVERY_SCRYPT).toEqual({ logN: 15, r: 8, p: 1 });
   });
 
-  it('[NFR-SEC-010 AC-113] the limits are the approved ones: the handle ladder locks at the 3rd failure for 1 hour, the 6th for 24 hours, the 9th for good; IP 10 in 15 minutes locks 15 minutes', () => {
-    expect(RECOVERY_LIMITS.handle).toEqual({
-      ladder: [
-        { failures: 3, lockSeconds: 3600 },
-        { failures: 6, lockSeconds: 86400 },
-      ],
-      permanentAt: 9,
-    });
+  it('[NFR-SEC-010 AC-113] the limits are the approved ones: the handle ladder locks at the 3rd failure for 1 hour, from the 6th on for 24 hours each, never for good; IP 10 in 15 minutes locks 15 minutes', () => {
+    expect(RECOVERY_LIMITS.handle).toEqual({ hourLockAt: 3, hourLockSeconds: 3600, dayLockFrom: 6, dayLockSeconds: 86400 });
     expect(RECOVERY_LIMITS.ip).toEqual({ shortFailures: 10, shortWindowSeconds: 900, shortLockSeconds: 900 });
   });
 

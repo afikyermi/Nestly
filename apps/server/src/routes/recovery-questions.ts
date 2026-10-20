@@ -96,7 +96,7 @@ async function change(request: FastifyRequest, reply: FastifyReply, deps: Recove
       case 'invalid':
         return replyInvalidRecovery(reply);
       case 'limited':
-        return replyRateLimited(reply, result.retryAfterSeconds, result.permanent);
+        return replyRateLimited(reply, result.retryAfterSeconds, result.dayLock);
       case 'unavailable':
         request.log.warn('recovery questions: the email handle could not be re-keyed');
         return replyUnavailable(reply);

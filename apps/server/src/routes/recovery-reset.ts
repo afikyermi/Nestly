@@ -54,7 +54,7 @@ async function reset(request: FastifyRequest, reply: FastifyReply, deps: Recover
       case 'invalid':
         return replyInvalidRecovery(reply);
       case 'limited':
-        return replyRateLimited(reply, result.retryAfterSeconds, result.permanent);
+        return replyRateLimited(reply, result.retryAfterSeconds, result.dayLock);
       case 'unavailable':
         return replyUnavailable(reply);
     }

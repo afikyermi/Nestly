@@ -132,12 +132,8 @@ export const answersJson = (ctx: Context, id: string): Promise<string> => text(c
 /** 'shortFailures/longFailures/locked/shortWindowSet/longWindowSet' or '-' */
 export const throttle = (ctx: Context, kind: 'handle' | 'ip', subject: string): Promise<string> =>
   text(ctx.side`select tests.fx_recovery_throttle(${kind}, ${subject}) as v`);
-/** NFR-SEC-010: a handle's lock ladder, 'failures/permanent/locked' or '-'. */
+/** NFR-SEC-010: a handle's lock ladder, 'failures/locked' or '-'. */
 export const ladder = (ctx: Context, handle: string): Promise<string> => text(ctx.side`select tests.fx_recovery_ladder(${handle}) as v`);
-/** FR-ADMIN-013: the Admin (fixture fr_d) releases the account's recovery lock, as the admin route does ('OK:1' or 'ERR:<sqlstate>'). */
-export const releaseByAdmin = (ctx: Context, userId: string): Promise<string> =>
-  text(ctx.side`select tests.dml_as('authenticated', tests.claims(tests.fx_fr_id('fr_d')),
-    format('insert into nestly.recovery_lock_releases (user_id, reason) values (%L, %L)', ${userId}::uuid, 'asked through support'), true) as v`);
 export async function shift(ctx: Context, kind: 'handle' | 'ip', subject: string, by: string): Promise<void> {
   await ctx.side`select tests.fx_recovery_shift(${kind}, ${subject}, ${by}::interval)`;
 }

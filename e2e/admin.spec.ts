@@ -144,31 +144,3 @@ test.describe('[I4 FR-MOD-002] accounts and enforcement', () => {
     expect(pathOf(page)).toBe('/admin/users');
   });
 });
-
-test.describe('[I4 FR-ADMIN-013] the recovery lock release', () => {
-  test('[I4 AC-126] the Admin releases an account\'s recovery lock from its page, with an optional note', async ({ page }) => {
-    const net = await setupAdmin(page);
-    await signIn(page);
-    await page.goto('/admin/users');
-    await page.getByLabel('חיפוש לפי שם').fill('רינה');
-    await page.getByRole('button', { name: 'חיפוש', exact: true }).click();
-    await page.getByRole('listitem').filter({ hasText: 'רינה כהן' }).getByRole('button', { name: 'פתיחה החשבון של רינה כהן' }).click();
-    const panel = page.getByRole('region', { name: 'נעילת שחזור הסיסמה' });
-    await expect(panel).toContainText('לא מחבר את המשתמש ולא משנה סיסמה');
-    await panel.getByLabel('הערה (לא חובה, נרשמת ביומן)').fill('פנתה לתמיכה');
-    await panel.getByRole('button', { name: 'שחרור נעילת שחזור' }).click();
-    await expect(page.getByText('נעילת השחזור שוחררה. הניסיון הבא ייבדק מאפס')).toBeVisible();
-    expect(net.sent).toEqual([{ method: 'POST', path: '/api/admin/recovery-releases', body: { userId: USER_RINA, reason: 'פנתה לתמיכה' } }]);
-  });
-
-  test('[I4 AC-126] a Moderator, even with every key, sees no release action', async ({ page }) => {
-    await setupAdmin(page, { role: 'moderator' });
-    await signIn(page);
-    await page.goto('/admin/users');
-    await page.getByLabel('חיפוש לפי שם').fill('רינה');
-    await page.getByRole('button', { name: 'חיפוש', exact: true }).click();
-    await page.getByRole('listitem').filter({ hasText: 'רינה כהן' }).getByRole('button', { name: 'פתיחה החשבון של רינה כהן' }).click();
-    await expect(page.getByRole('region', { name: 'אכיפה' })).toBeVisible();
-    await expect(page.getByRole('region', { name: 'נעילת שחזור הסיסמה' })).toHaveCount(0);
-  });
-});

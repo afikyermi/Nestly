@@ -185,18 +185,18 @@ test.describe('F1.6 c16 [FR-AUTH-003] /recovery', () => {
     expect(texts.join('\n')).not.toMatch(/\d/);
   });
 
-  test('[NFR-SEC-010 AC-113 ERR-043] the permanent lock of the ladder shows its own text, which points to support and gives no time', async ({ page }) => {
+  test('[NFR-SEC-010 AC-113 ERR-043] a 24-hour lock of the ladder says to try again in 24 hours', async ({ page }) => {
     await setup(page);
-    // registered after setup, so it answers first: the 9th failure locked recovery for good
+    // registered after setup, so it answers first: the 6th failure locked recovery for 24 hours
     await page.route('**/api/recovery/reset', async (route) => {
       if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
-      return json(route, 429, { error: 'recovery_locked' });
+      return json(route, 429, { error: 'recovery_locked_day' });
     });
     await openReset(page);
     await fillReset(page);
     await resetSubmit(page).click();
     await expect(page.getByRole('alert')).toHaveCount(1);
-    expect(await alertText(page)).toBe('השחזור לחשבון הזה נחסם. לשחרור אפשר לפנות לתמיכה');
+    expect(await alertText(page)).toBe('בוצעו יותר מדי ניסיונות. אפשר לנסות שוב בעוד 24 שעות');
     await expect(newPassword(page)).toHaveValue('');
   });
 

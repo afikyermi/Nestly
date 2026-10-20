@@ -73,10 +73,6 @@ export const enforceSchema = z
   .refine((v) => v.childSafety !== true || v.kind === 'ban', 'child_safety');
 export type EnforceRequest = z.infer<typeof enforceSchema>;
 
-/** POST /api/admin/recovery-releases (FR-ADMIN-013): release an account's recovery lock; the reason (the user's request) is optional. */
-export const recoveryReleaseSchema = z.strictObject({ userId: uuid, reason: staffText.optional() });
-export type RecoveryReleaseRequest = z.infer<typeof recoveryReleaseSchema>;
-
 /** GET /api/admin/audit?before=<ISO time>|<entry id>: the page after that entry (newest first); the cursor is the `next` of the previous page. */
 export const auditQuerySchema = z.strictObject({
   before: z
@@ -103,7 +99,6 @@ export const checkModerateContent = (input: unknown) => check(moderateContentSch
 export const checkRevealAuthor = (input: unknown) => check(revealAuthorSchema, input);
 export const checkEnforce = (input: unknown) => check(enforceSchema, input);
 export const checkAuditQuery = (input: unknown) => check(auditQuerySchema, input);
-export const checkRecoveryRelease = (input: unknown) => check(recoveryReleaseSchema, input);
 
 /**
  * The ladder's suggestion (BR-074) from the account's violations in the last 12 months: a warning or a suspension counts one, a ban the whole

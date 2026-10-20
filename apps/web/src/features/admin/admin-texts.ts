@@ -51,7 +51,6 @@ export const ACTION_LABELS: Record<string, string> = {
   author_revealed: 'חשיפת מחבר אנונימי',
   report_handled: 'סגירת דיווח',
   report_reason_changed: 'שינוי סיבת דיווח',
-  recovery_lock_released: 'שחרור נעילת שחזור',
 };
 export const TARGET_LABELS: Record<string, string> = {
   user: 'משתמש',
@@ -138,11 +137,4 @@ export function suggestionText(kind: 'warning' | 'suspension' | 'ban', hours: nu
   return `המדרג מציע: השעיה ל${label}`;
 }
 export const PICK_ACTION_TEXT = 'יש לבחור פעולה';
-
-// ---- the recovery lock (FR-ADMIN-013; the Admin only)
-export const RECOVERY_HEADING = 'נעילת שחזור הסיסמה';
-export const RECOVERY_HINT = 'אחרי 9 ניסיונות שגויים השחזור ננעל לצמיתות. השחרור מאפס את הספירה; הוא לא מחבר את המשתמש ולא משנה סיסמה';
-export const RECOVERY_NOTE_LABEL = 'הערה (לא חובה, נרשמת ביומן)';
-export const RECOVERY_RELEASE_LABEL = 'שחרור נעילת שחזור';
-export const RECOVERY_RELEASED_TEXT = 'נעילת השחזור שוחררה. הניסיון הבא ייבדק מאפס';
 export const ACTION_PLACEHOLDER = 'בחירת פעולה';
