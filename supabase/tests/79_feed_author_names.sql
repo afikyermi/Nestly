@@ -43,8 +43,8 @@ $f$;
 -- =====================================================================================================================
 -- 1 structure
 -- =====================================================================================================================
-select is((select count(*) from pg_catalog.pg_policies where schemaname = 'nestly' and tablename = 'regular_names'), 5::bigint,
-  '[F3.2-a c12 6b] regular_names has exactly five policies (the earlier four plus the comment-reader policy, F3.4 N1)');
+select is((select count(*) from pg_catalog.pg_policies where schemaname = 'nestly' and tablename = 'regular_names'), 8::bigint,
+  '[F3.2-a c12 6b] regular_names has exactly eight policies (the earlier five, I4''s staff and reveal reads, and regular_names_select_search for People Search, file 90)');
 select is((select permissive || '/' || cmd || '/' || roles::text from pg_catalog.pg_policies
             where schemaname = 'nestly' and tablename = 'regular_names' and policyname = 'regular_names_select_post_reader'),
   'PERMISSIVE/SELECT/{authenticated}', '[F3.2-a c12 6b] the post-reader policy exists: permissive, SELECT, TO authenticated only');
