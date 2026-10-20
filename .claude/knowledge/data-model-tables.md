@@ -389,7 +389,7 @@ comments verbatim and drops the helper.
 
 ## Trackers, cycle and status guides (I6)
 
-Migration `20261020400000_trackers_cycle_guides.sql`, down script `supabase/rollback/20261020400000_trackers_cycle_guides.down.sql` (destroys the data of the three tables).
+Migration `20261020100000_trackers_cycle_guides.sql`, down script `supabase/rollback/20261020100000_trackers_cycle_guides.down.sql` (destroys the data of the three tables).
 No SECURITY DEFINER, no function; `tests.approved_security_definer()` unchanged. All three tables: RLS + FORCE, policies TO authenticated only, nothing to anon.
 
 | | tracker_events | cycle_entries | status_guides |

@@ -26,7 +26,7 @@ const ch = (...paths) => paths.map((p) => ({ status: 'M', path: p }));
 const red = (v) => v.problems.length > 0;
 
 test('[P6] parsers read NUL-separated git output; a non-ASCII migration name stays visible; garbage throws', () => {
-  const hebrew = 'supabase/migrations/20261020400000_הוספת_עמודה.sql';
+  const hebrew = 'supabase/migrations/20261020100000_הוספת_עמודה.sql';
   const t = parseTree(`100644 blob ${blob('a')}\t${A}\x00100644 blob ${blob('d')}\t${hebrew}\x00`);
   assert.deepEqual([...t.keys()], [A, hebrew]);
   assert.throws(() => parseTree('"supabase/migrations/\\327\\224.sql"\x00'));
@@ -51,7 +51,7 @@ test('[P6 c1] a schema pull request with no product code passes; with product co
   assert.ok(red(mixed));
   assert.match(mixed.problems.join('\n'), /split it/);
   // the non-ASCII case of CRITIC finding 1, end to end through the classifier
-  const hebrew = 'supabase/migrations/20261020400000_הוספת_עמודה.sql';
+  const hebrew = 'supabase/migrations/20261020100000_הוספת_עמודה.sql';
   assert.match(evaluate({ changes: [{ status: 'A', path: hebrew }, ...ch('apps/server/src/x.ts')], base, head: tree([[A, blob('a')], [hebrew, blob('h')]]), applied: applied([[A, blob('a')]]) }).problems.join(), /split it/);
 });
 

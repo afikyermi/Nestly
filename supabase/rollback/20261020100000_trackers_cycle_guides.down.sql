@@ -1,5 +1,5 @@
 -- =====================================================================================================================
--- Down script for supabase/migrations/20261020400000_trackers_cycle_guides.sql (I6). Outside supabase/migrations on purpose:
+-- Down script for supabase/migrations/20261020100000_trackers_cycle_guides.sql (I6). Outside supabase/migrations on purpose:
 -- the CLI never applies it.
 --
 -- Run as:   app_owner, in one transaction. CI runs it once per build (up -> down -> up) against the disposable database.
@@ -41,6 +41,6 @@ drop table nestly.tracker_events;
 drop table nestly.cycle_entries;
 drop table nestly.status_guides;
 
-delete from supabase_migrations.schema_migrations where version = '20261020400000';
+delete from supabase_migrations.schema_migrations where version = '20261020100000';
 
 commit;
