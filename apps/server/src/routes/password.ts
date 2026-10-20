@@ -3,7 +3,7 @@
 // acts on the JWT subject, and the bodies are strict, so a body naming a user is a 400.
 //   POST /api/password/forced  { password }            c7  200 · 400 invalid_password · 409 not_required · 503
 //   POST /api/password/change  { current, password }   c10 200 · 400 invalid_request · 401 invalid_recovery · 409 not_set
-//                                                          · 429 rate_limited · 503
+//                                                          · 429 rate_limited | recovery_locked_day · 503
 //   POST /api/password/first   { password }            c11 200 · 400 invalid_password · 403 forbidden · 503
 // A 200 means the password is set AND every session of the user has ended, the caller's included (the admin set does it,
 // Gate 2 A6): the client signs in again with the new password. No token is returned.
@@ -117,7 +117,7 @@ async function change(request: FastifyRequest, reply: FastifyReply, deps: Passwo
       case 'invalid':
         return replyInvalidRecovery(reply);
       case 'limited':
-        return replyRateLimited(reply, result.retryAfterSeconds);
+        return replyRateLimited(reply, result.retryAfterSeconds, result.dayLock);
       case 'unavailable':
         return replyUnavailable(reply);
     }

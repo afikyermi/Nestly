@@ -37,6 +37,7 @@
 | MediaAsset | מטא-דאטה וקישור לקובץ תמונה/סרטון המשויך לפוסט, סטורי, Listing, מאמר, תמונת פרופיל או ישות מאושרת אחרת, ומצב הבדיקה בשרת (ממתינה / עברה / נכשלה, BR-076). רק הגרסה המטושטשת נשמרת. |
 | Story | סטורי: מחבר, MediaAsset אחד, טקסט קצר אופציונלי, זמן פרסום וזמן תפוגה (24 שעות). נמחק עם התמונה בתום התוקף (FR-FEED-008, BR-077). |
 | SupportRequest | פנייה של משתמש: נושא, מלל, משתמש, זמן, סטטוס, handledBy והיסטוריית תגובות. תגובות חיצוניות מוצגות ב-Support Thread בתוך Chat בשם “Support”; הערות פנימיות אינן מוצגות. |
+| CycleEntry | תאריך התחלה של מחזור והאורך הממוצע שהמשתמש מזין; חלון הביוץ מחושב ממנו ואינו נשמר (FR-TRACK-001, OP-041). גלוי רק למשתמש עצמו. |
 | TrackerData | מכלול נתוני המעקב שנשמרים עבור המשתמש/ילד/מסלול לצורך תיעוד, התאמה אישית, מתן טיפים/ידע ושיפור המערכת, בכפוף למטריצת שימוש ותקנון/מדיניות פרטיות. רק המשתמש עצמו רואה אותם (FR-TRACK-001, החלטת אפיק מ-18.10.2026). |
 | ModeratorPermission | מיפוי בין Moderator לבין Permission Keys שהוקצו על ידי Admin: SUPPORT_VIEW, SUPPORT_HANDLE, REPORTS_VIEW, CONTENT_MODERATE, MARKETPLACE_MODERATE, USER_VIEW, USER_WARN, USER_SUSPEND, USER_BAN, ANALYTICS_VIEW, AUDIT_LOG_VIEW, COMMUNITY_CONFIG, SYSTEM_ANNOUNCEMENTS, PRIVATE_GROUP_MODERATE; כולל created/updated metadata. PROFESSIONAL_VERIFY בוטל עם הסרת האימות המקצועי (OP-005 נסגר, 18.10.2026). |
 | AccountEnforcement | פעולת אכיפה על חשבון: Target User, Action (Warn/Suspend/Ban/Unban), Reason, Actor, Permission, זמן, משך/מועד סיום במקרה Suspension וסטטוס. |
@@ -67,7 +68,7 @@
 | PromotionPerformanceEvent | Impression/Click/ProfileVisit/Follow/ChatStart/other approved event המשויך ל-Promotion ומסומן Paid לצורך הפרדה מ-Organic. |
 | LegalConsent | User, מסמך (Terms / Privacy / הצהרת גיל 18+), גרסה, זמן אישור. נוצר בהרשמה (FR-REG-004) ובכל אישור של גרסה חדשה. |
 | RecoveryAnswers | User, שתי השאלות שנבחרו, לכל תשובה hash איטי (scrypt) עם salt ופרמטרים, מזהה האימייל (hash עם מפתח) וזמן הטענה עליו, זמנים. לעולם לא התשובה עצמה; משתמשים ומבקרים אינם קוראים את ה-hash (FR-AUTH-003, VAL-045). מידע אישי. Retention לחשבון פעיל: אינו מכוסה ב-§13.4 — TBD במסגרת OP-028; אחרי מחיקת חשבון — BR-073. |
-| RecoveryThrottle | מונה ניסיונות שחזור לפי מזהה אימייל או לפי hash של כתובת IP, חלון ונעילה; למזהה האימייל גם שלב במדרג וסימון נעילה קבועה (NFR-SEC-010, 17.10.2026). Retention: אחרי מחיקת חשבון — 90 יום ואז מחיקה (BR-073); לחשבון פעיל — יום אחרי שהמונה פג (§13.4). |
+| RecoveryThrottle | מונה ניסיונות שחזור לפי מזהה אימייל או לפי hash של כתובת IP, חלון ונעילה; למזהה האימייל גם מספר הכישלונות מאז ההצלחה האחרונה, למדרג הנעילה; אין סימון נעילה קבועה (NFR-SEC-010, 20.10.2026). Retention: אחרי מחיקת חשבון — 90 יום ואז מחיקה (BR-073); לחשבון פעיל — יום אחרי שהמונה פג (§13.4). |
 | RecoveryEvent | אירוע Audit של שחזור הסיסמה: סוג (FR-ADMIN-005), User כשידוע, hash של מזהה האימייל, hash של כתובת ה-IP וזמן; בלי תשובה, סיסמה או אימייל. Retention: 12 חודשים לחשבון פעיל (§13.4). |
 | BetaInvite | אימייל מוזמן, מי הוסיף ומתי, וסטטוס. יחד עם מצב הבטא קובע מי יכול להירשם בתקופת הבטא (FR-ADMIN-011). |
 | AccountTakeoverCheck | מצב ניקוי S-01 לכל חשבון: ממתין או הושלם, ה-Session שביצע אותו, זמן הניקוי וזמן קביעת הסיסמה החדשה (FR-AUTH-005). בלי סיסמה, תשובה או אסימון. Retention לחשבון פעיל: אינו מכוסה ב-§13.4 — TBD במסגרת OP-028; אחרי מחיקת חשבון — BR-073. |

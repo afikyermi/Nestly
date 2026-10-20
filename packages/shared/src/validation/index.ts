@@ -19,3 +19,4 @@ export * from './reports.js';
 export * from './shares.js';
 export * from './blocks.js';
 export * from './admin.js';
+export * from './trackers.js';

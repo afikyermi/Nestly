@@ -29,9 +29,10 @@ select is(
                      ', ' order by a.attname)
      from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = 'recovery_throttles' and c.relkind = 'r' and a.attnum > 0 and not a.attisdropped),
-  'limited_noted_until:timestamp with time zone:null, locked_until:timestamp with time zone:null, long_failures:smallint:nn, long_window_started_at:timestamp with time zone:null, '
+  'ladder_failures:smallint:nn, '
+  || 'limited_noted_until:timestamp with time zone:null, locked_until:timestamp with time zone:null, long_failures:smallint:nn, long_window_started_at:timestamp with time zone:null, '
   || 'short_failures:smallint:nn, short_window_started_at:timestamp with time zone:null, subject_hash:bytea:nn, subject_kind:text:nn',
-  '[F1.6-b c12 c13] recovery_throttles has exactly the approved columns: keyed by kind and hash, two windows, one lock, and the marker of the limited event written for that lock');
+  '[F1.6-b c12 c13 · NFR-SEC-010] recovery_throttles has exactly the approved columns: keyed by kind and hash, two windows, one lock, the marker of the limited event written for that lock, and the handle''s ladder count (file 92)');
 
 select is(
   (select string_agg(a.attname || ':' || format_type(a.atttypid, a.atttypmod) || ':' || case when a.attnotnull then 'nn' else 'null' end,
@@ -236,9 +237,10 @@ select is(
      from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace join pg_catalog.pg_attribute a on a.attrelid = c.oid
     where n.nspname = 'nestly' and c.relkind = 'r' and a.attnum > 0 and not a.attisdropped
       and has_column_privilege('app_recovery', c.oid, a.attnum, 'UPDATE')),
-  'recovery_answers.email_handle, recovery_answers.handle_claimed_at, recovery_throttles.limited_noted_until, recovery_throttles.locked_until, '
+  'recovery_answers.email_handle, recovery_answers.handle_claimed_at, recovery_throttles.ladder_failures, '
+  || 'recovery_throttles.limited_noted_until, recovery_throttles.locked_until, '
   || 'recovery_throttles.long_failures, recovery_throttles.long_window_started_at, recovery_throttles.short_failures, recovery_throttles.short_window_started_at',
-  '[F1.6-b c12 c13 c21] app_recovery can UPDATE exactly: the handle and its claim time of an answers row (the release policy limits it to NULL), and the six counter, lock and marker columns of the throttles: no hash, no audit row');
+  '[F1.6-b c12 c13 c21] app_recovery can UPDATE exactly: the handle and its claim time of an answers row (the release policy limits it to NULL), and the six counter, lock and marker columns of the throttles plus the ladder count (NFR-SEC-010): no hash, no audit row');
 
 select is_empty(
   $$ select c.relname from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace

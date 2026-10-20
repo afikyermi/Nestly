@@ -12,7 +12,8 @@ export type SessionState = 'loading' | 'signed-in' | 'signed-in-needs-recovery' 
 
 export const WELCOME_H1 = 'הצטרפות ל-Nestly';
 export const LEAD = 'קהילה חמה להורים ולהורים לעתיד, במקום אחד.';
-export const LINE = 'המסך הזה ייפתח בקרוב.';
+/** A line only the signed-in home shows (the guard specs watch for it: protected content must never reach a Guest). */
+export const LINE = 'המעקב והתכנון שלך, במקום אחד.';
 export const LOADING = 'בטעינה';
 export const NAV = 'ניווט ראשי';
 export const MENU_BUTTON = 'פתיחת התפריט';

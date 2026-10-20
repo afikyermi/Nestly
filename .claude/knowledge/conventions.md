@@ -34,7 +34,7 @@ is a second pair of eyes.
 | Database | **PostgreSQL via Supabase**, the only database, accessed with **Drizzle** through the server | decided |
 | Authorization | **RLS**, enforced in the database. The server never filters rows for permission | decided |
 | Auth | **Supabase Auth.** The web app signs in with supabase-js; the server verifies the JWT with **`jose`** (`createRemoteJWKSet` against Supabase's JWKS, asymmetric keys; not `@fastify/jwt`), ignores the token's role and forces `authenticated` | decided 2026-10-11 |
-| Storage | **TBD** — SRS §12, NFR-MEDIA-001; media decision M1 before I5 | open |
+| Storage | **Supabase Storage**, private buckets `media` and `media-training`, reached only by `apps/server/src/media/storage-admin.ts` with the server's secret key; a user gets a short-lived signed URL after the RLS-checked read of the image row | decided 2026-10-20 (Afik, decisions-in-force.md §7) |
 | Realtime | Polling in the MVP. Later, **Supabase Realtime** private channels carry signals only, never content; the client fetches the content through the server | decided 2026-10-11 |
 | Tests | Vitest + React Testing Library (unit, integration) · Playwright on Chrome and Edge (E2E) · axe-core in Playwright (accessibility) · pgTAP (database and RLS) · npm audit (dependencies). Per SRS NFR-QA-001 / OP-018 | decided (D4) |
 | Files | **in the repo.** Tests never ship, but they are always versioned | decided |
@@ -109,9 +109,9 @@ first line of code, and CRITIC checks them in every review. When the SRS changes
 - The server runs as Vercel Functions: no state is kept in memory between requests beyond caches that may be
   lost (the JWKS keys, for example). Routes, services and repositories hold no Vercel-specific code; only the
   adapter does.
-- Background jobs run as `app_jobs`, deployed apart from the request functions: SQL jobs in pg_cron, code jobs
-  in a separate Vercel project that alone holds the `app_jobs` credentials. The request functions never hold
-  them. A job is cut to fit the function time limit.
+- Background jobs run as `app_jobs` (SQL jobs in pg_cron) or, for images, `app_media_jobs`: a separate Vercel function
+  (`api/jobs.ts`, same project; Afik 20.10.2026) whose code alone reads `APP_MEDIA_JOBS_DATABASE_URL`; the request code never
+  reads them (static test; Vercel shares a project's variables, an accepted exception). A job is cut to fit the function time limit.
 
 ### Accessibility — SRS NFR-A11Y-001 (WCAG 2.2 AA)
 - Build accessibility into the shared UI components once — labels, keyboard operation, visible focus,

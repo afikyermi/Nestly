@@ -22,16 +22,18 @@ export const RAW_ANSWER_MAX_UNITS = 600;
  */
 export const RECOVERY_SCRYPT = { logN: 15, r: 8, p: 1 } as const;
 
-/** Spec "Attempt limits" (Q3, constants here). All windows are counted by the database clock. */
+/** NFR-SEC-010 (Afik 17.10 and 20.10.2026). All counts and locks use the database clock; the values are fixed, not configurable. */
 export const RECOVERY_LIMITS = {
-  /** Per account (email handle): 5 failures in 30 minutes lock it for 30 minutes; 15 failures in 24 hours, for 24 hours. */
+  /**
+   * Per account (email handle), the lock ladder (Afik 20.10.2026): failures are counted from the last success, with no window; the 3rd
+   * locks recovery for 1 hour, the 6th for 24 hours, and after that every further failure locks it again for 24 hours until a success
+   * resets the count. There is no permanent lock.
+   */
   handle: {
-    shortFailures: 5,
-    shortWindowSeconds: 30 * 60,
-    shortLockSeconds: 30 * 60,
-    longFailures: 15,
-    longWindowSeconds: 24 * 60 * 60,
-    longLockSeconds: 24 * 60 * 60,
+    hourLockAt: 3,
+    hourLockSeconds: 60 * 60,
+    dayLockFrom: 6,
+    dayLockSeconds: 24 * 60 * 60,
   },
   /** Per client address (IPv6 by its /64): 10 failures in 15 minutes lock it for 15 minutes. */
   ip: {

@@ -6,11 +6,11 @@ import { CommunityRulesPage } from '@/pages/community-rules/CommunityRulesPage';
 import { NewPostRedirect } from '@/pages/compose-post/NewPostRedirect';
 import { FeedPage } from '@/pages/feed/FeedPage';
 import { FriendsPage } from '@/pages/friends/FriendsPage';
+import { HomePage } from '@/pages/home/HomePage';
 import { GoogleReturnPage } from '@/pages/google-return/GoogleReturnPage';
 import { GuestPlaceholderPage } from '@/pages/placeholder/GuestPlaceholderPage';
 import { LoginPage } from '@/pages/login/LoginPage';
 import { MedicalHotlinesPage } from '@/pages/medical-hotlines/MedicalHotlinesPage';
-import { ProtectedPlaceholderPage } from '@/pages/placeholder/ProtectedPlaceholderPage';
 import { PostPage } from '@/pages/post/PostPage';
 import { ProfilePage } from '@/pages/profile/ProfilePage';
 import { RecoveryPage } from '@/pages/recovery/RecoveryPage';
@@ -18,6 +18,7 @@ import { RecoveryQuestionsPage } from '@/pages/recovery-questions/RecoveryQuesti
 import { RegisterPage } from '@/pages/register/RegisterPage';
 import { SetNewPasswordPage } from '@/pages/set-new-password/SetNewPasswordPage';
 import { SettingsPage } from '@/pages/settings/SettingsPage';
+import { TrackerPage } from '@/pages/tracker/TrackerPage';
 import { UserProfilePage } from '@/pages/user-profile/UserProfilePage';
 import { WelcomePage } from '@/pages/welcome/WelcomePage';
 import { FocusOnNavigation } from './FocusOnNavigation';
@@ -41,7 +42,8 @@ export function AppRoutes() {
           <Route path={PATHS.terms} element={<GuestPlaceholderPage title="תנאי השימוש" />} />
           <Route path={PATHS.privacy} element={<GuestPlaceholderPage title="מדיניות הפרטיות" />} />
           <Route element={<ProtectedLayout />}>
-            <Route path={PATHS.home} element={<ProtectedPlaceholderPage title="בית" />} />
+            <Route path={PATHS.home} element={<HomePage />} />
+            <Route path={PATHS.tracker} element={<TrackerPage />} />
             <Route path={PATHS.feed} element={<FeedPage />} />
             <Route path={PATHS.newPost} element={<NewPostRedirect />} />
             <Route path={PATHS.post} element={<PostPage />} />

@@ -20,6 +20,7 @@ does not instruct loading every link. Column sections and rule matrices are both
 | user_blocks | Blocking a user (I4); Friendships and regular names; Notifications and People Search |
 
 | tracker_events, cycle_entries, status_guides | Trackers, cycle and status guides (I6); children for the child FK |
+| media_assets, media_reviews, profile_photos, stories, media_training_candidates, media_training_samples, media_training_events | Media and Stories (I5); posts and post_authors (attach), friendships (Story audience), Safety and admin core (CONTENT_MODERATE, audit) |
 | Schema changes | Migration and rollback map; New entity template; affected consumer/cleanup order |
 
 
@@ -129,6 +130,7 @@ own `regular_profiles` row FOR NO KEY UPDATE. No DELETE on `friendships` or `reg
 | `recovery_throttles.long_failures` | smallint · not null · 0 | failures in the 24-hour window. CHECK ≥ 0, and 0 for an IP |
 | `recovery_throttles.locked_until` | timestamptz · null | while later than `now()`, every attempt on the subject is answered 429. A limited attempt changes no counter |
 | `recovery_throttles.limited_noted_until` | timestamptz · null | the `locked_until` for which a limited event was already written: one limited event per subject per lock |
+| `recovery_throttles.ladder_failures` | smallint · not null · 0 | NFR-SEC-010 ladder, handles only: failures since the last success (3rd → `locked_until` + 1 h; 6th and every later one → + 24 h; a success → 0). No permanent lock. CHECK: ≥ 0, and 0 for an IP. `app_recovery` UPDATE (column grant, `20261021300000`) |
 
 ## Columns: recovery_events
 
@@ -418,6 +420,27 @@ owns, so it is not a definer; (c) `reports.target_text`, `handled_by` and `resol
 returns them. The definer functions: `audit_trigger()` appends every Audit entry (the Actor is auth.uid() with its staff role and a valid session); `reveal_post_author(uuid)` names the
 post and author in transaction-local settings that open one row each to the owner role (`*_select_reveal` TO app_owner).
 
+## Media and Stories (I5)
+
+Built by `20261021500000_media_stories.sql` (down script in `supabase/rollback/`, refuses while any of the seven tables holds a row). Image files are
+never in the database: private Supabase Storage buckets `media` (file name = `media_assets.id`) and `media-training` (file name =
+`media_training_samples.id`), reached only by the server's storage module (data-model.md, approved exceptions, I5). The job role is `app_media_jobs`
+(LOGIN, NOBYPASSRLS): TO app_media_jobs policies and column grants only. No new SECURITY DEFINER.
+
+| Table | Columns and meaning | Authorization |
+|---|---|---|
+| `media_assets` | id, owner_id (auth.uid(), never granted; FK SET NULL on account deletion), owner_status, kind post/profile/story, status pending/passed/queued/approved/rejected, mime jpeg/png/webp, width/height ≤ 2048, byte_size ≤ 5 MB, post_id + position 0–3 (≤ 4 per post), is_held (a suspicion: never granted), check_attempts, checked_at, decided_by, decided_at (not granted), is_file_removed | Owner reads own (Story image 25 h) in every state, a held image exactly as a rejected one; others only passed/approved through a readable post, profile photo or Story; CONTENT_MODERATE reads queued and decided; INSERT Regular/Professional, pending, unattached; owner attaches to own post once; staff decide a queued one, or (with REPORTS_VIEW) reject a checked one after a report handled with action taken (`media_assets_update_guard` sets who/when/is_held); a suspicion on a checked one rejects and holds it in the same statement (`media_reviews_suspicion_reject`); a rejection from passed after a handled report makes it a training candidate (`media_assets_training_candidate`); owner deletes own, never queued or rejected; job: reads all, pending → passed/queued (review first), rejected file removed after the training copy, purge per BR-077 (never queued or held early; held after 90 days) |
+| `media_reviews` | media_id PK, queue_reason blocked/unsure/error, scores, is_child, is_suspected, suspected_by, suspected_at, purge_after (+90 days) | Staff only (CONTENT_MODERATE): read; mark child or suspicion on a queued image, a suspicion on a checked one with REPORTS_VIEW (rejects and holds the image at once); never withdrawn (`media_reviews_guard`); job writes the reason once |
+| `profile_photos` | user_id PK, user_status, media_id (unique; own image by FK (media_id, user_id)), media_status (composite FK copy), updated_at | Owner reads own in any state; others when passed/approved; RESTRICTIVE `profile_photos_block_hide`; a replaced image row is deleted by `profile_photos_replaced` unless queued or rejected |
+| `stories` | id, author_id (Regular), author_status, media_id (unique; own Story image from the last hour; SET NULL when the image goes), media_status, caption ≤ 200, audience everyone/friends, created_at, expires_at = created_at + 24 h | Unexpired only; author at once, others after the image passed, by audience; RESTRICTIVE `stories_block_hide`; INSERT Regular with an image, ≤ 10 per 24 h counted on rows (tombstones too) under a per-author lock (`stories_prepare`, NS021); no UPDATE or client DELETE; job deletes expired |
+| `media_training_candidates` | media_id PK, created_at | Written in the moderator's transaction by `media_training_candidate()` (reports handled with action taken, or a reported post removed): images removed after a non-child-safety report; job reads |
+| `media_training_samples` | id, source_media_id (unique, no FK), label, source blocked/unsure/reported, is_child, mime, decided_at, created_at, expires_at = created_at + 6 months (CHECK, not writable) | No client policy (no manual viewing); job only: INSERT a decided blocked/unsure image or a candidate, never held/suspected; DELETE at 6 months or when its image becomes suspected |
+| `media_training_events` | id, sample_id, action added/expired/removed/accessed, purpose (accessed: training), source, label, occurred_at | added/expired/removed by `media_training_samples_log`; accessed by the job before a read; each names a real sample; SELECT AUDIT_LOG_VIEW; no UPDATE or DELETE |
+
+Audit: `media_assets_decision_audit` → `audit_trigger()` branch `media_approved` / `media_rejected` (key CONTENT_MODERATE, After = status, kind,
+heldAsSuspected); `media_reviews_suspicion_audit_*` → `media_suspected`. Cleanup order per user: stories, profile_photos, media_assets (reviews and
+candidates by cascade) before post_hides; samples and events name no user and are never written by the cleanup.
+
 ## Trackers, cycle and status guides (I6)
 
 Migration `20261020100000_trackers_cycle_guides.sql`, down script `supabase/rollback/20261020100000_trackers_cycle_guides.down.sql` (destroys the data of the three tables).
@@ -435,6 +458,8 @@ No SECURITY DEFINER, no function; `tests.approved_security_definer()` unchanged.
 | Retention | hard delete by the owner | hard delete by the owner | the nine seed rows are drafts awaiting approval; `hidden` keeps the row |
 
 Preview cleanup: the user's tracker_events and cycle_entries are deleted before `children`; `status_guides` is content and is never written by the cleanup.
+
+I7 Intent Signal (`20261021200000_feed_intent_weight.sql`, FR-ALG-008, Afik 20.10.2026): `algorithm_configurations` gains `w_intent` (0–2) and `intent_half_life_hours` (1–720), catalog-only: versions stored before them (v1) read 0.5 and 168; a later version's defaults are 0 and 168. No row written, no table, policy or grant.
 
 ## Notifications and People Search
 

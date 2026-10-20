@@ -258,7 +258,7 @@ test.describe('F3.3 c19 [FR-FEED-001] paging, states and errors', () => {
     await expect(list(page)).toBeVisible();
     await postLike(page).click();
     await expect(btn(region(page), 'לייק, 1')).toBeVisible();
-    expect(net.stray.filter((c) => c !== 'GET /api/feed')).toEqual([]); // the login lands on the feed first
+    expect(net.stray.filter((c) => c !== 'GET /api/feed' && c !== 'GET /api/admin/access')).toEqual([]); // the login lands on the feed first; the shell asks for staff access
   });
 });
 

@@ -40,7 +40,7 @@ export interface ResetClient {
 export type ResetResult =
   | { readonly kind: 'ok' }
   | { readonly kind: 'invalid' }
-  | { readonly kind: 'limited'; readonly retryAfterSeconds: number }
+  | { readonly kind: 'limited'; readonly retryAfterSeconds: number; readonly dayLock: boolean }
   | { readonly kind: 'unavailable' };
 
 /** One fixed line when the outcome row could not be written. It carries no id, hash or address. */
@@ -56,7 +56,7 @@ const OUTCOME_KIND = {
 type Verified =
   | { readonly kind: 'verified'; readonly userId: string }
   | { readonly kind: 'invalid' }
-  | { readonly kind: 'limited'; readonly retryAfterSeconds: number };
+  | { readonly kind: 'limited'; readonly retryAfterSeconds: number; readonly dayLock: boolean };
 
 export async function redeemReset(
   database: Database,
@@ -72,7 +72,7 @@ export async function redeemReset(
 
   const first = await inRecoveryTransaction<Verified>(database, subjects, async (tx) => {
     const attempt = await guardedAttempt(tx, context, request.answers, { failed: 'reset_failed', limited: 'reset_limited' });
-    if (attempt.kind === 'limited') return { kind: 'limited', retryAfterSeconds: attempt.retryAfterSeconds };
+    if (attempt.kind === 'limited') return { kind: 'limited', retryAfterSeconds: attempt.retryAfterSeconds, dayLock: attempt.dayLock };
     if (attempt.kind === 'mismatch') return { kind: 'invalid' };
     await insertEvent(tx, { kind: 'reset_verified', userId: attempt.userId, ...eventBase });
     return { kind: 'verified', userId: attempt.userId };
@@ -97,6 +97,7 @@ export async function redeemReset(
     logOutcomeNotRecorded('recovery reset: the outcome row was not written');
   }
   if (outcome === 'completed') return { kind: 'ok' };
-  // A stale handle found this account: it is answered like any other failure to prove the request, and counts for nothing.
+  // A stale handle found this account: it is answered like any other failure to prove the request and adds no failure; the right
+  // answers already reset the account's ladder (AC-113: a correct attempt resets the count).
   return outcome === 'email_mismatch' ? { kind: 'invalid' } : { kind: 'unavailable' };
 }
