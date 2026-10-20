@@ -35,12 +35,13 @@ select is(
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and not pol.polpermissive),
-  0::bigint, '[F3.0-a c1] no restrictive policy hides an unreviewed branch');
+    where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and not pol.polpermissive and pol.polname !~ '_block_hide$'),
+  0::bigint, '[F3.0-a c1 · I4 blocking] no restrictive policy hides an unreviewed branch (the reviewed block policies, file 91, excepted)');
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and pol.polname !~ '_(jobs|notify)$' and pol.polname !~ '_reveal$'
+      and pol.polname !~ '_block_hide$' -- restrictive: it only narrows the gated permissive policies (file 91)
       and (coalesce(pg_catalog.pg_get_expr(pol.polqual, pol.polrelid), '') || coalesce(pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid), ''))
           !~ 'is_active_account\(\)'),
   0::bigint, '[F3.0-a c1 c2 platform r15] every policy is gated by is_active_account()');
