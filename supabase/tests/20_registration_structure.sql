@@ -247,8 +247,8 @@ select ok(
 select is(
   (select string_agg(c.relname, ', ' order by c.relname) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind = 'r' and c.relname <> 'identity_link_checks' and has_table_privilege('authenticated', c.oid, 'SELECT')),
-  'algorithm_configurations, children, friendships, journey_contexts, legal_consents, post_authors, post_hides, reaction_owners, regular_names, regular_profiles, reports, users',
-  '[F1.4-a c14 · F2.0 scoped · F2.4a c12 · F3.0a c1 · F3.0-b c1 c12 c14] authenticated holds table-level SELECT on the five tables and, from F2.4a, friendships and regular_names, from F3.0a algorithm_configurations, post_authors and post_hides, from F3.0b reaction_owners and reports; posts, comments and reactions carry column-level SELECT only (held_xact and liker_status never granted: files 70 and 73); identity_link_checks: file 40');
+  'algorithm_configurations, children, cycle_entries, friendships, journey_contexts, legal_consents, post_authors, post_hides, reaction_owners, regular_names, regular_profiles, reports, status_guides, tracker_events, users',
+  '[F1.4-a c14 · F2.0 scoped · F2.4a c12 · F3.0a c1 · F3.0-b c1 c12 c14] authenticated holds table-level SELECT on the five tables and, from F2.4a, friendships and regular_names, from F3.0a algorithm_configurations, post_authors and post_hides, from F3.0b reaction_owners and reports, from I6 tracker_events, cycle_entries and status_guides; posts, comments and reactions carry column-level SELECT only (held_xact and liker_status never granted: files 70 and 73); identity_link_checks: file 40');
 
 -- Amendment 1 (CRITIC a-1): INSERT is granted per COLUMN, never per table.
 select is_empty(
@@ -322,8 +322,8 @@ select is_empty(
        from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
        cross join (values ('UPDATE'), ('DELETE'), ('TRUNCATE'), ('REFERENCES'), ('TRIGGER')) as p(priv)
       where n.nspname = 'nestly' and c.relkind in ('r', 'p') and has_table_privilege('authenticated', c.oid, p.priv)
-        and not (c.relname in ('recovery_answers', 'children', 'journey_contexts', 'posts', 'post_hides', 'comments', 'reactions') and p.priv = 'DELETE') $$,
-  '[F1.4-a c14 criterion 14 amended · F2.0 scoped · F2.2-b c18] authenticated holds no table-level UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any nestly table; the DELETEs are the F2.0 D1 clear of recovery_answers (file 40) and the F2.2b2 own-row removal of children and journeys (DR-1 A, file 54) and F3.0a''s own-post and own-hide delete (3א, 7א: files 70-71) and F3.0b''s own-comment and own-like delete (3א, c12: files 73-74)');
+        and not (c.relname in ('recovery_answers', 'children', 'journey_contexts', 'posts', 'post_hides', 'comments', 'reactions', 'tracker_events', 'cycle_entries') and p.priv = 'DELETE') $$,
+  '[F1.4-a c14 criterion 14 amended · F2.0 scoped · F2.2-b c18] authenticated holds no table-level UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any nestly table; the DELETEs are the F2.0 D1 clear of recovery_answers (file 40) and the F2.2b2 own-row removal of children and journeys (DR-1 A, file 54) and F3.0a''s own-post and own-hide delete (3א, 7א: files 70-71) and F3.0b''s own-comment and own-like delete (3א, c12: files 73-74) and I6''s own tracker_events and cycle_entries delete (file 86)');
 
 select is_empty(
   $$ select c.relname || '.' || a.attname
