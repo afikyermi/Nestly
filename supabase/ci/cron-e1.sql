@@ -8,6 +8,11 @@
 --   nestly_e1_denied  expect failed, 'permission denied': app_jobs cannot read nestly.users (so the switch really happened)
 --   nestly_e1_purge   expect succeeded: the production command itself works in the cron context
 
+-- 0. remove probes left by an earlier, interrupted run (jobid form: nothing to remove is fine)
+begin;
+select cron.unschedule(jobid) from cron.job where jobname like 'nestly_e1_%' and username = 'postgres';
+commit;
+
 -- 1. schedule (committed, so the pg_cron worker sees them)
 begin;
 select cron.schedule('nestly_e1_role', '5 seconds',
@@ -26,6 +31,7 @@ declare
   v_msg text;
   v_deadline timestamptz := clock_timestamp() + interval '60 seconds';
 begin
+  begin
   foreach p in array array['nestly_e1_role', 'nestly_e1_denied', 'nestly_e1_purge'] loop
     select jobid into v_id from cron.job where jobname = p;
     v_status := null;
@@ -37,6 +43,9 @@ begin
     end loop;
     insert into e1_result values (p, v_status, v_msg);
   end loop;
+  exception when others then
+    insert into e1_result values ('polling', 'error', sqlerrm);
+  end;
 end
 $$;
 
@@ -50,6 +59,9 @@ do $$
 declare
   r record;
 begin
+  if exists (select 1 from e1_result where probe = 'polling') then
+    raise exception 'E1 FAILED: polling raised: %', (select msg from e1_result where probe = 'polling');
+  end if;
   for r in select * from e1_result order by probe loop
     raise notice 'E1 % -> % %', r.probe, coalesce(r.status, 'no run within 60 s'), coalesce(r.msg, '');
   end loop;
