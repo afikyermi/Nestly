@@ -45,8 +45,12 @@
 14. **I6:** לאשר את המדריכים (BR-070) — ראה סעיף 2.
 15. **לפני השקה:** משתני Sentry/Turnstile · דומיין ו-DNS · אימייל/SMTP ו"שינוי אימייל מאובטח" (S-64) · ‏Supabase Pro · סריקת CSAM של Cloudflare · פרסום מסך ההסכמה של Google OAuth · החזרת דרישת האישור ב-`db-production` (S-59) · בחינה חוזרת של S-17/S-18/S-40 · ‏Vercel Pro או השקה לא מסחרית.
 
+16. **I5 — הקמת תמונות, אחרי מיזוג #125 ו-#130 (לכל סביבה: nestly-preview ואחר כך production; ההוראות המדויקות בגוף PR #125/#130):** (1) ב-Supabase → Storage: שני buckets פרטיים, `media` ו-`media-training` (עד 5MB; ‏jpeg/png/webp). (2) להריץ מחדש את `supabase/bootstrap/01-roles.sql` ולקבוע סיסמה לתפקיד `app_media_jobs`. (3) ב-Vercel → Environment Variables: ‏`APP_MEDIA_JOBS_DATABASE_URL` ו-`CRON_SECRET`.
+
 ## טסטים לא יציבים
 (טסט שנכשל ועבר בהרצה חוזרת אחת: שורה כאן, לא חוסם. כישלון שחוזר חוסם.)
+- `apps/web/tests/google/google-completion.test.tsx` — "an email+password orphan: step 2 has no password field": נכשל בהרצה מלאה תחת עומס ועבר בהרצה חוזרת (20.10, פעמיים).
+- `registration-children-handoff.test.tsx` — נכשל פעם בהרצה מלאה ועבר לבד (20.10).
 
 ## באגים לטיפול ב-25–26.10
 מתוך יומן החוב שנמחק ב-20.10 (בהיסטוריית git). 🔒 = אבטחה או פרטיות.
