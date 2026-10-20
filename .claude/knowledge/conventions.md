@@ -109,8 +109,8 @@ first line of code, and CRITIC checks them in every review. When the SRS changes
 - The server runs as Vercel Functions: no state is kept in memory between requests beyond caches that may be
   lost (the JWKS keys, for example). Routes, services and repositories hold no Vercel-specific code; only the
   adapter does.
-- Background jobs run as `app_jobs`, deployed apart from the request functions: SQL jobs in pg_cron, code jobs
-  in a separate Vercel function (`api/jobs.ts`, same project; Afik 20.10.2026) whose code alone reads the `app_jobs` credentials; the request code never
+- Background jobs run as `app_jobs` (SQL jobs in pg_cron) or, for images, `app_media_jobs`: a separate Vercel function
+  (`api/jobs.ts`, same project; Afik 20.10.2026) whose code alone reads `APP_MEDIA_JOBS_DATABASE_URL`; the request code never
   reads them (static test; Vercel shares a project's variables, an accepted exception). A job is cut to fit the function time limit.
 
 ### Accessibility — SRS NFR-A11Y-001 (WCAG 2.2 AA)

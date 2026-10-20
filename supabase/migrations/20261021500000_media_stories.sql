@@ -1,7 +1,7 @@
 -- =====================================================================================================================
 -- Images, profile photos, Stories, the image approval queue and the training set -- I5 (media and Stories), migration only.
 --
--- SRS: FR-FEED-002 · FR-PROFILE-001 · FR-FEED-008 · NFR-MEDIA-001 · BR-076 (as replaced by Afik's image policy of 20.10.2026,
+-- SRS: FR-FEED-002 · FR-PROFILE-001 · FR-FEED-008 · FR-REL-002 (blocks) · NFR-MEDIA-001 · BR-076 (as replaced by Afik's image policy of 20.10.2026,
 --      decisions-in-force.md §2) · BR-077 · VAL-041 · VAL-042 · ERR-040 · AC-021, AC-102..105; storage and jobs: decisions-in-force.md §7;
 --      platform rules 1, 6, 8, 10, 12, 13, 15, 16, 18 (data-model.md).
 --
@@ -29,7 +29,7 @@
 --                         before it reads a file; each event names a real sample.
 --
 -- The job role app_media_jobs (bootstrap step 1; rule 6) reaches these tables only through TO app_media_jobs policies and column grants.
--- audit_trigger() (rule 18) gains one branch for staff decisions and suspicions; the rest is the text of 20261021100000, unchanged.
+-- audit_trigger() (rule 18) gains one branch for staff decisions and suspicions; the rest is the text of 20261021300000, unchanged.
 -- No new SECURITY DEFINER function. Phase: expand. Down script: supabase/rollback/20261021500000_media_stories.down.sql.
 -- =====================================================================================================================
 
@@ -326,9 +326,12 @@ as $$
 declare
   m record;
 begin
+  if tg_op = 'UPDATE' and new.media_id = old.media_id then
+    return new;  -- the image's own status moving (the composite FK cascades it here): nothing to check
+  end if;
   -- the row as the caller's policies show it; that it is the caller's own is profile_photos_media_owner_fkey's check (owner_id is not granted)
   select a.status, a.kind into m from nestly.media_assets a where a.id = new.media_id;
-  if not found or m.kind <> 'profile' or m.status not in ('pending', 'passed', 'approved') then
+  if not found or m.kind <> 'profile' or m.status = 'rejected' then
     raise exception 'profile photo: this image cannot be a profile photo' using errcode = '42501';
   end if;
   new.media_status := m.status;
@@ -377,7 +380,7 @@ begin
   end if;
   -- that the image is the caller's own is stories_media_owner_fkey's check (owner_id is not granted)
   select a.status, a.kind, a.created_at into m from nestly.media_assets a where a.id = new.media_id;
-  if not found or m.kind <> 'story' or m.status not in ('pending', 'passed', 'approved') or m.created_at < pg_catalog.now() - interval '1 hour' then
+  if not found or m.kind <> 'story' or m.status = 'rejected' or m.created_at < pg_catalog.now() - interval '1 hour' then
     raise exception 'stories: this image cannot be a Story' using errcode = '42501';
   end if;
   new.media_status := m.status;
@@ -402,8 +405,9 @@ security invoker
 set search_path = ''
 as $$
 declare
-  v_post uuid := case tg_table_name when 'reports' then new.post_id else new.id end;
+  v_post uuid;
 begin
+  if tg_table_name = 'reports' then v_post := new.post_id; else v_post := new.id; end if;
   if current_user <> 'authenticated' or v_post is null
      or not (select nestly.has_permission('REPORTS_VIEW')) or not (select nestly.has_permission('CONTENT_MODERATE')) then
     return null;
@@ -416,7 +420,7 @@ begin
      and not exists (select 1 from nestly.reports r where r.post_id = v_post and r.reason = 'child_safety')
      and not exists (select 1 from nestly.media_reviews v where v.media_id = m.id and (v.is_suspected or v.queue_reason is not null))
      and (m.status = 'rejected' or (m.status in ('passed', 'approved') and exists (select 1 from nestly.posts p where p.id = v_post and p.status = 'removed')))
-  on conflict (media_id) do nothing;
+  on conflict do nothing;
   return null;
 end
 $$;
@@ -542,7 +546,8 @@ create policy media_reviews_select_staff on nestly.media_reviews
 create policy media_reviews_update_staff on nestly.media_reviews
   for update to authenticated
   using ((select nestly.is_active_account()) and (select nestly.has_permission('CONTENT_MODERATE'))
-    and exists (select 1 from nestly.media_assets m where m.id = media_reviews.media_id and m.status = 'queued'))
+    and exists (select 1 from nestly.media_assets m where m.id = media_reviews.media_id
+                and (m.status = 'queued' or (m.status in ('passed', 'approved') and (select nestly.has_permission('REPORTS_VIEW'))))))
   with check ((select nestly.is_active_account()) and (select nestly.has_permission('CONTENT_MODERATE')));
 
 create policy media_reviews_insert_staff on nestly.media_reviews
@@ -609,6 +614,16 @@ create policy stories_select_jobs on nestly.stories
 create policy stories_delete_jobs on nestly.stories
   for delete to app_media_jobs
   using (expires_at <= now());
+
+-- Blocking (FR-REL-002, 20261021200000): RESTRICTIVE, AND-ed with the policies above, as on posts and comments. A blocked pair sees
+-- neither's Stories nor profile photo (so neither's image through them either: media_assets_select_viewer reads these tables under RLS).
+create policy stories_block_hide on nestly.stories
+  as restrictive for select to authenticated
+  using (author_id = (select auth.uid()) or (select nestly.has_permission('REPORTS_VIEW')) or not (select nestly.is_blocked_pair(author_id)));
+
+create policy profile_photos_block_hide on nestly.profile_photos
+  as restrictive for select to authenticated
+  using (user_id = (select auth.uid()) or (select nestly.has_permission('REPORTS_VIEW')) or not (select nestly.is_blocked_pair(user_id)));
 
 -- media_training_candidates -------------------------------------------------------------------------------------------------------
 create policy media_training_candidates_insert_staff on nestly.media_training_candidates
@@ -717,13 +732,13 @@ grant select (media_id) on table nestly.profile_photos to app_media_jobs;
 grant select (id, media_id, expires_at) on table nestly.stories to app_media_jobs;
 grant delete on table nestly.stories to app_media_jobs;
 grant select (media_id) on table nestly.media_training_candidates to app_media_jobs;
-grant select (id, source_media_id, label, source, is_child, mime, decided_at, expires_at) on table nestly.media_training_samples to app_media_jobs;
+grant select (id, source_media_id, label, source, is_child, mime, decided_at, created_at, expires_at) on table nestly.media_training_samples to app_media_jobs;
 grant insert (source_media_id, label, source, is_child, mime, decided_at) on table nestly.media_training_samples to app_media_jobs;
 grant delete on table nestly.media_training_samples to app_media_jobs;
 grant select (sample_id, action, source, label) on table nestly.media_training_events to app_media_jobs;
 grant insert (sample_id, action, purpose, source, label) on table nestly.media_training_events to app_media_jobs;
 
--- 5. The Audit Log: audit_trigger() gains the media branches (rule 18); the rest is the text of 20261021100000, unchanged.
+-- 5. The Audit Log: audit_trigger() gains the media branches (rule 18); the rest is the text of 20261021300000, unchanged.
 create or replace function nestly.audit_trigger()
 returns trigger
 language plpgsql
@@ -806,6 +821,12 @@ begin
     v_after := pg_catalog.jsonb_build_object('status', v_new ->> 'status', 'title', v_new ->> 'title', 'stageKind', v_new ->> 'stage_kind',
       'rangeFrom', v_new -> 'range_from', 'rangeTo', v_new -> 'range_to', 'sourceCheckedOn', v_new ->> 'source_checked_on',
       'bodyChars', pg_catalog.char_length(v_new ->> 'body'), 'bodyChanged', tg_op = 'UPDATE' and v_new ->> 'body' is distinct from v_old ->> 'body');
+  elsif tg_table_name = 'recovery_lock_releases' then
+    v_key := 'RECOVERY_LOCK_RELEASE';
+    v_action := 'recovery_lock_released';
+    v_kind := 'user';
+    v_target := (v_new ->> 'user_id')::uuid;
+    v_reason := nullif(v_new ->> 'reason', '');
   elsif tg_table_name = 'media_assets' then
     -- FR-FEED-002 / BR-076 (Afik 20.10.2026): a staff decision on an image (a queued one approved or rejected; a checked one rejected after
     -- a report or as a suspicion). heldAsSuspected: the image is kept 90 days and never enters the training set.
@@ -814,9 +835,7 @@ begin
     v_kind := 'media';
     v_target := (v_new ->> 'id')::uuid;
     v_before := pg_catalog.jsonb_build_object('status', v_old ->> 'status');
-    v_after := pg_catalog.jsonb_build_object('status', v_new ->> 'status', 'mediaKind', v_new ->> 'kind', 'heldAsSuspected', v_new -> 'is_held',
-      'isChild', coalesce((select r.is_child from nestly.media_reviews r where r.media_id = (v_new ->> 'id')::uuid), false),
-      'queueReason', (select r.queue_reason from nestly.media_reviews r where r.media_id = (v_new ->> 'id')::uuid));
+    v_after := pg_catalog.jsonb_build_object('status', v_new ->> 'status', 'mediaKind', v_new ->> 'kind', 'heldAsSuspected', v_new -> 'is_held');
   elsif tg_table_name = 'media_reviews' then
     -- M6: a suspicion of child abuse marked on an image (staff only; the uploader is never told).
     v_key := 'CONTENT_MODERATE';
@@ -835,7 +854,7 @@ $$;
 
 revoke execute on function nestly.audit_trigger() from public;
 
-comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement, an Admin''s creation, edit, publication or hiding of a status guide, a staff decision on an image or a suspicion marked on one: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
+comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement, an Admin''s creation, edit, publication or hiding of a status guide, a recovery lock release, a staff decision on an image or a suspicion marked on one: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
 
 create trigger media_assets_decision_audit
   after update of status on nestly.media_assets
@@ -929,7 +948,7 @@ comment on function nestly.media_training_candidate() is 'SECURITY INVOKER, in t
 comment on function nestly.media_training_samples_log() is 'SECURITY INVOKER. Every sample added or deleted is recorded in media_training_events in the same transaction (expired at its 6 months, otherwise removed).';
 comment on trigger media_assets_decision_audit on nestly.media_assets is 'Every staff decision on an image is appended to the Audit Log in the same transaction (rule 18).';
 comment on trigger media_reviews_suspicion_audit_insert on nestly.media_reviews is 'A suspicion marked on a checked image is appended to the Audit Log (M6, rule 18).';
-comment on trigger media_reviews_suspicion_audit_update on nestly.media_reviews is 'A suspicion marked on a queued image is appended to the Audit Log (M6, rule 18).';
+comment on trigger media_reviews_suspicion_audit_update on nestly.media_reviews is 'A suspicion marked on an image that already has a review (queued, or approved from the queue) is appended to the Audit Log (M6, rule 18).';
 comment on policy media_assets_select_owner on nestly.media_assets is 'The uploader reads their own images (a Story image for its day), in every state; a suspected image reads exactly as a rejected one.';
 comment on policy media_assets_select_viewer on nestly.media_assets is 'Others read an image only after it passed or was approved, through a post, profile photo or Story they can read.';
 comment on policy media_assets_select_staff on nestly.media_assets is 'CONTENT_MODERATE reads the queue and the decided images (never the uploader: owner_id is not granted).';
@@ -942,7 +961,7 @@ comment on policy media_assets_update_jobs on nestly.media_assets is 'Rule 6 exc
 comment on policy media_assets_update_jobs_file on nestly.media_assets is 'Rule 6 exception: the job records that a rejected, not held image''s file is gone, once its training copy exists where one is made (a blocked, unsure or reported image).';
 comment on policy media_assets_delete_jobs on nestly.media_assets is 'Rule 6 exception (BR-077, M6): a held image 90 days after the suspicion; otherwise never a queued or held image, and a rejected one only after its file is gone: an expired Story''s image, a rejected image 30 days after the decision, a post image never attached within a day, a profile image that is no one''s photo after a day.';
 comment on policy media_reviews_select_staff on nestly.media_reviews is 'CONTENT_MODERATE reads why an image was queued, the scores and the marks.';
-comment on policy media_reviews_update_staff on nestly.media_reviews is 'CONTENT_MODERATE marks a child or a suspicion on a queued image.';
+comment on policy media_reviews_update_staff on nestly.media_reviews is 'CONTENT_MODERATE marks a child or a suspicion on a queued image; with REPORTS_VIEW too, a suspicion on an approved one (its review exists from the queue).';
 comment on policy media_reviews_insert_staff on nestly.media_reviews is 'CONTENT_MODERATE with REPORTS_VIEW marks a suspicion on an image that had passed or was approved.';
 comment on policy media_reviews_select_jobs on nestly.media_reviews is 'Rule 6 exception: the job reads the reason, the child mark, the suspicion and its purge time.';
 comment on policy media_reviews_insert_jobs on nestly.media_reviews is 'Rule 6 exception: the job writes the queue reason and scores of a pending image, before it queues it.';
@@ -953,6 +972,8 @@ comment on policy profile_photos_delete_owner on nestly.profile_photos is 'The o
 comment on policy profile_photos_select_jobs on nestly.profile_photos is 'Rule 6 exception: the purge keeps current photos.';
 comment on policy stories_select_viewer on nestly.stories is 'Unexpired only: the author at once; others after the image passed or was approved, by audience (everyone, or accepted Friends).';
 comment on policy stories_insert_author on nestly.stories is 'A Regular publishes a Story with an image.';
+comment on policy stories_block_hide on nestly.stories is 'RESTRICTIVE (FR-REL-002): a blocked pair sees neither''s Stories, in either direction; the author and REPORTS_VIEW staff unaffected.';
+comment on policy profile_photos_block_hide on nestly.profile_photos is 'RESTRICTIVE (FR-REL-002): a blocked pair sees neither''s profile photo, in either direction; the owner and REPORTS_VIEW staff unaffected.';
 comment on policy stories_select_jobs on nestly.stories is 'Rule 6 exception: the purge keeps live Stories'' images.';
 comment on policy stories_delete_jobs on nestly.stories is 'Rule 6 exception: the job deletes expired Stories.';
 comment on policy media_training_candidates_insert_staff on nestly.media_training_candidates is 'CONTENT_MODERATE with REPORTS_VIEW, in the trigger: an image removed after a handled post report (action taken), never with a child-safety report on the post, never a queued-path or suspected image.';
