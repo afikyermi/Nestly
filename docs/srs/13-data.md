@@ -58,6 +58,7 @@
 | ProfessionalPromotionMetric | Promotion, TargetType Profile/Post, impressions/clicks/engagement ושדות מדידה נוספים שייקבעו; נשמר בנפרד ממדדי Reputation אורגניים. |
 | AnalyticsEvent | Event כללי למדידת Impression/Open/Dwell/Search/Interaction/Conversion/Support/Moderation עם eventId, timestamp, entity/surface/source ו-algorithm/config version לפי צורך. |
 | ContentImpression | רשומת/אירוע חשיפה של Recommendation/Feed unit: user/session, entity, surface, position, organic/paid, algorithm/config version ומשך חשיפה אם זמין. |
+| SearchIntent | User + Topic (נושא או קטגוריית מוצר שזוהו בכללים קבועים) + תאריך. אין בו את טקסט החיפוש; נמחק אחרי 30 יום; אינו חשוף ל-Admin, ל-Professional או ל-Advertiser (FR-ALG-008). |
 | SearchEvent | Query normalized, surface, filters, result count/zero-result ו-result click. Raw query אינו נחשף ל-Professional Analytics. |
 | PersonalizationProfile | Interest/Intent scores נגזרים לפי Topic/Context. v1 Rule-Based; אינו כולל גוף Chat/Support ואינו חשוף ל-Professional/Advertiser. |
 | RecommendationFeedback | Not Interested / Show Less והיעד creator/topic/source לצורך Re-ranking. הסתרת פוסט נשמרת ב-PostHide ואינה Feedback. |
@@ -148,6 +149,7 @@ NotificationPreference ו-GroupNotificationPreference מסננים אירועי 
 | Account/Profile/Content | נדרש לתפעול החשבון והתוכן | מחיקת חשבון — BR-073: הכל נמחק, חוץ מרשומות אבטחה וביקורת (90 יום ואז מחיקה) ומהשיחות שנשמרות לצד השני (החריג המוגדר היחיד; 17.10.2026); תמונות — BR-077. משך מדויק ייקבע לפי Privacy Policy/שוק ראשון; מחיקה/ייצוא לפי USER_DATA_EXPORT_DELETE ותהליך המשתמש. פוסט או תגובה שהכותב מחק — נמחקים מיד; תחת דיווח פתוח — מוסתרים מכולם עד הטיפול, לכל היותר 90 יום, ואז נמחקים על ידי משימת רקע (BR-080). הסתרת פוסט נשמרת עד שהמשתמש מבטל אותה, עד מחיקת הפוסט או עד מחיקת החשבון. |
 | Notifications | הצגת התראות | 90 יום (החלטת אפיק מ-18.10.2026, 15א). |
 | Rate-limit counters | הגבלת קצב (NFR-SEC-006, NFR-SEC-010) | יום אחרי שהמונה פג (15א). |
+| Search Intent (נושא החיפוש) | התאמת פוסטים, מודעות ויועצים למה שהמשתמש חיפש (FR-ALG-008) | 30 יום ואז נמחק (החלטת אפיק מ-20.10.2026); נשמר הנושא בלבד, לא טקסט החיפוש; מדיניות הפרטיות מציינת זאת. |
 | Interaction/Search/Recommendation Events | Personalization + Analytics | Retention period לא ייקבע שרירותית ב-SRS; יש לקבוע לפני Production ולהתאים ל-Notice/Consent. Aggregates יכולים להישמר בנפרד לפי policy. |
 | Tracker/Child Data | Tracking + Organic Context | Retention/control חייבים להיות מפורשים במדיניות; אין Paid Targeting. הסרת ילד וסיום מסלול מוחקים את השורה מבסיס הנתונים החי מיד, ושום שורת לוג של האפליקציה, עמודה או רשומה אינם רושמים את המחיקה (FR-PROFILE-002). גיבויי Supabase והרישומים הטכניים של הפלטפורמה (לוג הבקשות של Vercel, לוג ה-Auth) נשארים מחוץ למחיקה הזו לזמן קצר, ומדיניות הפרטיות מציינת זאת ליד הגיבויים (BR-078; OP-036 נסגר). |
 | Chat/Support | תקשורת ותפעול Support | Retention נקבע לפי policy/operational need; גוף ההודעות לא נכנס ל-personalization/paid analytics. |

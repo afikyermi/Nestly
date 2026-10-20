@@ -111,7 +111,7 @@
 | קלט / Trigger | Normalized query + entity metadata + visibility + freshness/quality tie-breakers. |
 | תהליך מערכת | Authorization filter ראשון → exact/prefix/title/name match → keyword/text match → tie-break לפי relevance/freshness/quality. Semantic embeddings/LLM אינם נדרשים ב-v1. |
 | פלט | Dropdown/מסך תוצאות חיפוש מדורגים ללא חשיפת תוכן לא מורשה. |
-| מצב לאחר ביצוע | SearchEvent ו-result click נרשמים; zero-result נשמר לצורכי Admin Intelligence. |
+| מצב לאחר ביצוע | Intent Signal (החלטת אפיק מ-20.10.2026): מכל חיפוש נשמרים הנושא או קטגוריית המוצר שזוהו, מזהה המשתמש והתאריך — לעולם לא הטקסט שהוקלד. הזיהוי בכללים קבועים (מילים לנושא), ללא ML. הנושא נמחק אחרי 30 יום, והשפעתו דועכת עם הזמן. הנושא מקדם תוכן תואם — פוסטים, מודעות Marketplace ויועצים, אורגניים וממומנים כאחד (בכפוף לכללי Sponsored Eligibility) — בלי ניתוח של Admin. השפעת הנושאים על דירוג הפיד, ה-Marketplace והיועצים מופעלת עם הפיצ'רים הללו; איסוף הנושאים פעיל. |
 | בעל אחריות לוגי (Page / Feature) | חיפוש גלובלי / רישום אירועי שימוש |
 
 ## FR-ALG-009 — Negative Feedback, Diversity & Exploration

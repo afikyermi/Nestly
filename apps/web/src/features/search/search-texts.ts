@@ -23,5 +23,5 @@ export const LIMITED_TEXT =
   "הגעתם למספר החיפושים לשעה. אפשר להמשיך לחפש פוסטים, ולחפש אנשים בעוד זמן מה";
 export const FAILED_TEXT = "לא הצלחנו לחפש. אפשר לנסות שוב";
 export const RETRY_LABEL = "נסו שוב";
-export const ANONYMOUS_AUTHOR = "כותב/ת אנונימי/ת";
+export const ANONYMOUS_AUTHOR = 'פוסט אנונימי';
 export const personLink = (name: string): string => `לפרופיל של ${name}`;

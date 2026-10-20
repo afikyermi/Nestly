@@ -13,7 +13,7 @@ const base: NotificationItem = { id: ID, type: 'post_comment', actorId: ID, acto
 describe('[AC-040] the sentence and the link', () => {
   it('[AC-040] each event reads as a sentence with the actor\'s name; no name is "מישהו"; the anonymous author\'s own comment is "המחבר"', () => {
     expect(sentenceOf(base)).toBe('תגובה חדשה של דנה לוי על הפוסט שלך');
-    expect(sentenceOf({ ...base, type: 'friend_request', targetKind: 'user' })).toBe('בקשת חברות חדשה מדנה לוי');
+    expect(sentenceOf({ ...base, type: 'friend_request' })).toBe('בקשת חברות חדשה מדנה לוי');
     expect(sentenceOf({ ...base, actorName: null })).toBe('תגובה חדשה של מישהו על הפוסט שלך');
     expect(sentenceOf({ ...base, type: 'comment_reply', actorId: null, actorName: null })).toBe('תשובה חדשה של המחבר לתגובה שלך');
   });

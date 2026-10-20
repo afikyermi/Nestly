@@ -20,6 +20,7 @@
 | משתמש / Signal | מקורות | שימוש |
 |---|---|---|
 | Regular — Explicit | Search, Follow Professional, Join Group, Save, Like/Reaction, Comment/Reply, Friend/Group actions, Not Interested | Organic Ranking + current intent |
+| Regular — Search Intent (החלטת אפיק מ-20.10.2026) | מכל חיפוש: הנושא או קטגוריית המוצר שזוהו בכללים קבועים (מילים לנושא, ללא ML), מזהה המשתמש והתאריך — לעולם לא הטקסט. נמחק אחרי 30 יום | Intent scoring לפוסטים, למודעות Marketplace וליועצים, אורגניים וממומנים, עם דעיכה בזמן; בלי ניתוח Admin; Sponsored Eligibility ללא שינוי |
 | Regular — Implicit | Impression, Open, Dwell, profile/product/article open, sequence of topic consumption | Interest/Intent scoring; Dwell אינו Signal יחיד |
 | Regular — Context | Stage/JourneyContext; Tracker category/summary only for approved contextual guidance | Organic only; no paid targeting from Child/Tracker |
 | Regular — Social | Friends, joined Groups, followed Professionals | Social relevance/candidate generation |
