@@ -113,6 +113,8 @@ $$;
 
 revoke execute on function nestly.audit_trigger() from public;
 
+comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move or an enforcement: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
+
 revoke insert, update on table nestly.status_guides from authenticated;
 drop policy status_guides_update_admin on nestly.status_guides;
 drop policy status_guides_insert_admin on nestly.status_guides;

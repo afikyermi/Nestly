@@ -57,6 +57,8 @@ $$;
 
 revoke execute on function nestly.status_guides_prepare() from public;
 
+comment on function nestly.status_guides_prepare() is 'BEFORE trigger, SECURITY INVOKER, pinned search_path. Publishing a guide stamps published_at with the database clock; a draft has none; hiding keeps the original stamp (FR-ADMIN-012, BR-070).';
+
 create trigger status_guides_prepare
   before insert or update on nestly.status_guides
   for each row execute function nestly.status_guides_prepare();
@@ -154,6 +156,8 @@ end
 $$;
 
 revoke execute on function nestly.audit_trigger() from public;
+
+comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement or an Admin''s creation, edit, publication or hiding of a status guide: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
 
 create trigger status_guides_audit
   after insert or update on nestly.status_guides

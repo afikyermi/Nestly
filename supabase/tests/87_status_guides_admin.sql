@@ -63,6 +63,12 @@ select is(pg_temp.dml('d', $$ update nestly.status_guides set status = 'publishe
 select is(pg_temp.n('d', $$nestly.status_guides where status = 'published' and published_at is not null$$), '1', '[F6.1-a c5] the database stamped the publication time');
 select is(pg_temp.n('a', 'nestly.status_guides'), '1', '[F6.1-a c5 AC-095] a user now reads that one guide');
 select is(pg_temp.n('m3', 'nestly.status_guides'), '1', '[F6.1-a c5 AC-095] and so does a Moderator, as a user (published only)');
+select is(pg_temp.dml('m3', $$ update nestly.status_guides set status = 'hidden' where status = 'published' $$), 'OK:0',
+  '[F6.1-a c5 §3.2] a Moderator with all keys cannot hide a published guide (0 rows)');
+select is(pg_temp.dml('a', $$ update nestly.status_guides set status = 'hidden' where status = 'published' $$), 'OK:0',
+  '[F6.1-a c5 AC-095] a user cannot hide a published guide (0 rows)');
+select is(pg_temp.dml('p', $$ update nestly.status_guides set status = 'hidden' where status = 'published' $$), 'OK:0',
+  '[F6.1-a c5 AC-095] a Professional cannot hide a published guide (0 rows)');
 select is(pg_temp.dml('d', $$ update nestly.status_guides set status = 'hidden' where status = 'published' $$), 'OK:1', '[F6.1-a c5] the Admin hides it');
 select is(pg_temp.n('a', 'nestly.status_guides'), '0', '[F6.1-a c5 AC-095] no user reads a hidden guide');
 select is(pg_temp.n('d', $$nestly.status_guides where status = 'hidden'$$), '1', '[F6.1-a c5] the Admin still reads it');
@@ -87,7 +93,18 @@ select is((select (after_state->>'bodyChanged') from tests.fx_audit_rows() where
 select tests.set_status(pg_temp.id('d'), 'suspended');
 select is(pg_temp.n('d', 'nestly.status_guides'), '0', '[F6.1-a c7 rule 15] a suspended Admin reads no draft');
 select is(pg_temp.dml('d', $$ update nestly.status_guides set title = 'x' $$), 'OK:0', '[F6.1-a c7 rule 15] and edits nothing');
+select is(pg_temp.dml('d', $$ insert into nestly.status_guides (stage_kind, title, body, source) values ('planning', 'x', 'y', 'z') $$), 'ERR:42501',
+  '[F6.1-a c7 rule 15] and creates nothing (42501)');
 select tests.set_status(pg_temp.id('d'), 'active');
+
+-- ---- an Admin whose session is stale writes nothing either (BR-026: nothing goes unaudited) ------------------------------------
+select tests.fx_link_put(pg_temp.id('d'), 'affected', '22222222-2222-4222-8222-222222222222'::uuid, timestamptz '2026-10-16 10:00:00+00', '22222222-2222-4222-8222-222222222222'::uuid);
+select is(pg_temp.dml('d', $$ insert into nestly.status_guides (stage_kind, title, body, source) values ('planning', 'x', 'y', 'z') $$, false), 'ERR:42501',
+  '[F6.1-a c8 BR-026] an Admin whose session is stale cannot create a guide (42501)');
+select is(pg_temp.dml('d', $$ update nestly.status_guides set title = 'x' $$, false), 'OK:0', '[F6.1-a c8 BR-026] nor edit one (0 rows)');
+select is(pg_temp.n('d', 'nestly.status_guides'), '0', '[F6.1-a c8] nor read the drafts');
+select tests.fx_link_put(pg_temp.id('d'), 'unaffected', '22222222-2222-4222-8222-222222222222'::uuid);
+select is(pg_temp.n('d', 'nestly.status_guides'), '10', '[F6.1-a c8] a fresh session reads them again');
 
 select * from finish();
 rollback;
