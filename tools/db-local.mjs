@@ -99,8 +99,10 @@ export function setupPlan(root) {
   return {
     asAdmin: ['supabase/ci/auth-functions.sql'],
     beforeRoles: ['supabase/ci/auth-functions-check.sql', 'supabase/ci/image-preflight.sql', 'supabase/bootstrap/01-roles.sql'],
-    afterMigrations: ['supabase/bootstrap/02-anchor-fk.sql', 'supabase/bootstrap/02-anchor-fk-check.sql', 'supabase/ci/pgtap-setup.sql', 'supabase/ci/rls-gate.sql', ...setup.map((f) => `supabase/tests/setup/${f}`)],
+    afterMigrations: ['supabase/bootstrap/02-anchor-fk.sql', 'supabase/bootstrap/02-anchor-fk-check.sql', 'supabase/bootstrap/03-cron.sql', 'supabase/bootstrap/03-cron-check.sql', 'supabase/bootstrap/01-roles-check.sql', 'supabase/ci/pgtap-setup.sql', 'supabase/ci/rls-gate.sql', ...setup.map((f) => `supabase/tests/setup/${f}`)],
     anchorCheck: 'supabase/bootstrap/02-anchor-fk-check.sql',
+    // Check files whose rows must all say ok = t: the first column (anchor, cron) or the second (roles, after the role name).
+    okChecks: { 'supabase/bootstrap/02-anchor-fk-check.sql': 0, 'supabase/bootstrap/03-cron-check.sql': 0, 'supabase/bootstrap/01-roles-check.sql': 1 },
   };
 }
 
@@ -179,12 +181,13 @@ function withDatabase(keep, work) {
     const push = spawnSync(process.execPath, [supabaseCli(cli), 'db', 'push', '--db-url', `${localUrl('app_owner', pw.app_owner, PORT)}?sslmode=disable`, '--yes', '--skip-vault', '--agent', 'no'], { cwd: ROOT, stdio: 'inherit' });
     if (push.status !== 0) throw new Error('supabase db push failed');
     for (const f of plan.afterMigrations) {
-      if (f !== plan.anchorCheck) {
+      if (!(f in plan.okChecks)) {
         psql('postgres', pw.postgres, read(f), f);
         continue;
       }
-      const anchor = psql('postgres', pw.postgres, read(f), f, ['-A', '-t', '-F', ' | ']).trim();
-      if (!anchor.startsWith('t | ')) throw new Error(`${f}: ok is not true (${anchor})`);
+      const out = psql('postgres', pw.postgres, read(f), f, ['-A', '-t', '-F', ' | ']).trim();
+      const rows = out.split('\n');
+      if (!out || !rows.every((row) => row.split(' | ')[plan.okChecks[f]] === 't')) throw new Error(`${f}: ok is not true (${out})`);
     }
     return work(pw);
   } finally {
