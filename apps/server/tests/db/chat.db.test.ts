@@ -45,10 +45,12 @@ const url = (): string => {
 const text = async (query: PromiseLike<ReadonlyArray<Record<string, unknown>>>): Promise<string> => String((await query)[0]?.v);
 const as = (userId: string) => ({ userId });
 const auditCount = async (action: string): Promise<number> => Number(await text(side`select tests.fx_sf_audit(${action}) as v`));
-const ok = <T extends { kind: string }>(outcome: T): Extract<T, { kind: 'ok' }> => {
+const isOk = <T extends { kind: string }>(outcome: T): outcome is Extract<T, { kind: 'ok' }> => outcome.kind === 'ok';
+function ok<T extends { kind: string }>(outcome: T): Extract<T, { kind: 'ok' }> {
   expect(outcome.kind).toBe('ok');
-  return outcome as Extract<T, { kind: 'ok' }>;
-};
+  if (!isOk(outcome)) throw new Error(`expected ok, got ${outcome.kind}`);
+  return outcome;
+}
 
 beforeAll(async () => {
   key = await newKey('chat-db-key');

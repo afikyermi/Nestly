@@ -92,7 +92,7 @@ async function staffGate(tx: IdentityTx, ...keys: PermissionKey[]): Promise<Refu
 }
 const isRefusal = (value: Refusal | readonly PermissionKey[]): value is Refusal => 'kind' in value;
 
-/** GET /api/admin/support (SUPPORT_VIEW). */
+/** The Support inbox (SUPPORT_VIEW). */
 export async function readSupportInbox(database: Database, identity: Identity, status: SupportStatus | undefined): Promise<Outcome<{ items: SupportInbox['items'] }>> {
   return inIdentityTransaction(database, identity, async (tx) => {
     const gate = await staffGate(tx, 'SUPPORT_VIEW');
@@ -101,7 +101,7 @@ export async function readSupportInbox(database: Database, identity: Identity, s
   });
 }
 
-/** GET /api/admin/support/:id (SUPPORT_VIEW). */
+/** One request of the inbox (SUPPORT_VIEW). */
 export async function readSupportRequest(database: Database, identity: Identity, requestId: string): Promise<Outcome<{ detail: SupportDetail }>> {
   return inIdentityTransaction(database, identity, async (tx) => {
     const gate = await staffGate(tx, 'SUPPORT_VIEW');
@@ -111,7 +111,7 @@ export async function readSupportRequest(database: Database, identity: Identity,
   });
 }
 
-/** POST /api/admin/support/:id/messages (SUPPORT_HANDLE): a reply as Support, or an internal note. A reply to a closed request is 409. */
+/** A staff message (SUPPORT_HANDLE): a reply as Support, or an internal note. A reply to a closed request is 409. */
 export async function replyAsSupport(database: Database, identity: Identity, requestId: string, text: string, internal: boolean): Promise<Outcome<object>> {
   try {
     return await replyAsSupportOnce(database, identity, requestId, text, internal);
@@ -136,7 +136,7 @@ async function replyAsSupportOnce(database: Database, identity: Identity, reques
   });
 }
 
-/** POST /api/admin/support/:id/status (SUPPORT_HANDLE): a closed request is not reopened (409). */
+/** A status change (SUPPORT_HANDLE): a closed request is not reopened (409). */
 export async function changeSupportStatus(database: Database, identity: Identity, requestId: string, status: SupportStatus): Promise<Outcome<object>> {
   try {
     return await inIdentityTransaction(database, identity, async (tx): Promise<Outcome<object>> => {
@@ -154,7 +154,7 @@ export async function changeSupportStatus(database: Database, identity: Identity
   }
 }
 
-/** POST /api/admin/reports/message (REPORTS_VIEW): the audited opening of a reported message (§9.6), and its sender's account for USER_VIEW. */
+/** A reported message opened (REPORTS_VIEW): the audited opening of a reported message (§9.6), and its sender's account for USER_VIEW. */
 export async function viewReportedMessage(
   database: Database,
   identity: Identity,
