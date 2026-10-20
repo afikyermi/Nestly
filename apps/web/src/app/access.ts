@@ -1,6 +1,7 @@
 import { postIdOfPath } from '@/lib/post-link';
 import { userIdOfProfilePath } from '@/lib/profile-link';
 import { isReturnPath } from '@/lib/return-path';
+import { trackerPageOfPath } from '@/lib/tracker-link';
 import type { SessionState } from '@/services/session/session-source';
 import { GUEST_LANDING, GUEST_PATHS, normalizePath, PATHS, PROTECTED_PATHS, SIGNED_IN_LANDING } from './paths';
 
@@ -48,7 +49,7 @@ export function decideAccess(
       const returnTo = normalizePath(options.returnTo ?? '');
       return redirect(isReturnPath(returnTo) ? returnTo : SIGNED_IN_LANDING);
     }
-    return PROTECTED_PATHS.includes(path) || userIdOfProfilePath(path) !== null || postIdOfPath(path) !== null ? RENDER : redirect(SIGNED_IN_LANDING);
+    return PROTECTED_PATHS.includes(path) || userIdOfProfilePath(path) !== null || postIdOfPath(path) !== null || trackerPageOfPath(path) !== null ? RENDER : redirect(SIGNED_IN_LANDING);
   }
   // Signed in with Auth but no account yet (DR-2): the registration screen (completion mode) and the two documents its consent
   // step links to.

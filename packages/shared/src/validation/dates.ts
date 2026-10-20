@@ -44,3 +44,12 @@ export function addDaysIso(iso: string, days: number): string {
   const moved = new Date(Date.UTC(y ?? 0, (m ?? 1) - 1, d ?? 1) + days * MS_PER_DAY);
   return `${pad(moved.getUTCFullYear(), 4)}-${pad(moved.getUTCMonth() + 1, 2)}-${pad(moved.getUTCDate(), 2)}`;
 }
+
+/** Whole days from `from` to `to` (both YYYY-MM-DD); negative when `to` is earlier. */
+export function daysBetweenIso(from: string, to: string): number {
+  const ms = (iso: string): number => {
+    const [y, m, d] = iso.split('-').map(Number);
+    return Date.UTC(y ?? 0, (m ?? 1) - 1, d ?? 1);
+  };
+  return Math.round((ms(to) - ms(from)) / MS_PER_DAY);
+}
