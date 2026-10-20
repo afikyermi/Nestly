@@ -161,6 +161,7 @@ const deps = (db: JobDb, storage: JobStorage, m: () => Promise<ImageModel>): Med
   model: m,
   config: { blockThreshold: 0.6, lowThreshold: 0.25, maxAttempts: 3 },
   timeLeft: () => 60_000,
+  full: true,
 });
 
 describe('[AC-105 BR-077 Afik 20.10] one run of the job', () => {
@@ -179,6 +180,33 @@ describe('[AC-105 BR-077 Afik 20.10] one run of the job', () => {
     const report = await runMediaJob(deps(db, fakeJobStorage().storage, () => Promise.reject(new Error('no model'))));
     expect(report).toMatchObject({ checked: 0, passed: 0, failed: 0 });
     expect(calls).toEqual(['stories']);
+  });
+  it('a run asked for after an upload or a decision: checks, copies and removes queue-rejected files only; a failed file read is not charged', async () => {
+    const queueOnly: boolean[] = [];
+    const { db, calls } = fakeDb({
+      pending: () => Promise.resolve([{ id: ID(1), attempts: 2 }, { id: ID(2), attempts: 0 }]),
+      removeRejectedFiles: (_remove, onlyQueue) => {
+        queueOnly.push(onlyQueue);
+        return Promise.resolve(0);
+      },
+      pruneSamples: () => {
+        calls.push('prune');
+        return Promise.resolve(0);
+      },
+    });
+    let listed = 0;
+    const store = fakeJobStorage({
+      readImage: (id) => Promise.resolve(id === ID(1) ? undefined : new Uint8Array([1])),
+      listImagesBefore: () => {
+        listed += 1;
+        return Promise.resolve({ ids: [], more: false });
+      },
+    });
+    const report = await runMediaJob({ ...deps(db, store.storage, model({ '1': { FACE_FEMALE: 0.9 } })), full: false });
+    expect(report).toMatchObject({ checked: 2, passed: 1, failed: 0 });
+    expect(calls, 'no attempt charged, no purge, prune or Stories step').toEqual([`passed:${ID(2)}`]);
+    expect(queueOnly).toEqual([true]);
+    expect(listed, 'no sweep').toBe(0);
   });
   it('an image another run already moved never stops this run', async () => {
     const { db } = fakeDb({

@@ -25,6 +25,8 @@ export const STORIES_PER_DAY = 10;
 export const STORY_CAPTION_MAX = 200;
 /** How long a signed image address works (seconds). The page asks again after that. */
 export const MEDIA_URL_TTL_SECONDS = 600;
+/** The image queue answers at most this many images, oldest first; the screen asks again when it has decided a full page. */
+export const MEDIA_QUEUE_PAGE = 50;
 
 export const mediaKindParam = z.enum(MEDIA_KINDS);
 export const mediaUploadType = z.enum(MEDIA_UPLOAD_TYPES);

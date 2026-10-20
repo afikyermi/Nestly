@@ -3,14 +3,12 @@
 // media_assets_update_staff, media_assets_update_guard); the decision is audited by the database in the same transaction (rule 18). A read
 // address is signed only for the queued images the caller's own read returned.
 
-import { BLOCKING_LABELS, type MediaDecision, type MediaQueueItem } from '@nestly/shared';
+import { BLOCKING_LABELS, MEDIA_QUEUE_PAGE, type MediaDecision, type MediaQueueItem } from '@nestly/shared';
 import type { Database } from '../db/client.js';
 import { inIdentityTransaction } from '../db/identity-transaction.js';
 import type { Identity } from '../lib/token-verifier.js';
 import type { MediaStorage } from '../media/storage-admin.js';
 import { DecisionNotApplied, canModerateContent, canRemoveCheckedImage, decideImage, readQueue, removeCheckedImage } from '../repositories/media-repository.js';
-
-const QUEUE_PAGE = 50;
 
 export type QueueOutcome = { readonly kind: 'queue'; readonly items: MediaQueueItem[] } | { readonly kind: 'forbidden' };
 
@@ -25,7 +23,7 @@ function topOf(scores: Readonly<Record<string, number>> | null): { topLabel: str
 }
 
 export async function readMediaQueue(database: Database, identity: Identity, storage: MediaStorage): Promise<QueueOutcome> {
-  const rows = await inIdentityTransaction(database, identity, async (tx) => ((await canModerateContent(tx)) ? readQueue(tx, QUEUE_PAGE) : undefined));
+  const rows = await inIdentityTransaction(database, identity, async (tx) => ((await canModerateContent(tx)) ? readQueue(tx, MEDIA_QUEUE_PAGE) : undefined));
   if (rows === undefined) return { kind: 'forbidden' };
   const urls = await storage.signedUrls(
     rows.map((row) => row.id),

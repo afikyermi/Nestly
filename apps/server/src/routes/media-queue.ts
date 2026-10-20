@@ -87,7 +87,8 @@ export function registerMediaQueueRoutes(app: FastifyInstance, deps: MediaQueueR
         const outcome = await removeImageAfterReport(deps.database, identity, id.data.toLowerCase(), body.data.suspected);
         if (outcome.kind === 'forbidden') return reply.code(403).send({ error: 'forbidden' });
         if (outcome.kind !== 'removed') return reply.code(404).send({ error: 'not_found' });
-        await deps.kick();
+        // no job run here: the file of an image removed while its report is still open waits for the daily run, so closing the report with
+        // action taken first makes it a training candidate (BR-076) before its file goes
         return reply.code(200).send({});
       } catch (error) {
         return replyFailure(request, reply, error, 'media removal failed');

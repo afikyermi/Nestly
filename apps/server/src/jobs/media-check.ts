@@ -12,6 +12,8 @@
 //              rows go together (a failed removal keeps the rows for the next run).
 //   4. prune   training samples past their 6 months or whose image became suspected, files included (the access record notes each).
 //   5. sweep   image files older than a day that have no row (a removal that failed after its row was gone).
+// Steps 3–5, and the files of images removed after a report (their report may still be open, and closing it with action taken makes them
+// training candidates), run only in the daily run; a run asked for after an upload or a decision does 1, 2 and 2b for queue decisions.
 // Nothing is logged but counts: no id, no score, no file.
 
 import { verdictOf } from '@nestly/shared';
@@ -27,6 +29,9 @@ export interface MediaJobDependencies {
   readonly config: Pick<JobsConfig, 'blockThreshold' | 'lowThreshold' | 'maxAttempts'>;
   /** Milliseconds left in this run; the job stops starting new work below a margin. */
   readonly timeLeft: () => number;
+  /** The daily run (true) does every step; a run asked for after an upload or a queue decision (false) only checks, copies and removes the
+   *  files of images staff rejected from the queue, so overlapping runs stay short, and a file read that fails there counts no attempt. */
+  readonly full: boolean;
 }
 
 export interface MediaJobReport {
@@ -62,7 +67,11 @@ async function checkPending(deps: MediaJobDependencies, report: MediaJobReport):
     report.checked += 1;
     try {
       const bytes = await deps.storage.readImage(row.id);
-      if (bytes === undefined) throw new Error('file unavailable');
+      if (bytes === undefined) {
+        // Storage unreachable, or the file gone: only the daily run counts it, so an outage during uploads never fills the queue with errors
+        if (!deps.full) continue;
+        throw new Error('file unavailable');
+      }
       const scores = await model.score(bytes);
       const verdict = verdictOf(scores, deps.config);
       if (verdict.status === 'passed') {
@@ -113,7 +122,8 @@ export async function runMediaJob(deps: MediaJobDependencies): Promise<MediaJobR
   await checkPending(deps, report);
   if (more()) await copyTrainingSamples(deps, report);
   // a rejected image's file goes at once, after its training copy (the update policy refuses it before)
-  if (more()) report.filesRemoved = await deps.db.removeRejectedFiles(async (ids) => (await deps.storage.removeImages(ids)) === 'ok');
+  if (more()) report.filesRemoved = await deps.db.removeRejectedFiles(async (ids) => (await deps.storage.removeImages(ids)) === 'ok', !deps.full);
+  if (!deps.full) return report;
   if (more()) report.storiesPurged = await deps.db.purgeStories();
   if (more()) report.purged = await deps.db.purgeImages(async (ids) => (await deps.storage.removeImages(ids)) === 'ok');
   if (more()) report.pruned = await deps.db.pruneSamples(async (ids) => (await deps.storage.removeTrainingSamples(ids)) === 'ok');

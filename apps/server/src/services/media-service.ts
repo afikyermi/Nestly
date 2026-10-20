@@ -9,7 +9,7 @@ import type { Identity } from '../lib/token-verifier.js';
 import type { ProcessedImage, ProcessingRefusal } from '../media/image-processing.js';
 import type { JobKick } from '../media/job-kick.js';
 import type { MediaStorage } from '../media/storage-admin.js';
-import { insertImage, readImage, removeOwnProfilePhoto, setOwnProfilePhoto, stateOf, type ImageRow } from '../repositories/media-repository.js';
+import { insertImage, readImage, readProfilePhotos, removeOwnProfilePhoto, setOwnProfilePhoto, stateOf, type ImageRow } from '../repositories/media-repository.js';
 
 export interface MediaDependencies {
   readonly storage: MediaStorage;
@@ -83,4 +83,12 @@ export async function removeProfilePhoto(database: Database, identity: Identity,
   const removed = await inIdentityTransaction(database, identity, (tx) => removeOwnProfilePhoto(tx));
   if (removed !== null) await storage.remove([removed]);
   return { kind: 'removed' };
+}
+
+/** The caller's own current profile photo (any state: only the owner sees a pending or rejected one), signed after the transaction. */
+export async function readOwnProfilePhoto(database: Database, identity: Identity, storage: MediaStorage): Promise<MediaImage | null> {
+  const rows = await inIdentityTransaction(database, identity, (tx) => readProfilePhotos(tx, [identity.userId.toLowerCase()]));
+  const first = rows[0];
+  if (first === undefined) return null;
+  return (await withUrls(storage, rows)).get(first.id) ?? null;
 }

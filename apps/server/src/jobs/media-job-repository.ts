@@ -34,7 +34,7 @@ export interface JobDb {
   /** Records a read of a training sample, with its purpose, before the read (Afik 20.10.2026: every access audited). */
   recordAccess(sampleId: string): Promise<boolean>;
   /** Marks the rejected images whose file may go now (the policy: not held, after the training copy) and runs `remove` in the same transaction. */
-  removeRejectedFiles(remove: (ids: string[]) => Promise<boolean>): Promise<number>;
+  removeRejectedFiles(remove: (ids: string[]) => Promise<boolean>, queueDecisionsOnly: boolean): Promise<number>;
   /** Deletes expired Stories (their rows only; their images go with the image purge). */
   purgeStories(): Promise<number>;
   /** Deletes every image row the delete policy allows (BR-077, M6) and runs `remove` with their ids in the same transaction. */
@@ -131,9 +131,13 @@ export function createJobDb(sql: Sql): JobDb {
         return false;
       }
     },
-    removeRejectedFiles(remove) {
+    removeRejectedFiles(remove, queueDecisionsOnly) {
       return deleting(
-        (tx) => tx`update nestly.media_assets set is_file_removed = true where status = 'rejected' and not is_file_removed returning id`,
+        (tx) =>
+          queueDecisionsOnly
+            ? tx`update nestly.media_assets m set is_file_removed = true where m.status = 'rejected' and not m.is_file_removed
+                 and exists (select 1 from nestly.media_reviews r where r.media_id = m.id and r.queue_reason is not null) returning m.id as id`
+            : tx`update nestly.media_assets set is_file_removed = true where status = 'rejected' and not is_file_removed returning id`,
         remove,
       );
     },

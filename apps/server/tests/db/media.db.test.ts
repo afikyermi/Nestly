@@ -269,6 +269,23 @@ describe('[Afik 20.10] the approval queue', () => {
     expect(seen.images ?? [], 'gone for readers').toEqual([]);
   });
 
+  it('[M6] a suspicion marked on a passed image after a report removes and holds it: 200, the uploader sees a rejection, readers nothing', T, async () => {
+    const { app } = await start();
+    const a = await registered(app, 'Suspected Author');
+    const b = await registered(app, 'Suspicion Reporter');
+    const admin = await bearerFor(ADMIN);
+    const media = imageId((await upload(app, a.header, 'post')).body);
+    const created = z.object({ id: z.guid() }).parse(JSON.parse((await json(app, a.header, 'POST', '/api/posts', { body: 'חשד', audience: 'everyone', imageIds: [media] })).body));
+    await jobSets(media, 'passed');
+    expect((await json(app, b.header, 'POST', '/api/reports', { targetKind: 'post', targetId: created.id, reason: 'spam' })).statusCode).toBeLessThan(300);
+    expect((await json(app, admin, 'POST', `/api/admin/media/${media}/removal`, { suspected: true })).statusCode).toBe(200);
+    const imagesFor = async (header: string) =>
+      z.object({ images: z.array(z.object({ id: z.guid(), state: z.string() })).optional() }).parse(JSON.parse((await json(app, header, 'GET', `/api/posts/${created.id}`)).body)).images ?? [];
+    expect(await imagesFor(b.header), 'gone for readers').toEqual([]);
+    expect((await imagesFor(a.header)).map((image) => image.state), 'the plain rejection for the uploader').toEqual(['rejected']);
+    expect((await json(app, admin, 'POST', `/api/admin/media/${media}/removal`, { suspected: true })).statusCode, 'already removed').toBe(404);
+  });
+
   it('a dismissed report is no ground for removal; a report handled with action taken is (no time limit)', T, async () => {
     const { app } = await start();
     const a = await registered(app, 'Twice Reported');
@@ -284,9 +301,9 @@ describe('[Afik 20.10] the approval queue', () => {
     expect((await handle('dismissed')).statusCode).toBe(200);
     expect((await json(app, admin, 'POST', `/api/admin/media/${media}/removal`, { suspected: false })).statusCode, 'only a dismissed report').toBe(404);
     const detail = z
-      .object({ detail: z.object({ reports: z.array(z.object({ resolution: z.string().nullable() })) }) })
+      .object({ reports: z.array(z.object({ resolution: z.string().nullable() })) })
       .parse(JSON.parse((await json(app, admin, 'GET', `/api/admin/reports/post/${created.id}`)).body));
-    expect(detail.detail.reports.map((report) => report.resolution)).toEqual(['dismissed']);
+    expect(detail.reports.map((report) => report.resolution)).toEqual(['dismissed']);
     expect((await json(app, c.header, 'POST', '/api/reports', { targetKind: 'post', targetId: created.id, reason: 'spam' })).statusCode).toBeLessThan(300);
     expect((await handle('action_taken')).statusCode).toBe(200);
     expect((await json(app, admin, 'POST', `/api/admin/media/${media}/removal`, { suspected: false })).statusCode, 'a report handled with action taken').toBe(200);

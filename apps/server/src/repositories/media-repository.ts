@@ -244,6 +244,10 @@ export async function removeCheckedImage(tx: IdentityTx, id: string, suspected: 
       on conflict (media_id) do update set is_child = true, is_suspected = true
       returning media_id as id`);
     if (returnedId.parse(marked).length !== 1) return false;
+    // the suspicion itself rejects and holds the image in the same statement (media_reviews_suspicion_reject): confirm, never update again
+    const held = await tx.execute(sql`select id from nestly.media_assets where id = ${id}::uuid and status = 'rejected'`);
+    if (returnedId.parse(held).length !== 1) throw new DecisionNotApplied();
+    return true;
   }
   const rows = await tx.execute(sql`
     update nestly.media_assets set status = 'rejected'

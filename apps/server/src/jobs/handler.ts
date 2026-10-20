@@ -1,5 +1,6 @@
 // The background job's entry (I5; Afik 20.10.2026, decisions-in-force.md §7): POST or GET /api/jobs/media-check with
-// `Authorization: Bearer <the job secret>` (Vercel cron sends it daily; the upload route sends it after an upload). Anything else is 401 with no
+// `Authorization: Bearer <the job secret>` (Vercel cron sends GET daily: the full run; the upload route and a queue decision send POST: the
+// short run, media-check.ts). Anything else is 401 with no
 // work. Connects as app_media_jobs with its own connection string, one connection, closed when the run ends. Answers counts only.
 
 import { timingSafeEqual } from 'node:crypto';
@@ -38,7 +39,7 @@ export async function handleJobRequest(req: IncomingMessage, res: ServerResponse
   if (config.databaseUrl === undefined || !storage.isConfigured()) return send(res, 503, { error: 'unavailable' });
   const sql = postgres(config.databaseUrl, { max: 1, prepare: false, onnotice: () => undefined });
   try {
-    const report = await runMediaJob({ db: createJobDb(sql), storage, model: loadNudeNet, config, timeLeft: () => BUDGET_MS - (Date.now() - started) });
+    const report = await runMediaJob({ db: createJobDb(sql), storage, model: loadNudeNet, config, timeLeft: () => BUDGET_MS - (Date.now() - started), full: req.method === 'GET' });
     send(res, 200, report);
   } catch {
     send(res, 500, { error: 'internal' });

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { MediaDecision, MediaQueueItem } from '@nestly/shared';
+import { MEDIA_QUEUE_PAGE, type MediaDecision, type MediaQueueItem } from '@nestly/shared';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -29,7 +29,7 @@ import {
   RETRY_LABEL,
 } from './admin-texts';
 
-type View = { kind: 'loading' } | { kind: 'failed'; message: string } | { kind: 'loaded'; items: MediaQueueItem[] };
+type View = { kind: 'loading' } | { kind: 'failed'; message: string } | { kind: 'loaded'; items: MediaQueueItem[]; full: boolean };
 
 // The image approval queue (Afik 20.10.2026; BR-076 as replaced): images the automatic check blocked, was unsure about or could not check.
 // The Admin, or a Moderator with CONTENT_MODERATE, approves or rejects each one, marking "a child is in the image" where it applies, or
@@ -43,7 +43,7 @@ export function MediaQueueScreen() {
   const load = useCallback(async () => {
     setView({ kind: 'loading' });
     const outcome = await call((token) => fetchMediaQueue(token));
-    if (outcome.kind === 'ok') setView({ kind: 'loaded', items: outcome.value.items });
+    if (outcome.kind === 'ok') setView({ kind: 'loaded', items: outcome.value.items, full: outcome.value.items.length >= MEDIA_QUEUE_PAGE });
     else setView({ kind: 'failed', message: outcome.kind === 'forbidden' ? FORBIDDEN_TEXT : LOAD_FAILED_TEXT });
   }, [call]);
 
@@ -51,9 +51,15 @@ export function MediaQueueScreen() {
     void load();
   }, [load]);
 
+  // a full page decided: more images may wait behind it, so ask again rather than show the queue as empty
+  const pageDone = view.kind === 'loaded' && view.full && view.items.length === 0;
+  useEffect(() => {
+    if (pageDone) void load();
+  }, [pageDone, load]);
+
   const decided = (id: string, message: string) => {
     setNotice(message);
-    setView((current) => (current.kind === 'loaded' ? { kind: 'loaded', items: current.items.filter((item) => item.id !== id) } : current));
+    setView((current) => (current.kind === 'loaded' ? { ...current, items: current.items.filter((item) => item.id !== id) } : current));
   };
 
   if (view.kind === 'loading') {

@@ -13,11 +13,9 @@ import { MEDIA_UPLOAD_MAX_BYTES, MEDIA_UPLOAD_TYPES, mediaKindParam, mediaUpload
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { Database } from '../db/client.js';
-import { inIdentityTransaction } from '../db/identity-transaction.js';
 import { isTransientFailure, readDatabaseFault } from '../lib/pg-error.js';
 import { replySessionRefused } from '../plugins/authentication.js';
-import { readProfilePhotos } from '../repositories/media-repository.js';
-import { withUrls, removeProfilePhoto, setProfilePhoto, StorageUnavailable, uploadImage, type MediaDependencies } from '../services/media-service.js';
+import { readOwnProfilePhoto, removeProfilePhoto, setProfilePhoto, StorageUnavailable, uploadImage, type MediaDependencies } from '../services/media-service.js';
 
 export interface MediaRouteDependencies {
   readonly database: Database | undefined;
@@ -75,10 +73,7 @@ export function registerMediaRoutes(app: FastifyInstance, deps: MediaRouteDepend
       const { identity } = request;
       if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
       try {
-        const rows = await inIdentityTransaction(deps.database, identity, (tx) => readProfilePhotos(tx, [identity.userId.toLowerCase()]));
-        const views = await withUrls(deps.media.storage, rows);
-        const first = rows[0];
-        return reply.code(200).send({ photo: first === undefined ? null : (views.get(first.id) ?? null) });
+        return reply.code(200).send({ photo: await readOwnProfilePhoto(deps.database, identity, deps.media.storage) });
       } catch (error) {
         return replyFailure(request, reply, error, 'profile photo read failed');
       }
@@ -100,7 +95,7 @@ export function registerMediaRoutes(app: FastifyInstance, deps: MediaRouteDepend
         return reply.code(422).send({ error: 'image_not_available' });
       } catch (error) {
         const code = readDatabaseFault(error)?.code;
-        if (code === '42501' || code === '23505') return reply.code(422).send({ error: 'image_not_available' });
+        if (code === '42501' || code === '23505' || code === '23503') return reply.code(422).send({ error: 'image_not_available' });
         return replyFailure(request, reply, error, 'profile photo write failed');
       }
     },
