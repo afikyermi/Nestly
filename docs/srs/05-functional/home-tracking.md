@@ -14,7 +14,7 @@
 | תהליך מערכת | בחירת המסלול הפעיל והצגת מידע רלוונטי. |
 | פלט | Dashboard מותאם. |
 | מצב לאחר ביצוע | המשתמש רואה את מצב המעקב הפעיל. |
-| בעל אחריות לוגי (Page / Feature) | HomeTrackingFeature |
+| בעל אחריות לוגי (Page / Feature) | מעקב בעמוד הבית |
 
 ## FR-HOME-002 — הוספת מסלול מעקב
 
@@ -28,7 +28,7 @@
 | תהליך מערכת | יצירת Tracking Context חדש. |
 | פלט | מסלול חדש מופיע בעמוד הבית. |
 | מצב לאחר ביצוע | המסלול נשמר בפרופיל. |
-| בעל אחריות לוגי (Page / Feature) | JourneyManagementFeature |
+| בעל אחריות לוגי (Page / Feature) | ניהול מסלולי המסע |
 
 ## FR-HOME-003 — רישום פעילות
 
@@ -42,7 +42,7 @@
 | תהליך מערכת | פתיחת עמוד ה-Tracker המתאים, ולידציה ושמירת Tracker Data/Event. |
 | פלט | אירוע מוצג בהיסטוריה/סיכום. |
 | מצב לאחר ביצוע | נוצר Tracker Event. |
-| בעל אחריות לוגי (Page / Feature) | TrackerFeature |
+| בעל אחריות לוגי (Page / Feature) | ניהול Tracker |
 
 ## FR-TRACK-001 — עמוד Tracker ייעודי
 
@@ -56,7 +56,7 @@
 | תהליך מערכת | טעינת הגדרת השדות והנתונים לפי סוג Tracker. |
 | פלט | עמוד Tracker ייעודי, עם היסטוריה וגרפים לתקופה שנבחרה. |
 | מצב לאחר ביצוע | המשתמש יכול להזין ולשמור נתונים לסוג המעקב שנבחר. |
-| בעל אחריות לוגי (Page / Feature) | TrackerPage / TrackerFeature |
+| בעל אחריות לוגי (Page / Feature) | מסך Tracker / ניהול Tracker |
 
 ## FR-TRACK-002 — Tracker הנקה
 
@@ -70,7 +70,7 @@
 | תהליך מערכת | המערכת תאפשר הפעלת/עדכון הזמנים, תוודא עקביות בסיסית ותשמור את האירוע בעת לחיצה על שמירה. |
 | פלט | אירוע הנקה שמור והצגתו בהיסטוריה. |
 | מצב לאחר ביצוע | נתוני ההנקה נשמרים כחלק מ-Tracker Data של המשתמש/הילד הרלוונטי. |
-| בעל אחריות לוגי (Page / Feature) | BreastfeedingTrackerPage / TrackerFeature |
+| בעל אחריות לוגי (Page / Feature) | מסך מעקב הנקה / ניהול Tracker |
 
 ## FR-HOME-004 — טיפים ומאמרים
 
@@ -84,4 +84,4 @@
 | תהליך מערכת | Eligibility → התאמת Stage/Topic → Quality/Freshness → Diversity. אין יצירת אבחנה רפואית או מסקנת מצב רפואי. |
 | פלט | רשימת טיפים/מאמרים אורגניים רלוונטיים. |
 | מצב לאחר ביצוע | Open/Save/Not Interested נרשמים כסיגנלים; Raw Tracker אינו נחשף ל-Professional או למפרסם. |
-| בעל אחריות לוגי (Page / Feature) | ContextualContentFeature / RuleBasedRecommendationEngine |
+| בעל אחריות לוגי (Page / Feature) | תוכן מותאם לשלב / מנוע ההמלצות מבוסס הכללים |

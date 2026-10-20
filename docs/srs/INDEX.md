@@ -2,7 +2,7 @@
 
 # SRS — אינדקס
 
-**מקור האמת של מוצר Nestly.** SRS v2.24 · 19.10.2026.
+**מקור האמת של מוצר Nestly.** SRS v2.25 · 20.10.2026.
 
 ה-SRS מתוחזק ב-markdown ומפוצל לפי סעיפים. גרסאות ה-Word הקודמות נמצאות ב-[`archive/`](archive/) כהיסטוריה בלבד.
 
@@ -287,7 +287,7 @@
 | AC-122 | 100 פתיחות פרופיל בשעה | [15-acceptance.md](15-acceptance.md) |
 | AC-123 | מחיקת ילד או הריון אחרי אישור | [15-acceptance.md](15-acceptance.md) |
 | AC-124 | קישור לפרופיל: התחברות ואז הפרופיל | [15-acceptance.md](15-acceptance.md) |
-| AC-125 | תפריט ו-Settings של I2 | [15-acceptance.md](15-acceptance.md) |
+| AC-125 | סדר התפריט ומסך ההגדרות | [15-acceptance.md](15-acceptance.md) |
 | AC-126 | שחרור נעילת שחזור קבועה ע"י Admin | [15-acceptance.md](15-acceptance.md) |
 | AC-127 | הסתרת פוסט לעצמי, בלי השפעה על דירוג | [15-acceptance.md](15-acceptance.md) |
 | AC-128 | שם מלא לכותב ולמגיב | [15-acceptance.md](15-acceptance.md) |

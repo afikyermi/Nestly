@@ -8,13 +8,13 @@
 |---|---|
 | סטטוס | מאושר |
 | Actor | Regular User / Professional User |
-| תיאור | אייקון Chat ב-Top Bar יציג Unread Badge. לחיצה תפתח Dropdown של השיחות האחרונות עם ConversationPreview וקישור “כל ההודעות” ל-ChatPage מלא. |
+| תיאור | אייקון Chat ב-Top Bar יציג Unread Badge. לחיצה תפתח Dropdown של השיחות האחרונות עם תצוגה מקדימה של שיחה וקישור “כל ההודעות” למסך השיחות מלא. |
 | תנאים מוקדמים | משתמש Regular או Professional מחובר. |
 | קלט / Trigger | לחיצה על Chat / שיחה / View All. |
 | תהליך מערכת | המערכת טוענת Recent Conversations, הודעה אחרונה, זמן ו-unread state. לחיצה על שיחה פותחת Conversation. Message Requests מ-Offer Help יוצגו באזור בקשות בתוך Chat ולא כ-Notification כפולה. |
-| פלט | Chat Dropdown / ChatPage / Conversation. |
+| פלט | Chat Dropdown / מסך השיחות / Conversation. |
 | מצב לאחר ביצוע | סימון הודעה כנקראה מעדכן Unread count. |
-| בעל אחריות לוגי (Page / Feature) | MessagingFeature / ChatPage / ConversationPreview |
+| בעל אחריות לוגי (Page / Feature) | ניהול השיחות / מסך השיחות / תצוגה מקדימה של שיחה |
 
 ## FR-CHAT-002 — כללי פתיחת שיחה
 
@@ -28,7 +28,7 @@
 | תהליך מערכת | Regular↔Regular: Friendship פעילה פותחת Chat ישיר. ללא Friendship וללא Conversation קיימת, ההודעה הראשונה יוצרת Regular Chat Request הדורשת Accept/Decline; רק Accept פותח Chat מלא. Conversation שכבר נפתחה ממשיכה גם לאחר Remove Friend. Regular→Professional: פתיחה ישירה לפי FR-SERV-004. Professional→Regular: רק לאחר Accept של Offer Help, למעט Marketplace Listing פעיל שבו מותר Marketplace Chat ישיר. Marketplace: כל משתמש קהילה מחובר יכול לפנות לבעל Listing פעיל שאינו עצמו. Professional→Professional אינו נפתח אוטומטית מכוח Follow. |
 | פלט | Conversation קיימת נפתחת או נוצרת בהתאם לכלל. |
 | מצב לאחר ביצוע | Conversation פתוחה, Regular Chat Request ממתינה להחלטה, או הפעולה נדחית לפי ההקשר. Chat Block משפיע על Messaging בלבד. |
-| בעל אחריות לוגי (Page / Feature) | MessagingFeature |
+| בעל אחריות לוגי (Page / Feature) | ניהול השיחות |
 
 ## FR-CHAT-003 — בקשת שיחה בין Regular Users שאינם Friends
 
@@ -42,7 +42,7 @@
 | תהליך מערכת | יצירת RegularChatRequest עם openingMessage ו-Pending. Accept יוצר/פותח Conversation; Decline סוגר את הבקשה ואינו פותח Chat. |
 | פלט | Message Request ב-Chat Center או Conversation לאחר Accept. |
 | מצב לאחר ביצוע | ללא Accept אין Chat מלא. Friendship אינה תנאי לעצם האפשרות לבקש שיחה. |
-| בעל אחריות לוגי (Page / Feature) | MessagingFeature / MessageRequestItem / ChatPage |
+| בעל אחריות לוגי (Page / Feature) | ניהול השיחות / פריט בקשת שיחה / מסך השיחות |
 
 ## FR-CHAT-004 — Support Thread בתוך Chat
 
@@ -53,7 +53,7 @@
 | תיאור | כאשר קיימת תגובת Support לפניית משתמש, היא תופיע ב-Chat Center תחת השם “Support”. זהו שרשור שירות מוגבל המקושר ל-SupportRequest ולא Chat רגיל בין המשתמש לבין Admin/Moderator. |
 | תנאים מוקדמים | קיימת SupportRequest. תגובת Support נשלחת על ידי Admin או Moderator עם SUPPORT_HANDLE. |
 | קלט / Trigger | תגובת Support או תשובת המשתמש בתוך Support Thread פעיל. |
-| תהליך מערכת | הודעות נשמרות כחלק מה-SupportRequest/SupportThread. הצד המנהלי מוצג בשם “Support” ללא חשיפת זהותו. אי אפשר לפתוח Support Chat חופשי מתוך ChatPage; נושא חדש נפתח דרך SupportRequestFeature. שליחה בתוך השרשור כפופה לסטטוס הפנייה. |
-| פלט | Support Thread ב-ChatPage עם unread state והיסטוריה. |
+| תהליך מערכת | הודעות נשמרות כחלק מה-SupportRequest/SupportThread. הצד המנהלי מוצג בשם “Support” ללא חשיפת זהותו. אי אפשר לפתוח Support Chat חופשי מתוך מסך השיחות; נושא חדש נפתח דרך שליחת פנייה ל-Support. שליחה בתוך השרשור כפופה לסטטוס הפנייה. |
+| פלט | Support Thread במסך השיחות עם unread state והיסטוריה. |
 | מצב לאחר ביצוע | האינטראקציה מוגבלת לפנייה; סגירת הפנייה מגבילה המשך שליחה ולא הופכת את הערוץ לצ’אט חברתי. |
-| בעל אחריות לוגי (Page / Feature) | SupportRequestFeature / SupportInboxFeature / MessagingFeature / ChatPage |
+| בעל אחריות לוגי (Page / Feature) | שליחת פנייה ל-Support / טיפול בתיבת הפניות / ניהול השיחות / מסך השיחות |

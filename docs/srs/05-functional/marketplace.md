@@ -14,7 +14,7 @@
 | תהליך מערכת | טעינת פריטים והצגתם לפי סוג המקור והקידום. |
 | פלט | רשימת פריטי Marketplace עם זיהוי ברור של סוג הפרסום. |
 | מצב לאחר ביצוע | המשתמש יכול לבחור פריט/מוצר. |
-| בעל אחריות לוגי (Page / Feature) | MarketplaceFeature |
+| בעל אחריות לוגי (Page / Feature) | ניהול ה-Marketplace |
 
 ## FR-MKT-002 — יצירת Marketplace Listing
 
@@ -28,7 +28,7 @@
 | תהליך מערכת | ולידציה ושמירת Listing עם sourceType של משתמש רגיל. |
 | פלט | Marketplace Listing חדשה. |
 | מצב לאחר ביצוע | הפריט מופיע ב-Marketplace בהתאם לכללי החשיפה, עד שסומן "נמכר/נמסר" או עד שפג אחרי 60 יום. |
-| בעל אחריות לוגי (Page / Feature) | MarketplaceFeature |
+| בעל אחריות לוגי (Page / Feature) | ניהול ה-Marketplace |
 
 ## FR-MKT-003 — הפרדת סוגי פרסום מסחרי
 
@@ -42,7 +42,7 @@
 | תהליך מערכת | המערכת מחילה סימון/וריאציה מתאימים לפי מקור הפרסום וסוג הקידום. |
 | פלט | המשתמש יכול לזהות מי פרסם את הפריט והאם מדובר בקידום משתמש או בפרסום חברה/ספונסר. |
 | מצב לאחר ביצוע | המשתמש יכול לזהות תוכן מסחרי. |
-| בעל אחריות לוגי (Page / Feature) | MarketplaceFeature |
+| בעל אחריות לוגי (Page / Feature) | ניהול ה-Marketplace |
 
 ## FR-MKT-004 — קידום Marketplace Listing של משתמש רגיל
 
@@ -56,7 +56,7 @@
 | תהליך מערכת | יצירת Promotion המשויכת ל-Listing ושמירת סוג הקידום כ-User Promoted Listing. |
 | פלט | Listing מקודמת ומסומנת בהתאם. |
 | מצב לאחר ביצוע | הקידום מוצג באופן שונה מפרסום של חברה/ספונסר. |
-| בעל אחריות לוגי (Page / Feature) | MarketplaceFeature / MarketplacePromotionFeature |
+| בעל אחריות לוגי (Page / Feature) | ניהול ה-Marketplace / קידום מודעת Marketplace |
 
 ## FR-MKT-005 — פתיחת פריט/מוצר
 
@@ -70,4 +70,4 @@
 | תהליך מערכת | טעינת פרטי הפריט וסוג המקור. Listing פעיל יכול להציג Message לבעל ה-Listing; Sponsored Product מציג פעולת המשך מסחרית בהתאם להגדרתו. |
 | פלט | Marketplace Item Detail ופעולת המשך מתאימה לפי סוג המקור. |
 | מצב לאחר ביצוע | נרשמת צפייה/פעולת המשך לפי צורך. |
-| בעל אחריות לוגי (Page / Feature) | MarketplaceDetailPage |
+| בעל אחריות לוגי (Page / Feature) | מסך פריט Marketplace |
