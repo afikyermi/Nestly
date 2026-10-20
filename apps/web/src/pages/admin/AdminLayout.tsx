@@ -15,16 +15,23 @@ export const ADMIN_TABS: ReadonlyArray<{ tab: AdminTab; path: string }> = [
   { tab: 'reports', path: PATHS.adminReports },
   { tab: 'users', path: PATHS.adminUsers },
   { tab: 'audit', path: PATHS.adminAudit },
+  { tab: 'guides', path: PATHS.adminGuides },
 ];
 
-/** The first tab the keys allow, for the entry `/admin`; null when none. */
-export function firstTabPath(permissions: readonly PermissionKey[]): string | null {
-  return ADMIN_TABS.find(({ tab }) => permissions.includes(TAB_KEYS[tab]))?.path ?? null;
+/** Whether the account's role and keys show a tab (presentation only; the database decides every call). */
+export function tabAllowed(tab: AdminTab, role: 'admin' | 'moderator', permissions: readonly PermissionKey[]): boolean {
+  const key = TAB_KEYS[tab];
+  return key === 'ADMIN' ? role === 'admin' : permissions.includes(key);
+}
+
+/** The first tab the role and keys allow, for the entry `/admin`; null when none. */
+export function firstTabPath(role: 'admin' | 'moderator', permissions: readonly PermissionKey[]): string | null {
+  return ADMIN_TABS.find(({ tab }) => tabAllowed(tab, role, permissions))?.path ?? null;
 }
 
 // The admin shell (FR-MOD-003, FR-ADMIN-005, PG-028): a heading, one link per screen the account's keys allow, and the screen. The routes are guarded by the
 // role the server reports from the database's tables; an account that is not staff goes to the feed. A UX control only: every call is checked again by the
-// database. Other parts (guides, announcements, the Moderator team) add their tabs here.
+// database. Other parts (announcements, the Moderator team) add their tabs here.
 export function AdminLayout() {
   const access = useStaffAccess();
   if (access.kind === 'loading') {
@@ -35,7 +42,7 @@ export function AdminLayout() {
     );
   }
   if (access.kind === 'none') return <Navigate to={PATHS.feed} replace />;
-  const tabs = ADMIN_TABS.filter(({ tab }) => access.permissions.includes(TAB_KEYS[tab]));
+  const tabs = ADMIN_TABS.filter(({ tab }) => tabAllowed(tab, access.role, access.permissions));
   const context: AdminContext = { permissions: access.permissions };
   return (
     <>
@@ -68,6 +75,6 @@ export function AdminLayout() {
 export function AdminIndex() {
   const access = useStaffAccess();
   if (access.kind !== 'staff') return null;
-  const target = firstTabPath(access.permissions);
+  const target = firstTabPath(access.role, access.permissions);
   return target === null ? <p>{ADMIN_NO_SCREENS_TEXT}</p> : <Navigate to={target} replace />;
 }
