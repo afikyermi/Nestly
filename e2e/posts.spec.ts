@@ -186,6 +186,8 @@ test.describe('F3.1b c17 [FR-FEED-002 ERR-004] publishing (feed-composer c7, c10
     await page.keyboard.press('Tab');
     await expect(page.getByRole('radio', { name: 'בלי תגית' })).toBeFocused();
     await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'הוספת תמונה', exact: true })).toBeFocused(); // I5: the pictures, just before "פרסום"
+    await page.keyboard.press('Tab');
     await expect(publish(page)).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(feedCards(page)).toHaveCount(4);

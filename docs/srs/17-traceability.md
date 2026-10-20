@@ -24,6 +24,7 @@
 | Multiple / פעולת דיווח | טיפול בדיווחים | FR-MOD-001 | UC-26 | Report, Post, Comment, User |
 | PG-027 | מסך הרשאות Moderator / ניהול הרשאות Moderator | FR-ADMIN-004 | UC-15 | User, ModeratorPermission, AuditLogEntry |
 | PG-028 | מסך ניהול משתמשים / ניהול משתמשים ואכיפה | FR-MOD-002 | UC-16 | User, AccountEnforcement, AuditLogEntry |
+| PG-028 | תור אישור התמונות ("תמונות לבדיקה") | BR-076 / BR-077 / FR-MOD-003 | — | MediaAsset, TrainingSample, AuditLogEntry |
 | PG-029 | מסך יומן ה-Audit / יומן ה-Audit | FR-ADMIN-005 | UC-17 | AuditLogEntry |
 | PG-030 | ~~מסך תור האימות המקצועי / ניהול אימות מקצועי~~ — **בוטל** (OP-005 נסגר, 18.10.2026) | FR-ADMIN-006 (בוטל) | UC-18 (בוטל) | — |
 | PG-031 | מסך הגדרות הקהילה / ניהול הגדרות הקהילה | FR-ADMIN-007 | UC-28 | CommunityConfiguration, AuditLogEntry |
@@ -46,7 +47,7 @@
 | PG-045 | מסך מוזמני הבטא / גישה לבטא | FR-ADMIN-011 | — | BetaInvite, AuditLogEntry |
 | PG-046 | מסך ניהול מדריכים / ניהול מדריכים | FR-ADMIN-012 / FR-HOME-004 | — | Article, AuditLogEntry |
 | PG-047 | מסך מוקדי רפואה | FR-MENU-001/002 | — | — |
-| PG-048 | מסך הסטורי / סטורי | FR-FEED-008 | — | Story, MediaAsset |
+| PG-048 | מסך הסטורי / סטורי | FR-FEED-008 / VAL-042 / BR-076 / BR-077 | — | Story, MediaAsset |
 | PG-049 | מסך כללי הקהילה | FR-MOD-001 / FR-MENU-001/002 | — | — |
 | PG-050 | מחיקת חשבון | FR-SET-002 | — | User, AuditLogEntry |
 | PG-051 | מסך שחזור סיסמה / שחזור סיסמה | FR-AUTH-003/004 | UC-03 | User, RecoveryAnswers, RecoveryThrottle, RecoveryEvent |

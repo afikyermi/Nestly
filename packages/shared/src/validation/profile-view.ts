@@ -4,6 +4,7 @@
 // due date, pregnancy week, id, slot, email, consent or tracker data, and no response carries a threshold, window or count (c23).
 import { z } from 'zod';
 import { PARENT_GENDERS, PROFILE_VIEW_OUTCOMES, RELATIONSHIP_STATES } from '../constants/index.js';
+import { mediaImage } from '../media/index.js';
 
 /** A person in B's Friends or the mutual Friends: exactly the user id and the full name (c18). */
 export const profileFriendEntry = z.strictObject({ userId: z.guid(), fullName: z.string() });
@@ -42,6 +43,8 @@ export const profileViewResponse = z.strictObject({
   relationship: z.enum(RELATIONSHIP_STATES).nullable(),
   friends: z.array(profileFriendEntry),
   mutualFriends: z.array(profileFriendEntry),
+  /** I5 (FR-PROFILE-001): the profile photo when it passed the check (others never see an unchecked one); absent or null: none. */
+  photo: mediaImage.nullable().optional(),
 });
 
 export type ProfileFriendEntry = z.infer<typeof profileFriendEntry>;

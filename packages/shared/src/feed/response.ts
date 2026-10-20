@@ -3,6 +3,7 @@
 // it and the web checks every answer with it.
 import { z } from 'zod';
 import { JOURNEY_STAGES } from '../constants/index.js';
+import { mediaImage, POST_MAX_IMAGES } from '../media/index.js';
 
 const audience = z.enum(['everyone', 'friends']);
 const author = z.strictObject({ name: z.string().nullable() });
@@ -27,7 +28,8 @@ export const shareOriginal = z.union([
 ]);
 const original = shareOriginal;
 
-const post = { ...common, kind: z.literal('post'), body: z.string() };
+/** I5: a post's images the viewer may see, in order (absent: none). */
+const post = { ...common, kind: z.literal('post'), body: z.string(), images: z.array(mediaImage).max(POST_MAX_IMAGES).optional() };
 const share = { ...common, kind: z.literal('share'), body: z.string().nullable(), sharerText: z.string().nullable(), original };
 
 export const feedUnit = z.union([
