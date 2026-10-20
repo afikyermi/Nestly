@@ -125,6 +125,13 @@ select is(pg_temp.dml('d', format($q$ delete from nestly.moderator_permissions w
   '[FR-ADMIN-004 I4] the Admin revokes it');
 select is((select before_state->>'permission' from tests.fx_audit_rows() where action = 'permission_revoked'), 'ANALYTICS_VIEW', '[BR-026 I4] the revoke entry carries the key (Before)');
 
+-- a stale session cannot assign or revoke a key either, and nothing goes unaudited (BR-026, AC-029)
+select tests.fx_link_put(pg_temp.id('d'), 'affected', '22222222-2222-4222-8222-222222222222'::uuid, timestamptz '2026-10-16 10:00:00+00', '22222222-2222-4222-8222-222222222222'::uuid);
+select is(pg_temp.dml('d', format($q$ insert into nestly.moderator_permissions (user_id, permission_key) values (%L, 'SUPPORT_VIEW') $q$, pg_temp.id('m2')), false), 'ERR:42501',
+  '[BR-026 AC-029 I4] an Admin whose session is stale cannot assign a key');
+select is(pg_temp.dml('d', 'delete from nestly.moderator_permissions', false), 'OK:0', '[BR-026 AC-029 I4] nor revoke one');
+select tests.fx_link_put(pg_temp.id('d'), 'unaffected', '22222222-2222-4222-8222-222222222222'::uuid);
+
 -- 2  the Audit Log (FR-ADMIN-005, AC-029)
 select is(pg_temp.n('d', 'nestly.audit_log') > '0', true, '[FR-ADMIN-005 I4] the Admin reads the log');
 select is(pg_temp.n('m2', 'nestly.audit_log'), '0', '[FR-ADMIN-005 I4] a Moderator without AUDIT_LOG_VIEW reads nothing');

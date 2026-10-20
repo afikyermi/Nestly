@@ -202,23 +202,23 @@ create policy staff_roles_select_own on nestly.staff_roles
   using (user_id = (select auth.uid()) and account_status = 'active');
 
 -- A Moderator reads its own keys. The Admin reads and manages every Moderator's keys (FR-ADMIN-004; the screen is a later part). The Admin test
--- is written out, not has_permission(): that function reads this table, and a policy that calls it would recurse.
+-- is caller_staff_role() = 'admin' (valid session included), not has_permission(): that function reads this table, and a policy that calls it would recurse.
 create policy moderator_permissions_select_own on nestly.moderator_permissions
   for select to authenticated
   using (user_id = (select auth.uid()));
 
 create policy moderator_permissions_select_admin on nestly.moderator_permissions
   for select to authenticated
-  using (exists (select 1 from nestly.staff_roles sr where sr.user_id = (select auth.uid()) and sr.account_type = 'admin' and sr.account_status = 'active'));
+  using ((select nestly.caller_staff_role()) = 'admin');
 
 create policy moderator_permissions_insert_admin on nestly.moderator_permissions
   for insert to authenticated
-  with check (exists (select 1 from nestly.staff_roles sr where sr.user_id = (select auth.uid()) and sr.account_type = 'admin' and sr.account_status = 'active')
+  with check ((select nestly.caller_staff_role()) = 'admin'
     and granted_by = (select auth.uid()));
 
 create policy moderator_permissions_delete_admin on nestly.moderator_permissions
   for delete to authenticated
-  using (exists (select 1 from nestly.staff_roles sr where sr.user_id = (select auth.uid()) and sr.account_type = 'admin' and sr.account_status = 'active'));
+  using ((select nestly.caller_staff_role()) = 'admin');
 
 -- The Audit Log. Read: Admin or AUDIT_LOG_VIEW. Insert: a staff member records its own action only.
 create policy audit_log_select_viewer on nestly.audit_log
@@ -280,6 +280,10 @@ declare
   v_after jsonb;
 begin
   if v_role is null then
+    -- the owner role (fixtures, bootstrap) has no identity; a runtime caller whose staff role or session does not hold leaves no record, so it does nothing
+    if auth.uid() is not null then
+      raise exception 'audit_trigger: an unauditable action is refused' using errcode = '42501';
+    end if;
     return null;
   end if;
   if tg_op <> 'INSERT' then v_old := pg_catalog.to_jsonb(old); end if;

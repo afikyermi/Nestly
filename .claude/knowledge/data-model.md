@@ -178,7 +178,7 @@ ref>, session pooler, port 5432. CI only, `preview-e2e-cleanup`: main's code (ne
 ages; no delete; `backlog` removed in F3.0a). Victims: only the exact `TEST_EMAIL_PATTERN`. Caps unchanged: this run's
 users uncapped, sweep 10, refusal above 50 (workflow_run). One transaction per user, leaf first, SET LOCAL row_security = off (raises, never filters); feed rows per
 user before friendships: reports, reactions (reaction_owners by cascade), post_hides, comments, posts (post_authors by cascade).
-Fail-closed preflight: exactly the twenty-five nestly tables (F2.4c1 fourteen; F3.0a +4, F3.0b +4, I6 +3; security_limits, algorithm_configurations and status_guides listed, never
+Fail-closed preflight: exactly the thirty nestly tables (F2.4c1 fourteen; F3.0a +4, F3.0b +4, I6 +3, I4 +5; security_limits, algorithm_configurations, status_guides, report_reasons and audit_log listed, never
 written). · .work/preview-e2e/schema.md, .work/feed-groundwork/schema.md, schema-b.md · decisions/2026-10.md "DR-E1", "Preview cleanup"
 ```
 
@@ -282,7 +282,7 @@ to the decision owner in CLAUDE.md. This planned map does not supersede later de
 
 ## Entities
 
-All twenty-five tables are in `nestly` (feed tables of F3.0: posts, post_authors, post_hides, algorithm_configurations, comments, reactions, reaction_owners,
+All thirty tables are in `nestly` (feed tables of F3.0: posts, post_authors, post_hides, algorithm_configurations, comments, reactions, reaction_owners,
 reports — FORCE RLS, client policies TO authenticated gated by is_active_account(), column-level SELECT without held_xact/liker_status/parent_status, no SECURITY
 DEFINER; post_authors and reaction_owners owner-only; policies never read their own table, row checks in invoker triggers), built by `supabase/migrations/` and bootstrap step 2, each migration with a down script in `supabase/rollback/`. The
 list of migrations by feature, each down script's guard, the write paths, per-table detail, the lock and the new-entity template: `data-model-tables.md`.
