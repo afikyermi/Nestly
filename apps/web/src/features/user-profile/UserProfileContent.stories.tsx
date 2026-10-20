@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { MemoryRouter } from 'react-router';
 import type { ProfileView } from '@nestly/shared';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
+import { BLOCK_FAILED_TEXT } from '@/lib/block-texts';
 import { ACTION_FAILED_TEXT, FRIEND_GONE_TEXT, GONE_TEXT } from '@/lib/friend-texts';
 import { UserProfileContent } from './UserProfileContent';
 import { LOAD_FAILED_TEXT } from './user-profile-texts';
@@ -96,6 +97,16 @@ export const RemoveDialogFailed: Story = {
 };
 
 /** c29: loading shows no profile. */
+/** FR-REL-002: the block dialog says what a block does before anything is sent. */
+export const BlockDialog: Story = { args: { view: { ...loaded, profile: open, block: { saving: false, failure: null } } } };
+
+export const BlockInFlight: Story = { args: { view: { ...loaded, profile: open, block: { saving: true, failure: null } } } };
+
+export const BlockFailed: Story = { args: { view: { ...loaded, profile: open, block: { saving: false, failure: BLOCK_FAILED_TEXT } } } };
+
+/** FR-REL-002: after the block the profile is no longer shown. */
+export const Blocked: Story = { args: { view: { kind: 'blocked' } } };
+
 export const Loading: Story = { args: { view: { kind: 'loading' } } };
 
 /** c29: 404, one text for every reason. */

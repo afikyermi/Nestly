@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { useLocation } from 'react-router';
 import { PATHS } from '@/app/paths';
 import { NotificationSettings } from '@/features/notifications/NotificationSettings';
+import { BlockedUsersSection } from '@/features/blocks/BlockedUsersSection';
 import { PrivacySettingsSection } from '@/features/privacy/PrivacySettingsSection';
 import { documentTitle } from '@/lib/document-title';
 import { parseSettingsSection, SETTINGS_SECTIONS, type SettingsSectionId } from '@/lib/settings-sections';
@@ -21,7 +22,7 @@ function LinkSection({ id, children }: { id: SettingsSectionId; children: ReactN
   );
 }
 
-// Settings (PG-038, FR-SET-001; F2.5): Account, Privacy & Security (F2.3's form and the two security links) and Terms & Privacy, one
+// Settings (PG-038, FR-SET-001; F2.5): Account, Privacy & Security (F2.3's form, the two security links and the blocked list, FR-REL-002) and Terms & Privacy, one
 // `h2` each. A section's address is the hash of this path; the section it names gets focus (WCAG 2.4.3), so the menu lands on its
 // heading. An unknown hash shows the top. The page sends no request of its own: the Privacy section loads and fails on its own, and
 // the other two hold only links. No account deletion until its feature exists (I9). Notification Settings load and fail on their own.
@@ -57,6 +58,9 @@ export function SettingsPage() {
           <div className="mt-4 flex flex-wrap items-start gap-x-4">
             <SettingsLink to={PATHS.recoveryQuestions}>שאלות לשחזור סיסמה</SettingsLink>
             <SettingsLink to={PATHS.changePassword}>החלפת סיסמה</SettingsLink>
+          </div>
+          <div className="mt-6">
+            <BlockedUsersSection />
           </div>
         </div>
         <NotificationSettings />

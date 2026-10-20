@@ -6,7 +6,7 @@ import type { SessionAccount } from '@/services/session/session-source';
 import { SettingsPage } from './SettingsPage';
 
 // The Settings page at the top and at each section's address, with the privacy API stubbed per story like the Privacy section's own
-// stories (F2.3): loaded by default, so the page is drawn as designed. Account and Terms & Privacy hold only links (F2.5 c9).
+// stories (F2.3), and the blocked list empty: loaded by default, so the page is drawn as designed. Account and Terms & Privacy hold only links (F2.5 c9).
 const unused = () => Promise.reject(new Error('Not used by this story.'));
 const account: SessionAccount = {
   signInWithPassword: unused,
@@ -35,10 +35,13 @@ function At({ entry }: { entry: string }) {
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
-// Replaces fetch for one story. The returned function restores it.
+// Replaces fetch for one story (the privacy answer given; the blocked list, FR-REL-002, empty). The returned function restores it.
 const serving = (answer: () => Promise<Response>) => () => {
   const original = globalThis.fetch;
-  globalThis.fetch = () => answer();
+  globalThis.fetch = (input) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    return url.endsWith('/api/blocks') ? Promise.resolve(json(200, { blocked: [] })) : answer();
+  };
   return () => {
     globalThis.fetch = original;
   };
