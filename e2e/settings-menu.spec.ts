@@ -321,7 +321,8 @@ test.describe('F2.5 c8 [A9 FR-AUTH-004] Settings makes no request of its own', (
       await expect(h2(page, name)).toBeFocused();
     }
     await page.waitForTimeout(500);
-    expect([...new Set(net.calls)].sort()).toEqual(['GET /api/blocks', 'GET /api/privacy']);
+    // The Top Bar's Chat badge (I8, FR-CHAT-001) asks on every screen change; it is the shell's, not Settings'.
+    expect([...new Set(net.calls)].filter((c) => c !== 'GET /api/chat/unread').sort()).toEqual(['GET /api/blocks', 'GET /api/privacy']);
   });
 
   test('[F2.5 c8 ERR-037] a suspended or banned account never renders Settings: the same screen as /profile, no privacy GET', async ({ page }) => {

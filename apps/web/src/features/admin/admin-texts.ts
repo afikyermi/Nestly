@@ -40,6 +40,7 @@ export const SUPPORT_ALL_LABEL = 'הכל';
 export const SUPPORT_EMPTY_TEXT = 'אין פניות בסטטוס הזה';
 export const SUPPORT_LIST_LABEL = 'פניות Support';
 export const SUPPORT_BACK_LABEL = 'חזרה לפניות';
+export const SUPPORT_OPEN_LABEL = 'פתיחת הפנייה';
 export const SUPPORT_USER_LABEL = 'מאת';
 export const SUPPORT_THREAD_LABEL = 'ההודעות בפנייה';
 export const SUPPORT_INTERNAL_NOTE = 'הערה פנימית';

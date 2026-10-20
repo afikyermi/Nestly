@@ -18,7 +18,6 @@ import {
   LOADING_TEXT,
   NOT_APPLICABLE_TEXT,
   NOT_FOUND_TEXT,
-  OPEN_ITEM_LABEL,
   RETRY_LABEL,
   SUPPORT_ALL_LABEL,
   SUPPORT_BACK_LABEL,
@@ -28,6 +27,7 @@ import {
   SUPPORT_INTERNAL_NOTE,
   SUPPORT_LIST_LABEL,
   SUPPORT_NOTE_SAVED_TEXT,
+  SUPPORT_OPEN_LABEL,
   SUPPORT_REPLY_LABEL,
   SUPPORT_REPLY_SENT_TEXT,
   SUPPORT_SEND_LABEL,
@@ -122,7 +122,7 @@ export function SupportInboxScreen({ permissions }: { permissions: readonly Perm
                 </p>
               </div>
               <Button variant="soft" onClick={() => setSelected(item.id)}>
-                {OPEN_ITEM_LABEL}
+                {SUPPORT_OPEN_LABEL}
                 <span className="sr-only"> {TOPIC_LABELS[item.topic]}</span>
               </Button>
             </li>
