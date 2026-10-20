@@ -29,9 +29,11 @@
 --               `authenticated` and `anon` WITH INHERIT FALSE, SET TRUE, so it acts only after SET LOCAL ROLE inside
 --               the identity transaction (rule 3). NOINHERIT on the role as well, so any future grant made without
 --               explicit options also defaults to fail-closed.
---   app_jobs    NOLOGIN for now. Background jobs (rule 6); no job exists before I1 ships, and I1 has none. A role
---               nobody can log in as has no credential to leak. Its LOGIN attribute and any grant it needs are
---               decided with the first job (pg_cron vs. a code job), by editing this file and re-running it.
+--   app_jobs    NOLOGIN for now. Background jobs (rule 6). The first job is decided: pg_cron runs the purge
+--               (nestly.purge_held_content(), daily) as app_jobs, scheduled by bootstrap step 3 (03-cron.sql), so the
+--               role stays NOLOGIN with no password and this file adds no grant. If a NOLOGIN role cannot run the job,
+--               the fallbacks are in .work/i3-rest-schema/schema.md (E1). A role nobody can log in as has no
+--               credential to leak. Any later job's LOGIN attribute and grants are decided with that job.
 --               No memberships: cross-user reach is only ever an explicit `TO app_jobs` policy (rule 6).
 --   app_recovery NOLOGIN, NOINHERIT, owns nothing, member of nothing. The guest role of the password-recovery flow
 --               only (F1.6, data-model "Approved exceptions"): a signed-out request has no auth.uid(), and `anon` must hold

@@ -8,7 +8,7 @@ anchor and bootstrap steps". Anything else that needs `postgres` is a `DECISION 
 |---|---|---|
 | 1 | `01-roles.sql`, then `01-roles-check.sql` | before the first migration (before I1) |
 | 2 | `02-anchor-fk.sql`, then `02-anchor-fk-check.sql` | after the identity migration (`20261014100000_identity_schema`), before F1.4 deploys |
-| 3 | extensions, pg_cron jobs | when needed |
+| 3 | `03-cron.sql`, then `03-cron-check.sql` | after the migration that creates `nestly.purge_held_content()` (`20261018200000_feed_interactions`) |
 
 ## Who runs it, where
 
@@ -49,6 +49,21 @@ Auth user who still has a Nestly account cannot be deleted from the dashboard: t
 
 If it stops with `differs` or `unexpected FK`: something other than this script changed the anchor. It is never
 repaired silently. Stop and report it.
+
+## Step 3, in order
+
+The purge schedule: pg_cron runs `nestly.purge_held_content()` daily at 03:17 UTC, as `app_jobs` (rule 6).
+
+1. Check that the migration has run: `nestly.purge_held_content()` exists.
+2. Open the SQL Editor (it runs as `postgres`). Paste `03-cron.sql` and run it. One transaction; safe to run again (the
+   job is updated in place). It enables `pg_cron`, gives `app_jobs` USAGE on schema `cron`, and schedules the job as
+   `app_jobs` through a temporary SET membership that it revokes before it commits.
+3. Run `03-cron-check.sql`. Expect one row with `ok = true`. The expected values are in its header.
+4. The first `succeeded` row in `cron.job_run_details` for the job proves it runs (E1 in
+   `.work/i3-rest-schema/schema.md`): on nestly-preview, look the next day, before running this on prod.
+
+Undo: `03-cron-down.sql` (the extension stays). Run it before the down script of `20261018200000_feed_interactions`,
+which drops the function the job calls.
 
 ## Connecting as a custom role through the pooler
 

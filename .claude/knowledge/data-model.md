@@ -197,7 +197,8 @@ EXECUTE authenticated; search_path ''. Why: RLS hides rows, not columns; an invo
 ```
 F3.0b purge — TO app_jobs policies on posts, comments, reports: read held rows (and replies of a held comment) and the open reports on them, delete held rows,
 expire open reports past release; purge_held_content() invoker, EXECUTE app_jobs only · a job has no auth.uid() and must reach every user's held rows (rule 6);
-app_server is never a member of app_jobs · .work/feed-groundwork/schema-b.md · 2026-10-18
+app_server is never a member of app_jobs · .work/feed-groundwork/schema-b.md · 2026-10-18 · Schedule (I3 PR-B): bootstrap step 3 `03-cron.sql` (postgres), pg_cron job
+nestly_purge_held_content daily 03:17 UTC as app_jobs (NOLOGIN, via a SET membership held only inside that transaction); exception to "bootstrap = roles + anchor FK": extension, USAGE on cron, one job; down order: `03-cron-down.sql` BEFORE F3.0b's down
 ```
 
 ---
