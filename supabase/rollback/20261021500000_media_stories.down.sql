@@ -1,14 +1,15 @@
 -- =====================================================================================================================
--- Down script for supabase/migrations/20261021500000_media_stories.sql (images, profile photos, Stories, queue, training set).
+-- Down script for supabase/migrations/20261021500000_media_stories.sql (images, reviews, profile photos, Stories, queue, training set).
 -- Outside supabase/migrations on purpose: the CLI never applies it.
 --
 -- Run as:   app_owner, in one transaction. CI runs it once per build (up -> down -> up) against the disposable database.
 --           Against nestly-preview or nestly-prod it is a destructive change: Afik only (CLAUDE.md "Never").
 -- Order:    revert the media server, jobs and web code first, then run this.
--- Safe:     only while media_assets, profile_photos, stories and media_training_samples hold no row (FORCE RLS is lifted first, so the
---           check is real). Files in storage are not touched: they are not the database's.
--- Restores: audit_trigger() as 20261021100000_status_guides_admin.sql left it (text and comment); drops posts_select_jobs_removed and the five tables, their triggers,
---           functions and policies; deletes only its own history row. Audit entries already written stay: the log is append-only.
+-- Safe:     only while the seven tables hold no row (FORCE RLS is lifted first, so the check is real). Files in storage are not touched:
+--           they are not the database's.
+-- Restores: audit_trigger() as 20261021300000_recovery_lock_ladder.sql left it (text and comment); drops the two training-candidate
+--           triggers on reports and posts, the seven tables, their triggers, functions and policies, and app_media_jobs' schema usage;
+--           deletes only its own history row. Audit entries already written stay: the log is append-only.
 -- =====================================================================================================================
 
 begin;
@@ -22,14 +23,17 @@ end
 $$;
 
 alter table nestly.media_assets no force row level security;
+alter table nestly.media_reviews no force row level security;
 alter table nestly.profile_photos no force row level security;
 alter table nestly.stories no force row level security;
+alter table nestly.media_training_candidates no force row level security;
 alter table nestly.media_training_samples no force row level security;
 alter table nestly.media_training_events no force row level security;
 
 do $$
 begin
-  if exists (select 1 from nestly.media_assets) or exists (select 1 from nestly.profile_photos) or exists (select 1 from nestly.stories)
+  if exists (select 1 from nestly.media_assets) or exists (select 1 from nestly.media_reviews) or exists (select 1 from nestly.profile_photos)
+     or exists (select 1 from nestly.stories) or exists (select 1 from nestly.media_training_candidates)
      or exists (select 1 from nestly.media_training_samples) or exists (select 1 from nestly.media_training_events) then
     raise exception 'images, Stories or training samples exist: rolling back would orphan their files and lose decisions. Stop: forward fix, or Afik''s decision (CLAUDE.md hard rule 7)';
   end if;
@@ -37,6 +41,10 @@ end
 $$;
 
 drop trigger media_assets_decision_audit on nestly.media_assets;
+drop trigger media_reviews_suspicion_audit_insert on nestly.media_reviews;
+drop trigger media_reviews_suspicion_audit_update on nestly.media_reviews;
+drop trigger reports_training_candidate on nestly.reports;
+drop trigger posts_training_candidate on nestly.posts;
 
 create or replace function nestly.audit_trigger()
 returns trigger
@@ -120,6 +128,12 @@ begin
     v_after := pg_catalog.jsonb_build_object('status', v_new ->> 'status', 'title', v_new ->> 'title', 'stageKind', v_new ->> 'stage_kind',
       'rangeFrom', v_new -> 'range_from', 'rangeTo', v_new -> 'range_to', 'sourceCheckedOn', v_new ->> 'source_checked_on',
       'bodyChars', pg_catalog.char_length(v_new ->> 'body'), 'bodyChanged', tg_op = 'UPDATE' and v_new ->> 'body' is distinct from v_old ->> 'body');
+  elsif tg_table_name = 'recovery_lock_releases' then
+    v_key := 'RECOVERY_LOCK_RELEASE';
+    v_action := 'recovery_lock_released';
+    v_kind := 'user';
+    v_target := (v_new ->> 'user_id')::uuid;
+    v_reason := nullif(v_new ->> 'reason', '');
   else
     raise exception 'audit_trigger: not attached to %', tg_table_name;
   end if;
@@ -131,20 +145,21 @@ $$;
 
 revoke execute on function nestly.audit_trigger() from public;
 
-comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement or an Admin''s creation, edit, publication or hiding of a status guide: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
+comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement, an Admin''s creation, edit, publication or hiding of a status guide, or a recovery lock release: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
 
-drop policy posts_select_jobs_removed on nestly.posts;
-drop table nestly.media_training_events;
-drop table nestly.media_training_samples;
-drop table nestly.stories;
-drop table nestly.profile_photos;
-drop table nestly.media_assets;
+-- one statement: the policies of these tables refer to one another
+drop table nestly.media_training_events, nestly.media_training_samples, nestly.media_training_candidates, nestly.stories,
+  nestly.profile_photos, nestly.media_reviews, nestly.media_assets;
 
 drop function nestly.media_training_samples_log();
+drop function nestly.media_training_candidate();
 drop function nestly.stories_prepare();
 drop function nestly.profile_photos_replaced();
 drop function nestly.profile_photos_prepare();
+drop function nestly.media_reviews_guard();
 drop function nestly.media_assets_update_guard();
+
+revoke usage on schema nestly from app_media_jobs;
 
 delete from supabase_migrations.schema_migrations where version = '20261021500000';
 

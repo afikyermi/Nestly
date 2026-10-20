@@ -17,8 +17,9 @@
 --   A role created here has no password and CANNOT LOG IN until one is set. After this script, Afik types in the
 --   SQL Editor, for each LOGIN role:   alter role app_owner  password '…';
 --                                      alter role app_server password '…';
---                                      alter role app_jobs   password '…';   (I5: the background image check)
+--                                      alter role app_media_jobs password '…';   (I5: the background image job)
 --   then waits ~20 s before using it (the pooler caches role credentials).
+--   app_jobs is NOLOGIN (below) and gets no password yet.
 --
 -- What each role is:
 --   app_owner   LOGIN. Owns the product schema; applies migrations from CI only, through the session pooler (5432).
@@ -29,10 +30,13 @@
 --               `authenticated` and `anon` WITH INHERIT FALSE, SET TRUE, so it acts only after SET LOCAL ROLE inside
 --               the identity transaction (rule 3). NOINHERIT on the role as well, so any future grant made without
 --               explicit options also defaults to fail-closed.
---   app_jobs    LOGIN since I5 (Afik 20.10.2026, decisions-in-force.md §7). Background jobs (rule 6): the first is the image
---               check, a separate Vercel function (api/jobs.ts) that connects as app_jobs through the transaction pooler with its
---               own connection string (APP_JOBS_DATABASE_URL). NOBYPASSRLS, owns nothing, member of nothing: cross-user reach is
---               only ever an explicit `TO app_jobs` policy (rule 6). The request server never holds this credential.
+--   app_jobs    NOLOGIN for now. Background jobs (rule 6); no job exists before I1 ships, and I1 has none. A role
+--               nobody can log in as has no credential to leak. Its LOGIN attribute and any grant it needs are
+--               decided with the first job (pg_cron vs. a code job), by editing this file and re-running it.
+--               No memberships: cross-user reach is only ever an explicit `TO app_jobs` policy (rule 6).
+--   app_media_jobs LOGIN (I5; Afik 20.10.2026, decisions-in-force.md §7). The background image job only (api/jobs.ts, its own connection
+--               string APP_MEDIA_JOBS_DATABASE_URL): its own role so that logging in activates no other job's policies. NOINHERIT,
+--               NOBYPASSRLS, owns nothing, member of nothing; every reach is a `TO app_media_jobs` policy with column grants.
 --   app_recovery NOLOGIN, NOINHERIT, owns nothing, member of nothing. The guest role of the password-recovery flow
 --               only (F1.6, data-model "Approved exceptions"): a signed-out request has no auth.uid(), and `anon` must hold
 --               nothing in nestly. Granted to app_server alone, WITH INHERIT FALSE, SET TRUE, so it acts only after
@@ -73,7 +77,10 @@ begin
     create role app_server login   nosuperuser nobypassrls noreplication nocreatedb nocreaterole noinherit;
   end if;
   if not exists (select 1 from pg_roles where rolname = 'app_jobs') then
-    create role app_jobs   login   nosuperuser nobypassrls noreplication nocreatedb nocreaterole noinherit;
+    create role app_jobs   nologin nosuperuser nobypassrls noreplication nocreatedb nocreaterole noinherit;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'app_media_jobs') then
+    create role app_media_jobs login nosuperuser nobypassrls noreplication nocreatedb nocreaterole noinherit;
   end if;
   if not exists (select 1 from pg_roles where rolname = 'app_recovery') then
     create role app_recovery nologin nosuperuser nobypassrls noreplication nocreatedb nocreaterole noinherit;
@@ -89,7 +96,7 @@ declare
 begin
   for r in
     select rolname from pg_roles
-    where rolname in ('app_owner', 'app_server', 'app_jobs', 'app_recovery') and (rolsuper or rolbypassrls or rolreplication)
+    where rolname in ('app_owner', 'app_server', 'app_jobs', 'app_media_jobs', 'app_recovery') and (rolsuper or rolbypassrls or rolreplication)
   loop
     raise exception 'role % is SUPERUSER, BYPASSRLS or REPLICATION — not created by this script; stop and escalate', r.rolname;
   end loop;
@@ -103,6 +110,7 @@ begin
     where (r2.rolname = 'app_owner'  and g.rolname <> 'authenticated')
        or (r2.rolname = 'app_server' and g.rolname not in ('authenticated', 'anon', 'app_recovery'))
        or (r2.rolname = 'app_jobs')
+       or (r2.rolname = 'app_media_jobs')
        or (r2.rolname = 'app_recovery')
   loop
     raise exception 'unexpected membership: % is a member of % — stop and escalate', r.member, r.granted;
@@ -115,7 +123,7 @@ begin
     from pg_auth_members m
     join pg_roles r2 on r2.oid = m.member
     join pg_roles g  on g.oid  = m.roleid
-    where (g.rolname in ('app_owner', 'app_server', 'app_jobs') and r2.rolname <> 'postgres')
+    where (g.rolname in ('app_owner', 'app_server', 'app_jobs', 'app_media_jobs') and r2.rolname <> 'postgres')
        or (g.rolname = 'app_recovery' and r2.rolname not in ('postgres', 'app_server'))
   loop
     raise exception 'unexpected membership: % is a member of % — stop and escalate', r.member, r.granted;
@@ -126,7 +134,8 @@ $$;
 -- 3. Converge the attributes postgres is allowed to set (a re-run restores them; passwords are left untouched) -------
 alter role app_owner  login   nocreatedb nocreaterole inherit;
 alter role app_server login   nocreatedb nocreaterole noinherit;
-alter role app_jobs   login   nocreatedb nocreaterole noinherit;
+alter role app_jobs   nologin nocreatedb nocreaterole noinherit;
+alter role app_media_jobs login nocreatedb nocreaterole noinherit;
 alter role app_recovery nologin nocreatedb nocreaterole noinherit;
 
 -- 4. Grants (re-granting with options updates them in place on PG 16+) ---------------------------------------------
