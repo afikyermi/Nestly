@@ -19,7 +19,7 @@ alter table nestly.recovery_throttles
   add column ladder_failures smallint not null default 0;
 
 alter table nestly.recovery_throttles
-  add constraint recovery_throttles_ladder_check check (ladder_failures >= 0 and (subject_kind = 'handle' or ladder_failures = 0));
+  add constraint recovery_throttles_ladder_failures_check check (ladder_failures >= 0 and (subject_kind = 'handle' or ladder_failures = 0));
 
 grant update (ladder_failures) on table nestly.recovery_throttles to app_recovery;
 
@@ -55,6 +55,6 @@ as $$
 $$;
 
 comment on column nestly.recovery_throttles.ladder_failures is
-  'NFR-SEC-010: failures since the last success, handles only (0 for an IP). The 3rd locks recovery for 1 hour, the 6th and every later one for 24 hours (locked_until); a success resets it to 0. Written by app_recovery (column grant).';
-comment on constraint recovery_throttles_ladder_check on nestly.recovery_throttles is
+  'NFR-SEC-010: failures since the last success, handles only (0 for an IP). The 3rd locks recovery for 1 hour, the 6th and every later one for 24 hours (locked_until); a success resets it to 0. Written by app_recovery (column grant). Kept with its row: the row''s retention (§13.4) decides when the count goes.';
+comment on constraint recovery_throttles_ladder_failures_check on nestly.recovery_throttles is
   'The ladder belongs to handles: an IP row keeps 0.';
