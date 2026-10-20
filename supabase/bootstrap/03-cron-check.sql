@@ -2,18 +2,22 @@
 -- Bootstrap step 3 — verification. READ ONLY: one SELECT, changes nothing. Run as postgres after 03-cron.sql.
 --
 -- EXPECTED RESULT (one row, ok = true):
+--   extension t · jobs 1 · schedule '17 3 * * *' · command 'set role app_jobs; select nestly.purge_held_content()'
+--   username postgres · active t · database <current> · nestly_jobs 1 · app_jobs_jobs 0 · no_cron_usage t · set_membership t
 --
---   ok | extension | jobs | schedule  | command                              | username | active | database | usage | membership_gone
---   t  | t         | 1    | 17 3 * * * | select nestly.purge_held_content()   | app_jobs | t      | <current> | t    | t
---
---   extension        pg_cron is installed
---   jobs             exactly one job named nestly_purge_held_content
---   usage            app_jobs has USAGE on schema cron
---   membership_gone  postgres holds no SET or INHERIT membership in app_jobs (step 1's check stays exact)
+--   nestly_jobs     jobs whose command mentions nestly (case-insensitive): exactly the one job above
+--   app_jobs_jobs   jobs owned by app_jobs: none
+--   no_cron_usage   app_jobs has no USAGE on schema cron
+--   set_membership  postgres holds app_jobs exactly once: SET true, INHERIT false, ADMIN false, grantor postgres
+--   (app_jobs itself: NOLOGIN, not superuser, not BYPASSRLS — folded into ok.)
 -- =====================================================================================================================
 
 with j as (
   select * from cron.job where jobname = 'nestly_purge_held_content'
+),
+mem as (
+  select m.* from pg_auth_members m
+  where m.roleid = 'app_jobs'::regrole and m.member = 'postgres'::regrole and m.set_option
 ),
 r as (
   select
@@ -24,16 +28,21 @@ r as (
     (select username from j)                                                                      as username,
     (select active from j)                                                                        as active,
     (select database from j)                                                                      as database,
-    has_schema_privilege('app_jobs', 'cron', 'USAGE')                                             as usage,
-    not exists (
-      select 1 from pg_auth_members m
-      where m.roleid = 'app_jobs'::regrole and m.member = 'postgres'::regrole
-        and (m.set_option or m.inherit_option))                                                   as membership_gone,
+    (select count(*) from cron.job where command ~* 'nestly')                                     as nestly_jobs,
+    (select count(*) from cron.job where username = 'app_jobs')                                   as app_jobs_jobs,
+    not has_schema_privilege('app_jobs', 'cron', 'USAGE')                                         as no_cron_usage,
+    (select count(*) = 1 from mem
+     where not inherit_option and not admin_option and pg_get_userbyid(grantor) = 'postgres')
+    and (select count(*) = 1 from pg_auth_members
+         where roleid = 'app_jobs'::regrole and member = 'postgres'::regrole and set_option)      as set_membership,
     (select not rolcanlogin and not rolsuper and not rolbypassrls from pg_roles where rolname = 'app_jobs') as role_ok
 )
 select
-  (r.extension and r.jobs = 1 and r.schedule = '17 3 * * *' and r.command = 'select nestly.purge_held_content()'
-   and r.username = 'app_jobs' and r.active and r.database = current_database()
-   and r.usage and r.membership_gone and r.role_ok)                                               as ok,
-  r.extension, r.jobs, r.schedule, r.command, r.username, r.active, r.database, r.usage, r.membership_gone
+  (r.extension and r.jobs = 1 and r.schedule = '17 3 * * *'
+   and r.command = 'set role app_jobs; select nestly.purge_held_content()'
+   and r.username = 'postgres' and r.active and r.database = current_database()
+   and r.nestly_jobs = 1 and r.app_jobs_jobs = 0
+   and r.no_cron_usage and r.set_membership and r.role_ok)                                        as ok,
+  r.extension, r.jobs, r.schedule, r.command, r.username, r.active, r.database,
+  r.nestly_jobs, r.app_jobs_jobs, r.no_cron_usage, r.set_membership
 from r;

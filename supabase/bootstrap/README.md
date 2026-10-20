@@ -56,14 +56,17 @@ The purge schedule: pg_cron runs `nestly.purge_held_content()` daily at 03:17 UT
 
 1. Check that the migration has run: `nestly.purge_held_content()` exists.
 2. Open the SQL Editor (it runs as `postgres`). Paste `03-cron.sql` and run it. One transaction; safe to run again (the
-   job is updated in place). It enables `pg_cron`, gives `app_jobs` USAGE on schema `cron`, and schedules the job as
-   `app_jobs` through a temporary SET membership that it revokes before it commits.
+   job is updated in place). It enables `pg_cron`, makes `postgres` a persistent SET member of `app_jobs` (INHERIT FALSE),
+   and schedules the job as `postgres`. `app_jobs` gets no cron rights. For Afik's prod run: the job is postgres's;
+   it switches to `app_jobs` before the purge (command `set role app_jobs; select nestly.purge_held_content()`).
+   After this, `01-roles-check.sql` expects the extra `postgres(i=f s=t a=f) by postgres` row on `app_jobs`.
 3. Run `03-cron-check.sql`. Expect one row with `ok = true`. The expected values are in its header.
 4. The first `succeeded` row in `cron.job_run_details` for the job proves it runs (E1 in
    `.work/i3-rest-schema/schema.md`): on nestly-preview, look the next day, before running this on prod.
 
 Undo: `03-cron-down.sql` (the extension stays). Run it before the down script of `20261018200000_feed_interactions`,
-which drops the function the job calls.
+which drops the function the job calls. It is safe to run twice, and afterwards the step-1 check is back to its
+plain expectation.
 
 ## Connecting as a custom role through the pooler
 
