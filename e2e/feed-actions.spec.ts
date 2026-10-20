@@ -30,7 +30,7 @@ async function open(page: Page, net: FeedNet): Promise<void> {
 }
 const cards = (page: Page) => page.getByRole('feed', { name: 'פוסטים בפיד' }).getByRole('article');
 const like = (card: Locator) => card.getByRole('button', { name: /^לייק/ });
-const comments = (card: Locator) => card.getByRole('link', { name: /^תגובות/ });
+const comments = (card: Locator) => card.getByRole('button', { name: /^תגובות/ }); // ux-polish-a c9: a button, not a link
 const stored = (n: number): StoredPost => ({ id: id(n), body: `גוף הפוסט ${n}`, audience: 'everyone', stageTag: null, createdAt: '2026-06-14T09:00:00.000Z', isMine: false });
 const hold = (net: FeedNet): (() => void) => {
   let release = (): void => undefined;
@@ -59,11 +59,11 @@ test.describe('F3.3 c13 [FR-FEED-001] the action row', () => {
       await expect(cards(page)).toHaveCount(3);
       const [a, b, s] = [cards(page).nth(0), cards(page).nth(1), cards(page).nth(2)];
       await expect(a.getByRole('button', { name: 'לייק, 4', exact: true })).toHaveAttribute('aria-pressed', 'true');
-      await expect(a.getByRole('link', { name: 'תגובות, 5', exact: true })).toHaveAttribute('href', `/posts/${id(1)}#comments`);
+      await expect(a.getByRole('button', { name: 'תגובות, 5', exact: true })).toBeVisible();
       await expect(b.getByRole('button', { name: 'לייק', exact: true })).toHaveAttribute('aria-pressed', 'false');
-      await expect(b.getByRole('link', { name: 'תגובות', exact: true })).toHaveAttribute('href', `/posts/${id(2)}#comments`);
+      await expect(b.getByRole('button', { name: 'תגובות', exact: true })).toBeVisible();
       await expect(s.getByRole('button', { name: 'לייק, 2', exact: true })).toHaveAttribute('aria-pressed', 'false');
-      await expect(s.getByRole('link', { name: 'תגובות, 1', exact: true })).toHaveAttribute('href', `/posts/${id(3)}#comments`);
+      await expect(s.getByRole('button', { name: 'תגובות, 1', exact: true })).toBeVisible();
       await expect(b.getByRole('article')).toHaveCount(0);
       await expect(b).not.toContainText('כותבת מספר 2'); // nothing author-related joined the anonymous card
       for (const control of [like(a), comments(a), like(s), comments(b)]) {
@@ -179,40 +179,22 @@ test.describe('F3.3 c13 [FR-FEED-001] the action row', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'הפיד', exact: true })).toBeVisible();
     await page.waitForTimeout(500); // the profile check answers after the heading
     await expect(main(page).getByRole('button', { name: /^לייק/ })).toHaveCount(0);
-    await expect(main(page).getByRole('link', { name: /^תגובות/ })).toHaveCount(0);
+    await expect(main(page).getByRole('button', { name: /^תגובות/ })).toHaveCount(0);
     expect(net.likeCalls).toEqual([]);
   });
 });
 
-test.describe('F3.3 c14 [FR-FEED-001] the comments link and Back', () => {
-  for (const { label, viewport } of SIZES) {
-    test(`[c14] ${label}: "תגובות" opens the post and lands on the focused heading "תגובות"`, async ({ page }) => {
-      await page.setViewportSize(viewport);
-      const net = await setupFeed(page, () => pageOf([named(1), named(2)], null), { posts: [stored(1), stored(2)] });
-      await open(page, net);
-      await comments(cards(page).nth(1)).click();
-      await expect.poll(() => pathOf(page)).toBe(`/posts/${id(2)}`);
-      expect(new URL(page.url()).hash).toBe('#comments');
-      await expect(page.getByRole('heading', { level: 2, name: 'תגובות', exact: true })).toBeFocused();
-    });
-  }
-
-  test('[c14] keyboard: Enter on "תגובות" lands on the focused heading', async ({ page }) => {
-    const net = await setupFeed(page, () => pageOf([named(1)], null), { posts: [stored(1)] });
-    await open(page, net);
-    await comments(cards(page).first()).focus();
-    await page.keyboard.press('Enter');
-    await expect(page.getByRole('heading', { level: 2, name: 'תגובות', exact: true })).toBeFocused();
-  });
-
+// ux-polish-a c9 supersedes F3.3 c14's "תגובות" link (open the post, focused heading): the card's "תגובות" is a button that focuses the card's field (e2e/ux-polish-a.spec.ts).
+test.describe('F3.3 c14 [FR-FEED-001] Back to the feed', () => {
   test('[c14] like, open the post, go back: the restored card shows the new state and the feed is not fetched again', async ({ page }) => {
     const net = await setupFeed(page, () => pageOf([named(1, { likeCount: 2 }), named(2)], null), { posts: [stored(1), stored(2)] });
     await open(page, net);
     await like(cards(page).first()).click();
     await expect(cards(page).first().getByRole('button', { name: 'לייק, 3', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect.poll(() => net.likeCalls.length).toBe(1);
-    await comments(cards(page).first()).click();
+    await cards(page).first().locator('a:has(time)').click(); // the time link opens the post (ux-polish-a c9)
     await expect.poll(() => pathOf(page)).toBe(`/posts/${id(1)}`);
+    await expect(page.getByRole('heading', { level: 1, name: 'פוסט', exact: true })).toBeVisible(); // the post page is rendered (the URL changes before the feed unmounts)
     await page.goBack();
     await expect.poll(() => pathOf(page)).toBe('/feed');
     await expect(cards(page)).toHaveCount(2);
@@ -226,5 +208,5 @@ test('[c13] counts from 1,000 up are plain digits with he-IL grouping', async ({
   const net = await setupFeed(page, () => pageOf([named(1, { likeCount: 1234, commentCount: 12345 })], null));
   await open(page, net);
   await expect(cards(page).first().getByRole('button', { name: 'לייק, 1,234', exact: true })).toBeVisible();
-  await expect(cards(page).first().getByRole('link', { name: 'תגובות, 12,345', exact: true })).toBeVisible();
+  await expect(cards(page).first().getByRole('button', { name: 'תגובות, 12,345', exact: true })).toBeVisible();
 });

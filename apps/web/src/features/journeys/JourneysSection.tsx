@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { localDateIso, type DateParts, type OwnJourneys } from '@nestly/shared';
+import { useBackCloses } from '@/hooks/use-back-closes';
 import { useSessionAccount } from '@/hooks/use-session-account';
 import { CHILDREN_LIMIT_TEXT } from '@/lib/child-fields';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
@@ -267,16 +268,8 @@ export function JourneysSection() {
         }
         if (fresh.kind === 'unauthenticated' || fresh.kind === 'account-unavailable') outcome = fresh;
       }
-      // A refused token or a stopped account closes a confirmation (c24): the session guard takes over, ERR-037 replaces the view.
-      if (form.kind === 'confirm' && (outcome.kind === 'unauthenticated' || outcome.kind === 'account-unavailable')) {
-        const stopped = refused(outcome);
-        if (stopped === null) close(form, current.data, false);
-        else {
-          setView({ kind: 'load-failed', message: stopped });
-          focusOn({ kind: 'message' });
-        }
-        return;
-      }
+      // A refused token or a stopped account (c24) keeps a confirmation open with its failure (ERR-037 text for a stopped account): the session guard takes
+      // over the screen, and closing the dialog here would send the history Back at the very moment the guard replaces the entry.
       // The form keeps what is in it now, including anything typed while the save was in flight. A dialog keeps focus on its control.
       const fallback = form.kind === 'confirm' ? ACTION_FAILED_TEXT : SAVE_FAILED_TEXT;
       const failure = outcome.kind === 'too-many' ? CHILDREN_LIMIT_TEXT : (refused(outcome) ?? fallback);
@@ -293,6 +286,17 @@ export function JourneysSection() {
     if (saving.current) return;
     close(form, current.data, false);
   }
+
+  // The confirmation closes on Back as "ביטול" (one history entry while it is open; ux-polish-b c4); in flight it stays. The forms are in the page, not windows.
+  const latestView = useRef(view);
+  latestView.current = view;
+  useBackCloses(view.kind === 'loaded' && view.form?.kind === 'confirm', () => {
+    const now = latestView.current;
+    if (now.kind !== 'loaded' || now.form?.kind !== 'confirm') return true;
+    if (saving.current) return false;
+    cancel(now, now.form);
+    return true;
+  });
 
   const loaded = view.kind === 'loaded' ? view : null;
   const form = loaded?.form ?? null;

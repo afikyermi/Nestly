@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router';
 import type { FeedUnit } from '@nestly/shared';
 import { FeedCard } from './FeedCard';
 
-// A feed card (F3.2b, F3.3 c13) in each of its kinds, with its action row (like, comments link) and
+// A feed card (F3.2b, F3.3 c13) in each of its kinds, with its action row (like, the "תגובות" button, ux-polish-a c9) and
 // the "more actions" button on every card (F3.9 c8), drawn from props alone. The links need a router.
 function Screen(props: Parameters<typeof FeedCard>[0]) {
   return (
@@ -87,3 +87,16 @@ export const Shareable: Story = { args: { unit: named, position: 1, onShareInFee
 
 // The viewer's own post: a link, but no share into the own feed (FR-FEED-006).
 export const OwnLinkOnly: Story = { args: { unit: { ...named, isMine: true }, position: 1, onShareLink: () => undefined } };
+
+// ux-polish-b c1, c2: the own card with F3.1's edit form in place of the body and the action row; the header stays.
+const editing = {
+  values: { body: 'איך אתם מתמודדים עם לילות בלי שינה?\nאשמח לשמוע רעיונות.', audience: 'everyone', stageTag: '' },
+  errors: {},
+  saving: false,
+  failure: null,
+  focus: { target: 'body', tick: 0 },
+} as const;
+export const OwnEditing: Story = { args: { unit: { ...named, isMine: true }, position: 1, edit: editing } };
+export const OwnEditFailed: Story = {
+  args: { unit: { ...named, isMine: true }, position: 1, edit: { ...editing, failure: 'השמירה לא הצליחה. אפשר לנסות שוב' } },
+};

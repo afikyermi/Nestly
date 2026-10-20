@@ -9,6 +9,7 @@ export const AUTHOR_LABEL = 'המחבר'; // VAL-036: the post author's own comm
 export const REPLY_LABEL = 'השבה';
 export const MORE_REPLIES_LABEL = 'הצגת עוד השבות';
 export const MORE_LABEL = 'עוד תגובות';
+export const CARD_MORE_LABEL = 'הצגת עוד תגובות'; // ux-polish-a: the feed card's (direction.md "הצגת עוד")
 export const LOADING_MORE_TEXT = 'טוענים';
 export const COMMENT_FORM_LABEL = 'כתיבת תגובה';
 export const REPLY_FORM_LABEL = 'כתיבת השבה';

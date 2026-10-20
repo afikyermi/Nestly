@@ -358,7 +358,7 @@ test.describe('F3.7 c13 [FR-MOD-001 "אישור קליטה"] outcomes on the fee
       await choose(sheet(page, 'post'), 1);
       await sendButton(sheet(page, 'post')).click();
       await expect(sheet(page, 'post')).toHaveCount(0);
-      await cards(page).first().getByRole('link', { name: /^תגובות/ }).click();
+      await cards(page).first().locator('a:has(time)').click(); // ux-polish-a c9: "תגובות" is a button now; the time link opens the post
       await expect.poll(() => pathOf(page)).toMatch(/^\/posts\//);
       await page.goBack();
       await expect.poll(() => pathOf(page)).toBe('/feed');

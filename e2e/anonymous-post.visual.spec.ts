@@ -6,6 +6,7 @@ import { EMAIL } from './support/journeys-stub';
 import { ANON_MINE, ANON_MINE_ID, ANON_OTHERS, ANON_OTHERS_ID, MINE, OTHERS, setupPosts } from './support/posts-stub';
 import { setupComments, top } from './support/comments-stub';
 import { pageOf, range, setupFeed } from './support/feed-stub';
+import { EDIT_ITEM, chooseFromPostMenu } from './support/post-menu';
 import { anonToggle, feedCards, openComposer, openFeedAt } from './support/composer';
 
 // Visual regression for the screens F3.4 touches (.work/anonymous-post/spec.md c11-c14; Afik's test rules 14.10.2026): each state at phone (375) and desktop (1024)
@@ -73,7 +74,7 @@ for (const { label, viewport } of SIZES) {
     test('edit form of an anonymous post (no audience group, the fixed line)', async ({ page }) => {
       await setupPosts(page, { posts: [ANON_MINE] });
       await open(page, `/posts/${ANON_MINE_ID}`);
-      await page.getByRole('button', { name: 'עריכה', exact: true }).click();
+      await chooseFromPostMenu(page, EDIT_ITEM);
       await expect(page.getByText('הפוסט אנונימי ומוצג לכולם. אי אפשר לשנות את זה')).toBeVisible();
       await shot(page, 'anonymous-post-edit', label);
     });

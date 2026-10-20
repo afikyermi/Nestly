@@ -1,4 +1,4 @@
-import type { FeedPageResponse, FeedUnit } from '@nestly/shared';
+import type { FeedPageResponse, FeedUnit, PostView } from '@nestly/shared';
 import { loadedMoreText } from './feed-texts';
 
 /**
@@ -138,6 +138,19 @@ export function withHideResult(state: FeedState, unitId: string, result: HideRes
   }
 }
 
+/** An own post saved from its card (ux-polish-b c2): the card shows the stored text, audience and tag; "הפוסט עודכן" is said, focus goes back to its "⋯". */
+export function withEdited(state: FeedState, unitId: string, post: PostView, status: string): FeedState {
+  const items = state.items.map((unit) =>
+    unit.id !== unitId || unit.kind !== 'post' || post.body === null ? unit : { ...unit, body: post.body, audience: post.audience, stageTag: post.stageTag },
+  );
+  return withHideResult({ ...state, items }, unitId, { kind: 'noted', status });
+}
+
+/** Focus goes to a card's "⋯" and nothing is said (its edit form closed without saving). */
+export function withMoreFocus(state: FeedState, unitId: string): FeedState {
+  return { ...state, hideFocus: { target: 'more', unitId, seq: (state.hideFocus?.seq ?? 0) + 1 } };
+}
+
 /** A post just published joins the top of the loaded list, once (feed-composer c7, c9). A new snapshot replaces the list, and with it this unit. */
 export function withPublished(state: FeedState, unit: FeedUnit): FeedState {
   // After a failed first page the error stands alone; the retry brings the server's order only (c9).
@@ -151,4 +164,18 @@ export function withPublished(state: FeedState, unit: FeedUnit): FeedState {
  */
 export function withShared(state: FeedState, unit: FeedUnit, status: string): FeedState {
   return { ...withPublished(state, unit), likeStatus: '', hideStatus: status, hideStatusTick: state.hideStatusTick + 1 };
+}
+
+/** What the action channel says (the hide statuses' region and tick): an outcome of a card's comments that moves no count (ux-polish-a c7, c8). */
+export function withStatus(state: FeedState, status: string): FeedState {
+  return { ...state, likeStatus: '', hideStatus: status, hideStatusTick: state.hideStatusTick + 1 };
+}
+
+/**
+ * A comment added to or deleted from a card (ux-polish-a c4, c5, c7): its "תגובות, N" moves by `delta` (never below 0), kept for Back with the
+ * rest of the list (c11), and `status` is said in the action channel.
+ */
+export function withCommentCount(state: FeedState, unitId: string, delta: number, status: string): FeedState {
+  const items = state.items.map((unit) => (unit.id !== unitId ? unit : { ...unit, commentCount: Math.max(0, unit.commentCount + delta) }));
+  return withStatus({ ...state, items }, status);
 }

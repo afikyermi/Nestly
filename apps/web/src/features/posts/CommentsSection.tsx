@@ -21,7 +21,7 @@ export interface CommentsSectionProps {
 }
 
 /** F3.7 c13: a comment report changes nothing on the screen (Afik 18.10): what happened is said, and focus goes back to the "⋯". */
-const REPORT_STATUS: Record<ReportResult, string> = {
+export const COMMENT_REPORT_STATUS: Record<ReportResult, string> = {
   received: REPORT_RECEIVED_STATUS,
   'already-reported': ALREADY_REPORTED_STATUS,
   unavailable: REPORT_UNAVAILABLE_STATUS,
@@ -43,7 +43,7 @@ function CommentsRegion({ postId, liked, likes, asAnonymousAuthor = false }: Com
   const writes = useCommentWrites(postId, flow, api);
   const { hash } = useLocation();
   const [menuId, setMenuId] = useState<string | null>(null);
-  const report = useReport((_target, result) => flow.setThread((current) => ({ ...current, status: REPORT_STATUS[result] })));
+  const report = useReport((_target, result) => flow.setThread((current) => ({ ...current, status: COMMENT_REPORT_STATUS[result] })));
   // Back while a delete or a report is in flight keeps its dialog (the hook adds its entry again). A press outside a menu: as the feed's.
   const back = useBackCloses(menuId !== null || writes.confirm !== null || report.draft !== null, () => {
     if (writes.confirm?.saving === true || report.draft?.sending === true) return false;

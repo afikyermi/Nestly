@@ -2,7 +2,8 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { MemoryRouter } from 'react-router';
 import type { PostReadView, ShareReadView } from '@nestly/shared';
 import { PostContent } from './PostContent';
-import { DELETE_FAILED_TEXT, LOAD_FAILED_TEXT, SAVE_FAILED_TEXT } from './posts-texts';
+import { CONFIRM_DELETE_LABEL, DELETE_FAILED_TEXT, LOAD_FAILED_TEXT, SAVE_FAILED_TEXT } from './posts-texts';
+import { EDIT_ITEM_LABEL } from './hide-texts';
 import { POST_REPORTED_STATUS, REPORT_POST_ITEM, REPORT_UNAVAILABLE_STATUS } from '@/lib/report-texts';
 
 // One post (F3.1b) in each of its states, drawn from props alone, as it sits in the shell's `main`. Links need a router.
@@ -41,10 +42,17 @@ const post: PostReadView = {
 const loaded = { kind: 'loaded', status: '', failure: null, edit: null, confirm: null } as const;
 const editValues = { body: post.body ?? '', audience: post.audience, stageTag: 'has_child' } as const;
 
-export const Loaded: Story = { args: { view: { ...loaded, post } } };
+const noop = () => undefined;
+// The author's own "⋯" (ux-polish-b c3): edit and delete; a share has delete only.
+const ownActions = [
+  { key: 'edit', label: EDIT_ITEM_LABEL, onSelect: noop },
+  { key: 'delete', label: CONFIRM_DELETE_LABEL, onSelect: noop },
+];
+const ownShareActions = [{ key: 'delete', label: CONFIRM_DELETE_LABEL, onSelect: noop }];
+export const Loaded: Story = { args: { view: { ...loaded, post }, moreActions: ownActions } };
+export const OwnMenuOpen: Story = { args: { view: { ...loaded, post }, moreActions: ownActions, menuOpen: true } };
 // Someone else's post: the "⋯" with "דיווח על הפוסט" (F3.7 c9).
 const others: PostReadView = { ...post, isMine: false, stageTag: null, audience: 'everyone' };
-const noop = () => undefined;
 const moreActions = [{ key: 'report', label: REPORT_POST_ITEM, onSelect: noop }];
 export const OthersPost: Story = { args: { view: { ...loaded, post: others }, moreActions } };
 export const OthersPostMenu: Story = { args: { view: { ...loaded, post: others }, moreActions, menuOpen: true } };
@@ -81,13 +89,13 @@ export const EditFailed: Story = {
 };
 // F3.4: an anonymous post, as its author (the own note, edit and delete) and as anyone else; its edit form has no audience group.
 const anonymousPost: PostReadView = { ...post, audience: 'everyone', isAnonymous: true };
-export const AnonymousAsAuthor: Story = { args: { view: { ...loaded, post: anonymousPost } } };
+export const AnonymousAsAuthor: Story = { args: { view: { ...loaded, post: anonymousPost }, moreActions: ownActions } };
 export const AnonymousAsReader: Story = { args: { view: { ...loaded, post: { ...anonymousPost, isMine: false } } } };
 export const AnonymousEditing: Story = {
   args: { view: { ...loaded, post: anonymousPost, edit: { values: { ...editValues, audience: 'everyone' }, errors: {}, saving: false, failure: null } } },
 };
-export const DeleteConfirm: Story = { args: { view: { ...loaded, post, confirm: { saving: false, failure: null } } } };
-export const DeleteFailed: Story = { args: { view: { ...loaded, post, confirm: { saving: false, failure: DELETE_FAILED_TEXT } } } };
+export const DeleteConfirm: Story = { args: { view: { ...loaded, post, confirm: { saving: false, failure: null } }, moreActions: ownActions } };
+export const DeleteFailed: Story = { args: { view: { ...loaded, post, confirm: { saving: false, failure: DELETE_FAILED_TEXT } }, moreActions: ownActions } };
 export const Loading: Story = { args: { view: { kind: 'loading' } } };
 export const Unavailable: Story = { args: { view: { kind: 'unavailable' } } };
 export const LoadFailed: Story = { args: { view: { kind: 'load-failed', message: LOAD_FAILED_TEXT } } };
@@ -118,7 +126,10 @@ const shareView: ShareReadView = {
   likedByMe: false,
 };
 export const Share: Story = { args: { view: { ...loaded, post: shareView }, moreActions, onShareInFeed: noop, onShareLink: noop } };
-// The sharer's own share: "מחיקה" and no "עריכה" (c8); the original no longer available (AC-081): no quote, no link, no share action.
-export const OwnShareOriginalUnavailable: Story = { args: { view: { ...loaded, post: { ...shareView, isMine: true, original: { available: false } } } } };
+// The sharer's own share: "מחיקת הפוסט" under "⋯" and no edit (c8); the original no longer available (AC-081): no quote, no link, no share action.
+export const OwnShareOriginalUnavailable: Story = {
+  args: { view: { ...loaded, post: { ...shareView, isMine: true, original: { available: false } } }, moreActions: ownShareActions },
+};
+export const OwnShareMenuOpen: Story = { args: { view: { ...loaded, post: { ...shareView, isMine: true } }, moreActions: ownShareActions, menuOpen: true } };
 // The caller was refused a share (403): the page alert (c11).
 export const ShareRefusedAlert: Story = { args: { view: { ...loaded, post: others }, moreActions, onShareInFeed: noop, pageAlert: 'השיתוף לא פורסם. אפשר לנסות שוב' } };

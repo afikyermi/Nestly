@@ -35,7 +35,7 @@ export interface CommentWrites {
 }
 
 /** The text's check, by the same shared rule the server applies: what is wrong with it, or null. */
-function problemOf(text: string): ComposerState['error'] {
+export function problemOf(text: string): ComposerState['error'] {
   const checked = checkCreateComment({ body: text });
   if (checked.ok) return null;
   return checked.reason === 'body_required' ? 'required' : checked.reason === 'invalid' ? 'invalid' : 'long';

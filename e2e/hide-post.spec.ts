@@ -126,7 +126,7 @@ test.describe('F3.9 c8 [FR-ALG-009 FR-FEED-002] one menu on every card', () => {
         await expect(button).toHaveAttribute('aria-haspopup', 'menu');
         await expect(button).toHaveAttribute('aria-expanded', 'false');
         const order = await card.locator('a[href], button').evaluateAll((els) => els.map((e) => (e.getAttribute('aria-label') ?? e.textContent ?? '').replace(/\s+/g, ' ').trim()));
-        expect(order.at(-1), `card ${i + 1}: the menu button is last`).toBe(MORE);
+        expect(order.slice(order.indexOf(MORE) + 1).filter((n) => n !== 'שליחה' && n !== 'נסו שוב'), `card ${i + 1}: only the comment field's controls (ux-polish-a c9) follow the menu button`).toEqual([]);
         expect(order.filter((n) => n === MORE), `card ${i + 1}: one menu`).toHaveLength(1);
         expect(order.length, `card ${i + 1}: like, comments, time link, menu`).toBeGreaterThanOrEqual(4);
         const box = await button.boundingBox();
@@ -205,6 +205,7 @@ test.describe('F3.9 c8 [FR-ALG-009 FR-FEED-002] one menu on every card', () => {
     const button = more(cards(page).first());
     await button.click();
     await expect(menu(page)).toBeVisible();
+    await page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done())))); // the menu's history entry is pushed after its first paint
     await page.goBack();
     await expect(menu(page)).toHaveCount(0);
     expect(pathOf(page)).toBe('/feed');
@@ -234,6 +235,7 @@ test.describe('F3.9 c8 [FR-ALG-009] the open menu leaves no dead history entry',
     expect(scroll).toBeGreaterThan(0);
     await link.click();
     await expect.poll(() => pathOf(page)).toBe(`/posts/${id(10)}`);
+    await expect(page.getByRole('heading', { level: 1, name: 'פוסט', exact: true })).toBeVisible(); // the post page is rendered (the URL changes before the feed unmounts)
     await page.goBack();
     await expect.poll(() => pathOf(page)).toBe('/feed');
     await expect(menu(page)).toHaveCount(0);
@@ -340,6 +342,7 @@ test.describe('F3.9 c10 [FR-ALG-009 AC-081] a hide outlives the placeholder', ()
     await expect(placeholder(page)).toHaveCount(1);
     await cards(page).first().locator('a:has(time)').click();
     await expect.poll(() => pathOf(page)).toBe(`/posts/${id(1)}`);
+    await expect(page.getByRole('heading', { level: 1, name: 'פוסט', exact: true })).toBeVisible(); // the post page is rendered (the URL changes before the feed unmounts)
     await page.goBack();
     await expect.poll(() => pathOf(page)).toBe('/feed');
     await expect(cards(page)).toHaveCount(2);
@@ -502,15 +505,7 @@ test.describe('F3.9 c13 [FR-FEED-002] own items', () => {
   const MINE = (): Unit[] => [named(1), named(2, { isMine: true }), named(3)];
   const OWN = (): StoredPost[] => [stored(2, { isMine: true })];
 
-  test('[c13] "עריכת הפוסט" opens /posts/:id with its edit form open', async ({ page }) => {
-    const net = await serverFeed(page, MINE(), { posts: OWN() });
-    await open(page, net);
-    await more(cards(page).nth(1)).click();
-    await item(page, EDIT).click();
-    await expect.poll(() => pathOf(page)).toBe(`/posts/${id(2)}`);
-    await expect(page.getByRole('form', { name: 'עריכת פוסט' })).toBeVisible();
-    await expect(page.getByRole('textbox', { name: 'מה תרצו לשתף?' })).toHaveValue('גוף הפוסט 2');
-  });
+  // [c13] "עריכת הפוסט" opening /posts/:id with its edit form is superseded by ux-polish-b c1: the edit opens in place on the card (e2e/ux-polish-b.spec.ts).
 
   test('[c13] "מחיקת הפוסט" opens the alertdialog "למחוק את הפוסט?" with its description and focus on "ביטול"; Esc and "ביטול" close it and focus returns to the button', async ({ page }) => {
     const net = await serverFeed(page, MINE(), { posts: OWN() });
@@ -564,6 +559,7 @@ test.describe('F3.9 c13 [FR-FEED-002] own items', () => {
       await expect(like(cards(page).nth(1))).toBeFocused();
       await cards(page).first().locator('a:has(time)').click();
       await expect.poll(() => pathOf(page)).toBe(`/posts/${id(1)}`);
+      await expect(page.getByRole('heading', { level: 1, name: 'פוסט', exact: true })).toBeVisible(); // the post page is rendered (the URL changes before the feed unmounts)
       await page.goBack();
       await expect(cards(page)).toHaveCount(2);
       await expect(body(page, 2)).toHaveCount(0);

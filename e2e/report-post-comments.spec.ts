@@ -69,11 +69,13 @@ test.describe('F3.7 c9 [FR-MOD-001] the post page "⋯"', () => {
         await expect(button, close).toBeFocused();
       }
     });
-    test(`[c9] ${label}: my own post has no "⋯" and no report entry`, async ({ page }) => {
+    test(`[c9] ${label}: my own post has the "⋯" with its own actions (ux-polish-b c3) and no report entry`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await start(page, POST_ID);
       await expect(page.getByRole('main').getByText('שאלה על שינה')).toBeVisible();
-      await expect(postMore(page)).toHaveCount(0);
+      await postMore(page).click(); // ux-polish-b c3 supersedes: the author's edit and delete are in this "⋯"
+      await expect(page.getByRole('menuitem', { name: 'עריכת הפוסט', exact: true })).toBeVisible();
+      await expect(page.getByRole('menuitem', { name: 'מחיקת הפוסט', exact: true })).toBeVisible();
       await expect(page.getByRole('menuitem', { name: T.reportPost, exact: true })).toHaveCount(0);
     });
   }
@@ -172,9 +174,7 @@ test.describe('F3.7 c9 [FR-MOD-001, F3.3 c18] one "⋯" on every comment and rep
         const [first, second] = order === 'post first' ? [postMore(page), commentButton] : [commentButton, postMore(page)];
         await first.click();
         await expect(menu(page)).toBeVisible();
-        // While a menu is open the first press on another "⋯" only closes the first menu; a second press, after the close settles, opens the other.
-        await second.click();
-        await page.waitForTimeout(150);
+        // ux-polish-b c8: with a menu open, one press on another "⋯" closes the first and opens the other.
         await second.click();
         await expect(menu(page)).toBeVisible();
         await expect(second).toHaveAttribute('aria-expanded', 'true');

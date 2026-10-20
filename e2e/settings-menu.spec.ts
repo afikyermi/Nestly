@@ -179,8 +179,11 @@ test.describe('F2.5 c3 [FR-MENU-001 FR-AUTH-003] the other menu items keep their
     await signedInAtFeed(page);
     await choose(page, 'החלפת סיסמה');
     await expect.poll(() => pathOf(page)).toBe('/change-password');
+    // ux-polish-b c6: an open menu holds its own overlay entry; measured with it open, the choice itself adds none.
+    await openMenu(page);
     const before = await page.evaluate(() => window.history.length);
-    await choose(page, 'החלפת סיסמה');
+    await drawer(page).getByRole('link', { name: 'החלפת סיסמה', exact: true }).click();
+    await expect(drawer(page)).toHaveCount(0);
     expect(pathOf(page)).toBe('/change-password');
     expect(await page.evaluate(() => window.history.length)).toBe(before);
   });

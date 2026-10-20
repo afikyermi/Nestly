@@ -20,11 +20,15 @@ export interface CommentComposerProps {
   onSend: () => void;
   /** Reply only: closes the box without sending. */
   onCancel?: () => void;
+  /** The form carries the box's name (a form landmark). False inside a feed card (ux-polish-a): only the text box is named. */
+  named?: boolean;
+  /** "שליחה" as the screen's one primary action (the post page), or soft (inside a feed card, beside the feed's own primary; ux-polish-a). */
+  sendVariant?: 'primary' | 'soft';
 }
 
 // The comment and reply box (F3.3 w1, F3.4; FR-FEED-003): the text, the name notice, a counter in the limit's last 100 characters, send. Display only: what
 // sending does comes in as props. The text is the person's own, so the box reads right to left and nothing in it is markup.
-export function CommentComposer({ mode, state, notice, onChange, onSend, onCancel }: CommentComposerProps) {
+export function CommentComposer({ mode, state, notice, onChange, onSend, onCancel, named = true, sendVariant = 'primary' }: CommentComposerProps) {
   const ids = useId();
   const boxRef = useRef<HTMLFormElement>(null);
   const label = mode === 'comment' ? COMMENT_FORM_LABEL : REPLY_FORM_LABEL;
@@ -38,7 +42,7 @@ export function CommentComposer({ mode, state, notice, onChange, onSend, onCance
   return (
     <form
       ref={boxRef}
-      aria-label={label}
+      aria-label={named ? label : undefined}
       noValidate
       className="flex flex-col gap-3"
       onSubmit={(event) => {
@@ -57,7 +61,7 @@ export function CommentComposer({ mode, state, notice, onChange, onSend, onCance
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="submit" pending={sending} aria-disabled={sending ? true : undefined}>
+        <Button type="submit" variant={sendVariant} pending={sending} aria-disabled={sending ? true : undefined}>
           {sending ? SENDING_TEXT : SEND_LABEL}
         </Button>
         {onCancel !== undefined ? (

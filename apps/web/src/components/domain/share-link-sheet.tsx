@@ -2,10 +2,10 @@ import { useEffect, useRef } from 'react';
 import { shareTargetsOf } from '@nestly/shared';
 import { FormField } from '@/components/shared/form-field';
 import { InlineAlert } from '@/components/shared/inline-alert';
+import { MenuItem } from '@/components/shared/menu-item';
 import { Button } from '@/components/ui/button';
 import { SheetPanel, SheetTitle } from '@/components/ui/dialog';
 import { TextInput } from '@/components/ui/text-input';
-import { cn } from '@/lib/cn';
 import {
   COPY_FAILED_TEXT,
   COPY_LINK_LABEL,
@@ -38,11 +38,6 @@ export interface ShareLinkSheetProps {
   finalFocus?: (() => HTMLElement | null) | undefined;
 }
 
-const OPTION = cn(
-  'flex min-h-12 w-full items-center rounded-md px-3 py-2 text-start text-body text-foreground no-underline',
-  'transition-colors duration-fast ease-standard hover:bg-muted',
-);
-
 // The share-link window (F3.6 c4, c5, c11, c12; FR-FEED-007) on the shared sheet: WhatsApp and email as links that open the person's own
 // app, "העתקת קישור", and "אפשרויות נוספות" where the device has its own sheet; the link carries the post id only (BR-067). Display only:
 // what copying and the device sheet do comes in as props. Focus starts on the first option and stays inside; no request is made here.
@@ -71,26 +66,22 @@ export function ShareLinkSheet(props: ShareLinkSheetProps) {
       <SheetTitle>{heading}</SheetTitle>
       <ul className="flex flex-col gap-1">
         <li>
-          <a href={targets.whatsapp} target="_blank" rel="noopener noreferrer" className={OPTION}>
+          <MenuItem href={targets.whatsapp} target="_blank" rel="noopener noreferrer">
             {WHATSAPP_LABEL}
             <span className="sr-only"> {NEW_WINDOW_NOTE}</span>
-          </a>
+          </MenuItem>
         </li>
         <li>
-          <a href={targets.email} target="_blank" rel="noopener noreferrer" className={OPTION}>
+          <MenuItem href={targets.email} target="_blank" rel="noopener noreferrer">
             {EMAIL_LABEL}
-          </a>
+          </MenuItem>
         </li>
         <li>
-          <button type="button" className={OPTION} onClick={onCopy}>
-            {COPY_LINK_LABEL}
-          </button>
+          <MenuItem onClick={onCopy}>{COPY_LINK_LABEL}</MenuItem>
         </li>
         {canShareDevice ? (
           <li>
-            <button type="button" className={OPTION} onClick={onMore}>
-              {MORE_OPTIONS_LABEL}
-            </button>
+            <MenuItem onClick={onMore}>{MORE_OPTIONS_LABEL}</MenuItem>
           </li>
         ) : null}
       </ul>

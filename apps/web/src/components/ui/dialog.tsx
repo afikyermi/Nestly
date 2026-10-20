@@ -69,15 +69,16 @@ interface AlertPanelProps {
 }
 
 // The modal layer under ConfirmDialog: role="alertdialog", aria-modal, portaled over a backdrop, a focus trap, Escape to close,
-// page scroll locked and the rest of the page hidden from assistive technology (Radix AlertDialog does these). A backdrop press
-// does not close it. Focus opens on the AlertCancel (Radix), so a confirmation is never one Enter away. Controlled: the element
-// focused when it opened is remembered and given focus back when it closes, unless `finalFocus` names another.
+// page scroll locked and the rest of the page hidden from assistive technology (Radix AlertDialog does these). A backdrop press is the
+// same cancel as Escape (onOpenChange(false); never the action; ux-polish-b c4); Back is the screen's (useBackCloses).
+// Focus opens on the AlertCancel (Radix), so a confirmation is never one Enter away. Controlled: the element focused when it opened is
+// remembered and given focus back when it closes, unless `finalFocus` names another.
 export function AlertPanel({ open, onOpenChange, children, described, finalFocus, className }: AlertPanelProps) {
   const opener = useRef<HTMLElement | null>(null);
   return (
     <AlertDialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <AlertDialogPrimitive.Portal>
-        <AlertDialogPrimitive.Overlay className="fixed inset-0 z-dialog bg-foreground/40" />
+        <AlertDialogPrimitive.Overlay className="fixed inset-0 z-dialog bg-foreground/40" onClick={() => onOpenChange(false)} />
         <AlertDialogPrimitive.Content
           aria-modal="true"
           {...(described ? {} : { 'aria-describedby': undefined })}

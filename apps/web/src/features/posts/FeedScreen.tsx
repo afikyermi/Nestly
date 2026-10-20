@@ -1,4 +1,4 @@
-import { useContext, useEffect, useId, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ShellActionBarContext } from '@/components/layout/app-shell';
 import { postLinkOf, shareTargetOf, type FeedUnit, type PostView } from '@nestly/shared';
@@ -9,11 +9,8 @@ import type { MoreActionsItem } from '@/components/ui/more-actions-menu';
 import { useBackCloses } from '@/hooks/use-back-closes';
 import { reportSheetProps, useReport } from '@/hooks/use-report';
 import { REPORT_POST_ITEM } from '@/lib/report-texts';
-import { postPath } from '@/lib/post-link';
 import { PATHS } from '@/app/paths';
-import { Button } from '@/components/ui/button';
-import { ArrowUpIcon } from '@/components/ui/icons';
-import { handOverEdit, takeStatus } from './flash-status';
+import { takeStatus } from './flash-status';
 import { CHECKING_TEXT, CONFIRM_DELETE_LABEL, DELETED_STATUS, FEED_TITLE, PUBLISHED_STATUS } from './posts-texts';
 import { EDIT_ITEM_LABEL, HIDE_LABEL } from './hide-texts';
 import { FeedComposer } from './FeedComposer';
@@ -27,20 +24,34 @@ import { cn } from '@/lib/cn';
 import { PLACEHOLDER_TEXT } from '@/pages/placeholder/placeholder-text';
 import { FeedContent } from './FeedContent';
 import { holdLinksWhileClosing, outsidePressHandler } from './outside-press';
-import { TO_TOP_LABEL } from './feed-texts';
+import { ToTopButton } from './ToTopButton';
 import { useFeed } from './use-feed';
+import { useCardEdit } from './use-card-edit';
 import { useFeedScroll } from './feed-scroll';
 import { useSentinel } from './use-sentinel';
+import { CardComments } from './CardComments';
+import { COMMENT_REPORT_STATUS } from './CommentsSection';
+import { useCommentApi } from './use-comment-api';
+import { useFeedComments } from './use-feed-comments';
+import { useFeedCommentWrites } from './use-feed-comment-writes';
+import { useNearCards } from './use-near-cards';
 
-/** What is open over the feed: one card's menu, or its delete confirmation (with its request state). */
-type Overlay = { kind: 'menu'; unitId: string } | { kind: 'confirm'; unitId: string; saving: boolean; failure: string | null } | null;
+/**
+ * What is open over the feed: one card's menu, one comment's menu (ux-polish-a c10), or the delete confirmation of a card or of a comment in it
+ * (with its request state).
+ */
+type Overlay =
+  | { kind: 'menu'; unitId: string }
+  | { kind: 'comment-menu'; unitId: string; commentId: string }
+  | { kind: 'confirm'; unitId: string; saving: boolean; failure: string | null; comment?: { id: string; topLevel: boolean } | undefined }
+  | null;
 
 // The feed screen of a Regular account (FR-FEED-001; F3.2b, feed-composer): the heading, one polite region, the composer (always open), and
 // the cards in the server's order with infinite scroll. A Professional keeps the placeholder line and no list. A post just deleted leaves
 // "הפוסט נמחק" here, handed over in memory, once. Every card has a "⋯" menu (F3.9): edit and delete on the viewer's own named card, else hide
 // (with undo in place) and report (F3.7). The posting right only decides the composer and the placeholder; the server decides who has a feed.
 // A card that can be shared has "שיתוף בפיד" (F3.5: the window over the feed, the new share first in the list at once) and one with a link
-// "שיתוף קישור" (F3.6); a Professional has neither.
+// "שיתוף קישור" (F3.6); a Professional has neither. Every card with the like control holds its comments (ux-polish-a): asked when it comes near.
 export function FeedScreen() {
   const { right, fullName } = usePostingProfile();
   const own = useOwnUserId();
@@ -49,7 +60,7 @@ export function FeedScreen() {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const toTopRef = useRef<() => void>(() => undefined);
   // A new snapshot replaces the list: focus that was inside it would drop to the page, so it goes to the heading, at the top.
-  const { state, loadMore, retry, toggleLike, hide, undoHide, remove, addPublished, addShared, reported, restoredScroll } = useFeed(() => {
+  const { state, loadMore, retry, toggleLike, hide, undoHide, remove, addPublished, addShared, reported, edited, gone, editClosed, commented, said, restoredScroll } = useFeed(() => {
     if (rootRef.current?.querySelector('[role="feed"]')?.contains(document.activeElement) !== true) return;
     headingRef.current?.focus();
     toTopRef.current();
@@ -81,17 +92,23 @@ export function FeedScreen() {
     setCardFocus((tick) => tick + 1);
   };
   const actionBar = useContext(ShellActionBarContext);
-  const toTopLabelId = useId();
   const { far, toTop } = useFeedScroll(rootRef, restoredScroll, right !== 'checking' && own.kind !== 'loading');
   toTopRef.current = toTop;
   const sentinelRef =useSentinel(state.phase === 'ready' && !state.loading && state.nextCursor !== null, loadMore);
 
+  // The edit form of an own card, in place (ux-polish-b c1, c2): the saved post, a post found gone and a closed form go back into the feed's state.
+  const cardEdit = useCardEdit(edited, gone, editClosed);
   // A card's menu and its confirmation (F3.9 c8, c13; direction.md): one open at a time; Back closes it and stays in the feed. Closing
   // the confirmation while its delete is in flight is not possible (the dialog stays).
   const [overlay, setOverlay] = useState<Overlay>(null);
   const saving = overlay?.kind === 'confirm' && overlay.saving;
-  // F3.7: the report window of a card (from its menu) shares the menu's one history entry.
-  const report = useReport((target, result) => reported(target.id, result));
+  // ux-polish-a: the comments inside the cards; what they change in a card's count, and what they say, goes to the feed.
+  const commentApi = useCommentApi();
+  const commentsReport = { onCount: commented, onStatus: said };
+  const comments = useFeedComments(commentApi, commentsReport);
+  const commentWrites = useFeedCommentWrites(comments, commentApi, commentsReport);
+  // F3.7: the report window of a card or of a comment (from its menu) shares the menu's one history entry. A reported comment stays (c13).
+  const report = useReport((target, result) => (target.kind === 'comment' ? said(COMMENT_REPORT_STATUS[result]) : reported(target.id, result)));
   const reportSending = report.draft?.sending === true;
   // F3.5: the share-in-feed window; a share that went through is first in the list at once. A refusal of the caller closes it onto a page alert.
   const [pageAlert, setPageAlert] = useState('');
@@ -105,7 +122,7 @@ export function FeedScreen() {
   const shareLink = useShareLink();
   const sheetOpen = report.draft !== null || shareFeed.draft !== null || shareLink.sheet !== null;
   // Back while the delete, the report or the share is in flight keeps its dialog (and the hook adds its entry again, so the next Back still closes it).
-  const { leaveTo, closingByPointer, followAfterClose, closing } = useBackCloses(overlay !== null || sheetOpen, () => {
+  const { closingByPointer, followAfterClose, closing } = useBackCloses(overlay !== null || sheetOpen, () => {
     if (saving || reportSending || shareSending) return false;
     setOverlay(null);
     report.cancel();
@@ -113,9 +130,11 @@ export function FeedScreen() {
     shareLink.close();
     return true;
   });
-  const confirmDelete = async (unitId: string) => {
-    setOverlay({ kind: 'confirm', unitId, saving: true, failure: null });
-    const result = await remove(unitId);
+  const confirmDelete = async (unitId: string, comment: { id: string; topLevel: boolean } | undefined) => {
+    const unit = state.items.find((candidate) => candidate.id === unitId);
+    if (comment !== undefined && unit === undefined) return;
+    setOverlay({ kind: 'confirm', unitId, saving: true, failure: null, comment });
+    const result = comment === undefined || unit === undefined ? await remove(unitId) : await commentWrites.remove(unit, comment.id);
     setOverlay((now) => (now?.kind !== 'confirm' || now.unitId !== unitId ? now : result.ok ? null : { ...now, saving: false, failure: result.failure }));
   };
   const pressedOutside = outsidePressHandler({ closingByPointer, followAfterClose });
@@ -130,10 +149,7 @@ export function FeedScreen() {
                 {
                   key: 'edit',
                   label: EDIT_ITEM_LABEL,
-                  onSelect: () => {
-                    handOverEdit(postPath(unit.id));
-                    leaveTo(postPath(unit.id));
-                  },
+                  onSelect: () => cardEdit.start(unit),
                 },
               ]),
           { key: 'delete', label: CONFIRM_DELETE_LABEL, onSelect: () => setOverlay({ kind: 'confirm', unitId: unit.id, saving: false, failure: null }) },
@@ -159,6 +175,43 @@ export function FeedScreen() {
     };
   };
 
+  // ux-polish-a c1: a card asks for its comments once, when it first comes near (a hidden card's placeholder has no comment area).
+  const nearKey = state.items.map((unit) => `${unit.id}${state.hiddenIds.includes(unit.id) ? '-' : ''}`).join(' ') + (cardEdit.edit?.unitId ?? '');
+  useNearCards(rootRef, nearKey, (unitId) => {
+    const unit = state.items.find((candidate) => candidate.id === unitId);
+    if (unit !== undefined && !state.hiddenIds.includes(unitId)) comments.near(unit);
+  });
+  // A card's comment area: its comments' "⋯" share the feed's one overlay (c10): one open at a time, Back closes it.
+  const commentsFor = (unit: FeedUnit) => {
+    const thread = comments.threadOf(unit);
+    return (
+      <CardComments
+        thread={thread}
+        menu={{
+          openId: overlay?.kind === 'comment-menu' && overlay.unitId === unit.id ? overlay.commentId : null,
+          onPressOutside: pressedOutside,
+          onOpenChange: (commentId, open) =>
+            setOverlay((now) => (open ? { kind: 'comment-menu', unitId: unit.id, commentId } : now?.kind === 'comment-menu' && now.commentId === commentId ? null : now)),
+          onDelete: (commentId) =>
+            setOverlay({ kind: 'confirm', unitId: unit.id, saving: false, failure: null, comment: { id: commentId, topLevel: thread.items.some((item) => item.id === commentId) } }),
+          onReport: (commentId) => report.start({ kind: 'comment', id: commentId }),
+        }}
+        actions={{
+          onRetry: () => comments.retry(unit),
+          onMore: () => comments.showMore(unit),
+          onMoreReplies: (commentId) => comments.showMoreReplies(unit, commentId),
+          onLike: (commentId) => comments.toggleLike(unit, commentId),
+          onReply: (commentId) => commentWrites.openReply(unit, commentId),
+          onRootChange: (text) => commentWrites.changeRoot(unit, text),
+          onRootSend: () => commentWrites.sendRoot(unit),
+          onReplyChange: (text) => commentWrites.changeReply(unit, text),
+          onReplySend: () => commentWrites.sendReply(unit),
+          onReplyCancel: () => commentWrites.cancelReply(unit),
+        }}
+      />
+    );
+  };
+
   // One polite region: the check in progress, else the page just loaded (a no-break space after every other one makes equal texts speak
   // again), else what just happened.
   const loaded = state.announcement === '' ? '' : state.announcement + (state.announcementTick % 2 === 0 ? ' ' : '');
@@ -176,6 +229,10 @@ export function FeedScreen() {
       onRetry={retry}
       onToggleLike={toggleLike}
       actionsFor={actionsFor}
+      edit={cardEdit.edit}
+      onEditChange={cardEdit.change}
+      onEditSave={cardEdit.save}
+      onEditCancel={cardEdit.cancel}
       onUndoHide={undoHide}
       headingRef={headingRef}
       openMenuId={overlay?.kind === 'menu' ? overlay.unitId : null}
@@ -185,12 +242,19 @@ export function FeedScreen() {
       }
       confirm={overlay?.kind === 'confirm' ? overlay : null}
       onConfirmDelete={() => {
-        if (overlay?.kind === 'confirm' && !saving) void confirmDelete(overlay.unitId);
+        if (overlay?.kind === 'confirm' && !saving) void confirmDelete(overlay.unitId, overlay.comment);
       }}
       onCancelDelete={() => {
         if (!saving) setOverlay(null);
       }}
-      report={report.draft === null ? null : { unitId: report.draft.target.id, sheet: reportSheetProps(report, report.draft, PATHS.communityRules) }}
+      report={
+        report.draft === null
+          ? null
+          : report.draft.target.kind === 'comment'
+            ? { commentId: report.draft.target.id, sheet: reportSheetProps(report, report.draft, PATHS.communityRules) }
+            : { unitId: report.draft.target.id, sheet: reportSheetProps(report, report.draft, PATHS.communityRules) }
+      }
+      commentsFor={commentsFor}
       shareActionsFor={shareActionsFor}
       shareFeed={
         shareFeed.draft === null
@@ -245,19 +309,12 @@ export function FeedScreen() {
       {/* F3.2b c20: in the shell's action bar (never over a card's controls), only after a long scroll. */}
       {far && actionBar !== null
         ? createPortal(
-            <Button
-              variant="soft"
-              className="shadow-card"
-              aria-labelledby={toTopLabelId}
+            <ToTopButton
               onClick={() => {
                 toTop();
                 headingRef.current?.focus();
               }}
-            >
-              {/* A shell narrower than 72rem (from 1024 px): only the icon fits beside the column; the hidden text still names it. */}
-              <ArrowUpIcon className="hidden size-5 lg:@max-6xl:block" />
-              <span id={toTopLabelId} className="lg:@max-6xl:hidden">{TO_TOP_LABEL}</span>
-            </Button>,
+            />,
             actionBar,
           )
         : null}
