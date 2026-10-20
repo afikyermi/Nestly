@@ -1,5 +1,6 @@
 import { Route, Routes } from 'react-router';
 import { ChangePasswordPage } from '@/pages/change-password/ChangePasswordPage';
+import { AdminGuidesPage } from '@/pages/admin-guides/AdminGuidesPage';
 import { CommunityRulesPage } from '@/pages/community-rules/CommunityRulesPage';
 import { NewPostRedirect } from '@/pages/compose-post/NewPostRedirect';
 import { FeedPage } from '@/pages/feed/FeedPage';
@@ -42,6 +43,7 @@ export function AppRoutes() {
           <Route element={<ProtectedLayout />}>
             <Route path={PATHS.home} element={<HomePage />} />
             <Route path={PATHS.tracker} element={<TrackerPage />} />
+            <Route path={PATHS.adminGuides} element={<AdminGuidesPage />} />
             <Route path={PATHS.feed} element={<FeedPage />} />
             <Route path={PATHS.newPost} element={<NewPostRedirect />} />
             <Route path={PATHS.post} element={<PostPage />} />

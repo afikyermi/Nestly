@@ -17,6 +17,7 @@ export type ApiResult<T> =
   | { kind: 'ok'; value: T }
   | { kind: 'unauthenticated' } // 401
   | { kind: 'account-unavailable' } // 403 account_unavailable (ERR-037)
+  | { kind: 'forbidden' } // 403 forbidden: the account may not use this (an admin route for a non-Admin)
   | { kind: 'no-profile' } // 404 no_profile: not a Regular account (a Professional has no home tracking)
   | { kind: 'not-found' } // 404 not_found
   | { kind: 'duplicate-date' } // 409 duplicate_date: a cycle entry for that day exists
@@ -29,7 +30,7 @@ function field(body: unknown, key: string): unknown {
   return typeof body === 'object' && body !== null ? Reflect.get(body, key) : undefined;
 }
 
-async function request<T>(
+export async function request<T>(
   accessToken: string,
   method: 'GET' | 'POST' | 'PUT' | 'DELETE',
   path: string,
@@ -55,7 +56,10 @@ async function request<T>(
     return FAILED;
   }
   const code = field(json, 'error');
-  if (response.status === 403) return code === 'account_unavailable' ? { kind: 'account-unavailable' } : FAILED;
+  if (response.status === 403) {
+    if (code === 'forbidden') return { kind: 'forbidden' };
+    return code === 'account_unavailable' ? { kind: 'account-unavailable' } : FAILED;
+  }
   if (response.status === 404) {
     if (code === 'no_profile') return { kind: 'no-profile' };
     return code === 'not_found' ? { kind: 'not-found' } : FAILED;
@@ -70,7 +74,7 @@ async function request<T>(
   return value === null ? FAILED : { kind: 'ok', value };
 }
 
-const saved = (json: unknown): true | null => (field(json, 'saved') === true ? true : null);
+export const saved = (json: unknown): true | null => (field(json, 'saved') === true ? true : null);
 const parsed =
   <T>(schema: { safeParse: (value: unknown) => { success: boolean; data?: T } }) =>
   (json: unknown): T | null => {

@@ -35,6 +35,8 @@ export const PATHS = {
   communityRules: '/community-rules',
   /** I6: one tracker page, `/trackers/<kind>` (the eight child trackers and `cycle`). Protected by pattern: see `trackerPageOfPath`. */
   tracker: TRACKER_PATTERN,
+  /** I6: the Admin's guide management (FR-ADMIN-012). The server lets only an Admin read it; the shell links to it. */
+  adminGuides: '/admin/guides',
 } as const;
 
 /** The only paths a Guest may open. */
@@ -60,6 +62,7 @@ export const PROTECTED_PATHS: readonly string[] = [
   PATHS.changePassword,
   PATHS.medicalHotlines,
   PATHS.communityRules,
+  PATHS.adminGuides,
 ];
 
 /** Where a Guest goes from a protected path (ERR-012, Q3): Welcome. The requested path is not kept. */

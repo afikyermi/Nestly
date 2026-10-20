@@ -12,6 +12,7 @@ import { registerLikesRoutes } from './routes/likes.js';
 import { registerPostHidesRoutes } from './routes/post-hides.js';
 import { registerReportsRoutes } from './routes/reports.js';
 import { registerSharesRoutes } from './routes/shares.js';
+import { registerAdminGuidesRoutes } from './routes/admin-guides.js';
 import { registerCycleRoutes } from './routes/cycle.js';
 import { registerHomeRoute } from './routes/home.js';
 import { registerJourneysRoutes } from './routes/journeys.js';
@@ -112,6 +113,7 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerHomeRoute(app, { database, clock });
   registerTrackersRoutes(app, { database, clock });
   registerCycleRoutes(app, { database, clock });
+  registerAdminGuidesRoutes(app, { database, clock });
   registerPrivacyRoute(app, { database });
   registerFriendsRoutes(app, { database });
   registerProfileViewRoute(app, { database });
