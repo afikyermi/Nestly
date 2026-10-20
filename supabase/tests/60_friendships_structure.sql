@@ -95,8 +95,9 @@ select set_eq(
             ('regular_names.regular_names_select_party.r'), ('regular_names.regular_names_insert_own.a'),
             ('regular_names.regular_names_select_post_reader.r'), ('regular_names.regular_names_select_comment_reader.r'),
             ('friendships.friendships_select_profile_view.r'), ('regular_names.regular_names_select_profile_view.r'),
-            ('regular_names.regular_names_select_staff.r'), ('regular_names.regular_names_select_reveal.r') $$,
-  '[F2.4-a c12 · F2.4-c c18 c23 · I4] exactly eleven policies (I4 adds regular_names_select_staff and regular_names_select_reveal, file 90); of the first nine: friendships select, insert, update (no delete) and regular_names select, insert -- five TO authenticated -- from F2.4c1 one SELECT each for profile_view TO app_owner (file 64) -- and, from F3.2 (6b), regular_names_select_post_reader (file 79) and, from F3.4 N1 (Q7 B), regular_names_select_comment_reader (file 81)');
+            ('regular_names.regular_names_select_staff.r'), ('regular_names.regular_names_select_reveal.r'),
+            ('friendships.friendships_select_notify.r'), ('regular_names.regular_names_select_search.r') $$,
+  '[F2.4-a c12 · F2.4-c c18 c23 · I4] exactly thirteen policies (I4 adds regular_names_select_staff and regular_names_select_reveal, file 90; the notifications add friendships_select_notify and regular_names_select_search TO app_owner, file 90); of the first nine: friendships select, insert, update (no delete) and regular_names select, insert -- five TO authenticated -- from F2.4c1 one SELECT each for profile_view TO app_owner (file 64) -- and, from F3.2 (6b), regular_names_select_post_reader (file 79) and, from F3.4 N1 (Q7 B), regular_names_select_comment_reader (file 81)');
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace

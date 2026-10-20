@@ -201,13 +201,13 @@ select is(pg_temp.opn('pv_e', 'pv_b'), 'shown', '[F2.4-c c22] and the open is sh
 -- =====================================================================================================================
 -- c23 -- the fence: one definer, three closed tables, seven scoped policies
 -- =====================================================================================================================
-select is((select array_agg(a order by a) from tests.approved_security_definer() as a)::text, '{nestly.audit_trigger(),nestly.profile_view(text),nestly.reveal_post_author(uuid)}',
-  '[F2.4-c c23 A8 rule 10 DR-G1 DR-L] the approved SECURITY DEFINER list is still exactly {nestly.profile_view(text)}');
+select is((select array_agg(a order by a) from tests.approved_security_definer() as a)::text, '{nestly.audit_trigger(),nestly.notify_comment(),nestly.notify_friendship(),nestly.notify_post(),nestly.profile_view(text),nestly.reveal_post_author(uuid),"nestly.search_people(text,integer,integer)"}',
+  '[F2.4-c c23 A8 rule 10 DR-G1 DR-L] the approved SECURITY DEFINER list is profile_view(text), I4''s two, the three notification triggers and search_people');
 select set_eq(
   $$ select p.oid::regprocedure::text from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'nestly' and p.prosecdef $$,
-  $$ values ('nestly.profile_view(text)'), ('nestly.audit_trigger()'), ('nestly.reveal_post_author(uuid)') $$,
-  '[F2.4-c c23] profile_view(text) is the only SECURITY DEFINER function in nestly: the counter and the event add none');
+  $$ values ('nestly.profile_view(text)'), ('nestly.audit_trigger()'), ('nestly.reveal_post_author(uuid)'), ('nestly.notify_comment()'), ('nestly.notify_friendship()'), ('nestly.notify_post()'), ('nestly.search_people(text,integer,integer)') $$,
+  '[F2.3-b c15] the SECURITY DEFINER functions in nestly are exactly the seven approved ones');
 select is(
   (select string_agg(c.relname || ':' || c.relrowsecurity::text || ':' || c.relforcerowsecurity::text || ':' || pg_catalog.pg_get_userbyid(c.relowner),
                      ', ' order by c.relname)
@@ -240,10 +240,18 @@ select is(
   || 'regular_names.r:app_owner:true, security_events.a:app_owner:true, security_limits.r:app_owner:true',
   '[F2.4-c c23] the seven new policies: SELECT on friendships, regular_names and the Configuration; SELECT, INSERT and UPDATE on the counts; INSERT on the events (no event SELECT, UPDATE or DELETE); all TO app_owner, permissive');
 select is(
-  (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+  (select string_agg(pol.polname, ', ' order by pol.polname)
+     from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname in ('security_limits', 'profile_open_counts', 'security_events')),
-  5::bigint,
-  '[F2.4-c c23] the three closed tables carry exactly five policies, none for authenticated, anon or PUBLIC');
+  'profile_open_counts_insert_profile_view, profile_open_counts_select_profile_view, profile_open_counts_update_profile_view, security_events_insert_profile_view, '
+  || 'security_events_insert_search, security_limits_select_profile_view, security_limits_select_search_people',
+  '[F2.4-c c23] the three closed tables carry exactly seven policies (five of profile_view, two of search_people - file 90), none for authenticated, anon or PUBLIC');
+select is(
+  (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'nestly' and c.relname in ('security_limits', 'profile_open_counts', 'security_events')
+      and pol.polroles <> array[(select oid from pg_catalog.pg_roles where rolname = 'app_owner')]::oid[]),
+  0::bigint,
+  '[F2.4-c c23] and all seven are TO app_owner only');
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and pol.polname like '%\_profile\_view'
@@ -254,7 +262,7 @@ select is(
   '[F2.4-c c23 c15] each of the seven applies only while profile_view has declared a target (profile_view_target())');
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'nestly' and c.relname in ('profile_open_counts', 'security_events')
+    where n.nspname = 'nestly' and c.relname in ('profile_open_counts', 'security_events') and pol.polname like '%\_profile\_view'
       and (coalesce(pg_catalog.pg_get_expr(pol.polqual, pol.polrelid), '') || coalesce(pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid), ''))
           ~ 'user_id = \( SELECT auth\.uid\(\)'),
   4::bigint,
@@ -262,12 +270,12 @@ select is(
 select ok(
   (select pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid) ~ 'profile_open_limit'
      from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid
-    where c.relname = 'security_events' and pol.polcmd = 'a'),
+    where c.relname = 'security_events' and pol.polcmd = 'a' and pol.polname like '%\_profile\_view'),
   '[F2.4-c c21 c23] the event policy allows only the profile-open-limit kind');
 select ok(
   (select pg_catalog.pg_get_expr(pol.polqual, pol.polrelid) ~ 'profile_open'
      from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid
-    where c.relname = 'security_limits' and pol.polcmd = 'r'),
+    where c.relname = 'security_limits' and pol.polcmd = 'r' and pol.polname like '%\_profile\_view'),
   '[F2.4-c c22 c23] the Configuration policy shows only the profile-open row');
 
 -- the transaction-local target is empty after a shown, a refused and an unavailable open

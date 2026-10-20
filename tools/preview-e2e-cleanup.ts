@@ -12,7 +12,7 @@ export const MAX_SWEEP_PER_RUN = 10; // leftovers (not this run's) deleted per r
 export const MAX_PATTERN_USERS = 50; // more of this run's own users than this: a wrong pattern, delete nothing and fail
 
 /**
- * The thirty tables the preflight expects in `nestly`, sorted; an unknown table means this design needs re-review. A part that
+ * The thirty-five tables the preflight expects in `nestly`, sorted; an unknown table means this design needs re-review. A part that
  * adds a `nestly` table updates this list and the delete order in the CLI in the same PR (Afik, 17.10.2026).
  */
 export const EXPECTED_NESTLY_TABLES: readonly string[] = [
@@ -21,11 +21,15 @@ export const EXPECTED_NESTLY_TABLES: readonly string[] = [
   'children',
   'comments',
   'cycle_entries',
+  'friend_content_notification_preferences',
   'friendships',
   'identity_link_checks',
   'journey_contexts',
   'legal_consents',
   'moderator_permissions',
+  'notification_preferences',
+  'notifications',
+  'people_search_counts',
   'post_authors',
   'post_hides',
   'posts',
@@ -39,6 +43,7 @@ export const EXPECTED_NESTLY_TABLES: readonly string[] = [
   'regular_profiles',
   'report_reasons',
   'reports',
+  'search_intents',
   'security_events',
   'security_limits',
   'staff_roles',
