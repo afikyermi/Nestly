@@ -71,7 +71,8 @@ test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
       const [w, l] = [await write.boundingBox(), await list(page).boundingBox()];
       expect(w?.y ?? 0).toBeLessThan(l?.y ?? 0);
       expect(net.methods).toEqual(['GET']);
-      expect(new Set(net.apiPaths)).toEqual(new Set(['/api/me', '/api/profile', '/api/admin/access', '/api/feed']));
+      // The shell's Chat badge (I8, FR-CHAT-001) asks once the staff check says it is a community account; it is the shell's, not the feed's.
+      expect(new Set(net.apiPaths.filter((path) => path !== '/api/chat/unread'))).toEqual(new Set(['/api/me', '/api/profile', '/api/admin/access', '/api/feed']));
       await scan(page);
     });
   }
