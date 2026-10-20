@@ -9,7 +9,7 @@ begin;
 
 select * from no_plan();
 
-select is(session_user::text, 'app_server'::text, '[I14 fixture] session_user is app_server (this file must not run under another login)');
+select is(session_user::text, 'app_server'::text, '[F14.1-a c0 I14 fixture] session_user is app_server (this file must not run under another login)');
 
 create function pg_temp.id(p text) returns uuid language sql as $f$
   select case p
@@ -70,38 +70,38 @@ select tests.fx_sf_grant(pg_temp.id('m3'), array['SUPPORT_VIEW', 'SUPPORT_HANDLE
 select tests.fx_sf_grant(pg_temp.id('m4'), array['REPORTS_VIEW']);
 
 -- ---- issuing an invitation (FR-ADMIN-004, BR-022: the Admin alone) -----------------------------------------------------------------
-select is(pg_temp.issue('d', pg_temp.h('h1')), 'OK:1', '[I14 c1 FR-ADMIN-004] the Admin issues an invitation');
-select is(pg_temp.issue('m3', pg_temp.h('h2')), 'ERR:42501', '[I14 c1 BR-022 BR-027] a Moderator holding every key cannot invite (42501)');
-select is(pg_temp.issue('m0', pg_temp.h('h2')), 'ERR:42501', '[I14 c1 BR-022] a Moderator with no key cannot invite (42501)');
-select is(pg_temp.issue('a', pg_temp.h('h2')), 'ERR:42501', '[I14 c1] a user cannot invite (42501)');
+select is(pg_temp.issue('d', pg_temp.h('h1')), 'OK:1', '[F14.1-a c1 FR-ADMIN-004] the Admin issues an invitation');
+select is(pg_temp.issue('m3', pg_temp.h('h2')), 'ERR:42501', '[F14.1-a c1 BR-022 BR-027] a Moderator holding every key cannot invite (42501)');
+select is(pg_temp.issue('m0', pg_temp.h('h2')), 'ERR:42501', '[F14.1-a c1 BR-022] a Moderator with no key cannot invite (42501)');
+select is(pg_temp.issue('a', pg_temp.h('h2')), 'ERR:42501', '[F14.1-a c1] a user cannot invite (42501)');
 select is(pg_temp.dml('d', format($q$ insert into nestly.moderator_invitations (code_hash, note, expires_at) values (%L, 'x y', now() + interval '1 year') $q$, pg_temp.h('h2'))),
-  'ERR:42501', '[I14 c1] the expiry is the database''s: it cannot be sent (42501)');
-select is(pg_temp.dml('d', $$ insert into nestly.moderator_invitations (code_hash, note) values ('not-a-hash', 'x y') $$), 'ERR:23514', '[I14 c1] only a SHA-256 hash is kept (23514)');
-select is(pg_temp.issue('d', pg_temp.h('h2')), 'OK:1', '[I14 c1] a second invitation');
-select is(pg_temp.issue('d', pg_temp.h('h3')), 'OK:1', '[I14 c1] a third invitation');
-select is(pg_temp.issue('d', pg_temp.h('h4')), 'OK:1', '[I14 c1] a fourth invitation');
-select is(tests.fx_sf_audit('moderator_invited'), 4::bigint, '[I14 c1 BR-026] each issue is in the Audit Log');
-select is(pg_temp.n('d', 'nestly.moderator_invitations'), '4', '[I14 c2 PG-027] the Admin reads every invitation');
-select is(pg_temp.n('m3', 'nestly.moderator_invitations'), '0', '[I14 c2 BR-027] a Moderator holding every key reads none');
-select is(pg_temp.n('n1', 'nestly.moderator_invitations'), '0', '[I14 c2] a stranger without a code reads none');
-select is(pg_temp.ninv('n1', pg_temp.h('h1'), 'nestly.moderator_invitations'), '1', '[I14 c2] the holder of a code reads that one invitation');
-select is(pg_temp.ninv('n1', repeat('f', 64), 'nestly.moderator_invitations'), '0', '[I14 c2] a wrong code reads nothing');
+  'ERR:42501', '[F14.1-a c1] the expiry is the database''s: it cannot be sent (42501)');
+select is(pg_temp.dml('d', $$ insert into nestly.moderator_invitations (code_hash, note) values ('not-a-hash', 'x y') $$), 'ERR:23514', '[F14.1-a c1] only a SHA-256 hash is kept (23514)');
+select is(pg_temp.issue('d', pg_temp.h('h2')), 'OK:1', '[F14.1-a c1] a second invitation');
+select is(pg_temp.issue('d', pg_temp.h('h3')), 'OK:1', '[F14.1-a c1] a third invitation');
+select is(pg_temp.issue('d', pg_temp.h('h4')), 'OK:1', '[F14.1-a c1] a fourth invitation');
+select is(tests.fx_sf_audit('moderator_invited'), 4::bigint, '[F14.1-a c1 BR-026] each issue is in the Audit Log');
+select is(pg_temp.n('d', 'nestly.moderator_invitations'), '4', '[F14.1-a c2 PG-027] the Admin reads every invitation');
+select is(pg_temp.n('m3', 'nestly.moderator_invitations'), '0', '[F14.1-a c2 BR-027] a Moderator holding every key reads none');
+select is(pg_temp.n('n1', 'nestly.moderator_invitations'), '0', '[F14.1-a c2] a stranger without a code reads none');
+select is(pg_temp.ninv('n1', pg_temp.h('h1'), 'nestly.moderator_invitations'), '1', '[F14.1-a c2] the holder of a code reads that one invitation');
+select is(pg_temp.ninv('n1', repeat('f', 64), 'nestly.moderator_invitations'), '0', '[F14.1-a c2] a wrong code reads nothing');
 
 -- ---- revoking (the Admin, an open invitation, once) ------------------------------------------------------------------------------
 select is(pg_temp.dml('m3', format($q$ update nestly.moderator_invitations set revoked_at = now() where code_hash = %L $q$, pg_temp.h('h3'))), 'OK:0',
-  '[I14 c3 BR-022] a Moderator cannot revoke an invitation (0 rows)');
+  '[F14.1-a c3 BR-022] a Moderator cannot revoke an invitation (0 rows)');
 select is(pg_temp.inv('n2', pg_temp.h('h3'), format($q$ update nestly.moderator_invitations set revoked_at = now() where code_hash = %L $q$, pg_temp.h('h3'))), 'ERR:42501',
-  '[I14 c3] the holder of a code cannot revoke it (42501)');
+  '[F14.1-a c3] the holder of a code cannot revoke it (42501)');
 select is(pg_temp.dml('d', format($q$ update nestly.moderator_invitations set revoked_at = now() - interval '1 day' where code_hash = %L $q$, pg_temp.h('h3'))), 'OK:1',
-  '[I14 c3 FR-ADMIN-004] the Admin revokes an open invitation');
-select is(tests.fx_mt_invitation(pg_temp.h('h3')), 'accepted:false revoked:true', '[I14 c3] it is revoked');
+  '[F14.1-a c3 FR-ADMIN-004] the Admin revokes an open invitation');
+select is(tests.fx_mt_invitation(pg_temp.h('h3')), 'accepted:false revoked:true', '[F14.1-a c3] it is revoked');
 select is(pg_temp.n('d', format($q$nestly.moderator_invitations where code_hash = %L and revoked_at = now()$q$, pg_temp.h('h3'))), '1',
-  '[I14 c3] stamped with the database clock, not the time sent');
+  '[F14.1-a c3] stamped with the database clock, not the time sent');
 select is(pg_temp.dml('d', format($q$ update nestly.moderator_invitations set revoked_at = now() where code_hash = %L $q$, pg_temp.h('h3'))), 'OK:0',
-  '[I14 c3] a revoked invitation is not revoked again (0 rows)');
-select is(tests.fx_sf_audit('moderator_invitation_revoked'), 1::bigint, '[I14 c3 BR-026] the revocation is in the Audit Log');
+  '[F14.1-a c3] a revoked invitation is not revoked again (0 rows)');
+select is(tests.fx_sf_audit('moderator_invitation_revoked'), 1::bigint, '[F14.1-a c3 BR-026] the revocation is in the Audit Log');
 select is(pg_temp.dml('d', format($q$ update nestly.moderator_invitations set accepted_by = %L where code_hash = %L $q$, pg_temp.id('d'), pg_temp.h('h2'))), 'ERR:42501',
-  '[I14 c3] the Admin cannot mark an invitation accepted (42501)');
+  '[F14.1-a c3] the Admin cannot mark an invitation accepted (42501)');
 
 -- ---- redeeming: the account becomes a Moderator with no key (FR-ADMIN-004, BR-023) --------------------------------------------------
 -- The redeem route's order, in one transaction: mark the invitation (accepted_by), then create the users row.
@@ -131,91 +131,91 @@ end
 $f$;
 
 select is(pg_temp.dml('n1', $$ insert into nestly.users (account_type, status) values ('moderator', 'active') $$), 'ERR:42501',
-  '[I14 c4 BR-022] no Moderator account without a code (42501)');
-select is(pg_temp.join_as('n1', pg_temp.h('h1')), 'ERR:42501', '[I14 c4] nor with a code it has not marked (42501)');
-select is(pg_temp.mark('n1', repeat('f', 64)), 'OK:0', '[I14 c4] a wrong code marks nothing (0 rows)');
-select is(pg_temp.mark('n1', pg_temp.h('h3')), 'OK:0', '[I14 c4] a revoked invitation cannot be marked (0 rows)');
-select is(pg_temp.mark('m0', pg_temp.h('h1')), 'OK:0', '[I14 c4 BR-027] an existing Moderator cannot take an invitation (0 rows)');
-select is(pg_temp.mark('a', pg_temp.h('h1')), 'ERR:42501', '[I14 c4 BR-016] nor can an existing account (42501)');
-select is(pg_temp.mark('n1', pg_temp.h('h1')), 'OK:1', '[I14 c4 FR-ADMIN-004] the holder of a valid code marks it');
-select is(pg_temp.mark('n2', pg_temp.h('h1')), 'OK:0', '[I14 c4] a second account cannot take the same code (0 rows)');
-select is(pg_temp.join_as('n2', pg_temp.h('h1')), 'ERR:42501', '[I14 c4] nor become a Moderator with it (42501)');
-select is(pg_temp.ninv('n2', pg_temp.h('h1'), 'nestly.moderator_invitations'), '0', '[I14 c4] and no longer reads it');
-select is(pg_temp.fk_now('n1'), 'ERR:23503', '[I14 c4] a marked invitation without its Moderator account cannot commit (23503): one code, one Moderator');
-select is(pg_temp.join_as('n1', pg_temp.h('h1'), 'admin'), 'ERR:42501', '[I14 c4 BR-021] an invitation never creates an Admin (42501)');
-select is(pg_temp.join_as('n1', pg_temp.h('h1')), 'OK:1', '[I14 c4 FR-ADMIN-004] the marked invitation creates the account as a Moderator');
-select is(pg_temp.fk_now('n1'), 'OK', '[I14 c4] and the transaction can commit');
-select is(pg_temp.n('n1', $$nestly.staff_roles where account_type = 'moderator'$$), '1', '[I14 c4] its staff role exists');
-select is(tests.fx_mt_invitation(pg_temp.h('h1')), 'accepted:true revoked:false', '[I14 c4] the invitation is used');
-select is(pg_temp.ninv('n1', pg_temp.h('h1'), 'nestly.moderator_invitations'), '1', '[I14 c4] its Moderator still reads it');
-select is(tests.fx_sf_audit('moderator_joined'), 1::bigint, '[I14 c4 BR-026] the new Moderator is in the Audit Log');
+  '[F14.1-a c4 BR-022] no Moderator account without a code (42501)');
+select is(pg_temp.join_as('n1', pg_temp.h('h1')), 'ERR:42501', '[F14.1-a c4] nor with a code it has not marked (42501)');
+select is(pg_temp.mark('n1', repeat('f', 64)), 'OK:0', '[F14.1-a c4] a wrong code marks nothing (0 rows)');
+select is(pg_temp.mark('n1', pg_temp.h('h3')), 'OK:0', '[F14.1-a c4] a revoked invitation cannot be marked (0 rows)');
+select is(pg_temp.mark('m0', pg_temp.h('h1')), 'OK:0', '[F14.1-a c4 BR-027] an existing Moderator cannot take an invitation (0 rows)');
+select is(pg_temp.mark('a', pg_temp.h('h1')), 'ERR:42501', '[F14.1-a c4 BR-016] nor can an existing account (42501)');
+select is(pg_temp.mark('n1', pg_temp.h('h1')), 'OK:1', '[F14.1-a c4 FR-ADMIN-004] the holder of a valid code marks it');
+select is(pg_temp.mark('n2', pg_temp.h('h1')), 'OK:0', '[F14.1-a c4] a second account cannot take the same code (0 rows)');
+select is(pg_temp.join_as('n2', pg_temp.h('h1')), 'ERR:42501', '[F14.1-a c4] nor become a Moderator with it (42501)');
+select is(pg_temp.ninv('n2', pg_temp.h('h1'), 'nestly.moderator_invitations'), '0', '[F14.1-a c4] and no longer reads it');
+select is(pg_temp.fk_now('n1'), 'ERR:23503', '[F14.1-a c4] a marked invitation without its Moderator account cannot commit (23503): one code, one Moderator');
+select is(pg_temp.join_as('n1', pg_temp.h('h1'), 'admin'), 'ERR:42501', '[F14.1-a c4 BR-021] an invitation never creates an Admin (42501)');
+select is(pg_temp.join_as('n1', pg_temp.h('h1')), 'OK:1', '[F14.1-a c4 FR-ADMIN-004] the marked invitation creates the account as a Moderator');
+select is(pg_temp.fk_now('n1'), 'OK', '[F14.1-a c4] and the transaction can commit');
+select is(pg_temp.n('n1', $$nestly.staff_roles where account_type = 'moderator'$$), '1', '[F14.1-a c4] its staff role exists');
+select is(tests.fx_mt_invitation(pg_temp.h('h1')), 'accepted:true revoked:false', '[F14.1-a c4] the invitation is used');
+select is(pg_temp.ninv('n1', pg_temp.h('h1'), 'nestly.moderator_invitations'), '1', '[F14.1-a c4] its Moderator still reads it');
+select is(tests.fx_sf_audit('moderator_joined'), 1::bigint, '[F14.1-a c4 BR-026] the new Moderator is in the Audit Log');
 select is(tests.as_role('authenticated', tests.claims(pg_temp.id('n1')), $$ select count(*)::text from unnest(array['REPORTS_VIEW', 'USER_VIEW', 'ANALYTICS_VIEW',
-  'SYSTEM_ANNOUNCEMENTS', 'COMMUNITY_CONFIG', 'MODERATOR_MANAGE']) k where nestly.has_permission(k) $$), '0', '[I14 c4 BR-023 AC-026] a new Moderator holds no key (deny by default)');
-select is(pg_temp.mark('n1', pg_temp.h('h2')), 'OK:0', '[I14 c4] a Moderator cannot take a second invitation (0 rows)');
+  'SYSTEM_ANNOUNCEMENTS', 'COMMUNITY_CONFIG', 'MODERATOR_MANAGE']) k where nestly.has_permission(k) $$), '0', '[F14.1-a c4 BR-023 AC-026] a new Moderator holds no key (deny by default)');
+select is(pg_temp.mark('n1', pg_temp.h('h2')), 'OK:0', '[F14.1-a c4] a Moderator cannot take a second invitation (0 rows)');
 select tests.fx_mt_expire(pg_temp.h('h4'));
-select is(pg_temp.mark('n3', pg_temp.h('h4')), 'OK:0', '[I14 c4] an expired invitation cannot be marked (0 rows)');
+select is(pg_temp.mark('n3', pg_temp.h('h4')), 'OK:0', '[F14.1-a c4] an expired invitation cannot be marked (0 rows)');
 select is(pg_temp.dml('d', format($q$ insert into nestly.moderator_permissions (user_id, permission_key) values (%L, 'REPORTS_VIEW') $q$, pg_temp.id('n1'))), 'OK:1',
-  '[I14 c5 FR-ADMIN-004 AC-026] the Admin assigns the new Moderator a key');
+  '[F14.1-a c5 FR-ADMIN-004 AC-026] the Admin assigns the new Moderator a key');
 select is(tests.as_role('authenticated', tests.claims(pg_temp.id('n1')), $$ select nestly.has_permission('REPORTS_VIEW')::text $$), 'true',
-  '[I14 c5 AC-026] and the access opens');
+  '[F14.1-a c5 AC-026] and the access opens');
 select is(pg_temp.dml('m3', format($q$ insert into nestly.moderator_permissions (user_id, permission_key) values (%L, 'USER_VIEW') $q$, pg_temp.id('n1'))), 'ERR:42501',
-  '[I14 c5 BR-027] a Moderator cannot assign keys to another Moderator (42501)');
+  '[F14.1-a c5 BR-027] a Moderator cannot assign keys to another Moderator (42501)');
 select is(pg_temp.dml('n1', format($q$ insert into nestly.moderator_permissions (user_id, permission_key) values (%L, 'USER_VIEW') $q$, pg_temp.id('n1'))), 'ERR:42501',
-  '[I14 c5 BR-027] nor to itself (42501)');
+  '[F14.1-a c5 BR-027] nor to itself (42501)');
 
 -- ---- System Announcements (FR-ADMIN-008, AC-049) ----------------------------------------------------------------------------------
 select is(pg_temp.dml('m0', $$ insert into nestly.system_announcements (title, body) values ('תחזוקה', 'האתר ייסגר לשעה') $$), 'ERR:42501',
-  '[I14 c6 AC-049] a Moderator without SYSTEM_ANNOUNCEMENTS cannot create an announcement (42501)');
+  '[F14.1-a c6 AC-049] a Moderator without SYSTEM_ANNOUNCEMENTS cannot create an announcement (42501)');
 select is(pg_temp.dml('m4', $$ insert into nestly.system_announcements (title, body) values ('תחזוקה', 'האתר ייסגר לשעה') $$), 'ERR:42501',
-  '[I14 c6 AC-049] nor one holding other keys (42501)');
+  '[F14.1-a c6 AC-049] nor one holding other keys (42501)');
 select is(pg_temp.dml('a', $$ insert into nestly.system_announcements (title, body) values ('תחזוקה', 'האתר ייסגר לשעה') $$), 'ERR:42501',
-  '[I14 c6 AC-049] nor a user (42501)');
+  '[F14.1-a c6 AC-049] nor a user (42501)');
 select is(pg_temp.dml('m3', $$ insert into nestly.system_announcements (title, body) values ('תחזוקה', 'האתר ייסגר לשעה') $$), 'OK:1',
-  '[I14 c6 FR-ADMIN-008] a Moderator with SYSTEM_ANNOUNCEMENTS creates a draft');
+  '[F14.1-a c6 FR-ADMIN-008] a Moderator with SYSTEM_ANNOUNCEMENTS creates a draft');
 select is(pg_temp.dml('d', $$ insert into nestly.system_announcements (title, body) values ('ברוכים הבאים', 'שלום לכולם') $$), 'OK:1',
-  '[I14 c6 FR-ADMIN-008] the Admin creates one');
+  '[F14.1-a c6 FR-ADMIN-008] the Admin creates one');
 select is(pg_temp.dml('d', $$ insert into nestly.system_announcements (title, body, status) values ('x y', 'z', 'published') $$), 'ERR:42501',
-  '[I14 c6] an announcement is born a draft (42501)');
-select is(pg_temp.dml('d', $$ insert into nestly.system_announcements (title, body) values ('x', 'z') $$), 'ERR:23514', '[I14 c6] a title of 2-80 characters (23514)');
-select is(pg_temp.n('a', 'nestly.system_announcements'), '0', '[I14 c7] a user reads no draft');
-select is(pg_temp.n('m0', 'nestly.system_announcements'), '0', '[I14 c7] a Moderator without the key reads no draft');
-select is(pg_temp.n('m3', 'nestly.system_announcements'), '2', '[I14 c7 AC-049] the key holder reads every one');
-select is(pg_temp.dml('m3', $$ update nestly.system_announcements set body = 'האתר ייסגר לשעתיים' where title = 'תחזוקה' $$), 'OK:1', '[I14 c7 FR-ADMIN-008] and edits');
-select is(pg_temp.dml('m3', $$ update nestly.system_announcements set body = 'האתר ייסגר לשעתיים' where title = 'תחזוקה' $$), 'OK:0', '[I14 c7 BR-026] an edit that changes nothing writes nothing (0 rows, no audit entry)');
-select is(pg_temp.dml('m4', $$ update nestly.system_announcements set status = 'published' $$), 'OK:0', '[I14 c7 AC-049] another Moderator publishes nothing (0 rows)');
-select is(pg_temp.dml('a', $$ update nestly.system_announcements set status = 'published' $$), 'OK:0', '[I14 c7 AC-049] a user publishes nothing (0 rows)');
-select is(pg_temp.dml('m3', $$ update nestly.system_announcements set status = 'published' where title = 'תחזוקה' $$), 'OK:1', '[I14 c7 FR-ADMIN-008] the key holder publishes');
-select is(pg_temp.n('a', $$nestly.system_announcements where status = 'published' and published_at is not null$$), '1', '[I14 c7] every user now reads it, stamped by the database');
-select is(pg_temp.n('p', 'nestly.system_announcements'), '1', '[I14 c7] a Professional too');
-select is(pg_temp.dml('m3', $$ update nestly.system_announcements set status = 'draft' where title = 'תחזוקה' $$), 'ERR:23514', '[I14 c7] a published announcement does not go back to a draft (23514)');
-select is(pg_temp.dml('d', $$ update nestly.system_announcements set status = 'removed' where title = 'תחזוקה' $$), 'OK:1', '[I14 c8 FR-ADMIN-008] the Admin removes it');
-select is(pg_temp.n('a', 'nestly.system_announcements'), '0', '[I14 c8] no user reads a removed announcement');
-select is(pg_temp.dml('d', $$ update nestly.system_announcements set status = 'published' where title = 'תחזוקה' $$), 'OK:0', '[I14 c8] removal is final (0 rows)');
-select is(pg_temp.dml('d', $$ delete from nestly.system_announcements $$), 'ERR:42501', '[I14 c8] nobody deletes an announcement (42501)');
-select is(tests.fx_sf_audit('announcement_created'), 2::bigint, '[I14 c9 AC-049 BR-026] creations are audited');
-select is(tests.fx_sf_audit('announcement_edited'), 1::bigint, '[I14 c9 AC-049] the edit is audited');
-select is(tests.fx_sf_audit('announcement_published'), 1::bigint, '[I14 c9 AC-049] the publication is audited');
-select is(tests.fx_sf_audit('announcement_removed'), 1::bigint, '[I14 c9 AC-049] the removal is audited');
+  '[F14.1-a c6] an announcement is born a draft (42501)');
+select is(pg_temp.dml('d', $$ insert into nestly.system_announcements (title, body) values ('x', 'z') $$), 'ERR:23514', '[F14.1-a c6] a title of 2-80 characters (23514)');
+select is(pg_temp.n('a', 'nestly.system_announcements'), '0', '[F14.1-a c7] a user reads no draft');
+select is(pg_temp.n('m0', 'nestly.system_announcements'), '0', '[F14.1-a c7] a Moderator without the key reads no draft');
+select is(pg_temp.n('m3', 'nestly.system_announcements'), '2', '[F14.1-a c7 AC-049] the key holder reads every one');
+select is(pg_temp.dml('m3', $$ update nestly.system_announcements set body = 'האתר ייסגר לשעתיים' where title = 'תחזוקה' $$), 'OK:1', '[F14.1-a c7 FR-ADMIN-008] and edits');
+select is(pg_temp.dml('m3', $$ update nestly.system_announcements set body = 'האתר ייסגר לשעתיים' where title = 'תחזוקה' $$), 'OK:0', '[F14.1-a c7 BR-026] an edit that changes nothing writes nothing (0 rows, no audit entry)');
+select is(pg_temp.dml('m4', $$ update nestly.system_announcements set status = 'published' $$), 'OK:0', '[F14.1-a c7 AC-049] another Moderator publishes nothing (0 rows)');
+select is(pg_temp.dml('a', $$ update nestly.system_announcements set status = 'published' $$), 'OK:0', '[F14.1-a c7 AC-049] a user publishes nothing (0 rows)');
+select is(pg_temp.dml('m3', $$ update nestly.system_announcements set status = 'published' where title = 'תחזוקה' $$), 'OK:1', '[F14.1-a c7 FR-ADMIN-008] the key holder publishes');
+select is(pg_temp.n('a', $$nestly.system_announcements where status = 'published' and published_at is not null$$), '1', '[F14.1-a c7] every user now reads it, stamped by the database');
+select is(pg_temp.n('p', 'nestly.system_announcements'), '1', '[F14.1-a c7] a Professional too');
+select is(pg_temp.dml('m3', $$ update nestly.system_announcements set status = 'draft' where title = 'תחזוקה' $$), 'ERR:23514', '[F14.1-a c7] a published announcement does not go back to a draft (23514)');
+select is(pg_temp.dml('d', $$ update nestly.system_announcements set status = 'removed' where title = 'תחזוקה' $$), 'OK:1', '[F14.1-a c8 FR-ADMIN-008] the Admin removes it');
+select is(pg_temp.n('a', 'nestly.system_announcements'), '0', '[F14.1-a c8] no user reads a removed announcement');
+select is(pg_temp.dml('d', $$ update nestly.system_announcements set status = 'published' where title = 'תחזוקה' $$), 'OK:0', '[F14.1-a c8] removal is final (0 rows)');
+select is(pg_temp.dml('d', $$ delete from nestly.system_announcements $$), 'ERR:42501', '[F14.1-a c8] nobody deletes an announcement (42501)');
+select is(tests.fx_sf_audit('announcement_created'), 2::bigint, '[F14.1-a c9 AC-049 BR-026] creations are audited');
+select is(tests.fx_sf_audit('announcement_edited'), 1::bigint, '[F14.1-a c9 AC-049] the edit is audited');
+select is(tests.fx_sf_audit('announcement_published'), 1::bigint, '[F14.1-a c9 AC-049] the publication is audited');
+select is(tests.fx_sf_audit('announcement_removed'), 1::bigint, '[F14.1-a c9 AC-049] the removal is audited');
 
 -- ---- the analytics reads (FR-ADMIN-010, BR-058, AC-071) ------------------------------------------------------------------------------
 select set_config('t.post', tests.fx_po_add(pg_temp.id('a'))::text, true);
-select ok(tests.fx_mt_count('posts') > 0, '[I14 c10 fixture] there are posts to count');
-select is(pg_temp.na('d', 'users'), tests.fx_mt_count('users')::text, '[I14 c10 FR-ADMIN-010] the Admin counts every account on the analytics screen');
-select is(pg_temp.na('m3', 'users'), tests.fx_mt_count('users')::text, '[I14 c10 BR-058] ANALYTICS_VIEW counts every account');
-select is(pg_temp.na('m3', 'posts'), tests.fx_mt_count('posts')::text, '[I14 c10 BR-058] and every post');
-select is(pg_temp.na('m3', 'comments'), tests.fx_mt_count('comments')::text, '[I14 c10 BR-058] every comment');
-select is(pg_temp.na('m3', 'reactions'), tests.fx_mt_count('reactions')::text, '[I14 c10 BR-058] every like');
-select is(pg_temp.na('m3', 'reports'), tests.fx_mt_count('reports')::text, '[I14 c10 BR-058] every report');
-select is(pg_temp.na('m3', 'user_enforcements'), tests.fx_mt_count('user_enforcements')::text, '[I14 c10 BR-058] every enforcement step');
-select is(pg_temp.na('m3', 'friendships'), tests.fx_mt_count('friendships')::text, '[I14 c10 BR-058] every Friendship');
-select is(pg_temp.na('m4', 'users'), pg_temp.n('m4', 'nestly.users'), '[I14 c11 AC-026] without ANALYTICS_VIEW the screen opens nothing more');
-select is(pg_temp.na('m4', 'posts'), pg_temp.n('m4', 'nestly.posts'), '[I14 c11 AC-026] (posts)');
-select is(pg_temp.na('a', 'users'), '1', '[I14 c11] a user still reads only its own account');
-select is(pg_temp.n('m3', 'nestly.users'), '1', '[I14 c11] outside the analytics screen ANALYTICS_VIEW reads only its own account');
-select is(pg_temp.n('m3', 'nestly.friendships'), pg_temp.n('m0', 'nestly.friendships'), '[I14 c11] and no Friendship beyond what any Moderator reads');
-select ok(tests.fx_mt_count('children') > 0, '[I14 c12 fixture] there are child rows');
-select is(pg_temp.na('m3', 'children'), '0', '[I14 c12 open item 6 (a)] no child row is opened by the analytics screen');
-select is(pg_temp.na('d', 'children'), '0', '[I14 c12 open item 6 (a)] not even to the Admin');
+select ok(tests.fx_mt_count('posts') > 0, '[F14.1-a c10 fixture] there are posts to count');
+select is(pg_temp.na('d', 'users'), tests.fx_mt_count('users')::text, '[F14.1-a c10 FR-ADMIN-010] the Admin counts every account on the analytics screen');
+select is(pg_temp.na('m3', 'users'), tests.fx_mt_count('users')::text, '[F14.1-a c10 BR-058] ANALYTICS_VIEW counts every account');
+select is(pg_temp.na('m3', 'posts'), tests.fx_mt_count('posts')::text, '[F14.1-a c10 BR-058] and every post');
+select is(pg_temp.na('m3', 'comments'), tests.fx_mt_count('comments')::text, '[F14.1-a c10 BR-058] every comment');
+select is(pg_temp.na('m3', 'reactions'), tests.fx_mt_count('reactions')::text, '[F14.1-a c10 BR-058] every like');
+select is(pg_temp.na('m3', 'reports'), tests.fx_mt_count('reports')::text, '[F14.1-a c10 BR-058] every report');
+select is(pg_temp.na('m3', 'user_enforcements'), tests.fx_mt_count('user_enforcements')::text, '[F14.1-a c10 BR-058] every enforcement step');
+select is(pg_temp.na('m3', 'friendships'), tests.fx_mt_count('friendships')::text, '[F14.1-a c10 BR-058] every Friendship');
+select is(pg_temp.na('m4', 'users'), pg_temp.n('m4', 'nestly.users'), '[F14.1-a c11 AC-026] without ANALYTICS_VIEW the screen opens nothing more');
+select is(pg_temp.na('m4', 'posts'), pg_temp.n('m4', 'nestly.posts'), '[F14.1-a c11 AC-026] (posts)');
+select is(pg_temp.na('a', 'users'), '1', '[F14.1-a c11] a user still reads only its own account');
+select is(pg_temp.n('m3', 'nestly.users'), '1', '[F14.1-a c11] outside the analytics screen ANALYTICS_VIEW reads only its own account');
+select is(pg_temp.n('m3', 'nestly.friendships'), pg_temp.n('m0', 'nestly.friendships'), '[F14.1-a c11] and no Friendship beyond what any Moderator reads');
+select ok(tests.fx_mt_count('children') > 0, '[F14.1-a c12 fixture] there are child rows');
+select is(pg_temp.na('m3', 'children'), '0', '[F14.1-a c12 open item 6 (a)] no child row is opened by the analytics screen');
+select is(pg_temp.na('d', 'children'), '0', '[F14.1-a c12 open item 6 (a)] not even to the Admin');
 
 select * from finish();
 rollback;
