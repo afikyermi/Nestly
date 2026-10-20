@@ -192,6 +192,8 @@ select is(pg_temp.ask('a', 'b'), 'ERR:23505', '[I8 c3] one live request per pair
 select is(pg_temp.ask('b', 'a'), 'ERR:23505', '[I8 c3] in either direction');
 select is(pg_temp.n('b', 'select count(*)::text from nestly.chat_requests'), '1', '[I8 c3] the target reads it');
 select is(pg_temp.n('c', 'select count(*)::text from nestly.chat_requests'), '0', '[I8 c3] a third account does not');
+select is(pg_temp.n('a', 'select target_status from nestly.chat_requests limit 1'), 'ERR:42501', '[I8 c3 review] the status copies are never granted: a requester never learns the target''s enforcement state');
+select is(pg_temp.dml('a', 'update nestly.chat_requests set status = status where target_status = ''active'''), 'ERR:42501', '[I8 c3 review] (not even through a WHERE clause)');
 select is(pg_temp.n('b', format($q$ select count(*)::text from nestly.regular_names where user_id = %L $q$, pg_temp.id('a'))), '1', '[I8 c3] the target reads the requester''s name');
 select is(pg_temp.n('a', format($q$ select count(*)::text from nestly.regular_names where user_id = %L $q$, pg_temp.id('b'))), '1', '[I8 c3] the requester reads the target''s name');
 select is(pg_temp.open_conv('a', 'b', 'request', pg_temp.req('a', 'b')), 'ERR:42501', '[I8 c3 AC-051] without an accept no conversation opens');
@@ -211,6 +213,8 @@ select is(pg_temp.ask('c', 'b'), 'OK:1', '[I8 c3 §9.3] a decline is no block: t
 select is(pg_temp.cancel('b', 'c'), 'OK:0', '[I8 c3] the target does not cancel');
 select is(pg_temp.cancel('c', 'b'), 'OK:1', '[I8 c3] the requester withdraws its pending request');
 select is(pg_temp.n('c', format($q$ select string_agg(status || ':' || n, ',' order by status) from (select status, count(*) n from nestly.chat_requests where requester_id = %L and target_id = %L group by status) x $q$, pg_temp.id('c'), pg_temp.id('b'))), 'cancelled:1,declined:1', '[I8 c3] it is cancelled (the declined one stays declined)');
+select is(pg_temp.n('c', format($q$ select count(*)::text from nestly.regular_names where user_id = %L $q$, pg_temp.id('b'))), '0',
+  '[I8 c3 review] a cancelled or declined request shows the requester no name (a request cannot be used to read names)');
 select is(pg_temp.answer('b', 'c', 'accepted'), 'OK:0', '[I8 c3] a cancelled request is not accepted');
 
 -- ---- the daily request limit (finding 2): 20 per requester in 24 hours, every status, not hidden by a block --------------
@@ -235,9 +239,17 @@ select is(pg_temp.ask('b', 'c'), 'OK:1', '[I8 c3] b asks c');
 select is(pg_temp.user_block('c', 'b'), 'OK:1', '[I8 c5 fixture] c, the target, blocks b');
 select is(pg_temp.n('b', format($q$ select status from nestly.chat_requests where id = %L $q$, pg_temp.req('b', 'c'))), 'declined',
   '[I8 c5 finding 1] the block ended b''s pending request to c (declined: c was asked)');
+select is(pg_temp.n('c', format($q$ select count(*)::text from nestly.chat_requests where requester_id = %L $q$, pg_temp.id('b'))), '0',
+  '[I8 c5 review] while the block stands the target reads none of the blocked account''s requests (nor their opening text)');
 select is(pg_temp.n('c', format($q$ select count(*)::text from nestly.regular_names where user_id = %L $q$, pg_temp.id('b'))), '1',
   '[I8 c5] (c still reads b''s name, as its blocker)');
 select is(pg_temp.user_unblock('c', 'b'), 'OK:1', '[I8 c5 fixture] c lifts the block');
+select is(pg_temp.n('c', format($q$ select string_agg(status, ',') from nestly.chat_requests where requester_id = %L $q$, pg_temp.id('b'))), 'declined',
+  '[I8 c5] after the lift the target sees the request again, declined');
+select is((select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'nestly'
+            and p.proname in ('chat_requests_insert_limit', 'chat_blocks_insert_limit', 'support_requests_insert_limit')
+            and p.prosrc ~ 'transaction_isolation''[)] *<> *''read committed''' and p.prosrc ~ 'pg_advisory_xact_lock'), 3::bigint,
+  '[I8 review] each daily limit takes its lock and refuses any isolation but read committed (only there does the count after the lock see a concurrent insert)');
 
 -- ---- Chat Block (FR-SERV-009, BR-011, ERR-008, AC-052, §9.4) ------------------------------------------------------------------
 select is(pg_temp.chat_block('b', 'a'), 'OK:1', '[I8 c4 FR-SERV-009] b blocks messaging with a');

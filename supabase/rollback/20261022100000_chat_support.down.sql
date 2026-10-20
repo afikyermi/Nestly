@@ -18,12 +18,24 @@ begin
   if current_user <> 'app_owner' then
     raise exception 'the chat and Support down script must run as app_owner (current_user is %)', current_user;
   end if;
+  -- FORCE RLS holds the owner to the client policies, which show it nothing (no auth.uid()): without FORCE the owner reads every row.
+  -- Lifted inside this transaction only; the new tables are dropped below, reports gets FORCE back right after the check.
+  alter table nestly.chat_requests no force row level security;
+  alter table nestly.conversations no force row level security;
+  alter table nestly.messages no force row level security;
+  alter table nestly.chat_blocks no force row level security;
+  alter table nestly.chat_reads no force row level security;
+  alter table nestly.support_requests no force row level security;
+  alter table nestly.support_messages no force row level security;
+  alter table nestly.reported_message_views no force row level security;
+  alter table nestly.reports no force row level security;
   if exists (select 1 from nestly.chat_requests) or exists (select 1 from nestly.conversations) or exists (select 1 from nestly.messages)
      or exists (select 1 from nestly.chat_blocks) or exists (select 1 from nestly.chat_reads) or exists (select 1 from nestly.support_requests)
      or exists (select 1 from nestly.support_messages) or exists (select 1 from nestly.reported_message_views)
      or exists (select 1 from nestly.reports where target_kind = 'message') then
     raise exception 'a chat or Support table, or a message report, holds a row: the down script refuses';
   end if;
+  alter table nestly.reports force row level security;
 end
 $$;
 
@@ -215,7 +227,8 @@ drop policy regular_names_select_request_sent on nestly.regular_names;
 drop policy regular_names_select_request_received on nestly.regular_names;
 drop policy regular_names_select_support on nestly.regular_names;
 
--- the policies that name another new table go first, so the tables can drop in any order
+-- the write policies that name another new table go first; the tables then drop in dependency order (the read policies of messages
+-- and support_messages still name conversations and support_requests, so those two tables drop after them)
 drop policy chat_requests_insert_requester on nestly.chat_requests;
 drop policy chat_requests_update_target on nestly.chat_requests;
 drop policy conversations_insert_party on nestly.conversations;

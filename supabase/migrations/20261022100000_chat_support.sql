@@ -256,7 +256,7 @@ $$;
 -- At most 20 new requests per account in 24 hours, every status counted. The requester always reads its own rows
 -- (chat_requests_select_requester), so neither a block nor a suspension of the other side hides one from the count; the advisory lock,
 -- keyed on the requester, makes concurrent inserts of one account count one after the other (the count runs after the lock, in a fresh
--- snapshot).
+-- snapshot, which only read committed gives: any other isolation level is refused, 25000).
 create function nestly.chat_requests_insert_limit()
 returns trigger
 language plpgsql
@@ -264,6 +264,9 @@ security invoker
 set search_path = ''
 as $$
 begin
+  if pg_catalog.current_setting('transaction_isolation') <> 'read committed' then
+    raise exception 'chat_requests: the daily limit needs a read committed transaction' using errcode = '25000';
+  end if;
   perform pg_catalog.pg_advisory_xact_lock(8101, pg_catalog.hashtext(new.requester_id::text));
   if (select pg_catalog.count(*) from nestly.chat_requests r
        where r.requester_id = new.requester_id and r.created_at > pg_catalog.now() - interval '24 hours') >= 20 then
@@ -299,6 +302,9 @@ security invoker
 set search_path = ''
 as $$
 begin
+  if pg_catalog.current_setting('transaction_isolation') <> 'read committed' then
+    raise exception 'chat_blocks: the daily limit needs a read committed transaction' using errcode = '25000';
+  end if;
   perform pg_catalog.pg_advisory_xact_lock(8102, pg_catalog.hashtext(new.blocker_id::text));
   if (select pg_catalog.count(*) from nestly.chat_blocks b
        where b.blocker_id = new.blocker_id and b.created_at > pg_catalog.now() - interval '24 hours') >= 20 then
@@ -356,6 +362,9 @@ security invoker
 set search_path = ''
 as $$
 begin
+  if pg_catalog.current_setting('transaction_isolation') <> 'read committed' then
+    raise exception 'support_requests: the daily limit needs a read committed transaction' using errcode = '25000';
+  end if;
   perform pg_catalog.pg_advisory_xact_lock(8103, pg_catalog.hashtext(new.user_id::text));
   if (select pg_catalog.count(*) from nestly.support_requests s
        where s.user_id = new.user_id and s.created_at > pg_catalog.now() - interval '24 hours') >= 5 then
@@ -460,8 +469,10 @@ begin
   update nestly.friendships f set cancelled_at = pg_catalog.now()
     where f.status = 'pending' and f.cancelled_at is null
       and f.requester_id = new.blocker_id and f.addressee_id = new.blocked_id;
+  perform pg_catalog.set_config('nestly.block_ending', new.blocked_id::text, true);
   update nestly.chat_requests r set status = 'declined'
     where r.status = 'pending' and r.target_id = new.blocker_id and r.requester_id = new.blocked_id;
+  perform pg_catalog.set_config('nestly.block_ending', '', true);
   update nestly.chat_requests r set status = 'cancelled'
     where r.status = 'pending' and r.requester_id = new.blocker_id and r.target_id = new.blocked_id;
   return new;
@@ -481,7 +492,8 @@ alter table nestly.reported_message_views enable row level security, force row l
 revoke all on table nestly.chat_requests, nestly.conversations, nestly.messages, nestly.chat_blocks, nestly.chat_reads,
   nestly.support_requests, nestly.support_messages, nestly.reported_message_views from public, anon, authenticated;
 
-grant select on table nestly.chat_requests to authenticated;
+-- The two status copies are never granted (the policies read them): a requester never learns the target's enforcement state.
+grant select (id, requester_id, target_id, target_account_type, opening_message, status, created_at, responded_at) on table nestly.chat_requests to authenticated;
 grant insert (target_id, target_account_type, opening_message), update (status) on table nestly.chat_requests to authenticated;
 grant select on table nestly.conversations to authenticated;
 grant insert (context, user_a, user_b, chat_request_id) on table nestly.conversations to authenticated;
@@ -499,15 +511,19 @@ grant select on table nestly.reported_message_views to authenticated;
 grant insert (report_id) on table nestly.reported_message_views to authenticated;
 grant insert (message_id) on table nestly.reports to authenticated;
 
--- chat_requests. The requester always reads its own requests (the daily limit counts them); the target reads a request while the requester
--- is active. A user block ends a pending request (user_blocks_end_relations), so no pending request across a block is ever shown.
+-- chat_requests. The requester always reads its own requests and their own opening text (the daily limit counts them; the status copies
+-- are not granted). The target reads a request while the requester is active and no user block stands between them; a user block ends a
+-- pending request (user_blocks_end_relations names the blocked account in nestly.block_ending for its own statement only, so the
+-- blocker can decline a request it can no longer see, from a suspended requester too).
 create policy chat_requests_select_requester on nestly.chat_requests
   for select to authenticated
   using ((select nestly.is_active_account()) and requester_id = (select auth.uid()));
 
 create policy chat_requests_select_target on nestly.chat_requests
   for select to authenticated
-  using ((select nestly.is_active_account()) and target_id = (select auth.uid()) and requester_status = 'active');
+  using ((select nestly.is_active_account()) and target_id = (select auth.uid()) and (
+    (requester_status = 'active' and requester_id <> all (coalesce((select nestly.block_peer_ids()), '{}'::uuid[])))
+    or requester_id::text = pg_catalog.current_setting('nestly.block_ending', true)));
 
 -- I8: a Regular asks a Regular who is not a Friend, with whom it has no conversation, across no user block and no Chat Block (VAL-025).
 create policy chat_requests_insert_requester on nestly.chat_requests
@@ -700,7 +716,8 @@ create policy regular_names_select_conversation on nestly.regular_names
 create policy regular_names_select_request_sent on nestly.regular_names
   for select to authenticated
   using ((select nestly.is_active_account())
-    and exists (select 1 from nestly.chat_requests r where r.requester_id = (select auth.uid()) and r.target_id = regular_names.user_id));
+    and exists (select 1 from nestly.chat_requests r where r.requester_id = (select auth.uid()) and r.target_id = regular_names.user_id
+                 and r.status = 'pending'));
 
 create policy regular_names_select_request_received on nestly.regular_names
   for select to authenticated
@@ -870,8 +887,8 @@ comment on column nestly.chat_requests.target_id is 'The account asked.';
 comment on column nestly.chat_requests.target_account_type is 'The target''s account type, held by the composite FK to users: never a staff account.';
 comment on column nestly.chat_requests.opening_message is 'The opening message, 1-2000 characters, not blank. Shown to the target with the request and as the first message of the conversation it opens.';
 comment on column nestly.chat_requests.status is 'pending; accepted (the target opened a conversation); declined (the target; also when the target blocks the requester); cancelled (the requester; also when the requester blocks the target). Moves once, from pending.';
-comment on column nestly.chat_requests.requester_status is 'Copy of the requester''s users.status (cascade): the target sees the request only while the requester is active.';
-comment on column nestly.chat_requests.target_status is 'Copy of the target''s users.status (cascade).';
+comment on column nestly.chat_requests.requester_status is 'Copy of the requester''s users.status (cascade): the target sees the request only while the requester is active. Never granted.';
+comment on column nestly.chat_requests.target_status is 'Copy of the target''s users.status (cascade). Never granted.';
 comment on column nestly.chat_requests.created_at is 'Database clock; the 24-hour request limit counts it.';
 comment on column nestly.chat_requests.responded_at is 'When the request was answered or cancelled (database clock); NULL while pending.';
 comment on index nestly.chat_requests_pair_live_key is 'At most one pending or accepted request per pair, either direction.';
@@ -969,8 +986,8 @@ comment on trigger support_requests_audit on nestly.support_requests is 'audit_t
 comment on trigger support_messages_audit on nestly.support_messages is 'audit_trigger(): a Support reply or internal note is an Audit Log entry (support_replied, support_note_added) in the same transaction.';
 comment on trigger reported_message_views_audit on nestly.reported_message_views is 'audit_trigger(): a staff view of a reported message is an Audit Log entry (reported_message_viewed) in the same transaction.';
 
-comment on policy chat_requests_select_requester on nestly.chat_requests is 'The requester reads its own requests, whatever their state (the daily limit counts them).';
-comment on policy chat_requests_select_target on nestly.chat_requests is 'The target reads a request while the requester is active.';
+comment on policy chat_requests_select_requester on nestly.chat_requests is 'The requester reads its own requests, whatever their state (the daily limit counts them); the status copies are not granted.';
+comment on policy chat_requests_select_target on nestly.chat_requests is 'The target reads a request while the requester is active and no user block stands between them; inside user_blocks_end_relations, the blocked requester''s rows (to decline them).';
 comment on policy chat_requests_insert_requester on nestly.chat_requests is 'I8: a Regular asks a Regular who is not a Friend, with no conversation between them, across no user block and no Chat Block (VAL-025). A later initiative adds its own policy for a Professional.';
 comment on policy chat_requests_update_target on nestly.chat_requests is 'The target declines a pending request, or accepts it while the requester is active and neither a user block nor a Chat Block stands between them.';
 comment on policy chat_requests_update_requester on nestly.chat_requests is 'The requester cancels its own pending request.';
@@ -997,6 +1014,6 @@ comment on policy reported_message_views_select_own on nestly.reported_message_v
 comment on policy reported_message_views_insert_staff on nestly.reported_message_views is 'REPORTS_VIEW on the admin screens records its view of a message report (audited).';
 comment on policy reports_update_staff on nestly.reports is 'REPORTS_VIEW closes an open report as handled; a post or comment report needs CONTENT_MODERATE, a user or message report a user key (USER_WARN, USER_SUSPEND or USER_BAN).';
 comment on policy regular_names_select_conversation on nestly.regular_names is 'The other party of one''s conversation.';
-comment on policy regular_names_select_request_sent on nestly.regular_names is 'The target of one''s own chat request.';
+comment on policy regular_names_select_request_sent on nestly.regular_names is 'The target of one''s own pending chat request (after an accept, the conversation policy; a cancelled or declined request shows no name).';
 comment on policy regular_names_select_request_received on nestly.regular_names is 'The requester of a pending chat request to one.';
 comment on policy regular_names_select_support on nestly.regular_names is 'On the Support inbox (nestly.staff_view): SUPPORT_VIEW reads the names of the requests'' authors.';

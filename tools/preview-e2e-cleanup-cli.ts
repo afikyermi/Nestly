@@ -114,8 +114,7 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
           await tx`delete from nestly.reports
                     where reporter_id = ${id} or reported_user_id = ${id}
                        or message_id in (select id from nestly.messages
-                                          where sender_id = ${id}
-                                             or conversation_id in (select id from nestly.conversations where user_a = ${id} or user_b = ${id}))
+                                          where conversation_id in (select id from nestly.conversations where user_a = ${id} or user_b = ${id}))
                        or post_id in (select id from nestly.posts
                                        where author_id = ${id} or id in (select post_id from nestly.post_authors where author_id = ${id}))
                        or comment_id in (select id from nestly.comments
@@ -154,7 +153,7 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         counts['support_requests'] = (await tx`delete from nestly.support_requests where user_id = ${id}`).count;
         counts['messages'] = (
           await tx`delete from nestly.messages
-                    where sender_id = ${id} or conversation_id in (select id from nestly.conversations where user_a = ${id} or user_b = ${id})`
+                    where conversation_id in (select id from nestly.conversations where user_a = ${id} or user_b = ${id})`
         ).count;
         counts['conversations'] = (await tx`delete from nestly.conversations where user_a = ${id} or user_b = ${id}`).count;
         counts['chat_requests'] = (await tx`delete from nestly.chat_requests where requester_id = ${id} or target_id = ${id}`).count;
