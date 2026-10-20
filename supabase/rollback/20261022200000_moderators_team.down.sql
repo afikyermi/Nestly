@@ -1,12 +1,12 @@
 -- =====================================================================================================================
--- Down script for supabase/migrations/20261021900000_moderators_team.sql (I14). Outside supabase/migrations on purpose.
+-- Down script for supabase/migrations/20261022200000_moderators_team.sql (I14). Outside supabase/migrations on purpose.
 --
 -- Run as:   app_owner, in one transaction. CI runs it once per build (up -> down -> up). Against nestly-preview or nestly-prod it is a
 --           destructive change: Afik only.
 -- Order:    revert the I14 server and web code first, then run this.
 -- Safe:     only while no invitation was issued and no announcement was written. Otherwise it refuses (a Moderator created by an invitation
 --           and published announcements are product state). Audit entries already written stay (the log is append-only).
--- Restores: audit_trigger() verbatim from 20261021500000_media_stories.sql (text and comment), and drops what the migration added.
+-- Restores: audit_trigger() verbatim from 20261022100000_chat_support.sql (text and comment), and drops what the migration added.
 -- =====================================================================================================================
 
 begin;
@@ -149,6 +149,28 @@ begin
     v_kind := 'media';
     v_target := (v_new ->> 'media_id')::uuid;
     v_after := pg_catalog.jsonb_build_object('isChild', v_new -> 'is_child', 'purgeAfter', v_new ->> 'purge_after');
+  elsif tg_table_name = 'support_requests' then
+    -- FR-ADMIN-002: a status change of a Support request (the trigger fires only when the status moves).
+    v_key := 'SUPPORT_HANDLE';
+    v_action := 'support_status_changed';
+    v_kind := 'support_request';
+    v_target := (v_new ->> 'id')::uuid;
+    v_before := pg_catalog.jsonb_build_object('status', v_old ->> 'status');
+    v_after := pg_catalog.jsonb_build_object('status', v_new ->> 'status', 'topic', v_new ->> 'topic');
+  elsif tg_table_name = 'support_messages' then
+    -- FR-ADMIN-002, FR-CHAT-004: a reply in the name of Support or an internal note (the trigger fires only for author_kind 'support').
+    -- The entry carries what it was, never the text.
+    v_key := 'SUPPORT_HANDLE';
+    v_action := case when (v_new ->> 'is_internal')::boolean then 'support_note_added' else 'support_replied' end;
+    v_kind := 'support_request';
+    v_target := (v_new ->> 'support_request_id')::uuid;
+    v_after := pg_catalog.jsonb_build_object('internal', v_new -> 'is_internal', 'bodyChars', pg_catalog.char_length(v_new ->> 'body'));
+  elsif tg_table_name = 'reported_message_views' then
+    -- §9.6 (Afik 20.10.2026): a staff member opened a reported chat message (only that message; never the conversation).
+    v_key := 'REPORTS_VIEW';
+    v_action := 'reported_message_viewed';
+    v_kind := 'report';
+    v_target := (v_new ->> 'report_id')::uuid;
   else
     raise exception 'audit_trigger: not attached to %', tg_table_name;
   end if;
@@ -160,8 +182,8 @@ $$;
 
 revoke execute on function nestly.audit_trigger() from public;
 
-comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement, an Admin''s creation, edit, publication or hiding of a status guide, a staff decision on an image or a suspicion marked on one: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
+comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement, an Admin''s creation, edit, publication or hiding of a status guide, a staff decision on an image or a suspicion marked on one, a Support request''s status change, a Support reply or internal note, or a staff view of a reported chat message: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
 
-delete from supabase_migrations.schema_migrations where version = '20261021900000';
+delete from supabase_migrations.schema_migrations where version = '20261022200000';
 
 commit;
