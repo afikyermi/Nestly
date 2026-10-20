@@ -18,6 +18,7 @@ import { CommentsSection } from './CommentsSection';
 import { outsidePressHandler } from './outside-press';
 import { PostContent, type PostEdit, type PostFocus, type PostScreenView } from './PostContent';
 import { SHARE_FAILED_TEXT, SHARED_STATUS } from './share-texts';
+import { usePostScroll } from './post-scroll';
 import { shareFeedSheetValues, useShareInFeed } from './use-share-in-feed';
 import { CONFIRM_DELETE_LABEL, DELETE_FAILED_TEXT, DELETED_STATUS, LOAD_FAILED_TEXT, SAVE_FAILED_TEXT, UPDATED_STATUS } from './posts-texts';
 import { EDIT_ITEM_LABEL } from './hide-texts';
@@ -33,6 +34,7 @@ const anonymousMode = (current: Loaded): AnonymousMode => (current.post.isAnonym
 // account state again, and the session guard ends the session with its notice (ERR-038, ERR-037).
 export function PostScreen({ postId }: { postId: string }) {
   const account = useSessionAccount();
+  usePostScroll();
   const [view, setView] = useState<PostScreenView>({ kind: 'loading' });
   const latestView = useRef(view);
   latestView.current = view;
