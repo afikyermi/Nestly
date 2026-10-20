@@ -37,6 +37,7 @@
 | MediaAsset | מטא-דאטה וקישור לקובץ תמונה/סרטון המשויך לפוסט, סטורי, Listing, מאמר, תמונת פרופיל או ישות מאושרת אחרת, ומצב הבדיקה בשרת (ממתינה / עברה / נכשלה, BR-076). רק הגרסה המטושטשת נשמרת. |
 | Story | סטורי: מחבר, MediaAsset אחד, טקסט קצר אופציונלי, זמן פרסום וזמן תפוגה (24 שעות). נמחק עם התמונה בתום התוקף (FR-FEED-008, BR-077). |
 | SupportRequest | פנייה של משתמש: נושא, מלל, משתמש, זמן, סטטוס, handledBy והיסטוריית תגובות. תגובות חיצוניות מוצגות ב-Support Thread בתוך Chat בשם “Support”; הערות פנימיות אינן מוצגות. |
+| CycleEntry | תאריך התחלה של מחזור והאורך הממוצע שהמשתמש מזין; חלון הביוץ מחושב ממנו ואינו נשמר (FR-TRACK-001, OP-041). גלוי רק למשתמש עצמו. |
 | TrackerData | מכלול נתוני המעקב שנשמרים עבור המשתמש/ילד/מסלול לצורך תיעוד, התאמה אישית, מתן טיפים/ידע ושיפור המערכת, בכפוף למטריצת שימוש ותקנון/מדיניות פרטיות. רק המשתמש עצמו רואה אותם (FR-TRACK-001, החלטת אפיק מ-18.10.2026). |
 | ModeratorPermission | מיפוי בין Moderator לבין Permission Keys שהוקצו על ידי Admin: SUPPORT_VIEW, SUPPORT_HANDLE, REPORTS_VIEW, CONTENT_MODERATE, MARKETPLACE_MODERATE, USER_VIEW, USER_WARN, USER_SUSPEND, USER_BAN, ANALYTICS_VIEW, AUDIT_LOG_VIEW, COMMUNITY_CONFIG, SYSTEM_ANNOUNCEMENTS, PRIVATE_GROUP_MODERATE; כולל created/updated metadata. PROFESSIONAL_VERIFY בוטל עם הסרת האימות המקצועי (OP-005 נסגר, 18.10.2026). |
 | AccountEnforcement | פעולת אכיפה על חשבון: Target User, Action (Warn/Suspend/Ban/Unban), Reason, Actor, Permission, זמן, משך/מועד סיום במקרה Suspension וסטטוס. |

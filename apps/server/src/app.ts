@@ -5,6 +5,8 @@ import { readConfig, type ServerConfig } from './lib/config.js';
 import { createTokenVerifier } from './lib/token-verifier.js';
 import { registerAuthentication, replySessionRefused, type LinkGate } from './plugins/authentication.js';
 import { clientAddress } from './recovery/client-ip.js';
+import { registerAdminActionRoutes } from './routes/admin-actions.js';
+import { registerAdminReadRoutes } from './routes/admin-read.js';
 import { registerCommentsRoutes } from './routes/comments.js';
 import { registerFeedRoutes } from './routes/feed.js';
 import { registerFriendsRoutes } from './routes/friends.js';
@@ -14,7 +16,10 @@ import { registerReportsRoutes } from './routes/reports.js';
 import { registerNotificationsRoutes } from './routes/notifications.js';
 import { registerSearchRoute } from './routes/search.js';
 import { registerSharesRoutes } from './routes/shares.js';
+import { registerCycleRoutes } from './routes/cycle.js';
+import { registerHomeRoute } from './routes/home.js';
 import { registerJourneysRoutes } from './routes/journeys.js';
+import { registerTrackersRoutes } from './routes/trackers.js';
 import { registerMeRoute } from './routes/me.js';
 import { registerPasswordRoutes } from './routes/password.js';
 import { registerPostsRoutes } from './routes/posts.js';
@@ -108,6 +113,9 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerPasswordRoutes(app, { database, recovery });
   registerProfileRoute(app, { database });
   registerJourneysRoutes(app, { database, clock });
+  registerHomeRoute(app, { database, clock });
+  registerTrackersRoutes(app, { database, clock });
+  registerCycleRoutes(app, { database, clock });
   registerPrivacyRoute(app, { database });
   registerFriendsRoutes(app, { database });
   registerProfileViewRoute(app, { database });
@@ -120,6 +128,8 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerSharesRoutes(app, { database });
   registerNotificationsRoutes(app, { database });
   registerSearchRoute(app, { database });
+  registerAdminReadRoutes(app, { database });
+  registerAdminActionRoutes(app, { database });
 
   return app;
 }

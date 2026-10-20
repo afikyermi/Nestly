@@ -24,10 +24,13 @@ import {
   RECOVERY_THROTTLE_SUBJECTS,
   SECURITY_EVENT_KINDS,
   SECURITY_LIMIT_KEYS,
+  GUIDE_STAGE_KINDS,
+  GUIDE_STATUSES,
+  TRACKER_KINDS,
   type AccountType,
 } from '@nestly/shared';
 import { sql } from 'drizzle-orm';
-import { boolean, customType, date, integer, pgSchema, smallint, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, customType, date, integer, numeric, pgSchema, smallint, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 export const nestly = pgSchema('nestly');
 
@@ -445,4 +448,94 @@ export const searchIntents = nestly.table('search_intents', {
 /** INSERT target: topic is the only granted column. */
 export const searchIntentsInsert = nestly.table('search_intents', {
   topic: text('topic').notNull(),
+});
+
+// Trackers, cycle and status guides (I6; migration 20261020100000). Health data: the owner reads and writes, nobody else (RLS).
+
+/** SRS TrackerEvent (§13, FR-TRACK-001/002): one logged event of a child's tracker. numeric columns come back as text. */
+export const trackerEvents = nestly.table('tracker_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().default(sql`auth.uid()`),
+  childId: uuid('child_id').notNull(),
+  kind: text('kind', { enum: TRACKER_KINDS }).notNull(),
+  occurredAt: timestamp('occurred_at', { withTimezone: true, mode: 'date' }).notNull(),
+  endedAt: timestamp('ended_at', { withTimezone: true, mode: 'date' }),
+  amountMl: smallint('amount_ml'),
+  choice: text('choice'),
+  name: text('name'),
+  dosage: text('dosage'),
+  weightKg: numeric('weight_kg', { precision: 5, scale: 2 }),
+  heightCm: numeric('height_cm', { precision: 4, scale: 1 }),
+  headCm: numeric('head_cm', { precision: 4, scale: 1 }),
+  note: text('note'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** INSERT target only. Names exactly the columns granted INSERT (migration 20261020100000 section 7). */
+export const trackerEventsInsert = nestly.table('tracker_events', {
+  childId: uuid('child_id').notNull(),
+  kind: text('kind', { enum: TRACKER_KINDS }).notNull(),
+  occurredAt: timestamp('occurred_at', { withTimezone: true, mode: 'date' }).notNull(),
+  endedAt: timestamp('ended_at', { withTimezone: true, mode: 'date' }),
+  amountMl: smallint('amount_ml'),
+  choice: text('choice'),
+  name: text('name'),
+  dosage: text('dosage'),
+  weightKg: numeric('weight_kg', { precision: 5, scale: 2 }),
+  heightCm: numeric('height_cm', { precision: 4, scale: 1 }),
+  headCm: numeric('head_cm', { precision: 4, scale: 1 }),
+  note: text('note'),
+});
+
+/** UPDATE target only. Names exactly the columns granted UPDATE; id and kind are for WHERE only (no UPDATE grant: 42501). */
+export const trackerEventsUpdate = nestly.table('tracker_events', {
+  id: uuid('id').primaryKey(),
+  kind: text('kind', { enum: TRACKER_KINDS }).notNull(),
+  occurredAt: timestamp('occurred_at', { withTimezone: true, mode: 'date' }).notNull(),
+  endedAt: timestamp('ended_at', { withTimezone: true, mode: 'date' }),
+  amountMl: smallint('amount_ml'),
+  choice: text('choice'),
+  name: text('name'),
+  dosage: text('dosage'),
+  weightKg: numeric('weight_kg', { precision: 5, scale: 2 }),
+  heightCm: numeric('height_cm', { precision: 4, scale: 1 }),
+  headCm: numeric('head_cm', { precision: 4, scale: 1 }),
+  note: text('note'),
+});
+
+/** SRS cycle tracking (§13, FR-TRACK-001): the start of a cycle and the user's average length. */
+export const cycleEntries = nestly.table('cycle_entries', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().default(sql`auth.uid()`),
+  startDate: date('start_date', { mode: 'string' }).notNull(),
+  cycleLengthDays: smallint('cycle_length_days').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** INSERT target only. Names exactly the columns granted INSERT. */
+export const cycleEntriesInsert = nestly.table('cycle_entries', {
+  startDate: date('start_date', { mode: 'string' }).notNull(),
+  cycleLengthDays: smallint('cycle_length_days').notNull(),
+});
+
+/** UPDATE target only. Names exactly the columns granted UPDATE; id is for WHERE only. */
+export const cycleEntriesUpdate = nestly.table('cycle_entries', {
+  id: uuid('id').primaryKey(),
+  startDate: date('start_date', { mode: 'string' }).notNull(),
+  cycleLengthDays: smallint('cycle_length_days').notNull(),
+});
+
+/** SRS status guide (FR-HOME-004, BR-070): system content; a user reads published rows only (RLS, AC-095). Read only for runtime roles. */
+export const statusGuides = nestly.table('status_guides', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  stageKind: text('stage_kind', { enum: GUIDE_STAGE_KINDS }).notNull(),
+  rangeFrom: smallint('range_from'),
+  rangeTo: smallint('range_to'),
+  title: text('title').notNull(),
+  body: text('body').notNull(),
+  source: text('source').notNull(),
+  sourceCheckedOn: date('source_checked_on', { mode: 'string' }),
+  status: text('status', { enum: GUIDE_STATUSES }).notNull().default('draft'),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });

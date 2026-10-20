@@ -50,7 +50,7 @@
 |---|---|
 | סטטוס | מאושר — חובה ל-v1 |
 | Actor | Regular User / System |
-| תיאור | המערכת תעדיף Tips/Articles המתאימים ל-Stage ול-Context; Tracker Data יכול להשפיע רק על הכוונה כללית, לא-אבחונית ולא-מסחרית. |
+| תיאור | המערכת תעדיף Tips/Articles המתאימים ל-Stage ול-Context. ה-Stage של הורה נגזר מהמסלולים שלו: שבוע ההריון (לפי תאריך הלידה המשוער), גיל כל ילד או ילדה, או תכנון הריון; מדריך מוצג כשהשבוע או הגיל בטווח שלו.  Tracker Data יכול להשפיע רק על הכוונה כללית, לא-אבחונית ולא-מסחרית. |
 | תנאים מוקדמים | קיים Regular Context; Tracker Signal אופציונלי. |
 | קלט / Trigger | Stage, Content Stage/Topic Metadata, Tracker category/summary מאושר, explicit search/interest. |
 | תהליך מערכת | סינון לתוכן בטוח/מאושר → Stage/Topic scoring → quality/freshness/diversity. אין inference רפואי ואין Paid Targeting. |
