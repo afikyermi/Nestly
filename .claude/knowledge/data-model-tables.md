@@ -18,6 +18,7 @@ does not instruct loading every link. Column sections and rule matrices are both
 | profile_view consumers | Cross-user profile read plus the affected input/output table sections above |
 | staff_roles, moderator_permissions, audit_log, report_reasons, user_enforcements | Safety and admin core |
 | user_blocks | Blocking a user (I4); Friendships and regular names; Notifications and People Search |
+| recovery_lock_releases | Recovery lock release (I4); Columns: recovery_throttles |
 
 | tracker_events, cycle_entries, status_guides | Trackers, cycle and status guides (I6); children for the child FK |
 | Schema changes | Migration and rollback map; New entity template; affected consumer/cleanup order |
@@ -129,6 +130,9 @@ own `regular_profiles` row FOR NO KEY UPDATE. No DELETE on `friendships` or `reg
 | `recovery_throttles.long_failures` | smallint · not null · 0 | failures in the 24-hour window. CHECK ≥ 0, and 0 for an IP |
 | `recovery_throttles.locked_until` | timestamptz · null | while later than `now()`, every attempt on the subject is answered 429. A limited attempt changes no counter |
 | `recovery_throttles.limited_noted_until` | timestamptz · null | the `locked_until` for which a limited event was already written: one limited event per subject per lock |
+| `recovery_throttles.ladder_failures` | smallint · not null · 0 | NFR-SEC-010 ladder, handles only: failures since the last success or release (3rd → 1 h, 6th → 24 h, 9th → permanent). CHECK: 0 for an IP |
+| `recovery_throttles.ladder_started_at` | timestamptz · null | when the ladder count last restarted (success or applied release); a later release resets it at the next attempt |
+| `recovery_throttles.is_locked_permanently` | boolean · not null · false | set at the 9th failure; cleared only through a release by the Admin (FR-ADMIN-013). Handles only |
 
 ## Columns: recovery_events
 
@@ -486,6 +490,18 @@ admin screens; `regular_names_select_blocker` lets the blocker read the names of
 request and no accept across a block. `user_blocks_select_scoped` (`TO app_owner`) opens the caller's own pairs only inside a notification, search or
 profile-view scope; `notify_deliver()` skips a notification across a block. No SECURITY DEFINER. Cleanup: user_blocks before friendships.
 Retention: hard delete on unblock; cascades with either account.
+
+## Recovery lock release (I4)
+
+`20261021300000_recovery_lock_ladder.sql` (NFR-SEC-010, FR-ADMIN-013, AC-113, AC-126).
+
+| Table | Columns and meaning | Authorization |
+|---|---|---|
+| `recovery_lock_releases` | id, user_id (whose lock), released_by (default auth.uid()), reason (optional, ≤ 1000), released_at; both FKs to users ON DELETE CASCADE; index (user_id, released_at desc) | RLS + FORCE; INSERT a holder of RECOVERY_LOCK_RELEASE (the Admin) in its own name, never for itself (grant on user_id, reason); SELECT that key; `app_recovery` reads user_id and released_at of the declared handle's account only; no UPDATE or DELETE; `audit_trigger()` appends `recovery_lock_released` |
+
+The server applies a release at the next attempt (as `app_recovery`): a release later than `ladder_started_at` zeroes the ladder and lifts the lock.
+A release signs nobody in and changes no password. `authenticated` still holds nothing on recovery_throttles or recovery_events. Cleanup:
+recovery_lock_releases (of or by the user) before users. Retention: kept with the account; the audit entry stays in audit_log.
 
 ## New entity template
 
