@@ -45,8 +45,9 @@ select set_eq(
             ('tracker_events.tracker_events_update_own.w'), ('tracker_events.tracker_events_delete_own.d'),
             ('cycle_entries.cycle_entries_select_own.r'), ('cycle_entries.cycle_entries_insert_own.a'),
             ('cycle_entries.cycle_entries_update_own.w'), ('cycle_entries.cycle_entries_delete_own.d'),
-            ('status_guides.status_guides_select_published.r') $$,
-  '[I6 layer 9] the policies are exactly these nine: the owner for events and cycle, published rows for guides, nothing for admin or any other role');
+            ('status_guides.status_guides_select_published.r'), ('status_guides.status_guides_select_admin.r'),
+            ('status_guides.status_guides_insert_admin.a'), ('status_guides.status_guides_update_admin.w') $$,
+  '[I6 layer 9] the policies are exactly these twelve: the owner for events and cycle, published rows for users and the Admin''s own for guides (file 87)');
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol
@@ -79,11 +80,18 @@ select set_eq(
         and has_column_privilege('authenticated', a.attrelid, a.attnum, 'INSERT') $$,
   $$ values ('start_date'), ('cycle_length_days') $$,
   '[I6 rules 12 13] authenticated can INSERT exactly start_date and cycle_length_days');
-select is(
-  (select count(*) from pg_catalog.pg_attribute a
-    where a.attrelid = pg_temp.rel('status_guides') and a.attnum > 0 and not a.attisdropped
-      and (has_column_privilege('authenticated', a.attrelid, a.attnum, 'INSERT') or has_column_privilege('authenticated', a.attrelid, a.attnum, 'UPDATE'))),
-  0::bigint, '[I6 AC-095] authenticated cannot write any column of status_guides');
+select set_eq(
+  $$ select a.attname::text from pg_catalog.pg_attribute a
+      where a.attrelid = pg_temp.rel('status_guides') and a.attnum > 0 and not a.attisdropped
+        and has_column_privilege('authenticated', a.attrelid, a.attnum, 'INSERT') $$,
+  $$ values ('stage_kind'), ('range_from'), ('range_to'), ('title'), ('body'), ('source'), ('source_checked_on') $$,
+  '[I6 AC-095] authenticated can INSERT exactly the content columns of status_guides (never status or published_at: a new guide is a draft)');
+select set_eq(
+  $$ select a.attname::text from pg_catalog.pg_attribute a
+      where a.attrelid = pg_temp.rel('status_guides') and a.attnum > 0 and not a.attisdropped
+        and has_column_privilege('authenticated', a.attrelid, a.attnum, 'UPDATE') $$,
+  $$ values ('stage_kind'), ('range_from'), ('range_to'), ('title'), ('body'), ('source'), ('source_checked_on'), ('status') $$,
+  '[I6 AC-095] authenticated can UPDATE the content columns and status, never published_at (the database stamps it)');
 select is(has_table_privilege('authenticated', pg_temp.rel('status_guides'), 'DELETE'), false, '[I6 AC-095] authenticated cannot delete a guide');
 select is(
   (select count(*) from (values ('tracker_events'), ('cycle_entries'), ('status_guides')) t(n)
@@ -225,7 +233,7 @@ select tests.set_status(pg_temp.id('b'), 'suspended');
 select is(tests.n_as(pg_temp.id('b'), 'nestly.status_guides'), '0', '[I6 rule 15] a suspended account reads none');
 select tests.set_status(pg_temp.id('b'), 'active');
 select is(tests.as_role('anon', '', 'select count(*)::text from nestly.status_guides'), 'ERR:42501', '[I6 rule 7] anon is refused (42501)');
-select is(pg_temp.dml('a', $$ update nestly.status_guides set title = 'x' $$), 'ERR:42501', '[I6 AC-095] a user cannot edit a guide (42501)');
+select is(pg_temp.dml('a', $$ update nestly.status_guides set title = 'x' $$), 'OK:0', '[I6 AC-095] a user edits no guide (0 rows)');
 select is(pg_temp.dml('a', $$ insert into nestly.status_guides (stage_kind, title, body, source) values ('planning', 'x', 'y', 'z') $$), 'ERR:42501', '[I6 AC-095] a user cannot add a guide (42501)');
 select is(tests.fx_sg_exec(format($q$ update nestly.status_guides set status = 'hidden' where id = %L $q$, tests.fx_sg_id('planning'))), 'OK:1', '[I6 AC-095] a guide is hidden');
 select is(tests.n_as(pg_temp.id('a'), 'nestly.status_guides'), '0', '[I6 AC-095] and no user reads it');

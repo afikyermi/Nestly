@@ -5,7 +5,7 @@
 -- Run as:   app_owner, in one transaction. CI runs it once per build (up -> down -> up) against the disposable database.
 --           Against nestly-preview or nestly-prod it is a destructive change: Afik only (CLAUDE.md hard rule 7).
 -- Safe:     only while no release and no permanent lock exists (refuses otherwise): dropping the ladder would lift locks.
--- Restores: audit_trigger() without the release branch; the table, its trigger and the ladder columns go; the history row is deleted.
+-- Restores: audit_trigger() as I6 left it (20261021100000), without the release branch; the table, its trigger and the ladder columns go; the history row is deleted.
 -- =====================================================================================================================
 
 begin;
@@ -93,6 +93,21 @@ begin
     v_after := pg_catalog.jsonb_build_object('kind', v_new ->> 'kind', 'durationHours', v_new -> 'duration_hours', 'suspendedUntil', v_new -> 'suspended_until',
       'suggestedKind', v_new ->> 'suggested_kind', 'suggestedHours', v_new -> 'suggested_hours', 'stepSkipped', v_new -> 'is_step_skipped',
       'childSafety', v_new -> 'is_child_safety', 'reportId', v_new -> 'report_id');
+  elsif tg_table_name = 'status_guides' then
+    -- FR-ADMIN-012: an Admin-only action (no assignable Permission Key applies). Before/After carry what the guide is, not its text.
+    v_action := case
+      when tg_op = 'INSERT' then 'guide_created'
+      when v_new ->> 'status' is distinct from v_old ->> 'status' then case v_new ->> 'status'
+        when 'published' then 'guide_published' when 'hidden' then 'guide_hidden' else 'guide_unpublished' end
+      else 'guide_edited' end;
+    v_kind := 'guide';
+    v_target := (v_new ->> 'id')::uuid;
+    v_before := case when tg_op = 'UPDATE' then pg_catalog.jsonb_build_object('status', v_old ->> 'status', 'title', v_old ->> 'title',
+      'stageKind', v_old ->> 'stage_kind', 'rangeFrom', v_old -> 'range_from', 'rangeTo', v_old -> 'range_to',
+      'sourceCheckedOn', v_old ->> 'source_checked_on', 'bodyChars', pg_catalog.char_length(v_old ->> 'body')) end;
+    v_after := pg_catalog.jsonb_build_object('status', v_new ->> 'status', 'title', v_new ->> 'title', 'stageKind', v_new ->> 'stage_kind',
+      'rangeFrom', v_new -> 'range_from', 'rangeTo', v_new -> 'range_to', 'sourceCheckedOn', v_new ->> 'source_checked_on',
+      'bodyChars', pg_catalog.char_length(v_new ->> 'body'), 'bodyChanged', tg_op = 'UPDATE' and v_new ->> 'body' is distinct from v_old ->> 'body');
   else
     raise exception 'audit_trigger: not attached to %', tg_table_name;
   end if;
@@ -103,7 +118,7 @@ end
 $$;
 
 revoke execute on function nestly.audit_trigger() from public;
-comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move or an enforcement: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
+comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement or an Admin''s creation, edit, publication or hiding of a status guide: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
 
 alter table nestly.recovery_throttles drop constraint recovery_throttles_ladder_check;
 alter table nestly.recovery_throttles
