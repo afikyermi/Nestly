@@ -87,11 +87,12 @@ function fakeDb(over: Partial<JobDb> = {}) {
       return Promise.resolve();
     },
     trainable: () => Promise.resolve([]),
-    addSample: async (image, copy) => {
+    addSample: async (image, _months, copy) => {
       const ok = await copy(`sample-of-${image.id}`);
       calls.push(`sample:${ok ? 'kept' : 'rolled-back'}:${image.id}`);
       return ok;
     },
+    removeRejectedFiles: () => Promise.resolve(0),
     purgeImages: async (_bound, remove) => {
       const ids: string[] = [];
       return ids.length === 0 || (await remove(ids)) ? ids.length : 0;
@@ -140,7 +141,7 @@ const deps = (db: JobDb, storage: JobStorage, m: () => Promise<ImageModel>): Med
   db,
   storage,
   model: m,
-  config: { blockThreshold: 0.6, lowThreshold: 0.25, maxAttempts: 3 },
+  config: { blockThreshold: 0.6, lowThreshold: 0.25, maxAttempts: 3, trainingRetentionMonths: 6 },
   timeLeft: () => 60_000,
 });
 
@@ -162,8 +163,8 @@ describe('[AC-105 BR-077 Afik 20.10] one run of the job', () => {
     expect(calls).toEqual([`failed:stay:${ID(1)}`]);
   });
 
-  it('[Afik 20.10] copies a decided blocked image into the training bucket under the index row\'s id; a failed copy keeps no row', async () => {
-    const image = { id: ID(7), mime: 'image/webp', status: 'rejected' as const, queue_reason: 'blocked' as const, decided_at: '2026-10-20 10:00:00.123456+00' };
+  it('[Afik 20.10] copies a decided blocked image (a child\'s too) into the training bucket under the index row\'s id; a failed copy keeps no row', async () => {
+    const image = { id: ID(7), mime: 'image/webp', label: 'blocked' as const, source: 'blocked' as const, is_child: true, decided_at: '2026-10-20 10:00:00.123456+00' };
     const { db, calls } = fakeDb({ trainable: () => Promise.resolve([image]) });
     const store = fakeJobStorage();
     expect((await runMediaJob(deps(db, store.storage, model({})))).trained).toBe(1);
@@ -182,5 +183,31 @@ describe('[AC-105 BR-077 Afik 20.10] one run of the job', () => {
     expect(store.removed).toEqual([ID(8), ID(9)]);
     const broken = fakeJobStorage({ removeImages: () => Promise.resolve('failed') });
     expect((await runMediaJob(deps(fakeDb({ purgeImages: async (_b, remove) => ((await remove([ID(8)])) ? 1 : 0) }).db, broken.storage, model({})))).purged).toBe(0);
+  });
+});
+
+describe('[Afik 20.10] a rejected image\'s file and the retention', () => {
+  it('removes the rejected files the policy releases, after the training copies, and keeps them when removal fails', async () => {
+    const order: string[] = [];
+    const release = (ok: boolean): JobDb['removeRejectedFiles'] => async (remove) => {
+      order.push('release');
+      return (await remove([ID(30)])) && ok ? 1 : 0;
+    };
+    const store = fakeJobStorage();
+    const { db } = fakeDb({
+      trainable: () => {
+        order.push('train');
+        return Promise.resolve([]);
+      },
+      removeRejectedFiles: release(true),
+    });
+    expect((await runMediaJob(deps(db, store.storage, model({})))).filesRemoved).toBe(1);
+    expect(order).toEqual(['train', 'release']);
+    expect(store.removed).toContain(ID(30));
+  });
+  it('a sample is kept 6 months unless configured otherwise (1 to 24)', () => {
+    expect(readJobsConfig({}).trainingRetentionMonths).toBe(6);
+    expect(readJobsConfig({ MEDIA_TRAINING_RETENTION_MONTHS: '12' }).trainingRetentionMonths).toBe(12);
+    expect(readJobsConfig({ MEDIA_TRAINING_RETENTION_MONTHS: '30' }).trainingRetentionMonths).toBe(6);
   });
 });

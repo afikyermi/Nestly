@@ -5,7 +5,7 @@ import { MediaTile } from '@/components/shared/media-tile';
 import { Button } from '@/components/ui/button';
 import { CloseIcon, PlusIcon } from '@/components/ui/icons';
 import { ADD_IMAGE_LABEL, imageAlt, REMOVE_IMAGE_LABEL, UPLOADING_TEXT } from '@/lib/media-texts';
-import type { PickedImage } from './use-post-images';
+import type { PickedImage } from '@/hooks/use-picked-images';
 
 export interface PostImagesPickerProps {
   items: readonly PickedImage[];

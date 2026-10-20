@@ -10,7 +10,7 @@ import { checkPostForm, type PostFormErrors, type PostFormValues } from './post-
 import { failureText, refusedErrors } from './post-outcome';
 import { PostForm, type PostFormFocus } from './PostForm';
 import { PostImagesPicker } from './PostImagesPicker';
-import { usePickedImages } from './use-post-images';
+import { usePickedImages } from '@/hooks/use-picked-images';
 import { PUBLISH_FAILED_TEXT } from './posts-texts';
 
 interface ComposerProps {

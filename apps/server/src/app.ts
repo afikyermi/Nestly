@@ -127,7 +127,7 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerMediaRoutes(app, { database, media });
   registerProfileViewRoute(app, { database, storage: media.storage });
   registerStoriesRoutes(app, { database, storage: media.storage });
-  registerMediaQueueRoutes(app, { database, storage: media.storage });
+  registerMediaQueueRoutes(app, { database, storage: media.storage, kick: media.kick });
   registerCommentsRoutes(app, { database });
   registerLikesRoutes(app, { database });
   registerPostHidesRoutes(app, { database });

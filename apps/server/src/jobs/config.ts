@@ -2,7 +2,8 @@
 // the job (src/jobs/, api/jobs.ts): the request server never reads these names (tests/credentials.static.test.ts).
 //   APP_JOBS_DATABASE_URL   the app_jobs role's connection string (data-model rule 6): NOBYPASSRLS; every reach is a TO app_jobs policy.
 //   CRON_SECRET             the job's bearer secret: Vercel cron sends it, and so does the upload route's call (media/job-kick.ts).
-//   MEDIA_CHECK_BLOCK_THRESHOLD, MEDIA_CHECK_LOW_THRESHOLD, MEDIA_CHECK_MAX_ATTEMPTS   optional; defaults in @nestly/shared.
+//   MEDIA_CHECK_BLOCK_THRESHOLD, MEDIA_CHECK_LOW_THRESHOLD, MEDIA_CHECK_MAX_ATTEMPTS, MEDIA_TRAINING_RETENTION_MONTHS   optional; defaults in
+//   @nestly/shared (retention 6 months, Afik 20.10.2026).
 
 import { MEDIA_CHECK_DEFAULTS } from '@nestly/shared';
 
@@ -14,6 +15,8 @@ export interface JobsConfig {
   readonly blockThreshold: number;
   readonly lowThreshold: number;
   readonly maxAttempts: number;
+  /** Afik 20.10.2026: how long a training sample is kept (months, 1 to 24; default 6). */
+  readonly trainingRetentionMonths: number;
 }
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -40,5 +43,6 @@ export function readJobsConfig(env: Env = process.env): JobsConfig {
     blockThreshold,
     lowThreshold,
     maxAttempts: Math.round(numberIn(env['MEDIA_CHECK_MAX_ATTEMPTS'], 1, 20, MEDIA_CHECK_DEFAULTS.maxAttempts)),
+    trainingRetentionMonths: Math.round(numberIn(env['MEDIA_TRAINING_RETENTION_MONTHS'], 1, 24, MEDIA_CHECK_DEFAULTS.trainingRetentionMonths)),
   };
 }

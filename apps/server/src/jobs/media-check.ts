@@ -2,8 +2,10 @@
 // app_jobs role (media-job-repository.ts; data-model rule 6). One run, inside a time budget:
 //   1. check   pending images, oldest first: the model's scores against the thresholds -> passed, or queued (blocked / unsure). A failed
 //              check counts an attempt and the image stays pending (fail closed); at the limit it goes to the queue as "error".
-//   2. train   copy each image the model blocked or was unsure about, once staff approved or rejected it, into the training bucket with its
-//              index row in one transaction (the insert policy refuses an image marked with a child or a suspected one).
+//   2. train   copy into the training bucket, with its index row in one transaction: each image the model blocked or was unsure about once
+//              staff decided it (children included), and each passed image whose post was removed after a report; never a suspected one
+//              (the insert policy). Samples expire after the configured months (6 by default).
+//   2b. remove a rejected image's file, once its copy exists (its row stays 30 days for the uploader's message).
 //   3. purge   delete what BR-077 deletes (the delete policy names it): expired Stories, suspected images after 90 days, rejected after 30,
 //              unattached or replaced images after a day; files and rows go together (a failed removal keeps the rows for the next run).
 //   4. expire  training samples past their expiry, files included.
@@ -20,7 +22,7 @@ export interface MediaJobDependencies {
   readonly db: JobDb;
   readonly storage: JobStorage;
   readonly model: () => Promise<ImageModel>;
-  readonly config: Pick<JobsConfig, 'blockThreshold' | 'lowThreshold' | 'maxAttempts'>;
+  readonly config: Pick<JobsConfig, 'blockThreshold' | 'lowThreshold' | 'maxAttempts' | 'trainingRetentionMonths'>;
   /** Milliseconds left in this run; the job stops starting new work below a margin. */
   readonly timeLeft: () => number;
 }
@@ -31,6 +33,7 @@ export interface MediaJobReport {
   queued: number;
   failed: number;
   trained: number;
+  filesRemoved: number;
   purged: number;
   expired: number;
   swept: number;
@@ -75,7 +78,7 @@ async function checkPending(deps: MediaJobDependencies, report: MediaJobReport):
 async function copyTrainingSamples(deps: MediaJobDependencies, report: MediaJobReport): Promise<void> {
   for (const image of await deps.db.trainable(TRAIN_BATCH)) {
     if (deps.timeLeft() < MARGIN_MS) return;
-    const copied = await deps.db.addSample(image, async (sampleId) => {
+    const copied = await deps.db.addSample(image, deps.config.trainingRetentionMonths, async (sampleId) => {
       const bytes = await deps.storage.readImage(image.id);
       return bytes !== undefined && (await deps.storage.writeTrainingSample(sampleId, bytes, image.mime)) === 'ok';
     });
@@ -92,10 +95,12 @@ async function sweepOrphans(deps: MediaJobDependencies, report: MediaJobReport):
 }
 
 export async function runMediaJob(deps: MediaJobDependencies): Promise<MediaJobReport> {
-  const report: MediaJobReport = { checked: 0, passed: 0, queued: 0, failed: 0, trained: 0, purged: 0, expired: 0, swept: 0 };
+  const report: MediaJobReport = { checked: 0, passed: 0, queued: 0, failed: 0, trained: 0, filesRemoved: 0, purged: 0, expired: 0, swept: 0 };
   const more = (): boolean => deps.timeLeft() > MARGIN_MS;
   await checkPending(deps, report);
   if (more()) await copyTrainingSamples(deps, report);
+  // a rejected image's file goes at once, after its training copy (the update policy refuses it before)
+  if (more()) report.filesRemoved = await deps.db.removeRejectedFiles(async (ids) => (await deps.storage.removeImages(ids)) === 'ok');
   if (more()) report.purged = await deps.db.purgeImages(PURGE_BOUND, async (ids) => (await deps.storage.removeImages(ids)) === 'ok');
   if (more()) report.expired = await deps.db.expireSamples(async (ids) => (await deps.storage.removeTrainingSamples(ids)) === 'ok');
   if (more()) await sweepOrphans(deps, report);

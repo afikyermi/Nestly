@@ -10,9 +10,10 @@ const pendingRow = z.object({ id: z.guid(), check_attempts: z.number().int() });
 const trainRow = z.object({
   id: z.guid(),
   mime: z.string(),
-  status: z.enum(['approved', 'rejected']),
-  queue_reason: z.enum(['blocked', 'unsure']),
-  decided_at: z.string(),
+  label: z.enum(['blocked', 'allowed']),
+  source: z.enum(['blocked', 'unsure', 'reported']),
+  is_child: z.boolean(),
+  decided_at: z.string().nullable(),
 });
 
 export type TrainableImage = z.infer<typeof trainRow>;
@@ -22,9 +23,12 @@ export interface JobDb {
   markPassed(id: string, scores: Record<string, number>): Promise<void>;
   markQueued(id: string, reason: 'blocked' | 'unsure', scores: Record<string, number>): Promise<void>;
   markFailed(id: string, exhausted: boolean): Promise<void>;
+  /** Images to copy into the training set (Afik 20.10.2026): decided blocked or unsure ones (children included), and passed ones whose post was removed after a report. */
   trainable(limit: number): Promise<TrainableImage[]>;
-  /** Inserts the sample's index row and runs `copy` with its id in the same transaction; a false or throwing copy rolls the row back. */
-  addSample(image: TrainableImage, copy: (sampleId: string) => Promise<boolean>): Promise<boolean>;
+  /** Inserts the sample's index row (expiring after `months`) and runs `copy` with its id in the same transaction; a false or throwing copy rolls it back. */
+  addSample(image: TrainableImage, months: number, copy: (sampleId: string) => Promise<boolean>): Promise<boolean>;
+  /** Marks the rejected images whose file may go now (the policy: after their training copy) and runs `remove` in the same transaction. */
+  removeRejectedFiles(remove: (ids: string[]) => Promise<boolean>): Promise<number>;
   /** Deletes the image rows the delete policy names (bounded) and runs `remove` with their ids in the same transaction. */
   purgeImages(bound: number, remove: (ids: string[]) => Promise<boolean>): Promise<number>;
   expireSamples(remove: (ids: string[]) => Promise<boolean>): Promise<number>;
@@ -54,25 +58,45 @@ export function createJobDb(sql: Sql): JobDb {
     },
     async trainable(limit) {
       return z.array(trainRow).parse(await sql`
-        select m.id, m.mime, m.status, m.queue_reason, m.decided_at::text as decided_at
+        select m.id, m.mime, case when m.status = 'rejected' then 'blocked' else 'allowed' end as label, m.queue_reason as source,
+               m.is_child, m.decided_at::text as decided_at
         from nestly.media_assets m
-        where m.status in ('approved', 'rejected') and not m.is_child and m.queue_reason in ('blocked', 'unsure')
+        where m.status in ('approved', 'rejected') and m.queue_reason in ('blocked', 'unsure')
           and not exists (select 1 from nestly.media_training_samples t where t.source_media_id = m.id)
-        order by m.decided_at asc, m.id asc
+        union all
+        select m.id, m.mime, 'blocked', 'reported', m.is_child, null
+        from nestly.media_assets m join nestly.posts p on p.id = m.post_id
+        where m.status in ('passed', 'approved') and p.status = 'removed'
+          and not exists (select 1 from nestly.media_training_samples t where t.source_media_id = m.id)
         limit ${limit}`);
     },
-    async addSample(image, copy) {
+    async addSample(image, months, copy) {
       try {
         await sql.begin(async (tx) => {
           const [sample] = z.array(idRow).length(1).parse(await tx`
-            insert into nestly.media_training_samples (source_media_id, label, queue_reason, mime, decided_at)
-            values (${image.id}, ${image.status === 'rejected' ? 'blocked' : 'allowed'}, ${image.queue_reason}, ${image.mime}, ${image.decided_at}::timestamptz)
+            insert into nestly.media_training_samples (source_media_id, label, source, is_child, mime, decided_at, expires_at)
+            values (${image.id}, ${image.label}, ${image.source}, ${image.is_child}, ${image.mime}, ${image.decided_at}::timestamptz,
+                    now() + make_interval(months => ${months}::int))
             returning id`);
           if (sample === undefined || !(await copy(sample.id))) throw new RolledBack();
         });
         return true;
       } catch {
         return false;
+      }
+    },
+    async removeRejectedFiles(remove) {
+      try {
+        return await sql.begin(async (tx) => {
+          const ids = z
+            .array(idRow)
+            .parse(await tx`update nestly.media_assets set is_file_removed = true where status = 'rejected' and not is_file_removed returning id`)
+            .map((row) => row.id);
+          if (ids.length > 0 && !(await remove(ids))) throw new RolledBack();
+          return ids.length;
+        });
+      } catch {
+        return 0;
       }
     },
     async purgeImages(bound, remove) {

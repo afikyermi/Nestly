@@ -10,6 +10,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { Database } from '../db/client.js';
 import { isTransientFailure, readDatabaseFault } from '../lib/pg-error.js';
+import type { JobKick } from '../media/job-kick.js';
 import type { MediaStorage } from '../media/storage-admin.js';
 import { replySessionRefused } from '../plugins/authentication.js';
 import { decideQueuedImage, readMediaQueue } from '../services/media-queue-service.js';
@@ -17,6 +18,8 @@ import { decideQueuedImage, readMediaQueue } from '../services/media-queue-servi
 export interface MediaQueueRouteDependencies {
   readonly database: Database | undefined;
   readonly storage: MediaStorage;
+  /** Asks the background job to run now: a rejected image's file goes at once, after its training copy (Afik 20.10.2026). */
+  readonly kick: JobKick;
 }
 
 function replyFailure(request: FastifyRequest, reply: FastifyReply, error: unknown, line: string): FastifyReply {
@@ -59,7 +62,9 @@ export function registerMediaQueueRoutes(app: FastifyInstance, deps: MediaQueueR
       if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
       try {
         const outcome = await decideQueuedImage(deps.database, identity, id.data.toLowerCase(), body.data.decision, body.data.isChild);
-        return outcome.kind === 'decided' ? reply.code(200).send({}) : reply.code(404).send({ error: 'not_found' });
+        if (outcome.kind !== 'decided') return reply.code(404).send({ error: 'not_found' });
+        await deps.kick();
+        return reply.code(200).send({});
       } catch (error) {
         return replyFailure(request, reply, error, 'media decision failed');
       }
