@@ -13,11 +13,13 @@ import { GoogleReturnPage } from '@/pages/google-return/GoogleReturnPage';
 import { GuestPlaceholderPage } from '@/pages/placeholder/GuestPlaceholderPage';
 import { LoginPage } from '@/pages/login/LoginPage';
 import { MedicalHotlinesPage } from '@/pages/medical-hotlines/MedicalHotlinesPage';
+import { NotificationsPage } from '@/pages/notifications/NotificationsPage';
 import { PostPage } from '@/pages/post/PostPage';
 import { ProfilePage } from '@/pages/profile/ProfilePage';
 import { RecoveryPage } from '@/pages/recovery/RecoveryPage';
 import { RecoveryQuestionsPage } from '@/pages/recovery-questions/RecoveryQuestionsPage';
 import { RegisterPage } from '@/pages/register/RegisterPage';
+import { SearchPage } from '@/pages/search/SearchPage';
 import { SetNewPasswordPage } from '@/pages/set-new-password/SetNewPasswordPage';
 import { SettingsPage } from '@/pages/settings/SettingsPage';
 import { TrackerPage } from '@/pages/tracker/TrackerPage';
@@ -53,6 +55,8 @@ export function AppRoutes() {
             <Route path={PATHS.profile} element={<ProfilePage />} />
             <Route path={PATHS.settings} element={<SettingsPage />} />
             <Route path={PATHS.friends} element={<FriendsPage />} />
+            <Route path={PATHS.notifications} element={<NotificationsPage />} />
+            <Route path={PATHS.search} element={<SearchPage />} />
             <Route path={PATHS.userProfile} element={<UserProfilePage />} />
             <Route path={PATHS.recoveryQuestions} element={<RecoveryQuestionsPage />} />
             <Route path={PATHS.changePassword} element={<ChangePasswordPage />} />

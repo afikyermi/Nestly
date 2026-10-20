@@ -16,7 +16,8 @@ const SIZES = [
   { label: 'phone', viewport: PHONE },
   { label: 'desktop', viewport: DESKTOP_1280 },
 ] as const;
-const SECTIONS = ['חשבון', 'פרטיות ואבטחה', 'תנאים ופרטיות'] as const;
+// FR-NOTIF-002: the notifications section sits between privacy and terms (AC-033 era: the notifications feature is built).
+const SECTIONS = ['חשבון', 'פרטיות ואבטחה', 'התראות', 'תנאים ופרטיות'] as const;
 const DRAWER = 'תפריט';
 const PRIVACY_LOAD_FAILED = 'לא הצלחנו לטעון את הגדרות הפרטיות. אפשר לנסות שוב';
 const PASSWORD = 'Zq-7-unique-pw-marker-91';
@@ -118,7 +119,7 @@ const inViewport = (el: Locator) =>
 
 // ---------------------------------------------------------------------------------------------------------------------
 test.describe('F2.5 c2 [FR-SET-001 FR-MENU-001] each menu section opens Settings at that section', () => {
-  test('[F2.5 c2] each of the three items closes the drawer, shows /settings with the h2 visible and focused, at its own address', async ({ page }) => {
+  test('[F2.5 c2] each of the four items closes the drawer, shows /settings with the h2 visible and focused, at its own address', async ({ page }) => {
     await signedInAtFeed(page);
     const addresses: string[] = [];
     for (const name of SECTIONS) {
@@ -129,7 +130,7 @@ test.describe('F2.5 c2 [FR-SET-001 FR-MENU-001] each menu section opens Settings
       await expect(h2(page, name)).toBeFocused();
       addresses.push(page.url());
     }
-    expect(new Set(addresses).size, `three different addresses: ${addresses.join(' ')}`).toBe(3);
+    expect(new Set(addresses).size, `four different addresses: ${addresses.join(' ')}`).toBe(SECTIONS.length);
   });
 
   test('[F2.5 c2] reloading a section address shows the same section; back returns to the previous screen', async ({ page }) => {
@@ -153,7 +154,7 @@ test.describe('F2.5 c2 [FR-SET-001 FR-MENU-001] each menu section opens Settings
     await page.goto(odd);
     await expect(page.getByRole('heading', { level: 1, name: 'הגדרות', exact: true })).toBeVisible();
     expect(pathOf(page)).toBe('/settings');
-    await expect(page.getByRole('heading', { level: 2 })).toHaveCount(3);
+    await expect(page.getByRole('heading', { level: 2 })).toHaveCount(SECTIONS.length);
     expect(await inViewport(page.getByRole('heading', { level: 1 })), 'the top of the page').toBe(true);
     expect(await main(page).innerText()).not.toMatch(/שגיאה|לא נמצא|404/);
   });
@@ -259,8 +260,6 @@ test.describe('F2.5 c5 [A9 DR-1 U1] no account deletion, no Notification Setting
     await expect(page.getByRole('heading', { level: 1, name: 'הגדרות', exact: true })).toBeVisible();
     expect(await main(page).innerText()).not.toMatch(/מחיקת חשבון|מחיקה/);
     expect(await page.content()).not.toMatch(/מחיקת חשבון|מחיקה/);
-    expect(await page.getByRole('heading').allInnerTexts()).not.toContain('הגדרות התראות');
-    for (const t of await page.getByRole('heading').allInnerTexts()) expect(t, 'no notifications heading').not.toMatch(/התראות/);
     for (const control of await main(page).getByRole('button').all()) expect(await control.innerText()).not.toMatch(/מחיקה|מחק/);
     expect(net.calls.filter((c) => c.startsWith('DELETE'))).toEqual([]);
   });
@@ -312,7 +311,7 @@ test.describe('F2.5 c6 [FR-AUTH-004 ERR-012] the route guard, in the browser', (
 
 // ---------------------------------------------------------------------------------------------------------------------
 test.describe('F2.5 c8 [A9 FR-AUTH-004] Settings makes no request of its own', () => {
-  test('[F2.5 c8 FR-REL-002] opening Settings and visiting every section sends only the privacy GET and the blocked list GET', async ({ page }) => {
+  test('[F2.5 c8 FR-NOTIF-002 FR-REL-002] opening Settings and visiting every section sends only the privacy, notification-preferences and blocked list GETs', async ({ page }) => {
     const net = await signedInAtFeed(page);
     await page.waitForTimeout(300);
     net.calls.length = 0;
@@ -321,7 +320,8 @@ test.describe('F2.5 c8 [A9 FR-AUTH-004] Settings makes no request of its own', (
       await expect(h2(page, name)).toBeFocused();
     }
     await page.waitForTimeout(500);
-    expect([...new Set(net.calls)].sort()).toEqual(['GET /api/blocks', 'GET /api/privacy']);
+    // the privacy, notification-preferences and blocked-list sections each read their own data; the bell's poll may also run
+    expect([...new Set(net.calls)].filter((c) => c !== 'GET /api/notifications').sort()).toEqual(['GET /api/blocks', 'GET /api/notification-preferences', 'GET /api/privacy']);
   });
 
   test('[F2.5 c8 ERR-037] a suspended or banned account never renders Settings: the same screen as /profile, no privacy GET', async ({ page }) => {

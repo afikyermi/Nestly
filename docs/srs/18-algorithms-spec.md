@@ -20,6 +20,7 @@
 | משתמש / Signal | מקורות | שימוש |
 |---|---|---|
 | Regular — Explicit | Search, Follow Professional, Join Group, Save, Like/Reaction, Comment/Reply, Friend/Group actions, Not Interested | Organic Ranking + current intent |
+| Regular — Search Intent (החלטת אפיק מ-20.10.2026) | מכל חיפוש: הנושא או קטגוריית המוצר שזוהו בכללים קבועים (מילים לנושא, ללא ML), מזהה המשתמש והתאריך — לעולם לא הטקסט. נמחק אחרי 30 יום | Intent scoring לפוסטים, למודעות Marketplace וליועצים, אורגניים וממומנים, עם דעיכה בזמן; בלי ניתוח Admin; Sponsored Eligibility ללא שינוי |
 | Regular — Implicit | Impression, Open, Dwell, profile/product/article open, sequence of topic consumption | Interest/Intent scoring; Dwell אינו Signal יחיד |
 | Regular — Context | Stage/JourneyContext; Tracker category/summary only for approved contextual guidance | Organic only; no paid targeting from Child/Tracker |
 | Regular — Social | Friends, joined Groups, followed Professionals | Social relevance/candidate generation |
@@ -74,7 +75,7 @@
 |---|---|---|
 | User Lifecycle | Registrations, onboarding completion, active users, D1/D7/D30 retention, return rate | Role, period, Profession — לפי BR-058 (גם ברמת משתמש, בלי שמות); Stage segment — רק אם מותר וב-Aggregate |
 | Feed / Recommendation | Impressions, opens, dwell, reactions/comments/saves, hide/not interested, reports, downstream profile/product/group opens | Organic/Paid, content type, surface, algorithm/config version |
-| Search | queries, zero-result rate, result CTR, top normalized queries, demand vs available results | Entity type, period; raw user query not exposed to Professionals |
+| Search | אין — טקסט החיפוש אינו נשמר, ומהחיפושים אין ניתוח של Admin (FR-ALG-008, החלטת אפיק מ-20.10.2026) | — |
 | Groups | members, active members, joins, posts/comments, report rate, join approval time | Public/Private, group; privacy preserved |
 | Professionals | active professionals, profile views, follows, organic reach/engagement, chat starts, offer-help acceptance | profession/category, organic/paid |
 | Marketplace / Products | impressions, detail opens, chats, active listings, promoted/sponsored performance | organic/promoted/sponsored, category |

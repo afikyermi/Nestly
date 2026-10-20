@@ -12,7 +12,7 @@ import { GUEST_PATHS, PROTECTED_PATHS } from '../../src/app/paths';
 
 // F1.4 part c adds three Guest placeholders (interface "part c"): recovery (F1.6) and the two consent-document links (I9).
 const GUEST = ['/', '/login', '/register', '/auth/google', '/recovery', '/terms', '/privacy', '/team/join'];
-const PROTECTED = ['/home', '/feed', '/profile', '/settings', '/recovery-questions', '/change-password', '/friends', '/posts/new', '/medical-hotlines', '/community-rules', '/admin', '/admin/reports', '/admin/users', '/admin/audit', '/admin/guides', '/admin/media', '/admin/team', '/admin/community', '/admin/announcements', '/admin/analytics'];
+const PROTECTED = ['/home', '/feed', '/profile', '/settings', '/recovery-questions', '/change-password', '/friends', '/posts/new', '/medical-hotlines', '/community-rules', '/notifications', '/search', '/admin', '/admin/reports', '/admin/users', '/admin/audit', '/admin/guides', '/admin/media', '/admin/team', '/admin/community', '/admin/announcements', '/admin/analytics'];
 const UNLISTED = [
   '/marketplace',
   '/profile/123',
@@ -43,7 +43,7 @@ describe('the route table (6, Q2)', () => {
   it('[F1.2 c6][FR-AUTH-004][F1.4 c4] the Guest allow-list is exactly the eight Guest routes (the four of F1.2 plus /recovery, /terms, /privacy, and I14 /team/join)', () => {
     expect(Array.from(GUEST_PATHS).sort()).toEqual([...GUEST].sort());
   });
-  it('[F1.2 c6][FR-AUTH-004] the protected routes are exactly the four protected placeholders plus /recovery-questions (F1.6 c17 c18), /change-password (F2.0 c15) /friends (F2.4b c13) /posts/new (F3.1b), /medical-hotlines (F3.8) /community-rules (F3.7) and the admin shell with its tabs (reports, users, audit, guides; I5 the image queue; I14 team, community, announcements, analytics)', () => {
+  it('[F1.2 c6][FR-AUTH-004] the protected routes are exactly the four protected placeholders plus /recovery-questions (F1.6 c17 c18), /change-password (F2.0 c15) /friends (F2.4b c13) /posts/new (F3.1b), /medical-hotlines (F3.8) /community-rules (F3.7) /notifications, /search and the admin shell with its tabs (reports, users, audit, guides; I5 the image queue; I14 team, community, announcements, analytics)', () => {
     expect(Array.from(PROTECTED_PATHS).sort()).toEqual([...PROTECTED].sort());
   });
   it('[F3.1b][FR-AUTH-004] one post page, /posts/<uuid>, is protected: a Guest is redirected, a signed-in user renders it', () => {
