@@ -18,7 +18,7 @@ import { comment, setupComments, top } from './support/comments-stub';
 import type { StubTop } from './support/comments-stub';
 import { originalOf, setupShare, shareView } from './support/share-stub';
 import { feedCards, feedStatus, openFeedAt, timeLinkOf } from './support/composer';
-import { DELETE_ITEM, EDIT_ITEM, POST_MORE, chooseFromPostMenu, menuItem, postMore } from './support/post-menu';
+import { DELETE_ITEM, EDIT_ITEM, POST_MORE, chooseFromPostMenu, menuItem, postMore, afterPaint } from './support/post-menu';
 
 test.use({ baseURL: APP });
 
@@ -380,6 +380,7 @@ test.describe('ux-polish-b c5 [NFR-USAB-004] a confirmation whose request is pen
     await expect(page.getByRole('alert').filter({ hasText: DELETE_FAILED })).toBeVisible();
     await expect(dialog(page)).toBeVisible();
     await expect(page.locator('[role="feed"] [aria-posinset]')).toHaveCount(3); // CSS: the page behind an open dialog is aria-hidden
+    await afterPaint(page);
     await page.goBack();
     await expect(dialog(page)).toHaveCount(0);
     expect(onFeed(page), 'the Back that cancels stays on the feed').toBe(true);
@@ -448,6 +449,7 @@ test.describe('ux-polish-b c8 [NFR-USAB-004] one press moves from one "⋯" to a
       await expect(moreCss(page, 1)).toHaveAttribute('aria-expanded', 'true');
       await expect(menu(page).getByRole('menuitem').first()).toBeFocused();
       await expect(item(page, HIDE)).toBeVisible();
+      await afterPaint(page);
       await page.goBack();
       await expect(menu(page)).toHaveCount(0);
       expect(onFeed(page), 'the Back that closes it stays on the feed').toBe(true);
@@ -488,6 +490,7 @@ test.describe('ux-polish-b c8 [NFR-USAB-004] one press moves from one "⋯" to a
       await commentBtn(page, 1).click();
       await only(commentBtn(page, 1));
       await expect(commentBtn(page, 0)).toHaveAttribute('aria-expanded', 'false');
+      await afterPaint(page);
       await page.goBack();
       await expect(menu(page)).toHaveCount(0);
       expect(pathOf(page), 'the Back that closes it stays on the post').toBe(postPath);

@@ -46,6 +46,8 @@ interface ScreenProps {
   openMenuId?: string;
   report?: { commentId: string; failure?: string };
   asAnonymousAuthor?: boolean;
+  /** False: a Professional writer, no name notice (professional-posting c12). */
+  namesWriter?: boolean;
 }
 
 function Screen(props: ScreenProps) {
@@ -76,6 +78,7 @@ function Screen(props: ScreenProps) {
           flow={flowOf(props.thread)}
           writes={{ ...writes, ...props.writes }}
           asAnonymousAuthor={props.asAnonymousAuthor ?? false}
+          namesWriter={props.namesWriter ?? true}
           menu={{ openId: props.openMenuId ?? null, onOpenChange: noop, onPressOutside: noop, onReport: noop }}
           report={report}
         />
@@ -145,3 +148,7 @@ export const OthersCommentMenu: Story = { args: { thread: { ...base, items: [fir
 export const OwnCommentMenu: Story = { args: { thread: { ...base, items: [author] }, openMenuId: author.id } };
 export const ReportOpen: Story = { args: { thread: { ...base, items: [first] }, report: { commentId: first.id } } };
 export const ReportFailed: Story = { args: { thread: { ...base, items: [first] }, report: { commentId: first.id, failure: REPORT_FAILED_TEXT } } };
+// professional-posting c12: a Professional writer: the comment and reply boxes without the name notice.
+export const ProfessionalWriter: Story = {
+  args: { thread: { ...base, items: [first] }, writes: { reply: { ...EMPTY_COMPOSER, parentId: first.id, text: '' } }, namesWriter: false },
+};

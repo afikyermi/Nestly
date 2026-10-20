@@ -23,6 +23,7 @@ const LOAD_FAILED = 'לא הצלחנו לטעון את התגובות. אפשר 
 const REPLIES_FAILED = 'לא הצלחנו לטעון את ההשבות. אפשר לנסות שוב';
 const SEND_FAILED = 'התגובה לא נשלחה. אפשר לנסות שוב';
 const LIKE_FAILED = 'הלייק לא נשמר. אפשר לנסות שוב';
+const NAME_NOTICE_COMMENT = 'השם שלכם יוצג לכל מי שיכול לראות את התגובה';
 
 /** A: named, 2 likes, one anonymous-name reply. B: the anonymous post's author. C: mine, with another's reply. D: no name, with my reply. */
 const thread = (): StubTop[] => [
@@ -307,18 +308,39 @@ test.describe('F3.3 c15/c19 [FR-FEED-001] likes', () => {
   });
 });
 
-test.describe('F3.3 c15 [FR-FEED-001] a Professional', () => {
-  test('[c15] sees the post but no like, no comment box, no reply, no retry and no load-error alert (thread 403 not_allowed)', async ({ page }) => {
-    const net = await setupComments(page, thread(), { professional: true });
-    net.fail.thread = 403;
+// Amended by professional-posting c12 (Afik 19.10, DR-1): a Professional reads the thread, likes, comments and replies, and the composer shows no name notice
+// (no name is shown for them, DR-3). Supersedes F3.3 c15 ("sees the post but no like, no comment box, ..."), which asserted the old 403.
+test.describe('F3.3 c15 [FR-FEED-001] [professional-posting c12] a Professional', () => {
+  test('[c15][professional-posting c12] sees the thread, "לייק", the comment box and "השבה"; the box and the reply box carry no name notice; no alert', async ({ page }) => {
+    await setupComments(page, thread(), { professional: true });
     await open(page, POST);
     await expect(page.getByRole('heading', { level: 1, name: 'פוסט' })).toBeVisible();
-    await page.waitForTimeout(500); // the thread answers after the post; nothing may appear later
-    await expect(page.getByRole('button', { name: /^לייק/ })).toHaveCount(0);
-    await expect(page.getByRole('textbox', { name: /^כתיבת (תגובה|השבה)$/ })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'השבה', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'נסו שוב', exact: true })).toHaveCount(0);
+    await expect(item(page, 'שלום מנועה')).toBeVisible();
+    await expect(postLike(page)).toBeVisible();
+    await expect(box(page)).toBeVisible();
+    await expect(btn(item(page, 'שלום מנועה'), 'השבה')).toBeVisible();
+    await expect(page.getByText(NAME_NOTICE_COMMENT)).toHaveCount(0);
+    await btn(item(page, 'שלום מנועה'), 'השבה').click();
+    await expect(page.getByRole('textbox', { name: 'כתיבת השבה', exact: true })).toBeVisible();
+    await expect(page.getByText(NAME_NOTICE_COMMENT)).toHaveCount(0);
     await expect(alert(page, LOAD_FAILED)).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'נסו שוב', exact: true })).toHaveCount(0);
+  });
+  test('[c15][professional-posting c12] a Professional sends a comment: it is added with "התגובה נוספה", and likes the post', async ({ page }) => {
+    const net = await setupComments(page, thread(), { professional: true });
+    await open(page, POST);
+    await box(page).fill('תגובה לדוגמה');
+    await btn(form(page), 'שליחה').click();
+    await expect(status(page, 'התגובה נוספה')).toBeVisible();
+    expect(net.sends).toEqual([{ body: 'תגובה לדוגמה' }]);
+    await postLike(page).click();
+    await expect(btn(region(page), 'לייק, 1').first()).toHaveAttribute('aria-pressed', 'true');
+    expect(net.calls).toContain(`PUT /api/posts/${OTHERS_ID}/like`);
+  });
+  test("[c15][professional-posting c12] a comment whose author.name is null shows 'מהקהילה' as its name, also when it is the Professional's own", async ({ page }) => {
+    await setupComments(page, [top(1, 'התגובה שלי', [], { isMine: true, author: { name: null } })], { professional: true });
+    await open(page, POST);
+    await expect(list(page).getByRole('listitem', { name: 'מהקהילה', exact: true })).toHaveCount(1);
   });
 });
 

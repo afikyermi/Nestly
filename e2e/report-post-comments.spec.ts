@@ -12,6 +12,7 @@ import type { StubTop } from './support/comments-stub';
 import { gate, stubReports } from './support/report-stub';
 import type { ReportsNet } from './support/report-stub';
 import { KEYS, T, cancelButton, choose, expectFocusIn, expectTouchTarget, focusedText, menu, radios, sendButton, sheet, status } from './support/report-ui';
+import { afterPaint } from './support/post-menu';
 
 test.use({ baseURL: APP });
 
@@ -61,6 +62,7 @@ test.describe('F3.7 c9 [FR-MOD-001] the post page "⋯"', () => {
         await button.click();
         await expect(menu(page), close).toBeVisible();
         await expect(page.getByRole('menuitem', { name: T.reportPost, exact: true }), close).toHaveCount(1, { timeout: 3000 });
+        await afterPaint(page);
         if (close === 'Escape') await page.keyboard.press('Escape');
         else if (close === 'outside') await page.mouse.click(5, 5);
         else await page.goBack();
@@ -130,6 +132,7 @@ test.describe('F3.7 c13 [FR-MOD-001] outcomes on the post page', () => {
       await sendButton(box).click();
       await expect(box.getByRole('alert').filter({ hasText: T.failed })).toBeVisible();
       await expect(radios(box).nth(6)).toBeChecked();
+      await afterPaint(page);
       await page.goBack();
       await expect(box).toHaveCount(0);
       expect(pathOf(page)).toBe(`/posts/${OTHERS_ID}`);
@@ -193,6 +196,7 @@ test.describe('F3.7 c9 [FR-MOD-001, F3.3 c18] one "⋯" on every comment and rep
       for (const close of ['Escape', 'outside', 'Back'] as const) {
         await button.click();
         await expect(menu(page)).toBeVisible();
+        await afterPaint(page);
         if (close === 'Escape') await page.keyboard.press('Escape');
         else if (close === 'outside') await page.mouse.click(5, 5);
         else await page.goBack();

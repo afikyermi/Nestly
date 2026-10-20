@@ -73,6 +73,8 @@ export interface PostContentProps {
   onEditCancel?: () => void;
   onConfirmDelete?: () => void;
   onCancelDelete?: () => void;
+  /** The viewer's posts are for everyone only (a Professional): the edit form shows "הפוסט יוצג לכולם", no audience or tag group (c11). */
+  everyoneOnly?: boolean;
   /** The comments region, drawn below the post (F3.3); it keeps its own state while the post is edited. */
   thread?: ReactNode;
   /** The "more actions" items of a post the viewer did not write (F3.7 c9: report). None or empty: no menu. */
@@ -105,7 +107,7 @@ const FOCUS_MORE = '[data-more-actions]';
 // the actions do comes in as props. The text is the user's own, so it is isolated and keeps its line breaks.
 export function PostContent(props: PostContentProps) {
   const { view, focus, onRetry, onEditChange, onEditSave, onEditCancel, onConfirmDelete, onCancelDelete, thread } = props;
-  const { moreActions = [], menuOpen, onMenuOpenChange, onMenuPressOutside, report = null } = props;
+  const { moreActions = [], menuOpen, onMenuOpenChange, onMenuPressOutside, report = null, everyoneOnly = false } = props;
   const { onShareInFeed, onShareLink, shareFeed = null, shareLink = null, pageAlert = '' } = props;
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -182,6 +184,7 @@ export function PostContent(props: PostContentProps) {
           onSubmit={() => onEditSave?.()}
           {...(onEditCancel !== undefined ? { onCancel: onEditCancel } : {})}
           anonymous={loaded.post.isAnonymous}
+          everyoneOnly={everyoneOnly}
         />
       ) : null}
       {loaded !== null && editing === null ? (

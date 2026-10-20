@@ -9,7 +9,7 @@ export type PostsOutcome<T = PostView> =
   | { kind: 'deleted' } // 204
   | { kind: 'unavailable' } // 404 not_found: one answer for missing, not readable and not yours
   | { kind: 'refused'; reason: 'body_required' | 'body_too_long' } // 422 (audience_not_allowed is 'failed': the form cannot send it)
-  | { kind: 'not-allowed' } // 403 not_allowed: the database refused (a Professional, a stopped account)
+  | { kind: 'not-allowed' } // 403 not_allowed: the database refused (a Professional's anonymous, friends-only or tagged post, a stopped account)
   | { kind: 'unauthenticated' } // 401
   | { kind: 'account-unavailable' } // 403 account_unavailable: the session guard (ERR-037)
   | { kind: 'failed' }; // anything else: 5xx, 400, an unreadable answer, or the call did not reach the server

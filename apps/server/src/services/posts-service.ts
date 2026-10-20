@@ -1,7 +1,7 @@
 // Text posts (I3 F3.1a, F3.4; FR-FEED-002, FR-FEED-005, OP-033, Afik 3א/5א/6א). The caller is already authenticated; each call is one identity transaction.
-// The database decides everything about permission: who may post (the FKs: a Professional is 23503; a stopped account 42501), who reads
-// a post (posts_select_viewer), who edits it and who deletes it. This layer only names the outcome. "Not found" is one outcome for a
-// missing post, one the caller may not read and one that is not theirs, so the answer never tells them apart. Nothing reads journey_contexts:
+// The database decides everything about permission: who may post (posts_insert_author; a Professional only named, for everyone, untagged;
+// every refusal 42501), who reads a post (posts_select_viewer), who edits it and who deletes it. This layer only names the outcome.
+// "Not found" is one outcome for a missing post, one the caller may not read and one that is not theirs, so the answer never tells them apart. Nothing reads journey_contexts:
 // the stage tag is what the author chose, or none (5א). Faults (a refusal or a constraint) are thrown and mapped by the route. An anonymous
 // post is written and answered like any other; its real author is the database's (post_authors) and never part of an answer.
 

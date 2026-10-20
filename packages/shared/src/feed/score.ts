@@ -34,3 +34,17 @@ export function scorePost(config: FeedConfig, input: ScoreInput): number {
 
 /** The order key `(tier asc, score desc, created_at desc, id desc)`. Timestamps are fixed-width text and ids lowercase uuids. */
 export type RankKey = { tier: 0 | 1; score: number; createdAt: string; id: string };
+
+/** What the content profile scores (a Professional viewer, AC-061): the post's age and its count, nothing about the viewer. */
+export type ContentScoreInput = Pick<ScoreInput, 'ageHours' | 'n'>;
+
+/**
+ * The content profile (algorithm-review.md R2): `wFresh*2^(-age/halfLife) + wQuality*min(ln(1+n)/ln(1+cap), 1)`; 0 in tier 1. The Friend
+ * and Stage terms are not part of it, whatever their weights.
+ */
+export function scoreContentPost(config: FeedConfig, input: ContentScoreInput): number {
+  if (rankTier(config, input.ageHours) === 1) return 0;
+  const fresh = Math.pow(2, -input.ageHours / config.halfLifeHours);
+  const quality = Math.min(Math.log(1 + input.n) / Math.log(1 + config.qualityCap), 1);
+  return config.wFresh * fresh + config.wQuality * quality;
+}

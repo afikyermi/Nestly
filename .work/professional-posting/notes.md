@@ -1,27 +1,30 @@
-# notes — professional-posting (PR-A3, migration only)
+# notes — professional-posting (code part: shared + server + web; PR-A3's migration notes are in fbdfe4a)
 
-**Approach**        `20261019400000_professional_posting.sql` + down script per schema.md (Gate 2): helper `caller_account_type()`, three
-FKs to regular_profiles dropped, `posts_insert_author` / `comments_insert_commenter` / `reactions_insert_reader` recreated with the
-added terms, `posts_update_author` WITH CHECK altered, comments rewritten. Down written first: guard, verbatim restore, helper dropped.
-data-model-tables.md "Feed tables" gains the PR-A3 paragraph. data-model.md unchanged: no rule or exception changes (rule 16 covers the helper).
+**Approach**        Server: `rankingStatement` takes a profile; `content` (Professional viewer) renders Freshness + Quality only, no
+friendship/tag/`auth.uid()`/array parameter; the Regular render is byte-identical to F3.2 (compared with PgDialect before/after, 4
+variants). `feed-service`: `rankingProfileOf(accountType)` picks the profile (Admin/Moderator → 403 not_allowed), `readsViewerStages`
+is false for `content`, and `readOwnStages` sits in the Regular branch only. Shared `scoreContentPost` is the fixture reference.
+Comments/likes: Professionals pass the service check. Posts: no code change (RLS decides). Web: the posting right `not-allowed` became
+`everyone-only` (404 no_profile, D1); PostForm `everyoneOnly` hides box/audience/tag/name notice and shows "הפוסט יוצג לכולם" (the form's
+aria-describedby when revealed; also in the edit form); the feed shows the list and composer for Professionals; no "הסתרה" item for
+them; comment boxes without the name notice (`namesWriter`).
 
-**Decisions**       `posts_update_author` keeps its current WITH CHECK text from 20261018200000 (`status in ('active', 'deleted')`, the held
-deletion), not the 20261018100000 text; the down restores that same text. The down lifts FORCE RLS on posts, comments, reaction_owners
-and regular_profiles for the guard and puts it back before any other statement (the profile_privacy pattern).
+**Decisions**       `profile` is optional on the Regular variant of `RankingParameters` (absent = regular), so post-hides.db's existing
+call still typechecks. PostScreen reads the posting right once and passes it to CommentsSection (was a second /api/profile call).
+The composer is also hidden when the feed answers 403 (`blocked`): with D1 an Admin/Moderator would otherwise see a composer.
+Professionals get no audience memory read/write.
 
-**Deviations**      One comment beyond schema.md's list: `posts_author_id_created_at_idx` said "both author FK cascades"; after the
-drop there is one, so it now says "the author status FK cascade" (the down restores the old text). comments.author_id had no "Regular"
-wording; it now names "a Regular or Professional account" as schema.md lists it for rewriting.
+**Deviations**      comments-service and likes-service still read account_type, now only to refuse Admin and Moderator. Their thread/
+reply reads have no RLS refusal for those accounts (Gate 2 note, security-privacy-open, I4); dropping the check would open the reads.
+This conflicts with TE's c5 static test (`comments`/`likes` services must not read account_type) — raised as a FINDING, not changed.
 
-**Deliberately not done**   tests (TEST ENGINEER), server/web (PR b), the stale `posts-service.ts:2` comment (PR b), `followers` (I11).
+**Deliberately not done**   tests and e2e (TEST ENGINEER); I11 tag, followers, Professional name; shares (no web UI exists).
 
-**Uncertain**       none on the SQL. The helper reads `users` in every status through `users_select_own` and filters `status = 'active'`
-itself, so a stopped caller gets NULL and every new term is false.
+**Uncertain**       c5's intended scope (above). `canHide` keys on the posting right, which is "everyone-only" for any account
+without a parent profile — fine today (only Professionals reach the feed among those).
 
-**Evidence**        check:budgets ok. db-local pgtap: 41/43; fails only 80_comment_body_cap.sql 22/24/27 (exact-text assertions of the three
-column comments schema.md rewrites, superseded, not in schema.md's list) and 85_professional_posting.sql (TEST ENGINEER's in-progress file:
-"permission denied for schema nestly" at its line 83). db-local test: 780 passed, 1 failed = posts.db.test.ts F3.1-a c4 (expected, superseded).
-Manual up→down→up on a kept local DB as app_owner: catalog fingerprint identical; down refuses with a Professional post present.
-CI remains the verdict for the fingerprint step.
+**Evidence**        typecheck · lint (src) · check:stories ok. check:budgets and full lint fail only on TE's uncommitted
+feed.db.test.ts (878 lines > 800). Unit: shared 472, web 1157 pass; server 882 pass, 2 fail = TE's c5 comments/likes static tests.
+DB (`node tools/db-local.mjs test`, with TE's in-progress db tests in the worktree): 24 files, 848 passed, 5 skipped. pgTAP not run.
 
 **Neighbouring**    none.

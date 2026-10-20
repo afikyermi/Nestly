@@ -133,3 +133,10 @@ export const OwnShareOriginalUnavailable: Story = {
 export const OwnShareMenuOpen: Story = { args: { view: { ...loaded, post: { ...shareView, isMine: true } }, moreActions: ownShareActions, menuOpen: true } };
 // The caller was refused a share (403): the page alert (c11).
 export const ShareRefusedAlert: Story = { args: { view: { ...loaded, post: others }, moreActions, onShareInFeed: noop, pageAlert: 'השיתוף לא פורסם. אפשר לנסות שוב' } };
+// professional-posting c11: a Professional's own post in its edit form: "הפוסט יוצג לכולם", no audience or tag group.
+export const EveryoneOnlyEditing: Story = {
+  args: {
+    view: { ...loaded, post: { ...post, audience: 'everyone', stageTag: null }, edit: { values: { ...editValues, audience: 'everyone', stageTag: '' }, errors: {}, saving: false, failure: null } },
+    everyoneOnly: true,
+  },
+};

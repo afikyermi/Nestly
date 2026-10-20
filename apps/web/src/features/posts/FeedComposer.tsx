@@ -16,17 +16,22 @@ interface ComposerProps {
   memory: AudienceMemory;
   /** Put focus in the text field on mount (the old /posts/new address, D3). */
   focusText: boolean;
+  /** A Professional (no parent profile): a named post for everyone, no tag; the audience memory is neither read nor written. */
+  everyoneOnly: boolean;
   onPublished: (post: PostView) => void;
 }
 
 // The form, always on the feed (feed-composer c1-c4, c7, c10). A new composition starts on the audience stored for this user (OP-033,
 // Afik 1א) with "פרסום אנונימי" unchecked and never stored (F3.4 c11); a kept one (left in-app, c5) comes back whole, the box too. Idle it
 // shows the text and "פרסום"; the rest appears while focus is in the form or the text is non-blank (D2). While checked, the audience
-// choice is kept aside, not sent. Every change is kept in memory (compose-draft); a success clears it.
-function Composer({ owner, memory, focusText, onPublished }: ComposerProps) {
+// choice is kept aside, not sent. Every change is kept in memory (compose-draft); a success clears it. For everyone only (a Professional,
+// professional-posting c8, c9) the form has no box, audience or tag: it sends the text, "everyone" and no tag, never `isAnonymous`.
+function Composer({ owner, memory, focusText, everyoneOnly, onPublished }: ComposerProps) {
   const account = useSessionAccount();
   const [kept] = useState(() => recallDraft(owner));
-  const [values, setValues] = useState<PostFormValues>(() => kept?.values ?? { body: '', audience: memory.read() ?? 'everyone', stageTag: '' });
+  const [values, setValues] = useState<PostFormValues>(
+    () => kept?.values ?? { body: '', audience: everyoneOnly ? 'everyone' : (memory.read() ?? 'everyone'), stageTag: '' },
+  );
   const [anonymous, setAnonymous] = useState(kept?.anonymous ?? false);
   const [errors, setErrors] = useState<PostFormErrors>({});
   const [failure, setFailure] = useState<string | null>(null);
@@ -79,7 +84,7 @@ function Composer({ owner, memory, focusText, onPublished }: ComposerProps) {
     const outcome = token === null ? ({ kind: 'failed' } as const) : await createPost(token, checked.value);
     if (outcome.kind === 'post') {
       // A failed post stores nothing: the choice is remembered only here (c15), and never by an anonymous post (F3.4 c11).
-      if (!anonymous) memory.write(values.audience);
+      if (!anonymous && !everyoneOnly) memory.write(values.audience);
       setSending(false);
       onPublished(outcome.post);
       return;
@@ -131,6 +136,7 @@ function Composer({ owner, memory, focusText, onPublished }: ComposerProps) {
         focus={focus}
         anonymous={anonymous}
         compact={!engaged}
+        everyoneOnly={everyoneOnly}
         onAnonymousChange={toggleAnonymous}
         onChange={change}
         onSubmit={() => void submit()}
@@ -147,14 +153,15 @@ export interface FeedComposerProps {
   onPublished: (post: PostView) => void;
 }
 
-// The composer at the top of the feed (FR-FEED-002; feed-composer c1): one fixed place, no button. Only an account that writes posts
-// sees it. While the check runs, or when it did not answer, nothing shows (the database refuses a post by anyone else in any case).
+// The composer at the top of the feed (FR-FEED-002; feed-composer c1): one fixed place, no button. A Regular account gets every option, a
+// Professional the everyone-only form (professional-posting c8). While the check runs, or when it did not answer, nothing shows (the
+// database refuses a post by anyone else in any case).
 // A success starts a new composition (a new key), which is empty, unchecked and idle.
 export function FeedComposer({ right, own, focusText, onPublished }: FeedComposerProps) {
   const [round, setRound] = useState(0);
   const owner = own.kind === 'known' ? own.userId : null;
   const memory = useAudienceMemory(owner);
-  if (right !== 'allowed' || own.kind === 'loading') return null;
+  if ((right !== 'allowed' && right !== 'everyone-only') || own.kind === 'loading') return null;
   return (
     <div className="mt-4 w-full max-w-md">
       <Composer
@@ -162,6 +169,7 @@ export function FeedComposer({ right, own, focusText, onPublished }: FeedCompose
         owner={owner}
         memory={memory}
         focusText={focusText && round === 0}
+        everyoneOnly={right === 'everyone-only'}
         onPublished={(post) => {
           setRound((current) => current + 1);
           onPublished(post);

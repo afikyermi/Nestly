@@ -2,8 +2,8 @@
 // authentication hook has run before anything here (401 before the body is read, and no database query). No route takes an author id; the
 // author is the caller's by the database, and RLS decides who may read, edit or delete.
 //   POST   { body, audience, stageTag?, isAnonymous? } (strict) → 201 { id, body, audience, stageTag, createdAt, isAnonymous } · 400 invalid ·
-//          422 body_required | body_too_long | audience_not_allowed (anonymous and friends-only) · 403 not_allowed (not an active Regular
-//          account, from the database)
+//          422 body_required | body_too_long | audience_not_allowed (anonymous and friends-only) · 403 not_allowed (refused by the database:
+//          not an active Regular or Professional account, or a Professional's anonymous, friends-only or tagged post)
 //   GET    /:id → 200 the same plus kind "post", isMine and the counts, or a share's view (F3.5 c7: kind "share", sharerText, author,
 //          original) · 404 not_found (also not a uuid: no query; also not readable: one body for every reason). Cache-Control
 //          "private, no-store" on every answer (F3.6 c6, NFR-SEC-005): no shared or stored copy outlives a change of audience.

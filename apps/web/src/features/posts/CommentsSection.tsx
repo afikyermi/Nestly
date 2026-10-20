@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLocation } from 'react-router';
 import { PATHS } from '@/app/paths';
 import { useBackCloses } from '@/hooks/use-back-closes';
-import { usePostingRight } from '@/hooks/use-posting-right';
+import type { PostingRight } from '@/hooks/use-posting-right';
 import { reportSheetProps, useReport, type ReportResult } from '@/hooks/use-report';
 import { ALREADY_REPORTED_STATUS, REPORT_RECEIVED_STATUS, REPORT_UNAVAILABLE_STATUS } from '@/lib/report-texts';
 import { CommentsView } from './CommentsView';
@@ -18,6 +18,8 @@ export interface CommentsSectionProps {
   likes: number;
   /** The caller is the real author of this anonymous post (`isAnonymous` and `isMine`): the comment boxes say "המחבר" (F3.4 c14). */
   asAnonymousAuthor?: boolean;
+  /** The viewer's posting right, read once by the post page. */
+  right: PostingRight;
 }
 
 /** F3.7 c13: a comment report changes nothing on the screen (Afik 18.10): what happened is said, and focus goes back to the "⋯". */
@@ -28,16 +30,15 @@ export const COMMENT_REPORT_STATUS: Record<ReportResult, string> = {
 };
 
 // The comments under one post (F3.3 w1): the thread, the writes and the likes of the post page, composed. The post page keys it by the
-// post, so another post starts from nothing. An account without the posting right (a Professional) gets no region at all; the check
-// is presentation only, the server and RLS refuse whatever this shows.
-export function CommentsSection(props: CommentsSectionProps) {
-  const right = usePostingRight();
-  return right === 'checking' || right === 'not-allowed' ? null : <CommentsRegion {...props} />;
+// post, so another post starts from nothing. A Professional (no parent profile, D1) gets the region without the name notice: their name is
+// not shown (DR-3). The check is presentation only, the server and RLS refuse whatever this shows.
+export function CommentsSection({ right, ...props }: CommentsSectionProps) {
+  return right === 'checking' ? null : <CommentsRegion {...props} namesWriter={right !== 'everyone-only'} />;
 }
 
 // F3.7: every comment's "⋯" (own: delete, opening F3.3's confirmation; anyone else's: report) and the report window. Back closes whichever
 // of the menu, the confirmation or the window is open, and stays on the post (direction.md); a request in flight keeps its dialog.
-function CommentsRegion({ postId, liked, likes, asAnonymousAuthor = false }: CommentsSectionProps) {
+function CommentsRegion({ postId, liked, likes, asAnonymousAuthor = false, namesWriter }: Omit<CommentsSectionProps, 'right'> & { namesWriter: boolean }) {
   const api = useCommentApi();
   const flow = useComments(postId, { liked, likes }, api);
   const writes = useCommentWrites(postId, flow, api);
@@ -59,6 +60,7 @@ function CommentsRegion({ postId, liked, likes, asAnonymousAuthor = false }: Com
       writes={writes}
       landOnHeading={hash === '#comments'}
       asAnonymousAuthor={asAnonymousAuthor}
+      namesWriter={namesWriter}
       menu={{
         openId: menuId,
         onPressOutside: pressedOutside,

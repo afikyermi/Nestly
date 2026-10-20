@@ -5,7 +5,7 @@ import { feedPageResponse, type FeedPageResponse } from '@nestly/shared';
 // are read; no response text reaches the screen.
 export type FeedOutcome =
   | { kind: 'page'; page: FeedPageResponse }
-  | { kind: 'not-allowed' } // 403 not_allowed: a Professional
+  | { kind: 'not-allowed' } // 403 not_allowed: an Admin or a Moderator (a Professional reads the feed, DR-1)
   | { kind: 'unauthenticated' } // 401
   | { kind: 'account-unavailable' } // 403 account_unavailable: the session guard (ERR-037)
   | { kind: 'failed' }; // anything else: 5xx, 400, an unreadable answer, or the call did not reach the server

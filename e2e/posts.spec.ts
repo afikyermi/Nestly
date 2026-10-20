@@ -60,14 +60,7 @@ test.describe('F3.1b c14 [FR-FEED-002] the entry point (feed-composer c1)', () =
     await expect(anonToggle(page)).toBeVisible();
     await expect(page.getByRole('switch')).toHaveCount(0);
   });
-  test('[c14] a Professional has no composer form on the feed', async ({ page }) => {
-    const net = await setupFeed(page, () => 403, { professional: true });
-    await openFeedAt(page, net);
-    await expect(page.getByRole('heading', { level: 1, name: 'הפיד' })).toBeVisible();
-    await page.waitForTimeout(500); // the posting-right check answers after the heading; the form must not appear later
-    await expect(bodyBox(page)).toHaveCount(0);
-    await expect(composer(page)).toHaveCount(0);
-  });
+  // F3.1b c14's "a Professional has no composer form" is superseded by professional-posting c8: see e2e/professional-posting.spec.ts.
 });
 
 test.describe('F3.1b c17 [FR-FEED-002 ERR-004] publishing (feed-composer c7, c10)', () => {

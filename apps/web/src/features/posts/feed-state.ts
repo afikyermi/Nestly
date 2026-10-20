@@ -3,7 +3,7 @@ import { loadedMoreText } from './feed-texts';
 
 /**
  * initial: no page yet (skeleton) · ready: a page arrived (the list, or the empty state) · first-error / more-error: the request for the
- * first / a later page failed · blocked: the server says this account has no feed (a Professional).
+ * first / a later page failed · blocked: the server says this account has no feed (an Admin or a Moderator).
  */
 export type FeedPhase = 'initial' | 'ready' | 'first-error' | 'more-error' | 'blocked';
 

@@ -15,3 +15,7 @@ export async function chooseFromPostMenu(page: Page, name: typeof EDIT_ITEM | ty
   await postMore(page).click();
   await menuItem(page, name).click();
 }
+
+/** Two animation frames: a menu's, sheet's or dialog's history entry is pushed after its first paint, so a Back or an outside press in between is not what a person does. */
+export const afterPaint = (page: Page): Promise<void> =>
+  page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))));

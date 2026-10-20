@@ -10,7 +10,7 @@ import { DESKTOP_1280, scan } from './support/journeys-stub';
 import { anonymous, named, pageOf, range, share } from './support/feed-stub';
 import type { Unit } from './support/feed-stub';
 import { id, originalOf, postView, setupShare, shareView } from './support/share-stub';
-import { DELETE_ITEM, chooseFromPostMenu } from './support/post-menu';
+import { DELETE_ITEM, chooseFromPostMenu, afterPaint } from './support/post-menu';
 import type { ShareNet } from './support/share-stub';
 import { bodyBox, choice, feedCards, feedStatus, openComposer, openFeedAt, publishButton } from './support/composer';
 import type { StoredPost } from './support/posts-stub';
@@ -155,6 +155,7 @@ test.describe('F3.5 c10 [direction "דפוסי אינטראקציה"] the share 
         await page.mouse.wheel(0, 600);
         await page.keyboard.press('PageDown');
         expect(await scrollY(page), `${close}: no scroll behind`).toBe(at);
+        await afterPaint(page);
         if (close === 'Escape') await page.keyboard.press('Escape');
         else if (close === 'outside') await page.mouse.click(3, 3);
         else if (close === 'cancel') await cancel(box).click();

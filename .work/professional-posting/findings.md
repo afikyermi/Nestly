@@ -1,3 +1,5 @@
-# CRITIC findings — PR-A3 professional-posting schema (opus, round 1, 19.10.2026) — summary saved by ORCHESTRATOR
-0 critical/high/medium. 1 low: supabase/tests/74_feed_comments_reactions.sql:112 section comment still lists Professional as refused while :119 asserts OK:1 → debt.md.
-Checked: RLS-only authorization (invoker helper, no definer); Professional posts named/everyone/no tag; Admin/Moderator/stopped refused; post_authors Regular-only; R5 flags; shares/hides refused; no new oracle; rollback verbatim + FORCE RLS guard; expand-safe except the known posts.db.test.ts:193 (Afik WORKPLAN 16).
+# CRITIC findings — professional-posting code (opus, round 1, 19.10.2026) — summary saved by ORCHESTRATOR
+medium 1 — comments.db.test.ts:206 / likes.db.test.ts:236: no test that Admin/Moderator stay refused by comments/likes endpoints (the only barrier, S-66). → TEST ENGINEER adds them; CRITIC re-checks.
+low 2 — professional-feed-profile.static.test.ts:106 regex lost escapes (same as A&D low) → fixed f8b69ac, A&D validated.
+low 3 — FeedScreen.tsx:157: Admin/Moderator briefly see the composer before the feed's 403 → BUILDER.
+A&D step 9: 1 low (same regex) → fixed and validated; I3-algorithm.md R1–R5 fold-in at I3 close (A&D).

@@ -11,6 +11,7 @@ import { BARE_ID, LIOR, LIOR_ID, NOA, NOA_ID, PRO, PRO_ID, RAZ, RAZ_ID, SHIR, SH
 import { stubReports } from './support/report-stub';
 import type { ReportsNet } from './support/report-stub';
 import { KEYS, T, cancelButton, choose, expectFocusRing, expectTouchTarget, radios, sendButton, sheet, status } from './support/report-ui';
+import { afterPaint } from './support/post-menu';
 
 test.use({ baseURL: APP });
 
@@ -94,6 +95,7 @@ test.describe('F3.7 c10 c13 [FR-MOD-001] reporting a profile', () => {
         await expect(radios(box).first()).toBeFocused();
         // Ready = the layer's own post-open work has run (Radix arms its outside-press listener, the screen pushes its Back entry, in the frames after it shows): two frames and a task, no clock.
         await page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(done, 0)))));
+        await afterPaint(page);
         if (close === 'Escape') await page.keyboard.press('Escape');
         else if (close === 'outside') await page.mouse.click(3, 3);
         else if (close === 'cancel') await cancelButton(box).click();

@@ -14,6 +14,7 @@ import { comment, gate, id, setupCardComments, top } from './support/card-commen
 import type { CardNet, StubTop } from './support/card-comments-stub';
 import { feedCards, openFeedAt } from './support/composer';
 import { T, choose, sendButton, sheet } from './support/report-ui';
+import { afterPaint } from './support/post-menu';
 
 test.use({ baseURL: APP });
 
@@ -639,12 +640,14 @@ test.describe('ux-polish-a c10 [FR-FEED-001] one overlay on /feed', () => {
       await moreOfComment(item(c, 'של מישהי')).click();
       await page.getByRole('menuitem', { name: 'דיווח על התגובה', exact: true }).click();
       await expect(sheet(page, 'comment')).toBeVisible();
+      await afterPaint(page);
       await page.goBack();
       await expect(sheet(page, 'comment')).toHaveCount(0);
       expect(onFeed(page)).toBe(true);
       await moreOfComment(item(c, 'שלי')).click();
       await page.getByRole('menuitem', { name: 'מחיקה', exact: true }).click();
       await expect(page.getByRole('alertdialog', { name: 'למחוק את התגובה?', exact: true })).toBeVisible();
+      await afterPaint(page);
       await page.goBack();
       await expect(page.getByRole('alertdialog')).toHaveCount(0);
       expect(onFeed(page)).toBe(true);

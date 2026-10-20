@@ -5,6 +5,7 @@ import { shareLinkSheetProps, useShareLink } from '@/hooks/use-share-link';
 import { SHARE_LINK_LABEL } from '@/lib/share-link-texts';
 import { PATHS } from '@/app/paths';
 import { useBackCloses } from '@/hooks/use-back-closes';
+import { usePostingRight } from '@/hooks/use-posting-right';
 import { reportSheetProps, useReport, type ReportResult } from '@/hooks/use-report';
 import { ALREADY_REPORTED_STATUS, POST_REPORTED_STATUS, REPORT_POST_ITEM, REPORT_UNAVAILABLE_STATUS } from '@/lib/report-texts';
 import { useSessionAccount } from '@/hooks/use-session-account';
@@ -35,6 +36,8 @@ const anonymousMode = (current: Loaded): AnonymousMode => (current.post.isAnonym
 export function PostScreen({ postId }: { postId: string }) {
   const account = useSessionAccount();
   usePostScroll();
+  // Read once for the page: the edit form of a Professional (everyone only, c11) and the comment boxes' name notice (c12).
+  const right = usePostingRight();
   const [view, setView] = useState<PostScreenView>({ kind: 'loading' });
   const latestView = useRef(view);
   latestView.current = view;
@@ -225,6 +228,7 @@ export function PostScreen({ postId }: { postId: string }) {
         liked={loaded.post.likedByMe}
         likes={loaded.post.likeCount}
         asAnonymousAuthor={loaded.post.isAnonymous && loaded.post.isMine}
+        right={right}
       />
     );
   // The "⋯" of the post (ux-polish-b c3): the author's edit (not on a share, F3.5 c8) and delete, else F3.7 c9's report for a post the viewer did
@@ -253,6 +257,7 @@ export function PostScreen({ postId }: { postId: string }) {
       focus={focus}
       onRetry={() => void load(true)}
       {...actions}
+      everyoneOnly={right === 'everyone-only'}
       thread={thread}
       moreActions={moreActions}
       menuOpen={menuOpen}

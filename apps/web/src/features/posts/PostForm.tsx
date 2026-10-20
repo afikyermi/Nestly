@@ -18,6 +18,7 @@ import {
   BODY_LABEL,
   CANCEL_LABEL,
   EDIT_FORM_LABEL,
+  EVERYONE_ONLY_TEXT,
   NAME_NOTICE_TEXT,
   NEW_POST_LABEL,
   NO_TAG_LABEL,
@@ -58,13 +59,19 @@ export interface PostFormProps {
   compact?: boolean;
   /** Create only: the box was toggled. */
   onAnonymousChange?: (checked: boolean) => void;
+  /**
+   * The writer's posts are named and for everyone, with no tag (a Professional; professional-posting D2, D3, DR-2): no box, no audience or
+   * tag group, no name notice; the fixed line "הפוסט יוצג לכולם" stands in for the audience group. Default false.
+   */
+  everyoneOnly?: boolean;
 }
 
 // The composer and the edit form (FR-FEED-002, FR-FEED-005, OP-033; F3.1b, F3.4): the text, "פרסום אנונימי" (create only), who sees the
 // post, an optional stage tag. A checked box takes the audience group out (an anonymous post is for everyone) and swaps the name notice for
-// the anonymous one; the edit of an anonymous post shows a fixed line instead of the group. Display only: what submitting does comes in as props.
+// the anonymous one; the edit of an anonymous post shows a fixed line instead of the group. A writer whose posts are for everyone only (a
+// Professional) gets the text, one fixed line and the button. Display only: what submitting does comes in as props.
 export function PostForm(props: PostFormProps) {
-  const { mode, values, errors, saving, failure, focus, onChange, onSubmit, onCancel, anonymous = false, onAnonymousChange, compact = false } = props;
+  const { mode, values, errors, saving, failure, focus, onChange, onSubmit, onCancel, anonymous = false, onAnonymousChange, compact = false, everyoneOnly = false } = props;
   const formRef = useRef<HTMLFormElement>(null);
   const ids = useId();
   const noticeId = `${ids}-notice`;
@@ -109,7 +116,9 @@ export function PostForm(props: PostFormProps) {
           {counting ? remainingText(left) : ''}
         </p>
       </div>
-      {mode === 'create' && !compact ? (
+      {everyoneOnly ? (
+        compact ? null : <FieldHint id={noticeId}>{EVERYONE_ONLY_TEXT}</FieldHint>
+      ) : mode === 'create' && !compact ? (
         <div className="flex flex-col gap-1.5">
           <Checkbox checked={anonymous} onCheckedChange={(checked) => onAnonymousChange?.(checked)}>
             {ANONYMOUS_LABEL}
@@ -118,7 +127,7 @@ export function PostForm(props: PostFormProps) {
         </div>
       ) : null}
       {mode === 'edit' && anonymous ? <p className="text-small text-muted-foreground">{ANONYMOUS_FIXED_TEXT}</p> : null}
-      {anonymous || compact ? null : (
+      {anonymous || compact || everyoneOnly ? null : (
         <div className="flex flex-col gap-1.5">
           <ChoiceCardGroup
             legend={AUDIENCE_LEGEND}
@@ -132,7 +141,7 @@ export function PostForm(props: PostFormProps) {
           {mode === 'create' ? <FieldHint id={noticeId}>{NAME_NOTICE_TEXT}</FieldHint> : null}
         </div>
       )}
-      {compact ? null : (
+      {compact || everyoneOnly ? null : (
         <div className="flex flex-col gap-1.5">
           <ChoiceCardGroup
             legend={TAG_LEGEND}

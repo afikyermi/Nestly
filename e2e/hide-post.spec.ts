@@ -10,6 +10,7 @@ import { EMAIL, main, scan } from './support/journeys-stub';
 import { anonymous, id, named, originalOf, pageOf, setupFeed, share } from './support/feed-stub';
 import type { FeedNet, Unit } from './support/feed-stub';
 import type { StoredPost } from './support/posts-stub';
+import { afterPaint } from './support/post-menu';
 
 test.use({ baseURL: APP });
 
@@ -534,6 +535,7 @@ test.describe('F3.9 c13 [FR-FEED-002] own items', () => {
     await more(cards(page).nth(1)).click();
     await item(page, DELETE).click();
     await expect(dialog(page)).toBeVisible();
+    await afterPaint(page);
     await page.goBack();
     await expect(dialog(page)).toHaveCount(0);
     expect(pathOf(page)).toBe('/feed');
