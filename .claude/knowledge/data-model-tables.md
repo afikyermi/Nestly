@@ -435,6 +435,8 @@ No SECURITY DEFINER, no function; `tests.approved_security_definer()` unchanged.
 
 Preview cleanup: the user's tracker_events and cycle_entries are deleted before `children`; `status_guides` is content and is never written by the cleanup.
 
+I7 Intent Signal (`20261021200000_feed_intent_weight.sql`, FR-ALG-008, Afik 20.10.2026): `algorithm_configurations` gains `w_intent` (0–2) and `intent_half_life_hours` (1–720), catalog-only: versions stored before them (v1) read 0.5 and 168; a later version's defaults are 0 and 168. No row written, no table, policy or grant.
+
 ## Notifications and People Search
 
 **`nestly.notifications`, `nestly.notification_preferences`, `nestly.friend_content_notification_preferences`, `nestly.people_search_counts`, `nestly.search_intents`** (FR-NOTIF-001/002/003,
