@@ -17,6 +17,7 @@ does not instruct loading every link. Column sections and rule matrices are both
 | notifications, notification_preferences, friend_content_notification_preferences, people_search_counts | Notifications and People Search; Profile open limits and security events (the limit pattern); Friendships and regular names |
 | profile_view consumers | Cross-user profile read plus the affected input/output table sections above |
 | staff_roles, moderator_permissions, audit_log, report_reasons, user_enforcements | Safety and admin core |
+| user_blocks | Blocking a user (I4); Friendships and regular names; Notifications and People Search |
 
 | tracker_events, cycle_entries, status_guides | Trackers, cycle and status guides (I6); children for the child FK |
 | Schema changes | Migration and rollback map; New entity template; affected consumer/cleanup order |
@@ -472,6 +473,21 @@ FR-SEARCH-001, FR-ALG-008, BR-035/038/061/063, VAL-037, AC-040/041/042/074/078; 
 Rows: id and full name of other active Regular accounts, ranked exact name, name prefix, a word prefix, anywhere; then name and id; at most 50 per call, offset up to 200.
 Posts are searched by the server through the caller's own RLS (`posts_select_viewer`), so hides, audience, Friends-only and later blocks and Private Groups apply with no search code.
 **Cleanup order:** the three notification tables after `journey_contexts`, `search_intents` and `people_search_counts` after `profile_open_counts`.
+
+## Blocking a user (I4)
+
+`20261021250000_user_blocks.sql` (FR-REL-002, BR-011). A block is mutual in effect and separate from Chat Block.
+
+| Table | Columns and meaning | Authorization |
+|---|---|---|
+| `user_blocks` | id; blocker_id (default auth.uid()); blocked_id with blocked_account_type (regular · professional) and blocked_status (default active), composite FKs to users (id, account_type) and (id, status) — never staff, active at the block; created_at; lifted_at (unblock, set once by the trigger). One block in force per pair (partial unique index) | RLS + FORCE; SELECT both parties while in force, the blocker also its lifted rows; INSERT an active Regular or Professional account in its own name (grant on blocked_id, blocked_account_type), at most 20 per 24 hours (NS021); UPDATE lifted_at by the blocker only (unblock); no DELETE; AFTER INSERT trigger (invoker) ends the pair's Friendship and open requests |
+
+Effect: `block_peer_ids()` (invoker, no argument) drives six RESTRICTIVE policies TO authenticated, which app_owner inherits inside the definers
+(profile_view, search_people, the notification definers): posts and comments of the other party hidden (never from REPORTS_VIEW; an anonymous
+post cannot be hidden); regular_names hidden (not on the admin screens, not inside the audited reveal, not the blocker's own blocked list —
+`regular_names_select_blocker`); regular_profiles hidden; friendships: no new request and no accept across a block. `notify_deliver()` skips a
+notification across a block. No SECURITY DEFINER. Cleanup: user_blocks before friendships. Retention: lifted rows kept with the accounts;
+cascades with either account.
 
 ## New entity template
 
