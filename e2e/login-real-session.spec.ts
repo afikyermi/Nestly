@@ -251,7 +251,7 @@ test.describe('F1.5 c14 [FR-MENU-001] logout and Back, against the real session 
     await page.waitForLoadState('domcontentloaded');
     await expect(h1Of(page)).toHaveText(WELCOME_H1);
     expect(pathOf(page)).toBe('/');
-    expect(await bodyText(page)).not.toContain('המסך הזה ייפתח בקרוב');
+    expect(await bodyText(page)).not.toContain('המעקב והתכנון שלך, במקום אחד.');
     expect(await storageKeys(page)).toEqual([]);
     expect(await seen(page)).toEqual([]);
     expect(net.logoutCalls).toHaveLength(1);
