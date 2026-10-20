@@ -58,6 +58,7 @@ async function setup(page: Page): Promise<Net> {
     });
   await answer('me', async (route) => json(route, 200, net.me === 'active' ? { state: 'active', recoveryQuestions: 'set', mustSetPassword: false } : { state: 'unavailable' }));
   await answer('profile', async (route) => json(route, 200, { fullName: 'דנה כהן', parentGender: 'woman' }));
+  await answer('blocks', async (route) => json(route, 200, { blocked: [] })); // the blocked list in Settings (FR-REL-002), empty
   await answer('journeys', async (route) => json(route, 200, { journeys: [{ id: 'j-1', stage: 'planning', dueDate: null }], children: [] }));
   await answer('privacy', async (route) => {
     if (net.get === 'hold') await held;
@@ -311,7 +312,7 @@ test.describe('F2.5 c6 [FR-AUTH-004 ERR-012] the route guard, in the browser', (
 
 // ---------------------------------------------------------------------------------------------------------------------
 test.describe('F2.5 c8 [A9 FR-AUTH-004] Settings makes no request of its own', () => {
-  test('[F2.5 c8] opening Settings and visiting every section sends only the privacy GET', async ({ page }) => {
+  test('[F2.5 c8 FR-REL-002] opening Settings and visiting every section sends only the privacy GET and the blocked list GET', async ({ page }) => {
     const net = await signedInAtFeed(page);
     await page.waitForTimeout(300);
     net.calls.length = 0;
@@ -320,7 +321,7 @@ test.describe('F2.5 c8 [A9 FR-AUTH-004] Settings makes no request of its own', (
       await expect(h2(page, name)).toBeFocused();
     }
     await page.waitForTimeout(500);
-    expect([...new Set(net.calls)]).toEqual(['GET /api/privacy']);
+    expect([...new Set(net.calls)].sort()).toEqual(['GET /api/blocks', 'GET /api/privacy']);
   });
 
   test('[F2.5 c8 ERR-037] a suspended or banned account never renders Settings: the same screen as /profile, no privacy GET', async ({ page }) => {

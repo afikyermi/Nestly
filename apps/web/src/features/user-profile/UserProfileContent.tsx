@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Link } from 'react-router';
 import { formatChildAge, type ProfileView, type RelationshipState } from '@nestly/shared';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { ReportSheet, type ReportSheetProps } from '@/components/domain/report-sheet';
@@ -6,6 +7,9 @@ import { InlineAlert } from '@/components/shared/inline-alert';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PATHS } from '@/app/paths';
+import { BLOCK_DESCRIPTION, BLOCK_LABEL, BLOCKED_LINK_LABEL, BLOCKED_TEXT, BLOCKED_TITLE, blockTitle } from '@/lib/block-texts';
+import { settingsSectionHash } from '@/lib/settings-sections';
 import { documentTitle } from '@/lib/document-title';
 import { DIALOG_CANCEL_LABEL, RATE_LIMITED_TEXT, REMOVE_DESCRIPTION, REMOVE_LABEL, removeTitle, RETRY_LABEL } from '@/lib/friend-texts';
 import { GENDER_LABELS } from '@/lib/profile-fields';
@@ -47,6 +51,7 @@ export type UserProfileView =
   | { kind: 'unavailable' } // 404: one text for every reason (c29)
   | { kind: 'rate-limited' } // 429: ERR-032's general message, no profile (c29)
   | { kind: 'load-failed'; message: string }
+  | { kind: 'blocked' } // FR-REL-002: the block went through; the profile is no longer shown
   | {
       kind: 'loaded';
       profile: ProfileView;
@@ -56,6 +61,8 @@ export type UserProfileView =
       /** The text of the polite status region: what just happened. Empty: nothing. */
       status: string;
       confirm: ProfileRemoveConfirm | null;
+      /** The block dialog (FR-REL-002), open while set: whether the PUT is in flight or has failed. */
+      block?: ProfileRemoveConfirm | null;
     };
 
 /** Where focus goes after a change, once per `tick`: the relationship action (the pressed button was replaced) or the message. */
@@ -76,6 +83,10 @@ export interface UserProfileContentProps {
   onRemove?: () => void;
   onConfirmRemove?: () => void;
   onCancelRemove?: () => void;
+  /** Opens the block dialog (FR-REL-002); nothing is sent yet. */
+  onBlock?: () => void;
+  onConfirmBlock?: () => void;
+  onCancelBlock?: () => void;
   /** Opens the report window (F3.7 c9); the button shows on a loaded profile only. */
   onReport?: () => void;
   /** The report window (F3.7 c10), open while set; it closes onto the report button. */
@@ -84,6 +95,7 @@ export interface UserProfileContentProps {
 
 const FOCUS_ACTION = '[data-profile-action] button, [data-profile-action] a';
 const REPORT_BUTTON = '[data-profile-report]';
+const BLOCK_BUTTON = '[data-profile-block]';
 
 // The Journey Summary (§1.4, FR-PRIV-001): the count, the ages when returned, "בהריון", or the sentence; exactly what the API returned.
 function Summary({ profile }: { profile: ProfileView }) {
@@ -162,7 +174,7 @@ function Actions({ name, relationship, busy, locked, props }: ActionsProps) {
 // Journey Summary as returned, the person's Friends and the Friends in common, and the actions of the relationship. Display only: the
 // actions come in as props. While loading, no profile is drawn (c29). F3.7: a quiet "דיווח על הפרופיל" and its window. The document title is generic: no name outlives the screen.
 export function UserProfileContent(props: UserProfileContentProps) {
-  const { view, focus, onRetry, onConfirmRemove, onCancelRemove, onReport, report = null } = props;
+  const { view, focus, onRetry, onConfirmRemove, onCancelRemove, onReport, onBlock, onConfirmBlock, onCancelBlock, report = null } = props;
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -175,8 +187,8 @@ export function UserProfileContent(props: UserProfileContentProps) {
 
   const loaded = view.kind === 'loaded' ? view : null;
   const status = view.kind === 'loading' ? LOADING_TEXT : loaded !== null ? loaded.status : '';
-  const locked = loaded !== null && (loaded.busy !== null || loaded.confirm?.saving === true);
-  const heading = loaded !== null ? loaded.profile.fullName : view.kind === 'unavailable' ? UNAVAILABLE_TEXT : TITLE;
+  const locked = loaded !== null && (loaded.busy !== null || loaded.confirm?.saving === true || loaded.block?.saving === true);
+  const heading = loaded !== null ? loaded.profile.fullName : view.kind === 'unavailable' ? UNAVAILABLE_TEXT : view.kind === 'blocked' ? BLOCKED_TITLE : TITLE;
 
   return (
     <div ref={rootRef} className="flex min-w-0 max-w-md flex-col gap-6">
@@ -196,6 +208,14 @@ export function UserProfileContent(props: UserProfileContentProps) {
           <Skeleton className="w-2/3" />
           <Skeleton className="w-1/2" />
           <Skeleton className="w-3/4" />
+        </div>
+      ) : null}
+      {view.kind === 'blocked' ? (
+        <div data-testid="user-profile-blocked" data-profile-message tabIndex={-1} className="flex flex-col items-start gap-3">
+          <p>{BLOCKED_TEXT}</p>
+          <Link to={`${PATHS.settings}${settingsSectionHash('privacy')}`} className="inline-flex min-h-11 items-center text-label">
+            {BLOCKED_LINK_LABEL}
+          </Link>
         </div>
       ) : null}
       {view.kind === 'rate-limited' ? (
@@ -227,9 +247,14 @@ export function UserProfileContent(props: UserProfileContentProps) {
             <Actions name={loaded.profile.fullName} relationship={loaded.profile.relationship} busy={loaded.busy} locked={locked} props={props} />
           ) : null}
           {/* F3.7 c9: quiet, below the relationship actions; named "דיווח על הפרופיל של <name>" (screen.md). The own profile never comes here. */}
-          <div>
+          <div className="flex flex-wrap gap-2">
             <Button variant="text" data-profile-report onClick={onReport}>
               {REPORT_PROFILE_LABEL}
+              <span className="sr-only"> {friendName(loaded.profile.fullName)}</span>
+            </Button>
+            {/* FR-REL-002: quiet, beside the report; a dialog says what a block does before anything is sent. */}
+            <Button variant="text" data-profile-block {...(locked ? { 'aria-disabled': true } : {})} onClick={onBlock}>
+              {BLOCK_LABEL}
               <span className="sr-only"> {friendName(loaded.profile.fullName)}</span>
             </Button>
           </div>
@@ -247,6 +272,20 @@ export function UserProfileContent(props: UserProfileContentProps) {
               onConfirm={() => onConfirmRemove?.()}
               onCancel={() => onCancelRemove?.()}
               finalFocus={() => rootRef.current?.querySelector<HTMLElement>(FOCUS_ACTION) ?? null}
+            />
+          ) : null}
+          {loaded.block !== undefined && loaded.block !== null ? (
+            <ConfirmDialog
+              open
+              title={blockTitle(loaded.profile.fullName)}
+              description={BLOCK_DESCRIPTION}
+              confirmLabel={BLOCK_LABEL}
+              cancelLabel={DIALOG_CANCEL_LABEL}
+              pending={loaded.block.saving}
+              failure={loaded.block.failure}
+              onConfirm={() => onConfirmBlock?.()}
+              onCancel={() => onCancelBlock?.()}
+              finalFocus={() => rootRef.current?.querySelector<HTMLElement>(BLOCK_BUTTON) ?? null}
             />
           ) : null}
           {report !== null ? <ReportSheet {...report} finalFocus={() => rootRef.current?.querySelector<HTMLElement>(REPORT_BUTTON) ?? null} /> : null}
