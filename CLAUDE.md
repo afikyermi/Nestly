@@ -23,6 +23,7 @@ React + TypeScript + Tailwind (Vite) · Fastify + TypeScript · Zod in `packages
 - Builders run on Opus until 24.10 (at most 2 in parallel), then Sonnet; `/code-review` on Opus.
 - A builder does the whole feature: server + web + tests + SRS update, then one PR. Rebase before merge. Merge on green CI. Migrations merge one at a time.
 - A migration that adds a table also updates `EXPECTED_NESTLY_TABLES` and the deletion order in `tools/preview-e2e-cleanup.ts`.
+- Before every merge, check that the latest run on main is green. A PR that touches shared files (layout, app shell, menu, routing) runs the full Chrome suite (dispatch) before merge, not just the changed specs.
 - A red nightly run or red main is fixed before any new merge. A test that fails and passes on one rerun gets a line in WORKPLAN and does not block the merge; only a repeating failure blocks.
 - Tests: pgTAP for permissions, server tests for rules, one Playwright test per new screen's main flow (desktop). No new visual baselines, no phone duplicates.
 - Sensitive parts (authorization, minors/health data, media, deletion, money): `/code-review` on the diff before the PR.
