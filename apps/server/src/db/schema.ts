@@ -466,3 +466,27 @@ export const statusGuides = nestly.table('status_guides', {
   publishedAt: timestamp('published_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** INSERT target only. Names exactly the columns the Admin is granted INSERT on (migration 20261021100000); a new guide is a draft. */
+export const statusGuidesInsert = nestly.table('status_guides', {
+  stageKind: text('stage_kind', { enum: GUIDE_STAGE_KINDS }).notNull(),
+  rangeFrom: smallint('range_from'),
+  rangeTo: smallint('range_to'),
+  title: text('title').notNull(),
+  body: text('body').notNull(),
+  source: text('source').notNull(),
+  sourceCheckedOn: date('source_checked_on', { mode: 'string' }),
+});
+
+/** UPDATE target only. The content columns and status; id is for WHERE only (no UPDATE grant on it). published_at is the database's. */
+export const statusGuidesUpdate = nestly.table('status_guides', {
+  id: uuid('id').primaryKey(),
+  stageKind: text('stage_kind', { enum: GUIDE_STAGE_KINDS }).notNull(),
+  rangeFrom: smallint('range_from'),
+  rangeTo: smallint('range_to'),
+  title: text('title').notNull(),
+  body: text('body').notNull(),
+  source: text('source').notNull(),
+  sourceCheckedOn: date('source_checked_on', { mode: 'string' }),
+  status: text('status', { enum: GUIDE_STATUSES }).notNull(),
+});

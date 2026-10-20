@@ -1,5 +1,5 @@
 -- =====================================================================================================================
--- CI only — fixtures for 94_moderators_team.sql (I14: Moderator invitations, System Announcements, the analytics reads). Run as postgres,
+-- CI only — fixtures for 95_moderators_team.sql (I14: Moderator invitations, System Announcements, the analytics reads). Run as postgres,
 -- in name order after 90_ and 93_. Never a migration.
 --
 -- Committed here:  mt_n1 .. mt_n3  three Auth accounts with no Nestly row yet (people who will redeem an invitation).

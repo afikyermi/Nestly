@@ -21,8 +21,8 @@
 --                 deviation (a) in data-model-tables.md): the server answers counts only, never a name, a text or an id. No child,
 --                 journey, tracker, chat or support row is opened (Afik's open item 6, default (a): children only in aggregate, and I14 shows none).
 -- audit_trigger() replaced   the same function with branches for invitations (invited, revoked), the new Moderator (joined, on staff_roles) and announcements (created, edited,
---                 published, removed). Everything else in it is verbatim from 20261021500000_media_stories.sql. No new SECURITY DEFINER.
--- Phase: expand. Down script: supabase/rollback/20261021900000_moderators_team.down.sql.
+--                 published, removed). Everything else in it is verbatim from 20261022100000_chat_support.sql. No new SECURITY DEFINER.
+-- Phase: expand. Down script: supabase/rollback/20261022200000_moderators_team.down.sql.
 -- =====================================================================================================================
 
 
@@ -372,6 +372,28 @@ begin
     v_kind := 'media';
     v_target := (v_new ->> 'media_id')::uuid;
     v_after := pg_catalog.jsonb_build_object('isChild', v_new -> 'is_child', 'purgeAfter', v_new ->> 'purge_after');
+  elsif tg_table_name = 'support_requests' then
+    -- FR-ADMIN-002: a status change of a Support request (the trigger fires only when the status moves).
+    v_key := 'SUPPORT_HANDLE';
+    v_action := 'support_status_changed';
+    v_kind := 'support_request';
+    v_target := (v_new ->> 'id')::uuid;
+    v_before := pg_catalog.jsonb_build_object('status', v_old ->> 'status');
+    v_after := pg_catalog.jsonb_build_object('status', v_new ->> 'status', 'topic', v_new ->> 'topic');
+  elsif tg_table_name = 'support_messages' then
+    -- FR-ADMIN-002, FR-CHAT-004: a reply in the name of Support or an internal note (the trigger fires only for author_kind 'support').
+    -- The entry carries what it was, never the text.
+    v_key := 'SUPPORT_HANDLE';
+    v_action := case when (v_new ->> 'is_internal')::boolean then 'support_note_added' else 'support_replied' end;
+    v_kind := 'support_request';
+    v_target := (v_new ->> 'support_request_id')::uuid;
+    v_after := pg_catalog.jsonb_build_object('internal', v_new -> 'is_internal', 'bodyChars', pg_catalog.char_length(v_new ->> 'body'));
+  elsif tg_table_name = 'reported_message_views' then
+    -- §9.6 (Afik 20.10.2026): a staff member opened a reported chat message (only that message; never the conversation).
+    v_key := 'REPORTS_VIEW';
+    v_action := 'reported_message_viewed';
+    v_kind := 'report';
+    v_target := (v_new ->> 'report_id')::uuid;
   elsif tg_table_name = 'moderator_invitations' then
     -- FR-ADMIN-004: the Admin invites or revokes an invitation (its redemption is audited on staff_roles). Never the code or its hash.
     if tg_op = 'INSERT' then
@@ -418,7 +440,7 @@ $$;
 
 revoke execute on function nestly.audit_trigger() from public;
 
-comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement, an Admin''s creation, edit, publication or hiding of a status guide, a staff decision on an image or a suspicion marked on one, a Moderator invitation issued, revoked or redeemed, or a System Announcement created, edited, published or removed: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
+comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement, an Admin''s creation, edit, publication or hiding of a status guide, a staff decision on an image or a suspicion marked on one, a Support request''s status change, a Support reply or internal note, a staff view of a reported chat message, a Moderator invitation issued or revoked, a Moderator joining with one, or a System Announcement created, edited, published or removed: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
 
 create trigger moderator_invitations_audit_insert
   after insert on nestly.moderator_invitations

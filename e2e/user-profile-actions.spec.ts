@@ -102,11 +102,12 @@ test.describe('F2.4c2 c28 [FR-REL-001] actions by state', () => {
     });
   }
 
-  test('[F2.4c2 c28][F3.7 c9] P as viewer (relationship null): no relationship action; the one button left is "דיווח על הפרופיל", the lists stay', async ({ page }) => {
+  test('[F2.4c2 c28][F3.7 c9][FR-REL-002] P as viewer (relationship null): no relationship action; the buttons left are "דיווח על הפרופיל" and "חסימה", the lists stay', async ({ page }) => {
     await setupProfiles(page, world());
     await openProfile(page, PRO_ID, PRO);
-    await expect(main(page).getByRole('button')).toHaveCount(1);
+    await expect(main(page).getByRole('button')).toHaveCount(2);
     await expect(main(page).getByRole('button', { name: `דיווח על הפרופיל של ${PRO}`, exact: true })).toHaveCount(1);
+    await expect(main(page).getByRole('button', { name: `חסימה של ${PRO}`, exact: true })).toHaveCount(1);
     await expect(heading(page, friendsOf(PRO))).toBeVisible();
   });
 

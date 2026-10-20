@@ -89,6 +89,11 @@ async function setup(page: Page, start: Settings = DEFAULTS, shortSession = fals
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
     return json(route, 200, { fullName: 'דנה כהן', parentGender: 'woman' });
   });
+  // The blocked list in the same Settings section (FR-REL-002): empty, so it adds no control or message to these flows.
+  await page.route('**/api/blocks', async (route) => {
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+    return json(route, 200, { blocked: [] });
+  });
   await page.route('**/api/journeys', async (route) => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
     return json(route, 200, { journeys: [{ id: 'j-1', stage: 'planning', dueDate: null }], children: [] });

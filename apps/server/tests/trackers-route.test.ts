@@ -63,6 +63,7 @@ afterAll(async () => {
 type Call = readonly ['GET' | 'POST' | 'PUT' | 'DELETE', string, unknown];
 const EVENT = { kind: 'bath', childId: ID, occurredAt: '2026-10-20T08:00:00Z' };
 const CYCLE = { startDate: '2026-10-01', cycleLengthDays: 28 };
+const GUIDE = { stageKind: 'planning', rangeFrom: null, rangeTo: null, title: 'כותרת', body: 'גוף', source: 'משרד הבריאות', sourceCheckedOn: null };
 const ROUTES: Call[] = [
   ['GET', '/api/home', undefined],
   ['GET', '/api/trackers/events?kind=bath&from=2026-10-01&to=2026-10-07', undefined],
@@ -73,6 +74,9 @@ const ROUTES: Call[] = [
   ['POST', '/api/cycle', CYCLE],
   ['PUT', `/api/cycle/${ID}`, CYCLE],
   ['DELETE', `/api/cycle/${ID}`, undefined],
+  ['GET', '/api/guides/manage', undefined],
+  ['POST', '/api/guides/manage', GUIDE],
+  ['PUT', `/api/guides/manage/${ID}`, { ...GUIDE, status: 'draft' }],
 ];
 const call = ([method, url, payload]: Call, header: string | null) =>
   app.inject({
@@ -111,6 +115,10 @@ describe('[F6.0-a c2 AC-023 FR-TRACK-001] a body that breaks a rule is 400 with 
     ['a cycle length of 10 days', ['POST', '/api/cycle', { startDate: '2026-10-01', cycleLengthDays: 10 }], 'length_invalid'],
     ['a cycle start in the far future', ['PUT', `/api/cycle/${ID}`, { startDate: '2099-01-01', cycleLengthDays: 28 }], 'date_invalid'],
     ['a DELETE with a body', ['DELETE', `/api/cycle/${ID}`, { x: 1 }], 'invalid_body'],
+    ['a guide with a range on the planning stage', ['POST', '/api/guides/manage', { ...GUIDE, rangeFrom: 1, rangeTo: 2 }], 'range_invalid'],
+    ['a guide published without a source date', ['PUT', `/api/guides/manage/${ID}`, { ...GUIDE, status: 'published' }], 'source_date_required'],
+    ['a guide created with a status', ['POST', '/api/guides/manage', { ...GUIDE, status: 'published' }], 'invalid_body'],
+    ['a guide update without a status', ['PUT', `/api/guides/manage/${ID}`, GUIDE], 'invalid_body'],
   ];
   it.each(cases)('%s', T, async (_label, route, reason) => {
     await setup();
