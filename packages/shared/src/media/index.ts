@@ -125,7 +125,7 @@ export type MediaQueueResponse = z.infer<typeof mediaQueueResponse>;
 export const BLOCKING_LABELS = ['FEMALE_GENITALIA_EXPOSED', 'MALE_GENITALIA_EXPOSED', 'BUTTOCKS_EXPOSED', 'ANUS_EXPOSED', 'FEMALE_BREAST_EXPOSED'] as const;
 
 /** The default thresholds (configuration on the server): at or above T_block the image is blocked, between T_low and T_block unsure. */
-export const MEDIA_CHECK_DEFAULTS = { blockThreshold: 0.6, lowThreshold: 0.25, maxAttempts: 3 } as const;
+export const MEDIA_CHECK_DEFAULTS = { blockThreshold: 0.6, lowThreshold: 0.25, maxAttempts: 3, trainingRetentionMonths: 6 } as const;
 
 export type CheckVerdict = { readonly status: 'passed' } | { readonly status: 'queued'; readonly reason: 'blocked' | 'unsure' };
 
