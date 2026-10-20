@@ -48,8 +48,8 @@ select is((select string_agg(pl.polname || ':' || pl.polcmd::text || ':' || (cas
 select is((select p.prosecdef::text || ':' || p.pronargs::text from pg_proc p where p.proname = 'block_peer_ids' and p.pronamespace = (select oid from pg_namespace where nspname = 'nestly')),
   'false:0', '[I4-blk c2] block_peer_ids is SECURITY INVOKER and takes no argument');
 select is((select string_agg(c.relname || '.' || pl.polname, ', ' order by pl.polname) from pg_policy pl join pg_class c on c.oid = pl.polrelid where not pl.polpermissive and pl.polname like '%block%'),
-  'comments.comments_block_hide, friendships.friendships_block_insert, friendships.friendships_block_update, posts.posts_block_hide, regular_names.regular_names_block_hide, regular_profiles.regular_profiles_block_hide',
-  '[I4-blk c2] the six RESTRICTIVE hiding policies');
+  'comments.comments_block_hide, friendships.friendships_block_insert, friendships.friendships_block_update, posts.posts_block_hide, profile_photos.profile_photos_block_hide, regular_names.regular_names_block_hide, regular_profiles.regular_profiles_block_hide, stories.stories_block_hide',
+  '[I4-blk c2] the RESTRICTIVE hiding policies: blocking''s six and I5''s two on Stories and profile photos (file 93)');
 select is((select count(*) from pg_policy pl join pg_class c on c.oid = pl.polrelid where pl.polname like '%block%'
             and pl.polroles <> array[(select oid from pg_roles where rolname = 'authenticated')]::oid[]), 0::bigint,
   '[I4-blk c2] every block policy is TO authenticated (app_owner inherits them inside the definers)');
