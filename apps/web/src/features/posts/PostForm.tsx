@@ -118,7 +118,6 @@ export function PostForm(props: PostFormProps) {
           {counting ? remainingText(left) : ''}
         </p>
       </div>
-      {mode === 'create' && !compact && attachments !== undefined ? attachments : null}
       {everyoneOnly ? (
         compact ? null : <FieldHint id={noticeId}>{EVERYONE_ONLY_TEXT}</FieldHint>
       ) : mode === 'create' && !compact ? (
@@ -159,6 +158,8 @@ export function PostForm(props: PostFormProps) {
           <FieldHint id={tagHintId}>{TAG_HINT_TEXT}</FieldHint>
         </div>
       )}
+      {/* I5: the pictures come after the options, just before "פרסום" (the text, then its options, keep their keyboard order) */}
+      {mode === 'create' && !compact && attachments !== undefined ? attachments : null}
       <div className="flex flex-col gap-3">
         <Button type="submit" size="lg" block pending={saving} disabled={saving}>
           {label}

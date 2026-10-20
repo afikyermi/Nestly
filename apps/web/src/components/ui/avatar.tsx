@@ -45,13 +45,14 @@ export function Avatar({ name = '', decorative = false, label, size = 'md', src,
   const accessibleName = decorative ? undefined : initials !== '' ? name.trim() : label;
   const named = accessibleName !== undefined && accessibleName !== '';
   if (src !== undefined && src !== null && src !== '') {
+    // the same named (or hidden) frame as the initials, with the photo inside it as decoration
     return (
-      <img
-        src={src}
-        alt={named ? accessibleName : ''}
-        {...(named ? {} : { 'aria-hidden': true })}
-        className={cn('shrink-0 rounded-full bg-muted object-cover', sizes[size].box, className)}
-      />
+      <span
+        {...(named ? { role: 'img', 'aria-label': accessibleName } : { 'aria-hidden': true })}
+        className={cn('inline-flex shrink-0 overflow-hidden rounded-full bg-muted', sizes[size].box, className)}
+      >
+        <img src={src} alt="" className="size-full object-cover" />
+      </span>
     );
   }
   return (
