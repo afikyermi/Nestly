@@ -482,7 +482,7 @@ Posts are searched by the server through the caller's own RLS (`posts_select_vie
 
 Effect: `is_blocked_pair(uuid)` (invoker: a block between the caller and the other account, either way) drives seven RESTRICTIVE policies that AND with the
 permissive ones: posts and comments of the other party hidden (never from REPORTS_VIEW; an anonymous post cannot be hidden); regular_names hidden (not on the
-admin screens); `TO app_owner` on regular_names and regular_profiles so profile_view and search_people do not find the other party; friendships: no new
+admin screens; `regular_names_select_blocker` lets the blocker read the names of the accounts it blocked, for its blocked list); `TO app_owner` on regular_names and regular_profiles so profile_view and search_people do not find the other party; friendships: no new
 request and no accept across a block. `user_blocks_select_scoped` (`TO app_owner`) opens the caller's own pairs only inside a notification, search or
 profile-view scope; `notify_deliver()` skips a notification across a block. No SECURITY DEFINER. Cleanup: user_blocks before friendships.
 Retention: hard delete on unblock; cascades with either account.

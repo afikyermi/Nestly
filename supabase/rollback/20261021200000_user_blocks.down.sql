@@ -49,6 +49,7 @@ drop policy friendships_block_insert on nestly.friendships;
 drop policy regular_profiles_block_hide_owner on nestly.regular_profiles;
 drop policy regular_names_block_hide_owner on nestly.regular_names;
 drop policy regular_names_block_hide on nestly.regular_names;
+drop policy regular_names_select_blocker on nestly.regular_names;
 drop policy comments_block_hide on nestly.comments;
 drop policy posts_block_hide on nestly.posts;
 drop table nestly.user_blocks;

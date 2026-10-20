@@ -111,9 +111,16 @@ create policy comments_block_hide on nestly.comments
   using (author_id is null or author_id = (select auth.uid()) or (select nestly.has_permission('REPORTS_VIEW'))
     or not (select nestly.is_blocked_pair(author_id)));
 
+-- The blocker reads the names of the accounts it blocked (its blocked list, to unblock); nothing else of them.
+create policy regular_names_select_blocker on nestly.regular_names
+  for select to authenticated
+  using ((select nestly.is_active_account())
+    and exists (select 1 from nestly.user_blocks b where b.blocker_id = (select auth.uid()) and b.blocked_id = regular_names.user_id));
+
 create policy regular_names_block_hide on nestly.regular_names
   as restrictive for select to authenticated
   using (user_id = (select auth.uid()) or not (select nestly.is_blocked_pair(user_id))
+    or exists (select 1 from nestly.user_blocks b where b.blocker_id = (select auth.uid()) and b.blocked_id = regular_names.user_id)
     or (pg_catalog.current_setting('nestly.staff_view', true) = 'on'
         and ((select nestly.has_permission('USER_VIEW')) or (select nestly.has_permission('REPORTS_VIEW')))));
 
@@ -176,7 +183,8 @@ comment on policy user_blocks_insert_blocker on nestly.user_blocks is 'An active
 comment on policy user_blocks_delete_blocker on nestly.user_blocks is 'Only the blocker lifts the block (unblock).';
 comment on policy posts_block_hide on nestly.posts is 'RESTRICTIVE: a post of the other party of a block is hidden, both ways; never from REPORTS_VIEW (a block cannot shield content from moderation). An anonymous post cannot be hidden.';
 comment on policy comments_block_hide on nestly.comments is 'RESTRICTIVE: a comment of the other party of a block is hidden, both ways; never from REPORTS_VIEW.';
-comment on policy regular_names_block_hide on nestly.regular_names is 'RESTRICTIVE: the other party''s name is hidden, both ways; not from staff on the admin screens.';
+comment on policy regular_names_block_hide on nestly.regular_names is 'RESTRICTIVE: the other party''s name is hidden, both ways; not from staff on the admin screens, and not from the blocker''s own blocked list.';
+comment on policy regular_names_select_blocker on nestly.regular_names is 'The blocker reads the names of the accounts it blocked (the blocked list in Settings, to unblock).';
 comment on policy regular_names_block_hide_owner on nestly.regular_names is 'RESTRICTIVE, app_owner: inside search_people and profile_view the other party of a block is not found (user_blocks is readable to app_owner only in those scopes).';
 comment on policy regular_profiles_block_hide_owner on nestly.regular_profiles is 'RESTRICTIVE, app_owner: profile_view does not open the profile of the other party of a block.';
 comment on policy friendships_block_insert on nestly.friendships is 'RESTRICTIVE: no Friend Request across a block.';

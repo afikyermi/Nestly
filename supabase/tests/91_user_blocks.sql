@@ -46,6 +46,7 @@ select is((select p.prosecdef from pg_proc p where p.proname = 'is_blocked_pair'
 select is((select string_agg(c.relname || '.' || pl.polname, ', ' order by pl.polname) from pg_policy pl join pg_class c on c.oid = pl.polrelid where not pl.polpermissive and pl.polname like '%block%'),
   'comments.comments_block_hide, friendships.friendships_block_insert, friendships.friendships_block_update, posts.posts_block_hide, regular_names.regular_names_block_hide, regular_names.regular_names_block_hide_owner, regular_profiles.regular_profiles_block_hide_owner',
   '[I4-blk c2] the seven RESTRICTIVE hiding policies');
+select is((select pl.polpermissive::text || ':' || pl.polcmd::text from pg_policy pl where pl.polname = 'regular_names_select_blocker'), 'true:r', '[I4-blk c2] the blocker''s read of its blocked list is a permissive SELECT');
 
 -- ---- who may block ------------------------------------------------------------------------------------------------------
 select is(pg_temp.block('a', 'b'), 'OK:1', '[I4-blk c3 FR-REL-002] an active account blocks another');
@@ -78,7 +79,7 @@ select is(pg_temp.sees_post('a', current_setting('t.pbanon')::uuid), '1', '[I4-b
 select is(pg_temp.sees_comment('a', current_setting('t.cbc')::uuid), '0', '[I4-blk c7 FR-REL-002] the blocker does not see the blocked account''s comment on a third account''s post');
 select is(pg_temp.sees_comment('b', current_setting('t.ca')::uuid), '0', '[I4-blk c7 FR-REL-002] the blocked account does not see the blocker''s comment either');
 select is(pg_temp.sees_comment('c', current_setting('t.cbc')::uuid), '1', '[I4-blk c7] a third account sees that comment');
-select is(pg_temp.sees_name('a', 'b'), '0', '[I4-blk c8] the blocker does not read the blocked account''s name');
+select is(pg_temp.sees_name('a', 'b'), '1', '[I4-blk c8] the blocker reads the blocked account''s name (its blocked list, to unblock)');
 select is(pg_temp.sees_name('b', 'a'), '0', '[I4-blk c8] the blocked account does not read the blocker''s name');
 select is(pg_temp.sees_name('a', 'a'), '1', '[I4-blk c8] a name of one''s own stays readable');
 select is(pg_temp.sees_name('c', 'b'), '1', '[I4-blk c8] a third account reads a name by the usual rule (b posted a named post c can read)');
