@@ -7,6 +7,8 @@
 --   tests.fx_mt_expire(hash)        moves an invitation's expiry into the past (inside a transaction only)
 --   tests.fx_mt_count(rel)          count(*) of one of the analytics tables, whoever may read it
 --   tests.fx_mt_invitation(hash)    'accepted:<bool> revoked:<bool>' of an invitation, whoever may read it
+--   tests.fx_mt_announcements_clear()  deletes every System Announcement (the server tests run committed: a published one would ride on
+--                                   every later feed page)
 -- Definers owned by postgres, fixed search_path, executable by app_server only.
 -- =====================================================================================================================
 
@@ -76,7 +78,12 @@ as $$
   from nestly.moderator_invitations where code_hash = p_hash
 $$;
 
-revoke all on function tests.fx_mt_expire(text), tests.fx_mt_count(text), tests.fx_mt_invitation(text) from public;
+create or replace function tests.fx_mt_announcements_clear() returns void
+language sql security definer set search_path = ''
+as $$ delete from nestly.system_announcements $$;
+
+revoke all on function tests.fx_mt_expire(text), tests.fx_mt_count(text), tests.fx_mt_invitation(text), tests.fx_mt_announcements_clear() from public;
+grant execute on function tests.fx_mt_announcements_clear() to app_server;
 grant execute on function tests.fx_mt_id(text) to app_server;
 grant execute on function tests.fx_mt_expire(text) to app_server;
 grant execute on function tests.fx_mt_count(text) to app_server;

@@ -238,10 +238,13 @@ export async function nameAnalytics(tx: IdentityTx): Promise<void> {
 const dayCounts = z.array(z.object({ day: z.string(), count }));
 
 export async function readAnalytics(tx: IdentityTx, days: AnalyticsPeriod): Promise<AnalyticsView> {
-  const since = sql`(date_trunc('day', now() at time zone 'Asia/Jerusalem') - make_interval(days => ${days - 1})) at time zone 'Asia/Jerusalem'`;
+  // the period's days in Israel (the UI's zone), as timestamps for generate_series
+  const firstDay = sql`(((now() at time zone 'Asia/Jerusalem')::date - ${days - 1}::int)::timestamp)`;
+  const lastDay = sql`((now() at time zone 'Asia/Jerusalem')::date::timestamp)`;
+  const since = sql`(date_trunc('day', now() at time zone 'Asia/Jerusalem') - make_interval(days => ${days - 1}::int)) at time zone 'Asia/Jerusalem'`;
   const series = (table: string) => sql`
     select to_char(g.day, 'YYYY-MM-DD') as day, coalesce(c.n, 0) as count
-    from generate_series((now() at time zone 'Asia/Jerusalem')::date - ${days - 1}, (now() at time zone 'Asia/Jerusalem')::date, interval '1 day') as g(day)
+    from generate_series(${firstDay}, ${lastDay}, interval '1 day') as g(day)
     left join (select (created_at at time zone 'Asia/Jerusalem')::date as d, count(*) as n from ${sql.raw(`nestly.${table}`)}
                where created_at >= ${since} group by 1) c on c.d = g.day::date
     order by g.day`;
@@ -257,7 +260,7 @@ export async function readAnalytics(tx: IdentityTx, days: AnalyticsPeriod): Prom
         select to_char(g.day, 'YYYY-MM-DD') as day,
                count(u.id) filter (where u.account_type = 'regular') as regular,
                count(u.id) filter (where u.account_type = 'professional') as professional
-        from generate_series((now() at time zone 'Asia/Jerusalem')::date - ${days - 1}, (now() at time zone 'Asia/Jerusalem')::date, interval '1 day') as g(day)
+        from generate_series(${firstDay}, ${lastDay}, interval '1 day') as g(day)
         left join nestly.users u on (u.created_at at time zone 'Asia/Jerusalem')::date = g.day::date
         group by g.day order by g.day`),
     );
