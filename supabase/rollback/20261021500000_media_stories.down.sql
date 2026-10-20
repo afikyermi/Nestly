@@ -7,7 +7,7 @@
 -- Order:    revert the media server, jobs and web code first, then run this.
 -- Safe:     only while media_assets, profile_photos, stories and media_training_samples hold no row (FORCE RLS is lifted first, so the
 --           check is real). Files in storage are not touched: they are not the database's.
--- Restores: audit_trigger() as 20261021100000_status_guides_admin.sql left it (text and comment); drops the four tables, their triggers,
+-- Restores: audit_trigger() as 20261021100000_status_guides_admin.sql left it (text and comment); drops posts_select_jobs_removed and the five tables, their triggers,
 --           functions and policies; deletes only its own history row. Audit entries already written stay: the log is append-only.
 -- =====================================================================================================================
 
@@ -25,11 +25,12 @@ alter table nestly.media_assets no force row level security;
 alter table nestly.profile_photos no force row level security;
 alter table nestly.stories no force row level security;
 alter table nestly.media_training_samples no force row level security;
+alter table nestly.media_training_events no force row level security;
 
 do $$
 begin
   if exists (select 1 from nestly.media_assets) or exists (select 1 from nestly.profile_photos) or exists (select 1 from nestly.stories)
-     or exists (select 1 from nestly.media_training_samples) then
+     or exists (select 1 from nestly.media_training_samples) or exists (select 1 from nestly.media_training_events) then
     raise exception 'images, Stories or training samples exist: rolling back would orphan their files and lose decisions. Stop: forward fix, or Afik''s decision (CLAUDE.md hard rule 7)';
   end if;
 end
@@ -132,11 +133,14 @@ revoke execute on function nestly.audit_trigger() from public;
 
 comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement or an Admin''s creation, edit, publication or hiding of a status guide: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
 
+drop policy posts_select_jobs_removed on nestly.posts;
+drop table nestly.media_training_events;
 drop table nestly.media_training_samples;
 drop table nestly.stories;
 drop table nestly.profile_photos;
 drop table nestly.media_assets;
 
+drop function nestly.media_training_samples_log();
 drop function nestly.stories_prepare();
 drop function nestly.profile_photos_replaced();
 drop function nestly.profile_photos_prepare();

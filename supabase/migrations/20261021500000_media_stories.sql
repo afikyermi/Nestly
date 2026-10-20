@@ -11,16 +11,20 @@
 -- media_assets            one row per uploaded image (kind post, profile or story). status: pending (only the uploader sees it, "ממתין לבדיקה")
 --                         -> passed (the check found nothing) | queued (blocked, unsure, or the check kept failing: waits for staff with
 --                         CONTENT_MODERATE, the Admin always) -> approved | rejected | suspected (a child may be in danger: hidden from everyone,
---                         deleted after 90 days, M6). Others read an image only when passed or approved, and only through what it belongs to
+--                         kept 90 days per M6, then deleted). A rejected image's file is removed at once by the job (after its training copy);
+--                         its row stays 30 days with no file so the uploader sees the rejection (Afik 20.10.2026). Others read an image only when passed or approved, and only through what it belongs to
 --                         (a post, profile photo or Story they can read). owner_id is never granted to a client: an anonymous post's image
 --                         must not name its author. Staff mark "a child is in the image" (is_child) while deciding.
 -- profile_photos          the current photo of a Regular or Professional account. Replacing it deletes the previous image row at once (BR-077);
 --                         the server then removes the file.
 -- stories                 FR-FEED-008: one image, optional text, audience everyone or friends, visible 24 hours; at most 10 in 24 hours
 --                         (VAL-042, ERR-040, checked by the database under a per-author lock). Regular accounts only; never anonymous.
--- media_training_samples  the training set's index (decisions-in-force.md §2): one row per image the model blocked or was unsure about, with the
---                         staff decision, copied by the background job into a separate private bucket. Never an image marked with a child,
---                         never a suspected one (checked by the insert policy). Expires; the Admin (ALGORITHM_AI_CONFIG) reads the index.
+-- media_training_samples  the training set's index (Afik 20.10.2026): every image the model blocked or was unsure about, children included, with the
+--                         staff decision, and every image that passed but whose post was removed after a report (a model miss). Copied by the
+--                         background job into a separate private bucket (encrypted at rest by the platform). Never a suspected image (the insert
+--                         policy). No client reads it: no manual viewing. Expires (6 months by default, set by the job).
+-- media_training_events   the access record of the training set: one row per sample added or expired, written by trigger in the same
+--                         transaction. Read by the Admin and AUDIT_LOG_VIEW; nobody changes it.
 --
 -- The job role app_jobs (rule 6, Afik 20.10.2026) records the check result on a pending image, copies training samples and purges what BR-077
 -- deletes; each reach is a TO app_jobs policy below. A staff decision is audited by audit_trigger() (rule 18), replaced here with one branch;
@@ -51,6 +55,7 @@ create table nestly.media_assets (
   decided_by     uuid,
   decided_at     timestamptz,
   purge_after    timestamptz,
+  is_file_removed boolean    not null default false,
   created_at     timestamptz not null default now(),
   constraint media_assets_pkey primary key (id),
   constraint media_assets_id_status_key unique (id, status),
@@ -70,6 +75,7 @@ create table nestly.media_assets (
   constraint media_assets_decided_check check ((status in ('approved', 'rejected', 'suspected')) = (decided_at is not null)),
   constraint media_assets_suspected_check check ((status = 'suspected') = (purge_after is not null) and (status <> 'suspected' or is_child)),
   constraint media_assets_attempts_check check (check_attempts between 0 and 20),
+  constraint media_assets_file_removed_check check (not is_file_removed or status = 'rejected'),
   constraint media_assets_owner_id_owner_status_fkey foreign key (owner_id, owner_status)
     references nestly.users (id, status) on update cascade on delete cascade,
   constraint media_assets_post_id_fkey foreign key (post_id) references nestly.posts (id) on delete set null (post_id, position),
@@ -127,18 +133,37 @@ create table nestly.media_training_samples (
   id              uuid        not null default gen_random_uuid(),
   source_media_id uuid        not null,
   label           text        not null,
-  queue_reason    text        not null,
+  source          text        not null,
+  is_child        boolean     not null,
   mime            text        not null,
-  decided_at      timestamptz not null,
+  decided_at      timestamptz,
   created_at      timestamptz not null default now(),
-  expires_at      timestamptz not null default now() + interval '12 months',
+  expires_at      timestamptz not null default now() + interval '6 months',
   constraint media_training_samples_pkey primary key (id),
   constraint media_training_samples_source_key unique (source_media_id),
   constraint media_training_samples_label_check check (label in ('blocked', 'allowed')),
-  constraint media_training_samples_reason_check check (queue_reason in ('blocked', 'unsure')),
+  constraint media_training_samples_source_check check (source in ('blocked', 'unsure', 'reported')),
+  constraint media_training_samples_reported_check check (source <> 'reported' or (label = 'blocked' and decided_at is null)),
+  constraint media_training_samples_decided_check check (source = 'reported' or decided_at is not null),
   constraint media_training_samples_mime_check check (mime in ('image/jpeg', 'image/png', 'image/webp')),
-  constraint media_training_samples_expires_check check (expires_at > created_at)
+  constraint media_training_samples_expires_check check (expires_at > created_at and expires_at <= created_at + interval '24 months')
 );
+
+-- media_training_events: the access record (Afik 20.10.2026: every access recorded). No user column.
+create table nestly.media_training_events (
+  id          uuid        not null default gen_random_uuid(),
+  sample_id   uuid        not null,
+  action      text        not null,
+  source      text        not null,
+  label       text        not null,
+  occurred_at timestamptz not null default now(),
+  constraint media_training_events_pkey primary key (id),
+  constraint media_training_events_action_check check (action in ('added', 'expired')),
+  constraint media_training_events_source_check check (source in ('blocked', 'unsure', 'reported')),
+  constraint media_training_events_label_check check (label in ('blocked', 'allowed'))
+);
+
+create index media_training_events_occurred_idx on nestly.media_training_events (occurred_at desc);
 
 create index media_training_samples_expires_idx on nestly.media_training_samples (expires_at);
 
@@ -155,9 +180,19 @@ declare
   v_mine boolean;
 begin
   if current_user = 'app_jobs' then
+    if new.is_child is distinct from old.is_child or new.post_id is distinct from old.post_id or new.position is distinct from old.position then
+      raise exception 'media: the job cannot decide' using errcode = '42501';
+    end if;
+    if old.status = 'rejected' then
+      -- a rejected image's file is gone: the job records only that (Afik 20.10.2026)
+      if new.status <> 'rejected' or not new.is_file_removed or new.scores is distinct from old.scores
+         or new.check_attempts is distinct from old.check_attempts or new.queue_reason is distinct from old.queue_reason then
+        raise exception 'media: the job only records a removed file' using errcode = '42501';
+      end if;
+      return new;
+    end if;
     -- the background check: only a pending image moves, to passed or queued; it never decides as staff do
-    if new.status not in ('pending', 'passed', 'queued') or new.is_child is distinct from old.is_child
-       or new.post_id is distinct from old.post_id or new.position is distinct from old.position then
+    if new.status not in ('pending', 'passed', 'queued') or new.is_file_removed then
       raise exception 'media: the check cannot decide' using errcode = '42501';
     end if;
     if new.status is distinct from old.status then new.checked_at := pg_catalog.now(); end if;
@@ -286,6 +321,7 @@ alter table nestly.media_assets enable row level security, force row level secur
 alter table nestly.profile_photos enable row level security, force row level security;
 alter table nestly.stories enable row level security, force row level security;
 alter table nestly.media_training_samples enable row level security, force row level security;
+alter table nestly.media_training_events enable row level security, force row level security;
 
 -- media_assets: the uploader reads their own (a Story image only for its 24 hours).
 create policy media_assets_select_owner on nestly.media_assets
@@ -344,6 +380,14 @@ create policy media_assets_update_jobs on nestly.media_assets
   using (status = 'pending')
   with check (status in ('pending', 'passed', 'queued'));
 
+-- A rejected image's file goes at once (Afik 20.10.2026), once its training copy exists where one is made (a blocked or unsure image).
+create policy media_assets_update_jobs_file on nestly.media_assets
+  for update to app_jobs
+  using (status = 'rejected' and not is_file_removed
+    and (queue_reason not in ('blocked', 'unsure')
+      or exists (select 1 from nestly.media_training_samples t where t.source_media_id = media_assets.id)))
+  with check (status = 'rejected' and is_file_removed);
+
 create policy media_assets_delete_jobs on nestly.media_assets
   for delete to app_jobs
   using (
@@ -401,12 +445,9 @@ create policy stories_select_jobs on nestly.stories
   for select to app_jobs
   using (true);
 
--- media_training_samples: the Admin reads the index (ALGORITHM_AI_CONFIG is Admin Only). Only the job writes: a sample of a blocked or unsure
--- image that staff approved or rejected, never one marked with a child, never a suspected one; it deletes expired samples.
-create policy media_training_samples_select_admin on nestly.media_training_samples
-  for select to authenticated
-  using ((select nestly.is_active_account()) and (select nestly.has_permission('ALGORITHM_AI_CONFIG')));
-
+-- media_training_samples: no client policy at all (no manual viewing, Afik 20.10.2026). Only the job writes: a sample of a blocked or unsure
+-- image that staff approved or rejected (children included), or of a passed image whose post was removed after a report; never a suspected
+-- one. It deletes expired samples. Every add and expiry is recorded in media_training_events by trigger.
 create policy media_training_samples_select_jobs on nestly.media_training_samples
   for select to app_jobs
   using (true);
@@ -416,20 +457,61 @@ create policy media_training_samples_insert_jobs on nestly.media_training_sample
   with check (exists (
     select 1 from nestly.media_assets m
     where m.id = media_training_samples.source_media_id
-      and not m.is_child
-      and m.status in ('approved', 'rejected')
-      and m.queue_reason in ('blocked', 'unsure')
-      and m.queue_reason = media_training_samples.queue_reason
-      and (m.status = 'rejected') = (media_training_samples.label = 'blocked')
+      and m.status <> 'suspected'
       and m.mime = media_training_samples.mime
-      and m.decided_at = media_training_samples.decided_at));
+      and m.is_child = media_training_samples.is_child
+      and (
+        (media_training_samples.source in ('blocked', 'unsure')
+          and m.status in ('approved', 'rejected')
+          and m.queue_reason = media_training_samples.source
+          and (m.status = 'rejected') = (media_training_samples.label = 'blocked')
+          and m.decided_at = media_training_samples.decided_at)
+        or (media_training_samples.source = 'reported'
+          and m.status in ('passed', 'approved')
+          and exists (select 1 from nestly.posts p where p.id = m.post_id and p.status = 'removed')))));
 
 create policy media_training_samples_delete_jobs on nestly.media_training_samples
   for delete to app_jobs
   using (expires_at <= now());
 
+-- The job reads the posts removed after a report (whose images are model misses).
+create policy posts_select_jobs_removed on nestly.posts
+  for select to app_jobs
+  using (status = 'removed');
+
+-- media_training_events: the Admin and AUDIT_LOG_VIEW read; the job's trigger appends; nobody changes or deletes.
+create policy media_training_events_select_audit on nestly.media_training_events
+  for select to authenticated
+  using ((select nestly.is_active_account()) and (select nestly.has_permission('AUDIT_LOG_VIEW')));
+
+create policy media_training_events_insert_jobs on nestly.media_training_events
+  for insert to app_jobs
+  with check (action in ('added', 'expired'));
+
+create function nestly.media_training_samples_log()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  if tg_op = 'INSERT' then
+    insert into nestly.media_training_events (sample_id, action, source, label) values (new.id, 'added', new.source, new.label);
+  else
+    insert into nestly.media_training_events (sample_id, action, source, label) values (old.id, 'expired', old.source, old.label);
+  end if;
+  return null;
+end
+$$;
+
+revoke execute on function nestly.media_training_samples_log() from public;
+
+create trigger media_training_samples_log
+  after insert or delete on nestly.media_training_samples
+  for each row execute function nestly.media_training_samples_log();
+
 -- 7. Grants. Per column: identifiers, owners, clocks, scores, counters and decisions are never written by a client.
-revoke all on table nestly.media_assets, nestly.profile_photos, nestly.stories, nestly.media_training_samples from public, anon;
+revoke all on table nestly.media_assets, nestly.profile_photos, nestly.stories, nestly.media_training_samples, nestly.media_training_events from public, anon;
 
 grant select (id, kind, status, mime, width, height, byte_size, post_id, position, is_child, queue_reason, scores, created_at, decided_at)
   on table nestly.media_assets to authenticated;
@@ -445,13 +527,14 @@ grant delete on table nestly.profile_photos to authenticated;
 grant select (id, author_id, media_id, media_status, caption, audience, created_at, expires_at) on table nestly.stories to authenticated;
 grant insert (media_id, caption, audience) on table nestly.stories to authenticated;
 
-grant select (id, source_media_id, label, queue_reason, mime, decided_at, created_at, expires_at) on table nestly.media_training_samples to authenticated;
+grant select on table nestly.media_training_events to authenticated;
 
 grant select, delete on table nestly.media_assets to app_jobs;
-grant update (status, scores, check_attempts, queue_reason) on table nestly.media_assets to app_jobs;
+grant update (status, scores, check_attempts, queue_reason, is_file_removed) on table nestly.media_assets to app_jobs;
 grant select on table nestly.profile_photos, nestly.stories to app_jobs;
 grant select, delete on table nestly.media_training_samples to app_jobs;
-grant insert (source_media_id, label, queue_reason, mime, decided_at) on table nestly.media_training_samples to app_jobs;
+grant insert (source_media_id, label, source, is_child, mime, decided_at, expires_at) on table nestly.media_training_samples to app_jobs;
+grant insert (sample_id, action, source, label) on table nestly.media_training_events to app_jobs;
 
 -- 8. The Audit Log: audit_trigger() gains the branch for a staff decision on an image (rule 18). The rest is unchanged.
 create or replace function nestly.audit_trigger()
@@ -537,8 +620,8 @@ begin
       'rangeFrom', v_new -> 'range_from', 'rangeTo', v_new -> 'range_to', 'sourceCheckedOn', v_new ->> 'source_checked_on',
       'bodyChars', pg_catalog.char_length(v_new ->> 'body'), 'bodyChanged', tg_op = 'UPDATE' and v_new ->> 'body' is distinct from v_old ->> 'body');
   elsif tg_table_name = 'media_assets' then
-    -- FR-FEED-002 / BR-076 (Afik 20.10.2026): a staff decision on a queued image. trainingSet: whether the image may enter the training set
-    -- (a blocked or unsure image, approved or rejected, never one marked with a child and never a suspected one).
+    -- FR-FEED-002 / BR-076 (Afik 20.10.2026): a staff decision on a queued image. trainingSet: whether the image enters the training set
+    -- (a blocked or unsure image, approved or rejected, children included; never a suspected one).
     v_key := 'CONTENT_MODERATE';
     v_action := 'media_' || (v_new ->> 'status');
     v_kind := 'media';
@@ -546,8 +629,7 @@ begin
     v_before := pg_catalog.jsonb_build_object('status', v_old ->> 'status');
     v_after := pg_catalog.jsonb_build_object('status', v_new ->> 'status', 'mediaKind', v_new ->> 'kind', 'isChild', v_new -> 'is_child',
       'queueReason', v_new ->> 'queue_reason',
-      'trainingSet', (v_new ->> 'status') in ('approved', 'rejected') and not (v_new ->> 'is_child')::boolean
-        and (v_new ->> 'queue_reason') in ('blocked', 'unsure'));
+      'trainingSet', (v_new ->> 'status') in ('approved', 'rejected') and coalesce((v_new ->> 'queue_reason') in ('blocked', 'unsure'), false));
   else
     raise exception 'audit_trigger: not attached to %', tg_table_name;
   end if;
@@ -581,7 +663,7 @@ comment on column nestly.media_assets.height is 'Pixels, at most 2,048.';
 comment on column nestly.media_assets.byte_size is 'Size of the stored file.';
 comment on column nestly.media_assets.post_id is 'The post, set once by the uploader; NULL for a profile photo, a Story image or an image not attached yet. Set NULL when the post row goes (the purge then removes the image).';
 comment on column nestly.media_assets.position is 'Order in the post, 0 to 3: at most 4 images per post (VAL-041), by the unique (post_id, position).';
-comment on column nestly.media_assets.is_child is 'Marked by staff in the queue: "a child is in the image". Such an image never enters the training set, even approved.';
+comment on column nestly.media_assets.is_child is 'Marked by staff in the queue: "a child is in the image". Metadata, copied to a training sample (Afik 20.10.2026).';
 comment on column nestly.media_assets.queue_reason is 'Why it was queued: blocked (a covered part exposed above the block threshold), unsure (between the thresholds) or error (the check kept failing). NULL if never queued.';
 comment on column nestly.media_assets.scores is 'The model''s highest score per label it checks, for the queue. Set by the job only.';
 comment on column nestly.media_assets.check_attempts is 'Failed checks so far; at the limit the job queues the image (fail closed). Never granted to a client.';
@@ -606,16 +688,17 @@ comment on column nestly.stories.caption is 'Optional text, 1 to 500 characters 
 comment on column nestly.stories.audience is 'everyone or friends (OP-033).';
 comment on column nestly.stories.created_at is 'Set by the trigger to the transaction time.';
 comment on column nestly.stories.expires_at is 'created_at + 24 hours (set by the trigger); the policy hides the Story from then on and the job deletes it.';
-comment on table nestly.media_training_samples is 'decisions-in-force.md §2: the index of the training set: an image the model blocked or was unsure about, with the staff decision, copied by the job into a separate private bucket to improve safety only. Never an image marked with a child, never a suspected one. The Admin reads it; deleted at expiry.';
+comment on table nestly.media_training_samples is 'Afik 20.10.2026: the index of the training set, used only to train the safety model: images the model blocked or was unsure about (children included) with the staff decision, and passed images whose post was removed after a report. Files in a separate private bucket the job alone reaches. Never a suspected image; no client reads it; deleted at expiry.';
 comment on column nestly.media_training_samples.id is 'The sample; also its file name in the training bucket.';
 comment on column nestly.media_training_samples.source_media_id is 'The image it was copied from (no foreign key: the sample outlives it).';
 comment on column nestly.media_training_samples.label is 'blocked (staff rejected it) or allowed (staff approved it).';
-comment on column nestly.media_training_samples.queue_reason is 'What the model said: blocked or unsure.';
+comment on column nestly.media_training_samples.source is 'Why it is a sample: the model blocked it, was unsure, or it passed and its post was removed after a report (reported).';
+comment on column nestly.media_training_samples.is_child is 'Copy of the image''s "a child is in the image" mark (metadata; it does not exclude the image, Afik 20.10.2026).';
 comment on column nestly.media_training_samples.mime is 'Format of the file.';
-comment on column nestly.media_training_samples.decided_at is 'When staff decided (copied from the image).';
+comment on column nestly.media_training_samples.decided_at is 'When staff decided (copied from the image); NULL for a reported sample.';
 comment on column nestly.media_training_samples.created_at is 'When the job copied it.';
-comment on column nestly.media_training_samples.expires_at is 'Deleted after this time (12 months by default).';
-comment on function nestly.media_assets_update_guard() is 'SECURITY INVOKER. Who may change which column of media_assets: the job moves a pending image to passed or queued; staff with CONTENT_MODERATE decide a queued one (who and when set here; suspected = 90 days, child marked); the uploader attaches an unattached post image to a post of their own.';
+comment on column nestly.media_training_samples.expires_at is 'Deleted after this time: set by the job from its configuration (6 months by default, Afik 20.10.2026); at most 24 months.';
+comment on function nestly.media_assets_update_guard() is 'SECURITY INVOKER. Who may change which column of media_assets: the job moves a pending image to passed or queued and records a rejected image''s removed file; staff with CONTENT_MODERATE decide a queued one (who and when set here; suspected = 90 days, child marked); the uploader attaches an unattached post image to a post of their own.';
 comment on function nestly.profile_photos_prepare() is 'SECURITY INVOKER. The image must be the caller''s own profile image, not rejected or suspected; copies its status.';
 comment on function nestly.profile_photos_replaced() is 'SECURITY INVOKER. A replaced profile photo''s image row is deleted at once (BR-077).';
 comment on function nestly.stories_prepare() is 'SECURITY INVOKER. At most 10 Stories in 24 hours per author under a per-author lock (NS021, ERR-040); the image is the caller''s Story image from the last hour (42501); sets the clocks.';
@@ -626,7 +709,7 @@ comment on policy media_assets_insert_owner on nestly.media_assets is 'A Regular
 comment on policy media_assets_update_owner on nestly.media_assets is 'The uploader attaches an unattached post image to their post; the guard checks the rest.';
 comment on policy media_assets_update_staff on nestly.media_assets is 'CONTENT_MODERATE decides a queued image.';
 comment on policy media_assets_delete_owner on nestly.media_assets is 'The uploader deletes their own image, never a suspected one.';
-comment on policy media_assets_select_jobs on nestly.media_assets is 'The job role reads every image row: the check, the training copy, the purge and the sweep of files with no row (rule 6).';
+comment on policy media_assets_select_jobs on nestly.media_assets is 'The job role reads every image row: the check, the training copy, the file removal, the purge and the sweep of files with no row (rule 6).';
 comment on policy media_assets_update_jobs on nestly.media_assets is 'The job role records the check result on a pending image (rule 6).';
 comment on policy media_assets_delete_jobs on nestly.media_assets is 'The purge (BR-077): expired Stories, suspected images after 90 days, rejected after 30 days, unattached post images after 24 hours (a deleted post's row going sets them unattached), replaced or unused profile images after 24 hours.';
 comment on policy profile_photos_select_viewer on nestly.profile_photos is 'The owner always; others once the image passed or was approved.';
@@ -637,9 +720,22 @@ comment on policy profile_photos_select_jobs on nestly.profile_photos is 'The pu
 comment on policy stories_select_viewer on nestly.stories is 'Unexpired Stories: the author at once, others after the image passed or was approved, by audience (everyone or accepted Friends).';
 comment on policy stories_insert_author on nestly.stories is 'A Regular publishes as themselves.';
 comment on policy stories_select_jobs on nestly.stories is 'The purge reads which Story images are still live (rule 6).';
-comment on policy media_training_samples_select_admin on nestly.media_training_samples is 'The Admin reads the training set''s index (ALGORITHM_AI_CONFIG).';
 comment on policy media_training_samples_select_jobs on nestly.media_training_samples is 'The job reads the index (what is copied, what expired).';
-comment on policy media_training_samples_insert_jobs on nestly.media_training_samples is 'The job adds a sample only of a blocked or unsure image that staff approved or rejected, never one marked with a child or suspected.';
+comment on policy media_training_samples_insert_jobs on nestly.media_training_samples is 'The job adds a sample of a blocked or unsure image staff approved or rejected (children included), or of a passed image whose post was removed after a report; never a suspected one.';
+comment on policy media_assets_update_jobs_file on nestly.media_assets is 'The job records that a rejected image''s file is removed, once its training copy exists where one is made.';
+comment on policy posts_select_jobs_removed on nestly.posts is 'The job reads posts removed after a report: their images are training samples (model misses).';
+comment on policy media_training_events_select_audit on nestly.media_training_events is 'The Admin and AUDIT_LOG_VIEW read the training set''s access record.';
+comment on policy media_training_events_insert_jobs on nestly.media_training_events is 'The job''s trigger appends an add or an expiry.';
+comment on table nestly.media_training_events is 'Afik 20.10.2026: the access record of the training set (every sample added or expired), written by trigger in the same transaction. Append-only; names no user.';
+comment on column nestly.media_training_events.id is 'The record.';
+comment on column nestly.media_training_events.sample_id is 'The sample (no foreign key: the record outlives it).';
+comment on column nestly.media_training_events.action is 'added or expired.';
+comment on column nestly.media_training_events.source is 'The sample''s source.';
+comment on column nestly.media_training_events.label is 'The sample''s label.';
+comment on column nestly.media_training_events.occurred_at is 'When.';
+comment on index nestly.media_training_events_occurred_idx is 'The record, newest first.';
+comment on function nestly.media_training_samples_log() is 'SECURITY INVOKER (runs as the job). Appends the access record of every training sample added or expired.';
+comment on column nestly.media_assets.is_file_removed is 'A rejected image whose file the job removed (after its training copy). The row stays 30 days so the uploader sees the rejection.';
 comment on policy media_training_samples_delete_jobs on nestly.media_training_samples is 'The job deletes expired samples.';
 comment on index nestly.media_assets_owner_idx is 'The uploader''s images by kind.';
 comment on index nestly.media_assets_work_idx is 'The check job and the approval queue.';
