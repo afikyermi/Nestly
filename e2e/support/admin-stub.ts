@@ -15,6 +15,8 @@ export interface Sent {
 }
 export interface Net {
   staff: boolean;
+  /** The staff role /api/admin/access reports (an Admin also sees the Admin-only tabs). */
+  role: 'admin' | 'moderator';
   permissions: readonly string[];
   queue: Array<{ targetKind: 'post' | 'comment' | 'user'; targetId: string; reportCount: number; priority: number; topReasonLabel: string; isRising: boolean; firstReportedAt: string }>;
   userStatus: 'active' | 'suspended' | 'banned';
@@ -33,6 +35,7 @@ export const CHILD_REPORT = ID(9);
 export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<Net> {
   const net: Net = {
     staff: true,
+    role: 'admin',
     permissions: KEYS,
     queue: [
       { targetKind: 'post', targetId: POST_SPAM, reportCount: 1, priority: 4, topReasonLabel: 'ספאם או פרסום לא קשור', isRising: false, firstReportedAt: '2026-06-10T09:00:00.000Z' },
@@ -114,7 +117,7 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
         })),
       });
     }
-    if (path === '/api/admin/access') return json(route, 200, net.staff ? { staff: true, role: 'admin', permissions: net.permissions } : { staff: false });
+    if (path === '/api/admin/access') return json(route, 200, net.staff ? { staff: true, role: net.role, permissions: net.permissions } : { staff: false });
     if (path === '/api/admin/reports') return json(route, 200, { items: net.queue });
     if (path.startsWith('/api/admin/reports/')) {
       const [, , , , kind, id] = path.split('/');

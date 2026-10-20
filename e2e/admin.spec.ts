@@ -27,7 +27,7 @@ test.describe('[I4] the admin shell', () => {
     await expect.poll(() => pathOf(page)).toBe('/admin/reports');
     await expect(page.getByRole('heading', { level: 1, name: 'ניהול' })).toBeVisible();
     const tabs = page.getByRole('navigation', { name: 'מסכי הניהול' });
-    await expect(tabs.getByRole('link')).toHaveText(['דיווחים', 'משתמשים', 'יומן פעולות', 'תמונות לבדיקה']);
+    await expect(tabs.getByRole('link')).toHaveText(['דיווחים', 'משתמשים', 'יומן פעולות', 'מדריכים', 'תמונות לבדיקה']);
   });
 
   test('[I4 AC-031] an account that is not staff has no admin entry and /admin leads back to the feed', async ({ page }) => {
@@ -41,7 +41,7 @@ test.describe('[I4] the admin shell', () => {
   });
 
   test('[I4 AC-031] a Moderator sees only the screens its keys allow', async ({ page }) => {
-    await setupAdmin(page, { permissions: ['AUDIT_LOG_VIEW'] });
+    await setupAdmin(page, { role: 'moderator', permissions: ['AUDIT_LOG_VIEW'] });
     await signIn(page);
     await page.goto('/admin');
     await expect.poll(() => pathOf(page)).toBe('/admin/audit');
@@ -147,7 +147,7 @@ test.describe('[I4 FR-MOD-002] accounts and enforcement', () => {
 
 test.describe('[I5 Afik 20.10] the image approval queue', () => {
   test('[I5 BR-076] a CONTENT_MODERATE holder approves one image with the child mark and marks a suspicion on another; each leaves the queue', async ({ page }) => {
-    const net = await setupAdmin(page, { permissions: ['CONTENT_MODERATE'] });
+    const net = await setupAdmin(page, { role: 'moderator', permissions: ['CONTENT_MODERATE'] });
     await signIn(page);
     await page.goto('/admin');
     await expect.poll(() => pathOf(page)).toBe('/admin/media');
