@@ -306,10 +306,10 @@ describe('[F2.0-a c10 FR-AUTH-003 S-16] the password change after two answers', 
     for (let i = 0; i < 2; i += 1) expect((await postPassword(h, 'change', body({ current: wrong }), bearer, nextIp())).statusCode).toBe(401);
     const res = await changeAnswers(h, bearer, wrong, [entry('nickname', 'Dana'), entry('pet', 'Rex')], nextIp());
     expect(res.statusCode, 'a failed question change counts on the same ladder').toBe(401);
-    const sixth = await postPassword(h, 'change', body(), bearer, nextIp());
-    expect(sixth.statusCode, sixth.body).toBe(429);
-    expect(sixth.body).toBe('{"error":"rate_limited"}');
-    expect(sixth.headers['retry-after']).toBeDefined();
+    const fourth = await postPassword(h, 'change', body(), bearer, nextIp());
+    expect(fourth.statusCode, fourth.body).toBe(429);
+    expect(fourth.body).toBe('{"error":"rate_limited"}');
+    expect(fourth.headers['retry-after']).toBeDefined();
     expect(auth.of('setPassword')).toEqual([]);
     expect(await kinds(ctx, handleHex(ctx, account.email))).toContain('password_change_limited');
   });

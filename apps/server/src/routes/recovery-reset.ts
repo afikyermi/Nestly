@@ -2,7 +2,8 @@
 // check, so no authentication hook protects it. The body is the email, exactly two answers and the new password. Order:
 // 400 for a body that is not exactly that (before any lookup, uncounted); 503 when the pepper or the Auth key is missing
 // (before any database work, uncounted, unaudited); then the service. Every failure to prove the answers is the same 401
-// `invalid_recovery`; a lock is 429 `rate_limited` with retry-after; a failed Auth call is 503 `unavailable`.
+// `invalid_recovery`; a lock is 429 with retry-after, `recovery_locked_day` for a 24-hour lock of the account's ladder
+// (NFR-SEC-010, ERR-043) and `rate_limited` otherwise; a failed Auth call is 503 `unavailable`.
 //
 // The client address is `request.ip`, which app.ts derives from the platform's own X-Forwarded-For entry.
 

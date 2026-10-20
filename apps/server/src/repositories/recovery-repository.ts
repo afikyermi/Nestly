@@ -247,7 +247,7 @@ export async function recordHandleSuccess(tx: IdentityTx): Promise<void> {
   await tx.execute(sql`
     update nestly.recovery_throttles
     set ladder_failures = 0
-    where subject_kind = 'handle'`);
+    where subject_kind = 'handle' and ladder_failures <> 0`);
 }
 
 /** Appends one audit row. The policy forces `userId` to the account of the declared handle (or none). */

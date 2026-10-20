@@ -104,7 +104,7 @@ describe('[F1.6 c9 FR-AUTH-003 AC-092] a correct reset', () => {
     const ip = nextIp();
     await attemptReset(h, resetFor(account.email), ip);
     expect(await kinds(ctx, handle)).toBe('answers_saved,reset_verified,reset_completed');
-    expect((await throttle(ctx, 'handle', handle)).split('/').slice(0, 2)).toEqual(['0', '0']);
+    expect(await ladder(ctx, handle), 'the account\'s ladder is clear').toBe('0/false');
     expect((await throttle(ctx, 'ip', ipHex(ctx, ip))).split('/').slice(0, 2)).toEqual(['0', '0']);
     expect(await answersJson(ctx, account.id), 'a reset does not touch the stored answers').toBe(rowBefore);
     const again = await attemptReset(h, resetFor(account.email, RIGHT, 'סיסמה שנייה ארוכה 1'));
@@ -531,7 +531,7 @@ describe('[F1.6 c12 concurrency] the limits hold under parallel attempts and a d
     const account = await accountWithAnswers(ctx, first);
     const results = await Promise.all([attemptReset(first, resetFor(account.email)), attemptReset(second, resetFor(account.email))]);
     for (const res of results) expect(res.statusCode, res.body).toBe(200);
-    expect((await throttle(ctx, 'handle', handleHex(ctx, account.email))).split('/')[0]).toBe('0');
+    expect(await ladder(ctx, handleHex(ctx, account.email))).toBe('0/false');
     expect((await attemptReset(first, resetFor(account.email))).statusCode).toBe(200);
   });
 });
@@ -584,14 +584,14 @@ describe('[F1.6 c13] the audit: one row per attempt, in the same transaction, no
     const handle = handleHex(ctx, account.email);
     for (let i = 0; i < 3; i += 1) await attemptReset(h, resetFor(account.email, wrongFirst));
     expect((await attemptReset(h, resetFor(account.email, RIGHT))).statusCode).toBe(429);
-    const locked = await throttle(ctx, 'handle', handle);
+    const locked = `${await throttle(ctx, 'handle', handle)}|${await ladder(ctx, handle)}`;
     const after = await kinds(ctx, handle);
     expect(after.split(',').filter((k) => k === 'reset_limited')).toHaveLength(1);
     for (const body of [resetFor(account.email, RIGHT), resetFor(account.email, wrongFirst), resetFor(account.email, RIGHT)]) {
       expect((await attemptReset(h, body, nextIp())).statusCode).toBe(429);
     }
     expect(await kinds(ctx, handle), 'no further audit row for the submitted email').toBe(after);
-    expect(await throttle(ctx, 'handle', handle), 'the handle row is untouched').toBe(locked);
+    expect(`${await throttle(ctx, 'handle', handle)}|${await ladder(ctx, handle)}`, 'the handle row and its ladder are untouched').toBe(locked);
 
     await shift(ctx, 'handle', handle, '61 minutes');
     for (let i = 0; i < 3; i += 1) await attemptReset(h, resetFor(account.email, wrongFirst));
@@ -646,7 +646,7 @@ describe('[F1.6 c15 c20 Amendment 1] when Auth does not confirm: 503, an outcome
     expect(res.body).toBe(UNAVAILABLE);
     expect(String(res.headers['cache-control']).toLowerCase()).toContain('no-store');
     expect(await kinds(ctx, handle)).toBe('answers_saved,reset_verified,reset_admin_failed');
-    expect((await throttle(ctx, 'handle', handle)).split('/').slice(0, 2)).toEqual(['0', '0']);
+    expect(await ladder(ctx, handle), 'the account\'s ladder is clear').toBe('0/false');
     expect(await answersJson(ctx, account.id)).toBe(before);
 
     admin.answer('completed');
@@ -693,7 +693,7 @@ describe('[F1.6 c15 c20 Amendment 1] when Auth does not confirm: 503, an outcome
     expect(res.body).toBe(UNAVAILABLE);
     expect(admin.calls, 'the password was set once').toHaveLength(1);
     expect(await kinds(ctx, handle)).toBe('answers_saved,reset_verified,reset_revoke_failed');
-    expect((await throttle(ctx, 'handle', handle)).split('/').slice(0, 2)).toEqual(['0', '0']);
+    expect(await ladder(ctx, handle), 'the account\'s ladder is clear').toBe('0/false');
   });
 
   it('[F1.6 c20] a retry after a sign-out failure runs the whole sequence again, succeeds with 200, and ends in reset_completed', T, async () => {

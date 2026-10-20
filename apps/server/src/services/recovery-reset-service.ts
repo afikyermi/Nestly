@@ -97,6 +97,7 @@ export async function redeemReset(
     logOutcomeNotRecorded('recovery reset: the outcome row was not written');
   }
   if (outcome === 'completed') return { kind: 'ok' };
-  // A stale handle found this account: it is answered like any other failure to prove the request, and counts for nothing.
+  // A stale handle found this account: it is answered like any other failure to prove the request and adds no failure; the right
+  // answers already reset the account's ladder (AC-113: a correct attempt resets the count).
   return outcome === 'email_mismatch' ? { kind: 'invalid' } : { kind: 'unavailable' };
 }
