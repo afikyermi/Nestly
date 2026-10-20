@@ -911,7 +911,7 @@ create table nestly.user_enforcements (
   constraint user_enforcements_duration_check check (
     (kind = 'suspension') = (duration_hours is not null) and (duration_hours is null or duration_hours between 1 and 8760)),
   constraint user_enforcements_until_check check ((kind = 'suspension') = (suspended_until is not null)),
-  constraint user_enforcements_child_safety_check check (not is_child_safety or (kind = 'ban' and report_id is not null)),
+  constraint user_enforcements_child_safety_check check (not is_child_safety or kind = 'ban'),
   constraint user_enforcements_status_before_check check (status_before in ('active', 'suspended', 'banned')),
   constraint user_enforcements_suggested_kind_check check (suggested_kind in ('warning', 'suspension', 'ban')),
   constraint user_enforcements_user_id_fkey foreign key (user_id) references nestly.users (id) on delete cascade,
