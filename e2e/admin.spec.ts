@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { APP, MENU_BUTTON, pathOf } from './app-helpers';
 import { DESKTOP_1280, EMAIL, main } from './support/journeys-stub';
-import { POST_CHILD, POST_SPAM, USER_RINA, setupAdmin } from './support/admin-stub';
+import { CHILD_REPORT, POST_CHILD, POST_SPAM, USER_RINA, setupAdmin } from './support/admin-stub';
 
 test.use({ baseURL: APP, viewport: DESKTOP_1280 });
 
@@ -60,7 +60,7 @@ test.describe('[I4 FR-MOD-003] the moderation queue', () => {
     await expect(items.first()).toContainText('עדיפות עליונה');
     await expect(items.first()).toContainText('3 דיווחים');
     await items.first().getByRole('button', { name: 'פתיחת הדיווח' }).click();
-    await expect(main(page).getByText('הטקסט בעת הדיווח: טקסט הפוסט שדווח')).toBeVisible();
+    await expect(main(page).getByText('הטקסט בעת הדיווח: טקסט הפוסט שדווח').first()).toBeVisible();
     await expect(main(page).getByRole('heading', { name: /פרטי הדיווח/ })).toBeVisible();
   });
 
@@ -97,7 +97,8 @@ test.describe('[I4 FR-MOD-003] the moderation queue', () => {
     await panel.getByRole('checkbox', { name: /חסימה מיידית/ }).check();
     await panel.getByRole('button', { name: 'ביצוע הפעולה' }).click();
     await expect(page.getByText('הפעולה בוצעה')).toBeVisible();
-    expect(net.sent[0]).toMatchObject({ path: '/api/admin/enforcements', body: { userId: USER_RINA, kind: 'ban', reason: 'תוכן שמסכן ילד', childSafety: true } });
+    // the ban cites the child-safety report, not the post's older report of another reason
+    expect(net.sent[0]).toMatchObject({ path: '/api/admin/enforcements', body: { userId: USER_RINA, kind: 'ban', reason: 'תוכן שמסכן ילד', childSafety: true, reportId: CHILD_REPORT } });
     void POST_CHILD;
   });
 });
@@ -126,7 +127,7 @@ test.describe('[I4 FR-MOD-002] accounts and enforcement', () => {
     await expect(page.getByText('לא נמצאו משתמשים')).toHaveCount(0);
     await page.getByLabel('חיפוש לפי שם').fill('רינה');
     await page.getByRole('button', { name: 'חיפוש', exact: true }).click();
-    await page.getByRole('listitem').filter({ hasText: 'רינה כהן' }).getByRole('button', { name: 'פתיחה' }).click();
+    await page.getByRole('listitem').filter({ hasText: 'רינה כהן' }).getByRole('button', { name: 'פתיחת החשבון של רינה כהן' }).click();
     const panel = page.getByRole('region', { name: 'אכיפה' });
     await expect(panel).toContainText('המדרג מציע: אזהרה');
     await panel.getByRole('button', { name: 'ביצוע הפעולה' }).click();

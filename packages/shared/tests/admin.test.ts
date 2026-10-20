@@ -6,6 +6,7 @@ import {
   checkHandleReports,
   checkModerateContent,
   checkRevealAuthor,
+  enforcementReport,
   ladderSuggestion,
   violationWeight,
 } from '../src/index.js';
@@ -69,6 +70,8 @@ describe('[FR-MOD-002 AC-028 AC-110] an enforcement', () => {
     expect(checkEnforce({ userId: ID, kind: 'warning', reason: 'rude', durationHours: 24 }).ok).toBe(false);
     expect(checkEnforce({ userId: ID, kind: 'suspension', reason: 'rude', durationHours: 0 }).ok).toBe(false);
     expect(checkEnforce({ userId: ID, kind: 'suspension', reason: 'rude', durationHours: 9000 }).ok).toBe(false);
+    expect(checkEnforce({ userId: ID, kind: 'suspension', reason: 'rude', durationHours: 72 }).ok).toBe(true);
+    expect(checkEnforce({ userId: ID, kind: 'suspension', reason: 'rude', durationHours: 100 }).ok).toBe(false); // only the ladder's lengths and 72 hours
   });
   it('always has a reason; the child-safety mark belongs to a ban; the actor cannot be named', () => {
     expect(checkEnforce({ userId: ID, kind: 'warning', reason: '' }).ok).toBe(false);
@@ -79,10 +82,25 @@ describe('[FR-MOD-002 AC-028 AC-110] an enforcement', () => {
 });
 
 describe('[FR-ADMIN-005] the audit page query', () => {
-  it('takes an ISO time or nothing', () => {
+  it('takes the (time|id) cursor of the previous page or nothing', () => {
     expect(checkAuditQuery({}).ok).toBe(true);
-    expect(checkAuditQuery({ before: '2026-10-20T10:00:00.000Z' }).ok).toBe(true);
+    expect(checkAuditQuery({ before: '2026-10-20T10:00:00.000123Z|11111111-1111-4111-8111-111111111111' })).toEqual({
+      ok: true,
+      value: { before: { at: '2026-10-20T10:00:00.000123Z', id: '11111111-1111-4111-8111-111111111111' } },
+    });
+    expect(checkAuditQuery({ before: '2026-10-20T10:00:00.000Z' }).ok).toBe(false); // the time alone would skip entries of one transaction
+    expect(checkAuditQuery({ before: '2026-10-20T10:00:00.000Z|nope' }).ok).toBe(false);
     expect(checkAuditQuery({ before: 'yesterday' }).ok).toBe(false);
     expect(checkAuditQuery({ limit: 5 }).ok).toBe(false);
+  });
+});
+
+describe('[AC-110] the report an enforcement cites', () => {
+  const r = (id: string, reason: string, status = 'open') => ({ id, reason, status });
+  it('cites the child-safety report even when an older report has another reason, an open one first', () => {
+    expect(enforcementReport([r('a', 'spam'), r('b', 'child_safety', 'handled'), r('c', 'child_safety')])).toEqual({ id: 'c', isChildSafety: true });
+    expect(enforcementReport([r('a', 'spam', 'handled'), r('b', 'harassment')])).toEqual({ id: 'b', isChildSafety: false });
+    expect(enforcementReport([r('a', 'spam', 'handled')])).toEqual({ id: 'a', isChildSafety: false });
+    expect(enforcementReport([])).toBeUndefined();
   });
 });

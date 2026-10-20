@@ -10,7 +10,7 @@ import { EnforcementPanel } from './EnforcementPanel';
 import {
   ACCOUNT_TYPE_LABELS,
   ACTION_FAILED_TEXT,
-  BACK_TO_QUEUE_LABEL,
+  BACK_TO_LIST_LABEL,
   ENFORCED_TEXT,
   FORBIDDEN_TEXT,
   LOAD_FAILED_TEXT,
@@ -18,6 +18,8 @@ import {
   NO_NAME_TEXT,
   NOT_APPLICABLE_TEXT,
   NOT_FOUND_TEXT,
+  OPEN_USER_LABEL,
+  openUserLabel,
   REASON_REQUIRED_TEXT,
   SEARCH_BUTTON_LABEL,
   SEARCH_LABEL,
@@ -49,9 +51,10 @@ export function UsersScreen({ permissions }: { permissions: readonly PermissionK
     [call],
   );
 
-  async function open(userId: string) {
+  // keepStatus: the reload after an action keeps its "done" message.
+  async function open(userId: string, keepStatus = false) {
     setFailure(null);
-    setStatus('');
+    if (!keepStatus) setStatus('');
     const outcome = await call((token) => fetchUser(token, userId));
     if (outcome.kind === 'ok') setUser(outcome.value);
     else setFailure(outcome.kind === 'not-found' ? NOT_FOUND_TEXT : LOAD_FAILED_TEXT);
@@ -71,7 +74,7 @@ export function UsersScreen({ permissions }: { permissions: readonly PermissionK
         return;
       }
       setStatus(ENFORCED_TEXT);
-      await open(user.userId);
+      await open(user.userId, true);
     } finally {
       busy.current = false;
       setPending(false);
@@ -91,7 +94,7 @@ export function UsersScreen({ permissions }: { permissions: readonly PermissionK
               if (search.trim() !== '') void find(search.trim());
             }}
           >
-            {BACK_TO_QUEUE_LABEL}
+            {BACK_TO_LIST_LABEL}
           </Button>
         </div>
         {status === '' ? null : <p role="status">{status}</p>}
@@ -125,8 +128,8 @@ export function UsersScreen({ permissions }: { permissions: readonly PermissionK
               <p>
                 {row.fullName ?? NO_NAME_TEXT} · {ACCOUNT_TYPE_LABELS[row.accountType]} · {STATUS_LABELS[row.status]}
               </p>
-              <Button variant="soft" onClick={() => void open(row.userId)}>
-                פתיחה
+              <Button variant="soft" aria-label={openUserLabel(row.fullName ?? NO_NAME_TEXT)} onClick={() => void open(row.userId)}>
+                {OPEN_USER_LABEL}
               </Button>
             </li>
           ))}

@@ -40,8 +40,9 @@ export async function readStaffAccess(tx: IdentityTx): Promise<{ role: 'admin' |
   return { role, permissions: rows.map((row) => row.key) };
 }
 
-/** One page of the Audit Log, newest first; `before` is the microsecond cursor of the last entry of the previous page. */
-export async function readAuditPage(tx: IdentityTx, before: string | undefined, limit: number): Promise<{ entries: AuditEntry[]; cursors: string[] }> {
+/** One page of the Audit Log, newest first; `before` is the (time, id) key of the last entry of the previous page, so entries written in one
+ * transaction (one time) are never skipped. */
+export async function readAuditPage(tx: IdentityTx, before: { at: string; id: string } | undefined, limit: number): Promise<{ entries: AuditEntry[]; cursors: string[] }> {
   const rows = z
     .array(
       z.object({
@@ -61,20 +62,20 @@ export async function readAuditPage(tx: IdentityTx, before: string | undefined, 
         select a.id, to_char(a.occurred_at at time zone 'UTC', ${isoMs}) as "occurredAt", to_char(a.occurred_at at time zone 'UTC', ${isoUs}) as cursor,
                a.actor_role as "actorRole", a.actor_id as "actorId", a.action, a.target_kind as "targetKind", a.target_id as "targetId", a.reason
         from nestly.audit_log a
-        where ${before === undefined ? sql`true` : sql`a.occurred_at < ${before}::timestamptz`}
+        where ${before === undefined ? sql`true` : sql`(a.occurred_at, a.id) < (${before.at}::timestamptz, ${before.id}::uuid)`}
         order by a.occurred_at desc, a.id desc
         limit ${limit}`),
     );
   return {
     entries: rows.map((row) => ({ id: row.id, occurredAt: row.occurredAt, actorRole: row.actorRole, actorId: row.actorId, action: row.action, targetKind: row.targetKind, targetId: row.targetId, reason: row.reason })),
-    cursors: rows.map((row) => row.cursor),
+    cursors: rows.map((row) => `${row.cursor}|${row.id}`),
   };
 }
 
 /**
  * The moderation queue (FR-MOD-003, BR-074): one item per open target. Priority is the best (lowest) priority among its reasons; a post with 3
- * reports or more rises one level and stays visible (the count is people: one report per person and target). Child safety is priority 1 and
- * first; ties go to the oldest report.
+ * reports or more rises one level, never above priority 2, and stays visible (the count is people: one report per person and target). Child safety
+ * is priority 1 and always first; ties go to the oldest report.
  */
 export async function readQueue(tx: IdentityTx): Promise<QueueItem[]> {
   const rows = z
@@ -98,12 +99,14 @@ export async function readQueue(tx: IdentityTx): Promise<QueueItem[]> {
         join nestly.report_reasons rr on rr.key = r.reason
         where r.status = 'open' and coalesce(r.post_id, r.comment_id, r.reported_user_id) is not null
         group by r.target_kind, coalesce(r.post_id, r.comment_id, r.reported_user_id)
-        order by greatest(1, min(rr.priority) - case when r.target_kind = 'post' and count(*) >= 3 then 1 else 0 end),
+        order by case when min(rr.priority) = 1 then 1
+                      else greatest(2, min(rr.priority) - case when r.target_kind = 'post' and count(*) >= 3 then 1 else 0 end) end,
                  min(r.created_at), 2`),
     );
   return rows
     .map((row) => {
-      const isRising = row.targetKind === 'post' && row.reportCount >= 3 && row.basePriority > 1;
+      // Rising never reaches priority 1: that level is child safety's alone (AC-106).
+      const isRising = row.targetKind === 'post' && row.reportCount >= 3 && row.basePriority > 2;
       return {
         targetKind: row.targetKind,
         targetId: row.targetId,
@@ -118,6 +121,7 @@ export async function readQueue(tx: IdentityTx): Promise<QueueItem[]> {
 
 export interface ReportRow {
   id: string;
+  status: 'open' | 'handled' | 'expired';
   reason: string;
   reasonLabel: string;
   details: string | null;
@@ -132,6 +136,7 @@ export async function readReportsOn(tx: IdentityTx, kind: ReportTargetKind, targ
     .array(
       z.object({
         id: z.guid(),
+        status: z.enum(['open', 'handled', 'expired']),
         reason: z.string(),
         reasonLabel: z.string(),
         details: z.string().nullable(),
@@ -141,7 +146,7 @@ export async function readReportsOn(tx: IdentityTx, kind: ReportTargetKind, targ
     )
     .parse(
       await tx.execute(sql`
-        select r.id, r.reason, rr.label as "reasonLabel", r.details, r.target_text as "copiedText",
+        select r.id, r.status, r.reason, rr.label as "reasonLabel", r.details, r.target_text as "copiedText",
                to_char(r.created_at at time zone 'UTC', ${isoMs}) as "createdAt"
         from nestly.reports r join nestly.report_reasons rr on rr.key = r.reason
         where ${column} = ${targetId}::uuid
@@ -258,6 +263,15 @@ export async function closeReports(
         where ${column} = ${targetId}::uuid and status = 'open' returning id`,
   );
   return rows.length;
+}
+
+/** Whether the caller can see an open report on the target (REPORTS_VIEW reads reports): tells a refused move from a missing target. */
+export async function hasOpenReports(tx: IdentityTx, kind: ReportTargetKind, targetId: string): Promise<boolean> {
+  const column = kind === 'post' ? sql`r.post_id` : kind === 'comment' ? sql`r.comment_id` : sql`r.reported_user_id`;
+  const rows = z
+    .array(z.object({ found: z.boolean() }))
+    .parse(await tx.execute(sql`select exists (select 1 from nestly.reports r where ${column} = ${targetId}::uuid and r.status = 'open') as found`));
+  return rows[0]?.found ?? false;
 }
 
 /** The audited reveal of an anonymous post's author (rule 19). */

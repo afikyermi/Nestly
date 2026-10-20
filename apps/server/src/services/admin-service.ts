@@ -22,6 +22,7 @@ import { readDatabaseFault } from '../lib/pg-error.js';
 import type { Identity } from '../lib/token-verifier.js';
 import {
   closeReports,
+  hasOpenReports,
   insertEnforcement,
   moveContent,
   readAuditPage,
@@ -69,6 +70,11 @@ function databaseRefusal(error: unknown): Refusal | undefined {
   }
 }
 
+/** A write that touched no row: the target is there but the policies refused the move (403), or there is nothing open to act on (404). */
+async function missingOrRefused(tx: IdentityTx, kind: ReportTargetKind, targetId: string): Promise<Refusal> {
+  return (await hasOpenReports(tx, kind, targetId)) ? { kind: 'forbidden' } : { kind: 'not_found' };
+}
+
 async function guarded<T>(work: () => Promise<Outcome<T>>): Promise<Outcome<T>> {
   try {
     return await work();
@@ -92,7 +98,7 @@ export async function readAccessOrNone(database: Database, identity: Identity): 
   return outcome.kind === 'forbidden' ? { kind: 'ok', access: null } : outcome;
 }
 
-export async function readAudit(database: Database, identity: Identity, before: string | undefined): Promise<Outcome<{ page: AuditPage }>> {
+export async function readAudit(database: Database, identity: Identity, before: { at: string; id: string } | undefined): Promise<Outcome<{ page: AuditPage }>> {
   return inIdentityTransaction(database, identity, async (tx) => {
     const gate = await require_(tx, 'AUDIT_LOG_VIEW');
     if (refused(gate)) return gate;
@@ -149,10 +155,10 @@ export async function handleReports(database: Database, identity: Identity, requ
       if (request.moderation !== undefined) {
         if (request.targetKind === 'user') return { kind: 'invalid' };
         await setAuditReason(tx, request.moderation.reason);
-        if ((await moveContent(tx, request.targetKind, request.targetId, request.moderation.status)) === 0) return { kind: 'not_found' };
+        if ((await moveContent(tx, request.targetKind, request.targetId, request.moderation.status)) === 0) return missingOrRefused(tx, request.targetKind, request.targetId);
       }
       const closed = await closeReports(tx, request.targetKind, request.targetId, request.resolution, request.note ?? request.moderation?.reason);
-      return closed === 0 ? { kind: 'not_found' } : { kind: 'ok', closed };
+      return closed === 0 ? missingOrRefused(tx, request.targetKind, request.targetId) : { kind: 'ok', closed };
     }),
   );
 }
@@ -163,7 +169,10 @@ export async function moderateContent(database: Database, identity: Identity, re
       const gate = await require_(tx, 'REPORTS_VIEW', 'CONTENT_MODERATE');
       if (refused(gate)) return gate;
       await setAuditReason(tx, request.reason);
-      return (await moveContent(tx, request.targetKind, request.targetId, request.status)) === 0 ? { kind: 'not_found' } : { kind: 'ok' };
+      if ((await moveContent(tx, request.targetKind, request.targetId, request.status)) === 0) {
+        return (await readContent(tx, request.targetKind, request.targetId)) === undefined ? { kind: 'not_found' } : { kind: 'forbidden' };
+      }
+      return { kind: 'ok' };
     }),
   );
 }
@@ -184,6 +193,8 @@ export async function enforce(database: Database, identity: Identity, request: E
       const needed: PermissionKey = request.kind === 'warning' ? 'USER_WARN' : request.kind === 'suspension' || request.kind === 'reinstate' ? 'USER_SUSPEND' : 'USER_BAN';
       const gate = await require_(tx, needed);
       if (refused(gate)) return gate;
+      // An account that does not exist is a 404, not a refusal (seen with USER_VIEW, as the screens that offer the action are).
+      if (gate.permissions.includes('USER_VIEW') && (await readTargetUser(tx, request.userId)) === undefined) return { kind: 'not_found' };
       await insertEnforcement(tx, request);
       const user = await readTargetUser(tx, request.userId);
       return user === undefined ? { kind: 'not_found' } : { kind: 'ok', user };

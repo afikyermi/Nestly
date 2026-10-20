@@ -4,12 +4,13 @@ import type { EnforcementKind, PermissionKey, ReportTargetKind } from '@nestly/s
 export const ADMIN_TITLE = 'ניהול';
 export const ADMIN_MENU_LABEL = 'ניהול';
 export const ADMIN_NAV_LABEL = 'מסכי הניהול';
-export const ADMIN_NO_ACCESS_TEXT = 'אין לכם הרשאה למסך הזה';
+export const ADMIN_NO_ACCESS_TEXT = 'אין הרשאה למסך הזה';
+export const ADMIN_NO_SCREENS_TEXT = 'אין מסכי ניהול זמינים לחשבון הזה';
 export const LOADING_TEXT = 'טוענים';
 export const LOAD_FAILED_TEXT = 'לא הצלחנו לטעון. אפשר לנסות שוב';
-export const RETRY_LABEL = 'נסו שוב';
+export const RETRY_LABEL = 'ניסיון חוזר';
 export const ACTION_FAILED_TEXT = 'הפעולה לא בוצעה. אפשר לנסות שוב';
-export const FORBIDDEN_TEXT = 'אין לכם הרשאה לפעולה הזאת';
+export const FORBIDDEN_TEXT = 'אין הרשאה לפעולה הזאת';
 export const NOT_FOUND_TEXT = 'הפריט כבר לא זמין. אפשר לרענן את הרשימה';
 export const REASON_REQUIRED_TEXT = 'יש לכתוב סיבה';
 export const NOT_APPLICABLE_TEXT = 'הפעולה לא מתאימה למצב החשבון עכשיו';
@@ -71,6 +72,8 @@ export const PRIORITY_LABELS: Record<number, string> = { 1: 'עדיפות עלי
 export const RISING_TEXT = 'עלה בתור (3 דיווחים או יותר)';
 export const reportCountText = (n: number): string => (n === 1 ? 'דיווח אחד' : `${n.toLocaleString('en-US')} דיווחים`);
 export const OPEN_ITEM_LABEL = 'פתיחת הדיווח';
+/** The accessible name of a queue line's button: which line it opens. */
+export const openItemLabel = (kind: string, reason: string): string => `${OPEN_ITEM_LABEL}: ${kind}, ${reason}`;
 export const DETAIL_TITLE = 'פרטי הדיווח';
 export const CONTENT_HEADING = 'התוכן המדווח';
 export const CONTENT_GONE_TEXT = 'התוכן כבר לא קיים';
@@ -101,6 +104,10 @@ export const USERS_HINT = 'כותבים חלק מהשם. משתמשים מקצו
 export const ACCOUNT_TYPE_LABELS = { regular: 'הורה', professional: 'בעל מקצוע', admin: 'מנהל', moderator: 'מודרטור' } as const;
 export const STATUS_LABELS = { active: 'פעיל', suspended: 'מושעה', banned: 'חסום' } as const;
 export const NO_NAME_TEXT = 'ללא שם';
+export const OPEN_USER_LABEL = 'פתיחה';
+/** The accessible name of an account line's button: whose account it opens. */
+export const openUserLabel = (name: string): string => `פתיחת החשבון של ${name}`;
+export const BACK_TO_LIST_LABEL = 'חזרה לרשימה';
 export const ENFORCEMENT_HEADING = 'אכיפה';
 export const HISTORY_HEADING = 'היסטוריית אכיפה';
 export const HISTORY_EMPTY_TEXT = 'אין אכיפה קודמת';

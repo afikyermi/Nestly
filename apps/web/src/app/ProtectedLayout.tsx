@@ -6,7 +6,7 @@ import { MenuItem } from '@/components/shared/menu-item';
 import { HomeIcon, NestIcon, UserIcon } from '@/components/ui/icons';
 import { useBackCloses } from '@/hooks/use-back-closes';
 import { useSession } from '@/hooks/use-session';
-import { useStaffAccess } from '@/hooks/use-staff-access';
+import { StaffAccessProvider, useStaffAccessQuery } from '@/hooks/use-staff-access';
 import { ADMIN_MENU_LABEL } from '@/features/admin/admin-texts';
 import { shareLinkSheetProps, useShareLink } from '@/hooks/use-share-link';
 import { SHARE_SITE_LABEL } from '@/lib/share-link-texts';
@@ -32,7 +32,7 @@ export function ProtectedLayout() {
   const { pathname, hash } = useLocation();
   const navigate = useNavigate();
   const { signOut } = useSession();
-  const staff = useStaffAccess();
+  const staff = useStaffAccessQuery();
   const current = normalizePath(pathname);
   // The Settings section open now (a section's address is the hash of the Settings path), or null.
   const openSection = current === PATHS.settings ? parseSettingsSection(hash) : null;
@@ -61,6 +61,7 @@ export function ProtectedLayout() {
   };
 
   return (
+    <StaffAccessProvider value={staff}>
     <AppShell
       navItems={NAV_ITEMS.map((item) => ({ ...item, current: item.href === current }))}
       navLabel="ניווט ראשי"
@@ -130,5 +131,6 @@ export function ProtectedLayout() {
       <Outlet />
       {shareLink.sheet !== null ? <ShareLinkSheet {...shareLinkSheetProps(shareLink, shareLink.sheet, SHARE_SITE_LABEL)} /> : null}
     </AppShell>
+    </StaffAccessProvider>
   );
 }

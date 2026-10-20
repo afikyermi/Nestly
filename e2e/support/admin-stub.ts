@@ -26,6 +26,7 @@ export interface Net {
 export const POST_CHILD = ID(1);
 export const POST_SPAM = ID(2);
 export const USER_RINA = ID(3);
+export const CHILD_REPORT = ID(9);
 
 export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<Net> {
   const net: Net = {
@@ -98,7 +99,13 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
         targetKind: kind,
         targetId: id,
         content: { text: 'טקסט הפוסט שדווח', status: 'active', isAnonymous: false },
-        reports: [{ id: ID(9), reason: id === POST_CHILD ? 'child_safety' : 'spam', reasonLabel: id === POST_CHILD ? 'תוכן שמסכן ילד' : 'ספאם או פרסום לא קשור', details: null, copiedText: 'טקסט הפוסט שדווח', createdAt: '2026-06-14T09:00:00.000Z' }],
+        // The child-safety post's oldest report has another reason: the ban must cite the child-safety one (AC-110).
+        reports: [
+          { id: ID(8), status: 'open', reason: 'spam', reasonLabel: 'ספאם או פרסום לא קשור', details: null, copiedText: 'טקסט הפוסט שדווח', createdAt: '2026-06-13T09:00:00.000Z' },
+          ...(id === POST_CHILD
+            ? [{ id: CHILD_REPORT, status: 'open', reason: 'child_safety', reasonLabel: 'תוכן שמסכן ילד', details: null, copiedText: 'טקסט הפוסט שדווח', createdAt: '2026-06-14T09:00:00.000Z' }]
+            : []),
+        ],
         user: { userId: USER_RINA, accountType: 'regular', status: net.userStatus, suspendedUntil: null, fullName: 'רינה כהן', history: net.history, suggestion: { kind: 'warning', hours: null } },
       });
     }
@@ -115,7 +122,7 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
         targetId: ID(60 + index),
         reason: first ? 'סיבה לדוגמה' : null,
       }));
-      return json(route, 200, { entries, next: first && net.auditPages > 1 ? '2026-06-13T09:00:00.000000Z' : null });
+      return json(route, 200, { entries, next: first && net.auditPages > 1 ? `2026-06-13T09:00:00.000000Z|${ID(101)}` : null });
     }
     if (path === '/api/admin/users') return json(route, 200, { users: [{ userId: USER_RINA, accountType: 'regular', status: net.userStatus, fullName: 'רינה כהן' }] });
     if (path.startsWith('/api/admin/users/')) {

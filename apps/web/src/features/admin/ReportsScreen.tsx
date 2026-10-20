@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { PermissionKey, QueueItem, ReportDetail } from '@nestly/shared';
+import { enforcementReport, type PermissionKey, type QueueItem, type ReportDetail, type TargetUser } from '@nestly/shared';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAdminCall } from '@/hooks/use-admin-call';
-import { enforceUser, fetchQueue, fetchReportDetail, handleReports, moderateContent, revealAuthor, type AdminOutcome } from '@/services/api/admin';
+import { enforceUser, fetchQueue, fetchReportDetail, fetchUser, handleReports, moderateContent, revealAuthor, type AdminOutcome } from '@/services/api/admin';
 import { formatAdminTime } from './admin-format';
 import { EnforcementPanel } from './EnforcementPanel';
 import { ReportDetailPanel, type ReportAction } from './ReportDetailPanel';
@@ -21,6 +21,7 @@ import {
   NOT_APPLICABLE_TEXT,
   NOT_FOUND_TEXT,
   OPEN_ITEM_LABEL,
+  openItemLabel,
   PRIORITY_LABELS,
   QUEUE_EMPTY_TEXT,
   QUEUE_LIST_LABEL,
@@ -31,7 +32,8 @@ import {
 } from './admin-texts';
 
 type Queue = { kind: 'loading' } | { kind: 'failed' } | { kind: 'loaded'; items: QueueItem[] };
-type Selected = { item: QueueItem; detail: ReportDetail | null; detailFailed: boolean; revealed: { fullName: string | null } | null };
+type Revealed = { userId: string; fullName: string | null; user: TargetUser | null };
+type Selected = { item: QueueItem; detail: ReportDetail | null; detailFailed: boolean; revealed: Revealed | null };
 
 const refusalText = (kind: AdminOutcome<unknown>['kind']): string =>
   kind === 'forbidden' ? FORBIDDEN_TEXT : kind === 'not-found' ? NOT_FOUND_TEXT : kind === 'reason-required' ? REASON_REQUIRED_TEXT : kind === 'not-applicable' ? NOT_APPLICABLE_TEXT : ACTION_FAILED_TEXT;
@@ -56,10 +58,18 @@ export function ReportsScreen({ permissions }: { permissions: readonly Permissio
     void loadQueue();
   }, [loadQueue]);
 
-  async function loadDetail(item: QueueItem, revealed: Selected['revealed'] = null) {
+  // The revealed author of an anonymous post, as an account the enforcement panel can act on (needs USER_VIEW, as any account on this screen).
+  async function revealedAccount(userId: string): Promise<TargetUser | null> {
+    if (!permissions.includes('USER_VIEW')) return null;
+    const outcome = await call((token) => fetchUser(token, userId));
+    return outcome.kind === 'ok' ? outcome.value : null;
+  }
+
+  async function loadDetail(item: QueueItem, revealed: Revealed | null = null) {
     setSelected({ item, detail: null, detailFailed: false, revealed });
     const outcome = await call((token) => fetchReportDetail(token, item.targetKind, item.targetId));
-    setSelected({ item, detail: outcome.kind === 'ok' ? outcome.value : null, detailFailed: outcome.kind !== 'ok', revealed });
+    const fresh = revealed === null ? null : { ...revealed, user: await revealedAccount(revealed.userId) };
+    setSelected({ item, detail: outcome.kind === 'ok' ? outcome.value : null, detailFailed: outcome.kind !== 'ok', revealed: fresh });
   }
 
   async function act(action: ReportAction) {
@@ -75,7 +85,8 @@ export function ReportsScreen({ permissions }: { permissions: readonly Permissio
       if (action.type === 'reveal') {
         const revealedOutcome = await call((token) => revealAuthor(token, item.targetId));
         if (revealedOutcome.kind === 'ok') {
-          setSelected({ ...selected, revealed: { fullName: revealedOutcome.value.fullName } });
+          const { userId, fullName } = revealedOutcome.value;
+          setSelected({ ...selected, revealed: { userId, fullName, user: await revealedAccount(userId) } });
           return;
         }
         outcome = revealedOutcome;
@@ -133,7 +144,8 @@ export function ReportsScreen({ permissions }: { permissions: readonly Permissio
 
   if (selected !== null) {
     const { detail } = selected;
-    const reason = detail?.reports[0]?.reason;
+    const account = detail?.user ?? selected.revealed?.user ?? null;
+    const report = detail === null ? undefined : enforcementReport(detail.reports);
     return (
       <div className="flex flex-col gap-5">
         <div>
@@ -165,14 +177,14 @@ export function ReportsScreen({ permissions }: { permissions: readonly Permissio
               isOpen={queue.kind === 'loaded' && queue.items.some((item) => item.targetId === selected.item.targetId)}
               onAction={(action) => void act(action)}
             />
-            {detail.user === null ? null : (
+            {account === null ? null : (
               <EnforcementPanel
-                user={detail.user}
+                user={account}
                 permissions={permissions}
-                {...(detail.reports.length === 0 ? {} : { report: { id: detail.reports[0]?.id ?? '', isChildSafety: reason === 'child_safety' || detail.reports.some((r) => r.reason === 'child_safety') } })}
+                {...(report === undefined ? {} : { report })}
                 pending={pending}
                 failure={failure}
-                onSubmit={(request) => void enforce({ ...request, userId: detail.user?.userId ?? '' })}
+                onSubmit={(request) => void enforce({ ...request, userId: account.userId })}
               />
             )}
           </>
@@ -218,7 +230,7 @@ export function ReportsScreen({ permissions }: { permissions: readonly Permissio
                 </p>
                 {item.isRising ? <p className="text-small">{RISING_TEXT}</p> : null}
               </div>
-              <Button variant="soft" onClick={() => void loadDetail(item)}>
+              <Button variant="soft" aria-label={openItemLabel(KIND_LABELS[item.targetKind], item.topReasonLabel)} onClick={() => void loadDetail(item)}>
                 {OPEN_ITEM_LABEL}
               </Button>
             </li>

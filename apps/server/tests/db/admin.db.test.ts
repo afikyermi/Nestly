@@ -1,3 +1,4 @@
+import { PERMISSION_KEYS } from '@nestly/shared';
 import postgres from 'postgres';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createDatabase, type Database } from '../../src/db/client.js';
@@ -154,6 +155,19 @@ describe('[I4 FR-MOD-003 AC-022 AC-106 AC-107 BR-074] the moderation queue', () 
     expect(q.items.find((i) => i.targetId === rising)).toMatchObject({ reportCount: 3, priority: 2, isRising: true });
   });
 
+  it('[AC-106] child safety stays first even when an older post has risen with three reports of a high-priority reason', T, async () => {
+    const risen = await seedPost(author);
+    const child = await seedPost(author);
+    await seedReport(reporter, 'post', risen, 'harassment');
+    await seedReport(third, 'post', risen, 'harassment');
+    await seedReport(admin, 'post', risen, 'harassment');
+    await seedReport(reporter, 'post', child, 'child_safety');
+    const q = await readReportQueue(database, id(content));
+    if (q.kind !== 'ok') throw new Error('queue refused');
+    expect(q.items.map((i) => i.targetId)).toEqual([child, risen]);
+    expect(q.items.find((i) => i.targetId === risen)).toMatchObject({ reportCount: 3, priority: 2, isRising: false });
+  });
+
   it('[AC-022] the Admin and a Moderator with REPORTS_VIEW read the report; the detail carries the copy of the text; a Moderator without the key is forbidden', T, async () => {
     const p = await seedPost(author);
     await seedReport(reporter, 'post', p, 'harassment');
@@ -192,7 +206,8 @@ describe('[I4 FR-MOD-003 AC-029 BR-080] handling reports and moderating content'
     const p = await seedPost(author);
     await seedReport(reporter, 'post', p, 'spam');
     expect((await handleReports(database, id(viewer), { targetKind: 'post', targetId: p, resolution: 'dismissed', moderation: { status: 'removed', reason: 'x' } })).kind).toBe('forbidden');
-    expect((await handleReports(database, id(viewer), { targetKind: 'post', targetId: p, resolution: 'dismissed' })).kind).toBe('not_found'); // REPORTS_VIEW alone closes nothing (AC-022)
+    expect((await handleReports(database, id(viewer), { targetKind: 'post', targetId: p, resolution: 'dismissed' })).kind).toBe('forbidden'); // REPORTS_VIEW alone closes nothing (AC-022): the report is there, the move is refused
+    expect((await handleReports(database, id(content), { targetKind: 'post', targetId: NOBODY, resolution: 'dismissed' })).kind).toBe('not_found');
     expect(await handleReports(database, id(content), { targetKind: 'post', targetId: p, resolution: 'dismissed', note: 'no problem' })).toMatchObject({ kind: 'ok', closed: 1 });
     expect((await handleReports(database, id(content), { targetKind: 'post', targetId: p, resolution: 'dismissed' })).kind).toBe('not_found');
     expect((await moderateContent(database, id(content), { targetKind: 'post', targetId: p, status: 'removed', reason: 'later' })).kind).toBe('ok');
@@ -270,6 +285,10 @@ describe('[I4 FR-MOD-002 BR-074 AC-027 AC-028 AC-107 AC-110] enforcement', () =>
     expect(await statusOf(reporter)).toBe('active');
   });
 
+  it('an enforcement on an account that does not exist is not found', T, async () => {
+    expect((await enforce(database, id(enforcer), { userId: NOBODY, kind: 'warning', reason: 'x' })).kind).toBe('not_found');
+  });
+
   it('the user list needs USER_VIEW and a search narrows it by name', T, async () => {
     const all = await listUsers(database, id(banner), 'Rina');
     expect(all.kind === 'ok' && all.users.length > 0 && all.users.every((u) => u.fullName === 'Rina Reporter')).toBe(true);
@@ -287,5 +306,26 @@ describe('[I4 FR-ADMIN-005] the audit log', () => {
     const mod = await readAudit(database, id(content), undefined);
     expect(mod.kind).toBe('ok');
     expect((await readAudit(database, id(enforcer), undefined)).kind).toBe('forbidden');
+  });
+
+  it('pages by (time, id): more than a page of entries written in one transaction are all read, none twice', T, async () => {
+    const mods = [content, viewer, enforcer, banner];
+    let written = '';
+    await inTx(async (tx) => {
+      for (const who of mods) await tx`select tests.fx_sf_revoke_all(${who}::uuid)`;
+      const insert = `insert into nestly.moderator_permissions (user_id, permission_key)
+        select m, k from unnest(array['${mods.join("','")}']::uuid[]) m cross join unnest(array['${PERMISSION_KEYS.join("','")}']::text[]) k`;
+      written = await text(tx`select tests.dml_staff(tests.claims(${admin}::uuid), ${insert}) as v`);
+    });
+    expect(written).toBe(`OK:${mods.length * PERMISSION_KEYS.length}`);
+    const first = await readAudit(database, id(admin), undefined);
+    if (first.kind !== 'ok') throw new Error('audit refused');
+    expect(first.page.entries).toHaveLength(50);
+    const [at = '', entryId = ''] = (first.page.next ?? '').split('|');
+    const second = await readAudit(database, id(admin), { at, id: entryId });
+    if (second.kind !== 'ok') throw new Error('audit refused');
+    const granted = [...first.page.entries, ...second.page.entries].filter((e) => e.action === 'permission_granted');
+    expect(new Set(granted.map((e) => e.id)).size).toBe(granted.length);
+    expect(granted.length).toBeGreaterThanOrEqual(mods.length * PERMISSION_KEYS.length);
   });
 });

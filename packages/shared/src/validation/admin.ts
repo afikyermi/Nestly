@@ -8,6 +8,7 @@ import {
   REPORT_RESOLUTIONS,
   REPORT_TARGET_KINDS,
   STAFF_REASON_MAX,
+  SUSPENSION_EXTRA_HOURS,
   SUSPENSION_LADDER_HOURS,
   type EnforcementKind,
 } from '../constants/index.js';
@@ -18,6 +19,9 @@ const staffText = z
   .string()
   .transform((value) => value.trim())
   .refine((value) => value !== '' && !value.includes('\u0000') && codePointLength(value) <= STAFF_REASON_MAX, 'invalid');
+
+/** The suspension lengths staff may choose: the ladder's and the extra one (BR-074). */
+const SUSPENSION_DURATIONS_HOURS: readonly number[] = [...SUSPENSION_LADDER_HOURS, SUSPENSION_EXTRA_HOURS];
 
 const uuid = z.guid().transform((value) => value.toLowerCase());
 
@@ -40,6 +44,14 @@ export const moderateContentSchema = z.strictObject({
 });
 export type ModerateContentRequest = z.infer<typeof moderateContentSchema>;
 
+/** The report an enforcement cites: for the child-safety ban the child-safety report (an open one first), otherwise an open report (else the first). */
+export function enforcementReport(reports: ReadonlyArray<{ id: string; status: string; reason: string }>): { id: string; isChildSafety: boolean } | undefined {
+  const child = reports.filter((report) => report.reason === 'child_safety');
+  const pick = (list: ReadonlyArray<{ id: string; status: string }>) => list.find((report) => report.status === 'open') ?? list[0];
+  const chosen = child.length > 0 ? pick(child) : pick(reports);
+  return chosen === undefined ? undefined : { id: chosen.id, isChildSafety: child.length > 0 };
+}
+
 /** POST /api/admin/reports/reveal: the real author of a reported anonymous post. */
 export const revealAuthorSchema = z.strictObject({ postId: uuid });
 
@@ -49,7 +61,11 @@ export const enforceSchema = z
     userId: uuid,
     kind: z.enum(ENFORCEMENT_KINDS),
     reason: staffText,
-    durationHours: z.number().int().min(1).max(8760).optional(),
+    durationHours: z
+      .number()
+      .int()
+      .refine((hours) => SUSPENSION_DURATIONS_HOURS.includes(hours), 'duration')
+      .optional(),
     reportId: uuid.optional(),
     childSafety: z.boolean().optional(),
   })
@@ -57,8 +73,20 @@ export const enforceSchema = z
   .refine((v) => v.childSafety !== true || v.kind === 'ban', 'child_safety');
 export type EnforceRequest = z.infer<typeof enforceSchema>;
 
-/** GET /api/admin/audit?before=<ISO time>: the page before that time (newest first). */
-export const auditQuerySchema = z.strictObject({ before: z.iso.datetime({ offset: true }).optional() });
+/** GET /api/admin/audit?before=<ISO time>|<entry id>: the page after that entry (newest first); the cursor is the `next` of the previous page. */
+export const auditQuerySchema = z.strictObject({
+  before: z
+    .string()
+    .transform((value, ctx) => {
+      const [at = '', entryId = '', ...rest] = value.split('|');
+      if (rest.length > 0 || !z.iso.datetime({ offset: true }).safeParse(at).success || !z.guid().safeParse(entryId).success) {
+        ctx.addIssue({ code: 'custom', message: 'invalid' });
+        return z.NEVER;
+      }
+      return { at, id: entryId.toLowerCase() };
+    })
+    .optional(),
+});
 
 export type AdminCheck<T> = { ok: true; value: T } | { ok: false };
 
@@ -146,7 +174,7 @@ export const reportDetailBody = z.object({
   content: z
     .object({ text: z.string().nullable(), status: z.string(), isAnonymous: z.boolean() })
     .nullable(),
-  reports: z.array(z.object({ id: z.guid(), reasonLabel: z.string(), reason: z.string(), details: z.string().nullable(), copiedText: z.string().nullable(), createdAt: z.string() })),
+  reports: z.array(z.object({ id: z.guid(), status: z.enum(['open', 'handled', 'expired']), reasonLabel: z.string(), reason: z.string(), details: z.string().nullable(), copiedText: z.string().nullable(), createdAt: z.string() })),
   user: targetUser.nullable(),
 });
 export type ReportDetail = z.infer<typeof reportDetailBody>;

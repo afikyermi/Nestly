@@ -74,12 +74,12 @@ export function ReportDetailPanel({ detail, permissions, revealed, pending, fail
 
   return (
     <section aria-labelledby={`${id}-h`} className="flex flex-col gap-4">
-      <h2 id={`${id}-h`} className="text-h2">
+      <h3 id={`${id}-h`} className="text-h2">
         {DETAIL_TITLE} · {KIND_LABELS[detail.targetKind]}
-      </h2>
+      </h3>
       {detail.targetKind === 'user' ? null : (
         <div className="flex flex-col gap-1 rounded-lg bg-muted p-4">
-          <h3 className="text-label">{CONTENT_HEADING}</h3>
+          <h4 className="text-label">{CONTENT_HEADING}</h4>
           {content === null ? (
             <p>{CONTENT_GONE_TEXT}</p>
           ) : (
@@ -94,7 +94,7 @@ export function ReportDetailPanel({ detail, permissions, revealed, pending, fail
         </div>
       )}
       <div>
-        <h3 className="text-label">{REPORTS_HEADING}</h3>
+        <h4 className="text-label">{REPORTS_HEADING}</h4>
         <ul className="mt-1 flex flex-col gap-2">
           {detail.reports.map((report) => (
             <li key={report.id} className="rounded-md border border-border p-3 text-small">
@@ -113,9 +113,9 @@ export function ReportDetailPanel({ detail, permissions, revealed, pending, fail
       </div>
       {failure === null ? null : <InlineAlert>{failure}</InlineAlert>}
       <div className="flex flex-col gap-4 rounded-lg border border-border p-4" role="group" aria-labelledby={`${id}-actions`}>
-        <h3 id={`${id}-actions`} className="text-h3">
+        <h4 id={`${id}-actions`} className="text-h3">
           {ACTIONS_HEADING}
-        </h3>
+        </h4>
         {isOpen && canClose ? (
           <FormField label={NOTE_LABEL} optional>
             {(control) => <TextArea {...control} rows={2} dir="auto" value={note} onChange={(event) => setNote(event.target.value)} />}
