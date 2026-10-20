@@ -204,7 +204,7 @@ export async function readTargetUser(tx: IdentityTx, userId: string): Promise<Ta
 }
 
 /** Accounts for the user list: newest first, optionally by a part of the name (Regular accounts have one). */
-export async function readUsers(tx: IdentityTx, search: string | undefined): Promise<UserList['users']> {
+export async function readUsers(tx: IdentityTx, search: string): Promise<UserList['users']> {
   await enableStaffView(tx);
   return z
     .array(
@@ -219,7 +219,7 @@ export async function readUsers(tx: IdentityTx, search: string | undefined): Pro
       await tx.execute(sql`
         select u.id as "userId", u.account_type as "accountType", u.status, n.full_name as "fullName"
         from nestly.users u left join nestly.regular_names n on n.user_id = u.id
-        where ${search === undefined ? sql`true` : sql`n.full_name ilike ${'%' + search.replace(/[%_\\]/g, '\\$&') + '%'}`}
+        where n.full_name ilike ${'%' + search.replace(/[%_\\]/g, '\\$&') + '%'}
         order by u.created_at desc, u.id
         limit 50`),
     );

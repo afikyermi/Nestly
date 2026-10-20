@@ -1,10 +1,10 @@
 // The admin screens' reads (FR-MOD-003, FR-ADMIN-005, FR-MOD-002). Signed in: the authentication hook has run before anything here. Staff only: an
 // account without the Permission Key gets 403 forbidden; the policies behind it return nothing to such an account anyway.
-//   GET /api/admin/access                        → 200 { role, permissions[] }
+//   GET /api/admin/access                        → 200 { staff: true, role, permissions[] } | { staff: false }
 //   GET /api/admin/audit?before=<ISO time>       → 200 { entries[], next }                          (AUDIT_LOG_VIEW)
 //   GET /api/admin/reports                       → 200 { items[] } the moderation queue              (REPORTS_VIEW)
 //   GET /api/admin/reports/:kind/:id             → 200 the target, its reports, the account          (REPORTS_VIEW)
-//   GET /api/admin/users?q=<part of a name>      → 200 { users[] }                                   (USER_VIEW)
+//   GET /api/admin/users?q=<part of a name>      → 200 { users[] } (q required, NFR-SEC-006 (2))     (USER_VIEW)
 //   GET /api/admin/users/:id                     → 200 the account and its enforcement history       (USER_VIEW)
 //   all: 400 invalid · 401/503 session guard · 403 forbidden · 404 not_found · 500. Any other method → 405 with Allow.
 
@@ -12,7 +12,7 @@ import { REPORT_TARGET_KINDS, checkAuditQuery } from '@nestly/shared';
 import type { FastifyInstance, RouteHandlerMethod } from 'fastify';
 import { z } from 'zod';
 import type { Database } from '../db/client.js';
-import { listUsers, readAccess, readAudit, readReportDetail, readReportQueue, readUser } from '../services/admin-service.js';
+import { listUsers, readAccessOrNone, readAudit, readReportDetail, readReportQueue, readUser } from '../services/admin-service.js';
 import { answer } from './admin-reply.js';
 
 export interface AdminRouteDependencies {
@@ -21,7 +21,8 @@ export interface AdminRouteDependencies {
 
 const idParam = z.guid().transform((value) => value.toLowerCase());
 const detailParams = z.object({ kind: z.enum(REPORT_TARGET_KINDS), id: idParam });
-const searchQuery = z.object({ q: z.string().trim().min(1).max(60).optional() });
+// A search text is required: no call returns accounts without one (NFR-SEC-006 (2)).
+const searchQuery = z.object({ q: z.string().trim().min(1).max(60) });
 
 export function registerAdminReadRoutes(app: FastifyInstance, deps: AdminRouteDependencies): void {
   const get = (url: string, handler: RouteHandlerMethod) => {
@@ -37,7 +38,7 @@ export function registerAdminReadRoutes(app: FastifyInstance, deps: AdminRouteDe
     if (request.identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
     const { identity } = request;
     const database = deps.database;
-    return answer(request, reply, 'admin access failed', () => readAccess(database, identity), (ok) => ok.access);
+    return answer(request, reply, 'admin access failed', () => readAccessOrNone(database, identity), (ok) => (ok.access === null ? { staff: false } : { staff: true, ...ok.access }));
   });
 
   get('/api/admin/audit', (request, reply) => {

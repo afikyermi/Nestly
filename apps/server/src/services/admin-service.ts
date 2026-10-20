@@ -86,6 +86,12 @@ export async function readAccess(database: Database, identity: Identity): Promis
   });
 }
 
+/** The same, but an account that is not staff is an answer (`access: null`), not a refusal: the menu asks every account. */
+export async function readAccessOrNone(database: Database, identity: Identity): Promise<Outcome<{ access: AdminAccess | null }>> {
+  const outcome = await readAccess(database, identity);
+  return outcome.kind === 'forbidden' ? { kind: 'ok', access: null } : outcome;
+}
+
 export async function readAudit(database: Database, identity: Identity, before: string | undefined): Promise<Outcome<{ page: AuditPage }>> {
   return inIdentityTransaction(database, identity, async (tx) => {
     const gate = await require_(tx, 'AUDIT_LOG_VIEW');
@@ -194,7 +200,7 @@ export async function readUser(database: Database, identity: Identity, userId: s
   });
 }
 
-export async function listUsers(database: Database, identity: Identity, search: string | undefined): Promise<Outcome<{ users: UserList['users'] }>> {
+export async function listUsers(database: Database, identity: Identity, search: string): Promise<Outcome<{ users: UserList['users'] }>> {
   return inIdentityTransaction(database, identity, async (tx) => {
     const gate = await require_(tx, 'USER_VIEW');
     if (refused(gate)) return gate;

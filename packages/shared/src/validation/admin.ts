@@ -89,8 +89,11 @@ export function violationWeight(kind: EnforcementKind): number {
 
 // ---- answers, as the web reads them ------------------------------------------------------------------------------------------
 
-export const adminAccessBody = z.object({ role: z.enum(['admin', 'moderator']), permissions: z.array(z.enum(PERMISSION_KEYS)) });
-export type AdminAccess = z.infer<typeof adminAccessBody>;
+export const adminAccess = z.object({ role: z.enum(['admin', 'moderator']), permissions: z.array(z.enum(PERMISSION_KEYS)) });
+export type AdminAccess = z.infer<typeof adminAccess>;
+/** GET /api/admin/access: `{ staff: false }` for every other account (200, so an ordinary account sees no error), else the role and keys. */
+export const adminAccessBody = z.union([z.strictObject({ staff: z.literal(false) }), adminAccess.extend({ staff: z.literal(true) })]);
+export type AdminAccessBody = z.infer<typeof adminAccessBody>;
 
 export const auditEntry = z.object({
   id: z.guid(),

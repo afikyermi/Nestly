@@ -130,7 +130,7 @@ describe('[I4 FR-MOD-002 AC-025 AC-031] who is staff, and with which keys', () =
   it('[AC-031] without the key every admin read is forbidden', T, async () => {
     expect((await readReportQueue(database, id(bare))).kind).toBe('forbidden');
     expect((await readAudit(database, id(viewer), undefined)).kind).toBe('forbidden');
-    expect((await listUsers(database, id(content), undefined)).kind).toBe('forbidden');
+    expect((await listUsers(database, id(content), 'x')).kind).toBe('forbidden');
     expect((await readReportQueue(database, id(author))).kind).toBe('forbidden');
   });
 });
