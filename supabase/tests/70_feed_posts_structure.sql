@@ -29,7 +29,7 @@ select is(
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables())
-      and pol.polname !~ '_(jobs|notify)$'
+      and pol.polname !~ '_(jobs|notify)$' and pol.polname !~ '_reveal$'
       and pol.polroles <> array[(select oid from pg_catalog.pg_roles where rolname = 'authenticated')]::oid[]),
   0::bigint, '[F3.0-a c1 platform r4 · c5] every policy on the new tables is TO authenticated only (none for PUBLIC, anon, app_owner; F3.0b adds the *_jobs policies of the purge, file 73; the *_notify policies TO app_owner are asserted exactly in file 90)');
 
@@ -40,7 +40,7 @@ select is(
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and pol.polname !~ '_(jobs|notify)$'
+    where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and pol.polname !~ '_(jobs|notify)$' and pol.polname !~ '_reveal$'
       and (coalesce(pg_catalog.pg_get_expr(pol.polqual, pol.polrelid), '') || coalesce(pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid), ''))
           !~ 'is_active_account\(\)'),
   0::bigint, '[F3.0-a c1 c2 platform r15] every policy is gated by is_active_account()');
@@ -120,10 +120,9 @@ select is(
 select is(
   (select string_agg(c.relname, ', ' order by c.relname) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')),
-  'algorithm_configurations, children, comments, cycle_entries, friend_content_notification_preferences, friendships, identity_link_checks, journey_contexts, legal_consents, '
-  || 'notification_preferences, notifications, people_search_counts, post_authors, post_hides, posts, profile_open_counts, '
-  || 'reaction_owners, reactions, recovery_answers, recovery_events, recovery_throttles, regular_names, regular_profiles, reports, search_intents, security_events, security_limits, status_guides, tracker_events, users',
-  '[F3.0-a c17 F3.0-b c1] schema nestly holds exactly the fourteen earlier tables plus the schema.md and schema-b.md names (30, with I6''s cycle_entries, status_guides and tracker_events and the four notification and search tables): no events table');
+  'algorithm_configurations, audit_log, children, comments, cycle_entries, friend_content_notification_preferences, friendships, identity_link_checks, journey_contexts, legal_consents, moderator_permissions, notification_preferences, notifications, people_search_counts, post_authors, post_hides, posts, profile_open_counts, '
+  || 'reaction_owners, reactions, recovery_answers, recovery_events, recovery_throttles, regular_names, regular_profiles, report_reasons, reports, search_intents, security_events, security_limits, staff_roles, status_guides, tracker_events, user_enforcements, users',
+  '[F3.0-a c17 F3.0-b c1] schema nestly holds exactly the fourteen earlier tables plus the schema.md and schema-b.md names (35, with I6''s cycle_entries, status_guides and tracker_events, plus I4''s five and the five notification and search tables: 35): no events table');
 
 select is(
   (select count(*) from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
@@ -164,7 +163,7 @@ select is(
   (select coalesce(string_agg(c.relname || '.' || pol.polname, ', ' order by c.relname, pol.polname), '(none)') from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname <> 'post_authors' and pol.polcmd in ('r', '*')
       and (coalesce(pg_catalog.pg_get_expr(pol.polqual, pol.polrelid), '')) ~ 'post_authors'),
-  'comments.comments_select_viewer, posts.posts_select_viewer', '[F3.0-a c5 F3.0-b c11 rule 20] only the two SELECT policies that carry the held branch (the author reads their own held row) read post_authors: no other table policy does');
+  'comments.comments_select_own_moderated, comments.comments_select_viewer, posts.posts_select_own_moderated, posts.posts_select_viewer', '[F3.0-a c5 F3.0-b c11 rule 20 · I4] only the four SELECT policies that carry the held branch or the delete of moderated content (the author reads their own row) read post_authors: no other table policy does (post_authors itself has the reveal policy, file 90)');
 
 -- ---- c16: nothing depends on the hide table except its own objects and posts_select_viewer -------------------------------------------
 select is(

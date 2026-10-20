@@ -453,7 +453,19 @@ select pg_temp.reset();
 select tests.fx_nt_pref(pg_temp.id('a'), 'comments', false);
 select set_config('t.cp', pg_temp.post('a')::text, true);
 select pg_temp.dml('b', pg_temp.cm_sql(current_setting('t.cp')::uuid, 'x'));
-select is(pg_temp.nt('a'), 0::bigint, '[condition 3] comments off: neither a comment nor a reply creates anything');
+select set_config('t.cc', (select tests.fx_cm_id(current_setting('t.cp')::uuid, 'x'))::text, true);
+select pg_temp.dml('c', pg_temp.cm_sql(current_setting('t.cp')::uuid, 'a reply to b', current_setting('t.cc')::uuid));
+select is(pg_temp.nt('a'), 0::bigint, '[condition 3] comments off: neither a comment nor a reply creates anything for the post''s author');
+select is(pg_temp.nt('b'), 1::bigint, '[condition 3] (control) the reply notifies B, whose comments category is on');
+
+-- Every policy TO app_owner in the product schema, with no name filter: a new one (or one that disappears) shows here, so the exceptions to the
+-- "client roles only" fence are exactly this list (the reveal, definer and profile_view policies of other features included).
+select set_eq(
+  $$ select c.relname || '.' || pol.polname from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid
+      where c.relnamespace = 'nestly'::regnamespace
+        and pol.polroles = array[(select oid from pg_catalog.pg_roles where rolname = 'app_owner')]::oid[] $$,
+  $$ values ('audit_log.audit_log_insert_definer'), ('children.children_select_profile_view'), ('comments.comments_select_notify'), ('friend_content_notification_preferences.friend_content_preferences_select_notify'), ('friendships.friendships_select_notify'), ('friendships.friendships_select_profile_view'), ('identity_link_checks.identity_link_checks_select_definer'), ('journey_contexts.journey_contexts_select_profile_view'), ('moderator_permissions.moderator_permissions_select_definer'), ('notification_preferences.notification_preferences_select_notify'), ('notifications.notifications_insert_notify'), ('notifications.notifications_select_notify'), ('people_search_counts.people_search_counts_insert_search'), ('people_search_counts.people_search_counts_select_search'), ('people_search_counts.people_search_counts_update_search'), ('post_authors.post_authors_select_notify'), ('post_authors.post_authors_select_reveal'), ('posts.posts_select_notify'), ('profile_open_counts.profile_open_counts_insert_profile_view'), ('profile_open_counts.profile_open_counts_select_profile_view'), ('profile_open_counts.profile_open_counts_update_profile_view'), ('regular_names.regular_names_select_profile_view'), ('regular_names.regular_names_select_reveal'), ('regular_names.regular_names_select_search'), ('regular_profiles.regular_profiles_select_profile_view'), ('reports.reports_select_reveal'), ('security_events.security_events_insert_profile_view'), ('security_events.security_events_insert_search'), ('security_limits.security_limits_select_profile_view'), ('security_limits.security_limits_select_search_people'), ('staff_roles.staff_roles_select_definer'), ('users.users_select_profile_view'), ('users.users_select_search') $$,
+  '[rule 17 H2] the policies TO app_owner in nestly are exactly these 33: no other exception to the client-role fence exists');
 
 -- The eight policies that open older tables to the definers (rule 17): exactly these, TO app_owner only, permissive, each tied to its scope.
 select is(
@@ -524,7 +536,7 @@ select is(
   null, '[intent platform r7] anon, app_server and service_role hold nothing on it');
 select tests.fx_si_add(pg_temp.id('a'), 'sleep', interval '5 days');
 select tests.fx_si_add(pg_temp.id('b'), 'nutrition', interval '40 days');
-select is(tests.jobs_as($q$ select count(*)::text from nestly.search_intents $q$), '1', '[intent platform r6] the job role reads only rows older than 30 days (one of the three here)');
+select is(tests.jobs_as($q$ select count(*)::text from nestly.search_intents $q$), '1', '[intent platform r6] the job role reads only rows older than 30 days (one of the rows here)');
 select is(tests.jobs_dml($q$ delete from nestly.search_intents where topic = 'sleep' $q$), 'OK:0', '[intent platform r6] and cannot delete a younger row');
 select is(tests.jobs_dml($q$ insert into nestly.search_intents (user_id, topic) values (gen_random_uuid(), 'x') $q$), 'ERR:42501', '[intent platform r6] nor insert');
 select is(tests.jobs_dml($q$ update nestly.search_intents set topic = 'y' $q$), 'ERR:42501', '[intent platform r6] nor update');
