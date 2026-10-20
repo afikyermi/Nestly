@@ -4,7 +4,7 @@ import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAdminCall } from '@/hooks/use-admin-call';
-import { enforceUser, fetchQueue, fetchReportDetail, fetchUser, handleReports, moderateContent, revealAuthor, type AdminOutcome } from '@/services/api/admin';
+import { enforceUser, fetchQueue, fetchReportDetail, fetchUser, handleReports, moderateContent, openReportedMessage, revealAuthor, type AdminOutcome } from '@/services/api/admin';
 import { formatAdminTime } from './admin-format';
 import { EnforcementPanel } from './EnforcementPanel';
 import { ReportDetailPanel, type ReportAction } from './ReportDetailPanel';
@@ -33,7 +33,7 @@ import {
 
 type Queue = { kind: 'loading' } | { kind: 'failed' } | { kind: 'loaded'; items: QueueItem[] };
 type Revealed = { userId: string; fullName: string | null; user: TargetUser | null };
-type Selected = { item: QueueItem; detail: ReportDetail | null; detailFailed: boolean; revealed: Revealed | null };
+type Selected = { item: QueueItem; detail: ReportDetail | null; detailFailed: boolean; revealed: Revealed | null; message?: { text: string; sentAt: string } };
 
 const refusalText = (kind: AdminOutcome<unknown>['kind']): string =>
   kind === 'forbidden' ? FORBIDDEN_TEXT : kind === 'not-found' ? NOT_FOUND_TEXT : kind === 'reason-required' ? REASON_REQUIRED_TEXT : kind === 'not-applicable' ? NOT_APPLICABLE_TEXT : ACTION_FAILED_TEXT;
@@ -82,7 +82,16 @@ export function ReportsScreen({ permissions }: { permissions: readonly Permissio
     try {
       let outcome: AdminOutcome<unknown>;
       let said = HANDLED_TEXT;
-      if (action.type === 'reveal') {
+      if (action.type === 'open-message') {
+        // §9.6: the one reported message, opened by its own audited call; its sender becomes the account the enforcement panel acts on.
+        const opened = await call((token) => openReportedMessage(token, item.targetId));
+        if (opened.kind === 'ok') {
+          const { text, sentAt, senderId, user } = opened.value;
+          setSelected({ ...selected, message: { text, sentAt }, revealed: { userId: senderId, fullName: user?.fullName ?? null, user } });
+          return;
+        }
+        outcome = opened;
+      } else if (action.type === 'reveal') {
         const revealedOutcome = await call((token) => revealAuthor(token, item.targetId));
         if (revealedOutcome.kind === 'ok') {
           const { userId, fullName } = revealedOutcome.value;
@@ -91,7 +100,7 @@ export function ReportsScreen({ permissions }: { permissions: readonly Permissio
         }
         outcome = revealedOutcome;
       } else if (action.type === 'restore') {
-        if (item.targetKind === 'user') return;
+        if (item.targetKind === 'user' || item.targetKind === 'message') return;
         const kind = item.targetKind;
         outcome = await call((token) => moderateContent(token, { targetKind: kind, targetId: item.targetId, status: 'active', reason: action.reason }));
         said = MOVED_TEXT;
@@ -172,6 +181,7 @@ export function ReportsScreen({ permissions }: { permissions: readonly Permissio
               detail={detail}
               permissions={permissions}
               revealed={selected.revealed}
+              message={selected.message ?? null}
               pending={pending}
               failure={failure}
               isOpen={queue.kind === 'loaded' && queue.items.some((item) => item.targetId === selected.item.targetId)}

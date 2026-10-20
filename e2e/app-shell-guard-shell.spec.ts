@@ -47,7 +47,7 @@ async function openDrawer(page: Page): Promise<void> {
 test.describe('AppShell: TopBar', () => {
   for (const vp of [MOBILE, DESKTOP]) {
     for (const route of PROTECTED_ROUTES) {
-      test(`[F1.2 c15][FR-TOP-001][AC-033] ${route.path} @${vp.width}: TopBar has the Hamburger at the inline-start (right) edge, then the Logo, and no other control`, async ({
+      test(`[F1.2 c15][FR-TOP-001][AC-033] ${route.path} @${vp.width}: TopBar has the Hamburger at the inline-start (right) edge, then the Logo, and only the Chat button besides (I8, FR-CHAT-001)`, async ({
         page,
       }) => {
         await page.setViewportSize(vp);
@@ -68,10 +68,12 @@ test.describe('AppShell: TopBar', () => {
         const controls = await header
           .locator('button, a[href], input, select, textarea, [role="button"], [role="link"], [role="searchbox"]')
           .evaluateAll((els) => els.map((el) => el.getAttribute('aria-label') ?? (el.textContent ?? '').trim()));
-        expect(controls.filter((c) => c !== MENU_BUTTON && c !== 'Nestly')).toEqual([]);
+        // I8: the Chat Center's button ("הודעות", with the unread count when there is one) is the one other control.
+        expect(controls.filter((c) => c !== MENU_BUTTON && c !== 'Nestly' && !c.startsWith('הודעות'))).toEqual([]);
+        await expect(header.getByRole('button', { name: /^הודעות/ })).toBeVisible();
         await expect(page.getByRole('search')).toHaveCount(0);
         await expect(page.getByRole('searchbox')).toHaveCount(0);
-        await expect(page.getByRole('button', { name: /חיפוש|צ'אט|צאט|הודעות|התראות|חפש/ })).toHaveCount(0);
+        await expect(page.getByRole('button', { name: /חיפוש|צ'אט|צאט|התראות|חפש/ })).toHaveCount(0);
         await expect(page.getByRole('link', { name: /חיפוש|צ'אט|צאט|הודעות|התראות/ })).toHaveCount(0);
       });
     }
@@ -202,6 +204,7 @@ test.describe('AppShell: side menu', () => {
       { tag: 'a', name: 'פנייה למוקד רפואי', href: '/medical-hotlines' }, // F3.8
       { tag: 'a', name: 'שאלות לשחזור סיסמה', href: '/recovery-questions' }, // F1.6 c18
       { tag: 'a', name: 'החלפת סיסמה', href: '/change-password' }, // F2.0 c15
+      { tag: 'a', name: 'פנייה לתמיכה', href: '/support' }, // I8: Help/Support Request (FR-ADMIN-001)
       { tag: 'button', name: 'שיתוף Nestly', href: null }, // F3.6 c11, just before the logout
       { tag: 'button', name: 'התנתקות', href: null },
     ]);

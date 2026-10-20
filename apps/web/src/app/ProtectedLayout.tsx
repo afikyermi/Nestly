@@ -8,6 +8,8 @@ import { useBackCloses } from '@/hooks/use-back-closes';
 import { useSession } from '@/hooks/use-session';
 import { StaffAccessProvider, useStaffAccessQuery } from '@/hooks/use-staff-access';
 import { ADMIN_MENU_LABEL } from '@/features/admin/admin-texts';
+import { ChatTopBarButton } from '@/features/chat/ChatTopBarButton';
+import { NEW_SUPPORT_LABEL } from '@/lib/chat-texts';
 import { shareLinkSheetProps, useShareLink } from '@/hooks/use-share-link';
 import { SHARE_SITE_LABEL } from '@/lib/share-link-texts';
 import { RULES_TITLE } from '@/pages/community-rules/community-rules-texts';
@@ -73,6 +75,8 @@ export function ProtectedLayout() {
       onMenuOpenChange={setMenuOpen}
       onNavigate={go}
       scrollResetKey={current}
+      // I8: the Chat Center (FR-CHAT-001) for a community account; staff have no social chat (BR-034). Nothing while the staff check loads.
+      {...(staff.kind === 'none' ? { topBarActions: <ChatTopBarButton current={current} /> } : {})}
       menu={(closeMenu, closeMenuThen) => (
         <>
           <MenuItem href={PATHS.friends} current={PATHS.friends === current} onNavigate={leaving(closeMenu)}>
@@ -105,6 +109,12 @@ export function ProtectedLayout() {
           <MenuItem href={PATHS.changePassword} current={PATHS.changePassword === current} onNavigate={leaving(closeMenu)}>
             החלפת סיסמה
           </MenuItem>
+          {/* I8: the Support form (FR-ADMIN-001, FR-MENU-001 "Help/Support Request"), for a community account; staff send none. */}
+          {staff.kind === 'none' ? (
+            <MenuItem href={PATHS.support} current={PATHS.support === current} onNavigate={leaving(closeMenu)}>
+              {NEW_SUPPORT_LABEL}
+            </MenuItem>
+          ) : null}
           <MenuItem
             onClick={() => {
               setOpeningSite(true);

@@ -7,7 +7,7 @@
 // The staff's side, on the admin screens (nestly.staff_view):
 //   GET  {admin}/support?status=                 → 200 { items[] } the inbox                                    (SUPPORT_VIEW)
 //   GET  {admin}/support/:id                     → 200 the request and its whole thread                         (SUPPORT_VIEW)
-//   POST {admin}/support/:id/messages { text, internal } → 201 {} a reply as "Support" or an internal note (SUPPORT_HANDLE; audited)
+//   POST {admin}/support/:id/messages { text, internal } → 200 {} a reply as "Support" or an internal note (SUPPORT_HANDLE; audited)
 //   POST {admin}/support/:id/status { status }   → 200 {} · 409 not_applicable (a closed request is final)     (SUPPORT_HANDLE; audited)
 //   POST {admin}/reports/message { messageId }   → 200 the reported message and its sender (REPORTS_VIEW; every opening audited, §9.6)
 //   all: 400 invalid · 401/503 session guard · 403 forbidden · 404 not_found · 500. Other methods → 405 with Allow.
@@ -103,7 +103,7 @@ export function registerSupportRoutes(app: FastifyInstance, deps: SupportRouteDe
     if (!params.success || !body.success) return reply.code(400).header('cache-control', 'no-store').send({ error: 'invalid' });
     const caller = staff(request);
     if (caller === undefined) return reply.code(503).send({ error: 'unavailable' });
-    return answer(request, reply, 'support staff reply failed', () => replyAsSupport(caller.database, caller.identity, params.data.id, body.data.text, body.data.internal), () => ({}), 201);
+    return answer(request, reply, 'support staff reply failed', () => replyAsSupport(caller.database, caller.identity, params.data.id, body.data.text, body.data.internal), () => ({}));
   });
   others(`${ADMIN}/support/:id/messages`, ['POST']);
 

@@ -1,8 +1,9 @@
 import { useOutletContext } from 'react-router';
 import { AuditLogScreen } from '@/features/admin/AuditLogScreen';
 import { ReportsScreen } from '@/features/admin/ReportsScreen';
+import { SupportInboxScreen } from '@/features/admin/SupportInboxScreen';
 import { UsersScreen } from '@/features/admin/UsersScreen';
-import { AUDIT_TITLE, REPORTS_TITLE, USERS_TITLE } from '@/features/admin/admin-texts';
+import { AUDIT_TITLE, REPORTS_TITLE, SUPPORT_TITLE, USERS_TITLE } from '@/features/admin/admin-texts';
 import { documentTitle } from '@/lib/document-title';
 import type { AdminContext } from './AdminLayout';
 
@@ -35,6 +36,17 @@ export function AdminAuditPage() {
       <title>{documentTitle(AUDIT_TITLE)}</title>
       <h2 className="mb-4 text-h3">{AUDIT_TITLE}</h2>
       <AuditLogScreen />
+    </>
+  );
+}
+
+export function AdminSupportPage() {
+  const { permissions } = useOutletContext<AdminContext>();
+  return (
+    <>
+      <title>{documentTitle(SUPPORT_TITLE)}</title>
+      <h2 className="mb-4 text-h3">{SUPPORT_TITLE}</h2>
+      <SupportInboxScreen permissions={permissions} />
     </>
   );
 }

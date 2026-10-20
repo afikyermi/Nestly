@@ -14,6 +14,7 @@ import {
   House,
   LoaderCircle,
   Menu,
+  MessageCircle,
   Phone,
   Plus,
   Repeat2,
@@ -72,6 +73,8 @@ export const SparkIcon = icon(Sparkles);
 export const HeartIcon = icon(Heart);
 export const MoreIcon = icon(Ellipsis);
 export const PhoneIcon = icon(Phone);
+// I8: the Chat Center in the Top Bar (FR-CHAT-001).
+export const MessageIcon = icon(MessageCircle);
 // F3.5, F3.6: share into one's feed (a repost), and send a link out of the app.
 export const ShareInFeedIcon = icon(Repeat2);
 export const ShareLinkIcon = icon(Share2);

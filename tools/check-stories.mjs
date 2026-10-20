@@ -16,6 +16,7 @@ export const STATES = {
   "ui/button": 9, // primary, soft, text, lg, block, icon-only, disabled, pending, as link
   "ui/icons": 1, // the gallery of all icons
   "ui/tooltip": 2, // hover, focus
+  "ui/popover": 2, // closed, open
   "ui/skeleton": 2, // line, card shape
   "ui/text-input": 5, // empty, filled, error, disabled, email (ltr)
   "shared/form-field": 4, // basic, hint, error, optional

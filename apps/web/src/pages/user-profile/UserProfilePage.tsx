@@ -1,5 +1,6 @@
 import { useParams } from 'react-router';
 import { checkUserId } from '@nestly/shared';
+import { WriteMessageButton } from '@/features/chat/WriteMessageButton';
 import { UserProfileContent } from '@/features/user-profile/UserProfileContent';
 import { UserProfileScreen } from '@/features/user-profile/UserProfileScreen';
 import { useOwnUserId } from '@/hooks/use-own-user-id';
@@ -15,5 +16,5 @@ export function UserProfilePage() {
   if (!target.ok) return <UserProfileContent view={{ kind: 'unavailable' }} />;
   if (own.kind === 'loading') return <UserProfileContent view={{ kind: 'loading' }} />;
   if (own.userId === target.userId) return <ProfilePage />;
-  return <UserProfileScreen key={target.userId} userId={target.userId} />;
+  return <UserProfileScreen key={target.userId} userId={target.userId} chatAction={(name) => <WriteMessageButton userId={target.userId} name={name} />} />;
 }

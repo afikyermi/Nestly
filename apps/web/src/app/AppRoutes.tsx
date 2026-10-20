@@ -1,7 +1,9 @@
 import { Route, Routes } from 'react-router';
-import { AdminAuditPage, AdminReportsPage, AdminUsersPage } from '@/pages/admin/AdminPages';
+import { AdminAuditPage, AdminReportsPage, AdminSupportPage, AdminUsersPage } from '@/pages/admin/AdminPages';
 import { AdminIndex, AdminLayout } from '@/pages/admin/AdminLayout';
 import { ChangePasswordPage } from '@/pages/change-password/ChangePasswordPage';
+import { ChatPage } from '@/pages/chat/ChatPage';
+import { ConversationPage } from '@/pages/chat/ConversationPage';
 import { CommunityRulesPage } from '@/pages/community-rules/CommunityRulesPage';
 import { NewPostRedirect } from '@/pages/compose-post/NewPostRedirect';
 import { FeedPage } from '@/pages/feed/FeedPage';
@@ -18,6 +20,8 @@ import { RecoveryQuestionsPage } from '@/pages/recovery-questions/RecoveryQuesti
 import { RegisterPage } from '@/pages/register/RegisterPage';
 import { SetNewPasswordPage } from '@/pages/set-new-password/SetNewPasswordPage';
 import { SettingsPage } from '@/pages/settings/SettingsPage';
+import { SupportPage } from '@/pages/support/SupportPage';
+import { SupportThreadPage } from '@/pages/support/SupportThreadPage';
 import { TrackerPage } from '@/pages/tracker/TrackerPage';
 import { UserProfilePage } from '@/pages/user-profile/UserProfilePage';
 import { WelcomePage } from '@/pages/welcome/WelcomePage';
@@ -56,11 +60,16 @@ export function AppRoutes() {
             <Route path={PATHS.medicalHotlines} element={<MedicalHotlinesPage />} />
             <Route path={PATHS.communityRules} element={<CommunityRulesPage />} />
             <Route path={PATHS.setNewPassword} element={<SetNewPasswordPage />} />
+            <Route path={PATHS.chat} element={<ChatPage />} />
+            <Route path={PATHS.conversation} element={<ConversationPage />} />
+            <Route path={PATHS.support} element={<SupportPage />} />
+            <Route path={PATHS.supportThread} element={<SupportThreadPage />} />
             <Route path={PATHS.admin} element={<AdminLayout />}>
               <Route index element={<AdminIndex />} />
               <Route path="reports" element={<AdminReportsPage />} />
               <Route path="users" element={<AdminUsersPage />} />
               <Route path="audit" element={<AdminAuditPage />} />
+              <Route path="support" element={<AdminSupportPage />} />
             </Route>
           </Route>
         </Routes>

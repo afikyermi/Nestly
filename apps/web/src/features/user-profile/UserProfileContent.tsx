@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { formatChildAge, type ProfileView, type RelationshipState } from '@nestly/shared';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
@@ -73,6 +73,8 @@ export interface UserProfileFocus {
 
 export interface UserProfileContentProps {
   view: UserProfileView;
+  /** I8: "שליחת הודעה" (FR-CHAT-002), drawn by the page beside the relationship actions for a viewer who has them; given the person's name. */
+  chatAction?: (name: string) => ReactNode;
   focus?: UserProfileFocus;
   onRetry?: () => void;
   onSend?: () => void;
@@ -246,6 +248,7 @@ export function UserProfileContent(props: UserProfileContentProps) {
           {loaded.profile.relationship !== null ? (
             <Actions name={loaded.profile.fullName} relationship={loaded.profile.relationship} busy={loaded.busy} locked={locked} props={props} />
           ) : null}
+          {loaded.profile.relationship !== null && props.chatAction !== undefined ? props.chatAction(loaded.profile.fullName) : null}
           {/* F3.7 c9: quiet, below the relationship actions; named "דיווח על הפרופיל של <name>" (screen.md). The own profile never comes here. */}
           <div className="flex flex-wrap gap-2">
             <Button variant="text" data-profile-report onClick={onReport}>

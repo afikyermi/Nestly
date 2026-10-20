@@ -4,6 +4,8 @@ import {
   enforceBody,
   queueBody,
   reportDetailBody,
+  reportedMessageBodySchema,
+  type ReportedMessage,
   revealBody,
   targetUser,
   userListBody,
@@ -88,6 +90,9 @@ export const revealAuthor = (token: string, postId: string): Promise<AdminOutcom
   call(token, 'POST', '/api/admin/reports/reveal', revealBody, { postId });
 export const enforceUser = (token: string, request: EnforceRequest): Promise<AdminOutcome<{ status: 'active' | 'suspended' | 'banned'; suspendedUntil: string | null }>> =>
   call(token, 'POST', '/api/admin/enforcements', enforceBody, request);
+/** POST /api/admin/reports/message: opens a reported chat message (§9.6); every opening is an Audit Log entry. */
+export const openReportedMessage = (token: string, messageId: string): Promise<AdminOutcome<ReportedMessage>> =>
+  call(token, 'POST', '/api/admin/reports/message', reportedMessageBodySchema, { messageId });
 export const fetchUsers = (token: string, search: string): Promise<AdminOutcome<UserList>> =>
   call(token, 'GET', `/api/admin/users?q=${encodeURIComponent(search)}`, userListBody);
 export const fetchUser = (token: string, id: string): Promise<AdminOutcome<TargetUser>> => call(token, 'GET', `/api/admin/users/${id}`, targetUser);

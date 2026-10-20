@@ -15,6 +15,7 @@ export const ADMIN_TABS: ReadonlyArray<{ tab: AdminTab; path: string }> = [
   { tab: 'reports', path: PATHS.adminReports },
   { tab: 'users', path: PATHS.adminUsers },
   { tab: 'audit', path: PATHS.adminAudit },
+  { tab: 'support', path: PATHS.adminSupport },
 ];
 
 /** The first tab the keys allow, for the entry `/admin`; null when none. */

@@ -7,7 +7,7 @@ export const REPORT_COMMENT_ITEM = 'דיווח על התגובה';
 export const COMMENT_MORE_LABEL = 'פעולות נוספות לתגובה';
 export const REPORT_PROFILE_LABEL = 'דיווח על הפרופיל';
 
-export const REPORT_TITLES: Record<ReportTargetKind, string> = { post: 'דיווח על פוסט', comment: 'דיווח על תגובה', user: 'דיווח על פרופיל' };
+export const REPORT_TITLES: Record<ReportTargetKind, string> = { post: 'דיווח על פוסט', comment: 'דיווח על תגובה', user: 'דיווח על פרופיל', message: 'דיווח על הודעה' };
 export const REPORT_INTRO = 'הדיווח מגיע רק לצוות Nestly, ולא נשלחת עליו הודעה לאף אחד';
 export const REASONS_LEGEND = 'מה הבעיה?';
 export const REASON_LABELS: Record<ReportReason, string> = {
