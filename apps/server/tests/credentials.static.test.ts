@@ -71,6 +71,9 @@ function roleOfPayload(encoded: string): string | undefined {
 
 // F1.6-b (Gate 2, schema.md "CI check"; FR-AUTH-003 exception part (a)): the Auth admin key's NAME may appear in exactly one source file.
 const AUTH_ADMIN_MODULE = 'apps/server/src/recovery/auth-admin.ts';
+// I5 (Afik 20.10.2026; data-model "Approved exceptions", I5 media): the same key, for Storage only, in one more module.
+const STORAGE_MODULE = 'apps/server/src/media/storage-admin.ts';
+const SECRET_KEY_MODULES = [AUTH_ADMIN_MODULE, STORAGE_MODULE];
 const PEPPER_MODULE = 'apps/server/src/recovery/pepper.ts';
 const relPath = (file: string): string => relative(repoRoot, file).split(sep).join('/');
 
@@ -92,7 +95,7 @@ function credentialProblems(text: string, allowAdminKeyName = false): string[] {
   if (/SERVICE_ROLE/.test(text) || /service_?role_?key|serviceRoleKey/i.test(text)) problems.push('a service_role key name');
   if (/APP_OWNER_DATABASE_URL|APP_OWNER_PASSWORD/.test(text)) problems.push('an app_owner credential name');
   if (/SUPABASE_SECRET(?!_KEY\b)|sb_secret_|SUPABASE_DB_PASSWORD|POSTGRES_PASSWORD/.test(text)) problems.push('a secret key or database password name');
-  if (!allowAdminKeyName && /SUPABASE_SECRET_KEY/.test(text)) problems.push('the Auth admin key name outside recovery/auth-admin.ts');
+  if (!allowAdminKeyName && /SUPABASE_SECRET_KEY/.test(text)) problems.push('the secret key name outside recovery/auth-admin.ts and media/storage-admin.ts');
 
   for (const match of text.matchAll(/\b(?:user|username)\s*:\s*['"]([^'"\n]{1,64})['"]/g)) {
     const name = match[1] ?? '';
@@ -167,7 +170,7 @@ describe('[F1.1-c c27] nothing under apps/, api/ or vercel.json names a credenti
   it('no connection string, key name, driver user or embedded token for service_role, app_owner or postgres', SLOW, () => {
     const offenders: string[] = [];
     for (const file of filesUnderChecked()) {
-      for (const problem of credentialProblems(readFileSync(file, 'utf8'), relPath(file) === AUTH_ADMIN_MODULE)) {
+      for (const problem of credentialProblems(readFileSync(file, 'utf8'), SECRET_KEY_MODULES.includes(relPath(file)))) {
         offenders.push(`${relPath(file)}: ${problem}`);
       }
     }
@@ -185,8 +188,8 @@ describe('[F1.6-b c15 FR-AUTH-003] the Auth admin key and the pepper are named i
       .filter((f) => name.test(f.text))
       .map((f) => f.path);
 
-  it('SUPABASE_SECRET_KEY is named in apps/server/src/recovery/auth-admin.ts and in no other file under apps/, api/ or vercel.json (and the module does name it: not vacuous)', SLOW, () => {
-    expect(namingIn(/SUPABASE_SECRET_KEY/)).toEqual([AUTH_ADMIN_MODULE]);
+  it('SUPABASE_SECRET_KEY is named in recovery/auth-admin.ts and (I5) media/storage-admin.ts and in no other file under apps/, api/ or vercel.json (both do name it: not vacuous)', SLOW, () => {
+    expect(namingIn(/SUPABASE_SECRET_KEY/).sort()).toEqual([...SECRET_KEY_MODULES].sort());
   });
 
   it('[gateway-key c9] SUPABASE_PUBLISHABLE_KEY is named under apps/server/src in auth-admin.ts only, and the module does name it', SLOW, () => {
@@ -202,7 +205,8 @@ describe('[F1.6-b c15 FR-AUTH-003] the Auth admin key and the pepper are named i
   it('the Auth admin literals (/admin/, grant_type=password, /logout, Sb-Forwarded-For) appear under apps/server/src in auth-admin.ts only, and the module has all four', SLOW, () => {
     const serverSrc = scanned().filter((f) => f.path.startsWith('apps/server/src/'));
     for (const literal of ['/admin/', 'grant_type=password', '/logout', 'Sb-Forwarded-For']) {
-      const where = serverSrc.filter((f) => f.text.toLowerCase().includes(literal.toLowerCase())).map((f) => f.path);
+      // the product's own staff API paths (/api/admin/..., I4, I5) are not Auth's admin endpoints
+      const where = serverSrc.filter((f) => f.text.toLowerCase().replaceAll('/api/admin/', '').includes(literal.toLowerCase())).map((f) => f.path);
       expect(where, `the literal ${literal}`).toEqual([AUTH_ADMIN_MODULE]);
     }
   });
@@ -252,5 +256,49 @@ describe('[F1.1-c c27] the database client: one connection per instance, prepare
     } finally {
       await database.close();
     }
+  });
+});
+
+// I5 (Afik 20.10.2026, decisions-in-force.md §7; data-model "Approved exceptions", I5 media): the storage key is fenced to one module, the
+// training bucket and the job's storage operations to that module and the job, and the job's database credential and model to the job. The
+// request server (everything under apps/server/src outside jobs/) never imports the job. A property of the repository's text, read at run time.
+describe('[I5 Afik 20.10] the storage and job fences', () => {
+  const serverSrc = (): Array<{ path: string; text: string }> =>
+    filesUnderChecked()
+      .map((file) => ({ path: relPath(file), text: readFileSync(file, 'utf8') }))
+      .filter((f) => f.path.startsWith('apps/server/src/') || f.path.startsWith('apps/server/api/') || f.path.startsWith('api/'));
+  const namingIn = (name: RegExp): string[] =>
+    filesUnderChecked()
+      .map((file) => ({ path: relPath(file), text: readFileSync(file, 'utf8') }))
+      .filter((f) => name.test(f.text))
+      .map((f) => f.path);
+  const inJob = (path: string): boolean => path.startsWith('apps/server/src/jobs/') || path === 'apps/server/api/jobs.ts' || path === 'api/jobs.ts';
+
+  it('APP_JOBS_DATABASE_URL is named only in src/jobs/config.ts (and it does name it)', SLOW, () => {
+    expect(namingIn(/APP_JOBS_DATABASE_URL/)).toEqual(['apps/server/src/jobs/config.ts']);
+  });
+
+  it('CRON_SECRET is named only in src/jobs/config.ts and the upload route\'s caller media/job-kick.ts', SLOW, () => {
+    expect(namingIn(/CRON_SECRET/).sort()).toEqual(['apps/server/src/jobs/config.ts', 'apps/server/src/media/job-kick.ts']);
+  });
+
+  it('the training bucket is named only in media/storage-admin.ts', SLOW, () => {
+    expect(serverSrc().filter((f) => f.text.includes('media-training')).map((f) => f.path)).toEqual([STORAGE_MODULE]);
+  });
+
+  it('the job-only storage (createJobStorage, JobStorage) is used only by the job', SLOW, () => {
+    const users = serverSrc().filter((f) => /\b(createJobStorage|JobStorage)\b/.test(f.text) && f.path !== STORAGE_MODULE).map((f) => f.path);
+    expect(users.length).toBeGreaterThan(0);
+    expect(users.filter((path) => !inJob(path))).toEqual([]);
+  });
+
+  it('no request-server file imports the job, and only the job imports onnxruntime-node or the model', SLOW, () => {
+    const importsJob = /from\s+['"][^'"]*\/jobs\/[^'"]*['"]/;
+    expect(serverSrc().filter((f) => !inJob(f.path) && importsJob.test(f.text)).map((f) => f.path)).toEqual([]);
+    expect(serverSrc().filter((f) => /onnxruntime-node|nudenet-320n/.test(f.text)).map((f) => f.path)).toEqual(['apps/server/src/jobs/nudenet.ts']);
+  });
+
+  it('the storage key never reaches the web app or the CI configuration', SLOW, () => {
+    expect(namingIn(/SUPABASE_SECRET_KEY|APP_JOBS_DATABASE_URL/).filter((path) => path.startsWith('apps/web/'))).toEqual([]);
   });
 });

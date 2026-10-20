@@ -1,0 +1,230 @@
+import postgres from 'postgres';
+import sharp from 'sharp';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import { createDatabase, type Database } from '../../src/db/client.js';
+import { processUpload } from '../../src/media/image-processing.js';
+import { AUDIENCE, COLD_START_MS, ISSUER, newKey, restoreEnv, startJwks, token, type App, type JwksServer, type TestKey } from '../helpers/identity-fixtures.js';
+import { fakeMediaStorage } from '../helpers/media-fakes.js';
+import { CLOCK_NOW, buildRegisterApp, post, validBody } from '../helpers/register-app.js';
+
+// I5 against the real database (CI `db` job, as app_server; fixtures of supabase/tests/setup/), with Storage replaced by an in-memory fake:
+// uploads (FR-FEED-002, AC-104, AC-105), a post's images, the profile photo (FR-PROFILE-001, BR-077), Stories (FR-FEED-008, AC-102, AC-103,
+// ERR-040) and the approval queue (Afik 20.10.2026). The background check's moves are made as app_jobs through the CI-only fixture.
+
+const T = { timeout: COLD_START_MS };
+const ADMIN = '60000000-0000-4000-8000-0000000000a2'; // 60_'s fr_d
+
+let key: TestKey;
+let jwks: JwksServer;
+let side: ReturnType<typeof postgres>;
+const toClose: Array<{ app: App; database: Database }> = [];
+
+function url(): string {
+  const value = process.env.DATABASE_URL;
+  if (!value) throw new Error('DATABASE_URL is not set: the db job must run these tests as app_server through it');
+  return value;
+}
+const env = () => ({ SUPABASE_JWKS_URL: jwks.url, SUPABASE_JWT_ISSUER: ISSUER, SUPABASE_JWT_AUDIENCE: AUDIENCE, DATABASE_URL: url() });
+
+async function start(options: Parameters<typeof fakeMediaStorage>[0] = {}) {
+  const fake = fakeMediaStorage(options);
+  let kicks = 0;
+  const database = createDatabase(url());
+  const app = await buildRegisterApp(env(), {
+    database,
+    clock: () => CLOCK_NOW,
+    media: {
+      storage: fake.storage,
+      kick: () => {
+        kicks += 1;
+        return Promise.resolve();
+      },
+      process: processUpload,
+    },
+  });
+  toClose.push({ app, database });
+  return { app, fake, kicks: () => kicks };
+}
+
+const bearerFor = async (sub: string): Promise<string> => `Bearer ${await token({ key, sub })}`;
+
+async function registered(app: App, fullName: string): Promise<{ id: string; header: string }> {
+  const [row] = await side`select tests.fx_new_auth_user()::text as id`;
+  const id = String(row?.id);
+  const header = await bearerFor(id);
+  const res = await post(app, header, validBody({ fullName }));
+  if (res.statusCode !== 201) throw new Error(`could not register a fresh user: ${res.statusCode} ${res.body}`);
+  return { id, header };
+}
+
+let jpeg: Buffer;
+const upload = (app: App, header: string, kind: string, body: Buffer = jpeg, type = 'image/jpeg') =>
+  app.inject({ method: 'POST', url: `/api/media?kind=${kind}`, headers: { authorization: header, 'content-type': type }, payload: body });
+const json = (app: App, header: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, payload?: unknown) =>
+  app.inject({ method, url: path, headers: { authorization: header, ...(payload === undefined ? {} : { 'content-type': 'application/json' }) }, ...(payload === undefined ? {} : { payload: JSON.stringify(payload) }) });
+const imageId = (body: string): string => z.object({ id: z.guid(), state: z.literal('pending') }).parse(JSON.parse(body)).id;
+
+/** The background check's move, as app_jobs (the CI-only fixture lets app_server become it inside one transaction). */
+async function jobSets(id: string, status: 'passed' | 'queued', reason: 'blocked' | 'unsure' | null = null): Promise<void> {
+  await side.begin(async (tx) => {
+    await tx`select 1`;
+    await tx`select tests.fx_jobs_on()`;
+    await tx`set local role app_jobs`;
+    await tx`update nestly.media_assets set status = ${status}, queue_reason = ${reason} where id = ${id}::uuid and status = 'pending'`;
+    await tx`reset role`;
+    await tx`select tests.fx_jobs_off()`;
+  });
+}
+
+beforeAll(async () => {
+  key = await newKey('media-db-key');
+  jwks = await startJwks([key]);
+  side = postgres(url(), { max: 1, prepare: false, onnotice: () => undefined });
+  const [who] = await side`select session_user::text as su`;
+  expect(who?.su, 'these tests must run as app_server, never as a role that bypasses RLS').toBe('app_server');
+  jpeg = await sharp({ create: { width: 3000, height: 1500, channels: 3, background: { r: 10, g: 120, b: 200 } } })
+    .jpeg()
+    .withExif({ IFD0: { Make: 'NestlyPhone' } })
+    .toBuffer();
+}, COLD_START_MS);
+
+afterEach(async () => {
+  for (const { app, database } of toClose.splice(0)) {
+    await app.close();
+    await database.close();
+  }
+});
+
+afterAll(async () => {
+  await jwks.close();
+  await side.end({ timeout: 5 });
+  restoreEnv();
+});
+
+describe('[FR-FEED-002 AC-104 AC-105] uploads', () => {
+  it('[AC-104 AC-105] 201 pending; the stored file is re-encoded (≤ 2048, no EXIF) under the row id; the check is asked to run', T, async () => {
+    const { app, fake, kicks } = await start();
+    const u = await registered(app, 'Uma Upload');
+    const res = await upload(app, u.header, 'post');
+    expect(res.statusCode, res.body).toBe(201);
+    const body = z.object({ id: z.guid(), state: z.literal('pending'), url: z.string(), width: z.number(), height: z.number() }).parse(JSON.parse(res.body));
+    expect([body.width, body.height]).toEqual([2048, 1024]);
+    const stored = fake.files.get(body.id);
+    expect(stored?.mime).toBe('image/webp');
+    expect(Buffer.from(stored?.bytes ?? new Uint8Array()).includes(Buffer.from('NestlyPhone'))).toBe(false);
+    expect(kicks()).toBe(1);
+  });
+
+  it('[ERR-039] another type is 415; a bad kind is 400; storage down is 503 and nothing is kept; an Admin account cannot upload (403)', T, async () => {
+    const { app } = await start();
+    const u = await registered(app, 'Uri Upload');
+    expect((await upload(app, u.header, 'post', Buffer.from('GIF89a'), 'image/gif')).statusCode).toBe(415);
+    expect((await upload(app, u.header, 'post', Buffer.from('not an image'), 'image/png')).statusCode).toBe(415);
+    expect((await upload(app, u.header, 'video')).statusCode).toBe(400);
+    expect((await upload(app, await bearerFor(ADMIN), 'post')).statusCode).toBe(403);
+    const down = await start({ upload: 'failed' });
+    const v = await registered(down.app, 'Vera Down');
+    expect((await upload(down.app, v.header, 'post')).statusCode).toBe(503);
+    expect(down.fake.files.size).toBe(0);
+    const unset = await start({ configured: false });
+    expect((await upload(unset.app, v.header, 'post')).statusCode).toBe(503);
+  });
+});
+
+describe('[FR-FEED-002 AC-021 AC-105] a post with images', () => {
+  it('[AC-021] the images are attached in order; others see them only after the check; another user\'s image is refused and nothing is posted', T, async () => {
+    const { app } = await start();
+    const a = await registered(app, 'Ada Author');
+    const b = await registered(app, 'Bo Reader');
+    const first = imageId((await upload(app, a.header, 'post')).body);
+    const second = imageId((await upload(app, a.header, 'post')).body);
+    const res = await json(app, a.header, 'POST', '/api/posts', { body: 'עם תמונות', audience: 'everyone', imageIds: [first, second] });
+    expect(res.statusCode, res.body).toBe(201);
+    const created = z.object({ id: z.guid(), images: z.array(z.object({ id: z.guid(), state: z.string() })) }).parse(JSON.parse(res.body));
+    expect(created.images.map((i) => [i.id, i.state])).toEqual([[first, 'pending'], [second, 'pending']]);
+    const asB = async () => z.object({ images: z.array(z.object({ id: z.guid(), state: z.string() })).optional() }).parse(JSON.parse((await json(app, b.header, 'GET', `/api/posts/${created.id}`)).body)).images ?? [];
+    expect(await asB(), '[AC-105] before the check another reader sees no image').toEqual([]);
+    await jobSets(first, 'passed');
+    expect((await asB()).map((i) => [i.id, i.state]), '[AC-105] after the check the image shows').toEqual([[first, 'ready']]);
+    const third = imageId((await upload(app, a.header, 'post')).body);
+    const stolen = await json(app, b.header, 'POST', '/api/posts', { body: 'לא שלי', audience: 'everyone', imageIds: [third] });
+    expect(stolen.statusCode).toBe(422);
+    expect(JSON.parse(stolen.body)).toEqual({ error: 'image_not_available' });
+    const reused = await json(app, a.header, 'POST', '/api/posts', { body: 'שוב', audience: 'everyone', imageIds: [first] });
+    expect(reused.statusCode, 'an image belongs to one post').toBe(422);
+    expect((await json(app, a.header, 'POST', '/api/posts', { body: 'x', audience: 'everyone', imageIds: [third, third] })).statusCode).toBe(400);
+  });
+});
+
+describe('[FR-PROFILE-001 BR-077] the profile photo', () => {
+  it('set, read, replace (the old file is removed at once) and remove; never someone else\'s image', T, async () => {
+    const { app, fake } = await start();
+    const a = await registered(app, 'Pia Photo');
+    const b = await registered(app, 'Bea Other');
+    expect(JSON.parse((await json(app, a.header, 'GET', '/api/profile/photo')).body)).toEqual({ photo: null });
+    const one = imageId((await upload(app, a.header, 'profile')).body);
+    expect((await json(app, a.header, 'PUT', '/api/profile/photo', { mediaId: one })).statusCode).toBe(200);
+    expect(z.object({ photo: z.object({ id: z.guid() }) }).parse(JSON.parse((await json(app, a.header, 'GET', '/api/profile/photo')).body)).photo.id).toBe(one);
+    const two = imageId((await upload(app, a.header, 'profile')).body);
+    expect((await json(app, a.header, 'PUT', '/api/profile/photo', { mediaId: two })).statusCode).toBe(200);
+    expect(fake.removed, '[BR-077] the replaced photo\'s file is removed at once').toContain(one);
+    const bImage = imageId((await upload(app, b.header, 'profile')).body);
+    expect((await json(app, a.header, 'PUT', '/api/profile/photo', { mediaId: bImage })).statusCode).toBe(422);
+    const postImage = imageId((await upload(app, a.header, 'post')).body);
+    expect((await json(app, a.header, 'PUT', '/api/profile/photo', { mediaId: postImage })).statusCode, 'only a profile image').toBe(422);
+    expect((await json(app, a.header, 'DELETE', '/api/profile/photo')).statusCode).toBe(204);
+    expect(fake.removed).toContain(two);
+    expect(JSON.parse((await json(app, a.header, 'GET', '/api/profile/photo')).body)).toEqual({ photo: null });
+  });
+});
+
+describe('[FR-FEED-008 AC-102 AC-103 ERR-040] Stories', () => {
+  it('[AC-102] the author sees it at once, a reader after the check; [AC-103] the eleventh in 24 hours is 429 story_limit', T, async () => {
+    const { app } = await start();
+    const a = await registered(app, 'Sivan Story');
+    const b = await registered(app, 'Bar Viewer');
+    const media = imageId((await upload(app, a.header, 'story')).body);
+    const created = await json(app, a.header, 'POST', '/api/stories', { mediaId: media, caption: 'בוקר טוב', audience: 'everyone' });
+    expect(created.statusCode, created.body).toBe(201);
+    const groups = async (header: string) =>
+      z.object({ groups: z.array(z.object({ authorId: z.guid(), isMine: z.boolean(), items: z.array(z.object({ caption: z.string().nullable() })) })), postedToday: z.number() }).parse(JSON.parse((await json(app, header, 'GET', '/api/stories')).body));
+    const mine = await groups(a.header);
+    expect(mine.groups.find((g) => g.authorId === a.id)).toMatchObject({ isMine: true, items: [{ caption: 'בוקר טוב' }] });
+    expect(mine.postedToday).toBe(1);
+    expect((await groups(b.header)).groups.some((g) => g.authorId === a.id), 'before the check, readers do not see it').toBe(false);
+    await jobSets(media, 'passed');
+    expect((await groups(b.header)).groups.some((g) => g.authorId === a.id), 'after the check, everyone does').toBe(true);
+    for (let i = 2; i <= 10; i++) {
+      const m = imageId((await upload(app, a.header, 'story')).body);
+      expect((await json(app, a.header, 'POST', '/api/stories', { mediaId: m, audience: 'friends' })).statusCode).toBe(201);
+    }
+    const eleventh = imageId((await upload(app, a.header, 'story')).body);
+    const refused = await json(app, a.header, 'POST', '/api/stories', { mediaId: eleventh, audience: 'everyone' });
+    expect(refused.statusCode).toBe(429);
+    expect(JSON.parse(refused.body)).toEqual({ error: 'story_limit' });
+    expect((await json(app, a.header, 'POST', '/api/stories', { mediaId: eleventh, audience: 'everyone', caption: 'א'.repeat(201) })).statusCode).toBe(422);
+    expect((await json(app, b.header, 'POST', '/api/stories', { mediaId: eleventh, audience: 'everyone' })).statusCode, 'never someone else\'s image').toBe(403);
+  });
+});
+
+describe('[Afik 20.10] the approval queue', () => {
+  it('the Admin sees a queued image and decides it once; a user gets 403; the decision shows the image to its post\'s readers', T, async () => {
+    const { app } = await start();
+    const a = await registered(app, 'Queue Author');
+    const b = await registered(app, 'Queue Reader');
+    const admin = await bearerFor(ADMIN);
+    const media = imageId((await upload(app, a.header, 'post')).body);
+    const created = z.object({ id: z.guid() }).parse(JSON.parse((await json(app, a.header, 'POST', '/api/posts', { body: 'בדיקה', audience: 'everyone', imageIds: [media] })).body));
+    await jobSets(media, 'queued', 'blocked');
+    expect((await json(app, b.header, 'GET', '/api/admin/media-queue')).statusCode).toBe(403);
+    const queue = z.object({ items: z.array(z.object({ id: z.guid(), queueReason: z.string(), url: z.string().nullable() })) }).parse(JSON.parse((await json(app, admin, 'GET', '/api/admin/media-queue')).body));
+    expect(queue.items.find((i) => i.id === media)).toMatchObject({ queueReason: 'blocked' });
+    expect((await json(app, b.header, 'POST', `/api/admin/media/${media}/decision`, { decision: 'approved', isChild: false })).statusCode).toBe(404);
+    expect((await json(app, admin, 'POST', `/api/admin/media/${media}/decision`, { decision: 'approved', isChild: true })).statusCode).toBe(200);
+    expect((await json(app, admin, 'POST', `/api/admin/media/${media}/decision`, { decision: 'rejected', isChild: false })).statusCode, 'decided once').toBe(404);
+    const seen = z.object({ images: z.array(z.object({ id: z.guid(), state: z.string() })).optional() }).parse(JSON.parse((await json(app, b.header, 'GET', `/api/posts/${created.id}`)).body));
+    expect(seen.images?.map((i) => i.state)).toEqual(['ready']);
+    expect((await json(app, admin, 'POST', `/api/admin/media/${media}/decision`, { decision: 'maybe', isChild: false })).statusCode).toBe(400);
+  });
+});

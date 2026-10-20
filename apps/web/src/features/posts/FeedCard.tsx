@@ -17,6 +17,7 @@ import { MORE_ACTIONS_LABEL, MORE_ACTIONS_MENU_LABEL } from './hide-texts';
 import { PostForm } from './PostForm';
 import type { CardEdit } from './use-card-edit';
 import { SHARE_IN_FEED_LABEL } from './share-texts';
+import { PostImages } from './PostImages';
 
 const AUDIENCE_CLASS = 'text-small text-muted-foreground';
 
@@ -104,6 +105,7 @@ export function FeedCard(props: FeedCardProps) {
       ) : (
         <>
           {unit.kind === 'post' ? <Text>{unit.body}</Text> : null}
+          {unit.kind === 'post' ? <PostImages images={unit.images} className="order-3" /> : null}
           {unit.kind === 'share' ? (
             <>
               {unit.sharerText !== null ? <Text>{unit.sharerText}</Text> : null}

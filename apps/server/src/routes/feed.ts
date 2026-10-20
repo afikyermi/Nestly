@@ -11,10 +11,13 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
 import { isConnectionFailure, readDatabaseFault } from '../lib/pg-error.js';
 import { replySessionRefused } from '../plugins/authentication.js';
+import type { MediaStorage } from '../media/storage-admin.js';
 import { readFeedPage } from '../services/feed-service.js';
 
 export interface FeedRouteDependencies {
   readonly database: Database | undefined;
+  /** I5: signs the read addresses of the posts' images (absent: no images in the answer). */
+  readonly storage?: MediaStorage;
 }
 
 const FEED_PATH = '/api/feed';
@@ -44,7 +47,7 @@ async function read(request: FastifyRequest, reply: FastifyReply, deps: FeedRout
   if (cursor === null) return reply.code(400).send(CURSOR_INVALID);
   if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
   try {
-    const outcome = await readFeedPage(deps.database, identity, cursor ?? null);
+    const outcome = await readFeedPage(deps.database, identity, cursor ?? null, deps.storage);
     switch (outcome.kind) {
       case 'page':
         if (outcome.fallback !== null) {

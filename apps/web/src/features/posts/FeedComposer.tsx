@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { PostView } from '@nestly/shared';
+import { POST_MAX_IMAGES, type PostView } from '@nestly/shared';
 import { useAudienceMemory, type AudienceMemory } from '@/hooks/use-audience-memory';
 import type { OwnUserId } from '@/hooks/use-own-user-id';
 import type { PostingRight } from '@/hooks/use-posting-right';
@@ -9,6 +9,8 @@ import { forgetDraft, isSending, keepDraft, recallDraft, setSending, watchSendin
 import { checkPostForm, type PostFormErrors, type PostFormValues } from './post-form';
 import { failureText, refusedErrors } from './post-outcome';
 import { PostForm, type PostFormFocus } from './PostForm';
+import { PostImagesPicker } from './PostImagesPicker';
+import { usePickedImages } from './use-post-images';
 import { PUBLISH_FAILED_TEXT } from './posts-texts';
 
 interface ComposerProps {
@@ -38,6 +40,8 @@ function Composer({ owner, memory, focusText, everyoneOnly, onPublished }: Compo
   const [saving, setSaving] = useState(isSending);
   const [focus, setFocus] = useState<PostFormFocus>({ target: 'body', tick: focusText ? 1 : 0 });
   const [within, setWithin] = useState(false);
+  // I5: the post's pictures, uploaded as they are picked; the post sends their ids.
+  const pictures = usePickedImages('post');
   const box = useRef<HTMLDivElement>(null);
   // A press on an option blurs the text before the option takes focus (no related target): the options stay until the press is over.
   const pressing = useRef(false);
@@ -67,7 +71,7 @@ function Composer({ owner, memory, focusText, everyoneOnly, onPublished }: Compo
   }
 
   async function submit() {
-    if (isSending()) return;
+    if (isSending() || pictures.busy) return;
     const checked = checkPostForm(values, anonymous ? 'create' : 'none');
     if (!checked.ok) {
       validating.current = true;
@@ -81,7 +85,8 @@ function Composer({ owner, memory, focusText, everyoneOnly, onPublished }: Compo
     setFailure(null);
     setErrors({});
     const token = account === null ? null : await account.getAccessToken().catch(() => null);
-    const outcome = token === null ? ({ kind: 'failed' } as const) : await createPost(token, checked.value);
+    const write = pictures.ids.length === 0 ? checked.value : { ...checked.value, imageIds: pictures.ids };
+    const outcome = token === null ? ({ kind: 'failed' } as const) : await createPost(token, write);
     if (outcome.kind === 'post') {
       // A failed post stores nothing: the choice is remembered only here (c15), and never by an anonymous post (F3.4 c11).
       if (!anonymous && !everyoneOnly) memory.write(values.audience);
@@ -99,7 +104,7 @@ function Composer({ owner, memory, focusText, everyoneOnly, onPublished }: Compo
     setSending(false);
   }
 
-  const engaged = within || values.body.trim() !== '' || failure !== null || errors.body !== undefined;
+  const engaged = within || values.body.trim() !== '' || failure !== null || errors.body !== undefined || pictures.items.length > 0;
 
   return (
     <div
@@ -140,6 +145,16 @@ function Composer({ owner, memory, focusText, everyoneOnly, onPublished }: Compo
         onAnonymousChange={toggleAnonymous}
         onChange={change}
         onSubmit={() => void submit()}
+        attachments={
+          <PostImagesPicker
+            items={pictures.items}
+            error={pictures.error}
+            full={pictures.items.length >= POST_MAX_IMAGES}
+            disabled={saving}
+            onAdd={pictures.add}
+            onRemove={pictures.remove}
+          />
+        }
       />
     </div>
   );

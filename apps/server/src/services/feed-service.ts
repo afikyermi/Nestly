@@ -31,6 +31,8 @@ import {
 } from '../repositories/feed-repository.js';
 import { readOwnStages } from '../repositories/journeys-repository.js';
 import { readCommentCounts, readLikeCounts, readLikedTargetIds } from '../repositories/likes-repository.js';
+import type { MediaStorage } from '../media/storage-admin.js';
+import { imagesByPost } from './posts-service.js';
 
 /** The caller cannot read a feed: a stopped account (ERR-037), or an account that is neither a Regular parent's nor a Professional's. */
 export type FeedRefusal = { readonly kind: 'stopped' } | { readonly kind: 'forbidden' };
@@ -141,7 +143,7 @@ function unitOf(row: DisplayPost, reactions: UnitReactions): FeedUnit | undefine
 }
 
 /** One page, inside the caller's transaction. `cursor` is null for a first page; a cursor whose `asOf` is in the database's future is refused. */
-async function readPage(tx: IdentityTx, cursor: FeedCursor | null): Promise<FeedOutcome> {
+async function readPage(tx: IdentityTx, cursor: FeedCursor | null, storage: MediaStorage | undefined): Promise<FeedOutcome> {
   const viewer = await classifyViewer(tx);
   if (viewer.kind !== 'viewer') return viewer;
   const clock = await readSnapshotClock(tx, cursor === null ? null : cursor.asOf);
@@ -166,6 +168,7 @@ async function readPage(tx: IdentityTx, cursor: FeedCursor | null): Promise<Feed
   const likeCounts = await readLikeCounts(tx, 'post', pageIds);
   const commentCounts = await readCommentCounts(tx, pageIds);
   const liked = await readLikedTargetIds(tx, pageIds);
+  const imagesOf = await imagesByPost(tx, storage, pageIds);
   const items: FeedUnit[] = [];
   for (const unit of selection.units) {
     const row = display.get(unit.id); // gone since the ranking statement: no longer readable, so not listed
@@ -175,7 +178,11 @@ async function readPage(tx: IdentityTx, cursor: FeedCursor | null): Promise<Feed
       likedByMe: liked.has(unit.id),
     };
     const item = row === undefined ? undefined : unitOf(row, reactions);
-    if (item !== undefined) items.push(item);
+    // I5: a post's images the viewer may read, read after the order is fixed (never a ranking input)
+    if (item === undefined) continue;
+    const images = imagesOf.get(item.id);
+    if (item.kind === 'post' && images !== undefined) items.push({ ...item, images });
+    else items.push(item);
   }
   const last = selection.cursorFrom;
   const nextCursor =
@@ -202,6 +209,6 @@ async function readPage(tx: IdentityTx, cursor: FeedCursor | null): Promise<Feed
  * GET /feed: one page, in one transaction at REPEATABLE READ: the ranking, the display, the counts and the viewer's likes read one snapshot, so a
  * like the viewer's own state shows is also in the count.
  */
-export async function readFeedPage(database: Database, identity: Identity, cursor: FeedCursor | null): Promise<FeedOutcome> {
-  return inIdentityTransaction(database, identity, (tx) => readPage(tx, cursor), { isolationLevel: 'repeatable read' });
+export async function readFeedPage(database: Database, identity: Identity, cursor: FeedCursor | null, storage?: MediaStorage): Promise<FeedOutcome> {
+  return inIdentityTransaction(database, identity, (tx) => readPage(tx, cursor, storage), { isolationLevel: 'repeatable read' });
 }

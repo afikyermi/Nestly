@@ -8,8 +8,10 @@ export interface AvatarProps {
   decorative?: boolean;
   /** The accessible name when the avatar is not decorative and `name` is empty. */
   label?: string;
-  /** `md` is 40px; `sm` is 24px with caption text. */
-  size?: 'sm' | 'md';
+  /** `md` is 40px; `sm` is 24px with caption text; `lg` is 96px (the profile page). */
+  size?: 'sm' | 'md' | 'lg';
+  /** I5: the profile photo's address, when there is one the viewer may see; otherwise the initials or the icon. */
+  src?: string | null;
   /** Placement only (margin, alignment). */
   className?: string;
 }
@@ -29,18 +31,29 @@ function initialsOf(name: string): string {
 }
 
 const sizes = {
+  lg: { box: 'size-24 text-h2', icon: 'size-10' },
   md: { box: 'size-10 text-label', icon: 'size-5' },
   sm: { box: 'size-6 text-caption', icon: 'size-4' },
 } as const;
 
-// Initials only; photos come with I5. Colour is a soft background with the deep tone of the
+// The profile photo when there is one (I5), else initials. Colour is a soft background with the deep tone of the
 // same hue (direction.md); the empty state is a neutral surface with the person icon.
 // An avatar with no name to announce (decorative, or no name and no `label`) is hidden from
 // assistive technology rather than left as an unnamed image.
-export function Avatar({ name = '', decorative = false, label, size = 'md', className }: AvatarProps) {
+export function Avatar({ name = '', decorative = false, label, size = 'md', src, className }: AvatarProps) {
   const initials = initialsOf(name);
   const accessibleName = decorative ? undefined : initials !== '' ? name.trim() : label;
   const named = accessibleName !== undefined && accessibleName !== '';
+  if (src !== undefined && src !== null && src !== '') {
+    return (
+      <img
+        src={src}
+        alt={named ? accessibleName : ''}
+        {...(named ? {} : { 'aria-hidden': true })}
+        className={cn('shrink-0 rounded-full bg-muted object-cover', sizes[size].box, className)}
+      />
+    );
+  }
   return (
     <span
       {...(named ? { role: 'img', 'aria-label': accessibleName } : { 'aria-hidden': true })}

@@ -1,7 +1,8 @@
 // POST /api/posts, GET|PATCH|DELETE /api/posts/:id (I3 F3.1a, F3.4; FR-FEED-002, FR-FEED-005, OP-033, BR-062, VAL-036; Afik 3א, 5א, 6א). Signed in: the
 // authentication hook has run before anything here (401 before the body is read, and no database query). No route takes an author id; the
 // author is the caller's by the database, and RLS decides who may read, edit or delete.
-//   POST   { body, audience, stageTag?, isAnonymous? } (strict) → 201 { id, body, audience, stageTag, createdAt, isAnonymous } · 400 invalid ·
+//   POST   { body, audience, stageTag?, isAnonymous?, imageIds? } (strict) → 201 { id, body, audience, stageTag, createdAt, isAnonymous, images? } · 400 invalid ·
+//          422 image_not_available (I5: an image that is not the caller's unattached post image) ·
 //          422 body_required | body_too_long | audience_not_allowed (anonymous and friends-only) · 403 not_allowed (refused by the database:
 //          not an active Regular or Professional account, or a Professional's anonymous, friends-only or tagged post)
 //   GET    /:id → 200 the same plus kind "post", isMine and the counts, or a share's view (F3.5 c7: kind "share", sharerText, author,
@@ -18,10 +19,13 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
 import { isConnectionFailure, postFaultReply, readDatabaseFault } from '../lib/pg-error.js';
 import { replySessionRefused } from '../plugins/authentication.js';
-import { createPost, editPost, readPostById, removePost } from '../services/posts-service.js';
+import type { MediaStorage } from '../media/storage-admin.js';
+import { createPost, editPost, ImageNotAvailable, readPostById, removePost } from '../services/posts-service.js';
 
 export interface PostsRouteDependencies {
   readonly database: Database | undefined;
+  /** I5: signs the read addresses of a post's images (absent: posts are answered without images). */
+  readonly storage?: MediaStorage;
 }
 
 const POSTS_PATH = '/api/posts';
@@ -48,12 +52,14 @@ async function create(request: FastifyRequest, reply: FastifyReply, deps: PostsR
   reply.header('cache-control', 'no-store');
   const checked = checkCreatePost(request.body);
   if (!checked.ok) return replyRefusedBody(reply, checked);
-  const { body, audience, stageTag, isAnonymous } = checked.value;
+  const { body, audience, stageTag, isAnonymous, imageIds } = checked.value;
   if (body === undefined || audience === undefined) return reply.code(400).send({ error: 'invalid' });
   if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
   try {
-    return reply.code(201).send(await createPost(deps.database, identity, { body, audience, stageTag, isAnonymous }));
+    return reply.code(201).send(await createPost(deps.database, identity, { body, audience, stageTag, isAnonymous, imageIds }, deps.storage));
   } catch (error) {
+    // I5: an image named that the caller may not attach (not theirs, not a post image, already used, refused): nothing was posted.
+    if (error instanceof ImageNotAvailable) return reply.code(422).send({ error: 'image_not_available' });
     return replyFailure(request, reply, error, 'post create failed');
   }
 }
@@ -65,7 +71,7 @@ async function read(request: FastifyRequest, reply: FastifyReply, deps: PostsRou
   if (!params.success) return reply.code(404).send(NOT_FOUND);
   if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
   try {
-    const outcome = await readPostById(deps.database, identity, params.data.id.toLowerCase());
+    const outcome = await readPostById(deps.database, identity, params.data.id.toLowerCase(), undefined, deps.storage);
     return outcome.kind === 'post' ? reply.code(200).send(outcome.post) : reply.code(404).send(NOT_FOUND);
   } catch (error) {
     return replyFailure(request, reply, error, 'post read failed');

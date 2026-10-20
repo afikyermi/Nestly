@@ -5,13 +5,16 @@
 // the stage tag is what the author chose, or none (5א). Faults (a refusal or a constraint) are thrown and mapped by the route. An anonymous
 // post is written and answered like any other; its real author is the database's (post_authors) and never part of an answer.
 
-import type { PostAudience, PostPageView, PostView, PostWrite, ShareOriginal } from '@nestly/shared';
+import type { MediaImage, PostAudience, PostPageView, PostView, PostWrite, ShareOriginal } from '@nestly/shared';
 import type { Database } from '../db/client.js';
 import { inIdentityTransaction, type IdentityTx } from '../db/identity-transaction.js';
 import { readDatabaseFault } from '../lib/pg-error.js';
 import type { Identity } from '../lib/token-verifier.js';
 import { readCommentCounts, readLikeCounts, readLikedTargetIds } from '../repositories/likes-repository.js';
+import type { MediaStorage } from '../media/storage-admin.js';
+import { attachImage, readImagesOfPosts } from '../repositories/media-repository.js';
 import { deletePost, insertPost, readPostKind, readPostDetail, updatePost, type PostDetailRow, type PostRow } from '../repositories/posts-repository.js';
+import { imageViews } from './media-service.js';
 
 export type PostOutcome<T> = { readonly kind: 'post'; readonly post: T } | { readonly kind: 'not_found' };
 /** PATCH also answers that an anonymous post cannot become friends-only (F3.4 c6), and that a share cannot be edited (F3.5 c8). */
@@ -24,6 +27,31 @@ export interface NewPost {
   readonly audience: PostAudience;
   readonly stageTag?: PostRow['stageTag'] | undefined;
   readonly isAnonymous?: boolean | undefined;
+  /** I5: the caller's own unattached post images, in order (VAL-041: at most 4). */
+  readonly imageIds?: readonly string[] | undefined;
+}
+
+/** I5: an image named on create is not one the caller may attach (not theirs, not a post image, already used, refused): nothing is posted. */
+export class ImageNotAvailable extends Error {
+  constructor() {
+    super('image not available');
+    this.name = 'ImageNotAvailable';
+  }
+}
+
+/** I5: the images of these posts the caller may read, by post, in order, with read addresses signed after the read. */
+export async function imagesByPost(tx: IdentityTx, storage: MediaStorage | undefined, postIds: readonly string[]): Promise<Map<string, MediaImage[]>> {
+  const out = new Map<string, MediaImage[]>();
+  if (storage === undefined || postIds.length === 0) return out;
+  const rows = await readImagesOfPosts(tx, postIds);
+  if (rows.length === 0) return out;
+  const views = await imageViews(storage, rows);
+  for (const row of rows) {
+    const view = views.get(row.id);
+    if (view === undefined) continue;
+    out.set(row.postId, [...(out.get(row.postId) ?? []), view]);
+  }
+  return out;
 }
 
 /** More than one row for one primary key (or none after an insert) cannot happen; seeing it means a policy is wrong. */
@@ -68,8 +96,11 @@ function originalOf(row: PostDetailRow): ShareOriginal {
   };
 }
 
-/** POST: the caller's post. A refusal by the database (23503, 42501, 23514) propagates and rolls back, the post_authors row with it. */
-export async function createPost(database: Database, identity: Identity, input: NewPost): Promise<PostView> {
+/**
+ * POST: the caller's post, with its images attached in the same transaction (I5). A refusal by the database (23503, 42501, 23514), or an
+ * image the caller may not attach, propagates and rolls everything back, the post_authors row with it.
+ */
+export async function createPost(database: Database, identity: Identity, input: NewPost, storage?: MediaStorage): Promise<PostView> {
   return inIdentityTransaction(database, identity, async (tx) => {
     const row = single(
       await insertPost(tx, {
@@ -80,7 +111,12 @@ export async function createPost(database: Database, identity: Identity, input: 
       }),
     );
     if (row === undefined) throw new PostsFault();
-    return viewOf(row);
+    const ids = input.imageIds ?? [];
+    for (const [position, imageId] of ids.entries()) {
+      if (!(await attachImage(tx, imageId, row.id, position))) throw new ImageNotAvailable();
+    }
+    const images = ids.length === 0 ? undefined : (await imagesByPost(tx, storage, [row.id])).get(row.id);
+    return { ...viewOf(row), ...(images === undefined ? {} : { images }) };
   });
 }
 
@@ -89,7 +125,13 @@ export async function createPost(database: Database, identity: Identity, input: 
  * it in SQL (display only, not a permission; no second comparison here). The displayed counts
  * and the viewer's own like come from the same snapshot (F3.3 c11, c12): one REPEATABLE READ transaction. A post the caller cannot read is 404, not 0.
  */
-export async function readPostById(database: Database, identity: Identity, id: string, within?: IdentityTx): Promise<PostOutcome<PostPageView>> {
+export async function readPostById(
+  database: Database,
+  identity: Identity,
+  id: string,
+  within?: IdentityTx,
+  storage?: MediaStorage,
+): Promise<PostOutcome<PostPageView>> {
   const read = async (tx: IdentityTx): Promise<PostOutcome<PostPageView>> => {
     const rows = await readPostDetail(tx, id);
     if (rows.length > 1) throw new PostsFault();
@@ -120,9 +162,11 @@ export async function readPostById(database: Database, identity: Identity, id: s
         },
       };
     }
+    const images = (await imagesByPost(tx, storage, [row.id])).get(row.id);
     return {
       kind: 'post',
       post: {
+        ...(images === undefined ? {} : { images }),
         kind: 'post',
         id: row.id,
         body: row.body,

@@ -12,6 +12,9 @@ import { OPEN_LIMITED, rateLimitFault, type RateLimited } from '../lib/profile-o
 import type { Identity } from '../lib/token-verifier.js';
 import { readOwnAccounts } from '../repositories/account-state-repository.js';
 import { openProfile } from '../repositories/profile-view-repository.js';
+import type { MediaStorage } from '../media/storage-admin.js';
+import { readProfilePhotos } from '../repositories/media-repository.js';
+import { imageViews } from './media-service.js';
 import type { ActorRefusal } from './friends-service.js';
 
 export type ViewOutcome =
@@ -33,7 +36,7 @@ async function classifyViewer(tx: IdentityTx): Promise<ActorRefusal | undefined>
 }
 
 /** GET /api/profiles/:userId. `targetId` is a lowercase uuid's text form (the route checked it). */
-export async function readUserProfile(database: Database, identity: Identity, targetId: string): Promise<ViewOutcome> {
+export async function readUserProfile(database: Database, identity: Identity, targetId: string, storage?: MediaStorage): Promise<ViewOutcome> {
   try {
     return await inIdentityTransaction(database, identity, async (tx): Promise<ViewOutcome> => {
       const refusal = await classifyViewer(tx);
@@ -42,6 +45,9 @@ export async function readUserProfile(database: Database, identity: Identity, ta
       if (row === undefined) return { kind: 'unavailable' };
       if (others.length > 0) throw new Error('profile_view returned more than one row');
       if (row.outcome === 'limited') return OPEN_LIMITED;
+      // I5: the target's photo as the caller's policies show it (profile_photos_select_viewer: passed or approved only, for another person)
+      const photos = storage === undefined ? [] : await readProfilePhotos(tx, [targetId]);
+      const photo = photos[0] === undefined || storage === undefined ? null : ((await imageViews(storage, photos)).get(photos[0].id) ?? null);
       // Fails closed: a `shown` row with a missing field is a database fault, not a partial profile (the open rolls back with it).
       return {
         kind: 'profile',
@@ -55,6 +61,7 @@ export async function readUserProfile(database: Database, identity: Identity, ta
           relationship: row.relationship,
           friends: row.friends,
           mutualFriends: row.mutual_friends,
+          ...(photo === null ? {} : { photo }),
         }),
       };
     });
