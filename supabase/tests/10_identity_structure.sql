@@ -134,6 +134,7 @@ select is_empty(
        join pg_catalog.pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'nestly' and c.relkind in ('r', 'p', 'v', 'm', 'f') and a.attnum > 0 and not a.attisdropped
         and c.relname not in ('recovery_answers', 'recovery_throttles', 'recovery_events', 'identity_link_checks')
+        and not (c.relname = 'moderator_invitations' and a.attname = 'code_hash')
         and a.attname ~* '(pass|pwd|hash|secret|token|salt|crypt)' $$,
   '[F1.1-b c10 NFR-SEC-001 · F1.6, F2.0 scoped] no column of the F1.1/F1.4 tables or any view is named like a password, hash, secret or token (the recovery tables hold peppered answer hashes by design: file 30 checks them; identity_link_checks.password_set_at is a time: file 40)');
 
@@ -287,8 +288,8 @@ select is(
      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and pol.polcmd = 'a'
       and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents')),
-  'children.children_insert_own, journey_contexts.journey_contexts_insert_own, legal_consents.legal_consents_insert_own, regular_profiles.regular_profiles_insert_own, users.users_insert_own',
-  '[F1.1-b c13 · F1.4-a c14 platform r14 · F1.6 scoped] the INSERT policies on the five F1.1/F1.4 tables are exactly the five approved ones, one per table');
+  'children.children_insert_own, journey_contexts.journey_contexts_insert_own, legal_consents.legal_consents_insert_own, regular_profiles.regular_profiles_insert_own, users.users_insert_moderator, users.users_insert_own',
+  '[F1.1-b c13 · F1.4-a c14 platform r14 · F1.6 scoped · I14] the INSERT policies on the five F1.1/F1.4 tables are exactly the five approved ones, one per table, and I14''s users_insert_moderator (a Moderator from a valid invitation, file 95)');
 
 select is_empty(
   $$ select c.relname || '.' || pol.polname
@@ -353,9 +354,9 @@ select is(
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')
       and (has_table_privilege('authenticated', c.oid, 'UPDATE,TRUNCATE,REFERENCES,TRIGGER')
            or (c.relname not in ('recovery_answers', 'children', 'journey_contexts', 'posts', 'post_hides', 'comments', 'reactions', 'tracker_events', 'cycle_entries', 'moderator_permissions', 'media_assets', 'profile_photos') and has_table_privilege('authenticated', c.oid, 'DELETE'))
-           or (c.relname not in ('recovery_answers', 'identity_link_checks', 'regular_profiles', 'children', 'journey_contexts', 'friendships', 'posts', 'comments', 'tracker_events', 'cycle_entries', 'users', 'reports', 'report_reasons', 'notifications', 'notification_preferences', 'friend_content_notification_preferences', 'status_guides', 'user_blocks', 'media_assets', 'media_reviews', 'profile_photos') and has_any_column_privilege('authenticated', c.oid, 'UPDATE,REFERENCES')))),
+           or (c.relname not in ('recovery_answers', 'identity_link_checks', 'regular_profiles', 'children', 'journey_contexts', 'friendships', 'posts', 'comments', 'tracker_events', 'cycle_entries', 'users', 'reports', 'report_reasons', 'notifications', 'notification_preferences', 'friend_content_notification_preferences', 'status_guides', 'user_blocks', 'media_assets', 'media_reviews', 'profile_photos', 'chat_requests', 'chat_blocks', 'chat_reads', 'support_requests', 'moderator_invitations', 'system_announcements') and has_any_column_privilege('authenticated', c.oid, 'UPDATE,REFERENCES')))),
   0::bigint,
-  '[F1.1-b c13 · F1.4-a c14 · F1.6, F2.0 scoped · F2.2a c9 · F2.2-b c18 · F2.4a c12] authenticated holds no table-level UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any table in nestly (DELETE on recovery_answers is the F2.0 D1 grant; on children and journey_contexts the F2.2b2 own-row delete, file 54), and no column-level UPDATE or REFERENCES except on recovery_answers, identity_link_checks, regular_profiles, children, journey_contexts and friendships (files 30, 40, 50, 51, 54 and 61 list those columns); I6''s tracker_events and cycle_entries are owner-only with own-row UPDATE and DELETE (file 86) and status_guides is Admin-written (file 87); I5''s media_assets, media_reviews and profile_photos carry the column-level UPDATE and own-row DELETE of file 93');
+  '[F1.1-b c13 · F1.4-a c14 · F1.6, F2.0 scoped · F2.2a c9 · F2.2-b c18 · F2.4a c12] authenticated holds no table-level UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any table in nestly (DELETE on recovery_answers is the F2.0 D1 grant; on children and journey_contexts the F2.2b2 own-row delete, file 54), and no column-level UPDATE or REFERENCES except on recovery_answers, identity_link_checks, regular_profiles, children, journey_contexts and friendships (files 30, 40, 50, 51, 54 and 61 list those columns); I6''s tracker_events and cycle_entries are owner-only with own-row UPDATE and DELETE (file 86) and status_guides is Admin-written (file 87); I5''s media_assets, media_reviews and profile_photos carry the column-level UPDATE and own-row DELETE of file 93; I8''s chat_requests, chat_blocks, chat_reads and support_requests update listed columns (file 94); I14''s moderator_invitations and system_announcements carry the column-level UPDATE of file 95');
 
 -- =====================================================================================================================
 -- Criterion 18 — is_active_account(): caller only, invoker, not an approved definer. [Spec addendum 1]

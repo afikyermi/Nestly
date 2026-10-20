@@ -2,6 +2,7 @@ import { Writable } from 'node:stream';
 import { vi } from 'vitest';
 import type { Database } from '../../src/db/client.js';
 import { setEnv, type App, type EnvValues } from './identity-fixtures.js';
+import type { MediaDependencies } from '../../src/services/media-service.js';
 
 // Shared by the route tests for POST /api/register (I1 F1.4 part b, spec criteria 2, 3, 8, 10, 11, 13, 15). Written from
 // interface.md "part b, route": buildApp({ config?, database?, logStream?, clock? }). Nothing here reads the implementation.
@@ -35,6 +36,8 @@ export interface RegisterSeams {
   database?: Database;
   clock?: () => Date;
   logStream?: Writable;
+  /** I5: fakes for image storage, the re-encoder and the job trigger. */
+  media?: Partial<MediaDependencies>;
 }
 
 export async function buildRegisterApp(env: EnvValues, seams: RegisterSeams = {}): Promise<App> {
@@ -45,6 +48,7 @@ export async function buildRegisterApp(env: EnvValues, seams: RegisterSeams = {}
     ...(seams.database ? { database: seams.database } : {}),
     ...(seams.clock ? { clock: seams.clock } : {}),
     ...(seams.logStream ? { logStream: seams.logStream } : {}),
+    ...(seams.media ? { media: seams.media } : {}),
   });
 }
 

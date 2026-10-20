@@ -108,9 +108,13 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         ).count;
         // F3.0b (schema-b.md "Cleanup tool"). P(U) = U's posts (named, or anonymous through post_authors); C(U) = comments by U, on P(U),
         // or replying to U's. Reports first: no open report survives into a cascade, so reports_open_target_check never fires.
+        // I8: a staff member's views of reported messages first (others' views go with the reports below, by cascade).
+        counts['reported_message_views'] = (await tx`delete from nestly.reported_message_views where viewer_id = ${id}`).count;
         counts['reports'] = (
           await tx`delete from nestly.reports
                     where reporter_id = ${id} or reported_user_id = ${id}
+                       or message_id in (select id from nestly.messages
+                                          where conversation_id in (select id from nestly.conversations where user_a = ${id} or user_b = ${id}))
                        or post_id in (select id from nestly.posts
                                        where author_id = ${id} or id in (select post_id from nestly.post_authors where author_id = ${id}))
                        or comment_id in (select id from nestly.comments
@@ -140,6 +144,20 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
           await tx`delete from nestly.posts
                     where author_id = ${id} or id in (select post_id from nestly.post_authors where author_id = ${id})`
         ).count;
+        // Chat and Support (I8): the user's read markers, Support requests (their threads and others' markers go with them), the
+        // conversations either way (messages and markers go with them), then requests and Chat Blocks either way.
+        counts['chat_reads'] = (await tx`delete from nestly.chat_reads where user_id = ${id}`).count;
+        counts['support_messages'] = (
+          await tx`delete from nestly.support_messages where support_request_id in (select id from nestly.support_requests where user_id = ${id})`
+        ).count;
+        counts['support_requests'] = (await tx`delete from nestly.support_requests where user_id = ${id}`).count;
+        counts['messages'] = (
+          await tx`delete from nestly.messages
+                    where conversation_id in (select id from nestly.conversations where user_a = ${id} or user_b = ${id})`
+        ).count;
+        counts['conversations'] = (await tx`delete from nestly.conversations where user_a = ${id} or user_b = ${id}`).count;
+        counts['chat_requests'] = (await tx`delete from nestly.chat_requests where requester_id = ${id} or target_id = ${id}`).count;
+        counts['chat_blocks'] = (await tx`delete from nestly.chat_blocks where blocker_id = ${id} or blocked_id = ${id}`).count;
         // Blocking (FR-REL-002): rows either way; they reference only users.
         counts['user_blocks'] = (await tx`delete from nestly.user_blocks where blocker_id = ${id} or blocked_id = ${id}`).count;
         counts['friendships'] = (

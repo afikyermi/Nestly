@@ -22,6 +22,7 @@ import type { Database } from '../db/client.js';
 import { inIdentityTransaction, type IdentityTx } from '../db/identity-transaction.js';
 import type { Identity } from '../lib/token-verifier.js';
 import { readOwnAccounts } from '../repositories/account-state-repository.js';
+import { readPublishedAnnouncements } from '../repositories/team-repository.js';
 import {
   readDisplayPosts,
   readFeedConfigRows,
@@ -34,6 +35,9 @@ import {
 import { readOwnStages } from '../repositories/journeys-repository.js';
 import { readCommentCounts, readLikeCounts, readLikedTargetIds } from '../repositories/likes-repository.js';
 import { readOwnTopicWeights } from '../repositories/search-repository.js';
+import type { MediaStorage } from '../media/storage-admin.js';
+import type { PostImageRow } from '../repositories/media-repository.js';
+import { imagesByPost, readPostImageRows } from './posts-service.js';
 
 /** The caller cannot read a feed: a stopped account (ERR-037), or an account that is neither a Regular parent's nor a Professional's. */
 export type FeedRefusal = { readonly kind: 'stopped' } | { readonly kind: 'forbidden' };
@@ -151,7 +155,7 @@ async function readIntents(tx: IdentityTx, asOf: string, halfLifeHours: number):
 }
 
 /** One page, inside the caller's transaction. `cursor` is null for a first page; a cursor whose `asOf` is in the database's future is refused. */
-async function readPage(tx: IdentityTx, cursor: FeedCursor | null): Promise<FeedOutcome> {
+async function readPage(tx: IdentityTx, cursor: FeedCursor | null, storage: MediaStorage | undefined, imageRows: PostImageRow[]): Promise<FeedOutcome> {
   const viewer = await classifyViewer(tx);
   if (viewer.kind !== 'viewer') return viewer;
   const clock = await readSnapshotClock(tx, cursor === null ? null : cursor.asOf);
@@ -184,6 +188,8 @@ async function readPage(tx: IdentityTx, cursor: FeedCursor | null): Promise<Feed
   const likeCounts = await readLikeCounts(tx, 'post', pageIds);
   const commentCounts = await readCommentCounts(tx, pageIds);
   const liked = await readLikedTargetIds(tx, pageIds);
+  // I5: a post's image rows the viewer may read, read after the order is fixed (never a ranking input); signed after the transaction
+  imageRows.push(...(await readPostImageRows(tx, storage, pageIds)));
   const items: FeedUnit[] = [];
   for (const unit of selection.units) {
     const row = display.get(unit.id); // gone since the ranking statement: no longer readable, so not listed
@@ -207,11 +213,14 @@ async function readPage(tx: IdentityTx, cursor: FeedCursor | null): Promise<Feed
           createdAt: last.createdAt,
           id: last.id,
         });
+  // I14 (FR-ADMIN-008): the published System Announcements ride on the first page only, never into the ranking
+  const announcements = after === null ? await readPublishedAnnouncements(tx) : [];
   const page = feedPageResponse.parse({
     items,
     nextCursor,
     configVersion,
     ...(resolution.restarted ? { restarted: true } : {}),
+    ...(announcements.length > 0 ? { announcements } : {}),
   });
   return { kind: 'page', page, fallback: resolution.fallback };
 }
@@ -220,6 +229,14 @@ async function readPage(tx: IdentityTx, cursor: FeedCursor | null): Promise<Feed
  * GET /feed: one page, in one transaction at REPEATABLE READ: the ranking, the display, the counts and the viewer's likes read one snapshot, so a
  * like the viewer's own state shows is also in the count.
  */
-export async function readFeedPage(database: Database, identity: Identity, cursor: FeedCursor | null): Promise<FeedOutcome> {
-  return inIdentityTransaction(database, identity, (tx) => readPage(tx, cursor), { isolationLevel: 'repeatable read' });
+export async function readFeedPage(database: Database, identity: Identity, cursor: FeedCursor | null, storage?: MediaStorage): Promise<FeedOutcome> {
+  const imageRows: PostImageRow[] = [];
+  const outcome = await inIdentityTransaction(database, identity, (tx) => readPage(tx, cursor, storage, imageRows), { isolationLevel: 'repeatable read' });
+  if (outcome.kind !== 'page' || imageRows.length === 0) return outcome;
+  const imagesOf = await imagesByPost(storage, imageRows);
+  const items = outcome.page.items.map((item) => {
+    const images = item.kind === 'post' ? imagesOf.get(item.id) : undefined;
+    return images === undefined ? item : { ...item, images };
+  });
+  return { ...outcome, page: feedPageResponse.parse({ ...outcome.page, items }) };
 }

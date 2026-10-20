@@ -23,3 +23,4 @@ export * from './blocks.js';
 export * from './admin.js';
 export * from './trackers.js';
 export * from './guides.js';
+export * from './team.js';

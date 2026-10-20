@@ -6,6 +6,8 @@ import { AudienceStorageContext } from '@/hooks/use-audience-memory';
 import { LinkCopierContext, type LinkCopier } from '@/hooks/use-copy-profile-link';
 import { DeviceShareContext } from '@/hooks/use-share-link';
 import { TabVisibilityContext, type TabVisibility } from '@/hooks/use-tab-visibility';
+import { ImageShrinkerContext } from '@/hooks/use-image-shrinker';
+import { browserImageShrinker, type ImageShrinker } from '@/platform/browser-image';
 import { sessionReturnTarget } from '@/platform/browser-return-target';
 import { windowClipboard } from '@/platform/browser-clipboard';
 import { windowDeviceShare, type DeviceShare } from '@/platform/browser-share';
@@ -58,6 +60,8 @@ const clipboard = windowClipboard();
 const productionLinkCopier: LinkCopier = { origin: () => navigation.origin(), writeText: (text) => clipboard.writeText(text) };
 // The share-link window's "אפשרויות נוספות" (F3.6): the device's own share sheet, where the browser has one.
 const productionDeviceShare = windowDeviceShare();
+// I5: every picked picture is shrunk and redrawn in the browser before it is sent (no EXIF or GPS leaves the device).
+const productionImageShrinker = browserImageShrinker();
 
 export interface AppProps {
   /** Where the session comes from. The deployed app uses the production source. */
@@ -70,26 +74,30 @@ export interface AppProps {
   linkCopier?: LinkCopier;
   /** The device share sheet of the share-link window. Default: the browser's. Tests pass a fake. */
   deviceShare?: DeviceShare;
+  /** I5: shrinks a picked picture before upload. Default: the browser's. Tests pass a fake. */
+  imageShrinker?: ImageShrinker;
 }
 
 export function App(props: AppProps) {
   const { sessionSource = productionSessionSource, authPort = productionAuthPort, googleSignIn = productionGoogleSignIn } = props;
-  const { linkCopier = productionLinkCopier, deviceShare = productionDeviceShare } = props;
+  const { linkCopier = productionLinkCopier, deviceShare = productionDeviceShare, imageShrinker = productionImageShrinker } = props;
   return (
     <AuthPortContext value={authPort}>
       <GoogleSignInContext value={googleSignIn}>
         <AudienceStorageContext value={browserStorage}>
           <LinkCopierContext value={linkCopier}>
             <DeviceShareContext value={deviceShare}>
-              <ReturnTargetContext value={returnTarget}>
-                <TabVisibilityContext value={tabVisibility}>
-                  <SessionProvider source={sessionSource}>
-                    <BrowserRouter>
-                      <AppRoutes />
-                    </BrowserRouter>
-                  </SessionProvider>
-                </TabVisibilityContext>
-              </ReturnTargetContext>
+              <ImageShrinkerContext value={imageShrinker}>
+                <ReturnTargetContext value={returnTarget}>
+                  <TabVisibilityContext value={tabVisibility}>
+                    <SessionProvider source={sessionSource}>
+                      <BrowserRouter>
+                        <AppRoutes />
+                      </BrowserRouter>
+                    </SessionProvider>
+                  </TabVisibilityContext>
+                </ReturnTargetContext>
+              </ImageShrinkerContext>
             </DeviceShareContext>
           </LinkCopierContext>
         </AudienceStorageContext>

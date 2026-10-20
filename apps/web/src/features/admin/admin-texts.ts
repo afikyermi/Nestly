@@ -19,8 +19,12 @@ export const TAB_LABELS = {
   reports: 'דיווחים',
   users: 'משתמשים',
   audit: 'יומן פעולות',
-  reasons: 'סיבות דיווח',
+  media: 'תמונות לבדיקה',
   guides: 'מדריכים',
+  team: 'צוות',
+  community: 'הגדרות קהילה',
+  announcements: 'הודעות מערכת',
+  analytics: 'נתונים',
 } as const;
 export type AdminTab = keyof typeof TAB_LABELS;
 
@@ -29,8 +33,12 @@ export const TAB_KEYS: Record<AdminTab, PermissionKey | 'ADMIN'> = {
   reports: 'REPORTS_VIEW',
   users: 'USER_VIEW',
   audit: 'AUDIT_LOG_VIEW',
-  reasons: 'COMMUNITY_CONFIG',
+  media: 'CONTENT_MODERATE',
   guides: 'ADMIN',
+  team: 'ADMIN',
+  community: 'COMMUNITY_CONFIG',
+  announcements: 'SYSTEM_ANNOUNCEMENTS',
+  analytics: 'ANALYTICS_VIEW',
 };
 
 // ---- the audit log
@@ -53,6 +61,16 @@ export const ACTION_LABELS: Record<string, string> = {
   author_revealed: 'חשיפת מחבר אנונימי',
   report_handled: 'סגירת דיווח',
   report_reason_changed: 'שינוי סיבת דיווח',
+  media_approved: 'אישור תמונה',
+  media_rejected: 'דחיית תמונה',
+  media_suspected: 'חשד לפגיעה בילד בתמונה',
+  moderator_invited: 'הזמנת מודרטור',
+  moderator_invitation_revoked: 'ביטול הזמנת מודרטור',
+  moderator_joined: 'הצטרפות מודרטור',
+  announcement_created: 'יצירת הודעת מערכת',
+  announcement_edited: 'עריכת הודעת מערכת',
+  announcement_published: 'פרסום הודעת מערכת',
+  announcement_removed: 'הסרת הודעת מערכת',
 };
 export const TARGET_LABELS: Record<string, string> = {
   user: 'משתמש',
@@ -60,6 +78,9 @@ export const TARGET_LABELS: Record<string, string> = {
   comment: 'תגובה',
   report: 'דיווח',
   report_reason: 'סיבת דיווח',
+  media: 'תמונה',
+  moderator_invitation: 'הזמנת מודרטור',
+  announcement: 'הודעת מערכת',
 };
 export const actionLabel = (action: string): string => ACTION_LABELS[action] ?? action;
 export const targetLabel = (kind: string): string => TARGET_LABELS[kind] ?? kind;
@@ -140,3 +161,25 @@ export function suggestionText(kind: 'warning' | 'suspension' | 'ban', hours: nu
 }
 export const PICK_ACTION_TEXT = 'יש לבחור פעולה';
 export const ACTION_PLACEHOLDER = 'בחירת פעולה';
+
+// ---- the image approval queue (I5; Afik 20.10.2026)
+export const MEDIA_QUEUE_TITLE = 'תמונות לבדיקה';
+export const MEDIA_QUEUE_INTRO = 'תמונות שהבדיקה האוטומטית עצרה או לא הייתה בטוחה לגביהן. הן מוצגות רק למי שהעלה אותן עד להחלטה.';
+export const MEDIA_QUEUE_EMPTY = 'אין תמונות שממתינות לבדיקה';
+export const MEDIA_QUEUE_LIST_LABEL = 'תמונות שממתינות לבדיקה';
+export const MEDIA_KIND_LABELS = { post: 'תמונה בפוסט', profile: 'תמונת פרופיל', story: 'תמונה בסטורי' } as const;
+export const MEDIA_REASON_LABELS = { blocked: 'נחסמה בבדיקה', unsure: 'הבדיקה לא בטוחה', error: 'הבדיקה נכשלה' } as const;
+export const mediaScoreText = (score: number): string => `ציון הבדיקה: ${Math.round(score * 100)}%`;
+export const MEDIA_IMAGE_ALT = 'התמונה שממתינה לבדיקה';
+export const MEDIA_NO_IMAGE = 'לא ניתן להציג את התמונה כרגע';
+export const MEDIA_CHILD_LABEL = 'יש בתמונה ילד';
+export const MEDIA_APPROVE_LABEL = 'אישור';
+export const MEDIA_REJECT_LABEL = 'דחייה';
+export const MEDIA_SUSPECT_LABEL = 'חשד לפגיעה בילד';
+export const MEDIA_SUSPECT_HINT = 'התמונה תוסר, תישמר 90 יום לטיפול ולא תוצג לאיש. מי שהעלה אותה יראה הודעת דחייה רגילה.';
+export const MEDIA_DECIDED_TEXT = 'ההחלטה נשמרה';
+export const MEDIA_GONE_TEXT = 'התמונה כבר טופלה או הוסרה';
+export const REPORT_IMAGES_LABEL = 'התמונות בפוסט';
+export const reportImageAlt = (index: number, total: number): string => (total === 1 ? 'התמונה בפוסט המדווח' : `תמונה ${index + 1} מתוך ${total} בפוסט המדווח`);
+export const REPORT_IMAGE_REMOVE_LABEL = 'הסרת התמונה';
+export const REPORT_IMAGE_REMOVED_TEXT = 'התמונה הוסרה';

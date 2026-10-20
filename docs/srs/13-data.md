@@ -34,8 +34,9 @@
 | ProfessionalArticle | מאמר של בעל מקצוע: כותרת, גוף, תחום, סטטוס וזמנים (FR-PRO-003). |
 | Notification | Notification: נמען, Type, Actor/System, Text, Timestamp, Read/Unread, TargetType/TargetId או Deep Link metadata. יצירה/הצגה כפופות ל-NotificationPreference ולהרשאות. Retention: 90 יום (§13.4). |
 | SponsoredProduct | מוצר/תוכן מסחרי מטעם חברה/מותג/ספונסר, עם מקור, מדיה, סטטוס וסימון ממומן. בשלב הראשון נוצר ומנוהל על ידי Admin/Back Office בלבד. |
-| MediaAsset | מטא-דאטה וקישור לקובץ תמונה/סרטון המשויך לפוסט, סטורי, Listing, מאמר, תמונת פרופיל או ישות מאושרת אחרת, ומצב הבדיקה בשרת (ממתינה / עברה / נכשלה, BR-076). רק הגרסה המטושטשת נשמרת. |
-| Story | סטורי: מחבר, MediaAsset אחד, טקסט קצר אופציונלי, זמן פרסום וזמן תפוגה (24 שעות). נמחק עם התמונה בתום התוקף (FR-FEED-008, BR-077). |
+| MediaAsset | מטא-דאטה של קובץ תמונה המשויך לפוסט, סטורי, Listing, מאמר או תמונת פרופיל, ומצבו: ממתינה לבדיקה / עברה / בתור האישור / אושרה / נדחתה (BR-076). חשד לפגיעה בילד, סיבת ההעברה לתור, ציוני הבדיקה וסימון "יש בתמונה ילד" נגישים רק לצוות. הקובץ נשמר מקודד מחדש, בלי EXIF/GPS. |
+| Story | סטורי: מחבר, MediaAsset אחד, טקסט אופציונלי עד 200 תווים, קהל, זמן פרסום וזמן תפוגה (24 שעות). נמחק עם התמונה בתום התוקף (FR-FEED-008, BR-077). |
+| TrainingSample | תמונה בסט האימון של מודל הבטיחות (BR-076): ההחלטה (נחסמה / אושרה), המקור (חסימה, חוסר ודאות, הסרה אחרי דיווח), סימון "יש בתמונה ילד" וזמן ההחלטה; בלי שום פרט על המעלה. נשמרת 6 חודשים בדיוק. כל הוספה, מחיקה וגישה נרשמות ברשומת גישה, שרק מי שמחזיק AUDIT_LOG_VIEW קורא. |
 | SupportRequest | פנייה של משתמש: נושא, מלל, משתמש, זמן, סטטוס, handledBy והיסטוריית תגובות. תגובות חיצוניות מוצגות ב-Support Thread בתוך Chat בשם “Support”; הערות פנימיות אינן מוצגות. |
 | CycleEntry | תאריך התחלה של מחזור והאורך הממוצע שהמשתמש מזין; חלון הביוץ מחושב ממנו ואינו נשמר (FR-TRACK-001, OP-041). גלוי רק למשתמש עצמו. |
 | TrackerData | מכלול נתוני המעקב שנשמרים עבור המשתמש/ילד/מסלול לצורך תיעוד, התאמה אישית, מתן טיפים/ידע ושיפור המערכת, בכפוף למטריצת שימוש ותקנון/מדיניות פרטיות. רק המשתמש עצמו רואה אותם (FR-TRACK-001, החלטת אפיק מ-18.10.2026). |
@@ -53,7 +54,8 @@
 | GroupInvitation | Group, inviter, invitee, status Pending/Accepted/Declined, createdAt/decidedAt. קבלת הזמנה יכולה ליצור Membership בהתאם לכללי הקבוצה. |
 | GroupMemberEnforcement | פעולת ניהול ברמת קבוצה כגון Warning/Mute/Remove/Block/Unblock: Group, Target User, Action, Actor/Group Role, Reason, timestamps ומשך/סטטוס לפי הצורך. |
 | CommunityConfiguration | הגדרות קהילה תפעוליות כגון קטגוריות, סיבות דיווח ותצורות Moderation מאושרות; כוללות metadata של שינוי לפי הצורך. |
-| SystemAnnouncement | הודעת מערכת רשמית: title/body, status Draft/Published/Removed, target scope לפי מה שיוגדר, author/actor ו-timestamps. |
+| SystemAnnouncement | הודעת מערכת רשמית: title (2–80) ו-body (עד 1,000), status Draft/Published/Removed (Removed סופי), author, זמני יצירה, עדכון, פרסום והסרה. Target scope — כל המשתמשים עד ההחלטה ב-OP-042. |
+| ModeratorInvitation | הזמנה חד-פעמית של Admin להצטרפות Moderator (FR-ADMIN-004): תיאור קצר למי ההזמנה, ה-Admin שהנפיק, זמן הנפקה, תוקף (7 ימים), החשבון שנוצר ממנה וזמן ההצטרפות, או זמן הביטול. נשמר רק תקציר (hash) של קוד ההזמנה, לעולם לא הקוד עצמו. |
 | RegularChatRequest | Requester Regular User, Target Regular User, openingMessage, status Pending/Accepted/Declined, timestamps. Accept פותח Conversation; Decline אינו יוצר Chat. |
 | PrivacyPreference | User + RegularProfileVisibility (Open/Restricted), הצגת משפט ה-Journey Summary (§1.4; ברירת מחדל: מוצג) והעדפות פרטיות נוספות. Regular User נשאר searchable בכל מצב. ברירות מחדל, גם לחשבונות שקדמו להן: Open, המשפט מוצג (החלטת אפיק מ-16.10.2026). |
 | ProfessionalPromotionMetric | Promotion, TargetType Profile/Post, impressions/clicks/engagement ושדות מדידה נוספים שייקבעו; נשמר בנפרד ממדדי Reputation אורגניים. |
@@ -143,7 +145,7 @@ NotificationPreference ו-GroupNotificationPreference מסננים אירועי 
 
 ## 13.4 Retention, User Control & Purpose Boundaries
 
-**תקופות שמירה לחשבון פעיל** (החלטת אפיק מ-18.10.2026): אירועי אבטחה, Audit ושחזור — 12 חודשים · דיווחים שטופלו — 12 חודשים (כמו הספירה ב-BR-074) · התראות — 90 יום · מוני הגבלת קצב — יום אחרי שפגו · תוכן שנמחק — מיד (BR-080). אחרי מחיקת חשבון חל BR-073. **לא מכוסים כאן**, ונשארים TBD במסגרת OP-028: RecoveryAnswers ו-AccountTakeoverCheck לחשבון פעיל, וכל שורה בטבלה שלמטה שמסומנת "ייקבע".
+**תקופות שמירה לחשבון פעיל** (החלטת אפיק מ-18.10.2026): אירועי אבטחה, Audit ושחזור — 12 חודשים · דיווחים שטופלו — 12 חודשים (כמו הספירה ב-BR-074) · התראות — 90 יום · מוני הגבלת קצב — יום אחרי שפגו · תוכן שנמחק — מיד (BR-080) · תמונות — BR-077; סט האימון של מודל הבטיחות — 6 חודשים, ותמונה שסומנה בחשד לפגיעה בילד — 90 יום (החלטת אפיק מ-20.10.2026). **מדיניות הפרטיות** מציינת במפורש שתמונות שנחסמו בבדיקה, כולל תמונות של ילדים, ותמונות שהוסרו בעקבות דיווח, משמשות לאימון מודל הבטיחות בלבד, ונמחקות אחרי 6 חודשים (החלטת אפיק מ-20.10.2026). אחרי מחיקת חשבון חל BR-073. **לא מכוסים כאן**, ונשארים TBD במסגרת OP-028: RecoveryAnswers ו-AccountTakeoverCheck לחשבון פעיל, וכל שורה בטבלה שלמטה שמסומנת "ייקבע".
 
 | Data Class | Purpose | Retention / Control Rule |
 |---|---|---|

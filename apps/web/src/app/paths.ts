@@ -40,12 +40,23 @@ export const PATHS = {
   adminReports: '/admin/reports',
   adminUsers: '/admin/users',
   adminAudit: '/admin/audit',
+  /** I5: the image approval queue (CONTENT_MODERATE). */
+  adminMedia: '/admin/media',
   /** F3.7: the community rules page (PG-049, BR-075, Q2: signed-in only), from the side menu and the report window. */
   communityRules: '/community-rules',
   /** I6: one tracker page, `/trackers/<kind>` (the eight child trackers and `cycle`). Protected by pattern: see `trackerPageOfPath`. */
   tracker: TRACKER_PATTERN,
   /** I6: the Admin's guide management (FR-ADMIN-012). The server lets only an Admin read it; the shell links to it. */
   adminGuides: '/admin/guides',
+  /** I14: the Moderators team (FR-ADMIN-004, Admin only), the community settings (FR-ADMIN-007), System Announcements (FR-ADMIN-008) and the
+   *  analytics (FR-ADMIN-010); the server decides who reads each. */
+  adminTeam: '/admin/team',
+  adminCommunity: '/admin/community',
+  adminAnnouncements: '/admin/announcements',
+  adminAnalytics: '/admin/analytics',
+  /** I14: joining the team with an invitation link (the one-time code rides in the fragment). Open to a Guest, and to an Auth session with no
+   *  Nestly account yet (the person has just signed up there). */
+  joinTeam: '/team/join',
 } as const;
 
 /** The only paths a Guest may open. */
@@ -57,6 +68,7 @@ export const GUEST_PATHS: readonly string[] = [
   PATHS.recovery,
   PATHS.terms,
   PATHS.privacy,
+  PATHS.joinTeam,
 ];
 
 /** The screens a signed-in user may open. Any other path sends them to SIGNED_IN_LANDING. */
@@ -78,6 +90,11 @@ export const PROTECTED_PATHS: readonly string[] = [
   PATHS.adminUsers,
   PATHS.adminAudit,
   PATHS.adminGuides,
+  PATHS.adminMedia,
+  PATHS.adminTeam,
+  PATHS.adminCommunity,
+  PATHS.adminAnnouncements,
+  PATHS.adminAnalytics,
 ];
 
 /** Where a Guest goes from a protected path (ERR-012, Q3): Welcome. The requested path is not kept. */
