@@ -105,7 +105,9 @@ export async function sendMessage(database: Database, identity: Identity, conver
       return { kind: 'ok', ...sent };
     });
   } catch (error) {
-    if (readDatabaseFault(error)?.code !== '42501') throw error;
+    const code = readDatabaseFault(error)?.code;
+    if (code === '23514') return { kind: 'invalid' };
+    if (code !== '42501') throw error;
     const readable = await inIdentityTransaction(database, identity, (tx) => canReadConversation(tx, conversationId));
     return { kind: readable ? 'blocked' : 'unavailable' };
   }
@@ -119,20 +121,24 @@ export async function startChat(database: Database, identity: Identity, userId: 
   if (userId === identity.userId) return { kind: 'invalid' };
   return guarded(() =>
     inIdentityTransaction(database, identity, async (tx): Promise<ChatOutcome<{ result: ChatStartResult }>> => {
-      let conversationId = await findConversationWith(tx, userId);
-      if (conversationId === undefined && (await areFriends(tx, userId))) conversationId = await openConversation(tx, userId, null);
-      if (conversationId === undefined) {
+      const existing = await findConversationWith(tx, userId);
+      if (existing === undefined && !(await areFriends(tx, userId))) {
         await insertChatRequest(tx, userId, text);
         return { kind: 'ok', result: { kind: 'request' } };
       }
-      const blocked = await tx.transaction(async (savepoint) => insertMessage(savepoint, conversationId, text)).then(
-        () => false,
-        (error: unknown) => {
-          if (readDatabaseFault(error)?.code === '42501') return true;
+      // The Friends' new conversation and its first message stand or fall together: a Chat Block refuses the message (42501) and no empty
+      // conversation is left behind.
+      const conversationId = await tx
+        .transaction(async (savepoint) => {
+          const id = existing ?? (await openConversation(savepoint, userId, null));
+          await insertMessage(savepoint, id, text);
+          return id;
+        })
+        .catch((error: unknown) => {
+          if (readDatabaseFault(error)?.code === '42501') return undefined;
           throw error;
-        },
-      );
-      if (blocked) return { kind: 'blocked' };
+        });
+      if (conversationId === undefined) return { kind: 'blocked' };
       await markRead(tx, { conversationId });
       return { kind: 'ok', result: { kind: 'conversation', conversationId } };
     }),

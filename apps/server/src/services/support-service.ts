@@ -73,7 +73,9 @@ export async function replyOwn(database: Database, identity: Identity, requestId
       return { kind: 'ok' };
     });
   } catch (error) {
-    if (readDatabaseFault(error)?.code !== '42501') throw error;
+    const code = readDatabaseFault(error)?.code;
+    if (code === '23514') return { kind: 'invalid' };
+    if (code !== '42501') throw error;
     const status = await inIdentityTransaction(database, identity, (tx) => readRequestStatus(tx, requestId));
     return { kind: status === 'closed' ? 'closed' : 'unavailable' };
   }
@@ -111,6 +113,18 @@ export async function readSupportRequest(database: Database, identity: Identity,
 
 /** POST /api/admin/support/:id/messages (SUPPORT_HANDLE): a reply as Support, or an internal note. A reply to a closed request is 409. */
 export async function replyAsSupport(database: Database, identity: Identity, requestId: string, text: string, internal: boolean): Promise<Outcome<object>> {
+  try {
+    return await replyAsSupportOnce(database, identity, requestId, text, internal);
+  } catch (error) {
+    // A close that committed between the status read and the insert (the policy refuses a public reply to a closed request).
+    const code = readDatabaseFault(error)?.code;
+    if (code === '42501') return { kind: 'not_applicable' };
+    if (code === '23514') return { kind: 'invalid' };
+    throw error;
+  }
+}
+
+async function replyAsSupportOnce(database: Database, identity: Identity, requestId: string, text: string, internal: boolean): Promise<Outcome<object>> {
   return inIdentityTransaction(database, identity, async (tx): Promise<Outcome<object>> => {
     const gate = await staffGate(tx, 'SUPPORT_HANDLE');
     if (isRefusal(gate)) return gate;

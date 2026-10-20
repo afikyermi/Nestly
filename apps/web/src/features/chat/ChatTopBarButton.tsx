@@ -44,10 +44,15 @@ export function ChatTopBarButton({ current }: { current: string }) {
   // The badge: on every screen change (a thread just read) and every POLL_MS while the page is visible.
   useEffect(() => {
     void refresh();
+    // A thread opened by this screen change is marked read by its own GET: ask again once that has had its turn.
+    const settle = window.setTimeout(() => void refresh(), 1500);
     const timer = window.setInterval(() => {
       if (document.visibilityState === 'visible') void refresh();
     }, POLL_MS);
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearTimeout(settle);
+      window.clearInterval(timer);
+    };
   }, [refresh, current]);
 
   useEffect(() => {

@@ -118,6 +118,9 @@ test.describe('[I8 FR-ADMIN-002 AC-024] the Support inbox', () => {
     await main(page).getByRole('button', { name: 'שמירה', exact: true }).click();
     await expect(main(page).getByRole('list', { name: 'ההודעות בפנייה' })).toContainText('הערה פנימית');
     await main(page).getByRole('combobox', { name: 'שינוי סטטוס' }).selectOption({ label: 'סגורה' });
+    const confirm = page.getByRole('alertdialog', { name: 'לסגור את הפנייה?' }).or(page.getByRole('dialog', { name: 'לסגור את הפנייה?' }));
+    await expect(confirm).toBeVisible();
+    await confirm.getByRole('button', { name: 'סגירת הפנייה' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'הסטטוס עודכן' })).toBeVisible();
     expect(net.sent.map((s) => s.body)).toEqual([
       { text: 'תוקן, אפשר לנסות שוב', internal: false },

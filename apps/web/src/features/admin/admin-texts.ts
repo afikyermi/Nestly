@@ -53,6 +53,11 @@ export const SUPPORT_REPLY_SENT_TEXT = 'התגובה נשלחה בשם Support';
 export const SUPPORT_NOTE_SAVED_TEXT = 'ההערה הפנימית נשמרה';
 export const SUPPORT_STATUS_LABEL = 'שינוי סטטוס';
 export const SUPPORT_STATUS_SAVED_TEXT = 'הסטטוס עודכן';
+export const SUPPORT_CLOSE_TITLE = 'לסגור את הפנייה?';
+export const SUPPORT_CLOSE_DESCRIPTION = 'אחרי הסגירה אי אפשר לפתוח את הפנייה מחדש, ואין עוד תגובות בה. נושא חדש נפתח כפנייה חדשה';
+export const SUPPORT_CLOSE_LABEL = 'סגירת הפנייה';
+export const SUPPORT_CANCEL_LABEL = 'ביטול';
+export const SUPPORT_CLOSED_NOTE_HINT = 'הפנייה סגורה: אפשר להוסיף רק הערה פנימית';
 
 // ---- the audit log
 export const AUDIT_TITLE = 'יומן פעולות';

@@ -17,7 +17,7 @@ import { chatIdParams, chatMessageSchema, chatStartSchema } from '@nestly/shared
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
 import type { Identity } from '../lib/token-verifier.js';
-import { isConnectionFailure, readDatabaseFault } from '../lib/pg-error.js';
+import { isTransientFailure, readDatabaseFault } from '../lib/pg-error.js';
 import { replySessionRefused } from '../plugins/authentication.js';
 import {
   acceptChatRequest,
@@ -50,7 +50,7 @@ export function replyChatFailure(request: FastifyRequest, reply: FastifyReply, e
   const refused = replySessionRefused(reply, error);
   if (refused !== undefined) return refused;
   request.log.error({ sqlstate: readDatabaseFault(error)?.code }, line);
-  if (isConnectionFailure(error)) return reply.code(503).send({ error: 'unavailable' });
+  if (isTransientFailure(error)) return reply.code(503).send({ error: 'unavailable' });
   return reply.code(500).send({ error: 'server_error' });
 }
 

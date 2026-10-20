@@ -65,11 +65,11 @@ export function ReportsScreen({ permissions }: { permissions: readonly Permissio
     return outcome.kind === 'ok' ? outcome.value : null;
   }
 
-  async function loadDetail(item: QueueItem, revealed: Revealed | null = null) {
-    setSelected({ item, detail: null, detailFailed: false, revealed });
+  async function loadDetail(item: QueueItem, revealed: Revealed | null = null, message?: Selected['message']) {
+    setSelected({ item, detail: null, detailFailed: false, revealed, ...(message === undefined ? {} : { message }) });
     const outcome = await call((token) => fetchReportDetail(token, item.targetKind, item.targetId));
     const fresh = revealed === null ? null : { ...revealed, user: await revealedAccount(revealed.userId) };
-    setSelected({ item, detail: outcome.kind === 'ok' ? outcome.value : null, detailFailed: outcome.kind !== 'ok', revealed: fresh });
+    setSelected({ item, detail: outcome.kind === 'ok' ? outcome.value : null, detailFailed: outcome.kind !== 'ok', revealed: fresh, ...(message === undefined ? {} : { message }) });
   }
 
   async function act(action: ReportAction) {
@@ -144,7 +144,7 @@ export function ReportsScreen({ permissions }: { permissions: readonly Permissio
         return;
       }
       setStatus(ENFORCED_TEXT);
-      await loadDetail(selected.item, selected.revealed);
+      await loadDetail(selected.item, selected.revealed, selected.message);
     } finally {
       busy.current = false;
       setPending(false);

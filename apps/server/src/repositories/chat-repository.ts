@@ -180,11 +180,13 @@ export async function markRead(tx: IdentityTx, thread: { conversationId: string 
   if ('conversationId' in thread) {
     await tx.execute(sql`
       insert into nestly.chat_reads (conversation_id) values (${thread.conversationId}::uuid)
-      on conflict (user_id, conversation_id) where conversation_id is not null do update set last_read_at = now()`);
+      on conflict (user_id, conversation_id) where conversation_id is not null do update set last_read_at = now()
+      where nestly.chat_reads.last_read_at < coalesce((select max(m.created_at) from nestly.messages m where m.conversation_id = ${thread.conversationId}::uuid), '-infinity')`);
   } else {
     await tx.execute(sql`
       insert into nestly.chat_reads (support_request_id) values (${thread.supportRequestId}::uuid)
-      on conflict (user_id, support_request_id) where support_request_id is not null do update set last_read_at = now()`);
+      on conflict (user_id, support_request_id) where support_request_id is not null do update set last_read_at = now()
+      where nestly.chat_reads.last_read_at < coalesce((select max(m.created_at) from nestly.support_messages m where m.support_request_id = ${thread.supportRequestId}::uuid), '-infinity')`);
   }
 }
 
@@ -280,14 +282,21 @@ export async function closeRequest(tx: IdentityTx, requestId: string, as: 'targe
 export async function insertChatBlock(tx: IdentityTx, userId: string): Promise<void> {
   const standing = await tx.execute(sql`select 1 from nestly.chat_blocks b where b.blocker_id = (select auth.uid()) and b.blocked_id = ${userId}::uuid and b.lifted_at is null`);
   if (standing.length > 0) return;
-  try {
-    await tx.transaction(async (savepoint) => {
-      await savepoint.execute(sql`insert into nestly.chat_blocks (blocked_id, blocked_account_type) values (${userId}::uuid, 'regular')`);
-    });
-  } catch (error) {
-    if (readDatabaseFault(error)?.code !== '23503') throw error;
-    await tx.execute(sql`insert into nestly.chat_blocks (blocked_id, blocked_account_type) values (${userId}::uuid, 'professional')`);
-  }
+  // A block another call put in force meanwhile (23505 on the standing-pair key) is the same answer.
+  const attempt = async (type: 'regular' | 'professional'): Promise<'done' | 'wrong_type'> => {
+    try {
+      await tx.transaction(async (savepoint) => {
+        await savepoint.execute(sql`insert into nestly.chat_blocks (blocked_id, blocked_account_type) values (${userId}::uuid, ${type})`);
+      });
+      return 'done';
+    } catch (error) {
+      const code = readDatabaseFault(error)?.code;
+      if (code === '23505') return 'done';
+      if (code === '23503' && type === 'regular') return 'wrong_type';
+      throw error;
+    }
+  };
+  if ((await attempt('regular')) === 'wrong_type') await attempt('professional');
 }
 
 /** Lifts the caller's standing Chat Block of the account (only the blocker can; zero rows is fine). */

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { chatTextProblem, SUPPORT_STATUSES, type PermissionKey, type SupportDetail, type SupportInbox, type SupportStatus } from '@nestly/shared';
+import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { FormField } from '@/components/shared/form-field';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,11 @@ import {
   RETRY_LABEL,
   SUPPORT_ALL_LABEL,
   SUPPORT_BACK_LABEL,
+  SUPPORT_CANCEL_LABEL,
+  SUPPORT_CLOSE_DESCRIPTION,
+  SUPPORT_CLOSE_LABEL,
+  SUPPORT_CLOSE_TITLE,
+  SUPPORT_CLOSED_NOTE_HINT,
   SUPPORT_EMPTY_TEXT,
   SUPPORT_FILTER_LABEL,
   SUPPORT_INTERNAL_LABEL,
@@ -145,6 +151,7 @@ function SupportRequestPanel({ requestId, canHandle, onBack }: { requestId: stri
   const [failure, setFailure] = useState<string | null>(null);
   const [status, setStatus] = useState('');
   const [pending, setPending] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
   const busy = useRef(false);
 
   const load = useCallback(async () => {
@@ -185,7 +192,9 @@ function SupportRequestPanel({ requestId, canHandle, onBack }: { requestId: stri
       return;
     }
     setProblem(null);
-    const done = await run((token) => sendSupportStaffMessage(token, requestId, text, internal), internal ? SUPPORT_NOTE_SAVED_TEXT : SUPPORT_REPLY_SENT_TEXT);
+    // A closed request takes an internal note only (FR-CHAT-004): the form says so and sends nothing else.
+    const asNote = internal || (view.kind === 'loaded' && view.detail.status === 'closed');
+    const done = await run((token) => sendSupportStaffMessage(token, requestId, text, asNote), asNote ? SUPPORT_NOTE_SAVED_TEXT : SUPPORT_REPLY_SENT_TEXT);
     if (done) {
       setText('');
       setInternal(false);
@@ -232,12 +241,18 @@ function SupportRequestPanel({ requestId, canHandle, onBack }: { requestId: stri
           {canHandle ? (
             <>
               <form onSubmit={(event) => void reply(event)} className="flex flex-col gap-3 rounded-lg border border-border p-4">
-                <FormField label={SUPPORT_REPLY_LABEL} {...(problem === null ? {} : { error: problem })}>
+                <FormField
+                  label={view.detail.status === 'closed' ? SUPPORT_INTERNAL_NOTE : SUPPORT_REPLY_LABEL}
+                  {...(view.detail.status === 'closed' ? { hint: SUPPORT_CLOSED_NOTE_HINT } : {})}
+                  {...(problem === null ? {} : { error: problem })}
+                >
                   {(control) => <TextArea {...control} rows={3} dir="auto" value={text} onChange={(event) => setText(event.target.value)} />}
                 </FormField>
-                <Checkbox checked={internal} onCheckedChange={setInternal}>
-                  {SUPPORT_INTERNAL_LABEL}
-                </Checkbox>
+                {view.detail.status === 'closed' ? null : (
+                  <Checkbox checked={internal} onCheckedChange={setInternal}>
+                    {SUPPORT_INTERNAL_LABEL}
+                  </Checkbox>
+                )}
                 <div>
                   <Button type="submit" pending={pending}>
                     {SUPPORT_SEND_LABEL}
@@ -254,12 +269,32 @@ function SupportRequestPanel({ requestId, canHandle, onBack }: { requestId: stri
                       disabled={pending}
                       options={SUPPORT_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] }))}
                       onChange={(value) => {
-                        if (isStatus(value) && value !== view.detail.status) void run((token) => setSupportStatus(token, requestId, value), SUPPORT_STATUS_SAVED_TEXT);
+                        if (!isStatus(value) || value === view.detail.status) return;
+                        // Closing is final (no reopening, no reply after it): it asks first.
+                        if (value === 'closed') setConfirmClose(true);
+                        else void run((token) => setSupportStatus(token, requestId, value), SUPPORT_STATUS_SAVED_TEXT);
                       }}
                     />
                   )}
                 </FormField>
               )}
+              <ConfirmDialog
+                open={confirmClose}
+                title={SUPPORT_CLOSE_TITLE}
+                description={SUPPORT_CLOSE_DESCRIPTION}
+                confirmLabel={SUPPORT_CLOSE_LABEL}
+                cancelLabel={SUPPORT_CANCEL_LABEL}
+                pending={pending}
+                failure={failure}
+                onConfirm={() => {
+                  void run((token) => setSupportStatus(token, requestId, 'closed'), SUPPORT_STATUS_SAVED_TEXT).then((done) => {
+                    if (done) setConfirmClose(false);
+                  });
+                }}
+                onCancel={() => {
+                  if (!busy.current) setConfirmClose(false);
+                }}
+              />
             </>
           ) : null}
         </section>
