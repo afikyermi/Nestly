@@ -71,7 +71,7 @@ test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
       const [w, l] = [await write.boundingBox(), await list(page).boundingBox()];
       expect(w?.y ?? 0).toBeLessThan(l?.y ?? 0);
       expect(net.methods).toEqual(['GET']);
-      expect(new Set(net.apiPaths)).toEqual(new Set(['/api/me', '/api/profile', '/api/feed']));
+      expect(new Set(net.apiPaths)).toEqual(new Set(['/api/me', '/api/profile', '/api/feed', '/api/stories'])); // I5: the Stories tray loads with the feed
       await scan(page);
     });
   }
