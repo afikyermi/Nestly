@@ -163,12 +163,12 @@ create policy user_blocks_update_blocker on nestly.user_blocks
 create policy posts_block_hide on nestly.posts
   as restrictive for select to authenticated
   using (author_id is null or author_id = (select auth.uid()) or (select nestly.has_permission('REPORTS_VIEW'))
-    or author_id <> all ((select nestly.block_peer_ids())));
+    or author_id <> all (coalesce((select nestly.block_peer_ids()), '{}'::uuid[])));
 
 create policy comments_block_hide on nestly.comments
   as restrictive for select to authenticated
   using (author_id is null or author_id = (select auth.uid()) or (select nestly.has_permission('REPORTS_VIEW'))
-    or author_id <> all ((select nestly.block_peer_ids())));
+    or author_id <> all (coalesce((select nestly.block_peer_ids()), '{}'::uuid[])));
 
 -- The blocker reads the names of the accounts it blocked (its blocked list, to unblock); nothing else of them.
 create policy regular_names_select_blocker on nestly.regular_names
@@ -179,7 +179,7 @@ create policy regular_names_select_blocker on nestly.regular_names
 
 create policy regular_names_block_hide on nestly.regular_names
   as restrictive for select to authenticated
-  using (user_id = (select auth.uid()) or user_id <> all ((select nestly.block_peer_ids()))
+  using (user_id = (select auth.uid()) or user_id <> all (coalesce((select nestly.block_peer_ids()), '{}'::uuid[]))
     or user_id::text = pg_catalog.current_setting('nestly.reveal_user', true)
     or exists (select 1 from nestly.user_blocks b
                 where b.blocker_id = (select auth.uid()) and b.blocked_id = regular_names.user_id and b.lifted_at is null)
@@ -188,17 +188,17 @@ create policy regular_names_block_hide on nestly.regular_names
 
 create policy regular_profiles_block_hide on nestly.regular_profiles
   as restrictive for select to authenticated
-  using (user_id = (select auth.uid()) or user_id <> all ((select nestly.block_peer_ids())));
+  using (user_id = (select auth.uid()) or user_id <> all (coalesce((select nestly.block_peer_ids()), '{}'::uuid[])));
 
 -- No Friend Request across a block; a request already there can still end (decline, cancel, remove), never open or accept.
 create policy friendships_block_insert on nestly.friendships
   as restrictive for insert to authenticated
-  with check (addressee_id <> all ((select nestly.block_peer_ids())));
+  with check (addressee_id <> all (coalesce((select nestly.block_peer_ids()), '{}'::uuid[])));
 
 create policy friendships_block_update on nestly.friendships
   as restrictive for update to authenticated
   with check (status in ('removed', 'declined') or cancelled_at is not null
-    or (case when requester_id = (select auth.uid()) then addressee_id else requester_id end) <> all ((select nestly.block_peer_ids())));
+    or (case when requester_id = (select auth.uid()) then addressee_id else requester_id end) <> all (coalesce((select nestly.block_peer_ids()), '{}'::uuid[])));
 
 -- A notification never passes across a block (either direction). notify_deliver is the SECURITY INVOKER helper the notification definers
 -- run (every actor they pass is the caller or NULL); the definers themselves are unchanged. Identical to the I7 body but for the block check.
