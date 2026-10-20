@@ -31,6 +31,29 @@ alter table nestly.recovery_throttles
 
 grant update (ladder_failures, ladder_started_at, is_locked_permanently) on table nestly.recovery_throttles to app_recovery;
 
+-- A permanent lock is lifted only by a release (FR-ADMIN-013): no update may clear it, lower the count or shorten the lock unless a release
+-- later than the ladder's start exists for the account (app_recovery sees the declared account's releases only). A success may still
+-- restart a lock that is not permanent.
+create function nestly.ladder_release_guard()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  if old.subject_kind = 'handle' and old.is_locked_permanently
+     and (not new.is_locked_permanently or new.ladder_failures < old.ladder_failures
+          or new.locked_until is null or new.locked_until < old.locked_until)
+     and not exists (select 1 from nestly.recovery_lock_releases r where r.released_at > coalesce(old.ladder_started_at, '-infinity'::timestamptz)) then
+    raise exception 'recovery_throttles: a permanent lock is lifted only by a release' using errcode = '42501';
+  end if;
+  return new;
+end
+$$;
+
+revoke execute on function nestly.ladder_release_guard() from public;
+
+
 -- 2. recovery_lock_releases.
 create table nestly.recovery_lock_releases (
   id          uuid        not null default gen_random_uuid()
@@ -168,6 +191,10 @@ $$;
 
 revoke execute on function nestly.audit_trigger() from public;
 
+create trigger recovery_throttles_ladder_release_guard
+  before update on nestly.recovery_throttles
+  for each row execute function nestly.ladder_release_guard();
+
 create trigger recovery_lock_releases_audit
   after insert on nestly.recovery_lock_releases
   for each row execute function nestly.audit_trigger();
@@ -194,4 +221,6 @@ comment on index nestly.recovery_lock_releases_released_by_idx is 'The cascade o
 comment on policy recovery_lock_releases_insert_admin on nestly.recovery_lock_releases is 'A holder of RECOVERY_LOCK_RELEASE (the Admin) releases another account''s lock, in its own name.';
 comment on policy recovery_lock_releases_select_admin on nestly.recovery_lock_releases is 'A holder of RECOVERY_LOCK_RELEASE reads the releases.';
 comment on policy recovery_lock_releases_select_recovery on nestly.recovery_lock_releases is 'app_recovery reads the releases of the declared handle''s account only (when and whose), to restart the ladder from zero.';
+comment on function nestly.ladder_release_guard() is 'Trigger before update of recovery_throttles: a permanent lock is cleared, its count lowered or its lock shortened only after a release later than the ladder''s start (FR-ADMIN-013). SECURITY INVOKER.';
+comment on trigger recovery_throttles_ladder_release_guard on nestly.recovery_throttles is 'Only a release lifts a permanent lock.';
 comment on trigger recovery_lock_releases_audit on nestly.recovery_lock_releases is 'audit_trigger(): each release is an Audit Log entry (recovery_lock_released) in the same transaction (rule 18).';

@@ -451,7 +451,7 @@ select is(pg_temp.job(format('delete from nestly.media_assets where id = %L', pg
 select is(pg_temp.pass('pa3') || pg_temp.pass('pb1') || pg_temp.dml('b', format('insert into nestly.profile_photos (media_id) values (%L)', pg_temp.i('pb1'))), 'OK:1OK:1OK:1', '[F5.1-a c14] control');
 select is(pg_temp.n('b', format('nestly.profile_photos where user_id = %L', pg_temp.id('a'))) || '/' || pg_temp.n('b', format('nestly.stories where author_id = %L', pg_temp.id('a'))),
   '1/1', '[F5.1-a c14] control: B sees A''s photo and Friends-only Story');
-select is(pg_temp.dml('b', format('insert into nestly.user_blocks (blocked_id) values (%L)', pg_temp.id('a'))), 'OK:1', '[F5.1-a c14 FR-REL-002] B blocks A');
+select is(pg_temp.dml('b', format('insert into nestly.user_blocks (blocked_id, blocked_account_type) values (%L, ''regular'')', pg_temp.id('a'))), 'OK:1', '[F5.1-a c14 FR-REL-002] B blocks A');
 select is(pg_temp.n('b', format('nestly.profile_photos where user_id = %L', pg_temp.id('a'))), '0', '[F5.1-a c14 FR-REL-002 H4] B no longer sees A''s profile photo');
 select is(pg_temp.n('b', format('nestly.stories where author_id = %L', pg_temp.id('a'))), '0', '[F5.1-a c14 FR-REL-002 H4] nor A''s Stories');
 select is(pg_temp.n('b', pg_temp.m('pa3')), '0', '[F5.1-a c14 FR-REL-002] nor the image through them');

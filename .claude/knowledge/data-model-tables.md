@@ -500,18 +500,18 @@ Posts are searched by the server through the caller's own RLS (`posts_select_vie
 
 ## Blocking a user (I4)
 
-`20261021200000_user_blocks.sql` (FR-REL-002). A block is mutual in effect and separate from Chat Block.
+`20261021250000_user_blocks.sql` (FR-REL-002, BR-011). A block is mutual in effect and separate from Chat Block.
 
 | Table | Columns and meaning | Authorization |
 |---|---|---|
-| `user_blocks` | (blocker_id default auth.uid(), blocked_id) PK, created_at; CHECK blocker <> blocked; index on blocked_id; both FKs to users ON DELETE CASCADE | RLS + FORCE; SELECT both parties; INSERT an active Regular or Professional account in its own name (grant on blocked_id only); DELETE the blocker (unblock); no UPDATE; AFTER INSERT trigger (invoker, the blocker's rights) ends the pair's Friendship and open requests |
+| `user_blocks` | id; blocker_id (default auth.uid()); blocked_id with blocked_account_type (regular · professional) and blocked_status (default active), composite FKs to users (id, account_type) and (id, status) — never staff, active at the block; created_at; lifted_at (unblock, set once by the trigger). One block in force per pair (partial unique index) | RLS + FORCE; SELECT both parties while in force, the blocker also its lifted rows; INSERT an active Regular or Professional account in its own name (grant on blocked_id, blocked_account_type), at most 20 per 24 hours (NS021); UPDATE lifted_at by the blocker only (unblock); no DELETE; AFTER INSERT trigger (invoker) ends the pair's Friendship and open requests |
 
-Effect: `is_blocked_pair(uuid)` (invoker: a block between the caller and the other account, either way) drives seven RESTRICTIVE policies that AND with the
-permissive ones: posts and comments of the other party hidden (never from REPORTS_VIEW; an anonymous post cannot be hidden); regular_names hidden (not on the
-admin screens; `regular_names_select_blocker` lets the blocker read the names of the accounts it blocked, for its blocked list); `TO app_owner` on regular_names and regular_profiles so profile_view and search_people do not find the other party; friendships: no new
-request and no accept across a block. `user_blocks_select_scoped` (`TO app_owner`) opens the caller's own pairs only inside a notification, search or
-profile-view scope; `notify_deliver()` skips a notification across a block. No SECURITY DEFINER. Cleanup: user_blocks before friendships.
-Retention: hard delete on unblock; cascades with either account.
+Effect: `block_peer_ids()` (invoker, no argument) drives six RESTRICTIVE policies TO authenticated, which app_owner inherits inside the definers
+(profile_view, search_people, the notification definers): posts and comments of the other party hidden (never from REPORTS_VIEW; an anonymous
+post cannot be hidden); regular_names hidden (not on the admin screens, not inside the audited reveal, not the blocker's own blocked list —
+`regular_names_select_blocker`); regular_profiles hidden; friendships: no new request and no accept across a block. `notify_deliver()` skips a
+notification across a block. No SECURITY DEFINER. Cleanup: user_blocks before friendships. Retention: lifted rows kept with the accounts;
+cascades with either account.
 
 ## Recovery lock release (I4)
 

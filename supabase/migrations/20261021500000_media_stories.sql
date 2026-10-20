@@ -615,15 +615,15 @@ create policy stories_delete_jobs on nestly.stories
   for delete to app_media_jobs
   using (expires_at <= now());
 
--- Blocking (FR-REL-002, 20261021200000): RESTRICTIVE, AND-ed with the policies above, as on posts and comments. A blocked pair sees
+-- Blocking (FR-REL-002, 20261021250000): RESTRICTIVE, AND-ed with the policies above, as on posts and comments. A blocked pair sees
 -- neither's Stories nor profile photo (so neither's image through them either: media_assets_select_viewer reads these tables under RLS).
 create policy stories_block_hide on nestly.stories
   as restrictive for select to authenticated
-  using (author_id = (select auth.uid()) or (select nestly.has_permission('REPORTS_VIEW')) or not (select nestly.is_blocked_pair(author_id)));
+  using (author_id = (select auth.uid()) or (select nestly.has_permission('REPORTS_VIEW')) or author_id <> all (coalesce((select nestly.block_peer_ids()), '{}'::uuid[])));
 
 create policy profile_photos_block_hide on nestly.profile_photos
   as restrictive for select to authenticated
-  using (user_id = (select auth.uid()) or (select nestly.has_permission('REPORTS_VIEW')) or not (select nestly.is_blocked_pair(user_id)));
+  using (user_id = (select auth.uid()) or (select nestly.has_permission('REPORTS_VIEW')) or user_id <> all (coalesce((select nestly.block_peer_ids()), '{}'::uuid[])));
 
 -- media_training_candidates -------------------------------------------------------------------------------------------------------
 create policy media_training_candidates_insert_staff on nestly.media_training_candidates
