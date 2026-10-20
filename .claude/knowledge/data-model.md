@@ -18,7 +18,7 @@ A UI-only part with no data-access change does not need this file.
 
 
 **Maintained by:** DATA ARCHITECT. Updated on every schema change, in the same unit of work.
-**Status:** schema `nestly` exists since I1 F1.1 part b (`nestly.users`, `nestly.regular_profiles`), since I1 F1.4 (`nestly.journey_contexts`, `nestly.children`, `nestly.legal_consents`), since I1 F1.6 (`nestly.recovery_answers`, `nestly.recovery_throttles`, `nestly.recovery_events`), since I2 F2.0 (`nestly.identity_link_checks`), since I2 F2.4a (`nestly.friendships`, `nestly.regular_names`), and since I2 F2.4c1 (`nestly.security_limits`, `nestly.profile_open_counts`, `nestly.security_events`). The "Planned" section maps the SRS for everything not built yet.
+**Status:** schema `nestly` exists since I1 F1.1 part b (`nestly.users`, `nestly.regular_profiles`), since I1 F1.4 (`nestly.journey_contexts`, `nestly.children`, `nestly.legal_consents`), since I1 F1.6 (`nestly.recovery_answers`, `nestly.recovery_throttles`, `nestly.recovery_events`), since I2 F2.0 (`nestly.identity_link_checks`), since I2 F2.4a (`nestly.friendships`, `nestly.regular_names`), and since I2 F2.4c1 (`nestly.security_limits`, `nestly.profile_open_counts`, `nestly.security_events`), and since the notifications (`nestly.notifications`, `nestly.notification_preferences`, `nestly.friend_content_notification_preferences`, `nestly.people_search_counts`). The "Planned" section maps the SRS for everything not built yet.
 
 One of the two maintained as-built descriptions, with its per-table part `data-model-tables.md`; the other is `conventions.md`. Everything else is read from the code.
 
@@ -123,7 +123,7 @@ cascade has run — reserved for Afik. Bootstrap steps, the complete list (anyth
 `TO authenticated` (which `app_owner` inherits). **Resolved for caller-only helpers** (F1.1 Gate 2): SECURITY INVOKER, reading through the caller's
 own-row policies (rule 16). **Resolved for a definer that reads other users' rows** (F2.3b, DR-G1): it reaches them only through `TO app_owner`
 policies scoped to a target it declares in a transaction-local setting and clears; no runtime role is in `app_owner` (rule 1), so the setting opens
-nothing outside it — `nestly.profile_view` below. **Resolved for that definer writing the caller's own rows** (F2.4c1, Afik DR-L): the same gate plus `user_id = auth.uid()`. **Still open** for rule-17 writes into other users' rows and rule-19 audited reads — decided with the first.
+nothing outside it — `nestly.profile_view` below. **Resolved for that definer writing the caller's own rows** (F2.4c1, Afik DR-L): the same gate plus `user_id = auth.uid()`. **Resolved for rule-17 writes into other users' rows** (notifications, Afik 20.10.2026): the same gate, one definer per kind of write ("Approved exceptions"). **Still open** for rule-19 audited reads.
 **Backfills:** constant (F2.3a): `ADD COLUMN … NOT NULL DEFAULT <constant>`, catalog-only, no row written. Computed (F2.4a DR-B): in the migration's transaction,
 `NO FORCE` on the source, `INSERT … SELECT` as owner, `FORCE` again at once (ACCESS EXCLUSIVE till commit: rule 8 holds at every commit); never at runtime.
 
@@ -192,6 +192,19 @@ target active + Regular, else 0 rows (still counted). Reach: 11 *_profile_view p
 nestly.profile_view_target holds the target it sets and clears: reads the target's rows (4), its accepted Friendships and Friends' names (2); config, and only auth.uid()'s
 count row and events (5; events INSERT only). Helpers profile_view_target(), child_age_months() invoker, no runtime EXECUTE; now(), never a parameter. Owner app_owner;
 EXECUTE authenticated; search_path ''. Why: RLS hides rows, not columns; an invoker that can test its count can read it (c21). · .work/profile-privacy/, .work/friends/schema.md · Afik 2026-10-17 (DR-G1, DR-L)
+```
+
+```
+Notification triggers and People Search (rule 17; `20261020400000_notifications_search.sql`) — approved by Afik 20.10.2026, with conditions. Four SECURITY DEFINER functions
+owned by app_owner, fixed search_path, each one kind of write into another user's rows (or a read no policy allows): triggers `notify_friendship()` (a Friend Request received or
+accepted; a decline is silent), `notify_comment()` (a comment on my post, the real author of an anonymous post included; a reply to my comment; never to oneself), `notify_post()` (a share
+of my post; a named post of a Friend to the Friends who chose to follow that Friend) - no EXECUTE for any runtime role - and `search_people(text, integer, integer)` (EXECUTE authenticated:
+counts the call against the people_search limit, returns id and full name of active Regular accounts for a query of 2 to 100 characters, at most 50 rows). Conditions: (1) no "new post of a
+Friend" for an anonymous post (AC-076); (2) no query returns nothing, and never an Admin, Moderator or inactive account; mutual blocks excluded by a follow-up migration after I4's block table;
+(3) no notification between users who blocked each other (same follow-up), and every notification respects the recipient's preferences. Each declares a scope in a transaction-local setting
+(`nestly.notify_scope`, `nestly.search_scope`) that opens its eight `TO app_owner` policies on posts, post_authors, comments, friendships, users, regular_names, security_limits and
+security_events (plus the new tables'), and clears it; no runtime role is a member of app_owner. `notify_deliver()` is SECURITY INVOKER, run only by those definers. No like creates a notification.
+Also the retention job's `TO app_jobs` policies `search_intents_select_jobs` / `search_intents_delete_jobs` (rows older than 30 days) and `purge_search_intents()` (EXECUTE app_jobs only; rule 6).
 ```
 
 ```
@@ -265,24 +278,13 @@ Read top to bottom. A request passes a layer before it reaches the next one.
 | Analytics events carry a unique event id, are counted once, and never copy message bodies | NFR-DATA-002, NFR-DATA-003, VAL-031 |
 | Permission changes are audited with before and after | §3.3, NFR-AUDIT-001 |
 
-### Open in the SRS — blocks part of the schema
-
-Never design around these with a guess. Recheck each point's current SRS status; unresolved items go
-to the decision owner in CLAUDE.md. This planned map does not supersede later decisions.
-
-| Open point | Blocks |
-|---|---|
-| OP-003 — active context with several children or a pregnancy alongside children | choosing the active JourneyContext (I6); JourneyContext and Child are built (F1.4) |
-| OP-005 — professional verification | ProfessionalProfile verification fields |
-| OP-011 — messaging capabilities (attachments, read receipts) | Message, MediaAsset |
-| OP-012 — Marketplace listing fields and closing flow | MarketplaceListing |
-| §13.4 — retention periods | soft/hard delete and archival per entity |
-
+### Open in the SRS
+Recheck `docs/srs/appendix-b-open-points.md` before designing any table; never design around an open point with a guess (OP-003 active context, OP-011 messaging, OP-012 Marketplace listing, §13.4 retention).
 ---
 
 ## Entities
 
-All thirty tables are in `nestly` (feed tables of F3.0: posts, post_authors, post_hides, algorithm_configurations, comments, reactions, reaction_owners,
+All thirty-five tables are in `nestly` (the notification and search tables: `data-model-tables.md` "Notifications and People Search"; feed tables of F3.0: posts, post_authors, post_hides, algorithm_configurations, comments, reactions, reaction_owners,
 reports — FORCE RLS, client policies TO authenticated gated by is_active_account(), column-level SELECT without held_xact/liker_status/parent_status, no SECURITY
 DEFINER; post_authors and reaction_owners owner-only; policies never read their own table, row checks in invoker triggers), built by `supabase/migrations/` and bootstrap step 2, each migration with a down script in `supabase/rollback/`. The
 list of migrations by feature, each down script's guard, the write paths, per-table detail, the lock and the new-entity template: `data-model-tables.md`.
