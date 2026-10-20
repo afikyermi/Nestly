@@ -94,6 +94,8 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         counts['recovery_events'] = (await tx`delete from nestly.recovery_events where user_id = ${id}`).count;
         counts['legal_consents'] = (await tx`delete from nestly.legal_consents where user_id = ${id}`).count;
         counts['recovery_answers'] = (await tx`delete from nestly.recovery_answers where user_id = ${id}`).count;
+        counts['tracker_events'] = (await tx`delete from nestly.tracker_events where user_id = ${id}`).count;
+        counts['cycle_entries'] = (await tx`delete from nestly.cycle_entries where user_id = ${id}`).count;
         counts['children'] = (await tx`delete from nestly.children where user_id = ${id}`).count;
         counts['journey_contexts'] = (await tx`delete from nestly.journey_contexts where user_id = ${id}`).count;
         // F3.0b (schema-b.md "Cleanup tool"). P(U) = U's posts (named, or anonymous through post_authors); C(U) = comments by U, on P(U),

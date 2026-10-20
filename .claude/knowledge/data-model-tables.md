@@ -16,6 +16,8 @@ does not instruct loading every link. Column sections and rule matrices are both
 | security_limits, profile_open_counts, security_events | Profile open limits and security events; Cross-user profile read |
 | profile_view consumers | Cross-user profile read plus the affected input/output table sections above |
 | staff_roles, moderator_permissions, audit_log, report_reasons, user_enforcements | Safety and admin core |
+
+| tracker_events, cycle_entries, status_guides | Trackers, cycle and status guides (I6); children for the child FK |
 | Schema changes | Migration and rollback map; New entity template; affected consumer/cleanup order |
 
 
@@ -406,6 +408,24 @@ handler_note and `reports_handle_guard`; staff read policies on reports, posts a
 content (`nestly.own_delete` setting named by `delete_post`/`delete_comment` and the four `*_own_moderated` policies); `reveal_post_author(uuid)`
 (the audited reveal, rule 19, invoker, opened by the settings `nestly.reveal_post`/`nestly.reveal_user`). Cleanup order: user_enforcements,
 moderator_permissions, staff_roles before security_events; `audit_log` and `report_reasons` are never deleted.
+
+## Trackers, cycle and status guides (I6)
+
+Migration `20261020100000_trackers_cycle_guides.sql`, down script `supabase/rollback/20261020100000_trackers_cycle_guides.down.sql` (destroys the data of the three tables).
+No SECURITY DEFINER, no function; `tests.approved_security_definer()` unchanged. All three tables: RLS + FORCE, policies TO authenticated only, nothing to anon.
+
+| | tracker_events | cycle_entries | status_guides |
+|---|---|---|---|
+| Purpose | FR-TRACK-001/002: one event of a child's tracker (breastfeeding, bottle, sleep, diaper, medicine, growth, vaccine, bath) | FR-TRACK-001: a cycle start date and the user's average length; the ovulation window is computed from the latest entry, never stored | FR-HOME-004, FR-ADMIN-012, BR-070: system content per stage (planning; pregnancy by weeks 1..42; parenting by child age in months 0..216) |
+| Columns | id, user_id (default auth.uid()), child_id, kind, occurred_at, ended_at, amount_ml, choice, name, dosage, weight_kg, height_cm, head_cm, note, created_at | id, user_id, start_date, cycle_length_days (15..60), created_at | id, stage_kind, range_from, range_to, title, body, source, source_checked_on, status (draft, published, hidden), published_at, created_at |
+| Not stored | no photo, no sharing, no free-form extra fields (OP-008) | no symptoms, no relations (OP-008) | no per-user state; no read counters |
+| Authorization | owner only, active account: `tracker_events_select_own`, `_insert_own` (also Regular and a child the caller can read), `_update_own`, `_delete_own`. INSERT per column (no id, user_id, created_at); UPDATE per column without kind and child_id. Nobody else reads: Admin, Moderator and Professional included (layer 9, BR-053) | owner only, same shape: `cycle_entries_select_own`, `_insert_own`, `_update_own`, `_delete_own` | `status_guides_select_published` (status = 'published', active account). No write grant to any runtime role; the admin management adds its own policies |
+| Constraints | `tracker_events_fields_check`: the fields each kind needs and no others; end not before start for breastfeeding and sleep (AC-023) | unique (user_id, start_date) | published needs `source_checked_on` and `published_at` (BR-070); planning has no range |
+| Relations | user_id -> regular_profiles (cascade); child_id -> children (cascade: a removed child takes its events) | user_id -> regular_profiles (cascade) | none |
+| Indexes | (user_id, kind, occurred_at desc): the page's history and period; (child_id): the cascade | (user_id, start_date desc): history and latest | partial (stage_kind, range_from) where published: the home lookup |
+| Retention | hard delete by the owner | hard delete by the owner | the nine seed rows are drafts awaiting approval; `hidden` keeps the row |
+
+Preview cleanup: the user's tracker_events and cycle_entries are deleted before `children`; `status_guides` is content and is never written by the cleanup.
 
 ## New entity template
 

@@ -174,14 +174,14 @@ select is_empty(
 select is(
   (select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')),
-  27::bigint,
-  '[F1.4-a c14 · F1.6-a · F2.0-a · F2.4a c12 · F2.4-c c20 c21 c22 · F3.0a c17 · F3.0-b c1] schema nestly holds exactly twenty-seven tables, I4''s staff_roles, moderator_permissions, audit_log, report_reasons and user_enforcements, F3.0b''s comments, reactions, reaction_owners and reports and F3.0a''s algorithm_configurations, post_authors, post_hides and posts on top of fourteen: the five F1.1/F1.4 ones, the three recovery tables, identity_link_checks, F2.4a''s friendships and regular_names and F2.4c1''s security_limits, profile_open_counts and security_events (no table nobody listed)');
+  30::bigint,
+  '[F1.4-a c14 · F1.6-a · F2.0-a · F2.4a c12 · F2.4-c c20 c21 c22 · F3.0a c17 · F3.0-b c1] schema nestly holds exactly thirty tables, I4''s staff_roles, moderator_permissions, audit_log, report_reasons and user_enforcements, I6''s cycle_entries, status_guides and tracker_events, F3.0b''s comments, reactions, reaction_owners and reports and F3.0a''s algorithm_configurations, post_authors, post_hides and posts on top of fourteen: the five F1.1/F1.4 ones, the three recovery tables, identity_link_checks, F2.4a''s friendships and regular_names and F2.4c1''s security_limits, profile_open_counts and security_events (no table nobody listed)');
 
 select is(
   (select string_agg(c.relname, ', ' order by c.relname) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')),
-  'algorithm_configurations, audit_log, children, comments, friendships, identity_link_checks, journey_contexts, legal_consents, moderator_permissions, post_authors, post_hides, posts, profile_open_counts, reaction_owners, reactions, recovery_answers, recovery_events, recovery_throttles, regular_names, regular_profiles, report_reasons, reports, security_events, security_limits, staff_roles, user_enforcements, users',
-  '[F1.6-a · F2.0-a · F2.4a c12 · F2.4-c c22 · F3.0a c17 · F3.0-b c1 · I4] the twenty-seven tables are exactly these names');
+  'algorithm_configurations, audit_log, children, comments, cycle_entries, friendships, identity_link_checks, journey_contexts, legal_consents, moderator_permissions, post_authors, post_hides, posts, profile_open_counts, reaction_owners, reactions, recovery_answers, recovery_events, recovery_throttles, regular_names, regular_profiles, report_reasons, reports, security_events, security_limits, staff_roles, status_guides, tracker_events, user_enforcements, users',
+  '[F1.6-a · F2.0-a · F2.4a c12 · F2.4-c c22 · F3.0a c17 · F3.0-b c1 · I4] the thirty tables are exactly these names');
 
 -- ---- policies: the exact list ---------------------------------------------------------------------------------------------
 select set_eq(
@@ -248,8 +248,8 @@ select ok(
 select is(
   (select string_agg(c.relname, ', ' order by c.relname) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind = 'r' and c.relname <> 'identity_link_checks' and has_table_privilege('authenticated', c.oid, 'SELECT')),
-  'algorithm_configurations, audit_log, children, friendships, journey_contexts, legal_consents, moderator_permissions, post_authors, post_hides, reaction_owners, regular_names, regular_profiles, report_reasons, reports, staff_roles, user_enforcements, users',
-  '[F1.4-a c14 · F2.0 scoped · F2.4a c12 · F3.0a c1 · F3.0-b c1 c12 c14] authenticated holds table-level SELECT on the five tables and, from F2.4a, friendships and regular_names, from F3.0a algorithm_configurations, post_authors and post_hides, from F3.0b reaction_owners and reports; posts, comments and reactions carry column-level SELECT only (held_xact and liker_status never granted: files 70 and 73); identity_link_checks: file 40');
+  'algorithm_configurations, audit_log, children, cycle_entries, friendships, journey_contexts, legal_consents, moderator_permissions, post_authors, post_hides, reaction_owners, regular_names, regular_profiles, report_reasons, reports, staff_roles, status_guides, tracker_events, user_enforcements, users',
+  '[F1.4-a c14 · F2.0 scoped · F2.4a c12 · F3.0a c1 · F3.0-b c1 c12 c14] authenticated holds table-level SELECT on the five tables and, from F2.4a, friendships and regular_names, from F3.0a algorithm_configurations, post_authors and post_hides, from F3.0b reaction_owners and reports, from I6 tracker_events, cycle_entries and status_guides; posts, comments and reactions carry column-level SELECT only (held_xact and liker_status never granted: files 70 and 73); identity_link_checks: file 40');
 
 -- Amendment 1 (CRITIC a-1): INSERT is granted per COLUMN, never per table.
 select is_empty(
@@ -325,8 +325,8 @@ select is_empty(
        from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
        cross join (values ('UPDATE'), ('DELETE'), ('TRUNCATE'), ('REFERENCES'), ('TRIGGER')) as p(priv)
       where n.nspname = 'nestly' and c.relkind in ('r', 'p') and has_table_privilege('authenticated', c.oid, p.priv)
-        and not (c.relname in ('recovery_answers', 'children', 'journey_contexts', 'posts', 'post_hides', 'comments', 'reactions', 'moderator_permissions') and p.priv = 'DELETE') $$,
-  '[F1.4-a c14 criterion 14 amended · F2.0 scoped · F2.2-b c18] authenticated holds no table-level UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any nestly table; the DELETEs are the F2.0 D1 clear of recovery_answers (file 40) and the F2.2b2 own-row removal of children and journeys (DR-1 A, file 54) and F3.0a''s own-post and own-hide delete (3א, 7א: files 70-71) and F3.0b''s own-comment and own-like delete (3א, c12: files 73-74)');
+        and not (c.relname in ('recovery_answers', 'children', 'journey_contexts', 'posts', 'post_hides', 'comments', 'reactions', 'tracker_events', 'cycle_entries', 'moderator_permissions') and p.priv = 'DELETE') $$,
+  '[F1.4-a c14 criterion 14 amended · F2.0 scoped · F2.2-b c18] authenticated holds no table-level UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any nestly table; the DELETEs are the F2.0 D1 clear of recovery_answers (file 40) and the F2.2b2 own-row removal of children and journeys (DR-1 A, file 54) and F3.0a''s own-post and own-hide delete (3א, 7א: files 70-71) and F3.0b''s own-comment and own-like delete (3א, c12: files 73-74) and I6''s own tracker_events and cycle_entries delete (file 86)');
 
 select is_empty(
   $$ select c.relname || '.' || a.attname
