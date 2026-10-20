@@ -19,7 +19,7 @@ import {
   saveAnswers,
   startContext,
   stopContext,
-  throttle,
+  ladder,
   type Account,
   type Context,
 } from '../helpers/recovery-db.js';
@@ -282,7 +282,7 @@ describe('[F2.0-a c10 FR-AUTH-003 S-16] the password change after two answers', 
     expect(res.statusCode, res.body).toBe(401);
     expect(res.body).toBe(INVALID_RECOVERY);
     expect(auth.of('setPassword')).toEqual([]);
-    expect((await throttle(ctx, 'handle', handle)).split('/').slice(0, 2)).toEqual(['1', '1']);
+    expect((await ladder(ctx, handle)).split('/')[0], 'one failure on the account\'s ladder').toBe('1');
     expect(await kinds(ctx, handle)).toBe('answers_saved,password_change_failed');
   });
 
@@ -294,7 +294,7 @@ describe('[F2.0-a c10 FR-AUTH-003 S-16] the password change after two answers', 
     expect(res.statusCode, res.body).toBe(401);
     expect(res.body).toBe(INVALID_RECOVERY);
     expect(auth.of('setPassword')).toEqual([]);
-    expect((await throttle(ctx, 'handle', handleHex(ctx, account.email))).split('/')[0]).toBe('1');
+    expect((await ladder(ctx, handleHex(ctx, account.email))).split('/')[0]).toBe('1');
   });
 
   it('[F2.0-a c10 NFR-SEC-010 AC-113] the 4th attempt on the account after three failures is 429 with Retry-After even with correct answers; the ladder is the question change\'s', T, async () => {

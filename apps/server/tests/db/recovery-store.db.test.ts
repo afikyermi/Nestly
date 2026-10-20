@@ -29,6 +29,7 @@ import {
   startApp,
   startContext,
   stopContext,
+  ladder,
   throttle,
   unbreakEvents,
   type Context,
@@ -580,8 +581,8 @@ describe('[F1.6 c4 c5] answers already set: POST is 409 and changes nothing; PUT
     expect(jsonOf(res.body)).toEqual({ error: 'invalid_recovery' });
     expect(await answersJson(ctx, account.id)).toBe(before);
     expect(await kinds(ctx, handleHex(ctx, account.email))).toBe('answers_saved,change_failed');
-    const counted = await throttle(ctx, 'handle', handleHex(ctx, account.email));
-    expect(counted.split('/')[0], 'one failure counted for the account').toBe('1');
+    const counted = await ladder(ctx, handleHex(ctx, account.email));
+    expect(counted.split('/')[0], 'one failure counted on the account\'s ladder').toBe('1');
     expect((await throttle(ctx, 'ip', ipHex(ctx, ip))).split('/')[0], 'and for the address').toBe('1');
   });
 
