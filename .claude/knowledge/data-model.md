@@ -166,7 +166,7 @@ F1.6 recovery and F2.0 S-01/S-16 (FR-AUTH-003/005, OP-029) — Afik 2026-10-13, 
     recovery_answers releases the declared handle (email_handle and handle_claimed_at to NULL) only on a row whose claim
     is older than the declared one (nestly.recovery_claimed_at(), policy recovery_answers_release_recovery) — it can set
     no handle, touch no hash, delete no row; it appends recovery_events (and the three subject-bound kinds of F2.0,
-    user_id = the transaction's sub, nestly.recovery_subject(), DR-S2) and reads no audit and no other table.
+    user_id = the transaction's sub, nestly.recovery_subject(), DR-S2) and reads no audit and no other table; I4 adds only UPDATE of recovery_throttles.ladder_failures (column grant, `20261021300000`, NFR-SEC-010, Afik 20.10.2026).
     Why: a guest endpoint has no auth.uid(), and anon must hold nothing in nestly (rule 7, CI anon_privilege). Not a
     SECURITY DEFINER function; adds nothing to tests.approved_security_definer().
     Approved in .work/password-recovery/schema.md · 2026-10-15 (DR-G1, ORCHESTRATOR; release policy: Amendment 2)

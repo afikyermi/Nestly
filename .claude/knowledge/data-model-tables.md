@@ -129,6 +129,7 @@ own `regular_profiles` row FOR NO KEY UPDATE. No DELETE on `friendships` or `reg
 | `recovery_throttles.long_failures` | smallint · not null · 0 | failures in the 24-hour window. CHECK ≥ 0, and 0 for an IP |
 | `recovery_throttles.locked_until` | timestamptz · null | while later than `now()`, every attempt on the subject is answered 429. A limited attempt changes no counter |
 | `recovery_throttles.limited_noted_until` | timestamptz · null | the `locked_until` for which a limited event was already written: one limited event per subject per lock |
+| `recovery_throttles.ladder_failures` | smallint · not null · 0 | NFR-SEC-010 ladder, handles only: failures since the last success (3rd → `locked_until` + 1 h; 6th and every later one → + 24 h; a success → 0). No permanent lock. CHECK: ≥ 0, and 0 for an IP. `app_recovery` UPDATE (column grant, `20261021300000`) |
 
 ## Columns: recovery_events
 
