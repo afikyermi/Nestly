@@ -14,7 +14,10 @@ does not instruct loading every link. Column sections and rule matrices are both
 | identity_link_checks | Identity link checks; Rules: recovery; users/session guard |
 | friendships, regular_names | Friendships and regular names; users/regular_profiles FKs; Cross-user profile read |
 | security_limits, profile_open_counts, security_events | Profile open limits and security events; Cross-user profile read |
+| notifications, notification_preferences, friend_content_notification_preferences, people_search_counts | Notifications and People Search; Profile open limits and security events (the limit pattern); Friendships and regular names |
 | profile_view consumers | Cross-user profile read plus the affected input/output table sections above |
+| staff_roles, moderator_permissions, audit_log, report_reasons, user_enforcements | Safety and admin core |
+
 | tracker_events, cycle_entries, status_guides | Trackers, cycle and status guides (I6); children for the child FK |
 | Schema changes | Migration and rollback map; New entity template; affected consumer/cleanup order |
 
@@ -386,6 +389,34 @@ Professional reads as a Regular non-friend; friendships are Regular-only), the s
 or reaction_owners row has an author/liker without a regular_profiles row (FORCE lifted for the check, put back); else restores the policies, FKs and
 comments verbatim and drops the helper.
 
+## Safety and admin core (I4)
+
+Built by `20261020300000_safety_admin_core.sql` (down script in `supabase/rollback/`; the Super Admin is created by
+`supabase/bootstrap/03-super-admin.sql`, run by Afik). Two approved SECURITY DEFINER functions (`audit_trigger()`, `reveal_post_author(uuid)`; see data-model.md); no policy for app_jobs.
+
+| Table | Columns and meaning | Authorization |
+|---|---|---|
+| `staff_roles` | user_id PK, account_type (admin or moderator), account_status; a mirror of `users` by composite FKs, filled by the trigger `users_staff_mirror`, so a policy on `users` can ask "is the caller staff" without reading `users` | RLS + FORCE; SELECT own active row only; one Admin (unique partial index, BR-021); nobody writes |
+| `moderator_permissions` | (user_id, permission_key) PK; the 14 assignable keys (CHECK; Admin-only keys cannot be stored); granted_by | SELECT own; the Admin (written out, not `has_permission`, which reads this table) selects, inserts, deletes; audited by trigger with Before/After |
+| `audit_log` | id, actor_id (default auth.uid()), actor_role, permission_key, action, target_kind, target_id, result, reason, before_state, after_state, occurred_at | SELECT Admin or AUDIT_LOG_VIEW; nobody holds INSERT, UPDATE or DELETE (only `audit_trigger()` and `reveal_post_author()` append, as app_owner); triggers refuse UPDATE, DELETE and TRUNCATE |
+| `report_reasons` | key PK, label, priority 1-4, sort_order, is_active, is_core; seeded with the eight reasons; `reports.reason` references it | SELECT any active account; INSERT/UPDATE COMMUNITY_CONFIG; `report_reasons_guard` keeps child_safety at priority 1 and core reasons active, audits Before/After |
+| `user_enforcements` | user_id, actor_id, kind (warning, suspension, reinstate, ban, unban), reason, duration_hours, suspended_until, report_id, is_child_safety, suggested_kind/hours, is_step_skipped | SELECT USER_VIEW and own; INSERT by key per kind (USER_WARN, USER_SUSPEND, USER_BAN), never on oneself, a Moderator never on staff; BEFORE trigger computes the ladder (last 12 months) and the suspension end; AFTER trigger changes `users.status`; `audit_trigger()` appends the audit entry; `status_before` kept; a child-safety ban needs a child_safety report |
+
+Other changes: `users.suspended_until`; `users_status_guard` (a staff status change needs its enforcement row from the same transaction and the key
+for that change; an account may end its own expired suspension); `reports` gains target_text (copy of the reported text), resolution, handled_by,
+handler_note and `reports_handle_guard`; staff read policies on reports, posts and comments that have a report; content moderation
+(`posts_update_staff`, `comments_update_staff`, `content_hold` replaced, `content_moderation_audit`); the author's delete over hidden or removed
+content (`nestly.own_delete` setting named by `delete_post`/`delete_comment` and the four `*_own_moderated` policies); `reveal_post_author(uuid)`
+(the audited reveal, rule 19, invoker, opened by the settings `nestly.reveal_post`/`nestly.reveal_user`). Cleanup order: user_enforcements,
+moderator_permissions, staff_roles before security_events; `audit_log` and `report_reasons` are never deleted.
+
+Deviations, stated plainly: (a) `users_select_staff` and `regular_names_select_staff` open only in a transaction that set `nestly.staff_view` = on, because every other service
+reads "the caller's own users row" with no WHERE and an Admin's ordinary request must keep seeing one row; (b) `nestly.own_delete` is a caller-settable setting that lets an author
+read, delete or hold their OWN hidden or removed post or comment (`*_own_moderated`): it widens only the author's view of their own row and allows only the delete the author already
+owns, so it is not a definer; (c) `reports.target_text`, `handled_by` and `resolution` are readable by the reporter of that report (column grants cannot differ by policy); the API never
+returns them. The definer functions: `audit_trigger()` appends every Audit entry (the Actor is auth.uid() with its staff role and a valid session); `reveal_post_author(uuid)` names the
+post and author in transaction-local settings that open one row each to the owner role (`*_select_reveal` TO app_owner).
+
 ## Trackers, cycle and status guides (I6)
 
 Migration `20261020100000_trackers_cycle_guides.sql`, down script `supabase/rollback/20261020100000_trackers_cycle_guides.down.sql` (destroys the data of the three tables).
@@ -403,6 +434,42 @@ No SECURITY DEFINER, no function; `tests.approved_security_definer()` unchanged.
 | Retention | hard delete by the owner | hard delete by the owner | the nine seed rows are drafts awaiting approval; `hidden` keeps the row |
 
 Preview cleanup: the user's tracker_events and cycle_entries are deleted before `children`; `status_guides` is content and is never written by the cleanup.
+
+## Notifications and People Search
+
+**`nestly.notifications`, `nestly.notification_preferences`, `nestly.friend_content_notification_preferences`, `nestly.people_search_counts`, `nestly.search_intents`** (FR-NOTIF-001/002/003,
+FR-SEARCH-001, FR-ALG-008, BR-035/038/061/063, VAL-037, AC-040/041/042/074/078; migration `20261020400000`; Afik 18.10.2026: 60 searches per hour; 90-day retention)
+
+| Column | Type · null · default | Meaning |
+|---|---|---|
+| `notifications.id` | uuid PK · `gen_random_uuid()` | |
+| `notifications.recipient_id` | uuid · not null → users ON DELETE CASCADE | who is notified; the only reader |
+| `notifications.type` | text · not null · CHECK format `^[a-z][a-z_]{0,39}$` | friend_request, friend_accepted, post_comment, comment_reply, post_shared, friend_post. The list lives in `packages/shared`: a new event (groups, Marketplace, Professional follow, birthdays) needs a definer and a constant, no schema change |
+| `notifications.actor_id` | uuid · null → users ON DELETE CASCADE | who did it; NULL for the anonymous post author's own comment or the system |
+| `notifications.target_kind`, `target_id` | text (format CHECK) · uuid · not null | the deep link: `post` + post id, or `user` + user id; authorized again when opened |
+| `notifications.subject_id` | uuid · not null | the source row (comment, share, friendship, post); UNIQUE (recipient_id, type, subject_id) makes one event notify once |
+| `notifications.is_critical` | boolean · not null · false | Security/critical: preferences are ignored (BR-038); nothing sets it yet |
+| `notifications.created_at`, `read_at` | timestamptz · now() · null | `read_at` is set once by `notifications_read_guard` on any update (client value ignored, a read cannot be undone) |
+| `notification_preferences.user_id`, `category` | uuid (`auth.uid()`) · text (format CHECK) | PK. Categories: friends, comments, shares, friend_posts, birthdays (later groups, security). No row = on |
+| `notification_preferences.is_in_app_enabled`, `is_push_enabled` | boolean · true · false | In-App flag; Push flag stored for the Mobile stage, never sent on Web. CHECK: the `security` category cannot be off |
+| `friend_content_notification_preferences.user_id`, `friend_id`, `is_enabled` | uuid · uuid · boolean true | PK (user, friend): "tell me when this Friend posts". Insert needs an accepted Friendship; off by default (no row) |
+| `people_search_counts.user_id`, `searched_at`, `is_refusal_recorded` | uuid PK · timestamptz[] · boolean | as `profile_open_counts`: the instants inside the window |
+| `search_intents.user_id`, `topic`, `created_at` | uuid (`auth.uid()`) · text (format CHECK) · timestamptz | Intent Signal (Afik 20.10.2026): the topic or category the fixed rules detected for a search - never the typed text. Owner reads and inserts (Regular/Professional); no update, no client delete; deleted after 30 days by `purge_search_intents()` (EXECUTE app_jobs only, `search_intents_{select,delete}_jobs` policies); the schedule is the retention job's. Not readable by Admin through the product |
+| `security_limits` | | gains the `people_search` row (seeded 60 / 3600 s); `security_events.kind` gains `people_search_limit` |
+
+| | `notifications` | preferences (both) | `people_search_counts` |
+|---|---|---|---|
+| Authorization | RLS + FORCE. `notifications_select_recipient`, `notifications_update_recipient` (TO authenticated, active caller, own rows; UPDATE granted on `read_at` only). No client INSERT or DELETE. `notifications_insert_notify`, `notifications_select_notify` TO app_owner while a notification definer has declared its scope (SELECT is needed by the insert's `on conflict do nothing`) | own rows; Regular or Professional (`caller_account_type()`); `user_id` never granted; friend-content insert needs an accepted Friendship. `*_select_notify` TO app_owner for the definers | no grant to any runtime role; three TO app_owner policies for `search_people`, own row, while it has declared its scope |
+| Written by | the four definers (`notify_friendship`, `notify_comment`, `notify_post` triggers; helper `notify_deliver`) | the owner | `search_people` |
+| Not stored | message text, post or comment content, the liker, anything about search or consumption (AC-042) | | the query |
+| Indexes | `notifications_recipient_created_idx` (the list), `notifications_recipient_unread_idx` (the bell), `notifications_actor_id_idx` (cascade) | PKs | pk |
+| Retention | 90 days (Afik 15א): created_at is kept; the purge is a later job | with the account | disposable |
+
+**People Search** is `search_people(query, limit, offset)`: query two to 100 characters (else nothing, not counted), counted per call in a rolling window (N, W from
+`security_limits`; absent or invalid raises `NS001`), the call over the limit returns one row `outcome = 'limited'` and records one `people_search_limit` event per stretch.
+Rows: id and full name of other active Regular accounts, ranked exact name, name prefix, a word prefix, anywhere; then name and id; at most 50 per call, offset up to 200.
+Posts are searched by the server through the caller's own RLS (`posts_select_viewer`), so hides, audience, Friends-only and later blocks and Private Groups apply with no search code.
+**Cleanup order:** the three notification tables after `journey_contexts`, `search_intents` and `people_search_counts` after `profile_open_counts`.
 
 ## New entity template
 

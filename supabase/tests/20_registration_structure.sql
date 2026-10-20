@@ -174,14 +174,14 @@ select is_empty(
 select is(
   (select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')),
-  25::bigint,
-  '[F1.4-a c14 · F1.6-a · F2.0-a · F2.4a c12 · F2.4-c c20 c21 c22 · F3.0a c17 · F3.0-b c1] schema nestly holds exactly twenty-five tables, I6''s cycle_entries, status_guides and tracker_events, F3.0b''s comments, reactions, reaction_owners and reports and F3.0a''s algorithm_configurations, post_authors, post_hides and posts on top of fourteen: the five F1.1/F1.4 ones, the three recovery tables, identity_link_checks, F2.4a''s friendships and regular_names and F2.4c1''s security_limits, profile_open_counts and security_events (no table nobody listed)');
+  35::bigint,
+  '[F1.4-a c14 · F1.6-a · F2.0-a · F2.4a c12 · F2.4-c c20 c21 c22 · F3.0a c17 · F3.0-b c1] schema nestly holds exactly thirty-five tables, the Intent Signal table search_intents, the four notification and search tables (notifications, notification_preferences, friend_content_notification_preferences, people_search_counts), I4''s staff_roles, moderator_permissions, audit_log, report_reasons and user_enforcements, I6''s cycle_entries, status_guides and tracker_events, F3.0b''s comments, reactions, reaction_owners and reports and F3.0a''s algorithm_configurations, post_authors, post_hides and posts on top of fourteen: the five F1.1/F1.4 ones, the three recovery tables, identity_link_checks, F2.4a''s friendships and regular_names and F2.4c1''s security_limits, profile_open_counts and security_events (no table nobody listed)');
 
 select is(
   (select string_agg(c.relname, ', ' order by c.relname) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')),
-  'algorithm_configurations, children, comments, cycle_entries, friendships, identity_link_checks, journey_contexts, legal_consents, post_authors, post_hides, posts, profile_open_counts, reaction_owners, reactions, recovery_answers, recovery_events, recovery_throttles, regular_names, regular_profiles, reports, security_events, security_limits, status_guides, tracker_events, users',
-  '[F1.6-a · F2.0-a · F2.4a c12 · F2.4-c c22 · F3.0a c17 · F3.0-b c1] the twenty-five tables are exactly these names');
+  'algorithm_configurations, audit_log, children, comments, cycle_entries, friend_content_notification_preferences, friendships, identity_link_checks, journey_contexts, legal_consents, moderator_permissions, notification_preferences, notifications, people_search_counts, post_authors, post_hides, posts, profile_open_counts, reaction_owners, reactions, recovery_answers, recovery_events, recovery_throttles, regular_names, regular_profiles, report_reasons, reports, search_intents, security_events, security_limits, staff_roles, status_guides, tracker_events, user_enforcements, users',
+  '[F1.6-a · F2.0-a · F2.4a c12 · F2.4-c c22 · F3.0a c17 · F3.0-b c1 · I4] the thirty-five tables are exactly these names');
 
 -- ---- policies: the exact list ---------------------------------------------------------------------------------------------
 select set_eq(
@@ -197,16 +197,17 @@ select set_eq(
             ('children.children_update_own.w'), ('children.children_delete_own.d'),
             ('legal_consents.legal_consents_select_own.r'), ('legal_consents.legal_consents_insert_own.a'),
             ('users.users_select_profile_view.r'), ('regular_profiles.regular_profiles_select_profile_view.r'),
-            ('children.children_select_profile_view.r'), ('journey_contexts.journey_contexts_select_profile_view.r') $$,
-  '[F1.4-a c14 platform r14 · F1.6 scoped · F2.2a c9 · F2.2-b c18 · F2.3b c15] the policies on the five F1.1/F1.4 tables are exactly nineteen: one SELECT and one INSERT per table plus regular_profiles_update_own (F2.1), children_update_own (F2.2a), journey_contexts_update_own (F2.2b1), the own-row deletes children_delete_own and journey_contexts_delete_own (F2.2b2, DR-1 A) and the four *_select_profile_view (F2.3b, TO app_owner: file 53), no other UPDATE, DELETE or ALL (the recovery policies: file 30; files 50, 51 and 54 assert the update and delete policies)');
+            ('children.children_select_profile_view.r'), ('journey_contexts.journey_contexts_select_profile_view.r'),
+            ('users.users_select_staff.r'), ('users.users_update_staff.w'), ('users.users_update_own_expired_suspension.w'), ('users.users_select_search.r') $$,
+  '[F1.4-a c14 platform r14 · F1.6 scoped · F2.2a c9 · F2.2-b c18 · F2.3b c15] the policies on the five F1.1/F1.4 tables are exactly twenty-three (search: users_select_search TO app_owner, file 90; I4 adds users_select_staff, users_update_staff and users_update_own_expired_suspension): one SELECT and one INSERT per table plus regular_profiles_update_own (F2.1), children_update_own (F2.2a), journey_contexts_update_own (F2.2b1), the own-row deletes children_delete_own and journey_contexts_delete_own (F2.2b2, DR-1 A) and the four *_select_profile_view (F2.3b, TO app_owner: file 53), no other UPDATE, DELETE or ALL (the recovery policies: file 30; files 50, 51 and 54 assert the update and delete policies)');
 
 select is_empty(
   $$ select c.relname || '.' || pol.polname
        from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'nestly' and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents')
         and pol.polroles <> array[(select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated')]
-        and pol.polname not like '%\_select\_profile\_view' $$,
-  '[F1.4-a c14 platform r4 · F1.6 scoped · F2.3b c15] every policy on the five F1.1/F1.4 tables is TO authenticated only (not PUBLIC, not anon, not app_recovery), except the four *_select_profile_view TO app_owner (file 53)');
+        and pol.polname not like '%\_select\_profile\_view' and pol.polname <> 'users_select_search' $$,
+  '[F1.4-a c14 platform r4 · F1.6 scoped · F2.3b c15] every policy on the five F1.1/F1.4 tables is TO authenticated only (not PUBLIC, not anon, not app_recovery), except the four *_select_profile_view and users_select_search TO app_owner (files 53 and 90)');
 
 select is_empty(
   $$ select c.relname || '.' || pol.polname
@@ -247,8 +248,8 @@ select ok(
 select is(
   (select string_agg(c.relname, ', ' order by c.relname) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind = 'r' and c.relname <> 'identity_link_checks' and has_table_privilege('authenticated', c.oid, 'SELECT')),
-  'algorithm_configurations, children, cycle_entries, friendships, journey_contexts, legal_consents, post_authors, post_hides, reaction_owners, regular_names, regular_profiles, reports, status_guides, tracker_events, users',
-  '[F1.4-a c14 · F2.0 scoped · F2.4a c12 · F3.0a c1 · F3.0-b c1 c12 c14] authenticated holds table-level SELECT on the five tables and, from F2.4a, friendships and regular_names, from F3.0a algorithm_configurations, post_authors and post_hides, from F3.0b reaction_owners and reports, from I6 tracker_events, cycle_entries and status_guides; posts, comments and reactions carry column-level SELECT only (held_xact and liker_status never granted: files 70 and 73); identity_link_checks: file 40');
+  'algorithm_configurations, audit_log, children, cycle_entries, friend_content_notification_preferences, friendships, journey_contexts, legal_consents, moderator_permissions, notification_preferences, notifications, post_authors, post_hides, reaction_owners, regular_names, regular_profiles, report_reasons, reports, search_intents, staff_roles, status_guides, tracker_events, user_enforcements, users',
+  '[F1.4-a c14 · F2.0 scoped · F2.4a c12 · F3.0a c1 · F3.0-b c1 c12 c14] authenticated holds table-level SELECT on the five tables and, from F2.4a, friendships and regular_names, from F3.0a algorithm_configurations, post_authors and post_hides, from F3.0b reaction_owners and reports, and the notification tables notifications, notification_preferences and friend_content_notification_preferences, from I6 tracker_events, cycle_entries and status_guides; posts, comments and reactions carry column-level SELECT only (held_xact and liker_status never granted: files 70 and 73); identity_link_checks: file 40');
 
 -- Amendment 1 (CRITIC a-1): INSERT is granted per COLUMN, never per table.
 select is_empty(
@@ -273,8 +274,8 @@ select is(
      join pg_catalog.pg_attribute a on a.attrelid = c.oid
     where n.nspname = 'nestly' and c.relkind in ('r', 'p') and a.attnum > 0 and not a.attisdropped and a.attacl is not null
       and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents')),
-  16::bigint,
-  '[F1.4-a c14 rules 12, 13 · CRITIC a-1 · F1.6 scoped · F2.3-a c5] exactly 16 columns of the five F1.1/F1.4 tables carry a column-level ACL: the 13 INSERT columns and F2.3a''s three UPDATE-only settings');
+  17::bigint,
+  '[F1.4-a c14 rules 12, 13 · CRITIC a-1 · F1.6 scoped · F2.3-a c5 · I4] exactly 17 columns of the five F1.1/F1.4 tables carry a column-level ACL: the 13 INSERT columns, F2.3a''s three UPDATE-only settings and I4''s UPDATE of users.suspended_until (status already carried its INSERT entry)');
 
 select is_empty(
   $$ select c.relname || '.' || a.attname || ':' || x.grantee::text || ':' || x.privilege_type
@@ -289,7 +290,9 @@ select is_empty(
         and not (x.privilege_type = 'UPDATE' and x.grantee = (select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated')
                  and c.relname = 'children' and a.attname in ('name', 'sex', 'birth_date'))
         and not (x.privilege_type = 'UPDATE' and x.grantee = (select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated')
-                 and c.relname = 'journey_contexts' and a.attname = 'due_date') $$,
+                 and c.relname = 'journey_contexts' and a.attname = 'due_date')
+        and not (x.privilege_type = 'UPDATE' and x.grantee = (select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated')
+                 and c.relname = 'users' and a.attname in ('status', 'suspended_until')) $$,
   '[F1.4-a c14 · CRITIC a-1 · F1.6 scoped · F2.2a c9 · F2.2-b c18] on the five F1.1/F1.4 tables every column-level ACL entry is INSERT to authenticated, or the UPDATE of regular_profiles full_name/gender (F2.1) and the three privacy settings (F2.3a), children name/sex/birth_date (F2.2a) and journey_contexts due_date (F2.2b1): no column-level SELECT or REFERENCES, no other grantee');
 
 select is_empty(
@@ -322,7 +325,7 @@ select is_empty(
        from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
        cross join (values ('UPDATE'), ('DELETE'), ('TRUNCATE'), ('REFERENCES'), ('TRIGGER')) as p(priv)
       where n.nspname = 'nestly' and c.relkind in ('r', 'p') and has_table_privilege('authenticated', c.oid, p.priv)
-        and not (c.relname in ('recovery_answers', 'children', 'journey_contexts', 'posts', 'post_hides', 'comments', 'reactions', 'tracker_events', 'cycle_entries') and p.priv = 'DELETE') $$,
+        and not (c.relname in ('recovery_answers', 'children', 'journey_contexts', 'posts', 'post_hides', 'comments', 'reactions', 'tracker_events', 'cycle_entries', 'moderator_permissions') and p.priv = 'DELETE') $$,
   '[F1.4-a c14 criterion 14 amended · F2.0 scoped · F2.2-b c18] authenticated holds no table-level UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any nestly table; the DELETEs are the F2.0 D1 clear of recovery_answers (file 40) and the F2.2b2 own-row removal of children and journeys (DR-1 A, file 54) and F3.0a''s own-post and own-hide delete (3א, 7א: files 70-71) and F3.0b''s own-comment and own-like delete (3א, c12: files 73-74) and I6''s own tracker_events and cycle_entries delete (file 86)');
 
 select is_empty(
@@ -335,6 +338,7 @@ select is_empty(
                                                                   'is_empty_journey_sentence_shown', 'is_child_birthday_shared'))
         and not (c.relname = 'children' and a.attname in ('name', 'sex', 'birth_date'))
         and not (c.relname = 'journey_contexts' and a.attname = 'due_date')
+        and not (c.relname = 'users' and a.attname in ('status', 'suspended_until'))
         and (has_column_privilege('authenticated', c.oid, a.attnum, 'UPDATE')
              or has_column_privilege('authenticated', c.oid, a.attnum, 'REFERENCES')) $$,
   '[F1.4-a c14 criterion 14 amended · F1.6 scoped · F2.2a c9 · F2.2-b c18] no column of the five F1.1/F1.4 tables can be UPDATEd or REFERENCEd by authenticated beyond regular_profiles full_name/gender (file 50), the three privacy settings (file 52, which also bars their REFERENCES), children name/sex/birth_date (file 51) and journey_contexts due_date (file 54); recovery_answers has its own column-level UPDATE: file 30');
@@ -346,7 +350,7 @@ select is_empty(
       where n.nspname = 'nestly' and c.relkind in ('r', 'p')
         and (has_table_privilege(r.rolname, c.oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
              or has_any_column_privilege(r.rolname, c.oid, 'SELECT,INSERT,UPDATE,REFERENCES'))
-        and not (r.rolname = 'app_jobs' and c.relname in ('posts', 'comments', 'reports')) $$,
+        and not (r.rolname = 'app_jobs' and c.relname in ('posts', 'comments', 'reports', 'search_intents')) $$,
   '[F1.4-a c14 platform r1, r7 · F3.0-b c14] anon, service_role, app_server and app_jobs hold no privilege on any nestly table, new ones included, but app_jobs on posts, comments and reports (the approved purge exception: exact grants in file 73)');
 
 select is(
@@ -376,20 +380,20 @@ select is_empty(
 select is_empty(
   $$ select c.relname || '.' || t.tgname
        from pg_catalog.pg_trigger t join pg_catalog.pg_class c on c.oid = t.tgrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-      where n.nspname = 'nestly' and not t.tgisinternal and t.tgname not in ('identity_link_checks_transition', 'friendships_transition', 'regular_profiles_name_insert', 'posts_insert_prepare', 'posts_insert_author', 'algorithm_configurations_guard', 'post_hides_insert_guard', 'posts_update_share_guard', 'posts_content_hold', 'comments_content_hold', 'comments_insert_prepare', 'reactions_insert_prepare', 'reactions_insert_owner', 'reports_insert_check') $$,
-  '[F1.4-a c14 · F2.0 scoped · F2.4a c12] no trigger on any nestly table but the F2.0 transition guard of identity_link_checks (file 40) and F2.4a''s friendships_transition and regular_profiles_name_insert (files 60-62) and F3.0a''s posts_insert_prepare, posts_insert_author, algorithm_configurations_guard and post_hides_insert_guard (files 70-72) and F3.0b''s content_hold on posts and comments, comments_insert_prepare, reactions_insert_prepare, reactions_insert_owner and reports_insert_check (files 73-76): the limits are constraints, not code');
+      where n.nspname = 'nestly' and not t.tgisinternal and t.tgname not in ('identity_link_checks_transition', 'friendships_transition', 'regular_profiles_name_insert', 'posts_insert_prepare', 'posts_insert_author', 'algorithm_configurations_guard', 'post_hides_insert_guard', 'posts_update_share_guard', 'notify_friendship_insert', 'notify_friendship_accept', 'notify_comment', 'notify_post', 'notifications_read_guard', 'posts_content_hold', 'comments_content_hold', 'comments_insert_prepare', 'reactions_insert_prepare', 'reactions_insert_owner', 'reports_insert_check', 'users_staff_mirror', 'audit_log_append_only', 'audit_log_no_truncate', 'moderator_permissions_audit', 'report_reasons_guard', 'report_reasons_audit', 'reports_insert_snapshot', 'reports_handle_guard', 'reports_audit', 'posts_moderation_audit', 'comments_moderation_audit', 'posts_reject_staff_edit', 'users_status_guard', 'user_enforcements_prepare', 'user_enforcements_apply', 'user_enforcements_audit') $$,
+  '[F1.4-a c14 · F2.0 scoped · F2.4a c12] no trigger on any nestly table but the F2.0 transition guard of identity_link_checks (file 40) and F2.4a''s friendships_transition and regular_profiles_name_insert (files 60-62) and F3.0a''s posts_insert_prepare, posts_insert_author, algorithm_configurations_guard and post_hides_insert_guard (files 70-72) and F3.0b''s content_hold on posts and comments, comments_insert_prepare, reactions_insert_prepare, reactions_insert_owner and reports_insert_check (files 73-76) and I4''s staff and moderation triggers (file 90): the limits are constraints, not code');
 
 select set_eq(
   $$ select p.oid::regprocedure::text from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'nestly' and p.prosecdef $$,
   $$ select a from tests.approved_security_definer() as a $$,
-  '[F1.4-a c14 platform r10 · F2.3b c15] the SECURITY DEFINER functions in schema nestly are exactly the approved list (F2.3b: profile_view(text))');
+  '[F1.4-a c14 platform r10 · F2.3b c15] the SECURITY DEFINER functions in schema nestly are exactly the approved list (profile_view(text) F2.3b; the notification triggers and search_people, file 90)');
 
 select is(
   (select string_agg(p.proname, ', ' order by p.proname) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'nestly'),
-  'algorithm_configurations_guard, caller_account_type, child_age_months, comments_insert_prepare, content_hold, delete_comment, delete_post, friendships_transition, identity_link_checks_transition, is_active_account, jwt_is_oauth, jwt_issued_at, jwt_session_id, post_hides_insert_guard, posts_insert_author, posts_insert_prepare, posts_update_share_guard, profile_view, profile_view_target, purge_held_content, reactions_insert_owner, reactions_insert_prepare, recovery_claimed_at, recovery_handle, recovery_ip, recovery_subject, regular_names_insert, reports_insert_check, session_guard',
-  '[F1.4-a c14 · F1.6-a c3 c21 · F2.0-a · F2.3b c15 · F2.4a c12] nestly holds exactly twenty-nine functions (I3 rest PR-A adds posts_update_share_guard; professional-posting adds the RLS helper caller_account_type) (F3.0a c17: four trigger functions, no recording one; F3.0-b: delete_post, delete_comment, purge_held_content, content_hold and the four insert trigger functions, none records a view): is_active_account, the three recovery helpers, the five F2.0 helpers, the F2.0 transition trigger, F2.3b''s profile_view with its two helpers, and F2.4a''s friendships_transition and regular_names_insert (no other function came with a migration)');
+  'algorithm_configurations_guard, audit_log_append_only, audit_trigger, caller_account_type, caller_staff_role, child_age_months, comments_insert_prepare, content_hold, delete_comment, delete_post, friendships_transition, has_permission, identity_link_checks_transition, is_active_account, jwt_is_oauth, jwt_issued_at, jwt_session_id, notifications_read_guard, notify_comment, notify_deliver, notify_friendship, notify_post, notify_scope, post_hides_insert_guard, posts_insert_author, posts_insert_prepare, posts_update_share_guard, profile_view, profile_view_target, purge_held_content, purge_search_intents, reactions_insert_owner, reactions_insert_prepare, recovery_claimed_at, recovery_handle, recovery_ip, recovery_subject, regular_names_insert, reject_staff_edit, report_reasons_guard, reports_handle_guard, reports_insert_check, reports_insert_snapshot, reveal_post_author, search_people, search_scope, session_guard, user_enforcements_apply, user_enforcements_prepare, users_staff_mirror, users_status_guard',
+  '[F1.4-a c14 · F1.6-a c3 c21 · F2.0-a · F2.3b c15 · F2.4a c12] nestly holds exactly fifty-one functions (the notifications add notifications_read_guard, notify_comment, notify_deliver, notify_friendship, notify_post, notify_scope, search_people, search_scope and purge_search_intents) (I4 adds thirteen: has_permission, caller_staff_role, the staff and moderation triggers, reveal_post_author) (I3 rest PR-A adds posts_update_share_guard; professional-posting adds the RLS helper caller_account_type) (F3.0a c17: four trigger functions, no recording one; F3.0-b: delete_post, delete_comment, purge_held_content, content_hold and the four insert trigger functions, none records a view): is_active_account, the three recovery helpers, the five F2.0 helpers, the F2.0 transition trigger, F2.3b''s profile_view with its two helpers, and F2.4a''s friendships_transition and regular_names_insert (no other function came with a migration)');
 
 select is_empty(
   $$ select c.relname from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace

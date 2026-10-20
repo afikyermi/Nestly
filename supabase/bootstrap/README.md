@@ -8,7 +8,8 @@ anchor and bootstrap steps". Anything else that needs `postgres` is a `DECISION 
 |---|---|---|
 | 1 | `01-roles.sql`, then `01-roles-check.sql` | before the first migration (before I1) |
 | 2 | `02-anchor-fk.sql`, then `02-anchor-fk-check.sql` | after the identity migration (`20261014100000_identity_schema`), before F1.4 deploys |
-| 3 | extensions, pg_cron jobs | when needed |
+| 3 | `03-super-admin.sql` | after the moderation migrations; Afik only, once per environment (the single Super Admin, BR-021) |
+| 4 | extensions, pg_cron jobs | when needed |
 
 ## Who runs it, where
 
@@ -88,3 +89,15 @@ After the first migration, dropping `app_owner` means dropping or reassigning ev
 the product schema. That is a destructive change and needs Afik (CLAUDE.md, hard rule 7). Changing a grant later
 means editing `01-roles.sql` and re-running it. The script adds and updates grants but never revokes them, so a
 revoke is written by hand and goes through DATA ARCHITECT.
+
+## Step 3 — the Super Admin
+
+Afik only, in the SQL Editor of each environment, after the migrations `20261020300000` and `20261020400000`:
+
+1. In the Supabase dashboard (Authentication > Users > Add user) create a dedicated Auth user for the Admin: an email and a
+   password, "Auto confirm". It must not have registered in the product: an account's type never changes, so an existing
+   Regular account cannot become the Admin.
+2. Paste `03-super-admin.sql`, replace `CHANGE-ME@example.com` with that email, run. Running it again changes nothing; it
+   refuses when the email has no Auth user, when the account already has another type, or when a different Admin exists.
+3. Sign in to the product with that email. The Admin sets the recovery questions once (the same gate as every account), then
+   the admin entry appears in the menu.

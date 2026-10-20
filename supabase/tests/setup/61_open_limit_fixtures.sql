@@ -76,7 +76,7 @@ as $$ select coalesce((select l.max_count || '/' || l.window_seconds from nestly
 
 create or replace function tests.fx_limit_rows() returns bigint
 language sql stable security definer set search_path = ''
-as $$ select count(*) from nestly.security_limits $$;
+as $$ select count(*) from nestly.security_limits where limit_key = 'profile_open' $$;
 
 create or replace function tests.fx_seed_opens(p_id uuid, p_secs integer[]) returns void
 language plpgsql security definer set search_path = ''

@@ -32,16 +32,25 @@ select is(
     where n.nspname = 'nestly' and c.relname in ('users', 'regular_profiles')
       and (has_table_privilege('authenticated', c.oid, 'UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
            or has_any_column_privilege('authenticated', c.oid, 'REFERENCES')
-           or (c.relname = 'users' and has_any_column_privilege('authenticated', c.oid, 'UPDATE')))),
+           or (c.relname = 'users' and exists (
+                 select 1 from pg_catalog.pg_attribute a
+                  where a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped
+                    and has_column_privilege('authenticated', c.oid, a.attnum, 'UPDATE') and a.attname not in ('status', 'suspended_until'))))),
   0::bigint,
-  '[F1.1-b c13 · F1.4-a c14 NFR-SEC-002] authenticated holds no UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on either table at table level, and no column-level UPDATE on users (F2.1 granted regular_profiles full_name and gender: file 50) (INSERT was granted by F1.4 per column — account_type, status / full_name, gender — and is bounded by the policies)');
+  '[F1.1-b c13 · F1.4-a c14 NFR-SEC-002] authenticated holds no UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on either table at table level, and no column-level UPDATE on users but status and suspended_until (I4: staff enforcement and the end of an own suspension; every other caller is filtered by the policies and refused by users_status_guard: asserted in file 90) (F2.1 granted regular_profiles full_name and gender: file 50) (INSERT was granted by F1.4 per column — account_type, status / full_name, gender — and is bounded by the policies)');
 -- The attacks below that name id or user_id now fail by privilege, the others by policy; all stay 42501. The policy-reaching
 -- attacks on granted columns only (account_type admin, status suspended) are asserted with their message in file 21 (f3).
 
 -- ---- the attempts ----------------------------------------------------------------------------------------------------
 -- (role, whose claims, statement, what it tries)
-select is(tests.dml_as(t.r, tests.claims(tests.fx_id(t.w)), t.s), 'ERR:42501',
-  '[F1.1-b c13 NFR-SEC-002] refused (42501): ' || t.label)
+-- I4: an UPDATE of users.status is column-granted (staff enforcement), so for a caller the policies do not open it is refused by RLS as a statement
+-- that touches no row ('OK:0'), and the final check below proves nothing changed. Every other attempt stays a 42501.
+select is(
+  case when t.s ~* '^\s*update nestly\.users set status' or t.s ~* 'from nestly\.users for (update|share)'
+       then coalesce(nullif(tests.dml_as(t.r, tests.claims(tests.fx_id(t.w)), t.s), 'OK:0'), 'ERR:42501')
+       else tests.dml_as(t.r, tests.claims(tests.fx_id(t.w)), t.s) end,
+  'ERR:42501',
+  '[F1.1-b c13 NFR-SEC-002] refused (42501), or no row touched for a status update: ' || t.label)
 from (values
   -- User: insert
   -- F1.4 part a: "c inserts its own regular/active User row" is now ALLOWED (file 21 asserts it), and "a inserts a second
