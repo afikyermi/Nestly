@@ -10,6 +10,7 @@ import { formatAdminTime } from './admin-format';
 import {
   ACCOUNT_TYPE_LABELS,
   ACTION_FIELD_LABEL,
+  ACTION_PLACEHOLDER,
   CHILD_SAFETY_LABEL,
   DURATION_FIELD_LABEL,
   DURATION_OPTIONS,
@@ -121,7 +122,7 @@ export function EnforcementPanel({ user, permissions, report, pending, failure, 
             {(control) => (
               <SelectInput
                 {...control}
-                placeholder={PICK_ACTION_TEXT}
+                placeholder={ACTION_PLACEHOLDER}
                 value={kind}
                 options={kinds.map((candidate) => ({ value: candidate, label: KIND_ACTION_LABELS[candidate] }))}
                 onChange={setKind}

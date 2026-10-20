@@ -131,3 +131,4 @@ export function suggestionText(kind: 'warning' | 'suspension' | 'ban', hours: nu
   return `המדרג מציע: השעיה ל${label}`;
 }
 export const PICK_ACTION_TEXT = 'יש לבחור פעולה';
+export const ACTION_PLACEHOLDER = 'בחירת פעולה';
