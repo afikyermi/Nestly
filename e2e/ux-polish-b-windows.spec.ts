@@ -145,6 +145,8 @@ test.describe('ux-polish-b c4 [NFR-USAB-004] every confirmation: Back and a pres
           await ctx.openDialog();
           const box = page.getByRole('alertdialog');
           await expect(box, `${how}: opens`).toBeVisible();
+          // Two frames: the dialog's history entry is pushed after its first paint; an outside press or Back in between would pop a page too far (a document load) - a test race, not a user action.
+          await page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
           if (how === 'Back') await scan(page);
           const at = await scrollY(page);
           if (how === 'Back') await page.goBack();

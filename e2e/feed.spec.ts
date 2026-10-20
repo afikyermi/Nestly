@@ -353,6 +353,7 @@ test.describe('F3.2b c20 [FR-FEED-004] back, reload, to top', () => {
       await hasLinkTo(target, `/posts/${id(20)}`);
       await timeLink(target).click();
       await expect.poll(() => pathOf(page)).toBe(`/posts/${id(20)}`);
+      await expect(page.getByRole('heading', { level: 1, name: 'פוסט', exact: true })).toBeVisible(); // the post page is rendered (the URL changes before the feed unmounts)
       await page.goBack();
       await expect.poll(() => pathOf(page)).toBe('/feed');
       await expect(cards(page)).toHaveCount(24);

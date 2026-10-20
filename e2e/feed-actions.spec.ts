@@ -194,6 +194,7 @@ test.describe('F3.3 c14 [FR-FEED-001] Back to the feed', () => {
     await expect.poll(() => net.likeCalls.length).toBe(1);
     await cards(page).first().locator('a:has(time)').click(); // the time link opens the post (ux-polish-a c9)
     await expect.poll(() => pathOf(page)).toBe(`/posts/${id(1)}`);
+    await expect(page.getByRole('heading', { level: 1, name: 'פוסט', exact: true })).toBeVisible(); // the post page is rendered (the URL changes before the feed unmounts)
     await page.goBack();
     await expect.poll(() => pathOf(page)).toBe('/feed');
     await expect(cards(page)).toHaveCount(2);

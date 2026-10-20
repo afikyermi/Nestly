@@ -527,7 +527,18 @@ test.describe('ux-polish-b c9 [NFR-USAB-004] the "חזרה למעלה" tooltip',
   test('[ub c9] 1024 px (icon only): keyboard focus shows the tooltip "חזרה למעלה"', async ({ page }) => {
     const button = await goLong(page, 1024);
     await expect(tooltip(page)).toHaveCount(0);
+    // The tooltip closes on any scroll of the page: let the late scroll (the list's second page, scroll anchoring) finish before the key press.
+    let last = -1;
+    await expect
+      .poll(async () => {
+        const now = await page.evaluate(() => Math.round(window.scrollY));
+        const same = now === last;
+        last = now;
+        return same;
+      })
+      .toBe(true);
     await button.focus();
+    await expect(button).toBeFocused();
     await expect(tooltip(page)).toHaveText('חזרה למעלה');
   });
 
@@ -586,6 +597,32 @@ test.describe('ux-polish-b c12 [NFR-A11Y-001] accessibility of what moved or is 
       await expect(main(page).getByText('שלי', { exact: true })).toBeVisible();
       await postMore(page).click();
       await big(menuItem(page, DELETE_ITEM), 'delete item of the share');
+      await scan(page);
+    });
+  }
+
+  // 8fa0cd3: the "⋯" tooltip is drawn inside main; once Esc closes the menu nothing is left outside the landmarks (axe "region").
+  for (const { label, viewport } of SIZES) {
+    test(`[ub c12] ${label}: after Esc closes the post page's "⋯" menu: axe 0 and focus back on the "⋯"`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      const net = await setupShare(page, () => pageOf([], null), { posts: [{ ...MINE }] });
+      await openFeedAt(page, net, `/posts/${POST_ID}`);
+      await expect(main(page).getByText('שאלה על שינה')).toBeVisible();
+      await postMore(page).click();
+      await expect(menu(page)).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(menu(page)).toHaveCount(0);
+      await expect(postMore(page)).toBeFocused();
+      await scan(page);
+    });
+    test(`[ub c12] ${label}: after Esc closes a feed card's "⋯" menu: axe 0 and focus back on the "⋯"`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await startFeed(page, [mine(1), named(2)], [stored(1)]);
+      await more(cards(page).first()).click();
+      await expect(menu(page)).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(menu(page)).toHaveCount(0);
+      await expect(more(cards(page).first())).toBeFocused();
       await scan(page);
     });
   }

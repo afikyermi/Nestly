@@ -685,6 +685,7 @@ test.describe('ux-polish-a c11 [FR-FEED-001] Back to the feed', () => {
     await expect(page.getByText('גוף הפוסט 3', { exact: true })).toHaveCount(0);
     await cards(page).filter({ hasText: 'גוף הפוסט 4' }).locator('a:has(time)').click();
     await expect.poll(() => pathOf(page)).toBe(`/posts/${id(4)}`);
+    await expect(page.getByRole('heading', { level: 1, name: 'פוסט', exact: true })).toBeVisible(); // the post page is rendered (the URL changes before the feed unmounts)
     const before = commentCalls(net, 1).filter((x) => x.startsWith('GET')).length;
     await page.goBack();
     await expect.poll(() => pathOf(page)).toBe('/feed');
@@ -703,13 +704,19 @@ test.describe('ux-polish-a c11 [FR-FEED-001] Back to the feed', () => {
     const open = () => card(page, 0).locator('a:has(time)').click();
     await open();
     await expect.poll(() => pathOf(page)).toBe(`/posts/${id(1)}`);
+    await expect(page.getByRole('heading', { level: 1, name: 'פוסט', exact: true })).toBeVisible(); // the post page is rendered (the URL changes before the feed unmounts)
     await page.goBack();
     await expect.poll(() => pathOf(page)).toBe('/feed');
     await open();
     await expect.poll(() => pathOf(page)).toBe(`/posts/${id(1)}`);
     await expect(page.getByRole('region', { name: 'תגובות', exact: true })).toBeVisible();
-    await page.evaluate(() => window.scrollTo(0, 400));
-    await expect.poll(() => scrollY(page)).toBeGreaterThan(300);
+    // The page grows as the 40 comments render: scroll again until it is long enough to hold the offset.
+    await expect
+      .poll(async () => {
+        await page.evaluate(() => window.scrollTo(0, 400));
+        return scrollY(page);
+      })
+      .toBeGreaterThan(300);
     const left = await scrollY(page);
     const link = page.getByRole('navigation').getByRole('link').first();
     await link.click();

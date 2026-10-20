@@ -205,6 +205,7 @@ test.describe('F3.9 c8 [FR-ALG-009 FR-FEED-002] one menu on every card', () => {
     const button = more(cards(page).first());
     await button.click();
     await expect(menu(page)).toBeVisible();
+    await page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done())))); // the menu's history entry is pushed after its first paint
     await page.goBack();
     await expect(menu(page)).toHaveCount(0);
     expect(pathOf(page)).toBe('/feed');
@@ -234,6 +235,7 @@ test.describe('F3.9 c8 [FR-ALG-009] the open menu leaves no dead history entry',
     expect(scroll).toBeGreaterThan(0);
     await link.click();
     await expect.poll(() => pathOf(page)).toBe(`/posts/${id(10)}`);
+    await expect(page.getByRole('heading', { level: 1, name: 'פוסט', exact: true })).toBeVisible(); // the post page is rendered (the URL changes before the feed unmounts)
     await page.goBack();
     await expect.poll(() => pathOf(page)).toBe('/feed');
     await expect(menu(page)).toHaveCount(0);
@@ -340,6 +342,7 @@ test.describe('F3.9 c10 [FR-ALG-009 AC-081] a hide outlives the placeholder', ()
     await expect(placeholder(page)).toHaveCount(1);
     await cards(page).first().locator('a:has(time)').click();
     await expect.poll(() => pathOf(page)).toBe(`/posts/${id(1)}`);
+    await expect(page.getByRole('heading', { level: 1, name: 'פוסט', exact: true })).toBeVisible(); // the post page is rendered (the URL changes before the feed unmounts)
     await page.goBack();
     await expect.poll(() => pathOf(page)).toBe('/feed');
     await expect(cards(page)).toHaveCount(2);
@@ -556,6 +559,7 @@ test.describe('F3.9 c13 [FR-FEED-002] own items', () => {
       await expect(like(cards(page).nth(1))).toBeFocused();
       await cards(page).first().locator('a:has(time)').click();
       await expect.poll(() => pathOf(page)).toBe(`/posts/${id(1)}`);
+      await expect(page.getByRole('heading', { level: 1, name: 'פוסט', exact: true })).toBeVisible(); // the post page is rendered (the URL changes before the feed unmounts)
       await page.goBack();
       await expect(cards(page)).toHaveCount(2);
       await expect(body(page, 2)).toHaveCount(0);
