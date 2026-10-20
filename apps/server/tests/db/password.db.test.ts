@@ -19,7 +19,7 @@ import {
   saveAnswers,
   startContext,
   stopContext,
-  throttle,
+  ladder,
   type Account,
   type Context,
 } from '../helpers/recovery-db.js';
@@ -282,7 +282,7 @@ describe('[F2.0-a c10 FR-AUTH-003 S-16] the password change after two answers', 
     expect(res.statusCode, res.body).toBe(401);
     expect(res.body).toBe(INVALID_RECOVERY);
     expect(auth.of('setPassword')).toEqual([]);
-    expect((await throttle(ctx, 'handle', handle)).split('/').slice(0, 2)).toEqual(['1', '1']);
+    expect((await ladder(ctx, handle)).split('/')[0], 'one failure on the account\'s ladder').toBe('1');
     expect(await kinds(ctx, handle)).toBe('answers_saved,password_change_failed');
   });
 
@@ -294,24 +294,22 @@ describe('[F2.0-a c10 FR-AUTH-003 S-16] the password change after two answers', 
     expect(res.statusCode, res.body).toBe(401);
     expect(res.body).toBe(INVALID_RECOVERY);
     expect(auth.of('setPassword')).toEqual([]);
-    expect((await throttle(ctx, 'handle', handleHex(ctx, account.email))).split('/')[0]).toBe('1');
+    expect((await ladder(ctx, handleHex(ctx, account.email))).split('/')[0]).toBe('1');
   });
 
-  it('[F2.0-a c10 NFR-SEC-010] the 6th attempt on the account in 30 minutes is 429 with Retry-After even with correct answers; the counters are the question change\'s', T, async () => {
+  it('[F2.0-a c10 NFR-SEC-010 AC-113] the 4th attempt on the account after three failures is 429 with Retry-After even with correct answers; the ladder is the question change\'s', T, async () => {
     const auth = fakeAuth();
     const h = await startTakeoverApp(ctx, auth);
     const account = await accountWithAnswers(ctx, h);
     const bearer = await passwordBearer(ctx, account);
     const wrong = [entry('pet', 'Wrong'), entry('street', 'Herzl')];
-    for (let i = 0; i < 3; i += 1) expect((await postPassword(h, 'change', body({ current: wrong }), bearer, nextIp())).statusCode).toBe(401);
-    for (let i = 0; i < 2; i += 1) {
-      const res = await changeAnswers(h, bearer, wrong, [entry('nickname', 'Dana'), entry('pet', 'Rex')], nextIp());
-      expect(res.statusCode, 'a failed question change counts in the same counter').toBe(401);
-    }
-    const sixth = await postPassword(h, 'change', body(), bearer, nextIp());
-    expect(sixth.statusCode, sixth.body).toBe(429);
-    expect(sixth.body).toBe('{"error":"rate_limited"}');
-    expect(sixth.headers['retry-after']).toBeDefined();
+    for (let i = 0; i < 2; i += 1) expect((await postPassword(h, 'change', body({ current: wrong }), bearer, nextIp())).statusCode).toBe(401);
+    const res = await changeAnswers(h, bearer, wrong, [entry('nickname', 'Dana'), entry('pet', 'Rex')], nextIp());
+    expect(res.statusCode, 'a failed question change counts on the same ladder').toBe(401);
+    const fourth = await postPassword(h, 'change', body(), bearer, nextIp());
+    expect(fourth.statusCode, fourth.body).toBe(429);
+    expect(fourth.body).toBe('{"error":"rate_limited"}');
+    expect(fourth.headers['retry-after']).toBeDefined();
     expect(auth.of('setPassword')).toEqual([]);
     expect(await kinds(ctx, handleHex(ctx, account.email))).toContain('password_change_limited');
   });

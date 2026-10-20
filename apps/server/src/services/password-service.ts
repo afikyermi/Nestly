@@ -47,7 +47,7 @@ export type ChangeResult =
   | { readonly kind: 'changed' }
   | { readonly kind: 'not_set' }
   | { readonly kind: 'invalid' }
-  | { readonly kind: 'limited'; readonly retryAfterSeconds: number }
+  | { readonly kind: 'limited'; readonly retryAfterSeconds: number; readonly dayLock: boolean }
   | { readonly kind: 'unavailable' };
 
 /** One fixed line when the change's outcome row could not be written. It carries no id, hash or address. */
@@ -157,7 +157,7 @@ export async function changePassword(
         failed: 'password_change_failed',
         limited: 'password_change_limited',
       });
-      if (attempt.kind === 'limited') return { kind: 'limited', retryAfterSeconds: attempt.retryAfterSeconds };
+      if (attempt.kind === 'limited') return { kind: 'limited', retryAfterSeconds: attempt.retryAfterSeconds, dayLock: attempt.dayLock };
       if (attempt.kind === 'mismatch') return { kind: 'invalid' };
       return { kind: 'verified', userId: attempt.userId, subjects };
     });
