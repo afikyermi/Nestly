@@ -377,12 +377,12 @@ select is(tests.as_role('anon', null,
     format($q$ select count(*)::text from nestly.profile_view(%L) $q$, tests.fx_pv_id('pv_b'))),
   'ERR:42501', '[F2.3-b c15 platform r4] anon cannot call profile_view');
 
-select is((select array_agg(a order by a) from tests.approved_security_definer() as a)::text, '{nestly.profile_view(text)}',
+select is((select array_agg(a order by a) from tests.approved_security_definer() as a)::text, '{nestly.audit_trigger(),nestly.profile_view(text),nestly.reveal_post_author(uuid)}',
   '[F2.3-b c15 A8 rule 10 DR-G1] the approved SECURITY DEFINER list is exactly {nestly.profile_view(text)}');
 select set_eq(
   $$ select p.oid::regprocedure::text from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'nestly' and p.prosecdef $$,
-  $$ values ('nestly.profile_view(text)') $$,
+  $$ values ('nestly.profile_view(text)'), ('nestly.audit_trigger()'), ('nestly.reveal_post_author(uuid)') $$,
   '[F2.3-b c15] profile_view(text) is the only SECURITY DEFINER function in nestly');
 select is((select p.proowner::regrole::text from pg_catalog.pg_proc p where p.oid = pg_temp.proc('nestly.profile_view(text)')),
   'app_owner', '[F2.3-b c15] profile_view is owned by app_owner');

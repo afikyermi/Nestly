@@ -102,16 +102,16 @@ select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname in ('friendships', 'regular_names')
       and pol.polroles = array[(select oid from pg_catalog.pg_roles where rolname = 'authenticated')]::oid[]),
-  9::bigint,
-  '[F2.4-a c12 · F2.4-c c23 · F3.2 6b · I4] nine of the policies are TO authenticated (I4: the staff and reveal reads) (the five, the F3.2 post-reader and the F3.4 comment-reader policy) and nothing else, the other two (F2.4c1) TO app_owner only: no public or anon policy');
+  8::bigint,
+  '[F2.4-a c12 · F2.4-c c23 · F3.2 6b · I4] eight of the policies are TO authenticated (I4: the staff read; the reveal read is TO app_owner) (the five, the F3.2 post-reader and the F3.4 comment-reader policy) and nothing else, the other two (F2.4c1) TO app_owner only: no public or anon policy');
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname in ('friendships', 'regular_names')
       and (coalesce(pg_catalog.pg_get_expr(pol.polqual, pol.polrelid), '') || coalesce(pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid), ''))
           ~ 'is_active_account\(\)'),
-  9::bigint,
-  '[F2.4-a c10 c12 platform r15] every TO authenticated policy (seven since F3.4 N1, nine with I4''s staff and reveal reads) is gated by is_active_account(): a suspended or banned account sees and writes nothing');
+  8::bigint,
+  '[F2.4-a c10 c12 platform r15] every TO authenticated policy (seven since F3.4 N1, eight with I4''s staff read) is gated by is_active_account(): a suspended or banned account sees and writes nothing');
 
 select ok(
   (select pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid) ~ 'requester_id = \( SELECT auth\.uid\(\)'

@@ -56,10 +56,10 @@ create function pg_temp.moderate(p_who text, p_table text, p_id uuid, p_status t
     format($q$ with s as (select set_config('nestly.audit_reason', %L, true)) update nestly.%I t set status = %L from s where t.id = %L $q$,
            p_reason, p_table, p_status, p_id))
 $f$;
-create function pg_temp.enforce(p_who text, p_target text, p_kind text, p_hours integer default null, p_reason text default 'because', p_child boolean default false) returns text language sql as $f$
+create function pg_temp.enforce(p_who text, p_target text, p_kind text, p_hours integer default null, p_reason text default 'because', p_child boolean default false, p_report uuid default null) returns text language sql as $f$
   select tests.dml_staff(tests.claims(pg_temp.id(p_who)),
-    format($q$ insert into nestly.user_enforcements (user_id, kind, reason, duration_hours, is_child_safety) values (%L, %L, %L, %L, %L) $q$,
-           pg_temp.id(p_target), p_kind, p_reason, p_hours, p_child))
+    format($q$ insert into nestly.user_enforcements (user_id, kind, reason, duration_hours, is_child_safety, report_id) values (%L, %L, %L, %L, %L, %L) $q$,
+           pg_temp.id(p_target), p_kind, p_reason, p_hours, p_child, p_report))
 $f$;
 create function pg_temp.status_of(p_who text) returns text language sql as $f$
   select split_part(tests.fx_user(pg_temp.id(p_who)), '/', 2)
@@ -134,11 +134,14 @@ select is(tests.dml_as('anon', tests.claims(pg_temp.id('d')), 'select 1 from nes
 select is(pg_temp.dml('d', 'update nestly.audit_log set reason = ''edited''', false), 'ERR:42501', '[FR-ADMIN-005 I4] nobody updates an entry');
 select is(pg_temp.dml('d', 'delete from nestly.audit_log', false), 'ERR:42501', '[FR-ADMIN-005 I4] nobody deletes an entry');
 select is(tests.dml_as('none', '', 'update nestly.audit_log set reason = ''edited''', false), 'ERR:42501', '[FR-ADMIN-005 I4] not even the unprivileged session');
-select is(pg_temp.dml('d', $q$ insert into nestly.audit_log (actor_role, action, target_kind) values ('admin', 'content_removed', 'post') $q$), 'OK:1', '[FR-ADMIN-005 I4] a staff member appends an entry naming itself');
+select is(pg_temp.dml('d', $q$ insert into nestly.audit_log (actor_role, action, target_kind) values ('admin', 'content_removed', 'post') $q$, false), 'ERR:42501', '[FR-ADMIN-005 rule 18 I4] not even the Admin can write the log: no role holds INSERT, only the definer functions append');
+select is(pg_temp.dml('m0', $q$ insert into nestly.audit_log (actor_role, action, target_kind) values ('moderator', 'content_removed', 'post') $q$, false), 'ERR:42501', '[FR-ADMIN-005 rule 18 I4] a Moderator with no key cannot forge an entry');
+select is(pg_temp.dml('m1', $q$ insert into nestly.audit_log (actor_role, action, target_kind) values ('moderator', 'user_ban', 'user') $q$, false), 'ERR:42501', '[FR-ADMIN-005 rule 18 I4] nor can one with AUDIT_LOG_VIEW');
+select is(tests.dml_as('none', '', 'truncate nestly.audit_log', false), 'ERR:42501', '[FR-ADMIN-005 I4] nobody truncates the log');
 select is(pg_temp.dml('d', $q$ insert into nestly.audit_log (actor_role, action, target_kind) values ('moderator', 'content_removed', 'post') $q$, false), 'ERR:42501', '[FR-ADMIN-005 I4] another role than the caller''s is refused');
 select is(pg_temp.dml('a', $q$ insert into nestly.audit_log (actor_role, action, target_kind) values ('admin', 'content_removed', 'post') $q$, false), 'ERR:42501', '[FR-ADMIN-005 I4] a Regular account cannot write the log');
 select is(pg_temp.dml('d', format($q$ insert into nestly.audit_log (actor_id, actor_role, action, target_kind) values (%L, 'admin', 'x_yz', 'post') $q$, pg_temp.id('m1')), false), 'ERR:42501', '[FR-ADMIN-005 I4] the actor cannot be chosen');
-select is(pg_temp.dml('d', $q$ insert into nestly.audit_log (actor_role, action, target_kind, reason) values ('admin', 'content_removed', 'post', '   ') $q$, false), 'ERR:23514', '[FR-ADMIN-005 I4] a blank reason is refused');
+
 
 -- 3  reports: who reads and who handles (FR-MOD-003, AC-022)
 select pg_temp.reset();
@@ -219,6 +222,33 @@ select is(tests.fx_sf_audit('author_revealed'), 2::bigint, '[AC-077 I4] a refuse
 select is(pg_temp.n('m1', 'nestly.post_authors'), '0', '[rule 20 I4] reading post_authors directly still shows a Moderator nothing');
 select is(pg_temp.n('d', 'nestly.post_authors'), '0', '[rule 20 I4] nor the Admin');
 
+-- 5b  the settings that open a row to its caller cannot be set by hand (rules 18, 19), and the review's negatives
+select is(pg_temp.fn('m1', format($q$ with s as (select set_config('nestly.reveal_post', %L, true)) select count(*)::text from s, nestly.post_authors $q$, current_setting('t.pa'))), '0',
+  '[AC-077 rule 19 I4] a Moderator naming the post in nestly.reveal_post by hand still reads no separation row');
+select is(pg_temp.fn('d', format($q$ with s as (select set_config('nestly.reveal_user', %L, true)) select count(*)::text from s, nestly.regular_names where user_id = %L $q$, pg_temp.id('s'), pg_temp.id('s'))), '0',
+  '[AC-077 rule 19 I4] nor a name, by nestly.reveal_user');
+select set_config('t.pm', pg_temp.post('a')::text, true);
+select is(pg_temp.fn('b', format($q$ with s as (select set_config('nestly.own_delete', %L, true)) select count(*)::text from s, nestly.posts where id = %L $q$, current_setting('t.pm'), current_setting('t.pm'))), '1',
+  '[BR-080 I4] control: an active post is readable as always');
+select tests.fx_po_status(current_setting('t.pm')::uuid, 'hidden');
+select is(pg_temp.fn('b', format($q$ with s as (select set_config('nestly.own_delete', %L, true)) select count(*)::text from s, nestly.posts where id = %L $q$, current_setting('t.pm'), current_setting('t.pm'))), '0',
+  '[BR-080 I4] another account naming a hidden post in nestly.own_delete by hand reads nothing');
+select is(pg_temp.dml('b', format($q$ with s as (select set_config('nestly.own_delete', %L, true)) update nestly.posts t set status = 'deleted' from s where t.id = %L $q$, current_setting('t.pm'), current_setting('t.pm'))), 'OK:0',
+  '[BR-080 I4] nor delete or hold it');
+-- a closed report allows no reveal (the review, M2)
+select is(pg_temp.dml('m1', format($q$ update nestly.reports set status = 'handled', resolution = 'dismissed' where post_id = %L $q$, current_setting('t.pa'))), 'OK:1', '[FR-MOD-003 I4] the report on the anonymous post is closed');
+select is(pg_temp.fn('m1', format($q$ select user_id::text from nestly.reveal_post_author(%L) $q$, current_setting('t.pa'))), 'ERR:42501', '[AC-077 I4] a closed report allows no reveal: only an open one');
+-- closing a post report takes CONTENT_MODERATE, not a user key (the review, M1)
+select set_config('t.pw', pg_temp.post('a')::text, true);
+select tests.fx_rp_add(pg_temp.id('b'), 'post', current_setting('t.pw')::uuid, 'spam');
+select is(pg_temp.dml('m4', format($q$ update nestly.reports set status = 'handled', resolution = 'dismissed' where post_id = %L $q$, current_setting('t.pw'))), 'OK:0',
+  '[AC-022 I4] USER_WARN closes no report on a post: the key follows the kind of the target');
+-- a stale session holds nothing (the review, H3)
+select tests.fx_link_put(pg_temp.id('m1'), 'affected', '11111111-1111-4111-8111-111111111111'::uuid, timestamptz '2026-10-16 10:00:00+00', '11111111-1111-4111-8111-111111111111'::uuid);
+select is(pg_temp.perm('m1', 'REPORTS_VIEW'), 'false', '[NFR-SEC-001 I4] a Moderator whose session is stale holds no key');
+select is(pg_temp.n('m1', 'nestly.audit_log'), '0', '[NFR-SEC-001 I4] and reads no log');
+select is(pg_temp.moderate('m1', 'posts', current_setting('t.pw')::uuid, 'hidden'), 'OK:0', '[NFR-SEC-001 I4] and moves no content');
+
 -- 6  enforcement (FR-MOD-002, BR-074, AC-027, AC-028, AC-107, AC-110)
 select pg_temp.reset();
 select is(pg_temp.enforce('m4', 'a', 'warning'), 'OK:1', '[FR-MOD-002 I4] a Moderator with USER_WARN warns an account');
@@ -250,22 +280,32 @@ select is(pg_temp.enforce('m4', 'b', 'reinstate'), 'OK:1', '[FR-MOD-002 I4] a Mo
 select is(pg_temp.status_of('b'), 'active', '[FR-MOD-002 I4] active again');
 select is(pg_temp.enforce('m4', 'b', 'reinstate'), 'ERR:NS013', '[FR-MOD-002 I4] reinstating an active account does not apply');
 select is(pg_temp.enforce('m4', 'b', 'suspension', 72), 'OK:1', '[BR-074 I4] the 72-hour option');
-select is(tests.fx_sf_enf(pg_temp.id('b')), 'warning:warning:f,reinstate:suspension:f,suspension:suspension:f,suspension:suspension:f', '[BR-074 I4] outside the ladder: not a skipped step');
+select is(tests.fx_sf_enf(pg_temp.id('b')), 'warning:warning:f,reinstate:suspension:f,suspension:suspension:f,suspension:suspension:t', '[BR-074 AC-107 I4] the 72-hour option is not the suggested step: recorded as a skip');
+select is(tests.dml_staff(tests.claims(pg_temp.id('m4')), format($q$ update nestly.users set suspended_until = now() + interval '400 days' where id = %L $q$, pg_temp.id('b')), false), 'ERR:42501',
+  '[AC-107 I4] a suspension cannot be stretched by a direct update: a status or end-time change needs its enforcement record');
 select tests.fx_sf_expire(pg_temp.id('b'));
 select is(pg_temp.dml('b', 'update nestly.users set status = ''active'', suspended_until = null'), 'OK:1', '[FR-MOD-002 I4] once the end time has passed the account returns itself to active');
 select is(pg_temp.status_of('b'), 'active', '[FR-MOD-002 I4] and is active');
 select is(pg_temp.dml('b', 'update nestly.users set status = ''banned'''), 'OK:0', '[I4] an account cannot ban itself');
+select is(pg_temp.dml('x', 'update nestly.users set status = ''active'', suspended_until = null'), 'OK:0', '[I4] a banned account cannot unban itself');
+select is(pg_temp.dml('s', 'update nestly.users set status = ''active'', suspended_until = null'), 'OK:0', '[I4] a suspended account with no end time cannot lift it');
+select is(tests.dml_staff(tests.claims(pg_temp.id('m3')), format($q$ update nestly.users set status = 'banned' where id = %L $q$, pg_temp.id('m5')), false) in ('OK:0', 'ERR:42501'), true, '[AC-027 I4] a Moderator cannot ban a Moderator by a direct update');
+select is(tests.dml_staff(tests.claims(pg_temp.id('m3')), format($q$ update nestly.users set status = 'banned' where id = %L $q$, pg_temp.id('d')), false) in ('OK:0', 'ERR:42501'), true, '[AC-027 I4] nor an Admin');
+select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('f1')), $q$ insert into nestly.users (account_type, status) values ('moderator', 'active') $q$, false), 'ERR:42501', '[BR-021 I4] an account cannot register itself as a Moderator');
+select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('f1')), $q$ insert into nestly.users (account_type, status) values ('admin', 'active') $q$, false), 'ERR:42501', '[BR-021 I4] nor as an Admin');
 -- ban and unban (AC-027, AC-110)
 select is(pg_temp.enforce('m4', 'c', 'ban'), 'ERR:42501', '[AC-027 I4] without USER_BAN: refused');
 select is(pg_temp.enforce('m3', 'm5', 'ban'), 'ERR:42501', '[AC-027 I4] a Moderator cannot ban another Moderator');
 select is(pg_temp.enforce('m3', 'd', 'ban'), 'ERR:42501', '[AC-027 I4] nor an Admin');
 select is(pg_temp.enforce('m3', 'm3', 'ban'), 'ERR:42501', '[AC-027 I4] nor themself');
-select is(pg_temp.enforce('m5', 'c', 'ban', null, 'child endangerment', true), 'OK:1', '[AC-110 I4] a Moderator with USER_BAN blocks at once for content endangering a child');
+select set_config('t.rcs', tests.fx_rp_add(pg_temp.id('b'), 'user', pg_temp.id('c'), 'child_safety')::text, true);
+select is(pg_temp.enforce('m3', 'c', 'ban', null, 'child endangerment', true), 'ERR:23514', '[AC-110 I4] the child-safety mark needs a report with that reason');
+select is(pg_temp.enforce('m3', 'c', 'ban', null, 'child endangerment', true, current_setting('t.rcs')::uuid), 'OK:1', '[AC-110 I4] a Moderator with USER_BAN (and REPORTS_VIEW to cite the report) blocks at once for content endangering a child');
 select is(pg_temp.status_of('c'), 'banned', '[AC-110 I4] banned');
 select is(tests.fx_sf_enf(pg_temp.id('c')), 'ban:warning:t', '[AC-110 I4] whatever the ladder said (recorded as a skip)');
 select is((select reason || '/' || (after_state->>'childSafety') from tests.fx_audit_rows() where action = 'user_ban' limit 1), 'child endangerment/true', '[AC-110 I4] the Audit entry has the reason and the child-safety mark');
 select is(pg_temp.enforce('m5', 'a', 'warning'), 'ERR:42501', '[AC-027 I4] control: USER_BAN does not warn');
-select is(pg_temp.enforce('m4', 'a', 'suspension', 24, 'x', true), 'ERR:23514', '[AC-110 I4] the child-safety mark belongs to a ban only');
+select is(pg_temp.enforce('m4', 'a', 'suspension', 24, 'x', true, current_setting('t.rcs')::uuid), 'ERR:23514', '[AC-110 I4] the child-safety mark belongs to a ban only');
 select is(pg_temp.enforce('m4', 'c', 'unban'), 'ERR:42501', '[AC-027 I4] without USER_BAN no Unban');
 select is(pg_temp.enforce('m5', 'c', 'unban'), 'OK:1', '[AC-027 I4] a Moderator with USER_BAN unbans');
 select is(pg_temp.status_of('c'), 'active', '[AC-027 I4] active again');
@@ -297,7 +337,9 @@ select is(pg_temp.dml('d', 'update nestly.report_reasons set is_active = false w
 select is(pg_temp.dml('d', 'update nestly.report_reasons set priority = 2 where key = ''child_safety'''), 'ERR:23514', '[AC-106 BR-074 I4] nor lose the top priority');
 select is(pg_temp.dml('d', 'update nestly.report_reasons set is_active = false where key = ''other'''), 'ERR:23514', '[VAL-048 I4] nor "other"');
 select is(pg_temp.dml('d', 'update nestly.report_reasons set key = ''zzz'' where key = ''spam'''), 'ERR:42501', '[I4] the key is fixed (column not granted)');
-select is(pg_temp.dml('m3', 'update nestly.report_reasons set priority = 1 where key = ''spam'''), 'OK:1', '[FR-ADMIN-007 I4] a priority can be changed');
+select is(pg_temp.dml('m3', 'update nestly.report_reasons set priority = 1 where key = ''spam'''), 'ERR:23514', '[AC-106 BR-074 I4] no other reason takes priority 1');
+select is(pg_temp.dml('m3', 'insert into nestly.report_reasons (key, label, priority, sort_order) values (''zz_top'', ''עדיפות עליונה'', 1, 91)', false), 'ERR:23514', '[AC-106 I4] nor a new one');
+select is(pg_temp.dml('m3', 'update nestly.report_reasons set priority = 2 where key = ''spam'''), 'OK:1', '[FR-ADMIN-007 I4] a priority can be changed');
 select is(pg_temp.dml('m3', 'insert into nestly.report_reasons (key, label, priority, sort_order) values (''custom_1'', ''סיבה חדשה'', 3, 90)'), 'OK:1', '[FR-ADMIN-007 I4] a reason can be added');
 select is(pg_temp.n('a', 'nestly.report_reasons'), '9', '[FR-ADMIN-007 I4] it is listed for everyone');
 select is(pg_temp.dml('m3', 'update nestly.report_reasons set is_active = false where key = ''custom_1'''), 'OK:1', '[FR-ADMIN-007 I4] and switched off');

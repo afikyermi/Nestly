@@ -392,8 +392,8 @@ select set_eq(
   $$ select a from tests.approved_security_definer() as a $$,
   '[F1.1-b c18 platform r10 · F2.3b c15] the SECURITY DEFINER functions in schema nestly are exactly the approved list');
 
-select is((select count(*) from tests.approved_security_definer()), 1::bigint,
-  '[F1.1-b c18 addendum 1 · F2.3b c15] the approved SECURITY DEFINER list holds one function (profile_view, F2.3b)');
+select is((select count(*) from tests.approved_security_definer()), 3::bigint,
+  '[F1.1-b c18 addendum 1 · F2.3b c15 · I4] the approved SECURITY DEFINER list holds three functions (profile_view, F2.3b; audit_trigger and reveal_post_author, I4, approved by Afik 20.10.2026)');
 
 select is((select count(*) from tests.approved_security_definer() as a where a like 'nestly.is\_active\_account(%'), 0::bigint,
   '[F1.1-b c18 addendum 1] is_active_account() is not an approved exception');

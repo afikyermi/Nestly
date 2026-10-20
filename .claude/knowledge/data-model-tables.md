@@ -390,16 +390,16 @@ comments verbatim and drops the helper.
 
 ## Safety and admin core (I4)
 
-Built by `20261020300000_staff_audit_core.sql` and `20261020400000_moderation_enforcement.sql` (down scripts in `supabase/rollback/`; the
-Super Admin is created by `supabase/bootstrap/03-super-admin.sql`, run by Afik). No SECURITY DEFINER, no policy for app_jobs.
+Built by `20261020300000_safety_admin_core.sql` (down script in `supabase/rollback/`; the Super Admin is created by
+`supabase/bootstrap/03-super-admin.sql`, run by Afik). Two approved SECURITY DEFINER functions (`audit_trigger()`, `reveal_post_author(uuid)`; see data-model.md); no policy for app_jobs.
 
 | Table | Columns and meaning | Authorization |
 |---|---|---|
-| `staff_roles` | user_id PK, account_type (admin or moderator), account_status; a mirror of `users` by composite FKs, filled by the trigger `users_staff_mirror`, so a policy on `users` can ask "is the caller staff" without reading `users` | RLS + FORCE; SELECT own active row only; nobody writes |
+| `staff_roles` | user_id PK, account_type (admin or moderator), account_status; a mirror of `users` by composite FKs, filled by the trigger `users_staff_mirror`, so a policy on `users` can ask "is the caller staff" without reading `users` | RLS + FORCE; SELECT own active row only; one Admin (unique partial index, BR-021); nobody writes |
 | `moderator_permissions` | (user_id, permission_key) PK; the 14 assignable keys (CHECK; Admin-only keys cannot be stored); granted_by | SELECT own; the Admin (written out, not `has_permission`, which reads this table) selects, inserts, deletes; audited by trigger with Before/After |
-| `audit_log` | id, actor_id (default auth.uid()), actor_role, permission_key, action, target_kind, target_id, result, reason, before_state, after_state, occurred_at | SELECT Admin or AUDIT_LOG_VIEW; INSERT own actor and role only (column grant); trigger refuses UPDATE and DELETE |
+| `audit_log` | id, actor_id (default auth.uid()), actor_role, permission_key, action, target_kind, target_id, result, reason, before_state, after_state, occurred_at | SELECT Admin or AUDIT_LOG_VIEW; nobody holds INSERT, UPDATE or DELETE (only `audit_trigger()` and `reveal_post_author()` append, as app_owner); triggers refuse UPDATE, DELETE and TRUNCATE |
 | `report_reasons` | key PK, label, priority 1-4, sort_order, is_active, is_core; seeded with the eight reasons; `reports.reason` references it | SELECT any active account; INSERT/UPDATE COMMUNITY_CONFIG; `report_reasons_guard` keeps child_safety at priority 1 and core reasons active, audits Before/After |
-| `user_enforcements` | user_id, actor_id, kind (warning, suspension, reinstate, ban, unban), reason, duration_hours, suspended_until, report_id, is_child_safety, suggested_kind/hours, is_step_skipped | SELECT USER_VIEW and own; INSERT by key per kind (USER_WARN, USER_SUSPEND, USER_BAN), never on oneself, a Moderator never on staff; BEFORE trigger computes the ladder (last 12 months) and the suspension end; AFTER trigger changes `users.status` and appends the audit entry |
+| `user_enforcements` | user_id, actor_id, kind (warning, suspension, reinstate, ban, unban), reason, duration_hours, suspended_until, report_id, is_child_safety, suggested_kind/hours, is_step_skipped | SELECT USER_VIEW and own; INSERT by key per kind (USER_WARN, USER_SUSPEND, USER_BAN), never on oneself, a Moderator never on staff; BEFORE trigger computes the ladder (last 12 months) and the suspension end; AFTER trigger changes `users.status`; `audit_trigger()` appends the audit entry; `status_before` kept; a child-safety ban needs a child_safety report |
 
 Other changes: `users.suspended_until`; `users_status_guard` (a staff status change needs its enforcement row from the same transaction and the key
 for that change; an account may end its own expired suspension); `reports` gains target_text (copy of the reported text), resolution, handled_by,
@@ -408,6 +408,13 @@ handler_note and `reports_handle_guard`; staff read policies on reports, posts a
 content (`nestly.own_delete` setting named by `delete_post`/`delete_comment` and the four `*_own_moderated` policies); `reveal_post_author(uuid)`
 (the audited reveal, rule 19, invoker, opened by the settings `nestly.reveal_post`/`nestly.reveal_user`). Cleanup order: user_enforcements,
 moderator_permissions, staff_roles before security_events; `audit_log` and `report_reasons` are never deleted.
+
+Deviations, stated plainly: (a) `users_select_staff` and `regular_names_select_staff` open only in a transaction that set `nestly.staff_view` = on, because every other service
+reads "the caller's own users row" with no WHERE and an Admin's ordinary request must keep seeing one row; (b) `nestly.own_delete` is a caller-settable setting that lets an author
+read, delete or hold their OWN hidden or removed post or comment (`*_own_moderated`): it widens only the author's view of their own row and allows only the delete the author already
+owns, so it is not a definer; (c) `reports.target_text`, `handled_by` and `resolution` are readable by the reporter of that report (column grants cannot differ by policy); the API never
+returns them. The definer functions: `audit_trigger()` appends every Audit entry (the Actor is auth.uid() with its staff role and a valid session); `reveal_post_author(uuid)` names the
+post and author in transaction-local settings that open one row each to the owner role (`*_select_reveal` TO app_owner).
 
 ## Trackers, cycle and status guides (I6)
 

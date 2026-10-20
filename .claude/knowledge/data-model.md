@@ -117,7 +117,7 @@ cascade has run — reserved for Afik. Bootstrap steps, the complete list (anyth
 `DECISION REQUEST`):
 1. create `app_owner`, `app_server`, `app_jobs` and `app_recovery` and their grants, and `grant app_owner to postgres`;
 2. the anchor's FK to `auth.users` — as built: `supabase/bootstrap/02-anchor-fk.sql`, verified by `02-anchor-fk-check.sql`;
-3. extensions and pg_cron jobs, when needed.
+3. the single Super Admin (`supabase/bootstrap/03-super-admin.sql`, run once per environment by Afik, a separate Auth account; approved by Afik 20.10.2026); later: extensions and pg_cron jobs, when needed.
 
 **Open, under rules 16 and 17** — FORCE RLS (rule 8) holds a SECURITY DEFINER function owned by `app_owner` to the table's policies, including those
 `TO authenticated` (which `app_owner` inherits). **Resolved for caller-only helpers** (F1.1 Gate 2): SECURITY INVOKER, reading through the caller's
@@ -198,6 +198,7 @@ EXECUTE authenticated; search_path ''. Why: RLS hides rows, not columns; an invo
 F3.0b purge — TO app_jobs policies on posts, comments, reports: read held rows (and replies of a held comment) and the open reports on them, delete held rows,
 expire open reports past release; purge_held_content() invoker, EXECUTE app_jobs only · a job has no auth.uid() and must reach every user's held rows (rule 6);
 app_server is never a member of app_jobs · .work/feed-groundwork/schema-b.md · 2026-10-18
+I4 (rules 18, 19; approved by Afik 20.10.2026) — nestly.audit_trigger(): the one trigger function that appends every Audit entry; nestly.reveal_post_author(uuid): the audited read of an anonymous author (REPORTS_VIEW + CONTENT_MODERATE, a valid session, an OPEN report; writes author_revealed with the report id in the same call). Both SECURITY DEFINER, owner app_owner, search_path '', reading only through policies TO app_owner scoped to auth.uid() or to the one row the function named · no role holds INSERT on audit_log and authenticated cannot read post_authors, so the definer is the only writer/reader · details and deviations: data-model-tables.md "Safety and admin core"
 ```
 
 ---

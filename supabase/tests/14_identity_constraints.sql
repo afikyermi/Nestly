@@ -102,7 +102,7 @@ select is(
 from (values
   ('regular',             'regular',      'OK:1'),
   ('professional',        'professional', 'OK:1'),
-  ('admin',               'admin',        'OK:1'),
+  ('admin',               'admin',        'ERR:23505'), -- I4, BR-021: one Admin (the fixtures hold it)
   ('moderator',           'moderator',    'OK:1'),
   ('is Regular (case)',   'Regular',      'ERR:23514'),
   ('is parent',           'parent',       'ERR:23514'),
