@@ -17,6 +17,7 @@
 --   tests.fx_ns_count(user)                counted searches inside the window
 --   tests.fx_ns_seed(user, secs[])         the account's search instants: now() minus each number of seconds
 --   tests.fx_ns_age(user, interval)        moves the account's search instants into the past
+--   tests.fx_si_add(user, topic, age)      an intent row of the given age; fx_si_topics / fx_si_count / fx_si_age / fx_si_purge read and age them
 --   tests.fx_ns_events(user)               people_search_limit Security events of the account
 -- =====================================================================================================================
 
@@ -162,6 +163,14 @@ language sql stable security definer set search_path = ''
 as $$ select count(*) from nestly.search_intents where user_id = p_user $$;
 
 -- the purge, run as the job role (a definer owned by postgres cannot SET ROLE, so it runs the same statement the job runs)
+create or replace function tests.fx_si_add(p_user uuid, p_topic text, p_age interval) returns void
+language sql security definer set search_path = ''
+as $$ insert into nestly.search_intents (user_id, topic, created_at) values (p_user, p_topic, now() - p_age) $$;
+
+create or replace function tests.fx_si_topics(p_user uuid) returns text
+language sql stable security definer set search_path = ''
+as $$ select coalesce(string_agg(topic, ',' order by topic), '') from nestly.search_intents where user_id = p_user $$;
+
 create or replace function tests.fx_si_purge() returns integer
 language sql security definer set search_path = ''
 as $$ select nestly.purge_search_intents() $$;

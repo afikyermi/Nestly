@@ -400,6 +400,86 @@ select is(pg_temp.sp('a', 'bella'), 'ERR:NS001', '[search NFR-SEC-006] an absent
 
 -- ---- the conditions of the approval (Afik 20.10.2026) --------------------------------------------------------------------
 
+-- Condition 1 (AC-076): an anonymous post never creates "new post of a Friend" - not one notification of any kind.
+select pg_temp.reset();
+select tests.fx_fr_add(pg_temp.id('a'), pg_temp.id('c'), 'accepted');
+select tests.fx_nt_follow(pg_temp.id('c'), pg_temp.id('a'), true);
+select set_config('t.total', tests.fx_nt_total()::text, true);
+select pg_temp.post('a', 'everyone', true);
+select is(tests.fx_nt_total()::text, current_setting('t.total'), '[condition 1 AC-076] an anonymous post by a followed Friend changes the number of notifications by none');
+select pg_temp.post('a');
+select is(tests.fx_nt_total()::text, (current_setting('t.total')::bigint + 1)::text, '[condition 1] (control) a named post of the same Friend creates exactly one');
+
+-- Condition 2 (AC-078): staff never appear in People Search. The only table a name is read from needs a Regular profile, and a Regular
+-- profile cannot belong to an Admin or Moderator (composite FK to users with account_type).
+select throws_ok($$ select tests.fx_insert_profile(tests.fx_fr_id('fr_m'), 'Moda Rator', null) $$, '23503',
+  null, '[condition 2] a Moderator cannot be given a Regular profile (regular_profiles -> users with account_type regular)');
+select throws_ok($$ select tests.fx_insert_profile(tests.fx_fr_id('fr_d'), 'Adam Min', null) $$, '23503',
+  null, '[condition 2] nor an Admin');
+select is(
+  (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid
+    where c.relname = 'users' and pol.polname = 'users_select_search'
+      and pg_catalog.pg_get_expr(pol.polqual, pol.polrelid) ~ 'account_type = ''regular''::text' and pg_catalog.pg_get_expr(pol.polqual, pol.polrelid) ~ 'status = ''active''::text'),
+  1::bigint, '[condition 2] search_people reads users only as an active Regular account');
+select is(pg_temp.sp('c', ''), '', '[condition 2 AC-078] no query string returns nothing');
+select is(pg_temp.sp('c', ' '), '', '[condition 2] a blank query returns nothing');
+select is(pg_temp.sp('c', 'a'), '', '[condition 2] one character returns nothing');
+
+-- Condition 3 (BR-038, FR-NOTIF-002): every category respects the recipient's preference; each has its own negative.
+select pg_temp.reset();
+select tests.fx_nt_pref(pg_temp.id('a'), 'friends', false);
+select pg_temp.dml('b', pg_temp.fr_sql(pg_temp.id('a')));
+select is(pg_temp.nt('a'), 0::bigint, '[condition 3] friends off: a Friend Request received creates nothing');
+select pg_temp.reset();
+select pg_temp.dml('c', pg_temp.fr_sql(pg_temp.id('a')));
+select tests.fx_nt_pref(pg_temp.id('c'), 'friends', false);
+select pg_temp.dml('a', pg_temp.fr_set(pg_temp.id('c'), pg_temp.id('a'), 'accepted'));
+select is(pg_temp.nt('c'), 0::bigint, '[condition 3] friends off: a Friend Request accepted creates nothing for the requester');
+select pg_temp.reset();
+select tests.fx_nt_pref(pg_temp.id('a'), 'shares', false);
+select set_config('t.so', pg_temp.post('a')::text, true);
+select pg_temp.dml('b', format($q$ insert into nestly.posts (audience, shared_post_id) values ('everyone', %L) $q$, current_setting('t.so')));
+select is(pg_temp.nt('a'), 0::bigint, '[condition 3] shares off: a share of my post creates nothing');
+select pg_temp.reset();
+select tests.fx_fr_add(pg_temp.id('a'), pg_temp.id('c'), 'accepted');
+select tests.fx_nt_follow(pg_temp.id('c'), pg_temp.id('a'), true);
+select tests.fx_nt_pref(pg_temp.id('c'), 'friend_posts', false);
+select pg_temp.post('a');
+select is(pg_temp.nt('c'), 0::bigint, '[condition 3] friend_posts off: a followed Friend''s post creates nothing');
+select tests.fx_nt_pref(pg_temp.id('c'), 'friend_posts', true);
+select pg_temp.post('a');
+select is(pg_temp.types('c'), 'friend_post', '[condition 3] (control) switched back on, it does');
+select pg_temp.reset();
+select tests.fx_nt_pref(pg_temp.id('a'), 'comments', false);
+select set_config('t.cp', pg_temp.post('a')::text, true);
+select pg_temp.dml('b', pg_temp.cm_sql(current_setting('t.cp')::uuid, 'x'));
+select is(pg_temp.nt('a'), 0::bigint, '[condition 3] comments off: neither a comment nor a reply creates anything');
+
+-- The eight policies that open older tables to the definers (rule 17): exactly these, TO app_owner only, permissive, each tied to its scope.
+select is(
+  (select string_agg(c.relname || '.' || pol.polname || '.' || pol.polcmd::text || '.' ||
+                     (select string_agg(r.rolname, '+') from pg_catalog.pg_roles r where r.oid = any (pol.polroles)) || '.' || pol.polpermissive::text
+                     || '.' || ((coalesce(pg_catalog.pg_get_expr(pol.polqual, pol.polrelid), '') || coalesce(pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid), '')) ~ '(notify_scope|search_scope)\(\)')::text, ', ' order by c.relname, pol.polname)
+     from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'nestly' and pol.polname in ('posts_select_notify', 'post_authors_select_notify', 'comments_select_notify', 'friendships_select_notify',
+          'users_select_search', 'regular_names_select_search', 'security_limits_select_search_people', 'security_events_insert_search')),
+  'comments.comments_select_notify.r.app_owner.true.true, friendships.friendships_select_notify.r.app_owner.true.true, post_authors.post_authors_select_notify.r.app_owner.true.true, '
+  || 'posts.posts_select_notify.r.app_owner.true.true, regular_names.regular_names_select_search.r.app_owner.true.true, security_events.security_events_insert_search.a.app_owner.true.true, '
+  || 'security_limits.security_limits_select_search_people.r.app_owner.true.true, users.users_select_search.r.app_owner.true.true',
+  '[rule 17 H2] the eight definer-scoped policies on older tables are exactly these: command, TO app_owner only, permissive, each opened by notify_scope() or search_scope()');
+select is(
+  (select pg_catalog.pg_get_expr(pol.polqual, pol.polrelid) ~ 'notify_scope\(\) AS notify_scope\) = ''post''::text' and pg_catalog.pg_get_expr(pol.polqual, pol.polrelid) ~ 'status = ''accepted''::text'
+     from pg_catalog.pg_policy pol where pol.polname = 'friendships_select_notify'),
+  true, '[rule 17 H2] the friendships policy opens only inside notify_post (scope = post) and only for accepted rows');
+select is(
+  (select pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid) ~ 'user_id = \( SELECT auth\.uid\(\)' and pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid) ~ 'people_search_limit'
+     from pg_catalog.pg_policy pol where pol.polname = 'security_events_insert_search'),
+  true, '[rule 17 H2] the Security event is written for the caller''s own account and only of the people_search_limit kind');
+select is(
+  (select pg_catalog.pg_get_expr(pol.polqual, pol.polrelid) ~ 'people_search' from pg_catalog.pg_policy pol where pol.polname = 'security_limits_select_search_people'),
+  true, '[rule 17 H2] only the people_search limit row is readable');
+
+
 -- ---- Intent Signal: search_intents (Afik 20.10.2026) -----------------------------------------------------------------------
 select pg_temp.reset();
 select is(pg_temp.dml('a', $q$ insert into nestly.search_intents (topic) values ('sleep') $q$), 'OK:1', '[intent FR-ALG-008] the searcher stores the topic of a search');
@@ -422,6 +502,33 @@ select is(tests.fx_si_count(pg_temp.id('a')), 0::bigint, '[intent] and it is gon
 select is(pg_temp.dml('a', $q$ insert into nestly.search_intents (topic) values ('sleep') $q$), 'OK:1', '[intent] a fresh row');
 select is(tests.fx_si_purge(), 0, '[intent] a row younger than 30 days stays');
 select is(tests.as_role('authenticated', tests.claims(pg_temp.id('a')), 'select nestly.purge_search_intents()::text'), 'ERR:42501', '[intent] a signed-in account cannot run the purge');
+select is(pg_temp.dml('p', $q$ insert into nestly.search_intents (topic) values ('sleep') $q$), 'OK:1', '[intent] a Professional stores a topic too');
+select is(pg_temp.dml('s', $q$ insert into nestly.search_intents (topic) values ('sleep') $q$), 'ERR:42501', '[intent platform r15] a suspended account stores none');
+select is(
+  (select string_agg(c.relname || ':' || c.relrowsecurity::text || ':' || c.relforcerowsecurity::text, ', ') from pg_catalog.pg_class c
+    where c.relnamespace = 'nestly'::regnamespace and c.relname = 'search_intents'),
+  'search_intents:true:true', '[intent platform r8] search_intents has RLS enabled and forced');
+select set_eq(
+  $$ select pol.polname || '.' || pol.polcmd::text || '.' || (select string_agg(r.rolname, '+' order by r.rolname) from pg_catalog.pg_roles r where r.oid = any (pol.polroles)) || '.' || pol.polpermissive::text
+       from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid where c.relname = 'search_intents' and c.relnamespace = 'nestly'::regnamespace $$,
+  $$ values ('search_intents_select_own.r.authenticated.true'), ('search_intents_insert_own.a.authenticated.true'),
+            ('search_intents_select_jobs.r.app_jobs.true'), ('search_intents_delete_jobs.d.app_jobs.true') $$,
+  '[intent platform r4 r6] the policies are exactly the owner read, the owner insert and the two 30-day policies of the job role');
+select is(
+  (select string_agg(p, ',' order by p) from unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE']) p
+    where has_table_privilege('app_jobs', (select oid from pg_catalog.pg_class where relname = 'search_intents' and relnamespace = 'nestly'::regnamespace), p)),
+  'DELETE,SELECT', '[intent platform r6] the job role may select and delete, never insert or update');
+select is(
+  (select string_agg(r.rolname, ',' order by r.rolname) from (values ('anon'), ('app_server'), ('service_role')) r(rolname)
+    where has_table_privilege(r.rolname, (select oid from pg_catalog.pg_class where relname = 'search_intents' and relnamespace = 'nestly'::regnamespace), 'SELECT,INSERT,UPDATE,DELETE')),
+  null, '[intent platform r7] anon, app_server and service_role hold nothing on it');
+select tests.fx_si_add(pg_temp.id('a'), 'sleep', interval '5 days');
+select tests.fx_si_add(pg_temp.id('b'), 'nutrition', interval '40 days');
+select is(tests.jobs_as($q$ select count(*)::text from nestly.search_intents $q$), '1', '[intent platform r6] the job role reads only rows older than 30 days (one of the three here)');
+select is(tests.jobs_dml($q$ delete from nestly.search_intents where topic = 'sleep' $q$), 'OK:0', '[intent platform r6] and cannot delete a younger row');
+select is(tests.jobs_dml($q$ insert into nestly.search_intents (user_id, topic) values (gen_random_uuid(), 'x') $q$), 'ERR:42501', '[intent platform r6] nor insert');
+select is(tests.jobs_dml($q$ update nestly.search_intents set topic = 'y' $q$), 'ERR:42501', '[intent platform r6] nor update');
+select is(tests.jobs_dml($q$ delete from nestly.search_intents where topic = 'nutrition' $q$), 'OK:1', '[intent platform r6] it deletes a row older than 30 days');
 
 select * from finish();
 

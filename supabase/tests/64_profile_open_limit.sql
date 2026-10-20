@@ -240,10 +240,18 @@ select is(
   || 'regular_names.r:app_owner:true, security_events.a:app_owner:true, security_limits.r:app_owner:true',
   '[F2.4-c c23] the seven new policies: SELECT on friendships, regular_names and the Configuration; SELECT, INSERT and UPDATE on the counts; INSERT on the events (no event SELECT, UPDATE or DELETE); all TO app_owner, permissive');
 select is(
+  (select string_agg(pol.polname, ', ' order by pol.polname)
+     from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'nestly' and c.relname in ('security_limits', 'profile_open_counts', 'security_events')),
+  'profile_open_counts_insert_profile_view, profile_open_counts_select_profile_view, profile_open_counts_update_profile_view, security_events_insert_profile_view, '
+  || 'security_events_insert_search, security_limits_select_profile_view, security_limits_select_search_people',
+  '[F2.4-c c23] the three closed tables carry exactly seven policies (five of profile_view, two of search_people - file 90), none for authenticated, anon or PUBLIC');
+select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'nestly' and c.relname in ('security_limits', 'profile_open_counts', 'security_events') and pol.polname like '%\_profile\_view'),
-  5::bigint,
-  '[F2.4-c c23] the three closed tables carry exactly five policies, none for authenticated, anon or PUBLIC');
+    where n.nspname = 'nestly' and c.relname in ('security_limits', 'profile_open_counts', 'security_events')
+      and pol.polroles <> array[(select oid from pg_catalog.pg_roles where rolname = 'app_owner')]::oid[]),
+  0::bigint,
+  '[F2.4-c c23] and all seven are TO app_owner only');
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and pol.polname like '%\_profile\_view'

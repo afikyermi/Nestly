@@ -31,7 +31,7 @@ select is(
     where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables())
       and pol.polname !~ '_(jobs|notify)$'
       and pol.polroles <> array[(select oid from pg_catalog.pg_roles where rolname = 'authenticated')]::oid[]),
-  0::bigint, '[F3.0-a c1 platform r4 · c5] every policy on the new tables is TO authenticated only (none for PUBLIC, anon, app_owner; F3.0b adds the *_jobs policies of the purge, file 73)');
+  0::bigint, '[F3.0-a c1 platform r4 · c5] every policy on the new tables is TO authenticated only (none for PUBLIC, anon, app_owner; F3.0b adds the *_jobs policies of the purge, file 73; the *_notify policies TO app_owner are asserted exactly in file 90)');
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
