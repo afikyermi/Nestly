@@ -146,6 +146,8 @@ begin
     raise exception 'tests.fx_cleanup_user: call it inside the test transaction';
   end if;
   delete from nestly.post_hides where user_id = p_id;
+  delete from nestly.tracker_events where user_id = p_id;
+  delete from nestly.cycle_entries where user_id = p_id;
   delete from nestly.posts
    where author_id = p_id or id in (select post_id from nestly.post_authors where author_id = p_id);
   delete from nestly.friendships where requester_id = p_id or addressee_id = p_id;

@@ -120,9 +120,9 @@ select is(
 select is(
   (select string_agg(c.relname, ', ' order by c.relname) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')),
-  'algorithm_configurations, children, comments, friendships, identity_link_checks, journey_contexts, legal_consents, post_authors, post_hides, posts, profile_open_counts, '
-  || 'reaction_owners, reactions, recovery_answers, recovery_events, recovery_throttles, regular_names, regular_profiles, reports, security_events, security_limits, users',
-  '[F3.0-a c17 F3.0-b c1] schema nestly holds exactly the fourteen earlier tables plus the schema.md and schema-b.md names (22): no events table');
+  'algorithm_configurations, children, comments, cycle_entries, friendships, identity_link_checks, journey_contexts, legal_consents, post_authors, post_hides, posts, profile_open_counts, '
+  || 'reaction_owners, reactions, recovery_answers, recovery_events, recovery_throttles, regular_names, regular_profiles, reports, security_events, security_limits, status_guides, tracker_events, users',
+  '[F3.0-a c17 F3.0-b c1] schema nestly holds exactly the fourteen earlier tables plus the schema.md and schema-b.md names (25, with I6''s cycle_entries, status_guides and tracker_events): no events table');
 
 select is(
   (select count(*) from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
