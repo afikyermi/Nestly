@@ -157,7 +157,7 @@ test.describe('professional-posting c11 [FR-FEED-002 3א] the own post page', ()
       await page.setViewportSize(viewport);
       await setupPosts(page, { posts: [proPost()], professional: true });
       await openPost(page, `/posts/${POST_ID}`);
-      await expect(main(page).getByText('שאלה על שינה')).toBeVisible();
+      await expect(main(page).getByText('שאלה על שינה')).toBeVisible({ timeout: 20_000 }); // the first visit in a worker compiles the post screen on the dev server (CI cold start)
       await expect(button(page, 'עריכה')).toHaveCount(0);
       await expect(button(page, 'מחיקה')).toHaveCount(0);
       await expect(main(page).getByText('מי יראה את הפוסט: כולם')).toBeVisible();

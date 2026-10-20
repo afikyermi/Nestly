@@ -6,6 +6,7 @@ import { EMAIL } from './support/journeys-stub';
 import { pageOf, range, setupFeed } from './support/feed-stub';
 import { MINE, POST_ID, setupPosts } from './support/posts-stub';
 import { bodyBox, feedCards, openFeedAt } from './support/composer';
+import { EDIT_ITEM, chooseFromPostMenu } from './support/post-menu';
 
 // Visual regression for a Professional's posting (.work/professional-posting/spec.md c13): the composer idle and engaged, and the own post's edit form, at phone
 // (375) and desktop (1024) against committed baselines, e2e/__screenshots__/<name>-<size>.png, made on Linux Chrome only (the `update-baselines` workflow); a
@@ -52,7 +53,7 @@ for (const { label, viewport } of SIZES) {
       await page.getByRole('button', { name: 'התחברות', exact: true }).click();
       await expect.poll(() => pathOf(page)).not.toBe('/login');
       await page.goto(`/posts/${POST_ID}`);
-      await page.getByRole('button', { name: 'עריכה', exact: true }).click();
+      await chooseFromPostMenu(page, EDIT_ITEM);
       await expect(page.getByRole('form', { name: 'עריכת פוסט' })).toBeVisible();
       await expect(page.getByText('הפוסט יוצג לכולם', { exact: true })).toBeVisible();
       await page.evaluate(() => document.fonts.ready.then(() => undefined));
