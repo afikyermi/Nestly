@@ -243,7 +243,7 @@ select is(
 select set_eq(
   $$ select c.relname::text from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'nestly' and c.relkind in ('r', 'p') and has_table_privilege('authenticated', c.oid, 'DELETE') $$,
-  $$ values ('children'), ('journey_contexts'), ('recovery_answers'), ('posts'), ('post_hides'), ('comments'), ('reactions'), ('tracker_events'), ('cycle_entries'), ('moderator_permissions'), ('user_blocks') $$,
+  $$ values ('children'), ('journey_contexts'), ('recovery_answers'), ('posts'), ('post_hides'), ('comments'), ('reactions'), ('tracker_events'), ('cycle_entries'), ('moderator_permissions') $$,
   '[F2.2-b c18 schema b2-5] authenticated holds table DELETE on exactly children, journey_contexts and recovery_answers (F2.0 D1) and, from F3.0a, posts and post_hides, from F3.0b comments and reactions, from I6 tracker_events and cycle_entries');
 select is(has_table_privilege('anon', pg_temp.rel(t.tbl), 'DELETE') or has_table_privilege('anon', pg_temp.rel(t.tbl), 'TRUNCATE')
           or has_table_privilege('authenticated', pg_temp.rel(t.tbl), 'TRUNCATE'), false,

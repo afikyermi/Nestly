@@ -24,6 +24,8 @@ begin
 end
 $$;
 
+drop trigger recovery_throttles_ladder_release_guard on nestly.recovery_throttles;
+drop function nestly.ladder_release_guard();
 drop table nestly.recovery_lock_releases;
 
 create or replace function nestly.audit_trigger()

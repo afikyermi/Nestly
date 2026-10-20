@@ -91,6 +91,12 @@ select is(pg_temp.rec('aa', $q$ with u as (update nestly.recovery_throttles set 
 select is(pg_temp.rec('bb', $q$ with u as (update nestly.recovery_throttles set ladder_failures = 0 where subject_kind = 'handle' returning 1) select 'OK:' || count(*) from u $q$),
   'OK:0', '[I4-rl c2] another declared handle cannot touch a''s row');
 
+select is(pg_temp.rec('aa', $q$ with u as (update nestly.recovery_throttles set ladder_failures = 0, is_locked_permanently = false, locked_until = null
+    where subject_kind = 'handle' returning 1) select 'OK:' || count(*) from u $q$),
+  'ERR:42501', '[I4-rl c2 FR-ADMIN-013] without a release nothing lifts the permanent lock (not even app_recovery)');
+select is(pg_temp.rec('aa', $q$ with u as (update nestly.recovery_throttles set ladder_failures = 3 where subject_kind = 'handle' returning 1) select 'OK:' || count(*) from u $q$),
+  'ERR:42501', '[I4-rl c2] nor lowers its count');
+
 -- ---- who may release ------------------------------------------------------------------------------------------------------
 select is(pg_temp.release('m3', 'a'), 'ERR:42501', '[I4-rl c3 AC-126] a Moderator holding all fourteen keys cannot release (RECOVERY_LOCK_RELEASE is the Admin''s)');
 select is(pg_temp.release('b', 'a'), 'ERR:42501', '[I4-rl c3 AC-126] a Regular account cannot release');
@@ -118,6 +124,11 @@ select is(pg_temp.rec('aa', $q$ with u as (update nestly.recovery_throttles set 
     limited_noted_until = null where subject_kind = 'handle' returning 1) select 'OK:' || count(*) from u $q$),
   'OK:1', '[I4-rl c5 AC-126] app_recovery applies the release: count zero, no lock');
 select is(tests.fx_recovery_answers_json(pg_temp.id('a')) <> '-', true, '[I4-rl c5 AC-126] the release changed nothing of the account''s answers (no access is given)');
+
+-- ---- the status guide audit still works with the replaced audit_trigger() (I6's branch kept) ---------------------------------
+select is(pg_temp.dml('d', $$ insert into nestly.status_guides (stage_kind, title, body, source) values ('planning', 'מדריך', 'גוף', 'מקור') $$), 'OK:1',
+  '[I4-rl c6] the Admin creates a status guide');
+select is(tests.fx_sf_audit('guide_created'), 1::bigint, '[I4-rl c6 rule 18] and it is audited: the guide branch of audit_trigger() survived the release branch');
 
 select * from finish();
 rollback;
