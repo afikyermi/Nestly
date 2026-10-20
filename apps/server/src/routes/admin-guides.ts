@@ -5,7 +5,7 @@
 //   POST { stageKind, rangeFrom, rangeTo, title, body, source, sourceCheckedOn } (strict) → 201 { saved:true }
 //   PUT  /:id the same fields + { status: draft | published | hidden } → 200 { saved:true } · 404 not_found (not a uuid: no query)
 //   400 { error:'invalid', reason } before any database work · 403 forbidden · 401/503 session guard · 500; other methods → 405.
-import { checkGuideCreate, checkGuideUpdate, trackerPathParams } from '@nestly/shared';
+import { checkGuideCreate, checkGuideUpdate, israelDay, trackerPathParams } from '@nestly/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
 import { createGuide, readGuides, saveGuide, type GuideOutcome } from '../services/guides-admin-service.js';
@@ -32,7 +32,7 @@ function send<T>(reply: FastifyReply, outcome: GuideOutcome<T>, status: 200 | 20
   }
 }
 
-const today = (deps: AdminGuidesDependencies): string => deps.clock().toISOString().slice(0, 10);
+const today = (deps: AdminGuidesDependencies): string => israelDay(deps.clock());
 
 async function list(request: FastifyRequest, reply: FastifyReply, deps: AdminGuidesDependencies) {
   reply.header('cache-control', 'no-store');

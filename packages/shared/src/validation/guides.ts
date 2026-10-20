@@ -1,5 +1,5 @@
 // The Admin's guide writes (FR-ADMIN-012, BR-070). The body is strict: no id, no published_at, no actor. Publishing needs the date the
-// sources were checked; the database repeats that (status_guides_published_check). Judged against the server's date.
+// sources were checked; the database repeats that (status_guides_published_check). Judged against today in Israel (the server's israelDay).
 import { z } from 'zod';
 import { GUIDE_STAGE_KINDS, GUIDE_STATUSES, type GuideStageKind, type GuideStatus } from '../constants/trackers.js';
 import { isIsoDay } from '../tracking/time.js';
@@ -66,12 +66,12 @@ function check(parsed: z.ZodSafeParseResult<GuideValue & { status?: GuideStatus 
   return { ok: true, value: { ...value, title, body, source }, status: status ?? null };
 }
 
-/** POST /api/admin/guides: a new guide (always a draft). `today` is YYYY-MM-DD. */
+/** POST /api/guides/manage: a new guide (always a draft). `today` is YYYY-MM-DD. */
 export function checkGuideCreate(body: unknown, today: string): GuideWriteCheck {
   return check(createSchema.safeParse(body), today);
 }
 
-/** PUT /api/admin/guides/:id: the fields and the status (draft, published or hidden). */
+/** PUT /api/guides/manage/:id: the fields and the status (draft, published or hidden). */
 export function checkGuideUpdate(body: unknown, today: string): GuideWriteCheck {
   return check(updateSchema.safeParse(body), today);
 }
