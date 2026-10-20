@@ -125,7 +125,7 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         // F3.0a: a user's hides, then their comments (replies go with them), then every post they wrote; the cascade takes others'
         // hides, likes and separation rows, and others' shares of a deleted post keep their row (SET NULL).
         // I5: the user's Stories and profile photo, then every image they uploaded (an image of another user's post cannot exist; staff
-        // decisions on others' images keep their row: decided_by is SET NULL). media_training_samples names no user and is never written here.
+        // decisions on others' images keep their row: decided_by is SET NULL). media_training_samples and media_training_events name no user and are never written here.
         // The files in storage are not deleted here: the daily job removes files that have no row.
         counts['stories'] = (await tx`delete from nestly.stories where author_id = ${id}`).count;
         counts['profile_photos'] = (await tx`delete from nestly.profile_photos where user_id = ${id}`).count;

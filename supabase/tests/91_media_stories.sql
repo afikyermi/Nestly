@@ -38,6 +38,7 @@ select is(has_column_privilege('authenticated', 'nestly.media_assets', 'owner_id
 select is(has_column_privilege('authenticated', 'nestly.media_assets', 'status', 'INSERT'), false, '[AC-105] an upload cannot choose its status');
 select is(has_column_privilege('authenticated', 'nestly.media_assets', 'check_attempts', 'SELECT'), false, '[I5] the check counters are not readable');
 select is(has_table_privilege('authenticated', 'nestly.media_training_samples', 'INSERT'), false, '[Afik 20.10] no client adds a training sample');
+select is(has_any_column_privilege('authenticated', 'nestly.media_training_samples', 'SELECT'), false, '[Afik 20.10] no client reads the training set: no manual viewing');
 select is(has_table_privilege('authenticated', 'nestly.media_training_samples', 'DELETE'), false, '[Afik 20.10] no client deletes one');
 select is(has_table_privilege('anon', 'nestly.media_assets', 'SELECT'), false, '[rule 7] anon reaches no image row');
 
@@ -123,8 +124,8 @@ select is(pg_temp.dml('m3', format('update nestly.media_assets set status = ''ap
 select is(pg_temp.n('m3', pg_temp.m((select v from img where k = 'q1')) || ' and decided_at is not null and is_child'), '1', '[Afik 20.10] the decision and the mark are kept');
 select is(pg_temp.n('b', pg_temp.m((select v from img where k = 'q1'))), '0', '[Afik 20.10] approved but not attached to a post: still nobody else');
 select is(tests.fx_sf_audit('media_approved'), 1::bigint, '[BR-026] the decision is in the Audit Log');
-select is((select (after_state->>'trainingSet') || ':' || (after_state->>'isChild') from tests.fx_audit_rows() where action = 'media_approved'), 'false:true',
-  '[Afik 20.10] an image marked with a child is recorded as never entering the training set');
+select is((select (after_state->>'trainingSet') || ':' || (after_state->>'isChild') from tests.fx_audit_rows() where action = 'media_approved'), 'true:true',
+  '[Afik 20.10] an image marked with a child still enters the training set (recorded with the decision)');
 select is(pg_temp.dml('d', format('update nestly.media_assets set status = ''rejected'' where id = %L', (select v from img where k = 'q2'))), 'OK:1', '[Afik 20.10] the Admin rejects');
 select is(pg_temp.n('a', pg_temp.m((select v from img where k = 'q2')) || ' and status = ''rejected'''), '1', '[ERR-041] the uploader learns it was rejected');
 select is((select after_state->>'trainingSet' from tests.fx_audit_rows() where action = 'media_rejected'), 'true', '[Afik 20.10] a rejected blocked image may enter the training set');
@@ -143,24 +144,38 @@ select tests.set_status(pg_temp.id('m3'), 'suspended');
 select is(pg_temp.dml('m3', format('update nestly.media_assets set status = ''approved'' where id = %L', (select v from img where k = 'q4'))), 'OK:0', '[rule 15] a suspended Moderator decides nothing');
 select tests.set_status(pg_temp.id('m3'), 'active');
 
--- ---- the training set (Afik 20.10: blocked images + the decision; never a child, never suspected) ----------------------------
-select is(pg_temp.job(format($q$ insert into nestly.media_training_samples (source_media_id, label, queue_reason, mime, decided_at)
-  select id, 'blocked', 'blocked', mime, decided_at from nestly.media_assets where id = %L $q$, (select v from img where k = 'q2'))), 'OK:1',
-  '[Afik 20.10] the job adds a rejected blocked image to the training set');
-select is(pg_temp.job(format($q$ insert into nestly.media_training_samples (source_media_id, label, queue_reason, mime, decided_at)
-  select id, 'allowed', 'blocked', mime, decided_at from nestly.media_assets where id = %L $q$, (select v from img where k = 'q1'))), 'ERR:42501',
-  '[Afik 20.10] never an image marked "a child is in the image", even approved');
-select is(pg_temp.job(format($q$ insert into nestly.media_training_samples (source_media_id, label, queue_reason, mime, decided_at)
-  select id, 'blocked', 'blocked', mime, decided_at from nestly.media_assets where id = %L $q$, (select v from img where k = 'q3'))), 'ERR:42501',
-  '[Afik 20.10 M6] never a suspected image');
-select is(pg_temp.job(format($q$ insert into nestly.media_training_samples (source_media_id, label, queue_reason, mime, decided_at)
-  select id, 'allowed', 'blocked', mime, decided_at from nestly.media_assets where id = %L $q$, (select v from img where k = 'a1'))), 'ERR:42501',
-  '[Afik 20.10] never an image the model passed (no decision)');
+-- ---- the training set (Afik 20.10.2026: blocked images, children included, with the decision; reported misses; never suspected) ------
+create function pg_temp.sample(p_img text, p_label text, p_source text) returns text language sql as $f$
+  select pg_temp.job(format($q$ insert into nestly.media_training_samples (source_media_id, label, source, is_child, mime, decided_at)
+    select id, %L, %L, is_child, mime, case when %L = 'reported' then null else decided_at end from nestly.media_assets where id = %L $q$, p_label, p_source, p_source, p_img))
+$f$;
+select is(pg_temp.job(format('update nestly.media_assets set is_file_removed = true where id = %L', (select v from img where k = 'q2'))), 'OK:0',
+  '[Afik 20.10] a rejected blocked image keeps its file until its training copy exists');
+select is(pg_temp.sample((select v from img where k = 'q2'), 'blocked', 'blocked'), 'OK:1', '[Afik 20.10] the job adds a rejected blocked image to the training set');
+select is(pg_temp.job(format('update nestly.media_assets set is_file_removed = true where id = %L', (select v from img where k = 'q2'))), 'OK:1',
+  '[Afik 20.10] then the rejected image''s file is removed at once');
+select is(pg_temp.n('a', pg_temp.m((select v from img where k = 'q2')) || ' and status = ''rejected'''), '1', '[ERR-041] the uploader still learns it was rejected (the row stays, without a file)');
+select is(pg_temp.job(format('update nestly.media_assets set is_file_removed = false where id = %L', (select v from img where k = 'q2'))), 'OK:0', '[Afik 20.10] a removed file is never put back');
+select is(pg_temp.job(format('update nestly.media_assets set is_file_removed = true where id = %L', (select v from img where k = 'a2'))), 'ERR:42501', '[Afik 20.10] only a rejected image''s file is marked removed');
+select is(pg_temp.sample((select v from img where k = 'q1'), 'allowed', 'blocked'), 'OK:1',
+  '[Afik 20.10] an approved image marked "a child is in the image" enters the training set too (the mark is kept as metadata)');
+select is(pg_temp.sample((select v from img where k = 'q3'), 'blocked', 'blocked'), 'ERR:42501', '[Afik 20.10 M6] never a suspected image');
+select is(pg_temp.sample((select v from img where k = 'a1'), 'allowed', 'blocked'), 'ERR:42501', '[Afik 20.10] never an image the model passed and no one removed');
+select is(pg_temp.sample((select v from img where k = 'q4'), 'blocked', 'unsure'), 'ERR:42501', '[Afik 20.10] never an image staff have not decided yet');
+select tests.fx_po_status((select v from po where k = 'a_ev'), 'removed');
+select is(pg_temp.sample((select v from img where k = 'a1'), 'blocked', 'reported'), 'OK:1',
+  '[Afik 20.10] a passed image whose post was removed after a report (a model miss) enters the training set');
+select is(pg_temp.sample((select v from img where k = 'a3'), 'blocked', 'reported'), 'ERR:42501', '[Afik 20.10] not the image of a post that was not removed');
+select is(tests.jobs_as($$ select count(*)::text from nestly.media_training_samples where expires_at between now() + interval '5 months' and now() + interval '7 months' $$), '3',
+  '[Afik 20.10] a sample expires after 6 months by default');
 select is(pg_temp.job('delete from nestly.media_training_samples'), 'OK:0', '[Afik 20.10] the job deletes only expired samples');
-select is(pg_temp.n('d', 'nestly.media_training_samples'), '1', '[Afik 20.10] the Admin reads the training set''s index');
-select is(pg_temp.n('m3', 'nestly.media_training_samples'), '0', '[§3.2 ALGORITHM_AI_CONFIG] a Moderator with CONTENT_MODERATE does not');
-select is(pg_temp.n('a', 'nestly.media_training_samples'), '0', '[Afik 20.10] nor any user');
-select is(pg_temp.dml('d', $$ delete from nestly.media_training_samples $$), 'ERR:42501', '[Afik 20.10] the Admin deletes nothing by hand (expiry only)');
+select is(pg_temp.dml('d', 'select count(*) from nestly.media_training_samples'), 'ERR:42501', '[Afik 20.10] no manual viewing: not even the Admin reads the training set');
+select is(pg_temp.dml('m3', 'select count(*) from nestly.media_training_samples'), 'ERR:42501', '[Afik 20.10] nor a Moderator');
+select is(pg_temp.dml('a', 'select count(*) from nestly.media_training_samples'), 'ERR:42501', '[Afik 20.10] nor any user');
+select is(pg_temp.n('d', 'nestly.media_training_events where action = ''added'''), '3', '[Afik 20.10] every addition is in the access record, which the Admin reads');
+select is(pg_temp.n('m3', 'nestly.media_training_events'), '0', '[§3.2] a Moderator without AUDIT_LOG_VIEW reads no access record');
+select is(pg_temp.dml('d', 'delete from nestly.media_training_events'), 'ERR:42501', '[Afik 20.10] nobody deletes the access record');
+select is(pg_temp.job('delete from nestly.media_training_events'), 'ERR:42501', '[Afik 20.10] not even the job');
 
 -- ---- profile photos (FR-PROFILE-001, BR-077) -----------------------------------------------------------------------------------
 insert into img values ('pa1', pg_temp.up('a', 'profile')), ('pa2', pg_temp.up('a', 'profile')), ('pb1', pg_temp.up('b', 'profile')), ('pp1', pg_temp.up('p', 'profile'));
