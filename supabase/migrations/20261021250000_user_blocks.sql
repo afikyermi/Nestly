@@ -163,12 +163,12 @@ create policy user_blocks_update_blocker on nestly.user_blocks
 create policy posts_block_hide on nestly.posts
   as restrictive for select to authenticated
   using (author_id is null or author_id = (select auth.uid()) or (select nestly.has_permission('REPORTS_VIEW'))
-    or author_id <> all ((select nestly.block_peer_ids())));
+    or author_id <> all (coalesce((select nestly.block_peer_ids()), '{}'::uuid[])));
 
 create policy comments_block_hide on nestly.comments
   as restrictive for select to authenticated
   using (author_id is null or author_id = (select auth.uid()) or (select nestly.has_permission('REPORTS_VIEW'))
-    or author_id <> all ((select nestly.block_peer_ids())));
+    or author_id <> all (coalesce((select nestly.block_peer_ids()), '{}'::uuid[])));
 
 -- The blocker reads the names of the accounts it blocked (its blocked list, to unblock); nothing else of them.
 create policy regular_names_select_blocker on nestly.regular_names
@@ -179,26 +179,28 @@ create policy regular_names_select_blocker on nestly.regular_names
 
 create policy regular_names_block_hide on nestly.regular_names
   as restrictive for select to authenticated
-  using (user_id = (select auth.uid()) or user_id <> all ((select nestly.block_peer_ids()))
+  using (user_id = (select auth.uid()) or user_id <> all (coalesce((select nestly.block_peer_ids()), '{}'::uuid[]))
     or user_id::text = pg_catalog.current_setting('nestly.reveal_user', true)
-    or exists (select 1 from nestly.user_blocks b
-                where b.blocker_id = (select auth.uid()) and b.blocked_id = regular_names.user_id and b.lifted_at is null)
+    or (coalesce(pg_catalog.current_setting('nestly.search_scope', true), '') = ''
+        and coalesce(pg_catalog.current_setting('nestly.profile_view_target', true), '') = ''
+        and exists (select 1 from nestly.user_blocks b
+                     where b.blocker_id = (select auth.uid()) and b.blocked_id = regular_names.user_id and b.lifted_at is null))
     or (pg_catalog.current_setting('nestly.staff_view', true) = 'on'
         and ((select nestly.has_permission('USER_VIEW')) or (select nestly.has_permission('REPORTS_VIEW')))));
 
 create policy regular_profiles_block_hide on nestly.regular_profiles
   as restrictive for select to authenticated
-  using (user_id = (select auth.uid()) or user_id <> all ((select nestly.block_peer_ids())));
+  using (user_id = (select auth.uid()) or user_id <> all (coalesce((select nestly.block_peer_ids()), '{}'::uuid[])));
 
 -- No Friend Request across a block; a request already there can still end (decline, cancel, remove), never open or accept.
 create policy friendships_block_insert on nestly.friendships
   as restrictive for insert to authenticated
-  with check (addressee_id <> all ((select nestly.block_peer_ids())));
+  with check (addressee_id <> all (coalesce((select nestly.block_peer_ids()), '{}'::uuid[])));
 
 create policy friendships_block_update on nestly.friendships
   as restrictive for update to authenticated
   with check (status in ('removed', 'declined') or cancelled_at is not null
-    or (case when requester_id = (select auth.uid()) then addressee_id else requester_id end) <> all ((select nestly.block_peer_ids())));
+    or (case when requester_id = (select auth.uid()) then addressee_id else requester_id end) <> all (coalesce((select nestly.block_peer_ids()), '{}'::uuid[])));
 
 -- A notification never passes across a block (either direction). notify_deliver is the SECURITY INVOKER helper the notification definers
 -- run (every actor they pass is the caller or NULL); the definers themselves are unchanged. Identical to the I7 body but for the block check.
@@ -236,7 +238,7 @@ comment on column nestly.user_blocks.id is 'Row id.';
 comment on column nestly.user_blocks.blocker_id is 'Who blocked; the caller on insert.';
 comment on column nestly.user_blocks.blocked_id is 'Who was blocked: an active Regular or Professional account (the two foreign keys), never staff.';
 comment on column nestly.user_blocks.blocked_account_type is 'The blocked account''s type, regular or professional; with blocked_id a foreign key to users (id, account_type).';
-comment on column nestly.user_blocks.blocked_status is 'The blocked account''s status: active at the block (default, never granted; the foreign key proves it), then kept by the cascade.';
+comment on column nestly.user_blocks.blocked_status is 'The blocked account''s status: active at the block (the default; no INSERT or UPDATE grant, the foreign key proves it), then kept by the cascade.';
 comment on column nestly.user_blocks.created_at is 'When the block was made; counts toward the daily limit.';
 comment on column nestly.user_blocks.lifted_at is 'When the blocker unblocked; set once by the database. NULL while the block is in force.';
 comment on index nestly.user_blocks_active_pair_key is 'One block in force per pair and direction.';
@@ -252,7 +254,7 @@ comment on policy user_blocks_update_blocker on nestly.user_blocks is 'Only the 
 comment on policy posts_block_hide on nestly.posts is 'RESTRICTIVE: a post of the other party of a block is hidden, both ways; never from REPORTS_VIEW (a block cannot shield content from moderation). An anonymous post cannot be hidden.';
 comment on policy comments_block_hide on nestly.comments is 'RESTRICTIVE: a comment of the other party of a block is hidden, both ways; never from REPORTS_VIEW.';
 comment on policy regular_names_select_blocker on nestly.regular_names is 'The blocker reads the names of the accounts it blocked (the blocked list in Settings, to unblock).';
-comment on policy regular_names_block_hide on nestly.regular_names is 'RESTRICTIVE: the other party''s name is hidden, both ways (search_people and profile_view included); not from the blocker''s own blocked list, staff on the admin screens, or the audited reveal.';
+comment on policy regular_names_block_hide on nestly.regular_names is 'RESTRICTIVE: the other party''s name is hidden, both ways (search_people and profile_view included); not from the blocker''s own blocked list (outside People Search and profile_view), staff on the admin screens, or the audited reveal.';
 comment on policy regular_profiles_block_hide on nestly.regular_profiles is 'RESTRICTIVE: profile_view does not open the profile of the other party of a block.';
 comment on policy friendships_block_insert on nestly.friendships is 'RESTRICTIVE: no Friend Request across a block.';
 comment on policy friendships_block_update on nestly.friendships is 'RESTRICTIVE: across a block a request or Friendship can only end, never open or be accepted.';
