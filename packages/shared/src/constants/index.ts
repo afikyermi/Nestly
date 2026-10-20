@@ -10,3 +10,4 @@ export * from './medical-hotlines.js';
 export * from './reports.js';
 export * from './admin.js';
 export * from './trackers.js';
+export * from './chat.js';
