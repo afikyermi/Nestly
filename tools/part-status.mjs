@@ -13,7 +13,7 @@ import { CANDIDATE_PREFIX, deploys } from './vercel-branch-policy.mjs';
 const CI_NAMES = ['changes', 'typecheck', 'lint', 'test', 'build', 'schema-gate'];
 // P1.1: the only jobs ci.yml's `changes` filter may skip (their `if` reads needs.changes). Never a CI_NAMES or required
 // job: a PR could add `if: false` to its own copy of ci.yml (CRITIC P1.1 F1).
-const FILTER_SKIPPABLE = ['storybook', 'browser', 'browser-edge', 'db'];
+const FILTER_SKIPPABLE = ['storybook', 'browser', 'browser-changed', 'browser-edge', 'db'];
 // P1.1: files that build, migrate or test nothing in a Preview. E is waived only when EVERY changed file is one of these
 // (an allow-list; anything else, config included, still needs E — CRITIC P1.1 F4). Preview and Vercel tools excluded.
 export const NO_PREVIEW_FILE = /^(?:\.work\/|\.claude\/|docs\/|archive\/|decisions\/|\.githooks\/|[^/]+\.md$|tools\/(?![^/]*(?:preview|vercel|migrate))[^/]+$|\.github\/workflows\/(?![^/]*(?:preview|migrate))[^/]+$)/i;

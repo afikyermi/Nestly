@@ -1,22 +1,34 @@
-# preview-e2e - walks a flow against every successful Vercel Preview deployment (Afik, 16.10.2026: automated Preview
-# E2E; .work/preview-e2e/spec.md). Real Supabase Auth, the real server and the deployed web app, on Chrome at 375x812
-# and 1280x800.
+# preview-e2e - walks the flows against a Vercel Preview deployment of main, nightly and by hand (Afik, 16.10.2026:
+# automated Preview E2E; 20.10.2026: nightly instead of every deployment). Real Supabase Auth, the real server and the
+# deployed web app, on Chrome at 375x812 and 1280x800. Never against Production.
 #
-# Trigger: deployment_status only; the job runs when the state is success, the environment is Preview and the status
-# was posted by vercel[bot]. The result is this run's own check on the deployment sha (Gate 1 amendment A3); no extra
-# permission until a real run shows it missing from the pull request.
+# Triggers: schedule (nightly at 22:47 UTC, after the nightly CI run) and workflow_dispatch, from the default branch only.
+# Not on every push to main: each run may cost a Vercel deployment.
 #
-# Secrets: the Vercel bypass secret is in the env of the one step that sends it. The deployment URL reaches the guard
-# through env, is checked before anything else runs, and the Playwright step receives only the checked URL. The flows
-# get only a generated user and that URL; the bypass goes to the deployment host only (e2e-preview/support/bypass.ts).
+# How the Preview is found: main deploys as Production, and Vercel builds a Preview only for ready/** branches
+# (vercel.json). Job `deployment` takes main's tip and fast-forwards ready/nightly to it (a plain push with the default
+# GITHUB_TOKEN, never forced; a rejected push fails the run). If ready/nightly is already at that commit, nothing is
+# pushed and that commit's existing Preview deployment is used. It then polls the deployments API for a deployment of
+# that commit with environment Preview, created by vercel[bot], whose latest status is success, for up to 15 minutes.
+# Only this job can write (contents: write, to push the branch; deployments: read); it runs git and gh only, no code
+# from the repository.
 #
-# Cleanup (DR-E1, Afik 17.10.2026, option 1) is NOT here: .github/workflows/preview-e2e-cleanup.yml runs after this workflow
-# (workflow_run, the default branch's code). This job holds no environment and never sees PREVIEW_DB_ADMIN_URL.
+# Job `e2e` (check name preview-e2e) checks out that commit with a read-only token. The deployment URL reaches the guard
+# (tools/preview-e2e-url-guard.ts) through env and is checked before anything else runs: only a unique Preview
+# deployment host is accepted. The Playwright step receives only the checked URL. The Vercel bypass secret is in the env
+# of that one step; the flows get only a generated user and that URL, and the bypass goes to the deployment host only
+# (e2e-preview/support/bypass.ts).
+#
+# Cleanup is NOT here: .github/workflows/preview-e2e-cleanup.yml runs after this workflow completes (workflow_run, the
+# default branch's code). This workflow holds no environment and never sees PREVIEW_DB_ADMIN_URL.
 
 name: preview-e2e
 
 on:
-  deployment_status:
+  # Nightly at 22:47 UTC (about 01:47 in Israel).
+  schedule:
+    - cron: '47 22 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -26,15 +38,119 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  deployment:
+    name: preview-deployment
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      deployments: read
+    outputs:
+      sha: ${{ steps.candidate.outputs.sha }}
+      target_url: ${{ steps.wait.outputs.target_url }}
+    steps:
+      # Full history, so a fast-forward of ready/nightly can be checked. The token stays in the checkout for the push;
+      # this job runs no repository code.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Fast-forward ready/nightly to main
+        id: candidate
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          # `case` tests the whole value (grep would test line by line).
+          case "${sha}" in
+            *[!0-9a-f]*|'') echo "::error::main's commit id could not be read"; exit 1 ;;
+          esac
+          if [ "${#sha}" -ne 40 ]; then
+            echo "::error::main's commit id could not be read"
+            exit 1
+          fi
+          echo "sha=${sha}" >> "${GITHUB_OUTPUT}"
+          current="$(git ls-remote origin refs/heads/ready/nightly | cut -f1)"
+          if [ "${current}" = "${sha}" ]; then
+            echo "ready/nightly is already at main (${sha}): nothing pushed, that commit's Preview deployment is used"
+            exit 0
+          fi
+          if [ -n "${current}" ]; then
+            git fetch --no-tags origin refs/heads/ready/nightly
+            if ! git merge-base --is-ancestor "${current}" "${sha}"; then
+              echo "::error::ready/nightly (${current}) is not an ancestor of main (${sha}), so it cannot be fast-forwarded. It is never force-pushed: delete the branch by hand, then run this workflow again."
+              exit 1
+            fi
+          fi
+          # A plain push: GitHub refuses it unless it is a fast-forward (or creates the branch). Never forced.
+          if ! git push origin "${sha}:refs/heads/ready/nightly"; then
+            echo "::error::the push to ready/nightly was rejected (not a fast-forward, or a branch rule). It is never force-pushed: delete the branch by hand, then run this workflow again."
+            exit 1
+          fi
+          echo "ready/nightly now points at ${sha}"
+      - name: Wait for the Preview deployment of that commit
+        id: wait
+        timeout-minutes: 17
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.candidate.outputs.sha }}
+        run: |
+          set -euo pipefail
+          case "${SHA}" in
+            *[!0-9a-f]*|'') echo "::error::no commit id to look for"; exit 1 ;;
+          esac
+          if [ "${#SHA}" -ne 40 ]; then
+            echo "::error::no commit id to look for"
+            exit 1
+          fi
+          # Preview only, by vercel[bot], for this exact commit: main's own deployment of the same commit is Production
+          # and never matches. The API filters by query, and the same conditions are checked again on each row.
+          select=".[] | select(.sha == \"${SHA}\" and .environment == \"Preview\" and .production_environment != true and .creator.login == \"vercel[bot]\") | .id"
+          deadline=$(( $(date +%s) + 15 * 60 ))
+          while :; do
+            if ! ids="$(gh api -X GET "repos/${GITHUB_REPOSITORY}/deployments" -f sha="${SHA}" -f environment=Preview -f per_page=30 --jq "${select}")"; then
+              echo "::warning::the deployments API did not answer; trying again"
+              ids=""
+            fi
+            url=""
+            for id in ${ids}; do
+              case "${id}" in *[!0-9]*|'') continue ;; esac
+              # Statuses come newest first: the deployment counts only when its latest status is success.
+              if ! found="$(gh api "repos/${GITHUB_REPOSITORY}/deployments/${id}/statuses?per_page=1" --jq '.[0] | select(.state == "success") | (.target_url // .environment_url // "")')"; then
+                found=""
+              fi
+              if [ -n "${found}" ]; then
+                url="${found}"
+                break
+              fi
+            done
+            if [ -n "${url}" ]; then
+              # A coarse character check of the whole value (no newline, no space), so it cannot break the output file;
+              # the e2e job's guard decides whether it is a Preview deployment host.
+              case "${url}" in
+                *[!A-Za-z0-9:/._-]*) echo "::error::the deployment URL has unexpected characters"; exit 1 ;;
+              esac
+              echo "target_url=${url}" >> "${GITHUB_OUTPUT}"
+              echo "found a successful Preview deployment of ${SHA} by vercel[bot]"
+              exit 0
+            fi
+            if [ "$(date +%s)" -ge "${deadline}" ]; then
+              echo "::error::no successful Preview deployment by vercel[bot] for ${SHA} within 15 minutes"
+              exit 1
+            fi
+            sleep 20
+          done
+
   e2e:
     name: preview-e2e
-    if: github.event.deployment_status.state == 'success' && github.event.deployment_status.environment == 'Preview' && github.event.deployment_status.creator.login == 'vercel[bot]'
+    needs: deployment
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.deployment.sha }}
+          ref: ${{ needs.deployment.outputs.sha }}
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
@@ -43,7 +159,7 @@ jobs:
       - name: Check the deployment URL
         id: guard
         env:
-          TARGET_URL: ${{ github.event.deployment_status.target_url }}
+          TARGET_URL: ${{ needs.deployment.outputs.target_url }}
         run: node tools/preview-e2e-url-guard.ts
       - run: npm ci
       - run: npx playwright install --with-deps chrome
