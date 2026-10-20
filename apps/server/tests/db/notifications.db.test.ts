@@ -217,8 +217,15 @@ describe('[FR-SEARCH-001 AC-039 AC-065 AC-078] search', () => {
     expect(text).not.toContain(encodeURIComponent('zqxmarker'));
   });
 
+  // B's searches in the earlier tests stored their topics (one per topic and day): start from none, so the ranking and the count are this test's.
+  const clearIntents = async (): Promise<void> => {
+    await side`select tests.fx_si_age(${ACCOUNT_B}::uuid, interval '31 days')`;
+    await side`select tests.fx_si_purge()`;
+  };
+
   it('[FR-ALG-008 Afik 20.10.2026] after a search, a post matching its topic ranks up in the searcher\'s feed (and only theirs)', T, async () => {
     const app = await start();
+    await clearIntents();
     const ids = (body: string): string[] => z.object({ items: z.array(z.object({ id: z.string() })) }).parse(JSON.parse(body)).items.map((i) => i.id);
     const sleepPost = String(jsonOf((await createPost(app, hA, { body: 'מחפשת יועצת שינה לתינוק בן חצי שנה', audience: 'everyone' })).body).id);
     const plainPost = String(jsonOf((await createPost(app, hA, { body: 'בוקר טוב לכולן', audience: 'everyone' })).body).id);
@@ -259,6 +266,7 @@ describe('[FR-SEARCH-001 AC-039 AC-065 AC-078] search', () => {
   it('a Moderator is refused (403); the typed text is never stored, only the detected topic, for 30 days', T, async () => {
     const app = await start();
     expect((await find(app, hM, 'alice')).statusCode).toBe(403);
+    await clearIntents();
     const before = await side`select tests.fx_si_count(${ACCOUNT_B}::uuid) as n`;
     await find(app, hB, 'יועצת שינה לתינוק');
     await find(app, hB, 'alice');

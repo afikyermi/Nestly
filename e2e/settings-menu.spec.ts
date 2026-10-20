@@ -129,7 +129,7 @@ test.describe('F2.5 c2 [FR-SET-001 FR-MENU-001] each menu section opens Settings
       await expect(h2(page, name)).toBeFocused();
       addresses.push(page.url());
     }
-    expect(new Set(addresses).size, `three different addresses: ${addresses.join(' ')}`).toBe(3);
+    expect(new Set(addresses).size, `four different addresses: ${addresses.join(' ')}`).toBe(SECTIONS.length);
   });
 
   test('[F2.5 c2] reloading a section address shows the same section; back returns to the previous screen', async ({ page }) => {

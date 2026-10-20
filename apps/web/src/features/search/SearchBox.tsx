@@ -75,7 +75,6 @@ export function SearchBox() {
           value={text}
           autoComplete="off"
           aria-controls={open ? panelId : undefined}
-          aria-expanded={open}
           onFocus={() => setFocused(true)}
           onChange={(event) => setText(event.target.value)}
           className={cn(inputStyles, "min-h-11 w-64 lg:w-80")}

@@ -9,6 +9,9 @@ import { COMMENT, REQUEST, setupNotifications } from './support/notifications-st
 
 test.use({ baseURL: APP, viewport: DESKTOP_1280 });
 
+/** The Notification Settings section (the Settings page also holds "פרטיות ואבטחה" and the privacy section's own alerts). */
+const section = (page: Page) => page.locator('[data-settings-section="notifications"]');
+
 async function signIn(page: Page): Promise<void> {
   await page.goto('/login');
   await page.getByRole('textbox', { name: 'אימייל', exact: true }).fill(EMAIL);
@@ -51,9 +54,9 @@ test.describe('[AC-040 PG-018] the notifications page', () => {
     await expect.poll(() => pathOf(page)).toBe('/notifications');
     await expect(page.getByRole('heading', { name: 'התראות', level: 1 })).toBeVisible();
     await expect(main(page).getByRole('link')).toHaveCount(3);
-    await expect(main(page).getByText('חדשה')).toHaveCount(2);
+    await expect(main(page).getByText('חדשה', { exact: true })).toHaveCount(2);
     await main(page).getByRole('button', { name: 'סימון הכול כנקרא' }).click();
-    await expect(main(page).getByText('חדשה')).toHaveCount(0);
+    await expect(main(page).getByText('חדשה', { exact: true })).toHaveCount(0);
     expect(net.writes.map((w) => w.path)).toContain('/api/notifications/read-all');
   });
 
@@ -81,8 +84,9 @@ test.describe('[AC-041 FR-NOTIF-002] the notification settings', () => {
     await expect(follow).toBeChecked();
     expect(net.writes.map((w) => w.path)).toContain('/api/notification-preferences/friends/d0000000-0000-4000-8000-000000000013');
     net.write = 500;
-    await comments.check();
-    await expect(main(page).getByRole('alert')).toContainText('לא הצלחנו לשמור');
+    // a click, not check(): the switch turns on and goes back once the save fails, so check() could not see it stay on
+    await comments.click();
+    await expect(section(page).getByRole('alert')).toContainText('לא הצלחנו לשמור');
     await expect(comments).not.toBeChecked();
   });
 
@@ -90,7 +94,7 @@ test.describe('[AC-041 FR-NOTIF-002] the notification settings', () => {
     await setupNotifications(page);
     await signIn(page);
     await page.goto('/settings#notifications');
-    await expect(page.getByRole('checkbox')).toHaveCount(5);
-    await expect(main(page).getByText(/push|פוש|אבטחה/i)).toHaveCount(0);
+    await expect(section(page).getByRole('checkbox')).toHaveCount(5);
+    await expect(section(page).getByText(/push|פוש|אבטחה/i)).toHaveCount(0);
   });
 });
