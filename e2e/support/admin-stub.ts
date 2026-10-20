@@ -130,9 +130,9 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
         },
         // The child-safety post's oldest report has another reason: the ban must cite the child-safety one (AC-110).
         reports: [
-          { id: ID(8), status: 'open', reason: 'spam', reasonLabel: 'ספאם או פרסום לא קשור', details: null, copiedText: 'טקסט הפוסט שדווח', createdAt: '2026-06-13T09:00:00.000Z' },
+          { id: ID(8), status: 'open', reason: 'spam', reasonLabel: 'ספאם או פרסום לא קשור', details: null, copiedText: 'טקסט הפוסט שדווח', resolution: null, createdAt: '2026-06-13T09:00:00.000Z' },
           ...(id === POST_CHILD
-            ? [{ id: CHILD_REPORT, status: 'open', reason: 'child_safety', reasonLabel: 'תוכן שמסכן ילד', details: null, copiedText: 'טקסט הפוסט שדווח', createdAt: '2026-06-14T09:00:00.000Z' }]
+            ? [{ id: CHILD_REPORT, status: 'open', reason: 'child_safety', reasonLabel: 'תוכן שמסכן ילד', details: null, copiedText: 'טקסט הפוסט שדווח', resolution: null, createdAt: '2026-06-14T09:00:00.000Z' }]
             : []),
         ],
         user: { userId: USER_RINA, accountType: 'regular', status: net.userStatus, suspendedUntil: null, fullName: 'רינה כהן', history: net.history, suggestion: { kind: 'warning', hours: null } },

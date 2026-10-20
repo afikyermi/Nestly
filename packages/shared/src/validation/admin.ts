@@ -181,7 +181,7 @@ export const reportDetailBody = z.object({
       images: z.array(mediaImage).optional(),
     })
     .nullable(),
-  reports: z.array(z.object({ id: z.guid(), status: z.enum(['open', 'handled', 'expired']), reasonLabel: z.string(), reason: z.string(), details: z.string().nullable(), copiedText: z.string().nullable(), createdAt: z.string() })),
+  reports: z.array(z.object({ id: z.guid(), status: z.enum(['open', 'handled', 'expired']), reasonLabel: z.string(), reason: z.string(), details: z.string().nullable(), copiedText: z.string().nullable(), resolution: z.enum(REPORT_RESOLUTIONS).nullable(), createdAt: z.string() })),
   user: targetUser.nullable(),
 });
 export type ReportDetail = z.infer<typeof reportDetailBody>;

@@ -265,25 +265,24 @@ describe('[Afik 20.10] a rejected image\'s file and the retention', () => {
     expect((await runMediaJob(deps(db, store.storage, model({})))).pruned).toBe(1);
     expect(removedSamples).toEqual([ID(40)]);
   });
-  it('[H3] a training file is read only after its access is recorded; a failed record reads nothing', async () => {
-    const reads: string[] = [];
+  it('[H3] each training file read is preceded by its own access record (never one per batch); a failed record reads nothing', async () => {
+    const log: string[] = [];
     const realFetch = globalThis.fetch;
+    const base = 'https://example.supabase.co/storage/v1/object/authenticated/media-training/';
     globalThis.fetch = (input) => {
-      reads.push(input instanceof Request ? input.url : input.toString());
+      log.push(`read:${input instanceof Request ? input.url : input.toString()}`);
       return Promise.resolve(new Response(new Uint8Array([9])));
     };
     try {
       const storage = createJobStorage({ SUPABASE_SECRET_KEY: 'k'.repeat(40), SUPABASE_JWT_ISSUER: 'https://example.supabase.co/auth/v1' });
-      const order: string[] = [];
-      const ok = await storage.readTrainingSample(ID(41), (id) => {
-        order.push(`record:${id}`);
+      const record = (id: string): Promise<boolean> => {
+        log.push(`record:${id}`);
         return Promise.resolve(true);
-      });
-      expect(ok).toEqual(new Uint8Array([9]));
-      expect(order).toEqual([`record:${ID(41)}`]);
-      expect(reads).toEqual([`https://example.supabase.co/storage/v1/object/authenticated/media-training/${ID(41)}`]);
+      };
+      for (const id of [ID(41), ID(43), ID(41)]) expect(await storage.readTrainingSample(id, record)).toEqual(new Uint8Array([9]));
+      expect(log).toEqual([ID(41), ID(43), ID(41)].flatMap((id) => [`record:${id}`, `read:${base}${id}`]));
       expect(await storage.readTrainingSample(ID(42), () => Promise.resolve(false))).toBeUndefined();
-      expect(reads.length, 'no read without its record').toBe(1);
+      expect(log.length, 'no read without its record').toBe(6);
     } finally {
       globalThis.fetch = realFetch;
     }

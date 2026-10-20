@@ -268,4 +268,27 @@ describe('[Afik 20.10] the approval queue', () => {
     const seen = z.object({ images: z.array(z.object({ id: z.guid() })).optional() }).parse(JSON.parse((await json(app, b.header, 'GET', `/api/posts/${created.id}`)).body));
     expect(seen.images ?? [], 'gone for readers').toEqual([]);
   });
+
+  it('a dismissed report is no ground for removal; a report handled with action taken is (no time limit)', T, async () => {
+    const { app } = await start();
+    const a = await registered(app, 'Twice Reported');
+    const b = await registered(app, 'First Reporter');
+    const c = await registered(app, 'Second Reporter');
+    const admin = await bearerFor(ADMIN);
+    const media = imageId((await upload(app, a.header, 'post')).body);
+    const created = z.object({ id: z.guid() }).parse(JSON.parse((await json(app, a.header, 'POST', '/api/posts', { body: 'נדחה', audience: 'everyone', imageIds: [media] })).body));
+    await jobSets(media, 'passed');
+    const handle = (resolution: 'dismissed' | 'action_taken') =>
+      json(app, admin, 'POST', '/api/admin/reports/handle', { targetKind: 'post', targetId: created.id, resolution });
+    expect((await json(app, b.header, 'POST', '/api/reports', { targetKind: 'post', targetId: created.id, reason: 'spam' })).statusCode).toBeLessThan(300);
+    expect((await handle('dismissed')).statusCode).toBe(200);
+    expect((await json(app, admin, 'POST', `/api/admin/media/${media}/removal`, { suspected: false })).statusCode, 'only a dismissed report').toBe(404);
+    const detail = z
+      .object({ detail: z.object({ reports: z.array(z.object({ resolution: z.string().nullable() })) }) })
+      .parse(JSON.parse((await json(app, admin, 'GET', `/api/admin/reports/post/${created.id}`)).body));
+    expect(detail.detail.reports.map((report) => report.resolution)).toEqual(['dismissed']);
+    expect((await json(app, c.header, 'POST', '/api/reports', { targetKind: 'post', targetId: created.id, reason: 'spam' })).statusCode).toBeLessThan(300);
+    expect((await handle('action_taken')).statusCode).toBe(200);
+    expect((await json(app, admin, 'POST', `/api/admin/media/${media}/removal`, { suspected: false })).statusCode, 'a report handled with action taken').toBe(200);
+  });
 });

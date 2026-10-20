@@ -20,18 +20,21 @@ import {
 export interface ReportImagesProps {
   images: readonly MediaImage[];
   permissions: readonly PermissionKey[];
+  /** A ground for removal: a report on the target that is open, or was handled with action taken (never only dismissed ones). */
+  hasGround: boolean;
 }
 
 // A reported post's images (BR-076 as of 20.10.2026): what the staff member may see of them. With CONTENT_MODERATE and REPORTS_VIEW, an image
 // that had passed the check can be removed after the report, or marked as a suspicion of child abuse (removed, kept 90 days, shown to nobody);
-// the uploader sees the same rejection either way. The database decides whether the removal applies.
-export function ReportImages({ images, permissions }: ReportImagesProps) {
+// the uploader sees the same rejection either way. Only while a report is open or after one handled with action taken (a dismissed report is
+// no ground); the database decides whether the removal applies.
+export function ReportImages({ images, permissions, hasGround }: ReportImagesProps) {
   const call = useAdminCall();
   const [removed, setRemoved] = useState<ReadonlySet<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
-  const canRemove = permissions.includes('CONTENT_MODERATE') && permissions.includes('REPORTS_VIEW');
+  const canRemove = hasGround && permissions.includes('CONTENT_MODERATE') && permissions.includes('REPORTS_VIEW');
 
   const remove = async (id: string, suspected: boolean) => {
     setBusy(`${id}:${String(suspected)}`);
