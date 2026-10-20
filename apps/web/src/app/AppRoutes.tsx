@@ -1,5 +1,6 @@
 import { Route, Routes } from 'react-router';
-import { AdminAuditPage, AdminMediaPage, AdminReportsPage, AdminSupportPage, AdminUsersPage } from '@/pages/admin/AdminPages';
+import { AdminAnalyticsPage, AdminAnnouncementsPage, AdminAuditPage, AdminCommunityPage, AdminMediaPage, AdminReportsPage, AdminSupportPage, AdminTeamPage, AdminUsersPage } from '@/pages/admin/AdminPages';
+import { JoinTeamPage } from '@/pages/join-team/JoinTeamPage';
 import { AdminIndex, AdminLayout } from '@/pages/admin/AdminLayout';
 import { ChangePasswordPage } from '@/pages/change-password/ChangePasswordPage';
 import { ChatPage } from '@/pages/chat/ChatPage';
@@ -46,6 +47,7 @@ export function AppRoutes() {
           <Route path={PATHS.recovery} element={<RecoveryPage />} />
           <Route path={PATHS.terms} element={<GuestPlaceholderPage title="תנאי השימוש" />} />
           <Route path={PATHS.privacy} element={<GuestPlaceholderPage title="מדיניות הפרטיות" />} />
+          <Route path={PATHS.joinTeam} element={<JoinTeamPage />} />
           <Route element={<ProtectedLayout />}>
             <Route path={PATHS.home} element={<HomePage />} />
             <Route path={PATHS.tracker} element={<TrackerPage />} />
@@ -73,6 +75,10 @@ export function AppRoutes() {
               <Route path="support" element={<AdminSupportPage />} />
               <Route path="guides" element={<AdminGuidesPage />} />
               <Route path="media" element={<AdminMediaPage />} />
+              <Route path="team" element={<AdminTeamPage />} />
+              <Route path="community" element={<AdminCommunityPage />} />
+              <Route path="announcements" element={<AdminAnnouncementsPage />} />
+              <Route path="analytics" element={<AdminAnalyticsPage />} />
             </Route>
           </Route>
         </Routes>

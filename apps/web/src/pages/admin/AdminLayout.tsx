@@ -1,8 +1,12 @@
+import { useEffect, useState } from 'react';
 import { NavLink, Navigate, Outlet } from 'react-router';
-import type { PermissionKey } from '@nestly/shared';
+import type { PermissionKey, StaffInbox } from '@nestly/shared';
 import { PATHS } from '@/app/paths';
 import { documentTitle } from '@/lib/document-title';
+import { useAdminCall } from '@/hooks/use-admin-call';
 import { useStaffAccess } from '@/hooks/use-staff-access';
+import { fetchInbox } from '@/services/api/team';
+import { INBOX_BADGE } from '@/features/admin/team-texts';
 import { ADMIN_NAV_LABEL, ADMIN_NO_SCREENS_TEXT, ADMIN_TITLE, LOADING_TEXT, TAB_KEYS, TAB_LABELS, type AdminTab } from '@/features/admin/admin-texts';
 
 /** What the admin pages read from the layout: the keys the account holds (presentation only; the database decides). */
@@ -18,7 +22,18 @@ export const ADMIN_TABS: ReadonlyArray<{ tab: AdminTab; path: string }> = [
   { tab: 'support', path: PATHS.adminSupport },
   { tab: 'guides', path: PATHS.adminGuides },
   { tab: 'media', path: PATHS.adminMedia },
+  { tab: 'team', path: PATHS.adminTeam },
+  { tab: 'community', path: PATHS.adminCommunity },
+  { tab: 'announcements', path: PATHS.adminAnnouncements },
+  { tab: 'analytics', path: PATHS.adminAnalytics },
 ];
+
+/** AC-044: what waits on a tab, from the staff inbox (an area the keys do not cover is absent, so no badge). */
+function waiting(tab: AdminTab, inbox: StaffInbox): number {
+  if (tab === 'reports') return inbox.openReports ?? 0;
+  if (tab === 'media') return inbox.queuedImages ?? 0;
+  return 0;
+}
 
 /** Whether the account's role and keys show a tab (presentation only; the database decides every call). */
 export function tabAllowed(tab: AdminTab, role: 'admin' | 'moderator', permissions: readonly PermissionKey[]): boolean {
@@ -36,6 +51,20 @@ export function firstTabPath(role: 'admin' | 'moderator', permissions: readonly 
 // database. Other parts (announcements, the Moderator team) add their tabs here.
 export function AdminLayout() {
   const access = useStaffAccess();
+  const call = useAdminCall();
+  const [inbox, setInbox] = useState<StaffInbox>({});
+  const staff = access.kind === 'staff';
+  // AC-044: the administrative notices, once per visit to the shell, only for the areas the keys cover (the server counts through the policies)
+  useEffect(() => {
+    if (!staff) return;
+    let live = true;
+    void call((token) => fetchInbox(token)).then((outcome) => {
+      if (live && outcome.kind === 'ok') setInbox(outcome.value);
+    });
+    return () => {
+      live = false;
+    };
+  }, [staff, call]);
   if (access.kind === 'loading') {
     return (
       <p role="status" className="py-6">
@@ -61,6 +90,9 @@ export function AdminLayout() {
                 }
               >
                 {TAB_LABELS[tab]}
+                {waiting(tab, inbox) > 0 ? (
+                  <span className="ms-2 rounded-full bg-card px-2 text-caption text-foreground">{INBOX_BADGE(waiting(tab, inbox))}</span>
+                ) : null}
               </NavLink>
             </li>
           ))}

@@ -2,7 +2,7 @@
 // strict: `reporterId`, `status`, `postId` and every other key are refused, because the reporter is the caller's by the database and a report
 // has no state a client may set. Nothing about a report is ever read back: the answer to a filed one is `{ received: true }` and no more.
 import { z } from 'zod';
-import { REPORT_DETAILS_MAX, REPORT_REASONS, REPORT_TARGET_KINDS, type ReportReason, type ReportTargetKind } from '../constants/index.js';
+import { CUSTOM_REPORT_REASON, REPORT_DETAILS_MAX, REPORT_REASONS, REPORT_TARGET_KINDS, type ReportReason, type ReportTargetKind } from '../constants/index.js';
 import { codePointLength } from './text.js';
 
 /** What is wrong with a report text, by the rule the server applies to the trimmed text: a NUL (Postgres text cannot hold it), or too long. */
@@ -25,7 +25,8 @@ const reportDetails = z
 export const createReportSchema = z.strictObject({
   targetKind: z.enum(REPORT_TARGET_KINDS),
   targetId: z.guid(),
-  reason: z.enum(REPORT_REASONS),
+  // a core reason, or one the community settings added (FR-ADMIN-007); the database refuses an unknown or switched-off one
+  reason: z.union([z.enum(REPORT_REASONS), z.custom<`custom_${string}`>((value) => typeof value === 'string' && CUSTOM_REPORT_REASON.test(value))]),
   details: reportDetails.optional(),
 });
 

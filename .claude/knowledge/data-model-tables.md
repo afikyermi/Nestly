@@ -19,6 +19,7 @@ does not instruct loading every link. Column sections and rule matrices are both
 | staff_roles, moderator_permissions, audit_log, report_reasons, user_enforcements | Safety and admin core |
 | user_blocks | Blocking a user (I4); Friendships and regular names; Notifications and People Search |
 | chat_requests, conversations, messages, chat_blocks, chat_reads, support_requests, support_messages, reported_message_views | Chat and Support (I8); Friendships and regular names; Blocking a user; Safety and admin core (reports, audit) |
+| moderator_invitations, system_announcements, the analytics reads | Moderators team (I14); Safety and admin core (staff roles, keys, audit) |
 
 | tracker_events, cycle_entries, status_guides | Trackers, cycle and status guides (I6); children for the child FK |
 | media_assets, media_reviews, profile_photos, stories, media_training_candidates, media_training_samples, media_training_events | Media and Stories (I5); posts and post_authors (attach), friendships (Story audience), Safety and admin core (CONTENT_MODERATE, audit) |
@@ -537,6 +538,25 @@ reporter can read and did not send; its text is never copied (target_text stays 
 `regular_names_select_support` (SUPPORT_VIEW under `nestly.staff_view`). `audit_trigger()` gains three branches (WHEN: status change;
 author_kind = support; every view). Cleanup: reported_message_views by viewer, then reports (including those on the user's messages), …,
 chat_reads, support_messages, support_requests, messages, conversations, chat_requests, chat_blocks before user_blocks.
+
+## Moderators team (I14)
+
+Built by `20261022200000_moderators_team.sql` (down script in `supabase/rollback/`; refuses while an invitation or an announcement exists). No new
+SECURITY DEFINER; `audit_trigger()` gains the invitation and announcement branches (I8's body otherwise verbatim).
+
+| Table | Columns and meaning | Authorization |
+|---|---|---|
+| `moderator_invitations` | id, code_hash (SHA-256 hex of a one-time random code; the code is never stored), note (who it is for, 2-80), invited_by, created_at, expires_at (+7 days), accepted_by (unique; the Moderator it created; cascade), accepted_at, revoked_at | SELECT the Admin, or the holder of the code (its hash named in the transaction-local `nestly.moderator_invite`, helper `moderator_invite_hash()`); INSERT the Admin (code_hash, note); UPDATE the Admin (revoked_at, an open one) or the holder (accepted_by = auth.uid(), a valid open one); `moderator_invitations_guard` lets the state move once, stamps the times and accepts only for a caller who is now a Moderator; audited (moderator_invited, moderator_invitation_revoked, moderator_joined) |
+| `system_announcements` | id, title (2-80), body (1-1,000), status draft/published/removed, created_by, created_at, updated_at, published_at, removed_at | SELECT SYSTEM_ANNOUNCEMENTS (all) or any active account (published); INSERT SYSTEM_ANNOUNCEMENTS (a draft naming itself; title, body); UPDATE SYSTEM_ANNOUNCEMENTS (title, body, status) while not removed; `system_announcements_prepare` allows draft -> published -> removed and draft -> removed and stamps the times; no DELETE; audited |
+
+Other changes: `users_insert_moderator` (a users row of type moderator, active, only with a valid open invitation whose hash the transaction names)
+and `staff_roles_insert_invited` (its mirror, written by `users_staff_mirror` as the caller; INSERT (user_id, account_type, account_status) granted).
+The redeem is one transaction: insert the users row, then mark the invitation, whose audit entry then carries the new Moderator's staff role.
+Deactivating a Moderator is the Admin's ban and unban (user_enforcements, I4). Analytics reads: `*_select_analytics` on users, posts, comments,
+reactions, reports, user_enforcements and friendships, through `analytics_reader()` (invoker; and `is_active_account()` except on users): ANALYTICS_VIEW
+(the Admin always) only in a transaction that set `nestly.analytics_view` = on. This extends deviation (a) of the core: in that transaction the rows
+are readable to that staff member, and the server answers aggregates only (no id, name or text; BR-058). No child, journey, tracker, chat, support or
+media row is opened. Cleanup: both tables are listed and never deleted from (a test user is never staff).
 
 ## New entity template
 

@@ -27,7 +27,7 @@ test.describe('[I4] the admin shell', () => {
     await expect.poll(() => pathOf(page)).toBe('/admin/reports');
     await expect(page.getByRole('heading', { level: 1, name: 'ניהול' })).toBeVisible();
     const tabs = page.getByRole('navigation', { name: 'מסכי הניהול' });
-    await expect(tabs.getByRole('link')).toHaveText(['דיווחים', 'משתמשים', 'יומן פעולות', 'מדריכים', 'תמונות לבדיקה']);
+    await expect(tabs.getByRole('link')).toHaveText(['דיווחים', 'משתמשים', 'יומן פעולות', 'מדריכים', 'תמונות לבדיקה', 'צוות']); // I5 the image queue; I14 the team (the Admin's)
   });
 
   test('[I4 AC-031] an account that is not staff has no admin entry and /admin leads back to the feed', async ({ page }) => {

@@ -14,6 +14,7 @@ import { takeStatus } from './flash-status';
 import { CHECKING_TEXT, CONFIRM_DELETE_LABEL, DELETED_STATUS, FEED_TITLE, PUBLISHED_STATUS } from './posts-texts';
 import { EDIT_ITEM_LABEL, HIDE_LABEL } from './hide-texts';
 import { FeedComposer } from './FeedComposer';
+import { SystemNotices } from './SystemNotices';
 import { takeComposerRequest } from './compose-draft';
 import { publishedUnit, sharedUnit } from './post-unit';
 import { SHARE_FAILED_TEXT, SHARED_STATUS } from './share-texts';
@@ -310,6 +311,7 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
         </div>
       ) : null}
       {none ? <p className="mt-1 text-body text-muted-foreground">{PLACEHOLDER_TEXT}</p> : null}
+      <SystemNotices notices={state.notices} />
       {none ? null : stories}
       {/* One fixed place, before the list or the empty state: a form sending a post survives the feed changing phase. */}
       {write}

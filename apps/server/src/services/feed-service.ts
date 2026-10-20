@@ -20,6 +20,7 @@ import type { Database } from '../db/client.js';
 import { inIdentityTransaction, type IdentityTx } from '../db/identity-transaction.js';
 import type { Identity } from '../lib/token-verifier.js';
 import { readOwnAccounts } from '../repositories/account-state-repository.js';
+import { readPublishedAnnouncements } from '../repositories/team-repository.js';
 import {
   readDisplayPosts,
   readFeedConfigRows,
@@ -194,11 +195,14 @@ async function readPage(tx: IdentityTx, cursor: FeedCursor | null, storage: Medi
           createdAt: last.createdAt,
           id: last.id,
         });
+  // I14 (FR-ADMIN-008): the published System Announcements ride on the first page only, never into the ranking
+  const announcements = after === null ? await readPublishedAnnouncements(tx) : [];
   const page = feedPageResponse.parse({
     items,
     nextCursor,
     configVersion,
     ...(resolution.restarted ? { restarted: true } : {}),
+    ...(announcements.length > 0 ? { announcements } : {}),
   });
   return { kind: 'page', page, fallback: resolution.fallback };
 }
