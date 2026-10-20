@@ -1,7 +1,7 @@
--- pgTAP, run by pg_prove as app_server (CI `db` job, I4: the recovery lock ladder and its release by the Admin; NFR-SEC-010, FR-ADMIN-013,
--- AC-113, AC-126). Expected values come from the SRS (the ladder belongs to the account's handle; only the Admin releases; the release is
--- audited and gives no access), not from the migration text. The ladder arithmetic itself is the server's (tests/db/recovery-lock.db.test.ts).
--- People: a (Regular, saves answers under handle 'aa..'), b (Regular), m3 (Moderator holding all fourteen keys), d (the Admin).
+-- pgTAP, run by pg_prove as app_server (CI `db` job, I4: the recovery lock ladder; NFR-SEC-010, AC-113; Afik 20.10.2026).
+-- Expected values come from the SRS and data-model.md approved exception (b): the ladder belongs to the account's handle, and the restricted
+-- recovery role gains exactly one column-level write (the ladder count) and nothing else. The ladder arithmetic itself (3rd failure: 1 hour,
+-- 6th and every later one: 24 hours, a success resets) is the server's (apps/server/tests/db/recovery-reset.db.test.ts).
 -- Everything rolls back with the transaction.
 
 begin;
@@ -10,23 +10,6 @@ select * from no_plan();
 
 select is(session_user::text, 'app_server'::text, '[F4.2-a c1 I4-rl fixture] session_user is app_server (this file must not run under another login)');
 
-select tests.fx_fr_build();
-
-create function pg_temp.id(p text) returns uuid language sql as $f$
-  select case p
-    when 'a' then tests.fx_id('a') when 'b' then tests.fx_id('b')
-    when 'm3' then tests.fx_sf_id('sf_m3') when 'd' then tests.fx_fr_id('fr_d')
-  end
-$f$;
-create function pg_temp.dml(p_who text, p_sql text) returns text language sql as $f$
-  select tests.dml_as('authenticated', tests.claims(pg_temp.id(p_who)), p_sql, true)
-$f$;
-create function pg_temp.n(p_who text, p_sql text) returns text language sql as $f$
-  select tests.as_role('authenticated', tests.claims(pg_temp.id(p_who)), p_sql)
-$f$;
-create function pg_temp.release(p_by text, p_of text, p_reason text default 'asked by email') returns text language sql as $f$
-  select pg_temp.dml(p_by, format($q$ insert into nestly.recovery_lock_releases (user_id, reason) values (%L, %L) $q$, pg_temp.id(p_of), p_reason))
-$f$;
 -- as app_recovery with a declared handle and IP (what the server does after SET LOCAL ROLE)
 create function pg_temp.rec(p_handle text, p_sql text) returns text language plpgsql as $f$
 declare v text;
@@ -44,91 +27,78 @@ begin
   return v;
 end
 $f$;
+create function pg_temp.upd(p_handle text, p_set text, p_kind text default 'handle') returns text language sql as $f$
+  select pg_temp.rec(p_handle, format($q$ with u as (update nestly.recovery_throttles set %s where subject_kind = %L returning 1) select 'OK:' || count(*) from u $q$, p_set, p_kind))
+$f$;
 
--- a saves answers under handle 'aa..' (the signed-in write, as in file 31)
-select is(pg_temp.dml('a', $q$ insert into nestly.recovery_answers (email_handle, handle_claimed_at, question_1, question_2, answer_hash_1, answer_salt_1,
-    answer_hash_2, answer_salt_2, scrypt_log_n, scrypt_r, scrypt_p) values (decode(repeat('aa', 32), 'hex'), '2026-10-15 10:00:00+00', 'nickname', 'pet',
-    decode(repeat('11', 32), 'hex'), decode(repeat('21', 16), 'hex'), decode(repeat('12', 32), 'hex'), decode(repeat('22', 16), 'hex'), 15, 8, 1) $q$),
-  'OK:1', '[I4-rl fixture] a saved answers under handle aa');
-select tests.fx_sf_grant(pg_temp.id('m3'), array['SUPPORT_VIEW', 'SUPPORT_HANDLE', 'REPORTS_VIEW', 'CONTENT_MODERATE', 'MARKETPLACE_MODERATE', 'USER_VIEW',
-  'USER_WARN', 'USER_SUSPEND', 'USER_BAN', 'ANALYTICS_VIEW', 'AUDIT_LOG_VIEW', 'COMMUNITY_CONFIG', 'SYSTEM_ANNOUNCEMENTS', 'PRIVATE_GROUP_MODERATE']);
-
--- ---- structure ---------------------------------------------------------------------------------------------------------
-select is((select string_agg(a.attname || ':' || format_type(a.atttypid, a.atttypmod) || ':' || case when a.attnotnull then 'nn' else 'null' end, ', ' order by a.attname)
-             from pg_attribute a join pg_class c on c.oid = a.attrelid
+-- ---- structure ---------------------------------------------------------------------------------------------------------------
+select is((select format_type(a.atttypid, a.atttypmod) || ':' || a.attnotnull::text || ':' || pg_get_expr(d.adbin, d.adrelid)
+             from pg_attribute a join pg_class c on c.oid = a.attrelid left join pg_attrdef d on d.adrelid = c.oid and d.adnum = a.attnum
+            where c.relname = 'recovery_throttles' and c.relnamespace = (select oid from pg_namespace where nspname = 'nestly') and a.attname = 'ladder_failures'),
+  'smallint:true:0', '[I4-rl c1 NFR-SEC-010] recovery_throttles carries the ladder count: failures since the last success, starting at 0');
+select is((select count(*) from pg_attribute a join pg_class c on c.oid = a.attrelid
             where c.relname = 'recovery_throttles' and c.relnamespace = (select oid from pg_namespace where nspname = 'nestly')
-              and a.attname in ('ladder_failures', 'ladder_started_at', 'is_locked_permanently')),
-  'is_locked_permanently:boolean:nn, ladder_failures:smallint:nn, ladder_started_at:timestamp with time zone:null',
-  '[I4-rl c1 NFR-SEC-010] recovery_throttles carries the ladder: the count since the last success or release, when it restarted, the permanent lock');
-select ok((select c.relrowsecurity and c.relforcerowsecurity from pg_class c where c.relname = 'recovery_lock_releases'
-            and c.relnamespace = (select oid from pg_namespace where nspname = 'nestly')), '[I4-rl c1] recovery_lock_releases has RLS enabled and forced');
-select is((select string_agg(pl.polname || ':' || pl.polcmd::text || ':' || (select string_agg(r.rolname, '+') from pg_roles r where r.oid = any (pl.polroles)), ', ' order by pl.polname)
-             from pg_policy pl join pg_class c on c.oid = pl.polrelid where c.relname = 'recovery_lock_releases'),
-  'recovery_lock_releases_insert_admin:a:authenticated, recovery_lock_releases_select_admin:r:authenticated, recovery_lock_releases_select_recovery:r:app_recovery',
-  '[I4-rl c1] the three policies: the key holder inserts and reads, app_recovery reads; no update, no delete');
+              and a.attnum > 0 and not a.attisdropped and a.attname ~ '(perman|releas)'),
+  0::bigint, '[I4-rl c1 NFR-SEC-010] no permanent-lock flag and no release field: the ladder never locks for good');
+select is((select count(*) from pg_class c where c.relnamespace = (select oid from pg_namespace where nspname = 'nestly') and c.relname ~ 'releas'),
+  0::bigint, '[I4-rl c1] there is no release table (nothing for an Admin to release)');
+
+-- ---- app_recovery's reach: exactly the earlier grants plus the ladder column ---------------------------------------------------
 select is((select string_agg(a.attname, ', ' order by a.attname) from pg_attribute a join pg_class c on c.oid = a.attrelid
-            where c.relname = 'recovery_lock_releases' and a.attnum > 0 and not a.attisdropped and has_column_privilege('authenticated', c.oid, a.attnum, 'INSERT')),
-  'reason, user_id', '[I4-rl c1] authenticated inserts only the account and the reason: never released_by or the time');
+            where c.relname = 'recovery_throttles' and c.relnamespace = (select oid from pg_namespace where nspname = 'nestly')
+              and a.attnum > 0 and not a.attisdropped and has_column_privilege('app_recovery', c.oid, a.attnum, 'UPDATE')),
+  'ladder_failures, limited_noted_until, locked_until, long_failures, long_window_started_at, short_failures, short_window_started_at',
+  '[I4-rl c2 exception (b)] app_recovery updates the six earlier counter, lock and marker columns plus the ladder count, and no other column');
 select is((select string_agg(a.attname, ', ' order by a.attname) from pg_attribute a join pg_class c on c.oid = a.attrelid
-            where c.relname = 'recovery_lock_releases' and a.attnum > 0 and not a.attisdropped and has_column_privilege('app_recovery', c.oid, a.attnum, 'SELECT')),
-  'released_at, user_id', '[I4-rl c1] app_recovery reads only whose and when: never who released or why');
+            where c.relname = 'recovery_throttles' and c.relnamespace = (select oid from pg_namespace where nspname = 'nestly')
+              and a.attnum > 0 and not a.attisdropped and has_column_privilege('app_recovery', c.oid, a.attnum, 'INSERT')),
+  'subject_hash, subject_kind', '[I4-rl c2 exception (b)] app_recovery still inserts only the subject (never a ladder count)');
+select ok(not has_table_privilege('app_recovery', 'nestly.recovery_throttles', 'DELETE, TRUNCATE, REFERENCES, TRIGGER'),
+  '[I4-rl c2] app_recovery cannot delete, truncate, reference or trigger on recovery_throttles');
+select is((select string_agg(c.relname || ':' || p.priv, ', ' order by c.relname, p.priv)
+             from pg_class c join pg_namespace n on n.oid = c.relnamespace
+             cross join unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']) p(priv)
+            where n.nspname = 'nestly' and c.relkind in ('r', 'p', 'v', 'm')
+              and (has_table_privilege('app_recovery', c.oid, p.priv)
+                   or (p.priv in ('SELECT', 'INSERT', 'UPDATE', 'REFERENCES') and has_any_column_privilege('app_recovery', c.oid, p.priv)))),
+  'recovery_answers:SELECT, recovery_answers:UPDATE, recovery_events:INSERT, recovery_throttles:INSERT, recovery_throttles:SELECT, recovery_throttles:UPDATE',
+  '[I4-rl c2 exception (b)] app_recovery reaches nothing on any other table: the answers (read, release), the events (append), the throttles');
+select is((select string_agg(a.attname, ', ' order by a.attname) from pg_attribute a join pg_class c on c.oid = a.attrelid
+            where c.relname = 'recovery_answers' and c.relnamespace = (select oid from pg_namespace where nspname = 'nestly')
+              and a.attnum > 0 and not a.attisdropped and has_column_privilege('app_recovery', c.oid, a.attnum, 'UPDATE')),
+  'email_handle, handle_claimed_at', '[I4-rl c2] its write on recovery_answers is unchanged (the handle release only)');
 select is((select count(*) from pg_class c where c.relname in ('recovery_throttles', 'recovery_events') and c.relnamespace = (select oid from pg_namespace where nspname = 'nestly')
             and (has_table_privilege('authenticated', c.oid, 'SELECT,INSERT,UPDATE,DELETE') or has_any_column_privilege('authenticated', c.oid, 'SELECT,INSERT,UPDATE'))),
-  0::bigint, '[I4-rl c1] authenticated still holds nothing on recovery_throttles or recovery_events (the release is a row of its own)');
-select is((select count(*) from tests.approved_security_definer() a where a = 'nestly.audit_trigger()'), 1::bigint,
-  '[I4-rl c1 rule 18] audit_trigger() is still the one approved audit definer (no new definer)');
+  0::bigint, '[I4-rl c2] authenticated still holds nothing on recovery_throttles or recovery_events');
 
--- ---- the ladder columns belong to handles ------------------------------------------------------------------------------------
+-- ---- behaviour under the grants ---------------------------------------------------------------------------------------------
 select is(pg_temp.rec('aa', $q$ with i as (insert into nestly.recovery_throttles (subject_kind, subject_hash) values ('handle', decode(repeat('aa', 32), 'hex')) returning 1) select 'OK:' || count(*) from i $q$),
   'OK:1', '[I4-rl fixture] app_recovery creates the declared handle''s row');
 select is(pg_temp.rec('aa', $q$ with i as (insert into nestly.recovery_throttles (subject_kind, subject_hash) values ('ip', decode(repeat('cc', 32), 'hex')) returning 1) select 'OK:' || count(*) from i $q$),
   'OK:1', '[I4-rl fixture] and the declared IP''s row');
-select is(pg_temp.rec('aa', $q$ with u as (update nestly.recovery_throttles set ladder_failures = 9, ladder_started_at = now() - interval '1 hour', is_locked_permanently = true, locked_until = 'infinity'
-    where subject_kind = 'handle' returning 1) select 'OK:' || count(*) from u $q$),
-  'OK:1', '[I4-rl c2 AC-113] app_recovery records the 9th failure on the declared handle: locked for good');
-select is(pg_temp.rec('aa', $q$ with u as (update nestly.recovery_throttles set ladder_failures = 1 where subject_kind = 'ip' returning 1) select 'OK:' || count(*) from u $q$),
-  'ERR:23514', '[I4-rl c2] an IP row never carries the ladder (check constraint)');
-select is(pg_temp.rec('bb', $q$ with u as (update nestly.recovery_throttles set ladder_failures = 0 where subject_kind = 'handle' returning 1) select 'OK:' || count(*) from u $q$),
-  'OK:0', '[I4-rl c2] another declared handle cannot touch a''s row');
+select is(pg_temp.rec('aa', $q$ with i as (insert into nestly.recovery_throttles (subject_kind, subject_hash, ladder_failures) values ('handle', decode(repeat('ab', 32), 'hex'), 3) returning 1) select 'OK:' || count(*) from i $q$),
+  'ERR:42501', '[I4-rl c2] an insert naming the ladder count is refused');
 
-select is(pg_temp.rec('aa', $q$ with u as (update nestly.recovery_throttles set ladder_failures = 0, is_locked_permanently = false, locked_until = null
-    where subject_kind = 'handle' returning 1) select 'OK:' || count(*) from u $q$),
-  'ERR:42501', '[I4-rl c2 FR-ADMIN-013] without a release nothing lifts the permanent lock (not even app_recovery)');
-select is(pg_temp.rec('aa', $q$ with u as (update nestly.recovery_throttles set ladder_failures = 3 where subject_kind = 'handle' returning 1) select 'OK:' || count(*) from u $q$),
-  'ERR:42501', '[I4-rl c2] nor lowers its count');
+select is(pg_temp.upd('aa', $s$ ladder_failures = 3, locked_until = now() + interval '1 hour' $s$), 'OK:1',
+  '[I4-rl c3 AC-113] app_recovery records the 3rd failure on the declared handle and its 1-hour lock');
+select is(tests.fx_recovery_ladder(repeat('aa', 32)), '3/true', '[I4-rl c3 AC-113] the handle is locked with a count of 3');
+select is(pg_temp.upd('aa', $s$ ladder_failures = 7, locked_until = now() + interval '24 hours' $s$), 'OK:1',
+  '[I4-rl c3 AC-113] after the 24-hour lock a further failure locks again for 24 hours (no ceiling, no permanent step)');
+select is(pg_temp.upd('aa', 'ladder_failures = 0'), 'OK:1', '[I4-rl c3 AC-113] a success resets the count');
+select is(tests.fx_recovery_ladder(repeat('aa', 32)), '0/true', '[I4-rl c3] the count is back to 0 (the reset touches no lock)');
 
--- ---- who may release ------------------------------------------------------------------------------------------------------
-select is(pg_temp.release('m3', 'a'), 'ERR:42501', '[I4-rl c3 AC-126] a Moderator holding all fourteen keys cannot release (RECOVERY_LOCK_RELEASE is the Admin''s)');
-select is(pg_temp.release('b', 'a'), 'ERR:42501', '[I4-rl c3 AC-126] a Regular account cannot release');
-select is(pg_temp.release('d', 'd'), 'ERR:42501', '[I4-rl c3] the Admin does not release its own lock');
-select is(pg_temp.dml('d', format($q$ insert into nestly.recovery_lock_releases (user_id, released_by) values (%L, %L) $q$, pg_temp.id('a'), pg_temp.id('b'))),
-  'ERR:42501', '[I4-rl c3] a release in another''s name is refused');
-select is(tests.fx_sf_audit('recovery_lock_released'), 0::bigint, '[I4-rl c3] the refusals left no audit entry');
-select is(pg_temp.release('d', 'a'), 'OK:1', '[I4-rl c4 FR-ADMIN-013 AC-126] the Admin releases a''s recovery lock');
-select is(tests.fx_sf_audit('recovery_lock_released'), 1::bigint, '[I4-rl c4 AC-126] the release is an Audit Log entry');
-select is((select a.target_kind || ':' || (a.target_id = pg_temp.id('a'))::text || ':' || a.permission_key || ':' || coalesce(a.reason, '-') || ':' || a.actor_role
-             from tests.fx_audit_rows() a where a.action = 'recovery_lock_released'),
-  'user:true:RECOVERY_LOCK_RELEASE:asked by email:admin', '[I4-rl c4] the entry names the account, the key, the reason and the Admin''s role');
-select is(pg_temp.n('d', 'select count(*)::text from nestly.recovery_lock_releases'), '1', '[I4-rl c4] the Admin reads the release');
-select is(pg_temp.n('m3', 'select count(*)::text from nestly.recovery_lock_releases'), '0', '[I4-rl c4] a Moderator reads none');
-select is(pg_temp.n('a', 'select count(*)::text from nestly.recovery_lock_releases'), '0', '[I4-rl c4] the released account reads none');
-select is(pg_temp.dml('d', 'update nestly.recovery_lock_releases set reason = null'), 'ERR:42501', '[I4-rl c4] a release is never changed');
-select is(pg_temp.dml('d', 'delete from nestly.recovery_lock_releases'), 'ERR:42501', '[I4-rl c4] nor deleted');
+select is(pg_temp.upd('aa', $s$ subject_hash = decode(repeat('ab', 32), 'hex') $s$), 'ERR:42501', '[I4-rl c2] app_recovery cannot rewrite the subject hash');
+select is(pg_temp.upd('aa', $s$ subject_kind = 'ip' $s$), 'ERR:42501', '[I4-rl c2] nor the subject kind');
+select is(pg_temp.rec('aa', $q$ with d as (delete from nestly.recovery_throttles returning 1) select 'OK:' || count(*) from d $q$), 'ERR:42501',
+  '[I4-rl c2] nor delete a row');
+select is(pg_temp.upd('aa', 'ladder_failures = 1', 'ip'), 'ERR:23514', '[I4-rl c2] an IP row never carries the ladder (check constraint)');
+select is(pg_temp.upd('aa', 'ladder_failures = -1'), 'ERR:23514', '[I4-rl c2] the count is never negative');
+select is(pg_temp.upd('bb', 'ladder_failures = 5'), 'OK:0', '[I4-rl c2] another declared handle cannot touch a''s row');
+select is(tests.fx_recovery_ladder(repeat('aa', 32)), '0/true', '[I4-rl c2] a''s ladder is unchanged by the refused writes');
 
--- ---- the release reaches the next attempt, and nothing else -------------------------------------------------------------------
-select is(pg_temp.rec('aa', 'select count(*)::text from nestly.recovery_lock_releases'), '1', '[I4-rl c5 AC-126] the attempt on a''s handle sees a''s release');
-select is(pg_temp.rec('bb', 'select count(*)::text from nestly.recovery_lock_releases'), '0', '[I4-rl c5] an attempt on another handle sees none');
-select is(pg_temp.rec('aa', 'select (released_at > ladder_started_at)::text from nestly.recovery_lock_releases, nestly.recovery_throttles where subject_kind = ''handle'''),
-  'true', '[I4-rl c5] the release is later than the ladder''s start: the next attempt restarts from zero');
-select is(pg_temp.rec('aa', $q$ with u as (update nestly.recovery_throttles set ladder_failures = 0, ladder_started_at = now(), is_locked_permanently = false, locked_until = null,
-    limited_noted_until = null where subject_kind = 'handle' returning 1) select 'OK:' || count(*) from u $q$),
-  'OK:1', '[I4-rl c5 AC-126] app_recovery applies the release: count zero, no lock');
-select is(tests.fx_recovery_answers_json(pg_temp.id('a')) <> '-', true, '[I4-rl c5 AC-126] the release changed nothing of the account''s answers (no access is given)');
-
--- ---- the status guide audit still works with the replaced audit_trigger() (I6's branch kept) ---------------------------------
-select is(pg_temp.dml('d', $$ insert into nestly.status_guides (stage_kind, title, body, source) values ('planning', 'מדריך', 'גוף', 'מקור') $$), 'OK:1',
-  '[I4-rl c6] the Admin creates a status guide');
-select is(tests.fx_sf_audit('guide_created'), 1::bigint, '[I4-rl c6 rule 18] and it is audited: the guide branch of audit_trigger() survived the release branch');
+-- ---- no new definer -------------------------------------------------------------------------------------------------------------
+select is((select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'nestly' and p.proname ~ '(ladder|releas)'),
+  0::bigint, '[I4-rl c4] the ladder adds no function or trigger to the schema');
 
 select * from finish();
 rollback;

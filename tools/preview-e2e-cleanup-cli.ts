@@ -147,10 +147,6 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         // Afik DR-L (17.10.2026): a test user's Security events may be deleted here only; the FK stays RESTRICT for every other path.
         // security_limits is configuration with no user: never touched (deleting it would fail every later profile_view closed).
         counts['user_enforcements'] = (await tx`delete from nestly.user_enforcements where user_id = ${id}`).count;
-        // FR-ADMIN-013: the Admin's releases of a recovery lock, of or by the user (the audit entry stays in audit_log).
-        counts['recovery_lock_releases'] = (
-          await tx`delete from nestly.recovery_lock_releases where user_id = ${id} or released_by = ${id}`
-        ).count;
         counts['moderator_permissions'] = (await tx`delete from nestly.moderator_permissions where user_id = ${id}`).count;
         counts['staff_roles'] = (await tx`delete from nestly.staff_roles where user_id = ${id}`).count;
         counts['security_events'] = (await tx`delete from nestly.security_events where user_id = ${id}`).count;
