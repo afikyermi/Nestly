@@ -141,7 +141,22 @@ const APPROVED_F31A: ColumnShape[] = [
   col('posts', 'created_at', TZ, true),
   col('posts', 'is_anonymous', 'boolean', true),
 ];
-const APPROVED_ALL: ColumnShape[] = [...APPROVED, ...APPROVED_F14, ...APPROVED_F16, ...APPROVED_F20, ...APPROVED_F24A, ...APPROVED_F24C1, ...APPROVED_F31A];
+// I6 (migration 20261020100000): trackers, cycle and status guides, the columns Drizzle declares.
+const APPROVED_I6: ColumnShape[] = [
+  col('tracker_events', 'id', 'uuid', true), col('tracker_events', 'user_id', 'uuid', true), col('tracker_events', 'child_id', 'uuid', true),
+  col('tracker_events', 'kind', 'text', true), col('tracker_events', 'occurred_at', TZ, true), col('tracker_events', 'ended_at', TZ, false),
+  col('tracker_events', 'amount_ml', 'smallint', false), col('tracker_events', 'choice', 'text', false), col('tracker_events', 'name', 'text', false),
+  col('tracker_events', 'dosage', 'text', false), col('tracker_events', 'weight_kg', 'numeric(5,2)', false),
+  col('tracker_events', 'height_cm', 'numeric(4,1)', false), col('tracker_events', 'head_cm', 'numeric(4,1)', false),
+  col('tracker_events', 'note', 'text', false), col('tracker_events', 'created_at', TZ, true),
+  col('cycle_entries', 'id', 'uuid', true), col('cycle_entries', 'user_id', 'uuid', true), col('cycle_entries', 'start_date', 'date', true),
+  col('cycle_entries', 'cycle_length_days', 'smallint', true), col('cycle_entries', 'created_at', TZ, true),
+  col('status_guides', 'id', 'uuid', true), col('status_guides', 'stage_kind', 'text', true), col('status_guides', 'range_from', 'smallint', false),
+  col('status_guides', 'range_to', 'smallint', false), col('status_guides', 'title', 'text', true), col('status_guides', 'body', 'text', true),
+  col('status_guides', 'source', 'text', true), col('status_guides', 'source_checked_on', 'date', false), col('status_guides', 'status', 'text', true),
+  col('status_guides', 'published_at', TZ, false), col('status_guides', 'created_at', TZ, true),
+];
+const APPROVED_ALL: ColumnShape[] = [...APPROVED, ...APPROVED_F14, ...APPROVED_F16, ...APPROVED_F20, ...APPROVED_F24A, ...APPROVED_F24C1, ...APPROVED_F31A, ...APPROVED_I6];
 const APPROVED_BEFORE_F16: ColumnShape[] = [...APPROVED, ...APPROVED_F14];
 
 const without = (rows: ColumnShape[], table: string, column: string): ColumnShape[] =>
