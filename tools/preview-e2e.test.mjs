@@ -1,14 +1,15 @@
-// preview-e2e (.work/preview-e2e/spec.md, with Gate 1 amendments A1-A3): criteria 1, 2, 12 (workflow and config), 3 (URL part),
-// 4 (as A1: request helper with stubs and sentinels), 5 and 7 (user pattern, attempt counter). Criteria 8 and 9 (cleanup,
-// sweep, A2 and DR-E1 option 1) are asserted in preview-e2e-cleanup.test.mjs. Expected values come from the spec, schema.md (the email
-// pattern) and the F1.6 limit, never from the code under test.
+// preview-e2e (Afik 16.10.2026; nightly and by hand since 20.10.2026): criteria 1 (triggers, the ready/nightly push that is
+// never forced, the Preview-only deployment search), 2, 12 (workflow and config), 3 (URL part), 4 (request helper with stubs
+// and sentinels), 5 and 7 (user pattern, attempt counter). Criteria 8 and 9 (cleanup, sweep) are asserted in
+// preview-e2e-cleanup.test.mjs. Expected values come from the spec, the email pattern and the F1.6 limit, never from the
+// code under test.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { parseYaml, runOf, stepsOf } from './workflow-yaml.mjs';
+import { codeOf, parseYaml, runOf, stepsOf } from './workflow-yaml.mjs';
 
 const ROOT = new URL('..', import.meta.url);
 const read = (rel) => readFileSync(new URL(rel, ROOT), 'utf8');
@@ -19,47 +20,232 @@ const steps = stepsOf(job);
 
 const GOOD = 'https://nestly-abc123def-afikyermis-projects.vercel.app';
 
-// ---- criterion 1: trigger ---------------------------------------------------------------------------------------------
-// Evaluates the job's `if` over a fixture event. Only "github.event.<path> == '<value>'" clauses joined by && are
-// understood; anything else throws, so a changed shape fails loudly instead of being misread.
-function evaluateIf(expr, event) {
-  return expr.split('&&').every((raw) => {
-    const m = /^\s*github\.event\.([\w.]+)\s*==\s*'([^']*)'\s*$/.exec(raw);
-    assert.ok(m, `cannot read clause: ${raw}`);
-    const actual = m[1].split('.').reduce((o, k) => (o === undefined || o === null ? undefined : o[k]), event);
-    return actual === m[2];
-  });
-}
-const ev = (over = {}) => ({
-  deployment_status: { state: 'success', environment: 'Preview', creator: { login: 'vercel[bot]' }, ...over },
+// ---- criterion 1 (as of 20.10.2026): nightly and by hand, on a Preview of main reached through ready/nightly -------------
+const deployment = wf.jobs.deployment;
+const dsteps = stepsOf(deployment);
+const allSteps = [...dsteps, ...steps];
+const ciWorkflow = parseYaml(read('.github/workflows/ci.yml'));
+const minuteOfDay = (cron) => {
+  const m = /^(\d+) (\d+) \* \* \*$/.exec(cron);
+  assert.ok(m, `not a daily cron: ${cron}`);
+  return Number(m[2]) * 60 + Number(m[1]);
+};
+
+test('[E c1] the triggers are schedule and workflow_dispatch only: no deployment_status, push or workflow_run', () => {
+  assert.deepEqual(Object.keys(wf.on), ['schedule', 'workflow_dispatch']);
+  assert.deepEqual(wf.on.schedule.map((s) => s.cron), ['47 22 * * *']);
 });
 
-test('[E c1] the only trigger is deployment_status', () => {
-  assert.deepEqual(Object.keys(wf.on), ['deployment_status']);
+test('[E c1] the nightly run starts after the nightly CI run, the same night', () => {
+  const ciNightly = minuteOfDay(ciWorkflow.on.schedule[0].cron);
+  const e2eNightly = minuteOfDay(wf.on.schedule[0].cron);
+  assert.ok(e2eNightly - ciNightly >= 20, `preview-e2e at ${e2eNightly}, CI at ${ciNightly} (minutes of the day, UTC)`);
 });
 
-test('[E c1] the job runs for a successful Preview deployment by vercel[bot]', () => {
-  assert.equal(evaluateIf(job.if, ev()), true);
-});
-
-for (const [label, over] of [
-  ['state failure', { state: 'failure' }],
-  ['state pending', { state: 'pending' }],
-  ['state in_progress', { state: 'in_progress' }],
-  ['environment Production', { environment: 'Production' }],
-  ['environment preview (lower case)', { environment: 'preview' }],
-  ['creator someone-else', { creator: { login: 'someone-else' } }],
-  ['creator vercel (no [bot])', { creator: { login: 'vercel' } }],
-  ['creator missing', { creator: undefined }],
-]) {
-  test(`[E c1] the job does not run for ${label}`, () => {
-    assert.equal(evaluateIf(job.if, ev(over)), false);
-  });
-}
-
-test('[E c1] permissions are contents: read at the workflow and nothing broader on the job', () => {
+test('[E c1] only the deployment job can write: contents write and deployments read, from the default branch only', () => {
   assert.deepEqual(wf.permissions, { contents: 'read' });
-  assert.ok(job.permissions === undefined || job.permissions === null);
+  assert.deepEqual(deployment.permissions, { contents: 'write', deployments: 'read' });
+  assert.equal(deployment.if, "github.ref == format('refs/heads/{0}', github.event.repository.default_branch)");
+  assert.ok(job.permissions === undefined || job.permissions === null, 'the e2e job widens its permissions');
+  assert.deepEqual([job.needs].flat(), ['deployment']);
+});
+
+test('[E c1] the deployment job checks out the default branch; the e2e job checks out the commit it found, without credentials', () => {
+  const co = dsteps.find((s) => /actions\/checkout/.test(String(s.uses)));
+  assert.equal(co.with.ref, '${{ github.event.repository.default_branch }}');
+  assert.equal(String(co.with['fetch-depth']), '0');
+  const eco = steps.find((s) => /actions\/checkout/.test(String(s.uses)));
+  assert.match(eco.with.ref, /^\$\{\{\s*needs\.deployment\.outputs\.sha\s*\}\}$/);
+  assert.equal(String(eco.with['persist-credentials']), 'false');
+});
+
+test('[E c1] the deployment job runs no repository code and holds no secret: git and gh only, the token as github.token in one step', () => {
+  for (const s of dsteps) {
+    assert.doesNotMatch(runOf(s), /\bnpm\b|\bnode\b|\bnpx\b|tools\//, `step "${s.name ?? s.uses}" runs repository code`);
+    assert.doesNotMatch(JSON.stringify(s), /secrets\./);
+  }
+  const holders = dsteps.filter((s) => JSON.stringify(s.env ?? {}).includes('github.token'));
+  assert.equal(holders.length, 1);
+  assert.match(runOf(holders[0]), /gh api/);
+});
+
+test('[E c1] ready/nightly is never force-pushed: exactly one plain push of the commit to refs/heads/ready/nightly', () => {
+  const runs = allSteps.map((st) => codeOf(runOf(st))).join('\n');
+  const pushes = runs.split('\n').filter((l) => /\bgit\s+push\b/.test(l));
+  assert.equal(pushes.length, 1, pushes.join('\n'));
+  assert.match(pushes[0], /git push origin "\$\{sha\}:refs\/heads\/ready\/nightly"/);
+  assert.doesNotMatch(runs, /--force|--force-with-lease|--mirror|--delete|\bpush\b[^\n]*\s-f\b|\bpush\b[^\n]*\s\+|update-ref|branch -D/);
+});
+
+test('[E c1] the deployment searched for is a Preview of that exact commit by vercel[bot] with a latest status of success', () => {
+  const wait = runOf(dsteps.find((s) => s.id === 'wait'));
+  for (const piece of ['-f environment=Preview', '-f sha="${SHA}"', '.sha == \\"${SHA}\\"', '.environment == \\"Preview\\"', '.production_environment != true', '.creator.login == \\"vercel[bot]\\"', 'statuses?per_page=1', '.[0] | select(.state == "success")', '15 * 60']) {
+    assert.ok(wait.includes(piece), `the wait step lacks ${piece}`);
+  }
+});
+
+// Behaviour: the two deployment steps run with bash in a sandbox (a bare origin, a fake gh over jq, a fake clock).
+const sh = (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', ...opts });
+const toolsMissing = ['bash', 'git', 'jq'].some((t) => sh('bash', ['-c', `command -v ${t}`]).status !== 0) ? 'bash, git or jq is not available' : false;
+const gitEnv = { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' };
+const g = (cwd, ...args) => {
+  const r = sh('git', ['-c', 'commit.gpgsign=false', '-c', 'init.defaultBranch=main', ...args], { cwd, env: gitEnv });
+  assert.equal(r.status, 0, r.stderr);
+  return r.stdout.trim();
+};
+
+function runStepIn(cwd, step, env) {
+  const dir = mkdtempSync(join(tmpdir(), 'pe2e-step-'));
+  try {
+    writeFileSync(join(dir, 'step.sh'), runOf(step));
+    writeFileSync(join(dir, 'out'), '');
+    const r = sh('bash', ['-e', join(dir, 'step.sh')], { cwd, env: { ...gitEnv, GITHUB_OUTPUT: join(dir, 'out'), ...env } });
+    const out = Object.fromEntries(readFileSync(join(dir, 'out'), 'utf8').split('\n').filter(Boolean).map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]));
+    return { status: r.status, text: `${r.stdout}${r.stderr}`, out };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// origin (bare) with main = c1 -> c2; `ready` sets ready/nightly to 'c1', 'c2', 'diverged' or nothing.
+function sandbox(ready, { rejectPushes = false } = {}) {
+  const dir = mkdtempSync(join(tmpdir(), 'pe2e-git-'));
+  const origin = join(dir, 'origin.git');
+  const work = join(dir, 'work');
+  g(dir, 'init', '-q', '--bare', origin);
+  g(dir, 'clone', '-q', origin, work);
+  const commit = (msg) => {
+    writeFileSync(join(work, 'f'), msg);
+    g(work, 'add', 'f');
+    g(work, 'commit', '-q', '-m', msg);
+    return g(work, 'rev-parse', 'HEAD');
+  };
+  const c1 = commit('c1');
+  if (ready === 'diverged') {
+    commit('side');
+    g(work, 'push', '-q', 'origin', 'HEAD:refs/heads/ready/nightly');
+    g(work, 'reset', '-q', '--hard', c1);
+  }
+  const c2 = commit('c2');
+  g(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main');
+  if (ready === 'c1' || ready === 'c2') g(work, 'push', '-q', 'origin', `${ready === 'c1' ? c1 : c2}:refs/heads/ready/nightly`);
+  const before = sh('git', ['ls-remote', origin, 'refs/heads/ready/nightly'], { env: gitEnv }).stdout.split('\t')[0];
+  if (rejectPushes) writeFileSync(join(origin, 'hooks', 'pre-receive'), '#!/bin/sh\necho "rejected by a rule" >&2\nexit 1\n', { mode: 0o755 });
+  const remote = () => sh('git', ['ls-remote', origin, 'refs/heads/ready/nightly'], { env: gitEnv }).stdout.split('\t')[0];
+  return { dir, work, c1, c2, before, remote };
+}
+
+const candidate = dsteps.find((s) => s.id === 'candidate');
+for (const [label, ready] of [['ready/nightly missing: created at main', undefined], ['ready/nightly behind main: fast-forwarded', 'c1']]) {
+  test(`[E c1] ${label}`, { skip: toolsMissing }, () => {
+    const box = sandbox(ready);
+    try {
+      const r = runStepIn(box.work, candidate, {});
+      assert.equal(r.status, 0, r.text);
+      assert.equal(r.out.sha, box.c2);
+      assert.equal(box.remote(), box.c2);
+    } finally {
+      rmSync(box.dir, { recursive: true, force: true });
+    }
+  });
+}
+
+test('[E c1] ready/nightly already at main: nothing is pushed (a push would be refused here) and the commit is used', { skip: toolsMissing }, () => {
+  const box = sandbox('c2', { rejectPushes: true });
+  try {
+    const r = runStepIn(box.work, candidate, {});
+    assert.equal(r.status, 0, r.text);
+    assert.equal(r.out.sha, box.c2);
+    assert.match(r.text, /nothing pushed/);
+  } finally {
+    rmSync(box.dir, { recursive: true, force: true });
+  }
+});
+
+for (const [label, ready, opts] of [['ready/nightly diverged from main', 'diverged', {}], ['the push is refused by the server', 'c1', { rejectPushes: true }]]) {
+  test(`[E c1] ${label}: the run fails, says it is never forced, and the branch is unchanged`, { skip: toolsMissing }, () => {
+    const box = sandbox(ready, opts);
+    try {
+      const r = runStepIn(box.work, candidate, {});
+      assert.equal(r.status, 1, r.text);
+      assert.match(r.text, /never force-pushed/);
+      assert.equal(box.remote(), box.before);
+    } finally {
+      rmSync(box.dir, { recursive: true, force: true });
+    }
+  });
+}
+
+const SHA = 'a'.repeat(40);
+const PROD = 'https://nestly-prod111-afikyermis-projects.vercel.app';
+const dep = (id, over = {}) => ({ id, sha: SHA, environment: 'Preview', production_environment: false, creator: { login: 'vercel[bot]' }, ...over });
+const FAKE_GH = `#!/usr/bin/env bash
+set -eu
+path=""; jqexpr="."
+while [ $# -gt 0 ]; do
+  case "$1" in
+    api) ;; -X) shift ;; -f) echo "$2" >> "$FAKE/params"; shift ;; --jq) jqexpr="$2"; shift ;; *) path="$1" ;;
+  esac
+  shift
+done
+case "$path" in
+  */statuses*) id="\${path#*/deployments/}"; file="$FAKE/statuses-\${id%%/*}.json" ;;
+  */deployments) file="$FAKE/deployments.json" ;;
+  *) exit 2 ;;
+esac
+jq -r "$jqexpr" "$file"
+`;
+const FAKE_DATE = '#!/usr/bin/env bash\nn=$(cat "$FAKE/now" 2>/dev/null || echo 1000)\necho $((n + 400)) > "$FAKE/now"\necho "$n"\n';
+
+function waitWith(deployments, statuses) {
+  const fake = mkdtempSync(join(tmpdir(), 'pe2e-gh-'));
+  try {
+    for (const [name, text] of [['gh', FAKE_GH], ['date', FAKE_DATE], ['sleep', '#!/bin/sh\nexit 0\n']]) writeFileSync(join(fake, name), text, { mode: 0o755 });
+    writeFileSync(join(fake, 'deployments.json'), JSON.stringify(deployments));
+    for (const [id, list] of Object.entries(statuses)) writeFileSync(join(fake, `statuses-${id}.json`), JSON.stringify(list));
+    const r = runStepIn(fake, dsteps.find((s) => s.id === 'wait'), { PATH: `${fake}:${process.env.PATH}`, FAKE: fake, SHA, GH_TOKEN: 'x', GITHUB_REPOSITORY: 'o/r' });
+    let params = '';
+    try {
+      params = readFileSync(join(fake, 'params'), 'utf8');
+    } catch {
+      params = '';
+    }
+    return { ...r, params };
+  } finally {
+    rmSync(fake, { recursive: true, force: true });
+  }
+}
+
+const DECOYS = [dep(1, { environment: 'Production', production_environment: true }), dep(2, { creator: { login: 'someone-else' } }), dep(3, { sha: 'b'.repeat(40) }), dep(4), dep(6, { environment: 'preview' })];
+const DECOY_STATUSES = { 1: [{ state: 'success', target_url: PROD }], 2: [{ state: 'success', target_url: 'https://evil.example.com' }], 3: [{ state: 'success', target_url: PROD }], 4: [{ state: 'failure', target_url: PROD }, { state: 'success', target_url: PROD }], 6: [{ state: 'success', target_url: PROD }] };
+
+test('[E c1] wait: Production, another creator, another commit, a failed latest status and a wrong environment are passed over; the Preview is taken', { skip: toolsMissing }, () => {
+  const r = waitWith([...DECOYS, dep(5)], { ...DECOY_STATUSES, 5: [{ state: 'success', target_url: GOOD, environment_url: PROD }] });
+  assert.equal(r.status, 0, r.text);
+  assert.equal(r.out.target_url, GOOD);
+  assert.ok(!r.text.includes(GOOD), 'the URL is printed');
+  assert.match(r.params, /^sha=a{40}$/m);
+  assert.match(r.params, /^environment=Preview$/m);
+});
+
+test('[E c1] wait: environment_url is the fallback when the status has no target_url', { skip: toolsMissing }, () => {
+  const r = waitWith([dep(5)], { 5: [{ state: 'success', environment_url: GOOD }] });
+  assert.equal(r.out.target_url, GOOD);
+});
+
+test('[E c1] wait: no matching deployment fails after the deadline and writes no URL', { skip: toolsMissing }, () => {
+  const r = waitWith(DECOYS, DECOY_STATUSES);
+  assert.equal(r.status, 1, r.text);
+  assert.match(r.text, /within 15 minutes/);
+  assert.deepEqual(r.out, {});
+});
+
+test('[E c1] wait: a URL with a newline or a space cannot reach the output file', { skip: toolsMissing }, () => {
+  for (const bad of [`${GOOD}\ninjected=1`, `${GOOD} x`]) {
+    const r = waitWith([dep(5)], { 5: [{ state: 'success', target_url: bad }] });
+    assert.equal(r.status, 1, r.text);
+    assert.deepEqual(r.out, {});
+  }
 });
 
 // ---- criterion 2: environment and secrets -----------------------------------------------------------------------------
@@ -86,8 +272,8 @@ test('[E c2] every secrets.* reference sits in the env of a step, never in a run
   assert.equal(inStepEnv, total, 'a secrets.* reference exists outside step env');
 });
 
-test('[E c2] no github.event.* expression in a run body (values arrive through env)', () => {
-  for (const step of steps) {
+test('[E c2] no github.event.* expression in a run body of either job (values arrive through env)', () => {
+  for (const step of allSteps) {
     assert.doesNotMatch(runOf(step), /\$\{\{\s*github\.event\./, `run body of "${step.name ?? step.uses}"`);
   }
 });
@@ -103,7 +289,7 @@ test('[E c3] the URL guard step runs before install and before Playwright, and i
   const installIdx = steps.findIndex((s) => /npm ci/.test(runOf(s)));
   const pwIdx = steps.findIndex((s) => /playwright test/.test(runOf(s)));
   assert.ok(guardIdx >= 0 && guardIdx < installIdx && installIdx < pwIdx);
-  assert.ok(steps[guardIdx].env.TARGET_URL.includes('github.event.deployment_status.target_url'));
+  assert.match(steps[guardIdx].env.TARGET_URL, /^\$\{\{\s*needs\.deployment\.outputs\.target_url\s*\}\}$/);
 });
 
 test('[E c3] the Playwright step gets its base URL only from the guard output', () => {

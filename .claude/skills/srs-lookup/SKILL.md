@@ -6,7 +6,7 @@ user-invocable: false
 
 # srs-lookup — find it, cite it, never load the whole SRS
 
-**Version:** 1.0 · the rule is in `CLAUDE.md` → "Product requirements — the SRS". This is the method.
+**Version:** 1.0 · the rule is in `CLAUDE.md` → "Sources". This is the method.
 
 ## Steps
 

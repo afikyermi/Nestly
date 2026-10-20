@@ -38,14 +38,14 @@
 | 3. Scoring | Stage/Interest/Intent/Social/Quality/Freshness או Profession/Category לפי actor | משקולות configurable/versioned. |
 | 4. Re-ranking | Negative feedback, creator/topic/source diversity, exploration, safety, sponsored frequency cap | לא עוקף Eligibility. |
 | 5. Delivery | Feed/Search/Directory/Marketplace/Guidance/Notifications Highlights | Sponsored label + source retained. |
-| 6. Measurement | Impression/Open/Dwell/Engagement/Not Interested/Conversion | Events כוללים algorithm/config version. ב-I3 אין Events (4א); מ-I15. |
+| 6. Measurement | Impression/Open/Dwell/Engagement/Not Interested/Conversion | Events כוללים algorithm/config version. |
 
 ## 18.4 Algorithm Catalog — חובה ל-v1
 
 | ID | Surface / מטרה | Inputs מרכזיים | Output | הגבלות |
 |---|---|---|---|---|
 | ALG-01 | Regular Feed | Stage + Interest/Intent + Friends/Groups/Follows + Quality + Freshness | Ordered Feed + modules | Diversity/negative feedback; Paid separate |
-| ALG-02 | Professional Feed | Profession + Groups + Professional follows + Search/consumption + Quality/Freshness | Professional Feed | No Child/Tracker signals; ב-I3 — תוכן בלבד, בלי Friend ו-Stage (FR-ALG-003) |
+| ALG-02 | Professional Feed | Profession + Groups + Professional follows + Search/consumption + Quality/Freshness | Professional Feed | No Child/Tracker signals; בלי Friend ו-Stage (FR-ALG-003) |
 | ALG-03 | Contextual Guidance | Stage + approved Topic/Tracker category/summary | Tips/Articles | General/non-diagnostic; organic only |
 | ALG-04 | Professional Matching | Service/query/intent + area (עיר או אזור מרשימה, §12) + quality/activity/ratings | Professional ranking | Paid not in organic score; אין GPS |
 | ALG-05 | Marketplace/Product | Query/category/intent + freshness + area (עיר או אזור מרשימה, §12) + status | Organic item ranking | Promoted/Sponsored separate; אין GPS |
@@ -68,7 +68,7 @@
 
 ## 18.6 Owner/Admin Intelligence — Core Metrics v1
 
-**היקף הצפייה (החלטת אפיק מ-18.10.2026, BR-058):** מחזיק ANALYTICS_VIEW רואה את כל הנתונים, גם ברמת משתמש בודד וגם בקבוצות קטנות, בלי מינימום, בלי שמות ובלי פרטים מזהים — מספרים ונתונים רלוונטיים בלבד. נבנה ב-I14; מדדים שתלויים באירועי שימוש (§13.3, מ-I15) — OP-039. סגמנט שלב או ילדים נשאר Aggregate בלבד עד החלטה נפרדת.
+**היקף הצפייה (החלטת אפיק מ-18.10.2026, BR-058):** מחזיק ANALYTICS_VIEW רואה את כל הנתונים, גם ברמת משתמש בודד וגם בקבוצות קטנות, בלי מינימום, בלי שמות ובלי פרטים מזהים — מספרים ונתונים רלוונטיים בלבד. מדדים שתלויים באירועי שימוש (§13.3) — OP-039. סגמנט שלב או ילדים נשאר Aggregate בלבד עד החלטה נפרדת.
 
 | תחום | Core Metrics | Segmentation / הערה |
 |---|---|---|

@@ -1,18 +1,21 @@
-// Behavioural tests for the `changes` job of .github/workflows/ci.yml (Spec addendum 3, .work/identity-platform/spec.md;
-// CRITIC findings 1-3 of PR 18, .work/ci-path-filters/findings.md). tools/ci-path-filters.test.mjs checks the script's
+// Behavioural tests for the `changes` job of .github/workflows/ci.yml (I1 F1.1 spec addendum 3; review findings 1-3 of
+// PR 18; the changed-spec list of the CI contract of 20.10.2026). tools/ci-path-filters.test.mjs checks the script's
 // wording; this file RUNS it. The step's `run` block is taken from the workflow (tools/workflow-yaml.mjs), written to a
 // file and executed with bash inside a throw-away git repository whose HEAD is a merge commit (HEAD^1 = base, HEAD^2 =
 // the pull request), exactly as actions/checkout leaves a pull request. GITHUB_OUTPUT points at a temp file, EVENT_NAME
-// is set as the step expects and RUNNER_TEMP is a temp directory, as on the runner. The outputs web= and db= are what the
-// other jobs read, and they are asserted.
+// is set as the step expects and RUNNER_TEMP is a temp directory, as on the runner. The outputs web=, db=, browser= and
+// specs= are what the other jobs read, and they are asserted.
 //
-// Expected behaviour (Spec addendum 3 plus CRITIC 1-2):
+// Expected behaviour (spec addendum 3 plus review findings 1-2, and the CI contract):
 //   db  = true when a changed path is under supabase/ or apps/server/, or is packages/shared/*, package-lock.json,
 //         tsconfig.base.json, .nvmrc or .github/workflows/ci.yml
 //   web = true for the web list (apps/web, e2e, the Playwright config, the root package.json, .nvmrc, the three tools the
 //         browser/storybook jobs run, and the shared files above)
 //   both true on a push, and both true whenever the diff of a pull request cannot be read
 //   a path with non-ASCII characters (git quotes them by default) must match like any other
+//   browser = changed with specs = the added or changed e2e/**/*.spec.ts files (space-separated) on a readable pull
+//         request; none when it changed no spec; full (specs empty) on any other event, on an unreadable diff, and when a
+//         changed spec's path has a character outside [A-Za-z0-9._/-]
 //
 // Skipped only when bash or git is absent from the machine (GitHub's runner has both).
 import { test } from 'node:test';
@@ -128,7 +131,7 @@ function execScript(repo, scriptText, eventName) {
     const eq = line.indexOf('=');
     if (eq > 0) outputs[line.slice(0, eq)] = line.slice(eq + 1);
   }
-  return { ...outputs, lines, status: r.status, stdout: r.stdout, stderr: r.stderr };
+  return { outputs, ...outputs, lines, status: r.status, stdout: r.stdout, stderr: r.stderr };
 }
 
 // Runs the workflow's own `changes` step.
@@ -142,6 +145,13 @@ function expectOutputs(result, web, db, label) {
   assert.equal(result.status, 0, `${label}: the step failed (exit ${result.status})${log}`);
   assert.equal(result.web, String(web), `${label}: web=${result.web}, expected ${web}${log}`);
   assert.equal(result.db, String(db), `${label}: db=${result.db}, expected ${db}${log}`);
+}
+
+function expectBrowser(result, browser, specs, label) {
+  const log = `\n--- stdout ---\n${result.stdout}\n--- stderr ---\n${result.stderr}`;
+  assert.equal(result.status, 0, `${label}: the step failed (exit ${result.status})${log}`);
+  assert.equal(result.outputs.browser, browser, `${label}: browser=${result.outputs.browser}, expected ${browser}${log}`);
+  assert.equal(result.outputs.specs, specs.join(' '), `${label}: specs=${result.outputs.specs}${log}`);
 }
 
 const BASE = {
@@ -345,8 +355,58 @@ test('[F1.1-a c1 addendum 3] the step writes exactly one web= and one db= line t
   const repo = makeMergeRepo({ base: BASE, change: { write: { 'apps/web/src/n.tsx': 'x\n' } } });
   const result = runStep(repo);
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(result.lines.map((l) => l.split('=')[0]).sort(), ['db', 'web']);
-  for (const line of result.lines) assert.match(line, /^(web|db)=(true|false)$/);
+  assert.deepEqual(result.lines.map((l) => l.split('=')[0]).sort(), ['browser', 'db', 'specs', 'web']);
+  for (const line of result.lines) assert.match(line, /^(?:(web|db)=(true|false)|browser=(full|changed|none)|specs=(e2e\/[A-Za-z0-9._/-]+\.spec\.ts( (?=e)|$))*)$/);
+});
+
+// ---- the changed specs (CI contract of 20.10.2026) -----------------------------------------------------------------------------
+
+const SPEC_BASE = { ...BASE, 'e2e/feed.spec.ts': 'feed\n// a body long enough for rename detection to pair it\n', 'e2e/helpers.ts': 'export {};\n' };
+
+test('[CI contract] an added spec: browser=changed, specs is that file, web=true', { skip }, () => {
+  const r = runStep(makeMergeRepo({ base: SPEC_BASE, change: { write: { 'e2e/new.spec.ts': 'x\n' } } }));
+  expectOutputs(r, true, false, 'spec added');
+  expectBrowser(r, 'changed', ['e2e/new.spec.ts'], 'spec added');
+});
+
+test('[CI contract] a changed and an added spec, a visual spec and a nested one: all listed, in git order, space-separated', { skip }, () => {
+  const write = { 'e2e/feed.spec.ts': 'changed\n', 'e2e/a.visual.spec.ts': 'x\n', 'e2e/support/deep.spec.ts': 'x\n', 'apps/web/src/x.ts': 'x\n' };
+  expectBrowser(runStep(makeMergeRepo({ base: SPEC_BASE, change: { write } })), 'changed', ['e2e/a.visual.spec.ts', 'e2e/feed.spec.ts', 'e2e/support/deep.spec.ts'], 'several specs');
+});
+
+test('[CI contract] no spec changed: browser=none, specs empty (a helper, the config, app code or docs alone run no spec)', { skip }, () => {
+  for (const write of [{ 'e2e/helpers.ts': 'changed\n' }, { 'playwright.config.ts': 'x\n' }, { 'apps/web/src/x.ts': 'x\n' }, { 'docs/a.md': 'x\n' }, { 'e2e/feed.spec.tsx': 'x\n' }, { 'apps/web/e2e/x.spec.ts': 'x\n' }]) {
+    expectBrowser(runStep(makeMergeRepo({ base: SPEC_BASE, change: { write } })), 'none', [], Object.keys(write)[0]);
+  }
+});
+
+test('[CI contract] a deleted spec has nothing to run; a renamed spec runs under its new name only', { skip }, () => {
+  expectBrowser(runStep(makeMergeRepo({ base: SPEC_BASE, change: { remove: ['e2e/feed.spec.ts'] } })), 'none', [], 'spec deleted');
+  expectBrowser(runStep(makeMergeRepo({ base: SPEC_BASE, change: { move: [['e2e/feed.spec.ts', 'e2e/feed-moved.spec.ts']] } })), 'changed', ['e2e/feed-moved.spec.ts'], 'spec renamed');
+});
+
+test('[CI contract] a changed spec with a space, a quote, Hebrew or a newline in its path: the whole suite (browser=full, specs empty)', { skip }, () => {
+  const names = ['e2e/a b.spec.ts', "e2e/it's.spec.ts", 'e2e/בדיקה.spec.ts', 'e2e/x;rm -rf.spec.ts', 'e2e/$(id).spec.ts'];
+  if (process.platform !== 'win32') names.push('e2e/a\nb.spec.ts');
+  for (const name of names) {
+    const r = runStep(makeMergeRepo({ base: SPEC_BASE, change: { write: { [name]: 'x\n', 'e2e/plain.spec.ts': 'x\n' } } }));
+    expectBrowser(r, 'full', [], JSON.stringify(name));
+  }
+});
+
+test('[CI contract] a docs file whose name holds a newline and a spec path does not smuggle that spec in', { skip: skip || (process.platform === 'win32' ? 'file names cannot hold a newline on Windows' : false) }, () => {
+  expectBrowser(runStep(makeMergeRepo({ base: SPEC_BASE, change: { write: { 'docs/x\ne2e/feed.spec.ts': 'x\n' } } })), 'none', [], 'newline in a docs name');
+});
+
+test('[CI contract] every other event, and an unreadable pull-request diff, run the whole suite: browser=full, specs empty', { skip }, () => {
+  for (const event of ['push', 'schedule', 'workflow_dispatch']) {
+    expectBrowser(runStep(makeMergeRepo({ base: SPEC_BASE, change: { write: { 'e2e/new.spec.ts': 'x\n' } } }), event), 'full', [], event);
+  }
+  const repo = newRepo();
+  put(repo, 'e2e/a.spec.ts', 'a\n');
+  git(repo, 'add', '-A');
+  git(repo, 'commit', '-q', '-m', 'one, no merge commit');
+  expectBrowser(runStep(repo), 'full', [], 'no HEAD^2');
 });
 
 // ---- guard: the harness itself can fail -------------------------------------------------------------------------------

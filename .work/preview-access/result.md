@@ -1,7 +1,0 @@
-# Result — preview-access (tooling, not a feature)
-
-- **Execution:** Succeeded · **Quality:** Good — CRITIC (opus) Validated with Concern; findings 1–4 closed after two re-checks, 5 accepted as debt (secret stays a repository secret — Afik), 6 confirmed on the first run.
-- **What shipped:** `.github/workflows/preview-smoke.yml` (on a vercel[bot] `Preview` deployment status: /api/health 200, a protected path fails closed); `tools/preview-shot.mjs` (screenshot of a protected preview; secret from an explicit path in main(), sent only to a URL a vercel[bot] deployment status of this repo lists, or the production alias); server `strip-bypass-header` (first onRequest hook).
-- **Evidence:** PR 21 → `2d877b2`; CI all green on 6d08011 (first push preceded the PR, so Vercel skipped it; the second push built the Preview). preview-smoke run 38556086101: health 200, /api/anything 503; deployment environment `Preview`, creator vercel[bot] (finding 6). Local: tools 337/337, server 165/165.
-- **Vercel behaviour (docs, 14.10):** bypass header stripping and `*-<scope-slug>.vercel.app` reservation are undocumented — hence the server hook and the GitHub-listed URL rule (decisions 2026-10-14).
-- **Hook blocks:** test-engineer 5 (cwd in a .claude/worktrees worktree — the branch moved to the main checkout; retro), env rule 3 (one BUILDER, one unattributed, one ORCHESTRATOR jq). The branch was renamed `-v2` after a rebase (force push blocked).

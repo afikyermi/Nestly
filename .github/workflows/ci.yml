@@ -1,22 +1,34 @@
-# CI for Nestly (WORKPLAN 7.1). Public repo: no secrets are used or needed.
+# CI for Nestly. Public repo: no secrets are used or needed.
 # Locally, `npm run ci` runs typecheck, lint, tokens:check, check:stories, test and build in this order.
-# `build-storybook` and `test:browser` (Chrome; Edge is `browser-edge`, on main and by hand) are their own jobs; they run only when the web app, the shared package or their
-# tooling changed, and `db` only when supabase/, apps/server/, packages/shared/ or their config changed (job `changes`;
-# Spec addendum 3 of I1 F1.1). `db` needs Docker and runs in CI only.
+#
+# What runs when:
+# - pull_request: typecheck, lint, test, build, audit, schema-gate, `storybook` (when the web app, the shared package or
+#   their tooling changed), `db` (when supabase/, apps/server/, packages/shared/ or their config changed), and
+#   `browser-changed`: only the e2e specs the pull request added or changed, in Chrome, skipped when it changed none. If
+#   the changed files cannot be read, the whole Chrome suite runs instead, in `browser` (fail-safe).
+# - push to main and the nightly schedule: everything above except schema-gate and `browser-changed`, and `browser`: the
+#   whole Chrome suite in five shards, without the visual specs (*.visual.spec.ts).
+# - workflow_dispatch (by hand): as main, but `browser` includes the visual specs, and `browser-edge` runs the Edge suite
+#   in five shards. Edge runs on no other event.
+# The job `changes` decides what a pull request needs; `db` needs Docker and runs in CI only.
 name: CI
 
 on:
   pull_request:
   push:
     branches: [main]
-  # Run the whole workflow by hand, including the Edge job `browser-edge` (`changes` then runs everything).
+  # Nightly at 22:17 UTC (about 01:17 in Israel), on the default branch.
+  schedule:
+    - cron: '17 22 * * *'
+  # By hand: the whole workflow, the visual specs and the Edge job `browser-edge` included.
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# One queue per ref and event, so a push to main never replaces a queued nightly or manual run (or the other way round).
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -24,16 +36,20 @@ env:
   NPM_CONFIG_FUND: "false"
 
 jobs:
-  # Which jobs the change needs (Afik 14.10, "CI once per part"). A skipped job still reports, as "skipped", which a
+  # Which jobs a pull request needs (Afik 14.10, "CI once per part"). A skipped job still reports, as "skipped", which a
   # required check counts as passing: so the filter is a job-level `if`, never a workflow-level `paths:`. Fail-safe:
-  # every push to main, and any pull request whose changed files cannot be read, runs everything. Be conservative: a
-  # missed run is worse than an extra one.
+  # every event other than a pull request, and any pull request whose changed files cannot be read, runs everything
+  # (browser=full). Be conservative: a missed run is worse than an extra one.
+  # Outputs: web and db (true/false); browser = full (the whole Chrome suite, sharded), changed (only `specs`) or none;
+  # specs = the added or changed e2e/**/*.spec.ts files, space-separated, each made only of [A-Za-z0-9._/-].
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       web: ${{ steps.filter.outputs.web }}
       db: ${{ steps.filter.outputs.db }}
+      browser: ${{ steps.filter.outputs.browser }}
+      specs: ${{ steps.filter.outputs.specs }}
     steps:
       # A pull request is checked out as a merge commit: HEAD^1 is the base, so the diff is what the merge would change.
       - uses: actions/checkout@v4
@@ -47,6 +63,8 @@ jobs:
           set -eu
           web=true
           db=true
+          browser=full
+          specs=""
           if [ "${EVENT_NAME}" = pull_request ]; then
             list="${RUNNER_TEMP}/changed-files"
             # -z: NUL-separated, never quoted or escaped, so a path with odd characters is read as it is. It goes to a
@@ -55,6 +73,8 @@ jobs:
             if git rev-parse --verify --quiet 'HEAD^2' >/dev/null && git diff -z --no-renames --name-only 'HEAD^1' HEAD > "${list}"; then
               web=false
               db=false
+              browser=none
+              unsafe=false
               while IFS= read -r -d '' file; do
                 # `case` takes the first match, so what both jobs need sits on one line. A path that starts with a
                 # quote should not occur with -z; if one does, run everything.
@@ -64,16 +84,37 @@ jobs:
                   tools/serve-static.mjs|tools/build-design-tokens.js|tools/check-stories.mjs) web=true ;;
                   supabase/*|apps/server/*) db=true ;;
                 esac
+                # A spec the merge still has (added or changed; a deleted one has nothing to run). Its path is passed
+                # to Playwright word by word, so only plain characters are allowed; any other runs the whole suite.
+                case "${file}" in
+                  e2e/*.spec.ts)
+                    if [ -f "${file}" ]; then
+                      case "${file}" in
+                        *[!A-Za-z0-9._/-]*) unsafe=true ;;
+                        *) specs="${specs:+${specs} }${file}" ;;
+                      esac
+                    fi
+                    ;;
+                esac
               done < "${list}"
               echo "changed files:"
               tr '\0' '\n' < "${list}"
+              if [ "${unsafe}" = true ]; then
+                echo "::notice::a changed spec has a path with unusual characters: running the whole Chrome suite"
+                browser=full
+                specs=""
+              elif [ -n "${specs}" ]; then
+                browser=changed
+              fi
             else
               echo "::notice::could not read the changed files: running everything"
             fi
           fi
           echo "web=${web}" >> "${GITHUB_OUTPUT}"
           echo "db=${db}" >> "${GITHUB_OUTPUT}"
-          echo "browser and storybook run: ${web}; db runs: ${db}"
+          echo "browser=${browser}" >> "${GITHUB_OUTPUT}"
+          echo "specs=${specs}" >> "${GITHUB_OUTPUT}"
+          echo "storybook runs: ${web}; db runs: ${db}; browser: ${browser} ${specs}"
 
   typecheck:
     runs-on: ubuntu-latest
@@ -102,11 +143,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
-      # Line budgets for always-read files and code outside the ESLint caps (agent-slim stage 5).
+      # Line budgets for always-read files and code outside the ESLint caps.
       - run: npm run check:budgets
-      # The generated token CSS is committed; it must equal what the source builds (UI wave 1).
+      # The generated token CSS is committed; it must equal what the source builds.
       - run: npm run tokens:check
-      # Every component has stories for all of its states (UI wave 1, criterion 13).
+      # Every component has stories for all of its states.
       - run: npm run check:stories
 
   test:
@@ -137,7 +178,7 @@ jobs:
       - run: npm ci
       - run: npm run build
 
-  # The static gallery builds (UI wave 1, criterion 12). No Chromatic: plain files.
+  # The static gallery builds. No Chromatic: plain files.
   storybook:
     needs: changes
     if: needs.changes.outputs.web == 'true'
@@ -154,17 +195,16 @@ jobs:
       - run: npm ci
       - run: npm run build-storybook
 
-  # Playwright on Chrome against the built gallery and the e2e app build, on every pull request and push: desktop and
-  # phone (the specs set their own viewports) and the blocking visual regression (e2e/visual-screens.ts). Five shards in
-  # parallel (decisions.md, 2026-10-14 "Speed-up"; two shards until the suite passed ~2,100 tests, 17.10.2026; three until 19.10.2026,
-  # decisions/2026-10.md "Merge and local-test throughput"). The suite runs on e2e stubs only, and every shard is its own runner. Playwright splits
-  # shards by test count in file order and keeps a non-parallel file in one worker; e2e/a11y.spec.ts (6-10 minutes) is parallel
-  # since P3, so its tests share the shard's workers. Timeouts by test type and the CI globalTimeout, two minutes or more under
-  # timeout-minutes: playwright.config.ts, guarded by tools/ci-browser.test.mjs. Edge is `browser-edge` below
-  # (decisions/2026-10.md "Tests: depth by criterion type").
+  # The whole Chrome suite against the built gallery and the e2e app build: on push to main, nightly, by hand, and on a
+  # pull request whose changed files could not be read (changes: browser=full). Desktop and phone (the specs set their own
+  # viewports). On push and schedule E2E_SKIP_VISUAL=true leaves out *.visual.spec.ts (playwright.config.ts); by hand
+  # and on the pull-request fail-safe the blocking visual regression runs too. Five shards in parallel, each its own
+  # runner, on e2e stubs only. Playwright splits shards by test count in file order and keeps a non-parallel file in one
+  # worker; e2e/a11y.spec.ts is parallel, so its tests share the shard's workers. Timeouts by test type and the CI
+  # globalTimeout, two minutes or more under timeout-minutes: playwright.config.ts, guarded by tools/ci-browser.test.mjs.
   browser:
     needs: changes
-    if: needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.browser == 'full'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -192,7 +232,9 @@ jobs:
       # Only this job's browser; Edge is installed in `browser-edge`.
       - run: npx playwright install --with-deps chrome
       - run: npm run build-storybook
-      - run: npx playwright test --project=${{ matrix.project }} --shard=${{ matrix.shard }}/5
+      - env:
+          E2E_SKIP_VISUAL: ${{ github.event_name == 'push' || github.event_name == 'schedule' }}
+        run: npx playwright test --project=${{ matrix.project }} --shard=${{ matrix.shard }}/5
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
@@ -201,13 +243,57 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # Edge (SRS NFR-QA-001) is not run per pull request. It runs on every push to main (after the merge, in parallel with
-  # Vercel's production deploy, so it does not block the deploy) and on workflow_dispatch, behind the same change filter.
-  # The visual regression is Chrome only. Five shards, as Chrome: three shards held ~1,050 tests each and hit the CI
-  # globalTimeout (playwright.config.ts) on main, failing whichever test ran at the cutoff.
-  browser-edge:
+  # Pull requests: only the e2e specs the pull request added or changed (changes: browser=changed), in Chrome, in one job.
+  # Skipped when it changed no spec. The gallery is built here too: Playwright starts both web servers for any spec.
+  browser-changed:
     needs: changes
-    if: needs.changes.outputs.web == 'true' && github.event_name != 'pull_request'
+    if: needs.changes.outputs.browser == 'changed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - id: playwright
+        run: |
+          echo "version=$(node -p "require('./package-lock.json').packages['node_modules/playwright'].version")" >> "${GITHUB_OUTPUT}"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - run: npx playwright install --with-deps chrome
+      - run: npm run build-storybook
+      - name: The changed specs in Chrome
+        env:
+          SPECS: ${{ needs.changes.outputs.specs }}
+        run: |
+          set -euf
+          # The changes job admits only plain paths; checked again here, since each word becomes an argument.
+          case "${SPECS}" in
+            ''|*[!A-Za-z0-9._/\ -]*) echo "::error::the changed-spec list is empty or has unexpected characters"; exit 1 ;;
+          esac
+          echo "specs: ${SPECS}"
+          # Word splitting is intended: one argument per spec file (globbing is off, set -f).
+          # shellcheck disable=SC2086
+          npx playwright test --project=chrome ${SPECS}
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report-chrome-changed
+          path: playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # Edge (SRS NFR-QA-001) runs only by hand (workflow_dispatch): never on a pull request, a push to main or the nightly
+  # schedule. The visual regression is Chrome only (the edge project ignores *.visual.spec.ts). Five shards, as Chrome:
+  # three shards held ~1,050 tests each and hit the CI globalTimeout (playwright.config.ts).
+  browser-edge:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -244,7 +330,7 @@ jobs:
   # P6 (schema before code): a pull request that adds a migration carries no product code; one that changes product code
   # waits until every migration in its tree is applied in production (tools/schema-gate.mjs). Read only: it reads the
   # migrate runs through the API and never dispatches. After migrate's db-production job succeeded on main, re-run this
-  # job once on the PR. It runs the BASE commit's copy of the gate, so a pull request never judges itself (CRITIC P6 2);
+  # job once on the PR. It runs the BASE commit's copy of the gate, so a pull request never judges itself;
   # only the pull request that adds the gate runs its own copy. part-status counts a missing schema-gate as a blocker and,
   # from the PR's file list, blocks product code changed together with this job or the gate. Recovery if a broken gate
   # reaches main (every PR then fails here, its fix included): Afik merges that one gate-only fix by hand; never switch
@@ -292,9 +378,8 @@ jobs:
       - run: npm ci
       - run: npm audit --audit-level=high
 
-  # A disposable database, built from scratch on every run (I1 F1.1 part a, spec criteria 1-4, 6, 7; WORKPLAN 7.1;
-  # .work/identity-platform/schema.md "CI `db` job"). No GitHub secret and no environment: every password is random
-  # per run, masked, and dies with the runner. Nothing here can reach nestly-preview or nestly-prod.
+  # A disposable database, built from scratch on every run (I1 F1.1 part a, spec criteria 1-4, 6, 7). No GitHub secret
+  # and no environment: every password is random per run, masked, and dies with the runner. Nothing here can reach nestly-preview or nestly-prod.
   # Order: pinned auth functions -> their hash check -> image preflight -> bootstrap step 1 -> migrations as app_owner
   # (the newest up -> down -> up) -> bootstrap step 2 -> Drizzle drift check (part b criteria 8-20) -> the gate's
   # fire harness as postgres -> RLS gate and pgTAP as app_server.
@@ -378,7 +463,7 @@ jobs:
           exit 1
 
       # The image's own auth.uid()/auth.role() do not read request.jwt.claims; install the deployed definitions, pinned
-      # and hash-checked (schema.md "Addendum 1 — CI auth functions"). supabase_admin is the image's superuser, used
+      # and hash-checked (supabase/ci/auth-functions-check.sql). supabase_admin is the image's superuser, used
       # for this one setup step of a disposable database only.
       - name: Install the pinned auth functions as supabase_admin
         env:
@@ -392,7 +477,7 @@ jobs:
           PGPASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
         run: psql -X -q -v ON_ERROR_STOP=1 -f supabase/ci/auth-functions-check.sql
 
-      - name: Check the image provides what the suite assumes (schema.md [A])
+      - name: Check the image provides what the suite assumes
         env:
           PGUSER: postgres
           PGPASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
@@ -412,7 +497,7 @@ jobs:
           alter role app_server password :'server_pw';
           SQL
 
-      # Every migration as app_owner. The newest also goes up -> down -> up once (schema.md "Rollback", Gate 2): its down
+      # Every migration as app_owner. The newest also goes up -> down -> up once (rollback rule): its down
       # script must return the database to the state before it, and the second up must give the database the first did.
       - name: Migrations as app_owner (supabase db push), the newest up -> down -> up
         env:
@@ -493,7 +578,7 @@ jobs:
           after="$(fingerprint)"
           if [ "${before}" != "${after}" ]; then
             psql -X -q -A -t -v ON_ERROR_STOP=1 -c "select 'probe schema present: ' || exists (select 1 from pg_namespace where nspname = 'ci_atomicity_probe')"
-            echo "::error::statements before the failing one were left behind: the CLI did not apply the migration atomically (schema.md 'Atomicity': MATERIAL CHANGE to DATA ARCHITECT)"
+            echo "::error::statements before the failing one were left behind: the CLI did not apply the migration atomically (the atomicity assumption of the migration tooling no longer holds)"
             exit 1
           fi
 
@@ -556,7 +641,7 @@ jobs:
           psql -X -q -v ON_ERROR_STOP=1 -f supabase/ci/pgtap-setup.sql
           psql -X -q -v ON_ERROR_STOP=1 -f supabase/ci/rls-gate.sql
           # The checks app_server cannot fire from its own session, fired here and rolled back (criterion 4; part a
-          # CRITIC findings 3-5). Each file raises, and fails this step, when the gate misses its violation.
+          # review findings 3-5). Each file raises, and fails this step, when the gate misses its violation.
           psql -X -q -v ON_ERROR_STOP=1 -f supabase/ci/rls-gate-fire.sql
           psql "${CI_APP_OWNER_DB_URL}" -X -q -v ON_ERROR_STOP=1 -f supabase/ci/rls-gate-fire-owner.sql
           # Fixture helpers that come with the tests (supabase/tests/setup/*.sql), in name order, if any.

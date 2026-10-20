@@ -14,7 +14,7 @@
 | תהליך מערכת | שמירת הפנייה, שיוכה למשתמש ולנושא והעברתה לתיבת הפניות. Admin נגיש תמיד; Moderator בעל SUPPORT_VIEW יכול לצפות, ובעל SUPPORT_HANDLE יכול לטפל. |
 | פלט | אישור שליחת פנייה. |
 | מצב לאחר ביצוע | SupportRequest זמינה לטיפול. היא אינה יוצרת Chat חופשי; Support Thread יופיע ב-Chat כאשר מתקבלת תגובת Support. |
-| בעל אחריות לוגי (Page / Feature) | SupportRequestFeature |
+| בעל אחריות לוגי (Page / Feature) | שליחת פנייה ל-Support |
 
 ## FR-ADMIN-002 — תיבת פניות Support וניהול
 
@@ -28,13 +28,13 @@
 | תהליך מערכת | טעינה וסינון לפי SUPPORT_VIEW; תגובה/הערה פנימית/עדכון סטטוס רק עם SUPPORT_HANDLE. תגובת שירות נשמרת ב-SupportRequest ומוצגת למשתמש ב-Chat כ-Support Thread בשם “Support”. כל פעולה נרשמת ב-Audit Log. |
 | פלט | רשימת פניות לניהול. |
 | מצב לאחר ביצוע | סטטוס, תגובות והערות נשמרים; תגובה חיצונית חדשה מסומנת unread ב-Chat של המשתמש. |
-| בעל אחריות לוגי (Page / Feature) | SupportInboxPage / SupportInboxFeature |
+| בעל אחריות לוגי (Page / Feature) | מסך תיבת הפניות / טיפול בתיבת הפניות |
 
 ## FR-ADMIN-003 — ניתוח פניות ושימוש במערכת
 
 | שדה | הגדרה |
 |---|---|
-| סטטוס | מאושר — Core metrics מוגדרים ב-FR-ADMIN-010 ובסעיף 18.6. **נבנה ב-I14 ונכנס ל-MVP** (הועבר מ-I15, החלטת אפיק מ-18.10.2026): הגרפים גלויים ל-Admin או למי שיש לו ההרשאה (ANALYTICS_VIEW). אירועי השימוש נאספים רק מ-I15 (4א), ולכן אילו מדדים מוצגים ב-I14 — פתוח, OP-039 (נדרש אישור) |
+| סטטוס | מאושר — Core metrics מוגדרים ב-FR-ADMIN-010 ובסעיף 18.6. **נכנס ל-MVP** (החלטת אפיק מ-18.10.2026): הגרפים גלויים ל-Admin או למי שיש לו ההרשאה (ANALYTICS_VIEW). אילו מדדים מוצגים לפני שאירועי השימוש נאספים — פתוח, OP-039 (נדרש אישור) |
 | Actor | Admin / Moderator עם ANALYTICS_VIEW |
 | תיאור | המערכת תאפשר ל-Admin לנתח פניות Support ומידע תפעולי/שימוש. שכבת Owner/Admin Intelligence המלאה מוגדרת ב-FR-ADMIN-010; Moderator עם ANALYTICS_VIEW רואה את מה ש-FR-ADMIN-010 מגדיר להרשאה. |
 | תנאים מוקדמים | קיימים נתוני פניות/שימוש; Admin מחובר או Moderator מחובר עם ANALYTICS_VIEW. |
@@ -42,7 +42,7 @@
 | תהליך מערכת | Aggregation לפי period/domain/segment; Organic/Paid נפרדים. היקף הנתונים, כולל רמת משתמש בודד, לפי FR-ADMIN-010. |
 | פלט | Support metrics + קישור/גישה ל-Admin Intelligence KPIs. |
 | מצב לאחר ביצוע | המידע זמין לניהול וקבלת החלטות תפעוליות ומוצריות. |
-| בעל אחריות לוגי (Page / Feature) | AdminAnalyticsPage / AdminAnalyticsFeature |
+| בעל אחריות לוגי (Page / Feature) | מסך ה-Analytics לניהול / תצוגת ה-Analytics לניהול |
 
 ## FR-ADMIN-004 — ניהול הרשאות Moderator
 
@@ -56,21 +56,21 @@
 | תהליך מערכת | שמירת מיפוי ההרשאות, אכיפה בצד השרת ועדכון הגישה למודולים/פעולות. כל שינוי נשמר ב-Audit Log עם מצב לפני/אחרי. |
 | פלט | אישור עדכון הרשאות. |
 | מצב לאחר ביצוע | ה-Moderator יכול לגשת רק ליכולות שהוקצו לו. Admin שומר גישה מלאה. פעולות Admin Only אינן ניתנות להקצאה ל-Moderator. |
-| בעל אחריות לוגי (Page / Feature) | AdminAccessControlPage / ModeratorPermissionsFeature |
+| בעל אחריות לוגי (Page / Feature) | מסך הרשאות Moderator / ניהול הרשאות Moderator |
 
 ## FR-ADMIN-005 — Audit Log לפעולות ניהוליות
 
 | שדה | הגדרה |
 |---|---|
-| סטטוס | מאושר; נוספו אירועי שחזור הסיסמה (F1.6, 15.10.2026) |
+| סטטוס | מאושר; נוספו אירועי שחזור הסיסמה (15.10.2026) |
 | Actor | System / Admin / Moderator עם AUDIT_LOG_VIEW לצפייה |
-| תיאור | המערכת תרשום Audit Log לכל פעולה ניהולית משמעותית של Admin/Moderator. Moderator בעל AUDIT_LOG_VIEW יכול לצפות בלבד; אין אפשרות לשנות או למחוק רשומות דרך ממשק המוצר. **אירועי שחזור הסיסמה (FR-AUTH-003, כפי שנבנה ב-F1.6):** נרשמים ברשומה נפרדת, בשרת, באותה פעולה שבה הם קורים: `answers_saved` · `answers_changed` · `change_failed` · `change_limited` · `reset_failed` · `reset_limited` · `reset_verified`, ואחריו בדיוק אחת מהתוצאות `reset_completed` · `reset_admin_failed` (קביעת הסיסמה ב-Auth נכשלה) · `reset_revoke_failed` (הסיסמה נקבעה, סיום ה-Sessions נכשל) · `reset_email_mismatch` (האימייל הנוכחי של החשבון אינו האימייל שהוזן) · ומעבר מזהה האימייל: `handle_released` (החשבון איבד את המזהה לטענה חדשה יותר) · `handle_rekeyed` (המזהה עבר לאימייל שבאסימון). כל רשומה: סוג, מזהה משתמש כשידוע, hash של מזהה האימייל, hash של כתובת ה-IP וזמן — בלי תשובה, סיסמה או אימייל. למשתמשים רגילים ולמבקרים אין גישה אליה. |
+| תיאור | המערכת תרשום Audit Log לכל פעולה ניהולית משמעותית של Admin/Moderator. Moderator בעל AUDIT_LOG_VIEW יכול לצפות בלבד; אין אפשרות לשנות או למחוק רשומות דרך ממשק המוצר. **אירועי שחזור הסיסמה (FR-AUTH-003):** נרשמים ברשומה נפרדת, בשרת, באותה פעולה שבה הם קורים: `answers_saved` · `answers_changed` · `change_failed` · `change_limited` · `reset_failed` · `reset_limited` · `reset_verified`, ואחריו בדיוק אחת מהתוצאות `reset_completed` · `reset_admin_failed` (קביעת הסיסמה ב-Auth נכשלה) · `reset_revoke_failed` (הסיסמה נקבעה, סיום ה-Sessions נכשל) · `reset_email_mismatch` (האימייל הנוכחי של החשבון אינו האימייל שהוזן) · ומעבר מזהה האימייל: `handle_released` (החשבון איבד את המזהה לטענה חדשה יותר) · `handle_rekeyed` (המזהה עבר לאימייל שבאסימון). כל רשומה: סוג, מזהה משתמש כשידוע, hash של מזהה האימייל, hash של כתובת ה-IP וזמן — בלי תשובה, סיסמה או אימייל. למשתמשים רגילים ולמבקרים אין גישה אליה. |
 | תנאים מוקדמים | פעולה ניהולית בוצעה, או Actor מורשה פתח את מסך Audit. |
 | קלט / Trigger | פעולת ניהול / פתיחת Audit Log. |
 | תהליך מערכת | שמירת Actor, Role, Permission, Action, Target, Timestamp, Result וסיבה כאשר קיימת; בשינוי הרשאה נשמר Before/After. |
 | פלט | רשומת Audit חדשה או רשימת רשומות בהתאם להרשאה. |
 | מצב לאחר ביצוע | הפעולה ניתנת למעקב. Retention לחשבון פעיל: 12 חודשים (§13.4, החלטת אפיק מ-18.10.2026). |
-| בעל אחריות לוגי (Page / Feature) | AdminAuditLogPage / AuditLogFeature |
+| בעל אחריות לוגי (Page / Feature) | מסך יומן ה-Audit / יומן ה-Audit |
 
 ## FR-ADMIN-006 — טיפול בבקשת Professional Verification (בוטל)
 
@@ -94,11 +94,11 @@
 | Actor | Admin / Moderator עם COMMUNITY_CONFIG |
 | תיאור | המערכת תאפשר ניהול הגדרות קהילה תפעוליות שאינן Admin Only, כגון קטגוריות, סיבות דיווח ותצורות Moderation מאושרות. |
 | תנאים מוקדמים | Admin מחובר או Moderator עם COMMUNITY_CONFIG. |
-| קלט / Trigger | פתיחת AdminCommunitySettingsPage וביצוע שינוי בתצורה מותרת. |
+| קלט / Trigger | פתיחת מסך הגדרות הקהילה וביצוע שינוי בתצורה מותרת. |
 | תהליך מערכת | בדיקת Permission; ולידציה של הערכים; שמירת התצורה ורישום Before/After ב-Audit Log. |
 | פלט | התצורה המעודכנת זמינה לרכיבים המשתמשים בה. |
 | מצב לאחר ביצוע | השינוי נשמר ונרשם ב-Audit Log. |
-| בעל אחריות לוגי (Page / Feature) | AdminCommunitySettingsPage / CommunityAdministrationFeature |
+| בעל אחריות לוגי (Page / Feature) | מסך הגדרות הקהילה / ניהול הגדרות הקהילה |
 
 ## FR-ADMIN-008 — ניהול הודעות מערכת
 
@@ -112,7 +112,7 @@
 | תהליך מערכת | בדיקת Permission; ולידציה; שמירת ההודעה והסטטוס; רישום הפעולה ב-Audit Log. |
 | פלט | הודעת מערכת נשמרת/מתפרסמת/מוסרת בהתאם לפעולה. |
 | מצב לאחר ביצוע | המצב החדש של ההודעה נשמר והפעולה נרשמת ב-Audit Log. |
-| בעל אחריות לוגי (Page / Feature) | AdminAnnouncementsPage / SystemAnnouncementsFeature |
+| בעל אחריות לוגי (Page / Feature) | מסך הודעות מערכת / ניהול הודעות מערכת |
 
 ## FR-ADMIN-009 — ניהול Sponsored Products
 
@@ -126,27 +126,27 @@
 | תהליך מערכת | בדיקת Admin Only SPONSORED_PRODUCT_MANAGE; שמירת SponsoredProduct, מקור, מדיה, סטטוס וסימון Sponsored; רישום Audit. |
 | פלט | Sponsored Product פעיל/מעודכן/מושהה/מוסר. |
 | מצב לאחר ביצוע | Marketplace מציג את המוצר המסחרי בסימון ברור ונפרד מ-User Listing. |
-| בעל אחריות לוגי (Page / Feature) | AdminSponsoredProductsPage / SponsoredProductManagementFeature |
+| בעל אחריות לוגי (Page / Feature) | מסך מוצרים ממומנים / ניהול מוצרים ממומנים |
 
 ## FR-ADMIN-010 — Owner/Admin Intelligence Dashboard v1
 
 | שדה | הגדרה |
 |---|---|
-| סטטוס | מאושר — חובה ל-v1. **נבנה ב-I14 ונכנס ל-MVP** (הועבר מ-I15, החלטת אפיק מ-18.10.2026): הגרפים גלויים ל-Admin או למי שיש לו ההרשאה (ANALYTICS_VIEW). אירועי השימוש (§13.3) נאספים רק מ-I15 (4א); אילו תחומים מחושבים ב-I14 מטבלאות המוצר ואילו ממתינים לאירועים — פתוח, OP-039 (נדרש אישור) |
+| סטטוס | מאושר — חובה ל-v1. **נכנס ל-MVP** (החלטת אפיק מ-18.10.2026): הגרפים גלויים ל-Admin או למי שיש לו ההרשאה (ANALYTICS_VIEW). אילו תחומים מחושבים מטבלאות המוצר לפני שאירועי השימוש (§13.3) נאספים, ואילו ממתינים לאירועים — פתוח, OP-039 (נדרש אישור) |
 | Actor | Admin / Moderator with ANALYTICS_VIEW |
-| תיאור | AdminAnalyticsPage יציג Owner/Admin Intelligence עבור Lifecycle/Retention, Feed/Search, Groups, Professionals, Marketplace, Promotions, Support/Moderation ו-Recommendation Quality. Admin מלא. **ANALYTICS_VIEW** (החלטת אפיק מ-18.10.2026): רואה את כל הנתונים, גם ברמת משתמש בודד וגם בקבוצות קטנות, בלי מינימום, בלי שמות ובלי פרטים מזהים — מספרים ונתונים רלוונטיים בלבד. |
+| תיאור | מסך ה-Analytics לניהול יציג Owner/Admin Intelligence עבור Lifecycle/Retention, Feed/Search, Groups, Professionals, Marketplace, Promotions, Support/Moderation ו-Recommendation Quality. Admin מלא. **ANALYTICS_VIEW** (החלטת אפיק מ-18.10.2026): רואה את כל הנתונים, גם ברמת משתמש בודד וגם בקבוצות קטנות, בלי מינימום, בלי שמות ובלי פרטים מזהים — מספרים ונתונים רלוונטיים בלבד. |
 | תנאים מוקדמים | קיימים AnalyticsEvent/Aggregate data והרשאת צפייה. |
 | קלט / Trigger | בחירת תקופה, domain ו-segment מאושר. |
 | תהליך מערכת | טעינת הנתונים לפי סעיף 18.6; Organic ו-Paid מופרדים; גם ברמת משתמש בודד, בלי שמות ובלי פרטים מזהים. |
 | פלט | Dashboards/KPIs/filters המאפשרים זיהוי trends, funnels, demand/supply gaps ואיכות Recommendation. |
 | מצב לאחר ביצוע | Admin יכול לקבל החלטות Product/Operations על בסיס מדדים; Raw Chat/Support/Tracker אינם מוצגים כ-dashboard analytics. |
-| בעל אחריות לוגי (Page / Feature) | AdminAnalyticsPage / AdminAnalyticsFeature / AdminIntelligenceFeature |
+| בעל אחריות לוגי (Page / Feature) | מסך ה-Analytics לניהול / תצוגת ה-Analytics לניהול / חישוב נתוני הניהול |
 
 ## FR-ADMIN-011 — רשימת מוזמנים לבטא סגורה
 
 | שדה | הגדרה |
 |---|---|
-| סטטוס | נדחה (13.10.2026) — ההרשמה פתוחה לכולם; לא נבנה כרגע. ההגדרה נשמרת אם תוחזר בטא סגורה |
+| סטטוס | נדחה (13.10.2026) — ההרשמה פתוחה לכולם; היכולת אינה פעילה במוצר. ההגדרה נשמרת אם תוחזר בטא סגורה |
 | Actor | Admin |
 | תיאור | לפני ההשקה הפתוחה Nestly פועלת כבטא סגורה. Admin מנהל רשימת כתובות אימייל מוזמנות, ורק אימייל ברשימה יכול להשלים הרשמה. בהשקה הפתוחה הרשימה מושבתת. |
 | תנאים מוקדמים | Admin מחובר. |
@@ -154,7 +154,7 @@
 | תהליך מערכת | שמירת הרשימה ומצב הבטא; רישום Audit לכל שינוי. בהרשמה בזמן בטא, אימייל שאינו ברשימה נדחה בהודעה כללית (ERR-035). |
 | פלט | רשימת מוזמנים מעודכנת ומצב בטא פעיל או מושבת. |
 | מצב לאחר ביצוע | ההרשמה פתוחה רק למוזמנים, עד שהבטא מושבתת. |
-| בעל אחריות לוגי (Page / Feature) | AdminBetaInvitesPage / BetaAccessFeature |
+| בעל אחריות לוגי (Page / Feature) | מסך מוזמני הבטא / גישה לבטא |
 
 ## FR-ADMIN-012 — ניהול תוכן מערכת — מדריכים לפי סטטוס
 
@@ -168,13 +168,13 @@
 | תהליך מערכת | שמירת המדריך כתוכן מערכת עם המקורות ותאריך הבדיקה; ההערה "המידע אינו מחליף ייעוץ רפואי" מוצגת בכל מדריך; רישום Audit לכל פרסום, הסתרה ועריכה. |
 | פלט | מדריך מפורסם או מוסתר. |
 | מצב לאחר ביצוע | מדריך מפורסם מוצג לפי FR-HOME-004 למשתמשים בסטטוס המתאים. |
-| בעל אחריות לוגי (Page / Feature) | AdminContentPage / SystemContentFeature |
+| בעל אחריות לוגי (Page / Feature) | מסך ניהול מדריכים / ניהול מדריכים |
 
 ## FR-ADMIN-013 — שחרור נעילת שחזור
 
 | שדה | הגדרה |
 |---|---|
-| סטטוס | מאושר — החלטת אפיק מ-17.10.2026 (מדרג הנעילה, NFR-SEC-010); נבנה ב-I4 |
+| סטטוס | מאושר — החלטת אפיק מ-17.10.2026 (מדרג הנעילה, NFR-SEC-010) |
 | Actor | Admin |
 | תיאור | המערכת תאפשר ל-Admin לשחרר נעילת שחזור של חשבון (בעיקר נעילה קבועה), לבקשת המשתמש. |
 | תנאים מוקדמים | Admin מחובר. המשתמש ביקש שחרור: מחובר — דרך Support (FR-ADMIN-001); לא מחובר — דרך כתובת התמיכה הציבורית, שתגיע עם הדומיין ושירות האימייל לפני ההשקה (§12). |
@@ -182,4 +182,4 @@
 | תהליך מערכת | איפוס ספירת הכישלונות והנעילה של החשבון. השחרור אינו נותן גישה: אינו מחבר את המשתמש ואינו משנה סיסמה, והמשתמש עונה על שאלות השחזור כרגיל. הפעולה נרשמת ב-Audit Log (FR-ADMIN-005). Moderator — אין הרשאה. |
 | פלט | אישור שהנעילה שוחררה. |
 | מצב לאחר ביצוע | הניסיון הבא נבדק כרגיל, מספירה אפס (AC-126). |
-| בעל אחריות לוגי (Page / Feature) | AdminUserManagementPage / RecoveryLockReleaseFeature |
+| בעל אחריות לוגי (Page / Feature) | מסך ניהול משתמשים / שחרור נעילת שחזור |

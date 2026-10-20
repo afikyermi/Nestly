@@ -1,4 +1,0 @@
-# result — F3.3b2 likes server + displayed counts
-**Done:** PUT/DELETE /api/posts/:id/like and /api/comments/:id/like (idempotent 204, one 404 body); likeCount/commentCount/likedByMe on GET /posts/:id and feed units, likeCount/likedByMe on comments; likedByMe only via likes-repository readLikedTargetIds (no user_id predicate); counts + like-state in one REPEATABLE READ transaction; feed ranking untouched. Also stabilised the pre-existing F3.2b flake e2e/feed-owner.spec.ts:56.
-**Path:** Elevated · BUILDER ∥ TEST ENGINEER · CRITIC opus (1 medium: e2e stubs, 3 low) ∥ A&D (2 low) → fixed → CRITIC round 2 clean. Afik Q8 / S-36: own like on a now-unreadable target can't be withdrawn (default keep).
-**SRS trace:** FR-FEED-003 (like), FR-FEED-001 (counts), AC-060 subset unchanged. **Tests:** server db 757; shared 437; feed-owner 20/20; test:product ~557+130 : ~522.

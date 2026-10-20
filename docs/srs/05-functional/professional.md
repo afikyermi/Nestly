@@ -14,7 +14,7 @@
 | תהליך מערכת | טעינת Aggregates מאושרים בלבד; אין חשיפת זהות משתמשים, raw search queries, Child/Tracker או מידע פרטי מאחורי המדדים. |
 | פלט | Dashboard עסקי עם Organic/Paid KPIs. |
 | מצב לאחר ביצוע | בעל המקצוע יכול לעקוב אחר ביצועי הנוכחות והקידום שלו ללא User-level targeting data. |
-| בעל אחריות לוגי (Page / Feature) | ProfessionalDashboardPage / ProfessionalDashboardFeature |
+| בעל אחריות לוגי (Page / Feature) | מסך לוח הבקרה המקצועי / נתוני לוח הבקרה המקצועי |
 
 ## FR-PRO-002 — Professional Performance & Promotion Analytics v1
 
@@ -28,7 +28,7 @@
 | תהליך מערכת | Aggregation לפי תקופה ו-Organic/Paid source; אין חשיפת identity, search terms או private data של משתמשים בודדים. |
 | פלט | Professional KPIs ו-Promotion performance. |
 | מצב לאחר ביצוע | בעל המקצוע יכול להעריך ביצועים וקידום בלי לקבל User-level targeting data. |
-| בעל אחריות לוגי (Page / Feature) | ProfessionalDashboardFeature / ProfessionalPromotionFeature / PromotionAnalyticsPage |
+| בעל אחריות לוגי (Page / Feature) | נתוני לוח הבקרה המקצועי / קידום מקצועי / מסך תוצאות הקידום |
 
 ## FR-PRO-003 — פרסום מאמר מקצועי
 
@@ -42,4 +42,4 @@
 | תהליך מערכת | שמירת המאמר בבעלות בעל המקצוע; עריכה, הסתרה ומחיקה רק על ידי הבעלים, או על ידי Admin/Moderator בכלי האכיפה. המאמר כפוף לדיווח ולאכיפה (FR-MOD-001), ואינו מאבחן ואינו ממליץ באופן אישי (BR-012). |
 | פלט | מאמר מוצג בפרופיל המקצועי, עם הערת האחריות. |
 | מצב לאחר ביצוע | צפיות במאמר נספרות כמדד מצטבר ב-Professional Dashboard (FR-PRO-002), בלי זהות הצופים. |
-| בעל אחריות לוגי (Page / Feature) | ProfessionalProfilePage / ProfessionalArticleFeature |
+| בעל אחריות לוגי (Page / Feature) | מסך פרופיל מקצועי / מאמרים מקצועיים |

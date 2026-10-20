@@ -1,13 +1,13 @@
 ---
 name: srs-update
-description: Updates the Nestly SRS after a change — the right section file in its own format, IDs continuing the sequence, open items kept open, a version row, the AC names file, §17 and the rebuilt INDEX. Use for an SRS change outside a feature, as `/srs-update <what changed>`; inside a feature, /wrap-up follows these steps.
+description: Updates the Nestly SRS after a change — the right section file in its own format, IDs continuing the sequence, open items kept open, a version row, the AC names file, §17 and the rebuilt INDEX. Use for an SRS change outside a feature, as `/srs-update <what changed>`; inside a feature, the builder follows these steps in the same PR.
 disable-model-invocation: true
 argument-hint: <what changed, and Afik's decision it rests on>
 ---
 
 # /srs-update — keep the SRS true
 
-**Version:** 1.0 · the rules are in `CLAUDE.md` → "Product requirements — the SRS" and `.claude/rules/srs-editing.md`. This is their procedure.
+**Version:** 1.0 · the rules are in `CLAUDE.md` → "Sources" and `.claude/rules/srs-editing.md`. This is their procedure.
 
 ## Input
 
@@ -19,7 +19,7 @@ argument-hint: <what changed, and Afik's decision it rests on>
    several files — an FR, its BR, VAL, ERR and AC, and the entities in §13.
 2. **Write in the document's own logic.** The section's table format and wording style. A new ID continues its
    prefix's sequence — take the last ID from the INDEX ranges. Never renumber.
-3. **Keep open items open.** Anything its decision owner (CLAUDE.md → "Decision authority") has not decided stays "TBD" or "נדרש אישור", with an OP row in
+3. **Keep open items open.** Anything its decision owner (Afik — CLAUDE.md → "Never") has not decided stays "TBD" or "נדרש אישור", with an OP row in
    `appendix-b-open-points.md`. Never write a default into the SRS.
 4. **Traceability.** When pages, FRs or entities changed, update `17-traceability.md`. A new AC gets its short name
    in `tools/srs-ac-names.json` first, or the INDEX build fails.

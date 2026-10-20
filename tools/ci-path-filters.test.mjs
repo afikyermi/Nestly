@@ -1,8 +1,9 @@
-// Repository tests for the CI path filter of .github/workflows/ci.yml (Spec addendum 3, .work/identity-platform/spec.md;
-// Afik 14.10.2026, "CI once per part"): criterion 1 changes from "on every pull request" to "on every pull request that
-// changes supabase/, apps/server/, packages/shared/, the lockfile, the Node/TS base config or ci.yml, and on every push to
-// main". The db job may be skipped only by the workflow's own change-detection job `changes`, which fails safe; nothing
-// else may skip or soften it. The rest of the db job is in tools/db-workflows.test.mjs.
+// Repository tests for the CI path filter of .github/workflows/ci.yml (I1 F1.1 spec addendum 3; Afik 14.10.2026, "CI
+// once per part"): the db job runs on every pull request that changes supabase/, apps/server/, packages/shared/, the
+// lockfile, the Node/TS base config or ci.yml, and on every other event (push to main, schedule, workflow_dispatch). The db
+// job may be skipped only by the workflow's own change-detection job `changes`, which fails safe; nothing else may skip
+// or soften it. The same job lists a pull request's changed specs (outputs browser and specs; CI contract of 20.10.2026),
+// failing safe to the whole Chrome suite. The rest of the db job is in tools/db-workflows.test.mjs.
 // They parse the workflow file as data. They never run a workflow. The YAML reader is tools/workflow-yaml.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -196,4 +197,57 @@ test('[F1.1-a c1 addendum 3] the db filter helper reads case patterns and matche
   assert.equal(globToRegExp('supabase/*').test('supabase/migrations/a.sql'), true);
   assert.equal(globToRegExp('supabase/*').test('apps/supabase/a.sql'), false);
   assert.equal(globToRegExp('package-lock.json').test('package-lockXjson'), false);
+});
+
+// ---- the browser and specs outputs (CI contract of 20.10.2026) -----------------------------------------------------------------
+// Failure being guarded: a default other than "full", or a "none"/"changed" that can be reached on a push or an unreadable
+// diff -> the Chrome suite silently not run. The behaviour itself is run in tools/ci-path-filters.run.test.mjs.
+
+function browserFailSafeProblems(run) {
+  const code = codeOf(run);
+  const problems = [];
+  const assignments = [...code.matchAll(/\bbrowser=([a-z]+)\b/g)];
+  if (assignments[0]?.[1] !== 'full') problems.push(`browser does not default to full: ${assignments[0]?.[0]}`);
+  const dbFalse = code.search(/\bdb=false\b/);
+  const unreadable = code.search(/could not read the changed files/);
+  if (dbFalse < 0 || unreadable < 0) return [...problems, 'the readable pull-request branch or its else could not be found'];
+  for (const m of assignments.filter((a) => a[1] !== 'full')) {
+    if (!(m.index > dbFalse && m.index < unreadable)) problems.push(`${m[0]} is set outside the readable pull-request branch`);
+  }
+  if (!assignments.some((a) => a[1] === 'none')) problems.push('browser is never none: a pull request without a changed spec would run the suite');
+  if (!/echo\s+"?browser=\$\{?browser\}?"?\s*>>\s*"?\$\{?GITHUB_OUTPUT\}?"?/.test(code)) problems.push('browser is not written to GITHUB_OUTPUT');
+  if (!/echo\s+"?specs=\$\{?specs\}?"?\s*>>\s*"?\$\{?GITHUB_OUTPUT\}?"?/.test(code)) problems.push('specs is not written to GITHUB_OUTPUT');
+  // A changed spec with any other character falls back to the whole suite rather than reaching a command line.
+  if (!/\*\[!A-Za-z0-9\._\/-\]\*\)\s*unsafe=true/.test(code)) problems.push('a spec path with unusual characters is not caught');
+  if (!/if \[ "\$\{unsafe\}" = true \]; then[^]*?browser=full/.test(code)) problems.push('an unusual spec path does not fall back to browser=full');
+  return problems;
+}
+
+test('[CI contract] the changes job exports browser and specs from its detection step', () => {
+  for (const name of ['browser', 'specs']) {
+    const match = new RegExp(`^\\$\\{\\{\\s*steps\\.([A-Za-z0-9_-]+)\\.outputs\\.${name}\\s*\\}\\}$`).exec(String(changes?.outputs?.[name] ?? '').trim());
+    assert.ok(match, `the ${name} output is not read from a step output: ${String(changes?.outputs?.[name])}`);
+    assert.equal(detectionStep?.id, match[1], `the ${name} output reads a step other than the detection step`);
+  }
+});
+
+test('[CI contract] browser fails safe: it defaults to full, and only a readable pull-request diff sets none or changed', () => {
+  assert.deepEqual(browserFailSafeProblems(runOf(detectionStep)), []);
+});
+
+test('[CI contract] the browser fail-safe check can fail (guards the test above)', () => {
+  const run = runOf(detectionStep);
+  const mutants = {
+    'browser defaults to none': run.replace(/\bbrowser=full\b/, 'browser=none'),
+    'none set after the unreadable branch too': run.replace('running everything"', 'running everything"\n              browser=none'),
+    'none set before the event check': run.replace('specs=""\n', 'specs=""\nbrowser=none\n'),
+    'browser never written': run.replace(/echo "browser=\$\{browser\}" >> "\$\{GITHUB_OUTPUT\}"/, ''),
+    'specs never written': run.replace(/echo "specs=\$\{specs\}" >> "\$\{GITHUB_OUTPUT\}"/, ''),
+    'odd paths accepted': run.replace('*[!A-Za-z0-9._/-]*) unsafe=true ;;', ''),
+    'odd paths skip the suite': run.replace(/(if \[ "\$\{unsafe\}" = true \]; then[^]*?)browser=full/, '$1browser=none'),
+  };
+  for (const [label, mutant] of Object.entries(mutants)) {
+    assert.notEqual(mutant, run, `${label}: the mutation changed nothing, so it proves nothing`);
+    assert.notDeepEqual(browserFailSafeProblems(mutant), [], `${label} was not caught`);
+  }
 });
