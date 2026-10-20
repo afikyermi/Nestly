@@ -474,7 +474,7 @@ Posts are searched by the server through the caller's own RLS (`posts_select_vie
 
 ## Blocking a user (I4)
 
-`20261021200000_user_blocks.sql` (FR-REL-002, BR-080, AC-126). A block is mutual in effect and separate from Chat Block.
+`20261021200000_user_blocks.sql` (FR-REL-002). A block is mutual in effect and separate from Chat Block.
 
 | Table | Columns and meaning | Authorization |
 |---|---|---|

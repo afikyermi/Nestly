@@ -1,5 +1,5 @@
 -- =====================================================================================================================
--- Blocking a user — I4 (FR-REL-002, BR-080, AC-126).
+-- Blocking a user — I4 (FR-REL-002).
 --
 -- user_blocks  one row per block: who blocked whom. The block is mutual in effect: while a row exists for a pair, in either direction,
 --              each side no longer sees the other's posts, comments, names or profile, and no new Friend Request passes between them.
@@ -165,7 +165,7 @@ end
 $$;
 
 comment on table nestly.user_blocks is
-  'FR-REL-002 (BR-080): a block, mutual in effect. Both parties read the row; only the blocker inserts and deletes (unblock). No UPDATE. A new row ends the Friendship and open requests (trigger). Separate from Chat Block (FR-SERV-009).';
+  'FR-REL-002: a block, mutual in effect. Both parties read the row; only the blocker inserts and deletes (unblock). No UPDATE. A new row ends the Friendship and open requests (trigger). Separate from Chat Block (FR-SERV-009).';
 comment on column nestly.user_blocks.blocker_id is 'Who blocked; the caller on insert.';
 comment on column nestly.user_blocks.blocked_id is 'Who was blocked.';
 comment on function nestly.is_blocked_pair(uuid) is 'True when the caller and the other account have a block between them, in either direction. SECURITY INVOKER; used by the RESTRICTIVE hiding policies.';

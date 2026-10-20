@@ -1,4 +1,4 @@
--- pgTAP, run by pg_prove as app_server (CI `db` job, I4: blocking a user, FR-REL-002 / BR-080 / AC-126).
+-- pgTAP, run by pg_prove as app_server (CI `db` job, I4: blocking a user, FR-REL-002).
 -- Source of expected values: the SRS (FR-REL-002: mutual, hides posts, comments and profile both ways, ends the Friendship), not the migration text.
 -- People: a, b (Regular), c = fr_c (Regular, not part of any block), s = suspended, p = Professional, fr_m = Moderator.
 -- Everything rolls back with the transaction.
@@ -70,13 +70,13 @@ select set_config('t.ca', tests.fx_cm_add(pg_temp.id('a'), current_setting('t.pb
 select set_config('t.pc', tests.fx_po_add(pg_temp.id('c'))::text, true);
 select set_config('t.cbc', tests.fx_cm_add(pg_temp.id('b'), current_setting('t.pc')::uuid)::text, true);
 
-select is(pg_temp.sees_post('a', current_setting('t.pb')::uuid), '0', '[I4-blk c6 AC-126] the blocker does not see the blocked account''s post');
-select is(pg_temp.sees_post('b', current_setting('t.pa')::uuid), '0', '[I4-blk c6 AC-126] the blocked account does not see the blocker''s post');
+select is(pg_temp.sees_post('a', current_setting('t.pb')::uuid), '0', '[I4-blk c6 FR-REL-002] the blocker does not see the blocked account''s post');
+select is(pg_temp.sees_post('b', current_setting('t.pa')::uuid), '0', '[I4-blk c6 FR-REL-002] the blocked account does not see the blocker''s post');
 select is(pg_temp.sees_post('a', current_setting('t.pa')::uuid), '1', '[I4-blk c6] each side still sees their own post');
 select is(pg_temp.sees_post('c', current_setting('t.pa')::uuid) || pg_temp.sees_post('c', current_setting('t.pb')::uuid), '11', '[I4-blk c6] a third account sees both posts');
 select is(pg_temp.sees_post('a', current_setting('t.pbanon')::uuid), '1', '[I4-blk c6] an anonymous post cannot be hidden (nobody can tell whose it is)');
-select is(pg_temp.sees_comment('a', current_setting('t.cbc')::uuid), '0', '[I4-blk c7 AC-126] the blocker does not see the blocked account''s comment on a third account''s post');
-select is(pg_temp.sees_comment('b', current_setting('t.ca')::uuid), '0', '[I4-blk c7 AC-126] the blocked account does not see the blocker''s comment either');
+select is(pg_temp.sees_comment('a', current_setting('t.cbc')::uuid), '0', '[I4-blk c7 FR-REL-002] the blocker does not see the blocked account''s comment on a third account''s post');
+select is(pg_temp.sees_comment('b', current_setting('t.ca')::uuid), '0', '[I4-blk c7 FR-REL-002] the blocked account does not see the blocker''s comment either');
 select is(pg_temp.sees_comment('c', current_setting('t.cbc')::uuid), '1', '[I4-blk c7] a third account sees that comment');
 select is(pg_temp.sees_name('a', 'b'), '0', '[I4-blk c8] the blocker does not read the blocked account''s name');
 select is(pg_temp.sees_name('b', 'a'), '0', '[I4-blk c8] the blocked account does not read the blocker''s name');
@@ -85,10 +85,10 @@ select is(pg_temp.sees_name('c', 'b'), '1', '[I4-blk c8] a third account reads a
 
 -- ---- the Friendship ends --------------------------------------------------------------------------------------------------
 select pg_temp.dml('a', 'delete from nestly.user_blocks');
-select is(pg_temp.n('a', 'select count(*)::text from nestly.user_blocks'), '0', '[I4-blk c9 AC-126] unblocking removes the row');
+select is(pg_temp.n('a', 'select count(*)::text from nestly.user_blocks'), '0', '[I4-blk c9 FR-REL-002] unblocking removes the row');
 select is(pg_temp.sees_post('a', current_setting('t.pb')::uuid) || pg_temp.sees_post('b', current_setting('t.pa')::uuid), '11', '[I4-blk c9] after an unblock both posts are visible again');
 select tests.fx_fr_add(pg_temp.id('a'), pg_temp.id('b'), 'accepted');
-select is(pg_temp.block('b', 'a'), 'OK:1', '[I4-blk c10 BR-080] b blocks a');
+select is(pg_temp.block('b', 'a'), 'OK:1', '[I4-blk c10 FR-REL-002] b blocks a');
 select is(tests.fx_fr_rows(pg_temp.id('a'), pg_temp.id('b')), 'a>b:removed', '[I4-blk c10 FR-REL-002] the block ends the Friendship');
 select is(pg_temp.dml('a', format($q$ insert into nestly.friendships (addressee_id) values (%L) $q$, pg_temp.id('b'))), 'ERR:42501', '[I4-blk c11] no Friend Request across a block (either side)');
 select is(pg_temp.dml('b', format($q$ insert into nestly.friendships (addressee_id) values (%L) $q$, pg_temp.id('a'))), 'ERR:42501', '[I4-blk c11] not from the blocker either');
@@ -127,7 +127,7 @@ create function pg_temp.pv(p_who text, p_of text) returns text language sql as $
   select tests.as_role('authenticated', tests.claims(pg_temp.id(p_who)),
     format($q$ select coalesce((select r.outcome from nestly.profile_view(%L) r), 'none') $q$, pg_temp.id(p_of)::text))
 $f$;
-select is(pg_temp.pv('b', 'a') || '/' || pg_temp.pv('a', 'b'), 'none/none', '[I4-blk c17 AC-126] the profile of the other party of a block does not open, both ways');
+select is(pg_temp.pv('b', 'a') || '/' || pg_temp.pv('a', 'b'), 'none/none', '[I4-blk c17 FR-REL-002] the profile of the other party of a block does not open, both ways');
 select is(pg_temp.pv('c', 'a'), 'shown', '[I4-blk c17] a third account opens it');
 select pg_temp.dml('a', 'delete from nestly.user_blocks');
 select is(pg_temp.pv('b', 'a'), 'shown', '[I4-blk c17] after the unblock it opens again');
