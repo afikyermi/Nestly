@@ -12,7 +12,6 @@ import {
   PROMPT_TEXT,
   SEARCH_LABEL,
   SEARCH_PLACEHOLDER_LABEL,
-  SUBMIT_LABEL,
   VIEW_ALL_LABEL,
 } from "./search-texts";
 
@@ -54,6 +53,7 @@ export function SearchBox() {
       >
         <SearchIcon />
       </Link>
+      {/* Enter submits: a form with one field needs no submit button (implicit submission), so the top bar adds no hidden button. */}
       <form
         role="search"
         onSubmit={submit}
@@ -79,9 +79,6 @@ export function SearchBox() {
           onChange={(event) => setText(event.target.value)}
           className={cn(inputStyles, "min-h-11 w-64 lg:w-80")}
         />
-        <button type="submit" className="sr-only">
-          {SUBMIT_LABEL}
-        </button>
         {open ? (
           <div
             id={panelId}
