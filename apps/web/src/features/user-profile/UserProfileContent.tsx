@@ -213,7 +213,7 @@ export function UserProfileContent(props: UserProfileContentProps) {
       {view.kind === 'blocked' ? (
         <div data-testid="user-profile-blocked" data-profile-message tabIndex={-1} className="flex flex-col items-start gap-3">
           <p>{BLOCKED_TEXT}</p>
-          <Link to={`${PATHS.settings}${settingsSectionHash('privacy')}`} className="text-label">
+          <Link to={`${PATHS.settings}${settingsSectionHash('privacy')}`} className="inline-flex min-h-11 items-center text-label">
             {BLOCKED_LINK_LABEL}
           </Link>
         </div>
