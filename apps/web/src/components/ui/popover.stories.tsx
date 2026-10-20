@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { MessageIcon } from "./icons";
+import { BellIcon } from "./icons";
 import { Popover } from "./popover";
 
 // The panel under a trigger (the notification dropdown, FR-NOTIF-001).
@@ -8,15 +8,15 @@ const meta = {
   component: Popover,
   parameters: { layout: "padded" },
   args: {
-    label: "הודעות",
+    label: "התראות",
     className: "w-80",
     trigger: (
       <button
         type="button"
-        aria-label="הודעות"
+        aria-label="התראות"
         className="inline-flex size-11 items-center justify-center rounded-md hover:bg-muted"
       >
-        <MessageIcon />
+        <BellIcon />
       </button>
     ),
     children: <p className="p-3 text-body">אין התראות חדשות</p>,

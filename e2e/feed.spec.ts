@@ -71,8 +71,8 @@ test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
       const [w, l] = [await write.boundingBox(), await list(page).boundingBox()];
       expect(w?.y ?? 0).toBeLessThan(l?.y ?? 0);
       expect(net.methods).toEqual(['GET']);
-      // I5: the Stories tray loads with the feed; I4: the menu asks whether the account is staff; I8: the shell's Chat badge asks once that check says it is a community account (it is the shell's, not the feed's).
-      expect(new Set(net.apiPaths.filter((path) => path !== '/api/chat/unread'))).toEqual(new Set(['/api/me', '/api/profile', '/api/feed', '/api/stories', '/api/admin/access']));
+      // I5: the Stories tray loads with the feed; I4: the menu asks whether the account is staff; I7: the bell; I8: the shell's Chat badge asks once the staff check says it is a community account (the shell's, not the feed's).
+      expect(new Set(net.apiPaths.filter((path) => path !== '/api/chat/unread'))).toEqual(new Set(['/api/me', '/api/profile', '/api/feed', '/api/stories', '/api/admin/access', '/api/notifications']));
       await scan(page);
     });
   }

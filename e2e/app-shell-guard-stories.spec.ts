@@ -75,7 +75,7 @@ test('[F1.2 c27][NFR-USAB-004] Storybook has stories for the Welcome page and fo
   );
   expect(drawer, 'a story shows the composed shell with the drawer open, holding חשבון and התנתקות').toBeDefined();
   // F3.7 c14 added "כללי הקהילה" after "חברים"; F3.6 c11 added "שיתוף Nestly" before the logout (same order as app-shell-guard-shell c19).
-  expect(drawer?.drawerItems.filter((i) => i !== 'סגירת התפריט')).toEqual(['חברים', 'כללי הקהילה', 'חשבון', 'פרטיות ואבטחה', 'תנאים ופרטיות', 'פנייה למוקד רפואי', 'שאלות לשחזור סיסמה', 'החלפת סיסמה', 'פנייה לתמיכה', 'שיתוף Nestly', 'התנתקות']); // F1.6 c18, F2.0 c15, F2.5 c1, F3.8 c5, F3.7 c14, F3.6 c11
+  expect(drawer?.drawerItems.filter((i) => i !== 'סגירת התפריט')).toEqual(['חברים', 'כללי הקהילה', 'חשבון', 'פרטיות ואבטחה', 'התראות', 'תנאים ופרטיות', 'פנייה למוקד רפואי', 'שאלות לשחזור סיסמה', 'החלפת סיסמה', 'פנייה לתמיכה', 'שיתוף Nestly', 'התנתקות']); // F1.6 c18, F2.0 c15, F2.5 c1, F3.8 c5, F3.7 c14, F3.6 c11
 });
 
 test('[F1.2 c27][NFR-A11Y-001] the Welcome story and the composed shell stories have zero axe violations at 375 and 1024', async ({

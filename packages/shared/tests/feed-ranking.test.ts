@@ -19,7 +19,7 @@ import {
 
 const V1: FeedConfig = {
   wFresh: 1, halfLifeHours: 24, wFriend: 0.5, wQuality: 0.2, qualityCap: 20, wStage: 0,
-  scoredWindowDays: 14, maxSameCreatorInWindow: 2, diversityWindow: 5, maxAnonymousInWindow: 2, pageSize: 20,
+  scoredWindowDays: 14, maxSameCreatorInWindow: 2, diversityWindow: 5, maxAnonymousInWindow: 2, pageSize: 20, wIntent: 0, intentHalfLifeHours: 168,
 };
 const base: ScoreInput = { ageHours: 0, isFriend: false, isAnonymous: false, n: 0, stageTag: null, viewerStages: [] };
 const score = (u: Partial<ScoreInput>, cfg = V1) => scorePost(cfg, { ...base, ...u });
@@ -48,6 +48,15 @@ describe('score [F3.2-a1 c3 c4]', () => {
     expect(score({ viewerStages }, on)).toBeCloseTo(1, 12);
     expect(score({ stageTag: 'pregnant' }, on)).toBeCloseTo(1, 12);
   });
+  it('[FR-ALG-008] the Intent Signal: wIntent 0 ignores it; above 0 it adds wIntent * min(intent, 1); a row without the columns reads 0', () => {
+    expect(score({ intent: 1 })).toBe(score({}));
+    const on = { ...V1, wIntent: 0.5 };
+    expect(score({ intent: 0.4 }, on) - score({}, on)).toBeCloseTo(0.2, 12);
+    expect(score({ intent: 3 }, on) - score({}, on)).toBeCloseTo(0.5, 12);
+    const older = Object.fromEntries(Object.entries(V1).filter(([k]) => k !== 'wIntent' && k !== 'intentHalfLifeHours'));
+    expect(resolveFeedConfig([{ version: 1, isActive: true, values: older }], null).config.wIntent).toBe(0);
+  });
+
   it('tier boundary: exactly 14 days is tier 0, past it tier 1 with score 0', () => {
     expect(rankTier(V1, 14 * 24)).toBe(0);
     expect(rankTier(V1, 14 * 24 + 1 / 3600)).toBe(1);

@@ -123,7 +123,7 @@ cascade has run — reserved for Afik. Bootstrap steps, the complete list (anyth
 `TO authenticated` (which `app_owner` inherits). **Resolved for caller-only helpers** (F1.1 Gate 2): SECURITY INVOKER, reading through the caller's
 own-row policies (rule 16). **Resolved for a definer that reads other users' rows** (F2.3b, DR-G1): it reaches them only through `TO app_owner`
 policies scoped to a target it declares in a transaction-local setting and clears; no runtime role is in `app_owner` (rule 1), so the setting opens
-nothing outside it — `nestly.profile_view` below. **Resolved for that definer writing the caller's own rows** (F2.4c1, Afik DR-L): the same gate plus `user_id = auth.uid()`. **Resolved for rule-17 writes into other users' rows** (notifications, Afik 20.10.2026): the same gate, one definer per kind of write ("Approved exceptions"). **Still open** for rule-19 audited reads.
+nothing outside it — `nestly.profile_view` below. **Resolved for that definer writing the caller's own rows** (F2.4c1, Afik DR-L): the same gate plus `user_id = auth.uid()`. **Resolved for rule-17 writes into other users' rows** (notifications, Afik 20.10.2026): the same gate, one definer per kind of write ("Approved exceptions"). **Resolved for rule-19 audited reads** (I4, Afik 20.10.2026): `reveal_post_author`, below.
 **Backfills:** constant (F2.3a): `ADD COLUMN … NOT NULL DEFAULT <constant>`, catalog-only, no row written. Computed (F2.4a DR-B): in the migration's transaction,
 `NO FORCE` on the source, `INSERT … SELECT` as owner, `FORCE` again at once (ACCESS EXCLUSIVE till commit: rule 8 holds at every commit); never at runtime.
 

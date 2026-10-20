@@ -15,6 +15,11 @@ export type ScoreInput = {
   stageTag: JourneyStage | null;
   /** The viewer's derived Stage set (empty when the viewer has none). */
   viewerStages: readonly JourneyStage[];
+  /**
+   * FR-ALG-008: the sum of the decayed weights of the viewer's search topics the post matches (each topic: the sum over its searches of
+   * 2^(-hours since the search / intentHalfLifeHours), searches up to `asOf` and at most 30 days before it). Absent: 0.
+   */
+  intent?: number;
 };
 
 /** 0 for a post within `scoredWindowDays`, 1 for an older one (pure recency, score 0). */
@@ -22,14 +27,16 @@ export function rankTier(config: FeedConfig, ageHours: number): 0 | 1 {
   return ageHours <= config.scoredWindowDays * 24 ? 0 : 1;
 }
 
-/** `wFresh*2^(-age/halfLife) + wFriend*friend + wQuality*min(ln(1+n)/ln(1+cap), 1) + wStage*stageMatch`; 0 in tier 1. */
+/** `wFresh*2^(-age/halfLife) + wFriend*friend + wQuality*min(ln(1+n)/ln(1+cap), 1) + wStage*stageMatch + wIntent*min(intent, 1)`; 0 in tier 1. */
 export function scorePost(config: FeedConfig, input: ScoreInput): number {
   if (rankTier(config, input.ageHours) === 1) return 0;
   const fresh = Math.pow(2, -input.ageHours / config.halfLifeHours);
   const friend = input.isFriend && !input.isAnonymous ? 1 : 0;
   const quality = Math.min(Math.log(1 + input.n) / Math.log(1 + config.qualityCap), 1);
   const stage = input.stageTag !== null && input.viewerStages.includes(input.stageTag) ? 1 : 0;
-  return config.wFresh * fresh + config.wFriend * friend + config.wQuality * quality + config.wStage * stage;
+  const base = config.wFresh * fresh + config.wFriend * friend + config.wQuality * quality + config.wStage * stage;
+  const intent = input.intent ?? 0;
+  return config.wIntent > 0 && intent > 0 ? base + config.wIntent * Math.min(intent, 1) : base;
 }
 
 /** The order key `(tier asc, score desc, created_at desc, id desc)`. Timestamps are fixed-width text and ids lowercase uuids. */

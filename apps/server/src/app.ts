@@ -16,6 +16,8 @@ import { registerBlocksRoutes } from './routes/blocks.js';
 import { registerChatRoutes } from './routes/chat.js';
 import { registerSupportRoutes } from './routes/support.js';
 import { registerReportsRoutes } from './routes/reports.js';
+import { registerNotificationsRoutes } from './routes/notifications.js';
+import { registerSearchRoute } from './routes/search.js';
 import { registerSharesRoutes } from './routes/shares.js';
 import { registerAdminGuidesRoutes } from './routes/admin-guides.js';
 import { registerTeamRoutes } from './routes/team.js';
@@ -147,6 +149,8 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerPostHidesRoutes(app, { database });
   registerReportsRoutes(app, { database });
   registerSharesRoutes(app, { database });
+  registerNotificationsRoutes(app, { database });
+  registerSearchRoute(app, { database });
   registerBlocksRoutes(app, { database });
   registerChatRoutes(app, { database });
   registerSupportRoutes(app, { database });

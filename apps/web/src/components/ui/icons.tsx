@@ -1,5 +1,8 @@
 import {
   ArrowLeft,
+  Bell,
+  Search,
+  Settings,
   ArrowUp,
   Check,
   ChevronDown,
@@ -56,6 +59,9 @@ const Nest = createLucideIcon('nest', [
 ]);
 
 export const MenuIcon = icon(Menu);
+export const BellIcon = icon(Bell);
+export const SearchIcon = icon(Search);
+export const SettingsIcon = icon(Settings);
 export const HomeIcon = icon(House);
 export const EyeIcon = icon(Eye);
 export const EyeOffIcon = icon(EyeOff);

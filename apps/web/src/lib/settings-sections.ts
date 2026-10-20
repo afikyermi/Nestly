@@ -3,6 +3,7 @@
 export const SETTINGS_SECTIONS = [
   { id: 'account', label: 'חשבון' },
   { id: 'privacy', label: 'פרטיות ואבטחה' },
+  { id: 'notifications', label: 'התראות' },
   { id: 'terms', label: 'תנאים ופרטיות' },
 ] as const;
 
