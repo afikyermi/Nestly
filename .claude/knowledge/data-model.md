@@ -166,7 +166,7 @@ F1.6 recovery and F2.0 S-01/S-16 (FR-AUTH-003/005, OP-029) — Afik 2026-10-13, 
     recovery_answers releases the declared handle (email_handle and handle_claimed_at to NULL) only on a row whose claim
     is older than the declared one (nestly.recovery_claimed_at(), policy recovery_answers_release_recovery) — it can set
     no handle, touch no hash, delete no row; it appends recovery_events (and the three subject-bound kinds of F2.0,
-    user_id = the transaction's sub, nestly.recovery_subject(), DR-S2) and reads no audit and no other table.
+    user_id = the transaction's sub, nestly.recovery_subject(), DR-S2) and reads no audit and no other table; I4 adds only UPDATE of recovery_throttles.ladder_failures (column grant, `20261021300000`, NFR-SEC-010, Afik 20.10.2026).
     Why: a guest endpoint has no auth.uid(), and anon must hold nothing in nestly (rule 7, CI anon_privilege). Not a
     SECURITY DEFINER function; adds nothing to tests.approved_security_definer().
     Approved in .work/password-recovery/schema.md · 2026-10-15 (DR-G1, ORCHESTRATOR; release policy: Amendment 2)
@@ -200,8 +200,8 @@ owned by app_owner, fixed search_path, each one kind of write into another user'
 accepted; a decline is silent), `notify_comment()` (a comment on my post, the real author of an anonymous post included; a reply to my comment; never to oneself), `notify_post()` (a share
 of my post; a named post of a Friend to the Friends who chose to follow that Friend) - no EXECUTE for any runtime role - and `search_people(text, integer, integer)` (EXECUTE authenticated:
 counts the call against the people_search limit, returns id and full name of active Regular accounts for a query of 2 to 100 characters, at most 50 rows). Conditions: (1) no "new post of a
-Friend" for an anonymous post (AC-076); (2) no query returns nothing, and never an Admin, Moderator or inactive account; mutual blocks excluded by a follow-up migration after I4's block table;
-(3) no notification between users who blocked each other (same follow-up), and every notification respects the recipient's preferences. Each declares a scope in a transaction-local setting
+Friend" for an anonymous post (AC-076); (2) no query returns nothing, and never an Admin, Moderator or inactive account; blocked pairs excluded both ways (user_blocks);
+(3) no notification between users who blocked each other (notify_deliver, `20261021250000_user_blocks.sql`), and every notification respects the recipient's preferences. Each declares a scope in a transaction-local setting
 (`nestly.notify_scope`, `nestly.search_scope`) that opens its eight `TO app_owner` policies on posts, post_authors, comments, friendships, users, regular_names, security_limits and
 security_events (plus the new tables'), and clears it; no runtime role is a member of app_owner. `notify_deliver()` is SECURITY INVOKER, run only by those definers. No like creates a notification.
 Also the retention job's `TO app_jobs` policies `search_intents_select_jobs` / `search_intents_delete_jobs` (rows older than 30 days) and `purge_search_intents()` (EXECUTE app_jobs only; rule 6).

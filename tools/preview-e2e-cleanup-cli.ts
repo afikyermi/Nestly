@@ -134,6 +134,8 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
           await tx`delete from nestly.posts
                     where author_id = ${id} or id in (select post_id from nestly.post_authors where author_id = ${id})`
         ).count;
+        // Blocking (FR-REL-002): rows either way; they reference only users.
+        counts['user_blocks'] = (await tx`delete from nestly.user_blocks where blocker_id = ${id} or blocked_id = ${id}`).count;
         counts['friendships'] = (
           await tx`delete from nestly.friendships where requester_id = ${id} or addressee_id = ${id}`
         ).count;
