@@ -297,8 +297,8 @@ select is_empty(
        join pg_catalog.pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'nestly' and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents')
         and pol.polroles <> array[(select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated')]
-        and pol.polname not like '%\_select\_profile\_view' and pol.polname <> 'users_select_search' $$,
-  '[F1.1-b c19 platform r4 · F1.6 scoped · F2.3b c15] every policy on the five F1.1/F1.4 tables is TO authenticated only (not PUBLIC, not anon, not app_recovery), except the four *_select_profile_view policies and users_select_search TO app_owner (files 53 and 90 assert them)');
+        and pol.polname not like '%\_select\_profile\_view' and pol.polname not in ('users_select_search', 'regular_profiles_block_hide_owner') $$,
+  '[F1.1-b c19 platform r4 · F1.6 scoped · F2.3b c15] every policy on the five F1.1/F1.4 tables is TO authenticated only (not PUBLIC, not anon, not app_recovery), except the four *_select_profile_view policies, users_select_search and regular_profiles_block_hide_owner TO app_owner (files 53, 90 and 91 assert them)');
 
 select is(has_schema_privilege('authenticated', 'nestly', 'USAGE'), true,
   '[F1.1-b c12] authenticated has USAGE on schema nestly');

@@ -198,22 +198,26 @@ select set_eq(
             ('legal_consents.legal_consents_select_own.r'), ('legal_consents.legal_consents_insert_own.a'),
             ('users.users_select_profile_view.r'), ('regular_profiles.regular_profiles_select_profile_view.r'),
             ('children.children_select_profile_view.r'), ('journey_contexts.journey_contexts_select_profile_view.r'),
-            ('users.users_select_staff.r'), ('users.users_update_staff.w'), ('users.users_update_own_expired_suspension.w'), ('users.users_select_search.r') $$,
-  '[F1.4-a c14 platform r14 · F1.6 scoped · F2.2a c9 · F2.2-b c18 · F2.3b c15] the policies on the five F1.1/F1.4 tables are exactly twenty-three (search: users_select_search TO app_owner, file 90; I4 adds users_select_staff, users_update_staff and users_update_own_expired_suspension): one SELECT and one INSERT per table plus regular_profiles_update_own (F2.1), children_update_own (F2.2a), journey_contexts_update_own (F2.2b1), the own-row deletes children_delete_own and journey_contexts_delete_own (F2.2b2, DR-1 A) and the four *_select_profile_view (F2.3b, TO app_owner: file 53), no other UPDATE, DELETE or ALL (the recovery policies: file 30; files 50, 51 and 54 assert the update and delete policies)');
+            ('users.users_select_staff.r'), ('users.users_update_staff.w'), ('users.users_update_own_expired_suspension.w'), ('users.users_select_search.r'),
+            ('regular_profiles.regular_profiles_block_hide_owner.r') $$,
+  '[F1.4-a c14 platform r14 · F1.6 scoped · F2.2a c9 · F2.2-b c18 · F2.3b c15] the policies on the five F1.1/F1.4 tables are exactly twenty-four (blocking: the restrictive regular_profiles_block_hide_owner TO app_owner, file 91; search: users_select_search TO app_owner, file 90; I4 adds users_select_staff, users_update_staff and users_update_own_expired_suspension): one SELECT and one INSERT per table plus regular_profiles_update_own (F2.1), children_update_own (F2.2a), journey_contexts_update_own (F2.2b1), the own-row deletes children_delete_own and journey_contexts_delete_own (F2.2b2, DR-1 A) and the four *_select_profile_view (F2.3b, TO app_owner: file 53), no other UPDATE, DELETE or ALL (the recovery policies: file 30; files 50, 51 and 54 assert the update and delete policies)');
 
 select is_empty(
   $$ select c.relname || '.' || pol.polname
        from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'nestly' and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents')
         and pol.polroles <> array[(select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated')]
-        and pol.polname not like '%\_select\_profile\_view' and pol.polname <> 'users_select_search' $$,
-  '[F1.4-a c14 platform r4 · F1.6 scoped · F2.3b c15] every policy on the five F1.1/F1.4 tables is TO authenticated only (not PUBLIC, not anon, not app_recovery), except the four *_select_profile_view and users_select_search TO app_owner (files 53 and 90)');
+        and pol.polname not like '%\_select\_profile\_view' and pol.polname not in ('users_select_search', 'regular_profiles_block_hide_owner') $$,
+  '[F1.4-a c14 platform r4 · F1.6 scoped · F2.3b c15] every policy on the five F1.1/F1.4 tables is TO authenticated only (not PUBLIC, not anon, not app_recovery), except the four *_select_profile_view, users_select_search and regular_profiles_block_hide_owner TO app_owner (files 53, 90 and 91)');
 
 select is_empty(
   $$ select c.relname || '.' || pol.polname
        from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-      where n.nspname = 'nestly' and not pol.polpermissive $$,
-  '[F1.4-a c14] every policy is permissive (no restrictive policy that hides an unreviewed branch)');
+      where n.nspname = 'nestly' and not pol.polpermissive
+        and c.relname || '.' || pol.polname not in ('posts.posts_block_hide', 'comments.comments_block_hide', 'regular_names.regular_names_block_hide',
+          'regular_names.regular_names_block_hide_owner', 'regular_profiles.regular_profiles_block_hide_owner', 'friendships.friendships_block_insert',
+          'friendships.friendships_block_update') $$,
+  '[F1.4-a c14 · I4 blocking] every policy is permissive (no restrictive policy that hides an unreviewed branch) except the seven reviewed block policies (file 91)');
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
