@@ -388,7 +388,7 @@ comments verbatim and drops the helper.
 
 ## Safety and admin core (I4)
 
-Built by `20261020100000_staff_audit_core.sql` and `20261020200000_moderation_enforcement.sql` (down scripts in `supabase/rollback/`; the
+Built by `20261020300000_staff_audit_core.sql` and `20261020400000_moderation_enforcement.sql` (down scripts in `supabase/rollback/`; the
 Super Admin is created by `supabase/bootstrap/03-super-admin.sql`, run by Afik). No SECURITY DEFINER, no policy for app_jobs.
 
 | Table | Columns and meaning | Authorization |

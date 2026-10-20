@@ -5,7 +5,7 @@
 --
 -- SRS: FR-MOD-001 (reasons, the report keeps a copy of the reported text), FR-MOD-002, FR-MOD-003, FR-ADMIN-005, FR-ADMIN-007 (report
 --      reasons), BR-024, BR-026, BR-062, BR-074, BR-080 · AC-022, AC-027, AC-028, AC-029, AC-077, AC-106, AC-107, AC-110 ·
---      platform rules 6, 14, 15, 16, 18, 19, 20. Depends on 20261020100000 (staff_roles, has_permission(), audit_log).
+--      platform rules 6, 14, 15, 16, 18, 19, 20. Depends on 20261020300000 (staff_roles, has_permission(), audit_log).
 --
 -- report_reasons      the list of report reasons with its queue priority (BR-074) — editable by COMMUNITY_CONFIG; reports.reason references it.
 -- reports             gains the copy of the reported text (target_text), and the handling (resolution, handled_by, handler_note).
@@ -20,7 +20,7 @@
 -- No SECURITY DEFINER: tests.approved_security_definer() is unchanged. No policy or grant for app_jobs.
 --
 -- Applied by the Supabase CLI as app_owner, in one transaction with its history row. Down script:
--- supabase/rollback/20261020200000_moderation_enforcement.down.sql (refuses once an enforcement, a handled report or a changed reason exists).
+-- supabase/rollback/20261020400000_moderation_enforcement.down.sql (refuses once an enforcement, a handled report or a changed reason exists).
 -- =====================================================================================================================
 
 -- 1. report_reasons (FR-ADMIN-007). Seeded with the eight reasons of FR-MOD-001 and their priorities (BR-074) before RLS is enabled.

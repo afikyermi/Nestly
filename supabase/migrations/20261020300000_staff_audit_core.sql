@@ -19,7 +19,7 @@
 -- The single Super Admin (BR-021) is created by the owner of the product with supabase/bootstrap/03-super-admin.sql, never by the app.
 --
 -- Applied by the Supabase CLI as app_owner, in one transaction with its history row. Down script:
--- supabase/rollback/20261020100000_staff_audit_core.down.sql (refuses once a permission or an audit row exists).
+-- supabase/rollback/20261020300000_staff_audit_core.down.sql (refuses once a permission or an audit row exists).
 -- =====================================================================================================================
 
 -- 1. staff_roles.

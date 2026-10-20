@@ -1,5 +1,5 @@
 -- =====================================================================================================================
--- Down script for supabase/migrations/20261020100000_staff_audit_core.sql (staff roles, Moderator permissions, Audit Log).
+-- Down script for supabase/migrations/20261020300000_staff_audit_core.sql (staff roles, Moderator permissions, Audit Log).
 -- Outside supabase/migrations on purpose: the CLI never applies it.
 --
 -- Run as:   app_owner, in one transaction. CI runs it once per build (up -> down -> up) against the disposable database.
@@ -45,6 +45,6 @@ drop function nestly.audit_log_append_only();
 drop function nestly.has_permission(text);
 drop function nestly.caller_staff_role();
 
-delete from supabase_migrations.schema_migrations where version = '20261020100000';
+delete from supabase_migrations.schema_migrations where version = '20261020300000';
 
 commit;

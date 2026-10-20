@@ -92,7 +92,7 @@ revoke is written by hand and goes through DATA ARCHITECT.
 
 ## Step 3 — the Super Admin
 
-Afik only, in the SQL Editor of each environment, after the migrations `20261020100000` and `20261020200000`:
+Afik only, in the SQL Editor of each environment, after the migrations `20261020300000` and `20261020400000`:
 
 1. In the Supabase dashboard (Authentication > Users > Add user) create a dedicated Auth user for the Admin: an email and a
    password, "Auto confirm". It must not have registered in the product: an account's type never changes, so an existing

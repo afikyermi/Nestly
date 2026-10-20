@@ -1,5 +1,5 @@
 -- =====================================================================================================================
--- Down script for supabase/migrations/20261020200000_moderation_enforcement.sql (moderation and enforcement).
+-- Down script for supabase/migrations/20261020400000_moderation_enforcement.sql (moderation and enforcement).
 -- Outside supabase/migrations on purpose: the CLI never applies it.
 --
 -- Run as:   app_owner, in one transaction. CI runs it once per build (up -> down -> up) against the disposable database.
@@ -202,6 +202,6 @@ alter table nestly.reports
 drop table nestly.report_reasons;
 drop function nestly.report_reasons_guard();
 
-delete from supabase_migrations.schema_migrations where version = '20261020200000';
+delete from supabase_migrations.schema_migrations where version = '20261020400000';
 
 commit;
