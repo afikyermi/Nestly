@@ -227,16 +227,15 @@ insert into img values ('r1', pg_temp.up('a', 'post')), ('r2', pg_temp.up('a', '
 select is(pg_temp.attach('a', 'r1', 'a_rej', 0) || pg_temp.attach('a', 'r2', 'a_rej', 1) || pg_temp.pass('r1') || pg_temp.pass('r2') || pg_temp.attach('a', 'r3', 'a_rej', 2) || pg_temp.pass('r3'),
   'OK:1OK:1OK:1OK:1OK:1OK:1', '[F5.1-a c7] control');
 select is(pg_temp.decide('m2', 'r1', 'rejected'), 'ERR:42501', '[F5.1-a c7] a checked image is not rejected without a report or a suspicion');
-select ok(tests.fx_rp_add(pg_temp.id('b'), 'post', (select v from po where k = 'a_rej')) is not null, '[F5.1-a c7] control: B reports the post');
-select is(pg_temp.decide('m2', 'r1', 'rejected'), 'ERR:42501', '[F5.1-a c7] an open report is no ground: it is handled first');
-select ok(tests.fx_rp_add(pg_temp.id('b'), 'user', pg_temp.id('a')) is not null, '[F5.1-a c7] control: B reports the uploader too');
+select ok(tests.fx_rp_add(pg_temp.id('b'), 'user', pg_temp.id('a')) is not null, '[F5.1-a c7] control: B reports the uploader');
 select is(pg_temp.dml('d', format($q$ update nestly.reports set status = 'handled', resolution = 'dismissed' where reported_user_id = %L and status = 'open' $q$, pg_temp.id('a'))),
   'OK:1', '[F5.1-a c7] control: the Admin dismisses the report on the uploader');
-select is(pg_temp.decide('m2', 'r1', 'rejected'), 'ERR:42501', '[F5.1-a c7] a dismissed report is no ground either');
-select is(pg_temp.dml('m2', format($q$ update nestly.reports set status = 'handled', resolution = 'action_taken' where post_id = %L and status = 'open' $q$, (select v from po where k = 'a_rej'))),
-  'OK:1', '[F5.1-a c7] the moderator closes the report on the post with action taken');
+select is(pg_temp.decide('m2', 'r1', 'rejected'), 'ERR:42501', '[F5.1-a c7] a dismissed report is no ground for removing an image');
+select ok(tests.fx_rp_add(pg_temp.id('b'), 'post', (select v from po where k = 'a_rej')) is not null, '[F5.1-a c7] control: B reports the post');
 select is(pg_temp.decide('m3', 'r1', 'rejected'), 'OK:0', '[F5.1-a c7 §3.2] without REPORTS_VIEW, staff cannot reject a checked image');
-select is(pg_temp.decide('m2', 'r1', 'rejected'), 'OK:1', '[F5.1-a c7 C1] after a report handled with action taken, staff reject the image that had passed');
+select is(pg_temp.decide('m2', 'r1', 'rejected'), 'OK:1', '[F5.1-a c7 C1] on an open report (the moderator acts, then closes it), staff reject the image that had passed');
+select is(pg_temp.dml('m2', format($q$ update nestly.reports set status = 'handled', resolution = 'action_taken' where post_id = %L and status = 'open' $q$, (select v from po where k = 'a_rej'))),
+  'OK:1', '[F5.1-a c7] then close the report with action taken');
 select is(pg_temp.n('a', pg_temp.m('r1') || ' and status = ''rejected'''), '1', '[F5.1-a c7 ERR-041] the uploader sees an ordinary rejection');
 select is(pg_temp.n('b', pg_temp.m('r1')), '0', '[F5.1-a c7] and nobody else sees the image any more');
 select is(pg_temp.dml('m3', format('insert into nestly.media_reviews (media_id, is_suspected) values (%L, true)', pg_temp.i('r3'))), 'ERR:42501',

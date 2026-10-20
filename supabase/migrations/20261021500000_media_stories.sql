@@ -231,7 +231,8 @@ begin
     return new;
   end if;
   if new.status is distinct from old.status then
-    -- a staff decision (BR-076 as of 20.10.2026): a queued image approved or rejected; a passed or approved one rejected only as a suspicion
+    -- a staff decision (BR-076 as of 20.10.2026): a queued image approved or rejected; a passed or approved one rejected after a report (not
+    -- a dismissed one) or as a suspicion
     if not (select nestly.has_permission('CONTENT_MODERATE')) then
       raise exception 'media: a decision needs CONTENT_MODERATE' using errcode = '42501';
     end if;
@@ -244,10 +245,10 @@ begin
         raise exception 'media: a suspected image is rejected' using errcode = '23514';
       end if;
     elsif old.status in ('passed', 'approved') and new.status = 'rejected' then
-      -- after a report on its post or its uploader handled with action taken (a dismissed report is no ground), or as a suspicion (the
-      -- uploader sees the same rejection either way)
+      -- after a report on its post or its uploader that is open (the moderator acts, then closes it) or was handled with action taken; a
+      -- dismissed report is no ground. Or as a suspicion. The uploader sees the same rejection either way.
       if not (select nestly.has_permission('REPORTS_VIEW')) or not (v_suspected
-          or exists (select 1 from nestly.reports r where r.status = 'handled' and r.resolution = 'action_taken'
+          or exists (select 1 from nestly.reports r where (r.status = 'open' or r.resolution = 'action_taken')
                        and ((old.post_id is not null and r.post_id = old.post_id) or r.reported_user_id = old.owner_id))) then
         raise exception 'media: a checked image is removed only after a report or as a suspicion' using errcode = '42501';
       end if;
@@ -332,6 +333,11 @@ as $$
 begin
   if current_user = 'authenticated' and new.is_suspected and (tg_op = 'INSERT' or not old.is_suspected) then
     update nestly.media_assets set status = 'rejected' where id = new.media_id and status in ('passed', 'approved');
+    -- another staff member rejected it (not as a suspicion) between this suspicion's check and now: refuse, so the suspicion is never
+    -- recorded on an image left rejected but not held (M6); the caller retries and sees the image as it is now
+    if not found and exists (select 1 from nestly.media_assets m where m.id = new.media_id and m.status = 'rejected') then
+      raise exception 'media: the image was decided meanwhile; the suspicion was not recorded' using errcode = '40001';
+    end if;
   end if;
   return null;
 end
@@ -432,8 +438,12 @@ set search_path = ''
 as $$
 declare
   v_post uuid;
+  v_owner uuid;
 begin
   if tg_table_name = 'posts' then v_post := new.id; else v_post := new.post_id; end if;
+  -- the uploader (a child-safety report on the uploader excludes the image too): the image row's own owner when it fired the trigger, else the
+  -- post's named author (an anonymous post's author is not readable here; its post reports still count)
+  if tg_table_name = 'media_assets' then v_owner := new.owner_id; else v_owner := (select p.author_id from nestly.posts p where p.id = v_post); end if;
   if current_user <> 'authenticated' or v_post is null
      or not (select nestly.has_permission('REPORTS_VIEW')) or not (select nestly.has_permission('CONTENT_MODERATE')) then
     return null;
@@ -444,7 +454,9 @@ begin
    where m.post_id = v_post
      and exists (select 1 from nestly.reports r where r.post_id = v_post and r.status = 'handled' and r.resolution = 'action_taken')
      and not exists (select 1 from nestly.reports r where r.post_id = v_post and r.reason = 'child_safety')
+     and (v_owner is null or not exists (select 1 from nestly.reports r where r.reported_user_id = v_owner and r.reason = 'child_safety'))
      and not exists (select 1 from nestly.media_reviews v where v.media_id = m.id and (v.is_suspected or v.queue_reason is not null))
+     and (tg_table_name <> 'media_assets' or m.id = new.id)
      and (m.status = 'rejected' or (m.status in ('passed', 'approved') and exists (select 1 from nestly.posts p where p.id = v_post and p.status = 'removed')))
   on conflict do nothing;
   return null;
@@ -463,7 +475,7 @@ create trigger posts_training_candidate
 
 create trigger media_assets_training_candidate
   after update of status on nestly.media_assets
-  for each row when (new.status = 'rejected' and old.status in ('passed', 'approved') and new.post_id is not null)
+  for each row when (new.status = 'rejected' and old.status = 'passed' and new.post_id is not null)
   execute function nestly.media_training_candidate();
 
 -- The training set's access record: every add and every removal, in the same transaction, as the job.
@@ -560,7 +572,9 @@ create policy media_assets_update_jobs_file on nestly.media_assets
 create policy media_assets_delete_jobs on nestly.media_assets
   for delete to app_media_jobs
   using (
-    (is_held and exists (select 1 from nestly.media_reviews r where r.media_id = media_assets.id and r.purge_after <= now()))
+    (is_held and exists (select 1 from nestly.media_reviews r where r.media_id = media_assets.id and r.purge_after <= now())
+      -- a sample of it is deleted first (it is deletable while this row says held): it never outlives the row that marks it suspected
+      and not exists (select 1 from nestly.media_training_samples t where t.source_media_id = media_assets.id))
     or (not is_held and status <> 'queued' and (status <> 'rejected' or is_file_removed) and (
       (kind = 'story' and created_at <= now() - interval '25 hours'
         and not exists (select 1 from nestly.stories s where s.media_id = media_assets.id and s.expires_at > now()))
