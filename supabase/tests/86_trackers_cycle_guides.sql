@@ -99,6 +99,12 @@ select is(
        or has_table_privilege('anon', pg_temp.rel(t.n), 'SELECT,INSERT,UPDATE,DELETE')),
   0::bigint, '[I6 rule 7] anon holds nothing on the three tables');
 
+select is(
+  (select count(*) from pg_catalog.pg_attribute a
+    where a.attrelid in (pg_temp.rel('tracker_events'), pg_temp.rel('cycle_entries'), pg_temp.rel('status_guides'))
+      and a.attnum > 0 and not a.attisdropped and has_column_privilege('authenticated', a.attrelid, a.attnum, 'REFERENCES')),
+  0::bigint, '[I6] authenticated holds no column-level REFERENCES on the three tables');
+
 -- =====================================================================================================================
 -- tracker_events: whose rows (BR-053, layer 9, OP-008 "only the user sees")
 -- =====================================================================================================================

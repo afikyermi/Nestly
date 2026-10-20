@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { actionNamed, h1, mountAt } from './util';
 
 const WELCOME = 'הצטרפות ל-Nestly';
-const LINE = 'המסך הזה ייפתח בקרוב.';
+const LINE = 'המעקב והתכנון שלך, במקום אחד.'; // a line only the signed-in home shows
 
 describe('Guest routes render their own placeholder (6, 2, 3)', () => {
   it.each([
@@ -63,7 +63,7 @@ describe('Guest routes render their own placeholder (6, 2, 3)', () => {
 });
 
 describe('The production source reports signed-out and the guard denies by default (5, 6, 13)', () => {
-  it.each(['/home', '/feed', '/profile', '/settings', '/marketplace', '/profile/123', '/xyz', '/auth', '/login/extra'])(
+  it.each(['/home', '/feed', '/profile', '/settings', '/trackers/bottle', '/trackers/cycle', '/marketplace', '/profile/123', '/xyz', '/auth', '/login/extra'])(
     '[F1.2 c5][c6][c13][FR-AUTH-004][AC-016][ERR-012] a Guest at %s ends at / with Welcome and no protected content',
     async (path) => {
       await mountAt(path);

@@ -19,7 +19,8 @@ begin
   set local role app_recovery;
   begin
     execute p_sql into v;
-  exception when others then v := 'ERR:' || sqlstate;
+  -- a missing privilege and an RLS refusal share 42501: the suffix tells them apart
+  exception when others then v := 'ERR:' || sqlstate || case when sqlerrm like 'permission denied%' then ':priv' when sqlerrm like '%row-level security%' then ':rls' else '' end;
   end;
   reset role;
   perform set_config('nestly.recovery_handle', '', true);
@@ -53,7 +54,7 @@ select is((select string_agg(a.attname, ', ' order by a.attname) from pg_attribu
             where c.relname = 'recovery_throttles' and c.relnamespace = (select oid from pg_namespace where nspname = 'nestly')
               and a.attnum > 0 and not a.attisdropped and has_column_privilege('app_recovery', c.oid, a.attnum, 'INSERT')),
   'subject_hash, subject_kind', '[I4-rl c2 exception (b)] app_recovery still inserts only the subject (never a ladder count)');
-select ok(not has_table_privilege('app_recovery', 'nestly.recovery_throttles', 'DELETE, TRUNCATE, REFERENCES, TRIGGER'),
+select ok(not has_table_privilege('app_recovery', (select c.oid from pg_class c where c.relname = 'recovery_throttles' and c.relnamespace = (select oid from pg_namespace where nspname = 'nestly')), 'DELETE, TRUNCATE, REFERENCES, TRIGGER'),
   '[I4-rl c2] app_recovery cannot delete, truncate, reference or trigger on recovery_throttles');
 select is((select string_agg(c.relname || ':' || p.priv, ', ' order by c.relname, p.priv)
              from pg_class c join pg_namespace n on n.oid = c.relnamespace
@@ -76,8 +77,9 @@ select is(pg_temp.rec('aa', $q$ with i as (insert into nestly.recovery_throttles
   'OK:1', '[I4-rl fixture] app_recovery creates the declared handle''s row');
 select is(pg_temp.rec('aa', $q$ with i as (insert into nestly.recovery_throttles (subject_kind, subject_hash) values ('ip', decode(repeat('cc', 32), 'hex')) returning 1) select 'OK:' || count(*) from i $q$),
   'OK:1', '[I4-rl fixture] and the declared IP''s row');
-select is(pg_temp.rec('aa', $q$ with i as (insert into nestly.recovery_throttles (subject_kind, subject_hash, ladder_failures) values ('handle', decode(repeat('ab', 32), 'hex'), 3) returning 1) select 'OK:' || count(*) from i $q$),
-  'ERR:42501', '[I4-rl c2] an insert naming the ladder count is refused');
+select is(pg_temp.rec('aa', $q$ with i as (insert into nestly.recovery_throttles (subject_kind, subject_hash, ladder_failures) values ('handle', decode(repeat('aa', 32), 'hex'), 3)
+    on conflict do nothing returning 1) select 'OK:' || count(*) from i $q$),
+  'ERR:42501:priv', '[I4-rl c2] an insert naming the ladder count is refused for want of the column privilege (the declared handle, so RLS would allow it)');
 
 select is(pg_temp.upd('aa', $s$ ladder_failures = 3, locked_until = now() + interval '1 hour' $s$), 'OK:1',
   '[I4-rl c3 AC-113] app_recovery records the 3rd failure on the declared handle and its 1-hour lock');
@@ -87,9 +89,9 @@ select is(pg_temp.upd('aa', $s$ ladder_failures = 7, locked_until = now() + inte
 select is(pg_temp.upd('aa', 'ladder_failures = 0'), 'OK:1', '[I4-rl c3 AC-113] a success resets the count');
 select is(tests.fx_recovery_ladder(repeat('aa', 32)), '0/true', '[I4-rl c3] the count is back to 0 (the reset touches no lock)');
 
-select is(pg_temp.upd('aa', $s$ subject_hash = decode(repeat('ab', 32), 'hex') $s$), 'ERR:42501', '[I4-rl c2] app_recovery cannot rewrite the subject hash');
-select is(pg_temp.upd('aa', $s$ subject_kind = 'ip' $s$), 'ERR:42501', '[I4-rl c2] nor the subject kind');
-select is(pg_temp.rec('aa', $q$ with d as (delete from nestly.recovery_throttles returning 1) select 'OK:' || count(*) from d $q$), 'ERR:42501',
+select is(pg_temp.upd('aa', 'subject_hash = subject_hash'), 'ERR:42501:priv', '[I4-rl c2] app_recovery cannot write the subject hash, even to its own value (column privilege, not RLS)');
+select is(pg_temp.upd('aa', 'subject_kind = subject_kind'), 'ERR:42501:priv', '[I4-rl c2] nor the subject kind');
+select is(pg_temp.rec('aa', $q$ with d as (delete from nestly.recovery_throttles returning 1) select 'OK:' || count(*) from d $q$), 'ERR:42501:priv',
   '[I4-rl c2] nor delete a row');
 select is(pg_temp.upd('aa', 'ladder_failures = 1', 'ip'), 'ERR:23514', '[I4-rl c2] an IP row never carries the ladder (check constraint)');
 select is(pg_temp.upd('aa', 'ladder_failures = -1'), 'ERR:23514', '[I4-rl c2] the count is never negative');
@@ -98,7 +100,9 @@ select is(tests.fx_recovery_ladder(repeat('aa', 32)), '0/true', '[I4-rl c2] a''s
 
 -- ---- no new definer -------------------------------------------------------------------------------------------------------------
 select is((select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'nestly' and p.proname ~ '(ladder|releas)'),
-  0::bigint, '[I4-rl c4] the ladder adds no function or trigger to the schema');
+  0::bigint, '[I4-rl c4] the ladder adds no function to the schema (the approved definers are file 10''s)');
+select is((select count(*) from pg_trigger tg where tg.tgrelid = (select c.oid from pg_class c where c.relname = 'recovery_throttles' and c.relnamespace = (select oid from pg_namespace where nspname = 'nestly')) and not tg.tgisinternal),
+  0::bigint, '[I4-rl c4] recovery_throttles has no trigger: nothing but the grants and the update policy governs the ladder');
 
 select * from finish();
 rollback;

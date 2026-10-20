@@ -101,13 +101,13 @@ select is(pg_temp.perm('m0', 'REPORTS_VIEW'), 'false', '[AC-031 I4] a Moderator 
 select is(pg_temp.perm('d', 'REPORTS_VIEW'), 'true', '[AC-025 I4] the Admin holds every key without a mapping');
 select is(pg_temp.perm('d', 'MODERATOR_MANAGE'), 'true', '[AC-025 I4] including Admin-only keys');
 select is(pg_temp.perm('d', 'NO_SUCH_KEY'), 'false', '[I4] an unknown key is false even for the Admin');
-select is(pg_temp.perm('d', 'RECOVERY_LOCK_RELEASE'), 'true', '[FR-ADMIN-013 I4] the Admin holds the recovery-lock key');
+select is(pg_temp.perm('d', 'RECOVERY_LOCK_RELEASE'), 'false', '[FR-ADMIN-013 cancelled] the recovery-lock key is gone: not even the Admin holds it');
 select is(pg_temp.perm('m1', 'REPORTS_VIEW'), 'true', '[AC-022 I4] a granted key is held');
 select is(pg_temp.perm('m1', 'USER_VIEW'), 'false', '[AC-031 I4] a key not granted is not held');
 select is(pg_temp.perm('m2', 'CONTENT_MODERATE'), 'false', '[I4] another Moderator''s keys are not mine');
 select is((select string_agg(pg_temp.perm('m3', k), ',') from unnest(array['MODERATOR_MANAGE', 'SECURITY_SETTINGS_MANAGE', 'BILLING_FINANCE_MANAGE',
   'SYSTEM_CRITICAL_SETTINGS', 'USER_DATA_EXPORT_DELETE', 'SENSITIVE_DATA_FULL_ACCESS', 'LEGAL_POLICY_MANAGE', 'ALGORITHM_AI_CONFIG',
-  'SPONSORED_PRODUCT_MANAGE', 'RECOVERY_LOCK_RELEASE']) k), 'false,false,false,false,false,false,false,false,false,false',
+  'SPONSORED_PRODUCT_MANAGE']) k), 'false,false,false,false,false,false,false,false,false',
   '[AC-031 BR-025 I4] a Moderator holding all fourteen keys holds none of the Admin-only ones');
 select is(tests.dml_as('none', '', format($q$ select tests.fx_sf_grant(%L, array['MODERATOR_MANAGE']) $q$, pg_temp.id('m2'))), 'ERR:23514',
   '[AC-031 BR-025 I4] an Admin-only key cannot be stored as a Moderator permission');

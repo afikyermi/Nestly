@@ -300,7 +300,7 @@ test.describe('Placeholders', () => {
   // F2.1: /profile is the own-profile screen now (its states: e2e/profile.spec.ts). F2.3a (Gate 1 DR-2 A): /settings holds the privacy
   // section now; what this test guarded there (its h1, no data without a real session) is in e2e/privacy.spec.ts, "F2.3a c5 c22".
   // The other two stay placeholders.
-  for (const route of PROTECTED_ROUTES.filter((r) => r.path !== '/profile' && r.path !== '/settings' && r.path !== '/feed')) {
+  for (const route of PROTECTED_ROUTES.filter((r) => r.path !== '/profile' && r.path !== '/settings' && r.path !== '/feed' && r.path !== '/home')) {
     test(`[F1.2 c22][FR-AUTH-004][NFR-SEC-002] ${route.path} shows its h1 and the line, and nothing else; no request to /api/* with state forced to signed-in`, async ({
       page,
     }) => {
@@ -325,6 +325,20 @@ test.describe('Placeholders', () => {
     await page.waitForTimeout(500);
     expect(urls.filter((u) => new URL(u).pathname.startsWith('/api/'))).toEqual([]);
     await expect(page.getByRole('article')).toHaveCount(0);
+  });
+
+  // I6: /home is the home screen now (its states: e2e/home-trackers.spec.ts). The guard intent stays: with state forced to signed-in and no
+  // session behind it, the page asks the server for nothing at all and shows no route card, no tracker and no guide.
+  test('[F1.2 c22][I6][FR-AUTH-004] /home with state forced to signed-in and no session: h1 "בית", its line, no /api/* request, no card', async ({ page }) => {
+    const urls = recordRequests(page);
+    await open(page, '/home', 'signed-in');
+    await expect(h1Of(page)).toHaveText('בית');
+    await expect(page.locator('main').getByText(LINE, { exact: true })).toHaveCount(1);
+    await page.waitForTimeout(500);
+    expect(urls.filter((u) => new URL(u).pathname.startsWith('/api/'))).toEqual([]);
+    await expect(page.locator('main').getByRole('heading', { name: 'המסלולים שלי' })).toHaveCount(0);
+    await expect(page.locator('main').getByRole('heading', { name: 'יומן פעולות' })).toHaveCount(0);
+    await expect(page.locator('main').getByRole('listitem')).toHaveCount(0);
   });
 
   // F1.8: /auth/google is the return handler; opened with no code it makes no /api call either (c13: nothing but the token reaches the server).
