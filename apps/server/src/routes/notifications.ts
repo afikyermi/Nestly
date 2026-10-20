@@ -1,6 +1,6 @@
 // Notifications (FR-NOTIF-001/002/003; AC-040, AC-041). Signed in: the authentication hook has run before anything here. The caller is never
 // named; a notification is named by its id in the path.
-//   GET  /api/notifications                       → 200 { items:[{id,type,actorId,actorName,targetKind,targetId,createdAt,isRead}], unreadCount }
+//   GET  /api/notifications[?before=<cursor>]     → 200 { items:[{id,type,actor,actorName,targetKind,targetId,createdAt,isRead}], unreadCount, nextCursor } · 400 invalid
 //   POST /api/notifications/read-all              → 200 {}   (Mark all as read)
 //   POST /api/notifications/:id/read              → 200 {} · 404 unavailable (not the caller's) · 400 invalid
 //   GET  /api/notification-preferences            → 200 { categories:[{category,isEnabled}], friends:[{userId,fullName,isEnabled}] }
@@ -15,6 +15,7 @@ import {
   checkUserId,
   notificationPreferencesResponse,
   notificationsResponse,
+  parseNotificationsCursor,
 } from '@nestly/shared';
 import { z } from 'zod';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
@@ -75,10 +76,13 @@ export function registerNotificationsRoutes(app: FastifyInstance, deps: Notifica
   app.route({
     method: 'GET',
     url: '/api/notifications',
-    handler: guarded('notifications read failed', async (database, _request, reply, identity) => {
-      const outcome = await readNotifications(database, identity);
+    handler: guarded('notifications read failed', async (database, request, reply, identity) => {
+      const query = z.strictObject({ before: z.string().optional() }).safeParse(request.query ?? {});
+      const before = query.success ? parseNotificationsCursor(query.data.before) : 'invalid';
+      if (before === 'invalid') return reply.code(400).send({ error: 'invalid' });
+      const outcome = await readNotifications(database, identity, before);
       if (outcome.kind !== 'ok') return replyRefusal(reply, outcome);
-      return reply.code(200).send(notificationsResponse.parse({ items: outcome.items, unreadCount: outcome.unreadCount }));
+      return reply.code(200).send(notificationsResponse.parse({ items: outcome.items, unreadCount: outcome.unreadCount, nextCursor: outcome.nextCursor }));
     }),
   });
 

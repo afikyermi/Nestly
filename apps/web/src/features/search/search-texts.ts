@@ -3,7 +3,7 @@ export const TITLE = "תוצאות חיפוש";
 export const SEARCH_LABEL = "חיפוש";
 export const SEARCH_PLACEHOLDER_LABEL = "חיפוש אנשים ופוסטים";
 export const SUBMIT_LABEL = "חיפוש";
-export const VIEW_ALL_LABEL = "הצג את כל התוצאות";
+export const VIEW_ALL_LABEL = "הצגת כל התוצאות";
 export const TABS = {
   all: "הכול",
   people: "אנשים",
@@ -13,7 +13,7 @@ export const TABS = {
 export const PEOPLE_TITLE = "אנשים";
 export const GROUPS_TITLE = "קבוצות";
 export const POSTS_TITLE = "פוסטים";
-export const PROMPT_TEXT = "כתבו לפחות שתי אותיות כדי לחפש";
+export const PROMPT_TEXT = "אפשר לחפש משתי אותיות";
 export const LOADING_TEXT = "מחפשים";
 export const NONE_TEXT = "לא מצאנו תוצאות. אפשר לנסות מילים אחרות";
 export const PEOPLE_NONE_TEXT = "לא נמצאו אנשים בשם הזה";
@@ -22,6 +22,6 @@ export const POSTS_NONE_TEXT = "לא נמצאו פוסטים";
 export const LIMITED_TEXT =
   "הגעתם למספר החיפושים לשעה. אפשר להמשיך לחפש פוסטים, ולחפש אנשים בעוד זמן מה";
 export const FAILED_TEXT = "לא הצלחנו לחפש. אפשר לנסות שוב";
-export const RETRY_LABEL = "נסו שוב";
+export const RETRY_LABEL = "ניסיון נוסף";
 export const ANONYMOUS_AUTHOR = 'פוסט אנונימי';
 export const personLink = (name: string): string => `לפרופיל של ${name}`;

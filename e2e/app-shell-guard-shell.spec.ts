@@ -47,7 +47,7 @@ async function openDrawer(page: Page): Promise<void> {
 test.describe('AppShell: TopBar', () => {
   for (const vp of [MOBILE, DESKTOP]) {
     for (const route of PROTECTED_ROUTES) {
-      test(`[F1.2 c15][FR-TOP-001][AC-033] ${route.path} @${vp.width}: TopBar has the Hamburger at the inline-start (right) edge, then the Logo, and no other control`, async ({
+      test(`[F1.2 c15][FR-TOP-001][AC-033] ${route.path} @${vp.width}: TopBar has the Hamburger at the inline-start (right) edge, then the Logo, the search and the notifications bell, and no other control (Chat comes with messaging)`, async ({
         page,
       }) => {
         await page.setViewportSize(vp);
@@ -65,14 +65,21 @@ test.describe('AppShell: TopBar', () => {
         if (h === null || l === null || b === null) throw new Error('missing box');
         expect(h.x + h.width, 'Hamburger at the right (inline-start) edge').toBeGreaterThan(b.x + b.width - 40);
         expect(l.x, 'Logo is to the left of the Hamburger').toBeLessThan(h.x);
+        // AC-033: the search (a field from 768 px, an icon link to the results screen below it) and the bell.
+        if (vp.width >= 768) await expect(header.getByRole('searchbox', { name: 'חיפוש אנשים ופוסטים' })).toBeVisible();
+        else await expect(header.getByRole('link', { name: 'חיפוש', exact: true })).toBeVisible();
+        await expect(header.getByRole('button', { name: /^התראות/ })).toBeVisible();
         const controls = await header
           .locator('button, a[href], input, select, textarea, [role="button"], [role="link"], [role="searchbox"]')
-          .evaluateAll((els) => els.map((el) => el.getAttribute('aria-label') ?? (el.textContent ?? '').trim()));
-        expect(controls.filter((c) => c !== MENU_BUTTON && c !== 'Nestly')).toEqual([]);
-        await expect(page.getByRole('search')).toHaveCount(0);
-        await expect(page.getByRole('searchbox')).toHaveCount(0);
-        await expect(page.getByRole('button', { name: /חיפוש|צ'אט|צאט|הודעות|התראות|חפש/ })).toHaveCount(0);
-        await expect(page.getByRole('link', { name: /חיפוש|צ'אט|צאט|הודעות|התראות/ })).toHaveCount(0);
+          .evaluateAll((els) =>
+            els
+              .filter((el) => el instanceof HTMLElement && el.offsetParent !== null && !el.classList.contains('sr-only'))
+              .map((el) => el.getAttribute('aria-label') ?? (el.textContent ?? '').trim()),
+          );
+        const known = (c: string): boolean => c === MENU_BUTTON || c === 'Nestly' || c === 'חיפוש' || c === '' || c.startsWith('התראות');
+        expect(controls.filter((c) => !known(c))).toEqual([]);
+        await expect(page.getByRole('button', { name: /צ'אט|צאט|הודעות/ })).toHaveCount(0);
+        await expect(page.getByRole('link', { name: /צ'אט|צאט|הודעות/ })).toHaveCount(0);
       });
     }
   }
@@ -190,14 +197,15 @@ test.describe('AppShell: side menu', () => {
       );
     const shown = items.filter((i) => i.name !== CLOSE);
     // The three section items open /settings; the address differs per section (F2.5 c2, Q2), so only the path is fixed here.
-    const sections = shown.filter((i) => ['חשבון', 'פרטיות ואבטחה', 'תנאים ופרטיות'].includes(i.name));
+    const sections = shown.filter((i) => ['חשבון', 'פרטיות ואבטחה', 'התראות', 'תנאים ופרטיות'].includes(i.name));
     for (const s of sections) expect(s.href ?? '', s.name).toMatch(/^\/settings(?:[#/?]|$)/);
-    expect(new Set(sections.map((s) => s.href)).size, 'a distinct address per section').toBe(3);
+    expect(new Set(sections.map((s) => s.href)).size, 'a distinct address per section').toBe(4);
     expect(shown.map((i) => ({ ...i, href: i.href?.startsWith('/settings') === true ? '/settings*' : i.href }))).toEqual([
       { tag: 'a', name: 'חברים', href: '/friends' }, // F2.4b c13, before Settings (FR-MENU-001)
       { tag: 'a', name: 'כללי הקהילה', href: '/community-rules' }, // F3.7 c14, right after Friends
       { tag: 'a', name: 'חשבון', href: '/settings*' },
       { tag: 'a', name: 'פרטיות ואבטחה', href: '/settings*' },
+      { tag: 'a', name: 'התראות', href: '/settings*' }, // FR-NOTIF-002: the notifications section of Settings
       { tag: 'a', name: 'תנאים ופרטיות', href: '/settings*' },
       { tag: 'a', name: 'פנייה למוקד רפואי', href: '/medical-hotlines' }, // F3.8
       { tag: 'a', name: 'שאלות לשחזור סיסמה', href: '/recovery-questions' }, // F1.6 c18
@@ -209,7 +217,8 @@ test.describe('AppShell: side menu', () => {
       await expect(drawer.locator(`a[href="${dest}"]`)).toHaveCount(0);
     }
     const text = await drawer.innerText();
-    for (const banned of ['חנות', 'יועצים', 'קבוצות', 'עוקבים', 'מקצועיים במעקב', 'התראות', 'עזרה', 'מחיקת חשבון', 'מחיקה', 'בית', 'פיד', 'פרופיל']) {
+    // "התראות" is now the Settings section (FR-NOTIF-002), so it is no longer banned here.
+    for (const banned of ['חנות', 'יועצים', 'קבוצות', 'עוקבים', 'מקצועיים במעקב', 'עזרה', 'מחיקת חשבון', 'מחיקה', 'בית', 'פיד', 'פרופיל']) {
       expect(text, `the drawer must not hold "${banned}"`).not.toContain(banned);
     }
   });

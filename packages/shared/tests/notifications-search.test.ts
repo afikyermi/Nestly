@@ -29,9 +29,9 @@ describe('[FR-NOTIF-002 AC-041] notification preferences', () => {
   });
 
   it('[AC-040] the list response is strict: no unknown field, no text', () => {
-    const item = { id: ID, type: 'post_comment', actorId: ID, actorName: 'דנה', targetKind: 'post', targetId: ID, createdAt: '2026-10-20T09:00:00.000Z', isRead: false };
-    expect(notificationsResponse.safeParse({ items: [item], unreadCount: 1 }).success).toBe(true);
-    expect(notificationsResponse.safeParse({ items: [{ ...item, body: 'text' }], unreadCount: 1 }).success).toBe(false);
+    const item = { id: ID, type: 'post_comment', actor: 'named', actorName: 'דנה', targetKind: 'post', targetId: ID, createdAt: '2026-10-20T09:00:00.000Z', isRead: false };
+    expect(notificationsResponse.safeParse({ items: [item], unreadCount: 1, nextCursor: null }).success).toBe(true);
+    expect(notificationsResponse.safeParse({ items: [{ ...item, body: 'text' }], unreadCount: 1, nextCursor: null }).success).toBe(false);
   });
 });
 
@@ -52,5 +52,16 @@ describe('[FR-ALG-008] topic detection (the Intent Signal)', () => {
     expect(detectTopics('עגלה לתינוק')).toContain('baby_gear');
     expect(detectTopics('Fertility clinic')).toContain('fertility');
     expect(detectTopics('דנה לוי')).toEqual([]);
+  });
+
+  it('[FR-ALG-008] a rule starts a word (Hebrew prefixes allowed) and a non-stem ends one: no topic inside another word', () => {
+    expect(detectTopics('בתחום העבודה שלי')).toEqual([]);
+    expect(detectTopics('display settings')).toEqual([]);
+    expect(detectTopics('happy birthday')).toEqual([]);
+    expect(detectTopics('מחזור פלסטיק')).toEqual([]);
+    expect(detectTopics('והשינה של הקטנה')).toContain('sleep');
+    expect(detectTopics('הריונות קודמים')).toContain('pregnancy');
+    expect(detectTopics('giving birth at home')).toContain('birth');
+    expect(detectTopics('חום גבוה בלילה')).toContain('baby_health');
   });
 });

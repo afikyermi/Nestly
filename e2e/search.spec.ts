@@ -18,7 +18,7 @@ async function signIn(page: Page): Promise<void> {
 const field = (page: Page) => page.getByRole('searchbox', { name: 'חיפוש אנשים ופוסטים' }).first();
 
 test.describe('[AC-039 FR-SEARCH-001] the top bar search', () => {
-  test('[AC-039] typing shows a dropdown by kind (People, Groups, Posts) and "הצג את כל התוצאות"; a result opens its page', async ({ page }) => {
+  test('[AC-039] typing shows a dropdown by kind (People, Groups, Posts) and "הצגת כל התוצאות"; a result opens its page', async ({ page }) => {
     const net = await setupNotifications(page);
     await signIn(page);
     await field(page).fill('שינה');
@@ -28,9 +28,21 @@ test.describe('[AC-039 FR-SEARCH-001] the top bar search', () => {
     await expect(dropdown.getByRole('heading', { name: 'פוסטים' })).toBeVisible();
     await expect(dropdown.getByRole('link', { name: /מי מכירה יועצת שינה טובה/ })).toHaveAttribute('href', `/posts/${NID(21)}`);
     expect(net.searches).toEqual(['שינה|all']);
-    await dropdown.getByRole('link', { name: 'הצג את כל התוצאות' }).click();
+    await dropdown.getByRole('link', { name: 'הצגת כל התוצאות' }).click();
     await expect.poll(() => pathOf(page)).toBe('/search');
-    expect(new URL(page.url()).searchParams.get('q')).toBe('שינה');
+    // the typed text never reaches an address (Afik 20.10.2026: it is never stored; addresses reach server logs)
+    expect(decodeURIComponent(page.url())).not.toContain('שינה');
+    expect(net.searchUrls.every((u) => !decodeURIComponent(u).includes('שינה'))).toBe(true);
+    await expect(main(page).getByRole('link', { name: /מי מכירה יועצת שינה טובה/ })).toBeVisible();
+  });
+
+  test('[AC-039] fast typing searches once, after the pause', async ({ page }) => {
+    const net = await setupNotifications(page);
+    await signIn(page);
+    await field(page).pressSequentially('יועצת שינה', { delay: 30 });
+    await expect.poll(() => net.searches.length).toBe(1);
+    await page.waitForTimeout(900);
+    expect(net.searches).toEqual(['יועצת שינה|all']);
   });
 
   test('[AC-039] a query under two characters does not search', async ({ page }) => {
@@ -63,7 +75,9 @@ test.describe('[AC-039 PG-017] the results screen', () => {
     const net = await setupNotifications(page);
     net.limited = true;
     await signIn(page);
-    await page.goto('/search?q=%D7%A9%D7%99%D7%A0%D7%94');
+    await field(page).fill('שינה');
+    await field(page).press('Enter');
+    await expect.poll(() => pathOf(page)).toBe('/search');
     await expect(main(page).getByText('הגעתם למספר החיפושים לשעה')).toBeVisible();
     await expect(main(page).getByRole('link', { name: /מי מכירה יועצת שינה טובה/ })).toBeVisible();
   });

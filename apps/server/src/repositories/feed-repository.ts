@@ -33,6 +33,8 @@ const configRow = z.object({
   diversityWindow: z.number(),
   maxAnonymousInWindow: z.number(),
   pageSize: z.number(),
+  wIntent: z.number(),
+  intentHalfLifeHours: z.number(),
 });
 
 /**
@@ -44,7 +46,8 @@ export async function readFeedConfigRows(tx: IdentityTx): Promise<FeedConfigRow[
     select version, is_active as "isActive", w_fresh::float8 as "wFresh", half_life_hours as "halfLifeHours", w_friend::float8 as "wFriend",
            w_quality::float8 as "wQuality", quality_cap as "qualityCap", w_stage::float8 as "wStage", scored_window_days as "scoredWindowDays",
            max_same_creator_in_window as "maxSameCreatorInWindow", diversity_window as "diversityWindow",
-           max_anonymous_in_window as "maxAnonymousInWindow", page_size as "pageSize"
+           max_anonymous_in_window as "maxAnonymousInWindow", page_size as "pageSize",
+           w_intent::float8 as "wIntent", intent_half_life_hours as "intentHalfLifeHours"
     from nestly.algorithm_configurations
     where surface = 'regular_feed'`);
   return z.array(configRow).parse(rows).map(({ version, isActive, ...values }) => ({ version, isActive, values }));
@@ -86,6 +89,8 @@ interface RankingBase {
     readonly wStage: number;
     readonly scoredWindowDays: number;
     readonly pageSize: number;
+    /** FR-ALG-008; absent = 0 (off). */
+    readonly wIntent?: number;
   };
   /** The last unit of the previous page in ranked order, or null on a first page. */
   readonly after: { readonly tier: 0 | 1; readonly score: number; readonly createdAt: string; readonly id: string } | null;
@@ -97,6 +102,11 @@ export type RankingParameters =
       readonly profile?: 'regular';
       /** The viewer's derived Stage set, empty unless the weight is above 0. A bound parameter. */
       readonly stages: readonly string[];
+      /**
+       * FR-ALG-008: the viewer's search topics as (pattern, decayed weight), computed for `asOf` (so a page and its next page score alike);
+       * empty unless `wIntent` is above 0. Bound parameters. Absent: none.
+       */
+      readonly intents?: readonly { readonly pattern: string; readonly weight: number }[];
     })
   | (RankingBase & { readonly profile: 'content' });
 
@@ -152,10 +162,28 @@ function scoreTerms(parameters: RankingParameters): SQL {
                     or (f.addressee_id = (select auth.uid()) and f.requester_id = t.author_id))
               ) then 1::float8 else 0::float8 end)`;
   const stage = sql`${config.wStage}::float8 * (case when t.stage_tag = any(${sql.param([...parameters.stages])}::text[]) then 1::float8 else 0::float8 end)`;
-  return sql`${fresh}
+  const intents = usesIntent(parameters) ? (parameters.intents ?? []) : [];
+  if (intents.length === 0) {
+    return sql`${fresh}
           + ${friend}
           + ${quality}
           + ${stage}`;
+  }
+  // FR-ALG-008: the decayed weights of the viewer's topics the post's text matches, capped at 1, times wIntent. The weights are bound values.
+  const intent = sql`${config.wIntent ?? 0}::float8 * least(1::float8, (
+              select coalesce(sum(i.weight), 0::float8)
+              from unnest(${sql.param(intents.map((x) => x.pattern))}::text[], ${sql.param(intents.map((x) => x.weight))}::float8[]) as i(pattern, weight)
+              where t.body ~* i.pattern))`;
+  return sql`${fresh}
+          + ${friend}
+          + ${quality}
+          + ${stage}
+          + ${intent}`;
+}
+
+/** The Intent Signal term is in the statement only for the Regular profile, with a weight above 0 and at least one topic. */
+function usesIntent(parameters: RankingParameters): boolean {
+  return parameters.profile !== 'content' && (parameters.config.wIntent ?? 0) > 0 && (parameters.intents ?? []).length > 0;
 }
 
 /**
@@ -164,7 +192,7 @@ function scoreTerms(parameters: RankingParameters): SQL {
  */
 export function rankingStatement(parameters: RankingParameters): SQL {
   const { asOf, config, after } = parameters;
-  const tagColumn = parameters.profile === 'content' ? sql`` : sql`p.stage_tag, `;
+  const tagColumn = parameters.profile === 'content' ? sql`` : usesIntent(parameters) ? sql`p.stage_tag, p.body, ` : sql`p.stage_tag, `;
   return sql`
     with candidates as (
       select p.id, p.author_id, p.is_anonymous, p.shared_post_id, ${tagColumn}p.created_at,

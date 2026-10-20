@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createDatabase, type Database } from '../../src/db/client.js';
 import { ACCOUNT_A, ACCOUNT_B, AUDIENCE, COLD_START_MS, ISSUER, newKey, restoreEnv, startJwks, token, type App, type JwksServer, type TestKey } from '../helpers/identity-fixtures.js';
-import { CLOCK_NOW, buildRegisterApp, jsonOf } from '../helpers/register-app.js';
+import { CLOCK_NOW, buildRegisterApp, captureLog, jsonOf } from '../helpers/register-app.js';
 import { createPost } from '../helpers/posts-api.js';
 import { addComment } from '../helpers/comments-api.js';
 import { sendTo } from '../helpers/friends-api.js';
@@ -177,7 +177,7 @@ describe('[FR-NOTIF-002 FR-NOTIF-003 AC-041] preferences', () => {
 
 describe('[FR-SEARCH-001 AC-039 AC-065 AC-078] search', () => {
   const find = async (app: App, header: string, q: string, type = 'all') =>
-    get(app, header, `/api/search?q=${encodeURIComponent(q)}&type=${type}`);
+    app.inject({ method: 'POST', url: '/api/search', headers: { authorization: header }, payload: { q, type } });
 
   it('finds a person by name and a post by its words, ranked after authorization; never the caller; groups are empty', T, async () => {
     const app = await start();
@@ -197,12 +197,46 @@ describe('[FR-SEARCH-001 AC-039 AC-065 AC-078] search', () => {
     expect(self.people).toEqual([]);
   });
 
+  it('[Afik 20.10.2026: the typed text is never stored] no log line of a search, answered, refused or limited, carries the text', T, async () => {
+    const database = createDatabase(url());
+    const log = captureLog();
+    const app = await buildRegisterApp(env(), { database, clock: () => CLOCK_NOW, logStream: log.stream });
+    toClose.push({ app, database });
+    const marker = 'zqxmarker שינה';
+    await createPost(app, hA, { body: `פוסט עם ${marker}`, audience: 'everyone' });
+    const send = (payload: unknown) => app.inject({ method: 'POST', url: '/api/search', payload: JSON.stringify(payload), headers: { authorization: hB, 'content-type': 'application/json' } });
+    expect((await send({ q: marker })).statusCode).toBe(200);
+    expect((await send({ q: marker, type: 'people' })).statusCode).toBe(200);
+    expect((await send({ q: marker, extra: 1 })).statusCode).toBe(400);
+    await side`select tests.fx_ns_set_limit(1, 3600)`;
+    await send({ q: marker, type: 'people' });
+    expect((await send({ q: marker, type: 'people' })).statusCode).toBe(429);
+    const text = log.text();
+    expect(text.length, 'something was logged, so the check is not vacuous').toBeGreaterThan(0);
+    expect(text).not.toContain('zqxmarker');
+    expect(text).not.toContain(encodeURIComponent('zqxmarker'));
+  });
+
+  it('[FR-ALG-008 Afik 20.10.2026] after a search, a post matching its topic ranks up in the searcher\'s feed (and only theirs)', T, async () => {
+    const app = await start();
+    const ids = (body: string): string[] => z.object({ items: z.array(z.object({ id: z.string() })) }).parse(JSON.parse(body)).items.map((i) => i.id);
+    const sleepPost = String(jsonOf((await createPost(app, hA, { body: 'מחפשת יועצת שינה לתינוק בן חצי שנה', audience: 'everyone' })).body).id);
+    const plainPost = String(jsonOf((await createPost(app, hA, { body: 'בוקר טוב לכולן', audience: 'everyone' })).body).id);
+    const order = async (header: string): Promise<string[]> => ids((await get(app, header, '/api/feed')).body).filter((id) => id === sleepPost || id === plainPost);
+    expect(await order(hB), 'before any search the newer post leads').toEqual([plainPost, sleepPost]);
+    expect((await find(app, hB, 'הרדמה')).statusCode).toBe(200);
+    expect(await order(hB), 'the searcher now sees the matching post first').toEqual([sleepPost, plainPost]);
+    expect(await order(hA), 'another viewer is not affected').toEqual([plainPost, sleepPost]);
+  });
+
   it('no query, a one-character query and another key are 400; nothing is listed without a query (AC-078)', T, async () => {
     const app = await start();
-    for (const path of ['/api/search', '/api/search?q=', '/api/search?q=a', '/api/search?q=alice&x=1', '/api/search?q=alice&type=users']) {
-      expect((await get(app, hB, path)).statusCode, path).toBe(400);
+    for (const payload of [{}, { q: '' }, { q: 'a' }, { q: 'alice', x: 1 }, { q: 'alice', type: 'users' }]) {
+      const res = await app.inject({ method: 'POST', url: '/api/search', headers: { authorization: hB }, payload });
+      expect(res.statusCode, JSON.stringify(payload)).toBe(400);
     }
-    expect((await app.inject({ method: 'GET', url: '/api/search?q=alice' })).statusCode).toBe(401);
+    expect((await get(app, hB, '/api/search?q=alice')).statusCode, 'the text is never accepted in a URL').not.toBe(200);
+    expect((await app.inject({ method: 'POST', url: '/api/search', payload: { q: 'alice' } })).statusCode).toBe(401);
   });
 
   it('the People Search limit: over it 429 for people, and "peopleLimited" with the posts still answered for all; one Security event', T, async () => {

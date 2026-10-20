@@ -5,6 +5,8 @@ import { useNotifications } from "./NotificationsProvider";
 import {
   EMPTY_TEXT,
   LOAD_FAILED_TEXT,
+  LOAD_MORE_FAILED_TEXT,
+  LOAD_MORE_LABEL,
   MARK_ALL_LABEL,
   MARK_FAILED_TEXT,
   RETRY_LABEL,
@@ -13,8 +15,9 @@ import {
 // The notifications page (FR-NOTIF-001, AC-040): the latest notifications with their unread state and deep link, and "סימון הכול כנקרא".
 // The data is the provider's, the same the bell shows; marking read here updates the bell at once.
 export function NotificationsScreen() {
-  const { state, refresh, markAll, markOne } = useNotifications();
+  const { state, refresh, markAll, markOne, loadMore } = useNotifications();
   const [markFailed, setMarkFailed] = useState(false);
+  const [moreFailed, setMoreFailed] = useState(false);
 
   if (state.kind === "loading")
     return <p role="status" className="text-muted-foreground" />;
@@ -57,6 +60,24 @@ export function NotificationsScreen() {
           }}
         />
       )}
+      {state.nextCursor !== null ? (
+        <div className="mt-3">
+          <Button
+            variant="soft"
+            onClick={() => {
+              setMoreFailed(false);
+              void loadMore().then((ok) => setMoreFailed(!ok));
+            }}
+          >
+            {LOAD_MORE_LABEL}
+          </Button>
+          {moreFailed ? (
+            <p role="alert" className="mt-2 text-small text-destructive">
+              {LOAD_MORE_FAILED_TEXT}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

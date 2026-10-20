@@ -24,7 +24,7 @@ export const PATHS = {
   userProfile: USER_PROFILE_PATTERN,
   /** FR-NOTIF-001 (PG-018): the notifications page, from the bell. */
   notifications: '/notifications',
-  /** FR-SEARCH-001 (PG-017): the search results, `/search?q=<text>`. */
+  /** FR-SEARCH-001 (PG-017): the search results, `/search`; the text rides in the history state, never in the address. */
   search: '/search',
   /** F1.6: save the recovery questions (held there while missing) or change them. */
   recoveryQuestions: '/recovery-questions',

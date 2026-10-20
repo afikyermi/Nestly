@@ -3,7 +3,11 @@
 
 import {
   NOTIFICATION_CATEGORIES,
+  NOTIFICATION_TYPES,
   NOTIFICATIONS_PAGE_SIZE,
+  serializeNotificationsCursor,
+  type NotificationsCursor,
+  type NotificationType,
   type FriendFollow,
   type NotificationItem,
   type NotificationPreference,
@@ -26,31 +30,45 @@ import {
 import { classifyMember, isRefusal, type MemberRefusal } from './membership.js';
 
 export type NotificationsOutcome =
-  | { readonly kind: 'ok'; readonly items: NotificationItem[]; readonly unreadCount: number }
+  | { readonly kind: 'ok'; readonly items: NotificationItem[]; readonly unreadCount: number; readonly nextCursor: string | null }
   | MemberRefusal;
 
-/** The bell and the list: the latest notifications and the unread count. A name the database does not show is `null`. */
-export async function readNotifications(database: Database, identity: Identity): Promise<NotificationsOutcome> {
+const KNOWN_TYPES: ReadonlySet<string> = new Set(NOTIFICATION_TYPES);
+const isKnownType = (type: string): type is NotificationType => KNOWN_TYPES.has(type);
+
+/**
+ * The bell and the list: a page of notifications (older than `before` when given) and the unread count. The actor is `named` with the name
+ * the database shows, `hidden` when it shows none, or `author` (the anonymous author's own comment); an actor id is never returned. A type
+ * this build does not know (a newer event) is left out, never an error.
+ */
+export async function readNotifications(database: Database, identity: Identity, before: NotificationsCursor | null = null): Promise<NotificationsOutcome> {
   return inIdentityTransaction(database, identity, async (tx): Promise<NotificationsOutcome> => {
     const member = await classifyMember(tx);
     if (isRefusal(member)) return member;
-    const rows = await readLatest(tx, NOTIFICATIONS_PAGE_SIZE);
+    const rows = await readLatest(tx, NOTIFICATIONS_PAGE_SIZE + 1, before);
+    const page = rows.slice(0, NOTIFICATIONS_PAGE_SIZE);
+    const last = page.at(-1);
+    const nextCursor = rows.length > NOTIFICATIONS_PAGE_SIZE && last !== undefined ? serializeNotificationsCursor({ at: last.cursorAt, id: last.id }) : null;
     const unreadCount = await countUnread(tx);
-    const actorIds = [...new Set(rows.flatMap((row) => (row.actorId === null ? [] : [row.actorId])))];
+    const actorIds = [...new Set(page.flatMap((row) => (row.actorId === null ? [] : [row.actorId])))];
     const names = new Map((await readVisibleNames(tx, actorIds)).map((name) => [name.userId, name.fullName]));
-    const items = rows.map(
-      (row): NotificationItem => ({
-        id: row.id,
-        type: row.type,
-        actorId: row.actorId,
-        actorName: row.actorId === null ? null : (names.get(row.actorId) ?? null),
-        targetKind: row.targetKind,
-        targetId: row.targetId,
-        createdAt: row.createdAt.toISOString(),
-        isRead: row.isRead,
-      }),
-    );
-    return { kind: 'ok', items, unreadCount };
+    const items = page.flatMap((row): NotificationItem[] => {
+      if (!isKnownType(row.type)) return [];
+      const name = row.actorId === null ? undefined : names.get(row.actorId);
+      return [
+        {
+          id: row.id,
+          type: row.type,
+          actor: row.actorId === null ? 'author' : name === undefined ? 'hidden' : 'named',
+          actorName: name ?? null,
+          targetKind: row.targetKind,
+          targetId: row.targetId,
+          createdAt: row.createdAt.toISOString(),
+          isRead: row.isRead,
+        },
+      ];
+    });
+    return { kind: 'ok', items, unreadCount, nextCursor };
   });
 }
 

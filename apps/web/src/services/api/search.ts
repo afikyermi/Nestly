@@ -1,7 +1,7 @@
 import { searchResponse, type SearchResponse, type SearchType } from '@nestly/shared';
 
-// GET /api/search?q=&type= (FR-SEARCH-001, AC-039, AC-078). The text goes in the query string of this one call and nowhere else: it is not
-// stored, not kept in the address of a page beyond the results screen's own `q`, and not logged.
+// POST /api/search { q, type } (FR-SEARCH-001, AC-039, AC-078; Afik 20.10.2026: the typed text is never stored). The text travels only in
+// the JSON body of this one call: never in a URL (which servers and the hosting platform log), never stored, never logged.
 export type SearchOutcome =
   | { kind: 'results'; data: SearchResponse }
   | { kind: 'rate-limited' } // 429 rate_limited: the People Search limit (no number)
@@ -12,8 +12,10 @@ export type SearchOutcome =
 export async function fetchSearch(accessToken: string, text: string, type: SearchType = 'all'): Promise<SearchOutcome> {
   let response: Response;
   try {
-    response = await fetch(`/api/search?q=${encodeURIComponent(text)}&type=${type}`, {
-      headers: { authorization: `Bearer ${accessToken}` },
+    response = await fetch('/api/search', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ q: text, type }),
       cache: 'no-store',
     });
   } catch {

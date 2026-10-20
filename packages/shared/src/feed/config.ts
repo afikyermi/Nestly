@@ -20,6 +20,9 @@ export const feedConfigValues = z
     diversityWindow: int(3, 20),
     maxAnonymousInWindow: int(1, 20),
     pageSize: int(5, 50),
+    /** FR-ALG-008: the Intent Signal term (0 = off) and the half-life of a search topic's influence. Absent on a row read before them: off. */
+    wIntent: weight(2).default(0),
+    intentHalfLifeHours: int(1, 720).default(168),
   })
   .refine((c) => c.maxSameCreatorInWindow <= c.diversityWindow && c.maxAnonymousInWindow <= c.diversityWindow, {
     message: 'caps exceed diversityWindow',
@@ -44,6 +47,8 @@ export const FEED_FALLBACK_CONFIG: FeedConfig = {
   diversityWindow: 5,
   maxAnonymousInWindow: 2,
   pageSize: 20,
+  wIntent: 0,
+  intentHalfLifeHours: 168,
 };
 
 /** One stored version as the repository reads it. `values` is unvalidated on purpose: this module judges it. */

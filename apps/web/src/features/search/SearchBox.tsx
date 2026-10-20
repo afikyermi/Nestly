@@ -16,11 +16,18 @@ import {
   VIEW_ALL_LABEL,
 } from "./search-texts";
 
-export function searchPath(text: string): string {
-  return `${PATHS.search}?q=${encodeURIComponent(text)}`;
+/** What the results screen receives: the text rides in the router's history state, never in the address (Afik 20.10.2026: the typed text is never stored, and an address reaches server logs). */
+export interface SearchLocationState {
+  readonly q: string;
 }
 
-// Global search in the top bar (FR-SEARCH-001, AC-039): a field, and under it a dropdown of the first results by kind with "הצג את כל
+/** The text a location carries for the results screen, or "" (a reload keeps the history state; a typed address has none). */
+export function searchTextOf(state: unknown): string {
+  const q: unknown = typeof state === "object" && state !== null ? Reflect.get(state, "q") : undefined;
+  return typeof q === "string" ? q : "";
+}
+
+// Global search in the top bar (FR-SEARCH-001, AC-039): a field, and under it a dropdown of the first results by kind with "הצגת כל
 // התוצאות". It searches after a pause in typing, from two characters, and shares its results with the results screen. Below 768 the bar holds
 // a search icon that opens the results screen, where the field is. Enter opens the results screen at once.
 export function SearchBox() {
@@ -35,7 +42,7 @@ export function SearchBox() {
     event.preventDefault();
     if (text.trim() === "") return;
     setFocused(false);
-    void navigate(searchPath(text.trim()));
+    void navigate(PATHS.search, { state: { q: text.trim() } satisfies SearchLocationState });
   };
 
   return (
@@ -103,7 +110,8 @@ export function SearchBox() {
                   onChoose={() => setFocused(false)}
                 />
                 <Link
-                  to={searchPath(text.trim())}
+                  to={PATHS.search}
+                  state={{ q: text.trim() } satisfies SearchLocationState}
                   onClick={() => setFocused(false)}
                   className="mt-2 inline-flex min-h-11 items-center text-label text-primary-strong underline underline-offset-4"
                 >

@@ -7,7 +7,7 @@ import { CORS, EMAIL, NOW, json, session } from './journeys-stub';
 export interface StubNotification {
   id: string;
   type: string;
-  actorId: string | null;
+  actor: 'named' | 'hidden' | 'author';
   actorName: string | null;
   targetKind: 'post' | 'user';
   targetId: string;
@@ -17,15 +17,15 @@ export interface StubNotification {
 
 export const NID = (n: number): string => `d0000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 export const COMMENT: StubNotification = {
-  id: NID(1), type: 'post_comment', actorId: NID(11), actorName: 'דנה לוי', targetKind: 'post', targetId: NID(21),
+  id: NID(1), type: 'post_comment', actor: 'named', actorName: 'דנה לוי', targetKind: 'post', targetId: NID(21),
   createdAt: '2026-06-15T09:00:00.000Z', isRead: false,
 };
 export const REQUEST: StubNotification = {
-  id: NID(2), type: 'friend_request', actorId: NID(12), actorName: 'יוסי כהן', targetKind: 'user', targetId: NID(12),
+  id: NID(2), type: 'friend_request', actor: 'named', actorName: 'יוסי כהן', targetKind: 'user', targetId: NID(12),
   createdAt: '2026-06-14T09:00:00.000Z', isRead: false,
 };
 export const OLD: StubNotification = {
-  id: NID(3), type: 'post_shared', actorId: NID(13), actorName: 'מירי אברהם', targetKind: 'post', targetId: NID(22),
+  id: NID(3), type: 'post_shared', actor: 'named', actorName: 'מירי אברהם', targetKind: 'post', targetId: NID(22),
   createdAt: '2026-06-10T09:00:00.000Z', isRead: true,
 };
 
@@ -37,6 +37,8 @@ export interface NotificationsNet {
   write: number;
   writes: { method: string; path: string; body: string | null }[];
   searches: string[];
+  /** Every address the search calls were sent to (the text must never be in one). */
+  searchUrls: string[];
   /** The next searches answer with the People limit reached. */
   limited: boolean;
 }
@@ -54,6 +56,7 @@ export async function setupNotifications(page: Page, start: Partial<Pick<Notific
     write: 200,
     writes: [],
     searches: [],
+    searchUrls: [],
     limited: false,
   };
   await page.clock.setFixedTime(NOW);
@@ -74,7 +77,7 @@ export async function setupNotifications(page: Page, start: Partial<Pick<Notific
   await page.route('**/api/feed**', (route) => json(route, 200, { items: [], nextCursor: null, asOf: '2026-06-15T12:00:00.000000Z' }));
   await page.route('**/api/notifications', async (route) => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
-    return json(route, 200, { items: net.items, unreadCount: net.items.filter((i) => !i.isRead).length });
+    return json(route, 200, { items: net.items, unreadCount: net.items.filter((i) => !i.isRead).length, nextCursor: null });
   });
   await page.route('**/api/notifications/**', async (route) => {
     const req = route.request();
@@ -98,8 +101,14 @@ export async function setupNotifications(page: Page, start: Partial<Pick<Notific
   await page.route('**/api/search**', async (route) => {
     const req = route.request();
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
-    const url = new URL(req.url());
-    net.searches.push(`${url.searchParams.get('q') ?? ''}|${url.searchParams.get('type') ?? ''}`);
+    net.searchUrls.push(req.url());
+    if (req.method() !== 'POST') return json(route, 404, { error: 'not_found' });
+    const sent: unknown = req.postDataJSON();
+    const field = (key: string): string => {
+      const value: unknown = typeof sent === 'object' && sent !== null ? Reflect.get(sent, key) : undefined;
+      return typeof value === 'string' ? value : '';
+    };
+    net.searches.push(`${field('q')}|${field('type')}`);
     return json(route, 200, {
       people: net.limited ? [] : [{ userId: NID(12), fullName: 'יוסי כהן' }],
       groups: [],

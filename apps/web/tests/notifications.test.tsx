@@ -8,14 +8,14 @@ import { NotificationList } from '@/features/notifications/NotificationList';
 import { hrefOf, sentenceOf, unreadBellLabel } from '@/features/notifications/notification-texts';
 
 const ID = '11111111-1111-4111-8111-111111111111';
-const base: NotificationItem = { id: ID, type: 'post_comment', actorId: ID, actorName: 'דנה לוי', targetKind: 'post', targetId: ID, createdAt: '2026-10-20T09:00:00.000Z', isRead: false };
+const base: NotificationItem = { id: ID, type: 'post_comment', actor: 'named', actorName: 'דנה לוי', targetKind: 'post', targetId: ID, createdAt: '2026-10-20T09:00:00.000Z', isRead: false };
 
 describe('[AC-040] the sentence and the link', () => {
   it('[AC-040] each event reads as a sentence with the actor\'s name; no name is "מישהו"; the anonymous author\'s own comment is "המחבר"', () => {
     expect(sentenceOf(base)).toBe('תגובה חדשה של דנה לוי על הפוסט שלך');
     expect(sentenceOf({ ...base, type: 'friend_request' })).toBe('בקשת חברות חדשה מדנה לוי');
-    expect(sentenceOf({ ...base, actorName: null })).toBe('תגובה חדשה של מישהו על הפוסט שלך');
-    expect(sentenceOf({ ...base, type: 'comment_reply', actorId: null, actorName: null })).toBe('תשובה חדשה של המחבר לתגובה שלך');
+    expect(sentenceOf({ ...base, actor: 'hidden', actorName: null })).toBe('תגובה חדשה של מישהו על הפוסט שלך');
+    expect(sentenceOf({ ...base, type: 'comment_reply', actor: 'author', actorName: null })).toBe('תשובה חדשה של המחבר לתגובה שלך');
   });
 
   it('[AC-040] a post notification links to the post, a person one to the profile; the bell\'s name carries the unread count', () => {

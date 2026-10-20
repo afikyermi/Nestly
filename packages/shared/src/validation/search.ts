@@ -9,9 +9,11 @@ export function normalizeSearchText(raw: string): string {
 
 export type SearchQueryCheck = { ok: true; text: string; type: (typeof SEARCH_TYPES)[number] } | { ok: false };
 
-/** The query string of GET /api/search: `q` (required) and `type` (default all); any other key is refused. */
-export function checkSearchQuery(query: unknown): SearchQueryCheck {
-  const parsed = z.strictObject({ q: z.string(), type: z.enum(SEARCH_TYPES).optional() }).safeParse(query);
+/** The JSON body of POST /api/search: `q` (required) and `type` (default all); any other key is refused. The text never travels in a URL. */
+export const searchRequest = z.strictObject({ q: z.string().max(1000), type: z.enum(SEARCH_TYPES).optional() });
+
+export function checkSearchQuery(body: unknown): SearchQueryCheck {
+  const parsed = searchRequest.safeParse(body);
   if (!parsed.success) return { ok: false };
   const text = normalizeSearchText(parsed.data.q);
   const length = [...text].length;
@@ -28,7 +30,7 @@ export const searchPost = z.strictObject({
   createdAt: z.iso.datetime(),
 });
 
-/** GET /api/search. `groups` is empty until groups exist. `peopleLimited`: the People Search limit was reached (people omitted, posts still answered). */
+/** POST /api/search. `groups` is empty until groups exist. `peopleLimited`: the People Search limit was reached (people omitted, posts still answered). */
 export const searchResponse = z.strictObject({
   people: z.array(searchPerson),
   groups: z.array(z.strictObject({ id: z.guid(), name: z.string() })),

@@ -4,7 +4,7 @@ import { ShareLinkSheet } from '@/components/domain/share-link-sheet';
 import { AppShell } from '@/components/layout/app-shell';
 import { MenuItem } from '@/components/shared/menu-item';
 import { NotificationBell } from '@/features/notifications/NotificationBell';
-import { NotificationsProvider } from '@/features/notifications/NotificationsProvider';
+import { NotificationsProvider, useNotifications } from '@/features/notifications/NotificationsProvider';
 import { SearchBox } from '@/features/search/SearchBox';
 import { HomeIcon, NestIcon, UserIcon } from '@/components/ui/icons';
 import { useBackCloses } from '@/hooks/use-back-closes';
@@ -24,8 +24,20 @@ const NAV_ITEMS = [
   { key: 'profile', label: 'פרופיל', href: PATHS.profile, icon: <UserIcon /> },
 ];
 
+/** The top bar's search and bell (AC-033): a Regular or Professional account only. An Admin or Moderator account has neither. */
+function TopBarActions() {
+  const { state } = useNotifications();
+  if (state.kind === 'unavailable') return null;
+  return (
+    <>
+      <SearchBox />
+      <NotificationBell />
+    </>
+  );
+}
+
 // The AppShell around every protected screen (FR-TOP-001, FR-MENU-001), bound to the router and the
-// session. The TopBar holds only the Hamburger and the Logo; the menu holds Friends (F2.4b), the community rules (F3.7, PG-049), one item per Settings section (F2.5),
+// session. The TopBar holds the Hamburger, the Logo, the search and the notifications bell (AC-033; not for staff accounts); the menu holds Friends (F2.4b), the community rules (F3.7, PG-049), one item per Settings section (F2.5),
 // the medical hotlines page (F3.8, FR-MENU-001 order), the recovery questions, the password change (F2.0 c15), "שיתוף Nestly" (F3.6 c11: the
 // site link's window, for Regular and Professional alike; no post data) and Logout. A destination whose feature is not built is absent, not
 // disabled (F2.5 DR-1, as the bottom navigation does for "חנות" and "יועצים").
@@ -63,12 +75,7 @@ export function ProtectedLayout() {
   return (
     <NotificationsProvider>
     <AppShell
-      topBarActions={
-        <>
-          <SearchBox />
-          <NotificationBell />
-        </>
-      }
+      topBarActions={<TopBarActions />}
       navItems={NAV_ITEMS.map((item) => ({ ...item, current: item.href === current }))}
       navLabel="ניווט ראשי"
       menuLabel="פתיחת התפריט"

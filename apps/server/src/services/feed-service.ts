@@ -10,6 +10,8 @@ import {
   resolveFeedConfig,
   selectFeedPage,
   serializeFeedCursor,
+  TOPIC_RULES,
+  topicPatternSource,
   type FeedConfigFallback,
   type FeedCursor,
   type FeedPageResponse,
@@ -31,6 +33,7 @@ import {
 } from '../repositories/feed-repository.js';
 import { readOwnStages } from '../repositories/journeys-repository.js';
 import { readCommentCounts, readLikeCounts, readLikedTargetIds } from '../repositories/likes-repository.js';
+import { readOwnTopicWeights } from '../repositories/search-repository.js';
 
 /** The caller cannot read a feed: a stopped account (ERR-037), or an account that is neither a Regular parent's nor a Professional's. */
 export type FeedRefusal = { readonly kind: 'stopped' } | { readonly kind: 'forbidden' };
@@ -140,6 +143,13 @@ function unitOf(row: DisplayPost, reactions: UnitReactions): FeedUnit | undefine
   };
 }
 
+/** The viewer's topics as (pattern, weight) for the ranking statement; a topic without rules (none today) is skipped. */
+async function readIntents(tx: IdentityTx, asOf: string, halfLifeHours: number): Promise<{ pattern: string; weight: number }[]> {
+  return (await readOwnTopicWeights(tx, asOf, halfLifeHours)).flatMap(({ topic, weight }) =>
+    TOPIC_RULES[topic] === undefined || weight <= 0 ? [] : [{ pattern: topicPatternSource(topic), weight }],
+  );
+}
+
 /** One page, inside the caller's transaction. `cursor` is null for a first page; a cursor whose `asOf` is in the database's future is refused. */
 async function readPage(tx: IdentityTx, cursor: FeedCursor | null): Promise<FeedOutcome> {
   const viewer = await classifyViewer(tx);
@@ -153,9 +163,17 @@ async function readPage(tx: IdentityTx, cursor: FeedCursor | null): Promise<Feed
   const after = cursor !== null && !resolution.restarted ? cursor : null;
   const asOf = after === null ? clock.nowText : after.asOf;
   // The Stage is read in the Regular branch only: the content profile's statement has no Stage term to give it to.
+  // FR-ALG-008: the viewer's own search topics, weighted for this snapshot's asOf, in the Regular branch only and only above weight 0.
   const parameters: RankingParameters =
     viewer.profile === 'regular'
-      ? { profile: 'regular', asOf, config, after, stages: readsViewerStages(viewer.profile, config.wStage) ? await readOwnStages(tx) : [] }
+      ? {
+          profile: 'regular',
+          asOf,
+          config,
+          after,
+          stages: readsViewerStages(viewer.profile, config.wStage) ? await readOwnStages(tx) : [],
+          intents: config.wIntent > 0 ? await readIntents(tx, asOf, config.intentHalfLifeHours) : [],
+        }
       : { profile: 'content', asOf, config, after };
 
   const ranked = await readRankedPosts(tx, parameters);

@@ -1,5 +1,5 @@
 // Global search (FR-SEARCH-001, AC-039, AC-065, AC-078). Signed in: the authentication hook has run before anything here.
-//   GET /api/search?q=<text>&type=all|people|groups|posts
+//   POST /api/search  { q: <text>, type?: all|people|groups|posts }   (the text is in the body only: never in a URL, so never in an access log)
 //     → 200 { people:[{userId,fullName}], groups:[], posts:[{id,authorId,authorName,snippet,createdAt}], peopleLimited }
 //     · 400 invalid (no text, under two or over 100 characters, another key: there is no list without a query)
 //     · 429 rate_limited (type=people at the People Search limit; with type=all the limit is `peopleLimited: true` and posts are answered)
@@ -28,22 +28,23 @@ function replyFailure(request: FastifyRequest, reply: FastifyReply, error: unkno
 
 export function registerSearchRoute(app: FastifyInstance, deps: SearchRouteDependencies): void {
   app.route({
-    method: 'GET',
+    method: 'POST',
     url: '/api/search',
+    bodyLimit: 4096,
     handler: async (request, reply) => {
       reply.header('cache-control', 'no-store');
       const { identity } = request;
-      const checked = checkSearchQuery(request.query);
+      const checked = checkSearchQuery(request.body);
       if (!checked.ok) return reply.code(400).send({ error: 'invalid' });
       if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
       try {
         const outcome = await search(deps.database, identity, checked.text, checked.type);
         if (outcome.kind === 'ok') {
           const limitedPeopleOnly = outcome.response.peopleLimited && checked.type === 'people';
-          if (limitedPeopleOnly) return replyRateLimited(request, reply, { kind: 'rate_limited', misconfigured: false });
+          if (limitedPeopleOnly) return replyRateLimited(request, reply, { kind: 'rate_limited', misconfigured: false }, 'people_search');
           return reply.code(200).send(searchResponse.parse(outcome.response));
         }
-        if (outcome.kind === 'rate_limited') return replyRateLimited(request, reply, outcome);
+        if (outcome.kind === 'rate_limited') return replyRateLimited(request, reply, outcome, 'people_search');
         return reply.code(403).send({ error: outcome.kind === 'stopped' ? 'account_unavailable' : 'forbidden' });
       } catch (error) {
         return replyFailure(request, reply, error);

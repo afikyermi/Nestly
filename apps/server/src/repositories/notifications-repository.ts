@@ -7,7 +7,6 @@ import {
   NOTIFICATION_CATEGORIES,
   type NotificationCategory,
   type NotificationTargetKind,
-  type NotificationType,
 } from '@nestly/shared';
 import { desc, eq, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
@@ -16,27 +15,32 @@ import { friendContentNotificationPreferences, notificationPreferences, notifica
 
 export interface NotificationRow {
   readonly id: string;
-  readonly type: NotificationType;
+  /** As stored: a type this build does not know is skipped by the service, never an error. */
+  readonly type: string;
   readonly actorId: string | null;
   readonly targetKind: NotificationTargetKind;
   readonly targetId: string;
   readonly createdAt: Date;
+  /** The exact time as cursor text (microseconds, UTC). */
+  readonly cursorAt: string;
   readonly isRead: boolean;
 }
 
-/** The latest notifications of the caller, newest first. */
-export async function readLatest(tx: IdentityTx, limit: number): Promise<NotificationRow[]> {
+/** The caller's notifications, newest first, older than `before` when given (keyset on time and id). */
+export async function readLatest(tx: IdentityTx, limit: number, before: { at: string; id: string } | null = null): Promise<NotificationRow[]> {
   const rows = await tx
     .select({
       id: notifications.id,
-      type: notifications.type,
+      type: sql<string>`${notifications.type}`,
       actorId: notifications.actorId,
       targetKind: notifications.targetKind,
       targetId: notifications.targetId,
       createdAt: notifications.createdAt,
+      cursorAt: sql<string>`to_char(${notifications.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
       readAt: notifications.readAt,
     })
     .from(notifications)
+    .where(before === null ? undefined : sql`(${notifications.createdAt}, ${notifications.id}) < (${before.at}::timestamptz, ${before.id}::uuid)`)
     .orderBy(desc(notifications.createdAt), desc(notifications.id))
     .limit(limit);
   return rows.map(({ readAt, ...row }) => ({ ...row, isRead: readAt !== null }));

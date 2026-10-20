@@ -2,11 +2,18 @@
 import { z } from 'zod';
 import { NOTIFICATION_CATEGORIES, NOTIFICATION_TARGET_KINDS, NOTIFICATION_TYPES } from '../constants/notifications.js';
 
-/** One notification as the list shows it. `actorName` is null when the actor is unknown or not readable (a name the database does not show). */
+/**
+ * Who did it, as the list may say it: `named` (actorName is the name the database shows), `hidden` (a person whose name the database does
+ * not show, so the list says "מישהו"; no id is sent), `author` (the anonymous post's own author, "המחבר"). No actor id ever leaves the server.
+ */
+export const NOTIFICATION_ACTORS = ['named', 'hidden', 'author'] as const;
+export type NotificationActor = (typeof NOTIFICATION_ACTORS)[number];
+
+/** One notification as the list shows it. `actorName` is set exactly when `actor` is `named`. */
 export const notificationItem = z.strictObject({
   id: z.guid(),
   type: z.enum(NOTIFICATION_TYPES),
-  actorId: z.guid().nullable(),
+  actor: z.enum(NOTIFICATION_ACTORS),
   actorName: z.string().nullable(),
   targetKind: z.enum(NOTIFICATION_TARGET_KINDS),
   targetId: z.guid(),
@@ -15,8 +22,28 @@ export const notificationItem = z.strictObject({
 });
 export type NotificationItem = z.infer<typeof notificationItem>;
 
-/** GET /api/notifications: the latest notifications and the unread count (the bell). */
-export const notificationsResponse = z.strictObject({ items: z.array(notificationItem), unreadCount: z.number().int().min(0) });
+/**
+ * GET /api/notifications[?before=<cursor>]: a page of the caller's notifications, newest first, and the unread count (the bell). `nextCursor`
+ * asks for the next older page; null when there is none.
+ */
+export const notificationsResponse = z.strictObject({
+  items: z.array(notificationItem),
+  unreadCount: z.number().int().min(0),
+  nextCursor: z.string().max(200).nullable(),
+});
+
+/** The notifications cursor: the last item's time (microseconds, UTC) and id. Opaque to the web app. */
+const cursorShape = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z)_([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
+export type NotificationsCursor = { at: string; id: string };
+export function serializeNotificationsCursor(cursor: NotificationsCursor): string {
+  return `${cursor.at}_${cursor.id}`;
+}
+export function parseNotificationsCursor(raw: unknown): NotificationsCursor | null | 'invalid' {
+  if (raw === undefined) return null;
+  if (typeof raw !== 'string') return 'invalid';
+  const m = cursorShape.exec(raw);
+  return m === null || m[1] === undefined || m[2] === undefined ? 'invalid' : { at: m[1], id: m[2] };
+}
 export type NotificationsResponse = z.infer<typeof notificationsResponse>;
 
 /** One category and whether it creates In-App notifications. */

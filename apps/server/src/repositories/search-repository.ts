@@ -7,7 +7,6 @@
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { IdentityTx } from '../db/identity-transaction.js';
-import { searchIntentsInsert } from '../db/schema.js';
 
 const peopleRow = z.object({ user_id: z.guid().nullable(), full_name: z.string().nullable(), outcome: z.enum(['found', 'limited']) });
 
@@ -48,9 +47,36 @@ export async function searchPosts(tx: IdentityTx, text: string, limit: number): 
   return z.array(postRow).parse(rows);
 }
 
-/** Stores the detected topics of a search (the owner's rows: the user is the caller's, set by the database). */
+/**
+ * Stores the detected topics of a search, each at most once per user per day (Israel's date): a text retyped, or searched again from the
+ * results screen, adds no weight. The rows are the owner's: the user is set by the database, and the existence check reads only the caller's
+ * own rows (search_intents_select_own).
+ */
 export async function recordTopics(tx: IdentityTx, topics: readonly string[]): Promise<void> {
   if (topics.length === 0) return;
-  await tx.insert(searchIntentsInsert).values(topics.map((topic) => ({ topic })));
+  await tx.execute(sql`
+    insert into nestly.search_intents (topic)
+    select t.topic from unnest(${sql.param([...topics])}::text[]) as t(topic)
+    where not exists (
+      select 1 from nestly.search_intents s
+      where s.topic = t.topic
+        and s.created_at >= (date_trunc('day', now() at time zone 'Asia/Jerusalem') at time zone 'Asia/Jerusalem'))`);
 }
 
+
+const topicWeightRow = z.object({ topic: z.string(), weight: z.number() });
+
+/**
+ * FR-ALG-008: the caller's own search topics with their decayed weight at `asOf`: per topic the sum over its searches of
+ * 2^(-hours from the search to asOf / halfLifeHours), counting searches up to asOf and at most 30 days before it (a topic is deleted
+ * after 30 days). Fixed by asOf, so every page of one feed snapshot scores alike. Read under the owner's own-row policy only.
+ */
+export async function readOwnTopicWeights(tx: IdentityTx, asOf: string, halfLifeHours: number): Promise<{ topic: string; weight: number }[]> {
+  const rows = await tx.execute(sql`
+    select s.topic, sum(power(2::float8, -(extract(epoch from (${asOf}::timestamptz - s.created_at))::float8 / 3600::float8) / ${halfLifeHours}::float8))::float8 as weight
+    from nestly.search_intents s
+    where s.created_at <= ${asOf}::timestamptz and s.created_at > ${asOf}::timestamptz - interval '30 days'
+    group by s.topic
+    order by s.topic`);
+  return z.array(topicWeightRow).parse(rows);
+}

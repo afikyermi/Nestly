@@ -59,7 +59,7 @@
 | AnalyticsEvent | Event כללי למדידת Impression/Open/Dwell/Search/Interaction/Conversion/Support/Moderation עם eventId, timestamp, entity/surface/source ו-algorithm/config version לפי צורך. |
 | ContentImpression | רשומת/אירוע חשיפה של Recommendation/Feed unit: user/session, entity, surface, position, organic/paid, algorithm/config version ומשך חשיפה אם זמין. |
 | SearchIntent | User + Topic (נושא או קטגוריית מוצר שזוהו בכללים קבועים) + תאריך. אין בו את טקסט החיפוש; נמחק אחרי 30 יום; אינו חשוף ל-Admin, ל-Professional או ל-Advertiser (FR-ALG-008). |
-| SearchEvent | Query normalized, surface, filters, result count/zero-result ו-result click. Raw query אינו נחשף ל-Professional Analytics. |
+| SearchEvent | אינו נשמר. מחיפוש לא נשמרים הטקסט, המסננים, מספר התוצאות או לחיצות; נשמר רק SearchIntent — נושא, משתמש ותאריך, נמחק אחרי 30 יום (FR-ALG-008; החלטת אפיק מ-20.10.2026: הטקסט שהוקלד לא נשמר, ובלי ניתוח של Admin). |
 | PersonalizationProfile | Interest/Intent scores נגזרים לפי Topic/Context. v1 Rule-Based; אינו כולל גוף Chat/Support ואינו חשוף ל-Professional/Advertiser. |
 | RecommendationFeedback | Not Interested / Show Less והיעד creator/topic/source לצורך Re-ranking. הסתרת פוסט נשמרת ב-PostHide ואינה Feedback. |
 | ContentMetadata | Topic/Category/Stage/Service/Product metadata לצורכי Eligibility/Ranking; v1 מבוסס שדות מובנים, Group/category context, tags/keywords ו-curation. |
@@ -111,7 +111,7 @@ NotificationPreference ו-GroupNotificationPreference מסננים אירועי 
 | Professional Profile | profession, experience, ratings, content/activity | Directory, organic matching, profile, Professional analytics | Paid boost לא משנה organic reputation. אין נתוני אימות (OP-005 נסגר, 18.10.2026) | Public/eligible users; owner/admin |
 | Social Graph | Friendship, ProfessionalFollow, Group Membership | Feed candidates, social relevance, notifications | לא לחשוף graph מלא לצדדים שלישיים | המשתמש/Features הרלוונטיים |
 | Content & Metadata | Posts/Comments/Groups/Listings/Products/Articles + topic/stage/category tags | Search, Feed, Ranking, Moderation, analytics | Private Group content לפי membership/admin exception בלבד. זהות המחבר של Anonymous Post אינה נחשפת למשתמשי קהילה. Admin רואה אותה; Moderator רק בטיפול בדיווח על הפוסט, עם Audit (FR-FEED-005). תגית השלב של פוסט היא בחירת המחבר בלבד ואינה נגזרת מ-Child/Journey Data (FR-FEED-004). שם הכותב — BR-079 | לפי content visibility |
-| Search Data | normalized query, filters, result count, clicks | Search ranking, current intent, zero-result/demand analytics | Raw query לא מוצג ל-Professional; Chat/Support לא נגזרים ל-query | System; Admin ו-ANALYTICS_VIEW לפי BR-058 (גם ברמת משתמש, בלי שמות ובלי פרטים מזהים); user personalization |
+| Search Data | נושא שזוהה (SearchIntent), משתמש ותאריך — לא הטקסט, המסננים או מספר התוצאות | התאמת פיד, Marketplace ויועצים למשתמש עצמו (FR-ALG-008) | הטקסט שהוקלד אינו נשמר; נמחק אחרי 30 יום; Chat/Support לא נגזרים לנושא | System בלבד, להתאמה למשתמש עצמו; בלי ניתוח של Admin (החלטת אפיק מ-20.10.2026) |
 | Interaction / Exposure | impression, open, dwell, like, comment, save, profile/product open | Interest/Intent, Ranking evaluation, Admin analytics | Dwell אינו Satisfaction יחיד; מינימום metadata נדרש | System; Admin ו-ANALYTICS_VIEW לפי BR-058 (גם ברמת משתמש, בלי שמות ובלי פרטים מזהים); Professional own aggregates |
 | Negative Feedback | Not Interested, Show Less | Suppression/Re-ranking, recommendation quality | לא משמש אכיפה על משתמש אחר כשלעצמו | System + user preference |
 | Post Hide | הסתרת פוסט (PostHide) | הוצאת הפוסט מהפיד ומעמוד הפוסט של המשתמש בלבד | לא Signal ולא קלט לדירוג (8א); לא נחשף לכותב או למשתמשים אחרים. שימוש במדדים מצטברים (§18.6, §18.8) — TBD (OP-037) | המשתמש לשורות שלו בלבד |
@@ -133,7 +133,7 @@ NotificationPreference ו-GroupNotificationPreference מסננים אירועי 
 | Consumption | content_open / dwell / article_open / profile_view / marketplace_open | entity, duration if available, source surface |
 | Engagement | reaction / comment / reply / save / share-if-added | entity, actor, context |
 | Negative Feedback | not_interested / show_less | entity, creator/topic/source target |
-| Search | search_submit / search_result_click | normalized query, result count, zero-result, entity clicked |
+| Search | search_submit | הנושא שזוהה בלבד (SearchIntent); לא הטקסט, מספר התוצאות או לחיצות (FR-ALG-008) |
 | Relationship | friend_request / friend_accept / follow / unfollow / group_join | relationship type + target |
 | Messaging Conversion | chat_start / chat_request_accept / offer_help_accept | context source only; no message body |
 | Commerce / Promotion | promotion_click / profile_visit_from_promo / follow_from_promo / chat_start_from_promo | promotion id + outcome |

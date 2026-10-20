@@ -15,6 +15,7 @@ export type NotificationsOutcome =
   | { kind: 'done' }
   | { kind: 'unauthenticated' } // 401
   | { kind: 'account-unavailable' } // 403 account_unavailable (ERR-037)
+  | { kind: 'forbidden' } // 403 forbidden: an Admin or Moderator account, which has no notifications (AC-033)
   | { kind: 'gone' } // 404: not the caller's notification, or not a Friend
   | { kind: 'failed' };
 
@@ -46,7 +47,10 @@ async function call(accessToken: string, init: Call): Promise<NotificationsOutco
     return { kind: 'failed' };
   }
   const code: unknown = typeof body === 'object' && body !== null ? Reflect.get(body, 'error') : undefined;
-  if (response.status === 403) return code === 'account_unavailable' ? { kind: 'account-unavailable' } : { kind: 'failed' };
+  if (response.status === 403) {
+    if (code === 'account_unavailable') return { kind: 'account-unavailable' };
+    return code === 'forbidden' ? { kind: 'forbidden' } : { kind: 'failed' };
+  }
   if (response.status === 404) return { kind: 'gone' };
   if (response.status !== 200) return { kind: 'failed' };
   if (init.reads === 'status') return { kind: 'done' };
@@ -58,7 +62,8 @@ async function call(accessToken: string, init: Call): Promise<NotificationsOutco
   return parsed.success ? { kind: 'preferences', data: parsed.data } : { kind: 'failed' };
 }
 
-export const fetchNotifications = (token: string) => call(token, { method: 'GET', path: '/api/notifications', reads: 'list' });
+export const fetchNotifications = (token: string, before: string | null = null) =>
+  call(token, { method: 'GET', path: before === null ? '/api/notifications' : `/api/notifications?before=${encodeURIComponent(before)}`, reads: 'list' });
 export const markAllNotificationsRead = (token: string) => call(token, { method: 'POST', path: '/api/notifications/read-all', reads: 'status' });
 export const markNotificationRead = (token: string, id: string) =>
   call(token, { method: 'POST', path: `/api/notifications/${encodeURIComponent(id)}/read`, reads: 'status' });

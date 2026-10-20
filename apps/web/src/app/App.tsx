@@ -5,6 +5,7 @@ import { ReturnTargetContext, type ReturnTarget } from '@/hooks/use-return-targe
 import { AudienceStorageContext } from '@/hooks/use-audience-memory';
 import { LinkCopierContext, type LinkCopier } from '@/hooks/use-copy-profile-link';
 import { DeviceShareContext } from '@/hooks/use-share-link';
+import { TabVisibilityContext, type TabVisibility } from '@/hooks/use-tab-visibility';
 import { sessionReturnTarget } from '@/platform/browser-return-target';
 import { windowClipboard } from '@/platform/browser-clipboard';
 import { windowDeviceShare, type DeviceShare } from '@/platform/browser-share';
@@ -27,12 +28,15 @@ import { SessionProvider } from './SessionProvider';
 // until the app first listens, so a visitor with no stored session makes no request. The browser adapters (platform/) are
 // handed in here; hooks and services only name their types.
 const productionAuthPort = createAuthPort(undefined, { keyValueStorage: browserStorage() });
+const browserEvents = windowBrowserEvents(AUTH_STORAGE_KEY);
 const productionSessionSource = createAuthSessionSource({
   auth: productionAuthPort,
   accountState: fetchAccountState,
   now: () => Date.now(),
-  events: windowBrowserEvents(AUTH_STORAGE_KEY),
+  events: browserEvents,
 });
+// The notifications bell pauses its polling while the tab is hidden (FR-NOTIF-001).
+const tabVisibility: TabVisibility = { isTabVisible: () => browserEvents.isTabVisible?.() ?? true, onTabVisible: (l) => browserEvents.onTabVisible(l) };
 const navigation = windowNavigation();
 // The Google button (F1.8): the same Auth client builds the authorize URL; the browser leaves for it and Google returns to /auth/google.
 const productionGoogleSignIn = createGoogleSignIn({
@@ -78,11 +82,13 @@ export function App(props: AppProps) {
           <LinkCopierContext value={linkCopier}>
             <DeviceShareContext value={deviceShare}>
               <ReturnTargetContext value={returnTarget}>
-                <SessionProvider source={sessionSource}>
-                  <BrowserRouter>
-                    <AppRoutes />
-                  </BrowserRouter>
-                </SessionProvider>
+                <TabVisibilityContext value={tabVisibility}>
+                  <SessionProvider source={sessionSource}>
+                    <BrowserRouter>
+                      <AppRoutes />
+                    </BrowserRouter>
+                  </SessionProvider>
+                </TabVisibilityContext>
               </ReturnTargetContext>
             </DeviceShareContext>
           </LinkCopierContext>

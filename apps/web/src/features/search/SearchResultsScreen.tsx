@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useLocation, useNavigate } from "react-router";
+import { PATHS } from "@/app/paths";
 import { SEARCH_TYPES, type SearchType } from "@nestly/shared";
 import { Button } from "@/components/ui/button";
 import { inputStyles } from "@/components/ui/text-input";
 import { cn } from "@/lib/cn";
-import { searchPath } from "./SearchBox";
+import { searchTextOf, type SearchLocationState } from "./SearchBox";
 import { SearchResults } from "./SearchResults";
 import { useSearch } from "./use-search";
 import {
@@ -18,22 +19,23 @@ import {
   TABS,
 } from "./search-texts";
 
-// The search results screen (PG-017, FR-SEARCH-001, AC-039): the text in the address (`/search?q=`), a field to change it, and the tabs All /
+// The search results screen (PG-017, FR-SEARCH-001, AC-039): the text in the router's history state (never in the address), a field to change it, and the tabs All /
 // People / Groups / Posts over one search. Every result went through the database's own permissions before it was ranked.
 export function SearchResultsScreen() {
-  const [params] = useSearchParams();
+  const location = useLocation();
   const navigate = useNavigate();
-  const q = params.get("q") ?? "";
+  const q = searchTextOf(location.state);
   const [text, setText] = useState(q);
   const [type, setType] = useState<SearchType>("all");
   useEffect(() => setText(q), [q]);
-  const [retry, setRetry] = useState(0);
-  const view = useSearch(q, true, retry);
+  // A retry belongs to the text it was asked for: a new text starts again from the shared results (one text counts once).
+  const [retry, setRetry] = useState({ q, n: 0 });
+  const view = useSearch(q, true, retry.q === q ? retry.n : 0);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (text.trim() !== "")
-      void navigate(searchPath(text.trim()), { replace: true });
+      void navigate(PATHS.search, { replace: true, state: { q: text.trim() } satisfies SearchLocationState });
   };
   const empty =
     view.kind === "results" &&
@@ -85,7 +87,7 @@ export function SearchResultsScreen() {
         {view.kind === "failed" ? (
           <div>
             <p role="alert">{FAILED_TEXT}</p>
-            <Button variant="text" onClick={() => setRetry((n) => n + 1)}>
+            <Button variant="text" onClick={() => setRetry((r) => ({ q, n: r.q === q ? r.n + 1 : 1 }))}>
               {RETRY_LABEL}
             </Button>
           </div>
