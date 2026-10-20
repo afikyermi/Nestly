@@ -49,11 +49,7 @@ export async function readModerators(tx: IdentityTx): Promise<TeamMember[]> {
         where u.account_type = 'moderator'
         order by u.created_at, u.id`),
     );
-  const known = new Set<string>(PERMISSION_KEYS);
-  return rows.map((row) => ({
-    ...row,
-    permissions: PERMISSION_KEYS.filter((key) => known.has(key) && (row.permissions ?? []).includes(key)),
-  }));
+  return rows.map((row) => ({ ...row, permissions: PERMISSION_KEYS.filter((key) => (row.permissions ?? []).includes(key)) }));
 }
 
 /** Every invitation the Admin issued, newest first, with its state now. */
@@ -85,7 +81,7 @@ export async function insertInvitation(tx: IdentityTx, codeHash: string, note: s
 
 /** Revokes an open invitation; false when there was none to revoke (used, revoked, unknown, or not the Admin). */
 export async function revokeInvitation(tx: IdentityTx, id: string): Promise<boolean> {
-  const rows = await tx.execute(sql`update nestly.moderator_invitations set revoked_at = now() where id = ${id}::uuid and accepted_by is null and revoked_at is null returning id`);
+  const rows = await tx.execute(sql`update nestly.moderator_invitations set revoked_at = now() where id = ${id}::uuid and accepted_by is null and revoked_at is null and expires_at > now() returning id`);
   return z.array(idRow).parse(rows).length === 1;
 }
 
@@ -178,6 +174,17 @@ export async function setAnnouncementStatus(tx: IdentityTx, id: string, status: 
   return z
     .array(announcementRow)
     .parse(await tx.execute(sql`update nestly.system_announcements set status = ${status} where id = ${id}::uuid and status <> ${status} returning ${announcementColumns}`))[0];
+}
+
+/** One announcement the caller reads, or none. */
+export async function readAnnouncement(tx: IdentityTx, id: string): Promise<Announcement | undefined> {
+  return z.array(announcementRow).max(1).parse(await tx.execute(sql`select ${announcementColumns} from nestly.system_announcements where id = ${id}::uuid`))[0];
+}
+
+/** Whether the caller holds one Permission Key now (the Admin holds every key). */
+export async function holdsKey(tx: IdentityTx, key: PermissionKey): Promise<boolean> {
+  const rows = z.array(z.object({ ok: z.boolean().nullable() })).parse(await tx.execute(sql`select nestly.has_permission(${key}) as ok`));
+  return rows[0]?.ok === true;
 }
 
 /** Whether an announcement with this id is readable to the caller at all (to tell 404 from 409). */

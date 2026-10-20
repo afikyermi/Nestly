@@ -35,6 +35,8 @@ const UNLISTED = [
 ];
 // F2.5 c6: signed in, these two Guest paths render (the consent documents are reachable from Settings).
 const CONSENT = ['/terms', '/privacy'];
+// I14: the team invitation page renders for a signed-in account too (it explains that a staff account is a separate one).
+const SIGNED_IN_GUEST = [...CONSENT, '/team/join'];
 const STATES = ['loading', 'signed-in', 'signed-out', 'signed-in-no-account'] as const;
 
 describe('the route table (6, Q2)', () => {
@@ -79,7 +81,7 @@ describe('signed-in (4, 10, DR-1)', () => {
   it.each(PROTECTED)('[F1.2 c5][FR-AUTH-004] %s renders', (path) => {
     expect(decideAccess('signed-in', path)).toEqual({ kind: 'render' });
   });
-  it.each(GUEST.filter((p) => !CONSENT.includes(p)))('[F1.2 c4][FR-AUTH-001][FR-AUTH-002] a signed-in user at the Guest route %s is redirected to /feed', (path) => {
+  it.each(GUEST.filter((p) => !SIGNED_IN_GUEST.includes(p)))('[F1.2 c4][FR-AUTH-001][FR-AUTH-002] a signed-in user at the Guest route %s is redirected to /feed', (path) => {
     expect(decideAccess('signed-in', path)).toEqual({ kind: 'redirect', to: '/feed' });
   });
   it.each(CONSENT)('[F2.5 c6][FR-AUTH-004] an active signed-in user can open %s (the consent documents, reachable from Settings)', (path) => {

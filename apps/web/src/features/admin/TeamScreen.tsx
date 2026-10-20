@@ -66,7 +66,14 @@ export function TeamScreen() {
 
   const load = useCallback(async () => {
     const outcome = await call((token) => fetchTeam(token));
-    setView(outcome.kind === 'ok' ? { kind: 'loaded', team: outcome.value } : { kind: 'failed', message: outcome.kind === 'forbidden' ? FORBIDDEN_TEXT : LOAD_FAILED_TEXT });
+    // a reload that fails keeps what is shown (the invitation link is shown once and must not vanish)
+    setView((now) =>
+      outcome.kind === 'ok'
+        ? { kind: 'loaded', team: outcome.value }
+        : now.kind === 'loaded'
+          ? now
+          : { kind: 'failed', message: outcome.kind === 'forbidden' ? FORBIDDEN_TEXT : LOAD_FAILED_TEXT },
+    );
   }, [call]);
 
   useEffect(() => {

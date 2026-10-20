@@ -8,11 +8,12 @@ import { PasswordInput } from '@/components/shared/password-input';
 import { Button } from '@/components/ui/button';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuthPort } from '@/hooks/use-auth-port';
+import { useSession } from '@/hooks/use-session';
 import { useSessionAccount } from '@/hooks/use-session-account';
 import { documentTitle } from '@/lib/document-title';
 import { classifySignUpFailure, PASSWORD_LENGTH_TEXT, validateCredentials, type CredentialErrors } from '@/features/registration/step2-form';
 import { joinTeam } from '@/services/api/team';
-import { JOIN_BUSY, JOIN_FAILED, JOIN_HAS_ACCOUNT, JOIN_INTRO, JOIN_INVALID_CODE, JOIN_NO_CODE, JOIN_SUBMIT, JOIN_TITLE } from '@/features/admin/team-texts';
+import { JOIN_BUSY, JOIN_FAILED, JOIN_HAS_ACCOUNT, JOIN_INTRO, JOIN_INVALID_CODE, JOIN_NO_CODE, JOIN_SIGNED_IN, JOIN_SUBMIT, JOIN_TITLE } from '@/features/admin/team-texts';
 
 /** The code from the link's fragment (never sent to a server by the browser), or null when it is missing or not one. */
 function codeOfLocation(): string | null {
@@ -25,7 +26,10 @@ function codeOfLocation(): string | null {
 export function JoinTeamPage() {
   const authPort = useAuthPort();
   const account = useSessionAccount();
+  const { state } = useSession();
   const [code] = useState(codeOfLocation);
+  // an account that already has a Nestly account (signed in) cannot be the staff account; the invited person signs out first
+  const blocked = state === 'signed-in' ? JOIN_SIGNED_IN : code === null ? JOIN_NO_CODE : null;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<CredentialErrors>({});
@@ -34,7 +38,7 @@ export function JoinTeamPage() {
   const running = useRef(false);
 
   const submit = async () => {
-    if (running.current || code === null) return;
+    if (running.current || code === null || blocked !== null) return;
     const checked = validateCredentials(email, password);
     // A session from an earlier try (signed up, not yet redeemed) is used again: no second Auth user for the email.
     const held = account === null ? null : await account.getAccessToken().catch(() => null);
@@ -91,7 +95,7 @@ export function JoinTeamPage() {
       >
         <AuthLayout
           actions={
-            code === null ? null : (
+            blocked !== null ? null : (
               <Button type="submit" size="lg" block pending={busy} aria-disabled={busy ? true : undefined}>
                 {JOIN_SUBMIT}
               </Button>
@@ -99,8 +103,8 @@ export function JoinTeamPage() {
           }
         >
           <h1 className="mb-1 text-h1">{JOIN_TITLE}</h1>
-          {code === null ? (
-            <InlineAlert>{JOIN_NO_CODE}</InlineAlert>
+          {blocked !== null ? (
+            <InlineAlert>{blocked}</InlineAlert>
           ) : (
             <>
               <p className="mb-5 text-body text-muted-foreground">{JOIN_INTRO}</p>

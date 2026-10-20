@@ -62,6 +62,7 @@ export const JOIN_NO_CODE = 'הקישור חסר או שגוי. אפשר לבק�
 export const JOIN_INVALID_CODE = 'ההזמנה כבר לא בתוקף. אפשר לבקש מהמנהל הזמנה חדשה';
 export const JOIN_HAS_ACCOUNT = 'לאימייל הזה כבר יש חשבון ב-Nestly. חשבון צוות צריך אימייל אחר';
 export const JOIN_FAILED = 'לא הצלחנו ליצור את החשבון. אפשר לנסות שוב';
+export const JOIN_SIGNED_IN = 'החשבון שמחובר עכשיו הוא חשבון קהילה. חשבון צוות הוא חשבון נפרד: כדי להצטרף צריך להתנתק ולפתוח את הקישור שוב';
 
 // ---- community settings (PG-031)
 export const COMMUNITY_TITLE = 'הגדרות קהילה';

@@ -45,7 +45,8 @@ export function decideAccess(
   if (state === 'signed-in') {
     if (mustSetPassword) return NEW_PASSWORD_HELD_PATHS.includes(path) ? RENDER : redirect(PATHS.setNewPassword);
     if (needsQuestions) return QUESTIONS_HELD_PATHS.includes(path) ? RENDER : redirect(PATHS.recoveryQuestions);
-    if (DOCUMENT_PATHS.includes(path)) return RENDER;
+    // I14: the team invitation page says to a signed-in account why it cannot join with that account (a staff account is separate)
+    if (DOCUMENT_PATHS.includes(path) || path === PATHS.joinTeam) return RENDER;
     if (isGuestPath) {
       const returnTo = normalizePath(options.returnTo ?? '');
       return redirect(isReturnPath(returnTo) ? returnTo : SIGNED_IN_LANDING);

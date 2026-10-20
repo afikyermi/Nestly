@@ -91,9 +91,14 @@ export function useReport(onDone: (target: ReportTarget, result: ReportResult) =
       });
     return () => {
       live = false;
-      if (reasons === undefined) asked.current = false;
     };
-  }, [open, account, reasons]);
+  }, [open, account]);
+
+  // a reason chosen from the built-in list that the community's list no longer offers is cleared (the database would refuse it)
+  useEffect(() => {
+    if (reasons === undefined) return;
+    setDraft((now) => (now === null || now.reason === null || reasons.some((item) => item.key === now.reason) ? now : { ...now, reason: null }));
+  }, [reasons]);
 
   const start = useCallback((target: ReportTarget) => {
     if (busy.current) return;

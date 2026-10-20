@@ -27,6 +27,7 @@ import {
   announcementExists,
   callerStaffRole,
   hasOwnAccount,
+  holdsKey,
   insertAnnouncement,
   insertInvitation,
   insertModeratorAccount,
@@ -36,6 +37,7 @@ import {
   nameAnalytics,
   nameInvitation,
   readAnalytics,
+  readAnnouncement,
   readAnnouncements,
   readInbox,
   readInvitations,
@@ -83,8 +85,8 @@ async function adminOnly(tx: IdentityTx): Promise<boolean> {
   return (await callerStaffRole(tx)) === 'admin';
 }
 
-async function holds(tx: IdentityTx, key: PermissionKey): Promise<boolean> {
-  return (await readStaffAccess(tx))?.permissions.includes(key) ?? false;
+function holds(tx: IdentityTx, key: PermissionKey): Promise<boolean> {
+  return holdsKey(tx, key);
 }
 
 // ---- the team ----------------------------------------------------------------------------------------------------------------
@@ -177,10 +179,9 @@ export async function editAnnouncement(database: Database, identity: Identity, i
       const item = await updateAnnouncement(tx, id, request.title, request.body);
       if (item !== undefined) return { kind: 'ok', item };
       // nothing written: unknown (404), removed (409), or the same text (200, nothing changed)
-      if (!(await announcementExists(tx, id))) return { kind: 'not_found' };
-      const current = (await readAnnouncements(tx)).find((row) => row.id === id);
-      if (current === undefined || current.status === 'removed') return { kind: 'not_applicable' };
-      return { kind: 'ok', item: current };
+      const current = await readAnnouncement(tx, id);
+      if (current === undefined) return { kind: 'not_found' };
+      return current.status === 'removed' ? { kind: 'not_applicable' } : { kind: 'ok', item: current };
     }),
   );
 }
