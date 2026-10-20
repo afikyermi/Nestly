@@ -4,6 +4,7 @@ import { useSessionAccount } from '@/hooks/use-session-account';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
 import { fetchOwnProfile, saveOwnProfile, type ProfileOutcome } from '@/services/api/profile';
 import { ProfileContent, type ProfileFocus, type ProfileView } from './ProfileContent';
+import { ProfilePhotoSection } from './ProfilePhotoSection';
 import { checkProfileForm, formValuesOf, LOAD_FAILED_TEXT, SAVE_FAILED_TEXT, type ProfileFormValues } from './profile-form';
 
 type Edit = Extract<ProfileView, { kind: 'edit' }>;
@@ -111,13 +112,17 @@ export function ProfileScreen() {
   }
 
   return (
-    <ProfileContent
-      view={view}
-      focus={focus}
-      onRetry={() => void load(true)}
-      onEdit={edit}
-      onCancel={cancel}
-      {...(view.kind === 'edit' ? { onChange: (values) => change(view, values), onSave: () => void save(view) } : {})}
-    />
+    <>
+      <ProfileContent
+        view={view}
+        focus={focus}
+        onRetry={() => void load(true)}
+        onEdit={edit}
+        onCancel={cancel}
+        {...(view.kind === 'edit' ? { onChange: (values) => change(view, values), onSave: () => void save(view) } : {})}
+      />
+      {/* I5 (FR-PROFILE-001): the profile photo, once the profile itself is shown */}
+      {view.kind === 'view' || view.kind === 'edit' ? <ProfilePhotoSection /> : null}
+    </>
   );
 }

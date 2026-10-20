@@ -71,7 +71,7 @@ test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
       const [w, l] = [await write.boundingBox(), await list(page).boundingBox()];
       expect(w?.y ?? 0).toBeLessThan(l?.y ?? 0);
       expect(net.methods).toEqual(['GET']);
-      expect(new Set(net.apiPaths)).toEqual(new Set(['/api/me', '/api/profile', '/api/admin/access', '/api/feed']));
+      expect(new Set(net.apiPaths)).toEqual(new Set(['/api/me', '/api/profile', '/api/feed', '/api/stories', '/api/admin/access'])); // I5: the Stories tray loads with the feed; I4: the menu asks whether the account is staff
       await scan(page);
     });
   }

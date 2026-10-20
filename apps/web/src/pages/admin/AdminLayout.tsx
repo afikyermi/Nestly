@@ -16,6 +16,7 @@ export const ADMIN_TABS: ReadonlyArray<{ tab: AdminTab; path: string }> = [
   { tab: 'users', path: PATHS.adminUsers },
   { tab: 'audit', path: PATHS.adminAudit },
   { tab: 'guides', path: PATHS.adminGuides },
+  { tab: 'media', path: PATHS.adminMedia },
 ];
 
 /** Whether the account's role and keys show a tab (presentation only; the database decides every call). */

@@ -1,7 +1,15 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["fra1"],
-  "git": { "deploymentEnabled": { "**": false, "main": true, "ready/**": true } },
+  "regions": [
+    "fra1"
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "**": false,
+      "main": true,
+      "ready/**": true
+    }
+  },
   "ignoreCommand": "node tools/vercel-ignore.mjs",
   "installCommand": "npm install",
   "buildCommand": "npm run build -w @nestly/web",
@@ -9,12 +17,38 @@
   "functions": {
     "api/index.ts": {
       "includeFiles": "apps/server/src/**",
-      "maxDuration": 30
+      "maxDuration": 30,
+      "excludeFiles": "{apps/server/src/jobs/**,apps/server/models/**,node_modules/onnxruntime-node/**}"
+    },
+    "api/jobs.ts": {
+      "includeFiles": "{apps/server/src/**,apps/server/models/**}",
+      "excludeFiles": "node_modules/onnxruntime-node/bin/napi-v6/{darwin,win32}/**,node_modules/onnxruntime-node/bin/napi-v6/linux/arm64/**",
+      "maxDuration": 60,
+      "memory": 1024
     }
   },
   "rewrites": [
-    { "source": "/api/:path*", "destination": "/api/index" },
-    { "source": "/posts/:path*", "destination": "/post.html" },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    {
+      "source": "/api/jobs/:path*",
+      "destination": "/api/jobs"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/posts/:path*",
+      "destination": "/post.html"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/jobs/media-check",
+      "schedule": "17 3 * * *"
+    }
   ]
 }

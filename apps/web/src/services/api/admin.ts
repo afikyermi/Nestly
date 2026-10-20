@@ -2,6 +2,7 @@ import {
   adminAccessBody,
   auditPageBody,
   enforceBody,
+  mediaQueueResponse,
   queueBody,
   reportDetailBody,
   revealBody,
@@ -11,6 +12,8 @@ import {
   type AuditPage,
   type EnforceRequest,
   type HandleReportsRequest,
+  type MediaDecision,
+  type MediaQueueResponse,
   type ModerateContentRequest,
   type QueueItem,
   type ReportDetail,
@@ -91,3 +94,10 @@ export const enforceUser = (token: string, request: EnforceRequest): Promise<Adm
 export const fetchUsers = (token: string, search: string): Promise<AdminOutcome<UserList>> =>
   call(token, 'GET', `/api/admin/users?q=${encodeURIComponent(search)}`, userListBody);
 export const fetchUser = (token: string, id: string): Promise<AdminOutcome<TargetUser>> => call(token, 'GET', `/api/admin/users/${id}`, targetUser);
+
+// The image approval queue (I5; Afik 20.10.2026; CONTENT_MODERATE) and the removal of a checked image after a report (with REPORTS_VIEW).
+export const fetchMediaQueue = (token: string): Promise<AdminOutcome<MediaQueueResponse>> => call(token, 'GET', '/api/admin/media-queue', mediaQueueResponse);
+export const decideMedia = (token: string, id: string, decision: MediaDecision, isChild: boolean): Promise<AdminOutcome<unknown>> =>
+  call(token, 'POST', `/api/admin/media/${encodeURIComponent(id)}/decision`, anything, { decision, isChild });
+export const removeMediaAfterReport = (token: string, id: string, suspected: boolean): Promise<AdminOutcome<unknown>> =>
+  call(token, 'POST', `/api/admin/media/${encodeURIComponent(id)}/removal`, anything, { suspected });

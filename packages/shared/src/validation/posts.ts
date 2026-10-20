@@ -7,6 +7,7 @@
 import { z } from 'zod';
 import { JOURNEY_STAGES, POST_AUDIENCES, POST_BODY_MAX, type JourneyStage, type PostAudience } from '../constants/index.js';
 import { codePointLength } from './text.js';
+import { mediaImage, POST_MAX_IMAGES } from '../media/index.js';
 
 export const POST_ERROR_CODES = ['body_required', 'body_too_long', 'audience_not_allowed'] as const;
 export type PostErrorCode = (typeof POST_ERROR_CODES)[number];
@@ -23,8 +24,14 @@ const audience = z.enum(POST_AUDIENCES);
 const stageTag = z.enum(JOURNEY_STAGES).nullable();
 
 /** POST /api/posts: `{ body, audience, stageTag?, isAnonymous? }` and nothing else; an anonymous post is never friends-only. */
+/** I5 (FR-FEED-002, VAL-041): the uploader's own unattached post images, in display order, at most 4, no repeat. */
+const imageIds = z
+  .array(z.guid())
+  .max(POST_MAX_IMAGES)
+  .refine((ids) => new Set(ids.map((id) => id.toLowerCase())).size === ids.length, 'invalid');
+
 export const createPostSchema = z
-  .strictObject({ body: postBody, audience, stageTag: stageTag.optional(), isAnonymous: z.boolean().optional() })
+  .strictObject({ body: postBody, audience, stageTag: stageTag.optional(), isAnonymous: z.boolean().optional(), imageIds: imageIds.optional() })
   .refine((value) => !(value.isAnonymous === true && value.audience === 'friends'), 'audience_not_allowed');
 
 /** PATCH /api/posts/:id: any of the three, at least one. Absent = unchanged; `stageTag: null` clears the tag. */
@@ -44,6 +51,8 @@ export interface PostWrite {
 /** A create adds the one-time anonymity choice; present only when the body named it. */
 export interface PostCreate extends PostWrite {
   readonly isAnonymous?: boolean;
+  /** I5: the post's images (ids of the uploader's post images), in order. */
+  readonly imageIds?: readonly string[];
 }
 
 export type PostCheck<T> = { ok: true; value: T } | { ok: false; reason: 'invalid' } | { ok: false; reason: PostErrorCode };
@@ -76,8 +85,15 @@ function refusal(error: z.ZodError): Exclude<PostWriteCheck, { ok: true }> {
 export function checkCreatePost(body: unknown): PostCreateCheck {
   const result = createPostSchema.safeParse(body);
   if (!result.success) return refusal(result.error);
-  const { isAnonymous } = result.data;
-  return { ok: true, value: { ...writeOf(result.data), ...(isAnonymous === undefined ? {} : { isAnonymous }) } };
+  const { isAnonymous, imageIds: images } = result.data;
+  return {
+    ok: true,
+    value: {
+      ...writeOf(result.data),
+      ...(isAnonymous === undefined ? {} : { isAnonymous }),
+      ...(images === undefined || images.length === 0 ? {} : { imageIds: images.map((id) => id.toLowerCase()) }),
+    },
+  };
 }
 
 export function checkUpdatePost(body: unknown): PostWriteCheck {
@@ -96,6 +112,8 @@ export const postView = z.strictObject({
   stageTag,
   createdAt: z.iso.datetime(),
   isAnonymous: z.boolean(),
+  /** I5: the images the viewer may see, in order (absent: none). */
+  images: z.array(mediaImage).max(POST_MAX_IMAGES).optional(),
 });
 /**
  * The read adds `isMine` and the displayed counts (F3.3 c11, c12): `likeCount`, `commentCount` over the rows the viewer can read; `likedByMe`

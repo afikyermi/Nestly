@@ -23,6 +23,13 @@ import { registerTrackersRoutes } from './routes/trackers.js';
 import { registerMeRoute } from './routes/me.js';
 import { registerPasswordRoutes } from './routes/password.js';
 import { registerPostsRoutes } from './routes/posts.js';
+import { registerMediaRoutes } from './routes/media.js';
+import { registerStoriesRoutes } from './routes/stories.js';
+import { registerMediaQueueRoutes } from './routes/media-queue.js';
+import { processUpload } from './media/image-processing.js';
+import { createJobKick } from './media/job-kick.js';
+import { createMediaStorage } from './media/storage-admin.js';
+import type { MediaDependencies } from './services/media-service.js';
 import { registerPrivacyRoute } from './routes/privacy.js';
 import { registerProfileRoute } from './routes/profile.js';
 import { registerProfileViewRoute } from './routes/profile-view.js';
@@ -47,6 +54,8 @@ export interface AppDependencies {
   readonly clock?: () => Date;
   /** Recovery's pepper, scrypt and Auth calls. Defaults read the environment (recovery/dependencies.ts); a test overrides what it needs. */
   readonly recovery?: Partial<RecoveryDependencies>;
+  /** I5: image storage, the image re-encoder and the background check's trigger. Defaults read the environment; a test passes fakes. */
+  readonly media?: Partial<MediaDependencies>;
 }
 
 export function buildApp(deps: AppDependencies = {}): FastifyInstance {
@@ -119,16 +128,24 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerAdminGuidesRoutes(app, { database, clock });
   registerPrivacyRoute(app, { database });
   registerFriendsRoutes(app, { database });
-  registerProfileViewRoute(app, { database });
-  registerPostsRoutes(app, { database });
-  registerFeedRoutes(app, { database });
+  const media: MediaDependencies = {
+    storage: deps.media?.storage ?? createMediaStorage(),
+    kick: deps.media?.kick ?? createJobKick(),
+    process: deps.media?.process ?? processUpload,
+  };
+  registerPostsRoutes(app, { database, storage: media.storage });
+  registerFeedRoutes(app, { database, storage: media.storage });
+  registerMediaRoutes(app, { database, media });
+  registerProfileViewRoute(app, { database, storage: media.storage });
+  registerStoriesRoutes(app, { database, storage: media.storage });
+  registerMediaQueueRoutes(app, { database, storage: media.storage, kick: media.kick });
   registerCommentsRoutes(app, { database });
   registerLikesRoutes(app, { database });
   registerPostHidesRoutes(app, { database });
   registerReportsRoutes(app, { database });
   registerSharesRoutes(app, { database });
   registerBlocksRoutes(app, { database });
-  registerAdminReadRoutes(app, { database });
+  registerAdminReadRoutes(app, { database, storage: media.storage });
   registerAdminActionRoutes(app, { database });
 
   return app;

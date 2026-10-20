@@ -12,11 +12,14 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
 import { isTransientFailure, readDatabaseFault } from '../lib/pg-error.js';
 import { replySessionRefused } from '../plugins/authentication.js';
+import type { MediaStorage } from '../media/storage-admin.js';
 import { readUserProfile, type ViewOutcome } from '../services/profile-view-service.js';
 import { replyRateLimited } from './rate-limit-reply.js';
 
 export interface ProfileViewRouteDependencies {
   readonly database: Database | undefined;
+  /** I5: signs the read address of the target's profile photo (absent: no photo in the answer). */
+  readonly storage?: MediaStorage;
 }
 
 const PATH = '/api/profiles/:userId';
@@ -52,7 +55,7 @@ async function read(request: FastifyRequest, reply: FastifyReply, deps: ProfileV
   if (!target.ok) return reply.code(400).send({ error: 'invalid' });
   if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
   try {
-    return replyOutcome(request, reply, await readUserProfile(deps.database, identity, target.userId));
+    return replyOutcome(request, reply, await readUserProfile(deps.database, identity, target.userId, deps.storage));
   } catch (error) {
     return replyFailure(request, reply, error);
   }
