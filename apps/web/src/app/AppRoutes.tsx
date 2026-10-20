@@ -1,4 +1,6 @@
 import { Route, Routes } from 'react-router';
+import { AdminAuditPage, AdminReportsPage, AdminUsersPage } from '@/pages/admin/AdminPages';
+import { AdminIndex, AdminLayout } from '@/pages/admin/AdminLayout';
 import { ChangePasswordPage } from '@/pages/change-password/ChangePasswordPage';
 import { CommunityRulesPage } from '@/pages/community-rules/CommunityRulesPage';
 import { NewPostRedirect } from '@/pages/compose-post/NewPostRedirect';
@@ -52,6 +54,12 @@ export function AppRoutes() {
             <Route path={PATHS.medicalHotlines} element={<MedicalHotlinesPage />} />
             <Route path={PATHS.communityRules} element={<CommunityRulesPage />} />
             <Route path={PATHS.setNewPassword} element={<SetNewPasswordPage />} />
+            <Route path={PATHS.admin} element={<AdminLayout />}>
+              <Route index element={<AdminIndex />} />
+              <Route path="reports" element={<AdminReportsPage />} />
+              <Route path="users" element={<AdminUsersPage />} />
+              <Route path="audit" element={<AdminAuditPage />} />
+            </Route>
           </Route>
         </Routes>
       </RouteGuard>
