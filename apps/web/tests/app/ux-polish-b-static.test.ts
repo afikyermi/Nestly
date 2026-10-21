@@ -67,7 +67,7 @@ describe('ux-polish-b c11 [NFR-USAB-004 FR-PROFILE-002 DR-1 DR-3 FR-REL-001] con
   const sites = product.filter((f) => !rel(f).startsWith('components/') && /<ConfirmDialog\b/.test(read(f)));
   const count = (file: string): number => (read(find(file)).match(/<ConfirmDialog\b/g) ?? []).length;
 
-  it('[c11] exactly the post-delete (feed, post page), comment-delete, remove-friend (/u/:id, /friends), journeys, tracker-record, guide-state (I6) and announcement-removal (I14) dialogs, and I10's Group dialogs (leave, members, delete); nothing else added', () => {
+  it('[c11] exactly the post-delete (feed, post page), comment-delete, remove-friend (/u/:id, /friends), journeys, tracker-record, guide-state (I6) and announcement-removal (I14) dialogs, and the I10 Group dialogs (leave, members, delete); nothing else added', () => {
     expect(sites.map(rel).sort()).toEqual(
       [
         'features/admin-guides/AdminGuidesScreen.tsx',

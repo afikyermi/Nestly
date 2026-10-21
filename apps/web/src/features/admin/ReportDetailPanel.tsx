@@ -11,6 +11,9 @@ import {
   ANONYMOUS_NOTE,
   CLOSE_ONLY_LABEL,
   CONTENT_GONE_TEXT,
+  OPEN_PRIVATE_LABEL,
+  PRIVATE_GROUP_DENIED_TEXT,
+  PRIVATE_GROUP_TEXT,
   CONTENT_HEADING,
   CONTENT_STATUS_LABELS,
   COPIED_TEXT_LABEL,
@@ -45,11 +48,13 @@ export interface ReportDetailPanelProps {
   /** Whether the open reports on this target are still open (a closed one has nothing to close). */
   isOpen: boolean;
   onAction: (action: ReportAction) => void;
+  /** I10 (NFR-PRIV-002): open the reported Private Group content (audited). */
+  onOpenPrivate?: () => void;
 }
 
 // One reported post, comment or profile (FR-MOD-003): the text as it is now, the reports on it with their copy of the text, and the actions the keys allow.
 // Closing a report and moving the content are one step; the reason of a move goes to the Audit Log. What the database allows is the Permission Key.
-export function ReportDetailPanel({ detail, permissions, revealed, pending, failure, isOpen, onAction }: ReportDetailPanelProps) {
+export function ReportDetailPanel({ detail, permissions, revealed, pending, failure, isOpen, onAction, onOpenPrivate }: ReportDetailPanelProps) {
   const id = useId();
   const [reason, setReason] = useState('');
   const [note, setNote] = useState('');
@@ -81,7 +86,20 @@ export function ReportDetailPanel({ detail, permissions, revealed, pending, fail
       {detail.targetKind === 'user' ? null : (
         <div className="flex flex-col gap-1 rounded-lg bg-muted p-4">
           <h4 className="text-label">{CONTENT_HEADING}</h4>
-          {content === null ? (
+          {content === null && detail.privateGroup === true ? (
+            permissions.includes('PRIVATE_GROUP_MODERATE') ? (
+              <div className="flex flex-col items-start gap-2">
+                <p>{PRIVATE_GROUP_TEXT}</p>
+                {onOpenPrivate === undefined ? null : (
+                  <Button variant="soft" onClick={onOpenPrivate}>
+                    {OPEN_PRIVATE_LABEL}
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <p>{PRIVATE_GROUP_DENIED_TEXT}</p>
+            )
+          ) : content === null ? (
             <p>{CONTENT_GONE_TEXT}</p>
           ) : (
             <>

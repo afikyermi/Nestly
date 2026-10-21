@@ -99,6 +99,7 @@ export const openItemRest = (kind: string, reason: string): string => `${kind}, 
 export const DETAIL_TITLE = 'פרטי הדיווח';
 export const CONTENT_HEADING = 'התוכן המדווח';
 export const CONTENT_GONE_TEXT = 'התוכן כבר לא קיים';
+/** I10 (NFR-PRIV-002, ERR-024): reported content of a Private Group is opened on purpose, and each opening is in the Audit Log. */export const PRIVATE_GROUP_TEXT = 'התוכן הזה מקבוצה פרטית. פתיחה שלו נרשמת ביומן הפעולות';export const OPEN_PRIVATE_LABEL = 'פתיחת התוכן';export const PRIVATE_GROUP_DENIED_TEXT = 'התוכן הזה מקבוצה פרטית, ואין הרשאה לתוכן של קבוצות פרטיות';
 export const CONTENT_STATUS_LABELS: Record<string, string> = { active: 'מוצג', hidden: 'מוסתר', removed: 'הוסר', deleted: 'נמחק על ידי הכותב' };
 export const ANONYMOUS_NOTE = 'פוסט אנונימי. אפשר לחשוף את המחבר רק לצורך הטיפול בדיווח, והחשיפה נרשמת ביומן';
 export const REPORTS_HEADING = 'הדיווחים';

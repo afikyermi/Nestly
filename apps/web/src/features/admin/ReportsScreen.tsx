@@ -65,9 +65,9 @@ export function ReportsScreen({ permissions }: { permissions: readonly Permissio
     return outcome.kind === 'ok' ? outcome.value : null;
   }
 
-  async function loadDetail(item: QueueItem, revealed: Revealed | null = null) {
+  async function loadDetail(item: QueueItem, revealed: Revealed | null = null, openPrivate = false) {
     setSelected({ item, detail: null, detailFailed: false, revealed });
-    const outcome = await call((token) => fetchReportDetail(token, item.targetKind, item.targetId));
+    const outcome = await call((token) => fetchReportDetail(token, item.targetKind, item.targetId, openPrivate));
     const fresh = revealed === null ? null : { ...revealed, user: await revealedAccount(revealed.userId) };
     setSelected({ item, detail: outcome.kind === 'ok' ? outcome.value : null, detailFailed: outcome.kind !== 'ok', revealed: fresh });
   }
@@ -176,6 +176,7 @@ export function ReportsScreen({ permissions }: { permissions: readonly Permissio
               failure={failure}
               isOpen={queue.kind === 'loaded' && queue.items.some((item) => item.targetId === selected.item.targetId)}
               onAction={(action) => void act(action)}
+              onOpenPrivate={() => void loadDetail(selected.item, selected.revealed, true)}
             />
             {account === null ? null : (
               <EnforcementPanel

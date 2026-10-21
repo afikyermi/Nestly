@@ -81,8 +81,9 @@ export const fetchStaffAccess = (token: string): Promise<AdminOutcome<StaffAcces
 export const fetchAudit = (token: string, before: string | null): Promise<AdminOutcome<AuditPage>> =>
   call(token, 'GET', before === null ? '/api/admin/audit' : `/api/admin/audit?before=${encodeURIComponent(before)}`, auditPageBody);
 export const fetchQueue = (token: string): Promise<AdminOutcome<{ items: QueueItem[] }>> => call(token, 'GET', '/api/admin/reports', queueBody);
-export const fetchReportDetail = (token: string, kind: ReportTargetKind, id: string): Promise<AdminOutcome<ReportDetail>> =>
-  call(token, 'GET', `/api/admin/reports/${kind}/${id}`, reportDetailBody);
+/** `open`: I10, open reported Private Group content for this request (audited; PRIVATE_GROUP_MODERATE). */
+export const fetchReportDetail = (token: string, kind: ReportTargetKind, id: string, open = false): Promise<AdminOutcome<ReportDetail>> =>
+  call(token, 'GET', `/api/admin/reports/${kind}/${id}${open ? '?open=true' : ''}`, reportDetailBody);
 export const handleReports = (token: string, request: HandleReportsRequest): Promise<AdminOutcome<unknown>> =>
   call(token, 'POST', '/api/admin/reports/handle', anything, request);
 export const moderateContent = (token: string, request: ModerateContentRequest): Promise<AdminOutcome<unknown>> =>
