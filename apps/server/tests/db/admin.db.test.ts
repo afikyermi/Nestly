@@ -198,8 +198,8 @@ describe('[I4 FR-MOD-003 AC-029 BR-080] handling reports and moderating content'
     expect(await auditCount('report_handled')).toBeGreaterThan(0);
     const q = await readReportQueue(database, id(content));
     expect(q.kind === 'ok' && q.items.length).toBe(0);
-    const detail = await readReportDetail(database, id(content), 'post', p);
-    expect(detail.kind === 'ok' && detail.detail.content).toBeNull();
+    // the post is gone: its closed report no longer names it, so there is nothing to open
+    expect((await readReportDetail(database, id(content), 'post', p)).kind).toBe('not_found');
   });
 
   it('a moderation move needs CONTENT_MODERATE and a reason; a report is not closed twice; the content is restored by a later move', T, async () => {

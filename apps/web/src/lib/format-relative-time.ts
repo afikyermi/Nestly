@@ -2,7 +2,18 @@
 // a review, a listing, an announcement — shows "לפני 5 דקות", "לפני 3 שעות", "לפני יומיים", "לפני חודש", "לפני שנתיים". Less than a minute (or a
 // time a little ahead of the reader's clock) is "עכשיו". The exact date and time stay available beside it (formatPostTime, in a title).
 
-const relative = new Intl.RelativeTimeFormat('he', { numeric: 'always' });
+// Written out, not Intl.RelativeTimeFormat: browsers' ICU versions word Hebrew duals differently ("לפני חודשיים (2)" on one of them).
+const UNITS = {
+  minute: ['לפני דקה', 'לפני 2 דקות', 'דקות'],
+  hour: ['לפני שעה', 'לפני שעתיים', 'שעות'],
+  day: ['לפני יום', 'לפני יומיים', 'ימים'],
+  month: ['לפני חודש', 'לפני חודשיים', 'חודשים'],
+  year: ['לפני שנה', 'לפני שנתיים', 'שנים'],
+} as const;
+const ago = (count: number, unit: keyof typeof UNITS): string => {
+  const [one, two, many] = UNITS[unit];
+  return count <= 1 ? one : count === 2 ? two : `לפני ${count.toLocaleString('he-IL')} ${many}`;
+};
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -15,13 +26,11 @@ export const JUST_NOW_TEXT = 'עכשיו';
 export function formatRelativeTime(iso: string, now: Date = new Date()): string {
   const at = new Date(iso).getTime();
   if (Number.isNaN(at)) return iso;
-  const ago = now.getTime() - at;
-  if (ago < MINUTE) return JUST_NOW_TEXT;
-  if (ago < HOUR) return relative.format(-Math.floor(ago / MINUTE), 'minute');
-  if (ago < DAY) return relative.format(-Math.floor(ago / HOUR), 'hour');
-  // "לפני יום" reads better than the formatter's "לפני יום 1"
-  if (ago < 2 * DAY) return 'לפני יום';
-  if (ago < MONTH) return relative.format(-Math.floor(ago / DAY), 'day');
-  if (ago < YEAR) return relative.format(-Math.floor(ago / MONTH), 'month');
-  return relative.format(-Math.floor(ago / YEAR), 'year');
+  const elapsed = now.getTime() - at;
+  if (elapsed < MINUTE) return JUST_NOW_TEXT;
+  if (elapsed < HOUR) return ago(Math.floor(elapsed / MINUTE), 'minute');
+  if (elapsed < DAY) return ago(Math.floor(elapsed / HOUR), 'hour');
+  if (elapsed < MONTH) return ago(Math.floor(elapsed / DAY), 'day');
+  if (elapsed < YEAR) return ago(Math.floor(elapsed / MONTH), 'month');
+  return ago(Math.floor(elapsed / YEAR), 'year');
 }

@@ -235,7 +235,7 @@ test.describe('[F14.3-b Afik 21.10] the staff rules, second completion', () => {
     await page.goto('/admin/reports');
     await page.getByRole('listitem').filter({ hasText: 'הטרדה או בריונות' }).getByRole('button', { name: 'פתיחת הדיווח' }).click();
     await expect(main(page).getByRole('heading', { name: /פרטי הדיווח/ })).toBeVisible();
-    await expect(main(page).getByText('טקסט הפוסט שדווח')).toBeVisible();
+    await expect(main(page).getByText('טקסט הפוסט שדווח', { exact: true }).first()).toBeVisible();
     await expect(main(page).getByRole('heading', { name: 'ההקשר' })).toHaveCount(0);
     await expect(main(page).getByText('תגובה בשרשור')).toHaveCount(0);
     await expect(main(page).getByRole('link', { name: 'פתיחת העמוד לבדיקה' })).toHaveCount(0);

@@ -21,6 +21,9 @@ describe('[§11.8] the relative time of a publication', () => {
     expect(formatRelativeTime(ago(5 * DAY), now)).toBe('לפני 5 ימים');
     expect(formatRelativeTime(ago(65 * DAY), now)).toBe('לפני חודשיים');
     expect(formatRelativeTime(ago(3 * 365 * DAY), now)).toBe('לפני 3 שנים');
+    expect(formatRelativeTime(ago(2 * HOUR), now)).toBe('לפני שעתיים');
+    expect(formatRelativeTime(ago(50 * HOUR), now)).toBe('לפני יומיים');
+    expect(formatRelativeTime(ago(400 * DAY), now)).toBe('לפני שנה');
   });
 
   it('gives back text that is no date as it was', () => {
