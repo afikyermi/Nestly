@@ -81,6 +81,7 @@ export const checkUpdateGroup = (body: unknown): GroupBodyCheck<UpdateGroupBody>
 export const groupPathParams = z.object({ id: z.guid() });
 export const groupUserPathParams = z.object({ id: z.guid(), userId: z.guid() });
 export const groupInvitationPathParams = z.object({ id: z.guid() });
+export const groupPostPathParams = z.object({ id: z.guid(), postId: z.guid() });
 
 /** GET /api/groups?scope=mine|discover&q=: my Groups, or discovery (every active Group, newest first, or matching `q`). */
 export const groupsListQuery = z.strictObject({

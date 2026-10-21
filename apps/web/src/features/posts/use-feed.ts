@@ -6,7 +6,8 @@ import { useSessionAccount } from '@/hooks/use-session-account';
 import { userIdOfAccessToken } from '@/lib/access-token';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
 import { fetchFeedPage } from '@/services/api/feed';
-import { fetchGroupFeedPage } from '@/services/api/groups';
+import { fetchGroupFeedPage, removeGroupPost } from '@/services/api/groups';
+import { REMOVE_NOT_ALLOWED_TEXT } from '@/lib/group-post-texts';
 import { useFeedSource } from './feed-source';
 import { setLike } from '@/services/api/likes';
 import { deletePost } from '@/services/api/posts';
@@ -217,6 +218,17 @@ export function useFeed(onRestart: () => void): FeedFlow {
   const remove = useCallback(
     async (unitId: string): Promise<{ ok: true } | { ok: false; failure: string }> => {
       const token = account === null ? null : await account.getAccessToken().catch(() => null);
+      // I10: another member's post in a Group is removed through the Group, which tells a refusal (a higher Role's post) from a post gone
+      const mine = latest.current.items.find((unit) => unit.id === unitId)?.isMine === true;
+      if (groupId !== null && !mine) {
+        const result = token === null ? null : await removeGroupPost(token, groupId, unitId);
+        if (result !== null && (result.kind === 'ok' || result.error === 'user_unavailable')) {
+          setState((now) => withHideResult(now, unitId, { kind: 'removed', status: DELETED_STATUS }));
+          return { ok: true };
+        }
+        if (result !== null && result.kind === 'error' && (result.error === 'unauthenticated' || result.error === 'account-unavailable')) void account?.recheck();
+        return { ok: false, failure: result !== null && result.kind === 'error' && result.error === 'role_not_allowed' ? REMOVE_NOT_ALLOWED_TEXT : DELETE_FAILED_TEXT };
+      }
       const outcome = token === null ? ({ kind: 'failed' } as const) : await deletePost(token, unitId);
       if (outcome.kind === 'deleted' || outcome.kind === 'unavailable') {
         setState((now) => withHideResult(now, unitId, { kind: 'removed', status: DELETED_STATUS }));
@@ -225,7 +237,7 @@ export function useFeed(onRestart: () => void): FeedFlow {
       if (outcome.kind === 'unauthenticated' || outcome.kind === 'account-unavailable') void account?.recheck();
       return { ok: false, failure: outcome.kind === 'account-unavailable' ? STOPPED_TEXT : failureText(outcome, DELETE_FAILED_TEXT) };
     },
-    [account],
+    [account, groupId],
   );
 
   const addPublished = useCallback((unit: FeedUnit) => setState((current) => withPublished(current, unit)), []);

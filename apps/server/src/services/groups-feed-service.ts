@@ -14,7 +14,8 @@ import { classifyMember, isRefusal } from './membership.js';
 import { imagesByPost, readPostImageRows } from './posts-service.js';
 
 
-import { fail, ok, type GroupResult } from './groups-service.js';
+import { asMember, fail, ok, type GroupResult } from './groups-service.js';
+import { deletePost } from '../repositories/posts-repository.js';
 
 // ---- the Group's discussion ----------------------------------------------------------------------------------------------------
 
@@ -76,3 +77,15 @@ export async function readGroupFeed(
   return ok(feedPageResponse.parse({ ...result.value, items }));
 }
 
+
+/**
+ * DELETE /api/groups/:id/posts/:postId: the author, or a Group Moderator or higher, removes a post of the Group (FR-GRP-003; held while a report
+ * is open, as every delete). The database checks the Roles: a post still readable after a refused delete belongs to an equal or higher Role.
+ */
+export async function removeGroupPost(database: Database, identity: Identity, id: string, postId: string): Promise<GroupResult<null>> {
+  return asMember(database, identity, async (tx) => {
+    if ((await readGroupDetail(tx, id)) === undefined) return fail('group_unavailable');
+    if ((await deletePost(tx, postId)) > 0) return ok(null);
+    return (await readGroupPostExists(tx, id, postId)) ? fail('role_not_allowed') : fail('user_unavailable');
+  });
+}

@@ -82,7 +82,7 @@ export function GroupManage({ group, onUpdated, onDeleted, onChanged }: GroupMan
     const result = await call((token) => unblock(token, group.id, person.userId));
     setBusyId(null);
     if (result.kind !== 'ok') {
-      setStatus(result.kind === 'error' && result.error === 'user_unavailable' ? ROLE_NOT_ALLOWED_TEXT : ACTION_FAILED_TEXT);
+      setStatus(result.kind === 'error' && result.error === 'role_not_allowed' ? ROLE_NOT_ALLOWED_TEXT : ACTION_FAILED_TEXT);
       return;
     }
     setBans((now) => (now ?? []).filter((p) => p.userId !== person.userId));

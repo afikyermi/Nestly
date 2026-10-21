@@ -121,7 +121,7 @@ export function PostForm(props: PostFormProps) {
         </p>
       </div>
       {everyoneOnly ? (
-        compact ? null : <FieldHint id={noticeId}>{EVERYONE_ONLY_TEXT}</FieldHint>
+        compact ? null : <FieldHint id={noticeId}>{fixedAudienceText ?? EVERYONE_ONLY_TEXT}</FieldHint>
       ) : mode === 'create' && !compact ? (
         <div className="flex flex-col gap-1.5">
           <Checkbox checked={anonymous} onCheckedChange={(checked) => onAnonymousChange?.(checked)}>

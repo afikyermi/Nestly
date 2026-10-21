@@ -86,7 +86,7 @@ function Composer({ owner, memory, focusText, everyoneOnly, onPublished }: Compo
       return;
     }
     setSending(true);
-    forgetDraft();
+    forgetDraft(owner);
     setFailure(null);
     setErrors({});
     const token = account === null ? null : await account.getAccessToken().catch(() => null);

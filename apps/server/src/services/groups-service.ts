@@ -16,7 +16,7 @@ import type { Database } from '../db/client.js';
 import { inIdentityTransaction, type IdentityTx } from '../db/identity-transaction.js';
 import { readDatabaseFault } from '../lib/pg-error.js';
 import type { Identity } from '../lib/token-verifier.js';
-import {
+import { answerInvitation,
   cancelOwnRequest,
   deleteOwnMembership,
   insertGroup,
@@ -187,7 +187,9 @@ export async function joinGroup(database: Database, identity: Identity, id: stri
       if (group === undefined) return fail('group_unavailable');
       if (group.myRole !== null) return fail('already_member');
       if (group.blocked) return fail('blocked_from_group');
-      if (group.privacy === 'public') await insertOwnMembership(tx, id);
+      // an invitation waiting for the caller is accepted by Join (it admits to a Private Group too)
+      if (group.invitationId !== null) await answerInvitation(tx, group.invitationId, 'accepted');
+      else if (group.privacy === 'public') await insertOwnMembership(tx, id);
       else if (!group.requested) await insertJoinRequest(tx, id);
       const detail = await detailIn(tx, id);
       return detail === undefined ? fail('group_unavailable') : ok(detail);

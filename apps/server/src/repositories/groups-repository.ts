@@ -180,6 +180,12 @@ export async function insertBan(tx: IdentityTx, groupId: string, userId: string)
   await tx.execute(sql`insert into nestly.group_bans (group_id, user_id) values (${groupId}::uuid, ${userId}::uuid)`);
 }
 
+/** Whether the user is blocked from the Group, as the caller may read it (Moderators and higher, or the user). */
+export async function readBanned(tx: IdentityTx, groupId: string, userId: string): Promise<boolean> {
+  const rows = await tx.execute(sql`select 1 from nestly.group_bans b where b.group_id = ${groupId}::uuid and b.user_id = ${userId}::uuid`);
+  return rows.length > 0;
+}
+
 export async function deleteBan(tx: IdentityTx, groupId: string, userId: string): Promise<number> {
   const rows = await tx.execute(sql`delete from nestly.group_bans where group_id = ${groupId}::uuid and user_id = ${userId}::uuid returning user_id`);
   return rows.length;

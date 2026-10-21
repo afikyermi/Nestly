@@ -31,7 +31,7 @@ export function GroupPage() {
           onPin,
         }}
       >
-        <FeedScreen key={group.id} />
+        <FeedScreen key={`${group.id}:${group.pinnedPostId ?? ""}`} />
       </FeedSourceContext>
     );
   };

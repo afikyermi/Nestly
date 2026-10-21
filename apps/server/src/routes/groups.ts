@@ -8,6 +8,7 @@
 //   PUT    /api/groups/:id/membership                   → 200 GroupDetail (Join a Public Group, or Request to Join a Private one)
 //   DELETE /api/groups/:id/membership                   → 200 GroupDetail (leave, or cancel one's own request; never the Owner: 409)
 //   GET    /api/groups/:id/posts[?cursor=]               → 200 FeedPageResponse (the Group's discussion, pinned first)
+//   DELETE /api/groups/:id/posts/:postId                → 204 (the author or a Group Moderator+; 403 role_not_allowed: an equal or higher Role's post)
 //   GET    /api/groups/:id/members                      → 200 { members }        PATCH /api/groups/:id/members/:userId { role } → 200 { members }
 //   DELETE /api/groups/:id/members/:userId[?block=true] → 204
 //   GET    /api/groups/:id/requests                     → 200 { people }         PUT /api/groups/:id/requests/:userId { decision } → 204
@@ -21,7 +22,7 @@
 //   401/503 session guard · 500. Logs carry a fixed line and the SQLSTATE, never a name, a text or an id (NFR-PRIV-001).
 
 
-import { checkCreateGroup, checkUpdateGroup, groupsListQuery, groupsListResponse } from '@nestly/shared';
+import { checkCreateGroup, checkUpdateGroup, groupPostPathParams, groupsListQuery, groupsListResponse } from '@nestly/shared';
 import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
 import * as groups from '../services/groups-service.js';
@@ -108,6 +109,17 @@ export function registerGroupsRoutes(app: FastifyInstance, deps: GroupsRouteDepe
       const cursor = feed.parseGroupFeedCursor(query.data.cursor);
       if (cursor === 'invalid') return invalid(reply);
       return send(reply, await feed.readGroupFeed(database, identity, id, cursor, deps.storage), (page) => reply.code(200).send(page));
+    }),
+  });
+  app.route({
+    method: 'DELETE',
+    url: '/api/groups/:id/posts/:postId',
+    handler: guarded('group post remove failed', async (database, identity, request, reply) => {
+      const params = groupPostPathParams.safeParse(request.params);
+      if (!params.success) return notFound(reply);
+      if (!noBody(request)) return invalid(reply);
+      const result = await feed.removeGroupPost(database, identity, params.data.id.toLowerCase(), params.data.postId.toLowerCase());
+      return send(reply, result, () => reply.code(204).send());
     }),
   });
   registerGroupPeopleRoutes(app, deps);

@@ -5,3 +5,4 @@ export const GROUP_POST_PRIVATE_TEXT = 'הפוסט יוצג רק לחברי הק
 export const PIN_LABEL = 'הצמדה לראש הקבוצה';
 export const UNPIN_LABEL = 'ביטול ההצמדה';
 export const REMOVE_FROM_GROUP_LABEL = 'הסרה מהקבוצה';
+export const REMOVE_NOT_ALLOWED_TEXT = 'אין הרשאה להסיר את הפוסט הזה: הוא של תפקיד שווה או גבוה יותר בקבוצה';

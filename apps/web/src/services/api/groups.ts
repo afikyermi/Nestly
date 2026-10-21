@@ -133,6 +133,9 @@ export const listGroupFriends = (token: string, id: string): Promise<GroupsOutco
 export const inviteFriend = (token: string, id: string, userId: string): Promise<GroupsOutcome<null>> => call(token, 'POST', `${g(id)}/invitations`, { userId }, NOTHING);
 export const recommendGroup = (token: string, id: string, userId: string): Promise<GroupsOutcome<null>> => call(token, 'POST', `${g(id)}/recommendations`, { userId }, NOTHING);
 export const setGroupMode = (token: string, id: string, mode: GroupNotificationMode): Promise<GroupsOutcome<null>> => call(token, 'PUT', `${g(id)}/notifications`, { mode }, NOTHING);
+/** DELETE /api/groups/:id/posts/:postId: a Group Moderator or higher removes a lower Role's post (403 role_not_allowed otherwise). */
+export const removeGroupPost = (token: string, id: string, postId: string): Promise<GroupsOutcome<null>> =>
+  call(token, 'DELETE', `${g(id)}/posts/${encodeURIComponent(postId)}`, undefined, NOTHING);
 export const pinPost = (token: string, id: string, postId: string | null): Promise<GroupsOutcome<GroupDetail>> => call(token, 'PUT', `${g(id)}/pin`, { postId }, groupDetail);
 export const listInvitations = (token: string): Promise<GroupsOutcome<GroupInvitation[]>> =>
   call(token, 'GET', '/api/group-invitations', undefined, listOf('invitations', groupInvitationsResponse));

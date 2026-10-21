@@ -22,6 +22,7 @@ import {
   deleteBan,
   deleteMember,
   insertBan,
+  readBanned,
   insertInvitation,
   insertRecommendation,
   readBans,
@@ -79,6 +80,7 @@ export async function removeMember(database: Database, identity: Identity, id: s
     async (tx) => {
       if ((await readGroupDetail(tx, id)) === undefined) return fail('group_unavailable');
       if (block) {
+        if (await readBanned(tx, id, userId)) return ok(null); // already blocked: the same answer
         await insertBan(tx, id, userId);
         return ok(null);
       }
@@ -125,7 +127,9 @@ export async function listBans(database: Database, identity: Identity, id: strin
 export async function unblock(database: Database, identity: Identity, id: string, userId: string): Promise<GroupResult<null>> {
   return asMember(database, identity, async (tx) => {
     if ((await readGroupDetail(tx, id)) === undefined) return fail('group_unavailable');
-    return (await deleteBan(tx, id, userId)) === 0 ? fail('user_unavailable') : ok(null);
+    if ((await deleteBan(tx, id, userId)) > 0) return ok(null);
+    // still blocked (a higher Role's block: ERR-019), or no longer blocked at all
+    return (await readBanned(tx, id, userId)) ? fail('role_not_allowed') : fail('user_unavailable');
   });
 }
 
@@ -155,6 +159,8 @@ export async function invite(database: Database, identity: Identity, id: string,
       const group = await readGroupDetail(tx, id);
       if (group === undefined) return fail('group_unavailable');
       if (group.myRole !== 'owner' && group.myRole !== 'admin') return fail('not_allowed');
+      if ((await readMemberRole(tx, id, userId)) !== undefined) return fail('already_member');
+      if (await readBanned(tx, id, userId)) return fail('blocked_from_group');
       await insertInvitation(tx, id, userId);
       return ok(null);
     },

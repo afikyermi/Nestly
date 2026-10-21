@@ -71,7 +71,9 @@ export function registerAdminReadRoutes(app: FastifyInstance, deps: AdminRouteDe
     const { identity } = request;
     const database = deps.database;
     // I10: `?open=true` opens Private Group content for this request (audited; PRIVATE_GROUP_MODERATE, ERR-024)
-    const open = typeof request.query === 'object' && request.query !== null && Reflect.get(request.query, 'open') === 'true';
+    const query = z.strictObject({ open: z.literal('true').optional() }).safeParse(request.query ?? {});
+    if (!query.success) return reply.code(400).send({ error: 'invalid' });
+    const open = query.data.open === 'true';
     return answer(request, reply, 'admin report detail failed', () => readReportDetail(database, identity, params.data.kind, params.data.id, deps.storage, open), (ok) => ok.detail);
   });
 

@@ -218,7 +218,7 @@ export function GroupsScreen() {
         {list.phase === 'failed' ? (
           <div className="flex flex-col items-start gap-2">
             <InlineAlert>{LOAD_FAILED_TEXT}</InlineAlert>
-            <Button variant="soft" onClick={() => void load(scope, query)}>
+            <Button variant="soft" onClick={() => void load(scope, scope === 'discover' ? query : '')}>
               {RETRY_LABEL}
             </Button>
           </div>
