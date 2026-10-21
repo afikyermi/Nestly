@@ -296,6 +296,10 @@ select is(pg_temp.dml('m4', $q$ insert into nestly.sponsored_products (sponsor_n
   '[F12.1-a c11 BR-046 §3.2] a Moderator does not (SPONSORED_PRODUCT_MANAGE is Admin Only)');
 select is(pg_temp.dml('d', $q$ insert into nestly.sponsored_products (sponsor_name, title, category, link_url) values ('חברה', 'מוצר', 'toys', 'http://example.com/x') $q$),
   'ERR:23514', '[F12.1-a c11] a link is https');
+select is(pg_temp.dml('d', $q$ insert into nestly.sponsored_products (sponsor_name, title, category, link_url) values ('חברה', 'מוצר', 'toys', 'https://shop.co.il@other.example/x') $q$),
+  'ERR:23514', '[F12.1-a c11] a link never hides its host behind a user part');
+select is(pg_temp.dml('d', $q$ insert into nestly.sponsored_products (sponsor_name, title, category, link_url) values ('חברה', 'מוצר', 'toys', 'https://shop.example.co.il/a?b=1#c') $q$, false),
+  'OK:1', '[F12.1-a c11] control: a host, a path, a query and a fragment');
 select is(pg_temp.dml('d', $q$ insert into nestly.sponsored_products (sponsor_name, title, category, status) values ('חברה', 'מוצר', 'toys', 'published') $q$),
   'ERR:42501', '[F12.1-a c11] created as a draft only');
 select is(pg_temp.q('a', format('select count(*)::text from nestly.sponsored_products where id = %L', pg_temp.v('sp1'))), '0', '[F12.1-a c11] a draft is not shown');

@@ -101,7 +101,7 @@ create table nestly.sponsored_products (
       'bath_care', 'maternity', 'books', 'other')),
   link_url     text
     constraint sponsored_products_link_url_check check (link_url is null
-      or (link_url ~ '^https://[^[:space:]/?#]+\.[^[:space:]]+$' and pg_catalog.char_length(link_url) <= 500)),
+      or (link_url ~ '^https://[^[:space:]/?#@]*\.[^[:space:]/?#@]+([/?#][^[:space:]]*)?$' and pg_catalog.char_length(link_url) <= 500)),
   status       text        not null default 'draft'
     constraint sponsored_products_status_check check (status in ('draft', 'published', 'paused', 'removed')),
   created_by   uuid        default auth.uid()
@@ -922,7 +922,7 @@ comment on column nestly.sponsored_products.sponsor_name is 'The company, brand 
 comment on column nestly.sponsored_products.title is 'The title, 2 to 80 characters.';
 comment on column nestly.sponsored_products.description is 'Optional text, up to 1000 characters. A sample coupon for the demo says here that it is a sample (OP-023).';
 comment on column nestly.sponsored_products.category is 'The product category (the same list as marketplace_listings.category): its relevance in the Marketplace (FR-ALG-006).';
-comment on column nestly.sponsored_products.link_url is 'The commercial follow-up action (FR-MKT-005): an https address of the sponsor''s page, optional, up to 500 characters. Opened outside the product; no purchase in Nestly (BR-069).';
+comment on column nestly.sponsored_products.link_url is 'The commercial follow-up action (FR-MKT-005): an https address of the sponsor''s page (no user part: the host shown is the host opened), optional, up to 500 characters. Opened outside the product; no purchase in Nestly (BR-069).';
 comment on column nestly.sponsored_products.status is 'draft, published, paused or removed (FR-ADMIN-009: Create / Edit / Publish / Pause / Remove). Only published is shown to users.';
 comment on column nestly.sponsored_products.created_by is 'The Admin who created it (default auth.uid()). Never granted: the Audit Log names the actor.';
 comment on column nestly.sponsored_products.published_at is 'The first publication, the database clock (sponsored_products_update_guard).';
