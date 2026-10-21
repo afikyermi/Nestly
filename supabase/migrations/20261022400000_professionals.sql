@@ -17,7 +17,7 @@
 --                          follower identity reaches anyone (FR-PRO-001, VAL-032).
 -- posts                    gain is_help_request (OP-038, default ⭐ (a): the author ticks "asking for help" when writing; Regular only)
 --                          and the audience 'followers' (VAL-049, AC-130): a Professional posts to everyone or to its followers only, a
---                          Regular to everyone or Friends only. posts_select_follower lets a follower read a followers-only post.
+--                          Regular to everyone or Friends only. posts_select_viewer gains the follower branch.
 -- outreach_requests        ProfessionalOutreachRequest — Offer Help (FR-SERV-005/006/008, BR-007..010, VAL-010, VAL-011, AC-011, AC-012,
 --                          AC-014): an active Professional sends one opening message about one active post that asks for help, at most
 --                          one per post ever (outreach_requests_professional_post_key) and at most 10 in 24 hours (NS029). The target is
@@ -33,9 +33,8 @@
 --                          account reads them (the profile page; the rating is their average); reviewer_id is never granted for SELECT.
 -- professional_articles    ProfessionalArticle (FR-PRO-003, BR-071, AC-094): the owner writes, edits, hides and deletes its articles;
 --                          every active account reads a published article of an active Professional it has no user block with.
--- professional_views       the dashboard's views (FR-PRO-001, FR-ALG-005 "profile view is recorded for measurement"): an active Regular or
---                          Professional records its own view of another Professional's profile or article, at most one per surface per
---                          day (the primary key). The Professional reads its own rows as counts: viewer_id is never granted for SELECT.
+-- No view, impression or click is recorded (usage events come later, OP-039 and §13.3): the Professional dashboard (FR-PRO-001) counts
+-- product rows only — followers, conversations, reviews, articles, likes and comments.
 --
 -- Every new table: RLS + FORCE, client policies TO authenticated gated by is_active_account(), per-column write grants, owner columns
 -- defaulting to auth.uid(). No new SECURITY DEFINER, no TO app_owner or TO app_jobs policy, no change to audit_trigger().
@@ -197,21 +196,6 @@ create table nestly.professional_articles (
 
 create index professional_articles_author_created_idx on nestly.professional_articles (author_id, created_at desc);
 
--- 9. professional_views ------------------------------------------------------------------------------------------------
-create table nestly.professional_views (
-  professional_id uuid        not null
-    constraint professional_views_professional_id_fkey references nestly.professional_profiles (user_id) on delete cascade,
-  viewer_id       uuid        not null default auth.uid()
-    constraint professional_views_viewer_id_fkey references nestly.users (id) on delete cascade,
-  surface         text        not null
-    constraint professional_views_surface_check check (surface in ('profile', 'article')),
-  viewed_on       date        not null default ((now() at time zone 'Asia/Jerusalem')::date),
-  constraint professional_views_pkey primary key (professional_id, viewer_id, surface, viewed_on),
-  constraint professional_views_self_check check (viewer_id <> professional_id)
-);
-
-create index professional_views_viewer_id_idx on nestly.professional_views (viewer_id);
-
 -- 10. Triggers (SECURITY INVOKER; auth.uid() is the actor).
 
 -- professional_profiles: the owner edits its fields; the key, the type and the clocks are the database's.
@@ -314,10 +298,9 @@ alter table nestly.professional_follows enable row level security, force row lev
 alter table nestly.outreach_requests enable row level security, force row level security;
 alter table nestly.professional_reviews enable row level security, force row level security;
 alter table nestly.professional_articles enable row level security, force row level security;
-alter table nestly.professional_views enable row level security, force row level security;
 
 revoke all on table nestly.professional_profiles, nestly.professional_follows, nestly.outreach_requests, nestly.professional_reviews,
-  nestly.professional_articles, nestly.professional_views from public, anon, authenticated;
+  nestly.professional_articles from public, anon, authenticated;
 
 -- The status copies and the identities behind counts (follower, reviewer, viewer) are never granted for SELECT: the policies read them.
 grant select (user_id, account_type, full_name, business_name, gender, field, field_other, years_experience, area, about, price_from,
@@ -335,8 +318,6 @@ grant select (id, professional_id, conversation_id, rating, body, created_at) on
 grant insert (professional_id, conversation_id, rating, body) on table nestly.professional_reviews to authenticated;
 grant select (id, author_id, title, body, field, status, created_at, updated_at) on table nestly.professional_articles to authenticated;
 grant insert (title, body, field, status), update (title, body, field, status), delete on table nestly.professional_articles to authenticated;
-grant select (professional_id, surface, viewed_on) on table nestly.professional_views to authenticated;
-grant insert (professional_id, surface) on table nestly.professional_views to authenticated;
 
 -- professional_profiles.
 create policy professional_profiles_select_viewer on nestly.professional_profiles
@@ -391,18 +372,32 @@ alter policy posts_update_author on nestly.posts
       or ((select nestly.caller_account_type()) = 'professional'
         and audience in ('everyone', 'followers') and stage_tag is null and not is_help_request)));
 
--- A follower reads an active followers-only post of a Professional it follows, unless it hid or reported it (as posts_select_viewer).
--- The EXISTS runs under the caller's own professional_follows policy, which shows it its own Follows and, to a Professional, the rows
--- naming it: so a row naming the author means "the caller follows the author" or "the caller is the author" (who reads its own post
--- through posts_select_viewer anyway). follower_id is not named: it is not granted for SELECT to anyone. The same holds for the
+-- posts_select_viewer gains one branch (AC-130): a followers-only post is read by the Professional's followers. The rest is the text of
+-- 20261018200000. The EXISTS runs under the caller's own professional_follows policy, which shows it its own Follows and, to a
+-- Professional, the rows naming it: so a row naming the author means "the caller follows the author" or "the caller is the author" (who
+-- reads its own post anyway). follower_id is not named: it is not granted for SELECT to anyone. The same holds for the
 -- professional_profiles reads below: a profile row other than one's own is readable only while the Professional is active.
-create policy posts_select_follower on nestly.posts
+drop policy posts_select_viewer on nestly.posts;
+create policy posts_select_viewer on nestly.posts
   for select to authenticated
-  using ((select nestly.is_active_account()) and status = 'active' and author_status = 'active' and audience = 'followers'
-    and exists (select 1 from nestly.professional_follows f
-                 where f.professional_id = posts.author_id)
-    and not exists (select 1 from nestly.post_hides h where h.user_id = (select auth.uid()) and h.post_id = posts.id)
-    and not exists (select 1 from nestly.reports r where r.reporter_id = (select auth.uid()) and r.post_id = posts.id));
+  using ((select nestly.is_active_account()) and (
+    (status = 'active' and author_status = 'active'
+      and (audience = 'everyone'
+        or author_id = (select auth.uid())
+        or (audience = 'friends' and exists (
+          select 1 from nestly.friendships f
+          where f.status = 'accepted' and (
+            (f.requester_id = (select auth.uid()) and f.addressee_id = posts.author_id)
+            or (f.addressee_id = (select auth.uid()) and f.requester_id = posts.author_id))))
+        or (audience = 'followers' and exists (
+          select 1 from nestly.professional_follows pf where pf.professional_id = posts.author_id)))
+      and not exists (
+        select 1 from nestly.post_hides h where h.user_id = (select auth.uid()) and h.post_id = posts.id)
+      and not exists (
+        select 1 from nestly.reports r where r.reporter_id = (select auth.uid()) and r.post_id = posts.id))
+    or (status = 'deleted' and held_xact = pg_catalog.pg_current_xact_id_if_assigned() and (
+      author_id = (select auth.uid())
+      or exists (select 1 from nestly.post_authors pa where pa.post_id = posts.id and pa.author_id = (select auth.uid()))))));
 
 -- outreach_requests. The Professional reads its own; the post's author (named, or through post_authors) reads the requests on its posts
 -- while the Professional is active and no user block stands between them.
@@ -505,18 +500,6 @@ create policy professional_articles_delete_own on nestly.professional_articles
   for delete to authenticated
   using ((select nestly.is_active_account()) and author_id = (select auth.uid()));
 
--- professional_views. The Professional reads its own counts; a viewer records its own view of a profile it can read, never its own.
-create policy professional_views_select_professional on nestly.professional_views
-  for select to authenticated
-  using ((select nestly.is_active_account()) and professional_id = (select auth.uid()));
-
-create policy professional_views_insert_viewer on nestly.professional_views
-  for insert to authenticated
-  with check ((select nestly.is_active_account()) and viewer_id = (select auth.uid())
-    and (select nestly.caller_account_type()) in ('regular', 'professional')
-    and viewed_on = (pg_catalog.now() at time zone 'Asia/Jerusalem')::date
-    and exists (select 1 from nestly.professional_profiles pp
-                 where pp.user_id = professional_views.professional_id));
 
 -- 12. Comments.
 comment on policy users_insert_own on nestly.users is
@@ -598,12 +581,6 @@ comment on column nestly.professional_articles.created_at is 'When the article w
 comment on column nestly.professional_articles.updated_at is 'The last edit of its content or status, the database clock.';
 comment on index nestly.professional_articles_author_created_idx is 'A Professional''s articles, newest first.';
 
-comment on table nestly.professional_views is
-  'FR-PRO-001, FR-PRO-003, FR-ALG-005: a view of a Professional''s profile or article, one per viewer, surface and day (Israel date). The Professional reads its counts; viewer_id is never granted for SELECT.';
-comment on column nestly.professional_views.professional_id is 'The viewed Professional.';
-comment on column nestly.professional_views.viewer_id is 'The viewer (default auth.uid()). Never granted for SELECT: only counts reach the Professional (VAL-032).';
-comment on column nestly.professional_views.surface is 'profile or article.';
-comment on column nestly.professional_views.viewed_on is 'The Israel date of the view, the database clock (never granted).';
 
 comment on function nestly.professional_profiles_update_guard() is 'BEFORE UPDATE, SECURITY INVOKER. The key, the type and created_at do not change; updated_at is the database clock.';
 comment on function nestly.outreach_requests_insert_limit() is 'BEFORE INSERT, SECURITY INVOKER. At most 10 Offer Help requests per Professional in 24 hours, every status counted (NS029, AC-014 (b)); read committed only; per-Professional advisory lock 8111.';
@@ -620,7 +597,6 @@ comment on policy posts_insert_author on nestly.posts is
   'An active account inserts an active post naming itself, or an anonymous post with no author id. A Regular to everyone or Friends; a Professional only named, to everyone or its followers, with no stage tag and no help marking (VAL-049, AC-130). Admin and Moderator never.';
 comment on policy posts_update_author on nestly.posts is
   'The author (named, or through post_authors) edits audience, body, tag and help marking of an active post, or deletes it into the held state. The VAL-049 terms of posts_insert_author hold on an edit.';
-comment on policy posts_select_follower on nestly.posts is 'AC-130: a follower reads an active followers-only post of a Professional it follows, unless it hid or reported it. The restrictive block and group policies still apply.';
 comment on policy outreach_requests_select_professional on nestly.outreach_requests is 'The Professional reads its own requests and their status.';
 comment on policy outreach_requests_select_target on nestly.outreach_requests is 'The post''s author (named or anonymous) reads the requests on its posts while the Professional is active and no user block stands between them.';
 comment on policy outreach_requests_insert_professional on nestly.outreach_requests is 'An active Professional offers help on an active, readable post that asks for help (VAL-010); one per post (key) and 10 a day (NS029).';
@@ -633,5 +609,5 @@ comment on policy professional_articles_select_viewer on nestly.professional_art
 comment on policy professional_articles_insert_own on nestly.professional_articles is 'An active Professional writes its own article (FR-PRO-003).';
 comment on policy professional_articles_update_own on nestly.professional_articles is 'Only the owner edits or hides its article (AC-094).';
 comment on policy professional_articles_delete_own on nestly.professional_articles is 'Only the owner deletes its article (AC-094).';
-comment on policy professional_views_select_professional on nestly.professional_views is 'The Professional reads its own view rows as counts (viewer_id is not granted).';
-comment on policy professional_views_insert_viewer on nestly.professional_views is 'An active Regular or Professional records today''s view of an active Professional it can read; never its own (CHECK). One per surface and day (PK; the server inserts with on conflict do nothing).';
+comment on policy posts_select_viewer on nestly.posts is
+  'As F3.0a and F3.0b, plus (I11, AC-130): a followers-only post is read by the followers of its Professional author. A post the viewer hid or reported is not returned to them; the author reads a post they deleted-with-hold only in the holding transaction.';

@@ -200,8 +200,8 @@ from (values
   -- account_type and status pinned: granted columns, so the POLICY is the first fence
   ('f3', $q$ insert into nestly.users (account_type, status) values ('admin', 'active') $q$, 'pol', 'users', '14',
      'users insert with account_type admin is refused by the policy'),
-  ('f3', $q$ insert into nestly.users (account_type, status) values ('professional', 'active') $q$, 'pol', 'users', '14',
-     'users insert with account_type professional is refused by the policy: professional registration has its own Gate 2'),
+  ('f3', $q$ insert into nestly.users (account_type, status) values ('professional', 'suspended') $q$, 'pol', 'users', '14',
+     'users insert of a professional account with status suspended is refused by the policy (I11: a Professional registers itself, active only)'),
   ('f3', $q$ insert into nestly.users (account_type, status) values ('moderator', 'active') $q$, 'pol', 'users', '14',
      'users insert with an unknown account_type is refused by the policy'),
   ('f3', $q$ insert into nestly.users (account_type, status) values ('regular', 'suspended') $q$, 'pol', 'users', '14',

@@ -21,6 +21,7 @@ does not instruct loading every link. Column sections and rule matrices are both
 | chat_requests, conversations, messages, chat_blocks, chat_reads, support_requests, support_messages, reported_message_views | Chat and Support (I8); Friendships and regular names; Blocking a user; Safety and admin core (reports, audit) |
 | moderator_invitations, system_announcements, the analytics reads | Moderators team (I14); Safety and admin core (staff roles, keys, audit) |
 | groups, group_members, group_access, group_join_requests, group_invitations, group_bans, group_notification_preferences, group_suggestions, group_highlight_configurations, private_group_content_views | Groups (I10); posts, comments, reactions (group content); Notifications and People Search (notify_group); Safety and admin core (reports, audit) |
+| professional_profiles, professional_follows, outreach_requests, professional_reviews, professional_articles | Professionals (I11); posts (audience followers, is_help_request), Chat and Support (conversations: contexts professional and outreach); Blocking a user |
 
 | tracker_events, cycle_entries, status_guides | Trackers, cycle and status guides (I6); children for the child FK |
 | media_assets, media_reviews, profile_photos, stories, media_training_candidates, media_training_samples, media_training_events | Media and Stories (I5); posts and post_authors (attach), friendships (Story audience), Safety and admin core (CONTENT_MODERATE, audit) |
@@ -592,3 +593,22 @@ A new entity adds its columns to the first table — field, type, and its meanin
 fills every row of the second: purpose in one line; what is not stored; owner, and how that is established;
 authorization — who may read, write and delete, and where that rule is enforced; relations, with cascade behaviour;
 indexes, each with the query it serves; retention — soft or hard delete, and what is retained after.
+
+## Professionals (I11)
+
+Built by `20261022400000_professionals.sql` (down script in `supabase/rollback/`; refuses once a new table holds a row, a Professional account exists,
+or a post or conversation uses a new value). No new SECURITY DEFINER, no `TO app_owner` / `TO app_jobs` policy, `audit_trigger()` unchanged. Four invoker
+triggers: `professional_profiles_update_guard`, `outreach_requests_insert_limit` (NS029: 10 Offer Help in 24 hours, advisory lock 8111),
+`outreach_requests_transition`, `professional_articles_update_guard`. No view, impression or click is recorded (OP-039): the dashboard counts product rows.
+
+| Table | Columns and meaning | Authorization |
+|---|---|---|
+| `professional_profiles` | user_id (PK, = users.id), account_type = professional (composite FK), user_status (copy), full_name 2-60, business_name, gender, field (list) + field_other when other, years_experience 0-60, area (list, §12), about ≤1,000, price_from, created_at, updated_at | SELECT own, or any active account while the Professional is active and no user block; INSERT/UPDATE own (Professional), per column; no DELETE |
+| `professional_follows` | id, follower_id (never granted for SELECT), follower_status (copy), professional_id (FK -> professional_profiles), created_at; one per pair, never self | SELECT the follower's own rows, and the rows naming the Professional while the follower is active (a count); INSERT an active Regular/Professional toward a readable profile; DELETE own |
+| `outreach_requests` | id, professional_id (FK -> professional_profiles), professional_status (copy), post_id (SET NULL), opening_message 1-2,000, status pending/accepted/declined, created_at, responded_at; one per Professional and post | SELECT the Professional (own), the post's author (named or through post_authors) while the Professional is active and unblocked; INSERT an active Professional on an active readable help-request post; UPDATE the author, pending -> accepted (no Chat Block) / declined |
+| `professional_reviews` | id, reviewer_id and reviewer_status (never granted for SELECT), professional_id, conversation_id (unique), rating 1-5, body 1-1,000, created_at | SELECT every active account (active, unblocked reviewer); INSERT a Regular, once per professional/outreach conversation of theirs in which the Professional wrote; no UPDATE/DELETE |
+| `professional_articles` | id, author_id, author_status (copy), title 2-120, body 1-10,000, field (list), status published/hidden, created_at, updated_at | SELECT own, or a published article of an active unblocked author; INSERT/UPDATE/DELETE own (Professional) |
+
+Other changes: `users_insert_own` allows a Professional; `posts.is_help_request` (Regular only, never a share; OP-038) and audience `followers` (Professional only;
+`posts_select_viewer` gains the follower branch, through the caller's own Follow rows); `conversations.outreach_request_id` and contexts `professional` (a Regular with
+an active Professional) and `outreach` (the author of an accepted Offer Help).

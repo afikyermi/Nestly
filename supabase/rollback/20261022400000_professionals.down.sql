@@ -4,10 +4,10 @@
 --
 -- Run as:   app_owner, in one transaction. CI runs it once per build (up -> down -> up) against the disposable database.
 --           Against nestly-preview or nestly-prod it is a destructive change: Afik only.
--- Safe:     only while none of the six new tables holds a row, no Professional account exists, no post is a help request or
+-- Safe:     only while none of the five new tables holds a row, no Professional account exists, no post is a help request or
 --           followers-only, and no conversation has a Professional context (refuses otherwise: data would be lost).
--- Restores: users_insert_own (Regular only), posts_insert_author / posts_update_author as 20261019400000 left them, posts_select_follower
---           goes; conversations_insert_party as 20261022100000 left it; the posts and conversations constraints and columns; the
+-- Restores: users_insert_own (Regular only), posts_insert_author / posts_update_author as 20261019400000 left them, posts_select_viewer as
+--           20261018200000 left it; conversations_insert_party as 20261022100000 left it; the posts and conversations constraints and columns; the
 --           triggers, functions and tables go; the history row is deleted.
 -- =====================================================================================================================
 
@@ -25,13 +25,12 @@ begin
   alter table nestly.outreach_requests no force row level security;
   alter table nestly.professional_reviews no force row level security;
   alter table nestly.professional_articles no force row level security;
-  alter table nestly.professional_views no force row level security;
   alter table nestly.users no force row level security;
   alter table nestly.posts no force row level security;
   alter table nestly.conversations no force row level security;
   if exists (select 1 from nestly.professional_profiles) or exists (select 1 from nestly.professional_follows)
      or exists (select 1 from nestly.outreach_requests) or exists (select 1 from nestly.professional_reviews)
-     or exists (select 1 from nestly.professional_articles) or exists (select 1 from nestly.professional_views)
+     or exists (select 1 from nestly.professional_articles)
      or exists (select 1 from nestly.users where account_type = 'professional')
      or exists (select 1 from nestly.posts where is_help_request or audience = 'followers')
      or exists (select 1 from nestly.conversations where context in ('professional', 'outreach')) then
@@ -57,7 +56,27 @@ create policy conversations_insert_party on nestly.conversations
            select 1 from nestly.chat_requests r where r.id = conversations.chat_request_id and r.status = 'accepted'
             and least(r.requester_id, r.target_id) = conversations.user_a and greatest(r.requester_id, r.target_id) = conversations.user_b))));
 
-drop policy posts_select_follower on nestly.posts;
+drop policy posts_select_viewer on nestly.posts;
+create policy posts_select_viewer on nestly.posts
+  for select to authenticated
+  using ((select nestly.is_active_account()) and (
+    (status = 'active' and author_status = 'active'
+      and (audience = 'everyone'
+        or author_id = (select auth.uid())
+        or exists (
+          select 1 from nestly.friendships f
+          where f.status = 'accepted' and (
+            (f.requester_id = (select auth.uid()) and f.addressee_id = posts.author_id)
+            or (f.addressee_id = (select auth.uid()) and f.requester_id = posts.author_id))))
+      and not exists (
+        select 1 from nestly.post_hides h where h.user_id = (select auth.uid()) and h.post_id = posts.id)
+      and not exists (
+        select 1 from nestly.reports r where r.reporter_id = (select auth.uid()) and r.post_id = posts.id))
+    or (status = 'deleted' and held_xact = pg_catalog.pg_current_xact_id_if_assigned() and (
+      author_id = (select auth.uid())
+      or exists (select 1 from nestly.post_authors pa where pa.post_id = posts.id and pa.author_id = (select auth.uid()))))));
+comment on policy posts_select_viewer on nestly.posts is
+  'As F3.0a, plus: a post the viewer reported is not returned to them (7א); the author reads a post they deleted-with-hold only in the holding transaction.';
 
 drop policy posts_insert_author on nestly.posts;
 create policy posts_insert_author on nestly.posts
@@ -88,7 +107,6 @@ drop index nestly.conversations_outreach_request_id_idx;
 alter table nestly.conversations drop column outreach_request_id;
 
 -- tables, triggers and functions.
-drop table nestly.professional_views;
 drop table nestly.professional_articles;
 drop table nestly.professional_reviews;
 drop table nestly.outreach_requests;

@@ -134,7 +134,7 @@ select is((select string_agg(c.relname || '.' || a.attname, ', ' order by c.reln
               and a.attnum > 0 and not a.attisdropped and has_column_privilege('authenticated', c.oid, a.attnum, 'INSERT')),
   'chat_blocks.blocked_account_type, chat_blocks.blocked_id, chat_reads.conversation_id, chat_reads.support_request_id, chat_requests.opening_message, '
   || 'chat_requests.target_account_type, chat_requests.target_id, '
-  || 'conversations.chat_request_id, conversations.context, conversations.user_a, conversations.user_b, messages.body, messages.conversation_id, '
+  || 'conversations.chat_request_id, conversations.context, conversations.outreach_request_id, conversations.user_a, conversations.user_b, messages.body, messages.conversation_id, '
   || 'reported_message_views.report_id, support_messages.body, support_messages.is_internal, support_messages.support_request_id, support_requests.body, support_requests.topic',
   '[I8 c1 conventions] INSERT per column: never an owner column, a status, a clock, a transaction id or the author kind');
 select is((select string_agg(c.relname || '.' || a.attname, ', ' order by c.relname, a.attname)
