@@ -6,7 +6,8 @@ import { MenuItem } from '@/components/shared/menu-item';
 import { NotificationBell } from '@/features/notifications/NotificationBell';
 import { NotificationsProvider, useNotifications } from '@/features/notifications/NotificationsProvider';
 import { SearchBox } from '@/features/search/SearchBox';
-import { HomeIcon, NestIcon, SparkIcon, UserIcon } from '@/components/ui/icons';
+import { BagIcon, HomeIcon, NestIcon, SparkIcon, UserIcon } from '@/components/ui/icons';
+import { MARKETPLACE_NAV_LABEL } from '@/lib/marketplace-texts';
 import { AccountKindProvider, useAccountKindQuery } from '@/hooks/use-account-kind';
 import { DIRECTORY_NAV_LABEL, DIRECTORY_TITLE, MY_ARTICLES, OFFERS_TITLE, PROFILE_EDIT_TITLE } from '@/lib/professional-texts';
 import { useBackCloses } from '@/hooks/use-back-closes';
@@ -22,11 +23,12 @@ import { HOTLINES_TITLE } from '@/pages/medical-hotlines/medical-hotlines-texts'
 import { parseSettingsSection, SETTINGS_SECTIONS, settingsSectionHash } from '@/lib/settings-sections';
 import { normalizePath, PATHS } from './paths';
 
-// The MVP destinations of a community account (AC-005, §7.1): home, feed, the Professionals' directory (I11, FR-SERV-001) and the profile. The
-// profile tab shows the generic person icon until profile photos exist (I5, Q7); a Professional's profile tab is its Professional profile.
-// "חנות" is absent, not disabled.
+// The destinations of a community account (AC-005, §7.1, in the sketch's order): home, the Marketplace (I12, "חנות", FR-MKT-001), feed, the
+// Professionals' directory (I11, FR-SERV-001) and the profile. The profile tab shows the generic person icon until profile photos exist (I5, Q7);
+// a Professional's profile tab is its Professional profile.
 const navItems = (professional: boolean) => [
   { key: 'home', label: 'בית', href: PATHS.home, icon: <HomeIcon /> },
+  { key: 'marketplace', label: MARKETPLACE_NAV_LABEL, href: PATHS.marketplace, icon: <BagIcon /> },
   { key: 'feed', label: 'פיד', href: PATHS.feed, icon: <NestIcon /> },
   { key: 'services', label: DIRECTORY_NAV_LABEL, href: PATHS.services, icon: <SparkIcon /> },
   { key: 'profile', label: 'פרופיל', href: professional ? PATHS.proProfile : PATHS.profile, icon: <UserIcon /> },

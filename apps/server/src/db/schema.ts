@@ -27,6 +27,11 @@ import {
   GUIDE_STAGE_KINDS,
   GUIDE_STATUSES,
   TRACKER_KINDS,
+  LISTING_CATEGORIES,
+  LISTING_CONDITIONS,
+  LISTING_STATUSES,
+  PROFESSIONAL_AREAS,
+  SPONSORED_STATUSES,
   type AccountType,
 } from '@nestly/shared';
 import { sql } from 'drizzle-orm';
@@ -567,4 +572,43 @@ export const statusGuidesUpdate = nestly.table('status_guides', {
   source: text('source').notNull(),
   sourceCheckedOn: date('source_checked_on', { mode: 'string' }),
   status: text('status', { enum: GUIDE_STATUSES }).notNull(),
+});
+
+// ---- I12 Marketplace (migration 20261022600000). The repository writes raw SQL naming only the granted columns; these mirror the tables for
+// typing and the drift check.
+
+/** SRS MarketplaceListing (FR-MKT-002): a Regular's item for sale or to give away; expires 60 days after publication (database clock). */
+export const marketplaceListings = nestly.table('marketplace_listings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  ownerId: uuid('owner_id').notNull().default(sql`auth.uid()`),
+  ownerAccountType: text('owner_account_type', { enum: [REGULAR] }).notNull().default(REGULAR),
+  ownerStatus: text('owner_status', { enum: ACCOUNT_STATUSES }).notNull().default('active'),
+  title: text('title').notNull(),
+  category: text('category', { enum: LISTING_CATEGORIES }).notNull(),
+  itemCondition: text('item_condition', { enum: LISTING_CONDITIONS }).notNull(),
+  price: integer('price'),
+  city: text('city', { enum: PROFESSIONAL_AREAS }).notNull(),
+  status: text('status', { enum: LISTING_STATUSES }).notNull().default('active'),
+  soldAt: timestamp('sold_at', { withTimezone: true }),
+  isHidden: boolean('is_hidden').notNull().default(false),
+  hiddenAt: timestamp('hidden_at', { withTimezone: true }),
+  hiddenBy: uuid('hidden_by'),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** SRS SponsoredProduct (FR-ADMIN-009): created and managed by the Admin only; every write audited. */
+export const sponsoredProducts = nestly.table('sponsored_products', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  sponsorName: text('sponsor_name').notNull(),
+  title: text('title').notNull(),
+  description: text('description'),
+  category: text('category', { enum: LISTING_CATEGORIES }).notNull(),
+  linkUrl: text('link_url'),
+  status: text('status', { enum: SPONSORED_STATUSES }).notNull().default('draft'),
+  createdBy: uuid('created_by'),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

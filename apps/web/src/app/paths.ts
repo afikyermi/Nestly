@@ -3,6 +3,7 @@ import { POST_PATTERN } from '@/lib/post-link';
 import { USER_PROFILE_PATTERN } from '@/lib/profile-link';
 import { OFFERS_PATH, PRO_ARTICLES_PATH, PRO_PROFILE_PATH, PROFESSIONAL_PAGE_PATTERN, SERVICES_PATH } from '@/lib/professional-link';
 import { TRACKER_PATTERN } from '@/lib/tracker-link';
+import { EDIT_LISTING_PATTERN, LISTING_PATTERN, MARKETPLACE_PATH, MY_LISTINGS_PATH, NEW_LISTING_PATH } from '@/lib/marketplace-link';
 import { GROUP_PATTERN } from '@/lib/group-link';
 
 // The route table (F1.2, Q2). Guest paths are the allow-list: every other path is protected (deny by default).
@@ -78,6 +79,16 @@ export const PATHS = {
   proProfile: PRO_PROFILE_PATH,
   proArticles: PRO_ARTICLES_PATH,
   offers: OFFERS_PATH,
+  /** I12: the Marketplace (PG-010, from the bottom navigation "חנות"), the caller's listings, a new listing, one listing `/marketplace/<id>`
+   *  (PG-019) and its edit `/marketplace/<id>/edit` (both by pattern, see `listingIdOfPath`). */
+  marketplace: MARKETPLACE_PATH,
+  myListings: MY_LISTINGS_PATH,
+  newListing: NEW_LISTING_PATH,
+  listing: LISTING_PATTERN,
+  editListing: EDIT_LISTING_PATTERN,
+  /** I12: the staff's Marketplace listings (MARKETPLACE_MODERATE) and Sponsored Products (FR-ADMIN-009, Admin only). */
+  adminMarketplace: '/admin/marketplace',
+  adminSponsored: '/admin/sponsored',
 } as const;
 
 /** The only paths a Guest may open. */
@@ -124,6 +135,11 @@ export const PROTECTED_PATHS: readonly string[] = [
   PATHS.proProfile,
   PATHS.proArticles,
   PATHS.offers,
+  PATHS.marketplace,
+  PATHS.myListings,
+  PATHS.newListing,
+  PATHS.adminMarketplace,
+  PATHS.adminSponsored,
 ];
 
 /** Where a Guest goes from a protected path (ERR-012, Q3): Welcome. The requested path is not kept. */

@@ -19,14 +19,11 @@
 | I10 | קבוצות | ✅ (#141, ‏#145) |
 | I11 | בעלי מקצוע ושירותים | ✅ (#146, ‏#148); השלמות ב-WIP (ראה למטה) |
 | I14 | צוות Moderators | ✅ (#137, ‏#139) |
-| I12 | Marketplace | 🔄 WIP: טיוטת migration בענף, לא נבדקה |
+| I12 | Marketplace | 🔄 PR קוד (migration מוזג) |
 | I13 · I9 | | ⬜ |
 
 ### כל ענף פתוח (נעצר 21.10, ‏~08:40, סוף הסשן)
-- **I12 — `build/i12-schema`** (‏70405d8, ‏WIP, אין PR; worktree `.work/wt/i12s`).
-  **נעשה:** טיוטת `supabase/migrations/20261022500000_marketplace.sql` — טבלאות `marketplace_listings` (שדות §3.11, פג אחרי 60 יום, "נמכר/נמסר", הסתרה ע"י MARKETPLACE_MODERATE עם audit) ו-`sponsored_products` (Admin בלבד); סוגי תמונות `listing` (עד 6) ו-`sponsored`; הקשר שיחה `marketplace`; דיווח על מודעה; `audit_trigger()` על הגוף של main + ענפים חדשים. **לא הורץ.**
-  **נשאר:** (1) down script שמשחזר את גופי הפונקציות הקודמים (`media_assets_update_guard`, ‏`reports_insert_check`, ‏`reports_insert_snapshot`, ‏`audit_trigger`, ומדיניות/אילוצים); (2) ‏pgTAP ‏`supabase/tests/9x_marketplace.sql` לכל מדיניות; (3) עדכון טסטי המבנה (10, 20, 54, 70: ‏68→70 טבלאות, הרשאות, triggers); (4) ‏`EXPECTED_NESTLY_TABLES` וסדר המחיקה ב-`tools/preview-e2e-cleanup*`; (5) ‏`data-model-tables.md`; (6) ‏`node tools/db-local.mjs pgtap` → ‏/code-review → PR migration-only → CI → מיזוג → migrate. אחר כך PR קוד (שרת, ‏Zod, ‏`MEDIA_KINDS`, מסכי Marketplace, מסכי אדמין, טסטים, SRS, ‏Chrome מלא, ‏e2e-preview). ‏`apps/server/src/db/schema.ts` רק ב-PR הקוד (schema-gate).
-  **הצעד הבא:** לכתוב את ה-down script ואז את קובץ ה-pgTAP. **ביקורת:** ‏/code-review לא רץ.
+- **I12 — `build/i12-code`** (worktree `.work/wt/i12s`): migration #152 מוזג והורץ (preview, production). PR הקוד — שרת, מסכי Marketplace ואדמין, טסטים, SRS 2.33. **ממתין:** אפיק — OP-053 (מודעה שדווחה: מחיקה מיידית או שמירה מוסתרת כמו פוסט); flow ה-e2e-preview ‏(`marketplace.flow.ts`) רץ ב-`preview-e2e` מ-main אחרי המיזוג. לסבב הבאגים 25–26.10: הסתרה ע"י MARKETPLACE_MODERATE בלבד לא מזינה את סט האימון; תמונה של מוצר ממומן שהוסר לא נמחקת; דיווח פתוח על מודעה שנמחקה לא פג.
 - **השלמות I11 — `build/i11-followups`** (‏e8285de, ‏WIP, אין PR; worktree `.work/wt/i11f`).
   **נעשה:** טיוטת `supabase/migrations/20261022500000_i11_followups.sql` + down + ‏`supabase/tests/98_i11_followups.sql` (לא הורצו): מדיניות analytics על `support_requests`/`support_messages`; עמודות `review_id`/`article_id` בדיווחים, עותק טקסט, trigger ‏`reports_target_gone`; עמודת `moderation` לביקורות ומאמרים; ‏`audit_trigger()` מוחלף (ענף חדש).
   **נשאר, לפי פריט:**

@@ -462,7 +462,7 @@ test.describe('RouteGuard: loading, session end, fail closed, DR-1', () => {
     expect(errors, 'the failing source must not crash the app with an uncaught error').toEqual([]);
   });
 
-  for (const path of ['/xyz', '/marketplace', '/profile/123', '/feed/extra', '/auth/google/extra']) {
+  for (const path of ['/xyz', '/coupons', '/profile/123', '/feed/extra', '/auth/google/extra']) {
     test(`[F1.2 c10][FR-AUTH-004][DR-1] a signed-in user on the unknown path ${path} is replaced by /feed`, async ({
       page,
     }) => {

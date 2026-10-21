@@ -113,6 +113,8 @@ export const conversationBody = z.object({
   otherName: z.string().nullable(),
   canSend: z.boolean(),
   blockedByMe: z.boolean(),
+  /** I12 (FR-MKT-005): the listing a Marketplace conversation was opened from, while the reader can still read it; else null. */
+  listing: z.object({ id: z.guid(), title: z.string() }).nullable().optional(),
   messages: z.array(chatMessage),
 });
 export type ConversationThread = z.infer<typeof conversationBody>;

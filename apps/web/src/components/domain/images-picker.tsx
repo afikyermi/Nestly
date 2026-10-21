@@ -7,7 +7,7 @@ import { CloseIcon, PlusIcon } from '@/components/ui/icons';
 import { ADD_IMAGE_LABEL, imageAlt, REMOVE_IMAGE_LABEL, UPLOADING_TEXT } from '@/lib/media-texts';
 import type { PickedImage } from '@/hooks/use-picked-images';
 
-export interface PostImagesPickerProps {
+export interface ImagesPickerProps {
   items: readonly PickedImage[];
   error: string | null;
   /** No more can be added (VAL-041). */
@@ -17,9 +17,10 @@ export interface PostImagesPickerProps {
   onRemove: (key: number) => void;
 }
 
-// The composer's pictures (FR-FEED-002; I5): "הוספת תמונה" opens the device's picker; each picture shows while it uploads, then as the
-// uploader sees it ("ממתין לבדיקה" until the check), with "הסרת התמונה". Display only: picking and uploading come in as props.
-export function PostImagesPicker({ items, error, full, disabled = false, onAdd, onRemove }: PostImagesPickerProps) {
+// Pictures being picked for a post (FR-FEED-002; I5) or a Marketplace listing (FR-MKT-002; I12): "הוספת תמונה" opens the device's picker; each
+// picture shows while it uploads, then as the uploader sees it ("ממתין לבדיקה" until the check), with "הסרת התמונה". Display only: picking and
+// uploading come in as props.
+export function ImagesPicker({ items, error, full, disabled = false, onAdd, onRemove }: ImagesPickerProps) {
   const input = useRef<HTMLInputElement>(null);
   const id = useId();
   return (

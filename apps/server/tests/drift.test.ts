@@ -173,7 +173,20 @@ const APPROVED_I6: ColumnShape[] = [
   col('status_guides', 'source', 'text', true), col('status_guides', 'source_checked_on', 'date', false), col('status_guides', 'status', 'text', true),
   col('status_guides', 'published_at', TZ, false), col('status_guides', 'created_at', TZ, true),
 ];
-const APPROVED_ALL: ColumnShape[] = [...APPROVED, ...APPROVED_F14, ...APPROVED_F16, ...APPROVED_F20, ...APPROVED_F24A, ...APPROVED_F24C1, ...APPROVED_F31A, ...APPROVED_I6, ...APPROVED_I7];
+// I12 (migration 20261022600000): the Marketplace listings and Sponsored Products, as Drizzle declares them.
+const APPROVED_I12: ColumnShape[] = [
+  col('marketplace_listings', 'id', 'uuid', true), col('marketplace_listings', 'owner_id', 'uuid', true), col('marketplace_listings', 'owner_account_type', 'text', true),
+  col('marketplace_listings', 'owner_status', 'text', true), col('marketplace_listings', 'title', 'text', true), col('marketplace_listings', 'category', 'text', true),
+  col('marketplace_listings', 'item_condition', 'text', true), col('marketplace_listings', 'price', 'integer', false), col('marketplace_listings', 'city', 'text', true),
+  col('marketplace_listings', 'status', 'text', true), col('marketplace_listings', 'sold_at', TZ, false), col('marketplace_listings', 'is_hidden', 'boolean', true),
+  col('marketplace_listings', 'hidden_at', TZ, false), col('marketplace_listings', 'hidden_by', 'uuid', false), col('marketplace_listings', 'expires_at', TZ, true),
+  col('marketplace_listings', 'created_at', TZ, true), col('marketplace_listings', 'updated_at', TZ, true),
+  col('sponsored_products', 'id', 'uuid', true), col('sponsored_products', 'sponsor_name', 'text', true), col('sponsored_products', 'title', 'text', true),
+  col('sponsored_products', 'description', 'text', false), col('sponsored_products', 'category', 'text', true), col('sponsored_products', 'link_url', 'text', false),
+  col('sponsored_products', 'status', 'text', true), col('sponsored_products', 'created_by', 'uuid', false), col('sponsored_products', 'published_at', TZ, false),
+  col('sponsored_products', 'created_at', TZ, true), col('sponsored_products', 'updated_at', TZ, true),
+];
+const APPROVED_ALL: ColumnShape[] = [...APPROVED, ...APPROVED_F14, ...APPROVED_F16, ...APPROVED_F20, ...APPROVED_F24A, ...APPROVED_F24C1, ...APPROVED_F31A, ...APPROVED_I6, ...APPROVED_I7, ...APPROVED_I12];
 const APPROVED_BEFORE_F16: ColumnShape[] = [...APPROVED, ...APPROVED_F14];
 
 const without = (rows: ColumnShape[], table: string, column: string): ColumnShape[] =>

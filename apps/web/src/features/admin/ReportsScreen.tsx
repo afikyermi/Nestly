@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAdminCall } from '@/hooks/use-admin-call';
 import { enforceUser, fetchQueue, fetchReportDetail, fetchUser, handleReports, moderateContent, openReportedMessage, revealAuthor, type AdminOutcome } from '@/services/api/admin';
+import { setListingVisibility } from '@/services/api/marketplace';
 import { formatAdminTime } from './admin-format';
 import { EnforcementPanel } from './EnforcementPanel';
 import { ReportDetailPanel, type ReportAction } from './ReportDetailPanel';
@@ -102,7 +103,11 @@ export function ReportsScreen({ permissions }: { permissions: readonly Permissio
       } else if (action.type === 'restore') {
         if (item.targetKind === 'user' || item.targetKind === 'message') return;
         const kind = item.targetKind;
-        outcome = await call((token) => moderateContent(token, { targetKind: kind, targetId: item.targetId, status: 'active', reason: action.reason }));
+        // I12: a listing comes back through its own visibility call (MARKETPLACE_MODERATE, audited)
+        outcome =
+          kind === 'listing'
+            ? await call((token) => setListingVisibility(token, item.targetId, false, action.reason))
+            : await call((token) => moderateContent(token, { targetKind: kind, targetId: item.targetId, status: 'active', reason: action.reason }));
         said = MOVED_TEXT;
       } else {
         const moderation = action.type === 'hide' || action.type === 'remove' ? { status: action.type === 'hide' ? ('hidden' as const) : ('removed' as const), reason: action.reason } : undefined;

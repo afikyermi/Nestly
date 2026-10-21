@@ -3,14 +3,17 @@ import { AnalyticsScreen } from '@/features/admin/AnalyticsScreen';
 import { AnnouncementsScreen } from '@/features/admin/AnnouncementsScreen';
 import { AuditLogScreen } from '@/features/admin/AuditLogScreen';
 import { CommunityScreen } from '@/features/admin/CommunityScreen';
+import { MarketplaceAdminScreen } from '@/features/admin/MarketplaceAdminScreen';
 import { MediaQueueScreen } from '@/features/admin/MediaQueueScreen';
 import { ReportsScreen } from '@/features/admin/ReportsScreen';
+import { SponsoredScreen } from '@/features/admin/SponsoredScreen';
 import { SupportInboxScreen } from '@/features/admin/SupportInboxScreen';
 import { TeamScreen } from '@/features/admin/TeamScreen';
 import { UsersScreen } from '@/features/admin/UsersScreen';
 import { ANALYTICS_TITLE, ANNOUNCEMENTS_TITLE, COMMUNITY_TITLE, TEAM_TITLE } from '@/features/admin/team-texts';
 import { AUDIT_TITLE, MEDIA_QUEUE_TITLE, REPORTS_TITLE, SUPPORT_TITLE, USERS_TITLE } from '@/features/admin/admin-texts';
 import { documentTitle } from '@/lib/document-title';
+import { ADMIN_LISTINGS_TITLE, SPONSORED_TITLE } from '@/lib/marketplace-texts';
 import type { AdminContext } from './AdminLayout';
 
 // The admin screens, one heading each under the layout's h1. A screen shows to a key holder; the database refuses the rest.
@@ -103,6 +106,26 @@ export function AdminMediaPage() {
       <title>{documentTitle(MEDIA_QUEUE_TITLE)}</title>
       <h2 className="mb-4 text-h3">{MEDIA_QUEUE_TITLE}</h2>
       <MediaQueueScreen />
+    </>
+  );
+}
+
+export function AdminMarketplacePage() {
+  return (
+    <>
+      <title>{documentTitle(ADMIN_LISTINGS_TITLE)}</title>
+      <h2 className="mb-4 text-h3">{ADMIN_LISTINGS_TITLE}</h2>
+      <MarketplaceAdminScreen />
+    </>
+  );
+}
+
+export function AdminSponsoredPage() {
+  return (
+    <>
+      <title>{documentTitle(SPONSORED_TITLE)}</title>
+      <h2 className="mb-4 text-h3">{SPONSORED_TITLE}</h2>
+      <SponsoredScreen />
     </>
   );
 }

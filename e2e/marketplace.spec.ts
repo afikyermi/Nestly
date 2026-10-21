@@ -1,0 +1,143 @@
+// Marketplace (I12; FR-MKT-001/002/003/005, FR-ADMIN-009, BR-005, AC-008, AC-019, AC-020, AC-058, AC-059, AC-097): the main flow of each new screen on
+// a desktop browser, network stubbed (e2e/support/marketplace-stub.ts; the staff screens add e2e/support/admin-stub.ts). The rules (who publishes,
+// reads, edits, hides, contacts; the Admin alone for Sponsored Products) are pgTAP's (file 99) and tests/db/marketplace.db.test.ts.
+import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { APP, pathOf } from './app-helpers';
+import { KEYS, setupAdmin } from './support/admin-stub';
+import { DESKTOP_1280, EMAIL, main } from './support/journeys-stub';
+import { CONV, MINE, STROLLER, setupMarketplace } from './support/marketplace-stub';
+
+test.use({ baseURL: APP, viewport: DESKTOP_1280 });
+
+const PASSWORD = 'Zq-7-unique-pw-marker-91';
+
+async function signIn(page: Page): Promise<void> {
+  await page.goto('/login');
+  await page.getByRole('textbox', { name: 'אימייל', exact: true }).fill(EMAIL);
+  await page.getByLabel('סיסמה', { exact: true }).fill(PASSWORD);
+  await page.getByRole('button', { name: 'התחברות', exact: true }).click();
+  await expect.poll(() => pathOf(page)).not.toBe('/login');
+}
+
+test.describe('[I12 FR-MKT-001 FR-MKT-003 AC-008 AC-020] the Marketplace', () => {
+  test('from "חנות": listings and a sponsored unit marked apart; a category filter; a card opens its listing', async ({ page }) => {
+    const net = await setupMarketplace(page);
+    await signIn(page);
+    await page.getByRole('navigation', { name: 'ניווט ראשי' }).getByRole('link', { name: 'חנות' }).click();
+    await expect.poll(() => pathOf(page)).toBe('/marketplace');
+    const results = main(page).getByRole('list', { name: 'מודעות' });
+    await expect(results).toContainText('עגלת תינוק כחולה');
+    await expect(results).toContainText('מיטת תינוק');
+    await expect(results).toContainText('למסירה');
+    const sponsored = main(page).getByRole('region', { name: 'מוצרים ממומנים' });
+    await expect(sponsored).toContainText('ממומן');
+    await expect(sponsored).toContainText('מטעם בייבי סטור');
+    await main(page).getByLabel('קטגוריה', { exact: true }).selectOption('furniture');
+    await main(page).getByRole('button', { name: 'הצגה', exact: true }).click();
+    await expect(results).not.toContainText('עגלת תינוק כחולה');
+    expect(net.sent).toContainEqual(expect.objectContaining({ method: 'POST', path: '/api/marketplace', body: expect.objectContaining({ category: 'furniture' }) }));
+    await main(page).getByRole('button', { name: 'ניקוי', exact: true }).click();
+    await results.getByRole('link', { name: 'עגלת תינוק כחולה' }).click();
+    await expect.poll(() => pathOf(page)).toBe(`/marketplace/${STROLLER}`);
+  });
+});
+
+test.describe('[I12 FR-MKT-005 AC-059 AC-097] a listing page', () => {
+  test('no purchase action; the reader writes to the seller and lands in the Marketplace conversation', async ({ page }) => {
+    const net = await setupMarketplace(page);
+    await signIn(page);
+    await page.goto(`/marketplace/${STROLLER}`);
+    await expect(main(page).getByRole('heading', { level: 1, name: 'עגלת תינוק כחולה' })).toBeVisible();
+    await expect(main(page).getByText('₪450')).toBeVisible();
+    await expect(main(page).getByText('אין קנייה או תשלום דרך Nestly')).toBeVisible();
+    await expect(main(page).getByRole('button', { name: /קנייה|תשלום|רכישה/ })).toHaveCount(0);
+    const message = main(page).getByLabel('ההודעה', { exact: true });
+    await expect(message).toHaveValue(/עגלת תינוק כחולה/);
+    await message.fill('שלום, אפשר לאסוף מחר?');
+    await main(page).getByRole('button', { name: 'שליחת הודעה' }).click();
+    await expect.poll(() => pathOf(page)).toBe(`/chat/${CONV}`);
+    expect(net.sent).toContainEqual(expect.objectContaining({ method: 'POST', path: `/api/marketplace/listings/${STROLLER}/contact`, body: { text: 'שלום, אפשר לאסוף מחר?' } }));
+  });
+});
+
+test.describe('[I12 FR-MKT-002 AC-019] a new listing', () => {
+  test('the form checks the fields, then publishes and opens the listing', async ({ page }) => {
+    const net = await setupMarketplace(page);
+    await signIn(page);
+    await page.goto('/marketplace/new');
+    await expect(main(page).getByRole('heading', { level: 1, name: 'מודעה חדשה' })).toBeVisible();
+    await main(page).getByRole('button', { name: 'פרסום', exact: true }).click();
+    await expect(main(page).getByText('כותרת של 2 עד 80 תווים')).toBeVisible();
+    expect(net.sent.some((s) => s.path === '/api/marketplace/listings')).toBe(false);
+    await main(page).getByLabel('כותרת', { exact: true }).fill('כיסא אוכל');
+    await main(page).getByLabel('קטגוריה', { exact: true }).selectOption('feeding');
+    await main(page).getByLabel('מצב', { exact: true }).selectOption('good');
+    await main(page).getByLabel(/^מחיר/).fill('120');
+    await main(page).getByLabel('עיר או אזור', { exact: true }).selectOption('center');
+    await main(page).getByRole('button', { name: 'פרסום', exact: true }).click();
+    await expect.poll(() => pathOf(page)).toBe(`/marketplace/${MINE}`);
+    expect(net.sent).toContainEqual(
+      expect.objectContaining({ method: 'POST', path: '/api/marketplace/listings', body: { title: 'כיסא אוכל', category: 'feeding', condition: 'good', price: 120, city: 'center', imageIds: [] } }),
+    );
+  });
+});
+
+test.describe('[I12 FR-MKT-002 decisions §3.11] my listings', () => {
+  test('the owner opens its listing from "המודעות שלי" and marks it sold/given', async ({ page }) => {
+    const net = await setupMarketplace(page);
+    await signIn(page);
+    await page.goto('/marketplace/mine');
+    await main(page).getByRole('list', { name: 'המודעות שלי' }).getByRole('link', { name: 'כיסא אוכל' }).click();
+    await expect.poll(() => pathOf(page)).toBe(`/marketplace/${MINE}`);
+    await main(page).getByRole('button', { name: 'סימון "נמכר/נמסר"' }).click();
+    await expect(main(page).getByRole('status').filter({ hasText: 'סומנה "נמכר/נמסר"' })).toBeVisible();
+    await expect(main(page).getByRole('button', { name: 'החזרה למכירה' })).toBeVisible();
+    expect(net.sent).toContainEqual(expect.objectContaining({ method: 'POST', path: `/api/marketplace/listings/${MINE}/status`, body: { status: 'sold' } }));
+  });
+});
+
+test.describe('[I12 §3.2 MARKETPLACE_MODERATE] the staff listings screen', () => {
+  test('a listing is hidden with a reason (the reason is required)', async ({ page }) => {
+    await setupAdmin(page, { permissions: [...KEYS, 'MARKETPLACE_MODERATE'] });
+    const net = await setupMarketplace(page, {}, false);
+    await signIn(page);
+    await page.goto('/admin/marketplace');
+    await expect(main(page).getByRole('heading', { level: 2, name: 'מודעות Marketplace' })).toBeVisible();
+    await main(page).getByRole('button', { name: 'הסתרת המודעה' }).click();
+    await expect(main(page).getByText('צריך לכתוב סיבה')).toBeVisible();
+    await main(page).getByLabel('סיבה (נרשמת ביומן)').fill('ספאם');
+    await main(page).getByRole('button', { name: 'הסתרת המודעה' }).click();
+    await expect(main(page).getByText('המודעה הוסתרה.')).toBeVisible();
+    await expect(main(page).getByRole('button', { name: 'החזרת המודעה' })).toBeVisible();
+    expect(net.sent).toContainEqual(expect.objectContaining({ method: 'POST', path: `/api/admin/listings/${STROLLER}/visibility`, body: { hidden: true, reason: 'ספאם' } }));
+  });
+});
+
+test.describe('[I12 FR-ADMIN-009 AC-058] Sponsored Products (Admin)', () => {
+  test('the Admin creates a draft and publishes it; it carries the sponsored mark', async ({ page }) => {
+    await setupAdmin(page);
+    const net = await setupMarketplace(page, {}, false);
+    await signIn(page);
+    await page.goto('/admin/sponsored');
+    await expect(main(page).getByRole('heading', { level: 2, name: 'מוצרים ממומנים' })).toBeVisible();
+    await main(page).getByLabel('שם המפרסם', { exact: true }).fill('בייבי סטור');
+    await main(page).getByLabel('כותרת', { exact: true }).fill('קופון 10% לעגלות');
+    await main(page).getByLabel(/^תיאור/).fill('דוגמה: קופון לדוגמה בלבד');
+    await main(page).getByLabel('קטגוריה', { exact: true }).selectOption('strollers');
+    await main(page).getByLabel(/^קישור לאתר המפרסם/).fill('https://example.com/coupon');
+    await main(page).getByRole('button', { name: 'שמירה כטיוטה' }).click();
+    const card = main(page).getByRole('article').filter({ hasText: 'קופון 10% לעגלות' });
+    await expect(card).toContainText('ממומן');
+    await expect(card).toContainText('טיוטה');
+    await card.getByRole('button', { name: 'פרסום', exact: true }).click();
+    await expect(card).toContainText('מפורסם');
+    expect(net.sent).toContainEqual(
+      expect.objectContaining({
+        method: 'POST',
+        path: '/api/admin/sponsored',
+        body: { sponsorName: 'בייבי סטור', title: 'קופון 10% לעגלות', description: 'דוגמה: קופון לדוגמה בלבד', category: 'strollers', linkUrl: 'https://example.com/coupon', imageId: null },
+      }),
+    );
+  });
+});
