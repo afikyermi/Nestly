@@ -47,7 +47,7 @@ export function checkPostForm(values: PostFormValues, anonymous: AnonymousMode =
     audience: anonymous === 'none' ? values.audience : 'everyone',
     stageTag: values.stageTag === '' ? null : values.stageTag,
     ...(anonymous === 'create' ? { isAnonymous: true } : {}),
-    ...(values.isHelpRequest === true ? { isHelpRequest: true } : {}),
+    ...(values.isHelpRequest === true && (anonymous !== 'none' || values.audience === 'everyone') ? { isHelpRequest: true } : {}),
   });
   if (result.ok) {
     if (anonymous !== 'edit') return result;

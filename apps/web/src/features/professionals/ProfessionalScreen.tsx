@@ -25,6 +25,8 @@ import {
   LOAD_FAILED,
   MESSAGE_FREE_NOTE,
   MESSAGE_LABEL,
+  MESSAGE_REQUIRED,
+  MESSAGE_TOO_LONG,
   NO_ARTICLES,
   NO_REVIEWS,
   OPEN_CONVERSATION,
@@ -129,7 +131,7 @@ export function ProfessionalScreen({ professionalId }: { professionalId: string 
   const send = (event: FormEvent) => {
     event.preventDefault();
     const problem = chatTextProblem(message);
-    setMessageError(problem === null ? null : MESSAGE_LABEL);
+    setMessageError(problem === null ? null : problem === 'long' ? MESSAGE_TOO_LONG : MESSAGE_REQUIRED);
     if (problem !== null) return;
     void once(async () => {
       const result = await chatCall((token) => startChat(token, page.id, message));

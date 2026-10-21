@@ -182,7 +182,7 @@ export function PostForm(props: PostFormProps) {
         </div>
       )}
       {/* I11 (OP-038 ⭐ (a)): a Regular's post may ask Professionals for help; a Professional's never does. */}
-      {compact || everyoneOnly || mode === 'edit' ? null : (
+      {compact || everyoneOnly || mode === 'edit' || (!anonymous && values.audience !== 'everyone') ? null : (
         <div className="flex flex-col gap-1.5">
           <Checkbox checked={values.isHelpRequest === true} aria-describedby={helpHintId} onCheckedChange={(checked) => onChange({ ...values, isHelpRequest: checked })}>
             {HELP_REQUEST_LABEL}

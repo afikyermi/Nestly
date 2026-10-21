@@ -16,7 +16,7 @@ import type {
   ProfessionalReviewItem,
   ReviewWrite,
 } from '@nestly/shared';
-import { ARTICLE_STATUSES, OUTREACH_PER_DAY, OUTREACH_STATUSES, PARENT_GENDERS, PROFESSIONAL_AREAS, PROFESSIONAL_FIELDS } from '@nestly/shared';
+import { ARTICLE_STATUSES, OUTREACH_PER_DAY, OUTREACH_STATUSES, PARENT_GENDERS, PROFESSIONAL_AREAS, PROFESSIONAL_FIELDS, PROFESSIONAL_FIELD_LABELS } from '@nestly/shared';
 import { sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { IdentityTx } from '../db/identity-transaction.js';
@@ -50,7 +50,7 @@ export async function insertProfessionalAccount(
 
 /** The caller's own account type (own row, any status): `professional`, `regular`, a staff type, or undefined with no account. */
 export async function readOwnAccountType(tx: IdentityTx): Promise<string | undefined> {
-  const [row] = z.array(z.object({ accountType: z.string() })).parse(await tx.execute(sql`select account_type as "accountType" from nestly.users`));
+  const [row] = z.array(z.object({ accountType: z.string() })).parse(await tx.execute(sql`select account_type as "accountType" from nestly.users where id = (select auth.uid())`));
   return row?.accountType;
 }
 
@@ -90,7 +90,11 @@ const cardColumns = sql`pp.user_id as id, pp.full_name as "fullName", pp.busines
  * experience (AC-009), in the chosen order. `match` is the organic order: the caller's search topics (Intent Signal, a bound pattern list)
  * on the field and about text, then the rating, the profile's completeness and its freshness; never a payment (BR-047) and never verification.
  */
-export async function readDirectory(tx: IdentityTx, query: DirectoryQuery, intentPatterns: readonly string[]): Promise<ProfessionalCard[]> {
+export async function readDirectory(
+  tx: IdentityTx,
+  query: DirectoryQuery,
+  intents: readonly { readonly pattern: string; readonly weight: number }[],
+): Promise<ProfessionalCard[]> {
   const filters: SQL[] = [sql`pp.user_id <> (select auth.uid())`];
   if (query.field !== undefined) filters.push(sql`pp.field = ${query.field}`);
   if (query.area !== undefined) filters.push(sql`pp.area = ${query.area}`);
@@ -103,11 +107,13 @@ export async function readDirectory(tx: IdentityTx, query: DirectoryQuery, inten
     experience: sql`x."yearsExperience" desc`,
     match: sql`x.score desc`,
   }[query.sort ?? 'match'];
+  // the field's Hebrew name joins the matched text (a topic is in the user's words, not the field's code)
+  const fieldName = sql`coalesce((${sql.param(PROFESSIONAL_FIELDS.map((field) => PROFESSIONAL_FIELD_LABELS[field]))}::text[])[array_position(${sql.param([...PROFESSIONAL_FIELDS])}::text[], pp.field)], '')`;
   const intent =
-    intentPatterns.length === 0
+    intents.length === 0
       ? sql`0::float8`
-      : sql`(select count(*)::float8 from unnest(${sql.param([...intentPatterns])}::text[]) as i(pattern)
-             where coalesce(pp.about, '') || ' ' || pp.field || ' ' || coalesce(pp.field_other, '') ~* i.pattern)`;
+      : sql`(select coalesce(sum(i.weight), 0::float8) from unnest(${sql.param(intents.map((x) => x.pattern))}::text[], ${sql.param(intents.map((x) => x.weight))}::float8[]) as i(pattern, weight)
+             where coalesce(pp.about, '') || ' ' || coalesce(pp.field_other, '') || ' ' || ${fieldName} ~* i.pattern)`;
   return z.array(cardRow).parse(
     await tx.execute(sql`
       select x.id, x."fullName", x."businessName", x.field, x."fieldOther", x."yearsExperience", x.area, x."priceFrom", x.rating, x."reviewCount"
@@ -242,7 +248,11 @@ export async function readOutreach(tx: IdentityTx, direction: 'received' | 'sent
       select o.id, o.professional_id as "professionalId", pp.full_name as "professionalName", pp.field, pp.field_other as "fieldOther",
              o.post_id as "postId", left(p.body, ${EXCERPT}) as "postExcerpt", o.opening_message as text, o.status,
              to_char(o.created_at at time zone 'UTC', ${isoMs}) as at,
-             (select c.id from nestly.conversations c where c.outreach_request_id = o.id) as "conversationId"
+             (select c.id from nestly.conversations c
+               where c.outreach_request_id = o.id
+                  or (o.status = 'accepted' and o.professional_id <> (select auth.uid())
+                      and c.user_a = least((select auth.uid()), o.professional_id) and c.user_b = greatest((select auth.uid()), o.professional_id))
+               order by (c.outreach_request_id = o.id) desc nulls last limit 1) as "conversationId"
       from nestly.outreach_requests o
       left join nestly.professional_profiles pp on pp.user_id = o.professional_id
       left join nestly.posts p on p.id = o.post_id

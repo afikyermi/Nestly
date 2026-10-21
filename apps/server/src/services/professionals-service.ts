@@ -95,7 +95,7 @@ export async function registerProfessional(
   database: Database,
   identity: Identity,
   profile: ProfessionalProfileWrite,
-): Promise<{ readonly kind: 'created' } | { readonly kind: 'already_registered' }> {
+): Promise<{ readonly kind: 'created' } | { readonly kind: 'already_registered' } | ProRefusal> {
   try {
     await inIdentityTransaction(database, identity, async (tx) => {
       if ((await readOwnAccountType(tx)) !== undefined) throw new AlreadyRegistered();
@@ -106,6 +106,8 @@ export async function registerProfessional(
     if (error instanceof AlreadyRegistered) return { kind: 'already_registered' };
     const fault = readDatabaseFault(error);
     if (fault?.code === '23505' && fault.constraint === 'users_pkey') return { kind: 'already_registered' };
+    const refusal = refusalOf(error);
+    if (refusal !== undefined) return refusal;
     throw error;
   }
 }
@@ -132,7 +134,7 @@ export async function listProfessionals(database: Database, identity: Identity, 
     const patterns =
       (query.sort ?? 'match') === 'match'
         ? (await readOwnTopicWeights(tx, new Date().toISOString(), INTENT_HALF_LIFE_HOURS)).flatMap(({ topic, weight }) =>
-            TOPIC_RULES[topic] === undefined || weight <= 0 ? [] : [topicPatternSource(topic)],
+            TOPIC_RULES[topic] === undefined || weight <= 0 ? [] : [{ pattern: topicPatternSource(topic), weight }],
           )
         : [];
     return readDirectory(tx, query, patterns);

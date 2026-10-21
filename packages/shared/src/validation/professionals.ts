@@ -9,6 +9,7 @@ import {
   ARTICLE_TITLE_MIN,
   BUSINESS_NAME_MAX,
   BUSINESS_NAME_MIN,
+  CHAT_TEXT_MAX,
   DIRECTORY_SORTS,
   FIELD_OTHER_MAX,
   FIELD_OTHER_MIN,
@@ -114,7 +115,7 @@ export const directoryQuerySchema = z.object({
 export type DirectoryQuery = z.output<typeof directoryQuerySchema>;
 
 /** POST /api/posts/:id/offer-help (FR-SERV-005): the first message. Same rule as a chat message. */
-export const offerHelpSchema = z.strictObject({ text: textOf(2000, 'invalid') });
+export const offerHelpSchema = z.strictObject({ text: textOf(CHAT_TEXT_MAX, 'invalid') });
 
 /** POST /api/professionals/:id/reviews (FR-SERV-011): a rating of 1-5 and a text. */
 export const reviewSchema = z.strictObject({

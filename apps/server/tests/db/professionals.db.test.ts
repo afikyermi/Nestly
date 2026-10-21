@@ -5,6 +5,7 @@ import { createDatabase, type Database } from '../../src/db/client.js';
 import { openThread, sendMessage, startChat } from '../../src/services/chat-service.js';
 import { readFeedPage } from '../../src/services/feed-service.js';
 import { createPost } from '../../src/services/posts-service.js';
+import { search } from '../../src/services/search-service.js';
 import {
   acceptOutreach,
   changeFollow,
@@ -122,6 +123,15 @@ describe('[I11] Professionals and services', () => {
     expect(await ids({ minYears: 5 })).not.toContain(sleeper);
     expect(await ids({})).toEqual(expect.arrayContaining([doula, sleeper]));
     expect(await listProfessionals(database, as(doula), {})).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: doula })]));
+  });
+
+  it('[FR-ALG-005 FR-ALG-008] the organic order puts a Professional whose field matches the caller search topic first', T, async () => {
+    const lactation = await text(side`select tests.fx_new_auth_user()::text as v`);
+    expect(await registerProfessional(database, as(lactation), profile({ fullName: 'Lea Lactation', field: 'lactation', about: null, area: null, priceFrom: null, yearsExperience: 1 }))).toEqual({ kind: 'created' });
+    await search(database, as(tal), 'יועצת הנקה', 'posts');
+    const order = (await listProfessionals(database, as(tal), { sort: 'match' })).map((card) => card.id);
+    expect(order.indexOf(lactation)).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf(lactation)).toBeLessThan(order.indexOf(doula));
   });
 
   it('[FR-FOLLOW-001 AC-035 AC-130] follow, a followers-only post with the "יועץ · תחום" tag, unfollow', T, async () => {

@@ -164,7 +164,7 @@ async function readIntents(tx: IdentityTx, asOf: string, halfLifeHours: number):
 }
 
 /** One page, inside the caller's transaction. `cursor` is null for a first page; a cursor whose `asOf` is in the database's future is refused. */
-async function readPage(tx: IdentityTx, cursor: FeedCursor | null, storage: MediaStorage | undefined, imageRows: PostImageRow[]): Promise<FeedOutcome> {
+async function readPage(tx: IdentityTx, viewerId: string, cursor: FeedCursor | null, storage: MediaStorage | undefined, imageRows: PostImageRow[]): Promise<FeedOutcome> {
   const viewer = await classifyViewer(tx);
   if (viewer.kind !== 'viewer') return viewer;
   const clock = await readSnapshotClock(tx, cursor === null ? null : cursor.asOf);
@@ -187,7 +187,7 @@ async function readPage(tx: IdentityTx, cursor: FeedCursor | null, storage: Medi
           stages: readsViewerStages(viewer.profile, config.wStage) ? await readOwnStages(tx) : [],
           intents: config.wIntent > 0 ? await readIntents(tx, asOf, config.intentHalfLifeHours) : [],
         }
-      : { profile: 'content', asOf, config, after };
+      : { profile: 'content', asOf, config, after, viewerId };
 
   const ranked = await readRankedPosts(tx, parameters);
   const selection = selectFeedPage(ranked, config);
@@ -240,7 +240,7 @@ async function readPage(tx: IdentityTx, cursor: FeedCursor | null, storage: Medi
  */
 export async function readFeedPage(database: Database, identity: Identity, cursor: FeedCursor | null, storage?: MediaStorage): Promise<FeedOutcome> {
   const imageRows: PostImageRow[] = [];
-  const outcome = await inIdentityTransaction(database, identity, (tx) => readPage(tx, cursor, storage, imageRows), { isolationLevel: 'repeatable read' });
+  const outcome = await inIdentityTransaction(database, identity, (tx) => readPage(tx, identity.userId, cursor, storage, imageRows), { isolationLevel: 'repeatable read' });
   if (outcome.kind !== 'page' || imageRows.length === 0) return outcome;
   const imagesOf = await imagesByPost(storage, imageRows);
   const items = outcome.page.items.map((item) => {

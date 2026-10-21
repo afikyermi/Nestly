@@ -103,7 +103,8 @@ export function registerProfessionalsRoutes(app: FastifyInstance, deps: Professi
       'professional registration failed',
       async (database, identity) => {
         const outcome = await registerProfessional(database, identity, profile);
-        return outcome.kind === 'created' ? { kind: 'ok' as const } : { kind: 'already_done' as const };
+        if (outcome.kind === 'created') return { kind: 'ok' as const };
+        return outcome.kind === 'already_registered' ? { kind: 'already_done' as const } : outcome;
       },
       () => ({ status: 'created' }),
       201,

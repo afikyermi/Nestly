@@ -108,7 +108,11 @@ export type RankingParameters =
        */
       readonly intents?: readonly { readonly pattern: string; readonly weight: number }[];
     })
-  | (RankingBase & { readonly profile: 'content' });
+  | (RankingBase & {
+      readonly profile: 'content';
+      /** I11 (FR-ALG-003): the viewer's own id, a bound value, so the Follow term never lifts the viewer's own posts. Absent: no Follow term. */
+      readonly viewerId?: string;
+    });
 
 export interface RankedPost {
   readonly id: string;
@@ -153,8 +157,13 @@ function scoreTerms(parameters: RankingParameters): SQL {
     // FR-ALG-003 (I11): a Professional viewer's feed favours the Professionals it follows, with the Friend weight (a Professional has no
     // Friends). The EXISTS runs under the viewer's own Follow policy (its own Follows, and the rows naming itself), so it reads no
     // friendship, no Stage and no identity.
+    if (parameters.viewerId === undefined) {
+      return sql`${fresh}
+          + ${quality}`;
+    }
     const follows = sql`${config.wFriend}::float8 * (case
-              when t.author_id is not null and exists (select 1 from nestly.professional_follows pf where pf.professional_id = t.author_id)
+              when t.author_id is not null and t.author_id <> ${parameters.viewerId}::uuid
+                and exists (select 1 from nestly.professional_follows pf where pf.professional_id = t.author_id)
               then 1::float8 else 0::float8 end)`;
     return sql`${fresh}
           + ${quality}

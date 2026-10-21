@@ -47,9 +47,9 @@ export async function readConversations(tx: IdentityTx): Promise<ConversationIte
   const rows = z.array(conversationRow).parse(
     await tx.execute(sql`
       select c.id, ${other} as "otherUserId", coalesce(n.full_name, pp.full_name) as "otherName",
-             coalesce(lm.body, op.opening_message) as "lastText",
-             to_char(coalesce(lm.created_at, op.created_at) at time zone 'UTC', ${isoMs}) as "lastAt",
-             coalesce(lm.mine, op.mine) as "lastMine",
+             coalesce(lm.body, op.opening_message, oo.opening_message) as "lastText",
+             to_char(coalesce(lm.created_at, op.created_at, oo.created_at) at time zone 'UTC', ${isoMs}) as "lastAt",
+             coalesce(lm.mine, op.mine, oo.mine) as "lastMine",
              ${unreadIn} as unread, not ${chatBlocked} as "canSend"
       from nestly.conversations c
       left join nestly.regular_names n on n.user_id = ${other}
@@ -58,7 +58,9 @@ export async function readConversations(tx: IdentityTx): Promise<ConversationIte
                           where m.conversation_id = c.id order by m.created_at desc, m.id desc limit 1) lm on true
       left join lateral (select r.opening_message, r.created_at, r.requester_id = (select auth.uid()) as mine from nestly.chat_requests r
                           where r.id = c.chat_request_id) op on true
-      order by coalesce(lm.created_at, op.created_at, c.created_at) desc, c.id
+      left join lateral (select o.opening_message, o.created_at, o.professional_id = (select auth.uid()) as mine from nestly.outreach_requests o
+                          where o.id = c.outreach_request_id) oo on true
+      order by coalesce(lm.created_at, op.created_at, oo.created_at, c.created_at) desc, c.id
       limit ${LIST_LIMIT}`),
   );
   return rows.map((row) => ({

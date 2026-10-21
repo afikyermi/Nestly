@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import {
   DIRECTORY_SORTS,
@@ -93,10 +93,13 @@ export function DirectoryScreen() {
   const [applied, setApplied] = useState<Filters>(NO_FILTERS);
   const [results, setResults] = useState<Results>({ kind: 'loading' });
 
+  const latest = useRef(0);
   const load = useCallback(
     async (next: Filters) => {
+      const ticket = ++latest.current;
       setResults({ kind: 'loading' });
       const result = await call((token) => fetchDirectory(token, queryOf(next)));
+      if (ticket !== latest.current) return;
       setResults(result.kind === 'ok' ? { kind: 'loaded', cards: result.value } : { kind: 'failed' });
     },
     [call],
