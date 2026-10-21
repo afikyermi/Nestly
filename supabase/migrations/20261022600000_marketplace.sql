@@ -26,6 +26,8 @@
 --                          user block. One conversation per pair stays (conversations_pair_key): an existing one is reused by the server.
 -- reports                  a listing can be reported (target_kind listing, listing_id; the title is copied as the reported text). Handling it
 --                          needs MARKETPLACE_MODERATE. A listing its owner deletes leaves an open report on it open, with the copied title.
+-- media_training_candidate a listing's checked images become training candidates after a handled listing report, as a post's (Afik 21.10.2026,
+--                          decisions-in-force.md §9.7: every staff decision on an image feeds the training set, except a suspected child abuse).
 -- regular_names            a listing's owner's name is readable with the listing (regular_names_select_listing_reader).
 -- audit_trigger()          replaced: the body of 20261022300000 plus the marketplace_listings (hide / restore) and sponsored_products branches
 --                          (rule 18; still the one approved audit definer).
@@ -35,7 +37,7 @@
 -- sponsored images purged after a day, as orphan post images).
 --
 -- Applied by the Supabase CLI as app_owner, in one transaction with its history row. Down script:
--- supabase/rollback/20261022500000_marketplace.down.sql (refuses once a new table holds a row or a report, conversation or image uses a new
+-- supabase/rollback/20261022600000_marketplace.down.sql (refuses once a new table holds a row or a report, conversation or image uses a new
 -- value).
 -- =====================================================================================================================
 
@@ -172,12 +174,14 @@ security invoker
 set search_path = ''
 as $$
 begin
-  if (new.id, new.owner_id, new.owner_account_type, new.expires_at, new.created_at)
-     is distinct from (old.id, old.owner_id, old.owner_account_type, old.expires_at, old.created_at) then
+  if (new.id, new.owner_id, new.owner_account_type) is distinct from (old.id, old.owner_id, old.owner_account_type) then
     raise exception 'marketplace_listings: immutable column' using errcode = '42501';
   end if;
   if current_user <> 'authenticated' then
     return new;
+  end if;
+  if (new.expires_at, new.created_at) is distinct from (old.expires_at, old.created_at) then
+    raise exception 'marketplace_listings: the clocks are the database''s' using errcode = '42501';
   end if;
   if new.is_hidden is distinct from old.is_hidden then
     if not (select nestly.has_permission('MARKETPLACE_MODERATE')) then
@@ -418,6 +422,73 @@ begin
   return new;
 end
 $$;
+
+-- the training set (Afik 21.10.2026, decisions-in-force.md §9.7: every staff decision on an image feeds the training set except a suspected
+-- child abuse): a listing's images become candidates after a listing report is handled with action taken, the listing is hidden, or an image
+-- of it is rejected from passed after such a report, as a post's (20261021500000). Everything else as there.
+create or replace function nestly.media_training_candidate()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_post uuid;
+  v_listing uuid;
+  v_owner uuid;
+begin
+  if tg_table_name = 'posts' then v_post := new.id;
+  elsif tg_table_name = 'marketplace_listings' then v_listing := new.id;
+  else v_post := new.post_id; v_listing := new.listing_id;
+  end if;
+  -- the uploader (a child-safety report on the uploader excludes the image too): the image row's own owner when it fired the trigger, else the
+  -- listing's owner or the post's named author (an anonymous post's author is not readable here; its post reports still count)
+  if tg_table_name = 'media_assets' then v_owner := new.owner_id;
+  elsif v_listing is not null then v_owner := (select l.owner_id from nestly.marketplace_listings l where l.id = v_listing);
+  else v_owner := (select p.author_id from nestly.posts p where p.id = v_post);
+  end if;
+  if current_user <> 'authenticated' or (v_post is null and v_listing is null)
+     or not (select nestly.has_permission('REPORTS_VIEW')) or not (select nestly.has_permission('CONTENT_MODERATE')) then
+    return null;
+  end if;
+  insert into nestly.media_training_candidates (media_id)
+  select m.id
+    from nestly.media_assets m
+   where ((v_post is not null and m.post_id = v_post
+           and exists (select 1 from nestly.reports r where r.post_id = v_post and r.status = 'handled' and r.resolution = 'action_taken')
+           and not exists (select 1 from nestly.reports r where r.post_id = v_post and r.reason = 'child_safety')
+           and (m.status = 'rejected'
+             or (m.status in ('passed', 'approved') and exists (select 1 from nestly.posts p where p.id = v_post and p.status = 'removed'))))
+       or (v_listing is not null and m.listing_id = v_listing
+           and exists (select 1 from nestly.reports r where r.listing_id = v_listing and r.status = 'handled' and r.resolution = 'action_taken')
+           and not exists (select 1 from nestly.reports r where r.listing_id = v_listing and r.reason = 'child_safety')
+           and (m.status = 'rejected'
+             or (m.status in ('passed', 'approved') and exists (select 1 from nestly.marketplace_listings l where l.id = v_listing and l.is_hidden)))))
+     and (v_owner is null or not exists (select 1 from nestly.reports r where r.reported_user_id = v_owner and r.reason = 'child_safety'))
+     and not exists (select 1 from nestly.media_reviews v where v.media_id = m.id and (v.is_suspected or v.queue_reason is not null))
+     and (tg_table_name <> 'media_assets' or m.id = new.id)
+  on conflict do nothing;
+  return null;
+end
+$$;
+
+drop trigger reports_training_candidate on nestly.reports;
+create trigger reports_training_candidate
+  after update of status on nestly.reports
+  for each row when (new.status = 'handled' and old.status = 'open' and new.resolution = 'action_taken'
+    and (new.post_id is not null or new.listing_id is not null))
+  execute function nestly.media_training_candidate();
+
+drop trigger media_assets_training_candidate on nestly.media_assets;
+create trigger media_assets_training_candidate
+  after update of status on nestly.media_assets
+  for each row when (new.status = 'rejected' and old.status = 'passed' and (new.post_id is not null or new.listing_id is not null))
+  execute function nestly.media_training_candidate();
+
+create trigger marketplace_listings_training_candidate
+  after update of is_hidden on nestly.marketplace_listings
+  for each row when (new.is_hidden and not old.is_hidden)
+  execute function nestly.media_training_candidate();
 
 revoke execute on function nestly.marketplace_listings_update_guard() from public;
 revoke execute on function nestly.sponsored_products_update_guard() from public;
@@ -724,7 +795,7 @@ create policy media_assets_insert_owner on nestly.media_assets
   with check ((select nestly.is_active_account()) and owner_id = (select auth.uid()) and owner_status = 'active'
     and status = 'pending' and post_id is null and listing_id is null and sponsored_product_id is null and position is null
     and not is_held and not is_file_removed
-    and ((kind in ('post', 'profile', 'story') and (select nestly.caller_account_type()) in ('regular', 'professional'))
+    and ((kind not in ('listing', 'sponsored') and (select nestly.caller_account_type()) in ('regular', 'professional'))
       or (kind = 'listing' and (select nestly.caller_account_type()) = 'regular')
       or (kind = 'sponsored' and (select nestly.has_permission('SPONSORED_PRODUCT_MANAGE')))));
 
@@ -750,6 +821,28 @@ create policy media_assets_delete_jobs on nestly.media_assets
           and created_at <= now() - interval '24 hours')
       or (kind = 'profile' and created_at <= now() - interval '24 hours'
         and not exists (select 1 from nestly.profile_photos pp where pp.media_id = media_assets.id)))));
+
+-- media_training_candidates: a listing's image as a post's (§9.7); the I5 policy, widened.
+drop policy media_training_candidates_insert_staff on nestly.media_training_candidates;
+create policy media_training_candidates_insert_staff on nestly.media_training_candidates
+  for insert to authenticated
+  with check ((select nestly.is_active_account()) and (select nestly.has_permission('CONTENT_MODERATE'))
+    and (select nestly.has_permission('REPORTS_VIEW'))
+    and exists (
+      select 1 from nestly.media_assets m
+      where m.id = media_training_candidates.media_id
+        and not exists (select 1 from nestly.media_reviews v where v.media_id = m.id and (v.is_suspected or v.queue_reason is not null))
+        and ((m.post_id is not null
+              and exists (select 1 from nestly.reports r where r.post_id = m.post_id and r.status = 'handled' and r.resolution = 'action_taken')
+              and not exists (select 1 from nestly.reports r where r.post_id = m.post_id and r.reason = 'child_safety')
+              and (m.status = 'rejected'
+                or (m.status in ('passed', 'approved') and exists (select 1 from nestly.posts p where p.id = m.post_id and p.status = 'removed'))))
+          or (m.listing_id is not null
+              and exists (select 1 from nestly.reports r where r.listing_id = m.listing_id and r.status = 'handled' and r.resolution = 'action_taken')
+              and not exists (select 1 from nestly.reports r where r.listing_id = m.listing_id and r.reason = 'child_safety')
+              and (m.status = 'rejected'
+                or (m.status in ('passed', 'approved')
+                    and exists (select 1 from nestly.marketplace_listings l where l.id = m.listing_id and l.is_hidden)))))));
 
 -- conversations. As 20261022400000, plus (FR-MKT-005, FR-CHAT-002, BR-007, AC-059): an active Regular or Professional opens one with the
 -- owner of an active listing it can read (the listing's own policy: not hidden, not expired, an active owner, no user block, not reported
@@ -815,7 +908,7 @@ comment on column nestly.marketplace_listings.sold_at is 'When the owner marked 
 comment on column nestly.marketplace_listings.is_hidden is '§3.2 MARKETPLACE_MODERATE: hidden by staff (audited); only staff change it. A hidden listing is read by its owner and staff only.';
 comment on column nestly.marketplace_listings.hidden_at is 'When staff hid it, the database clock; NULL exactly while not hidden.';
 comment on column nestly.marketplace_listings.hidden_by is 'The staff member who hid it (set by the guard). Never granted: the Audit Log names the actor.';
-comment on column nestly.marketplace_listings.expires_at is 'FR-MKT-002: 60 days after publication, set by the database and never granted; after it the listing leaves the Marketplace (its owner still reads it).';
+comment on column nestly.marketplace_listings.expires_at is 'FR-MKT-002: 60 days after publication, set by the database (no client writes it); after it the listing leaves the Marketplace (its owner still reads it).';
 comment on column nestly.marketplace_listings.created_at is 'When the listing was published. UTC. A freshness signal (FR-ALG-006).';
 comment on column nestly.marketplace_listings.updated_at is 'The last edit of its content or status by its owner, the database clock.';
 comment on index nestly.marketplace_listings_live_idx is 'The Marketplace: active, visible listings, newest first (FR-MKT-001, FR-ALG-006).';
@@ -854,15 +947,18 @@ comment on column nestly.reports.listing_id is 'The reported listing (I12). SET 
 comment on constraint reports_reporter_listing_key on nestly.reports is 'One report per reporter and listing (ERR-046).';
 comment on index nestly.reports_listing_id_idx is 'The reports on a listing (staff screens, the FK).';
 
-comment on function nestly.marketplace_listings_update_guard() is 'BEFORE UPDATE, SECURITY INVOKER. The id, the owner, the expiry and created_at never change. A change of is_hidden needs MARKETPLACE_MODERATE and changes nothing else (hidden_at, hidden_by set here); every other change is the owner''s (sold_at and updated_at are the database clock). A cascade passes.';
+comment on function nestly.marketplace_listings_update_guard() is 'BEFORE UPDATE, SECURITY INVOKER. The id and the owner never change; a client never changes the expiry or created_at. A change of is_hidden needs MARKETPLACE_MODERATE and changes nothing else (hidden_at, hidden_by set here); every other change is the owner''s (sold_at and updated_at are the database clock). A cascade passes.';
 comment on function nestly.sponsored_products_update_guard() is 'BEFORE UPDATE, SECURITY INVOKER. draft -> published | removed, published -> paused | removed, paused -> published | removed; published_at is the first publication; updated_at the database clock; the creator and created_at never change.';
 comment on function nestly.media_assets_update_guard() is 'SECURITY INVOKER. Who may change which column of media_assets: the job moves a pending image to passed or queued (a queued one has its reason first) and records a rejected image''s removed file; staff with CONTENT_MODERATE decide a queued image, or reject a checked one with REPORTS_VIEW after a report (on its post, its listing or its uploader) or as a suspicion (who, when and the hold set here); the uploader attaches an unattached post image to a post of their own, a listing image to a listing of their own, or (SPONSORED_PRODUCT_MANAGE) a sponsored image to a sponsored product.';
 comment on function nestly.reports_insert_check() is
   'SECURITY INVOKER. Before insert on reports: the reported post, comment, message or listing must be readable to the reporter (absent and unreadable look the same) and not their own; a listing report names its listing.';
 comment on function nestly.reports_insert_snapshot() is 'SECURITY INVOKER. Before insert on reports: copies the reported post or comment text, or the listing''s title, read under the reporter''s RLS.';
-comment on function nestly.audit_trigger() is
-  'Rule 18: the one trigger function that appends every Audit entry, in the same transaction as the staff action. SECURITY DEFINER (approved, I4), owner app_owner, search_path ''''. I12 adds the marketplace_listings (hide / restore) and sponsored_products branches.';
+comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement, an Admin''s creation, edit, publication or hiding of a status guide, a staff decision on an image or a suspicion marked on one, a Support request''s status change, a Support reply or internal note, a staff view of a reported chat message, a Moderator invitation issued or revoked, a Moderator joining with one, a System Announcement created, edited, published or removed, a staff view of reported Private Group content, a Marketplace listing hidden or restored, or a Sponsored Product created, edited, published, paused or removed: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
 
+comment on function nestly.media_training_candidate() is 'SECURITY INVOKER, in the moderator''s transaction. After a post or listing report is handled with action taken, a reported post is removed or a reported listing hidden, or an image is rejected from passed after such a report: the post''s or listing''s images that passed and are now removed become training candidates, unless a report on it is a child-safety report or the image is suspected (decisions-in-force.md §9.7).';
+comment on trigger media_assets_training_candidate on nestly.media_assets is 'An image rejected from passed after a handled report (on its post or its listing) becomes a training candidate (unless suspected or after a child-safety report).';
+comment on trigger marketplace_listings_training_candidate on nestly.marketplace_listings is 'A listing hidden after a handled report: its checked images become training candidates (unless suspected or after a child-safety report).';
+comment on policy media_training_candidates_insert_staff on nestly.media_training_candidates is 'CONTENT_MODERATE with REPORTS_VIEW, in the trigger: an image removed after a handled post or listing report (action taken), never with a child-safety report on it, never a queued-path or suspected image.';
 comment on trigger marketplace_listings_moderation_audit on nestly.marketplace_listings is 'A listing hidden or restored by staff is appended to the Audit Log in the same transaction (rule 18).';
 comment on trigger sponsored_products_audit_insert on nestly.sponsored_products is 'A Sponsored Product created is appended to the Audit Log (FR-ADMIN-009).';
 comment on trigger sponsored_products_audit_update on nestly.sponsored_products is 'A Sponsored Product edited, published, paused or removed is appended to the Audit Log (FR-ADMIN-009).';

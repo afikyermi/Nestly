@@ -22,6 +22,7 @@ does not instruct loading every link. Column sections and rule matrices are both
 | moderator_invitations, system_announcements, the analytics reads | Moderators team (I14); Safety and admin core (staff roles, keys, audit) |
 | groups, group_members, group_access, group_join_requests, group_invitations, group_bans, group_notification_preferences, group_suggestions, group_highlight_configurations, private_group_content_views | Groups (I10); posts, comments, reactions (group content); Notifications and People Search (notify_group); Safety and admin core (reports, audit) |
 | professional_profiles, professional_follows, outreach_requests, professional_reviews, professional_articles | Professionals (I11); posts (audience followers, is_help_request), Chat and Support (conversations: contexts professional and outreach); Blocking a user |
+| marketplace_listings, sponsored_products | Marketplace (I12); Media and Stories (listing and sponsored images), Chat and Support (conversations: context marketplace), Safety and admin core (reports, audit); Blocking a user |
 
 | tracker_events, cycle_entries, status_guides | Trackers, cycle and status guides (I6); children for the child FK |
 | media_assets, media_reviews, profile_photos, stories, media_training_candidates, media_training_samples, media_training_events | Media and Stories (I5); posts and post_authors (attach), friendships (Story audience), Safety and admin core (CONTENT_MODERATE, audit) |
@@ -612,3 +613,24 @@ triggers: `professional_profiles_update_guard`, `outreach_requests_insert_limit`
 Other changes: `users_insert_own` allows a Professional; `posts.is_help_request` (Regular only, never a share; OP-038) and audience `followers` (Professional only;
 `posts_select_viewer` gains the follower branch, through the caller's own Follow rows); `conversations.outreach_request_id` and contexts `professional` (a Regular with
 an active Professional) and `outreach` (the author of an accepted Offer Help).
+
+## Marketplace (I12)
+
+Built by `20261022600000_marketplace.sql` (down script in `supabase/rollback/`; refuses once a new table holds a row, an image is a listing or sponsored
+image, a conversation has the marketplace context or a report is a listing report). No new SECURITY DEFINER, no `TO app_owner` / `TO app_jobs` policy;
+`audit_trigger()` gains the `marketplace_listings` (hide / restore, MARKETPLACE_MODERATE) and `sponsored_products` (SPONSORED_PRODUCT_MANAGE, every write)
+branches. Invoker triggers: `marketplace_listings_update_guard`, `sponsored_products_update_guard`, `marketplace_listings_training_candidate`.
+
+| Table | Columns and meaning | Authorization |
+|---|---|---|
+| `marketplace_listings` | id; owner_id (default auth.uid()) + owner_account_type = regular (composite FK users) + owner_status (copy, FK users (id, status) on update cascade); title 2-80; category (list); item_condition new/like_new/good/used; price 1-100,000 or NULL ("למסירה"); city (list, §12); status active/sold + sold_at; is_hidden + hidden_at + hidden_by (never readable); expires_at = created_at + 60 days (database clock, never written by a client); created_at; updated_at. No payment column (BR-069) | SELECT the owner (every state), every active account an active, unhidden, unexpired listing of an active owner with no user block and not reported by the reader, MARKETPLACE_MODERATE every listing; INSERT an active Regular (title, category, item_condition, price, city); UPDATE the owner (content, status), MARKETPLACE_MODERATE is_hidden only (audited); DELETE the owner (hard, at once) |
+| `sponsored_products` | id; sponsor_name 2-80; title 2-80; description ≤1,000 (a demo coupon says "דוגמה" here, OP-023); category (list); link_url (https, ≤500); status draft/published/paused/removed; created_by (never readable); published_at (first publication, guard); created_at; updated_at | SELECT every active account a published one, SPONSORED_PRODUCT_MANAGE (Admin Only) every one; INSERT/UPDATE SPONSORED_PRODUCT_MANAGE (draft -> published/removed, published <-> paused, removed final); no DELETE; every write audited |
+
+Other changes: `media_assets` kinds `listing` (Regular uploads; attached once to its own listing, positions 0-5, VAL-041) and `sponsored`
+(SPONSORED_PRODUCT_MANAGE; one image, position 0), columns listing_id / sponsored_product_id (SET NULL; the job purges an unattached image after a day);
+others read them through a listing / sponsored product they can read. `conversations` context `marketplace` + listing_id (SET NULL): an active Regular
+or Professional with the owner of an active listing it can read, never its own. `reports` target `listing` + listing_id (SET NULL; the title is copied as
+target_text; the open report survives the listing's deletion), handled with MARKETPLACE_MODERATE. `regular_names_select_listing_reader`: the owner's name
+of a readable listing. `media_training_candidate()` and its triggers: a hidden listing's (or a rejected listing image's) checked images become training
+candidates after a handled listing report, never after a child-safety report (§9.7). Cleanup: `marketplace_listings` by owner after `media_assets`; reports
+on the user's listings with the user's reports; `sponsored_products` never (Admin only).
