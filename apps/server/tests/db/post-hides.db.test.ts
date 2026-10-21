@@ -430,7 +430,7 @@ describe('[F3.9 c6] a hide is not a ranking signal', () => {
     expect(await listOf(app, B)).toContain(x);
   });
 
-  it('[F3.9 c6] no recommendation-feedback table exists (I10's group_recommendations is a Friend's suggestion of a Group, not hide feedback), and no log line of a hide, a failed hide or an undo holds a post or user id', T, async () => {
+  it('[F3.9 c6] no recommendation-feedback table exists (I10 group_recommendations is a suggestion of a Group to a Friend, not hide feedback), and no log line of a hide, a failed hide or an undo holds a post or user id', T, async () => {
     const [{ n } = { n: -1 }] = await side`select count(*)::int as n from pg_class c join pg_namespace s on s.oid = c.relnamespace where s.nspname = 'nestly' and c.relname ~* '(recommend|feedback)' and c.relname !~ '^group_recommendations'`;
     expect(n).toBe(0);
     const log = captureLog();
