@@ -205,6 +205,7 @@ test.describe('AppShell: side menu', () => {
       { tag: 'a', name: 'הקבוצות שלי', href: '/groups' }, // I10: My Groups first (FR-MENU-001: My Groups, Friends, ...)
       { tag: 'a', name: 'חברים', href: '/friends' }, // F2.4b c13, before Settings (FR-MENU-001)
       { tag: 'a', name: 'כללי הקהילה', href: '/community-rules' }, // F3.7 c14, right after Friends
+      { tag: 'a', name: 'בעלי מקצוע במעקב', href: '/following' }, // I11 follow-ups: Following Professionals (PG-039, FR-MENU-001)
       { tag: 'a', name: 'בעלי מקצוע', href: '/services' }, // I11: the directory (FR-SERV-001)
       { tag: 'a', name: 'הצעות עזרה', href: '/offers' }, // I11: Offer Help (FR-SERV-006)
       { tag: 'a', name: 'חשבון', href: '/settings*' },

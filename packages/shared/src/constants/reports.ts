@@ -1,8 +1,13 @@
 // Value lists and limits of the reports schema (I3 F3.7; migrations 20261018200000, 20261019200000). Held once here; the CHECK constraints
 // reports_target_kind_check, reports_reason_check and reports_details_length_check state the same.
 
-/** What a report names (FR-MOD-001): a post, a comment (or reply), another user's account, or a chat message (I8, §9.6). */
-export const REPORT_TARGET_KINDS = ['post', 'comment', 'user', 'message'] as const;
+/** What a report names (FR-MOD-001): a post, a comment (or reply), another user's account, a chat message (I8, §9.6), or a Professional's review
+ * or article (I11 follow-ups, FR-SERV-011, FR-PRO-003). */
+export const REPORT_TARGET_KINDS = ['post', 'comment', 'user', 'message', 'review', 'article'] as const;
+
+/** The kinds whose content staff read and move (active, hidden, removed): everything but an account and a chat message. */
+export const CONTENT_TARGET_KINDS = ['post', 'comment', 'review', 'article'] as const;
+export type ContentTargetKind = (typeof CONTENT_TARGET_KINDS)[number];
 export type ReportTargetKind = (typeof REPORT_TARGET_KINDS)[number];
 
 /**

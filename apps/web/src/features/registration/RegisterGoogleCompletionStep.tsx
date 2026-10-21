@@ -11,13 +11,15 @@ import { ArrowBackIcon } from '@/components/ui/icons';
 import { useSessionAccount } from '@/hooks/use-session-account';
 import { useSessionEntry } from '@/hooks/use-session-entry';
 import { setFirstPassword } from '@/services/api/password';
-import { registerAccount } from '@/services/api/register-account';
+import { registerAccount, type RegisterOutcome } from '@/services/api/register-account';
 import { ConsentField } from './ConsentField';
 import { GENERIC_ERROR_TEXT, RETRY_TEXT, validatePassword } from './step2-form';
 
 export interface RegisterGoogleCompletionStepProps {
-  /** The parsed step-1 value, in memory only; it goes to the server with the consent declaration. */
-  step1: RegistrationStep1;
+  /** The parsed step-1 value, in memory only; it goes to the server with the consent declaration. Null with `submitAccount` (I11 follow-ups). */
+  step1: RegistrationStep1 | null;
+  /** I11 follow-ups (FR-REG-004, AC-100): creates another kind of account (a Professional's) with the held session instead of POST /api/register. */
+  submitAccount?: (accessToken: string) => Promise<RegisterOutcome>;
   /** The email on the Auth user (Google's), shown and never edited or sent. */
   email: string;
   onBack: () => void;
@@ -32,7 +34,7 @@ type Notice = 'retry' | 'generic' | null;
 // from now on, and the consent. The final action has the server set the password first (POST /api/password/first, F2.0 c11, c16),
 // signs in again with it (the set ends every session, DR-E), and calls POST /api/register only after that; the body of the register
 // call has no password. The password lives in this field, that call and the sign-in to Auth, nowhere else.
-export function RegisterGoogleCompletionStep({ step1, email, onBack, onSignOut, onUnauthenticated }: RegisterGoogleCompletionStepProps) {
+export function RegisterGoogleCompletionStep({ step1, submitAccount, email, onBack, onSignOut, onUnauthenticated }: RegisterGoogleCompletionStepProps) {
   const account = useSessionAccount();
   const sessionEntry = useSessionEntry();
   const running = useRef(false);
@@ -110,7 +112,7 @@ export function RegisterGoogleCompletionStep({ step1, email, onBack, onSignOut, 
         onUnauthenticated();
         return;
       }
-      const outcome = await registerAccount(fresh, step1);
+      const outcome = submitAccount !== undefined ? await submitAccount(fresh) : step1 !== null ? await registerAccount(fresh, step1) : 'failed';
       if (outcome === 'created') {
         finished = true;
         sessionEntry.signIn();

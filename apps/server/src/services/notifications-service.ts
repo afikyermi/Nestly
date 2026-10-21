@@ -4,6 +4,8 @@
 import {
   NOTIFICATION_CATEGORIES,
   NOTIFICATION_TYPES,
+  PROFESSIONAL_ONLY_CATEGORIES,
+  REGULAR_ONLY_CATEGORIES,
   NOTIFICATIONS_PAGE_SIZE,
   serializeNotificationsCursor,
   type NotificationsCursor,
@@ -22,6 +24,7 @@ import {
   markAllRead,
   markOneRead,
   readCategoryRows,
+  readDigestCounts,
   readFollowRows,
   readLatest,
   writeCategory,
@@ -55,6 +58,8 @@ export async function readNotifications(database: Database, identity: Identity, 
     const names = new Map((await readVisibleNames(tx, actorIds)).map((name) => [name.userId, name.fullName]));
     // I10: a Group target carries the Group's name when the caller can read it (an active Group)
     const groupNames = await readGroupNames(tx, [...new Set(page.flatMap((row) => (row.targetKind === 'group' ? [row.targetId] : [])))]);
+    // I11 follow-ups: the weekly digest carries its week's number of new followers
+    const digests = await readDigestCounts(tx, page.filter((row) => row.type === 'followers_weekly'));
     const items = page.flatMap((row): NotificationItem[] => {
       if (!isKnownType(row.type)) return [];
       const name = row.actorId === null ? undefined : names.get(row.actorId);
@@ -67,6 +72,7 @@ export async function readNotifications(database: Database, identity: Identity, 
           targetKind: row.targetKind,
           targetId: row.targetId,
           ...(row.targetKind === 'group' ? { targetName: groupNames.get(row.targetId) ?? null } : {}),
+          ...(row.type === 'followers_weekly' ? { count: digests.get(row.id) ?? 0 } : {}),
           createdAt: row.createdAt.toISOString(),
           isRead: row.isRead,
         },
@@ -108,7 +114,8 @@ export async function readPreferences(database: Database, identity: Identity): P
     if (isRefusal(member)) return member;
     const stored = new Map((await readCategoryRows(tx)).map((row) => [row.category, row.isEnabled]));
     const categories = NOTIFICATION_CATEGORIES.map((category): NotificationPreference => ({ category, isEnabled: stored.get(category) ?? true }));
-    if (member.kind !== 'regular') return { kind: 'ok', categories: categories.filter((c) => c.category !== 'friends' && c.category !== 'friend_posts'), friends: [] };
+    // a Professional has no Friends; a Regular account has no Professional events (I11 follow-ups)
+    if (member.kind !== 'regular') return { kind: 'ok', categories: categories.filter((c) => !REGULAR_ONLY_CATEGORIES.includes(c.category)), friends: [] };
     const me = identity.userId.toLowerCase();
     const friendIds = (await readListedRows(tx)).filter((row) => row.status === 'accepted').map((row) => (row.requesterId === me ? row.addresseeId : row.requesterId));
     const names = new Map((await readVisibleNames(tx, friendIds)).map((name) => [name.userId, name.fullName]));
@@ -119,7 +126,7 @@ export async function readPreferences(database: Database, identity: Identity): P
         return fullName === undefined ? [] : [{ userId, fullName, isEnabled: follows.get(userId) ?? false } satisfies FriendFollow];
       })
       .sort((a, b) => a.fullName.localeCompare(b.fullName) || a.userId.localeCompare(b.userId));
-    return { kind: 'ok', categories, friends };
+    return { kind: 'ok', categories: categories.filter((c) => !PROFESSIONAL_ONLY_CATEGORIES.includes(c.category)), friends };
   });
 }
 

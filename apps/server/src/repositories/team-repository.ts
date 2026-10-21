@@ -5,6 +5,7 @@
 import {
   FEED_ANNOUNCEMENTS_MAX,
   PERMISSION_KEYS,
+  SUPPORT_TOPICS,
   type AnalyticsPeriod,
   type AnalyticsView,
   type Announcement,
@@ -313,6 +314,25 @@ export async function readAnalytics(tx: IdentityTx, days: AnalyticsPeriod): Prom
   const steps = z
     .array(z.object({ kind: z.string(), n: count }))
     .parse(await tx.execute(sql`select kind, count(*) as n from nestly.user_enforcements where created_at >= ${since} group by kind`));
+  // FR-ADMIN-003 (I11 follow-ups): the Support requests of the period, by day, topic and status, and the time to Support's first reply (its own
+  // non-internal replies are all the analytics policy opens). Numbers only.
+  const supportRequests = dayCounts.parse(await tx.execute(series('support_requests')));
+  const topics = z
+    .array(z.object({ topic: z.enum(SUPPORT_TOPICS), count }))
+    .parse(await tx.execute(sql`select topic, count(*) as count from nestly.support_requests where created_at >= ${since} group by topic order by count(*) desc, topic`));
+  const supportStatus = z
+    .array(z.object({ status: z.string(), n: count }))
+    .parse(await tx.execute(sql`select status, count(*) as n from nestly.support_requests where created_at >= ${since} group by status`));
+  const firstReply = z
+    .array(z.object({ answered: count, median: z.coerce.number().nullable() }))
+    .parse(
+      await tx.execute(sql`
+        select count(f.first_at) as answered,
+               percentile_cont(0.5) within group (order by extract(epoch from (f.first_at - f.created_at)) / 3600) filter (where f.first_at is not null) as median
+        from (select s.created_at, (select min(m.created_at) from nestly.support_messages m
+                                where m.support_request_id = s.id and m.author_kind = 'support' and not m.is_internal) as first_at
+              from nestly.support_requests s where s.created_at >= ${since}) f`),
+    )[0] ?? { answered: 0, median: null };
 
   const pick = <T extends { n: number }>(rows: ReadonlyArray<T & Record<string, unknown>>, field: string, value: string) =>
     rows.find((row) => row[field] === value)?.n ?? 0;
@@ -334,6 +354,13 @@ export async function readAnalytics(tx: IdentityTx, days: AnalyticsPeriod): Prom
       dismissed: outcome.dismissed,
       medianHoursToClose: outcome.median === null ? null : Math.round(outcome.median * 10) / 10,
       enforcements: { warning: pick(steps, 'kind', 'warning'), suspension: pick(steps, 'kind', 'suspension'), ban: pick(steps, 'kind', 'ban') },
+    },
+    support: {
+      requests: supportRequests,
+      byTopic: topics,
+      byStatus: { open: pick(supportStatus, 'status', 'open'), inProgress: pick(supportStatus, 'status', 'in_progress'), closed: pick(supportStatus, 'status', 'closed') },
+      answered: firstReply.answered,
+      medianHoursToFirstReply: firstReply.median === null ? null : Math.round(firstReply.median * 10) / 10,
     },
   };
 }

@@ -28,6 +28,7 @@ import {
   ARTICLE_ERRORS,
   ARTICLE_FIELD_LABEL,
   ARTICLE_HIDDEN_BADGE,
+  ARTICLE_TAKEN_DOWN,
   ARTICLE_HIDDEN_LABEL,
   ARTICLE_PUBLISH,
   ARTICLE_SAVE,
@@ -190,6 +191,7 @@ export function ArticlesScreen() {
                 <p className="text-small text-muted-foreground">
                   {PROFESSIONAL_FIELD_LABELS[article.field]} · {formatPostTime(article.at)}
                   {article.status === 'hidden' ? ` · ${ARTICLE_HIDDEN_BADGE}` : ''}
+                  {article.isTakenDown ? ` · ${ARTICLE_TAKEN_DOWN}` : ''}
                 </p>
                 <p className="mt-2 line-clamp-3 whitespace-pre-line">{article.body}</p>
                 <div className="mt-3 flex gap-3">

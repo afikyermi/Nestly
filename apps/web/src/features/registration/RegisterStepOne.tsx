@@ -119,7 +119,7 @@ export function RegisterStepOne({ form, onFormChange, getToday, onValid, complet
               </Button>
             ) : null}
             {/* I11 (FR-REG-001): a Professional's account has its own flow. */}
-            {completion === undefined && onProfessional !== undefined ? (
+            {onProfessional !== undefined ? (
               <Button variant="text" onClick={onProfessional} className="self-center">
                 {PRO_REGISTER_LINK}
               </Button>

@@ -4,11 +4,13 @@
 /** What happened. The wording of each is the web's; the database stores only the type, the actor and the target. */
 export const NOTIFICATION_TYPES = ['friend_request', 'friend_accepted', 'post_comment', 'comment_reply', 'post_shared', 'friend_post',
   // I10 (FR-GRP-002, FR-ALG-010): Group events, written by notify_group()
-  'group_recommended', 'group_invited', 'group_join_requested', 'group_join_approved', 'group_post', 'group_pinned', 'group_highlight'] as const;
+  'group_recommended', 'group_invited', 'group_join_requested', 'group_join_approved', 'group_post', 'group_pinned', 'group_highlight',
+  // I11 follow-ups (OP-051 cancelled, Afik 21.10.2026): the Professional's events, written by notify_professional()
+  'offer_accepted', 'offer_declined', 'review_received', 'followers_weekly'] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 /** The groups a user switches on and off (FR-NOTIF-002). `security` is critical and cannot be switched off (BR-038); no event of it exists yet. */
-export const NOTIFICATION_CATEGORIES = ['friends', 'comments', 'shares', 'friend_posts', 'groups'] as const;
+export const NOTIFICATION_CATEGORIES = ['friends', 'comments', 'shares', 'friend_posts', 'groups', 'offers', 'reviews', 'followers'] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 
 /** Which category switches an event on or off. */
@@ -26,10 +28,18 @@ export const NOTIFICATION_CATEGORY_OF: Readonly<Record<NotificationType, Notific
   group_post: 'groups',
   group_pinned: 'groups',
   group_highlight: 'groups',
+  offer_accepted: 'offers',
+  offer_declined: 'offers',
+  review_received: 'reviews',
+  followers_weekly: 'followers',
 };
 
-/** Where a notification leads: a post, a person or a Group (I10). Authorized again when opened. */
-export const NOTIFICATION_TARGET_KINDS = ['post', 'user', 'group'] as const;
+/** The categories only a Regular account has (Friends), and only a Professional has (its business events). */
+export const REGULAR_ONLY_CATEGORIES: readonly NotificationCategory[] = ['friends', 'friend_posts'];
+export const PROFESSIONAL_ONLY_CATEGORIES: readonly NotificationCategory[] = ['offers', 'reviews', 'followers'];
+
+/** Where a notification leads: a post, a person, a Group (I10), an Offer Help or a Professional's page (I11 follow-ups). Authorized again when opened. */
+export const NOTIFICATION_TARGET_KINDS = ['post', 'user', 'group', 'outreach', 'professional'] as const;
 export type NotificationTargetKind = (typeof NOTIFICATION_TARGET_KINDS)[number];
 
 /** The most notifications one page carries (the dropdown shows the latest of them). */

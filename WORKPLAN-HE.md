@@ -27,16 +27,7 @@
   **נעשה:** טיוטת `supabase/migrations/20261022500000_marketplace.sql` — טבלאות `marketplace_listings` (שדות §3.11, פג אחרי 60 יום, "נמכר/נמסר", הסתרה ע"י MARKETPLACE_MODERATE עם audit) ו-`sponsored_products` (Admin בלבד); סוגי תמונות `listing` (עד 6) ו-`sponsored`; הקשר שיחה `marketplace`; דיווח על מודעה; `audit_trigger()` על הגוף של main + ענפים חדשים. **לא הורץ.**
   **נשאר:** (1) down script שמשחזר את גופי הפונקציות הקודמים (`media_assets_update_guard`, ‏`reports_insert_check`, ‏`reports_insert_snapshot`, ‏`audit_trigger`, ומדיניות/אילוצים); (2) ‏pgTAP ‏`supabase/tests/9x_marketplace.sql` לכל מדיניות; (3) עדכון טסטי המבנה (10, 20, 54, 70: ‏68→70 טבלאות, הרשאות, triggers); (4) ‏`EXPECTED_NESTLY_TABLES` וסדר המחיקה ב-`tools/preview-e2e-cleanup*`; (5) ‏`data-model-tables.md`; (6) ‏`node tools/db-local.mjs pgtap` → ‏/code-review → PR migration-only → CI → מיזוג → migrate. אחר כך PR קוד (שרת, ‏Zod, ‏`MEDIA_KINDS`, מסכי Marketplace, מסכי אדמין, טסטים, SRS, ‏Chrome מלא, ‏e2e-preview). ‏`apps/server/src/db/schema.ts` רק ב-PR הקוד (schema-gate).
   **הצעד הבא:** לכתוב את ה-down script ואז את קובץ ה-pgTAP. **ביקורת:** ‏/code-review לא רץ.
-- **השלמות I11 — `build/i11-followups`** (‏e8285de, ‏WIP, אין PR; worktree `.work/wt/i11f`).
-  **נעשה:** טיוטת `supabase/migrations/20261022500000_i11_followups.sql` + down + ‏`supabase/tests/98_i11_followups.sql` (לא הורצו): מדיניות analytics על `support_requests`/`support_messages`; עמודות `review_id`/`article_id` בדיווחים, עותק טקסט, trigger ‏`reports_target_gone`; עמודת `moderation` לביקורות ומאמרים; ‏`audit_trigger()` מוחלף (ענף חדש).
-  **נשאר, לפי פריט:**
-  1. *מדדי Support ‏(FR-ADMIN-003):* להריץ pgTAP (ייכשל ב-`97_professionals.sql` c1 — להוסיף את ארבע המדיניות החדשות לרשימה), ‏PR migration, ‏migrate; אחר כך בלוק `support` ב-`readAnalytics` ‏(`team-repository.ts`), ‏`AnalyticsView` ‏(`packages/shared/src/validation/team.ts`), תצוגה ב-`AnalyticsScreen.tsx`.
-  2. *רשימת "עוקב אחרי" (PG-039):* לא התחיל; בלי migration. ‏GET ‏`/api/professionals/following`, עמוד `/following` עם "הפסקת מעקב", ‏`PROTECTED_PATHS`, פריט תפריט "בעלי מקצוע במעקב" (‏Chrome מלא).
-  3. *דיווח על ביקורת ומאמר:* הסכמה בטיוטה; נשאר `REPORT_TARGET_KINDS`, השרת (`targetColumn`, ‏`readContent`/`moveContent` עם `moderation`), מסכי האדמין, פעולת "דיווח" בעמוד בעל המקצוע, טסטים, SRS.
-  4. *הרשמת בעל מקצוע מ"השלמת הרשמה":* לא התחיל; web בלבד ‏(`RegistrationFlow.tsx`, ‏`submitAccount` אופציונלי בשלבי ההסכמה), ‏SRS ‏FR-REG-004/AC-100, טסט.
-  5. *הודעת הצעת העזרה בשיחה קיימת:* לא התחיל; ‏`readThread` ב-`chat-repository.ts` + טסט שרת.
-  **הצעד הבא:** להריץ pgTAP בענף ולתקן. **ביקורת:** ‏/code-review לא רץ.
-- **⚠ התנגשות:** שני ה-migrations באותו timestamp ‏(`20261022500000`) ושניהם מתכננים pgTAP ‏98 — הראשון שמתמזג נשאר; השני משנה שם ל-timestamp ולמספר הבאים, ובונה את `audit_trigger()` על הגוף שמוזג.
+- **השלמות I11 + החלטות Professional (§9.8)** — migration ‏#153 מוזג ו-migrate הצליח (‏20261022700000); PR קוד מענף `build/i11f-code` (SRS 2.33): מדדי Support, "בעלי מקצוע במעקב", דיווח על ביקורת ומאמר, הרשמה מקצועית מהשלמה, הודעת הצעת העזרה בשיחה קיימת, התראות לבעל מקצוע וסיכום עוקבים שבועי, תפריט וניווט Professional, לוח בקרה בסדר של אפיק, הצהרת הכשרה. ‏preview-e2e: ‏`e2e-preview/professional-followups.flow.ts` רץ בהרצה מ-main אחרי המיזוג.
 - **#109** טיוטה; אושר לפי ⭐ — מיזוג והרצה ב-Preview (ממתין לך 1).
 
 ## המשך מכאן
