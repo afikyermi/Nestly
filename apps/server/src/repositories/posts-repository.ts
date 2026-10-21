@@ -52,7 +52,7 @@ export type PostDetailRow = z.infer<typeof postDetailRow>;
 /** Inserts the caller's post; the author and status are the database's (an anonymous post's author goes to post_authors by trigger). */
 export async function insertPost(
   tx: IdentityTx,
-  values: { body: string; audience: PostAudience; stageTag: PostRow['stageTag']; isAnonymous: boolean },
+  values: { body: string; audience: PostAudience; stageTag: PostRow['stageTag']; isAnonymous: boolean; isHelpRequest: boolean },
 ): Promise<PostRow[]> {
   return tx.insert(postsInsert).values(values).returning(postColumns);
 }

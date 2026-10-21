@@ -30,7 +30,8 @@ const FORBIDDEN: Array<[string, RegExp]> = [
 /** Table names after FROM / JOIN in raw SQL (a function call such as unnest( or a sub-select is not a table). */
 const tablesOf = (text: string): string[] =>
   [...text.matchAll(/\b(?:from|join)\s+([\w".]+)(?![\w".]|\s*\()/gi)].map((m) => (m[1] ?? '').replace(/"/g, '').split('.').pop() ?? '');
-const ALLOWED_TABLES = new Set(['posts', 'friendships', 'comments', 'reactions', 'algorithm_configurations', 'regular_names']);
+// I11: professional_follows (a Professional viewer's followed authors, FR-ALG-003) and professional_profiles (a Professional author's name and tag).
+const ALLOWED_TABLES = new Set(['posts', 'friendships', 'comments', 'reactions', 'algorithm_configurations', 'regular_names', 'professional_follows', 'professional_profiles']);
 
 describe('[F3.2-a2 c2] the feed SQL, static', () => {
   it('[F3.2-a2 c2] a feed repository exists and queries posts (the check below is not vacuous)', () => {

@@ -7,6 +7,7 @@
 
 import {
   feedPageResponse,
+  professionalTag,
   resolveFeedConfig,
   selectFeedPage,
   serializeFeedCursor,
@@ -17,6 +18,7 @@ import {
   type FeedPageResponse,
   type FeedUnit,
   type AccountType,
+  type ProfessionalField,
 } from '@nestly/shared';
 import type { Database } from '../db/client.js';
 import { inIdentityTransaction, type IdentityTx } from '../db/identity-transaction.js';
@@ -88,6 +90,11 @@ async function classifyViewer(tx: IdentityTx): Promise<FeedRefusal | { readonly 
   return profile === null ? { kind: 'forbidden' } : { kind: 'viewer', profile };
 }
 
+/** A named author: its name and, for a Professional, the "יועץ · תחום" tag (decisions-in-force §4, I11). */
+function authorOf(name: string | null, field: ProfessionalField | null, fieldOther: string | null): { name: string | null; tag?: string } {
+  return field === null ? { name } : { name, tag: professionalTag(field, fieldOther) };
+}
+
 /** The displayed counts and the viewer's own like-state of one unit (F3.3): read after the ranking, never an input to it. */
 interface UnitReactions {
   readonly likeCount: number;
@@ -119,9 +126,11 @@ function unitOf(row: DisplayPost, reactions: UnitReactions): FeedUnit | undefine
   const named = {
     isMine: row.isMine,
     isAnonymous: false,
-    author: { name: row.authorName },
+    author: authorOf(row.authorName, row.authorField, row.authorFieldOther),
   } as const;
-  if (!row.isShare) return row.body === null ? undefined : { ...common, kind: 'post', body: row.body, ...named };
+  if (!row.isShare) {
+    return row.body === null ? undefined : { ...common, kind: 'post', body: row.body, ...(row.isHelpRequest ? { isHelpRequest: true as const } : {}), ...named };
+  }
   const { originalId, originalBody, originalAudience, originalCreatedAt, originalIsAnonymous } = row;
   const original =
     originalId !== null && originalBody !== null && originalAudience !== null && originalCreatedAt !== null && originalIsAnonymous === false
@@ -133,7 +142,7 @@ function unitOf(row: DisplayPost, reactions: UnitReactions): FeedUnit | undefine
           createdAt: originalCreatedAt,
           isAnonymous: false,
           isMine: row.originalIsMine,
-          author: { name: row.originalAuthorName },
+          author: authorOf(row.originalAuthorName, row.originalAuthorField, row.originalAuthorFieldOther),
         } as const)
       : ({ available: false } as const);
   // A share's own text is `sharerText`; `body` stays empty (a1 findings, "For a2").

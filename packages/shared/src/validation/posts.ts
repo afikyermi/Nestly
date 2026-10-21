@@ -31,12 +31,20 @@ const imageIds = z
   .refine((ids) => new Set(ids.map((id) => id.toLowerCase())).size === ids.length, 'invalid');
 
 export const createPostSchema = z
-  .strictObject({ body: postBody, audience, stageTag: stageTag.optional(), isAnonymous: z.boolean().optional(), imageIds: imageIds.optional() })
-  .refine((value) => !(value.isAnonymous === true && value.audience === 'friends'), 'audience_not_allowed');
+  .strictObject({
+    body: postBody,
+    audience,
+    stageTag: stageTag.optional(),
+    isAnonymous: z.boolean().optional(),
+    imageIds: imageIds.optional(),
+    /** OP-038 (I11): the author asks for help, so Professionals may Offer Help (FR-SERV-005). A Regular's post only (the database). */
+    isHelpRequest: z.boolean().optional(),
+  })
+  .refine((value) => !(value.isAnonymous === true && value.audience !== 'everyone'), 'audience_not_allowed');
 
 /** PATCH /api/posts/:id: any of the three, at least one. Absent = unchanged; `stageTag: null` clears the tag. */
 export const updatePostSchema = z
-  .strictObject({ body: postBody.optional(), audience: audience.optional(), stageTag: stageTag.optional() })
+  .strictObject({ body: postBody.optional(), audience: audience.optional(), stageTag: stageTag.optional(), isHelpRequest: z.boolean().optional() })
   .refine((value) => Object.keys(value).length > 0, 'invalid');
 
 /** The `:id` of a post path: a uuid's text form (`guid`, so Postgres' cast cannot fail), else the caller answers 404 before any query. */
@@ -46,6 +54,8 @@ export interface PostWrite {
   readonly body?: string;
   readonly audience?: PostAudience;
   readonly stageTag?: JourneyStage | null;
+  /** OP-038 (I11): asks for help. */
+  readonly isHelpRequest?: boolean;
 }
 
 /** A create adds the one-time anonymity choice; present only when the body named it. */
@@ -66,12 +76,14 @@ interface ParsedWrite {
   readonly body?: string | undefined;
   readonly audience?: PostAudience | undefined;
   readonly stageTag?: JourneyStage | null | undefined;
+  readonly isHelpRequest?: boolean | undefined;
 }
 
-const writeOf = ({ body, audience: chosen, stageTag: tag }: ParsedWrite): PostWrite => ({
+const writeOf = ({ body, audience: chosen, stageTag: tag, isHelpRequest: help }: ParsedWrite): PostWrite => ({
   ...(body === undefined ? {} : { body }),
   ...(chosen === undefined ? {} : { audience: chosen }),
   ...(tag === undefined ? {} : { stageTag: tag }),
+  ...(help === undefined ? {} : { isHelpRequest: help }),
 });
 
 /** A shape, key or enum problem is `invalid` (400); an empty or too long text, or an anonymous friends-only post, is its code (422). */

@@ -27,6 +27,7 @@ import {
   readThread,
   readUnreadCount,
 } from '../repositories/chat-repository.js';
+import { isReadableProfessional, openProfessionalConversation } from '../repositories/professionals-repository.js';
 
 export type ChatRefusal =
   | { readonly kind: 'invalid' }
@@ -122,7 +123,10 @@ export async function startChat(database: Database, identity: Identity, userId: 
   return guarded(() =>
     inIdentityTransaction(database, identity, async (tx): Promise<ChatOutcome<{ result: ChatStartResult }>> => {
       const existing = await findConversationWith(tx, userId);
-      if (existing === undefined && !(await areFriends(tx, userId))) {
+      // I11 (FR-SERV-004, AC-010): a Regular writes to a Professional directly, with no request and no approval; the database decides
+      // (conversations_insert_party: context professional only from a Regular to an active Professional).
+      const professional = existing === undefined && (await isReadableProfessional(tx, userId));
+      if (existing === undefined && !professional && !(await areFriends(tx, userId))) {
         await insertChatRequest(tx, userId, text);
         return { kind: 'ok', result: { kind: 'request' } };
       }
@@ -130,7 +134,7 @@ export async function startChat(database: Database, identity: Identity, userId: 
       // conversation is left behind.
       const conversationId = await tx
         .transaction(async (savepoint) => {
-          const id = existing ?? (await openConversation(savepoint, userId, null));
+          const id = existing ?? (professional ? await openProfessionalConversation(savepoint, userId) : await openConversation(savepoint, userId, null));
           await insertMessage(savepoint, id, text);
           return id;
         })
