@@ -579,7 +579,7 @@ comment on column nestly.professional_reviews.id is 'The review id.';
 comment on column nestly.professional_reviews.reviewer_id is 'The Regular reviewer (default auth.uid()). Never granted for SELECT.';
 comment on column nestly.professional_reviews.reviewer_status is 'Copy of the reviewer''s users.status (FK): a suspended reviewer''s review is hidden. Never granted.';
 comment on column nestly.professional_reviews.professional_id is 'The reviewed Professional.';
-comment on column nestly.professional_reviews.conversation_id is 'The conversation the review rests on: one review per conversation (the "approved request", OP-045). Never granted for SELECT: joined to the conversation it would name the reviewer.';
+comment on column nestly.professional_reviews.conversation_id is 'The conversation the review rests on: one review per conversation (the "approved request", OP-045). Not readable (no SELECT grant): joined to the conversation it would name the reviewer.';
 comment on column nestly.professional_reviews.rating is '1 to 5. The Professional''s rating is the average (BR-072).';
 comment on column nestly.professional_reviews.body is 'The review text, 1 to 1000 characters. The writer is responsible for it (BR-071).';
 comment on column nestly.professional_reviews.created_at is 'When the review was written. UTC.';
