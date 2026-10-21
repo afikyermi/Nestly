@@ -141,7 +141,7 @@ export async function readAudit(
 }
 
 /**
- * OP-062 (built per its default): an item hidden from everyone after ten identical reports comes right after the child-safety items (priority
+ * OP-063 (built per its default): an item hidden from everyone after ten identical reports comes right after the child-safety items (priority
  * 1), so that a hide by many accounts is decided first; the order within each part is the queue's (stable sort).
  */
 export function autoHiddenFirst(items: QueueItem[]): QueueItem[] {
