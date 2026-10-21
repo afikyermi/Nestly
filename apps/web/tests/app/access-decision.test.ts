@@ -12,7 +12,7 @@ import { GUEST_PATHS, PROTECTED_PATHS } from '../../src/app/paths';
 
 // F1.4 part c adds three Guest placeholders (interface "part c"): recovery (F1.6) and the two consent-document links (I9).
 const GUEST = ['/', '/login', '/register', '/auth/google', '/recovery', '/terms', '/privacy', '/team/join'];
-const PROTECTED = ['/home', '/feed', '/profile', '/settings', '/recovery-questions', '/change-password', '/friends', '/groups', '/posts/new', '/medical-hotlines', '/community-rules', '/notifications', '/search', '/admin', '/admin/reports', '/admin/users', '/admin/audit', '/admin/guides', '/admin/media', '/admin/team', '/admin/community', '/admin/announcements', '/admin/analytics'];
+const PROTECTED = ['/home', '/feed', '/profile', '/settings', '/recovery-questions', '/change-password', '/friends', '/groups', '/posts/new', '/medical-hotlines', '/community-rules', '/notifications', '/search', '/admin', '/admin/reports', '/admin/users', '/admin/audit', '/admin/guides', '/admin/media', '/admin/team', '/admin/community', '/admin/announcements', '/admin/analytics', '/admin/support', '/chat', '/support'];
 const UNLISTED = [
   '/marketplace',
   '/profile/123',
@@ -50,6 +50,13 @@ describe('the route table (6, Q2)', () => {
     const path = '/posts/d0000000-0000-4000-8000-000000000001';
     expect(decideAccess('signed-out', path)).not.toEqual({ kind: 'render' });
     expect(decideAccess('signed-in', path)).toEqual({ kind: 'render' });
+  });
+  it('[I8][FR-AUTH-004] one conversation, /chat/<uuid>, and one Support thread, /support/<uuid>, are protected; another tail is not a route', () => {
+    for (const path of ['/chat/d0000000-0000-4000-8000-000000000001', '/support/d0000000-0000-4000-8000-000000000001']) {
+      expect(decideAccess('signed-out', path)).not.toEqual({ kind: 'render' });
+      expect(decideAccess('signed-in', path)).toEqual({ kind: 'render' });
+    }
+    expect(decideAccess('signed-in', '/chat/not-an-id')).not.toEqual({ kind: 'render' });
   });
   it('[F1.2 c6][FR-AUTH-004] no route is both Guest and protected', () => {
     expect(Array.from(GUEST_PATHS).filter((p) => Array.from(PROTECTED_PATHS).includes(p))).toEqual([]);

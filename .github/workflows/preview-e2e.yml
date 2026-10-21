@@ -6,8 +6,8 @@
 # Not on every push to main: each run may cost a Vercel deployment.
 #
 # How the Preview is found: main deploys as Production, and Vercel builds a Preview only for ready/** branches
-# (vercel.json). Job `deployment` takes main's tip and fast-forwards ready/nightly to it (a plain push with the default
-# GITHUB_TOKEN, never forced; a rejected push fails the run). If ready/nightly is already at that commit, nothing is
+# (vercel.json). Job `deployment` commits main's tree as a new child of ready/nightly and of main, and pushes it (a plain push with the default
+# GITHUB_TOKEN, never forced; a rejected push fails the run): Vercel builds no Preview of main's own commit, already Production. If ready/nightly already holds main's tree, nothing is
 # pushed and that commit's existing Preview deployment is used. It then polls the deployments API for a deployment of
 # that commit with environment Preview, created by vercel[bot], whose latest status is success, for up to 15 minutes.
 # Only this job can write (contents: write, to push the branch; deployments: read); it runs git and gh only, no code
@@ -57,38 +57,45 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
           persist-credentials: true
-      - name: Fast-forward ready/nightly to main
+      - name: Put main's tree on ready/nightly as a new commit
         id: candidate
         run: |
           set -euo pipefail
-          sha="$(git rev-parse HEAD)"
+          main_sha="$(git rev-parse HEAD)"
           # `case` tests the whole value (grep would test line by line).
-          case "${sha}" in
+          case "${main_sha}" in
             *[!0-9a-f]*|'') echo "::error::main's commit id could not be read"; exit 1 ;;
           esac
-          if [ "${#sha}" -ne 40 ]; then
+          if [ "${#main_sha}" -ne 40 ]; then
             echo "::error::main's commit id could not be read"
             exit 1
           fi
-          echo "sha=${sha}" >> "${GITHUB_OUTPUT}"
+          tree="$(git rev-parse "${main_sha}^{tree}")"
           current="$(git ls-remote origin refs/heads/ready/nightly | cut -f1)"
-          if [ "${current}" = "${sha}" ]; then
-            echo "ready/nightly is already at main (${sha}): nothing pushed, that commit's Preview deployment is used"
-            exit 0
-          fi
+          parents=()
           if [ -n "${current}" ]; then
             git fetch --no-tags origin refs/heads/ready/nightly
-            if ! git merge-base --is-ancestor "${current}" "${sha}"; then
-              echo "::error::ready/nightly (${current}) is not an ancestor of main (${sha}), so it cannot be fast-forwarded. It is never force-pushed: delete the branch by hand, then run this workflow again."
-              exit 1
+            # A nightly commit of main's current tree already exists: its Preview deployment is used. Not when the branch
+            # is at main's own commit: Vercel deployed that commit as Production and builds no Preview of it (21.10.2026).
+            if [ "${current}" != "${main_sha}" ] && [ "$(git rev-parse "${current}^{tree}")" = "${tree}" ]; then
+              echo "sha=${current}" >> "${GITHUB_OUTPUT}"
+              echo "ready/nightly (${current}) already holds main's tree: nothing pushed, that commit's Preview deployment is used"
+              exit 0
             fi
+            parents+=(-p "${current}")
           fi
+          parents+=(-p "${main_sha}")
+          # A new commit with main's exact tree, child of the branch's tip (so the push is a fast-forward) and of main.
+          # Vercel builds a Preview only of a commit it has not deployed; main's own commit is already Production.
+          sha="$(git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit-tree "${tree}" "${parents[@]}" -m "nightly: main at ${main_sha}")"
+          echo "sha=${sha}" >> "${GITHUB_OUTPUT}"
           # A plain push: GitHub refuses it unless it is a fast-forward (or creates the branch). Never forced.
           if ! git push origin "${sha}:refs/heads/ready/nightly"; then
-            echo "::error::the push to ready/nightly was rejected (not a fast-forward, or a branch rule). It is never force-pushed: delete the branch by hand, then run this workflow again."
+            echo "::error::the push to ready/nightly was rejected (a branch rule). It is never force-pushed: delete the branch by hand, then run this workflow again."
             exit 1
           fi
-          echo "ready/nightly now points at ${sha}"
+          echo "ready/nightly now points at ${sha} (main's tree at ${main_sha})"
       - name: Wait for the Preview deployment of that commit
         id: wait
         timeout-minutes: 17

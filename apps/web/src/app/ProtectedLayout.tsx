@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { ShareLinkSheet } from '@/components/domain/share-link-sheet';
 import { AppShell } from '@/components/layout/app-shell';
@@ -11,6 +11,8 @@ import { useBackCloses } from '@/hooks/use-back-closes';
 import { useSession } from '@/hooks/use-session';
 import { StaffAccessProvider, useStaffAccessQuery } from '@/hooks/use-staff-access';
 import { ADMIN_MENU_LABEL } from '@/features/admin/admin-texts';
+import { ChatTopBarButton } from '@/features/chat/ChatTopBarButton';
+import { NEW_SUPPORT_LABEL } from '@/lib/chat-texts';
 import { shareLinkSheetProps, useShareLink } from '@/hooks/use-share-link';
 import { SHARE_SITE_LABEL } from '@/lib/share-link-texts';
 import { RULES_TITLE } from '@/pages/community-rules/community-rules-texts';
@@ -27,12 +29,14 @@ const NAV_ITEMS = [
 ];
 
 /** The top bar's search and bell (AC-033): a Regular or Professional account only. An Admin or Moderator account has neither. */
-function TopBarActions() {
+// I8: the Chat Center's button (FR-CHAT-001) sits between the search and the bell; it is given only to a community account (BR-034).
+function TopBarActions({ chat }: { chat: ReactNode }) {
   const { state } = useNotifications();
-  if (state.kind === 'unavailable') return null;
+  if (state.kind === 'unavailable') return chat === null ? null : <>{chat}</>;
   return (
     <>
       <SearchBox />
+      {chat}
       <NotificationBell />
     </>
   );
@@ -79,7 +83,7 @@ export function ProtectedLayout() {
     <StaffAccessProvider value={staff}>
     <NotificationsProvider>
     <AppShell
-      topBarActions={<TopBarActions />}
+      topBarActions={<TopBarActions chat={staff.kind === 'none' ? <ChatTopBarButton current={current} /> : null} />}
       navItems={NAV_ITEMS.map((item) => ({ ...item, current: item.href === current }))}
       navLabel="ניווט ראשי"
       menuLabel="פתיחת התפריט"
@@ -127,6 +131,12 @@ export function ProtectedLayout() {
           <MenuItem href={PATHS.changePassword} current={PATHS.changePassword === current} onNavigate={leaving(closeMenu)}>
             החלפת סיסמה
           </MenuItem>
+          {/* I8: the Support form (FR-ADMIN-001, FR-MENU-001 "Help/Support Request"), for a community account; staff send none. */}
+          {staff.kind === 'none' ? (
+            <MenuItem href={PATHS.support} current={PATHS.support === current} onNavigate={leaving(closeMenu)}>
+              {NEW_SUPPORT_LABEL}
+            </MenuItem>
+          ) : null}
           <MenuItem
             onClick={() => {
               setOpeningSite(true);

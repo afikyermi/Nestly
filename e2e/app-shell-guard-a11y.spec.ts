@@ -190,7 +190,7 @@ test.describe('titles and focus', () => {
     await expect(drawerOf(page)).toBeVisible();
     const inside = await page.evaluate(() => document.activeElement?.closest('[role="dialog"]') != null);
     expect(inside, 'focus is inside the drawer').toBe(true);
-    const names = await tabNames(page, 12); // F3.6 c11: "שיתוף Nestly" joined the drawer before the logout
+    const names = await tabNames(page, 15); // F3.6 c11: "שיתוף Nestly" joined the drawer before the logout; I7 "התראות", I8 "פנייה לתמיכה" and I10 "הקבוצות שלי" joined too
     expect(names.indexOf('חשבון')).toBeGreaterThanOrEqual(0);
     expect(names.indexOf('התנתקות')).toBeGreaterThan(names.indexOf('חשבון'));
     await drawerOf(page).getByRole('link', { name: 'חשבון', exact: true }).focus();

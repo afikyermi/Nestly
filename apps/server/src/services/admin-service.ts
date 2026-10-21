@@ -134,10 +134,11 @@ export async function readReportDetail(
     if (refused(gate)) return gate;
     const reports = await readReportsOn(tx, kind, targetId);
     if (reports.length === 0) return { kind: 'not_found' };
+    // A chat message is never read here: staff open it by its own audited call (§9.6), which also names its sender.
     // I10 (NFR-PRIV-002): Private Group content is read only after an audited opening, asked for by the staff member.
-    const privateGroup = kind !== 'user' && (await isPrivateGroupTarget(tx, kind, targetId));
-    if (privateGroup && openPrivate) await openPrivateGroupContent(tx, kind, targetId);
-    const content = kind === 'user' ? undefined : await readContent(tx, kind, targetId);
+    const privateGroup = (kind === 'post' || kind === 'comment') && (await isPrivateGroupTarget(tx, kind, targetId));
+    if (privateGroup && openPrivate && (kind === 'post' || kind === 'comment')) await openPrivateGroupContent(tx, kind, targetId);
+    const content = kind === 'user' || kind === 'message' ? undefined : await readContent(tx, kind, targetId);
     if (kind === 'post' && content !== undefined) imageRows = await readPostImageRows(tx, storage, [targetId]);
     // The account an enforcement would act on: the reported account, or the named author of the content (an anonymous author is revealed
     // by its own audited call, never here). Needs USER_VIEW; without it the screen shows no account.
@@ -169,7 +170,7 @@ export async function handleReports(database: Database, identity: Identity, requ
       const gate = await require_(tx, 'REPORTS_VIEW', ...(request.moderation === undefined ? [] : (['CONTENT_MODERATE'] as const)));
       if (refused(gate)) return gate;
       if (request.moderation !== undefined) {
-        if (request.targetKind === 'user') return { kind: 'invalid' };
+        if (request.targetKind === 'user' || request.targetKind === 'message') return { kind: 'invalid' };
         await setAuditReason(tx, request.moderation.reason);
         // I10: moderating Private Group content opens it first (audited); without PRIVATE_GROUP_MODERATE nothing moves (ERR-024)
         if (await isPrivateGroupTarget(tx, request.targetKind, request.targetId)) await openPrivateGroupContent(tx, request.targetKind, request.targetId);

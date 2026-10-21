@@ -1,7 +1,8 @@
 import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { feedPageResponse, groupDetail, groupMembersResponse, groupsListResponse, groupFriendsResponse, groupInvitationsResponse, searchResponse } from '@nestly/shared';
+import { feedPageResponse, groupDetail, groupPeopleResponse, notificationsResponse, groupMembersResponse, groupsListResponse, groupFriendsResponse, groupInvitationsResponse, searchResponse } from '@nestly/shared';
 import { createDatabase, type Database } from '../../src/db/client.js';
+import { readReportDetail } from '../../src/services/admin-service.js';
 import { AUDIENCE, COLD_START_MS, ISSUER, newKey, restoreEnv, startJwks, token, type App, type JwksServer, type TestKey } from '../helpers/identity-fixtures.js';
 import { buildRegisterApp, CLOCK_NOW, post, validBody } from '../helpers/register-app.js';
 
@@ -28,8 +29,9 @@ function url(): string {
 }
 const bearer = async (sub: string): Promise<string> => `Bearer ${await token({ key, sub })}`;
 const text = async (query: PromiseLike<ReadonlyArray<Record<string, unknown>>>): Promise<string> => String((await query)[0]?.v);
-const call = async (method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, who: string, payload?: unknown) =>
-  app.inject({ method, url: path, headers: { authorization: await bearer(who) }, ...(payload === undefined ? {} : { payload: payload as object }) });
+const call = async (method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, who: string, payload?: Record<string, unknown>) =>
+  app.inject({ method, url: path, headers: { authorization: await bearer(who) }, ...(payload === undefined ? {} : { payload }) });
+const idOf = (res: { body: string }): string => String(Reflect.get(Object(body(res)), 'id'));
 const body = (res: { body: string }): unknown => JSON.parse(res.body);
 
 beforeAll(async () => {
@@ -100,7 +102,7 @@ describe('[I10] Groups', () => {
     expect([joined.state, joined.myRole, joined.memberCount]).toEqual(['member', 'member', 2]);
     const ok = await call('POST', '/api/posts', member, { body: 'בוקר טוב לכולם', audience: 'everyone', groupId: pub });
     expect(ok.statusCode).toBe(201);
-    const postId = String((body(ok) as { id: string }).id);
+    const postId = idOf(ok);
     const page = feedPageResponse.parse(body(await call('GET', `/api/groups/${pub}/posts`, outsider)));
     expect(page.items.map((u) => u.id)).toContain(postId);
     const feed = feedPageResponse.parse(body(await call('GET', '/api/feed', member)));
@@ -114,17 +116,25 @@ describe('[I10] Groups', () => {
     const again = await call('PUT', `/api/groups/${priv}/membership`, member);
     expect(groupDetail.parse(body(again)).state).toBe('requested');
     const requests = await call('GET', `/api/groups/${priv}/requests`, owner);
-    expect((body(requests) as { people: { userId: string; fullName: string }[] }).people.map((p) => [p.userId, p.fullName])).toEqual([[member, 'Mia Member']]);
+    expect(groupPeopleResponse.parse(body(requests)).people.map((p) => [p.userId, p.fullName])).toEqual([[member, 'Mia Member']]);
     expect((await call('GET', `/api/groups/${priv}/requests`, member)).statusCode).toBe(403);
     expect((await call('PUT', `/api/groups/${priv}/requests/${member}`, owner, { decision: 'approve' })).statusCode).toBe(204);
     const detail = groupDetail.parse(body(await call('GET', `/api/groups/${priv}`, member)));
     expect(detail.myRole).toBe('member');
     const posted = await call('POST', '/api/posts', owner, { body: 'רק לחברי הקבוצה', audience: 'everyone', groupId: priv });
-    const postId = String((body(posted) as { id: string }).id);
+    const postId = idOf(posted);
     expect(feedPageResponse.parse(body(await call('GET', `/api/groups/${priv}/posts`, member))).items.map((u) => u.id)).toContain(postId);
     expect(feedPageResponse.parse(body(await call('GET', `/api/groups/${priv}/posts`, outsider))).items).toEqual([]);
     expect((await call('GET', `/api/posts/${postId}`, outsider)).statusCode).toBe(404);
     expect((await call('GET', `/api/groups/${priv}/members`, outsider)).statusCode).toBe(403);
+    // NFR-PRIV-002, BR-040: a report keeps no copy; staff read the content only by opening it, audited
+    expect((await call('POST', '/api/reports', member, { targetKind: 'post', targetId: postId, reason: 'spam' })).statusCode).toBe(201);
+    const closed = await readReportDetail(database, { userId: staff }, 'post', postId);
+    expect(closed.kind === 'ok' ? [closed.detail.content, closed.detail.privateGroup, closed.detail.reports[0]?.copiedText] : closed.kind).toEqual([null, true, null]);
+    const audits = Number(await text(side`select tests.fx_sf_audit('private_group_content_viewed') as v`));
+    const opened = await readReportDetail(database, { userId: staff }, 'post', postId, undefined, true);
+    expect(opened.kind === 'ok' ? opened.detail.content?.text : opened.kind).toBe('רק לחברי הקבוצה');
+    expect(Number(await text(side`select tests.fx_sf_audit('private_group_content_viewed') as v`))).toBe(audits + 1);
   });
 
   it('[AC-038 ERR-026 ERR-019] Roles: the Owner cannot leave; a member changes no Role; a transfer makes a new Owner', T, async () => {
@@ -152,7 +162,7 @@ describe('[I10] Groups', () => {
     expect(groupDetail.parse(body(await call('GET', `/api/groups/${g}`, member))).myRole).toBe('member');
     expect((await call('POST', `/api/groups/${pub}/recommendations`, owner, { userId: member })).statusCode).toBe(204);
     const notes = await call('GET', '/api/notifications', member);
-    const items = (body(notes) as { items: { type: string; targetKind: string; targetId: string; targetName?: string | null }[] }).items;
+    const items = notificationsResponse.parse(body(notes)).items;
     expect(items.find((n) => n.type === 'group_recommended')).toMatchObject({ targetKind: 'group', targetId: pub, targetName: 'הליכות בוקר' });
     expect((await call('POST', `/api/groups/${pub}/recommendations`, owner, { userId: outsider })).statusCode).toBe(422);
   });

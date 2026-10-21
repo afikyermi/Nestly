@@ -20,6 +20,7 @@ export const TAB_LABELS = {
   users: 'משתמשים',
   audit: 'יומן פעולות',
   media: 'תמונות לבדיקה',
+  support: 'פניות Support',
   guides: 'מדריכים',
   team: 'צוות',
   community: 'הגדרות קהילה',
@@ -34,12 +35,37 @@ export const TAB_KEYS: Record<AdminTab, PermissionKey | 'ADMIN'> = {
   users: 'USER_VIEW',
   audit: 'AUDIT_LOG_VIEW',
   media: 'CONTENT_MODERATE',
+  support: 'SUPPORT_VIEW',
   guides: 'ADMIN',
   team: 'ADMIN',
   community: 'COMMUNITY_CONFIG',
   announcements: 'SYSTEM_ANNOUNCEMENTS',
   analytics: 'ANALYTICS_VIEW',
 };
+
+// ---- the Support inbox (FR-ADMIN-002)
+export const SUPPORT_TITLE = 'פניות Support';
+export const SUPPORT_FILTER_LABEL = 'סטטוס';
+export const SUPPORT_ALL_LABEL = 'הכל';
+export const SUPPORT_EMPTY_TEXT = 'אין פניות בסטטוס הזה';
+export const SUPPORT_LIST_LABEL = 'פניות Support';
+export const SUPPORT_BACK_LABEL = 'חזרה לפניות';
+export const SUPPORT_OPEN_LABEL = 'פתיחת הפנייה';
+export const SUPPORT_USER_LABEL = 'מאת';
+export const SUPPORT_THREAD_LABEL = 'ההודעות בפנייה';
+export const SUPPORT_INTERNAL_NOTE = 'הערה פנימית';
+export const SUPPORT_REPLY_LABEL = 'תגובה בשם Support';
+export const SUPPORT_INTERNAL_LABEL = 'הערה פנימית (רק הצוות רואה)';
+export const SUPPORT_SEND_LABEL = 'שמירה';
+export const SUPPORT_REPLY_SENT_TEXT = 'התגובה נשלחה בשם Support';
+export const SUPPORT_NOTE_SAVED_TEXT = 'ההערה הפנימית נשמרה';
+export const SUPPORT_STATUS_LABEL = 'שינוי סטטוס';
+export const SUPPORT_STATUS_SAVED_TEXT = 'הסטטוס עודכן';
+export const SUPPORT_CLOSE_TITLE = 'לסגור את הפנייה?';
+export const SUPPORT_CLOSE_DESCRIPTION = 'אחרי הסגירה אי אפשר לפתוח את הפנייה מחדש, ואין עוד תגובות בה. נושא חדש נפתח כפנייה חדשה';
+export const SUPPORT_CLOSE_LABEL = 'סגירת הפנייה';
+export const SUPPORT_CANCEL_LABEL = 'ביטול';
+export const SUPPORT_CLOSED_NOTE_HINT = 'הפנייה סגורה: אפשר להוסיף רק הערה פנימית';
 
 // ---- the audit log
 export const AUDIT_TITLE = 'יומן פעולות';
@@ -61,6 +87,10 @@ export const ACTION_LABELS: Record<string, string> = {
   author_revealed: 'חשיפת מחבר אנונימי',
   report_handled: 'סגירת דיווח',
   report_reason_changed: 'שינוי סיבת דיווח',
+  reported_message_viewed: 'פתיחת הודעה שדווחה',
+  support_replied: 'תגובה בשם Support',
+  support_note_added: 'הערה פנימית בפנייה',
+  support_status_changed: 'שינוי סטטוס פנייה',
   media_approved: 'אישור תמונה',
   media_rejected: 'דחיית תמונה',
   media_suspected: 'חשד לפגיעה בילד בתמונה',
@@ -78,6 +108,7 @@ export const TARGET_LABELS: Record<string, string> = {
   comment: 'תגובה',
   report: 'דיווח',
   report_reason: 'סיבת דיווח',
+  support_request: 'פניית Support',
   media: 'תמונה',
   moderator_invitation: 'הזמנת מודרטור',
   announcement: 'הודעת מערכת',
@@ -89,7 +120,12 @@ export const targetLabel = (kind: string): string => TARGET_LABELS[kind] ?? kind
 export const REPORTS_TITLE = 'תור הדיווחים';
 export const QUEUE_EMPTY_TEXT = 'אין דיווחים פתוחים';
 export const QUEUE_LIST_LABEL = 'דיווחים פתוחים';
-export const KIND_LABELS: Record<ReportTargetKind, string> = { post: 'פוסט', comment: 'תגובה', user: 'פרופיל' };
+// ---- a reported chat message (§9.6)
+export const MESSAGE_HEADING = 'ההודעה שדווחה';
+export const MESSAGE_PRIVATE_NOTE = 'השיחה פרטית. אפשר לפתוח רק את ההודעה שדווחה, והפתיחה נרשמת ביומן הפעולות';
+export const OPEN_MESSAGE_LABEL = 'הצגת ההודעה';
+export const senderText = (name: string | null): string => (name === null ? 'השולח: חשבון ללא שם' : `השולח: ${name}`);
+export const KIND_LABELS: Record<ReportTargetKind, string> = { post: 'פוסט', comment: 'תגובה', user: 'פרופיל', message: 'הודעה בצ׳אט' };
 export const PRIORITY_LABELS: Record<number, string> = { 1: 'עדיפות עליונה', 2: 'עדיפות גבוהה', 3: 'עדיפות בינונית', 4: 'עדיפות רגילה' };
 export const RISING_TEXT = 'עלה בתור (3 דיווחים או יותר)';
 export const reportCountText = (n: number): string => (n === 1 ? 'דיווח אחד' : `${n.toLocaleString('en-US')} דיווחים`);

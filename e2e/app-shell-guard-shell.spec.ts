@@ -47,7 +47,7 @@ async function openDrawer(page: Page): Promise<void> {
 test.describe('AppShell: TopBar', () => {
   for (const vp of [MOBILE, DESKTOP]) {
     for (const route of PROTECTED_ROUTES) {
-      test(`[F1.2 c15][FR-TOP-001][AC-033] ${route.path} @${vp.width}: TopBar has the Hamburger at the inline-start (right) edge, then the Logo, the search and the notifications bell, and no other control (Chat comes with messaging)`, async ({
+      test(`[F1.2 c15][FR-TOP-001][AC-033] ${route.path} @${vp.width}: TopBar has the Hamburger at the inline-start (right) edge, then the Logo, the search, the Chat button and the notifications bell, and no other control`, async ({
         page,
       }) => {
         await page.setViewportSize(vp);
@@ -76,10 +76,11 @@ test.describe('AppShell: TopBar', () => {
               .filter((el) => el instanceof HTMLElement && el.offsetParent !== null && !el.classList.contains('sr-only'))
               .map((el) => el.getAttribute('aria-label') ?? (el.textContent ?? '').trim()),
           );
-        const known = (c: string): boolean => c === MENU_BUTTON || c === 'Nestly' || c === 'חיפוש' || c === '' || c.startsWith('התראות');
+        const known = (c: string): boolean => c === MENU_BUTTON || c === 'Nestly' || c === 'חיפוש' || c === '' || c.startsWith('התראות') || c.startsWith('הודעות');
         expect(controls.filter((c) => !known(c))).toEqual([]);
-        await expect(page.getByRole('button', { name: /צ'אט|צאט|הודעות/ })).toHaveCount(0);
-        await expect(page.getByRole('link', { name: /צ'אט|צאט|הודעות/ })).toHaveCount(0);
+        // I8 (FR-CHAT-001): the Chat Center's button, "הודעות" with the unread count when there is one.
+        await expect(header.getByRole('button', { name: /^הודעות/ })).toBeVisible();
+        await expect(page.getByRole('button', { name: /צ'אט|צאט/ })).toHaveCount(0);
       });
     }
   }
@@ -201,6 +202,7 @@ test.describe('AppShell: side menu', () => {
     for (const s of sections) expect(s.href ?? '', s.name).toMatch(/^\/settings(?:[#/?]|$)/);
     expect(new Set(sections.map((s) => s.href)).size, 'a distinct address per section').toBe(4);
     expect(shown.map((i) => ({ ...i, href: i.href?.startsWith('/settings') === true ? '/settings*' : i.href }))).toEqual([
+      { tag: 'a', name: 'הקבוצות שלי', href: '/groups' }, // I10: My Groups first (FR-MENU-001: My Groups, Friends, ...)
       { tag: 'a', name: 'חברים', href: '/friends' }, // F2.4b c13, before Settings (FR-MENU-001)
       { tag: 'a', name: 'כללי הקהילה', href: '/community-rules' }, // F3.7 c14, right after Friends
       { tag: 'a', name: 'חשבון', href: '/settings*' },
@@ -210,6 +212,7 @@ test.describe('AppShell: side menu', () => {
       { tag: 'a', name: 'פנייה למוקד רפואי', href: '/medical-hotlines' }, // F3.8
       { tag: 'a', name: 'שאלות לשחזור סיסמה', href: '/recovery-questions' }, // F1.6 c18
       { tag: 'a', name: 'החלפת סיסמה', href: '/change-password' }, // F2.0 c15
+      { tag: 'a', name: 'פנייה לתמיכה', href: '/support' }, // I8: Help/Support Request (FR-ADMIN-001)
       { tag: 'button', name: 'שיתוף Nestly', href: null }, // F3.6 c11, just before the logout
       { tag: 'button', name: 'התנתקות', href: null },
     ]);
