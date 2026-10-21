@@ -39,7 +39,8 @@ async function signUp(page: Page, u: TestUser): Promise<void> {
 test.describe.serial('I12 Marketplace on the Preview [FR-MKT-001 FR-MKT-002 FR-MKT-005]', () => {
   test('a fresh Regular publishes a listing, finds it in the Marketplace, marks it sold/given and back, and deletes it', async ({ page }, info) => {
     const u = userOf(info.project.name);
-    const title = `עגלה לבדיקה ${u.email.slice(0, 12)}`.slice(0, 60);
+    // unique per run and project: the user's own random part (the email's prefix is the run's, shared by both projects)
+    const title = `עגלה לבדיקה ${/-([0-9a-f]{16})@/.exec(u.email)?.[1] ?? info.project.name}`;
     await signUp(page, u);
 
     await page.goto('/marketplace/new');
@@ -74,7 +75,8 @@ test.describe.serial('I12 Marketplace on the Preview [FR-MKT-001 FR-MKT-002 FR-M
     await expect(main(page).getByRole('button', { name: 'סימון "נמכר/נמסר"' })).toBeVisible();
 
     await main(page).getByRole('button', { name: 'מחיקת המודעה' }).click();
-    await page.getByRole('dialog').getByRole('button', { name: 'מחיקת המודעה' }).click();
+    // the confirmation is the shared ConfirmDialog: role alertdialog (as admin-guides.spec.ts and chat.spec.ts read it)
+    await page.getByRole('alertdialog', { name: 'למחוק את המודעה?' }).getByRole('button', { name: 'מחיקת המודעה' }).click();
     await expect(page).toHaveURL(/\/marketplace\/mine$/);
     await expect(main(page).getByText(title)).toHaveCount(0);
   });
