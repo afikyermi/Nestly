@@ -33,6 +33,7 @@ drop policy professional_follows_select_analytics on nestly.professional_follows
 drop function nestly.deliver_child_birthdays();
 drop policy children_select_birthday on nestly.children;
 drop policy regular_profiles_select_birthday on nestly.regular_profiles;
+drop policy trend_scopes_insert_birthday on nestly.trend_scopes;
 
 -- search_people as 20261020400000 created it
 drop function nestly.search_people(text, integer, integer);
