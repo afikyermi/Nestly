@@ -55,8 +55,9 @@ const SENTENCES: Record<NotificationType, (who: string, group: string | null | u
   offer_declined: () => "הצעת עזרה שלך נדחתה",
   review_received: () => "התקבלה ביקורת חדשה על הפרופיל המקצועי שלך",
   followers_weekly: (_who, _group, count) => followersText(count),
-  // BR-037, AC-046: a Friend's child's birthday; the child is never named (FR-PRIV-001: a Friend sees the Journey Summary only)
-  child_birthday: (who) => `יום הולדת לילד או לילדה של ${who}`,
+  // BR-037, AC-046 (Afik 21.10.2026, OP-060 closed): the child is named only to a Friend who sees the name on the parent's profile, and the
+  // profile shows it to no one (FR-PRIV-001), so every Friend gets this sentence; never an age or a birth date
+  child_birthday: (who) => `יום הולדת לילד/ה של ${who}`,
 };
 
 /** The sentence of one notification: the name when shown, "מישהו" when hidden, "המחבר" for the anonymous author's own comment. */
