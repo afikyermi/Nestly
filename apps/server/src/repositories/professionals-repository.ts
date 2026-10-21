@@ -33,6 +33,8 @@ import { professionalConsentsInsert, usersInsert } from '../db/schema.js';
 
 const isoMs = sql.raw(`'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'`);
 const DIRECTORY_LIMIT = 50;
+/** Far above any real number of Follows; the list is not paged. */
+const FOLLOWING_LIMIT = 500;
 const PAGE_REVIEWS = 50;
 const PAGE_ARTICLES = 50;
 const HELP_LIMIT = 30;
@@ -97,8 +99,8 @@ const cardRow = z.object({
 /** The card columns of `pp` with its rating (BR-072: the average of the reviews the caller can read, one decimal). */
 const cardColumns = sql`pp.user_id as id, pp.full_name as "fullName", pp.business_name as "businessName", pp.field, pp.field_other as "fieldOther",
   pp.years_experience as "yearsExperience", pp.area, pp.price_from as "priceFrom",
-  (select round(avg(r.rating)::numeric, 1)::float8 from nestly.professional_reviews r where r.professional_id = pp.user_id) as rating,
-  (select count(*)::int from nestly.professional_reviews r where r.professional_id = pp.user_id) as "reviewCount"`;
+  (select round(avg(r.rating)::numeric, 1)::float8 from nestly.professional_reviews r where r.professional_id = pp.user_id and r.moderation = 'active') as rating,
+  (select count(*)::int from nestly.professional_reviews r where r.professional_id = pp.user_id and r.moderation = 'active') as "reviewCount"`;
 
 /**
  * FR-SERV-001/002, FR-ALG-005: the Professionals the caller can read, filtered by field, area, minimum rating, maximum price and minimum
@@ -135,7 +137,7 @@ export async function readDirectory(
       from (
         select ${cardColumns},
                2 * least(1::float8, ${intent})
-               + coalesce((select avg(r.rating)::float8 from nestly.professional_reviews r where r.professional_id = pp.user_id), 3) / 5
+               + coalesce((select avg(r.rating)::float8 from nestly.professional_reviews r where r.professional_id = pp.user_id and r.moderation = 'active'), 3) / 5
                + ((pp.about is not null)::int + (pp.area is not null)::int + (pp.price_from is not null)::int + (pp.business_name is not null)::int)::float8 / 8
                + power(2::float8, -extract(epoch from (now() - pp.updated_at))::float8 / (86400 * 30)) / 4 as score
         from nestly.professional_profiles pp
@@ -190,7 +192,7 @@ export async function readReviews(tx: IdentityTx, professionalId: string): Promi
   return z.array(reviewRow).parse(
     await tx.execute(sql`
       select r.id, r.rating, r.body as text, to_char(r.created_at at time zone 'UTC', ${isoMs}) as at
-      from nestly.professional_reviews r where r.professional_id = ${professionalId}::uuid
+      from nestly.professional_reviews r where r.professional_id = ${professionalId}::uuid and r.moderation = 'active'
       order by r.created_at desc, r.id limit ${PAGE_REVIEWS}`),
   );
 }
@@ -203,14 +205,16 @@ const articleRow = z.object({
   status: z.enum(ARTICLE_STATUSES),
   at: z.string(),
   isMine: z.boolean(),
+  isTakenDown: z.boolean(),
 });
 
 /** A Professional's articles the caller can read (its own include the hidden ones), newest first. */
 export async function readArticles(tx: IdentityTx, authorId: string): Promise<ProfessionalArticleItem[]> {
   return z.array(articleRow).parse(
     await tx.execute(sql`
-      select a.id, a.title, a.body, a.field, a.status, to_char(a.created_at at time zone 'UTC', ${isoMs}) as at, a.author_id = (select auth.uid()) as "isMine"
-      from nestly.professional_articles a where a.author_id = ${authorId}::uuid
+      select a.id, a.title, a.body, a.field, a.status, to_char(a.created_at at time zone 'UTC', ${isoMs}) as at, a.author_id = (select auth.uid()) as "isMine",
+             a.moderation <> 'active' as "isTakenDown"
+      from nestly.professional_articles a where a.author_id = ${authorId}::uuid and (a.moderation = 'active' or a.author_id = (select auth.uid()))
       order by a.created_at desc, a.id limit ${PAGE_ARTICLES}`),
   );
 }
@@ -229,7 +233,7 @@ export async function readFollowing(tx: IdentityTx): Promise<ProfessionalCard[]>
       from nestly.professional_follows f join nestly.professional_profiles pp on pp.user_id = f.professional_id
       where f.professional_id <> (select auth.uid())
       order by f.created_at desc, f.id
-      limit ${DIRECTORY_LIMIT}`),
+      limit ${FOLLOWING_LIMIT}`),
   );
 }
 
@@ -283,6 +287,8 @@ export async function readOutreach(tx: IdentityTx, direction: 'received' | 'sent
                where c.outreach_request_id = o.id
                   or (o.status = 'accepted' and o.professional_id <> (select auth.uid())
                       and c.user_a = least((select auth.uid()), o.professional_id) and c.user_b = greatest((select auth.uid()), o.professional_id))
+                  or (o.status = 'accepted' and o.professional_id = (select auth.uid())
+                      and c.user_a = least((select auth.uid()), p.author_id) and c.user_b = greatest((select auth.uid()), p.author_id))
                order by (c.outreach_request_id = o.id) desc nulls last limit 1) as "conversationId"
       from nestly.outreach_requests o
       left join nestly.professional_profiles pp on pp.user_id = o.professional_id
@@ -409,15 +415,17 @@ export async function readDashboard(tx: IdentityTx): Promise<ProfessionalDashboa
          + (select count(*) from nestly.comments m join nestly.posts p on p.id = m.post_id
             where p.author_id = pp.user_id and not m.is_by_post_author and m.created_at > now() - interval '30 days'))::int as "engagement30d",
         (select count(*)::int from nestly.posts p where p.author_id = pp.user_id and p.created_at > now() - interval '30 days') as "posts30d",
-        (select count(*)::int from nestly.professional_articles a where a.author_id = pp.user_id) as articles,
+        (select count(*)::int from nestly.professional_articles a where a.author_id = pp.user_id and a.moderation = 'active') as articles,
         (select count(*)::int from nestly.outreach_requests o where o.professional_id = pp.user_id
            and o.created_at > now() - interval '24 hours') as "offersToday",
         (select count(*)::int from nestly.conversations c where pp.user_id in (c.user_a, c.user_b)
            and exists (select 1 from nestly.messages m where m.conversation_id = c.id and m.sender_id <> pp.user_id
                         and m.created_at > coalesce((select r.last_read_at from nestly.chat_reads r
                                                       where r.user_id = pp.user_id and r.conversation_id = c.id), '-infinity'))) as "unreadChats",
-        (select count(*)::int from nestly.notifications n where n.type = 'offer_accepted' and n.read_at is null) as "acceptedOffersNew",
-        (select count(*)::int from nestly.notifications n where n.type = 'review_received' and n.read_at is null) as "reviewsNew",
+        (select count(*)::int from nestly.outreach_requests o where o.professional_id = pp.user_id and o.status = 'accepted'
+           and o.responded_at > now() - interval '7 days') as "acceptedOffersNew",
+        (select count(*)::int from nestly.professional_reviews r where r.professional_id = pp.user_id and r.moderation = 'active'
+           and r.created_at > now() - interval '7 days') as "reviewsNew",
         (select count(*)::int from nestly.outreach_requests o where o.professional_id = pp.user_id and o.status = 'accepted') as "offersAccepted",
         (select count(*)::int from nestly.outreach_requests o where o.professional_id = pp.user_id and o.status = 'declined') as "offersDeclined",
         array_remove(array[case when pp.business_name is null then 'businessName' end, case when pp.gender is null then 'gender' end,

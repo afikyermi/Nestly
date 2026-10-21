@@ -112,6 +112,8 @@ export const TARGET_LABELS: Record<string, string> = {
   media: 'תמונה',
   moderator_invitation: 'הזמנת מודרטור',
   announcement: 'הודעת מערכת',
+  review: 'ביקורת על בעל מקצוע',
+  article: 'מאמר של בעל מקצוע',
 };
 export const actionLabel = (action: string): string => ACTION_LABELS[action] ?? action;
 export const targetLabel = (kind: string): string => TARGET_LABELS[kind] ?? kind;

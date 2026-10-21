@@ -171,12 +171,12 @@ export async function editOwnProfile(database: Database, identity: Identity, pro
 
 // ---- Follow -----------------------------------------------------------------------------------------------------------------------------
 
-/** PUT (follow; a repeat is the same) and DELETE (unfollow; none is the same) /api/professionals/:id/follow. */
 /** GET /api/professionals/following (PG-039). */
 export async function listFollowing(database: Database, identity: Identity): Promise<ProfessionalCard[]> {
   return inIdentityTransaction(database, identity, (tx) => readFollowing(tx));
 }
 
+/** PUT (follow; a repeat is the same) and DELETE (unfollow; none is the same) /api/professionals/:id/follow. */
 export async function changeFollow(database: Database, identity: Identity, id: string, follow: boolean): Promise<ProOutcome<object>> {
   if (id === identity.userId) return { kind: 'invalid' };
   return guarded(() =>

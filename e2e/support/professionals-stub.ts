@@ -112,7 +112,7 @@ export async function setupProfessionals(page: Page, start: Partial<ProNet> = {}
           canChat: true,
           reviewableConversationId: CONV,
           reviews: [{ id: PID(50), rating: 5, text: 'ליווי מדהים', at: AT }],
-          articles: [{ id: ARTICLE, title: 'שלושה דברים לפני הלידה', body: 'גוף המאמר', field: 'doula', status: 'published', at: AT, isMine: false }],
+          articles: [{ id: ARTICLE, title: 'שלושה דברים לפני הלידה', body: 'גוף המאמר', field: 'doula', status: 'published', at: AT, isMine: false, isTakenDown: false }],
         });
       }
       if (path === `/api/professionals/${ME}`) {
@@ -127,7 +127,7 @@ export async function setupProfessionals(page: Page, start: Partial<ProNet> = {}
           reviewableConversationId: null,
           reviews: [],
           articles: net.sent.some((s) => s.path === '/api/professional/articles' && s.method === 'POST')
-            ? [{ id: ARTICLE, title: 'הנקה בשבוע הראשון', body: 'גוף', field: 'lactation', status: 'published', at: AT, isMine: true }]
+            ? [{ id: ARTICLE, title: 'הנקה בשבוע הראשון', body: 'גוף', field: 'lactation', status: 'published', at: AT, isMine: true, isTakenDown: false }]
             : [],
         });
       }

@@ -34,7 +34,8 @@ export interface NotificationRow {
 const digestShown = sql`not (${notifications.type} = 'followers_weekly' and (
   exists (select 1 from nestly.notification_preferences p where p.category = 'followers' and not p.is_in_app_enabled)
   or not exists (select 1 from nestly.professional_follows f where f.professional_id = (select auth.uid())
-                  and f.created_at >= ${notifications.createdAt} - interval '7 days' and f.created_at < ${notifications.createdAt})))`;
+                  and f.created_at >= ((${notifications.createdAt} at time zone 'Asia/Jerusalem') - interval '7 days') at time zone 'Asia/Jerusalem'
+                  and f.created_at < ${notifications.createdAt})))`;
 
 /** The caller's notifications, newest first, older than `before` when given (keyset on time and id). */
 export async function readLatest(tx: IdentityTx, limit: number, before: { at: string; id: string } | null = null): Promise<NotificationRow[]> {
@@ -70,7 +71,7 @@ export async function readDigestCounts(tx: IdentityTx, rows: ReadonlyArray<{ id:
   const counts = z.array(z.object({ id: z.guid(), n: z.number().int() })).parse(
     await tx.execute(sql`
       select d.id, (select count(*)::int from nestly.professional_follows f where f.professional_id = (select auth.uid())
-                     and f.created_at >= d.at - interval '7 days' and f.created_at < d.at) as n
+                     and f.created_at >= ((d.at at time zone 'Asia/Jerusalem') - interval '7 days') at time zone 'Asia/Jerusalem' and f.created_at < d.at) as n
       from unnest(${sql.param(rows.map((row) => row.id))}::uuid[], ${sql.param(rows.map((row) => row.createdAt.toISOString()))}::timestamptz[]) as d(id, at)`),
   );
   return new Map(counts.map((row) => [row.id, row.n]));

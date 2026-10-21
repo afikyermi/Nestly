@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useState } from 'react';
 import { Link } from 'react-router';
 import { PROFILE_OPTIONAL_FIELDS, professionalTag, type HelpRequestItem, type ProfessionalDashboard } from '@nestly/shared';
+import { PATHS } from '@/app/paths';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -94,7 +95,7 @@ export function ProfessionalHomeScreen() {
   }
   const { dashboard, help } = loaded;
   const waiting: Array<{ key: string; text: string; href: string }> = [
-    ...(dashboard.unreadChats > 0 ? [{ key: 'chats', text: unreadChatsText(dashboard.unreadChats), href: '/chat' }] : []),
+    ...(dashboard.unreadChats > 0 ? [{ key: 'chats', text: unreadChatsText(dashboard.unreadChats), href: PATHS.chat }] : []),
     ...(dashboard.acceptedOffersNew > 0 ? [{ key: 'offers', text: acceptedOffersText(dashboard.acceptedOffersNew), href: OFFERS_PATH }] : []),
     ...(dashboard.reviewsNew > 0 ? [{ key: 'reviews', text: newReviewsText(dashboard.reviewsNew), href: professionalPagePath(dashboard.userId) }] : []),
   ];

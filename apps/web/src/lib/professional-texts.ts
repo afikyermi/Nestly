@@ -144,6 +144,7 @@ export const ARTICLE_EDIT = 'עריכה';
 export const ARTICLE_DELETE = 'מחיקה';
 export const ARTICLE_DELETE_CONFIRM = 'למחוק את המאמר?';
 export const ARTICLE_HIDDEN_BADGE = 'מוסתר';
+export const ARTICLE_TAKEN_DOWN = 'הוסר על ידי צוות Nestly בעקבות דיווח';
 export const ARTICLE_ERRORS = { title: 'כותרת באורך 2 עד 120 תווים', body: 'יש לכתוב את המאמר, עד 10,000 תווים' } as const;
 
 // ---- Offer Help, the author's side

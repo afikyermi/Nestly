@@ -172,6 +172,8 @@ export const professionalArticleItem = z.strictObject({
   status: z.enum(ARTICLE_STATUSES),
   at,
   isMine: z.boolean(),
+  /** Hidden or removed by staff after a report (I11 follow-ups): only its owner still reads it. */
+  isTakenDown: z.boolean(),
 });
 export type ProfessionalArticleItem = z.infer<typeof professionalArticleItem>;
 
@@ -209,11 +211,11 @@ export const outreachItem = z.strictObject({
 export type OutreachItem = z.infer<typeof outreachItem>;
 export const outreachResponse = z.strictObject({ received: z.array(outreachItem), sent: z.array(outreachItem) });
 
-/** FR-PRO-001, AC-018: aggregates of the caller's own account only (VAL-032). */
 /** The profile fields a Professional may leave empty: the dashboard's completeness counts them (the required ones are always there). */
 export const PROFILE_OPTIONAL_FIELDS = ['businessName', 'gender', 'area', 'about', 'priceFrom'] as const;
 export type ProfileOptionalField = (typeof PROFILE_OPTIONAL_FIELDS)[number];
 
+/** FR-PRO-001, AC-018: aggregates of the caller's own account only (VAL-032). */
 export const professionalDashboard = z.strictObject({
   /** The Professional itself (its own page). */
   userId: z.guid(),
