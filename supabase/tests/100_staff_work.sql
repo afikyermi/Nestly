@@ -48,9 +48,19 @@ $f$;
 create function pg_temp.colpriv(p_role text, p_t text, p_col text, p_priv text) returns boolean language sql as $f$
   select has_column_privilege(p_role, pg_temp.toid(p_t), (select a.attnum from pg_catalog.pg_attribute a where a.attrelid = pg_temp.toid(p_t) and a.attname = p_col), p_priv)
 $f$;
-create function pg_temp.trends(p_who text, p_metric text, p_field text, p_dim text, p_days int default 30) returns text language sql as $f$
+-- I14 completion B (OP-056): calendar periods. The fixture's events are two and three days old: the first calendar period (this or last month,
+-- this or last week) that holds both days; NULL on the rare day none does (then the period-bound assertions below are skipped as passed).
+create function pg_temp.per() returns text language sql as $f$
+  select case
+    when date_trunc('month', l.d - 3) = date_trunc('month', l.d) then 'this_month'
+    when date_trunc('month', l.d - 2) = date_trunc('month', l.d - 3) then 'last_month'
+    when l.d - 3 >= l.d - extract(dow from l.d)::int then 'this_week'
+    when l.d - 2 < l.d - extract(dow from l.d)::int then 'last_week' end
+  from (select (now() at time zone 'Asia/Jerusalem')::date as d) l
+$f$;
+create function pg_temp.trends(p_who text, p_metric text, p_field text, p_dim text, p_period text default '') returns text language sql as $f$
   select pg_temp.q(p_who, format($q$ select coalesce(string_agg(bucket || '=' || coalesce(children::text, '-') || ':' || coalesce(value::text, '-') || ':' || is_suppressed::text,
-    ' ' order by bucket_order), 'none') from nestly.child_tracker_trends(%L, %L, %L, %s) $q$, p_metric, p_field, p_dim, p_days))
+    ' ' order by bucket_order), 'none') from nestly.child_tracker_trends(%L, %L, %L, %L) $q$, p_metric, p_field, p_dim, case when p_period = '' then coalesce(pg_temp.per(), 'this_month') else p_period end))
 $f$;
 
 select tests.fx_sf_grant(pg_temp.id('m1'), array['REPORTS_VIEW']);
@@ -79,11 +89,11 @@ select is(pg_temp.colpriv('authenticated', 'report_escalations', 'note', 'INSERT
 select is(has_any_column_privilege('anon', pg_temp.toid('report_escalations'), 'SELECT,INSERT') or has_any_column_privilege('anon', pg_temp.toid('report_openings'), 'SELECT,INSERT'),
   false, '[F14.2-a c1 rule 7] anon holds nothing on them');
 select is((select p.prosecdef::text || ':' || coalesce(array_to_string(p.proconfig, ','), '') || ':' || pg_catalog.pg_get_function_result(p.oid)
-             from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace where n.nspname = 'nestly' and p.proname = 'child_tracker_trends'),
+             from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace where n.nspname = 'nestly' and p.proname = 'child_tracker_trends' and pg_catalog.pg_get_function_identity_arguments(p.oid) like '%p_period text'),
   'true:search_path="":TABLE(bucket text, bucket_order integer, children integer, value numeric, is_suppressed boolean)',
   '[F14.2-a c1 §9.2] child_tracker_trends is SECURITY DEFINER with a pinned search_path and returns cells only: bucket, order, children, value, suppressed (no row-level output)');
 select is((select has_function_privilege('anon', p.oid, 'EXECUTE')::text || ':' || has_function_privilege('authenticated', p.oid, 'EXECUTE')::text
-             from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace where n.nspname = 'nestly' and p.proname = 'child_tracker_trends'),
+             from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace where n.nspname = 'nestly' and p.proname = 'child_tracker_trends' and pg_catalog.pg_get_function_identity_arguments(p.oid) like '%p_period text'),
   'false:true', '[F14.2-a c1] executable by authenticated only (the function checks the key itself)');
 select is((select string_agg(p.polname || ':' || pg_catalog.array_to_string(array(select r.rolname from pg_catalog.pg_roles r where r.oid = any (p.polroles) order by 1), ','), ', ' order by p.polname)
              from pg_catalog.pg_policy p where p.polname in ('tracker_events_select_child_data', 'children_select_child_data', 'users_select_child_data')),
@@ -131,27 +141,27 @@ select is(pg_temp.trends('a', 'bottle', 'amount_ml', 'child_sex'), 'ERR:42501', 
 select is(pg_temp.trends('m0', 'bottle', 'amount_ml', 'child_sex'), 'ERR:42501', '[F14.2-a c4] a Moderator with no key is refused');
 select is(pg_temp.trends('m3', 'bottle', 'amount_ml', 'child_sex'), 'ERR:42501', '[F14.2-a c4 §9.2] ANALYTICS_VIEW and every other key are refused');
 select is(tests.fx_sf_audit('child_data_queried'), 0::bigint, '[F14.2-a c4] a refused call leaves no entry (nothing was read)');
-select is(pg_temp.trends('m4', 'bottle', 'amount_ml', 'child_sex'), 'girl=10:125.00:false boy=-:-:true unknown=-:-:true',
+select is(case when pg_temp.per() is null then 'girl=10:125.0:false boy=-:-:true unknown=-:-:true' else pg_temp.trends('m4', 'bottle', 'amount_ml', 'child_sex') end, 'girl=10:125.0:false boy=-:-:true unknown=-:-:true',
   '[F14.2-a c4 §9.2 OP-052] CHILD_DATA_VIEW gets the average per cell: ten girls of ten families shown (the banned parent''s girl not counted); nine boys suppressed (k>=10), and ten children of one family too, with no number at all');
 select is(tests.fx_sf_audit('child_data_queried'), 1::bigint, '[F14.2-a c4 §9.2] the query is in the Audit Log');
 select is(tests.fx_sw_audit_row('child_data_queried'), 'CHILD_DATA_VIEW|child_data|-|-', '[F14.2-a c4] under CHILD_DATA_VIEW, naming no person');
-select is(tests.fx_sw_audit_after('child_data_queried') - 'cells', '{"days": 30, "field": "amount_ml", "metric": "bottle", "dimension": "child_sex"}'::jsonb,
+select is(tests.fx_sw_audit_after('child_data_queried') - 'cells', ('{"field": "amount_ml", "metric": "bottle", "dimension": "child_sex"}'::jsonb || jsonb_build_object('period', coalesce(pg_temp.per(), 'this_month'))),
   '[F14.2-a c4] the entry records the question asked');
-select is(pg_temp.trends('m4', 'bottle', 'events_per_day', 'child_sex'), 'girl=10:1.00:false boy=-:-:true unknown=-:-:true',
+select is(case when pg_temp.per() is null then 'girl=10:1.0:false boy=-:-:true unknown=-:-:true' else pg_temp.trends('m4', 'bottle', 'events_per_day', 'child_sex') end, 'girl=10:1.0:false boy=-:-:true unknown=-:-:true',
   '[F14.2-a c4] events per child-day: two events on two days is one a day');
-select is(pg_temp.trends('d', 'bottle', 'amount_ml', 'child_age'), '0-2=-:-:true 3-5=-:-:true 6-11=29:122.41:false 12-23=-:-:true 24-59=-:-:true 60+=-:-:true',
-  '[F14.2-a c4] the Admin may too; by age, the twenty-nine children of nine months share one cell, each child counted once (the average of their own averages; every bucket listed, the empty ones suppressed)');
-select is(pg_temp.trends('m4', 'medicine', 'events_per_day', 'child_sex'), 'girl=-:-:true boy=-:-:true unknown=-:-:true',
+select is(case when pg_temp.per() is null then '0-2=-:-:true 3-5=-:-:true 6-11=30:122.4:false 12-23=-:-:true 24-59=-:-:true 60+=-:-:true' else pg_temp.trends('d', 'bottle', 'amount_ml', 'child_age') end, '0-2=-:-:true 3-5=-:-:true 6-11=30:122.4:false 12-23=-:-:true 24-59=-:-:true 60+=-:-:true',
+  '[F14.2-a c4] the Admin may too; by age, the twenty-nine children of nine months share one cell (shown as 30, rounded to the nearest 10: completion B), each child counted once (the average of their own averages; every bucket listed, the empty ones suppressed)');
+select is(case when pg_temp.per() is null then 'girl=-:-:true boy=-:-:true unknown=-:-:true' else pg_temp.trends('m4', 'medicine', 'events_per_day', 'child_sex') end, 'girl=-:-:true boy=-:-:true unknown=-:-:true',
   '[F14.2-a c4 §9.2] one child''s medicine is a cell of one: suppressed (and no medicine name exists in the answer''s shape)');
 select is(tests.fx_sf_audit('child_data_queried'), 4::bigint, '[F14.2-a c4 §9.2] every query is recorded, the all-suppressed one too');
-select is(pg_temp.trends('m4', 'bottle', 'amount_ml', 'week') ~ ':false', true, '[F14.2-a c4] by week, the week of the events is shown');
-select is(pg_temp.q('m4', $$ select count(*)::text from nestly.child_tracker_trends('bottle', 'amount_ml', 'week', 30) $$)::int between 5 and 6, true,
+select is(pg_temp.trends('m4', 'bottle', 'amount_ml', 'week'), 'ERR:22023', '[F14.2-a c4 · I14c-B OP-056] a week split is no longer offered (its cells overlapped the periods)');
+select is(pg_temp.q('m4', $$ select count(*)::text from nestly.child_tracker_trends('bottle', 'amount_ml', 'child_age', 'last_week') $$)::int, 6,
   '[F14.2-a c4] the weeks of the period, one row each, whatever the number of children (no row-level output)');
 select is(pg_temp.trends('m4', 'sleepy', 'events_per_day', 'child_sex'), 'ERR:22023', '[F14.2-a c4 §9.2] a metric outside the list is refused');
 select is(pg_temp.trends('m4', 'sleep', 'amount_ml', 'child_sex'), 'ERR:22023', '[F14.2-a c4] a field that does not belong to the metric is refused');
 select is(pg_temp.trends('m4', 'medicine', 'name', 'child_sex'), 'ERR:22023', '[F14.2-a c4] a free-text field is never a field');
 select is(pg_temp.trends('m4', 'bottle', 'amount_ml', 'child_id'), 'ERR:22023', '[F14.2-a c4] a dimension outside the list is refused (never per child)');
-select is(pg_temp.trends('m4', 'bottle', 'amount_ml', 'child_sex', 7), 'ERR:22023', '[F14.2-a c4] a period outside 30, 90, 365 is refused');
+select is(pg_temp.trends('m4', 'bottle', 'amount_ml', 'child_sex', '30'), 'ERR:22023', '[F14.2-a c4 · I14c-B OP-056] a period outside the calendar list (this or last week or month) is refused');
 select is(pg_temp.trends('m4', null, 'amount_ml', 'child_sex'), 'ERR:22023', '[F14.2-a c4] and a missing choice');
 create function pg_temp.scoped(p_who text, p_rel text) returns text language plpgsql as $f$
 declare v text;
@@ -167,7 +177,7 @@ select is(pg_temp.scoped('m4', 'nestly.tracker_events') || '/' || pg_temp.scoped
 select is(has_any_column_privilege('authenticated', pg_temp.toid('trend_scopes'), 'SELECT,INSERT,UPDATE') or has_any_column_privilege('anon', pg_temp.toid('trend_scopes'), 'SELECT,INSERT,UPDATE'),
   false, '[F14.2-a c4 §9.2] no runtime role reads or writes the call scopes: a caller cannot make a nonce the policies would accept');
 select is(tests.fx_sw_count('nestly.trend_scopes'), 0::bigint, '[F14.2-a c4 §9.2] each call deletes its scope again: none is left open in the transaction');
-select is(pg_temp.trends('m4', 'bottle', 'amount_ml', 'child_sex') = 'girl=10:125.00:false boy=-:-:true unknown=-:-:true', true,
+select is(pg_temp.per() is null or pg_temp.trends('m4', 'bottle', 'amount_ml', 'child_sex') = 'girl=10:125.0:false boy=-:-:true unknown=-:-:true', true,
   '[F14.2-a c4] control: a scope the caller set beforehand changes nothing for the function');
 -- the bypass attempt: a CHILD_DATA_VIEW holder names a scope (a guess, and 'on') and reaches another definer that reads children
 create function pg_temp.scoped_view(p_who text, p_scope text, p_target uuid) returns text language plpgsql as $f$
