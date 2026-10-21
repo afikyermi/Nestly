@@ -116,6 +116,14 @@ select is(
     where c.relnamespace = 'nestly'::regnamespace and pol.polname in ('children_select_birthday', 'regular_profiles_select_birthday')),
   'children.children_select_birthday.r.app_owner.true, regular_profiles.regular_profiles_select_birthday.r.app_owner.true',
   '[audit-fix rule 17] the two reads it needs are TO app_owner only, read-only, and open only in the birthday scope');
+select is(
+  (select (q ~ 'nestly.friendships' and q ~ 'status = ''accepted''::text' and q ~ 'requester_status = ''active''::text'
+           and q ~ 'addressee_status = ''active''::text' and strpos(q, 'requester_id = ( SELECT auth.uid()') > 0 and strpos(q, 'addressee_id = ( SELECT auth.uid()') > 0
+           and q ~ 'is_child_birthday_shared')::text
+     from (select pg_catalog.pg_get_expr(pol.polqual, pol.polrelid) as q from pg_catalog.pg_policy pol
+            join pg_catalog.pg_class c on c.oid = pol.polrelid
+            where pol.polname = 'children_select_birthday' and c.relname = 'children' and c.relnamespace = 'nestly'::regnamespace) p),
+  'true', '[audit-fix FR-PRIV-001 BR-037] children_select_birthday itself requires an accepted Friendship with the caller, either direction, both accounts active, and the parent''s switch on (no reliance on another policy)');
 
 select pg_temp.reset();
 select tests.fx_fr_add(pg_temp.id('a'), pg_temp.id('b'), 'accepted');
