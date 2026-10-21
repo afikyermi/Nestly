@@ -6,11 +6,11 @@ const ID = '11111111-1111-4111-8111-111111111111';
 const ok = (extra: Record<string, unknown> = {}) => ({ targetKind: 'post', targetId: ID, reason: 'spam', ...extra });
 
 describe('[F3.7 c3][FR-MOD-001] checkCreateReport', () => {
-  it('[c3][c11] the eight reasons are in FR-MOD-001 order, child safety first; the targets are post, comment, user', () => {
+  it('[c3][c11] the eight reasons are in FR-MOD-001 order, child safety first; the targets are post, comment, user and (I8) a chat message', () => {
     expect([...REPORT_REASONS]).toEqual([
       'child_safety', 'harassment', 'sexual_violent_hateful', 'personal_information', 'medical_misinformation', 'impersonation', 'spam', 'other',
     ]);
-    expect([...REPORT_TARGET_KINDS]).toEqual(['post', 'comment', 'user']);
+    expect([...REPORT_TARGET_KINDS]).toEqual(['post', 'comment', 'user', 'message']);
     expect(REPORT_DETAILS_MAX).toBe(1000);
   });
 

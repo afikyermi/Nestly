@@ -18,7 +18,10 @@ import {
   DISMISS_LABEL,
   HIDE_LABEL,
   KIND_LABELS,
+  MESSAGE_HEADING,
+  MESSAGE_PRIVATE_NOTE,
   NOTE_LABEL,
+  OPEN_MESSAGE_LABEL,
   REASON_LABEL,
   REASON_REQUIRED_TEXT,
   REMOVE_LABEL,
@@ -26,6 +29,7 @@ import {
   RESTORE_LABEL,
   REVEAL_LABEL,
   revealedText,
+  senderText,
 } from './admin-texts';
 
 export type ReportAction =
@@ -33,13 +37,16 @@ export type ReportAction =
   | { type: 'close'; note?: string }
   | { type: 'hide' | 'remove'; reason: string }
   | { type: 'restore'; reason: string }
-  | { type: 'reveal' };
+  | { type: 'reveal' }
+  | { type: 'open-message' };
 
 export interface ReportDetailPanelProps {
   detail: ReportDetail;
   permissions: readonly PermissionKey[];
-  /** The author named by "חשיפת המחבר", once revealed. */
+  /** The author named by "חשיפת המחבר", once revealed (for a chat message: its sender, once opened). */
   revealed: { fullName: string | null } | null;
+  /** A reported chat message, once opened by the audited call (§9.6); never before. */
+  message?: { text: string; sentAt: string } | null;
   pending: boolean;
   failure: string | null;
   /** Whether the open reports on this target are still open (a closed one has nothing to close). */
@@ -49,15 +56,16 @@ export interface ReportDetailPanelProps {
 
 // One reported post, comment or profile (FR-MOD-003): the text as it is now, the reports on it with their copy of the text, and the actions the keys allow.
 // Closing a report and moving the content are one step; the reason of a move goes to the Audit Log. What the database allows is the Permission Key.
-export function ReportDetailPanel({ detail, permissions, revealed, pending, failure, isOpen, onAction }: ReportDetailPanelProps) {
+export function ReportDetailPanel({ detail, permissions, revealed, message = null, pending, failure, isOpen, onAction }: ReportDetailPanelProps) {
   const id = useId();
   const [reason, setReason] = useState('');
   const [note, setNote] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
-  const canModerate = permissions.includes('CONTENT_MODERATE') && detail.targetKind !== 'user';
+  const isMessage = detail.targetKind === 'message';
+  const canModerate = permissions.includes('CONTENT_MODERATE') && detail.targetKind !== 'user' && !isMessage;
   const canClose =
     permissions.includes('REPORTS_VIEW') &&
-    (detail.targetKind === 'user'
+    (detail.targetKind === 'user' || isMessage
       ? permissions.some((key) => key === 'USER_WARN' || key === 'USER_SUSPEND' || key === 'USER_BAN')
       : permissions.includes('CONTENT_MODERATE'));
   const content = detail.content;
@@ -78,7 +86,30 @@ export function ReportDetailPanel({ detail, permissions, revealed, pending, fail
       <h3 id={`${id}-h`} className="text-h2">
         {DETAIL_TITLE} · {KIND_LABELS[detail.targetKind]}
       </h3>
-      {detail.targetKind === 'user' ? null : (
+      {isMessage ? (
+        <div className="flex flex-col items-start gap-2 rounded-lg bg-muted p-4">
+          <h4 className="text-label">{MESSAGE_HEADING}</h4>
+          {message === null ? (
+            <>
+              <p className="text-small">{MESSAGE_PRIVATE_NOTE}</p>
+              <Button variant="soft" pending={pending} onClick={() => onAction({ type: 'open-message' })}>
+                {OPEN_MESSAGE_LABEL}
+              </Button>
+            </>
+          ) : (
+            <>
+              <p className="whitespace-pre-wrap" dir="auto">
+                {message.text}
+              </p>
+              <p className="text-small text-muted-foreground">
+                {formatAdminTime(message.sentAt)}
+                {revealed === null ? null : <> · {senderText(revealed.fullName)}</>}
+              </p>
+            </>
+          )}
+        </div>
+      ) : null}
+      {detail.targetKind === 'user' || isMessage ? null : (
         <div className="flex flex-col gap-1 rounded-lg bg-muted p-4">
           <h4 className="text-label">{CONTENT_HEADING}</h4>
           {content === null ? (
