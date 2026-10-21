@@ -1,5 +1,5 @@
 -- =====================================================================================================================
--- Down script for supabase/migrations/20261022500000_i11_followups.sql (I11 follow-ups: Support metrics, review and article reports,
+-- Down script for supabase/migrations/20261022700000_i11_followups.sql (I11 follow-ups: Support metrics, review and article reports,
 -- the Professional's notifications, the qualification declaration).
 -- Outside supabase/migrations on purpose: the CLI never applies it.
 --
@@ -9,9 +9,8 @@
 -- Safe:     only while no report names a review or an article, no review or article is moderated, no Professional notification exists
 --           and no consent carries the qualification declaration (refuses otherwise). Audit entries
 --           already written stay (the log is append-only).
--- Restores: audit_trigger() verbatim from 20261022300000_groups.sql, reports_insert_check() from 20261022100000_chat_support.sql,
---           reports_insert_snapshot() from 20261020300000_safety_admin_core.sql, the two reader policies from 20261022400000_professionals.sql,
---           the reports constraints from 20261022100000_chat_support.sql; drops what the migration added.
+-- Restores: audit_trigger(), reports_insert_check() and reports_insert_snapshot() verbatim from 20261022600000_marketplace.sql, the two reader policies from 20261022400000_professionals.sql,
+--           the reports constraints from 20261022600000_marketplace.sql; drops what the migration added.
 -- =====================================================================================================================
 
 begin;
@@ -87,12 +86,13 @@ alter table nestly.reports add constraint reports_open_target_check check (
        when 'post' then post_id is not null
        when 'comment' then comment_id is not null
        when 'message' then message_id is not null
+       when 'listing' then num_nonnulls(post_id, comment_id, reported_user_id, message_id) = 0
        else reported_user_id is not null
      end);
 alter table nestly.reports drop constraint reports_one_target_check;
-alter table nestly.reports add constraint reports_one_target_check check (num_nonnulls(post_id, comment_id, reported_user_id, message_id) <= 1);
+alter table nestly.reports add constraint reports_one_target_check check (num_nonnulls(post_id, comment_id, reported_user_id, message_id, listing_id) <= 1);
 alter table nestly.reports drop constraint reports_target_kind_check;
-alter table nestly.reports add constraint reports_target_kind_check check (target_kind in ('post', 'comment', 'user', 'message'));
+alter table nestly.reports add constraint reports_target_kind_check check (target_kind in ('post', 'comment', 'user', 'message', 'listing'));
 alter table nestly.reports drop column review_id, drop column article_id;
 alter table nestly.professional_reviews drop column moderation;
 alter table nestly.professional_articles drop column moderation;
@@ -129,6 +129,14 @@ begin
     if not found or target.sender_id = uid then
       raise exception 'reports: the message cannot be reported' using errcode = '42501';
     end if;
+  elsif new.listing_id is not null then
+    -- the reporter's own read of the listing (FR-MKT-001); absent, hidden, expired and unreadable look the same
+    select l.owner_id into target from nestly.marketplace_listings l where l.id = new.listing_id;
+    if not found or target.owner_id = uid then
+      raise exception 'reports: the listing cannot be reported' using errcode = '42501';
+    end if;
+  elsif new.target_kind = 'listing' then
+    raise exception 'reports: a listing report names its listing' using errcode = '23514';
   end if;
   return new;
 end
@@ -145,6 +153,8 @@ begin
     select p.body into new.target_text from nestly.posts p where p.id = new.post_id;
   elsif new.comment_id is not null then
     select c.body into new.target_text from nestly.comments c where c.id = new.comment_id;
+  elsif new.listing_id is not null then
+    select l.title into new.target_text from nestly.marketplace_listings l where l.id = new.listing_id;
   end if;
   return new;
 end
@@ -312,6 +322,28 @@ begin
     v_kind := 'report';
     v_target := (v_new ->> 'report_id')::uuid;
     v_after := pg_catalog.jsonb_build_object('targetKind', case when v_new ->> 'post_id' is not null then 'post' else 'comment' end);
+  elsif tg_table_name = 'marketplace_listings' then
+    -- §3.2 MARKETPLACE_MODERATE (I12): a listing hidden or restored (the trigger fires only when is_hidden moves). Never its title.
+    v_key := 'MARKETPLACE_MODERATE';
+    v_action := case when (v_new ->> 'is_hidden')::boolean then 'listing_hidden' else 'listing_restored' end;
+    v_kind := 'listing';
+    v_target := (v_new ->> 'id')::uuid;
+    v_before := pg_catalog.jsonb_build_object('hidden', v_old -> 'is_hidden');
+    v_after := pg_catalog.jsonb_build_object('hidden', v_new -> 'is_hidden', 'status', v_new ->> 'status', 'category', v_new ->> 'category');
+  elsif tg_table_name = 'sponsored_products' then
+    -- FR-ADMIN-009, AC-058 (I12): a Sponsored Product created, edited, published, paused or removed (Admin Only key).
+    v_key := 'SPONSORED_PRODUCT_MANAGE';
+    v_action := case
+      when tg_op = 'INSERT' then 'sponsored_product_created'
+      when v_new ->> 'status' is distinct from v_old ->> 'status' then 'sponsored_product_' || (v_new ->> 'status')
+      else 'sponsored_product_edited' end;
+    v_kind := 'sponsored_product';
+    v_target := (v_new ->> 'id')::uuid;
+    v_before := case when tg_op = 'UPDATE' then pg_catalog.jsonb_build_object('status', v_old ->> 'status', 'title', v_old ->> 'title',
+      'sponsor', v_old ->> 'sponsor_name', 'category', v_old ->> 'category', 'linkUrl', v_old ->> 'link_url') end;
+    v_after := pg_catalog.jsonb_build_object('status', v_new ->> 'status', 'title', v_new ->> 'title', 'sponsor', v_new ->> 'sponsor_name',
+      'category', v_new ->> 'category', 'linkUrl', v_new ->> 'link_url',
+      'descriptionChanged', tg_op = 'UPDATE' and v_new ->> 'description' is distinct from v_old ->> 'description');
   else
     raise exception 'audit_trigger: not attached to %', tg_table_name;
   end if;
@@ -323,13 +355,13 @@ $$;
 
 
 comment on function nestly.reports_insert_check() is
-  'SECURITY INVOKER. Before insert: a reported post, comment or chat message must be readable to the reporter and not their own (42501); for a post or comment named or through post_authors.';
-comment on function nestly.reports_insert_snapshot() is 'SECURITY INVOKER. Before insert on reports: copies the reported post or comment text, read under the reporter''s RLS.';
-comment on column nestly.reports.target_kind is 'post, comment, user or message; survives the target''s SET NULL.';
+  'SECURITY INVOKER. Before insert on reports: the reported post, comment, message or listing must be readable to the reporter (absent and unreadable look the same) and not their own; a listing report names its listing.';
+comment on function nestly.reports_insert_snapshot() is 'SECURITY INVOKER. Before insert on reports: copies the reported post or comment text, or the listing''s title, read under the reporter''s RLS.';
+comment on column nestly.reports.target_kind is 'post, comment, user, message or listing; survives the target''s SET NULL.';
 comment on policy professional_reviews_select_viewer on nestly.professional_reviews is 'Every active account reads the reviews of an active reviewer (no block filter: it would reveal the hidden reviewer); the reviewer reads its own.';
 comment on policy professional_articles_select_viewer on nestly.professional_articles is 'The owner reads all its articles; every active account reads a published article of an active author with no user block between them.';
-comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement, an Admin''s creation, edit, publication or hiding of a status guide, a staff decision on an image or a suspicion marked on one, a Support request''s status change, a Support reply or internal note, a staff view of a reported chat message, a Moderator invitation issued or revoked, a Moderator joining with one, a System Announcement created, edited, published or removed, or a staff view of reported Private Group content: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
+comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement, an Admin''s creation, edit, publication or hiding of a status guide, a staff decision on an image or a suspicion marked on one, a Support request''s status change, a Support reply or internal note, a staff view of a reported chat message, a Moderator invitation issued or revoked, a Moderator joining with one, a System Announcement created, edited, published or removed, a staff view of reported Private Group content, a Marketplace listing hidden or restored, or a Sponsored Product created, edited, published, paused or removed: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
 
-delete from supabase_migrations.schema_migrations where version = '20261022500000';
+delete from supabase_migrations.schema_migrations where version = '20261022700000';
 
 commit;

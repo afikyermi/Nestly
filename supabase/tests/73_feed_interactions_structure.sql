@@ -95,7 +95,7 @@ select is(
     where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and a.attnum > 0 and not a.attisdropped
       and has_column_privilege('authenticated', c.oid, a.attnum, 'INSERT')),
   'comments.body, comments.parent_id, comments.post_id, reaction_owners.reaction_id, reaction_owners.target_id, reactions.comment_id, reactions.post_id, '
-  || 'reports.comment_id, reports.details, reports.listing_id, reports.message_id, reports.post_id, reports.reason, reports.reported_user_id, reports.target_kind',
+  || 'reports.article_id, reports.comment_id, reports.details, reports.listing_id, reports.message_id, reports.post_id, reports.reason, reports.reported_user_id, reports.review_id, reports.target_kind',
   '[F3.0-b c10 c11 c12 c15] authenticated may INSERT exactly these columns: never an author, a mark, a status, a copy, a clock or a reporter');
 
 select is(
@@ -241,7 +241,7 @@ select is(
 select is(
   (select count(*) from pg_catalog.pg_constraint con join pg_catalog.pg_class c on c.oid = con.conrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = 'reports' and con.contype = 'f' and con.confdeltype = 'n'),
-  5::bigint, '[F3.0-b c14 c15 · I8 · I12] the five target columns of a report (I8 adds message_id, I12 listing_id) are SET NULL: a report outlives its content');
+  7::bigint, '[F3.0-b c14 c15 · I8 · I12 · I11 follow-ups] the seven target columns of a report (I8 adds message_id, I12 listing_id, the I11 follow-ups review_id and article_id) are SET NULL: a report outlives its content');
 
 -- ---- c12 c15 c16: who may depend on whom -----------------------------------------------------------------------------------------
 select is(

@@ -635,3 +635,18 @@ target_text; the open report survives the listing's deletion), handled with MARK
 of a readable listing. `media_training_candidate()` and its triggers: a hidden listing's (or a rejected listing image's) checked images become training
 candidates after a handled listing report, never after a child-safety report (§9.7). Cleanup: `marketplace_listings` by owner after `media_assets`; reports
 on the user's listings with the user's reports; `sponsored_products` never (Admin only).
+**I11 follow-ups** (`20261022700000_i11_followups.sql`; down script refuses once a review or article report, a moderated review or article, a Professional
+notification or a qualification declaration exists):
+- `support_requests_select_analytics`, `support_messages_select_analytics`: ANALYTICS_VIEW (the Admin always) reads the rows only on the analytics screen
+  (`nestly.analytics_view`, the I14 pattern; on support_messages only Support's own non-internal replies); the server returns counts only (FR-ADMIN-003 Support metrics).
+- `reports.review_id`, `reports.article_id` (SET NULL; one report per person and target; kinds `review`, `article`): the reporter must read the target, an article
+  not its own (a review's writer is never readable, so reporting one's own review is allowed and harmless); the text is copied (an article: title and body).
+  `reports_target_gone` (invoker): when the review or article is deleted, its open reports expire. Handling needs CONTENT_MODERATE.
+- `professional_reviews.moderation`, `professional_articles.moderation` (active / hidden / removed): moved only by CONTENT_MODERATE on a reported row, with a reason
+  (`professional_content_moderation_guard`, NS011), audited by `audit_trigger()` (new branch). A moderated row leaves every reader's view (an article's owner still
+  reads its own); `*_select_staff` lets REPORTS_VIEW read a reported row in any state; `professional_articles_reject_staff_edit`: staff never edit the text.
+- `notify_professional()` (SECURITY DEFINER, rule 17, Afik 21.10.2026): `offer_accepted` / `offer_declined` (category offers), `review_received` (reviews),
+  `followers_weekly` (followers; one row per Professional and week, created_at = the week's end, Monday 00:00 Israel time). Never the actor's name, never across a
+  user block, the category switch honoured. `notifications_select_recipient` / `_update_recipient` gain `created_at <= now()`: a digest appears when its week ends.
+- `legal_consents.has_declared_qualification` (boolean, default false, INSERT granted): a Professional's training-and-licence declaration (Afik 21.10.2026), required
+  by the registration request.

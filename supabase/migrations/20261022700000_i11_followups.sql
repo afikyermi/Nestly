@@ -36,7 +36,7 @@
 -- new TO app_owner or TO app_jobs policy, no new table.
 --
 -- Applied by the Supabase CLI as app_owner, in one transaction with its history row. Down script:
--- supabase/rollback/20261022500000_i11_followups.down.sql (refuses once a review or article report, or a moderated review or article, exists).
+-- supabase/rollback/20261022700000_i11_followups.down.sql (refuses once a review or article report, or a moderated review or article, exists).
 -- =====================================================================================================================
 
 -- 1. Support metrics (FR-ADMIN-003): the analytics screen counts Support requests and replies --------------------------------------
@@ -66,10 +66,10 @@ alter table nestly.reports
   add constraint reports_reporter_article_key unique (reporter_id, article_id);
 alter table nestly.reports drop constraint reports_target_kind_check;
 alter table nestly.reports add constraint reports_target_kind_check
-  check (target_kind in ('post', 'comment', 'user', 'message', 'review', 'article'));
+  check (target_kind in ('post', 'comment', 'user', 'message', 'listing', 'review', 'article'));
 alter table nestly.reports drop constraint reports_one_target_check;
 alter table nestly.reports add constraint reports_one_target_check
-  check (num_nonnulls(post_id, comment_id, reported_user_id, message_id, review_id, article_id) <= 1);
+  check (num_nonnulls(post_id, comment_id, reported_user_id, message_id, listing_id, review_id, article_id) <= 1);
 alter table nestly.reports drop constraint reports_open_target_check;
 alter table nestly.reports add constraint reports_open_target_check check (
   status <> 'open'
@@ -77,6 +77,7 @@ alter table nestly.reports add constraint reports_open_target_check check (
        when 'post' then post_id is not null
        when 'comment' then comment_id is not null
        when 'message' then message_id is not null
+       when 'listing' then num_nonnulls(post_id, comment_id, reported_user_id, message_id, review_id, article_id) = 0
        when 'review' then review_id is not null
        when 'article' then article_id is not null
        else reported_user_id is not null
@@ -120,8 +121,14 @@ begin
     if not found or target.sender_id = uid then
       raise exception 'reports: the message cannot be reported' using errcode = '42501';
     end if;
+  elsif new.listing_id is not null then
+    -- the reporter's own read of the listing (FR-MKT-001); absent, hidden, expired and unreadable look the same
+    select l.owner_id into target from nestly.marketplace_listings l where l.id = new.listing_id;
+    if not found or target.owner_id = uid then
+      raise exception 'reports: the listing cannot be reported' using errcode = '42501';
+    end if;
   elsif new.review_id is not null then
-    -- I11 follow-ups: a review the reporter can read (an active, unmoderated review)
+    -- I11 follow-ups: a review the reporter can read (an active, unmoderated review); its writer is never readable, so its own is allowed
     if not exists (select 1 from nestly.professional_reviews r where r.id = new.review_id) then
       raise exception 'reports: the review cannot be reported' using errcode = '42501';
     end if;
@@ -131,6 +138,8 @@ begin
     if not found or target.author_id = uid then
       raise exception 'reports: the article cannot be reported' using errcode = '42501';
     end if;
+  elsif new.target_kind = 'listing' then
+    raise exception 'reports: a listing report names its listing' using errcode = '23514';
   end if;
   return new;
 end
@@ -148,6 +157,8 @@ begin
     select p.body into new.target_text from nestly.posts p where p.id = new.post_id;
   elsif new.comment_id is not null then
     select c.body into new.target_text from nestly.comments c where c.id = new.comment_id;
+  elsif new.listing_id is not null then
+    select l.title into new.target_text from nestly.marketplace_listings l where l.id = new.listing_id;
   elsif new.review_id is not null then
     select r.body into new.target_text from nestly.professional_reviews r where r.id = new.review_id;
   elsif new.article_id is not null then
@@ -217,7 +228,7 @@ create trigger professional_articles_reject_staff_edit
   before update of title, body, field, status on nestly.professional_articles
   for each row execute function nestly.reject_staff_edit();
 
--- 5. Audit (rule 18): the approved audit_trigger() gains the review and article branch; the rest is the text of 20261022300000.
+-- 5. Audit (rule 18): the approved audit_trigger() gains the review and article branch; the rest is the text of 20261022600000.
 create or replace function nestly.audit_trigger()
 returns trigger
 language plpgsql
@@ -388,6 +399,28 @@ begin
     v_kind := 'report';
     v_target := (v_new ->> 'report_id')::uuid;
     v_after := pg_catalog.jsonb_build_object('targetKind', case when v_new ->> 'post_id' is not null then 'post' else 'comment' end);
+  elsif tg_table_name = 'marketplace_listings' then
+    -- §3.2 MARKETPLACE_MODERATE (I12): a listing hidden or restored (the trigger fires only when is_hidden moves). Never its title.
+    v_key := 'MARKETPLACE_MODERATE';
+    v_action := case when (v_new ->> 'is_hidden')::boolean then 'listing_hidden' else 'listing_restored' end;
+    v_kind := 'listing';
+    v_target := (v_new ->> 'id')::uuid;
+    v_before := pg_catalog.jsonb_build_object('hidden', v_old -> 'is_hidden');
+    v_after := pg_catalog.jsonb_build_object('hidden', v_new -> 'is_hidden', 'status', v_new ->> 'status', 'category', v_new ->> 'category');
+  elsif tg_table_name = 'sponsored_products' then
+    -- FR-ADMIN-009, AC-058 (I12): a Sponsored Product created, edited, published, paused or removed (Admin Only key).
+    v_key := 'SPONSORED_PRODUCT_MANAGE';
+    v_action := case
+      when tg_op = 'INSERT' then 'sponsored_product_created'
+      when v_new ->> 'status' is distinct from v_old ->> 'status' then 'sponsored_product_' || (v_new ->> 'status')
+      else 'sponsored_product_edited' end;
+    v_kind := 'sponsored_product';
+    v_target := (v_new ->> 'id')::uuid;
+    v_before := case when tg_op = 'UPDATE' then pg_catalog.jsonb_build_object('status', v_old ->> 'status', 'title', v_old ->> 'title',
+      'sponsor', v_old ->> 'sponsor_name', 'category', v_old ->> 'category', 'linkUrl', v_old ->> 'link_url') end;
+    v_after := pg_catalog.jsonb_build_object('status', v_new ->> 'status', 'title', v_new ->> 'title', 'sponsor', v_new ->> 'sponsor_name',
+      'category', v_new ->> 'category', 'linkUrl', v_new ->> 'link_url',
+      'descriptionChanged', tg_op = 'UPDATE' and v_new ->> 'description' is distinct from v_old ->> 'description');
   else
     raise exception 'audit_trigger: not attached to %', tg_table_name;
   end if;
@@ -523,13 +556,13 @@ comment on policy support_requests_select_analytics on nestly.support_requests i
 comment on policy support_messages_select_analytics on nestly.support_messages is 'FR-ADMIN-003, BR-058: ANALYTICS_VIEW times the first Support reply on the analytics screen only: Support''s own replies, never a user''s message or an internal note; the server returns numbers, never a text.';
 comment on column nestly.professional_reviews.moderation is 'active, hidden or removed by staff with CONTENT_MODERATE after a report (FR-MOD-001); a moderated review leaves every view and the average.';
 comment on column nestly.professional_articles.moderation is 'active, hidden or removed by staff with CONTENT_MODERATE after a report (FR-MOD-001); a moderated article leaves every view but its owner''s.';
-comment on column nestly.reports.target_kind is 'post, comment, user, message, review or article; survives the target''s SET NULL.';
+comment on column nestly.reports.target_kind is 'post, comment, user, message, listing, review or article; survives the target''s SET NULL.';
 comment on column nestly.reports.review_id is 'The reported review (FR-SERV-011, FR-MOD-001); its text is copied into target_text. SET NULL when the review is deleted: its open reports expire (reports_target_gone).';
 comment on column nestly.reports.article_id is 'The reported article (FR-PRO-003, FR-MOD-001); its title and text are copied into target_text. SET NULL when the article is deleted: its open reports expire (reports_target_gone).';
 comment on index nestly.reports_review_id_idx is 'The SET NULL lookup when a review is deleted; the staff read of a reported review.';
 comment on index nestly.reports_article_id_idx is 'The SET NULL lookup when an article is deleted; the staff read of a reported article.';
 comment on function nestly.reports_insert_check() is
-  'SECURITY INVOKER. Before insert: a reported post, comment, chat message, review or article must be readable to the reporter and (but a review, whose writer is never readable) not their own (42501); for a post or comment named or through post_authors.';
+  'SECURITY INVOKER. Before insert: a reported post, comment, chat message, listing, review or article must be readable to the reporter and (but a review, whose writer is never readable) not their own (42501); for a post or comment named or through post_authors.';
 comment on function nestly.reports_insert_snapshot() is 'SECURITY INVOKER. Before insert on reports: copies the reported post, comment or review text, or an article''s title and text, read under the reporter''s RLS.';
 comment on function nestly.reports_target_gone() is 'SECURITY INVOKER. Before the SET NULL of review_id or article_id: an open report on a review or article that was deleted expires.';
 comment on function nestly.professional_content_moderation_guard() is 'SECURITY INVOKER. Before a change of moderation on a review or an article: only staff with CONTENT_MODERATE, and with a reason (nestly.audit_reason, NS011) when it leaves view.';
@@ -543,4 +576,4 @@ comment on function nestly.notify_professional() is
   'SECURITY DEFINER (approved exception, rule 17; Afik 21.10.2026, OP-051 cancelled). After an Offer Help is accepted or declined, a review is written, or a Professional gains a follower: notifies the Professional (offer_accepted / offer_declined, review_received; followers_weekly, one row per week timed at its end). Never to oneself, never across a user block, never naming the actor; the recipient''s category switch is honoured. Declares nestly.notify_scope = professional and clears it. No EXECUTE for any runtime role.';
 comment on column nestly.legal_consents.has_declared_qualification is 'A Professional declared it holds the training and licence its field needs (Afik 21.10.2026); the Professional registration request requires it and only that request sends it.';
 comment on policy notifications_select_recipient on nestly.notifications is 'The recipient reads its own notifications from their created_at (a weekly digest is written ahead, timed at the week''s end).';
-comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement, an Admin''s creation, edit, publication or hiding of a status guide, a staff decision on an image or a suspicion marked on one, a Support request''s status change, a Support reply or internal note, a staff view of a reported chat message, a Moderator invitation issued or revoked, a Moderator joining with one, a System Announcement created, edited, published or removed, a staff view of reported Private Group content, or a reported review or article hidden, removed or restored: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
+comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement, an Admin''s creation, edit, publication or hiding of a status guide, a staff decision on an image or a suspicion marked on one, a Support request''s status change, a Support reply or internal note, a staff view of a reported chat message, a Moderator invitation issued or revoked, a Moderator joining with one, a System Announcement created, edited, published or removed, a staff view of reported Private Group content, a Marketplace listing hidden or restored, a Sponsored Product created, edited, published, paused or removed, or a reported review or article hidden, removed or restored: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';
