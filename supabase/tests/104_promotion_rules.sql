@@ -391,6 +391,12 @@ select is(pg_temp.q('d', 'select count(*)::text from nestly.promotion_monthly_su
 select tests.fx_promo_drop(current_setting('t.promo')::uuid);
 select is(tests.fx_promo_text($q$ select count(*)::text from nestly.promotion_monthly_summaries where promotion_id is null and target_kind = 'profile' and impressions = 5 $q$), '1',
   '[F13.2-a c10 §11.4] the summary outlives its promotion, without it (kept forever)');
+select is(tests.fx_promo_text($q$ select (has_column_privilege('app_jobs', 'nestly.promotion_events', 'promotion_id', 'SELECT') and has_column_privilege('app_jobs', 'nestly.promotion_events', 'occurred_on', 'SELECT')
+            and has_column_privilege('app_jobs', 'nestly.promotion_events', 'times', 'SELECT') and not has_column_privilege('app_jobs', 'nestly.promotion_events', 'viewer_id', 'SELECT')
+            and has_table_privilege('app_jobs', 'nestly.promotion_events', 'DELETE') and has_column_privilege('app_jobs', 'nestly.promotions', 'payment_id', 'SELECT')
+            and has_column_privilege('app_jobs', 'nestly.promotion_payments', 'professional_field', 'SELECT') and not has_column_privilege('app_jobs', 'nestly.promotion_payments', 'payer_id', 'SELECT')
+            and has_table_privilege('app_jobs', 'nestly.promotion_monthly_summaries', 'SELECT,INSERT') and has_table_privilege('app_jobs', 'nestly.professional_views', 'DELETE'))::text $q$),
+  'true', '[F13.2-a c10 rule 6 BR-057] the job holds exactly what the purge reads and writes (never who viewed, never who paid)');
 select is(tests.as_role('authenticated', tests.claims(pg_temp.id('d')), 'select nestly.purge_promotion_data()::text'), 'ERR:42501',
   '[F13.2-a c10 rule 6] a signed-in account cannot run the purge');
 

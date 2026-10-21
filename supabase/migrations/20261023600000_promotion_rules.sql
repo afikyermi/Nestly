@@ -111,7 +111,7 @@ begin
     end if;
     return new;
   end if;
-  if coalesce((select nestly.caller_account_type()), '') not in ('regular', 'professional') then
+  if not (select nestly.is_active_account()) or coalesce((select nestly.caller_account_type()), '') not in ('regular', 'professional') then
     return null;
   end if;
   if new.user_id is distinct from v_uid then
@@ -156,7 +156,7 @@ begin
   if new.kind is distinct from 'profile_view' and new.kind is distinct from 'post_view' then
     raise exception 'professional_views: a profile or a post view only' using errcode = '23514';
   end if;
-  if coalesce((select nestly.caller_account_type()), '') not in ('regular', 'professional') or new.professional_id = v_uid
+  if not (select nestly.is_active_account()) or coalesce((select nestly.caller_account_type()), '') not in ('regular', 'professional') or new.professional_id = v_uid
      or new.professional_id = any (coalesce((select nestly.block_peer_ids()), '{}'::uuid[])) then
     return null;
   end if;
@@ -513,8 +513,10 @@ create policy promotions_select_jobs on nestly.promotions
 create policy promotion_payments_select_jobs on nestly.promotion_payments
   for select to app_jobs using (true);
 
--- Sums every completed month of paid events into its summary (overwriting the month's row, so a rerun changes nothing), then deletes the
--- paid events and professional views of the months more than 12 months back. Returns the number of rows deleted.
+-- Sums every completed month of paid events that has no summary yet (a completed month's events never change: an event is counted only on
+-- its own day), then deletes the paid events and professional views of the months more than 12 months back; a rerun changes nothing.
+-- Returns the number of rows deleted. A promotion deleted before its month is summed (its target or account deleted) takes that month's
+-- events with it: the summary covers completed months only, and the payment record stays (§11.6).
 create function nestly.purge_promotion_data()
 returns integer
 language plpgsql
@@ -539,10 +541,10 @@ begin
     join nestly.promotions p on p.id = e.promotion_id
     left join nestly.promotion_payments pp on pp.id = p.payment_id
    where e.occurred_on < v_month
+     and not exists (select 1 from nestly.promotion_monthly_summaries s0
+                      where s0.promotion_id = e.promotion_id and s0.month = pg_catalog.date_trunc('month', e.occurred_on)::date)
    group by e.promotion_id, p.target_kind, pp.professional_field, pg_catalog.date_trunc('month', e.occurred_on)
-  on conflict (promotion_id, month) do update
-    set impressions = excluded.impressions, clicks = excluded.clicks, follows = excluded.follows, chat_starts = excluded.chat_starts,
-        updated_at = excluded.updated_at;
+  on conflict (promotion_id, month) do nothing;
   delete from nestly.promotion_events where occurred_on < v_cutoff;
   get diagnostics n = row_count;
   delete from nestly.professional_views where occurred_on < v_cutoff;
@@ -992,13 +994,13 @@ comment on policy promotion_payments_select_jobs on nestly.promotion_payments is
 comment on table nestly.promotion_monthly_summaries is
   'I13 (Afik 21.10.2026, §11.4): one row per promotion and month — impressions, clicks, follows and chat starts — kept forever. promotion_id becomes NULL when the promotion goes (the account deleted); the kind and the Professional''s field stay, never the owner. Written only by purge_promotion_data() (app_jobs). The promotion''s owner and BILLING_FINANCE_MANAGE read it.';
 comment on column nestly.promotion_monthly_summaries.month is 'The month (its first day, Israel time).';
-comment on constraint promotion_monthly_summaries_once_key on nestly.promotion_monthly_summaries is 'One row per promotion and month (a rerun overwrites it with the same sums).';
+comment on constraint promotion_monthly_summaries_once_key on nestly.promotion_monthly_summaries is 'One row per promotion and month (written once, when the month is complete).';
 comment on index nestly.promotion_monthly_summaries_month_idx is 'Summaries by month (the Admin view).';
 comment on policy promotion_monthly_summaries_select_owner on nestly.promotion_monthly_summaries is 'The promotion''s owner reads its months.';
 comment on policy promotion_monthly_summaries_select_finance on nestly.promotion_monthly_summaries is 'BILLING_FINANCE_MANAGE (Admin Only) reads every summary.';
 comment on policy promotion_monthly_summaries_select_jobs on nestly.promotion_monthly_summaries is '§11.4: the retention job reads the summaries it overwrites.';
 comment on policy promotion_monthly_summaries_insert_jobs on nestly.promotion_monthly_summaries is '§11.4: the retention job writes a month''s summary.';
-comment on policy promotion_monthly_summaries_update_jobs on nestly.promotion_monthly_summaries is '§11.4: the retention job overwrites a month''s summary with the same sums on a rerun.';
+comment on policy promotion_monthly_summaries_update_jobs on nestly.promotion_monthly_summaries is '§11.4: the retention job may correct a month''s summary (not used by purge_promotion_data, which writes a month once).';
 comment on policy promotion_events_select_jobs on nestly.promotion_events is '§11.4: the retention job reads every paid event to sum it (viewer_id not granted).';
 comment on policy promotion_events_delete_jobs on nestly.promotion_events is '§11.4: the retention job deletes paid events of the months more than 12 months back.';
-comment on function nestly.purge_promotion_data() is '§11.4: sums every completed month of paid events into promotion_monthly_summaries (overwriting the month: a rerun changes nothing), then deletes paid events and professional views of the months more than 12 months back; returns the number deleted. SECURITY INVOKER, EXECUTE app_jobs only; run by the daily retention job (I9).';
+comment on function nestly.purge_promotion_data() is '§11.4: sums every completed month of paid events not yet summed into promotion_monthly_summaries (a rerun changes nothing), then deletes paid events and professional views of the months more than 12 months back; returns the number deleted. SECURITY INVOKER, EXECUTE app_jobs only; run by the daily retention job (I9).';

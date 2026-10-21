@@ -28,8 +28,8 @@ begin
   alter table nestly.promotion_payments no force row level security;
   if exists (select 1 from nestly.usage_events) or exists (select 1 from nestly.professional_views)
      or exists (select 1 from nestly.promotion_monthly_summaries) or exists (select 1 from nestly.promotion_settings where version > 1)
-     or exists (select 1 from nestly.promotions where stopped_by = 'staff') or exists (select 1 from nestly.promotion_payments where payer_id is null) then
-    raise exception 'an I13 promotion-rules row exists (usage event, professional view, summary, settings version, staff stop or anonymised payment): the down script refuses';
+     or exists (select 1 from nestly.promotions where stopped_by = 'staff') or exists (select 1 from nestly.promotion_payments where payer_id is null or professional_field is not null) then
+    raise exception 'an I13 promotion-rules row exists (usage event, professional view, summary, settings version, staff stop, anonymised payment or a payment's field): the down script refuses';
   end if;
   alter table nestly.promotions force row level security;
   alter table nestly.promotion_payments force row level security;
