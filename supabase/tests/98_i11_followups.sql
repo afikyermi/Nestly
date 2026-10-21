@@ -82,7 +82,14 @@ select is(pg_temp.dml('m3', format($q$ insert into nestly.support_messages (supp
 select set_config('nestly.staff_view', '', true);
 select is(pg_temp.na('d', 'support_requests'), tests.fx_pr_count('nestly.support_requests')::text, '[I11F c2 FR-ADMIN-003] the Admin counts every Support request on the analytics screen');
 select is(pg_temp.na('m3', 'support_requests'), tests.fx_pr_count('nestly.support_requests')::text, '[I11F c2 BR-058] ANALYTICS_VIEW counts every Support request');
-select is(pg_temp.na('m3', 'support_messages'), tests.fx_pr_count('nestly.support_messages')::text, '[I11F c2 BR-058] and every Support message (the first reply''s time)');
+select set_config('nestly.staff_view', 'on', true);
+select is(pg_temp.dml('m3', format($q$ insert into nestly.support_messages (support_request_id, body, is_internal) values (%L, 'הערה פנימית', true) $q$, current_setting('t.sreq'))),
+  'OK:1', '[I11F c2 fixture] and an internal note');
+select set_config('nestly.staff_view', '', true);
+select is(pg_temp.na('m3', 'support_messages'), tests.fx_pr_count($q$ nestly.support_messages where author_kind = 'support' and not is_internal $q$)::text,
+  '[I11F c2 BR-058] and every Support reply (the first reply''s time)');
+select is(tests.fx_pr_count($q$ nestly.support_messages where is_internal $q$) >= 1, true, '[I11F c2] (an internal note exists)');
+select is(pg_temp.na('m3', $q$support_messages where is_internal$q$), '0', '[I11F c2] never an internal note');
 select is(pg_temp.na('m4', 'support_requests'), pg_temp.n('m4', 'nestly.support_requests'), '[I11F c3 AC-026] without ANALYTICS_VIEW the screen opens no Support request');
 select is(pg_temp.na('m4', 'support_messages'), '0', '[I11F c3 AC-026] nor a Support message');
 select is(pg_temp.na('b', 'support_requests'), '0', '[I11F c3] a user on the analytics screen reads none but its own (it has none)');
@@ -216,7 +223,9 @@ select is(tests.fx_nt_types(pg_temp.id('q2')), 'offer_accepted', '[I11F c14 §6 
 
 -- new followers: one weekly digest, timed at the week's end (Monday 00:00, Israel time); nobody named
 select is(pg_temp.dml('a', format($q$ insert into nestly.professional_follows (professional_id) values (%L) $q$, pg_temp.id('q1'))), 'OK:1', '[I11F c15 fixture] a follows q1');
-select is(pg_temp.dml('b', format($q$ insert into nestly.professional_follows (professional_id) values (%L) $q$, pg_temp.id('q1'))), 'OK:1', '[I11F c15 fixture] b follows q1');
+select set_config('timezone', 'America/New_York', true);
+select is(pg_temp.dml('b', format($q$ insert into nestly.professional_follows (professional_id) values (%L) $q$, pg_temp.id('q1'))), 'OK:1', '[I11F c15 fixture] b follows q1, from a session in another time zone');
+select set_config('timezone', 'UTC', true);
 select is(tests.fx_pr_count(format($q$ nestly.notifications where recipient_id = %L and type = 'followers_weekly' and actor_id is null
             and created_at = (date_trunc('week', now() at time zone 'Asia/Jerusalem') + interval '7 days') at time zone 'Asia/Jerusalem' $q$, pg_temp.id('q1'))), 1::bigint,
   '[I11F c15 OP-051] two new followers make one digest for the week, timed at its end, naming nobody');

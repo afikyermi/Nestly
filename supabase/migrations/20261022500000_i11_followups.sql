@@ -43,9 +43,11 @@
 create policy support_requests_select_analytics on nestly.support_requests
   for select to authenticated
   using (pg_catalog.current_setting('nestly.analytics_view', true) = 'on' and (select nestly.is_active_account()) and (select nestly.analytics_reader()));
+-- Only Support's own replies (the first reply's time): never a user's message, never an internal note.
 create policy support_messages_select_analytics on nestly.support_messages
   for select to authenticated
-  using (pg_catalog.current_setting('nestly.analytics_view', true) = 'on' and (select nestly.is_active_account()) and (select nestly.analytics_reader()));
+  using (pg_catalog.current_setting('nestly.analytics_view', true) = 'on' and (select nestly.is_active_account()) and (select nestly.analytics_reader())
+    and author_kind = 'support' and not is_internal);
 
 -- 2. reviews and articles: moderation (constant default: catalog only) ----------------------------------------------------------
 alter table nestly.professional_reviews
@@ -490,7 +492,7 @@ begin
       where p.user_id = v_pro and p.category = 'followers' and not p.is_in_app_enabled) then
       insert into nestly.notifications (recipient_id, type, actor_id, target_kind, target_id, subject_id, is_critical, created_at)
       values (v_pro, 'followers_weekly', null, 'professional', v_pro,
-              pg_catalog.md5(v_pro::text || '/' || v_week_end::text)::uuid, false, v_week_end)
+              pg_catalog.md5(v_pro::text || '/' || pg_catalog.date_part('epoch', v_week_end)::bigint::text)::uuid, false, v_week_end)
       on conflict (recipient_id, type, subject_id) do nothing;
     end if;
   end if;
@@ -518,7 +520,7 @@ grant insert (has_declared_qualification) on table nestly.legal_consents to auth
 
 -- 9. Comments -------------------------------------------------------------------------------------------------------------------
 comment on policy support_requests_select_analytics on nestly.support_requests is 'FR-ADMIN-003, BR-058: ANALYTICS_VIEW counts Support requests by status and topic on the analytics screen only (nestly.analytics_view); the server returns numbers, never a text, a person or an id.';
-comment on policy support_messages_select_analytics on nestly.support_messages is 'FR-ADMIN-003, BR-058: ANALYTICS_VIEW times the first Support reply on the analytics screen only; never a text.';
+comment on policy support_messages_select_analytics on nestly.support_messages is 'FR-ADMIN-003, BR-058: ANALYTICS_VIEW times the first Support reply on the analytics screen only: Support''s own replies, never a user''s message or an internal note; the server returns numbers, never a text.';
 comment on column nestly.professional_reviews.moderation is 'active, hidden or removed by staff with CONTENT_MODERATE after a report (FR-MOD-001); a moderated review leaves every view and the average.';
 comment on column nestly.professional_articles.moderation is 'active, hidden or removed by staff with CONTENT_MODERATE after a report (FR-MOD-001); a moderated article leaves every view but its owner''s.';
 comment on column nestly.reports.target_kind is 'post, comment, user, message, review or article; survives the target''s SET NULL.';
@@ -539,6 +541,6 @@ comment on policy professional_reviews_update_staff on nestly.professional_revie
 comment on policy professional_articles_update_staff on nestly.professional_articles is 'CONTENT_MODERATE hides, removes or restores a reported article (FR-MOD-001); the text stays its owner''s (professional_articles_reject_staff_edit).';
 comment on function nestly.notify_professional() is
   'SECURITY DEFINER (approved exception, rule 17; Afik 21.10.2026, OP-051 cancelled). After an Offer Help is accepted or declined, a review is written, or a Professional gains a follower: notifies the Professional (offer_accepted / offer_declined, review_received; followers_weekly, one row per week timed at its end). Never to oneself, never across a user block, never naming the actor; the recipient''s category switch is honoured. Declares nestly.notify_scope = professional and clears it. No EXECUTE for any runtime role.';
-comment on column nestly.legal_consents.has_declared_qualification is 'A Professional declared it holds the training and licence its field needs (Afik 21.10.2026); the Professional registration request requires it. False for every other account.';
+comment on column nestly.legal_consents.has_declared_qualification is 'A Professional declared it holds the training and licence its field needs (Afik 21.10.2026); the Professional registration request requires it and only that request sends it.';
 comment on policy notifications_select_recipient on nestly.notifications is 'The recipient reads its own notifications from their created_at (a weekly digest is written ahead, timed at the week''s end).';
 comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement, an Admin''s creation, edit, publication or hiding of a status guide, a staff decision on an image or a suspicion marked on one, a Support request''s status change, a Support reply or internal note, a staff view of a reported chat message, a Moderator invitation issued or revoked, a Moderator joining with one, a System Announcement created, edited, published or removed, a staff view of reported Private Group content, or a reported review or article hidden, removed or restored: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';

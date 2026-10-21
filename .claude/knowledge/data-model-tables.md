@@ -617,7 +617,7 @@ an active Professional) and `outreach` (the author of an accepted Offer Help).
 **I11 follow-ups** (`20261022500000_i11_followups.sql`; down script refuses once a review or article report, a moderated review or article, a Professional
 notification or a qualification declaration exists):
 - `support_requests_select_analytics`, `support_messages_select_analytics`: ANALYTICS_VIEW (the Admin always) reads the rows only on the analytics screen
-  (`nestly.analytics_view`, the I14 pattern); the server returns counts only (FR-ADMIN-003 Support metrics).
+  (`nestly.analytics_view`, the I14 pattern; on support_messages only Support's own non-internal replies); the server returns counts only (FR-ADMIN-003 Support metrics).
 - `reports.review_id`, `reports.article_id` (SET NULL; one report per person and target; kinds `review`, `article`): the reporter must read the target, an article
   not its own (a review's writer is never readable, so reporting one's own review is allowed and harmless); the text is copied (an article: title and body).
   `reports_target_gone` (invoker): when the review or article is deleted, its open reports expire. Handling needs CONTENT_MODERATE.
