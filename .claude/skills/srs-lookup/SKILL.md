@@ -6,7 +6,7 @@ user-invocable: false
 
 # srs-lookup — find it, cite it, never load the whole SRS
 
-**Version:** 1.1 · the rule is in `CLAUDE.md` → "Sources". This is the method.
+**Version:** 1.2 · the rule is in `CLAUDE.md` → "Sources". This is the method.
 
 ## Steps
 
@@ -25,26 +25,26 @@ user-invocable: false
 ## Brief
 
 Before every initiative or completion, in a separate subagent, write `.work/briefs/<initiative>.md` (git-ignored),
-at most ~150 lines. Sources: the initiative map in `decisions-in-force.md` §5, the SRS through the INDEX, and
-`decisions-in-force.md`. Sections:
-
-- **(a) Requirements** — one line per FR / BR / AC / VAL / ERR / PG: `ID (file) — what has to happen · how we know
-  it works` (the test or the observable result).
-- **(b) Afik's decisions that apply** — by § number of `decisions-in-force.md`, one line each.
-- **(c) Fixed rules** — staff principles §9–§10; retention per SRS §13.4 (who deletes, and when it runs); Audit
-  (which actions write it); children's data; the strict-query trap (#147: Vercel adds a `path` query parameter —
-  a strict query schema must accept it).
-- **(d) Open** — every open item, its ⭐, marked ⭐; built per the ⭐ with an OP row and a WORKPLAN line.
-- **(e) Definition of done** — pgTAP, server tests, an e2e-preview flow for the main flow (per
-  `e2e-preview/README.md`), SRS updated, a status row in `17-traceability.md` for every FR touched.
-
-The builder works from the brief; `done-check` checks the PR against it.
+at most ~170 lines, from the initiative map (`decisions-in-force.md` §5), the SRS via the INDEX and the decisions.
+The builder works from it; `done-check` checks the PR against it. Sections:
+- **(a) Requirements** — per FR / BR / AC / VAL / ERR / PG: `ID (file) — what has to happen · how we know it works`.
+- **(b) Afik's decisions** — the whole of `decisions-in-force.md`, not only the initiative's §: every cross-cutting
+  decision that touches it (a 500-character free-text field and "אחר" in every report, a relative time on every
+  publication, staff principles, rating display…), one line each by §. When the SRS and a decision contradict each
+  other, the decision wins; list the contradiction so the SRS is updated in the same PR.
+- **(c) Fixed rules** — staff principles §9–§10; retention per SRS §13.4 (who deletes, when it runs); Audit (which
+  actions write it); children's data; the strict-query trap (#147: a strict query schema accepts Vercel's `path`).
+- **(d) Open** — every open item with its ⭐; built per the ⭐ with an OP row and a WORKPLAN line.
+- **(e) Definition of done** — pgTAP, server tests, an e2e-preview flow for the main flow (`e2e-preview/README.md`),
+  SRS updated, a status row in `17-traceability.md` for every FR touched.
+- **(f) Users and experience** — per user type touched (Regular, Professional, Moderator, Admin): what they see, do
+  and would expect to find, by how successful social networks work and `CLAUDE.md` → "Product". A bad experience →
+  a line in WORKPLAN "ממתין לך" with a suggestion.
 
 ## Stop / done
 
 - An ID not in the INDEX → say so, with the search terms used; never invent one. Behaviour not in the SRS at all →
   a specification gap: report it, never phrase it as a requirement.
-- Done: every claim carries `ID (file)`, every open item is flagged, no file read in full where a section would do;
-  a brief has all five sections within ~150 lines.
-
-Changelog: 1.0 (11.10) created · 1.1 (21.10) the Brief; open questions built per ⭐ (Afik).
+- Done: every claim carries `ID (file)`, every open item flagged, no file read in full where a section would do; a
+  brief has all six sections. Changelog: 1.0 (11.10) created · 1.1 (21.10) the Brief, open items per ⭐ · 1.2 (21.10)
+  (b) reads all decisions, a decision beats the SRS; (f) Users and experience (Afik).

@@ -42,7 +42,7 @@ create schema if not exists tests;
 
 -- The approved SECURITY DEFINER functions, as regprocedure text (e.g. 'nestly.fn(uuid)'). This list must equal the
 -- SECURITY DEFINER entries of .claude/knowledge/data-model.md → "Approved exceptions" — CRITIC checks that. profile_view, I4's two (rules 18 and 19) and, for the notifications,
--- F2.3b, DR-G1 (F1.6's entries are an Auth call sequence and a role, not functions). I4 adds two (rules 18 and 19; approved by Afik 20.10.2026). The notification triggers and People Search: rule 17, one narrow function per kind of write into another user's rows (approved by Afik 20.10.2026, with conditions). I10 adds notify_group (rule 17, the same shape: one definer for the Group notifications). The I11 follow-ups add notify_professional (rule 17, approved by Afik 21.10.2026: one definer for the Professional's notifications). The I14 completion adds child_tracker_trends (approved by Afik 21.10.2026, §9.2); completion B its calendar-period version (the same family; the 30/90/365-day one goes with the next migration) and identical_reports_hide (rule 17, the approved shape: a count over other people's reports; TO BE CONFIRMED BY AFIK, appendix B).
+-- F2.3b, DR-G1 (F1.6's entries are an Auth call sequence and a role, not functions). I4 adds two (rules 18 and 19; approved by Afik 20.10.2026). The notification triggers and People Search: rule 17, one narrow function per kind of write into another user's rows (approved by Afik 20.10.2026, with conditions). I10 adds notify_group (rule 17, the same shape: one definer for the Group notifications). The I11 follow-ups add notify_professional (rule 17, approved by Afik 21.10.2026: one definer for the Professional's notifications). The SRS-audit fixes add deliver_child_birthdays (rule 17, the I7 shape: the caller's own child_birthday notifications; approved by Afik 21.10.2026, night). The I14 completion adds child_tracker_trends (approved by Afik 21.10.2026, §9.2); completion B its calendar-period version (the same family; the 30/90/365-day one goes with the next migration) and identical_reports_hide (rule 17, the approved shape: a count over other people's reports; TO BE CONFIRMED BY AFIK, appendix B).
 create or replace function tests.approved_security_definer()
 returns setof text
 language sql immutable
@@ -52,7 +52,7 @@ as $$
     'nestly.notify_friendship()', 'nestly.notify_comment()', 'nestly.notify_post()',
     'nestly.search_people(text,integer,integer)', 'nestly.notify_group()', 'nestly.notify_professional()',
     'nestly.child_tracker_trends(text,text,text,integer)', 'nestly.child_tracker_trends(text,text,text,text)',
-    'nestly.identical_reports_hide()']::text[]) as f
+    'nestly.identical_reports_hide()', 'nestly.deliver_child_birthdays()']::text[]) as f
 $$;
 
 create or replace function tests.rls_gate(p_schema name default 'nestly')
