@@ -90,8 +90,7 @@ the previous item.
 · [What's new in 2.2](https://www.w3.org/WAI/standards-guidelines/wcag/new-in-22/)
 
 ## Changelog
-- 1.0 — 2026-10-11 — created (Afik's skills decision). Includes the overlay checklist (C5). Provisional until 5
-  features.
+- 1.0 — 2026-10-11 — created (Afik's skills decision). Includes the overlay checklist (C5).
 - 1.1 — 2026-10-11 — aligned with the approved design (WORKPLAN 9.6): 44×44 primary touch targets, the infinite
   feed pattern, icon-button names with counts and tooltips on focus, toasts with actions, reduced motion. Patterns
-  only; the forbidden list is unchanged. Provisional until 5 features.
+  only; the forbidden list is unchanged.

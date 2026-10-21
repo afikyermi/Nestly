@@ -83,5 +83,5 @@
 | קלט / Trigger | My Stage + Topic/Tracker Category/summary מאושר + מאגר תוכן. |
 | תהליך מערכת | Eligibility → התאמת Stage/Topic → Quality/Freshness → Diversity. אין יצירת אבחנה רפואית או מסקנת מצב רפואי. |
 | פלט | רשימת טיפים/מאמרים אורגניים רלוונטיים. |
-| מצב לאחר ביצוע | Open/Save/Not Interested נרשמים כסיגנלים; Raw Tracker אינו נחשף ל-Professional או למפרסם. |
+| מצב לאחר ביצוע | Open/Save נרשמים כסיגנלים; Raw Tracker אינו נחשף ל-Professional או למפרסם. |
 | בעל אחריות לוגי (Page / Feature) | תוכן מותאם לשלב / מנוע ההמלצות מבוסס הכללים |
