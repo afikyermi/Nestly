@@ -572,14 +572,14 @@ test.describe('feed-composer c12 [NFR-A11Y-001] size, motion and order', () => {
     await page.keyboard.press('Tab');
     await expect(bodyBox(page)).toBeFocused();
     const stops: string[] = [];
-    for (let i = 0; i < 5 && !(await publishButton(page).evaluate((el) => el === document.activeElement)); i += 1) {
+    for (let i = 0; i < 6 && !(await publishButton(page).evaluate((el) => el === document.activeElement)); i += 1) {
       await page.keyboard.press('Tab');
       stops.push(await page.locator('*:focus').evaluate((el) => el.getAttribute('aria-label') ?? el.closest('label')?.textContent?.trim() ?? el.tagName));
     }
     await expect(publishButton(page)).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.locator('article:has(*:focus), article:focus').first()).toContainText('גוף הפוסט 1');
-    expect(stops.length).toBe(5); // presses: the checkbox, the audience group, the tag group, "הוספת תמונה" (I5), then "פרסום" — nothing else
+    expect(stops.length).toBe(6); // presses: the checkbox, the audience group, the tag group, the help marking (I11), "הוספת תמונה" (I5), then "פרסום" — nothing else
   });
 });
 

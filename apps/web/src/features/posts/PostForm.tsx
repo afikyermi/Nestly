@@ -147,15 +147,6 @@ export function PostForm(props: PostFormProps) {
         </div>
       ) : null}
       {mode === 'edit' && anonymous ? <p className="text-small text-muted-foreground">{ANONYMOUS_FIXED_TEXT}</p> : null}
-      {/* I11 (OP-038 ⭐ (a)): a Regular's post may ask Professionals for help; a Professional's never does. */}
-      {compact || everyoneOnly || mode === 'edit' ? null : (
-        <div className="flex flex-col gap-1.5">
-          <Checkbox checked={values.isHelpRequest === true} aria-describedby={helpHintId} onCheckedChange={(checked) => onChange({ ...values, isHelpRequest: checked })}>
-            {HELP_REQUEST_LABEL}
-          </Checkbox>
-          <FieldHint id={helpHintId}>{HELP_REQUEST_HINT_TEXT}</FieldHint>
-        </div>
-      )}
       {anonymous || compact || everyoneOnly ? null : (
         <div className="flex flex-col gap-1.5">
           <ChoiceCardGroup
@@ -183,6 +174,15 @@ export function PostForm(props: PostFormProps) {
             }}
           />
           <FieldHint id={tagHintId}>{TAG_HINT_TEXT}</FieldHint>
+        </div>
+      )}
+      {/* I11 (OP-038 ⭐ (a)): a Regular's post may ask Professionals for help; a Professional's never does. */}
+      {compact || everyoneOnly || mode === 'edit' ? null : (
+        <div className="flex flex-col gap-1.5">
+          <Checkbox checked={values.isHelpRequest === true} aria-describedby={helpHintId} onCheckedChange={(checked) => onChange({ ...values, isHelpRequest: checked })}>
+            {HELP_REQUEST_LABEL}
+          </Checkbox>
+          <FieldHint id={helpHintId}>{HELP_REQUEST_HINT_TEXT}</FieldHint>
         </div>
       )}
       {/* I5: the pictures come after the options, just before "פרסום" (the text, then its options, keep their keyboard order) */}

@@ -87,7 +87,7 @@ test.describe('AppShell: TopBar', () => {
 });
 
 test.describe('AppShell: bottom navigation', () => {
-  test('[F1.2 c16][AC-005] a nav "ניווט ראשי" holds exactly three links in DOM order: בית /home, פיד /feed, פרופיל /profile; no חנות or יועצים', async ({
+  test('[F1.2 c16][AC-005] a nav "ניווט ראשי" holds exactly four links in DOM order: בית /home, פיד /feed, יועצים /services (I11), פרופיל /profile; no חנות', async ({
     page,
   }) => {
     await open(page, '/feed', 'signed-in');
@@ -100,15 +100,15 @@ test.describe('AppShell: bottom navigation', () => {
     expect(links).toEqual([
       { name: 'בית', href: '/home' },
       { name: 'פיד', href: '/feed' },
+      { name: 'יועצים', href: '/services' }, // I11: the Professionals' directory (FR-SERV-001)
       { name: 'פרופיל', href: '/profile' },
     ]);
     await expect(navOf(page).locator('button, [role="button"]')).toHaveCount(0);
     const text = await bodyText(page);
     expect(text).not.toContain('חנות');
-    expect(text).not.toContain('יועצים');
   });
 
-  test('[F1.2 c16][AC-005] each nav link carries its own decorative icon (three different icons)', async ({ page }) => {
+  test('[F1.2 c16][AC-005] each nav link carries its own decorative icon (four different icons)', async ({ page }) => {
     await open(page, '/feed', 'signed-in');
     const icons = await navOf(page)
       .getByRole('link')
@@ -118,9 +118,9 @@ test.describe('AppShell: bottom navigation', () => {
           return svg === null ? null : { hidden: svg.getAttribute('aria-hidden'), markup: svg.innerHTML };
         }),
       );
-    expect(icons).toHaveLength(3);
+    expect(icons).toHaveLength(4);
     for (const icon of icons) expect(icon?.hidden).toBe('true');
-    expect(new Set(icons.map((i) => i?.markup)).size, 'home, nest and person icons differ').toBe(3);
+    expect(new Set(icons.map((i) => i?.markup)).size, 'home, nest, spark and person icons differ').toBe(4);
   });
 
   test('[F1.2 c16][AC-005] it is a bar at the bottom at 375', async ({ page }) => {
@@ -203,6 +203,8 @@ test.describe('AppShell: side menu', () => {
     expect(new Set(sections.map((s) => s.href)).size, 'a distinct address per section').toBe(4);
     expect(shown.map((i) => ({ ...i, href: i.href?.startsWith('/settings') === true ? '/settings*' : i.href }))).toEqual([
       { tag: 'a', name: 'חברים', href: '/friends' }, // F2.4b c13, before Settings (FR-MENU-001)
+      { tag: 'a', name: 'בעלי מקצוע', href: '/services' }, // I11: the directory (FR-SERV-001)
+      { tag: 'a', name: 'הצעות עזרה', href: '/offers' }, // I11: Offer Help (FR-SERV-006)
       { tag: 'a', name: 'כללי הקהילה', href: '/community-rules' }, // F3.7 c14, right after Friends
       { tag: 'a', name: 'חשבון', href: '/settings*' },
       { tag: 'a', name: 'פרטיות ואבטחה', href: '/settings*' },
@@ -220,7 +222,8 @@ test.describe('AppShell: side menu', () => {
     }
     const text = await drawer.innerText();
     // "התראות" is now the Settings section (FR-NOTIF-002), so it is no longer banned here.
-    for (const banned of ['חנות', 'יועצים', 'קבוצות', 'עוקבים', 'מקצועיים במעקב', 'עזרה', 'מחיקת חשבון', 'מחיקה', 'בית', 'פיד', 'פרופיל']) {
+    // I11: "הצעות עזרה" (Offer Help, FR-SERV-006) joined the drawer, so "עזרה" alone is no longer banned here.
+    for (const banned of ['חנות', 'יועצים', 'קבוצות', 'עוקבים', 'מקצועיים במעקב', 'מחיקת חשבון', 'מחיקה', 'בית', 'פיד', 'פרופיל']) {
       expect(text, `the drawer must not hold "${banned}"`).not.toContain(banned);
     }
   });
