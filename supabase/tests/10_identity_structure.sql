@@ -394,7 +394,7 @@ select set_eq(
   '[F1.1-b c18 platform r10 · F2.3b c15] the SECURITY DEFINER functions in schema nestly are exactly the approved list');
 
 select is((select count(*) from tests.approved_security_definer()), 12::bigint,
-  '[F1.1-b c18 addendum 1 · F2.3b c15 · I4 · I10 · I14c] the approved SECURITY DEFINER list holds ten functions (profile_view, F2.3b; audit_trigger and reveal_post_author, I4; the three notification triggers and search_people, rule 17, approved by Afik 20.10.2026; I10''s notify_group and the I11 follow-ups'' notify_professional, rule 17, the same shape; the I14 completion''s child_tracker_trends, approved by Afik 21.10.2026, file 100; completion B''s calendar version of it and identical_reports_hide, file 102)');
+  '[F1.1-b c18 addendum 1 · F2.3b c15 · I4 · I10 · I14c] the approved SECURITY DEFINER list holds ten functions (profile_view, F2.3b; audit_trigger and reveal_post_author, I4; the three notification triggers and search_people, rule 17, approved by Afik 20.10.2026; I10''s notify_group and the I11 follow-ups'' notify_professional, rule 17, the same shape; the I14 completion''s child_tracker_trends, approved by Afik 21.10.2026, file 100; completion B''s calendar version of it and identical_reports_hide, file 103)');
 
 select is((select count(*) from tests.approved_security_definer() as a where a like 'nestly.is\_active\_account(%'), 0::bigint,
   '[F1.1-b c18 addendum 1] is_active_account() is not an approved exception');

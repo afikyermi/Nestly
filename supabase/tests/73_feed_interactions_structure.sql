@@ -33,14 +33,14 @@ select is(
       and pol.polname !~ '_notify$'
       and pol.polroles <> array[(select oid from pg_catalog.pg_roles where rolname = 'authenticated')]::oid[]),
   'comments.comments_delete_jobs, comments.comments_select_auto_hide, comments.comments_select_jobs, posts.posts_delete_jobs, posts.posts_select_auto_hide, posts.posts_select_jobs, posts.posts_select_reveal, reports.reports_select_auto_hide, reports.reports_select_jobs, reports.reports_select_reveal, reports.reports_update_jobs',
-  '[F3.0-b c14 platform r6 · I4] the only policies not TO authenticated are the six TO app_jobs of the purge (the approved exception) and the TO app_owner read of reveal_post_author (approved by Afik 20.10.2026); the *_notify policies TO app_owner of the notification definers are file 90''s; completion B''s *_select_auto_hide reads of identical_reports_hide are file 102''s');
+  '[F3.0-b c14 platform r6 · I4] the only policies not TO authenticated are the six TO app_jobs of the purge (the approved exception) and the TO app_owner read of reveal_post_author (approved by Afik 20.10.2026); the *_notify policies TO app_owner of the notification definers are file 90''s; completion B''s *_select_auto_hide reads of identical_reports_hide are file 103''s');
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and pol.polname !~ '_(jobs|notify)$' and pol.polname !~ '_reveal$'
       and pol.polname !~ '_block_hide$' -- restrictive: it only narrows the gated permissive policies (file 91)
       and pol.polname !~ '_group_(hide|insert)$' -- restrictive (I10, file 96)
-      and pol.polname !~ '_auto_hide$' -- restrictive, and the definer''s TO app_owner reads (completion B, file 102)
+      and pol.polname !~ '_auto_hide$' -- restrictive, and the definer''s TO app_owner reads (completion B, file 103)
       and (coalesce(pg_catalog.pg_get_expr(pol.polqual, pol.polrelid), '') || coalesce(pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid), ''))
           !~ 'is_active_account\(\)'),
   0::bigint, '[F3.0-b c1 platform r15] every policy for authenticated on the new tables is gated by is_active_account()');
@@ -49,7 +49,7 @@ select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and not pol.polpermissive and pol.polname !~ '_block_hide$' and pol.polname !~ '_group_(hide|insert)$'
       and pol.polname <> 'reports_insert_community' and pol.polname !~ '_auto_hide$'),
-  0::bigint, '[F3.0-b c1 · I4 blocking · I10 · I14c] no restrictive policy hides an unreviewed branch (the reviewed block policies, file 91, I10''s group policies, file 96, and the I14 completion''s reports_insert_community, staff file no report, file 100, and completion B''s *_auto_hide, ten identical reports, file 102, excepted)');
+  0::bigint, '[F3.0-b c1 · I4 blocking · I10 · I14c] no restrictive policy hides an unreviewed branch (the reviewed block policies, file 91, I10''s group policies, file 96, and the I14 completion''s reports_insert_community, staff file no report, file 100, and completion B''s *_auto_hide, ten identical reports, file 103, excepted)');
 
 select is(
   (select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
@@ -264,7 +264,7 @@ select is(
     where n.nspname = 'nestly' and c.relname not in ('reports', 'report_escalations', 'report_openings') and pol.polname !~ '_staff(_context)?$'
       and (coalesce(pg_catalog.pg_get_expr(pol.polqual, pol.polrelid), '') || coalesce(pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid), '')) ~ '\mreports\M'),
   'marketplace_listings.marketplace_listings_select_viewer, posts.posts_select_viewer, report_auto_hides.report_auto_hides_select_community',
-  '[F3.0-b c16 Afik 18.10 · I14c · I14c-B: ten identical reports hide an item from all but its author and its reporters, file 102] no policy of comments, users or any other table reads reports: a reported comment or user is hidden from nobody (a listing, like a post, is hidden from its reporter, I12; the staff policies, the I14 completion''s report context for REPORTS_VIEW and its escalations and openings only open rows to staff, file 100)');
+  '[F3.0-b c16 Afik 18.10 · I14c · I14c-B: ten identical reports hide an item from all but its author and its reporters, file 103] no policy of comments, users or any other table reads reports: a reported comment or user is hidden from nobody (a listing, like a post, is hidden from its reporter, I12; the staff policies, the I14 completion''s report context for REPORTS_VIEW and its escalations and openings only open rows to staff, file 100)');
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace

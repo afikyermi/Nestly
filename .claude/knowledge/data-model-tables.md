@@ -593,7 +593,7 @@ Built by `20261023500000_staff_rules.sql` (Afik 21.10.2026 (b), decisions-in-for
 its seven tables holds a row or an announcement addresses anyone but everyone). One new SECURITY DEFINER, `identical_reports_hide()` (rule 17, TO BE
 CONFIRMED BY AFIK; data-model.md "Approved exceptions"); `child_tracker_trends(text, text, text, text)` a new version of the approved family (the
 integer one stays until the code PR, then a contract migration drops it); `profile_view()`, `audit_trigger()`, `reports_handle_guard()`,
-`media_assets_update_guard()`, `media_reviews_guard()` replaced. pgTAP: file 102.
+`media_assets_update_guard()`, `media_reviews_guard()` replaced. pgTAP: file 103.
 
 | Table | Columns and meaning | Authorization |
 |---|---|---|

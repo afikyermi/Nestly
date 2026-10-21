@@ -75,7 +75,7 @@ select is((select string_agg(c.relname || '.' || pl.polname || ':' || pl.polcmd:
   || 'marketplace_listings.marketplace_listings_update_owner:w, marketplace_listings.marketplace_listings_update_staff:w, '
   || 'sponsored_products.sponsored_products_insert_manager:a, sponsored_products.sponsored_products_select_manager:r, '
   || 'sponsored_products.sponsored_products_select_viewer:r, sponsored_products.sponsored_products_update_manager:w',
-  '[F12.1-a c1] exactly these policies: staff never delete a listing outside a justified decision (completion B, file 102), nobody deletes a Sponsored Product (removed is a status)');
+  '[F12.1-a c1] exactly these policies: staff never delete a listing outside a justified decision (completion B, file 103), nobody deletes a Sponsored Product (removed is a status)');
 select is((select count(*) from pg_policy pl join pg_class c on c.oid = pl.polrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'nestly'
             and c.relname in ('marketplace_listings', 'sponsored_products') and pl.polname !~ '_auto_hide$'
             and (pl.polroles <> array[(select oid from pg_roles where rolname = 'authenticated')]::oid[] or not pl.polpermissive
