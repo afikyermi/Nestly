@@ -78,6 +78,7 @@ describe('ux-polish-b c11 [NFR-USAB-004 FR-PROFILE-002 DR-1 DR-3 FR-REL-001] con
         'features/groups/GroupMembers.tsx', // I10: transfer of ownership, removal and block (FR-GRP-003)
         'features/groups/GroupScreen.tsx', // I10: leaving a Group (a Private one cannot be seen again without asking)
         'features/journeys/JourneysContent.tsx',
+        'features/professionals/ArticlesScreen.tsx', // I11: deleting an article is final (FR-PRO-003)
         'features/posts/CommentsView.tsx',
         'features/posts/FeedContent.tsx',
         'features/posts/PostContent.tsx',

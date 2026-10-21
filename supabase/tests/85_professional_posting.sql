@@ -89,7 +89,8 @@ select set_config('t.n0', (tests.fx_po_count() + tests.fx_pa_count())::text, tru
 select is(pg_temp.dml('p', pg_temp.ins_sql('everyone', true, null), false), 'ERR:42501', '[F3.10-a c1 FR-FEED-002 AC-076] an anonymous post by P is refused with 42501');
 select is(pg_temp.dml('p', pg_temp.ins_sql('friends', false, null), false), 'ERR:42501', '[F3.10-a c1 FR-FEED-002 Gate 2] a friends audience by P is refused with 42501');
 select is(pg_temp.dml('p', pg_temp.ins_sql('friends', true, null), false), 'ERR:42501', '[F3.10-a c1 FR-FEED-002] anonymous + friends by P is 42501 (RLS before the CHECK), not 23514');
-select is(pg_temp.dml('p', pg_temp.ins_sql('followers', false, null), false) like 'ERR:%', true, '[F3.10-a c1 FR-FEED-002 DR-2 Gate 2] a followers audience is refused (the value does not exist yet)');
+select is(pg_temp.dml('p', pg_temp.ins_sql('followers', false, null), false), 'OK:1', '[F3.10-a c1 FR-FEED-002 I11 AC-130] P may post to its followers only (the statement is rolled back)');
+select is(pg_temp.dml('a', pg_temp.ins_sql('followers', false, null), false), 'ERR:42501', '[I11 AC-130 VAL-049] a Regular cannot post to followers only');
 select is(pg_temp.dml('p', pg_temp.ins_sql('everyone', false, t.v), false), 'ERR:42501', '[F3.10-a c1 FR-FEED-002] stage tag ' || t.v || ' by P is refused with 42501')
   from (values ('planning'), ('pregnant'), ('has_child')) t(v);
 select is(pg_temp.dml('p', pg_temp.share_sql(pg_temp.post('a')), false), 'ERR:42501', '[F3.10-a c1 FR-FEED-002] a share by P is refused with 42501');

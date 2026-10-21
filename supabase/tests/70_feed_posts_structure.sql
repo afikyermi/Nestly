@@ -77,7 +77,7 @@ select is(
      from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = 'posts' and a.attnum > 0 and not a.attisdropped
       and has_column_privilege('authenticated', c.oid, a.attnum, 'SELECT')),
-  'anonymous_post_id, audience, author_id, author_status, body, created_at, group_id, held_at, held_until, id, is_anonymous, is_share, shared_post_id, stage_tag, status',
+  'anonymous_post_id, audience, author_id, author_status, body, created_at, group_id, held_at, held_until, id, is_anonymous, is_help_request, is_share, shared_post_id, stage_tag, status',
   '[F3.0-b finding 1 c14 · I10] authenticated may SELECT exactly these posts columns: everything but held_xact');
 
 select is(
@@ -91,7 +91,7 @@ select is(
      from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and a.attnum > 0 and not a.attisdropped
       and has_column_privilege('authenticated', c.oid, a.attnum, 'INSERT')),
-  'post_authors.post_id, post_hides.post_id, posts.audience, posts.body, posts.group_id, posts.is_anonymous, posts.shared_post_id, posts.stage_tag',
+  'post_authors.post_id, post_hides.post_id, posts.audience, posts.body, posts.group_id, posts.is_anonymous, posts.is_help_request, posts.shared_post_id, posts.stage_tag',
   '[F3.0-a c1 c6 platform r12 r13] authenticated may INSERT exactly these columns: never the author, the status, a copy, an id or a clock');
 
 select is(
@@ -99,7 +99,7 @@ select is(
      from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and a.attnum > 0 and not a.attisdropped
       and has_column_privilege('authenticated', c.oid, a.attnum, 'UPDATE')),
-  'posts.audience, posts.body, posts.stage_tag, posts.status',
+  'posts.audience, posts.body, posts.is_help_request, posts.stage_tag, posts.status',
   '[F3.0-a c6 c4] authenticated may UPDATE exactly audience, body, tag and (F3.0b, the move to deleted) status: not the anonymous flag, author or share reference');
 
 -- ---- c1: functions --------------------------------------------------------------------------------------------------------------
@@ -122,9 +122,9 @@ select is(
 select is(
   (select string_agg(c.relname, ', ' order by c.relname) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')),
-  'algorithm_configurations, audit_log, chat_blocks, chat_reads, chat_requests, children, comments, conversations, cycle_entries, friend_content_notification_preferences, friendships, group_access, group_bans, group_highlight_configurations, group_invitations, group_join_requests, group_members, group_notification_preferences, group_suggestions, groups, identity_link_checks, journey_contexts, legal_consents, media_assets, media_reviews, media_training_candidates, media_training_events, media_training_samples, messages, moderator_invitations, moderator_permissions, notification_preferences, notifications, people_search_counts, post_authors, '
-  || 'post_hides, posts, private_group_content_views, profile_open_counts, profile_photos, reaction_owners, reactions, recovery_answers, recovery_events, recovery_throttles, regular_names, regular_profiles, report_reasons, reported_message_views, reports, search_intents, security_events, security_limits, staff_roles, status_guides, stories, support_messages, support_requests, system_announcements, tracker_events, user_blocks, user_enforcements, users',
-  '[F3.0-a c17 F3.0-b c1 · I14] schema nestly holds exactly the fourteen earlier tables plus the schema.md and schema-b.md names (63, with I10''s ten group tables, file 96, with I14''s moderator_invitations and system_announcements, with I6''s cycle_entries, status_guides and tracker_events, plus I4''s five, user_blocks and the five notification and search tables and I5''s seven media tables and I8''s eight chat, Support and reported-message tables): no events table');
+  'algorithm_configurations, audit_log, chat_blocks, chat_reads, chat_requests, children, comments, conversations, cycle_entries, friend_content_notification_preferences, friendships, group_access, group_bans, group_highlight_configurations, group_invitations, group_join_requests, group_members, group_notification_preferences, group_suggestions, groups, identity_link_checks, journey_contexts, legal_consents, marketplace_listings, media_assets, media_reviews, media_training_candidates, media_training_events, media_training_samples, messages, moderator_invitations, moderator_permissions, notification_preferences, notifications, outreach_requests, people_search_counts, post_authors, '
+  || 'post_hides, posts, private_group_content_views, professional_articles, professional_follows, professional_profiles, professional_reviews, profile_open_counts, profile_photos, reaction_owners, reactions, recovery_answers, recovery_events, recovery_throttles, regular_names, regular_profiles, report_reasons, reported_message_views, reports, search_intents, security_events, security_limits, sponsored_products, staff_roles, status_guides, stories, support_messages, support_requests, system_announcements, tracker_events, user_blocks, user_enforcements, users',
+  '[F3.0-a c17 F3.0-b c1 · I14] schema nestly holds exactly the fourteen earlier tables plus the schema.md and schema-b.md names (70, with I12''s marketplace_listings and sponsored_products, file 99, with I11''s five Professional tables, file 97, with I10''s ten group tables, file 96, with I14''s moderator_invitations and system_announcements, with I6''s cycle_entries, status_guides and tracker_events, plus I4''s five, user_blocks and the five notification and search tables and I5''s seven media tables and I8''s eight chat, Support and reported-message tables): no events table');
 
 select is(
   (select count(*) from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
@@ -165,7 +165,7 @@ select is(
   (select coalesce(string_agg(c.relname || '.' || pol.polname, ', ' order by c.relname, pol.polname), '(none)') from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname <> 'post_authors' and pol.polcmd in ('r', '*')
       and (coalesce(pg_catalog.pg_get_expr(pol.polqual, pol.polrelid), '')) ~ 'post_authors'),
-  'comments.comments_select_own_moderated, comments.comments_select_viewer, posts.posts_select_own_moderated, posts.posts_select_viewer', '[F3.0-a c5 F3.0-b c11 rule 20 · I4] only the four SELECT policies that carry the held branch or the delete of moderated content (the author reads their own row) read post_authors: no other table policy does (post_authors itself has the reveal policy, file 90)');
+  'comments.comments_select_own_moderated, comments.comments_select_viewer, outreach_requests.outreach_requests_select_target, posts.posts_select_own_moderated, posts.posts_select_viewer', '[F3.0-a c5 F3.0-b c11 rule 20 · I4 · I11] only the four SELECT policies that carry the held branch or the delete of moderated content (the author reads their own row) and I11''s outreach_requests_select_target (the author of an anonymous post reads the Offer Help on it through its own post_authors row, file 97) read post_authors: no other table policy does (post_authors itself has the reveal policy, file 90)');
 
 -- ---- c16: nothing depends on the hide table except its own objects and posts_select_viewer -------------------------------------------
 select is(

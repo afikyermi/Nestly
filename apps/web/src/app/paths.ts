@@ -1,6 +1,17 @@
 import { CONVERSATION_PATTERN, SUPPORT_THREAD_PATTERN } from '@/lib/chat-link';
 import { POST_PATTERN } from '@/lib/post-link';
 import { USER_PROFILE_PATTERN } from '@/lib/profile-link';
+import {
+  FOLLOWING_PATH,
+  HELP_REQUESTS_PATH,
+  OFFERS_PATH,
+  PRO_ARTICLES_PATH,
+  PRO_BILLING_PATH,
+  PRO_PROFILE_PATH,
+  PRO_PROMOTION_PATH,
+  PROFESSIONAL_PAGE_PATTERN,
+  SERVICES_PATH,
+} from '@/lib/professional-link';
 import { TRACKER_PATTERN } from '@/lib/tracker-link';
 import { GROUP_PATTERN } from '@/lib/group-link';
 
@@ -70,6 +81,19 @@ export const PATHS = {
   /** I14: joining the team with an invitation link (the one-time code rides in the fragment). Open to a Guest, and to an Auth session with no
    *  Nestly account yet (the person has just signed up there). */
   joinTeam: '/team/join',
+  /** I11: the directory (FR-SERV-001), one Professional's page `/pros/<id>` (FR-SERV-003; by pattern, see `professionalIdOfPath`), the owner's
+   *  profile and articles (FR-PRO-003), and Offer Help (FR-SERV-005/006). */
+  services: SERVICES_PATH,
+  professional: PROFESSIONAL_PAGE_PATTERN,
+  proProfile: PRO_PROFILE_PATH,
+  proArticles: PRO_ARTICLES_PATH,
+  offers: OFFERS_PATH,
+  /** I11 follow-ups (Afik 21.10.2026, §9.8): the Professionals one follows (PG-039), a Professional's help-requests page, and its promotion and
+   *  billing pages (I13 fills them). */
+  following: FOLLOWING_PATH,
+  helpRequests: HELP_REQUESTS_PATH,
+  proPromotion: PRO_PROMOTION_PATH,
+  proBilling: PRO_BILLING_PATH,
 } as const;
 
 /** The only paths a Guest may open. */
@@ -112,6 +136,14 @@ export const PROTECTED_PATHS: readonly string[] = [
   PATHS.adminCommunity,
   PATHS.adminAnnouncements,
   PATHS.adminAnalytics,
+  PATHS.services,
+  PATHS.proProfile,
+  PATHS.proArticles,
+  PATHS.offers,
+  PATHS.following,
+  PATHS.helpRequests,
+  PATHS.proPromotion,
+  PATHS.proBilling,
 ];
 
 /** Where a Guest goes from a protected path (ERR-012, Q3): Welcome. The requested path is not kept. */

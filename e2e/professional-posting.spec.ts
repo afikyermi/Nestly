@@ -20,7 +20,8 @@ const SIZES = [
   { label: 'desktop', viewport: DESKTOP },
   { label: 'phone', viewport: MOBILE },
 ] as const;
-const FIXED_LINE = 'הפוסט יוצג לכולם';
+// I11 (AC-130, decisions-in-force §4): the fixed line "הפוסט יוצג לכולם" gave way to the audience group "כולם" / "עוקבים בלבד".
+const PRO_AUDIENCES = ['כולם', 'עוקבים בלבד'];
 const NAME_NOTICE = 'השם שלכם יוצג לכל מי שיכול לראות את הפוסט';
 const FEED = () => pageOf(range(1, 3), null);
 /** A Professional's own post: named, everyone, never tagged (spec D2). */
@@ -31,16 +32,21 @@ const proFeed = async (page: Page, answer = FEED, path = '/feed') => {
   await openFeedAt(page, net, path);
   return net;
 };
-const fixedLine = (page: Page) => page.getByText(FIXED_LINE, { exact: true });
+const fixedLine = (page: Page) => audienceGroup(page);
+/** AC-130: exactly the two radios "כולם" and "עוקבים בלבד". */
+async function expectProAudience(scope: Page | Locator): Promise<void> {
+  await expect(scope.getByRole('radio')).toHaveCount(PRO_AUDIENCES.length);
+  for (const name of PRO_AUDIENCES) await expect(scope.getByRole('radio', { name, exact: true })).toHaveCount(1);
+}
 /** Nothing a Professional must never be offered, anywhere in the page (c8). */
 async function expectNoForbiddenControls(page: Page): Promise<void> {
   await expect(anonToggle(page)).toHaveCount(0);
   await expect(page.getByText('פרסום אנונימי')).toHaveCount(0);
-  await expect(audienceGroup(page)).toHaveCount(0);
-  await expect(page.getByRole('radiogroup')).toHaveCount(0);
-  await expect(page.getByRole('radio')).toHaveCount(0);
+  // I11 (AC-130): at most the audience group of "כולם" and "עוקבים בלבד"; never "חברים בלבד", a tag group or a checkbox
+  await expect(page.getByRole('radio', { name: 'חברים בלבד' })).toHaveCount(0);
+  await expect(page.getByRole('radio', { name: 'בלי תגית' })).toHaveCount(0);
+  expect(await page.getByRole('radiogroup').count()).toBeLessThanOrEqual(1);
   await expect(page.getByRole('checkbox')).toHaveCount(0);
-  await expect(page.getByText(NAME_NOTICE)).toHaveCount(0);
   expect(await page.locator('body').innerText()).not.toContain('בעל מקצוע');
   expect(await page.content()).not.toContain('בעל מקצוע');
 }
@@ -62,7 +68,7 @@ const button = (page: Page, name: string) => page.getByRole('button', { name, ex
 
 test.describe('professional-posting c8 [FR-FEED-002 FR-FEED-005 DR-2 D2 DR-3] the always-open composer', () => {
   for (const { label, viewport } of SIZES) {
-    test(`[c8] ${label}: the form "כתיבת פוסט" with "מה תרצו לשתף?" and "פרסום" (44x44); engaged it shows "${FIXED_LINE}"; never an anonymous control, audience or tag group, name notice; axe in both states`, async ({ page }) => {
+    test(`[c8] ${label}: the form "כתיבת פוסט" with "מה תרצו לשתף?" and "פרסום" (44x44); engaged it shows the audience group "כולם" / "עוקבים בלבד" (AC-130); never an anonymous control, a tag group or "חברים בלבד"; axe in both states`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await proFeed(page);
       await expect(feedCards(page)).toHaveCount(3);
@@ -79,16 +85,17 @@ test.describe('professional-posting c8 [FR-FEED-002 FR-FEED-005 DR-2 D2 DR-3] th
       await bodyBox(page).click();
       await expect(bodyBox(page)).toBeFocused();
       await expect(fixedLine(page)).toBeVisible();
+      await expectProAudience(page);
       const describedBy = await composer(page).getAttribute('aria-describedby');
-      expect(describedBy, 'the form is described by the fixed line').not.toBeNull();
-      await expect(page.locator(`[id="${describedBy ?? ''}"]`)).toHaveText(FIXED_LINE);
+      expect(describedBy, 'the form is described by the name notice').not.toBeNull();
+      await expect(page.locator(`[id="${describedBy ?? ''}"]`)).toHaveText(NAME_NOTICE);
       await expectNoForbiddenControls(page);
       await bodyBox(page).fill('שאלה קטנה');
       await expectNoForbiddenControls(page);
       await scan(page);
     });
   }
-  test('[c8] the fixed line sits after the text field and before "פרסום"', async ({ page }) => {
+  test('[c8] the audience group sits after the text field and before "פרסום"', async ({ page }) => {
     await proFeed(page);
     await bodyBox(page).click();
     await expect(fixedLine(page)).toBeVisible();
@@ -153,7 +160,7 @@ test.describe('professional-posting c9 [FR-FEED-002 ERR-004] publishing', () => 
 
 test.describe('professional-posting c11 [FR-FEED-002 3א] the own post page', () => {
   for (const { label, viewport } of SIZES) {
-    test(`[c11] ${label}: "${EDIT_ITEM}" and "${DELETE_ITEM}" in "${POST_MORE}" for the author (ux-polish-b c3), no visible "עריכה" or "מחיקה" button; the audience label is "מי יראה את הפוסט: כולם", no tag line; the edit form shows "${FIXED_LINE}" and no audience or tag group; axe`, async ({ page }) => {
+    test(`[c11] ${label}: "${EDIT_ITEM}" and "${DELETE_ITEM}" in "${POST_MORE}" for the author (ux-polish-b c3), no visible "עריכה" or "מחיקה" button; the audience label is "מי יראה את הפוסט: כולם", no tag line; the edit form offers only "כולם" / "עוקבים בלבד" and no tag group; axe`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await setupPosts(page, { posts: [proPost()], professional: true });
       await openPost(page, `/posts/${POST_ID}`);
@@ -172,9 +179,8 @@ test.describe('professional-posting c11 [FR-FEED-002 3א] the own post page', ()
       const form = page.getByRole('form', { name: 'עריכת פוסט' });
       await expect(form).toBeVisible();
       await expect(form.getByRole('textbox')).toHaveValue('שאלה על שינה\nבשעות הלילה');
-      await expect(form.getByText(FIXED_LINE, { exact: true })).toBeVisible();
-      await expect(form.getByRole('radiogroup')).toHaveCount(0);
-      await expect(form.getByRole('radio')).toHaveCount(0);
+      await expect(form.getByRole('radiogroup')).toHaveCount(1);
+      await expectProAudience(form);
       await expect(form.getByRole('checkbox')).toHaveCount(0);
       await expect(form.getByText(NAME_NOTICE)).toHaveCount(0);
       await scan(page);

@@ -1,8 +1,8 @@
 // Value lists and limits of the posts schema (I3 F3.0a/F3.1; migrations 20261018100000, 20261018200000). Held once here; the Drizzle schema
 // declares its text enum from it, and the CHECK constraints posts_audience_value_check and posts_body_length_check state the same.
 
-/** OP-033: who may see a post. Per post, never a profile setting. */
-export const POST_AUDIENCES = ['everyone', 'friends'] as const;
+/** OP-033, VAL-049: who may see a post. Per post, never a profile setting. A Regular: everyone or friends; a Professional: everyone or followers (AC-130). */
+export const POST_AUDIENCES = ['everyone', 'friends', 'followers'] as const;
 export type PostAudience = (typeof POST_AUDIENCES)[number];
 
 /**

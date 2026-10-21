@@ -90,6 +90,8 @@ export const legalConsents = nestly.table('legal_consents', {
   termsVersion: text('terms_version').notNull(),
   privacyVersion: text('privacy_version').notNull(),
   hasDeclared18Plus: boolean('has_declared_18_plus').notNull(),
+  /** I11 follow-ups (Afik 21.10.2026): a Professional's training-and-licence declaration; false for every other account. */
+  hasDeclaredQualification: boolean('has_declared_qualification').notNull(),
 });
 
 // Write models. INSERT target only. Names exactly the columns granted INSERT (migration 20261014200000 §6); Drizzle
@@ -154,6 +156,14 @@ export const legalConsentsInsert = nestly.table('legal_consents', {
   termsVersion: text('terms_version').notNull(),
   privacyVersion: text('privacy_version').notNull(),
   hasDeclared18Plus: boolean('has_declared_18_plus').notNull(),
+});
+
+/** A Professional's consent (FR-PROREG-002): the same columns and the qualification declaration (I11 follow-ups, migration 20261022500000). */
+export const professionalConsentsInsert = nestly.table('legal_consents', {
+  termsVersion: text('terms_version').notNull(),
+  privacyVersion: text('privacy_version').notNull(),
+  hasDeclared18Plus: boolean('has_declared_18_plus').notNull(),
+  hasDeclaredQualification: boolean('has_declared_qualification').notNull(),
 });
 
 // Password recovery (I1 F1.6; schema.md). The hashes and salts are selectable through this schema only by app_recovery
@@ -372,6 +382,8 @@ export const postsInsert = nestly.table('posts', {
   audience: text('audience', { enum: POST_AUDIENCES }).notNull(),
   body: text('body'),
   stageTag: text('stage_tag', { enum: JOURNEY_STAGES }),
+  /** I11 (OP-038): asks for help; a Regular's post only (posts_insert_author). */
+  isHelpRequest: boolean('is_help_request').notNull().default(false),
 });
 
 /** UPDATE target only. audience, body and stage_tag are the columns granted UPDATE for a post's text; id is for WHERE only (42501 if set). */
@@ -380,6 +392,7 @@ export const postsUpdate = nestly.table('posts', {
   audience: text('audience', { enum: POST_AUDIENCES }).notNull(),
   body: text('body'),
   stageTag: text('stage_tag', { enum: JOURNEY_STAGES }),
+  isHelpRequest: boolean('is_help_request').notNull().default(false),
 });
 
 // Notifications and People Search (migration 20261020400000). A notification is written only by the database's own triggers; the recipient

@@ -17,6 +17,7 @@ import { DUE_DATE_FIELD_LABEL, STAGE_LABELS } from '@/lib/child-fields';
 import { GENDER_OPTIONS } from '@/lib/profile-fields';
 import { ChildrenSection } from './ChildrenSection';
 import { FieldError, FieldHint } from '@/components/shared/field-message';
+import { PRO_REGISTER_LINK } from '@/lib/professional-texts';
 import { EMPTY_CHILD, validateStep1, type ChildForm, type Step1Errors, type Step1Form } from './step1-form';
 
 const STAGE_OPTIONS: ChoiceOption[] = JOURNEY_STAGES.map((value) => ({ value, label: STAGE_LABELS[value] }));
@@ -42,11 +43,13 @@ export interface RegisterStepOneProps {
   onValid: (value: RegistrationStep1) => void;
   /** Completion mode (F1.5): the user is signed in without an account. Own heading and text, and "התנתקות" instead of the way back. */
   completion?: { onSignOut: () => void };
+  /** I11 (FR-REG-001): switches to the Professional's registration; absent, the link is not shown. */
+  onProfessional?: () => void;
 }
 
 // Registration step 1 (FR-REG-002): stage, name, parent gender and, under "בהריון", a due date. Errors appear on the
 // first "המשך" and are recomputed on every change after it, so one clears as soon as its field is valid.
-export function RegisterStepOne({ form, onFormChange, getToday, onValid, completion }: RegisterStepOneProps) {
+export function RegisterStepOne({ form, onFormChange, getToday, onValid, completion, onProfessional }: RegisterStepOneProps) {
   const toWelcome = useLinkClickHandler(PATHS.welcome);
   const google = useGoogleSignIn();
   const formRef = useRef<HTMLFormElement>(null);
@@ -113,6 +116,12 @@ export function RegisterStepOne({ form, onFormChange, getToday, onValid, complet
             {completion !== undefined ? (
               <Button variant="text" onClick={completion.onSignOut} className="self-center">
                 התנתקות
+              </Button>
+            ) : null}
+            {/* I11 (FR-REG-001): a Professional's account has its own flow. */}
+            {onProfessional !== undefined ? (
+              <Button variant="text" onClick={onProfessional} className="self-center">
+                {PRO_REGISTER_LINK}
               </Button>
             ) : null}
           </>

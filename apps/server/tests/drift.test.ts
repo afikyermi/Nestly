@@ -59,6 +59,7 @@ const APPROVED_F14: ColumnShape[] = [
   col('legal_consents', 'terms_version', 'text', true),
   col('legal_consents', 'privacy_version', 'text', true),
   col('legal_consents', 'has_declared_18_plus', 'boolean', true),
+  col('legal_consents', 'has_declared_qualification', 'boolean', true), // I11 follow-ups (a Professional's qualification declaration)
   col('legal_consents', 'accepted_at', TZ, true),
 ];
 // F1.6 part a (schema.md, three new tables): what the migrated database really holds. The Drizzle schema may name fewer
@@ -140,6 +141,8 @@ const APPROVED_F31A: ColumnShape[] = [
   col('posts', 'body', 'text', false), col('posts', 'stage_tag', 'text', false),
   col('posts', 'created_at', TZ, true),
   col('posts', 'is_anonymous', 'boolean', true), col('posts', 'group_id', 'uuid', false),
+  // I11 (OP-038): the help-request marking, written by a Regular's post.
+  col('posts', 'is_help_request', 'boolean', true),
 ];
 // I7 (migration 20261020400000): notifications, preferences, People Search counts and the Intent Signal, as Drizzle declares them.
 const APPROVED_I7: ColumnShape[] = [

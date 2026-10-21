@@ -201,6 +201,13 @@ async function stubTeam(page: Page): Promise<TeamNet> {
         medianHoursToClose: 3.5,
         enforcements: { warning: 2, suspension: 1, ban: 0 },
       },
+      support: {
+        requests: days,
+        byTopic: [{ topic: 'bug', count: 4 }],
+        byStatus: { open: 1, inProgress: 2, closed: 3 },
+        answered: 5,
+        medianHoursToFirstReply: 1.5,
+      },
     });
   });
   return net;

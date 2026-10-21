@@ -1,7 +1,7 @@
 // POST /api/posts, GET|PATCH|DELETE /api/posts/:id (I3 F3.1a, F3.4; FR-FEED-002, FR-FEED-005, OP-033, BR-062, VAL-036; Afik 3א, 5א, 6א). Signed in: the
 // authentication hook has run before anything here (401 before the body is read, and no database query). No route takes an author id; the
 // author is the caller's by the database, and RLS decides who may read, edit or delete.
-//   POST   { body, audience, stageTag?, isAnonymous?, imageIds?, groupId? } (strict; groupId: I10, members only) → 201 { id, body, audience, stageTag, createdAt, isAnonymous, images? } · 400 invalid ·
+//   POST   { body, audience, stageTag?, isAnonymous?, imageIds?, groupId?, isHelpRequest? } (strict; groupId: I10, members only; isHelpRequest: I11) → 201 { id, body, audience, stageTag, createdAt, isAnonymous, images? } · 400 invalid ·
 //          422 image_not_available (I5: an image that is not the caller's unattached post image) ·
 //          422 body_required | body_too_long | audience_not_allowed (anonymous and friends-only) · 403 not_allowed (refused by the database:
 //          not an active Regular or Professional account, or a Professional's anonymous, friends-only or tagged post)
@@ -52,11 +52,11 @@ async function create(request: FastifyRequest, reply: FastifyReply, deps: PostsR
   reply.header('cache-control', 'no-store');
   const checked = checkCreatePost(request.body);
   if (!checked.ok) return replyRefusedBody(reply, checked);
-  const { body, audience, stageTag, isAnonymous, imageIds, groupId } = checked.value;
+  const { body, audience, stageTag, isAnonymous, imageIds, groupId, isHelpRequest } = checked.value;
   if (body === undefined || audience === undefined) return reply.code(400).send({ error: 'invalid' });
   if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
   try {
-    return reply.code(201).send(await createPost(deps.database, identity, { body, audience, stageTag, isAnonymous, imageIds, groupId }, deps.storage));
+    return reply.code(201).send(await createPost(deps.database, identity, { body, audience, stageTag, isAnonymous, imageIds, groupId, isHelpRequest }, deps.storage));
   } catch (error) {
     // I5: an image named that the caller may not attach (not theirs, not a post image, already used, refused): nothing was posted.
     if (error instanceof ImageNotAvailable) return reply.code(422).send({ error: 'image_not_available' });

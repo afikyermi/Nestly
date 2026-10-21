@@ -8,7 +8,7 @@
 //   - the configuration rows and the snapshot clock
 // Timestamps leave the database as text with six fractional digits (the cursor's own format) and come back as text: never a JS Date.
 
-import { JOURNEY_STAGES, POST_AUDIENCES, dbTimestamp, type FeedConfigRow } from '@nestly/shared';
+import { JOURNEY_STAGES, POST_AUDIENCES, PROFESSIONAL_FIELDS, dbTimestamp, type FeedConfigRow } from '@nestly/shared';
 import { sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { IdentityTx } from '../db/identity-transaction.js';
@@ -108,7 +108,11 @@ export type RankingParameters =
        */
       readonly intents?: readonly { readonly pattern: string; readonly weight: number }[];
     })
-  | (RankingBase & { readonly profile: 'content' });
+  | (RankingBase & {
+      readonly profile: 'content';
+      /** I11 (FR-ALG-003): the viewer's own id, a bound value, so the Follow term never lifts the viewer's own posts. Absent: no Follow term. */
+      readonly viewerId?: string;
+    });
 
 export interface RankedPost {
   readonly id: string;
@@ -150,8 +154,20 @@ function scoreTerms(parameters: RankingParameters): SQL {
               )::float8) / ln(1::float8 + ${config.qualityCap}::float8),
               1::float8)`;
   if (parameters.profile === 'content') {
-    return sql`${fresh}
+    // FR-ALG-003 (I11): a Professional viewer's feed favours the Professionals it follows, with the Friend weight (a Professional has no
+    // Friends). The EXISTS runs under the viewer's own Follow policy (its own Follows, and the rows naming itself), so it reads no
+    // friendship, no Stage and no identity.
+    if (parameters.viewerId === undefined) {
+      return sql`${fresh}
           + ${quality}`;
+    }
+    const follows = sql`${config.wFriend}::float8 * (case
+              when t.author_id is not null and t.author_id <> ${parameters.viewerId}::uuid
+                and exists (select 1 from nestly.professional_follows pf where pf.professional_id = t.author_id)
+              then 1::float8 else 0::float8 end)`;
+    return sql`${fresh}
+          + ${quality}
+          + ${follows}`;
   }
   const friend = sql`${config.wFriend}::float8 * (case
               when t.is_anonymous or t.author_id is null then 0::float8
@@ -238,7 +254,10 @@ const displayRow = z.object({
   stageTag: z.enum(JOURNEY_STAGES).nullable(),
   createdAt: z.string(),
   isMine: z.boolean(),
+  isHelpRequest: z.boolean(),
   authorName: z.string().nullable(),
+  authorField: z.enum(PROFESSIONAL_FIELDS).nullable(),
+  authorFieldOther: z.string().nullable(),
   originalId: z.guid().nullable(),
   originalBody: z.string().nullable(),
   originalAudience: z.enum(POST_AUDIENCES).nullable(),
@@ -246,6 +265,8 @@ const displayRow = z.object({
   originalIsAnonymous: z.boolean().nullable(),
   originalIsMine: z.boolean(),
   originalAuthorName: z.string().nullable(),
+  originalAuthorField: z.enum(PROFESSIONAL_FIELDS).nullable(),
+  originalAuthorFieldOther: z.string().nullable(),
 });
 
 export type DisplayPost = z.infer<typeof displayRow>;
@@ -259,16 +280,19 @@ export function displayStatement(ids: readonly string[]): SQL {
   return sql`
     select p.id, p.is_share as "isShare", p.is_anonymous as "isAnonymous", p.body, p.audience, p.stage_tag as "stageTag",
            ${isoText(sql`p.created_at`)} as "createdAt",
-           coalesce(p.author_id = (select auth.uid()), false) as "isMine",
-           n.full_name as "authorName",
+           coalesce(p.author_id = (select auth.uid()), false) as "isMine", p.is_help_request as "isHelpRequest",
+           coalesce(n.full_name, ap.full_name) as "authorName", ap.field as "authorField", ap.field_other as "authorFieldOther",
            o.id as "originalId", o.body as "originalBody", o.audience as "originalAudience",
            ${isoText(sql`o.created_at`)} as "originalCreatedAt", o.is_anonymous as "originalIsAnonymous",
            coalesce(o.author_id = (select auth.uid()), false) as "originalIsMine",
-           oa.full_name as "originalAuthorName"
+           coalesce(oa.full_name, oap.full_name) as "originalAuthorName", oap.field as "originalAuthorField",
+           oap.field_other as "originalAuthorFieldOther"
     from nestly.posts p
     left join nestly.regular_names n on n.user_id = p.author_id
+    left join nestly.professional_profiles ap on ap.user_id = p.author_id
     left join nestly.posts o on o.id = p.shared_post_id
     left join nestly.regular_names oa on oa.user_id = o.author_id
+    left join nestly.professional_profiles oap on oap.user_id = o.author_id
     where p.id in (${sql.join(
       ids.map((id) => sql`${id}::uuid`),
       sql`, `,

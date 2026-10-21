@@ -9,6 +9,10 @@ import { RegisterStepOne } from './RegisterStepOne';
 import { GoogleLookupHold } from './GoogleLookupHold';
 import { RegisterStepTwo } from './RegisterStepTwo';
 import { EMPTY_STEP1_FORM, type Step1Form } from './step1-form';
+import { ProfessionalStepOne } from './ProfessionalStepOne';
+import { EMPTY_PROFESSIONAL_FORM, professionalInputOf, type ProfessionalForm } from '@/components/domain/professional-profile-fields';
+import type { RegisterOutcome } from '@/services/api/register-account';
+import { registerProfessional } from '@/services/api/professionals';
 
 /** Whether the completing user came in through Google (F1.8): asked of Auth by the page. Absent reads as 'none'. */
 export type GoogleLookup =
@@ -39,15 +43,67 @@ export function RegistrationFlow({ today, completion }: RegistrationFlowProps) {
   const [parsed, setParsed] = useState<RegistrationStep1 | null>(null);
   // Kept here so it survives Back and a return to step 2; the password is step 2's own and does not (F1.4 criterion 19).
   const [email, setEmail] = useState('');
+  // I11 (FR-REG-001): which account this registration creates. A Professional's step 1 is its own form; step 2 is the same.
+  const [kind, setKind] = useState<'personal' | 'professional'>('personal');
+  const [proForm, setProForm] = useState<ProfessionalForm>(EMPTY_PROFESSIONAL_FORM);
+  const [proReady, setProReady] = useState(false);
+  // Afik 21.10.2026: the Professional's required qualification declaration (sent with the account)
+  const [declared, setDeclared] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
-  const stepTwoValue = isStepTwoEntry(location.state) ? parsed : null;
+  const stepTwoValue = isStepTwoEntry(location.state) && kind === 'personal' ? parsed : null;
+  // I11 follow-ups (FR-REG-004, AC-100): a Professional's account can also be created from "complete registration" (a signed-in Auth user with no
+  // account): its step 2 is then the consent alone (or, for a Google user, the password and the consent), as for a personal account.
+  const proStepTwo = kind === 'professional' && proReady && declared && isStepTwoEntry(location.state);
+  const submitProfessional = async (token: string): Promise<RegisterOutcome> => {
+    const result = await registerProfessional(token, { ...professionalInputOf(proForm), consent: true, qualification: true });
+    if (result.kind === 'ok') return 'created';
+    if (result.kind === 'already-done') return 'already_registered';
+    if (result.kind === 'unauthenticated') return 'unauthenticated';
+    return 'failed';
+  };
 
   return (
     <main tabIndex={-1}>
-      <title>{documentTitle(completion !== undefined ? 'השלמת ההרשמה' : stepTwoValue !== null ? 'פרטי התחברות' : 'פרטים אישיים')}</title>
-      {stepTwoValue !== null && (completion?.google?.status === 'pending' || completion?.google?.status === 'failed') ? (
+      <title>{documentTitle(completion !== undefined ? 'השלמת ההרשמה' : stepTwoValue !== null || proStepTwo ? 'פרטי התחברות' : kind === 'professional' ? 'פרטים מקצועיים' : 'פרטים אישיים')}</title>
+      {proStepTwo && completion === undefined ? (
+        <RegisterStepTwo step1={null} submitAccount={submitProfessional} email={email} onEmailChange={setEmail} onBack={() => void navigate(-1)} />
+      ) : proStepTwo && (completion?.google?.status === 'pending' || completion?.google?.status === 'failed') ? (
+        <GoogleLookupHold lookup={completion.google} onBack={() => void navigate(-1)} />
+      ) : proStepTwo && completion?.google?.status === 'google' ? (
+        <RegisterGoogleCompletionStep
+          step1={null}
+          submitAccount={submitProfessional}
+          email={completion.google.email}
+          onBack={() => void navigate(-1)}
+          onSignOut={completion.onSignOut}
+          onUnauthenticated={completion.onUnauthenticated}
+        />
+      ) : proStepTwo && completion !== undefined ? (
+        <RegisterConsentStep
+          step1={null}
+          submitAccount={submitProfessional}
+          onBack={() => void navigate(-1)}
+          onSignOut={completion.onSignOut}
+          onUnauthenticated={completion.onUnauthenticated}
+        />
+      ) : kind === 'professional' ? (
+        <ProfessionalStepOne
+          form={proForm}
+          onFormChange={(next) => {
+            setProForm(next);
+            setProReady(false);
+          }}
+          declared={declared}
+          onDeclaredChange={setDeclared}
+          onPersonal={() => setKind('personal')}
+          onValid={() => {
+            setProReady(true);
+            void navigate(PATHS.register, { state: STEP_TWO_STATE });
+          }}
+        />
+      ) : stepTwoValue !== null && (completion?.google?.status === 'pending' || completion?.google?.status === 'failed') ? (
         <GoogleLookupHold lookup={completion.google} onBack={() => void navigate(-1)} />
       ) : stepTwoValue !== null && completion?.google?.status === 'google' ? (
         <RegisterGoogleCompletionStep
@@ -75,6 +131,7 @@ export function RegistrationFlow({ today, completion }: RegistrationFlowProps) {
             setParsed(null);
           }}
           {...(completion !== undefined ? { completion: { onSignOut: completion.onSignOut } } : {})}
+          onProfessional={() => setKind('professional')}
           getToday={() => today ?? localDateIso(new Date())}
           onValid={(value) => {
             setParsed(value);

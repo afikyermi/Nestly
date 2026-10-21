@@ -127,7 +127,8 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
                        or post_id in (select id from nestly.posts
                                        where group_id in (select group_id from nestly.group_members where user_id = ${id} and role = 'owner'))
                        or comment_id in (select id from nestly.comments
-                                          where group_id in (select group_id from nestly.group_members where user_id = ${id} and role = 'owner'))`
+                                          where group_id in (select group_id from nestly.group_members where user_id = ${id} and role = 'owner'))
+                       or listing_id in (select id from nestly.marketplace_listings where owner_id = ${id})`
         ).count;
         counts['reactions'] = (
           await tx`delete from nestly.reactions where id in (select reaction_id from nestly.reaction_owners where user_id = ${id})`
@@ -140,6 +141,9 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         counts['stories'] = (await tx`delete from nestly.stories where author_id = ${id}`).count;
         counts['profile_photos'] = (await tx`delete from nestly.profile_photos where user_id = ${id}`).count;
         counts['media_assets'] = (await tx`delete from nestly.media_assets where owner_id = ${id}`).count;
+        // Marketplace (I12): the user's listings (their reports went above; others' conversations about one keep their row, listing_id SET
+        // NULL). sponsored_products are written by the Admin only (a test user is never staff): never touched.
+        counts['marketplace_listings'] = (await tx`delete from nestly.marketplace_listings where owner_id = ${id}`).count;
         counts['post_hides'] = (await tx`delete from nestly.post_hides where user_id = ${id}`).count;
         counts['comments'] = (
           await tx`delete from nestly.comments
@@ -165,6 +169,16 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         counts['group_notification_preferences'] = (await tx`delete from nestly.group_notification_preferences where user_id = ${id}`).count;
         counts['group_access'] = (await tx`delete from nestly.group_access where user_id = ${id}`).count;
         counts['group_members'] = (await tx`delete from nestly.group_members where user_id = ${id}`).count;
+        // Professionals (I11): reviews by or of the user, Follows either way, the user's articles and Offer Help (a conversation that came
+        // from one goes with it, by cascade; requests of others on the user's posts lost their post above, SET NULL, and stay theirs).
+        counts['professional_reviews'] = (
+          await tx`delete from nestly.professional_reviews where reviewer_id = ${id} or professional_id = ${id}`
+        ).count;
+        counts['professional_follows'] = (
+          await tx`delete from nestly.professional_follows where follower_id = ${id} or professional_id = ${id}`
+        ).count;
+        counts['professional_articles'] = (await tx`delete from nestly.professional_articles where author_id = ${id}`).count;
+        counts['outreach_requests'] = (await tx`delete from nestly.outreach_requests where professional_id = ${id}`).count;
         // Chat and Support (I8): the user's read markers, Support requests (their threads and others' markers go with them), the
         // conversations either way (messages and markers go with them), then requests and Chat Blocks either way.
         counts['chat_reads'] = (await tx`delete from nestly.chat_reads where user_id = ${id}`).count;
@@ -186,6 +200,7 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         ).count;
         counts['regular_names'] = (await tx`delete from nestly.regular_names where user_id = ${id}`).count;
         counts['regular_profiles'] = (await tx`delete from nestly.regular_profiles where user_id = ${id}`).count;
+        counts['professional_profiles'] = (await tx`delete from nestly.professional_profiles where user_id = ${id}`).count;
         counts['profile_open_counts'] = (await tx`delete from nestly.profile_open_counts where user_id = ${id}`).count;
         counts['search_intents'] = (await tx`delete from nestly.search_intents where user_id = ${id}`).count;
         counts['people_search_counts'] = (await tx`delete from nestly.people_search_counts where user_id = ${id}`).count;

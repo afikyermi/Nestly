@@ -19,6 +19,8 @@ export const notificationItem = z.strictObject({
   targetId: z.guid(),
   /** I10: the Group's name when the target is a Group the caller can read (else null). */
   targetName: z.string().nullable().optional(),
+  /** I11 follow-ups: the weekly digest's number of new followers in the week it closes. */
+  count: z.number().int().min(0).optional(),
   createdAt: z.iso.datetime(),
   isRead: z.boolean(),
 });
