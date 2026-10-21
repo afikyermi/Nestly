@@ -28,7 +28,8 @@ import { answerInvitation,
   updateGroup,
   type GroupSummaryRow,
 } from '../repositories/groups-repository.js';
-import { classifyMember, isRefusal, type MemberRefusal } from './membership.js';
+import { classifyMember, classifyReader, isRefusal, type MemberRefusal } from './membership.js';
+import { openPrivateGroupForReview } from '../repositories/group-staff-views-repository.js';
 
 export type GroupFailure =
   | { readonly kind: 'invalid' }
@@ -106,7 +107,20 @@ function summaryOf(row: GroupSummaryRow): GroupSummary {
 
 /** GET /api/groups: my Groups or discovery (optionally matching `q`). */
 export async function listGroups(database: Database, identity: Identity, scope: 'mine' | 'discover', q: string | null): Promise<GroupResult<GroupSummary[]>> {
-  return asMember(database, identity, async (tx) => ok((await readGroupSummaries(tx, scope, q, GROUPS_PAGE_SIZE)).map(summaryOf)));
+  return asReader(database, identity, async (tx) => ok((await readGroupSummaries(tx, scope, q, GROUPS_PAGE_SIZE)).map(summaryOf)));
+}
+
+/**
+ * One identity transaction for a reader: a community member, or a staff account reviewing (I14 completion, §9.7). For staff, `groupId` names a
+ * Group whose page is read: a Private one is opened for review, audited, when the staff member holds PRIVATE_GROUP_MODERATE (the database decides).
+ */
+export async function asReader<T>(database: Database, identity: Identity, work: (tx: IdentityTx) => Promise<GroupResult<T>>, groupId?: string): Promise<GroupResult<T>> {
+  return inIdentityTransaction(database, identity, async (tx) => {
+    const reader = await classifyReader(tx);
+    if (isRefusal(reader)) return reader;
+    if (reader.kind === 'staff' && groupId !== undefined) await openPrivateGroupForReview(tx, groupId);
+    return work(tx);
+  });
 }
 
 export async function detailIn(tx: IdentityTx, id: string): Promise<GroupDetail | undefined> {
@@ -126,7 +140,7 @@ export async function detailIn(tx: IdentityTx, id: string): Promise<GroupDetail 
 
 /** GET /api/groups/:id */
 export async function readGroup(database: Database, identity: Identity, id: string): Promise<GroupResult<GroupDetail>> {
-  return asMember(database, identity, async (tx) => {
+  return asReader(database, identity, async (tx) => {
     const detail = await detailIn(tx, id);
     return detail === undefined ? fail('group_unavailable') : ok(detail);
   });

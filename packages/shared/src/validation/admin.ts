@@ -15,6 +15,7 @@ import {
   type EnforcementKind,
 } from '../constants/index.js';
 import { codePointLength } from './text.js';
+import { auditFiltersSchema, authorCard, handlingStatus, reportContextBody } from './staff-work.js';
 
 /** A staff reason or note: trimmed, not blank, no NUL, at most STAFF_REASON_MAX code points. */
 const staffText = z
@@ -88,6 +89,8 @@ export const auditQuerySchema = z.strictObject({
       return { at, id: entryId.toLowerCase() };
     })
     .optional(),
+  // I14 completion (§9.10): the filters and the sensitive-events view
+  ...auditFiltersSchema.shape,
 });
 
 export type AdminCheck<T> = { ok: true; value: T } | { ok: false };
@@ -147,6 +150,11 @@ export const queueItem = z.object({
   topReasonLabel: z.string(),
   isRising: z.boolean(),
   firstReportedAt: z.string(),
+  /** I14 completion (§9.9): the time target (child safety 1 hour, other reports 24 hours), whether it is past, and the handling marks. */
+  timeTargetHours: z.number().int().optional(),
+  pastTarget: z.boolean().optional(),
+  escalated: z.boolean().optional(),
+  openedBy: z.number().int().optional(),
 });
 export type QueueItem = z.infer<typeof queueItem>;
 export const queueBody = z.object({ items: z.array(queueItem) });
@@ -186,6 +194,10 @@ export const reportDetailBody = z.object({
   user: targetUser.nullable(),
   /** I10 (NFR-PRIV-002): the target is Private Group content: read only after an audited opening (`?open=true`, PRIVATE_GROUP_MODERATE). */
   privateGroup: z.boolean().optional(),
+  /** I14 completion (§9.7, §9.10): the item's context, the author card and the handling status. */
+  context: reportContextBody.optional(),
+  authorCard: authorCard.nullable().optional(),
+  handling: handlingStatus.optional(),
 });
 export type ReportDetail = z.infer<typeof reportDetailBody>;
 

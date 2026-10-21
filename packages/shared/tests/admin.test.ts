@@ -15,8 +15,8 @@ import {
 const ID = '11111111-1111-4111-8111-111111111111';
 
 describe('[FR-ADMIN-004 SRS 3.1] the Permission Keys', () => {
-  it('are the fourteen assignable ones, none of the Admin-only keys', () => {
-    expect(PERMISSION_KEYS).toHaveLength(14);
+  it('are the fifteen assignable ones (CHILD_DATA_VIEW since the I14 completion), none of the Admin-only keys', () => {
+    expect(PERMISSION_KEYS).toHaveLength(15);
     for (const adminOnly of ['MODERATOR_MANAGE', 'SECURITY_SETTINGS_MANAGE', 'BILLING_FINANCE_MANAGE', 'LEGAL_POLICY_MANAGE']) expect(PERMISSION_KEYS).not.toContain(adminOnly);
   });
 });

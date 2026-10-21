@@ -16,6 +16,7 @@ import type {
   TargetUser,
   UserList,
 } from '@nestly/shared';
+import { isPastTarget, timeTargetHours, type AuditFilters } from '@nestly/shared';
 import type { Database } from '../db/client.js';
 import type { MediaStorage } from '../media/storage-admin.js';
 import type { PostImageRow } from '../repositories/media-repository.js';
@@ -24,6 +25,7 @@ import { inIdentityTransaction, type IdentityTx } from '../db/identity-transacti
 import { readDatabaseFault } from '../lib/pg-error.js';
 import type { Identity } from '../lib/token-verifier.js';
 import { isPrivateGroupTarget, openPrivateGroupContent } from '../repositories/private-group-views-repository.js';
+import { readAuditFiltered, readAuthorFacts, readHandling, readQueueMarks, readReportContext, recordOpenings } from '../repositories/staff-work-repository.js';
 import { readListing, readListingImages, setListingHidden } from '../repositories/marketplace-repository.js';
 import {
   closeReports,
@@ -111,11 +113,18 @@ export async function readAccessOrNone(database: Database, identity: Identity): 
   return outcome.kind === 'forbidden' ? { kind: 'ok', access: null } : outcome;
 }
 
-export async function readAudit(database: Database, identity: Identity, before: { at: string; id: string } | undefined): Promise<Outcome<{ page: AuditPage }>> {
+export async function readAudit(
+  database: Database,
+  identity: Identity,
+  before: { at: string; id: string } | undefined,
+  filters: AuditFilters = {},
+): Promise<Outcome<{ page: AuditPage }>> {
   return inIdentityTransaction(database, identity, async (tx) => {
     const gate = await require_(tx, 'AUDIT_LOG_VIEW');
     if (refused(gate)) return gate;
-    const { entries, cursors } = await readAuditPage(tx, before, PAGE + 1);
+    // I14 completion (§9.10): with any filter the filtered page; the same entries and cursor otherwise
+    const filtered = Object.values(filters).some((value) => value !== undefined);
+    const { entries, cursors } = filtered ? await readAuditFiltered(tx, filters, before, PAGE + 1) : await readAuditPage(tx, before, PAGE + 1);
     const more = entries.length > PAGE;
     return { kind: 'ok', page: { entries: entries.slice(0, PAGE), next: more ? (cursors[PAGE - 1] ?? null) : null } };
   });
@@ -125,7 +134,15 @@ export async function readReportQueue(database: Database, identity: Identity): P
   return inIdentityTransaction(database, identity, async (tx) => {
     const gate = await require_(tx, 'REPORTS_VIEW');
     if (refused(gate)) return gate;
-    return { kind: 'ok', items: await readQueue(tx) };
+    // I14 completion (§9.9, §9.10): each item's time target, whether it is past, and whether it was escalated or opened
+    const marks = await readQueueMarks(tx);
+    const now = new Date();
+    const items = (await readQueue(tx)).map((item) => {
+      const hours = timeTargetHours(item.priority);
+      const mark = marks.get(item.targetId);
+      return { ...item, timeTargetHours: hours, pastTarget: isPastTarget(item.firstReportedAt, hours, now), escalated: mark?.escalated ?? false, openedBy: mark?.openedBy ?? 0 };
+    });
+    return { kind: 'ok', items };
   });
 }
 
@@ -159,6 +176,12 @@ export async function readReportDetail(
     const userId = kind === 'user' ? targetId : (content?.authorId ?? undefined);
     const canSeeUsers = gate.permissions.includes('USER_VIEW');
     const user = userId !== undefined && canSeeUsers ? await readTargetUser(tx, userId) : undefined;
+    // I14 completion (§9.7): the author card, the item's context (the thread as the policies show it; a Private Group's only once opened),
+    // and the handling status (§9.10); opening a report is recorded (who opened it, not audited)
+    const authorFacts = user === undefined ? undefined : await readAuthorFacts(tx, user.userId);
+    const context = (kind === 'post' || kind === 'comment') && content !== undefined ? await readReportContext(tx, kind, targetId) : undefined;
+    await recordOpenings(tx, kind, targetId);
+    const handling = await readHandling(tx, kind, targetId);
     return {
       kind: 'ok',
       detail: {
@@ -168,6 +191,9 @@ export async function readReportDetail(
         reports: reports.map((report) => ({ ...report, reasonLabel: report.reasonLabel })),
         user: user ?? null,
         ...(privateGroup ? { privateGroup: true } : {}),
+        ...(context === undefined ? {} : { context }),
+        authorCard: authorFacts ?? null,
+        handling,
       },
     };
   });

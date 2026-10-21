@@ -2,7 +2,8 @@
 // one identity transaction. The database decides who may see which post, count and name (row policies); this layer reads the configuration
 // and the snapshot clock, asks the ranking statement for the page, re-ranks it (shared), reads the display fields by the page's ids and
 // builds the answer. The viewer's own account type chooses the ranking profile and nothing else (AC-061; algorithm-review.md R1, R2): a
-// Regular parent gets every term, a Professional the content signals only; Admin and Moderator have no feed. The viewer's Stage is read only
+// Regular parent gets every term, a Professional the content signals only; Admin and Moderator the review feed (freshness and quality, I14
+// completion). The viewer's Stage is read only
 // for the Regular profile and only when the configuration gives it weight. An empty feed is a page, never an error.
 
 import {
@@ -80,14 +81,17 @@ export function readsViewerStages(profile: RankingProfile, wStage: number): bool
 }
 
 /** The caller's ranking profile, or why there is no feed. The account type is read here only, to choose the profile (R1: never a row filter). */
-async function classifyViewer(tx: IdentityTx): Promise<FeedRefusal | { readonly kind: 'viewer'; readonly profile: RankingProfile }> {
+async function classifyViewer(tx: IdentityTx): Promise<FeedRefusal | { readonly kind: 'viewer'; readonly profile: RankingProfile; readonly review?: true }> {
   const accounts = await readOwnAccounts(tx);
   if (accounts.length > 1) throw new FeedFault('more than one own users row');
   const [account] = accounts;
   if (account === undefined) return { kind: 'forbidden' };
   if (account.status !== 'active') return { kind: 'stopped' };
   const profile = rankingProfileOf(account.accountType);
-  return profile === null ? { kind: 'forbidden' } : { kind: 'viewer', profile };
+  // I14 completion (§9.7, Afik 21.10.2026): a staff account reads the feed for independent review, by freshness and quality only (no Friend,
+  // Follow, Stage or topic term: a staff account has none); which posts it reads is the database's (posts_select_staff_review). It writes nothing.
+  if (profile === null) return { kind: 'viewer', profile: 'content', review: true };
+  return { kind: 'viewer', profile };
 }
 
 /** A named author: its name and, for a Professional, the "יועץ · תחום" tag (decisions-in-force §4, I11). */
@@ -187,7 +191,9 @@ async function readPage(tx: IdentityTx, viewerId: string, cursor: FeedCursor | n
           stages: readsViewerStages(viewer.profile, config.wStage) ? await readOwnStages(tx) : [],
           intents: config.wIntent > 0 ? await readIntents(tx, asOf, config.intentHalfLifeHours) : [],
         }
-      : { profile: 'content', asOf, config, after, viewerId };
+      : viewer.review === true
+        ? { profile: 'content', asOf, config, after }
+        : { profile: 'content', asOf, config, after, viewerId };
 
   const ranked = await readRankedPosts(tx, parameters);
   const selection = selectFeedPage(ranked, config);

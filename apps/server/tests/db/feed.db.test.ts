@@ -528,21 +528,21 @@ describe('[F3.2-a2 c10 c11] configuration, cold start, empty feed, logs', () => 
 });
 
 describe('[F3.2-a2 c12 BR-062 6ב] who may ask, and exactly what a unit holds', () => {
-  it('[F3.2-a2 c12 professional-posting c6] an Admin and a Moderator -> 403 not_allowed and a suspended account -> 403, none returns post data (amended: a Professional now reads the feed)', T, async () => {
+  it('[F3.2-a2 c12 professional-posting c6 · I14c §9.7] an Admin and a Moderator read the review feed (every active post, a Friends-only one too); a suspended account -> 403 with no post data', T, async () => {
     const app = await start();
-    await mk({ by: Tm });
-    const prof = await feed(app, await bearerFor(await text(side`select tests.fx_fr_id('fr_d')::text as v`)));
-    expect(prof.statusCode, prof.body).toBe(403);
-    expect(errorOf(prof.body)).toBe('not_allowed');
+    await mk({ by: Tm, aud: 'friends' });
+    const admin = await feed(app, await bearerFor(await text(side`select tests.fx_fr_id('fr_d')::text as v`)));
+    expect(admin.statusCode, admin.body).toBe(200);
+    expect(admin.body).toMatch(/post body/);
     const moderator = await feed(app, await bearerFor(await text(side`select tests.fx_fr_id('fr_m')::text as v`)));
-    expect(moderator.statusCode, moderator.body).toBe(403);
-    expect(errorOf(moderator.body)).toBe('not_allowed');
+    expect(moderator.statusCode, moderator.body).toBe(200);
+    expect(moderator.body).toMatch(/post body/);
     const susp = await feed(app, await bearerFor(S));
     expect(susp.statusCode, susp.body).toBe(403);
     await setStatus(V, 'suspended');
     const own = await feed(app, V.header);
     expect(own.statusCode, own.body).toBe(403);
-    for (const res of [prof, moderator, susp, own]) expect(res.body).not.toMatch(/items|"id"|post body/);
+    for (const res of [susp, own]) expect(res.body).not.toMatch(/items|"id"|post body/);
   });
 
   it('[F3.2-a2 c12] a cursor from another viewer grants nothing: X with V\'s cursor sees no friends-only post of V\'s friend', T, async () => {

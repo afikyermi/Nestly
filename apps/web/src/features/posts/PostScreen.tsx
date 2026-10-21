@@ -1,3 +1,4 @@
+import { useStaffAccess } from '@/hooks/use-staff-access';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { postLinkOf, shareTargetOf } from '@nestly/shared';
 import { useOwnUserId } from '@/hooks/use-own-user-id';
@@ -38,6 +39,7 @@ export function PostScreen({ postId }: { postId: string }) {
   usePostScroll();
   // Read once for the page: the edit form of a Professional (everyone only, c11) and the comment boxes' name notice (c12).
   const right = usePostingRight();
+  const reviewing = useStaffAccess().kind === 'staff';
   const [view, setView] = useState<PostScreenView>({ kind: 'loading' });
   const latestView = useRef(view);
   latestView.current = view;
@@ -234,7 +236,7 @@ export function PostScreen({ postId }: { postId: string }) {
   // The "⋯" of the post (ux-polish-b c3): the author's edit (not on a share, F3.5 c8) and delete, else F3.7 c9's report for a post the viewer did
   // not write (isMine is the server's: an anonymous post's own author has it too, and gets no report).
   const moreActions: MoreActionsItem[] =
-    loaded === null || loaded.edit !== null
+    loaded === null || loaded.edit !== null || reviewing
       ? []
       : loaded.post.isMine
         ? [
@@ -249,7 +251,8 @@ export function PostScreen({ postId }: { postId: string }) {
           ]
         : [{ key: 'report', label: REPORT_POST_ITEM, onSelect: () => report.start({ kind: 'post', id: postId }) }];
   // F3.5 c9, F3.6 c3: the share actions exist only for what can be shared or linked (a share: its original). Never disabled.
-  const target = loaded === null || loaded.edit !== null ? null : shareTargetOf(loaded.post);
+  // I14 completion (§9.7): a staff account reviewing shares, reports and edits nothing
+  const target = loaded === null || loaded.edit !== null || reviewing ? null : shareTargetOf(loaded.post);
   const link = loaded === null || loaded.edit !== null ? null : postLinkOf(shareLink.origin, loaded.post);
   return (
     <PostContent
@@ -272,7 +275,7 @@ export function PostScreen({ postId }: { postId: string }) {
               shareFeed.start(loaded.post);
             }
       }
-      onShareLink={link === null || loaded === null ? undefined : () => shareLink.openPost(link, loaded.post.id)}
+      onShareLink={link === null || loaded === null || reviewing ? undefined : () => shareLink.openPost(link, loaded.post.id)}
       shareFeed={
         shareFeed.draft === null
           ? null

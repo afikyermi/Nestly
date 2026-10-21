@@ -2,7 +2,7 @@
 
 # SRS — אינדקס
 
-**מקור האמת של מוצר Nestly.** SRS v2.34 · 21.10.2026.
+**מקור האמת של מוצר Nestly.** SRS v2.35 · 21.10.2026.
 
 ה-SRS מתוחזק ב-markdown ומפוצל לפי סעיפים. גרסאות ה-Word הקודמות נמצאות ב-[`archive/`](archive/) כהיסטוריה בלבד.
 
@@ -17,7 +17,7 @@
 | 2 | [02-system-overview.md](02-system-overview.md) | תיאור כללי של המערכת |
 | 3 | [03-roles-permissions.md](03-roles-permissions.md) | סוגי משתמשים והרשאות |
 | 4 | [04-architecture.md](04-architecture.md) | ארכיטקטורת Pages, Features ו-Components |
-| 5 | [05-functional/](05-functional/) | דרישות פונקציונליות — 95 FR ב-16 קבצי תחום (ראה למטה) |
+| 5 | [05-functional/](05-functional/) | דרישות פונקציונליות — 97 FR ב-16 קבצי תחום (ראה למטה) |
 | 6 | [06-non-functional.md](06-non-functional.md) | דרישות לא-פונקציונליות |
 | 7 | [07-screens-navigation.md](07-screens-navigation.md) | מסכי מערכת וניווט |
 | 8 | [08-business-rules.md](08-business-rules.md) | חוקים עסקיים (Business Rules) |
@@ -54,10 +54,10 @@
 | [navigation.md](05-functional/navigation.md) | Navigation — Top Bar ו-Side Menu | FR-TOP · FR-MENU | 3 |
 | [professional.md](05-functional/professional.md) | Professional — דשבורד ואנליטיקה מקצועית | FR-PRO | 3 |
 | [moderation.md](05-functional/moderation.md) | Moderation — דיווחים ואכיפה | FR-MOD | 3 |
-| [admin.md](05-functional/admin.md) | Admin — ניהול מערכת | FR-ADMIN | 13 |
+| [admin.md](05-functional/admin.md) | Admin — ניהול מערכת | FR-ADMIN | 15 |
 | [algorithms-data.md](05-functional/algorithms-data.md) | Algorithms & Data — אלגוריתמים ואנליטיקה | FR-ALG · FR-DATA | 11 |
 
-## דרישות פונקציונליות — 95
+## דרישות פונקציונליות — 97
 
 | ID | שם | קובץ |
 |---|---|---|
@@ -142,6 +142,8 @@
 | FR-ADMIN-008 | ניהול הודעות מערכת | [admin.md](05-functional/admin.md) |
 | FR-ADMIN-009 | ניהול Sponsored Products | [admin.md](05-functional/admin.md) |
 | FR-ADMIN-010 | Owner/Admin Intelligence Dashboard v1 | [admin.md](05-functional/admin.md) |
+| FR-ADMIN-014 | בית הצוות: בית הניהול ו"העבודה שלי" | [admin.md](05-functional/admin.md) |
+| FR-ADMIN-015 | מגמות בנתוני מעקב הילדים | [admin.md](05-functional/admin.md) |
 | FR-ADMIN-011 | רשימת מוזמנים לבטא סגורה | [admin.md](05-functional/admin.md) |
 | FR-ADMIN-012 | ניהול תוכן מערכת — מדריכים לפי סטטוס | [admin.md](05-functional/admin.md) |
 | FR-ADMIN-013 | שחרור נעילת שחזור (בוטל) | [admin.md](05-functional/admin.md) |
@@ -157,7 +159,7 @@
 | FR-ALG-010 | Group Notification Highlights v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-DATA-001 | Analytics Event Tracking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 
-## קריטריוני קבלה — 151
+## קריטריוני קבלה — 158
 
 > השמות קוצרו לצורך ניווט בלבד. הנוסח המחייב נמצא ב-[15-acceptance.md](15-acceptance.md).
 
@@ -314,17 +316,24 @@
 | AC-149 | התראות לבעל מקצוע | [15-acceptance.md](15-acceptance.md) |
 | AC-150 | דיווח על ביקורת ומאמר | [15-acceptance.md](15-acceptance.md) |
 | AC-151 | בעלי מקצוע במעקב | [15-acceptance.md](15-acceptance.md) |
+| AC-152 | הזמנת צוות ל-48 שעות | [15-acceptance.md](15-acceptance.md) |
+| AC-153 | מגמות נתוני ילדים | [15-acceptance.md](15-acceptance.md) |
+| AC-154 | בית לפי תפקיד | [15-acceptance.md](15-acceptance.md) |
+| AC-155 | בדיקה עצמאית של הצוות | [15-acceptance.md](15-acceptance.md) |
+| AC-156 | תור העבודה של הצוות | [15-acceptance.md](15-acceptance.md) |
+| AC-157 | בית הניהול ומסנני היומן | [15-acceptance.md](15-acceptance.md) |
+| AC-158 | חשיפת מחבר בקבוצה פרטית | [15-acceptance.md](15-acceptance.md) |
 
 ## מזהים נוספים
 
 | סוג | נושא | טווח | כמות | קובץ |
 |---|---|---|---|---|
-| BR | חוקים עסקיים | BR-001 … BR-080 | 80 | [08-business-rules.md](08-business-rules.md) |
+| BR | חוקים עסקיים | BR-001 … BR-082 | 82 | [08-business-rules.md](08-business-rules.md) |
 | VAL | ולידציות | VAL-001 … VAL-049 | 49 | [09-validations.md](09-validations.md) |
 | ERR | שגיאות ותרחישי קצה | ERR-001 … ERR-046 | 46 | [10-errors-edge-cases.md](10-errors-edge-cases.md) |
 | NFR | דרישות לא-פונקציונליות | NFR-SEC-001 … NFR-SEC-010 | 36 | [06-non-functional.md](06-non-functional.md) |
 | UC | Use Cases | UC-01 … UC-42 | 42 | [14-use-cases.md](14-use-cases.md) |
-| PG | מסכים | PG-001 … PG-057 | 57 | [07-screens-navigation.md](07-screens-navigation.md) |
-| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-054 | 54 | [appendix-b-open-points.md](appendix-b-open-points.md) |
+| PG | מסכים | PG-001 … PG-058 | 58 | [07-screens-navigation.md](07-screens-navigation.md) |
+| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-058 | 58 | [appendix-b-open-points.md](appendix-b-open-points.md) |
 | ALG | קטלוג האלגוריתמים | ALG-01 … ALG-09 | 9 | [18-algorithms-spec.md](18-algorithms-spec.md) |
 | P-ALG | עקרונות האלגוריתמים | P-ALG-01 … P-ALG-08 | 8 | [18-algorithms-spec.md](18-algorithms-spec.md) |

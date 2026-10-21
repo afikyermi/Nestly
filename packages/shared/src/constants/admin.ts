@@ -16,6 +16,7 @@ export const PERMISSION_KEYS = [
   'COMMUNITY_CONFIG',
   'SYSTEM_ANNOUNCEMENTS',
   'PRIVATE_GROUP_MODERATE',
+  'CHILD_DATA_VIEW',
 ] as const;
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
 

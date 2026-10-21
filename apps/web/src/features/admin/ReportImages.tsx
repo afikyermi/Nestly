@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { MediaImage, PermissionKey } from '@nestly/shared';
 import { MediaTile } from '@/components/shared/media-tile';
+import { GuardedImage } from './GuardedImage';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
 import { useAdminCall } from '@/hooks/use-admin-call';
@@ -54,7 +55,9 @@ export function ReportImages({ images, permissions, hasGround }: ReportImagesPro
       <ul aria-label={REPORT_IMAGES_LABEL} className="grid grid-cols-2 gap-2">
         {images.map((image, index) => (
           <li key={image.id} className="flex flex-col gap-2">
-            <MediaTile image={removed.has(image.id) ? { ...image, state: 'rejected', url: null } : image} alt={reportImageAlt(index, images.length)} className="aspect-square w-full" />
+            <GuardedImage>
+              <MediaTile image={removed.has(image.id) ? { ...image, state: 'rejected', url: null } : image} alt={reportImageAlt(index, images.length)} className="aspect-square w-full" />
+            </GuardedImage>
             {canRemove && image.state === 'ready' && !removed.has(image.id) ? (
               <div className="flex flex-wrap gap-2">
                 <Button variant="soft" onClick={() => void remove(image.id, false)} pending={busy === `${image.id}:false`} disabled={busy !== null && busy !== `${image.id}:false`}>

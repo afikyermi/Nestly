@@ -3,7 +3,9 @@ import type { PermissionKey, ReportDetail } from '@nestly/shared';
 import { FormField } from '@/components/shared/form-field';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
+import { SelectInput } from '@/components/ui/select-input';
 import { TextArea } from '@/components/ui/text-area';
+import { READY_REASON_LABEL, READY_REASON_NONE, READY_REASONS } from './staff-work-texts';
 import { formatAdminTime } from './admin-format';
 import { ReportImages } from './ReportImages';
 import {
@@ -173,6 +175,24 @@ export function ReportDetailPanel({ detail, permissions, revealed, message = nul
         <h4 id={`${id}-actions`} className="text-h3">
           {ACTIONS_HEADING}
         </h4>
+        {isOpen && (canClose || (canModerate && content !== null)) ? (
+          <FormField label={READY_REASON_LABEL} htmlFor={`${id}-ready`} optional>
+            {(control) => (
+              <SelectInput
+                {...control}
+                options={READY_REASONS.map((text) => ({ value: text, label: text }))}
+                value=""
+                placeholder={READY_REASON_NONE}
+                onChange={(text) => {
+                  // I14 completion (§9.9): a ready reason tied to the community rules fills the note and the reason; either can still be edited
+                  if (text === '') return;
+                  setNote(text);
+                  setReason(text);
+                }}
+              />
+            )}
+          </FormField>
+        ) : null}
         {isOpen && canClose ? (
           <FormField label={NOTE_LABEL} optional>
             {(control) => <TextArea {...control} rows={2} dir="auto" value={note} onChange={(event) => setNote(event.target.value)} />}

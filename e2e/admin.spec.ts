@@ -19,15 +19,16 @@ async function signIn(page: Page): Promise<void> {
 }
 
 test.describe('[I4] the admin shell', () => {
-  test('[I4 FR-ADMIN-004] a staff account sees "ניהול" in the menu and /admin opens the first screen its keys allow', async ({ page }) => {
+  test('[I4 FR-ADMIN-004 · I14c §9.6] a staff account sees "ניהול" in the menu and /admin opens its home (the Admin\'s home)', async ({ page }) => {
     await setupAdmin(page);
     await signIn(page);
     await page.getByRole('button', { name: MENU_BUTTON }).click();
     await page.getByRole('link', { name: 'ניהול', exact: true }).click();
-    await expect.poll(() => pathOf(page)).toBe('/admin/reports');
+    await expect.poll(() => pathOf(page)).toBe('/admin');
     await expect(page.getByRole('heading', { level: 1, name: 'ניהול' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'בית הניהול' })).toBeVisible();
     const tabs = page.getByRole('navigation', { name: 'מסכי הניהול' });
-    await expect(tabs.getByRole('link')).toHaveText(['דיווחים', 'משתמשים', 'יומן פעולות', 'מדריכים', 'תמונות לבדיקה', 'צוות', 'מוצרים ממומנים']); // I5 the image queue; I14 the team (the Admin's); I12 Sponsored Products (the Admin's)
+    await expect(tabs.getByRole('link')).toHaveText(['בית הניהול', 'דיווחים', 'משתמשים', 'יומן פעולות', 'מדריכים', 'תמונות לבדיקה', 'צוות', 'מוצרים ממומנים']); // I14c the home; I5 the image queue; I14 the team (the Admin's); I12 Sponsored Products (the Admin's)
   });
 
   test('[I4 AC-031] an account that is not staff has no admin entry and /admin leads back to the feed', async ({ page }) => {
@@ -40,12 +41,12 @@ test.describe('[I4] the admin shell', () => {
     await expect.poll(() => pathOf(page)).toBe('/feed');
   });
 
-  test('[I4 AC-031] a Moderator sees only the screens its keys allow', async ({ page }) => {
+  test('[I4 AC-031 · I14c §9.6] a Moderator sees its "my work" and only the screens its keys allow', async ({ page }) => {
     await setupAdmin(page, { role: 'moderator', permissions: ['AUDIT_LOG_VIEW'] });
     await signIn(page);
     await page.goto('/admin');
-    await expect.poll(() => pathOf(page)).toBe('/admin/audit');
-    await expect(page.getByRole('navigation', { name: 'מסכי הניהול' }).getByRole('link')).toHaveText(['יומן פעולות']);
+    await expect(page.getByRole('heading', { level: 2, name: 'העבודה שלי' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'מסכי הניהול' }).getByRole('link')).toHaveText(['העבודה שלי', 'יומן פעולות']);
   });
 });
 
@@ -149,8 +150,7 @@ test.describe('[I5 Afik 20.10] the image approval queue', () => {
   test('[I5 BR-076] a CONTENT_MODERATE holder approves one image with the child mark and marks a suspicion on another; each leaves the queue', async ({ page }) => {
     const net = await setupAdmin(page, { role: 'moderator', permissions: ['CONTENT_MODERATE'] });
     await signIn(page);
-    await page.goto('/admin');
-    await expect.poll(() => pathOf(page)).toBe('/admin/media');
+    await page.goto('/admin/media');
     await expect(page.getByRole('heading', { level: 2, name: 'תמונות לבדיקה' })).toBeVisible();
     const items = page.getByRole('list', { name: 'תמונות שממתינות לבדיקה' }).getByRole('listitem');
     await expect(items).toHaveCount(2);
