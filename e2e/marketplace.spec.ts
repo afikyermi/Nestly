@@ -84,7 +84,7 @@ test.describe('[I12 FR-MKT-002 AC-019] a new listing', () => {
 });
 
 test.describe('[I12 FR-MKT-002 decisions §3.11] my listings', () => {
-  test('the owner opens its listing from "המודעות שלי" and marks it sold/given', async ({ page }) => {
+  test('the owner opens its listing from "המודעות שלי", marks it sold/given and deletes it', async ({ page }) => {
     const net = await setupMarketplace(page);
     await signIn(page);
     await page.goto('/marketplace/mine');
@@ -94,6 +94,11 @@ test.describe('[I12 FR-MKT-002 decisions §3.11] my listings', () => {
     await expect(main(page).getByRole('status').filter({ hasText: 'סומנה "נמכר/נמסר"' })).toBeVisible();
     await expect(main(page).getByRole('button', { name: 'החזרה למכירה' })).toBeVisible();
     expect(net.sent).toContainEqual(expect.objectContaining({ method: 'POST', path: `/api/marketplace/listings/${MINE}/status`, body: { status: 'sold' } }));
+    // deleted at once, after the confirmation (the shared ConfirmDialog, role alertdialog)
+    await main(page).getByRole('button', { name: 'מחיקת המודעה' }).click();
+    await page.getByRole('alertdialog', { name: 'למחוק את המודעה?' }).getByRole('button', { name: 'מחיקת המודעה' }).click();
+    await expect.poll(() => pathOf(page)).toBe('/marketplace/mine');
+    expect(net.sent).toContainEqual(expect.objectContaining({ method: 'DELETE', path: `/api/marketplace/listings/${MINE}` }));
   });
 });
 
