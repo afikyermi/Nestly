@@ -1,11 +1,14 @@
--- pgTAP, run by pg_prove as app_server (CI `db` job, I13 follow-up: usage events, professional views, the promotions configuration;
--- §13.3, OP-039, FR-PRO-002, FR-ADMIN-010, AC-071, BR-057, BR-058, VAL-032, FR-ALG-007, BR-059, BR-053, AC-068).
--- Source of expected values: Afik's decision (decisions-in-force.md §10 item 8: minimal usage events — a daily login, a profile view, a post
--- view, no content) and the ⭐ defaults of the I13 brief (no target, no IP, staff not recorded, 90 days; the Professional counts views of its
--- own profile and posts without learning who; the frequency cap 3 a day, one unit per page, after the third organic post), not the
--- migration text.
+-- pgTAP, run by pg_prove as app_server (CI `db` job, I13 follow-up: usage events, professional views, promotion settings, the staff stop,
+-- anonymised payments, monthly summaries; §13.3, OP-039, FR-PRO-002, FR-ADMIN-010, AC-071, BR-057, BR-058, VAL-032, FR-ALG-007, BR-059,
+-- BR-053, AC-068, FR-SERV-010, FR-MKT-004, BR-047, NFR-SEC-007, AC-098, §13.4).
+-- Source of expected values: Afik's decisions (decisions-in-force.md §10 item 8: minimal usage events — a daily login, a profile view, a post
+-- view, no content; §11.1: Admin or an authorised Moderator stops a running promotion, Audit, no refund; §11.2: a promoted post after 4 to 7
+-- organic posts by the last 48 hours' volume, thresholds in the Admin's settings; §11.4: promotion detail 12 months, a monthly summary per
+-- promotion forever; §11.6: payment records kept without identity — amount, date, promotion type, the Professional's field) and the ⭐
+-- defaults of the I13 brief (usage events 90 days, staff not recorded; the frequency cap 3 a day; thresholds 20 / 200 posts in 48 hours;
+-- the moderation key of the target stops it), not the migration text.
 -- People: a, b (Regular), s (suspended Regular), q1 = pr_1, q2 = pr_2 (Professionals with a profile), d = fr_d (Admin), m1 = sf_m1
--- (Moderator, no key), m3 = sf_m3 (Moderator, ANALYTICS_VIEW granted below).
+-- (Moderator, no key), m3 = sf_m3 (Moderator, ANALYTICS_VIEW granted below), m4 = sf_m4 (CONTENT_MODERATE), m5 = sf_m5 (MARKETPLACE_MODERATE).
 -- Everything rolls back with the transaction.
 
 begin;
@@ -16,12 +19,15 @@ select is(session_user::text, 'app_server'::text, '[F13.2-a c0] session_user is 
 
 select tests.fx_fr_build();
 select tests.fx_sf_grant(tests.fx_sf_id('sf_m3'), array['ANALYTICS_VIEW']);
+select tests.fx_sf_grant(tests.fx_sf_id('sf_m4'), array['CONTENT_MODERATE']);
+select tests.fx_sf_grant(tests.fx_sf_id('sf_m5'), array['MARKETPLACE_MODERATE']);
 
 create function pg_temp.id(p text) returns uuid language sql as $f$
   select case p
     when 'a' then tests.fx_id('a') when 'b' then tests.fx_id('b') when 's' then tests.fx_id('s')
     when 'q1' then tests.fx_pr_id('pr_1') when 'q2' then tests.fx_pr_id('pr_2')
     when 'd' then tests.fx_fr_id('fr_d') when 'm1' then tests.fx_sf_id('sf_m1') when 'm3' then tests.fx_sf_id('sf_m3')
+    when 'm4' then tests.fx_sf_id('sf_m4') when 'm5' then tests.fx_sf_id('sf_m5')
   end
 $f$;
 create function pg_temp.dml(p_who text, p_sql text) returns text language sql as $f$
@@ -86,10 +92,16 @@ select is((select count(*) from pg_policy pl join pg_class c on c.oid = pl.polre
                  or (coalesce(pg_get_expr(pl.polqual, pl.polrelid), '') || coalesce(pg_get_expr(pl.polwithcheck, pl.polrelid), '')) !~ 'is_active_account\(\)')),
   0::bigint, '[F13.2-a c1 platform r15] every client policy of the new tables is permissive and gated by is_active_account()');
 select is((select string_agg(pl.polname, ', ' order by pl.polname) from pg_policy pl join pg_class c on c.oid = pl.polrelid join pg_namespace n on n.oid = c.relnamespace
-             where n.nspname = 'nestly' and c.relname in ('usage_events', 'professional_views') and pl.polroles = array[(select oid from pg_roles where rolname = 'app_jobs')]::oid[]
+             where n.nspname = 'nestly' and c.relname = 'usage_events' and pl.polroles = array[(select oid from pg_roles where rolname = 'app_jobs')]::oid[]
                and pg_get_expr(pl.polqual, pl.polrelid) ~ 'Asia/Jerusalem' and pg_get_expr(pl.polqual, pl.polrelid) ~ '- 90\)*$'),
-  'professional_views_delete_jobs, professional_views_select_jobs, usage_events_delete_jobs, usage_events_select_jobs',
-  '[F13.2-a c1 rule 6 §13.4] the job reaches only rows older than 90 Israel days');
+  'usage_events_delete_jobs, usage_events_select_jobs',
+  '[F13.2-a c1 rule 6 §13.4] the job reaches only usage events older than 90 Israel days');
+select is((select string_agg(pl.polname, ', ' order by pl.polname) from pg_policy pl join pg_class c on c.oid = pl.polrelid join pg_namespace n on n.oid = c.relnamespace
+             where n.nspname = 'nestly' and c.relname in ('professional_views', 'promotion_events') and pl.polname ~ '_delete_jobs$|^professional_views_select_jobs$'
+               and pl.polroles = array[(select oid from pg_roles where rolname = 'app_jobs')]::oid[]
+               and pg_get_expr(pl.polqual, pl.polrelid) ~ 'Asia/Jerusalem' and pg_get_expr(pl.polqual, pl.polrelid) ~ '''1 year''::interval'),
+  'professional_views_delete_jobs, professional_views_select_jobs, promotion_events_delete_jobs',
+  '[F13.2-a c1 rule 6 §11.4] the job deletes professional views and paid events of the months more than 12 months back only');
 select is((select string_agg(c.relname || '.' || a.attname, ', ' order by c.relname, a.attname)
              from pg_attribute a join pg_class c on c.oid = a.attrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'nestly'
               and c.relname in ('usage_events', 'professional_views') and a.attnum > 0 and not a.attisdropped
@@ -118,7 +130,8 @@ select is((select count(*) from pg_attribute a join pg_class c on c.oid = a.attr
               and a.attname ~ '(child|birth|pregnan|tracker|journey|cycle|message|support|group|ip|text|body|query|post_id|target|_at$)'),
   0::bigint, '[F13.2-a c1 BR-053 AC-068] no column names a child, a tracker, a chat, Support, a Group, an IP, a text, a target or a time');
 select is((select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'nestly' and p.prosecdef
-            and p.proname in ('usage_events_guard', 'professional_views_guard', 'purge_usage_events', 'promotion_events_guard')),
+            and p.proname in ('usage_events_guard', 'professional_views_guard', 'purge_usage_events', 'promotion_events_guard', 'promotion_settings_prepare',
+                              'promotions_update_guard', 'promotion_payments_prepare', 'purge_promotion_data')),
   0::bigint, '[F13.2-a c1 rule 10] no new SECURITY DEFINER');
 select is((select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'nestly'
             and c.relname in ('usage_events', 'professional_views')
@@ -128,6 +141,10 @@ select is((select string_agg(r.rolname, ',' order by r.rolname) from pg_proc p j
              cross join (values ('anon'), ('authenticated'), ('app_server'), ('app_jobs')) as r(rolname)
             where n.nspname = 'nestly' and p.proname = 'purge_usage_events' and has_function_privilege(r.rolname, p.oid, 'EXECUTE')),
   'app_jobs', '[F13.2-a c1 rule 6] only app_jobs runs the purge');
+select is((select string_agg(r.rolname, ',' order by r.rolname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+             cross join (values ('anon'), ('authenticated'), ('app_server'), ('app_jobs')) as r(rolname)
+            where n.nspname = 'nestly' and p.proname = 'purge_promotion_data' and has_function_privilege(r.rolname, p.oid, 'EXECUTE')),
+  'app_jobs', '[F13.2-a c1 rule 6 §11.4] only app_jobs runs the promotion purge');
 select is((select count(*) from pg_policy pl join pg_class c on c.oid = pl.polrelid join pg_namespace n on n.oid = c.relnamespace
             where n.nspname = 'nestly' and c.relname in ('promotions', 'promotion_events', 'promotion_payments') and pl.polname ~ 'analytics'),
   0::bigint, '[F13.2-a c1 §3.2] no analytics read of promotions or payments: the Promotions domain stays with BILLING_FINANCE_MANAGE (Admin Only)');
@@ -231,9 +248,9 @@ select is(tests.fx_promo_text(format($q$ select times::text from nestly.promotio
 -- ---- retention: 90 days (⭐ default) ---------------------------------------------------------------------------------------
 select tests.fx_usage_age(pg_temp.id('a'), 91);
 select tests.fx_pv_age(pg_temp.id('q1'), 91);
-select is(tests.fx_usage_purge(), 5, '[F13.2-a c6 §13.4] the retention job deletes usage events and views older than 90 days (a''s two rows, q1''s three views)');
+select is(tests.fx_usage_purge(), 2, '[F13.2-a c6 §13.4] the usage purge deletes usage events older than 90 days (a''s two rows)');
 select is(pg_temp.used('a'), 0::bigint, '[F13.2-a c6] a''s are gone');
-select is(pg_temp.pv('q1'), 0::bigint, '[F13.2-a c6] q1''s are gone');
+select is(pg_temp.pv('q1'), 3::bigint, '[F13.2-a c6 §11.4] professional views stay: they are kept 12 months, with the paid events');
 select is(pg_temp.used('b'), 1::bigint, '[F13.2-a c6] a younger row stays');
 select tests.fx_usage_age(pg_temp.id('b'), 90);
 select is(tests.fx_usage_purge(), 0, '[F13.2-a c6] a row of exactly 90 days ago stays');
@@ -246,27 +263,142 @@ select is(tests.fx_promo_text($q$ select count(*)::text from pg_constraint where
             'professional_views_viewer_id_fkey') and confdeltype = 'c' $q$), '3', '[F13.2-a c6 BR-073] the rows go with the account (cascade)');
 
 
--- ---- the promotions surface of the configuration (P-ALG-07, FR-ALG-007, BR-059) ---------------------------------------------
-select is(pg_temp.q('a', $q$ select string_agg(version || ':' || is_active || ':' || promo_daily_cap || ':' || promo_units_per_page || ':' || promo_feed_position, ',')
-            from nestly.algorithm_configurations where surface = 'promotions' $q$),
-  '1:true:3:1:3', '[F13.2-a c7 FR-ALG-007] v1: 3 impressions per viewer per promotion per day, one promoted unit per page, after the third organic post');
-select is(pg_temp.q('a', $q$ select count(*)::text from nestly.algorithm_configurations where surface = 'regular_feed' and promo_daily_cap is not null $q$), '0',
-  '[F13.2-a c7] the feed''s rows carry no promotion setting');
-select is(pg_temp.q('a', $q$ select (count(*) = 1)::text from nestly.algorithm_configurations where surface = 'regular_feed' and is_active $q$), 'true',
-  '[F13.2-a c7] the feed keeps its one active version');
-select is(pg_temp.dml('d', $q$ update nestly.algorithm_configurations set promo_daily_cap = 50 where surface = 'promotions' $q$), 'ERR:42501',
-  '[F13.2-a c7 BR-059] the cap is never changed in place, by the Admin either (append-only)');
-select is(pg_temp.dml('d', $q$ delete from nestly.algorithm_configurations where surface = 'promotions' $q$), 'ERR:42501', '[F13.2-a c7 BR-059] nor deleted');
-select is(pg_temp.dml('d', $q$ insert into nestly.algorithm_configurations (surface, version, is_active, w_fresh, half_life_hours, w_friend, w_quality, quality_cap,
-            w_stage, scored_window_days, diversity_window, max_same_creator_in_window, max_anonymous_in_window, page_size, promo_daily_cap,
-            promo_units_per_page, promo_feed_position, created_by, reason) values ('promotions', 2, false, 1, 24, 0.5, 0.2, 20, 0, 14, 5, 2, 2, 20, 10, 1, 3, 'x', 'x') $q$),
-  'ERR:42501', '[F13.2-a c7 BR-059] a client adds no version (a change is a migration)');
-select is(tests.fx_promo_text($q$ select string_agg(conname, ',' order by conname) from pg_constraint
-            where conrelid = 'nestly.algorithm_configurations'::regclass and conname in ('algorithm_configurations_promotions_check', 'algorithm_configurations_promo_daily_cap_check')
-              and convalidated $q$),
-  'algorithm_configurations_promo_daily_cap_check,algorithm_configurations_promotions_check',
-  '[F13.2-a c7] the cap is bounded (1 to 100, the paid-event limit) and set exactly on a promotions row');
+-- ---- promotion settings (§11.2, FR-ALG-007, BR-059) ---------------------------------------------------------------------------
+select is(pg_temp.q('a', $q$ select string_agg(version || ':' || daily_cap || ':' || directory_units_per_page || ':' || feed_gap_min || ':' || feed_gap_max
+            || ':' || feed_low_posts || ':' || feed_high_posts, ',') from nestly.promotion_settings $q$),
+  '1:3:1:4:7:20:200', '[F13.2-a c7 §11.2 FR-ALG-007] v1: cap 3 a day, one unit per Directory page, a promoted post after 4 (few posts) to 7 (many) organic posts, thresholds 20 and 200 posts in 48 hours');
+select is(pg_temp.q('a', 'select count(created_by)::text from nestly.promotion_settings'), 'ERR:42501', '[F13.2-a c7] who changed the settings is the Audit Log''s, not readable here');
+select is(pg_temp.dml('a', $q$ insert into nestly.promotion_settings (daily_cap, directory_units_per_page, feed_gap_min, feed_gap_max, feed_low_posts, feed_high_posts, reason)
+            values (5, 1, 4, 7, 20, 200, 'x') $q$), 'ERR:42501', '[F13.2-a c7 §3.2] a Regular adds no version');
+select is(pg_temp.dml('m4', $q$ insert into nestly.promotion_settings (daily_cap, directory_units_per_page, feed_gap_min, feed_gap_max, feed_low_posts, feed_high_posts, reason)
+            values (5, 1, 4, 7, 20, 200, 'x') $q$), 'ERR:42501', '[F13.2-a c7 §3.2 AC-026] nor a Moderator (BILLING_FINANCE_MANAGE is Admin Only)');
+select is(pg_temp.dml('d', $q$ insert into nestly.promotion_settings (daily_cap, directory_units_per_page, feed_gap_min, feed_gap_max, feed_low_posts, feed_high_posts, reason)
+            values (5, 2, 7, 4, 20, 200, 'x') $q$), 'ERR:23514', '[F13.2-a c7 §11.2] the most organic posts between two promoted ones is at least the fewest');
+select is(pg_temp.dml('d', $q$ insert into nestly.promotion_settings (daily_cap, directory_units_per_page, feed_gap_min, feed_gap_max, feed_low_posts, feed_high_posts, reason)
+            values (5, 2, 4, 7, 200, 200, 'x') $q$), 'ERR:23514', '[F13.2-a c7 §11.2] the "many posts" threshold is above the "few posts" one');
+select is(pg_temp.dml('d', $q$ insert into nestly.promotion_settings (daily_cap, directory_units_per_page, feed_gap_min, feed_gap_max, feed_low_posts, feed_high_posts, reason)
+            values (5, 2, 4, 7, 20, 200, '  ') $q$), 'ERR:23514', '[F13.2-a c7 FR-ADMIN-005] a version needs a reason');
+select is(pg_temp.dml('d', $q$ insert into nestly.promotion_settings (version, daily_cap, directory_units_per_page, feed_gap_min, feed_gap_max, feed_low_posts, feed_high_posts, reason)
+            values (9, 5, 2, 4, 7, 20, 200, 'x') $q$), 'ERR:42501', '[F13.2-a c7 BR-059] the version number is the database''s');
+select is(pg_temp.dml('d', $q$ insert into nestly.promotion_settings (daily_cap, directory_units_per_page, feed_gap_min, feed_gap_max, feed_low_posts, feed_high_posts, reason)
+            values (5, 2, 5, 8, 30, 300, 'more reach for the demo') $q$), 'OK:1', '[F13.2-a c7 §11.2] the Admin adds a version');
+select is(pg_temp.q('a', $q$ select string_agg(version || ':' || daily_cap || ':' || feed_gap_min || ':' || feed_gap_max || ':' || feed_low_posts || ':' || feed_high_posts, ',' order by version)
+            from nestly.promotion_settings $q$), '1:3:4:7:20:200,2:5:5:8:30:300', '[F13.2-a c7 BR-059] it is version 2; version 1 stays (append-only)');
+select is(tests.fx_sw_count($q$nestly.audit_log where action = 'promotion_settings_changed' and permission_key = 'BILLING_FINANCE_MANAGE'
+            and reason = 'more reach for the demo' and before_state ->> 'daily_cap' = '3' and after_state ->> 'daily_cap' = '5' and after_state ->> 'version' = '2'$q$),
+  1::bigint, '[F13.2-a c7 FR-ADMIN-005 §3.3] the change is audited with the reason and the values before and after');
+select is(pg_temp.dml('d', $q$ update nestly.promotion_settings set daily_cap = 9 $q$), 'ERR:42501', '[F13.2-a c7 BR-059] a version is never changed');
+select is(pg_temp.dml('d', $q$ delete from nestly.promotion_settings $q$), 'ERR:42501', '[F13.2-a c7 BR-059] nor deleted');
+select is((select string_agg(pg_temp.dml('a', format($q$ insert into nestly.promotion_events (promotion_id, kind) values (%L, 'impression') $q$, current_setting('t.promo'))), '')
+             from generate_series(1, 3)), 'OK:0OK:0OK:0', 'a sees the promotion three more times');
+select is(tests.fx_promo_text(format($q$ select times::text from nestly.promotion_events where promotion_id = %L and viewer_id = %L and kind = 'impression' $q$,
+            current_setting('t.promo'), pg_temp.id('a'))), '5', '[F13.2-a c7 FR-ALG-007 BR-059] the newest version''s cap is in force (5 a day)');
 
+-- ---- payments kept without identity (§11.6, NFR-SEC-007) ----------------------------------------------------------------------
+select is(tests.fx_promo_text($q$ select c.confdeltype::text || '/' || (select a.attnotnull::text from pg_attribute a where a.attrelid = c.conrelid and a.attname = 'payer_id')
+            from pg_constraint c where c.conname = 'promotion_payments_payer_id_fkey' $q$), 'n/false',
+  '[F13.2-a c8 §11.6] when the account is deleted its payments stay, the payer becomes NULL');
+select is(tests.fx_promo_text(format($q$ select (pp.professional_field = pr.field)::text from nestly.promotion_payments pp join nestly.professional_profiles pr on pr.user_id = pp.payer_id
+            where pp.id = %L $q$, current_setting('t.pay'))), 'true', '[F13.2-a c8 §11.6] a Professional''s payment keeps its field (the profession), copied by the database');
+select is(pg_temp.dml('q1', $q$ insert into nestly.promotion_payments (plan_key, professional_field) values ('profile_7', 'anything') $q$), 'ERR:42501',
+  '[F13.2-a c8] the field is the database''s, never the client''s');
+select is(tests.fx_promo_text($q$ select string_agg(a.attname, ',' order by a.attname) from pg_attribute a where a.attrelid = 'nestly.promotion_payments'::regclass
+            and a.attnum > 0 and not a.attisdropped $q$),
+  'amount_ils,created_at,currency,id,is_simulated,payer_id,plan_key,professional_field,provider,provider_ref,status,target_kind',
+  '[F13.2-a c8 §11.6 NFR-SEC-007] a payment holds the amount, the date, the plan and kind, the field and the payer (NULL once gone): no card, name, email or address');
+
+-- ---- a listing promotion of a (Regular) ---------------------------------------------------------------------------------------
+select set_config('t.lst', pg_temp.q('a', $q$ insert into nestly.marketplace_listings (title, category, item_condition, price, city)
+  values ('עגלה', 'strollers', 'good', 300, 'haifa') returning id::text $q$), true);
+select set_config('t.lpay', pg_temp.q('a', $q$ insert into nestly.promotion_payments (plan_key) values ('listing_3') returning id::text $q$), true);
+select set_config('t.lpromo', pg_temp.q('a', format($q$ insert into nestly.promotions (target_kind, listing_id, plan_key, payment_id) values ('listing', %L, 'listing_3', %L) returning id::text $q$,
+  current_setting('t.lst'), current_setting('t.lpay'))), true);
+select ok(current_setting('t.lpromo') ~ '^[0-9a-f-]{36}$', 'a promotes its listing');
+select is(tests.fx_promo_text(format($q$ select coalesce(professional_field, 'none') from nestly.promotion_payments where id = %L $q$, current_setting('t.lpay'))), 'none',
+  '[F13.2-a c8 §11.6] a listing payment has no field');
+select is(pg_temp.dml('b', format($q$ insert into nestly.promotion_events (promotion_id, kind) values (%L, 'impression') $q$, current_setting('t.lpromo'))), 'OK:1',
+  'b sees the listing promotion');
+
+-- ---- the staff stop (§11.1) -------------------------------------------------------------------------------------------------
+create function pg_temp.stop(p_who text, p_promo text, p_reason text default null) returns text language plpgsql as $f$
+declare v text;
+begin
+  perform set_config('nestly.audit_reason', coalesce(p_reason, ''), true);
+  v := pg_temp.dml(p_who, format($q$ update nestly.promotions set status = 'stopped' where id = %L $q$, p_promo));
+  perform set_config('nestly.audit_reason', '', true);
+  return v;
+end
+$f$;
+select is(pg_temp.q('m4', format('select count(*)::text from nestly.promotions where id = %L', current_setting('t.promo'))), '1',
+  '[F13.2-a c9 §11.1] CONTENT_MODERATE sees a Professional''s promotion (the staff list)');
+select is(pg_temp.q('m4', format('select count(*)::text from nestly.promotions where id = %L and status = ''active''', current_setting('t.lpromo'))), '1',
+  '[F13.2-a c9] a running listing promotion is visible to any active account (it is shown on the Marketplace)');
+select is(pg_temp.q('m4', 'select count(*)::text from nestly.promotion_payments'), '0', '[F13.2-a c9 §3.2] but no payment (BILLING_FINANCE_MANAGE is Admin Only)');
+select is(pg_temp.stop('m1', current_setting('t.promo'), 'spam'), 'OK:0', '[F13.2-a c9 §11.1 AC-026] a Moderator without the key stops nothing');
+select is(pg_temp.stop('m5', current_setting('t.promo'), 'spam'), 'OK:0', '[F13.2-a c9 §11.1] nor one with only MARKETPLACE_MODERATE, on a Professional''s promotion');
+select is(pg_temp.stop('m4', current_setting('t.lpromo'), 'spam'), 'OK:0', '[F13.2-a c9 §11.1] nor CONTENT_MODERATE on a listing promotion');
+select is(pg_temp.stop('m4', current_setting('t.promo')), 'ERR:23514', '[F13.2-a c9 §11.1 FR-ADMIN-005] a staff stop needs a reason');
+select is(pg_temp.stop('m4', current_setting('t.promo'), 'misleading health claims'), 'OK:1', '[F13.2-a c9 §11.1] CONTENT_MODERATE stops a Professional''s running promotion');
+select is(pg_temp.q('q1', format('select status || ''/'' || stopped_by from nestly.promotions where id = %L', current_setting('t.promo'))), 'stopped/staff',
+  '[F13.2-a c9 §11.1] the promoter sees it was stopped by staff ("הקידום הופסק")');
+select is(tests.fx_sw_count(format($q$nestly.audit_log where action = 'promotion_stopped' and permission_key = 'CONTENT_MODERATE' and target_kind = 'promotion'
+            and target_id = %L and reason = 'misleading health claims' and before_state ->> 'status' = 'active' and after_state ->> 'status' = 'stopped'$q$, current_setting('t.promo'))),
+  1::bigint, '[F13.2-a c9 §11.1 §3.3] the stop is audited with the key, the reason and before/after');
+select is(tests.fx_promo_text(format($q$ select status || '/' || amount_ils from nestly.promotion_payments where id = %L $q$, current_setting('t.pay'))), 'succeeded/49',
+  '[F13.2-a c9 §11.1] no refund: the payment is unchanged');
+select is(pg_temp.stop('m4', current_setting('t.promo'), 'again'), 'ERR:23514', '[F13.2-a c9] a stopped promotion is not stopped again');
+select is(pg_temp.dml('a', format($q$ insert into nestly.promotion_events (promotion_id, kind) values (%L, 'impression') $q$, current_setting('t.promo'))), 'ERR:42501',
+  '[F13.2-a c9] a stopped promotion is no longer shown or counted');
+select is(pg_temp.stop('m5', current_setting('t.lpromo'), 'not a baby product'), 'OK:1', '[F13.2-a c9 §11.1] MARKETPLACE_MODERATE stops a listing promotion');
+select is(pg_temp.q('a', format('select stopped_by from nestly.promotions where id = %L', current_setting('t.lpromo'))), 'staff', '[F13.2-a c9] its owner sees it');
+select is(tests.fx_sw_count(format($q$nestly.audit_log where action = 'promotion_stopped' and permission_key = 'MARKETPLACE_MODERATE' and target_id = %L$q$, current_setting('t.lpromo'))),
+  1::bigint, '[F13.2-a c9 §3.3] audited under MARKETPLACE_MODERATE');
+select is(pg_temp.dml('m4', format($q$ update nestly.promotions set ends_at = now() where id = %L $q$, current_setting('t.promo'))), 'ERR:42501',
+  '[F13.2-a c9] staff change nothing but the status');
+-- the owner's own stop: no staff entry
+select set_config('t.pay2', pg_temp.q('q2', $q$ insert into nestly.promotion_payments (plan_key) values ('profile_7') returning id::text $q$), true);
+select set_config('t.promo2', pg_temp.q('q2', format($q$ insert into nestly.promotions (target_kind, plan_key, payment_id) values ('profile', 'profile_7', %L) returning id::text $q$,
+  current_setting('t.pay2'))), true);
+select is(pg_temp.dml('q2', format($q$ update nestly.promotions set status = 'stopped' where id = %L $q$, current_setting('t.promo2'))), 'OK:1', '[F13.2-a c9] the owner stops its own');
+select is(pg_temp.q('q2', format('select stopped_by from nestly.promotions where id = %L', current_setting('t.promo2'))), 'owner', '[F13.2-a c9] stopped by the owner');
+select is(tests.fx_sw_count(format($q$nestly.audit_log where action = 'promotion_stopped' and target_id = %L$q$, current_setting('t.promo2'))), 0::bigint,
+  '[F13.2-a c9] an owner''s stop is not a staff action (no Audit entry)');
+select is(pg_temp.dml('q1', format($q$ update nestly.promotions set status = 'stopped' where id = %L $q$, current_setting('t.promo2'))), 'OK:0',
+  '[F13.2-a c9] another Professional stops nothing');
+
+-- ---- monthly summaries and the 12-month purge (§11.4) ------------------------------------------------------------------------
+select is(pg_temp.dml('d', format($q$ insert into nestly.promotion_monthly_summaries (promotion_id, target_kind, month) values (%L, 'profile', '2026-01-01') $q$,
+            current_setting('t.promo'))), 'ERR:42501', '[F13.2-a c10 §11.4] no client writes a summary (the Admin either)');
+select tests.fx_promo_age(current_setting('t.promo')::uuid, 420);
+select tests.fx_promo_age(current_setting('t.lpromo')::uuid, 40);
+select tests.fx_pv_age(pg_temp.id('q1'), 420);
+select is(tests.fx_promo_purge(), 4, '[F13.2-a c10 §11.4] the purge deletes the paid events and professional views of the months more than 12 months back (a''s impression row, q1''s three views)');
+select is(tests.fx_promo_count(format('nestly.promotion_events where promotion_id = %L', current_setting('t.promo'))), 0::bigint, '[F13.2-a c10 §11.4] the old detail is gone');
+select is(tests.fx_promo_count(format('nestly.promotion_events where promotion_id = %L', current_setting('t.lpromo'))), 1::bigint,
+  '[F13.2-a c10 §11.4] a younger month''s detail stays');
+select is(tests.fx_promo_text(format($q$ select string_agg(target_kind || ':' || (professional_field is not null) || ':' || impressions || ':' || clicks, ',')
+            from nestly.promotion_monthly_summaries where promotion_id = %L $q$, current_setting('t.promo'))), 'profile:true:5:0',
+  '[F13.2-a c10 §11.4] the old month is summed first: kind, field, impressions and clicks');
+select is(tests.fx_promo_text(format($q$ select string_agg(target_kind || ':' || impressions, ',') from nestly.promotion_monthly_summaries where promotion_id = %L $q$,
+            current_setting('t.lpromo'))), 'listing:1', '[F13.2-a c10 §11.4] every completed month is summed, also within the 12 months');
+select is(tests.fx_promo_purge(), 0, '[F13.2-a c10] a rerun deletes nothing');
+select is(tests.fx_promo_text($q$ select count(*)::text || '/' || sum(impressions)::text from nestly.promotion_monthly_summaries $q$), '2/6',
+  '[F13.2-a c10] and changes no summary');
+select is(pg_temp.q('q1', 'select string_agg(impressions::text, '','') from nestly.promotion_monthly_summaries'), '5', '[F13.2-a c10] the promoter reads its own months');
+select is(pg_temp.q('b', 'select count(*)::text from nestly.promotion_monthly_summaries'), '0', '[F13.2-a c10] nobody else does');
+select is(pg_temp.q('m4', 'select count(*)::text from nestly.promotion_monthly_summaries'), '0', '[F13.2-a c10 §3.2] nor a Moderator');
+select is(pg_temp.q('d', 'select count(*)::text from nestly.promotion_monthly_summaries'), '2', '[F13.2-a c10 §3.2] BILLING_FINANCE_MANAGE reads every summary');
+select tests.fx_promo_drop(current_setting('t.promo')::uuid);
+select is(tests.fx_promo_text($q$ select count(*)::text from nestly.promotion_monthly_summaries where promotion_id is null and target_kind = 'profile' and impressions = 5 $q$), '1',
+  '[F13.2-a c10 §11.4] the summary outlives its promotion, without it (kept forever)');
+select is(tests.fx_promo_text($q$ select (has_column_privilege('app_jobs', 'nestly.promotion_events', 'promotion_id', 'SELECT') and has_column_privilege('app_jobs', 'nestly.promotion_events', 'occurred_on', 'SELECT')
+            and has_column_privilege('app_jobs', 'nestly.promotion_events', 'times', 'SELECT') and not has_column_privilege('app_jobs', 'nestly.promotion_events', 'viewer_id', 'SELECT')
+            and has_table_privilege('app_jobs', 'nestly.promotion_events', 'DELETE') and has_column_privilege('app_jobs', 'nestly.promotions', 'payment_id', 'SELECT')
+            and has_column_privilege('app_jobs', 'nestly.promotion_payments', 'professional_field', 'SELECT') and not has_column_privilege('app_jobs', 'nestly.promotion_payments', 'payer_id', 'SELECT')
+            and has_table_privilege('app_jobs', 'nestly.promotion_monthly_summaries', 'SELECT,INSERT') and has_table_privilege('app_jobs', 'nestly.professional_views', 'DELETE'))::text $q$),
+  'true', '[F13.2-a c10 rule 6 BR-057] the job holds exactly what the purge reads and writes (never who viewed, never who paid)');
+select is(tests.as_role('authenticated', tests.claims(pg_temp.id('d')), 'select nestly.purge_promotion_data()::text'), 'ERR:42501',
+  '[F13.2-a c10 rule 6] a signed-in account cannot run the purge');
 
 select * from finish();
 rollback;
