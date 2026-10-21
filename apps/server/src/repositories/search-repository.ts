@@ -1,5 +1,6 @@
 // Global search (FR-SEARCH-001, FR-ALG-008, NFR-SEC-006; migration 20261020400000). Runs inside the caller's identity transaction and nowhere
-// else. People: nestly.search_people(), the SECURITY DEFINER that counts the call, applies the limit and returns an id and a full name.
+// else. People: nestly.search_people(), the SECURITY DEFINER that counts the call, applies the limit and returns an id, a full name and whether
+// the account is a Regular or a Professional one (migration 20261023100000).
 // Posts: a plain read of `posts` under the caller's own policy (posts_select_viewer), so audience, hides, reports and - when they exist -
 // blocks and Private Groups decide what is found; there is no permission predicate here. Ranking comes after authorization (AC-065): exact,
 // prefix, word prefix, anywhere; then newest. The Intent Signal rows hold the topic only, never the text.
@@ -8,15 +9,20 @@ import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { IdentityTx } from '../db/identity-transaction.js';
 
-const peopleRow = z.object({ user_id: z.guid().nullable(), full_name: z.string().nullable(), outcome: z.enum(['found', 'limited']) });
+const peopleRow = z.object({
+  user_id: z.guid().nullable(),
+  full_name: z.string().nullable(),
+  outcome: z.enum(['found', 'limited']),
+  account_type: z.enum(['regular', 'professional']).nullable(),
+});
 
-export type PeopleSearch = { readonly kind: 'found'; readonly people: { userId: string; fullName: string }[] } | { readonly kind: 'limited' };
+export type PeopleSearch = { readonly kind: 'found'; readonly people: { userId: string; fullName: string; isProfessional: boolean }[] } | { readonly kind: 'limited' };
 
 /** One counted People Search. A missing or invalid limit raises SQLSTATE NS001 and rolls the transaction back. */
 export async function searchPeople(tx: IdentityTx, text: string, limit: number): Promise<PeopleSearch> {
-  const rows = z.array(peopleRow).parse(await tx.execute(sql`select user_id, full_name, outcome from nestly.search_people(${text}, ${limit}, 0)`));
+  const rows = z.array(peopleRow).parse(await tx.execute(sql`select user_id, full_name, outcome, account_type from nestly.search_people(${text}, ${limit}, 0)`));
   if (rows.some((row) => row.outcome === 'limited')) return { kind: 'limited' };
-  const people = rows.flatMap((row) => (row.user_id !== null && row.full_name !== null ? [{ userId: row.user_id, fullName: row.full_name }] : []));
+  const people = rows.flatMap((row) => (row.user_id !== null && row.full_name !== null ? [{ userId: row.user_id, fullName: row.full_name, isProfessional: row.account_type === 'professional' }] : []));
   return { kind: 'found', people };
 }
 

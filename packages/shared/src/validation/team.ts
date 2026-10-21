@@ -2,7 +2,7 @@
 // community settings' report reasons (FR-ADMIN-007), the Admin Analytics (FR-ADMIN-010, FR-ADMIN-003) and the staff inbox counts (AC-044).
 // The web checks what it sends and the server checks again, by the same rules. Every body is strict. Who may do what is the database's.
 import { z } from 'zod';
-import { PERMISSION_KEYS, SUPPORT_TOPICS, type PermissionKey } from '../constants/index.js';
+import { LISTING_CATEGORIES, PERMISSION_KEYS, PROFESSIONAL_FIELDS, SUPPORT_TOPICS, type PermissionKey } from '../constants/index.js';
 import { codePointLength } from './text.js';
 
 /** An invitation is valid this many hours (the database's default; Afik 21.10.2026). */
@@ -187,6 +187,33 @@ export const analyticsBody = z.object({
     /** Of the period's requests, how many got a reply from Support, and the median hours to that first reply. */
     answered: z.number().int(),
     medianHoursToFirstReply: z.number().nullable(),
+  }),
+  /** FR-ADMIN-010 (SRS audit 21.10): Groups. Members, joins and content are counted in Public Groups only: a Private Group's members and
+   *  content are not read for the analytics screen. */
+  groups: z.object({
+    active: z.object({ public: z.number().int(), private: z.number().int() }),
+    created: z.number().int(),
+    publicMembers: z.number().int(),
+    publicJoins: z.number().int(),
+    publicPosts: z.number().int(),
+    publicComments: z.number().int(),
+  }),
+  /** FR-ADMIN-010: Professionals. Active accounts by field, and the period's follows, chats opened and reviews. Offer Help is not counted: its rows
+   *  carry the opening message, which the analytics screen does not read. */
+  professionals: z.object({
+    active: z.number().int(),
+    byField: z.array(z.object({ field: z.enum(PROFESSIONAL_FIELDS), count: z.number().int() })),
+    follows: z.number().int(),
+    chatStarts: z.number().int(),
+    reviews: z.number().int(),
+  }),
+  /** FR-ADMIN-010: Marketplace. Listings shown now, by category, and the period's new and sold listings and chats opened about one. */
+  marketplace: z.object({
+    active: z.number().int(),
+    byCategory: z.array(z.object({ category: z.enum(LISTING_CATEGORIES), count: z.number().int() })),
+    created: z.number().int(),
+    sold: z.number().int(),
+    chats: z.number().int(),
   }),
 });
 export type AnalyticsView = z.infer<typeof analyticsBody>;

@@ -55,6 +55,8 @@ const SENTENCES: Record<NotificationType, (who: string, group: string | null | u
   offer_declined: () => "הצעת עזרה שלך נדחתה",
   review_received: () => "התקבלה ביקורת חדשה על הפרופיל המקצועי שלך",
   followers_weekly: (_who, _group, count) => followersText(count),
+  // BR-037, AC-046: a Friend's child's birthday; the child is never named (FR-PRIV-001: a Friend sees the Journey Summary only)
+  child_birthday: (who) => `יום הולדת לילד או לילדה של ${who}`,
 };
 
 /** The sentence of one notification: the name when shown, "מישהו" when hidden, "המחבר" for the anonymous author's own comment. */
@@ -103,6 +105,7 @@ export const CATEGORY_LABELS = {
   offers: "הצעות עזרה שאושרו או נדחו",
   reviews: "ביקורות חדשות על הפרופיל המקצועי",
   followers: "סיכום שבועי של עוקבים חדשים",
+  birthdays: "ימי הולדת של ילדים של חברים",
 } as const;
 export const FRIENDS_FOLLOW_TITLE = "פוסטים חדשים של חברים";
 export const FRIENDS_FOLLOW_HINT =
