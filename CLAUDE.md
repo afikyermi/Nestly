@@ -1,6 +1,9 @@
 # Nestly
 Social network for pregnancy planning, pregnancy and parenting. Owner: Afik. Goal: the whole SRS built by 26.10; lecturer review 27.10 (code, files, SRS, every feature, bugs).
 
+## Product
+Nestly is a community social network for pregnancy planning, pregnancy and parenting, with additions: trackers, Professionals, Marketplace and groups. Development is done with product thinking: before every feature, understand who uses it (Regular, Professional, Moderator, Admin), what each of them needs and what their experience will be. Draw on how successful social networks work (feed, groups, promotion, reviews, moderation) and adapt it to a sensitive parenting community: safety, privacy, children. A feature isn't just "meets the requirement"; it's what a real user would expect to find. If a requirement leads to a bad experience for one of the user types, write it in "ממתין לך" with a suggestion.
+
 ## Sources
 - Product: `docs/srs/` (INDEX.md first; read only what you need). Afik's decisions not in the SRS, and the initiative map (FR/BR/AC per initiative): `decisions-in-force.md`.
 - DB and RLS rules: `.claude/knowledge/data-model.md` (tables: `data-model-tables.md`). Code conventions: `.claude/knowledge/conventions.md`. Design: `docs/design/`.

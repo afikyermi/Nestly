@@ -12,19 +12,19 @@ export const MAX_SWEEP_PER_RUN = 10; // leftovers (not this run's) deleted per r
 export const MAX_PATTERN_USERS = 50; // more of this run's own users than this: a wrong pattern, delete nothing and fail
 
 /**
- * The eighty tables the preflight expects in `nestly`, sorted; an unknown table means this design needs re-review. A part that
+ * The eighty-five tables the preflight expects in `nestly`, sorted; an unknown table means this design needs re-review. A part that
  * adds a `nestly` table updates this list and the delete order in the CLI in the same PR (Afik, 17.10.2026).
  */
 export const EXPECTED_NESTLY_TABLES: readonly string[] = [
   'algorithm_configurations',
-  'audit_log',
+  'audit_log', 'auto_hide_scopes',
   'chat_blocks',
   'chat_reads',
   'chat_requests',
   'children',
   'comments',
   'conversations',
-  'cycle_entries',
+  'cycle_entries', 'enforcement_records',
   'friend_content_notification_preferences',
   'friendships',
   'group_access',
@@ -41,7 +41,7 @@ export const EXPECTED_NESTLY_TABLES: readonly string[] = [
   'journey_contexts',
   'legal_consents',
   'marketplace_listings',
-  'media_assets',
+  'media_assets', 'media_fingerprints',
   'media_reviews',
   'media_training_candidates',
   'media_training_events',
@@ -61,9 +61,9 @@ export const EXPECTED_NESTLY_TABLES: readonly string[] = [
   'professional_follows',
   'professional_profiles',
   'professional_reviews',
-  'professional_views',
   'profile_open_counts',
   'profile_photos',
+  'profile_staff_views',
   'promotion_events',
   'promotion_payments',
   'promotion_plans',
@@ -74,10 +74,11 @@ export const EXPECTED_NESTLY_TABLES: readonly string[] = [
   'recovery_events',
   'recovery_throttles',
   'regular_names',
-  'regular_profiles',
+  'regular_profiles', 'report_auto_hides',
   'report_escalations',
   'report_openings',
   'report_reasons',
+  'reported_comment_views',
   'reported_message_views',
   'reports',
   'search_intents',
@@ -89,10 +90,10 @@ export const EXPECTED_NESTLY_TABLES: readonly string[] = [
   'stories',
   'support_messages',
   'support_requests',
+  'suspected_image_fingerprints',
   'system_announcements',
   'tracker_events',
   'trend_scopes',
-  'usage_events',
   'user_blocks',
   'user_enforcements',
   'users',

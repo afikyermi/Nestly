@@ -112,6 +112,11 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         counts['reported_message_views'] = (await tx`delete from nestly.reported_message_views where viewer_id = ${id}`).count;
         // I10: a staff member's views of reported Private Group content likewise (others' views go with the reports below, by cascade).
         counts['private_group_content_views'] = (await tx`delete from nestly.private_group_content_views where viewer_id = ${id}`).count;
+        // I14 completion B: a staff member's openings of reported comments and of profiles (others' go with the report or the profile's account by
+        // cascade), and the enforcement history that names the user as author or decider (it names a report: SET NULL; users: RESTRICT).
+        counts['reported_comment_views'] = (await tx`delete from nestly.reported_comment_views where viewer_id = ${id}`).count;
+        counts['profile_staff_views'] = (await tx`delete from nestly.profile_staff_views where viewer_id = ${id} or target_id = ${id}`).count;
+        counts['enforcement_records'] = (await tx`delete from nestly.enforcement_records where user_id = ${id} or decided_by = ${id}`).count;
         counts['reports'] = (
           await tx`delete from nestly.reports
                     where reporter_id = ${id} or reported_user_id = ${id}

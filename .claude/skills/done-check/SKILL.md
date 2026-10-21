@@ -6,7 +6,7 @@ argument-hint: <initiative, e.g. I13> <PR number or branch>
 
 # done-check — nothing merges with a hole in it
 
-**Version:** 1.0 · the rule is in `CLAUDE.md` → "Work". Runs in its own subagent, read-only, before the merge of an
+**Version:** 1.1 · the rule is in `CLAUDE.md` → "Work". Runs in its own subagent, read-only, before the merge of an
 initiative's (or a completion's) code PR.
 
 ## Input
@@ -38,7 +38,13 @@ initiative's (or a completion's) code PR.
    - A ⭐ default built without Afik's answer has an OP row "built per ⭐, awaiting confirmation" and a line in
      WORKPLAN "ממתין לך".
    - A version row in `00-document-info.md`; `node tools/build-srs-index.js` passes.
-6. **Definition of done (brief e):** pgTAP for every new table/policy, server tests, the e2e-preview flow, SRS,
+6. **Every account type.** Every screen the PR changed works for every account type that can reach it (Regular,
+   Professional, Moderator, Admin — per brief (f)): no error and no empty screen. Cite the test that shows it, per
+   account type.
+7. **Cross-cutting decisions.** Every cross-cutting decision listed in brief (b) (the 500-character free-text field
+   and "אחר" in every report, a relative time on every publication, staff principles, rating display…) is implemented
+   in this PR too. Cite the file:line.
+8. **Definition of done (brief e):** pgTAP for every new table/policy, server tests, the e2e-preview flow, SRS,
    status row.
 
 ## Output
@@ -58,3 +64,4 @@ goes to WORKPLAN with his reason, and the line in the table says so.
 
 ## Changelog
 - 1.0 — 2026-10-21 — created (Afik, 21.10: the gate before every initiative's code merge).
+- 1.1 — 2026-10-21 — every account type per changed screen; cross-cutting decisions from brief (b) (Afik).
