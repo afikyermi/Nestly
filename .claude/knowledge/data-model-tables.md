@@ -20,6 +20,7 @@ does not instruct loading every link. Column sections and rule matrices are both
 | user_blocks | Blocking a user (I4); Friendships and regular names; Notifications and People Search |
 | chat_requests, conversations, messages, chat_blocks, chat_reads, support_requests, support_messages, reported_message_views | Chat and Support (I8); Friendships and regular names; Blocking a user; Safety and admin core (reports, audit) |
 | moderator_invitations, system_announcements, the analytics reads | Moderators team (I14); Safety and admin core (staff roles, keys, audit) |
+| report_escalations, report_openings, child_tracker_trends, the report's context | Staff work (I14 completion); Safety and admin core (reports, audit); Groups (Private Group views); Trackers (I6) |
 | groups, group_members, group_access, group_join_requests, group_invitations, group_bans, group_notification_preferences, group_suggestions, group_highlight_configurations, private_group_content_views | Groups (I10); posts, comments, reactions (group content); Notifications and People Search (notify_group); Safety and admin core (reports, audit) |
 | professional_profiles, professional_follows, outreach_requests, professional_reviews, professional_articles | Professionals (I11); posts (audience followers, is_help_request), Chat and Support (conversations: contexts professional and outreach); Blocking a user |
 | marketplace_listings, sponsored_products | Marketplace (I12); Media and Stories (listing and sponsored images), Chat and Support (conversations: context marketplace), Safety and admin core (reports, audit); Blocking a user |
@@ -550,7 +551,7 @@ SECURITY DEFINER; `audit_trigger()` gains the invitation and announcement branch
 
 | Table | Columns and meaning | Authorization |
 |---|---|---|
-| `moderator_invitations` | id, code_hash (SHA-256 hex of a one-time random code; the code is never stored), note (who it is for, 2-80), invited_by, created_at, expires_at (+7 days), accepted_by (unique; the Moderator it created; cascade), accepted_at, revoked_at | SELECT the Admin, or the holder of the code (its hash named in the transaction-local `nestly.moderator_invite`, helper `moderator_invite_hash()`); INSERT the Admin (code_hash, note); UPDATE the Admin (revoked_at, an open one) or the holder (accepted_by = auth.uid(), a valid open one); `moderator_invitations_guard` lets the state move once, stamps the times and accepts only for a caller who is now a Moderator; audited (moderator_invited, moderator_invitation_revoked, moderator_joined) |
+| `moderator_invitations` | id, code_hash (SHA-256 hex of a one-time random code; the code is never stored), note (who it is for, 2-80), invited_by, created_at, expires_at (+48 hours since the I14 completion; was +7 days), accepted_by (unique; the Moderator it created; cascade), accepted_at, revoked_at | SELECT the Admin, or the holder of the code (its hash named in the transaction-local `nestly.moderator_invite`, helper `moderator_invite_hash()`); INSERT the Admin (code_hash, note); UPDATE the Admin (revoked_at, an open one) or the holder (accepted_by = auth.uid(), a valid open one); `moderator_invitations_guard` lets the state move once, stamps the times and accepts only for a caller who is now a Moderator; audited (moderator_invited, moderator_invitation_revoked, moderator_joined) |
 | `system_announcements` | id, title (2-80), body (1-1,000), status draft/published/removed, created_by, created_at, updated_at, published_at, removed_at | SELECT SYSTEM_ANNOUNCEMENTS (all) or any active account (published); INSERT SYSTEM_ANNOUNCEMENTS (a draft naming itself; title, body); UPDATE SYSTEM_ANNOUNCEMENTS (title, body, status) while not removed; `system_announcements_prepare` allows draft -> published -> removed and draft -> removed and stamps the times; no DELETE; audited |
 
 Other changes: `users_insert_moderator` (a users row of type moderator, active, only with a valid open invitation whose hash the transaction names)
@@ -561,6 +562,28 @@ reactions, reports, user_enforcements and friendships, through `analytics_reader
 (the Admin always) only in a transaction that set `nestly.analytics_view` = on. This extends deviation (a) of the core: in that transaction the rows
 are readable to that staff member, and the server answers aggregates only (no id, name or text; BR-058). No child, journey, tracker, chat, support or
 media row is opened. Cleanup: both tables are listed and never deleted from (a test user is never staff).
+
+## Staff work (I14 completion)
+
+Built by `20261022800000_staff_work.sql` (Afik 21.10.2026, decisions-in-force.md §9; down script in `supabase/rollback/`, refuses while a CHILD_DATA_VIEW grant,
+an escalation or an opening exists). One new SECURITY DEFINER, `child_tracker_trends()` (data-model.md "Approved exceptions"); `reveal_post_author()` and
+`audit_trigger()` replaced (still the same definers). pgTAP: file 100.
+
+| Table | Columns and meaning | Authorization |
+|---|---|---|
+| `report_escalations` | id, report_id (unique: once per report; FK reports, cascade), escalated_by (default auth.uid(), never granted; FK users restrict), note (2-500, staff text), created_at | RLS + FORCE; SELECT REPORTS_VIEW (the Admin always); INSERT (report_id, note) a Moderator (never the Admin) with REPORTS_VIEW, in its own name, on an open report it can read; no UPDATE or DELETE; audited (`report_escalated`, the note as the reason) |
+| `report_openings` | id, report_id (FK reports, cascade), opened_by (default auth.uid(), never granted; FK users restrict), opened_at; unique (report_id, opened_by) | RLS + FORCE; SELECT REPORTS_VIEW; INSERT (report_id) REPORTS_VIEW in its own name on an open report (the server writes it with ON CONFLICT DO NOTHING when a staff member opens a report); no UPDATE or DELETE; not audited (an opening is no action) |
+
+Other changes: `moderator_invitations.expires_at` defaults to 48 hours, and open invitations were cut to at most 48 hours from issue; `moderator_joined` carries
+the invitation's id (§9.1). `CHILD_DATA_VIEW` joins the assignable keys (key CHECK; `has_permission()`, the Admin always; no companion key) and opens only
+`child_tracker_trends()` (§9.2; reads tracker_events and children through `*_select_child_data` TO app_owner under `nestly.child_data_scope`). `reveal_post_author()`
+also needs PRIVATE_GROUP_MODERATE on Private Group content and records it (§9.4). `reports.thread_post_id` (a comment report's post, set by
+`reports_thread_post` as the reporter, SET NULL with the post; existing comment reports backfilled) opens the report's context: `posts_select_staff_context`
+(the post of a reported comment) and `comments_select_staff_context` (the comments of a reported post or of a reported comment's post), REPORTS_VIEW, any
+state but deleted; `private_group_content_views.thread_post_id` and the altered RESTRICTIVE `posts_group_hide` / `comments_group_hide` open the same context
+inside the audited opening's transaction only. `reports_insert_community` (RESTRICTIVE INSERT): only an active Regular or Professional account files a report
+(staff never post, comment, send requests or report, §9.7; every other social write already refuses a staff account: file 100 c7). Cleanup: both new
+tables are listed and never deleted from by name (staff rows; they go with their report by cascade).
 
 ## Groups (I10)
 
