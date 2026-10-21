@@ -84,6 +84,8 @@ async function startFeed(page: Page, items: Unit[], dev: Device = { clipboard: '
   else await expect(feedCards(page).first()).toBeVisible();
   return net;
 }
+/** API calls the sheet could have caused: the shell refreshes the Chat badge (I8) on its own, so it is not counted. */
+const ownCalls = (net: ShareNet): number => net.apiPaths.filter((path) => path !== "/api/chat/unread").length;
 async function openSheet(page: Page, card: Locator): Promise<Locator> {
   await linkButton(card).click();
   const box = sheetOf(page);
@@ -199,7 +201,7 @@ test.describe('F3.6 c4 [FR-FEED-007, NFR-PRIV-007] the ShareSheet', () => {
       await opener.scrollIntoViewIfNeeded();
       for (const close of ['Escape', 'outside', 'close', 'Back'] as const) {
         const at = await scrollY(page);
-        const requests = net.apiPaths.length;
+        const requests = ownCalls(net);
         const box = await openSheet(page, feedCards(page).nth(1));
         await page.mouse.move(viewport.width / 2, 20);
         await page.mouse.wheel(0, 600);
@@ -214,7 +216,7 @@ test.describe('F3.6 c4 [FR-FEED-007, NFR-PRIV-007] the ShareSheet', () => {
         expect(pathOf(page), `${close}: still the feed`).toBe('/feed');
         expect(await scrollY(page), `${close}: same place`).toBe(at);
         await expect(opener, `${close}: focus returns`).toBeFocused();
-        expect(net.apiPaths.length, `${close}: opening and closing sent no request`).toBe(requests);
+        expect(ownCalls(net), `${close}: opening and closing sent no request`).toBe(requests);
       }
     });
   }
@@ -315,7 +317,7 @@ test.describe('F3.6 c11 [FR-FEED-007] "שיתוף Nestly" in the side menu', () 
   test('[c11] Esc, an outside click and Back close the site sheet too, with no request', async ({ page }) => {
     const net = await startFeed(page, [named(1)]);
     for (const close of ['Escape', 'outside', 'Back'] as const) {
-      const requests = net.apiPaths.length;
+      const requests = ownCalls(net);
       const drawer = await openMenu(page);
       await drawer.getByRole('button', { name: SITE, exact: true }).click();
       const box = sheetOf(page, SITE);
@@ -327,7 +329,7 @@ test.describe('F3.6 c11 [FR-FEED-007] "שיתוף Nestly" in the side menu', () 
       else await page.goBack();
       await expect(box, close).toHaveCount(0);
       expect(pathOf(page), close).toBe('/feed');
-      expect(net.apiPaths.length, close).toBe(requests);
+      expect(ownCalls(net), close).toBe(requests);
     }
   });
   test('[c11] a Professional has the menu item too (it carries no post data)', async ({ page }) => {
