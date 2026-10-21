@@ -21,8 +21,9 @@ import {
   COPIED_TEXT_LABEL,
   DETAIL_TITLE,
   DISMISS_LABEL,
-  HIDE_LABEL,
-  HIDE_LISTING_LABEL,
+  DELETE_HINT,
+  DELETE_LABEL,
+  DELETE_LISTING_LABEL,
   LISTING_COPIED_LABEL,
   RESTORE_LISTING_LABEL,
   KIND_LABELS,
@@ -32,7 +33,6 @@ import {
   OPEN_MESSAGE_LABEL,
   REASON_LABEL,
   REASON_REQUIRED_TEXT,
-  REMOVE_LABEL,
   REPORTS_HEADING,
   RESTORE_LABEL,
   REVEAL_LABEL,
@@ -43,7 +43,7 @@ import {
 export type ReportAction =
   | { type: 'dismiss'; note?: string }
   | { type: 'close'; note?: string }
-  | { type: 'hide' | 'remove'; reason: string }
+  | { type: 'delete'; reason: string }
   | { type: 'restore'; reason: string }
   | { type: 'reveal' }
   | { type: 'open-message' };
@@ -72,7 +72,7 @@ export function ReportDetailPanel({ detail, permissions, revealed, message = nul
   const [note, setNote] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
   const isMessage = detail.targetKind === 'message';
-  // I12: a listing is moderated with MARKETPLACE_MODERATE: hidden or brought back (its owner deletes it; staff never remove it)
+  // I12: a listing is moderated with MARKETPLACE_MODERATE. I14 completion B (Afik 21.10.2026, OP-053): a justified report deletes the content
   const isListing = detail.targetKind === 'listing';
   const moveKey = isListing ? 'MARKETPLACE_MODERATE' : 'CONTENT_MODERATE';
   const canModerate = permissions.includes(moveKey) && detail.targetKind !== 'user' && !isMessage;
@@ -84,7 +84,7 @@ export function ReportDetailPanel({ detail, permissions, revealed, message = nul
   const content = detail.content;
   const moved = content !== null && (content.status === 'hidden' || content.status === 'removed');
 
-  function withReason(type: 'hide' | 'remove' | 'restore') {
+  function withReason(type: 'delete' | 'restore') {
     if (reason.trim() === '') {
       setProblem(REASON_REQUIRED_TEXT);
       return;
@@ -203,9 +203,11 @@ export function ReportDetailPanel({ detail, permissions, revealed, message = nul
             <Button variant="soft" pending={pending} onClick={() => onAction({ type: 'dismiss', ...(trimmedNote === '' ? {} : { note: trimmedNote }) })}>
               {DISMISS_LABEL}
             </Button>
-            <Button variant="soft" pending={pending} onClick={() => onAction({ type: 'close', ...(trimmedNote === '' ? {} : { note: trimmedNote }) })}>
-              {CLOSE_ONLY_LABEL}
-            </Button>
+            {detail.targetKind === 'user' || isMessage ? (
+              <Button variant="soft" pending={pending} onClick={() => onAction({ type: 'close', ...(trimmedNote === '' ? {} : { note: trimmedNote }) })}>
+                {CLOSE_ONLY_LABEL}
+              </Button>
+            ) : null}
           </div>
         ) : null}
         {canModerate && content !== null ? (
@@ -214,17 +216,10 @@ export function ReportDetailPanel({ detail, permissions, revealed, message = nul
               {(control) => <TextArea {...control} rows={2} dir="auto" value={reason} onChange={(event) => setReason(event.target.value)} />}
             </FormField>
             <div className="flex flex-wrap gap-3">
-              {isOpen && !moved ? (
-                <>
-                  <Button pending={pending} onClick={() => withReason('hide')}>
-                    {isListing ? HIDE_LISTING_LABEL : HIDE_LABEL}
-                  </Button>
-                  {isListing ? null : (
-                    <Button pending={pending} onClick={() => withReason('remove')}>
-                      {REMOVE_LABEL}
-                    </Button>
-                  )}
-                </>
+              {isOpen ? (
+                <Button pending={pending} onClick={() => withReason('delete')} aria-describedby={`${id}-delete`}>
+                  {isListing ? DELETE_LISTING_LABEL : DELETE_LABEL}
+                </Button>
               ) : null}
               {moved ? (
                 <Button variant="soft" pending={pending} onClick={() => withReason('restore')}>
@@ -233,6 +228,11 @@ export function ReportDetailPanel({ detail, permissions, revealed, message = nul
               ) : null}
             </div>
           </>
+        ) : null}
+        {canModerate && content !== null && isOpen ? (
+          <p id={`${id}-delete`} className="text-small text-muted-foreground">
+            {DELETE_HINT}
+          </p>
         ) : null}
         {detail.targetKind === 'post' && content?.isAnonymous === true && isOpen && permissions.includes('REPORTS_VIEW') && permissions.includes('CONTENT_MODERATE') ? (
           <div className="flex flex-col items-start gap-2">

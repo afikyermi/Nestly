@@ -57,11 +57,23 @@ async function call<T>(accessToken: string, init: Call, parse: Parse<T>): Promis
 }
 
 const query = (cursor: string | null): string => (cursor === null ? '' : `?cursor=${encodeURIComponent(cursor)}`);
+/** The thread's query: the cursor, and the Private Group a staff member reviews (I14 completion B: its comments open with it, audited). */
+const threadQuery = (cursor: string | null, reviewGroupId: string | undefined): string => {
+  const params = new URLSearchParams();
+  if (cursor !== null) params.set('cursor', cursor);
+  if (reviewGroupId !== undefined) params.set('group', reviewGroupId);
+  const text = params.toString();
+  return text === '' ? '' : `?${text}`;
+};
 const created: Parse<CommentView> = (body) => commentView.safeParse(typeof body === 'object' && body !== null ? Reflect.get(body, 'comment') : undefined);
 
 /** GET /api/posts/:id/comments: one page of the thread, oldest first. */
-export const fetchThread = (accessToken: string, postId: string, cursor: string | null): Promise<CommentsOutcome<CommentThreadPage>> =>
-  call(accessToken, { method: 'GET', path: `/api/posts/${encodeURIComponent(postId)}/comments${query(cursor)}` }, (body) => commentThreadPage.safeParse(body));
+export const fetchThread = (accessToken: string, postId: string, cursor: string | null, reviewGroupId?: string): Promise<CommentsOutcome<CommentThreadPage>> =>
+  call(
+    accessToken,
+    { method: 'GET', path: `/api/posts/${encodeURIComponent(postId)}/comments${threadQuery(cursor, reviewGroupId)}` },
+    (body) => commentThreadPage.safeParse(body),
+  );
 
 /** GET /api/comments/:id/replies: one page of a comment's replies, the first call from the oldest. */
 export const fetchReplies = (accessToken: string, commentId: string, cursor: string | null): Promise<CommentsOutcome<CommentReplyPage>> =>

@@ -3,7 +3,8 @@
 // commenter is the caller's by the database, and RLS decides who may read, comment or delete.
 //   POST   { body, parentId? } (strict) → 201 { comment } · 400 invalid | parent_invalid · 422 body_required | body_too_long ·
 //          404 post_unavailable (missing, or not readable: one body for every reason) · 403 account_unavailable | not_allowed
-//   GET    ?cursor= → 200 { items, nextCursor } · 400 cursor_invalid · 404 post_unavailable · 403 as above
+//   GET    ?cursor=&group= → 200 { items, nextCursor } · 400 cursor_invalid · 404 post_unavailable · 403 as above (group: a Private Group a staff
+//          member reviews, opened again for this read, audited; I14 completion B)
 //   GET    /comments/:id/replies ?cursor= → 200 { items, nextCursor } · 400 cursor_invalid · 404 comment_unavailable (unknown, a reply, held or on an unreadable post: one body) · 403 as above
 //   DELETE /comments/:id no body → 204 (also a comment held for an open report) · 404 not_found (not a uuid, unknown or not the caller's) · 403
 //   all: 401/503 session guard · 503 · 500 server_error. Any other method → 405 with Allow.
@@ -41,13 +42,22 @@ function replyRefusal(reply: FastifyReply, refusal: CommentRefusal): FastifyRepl
   return reply.code(403).send({ error: refusal.kind === 'stopped' ? 'account_unavailable' : 'not_allowed' });
 }
 
-/** `undefined`: no cursor (first page). `null`: a query that is not exactly "no cursor" or "one valid cursor". */
-function cursorOf(query: unknown): ReturnType<typeof parseCommentCursor> | undefined {
+/** `undefined`: no cursor (first page). `null`: a query that is not exactly "no cursor" or "one valid cursor" (and, on the thread, an optional
+ * `group` a staff member reviews: I14 completion B). */
+function cursorOf(query: unknown, allowGroup = false): ReturnType<typeof parseCommentCursor> | undefined {
   if (typeof query !== 'object' || query === null) return null;
-  const keys = Object.keys(query);
+  const keys = Object.keys(query).filter((key) => !(allowGroup && key === 'group'));
+  if (allowGroup && Reflect.has(query, 'group') && !UUID.test(String(Reflect.get(query, 'group')))) return null;
   if (keys.length === 0) return undefined;
   if (keys.length !== 1 || keys[0] !== 'cursor') return null;
   return parseCommentCursor(Reflect.get(query, 'cursor'));
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** The Private Group a staff member reviews this thread in (`?group=`), or undefined. */
+function reviewGroupOf(query: unknown): string | undefined {
+  const value = typeof query === 'object' && query !== null ? Reflect.get(query, 'group') : undefined;
+  return typeof value === 'string' && UUID.test(value) ? value.toLowerCase() : undefined;
 }
 
 async function create(request: FastifyRequest, reply: FastifyReply, deps: CommentsRouteDependencies) {
@@ -80,11 +90,11 @@ async function read(request: FastifyRequest, reply: FastifyReply, deps: Comments
   reply.header('cache-control', 'no-store');
   const params = commentPathParams.safeParse(request.params);
   if (!params.success) return reply.code(404).send(POST_UNAVAILABLE);
-  const cursor = cursorOf(request.query);
+  const cursor = cursorOf(request.query, true);
   if (cursor === null) return reply.code(400).send({ error: 'cursor_invalid' });
   if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
   try {
-    const outcome = await readThread(deps.database, identity, params.data.id.toLowerCase(), cursor ?? null);
+    const outcome = await readThread(deps.database, identity, params.data.id.toLowerCase(), cursor ?? null, reviewGroupOf(request.query));
     switch (outcome.kind) {
       case 'thread':
         return reply.code(200).send(outcome.page);

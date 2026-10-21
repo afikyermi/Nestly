@@ -24,6 +24,10 @@ export interface Net {
   auditPages: number;
   /** I5: the image approval queue's items (ids). */
   mediaQueue: string[];
+  /** I14 completion B: uploads that matched the block list (queue items until staff decide the match). */
+  mediaMatches: string[];
+  /** I14 completion B: the account's content deleted by justified reports. */
+  contentDecisions: Array<{ targetKind: string; rule: string; ruleLabel: string; excerpt: string; decidedAt: string }>;
   sent: Sent[];
 }
 
@@ -45,6 +49,8 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
     history: [],
     auditPages: 2,
     mediaQueue: [ID(70), ID(71)],
+    mediaMatches: [],
+    contentDecisions: [],
     sent: [],
     ...start,
   };
@@ -97,6 +103,7 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
       }
       if (path.startsWith('/api/admin/media/')) {
         net.mediaQueue = net.mediaQueue.filter((id) => !path.includes(id));
+        net.mediaMatches = net.mediaMatches.filter((id) => !path.includes(id));
         return json(route, 200, {});
       }
       return json(route, 200, {});
@@ -114,7 +121,9 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
           url: null,
           width: 800,
           height: 600,
-        })),
+        })).concat(
+          net.mediaMatches.map((id) => ({ id, kind: 'post', queueReason: 'hash_match', topLabel: null, topScore: null, isChild: false, createdAt: '2026-06-14T10:00:00.000Z', url: null, width: 800, height: 600 })),
+        ),
       });
     }
     if (path === '/api/admin/access') return json(route, 200, net.staff ? { staff: true, role: net.role, permissions: net.permissions } : { staff: false });
@@ -195,7 +204,7 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
     }
     if (path === '/api/admin/users') return json(route, 200, { users: [{ userId: USER_RINA, accountType: 'regular', status: net.userStatus, fullName: 'רינה כהן' }] });
     if (path.startsWith('/api/admin/users/')) {
-      return json(route, 200, { userId: USER_RINA, accountType: 'regular', status: net.userStatus, suspendedUntil: null, fullName: 'רינה כהן', history: net.history, suggestion: { kind: 'warning', hours: null } });
+      return json(route, 200, { userId: USER_RINA, accountType: 'regular', status: net.userStatus, suspendedUntil: null, fullName: 'רינה כהן', history: net.history, contentDecisions: net.contentDecisions, suggestion: { kind: 'warning', hours: null } });
     }
     return json(route, 404, { error: 'not_found' });
   });

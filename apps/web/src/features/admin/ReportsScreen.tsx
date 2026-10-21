@@ -32,6 +32,7 @@ import {
   REASON_REQUIRED_TEXT,
   RETRY_LABEL,
   RISING_TEXT,
+  AUTO_HIDDEN_TEXT,
 } from './admin-texts';
 
 type Queue = { kind: 'loading' } | { kind: 'failed' } | { kind: 'loaded'; items: QueueItem[] };
@@ -125,7 +126,8 @@ export function ReportsScreen({ permissions, initialTarget = null }: { permissio
             : await call((token) => moderateContent(token, { targetKind: kind, targetId: item.targetId, status: 'active', reason: action.reason }));
         said = MOVED_TEXT;
       } else {
-        const moderation = action.type === 'hide' || action.type === 'remove' ? { status: action.type === 'hide' ? ('hidden' as const) : ('removed' as const), reason: action.reason } : undefined;
+        // I14 completion B: a justified report deletes the content (moderation "removed" with action taken)
+        const moderation = action.type === 'delete' ? { status: 'removed' as const, reason: action.reason } : undefined;
         const note = action.type === 'dismiss' || action.type === 'close' ? action.note : undefined;
         outcome = await call((token) =>
           handleReports(token, {
@@ -269,6 +271,7 @@ export function ReportsScreen({ permissions, initialTarget = null }: { permissio
                   {PRIORITY_LABELS[item.priority] ?? ''} · {reportCountText(item.reportCount)} · {formatAdminTime(item.firstReportedAt)}
                 </p>
                 {item.isRising ? <p className="text-small">{RISING_TEXT}</p> : null}
+                {item.autoHidden === true ? <p className="text-small">{AUTO_HIDDEN_TEXT}</p> : null}
                 <p className="text-small" data-past-target={item.pastTarget === true ? 'true' : undefined}>
                   {WAITING((Date.now() - Date.parse(item.firstReportedAt)) / 3_600_000)}
                   {item.timeTargetHours === undefined ? null : <> · {TIME_TARGET(item.timeTargetHours)}</>}

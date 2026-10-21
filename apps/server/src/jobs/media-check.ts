@@ -14,13 +14,18 @@
 //   5. sweep   image files older than a day that have no row (a removal that failed after its row was gone).
 // Steps 3–5, and the files of images removed after a report (their report may still be open, and closing it with action taken makes them
 // training candidates), run only in the daily run; a run asked for after an upload or a decision does 1, 2 and 2b for queue decisions.
-// Nothing is logged but counts: no id, no score, no file.
+//   1b. block (I14 completion B, Afik 21.10.2026) before the model: each checked image's perceptual hash is recorded; one within 6 bits of the
+//              block list is rejected and held as a suspicion (the uploader sees the usual rejection; a staff-queue item; no account action).
+//   1c. list   the hash of each image a staff member marked or confirmed as suspected joins the block list (no expiry).
+// Nothing is logged but counts: no id, no score, no file, no hash.
 
 import { verdictOf } from '@nestly/shared';
 import type { JobStorage } from '../media/storage-admin.js';
 import type { JobsConfig } from './config.js';
 import type { JobDb } from './media-job-repository.js';
 import type { ImageModel } from './nudenet.js';
+import type { BlockListDb } from './block-list-repository.js';
+import { fingerprintOf } from './image-fingerprint.js';
 
 export interface MediaJobDependencies {
   readonly db: JobDb;
@@ -32,6 +37,8 @@ export interface MediaJobDependencies {
   /** The daily run (true) does every step; a run asked for after an upload or a queue decision (false) only checks, copies and removes the
    *  files of images staff rejected from the queue, so overlapping runs stay short, and a file read that fails there counts no attempt. */
   readonly full: boolean;
+  /** I14 completion B: the upload block list (absent: no hash step, as before). */
+  readonly blockList?: BlockListDb;
 }
 
 export interface MediaJobReport {
@@ -45,6 +52,9 @@ export interface MediaJobReport {
   purged: number;
   pruned: number;
   swept: number;
+  /** I14 completion B: uploads blocked by the list, and hashes added to it. */
+  blocked?: number;
+  listed?: number;
 }
 
 const MARGIN_MS = 8_000;
@@ -72,6 +82,18 @@ async function checkPending(deps: MediaJobDependencies, report: MediaJobReport):
         if (!deps.full) continue;
         throw new Error('file unavailable');
       }
+      // I14 completion B: the block list first; a match is never scored or shown
+      if (deps.blockList !== undefined) {
+        const fingerprint = await fingerprintOf(bytes);
+        if (fingerprint !== undefined) {
+          await deps.blockList.recordFingerprint(row.id, fingerprint);
+          if (await deps.blockList.matchesBlockList(row.id)) {
+            await deps.blockList.markMatch(row.id);
+            report.blocked = (report.blocked ?? 0) + 1;
+            continue;
+          }
+        }
+      }
       const scores = await model.score(bytes);
       const verdict = verdictOf(scores, deps.config);
       if (verdict.status === 'passed') {
@@ -86,6 +108,25 @@ async function checkPending(deps: MediaJobDependencies, report: MediaJobReport):
       // refuses the write, and counting the attempt below changes nothing or fails quietly. One image never stops the run.
       report.failed += 1;
       await deps.db.markFailed(row.id, row.attempts + 1 >= deps.config.maxAttempts).catch(() => undefined);
+    }
+  }
+}
+
+/** 1c: the hash of every image a staff member marked or confirmed as suspected joins the list (read from its kept file when not recorded yet). */
+async function listSuspected(deps: MediaJobDependencies, blockList: BlockListDb, report: MediaJobReport): Promise<void> {
+  for (const image of await blockList.suspectedToList(TRAIN_BATCH)) {
+    if (deps.timeLeft() < MARGIN_MS) return;
+    try {
+      if (image.fingerprint === null) {
+        const bytes = await deps.storage.readImage(image.id);
+        const fingerprint = bytes === undefined ? undefined : await fingerprintOf(bytes);
+        if (fingerprint === undefined) continue;
+        await blockList.recordFingerprint(image.id, fingerprint);
+      }
+      await blockList.addToList(image.id);
+      report.listed = (report.listed ?? 0) + 1;
+    } catch {
+      // the next run tries again; one image never stops the run
     }
   }
 }
@@ -120,6 +161,7 @@ export async function runMediaJob(deps: MediaJobDependencies): Promise<MediaJobR
   const report: MediaJobReport = { checked: 0, passed: 0, queued: 0, failed: 0, trained: 0, filesRemoved: 0, storiesPurged: 0, purged: 0, pruned: 0, swept: 0 };
   const more = (): boolean => deps.timeLeft() > MARGIN_MS;
   await checkPending(deps, report);
+  if (deps.blockList !== undefined && more()) await listSuspected(deps, deps.blockList, report);
   if (more()) await copyTrainingSamples(deps, report);
   // a rejected image's file goes at once, after its training copy (the update policy refuses it before)
   if (more()) report.filesRemoved = await deps.db.removeRejectedFiles(async (ids) => (await deps.storage.removeImages(ids)) === 'ok', !deps.full);

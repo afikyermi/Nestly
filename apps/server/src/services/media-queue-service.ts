@@ -3,12 +3,12 @@
 // media_assets_update_staff, media_assets_update_guard); the decision is audited by the database in the same transaction (rule 18). A read
 // address is signed only for the queued images the caller's own read returned.
 
-import { BLOCKING_LABELS, MEDIA_QUEUE_PAGE, type MediaDecision, type MediaQueueItem } from '@nestly/shared';
+import { BLOCKING_LABELS, MEDIA_QUEUE_PAGE, type MediaDecision, type MediaQueueItem, type MatchDecision } from '@nestly/shared';
 import type { Database } from '../db/client.js';
 import { inIdentityTransaction } from '../db/identity-transaction.js';
 import type { Identity } from '../lib/token-verifier.js';
 import type { MediaStorage } from '../media/storage-admin.js';
-import { DecisionNotApplied, canModerateContent, canRemoveCheckedImage, decideImage, readQueue, removeCheckedImage } from '../repositories/media-repository.js';
+import { DecisionNotApplied, canModerateContent, canRemoveCheckedImage, decideImage, readQueue, removeCheckedImage, decideMatch } from '../repositories/media-repository.js';
 
 export type QueueOutcome = { readonly kind: 'queue'; readonly items: MediaQueueItem[] } | { readonly kind: 'forbidden' };
 
@@ -55,6 +55,11 @@ export async function decideQueuedImage(database: Database, identity: Identity, 
     if (error instanceof DecisionNotApplied) return { kind: 'not_found' };
     throw error;
   }
+}
+
+/** I14 completion B (Afik 21.10.2026): staff decide a block-list match (CONTENT_MODERATE); `not_found` when nothing was decided. */
+export async function decideBlockListMatch(database: Database, identity: Identity, id: string, decision: MatchDecision): Promise<DecideOutcome> {
+  return inIdentityTransaction(database, identity, async (tx) => ((await decideMatch(tx, id, decision)) ? { kind: 'decided' } : { kind: 'not_found' }));
 }
 
 export type RemovalOutcome = { readonly kind: 'removed' } | { readonly kind: 'forbidden' } | { readonly kind: 'not_found' };

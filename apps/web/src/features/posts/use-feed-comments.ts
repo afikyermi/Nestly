@@ -37,7 +37,7 @@ const FAILED = { kind: 'failed' } as const;
 // the reads and likes of F3.3's thread, through its endpoints as built. The server and RLS decide what is in a thread and what a like may
 // touch; this asks and keeps what came (the service validates it). An anonymous card learns whether the viewer is its real author only from
 // GET /posts/:id `isMine` (F3.4 c4–c5); nothing but that boolean is kept from the answer.
-export function useFeedComments(api: CommentApi, report: CommentsReport): FeedCommentsFlow {
+export function useFeedComments(api: CommentApi, report: CommentsReport, reviewGroupId?: string): FeedCommentsFlow {
   const [threads, setThreads] = useState<Readonly<Record<string, CardThread>>>({});
   const latest = useRef(threads);
   latest.current = threads;
@@ -65,7 +65,7 @@ export function useFeedComments(api: CommentApi, report: CommentsReport): FeedCo
     edit(unit, (thread) => (cursor === null ? { ...thread, phase: 'loading' } : { ...thread, more: 'loading' }));
     try {
       const accessToken = await token();
-      const outcome = accessToken === null ? FAILED : await fetchThread(accessToken, unit.id, cursor);
+      const outcome = accessToken === null ? FAILED : await fetchThread(accessToken, unit.id, cursor, reviewGroupId);
       if (outcome.kind === 'ok') {
         const arrived = outcome.value.items.map(itemOf);
         const shown = latestOf(unit).items;

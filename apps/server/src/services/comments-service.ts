@@ -19,6 +19,7 @@ import type { Database } from '../db/client.js';
 import { inIdentityTransaction, type IdentityTx } from '../db/identity-transaction.js';
 import type { Identity } from '../lib/token-verifier.js';
 import { readOwnAccounts } from '../repositories/account-state-repository.js';
+import { openPrivateGroupForReview } from '../repositories/group-staff-views-repository.js';
 import {
   deleteComment,
   insertComment,
@@ -127,13 +128,17 @@ export async function createComment(database: Database, identity: Identity, post
 }
 
 /** GET: one page of top-level comments, oldest first, each with its first replies (oldest first) and the count of all of them. */
-export async function readThread(database: Database, identity: Identity, postId: string, cursor: CommentCursor | null): Promise<ThreadOutcome> {
+export async function readThread(database: Database, identity: Identity, postId: string, cursor: CommentCursor | null, reviewGroupId?: string): Promise<ThreadOutcome> {
   return inIdentityTransaction(
     database,
     identity,
     async (tx): Promise<ThreadOutcome> => {
       const refusal = await classifyReader(tx);
       if (refusal !== undefined) return refusal;
+      // I14 completion B (Afik 21.10.2026, §10.3, OP-058): a Private Group opened for review shows its posts AND their comments. The thread is
+      // its own request, so the opening is recorded (audited) again here; the database opens it only for PRIVATE_GROUP_MODERATE, and for anyone
+      // else the statement writes nothing.
+      if (reviewGroupId !== undefined) await openPrivateGroupForReview(tx, reviewGroupId);
       if ((await readPost(tx, postId)).length === 0) return { kind: 'post_unavailable' };
       const fetched = await readTopLevelPage(tx, postId, cursor, COMMENT_PAGE_SIZE + 1);
       const top = fetched.slice(0, COMMENT_PAGE_SIZE);
