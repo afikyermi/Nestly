@@ -140,6 +140,8 @@ const threadHead = z.object({
   otherName: z.string().nullable(),
   chatRequestId: z.guid().nullable(),
   outreachRequestId: z.guid().nullable(),
+  listingId: z.guid().nullable(),
+  listingTitle: z.string().nullable(),
 });
 
 /**
@@ -150,8 +152,9 @@ export async function readThread(tx: IdentityTx, conversationId: string): Promis
   const [head] = z.array(threadHead).parse(
     await tx.execute(sql`
       select c.id, ${other} as "otherUserId", coalesce(n.full_name, pp.full_name) as "otherName", c.chat_request_id as "chatRequestId",
-             c.outreach_request_id as "outreachRequestId"
+             c.outreach_request_id as "outreachRequestId", l.id as "listingId", l.title as "listingTitle"
       from nestly.conversations c left join nestly.regular_names n on n.user_id = ${other}
+      left join nestly.marketplace_listings l on l.id = c.listing_id
       left join nestly.professional_profiles pp on pp.user_id = ${other}
       where c.id = ${conversationId}::uuid`),
   );
@@ -205,6 +208,7 @@ export async function readThread(tx: IdentityTx, conversationId: string): Promis
     otherName: head.otherName,
     canSend: blocks.length === 0,
     blockedByMe: blocks.some((block) => block.mine),
+    listing: head.listingId === null || head.listingTitle === null ? null : { id: head.listingId, title: head.listingTitle },
     messages: thread,
   };
 }

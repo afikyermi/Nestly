@@ -6,7 +6,8 @@ import { MenuItem } from '@/components/shared/menu-item';
 import { NotificationBell } from '@/features/notifications/NotificationBell';
 import { NotificationsProvider, useNotifications } from '@/features/notifications/NotificationsProvider';
 import { SearchBox } from '@/features/search/SearchBox';
-import { HomeIcon, NestIcon, SparkIcon, UserIcon } from '@/components/ui/icons';
+import { BagIcon, HomeIcon, NestIcon, SparkIcon, UserIcon } from '@/components/ui/icons';
+import { MARKETPLACE_NAV_LABEL } from '@/lib/marketplace-texts';
 import { AccountKindProvider, useAccountKindQuery } from '@/hooks/use-account-kind';
 import {
   BILLING_TITLE,
@@ -33,11 +34,12 @@ import { HOTLINES_TITLE } from '@/pages/medical-hotlines/medical-hotlines-texts'
 import { parseSettingsSection, SETTINGS_SECTIONS, settingsSectionHash } from '@/lib/settings-sections';
 import { normalizePath, PATHS } from './paths';
 
-// The MVP destinations of a community account (AC-005, §7.1): home, feed, the Professionals' directory (I11, FR-SERV-001) and the profile. The
-// profile tab shows the generic person icon until profile photos exist (I5, Q7). A Professional's (Afik 21.10.2026, §9.8): home (its dashboard),
-// feed, the posts that ask for help, and its Professional profile. "חנות" is absent, not disabled.
+// The destinations of a community account (AC-005, §7.1, in the sketch's order): home, the Marketplace (I12, "חנות", FR-MKT-001), feed, the
+// Professionals' directory (I11, FR-SERV-001) and the profile. The profile tab shows the generic person icon until profile photos exist (I5, Q7). A
+// Professional's (Afik 21.10.2026, §9.8): home (its dashboard), feed, the posts that ask for help, and its Professional profile (no "חנות").
 const navItems = (professional: boolean) => [
   { key: 'home', label: 'בית', href: PATHS.home, icon: <HomeIcon /> },
+  ...(professional ? [] : [{ key: 'marketplace', label: MARKETPLACE_NAV_LABEL, href: PATHS.marketplace, icon: <BagIcon /> }]),
   { key: 'feed', label: 'פיד', href: PATHS.feed, icon: <NestIcon /> },
   professional
     ? { key: 'help', label: HELP_REQUESTS_TITLE, href: PATHS.helpRequests, icon: <SparkIcon /> }

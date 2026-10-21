@@ -1,5 +1,5 @@
 import { Route, Routes } from 'react-router';
-import { AdminAnalyticsPage, AdminAnnouncementsPage, AdminAuditPage, AdminCommunityPage, AdminMediaPage, AdminReportsPage, AdminSupportPage, AdminTeamPage, AdminUsersPage } from '@/pages/admin/AdminPages';
+import { AdminAnalyticsPage, AdminAnnouncementsPage, AdminMarketplacePage, AdminSponsoredPage, AdminAuditPage, AdminCommunityPage, AdminMediaPage, AdminReportsPage, AdminSupportPage, AdminTeamPage, AdminUsersPage } from '@/pages/admin/AdminPages';
 import { JoinTeamPage } from '@/pages/join-team/JoinTeamPage';
 import { AdminIndex, AdminLayout } from '@/pages/admin/AdminLayout';
 import { ChangePasswordPage } from '@/pages/change-password/ChangePasswordPage';
@@ -37,6 +37,7 @@ import { ProArticlesPage } from '@/pages/professionals/ProArticlesPage';
 import { ProfessionalPage } from '@/pages/professionals/ProfessionalPage';
 import { ProProfilePage } from '@/pages/professionals/ProProfilePage';
 import { ServicesPage } from '@/pages/professionals/ServicesPage';
+import { EditListingPage, ListingPage, MarketplacePage, MyListingsPage, NewListingPage } from '@/pages/marketplace/MarketplacePages';
 import { FocusOnNavigation } from './FocusOnNavigation';
 import { PATHS } from './paths';
 import { ProtectedLayout } from './ProtectedLayout';
@@ -86,6 +87,11 @@ export function AppRoutes() {
             <Route path={PATHS.proProfile} element={<ProProfilePage />} />
             <Route path={PATHS.proArticles} element={<ProArticlesPage />} />
             <Route path={PATHS.offers} element={<OffersPage />} />
+            <Route path={PATHS.marketplace} element={<MarketplacePage />} />
+            <Route path={PATHS.myListings} element={<MyListingsPage />} />
+            <Route path={PATHS.newListing} element={<NewListingPage />} />
+            <Route path={PATHS.listing} element={<ListingPage />} />
+            <Route path={PATHS.editListing} element={<EditListingPage />} />
             <Route path={PATHS.following} element={<FollowingPage />} />
             <Route path={PATHS.helpRequests} element={<HelpRequestsPage />} />
             <Route path={PATHS.proPromotion} element={<PromotionPage />} />
@@ -102,6 +108,8 @@ export function AppRoutes() {
               <Route path="community" element={<AdminCommunityPage />} />
               <Route path="announcements" element={<AdminAnnouncementsPage />} />
               <Route path="analytics" element={<AdminAnalyticsPage />} />
+              <Route path="marketplace" element={<AdminMarketplacePage />} />
+              <Route path="sponsored" element={<AdminSponsoredPage />} />
             </Route>
           </Route>
         </Routes>

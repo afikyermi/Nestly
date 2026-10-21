@@ -239,7 +239,7 @@ describe('[F3.7 c3][FR-MOD-001] the shared rule, at the route', () => {
       const res = await send(app, R, 'post', target, reason);
       expect([res.statusCode, res.body], String(reason)).toEqual([400, JSON.stringify({ error: 'invalid' })]);
     }
-    for (const kind of ['listing', 'group', 'Post', '']) expect((await send(app, R, kind, target)).statusCode, kind).toBe(400);
+    for (const kind of ['sponsored', 'group', 'Post', '']) expect((await send(app, R, kind, target)).statusCode, kind).toBe(400);
     for (const id of ['', 'nope', `${target}x`, "' or 1=1 --"]) expect((await send(app, R, 'post', id)).statusCode, id).toBe(400);
     expect(await total()).toBe(0);
   });

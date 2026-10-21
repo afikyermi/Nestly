@@ -26,6 +26,8 @@ export const TAB_LABELS = {
   community: 'הגדרות קהילה',
   announcements: 'הודעות מערכת',
   analytics: 'נתונים',
+  marketplace: 'מודעות Marketplace',
+  sponsored: 'מוצרים ממומנים',
 } as const;
 export type AdminTab = keyof typeof TAB_LABELS;
 
@@ -41,6 +43,9 @@ export const TAB_KEYS: Record<AdminTab, PermissionKey | 'ADMIN'> = {
   community: 'COMMUNITY_CONFIG',
   announcements: 'SYSTEM_ANNOUNCEMENTS',
   analytics: 'ANALYTICS_VIEW',
+  marketplace: 'MARKETPLACE_MODERATE',
+  // FR-ADMIN-009: SPONSORED_PRODUCT_MANAGE is Admin Only (§3.2)
+  sponsored: 'ADMIN',
 };
 
 // ---- the Support inbox (FR-ADMIN-002)
@@ -127,7 +132,7 @@ export const MESSAGE_HEADING = 'ההודעה שדווחה';
 export const MESSAGE_PRIVATE_NOTE = 'השיחה פרטית. אפשר לפתוח רק את ההודעה שדווחה, והפתיחה נרשמת ביומן הפעולות';
 export const OPEN_MESSAGE_LABEL = 'הצגת ההודעה';
 export const senderText = (name: string | null): string => (name === null ? 'השולח: חשבון ללא שם' : `השולח: ${name}`);
-export const KIND_LABELS: Record<ReportTargetKind, string> = { post: 'פוסט', comment: 'תגובה', user: 'פרופיל', message: 'הודעה בצ׳אט', review: 'ביקורת על בעל מקצוע', article: 'מאמר של בעל מקצוע' };
+export const KIND_LABELS: Record<ReportTargetKind, string> = { post: 'פוסט', comment: 'תגובה', user: 'פרופיל', message: 'הודעה בצ׳אט', listing: 'מודעה ב-Marketplace', review: 'ביקורת על בעל מקצוע', article: 'מאמר של בעל מקצוע' };
 export const PRIORITY_LABELS: Record<number, string> = { 1: 'עדיפות עליונה', 2: 'עדיפות גבוהה', 3: 'עדיפות בינונית', 4: 'עדיפות רגילה' };
 export const RISING_TEXT = 'עלה בתור (3 דיווחים או יותר)';
 export const reportCountText = (n: number): string => (n === 1 ? 'דיווח אחד' : `${n.toLocaleString('en-US')} דיווחים`);
@@ -138,7 +143,11 @@ export const DETAIL_TITLE = 'פרטי הדיווח';
 export const CONTENT_HEADING = 'התוכן המדווח';
 export const CONTENT_GONE_TEXT = 'התוכן כבר לא קיים';
 /** I10 (NFR-PRIV-002, ERR-024): reported content of a Private Group is opened on purpose, and each opening is in the Audit Log. */export const PRIVATE_GROUP_TEXT = 'התוכן הזה מקבוצה פרטית. פתיחה שלו נרשמת ביומן הפעולות';export const OPEN_PRIVATE_LABEL = 'פתיחת התוכן';export const PRIVATE_GROUP_DENIED_TEXT = 'התוכן הזה מקבוצה פרטית, ואין הרשאה לתוכן של קבוצות פרטיות';
-export const CONTENT_STATUS_LABELS: Record<string, string> = { active: 'מוצג', hidden: 'מוסתר', removed: 'הוסר', deleted: 'נמחק על ידי הכותב' };
+export const CONTENT_STATUS_LABELS: Record<string, string> = { active: 'מוצג', hidden: 'מוסתר', removed: 'הוסר', deleted: 'נמחק על ידי הכותב', sold: 'סומנה "נמכר/נמסר"', expired: 'פגה (60 יום)' };
+/** I12: a reported listing is hidden or restored; it has no "removed" (the owner deletes it). */
+export const HIDE_LISTING_LABEL = 'הסתרת המודעה וסגירת הדיווח';
+export const RESTORE_LISTING_LABEL = 'החזרת המודעה';
+export const LISTING_COPIED_LABEL = 'הכותרת בעת הדיווח';
 export const ANONYMOUS_NOTE = 'פוסט אנונימי. אפשר לחשוף את המחבר רק לצורך הטיפול בדיווח, והחשיפה נרשמת ביומן';
 export const REPORTS_HEADING = 'הדיווחים';
 export const COPIED_TEXT_LABEL = 'הטקסט בעת הדיווח';
@@ -206,7 +215,7 @@ export const MEDIA_QUEUE_TITLE = 'תמונות לבדיקה';
 export const MEDIA_QUEUE_INTRO = 'תמונות שהבדיקה האוטומטית עצרה או לא הייתה בטוחה לגביהן. הן מוצגות רק למי שהעלה אותן עד להחלטה.';
 export const MEDIA_QUEUE_EMPTY = 'אין תמונות שממתינות לבדיקה';
 export const MEDIA_QUEUE_LIST_LABEL = 'תמונות שממתינות לבדיקה';
-export const MEDIA_KIND_LABELS = { post: 'תמונה בפוסט', profile: 'תמונת פרופיל', story: 'תמונה בסטורי' } as const;
+export const MEDIA_KIND_LABELS = { post: 'תמונה בפוסט', profile: 'תמונת פרופיל', story: 'תמונה בסטורי', listing: 'תמונה במודעה', sponsored: 'תמונה במוצר ממומן' } as const;
 export const MEDIA_REASON_LABELS = { blocked: 'נחסמה בבדיקה', unsure: 'הבדיקה לא בטוחה', error: 'הבדיקה נכשלה' } as const;
 export const mediaScoreText = (score: number): string => `ציון הבדיקה: ${Math.round(score * 100)}%`;
 export const MEDIA_IMAGE_ALT = 'התמונה שממתינה לבדיקה';

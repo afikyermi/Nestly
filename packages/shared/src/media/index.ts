@@ -2,8 +2,8 @@
 // the server and the background check share. No DOM, no Node API.
 import { z } from 'zod';
 
-/** Where an image belongs. */
-export const MEDIA_KINDS = ['post', 'profile', 'story'] as const;
+/** Where an image belongs (I12 adds a listing's images and a Sponsored Product's one). */
+export const MEDIA_KINDS = ['post', 'profile', 'story', 'listing', 'sponsored'] as const;
 export type MediaKind = (typeof MEDIA_KINDS)[number];
 
 /** VAL-041: what the picker accepts from the device (HEIC where the browser can decode it into a picture). */

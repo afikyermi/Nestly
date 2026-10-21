@@ -38,7 +38,7 @@ function setup(initialPath: string, state: State) {
 }
 
 describe('a route that is on neither list is protected (6)', () => {
-  it.each(['/marketplace', '/not-on-any-list/deep', '/anything-else'])(
+  it.each(['/coupons', '/not-on-any-list/deep', '/anything-else'])(
     '[F1.2 c6][FR-AUTH-004] a Guest on the added route %s is redirected to / and its element is never rendered',
     async (path) => {
       const { extraRendered } = setup(path, 'signed-out');
@@ -48,7 +48,7 @@ describe('a route that is on neither list is protected (6)', () => {
     },
   );
 
-  it.each(['/marketplace', '/not-on-any-list/deep', '/anything-else'])(
+  it.each(['/coupons', '/not-on-any-list/deep', '/anything-else'])(
     '[F1.2 c6][c10][FR-AUTH-004][DR-1] a signed-in user on the added route %s is redirected to /feed and its element is never rendered',
     async (path) => {
       const { extraRendered } = setup(path, 'signed-in');
@@ -59,14 +59,14 @@ describe('a route that is on neither list is protected (6)', () => {
   );
 
   it('[F1.2 c6][c7][FR-AUTH-004] while loading, the added route is not rendered and a status reads "בטעינה"', () => {
-    const { extraRendered } = setup('/marketplace', 'loading');
+    const { extraRendered } = setup('/coupons', 'loading');
     expect(screen.getByRole('status')).toHaveTextContent('בטעינה');
     expect(screen.queryByText('EXTRA-ROUTE-CONTENT')).not.toBeInTheDocument();
     expect(extraRendered).not.toHaveBeenCalled();
   });
 
   it('[F1.2 c6][c7][FR-AUTH-004] loading, then signed-in: the added route still redirects to /feed and never renders', async () => {
-    const { source, extraRendered } = setup('/marketplace', 'loading');
+    const { source, extraRendered } = setup('/coupons', 'loading');
     act(() => source.set('signed-in'));
     expect(await screen.findByText('LANDING-FEED')).toBeInTheDocument();
     expect(extraRendered).not.toHaveBeenCalled();

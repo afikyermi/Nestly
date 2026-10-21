@@ -15,3 +15,4 @@ export * from './trackers.js';
 export * from './groups.js';
 export * from './chat.js';
 export * from './professionals.js';
+export * from './marketplace.js';

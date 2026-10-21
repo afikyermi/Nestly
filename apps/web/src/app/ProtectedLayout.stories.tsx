@@ -46,6 +46,9 @@ export const ProfileCurrent: Story = { render: () => <SignedInAt path={PATHS.pro
 // I11: the Professionals' directory (FR-SERV-001), the fourth navigation item.
 export const ServicesCurrent: Story = { render: () => <SignedInAt path={PATHS.services} /> };
 
+// I12: the Marketplace (FR-MKT-001), the second navigation item ("חנות"); its list loads from the real API, so it shows the load failure.
+export const MarketplaceCurrent: Story = { render: () => <SignedInAt path={PATHS.marketplace} /> };
+
 // Settings is reached from the menu, not the navigation: no nav item is current. A section's address is the hash (F2.5 c2).
 export const SettingsNoneCurrent: Story = { render: () => <SignedInAt path={PATHS.settings} /> };
 

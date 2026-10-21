@@ -32,11 +32,12 @@ const TARGET_COLUMNS: Readonly<Record<ReportTargetKind, string>> = {
   comment: 'comment_id',
   user: 'reported_user_id',
   message: 'message_id',
+  listing: 'listing_id',
   review: 'review_id',
   article: 'article_id',
 };
 
-/** The reports column that names a target of this kind (I8 adds the chat message; the I11 follow-ups a review and an article). */
+/** The reports column that names a target of this kind (I8 adds the chat message; I12 the listing; the I11 follow-ups a review and an article). */
 function targetColumn(kind: ReportTargetKind, alias: 'r' | null) {
   const column = TARGET_COLUMNS[kind];
   return sql.raw(alias === null ? column : `${alias}.${column}`);
@@ -109,14 +110,14 @@ export async function readQueue(tx: IdentityTx): Promise<QueueItem[]> {
     )
     .parse(
       await tx.execute(sql`
-        select r.target_kind as "targetKind", coalesce(r.post_id, r.comment_id, r.reported_user_id, r.message_id, r.review_id, r.article_id) as "targetId",
+        select r.target_kind as "targetKind", coalesce(r.post_id, r.comment_id, r.reported_user_id, r.message_id, r.listing_id, r.review_id, r.article_id) as "targetId",
                count(*)::int as "reportCount", min(rr.priority)::int as "basePriority",
                (array_agg(rr.label order by rr.priority, r.created_at))[1] as "topReasonLabel",
                to_char(min(r.created_at) at time zone 'UTC', ${isoMs}) as "firstReportedAt"
         from nestly.reports r
         join nestly.report_reasons rr on rr.key = r.reason
-        where r.status = 'open' and coalesce(r.post_id, r.comment_id, r.reported_user_id, r.message_id, r.review_id, r.article_id) is not null
-        group by r.target_kind, coalesce(r.post_id, r.comment_id, r.reported_user_id, r.message_id, r.review_id, r.article_id)
+        where r.status = 'open' and coalesce(r.post_id, r.comment_id, r.reported_user_id, r.message_id, r.listing_id, r.review_id, r.article_id) is not null
+        group by r.target_kind, coalesce(r.post_id, r.comment_id, r.reported_user_id, r.message_id, r.listing_id, r.review_id, r.article_id)
         order by case when min(rr.priority) = 1 then 1
                       else greatest(2, min(rr.priority) - case when r.target_kind = 'post' and count(*) >= 3 then 1 else 0 end) end,
                  min(r.created_at), 2`),
