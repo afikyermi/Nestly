@@ -45,13 +45,15 @@ export async function recordCommentOpening(tx: IdentityTx, commentId: string): P
 
 /** Records a staff member's opening of a profile (audited: staff_profile_viewed); in this transaction profile_view() shows it in full (BR-081). */
 export async function recordProfileOpening(tx: IdentityTx, userId: string): Promise<void> {
-  // a savepoint: an id that names no account (23503) records nothing and the open goes on (profile_view answers it as unavailable)
+  // a savepoint: an id that names no account (23503), or a staff role the database does not count as active now (42501: the policy asks the
+  // staff role and the session, the server asked the account type), records nothing and the open goes on as an ordinary view
   try {
     await tx.transaction(async (sp) => {
       await sp.execute(sql`insert into nestly.profile_staff_views (target_id) values (${userId}::uuid)`);
     });
   } catch (error) {
-    if (readDatabaseFault(error)?.code !== '23503') throw error;
+    const code = readDatabaseFault(error)?.code;
+    if (code !== '23503' && code !== '42501') throw error;
   }
 }
 

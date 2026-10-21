@@ -6,9 +6,10 @@ import { ANNOUNCEMENT_AUDIENCES, checkAnnouncement } from '../src/index.js';
 describe('[VAL-050 AC-163 FR-ADMIN-008] the audience of a System Announcement', () => {
   const base = { title: 'תחזוקה', body: 'האתר ייסגר לשעה' };
 
-  it('offers everyone, parents, Professionals and one stage; absent means everyone', () => {
+  it('offers everyone, parents, Professionals and one stage; the audience is required, an edit too', () => {
     expect([...ANNOUNCEMENT_AUDIENCES]).toEqual(['everyone', 'parents', 'professionals', 'stage']);
-    expect(checkAnnouncement(base)).toMatchObject({ ok: true, value: { audience: 'everyone', audienceStage: null } });
+    expect(checkAnnouncement(base).ok, 'no audience').toBe(false);
+    expect(checkAnnouncement({ ...base, audience: 'parents' })).toMatchObject({ ok: true, value: { audience: 'parents', audienceStage: null } });
     for (const audience of ['everyone', 'parents', 'professionals'] as const) {
       expect(checkAnnouncement({ ...base, audience, audienceStage: null }), audience).toMatchObject({ ok: true, value: { audience, audienceStage: null } });
     }

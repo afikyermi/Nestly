@@ -56,7 +56,6 @@ async function call<T>(accessToken: string, init: Call, parse: Parse<T>): Promis
   return parsed.success ? { kind: 'ok', value: parsed.data } : FAILED;
 }
 
-const query = (cursor: string | null): string => (cursor === null ? '' : `?cursor=${encodeURIComponent(cursor)}`);
 /** The thread's query: the cursor, and the Private Group a staff member reviews (I14 completion B: its comments open with it, audited). */
 const threadQuery = (cursor: string | null, reviewGroupId: string | undefined): string => {
   const params = new URLSearchParams();
@@ -76,8 +75,8 @@ export const fetchThread = (accessToken: string, postId: string, cursor: string 
   );
 
 /** GET /api/comments/:id/replies: one page of a comment's replies, the first call from the oldest. */
-export const fetchReplies = (accessToken: string, commentId: string, cursor: string | null): Promise<CommentsOutcome<CommentReplyPage>> =>
-  call(accessToken, { method: 'GET', path: `/api/comments/${encodeURIComponent(commentId)}/replies${query(cursor)}` }, (body) => commentReplyPage.safeParse(body));
+export const fetchReplies = (accessToken: string, commentId: string, cursor: string | null, reviewGroupId?: string): Promise<CommentsOutcome<CommentReplyPage>> =>
+  call(accessToken, { method: 'GET', path: `/api/comments/${encodeURIComponent(commentId)}/replies${threadQuery(cursor, reviewGroupId)}` }, (body) => commentReplyPage.safeParse(body));
 
 /** POST /api/posts/:id/comments with the checked text (and the parent's id for a reply). The answer is the stored comment. */
 export const createComment = (accessToken: string, postId: string, write: { body: string; parentId?: string }): Promise<CommentsOutcome<CommentView>> =>

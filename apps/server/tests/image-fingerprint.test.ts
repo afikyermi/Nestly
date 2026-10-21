@@ -35,6 +35,17 @@ describe('[F14.3-b AC-162 NFR-MEDIA-001] the perceptual hash of the upload block
     expect(distance(a, d)).toBeGreaterThan(BLOCK_DISTANCE);
   });
 
+  it('a transparent PNG and its flattened JPEG copy stay within the distance (the alpha channel never shifts the pixels)', async () => {
+    const opaque = await picture(400, 300, 2);
+    const { data, info } = await sharp(opaque).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    for (let i = 3; i < data.length; i += 4) data[i] = 255;
+    const withAlpha = await sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } }).png().toBuffer();
+    const jpeg = await sharp(opaque).jpeg({ quality: 70 }).toBuffer();
+    const [a, b] = await Promise.all([fingerprintOf(withAlpha), fingerprintOf(jpeg)]);
+    if (a === undefined || b === undefined) throw new Error('no hash');
+    expect(distance(a, b)).toBeLessThanOrEqual(BLOCK_DISTANCE);
+  });
+
   it('is a signed 64-bit integer (a Postgres bigint), and bytes that are no image give none', async () => {
     const hash = await fingerprintOf(await picture(120, 90, 2));
     expect(hash).toMatch(/^-?\d{1,19}$/);

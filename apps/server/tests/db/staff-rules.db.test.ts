@@ -171,7 +171,11 @@ describe('[F14.3-b decision 10.9] a reported comment opens alone, and every open
     // a reported post still shows its thread (FR-MOD-003)
     await seedReport(viewer, 'post', postId, 'spam');
     const onPost = await readReportDetail(database, id(reportsOnly), 'post', postId);
-    expect(onPost.kind === 'ok' && onPost.detail.context?.comments.length).toBe(2);
+    const thread = onPost.kind === 'ok' ? (onPost.detail.context?.comments ?? []) : [];
+    expect(thread).toHaveLength(2);
+    // in a post's thread, a comment with a report of its own shows no text (it is read from its own, audited, report)
+    expect(thread.find((comment) => comment.id === commentId)).toMatchObject({ isReported: true, text: null });
+    expect(thread.find((comment) => comment.id !== commentId)?.text).toBe('another comment in the thread');
   });
 });
 

@@ -18,6 +18,7 @@ import {
   CONTEXT_EMPTY,
   CONTEXT_POST,
   CONTEXT_REPORTED,
+  CONTEXT_REPORTED_HIDDEN,
   CONTEXT_THREAD,
   CONTEXT_TITLE,
   ENFORCEMENTS_YEAR,
@@ -105,9 +106,13 @@ export function StaffWorkPanel({ detail, user, isOpen, onEscalated }: { detail: 
                     {formatAdminTime(comment.createdAt)}
                     {comment.isReported ? ` · ${CONTEXT_REPORTED}` : ''}
                   </p>
-                  <p className="whitespace-pre-wrap" dir="auto">
-                    {comment.text ?? ''}
-                  </p>
+                  {comment.text === null && comment.isReported ? (
+                    <p className="text-small text-muted-foreground">{CONTEXT_REPORTED_HIDDEN}</p>
+                  ) : (
+                    <p className="whitespace-pre-wrap" dir="auto">
+                      {comment.text ?? ''}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>

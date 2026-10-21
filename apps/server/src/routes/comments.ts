@@ -5,7 +5,7 @@
 //          404 post_unavailable (missing, or not readable: one body for every reason) · 403 account_unavailable | not_allowed
 //   GET    ?cursor=&group= → 200 { items, nextCursor } · 400 cursor_invalid · 404 post_unavailable · 403 as above (group: a Private Group a staff
 //          member reviews, opened again for this read, audited; I14 completion B)
-//   GET    /comments/:id/replies ?cursor= → 200 { items, nextCursor } · 400 cursor_invalid · 404 comment_unavailable (unknown, a reply, held or on an unreadable post: one body) · 403 as above
+//   GET    /comments/:id/replies ?cursor=&group= → 200 { items, nextCursor } · 400 cursor_invalid · 404 comment_unavailable (unknown, a reply, held or on an unreadable post: one body) · 403 as above
 //   DELETE /comments/:id no body → 204 (also a comment held for an open report) · 404 not_found (not a uuid, unknown or not the caller's) · 403
 //   all: 401/503 session guard · 503 · 500 server_error. Any other method → 405 with Allow.
 // Logs carry a fixed line and the SQLSTATE, never the body or an id (NFR-PRIV-001).
@@ -113,11 +113,11 @@ async function readReplyList(request: FastifyRequest, reply: FastifyReply, deps:
   reply.header('cache-control', 'no-store');
   const params = commentPathParams.safeParse(request.params);
   if (!params.success) return reply.code(404).send(COMMENT_UNAVAILABLE);
-  const cursor = cursorOf(request.query);
+  const cursor = cursorOf(request.query, true);
   if (cursor === null) return reply.code(400).send({ error: 'cursor_invalid' });
   if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
   try {
-    const outcome = await readReplies(deps.database, identity, params.data.id.toLowerCase(), cursor ?? null);
+    const outcome = await readReplies(deps.database, identity, params.data.id.toLowerCase(), cursor ?? null, reviewGroupOf(request.query));
     switch (outcome.kind) {
       case 'replies':
         return reply.code(200).send(outcome.page);

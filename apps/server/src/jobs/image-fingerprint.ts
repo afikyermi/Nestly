@@ -13,15 +13,18 @@ export async function fingerprintOf(bytes: Uint8Array): Promise<string | undefin
   try {
     // 72 x 64 grey first, then each of the 9 x 8 cells is the average of its 8 x 8 block: the area average keeps the hash steady across a
     // re-encoding and a resize that a direct shrink to 9 x 8 (a few sampled pixels) would not
-    const { data } = await sharp(bytes, { limitInputPixels: 50_000_000, failOn: 'error' })
+    // transparency is laid on white first, so a PNG with an alpha channel and its JPEG copy give the same grey pixels
+    const { data, info } = await sharp(bytes, { limitInputPixels: 50_000_000, failOn: 'error' })
       .rotate()
+      .flatten({ background: '#ffffff' })
       .greyscale()
       .resize(72, 64, { fit: 'fill' })
       .raw()
       .toBuffer({ resolveWithObject: true });
+    const stride = info.channels;
     const cell = (cx: number, cy: number): number => {
       let sum = 0;
-      for (let y = cy * 8; y < cy * 8 + 8; y += 1) for (let x = cx * 8; x < cx * 8 + 8; x += 1) sum += data[y * 72 + x] ?? 0;
+      for (let y = cy * 8; y < cy * 8 + 8; y += 1) for (let x = cx * 8; x < cx * 8 + 8; x += 1) sum += data[(y * 72 + x) * stride] ?? 0;
       return sum;
     };
     let hash = 0n;

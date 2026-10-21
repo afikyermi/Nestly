@@ -335,7 +335,7 @@ describe('[F14.3-b AC-162 NFR-MEDIA-001 Afik 21.10] the upload block list in the
       suspectedToList: () => Promise.resolve([{ id: ID(7), fingerprint: null }]),
       addToList: (id: string) => {
         events.push(`listed:${id}`);
-        return Promise.resolve();
+        return Promise.resolve(true);
       },
     };
     let scored = 0;

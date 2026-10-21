@@ -69,7 +69,8 @@ export const announcementSchema = z
   .strictObject({
     title: text(ANNOUNCEMENT_TITLE_MIN, ANNOUNCEMENT_TITLE_MAX),
     body: text(1, ANNOUNCEMENT_BODY_MAX),
-    audience: z.enum(ANNOUNCEMENT_AUDIENCES).default('everyone'),
+    // required on every write, an edit too: a client that leaves it out never widens an announcement to everyone
+    audience: z.enum(ANNOUNCEMENT_AUDIENCES),
     audienceStage: z.enum(JOURNEY_STAGES).nullable().default(null),
   })
   .refine((value) => (value.audience === 'stage') === (value.audienceStage !== null), 'audience');

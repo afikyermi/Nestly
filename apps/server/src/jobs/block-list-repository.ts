@@ -14,10 +14,11 @@ export interface BlockListDb {
   matchesBlockList(mediaId: string): Promise<boolean>;
   /** The match: a suspicion review (hash_match) and the image rejected and held, in one transaction. */
   markMatch(mediaId: string): Promise<void>;
-  /** Images a staff member marked or confirmed as suspected whose hash is not on the list yet, with their recorded hash when there is one. */
+  /** Images a staff member marked or confirmed as suspected whose hash is not on the list yet (neither by the image nor by an equal hash already
+   *  listed), with their recorded hash when there is one; in random order, so that an image that cannot be read never starves the others. */
   suspectedToList(limit: number): Promise<Array<{ id: string; fingerprint: string | null }>>;
-  /** Puts an image's recorded hash on the list (the policy checks the suspicion and the hash). */
-  addToList(mediaId: string): Promise<void>;
+  /** Puts an image's recorded hash on the list (the policy checks the suspicion and the hash); true when a row was added. */
+  addToList(mediaId: string): Promise<boolean>;
 }
 
 export function createBlockListDb(sql: Sql): BlockListDb {
@@ -47,14 +48,16 @@ export function createBlockListDb(sql: Sql): BlockListDb {
             from nestly.media_reviews r left join nestly.media_fingerprints f on f.media_id = r.media_id
             where r.is_suspected and r.suspected_by is not null
               and not exists (select 1 from nestly.suspected_image_fingerprints h where h.source_media_id = r.media_id)
-            order by r.media_id limit ${limit}`,
+              and not exists (select 1 from nestly.suspected_image_fingerprints h where h.fingerprint = f.fingerprint)
+            order by pg_catalog.random() limit ${limit}`,
         );
     },
     async addToList(mediaId) {
-      await sql`
+      const added = await sql`
         insert into nestly.suspected_image_fingerprints (fingerprint, source_media_id)
         select f.fingerprint, f.media_id from nestly.media_fingerprints f where f.media_id = ${mediaId}
         on conflict do nothing`;
+      return added.count === 1;
     },
   };
 }

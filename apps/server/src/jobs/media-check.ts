@@ -123,8 +123,7 @@ async function listSuspected(deps: MediaJobDependencies, blockList: BlockListDb,
         if (fingerprint === undefined) continue;
         await blockList.recordFingerprint(image.id, fingerprint);
       }
-      await blockList.addToList(image.id);
-      report.listed = (report.listed ?? 0) + 1;
+      if (await blockList.addToList(image.id)) report.listed = (report.listed ?? 0) + 1;
     } catch {
       // the next run tries again; one image never stops the run
     }

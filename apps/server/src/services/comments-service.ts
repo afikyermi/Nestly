@@ -161,13 +161,15 @@ export async function readThread(database: Database, identity: Identity, postId:
 }
 
 /** GET: one page of the replies of a top-level comment, oldest first. An unknown, reply, held or unreadable-post parent is one outcome. */
-export async function readReplies(database: Database, identity: Identity, commentId: string, cursor: CommentCursor | null): Promise<RepliesOutcome> {
+export async function readReplies(database: Database, identity: Identity, commentId: string, cursor: CommentCursor | null, reviewGroupId?: string): Promise<RepliesOutcome> {
   return inIdentityTransaction(
     database,
     identity,
     async (tx): Promise<RepliesOutcome> => {
       const refusal = await classifyReader(tx);
       if (refusal !== undefined) return refusal;
+      // I14 completion B (§10.3): the replies of a reviewed Private Group's comment, opened again for this read (audited), as the thread is
+      if (reviewGroupId !== undefined) await openPrivateGroupForReview(tx, reviewGroupId);
       const [postId] = await readTopLevelPostId(tx, commentId);
       if (postId === undefined || (await readPost(tx, postId)).length === 0) return { kind: 'comment_unavailable' };
       // A cursor names the last reply of the previous page: a readable row of another parent is not one. A row gone since (deleted) still pages on.

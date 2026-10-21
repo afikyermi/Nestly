@@ -94,6 +94,8 @@ export const CONTEXT_POST = 'הפוסט שהתגובה נכתבה עליו, כפ
 export const CONTEXT_THREAD = 'כל התגובות בשרשור';
 export const CONTEXT_EMPTY = 'אין תגובות בשרשור';
 export const CONTEXT_REPORTED = 'דווח';
+/** I14 completion B (decision 10.9): a reported comment in a post's thread is read only from its own report (each opening is audited). */
+export const CONTEXT_REPORTED_HIDDEN = 'לתגובה הזו יש דיווח משלה. התוכן שלה נפתח רק מהדיווח עליה, והפתיחה נרשמת ביומן';
 export const CONTEXT_ANONYMOUS = 'המחבר (פוסט אנונימי)';
 export const AT_REPORT_TIME = 'בזמן הדיווח';
 export const NOW_LABEL = 'עכשיו';

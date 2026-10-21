@@ -159,7 +159,7 @@ export function useFeedComments(api: CommentApi, report: CommentsReport, reviewG
     edit(unit, (current) => ({ ...current, openReplies: current.openReplies.includes(commentId) ? current.openReplies : [...current.openReplies, commentId] }));
     patchItem(unit, commentId, (current) => ({ ...current, replyState: 'loading' }));
     const accessToken = await token();
-    const outcome = accessToken === null ? FAILED : await fetchReplies(accessToken, commentId, item.replyCursor);
+    const outcome = accessToken === null ? FAILED : await fetchReplies(accessToken, commentId, item.replyCursor, reviewGroupId);
     if (outcome.kind !== 'ok') {
       const message = refused(outcome);
       if (message !== null) said.current.onStatus(message);

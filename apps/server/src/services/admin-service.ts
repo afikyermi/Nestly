@@ -292,6 +292,9 @@ export async function moderateContent(database: Database, identity: Identity, re
     inIdentityTransaction(database, identity, async (tx) => {
       const gate = await require_(tx, 'REPORTS_VIEW', 'CONTENT_MODERATE');
       if (refused(gate)) return gate;
+      // I14 completion B (Afik 21.10.2026, OP-053 closed): content leaves only by a justified report, which deletes it (handleReports); a move
+      // on its own only restores what an earlier decision hid or removed
+      if (request.status !== 'active') return { kind: 'invalid' };
       await setAuditReason(tx, request.reason);
       const kind = request.targetKind;
       const privateGroup = (kind === 'post' || kind === 'comment') && (await isPrivateGroupTarget(tx, kind, request.targetId));

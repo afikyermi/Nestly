@@ -121,7 +121,11 @@ export async function readReportContext(tx: IdentityTx, postId: string): Promise
     .array(z.object({ id: z.guid(), parentId: z.guid().nullable(), text: z.string().nullable(), status: z.string(), isAnonymous: z.boolean(), createdAt: z.string(), isReported: z.boolean() }))
     .parse(
       await tx.execute(sql`
-        select c.id, c.parent_id as "parentId", c.body as text, c.status, (c.author_id is null) as "isAnonymous",
+        -- a comment that has a report of its own is listed without its text: it is read only by opening its own report, which is audited
+        -- (decision 10.9, AC-161)
+        select c.id, c.parent_id as "parentId",
+               case when exists (select 1 from nestly.reports r where r.comment_id = c.id) then null else c.body end as text,
+               c.status, (c.author_id is null) as "isAnonymous",
                to_char(c.created_at at time zone 'UTC', ${isoMs}) as "createdAt",
                exists (select 1 from nestly.reports r where r.comment_id = c.id) as "isReported"
         from nestly.comments c

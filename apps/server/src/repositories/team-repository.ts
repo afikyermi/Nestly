@@ -215,8 +215,8 @@ export async function readPublishedAnnouncements(tx: IdentityTx): Promise<Publis
       await tx.execute(sql`
         select id, title, body, to_char(published_at at time zone 'UTC', ${isoMs}) as "publishedAt"
         from nestly.system_announcements where status = 'published'
-          -- the audience is the database's (system_announcements_select_published); a staff account's feed shows the everyone ones only, as
-          -- the policy does for staff without SYSTEM_ANNOUNCEMENTS (that key reads every announcement for the admin screen)
+          -- who may read which announcement is the database's (system_announcements_select_published). This line is no permission: a
+          -- SYSTEM_ANNOUNCEMENTS holder may read them all (the admin screen), but a staff account's FEED shows the everyone ones only (FR-ADMIN-008)
           and (audience = 'everyone' or nestly.caller_staff_role() is null)
         order by published_at desc, id
         limit ${FEED_ANNOUNCEMENTS_MAX}`),

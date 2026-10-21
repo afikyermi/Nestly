@@ -210,7 +210,9 @@ describe('[I4 FR-MOD-003 AC-029 BR-080] handling reports and moderating content'
     expect((await handleReports(database, id(content), { targetKind: 'post', targetId: NOBODY, resolution: 'dismissed' })).kind).toBe('not_found');
     expect(await handleReports(database, id(content), { targetKind: 'post', targetId: p, resolution: 'dismissed', note: 'no problem' })).toMatchObject({ kind: 'ok', closed: 1 });
     expect((await handleReports(database, id(content), { targetKind: 'post', targetId: p, resolution: 'dismissed' })).kind).toBe('not_found');
-    expect((await moderateContent(database, id(content), { targetKind: 'post', targetId: p, status: 'removed', reason: 'later' })).kind).toBe('ok');
+    // I14 completion B (OP-053): a move on its own only restores; content leaves by a justified report
+    expect((await moderateContent(database, id(content), { targetKind: 'post', targetId: p, status: 'removed', reason: 'later' })).kind).toBe('invalid');
+    await inTx(async (tx) => void (await tx`select tests.fx_po_status(${p}::uuid, 'hidden')`));
     expect((await moderateContent(database, id(content), { targetKind: 'post', targetId: p, status: 'active', reason: 'restored' })).kind).toBe('ok');
     expect(await auditCount('content_restored')).toBeGreaterThan(0);
   });
