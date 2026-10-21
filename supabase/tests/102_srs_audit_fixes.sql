@@ -111,11 +111,16 @@ select is(
 select is(
   (select string_agg(c.relname || '.' || pol.polname || '.' || pol.polcmd::text || '.'
                      || (select string_agg(r.rolname, '+') from pg_catalog.pg_roles r where r.oid = any (pol.polroles)) || '.'
-                     || (pg_catalog.pg_get_expr(pol.polqual, pol.polrelid) ~ 'notify_scope\(\) AS notify_scope\) = ''birthday''::text')::text, ', ' order by c.relname)
+                     || (pg_catalog.pg_get_expr(pol.polqual, pol.polrelid) ~ 'trend_scopes' and pg_catalog.pg_get_expr(pol.polqual, pol.polrelid) ~ 'nestly.birthday_scope'
+                         and pg_catalog.pg_get_expr(pol.polqual, pol.polrelid) !~ 'notify_scope')::text, ', ' order by c.relname)
      from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid
     where c.relnamespace = 'nestly'::regnamespace and pol.polname in ('children_select_birthday', 'regular_profiles_select_birthday')),
   'children.children_select_birthday.r.app_owner.true, regular_profiles.regular_profiles_select_birthday.r.app_owner.true',
-  '[audit-fix rule 17] the two reads it needs are TO app_owner only, read-only, and open only in the birthday scope');
+  '[audit-fix rule 17] the two reads it needs are TO app_owner only, read-only, and open only in the call''s own scope');
+select is(
+  (select string_agg(pol.polname || '.' || pol.polcmd::text || '.' || (select string_agg(r.rolname, '+') from pg_catalog.pg_roles r where r.oid = any (pol.polroles)), ', ')
+     from pg_catalog.pg_policy pol where pol.polrelid = 'nestly.trend_scopes'::regclass and pol.polname = 'trend_scopes_insert_birthday'),
+  'trend_scopes_insert_birthday.a.app_owner', '[audit-fix rule 17] the scope row is written by the owner role only (inside the definer)');
 select is(
   (select (q ~ 'nestly.friendships' and q ~ 'status = ''accepted''::text' and q ~ 'requester_status = ''active''::text'
            and q ~ 'addressee_status = ''active''::text' and strpos(q, 'requester_id = ( SELECT auth.uid()') > 0 and strpos(q, 'addressee_id = ( SELECT auth.uid()') > 0
@@ -139,9 +144,9 @@ select is(pg_temp.deliver('a'), '2', '[audit-fix AC-046 FR-NOTIF-003] a Friend g
 select is(tests.fx_nt_types(pg_temp.id('a')), 'child_birthday,child_birthday', '[audit-fix] of the type child_birthday');
 select is(tests.fx_nt_one(pg_temp.id('a'), 'child_birthday'), format('actor=%s target=user:%s critical=f read=f', pg_temp.id('b'), pg_temp.id('b')),
   '[audit-fix FR-NOTIF-001] its actor and its target are the parent; unread; not critical');
-select is(tests.fx_pr_count(format($q$ nestly.notifications n where n.recipient_id = %L and n.type = 'child_birthday'
-    and n.created_at = (((now() at time zone 'Asia/Jerusalem')::date)::timestamp at time zone 'Asia/Jerusalem') $q$, pg_temp.id('a'))),
-  1::bigint, '[audit-fix] today''s birthday is timed at the start of today, Israel time');
+select is(tests.fx_pr_count(format($q$ nestly.notifications n where n.recipient_id = %L and n.type = 'child_birthday' and n.created_at = now() $q$, pg_temp.id('a'))),
+  2::bigint, '[audit-fix FR-PRIV-001 Afik 21.10 night] both are timed at the delivery, not at the birthday (the time tells no day of birth)');
+select is(tests.fx_pr_count('nestly.trend_scopes'), 0::bigint, '[audit-fix rule 17] the call deletes its scope again: none is left open in the transaction');
 select is(tests.fx_pr_count('nestly.notifications n join nestly.children c on c.id in (n.subject_id, n.target_id, n.actor_id)'), 0::bigint,
   '[audit-fix FR-PRIV-001] no notification carries a child''s id');
 select is(pg_temp.q('a', $q$ select count(*)::text from nestly.notifications where type = 'child_birthday' $q$), '2',
