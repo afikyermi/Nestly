@@ -183,6 +183,8 @@ export const reportDetailBody = z.object({
     .nullable(),
   reports: z.array(z.object({ id: z.guid(), status: z.enum(['open', 'handled', 'expired']), reasonLabel: z.string(), reason: z.string(), details: z.string().nullable(), copiedText: z.string().nullable(), resolution: z.enum(REPORT_RESOLUTIONS).nullable(), createdAt: z.string() })),
   user: targetUser.nullable(),
+  /** I10 (NFR-PRIV-002): the target is Private Group content: read only after an audited opening (`?open=true`, PRIVATE_GROUP_MODERATE). */
+  privateGroup: z.boolean().optional(),
 });
 export type ReportDetail = z.infer<typeof reportDetailBody>;
 

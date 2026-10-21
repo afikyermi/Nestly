@@ -139,7 +139,7 @@ const APPROVED_F31A: ColumnShape[] = [
   col('posts', 'author_id', 'uuid', false), col('posts', 'audience', 'text', true),
   col('posts', 'body', 'text', false), col('posts', 'stage_tag', 'text', false),
   col('posts', 'created_at', TZ, true),
-  col('posts', 'is_anonymous', 'boolean', true),
+  col('posts', 'is_anonymous', 'boolean', true), col('posts', 'group_id', 'uuid', false),
 ];
 // I7 (migration 20261020400000): notifications, preferences, People Search counts and the Intent Signal, as Drizzle declares them.
 const APPROVED_I7: ColumnShape[] = [

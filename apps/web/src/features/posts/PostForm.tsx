@@ -66,6 +66,8 @@ export interface PostFormProps {
   everyoneOnly?: boolean;
   /** I5: the composer's pictures (create only, shown with the rest of the options): rendered after the text. */
   attachments?: ReactNode;
+  /** I10: a Group post is always for everyone in the Group: the audience group gives way to this fixed line. */
+  fixedAudienceText?: string;
 }
 
 // The composer and the edit form (FR-FEED-002, FR-FEED-005, OP-033; F3.1b, F3.4): the text, "פרסום אנונימי" (create only), who sees the
@@ -73,7 +75,7 @@ export interface PostFormProps {
 // the anonymous one; the edit of an anonymous post shows a fixed line instead of the group. A writer whose posts are for everyone only (a
 // Professional) gets the text, one fixed line and the button. Display only: what submitting does comes in as props.
 export function PostForm(props: PostFormProps) {
-  const { mode, values, errors, saving, failure, focus, onChange, onSubmit, onCancel, anonymous = false, onAnonymousChange, compact = false, everyoneOnly = false, attachments } = props;
+  const { mode, values, errors, saving, failure, focus, onChange, onSubmit, onCancel, anonymous = false, onAnonymousChange, compact = false, everyoneOnly = false, attachments, fixedAudienceText } = props;
   const formRef = useRef<HTMLFormElement>(null);
   const ids = useId();
   const noticeId = `${ids}-notice`;
@@ -119,7 +121,7 @@ export function PostForm(props: PostFormProps) {
         </p>
       </div>
       {everyoneOnly ? (
-        compact ? null : <FieldHint id={noticeId}>{EVERYONE_ONLY_TEXT}</FieldHint>
+        compact ? null : <FieldHint id={noticeId}>{fixedAudienceText ?? EVERYONE_ONLY_TEXT}</FieldHint>
       ) : mode === 'create' && !compact ? (
         <div className="flex flex-col gap-1.5">
           <Checkbox checked={anonymous} onCheckedChange={(checked) => onAnonymousChange?.(checked)}>
@@ -129,7 +131,8 @@ export function PostForm(props: PostFormProps) {
         </div>
       ) : null}
       {mode === 'edit' && anonymous ? <p className="text-small text-muted-foreground">{ANONYMOUS_FIXED_TEXT}</p> : null}
-      {anonymous || compact || everyoneOnly ? null : (
+      {fixedAudienceText !== undefined && !compact && !everyoneOnly ? <p className="text-small text-muted-foreground">{fixedAudienceText}</p> : null}
+      {anonymous || compact || everyoneOnly || fixedAudienceText !== undefined ? null : (
         <div className="flex flex-col gap-1.5">
           <ChoiceCardGroup
             legend={AUDIENCE_LEGEND}

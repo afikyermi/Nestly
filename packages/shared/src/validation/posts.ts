@@ -31,8 +31,17 @@ const imageIds = z
   .refine((ids) => new Set(ids.map((id) => id.toLowerCase())).size === ids.length, 'invalid');
 
 export const createPostSchema = z
-  .strictObject({ body: postBody, audience, stageTag: stageTag.optional(), isAnonymous: z.boolean().optional(), imageIds: imageIds.optional() })
-  .refine((value) => !(value.isAnonymous === true && value.audience === 'friends'), 'audience_not_allowed');
+  .strictObject({
+    body: postBody,
+    audience,
+    stageTag: stageTag.optional(),
+    isAnonymous: z.boolean().optional(),
+    imageIds: imageIds.optional(),
+    /** I10: the Group the post is written in (members only, the database decides); a group post is always for everyone. */
+    groupId: z.guid().optional(),
+  })
+  .refine((value) => !(value.isAnonymous === true && value.audience === 'friends'), 'audience_not_allowed')
+  .refine((value) => !(value.groupId !== undefined && value.audience === 'friends'), 'audience_not_allowed');
 
 /** PATCH /api/posts/:id: any of the three, at least one. Absent = unchanged; `stageTag: null` clears the tag. */
 export const updatePostSchema = z
@@ -53,6 +62,8 @@ export interface PostCreate extends PostWrite {
   readonly isAnonymous?: boolean;
   /** I5: the post's images (ids of the uploader's post images), in order. */
   readonly imageIds?: readonly string[];
+  /** I10: the Group the post is written in. */
+  readonly groupId?: string;
 }
 
 export type PostCheck<T> = { ok: true; value: T } | { ok: false; reason: 'invalid' } | { ok: false; reason: PostErrorCode };
@@ -85,13 +96,14 @@ function refusal(error: z.ZodError): Exclude<PostWriteCheck, { ok: true }> {
 export function checkCreatePost(body: unknown): PostCreateCheck {
   const result = createPostSchema.safeParse(body);
   if (!result.success) return refusal(result.error);
-  const { isAnonymous, imageIds: images } = result.data;
+  const { isAnonymous, imageIds: images, groupId } = result.data;
   return {
     ok: true,
     value: {
       ...writeOf(result.data),
       ...(isAnonymous === undefined ? {} : { isAnonymous }),
       ...(images === undefined || images.length === 0 ? {} : { imageIds: images.map((id) => id.toLowerCase()) }),
+      ...(groupId === undefined ? {} : { groupId: groupId.toLowerCase() }),
     },
   };
 }

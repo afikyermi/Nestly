@@ -23,6 +23,7 @@ import { imagesByPost, readPostImageRows } from './posts-service.js';
 import { inIdentityTransaction, type IdentityTx } from '../db/identity-transaction.js';
 import { readDatabaseFault } from '../lib/pg-error.js';
 import type { Identity } from '../lib/token-verifier.js';
+import { isPrivateGroupTarget, openPrivateGroupContent } from '../repositories/private-group-views-repository.js';
 import {
   closeReports,
   hasOpenReports,
@@ -125,6 +126,7 @@ export async function readReportDetail(
   kind: ReportTargetKind,
   targetId: string,
   storage?: MediaStorage,
+  openPrivate = false,
 ): Promise<Outcome<{ detail: ReportDetail }>> {
   let imageRows: PostImageRow[] = [];
   const outcome = await inIdentityTransaction(database, identity, async (tx): Promise<Outcome<{ detail: ReportDetail }>> => {
@@ -133,6 +135,9 @@ export async function readReportDetail(
     const reports = await readReportsOn(tx, kind, targetId);
     if (reports.length === 0) return { kind: 'not_found' };
     // A chat message is never read here: staff open it by its own audited call (§9.6), which also names its sender.
+    // I10 (NFR-PRIV-002): Private Group content is read only after an audited opening, asked for by the staff member.
+    const privateGroup = (kind === 'post' || kind === 'comment') && (await isPrivateGroupTarget(tx, kind, targetId));
+    if (privateGroup && openPrivate && (kind === 'post' || kind === 'comment')) await openPrivateGroupContent(tx, kind, targetId);
     const content = kind === 'user' || kind === 'message' ? undefined : await readContent(tx, kind, targetId);
     if (kind === 'post' && content !== undefined) imageRows = await readPostImageRows(tx, storage, [targetId]);
     // The account an enforcement would act on: the reported account, or the named author of the content (an anonymous author is revealed
@@ -148,6 +153,7 @@ export async function readReportDetail(
         content: content === undefined ? null : { text: content.text, status: content.status, isAnonymous: content.isAnonymous },
         reports: reports.map((report) => ({ ...report, reasonLabel: report.reasonLabel })),
         user: user ?? null,
+        ...(privateGroup ? { privateGroup: true } : {}),
       },
     };
   });
@@ -166,6 +172,10 @@ export async function handleReports(database: Database, identity: Identity, requ
       if (request.moderation !== undefined) {
         if (request.targetKind === 'user' || request.targetKind === 'message') return { kind: 'invalid' };
         await setAuditReason(tx, request.moderation.reason);
+        // I10: moderating Private Group content opens it first (audited); without PRIVATE_GROUP_MODERATE nothing moves (ERR-024)
+        if ((await isPrivateGroupTarget(tx, request.targetKind, request.targetId)) && !(await openPrivateGroupContent(tx, request.targetKind, request.targetId))) {
+          return { kind: 'forbidden' }; // ERR-024
+        }
         if ((await moveContent(tx, request.targetKind, request.targetId, request.moderation.status)) === 0) return missingOrRefused(tx, request.targetKind, request.targetId);
       }
       const closed = await closeReports(tx, request.targetKind, request.targetId, request.resolution, request.note ?? request.moderation?.reason);
@@ -180,6 +190,8 @@ export async function moderateContent(database: Database, identity: Identity, re
       const gate = await require_(tx, 'REPORTS_VIEW', 'CONTENT_MODERATE');
       if (refused(gate)) return gate;
       await setAuditReason(tx, request.reason);
+      const privateGroup = await isPrivateGroupTarget(tx, request.targetKind, request.targetId);
+      if (privateGroup && !(await openPrivateGroupContent(tx, request.targetKind, request.targetId))) return { kind: 'forbidden' }; // ERR-024
       if ((await moveContent(tx, request.targetKind, request.targetId, request.status)) === 0) {
         return (await readContent(tx, request.targetKind, request.targetId)) === undefined ? { kind: 'not_found' } : { kind: 'forbidden' };
       }

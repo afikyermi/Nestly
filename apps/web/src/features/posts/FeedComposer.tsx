@@ -12,6 +12,8 @@ import { PostForm, type PostFormFocus } from './PostForm';
 import { PostImagesPicker } from './PostImagesPicker';
 import { usePickedImages } from '@/hooks/use-picked-images';
 import { PUBLISH_FAILED_TEXT } from './posts-texts';
+import { useFeedSource } from './feed-source';
+import { GROUP_POST_PRIVATE_TEXT, GROUP_POST_PUBLIC_TEXT } from '@/lib/group-post-texts';
 
 interface ComposerProps {
   owner: string | null;
@@ -30,9 +32,12 @@ interface ComposerProps {
 // professional-posting c8, c9) the form has no box, audience or tag: it sends the text, "everyone" and no tag, never `isAnonymous`.
 function Composer({ owner, memory, focusText, everyoneOnly, onPublished }: ComposerProps) {
   const account = useSessionAccount();
+  // I10: in a Group the post goes into it and is always for everyone there; the audience memory is neither read nor written.
+  const source = useFeedSource();
+  const group = source.kind === 'group' ? source : null;
   const [kept] = useState(() => recallDraft(owner));
   const [values, setValues] = useState<PostFormValues>(
-    () => kept?.values ?? { body: '', audience: everyoneOnly ? 'everyone' : (memory.read() ?? 'everyone'), stageTag: '' },
+    () => kept?.values ?? { body: '', audience: everyoneOnly || group !== null ? 'everyone' : (memory.read() ?? 'everyone'), stageTag: '' },
   );
   const [anonymous, setAnonymous] = useState(kept?.anonymous ?? false);
   const [errors, setErrors] = useState<PostFormErrors>({});
@@ -81,15 +86,16 @@ function Composer({ owner, memory, focusText, everyoneOnly, onPublished }: Compo
       return;
     }
     setSending(true);
-    forgetDraft();
+    forgetDraft(owner);
     setFailure(null);
     setErrors({});
     const token = account === null ? null : await account.getAccessToken().catch(() => null);
-    const write = pictures.ids.length === 0 ? checked.value : { ...checked.value, imageIds: pictures.ids };
+    const withImages = pictures.ids.length === 0 ? checked.value : { ...checked.value, imageIds: pictures.ids };
+    const write = group === null ? withImages : { ...withImages, audience: 'everyone' as const, groupId: group.groupId };
     const outcome = token === null ? ({ kind: 'failed' } as const) : await createPost(token, write);
     if (outcome.kind === 'post') {
       // A failed post stores nothing: the choice is remembered only here (c15), and never by an anonymous post (F3.4 c11).
-      if (!anonymous && !everyoneOnly) memory.write(values.audience);
+      if (!anonymous && !everyoneOnly && group === null) memory.write(values.audience);
       setSending(false);
       onPublished(outcome.post);
       return;
@@ -142,6 +148,7 @@ function Composer({ owner, memory, focusText, everyoneOnly, onPublished }: Compo
         anonymous={anonymous}
         compact={!engaged}
         everyoneOnly={everyoneOnly}
+        {...(group === null ? {} : { fixedAudienceText: group.privacy === 'private' ? GROUP_POST_PRIVATE_TEXT : GROUP_POST_PUBLIC_TEXT })}
         onAnonymousChange={toggleAnonymous}
         onChange={change}
         onSubmit={() => void submit()}
@@ -174,9 +181,12 @@ export interface FeedComposerProps {
 // A success starts a new composition (a new key), which is empty, unchecked and idle.
 export function FeedComposer({ right, own, focusText, onPublished }: FeedComposerProps) {
   const [round, setRound] = useState(0);
-  const owner = own.kind === 'known' ? own.userId : null;
+  const source = useFeedSource();
+  // A Group's unsent post is kept apart from the feed's (the draft is recalled for the same owner key only).
+  const owner = own.kind !== 'known' ? null : source.kind === 'group' ? `${own.userId}#${source.groupId}` : own.userId;
   const memory = useAudienceMemory(owner);
   if ((right !== 'allowed' && right !== 'everyone-only') || own.kind === 'loading') return null;
+  if (source.kind === 'group' && !source.canPost) return null;
   return (
     <div className="mt-4 w-full max-w-md">
       <Composer

@@ -29,6 +29,8 @@ export interface NewPost {
   readonly isAnonymous?: boolean | undefined;
   /** I5: the caller's own unattached post images, in order (VAL-041: at most 4). */
   readonly imageIds?: readonly string[] | undefined;
+  /** I10: the Group the post is written in (members only: the database refuses anyone else, 42501). */
+  readonly groupId?: string | undefined;
 }
 
 /** I5: an image named on create is not one the caller may attach (not theirs, not a post image, already used, refused): nothing is posted. */
@@ -112,6 +114,7 @@ export async function createPost(database: Database, identity: Identity, input: 
         audience: input.audience,
         stageTag: input.stageTag ?? null,
         isAnonymous: input.isAnonymous ?? false,
+        groupId: input.groupId ?? null,
       }),
     );
     if (row === undefined) throw new PostsFault();
