@@ -119,7 +119,7 @@ select is(
   '[audit-fix rule 17] the two reads it needs are TO app_owner only, read-only, and open only in the call''s own scope');
 select is(
   (select string_agg(pol.polname || '.' || pol.polcmd::text || '.' || (select string_agg(r.rolname, '+') from pg_catalog.pg_roles r where r.oid = any (pol.polroles)), ', ')
-     from pg_catalog.pg_policy pol where pol.polrelid = 'nestly.trend_scopes'::regclass and pol.polname = 'trend_scopes_insert_birthday'),
+     from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid where c.relname = 'trend_scopes' and c.relnamespace = 'nestly'::regnamespace and pol.polname = 'trend_scopes_insert_birthday'),
   'trend_scopes_insert_birthday.a.app_owner', '[audit-fix rule 17] the scope row is written by the owner role only (inside the definer)');
 select is(
   (select (q ~ 'nestly.friendships' and q ~ 'status = ''accepted''::text' and q ~ 'requester_status = ''active''::text'
@@ -157,7 +157,7 @@ select is(pg_temp.q('a', $q$ select count(*)::text from nestly.notifications whe
 -- so no Friend qualifies and the notification carries nothing about the child.
 select is(
   (select string_agg(a.attname || ':' || pg_catalog.format_type(a.atttypid, a.atttypmod), ',' order by a.attnum)
-     from pg_catalog.pg_attribute a where a.attrelid = 'nestly.notifications'::regclass and a.attnum > 0 and not a.attisdropped),
+     from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid where c.relname = 'notifications' and c.relnamespace = 'nestly'::regnamespace and a.attnum > 0 and not a.attisdropped),
   'id:uuid,recipient_id:uuid,type:text,actor_id:uuid,target_kind:text,target_id:uuid,subject_id:uuid,is_critical:boolean,created_at:timestamp with time zone,read_at:timestamp with time zone',
   '[audit-fix FR-PRIV-001 Afik 21.10 night] a notification has no column that could carry a child''s name, sex, age or birth date (type and target_kind are short codes)');
 select is(pg_temp.q('a', format($q$ select (coalesce(string_agg(row_to_json(n)::text, ' '), '') ~ 'Noa|girl|%s|%s')::text
