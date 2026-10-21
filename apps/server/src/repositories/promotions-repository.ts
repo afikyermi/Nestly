@@ -99,6 +99,7 @@ const ownRow = z.object({
   startsAt: z.string(),
   endsAt: z.string(),
   stoppedAt: z.string().nullable(),
+  stoppedBy: z.enum(['owner', 'staff']).nullable(),
   postId: z.guid().nullable(),
   listingId: z.guid().nullable(),
   targetLabel: z.string().nullable(),
@@ -114,7 +115,7 @@ export async function readOwnPromotions(tx: IdentityTx): Promise<PromotionItem[]
     await tx.execute(sql`
       select p.id, p.target_kind as "targetKind", p.plan_key as "planKey", ${stateOf} as state, ${iso('p.starts_at')} as "startsAt",
              ${iso('p.ends_at')} as "endsAt", case when p.stopped_at is null then null else ${iso('p.stopped_at')} end as "stoppedAt",
-             p.post_id as "postId", p.listing_id as "listingId",
+             p.stopped_by as "stoppedBy", p.post_id as "postId", p.listing_id as "listingId",
              coalesce(left(po.body, ${EXCERPT}), l.title) as "targetLabel",
              ${eventSum('impression')} as impressions, ${eventSum('click')} as clicks, ${eventSum('follow')} as follows, ${eventSum('chat_start')} as "chatStarts"
       from nestly.promotions p
@@ -194,17 +195,69 @@ export async function readOwnAnalyticsCounts(tx: IdentityTx, days: number): Prom
 
 // ---- serving promoted units (FR-ALG-007) ----------------------------------------------------------------------------------------------------
 
-const configRow = z.object({ dailyCap: z.number().int(), unitsPerPage: z.number().int(), feedPosition: z.number().int() });
+const configRow = z.object({
+  version: z.number().int(),
+  dailyCap: z.number().int(),
+  directoryUnitsPerPage: z.number().int(),
+  feedGapMin: z.number().int(),
+  feedGapMax: z.number().int(),
+  feedLowPosts: z.number().int(),
+  feedHighPosts: z.number().int(),
+});
 export type PromotionConfig = z.infer<typeof configRow>;
+/** v1's values (the migration's), used only when no version is readable. */
+export const DEFAULT_PROMOTION_CONFIG: PromotionConfig = { version: 1, dailyCap: 3, directoryUnitsPerPage: 1, feedGapMin: 4, feedGapMax: 7, feedLowPosts: 20, feedHighPosts: 200 };
+const configColumns = sql`version, daily_cap as "dailyCap", directory_units_per_page as "directoryUnitsPerPage", feed_gap_min as "feedGapMin",
+  feed_gap_max as "feedGapMax", feed_low_posts as "feedLowPosts", feed_high_posts as "feedHighPosts"`;
 
-/** The active promotions version (P-ALG-07); the ⭐ values when none is readable. */
+/** The newest promotion settings version (§11.2, FR-ALG-007, BR-059); v1's values when none is readable. */
 export async function readPromotionConfig(tx: IdentityTx): Promise<PromotionConfig> {
-  const [row] = z.array(configRow).parse(
-    await tx.execute(sql`
-      select promo_daily_cap as "dailyCap", promo_units_per_page as "unitsPerPage", promo_feed_position as "feedPosition"
-      from nestly.algorithm_configurations where surface = 'promotions' and is_active`),
+  const [row] = z.array(configRow).parse(await tx.execute(sql`select ${configColumns} from nestly.promotion_settings order by version desc limit 1`));
+  return row ?? DEFAULT_PROMOTION_CONFIG;
+}
+
+const settingsRow = configRow.extend({ reason: z.string(), at: z.string() });
+export type PromotionSettingsRow = z.infer<typeof settingsRow>;
+
+/** Every settings version, newest first (the Admin's settings screen). */
+export async function readPromotionSettingsHistory(tx: IdentityTx): Promise<PromotionSettingsRow[]> {
+  return z.array(settingsRow).parse(
+    await tx.execute(sql`select ${configColumns}, reason, ${iso('created_at')} as at from nestly.promotion_settings order by version desc limit 20`),
   );
-  return row ?? { dailyCap: 3, unitsPerPage: 1, feedPosition: 3 };
+}
+
+/** A new settings version (BILLING_FINANCE_MANAGE; the database numbers it and audits it with the previous values). */
+export async function insertPromotionSettings(tx: IdentityTx, write: Omit<PromotionConfig, 'version'> & { reason: string }): Promise<number> {
+  const [row] = z
+    .array(z.object({ version: z.number().int() }))
+    .length(1)
+    .parse(
+      await tx.execute(sql`
+        insert into nestly.promotion_settings (daily_cap, directory_units_per_page, feed_gap_min, feed_gap_max, feed_low_posts, feed_high_posts, reason)
+        values (${write.dailyCap}, ${write.directoryUnitsPerPage}, ${write.feedGapMin}, ${write.feedGapMax}, ${write.feedLowPosts}, ${write.feedHighPosts}, ${write.reason})
+        returning version`),
+    );
+  if (row === undefined) throw new Error('the settings returned no row');
+  return row.version;
+}
+
+/** §11.2: the feed's posts of the last 48 hours the caller can read (the volume the interleave gap follows). */
+export async function readRecentPostCount(tx: IdentityTx): Promise<number> {
+  const [row] = z
+    .array(z.object({ n: count }))
+    .parse(await tx.execute(sql`select count(*) as n from nestly.posts p where p.created_at > now() - interval '48 hours' and p.group_id is null`));
+  return row?.n ?? 0;
+}
+
+/**
+ * §11.1: staff stop a running promotion with a reason (the Audit entry's); the database checks the target's moderation key, the state and the
+ * reason. The number of rows (0: not visible to the caller under its keys, or not running).
+ */
+export async function staffStopPromotion(tx: IdentityTx, id: string, reason: string): Promise<number> {
+  await tx.execute(sql`select set_config('nestly.audit_reason', ${reason}, true)`);
+  const rows = await tx.execute(sql`update nestly.promotions set status = 'stopped' where id = ${id}::uuid and status = 'active' and ends_at > now() returning id`);
+  await tx.execute(sql`select set_config('nestly.audit_reason', '', true)`);
+  return rows.length;
 }
 
 const candidateRow = z.object({ promotionId: z.guid(), targetId: z.guid() });
@@ -235,15 +288,19 @@ export async function readPromotedCandidates(tx: IdentityTx, kind: PromotionTarg
   );
 }
 
-/** The posts among `ids` whose text matches one of the patterns (the viewer's search topics: ⭐ 5, a promoted post needs a matching topic). */
-export async function readMatchingPosts(tx: IdentityTx, ids: readonly string[], patterns: readonly string[]): Promise<Set<string>> {
-  if (ids.length === 0 || patterns.length === 0) return new Set();
-  const rows = z.array(z.object({ id: z.guid() })).parse(
+/**
+ * §11.2 relevance: the posts among `ids` whose text matches one of the viewer's search topics or whose Stage tag is one of the viewer's stages
+ * (never a child's data, a tracker, a chat, Support or a private Group: BR-053, VAL-030). Topic matches first.
+ */
+export async function readMatchingPosts(tx: IdentityTx, ids: readonly string[], patterns: readonly string[], stages: readonly string[]): Promise<Map<string, number>> {
+  if (ids.length === 0 || (patterns.length === 0 && stages.length === 0)) return new Map();
+  const rows = z.array(z.object({ id: z.guid(), byTopic: z.boolean() })).parse(
     await tx.execute(sql`
-      select p.id from nestly.posts p
-      where p.id = any (${sql.param([...ids])}::uuid[]) and p.body ~* any (${sql.param([...patterns])}::text[])`),
+      select p.id, (p.body ~* any (${sql.param([...patterns])}::text[])) is true as "byTopic" from nestly.posts p
+      where p.id = any (${sql.param([...ids])}::uuid[])
+        and ((p.body ~* any (${sql.param([...patterns])}::text[])) is true or p.stage_tag = any (${sql.param([...stages])}::text[]))`),
   );
-  return new Set(rows.map((row) => row.id));
+  return new Map(rows.map((row) => [row.id, row.byTopic ? 2 : 1]));
 }
 
 /** The caller's own impressions today of each of these promotions (its own rows: the frequency cap). */
@@ -294,6 +351,7 @@ const adminRow = z.object({
   state: z.enum(['running', 'stopped', 'ended']),
   startsAt: z.string(),
   endsAt: z.string(),
+  stoppedBy: z.enum(['owner', 'staff']).nullable(),
   amountIls: z.number().int(),
   impressions: count,
   clicks: count,
@@ -305,7 +363,7 @@ export async function readAdminPromotions(tx: IdentityTx): Promise<AdminPromotio
     await tx.execute(sql`
       select p.id, coalesce(pr.full_name, n.full_name) as "ownerName", case when p.target_kind = 'listing' then 'regular' else 'professional' end as "ownerKind",
              p.target_kind as "targetKind", p.plan_key as "planKey", ${stateOf} as state, ${iso('p.starts_at')} as "startsAt", ${iso('p.ends_at')} as "endsAt",
-             (select pl.sample_price_ils from nestly.promotion_plans pl where pl.key = p.plan_key) as "amountIls",
+             p.stopped_by as "stoppedBy", (select pl.sample_price_ils from nestly.promotion_plans pl where pl.key = p.plan_key) as "amountIls",
              ${eventSum('impression')} as impressions, ${eventSum('click')} as clicks
       from nestly.promotions p
       left join nestly.professional_profiles pr on pr.user_id = p.owner_id
@@ -327,6 +385,7 @@ export async function readAdminPromotions(tx: IdentityTx): Promise<AdminPromotio
       clicks: rows.reduce((sum, row) => sum + row.clicks, 0),
     },
     promotions: rows,
+    isFinance: false,
   };
 }
 

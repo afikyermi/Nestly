@@ -18,6 +18,7 @@ import { PostForm } from './PostForm';
 import type { CardEdit } from './use-card-edit';
 import { SHARE_IN_FEED_LABEL } from './share-texts';
 import { PostImages } from './PostImages';
+import { SPONSORED_LABEL } from '@/lib/promotion-texts';
 
 const AUDIENCE_CLASS = 'text-small text-muted-foreground';
 
@@ -84,6 +85,8 @@ export function FeedCard(props: FeedCardProps) {
           {!unit.isAnonymous && unit.author.tag !== undefined ? <span className="text-small font-normal text-primary-strong"> · {unit.author.tag}</span> : null}
         </span>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          {/* I13 (BR-005, VAL-012, §11.5): a promoted post is always marked "ממומן" */}
+          {unit.source === 'promoted' ? <span className="rounded-full bg-badge px-2.5 text-small text-badge-foreground">{SPONSORED_LABEL}</span> : null}
           <span className={AUDIENCE_CLASS}>{AUDIENCE_LABELS[unit.audience]}</span>
           {unit.kind === 'post' && unit.isHelpRequest === true ? (
             <span className="rounded-full bg-badge px-2.5 text-small text-badge-foreground">{HELP_REQUEST_BADGE}</span>

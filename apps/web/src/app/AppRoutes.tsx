@@ -1,5 +1,5 @@
 import { Route, Routes } from 'react-router';
-import { AdminAnalyticsPage, AdminAnnouncementsPage, AdminChildDataPage, AdminMarketplacePage, AdminSponsoredPage, AdminAuditPage, AdminCommunityPage, AdminMediaPage, AdminReportsPage, AdminSupportPage, AdminTeamPage, AdminUsersPage } from '@/pages/admin/AdminPages';
+import { AdminAnalyticsPage, AdminAnnouncementsPage, AdminChildDataPage, AdminMarketplacePage, AdminPromotionsPage, AdminSponsoredPage, AdminAuditPage, AdminCommunityPage, AdminMediaPage, AdminReportsPage, AdminSupportPage, AdminTeamPage, AdminUsersPage } from '@/pages/admin/AdminPages';
 import { JoinTeamPage } from '@/pages/join-team/JoinTeamPage';
 import { AdminIndex, AdminLayout } from '@/pages/admin/AdminLayout';
 import { ChangePasswordPage } from '@/pages/change-password/ChangePasswordPage';
@@ -111,6 +111,7 @@ export function AppRoutes() {
               <Route path="child-data" element={<AdminChildDataPage />} />
               <Route path="marketplace" element={<AdminMarketplacePage />} />
               <Route path="sponsored" element={<AdminSponsoredPage />} />
+              <Route path="promotions" element={<AdminPromotionsPage />} />
             </Route>
           </Route>
         </Routes>

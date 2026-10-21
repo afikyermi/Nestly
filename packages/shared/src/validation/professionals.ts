@@ -157,7 +157,7 @@ export const professionalCard = z.strictObject({
   reviewCount: z.number().int(),
 });
 export type ProfessionalCard = z.infer<typeof professionalCard>;
-/** FR-ALG-007, BR-005 (I13): a promoted Professional, apart from the organic list and always labelled "פרסומת"; the organic order never weighs it. */
+/** FR-ALG-007, BR-005 (I13): a promoted Professional, apart from the organic list and always labelled "ממומן" (§11.5); the organic order never weighs it. */
 export const promotedProfessional = z.strictObject({ promotionId: z.guid(), card: professionalCard });
 export type PromotedProfessional = z.infer<typeof promotedProfessional>;
 export const directoryResponse = z.strictObject({ professionals: z.array(professionalCard), promoted: z.array(promotedProfessional).default([]) });

@@ -12,6 +12,7 @@ import { replySessionRefused } from '../plugins/authentication.js';
 import { clientAddress } from '../recovery/client-ip.js';
 import type { RecoveryDependencies } from '../recovery/dependencies.js';
 import { readAccountState, type HandleRekey } from '../services/account-state-service.js';
+import { recordExposure } from '../services/promoted-units.js';
 
 export interface MeRouteDependencies {
   readonly database: Database | undefined;
@@ -46,7 +47,10 @@ async function me(request: FastifyRequest, reply: FastifyReply, deps: MeRouteDep
   // A state is never cached: the next request must see a status change (BR-024).
   reply.header('cache-control', 'no-store');
   try {
-    return reply.code(200).send(await readAccountState(deps.database, identity, rekeyFor(request, deps)));
+    const state = await readAccountState(deps.database, identity, rekeyFor(request, deps));
+    // I13 (OP-039): the day's login, one counter a day (staff and inactive accounts are dropped by the database; never this answer's failure)
+    await recordExposure(deps.database, identity, { usage: 'daily_login' });
+    return reply.code(200).send(state);
   } catch (error) {
     const refused = replySessionRefused(reply, error);
     if (refused !== undefined) return refused;

@@ -127,8 +127,8 @@ export function registerProfessionalsRoutes(app: FastifyInstance, deps: Professi
       reply,
       db(),
       'directory failed',
-      async (database, identity) => ({ kind: 'ok' as const, professionals: await listProfessionals(database, identity, query.data) }),
-      (ok) => ({ professionals: ok.professionals }),
+      async (database, identity) => ({ kind: 'ok' as const, ...(await listProfessionals(database, identity, query.data)) }),
+      (ok) => ({ professionals: ok.professionals, promoted: ok.promoted }),
     );
   });
   others('/api/professionals', ['GET']);

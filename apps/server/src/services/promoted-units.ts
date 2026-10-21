@@ -1,15 +1,20 @@
 // Promoted units on the Directory, the Marketplace and the feed (I13; FR-ALG-007, BR-003, BR-004, BR-005, BR-053, BR-054, AC-062, AC-063,
 // AC-068, VAL-012, VAL-030, ERR-028). The pipeline, per surface and page view:
 //   1. eligibility — a running promotion of another account (no user block), its target still eligible (the viewer policy and the candidate
-//      query), and matching the page: the surface's own filters (Directory, Marketplace) or the viewer's search topics (the feed, ⭐ 5);
-//   2. paid ranking — among the eligible paid candidates only: the fewest impressions this viewer had today first (rotation), ties at random;
-//   3. the frequency cap — a promotion this viewer already saw `dailyCap` times today is skipped (P-ALG-07; the database counts no more);
-//   4. the label — the surface shows the unit apart from the organic list, always marked (the web's "פרסומת" / "מודעה מקודמת").
+//      query), and matching the page: the surface's own filters (Directory, Marketplace) or, in the feed, the viewer's search topics or Stage
+//      (§11.2: relevance by Stage and search topics);
+//   2. paid ranking — among the eligible paid candidates only: topic matches before Stage matches (the feed), then the fewest impressions this
+//      viewer had today (rotation), ties at random;
+//   3. the frequency cap — a promotion this viewer already saw `dailyCap` times today is skipped (FR-ALG-007; the database counts no more);
+//      the Marketplace has no cap (§11.3: every promoted listing that matches the search and the filters is shown at the top);
+//   4. placement and label — Directory: up to `directoryUnitsPerPage` above the list; Marketplace: all matching, at the top; feed: a promoted
+//      post after every 4 to 7 organic posts, by the last 48 hours' volume (§11.2). Always marked: "ממומן" for a Professional's profile or post,
+//      "מודעה מקודמת" for a listing (§11.5).
 // The organic list is read exactly as without promotions and is never re-ordered (BR-004, AC-062). The only targeting inputs are the surface,
 // its query or category, the viewer's search topics, the promotion and the target (BR-053, AC-068): never a child, a pregnancy, a tracker, a
 // chat, Support or a private Group. A skipped candidate is reported by reason only (ERR-028), never by id.
 
-import type { DirectoryQuery, MarketplaceQuery, ProfessionalCard, UsageEventKind } from '@nestly/shared';
+import { feedPromotionGap, type DirectoryQuery, type MarketplaceQuery, type ProfessionalCard, type UsageEventKind } from '@nestly/shared';
 import type { Database } from '../db/client.js';
 import { inIdentityTransaction, type IdentityTx } from '../db/identity-transaction.js';
 import type { Identity } from '../lib/token-verifier.js';
@@ -21,7 +26,9 @@ import {
   insertUsageEvent,
   readMatchingPosts,
   readPromotedCandidates,
+  readProfessionalAuthors,
   readPromotionConfig,
+  readRecentPostCount,
   readTodayImpressions,
   type PromotedCandidate,
   type PromotionConfig,
@@ -38,19 +45,27 @@ async function viewerSeesAds(tx: IdentityTx): Promise<boolean> {
 }
 
 /** Steps 2 and 3: the open candidates (under the cap) ranked by this viewer's impressions today, then at random; at most `limit`. */
-export async function rankPaid(tx: IdentityTx, candidates: readonly PromotedCandidate[], config: PromotionConfig, limit: number, onSkip?: OnSkip): Promise<PromotedCandidate[]> {
+export async function rankPaid(
+  tx: IdentityTx,
+  candidates: readonly PromotedCandidate[],
+  config: PromotionConfig,
+  limit: number,
+  onSkip?: OnSkip,
+  options: { readonly capped?: boolean; readonly relevance?: ReadonlyMap<string, number> } = {},
+): Promise<PromotedCandidate[]> {
   if (candidates.length === 0 || limit <= 0) return [];
   const seen = await readTodayImpressions(tx, candidates.map((c) => c.promotionId));
-  const open = candidates.filter((c) => (seen.get(c.promotionId) ?? 0) < config.dailyCap);
+  const open = options.capped === false ? [...candidates] : candidates.filter((c) => (seen.get(c.promotionId) ?? 0) < config.dailyCap);
   if (open.length < candidates.length) onSkip?.('cap', candidates.length - open.length);
+  const relevance = (c: PromotedCandidate) => options.relevance?.get(c.targetId) ?? 0;
   return open
-    .map((c) => ({ c, key: seen.get(c.promotionId) ?? 0, tie: Math.random() }))
-    .sort((a, b) => a.key - b.key || a.tie - b.tie)
+    .map((c) => ({ c, rel: relevance(c), key: seen.get(c.promotionId) ?? 0, tie: Math.random() }))
+    .sort((a, b) => b.rel - a.rel || a.key - b.key || a.tie - b.tie)
     .slice(0, limit)
     .map(({ c }) => c);
 }
 
-/** The Directory's promoted Professionals (⭐ 8: one framed unit above the organic list), matching the page's filters. */
+/** The Directory's promoted Professionals (above the organic list, up to `directoryUnitsPerPage`), matching the page's filters. */
 export async function promotedProfessionals(tx: IdentityTx, query: DirectoryQuery, onSkip?: OnSkip): Promise<{ promotionId: string; card: ProfessionalCard }[]> {
   if (!(await viewerSeesAds(tx))) return [];
   const candidates = await readPromotedCandidates(tx, 'profile');
@@ -59,13 +74,13 @@ export async function promotedProfessionals(tx: IdentityTx, query: DirectoryQuer
   const cards = new Map((await readDirectory(tx, { ...query, sort: 'rating' }, [], candidates.map((c) => c.targetId))).map((card) => [card.id, card]));
   const matching = candidates.filter((c) => cards.has(c.targetId));
   if (matching.length < candidates.length) onSkip?.('not_matching', candidates.length - matching.length);
-  return (await rankPaid(tx, matching, config, config.unitsPerPage, onSkip)).flatMap((c) => {
+  return (await rankPaid(tx, matching, config, config.directoryUnitsPerPage, onSkip)).flatMap((c) => {
     const card = cards.get(c.targetId);
     return card === undefined ? [] : [{ promotionId: c.promotionId, card }];
   });
 }
 
-/** The Marketplace's promoted listings (⭐ 8: their own strip above the list, apart from the sponsored products), matching the page's filters. */
+/** The Marketplace's promoted listings (§11.3): at the top, every one that matches the search and the filters, no cap; apart from the sponsored products. */
 export async function promotedListings(tx: IdentityTx, query: MarketplaceQuery, onSkip?: OnSkip): Promise<{ promotionId: string; row: ListingRow }[]> {
   if (!(await viewerSeesAds(tx))) return [];
   const candidates = await readPromotedCandidates(tx, 'listing');
@@ -74,31 +89,36 @@ export async function promotedListings(tx: IdentityTx, query: MarketplaceQuery, 
   const rows = new Map((await readMarketplace(tx, { ...query, sort: 'new' }, [], candidates.map((c) => c.targetId))).map((row) => [row.id, row]));
   const matching = candidates.filter((c) => rows.has(c.targetId));
   if (matching.length < candidates.length) onSkip?.('not_matching', candidates.length - matching.length);
-  return (await rankPaid(tx, matching, config, config.unitsPerPage, onSkip)).flatMap((c) => {
+  return (await rankPaid(tx, matching, config, matching.length, onSkip, { capped: false })).flatMap((c) => {
     const row = rows.get(c.targetId);
     return row === undefined ? [] : [{ promotionId: c.promotionId, row }];
   });
 }
 
 /**
- * The feed's promoted post (⭐ 5, ⭐ 8): one post whose text matches one of the viewer's search topics, not already on the page, placed after
- * `feedPosition` organic posts. No topic, no promoted post.
+ * The feed's promoted posts (§11.2): relevant to the viewer (a search topic or its Stage), not already on the page; one after every `gap`
+ * organic posts, `gap` from 4 to 7 by the last 48 hours' volume. No relevant candidate, no promoted post.
  */
-export async function promotedPost(
+export async function promotedPosts(
   tx: IdentityTx,
   patterns: readonly string[],
+  stages: readonly string[],
   onPage: ReadonlySet<string>,
+  organicCount: number,
   onSkip?: OnSkip,
-): Promise<{ promotionId: string; postId: string; afterIndex: number } | null> {
-  if (patterns.length === 0 || !(await viewerSeesAds(tx))) return null;
+): Promise<{ promotionId: string; postId: string; afterIndex: number }[]> {
+  if ((patterns.length === 0 && stages.length === 0) || organicCount === 0 || !(await viewerSeesAds(tx))) return [];
   const candidates = (await readPromotedCandidates(tx, 'post')).filter((c) => !onPage.has(c.targetId));
-  if (candidates.length === 0) return null;
+  if (candidates.length === 0) return [];
   const config = await readPromotionConfig(tx);
-  const matches = await readMatchingPosts(tx, candidates.map((c) => c.targetId), patterns);
-  const matching = candidates.filter((c) => matches.has(c.targetId));
+  const gap = feedPromotionGap(config, await readRecentPostCount(tx));
+  const slots = Math.floor(organicCount / gap);
+  if (slots === 0) return [];
+  const relevance = await readMatchingPosts(tx, candidates.map((c) => c.targetId), patterns, stages);
+  const matching = candidates.filter((c) => relevance.has(c.targetId));
   if (matching.length < candidates.length) onSkip?.('not_matching', candidates.length - matching.length);
-  const [chosen] = await rankPaid(tx, matching, config, 1, onSkip);
-  return chosen === undefined ? null : { promotionId: chosen.promotionId, postId: chosen.targetId, afterIndex: config.feedPosition };
+  const chosen = await rankPaid(tx, matching, config, slots, onSkip, { relevance });
+  return chosen.map((c, i) => ({ promotionId: c.promotionId, postId: c.targetId, afterIndex: gap * (i + 1) }));
 }
 
 /** What one page view showed: the promoted units served, the usage event, and the Professionals whose profile or posts were seen. */
@@ -126,5 +146,15 @@ export async function recordExposure(database: Database, identity: Identity, exp
     });
   } catch {
     // recording is best effort: the page has already been answered from its own transaction
+  }
+}
+
+/** FR-PRO-002: the Professionals among the authors of these posts (other than the caller), whose organic post views a page counts. */
+export async function professionalAuthorsOf(database: Database, identity: Identity, postIds: readonly string[]): Promise<string[]> {
+  if (postIds.length === 0) return [];
+  try {
+    return await inIdentityTransaction(database, identity, (tx) => readProfessionalAuthors(tx, postIds));
+  } catch {
+    return [];
   }
 }

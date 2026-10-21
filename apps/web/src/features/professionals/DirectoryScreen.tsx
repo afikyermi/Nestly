@@ -11,6 +11,7 @@ import {
   type ProfessionalArea,
   type ProfessionalCard,
   type ProfessionalField,
+  type PromotedProfessional,
 } from '@nestly/shared';
 import { FormField } from '@/components/shared/form-field';
 import { InlineAlert } from '@/components/shared/inline-alert';
@@ -43,7 +44,9 @@ import {
   ratingText,
   yearsText,
 } from '@/lib/professional-texts';
-import { fetchDirectory } from '@/services/api/professionals';
+import { PROMOTED_PROFESSIONALS_HEADING, SPONSORED_LABEL } from '@/lib/promotion-texts';
+import { fetchDirectoryPage } from '@/services/api/professionals';
+import { reportPromotionClick } from '@/services/api/promotions';
 
 interface Filters {
   field: string;
@@ -81,7 +84,25 @@ const AREA_OPTIONS = PROFESSIONAL_AREAS.map((value) => ({ value, label: PROFESSI
 const RATING_OPTIONS = [4, 3, 2].map((value) => ({ value: String(value), label: `${value} ומעלה` }));
 const SORT_OPTIONS = DIRECTORY_SORTS.map((value) => ({ value, label: SORT_LABELS[value] }));
 
-type Results = { kind: 'loading' } | { kind: 'failed' } | { kind: 'loaded'; cards: ProfessionalCard[] };
+type Results = { kind: 'loading' } | { kind: 'failed' } | { kind: 'loaded'; cards: ProfessionalCard[]; promoted: PromotedProfessional[] };
+
+/** One Professional's card on the directory (the organic list and, apart, a promoted one). */
+function Card({ card, badge, onOpen }: { card: ProfessionalCard; badge?: string; onOpen?: () => void }) {
+  return (
+    <>
+      {badge === undefined ? null : <p className="mb-1 inline-flex rounded-sm bg-muted px-2 text-label">{badge}</p>}
+      <Link to={professionalPagePath(card.id)} onClick={onOpen} className="block text-h3 text-primary-strong underline-offset-4 hover:underline">
+        {card.fullName}
+      </Link>
+      {card.businessName === null ? null : <p className="text-small text-muted-foreground">{card.businessName}</p>}
+      <p className="mt-1 text-label">{fieldText(card.field, card.fieldOther)}</p>
+      <p className="mt-1 text-small text-muted-foreground">
+        {[yearsText(card.yearsExperience), areaText(card.area), priceText(card.priceFrom)].filter((part) => part !== null).join(' · ')}
+      </p>
+      <p className="mt-1 text-small">{ratingText(card.rating, card.reviewCount)}</p>
+    </>
+  );
+}
 
 // The directory of Professionals (FR-SERV-001/002, AC-009, FR-ALG-005): filters by field, area (a city or area from a list, §12), minimum rating,
 // maximum price and minimum experience, and the order; the list is the server's (the organic order never weighs a payment). The filters live in
@@ -89,6 +110,7 @@ type Results = { kind: 'loading' } | { kind: 'failed' } | { kind: 'loaded'; card
 export function DirectoryScreen() {
   const call = useProCall();
   const listId = useId();
+  const promotedId = useId();
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [applied, setApplied] = useState<Filters>(NO_FILTERS);
   const [results, setResults] = useState<Results>({ kind: 'loading' });
@@ -98,9 +120,9 @@ export function DirectoryScreen() {
     async (next: Filters) => {
       const ticket = ++latest.current;
       setResults({ kind: 'loading' });
-      const result = await call((token) => fetchDirectory(token, queryOf(next)));
+      const result = await call((token) => fetchDirectoryPage(token, queryOf(next)));
       if (ticket !== latest.current) return;
-      setResults(result.kind === 'ok' ? { kind: 'loaded', cards: result.value } : { kind: 'failed' });
+      setResults(result.kind === 'ok' ? { kind: 'loaded', cards: result.value.professionals, promoted: result.value.promoted } : { kind: 'failed' });
     },
     [call],
   );
@@ -152,6 +174,22 @@ export function DirectoryScreen() {
         </div>
       </form>
 
+      {results.kind === 'loaded' && results.promoted.length > 0 ? (
+        // FR-ALG-007, BR-005, §11.5: the promoted Professionals that match the filters, apart from the organic list, marked "ממומן"
+        <section aria-labelledby={promotedId}>
+          <h2 id={promotedId} className="text-h3">
+            {PROMOTED_PROFESSIONALS_HEADING}
+          </h2>
+          <ul aria-label={PROMOTED_PROFESSIONALS_HEADING} className="mt-3 flex flex-col gap-3">
+            {results.promoted.map(({ promotionId, card }) => (
+              <li key={promotionId} className="rounded-lg bg-card p-4 shadow-card">
+                <Card card={card} badge={SPONSORED_LABEL} onOpen={() => void call((token) => reportPromotionClick(token, promotionId))} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <section aria-labelledby={listId} aria-busy={results.kind === 'loading'}>
         <h2 id={listId} className="text-h3">
           {RESULTS_LABEL}
@@ -169,15 +207,7 @@ export function DirectoryScreen() {
           <ul aria-label={RESULTS_LABEL} className="mt-3 flex flex-col gap-3">
             {results.cards.map((card) => (
               <li key={card.id} className="rounded-lg bg-card p-4 shadow-card">
-                <Link to={professionalPagePath(card.id)} className="text-h3 text-primary-strong underline-offset-4 hover:underline">
-                  {card.fullName}
-                </Link>
-                {card.businessName === null ? null : <p className="text-small text-muted-foreground">{card.businessName}</p>}
-                <p className="mt-1 text-label">{fieldText(card.field, card.fieldOther)}</p>
-                <p className="mt-1 text-small text-muted-foreground">
-                  {[yearsText(card.yearsExperience), areaText(card.area), priceText(card.priceFrom)].filter((part) => part !== null).join(' · ')}
-                </p>
-                <p className="mt-1 text-small">{ratingText(card.rating, card.reviewCount)}</p>
+                <Card card={card} />
               </li>
             ))}
           </ul>

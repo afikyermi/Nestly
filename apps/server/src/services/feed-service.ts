@@ -41,6 +41,7 @@ import { readOwnTopicWeights } from '../repositories/search-repository.js';
 import type { MediaStorage } from '../media/storage-admin.js';
 import type { PostImageRow } from '../repositories/media-repository.js';
 import { imagesByPost, readPostImageRows } from './posts-service.js';
+import { professionalAuthorsOf, promotedPosts, recordExposure } from './promoted-units.js';
 
 /** The caller cannot read a feed: a stopped account (ERR-037), or an account that is neither a Regular parent's nor a Professional's. */
 export type FeedRefusal = { readonly kind: 'stopped' } | { readonly kind: 'forbidden' };
@@ -181,6 +182,8 @@ async function readPage(tx: IdentityTx, viewerId: string, cursor: FeedCursor | n
   const asOf = after === null ? clock.nowText : after.asOf;
   // The Stage is read in the Regular branch only: the content profile's statement has no Stage term to give it to.
   // FR-ALG-008: the viewer's own search topics, weighted for this snapshot's asOf, in the Regular branch only and only above weight 0.
+  // I13 (§11.2): the same Stage also decides which promoted posts are relevant to the viewer, so it is read once here (Regular only)
+  const ownStages = viewer.profile === 'regular' ? await readOwnStages(tx) : [];
   const parameters: RankingParameters =
     viewer.profile === 'regular'
       ? {
@@ -188,7 +191,7 @@ async function readPage(tx: IdentityTx, viewerId: string, cursor: FeedCursor | n
           asOf,
           config,
           after,
-          stages: readsViewerStages(viewer.profile, config.wStage) ? await readOwnStages(tx) : [],
+          stages: readsViewerStages(viewer.profile, config.wStage) ? ownStages : [],
           intents: config.wIntent > 0 ? await readIntents(tx, asOf, config.intentHalfLifeHours) : [],
         }
       : viewer.review === true
@@ -228,6 +231,30 @@ async function readPage(tx: IdentityTx, viewerId: string, cursor: FeedCursor | n
           createdAt: last.createdAt,
           id: last.id,
         });
+  // I13 (FR-ALG-007, §11.2): promoted posts relevant to the viewer (a search topic or its Stage), each in its own slot after every 4 to 7
+  // organic posts; read after the organic order is fixed and never part of it (BR-004, AC-062). A staff reviewer gets none.
+  const promoted: { promotionId: string; afterIndex: number; unit: FeedUnit }[] = [];
+  if (viewer.review !== true) {
+    const intents = parameters.profile === 'regular' && (parameters.intents?.length ?? 0) > 0 ? (parameters.intents ?? []) : await readIntents(tx, asOf, config.intentHalfLifeHours);
+    const stages = ownStages;
+    const slots = await promotedPosts(tx, intents.map((intent) => intent.pattern), stages, new Set(pageIds), items.length);
+    if (slots.length > 0) {
+      const ids = slots.map((slot) => slot.postId);
+      const promotedRows = new Map((await readDisplayPosts(tx, ids)).map((row) => [row.id, row]));
+      const promotedLikes = await readLikeCounts(tx, 'post', ids);
+      const promotedComments = await readCommentCounts(tx, ids);
+      const promotedLiked = await readLikedTargetIds(tx, ids);
+      imageRows.push(...(await readPostImageRows(tx, storage, ids)));
+      for (const slot of slots) {
+        const row = promotedRows.get(slot.postId);
+        const unit =
+          row === undefined
+            ? undefined
+            : unitOf(row, { likeCount: promotedLikes.get(slot.postId) ?? 0, commentCount: promotedComments.get(slot.postId) ?? 0, likedByMe: promotedLiked.has(slot.postId) });
+        if (unit !== undefined) promoted.push({ promotionId: slot.promotionId, afterIndex: slot.afterIndex, unit: { ...unit, source: 'promoted' } });
+      }
+    }
+  }
   // I14 (FR-ADMIN-008): the published System Announcements ride on the first page only, never into the ranking
   const announcements = after === null ? await readPublishedAnnouncements(tx) : [];
   const page = feedPageResponse.parse({
@@ -236,6 +263,7 @@ async function readPage(tx: IdentityTx, viewerId: string, cursor: FeedCursor | n
     configVersion,
     ...(resolution.restarted ? { restarted: true } : {}),
     ...(announcements.length > 0 ? { announcements } : {}),
+    ...(promoted.length > 0 ? { promoted } : {}),
   });
   return { kind: 'page', page, fallback: resolution.fallback };
 }
@@ -247,11 +275,22 @@ async function readPage(tx: IdentityTx, viewerId: string, cursor: FeedCursor | n
 export async function readFeedPage(database: Database, identity: Identity, cursor: FeedCursor | null, storage?: MediaStorage): Promise<FeedOutcome> {
   const imageRows: PostImageRow[] = [];
   const outcome = await inIdentityTransaction(database, identity, (tx) => readPage(tx, identity.userId, cursor, storage, imageRows), { isolationLevel: 'repeatable read' });
-  if (outcome.kind !== 'page' || imageRows.length === 0) return outcome;
+  if (outcome.kind !== 'page') return outcome;
+  // I13 (OP-039, FR-PRO-002, FR-ALG-007): the page's exposure — a post view, its Professionals' organic post views, the promoted posts'
+  // impressions — recorded after the page was read, in its own transaction (never the page's failure)
+  const promoted = outcome.page.promoted ?? [];
+  await recordExposure(database, identity, {
+    usage: 'post_view',
+    impressions: promoted.map((slot) => slot.promotionId),
+    professionalViews: (await professionalAuthorsOf(database, identity, outcome.page.items.map((item) => item.id))).map((professionalId) => ({ professionalId, kind: 'post_view' as const })),
+  });
+  if (imageRows.length === 0) return outcome;
   const imagesOf = await imagesByPost(storage, imageRows);
-  const items = outcome.page.items.map((item) => {
+  const withImages = <T extends FeedUnit>(item: T): T => {
     const images = item.kind === 'post' ? imagesOf.get(item.id) : undefined;
     return images === undefined ? item : { ...item, images };
-  });
-  return { ...outcome, page: feedPageResponse.parse({ ...outcome.page, items }) };
+  };
+  const items = outcome.page.items.map(withImages);
+  const promotedWithImages = promoted.map((slot) => ({ ...slot, unit: withImages(slot.unit) }));
+  return { ...outcome, page: feedPageResponse.parse({ ...outcome.page, items, ...(promotedWithImages.length > 0 ? { promoted: promotedWithImages } : {}) }) };
 }

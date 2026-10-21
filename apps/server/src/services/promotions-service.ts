@@ -12,6 +12,9 @@ import {
   type PromotionOverview,
   type PromotionPurchase,
   type PromotionPurchaseResult,
+  type PromotionSettingsResponse,
+  type PromotionSettingsWrite,
+  type PromotionStop,
   type PromotionTargetKind,
 } from '@nestly/shared';
 import type { Database } from '../db/client.js';
@@ -29,6 +32,9 @@ import {
   readOwnPromotions,
   readPlans,
   readPromotablePosts,
+  readPromotionSettingsHistory,
+  insertPromotionSettings,
+  staffStopPromotion,
   stopPromotion,
 } from '../repositories/promotions-repository.js';
 import { simulatedPayments, type PaymentProvider } from './payment-provider.js';
@@ -164,12 +170,73 @@ export async function recordClick(database: Database, identity: Identity, id: st
   );
 }
 
-/** GET /api/admin/promotions (PG-059, ⭐ 1): every promotion and payment, read only; BILLING_FINANCE_MANAGE (Admin Only), else forbidden. */
+/** Which promotions a staff account works with (§11.1): CONTENT_MODERATE the Professionals' (profile, post), MARKETPLACE_MODERATE the listings'. */
+function staffKinds(access: { readonly role: 'admin' | 'moderator'; readonly permissions: readonly string[] }): PromotionTargetKind[] {
+  if (access.role === 'admin') return ['profile', 'post', 'listing'];
+  const { permissions } = access;
+  return [
+    ...(permissions.includes('CONTENT_MODERATE') ? (['profile', 'post'] as const) : []),
+    ...(permissions.includes('MARKETPLACE_MODERATE') ? (['listing'] as const) : []),
+  ];
+}
+
+/**
+ * GET /api/admin/promotions (§11.1, PG-059): the promotions a staff account works with — the Admin every one, with the payments' totals
+ * (BILLING_FINANCE_MANAGE, Admin Only); a Moderator those of its moderation keys; anyone else forbidden. Counts only.
+ */
 export async function readAdminView(database: Database, identity: Identity): Promise<PromotionOutcome<{ view: AdminPromotions }>> {
   return inIdentityTransaction(database, identity, async (tx): Promise<PromotionOutcome<{ view: AdminPromotions }>> => {
     const access = await readStaffAccess(tx);
-    // BILLING_FINANCE_MANAGE is Admin Only (§3.2): no Moderator holds it, so the Admin's role is the check; the finance policies decide the rows
-    if (access?.role !== 'admin') return { kind: 'forbidden' };
-    return { kind: 'ok', view: await readAdminPromotions(tx) };
+    if (access === undefined) return { kind: 'forbidden' };
+    // BILLING_FINANCE_MANAGE is Admin Only (§3.2): the Admin's role is the check; the finance policies decide the rows
+    const isFinance = access.role === 'admin';
+    const kinds = staffKinds(access);
+    if (!isFinance && kinds.length === 0) return { kind: 'forbidden' };
+    const view = await readAdminPromotions(tx);
+    const promotions = isFinance ? view.promotions : view.promotions.filter((row) => kinds.includes(row.targetKind));
+    const totals = isFinance
+      ? view.totals
+      : {
+          ...view.totals,
+          payments: 0,
+          sampleRevenueIls: 0,
+          running: promotions.filter((row) => row.state === 'running').length,
+          stopped: promotions.filter((row) => row.state === 'stopped').length,
+          ended: promotions.filter((row) => row.state === 'ended').length,
+          impressions: promotions.reduce((sum, row) => sum + row.impressions, 0),
+          clicks: promotions.reduce((sum, row) => sum + row.clicks, 0),
+        };
+    return { kind: 'ok', view: { totals, promotions, isFinance } };
   });
+}
+
+/** POST /api/admin/promotions/:id/stop (§11.1): staff with the target's moderation key stop a running promotion, with a reason; no refund. */
+export async function staffStop(database: Database, identity: Identity, id: string, stop: PromotionStop): Promise<PromotionOutcome<object>> {
+  return guarded(() =>
+    inIdentityTransaction(database, identity, async (tx): Promise<PromotionOutcome<object>> => {
+      const access = await readStaffAccess(tx);
+      if (access === undefined || staffKinds(access).length === 0) return { kind: 'forbidden' };
+      return (await staffStopPromotion(tx, id, stop.reason)) === 0 ? { kind: 'unavailable' } : { kind: 'ok' };
+    }),
+  );
+}
+
+/** GET /api/admin/promotion-settings (§11.2): every version, newest first; BILLING_FINANCE_MANAGE (the Admin) only. */
+export async function readSettings(database: Database, identity: Identity): Promise<PromotionOutcome<{ settings: PromotionSettingsResponse }>> {
+  return inIdentityTransaction(database, identity, async (tx): Promise<PromotionOutcome<{ settings: PromotionSettingsResponse }>> => {
+    const access = await readStaffAccess(tx);
+    if (access?.role !== 'admin') return { kind: 'forbidden' };
+    return { kind: 'ok', settings: { versions: await readPromotionSettingsHistory(tx) } };
+  });
+}
+
+/** POST /api/admin/promotion-settings (§11.2, BR-059): a new version with a reason (audited with the previous values). */
+export async function writeSettings(database: Database, identity: Identity, write: PromotionSettingsWrite): Promise<PromotionOutcome<{ version: number }>> {
+  return guarded(() =>
+    inIdentityTransaction(database, identity, async (tx): Promise<PromotionOutcome<{ version: number }>> => {
+      const access = await readStaffAccess(tx);
+      if (access?.role !== 'admin') return { kind: 'forbidden' };
+      return { kind: 'ok', version: await insertPromotionSettings(tx, write) };
+    }),
+  );
 }

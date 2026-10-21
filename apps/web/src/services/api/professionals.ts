@@ -17,6 +17,7 @@ import {
   type ProfessionalDashboard,
   type ProfessionalPage,
   type ProfessionalProfileInput,
+  type PromotedProfessional,
   type ProfessionalRegistrationInput,
 } from '@nestly/shared';
 
@@ -91,11 +92,16 @@ export async function fetchAccountKind(token: string): Promise<ProResult<Account
 }
 
 export async function fetchDirectory(token: string, query: DirectoryQuery): Promise<ProResult<ProfessionalCard[]>> {
+  const result = await fetchDirectoryPage(token, query);
+  return result.kind === 'ok' ? { kind: 'ok', value: result.value.professionals } : result;
+}
+
+/** GET /api/professionals with the promoted Professionals that match the same filters (I13: shown apart, labelled "ממומן"). */
+export function fetchDirectoryPage(token: string, query: DirectoryQuery): Promise<ProResult<{ professionals: ProfessionalCard[]; promoted: PromotedProfessional[] }>> {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) if (value !== undefined) params.set(key, String(value));
   const text = params.toString();
-  const result = await call(token, 'GET', text === '' ? '/api/professionals' : `/api/professionals?${text}`, directoryResponse);
-  return result.kind === 'ok' ? { kind: 'ok', value: result.value.professionals } : result;
+  return call(token, 'GET', text === '' ? '/api/professionals' : `/api/professionals?${text}`, directoryResponse);
 }
 
 /** GET /api/professionals/following (PG-039): the Professionals the caller follows. */

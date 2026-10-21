@@ -7,11 +7,15 @@
 //   POST   /api/promotions/:id/stop             → 204 · 404 unavailable (the owner, a running promotion)
 //   POST   /api/promotions/:id/click            → 204 · 403 not_allowed (a viewer opened a promoted unit: a paid click)
 //   GET    /api/promotions/billing              → 200 { payments } (PG-042: the caller's simulated payments)
-//   GET    /api/admin/promotions                → 200 { totals, promotions } · 403 forbidden (PG-059: Admin Only, read only)
+//   GET    /api/admin/promotions                → 200 { totals, promotions, isFinance } · 403 forbidden (§11.1: the Admin; a Moderator with
+//                                                 CONTENT_MODERATE / MARKETPLACE_MODERATE sees the promotions of its keys)
+//   POST   /api/admin/promotions/:id/stop { reason } → 204 · 404 unavailable · 403 forbidden (§11.1: audited, no refund)
+//   GET    /api/admin/promotion-settings        → 200 { versions } · 403 forbidden (§11.2: BILLING_FINANCE_MANAGE)
+//   POST   /api/admin/promotion-settings { … }  → 201 { version } · 403 forbidden (§11.2, BR-059: a new version with a reason)
 //   all: 400 invalid · 401/503 session guard · 503 · 500 server_error. Other methods → 405 with Allow.
 // No route here reads a query string. Logs carry a fixed line and the SQLSTATE, never an id, a plan or a target.
 
-import { promotionIdParams, promotionPurchaseSchema } from '@nestly/shared';
+import { promotionIdParams, promotionPurchaseSchema, promotionSettingsWriteSchema, promotionStopSchema } from '@nestly/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
 import type { Identity } from '../lib/token-verifier.js';
@@ -21,8 +25,11 @@ import {
   readAdminView,
   readBilling,
   readOverview,
+  readSettings,
   recordClick,
+  staffStop,
   stopOwnPromotion,
+  writeSettings,
   type PromotionOutcome,
   type PromotionRefusal,
 } from '../services/promotions-service.js';
@@ -112,4 +119,22 @@ export function registerPromotionsRoutes(app: FastifyInstance, deps: PromotionsR
     answer(request, reply, db(), 'admin promotions failed', (database, identity) => readAdminView(database, identity), (v) => v.view),
   );
   others('/api/admin/promotions', ['GET']);
+
+  app.post('/api/admin/promotions/:id/stop', { bodyLimit: 2 * 1024 }, (request, reply) => {
+    const id = idOf(request);
+    const body = promotionStopSchema.safeParse(request.body);
+    if (!id.success || !body.success) return invalid(reply);
+    return answer(request, reply, db(), 'staff promotion stop failed', (database, identity) => staffStop(database, identity, id.data.id, body.data), () => null);
+  });
+  others('/api/admin/promotions/:id/stop', ['POST']);
+
+  app.get('/api/admin/promotion-settings', (request, reply) =>
+    answer(request, reply, db(), 'promotion settings failed', (database, identity) => readSettings(database, identity), (v) => v.settings),
+  );
+  app.post('/api/admin/promotion-settings', { bodyLimit: 2 * 1024 }, (request, reply) => {
+    const body = promotionSettingsWriteSchema.safeParse(request.body);
+    if (!body.success) return invalid(reply);
+    return answer(request, reply, db(), 'promotion settings write failed', (database, identity) => writeSettings(database, identity, body.data), (v) => ({ version: v.version }), 201);
+  });
+  others('/api/admin/promotion-settings', ['GET', 'POST']);
 }

@@ -55,6 +55,7 @@ import {
 } from '../repositories/marketplace-repository.js';
 import { readOwnTopicWeights, recordTopics } from '../repositories/search-repository.js';
 import { withUrls } from './media-service.js';
+import { promotedListings, recordExposure } from './promoted-units.js';
 
 export type MarketRefusal =
   | { readonly kind: 'invalid' }
@@ -203,15 +204,20 @@ export async function listMarketplace(database: Database, identity: Identity, st
     const weights = (query.sort ?? 'match') === 'match' ? await readOwnTopicWeights(tx, new Date().toISOString(), INTENT_HALF_LIFE_HOURS) : [];
     const listings = await readMarketplace(tx, query, weights);
     const sponsored = await readPublishedSponsored(tx, query.category);
-    const images = storage === undefined ? [] : await readListingImages(tx, listings.map((row) => row.id));
+    // I13 (§11.3, FR-MKT-004): every promoted listing that matches the same search and filters, at the top, labelled "מודעה מקודמת"
+    const promoted = await promotedListings(tx, query);
+    const promotedIds = new Set(promoted.map((unit) => unit.row.id));
+    const images = storage === undefined ? [] : await readListingImages(tx, [...listings.map((row) => row.id), ...promotedIds]);
     const sponsoredImages = storage === undefined ? [] : await readSponsoredImages(tx, sponsored.map((row) => row.id));
-    return { listings, sponsored, images, sponsoredImages };
+    return { listings: listings.filter((row) => !promotedIds.has(row.id)), sponsored, promoted, images, sponsoredImages };
   });
-  const byListing = await imagesByKey(storage, coverRows(read.listings, read.images));
+  const byListing = await imagesByKey(storage, coverRows([...read.listings, ...read.promoted.map((unit) => unit.row)], read.images));
   const byProduct = await imagesByKey(storage, read.sponsoredImages);
+  if (read.promoted.length > 0) await recordExposure(database, identity, { impressions: read.promoted.map((unit) => unit.promotionId) });
   return {
     listings: read.listings.map((row) => card(row, byListing.get(row.id))),
     sponsored: read.sponsored.map((row) => sponsoredCard(row, byProduct.get(row.id))),
+    promoted: read.promoted.map((unit) => ({ promotionId: unit.promotionId, listing: card(unit.row, byListing.get(unit.row.id)) })),
   };
 }
 

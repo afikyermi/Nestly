@@ -15,6 +15,7 @@ import {
   type ProfessionalDashboard,
   type ProfessionalPage,
   type ProfessionalProfileWrite,
+  type PromotedProfessional,
   type ReviewWrite,
   TOPIC_RULES,
   topicPatternSource,
@@ -24,6 +25,7 @@ import { inIdentityTransaction } from '../db/identity-transaction.js';
 import { readDatabaseFault } from '../lib/pg-error.js';
 import type { Identity } from '../lib/token-verifier.js';
 import { markRead } from '../repositories/chat-repository.js';
+import { promotedProfessionals, recordExposure } from './promoted-units.js';
 import {
   answerOutreach,
   deleteArticle,
@@ -129,22 +131,29 @@ export async function readAccountKind(database: Database, identity: Identity): P
 
 // ---- directory, page, profile ----------------------------------------------------------------------------------------------------------
 
-/** GET /api/professionals (FR-SERV-001/002, FR-ALG-005). */
-export async function listProfessionals(database: Database, identity: Identity, query: DirectoryQuery): Promise<ProfessionalCard[]> {
-  return inIdentityTransaction(database, identity, async (tx) => {
+/**
+ * GET /api/professionals (FR-SERV-001/002, FR-ALG-005; I13 FR-ALG-007): the organic list as asked and, apart from it, the promoted
+ * Professionals that match the same filters (labelled "ממומן"); their impressions are recorded after the read (never the page's failure).
+ */
+export async function listProfessionals(database: Database, identity: Identity, query: DirectoryQuery): Promise<{ professionals: ProfessionalCard[]; promoted: PromotedProfessional[] }> {
+  const read = await inIdentityTransaction(database, identity, async (tx) => {
     const patterns =
       (query.sort ?? 'match') === 'match'
         ? (await readOwnTopicWeights(tx, new Date().toISOString(), INTENT_HALF_LIFE_HOURS)).flatMap(({ topic, weight }) =>
             TOPIC_RULES[topic] === undefined || weight <= 0 ? [] : [{ pattern: topicPatternSource(topic), weight }],
           )
         : [];
-    return readDirectory(tx, query, patterns);
+    const professionals = await readDirectory(tx, query, patterns);
+    const promoted = await promotedProfessionals(tx, query);
+    return { professionals, promoted };
   });
+  if (read.promoted.length > 0) await recordExposure(database, identity, { impressions: read.promoted.map((unit) => unit.promotionId) });
+  return read;
 }
 
 /** GET /api/professionals/:id (FR-SERV-003). */
 export async function readProfessional(database: Database, identity: Identity, id: string): Promise<ProOutcome<{ page: ProfessionalPage }>> {
-  return inIdentityTransaction(database, identity, async (tx): Promise<ProOutcome<{ page: ProfessionalPage }>> => {
+  const outcome = await inIdentityTransaction(database, identity, async (tx): Promise<ProOutcome<{ page: ProfessionalPage }>> => {
     const head = await readProfessionalHead(tx, id);
     if (head === undefined) return { kind: 'unavailable' };
     const caller = await readOwnAccountType(tx);
@@ -158,6 +167,9 @@ export async function readProfessional(database: Database, identity: Identity, i
     };
     return { kind: 'ok', page };
   });
+  // FR-PRO-002 (I13): an organic view of the Professional's profile, recorded apart from the read (its own view, staff and a block: dropped)
+  if (outcome.kind === 'ok' && !outcome.page.isMe) await recordExposure(database, identity, { professionalViews: [{ professionalId: id, kind: 'profile_view' }] });
+  return outcome;
 }
 
 /** PUT /api/professional/profile: the owner's edit. */

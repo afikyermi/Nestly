@@ -52,6 +52,8 @@ export const promotionItem = z.strictObject({
   startsAt: at,
   endsAt: at,
   stoppedAt: at.nullable(),
+  /** §11.1: who stopped it — the owner, or staff (the screen says "הקידום הופסק"; no refund). */
+  stoppedBy: z.enum(['owner', 'staff']).nullable(),
   postId: uuid.nullable(),
   listingId: uuid.nullable(),
   targetLabel: z.string().nullable(),
@@ -109,7 +111,10 @@ export const billingItem = z.strictObject({
 export type BillingItem = z.infer<typeof billingItem>;
 export const billingResponse = z.strictObject({ payments: z.array(billingItem) });
 
-/** The Admin's view of promotions and payments (PG-059, BILLING_FINANCE_MANAGE, Admin Only): read only, counts only. */
+/**
+ * The staff view of promotions (§11.1): the Admin sees every promotion and the payments' totals (BILLING_FINANCE_MANAGE, Admin Only); a Moderator
+ * with CONTENT_MODERATE the promotions of Professionals, with MARKETPLACE_MODERATE those of listings. Counts only, never who saw them.
+ */
 export const adminPromotionItem = z.strictObject({
   id: uuid,
   ownerName: z.string().nullable(),
@@ -119,6 +124,7 @@ export const adminPromotionItem = z.strictObject({
   state: z.enum(PROMOTION_STATES),
   startsAt: at,
   endsAt: at,
+  stoppedBy: z.enum(['owner', 'staff']).nullable(),
   amountIls: z.number().int().positive(),
   impressions: count,
   clicks: count,
@@ -127,8 +133,57 @@ export type AdminPromotionItem = z.infer<typeof adminPromotionItem>;
 export const adminPromotionsResponse = z.strictObject({
   totals: z.strictObject({ running: count, stopped: count, ended: count, payments: count, sampleRevenueIls: count, impressions: count, clicks: count }),
   promotions: z.array(adminPromotionItem),
+  /** The Admin only (BILLING_FINANCE_MANAGE): the payments' totals and the settings are shown; a Moderator sees its promotions only. */
+  isFinance: z.boolean(),
 });
 export type AdminPromotions = z.infer<typeof adminPromotionsResponse>;
 
 /** A promoted unit's handle on a surface: the promotion it was served for (a click is reported with it). */
 export const promotionRef = z.strictObject({ promotionId: uuid });
+
+/** POST /api/admin/promotions/:id/stop (§11.1): the reason, written to the Audit Log (1 to 500 characters after trimming). */
+export const promotionStopSchema = z.strictObject({ reason: z.string().trim().min(1).max(500) });
+export type PromotionStop = z.output<typeof promotionStopSchema>;
+
+/** §11.2, FR-ALG-007, BR-059: the settings of promoted units — a new version, with a reason (BILLING_FINANCE_MANAGE). */
+export const promotionSettingsWriteSchema = z
+  .strictObject({
+    dailyCap: z.number().int().min(1).max(100),
+    directoryUnitsPerPage: z.number().int().min(1).max(3),
+    feedGapMin: z.number().int().min(1).max(20),
+    feedGapMax: z.number().int().min(1).max(20),
+    feedLowPosts: z.number().int().min(0).max(100000),
+    feedHighPosts: z.number().int().min(1).max(100000),
+    reason: z.string().trim().min(1).max(500),
+  })
+  .refine((v) => v.feedGapMax >= v.feedGapMin, { message: 'gap_order', path: ['feedGapMax'] })
+  .refine((v) => v.feedHighPosts > v.feedLowPosts, { message: 'posts_order', path: ['feedHighPosts'] });
+export type PromotionSettingsWrite = z.output<typeof promotionSettingsWriteSchema>;
+export type PromotionSettingsWriteInput = z.input<typeof promotionSettingsWriteSchema>;
+
+export const promotionSettingsVersion = z.strictObject({
+  version: z.number().int().positive(),
+  dailyCap: z.number().int(),
+  directoryUnitsPerPage: z.number().int(),
+  feedGapMin: z.number().int(),
+  feedGapMax: z.number().int(),
+  feedLowPosts: z.number().int(),
+  feedHighPosts: z.number().int(),
+  reason: z.string(),
+  at,
+});
+export type PromotionSettingsVersion = z.infer<typeof promotionSettingsVersion>;
+export const promotionSettingsResponse = z.strictObject({ versions: z.array(promotionSettingsVersion) });
+export type PromotionSettingsResponse = z.infer<typeof promotionSettingsResponse>;
+
+/**
+ * §11.2: the organic posts between two promoted posts — feedGapMin when the last 48 hours had at most feedLowPosts posts, feedGapMax at or above
+ * feedHighPosts, and in between by the same proportion, rounded.
+ */
+export function feedPromotionGap(config: { feedGapMin: number; feedGapMax: number; feedLowPosts: number; feedHighPosts: number }, recentPosts: number): number {
+  if (recentPosts <= config.feedLowPosts) return config.feedGapMin;
+  if (recentPosts >= config.feedHighPosts) return config.feedGapMax;
+  const share = (recentPosts - config.feedLowPosts) / (config.feedHighPosts - config.feedLowPosts);
+  return config.feedGapMin + Math.round((config.feedGapMax - config.feedGapMin) * share);
+}
+export const promotionSettingsCreated = z.strictObject({ version: z.number().int().positive() });
