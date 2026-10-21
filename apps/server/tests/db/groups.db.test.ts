@@ -61,6 +61,8 @@ beforeAll(async () => {
 }, COLD_START_MS * 3);
 
 afterAll(async () => {
+  // the Friendship made in beforeAll is committed: removed, so a later run on the same database counts none
+  await side`select tests.fx_fr_purge(${owner}::uuid)`.catch(() => undefined);
   await app.close();
   await database.close();
   await jwks.close();
