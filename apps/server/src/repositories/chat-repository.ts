@@ -180,14 +180,27 @@ export async function readThread(tx: IdentityTx, conversationId: string): Promis
     );
     if (opening !== undefined && messages.length < THREAD_LIMIT) thread.unshift({ ...opening, isOpening: true });
   }
-  // I11 (FR-SERV-006): an accepted Offer Help's first message opens its conversation, as a chat request's does.
-  if (head.outreachRequestId !== null) {
-    const [opening] = z.array(z.object({ id: z.guid(), text: z.string(), at: z.string(), mine: z.boolean() })).parse(
-      await tx.execute(sql`
-        select o.id, o.opening_message as text, to_char(o.created_at at time zone 'UTC', ${isoMs}) as at, o.professional_id = (select auth.uid()) as mine
-        from nestly.outreach_requests o where o.id = ${head.outreachRequestId}::uuid`),
-    );
-    if (opening !== undefined && messages.length < THREAD_LIMIT) thread.unshift({ ...opening, isOpening: true });
+  // I11 (FR-SERV-006): an accepted Offer Help's first message opens its conversation, as a chat request's does. An Offer Help accepted when the
+  // pair already had a conversation (it is reused) shows its first message there too, in time order (I11 follow-ups). Each side reads only what
+  // its policies show: the Professional its own requests, the author only those on its own posts (so any it reads from this pair's Professional
+  // belongs here). On the Professional's side an Offer Help on an anonymous
+  // post shows only in the conversation it opened (outreach_request_id): nothing here ties another conversation to that post's author.
+  const openings = z.array(z.object({ id: z.guid(), text: z.string(), at: z.string(), mine: z.boolean() })).parse(
+    await tx.execute(sql`
+      select o.id, o.opening_message as text, to_char(o.created_at at time zone 'UTC', ${isoMs}) as at, o.professional_id = (select auth.uid()) as mine
+      from nestly.outreach_requests o join nestly.conversations c on c.id = ${conversationId}::uuid
+      where o.professional_id in (c.user_a, c.user_b)
+        and (o.id = c.outreach_request_id
+          or (o.status = 'accepted' and (o.professional_id <> (select auth.uid())
+            or exists (select 1 from nestly.posts p where p.id = o.post_id and p.author_id in (c.user_a, c.user_b)))))
+      order by o.created_at, o.id`),
+  );
+  if (openings.length > 0) {
+    // inside the window the thread shows: everything when it is not full, else only what is not older than its first message
+    const first = messages.length < THREAD_LIMIT ? undefined : messages[0]?.at;
+    const shown = openings.filter((opening) => first === undefined || opening.at >= first).map((opening) => ({ ...opening, isOpening: true }));
+    thread.push(...shown);
+    thread.sort((x, y) => (x.at === y.at ? Number(y.isOpening) - Number(x.isOpening) : x.at < y.at ? -1 : 1));
   }
   return {
     id: head.id,

@@ -1,7 +1,17 @@
 import { CONVERSATION_PATTERN, SUPPORT_THREAD_PATTERN } from '@/lib/chat-link';
 import { POST_PATTERN } from '@/lib/post-link';
 import { USER_PROFILE_PATTERN } from '@/lib/profile-link';
-import { OFFERS_PATH, PRO_ARTICLES_PATH, PRO_PROFILE_PATH, PROFESSIONAL_PAGE_PATTERN, SERVICES_PATH } from '@/lib/professional-link';
+import {
+  FOLLOWING_PATH,
+  HELP_REQUESTS_PATH,
+  OFFERS_PATH,
+  PRO_ARTICLES_PATH,
+  PRO_BILLING_PATH,
+  PRO_PROFILE_PATH,
+  PRO_PROMOTION_PATH,
+  PROFESSIONAL_PAGE_PATTERN,
+  SERVICES_PATH,
+} from '@/lib/professional-link';
 import { TRACKER_PATTERN } from '@/lib/tracker-link';
 import { EDIT_LISTING_PATTERN, LISTING_PATTERN, MARKETPLACE_PATH, MY_LISTINGS_PATH, NEW_LISTING_PATH } from '@/lib/marketplace-link';
 import { GROUP_PATTERN } from '@/lib/group-link';
@@ -89,6 +99,12 @@ export const PATHS = {
   /** I12: the staff's Marketplace listings (MARKETPLACE_MODERATE) and Sponsored Products (FR-ADMIN-009, Admin only). */
   adminMarketplace: '/admin/marketplace',
   adminSponsored: '/admin/sponsored',
+  /** I11 follow-ups (Afik 21.10.2026, §9.8): the Professionals one follows (PG-039), a Professional's help-requests page, and its promotion and
+   *  billing pages (I13 fills them). */
+  following: FOLLOWING_PATH,
+  helpRequests: HELP_REQUESTS_PATH,
+  proPromotion: PRO_PROMOTION_PATH,
+  proBilling: PRO_BILLING_PATH,
 } as const;
 
 /** The only paths a Guest may open. */
@@ -140,6 +156,10 @@ export const PROTECTED_PATHS: readonly string[] = [
   PATHS.newListing,
   PATHS.adminMarketplace,
   PATHS.adminSponsored,
+  PATHS.following,
+  PATHS.helpRequests,
+  PATHS.proPromotion,
+  PATHS.proBilling,
 ];
 
 /** Where a Guest goes from a protected path (ERR-012, Q3): Welcome. The requested path is not kept. */

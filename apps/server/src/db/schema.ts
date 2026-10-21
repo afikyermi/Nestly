@@ -95,6 +95,8 @@ export const legalConsents = nestly.table('legal_consents', {
   termsVersion: text('terms_version').notNull(),
   privacyVersion: text('privacy_version').notNull(),
   hasDeclared18Plus: boolean('has_declared_18_plus').notNull(),
+  /** I11 follow-ups (Afik 21.10.2026): a Professional's training-and-licence declaration; false for every other account. */
+  hasDeclaredQualification: boolean('has_declared_qualification').notNull(),
 });
 
 // Write models. INSERT target only. Names exactly the columns granted INSERT (migration 20261014200000 §6); Drizzle
@@ -159,6 +161,14 @@ export const legalConsentsInsert = nestly.table('legal_consents', {
   termsVersion: text('terms_version').notNull(),
   privacyVersion: text('privacy_version').notNull(),
   hasDeclared18Plus: boolean('has_declared_18_plus').notNull(),
+});
+
+/** A Professional's consent (FR-PROREG-002): the same columns and the qualification declaration (I11 follow-ups, migration 20261022500000). */
+export const professionalConsentsInsert = nestly.table('legal_consents', {
+  termsVersion: text('terms_version').notNull(),
+  privacyVersion: text('privacy_version').notNull(),
+  hasDeclared18Plus: boolean('has_declared_18_plus').notNull(),
+  hasDeclaredQualification: boolean('has_declared_qualification').notNull(),
 });
 
 // Password recovery (I1 F1.6; schema.md). The hashes and salts are selectable through this schema only by app_recovery

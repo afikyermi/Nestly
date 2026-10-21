@@ -8,13 +8,15 @@ import { Button } from '@/components/ui/button';
 import { ArrowBackIcon } from '@/components/ui/icons';
 import { useSessionAccount } from '@/hooks/use-session-account';
 import { useSessionEntry } from '@/hooks/use-session-entry';
-import { registerAccount } from '@/services/api/register-account';
+import { registerAccount, type RegisterOutcome } from '@/services/api/register-account';
 import { ConsentField } from './ConsentField';
 import { GENERIC_ERROR_TEXT, RETRY_TEXT } from './step2-form';
 
 export interface RegisterConsentStepProps {
-  /** The parsed step-1 value, in memory only; it goes to the server with the consent declaration. */
-  step1: RegistrationStep1;
+  /** The parsed step-1 value, in memory only; it goes to the server with the consent declaration. Null with `submitAccount` (I11 follow-ups). */
+  step1: RegistrationStep1 | null;
+  /** I11 follow-ups (FR-REG-004, AC-100): creates another kind of account (a Professional's) with the held session instead of POST /api/register. */
+  submitAccount?: (accessToken: string) => Promise<RegisterOutcome>;
   onBack: () => void;
   onSignOut: () => void;
   /** The server did not accept the held session (401): the page signs out and leads to the login screen. */
@@ -25,7 +27,7 @@ type Notice = 'retry' | 'generic' | null;
 
 // The completion step (F1.5 criterion 16): the user signed in with Auth but the account was never created. Only the consent is
 // asked again (it is recorded at creation); the held session goes to POST /api/register, with no sign-up and no email or password.
-export function RegisterConsentStep({ step1, onBack, onSignOut, onUnauthenticated }: RegisterConsentStepProps) {
+export function RegisterConsentStep({ step1, submitAccount, onBack, onSignOut, onUnauthenticated }: RegisterConsentStepProps) {
   const account = useSessionAccount();
   const sessionEntry = useSessionEntry();
   const formRef = useRef<HTMLFormElement>(null);
@@ -66,7 +68,7 @@ export function RegisterConsentStep({ step1, onBack, onSignOut, onUnauthenticate
         onUnauthenticated();
         return;
       }
-      const outcome = await registerAccount(token, step1);
+      const outcome = submitAccount !== undefined ? await submitAccount(token) : step1 !== null ? await registerAccount(token, step1) : 'failed';
       if (outcome === 'created') {
         finished = true;
         sessionEntry.signIn();

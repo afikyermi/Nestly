@@ -23,17 +23,8 @@
 | I13 · I9 | | ⬜ |
 
 ### כל ענף פתוח (נעצר 21.10, ‏~08:40, סוף הסשן)
-- **I12 — `build/i12-code`** (worktree `.work/wt/i12s`): migration #152 מוזג והורץ (preview, production). PR הקוד — שרת, מסכי Marketplace ואדמין, טסטים, SRS 2.33. **ממתין:** אפיק — OP-053 (מודעה שדווחה: מחיקה מיידית או שמירה מוסתרת כמו פוסט); flow ה-e2e-preview ‏(`marketplace.flow.ts`) רץ ב-`preview-e2e` מ-main אחרי המיזוג. לסבב הבאגים 25–26.10: הסתרה ע"י MARKETPLACE_MODERATE בלבד לא מזינה את סט האימון; תמונה של מוצר ממומן שהוסר לא נמחקת; דיווח פתוח על מודעה שנמחקה לא פג.
-- **השלמות I11 — `build/i11-followups`** (‏e8285de, ‏WIP, אין PR; worktree `.work/wt/i11f`).
-  **נעשה:** טיוטת `supabase/migrations/20261022500000_i11_followups.sql` + down + ‏`supabase/tests/98_i11_followups.sql` (לא הורצו): מדיניות analytics על `support_requests`/`support_messages`; עמודות `review_id`/`article_id` בדיווחים, עותק טקסט, trigger ‏`reports_target_gone`; עמודת `moderation` לביקורות ומאמרים; ‏`audit_trigger()` מוחלף (ענף חדש).
-  **נשאר, לפי פריט:**
-  1. *מדדי Support ‏(FR-ADMIN-003):* להריץ pgTAP (ייכשל ב-`97_professionals.sql` c1 — להוסיף את ארבע המדיניות החדשות לרשימה), ‏PR migration, ‏migrate; אחר כך בלוק `support` ב-`readAnalytics` ‏(`team-repository.ts`), ‏`AnalyticsView` ‏(`packages/shared/src/validation/team.ts`), תצוגה ב-`AnalyticsScreen.tsx`.
-  2. *רשימת "עוקב אחרי" (PG-039):* לא התחיל; בלי migration. ‏GET ‏`/api/professionals/following`, עמוד `/following` עם "הפסקת מעקב", ‏`PROTECTED_PATHS`, פריט תפריט "בעלי מקצוע במעקב" (‏Chrome מלא).
-  3. *דיווח על ביקורת ומאמר:* הסכמה בטיוטה; נשאר `REPORT_TARGET_KINDS`, השרת (`targetColumn`, ‏`readContent`/`moveContent` עם `moderation`), מסכי האדמין, פעולת "דיווח" בעמוד בעל המקצוע, טסטים, SRS.
-  4. *הרשמת בעל מקצוע מ"השלמת הרשמה":* לא התחיל; web בלבד ‏(`RegistrationFlow.tsx`, ‏`submitAccount` אופציונלי בשלבי ההסכמה), ‏SRS ‏FR-REG-004/AC-100, טסט.
-  5. *הודעת הצעת העזרה בשיחה קיימת:* לא התחיל; ‏`readThread` ב-`chat-repository.ts` + טסט שרת.
-  **הצעד הבא:** להריץ pgTAP בענף ולתקן. **ביקורת:** ‏/code-review לא רץ.
-- **⚠ התנגשות:** שני ה-migrations באותו timestamp ‏(`20261022500000`) ושניהם מתכננים pgTAP ‏98 — הראשון שמתמזג נשאר; השני משנה שם ל-timestamp ולמספר הבאים, ובונה את `audit_trigger()` על הגוף שמוזג.
+- **I12 — `build/i12-code`** (worktree `.work/wt/i12s`): migration #152 מוזג והורץ (preview, production). PR הקוד — שרת, מסכי Marketplace ואדמין, טסטים, SRS 2.34. **ממתין:** אפיק — OP-053 (מודעה שדווחה: מחיקה מיידית או שמירה מוסתרת כמו פוסט); flow ה-e2e-preview ‏(`marketplace.flow.ts`) רץ ב-`preview-e2e` מ-main אחרי המיזוג. ל-Professional אין "חנות" בניווט ובתפריט (§9.8 לא כולל אותה) — לשאול אם להוסיף. flaky: `share-link.spec.ts` c4 desktop נכשל פעמיים ב-dispatch ‏39574661280 ועבר ב-rerun. לסבב הבאגים 25–26.10: הסתרה ע"י MARKETPLACE_MODERATE בלבד לא מזינה את סט האימון; תמונה של מוצר ממומן שהוסר לא נמחקת; דיווח פתוח על מודעה שנמחקה לא פג.
+- **השלמות I11 + החלטות Professional (§9.8)** — migration ‏#153 מוזג ו-migrate הצליח (‏20261022700000); PR קוד מענף `build/i11f-code` (SRS 2.33): מדדי Support, "בעלי מקצוע במעקב", דיווח על ביקורת ומאמר, הרשמה מקצועית מהשלמה, הודעת הצעת העזרה בשיחה קיימת, התראות לבעל מקצוע וסיכום עוקבים שבועי, תפריט וניווט Professional, לוח בקרה בסדר של אפיק, הצהרת הכשרה. ‏preview-e2e: ‏`e2e-preview/professional-followups.flow.ts` רץ בהרצה מ-main אחרי המיזוג.
 - **#109** טיוטה; אושר לפי ⭐ — מיזוג והרצה ב-Preview (ממתין לך 1).
 
 ## המשך מכאן

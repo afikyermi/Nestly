@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { SelectInput } from '@/components/ui/select-input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAdminCall } from '@/hooks/use-admin-call';
+import { TOPIC_LABELS } from '@/lib/chat-texts';
 import { fetchAnalytics } from '@/services/api/team';
 import { FORBIDDEN_TEXT, LOAD_FAILED_TEXT, LOADING_TEXT, RETRY_LABEL } from './admin-texts';
 import {
@@ -36,6 +37,12 @@ import {
   ANALYTICS_REGISTRATIONS,
   ANALYTICS_REPORTS,
   ANALYTICS_STATUSES,
+  ANALYTICS_SUPPORT,
+  ANALYTICS_SUPPORT_ANSWERED,
+  ANALYTICS_SUPPORT_BY_TOPIC,
+  ANALYTICS_SUPPORT_MEDIAN,
+  ANALYTICS_SUPPORT_REQUESTS,
+  ANALYTICS_SUPPORT_STATUSES,
   ANALYTICS_TABLE,
   ANALYTICS_TYPES,
   ANALYTICS_WAITING,
@@ -198,6 +205,27 @@ function Loaded({ data }: { data: AnalyticsView }) {
           <p className="text-muted-foreground">{ANALYTICS_EMPTY}</p>
         ) : (
           <Stats items={moderation.byReason.map((row) => ({ label: row.label, value: row.count }))} />
+        )}
+      </section>
+      <section aria-labelledby="analytics-support" className="flex flex-col gap-4">
+        <h3 id="analytics-support" className="text-h4">
+          {ANALYTICS_SUPPORT}
+        </h3>
+        <Stats
+          items={[
+            { label: ANALYTICS_SUPPORT_STATUSES.open, value: data.support.byStatus.open },
+            { label: ANALYTICS_SUPPORT_STATUSES.inProgress, value: data.support.byStatus.inProgress },
+            { label: ANALYTICS_SUPPORT_STATUSES.closed, value: data.support.byStatus.closed },
+            { label: ANALYTICS_SUPPORT_ANSWERED, value: data.support.answered },
+            { label: ANALYTICS_SUPPORT_MEDIAN, value: data.support.medianHoursToFirstReply },
+          ]}
+        />
+        <Chart title={ANALYTICS_SUPPORT_REQUESTS} points={data.support.requests} />
+        <h4 className="text-label">{ANALYTICS_SUPPORT_BY_TOPIC}</h4>
+        {data.support.byTopic.length === 0 ? (
+          <p className="text-muted-foreground">{ANALYTICS_EMPTY}</p>
+        ) : (
+          <Stats items={data.support.byTopic.map((row) => ({ label: TOPIC_LABELS[row.topic], value: row.count }))} />
         )}
       </section>
       <section aria-labelledby="analytics-waiting" className="flex flex-col gap-2">

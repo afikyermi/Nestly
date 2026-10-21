@@ -10,6 +10,7 @@ import {
   ladderSuggestion,
   violationWeight,
   type AuditEntry,
+  type ContentTargetKind,
   type EnforceRequest,
   type EnforcementRow,
   type ModerationStatus,
@@ -26,9 +27,19 @@ import type { IdentityTx } from '../db/identity-transaction.js';
 
 const isoMs = sql.raw(`'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'`);
 const isoUs = sql.raw(`'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'`);
-/** The reports column that names a target of this kind (I8 adds the chat message, I12 the listing). */
+const TARGET_COLUMNS: Readonly<Record<ReportTargetKind, string>> = {
+  post: 'post_id',
+  comment: 'comment_id',
+  user: 'reported_user_id',
+  message: 'message_id',
+  listing: 'listing_id',
+  review: 'review_id',
+  article: 'article_id',
+};
+
+/** The reports column that names a target of this kind (I8 adds the chat message; I12 the listing; the I11 follow-ups a review and an article). */
 function targetColumn(kind: ReportTargetKind, alias: 'r' | null) {
-  const column = kind === 'post' ? 'post_id' : kind === 'comment' ? 'comment_id' : kind === 'message' ? 'message_id' : kind === 'listing' ? 'listing_id' : 'reported_user_id';
+  const column = TARGET_COLUMNS[kind];
   return sql.raw(alias === null ? column : `${alias}.${column}`);
 }
 
@@ -99,14 +110,14 @@ export async function readQueue(tx: IdentityTx): Promise<QueueItem[]> {
     )
     .parse(
       await tx.execute(sql`
-        select r.target_kind as "targetKind", coalesce(r.post_id, r.comment_id, r.reported_user_id, r.message_id, r.listing_id) as "targetId",
+        select r.target_kind as "targetKind", coalesce(r.post_id, r.comment_id, r.reported_user_id, r.message_id, r.listing_id, r.review_id, r.article_id) as "targetId",
                count(*)::int as "reportCount", min(rr.priority)::int as "basePriority",
                (array_agg(rr.label order by rr.priority, r.created_at))[1] as "topReasonLabel",
                to_char(min(r.created_at) at time zone 'UTC', ${isoMs}) as "firstReportedAt"
         from nestly.reports r
         join nestly.report_reasons rr on rr.key = r.reason
-        where r.status = 'open' and coalesce(r.post_id, r.comment_id, r.reported_user_id, r.message_id, r.listing_id) is not null
-        group by r.target_kind, coalesce(r.post_id, r.comment_id, r.reported_user_id, r.message_id, r.listing_id)
+        where r.status = 'open' and coalesce(r.post_id, r.comment_id, r.reported_user_id, r.message_id, r.listing_id, r.review_id, r.article_id) is not null
+        group by r.target_kind, coalesce(r.post_id, r.comment_id, r.reported_user_id, r.message_id, r.listing_id, r.review_id, r.article_id)
         order by case when min(rr.priority) = 1 then 1
                       else greatest(2, min(rr.priority) - case when r.target_kind = 'post' and count(*) >= 3 then 1 else 0 end) end,
                  min(r.created_at), 2`),
@@ -172,12 +183,20 @@ export interface ContentRow {
   authorId: string | null;
 }
 
-/** The reported post or comment as staff may read it (a report must exist on it). */
-export async function readContent(tx: IdentityTx, kind: 'post' | 'comment', id: string): Promise<ContentRow | undefined> {
-  const query =
-    kind === 'post'
-      ? sql`select p.body as text, p.status, p.is_anonymous as "isAnonymous", p.author_id as "authorId" from nestly.posts p where p.id = ${id}::uuid`
-      : sql`select c.body as text, c.status, (c.author_id is null) as "isAnonymous", c.author_id as "authorId" from nestly.comments c where c.id = ${id}::uuid`;
+/**
+ * The reported post, comment, review or article as staff may read it (a report must exist on it). A review's writer is never readable, so a review
+ * names no account; an article names its author (I11 follow-ups). A review's or an article's status is its moderation.
+ */
+export async function readContent(tx: IdentityTx, kind: ContentTargetKind, id: string): Promise<ContentRow | undefined> {
+  const query = {
+    post: sql`select p.body as text, p.status, p.is_anonymous as "isAnonymous", p.author_id as "authorId" from nestly.posts p where p.id = ${id}::uuid`,
+    comment: sql`select c.body as text, c.status, (c.author_id is null) as "isAnonymous", c.author_id as "authorId" from nestly.comments c where c.id = ${id}::uuid`,
+    review: sql`select r.body as text, r.moderation as status, false as "isAnonymous", null::uuid as "authorId" from nestly.professional_reviews r where r.id = ${id}::uuid`,
+    article: sql`select a.title || E'
+
+' || a.body as text, a.moderation as status, false as "isAnonymous", a.author_id as "authorId"
+                 from nestly.professional_articles a where a.id = ${id}::uuid`,
+  }[kind];
   const rows = z
     .array(z.object({ text: z.string().nullable(), status: z.string(), isAnonymous: z.boolean(), authorId: z.guid().nullable() }))
     .parse(await tx.execute(query));
@@ -251,12 +270,15 @@ export async function setAuditReason(tx: IdentityTx, reason: string): Promise<vo
   await tx.execute(sql`select set_config('nestly.audit_reason', ${reason}, true)`);
 }
 
-/** Moves a reported post or comment. Returns the rows moved: 0 when the policies show the caller no such reported row. */
-export async function moveContent(tx: IdentityTx, kind: 'post' | 'comment', id: string, status: ModerationStatus): Promise<number> {
-  const rows =
-    kind === 'post'
-      ? await tx.execute(sql`update nestly.posts set status = ${status} where id = ${id}::uuid returning id`)
-      : await tx.execute(sql`update nestly.comments set status = ${status} where id = ${id}::uuid returning id`);
+/** Moves a reported post, comment, review or article. Returns the rows moved: 0 when the policies show the caller no such reported row. */
+export async function moveContent(tx: IdentityTx, kind: ContentTargetKind, id: string, status: ModerationStatus): Promise<number> {
+  const statement = {
+    post: sql`update nestly.posts set status = ${status} where id = ${id}::uuid returning id`,
+    comment: sql`update nestly.comments set status = ${status} where id = ${id}::uuid returning id`,
+    review: sql`update nestly.professional_reviews set moderation = ${status} where id = ${id}::uuid returning id`,
+    article: sql`update nestly.professional_articles set moderation = ${status} where id = ${id}::uuid returning id`,
+  }[kind];
+  const rows = await tx.execute(statement);
   return rows.length;
 }
 

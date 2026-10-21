@@ -127,6 +127,13 @@ export const ANALYTICS_ACTION_TAKEN = 'טופלו בנקיטת פעולה';
 export const ANALYTICS_DISMISSED = 'נסגרו בלי פעולה';
 export const ANALYTICS_MEDIAN = 'זמן טיפול חציוני (שעות)';
 export const ANALYTICS_ENFORCEMENTS = { warning: 'אזהרות', suspension: 'השעיות', ban: 'חסימות' } as const;
+// FR-ADMIN-003 (I11 follow-ups): the Support metrics
+export const ANALYTICS_SUPPORT = 'פניות לתמיכה';
+export const ANALYTICS_SUPPORT_REQUESTS = 'פניות ליום';
+export const ANALYTICS_SUPPORT_BY_TOPIC = 'פניות לפי נושא';
+export const ANALYTICS_SUPPORT_STATUSES = { open: 'פתוחות', inProgress: 'בטיפול', closed: 'סגורות' } as const;
+export const ANALYTICS_SUPPORT_ANSWERED = 'פניות שקיבלו תשובה';
+export const ANALYTICS_SUPPORT_MEDIAN = 'זמן חציוני לתשובה ראשונה (שעות)';
 export const ANALYTICS_WAITING_HEADING = 'תחומים שעוד לא נמדדים';
 export const ANALYTICS_WAITING = 'חיפוש, קבוצות, בעלי מקצוע, Marketplace, קידום ואיכות ההמלצות יוצגו כשהאירועים שלהם ייאספו או כשהתחומים ייבנו';
 export const ANALYTICS_EMPTY = 'אין נתונים בתקופה הזו';

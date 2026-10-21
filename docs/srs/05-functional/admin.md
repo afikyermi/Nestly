@@ -39,7 +39,7 @@
 | תיאור | המערכת תאפשר ל-Admin לנתח פניות Support ומידע תפעולי/שימוש. שכבת Owner/Admin Intelligence המלאה מוגדרת ב-FR-ADMIN-010; Moderator עם ANALYTICS_VIEW רואה את מה ש-FR-ADMIN-010 מגדיר להרשאה. |
 | תנאים מוקדמים | קיימים נתוני פניות/שימוש; Admin מחובר או Moderator מחובר עם ANALYTICS_VIEW. |
 | קלט / Trigger | Support Requests + Analytics Aggregates מאושרים. |
-| תהליך מערכת | Aggregation לפי period/domain/segment; Organic/Paid נפרדים. היקף הנתונים, כולל רמת משתמש בודד, לפי FR-ADMIN-010. |
+| תהליך מערכת | Aggregation לפי period/domain/segment; Organic/Paid נפרדים. היקף הנתונים, כולל רמת משתמש בודד, לפי FR-ADMIN-010. **Support metrics במסך הנתונים:** פניות ליום, לפי נושא ולפי מצב (פתוחות, בטיפול, סגורות), כמה מהן קיבלו תשובה, והזמן החציוני עד התשובה הראשונה של Support — מספרים בלבד, בלי טקסט, בלי שם ובלי מזהה (BR-058). הערות פנימיות והודעות המשתמש אינן נקראות לצורך זה. |
 | פלט | Support metrics + קישור/גישה ל-Admin Intelligence KPIs. |
 | מצב לאחר ביצוע | המידע זמין לניהול וקבלת החלטות תפעוליות ומוצריות. |
 | בעל אחריות לוגי (Page / Feature) | מסך ה-Analytics לניהול / תצוגת ה-Analytics לניהול |

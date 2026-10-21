@@ -377,13 +377,13 @@ select is(tests.as_role('anon', null,
     format($q$ select count(*)::text from nestly.profile_view(%L) $q$, tests.fx_pv_id('pv_b'))),
   'ERR:42501', '[F2.3-b c15 platform r4] anon cannot call profile_view');
 
-select is((select array_agg(a order by a) from tests.approved_security_definer() as a)::text, '{nestly.audit_trigger(),nestly.notify_comment(),nestly.notify_friendship(),nestly.notify_group(),nestly.notify_post(),nestly.profile_view(text),nestly.reveal_post_author(uuid),"nestly.search_people(text,integer,integer)"}',
-  '[F2.3-b c15 A8 rule 10 DR-G1] the approved SECURITY DEFINER list is profile_view(text), I4''s audit_trigger and reveal_post_author, the three notification triggers and search_people, and I10''s notify_group (file 96)');
+select is((select array_agg(a order by a) from tests.approved_security_definer() as a)::text, '{nestly.audit_trigger(),nestly.notify_comment(),nestly.notify_friendship(),nestly.notify_group(),nestly.notify_post(),nestly.notify_professional(),nestly.profile_view(text),nestly.reveal_post_author(uuid),"nestly.search_people(text,integer,integer)"}',
+  '[F2.3-b c15 A8 rule 10 DR-G1] the approved SECURITY DEFINER list is profile_view(text), I4''s audit_trigger and reveal_post_author, the three notification triggers and search_people, I10''s notify_group (file 96) and notify_professional (file 98)');
 select set_eq(
   $$ select p.oid::regprocedure::text from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'nestly' and p.prosecdef $$,
-  $$ values ('nestly.profile_view(text)'), ('nestly.audit_trigger()'), ('nestly.reveal_post_author(uuid)'), ('nestly.notify_comment()'), ('nestly.notify_friendship()'), ('nestly.notify_post()'), ('nestly.search_people(text,integer,integer)'), ('nestly.notify_group()') $$,
-  '[F2.3-b c15] the SECURITY DEFINER functions in nestly are exactly the eight approved ones (I10''s notify_group, file 96)');
+  $$ values ('nestly.profile_view(text)'), ('nestly.audit_trigger()'), ('nestly.reveal_post_author(uuid)'), ('nestly.notify_comment()'), ('nestly.notify_friendship()'), ('nestly.notify_post()'), ('nestly.search_people(text,integer,integer)'), ('nestly.notify_group()'), ('nestly.notify_professional()') $$,
+  '[F2.3-b c15] the SECURITY DEFINER functions in nestly are exactly the nine approved ones (I10''s notify_group, file 96; notify_professional, file 98)');
 select is((select p.proowner::regrole::text from pg_catalog.pg_proc p where p.oid = pg_temp.proc('nestly.profile_view(text)')),
   'app_owner', '[F2.3-b c15] profile_view is owned by app_owner');
 select is((select p.proconfig from pg_catalog.pg_proc p where p.oid = pg_temp.proc('nestly.profile_view(text)')),

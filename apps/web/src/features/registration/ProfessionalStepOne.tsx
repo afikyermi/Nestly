@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import {
   ProfessionalProfileFields,
   professionalFormErrors,
@@ -10,10 +10,14 @@ import { StepIndicator } from '@/components/shared/step-indicator';
 import { Button } from '@/components/ui/button';
 import { ArrowBackIcon } from '@/components/ui/icons';
 import { CONTINUE, PERSONAL_REGISTER_LINK, PRO_STEP_INTRO, PRO_STEP_TITLE } from '@/lib/professional-texts';
+import { QualificationField } from './QualificationField';
 
 export interface ProfessionalStepOneProps {
   form: ProfessionalForm;
   onFormChange: (form: ProfessionalForm) => void;
+  /** The required qualification declaration (Afik 21.10.2026). */
+  declared: boolean;
+  onDeclaredChange: (declared: boolean) => void;
   /** Called when the form is valid. */
   onValid: () => void;
   /** Back to the personal registration (FR-REG-001). */
@@ -23,8 +27,9 @@ export interface ProfessionalStepOneProps {
 // A Professional's registration, step 1 (FR-PROREG-001): full name, business name, gender, field (a list, or "other" with a text), years of
 // experience, and the directory's area and starting price. No business number and no verification (FR-PROREG-003 cancelled, OP-005).
 // Errors appear on the first "המשך" and are recomputed on every change after it.
-export function ProfessionalStepOne({ form, onFormChange, onValid, onPersonal }: ProfessionalStepOneProps) {
+export function ProfessionalStepOne({ form, onFormChange, declared, onDeclaredChange, onValid, onPersonal }: ProfessionalStepOneProps) {
   const formRef = useRef<HTMLFormElement>(null);
+  const declarationErrorId = `${useId()}-declaration-error`;
   const [submitted, setSubmitted] = useState(false);
   const [focusTick, setFocusTick] = useState(0);
   const errors: ProfessionalFormErrors = submitted ? professionalFormErrors(form) : {};
@@ -37,7 +42,7 @@ export function ProfessionalStepOne({ form, onFormChange, onValid, onPersonal }:
   function submit(event: FormEvent) {
     event.preventDefault();
     setSubmitted(true);
-    if (Object.keys(professionalFormErrors(form)).length > 0) {
+    if (Object.keys(professionalFormErrors(form)).length > 0 || !declared) {
       setFocusTick((tick) => tick + 1);
       return;
     }
@@ -67,6 +72,9 @@ export function ProfessionalStepOne({ form, onFormChange, onValid, onPersonal }:
         <h1 className="mt-4 mb-1 text-h1">{PRO_STEP_TITLE}</h1>
         <p className="mb-5 text-body text-muted-foreground">{PRO_STEP_INTRO}</p>
         <ProfessionalProfileFields form={form} errors={errors} onChange={onFormChange} />
+        <div className="mt-5">
+          <QualificationField checked={declared} error={submitted && !declared} errorId={declarationErrorId} onCheckedChange={onDeclaredChange} />
+        </div>
       </AuthLayout>
     </form>
   );

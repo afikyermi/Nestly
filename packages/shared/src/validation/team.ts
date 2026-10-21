@@ -2,7 +2,7 @@
 // community settings' report reasons (FR-ADMIN-007), the Admin Analytics (FR-ADMIN-010, FR-ADMIN-003) and the staff inbox counts (AC-044).
 // The web checks what it sends and the server checks again, by the same rules. Every body is strict. Who may do what is the database's.
 import { z } from 'zod';
-import { PERMISSION_KEYS, type PermissionKey } from '../constants/index.js';
+import { PERMISSION_KEYS, SUPPORT_TOPICS, type PermissionKey } from '../constants/index.js';
 import { codePointLength } from './text.js';
 
 /** An invitation is valid this many days (the database's default). */
@@ -178,6 +178,15 @@ export const analyticsBody = z.object({
     dismissed: z.number().int(),
     medianHoursToClose: z.number().nullable(),
     enforcements: z.object({ warning: z.number().int(), suspension: z.number().int(), ban: z.number().int() }),
+  }),
+  /** FR-ADMIN-003 Support metrics (I11 follow-ups): numbers only, never a text, a person or an id (BR-058). */
+  support: z.object({
+    requests: z.array(dayCount),
+    byTopic: z.array(z.object({ topic: z.enum(SUPPORT_TOPICS), count: z.number().int() })),
+    byStatus: z.object({ open: z.number().int(), inProgress: z.number().int(), closed: z.number().int() }),
+    /** Of the period's requests, how many got a reply from Support, and the median hours to that first reply. */
+    answered: z.number().int(),
+    medianHoursToFirstReply: z.number().nullable(),
   }),
 });
 export type AnalyticsView = z.infer<typeof analyticsBody>;

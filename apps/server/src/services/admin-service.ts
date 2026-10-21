@@ -197,7 +197,8 @@ export async function handleReports(database: Database, identity: Identity, requ
         if (request.targetKind === 'user' || request.targetKind === 'message' || request.targetKind === 'listing') return { kind: 'invalid' };
         await setAuditReason(tx, request.moderation.reason);
         // I10: moderating Private Group content opens it first (audited); without PRIVATE_GROUP_MODERATE nothing moves (ERR-024)
-        if ((await isPrivateGroupTarget(tx, request.targetKind, request.targetId)) && !(await openPrivateGroupContent(tx, request.targetKind, request.targetId))) {
+        const kind = request.targetKind;
+        if ((kind === 'post' || kind === 'comment') && (await isPrivateGroupTarget(tx, kind, request.targetId)) && !(await openPrivateGroupContent(tx, kind, request.targetId))) {
           return { kind: 'forbidden' }; // ERR-024
         }
         if ((await moveContent(tx, request.targetKind, request.targetId, request.moderation.status)) === 0) return missingOrRefused(tx, request.targetKind, request.targetId);
@@ -214,8 +215,9 @@ export async function moderateContent(database: Database, identity: Identity, re
       const gate = await require_(tx, 'REPORTS_VIEW', 'CONTENT_MODERATE');
       if (refused(gate)) return gate;
       await setAuditReason(tx, request.reason);
-      const privateGroup = await isPrivateGroupTarget(tx, request.targetKind, request.targetId);
-      if (privateGroup && !(await openPrivateGroupContent(tx, request.targetKind, request.targetId))) return { kind: 'forbidden' }; // ERR-024
+      const kind = request.targetKind;
+      const privateGroup = (kind === 'post' || kind === 'comment') && (await isPrivateGroupTarget(tx, kind, request.targetId));
+      if (privateGroup && (kind === 'post' || kind === 'comment') && !(await openPrivateGroupContent(tx, kind, request.targetId))) return { kind: 'forbidden' }; // ERR-024
       if ((await moveContent(tx, request.targetKind, request.targetId, request.status)) === 0) {
         return (await readContent(tx, request.targetKind, request.targetId)) === undefined ? { kind: 'not_found' } : { kind: 'forbidden' };
       }

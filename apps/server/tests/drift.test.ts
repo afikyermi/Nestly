@@ -59,6 +59,7 @@ const APPROVED_F14: ColumnShape[] = [
   col('legal_consents', 'terms_version', 'text', true),
   col('legal_consents', 'privacy_version', 'text', true),
   col('legal_consents', 'has_declared_18_plus', 'boolean', true),
+  col('legal_consents', 'has_declared_qualification', 'boolean', true), // I11 follow-ups (a Professional's qualification declaration)
   col('legal_consents', 'accepted_at', TZ, true),
 ];
 // F1.6 part a (schema.md, three new tables): what the migrated database really holds. The Drizzle schema may name fewer
