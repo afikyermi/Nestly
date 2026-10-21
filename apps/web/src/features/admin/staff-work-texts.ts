@@ -138,7 +138,7 @@ export const AUDIT_FILTER_CLEAR = 'ניקוי הסינון';
 
 // ---- the children's trends (§9.2)
 export const CHILD_TRENDS_TITLE = 'נתוני ילדים: מגמות';
-export const CHILD_TRENDS_LEAD = 'מגמות כלליות בלבד, בלי זיהוי. תא עם פחות מ-10 ילדים או פחות מ-10 משפחות מוסתר. כל שאילתה נרשמת ביומן הפעולות';
+export const CHILD_TRENDS_LEAD = 'מגמות כלליות בלבד, בלי זיהוי, לפי שבוע או חודש. מספר הילדים מעוגל לעשרות. תא עם פחות מ-10 ילדים או פחות מ-10 משפחות מוסתר. כל שאילתה נרשמת ביומן הפעולות';
 export const CHILD_TRENDS_METRIC = 'מעקב';
 export const CHILD_TRENDS_FIELD = 'מדד';
 export const CHILD_TRENDS_DIMENSION = 'חלוקה לפי';
@@ -171,10 +171,13 @@ export const CHILD_TREND_FIELD_LABELS: Record<ChildTrendField, string> = {
 export const CHILD_TREND_DIMENSION_LABELS: Record<ChildTrendDimension, string> = {
   child_age: 'גיל הילד',
   child_sex: 'מין הילד',
-  week: 'שבוע',
-  month: 'חודש',
 };
-export const CHILD_TREND_PERIOD_LABELS: Record<ChildTrendPeriod, string> = { 30: '30 יום', 90: '90 יום', 365: 'שנה' };
+export const CHILD_TREND_PERIOD_LABELS: Record<ChildTrendPeriod, string> = {
+  this_week: 'השבוע',
+  last_week: 'השבוע שעבר',
+  this_month: 'החודש',
+  last_month: 'החודש שעבר',
+};
 export const CHILD_TREND_BUCKET_LABELS: Readonly<Record<string, string>> = {
   girl: 'בנות',
   boy: 'בנים',

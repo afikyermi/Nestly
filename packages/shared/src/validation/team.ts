@@ -2,7 +2,7 @@
 // community settings' report reasons (FR-ADMIN-007), the Admin Analytics (FR-ADMIN-010, FR-ADMIN-003) and the staff inbox counts (AC-044).
 // The web checks what it sends and the server checks again, by the same rules. Every body is strict. Who may do what is the database's.
 import { z } from 'zod';
-import { PERMISSION_KEYS, SUPPORT_TOPICS, type PermissionKey } from '../constants/index.js';
+import { JOURNEY_STAGES, PERMISSION_KEYS, SUPPORT_TOPICS, type PermissionKey } from '../constants/index.js';
 import { codePointLength } from './text.js';
 
 /** An invitation is valid this many hours (the database's default; Afik 21.10.2026). */
@@ -16,6 +16,9 @@ export const REPORT_REASON_LABEL_MIN = 2;
 export const REPORT_REASON_LABEL_MAX = 60;
 export const ANNOUNCEMENT_STATUSES = ['draft', 'published', 'removed'] as const;
 export type AnnouncementStatus = (typeof ANNOUNCEMENT_STATUSES)[number];
+/** Who reads a published announcement (FR-ADMIN-008, OP-042): everyone, parents (Regular accounts), Professionals, or one journey stage. */
+export const ANNOUNCEMENT_AUDIENCES = ['everyone', 'parents', 'professionals', 'stage'] as const;
+export type AnnouncementAudience = (typeof ANNOUNCEMENT_AUDIENCES)[number];
 export const ANALYTICS_PERIODS = [7, 30, 90] as const;
 export type AnalyticsPeriod = (typeof ANALYTICS_PERIODS)[number];
 /** How many published announcements the feed shows at most, newest first. */
@@ -61,7 +64,15 @@ export const moderatorKeysSchema = z
   .refine((value) => withRequiredKeys(value.permissions).length === value.permissions.length, 'missing_base');
 export type ModeratorKeysRequest = z.infer<typeof moderatorKeysSchema>;
 /** POST /api/admin/announcements and PATCH /api/admin/announcements/:id. */
-export const announcementSchema = z.strictObject({ title: text(ANNOUNCEMENT_TITLE_MIN, ANNOUNCEMENT_TITLE_MAX), body: text(1, ANNOUNCEMENT_BODY_MAX) });
+// VAL-050 (I14 completion B, OP-042 closed): the audience is one choice from a closed list; a stage audience names one of the journey stages
+export const announcementSchema = z
+  .strictObject({
+    title: text(ANNOUNCEMENT_TITLE_MIN, ANNOUNCEMENT_TITLE_MAX),
+    body: text(1, ANNOUNCEMENT_BODY_MAX),
+    audience: z.enum(ANNOUNCEMENT_AUDIENCES).default('everyone'),
+    audienceStage: z.enum(JOURNEY_STAGES).nullable().default(null),
+  })
+  .refine((value) => (value.audience === 'stage') === (value.audienceStage !== null), 'audience');
 export type AnnouncementRequest = z.infer<typeof announcementSchema>;
 /** POST /api/admin/announcements/:id/status. */
 export const announcementStatusSchema = z.strictObject({ status: z.enum(['published', 'removed']) });
@@ -131,6 +142,8 @@ export const announcement = z.object({
   title: z.string(),
   body: z.string(),
   status: z.enum(ANNOUNCEMENT_STATUSES),
+  audience: z.enum(ANNOUNCEMENT_AUDIENCES),
+  audienceStage: z.enum(JOURNEY_STAGES).nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
   publishedAt: z.string().nullable(),

@@ -164,7 +164,7 @@ describe('[I14c §9.7] independent review: staff read every active post and writ
 
 describe('[I14c §9.2 §9.10] children trends and the Audit Log filters', () => {
   it('only CHILD_DATA_VIEW reads the trends (suppressed cells carry no number), and every query is in the sensitive view', T, async () => {
-    const query = { metric: 'bottle', field: 'amount_ml', dimension: 'child_sex', days: 30 } as const;
+    const query = { metric: 'bottle', field: 'amount_ml', dimension: 'child_sex', period: 'this_month' } as const;
     expect((await readChildTrendsView(database, id(content), query)).kind).toBe('forbidden');
     expect((await readChildTrendsView(database, id(author), query)).kind).toBe('forbidden');
     const trends = await readChildTrendsView(database, id(admin), query);

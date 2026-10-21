@@ -300,7 +300,7 @@ export async function readChildTrends(tx: IdentityTx, query: ChildTrendsQuery): 
     .parse(
       await tx.execute(sql`
         select bucket, bucket_order as "order", children, value, is_suppressed as suppressed
-        from nestly.child_tracker_trends(${query.metric}, ${query.field}, ${query.dimension}, ${query.days}::integer)`),
+        from nestly.child_tracker_trends(${query.metric}, ${query.field}, ${query.dimension}, ${query.period}::text)`),
     );
   return rows;
 }

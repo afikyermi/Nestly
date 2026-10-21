@@ -143,9 +143,9 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
         metric: url.searchParams.get('metric'),
         field: url.searchParams.get('field'),
         dimension: 'child_sex',
-        days: 90,
+        period: url.searchParams.get('period'),
         cells: [
-          { bucket: 'girl', order: 1, children: 12, value: 125, suppressed: false },
+          { bucket: 'girl', order: 1, children: 10, value: 125, suppressed: false },
           { bucket: 'boy', order: 2, children: null, value: null, suppressed: true },
           { bucket: 'unknown', order: 3, children: null, value: null, suppressed: true },
         ],

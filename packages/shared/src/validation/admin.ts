@@ -155,6 +155,8 @@ export const queueItem = z.object({
   pastTarget: z.boolean().optional(),
   escalated: z.boolean().optional(),
   openedBy: z.number().int().optional(),
+  /** I14 completion B (BR-074): hidden from everyone else after ten identical reports, until a decision. */
+  autoHidden: z.boolean().optional(),
 });
 export type QueueItem = z.infer<typeof queueItem>;
 export const queueBody = z.object({ items: z.array(queueItem) });
@@ -167,6 +169,17 @@ export const enforcementRow = z.object({
 });
 export type EnforcementRow = z.infer<typeof enforcementRow>;
 
+/** I14 completion B (FR-MOD-002, PG-028, Afik 21.10.2026): one justified decision on the account's content, from its enforcement history. */
+export const contentDecision = z.object({
+  targetKind: z.enum(['post', 'comment', 'listing', 'review', 'article']),
+  rule: z.string(),
+  ruleLabel: z.string(),
+  /** At most the first 100 characters (a listing or an article: its title). */
+  excerpt: z.string(),
+  decidedAt: z.string(),
+});
+export type ContentDecision = z.infer<typeof contentDecision>;
+
 export const targetUser = z.object({
   userId: z.guid(),
   accountType: z.enum(['regular', 'professional', 'admin', 'moderator']),
@@ -174,6 +187,8 @@ export const targetUser = z.object({
   suspendedUntil: z.string().nullable(),
   fullName: z.string().nullable(),
   history: z.array(enforcementRow),
+  /** I14 completion B: the deleted content of this account (USER_VIEW). */
+  contentDecisions: z.array(contentDecision).optional(),
   suggestion: z.object({ kind: z.enum(['warning', 'suspension', 'ban']), hours: z.number().int().nullable() }),
 });
 export type TargetUser = z.infer<typeof targetUser>;

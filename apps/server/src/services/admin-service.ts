@@ -27,6 +27,7 @@ import type { Identity } from '../lib/token-verifier.js';
 import { isPrivateGroupTarget, openPrivateGroupContent } from '../repositories/private-group-views-repository.js';
 import { readAuditFiltered, readAuthorFacts, readHandling, readQueueMarks, readReportContext, recordOpenings } from '../repositories/staff-work-repository.js';
 import { readListing, readListingImages, setListingHidden } from '../repositories/marketplace-repository.js';
+import { deleteReportedContent, isDeletableKind, readAutoHidden, readContentDecisions, recordCommentOpening } from '../repositories/staff-rules-repository.js';
 import {
   closeReports,
   hasOpenReports,
@@ -90,10 +91,19 @@ async function readListingContent(tx: IdentityTx, id: string): Promise<{ text: s
   return { text: row.title, status, isAnonymous: false, authorId: row.sellerId };
 }
 
+/** A refusal found after a write in the same transaction: thrown so that the transaction rolls back, answered as forbidden. */
+class RefusedInTransaction extends Error {}
+
+/** I14 completion B (FR-MOD-002, PG-028): the account with its enforcement history of deleted content (USER_VIEW: the caller's policies show it). */
+async function withDecisions(tx: IdentityTx, user: TargetUser | undefined): Promise<TargetUser | undefined> {
+  return user === undefined ? undefined : { ...user, contentDecisions: await readContentDecisions(tx, user.userId) };
+}
+
 async function guarded<T>(work: () => Promise<Outcome<T>>): Promise<Outcome<T>> {
   try {
     return await work();
   } catch (error) {
+    if (error instanceof RefusedInTransaction) return { kind: 'forbidden' };
     const refusal = databaseRefusal(error);
     if (refusal === undefined) throw error;
     return refusal;
@@ -136,11 +146,13 @@ export async function readReportQueue(database: Database, identity: Identity): P
     if (refused(gate)) return gate;
     // I14 completion (§9.9, §9.10): each item's time target, whether it is past, and whether it was escalated or opened
     const marks = await readQueueMarks(tx);
+    // I14 completion B (BR-074): the items hidden now after ten identical reports
+    const autoHidden = await readAutoHidden(tx);
     const now = new Date();
     const items = (await readQueue(tx)).map((item) => {
       const hours = timeTargetHours(item.priority);
       const mark = marks.get(item.targetId);
-      return { ...item, timeTargetHours: hours, pastTarget: isPastTarget(item.firstReportedAt, hours, now), escalated: mark?.escalated ?? false, openedBy: mark?.openedBy ?? 0 };
+      return { ...item, timeTargetHours: hours, pastTarget: isPastTarget(item.firstReportedAt, hours, now), escalated: mark?.escalated ?? false, openedBy: mark?.openedBy ?? 0, autoHidden: autoHidden.has(item.targetId) };
     });
     return { kind: 'ok', items };
   });
@@ -160,6 +172,8 @@ export async function readReportDetail(
     if (refused(gate)) return gate;
     const reports = await readReportsOn(tx, kind, targetId);
     if (reports.length === 0) return { kind: 'not_found' };
+    // I14 completion B (Afik 21.10.2026, BR-082): every opening of a reported comment is recorded in the Audit Log, also after the report closed
+    if (kind === 'comment') await recordCommentOpening(tx, targetId);
     // A chat message is never read here: staff open it by its own audited call (§9.6), which also names its sender.
     // I10 (NFR-PRIV-002): Private Group content is read only after an audited opening, asked for by the staff member.
     const privateGroup = (kind === 'post' || kind === 'comment') && (await isPrivateGroupTarget(tx, kind, targetId));
@@ -175,7 +189,7 @@ export async function readReportDetail(
     // by its own audited call, never here). Needs USER_VIEW; without it the screen shows no account.
     const userId = kind === 'user' ? targetId : (content?.authorId ?? undefined);
     const canSeeUsers = gate.permissions.includes('USER_VIEW');
-    const user = userId !== undefined && canSeeUsers ? await readTargetUser(tx, userId) : undefined;
+    const user = userId !== undefined && canSeeUsers ? await withDecisions(tx, await readTargetUser(tx, userId)) : undefined;
     // I14 completion (§9.7): the author card, the item's context (the thread as the policies show it; a Private Group's only once opened),
     // and the handling status (§9.10); opening a report is recorded (who opened it, not audited)
     const authorFacts = user === undefined ? undefined : await readAuthorFacts(tx, user.userId);
@@ -203,14 +217,34 @@ export async function readReportDetail(
   return images === undefined ? outcome : { ...outcome, detail: { ...outcome.detail, content: { ...outcome.detail.content, images } } };
 }
 
-/** Closes the open reports on a target; with `moderation`, moves the content in the same transaction (a failure rolls both back). */
+/**
+ * Closes the open reports on a target; with `moderation`, acts on the content in the same transaction (a failure rolls both back). I14 completion
+ * B (Afik 21.10.2026, FR-MOD-003, OP-053): a justified report on content (moderation "removed" with action_taken) DELETES it at the decision, and the
+ * database writes its enforcement record and Audit entry; the reversible hide is gone (only the hide after ten identical reports is temporary,
+ * and a closing decision lifts it). "active" still restores content an earlier decision had hidden or removed.
+ */
 export async function handleReports(database: Database, identity: Identity, request: HandleReportsRequest): Promise<Outcome<{ closed: number }>> {
   return guarded(() =>
     inIdentityTransaction(database, identity, async (tx) => {
-      // I12: a listing is moderated with MARKETPLACE_MODERATE (hidden or restored; "removed" hides it too), a post or comment with CONTENT_MODERATE
+      // I12: a listing is moderated with MARKETPLACE_MODERATE, a post, comment, review or article with CONTENT_MODERATE
       const moveKey = request.targetKind === 'listing' ? ('MARKETPLACE_MODERATE' as const) : ('CONTENT_MODERATE' as const);
       const gate = await require_(tx, 'REPORTS_VIEW', ...(request.moderation === undefined ? [] : [moveKey]));
       if (refused(gate)) return gate;
+      if (request.moderation?.status === 'hidden') return { kind: 'invalid' };
+      if (request.moderation?.status === 'removed') {
+        const kind = request.targetKind;
+        if (!isDeletableKind(kind) || request.resolution !== 'action_taken') return { kind: 'invalid' };
+        await setAuditReason(tx, request.moderation.reason);
+        // I10: Private Group content is opened first (audited); without PRIVATE_GROUP_MODERATE nothing moves (ERR-024)
+        if ((kind === 'post' || kind === 'comment') && (await isPrivateGroupTarget(tx, kind, request.targetId)) && !(await openPrivateGroupContent(tx, kind, request.targetId))) {
+          return { kind: 'forbidden' };
+        }
+        const closed = await closeReports(tx, kind, request.targetId, 'action_taken', request.note ?? request.moderation.reason);
+        if (closed === 0) return missingOrRefused(tx, kind, request.targetId);
+        // a deletion the policies refuse rolls the closing back too (thrown, so the transaction ends without committing)
+        if ((await deleteReportedContent(tx, kind, request.targetId)) === 0) throw new RefusedInTransaction();
+        return { kind: 'ok', closed };
+      }
       if (request.moderation !== undefined && request.targetKind === 'listing') {
         await setAuditReason(tx, request.moderation.reason);
         const hidden = request.moderation.status !== 'active';
@@ -271,7 +305,7 @@ export async function enforce(database: Database, identity: Identity, request: E
       // An account that does not exist is a 404, not a refusal (seen with USER_VIEW, as the screens that offer the action are).
       if (gate.permissions.includes('USER_VIEW') && (await readTargetUser(tx, request.userId)) === undefined) return { kind: 'not_found' };
       await insertEnforcement(tx, request);
-      const user = await readTargetUser(tx, request.userId);
+      const user = await withDecisions(tx, await readTargetUser(tx, request.userId));
       return user === undefined ? { kind: 'not_found' } : { kind: 'ok', user };
     }),
   );
@@ -281,7 +315,7 @@ export async function readUser(database: Database, identity: Identity, userId: s
   return inIdentityTransaction(database, identity, async (tx) => {
     const gate = await require_(tx, 'USER_VIEW');
     if (refused(gate)) return gate;
-    const user = await readTargetUser(tx, userId);
+    const user = await withDecisions(tx, await readTargetUser(tx, userId));
     return user === undefined ? { kind: 'not_found' } : { kind: 'ok', user };
   });
 }
