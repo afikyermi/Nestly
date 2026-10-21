@@ -25,7 +25,7 @@ export const escalateReport = (token: string, targetKind: ReportTargetKind, targ
   call(token, 'POST', '/api/admin/reports/escalate', anything, { targetKind, targetId, note });
 
 export function childTrendsPath(query: ChildTrendsQuery): string {
-  const params = new URLSearchParams({ metric: query.metric, field: query.field, dimension: query.dimension, days: String(query.days) });
+  const params = new URLSearchParams({ metric: query.metric, field: query.field, dimension: query.dimension, period: query.period });
   return `/api/admin/child-trends?${params.toString()}`;
 }
 export const fetchChildTrends = (token: string, query: ChildTrendsQuery): Promise<AdminOutcome<ChildTrends>> => call(token, 'GET', childTrendsPath(query), childTrendsBody);

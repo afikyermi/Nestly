@@ -32,10 +32,10 @@ export type ReportReason = CoreReportReason | `custom_${string}`;
 export const CUSTOM_REPORT_REASON = /^custom_[0-9a-f]{8}$/;
 
 /**
- * The longest report text, in code points (F3.7 Q1; "SRS gap": the VAL id is assigned at I3's SRS update). The database enforces the same
- * number with `char_length(details) <= 1000` (reports_details_length_check), so a change is a migration and this constant together.
+ * The longest report text, in code points (VAL-048). Afik 21.10.2026 (§11.9): every report everywhere offers "אחר" and a free text of up to 500
+ * characters (was 1,000). The database still caps it at 1,000 (reports_details_length_check, the older bound); the server and the web hold 500.
  */
-export const REPORT_DETAILS_MAX = 1000;
+export const REPORT_DETAILS_MAX = 500;
 
 /** A core reason or an added one's key (the web keeps only these from the server's list). */
 export function isReportReason(value: string): value is ReportReason {

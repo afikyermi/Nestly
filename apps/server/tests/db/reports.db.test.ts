@@ -255,16 +255,16 @@ describe('[F3.7 c3][FR-MOD-001] the shared rule, at the route', () => {
     expect((await send(app, R, 'post', target, 'other', { details: 'סיבה' })).statusCode).toBe(201);
   });
 
-  it('[c3] the details bound: 1,000 code points (emoji count as one) are 201; 1,001, a NUL or a non-string are 400 and write nothing', T, async () => {
+  it('[c3 VAL-048 §11.9] the details bound: 500 code points (emoji count as one) are 201; 501, a NUL or a non-string are 400 and write nothing', T, async () => {
     const app = await start();
     const postId = await seedPost(AU);
     const c1 = await seedComment(AU, postId, 1);
     const c2 = await seedComment(AU, postId, 2);
     const c3 = await seedComment(AU, postId, 3);
-    expect((await send(app, R, 'comment', c1, 'harassment', { details: '😀'.repeat(1000) })).statusCode).toBe(201);
-    expect((await send(app, R, 'comment', c2, 'harassment', { details: 'א'.repeat(1000) })).statusCode).toBe(201);
-    expect((await rowsSeenBy(R)).map((r) => String(r.details).length)).toEqual([2000, 1000]);
-    for (const details of ['😀'.repeat(1001), 'א'.repeat(1001), 'a\u0000b', 5, true, ['x']]) {
+    expect((await send(app, R, 'comment', c1, 'harassment', { details: '😀'.repeat(500) })).statusCode).toBe(201);
+    expect((await send(app, R, 'comment', c2, 'harassment', { details: 'א'.repeat(500) })).statusCode).toBe(201);
+    expect((await rowsSeenBy(R)).map((r) => String(r.details).length)).toEqual([1000, 500]);
+    for (const details of ['😀'.repeat(501), 'א'.repeat(501), 'a\u0000b', 5, true, ['x']]) {
       expect((await send(app, R, 'comment', c3, 'harassment', { details })).statusCode, String(details).slice(0, 12)).toBe(400);
     }
     expect(await total()).toBe(2);

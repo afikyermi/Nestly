@@ -199,15 +199,15 @@ test.describe('F3.7 c11 [AC-106, BR-075] the report sheet', () => {
       await start(page);
       await openFrom(page, 0);
       const box = sheet(page, 'post');
-      await detailsBox(box).fill('א'.repeat(899));
+      await detailsBox(box).fill('א'.repeat(399));
       await expect(box.getByRole('status')).toHaveText('');
-      await detailsBox(box).fill('א'.repeat(900));
+      await detailsBox(box).fill('א'.repeat(400));
       await expect(box.getByRole('status')).toHaveText('נותרו 100 תווים');
-      await detailsBox(box).fill('א'.repeat(1000));
+      await detailsBox(box).fill('א'.repeat(500));
       await expect(box.getByRole('status')).toHaveText('לא נותרו תווים');
-      await detailsBox(box).fill('א'.repeat(1001));
+      await detailsBox(box).fill('א'.repeat(501));
       await expect(box.getByRole('status')).toHaveText('הטקסט ארוך בתו אחד מהמותר');
-      await detailsBox(box).fill('א'.repeat(1010));
+      await detailsBox(box).fill('א'.repeat(510));
       await expect(box.getByRole('status')).toHaveText('הטקסט ארוך ב-10 תווים מהמותר');
     });
   }
@@ -215,7 +215,7 @@ test.describe('F3.7 c11 [AC-106, BR-075] the report sheet', () => {
 
 test.describe('F3.7 c12 [FR-MOD-001, Q1] a send that is refused at the screen', () => {
   for (const { label, viewport } of SIZES) {
-    test(`[c12] ${label}: no reason, "אחר" without text, over 1,000 and a NUL each show their message and put focus on the field, with no request`, async ({ page }) => {
+    test(`[c12] ${label}: no reason, "אחר" without text, over 500 (VAL-048, §11.9) and a NUL each show their message and put focus on the field, with no request`, async ({ page }) => {
       await page.setViewportSize(viewport);
       const { reports } = await start(page);
       await openFrom(page, 0);
@@ -231,7 +231,7 @@ test.describe('F3.7 c12 [FR-MOD-001, Q1] a send that is refused at the screen', 
       await sendButton(box).click();
       await expect(detailsBox(box), 'blank is no text').toBeFocused();
       await expect(box.getByText(T.otherEmpty, { exact: true })).toBeVisible();
-      await detailsBox(box).fill('א'.repeat(1001));
+      await detailsBox(box).fill('א'.repeat(501));
       await sendButton(box).click();
       await expect(box.getByText(T.tooLong, { exact: true })).toBeVisible();
       await expect(detailsBox(box)).toBeFocused();

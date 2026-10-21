@@ -2,7 +2,7 @@ import { useId } from "react";
 import { Link } from "react-router";
 import type { SearchResponse, SearchType } from "@nestly/shared";
 import { Avatar } from "@/components/ui/avatar";
-import { formatPostTime } from "@/lib/format-post-time";
+import { PublishedTime } from "@/components/domain/published-time";
 import { postPath } from "@/lib/post-link";
 import { userProfilePath } from "@/lib/profile-link";
 import { groupPath } from "@/lib/group-link";
@@ -131,7 +131,7 @@ export function SearchResults({
                     <span className="text-body">{post.snippet}</span>
                     <span className="text-caption text-muted-foreground">
                       {post.authorName ?? ANONYMOUS_AUTHOR} ·{" "}
-                      {formatPostTime(post.createdAt)}
+                      <PublishedTime iso={post.createdAt} />
                     </span>
                   </Link>
                 </li>

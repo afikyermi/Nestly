@@ -160,7 +160,6 @@ export const CONTENT_GONE_TEXT = 'התוכן כבר לא קיים';
 /** I10 (NFR-PRIV-002, ERR-024): reported content of a Private Group is opened on purpose, and each opening is in the Audit Log. */export const PRIVATE_GROUP_TEXT = 'התוכן הזה מקבוצה פרטית. פתיחה שלו נרשמת ביומן הפעולות';export const OPEN_PRIVATE_LABEL = 'פתיחת התוכן';export const PRIVATE_GROUP_DENIED_TEXT = 'התוכן הזה מקבוצה פרטית, ואין הרשאה לתוכן של קבוצות פרטיות';
 export const CONTENT_STATUS_LABELS: Record<string, string> = { active: 'מוצג', hidden: 'מוסתר', removed: 'הוסר', deleted: 'נמחק על ידי הכותב', sold: 'סומנה "נמכר/נמסר"', expired: 'פגה (60 יום)' };
 /** I12: a reported listing is hidden or restored; it has no "removed" (the owner deletes it). */
-export const HIDE_LISTING_LABEL = 'הסתרת המודעה וסגירת הדיווח';
 export const RESTORE_LISTING_LABEL = 'החזרת המודעה';
 export const LISTING_COPIED_LABEL = 'הכותרת בעת הדיווח';
 export const ANONYMOUS_NOTE = 'פוסט אנונימי. אפשר לחשוף את המחבר רק לצורך הטיפול בדיווח, והחשיפה נרשמת ביומן';
@@ -170,8 +169,10 @@ export const ACTIONS_HEADING = 'טיפול';
 export const NOTE_LABEL = 'הערה';
 export const REASON_LABEL = 'סיבה (נרשמת ביומן)';
 export const DISMISS_LABEL = 'דחיית הדיווח';
-export const HIDE_LABEL = 'הסתרת התוכן וסגירת הדיווח';
-export const REMOVE_LABEL = 'הסרת התוכן וסגירת הדיווח';
+// I14 completion B (Afik 21.10.2026, OP-053): a justified report deletes the content; the decision enters the author's enforcement history
+export const DELETE_LABEL = 'דיווח מוצדק: מחיקת התוכן';
+export const DELETE_LISTING_LABEL = 'דיווח מוצדק: מחיקת המודעה';
+export const DELETE_HINT = 'המחיקה סופית. היא נרשמת ביומן הפעולות ובהיסטוריית האכיפה של הכותב, עם הכלל שהופר ו-100 התווים הראשונים';
 export const CLOSE_ONLY_LABEL = 'סגירת הדיווח בלי שינוי בתוכן';
 export const RESTORE_LABEL = 'שחזור התוכן';
 export const REVEAL_LABEL = 'חשיפת המחבר';
@@ -195,6 +196,13 @@ export const openUserRest = (name: string): string => `החשבון של ${name}
 export const BACK_TO_LIST_LABEL = 'חזרה לרשימה';
 export const ENFORCEMENT_HEADING = 'אכיפה';
 export const HISTORY_HEADING = 'היסטוריית אכיפה';
+export const CONTENT_HISTORY_HEADING = 'תוכן שנמחק בעקבות דיווח מוצדק';
+export const CONTENT_KIND_LABELS = { post: 'פוסט', comment: 'תגובה', listing: 'מודעה', review: 'ביקורת', article: 'מאמר' } as const;
+/** I14 completion B (BR-074, AC-160): why an item is hidden from everyone else until a decision (never who hid it). */
+export const autoHiddenText = (reasonLabel: string | undefined, people: number | undefined): string =>
+  reasonLabel === undefined || people === undefined
+    ? 'מוסתר מכולם עד ההחלטה: 10 אנשים או יותר דיווחו מאותה סיבה'
+    : `מוסתר מכולם עד ההחלטה: ${people.toLocaleString('he-IL')} אנשים דיווחו "${reasonLabel}"`;
 export const HISTORY_EMPTY_TEXT = 'אין אכיפה קודמת';
 export const KIND_ACTION_LABELS: Record<EnforcementKind, string> = {
   warning: 'אזהרה',
@@ -231,7 +239,11 @@ export const MEDIA_QUEUE_INTRO = 'תמונות שהבדיקה האוטומטית
 export const MEDIA_QUEUE_EMPTY = 'אין תמונות שממתינות לבדיקה';
 export const MEDIA_QUEUE_LIST_LABEL = 'תמונות שממתינות לבדיקה';
 export const MEDIA_KIND_LABELS = { post: 'תמונה בפוסט', profile: 'תמונת פרופיל', story: 'תמונה בסטורי', listing: 'תמונה במודעה', sponsored: 'תמונה במוצר ממומן' } as const;
-export const MEDIA_REASON_LABELS = { blocked: 'נחסמה בבדיקה', unsure: 'הבדיקה לא בטוחה', error: 'הבדיקה נכשלה' } as const;
+export const MEDIA_REASON_LABELS = { blocked: 'נחסמה בבדיקה', unsure: 'הבדיקה לא בטוחה', error: 'הבדיקה נכשלה', hash_match: 'תואמת תמונה שסומנה בחשד לפגיעה בילד' } as const;
+// I14 completion B (Afik 21.10.2026): a block-list match, decided once
+export const MATCH_CONFIRM_LABEL = 'אישור החשד';
+export const MATCH_NOT_ABUSE_LABEL = 'לא פגיעה בילד: התאמה שגויה';
+export const MATCH_HINT = 'ההעלאה נחסמה כי היא תואמת תמונה שסומנה בחשד לפגיעה בילד. המעלה ראה הודעת דחייה רגילה, ולא ננקטה פעולה בחשבון. "התאמה שגויה" מוחקת את ההתאמה מרשימת החסימה, והפעולה נרשמת ביומן הפעולות';
 export const mediaScoreText = (score: number): string => `ציון הבדיקה: ${Math.round(score * 100)}%`;
 export const MEDIA_IMAGE_ALT = 'התמונה שממתינה לבדיקה';
 export const MEDIA_NO_IMAGE = 'לא ניתן להציג את התמונה כרגע';

@@ -168,7 +168,7 @@ describe('[I12] Marketplace', () => {
     expect(ok(await readListingPage(database, as(buyer), undefined, stroller)).page.conversationId).toBe(first.conversationId);
   });
 
-  it('[Afik 21.10 §3.2] a listing report: staff see it now, the title at the report and the owner; MARKETPLACE_MODERATE hides it (audited)', T, async () => {
+  it('[Afik 21.10 §3.2] a listing report: staff see it now, the title at the report and the owner; MARKETPLACE_MODERATE hides it (audited) and, on a justified report, deletes it (AC-159)', T, async () => {
     expect(await fileReport(database, as(buyer), { targetKind: 'listing', targetId: stroller, reason: 'spam', details: null })).toEqual({ kind: 'received' });
     ok(await editListing(database, as(seller), stroller, listing({ title: `עגלה מחודשת ${tag}` })));
     const detail = ok(await readReportDetail(database, as(marketMod), 'listing', stroller)).detail;
@@ -176,7 +176,7 @@ describe('[I12] Marketplace', () => {
     expect(detail.reports[0]?.copiedText).toBe(`עגלת תינוק ${tag}`);
     expect(detail.user?.userId).toBe(seller);
     const before = await auditCount('listing_hidden');
-    ok(await handleReports(database, as(marketMod), { targetKind: 'listing', targetId: stroller, resolution: 'action_taken', moderation: { status: 'hidden', reason: 'ספאם' } }));
+    ok(await changeListingVisibility(database, as(marketMod), stroller, { hidden: true, reason: 'ספאם' }));
     expect(await auditCount('listing_hidden')).toBe(before + 1);
     expect((await listMarketplace(database, as(buyer), undefined, { q: tag })).listings).toEqual([]);
     expect((await listOwnListings(database, as(seller), undefined)).find((card) => card.id === stroller)?.isHidden).toBe(true);
@@ -186,6 +186,11 @@ describe('[I12] Marketplace', () => {
     ok(await changeListingVisibility(database, as(marketMod), stroller, { hidden: false, reason: 'שוחזר' }));
     expect(await auditCount('listing_restored')).toBeGreaterThanOrEqual(1);
     expect(await changeListingVisibility(database, as(seller), stroller, { hidden: true, reason: 'x' })).toEqual({ kind: 'forbidden' });
+    // I14 completion B (OP-053): the report closed as justified deletes the listing
+    const deleted = await auditCount('content_deleted');
+    ok(await handleReports(database, as(marketMod), { targetKind: 'listing', targetId: stroller, resolution: 'action_taken', moderation: { status: 'removed', reason: 'ספאם' } }));
+    expect(await auditCount('content_deleted')).toBe(deleted + 1);
+    expect((await readListingPage(database, as(seller), undefined, stroller)).kind).toBe('unavailable');
   });
 
   it('[decision: deleted at once] the owner deletes its listing; nobody else can', T, async () => {

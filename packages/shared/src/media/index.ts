@@ -100,10 +100,16 @@ export type StoryAuthorGroup = z.infer<typeof storyAuthorGroup>;
 // ---- the approval queue (Afik 20.10.2026; CONTENT_MODERATE) --------------------------------------------------------------------
 export const MEDIA_DECISIONS = ['approved', 'rejected', 'suspected'] as const;
 export type MediaDecision = (typeof MEDIA_DECISIONS)[number];
-export const QUEUE_REASONS = ['blocked', 'unsure', 'error'] as const;
+// I14 completion B (Afik 21.10.2026): hash_match, an upload that matched the block list of images marked as suspected child abuse
+export const QUEUE_REASONS = ['blocked', 'unsure', 'error', 'hash_match'] as const;
 export type QueueReason = (typeof QUEUE_REASONS)[number];
 
 export const mediaDecisionBody = z.strictObject({ decision: z.enum(MEDIA_DECISIONS), isChild: z.boolean() });
+/** POST /api/admin/media/:id/match: staff decide a block-list match once: confirmed (a suspicion in their name), or not_abuse (a false
+ *  positive: the listed hashes it matched leave the list, audited). I14 completion B, Afik 21.10.2026. */
+export const MATCH_DECISIONS = ['confirmed', 'not_abuse'] as const;
+export type MatchDecision = (typeof MATCH_DECISIONS)[number];
+export const mediaMatchDecisionBody = z.strictObject({ decision: z.enum(MATCH_DECISIONS) });
 export type MediaDecisionBody = z.infer<typeof mediaDecisionBody>;
 
 export const mediaQueueItem = z.strictObject({
