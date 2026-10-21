@@ -353,10 +353,10 @@ select is(
      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')
       and (has_table_privilege('authenticated', c.oid, 'UPDATE,TRUNCATE,REFERENCES,TRIGGER')
-           or (c.relname not in ('recovery_answers', 'children', 'journey_contexts', 'posts', 'post_hides', 'comments', 'reactions', 'tracker_events', 'cycle_entries', 'moderator_permissions', 'media_assets', 'profile_photos') and has_table_privilege('authenticated', c.oid, 'DELETE'))
-           or (c.relname not in ('recovery_answers', 'identity_link_checks', 'regular_profiles', 'children', 'journey_contexts', 'friendships', 'posts', 'comments', 'tracker_events', 'cycle_entries', 'users', 'reports', 'report_reasons', 'notifications', 'notification_preferences', 'friend_content_notification_preferences', 'status_guides', 'user_blocks', 'media_assets', 'media_reviews', 'profile_photos', 'chat_requests', 'chat_blocks', 'chat_reads', 'support_requests', 'moderator_invitations', 'system_announcements') and has_any_column_privilege('authenticated', c.oid, 'UPDATE,REFERENCES')))),
+           or (c.relname not in ('recovery_answers', 'children', 'journey_contexts', 'posts', 'post_hides', 'comments', 'reactions', 'tracker_events', 'cycle_entries', 'moderator_permissions', 'media_assets', 'profile_photos', 'group_members', 'group_bans') and has_table_privilege('authenticated', c.oid, 'DELETE'))
+           or (c.relname not in ('recovery_answers', 'identity_link_checks', 'regular_profiles', 'children', 'journey_contexts', 'friendships', 'posts', 'comments', 'tracker_events', 'cycle_entries', 'users', 'reports', 'report_reasons', 'notifications', 'notification_preferences', 'friend_content_notification_preferences', 'status_guides', 'user_blocks', 'media_assets', 'media_reviews', 'profile_photos', 'chat_requests', 'chat_blocks', 'chat_reads', 'support_requests', 'moderator_invitations', 'system_announcements', 'groups', 'group_members', 'group_join_requests', 'group_invitations', 'group_notification_preferences') and has_any_column_privilege('authenticated', c.oid, 'UPDATE,REFERENCES')))),
   0::bigint,
-  '[F1.1-b c13 · F1.4-a c14 · F1.6, F2.0 scoped · F2.2a c9 · F2.2-b c18 · F2.4a c12] authenticated holds no table-level UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any table in nestly (DELETE on recovery_answers is the F2.0 D1 grant; on children and journey_contexts the F2.2b2 own-row delete, file 54), and no column-level UPDATE or REFERENCES except on recovery_answers, identity_link_checks, regular_profiles, children, journey_contexts and friendships (files 30, 40, 50, 51, 54 and 61 list those columns); I6''s tracker_events and cycle_entries are owner-only with own-row UPDATE and DELETE (file 86) and status_guides is Admin-written (file 87); I5''s media_assets, media_reviews and profile_photos carry the column-level UPDATE and own-row DELETE of file 93; I8''s chat_requests, chat_blocks, chat_reads and support_requests update listed columns (file 94); I14''s moderator_invitations and system_announcements carry the column-level UPDATE of file 95');
+  '[F1.1-b c13 · F1.4-a c14 · F1.6, F2.0 scoped · F2.2a c9 · F2.2-b c18 · F2.4a c12] authenticated holds no table-level UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER on any table in nestly (DELETE on recovery_answers is the F2.0 D1 grant; on children and journey_contexts the F2.2b2 own-row delete, file 54), and no column-level UPDATE or REFERENCES except on recovery_answers, identity_link_checks, regular_profiles, children, journey_contexts and friendships (files 30, 40, 50, 51, 54 and 61 list those columns); I6''s tracker_events and cycle_entries are owner-only with own-row UPDATE and DELETE (file 86) and status_guides is Admin-written (file 87); I5''s media_assets, media_reviews and profile_photos carry the column-level UPDATE and own-row DELETE of file 93; I8''s chat_requests, chat_blocks, chat_reads and support_requests update listed columns (file 94); I14''s moderator_invitations and system_announcements carry the column-level UPDATE of file 95; I10''s groups, group_members, group_join_requests, group_invitations and group_notification_preferences update listed columns, and group_members and group_bans carry the policy-bound DELETE (file 96)');
 
 -- =====================================================================================================================
 -- Criterion 18 — is_active_account(): caller only, invoker, not an approved definer. [Spec addendum 1]
@@ -393,8 +393,8 @@ select set_eq(
   $$ select a from tests.approved_security_definer() as a $$,
   '[F1.1-b c18 platform r10 · F2.3b c15] the SECURITY DEFINER functions in schema nestly are exactly the approved list');
 
-select is((select count(*) from tests.approved_security_definer()), 7::bigint,
-  '[F1.1-b c18 addendum 1 · F2.3b c15 · I4] the approved SECURITY DEFINER list holds seven functions (profile_view, F2.3b; audit_trigger and reveal_post_author, I4; the three notification triggers and search_people, rule 17; approved by Afik 20.10.2026)');
+select is((select count(*) from tests.approved_security_definer()), 8::bigint,
+  '[F1.1-b c18 addendum 1 · F2.3b c15 · I4 · I10] the approved SECURITY DEFINER list holds eight functions (profile_view, F2.3b; audit_trigger and reveal_post_author, I4; the three notification triggers and search_people, rule 17, approved by Afik 20.10.2026; I10''s notify_group, rule 17, the same shape)');
 
 select is((select count(*) from tests.approved_security_definer() as a where a like 'nestly.is\_active\_account(%'), 0::bigint,
   '[F1.1-b c18 addendum 1] is_active_account() is not an approved exception');
@@ -427,8 +427,9 @@ select is_empty(
       where n.nspname = 'nestly' and has_function_privilege('authenticated', p.oid, 'EXECUTE')
         and (p.pronargs > 0 or p.prosecdef)
         and p.oid::regprocedure::text not in ('nestly.profile_view(text)', 'nestly.delete_post(uuid)', 'nestly.delete_comment(uuid)',
-          'nestly.has_permission(text)', 'nestly.reveal_post_author(uuid)', 'nestly.search_people(text,integer,integer)') $$,
-  '[F1.1-b c18 layer 13 · F2.3b c15] every function in nestly that authenticated can execute takes no argument and is SECURITY INVOKER, except the approved profile_view(text) (one uuid per call, no status: file 53) and F3.0b''s delete_post(uuid) / delete_comment(uuid) (the caller''s own content, RLS decides), and the I4 invoker functions has_permission(text) and reveal_post_author(uuid)');
+          'nestly.has_permission(text)', 'nestly.reveal_post_author(uuid)', 'nestly.search_people(text,integer,integer)',
+          'nestly.group_role_rank(text)', 'nestly.my_group_rank(uuid)') $$,
+  '[F1.1-b c18 layer 13 · F2.3b c15] every function in nestly that authenticated can execute takes no argument and is SECURITY INVOKER, except the approved profile_view(text) (one uuid per call, no status: file 53) and F3.0b''s delete_post(uuid) / delete_comment(uuid) (the caller''s own content, RLS decides), and the I4 invoker functions has_permission(text) and reveal_post_author(uuid), and I10''s invoker helpers group_role_rank(text) (a fixed mapping) and my_group_rank(uuid) (the caller''s own Group Role, by Group id; file 96)');
 
 select * from finish();
 

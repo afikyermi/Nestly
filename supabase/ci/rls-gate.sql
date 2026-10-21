@@ -42,7 +42,7 @@ create schema if not exists tests;
 
 -- The approved SECURITY DEFINER functions, as regprocedure text (e.g. 'nestly.fn(uuid)'). This list must equal the
 -- SECURITY DEFINER entries of .claude/knowledge/data-model.md → "Approved exceptions" — CRITIC checks that. profile_view, I4's two (rules 18 and 19) and, for the notifications,
--- F2.3b, DR-G1 (F1.6's entries are an Auth call sequence and a role, not functions). I4 adds two (rules 18 and 19; approved by Afik 20.10.2026). The notification triggers and People Search: rule 17, one narrow function per kind of write into another user's rows (approved by Afik 20.10.2026, with conditions).
+-- F2.3b, DR-G1 (F1.6's entries are an Auth call sequence and a role, not functions). I4 adds two (rules 18 and 19; approved by Afik 20.10.2026). The notification triggers and People Search: rule 17, one narrow function per kind of write into another user's rows (approved by Afik 20.10.2026, with conditions). I10 adds notify_group (rule 17, the same shape: one definer for the Group notifications).
 create or replace function tests.approved_security_definer()
 returns setof text
 language sql immutable
@@ -50,7 +50,7 @@ set search_path = ''
 as $$
   select f from unnest(array['nestly.profile_view(text)', 'nestly.audit_trigger()', 'nestly.reveal_post_author(uuid)',
     'nestly.notify_friendship()', 'nestly.notify_comment()', 'nestly.notify_post()',
-    'nestly.search_people(text,integer,integer)']::text[]) as f
+    'nestly.search_people(text,integer,integer)', 'nestly.notify_group()']::text[]) as f
 $$;
 
 create or replace function tests.rls_gate(p_schema name default 'nestly')

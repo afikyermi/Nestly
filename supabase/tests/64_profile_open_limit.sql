@@ -201,13 +201,13 @@ select is(pg_temp.opn('pv_e', 'pv_b'), 'shown', '[F2.4-c c22] and the open is sh
 -- =====================================================================================================================
 -- c23 -- the fence: one definer, three closed tables, seven scoped policies
 -- =====================================================================================================================
-select is((select array_agg(a order by a) from tests.approved_security_definer() as a)::text, '{nestly.audit_trigger(),nestly.notify_comment(),nestly.notify_friendship(),nestly.notify_post(),nestly.profile_view(text),nestly.reveal_post_author(uuid),"nestly.search_people(text,integer,integer)"}',
-  '[F2.4-c c23 A8 rule 10 DR-G1 DR-L] the approved SECURITY DEFINER list is profile_view(text), I4''s two, the three notification triggers and search_people');
+select is((select array_agg(a order by a) from tests.approved_security_definer() as a)::text, '{nestly.audit_trigger(),nestly.notify_comment(),nestly.notify_friendship(),nestly.notify_group(),nestly.notify_post(),nestly.profile_view(text),nestly.reveal_post_author(uuid),"nestly.search_people(text,integer,integer)"}',
+  '[F2.4-c c23 A8 rule 10 DR-G1 DR-L] the approved SECURITY DEFINER list is profile_view(text), I4''s two, the three notification triggers and search_people, and I10''s notify_group (file 96)');
 select set_eq(
   $$ select p.oid::regprocedure::text from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'nestly' and p.prosecdef $$,
-  $$ values ('nestly.profile_view(text)'), ('nestly.audit_trigger()'), ('nestly.reveal_post_author(uuid)'), ('nestly.notify_comment()'), ('nestly.notify_friendship()'), ('nestly.notify_post()'), ('nestly.search_people(text,integer,integer)') $$,
-  '[F2.3-b c15] the SECURITY DEFINER functions in nestly are exactly the seven approved ones');
+  $$ values ('nestly.profile_view(text)'), ('nestly.audit_trigger()'), ('nestly.reveal_post_author(uuid)'), ('nestly.notify_comment()'), ('nestly.notify_friendship()'), ('nestly.notify_post()'), ('nestly.search_people(text,integer,integer)'), ('nestly.notify_group()') $$,
+  '[F2.3-b c15] the SECURITY DEFINER functions in nestly are exactly the eight approved ones (I10''s notify_group, file 96)');
 select is(
   (select string_agg(c.relname || ':' || c.relrowsecurity::text || ':' || c.relforcerowsecurity::text || ':' || pg_catalog.pg_get_userbyid(c.relowner),
                      ', ' order by c.relname)

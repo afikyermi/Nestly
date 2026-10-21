@@ -39,14 +39,15 @@ select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and pol.polname !~ '_(jobs|notify)$' and pol.polname !~ '_reveal$'
       and pol.polname !~ '_block_hide$' -- restrictive: it only narrows the gated permissive policies (file 91)
+      and pol.polname !~ '_group_(hide|insert)$' -- restrictive (I10, file 96)
       and (coalesce(pg_catalog.pg_get_expr(pol.polqual, pol.polrelid), '') || coalesce(pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid), ''))
           !~ 'is_active_account\(\)'),
   0::bigint, '[F3.0-b c1 platform r15] every policy for authenticated on the new tables is gated by is_active_account()');
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and not pol.polpermissive and pol.polname !~ '_block_hide$'),
-  0::bigint, '[F3.0-b c1 · I4 blocking] no restrictive policy hides an unreviewed branch (the reviewed block policies, file 91, excepted)');
+    where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and not pol.polpermissive and pol.polname !~ '_block_hide$' and pol.polname !~ '_group_(hide|insert)$'),
+  0::bigint, '[F3.0-b c1 · I4 blocking · I10] no restrictive policy hides an unreviewed branch (the reviewed block policies, file 91, and I10''s group policies, file 96, excepted)');
 
 select is(
   (select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
@@ -78,7 +79,7 @@ select is(
      from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname in ('comments', 'reactions') and a.attnum > 0 and not a.attisdropped
       and has_column_privilege('authenticated', c.oid, a.attnum, 'SELECT')),
-  'comments.author_id, comments.author_status, comments.body, comments.created_at, comments.held_at, comments.held_until, comments.id, comments.is_by_post_author, '
+  'comments.author_id, comments.author_status, comments.body, comments.created_at, comments.group_id, comments.held_at, comments.held_until, comments.id, comments.is_by_post_author, '
   || 'comments.parent_id, comments.post_id, comments.status, reactions.comment_id, reactions.created_at, reactions.id, reactions.is_by_author, reactions.post_id, reactions.target_id',
   '[F3.0-b finding 1 c12 c14 b-1] authenticated may SELECT exactly these comments and reactions columns: everything but comments.held_xact, comments.parent_status and reactions.liker_status');
 
@@ -252,8 +253,8 @@ select is(
         and pg_describe_object(dep.classid, dep.objid, dep.objsubid) !~ 'reports'
         and pg_describe_object(dep.classid, dep.objid, dep.objsubid) !~ '(_staff on table|user_enforcements)'
         and dep.deptype <> 'i') x),
-  'constraint reported_message_views_report_id_fkey on table nestly.reported_message_views ; policy posts_select_viewer on table nestly.posts',
-  '[F3.0-b c16 7א · I4] only posts_select_viewer (and the staff policies and the enforcement link, file 90; I8''s audited staff view of a reported message, file 94) depends on reports besides the table''s own objects: no other policy, function or view, never a ranking input');
+  'constraint private_group_content_views_report_id_fkey on table nestly.private_group_content_views ; constraint reported_message_views_report_id_fkey on table nestly.reported_message_views ; policy posts_select_viewer on table nestly.posts',
+  '[F3.0-b c16 7א · I4] only posts_select_viewer (and the staff policies and the enforcement link, file 90; I8''s audited staff view of a reported message, file 94; I10''s audited staff view of reported Private Group content, file 96) depends on reports besides the table''s own objects: no other policy, function or view, never a ranking input');
 
 select is(
   (select coalesce(string_agg(c.relname || '.' || pol.polname, ', ' order by c.relname, pol.polname), '(none)')
