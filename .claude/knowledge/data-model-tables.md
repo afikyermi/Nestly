@@ -23,6 +23,7 @@ does not instruct loading every link. Column sections and rule matrices are both
 | groups, group_members, group_access, group_join_requests, group_invitations, group_bans, group_notification_preferences, group_suggestions, group_highlight_configurations, private_group_content_views | Groups (I10); posts, comments, reactions (group content); Notifications and People Search (notify_group); Safety and admin core (reports, audit) |
 | professional_profiles, professional_follows, outreach_requests, professional_reviews, professional_articles | Professionals (I11); posts (audience followers, is_help_request), Chat and Support (conversations: contexts professional and outreach); Blocking a user |
 | marketplace_listings, sponsored_products | Marketplace (I12); Media and Stories (listing and sponsored images), Chat and Support (conversations: context marketplace), Safety and admin core (reports, audit); Blocking a user |
+| promotion_plans, promotion_payments, promotions, promotion_events | Monetization (I13); Professionals (profiles, posts, follows), Marketplace (listings), Chat and Support (conversations: attribution); Blocking a user |
 
 | tracker_events, cycle_entries, status_guides | Trackers, cycle and status guides (I6); children for the child FK |
 | media_assets, media_reviews, profile_photos, stories, media_training_candidates, media_training_samples, media_training_events | Media and Stories (I5); posts and post_authors (attach), friendships (Story audience), Safety and admin core (CONTENT_MODERATE, audit) |
@@ -650,3 +651,23 @@ notification or a qualification declaration exists):
   user block, the category switch honoured. `notifications_select_recipient` / `_update_recipient` gain `created_at <= now()`: a digest appears when its week ends.
 - `legal_consents.has_declared_qualification` (boolean, default false, INSERT granted): a Professional's training-and-licence declaration (Afik 21.10.2026), required
   by the registration request.
+
+## Monetization (I13)
+
+Built by `20261022900000_monetization.sql` (down script in `supabase/rollback/`; refuses once a payment, a promotion or an event exists). No new SECURITY
+DEFINER, no `TO app_owner` / `TO app_jobs` policy, `audit_trigger()` unchanged (no staff write: BILLING_FINANCE_MANAGE only reads). Invoker triggers:
+`promotion_payments_prepare`, `promotions_prepare` (advisory lock 8113 per target), `promotions_update_guard`, `promotion_events_guard` (advisory lock 8114 per
+promotion and viewer; a same-day repeat adds one to the caller's row and inserts none; at most 100 impressions and 20 clicks a day, a follow / chat start once; a row changes only on its own day), and `promotion_attribution` on `professional_follows` and `conversations`.
+Payment is simulated only (NFR-SEC-007, AC-098): no card, account or address column anywhere.
+
+| Table | Columns and meaning | Authorization |
+|---|---|---|
+| `promotion_plans` | key (PK), target_kind profile/post/listing (unique with key), days 1-60, sample_price_ils 1-10,000 ("מחיר לדוגמה", OP-030), sort_order, is_active, created_at (not readable). Seeded: profile 7d ₪49 / 30d ₪149, post 3d ₪19 / 7d ₪39, listing 3d ₪9 / 7d ₪19 | SELECT every active account; no runtime write |
+| `promotion_payments` | id, payer_id (default auth.uid()), plan_key + target_kind (FK plans; kind copied), amount_ils (copied from the plan), currency ILS, provider simulated, provider_ref (random uuid), is_simulated true, status succeeded, created_at | SELECT the payer, BILLING_FINANCE_MANAGE (Admin Only); INSERT plan_key only — a Professional a profile/post plan, a Regular a listing plan; no UPDATE/DELETE |
+| `promotions` | id, owner_id (default auth.uid()), target_kind, post_id / listing_id (cascade; exactly the kind's target), plan_key (FK with kind), payment_id (unique; the payer's own, same plan; not readable), status active/stopped, starts_at = now, ends_at = now + plan days (never client-written), stopped_at, created_at | SELECT the owner, BILLING_FINANCE_MANAGE, and every active account a running one (active, in period) of an owner with no user block whose target it can read and is still eligible (profile; post still to everyone, not a Group post, not a share; listing active, visible, unexpired: AC-063); INSERT the owner: a Professional its profile or own active public feed post (not a Group post, not a share), a Regular its own active, visible, unexpired listing; one running per target (23505); UPDATE the owner: active -> stopped while running; no DELETE |
+| `promotion_events` | id (not readable), promotion_id (cascade), viewer_id (default auth.uid(); never readable), kind impression/click/follow/chat_start, occurred_on (Israel date), times 1-100, created_at / updated_at (not readable); unique (promotion, viewer, kind, day) | SELECT the viewer's own rows, the promotion's owner and BILLING_FINANCE_MANAGE (counts only: no viewer, no time finer than the day; BR-057, AC-072); INSERT an active Regular/Professional, own row, on a running promotion not its own (follow / chat_start only with a real follow / conversation of the caller in the same transaction and a click within 7 calendar days); UPDATE own row of today, times + 1 within the limits; no DELETE |
+
+Attribution: a follow of a Professional, or a professional / marketplace conversation opened, within 7 days of the caller's own click on a running promotion of
+that Professional or listing, adds a follow / chat_start event (as the caller); a refusal of that event never fails the follow or the conversation. No organic table is written and no organic read joins these tables (AC-062).
+Cleanup: `promotion_events` (the user's own and those on the user's promotions), then `promotions`, then `promotion_payments`, after the private-group views and
+before the Stories; `promotion_plans` never (configuration).

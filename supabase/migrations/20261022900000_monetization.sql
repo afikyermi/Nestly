@@ -22,12 +22,12 @@
 --                          always labelled: BR-005, VAL-012). Nothing here changes an organic score or a reputation (BR-004, AC-062): no
 --                          organic table is written and no organic read joins these tables.
 -- promotion_events         PromotionPerformanceEvent (FR-PRO-002, FR-ALG-007, §13): paid impressions, clicks, and the follows and chat starts
---                          that came within 7 days of a click — one row per promotion, viewer, kind and day (Israel time), its `times` counting
+--                          that came within 7 calendar days of a click — one row per promotion, viewer, kind and day (Israel time), its `times` counting
 --                          repeats (the frequency cap reads it). The viewer writes and reads its own rows; the promotion's owner and
 --                          BILLING_FINANCE_MANAGE read the rows of a promotion as counts only: viewer_id is never granted for SELECT, and the day
 --                          is the finest time (BR-057, AC-072: no identity, no search text). Kept apart from every organic count (AC-062).
 -- professional_follows,    gain an AFTER INSERT trigger each (SECURITY INVOKER, as the follower / the opener): a follow of a Professional, or a
--- conversations            professional or marketplace conversation opened, within 7 days of the caller's own click on a promotion of that
+-- conversations            professional or marketplace conversation opened, within 7 calendar days of the caller's own click on a promotion of that
 --                          Professional or that listing, is recorded as that promotion's follow / chat start.
 --
 -- Paid targeting inputs (BR-053, AC-068, VAL-030): only the surface, the query or category, the promotion and the target; no column here
@@ -144,7 +144,7 @@ create table nestly.promotion_events (
     constraint promotion_events_kind_check check (kind in ('impression', 'click', 'follow', 'chat_start')),
   occurred_on  date        not null default ((now() at time zone 'Asia/Jerusalem')::date),
   times        integer     not null default 1
-    constraint promotion_events_times_check check (times between 1 and 1000),
+    constraint promotion_events_times_check check (times between 1 and 100),
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now(),
   constraint promotion_events_once_key unique (promotion_id, viewer_id, kind, occurred_on)
@@ -211,7 +211,8 @@ begin
 end
 $$;
 
--- promotions: the owner only stops a running promotion (active -> stopped, stopped_at the database clock); nothing else changes.
+-- promotions: the owner only stops a running promotion (active -> stopped, stopped_at the database clock); nothing else changes. A cascade
+-- or the owner role passes.
 create function nestly.promotions_update_guard()
 returns trigger
 language plpgsql
@@ -219,6 +220,9 @@ security invoker
 set search_path = ''
 as $$
 begin
+  if current_user <> 'authenticated' then
+    return new;
+  end if;
   if (new.id, new.owner_id, new.target_kind, new.post_id, new.listing_id, new.plan_key, new.payment_id, new.starts_at, new.ends_at, new.created_at)
      is distinct from (old.id, old.owner_id, old.target_kind, old.post_id, old.listing_id, old.plan_key, old.payment_id, old.starts_at, old.ends_at, old.created_at) then
     raise exception 'promotions: immutable column' using errcode = '42501';
@@ -231,40 +235,93 @@ begin
 end
 $$;
 
--- promotion_events: a follow or a chat start counts only within 7 days of the viewer's own click on that promotion; a repeat only adds one
--- to `times`, and nothing else of the row changes.
+-- promotion_events: the caller's own event on a running promotion of another that it can see (the promotion's own policy checks the target).
+-- viewer_id is not readable even to the viewer (column privilege), so no statement here names it: the caller reaches its own rows through
+-- its own policies (it is never the promotion's owner, and staff record nothing). Impressions and clicks: one row per day, a repeat adds one
+-- to it (at most 100 impressions and 20 clicks a day; beyond that nothing more is counted, nothing fails). A follow or a chat start: once a
+-- day, only in the transaction of a real follow / conversation (created now, by the caller) and within 7 calendar days of the caller's click.
+-- A row is changed only on its own day and only by adding one (the same limits).
 create function nestly.promotion_events_guard()
 returns trigger
 language plpgsql
 security invoker
 set search_path = ''
 as $$
+declare
+  v_today date := (pg_catalog.now() at time zone 'Asia/Jerusalem')::date;
+  v_uid uuid := (select auth.uid());
+  v_promo record;
+  v_cap integer;
 begin
-  if tg_op = 'INSERT' then
-    new.times := 1;
-    new.occurred_on := (pg_catalog.now() at time zone 'Asia/Jerusalem')::date;
-    new.created_at := pg_catalog.now();
-    new.updated_at := pg_catalog.now();
-    if new.kind in ('follow', 'chat_start') and not exists (
-        select 1 from nestly.promotion_events e
-         where e.promotion_id = new.promotion_id and e.viewer_id = new.viewer_id and e.kind = 'click'
-           and e.occurred_on >= new.occurred_on - 7) then
-      raise exception 'promotion_events: no click to attribute' using errcode = '42501';
-    end if;
+  if tg_op = 'UPDATE' and current_user <> 'authenticated' then
     return new;
   end if;
-  if (new.id, new.promotion_id, new.viewer_id, new.kind, new.occurred_on, new.created_at)
-     is distinct from (old.id, old.promotion_id, old.viewer_id, old.kind, old.occurred_on, old.created_at)
-     or new.times <> old.times + 1 then
-    raise exception 'promotion_events: a repeat adds one' using errcode = '42501';
+  if coalesce((select nestly.caller_account_type()), '') not in ('regular', 'professional') then
+    raise exception 'promotion_events: only a Regular or a Professional records an event' using errcode = '42501';
   end if;
+  select p.owner_id, p.target_kind, p.listing_id into v_promo
+    from nestly.promotions p
+   where p.id = new.promotion_id and p.owner_id <> v_uid
+     and p.status = 'active' and p.starts_at <= pg_catalog.now() and p.ends_at > pg_catalog.now();
+  if not found then
+    raise exception 'promotion_events: not a running promotion of another that the caller can see' using errcode = '42501';
+  end if;
+  v_cap := case new.kind when 'impression' then 100 when 'click' then 20 else 1 end;
+  if tg_op = 'UPDATE' then
+    if (new.id, new.promotion_id, new.viewer_id, new.kind, new.occurred_on, new.created_at)
+       is distinct from (old.id, old.promotion_id, old.viewer_id, old.kind, old.occurred_on, old.created_at)
+       or new.times <> old.times + 1 or old.occurred_on <> v_today or new.times > v_cap then
+      raise exception 'promotion_events: only today''s count goes up, by one, within its limit' using errcode = '42501';
+    end if;
+    new.updated_at := pg_catalog.now();
+    return new;
+  end if;
+  if new.viewer_id is distinct from v_uid then
+    raise exception 'promotion_events: the caller''s own event only' using errcode = '42501';
+  end if;
+  new.times := 1;
+  new.occurred_on := v_today;
+  new.created_at := pg_catalog.now();
   new.updated_at := pg_catalog.now();
+  if new.kind in ('follow', 'chat_start') then
+    if not exists (select 1 from nestly.promotion_events e
+                    where e.promotion_id = new.promotion_id and e.kind = 'click' and e.occurred_on >= v_today - 6) then
+      raise exception 'promotion_events: no click to attribute' using errcode = '42501';
+    end if;
+    -- a follow counts once per promotion and viewer, ever (unfollowing and following again is not a new paid follow)
+    if new.kind = 'follow' and exists (select 1 from nestly.promotion_events e where e.promotion_id = new.promotion_id and e.kind = 'follow') then
+      return null;
+    end if;
+    if new.kind = 'follow' and not exists (
+        select 1 from nestly.professional_follows f
+         where f.professional_id = v_promo.owner_id and f.created_at = pg_catalog.now()) then
+      raise exception 'promotion_events: no follow in this transaction' using errcode = '42501';
+    end if;
+    if new.kind = 'chat_start' and not exists (
+        select 1 from nestly.conversations c
+         where c.created_at = pg_catalog.now()
+           and ((c.user_a = v_uid and c.user_b = v_promo.owner_id) or (c.user_b = v_uid and c.user_a = v_promo.owner_id))
+           and (case when v_promo.target_kind = 'listing' then c.context = 'marketplace' and c.listing_id = v_promo.listing_id
+                     else c.context = 'professional' end)) then
+      raise exception 'promotion_events: no conversation in this transaction' using errcode = '42501';
+    end if;
+  end if;
+  -- a repeat the same day (serialised per promotion and caller; advisory lock 8114): impressions and clicks add one to the day's row up to
+  -- their limit; a follow or a chat start counts once a day. Either way no second row is inserted.
+  perform pg_catalog.pg_advisory_xact_lock(8114, pg_catalog.hashtext(new.promotion_id::text || ':' || v_uid::text));
+  if exists (select 1 from nestly.promotion_events e
+              where e.promotion_id = new.promotion_id and e.kind = new.kind and e.occurred_on = v_today) then
+    update nestly.promotion_events e set times = e.times + 1
+     where e.promotion_id = new.promotion_id and e.kind = new.kind and e.occurred_on = v_today and e.times < v_cap;
+    return null;
+  end if;
   return new;
 end
 $$;
 
--- Attribution (FR-PRO-002: paid follows and chat starts): as the follower / the opener, within 7 days of its own click on a running promotion
--- of that Professional (profile or post) or that listing. Anything else — a fixture, the owner role, a cascade — passes untouched.
+-- Attribution (FR-PRO-002: paid follows and chat starts): as the follower / the opener, within 7 calendar days of its own click on a running
+-- promotion of that Professional (profile or post) or that listing. A refusal of the paid event never fails the follow or the conversation.
+-- Anything else — a fixture, the owner role, a cascade — passes untouched.
 create function nestly.promotion_attribution()
 returns trigger
 language plpgsql
@@ -275,6 +332,9 @@ declare
   v_uid uuid := (select auth.uid());
   v_kind text;
   v_other uuid;
+  v_kinds text[];
+  v_listing uuid;
+  v_promotion uuid;
 begin
   if v_uid is null or current_user <> 'authenticated' then
     return null;
@@ -282,21 +342,34 @@ begin
   if tg_table_name = 'professional_follows' then
     v_kind := 'follow';
     v_other := new.professional_id;
+    v_kinds := array['profile', 'post'];
   else
     v_kind := 'chat_start';
     v_other := case when new.user_a = v_uid then new.user_b else new.user_a end;
+    if new.context = 'marketplace' then
+      v_kinds := array['listing'];
+      v_listing := new.listing_id;
+    else
+      v_kinds := array['profile', 'post'];
+    end if;
   end if;
-  insert into nestly.promotion_events as e (promotion_id, kind)
-  select p.id, v_kind
-    from nestly.promotions p
-   where p.owner_id = v_other and p.owner_id <> v_uid
-     and ((tg_table_name = 'professional_follows' and p.target_kind in ('profile', 'post'))
-       or (tg_table_name = 'conversations' and new.context = 'professional' and p.target_kind in ('profile', 'post'))
-       or (tg_table_name = 'conversations' and new.context = 'marketplace' and p.target_kind = 'listing' and p.listing_id = new.listing_id))
-     and exists (select 1 from nestly.promotion_events c
-                  where c.promotion_id = p.id and c.viewer_id = v_uid and c.kind = 'click'
-                    and c.occurred_on >= (pg_catalog.now() at time zone 'Asia/Jerusalem')::date - 7)
-  on conflict on constraint promotion_events_once_key do update set times = e.times + 1;
+  -- one promotion at a time, each in its own block: a refusal of one paid event drops that event only
+  for v_promotion in
+    select p.id
+      from nestly.promotions p
+     where p.owner_id = v_other and p.owner_id <> v_uid
+       and p.status = 'active' and p.starts_at <= pg_catalog.now() and p.ends_at > pg_catalog.now()
+       and p.target_kind = any (v_kinds) and (p.target_kind <> 'listing' or p.listing_id = v_listing)
+       and exists (select 1 from nestly.promotion_events c
+                    where c.promotion_id = p.id and c.kind = 'click'
+                      and c.occurred_on >= (pg_catalog.now() at time zone 'Asia/Jerusalem')::date - 6)
+  loop
+    begin
+      insert into nestly.promotion_events (promotion_id, kind) values (v_promotion, v_kind);
+    exception when others then
+      null;
+    end;
+  end loop;
   return null;
 end
 $$;
@@ -332,12 +405,14 @@ grant select (key, target_kind, days, sample_price_ils, sort_order, is_active) o
 grant select (id, payer_id, plan_key, target_kind, amount_ils, currency, provider, provider_ref, is_simulated, status, created_at)
   on table nestly.promotion_payments to authenticated;
 grant insert (plan_key) on table nestly.promotion_payments to authenticated;
-grant select (id, owner_id, target_kind, post_id, listing_id, plan_key, payment_id, status, starts_at, ends_at, stopped_at, created_at)
+-- payment_id is never granted for SELECT: which payment bought a promotion is the payer's (its billing screen lists its payments).
+grant select (id, owner_id, target_kind, post_id, listing_id, plan_key, status, starts_at, ends_at, stopped_at, created_at)
   on table nestly.promotions to authenticated;
 grant insert (target_kind, post_id, listing_id, plan_key, payment_id) on table nestly.promotions to authenticated;
 grant update (status) on table nestly.promotions to authenticated;
--- viewer_id is never granted for SELECT: the owner of a promotion counts rows and never learns who (BR-057, AC-072).
-grant select (id, promotion_id, kind, occurred_on, times) on table nestly.promotion_events to authenticated;
+-- viewer_id (and the row id, which would follow one viewer's row) are never granted for SELECT: the owner of a promotion counts rows and
+-- never learns who (BR-057, AC-072).
+grant select (promotion_id, kind, occurred_on, times) on table nestly.promotion_events to authenticated;
 grant insert (promotion_id, kind) on table nestly.promotion_events to authenticated;
 grant update (times) on table nestly.promotion_events to authenticated;
 
@@ -373,7 +448,14 @@ create policy promotions_select_finance on nestly.promotions
 create policy promotions_select_viewer on nestly.promotions
   for select to authenticated
   using ((select nestly.is_active_account()) and status = 'active' and starts_at <= now() and ends_at > now()
-    and owner_id <> all (coalesce((select nestly.block_peer_ids()), '{}'::uuid[])));
+    and owner_id <> all (coalesce((select nestly.block_peer_ids()), '{}'::uuid[]))
+    and case target_kind
+      when 'profile' then exists (select 1 from nestly.professional_profiles pr where pr.user_id = promotions.owner_id)
+      when 'post' then exists (select 1 from nestly.posts p
+                                where p.id = promotions.post_id and p.audience = 'everyone' and p.group_id is null and not p.is_share)
+      else exists (select 1 from nestly.marketplace_listings l
+                    where l.id = promotions.listing_id and l.status = 'active' and not l.is_hidden and l.expires_at > now())
+    end);
 
 create policy promotions_insert_owner on nestly.promotions
   for insert to authenticated
@@ -462,7 +544,7 @@ comment on column nestly.promotions.target_kind is 'profile, post or listing (FR
 comment on column nestly.promotions.post_id is 'The promoted post (target post): the owner''s own active post to everyone, not in a Group, not a share. Deleted with it.';
 comment on column nestly.promotions.listing_id is 'The promoted listing (target listing): the owner''s own active listing. Deleted with it.';
 comment on column nestly.promotions.plan_key is 'The plan bought (with target_kind, FK to promotion_plans).';
-comment on column nestly.promotions.payment_id is 'The simulated payment that bought it (the payer''s own, of the same plan; used once).';
+comment on column nestly.promotions.payment_id is 'The simulated payment that bought it (the payer''s own, of the same plan; used once). Not granted for SELECT.';
 comment on column nestly.promotions.status is 'active, or stopped by its owner. A promotion runs while active and before ends_at; after ends_at it has ended.';
 comment on column nestly.promotions.starts_at is 'The purchase time, the database clock.';
 comment on column nestly.promotions.ends_at is 'starts_at plus the plan''s days, set by promotions_prepare. Never written by a client.';
@@ -476,12 +558,12 @@ comment on index nestly.promotions_plan_idx is 'The plan FK.';
 
 comment on table nestly.promotion_events is
   'SRS PromotionPerformanceEvent (§13, FR-PRO-002, FR-ALG-007): paid impressions and clicks, and the follows and chat starts within 7 days of a click; one row per promotion, viewer, kind and day (Israel time), times counting repeats. The viewer writes and reads its own rows; the owner and BILLING_FINANCE_MANAGE count a promotion''s rows and never read viewer_id (BR-057, AC-072). Apart from every organic count (AC-062).';
-comment on column nestly.promotion_events.id is 'The row id.';
+comment on column nestly.promotion_events.id is 'The row id. Not granted for SELECT (it would follow one viewer''s row from day to day).';
 comment on column nestly.promotion_events.promotion_id is 'The promotion shown or acted on.';
 comment on column nestly.promotion_events.viewer_id is 'Who saw or acted (default auth.uid()). Never granted for SELECT: used only by the viewer''s own policy (the frequency cap) and the uniqueness of the day''s row.';
 comment on column nestly.promotion_events.kind is 'impression (served), click (opened), follow or chat_start (within 7 days of the viewer''s click; promotion_events_guard).';
 comment on column nestly.promotion_events.occurred_on is 'The day in Israel time, the database clock: the finest time the owner reads.';
-comment on column nestly.promotion_events.times is 'How many times that day, 1 to 1000; a repeat adds exactly one (promotion_events_guard).';
+comment on column nestly.promotion_events.times is 'How many times that day: impressions up to 100, clicks up to 20, a follow or chat start once (promotion_events_guard); a repeat adds exactly one.';
 comment on column nestly.promotion_events.created_at is 'The first event of that day. Not granted for SELECT.';
 comment on column nestly.promotion_events.updated_at is 'The latest repeat. Not granted for SELECT.';
 comment on constraint promotion_events_once_key on nestly.promotion_events is 'One row per promotion, viewer, kind and day (a repeat adds to times).';
@@ -490,8 +572,8 @@ comment on index nestly.promotion_events_viewer_idx is 'The viewer FK; the viewe
 comment on function nestly.promotion_payments_prepare() is 'BEFORE INSERT, SECURITY INVOKER. Copies the active plan''s target kind and sample price into the payment and fixes the simulated provider, status and clock (23503 for no such plan).';
 comment on function nestly.promotions_prepare() is 'BEFORE INSERT, SECURITY INVOKER. Sets the period from the active plan (now + its days) and refuses a second running promotion on the same target (23505; advisory lock 8113 on the target).';
 comment on function nestly.promotions_update_guard() is 'BEFORE UPDATE, SECURITY INVOKER. The owner only stops a running promotion (active -> stopped, stopped_at the database clock); every other column is immutable.';
-comment on function nestly.promotion_events_guard() is 'BEFORE INSERT OR UPDATE, SECURITY INVOKER. A new row starts at times 1 on today''s date (Israel time); a follow or chat start needs the viewer''s click on that promotion within 7 days; an update only adds one to times.';
-comment on function nestly.promotion_attribution() is 'AFTER INSERT on professional_follows and conversations, SECURITY INVOKER, as the caller: a follow of a Professional, or a professional or marketplace conversation opened, within 7 days of the caller''s own click on a running promotion of that Professional or that listing, is recorded as its follow / chat start. Passes untouched outside a client transaction.';
+comment on function nestly.promotion_events_guard() is 'BEFORE INSERT OR UPDATE, SECURITY INVOKER. Only a Regular or Professional, on a running promotion of another that it can read (target still eligible). An insert is the caller''s own on today''s date (Israel time): impressions and clicks add one to the day''s row instead of a second row, up to 100 / 20 a day (then nothing more is counted); a follow counts once per promotion and viewer and a chat start once a day, only with a real follow / conversation of the caller created in this transaction and a click of the caller within 7 calendar days (advisory lock 8114). An update only adds one to today''s row within the same limits.';
+comment on function nestly.promotion_attribution() is 'AFTER INSERT on professional_follows and conversations, SECURITY INVOKER, as the caller: a follow of a Professional, or a professional or marketplace conversation opened, within 7 calendar days of the caller''s own click on a running promotion of that Professional or that listing, is recorded as its follow / chat start; a refusal of that event never fails the follow or the conversation. Passes untouched outside a client transaction.';
 comment on trigger professional_follows_promotion_attribution on nestly.professional_follows is 'FR-PRO-002: a follow after a click on the Professional''s promotion counts as a paid follow.';
 comment on trigger conversations_promotion_attribution on nestly.conversations is 'FR-PRO-002: a conversation opened after a click on a promotion of that Professional or listing counts as a paid chat start.';
 
@@ -501,7 +583,7 @@ comment on policy promotion_payments_select_finance on nestly.promotion_payments
 comment on policy promotion_payments_insert_payer on nestly.promotion_payments is 'An active Professional pays for a profile or post plan, an active Regular for a listing plan; always simulated (NFR-SEC-007).';
 comment on policy promotions_select_owner on nestly.promotions is 'The owner reads its promotions in every state.';
 comment on policy promotions_select_finance on nestly.promotions is 'BILLING_FINANCE_MANAGE (Admin Only) reads every promotion.';
-comment on policy promotions_select_viewer on nestly.promotions is 'Every active account reads a running promotion of an owner it has no user block with (to be shown, labelled); the target''s own policies still decide whether it is shown.';
+comment on policy promotions_select_viewer on nestly.promotions is 'Every active account reads a running promotion of an owner it has no user block with, while it can read the target and the target is still eligible: the Professional''s profile, the post (still to everyone, not in a Group, not a share), the listing (active, visible, unexpired) (FR-ALG-007, BR-054, AC-063). Paid events need this read too.';
 comment on policy promotions_insert_owner on nestly.promotions is 'The buyer, with its own payment of the same plan: a Professional its profile or its own active public feed post (not in a Group, not a share), a Regular its own active, visible, unexpired listing (FR-SERV-010, FR-MKT-004).';
 comment on policy promotions_update_owner on nestly.promotions is 'The owner stops its running promotion (status only; the guard allows nothing else).';
 comment on policy promotion_events_select_viewer on nestly.promotion_events is 'The viewer reads its own rows (the frequency cap; the click a follow is attributed to).';
