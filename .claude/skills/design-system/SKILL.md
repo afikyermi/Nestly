@@ -13,7 +13,7 @@ paths:
 - **What each screen holds:** SRS §4.2, §7.
 - **How it looks and why:** `docs/design/direction.md` (principles, Facebook patterns, tone, imagery, motion,
   states, layout).
-- **The values:** `docs/design/tokens.md` — the spec. Code source from 9.7: `packages/shared/src/design-tokens/`;
+- **The values:** `docs/design/tokens.md` — the spec. Code source: `packages/shared/src/design-tokens/`;
   if the two disagree, the code is fixed or the spec changes by a recorded decision.
 
 Accessibility is `accessibility`, direction and dates are `rtl-hebrew`, wording is `ux-copy-he`.
@@ -77,12 +77,12 @@ centred column (R1).
 
 ## Done when
 
-- No forbidden item in the diff. From 9.7 the lint catches 1–3 in CI; the rest are CRITIC's design-consistency
-  check.
+- No forbidden item in the diff. The lint catches 1–3 in CI; the rest are checked by `/code-review`
+  of the diff.
 - Every changed component renders its states (default, hover, focus, selected, error, loading, empty where they
   apply) in a Storybook story.
 - Nothing new duplicates a component that already exists.
 
 ## Changelog
 - 1.0 — 2026-10-11 — created (WORKPLAN 9.6; decision "Design consistency without a design agent", Afik). The
-  forbidden list is CRITIC's design-consistency check, counted once in its budget. Provisional until 5 features.
+  forbidden list is the design-consistency check of every UI diff.
