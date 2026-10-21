@@ -9,6 +9,8 @@ import { setListingVisibility } from '@/services/api/marketplace';
 import { formatAdminTime } from './admin-format';
 import { EnforcementPanel } from './EnforcementPanel';
 import { ReportDetailPanel, type ReportAction } from './ReportDetailPanel';
+import { StaffWorkPanel } from './StaffWorkPanel';
+import { ESCALATED_MARK, ESCALATED_TEXT, OPENED_BY_MARK, PAST_TARGET, TIME_TARGET, WAITING } from './staff-work-texts';
 import {
   ACTION_FAILED_TEXT,
   BACK_TO_QUEUE_LABEL,
@@ -41,7 +43,9 @@ const refusalText = (kind: AdminOutcome<unknown>['kind']): string =>
 
 // The moderation queue (FR-MOD-003, PG-028, BR-074): one line per open target, "content endangering a child" first, a post with three reports risen but
 // still visible. A line opens the target with its reports, the actions the keys allow and, when the account is known, the enforcement panel.
-export function ReportsScreen({ permissions }: { permissions: readonly PermissionKey[] }) {
+// I14 completion (§9.9, §9.10): each line shows how long it waits against its time target (child safety 1 hour, other reports 24 hours), marks one
+// past it, escalated or opened; `initialTarget` opens one line directly ("next in queue" from the homes).
+export function ReportsScreen({ permissions, initialTarget = null }: { permissions: readonly PermissionKey[]; initialTarget?: { kind: string; id: string } | null }) {
   const call = useAdminCall();
   const [queue, setQueue] = useState<Queue>({ kind: 'loading' });
   const [selected, setSelected] = useState<Selected | null>(null);
@@ -59,6 +63,15 @@ export function ReportsScreen({ permissions }: { permissions: readonly Permissio
     void loadQueue();
   }, [loadQueue]);
 
+  const openedInitial = useRef(false);
+  const openItem = useRef<(item: QueueItem) => void>(() => undefined);
+  useEffect(() => {
+    if (openedInitial.current || initialTarget === null || queue.kind !== 'loaded') return;
+    openedInitial.current = true;
+    const item = queue.items.find((candidate) => candidate.targetKind === initialTarget.kind && candidate.targetId === initialTarget.id);
+    if (item !== undefined) openItem.current(item);
+  }, [queue, initialTarget]);
+
   // The revealed author of an anonymous post, as an account the enforcement panel can act on (needs USER_VIEW, as any account on this screen).
   async function revealedAccount(userId: string): Promise<TargetUser | null> {
     if (!permissions.includes('USER_VIEW')) return null;
@@ -72,6 +85,8 @@ export function ReportsScreen({ permissions }: { permissions: readonly Permissio
     const fresh = revealed === null ? null : { ...revealed, user: await revealedAccount(revealed.userId) };
     setSelected({ item, detail: outcome.kind === 'ok' ? outcome.value : null, detailFailed: outcome.kind !== 'ok', revealed: fresh, ...(message === undefined ? {} : { message }) });
   }
+
+  openItem.current = (item) => void loadDetail(item);
 
   async function act(action: ReportAction) {
     if (selected === null || selected.detail === null || busy.current) return;
@@ -193,6 +208,15 @@ export function ReportsScreen({ permissions }: { permissions: readonly Permissio
               onAction={(action) => void act(action)}
               onOpenPrivate={() => void loadDetail(selected.item, selected.revealed, selected.message, true)}
             />
+            <StaffWorkPanel
+              detail={detail}
+              user={account}
+              isOpen={queue.kind === 'loaded' && queue.items.some((item) => item.targetId === selected.item.targetId)}
+              onEscalated={() => {
+                setStatus(ESCALATED_TEXT);
+                void loadDetail(selected.item, selected.revealed, selected.message);
+              }}
+            />
             {account === null ? null : (
               <EnforcementPanel
                 user={account}
@@ -245,6 +269,13 @@ export function ReportsScreen({ permissions }: { permissions: readonly Permissio
                   {PRIORITY_LABELS[item.priority] ?? ''} · {reportCountText(item.reportCount)} · {formatAdminTime(item.firstReportedAt)}
                 </p>
                 {item.isRising ? <p className="text-small">{RISING_TEXT}</p> : null}
+                <p className="text-small" data-past-target={item.pastTarget === true ? 'true' : undefined}>
+                  {WAITING((Date.now() - Date.parse(item.firstReportedAt)) / 3_600_000)}
+                  {item.timeTargetHours === undefined ? null : <> · {TIME_TARGET(item.timeTargetHours)}</>}
+                  {item.pastTarget === true ? <strong className="ms-1 text-destructive">· {PAST_TARGET}</strong> : null}
+                  {item.escalated === true ? <> · {ESCALATED_MARK}</> : null}
+                  {item.openedBy !== undefined && item.openedBy > 0 ? <> · {OPENED_BY_MARK(item.openedBy)}</> : null}
+                </p>
               </div>
               <Button variant="soft" onClick={() => void loadDetail(item)}>
                 {OPEN_ITEM_LABEL}

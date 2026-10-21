@@ -20,9 +20,11 @@ does not instruct loading every link. Column sections and rule matrices are both
 | user_blocks | Blocking a user (I4); Friendships and regular names; Notifications and People Search |
 | chat_requests, conversations, messages, chat_blocks, chat_reads, support_requests, support_messages, reported_message_views | Chat and Support (I8); Friendships and regular names; Blocking a user; Safety and admin core (reports, audit) |
 | moderator_invitations, system_announcements, the analytics reads | Moderators team (I14); Safety and admin core (staff roles, keys, audit) |
+| report_escalations, report_openings, group_staff_views, child_tracker_trends, the staff review reads | Staff work (I14 completion); Safety and admin core (reports, audit); Groups (Private Group views); Trackers (I6) |
 | groups, group_members, group_access, group_join_requests, group_invitations, group_bans, group_notification_preferences, group_suggestions, group_highlight_configurations, private_group_content_views | Groups (I10); posts, comments, reactions (group content); Notifications and People Search (notify_group); Safety and admin core (reports, audit) |
 | professional_profiles, professional_follows, outreach_requests, professional_reviews, professional_articles | Professionals (I11); posts (audience followers, is_help_request), Chat and Support (conversations: contexts professional and outreach); Blocking a user |
 | marketplace_listings, sponsored_products | Marketplace (I12); Media and Stories (listing and sponsored images), Chat and Support (conversations: context marketplace), Safety and admin core (reports, audit); Blocking a user |
+| promotion_plans, promotion_payments, promotions, promotion_events | Monetization (I13); Professionals (profiles, posts, follows), Marketplace (listings), Chat and Support (conversations: attribution); Blocking a user |
 
 | tracker_events, cycle_entries, status_guides | Trackers, cycle and status guides (I6); children for the child FK |
 | media_assets, media_reviews, profile_photos, stories, media_training_candidates, media_training_samples, media_training_events | Media and Stories (I5); posts and post_authors (attach), friendships (Story audience), Safety and admin core (CONTENT_MODERATE, audit) |
@@ -550,7 +552,7 @@ SECURITY DEFINER; `audit_trigger()` gains the invitation and announcement branch
 
 | Table | Columns and meaning | Authorization |
 |---|---|---|
-| `moderator_invitations` | id, code_hash (SHA-256 hex of a one-time random code; the code is never stored), note (who it is for, 2-80), invited_by, created_at, expires_at (+7 days), accepted_by (unique; the Moderator it created; cascade), accepted_at, revoked_at | SELECT the Admin, or the holder of the code (its hash named in the transaction-local `nestly.moderator_invite`, helper `moderator_invite_hash()`); INSERT the Admin (code_hash, note); UPDATE the Admin (revoked_at, an open one) or the holder (accepted_by = auth.uid(), a valid open one); `moderator_invitations_guard` lets the state move once, stamps the times and accepts only for a caller who is now a Moderator; audited (moderator_invited, moderator_invitation_revoked, moderator_joined) |
+| `moderator_invitations` | id, code_hash (SHA-256 hex of a one-time random code; the code is never stored), note (who it is for, 2-80), invited_by, created_at, expires_at (+48 hours since the I14 completion; was +7 days), accepted_by (unique; the Moderator it created; cascade), accepted_at, revoked_at | SELECT the Admin, or the holder of the code (its hash named in the transaction-local `nestly.moderator_invite`, helper `moderator_invite_hash()`); INSERT the Admin (code_hash, note); UPDATE the Admin (revoked_at, an open one) or the holder (accepted_by = auth.uid(), a valid open one); `moderator_invitations_guard` lets the state move once, stamps the times and accepts only for a caller who is now a Moderator; audited (moderator_invited, moderator_invitation_revoked, moderator_joined) |
 | `system_announcements` | id, title (2-80), body (1-1,000), status draft/published/removed, created_by, created_at, updated_at, published_at, removed_at | SELECT SYSTEM_ANNOUNCEMENTS (all) or any active account (published); INSERT SYSTEM_ANNOUNCEMENTS (a draft naming itself; title, body); UPDATE SYSTEM_ANNOUNCEMENTS (title, body, status) while not removed; `system_announcements_prepare` allows draft -> published -> removed and draft -> removed and stamps the times; no DELETE; audited |
 
 Other changes: `users_insert_moderator` (a users row of type moderator, active, only with a valid open invitation whose hash the transaction names)
@@ -561,6 +563,28 @@ reactions, reports, user_enforcements and friendships, through `analytics_reader
 (the Admin always) only in a transaction that set `nestly.analytics_view` = on. This extends deviation (a) of the core: in that transaction the rows
 are readable to that staff member, and the server answers aggregates only (no id, name or text; BR-058). No child, journey, tracker, chat, support or
 media row is opened. Cleanup: both tables are listed and never deleted from (a test user is never staff).
+
+## Staff work (I14 completion)
+
+Built by `20261022800000_staff_work.sql` (Afik 21.10.2026, decisions-in-force.md §9; down script in `supabase/rollback/`, refuses while a CHILD_DATA_VIEW grant,
+an escalation or an opening exists). One new SECURITY DEFINER, `child_tracker_trends()` (data-model.md "Approved exceptions"); `reveal_post_author()` and
+`audit_trigger()` replaced (still the same definers). pgTAP: file 100.
+
+| Table | Columns and meaning | Authorization |
+|---|---|---|
+| `report_escalations` | id, report_id (FK reports, cascade; an open report may be escalated again, each with its note), escalated_by (default auth.uid(), never granted; FK users restrict), note (2-500, staff text), created_at | RLS + FORCE; SELECT REPORTS_VIEW (the Admin always); INSERT (report_id, note) a Moderator (never the Admin) with REPORTS_VIEW, in its own name, on an open report it can read; no UPDATE or DELETE; audited (`report_escalated`, the note as the reason) |
+| `group_staff_views` | id, group_id (FK groups, cascade), viewer_id (default auth.uid(), FK users restrict), view_xact (the opening's transaction, not granted), created_at | RLS + FORCE; SELECT own; INSERT (group_id) PRIVATE_GROUP_MODERATE (the Admin always) for an active Private Group; audited (`private_group_viewed`); `posts_group_hide` and `comments_group_hide` open that Group's content to that viewer inside that transaction only |
+| `trend_scopes` | nonce (pk), xact | RLS + FORCE; TO app_owner only (insert for this transaction and a CHILD_DATA_VIEW caller, select and delete this transaction's): child_tracker_trends() writes its nonce, names it in `nestly.child_data_scope` and deletes it; no runtime role reads or writes it |
+| `report_openings` | id, report_id (FK reports, cascade), opened_by (default auth.uid(), never granted; FK users restrict), opened_at; unique (report_id, opened_by) | RLS + FORCE; SELECT REPORTS_VIEW; INSERT (report_id) REPORTS_VIEW in its own name on an open report (the server writes it with ON CONFLICT DO NOTHING when a staff member opens a report); no UPDATE or DELETE; not audited (an opening is no action) |
+
+Other changes: `moderator_invitations.expires_at` defaults to 48 hours, and open invitations were cut to at most 48 hours from issue; `moderator_joined` carries
+the invitation's id (§9.1). `CHILD_DATA_VIEW` joins the assignable keys (key CHECK; `has_permission()`, the Admin always; no companion key) and opens only
+`child_tracker_trends()` (§9.2; reads tracker_events and children through `*_select_child_data` TO app_owner under `nestly.child_data_scope`). `reveal_post_author()`
+also needs PRIVATE_GROUP_MODERATE on Private Group content and records it (§9.4). `reports.thread_post_id` (a comment report's post, set by
+`reports_thread_post` as the reporter, SET NULL with the post; existing comment reports backfilled). Independent review: `posts_select_staff_review` and `comments_select_staff_review` (every active staff account reads every active post and comment, any audience or author privacy; group content stays behind the RESTRICTIVE group policies); `group_staff_views` (id, group_id, viewer_id, view_xact, created_at: PRIVATE_GROUP_MODERATE opens an active Private Group for its transaction only, audited `private_group_viewed`; INSERT (group_id) only; SELECT own) and `private_group_content_views.thread_post_id` and the altered RESTRICTIVE `posts_group_hide` / `comments_group_hide` open the same context
+inside the audited opening's transaction only. `reports_insert_community` (RESTRICTIVE INSERT): only an active Regular or Professional account files a report
+(staff never post, comment, send requests or report, §9.7; every other social write already refuses a staff account: file 100 c7). Cleanup: both new
+tables are listed and never deleted from by name (staff rows; they go with their report by cascade).
 
 ## Groups (I10)
 
@@ -650,3 +674,23 @@ notification or a qualification declaration exists):
   user block, the category switch honoured. `notifications_select_recipient` / `_update_recipient` gain `created_at <= now()`: a digest appears when its week ends.
 - `legal_consents.has_declared_qualification` (boolean, default false, INSERT granted): a Professional's training-and-licence declaration (Afik 21.10.2026), required
   by the registration request.
+
+## Monetization (I13)
+
+Built by `20261022900000_monetization.sql` (down script in `supabase/rollback/`; refuses once a payment, a promotion or an event exists). No new SECURITY
+DEFINER, no `TO app_owner` / `TO app_jobs` policy, `audit_trigger()` unchanged (no staff write: BILLING_FINANCE_MANAGE only reads). Invoker triggers:
+`promotion_payments_prepare`, `promotions_prepare` (advisory lock 8113 per target), `promotions_update_guard`, `promotion_events_guard` (advisory lock 8114 per
+promotion and viewer; a same-day repeat adds one to the caller's row and inserts none; at most 100 impressions and 20 clicks a day, a follow / chat start once; a row changes only on its own day), and `promotion_attribution` on `professional_follows` and `conversations`.
+Payment is simulated only (NFR-SEC-007, AC-098): no card, account or address column anywhere.
+
+| Table | Columns and meaning | Authorization |
+|---|---|---|
+| `promotion_plans` | key (PK), target_kind profile/post/listing (unique with key), days 1-60, sample_price_ils 1-10,000 ("מחיר לדוגמה", OP-030), sort_order, is_active, created_at (not readable). Seeded: profile 7d ₪49 / 30d ₪149, post 3d ₪19 / 7d ₪39, listing 3d ₪9 / 7d ₪19 | SELECT every active account; no runtime write |
+| `promotion_payments` | id, payer_id (default auth.uid()), plan_key + target_kind (FK plans; kind copied), amount_ils (copied from the plan), currency ILS, provider simulated, provider_ref (random uuid), is_simulated true, status succeeded, created_at | SELECT the payer, BILLING_FINANCE_MANAGE (Admin Only); INSERT plan_key only — a Professional a profile/post plan, a Regular a listing plan; no UPDATE/DELETE |
+| `promotions` | id, owner_id (default auth.uid()), target_kind, post_id / listing_id (cascade; exactly the kind's target), plan_key (FK with kind), payment_id (unique; the payer's own, same plan; not readable), status active/stopped, starts_at = now, ends_at = now + plan days (never client-written), stopped_at, created_at | SELECT the owner, BILLING_FINANCE_MANAGE, and every active account a running one (active, in period) of an owner with no user block whose target it can read and is still eligible (profile; post still to everyone, not a Group post, not a share; listing active, visible, unexpired: AC-063); INSERT the owner: a Professional its profile or own active public feed post (not a Group post, not a share), a Regular its own active, visible, unexpired listing; one running per target (23505); UPDATE the owner: active -> stopped while running; no DELETE |
+| `promotion_events` | id (not readable), promotion_id (cascade), viewer_id (default auth.uid(); never readable), kind impression/click/follow/chat_start, occurred_on (Israel date), times 1-100, created_at / updated_at (not readable); unique (promotion, viewer, kind, day) | SELECT the viewer's own rows, the promotion's owner and BILLING_FINANCE_MANAGE (counts only: no viewer, no time finer than the day; BR-057, AC-072); INSERT an active Regular/Professional, own row, on a running promotion not its own (follow / chat_start only with a real follow / conversation of the caller in the same transaction and a click within 7 calendar days); UPDATE own row of today, times + 1 within the limits; no DELETE |
+
+Attribution: a follow of a Professional, or a professional / marketplace conversation opened, within 7 days of the caller's own click on a running promotion of
+that Professional or listing, adds a follow / chat_start event (as the caller); a refusal of that event never fails the follow or the conversation. No organic table is written and no organic read joins these tables (AC-062).
+Cleanup: `promotion_events` (the user's own and those on the user's promotions), then `promotions`, then `promotion_payments`, after the private-group views and
+before the Stories; `promotion_plans` never (configuration).

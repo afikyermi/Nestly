@@ -59,13 +59,22 @@ export class CommentsFault extends Error {
   }
 }
 
+/** A reader of a thread: a community member, and a staff account reviewing (I14 completion, §9.7; it writes nothing: createComment refuses it). */
+async function classifyReader(tx: IdentityTx): Promise<CommentRefusal | undefined> {
+  const accounts = await readOwnAccounts(tx);
+  if (accounts.length > 1) throw new CommentsFault('more than one own users row');
+  const [account] = accounts;
+  if (account === undefined) return { kind: 'forbidden' };
+  return account.status === 'active' ? undefined : { kind: 'stopped' };
+}
+
 async function classifyViewer(tx: IdentityTx): Promise<CommentRefusal | undefined> {
   const accounts = await readOwnAccounts(tx);
   if (accounts.length > 1) throw new CommentsFault('more than one own users row');
   const [account] = accounts;
   if (account === undefined) return { kind: 'forbidden' };
   if (account.status !== 'active') return { kind: 'stopped' };
-  // Admin and Moderator are refused here (their writes also by RLS; their reads only here, security-privacy-open). A Regular or a
+  // Admin and Moderator write nothing: refused here and by RLS (their reads are classifyReader's: independent review, I14 completion). A Regular or a
   // Professional account passes (DR-1): what each may write and read is the database's.
   return account.accountType === 'admin' || account.accountType === 'moderator' ? { kind: 'forbidden' } : undefined;
 }
@@ -123,7 +132,7 @@ export async function readThread(database: Database, identity: Identity, postId:
     database,
     identity,
     async (tx): Promise<ThreadOutcome> => {
-      const refusal = await classifyViewer(tx);
+      const refusal = await classifyReader(tx);
       if (refusal !== undefined) return refusal;
       if ((await readPost(tx, postId)).length === 0) return { kind: 'post_unavailable' };
       const fetched = await readTopLevelPage(tx, postId, cursor, COMMENT_PAGE_SIZE + 1);
@@ -152,7 +161,7 @@ export async function readReplies(database: Database, identity: Identity, commen
     database,
     identity,
     async (tx): Promise<RepliesOutcome> => {
-      const refusal = await classifyViewer(tx);
+      const refusal = await classifyReader(tx);
       if (refusal !== undefined) return refusal;
       const [postId] = await readTopLevelPostId(tx, commentId);
       if (postId === undefined || (await readPost(tx, postId)).length === 0) return { kind: 'comment_unavailable' };

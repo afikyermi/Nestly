@@ -1,3 +1,5 @@
+import { useStaffAccess } from '@/hooks/use-staff-access';
+import { STAFF_REVIEW_NOTE } from '@/lib/staff-review-texts';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import type { GroupInvitation, GroupSummary } from '@nestly/shared';
@@ -56,6 +58,7 @@ type ListState = { phase: 'loading' } | { phase: 'failed' } | { phase: 'ready'; 
 // state). "יצירת קבוצה" opens the form in place (PG-043); the new Group's page opens when it is made. The server decides everything.
 export function GroupsScreen() {
   const call = useGroupsCall();
+  const reviewing = useStaffAccess().kind === 'staff';
   const navigate = useNavigate();
   const ids = useId();
   const [scope, setScope] = useState<Scope>('mine');
@@ -167,9 +170,13 @@ export function GroupsScreen() {
       <p role="status" className="sr-only">
         {status}
       </p>
-      <div>
-        <Button onClick={() => setCreating(true)}>{CREATE_LABEL}</Button>
-      </div>
+      {reviewing ? (
+        <p className="rounded-md bg-muted p-3 text-small">{STAFF_REVIEW_NOTE}</p>
+      ) : (
+        <div>
+          <Button onClick={() => setCreating(true)}>{CREATE_LABEL}</Button>
+        </div>
+      )}
       {pageAlert !== '' ? <InlineAlert>{pageAlert}</InlineAlert> : null}
       {invitations.length > 0 ? (
         <section aria-labelledby={`${ids}-invitations`} className="rounded-lg bg-card p-4 shadow-card">
@@ -270,8 +277,10 @@ interface GroupCardProps {
 // One Group in a list: its name (the link to its page), Public or Private, the member count when the caller may count them, the
 // description's start, and one action by the caller's relation.
 function GroupCard({ group, busy, onAct }: GroupCardProps) {
+  // I14 completion (§9.7): a staff account reviews the Groups: no join or request (it is a member of nothing)
+  const reviewing = useStaffAccess().kind === 'staff';
   const action =
-    group.state === 'member' ? null : group.state === 'blocked' ? null : group.state === 'requested' ? CANCEL_REQUEST_LABEL : group.privacy === 'public' ? JOIN_LABEL : REQUEST_LABEL;
+    reviewing || group.state === 'member' ? null : group.state === 'blocked' ? null : group.state === 'requested' ? CANCEL_REQUEST_LABEL : group.privacy === 'public' ? JOIN_LABEL : REQUEST_LABEL;
   return (
     <article className="flex flex-col gap-2 rounded-lg bg-card p-4 shadow-card">
       <Link to={groupPath(group.id)} className="text-h3 text-foreground no-underline hover:underline">

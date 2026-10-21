@@ -28,3 +28,4 @@ export * from './team.js';
 export * from './professionals.js';
 export * from './groups.js';
 export * from './marketplace.js';
+export * from './staff-work.js';

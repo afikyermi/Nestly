@@ -130,6 +130,8 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
                                           where group_id in (select group_id from nestly.group_members where user_id = ${id} and role = 'owner'))
                        or listing_id in (select id from nestly.marketplace_listings where owner_id = ${id})`
         ).count;
+        // I14 completion: report_escalations and report_openings are staff rows (a test user is never staff); they go with these reports
+        // by cascade. reports.thread_post_id of another user's report on this user's post goes SET NULL with the post.
         counts['reactions'] = (
           await tx`delete from nestly.reactions where id in (select reaction_id from nestly.reaction_owners where user_id = ${id})`
         ).count;
@@ -138,6 +140,14 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         // I5: the user's Stories and profile photo, then every image they uploaded (reviews and training candidates go by cascade; staff
         // decisions on others' images keep their row: decided_by is SET NULL). media_training_samples and media_training_events name no user and are never written here.
         // The files in storage are not deleted here: the daily job removes files that have no row.
+        // Monetization (I13): the user's own paid events and every event on the user's promotions, then the promotions (before the posts and
+        // listings they name), then the user's simulated payments (a promotion references its payment). promotion_plans is configuration.
+        counts['promotion_events'] = (
+          await tx`delete from nestly.promotion_events
+                    where viewer_id = ${id} or promotion_id in (select id from nestly.promotions where owner_id = ${id})`
+        ).count;
+        counts['promotions'] = (await tx`delete from nestly.promotions where owner_id = ${id}`).count;
+        counts['promotion_payments'] = (await tx`delete from nestly.promotion_payments where payer_id = ${id}`).count;
         counts['stories'] = (await tx`delete from nestly.stories where author_id = ${id}`).count;
         counts['profile_photos'] = (await tx`delete from nestly.profile_photos where user_id = ${id}`).count;
         counts['media_assets'] = (await tx`delete from nestly.media_assets where owner_id = ${id}`).count;

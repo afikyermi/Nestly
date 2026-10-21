@@ -211,7 +211,7 @@ describe('[F3.3-b1 c4] who may comment where', () => {
     expect(await count('fx_cm_count')).toBe(0);
   });
 
-  it('[F3.3-b1 c4 professional-posting c7 S-66] an Admin and a Moderator → 403 on comment create, thread and replies; no row is written', T, async () => {
+  it('[F3.3-b1 c4 professional-posting c7 S-66 · I14c §9.7] an Admin and a Moderator → 403 on comment create, but read the thread and the replies for review; no row is written', T, async () => {
     const app = await start();
     const postId = await seedPost(AU);
     const parent = await seedComment(AU, postId, 1);
@@ -219,8 +219,8 @@ describe('[F3.3-b1 c4] who may comment where', () => {
     for (const who of ['fr_d', 'fr_m']) {
       const h = await bearerFor(await text(side`select tests.fx_fr_id(${who})::text as v`));
       expect((await addComment(app, h, postId, { body: 'x' })).statusCode, who).toBe(403);
-      expect((await listComments(app, h, postId)).statusCode, who).toBe(403);
-      expect((await listReplies(app, h, parent)).statusCode, who).toBe(403);
+      expect((await listComments(app, h, postId)).statusCode, who).toBe(200);
+      expect((await listReplies(app, h, parent)).statusCode, who).toBe(200);
     }
     expect(await count('fx_cm_count')).toBe(before);
   });

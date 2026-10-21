@@ -5,8 +5,8 @@ import { z } from 'zod';
 import { PERMISSION_KEYS, SUPPORT_TOPICS, type PermissionKey } from '../constants/index.js';
 import { codePointLength } from './text.js';
 
-/** An invitation is valid this many days (the database's default). */
-export const INVITATION_DAYS = 7;
+/** An invitation is valid this many hours (the database's default; Afik 21.10.2026). */
+export const INVITATION_HOURS = 48;
 export const INVITATION_NOTE_MIN = 2;
 export const INVITATION_NOTE_MAX = 80;
 export const ANNOUNCEMENT_TITLE_MIN = 2;

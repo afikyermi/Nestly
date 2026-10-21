@@ -24,6 +24,7 @@ import { registerSearchRoute } from './routes/search.js';
 import { registerSharesRoutes } from './routes/shares.js';
 import { registerAdminGuidesRoutes } from './routes/admin-guides.js';
 import { registerTeamRoutes } from './routes/team.js';
+import { registerStaffWorkRoutes } from './routes/staff-work.js';
 import { registerCycleRoutes } from './routes/cycle.js';
 import { registerHomeRoute } from './routes/home.js';
 import { registerJourneysRoutes } from './routes/journeys.js';
@@ -163,6 +164,7 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerAdminReadRoutes(app, { database, storage: media.storage });
   registerAdminActionRoutes(app, { database });
   registerTeamRoutes(app, { database });
+  registerStaffWorkRoutes(app, { database });
 
   return app;
 }

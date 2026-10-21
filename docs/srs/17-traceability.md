@@ -12,6 +12,7 @@
 | PG-055 | עמוד פוסט / תגובות ולייקים לפוסט / שיתוף פוסט / חלון שיתוף קישור / פעולת דיווח | FR-FEED-002/003/005/006/007 / FR-MOD-001 / FR-AUTH-004 | UC-04/26 | Post (כולל שיתופים), Comment, Reaction, Report |
 | PG-056 | מסך ההצטרפות לצוות | FR-ADMIN-004 | UC-15 | User, ModeratorInvitation, AuditLogEntry |
 | PG-057 | מסך בקשות העזרה / הצעת עזרה (ניווט Professional) | FR-SERV-005 / FR-SERV-008 | UC-25 | Post (מבקש עזרה), ProfessionalOutreachRequest; AC-148 |
+| PG-058 | מסך בית הצוות / בית הניהול / העבודה שלי / מגמות נתוני ילדים | FR-ADMIN-014 / FR-ADMIN-015 / FR-ADMIN-005 / FR-MOD-003 | UC-15/27 | Report, ReportEscalation, ReportOpening, TrackerEvent (מגמות בלבד), AuditLogEntry; AC-152–AC-158 |
 | PG-041/042 | מסך הקידום המקצועי / מסך חיובים וקידומים (עד I13: "עוד לא זמין") | FR-PRO-002 / FR-SERV-010 | UC-42 | — |
 | PG-009 | מעקב בעמוד הבית | FR-HOME-001..004, FR-ALG-004 | UC-05/06 | JourneyContext, Child, TrackerEvent, CycleEntry, Article |
 | PG-010/019 | ניהול ה-Marketplace (רשימה, "המודעות שלי", מודעה חדשה ועריכה) / קידום מודעת Marketplace / מסך פריט Marketplace (פנייה בצ'אט, דיווח) / מנוע ההמלצות מבוסס הכללים | FR-MKT-001..005 / FR-ALG-006/007/008 / FR-CHAT-002 / FR-MOD-001 | UC-07/39 | MarketplaceListing, SponsoredProduct, Promotion, MediaAsset, Conversation (Marketplace), Report, IntentSignal, PromotionPerformanceEvent, ContentImpression, AnalyticsEvent |
@@ -40,7 +41,7 @@
 | Global Routing | Authentication / הגנת נתיבים | FR-AUTH-004 | — | User / Session |
 | PG-003 | מסך בחירת סוג חשבון | FR-REG-001 | UC-01/02 | — |
 | PG-020 | מסך טיפ / מאמר / תוכן מותאם לשלב | FR-HOME-004 | — | Article / Tip |
-| PG-037 | מסך תור הדיווחים / טיפול בדיווחים | FR-MOD-003 | UC-27 | Report, AuditLogEntry |
+| PG-037 | מסך תור הדיווחים / טיפול בדיווחים | FR-MOD-003 / BR-081 / BR-082 | UC-27 | Report, ReportEscalation, ReportOpening, StaffGroupView, AuditLogEntry; AC-155/156/158 |
 | PG-038 | מסך ההגדרות / ניהול ההגדרות | FR-SET-001 / FR-PRIV-001 / FR-NOTIF-002 / FR-MENU-001 | UC-33/24 | PrivacyPreference, ChildBirthdayVisibility, NotificationPreference |
 | PG-039 | מסך בעלי מקצוע במעקב / מעקב אחר בעל מקצוע | FR-FOLLOW-001 / FR-MENU-001 | UC-21 | ProfessionalFollow (רשימה ב-`/following` עם הפסקת מעקב; מספר העוקבים בלוח הבקרה); AC-035, AC-151 |
 | PG-040 | ~~מסך סטטוס האימות המקצועי / אימות מקצועי~~ — **בוטל** (OP-005 נסגר, 18.10.2026) | FR-PROREG-003 (בוטל) | — | — |

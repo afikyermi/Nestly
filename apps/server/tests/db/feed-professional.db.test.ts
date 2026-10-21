@@ -253,7 +253,7 @@ describe('[professional-posting c6 FR-FEED-001 FR-ALG-002 R2] a Professional rea
     expect(ids(asPro)).toEqual(ids(asRegular));
   });
 
-  it('[professional-posting c6] a suspended Professional -> 403 account_unavailable; an Admin and a Moderator -> 403 not_allowed; no post data', T, async () => {
+  it('[professional-posting c6 · I14c §9.7] a suspended Professional -> 403 account_unavailable; an Admin and a Moderator read the review feed', T, async () => {
     const app = await start();
     await mk({ by: Tm });
     await setStatus(PRO, 'suspended');
@@ -262,9 +262,8 @@ describe('[professional-posting c6 FR-FEED-001 FR-ALG-002 R2] a Professional rea
     expect(errorOf(suspended.body)).toBe('account_unavailable');
     for (const who of ['fr_d', 'fr_m']) {
       const res = await feed(app, await bearerFor(await text(side`select tests.fx_fr_id(${who})::text as v`)));
-      expect(res.statusCode, res.body).toBe(403);
-      expect(errorOf(res.body)).toBe('not_allowed');
-      expect(res.body).not.toMatch(/items|post body/);
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.body).toMatch(/items/);
     }
   });
 });

@@ -10,7 +10,8 @@ import { readCommentCounts, readLikeCounts, readLikedTargetIds } from '../reposi
 import type { MediaStorage } from '../media/storage-admin.js';
 import type { PostImageRow } from '../repositories/media-repository.js';
 import { unitOf } from './feed-service.js';
-import { classifyMember, isRefusal } from './membership.js';
+import { classifyReader, isRefusal } from './membership.js';
+import { openPrivateGroupForReview } from '../repositories/group-staff-views-repository.js';
 import { imagesByPost, readPostImageRows } from './posts-service.js';
 
 
@@ -44,8 +45,11 @@ export async function readGroupFeed(
     database,
     identity,
     async (tx): Promise<GroupResult<FeedPageResponse>> => {
-      const member = await classifyMember(tx);
-      if (isRefusal(member)) return member;
+      const reader = await classifyReader(tx);
+      if (isRefusal(reader)) return reader;
+      // I14 completion (§9.7): a staff account reviews; a Private Group opens to it only with PRIVATE_GROUP_MODERATE, audited once per visit
+      // (the first page; a later page of the same visit reads only what is public to it)
+      if (reader.kind === 'staff' && after === null) await openPrivateGroupForReview(tx, id);
       const group = await readGroupDetail(tx, id);
       if (group === undefined) return fail('group_unavailable');
       const pinned = after === null && group.pinnedPostId !== null && (await readGroupPostExists(tx, id, group.pinnedPostId)) ? group.pinnedPostId : null;

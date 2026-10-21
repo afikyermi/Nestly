@@ -19,3 +19,16 @@ export async function classifyMember(tx: IdentityTx): Promise<{ readonly kind: M
 }
 
 export const isRefusal = (result: { readonly kind: string }): result is MemberRefusal => result.kind === 'stopped' || result.kind === 'forbidden';
+
+/**
+ * Who may READ the community for independent review (I14 completion, §9.7, Afik 21.10.2026): a Regular or Professional account, and a staff
+ * account too (`staff`), which writes nothing (every write path still uses classifyMember, and RLS refuses a staff account's social writes).
+ */
+export async function classifyReader(tx: IdentityTx): Promise<{ readonly kind: MemberKind | 'staff' } | MemberRefusal> {
+  const accounts = await readOwnAccounts(tx);
+  if (accounts.length > 1) throw new Error('more than one own users row');
+  const [account] = accounts;
+  if (account === undefined) return { kind: 'forbidden' };
+  if (account.status !== 'active') return { kind: 'stopped' };
+  return account.accountType === 'regular' || account.accountType === 'professional' ? { kind: account.accountType } : { kind: 'staff' };
+}

@@ -24,7 +24,7 @@ import {
 import { useBackCloses } from '@/hooks/use-back-closes';
 import { useSession } from '@/hooks/use-session';
 import { StaffAccessProvider, useStaffAccessQuery } from '@/hooks/use-staff-access';
-import { ADMIN_MENU_LABEL } from '@/features/admin/admin-texts';
+import { ADMIN_MENU_LABEL, STAFF_GROUPS_MENU_LABEL } from '@/features/admin/admin-texts';
 import { ChatTopBarButton } from '@/features/chat/ChatTopBarButton';
 import { NEW_SUPPORT_LABEL } from '@/lib/chat-texts';
 import { shareLinkSheetProps, useShareLink } from '@/hooks/use-share-link';
@@ -37,14 +37,16 @@ import { normalizePath, PATHS } from './paths';
 // The destinations of a community account (AC-005, §7.1, in the sketch's order): home, the Marketplace (I12, "חנות", FR-MKT-001), feed, the
 // Professionals' directory (I11, FR-SERV-001) and the profile. The profile tab shows the generic person icon until profile photos exist (I5, Q7). A
 // Professional's (Afik 21.10.2026, §9.8): home (its dashboard), feed, the posts that ask for help, and its Professional profile (no "חנות").
-const navItems = (professional: boolean) => [
-  { key: 'home', label: 'בית', href: PATHS.home, icon: <HomeIcon /> },
+// A staff account (I14 completion, Afik 21.10.2026): home (the admin area), the Marketplace, the feed and the directory, for review; no personal
+// profile (a work-only account).
+const navItems = (professional: boolean, staff = false) => [
+  { key: 'home', label: 'בית', href: staff ? PATHS.admin : PATHS.home, icon: <HomeIcon /> },
   ...(professional ? [] : [{ key: 'marketplace', label: MARKETPLACE_NAV_LABEL, href: PATHS.marketplace, icon: <BagIcon /> }]),
   { key: 'feed', label: 'פיד', href: PATHS.feed, icon: <NestIcon /> },
   professional
     ? { key: 'help', label: HELP_REQUESTS_TITLE, href: PATHS.helpRequests, icon: <SparkIcon /> }
     : { key: 'services', label: DIRECTORY_NAV_LABEL, href: PATHS.services, icon: <SparkIcon /> },
-  { key: 'profile', label: 'פרופיל', href: professional ? PATHS.proProfile : PATHS.profile, icon: <UserIcon /> },
+  ...(staff ? [] : [{ key: 'profile', label: 'פרופיל', href: professional ? PATHS.proProfile : PATHS.profile, icon: <UserIcon /> }]),
 ];
 
 /** The top bar's search and bell (AC-033): a Regular or Professional account only. An Admin or Moderator account has neither. */
@@ -106,7 +108,7 @@ export function ProtectedLayout() {
     <NotificationsProvider>
     <AppShell
       topBarActions={<TopBarActions chat={staff.kind === 'none' ? <ChatTopBarButton current={current} /> : null} />}
-      navItems={navItems(professional).map((item) => ({ ...item, current: item.href === current }))}
+      navItems={navItems(professional, staff.kind === 'staff').map((item) => ({ ...item, current: item.href === current }))}
       navLabel="ניווט ראשי"
       menuLabel="פתיחת התפריט"
       drawerTitle="תפריט"
@@ -118,13 +120,12 @@ export function ProtectedLayout() {
       scrollResetKey={current}
       menu={(closeMenu, closeMenuThen) => (
         <>
-          {staff.kind === 'staff' ? null : (
-            <MenuItem href={PATHS.groups} current={current === PATHS.groups || current.startsWith(`${PATHS.groups}/`)} onNavigate={leaving(closeMenu)}>
-              הקבוצות שלי
-            </MenuItem>
-          )}
-          {/* A Professional has no Friends (Afik 21.10.2026, §9.8): its menu has the business items below instead. */}
-          {professional ? null : (
+          {/* I14 completion: a staff account opens the Groups for review (it joins none). */}
+          <MenuItem href={PATHS.groups} current={current === PATHS.groups || current.startsWith(`${PATHS.groups}/`)} onNavigate={leaving(closeMenu)}>
+            {staff.kind === 'staff' ? STAFF_GROUPS_MENU_LABEL : 'הקבוצות שלי'}
+          </MenuItem>
+          {/* A Professional has no Friends (Afik 21.10.2026, §9.8): its menu has the business items below instead. Staff have none either. */}
+          {professional || staff.kind === 'staff' ? null : (
             <MenuItem href={PATHS.friends} current={PATHS.friends === current} onNavigate={leaving(closeMenu)}>
               חברים
             </MenuItem>
