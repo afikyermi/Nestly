@@ -117,7 +117,7 @@ select is((select string_agg(c.relname || '.' || a.attname, ', ' order by c.reln
               and c.relname = any (pg_temp.new_tables()) and a.attnum > 0 and not a.attisdropped
               and not has_column_privilege('authenticated', c.oid, a.attnum, 'SELECT')),
   'outreach_requests.professional_status, professional_articles.author_status, professional_follows.follower_id, professional_follows.follower_status, '
-  || 'professional_profiles.user_status, professional_reviews.reviewer_id, professional_reviews.reviewer_status',
+  || 'professional_profiles.user_status, professional_reviews.conversation_id, professional_reviews.reviewer_id, professional_reviews.reviewer_status',
   '[I11 c1 FR-PRO-001 VAL-032] never readable: the status copies, the follower and the reviewer (counts and averages carry no identity)');
 select is((select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'nestly' and p.prosecdef
             and p.proname in ('professional_profiles_update_guard', 'outreach_requests_insert_limit', 'outreach_requests_transition', 'professional_articles_update_guard')),
@@ -202,6 +202,11 @@ select is(pg_temp.dml('q1', $q$ update nestly.posts set audience = 'friends' whe
 select is(pg_temp.post('a', 'עזרה בשינה', true), 'OK:1', '[I11 c5 OP-038 ⭐ (a)] a Regular marks its post as asking for help');
 select is(pg_temp.post('a', 'עזרה אנונימית', true, true), 'OK:1', '[I11 c5] an anonymous post may ask for help');
 select is(pg_temp.post('b', 'סתם פוסט', false), 'OK:1', '[I11 c5] control: a post that does not ask for help');
+select is(pg_temp.dml('b', $q$ update nestly.posts set is_help_request = true where body = 'סתם פוסט' $q$, false), 'OK:1', '[I11 c5 OP-038] the author marks its post as asking for help on an edit');
+select is(pg_temp.dml('a', $q$ update nestly.posts set is_help_request = true where body = 'סתם פוסט' $q$), 'OK:0', '[I11 c5] nobody else does');
+select is((select count(*) from pg_trigger t join pg_class c on c.oid = t.tgrelid join pg_namespace ns on ns.oid = c.relnamespace where ns.nspname = 'nestly' and c.relname = 'posts' and t.tgname in ('posts_reject_staff_edit', 'posts_reject_group_edit')
+            and exists (select 1 from unnest(t.tgattr::int2[]) k join pg_attribute a on a.attrelid = t.tgrelid and a.attnum = k where a.attname = 'is_help_request')),
+  2::bigint, '[I11 c5 I4 I10] staff and Group managers never change the help marking (the edit guards cover it)');
 select is(pg_temp.post('a', 'אנונימי לעוקבים', false, true, 'followers'), 'ERR:42501', '[I11 c5] an anonymous post is everyone only');
 
 -- ---- Offer Help (FR-SERV-005/006/008, BR-007..010, VAL-010, AC-011, AC-012, AC-014) ------------------------------------
@@ -257,10 +262,10 @@ select is(pg_temp.offer('q1', pg_temp.pid('a', 'עזרה 10')), 'OK:1', '[I11 c6
 select is(tests.fx_pr_count(format('nestly.outreach_requests where professional_id = %L', pg_temp.id('q2'))), 10::bigint, '[I11 c6] exactly ten rows');
 
 -- ---- a Regular opens a chat with a Professional (FR-SERV-004, BR-006, AC-010) ------------------------------------------
+select is(pg_temp.open_conv('q1', 'b', 'professional'), 'ERR:42501', '[I11 c7 BR-007] a Professional does not open a conversation with a Regular');
 select is(pg_temp.open_conv('b', 'q1', 'professional'), 'OK:1', '[I11 c7 AC-010] a Regular opens a conversation with a Professional, no approval');
 select is(pg_temp.say('b', pg_temp.conv('b', 'q1')), 'OK:1', '[I11 c7 BR-006] and writes');
 select is(pg_temp.say('q1', pg_temp.conv('b', 'q1')), 'OK:1', '[I11 c7 FR-SERV-007] the Professional answers');
-select is(pg_temp.open_conv('q1', 'a', 'professional') like 'ERR:%', true, '[I11 c7 BR-007] a Professional does not open one with a Regular');
 select is(pg_temp.open_conv('q2', 'q1', 'professional'), 'ERR:42501', '[I11 c7] nor with another Professional');
 select is(pg_temp.open_conv('a', 'b', 'professional'), 'ERR:42501', '[I11 c7] context professional needs a Professional');
 select is(pg_temp.open_conv('b', 'q2', 'professional'), 'ERR:42501', '[I11 c7 FR-REL-002] never across a user block');
@@ -277,6 +282,9 @@ select is(pg_temp.review('q1', 'q1', pg_temp.conv('b', 'q1')), 'ERR:42501', '[I1
 select is(pg_temp.n('p', format($q$ select avg(rating)::numeric(3,1)::text || '/' || count(*) from nestly.professional_reviews where professional_id = %L $q$, pg_temp.id('q1'))), '3.0/2',
   '[I11 c8 BR-072 AC-093] the rating is the average of the reviews');
 select is(pg_temp.n('q1', 'select reviewer_id::text from nestly.professional_reviews limit 1'), 'ERR:42501', '[I11 c8] the reviewer is never readable');
+select is(pg_temp.n('q1', 'select conversation_id::text from nestly.professional_reviews limit 1'), 'ERR:42501', '[I11 c8] nor the conversation that would name it');
+select is(pg_temp.n('q2', format($q$ select count(*)::text from nestly.professional_reviews where professional_id = %L $q$, pg_temp.id('q1'))), '2',
+  '[I11 c8] a block does not hide a review (blocking would reveal its writer)');
 select is(pg_temp.dml('a', 'update nestly.professional_reviews set rating = 1'), 'ERR:42501', '[I11 c8] a review is not edited');
 select tests.set_status(pg_temp.id('b'), 'suspended');
 select is(pg_temp.n('p', format($q$ select count(*)::text from nestly.professional_reviews where professional_id = %L $q$, pg_temp.id('q1'))), '1',

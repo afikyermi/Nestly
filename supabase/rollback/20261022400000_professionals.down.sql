@@ -4,7 +4,7 @@
 --
 -- Run as:   app_owner, in one transaction. CI runs it once per build (up -> down -> up) against the disposable database.
 --           Against nestly-preview or nestly-prod it is a destructive change: Afik only.
--- Safe:     only while none of the five new tables holds a row, no Professional account exists, no post is a help request or
+-- Safe:     only while none of the five new tables holds a row, no post is a help request or
 --           followers-only, and no conversation has a Professional context (refuses otherwise: data would be lost).
 -- Restores: users_insert_own (Regular only), posts_insert_author / posts_update_author as 20261019400000 left them, posts_select_viewer as
 --           20261018200000 left it; conversations_insert_party as 20261022100000 left it; the posts and conversations constraints and columns; the
@@ -25,18 +25,15 @@ begin
   alter table nestly.outreach_requests no force row level security;
   alter table nestly.professional_reviews no force row level security;
   alter table nestly.professional_articles no force row level security;
-  alter table nestly.users no force row level security;
   alter table nestly.posts no force row level security;
   alter table nestly.conversations no force row level security;
   if exists (select 1 from nestly.professional_profiles) or exists (select 1 from nestly.professional_follows)
      or exists (select 1 from nestly.outreach_requests) or exists (select 1 from nestly.professional_reviews)
      or exists (select 1 from nestly.professional_articles)
-     or exists (select 1 from nestly.users where account_type = 'professional')
      or exists (select 1 from nestly.posts where is_help_request or audience = 'followers')
      or exists (select 1 from nestly.conversations where context in ('professional', 'outreach')) then
-    raise exception 'a Professional row, a help-request or followers-only post, or a Professional conversation exists: the down script refuses';
+    raise exception 'an I11 table row, a help-request or followers-only post, or a Professional conversation exists: the down script refuses';
   end if;
-  alter table nestly.users force row level security;
   alter table nestly.posts force row level security;
   alter table nestly.conversations force row level security;
 end
@@ -98,6 +95,16 @@ alter policy posts_update_author on nestly.posts
 
 alter policy users_insert_own on nestly.users
   with check (id = (select auth.uid()) and account_type = 'regular' and status = 'active');
+
+-- the edit guards back to their columns.
+drop trigger posts_reject_staff_edit on nestly.posts;
+create trigger posts_reject_staff_edit
+  before update of audience, body, stage_tag on nestly.posts
+  for each row execute function nestly.reject_staff_edit();
+drop trigger posts_reject_group_edit on nestly.posts;
+create trigger posts_reject_group_edit
+  before update of audience, body, stage_tag on nestly.posts
+  for each row execute function nestly.posts_reject_group_edit();
 
 -- columns and constraints.
 alter table nestly.conversations drop constraint conversations_outreach_request_id_check;

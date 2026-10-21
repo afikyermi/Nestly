@@ -24,7 +24,9 @@
 --                          not a column: it is the post's author, so an anonymous author is never named to the Professional until they
 --                          accept (FR-SERV-005). The author reads, accepts or declines; "ignore" leaves it pending. Accepting opens the
 --                          conversation (context 'outreach') in the same transaction; nothing before it (AC-012).
--- conversations            gain the contexts 'professional' (a Regular opens a chat with an active Professional, no approval and no
+-- conversations            one per pair stays (conversations_pair_key): a Regular and a Professional only ever share a professional or an
+--                          outreach conversation (Friendships and chat requests are Regular-only), and an accepted Offer Help reuses the
+--                          pair's conversation when there is one (the server). They gain the contexts 'professional' (a Regular opens a chat with an active Professional, no approval and no
 --                          payment: FR-SERV-004, BR-006, AC-010) and 'outreach' (the author of an accepted Offer Help opens it with the
 --                          Professional: FR-SERV-006/007, AC-013). Messages, reads and Chat Blocks are unchanged (I8).
 -- professional_reviews     ProfessionalReview (FR-SERV-011, BR-072, AC-093): a Regular rates a Professional 1-5 with a text, once per
@@ -209,7 +211,11 @@ begin
   if (new.user_id, new.account_type, new.created_at) is distinct from (old.user_id, old.account_type, old.created_at) then
     raise exception 'professional_profiles: immutable column' using errcode = '42501';
   end if;
-  new.updated_at := pg_catalog.now();
+  -- a status cascade (user_status) is no edit: it does not move the freshness clock
+  if (new.full_name, new.business_name, new.gender, new.field, new.field_other, new.years_experience, new.area, new.about, new.price_from)
+     is distinct from (old.full_name, old.business_name, old.gender, old.field, old.field_other, old.years_experience, old.area, old.about, old.price_from) then
+    new.updated_at := pg_catalog.now();
+  end if;
   return new;
 end
 $$;
@@ -292,6 +298,16 @@ create trigger outreach_requests_transition before update on nestly.outreach_req
 create trigger professional_articles_update_guard before update on nestly.professional_articles
   for each row execute function nestly.professional_articles_update_guard();
 
+-- Staff and Group managers never edit what an author wrote (I4, I10): the help marking joins the guarded columns.
+drop trigger posts_reject_staff_edit on nestly.posts;
+create trigger posts_reject_staff_edit
+  before update of audience, body, stage_tag, is_help_request on nestly.posts
+  for each row execute function nestly.reject_staff_edit();
+drop trigger posts_reject_group_edit on nestly.posts;
+create trigger posts_reject_group_edit
+  before update of audience, body, stage_tag, is_help_request on nestly.posts
+  for each row execute function nestly.posts_reject_group_edit();
+
 -- 11. RLS, grants and policies.
 alter table nestly.professional_profiles enable row level security, force row level security;
 alter table nestly.professional_follows enable row level security, force row level security;
@@ -314,7 +330,7 @@ grant select (is_help_request), insert (is_help_request), update (is_help_reques
 grant select (id, professional_id, post_id, opening_message, status, created_at, responded_at) on table nestly.outreach_requests to authenticated;
 grant insert (post_id, opening_message), update (status) on table nestly.outreach_requests to authenticated;
 grant insert (outreach_request_id) on table nestly.conversations to authenticated;
-grant select (id, professional_id, conversation_id, rating, body, created_at) on table nestly.professional_reviews to authenticated;
+grant select (id, professional_id, rating, body, created_at) on table nestly.professional_reviews to authenticated;
 grant insert (professional_id, conversation_id, rating, body) on table nestly.professional_reviews to authenticated;
 grant select (id, author_id, title, body, field, status, created_at, updated_at) on table nestly.professional_articles to authenticated;
 grant insert (title, body, field, status), update (title, body, field, status), delete on table nestly.professional_articles to authenticated;
@@ -373,7 +389,7 @@ alter policy posts_update_author on nestly.posts
         and audience in ('everyone', 'followers') and stage_tag is null and not is_help_request)));
 
 -- posts_select_viewer gains one branch (AC-130): a followers-only post is read by the Professional's followers. The rest is the text of
--- 20261018200000. The EXISTS runs under the caller's own professional_follows policy, which shows it its own Follows and, to a
+-- 20261018200000. The EXISTS runs under the caller's own professional_follows policy (its only SELECT policy: file 97 c1 pins the list, as a second one would open followers-only posts), which shows it its own Follows and, to a
 -- Professional, the rows naming it: so a row naming the author means "the caller follows the author" or "the caller is the author" (who
 -- reads its own post anyway). follower_id is not named: it is not granted for SELECT to anyone. The same holds for the
 -- professional_profiles reads below: a profile row other than one's own is readable only while the Professional is active.
@@ -414,7 +430,9 @@ create policy outreach_requests_select_target on nestly.outreach_requests
                    or exists (select 1 from nestly.post_authors pa where pa.post_id = p.id and pa.author_id = (select auth.uid())))));
 
 -- An active Professional offers help on an active post it can read that asks for help (only a Regular's post can), named or anonymous,
--- never across a user block with a named author (VAL-010, BR-007, BR-009). One per post and 10 a day: the key and NS029.
+-- never across a user block with a named author (VAL-010, BR-007, BR-009). One per post and 10 a day: the key and NS029. On an anonymous
+-- post the Professional cannot know the author, so a block is applied on the author's side: the request is never shown to it
+-- (outreach_requests_select_target) and cannot be accepted.
 create policy outreach_requests_insert_professional on nestly.outreach_requests
   for insert to authenticated
   with check ((select nestly.is_active_account()) and professional_id = (select auth.uid()) and professional_status = 'active'
@@ -462,12 +480,12 @@ create policy conversations_insert_party on nestly.conversations
             and least(o.professional_id, (select auth.uid())) = conversations.user_a
             and greatest(o.professional_id, (select auth.uid())) = conversations.user_b))));
 
--- professional_reviews. Every active account reads the reviews of an active reviewer it has no user block with; a Regular reviews a
+-- professional_reviews. Every active account reads the reviews of an active reviewer — not filtered by user blocks: the reviewer is never
+-- shown, and a filter on the caller's own block list would let it find out who wrote a review by blocking and counting. A Regular reviews a
 -- Professional once per professional conversation in which the Professional has written (FR-SERV-011, OP-045).
 create policy professional_reviews_select_viewer on nestly.professional_reviews
   for select to authenticated
-  using ((select nestly.is_active_account()) and (reviewer_id = (select auth.uid())
-    or (reviewer_status = 'active' and reviewer_id <> all (coalesce((select nestly.block_peer_ids()), '{}'::uuid[])))));
+  using ((select nestly.is_active_account()) and (reviewer_id = (select auth.uid()) or reviewer_status = 'active'));
 
 create policy professional_reviews_insert_reviewer on nestly.professional_reviews
   for insert to authenticated
@@ -561,7 +579,7 @@ comment on column nestly.professional_reviews.id is 'The review id.';
 comment on column nestly.professional_reviews.reviewer_id is 'The Regular reviewer (default auth.uid()). Never granted for SELECT.';
 comment on column nestly.professional_reviews.reviewer_status is 'Copy of the reviewer''s users.status (FK): a suspended reviewer''s review is hidden. Never granted.';
 comment on column nestly.professional_reviews.professional_id is 'The reviewed Professional.';
-comment on column nestly.professional_reviews.conversation_id is 'The conversation the review rests on: one review per conversation (the "approved request", OP-045).';
+comment on column nestly.professional_reviews.conversation_id is 'The conversation the review rests on: one review per conversation (the "approved request", OP-045). Never granted for SELECT: joined to the conversation it would name the reviewer.';
 comment on column nestly.professional_reviews.rating is '1 to 5. The Professional''s rating is the average (BR-072).';
 comment on column nestly.professional_reviews.body is 'The review text, 1 to 1000 characters. The writer is responsible for it (BR-071).';
 comment on column nestly.professional_reviews.created_at is 'When the review was written. UTC.';
@@ -603,7 +621,7 @@ comment on policy outreach_requests_insert_professional on nestly.outreach_reque
 comment on policy outreach_requests_update_target on nestly.outreach_requests is 'The post''s author accepts or declines a pending request; an accept needs an active Professional and no Chat Block (FR-SERV-006).';
 comment on policy conversations_insert_party on nestly.conversations is
   'A party opens a conversation: Friends (FR-CHAT-002), a pair''s accepted chat request (I8), a Regular with an active Professional (FR-SERV-004, AC-010), or the author of an accepted Offer Help with its Professional (FR-SERV-006, AC-013). Never across a user block.';
-comment on policy professional_reviews_select_viewer on nestly.professional_reviews is 'Every active account reads the reviews of an active reviewer with no user block between them; the reviewer reads its own.';
+comment on policy professional_reviews_select_viewer on nestly.professional_reviews is 'Every active account reads the reviews of an active reviewer (no block filter: it would reveal the hidden reviewer); the reviewer reads its own.';
 comment on policy professional_reviews_insert_reviewer on nestly.professional_reviews is 'A Regular reviews a Professional once per professional or outreach conversation of theirs in which the Professional wrote (FR-SERV-011, OP-045).';
 comment on policy professional_articles_select_viewer on nestly.professional_articles is 'The owner reads all its articles; every active account reads a published article of an active author with no user block between them.';
 comment on policy professional_articles_insert_own on nestly.professional_articles is 'An active Professional writes its own article (FR-PRO-003).';
