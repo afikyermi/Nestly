@@ -1,6 +1,7 @@
 import { POST_PATTERN } from '@/lib/post-link';
 import { USER_PROFILE_PATTERN } from '@/lib/profile-link';
 import { TRACKER_PATTERN } from '@/lib/tracker-link';
+import { GROUP_PATTERN } from '@/lib/group-link';
 
 // The route table (F1.2, Q2). Guest paths are the allow-list: every other path is protected (deny by default).
 export const PATHS = {
@@ -18,6 +19,9 @@ export const PATHS = {
   settings: '/settings',
   /** F2.4b: the Friends page (PG-036), from the side menu. */
   friends: '/friends',
+  /** I10: the Groups page (PG-033: my Groups, discovery, create) from the side menu, and one Group's page `/groups/<id>` (PG-034, PG-035), protected by pattern. */
+  groups: '/groups',
+  group: GROUP_PATTERN,
   /** F3.1b: `/posts/new` is only a redirect to the feed with the composer open (feed-composer); one post is `/posts/<post id>` (protected by pattern, see `postIdOfPath`). */
   newPost: '/posts/new',
   post: POST_PATTERN,
@@ -78,6 +82,7 @@ export const PROTECTED_PATHS: readonly string[] = [
   PATHS.profile,
   PATHS.settings,
   PATHS.friends,
+  PATHS.groups,
   PATHS.notifications,
   PATHS.search,
   PATHS.newPost,

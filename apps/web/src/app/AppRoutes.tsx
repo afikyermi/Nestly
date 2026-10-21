@@ -8,6 +8,8 @@ import { CommunityRulesPage } from '@/pages/community-rules/CommunityRulesPage';
 import { NewPostRedirect } from '@/pages/compose-post/NewPostRedirect';
 import { FeedPage } from '@/pages/feed/FeedPage';
 import { FriendsPage } from '@/pages/friends/FriendsPage';
+import { GroupPage } from '@/pages/groups/GroupPage';
+import { GroupsPage } from '@/pages/groups/GroupsPage';
 import { HomePage } from '@/pages/home/HomePage';
 import { GoogleReturnPage } from '@/pages/google-return/GoogleReturnPage';
 import { GuestPlaceholderPage } from '@/pages/placeholder/GuestPlaceholderPage';
@@ -55,6 +57,8 @@ export function AppRoutes() {
             <Route path={PATHS.profile} element={<ProfilePage />} />
             <Route path={PATHS.settings} element={<SettingsPage />} />
             <Route path={PATHS.friends} element={<FriendsPage />} />
+            <Route path={PATHS.groups} element={<GroupsPage />} />
+            <Route path={PATHS.group} element={<GroupPage />} />
             <Route path={PATHS.notifications} element={<NotificationsPage />} />
             <Route path={PATHS.search} element={<SearchPage />} />
             <Route path={PATHS.userProfile} element={<UserProfilePage />} />

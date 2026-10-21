@@ -39,7 +39,7 @@ function TopBarActions() {
 }
 
 // The AppShell around every protected screen (FR-TOP-001, FR-MENU-001), bound to the router and the
-// session. The TopBar holds the Hamburger, the Logo, the search and the notifications bell (AC-033; not for staff accounts); the menu holds Friends (F2.4b), the community rules (F3.7, PG-049), one item per Settings section (F2.5),
+// session. The TopBar holds the Hamburger, the Logo, the search and the notifications bell (AC-033; not for staff accounts); the menu holds My Groups (I10, PG-033), Friends (F2.4b), the community rules (F3.7, PG-049), one item per Settings section (F2.5),
 // the medical hotlines page (F3.8, FR-MENU-001 order), the recovery questions, the password change (F2.0 c15), "שיתוף Nestly" (F3.6 c11: the
 // site link's window, for Regular and Professional alike; no post data) and Logout. A destination whose feature is not built is absent, not
 // disabled (F2.5 DR-1, as the bottom navigation does for "חנות" and "יועצים").
@@ -92,6 +92,11 @@ export function ProtectedLayout() {
       scrollResetKey={current}
       menu={(closeMenu, closeMenuThen) => (
         <>
+          {staff.kind === 'staff' ? null : (
+            <MenuItem href={PATHS.groups} current={current === PATHS.groups || current.startsWith(`${PATHS.groups}/`)} onNavigate={leaving(closeMenu)}>
+              הקבוצות שלי
+            </MenuItem>
+          )}
           <MenuItem href={PATHS.friends} current={PATHS.friends === current} onNavigate={leaving(closeMenu)}>
             חברים
           </MenuItem>

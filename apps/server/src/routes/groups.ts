@@ -20,97 +20,19 @@
 //   409 owner_must_transfer | already_requested | already_member · 422 not_a_friend · 403 account_unavailable | forbidden (staff, ERR-022) ·
 //   401/503 session guard · 500. Logs carry a fixed line and the SQLSTATE, never a name, a text or an id (NFR-PRIV-001).
 
-import {
-  checkCreateGroup,
-  checkUpdateGroup,
-  groupDetail,
-  groupFriendsResponse,
-  groupInvitationAnswerBody,
-  groupInvitationPathParams,
-  groupInvitationsResponse,
-  groupInviteBody,
-  groupMembersResponse,
-  groupModeBody,
-  groupPathParams,
-  groupPeopleResponse,
-  groupPinBody,
-  groupRecommendBody,
-  groupRemoveQuery,
-  groupRequestDecisionBody,
-  groupRoleBody,
-  groupsListQuery,
-  groupsListResponse,
-  groupUserPathParams,
-} from '@nestly/shared';
+
+import { checkCreateGroup, checkUpdateGroup, groupsListQuery, groupsListResponse } from '@nestly/shared';
 import { z } from 'zod';
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import type { Database } from '../db/client.js';
-import type { Identity } from '../lib/token-verifier.js';
-import { isTransientFailure, readDatabaseFault } from '../lib/pg-error.js';
-import { replySessionRefused } from '../plugins/authentication.js';
-import type { MediaStorage } from '../media/storage-admin.js';
+import type { FastifyInstance } from 'fastify';
 import * as groups from '../services/groups-service.js';
-import type { GroupFailure, GroupResult } from '../services/groups-service.js';
+import * as feed from '../services/groups-feed-service.js';
+import { registerGroupPeopleRoutes } from './group-people.js';
+import { groupsHelpers, send, type GroupsRouteDependencies } from './groups-shared.js';
 
-export interface GroupsRouteDependencies {
-  readonly database: Database | undefined;
-  readonly storage?: MediaStorage;
-}
-
-const STATUS: Record<GroupFailure['kind'], number> = {
-  invalid: 400,
-  group_unavailable: 404,
-  user_unavailable: 404,
-  not_allowed: 403,
-  role_not_allowed: 403,
-  blocked_from_group: 403,
-  owner_must_transfer: 409,
-  already_requested: 409,
-  already_member: 409,
-  not_a_friend: 422,
-  stopped: 403,
-  forbidden: 403,
-};
-
-function replyFailure(reply: FastifyReply, failure: GroupFailure): FastifyReply {
-  const error = failure.kind === 'stopped' ? 'account_unavailable' : failure.kind;
-  return reply.code(STATUS[failure.kind]).send({ error });
-}
-
-function send<T>(reply: FastifyReply, result: GroupResult<T>, onOk: (value: T) => FastifyReply): FastifyReply {
-  return result.kind === 'ok' ? onOk(result.value) : replyFailure(reply, result);
-}
-
-type Work = (database: Database, identity: Identity, request: FastifyRequest, reply: FastifyReply) => Promise<FastifyReply>;
+export type { GroupsRouteDependencies } from './groups-shared.js';
 
 export function registerGroupsRoutes(app: FastifyInstance, deps: GroupsRouteDependencies): void {
-  const guarded = (line: string, work: Work) => async (request: FastifyRequest, reply: FastifyReply) => {
-    reply.header('cache-control', 'private, no-store');
-    const { identity } = request;
-    if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
-    try {
-      return await work(deps.database, identity, request, reply);
-    } catch (error) {
-      const refused = replySessionRefused(reply, error);
-      if (refused !== undefined) return refused;
-      request.log.error({ sqlstate: readDatabaseFault(error)?.code }, line);
-      if (isTransientFailure(error)) return reply.code(503).send({ error: 'unavailable' });
-      return reply.code(500).send({ error: 'server_error' });
-    }
-  };
-  const invalid = (reply: FastifyReply) => reply.code(400).send({ error: 'invalid' });
-  const notFound = (reply: FastifyReply) => reply.code(404).send({ error: 'group_unavailable' });
-  const noBody = (request: FastifyRequest) => request.body === undefined || request.body === null;
-  const groupId = (request: FastifyRequest) => {
-    const p = groupPathParams.safeParse(request.params);
-    return p.success ? p.data.id.toLowerCase() : null;
-  };
-  const groupUser = (request: FastifyRequest) => {
-    const p = groupUserPathParams.safeParse(request.params);
-    return p.success ? { id: p.data.id.toLowerCase(), userId: p.data.userId.toLowerCase() } : null;
-  };
-  const detailOk = (reply: FastifyReply, code = 200) => (value: z.infer<typeof groupDetail>) => reply.code(code).send(groupDetail.parse(value));
-  const noContent = (reply: FastifyReply) => () => reply.code(204).send();
+  const { guarded, invalid, notFound, noBody, groupId, detailOk, noContent } = groupsHelpers(deps);
 
   app.route({
     method: 'GET',
@@ -183,151 +105,10 @@ export function registerGroupsRoutes(app: FastifyInstance, deps: GroupsRouteDepe
       if (id === null) return notFound(reply);
       const query = z.strictObject({ cursor: z.string().max(200).optional() }).safeParse(request.query ?? {});
       if (!query.success) return invalid(reply);
-      const cursor = groups.parseGroupFeedCursor(query.data.cursor);
+      const cursor = feed.parseGroupFeedCursor(query.data.cursor);
       if (cursor === 'invalid') return invalid(reply);
-      return send(reply, await groups.readGroupFeed(database, identity, id, cursor, deps.storage), (page) => reply.code(200).send(page));
+      return send(reply, await feed.readGroupFeed(database, identity, id, cursor, deps.storage), (page) => reply.code(200).send(page));
     }),
   });
-  app.route({
-    method: 'GET',
-    url: '/api/groups/:id/members',
-    handler: guarded('group members failed', async (database, identity, request, reply) => {
-      const id = groupId(request);
-      if (id === null) return notFound(reply);
-      return send(reply, await groups.listMembers(database, identity, id), (members) => reply.code(200).send(groupMembersResponse.parse({ members })));
-    }),
-  });
-  app.route({
-    method: 'PATCH',
-    url: '/api/groups/:id/members/:userId',
-    handler: guarded('group role failed', async (database, identity, request, reply) => {
-      const path = groupUser(request);
-      if (path === null) return notFound(reply);
-      const body = groupRoleBody.safeParse(request.body);
-      if (!body.success) return invalid(reply);
-      const result = await groups.changeRole(database, identity, path.id, path.userId, body.data.role);
-      return send(reply, result, (members) => reply.code(200).send(groupMembersResponse.parse({ members })));
-    }),
-  });
-  app.route({
-    method: 'DELETE',
-    url: '/api/groups/:id/members/:userId',
-    handler: guarded('group remove failed', async (database, identity, request, reply) => {
-      const path = groupUser(request);
-      if (path === null) return notFound(reply);
-      const query = groupRemoveQuery.safeParse(request.query ?? {});
-      if (!query.success || !noBody(request)) return invalid(reply);
-      return send(reply, await groups.removeMember(database, identity, path.id, path.userId, query.data.block === 'true'), noContent(reply));
-    }),
-  });
-  app.route({
-    method: 'GET',
-    url: '/api/groups/:id/requests',
-    handler: guarded('group requests failed', async (database, identity, request, reply) => {
-      const id = groupId(request);
-      if (id === null) return notFound(reply);
-      return send(reply, await groups.listRequests(database, identity, id), (people) => reply.code(200).send(groupPeopleResponse.parse({ people })));
-    }),
-  });
-  app.route({
-    method: 'PUT',
-    url: '/api/groups/:id/requests/:userId',
-    handler: guarded('group decide failed', async (database, identity, request, reply) => {
-      const path = groupUser(request);
-      if (path === null) return notFound(reply);
-      const body = groupRequestDecisionBody.safeParse(request.body);
-      if (!body.success) return invalid(reply);
-      return send(reply, await groups.decide(database, identity, path.id, path.userId, body.data.decision), noContent(reply));
-    }),
-  });
-  app.route({
-    method: 'GET',
-    url: '/api/groups/:id/bans',
-    handler: guarded('group bans failed', async (database, identity, request, reply) => {
-      const id = groupId(request);
-      if (id === null) return notFound(reply);
-      return send(reply, await groups.listBans(database, identity, id), (people) => reply.code(200).send(groupPeopleResponse.parse({ people })));
-    }),
-  });
-  app.route({
-    method: 'DELETE',
-    url: '/api/groups/:id/bans/:userId',
-    handler: guarded('group unblock failed', async (database, identity, request, reply) => {
-      const path = groupUser(request);
-      if (path === null) return notFound(reply);
-      if (!noBody(request)) return invalid(reply);
-      return send(reply, await groups.unblock(database, identity, path.id, path.userId), noContent(reply));
-    }),
-  });
-  app.route({
-    method: 'GET',
-    url: '/api/groups/:id/friends',
-    handler: guarded('group friends failed', async (database, identity, request, reply) => {
-      const id = groupId(request);
-      if (id === null) return notFound(reply);
-      return send(reply, await groups.listFriendsForGroup(database, identity, id), (friends) => reply.code(200).send(groupFriendsResponse.parse({ friends })));
-    }),
-  });
-  app.route({
-    method: 'POST',
-    url: '/api/groups/:id/invitations',
-    handler: guarded('group invite failed', async (database, identity, request, reply) => {
-      const id = groupId(request);
-      if (id === null) return notFound(reply);
-      const body = groupInviteBody.safeParse(request.body);
-      if (!body.success) return invalid(reply);
-      return send(reply, await groups.invite(database, identity, id, body.data.userId.toLowerCase()), noContent(reply));
-    }),
-  });
-  app.route({
-    method: 'POST',
-    url: '/api/groups/:id/recommendations',
-    handler: guarded('group recommend failed', async (database, identity, request, reply) => {
-      const id = groupId(request);
-      if (id === null) return notFound(reply);
-      const body = groupRecommendBody.safeParse(request.body);
-      if (!body.success) return invalid(reply);
-      return send(reply, await groups.recommend(database, identity, id, body.data.userId.toLowerCase()), noContent(reply));
-    }),
-  });
-  app.route({
-    method: 'PUT',
-    url: '/api/groups/:id/notifications',
-    handler: guarded('group mode failed', async (database, identity, request, reply) => {
-      const id = groupId(request);
-      if (id === null) return notFound(reply);
-      const body = groupModeBody.safeParse(request.body);
-      if (!body.success) return invalid(reply);
-      return send(reply, await groups.setMode(database, identity, id, body.data.mode), noContent(reply));
-    }),
-  });
-  app.route({
-    method: 'PUT',
-    url: '/api/groups/:id/pin',
-    handler: guarded('group pin failed', async (database, identity, request, reply) => {
-      const id = groupId(request);
-      if (id === null) return notFound(reply);
-      const body = groupPinBody.safeParse(request.body);
-      if (!body.success) return invalid(reply);
-      return send(reply, await groups.pin(database, identity, id, body.data.postId?.toLowerCase() ?? null), detailOk(reply));
-    }),
-  });
-  app.route({
-    method: 'GET',
-    url: '/api/group-invitations',
-    handler: guarded('group invitations failed', async (database, identity, _request, reply) =>
-      send(reply, await groups.listOwnInvitations(database, identity), (invitations) => reply.code(200).send(groupInvitationsResponse.parse({ invitations }))),
-    ),
-  });
-  app.route({
-    method: 'PUT',
-    url: '/api/group-invitations/:id',
-    handler: guarded('group invitation answer failed', async (database, identity, request, reply) => {
-      const params = groupInvitationPathParams.safeParse(request.params);
-      if (!params.success) return notFound(reply);
-      const body = groupInvitationAnswerBody.safeParse(request.body);
-      if (!body.success) return invalid(reply);
-      return send(reply, await groups.answer(database, identity, params.data.id.toLowerCase(), body.data.answer === 'accept'), (value) => reply.code(200).send(value));
-    }),
-  });
+  registerGroupPeopleRoutes(app, deps);
 }
