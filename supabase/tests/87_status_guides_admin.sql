@@ -56,10 +56,10 @@ select is(pg_temp.dml('d', $$ update nestly.status_guides set published_at = now
 select is(pg_temp.dml('d', $$ delete from nestly.status_guides $$), 'ERR:42501', '[F6.1-a c4] nobody deletes a guide: it is hidden (42501)');
 
 -- ---- publishing and hiding (BR-070, AC-095) -------------------------------------------------------------------------------------
-select is(pg_temp.dml('d', $$ update nestly.status_guides set status = 'published' where title = 'מדריך ערוך' $$), 'ERR:23514',
-  '[F6.1-a c5 BR-070] publishing needs a source check date (23514)');
+select is(pg_temp.dml('d', $$ update nestly.status_guides set status = 'published' where title = 'מדריך ערוך' $$), 'OK:1',
+  '[F6.1-a c5 BR-070 FR-ADMIN-012] the Admin publishes with no source check date (Afik 21.10.2026; migration 20261023700000)');
 select is(pg_temp.dml('d', $$ update nestly.status_guides set status = 'published', source_checked_on = date '2026-10-21' where title = 'מדריך ערוך' $$), 'OK:1',
-  '[F6.1-a c5 BR-070] the Admin publishes with a source check date');
+  '[F6.1-a c5 BR-070] an edit of the published guide adds a source check date');
 select is(pg_temp.n('d', $$nestly.status_guides where status = 'published' and published_at is not null$$), '1', '[F6.1-a c5] the database stamped the publication time');
 select is(pg_temp.n('a', 'nestly.status_guides'), '1', '[F6.1-a c5 AC-095] a user now reads that one guide');
 select is(pg_temp.n('m3', 'nestly.status_guides'), '1', '[F6.1-a c5 AC-095] and so does a Moderator, as a user (published only)');
