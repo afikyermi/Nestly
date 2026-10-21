@@ -19,3 +19,9 @@ AI/ML ideas, Word export — stays there. The procedure is `/srs-update`.
 - `docs/srs/archive/` holds old Word versions. History only — never edit them, and never regenerate the
   markdown from them. If Afik hands over an edited Word file, diff it against the markdown first and import
   only his changes, before anyone edits the markdown again.
+- **WHAT, not HOW.** The SRS states what the product does, never how it is built: no table or column names,
+  functions, endpoints, algorithms, storage layout or internal codes. Technology choices are fine.
+- **Afik's decisions go into the SRS** in the same PR that builds them, and the line leaves `decisions-in-force.md`.
+- **Every FR changed gets a status row** in `17-traceability.md`: Built / Partial / Planned + the initiative.
+- **A ⭐ default** (an open question built per its recommended option) = an OP row in `appendix-b-open-points.md`
+  "built per ⭐, awaiting confirmation", and a line in WORKPLAN "ממתין לך".
