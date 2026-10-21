@@ -19,7 +19,7 @@
 --                          decision, at most 90 days (*_auto_hide RESTRICTIVE policies). The author and the people who reported it see no change
 --                          (the hide row is not readable to them), staff see the item. Written by identical_reports_hide(): a NEW SECURITY
 --                          DEFINER trigger function (rule 17: a count over other people's reports, a write no reporter's policy allows),
---                          built on the approved shape and TO BE CONFIRMED BY AFIK (appendix B, WORKPLAN "ממתין לך"). Released when the last open
+--                          approved by Afik 21.10.2026 (night; decisions-in-force.md §12). Released when the last open
 --                          report on the item closes without the item being deleted (report_auto_hides_lift, as the staff member).
 -- reported_comment_views   every opening of a reported comment by REPORTS_VIEW, audited (reported_comment_viewed), also after the report closed.
 -- profile_staff_views      a staff member's opening of a Regular profile, audited (staff_profile_viewed): profile_view() shows that opening the
@@ -408,7 +408,7 @@ create policy professional_articles_select_auto_hide on nestly.professional_arti
   for select to app_owner
   using ((select nestly.auto_hide_scoped()) and id::text = pg_catalog.current_setting('nestly.auto_hide_target', true));
 
--- SECURITY DEFINER (rule 17, to be confirmed by Afik), owner app_owner, pinned search_path. AFTER INSERT on reports, as the reporter (the new
+-- SECURITY DEFINER (rule 17, approved by Afik 21.10.2026), owner app_owner, pinned search_path. AFTER INSERT on reports, as the reporter (the new
 -- report names auth.uid()): counts the different people with an open report of the same reason on the same item (one report per person and
 -- item, ERR-046, so repeats never count); at ten or more, hides the item (renewing a lapsed hide), naming its author (a post's real author for
 -- an anonymous post) so the author keeps seeing it. One item at a time (an advisory lock on it), so two reports at once still count each other.
@@ -1510,16 +1510,16 @@ comment on column nestly.report_auto_hides.hidden_until is 'At most 90 days afte
 comment on policy report_auto_hides_select_community on nestly.report_auto_hides is 'Every active account but the item''s author and its reporters reads the hide (and so does not see the item).';
 comment on policy report_auto_hides_select_staff on nestly.report_auto_hides is 'REPORTS_VIEW reads every hide (the queue).';
 comment on policy report_auto_hides_delete_staff on nestly.report_auto_hides is 'REPORTS_VIEW releases a hide once no report on the item is open (report_auto_hides_lift).';
-comment on policy report_auto_hides_insert_definer on nestly.report_auto_hides is 'Rule 17 (to be confirmed by Afik): identical_reports_hide() writes the hide of the one item its transaction names (nestly.auto_hide_target).';
+comment on policy report_auto_hides_insert_definer on nestly.report_auto_hides is 'Rule 17 (approved by Afik 21.10.2026): identical_reports_hide() writes the hide of the one item its transaction names (nestly.auto_hide_target).';
 comment on policy report_auto_hides_select_definer on nestly.report_auto_hides is 'Rule 17: identical_reports_hide() reads whether the item it names is already hidden.';
-comment on policy reports_select_auto_hide on nestly.reports is 'Rule 17 (to be confirmed by Afik): identical_reports_hide() counts the reports on the one item it names.';
+comment on policy reports_select_auto_hide on nestly.reports is 'Rule 17 (approved by Afik 21.10.2026): identical_reports_hide() counts the reports on the one item it names.';
 comment on policy posts_select_auto_hide on nestly.posts is 'Rule 17: identical_reports_hide() reads the author of the one post it names.';
 comment on policy post_authors_select_auto_hide on nestly.post_authors is 'Rule 17/20: identical_reports_hide() reads the real author of the one anonymous post it names (nestly.auto_hide_post), only to keep the post visible to them.';
 comment on policy comments_select_auto_hide on nestly.comments is 'Rule 17: identical_reports_hide() reads the author of the one comment it names.';
 comment on policy marketplace_listings_select_auto_hide on nestly.marketplace_listings is 'Rule 17: identical_reports_hide() reads the owner of the one listing it names.';
 comment on policy professional_reviews_select_auto_hide on nestly.professional_reviews is 'Rule 17: identical_reports_hide() reads the writer of the one review it names.';
 comment on policy professional_articles_select_auto_hide on nestly.professional_articles is 'Rule 17: identical_reports_hide() reads the author of the one article it names.';
-comment on function nestly.identical_reports_hide() is 'SECURITY DEFINER (rule 17, built on the approved shape, TO BE CONFIRMED BY AFIK), owner app_owner, pinned search_path. AFTER INSERT on reports, as the reporter: when ten or more different people hold an open report of the same reason on the same post, comment, listing, review or article, hides it (report_auto_hides) naming its author. Reads only through the *_select_auto_hide TO app_owner policies, open for the one item it names; returns nothing, raises nothing: the reporter''s answer never changes.';
+comment on function nestly.identical_reports_hide() is 'SECURITY DEFINER (rule 17, approved by Afik 21.10.2026, night), owner app_owner, pinned search_path. AFTER INSERT on reports, as the reporter: when ten or more different people hold an open report of the same reason on the same post, comment, listing, review or article, hides it (report_auto_hides) naming its author. Reads only through the *_select_auto_hide TO app_owner policies, open for the one item it names; returns nothing, raises nothing: the reporter''s answer never changes.';
 comment on function nestly.report_auto_hides_lift() is 'AFTER UPDATE, SECURITY INVOKER. When a report on an item closes, the staff member releases its hide if no report on it is still open.';
 comment on policy posts_auto_hide on nestly.posts is 'RESTRICTIVE (I14 completion B): a post with a hide readable to the caller is not shown (its author and reporters cannot read the hide); staff see it.';
 comment on policy comments_auto_hide on nestly.comments is 'RESTRICTIVE (I14 completion B): as posts_auto_hide, for a comment.';
