@@ -177,8 +177,8 @@ export const adminOverviewBody = z.strictObject({
     queuedImages: z.number().int(),
     openSupport: z.number().int(),
     openInvitations: z.number().int(),
-    expiringInvitations: z.number().int(),
-    guidesToRecheck: z.number().int(),
+    /** Guides waiting in draft for the Admin's approval (OP-057 closed, Afik 21.10.2026 §11.8). */
+    draftGuides: z.number().int(),
     reportSpike: z.strictObject({ lastDay: z.number().int(), dailyAverage: z.number(), isSpike: z.boolean() }),
   }),
   metrics: z.array(metricPair),
@@ -187,10 +187,6 @@ export const adminOverviewBody = z.strictObject({
 export type AdminOverview = z.infer<typeof adminOverviewBody>;
 /** A spike: the last 24 hours hold at least this many reports and at least twice the daily average of the 7 days before (OP-052). */
 export const REPORT_SPIKE_MIN = 5;
-/** A published guide whose sources were last checked this many months ago or more is due for a recheck (OP-052). */
-export const GUIDE_RECHECK_MONTHS = 12;
-/** An open invitation expiring within this many hours is "expiring". */
-export const INVITATION_EXPIRING_HOURS = 12;
 
 // ---- the report's context, author card and handling status (§9.7, §9.10) ----------------------------------------------------------
 export const contextComment = z.strictObject({
@@ -203,9 +199,9 @@ export const contextComment = z.strictObject({
   isReported: z.boolean(),
 });
 export const reportContextBody = z.strictObject({
-  /** For a comment: its post as it is now. */
+  /** Always null since I14 completion B: a reported comment opens alone (decision 10.9, AC-161); kept for older clients. */
   post: z.strictObject({ id: z.guid(), text: z.string().nullable(), status: z.string(), isAnonymous: z.boolean() }).nullable(),
-  /** The thread: the comments of the post (of the reported post, or of the reported comment's post), oldest first. */
+  /** The thread of a reported post, oldest first. */
   comments: z.array(contextComment),
 });
 export type ReportContext = z.infer<typeof reportContextBody>;

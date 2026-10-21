@@ -140,21 +140,39 @@ export async function readAudit(
   });
 }
 
+/**
+ * OP-062 (built per its default): an item hidden from everyone after ten identical reports comes right after the child-safety items (priority
+ * 1), so that a hide by many accounts is decided first; the order within each part is the queue's (stable sort).
+ */
+export function autoHiddenFirst(items: QueueItem[]): QueueItem[] {
+  const rank = (item: QueueItem): number => (item.priority === 1 ? 0 : item.autoHidden === true ? 1 : 2);
+  return items.map((item, index) => ({ item, index })).sort((a, b) => rank(a.item) - rank(b.item) || a.index - b.index).map(({ item }) => item);
+}
+
 export async function readReportQueue(database: Database, identity: Identity): Promise<Outcome<{ items: QueueItem[] }>> {
   return inIdentityTransaction(database, identity, async (tx) => {
     const gate = await require_(tx, 'REPORTS_VIEW');
     if (refused(gate)) return gate;
     // I14 completion (§9.9, §9.10): each item's time target, whether it is past, and whether it was escalated or opened
     const marks = await readQueueMarks(tx);
-    // I14 completion B (BR-074): the items hidden now after ten identical reports
+    // I14 completion B (BR-074, AC-160): the items hidden now after ten identical reports, with the reason and the number of people
     const autoHidden = await readAutoHidden(tx);
     const now = new Date();
-    const items = (await readQueue(tx)).map((item) => {
+    const items = (await readQueue(tx)).map((item): QueueItem => {
       const hours = timeTargetHours(item.priority);
       const mark = marks.get(item.targetId);
-      return { ...item, timeTargetHours: hours, pastTarget: isPastTarget(item.firstReportedAt, hours, now), escalated: mark?.escalated ?? false, openedBy: mark?.openedBy ?? 0, autoHidden: autoHidden.has(item.targetId) };
+      const hide = autoHidden.get(item.targetId);
+      return {
+        ...item,
+        timeTargetHours: hours,
+        pastTarget: isPastTarget(item.firstReportedAt, hours, now),
+        escalated: mark?.escalated ?? false,
+        openedBy: mark?.openedBy ?? 0,
+        autoHidden: hide !== undefined,
+        ...(hide === undefined ? {} : { autoHiddenReasonLabel: hide.reasonLabel, autoHiddenReporters: hide.reporters }),
+      };
     });
-    return { kind: 'ok', items };
+    return { kind: 'ok', items: autoHiddenFirst(items) };
   });
 }
 
@@ -190,10 +208,10 @@ export async function readReportDetail(
     const userId = kind === 'user' ? targetId : (content?.authorId ?? undefined);
     const canSeeUsers = gate.permissions.includes('USER_VIEW');
     const user = userId !== undefined && canSeeUsers ? await withDecisions(tx, await readTargetUser(tx, userId)) : undefined;
-    // I14 completion (§9.7): the author card, the item's context (the thread as the policies show it; a Private Group's only once opened),
-    // and the handling status (§9.10); opening a report is recorded (who opened it, not audited)
+    // I14 completion (§9.7): the author card, a post's thread as the policies show it (a Private Group's only once opened), and the handling
+    // status (§9.10); opening a report is recorded (who opened it, not audited). A reported comment has no context (decision 10.9, AC-161).
     const authorFacts = user === undefined ? undefined : await readAuthorFacts(tx, user.userId);
-    const context = (kind === 'post' || kind === 'comment') && content !== undefined ? await readReportContext(tx, kind, targetId) : undefined;
+    const context = kind === 'post' && content !== undefined ? await readReportContext(tx, targetId) : undefined;
     await recordOpenings(tx, kind, targetId);
     const handling = await readHandling(tx, kind, targetId);
     return {

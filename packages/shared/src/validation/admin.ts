@@ -157,6 +157,9 @@ export const queueItem = z.object({
   openedBy: z.number().int().optional(),
   /** I14 completion B (BR-074): hidden from everyone else after ten identical reports, until a decision. */
   autoHidden: z.boolean().optional(),
+  /** The reason the people chose, and how many of them (staff see why it is hidden; never who). */
+  autoHiddenReasonLabel: z.string().optional(),
+  autoHiddenReporters: z.number().int().optional(),
 });
 export type QueueItem = z.infer<typeof queueItem>;
 export const queueBody = z.object({ items: z.array(queueItem) });

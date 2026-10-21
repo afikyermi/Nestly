@@ -198,7 +198,11 @@ export const ENFORCEMENT_HEADING = 'אכיפה';
 export const HISTORY_HEADING = 'היסטוריית אכיפה';
 export const CONTENT_HISTORY_HEADING = 'תוכן שנמחק בעקבות דיווח מוצדק';
 export const CONTENT_KIND_LABELS = { post: 'פוסט', comment: 'תגובה', listing: 'מודעה', review: 'ביקורת', article: 'מאמר' } as const;
-export const AUTO_HIDDEN_TEXT = 'מוסתר אוטומטית: 10 אנשים או יותר דיווחו מאותה סיבה, עד ההחלטה';
+/** I14 completion B (BR-074, AC-160): why an item is hidden from everyone else until a decision (never who hid it). */
+export const autoHiddenText = (reasonLabel: string | undefined, people: number | undefined): string =>
+  reasonLabel === undefined || people === undefined
+    ? 'מוסתר מכולם עד ההחלטה: 10 אנשים או יותר דיווחו מאותה סיבה'
+    : `מוסתר מכולם עד ההחלטה: ${people.toLocaleString('he-IL')} אנשים דיווחו "${reasonLabel}"`;
 export const HISTORY_EMPTY_TEXT = 'אין אכיפה קודמת';
 export const KIND_ACTION_LABELS: Record<EnforcementKind, string> = {
   warning: 'אזהרה',

@@ -212,4 +212,32 @@ test.describe('[F14.3-b Afik 21.10] the staff rules, second completion', () => {
     await expect(list).toContainText('פוסט · ספאם או פרסום לא קשור');
     await expect(list).toContainText('מבצע ענק על עגלות רק היום');
   });
+
+  test('[F14.3-b AC-160 BR-074] an item hidden after ten identical reports says so in the queue, with the reason and the number of people', async ({ page }) => {
+    await setupAdmin(page, {
+      queue: [
+        { targetKind: 'comment', targetId: ID(81), reportCount: 12, priority: 2, topReasonLabel: 'הטרדה או בריונות', isRising: false, firstReportedAt: '2026-06-14T08:00:00.000Z', autoHidden: true, autoHiddenReasonLabel: 'הטרדה או בריונות', autoHiddenReporters: 12 },
+        { targetKind: 'post', targetId: POST_SPAM, reportCount: 1, priority: 4, topReasonLabel: 'ספאם או פרסום לא קשור', isRising: false, firstReportedAt: '2026-06-10T09:00:00.000Z' },
+      ],
+    });
+    await signIn(page);
+    await page.goto('/admin/reports');
+    const items = page.getByRole('list', { name: 'דיווחים פתוחים' }).getByRole('listitem');
+    await expect(items.first()).toContainText('מוסתר מכולם עד ההחלטה: 12 אנשים דיווחו "הטרדה או בריונות"');
+    await expect(items.nth(1).locator('[data-auto-hidden]')).toHaveCount(0);
+  });
+
+  test('[F14.3-b AC-161 decision 10.9] a reported comment opens alone: no post, no thread and no page link', async ({ page }) => {
+    await setupAdmin(page, {
+      queue: [{ targetKind: 'comment', targetId: ID(81), reportCount: 1, priority: 2, topReasonLabel: 'הטרדה או בריונות', isRising: false, firstReportedAt: '2026-06-14T08:00:00.000Z' }],
+    });
+    await signIn(page);
+    await page.goto('/admin/reports');
+    await page.getByRole('listitem').filter({ hasText: 'הטרדה או בריונות' }).getByRole('button', { name: 'פתיחת הדיווח' }).click();
+    await expect(main(page).getByRole('heading', { name: /פרטי הדיווח/ })).toBeVisible();
+    await expect(main(page).getByText('טקסט הפוסט שדווח')).toBeVisible();
+    await expect(main(page).getByRole('heading', { name: 'ההקשר' })).toHaveCount(0);
+    await expect(main(page).getByText('תגובה בשרשור')).toHaveCount(0);
+    await expect(main(page).getByRole('link', { name: 'פתיחת העמוד לבדיקה' })).toHaveCount(0);
+  });
 });

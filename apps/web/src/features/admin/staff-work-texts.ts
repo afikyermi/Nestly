@@ -17,8 +17,7 @@ export const ATTENTION_LABELS = {
   queuedImages: 'תמונות לבדיקה',
   openSupport: 'פניות Support פתוחות',
   openInvitations: 'הזמנות צוות פתוחות',
-  expiringInvitations: 'הזמנות שפגות בקרוב',
-  guidesToRecheck: 'מדריכים לאישור או לבדיקה חוזרת',
+  draftGuides: 'מדריכים שממתינים לאישור',
 } as const;
 export const REPORT_SPIKE_TEXT = (lastDay: number, average: number) => `קפיצה בדיווחים: ${lastDay} ביממה האחרונה, לעומת ממוצע של ${average} ביום בשבוע שלפני`;
 export const METRICS_TITLE = 'השבוע לעומת השבוע הקודם';

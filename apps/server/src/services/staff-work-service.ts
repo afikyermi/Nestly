@@ -4,8 +4,6 @@
 // work, and counts only the areas the caller's keys cover.
 
 import {
-  GUIDE_RECHECK_MONTHS,
-  INVITATION_EXPIRING_HOURS,
   REPORT_SPIKE_MIN,
   isPastTarget,
   timeTargetHours,
@@ -25,8 +23,8 @@ import { readQueue, readStaffAccess } from '../repositories/admin-repository.js'
 import {
   countChildSafetyTargets,
   countEscalatedTargets,
-  countGuidesToRecheck,
-  countInvitations,
+  countDraftGuides,
+  countOpenInvitations,
   countOpenSupport,
   countQueuedImages,
   insertEscalation,
@@ -88,7 +86,6 @@ async function adminOverview(tx: IdentityTx): Promise<AdminOverview> {
   const now = new Date();
   const queue = await readQueue(tx);
   const heads = queueHeads(queue, now);
-  const invitations = await countInvitations(tx, INVITATION_EXPIRING_HOURS);
   const pace = await readReportPace(tx);
   const dailyAverage = Math.round((pace.weekBefore / 7) * 10) / 10;
   const moderators = await readModerators(tx);
@@ -101,9 +98,8 @@ async function adminOverview(tx: IdentityTx): Promise<AdminOverview> {
       escalatedReports: await countEscalatedTargets(tx),
       queuedImages: await countQueuedImages(tx),
       openSupport: await countOpenSupport(tx),
-      openInvitations: invitations.open,
-      expiringInvitations: invitations.expiring,
-      guidesToRecheck: await countGuidesToRecheck(tx, GUIDE_RECHECK_MONTHS),
+      openInvitations: await countOpenInvitations(tx),
+      draftGuides: await countDraftGuides(tx),
       reportSpike: { lastDay: pace.lastDay, dailyAverage, isSpike: pace.lastDay >= REPORT_SPIKE_MIN && pace.lastDay >= 2 * dailyAverage },
     },
     metrics: await readWeekMetrics(tx),

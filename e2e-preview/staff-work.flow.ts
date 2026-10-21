@@ -45,7 +45,7 @@ test('[I14 completion] a community account keeps its home and is refused every s
     return [
       await call('/api/admin/my-work'),
       await call('/api/admin/overview'),
-      await call('/api/admin/child-trends?metric=bottle&field=amount_ml&dimension=child_sex&days=30'),
+      await call('/api/admin/child-trends?metric=bottle&field=amount_ml&dimension=child_sex&period=this_month'),
       await call('/api/admin/reports/escalate', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },

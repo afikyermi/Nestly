@@ -34,16 +34,16 @@ import {
   SOMEONE,
 } from './staff-work-texts';
 
-/** The page a staff member opens for an independent review of the target (a post, a comment's post, a profile), or null. */
+/** The page a staff member opens for an independent review of the target (a post, a profile), or null: a reported comment opens alone
+ *  (Afik 21.10.2026, decision 10.9, AC-161). */
 function reviewPath(detail: ReportDetail): string | null {
   if (detail.targetKind === 'post') return postPath(detail.targetId);
-  if (detail.targetKind === 'comment' && detail.context?.post != null) return postPath(detail.context.post.id);
   if (detail.targetKind === 'user') return userProfilePath(detail.targetId);
   return null;
 }
 
-// The report's work panel (I14 completion, Afik 21.10.2026): the item's context (§9.7: a comment's post and the whole thread, as the staff member's
-// policies show them), the author card (account age, enforcement steps of the last 12 months, the next step on the ladder), the handling status
+// The report's work panel (I14 completion, Afik 21.10.2026): a post's thread (§9.7, as the staff member's policies show it; a reported comment or message
+// shows only itself, decision 10.9), the author card (account age, enforcement steps of the last 12 months, the next step on the ladder), the handling status
 // (§9.10: who opened it, an escalation) and, for a Moderator, "escalate to the Admin" with a note (§9.9). Display and one call; the database decides.
 export function StaffWorkPanel({ detail, user, isOpen, onEscalated }: { detail: ReportDetail; user: TargetUser | null; isOpen: boolean; onEscalated: () => void }) {
   const id = useId();

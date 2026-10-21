@@ -32,7 +32,7 @@ import {
   REASON_REQUIRED_TEXT,
   RETRY_LABEL,
   RISING_TEXT,
-  AUTO_HIDDEN_TEXT,
+  autoHiddenText,
 } from './admin-texts';
 
 type Queue = { kind: 'loading' } | { kind: 'failed' } | { kind: 'loaded'; items: QueueItem[] };
@@ -271,7 +271,11 @@ export function ReportsScreen({ permissions, initialTarget = null }: { permissio
                   {PRIORITY_LABELS[item.priority] ?? ''} · {reportCountText(item.reportCount)} · {formatAdminTime(item.firstReportedAt)}
                 </p>
                 {item.isRising ? <p className="text-small">{RISING_TEXT}</p> : null}
-                {item.autoHidden === true ? <p className="text-small">{AUTO_HIDDEN_TEXT}</p> : null}
+                {item.autoHidden === true ? (
+                  <p className="text-small font-semibold" data-auto-hidden="true">
+                    {autoHiddenText(item.autoHiddenReasonLabel, item.autoHiddenReporters)}
+                  </p>
+                ) : null}
                 <p className="text-small" data-past-target={item.pastTarget === true ? 'true' : undefined}>
                   {WAITING((Date.now() - Date.parse(item.firstReportedAt)) / 3_600_000)}
                   {item.timeTargetHours === undefined ? null : <> · {TIME_TARGET(item.timeTargetHours)}</>}

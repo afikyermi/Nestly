@@ -112,19 +112,11 @@ export async function readQueueMarks(tx: IdentityTx): Promise<Map<string, { esca
 
 const CONTEXT_COMMENTS = 100;
 
-/** The context of a reported post or comment as the caller's policies show it: the comment's post, and the post's thread (oldest first). */
-export async function readReportContext(tx: IdentityTx, kind: 'post' | 'comment', targetId: string): Promise<ReportContext> {
-  let postId: string | null = kind === 'post' ? targetId : null;
-  if (kind === 'comment') {
-    const rows = z
-      .array(z.object({ postId: z.guid().nullable() }))
-      .parse(await tx.execute(sql`select r.thread_post_id as "postId" from nestly.reports r where r.comment_id = ${targetId}::uuid and r.thread_post_id is not null limit 1`));
-    postId = rows[0]?.postId ?? null;
-  }
-  if (postId === null) return { post: null, comments: [] };
-  const posts = z
-    .array(z.object({ id: z.guid(), text: z.string().nullable(), status: z.string(), isAnonymous: z.boolean() }))
-    .parse(await tx.execute(sql`select p.id, p.body as text, p.status, p.is_anonymous as "isAnonymous" from nestly.posts p where p.id = ${postId}::uuid`));
+/**
+ * The context of a reported post as the caller's policies show it: its thread (oldest first, the reported comments marked). A reported comment
+ * or chat message has no context: staff see only the reported item, also after its report closed (Afik 21.10.2026, decision 10.9, AC-161).
+ */
+export async function readReportContext(tx: IdentityTx, postId: string): Promise<ReportContext> {
   const comments = z
     .array(z.object({ id: z.guid(), parentId: z.guid().nullable(), text: z.string().nullable(), status: z.string(), isAnonymous: z.boolean(), createdAt: z.string(), isReported: z.boolean() }))
     .parse(
@@ -134,11 +126,10 @@ export async function readReportContext(tx: IdentityTx, kind: 'post' | 'comment'
                exists (select 1 from nestly.reports r where r.comment_id = c.id) as "isReported"
         from nestly.comments c
         where c.post_id = ${postId}::uuid and c.status <> 'deleted'
-          and (c.id = ${kind === 'comment' ? targetId : null}::uuid or c.parent_id = ${kind === 'comment' ? targetId : null}::uuid
-               or c.id in (select x.id from nestly.comments x where x.post_id = ${postId}::uuid and x.status <> 'deleted' order by x.created_at, x.id limit ${CONTEXT_COMMENTS}))
-        order by c.created_at, c.id`),
+        order by c.created_at, c.id
+        limit ${CONTEXT_COMMENTS}`),
     );
-  return { post: kind === 'comment' ? (posts[0] ?? null) : null, comments };
+  return { post: null, comments };
 }
 
 /** The author card's extra facts (USER_VIEW, on the admin screens): the account's age in days and its enforcement steps of the last 12 months. */
@@ -181,22 +172,14 @@ export async function countOpenSupport(tx: IdentityTx): Promise<number> {
   return one(tx, sql`select count(*) as n from nestly.support_requests where status in ('open', 'in_progress')`);
 }
 
-/** The Admin's: open invitations, and those expiring within `hours`. */
-export async function countInvitations(tx: IdentityTx, hours: number): Promise<{ open: number; expiring: number }> {
-  const rows = z
-    .array(z.object({ open: count, expiring: count }))
-    .parse(
-      await tx.execute(sql`
-        select count(*) filter (where true) as open, count(*) filter (where expires_at <= now() + make_interval(hours => ${hours})) as expiring
-        from nestly.moderator_invitations where accepted_by is null and revoked_at is null and expires_at > now()`),
-    );
-  return rows[0] ?? { open: 0, expiring: 0 };
+/** The Admin's open invitations (the "expiring" card was cancelled, Afik 21.10.2026 §11.8). */
+export async function countOpenInvitations(tx: IdentityTx): Promise<number> {
+  return one(tx, sql`select count(*) as n from nestly.moderator_invitations where accepted_by is null and revoked_at is null and expires_at > now()`);
 }
 
-/** The Admin's guides that wait: drafts to approve, and published guides whose sources were last checked `months` ago or more. */
-export async function countGuidesToRecheck(tx: IdentityTx, months: number): Promise<number> {
-  return one(tx, sql`select count(*) as n from nestly.status_guides
-                     where status = 'draft' or (status = 'published' and source_checked_on <= (now() - make_interval(months => ${months}))::date)`);
+/** The Admin's guides that wait: drafts to approve only (OP-057 closed, Afik 21.10.2026 §11.8: no source-recheck rule). */
+export async function countDraftGuides(tx: IdentityTx): Promise<number> {
+  return one(tx, sql`select count(*) as n from nestly.status_guides where status = 'draft'`);
 }
 
 /** Reports filed in the last 24 hours, and in the 7 days before them. */

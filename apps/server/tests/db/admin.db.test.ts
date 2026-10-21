@@ -183,23 +183,23 @@ describe('[I4 FR-MOD-003 AC-022 AC-106 AC-107 BR-074] the moderation queue', () 
 });
 
 describe('[I4 FR-MOD-003 AC-029 BR-080] handling reports and moderating content', () => {
-  it('hides the post and closes the report in one step; the audit has both entries with the reason; the report leaves the queue', T, async () => {
+  it('[AC-159] a justified report deletes the post and closes the report in one step; the audit has both entries; the report leaves the queue', T, async () => {
     const p = await seedPost(author);
     await seedReport(reporter, 'post', p, 'harassment');
-    const before = await auditCount('content_hidden');
+    const before = await auditCount('content_deleted');
     const r = await handleReports(database, id(content), {
       targetKind: 'post',
       targetId: p,
       resolution: 'action_taken',
-      moderation: { status: 'hidden', reason: 'against the rules' },
+      moderation: { status: 'removed', reason: 'against the rules' },
     });
     expect(r).toMatchObject({ kind: 'ok', closed: 1 });
-    expect(await auditCount('content_hidden')).toBe(before + 1);
+    expect(await auditCount('content_deleted')).toBe(before + 1);
     expect(await auditCount('report_handled')).toBeGreaterThan(0);
     const q = await readReportQueue(database, id(content));
     expect(q.kind === 'ok' && q.items.length).toBe(0);
     const detail = await readReportDetail(database, id(content), 'post', p);
-    expect(detail.kind === 'ok' && detail.detail.content?.status).toBe('hidden');
+    expect(detail.kind === 'ok' && detail.detail.content).toBeNull();
   });
 
   it('a moderation move needs CONTENT_MODERATE and a reason; a report is not closed twice; the content is restored by a later move', T, async () => {

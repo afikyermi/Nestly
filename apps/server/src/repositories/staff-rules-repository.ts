@@ -78,15 +78,26 @@ export async function readContentDecisions(tx: IdentityTx, userId: string): Prom
     );
 }
 
-/** The items hidden now after ten identical reports (BR-074), as REPORTS_VIEW reads them: the target ids. */
-export async function readAutoHidden(tx: IdentityTx): Promise<Set<string>> {
+/**
+ * The items hidden now after ten identical reports (BR-074, AC-160), as REPORTS_VIEW reads them: each target with the reason that hid it and
+ * how many people chose it. The hide's own reason is never readable (no one learns who hid it); the reason is the open reports' (one report per
+ * person and item, ERR-046, so the count is of people).
+ */
+export async function readAutoHidden(tx: IdentityTx): Promise<Map<string, { reasonLabel: string; reporters: number }>> {
   const rows = z
-    .array(z.object({ target: z.guid() }))
+    .array(z.object({ target: z.guid(), reasonLabel: z.string(), reporters: z.number().int() }))
     .parse(
       await tx.execute(sql`
-        select coalesce(h.post_id, h.comment_id, h.listing_id, h.review_id, h.article_id) as target
-        from nestly.report_auto_hides h where h.hidden_until > now()`),
+        with hidden as (
+          select coalesce(h.post_id, h.comment_id, h.listing_id, h.review_id, h.article_id) as target
+          from nestly.report_auto_hides h where h.hidden_until > now())
+        select distinct on (hidden.target) hidden.target, rr.label as "reasonLabel", count(*)::int as reporters
+        from hidden
+        join nestly.reports r on r.status = 'open'
+          and coalesce(r.post_id, r.comment_id, r.listing_id, r.review_id, r.article_id) = hidden.target
+        join nestly.report_reasons rr on rr.key = r.reason
+        group by hidden.target, rr.label, rr.priority
+        order by hidden.target, count(*) desc, rr.priority`),
     );
-  return new Set(rows.map((row) => row.target));
+  return new Map(rows.map((row) => [row.target, { reasonLabel: row.reasonLabel, reporters: row.reporters }]));
 }
-

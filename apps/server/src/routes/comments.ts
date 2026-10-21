@@ -56,7 +56,7 @@ function cursorOf(query: unknown, allowGroup = false): ReturnType<typeof parseCo
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** The Private Group a staff member reviews this thread in (`?group=`), or undefined. */
 function reviewGroupOf(query: unknown): string | undefined {
-  const value = typeof query === 'object' && query !== null ? Reflect.get(query, 'group') : undefined;
+  const value: unknown = typeof query === 'object' && query !== null ? Reflect.get(query, 'group') : undefined;
   return typeof value === 'string' && UUID.test(value) ? value.toLowerCase() : undefined;
 }
 
