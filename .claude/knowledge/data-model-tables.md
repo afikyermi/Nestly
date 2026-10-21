@@ -21,6 +21,7 @@ does not instruct loading every link. Column sections and rule matrices are both
 | chat_requests, conversations, messages, chat_blocks, chat_reads, support_requests, support_messages, reported_message_views | Chat and Support (I8); Friendships and regular names; Blocking a user; Safety and admin core (reports, audit) |
 | moderator_invitations, system_announcements, the analytics reads | Moderators team (I14); Safety and admin core (staff roles, keys, audit) |
 | report_escalations, report_openings, group_staff_views, child_tracker_trends, the staff review reads | Staff work (I14 completion); Safety and admin core (reports, audit); Groups (Private Group views); Trackers (I6) |
+| enforcement_records, report_auto_hides, reported_comment_views, profile_staff_views, media_fingerprints, suspected_image_fingerprints | Staff rules (I14 completion B); Staff work; Safety and admin core (reports, audit); Media and Stories (the job) |
 | groups, group_members, group_access, group_join_requests, group_invitations, group_bans, group_notification_preferences, group_suggestions, group_highlight_configurations, private_group_content_views | Groups (I10); posts, comments, reactions (group content); Notifications and People Search (notify_group); Safety and admin core (reports, audit) |
 | professional_profiles, professional_follows, outreach_requests, professional_reviews, professional_articles | Professionals (I11); posts (audience followers, is_help_request), Chat and Support (conversations: contexts professional and outreach); Blocking a user |
 | marketplace_listings, sponsored_products | Marketplace (I12); Media and Stories (listing and sponsored images), Chat and Support (conversations: context marketplace), Safety and admin core (reports, audit); Blocking a user |
@@ -585,6 +586,37 @@ also needs PRIVATE_GROUP_MODERATE on Private Group content and records it (§9.4
 inside the audited opening's transaction only. `reports_insert_community` (RESTRICTIVE INSERT): only an active Regular or Professional account files a report
 (staff never post, comment, send requests or report, §9.7; every other social write already refuses a staff account: file 100 c7). Cleanup: both new
 tables are listed and never deleted from by name (staff rows; they go with their report by cascade).
+
+## Staff rules (I14 completion B)
+
+Built by `20261023500000_staff_rules.sql` (Afik 21.10.2026 (b), decisions-in-force.md §10; down script in `supabase/rollback/`, refuses while any of
+its seven tables holds a row or an announcement addresses anyone but everyone). One new SECURITY DEFINER, `identical_reports_hide()` (rule 17, TO BE
+CONFIRMED BY AFIK; data-model.md "Approved exceptions"); `child_tracker_trends(text, text, text, text)` a new version of the approved family (the
+integer one stays until the code PR, then a contract migration drops it); `profile_view()`, `audit_trigger()`, `reports_handle_guard()`,
+`media_assets_update_guard()`, `media_reviews_guard()` replaced. pgTAP: file 102.
+
+| Table | Columns and meaning | Authorization |
+|---|---|---|
+| `enforcement_records` | id, user_id (the author; NULL for an anonymous post and its author's comments; FK users restrict), target_kind (post, comment, listing, review, article), target_id (no FK), rule (report_reasons), excerpt (<= 100; a listing or article: its title), report_id (SET NULL), decided_by (default auth.uid()), decided_at; unique (target_kind, target_id) | RLS + FORCE; SELECT USER_VIEW (the Admin always); INSERT only by `content_staff_delete()` (BEFORE DELETE on the five content tables, as the staff member): the content key and a report this caller closed as action_taken in this transaction; no UPDATE or DELETE; audited (`content_deleted`) |
+| `report_auto_hides` | id, target_kind, one of post_id / comment_id / listing_id / review_id / article_id (unique, cascade), reason, author_id (cascade), hidden_at, hidden_until (<= +90 days) | RLS + FORCE; SELECT (column-level: the item and hidden_until, never the reason or author_id) every active account except the item's author and its reporters (so they see no change), and REPORTS_VIEW; DELETE REPORTS_VIEW once no report on the item is open (`report_auto_hides_lift`, AFTER UPDATE of reports); INSERT/SELECT TO app_owner for `identical_reports_hide()` only, scoped by `nestly.auto_hide_target`. RESTRICTIVE `*_auto_hide` SELECT policies on posts, comments, marketplace_listings, professional_reviews and professional_articles hide an item whose hide row is readable (staff see it) |
+| `reported_comment_views` | id, report_id (cascade), viewer_id (default auth.uid(), restrict), created_at | RLS + FORCE; SELECT own; INSERT (report_id) REPORTS_VIEW on a comment report whose comment exists, open or closed; audited (`reported_comment_viewed`) every time |
+| `profile_staff_views` | id, target_id (cascade), viewer_id (restrict), view_xact, created_at | RLS + FORCE; SELECT own; INSERT (target_id) any active staff account; audited (`staff_profile_viewed`); `profile_view()` shows that viewer the full profile (as a Friend) inside that transaction; never tracker data |
+| `media_fingerprints` | media_id PK (cascade), fingerprint (64-bit difference hash), created_at | RLS + FORCE; the job: SELECT; INSERT once for a pending image or a suspected one; CONTENT_MODERATE reads a match's own hash only inside the transaction that decided it not_abuse |
+| `suspected_image_fingerprints` | id, fingerprint (unique), source_media_id (unique, no FK), created_at | RLS + FORCE; the job: SELECT; INSERT the recorded hash of an image a staff member marked or confirmed as suspected (suspected_by); CONTENT_MODERATE reads and DELETEs the listed hashes within 6 bits of a match only inside the transaction that decided it not_abuse (`media_hash_not_abuse()`), each removal audited (`media_hash_removed`); no expiry (Afik 21.10.2026) |
+| `auto_hide_scopes` | nonce PK, xact | RLS + FORCE; TO app_owner only (the trend_scopes pattern): `identical_reports_hide()` writes its nonce, names it in `nestly.auto_hide_scope` and deletes it; `auto_hide_scoped()` (invoker, no runtime EXECUTE) opens its scoped policies |
+
+Other changes: staff `*_delete_staff` policies on posts, comments, marketplace_listings (MARKETPLACE_MODERATE), professional_reviews (DELETE granted, staff
+only) and professional_articles, only in the transaction that closed a report on the row as action_taken by the caller; `content_staff_delete()` expires the
+open reports on a deleted post's comments or a deleted comment's replies (`reports_handle_guard` accepts open -> expired from inside another trigger only;
+`reports_update_staff` WITH CHECK widened to it). `identical_reports_hide()`: AFTER INSERT on reports, as the reporter; counts the different people with an
+open report of the same reason on the item (advisory lock per item); at 10 or more writes the hide naming the author (post_authors for an anonymous post),
+reading through seven `*_select_auto_hide` TO app_owner policies. `system_announcements.audience` (everyone, parents, professionals, stage) and
+`audience_stage` (planning, pregnant, has_child), `system_announcements_select_published` by audience (staff: everyone only). `child_tracker_trends(text, text,
+text, text)`: period this_week / last_week / this_month / last_month (Israel, the week from Sunday), dimensions child_age and child_sex only, children
+rounded to 10 and averages to one decimal, hidden on the true count. `media_reviews` gains match_decision (confirmed / not_abuse, once, CONTENT_MODERATE, `media_reviews_update_hash_staff`; audited `media_hash_confirmed` / `media_hash_not_abuse`), match_decided_by and match_decided_at; `media_reviews.queue_reason` gains hash_match: the job may mark a pending upload whose
+fingerprint is within 6 bits of the block list as suspected (no staff member, 90 days) and move it to rejected and held (`is_held` granted to the job). Cleanup:
+reported_comment_views, profile_staff_views and enforcement_records by the user before reports; report_auto_hides and media_fingerprints go by cascade;
+suspected_image_fingerprints names no user and is never written by the cleanup.
 
 ## Groups (I10)
 

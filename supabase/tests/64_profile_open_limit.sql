@@ -201,12 +201,12 @@ select is(pg_temp.opn('pv_e', 'pv_b'), 'shown', '[F2.4-c c22] and the open is sh
 -- =====================================================================================================================
 -- c23 -- the fence: one definer, three closed tables, seven scoped policies
 -- =====================================================================================================================
-select is((select array_agg(a order by a) from tests.approved_security_definer() as a)::text, '{nestly.audit_trigger(),"nestly.child_tracker_trends(text,text,text,integer)",nestly.notify_comment(),nestly.notify_friendship(),nestly.notify_group(),nestly.notify_post(),nestly.notify_professional(),nestly.profile_view(text),nestly.reveal_post_author(uuid),"nestly.search_people(text,integer,integer)"}',
+select is((select array_agg(a order by a) from tests.approved_security_definer() as a)::text, '{nestly.audit_trigger(),"nestly.child_tracker_trends(text,text,text,integer)","nestly.child_tracker_trends(text,text,text,text)",nestly.identical_reports_hide(),nestly.notify_comment(),nestly.notify_friendship(),nestly.notify_group(),nestly.notify_post(),nestly.notify_professional(),nestly.profile_view(text),nestly.reveal_post_author(uuid),"nestly.search_people(text,integer,integer)"}',
   '[F2.4-c c23 A8 rule 10 DR-G1 DR-L] the approved SECURITY DEFINER list is profile_view(text), I4''s two, the three notification triggers and search_people, I10''s notify_group (file 96), notify_professional (file 98) and the I14 completion''s child_tracker_trends (file 100)');
 select set_eq(
   $$ select p.oid::regprocedure::text from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'nestly' and p.prosecdef $$,
-  $$ values ('nestly.profile_view(text)'), ('nestly.audit_trigger()'), ('nestly.reveal_post_author(uuid)'), ('nestly.notify_comment()'), ('nestly.notify_friendship()'), ('nestly.notify_post()'), ('nestly.search_people(text,integer,integer)'), ('nestly.notify_group()'), ('nestly.notify_professional()'), ('nestly.child_tracker_trends(text,text,text,integer)') $$,
+  $$ values ('nestly.profile_view(text)'), ('nestly.audit_trigger()'), ('nestly.reveal_post_author(uuid)'), ('nestly.notify_comment()'), ('nestly.notify_friendship()'), ('nestly.notify_post()'), ('nestly.search_people(text,integer,integer)'), ('nestly.notify_group()'), ('nestly.notify_professional()'), ('nestly.child_tracker_trends(text,text,text,integer)'), ('nestly.child_tracker_trends(text,text,text,text)'), ('nestly.identical_reports_hide()') $$,
   '[F2.3-b c15] the SECURITY DEFINER functions in nestly are exactly the ten approved ones (I10''s notify_group, file 96; notify_professional, file 98; child_tracker_trends, file 100)');
 select is(
   (select string_agg(c.relname || ':' || c.relrowsecurity::text || ':' || c.relforcerowsecurity::text || ':' || pg_catalog.pg_get_userbyid(c.relowner),
