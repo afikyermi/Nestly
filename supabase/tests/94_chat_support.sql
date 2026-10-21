@@ -120,9 +120,9 @@ select is((select string_agg(c.relname || '.' || pl.polname || ':' || pl.polcmd:
   || 'conversations.conversations_insert_party:a, conversations.conversations_select_party:r, '
   || 'messages.messages_insert_party:a, messages.messages_select_party:r, messages.messages_select_staff:r, '
   || 'reported_message_views.reported_message_views_insert_staff:a, reported_message_views.reported_message_views_select_own:r, '
-  || 'support_messages.support_messages_insert_own:a, support_messages.support_messages_insert_staff:a, support_messages.support_messages_select_own:r, support_messages.support_messages_select_staff:r, '
-  || 'support_requests.support_requests_insert_own:a, support_requests.support_requests_select_own:r, support_requests.support_requests_select_staff:r, support_requests.support_requests_update_staff:w',
-  '[I8 c1] exactly these policies: no DELETE anywhere, no UPDATE of a conversation, a message, a Support message or a view');
+  || 'support_messages.support_messages_insert_own:a, support_messages.support_messages_insert_staff:a, support_messages.support_messages_select_analytics:r, support_messages.support_messages_select_own:r, support_messages.support_messages_select_staff:r, '
+  || 'support_requests.support_requests_insert_own:a, support_requests.support_requests_select_analytics:r, support_requests.support_requests_select_own:r, support_requests.support_requests_select_staff:r, support_requests.support_requests_update_staff:w',
+  '[I8 c1] exactly these policies: no DELETE anywhere, no UPDATE of a conversation, a message, a Support message or a view (the I11 follow-ups add the two analytics reads, file 98)');
 select is((select count(*) from pg_policy pl join pg_class c on c.oid = pl.polrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'nestly'
             and c.relname in ('chat_requests', 'conversations', 'messages', 'chat_blocks', 'chat_reads', 'support_requests', 'support_messages', 'reported_message_views')
             and (pl.polroles <> array[(select oid from pg_roles where rolname = 'authenticated')]::oid[] or not pl.polpermissive

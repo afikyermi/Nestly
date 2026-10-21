@@ -17,7 +17,7 @@ create function pg_temp.id(p text) returns uuid language sql as $f$
   select case p
     when 'a' then tests.fx_id('a') when 'b' then tests.fx_id('b')
     when 'd' then tests.fx_fr_id('fr_d') when 'm0' then tests.fx_fr_id('fr_m') when 'm3' then tests.fx_sf_id('sf_m3') when 'm4' then tests.fx_sf_id('sf_m4')
-    when 'q1' then tests.fx_pr_id('pr_1')
+    when 'q1' then tests.fx_pr_id('pr_1') when 'q2' then tests.fx_pr_id('pr_2')
   end
 $f$;
 create function pg_temp.dml(p_who text, p_sql text, p_keep boolean default true) returns text language sql as $f$
@@ -75,8 +75,11 @@ select is((select count(*) from pg_proc p join pg_namespace n on n.oid = p.prona
 
 -- ---- Support metrics (FR-ADMIN-003, BR-058) ------------------------------------------------------------------------------
 select is(pg_temp.dml('a', $q$ insert into nestly.support_requests (topic, body) values ('bug', 'הכפתור לא עובד') $q$), 'OK:1', '[I11F c2 fixture] a Support request');
-select is(tests.dml_staff(tests.claims(pg_temp.id('m3')), $q$ insert into nestly.support_messages (support_request_id, author_kind, body)
-            select id, 'support', 'בודקים' from nestly.support_requests where body = 'הכפתור לא עובד' $q$), 'OK:1', '[I11F c2 fixture] and a Support reply');
+select set_config('t.sreq', pg_temp.q('a', $q$ select id::text from nestly.support_requests where body = 'הכפתור לא עובד' $q$), true);
+select set_config('nestly.staff_view', 'on', true);
+select is(pg_temp.dml('m3', format($q$ insert into nestly.support_messages (support_request_id, body) values (%L, 'בודקים') $q$, current_setting('t.sreq'))),
+  'OK:1', '[I11F c2 fixture] and a Support reply');
+select set_config('nestly.staff_view', '', true);
 select is(pg_temp.na('d', 'support_requests'), tests.fx_pr_count('nestly.support_requests')::text, '[I11F c2 FR-ADMIN-003] the Admin counts every Support request on the analytics screen');
 select is(pg_temp.na('m3', 'support_requests'), tests.fx_pr_count('nestly.support_requests')::text, '[I11F c2 BR-058] ANALYTICS_VIEW counts every Support request');
 select is(pg_temp.na('m3', 'support_messages'), tests.fx_pr_count('nestly.support_messages')::text, '[I11F c2 BR-058] and every Support message (the first reply''s time)');
@@ -131,7 +134,7 @@ select is(pg_temp.moderate('m3', 'professional_articles', current_setting('t.art
 select is(tests.fx_sf_audit('content_removed') >= 1 and tests.fx_sf_audit('content_hidden') >= 1, true, '[I11F c6 BR-026 rule 18] each move is audited');
 select is(tests.fx_pr_count($q$ nestly.audit_log where target_kind in ('review', 'article') and permission_key = 'CONTENT_MODERATE' and reason = 'פוגעני' $q$), 2::bigint,
   '[I11F c6 rule 18] with the reason and the target kind');
-select is(tests.dml_staff(tests.claims(pg_temp.id('m3')), format($q$ update nestly.professional_articles set body = 'שונה' where id = %L $q$, current_setting('t.article'))),
+select is(pg_temp.dml('m3', format($q$ update nestly.professional_articles set body = 'שונה' where id = %L $q$, current_setting('t.article'))),
   'ERR:42501', '[I11F c6] staff never edit an article''s text');
 select is(pg_temp.n('b', format($q$ nestly.professional_reviews where id = %L $q$, current_setting('t.review'))), '0', '[I11F c7] a removed review leaves every reader''s view');
 select is(pg_temp.n('a', format($q$ nestly.professional_reviews where id = %L $q$, current_setting('t.review'))), '0', '[I11F c7] its writer''s too');
@@ -141,7 +144,7 @@ select is(pg_temp.q('q1', format($q$ select moderation from nestly.professional_
 select is(pg_temp.n('m4', format($q$ nestly.professional_reviews where id = %L $q$, current_setting('t.review'))), '1', '[I11F c7 FR-MOD-003] REPORTS_VIEW still reads the reported review');
 select is(pg_temp.moderate('m3', 'professional_articles', current_setting('t.article')::uuid, 'active', ''), 'OK:1', '[I11F c7] a restore needs no reason');
 select is(pg_temp.n('b', format($q$ nestly.professional_articles where id = %L $q$, current_setting('t.article'))), '1', '[I11F c7] the restored article is back');
-select is(tests.dml_staff(tests.claims(pg_temp.id('m3')),
+select is(pg_temp.dml('m3',
             format($q$ update nestly.reports set status = 'handled', resolution = 'action_taken' where review_id = %L $q$, current_setting('t.review'))), 'OK:1',
   '[I11F c8 FR-MOD-003] CONTENT_MODERATE closes the review''s report');
 
@@ -150,6 +153,92 @@ select is(pg_temp.dml('q1', format($q$ delete from nestly.professional_articles 
   '[I11F c9] the owner deletes a reported article');
 select is(tests.fx_pr_count($q$ nestly.reports where target_kind = 'article' and article_id is null and status = 'expired' and closed_at is not null $q$), 1::bigint,
   '[I11F c9] its open report expires, so the queue never shows a report on nothing');
+
+-- ---- the Professional's notifications (OP-051 cancelled; Afik 21.10.2026, decisions-in-force.md §9.8) -------------------------
+select is((select p.prosecdef::text || '/' || pg_get_userbyid(p.proowner) || '/' || p.proconfig::text from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'nestly' and p.proname = 'notify_professional'), 'true/app_owner/{"search_path=\"\""}',
+  '[I11F c10 rule 17] notify_professional is a SECURITY DEFINER owned by app_owner with a pinned search_path');
+select is((select has_function_privilege('authenticated', p.oid, 'EXECUTE') or has_function_privilege('app_server', p.oid, 'EXECUTE') from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'nestly' and p.proname = 'notify_professional'),
+  false, '[I11F c10 rule 17] no runtime role executes it');
+select is((select string_agg(c.relname || '.' || t.tgname, ', ' order by c.relname) from pg_trigger t join pg_class c on c.oid = t.tgrelid
+            join pg_proc p on p.oid = t.tgfoid join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'nestly' and p.proname = 'notify_professional'),
+  'outreach_requests.notify_professional_outreach, professional_follows.notify_professional_follow, professional_reviews.notify_professional_review',
+  '[I11F c10] it fires on an Offer Help answered, a review written and a new follower only');
+
+-- a review (c4 fixture, by a): the reviewed Professional is told, the reviewer is not named
+select is(tests.fx_nt_one(pg_temp.id('q1'), 'review_received'), format('actor=- target=professional:%s critical=f read=f', pg_temp.id('q1')),
+  '[I11F c11 OP-051] a new review notifies the Professional, never naming the reviewer');
+select is(tests.fx_nt_count(pg_temp.id('a')), 0::bigint, '[I11F c11] the reviewer gets nothing');
+
+-- Offer Help: declined and accepted
+select is(pg_temp.dml('b', $q$ insert into nestly.posts (audience, body, is_help_request) values ('everyone', 'מחפשת עזרה בהנקה', true) $q$), 'OK:1', '[I11F c12 fixture] a help post');
+select set_config('t.help1', pg_temp.q('b', $q$ select id::text from nestly.posts where body = 'מחפשת עזרה בהנקה' $q$), true);
+select is(pg_temp.dml('q1', format($q$ insert into nestly.outreach_requests (post_id, opening_message) values (%L, 'אשמח לעזור') $q$, current_setting('t.help1'))), 'OK:1',
+  '[I11F c12 fixture] q1 offers help');
+select is(pg_temp.dml('q2', format($q$ insert into nestly.outreach_requests (post_id, opening_message) values (%L, 'גם אני') $q$, current_setting('t.help1'))), 'OK:1',
+  '[I11F c12 fixture] q2 offers help');
+select is(pg_temp.dml('b', format($q$ update nestly.outreach_requests set status = 'declined' where post_id = %L and professional_id = %L $q$,
+            current_setting('t.help1'), pg_temp.id('q1'))), 'OK:1', '[I11F c12 fixture] b declines q1');
+select is(left(tests.fx_nt_one(pg_temp.id('q1'), 'offer_declined'), 24), 'actor=- target=outreach:',
+  '[I11F c12 OP-051] a declined Offer Help notifies the Professional, without naming who declined');
+select is(pg_temp.dml('b', format($q$ update nestly.outreach_requests set status = 'accepted' where post_id = %L and professional_id = %L $q$,
+            current_setting('t.help1'), pg_temp.id('q2'))), 'OK:1', '[I11F c12 fixture] b accepts q2');
+select is(left(tests.fx_nt_one(pg_temp.id('q2'), 'offer_accepted'), 24), 'actor=- target=outreach:', '[I11F c12 OP-051] an accepted Offer Help notifies the Professional');
+select is(tests.fx_nt_count(pg_temp.id('b')), 0::bigint, '[I11F c12] the author answering gets nothing');
+select is(pg_temp.n('q2', 'nestly.notifications'), '1', '[I11F c12] the Professional reads its own notification');
+
+-- the recipient's switch (FR-NOTIF-002): q2 turns Offer Help notifications off
+select is(pg_temp.dml('q2', $q$ insert into nestly.notification_preferences (category, is_in_app_enabled) values ('offers', false) $q$), 'OK:1',
+  '[I11F c13 fixture] q2 switches offers off');
+select is(pg_temp.dml('b', $q$ insert into nestly.posts (audience, body, is_help_request) values ('everyone', 'עזרה בשינה בבקשה', true) $q$), 'OK:1', '[I11F c13 fixture] another help post');
+select set_config('t.help2', pg_temp.q('b', $q$ select id::text from nestly.posts where body = 'עזרה בשינה בבקשה' $q$), true);
+select is(pg_temp.dml('q2', format($q$ insert into nestly.outreach_requests (post_id, opening_message) values (%L, 'אשמח') $q$, current_setting('t.help2'))), 'OK:1',
+  '[I11F c13 fixture] q2 offers again');
+select is(pg_temp.dml('b', format($q$ update nestly.outreach_requests set status = 'declined' where post_id = %L $q$, current_setting('t.help2'))), 'OK:1',
+  '[I11F c13 fixture] b declines');
+select is(tests.fx_nt_types(pg_temp.id('q2')), 'offer_accepted', '[I11F c13 §6 condition 3] a switched-off category delivers nothing');
+
+-- a user block: across it nothing happens and nothing is delivered (§6 condition 3)
+select is(pg_temp.dml('b', format($q$ insert into nestly.conversations (context, user_a, user_b) values ('professional', %L, %L) $q$,
+            least(pg_temp.id('b'), pg_temp.id('q2')), greatest(pg_temp.id('b'), pg_temp.id('q2')))), 'OK:1', '[I11F c14 fixture] b opens a conversation with q2');
+select set_config('t.conv2', pg_temp.q('b', format($q$ select id::text from nestly.conversations where user_a = %L and user_b = %L $q$,
+            least(pg_temp.id('b'), pg_temp.id('q2')), greatest(pg_temp.id('b'), pg_temp.id('q2')))), true);
+select is(pg_temp.dml('q2', format($q$ insert into nestly.messages (conversation_id, body) values (%L, 'שלום') $q$, current_setting('t.conv2'))), 'OK:1',
+  '[I11F c14 fixture] q2 answers');
+select is(pg_temp.dml('q2', format($q$ insert into nestly.user_blocks (blocked_id, blocked_account_type) values (%L, 'regular') $q$, pg_temp.id('b'))), 'OK:1',
+  '[I11F c14 fixture] q2 blocks b');
+select is(pg_temp.dml('b', format($q$ insert into nestly.professional_reviews (professional_id, conversation_id, rating, body) values (%L, %L, 2, 'לא') $q$,
+            pg_temp.id('q2'), current_setting('t.conv2'))), 'ERR:42501', '[I11F c14] a review across a block is refused');
+select is(pg_temp.dml('b', format($q$ insert into nestly.professional_follows (professional_id) values (%L) $q$, pg_temp.id('q2'))), 'ERR:42501',
+  '[I11F c14] so is a follow');
+select is(tests.fx_nt_types(pg_temp.id('q2')), 'offer_accepted', '[I11F c14 §6 condition 3] and the blocked Professional is told nothing');
+
+-- new followers: one weekly digest, timed at the week's end (Monday 00:00, Israel time); nobody named
+select is(pg_temp.dml('a', format($q$ insert into nestly.professional_follows (professional_id) values (%L) $q$, pg_temp.id('q1'))), 'OK:1', '[I11F c15 fixture] a follows q1');
+select is(pg_temp.dml('b', format($q$ insert into nestly.professional_follows (professional_id) values (%L) $q$, pg_temp.id('q1'))), 'OK:1', '[I11F c15 fixture] b follows q1');
+select is(tests.fx_pr_count(format($q$ nestly.notifications where recipient_id = %L and type = 'followers_weekly' and actor_id is null
+            and created_at = (date_trunc('week', now() at time zone 'Asia/Jerusalem') + interval '7 days') at time zone 'Asia/Jerusalem' $q$, pg_temp.id('q1'))), 1::bigint,
+  '[I11F c15 OP-051] two new followers make one digest for the week, timed at its end, naming nobody');
+select is(pg_temp.n('q1', $q$ nestly.notifications where type = 'followers_weekly' $q$), '0', '[I11F c15] it is not readable before the week ends');
+select is(pg_temp.dml('q1', $q$ update nestly.notifications set read_at = now() where read_at is null $q$), 'OK:2', '[I11F c15] "mark all read" marks the two that are due');
+select is(tests.fx_pr_count(format($q$ nestly.notifications where recipient_id = %L and type = 'followers_weekly' and read_at is null $q$, pg_temp.id('q1'))), 1::bigint,
+  '[I11F c15] and leaves the digest unread');
+select is(pg_temp.dml('q2', $q$ insert into nestly.notification_preferences (category, is_in_app_enabled) values ('followers', false) $q$), 'OK:1',
+  '[I11F c15 fixture] q2 switches the follower digest off');
+select is(pg_temp.dml('a', format($q$ insert into nestly.professional_follows (professional_id) values (%L) $q$, pg_temp.id('q2'))), 'OK:1', '[I11F c15 fixture] a follows q2');
+select is(tests.fx_nt_types(pg_temp.id('q2')), 'offer_accepted', '[I11F c15 §6 condition 3] a switched-off digest is not written');
+select is(tests.fx_nt_count(pg_temp.id('a')) + tests.fx_nt_count(pg_temp.id('b')), 0::bigint, '[I11F c15] followers get nothing');
+
+-- ---- the Professional's qualification declaration (Afik 21.10.2026, §9.8) ---------------------------------------------------------
+select is(pg_temp.dml('q1', $q$ insert into nestly.legal_consents (terms_version, privacy_version, has_declared_18_plus, has_declared_qualification) values ('t-98', 'p-98', true, true) $q$), 'OK:1',
+  '[I11F c16] a Professional''s consent records the qualification declaration');
+select is(tests.fx_pr_count(format($q$ nestly.legal_consents where user_id = %L and terms_version = 't-98' and has_declared_qualification $q$, pg_temp.id('q1'))), 1::bigint,
+  '[I11F c16] as given');
+select is(pg_temp.dml('a', $q$ insert into nestly.legal_consents (terms_version, privacy_version, has_declared_18_plus) values ('t-98', 'p-98', true) $q$), 'OK:1',
+  '[I11F c16] a Regular''s consent defaults to no such declaration');
+select is(tests.fx_pr_count(format($q$ nestly.legal_consents where user_id = %L and terms_version = 't-98' and not has_declared_qualification $q$, pg_temp.id('a'))), 1::bigint,
+  '[I11F c16] recorded false');
 
 select * from finish();
 rollback;

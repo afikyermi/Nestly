@@ -107,6 +107,7 @@ own `regular_profiles` row FOR NO KEY UPDATE. No DELETE on `friendships` or `reg
 | `legal_consents.terms_version` | text · not null | the Terms of Use version accepted, CHECK 1–64 chars. From the server's constant, never the client (AC-084) — enforced by the server; the database cannot know where a string came from |
 | `legal_consents.privacy_version` | text · not null | the Privacy Policy version accepted; same check and source |
 | `legal_consents.has_declared_18_plus` | boolean · not null | the 18+ declaration was made in this acceptance (BR-068). CHECK = true: a row without it cannot exist |
+| `legal_consents.has_declared_qualification` | boolean · not null · false | a Professional declared the training and licence its field needs (Afik 21.10.2026); the registration request requires it. I11 follow-ups |
 | `legal_consents.accepted_at` | timestamptz · not null · `now()` | when the user accepted: the database clock. Never granted; the insert policy refuses any value but `now()` |
 
 ## Columns: recovery_answers
@@ -474,12 +475,12 @@ FR-SEARCH-001, FR-ALG-008, BR-035/038/061/063, VAL-037, AC-040/041/042/074/078; 
 |---|---|---|
 | `notifications.id` | uuid PK · `gen_random_uuid()` | |
 | `notifications.recipient_id` | uuid · not null → users ON DELETE CASCADE | who is notified; the only reader |
-| `notifications.type` | text · not null · CHECK format `^[a-z][a-z_]{0,39}$` | friend_request, friend_accepted, post_comment, comment_reply, post_shared, friend_post. The list lives in `packages/shared`: a new event (groups, Marketplace, Professional follow, birthdays) needs a definer and a constant, no schema change |
+| `notifications.type` | text · not null · CHECK format `^[a-z][a-z_]{0,39}$` | friend_request, friend_accepted, post_comment, comment_reply, post_shared, friend_post; the Group types (I10); offer_accepted, offer_declined, review_received, followers_weekly (I11 follow-ups). The list lives in `packages/shared`: a new event (groups, Marketplace, Professional follow, birthdays) needs a definer and a constant, no schema change |
 | `notifications.actor_id` | uuid · null → users ON DELETE CASCADE | who did it; NULL for the anonymous post author's own comment or the system |
 | `notifications.target_kind`, `target_id` | text (format CHECK) · uuid · not null | the deep link: `post` + post id, or `user` + user id; authorized again when opened |
 | `notifications.subject_id` | uuid · not null | the source row (comment, share, friendship, post); UNIQUE (recipient_id, type, subject_id) makes one event notify once |
 | `notifications.is_critical` | boolean · not null · false | Security/critical: preferences are ignored (BR-038); nothing sets it yet |
-| `notifications.created_at`, `read_at` | timestamptz · now() · null | `read_at` is set once by `notifications_read_guard` on any update (client value ignored, a read cannot be undone) |
+| `notifications.created_at`, `read_at` | timestamptz · now() · null | readable from `created_at` (a weekly digest is written ahead, timed at the week's end). `read_at` is set once by `notifications_read_guard` on any update (client value ignored, a read cannot be undone) |
 | `notification_preferences.user_id`, `category` | uuid (`auth.uid()`) · text (format CHECK) | PK. Categories: friends, comments, shares, friend_posts, birthdays (later groups, security). No row = on |
 | `notification_preferences.is_in_app_enabled`, `is_push_enabled` | boolean · true · false | In-App flag; Push flag stored for the Mobile stage, never sent on Web. CHECK: the `security` category cannot be off |
 | `friend_content_notification_preferences.user_id`, `friend_id`, `is_enabled` | uuid · uuid · boolean true | PK (user, friend): "tell me when this Friend posts". Insert needs an accepted Friendship; off by default (no row) |
@@ -612,3 +613,19 @@ triggers: `professional_profiles_update_guard`, `outreach_requests_insert_limit`
 Other changes: `users_insert_own` allows a Professional; `posts.is_help_request` (Regular only, never a share; OP-038) and audience `followers` (Professional only;
 `posts_select_viewer` gains the follower branch, through the caller's own Follow rows); `conversations.outreach_request_id` and contexts `professional` (a Regular with
 an active Professional) and `outreach` (the author of an accepted Offer Help).
+
+**I11 follow-ups** (`20261022500000_i11_followups.sql`; down script refuses once a review or article report, a moderated review or article, a Professional
+notification or a qualification declaration exists):
+- `support_requests_select_analytics`, `support_messages_select_analytics`: ANALYTICS_VIEW (the Admin always) reads the rows only on the analytics screen
+  (`nestly.analytics_view`, the I14 pattern); the server returns counts only (FR-ADMIN-003 Support metrics).
+- `reports.review_id`, `reports.article_id` (SET NULL; one report per person and target; kinds `review`, `article`): the reporter must read the target, an article
+  not its own (a review's writer is never readable, so reporting one's own review is allowed and harmless); the text is copied (an article: title and body).
+  `reports_target_gone` (invoker): when the review or article is deleted, its open reports expire. Handling needs CONTENT_MODERATE.
+- `professional_reviews.moderation`, `professional_articles.moderation` (active / hidden / removed): moved only by CONTENT_MODERATE on a reported row, with a reason
+  (`professional_content_moderation_guard`, NS011), audited by `audit_trigger()` (new branch). A moderated row leaves every reader's view (an article's owner still
+  reads its own); `*_select_staff` lets REPORTS_VIEW read a reported row in any state; `professional_articles_reject_staff_edit`: staff never edit the text.
+- `notify_professional()` (SECURITY DEFINER, rule 17, Afik 21.10.2026): `offer_accepted` / `offer_declined` (category offers), `review_received` (reviews),
+  `followers_weekly` (followers; one row per Professional and week, created_at = the week's end, Monday 00:00 Israel time). Never the actor's name, never across a
+  user block, the category switch honoured. `notifications_select_recipient` / `_update_recipient` gain `created_at <= now()`: a digest appears when its week ends.
+- `legal_consents.has_declared_qualification` (boolean, default false, INSERT granted): a Professional's training-and-licence declaration (Afik 21.10.2026), required
+  by the registration request.

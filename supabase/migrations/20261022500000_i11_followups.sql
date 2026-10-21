@@ -19,8 +19,21 @@
 --                          every reader's view; an article's owner still reads its own (its screen says it was taken down). Staff never
 --                          edit the text. REPORTS_VIEW reads a reported review or article whatever its state.
 --
--- One existing SECURITY DEFINER function is replaced: audit_trigger() (approved exception, rule 18), with one new branch for the two tables
--- and nothing else changed. No new SECURITY DEFINER function, no TO app_owner or TO app_jobs policy, no new table.
+-- notifications            the Professional's own notifications (OP-051 cancelled, Afik 21.10.2026, decisions-in-force.md §9.8): an Offer Help
+--                          accepted or declined, a new review, and new followers as one weekly digest. A notification is readable (and can be
+--                          marked read) from its created_at: the digest row is written at the week's first new follower with created_at at the
+--                          week's end (Monday 00:00, Israel time), so it appears once, when the week closes; the screen counts that week's
+--                          follows (rows the Professional already reads as a count, never who).
+-- legal_consents           gain has_declared_qualification (Afik 21.10.2026, §9.8): a Professional's consent row carries the required
+--                          declaration that it holds the training and licence its field needs (the registration request requires it; the
+--                          column records it). The insert policy is unchanged, so the running registration keeps working until the code ships.
+--
+-- SECURITY DEFINER: audit_trigger() (approved exception, rule 18) is replaced with one new branch for the two tables and nothing else
+-- changed; and one new trigger definer, notify_professional() (rule 17; approved by Afik 21.10.2026 in the pattern and conditions of the I7
+-- notification functions, decisions-in-force.md §9.8 and §6): never across a user block (either direction), the recipient's category switch
+-- honoured, never to oneself, the actor never named (a reviewer, a follower and the author of an anonymous post stay hidden). It declares
+-- nestly.notify_scope = professional, which opens only the existing notifications and notification_preferences TO app_owner policies; no
+-- new TO app_owner or TO app_jobs policy, no new table.
 --
 -- Applied by the Supabase CLI as app_owner, in one transaction with its history row. Down script:
 -- supabase/rollback/20261022500000_i11_followups.down.sql (refuses once a review or article report, or a moderated review or article, exists).
@@ -429,7 +442,81 @@ create policy professional_articles_update_staff on nestly.professional_articles
     and exists (select 1 from nestly.reports r where r.article_id = professional_articles.id))
   with check ((select nestly.is_active_account()) and (select nestly.has_permission('CONTENT_MODERATE')));
 
--- 7. Comments -------------------------------------------------------------------------------------------------------------------
+-- 7. The Professional's notifications (OP-051 cancelled; Afik 21.10.2026, §9.8) -----------------------------------------------------
+-- A notification is readable, and marked read, from its created_at (the weekly digest is written ahead with the week's end as its time).
+-- The rest is the text of 20261020400000.
+alter policy notifications_select_recipient on nestly.notifications
+  using ((select nestly.is_active_account()) and recipient_id = (select auth.uid()) and created_at <= pg_catalog.now());
+alter policy notifications_update_recipient on nestly.notifications
+  using ((select nestly.is_active_account()) and recipient_id = (select auth.uid()) and created_at <= pg_catalog.now())
+  with check ((select nestly.is_active_account()) and recipient_id = (select auth.uid()));
+
+-- One definer for the Professional's three events (rule 17). The caller is the actor: the post's author answering an Offer Help, the
+-- reviewer, or the new follower. None is named (actor NULL): a reviewer and a follower are never readable to the Professional, and the author
+-- of an anonymous post is not named by a decline. A user block in force between the caller and the Professional (either direction; the caller
+-- reads its own blocks through user_blocks_select_party) delivers nothing. The category switch is honoured (notify_deliver; the digest's own
+-- insert checks it the same way).
+create function nestly.notify_professional()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_pro uuid := new.professional_id;
+  v_week_end timestamptz;
+begin
+  if v_me is null or v_pro is null or v_me = v_pro then
+    return null;
+  end if;
+  if exists (
+    select 1 from nestly.user_blocks b
+    where b.lifted_at is null
+      and ((b.blocker_id = v_me and b.blocked_id = v_pro) or (b.blocker_id = v_pro and b.blocked_id = v_me))) then
+    return null;
+  end if;
+  perform pg_catalog.set_config('nestly.notify_scope', 'professional', true);
+  if tg_table_name = 'outreach_requests' then
+    perform nestly.notify_deliver(v_pro, case new.status when 'accepted' then 'offer_accepted' else 'offer_declined' end, 'offers', null,
+                                  'outreach', new.id, new.id, false);
+  elsif tg_table_name = 'professional_reviews' then
+    perform nestly.notify_deliver(v_pro, 'review_received', 'reviews', null, 'professional', v_pro, new.id, false);
+  elsif tg_table_name = 'professional_follows' then
+    -- the weekly digest: one row per Professional and week, timed at the week's end (Monday 00:00, Israel time)
+    v_week_end := (pg_catalog.date_trunc('week', pg_catalog.now() at time zone 'Asia/Jerusalem') + interval '7 days') at time zone 'Asia/Jerusalem';
+    if not exists (
+      select 1 from nestly.notification_preferences p
+      where p.user_id = v_pro and p.category = 'followers' and not p.is_in_app_enabled) then
+      insert into nestly.notifications (recipient_id, type, actor_id, target_kind, target_id, subject_id, is_critical, created_at)
+      values (v_pro, 'followers_weekly', null, 'professional', v_pro,
+              pg_catalog.md5(v_pro::text || '/' || v_week_end::text)::uuid, false, v_week_end)
+      on conflict (recipient_id, type, subject_id) do nothing;
+    end if;
+  end if;
+  perform pg_catalog.set_config('nestly.notify_scope', '', true);
+  return null;
+end
+$$;
+
+revoke execute on function nestly.notify_professional() from public;
+
+create trigger notify_professional_outreach
+  after update of status on nestly.outreach_requests
+  for each row when (old.status = 'pending' and new.status in ('accepted', 'declined'))
+  execute function nestly.notify_professional();
+create trigger notify_professional_review
+  after insert on nestly.professional_reviews
+  for each row execute function nestly.notify_professional();
+create trigger notify_professional_follow
+  after insert on nestly.professional_follows
+  for each row execute function nestly.notify_professional();
+
+-- 8. A Professional's consent carries the qualification declaration (Afik 21.10.2026, §9.8) -------------------------------------------
+alter table nestly.legal_consents add column has_declared_qualification boolean not null default false;
+grant insert (has_declared_qualification) on table nestly.legal_consents to authenticated;
+
+-- 9. Comments -------------------------------------------------------------------------------------------------------------------
 comment on policy support_requests_select_analytics on nestly.support_requests is 'FR-ADMIN-003, BR-058: ANALYTICS_VIEW counts Support requests by status and topic on the analytics screen only (nestly.analytics_view); the server returns numbers, never a text, a person or an id.';
 comment on policy support_messages_select_analytics on nestly.support_messages is 'FR-ADMIN-003, BR-058: ANALYTICS_VIEW times the first Support reply on the analytics screen only; never a text.';
 comment on column nestly.professional_reviews.moderation is 'active, hidden or removed by staff with CONTENT_MODERATE after a report (FR-MOD-001); a moderated review leaves every view and the average.';
@@ -450,4 +537,8 @@ comment on policy professional_reviews_select_staff on nestly.professional_revie
 comment on policy professional_articles_select_staff on nestly.professional_articles is 'REPORTS_VIEW reads a reported article in any state (FR-MOD-003).';
 comment on policy professional_reviews_update_staff on nestly.professional_reviews is 'CONTENT_MODERATE hides, removes or restores a reported review (FR-MOD-001); only moderation is granted for UPDATE.';
 comment on policy professional_articles_update_staff on nestly.professional_articles is 'CONTENT_MODERATE hides, removes or restores a reported article (FR-MOD-001); the text stays its owner''s (professional_articles_reject_staff_edit).';
+comment on function nestly.notify_professional() is
+  'SECURITY DEFINER (approved exception, rule 17; Afik 21.10.2026, OP-051 cancelled). After an Offer Help is accepted or declined, a review is written, or a Professional gains a follower: notifies the Professional (offer_accepted / offer_declined, review_received; followers_weekly, one row per week timed at its end). Never to oneself, never across a user block, never naming the actor; the recipient''s category switch is honoured. Declares nestly.notify_scope = professional and clears it. No EXECUTE for any runtime role.';
+comment on column nestly.legal_consents.has_declared_qualification is 'A Professional declared it holds the training and licence its field needs (Afik 21.10.2026); the Professional registration request requires it. False for every other account.';
+comment on policy notifications_select_recipient on nestly.notifications is 'The recipient reads its own notifications from their created_at (a weekly digest is written ahead, timed at the week''s end).';
 comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement, an Admin''s creation, edit, publication or hiding of a status guide, a staff decision on an image or a suspicion marked on one, a Support request''s status change, a Support reply or internal note, a staff view of a reported chat message, a Moderator invitation issued or revoked, a Moderator joining with one, a System Announcement created, edited, published or removed, a staff view of reported Private Group content, or a reported review or article hidden, removed or restored: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason) and Before/After. A caller who is no staff member leaves none.';

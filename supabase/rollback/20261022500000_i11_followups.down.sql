@@ -1,11 +1,13 @@
 -- =====================================================================================================================
--- Down script for supabase/migrations/20261022500000_i11_followups.sql (I11 follow-ups: Support metrics, review and article reports).
+-- Down script for supabase/migrations/20261022500000_i11_followups.sql (I11 follow-ups: Support metrics, review and article reports,
+-- the Professional's notifications, the qualification declaration).
 -- Outside supabase/migrations on purpose: the CLI never applies it.
 --
 -- Run as:   app_owner, in one transaction. CI runs it once per build (up -> down -> up) against the disposable database.
 --           Against nestly-preview or nestly-prod it is a destructive change: Afik only.
 -- Order:    revert the code that reads these columns first, then run this.
--- Safe:     only while no report names a review or an article and no review or article is moderated (refuses otherwise). Audit entries
+-- Safe:     only while no report names a review or an article, no review or article is moderated, no Professional notification exists
+--           and no consent carries the qualification declaration (refuses otherwise). Audit entries
 --           already written stay (the log is append-only).
 -- Restores: audit_trigger() verbatim from 20261022300000_groups.sql, reports_insert_check() from 20261022100000_chat_support.sql,
 --           reports_insert_snapshot() from 20261020300000_safety_admin_core.sql, the two reader policies from 20261022400000_professionals.sql,
@@ -22,16 +24,36 @@ begin
   alter table nestly.reports no force row level security;
   alter table nestly.professional_reviews no force row level security;
   alter table nestly.professional_articles no force row level security;
+  alter table nestly.notifications no force row level security;
+  alter table nestly.legal_consents no force row level security;
   if exists (select 1 from nestly.reports where target_kind in ('review', 'article'))
      or exists (select 1 from nestly.professional_reviews where moderation <> 'active')
-     or exists (select 1 from nestly.professional_articles where moderation <> 'active') then
-    raise exception 'a review or article report, or a moderated review or article, exists: the down script refuses';
+     or exists (select 1 from nestly.professional_articles where moderation <> 'active')
+     or exists (select 1 from nestly.notifications where type in ('offer_accepted', 'offer_declined', 'review_received', 'followers_weekly'))
+     or exists (select 1 from nestly.legal_consents where has_declared_qualification) then
+    raise exception 'a review or article report, a moderated review or article, a Professional notification or a qualification declaration exists: the down script refuses';
   end if;
+  alter table nestly.notifications force row level security;
+  alter table nestly.legal_consents force row level security;
   alter table nestly.reports force row level security;
   alter table nestly.professional_reviews force row level security;
   alter table nestly.professional_articles force row level security;
 end
 $$;
+
+-- the qualification declaration and the Professional's notifications (texts of 20261014200000 and 20261020400000)
+revoke insert (has_declared_qualification) on table nestly.legal_consents from authenticated;
+alter table nestly.legal_consents drop column has_declared_qualification;
+drop trigger notify_professional_outreach on nestly.outreach_requests;
+drop trigger notify_professional_review on nestly.professional_reviews;
+drop trigger notify_professional_follow on nestly.professional_follows;
+drop function nestly.notify_professional();
+alter policy notifications_select_recipient on nestly.notifications
+  using ((select nestly.is_active_account()) and recipient_id = (select auth.uid()));
+alter policy notifications_update_recipient on nestly.notifications
+  using ((select nestly.is_active_account()) and recipient_id = (select auth.uid()))
+  with check ((select nestly.is_active_account()) and recipient_id = (select auth.uid()));
+comment on policy notifications_select_recipient on nestly.notifications is 'The recipient reads their own notifications while active.';
 
 drop policy support_requests_select_analytics on nestly.support_requests;
 drop policy support_messages_select_analytics on nestly.support_messages;
