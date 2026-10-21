@@ -3,7 +3,8 @@
 //   GET {admin}/access                        → 200 { staff: true, role, permissions[] } | { staff: false }
 //   GET {admin}/audit?before=<ISO time>       → 200 { entries[], next }                          (AUDIT_LOG_VIEW)
 //   GET {admin}/reports                       → 200 { items[] } the moderation queue              (REPORTS_VIEW)
-//   GET {admin}/reports/:kind/:id             → 200 the target, its reports, the account          (REPORTS_VIEW)
+//   GET {admin}/reports/:kind/:id[?open=true] → 200 the target, its reports, the account          (REPORTS_VIEW; I10: open=true opens Private
+//                                               Group content, audited, PRIVATE_GROUP_MODERATE)
 //   GET {admin}/users?q=<part of a name>      → 200 { users[] } (q required, NFR-SEC-006 (2))     (USER_VIEW)
 //   GET {admin}/users/:id                     → 200 the account and its enforcement history       (USER_VIEW)
 //   all: 400 invalid · 401/503 session guard · 403 forbidden · 404 not_found · 500. Any other method → 405 with Allow.
@@ -69,7 +70,11 @@ export function registerAdminReadRoutes(app: FastifyInstance, deps: AdminRouteDe
     if (request.identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
     const { identity } = request;
     const database = deps.database;
-    return answer(request, reply, 'admin report detail failed', () => readReportDetail(database, identity, params.data.kind, params.data.id, deps.storage), (ok) => ok.detail);
+    // I10: `?open=true` opens Private Group content for this request (audited; PRIVATE_GROUP_MODERATE, ERR-024)
+    const query = z.strictObject({ open: z.literal('true').optional() }).safeParse(request.query ?? {});
+    if (!query.success) return reply.code(400).send({ error: 'invalid' });
+    const open = query.data.open === 'true';
+    return answer(request, reply, 'admin report detail failed', () => readReportDetail(database, identity, params.data.kind, params.data.id, deps.storage, open), (ok) => ok.detail);
   });
 
   get(`${ADMIN}/users`, (request, reply) => {

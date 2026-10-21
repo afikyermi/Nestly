@@ -22,21 +22,35 @@ function sync(): void {
   listening = unsent;
 }
 
+// I10: a Group's composer keeps its own draft (owner key `<user>#<group>`), apart from the feed's one slot.
+const groupKept = new Map<string, ComposeDraft>();
+const isGroupOwner = (owner: string): boolean => owner.includes('#');
+function anyUnsent(): boolean {
+  return (kept !== null && kept.draft.values.body.trim() !== '') || [...groupKept.values()].some((d) => d.values.body.trim() !== '');
+}
+
 /** Remembers the composition; without a known owner it is not recalled, but non-blank text still guards leaving the page. */
 export function keepDraft(owner: string | null, draft: ComposeDraft): void {
-  kept = owner === null ? null : { owner, draft };
-  unsent = draft.values.body.trim() !== '';
+  if (owner !== null && isGroupOwner(owner)) groupKept.set(owner, draft);
+  else kept = owner === null ? null : { owner, draft };
+  unsent = anyUnsent();
   sync();
 }
 
 /** The kept composition, only for the user it was kept for. */
 export function recallDraft(owner: string | null): ComposeDraft | null {
+  if (owner !== null && isGroupOwner(owner)) return groupKept.get(owner) ?? null;
   return kept !== null && owner !== null && kept.owner === owner ? kept.draft : null;
 }
 
-export function forgetDraft(): void {
-  kept = null;
-  unsent = false;
+/** No owner: every draft (the session ended). A Group's key: that Group's draft only. Any other owner: the feed's draft. */
+export function forgetDraft(owner?: string | null): void {
+  if (owner === undefined) {
+    kept = null;
+    groupKept.clear();
+  } else if (owner !== null && isGroupOwner(owner)) groupKept.delete(owner);
+  else kept = null;
+  unsent = anyUnsent();
   sync();
 }
 

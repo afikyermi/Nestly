@@ -205,7 +205,7 @@ export function rankingStatement(parameters: RankingParameters): SQL {
       select p.id, p.author_id, p.is_anonymous, p.shared_post_id, ${tagColumn}p.created_at,
              extract(epoch from (${asOf}::timestamptz - p.created_at))::float8 / 3600::float8 as age_hours
       from nestly.posts p
-      where p.created_at <= ${asOf}::timestamptz
+      where p.created_at <= ${asOf}::timestamptz and p.group_id is null
     ), tiered as (
       select c.*, case when c.age_hours <= ${config.scoredWindowDays * 24}::float8 then 0 else 1 end as tier
       from candidates c

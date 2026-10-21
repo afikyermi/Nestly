@@ -12,7 +12,7 @@ import { GUEST_PATHS, PROTECTED_PATHS } from '../../src/app/paths';
 
 // F1.4 part c adds three Guest placeholders (interface "part c"): recovery (F1.6) and the two consent-document links (I9).
 const GUEST = ['/', '/login', '/register', '/auth/google', '/recovery', '/terms', '/privacy', '/team/join'];
-const PROTECTED = ['/home', '/feed', '/profile', '/settings', '/recovery-questions', '/change-password', '/friends', '/posts/new', '/medical-hotlines', '/community-rules', '/notifications', '/search', '/admin', '/admin/reports', '/admin/users', '/admin/audit', '/admin/guides', '/admin/media', '/admin/team', '/admin/community', '/admin/announcements', '/admin/analytics', '/admin/support', '/chat', '/support', '/services', '/pro/profile', '/pro/articles', '/offers'];
+const PROTECTED = ['/home', '/feed', '/profile', '/settings', '/recovery-questions', '/change-password', '/friends', '/groups', '/posts/new', '/medical-hotlines', '/community-rules', '/notifications', '/search', '/admin', '/admin/reports', '/admin/users', '/admin/audit', '/admin/guides', '/admin/media', '/admin/team', '/admin/community', '/admin/announcements', '/admin/analytics', '/admin/support', '/chat', '/support', '/services', '/pro/profile', '/pro/articles', '/offers'];
 const UNLISTED = [
   '/marketplace',
   '/profile/123',
@@ -25,7 +25,7 @@ const UNLISTED = [
   '/feed/extra',
   '/admin-panel',
   '/shop',
-  '/groups',
+  '/marketplace',
   '/__proto__',
   '/constructor',
   '/toString',

@@ -67,7 +67,7 @@ test.describe('[AC-039 PG-017] the results screen', () => {
     await expect(main(page).getByRole('heading', { name: 'אנשים' })).toHaveCount(0);
     await expect(main(page).getByRole('link', { name: /מי מכירה יועצת שינה טובה/ })).toBeVisible();
     await main(page).getByRole('button', { name: 'קבוצות', exact: true }).click();
-    await expect(main(page).getByText('עדיין אין קבוצות לחיפוש')).toBeVisible();
+    await expect(main(page).getByText('לא נמצאו קבוצות')).toBeVisible();
     expect(net.searches.filter((s) => s === 'יוסי|all').length).toBeLessThanOrEqual(1);
   });
 

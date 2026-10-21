@@ -28,6 +28,7 @@ import {
   writeFollow,
 } from '../repositories/notifications-repository.js';
 import { classifyMember, isRefusal, type MemberRefusal } from './membership.js';
+import { readGroupNames } from '../repositories/groups-repository.js';
 
 export type NotificationsOutcome =
   | { readonly kind: 'ok'; readonly items: NotificationItem[]; readonly unreadCount: number; readonly nextCursor: string | null }
@@ -52,6 +53,8 @@ export async function readNotifications(database: Database, identity: Identity, 
     const unreadCount = await countUnread(tx);
     const actorIds = [...new Set(page.flatMap((row) => (row.actorId === null ? [] : [row.actorId])))];
     const names = new Map((await readVisibleNames(tx, actorIds)).map((name) => [name.userId, name.fullName]));
+    // I10: a Group target carries the Group's name when the caller can read it (an active Group)
+    const groupNames = await readGroupNames(tx, [...new Set(page.flatMap((row) => (row.targetKind === 'group' ? [row.targetId] : [])))]);
     const items = page.flatMap((row): NotificationItem[] => {
       if (!isKnownType(row.type)) return [];
       const name = row.actorId === null ? undefined : names.get(row.actorId);
@@ -63,6 +66,7 @@ export async function readNotifications(database: Database, identity: Identity, 
           actorName: name ?? null,
           targetKind: row.targetKind,
           targetId: row.targetId,
+          ...(row.targetKind === 'group' ? { targetName: groupNames.get(row.targetId) ?? null } : {}),
           createdAt: row.createdAt.toISOString(),
           isRead: row.isRead,
         },

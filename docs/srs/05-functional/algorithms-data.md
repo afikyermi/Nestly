@@ -137,7 +137,7 @@
 | תיאור | ב-Group Notification mode=Highlights יוצגו אירועים ישירים/חשובים לפי כללים דטרמיניסטיים; mode=All מציג את כל האירועים המותרים ו-Off מדכא פעילות אופציונלית. |
 | תנאים מוקדמים | Membership פעילה והעדפת Group Notification קיימת. |
 | קלט / Trigger | Mention/Reply, Join/Invite decision, Owner/Admin announcement/pinned content, post engagement threshold, user preference. |
-| תהליך מערכת | אירועים ישירים המשפיעים על המשתמש נשמרים גם ב-Highlights; Announcements/Pinned נכללים; פעילות כללית יכולה להיכלל אם עברה threshold configurable. Off אינו מבטל Security/Critical/direct account events. |
+| תהליך מערכת | אירועים ישירים המשפיעים על המשתמש נשמרים בכל mode: Reply/תגובה לפוסט שלו, החלטה על בקשת ההצטרפות שלו, הזמנה, המלצה של Friend, ול-Owner/Admin — בקשת הצטרפות חדשה. All: כל פוסט חדש בקבוצה, פוסט מוצמד ופוסט שעבר את ה-threshold. Highlights (ברירת המחדל כשלא נבחר mode): פוסט מוצמד (Announcement) ופוסט שעבר את ה-threshold. Off: אף אחד מאלה. ה-threshold הוא Configuration עם גרסה: מספר הלייקים והתגובות של אחרים על פוסט בקבוצה, 5 ב-v1 (OP-048); כל פוסט מדווח כ-Highlight פעם אחת לכל חבר, לא לכותב ולא למי שביצע את הפעולה. Off אינו מבטל Security/Critical/direct account events. הקטגוריה "קבוצות" בהגדרות ההתראות (FR-NOTIF-002) מכבה את כל התראות הקבוצות. |
 | פלט | Notification set בהתאם ל-All/Highlights/Off. |
 | מצב לאחר ביצוע | NotificationPreference נשמרת; אין ML dependency. |
 | בעל אחריות לוגי (Page / Feature) | מרכז ההתראות / ניהול הקבוצות |

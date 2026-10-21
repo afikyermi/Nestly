@@ -202,6 +202,7 @@ test.describe('AppShell: side menu', () => {
     for (const s of sections) expect(s.href ?? '', s.name).toMatch(/^\/settings(?:[#/?]|$)/);
     expect(new Set(sections.map((s) => s.href)).size, 'a distinct address per section').toBe(4);
     expect(shown.map((i) => ({ ...i, href: i.href?.startsWith('/settings') === true ? '/settings*' : i.href }))).toEqual([
+      { tag: 'a', name: 'הקבוצות שלי', href: '/groups' }, // I10: My Groups first (FR-MENU-001: My Groups, Friends, ...)
       { tag: 'a', name: 'חברים', href: '/friends' }, // F2.4b c13, before Settings (FR-MENU-001)
       { tag: 'a', name: 'בעלי מקצוע', href: '/services' }, // I11: the directory (FR-SERV-001)
       { tag: 'a', name: 'הצעות עזרה', href: '/offers' }, // I11: Offer Help (FR-SERV-006)
@@ -221,9 +222,9 @@ test.describe('AppShell: side menu', () => {
       await expect(drawer.locator(`a[href="${dest}"]`)).toHaveCount(0);
     }
     const text = await drawer.innerText();
-    // "התראות" is now the Settings section (FR-NOTIF-002), so it is no longer banned here.
+    // "התראות" is now the Settings section (FR-NOTIF-002), so it is no longer banned here. I10: "הקבוצות שלי" (My Groups) is now in the drawer.
     // I11: "הצעות עזרה" (Offer Help, FR-SERV-006) joined the drawer, so "עזרה" alone is no longer banned here.
-    for (const banned of ['חנות', 'יועצים', 'קבוצות', 'עוקבים', 'מקצועיים במעקב', 'מחיקת חשבון', 'מחיקה', 'בית', 'פיד', 'פרופיל']) {
+    for (const banned of ['חנות', 'יועצים', 'עוקבים', 'מקצועיים במעקב', 'מחיקת חשבון', 'מחיקה', 'בית', 'פיד', 'פרופיל']) {
       expect(text, `the drawer must not hold "${banned}"`).not.toContain(banned);
     }
   });

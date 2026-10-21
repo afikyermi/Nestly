@@ -96,14 +96,14 @@ function authorOf(name: string | null, field: ProfessionalField | null, fieldOth
 }
 
 /** The displayed counts and the viewer's own like-state of one unit (F3.3): read after the ranking, never an input to it. */
-interface UnitReactions {
+export interface UnitReactions {
   readonly likeCount: number;
   readonly commentCount: number;
   readonly likedByMe: boolean;
 }
 
 /** The unit as the answer carries it, or undefined for a row that cannot be one (a shape the database forbids): it is left out. */
-function unitOf(row: DisplayPost, reactions: UnitReactions): FeedUnit | undefined {
+export function unitOf(row: DisplayPost, reactions: UnitReactions): FeedUnit | undefined {
   const common = {
     id: row.id,
     source: 'organic',

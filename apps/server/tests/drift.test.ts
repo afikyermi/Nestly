@@ -139,7 +139,7 @@ const APPROVED_F31A: ColumnShape[] = [
   col('posts', 'author_id', 'uuid', false), col('posts', 'audience', 'text', true),
   col('posts', 'body', 'text', false), col('posts', 'stage_tag', 'text', false),
   col('posts', 'created_at', TZ, true),
-  col('posts', 'is_anonymous', 'boolean', true),
+  col('posts', 'is_anonymous', 'boolean', true), col('posts', 'group_id', 'uuid', false),
   // I11 (OP-038): the help-request marking, written by a Regular's post.
   col('posts', 'is_help_request', 'boolean', true),
 ];

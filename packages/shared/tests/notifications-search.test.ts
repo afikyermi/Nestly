@@ -14,8 +14,8 @@ import {
 const ID = '11111111-1111-4111-8111-111111111111';
 
 describe('[FR-NOTIF-002 AC-041] notification preferences', () => {
-  it('[AC-041] every event belongs to one of the four switchable categories; there is no security category to switch', () => {
-    for (const type of NOTIFICATION_TYPES) expect(['friends', 'comments', 'shares', 'friend_posts']).toContain(NOTIFICATION_CATEGORY_OF[type]);
+  it('[AC-041] every event belongs to one of the five switchable categories (I10 adds groups); there is no security category to switch', () => {
+    for (const type of NOTIFICATION_TYPES) expect(['friends', 'comments', 'shares', 'friend_posts', 'groups']).toContain(NOTIFICATION_CATEGORY_OF[type]);
     expect(checkCategoryUpdate('security', { isEnabled: false }).ok).toBe(false);
     expect(checkCategoryUpdate('comments', { isEnabled: false })).toEqual({ ok: true, value: { category: 'comments', isEnabled: false } });
   });

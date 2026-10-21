@@ -53,7 +53,7 @@
 | תיאור | המערכת תתמוך ב-Public Group וב-Private Group. שני הסוגים ניתנים לאיתור בחיפוש, אך כללי חשיפת התוכן וההצטרפות שונים. |
 | תנאים מוקדמים | משתמש מחובר. |
 | קלט / Trigger | פתיחת כרטיס קבוצה/מסך קבוצה או תוצאת חיפוש. |
-| תהליך מערכת | Public: שם/תיאור ותוכן גלויים לכל משתמש מחובר; הצטרפות מיידית; רק Members יכולים לפרסם/להגיב. Private: שם/תיאור גלויים לצורך Discovery; תוכן ופוסטים מוסתרים ממי שאינו Member; הצטרפות דורשת Request ואישור Owner/Admin. |
+| תהליך מערכת | Public: שם/תיאור ותוכן גלויים לכל משתמש מחובר; הצטרפות מיידית; רק Members יכולים לפרסם/להגיב/לסמן לייק. Private: שם/תיאור גלויים לצורך Discovery; תוכן ופוסטים מוסתרים ממי שאינו Member; הצטרפות דורשת Request ואישור Owner/Admin. מסך הקבוצה מציג את הדיון (פוסטים חדשים קודם, הפוסט המוצמד בראש), את החברים (לחברי הקבוצה בלבד; בקבוצה ציבורית מי שאינו חבר רואה את מספר החברים בלבד, ובקבוצה פרטית לא את המספר), ואת התיאור והכללים. פוסט בקבוצה גלוי לכל מי שרשאי לראות את תוכן הקבוצה, ופוסטי קבוצה אינם מוצגים בפיד הכללי (OP-045). Regular רשאי לפרסם בקבוצה גם אנונימית (OP-019). פוסט מקבוצה פרטית אינו ניתן לשיתוף בפיד. קבוצה שנמחקה ותוכנה אינם זמינים לאיש. |
 | פלט | מסך קבוצה בהתאם להרשאת המשתמש ולסוג הקבוצה. |
 | מצב לאחר ביצוע | אין חשיפת Private Group content למשתמש שאינו Member. |
 | בעל אחריות לוגי (Page / Feature) | ניהול הקבוצות / מסך קבוצה |
@@ -67,7 +67,7 @@
 | תיאור | המערכת תנהל Membership, Join Requests, הזמנות לקבוצות והמלצה על Group לחבר. |
 | תנאים מוקדמים | משתמש מחובר וקבוצה פעילה. |
 | קלט / Trigger | Join / Request to Join / Invite / Accept Invite / Leave / Recommend to Friend. |
-| תהליך מערכת | ב-Public Group Join הופך את המשתמש ל-Member מיד. ב-Private Group נוצרת Join Request; Owner/Admin יכולים Approve/Reject. הזמנה ניהולית מאפשרת למוזמן לאשר הצטרפות. המשתמש יכול לעזוב קבוצה בעצמו. Regular User יכול לבצע Recommend to Friend רק כלפי Friendship פעילה; הפעולה שולחת Notification עם יעד הקבוצה ואינה משנה Membership. |
+| תהליך מערכת | ב-Public Group Join הופך את המשתמש ל-Member מיד. ב-Private Group נוצרת Join Request (אחת ממתינה לכל משתמש וקבוצה, ERR-018); Owner/Admin יכולים Approve/Reject, והמבקש יכול לבטל בקשה ממתינה. הזמנה ניהולית: Owner או Admin מזמינים Friend פעיל שאינו חבר בקבוצה (OP-046); המוזמן מאשר (ומצטרף מיד, גם לקבוצה פרטית) או דוחה. המשתמש יכול לעזוב קבוצה בעצמו (לא ה-Owner, ERR-026). Regular User יכול לבצע Recommend to Friend רק כלפי Friendship פעילה, פעם אחת לכל קבוצה וחבר; הפעולה שולחת Notification עם יעד הקבוצה ואינה משנה Membership. משתמש שנחסם בקבוצה (FR-GRP-003) אינו יכול להצטרף, לבקש או לקבל הזמנה עד שהחסימה מבוטלת. מסך הקבוצות מציג את ההזמנות שממתינות לתשובה, את הקבוצות של המשתמש ו-Discovery של כל הקבוצות הפעילות, עם חיפוש לפי שם או תיאור. |
 | פלט | Membership/JoinRequest/Invitation מעודכנים, או Notification מסוג Group Recommendation כאשר נבחרה המלצה לחבר. |
 | מצב לאחר ביצוע | Notification רלוונטית נוצרת בהתאם להגדרות המשתמש. |
 | בעל אחריות לוגי (Page / Feature) | ניהול הקבוצות / ניהול קבוצה |
@@ -81,7 +81,7 @@
 | תיאור | תפקידי ניהול קבוצה נפרדים לחלוטין מ-System Admin/Moderator. |
 | תנאים מוקדמים | משתמש הוא Member בקבוצה ובעל Group Role מתאים. |
 | קלט / Trigger | פעולת ניהול קבוצה. |
-| תהליך מערכת | היררכיה: Group Owner > Group Admin > Group Moderator > Member. Owner: שינוי Public/Private, מינוי/הסרת Admin/Moderator, העברת בעלות ומחיקה. Admin: Join Requests, הזמנות, Members, Rules, Pin וניהול Group Moderator; אינו יכול לפעול נגד Owner או Admin אחר. Group Moderator: תוכן ואכיפה על Members בלבד ואינו יכול לפעול נגד Owner/Admin/Group Moderator אחר. Owner אינו יכול לעזוב/להימחק לפני העברת בעלות. |
+| תהליך מערכת | היררכיה: Group Owner > Group Admin > Group Moderator > Member. Owner: שינוי Public/Private, מינוי/הסרת Admin/Moderator, העברת בעלות (ה-Owner הקודם נעשה Admin) ומחיקת הקבוצה. Admin: Join Requests, הזמנות, Members, עריכת שם, תיאור ו-Rules, Pin וניהול Group Moderator; אינו יכול לפעול נגד Owner או Admin אחר. Group Moderator: תוכן ואכיפה על Members בלבד ואינו יכול לפעול נגד Owner/Admin/Group Moderator אחר. האכיפה בקבוצה (GroupMemberEnforcement): הסרת פוסט או תגובה של Role נמוך יותר (פוסט אנונימי נחשב של Member), הסרה מהקבוצה, והסרה וחסימה (המשתמש אינו יכול להצטרף, לבקש או להיות מוזמן עד ביטול החסימה); ביטול חסימה רק על ידי Role שאינו נמוך מזה שחסם (OP-047). Group Role אינו עורך תוכן שכתב אחר. Owner אינו יכול לעזוב/להימחק לפני העברת בעלות. |
 | פלט | פעולת הקבוצה מתבצעת רק אם ה-Group Role מאפשר. |
 | מצב לאחר ביצוע | שינויי Membership/Role/Content משתקפים בקבוצה; Enforcement מכבד היררכיית Roles. |
 | בעל אחריות לוגי (Page / Feature) | ניהול קבוצה / מסך ניהול קבוצה |
@@ -94,7 +94,7 @@
 | Actor | Regular User / Professional User |
 | תיאור | כל משתמש קהילה מחובר מסוג Regular או Professional רשאי ליצור Group חדש. בעת היצירה המשתמש בוחר Public או Private והופך אוטומטית ל-Group Owner. |
 | תנאים מוקדמים | Regular/Professional פעיל ומחובר. |
-| קלט / Trigger | Create Group: שם, תיאור בסיסי, Public/Private ושדות נוספים שיוגדרו. |
+| קלט / Trigger | Create Group: שם (3–60 תווים), תיאור (עד 1,000 תווים, לא חובה), Public/Private וכללי הקבוצה (עד 2,000 תווים, לא חובה). |
 | תהליך מערכת | ולידציה, יצירת Group, Membership ליוצר והקצאת Owner. אין צורך באישור Admin ליצירת קבוצה רגילה. |
 | פלט | Group חדש ומסך קבוצה פעיל. |
 | מצב לאחר ביצוע | היוצר הוא Group Owner ויכול לנהל לפי FR-GRP-003. |

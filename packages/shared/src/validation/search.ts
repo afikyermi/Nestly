@@ -30,10 +30,10 @@ export const searchPost = z.strictObject({
   createdAt: z.iso.datetime(),
 });
 
-/** POST /api/search. `groups` is empty until groups exist. `peopleLimited`: the People Search limit was reached (people omitted, posts still answered). */
+/** POST /api/search. `groups`: active Groups whose name or description matches (I10; a Private Group's details are discoverable, BR-032). `peopleLimited`: the People Search limit was reached (people omitted, posts still answered). */
 export const searchResponse = z.strictObject({
   people: z.array(searchPerson),
-  groups: z.array(z.strictObject({ id: z.guid(), name: z.string() })),
+  groups: z.array(z.strictObject({ id: z.guid(), name: z.string(), privacy: z.enum(['public', 'private']) })),
   posts: z.array(searchPost),
   peopleLimited: z.boolean(),
 });
