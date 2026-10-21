@@ -88,8 +88,8 @@ select is(tests.n_as(tests.fx_id('a'), 'nestly.algorithm_configurations where ve
   '[FR-ALG-008] and a later version that does not state its weight has the term off (default 0)');
 
 -- ---- who can do what -----------------------------------------------------------------------------------------------------------
-select is(tests.n_as(tests.fx_id('a'), 'nestly.algorithm_configurations where is_active and surface = ''regular_feed'''), '1', '[F3.0-a c18 Gate 2] authenticated (in the app_server transaction) selects the active row');
-select is(tests.n_as(tests.fx_id('a'), 'nestly.algorithm_configurations where surface = ''regular_feed'''), '5', '[F3.0-a c18 re-amend] and every version, retired or not (v1 and the four inactive versions inserted above)');
+select is(tests.n_as(tests.fx_id('a'), 'nestly.algorithm_configurations where is_active'), '1', '[F3.0-a c18 Gate 2] authenticated (in the app_server transaction) selects the active row');
+select is(tests.n_as(tests.fx_id('a'), 'nestly.algorithm_configurations'), '5', '[F3.0-a c18 re-amend] and every version, retired or not (v1 and the four inactive versions inserted above)');
 select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('a')), pg_temp.valid_insert(9, false)), 'ERR:42501', '[F3.0-a c18] authenticated insert: 42501');
 select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('a')), $q$ update nestly.algorithm_configurations set w_fresh = 2 $q$), 'ERR:42501', '[F3.0-a c18] authenticated update: 42501');
 select is(tests.dml_as('authenticated', tests.claims(tests.fx_id('a')), $q$ update nestly.algorithm_configurations set is_active = false $q$), 'ERR:42501', '[F3.0-a c18] authenticated retire: 42501');

@@ -151,6 +151,11 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
           await tx`delete from nestly.promotion_events
                     where viewer_id = ${id} or promotion_id in (select id from nestly.promotions where owner_id = ${id})`
         ).count;
+        // §11.4: the monthly summaries of the user's promotions (the retention job writes them; a summary of a deleted promotion keeps
+        // its row without it, SET NULL — deleted here so a test user leaves nothing behind). promotion_settings is configuration.
+        counts['promotion_monthly_summaries'] = (
+          await tx`delete from nestly.promotion_monthly_summaries where promotion_id in (select id from nestly.promotions where owner_id = ${id})`
+        ).count;
         counts['promotions'] = (await tx`delete from nestly.promotions where owner_id = ${id}`).count;
         counts['promotion_payments'] = (await tx`delete from nestly.promotion_payments where payer_id = ${id}`).count;
         // Usage events (I13 follow-up): the user's views of Professionals and the views of the user's professional profile, then the
