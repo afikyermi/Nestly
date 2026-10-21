@@ -255,8 +255,8 @@ export async function answerInvitation(tx: IdentityTx, id: string, status: 'acce
 /** Recommend a Group to a Friend; a repeat is the same answer (once per Group, sender and recipient). */
 export async function insertRecommendation(tx: IdentityTx, groupId: string, recipientId: string): Promise<void> {
   await tx.execute(sql`
-    insert into nestly.group_recommendations (group_id, recipient_id) values (${groupId}::uuid, ${recipientId}::uuid)
-    on conflict on constraint group_recommendations_once_key do nothing`);
+    insert into nestly.group_suggestions (group_id, recipient_id) values (${groupId}::uuid, ${recipientId}::uuid)
+    on conflict on constraint group_suggestions_once_key do nothing`);
 }
 
 const flagsRow = z.object({ userId: z.guid(), isMember: z.boolean(), isInvited: z.boolean(), isRecommended: z.boolean() });
@@ -268,7 +268,7 @@ export async function readFriendFlags(tx: IdentityTx, groupId: string, userIds: 
     select u.id as "userId",
            exists (select 1 from nestly.group_members m where m.group_id = ${groupId}::uuid and m.user_id = u.id) as "isMember",
            exists (select 1 from nestly.group_invitations i where i.group_id = ${groupId}::uuid and i.invitee_id = u.id and i.status = 'pending') as "isInvited",
-           exists (select 1 from nestly.group_recommendations r where r.group_id = ${groupId}::uuid and r.recipient_id = u.id
+           exists (select 1 from nestly.group_suggestions r where r.group_id = ${groupId}::uuid and r.recipient_id = u.id
                      and r.sender_id = (select auth.uid())) as "isRecommended"
     from unnest(${sql.param([...userIds])}::uuid[]) as u(id)`);
   return z.array(flagsRow).parse(rows);
