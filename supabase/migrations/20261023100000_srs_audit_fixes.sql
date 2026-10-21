@@ -20,7 +20,7 @@
 --      leads to the parent's profile; it carries no child's name, sex, age or id (subject_id is a hash of the child and the year, so one
 --      birthday notifies once). A Regular caller only. Nothing is returned but the number written.
 --      Scope `birthday` opens two new TO app_owner policies, each limited to the caller's accepted Friends: regular_profiles (the switch)
---      and children (the birth date, of a parent whose switch is on). The other rows it reads (the caller's friendships, preferences and
+--      and children (the birth date; the same Friendship check, and the parent's switch on). The other rows it reads (the caller's friendships, preferences and
 --      blocks) are the caller's own.
 -- 3. Analytics (FR-ADMIN-010, BR-058): professional_follows, conversations and marketplace_listings gain *_select_analytics (the I14 shape:
 --      ANALYTICS_VIEW, only in a transaction that named the analytics screen). Counts only; follower_id is still never granted, and
@@ -118,6 +118,10 @@ create policy regular_profiles_select_birthday on nestly.regular_profiles
 create policy children_select_birthday on nestly.children
   for select to app_owner
   using ((select nestly.notify_scope()) = 'birthday'
+    and exists (select 1 from nestly.friendships f
+                 where f.status = 'accepted' and f.requester_status = 'active' and f.addressee_status = 'active'
+                   and ((f.requester_id = (select auth.uid()) and f.addressee_id = children.user_id)
+                     or (f.addressee_id = (select auth.uid()) and f.requester_id = children.user_id)))
     and exists (select 1 from nestly.regular_profiles rp where rp.user_id = children.user_id and rp.is_child_birthday_shared));
 
 create function nestly.deliver_child_birthdays()
@@ -185,7 +189,7 @@ comment on function nestly.search_people(text, integer, integer) is
 comment on function nestly.deliver_child_birthdays() is
   'FR-NOTIF-003, BR-037, AC-046: writes into the caller''s own notifications one child_birthday per child of an accepted, active Friend whose birthday (Israel''s date) fell in the last seven days, today included, timed at the start of that day; only when the parent allows it (is_child_birthday_shared), the caller''s birthdays category is on and no user block stands between them. Actor and target: the parent; no child''s name, sex, age or id. Regular callers only; returns the number written. SECURITY DEFINER (rule 17, the I7 shape); scope birthday.';
 comment on policy regular_profiles_select_birthday on nestly.regular_profiles is 'deliver_child_birthdays (scope birthday) reads the birthday switch of the caller''s accepted, active Friends only.';
-comment on policy children_select_birthday on nestly.children is 'deliver_child_birthdays (scope birthday) reads the children of a parent it can read under regular_profiles_select_birthday whose switch is on (BR-037).';
+comment on policy children_select_birthday on nestly.children is 'deliver_child_birthdays (scope birthday) reads the children of the caller''s accepted, active Friends only, and only of a parent whose switch is on (BR-037).';
 comment on policy professional_follows_select_analytics on nestly.professional_follows is 'FR-ADMIN-010, BR-058: ANALYTICS_VIEW counts new follows on the analytics screen only; follower_id is never granted.';
 comment on policy conversations_select_analytics on nestly.conversations is 'FR-ADMIN-010, BR-058: ANALYTICS_VIEW counts conversations opened by context on the analytics screen only; no message is read.';
 comment on policy marketplace_listings_select_analytics on nestly.marketplace_listings is 'FR-ADMIN-010, BR-058: ANALYTICS_VIEW counts listings (new, sold, active, by category) on the analytics screen only; never a title, an owner or an id in the answer.';
