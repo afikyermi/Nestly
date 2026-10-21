@@ -155,7 +155,7 @@
 | FR-ALG-006 | Marketplace & Product Ranking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-ALG-007 | Sponsored Eligibility & Placement | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-ALG-008 | Global Search Ranking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
-| FR-ALG-009 | Negative Feedback, Diversity & Exploration | [algorithms-data.md](05-functional/algorithms-data.md) |
+| FR-ALG-009 | Diversity, Exploration והסתרת פוסט | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-ALG-010 | Group Notification Highlights v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-DATA-001 | Analytics Event Tracking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 
