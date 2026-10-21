@@ -34,7 +34,7 @@ export const EXPECTED_NESTLY_TABLES: readonly string[] = [
   'group_join_requests',
   'group_members',
   'group_notification_preferences',
-  'group_recommendations',
+  'group_suggestions',
   'groups',
   'identity_link_checks',
   'journey_contexts',

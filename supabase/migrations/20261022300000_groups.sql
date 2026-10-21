@@ -21,7 +21,7 @@
 -- group_bans                     "remove and block" (GroupMemberEnforcement): the user leaves the Group and can neither join, ask nor be
 --                                invited until unblocked. By a Group Moderator or higher, only against a lower Role.
 -- group_notification_preferences per member and Group: all / highlights / off (VAL-035). No row = highlights.
--- group_recommendations          a Regular user's recommendation of a Group to an active Friend (FR-GRP-002, AC-050): a notification with
+-- group_suggestions          a Regular user's recommendation of a Group to an active Friend (FR-GRP-002, AC-050): a notification with
 --                                the Group as its target; it changes no Membership.
 -- group_highlight_configurations the versioned Highlights threshold (FR-ALG-010, BR-060): likes and comments by others on a group post. v1 = 5.
 -- private_group_content_views    a staff view of reported Private Group content (NFR-PRIV-002, BR-040, ERR-024): written by a holder of
@@ -224,22 +224,22 @@ create table nestly.group_notification_preferences (
 
 create index group_notification_preferences_user_id_idx on nestly.group_notification_preferences (user_id);
 
-create table nestly.group_recommendations (
+create table nestly.group_suggestions (
   id           uuid        not null default gen_random_uuid()
-    constraint group_recommendations_pkey primary key,
+    constraint group_suggestions_pkey primary key,
   group_id     uuid        not null
-    constraint group_recommendations_group_id_fkey references nestly.groups (id) on delete cascade,
+    constraint group_suggestions_group_id_fkey references nestly.groups (id) on delete cascade,
   sender_id    uuid        not null default auth.uid()
-    constraint group_recommendations_sender_id_fkey references nestly.users (id) on delete cascade,
+    constraint group_suggestions_sender_id_fkey references nestly.users (id) on delete cascade,
   recipient_id uuid        not null
-    constraint group_recommendations_recipient_id_fkey references nestly.users (id) on delete cascade,
+    constraint group_suggestions_recipient_id_fkey references nestly.users (id) on delete cascade,
   created_at   timestamptz not null default now(),
-  constraint group_recommendations_pair_check check (sender_id <> recipient_id),
-  constraint group_recommendations_once_key unique (group_id, sender_id, recipient_id)
+  constraint group_suggestions_pair_check check (sender_id <> recipient_id),
+  constraint group_suggestions_once_key unique (group_id, sender_id, recipient_id)
 );
 
-create index group_recommendations_sender_id_idx on nestly.group_recommendations (sender_id);
-create index group_recommendations_recipient_id_idx on nestly.group_recommendations (recipient_id);
+create index group_suggestions_sender_id_idx on nestly.group_suggestions (sender_id);
+create index group_suggestions_recipient_id_idx on nestly.group_suggestions (recipient_id);
 
 create table nestly.group_highlight_configurations (
   version              integer     not null
@@ -635,12 +635,12 @@ alter table nestly.group_join_requests enable row level security, force row leve
 alter table nestly.group_invitations enable row level security, force row level security;
 alter table nestly.group_bans enable row level security, force row level security;
 alter table nestly.group_notification_preferences enable row level security, force row level security;
-alter table nestly.group_recommendations enable row level security, force row level security;
+alter table nestly.group_suggestions enable row level security, force row level security;
 alter table nestly.group_highlight_configurations enable row level security, force row level security;
 alter table nestly.private_group_content_views enable row level security, force row level security;
 
 revoke all on table nestly.groups, nestly.group_members, nestly.group_access, nestly.group_join_requests, nestly.group_invitations,
-  nestly.group_bans, nestly.group_notification_preferences, nestly.group_recommendations, nestly.group_highlight_configurations,
+  nestly.group_bans, nestly.group_notification_preferences, nestly.group_suggestions, nestly.group_highlight_configurations,
   nestly.private_group_content_views from public, anon, authenticated;
 
 -- groups. Discovery: every active account reads an active Group's details, Public or Private (BR-031/032). A Group deleted in this
@@ -852,22 +852,22 @@ grant select on table nestly.group_notification_preferences to authenticated;
 grant insert (group_id, mode) on table nestly.group_notification_preferences to authenticated;
 grant update (mode) on table nestly.group_notification_preferences to authenticated;
 
--- group_recommendations (AC-050): a Regular user recommends an active Group to an active Friend; sender and recipient read it.
-create policy group_recommendations_select_party on nestly.group_recommendations
+-- group_suggestions (AC-050): a Regular user recommends an active Group to an active Friend; sender and recipient read it.
+create policy group_suggestions_select_party on nestly.group_suggestions
   for select to authenticated
   using ((select nestly.is_active_account()) and (select auth.uid()) in (sender_id, recipient_id));
 
-create policy group_recommendations_insert_sender on nestly.group_recommendations
+create policy group_suggestions_insert_sender on nestly.group_suggestions
   for insert to authenticated
   with check ((select nestly.caller_account_type()) = 'regular' and sender_id = (select auth.uid())
-    and exists (select 1 from nestly.groups g where g.id = group_recommendations.group_id and g.status = 'active')
+    and exists (select 1 from nestly.groups g where g.id = group_suggestions.group_id and g.status = 'active')
     and exists (select 1 from nestly.friendships f
                  where f.status = 'accepted' and f.requester_status = 'active' and f.addressee_status = 'active'
-                   and ((f.requester_id = (select auth.uid()) and f.addressee_id = group_recommendations.recipient_id)
-                     or (f.addressee_id = (select auth.uid()) and f.requester_id = group_recommendations.recipient_id))));
+                   and ((f.requester_id = (select auth.uid()) and f.addressee_id = group_suggestions.recipient_id)
+                     or (f.addressee_id = (select auth.uid()) and f.requester_id = group_suggestions.recipient_id))));
 
-grant select on table nestly.group_recommendations to authenticated;
-grant insert (group_id, recipient_id) on table nestly.group_recommendations to authenticated;
+grant select on table nestly.group_suggestions to authenticated;
+grant insert (group_id, recipient_id) on table nestly.group_suggestions to authenticated;
 
 -- group_highlight_configurations: readable by every active account (a versioned constant); no write policy for any role.
 create policy group_highlight_configurations_select_all on nestly.group_highlight_configurations
@@ -1059,7 +1059,7 @@ begin
     end if;
   end if;
   perform pg_catalog.set_config('nestly.notify_scope', 'group', true);
-  if tg_table_name = 'group_recommendations' then
+  if tg_table_name = 'group_suggestions' then
     perform nestly.notify_deliver(new.recipient_id, 'group_recommended', 'groups', new.sender_id, 'group', new.group_id, new.id, false);
   elsif tg_table_name = 'group_invitations' then
     perform nestly.notify_deliver(new.invitee_id, 'group_invited', 'groups', new.inviter_id, 'group', new.group_id, new.id, false);
@@ -1121,8 +1121,8 @@ $$;
 
 revoke execute on function nestly.notify_group() from public;
 
-create trigger notify_group_recommendation
-  after insert on nestly.group_recommendations
+create trigger notify_group_suggestion
+  after insert on nestly.group_suggestions
   for each row execute function nestly.notify_group();
 
 create trigger notify_group_invitation
@@ -1411,12 +1411,12 @@ comment on column nestly.group_notification_preferences.group_id is 'The Group.'
 comment on column nestly.group_notification_preferences.user_id is 'The member (default auth.uid()).';
 comment on column nestly.group_notification_preferences.mode is 'all (every new post, pins, highlights), highlights (pins and highlights) or off (none of these; direct events still arrive).';
 comment on column nestly.group_notification_preferences.updated_at is 'When it last changed (the database clock).';
-comment on table nestly.group_recommendations is 'FR-GRP-002, AC-050: a Regular user recommends a Group to an active Friend; the Friend gets a notification with the Group as its target. No Membership changes. Once per Group, sender and recipient.';
-comment on column nestly.group_recommendations.id is 'The recommendation.';
-comment on column nestly.group_recommendations.group_id is 'The Group recommended.';
-comment on column nestly.group_recommendations.sender_id is 'Who recommended (default auth.uid()), a Regular user.';
-comment on column nestly.group_recommendations.recipient_id is 'The Friend it was sent to.';
-comment on column nestly.group_recommendations.created_at is 'When.';
+comment on table nestly.group_suggestions is 'FR-GRP-002, AC-050: a Regular user recommends a Group to an active Friend; the Friend gets a notification with the Group as its target. No Membership changes. Once per Group, sender and recipient.';
+comment on column nestly.group_suggestions.id is 'The recommendation.';
+comment on column nestly.group_suggestions.group_id is 'The Group recommended.';
+comment on column nestly.group_suggestions.sender_id is 'Who recommended (default auth.uid()), a Regular user.';
+comment on column nestly.group_suggestions.recipient_id is 'The Friend it was sent to.';
+comment on column nestly.group_suggestions.created_at is 'When.';
 comment on table nestly.group_highlight_configurations is 'FR-ALG-010, BR-060: the versioned Group Highlights threshold (deterministic, no ML). Written by migrations only; readable by every active account.';
 comment on column nestly.group_highlight_configurations.version is 'Integer > 0.';
 comment on column nestly.group_highlight_configurations.engagement_threshold is 'Likes and comments by others on a group post at which it becomes a highlight (2-1,000).';
@@ -1448,8 +1448,8 @@ comment on index nestly.group_invitations_inviter_id_idx is 'The users FK cascad
 comment on index nestly.group_bans_user_id_idx is 'The users FK cascade; the join checks.';
 comment on index nestly.group_bans_banned_by_idx is 'The users FK SET NULL.';
 comment on index nestly.group_notification_preferences_user_id_idx is 'The users side of the membership FK.';
-comment on index nestly.group_recommendations_sender_id_idx is 'The users FK cascade.';
-comment on index nestly.group_recommendations_recipient_id_idx is 'The users FK cascade.';
+comment on index nestly.group_suggestions_sender_id_idx is 'The users FK cascade.';
+comment on index nestly.group_suggestions_recipient_id_idx is 'The users FK cascade.';
 comment on index nestly.group_highlight_configurations_active_key is 'At most one active version.';
 comment on index nestly.private_group_content_views_report_id_idx is 'The reports FK cascade; the read check.';
 comment on index nestly.private_group_content_views_viewer_id_idx is 'The users FK restrict check.';
@@ -1483,8 +1483,8 @@ comment on policy group_notification_preferences_select_own on nestly.group_noti
 comment on policy group_notification_preferences_insert_own on nestly.group_notification_preferences is 'The member sets a mode for a Group they belong to (the foreign key proves it).';
 comment on policy group_notification_preferences_update_own on nestly.group_notification_preferences is 'The member changes their own mode.';
 comment on policy group_notification_preferences_select_notify on nestly.group_notification_preferences is 'notify_group only (nestly.notify_scope = group): the recipients'' modes.';
-comment on policy group_recommendations_select_party on nestly.group_recommendations is 'The sender and the recipient.';
-comment on policy group_recommendations_insert_sender on nestly.group_recommendations is 'A Regular user recommends an active Group to an active Friend (AC-050).';
+comment on policy group_suggestions_select_party on nestly.group_suggestions is 'The sender and the recipient.';
+comment on policy group_suggestions_insert_sender on nestly.group_suggestions is 'A Regular user recommends an active Group to an active Friend (AC-050).';
 comment on policy group_highlight_configurations_select_all on nestly.group_highlight_configurations is 'Every version is readable by an active account (a constant, no personal data). No write policy for any role.';
 comment on policy private_group_content_views_select_own on nestly.private_group_content_views is 'A staff member reads their own views.';
 comment on policy private_group_content_views_insert_staff on nestly.private_group_content_views is 'PRIVATE_GROUP_MODERATE (REPORTS_VIEW with it; the Admin always) opens a report on Private Group content (the trigger checks the report); audited.';
