@@ -181,7 +181,7 @@ test.describe('titles and focus', () => {
     expect(xs[1]).toBeGreaterThan(xs[2] ?? Infinity);
   });
 
-  test('[F1.2 c24][NFR-A11Y-001] the drawer by keyboard: Enter opens, focus moves inside, חשבון then התנתקות, Enter on חשבון navigates and focuses the Account h2 [F2.5 c11]', async ({
+  test('[F1.2 c24][NFR-A11Y-001] the drawer by keyboard: Enter opens, focus moves inside, חשבון then התנתקות, Enter on חשבון navigates to Settings [F2.5 c11: the section focus with a real session is settings-menu.spec]', async ({
     page,
   }) => {
     await open(page, '/feed', 'signed-in');
@@ -198,7 +198,8 @@ test.describe('titles and focus', () => {
     await page.keyboard.press('Enter');
     await expect.poll(() => new URL(page.url()).pathname).toBe('/settings');
     await expect(drawerOf(page)).toHaveCount(0);
-    await expect(page.getByRole('heading', { level: 2, name: 'חשבון', exact: true })).toBeFocused();
+    // a forced session has no token, so the account's kind is not known: Settings shows its h1 and its load failure, not a guessed section
+    await expect(page.getByRole('heading', { level: 1, name: 'הגדרות', exact: true })).toBeVisible();
   });
 
   test('[F1.2 c24][c21][NFR-A11Y-001][FR-MENU-001] Logout by keyboard (Space) signs out once', async ({ page }) => {

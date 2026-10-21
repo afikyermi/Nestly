@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { MemoryRouter } from 'react-router';
 import { within } from 'storybook/test';
+import { AccountKindProvider } from '@/hooks/use-account-kind';
 import { SessionAccountContext } from '@/hooks/use-session-account';
 import type { SessionAccount } from '@/services/session/session-source';
 import { SettingsPage } from './SettingsPage';
@@ -23,11 +24,13 @@ const account: SessionAccount = {
 function At({ entry }: { entry: string }) {
   return (
     <SessionAccountContext value={account}>
-      <MemoryRouter initialEntries={[entry]}>
-        <main className="px-4 py-5">
-          <SettingsPage />
-        </main>
-      </MemoryRouter>
+      <AccountKindProvider value="regular">
+        <MemoryRouter initialEntries={[entry]}>
+          <main className="px-4 py-5">
+            <SettingsPage />
+          </main>
+        </MemoryRouter>
+      </AccountKindProvider>
     </SessionAccountContext>
   );
 }

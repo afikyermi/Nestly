@@ -1,8 +1,12 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router';
 import { PATHS } from '@/app/paths';
+import { InlineAlert } from '@/components/shared/inline-alert';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAccountKind } from '@/hooks/use-account-kind';
+import { useAccountKind, type AccountKindState } from '@/hooks/use-account-kind';
+import { useSessionAccount } from '@/hooks/use-session-account';
+import { fetchAccountKind } from '@/services/api/professionals';
 import { NotificationSettings } from '@/features/notifications/NotificationSettings';
 import { BlockedUsersSection } from '@/features/blocks/BlockedUsersSection';
 import { PrivacySettingsSection } from '@/features/privacy/PrivacySettingsSection';
@@ -11,6 +15,8 @@ import { parseSettingsSection, SETTINGS_SECTIONS, type SettingsSectionId } from 
 import { SettingsLink } from './SettingsLink';
 
 const TITLE = 'הגדרות';
+const KIND_FAILED_TEXT = 'לא הצלחנו לטעון את ההגדרות. אפשר לנסות שוב';
+const RETRY_LABEL = 'נסו שוב';
 const sectionLabel = (id: SettingsSectionId) => SETTINGS_SECTIONS.find((section) => section.id === id)?.label ?? '';
 
 function LinkSection({ id, children }: { id: SettingsSectionId; children: ReactNode }) {
@@ -32,7 +38,18 @@ function LinkSection({ id, children }: { id: SettingsSectionId; children: ReactN
 // the other two hold only links. No account deletion until its feature exists (I9). Notification Settings load and fail on their own.
 export function SettingsPage() {
   const { hash, key } = useLocation();
-  const kind = useAccountKind();
+  const shared = useAccountKind();
+  const account = useSessionAccount();
+  // Which sections apply depends on the account's kind. When the shared answer did not come (unknown, or no account), the page never guesses
+  // the Regular screens: it says so and asks again on "נסו שוב" (SRS audit 21.10.2026).
+  const [asked, setAsked] = useState<AccountKindState | null>(null);
+  const kind = asked ?? shared;
+  const retry = useCallback(async () => {
+    setAsked('loading');
+    const token = account === null ? null : await account.getAccessToken().catch(() => null);
+    const result = token === null ? ({ kind: 'failed' } as const) : await fetchAccountKind(token);
+    setAsked(result.kind === 'ok' ? result.value : 'unknown');
+  }, [account]);
   const section = parseSettingsSection(hash);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -56,6 +73,20 @@ export function SettingsPage() {
         <title>{documentTitle(TITLE)}</title>
         <h1 className="text-h2">{TITLE}</h1>
         <Skeleton className="mt-5 h-64 w-full" />
+      </>
+    );
+  }
+  if (kind === 'unknown' || kind === 'none') {
+    return (
+      <>
+        <title>{documentTitle(TITLE)}</title>
+        <h1 className="text-h2">{TITLE}</h1>
+        <div className="mt-5 flex flex-col items-start gap-3">
+          <InlineAlert>{KIND_FAILED_TEXT}</InlineAlert>
+          <Button type="button" variant="soft" onClick={() => void retry()}>
+            {RETRY_LABEL}
+          </Button>
+        </div>
       </>
     );
   }

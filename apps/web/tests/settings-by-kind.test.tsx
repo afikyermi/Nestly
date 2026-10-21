@@ -2,7 +2,7 @@
 // profile-privacy form, the blocked list and the notification settings; a Professional edits its Professional profile and has no
 // profile-privacy form (FR-PRIV-001 is a Regular profile's, so /api/privacy is never asked); a staff account has no profile, no blocked
 // list and no notification settings - only the password links and the terms. No section shows an error for a setting that does not apply.
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AccountKindProvider, type AccountKindState } from '@/hooks/use-account-kind';
@@ -25,6 +25,7 @@ const account: SessionAccount = {
 
 const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
 let asked: string[] = [];
+let kindAnswer = 'professional';
 
 beforeEach(() => {
   asked = [];
@@ -34,6 +35,7 @@ beforeEach(() => {
     asked.push(path);
     if (path === '/api/privacy') return Promise.resolve(json({ profileVisibility: 'open', isEmptyJourneySentenceShown: true, isChildBirthdayShared: true }));
     if (path === '/api/blocks') return Promise.resolve(json({ blocked: [] }));
+    if (path === '/api/account/kind') return Promise.resolve(json({ kind: kindAnswer }));
     if (path === '/api/notification-preferences') return Promise.resolve(json({ categories: [], friends: [] }));
     return Promise.resolve(new Response('{}', { status: 404 }));
   });
@@ -80,6 +82,26 @@ describe('[FR-SET-001 SRS audit] Settings by account kind', () => {
     expect(screen.getByRole('link', { name: 'שאלות לשחזור סיסמה' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'תנאי השימוש' })).toBeTruthy();
     expect(asked.filter((path) => ['/api/privacy', '/api/blocks', '/api/notification-preferences'].includes(path))).toEqual([]);
+  });
+
+  it('[SRS audit] when the kind did not come (unknown or no account), no Regular screen is guessed: an error with "נסו שוב", which asks again', async () => {
+    draw('unknown');
+    expect(screen.getByText('לא הצלחנו לטעון את ההגדרות. אפשר לנסות שוב')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'עריכת פרופיל' })).toBeNull();
+    expect(asked).not.toContain('/api/privacy');
+    kindAnswer = 'professional';
+    fireEvent.click(screen.getByRole('button', { name: 'נסו שוב' }));
+    expect((await screen.findByRole('link', { name: 'עריכת פרופיל' })).getAttribute('href')).toBe('/pro/profile');
+    expect(asked).toContain('/api/account/kind');
+    expect(asked).not.toContain('/api/privacy');
+  });
+
+  it('[SRS audit] a retry that fails again keeps the error; "none" is treated the same', async () => {
+    draw('none');
+    kindAnswer = 'bogus';
+    fireEvent.click(screen.getByRole('button', { name: 'נסו שוב' }));
+    expect(await screen.findByRole('button', { name: 'נסו שוב' })).toBeTruthy();
+    expect(screen.queryByRole('radiogroup')).toBeNull();
   });
 
   it('while the kind is unknown yet, the page waits rather than drawing the wrong sections', () => {

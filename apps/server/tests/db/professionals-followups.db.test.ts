@@ -226,6 +226,10 @@ it('[FR-ADMIN-010 BR-058 SRS audit 21.10] the analytics screen counts Groups, Pr
     expect(after.marketplace.created).toBe(await count(`nestly.marketplace_listings where created_at >= ${since}`));
     expect(after.groups.active.public).toBe(await count(`nestly.groups where status = 'active' and privacy = 'public'`));
     expect(after.groups.active.private).toBe(await count(`nestly.groups where status = 'active' and privacy = 'private'`));
+    // Public Group content is counted in active Groups only, as the members are (a deleted Group's posts are not)
+    const inPublic = (table: string) => `nestly.${table} x join nestly.groups g on g.id = x.group_id where g.status = 'active' and g.privacy = 'public' and x.created_at >= ${since}`;
+    expect(after.groups.publicPosts).toBe(await count(inPublic('posts')));
+    expect(after.groups.publicComments).toBe(await count(inPublic('comments')));
     expect(JSON.stringify({ g: after.groups, p: after.professionals, m: after.marketplace })).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-/);
     expect((await readAdminAnalytics(database, as(mia), 7)).kind).toBe('forbidden');
   });
