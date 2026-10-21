@@ -156,8 +156,8 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         counts['groups'] = (
           await tx`delete from nestly.groups where id in (select group_id from nestly.group_members where user_id = ${id} and role = 'owner')`
         ).count;
-        counts['group_recommendations'] = (
-          await tx`delete from nestly.group_recommendations where sender_id = ${id} or recipient_id = ${id}`
+        counts['group_suggestions'] = (
+          await tx`delete from nestly.group_suggestions where sender_id = ${id} or recipient_id = ${id}`
         ).count;
         counts['group_invitations'] = (await tx`delete from nestly.group_invitations where inviter_id = ${id} or invitee_id = ${id}`).count;
         counts['group_join_requests'] = (await tx`delete from nestly.group_join_requests where user_id = ${id}`).count;

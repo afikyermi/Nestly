@@ -20,7 +20,7 @@ does not instruct loading every link. Column sections and rule matrices are both
 | user_blocks | Blocking a user (I4); Friendships and regular names; Notifications and People Search |
 | chat_requests, conversations, messages, chat_blocks, chat_reads, support_requests, support_messages, reported_message_views | Chat and Support (I8); Friendships and regular names; Blocking a user; Safety and admin core (reports, audit) |
 | moderator_invitations, system_announcements, the analytics reads | Moderators team (I14); Safety and admin core (staff roles, keys, audit) |
-| groups, group_members, group_access, group_join_requests, group_invitations, group_bans, group_notification_preferences, group_recommendations, group_highlight_configurations, private_group_content_views | Groups (I10); posts, comments, reactions (group content); Notifications and People Search (notify_group); Safety and admin core (reports, audit) |
+| groups, group_members, group_access, group_join_requests, group_invitations, group_bans, group_notification_preferences, group_suggestions, group_highlight_configurations, private_group_content_views | Groups (I10); posts, comments, reactions (group content); Notifications and People Search (notify_group); Safety and admin core (reports, audit) |
 
 | tracker_events, cycle_entries, status_guides | Trackers, cycle and status guides (I6); children for the child FK |
 | media_assets, media_reviews, profile_photos, stories, media_training_candidates, media_training_samples, media_training_events | Media and Stories (I5); posts and post_authors (attach), friendships (Story audience), Safety and admin core (CONTENT_MODERATE, audit) |
@@ -575,7 +575,7 @@ Built by `20261022300000_groups.sql` (down script in `supabase/rollback/`; refus
 | `group_invitations` | id, group_id, inviter_id, invitee_id, status pending/accepted/declined/cancelled, created_at, decided_at, decided_xact; one pending per pair | SELECT invitee, inviter, Owner/Admin; INSERT Owner/Admin, of an active Friend who is neither member nor blocked; UPDATE invitee accepts (becomes a member)/declines, inviter or Owner/Admin cancel |
 | `group_bans` | group_id, user_id, banned_by, created_at | SELECT the blocked user, Moderator+; INSERT Moderator+ against a lower Role or a non-member (removes the Membership); DELETE Moderator+ |
 | `group_notification_preferences` | group_id, user_id (FK -> group_members, cascade), mode all/highlights/off, updated_at; no row = highlights | own rows; `*_select_notify` TO app_owner for notify_group |
-| `group_recommendations` | id, group_id, sender_id, recipient_id, created_at; once per triple | SELECT sender/recipient; INSERT a Regular user to an active Friend (notification group_recommended) |
+| `group_suggestions` | id, group_id, sender_id, recipient_id, created_at; once per triple | SELECT sender/recipient; INSERT a Regular user to an active Friend (notification group_recommended) |
 | `group_highlight_configurations` | version, engagement_threshold (v1 = 5), is_active, created_at, reason | SELECT every active account; no writer but migrations |
 | `private_group_content_views` | id, report_id, viewer_id, post_id/comment_id (from the report), view_xact, created_at | SELECT own; INSERT PRIVATE_GROUP_MODERATE (Admin always) for a report with `is_private_group`; audited (private_group_content_viewed); the reported item is readable to that viewer inside that transaction only |
 

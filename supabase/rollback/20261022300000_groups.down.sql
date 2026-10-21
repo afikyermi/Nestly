@@ -57,7 +57,7 @@ drop policy regular_names_select_group_requester on nestly.regular_names;
 drop policy regular_names_select_group_banned on nestly.regular_names;
 
 -- the new tables (their triggers and policies go with them)
-drop table nestly.private_group_content_views, nestly.group_recommendations, nestly.group_notification_preferences, nestly.group_bans,
+drop table nestly.private_group_content_views, nestly.group_suggestions, nestly.group_notification_preferences, nestly.group_bans,
   nestly.group_invitations, nestly.group_join_requests, nestly.group_access, nestly.group_members, nestly.group_highlight_configurations;
 alter table nestly.groups drop constraint groups_pinned_post_fkey;
 alter table nestly.posts drop column group_id;
