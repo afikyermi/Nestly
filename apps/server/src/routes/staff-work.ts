@@ -1,7 +1,7 @@
 // The staff's work (I14 completion, Afik 21.10.2026). Signed in; staff only (403 forbidden otherwise); every body is strict.
 //   GET  /api/admin/my-work                                         → 200 { permissions, counters, oldest, next }   (any staff account)
 //   GET  /api/admin/overview                                        → 200 the Admin's home                          (the Admin)
-//   POST /api/admin/reports/escalate   { targetKind, targetId, note } → 201 {} · 404 no open report · 409 already escalated (a Moderator, REPORTS_VIEW)
+//   POST /api/admin/reports/escalate   { targetKind, targetId, note } → 201 {} · 404 no open report (a Moderator, REPORTS_VIEW; again with a new note if needed)
 //   GET  /api/admin/child-trends?metric=&field=&dimension=&days=    → 200 { metric, field, dimension, days, cells }  (CHILD_DATA_VIEW; audited)
 // Errors: 400 invalid · 401/503 session guard · 403 forbidden · 404 not_found · 409 not_applicable · 500.
 

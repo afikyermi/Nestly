@@ -25,7 +25,6 @@ import {
   ESCALATE_NOTE_LABEL,
   ESCALATE_SEND,
   ESCALATED_ALREADY,
-  ESCALATED_TEXT,
   ESCALATION_SHOWN,
   HANDLING_TITLE,
   ME,
@@ -65,7 +64,7 @@ export function StaffWorkPanel({ detail, user, isOpen, onEscalated }: { detail: 
     const outcome = await call((token) => escalateReport(token, detail.targetKind, detail.targetId, trimmed));
     setPending(false);
     if (outcome.kind === 'ok') {
-      setMessage({ ok: true, text: ESCALATED_TEXT });
+      // the screen says it (this panel reloads with the report)
       setNote('');
       onEscalated();
     } else {

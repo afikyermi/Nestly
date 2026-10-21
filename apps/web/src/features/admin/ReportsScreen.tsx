@@ -10,7 +10,7 @@ import { formatAdminTime } from './admin-format';
 import { EnforcementPanel } from './EnforcementPanel';
 import { ReportDetailPanel, type ReportAction } from './ReportDetailPanel';
 import { StaffWorkPanel } from './StaffWorkPanel';
-import { ESCALATED_MARK, OPENED_BY_MARK, PAST_TARGET, TIME_TARGET, WAITING } from './staff-work-texts';
+import { ESCALATED_MARK, ESCALATED_TEXT, OPENED_BY_MARK, PAST_TARGET, TIME_TARGET, WAITING } from './staff-work-texts';
 import {
   ACTION_FAILED_TEXT,
   BACK_TO_QUEUE_LABEL,
@@ -212,7 +212,10 @@ export function ReportsScreen({ permissions, initialTarget = null }: { permissio
               detail={detail}
               user={account}
               isOpen={queue.kind === 'loaded' && queue.items.some((item) => item.targetId === selected.item.targetId)}
-              onEscalated={() => void loadDetail(selected.item, selected.revealed, selected.message)}
+              onEscalated={() => {
+                setStatus(ESCALATED_TEXT);
+                void loadDetail(selected.item, selected.revealed, selected.message);
+              }}
             />
             {account === null ? null : (
               <EnforcementPanel

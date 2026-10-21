@@ -61,7 +61,7 @@ test.describe('[F14.2-b] the staff homes', () => {
     await page.goto('/home');
     await expect.poll(() => pathOf(page)).toBe('/admin');
     await expect(page.getByRole('heading', { level: 2, name: 'העבודה שלי' })).toBeVisible();
-    await expect(page.getByText('דיווחים פתוחים')).toBeVisible();
+    await expect(page.locator('dt', { hasText: 'דיווחים פתוחים' })).toBeVisible();
     await expect(page.getByText('הוותיק ביותר שממתין')).toBeVisible();
     await page.getByRole('link', { name: 'הבא בתור' }).click();
     await expect.poll(() => new URL(page.url()).search).toContain(POST_CHILD);

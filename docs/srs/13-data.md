@@ -55,7 +55,10 @@
 | GroupMemberEnforcement | פעולת ניהול ברמת קבוצה כגון Warning/Mute/Remove/Block/Unblock: Group, Target User, Action, Actor/Group Role, Reason, timestamps ומשך/סטטוס לפי הצורך. ב-v1: Remove, Block ו-Unblock (OP-047). |
 | CommunityConfiguration | הגדרות קהילה תפעוליות כגון קטגוריות, סיבות דיווח ותצורות Moderation מאושרות; כוללות metadata של שינוי לפי הצורך. |
 | SystemAnnouncement | הודעת מערכת רשמית: title (2–80) ו-body (עד 1,000), status Draft/Published/Removed (Removed סופי), author, זמני יצירה, עדכון, פרסום והסרה. Target scope — כל המשתמשים עד ההחלטה ב-OP-042. |
-| ModeratorInvitation | הזמנה חד-פעמית של Admin להצטרפות Moderator (FR-ADMIN-004): תיאור קצר למי ההזמנה, ה-Admin שהנפיק, זמן הנפקה, תוקף (7 ימים), החשבון שנוצר ממנה וזמן ההצטרפות, או זמן הביטול. נשמר רק תקציר (hash) של קוד ההזמנה, לעולם לא הקוד עצמו. |
+| ModeratorInvitation | הזמנה חד-פעמית של Admin להצטרפות Moderator (FR-ADMIN-004): תיאור קצר למי ההזמנה, ה-Admin שהנפיק, זמן הנפקה, תוקף (48 שעות, החלטת אפיק מ-21.10.2026), החשבון שנוצר ממנה וזמן ההצטרפות, או זמן הביטול. נשמר רק תקציר (hash) של קוד ההזמנה, לעולם לא הקוד עצמו. |
+| ReportEscalation | העברת דיווח פתוח ל-Admin בידי Moderator (BR-082): הדיווח, ה-Moderator, הערה (2–500 תווים) וזמן; אפשר כמה לדיווח. נרשמת ב-Audit Log, נשמרת עם הדיווח. |
+| ReportOpening | פתיחת דיווח בידי איש צוות (מצב הטיפול, BR-082): הדיווח, איש הצוות וזמן הפתיחה הראשונה; אחת לכל דיווח ואיש צוות. אינה נרשמת ב-Audit Log, נשמרת עם הדיווח. |
+| StaffGroupView | פתיחת עמוד של קבוצה פרטית לבדיקה בידי מחזיק PRIVATE_GROUP_MODERATE (BR-081): הקבוצה, איש הצוות והזמן; תוכן הקבוצה נגיש לו רק באותה פעולה, בלי Membership. נרשמת ב-Audit Log. |
 | RegularChatRequest | Requester Regular User, Target Regular User, openingMessage, status Pending/Accepted/Declined, timestamps. Accept פותח Conversation; Decline אינו יוצר Chat וחל רק על הבקשה הזו (החלטת אפיק מ-20.10.2026). |
 | PrivacyPreference | User + RegularProfileVisibility (Open/Restricted), הצגת משפט ה-Journey Summary (§1.4; ברירת מחדל: מוצג) והעדפות פרטיות נוספות. Regular User נשאר searchable בכל מצב. ברירות מחדל, גם לחשבונות שקדמו להן: Open, המשפט מוצג (החלטת אפיק מ-16.10.2026). |
 | ProfessionalPromotionMetric | Promotion, TargetType Profile/Post, impressions/clicks/engagement ושדות מדידה נוספים שייקבעו; נשמר בנפרד ממדדי Reputation אורגניים. |

@@ -119,16 +119,17 @@ describe('[I14c §9.9] my work, by key', () => {
 });
 
 describe('[I14c §9.9 §9.10] escalation and handling status', () => {
-  it('a Moderator escalates once with a note; the Admin sees it and who opened the report', T, async () => {
+  it('a Moderator escalates with a note (again if needed); the Admin sees it and who opened the report', T, async () => {
     await seedReport(reporter, 'user', author, 'harassment');
     expect((await escalateReport(database, id(admin), { targetKind: 'user', targetId: author, note: 'נא להחליט' })).kind).toBe('forbidden');
     expect((await escalateReport(database, id(bare), { targetKind: 'user', targetId: author, note: 'נא להחליט' })).kind).toBe('forbidden');
     expect((await escalateReport(database, id(reportsOnly), { targetKind: 'user', targetId: reporter, note: 'נא להחליט' })).kind).toBe('not_found');
     expect((await escalateReport(database, id(reportsOnly), { targetKind: 'user', targetId: author, note: 'נא להחליט' })).kind).toBe('ok');
-    expect((await escalateReport(database, id(reportsOnly), { targetKind: 'user', targetId: author, note: 'שוב' })).kind).toBe('not_applicable');
+    expect((await escalateReport(database, id(reportsOnly), { targetKind: 'user', targetId: author, note: 'שוב, דחוף' })).kind).toBe('ok');
     expect((await readReportDetail(database, id(reportsOnly), 'user', author)).kind).toBe('ok');
     const detail = await readReportDetail(database, id(admin), 'user', author);
-    expect(detail.kind === 'ok' && detail.detail.handling?.escalation).toMatchObject({ note: 'נא להחליט', isMe: false });
+    expect(detail.kind === 'ok' && detail.detail.handling?.escalation?.isMe).toBe(false);
+    expect(['נא להחליט', 'שוב, דחוף']).toContain(detail.kind === 'ok' ? detail.detail.handling?.escalation?.note : '');
     expect(detail.kind === 'ok' && detail.detail.handling?.openings.map((o) => o.isMe).sort()).toEqual([false, true]);
     const queue = await readReportQueue(database, id(admin));
     expect(queue.kind === 'ok' && queue.items[0]).toMatchObject({ escalated: true, openedBy: 2 });

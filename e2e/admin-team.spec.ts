@@ -295,7 +295,7 @@ test.describe('[I14] the Moderators team', () => {
 });
 
 test.describe('[I14 FR-ADMIN-004] joining with an invitation', () => {
-  test('[I14 FR-ADMIN-004 BR-023] the invited person creates a staff account, redeems the code once and lands in the admin shell with no screen yet', async ({
+  test('[I14 FR-ADMIN-004 BR-023] the invited person creates a staff account, redeems the code once and lands in its "my work" with no key yet', async ({
     page,
   }) => {
     let joined = false;
@@ -363,6 +363,6 @@ test.describe('[I14 FR-ADMIN-004] joining with an invitation', () => {
     await page.getByRole('button', { name: 'יצירת חשבון צוות' }).click();
     await expect.poll(() => pathOf(page)).toBe('/admin');
     expect(sentJoin).toEqual([{ code: CODE }]);
-    await expect(page.getByText('אין מסכי ניהול זמינים לחשבון הזה')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'העבודה שלי' })).toBeVisible(); // I14c: its "my work" (no key yet)
   });
 });

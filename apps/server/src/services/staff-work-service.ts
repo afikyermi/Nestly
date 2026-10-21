@@ -137,7 +137,7 @@ export async function escalateReport(database: Database, identity: Identity, req
     });
   } catch (error) {
     const code = readDatabaseFault(error)?.code;
-    if (code === '23505') return { kind: 'not_applicable' }; // already escalated
+    if (code === '23505') return { kind: 'not_applicable' };
     if (code === '42501') return { kind: 'forbidden' };
     throw error;
   }
