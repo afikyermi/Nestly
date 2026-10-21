@@ -2,7 +2,7 @@
 
 # SRS — אינדקס
 
-**מקור האמת של מוצר Nestly.** SRS v2.30 · 21.10.2026.
+**מקור האמת של מוצר Nestly.** SRS v2.31 · 21.10.2026.
 
 ה-SRS מתוחזק ב-markdown ומפוצל לפי סעיפים. גרסאות ה-Word הקודמות נמצאות ב-[`archive/`](archive/) כהיסטוריה בלבד.
 
@@ -157,7 +157,7 @@
 | FR-ALG-010 | Group Notification Highlights v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-DATA-001 | Analytics Event Tracking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 
-## קריטריוני קבלה — 143
+## קריטריוני קבלה — 145
 
 > השמות קוצרו לצורך ניווט בלבד. הנוסח המחייב נמצא ב-[15-acceptance.md](15-acceptance.md).
 
@@ -306,6 +306,8 @@
 | AC-141 | סירוב לבקשת שיחה אינו חסימה | [15-acceptance.md](15-acceptance.md) |
 | AC-142 | Chat Block חוסם את שני הצדדים | [15-acceptance.md](15-acceptance.md) |
 | AC-143 | דיווח על הודעה בצ'אט | [15-acceptance.md](15-acceptance.md) |
+| AC-144 | הסרה וחסימה בקבוצה | [15-acceptance.md](15-acceptance.md) |
+| AC-145 | התראות קבוצה לפי mode | [15-acceptance.md](15-acceptance.md) |
 
 ## מזהים נוספים
 
@@ -317,6 +319,6 @@
 | NFR | דרישות לא-פונקציונליות | NFR-SEC-001 … NFR-SEC-010 | 36 | [06-non-functional.md](06-non-functional.md) |
 | UC | Use Cases | UC-01 … UC-42 | 42 | [14-use-cases.md](14-use-cases.md) |
 | PG | מסכים | PG-001 … PG-056 | 56 | [07-screens-navigation.md](07-screens-navigation.md) |
-| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-044 | 44 | [appendix-b-open-points.md](appendix-b-open-points.md) |
+| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-048 | 48 | [appendix-b-open-points.md](appendix-b-open-points.md) |
 | ALG | קטלוג האלגוריתמים | ALG-01 … ALG-09 | 9 | [18-algorithms-spec.md](18-algorithms-spec.md) |
 | P-ALG | עקרונות האלגוריתמים | P-ALG-01 … P-ALG-08 | 8 | [18-algorithms-spec.md](18-algorithms-spec.md) |
