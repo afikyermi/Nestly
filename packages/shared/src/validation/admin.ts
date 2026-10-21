@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { mediaImage } from '../media/index.js';
 import {
+  CONTENT_TARGET_KINDS,
   ENFORCEMENT_KINDS,
   MODERATION_STATUSES,
   PERMISSION_KEYS,
@@ -36,9 +37,9 @@ export const handleReportsSchema = z.strictObject({
 });
 export type HandleReportsRequest = z.infer<typeof handleReportsSchema>;
 
-/** POST /api/admin/content/moderate: move a reported post or comment among active, hidden and removed. */
+/** POST /api/admin/content/moderate: move a reported post, comment, review or article among active, hidden and removed. */
 export const moderateContentSchema = z.strictObject({
-  targetKind: z.enum(['post', 'comment']),
+  targetKind: z.enum(CONTENT_TARGET_KINDS),
   targetId: uuid,
   status: z.enum(MODERATION_STATUSES),
   reason: staffText,

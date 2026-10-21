@@ -125,7 +125,7 @@ export const MESSAGE_HEADING = 'ההודעה שדווחה';
 export const MESSAGE_PRIVATE_NOTE = 'השיחה פרטית. אפשר לפתוח רק את ההודעה שדווחה, והפתיחה נרשמת ביומן הפעולות';
 export const OPEN_MESSAGE_LABEL = 'הצגת ההודעה';
 export const senderText = (name: string | null): string => (name === null ? 'השולח: חשבון ללא שם' : `השולח: ${name}`);
-export const KIND_LABELS: Record<ReportTargetKind, string> = { post: 'פוסט', comment: 'תגובה', user: 'פרופיל', message: 'הודעה בצ׳אט' };
+export const KIND_LABELS: Record<ReportTargetKind, string> = { post: 'פוסט', comment: 'תגובה', user: 'פרופיל', message: 'הודעה בצ׳אט', review: 'ביקורת על בעל מקצוע', article: 'מאמר של בעל מקצוע' };
 export const PRIORITY_LABELS: Record<number, string> = { 1: 'עדיפות עליונה', 2: 'עדיפות גבוהה', 3: 'עדיפות בינונית', 4: 'עדיפות רגילה' };
 export const RISING_TEXT = 'עלה בתור (3 דיווחים או יותר)';
 export const reportCountText = (n: number): string => (n === 1 ? 'דיווח אחד' : `${n.toLocaleString('en-US')} דיווחים`);

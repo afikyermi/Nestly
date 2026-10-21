@@ -8,7 +8,18 @@ import { NotificationsProvider, useNotifications } from '@/features/notification
 import { SearchBox } from '@/features/search/SearchBox';
 import { HomeIcon, NestIcon, SparkIcon, UserIcon } from '@/components/ui/icons';
 import { AccountKindProvider, useAccountKindQuery } from '@/hooks/use-account-kind';
-import { DIRECTORY_NAV_LABEL, DIRECTORY_TITLE, MY_ARTICLES, OFFERS_TITLE, PROFILE_EDIT_TITLE } from '@/lib/professional-texts';
+import {
+  BILLING_TITLE,
+  DIRECTORY_NAV_LABEL,
+  DIRECTORY_TITLE,
+  FOLLOWING_TITLE,
+  HELP_REQUESTS_TITLE,
+  MY_ARTICLES,
+  MY_OFFERS,
+  OFFERS_TITLE,
+  PROFILE_EDIT_TITLE,
+  PROMOTION_TITLE,
+} from '@/lib/professional-texts';
 import { useBackCloses } from '@/hooks/use-back-closes';
 import { useSession } from '@/hooks/use-session';
 import { StaffAccessProvider, useStaffAccessQuery } from '@/hooks/use-staff-access';
@@ -23,12 +34,14 @@ import { parseSettingsSection, SETTINGS_SECTIONS, settingsSectionHash } from '@/
 import { normalizePath, PATHS } from './paths';
 
 // The MVP destinations of a community account (AC-005, §7.1): home, feed, the Professionals' directory (I11, FR-SERV-001) and the profile. The
-// profile tab shows the generic person icon until profile photos exist (I5, Q7); a Professional's profile tab is its Professional profile.
-// "חנות" is absent, not disabled.
+// profile tab shows the generic person icon until profile photos exist (I5, Q7). A Professional's (Afik 21.10.2026, §9.8): home (its dashboard),
+// feed, the posts that ask for help, and its Professional profile. "חנות" is absent, not disabled.
 const navItems = (professional: boolean) => [
   { key: 'home', label: 'בית', href: PATHS.home, icon: <HomeIcon /> },
   { key: 'feed', label: 'פיד', href: PATHS.feed, icon: <NestIcon /> },
-  { key: 'services', label: DIRECTORY_NAV_LABEL, href: PATHS.services, icon: <SparkIcon /> },
+  professional
+    ? { key: 'help', label: HELP_REQUESTS_TITLE, href: PATHS.helpRequests, icon: <SparkIcon /> }
+    : { key: 'services', label: DIRECTORY_NAV_LABEL, href: PATHS.services, icon: <SparkIcon /> },
   { key: 'profile', label: 'פרופיל', href: professional ? PATHS.proProfile : PATHS.profile, icon: <UserIcon /> },
 ];
 
@@ -108,9 +121,12 @@ export function ProtectedLayout() {
               הקבוצות שלי
             </MenuItem>
           )}
-          <MenuItem href={PATHS.friends} current={PATHS.friends === current} onNavigate={leaving(closeMenu)}>
-            חברים
-          </MenuItem>
+          {/* A Professional has no Friends (Afik 21.10.2026, §9.8): its menu has the business items below instead. */}
+          {professional ? null : (
+            <MenuItem href={PATHS.friends} current={PATHS.friends === current} onNavigate={leaving(closeMenu)}>
+              חברים
+            </MenuItem>
+          )}
           {staff.kind === 'staff' ? (
             <MenuItem href={PATHS.admin} current={current.startsWith(PATHS.admin)} onNavigate={leaving(closeMenu)}>
               {ADMIN_MENU_LABEL}
@@ -119,25 +135,40 @@ export function ProtectedLayout() {
           <MenuItem href={PATHS.communityRules} current={PATHS.communityRules === current} onNavigate={leaving(closeMenu)}>
             {RULES_TITLE}
           </MenuItem>
-          {/* I11: the directory, Offer Help (FR-SERV-001/005/006) and, for a Professional, its profile and articles (FR-PRO-003). */}
+          {/* I11: for a Professional (Afik 21.10.2026, §9.8) its profile, articles, offers, promotion and results, billing, the Professionals it
+              follows and the directory; for a Regular user the directory, Offer Help (FR-SERV-001/005/006) and the Professionals it follows (PG-039). */}
+          {professional ? (
+            <>
+              <MenuItem href={PATHS.proProfile} current={PATHS.proProfile === current} onNavigate={leaving(closeMenu)}>
+                {PROFILE_EDIT_TITLE}
+              </MenuItem>
+              <MenuItem href={PATHS.proArticles} current={PATHS.proArticles === current} onNavigate={leaving(closeMenu)}>
+                {MY_ARTICLES}
+              </MenuItem>
+              <MenuItem href={PATHS.offers} current={PATHS.offers === current} onNavigate={leaving(closeMenu)}>
+                {MY_OFFERS}
+              </MenuItem>
+              <MenuItem href={PATHS.proPromotion} current={PATHS.proPromotion === current} onNavigate={leaving(closeMenu)}>
+                {PROMOTION_TITLE}
+              </MenuItem>
+              <MenuItem href={PATHS.proBilling} current={PATHS.proBilling === current} onNavigate={leaving(closeMenu)}>
+                {BILLING_TITLE}
+              </MenuItem>
+            </>
+          ) : null}
+          {staff.kind === 'none' ? (
+            <MenuItem href={PATHS.following} current={PATHS.following === current} onNavigate={leaving(closeMenu)}>
+              {FOLLOWING_TITLE}
+            </MenuItem>
+          ) : null}
           {staff.kind === 'none' ? (
             <MenuItem href={PATHS.services} current={PATHS.services === current} onNavigate={leaving(closeMenu)}>
               {DIRECTORY_TITLE}
             </MenuItem>
           ) : null}
-          {staff.kind === 'none' ? (
+          {staff.kind === 'none' && !professional ? (
             <MenuItem href={PATHS.offers} current={PATHS.offers === current} onNavigate={leaving(closeMenu)}>
               {OFFERS_TITLE}
-            </MenuItem>
-          ) : null}
-          {professional ? (
-            <MenuItem href={PATHS.proProfile} current={PATHS.proProfile === current} onNavigate={leaving(closeMenu)}>
-              {PROFILE_EDIT_TITLE}
-            </MenuItem>
-          ) : null}
-          {professional ? (
-            <MenuItem href={PATHS.proArticles} current={PATHS.proArticles === current} onNavigate={leaving(closeMenu)}>
-              {MY_ARTICLES}
             </MenuItem>
           ) : null}
           {SETTINGS_SECTIONS.map((section) => (

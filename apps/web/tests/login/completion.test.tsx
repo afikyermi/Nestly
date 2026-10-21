@@ -289,3 +289,33 @@ describe('[F1.5 c16][FR-MENU-001] logout from completion', () => {
     }
   });
 });
+
+describe('[I11 follow-ups FR-REG-004 AC-100] a Professional account from "complete registration"', () => {
+  it('the Professional form, the required declaration and the consent: POST /api/register/professional with the held session, never email or password', async () => {
+    const fetchSpy = stubRegister(201);
+    const m = await toCompletion();
+    const u = user();
+    await u.click(screen.getByRole('button', { name: 'נרשמים כבעלי מקצוע? להרשמה לחשבון מקצועי' }));
+    await screen.findByRole('heading', { level: 1, name: 'פרטים מקצועיים' });
+    await u.type(screen.getByLabelText(/^שם מלא/), 'דנה דולה');
+    await u.selectOptions(screen.getByLabelText(/^תחום/), 'doula');
+    await u.type(screen.getByLabelText(/^שנות ניסיון/), '9');
+    await u.click(screen.getByRole('button', { name: 'המשך' }));
+    expect(await screen.findByText('יש לאשר את ההצהרה כדי להמשיך')).toBeInTheDocument();
+    await u.click(screen.getByRole('checkbox', { name: 'הצהרה: יש לי ההכשרה והרישיון הנדרשים בתחום שבחרתי' }));
+    await u.click(screen.getByRole('button', { name: 'המשך' }));
+    await screen.findByRole('checkbox', { name: CONSENT_LABEL });
+    expect(hasCredentialFields()).toBe(false);
+    await finish(u);
+    await waitFor(() => expect(fetchSpy.mock.calls.some(([target]) => urlOf(target).includes('/api/register/professional'))).toBe(true));
+    const [, init] = fetchSpy.mock.calls.find(([target]) => urlOf(target).includes('/api/register/professional')) ?? [];
+    expect(new Headers(init?.headers).get('authorization')).toBe('Bearer tok');
+    const body: unknown = JSON.parse(typeof init?.body === 'string' ? init.body : '');
+    expect(body).toMatchObject({ fullName: 'דנה דולה', field: 'doula', yearsExperience: 9, consent: true, qualification: true });
+    expect(body).not.toHaveProperty('email');
+    expect(body).not.toHaveProperty('password');
+    expect(fetchSpy.mock.calls.some(([target]) => urlOf(target).endsWith('/api/register'))).toBe(false);
+    expect(m.signUp).not.toHaveBeenCalled();
+    m.stop();
+  });
+});

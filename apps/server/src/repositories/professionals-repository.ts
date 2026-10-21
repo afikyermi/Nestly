@@ -16,11 +16,20 @@ import type {
   ProfessionalReviewItem,
   ReviewWrite,
 } from '@nestly/shared';
-import { ARTICLE_STATUSES, OUTREACH_PER_DAY, OUTREACH_STATUSES, PARENT_GENDERS, PROFESSIONAL_AREAS, PROFESSIONAL_FIELDS, PROFESSIONAL_FIELD_LABELS } from '@nestly/shared';
+import {
+  ARTICLE_STATUSES,
+  OUTREACH_PER_DAY,
+  OUTREACH_STATUSES,
+  PARENT_GENDERS,
+  PROFESSIONAL_AREAS,
+  PROFESSIONAL_FIELDS,
+  PROFESSIONAL_FIELD_LABELS,
+  PROFILE_OPTIONAL_FIELDS,
+} from '@nestly/shared';
 import { sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { IdentityTx } from '../db/identity-transaction.js';
-import { legalConsentsInsert, usersInsert } from '../db/schema.js';
+import { professionalConsentsInsert, usersInsert } from '../db/schema.js';
 
 const isoMs = sql.raw(`'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'`);
 const DIRECTORY_LIMIT = 50;
@@ -45,7 +54,13 @@ export async function insertProfessionalAccount(
   await tx.execute(sql`
     insert into nestly.professional_profiles (full_name, business_name, gender, field, field_other, years_experience, area, about, price_from)
     values (${profileValues(profile)})`);
-  await tx.insert(legalConsentsInsert).values({ termsVersion: consent.termsVersion, privacyVersion: consent.privacyVersion, hasDeclared18Plus: true });
+  // the qualification declaration (Afik 21.10.2026) is recorded with the consent; the request requires it
+  await tx.insert(professionalConsentsInsert).values({
+    termsVersion: consent.termsVersion,
+    privacyVersion: consent.privacyVersion,
+    hasDeclared18Plus: true,
+    hasDeclaredQualification: true,
+  });
 }
 
 /** The caller's own account type (own row, any status): `professional`, `regular`, a staff type, or undefined with no account. */
@@ -202,6 +217,22 @@ export async function readArticles(tx: IdentityTx, authorId: string): Promise<Pr
 
 // ---- Follow (FR-FOLLOW-001) -------------------------------------------------------------------------------------------------------------
 
+/**
+ * PG-039: the Professionals the caller follows, newest Follow first. The caller's own Follow rows are the rows it reads that do not name it
+ * (follower_id is not readable to anyone; the select policy shows a follower its own rows and a Professional the rows naming it). A Professional
+ * it can no longer read (inactive, blocked) is left out by the profile's policy.
+ */
+export async function readFollowing(tx: IdentityTx): Promise<ProfessionalCard[]> {
+  return z.array(cardRow).parse(
+    await tx.execute(sql`
+      select ${cardColumns}
+      from nestly.professional_follows f join nestly.professional_profiles pp on pp.user_id = f.professional_id
+      where f.professional_id <> (select auth.uid())
+      order by f.created_at desc, f.id
+      limit ${DIRECTORY_LIMIT}`),
+  );
+}
+
 /** Follows the Professional; a repeat is no change. A refusal propagates with its SQLSTATE (42501, 23514). */
 export async function insertFollow(tx: IdentityTx, professionalId: string): Promise<void> {
   await tx.execute(sql`insert into nestly.professional_follows (professional_id) values (${professionalId}::uuid) on conflict do nothing`);
@@ -343,6 +374,7 @@ export async function deleteArticle(tx: IdentityTx, id: string): Promise<number>
 // ---- the Professional's home (FR-PRO-001, AC-018) ----------------------------------------------------------------------------------------
 
 const dashboardRow = z.object({
+  userId: z.guid(),
   fullName: z.string(),
   field: z.enum(PROFESSIONAL_FIELDS),
   fieldOther: z.string().nullable(),
@@ -354,13 +386,19 @@ const dashboardRow = z.object({
   posts30d: z.number().int(),
   articles: z.number().int(),
   offersToday: z.number().int(),
+  unreadChats: z.number().int(),
+  acceptedOffersNew: z.number().int(),
+  reviewsNew: z.number().int(),
+  offersAccepted: z.number().int(),
+  offersDeclined: z.number().int(),
+  missing: z.array(z.string()),
 });
 
 /** The caller's own aggregates only (VAL-032): counts over rows its policies show, never who. Undefined with no own profile. */
 export async function readDashboard(tx: IdentityTx): Promise<ProfessionalDashboard | undefined> {
   const [row] = z.array(dashboardRow).parse(
     await tx.execute(sql`
-      select pp.full_name as "fullName", pp.field, pp.field_other as "fieldOther",
+      select pp.user_id as "userId", pp.full_name as "fullName", pp.field, pp.field_other as "fieldOther",
         (select count(*)::int from nestly.professional_follows f where f.professional_id = pp.user_id) as followers,
         (select count(*)::int from nestly.conversations c where pp.user_id in (c.user_a, c.user_b)
            and c.context in ('professional', 'outreach') and c.created_at > now() - interval '30 days') as "chatStarts30d",
@@ -373,10 +411,23 @@ export async function readDashboard(tx: IdentityTx): Promise<ProfessionalDashboa
         (select count(*)::int from nestly.posts p where p.author_id = pp.user_id and p.created_at > now() - interval '30 days') as "posts30d",
         (select count(*)::int from nestly.professional_articles a where a.author_id = pp.user_id) as articles,
         (select count(*)::int from nestly.outreach_requests o where o.professional_id = pp.user_id
-           and o.created_at > now() - interval '24 hours') as "offersToday"
+           and o.created_at > now() - interval '24 hours') as "offersToday",
+        (select count(*)::int from nestly.conversations c where pp.user_id in (c.user_a, c.user_b)
+           and exists (select 1 from nestly.messages m where m.conversation_id = c.id and m.sender_id <> pp.user_id
+                        and m.created_at > coalesce((select r.last_read_at from nestly.chat_reads r
+                                                      where r.user_id = pp.user_id and r.conversation_id = c.id), '-infinity'))) as "unreadChats",
+        (select count(*)::int from nestly.notifications n where n.type = 'offer_accepted' and n.read_at is null) as "acceptedOffersNew",
+        (select count(*)::int from nestly.notifications n where n.type = 'review_received' and n.read_at is null) as "reviewsNew",
+        (select count(*)::int from nestly.outreach_requests o where o.professional_id = pp.user_id and o.status = 'accepted') as "offersAccepted",
+        (select count(*)::int from nestly.outreach_requests o where o.professional_id = pp.user_id and o.status = 'declined') as "offersDeclined",
+        array_remove(array[case when pp.business_name is null then 'businessName' end, case when pp.gender is null then 'gender' end,
+          case when pp.area is null then 'area' end, case when pp.about is null then 'about' end,
+          case when pp.price_from is null then 'priceFrom' end], null) as missing
       from nestly.professional_profiles pp where pp.user_id = (select auth.uid())`),
   );
-  return row === undefined ? undefined : { ...row, offersPerDay: OUTREACH_PER_DAY };
+  if (row === undefined) return undefined;
+  const { missing, ...rest } = row;
+  return { ...rest, offersPerDay: OUTREACH_PER_DAY, profileMissing: PROFILE_OPTIONAL_FIELDS.filter((field) => missing.includes(field)) };
 }
 
 const helpRow = z.object({

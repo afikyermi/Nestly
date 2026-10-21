@@ -47,13 +47,17 @@ export function RegistrationFlow({ today, completion }: RegistrationFlowProps) {
   const [kind, setKind] = useState<'personal' | 'professional'>('personal');
   const [proForm, setProForm] = useState<ProfessionalForm>(EMPTY_PROFESSIONAL_FORM);
   const [proReady, setProReady] = useState(false);
+  // Afik 21.10.2026: the Professional's required qualification declaration (sent with the account)
+  const [declared, setDeclared] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
   const stepTwoValue = isStepTwoEntry(location.state) && kind === 'personal' ? parsed : null;
-  const proStepTwo = completion === undefined && kind === 'professional' && proReady && isStepTwoEntry(location.state);
+  // I11 follow-ups (FR-REG-004, AC-100): a Professional's account can also be created from "complete registration" (a signed-in Auth user with no
+  // account): its step 2 is then the consent alone (or, for a Google user, the password and the consent), as for a personal account.
+  const proStepTwo = kind === 'professional' && proReady && declared && isStepTwoEntry(location.state);
   const submitProfessional = async (token: string): Promise<RegisterOutcome> => {
-    const result = await registerProfessional(token, { ...professionalInputOf(proForm), consent: true });
+    const result = await registerProfessional(token, { ...professionalInputOf(proForm), consent: true, qualification: true });
     if (result.kind === 'ok') return 'created';
     if (result.kind === 'already-done') return 'already_registered';
     if (result.kind === 'unauthenticated') return 'unauthenticated';
@@ -63,15 +67,36 @@ export function RegistrationFlow({ today, completion }: RegistrationFlowProps) {
   return (
     <main tabIndex={-1}>
       <title>{documentTitle(completion !== undefined ? 'השלמת ההרשמה' : stepTwoValue !== null || proStepTwo ? 'פרטי התחברות' : kind === 'professional' ? 'פרטים מקצועיים' : 'פרטים אישיים')}</title>
-      {proStepTwo ? (
+      {proStepTwo && completion === undefined ? (
         <RegisterStepTwo step1={null} submitAccount={submitProfessional} email={email} onEmailChange={setEmail} onBack={() => void navigate(-1)} />
-      ) : completion === undefined && kind === 'professional' ? (
+      ) : proStepTwo && (completion?.google?.status === 'pending' || completion?.google?.status === 'failed') ? (
+        <GoogleLookupHold lookup={completion.google} onBack={() => void navigate(-1)} />
+      ) : proStepTwo && completion?.google?.status === 'google' ? (
+        <RegisterGoogleCompletionStep
+          step1={null}
+          submitAccount={submitProfessional}
+          email={completion.google.email}
+          onBack={() => void navigate(-1)}
+          onSignOut={completion.onSignOut}
+          onUnauthenticated={completion.onUnauthenticated}
+        />
+      ) : proStepTwo && completion !== undefined ? (
+        <RegisterConsentStep
+          step1={null}
+          submitAccount={submitProfessional}
+          onBack={() => void navigate(-1)}
+          onSignOut={completion.onSignOut}
+          onUnauthenticated={completion.onUnauthenticated}
+        />
+      ) : kind === 'professional' ? (
         <ProfessionalStepOne
           form={proForm}
           onFormChange={(next) => {
             setProForm(next);
             setProReady(false);
           }}
+          declared={declared}
+          onDeclaredChange={setDeclared}
           onPersonal={() => setKind('personal')}
           onValid={() => {
             setProReady(true);
@@ -105,7 +130,8 @@ export function RegistrationFlow({ today, completion }: RegistrationFlowProps) {
             setForm(next);
             setParsed(null);
           }}
-          {...(completion !== undefined ? { completion: { onSignOut: completion.onSignOut } } : { onProfessional: () => setKind('professional') })}
+          {...(completion !== undefined ? { completion: { onSignOut: completion.onSignOut } } : {})}
+          onProfessional={() => setKind('professional')}
           getToday={() => today ?? localDateIso(new Date())}
           onValid={(value) => {
             setParsed(value);

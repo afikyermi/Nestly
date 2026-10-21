@@ -39,7 +39,7 @@
 | תיאור | Follow הוא קשר חד-כיווני שיכול להיות מופנה רק אל Professional Profile. Professional User אינו יכול לעקוב אחר Regular User. |
 | תנאים מוקדמים | משתמש מחובר; יעד הוא Professional Profile פעיל ואינו החשבון עצמו. |
 | קלט / Trigger | Follow / Unfollow. |
-| תהליך מערכת | המערכת יוצרת/מסירה ProfessionalFollow. Follow אינו דורש אישור. Regular או Professional יכולים לעקוב אחר Professional Profile; Professional אינו יוצר Friends. |
+| תהליך מערכת | המערכת יוצרת/מסירה ProfessionalFollow. Follow אינו דורש אישור. Regular או Professional יכולים לעקוב אחר Professional Profile; Professional אינו יוצר Friends. מסך "בעלי מקצוע במעקב" (PG-039) בתפריט מציג את מי שהמשתמש עוקב אחריו, עם קישור לעמוד ו"הפסקת מעקב"; אף אחד אחר לא רואה את הרשימה. |
 | פלט | מצב Follow מעודכן; Professional עשוי לקבל Notification על Follower חדש בהתאם להגדרות. |
 | מצב לאחר ביצוע | הרשימה Following והפרופיל המקצועי משקפים את המצב החדש. |
 | בעל אחריות לוגי (Page / Feature) | מעקב אחר בעל מקצוע |

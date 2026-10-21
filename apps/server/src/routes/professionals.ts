@@ -4,6 +4,7 @@
 //                                                       → 201 { status: 'created' } · 409 already_registered (FR-PROREG-001/002)
 //   GET    /api/account/kind                            → 200 { kind: regular | professional | staff | none } (which product to show)
 //   GET    /api/professionals?field&area&minRating&maxPrice&minYears&sort → 200 { professionals } (FR-SERV-001/002, AC-009)
+//   GET    /api/professionals/following                 → 200 { professionals } (PG-039: the Professionals the caller follows)
 //   GET    /api/professionals/:id                       → 200 the profile page · 404 unavailable (FR-SERV-003)
 //   PUT    /api/professionals/:id/follow · DELETE      → 204 · 403 not_allowed (FR-FOLLOW-001, AC-035)
 //   POST   /api/professionals/:id/reviews { rating, text } → 201 · 403 not_allowed · 409 already_done (FR-SERV-011, AC-093)
@@ -38,6 +39,7 @@ import {
   declineOutreach,
   editArticle,
   editOwnProfile,
+  listFollowing,
   listOutreach,
   listProfessionals,
   offerHelp,
@@ -130,6 +132,18 @@ export function registerProfessionalsRoutes(app: FastifyInstance, deps: Professi
     );
   });
   others('/api/professionals', ['GET']);
+
+  app.get('/api/professionals/following', (request, reply) =>
+    answer(
+      request,
+      reply,
+      db(),
+      'following failed',
+      async (database, identity) => ({ kind: 'ok' as const, professionals: await listFollowing(database, identity) }),
+      (ok) => ({ professionals: ok.professionals }),
+    ),
+  );
+  others('/api/professionals/following', ['GET']);
 
   app.get('/api/professionals/:id', (request, reply) => {
     const id = idOf(request);

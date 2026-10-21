@@ -8,7 +8,7 @@ import {
   type NotificationCategory,
   type NotificationTargetKind,
 } from '@nestly/shared';
-import { desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { IdentityTx } from '../db/identity-transaction.js';
 import { friendContentNotificationPreferences, notificationPreferences, notifications, notificationsUpdate } from '../db/schema.js';
@@ -26,6 +26,16 @@ export interface NotificationRow {
   readonly isRead: boolean;
 }
 
+/**
+ * I11 follow-ups: the weekly follower digest is shown only while the caller's `followers` category is on and the week it closes still has a new
+ * follower (the rows naming the caller that it reads as a count; never who). The row was written at the week's first follow, so a switch
+ * turned off later in the week, or a week whose followers all left, shows nothing. Read under the caller's own policies.
+ */
+const digestShown = sql`not (${notifications.type} = 'followers_weekly' and (
+  exists (select 1 from nestly.notification_preferences p where p.category = 'followers' and not p.is_in_app_enabled)
+  or not exists (select 1 from nestly.professional_follows f where f.professional_id = (select auth.uid())
+                  and f.created_at >= ${notifications.createdAt} - interval '7 days' and f.created_at < ${notifications.createdAt})))`;
+
 /** The caller's notifications, newest first, older than `before` when given (keyset on time and id). */
 export async function readLatest(tx: IdentityTx, limit: number, before: { at: string; id: string } | null = null): Promise<NotificationRow[]> {
   const rows = await tx
@@ -40,7 +50,7 @@ export async function readLatest(tx: IdentityTx, limit: number, before: { at: st
       readAt: notifications.readAt,
     })
     .from(notifications)
-    .where(before === null ? undefined : sql`(${notifications.createdAt}, ${notifications.id}) < (${before.at}::timestamptz, ${before.id}::uuid)`)
+    .where(and(digestShown, before === null ? undefined : sql`(${notifications.createdAt}, ${notifications.id}) < (${before.at}::timestamptz, ${before.id}::uuid)`))
     .orderBy(desc(notifications.createdAt), desc(notifications.id))
     .limit(limit);
   return rows.map(({ readAt, ...row }) => ({ ...row, isRead: readAt !== null }));
@@ -50,8 +60,20 @@ const countRow = z.array(z.object({ n: z.number().int().nonnegative() })).length
 
 /** How many of the caller's notifications are unread (the bell). */
 export async function countUnread(tx: IdentityTx): Promise<number> {
-  const rows = countRow.parse(await tx.execute(sql`select count(*)::int as n from nestly.notifications where read_at is null`));
+  const rows = countRow.parse(await tx.execute(sql`select count(*)::int as n from nestly.notifications where read_at is null and ${digestShown}`));
   return rows[0]?.n ?? 0;
+}
+
+/** The new followers of each digest's week (the week before its time), by notification id: a count of the rows naming the caller, never who. */
+export async function readDigestCounts(tx: IdentityTx, rows: ReadonlyArray<{ id: string; createdAt: Date }>): Promise<Map<string, number>> {
+  if (rows.length === 0) return new Map();
+  const counts = z.array(z.object({ id: z.guid(), n: z.number().int() })).parse(
+    await tx.execute(sql`
+      select d.id, (select count(*)::int from nestly.professional_follows f where f.professional_id = (select auth.uid())
+                     and f.created_at >= d.at - interval '7 days' and f.created_at < d.at) as n
+      from unnest(${sql.param(rows.map((row) => row.id))}::uuid[], ${sql.param(rows.map((row) => row.createdAt.toISOString()))}::timestamptz[]) as d(id, at)`),
+  );
+  return new Map(counts.map((row) => [row.id, row.n]));
 }
 
 /** Marks one notification read. Empty when it is not the caller's (the policy shows no such row). */

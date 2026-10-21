@@ -3,6 +3,7 @@ import {
   createdIdResponse,
   createdStatusResponse,
   directoryResponse,
+  followingResponse,
   outreachAcceptResponse,
   outreachResponse,
   professionalHomeResponse,
@@ -94,6 +95,12 @@ export async function fetchDirectory(token: string, query: DirectoryQuery): Prom
   for (const [key, value] of Object.entries(query)) if (value !== undefined) params.set(key, String(value));
   const text = params.toString();
   const result = await call(token, 'GET', text === '' ? '/api/professionals' : `/api/professionals?${text}`, directoryResponse);
+  return result.kind === 'ok' ? { kind: 'ok', value: result.value.professionals } : result;
+}
+
+/** GET /api/professionals/following (PG-039): the Professionals the caller follows. */
+export async function fetchFollowing(token: string): Promise<ProResult<ProfessionalCard[]>> {
+  const result = await call(token, 'GET', '/api/professionals/following', followingResponse);
   return result.kind === 'ok' ? { kind: 'ok', value: result.value.professionals } : result;
 }
 

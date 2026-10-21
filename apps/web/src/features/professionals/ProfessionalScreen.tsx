@@ -1,17 +1,22 @@
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { chatTextProblem, professionalTag, type ProfessionalPage } from '@nestly/shared';
+import { PATHS } from '@/app/paths';
+import { ReportSheet } from '@/components/domain/report-sheet';
 import { FormField } from '@/components/shared/form-field';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
+import { MoreActionsMenu } from '@/components/ui/more-actions-menu';
 import { SelectInput } from '@/components/ui/select-input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TextArea } from '@/components/ui/text-area';
 import { useChatCall } from '@/hooks/use-chat-call';
 import { useProCall } from '@/hooks/use-pro-call';
+import { reportSheetProps, useReport } from '@/hooks/use-report';
 import { conversationPath } from '@/lib/chat-link';
 import { PRO_PROFILE_PATH } from '@/lib/professional-link';
 import { documentTitle } from '@/lib/document-title';
+import { ALREADY_REPORTED_STATUS, REPORT_RECEIVED_STATUS, REPORT_UNAVAILABLE_STATUS } from '@/lib/report-texts';
 import { formatPostTime } from '@/lib/format-post-time';
 import {
   ABOUT_HEADING,
@@ -32,6 +37,8 @@ import {
   OPEN_CONVERSATION,
   PROFILE_GONE,
   RETRY,
+  REPORT_ARTICLE,
+  REPORT_REVIEW,
   REVIEW_ALREADY,
   REVIEW_NOTE,
   REVIEW_RATING_LABEL,
@@ -79,6 +86,10 @@ export function ProfessionalScreen({ professionalId }: { professionalId: string 
   const [reviewText, setReviewText] = useState('');
   const [reviewErrors, setReviewErrors] = useState<{ rating?: string; text?: string }>({});
   const running = useRef(false);
+  // FR-MOD-001 (I11 follow-ups): a review (the reviewed Professional too) or another Professional's article can be reported
+  const report = useReport((_target, result) =>
+    setStatus(result === 'received' ? REPORT_RECEIVED_STATUS : result === 'already-reported' ? ALREADY_REPORTED_STATUS : REPORT_UNAVAILABLE_STATUS),
+  );
 
   const load = useCallback(async () => {
     const result = await call((token) => fetchProfessional(token, professionalId));
@@ -240,9 +251,16 @@ export function ProfessionalScreen({ professionalId }: { professionalId: string 
           <ul aria-label={REVIEWS_HEADING} className="mt-3 flex flex-col gap-3">
             {page.reviews.map((item) => (
               <li key={item.id} className="rounded-lg bg-card p-4 shadow-card">
-                <p aria-label={reviewStarsLabel(item.rating)} className="text-label text-primary-strong">
-                  {reviewStars(item.rating)}
-                </p>
+                <div className="flex items-start justify-between gap-3">
+                  <p aria-label={reviewStarsLabel(item.rating)} className="text-label text-primary-strong">
+                    {reviewStars(item.rating)}
+                  </p>
+                  <MoreActionsMenu
+                    label={`${REPORT_REVIEW}: ${item.text.slice(0, 30)}`}
+                    menuLabel={REPORT_REVIEW}
+                    items={[{ key: 'report', label: REPORT_REVIEW, onSelect: () => report.start({ kind: 'review', id: item.id }) }]}
+                  />
+                </div>
                 <p className="mt-1 whitespace-pre-line">{item.text}</p>
                 <p className="mt-1 text-small text-muted-foreground">{formatPostTime(item.at)}</p>
               </li>
@@ -262,7 +280,16 @@ export function ProfessionalScreen({ professionalId }: { professionalId: string 
             {page.articles.map((article) => (
               <li key={article.id}>
                 <article className="rounded-lg bg-card p-4 shadow-card">
-                  <h3 className="text-h3">{article.title}</h3>
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="text-h3">{article.title}</h3>
+                    {page.isMe ? null : (
+                      <MoreActionsMenu
+                        label={`${REPORT_ARTICLE}: ${article.title.slice(0, 30)}`}
+                        menuLabel={REPORT_ARTICLE}
+                        items={[{ key: 'report', label: REPORT_ARTICLE, onSelect: () => report.start({ kind: 'article', id: article.id }) }]}
+                      />
+                    )}
+                  </div>
                   <p className="mt-2 whitespace-pre-line">{article.body}</p>
                   <p className="mt-3 text-small text-muted-foreground">{ARTICLE_DISCLAIMER}</p>
                 </article>
@@ -278,6 +305,7 @@ export function ProfessionalScreen({ professionalId }: { professionalId: string 
           </Link>
         </p>
       ) : null}
+      {report.draft !== null ? <ReportSheet {...reportSheetProps(report, report.draft, PATHS.communityRules)} /> : null}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import {
   PROFESSIONAL_AREA_LABELS,
+  type ProfileOptionalField,
   PROFESSIONAL_FIELD_LABELS,
   type ProfessionalArea,
   type ProfessionalField,
@@ -73,6 +74,9 @@ export const PRO_REGISTER_LINK = 'נרשמים כבעלי מקצוע? להרשמ
 export const PERSONAL_REGISTER_LINK = 'להרשמה לחשבון אישי';
 export const PRO_STEP_TITLE = 'פרטים מקצועיים';
 export const PRO_STEP_INTRO = 'חשבון מקצועי נפרד מחשבון אישי. אין צורך במספר עוסק או באימות.';
+// Afik 21.10.2026: the required declaration, in the gender-neutral form of NFR-USAB-003
+export const QUALIFICATION_DECLARATION = 'הצהרה: יש לי ההכשרה והרישיון הנדרשים בתחום שבחרתי';
+export const QUALIFICATION_REQUIRED = 'יש לאשר את ההצהרה כדי להמשיך';
 export const FULL_NAME_LABEL = 'שם מלא';
 export const BUSINESS_NAME_LABEL = 'שם העסק';
 export const GENDER_LABEL = 'מין';
@@ -157,3 +161,47 @@ export const ON_POST = 'על הפוסט:';
 export const HELP_REQUEST_CHECKBOX = 'הפוסט מבקש עזרה מבעלי מקצוע';
 export const HELP_REQUEST_HINT = 'בעלי מקצוע יוכלו להציע עזרה. הצעה פותחת שיחה רק אם מאשרים אותה.';
 export const HELP_REQUEST_BADGE = 'מבקשים עזרה';
+
+// ---- reporting a review or an article (I11 follow-ups, FR-MOD-001)
+export const REPORT_REVIEW = 'דיווח על הביקורת';
+export const REPORT_ARTICLE = 'דיווח על המאמר';
+
+// ---- the Professional's home, in Afik's order (21.10.2026, decisions-in-force.md §9.8)
+export const WAITING_HEADING = 'מחכה לך';
+export const NOTHING_WAITING = 'אין כרגע דברים שמחכים לך.';
+export const unreadChatsText = (n: number): string => (n === 1 ? 'שיחה אחת עם הודעה שלא נקראה' : `${n} שיחות עם הודעות שלא נקראו`);
+export const acceptedOffersText = (n: number): string => (n === 1 ? 'הצעת עזרה אחת אושרה' : `${n} הצעות עזרה אושרו`);
+export const newReviewsText = (n: number): string => (n === 1 ? 'ביקורת חדשה אחת' : `${n} ביקורות חדשות`);
+export const ALL_HELP_REQUESTS = 'לכל הפוסטים שמבקשים עזרה';
+export const KPI_ACCEPTANCE = 'הצעות עזרה שאושרו';
+/** The Offer Help acceptance rate: accepted out of answered (pending ones are not counted). */
+export const acceptanceText = (accepted: number, answered: number): string => (answered === 0 ? '—' : `${Math.round((accepted / answered) * 100)}% (${accepted}/${answered})`);
+export const COMPLETENESS_HEADING = 'השלמת הפרופיל';
+export const completenessLabel = (percent: number): string => `הפרופיל מלא ב-${percent}%`;
+export const COMPLETENESS_DONE = 'כל פרטי הפרופיל מלאים.';
+export const COMPLETENESS_MISSING = 'חסר:';
+export const PROFILE_FIELD_NAMES: Readonly<Record<ProfileOptionalField, string>> = {
+  businessName: 'שם העסק',
+  gender: 'מין',
+  area: 'אזור',
+  about: 'על השירות',
+  priceFrom: 'מחיר',
+};
+export const CONTENT_HEADING = 'תוצאות התוכן';
+export const PROMOTION_HEADING = 'קידום';
+export const PROMOTION_NOT_YET = 'קידום בתשלום עדיין לא זמין. כשייפתח, אפשר יהיה לקדם את הפרופיל והתוכן ולראות כאן את התוצאות.';
+
+// ---- the Professional's menu and navigation (Afik 21.10.2026, §9.8)
+export const HELP_REQUESTS_TITLE = 'בקשות עזרה';
+export const FOLLOWING_TITLE = 'בעלי מקצוע במעקב';
+export const FOLLOWING_LIST_LABEL = 'בעלי מקצוע במעקב';
+export const FOLLOWING_EMPTY = 'עדיין אין בעלי מקצוע במעקב. אפשר למצוא בעלי מקצוע ולעקוב אחריהם במדריך.';
+/** The rest of the unfollow button's accessible name: "הפסקת מעקב אחרי <name>". */
+export const unfollowSuffix = (name: string): string => ` אחרי ${name}`;
+export const unfollowedText = (name: string): string => `המעקב אחרי ${name} הופסק.`;
+export const MY_OFFERS = 'ההצעות שלי';
+export const PROMOTION_TITLE = 'קידום ותוצאות';
+export const BILLING_TITLE = 'חיוב ותשלומים';
+export const BILLING_NOT_YET = 'אין כרגע חיובים. תשלום יידרש רק לקידום בתשלום, שעדיין לא זמין.';
+export const NOT_YET_NOTE = 'העמוד הזה ייפתח בהמשך.';
+export const NOT_A_PROFESSIONAL = 'הרשימה הזו מיועדת לבעלי מקצוע.';

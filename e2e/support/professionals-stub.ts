@@ -78,6 +78,7 @@ export async function setupProfessionals(page: Page, start: Partial<ProNet> = {}
       url.pathname.startsWith('/api/outreach') ||
       url.pathname === '/api/chat/start' ||
       url.pathname === '/api/register/professional' ||
+      url.pathname === '/api/reports' ||
       /^\/api\/posts\/[^/]+\/offer-help$/.test(url.pathname),
     async (route) => {
       const req = route.request();
@@ -90,6 +91,11 @@ export async function setupProfessionals(page: Page, start: Partial<ProNet> = {}
       if (method !== 'GET') net.sent.push({ method, path, query: url.search, body });
       else net.sent.push({ method, path, query: url.search, body: {} });
       if (path === '/api/account/kind') return json(route, 200, { kind: net.kind });
+      // I11 follow-ups: the following list (PG-039) and a report on a review or an article (FR-MOD-001)
+      if (path === '/api/professionals/following') {
+        return json(route, 200, { professionals: net.following ? [card(DANA, 'דנה דולה', 'doula', 'tel_aviv', 9, 1500, 4.5)] : [] });
+      }
+      if (path === '/api/reports') return json(route, 201, { received: true });
       if (path === '/api/professionals') {
         const field = url.searchParams.get('field');
         const all = [card(DANA, 'דנה דולה', 'doula', 'tel_aviv', 9, 1500, 4.5), card(SHAI, 'שי שינה', 'sleep', 'haifa', 3, 400, null)];
@@ -134,6 +140,7 @@ export async function setupProfessionals(page: Page, start: Partial<ProNet> = {}
       if (path === '/api/professional/home') {
         return json(route, 200, {
           dashboard: {
+            userId: ME,
             fullName: 'נועה המקצועית',
             field: 'lactation',
             fieldOther: null,
@@ -146,6 +153,12 @@ export async function setupProfessionals(page: Page, start: Partial<ProNet> = {}
             articles: 1,
             offersToday: net.offered ? 1 : 0,
             offersPerDay: 10,
+            unreadChats: 2,
+            acceptedOffersNew: 1,
+            reviewsNew: 0,
+            offersAccepted: 3,
+            offersDeclined: 1,
+            profileMissing: ['businessName', 'about'],
           },
           helpRequests: [{ postId: POST, excerpt: 'מישהי מכירה יועצת הנקה טובה?', isAnonymous: true, authorName: null, at: AT, offered: net.offered }],
         });

@@ -5,6 +5,7 @@ import type { NotificationItem, NotificationType } from "@nestly/shared";
 import { postPath } from "@/lib/post-link";
 import { userProfilePath } from "@/lib/profile-link";
 import { groupPath } from "@/lib/group-link";
+import { OFFERS_PATH, professionalPagePath } from "@/lib/professional-link";
 
 export const BELL_LABEL = "התראות";
 export const unreadBellLabel = (count: number): string =>
@@ -27,7 +28,15 @@ export const AUTHOR_LABEL = "המחבר";
 /** I10: a Group's name inside a sentence, or a plain "קבוצה" when it is not shown (the Group is gone). */
 const inGroup = (name: string | null | undefined): string => (name === null || name === undefined ? "לקבוצה" : `לקבוצה ${name}`);
 
-const SENTENCES: Record<NotificationType, (who: string, group: string | null | undefined) => string> = {
+/** I11 follow-ups: the weekly digest's sentence, by its number of new followers. */
+const followersText = (count: number | undefined): string =>
+  count === undefined || count === 0
+    ? "סיכום העוקבים השבועי"
+    : count === 1
+      ? "עוקב חדש אחד בשבוע שעבר"
+      : `${count} עוקבים חדשים בשבוע שעבר`;
+
+const SENTENCES: Record<NotificationType, (who: string, group: string | null | undefined, count: number | undefined) => string> = {
   friend_request: (who) => `בקשת חברות חדשה מ${who}`,
   friend_accepted: (who) => `בקשת החברות שלך אושרה על ידי ${who}`,
   post_comment: (who) => `תגובה חדשה של ${who} על הפוסט שלך`,
@@ -41,11 +50,16 @@ const SENTENCES: Record<NotificationType, (who: string, group: string | null | u
   group_post: () => "פוסט חדש באחת הקבוצות שלך",
   group_pinned: () => "פוסט חדש הוצמד בקבוצה",
   group_highlight: () => "פוסט בקבוצה שלך מעורר עניין",
+  // I11 follow-ups (OP-051 cancelled): the Professional's events; who answered, reviewed or followed is never named
+  offer_accepted: () => "הצעת עזרה שלך אושרה. אפשר להמשיך בשיחה",
+  offer_declined: () => "הצעת עזרה שלך נדחתה",
+  review_received: () => "התקבלה ביקורת חדשה על הפרופיל המקצועי שלך",
+  followers_weekly: (_who, _group, count) => followersText(count),
 };
 
 /** The sentence of one notification: the name when shown, "מישהו" when hidden, "המחבר" for the anonymous author's own comment. */
 export function sentenceOf(
-  item: Pick<NotificationItem, "type" | "actor" | "actorName"> & { targetName?: string | null | undefined },
+  item: Pick<NotificationItem, "type" | "actor" | "actorName"> & { targetName?: string | null | undefined; count?: number | undefined },
 ): string {
   const who =
     item.actor === "author"
@@ -53,18 +67,27 @@ export function sentenceOf(
       : item.actor === "named" && item.actorName !== null
         ? item.actorName
         : NO_ACTOR;
-  return SENTENCES[item.type](who, item.targetName);
+  return SENTENCES[item.type](who, item.targetName, item.count);
 }
 
 /** Where a notification leads. Opening it asks the server again; a post or person no longer available shows its own page's message. */
 export function hrefOf(
-  item: Pick<NotificationItem, "targetKind" | "targetId">,
+  item: Pick<NotificationItem, "targetKind" | "targetId"> & { type?: NotificationItem["type"] },
 ): string {
-  return item.targetKind === "post"
-    ? postPath(item.targetId)
-    : item.targetKind === "group"
-      ? groupPath(item.targetId)
-      : userProfilePath(item.targetId);
+  // the weekly follower digest leads to the Professional's home, where the followers are counted
+  if (item.type === "followers_weekly") return "/home";
+  switch (item.targetKind) {
+    case "post":
+      return postPath(item.targetId);
+    case "group":
+      return groupPath(item.targetId);
+    case "outreach":
+      return OFFERS_PATH;
+    case "professional":
+      return professionalPagePath(item.targetId);
+    default:
+      return userProfilePath(item.targetId);
+  }
 }
 
 // FR-NOTIF-002: the settings section.
@@ -77,6 +100,9 @@ export const CATEGORY_LABELS = {
   shares: "שיתוף של פוסט שלי",
   friend_posts: "פוסטים חדשים של חברים שבחרתי",
   groups: "קבוצות: המלצות, הזמנות, בקשות ופעילות בקבוצות",
+  offers: "הצעות עזרה שאושרו או נדחו",
+  reviews: "ביקורות חדשות על הפרופיל המקצועי",
+  followers: "סיכום שבועי של עוקבים חדשים",
 } as const;
 export const FRIENDS_FOLLOW_TITLE = "פוסטים חדשים של חברים";
 export const FRIENDS_FOLLOW_HINT =

@@ -5,7 +5,8 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { APP, pathOf } from './app-helpers';
 import { DESKTOP_1280, EMAIL, main } from './support/journeys-stub';
-import { CONV, DANA, OFFER, POST, setupProfessionals } from './support/professionals-stub';
+import { CONV, DANA, OFFER, POST, PID, setupProfessionals, ARTICLE } from './support/professionals-stub';
+import { choose, sendButton, sheet } from './support/report-ui';
 
 test.use({ baseURL: APP, viewport: DESKTOP_1280 });
 
@@ -69,7 +70,17 @@ test.describe('[I11 FR-PRO-001 AC-018 FR-SERV-005] the Professional home', () =>
     await signIn(page);
     await page.goto('/home');
     await expect(main(page).getByRole('heading', { level: 1, name: 'לוח הבקרה' })).toBeVisible();
-    await expect(main(page).getByText('עוקבים')).toBeVisible();
+    // Afik 21.10.2026 (§9.8): waiting for you → help requests with today's count → metrics → completeness → content results → promotion
+    const headings = await main(page).getByRole('heading', { level: 2 }).allTextContents();
+    expect(headings).toEqual(['מחכה לך', 'פוסטים שמבקשים עזרה', 'הנתונים שלך', 'השלמת הפרופיל', 'תוצאות התוכן', 'קידום']);
+    const waiting = main(page).getByRole('list', { name: 'מחכה לך' });
+    await expect(waiting.getByRole('link', { name: '2 שיחות עם הודעות שלא נקראו' })).toBeVisible();
+    await expect(waiting.getByRole('link', { name: 'הצעת עזרה אחת אושרה' })).toHaveAttribute('href', '/offers');
+    await expect(main(page).getByText('הצעות עזרה היום: 0 מתוך 10')).toBeVisible();
+    await expect(main(page).getByText('75% (3/4)')).toBeVisible();
+    await expect(main(page).getByRole('progressbar', { name: 'השלמת הפרופיל' })).toHaveAttribute('aria-valuenow', '75');
+    await expect(main(page).getByText('חסר: שם העסק, על השירות')).toBeVisible();
+    await expect(main(page).getByText('קידום בתשלום עדיין לא זמין', { exact: false })).toBeVisible();
     const help = main(page).getByRole('list', { name: 'פוסטים שמבקשים עזרה' });
     await expect(help).toContainText('פוסט אנונימי');
     await help.getByRole('button', { name: 'הצעת עזרה' }).click();
@@ -150,6 +161,10 @@ test.describe('[I11 FR-REG-001 FR-PROREG-001 FR-PROREG-002] a Professional regis
     await page.getByLabel('שנות ניסיון', { exact: true }).fill('9');
     await page.getByLabel('אזור', { exact: false }).selectOption('tel_aviv');
     await page.getByRole('button', { name: 'המשך' }).click();
+    // Afik 21.10.2026: the qualification declaration is required
+    await expect(page.getByText('יש לאשר את ההצהרה כדי להמשיך')).toBeVisible();
+    await page.getByRole('checkbox', { name: 'הצהרה: יש לי ההכשרה והרישיון הנדרשים בתחום שבחרתי' }).check();
+    await page.getByRole('button', { name: 'המשך' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'פרטי התחברות' })).toBeVisible();
     await page.getByRole('textbox', { name: 'אימייל', exact: true }).fill('pro@example.com');
     await page.getByLabel('סיסמה', { exact: true }).fill('correct horse 42');
@@ -167,6 +182,76 @@ test.describe('[I11 FR-REG-001 FR-PROREG-001 FR-PROREG-002] a Professional regis
       about: null,
       priceFrom: null,
       consent: true,
+      qualification: true,
     });
+  });
+});
+
+test.describe('[I11 follow-ups PG-039 FR-FOLLOW-001] the Professionals I follow', () => {
+  test('the side menu leads to the list; "הפסקת מעקב" removes a Professional', async ({ page }) => {
+    const net = await setupProfessionals(page, { following: true });
+    await signIn(page);
+    await page.getByRole('button', { name: 'פתיחת התפריט' }).click();
+    await page.getByRole('link', { name: 'בעלי מקצוע במעקב' }).click();
+    await expect.poll(() => pathOf(page)).toBe('/following');
+    const list = main(page).getByRole('list', { name: 'בעלי מקצוע במעקב' });
+    await expect(list.getByRole('link', { name: 'דנה דולה' })).toHaveAttribute('href', `/pros/${DANA}`);
+    await list.getByRole('button', { name: 'הפסקת מעקב אחרי דנה דולה' }).click();
+    await expect(main(page).getByText('המעקב אחרי דנה דולה הופסק.')).toBeVisible();
+    await expect(main(page).getByText('עדיין אין בעלי מקצוע במעקב', { exact: false })).toBeVisible();
+    expect(net.sent).toContainEqual(expect.objectContaining({ method: 'DELETE', path: `/api/professionals/${DANA}/follow` }));
+  });
+});
+
+test.describe('[I11 follow-ups FR-MOD-001 FR-SERV-011 FR-PRO-003] reporting a review and an article', () => {
+  test('each review and another Professional\'s article has a report action', async ({ page }) => {
+    const net = await setupProfessionals(page);
+    await signIn(page);
+    await page.goto(`/pros/${DANA}`);
+    await main(page).getByRole('button', { name: /^דיווח על הביקורת: ליווי מדהים/ }).click();
+    await page.getByRole('menuitem', { name: 'דיווח על הביקורת' }).click();
+    const box = sheet(page, 'review');
+    await expect(box).toBeVisible();
+    await choose(box, 1);
+    await sendButton(box).click();
+    await expect(box).toHaveCount(0);
+    await expect(main(page).getByText('הדיווח נשלח. הצוות יבדוק אותו')).toBeVisible();
+    expect(net.sent).toContainEqual({ method: 'POST', path: '/api/reports', query: '', body: { targetKind: 'review', targetId: PID(50), reason: 'harassment' } });
+    await main(page).getByRole('button', { name: /^דיווח על המאמר: שלושה דברים/ }).click();
+    await page.getByRole('menuitem', { name: 'דיווח על המאמר' }).click();
+    const articleBox = sheet(page, 'article');
+    await choose(articleBox, 4);
+    await sendButton(articleBox).click();
+    await expect(articleBox).toHaveCount(0);
+    expect(net.sent).toContainEqual({ method: 'POST', path: '/api/reports', query: '', body: { targetKind: 'article', targetId: ARTICLE, reason: 'medical_misinformation' } });
+  });
+});
+
+test.describe('[I11 follow-ups FR-SERV-005] a Professional\'s navigation and help requests', () => {
+  test('the bottom navigation leads to the help requests; the menu has the business items and no Friends', async ({ page }) => {
+    const net = await setupProfessionals(page, { kind: 'professional' });
+    await signIn(page);
+    const nav = page.getByRole('navigation', { name: 'ניווט ראשי' });
+    expect(await nav.getByRole('link').allTextContents()).toEqual(['בית', 'פיד', 'בקשות עזרה', 'פרופיל']);
+    await nav.getByRole('link', { name: 'בקשות עזרה' }).click();
+    await expect.poll(() => pathOf(page)).toBe('/help-requests');
+    await expect(main(page).getByRole('heading', { level: 1, name: 'בקשות עזרה' })).toBeVisible();
+    await expect(main(page).getByText('הצעות עזרה היום: 0 מתוך 10')).toBeVisible();
+    const help = main(page).getByRole('list', { name: 'פוסטים שמבקשים עזרה' });
+    await help.getByRole('button', { name: 'הצעת עזרה' }).click();
+    await help.getByLabel('ההודעה הראשונה', { exact: true }).fill('אשמח לעזור');
+    await help.getByRole('button', { name: 'שליחת ההצעה' }).click();
+    await expect(help).toContainText('נשלחה הצעה');
+    expect(net.sent).toContainEqual(expect.objectContaining({ method: 'POST', path: `/api/posts/${POST}/offer-help` }));
+
+    await page.getByRole('button', { name: 'פתיחת התפריט' }).click();
+    const drawer = page.getByRole('dialog', { name: 'תפריט' });
+    await expect(drawer.getByRole('link', { name: 'חברים', exact: true })).toHaveCount(0);
+    for (const item of ['הפרופיל המקצועי שלי', 'המאמרים שלי', 'ההצעות שלי', 'קידום ותוצאות', 'חיוב ותשלומים', 'בעלי מקצוע במעקב', 'בעלי מקצוע']) {
+      await expect(drawer.getByRole('link', { name: item, exact: true })).toBeVisible();
+    }
+    await drawer.getByRole('link', { name: 'קידום ותוצאות', exact: true }).click();
+    await expect.poll(() => pathOf(page)).toBe('/pro/promotion');
+    await expect(main(page).getByText('קידום בתשלום עדיין לא זמין', { exact: false })).toBeVisible();
   });
 });
