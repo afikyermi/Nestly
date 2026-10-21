@@ -65,3 +65,17 @@ test('[PG-034 PG-035 FR-GRP-001 FR-GRP-002 AC-036] a Group page: discover, Join 
   await main(page).getByRole('tab', { name: 'על הקבוצה' }).click();
   await expect(main(page).getByText('נעים ומכבד')).toBeVisible();
 });
+
+test('[BR-081 FR-GRP-001] a staff account reviews the Groups read-only: the review note, "discover" open, no create, join or request', async ({ page }) => {
+  await setupGroups(page);
+  await page.route('**/api/admin/access', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ staff: true, role: 'moderator', permissions: ['REPORTS_VIEW'] }) }),
+  );
+  await signIn(page);
+  await page.goto('/groups');
+  await expect(main(page).getByText(/צפייה לבדיקה בלבד/)).toBeVisible();
+  await expect(main(page).getByRole('tab', { name: 'גילוי קבוצות' })).toHaveAttribute('aria-selected', 'true');
+  await expect(main(page).getByRole('link', { name: WALKS.name })).toBeVisible();
+  await expect(main(page).getByRole('button', { name: 'יצירת קבוצה' })).toHaveCount(0);
+  await expect(main(page).getByRole('button', { name: /^(הצטרפות|בקשת הצטרפות)$/ })).toHaveCount(0);
+});

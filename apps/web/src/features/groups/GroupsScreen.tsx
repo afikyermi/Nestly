@@ -58,7 +58,11 @@ type ListState = { phase: 'loading' } | { phase: 'failed' } | { phase: 'ready'; 
 // state). "יצירת קבוצה" opens the form in place (PG-043); the new Group's page opens when it is made. The server decides everything.
 export function GroupsScreen() {
   const call = useGroupsCall();
-  const reviewing = useStaffAccess().kind === 'staff';
+  // I14 completion (§9.7): a staff account reviews the Groups read-only — no create, join, request or invitation answer; it is a member of
+  // nothing, so it opens on "discover". Until the access answer comes no action is offered (the database refuses staff writes either way).
+  const access = useStaffAccess().kind;
+  const reviewing = access === 'staff';
+  const actionsShown = access === 'none';
   const navigate = useNavigate();
   const ids = useId();
   const [scope, setScope] = useState<Scope>('mine');
@@ -82,6 +86,10 @@ export function GroupsScreen() {
     },
     [call],
   );
+
+  useEffect(() => {
+    if (reviewing) setScope('discover');
+  }, [reviewing]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(scope, scope === 'discover' ? query : ''), scope === 'discover' && query !== '' ? 300 : 0);
@@ -172,13 +180,13 @@ export function GroupsScreen() {
       </p>
       {reviewing ? (
         <p className="rounded-md bg-muted p-3 text-small">{STAFF_REVIEW_NOTE}</p>
-      ) : (
+      ) : actionsShown ? (
         <div>
           <Button onClick={() => setCreating(true)}>{CREATE_LABEL}</Button>
         </div>
-      )}
+      ) : null}
       {pageAlert !== '' ? <InlineAlert>{pageAlert}</InlineAlert> : null}
-      {invitations.length > 0 ? (
+      {actionsShown && invitations.length > 0 ? (
         <section aria-labelledby={`${ids}-invitations`} className="rounded-lg bg-card p-4 shadow-card">
           <h2 id={`${ids}-invitations`} className="text-h3">
             {INVITATIONS_TITLE}
@@ -237,7 +245,7 @@ export function GroupsScreen() {
           <ul className="flex flex-col gap-3" aria-label={scope === 'mine' ? MY_GROUPS_TAB : DISCOVER_TAB}>
             {list.groups.map((group) => (
               <li key={group.id}>
-                <GroupCard group={group} busy={busyId === group.id} onAct={() => void act(group)} />
+                <GroupCard group={group} actionsShown={actionsShown} busy={busyId === group.id} onAct={() => void act(group)} />
               </li>
             ))}
           </ul>
@@ -270,17 +278,17 @@ function checkValues(values: { name: string; description: string; rules: string;
 
 interface GroupCardProps {
   group: GroupSummary;
+  /** False for a staff account (and until the access answer comes): the card offers no action. */
+  actionsShown: boolean;
   busy: boolean;
   onAct: () => void;
 }
 
 // One Group in a list: its name (the link to its page), Public or Private, the member count when the caller may count them, the
 // description's start, and one action by the caller's relation.
-function GroupCard({ group, busy, onAct }: GroupCardProps) {
-  // I14 completion (§9.7): a staff account reviews the Groups: no join or request (it is a member of nothing)
-  const reviewing = useStaffAccess().kind === 'staff';
+function GroupCard({ group, actionsShown, busy, onAct }: GroupCardProps) {
   const action =
-    reviewing || group.state === 'member' ? null : group.state === 'blocked' ? null : group.state === 'requested' ? CANCEL_REQUEST_LABEL : group.privacy === 'public' ? JOIN_LABEL : REQUEST_LABEL;
+    !actionsShown || group.state === 'member' ? null : group.state === 'blocked' ? null : group.state === 'requested' ? CANCEL_REQUEST_LABEL : group.privacy === 'public' ? JOIN_LABEL : REQUEST_LABEL;
   return (
     <article className="flex flex-col gap-2 rounded-lg bg-card p-4 shadow-card">
       <Link to={groupPath(group.id)} className="text-h3 text-foreground no-underline hover:underline">
