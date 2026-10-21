@@ -106,7 +106,7 @@ describe('[FR-MOD-002 FR-MOD-003] bad input is 400 before any database work', ()
     expect(jsonOf(res.body)).toEqual({ error: 'invalid' });
     expect(stub.attempts()).toBe(0);
   });
-  it.each(['/api/admin/audit?before=yesterday', '/api/admin/audit?limit=5', `/api/admin/reports/listing/${ID}`, '/api/admin/reports/post/nope', '/api/admin/users/nope', '/api/admin/users?q=', '/api/admin/users'])(
+  it.each(['/api/admin/audit?before=yesterday', '/api/admin/audit?limit=5', `/api/admin/reports/sponsored/${ID}`, '/api/admin/reports/post/nope', '/api/admin/users/nope', '/api/admin/users?q=', '/api/admin/users'])(
     'GET %s -> 400 invalid',
     T,
     async (url) => {

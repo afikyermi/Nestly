@@ -24,6 +24,7 @@ import { inIdentityTransaction, type IdentityTx } from '../db/identity-transacti
 import { readDatabaseFault } from '../lib/pg-error.js';
 import type { Identity } from '../lib/token-verifier.js';
 import { isPrivateGroupTarget, openPrivateGroupContent } from '../repositories/private-group-views-repository.js';
+import { readListing, readListingImages, setListingHidden } from '../repositories/marketplace-repository.js';
 import {
   closeReports,
   hasOpenReports,
@@ -77,6 +78,14 @@ function databaseRefusal(error: unknown): Refusal | undefined {
 /** A write that touched no row: the target is there but the policies refused the move (403), or there is nothing open to act on (404). */
 async function missingOrRefused(tx: IdentityTx, kind: ReportTargetKind, targetId: string): Promise<Refusal> {
   return (await hasOpenReports(tx, kind, targetId)) ? { kind: 'forbidden' } : { kind: 'not_found' };
+}
+
+/** A reported listing as staff read it now: its title and price, its state (hidden, sold, expired or live) and its owner. */
+async function readListingContent(tx: IdentityTx, id: string): Promise<{ text: string; status: string; isAnonymous: boolean; authorId: string } | undefined> {
+  const row = await readListing(tx, id);
+  if (row === undefined) return undefined;
+  const status = row.isHidden ? 'hidden' : row.status === 'sold' ? 'sold' : row.isExpired ? 'expired' : 'active';
+  return { text: row.title, status, isAnonymous: false, authorId: row.sellerId };
 }
 
 async function guarded<T>(work: () => Promise<Outcome<T>>): Promise<Outcome<T>> {
@@ -138,8 +147,13 @@ export async function readReportDetail(
     // I10 (NFR-PRIV-002): Private Group content is read only after an audited opening, asked for by the staff member.
     const privateGroup = (kind === 'post' || kind === 'comment') && (await isPrivateGroupTarget(tx, kind, targetId));
     if (privateGroup && openPrivate && (kind === 'post' || kind === 'comment')) await openPrivateGroupContent(tx, kind, targetId);
-    const content = kind === 'user' || kind === 'message' ? undefined : await readContent(tx, kind, targetId);
+    // I12 (Afik 21.10.2026): a reported listing as it is now (its title at the report is each report's copied text), and its owner's card
+    const content =
+      kind === 'listing' ? await readListingContent(tx, targetId) : kind === 'user' || kind === 'message' ? undefined : await readContent(tx, kind, targetId);
     if (kind === 'post' && content !== undefined) imageRows = await readPostImageRows(tx, storage, [targetId]);
+    if (kind === 'listing' && content !== undefined && storage !== undefined) {
+      imageRows = (await readListingImages(tx, [targetId])).map((row) => ({ ...row, postId: row.ownerKey }));
+    }
     // The account an enforcement would act on: the reported account, or the named author of the content (an anonymous author is revealed
     // by its own audited call, never here). Needs USER_VIEW; without it the screen shows no account.
     const userId = kind === 'user' ? targetId : (content?.authorId ?? undefined);
@@ -167,10 +181,20 @@ export async function readReportDetail(
 export async function handleReports(database: Database, identity: Identity, request: HandleReportsRequest): Promise<Outcome<{ closed: number }>> {
   return guarded(() =>
     inIdentityTransaction(database, identity, async (tx) => {
-      const gate = await require_(tx, 'REPORTS_VIEW', ...(request.moderation === undefined ? [] : (['CONTENT_MODERATE'] as const)));
+      // I12: a listing is moderated with MARKETPLACE_MODERATE (hidden or restored; "removed" hides it too), a post or comment with CONTENT_MODERATE
+      const moveKey = request.targetKind === 'listing' ? ('MARKETPLACE_MODERATE' as const) : ('CONTENT_MODERATE' as const);
+      const gate = await require_(tx, 'REPORTS_VIEW', ...(request.moderation === undefined ? [] : [moveKey]));
       if (refused(gate)) return gate;
-      if (request.moderation !== undefined) {
-        if (request.targetKind === 'user' || request.targetKind === 'message') return { kind: 'invalid' };
+      if (request.moderation !== undefined && request.targetKind === 'listing') {
+        await setAuditReason(tx, request.moderation.reason);
+        const hidden = request.moderation.status !== 'active';
+        const listing = await readListing(tx, request.targetId);
+        // already as asked: nothing to move, the reports still close; otherwise the move must take
+        if (listing === undefined || (listing.isHidden !== hidden && (await setListingHidden(tx, request.targetId, hidden)) === 0)) {
+          return missingOrRefused(tx, request.targetKind, request.targetId);
+        }
+      } else if (request.moderation !== undefined) {
+        if (request.targetKind === 'user' || request.targetKind === 'message' || request.targetKind === 'listing') return { kind: 'invalid' };
         await setAuditReason(tx, request.moderation.reason);
         // I10: moderating Private Group content opens it first (audited); without PRIVATE_GROUP_MODERATE nothing moves (ERR-024)
         const kind = request.targetKind;

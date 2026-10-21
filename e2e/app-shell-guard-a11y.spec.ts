@@ -166,8 +166,8 @@ test.describe('titles and focus', () => {
     page,
   }) => {
     await open(page, '/feed', 'signed-in');
-    const names = await tabNames(page, 9); // I11: "יועצים" joined the nav before "פרופיל"
-    const i = [MENU_BUTTON, 'בית', 'פיד', 'פרופיל'].map((n) => names.indexOf(n));
+    const names = await tabNames(page, 10); // I11: "יועצים" joined the nav before "פרופיל"; I12: "חנות" after "בית"
+    const i = [MENU_BUTTON, 'בית', 'חנות', 'פיד', 'פרופיל'].map((n) => names.indexOf(n));
     expect(
       i.every((x) => x >= 0),
       `reached: ${names.join(' | ')}`,

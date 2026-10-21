@@ -20,6 +20,9 @@ import {
   DETAIL_TITLE,
   DISMISS_LABEL,
   HIDE_LABEL,
+  HIDE_LISTING_LABEL,
+  LISTING_COPIED_LABEL,
+  RESTORE_LISTING_LABEL,
   KIND_LABELS,
   MESSAGE_HEADING,
   MESSAGE_PRIVATE_NOTE,
@@ -67,12 +70,15 @@ export function ReportDetailPanel({ detail, permissions, revealed, message = nul
   const [note, setNote] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
   const isMessage = detail.targetKind === 'message';
-  const canModerate = permissions.includes('CONTENT_MODERATE') && detail.targetKind !== 'user' && !isMessage;
+  // I12: a listing is moderated with MARKETPLACE_MODERATE: hidden or brought back (its owner deletes it; staff never remove it)
+  const isListing = detail.targetKind === 'listing';
+  const moveKey = isListing ? 'MARKETPLACE_MODERATE' : 'CONTENT_MODERATE';
+  const canModerate = permissions.includes(moveKey) && detail.targetKind !== 'user' && !isMessage;
   const canClose =
     permissions.includes('REPORTS_VIEW') &&
     (detail.targetKind === 'user' || isMessage
       ? permissions.some((key) => key === 'USER_WARN' || key === 'USER_SUSPEND' || key === 'USER_BAN')
-      : permissions.includes('CONTENT_MODERATE'));
+      : permissions.includes(moveKey));
   const content = detail.content;
   const moved = content !== null && (content.status === 'hidden' || content.status === 'removed');
 
@@ -155,7 +161,7 @@ export function ReportDetailPanel({ detail, permissions, revealed, message = nul
               {report.details === null ? null : <p dir="auto">{report.details}</p>}
               {report.copiedText === null ? null : (
                 <p className="text-muted-foreground" dir="auto">
-                  {COPIED_TEXT_LABEL}: {report.copiedText}
+                  {isListing ? LISTING_COPIED_LABEL : COPIED_TEXT_LABEL}: {report.copiedText}
                 </p>
               )}
             </li>
@@ -191,16 +197,18 @@ export function ReportDetailPanel({ detail, permissions, revealed, message = nul
               {isOpen && !moved ? (
                 <>
                   <Button pending={pending} onClick={() => withReason('hide')}>
-                    {HIDE_LABEL}
+                    {isListing ? HIDE_LISTING_LABEL : HIDE_LABEL}
                   </Button>
-                  <Button pending={pending} onClick={() => withReason('remove')}>
-                    {REMOVE_LABEL}
-                  </Button>
+                  {isListing ? null : (
+                    <Button pending={pending} onClick={() => withReason('remove')}>
+                      {REMOVE_LABEL}
+                    </Button>
+                  )}
                 </>
               ) : null}
               {moved ? (
                 <Button variant="soft" pending={pending} onClick={() => withReason('restore')}>
-                  {RESTORE_LABEL}
+                  {isListing ? RESTORE_LISTING_LABEL : RESTORE_LABEL}
                 </Button>
               ) : null}
             </div>

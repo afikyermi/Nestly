@@ -5,7 +5,7 @@
 
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
-import type { MediaKind, MediaState, StoryAudience } from '@nestly/shared';
+import { MEDIA_KINDS, type MediaKind, type MediaState, type StoryAudience } from '@nestly/shared';
 import type { IdentityTx } from '../db/identity-transaction.js';
 
 const STATUSES = ['pending', 'passed', 'queued', 'approved', 'rejected'] as const;
@@ -172,7 +172,7 @@ export async function countOwnStoriesToday(tx: IdentityTx): Promise<number> {
 
 const queueRow = z.object({
   id: z.guid(),
-  kind: z.enum(['post', 'profile', 'story']),
+  kind: z.enum(MEDIA_KINDS),
   queueReason: z.enum(['blocked', 'unsure', 'error']),
   scores: z.record(z.string(), z.number()).nullable(),
   isChild: z.boolean(),

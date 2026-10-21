@@ -15,7 +15,6 @@ import {
   NAV,
   PROTECTED_ROUTES,
   WELCOME_H1,
-  bodyText,
   drive,
   inDomOrder,
   markerAlive,
@@ -87,7 +86,7 @@ test.describe('AppShell: TopBar', () => {
 });
 
 test.describe('AppShell: bottom navigation', () => {
-  test('[F1.2 c16][AC-005] a nav "ניווט ראשי" holds exactly four links in DOM order: בית /home, פיד /feed, יועצים /services (I11), פרופיל /profile; no חנות', async ({
+  test('[F1.2 c16][AC-005] a nav "ניווט ראשי" holds exactly five links in DOM order: בית /home, חנות /marketplace (I12), פיד /feed, יועצים /services (I11), פרופיל /profile', async ({
     page,
   }) => {
     await open(page, '/feed', 'signed-in');
@@ -99,16 +98,15 @@ test.describe('AppShell: bottom navigation', () => {
       );
     expect(links).toEqual([
       { name: 'בית', href: '/home' },
+      { name: 'חנות', href: '/marketplace' }, // I12: the Marketplace (FR-MKT-001, §7.1)
       { name: 'פיד', href: '/feed' },
       { name: 'יועצים', href: '/services' }, // I11: the Professionals' directory (FR-SERV-001)
       { name: 'פרופיל', href: '/profile' },
     ]);
     await expect(navOf(page).locator('button, [role="button"]')).toHaveCount(0);
-    const text = await bodyText(page);
-    expect(text).not.toContain('חנות');
   });
 
-  test('[F1.2 c16][AC-005] each nav link carries its own decorative icon (four different icons)', async ({ page }) => {
+  test('[F1.2 c16][AC-005] each nav link carries its own decorative icon (five different icons)', async ({ page }) => {
     await open(page, '/feed', 'signed-in');
     const icons = await navOf(page)
       .getByRole('link')
@@ -118,9 +116,9 @@ test.describe('AppShell: bottom navigation', () => {
           return svg === null ? null : { hidden: svg.getAttribute('aria-hidden'), markup: svg.innerHTML };
         }),
       );
-    expect(icons).toHaveLength(4);
+    expect(icons).toHaveLength(5);
     for (const icon of icons) expect(icon?.hidden).toBe('true');
-    expect(new Set(icons.map((i) => i?.markup)).size, 'home, nest, spark and person icons differ').toBe(4);
+    expect(new Set(icons.map((i) => i?.markup)).size, 'home, bag, nest, spark and person icons differ').toBe(5);
   });
 
   test('[F1.2 c16][AC-005] it is a bar at the bottom at 375', async ({ page }) => {

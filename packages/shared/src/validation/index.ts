@@ -27,3 +27,4 @@ export * from './guides.js';
 export * from './team.js';
 export * from './professionals.js';
 export * from './groups.js';
+export * from './marketplace.js';

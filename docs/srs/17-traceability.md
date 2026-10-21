@@ -14,7 +14,7 @@
 | PG-057 | מסך בקשות העזרה / הצעת עזרה (ניווט Professional) | FR-SERV-005 / FR-SERV-008 | UC-25 | Post (מבקש עזרה), ProfessionalOutreachRequest; AC-148 |
 | PG-041/042 | מסך הקידום המקצועי / מסך חיובים וקידומים (עד I13: "עוד לא זמין") | FR-PRO-002 / FR-SERV-010 | UC-42 | — |
 | PG-009 | מעקב בעמוד הבית | FR-HOME-001..004, FR-ALG-004 | UC-05/06 | JourneyContext, Child, TrackerEvent, CycleEntry, Article |
-| PG-010/019 | ניהול ה-Marketplace / קידום מודעת Marketplace / מסך פריט Marketplace / מנוע ההמלצות מבוסס הכללים | FR-MKT-001..005 / FR-ALG-006/007 | UC-07/39 | MarketplaceListing, SponsoredProduct, Promotion, MediaAsset, PromotionPerformanceEvent, ContentImpression, AnalyticsEvent |
+| PG-010/019 | ניהול ה-Marketplace (רשימה, "המודעות שלי", מודעה חדשה ועריכה) / קידום מודעת Marketplace / מסך פריט Marketplace (פנייה בצ'אט, דיווח) / מנוע ההמלצות מבוסס הכללים | FR-MKT-001..005 / FR-ALG-006/007/008 / FR-CHAT-002 / FR-MOD-001 | UC-07/39 | MarketplaceListing, SponsoredProduct, Promotion, MediaAsset, Conversation (Marketplace), Report, IntentSignal, PromotionPerformanceEvent, ContentImpression, AnalyticsEvent |
 | PG-011/013 | מדריך נותני השירות / מסך פרופיל מקצועי / מנוע ההמלצות מבוסס הכללים / ביקורות על בעל מקצוע / מאמרים מקצועיים | FR-SERV-001..003 / FR-SERV-011 / FR-PRO-003 / FR-ALG-005 | UC-08/38 | ProfessionalProfile, ServiceCategory, PersonalizationProfile, AnalyticsEvent, ProfessionalReview, ProfessionalArticle |
 | PG-014/015/016 | ניהול השיחות / פנייה יזומה של בעל מקצוע | FR-SERV-004..010 / FR-CHAT-001..004 | UC-09/25/30/31 | Conversation, Message, RegularChatRequest, ProfessionalOutreachRequest, Friendship, MarketplaceListing, ChatBlock, SupportRequest, Report (דיווח על הודעה, FR-MOD-001) |
 | PG-012 | מסך פרופיל משתמש / עריכת פרופיל / ניהול מסלולי המסע / פעולת דיווח | FR-PROFILE-001/002 / FR-PRIV-001 / FR-REL-001 / FR-MOD-001 | UC-10/20/26 | User, RegularProfile, Child, JourneyContext, PrivacyPreference, Friendship, ProfileOpenCount, SecurityConfiguration, SecurityEvent, Report |
@@ -46,7 +46,7 @@
 | PG-040 | ~~מסך סטטוס האימות המקצועי / אימות מקצועי~~ — **בוטל** (OP-005 נסגר, 18.10.2026) | FR-PROREG-003 (בוטל) | — | — |
 | PG-041/042 | קידום מקצועי / מסך הקידום המקצועי / מסך תוצאות הקידום / מסך חיובים וקידומים | FR-SERV-010 / FR-PRO-002 / FR-ALG-007 | UC-34/42 | Promotion, ProfessionalPromotionMetric, PromotionPerformanceEvent, AnalyticsAggregate |
 | PG-043 | מסך יצירת קבוצה / ניהול הקבוצות | FR-GRP-004 | UC-32 | Group, Membership, GroupRoleAssignment |
-| PG-044 | מסך מוצרים ממומנים / ניהול מוצרים ממומנים | FR-ADMIN-009 / FR-MKT-003/005 | UC-35 | SponsoredProduct, MediaAsset, AuditLogEntry |
+| PG-044 | מסך מוצרים ממומנים / ניהול מוצרים ממומנים · מודעות Marketplace לצוות (הסתרה והחזרה, MARKETPLACE_MODERATE) | FR-ADMIN-009 / FR-MKT-001/003/005 / FR-MOD-003 | UC-35 | SponsoredProduct, MarketplaceListing, MediaAsset, Report, AuditLogEntry |
 | PG-045 | מסך מוזמני הבטא / גישה לבטא | FR-ADMIN-011 | — | BetaInvite, AuditLogEntry |
 | PG-046 | מסך ניהול מדריכים / ניהול מדריכים | FR-ADMIN-012 / FR-HOME-004 | — | Article, AuditLogEntry |
 | PG-047 | מסך מוקדי רפואה | FR-MENU-001/002 | — | — |
