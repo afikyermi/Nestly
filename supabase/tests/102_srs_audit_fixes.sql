@@ -164,7 +164,7 @@ select is(pg_temp.q('a', format($q$ select (coalesce(string_agg(row_to_json(n)::
                                      from nestly.notifications n where n.type = 'child_birthday' $q$, pg_temp.born(3, 0), pg_temp.born(1, 6))),
   'false', '[audit-fix FR-PRIV-001 Afik 21.10 night] what the Friend reads names no child, no sex and no birth date');
 select is(
-  (select pg_catalog.pg_get_function_result(p.oid) ~* 'name|sex|birth'
+  (select pg_catalog.replace(pg_catalog.pg_get_function_result(p.oid), 'full_name text', '') ~* 'name|sex|birth'
      from pg_catalog.pg_proc p where p.proname = 'profile_view' and p.pronamespace = 'nestly'::regnamespace),
   false, '[audit-fix FR-PRIV-001 BR-044] the profile returns no child''s name, sex or birth date to anyone (only full_name, the parent''s)');
 select is(pg_temp.q('a', format($q$ select string_agg(v.outcome || '/' || v.relationship || '/' || (row_to_json(v)::text ~ 'Noa')::text, ',')
