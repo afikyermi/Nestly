@@ -36,7 +36,7 @@
 |---|---|
 | סטטוס | מאושר — חובה ל-v1 |
 | Actor | Professional User / System |
-| תיאור | Professional Feed מותאם לתחום מקצועי, Groups, Professionals במעקב, Search/Consumption ו-Content Quality; אין שימוש ב-Child/Journey/Tracker Data של חשבון אחר או של Professional. **פיד הקהילה (החלטת אפיק מ-19.10.2026):** Professional קורא את פיד הקהילה בפרופיל דירוג של תוכן בלבד — אותו מאגר שרואה Regular שאינו Friend, בלי רכיב Friend ובלי רכיב Stage, ובלי קריאה של מסלולים או ילדים (AC-061); תחום מקצועי, Groups ו-Follows משתלבים בדירוג כמתואר לעיל. |
+| תיאור | Professional Feed מותאם לתחום מקצועי, Groups, Professionals במעקב, Search/Consumption ו-Content Quality; אין שימוש ב-Child/Journey/Tracker Data של חשבון אחר או של Professional. **פיד הקהילה (החלטת אפיק מ-19.10.2026):** Professional קורא את פיד הקהילה בפרופיל דירוג של תוכן בלבד — אותו מאגר שרואה Regular שאינו Friend, בלי רכיב Friend ובלי רכיב Stage, ובלי קריאה של מסלולים או ילדים (AC-061); תחום מקצועי, Groups ו-Follows משתלבים בדירוג כמתואר לעיל. ב-v1 פוסט של בעל מקצוע שה-Professional עוקב אחריו מקבל את משקל רכיב ה-Friend (Professional אין לו Friends). |
 | תנאים מוקדמים | Professional User מחובר. |
 | קלט / Trigger | Profession/Service Categories, Followed Professionals, Group Membership, Searches, content interactions, quality/freshness, negative feedback. |
 | תהליך מערכת | Eligibility → Candidate Generation של Posts/Questions/Professional/Group/Business-relevant units → Ranking/Re-ranking. Sponsored מוצג רק אם relevant ומסומן. |
@@ -67,7 +67,7 @@
 | תיאור | דירוג אורגני של Professional ייקבע לפי התאמת שירות/Query/Intent, Location אם אושרה, איכות/Helpful Activity, Ratings, Profile completeness, Freshness ו-Negative Feedback. אין אות אימות — האימות המקצועי הוסר (OP-005 נסגר, 18.10.2026). |
 | תנאים מוקדמים | Professional פעיל וזמין להצגה; המשתמש נמצא ב-Services/Recommendation context. |
 | קלט / Trigger | ServiceCategory, Search/Intent, location (עיר או אזור מרשימה, §12), professional quality/activity signals, user feedback. |
-| תהליך מערכת | Eligibility → Relevance score → Quality/reliability signals → Re-ranking. Paid Promotion אינו חלק מה-Organic score. |
+| תהליך מערכת | Eligibility → Relevance score → Quality/reliability signals → Re-ranking. Paid Promotion אינו חלק מה-Organic score. ב-v1 הסדר "הכי מתאימים" במדריך נותני השירות: התאמת נושאי החיפוש של המשתמש (Intent Signal, FR-ALG-008) לתחום ולתיאור, הדירוג הממוצע, שלמות הפרופיל (אזור, מחיר, שם עסק, תיאור) ועדכניותו. |
 | פלט | Professional results/recommendations אורגניים מדורגים. |
 | מצב לאחר ביצוע | Profile view/follow/chat-start נרשמים למדידה; זהות המחפש אינה נחשפת ב-Professional Analytics. |
 | בעל אחריות לוגי (Page / Feature) | מדריך נותני השירות / מנוע ההמלצות מבוסס הכללים |
