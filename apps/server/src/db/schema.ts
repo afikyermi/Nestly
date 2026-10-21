@@ -367,6 +367,8 @@ export const posts = nestly.table('posts', {
 /** INSERT target only. Names the columns F3.1 and F3.4 insert, all granted INSERT to authenticated; the author is the caller's, set by the database. */
 export const postsInsert = nestly.table('posts', {
   isAnonymous: boolean('is_anonymous').notNull().default(false),
+  /** I10: the Group, insert-only (members only: posts_group_insert). */
+  groupId: uuid('group_id'),
   audience: text('audience', { enum: POST_AUDIENCES }).notNull(),
   body: text('body'),
   stageTag: text('stage_tag', { enum: JOURNEY_STAGES }),

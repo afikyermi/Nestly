@@ -17,6 +17,8 @@ export const notificationItem = z.strictObject({
   actorName: z.string().nullable(),
   targetKind: z.enum(NOTIFICATION_TARGET_KINDS),
   targetId: z.guid(),
+  /** I10: the Group's name when the target is a Group the caller can read (else null). */
+  targetName: z.string().nullable().optional(),
   createdAt: z.iso.datetime(),
   isRead: z.boolean(),
 });
