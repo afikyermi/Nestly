@@ -32,7 +32,7 @@ select is(
     where n.nspname = 'nestly' and c.relname in ('comments', 'posts', 'reaction_owners', 'reactions', 'reports')
       and pol.polname !~ '_notify$'
       and pol.polroles <> array[(select oid from pg_catalog.pg_roles where rolname = 'authenticated')]::oid[]),
-  'comments.comments_delete_jobs, comments.comments_select_jobs, posts.posts_delete_jobs, posts.posts_select_jobs, reports.reports_select_jobs, reports.reports_select_reveal, reports.reports_update_jobs',
+  'comments.comments_delete_jobs, comments.comments_select_jobs, posts.posts_delete_jobs, posts.posts_select_jobs, posts.posts_select_reveal, reports.reports_select_jobs, reports.reports_select_reveal, reports.reports_update_jobs',
   '[F3.0-b c14 platform r6 · I4] the only policies not TO authenticated are the six TO app_jobs of the purge (the approved exception) and the TO app_owner read of reveal_post_author (approved by Afik 20.10.2026); the *_notify policies TO app_owner of the notification definers are file 90''s');
 
 select is(
@@ -46,8 +46,9 @@ select is(
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and not pol.polpermissive and pol.polname !~ '_block_hide$' and pol.polname !~ '_group_(hide|insert)$'),
-  0::bigint, '[F3.0-b c1 · I4 blocking · I10] no restrictive policy hides an unreviewed branch (the reviewed block policies, file 91, and I10''s group policies, file 96, excepted)');
+    where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and not pol.polpermissive and pol.polname !~ '_block_hide$' and pol.polname !~ '_group_(hide|insert)$'
+      and pol.polname <> 'reports_insert_community'),
+  0::bigint, '[F3.0-b c1 · I4 blocking · I10 · I14c] no restrictive policy hides an unreviewed branch (the reviewed block policies, file 91, I10''s group policies, file 96, and the I14 completion''s reports_insert_community, staff file no report, file 100, excepted)');
 
 select is(
   (select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
@@ -241,7 +242,7 @@ select is(
 select is(
   (select count(*) from pg_catalog.pg_constraint con join pg_catalog.pg_class c on c.oid = con.conrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = 'reports' and con.contype = 'f' and con.confdeltype = 'n'),
-  7::bigint, '[F3.0-b c14 c15 · I8 · I12 · I11 follow-ups] the seven target columns of a report (I8 adds message_id, I12 listing_id, the I11 follow-ups review_id and article_id) are SET NULL: a report outlives its content');
+  8::bigint, '[F3.0-b c14 c15 · I8 · I12 · I11 follow-ups · I14c] the seven target columns of a report (I8 adds message_id, I12 listing_id, the I11 follow-ups review_id and article_id) and the I14 completion''s thread_post_id (a comment''s post, file 100) are SET NULL: a report outlives its content');
 
 -- ---- c12 c15 c16: who may depend on whom -----------------------------------------------------------------------------------------
 select is(
@@ -251,7 +252,7 @@ select is(
        join pg_catalog.pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'nestly' and c.relname = 'reports'
         and pg_describe_object(dep.classid, dep.objid, dep.objsubid) !~ 'reports'
-        and pg_describe_object(dep.classid, dep.objid, dep.objsubid) !~ '(_staff on table|user_enforcements)'
+        and pg_describe_object(dep.classid, dep.objid, dep.objsubid) !~ '(_staff on table|_staff_context on table|user_enforcements|report_escalations|report_openings)'
         and dep.deptype <> 'i') x),
   'constraint private_group_content_views_report_id_fkey on table nestly.private_group_content_views ; constraint reported_message_views_report_id_fkey on table nestly.reported_message_views ; policy marketplace_listings_select_viewer on table nestly.marketplace_listings ; policy posts_select_viewer on table nestly.posts',
   '[F3.0-b c16 7א · I4 · I12] only posts_select_viewer and marketplace_listings_select_viewer (a reported post or listing is hidden from its reporter; and the staff policies and the enforcement link, file 90; I8''s audited staff view of a reported message, file 94; I10''s audited staff view of reported Private Group content, file 96) depends on reports besides the table''s own objects: no other policy, function or view, never a ranking input');
@@ -259,10 +260,10 @@ select is(
 select is(
   (select coalesce(string_agg(c.relname || '.' || pol.polname, ', ' order by c.relname, pol.polname), '(none)')
      from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'nestly' and c.relname <> 'reports' and pol.polname !~ '_staff$'
+    where n.nspname = 'nestly' and c.relname not in ('reports', 'report_escalations', 'report_openings') and pol.polname !~ '_staff(_context)?$'
       and (coalesce(pg_catalog.pg_get_expr(pol.polqual, pol.polrelid), '') || coalesce(pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid), '')) ~ '\mreports\M'),
   'marketplace_listings.marketplace_listings_select_viewer, posts.posts_select_viewer',
-  '[F3.0-b c16 Afik 18.10] no policy of comments, users or any other table reads reports: a reported comment or user is hidden from nobody (a listing, like a post, is hidden from its reporter, I12)');
+  '[F3.0-b c16 Afik 18.10 · I14c] no policy of comments, users or any other table reads reports: a reported comment or user is hidden from nobody (a listing, like a post, is hidden from its reporter, I12; the staff policies, the I14 completion''s report context for REPORTS_VIEW and its escalations and openings only open rows to staff, file 100)');
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace

@@ -130,6 +130,8 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
                                           where group_id in (select group_id from nestly.group_members where user_id = ${id} and role = 'owner'))
                        or listing_id in (select id from nestly.marketplace_listings where owner_id = ${id})`
         ).count;
+        // I14 completion: report_escalations and report_openings are staff rows (a test user is never staff); they go with these reports
+        // by cascade. reports.thread_post_id of another user's report on this user's post goes SET NULL with the post.
         counts['reactions'] = (
           await tx`delete from nestly.reactions where id in (select reaction_id from nestly.reaction_owners where user_id = ${id})`
         ).count;

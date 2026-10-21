@@ -50,7 +50,8 @@ set search_path = ''
 as $$
   select f from unnest(array['nestly.profile_view(text)', 'nestly.audit_trigger()', 'nestly.reveal_post_author(uuid)',
     'nestly.notify_friendship()', 'nestly.notify_comment()', 'nestly.notify_post()',
-    'nestly.search_people(text,integer,integer)', 'nestly.notify_group()', 'nestly.notify_professional()']::text[]) as f
+    'nestly.search_people(text,integer,integer)', 'nestly.notify_group()', 'nestly.notify_professional()',
+    'nestly.child_tracker_trends(text,text,text,integer)']::text[]) as f
 $$;
 
 create or replace function tests.rls_gate(p_schema name default 'nestly')
