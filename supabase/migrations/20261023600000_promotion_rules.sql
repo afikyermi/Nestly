@@ -480,7 +480,7 @@ alter table nestly.promotion_monthly_summaries enable row level security, force 
 revoke all on table nestly.promotion_monthly_summaries from public, anon, authenticated;
 grant select (promotion_id, target_kind, professional_field, month, impressions, clicks, follows, chat_starts)
   on table nestly.promotion_monthly_summaries to authenticated;
-grant select, insert, update on table nestly.promotion_monthly_summaries to app_jobs;
+grant select, insert on table nestly.promotion_monthly_summaries to app_jobs;
 grant select (id, promotion_id, kind, occurred_on, times), delete on table nestly.promotion_events to app_jobs;
 grant select (id, target_kind, payment_id) on table nestly.promotions to app_jobs;
 grant select (id, professional_field) on table nestly.promotion_payments to app_jobs;
@@ -498,8 +498,6 @@ create policy promotion_monthly_summaries_select_jobs on nestly.promotion_monthl
   for select to app_jobs using (true);
 create policy promotion_monthly_summaries_insert_jobs on nestly.promotion_monthly_summaries
   for insert to app_jobs with check (true);
-create policy promotion_monthly_summaries_update_jobs on nestly.promotion_monthly_summaries
-  for update to app_jobs using (true) with check (true);
 
 -- The job reads every paid event (to sum it), every promotion's kind and payment, and every payment's field; it deletes paid events
 -- older than 12 months only.
@@ -998,9 +996,8 @@ comment on constraint promotion_monthly_summaries_once_key on nestly.promotion_m
 comment on index nestly.promotion_monthly_summaries_month_idx is 'Summaries by month (the Admin view).';
 comment on policy promotion_monthly_summaries_select_owner on nestly.promotion_monthly_summaries is 'The promotion''s owner reads its months.';
 comment on policy promotion_monthly_summaries_select_finance on nestly.promotion_monthly_summaries is 'BILLING_FINANCE_MANAGE (Admin Only) reads every summary.';
-comment on policy promotion_monthly_summaries_select_jobs on nestly.promotion_monthly_summaries is '§11.4: the retention job reads the summaries it overwrites.';
+comment on policy promotion_monthly_summaries_select_jobs on nestly.promotion_monthly_summaries is '§11.4: the retention job reads which months are summed already.';
 comment on policy promotion_monthly_summaries_insert_jobs on nestly.promotion_monthly_summaries is '§11.4: the retention job writes a month''s summary.';
-comment on policy promotion_monthly_summaries_update_jobs on nestly.promotion_monthly_summaries is '§11.4: the retention job may correct a month''s summary (not used by purge_promotion_data, which writes a month once).';
 comment on policy promotion_events_select_jobs on nestly.promotion_events is '§11.4: the retention job reads every paid event to sum it (viewer_id not granted).';
 comment on policy promotion_events_delete_jobs on nestly.promotion_events is '§11.4: the retention job deletes paid events of the months more than 12 months back.';
 comment on function nestly.purge_promotion_data() is '§11.4: sums every completed month of paid events not yet summed into promotion_monthly_summaries (a rerun changes nothing), then deletes paid events and professional views of the months more than 12 months back; returns the number deleted. SECURITY INVOKER, EXECUTE app_jobs only; run by the daily retention job (I9).';
