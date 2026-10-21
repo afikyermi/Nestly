@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { APP, MENU_BUTTON, open } from './app-helpers';
+import { APP, MENU_BUTTON, open, stubAccountKind } from './app-helpers';
 import { DESKTOP, MOBILE, openStory } from './helpers';
 import { SCREENS } from './visual-screens';
 import type { Screen } from './visual-screens';
@@ -23,6 +23,9 @@ test.use({ reducedMotion: 'reduce' });
 async function show(page: Page, screen: Screen): Promise<void> {
   if (screen.kind === 'story') await openStory(page, screen.id);
   else {
+    // the screens are a Regular account's: Settings and the menu draw by account kind (SRS audit 21.10.2026), and with no answer
+    // Settings shows its load failure instead of guessing
+    await stubAccountKind(page, 'regular');
     await open(page, screen.route, screen.state);
     if (screen.openMenu === true) await page.getByRole('button', { name: MENU_BUTTON }).click();
   }
