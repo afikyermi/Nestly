@@ -2,7 +2,7 @@
 import { expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 
-export const TITLE = { post: 'דיווח על פוסט', comment: 'דיווח על תגובה', user: 'דיווח על פרופיל' } as const;
+export const TITLE = { post: 'דיווח על פוסט', comment: 'דיווח על תגובה', user: 'דיווח על פרופיל', message: 'דיווח על הודעה' } as const;
 export type Kind = keyof typeof TITLE;
 /** FR-MOD-001 / AC-106 order; the keys are child_safety, harassment, sexual_violent_hateful, personal_information, medical_misinformation, impersonation, spam, other. */
 export const REASONS = [

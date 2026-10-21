@@ -6,14 +6,14 @@
 
 | שדה | הגדרה |
 |---|---|
-| סטטוס | מאושר |
+| סטטוס | מאושר; אישורי קריאה — החלטת אפיק מ-20.10.2026 |
 | Actor | Regular User / Professional User |
 | תיאור | אייקון Chat ב-Top Bar יציג Unread Badge. לחיצה תפתח Dropdown של השיחות האחרונות עם תצוגה מקדימה של שיחה וקישור “כל ההודעות” למסך השיחות מלא. |
 | תנאים מוקדמים | משתמש Regular או Professional מחובר. |
 | קלט / Trigger | לחיצה על Chat / שיחה / View All. |
 | תהליך מערכת | המערכת טוענת Recent Conversations, הודעה אחרונה, זמן ו-unread state. לחיצה על שיחה פותחת Conversation. Message Requests מ-Offer Help יוצגו באזור בקשות בתוך Chat ולא כ-Notification כפולה. |
 | פלט | Chat Dropdown / מסך השיחות / Conversation. |
-| מצב לאחר ביצוע | סימון הודעה כנקראה מעדכן Unread count. |
+| מצב לאחר ביצוע | סימון הודעה כנקראה מעדכן Unread count. אין אישורי קריאה (Read Receipts): הצד השני אינו יודע אם ומתי ההודעה נקראה (החלטת אפיק מ-20.10.2026). Admin ו-Moderator אינם רואים את ה-Chat ואת ה-Badge (BR-034). |
 | בעל אחריות לוגי (Page / Feature) | ניהול השיחות / מסך השיחות / תצוגה מקדימה של שיחה |
 
 ## FR-CHAT-002 — כללי פתיחת שיחה
@@ -25,7 +25,7 @@
 | תיאור | Chat הוא מנגנון הודעות אחד המשרת מספר הקשרים, אך פתיחת Conversation חדשה תלויה ביחסים ובהקשר. |
 | תנאים מוקדמים | משתמש מחובר. פתיחת/שליחת הודעה כפופה ל-Chat Block ולהקשר. |
 | קלט / Trigger | פעולת Message/Chat בהקשר מורשה. |
-| תהליך מערכת | Regular↔Regular: Friendship פעילה פותחת Chat ישיר. ללא Friendship וללא Conversation קיימת, ההודעה הראשונה יוצרת Regular Chat Request הדורשת Accept/Decline; רק Accept פותח Chat מלא. Conversation שכבר נפתחה ממשיכה גם לאחר Remove Friend. Regular→Professional: פתיחה ישירה לפי FR-SERV-004. Professional→Regular: רק לאחר Accept של Offer Help, למעט Marketplace Listing פעיל שבו מותר Marketplace Chat ישיר. Marketplace: כל משתמש קהילה מחובר יכול לפנות לבעל Listing פעיל שאינו עצמו. Professional→Professional אינו נפתח אוטומטית מכוח Follow. |
+| תהליך מערכת | Regular↔Regular: Friendship פעילה פותחת Chat ישיר. ללא Friendship וללא Conversation קיימת, ההודעה הראשונה יוצרת Regular Chat Request הדורשת Accept/Decline; רק Accept פותח Chat מלא. Conversation שכבר נפתחה ממשיכה גם לאחר Remove Friend. Regular→Professional: פתיחה ישירה לפי FR-SERV-004. Professional→Regular: רק לאחר Accept של Offer Help, למעט Marketplace Listing פעיל שבו מותר Marketplace Chat ישיר. Marketplace: כל משתמש קהילה מחובר יכול לפנות לבעל Listing פעיל שאינו עצמו. Professional→Professional אינו נפתח אוטומטית מכוח Follow. כל עוד Chat Block קיים בין השניים, באחד הכיוונים, אף צד אינו יכול לשלוח הודעה, ובשיחה מוצג "לא ניתן לשלוח הודעות בשיחה הזו" (החלטת אפיק מ-20.10.2026). |
 | פלט | Conversation קיימת נפתחת או נוצרת בהתאם לכלל. |
 | מצב לאחר ביצוע | Conversation פתוחה, Regular Chat Request ממתינה להחלטה, או הפעולה נדחית לפי ההקשר. Chat Block משפיע על Messaging בלבד. |
 | בעל אחריות לוגי (Page / Feature) | ניהול השיחות |
@@ -39,7 +39,7 @@
 | תיאור | Regular User יכול לשלוח הודעת פתיחה ל-Regular User שאינו Friend. היא מוצגת כ-Regular Chat Request; הנמען יכול Accept או Decline. רק Accept פותח Conversation מלאה. |
 | תנאים מוקדמים | שני הצדדים Regular Users פעילים; אין Conversation פתוחה; אין Chat Block שמונע שליחה. |
 | קלט / Trigger | שליחת הודעה ראשונה ל-non-Friend. |
-| תהליך מערכת | יצירת RegularChatRequest עם openingMessage ו-Pending. Accept יוצר/פותח Conversation; Decline סוגר את הבקשה ואינו פותח Chat. |
+| תהליך מערכת | יצירת RegularChatRequest עם openingMessage ו-Pending. Accept יוצר/פותח Conversation; Decline סוגר את הבקשה ואינו פותח Chat. הסירוב חל רק על הבקשה הזו ואינו חסימה: השולח יכול לשלוח בקשה חדשה מאוחר יותר, במסגרת המגבלה של 20 בקשות חדשות לחשבון ב-24 שעות. מי שרוצה לעצור פנייה מאדם מסוים חוסם אותו (FR-REL-002) (החלטת אפיק מ-20.10.2026). בין שני חשבונות יש לכל היותר בקשה אחת שממתינה או שאושרה. |
 | פלט | Message Request ב-Chat Center או Conversation לאחר Accept. |
 | מצב לאחר ביצוע | ללא Accept אין Chat מלא. Friendship אינה תנאי לעצם האפשרות לבקש שיחה. |
 | בעל אחריות לוגי (Page / Feature) | ניהול השיחות / פריט בקשת שיחה / מסך השיחות |

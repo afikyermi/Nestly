@@ -13,6 +13,8 @@ import { registerFriendsRoutes } from './routes/friends.js';
 import { registerLikesRoutes } from './routes/likes.js';
 import { registerPostHidesRoutes } from './routes/post-hides.js';
 import { registerBlocksRoutes } from './routes/blocks.js';
+import { registerChatRoutes } from './routes/chat.js';
+import { registerSupportRoutes } from './routes/support.js';
 import { registerReportsRoutes } from './routes/reports.js';
 import { registerNotificationsRoutes } from './routes/notifications.js';
 import { registerSearchRoute } from './routes/search.js';
@@ -150,6 +152,8 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerNotificationsRoutes(app, { database });
   registerSearchRoute(app, { database });
   registerBlocksRoutes(app, { database });
+  registerChatRoutes(app, { database });
+  registerSupportRoutes(app, { database });
   registerAdminReadRoutes(app, { database, storage: media.storage });
   registerAdminActionRoutes(app, { database });
   registerTeamRoutes(app, { database });

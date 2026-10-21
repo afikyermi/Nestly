@@ -15,8 +15,9 @@ export async function insertReport(tx: IdentityTx, report: ReportWrite): Promise
   const postId = report.targetKind === 'post' ? target : null;
   const commentId = report.targetKind === 'comment' ? target : null;
   const userId = report.targetKind === 'user' ? target : null;
+  const messageId = report.targetKind === 'message' ? target : null;
   await tx.execute(
-    sql`insert into nestly.reports (target_kind, post_id, comment_id, reported_user_id, reason, details)
-        values (${report.targetKind}, ${postId}::uuid, ${commentId}::uuid, ${userId}::uuid, ${report.reason}, ${report.details})`,
+    sql`insert into nestly.reports (target_kind, post_id, comment_id, reported_user_id, message_id, reason, details)
+        values (${report.targetKind}, ${postId}::uuid, ${commentId}::uuid, ${userId}::uuid, ${messageId}::uuid, ${report.reason}, ${report.details})`,
   );
 }
