@@ -90,7 +90,7 @@ select is((select string_agg(p.polname || ':' || pg_catalog.array_to_string(arra
   'children_select_child_data:app_owner, tracker_events_select_child_data:app_owner, users_select_child_data:app_owner',
   '[F14.2-a c1 §9.2] the tracker, children and account-status reads exist only for the owner role');
 select is((select count(*) from pg_catalog.pg_policy p where p.polname like '%\_select\_child\_data'
-             and pg_catalog.pg_get_expr(p.polqual, p.polrelid) ~ 'child_data_scope' and pg_catalog.pg_get_expr(p.polqual, p.polrelid) ~ 'CHILD_DATA_VIEW'), 3::bigint,
+             and pg_catalog.pg_get_expr(p.polqual, p.polrelid) ~ 'child_data_scope' and pg_catalog.pg_get_expr(p.polqual, p.polrelid) ~ 'trend_scopes' and pg_catalog.pg_get_expr(p.polqual, p.polrelid) ~ 'CHILD_DATA_VIEW'), 3::bigint,
   '[F14.2-a c1 §9.2] each opens only while the scope is named, and only for a caller holding CHILD_DATA_VIEW');
 
 -- ---- c2: the invitation lasts 48 hours and its use is recorded (FR-ADMIN-004, §9.1) --------------------------------------------
@@ -164,6 +164,25 @@ end
 $f$;
 select is(pg_temp.scoped('m4', 'nestly.tracker_events') || '/' || pg_temp.scoped('m4', 'nestly.children') || '/' || pg_temp.scoped('d', 'nestly.tracker_events'), '0/0/0',
   '[F14.2-a c4 §9.2] naming the scope opens nothing to a runtime role: only the function reads rows');
+select is(has_any_column_privilege('authenticated', pg_temp.toid('trend_scopes'), 'SELECT,INSERT,UPDATE') or has_any_column_privilege('anon', pg_temp.toid('trend_scopes'), 'SELECT,INSERT,UPDATE'),
+  false, '[F14.2-a c4 §9.2] no runtime role reads or writes the call scopes: a caller cannot make a nonce the policies would accept');
+select is(tests.fx_sw_count('nestly.trend_scopes'), 0::bigint, '[F14.2-a c4 §9.2] each call deletes its scope again: none is left open in the transaction');
+select is(pg_temp.trends('m4', 'bottle', 'amount_ml', 'child_sex') = 'girl=10:125.00:false boy=-:-:true unknown=-:-:true', true,
+  '[F14.2-a c4] control: a scope the caller set beforehand changes nothing for the function');
+-- the bypass attempt: a CHILD_DATA_VIEW holder names a scope (a guess, and 'on') and reaches another definer that reads children
+create function pg_temp.scoped_view(p_who text, p_scope text, p_target uuid) returns text language plpgsql as $f$
+declare v text;
+begin
+  perform set_config('nestly.child_data_scope', p_scope, true);
+  v := pg_temp.q(p_who, format($q$ select coalesce(string_agg(outcome || ':' || coalesce(children_count::text, '-'), ','), 'none') from nestly.profile_view(%L) $q$, p_target));
+  perform set_config('nestly.child_data_scope', '', true);
+  return v;
+end
+$f$;
+select is(pg_temp.scoped_view('m4', 'on', tests.fx_sw_id('sw_p20')) = pg_temp.scoped_view('m4', '', tests.fx_sw_id('sw_p20')), true,
+  '[F14.2-a c4 §9.2] another definer reads the same with or without a scope the caller named (the child-data reads stay closed to it)');
+select is(pg_temp.scoped_view('m4', gen_random_uuid()::text, tests.fx_sw_id('sw_p20')) = pg_temp.scoped_view('m4', '', tests.fx_sw_id('sw_p20')), true,
+  '[F14.2-a c4 §9.2] and a guessed nonce changes nothing either');
 select is(pg_temp.q('u1', 'select count(*)::text from nestly.tracker_events'), '3', '[F14.2-a c4] control: the parent still reads their own events');
 
 -- ---- c5: the report's context (§9.7) ---------------------------------------------------------------------------------------------
@@ -200,8 +219,7 @@ select is(pg_temp.staff('m2', format($q$ select count(*)::text from nestly.posts
   '[F14.2-a c6 BR-040] before the audited opening, staff read nothing of the Group');
 select is(pg_temp.staff('m2', format($q$ select user_id::text from nestly.reveal_post_author(%L) $q$, pg_temp.g('anon'))), pg_temp.id('b')::text,
   '[F14.2-a c6 §9.4 AC-077] a Moderator with PRIVATE_GROUP_MODERATE (and REPORTS_VIEW, CONTENT_MODERATE) reveals it while the report is open');
-select is(tests.fx_sw_audit_row('author_revealed'), 'PRIVATE_GROUP_MODERATE|post|' || pg_temp.g('anon')::text || '|-', '[F14.2-a c6 BR-062] recorded under PRIVATE_GROUP_MODERATE');
-select is(tests.fx_sw_audit_after('author_revealed') ->> 'privateGroup', 'true', '[F14.2-a c6] and marked as Private Group content');
+select is(tests.fx_sw_count(format($q$nestly.audit_log where action = 'author_revealed' and target_id = %L and permission_key = 'PRIVATE_GROUP_MODERATE' and after_state ->> 'privateGroup' = 'true'$q$, pg_temp.g('anon'))) > 0, true, '[F14.2-a c6 BR-062] recorded under PRIVATE_GROUP_MODERATE, marked as Private Group content');
 select is(pg_temp.staff('d', format($q$ select user_id::text from nestly.reveal_post_author(%L) $q$, pg_temp.g('anon'))), pg_temp.id('b')::text,
   '[F14.2-a c6 §9.4] the Admin too');
 select is(pg_temp.staff_dml('m2', format($q$ insert into nestly.private_group_content_views (report_id) values (%L) $q$, pg_temp.g('rpg'))), 'OK:1',
@@ -223,6 +241,23 @@ select is(pg_temp.staff('m5', format($q$ select user_id::text from nestly.reveal
   '[F14.2-a c6 §9.4 BR-040] the content is Private Group content now: without PRIVATE_GROUP_MODERATE no reveal');
 select is(pg_temp.staff('m2', format($q$ select user_id::text from nestly.reveal_post_author(%L) $q$, pg_temp.g('anon2'))), pg_temp.id('e')::text,
   '[F14.2-a c6 §9.4] with it, the reveal works');
+-- AC-077 regression guard: outside a Private Group, REPORTS_VIEW + CONTENT_MODERATE reveals, audited under CONTENT_MODERATE
+select set_config('t.anon3', pg_temp.q('a', $$ insert into nestly.posts (audience, body, is_anonymous) values ('everyone', 'anonymous, no group', true) returning id::text $$), true);
+select ok(tests.fx_rp_add(pg_temp.id('b'), 'post', pg_temp.g('anon3')) is not null, '[F14.2-a c6] control: B reports an anonymous post outside any Group');
+select is(pg_temp.staff('m5', format($q$ select user_id::text from nestly.reveal_post_author(%L) $q$, pg_temp.g('anon3'))), pg_temp.id('a')::text,
+  '[F14.2-a c6 AC-077] a Moderator with REPORTS_VIEW and CONTENT_MODERATE reveals an anonymous author outside any Group');
+select is(tests.fx_sw_count(format($q$nestly.audit_log where action = 'author_revealed' and target_id = %L and permission_key = 'CONTENT_MODERATE' and after_state ->> 'privateGroup' = 'false'$q$, pg_temp.g('anon3'))) > 0, true, '[F14.2-a c6 AC-077] recorded under CONTENT_MODERATE, not as Private Group content');
+select set_config('t.pub3', pg_temp.q('p', $$ insert into nestly.groups (name, description, privacy) values ('Open evenings', 'about us', 'public') returning id::text $$), true);
+select is(pg_temp.dml('e', format($q$ insert into nestly.group_members (group_id) values (%L) $q$, pg_temp.g('pub3'))), 'OK:1', '[F14.2-a c6] control: E joins a Public Group');
+select set_config('t.anon4', pg_temp.q('e', format($q$ insert into nestly.posts (audience, body, group_id, is_anonymous) values ('everyone', 'anonymous, public group', %L, true) returning id::text $q$,
+  pg_temp.g('pub3'))), true);
+select ok(tests.fx_rp_add(pg_temp.id('p'), 'post', pg_temp.g('anon4')) is not null, '[F14.2-a c6] control: the Owner reports it');
+select is(pg_temp.staff('m5', format($q$ select user_id::text from nestly.reveal_post_author(%L) $q$, pg_temp.g('anon4'))), pg_temp.id('e')::text,
+  '[F14.2-a c6 AC-077] and in a Public Group');
+select is(tests.fx_sw_count(format($q$nestly.audit_log where action = 'author_revealed' and target_id = %L and permission_key = 'CONTENT_MODERATE' and after_state ->> 'privateGroup' = 'false'$q$, pg_temp.g('anon4'))) > 0, true, '[F14.2-a c6 AC-077] recorded under CONTENT_MODERATE');
+select is(pg_temp.staff('d', format($q$ select user_id::text from nestly.reveal_post_author(%L) $q$, pg_temp.g('anon3'))), pg_temp.id('a')::text,
+  '[F14.2-a c6] the Admin too');
+select is(tests.fx_sw_count(format($q$nestly.audit_log where action = 'author_revealed' and target_id = %L and permission_key = 'CONTENT_MODERATE'$q$, pg_temp.g('anon3'))), 2::bigint, '[F14.2-a c6] audited as not Private Group content (both reveals of it)');
 
 -- every staff decision on an image feeds the training set, Private Groups included (§9.7; never after a child-safety report)
 select set_config('t.gp', pg_temp.q('b', format($q$ insert into nestly.posts (audience, body, group_id) values ('everyone', 'with a photo', %L) returning id::text $q$,
@@ -276,9 +311,9 @@ select is(tests.fx_sf_audit('report_escalated'), 0::bigint, '[F14.2-a c8] (nothi
 select is(pg_temp.esc('m1', 'rc'), 'OK:1', '[F14.2-a c8 §9.9] a Moderator with REPORTS_VIEW escalates an open report to the Admin, with a note');
 select is(tests.fx_sw_audit_row('report_escalated'), 'REPORTS_VIEW|report|' || pg_temp.g('rc')::text || '|נדרשת החלטה של המנהל',
   '[F14.2-a c8 BR-026] the escalation is in the Audit Log, its note as the reason');
-select is(pg_temp.esc('m3', 'rc'), 'ERR:23505', '[F14.2-a c8] once per report');
-select is(pg_temp.staff('d', format($q$ select note from nestly.report_escalations where report_id = %L $q$, pg_temp.g('rc'))), 'נדרשת החלטה של המנהל',
-  '[F14.2-a c8 §9.10] the Admin reads it');
+select is(pg_temp.esc('m3', 'rc', 'עוד הערה'), 'OK:1', '[F14.2-a c8 §9.9] an open report may be escalated again, with its own note');
+select is(pg_temp.staff('d', format($q$ select string_agg(note, ' | ' order by note) from nestly.report_escalations where report_id = %L $q$, pg_temp.g('rc'))), 'נדרשת החלטה של המנהל | עוד הערה',
+  '[F14.2-a c8 §9.10] the Admin reads both');
 select is(pg_temp.q('a', 'select count(*)::text from nestly.report_escalations'), '0', '[F14.2-a c8] a parent reads none');
 select is(pg_temp.dml('m1', format($q$ insert into nestly.report_escalations (report_id, note, escalated_by) values (%L, 'abc', %L) $q$, pg_temp.g('rpa'), pg_temp.id('m3'))), 'ERR:42501',
   '[F14.2-a c8 rule 12] the escalating Moderator is the database''s');

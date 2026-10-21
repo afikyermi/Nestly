@@ -104,13 +104,13 @@ select is((select string_agg(c.relname || '.' || pl.polname || ':' || pl.polcmd:
   || 'group_notification_preferences.group_notification_preferences_insert_own:a, group_notification_preferences.group_notification_preferences_select_notify:r, '
   || 'group_notification_preferences.group_notification_preferences_select_own:r, group_notification_preferences.group_notification_preferences_update_own:w, '
   || 'group_suggestions.group_suggestions_insert_sender:a, group_suggestions.group_suggestions_select_party:r, '
-  || 'groups.groups_insert_creator:a, groups.groups_select_active:r, groups.groups_update_manager:w, '
+  || 'groups.groups_insert_creator:a, groups.groups_select_active:r, groups.groups_select_reveal:r, groups.groups_update_manager:w, '
   || 'private_group_content_views.private_group_content_views_insert_staff:a, private_group_content_views.private_group_content_views_select_own:r',
   '[I10 c1] the policies of the group tables, exactly (no client delete of a request, invitation or recommendation; no write on the configuration)');
 select is((select count(*) from pg_policy pl join pg_class c on c.oid = pl.polrelid
-            where c.relnamespace = 'nestly'::regnamespace and c.relname like 'group%' and pl.polname !~ '_notify$'
+            where c.relnamespace = 'nestly'::regnamespace and c.relname like 'group%' and pl.polname !~ '_notify$' and pl.polname <> 'groups_select_reveal'
               and pl.polroles <> array[(select oid from pg_roles where rolname = 'authenticated')]::oid[]), 0::bigint,
-  '[I10 c1 r4] every group policy but the two *_select_notify (TO app_owner, notify_group) is TO authenticated');
+  '[I10 c1 r4 · F14.2-a] every group policy but the two *_select_notify (TO app_owner, notify_group) and the reveal''s groups_select_reveal (TO app_owner, file 100) is TO authenticated');
 select is((select string_agg(p.proname || ':' || p.prosecdef::text, ', ' order by p.proname) from pg_proc p
             where p.pronamespace = 'nestly'::regnamespace and p.proname in ('notify_group', 'my_group_rank', 'group_role_rank', 'group_members_guard')),
   'group_members_guard:false, group_role_rank:false, my_group_rank:false, notify_group:true', '[I10 c1 r10] notify_group is the one new SECURITY DEFINER; the helpers are invoker');
