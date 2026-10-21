@@ -13,7 +13,7 @@
 --                         of children and one average); a cell of fewer than 10 children is suppressed (no number at all); never a row, an id,
 --                         a name, a birth date, a medicine's or vaccine's name or a note. Every call appends child_data_queried to the Audit Log
 --                         in the same call. It reads tracker_events and children through two TO app_owner policies opened only while it has set
---                         nestly.child_data_scope (no runtime role is a member of app_owner).
+--                         nestly.child_data_scope naming a random nonce it writes to trend_scopes for its own transaction (a caller who sets the setting opens nothing).
 -- reveal_post_author()    replaced: on Private Group content the reveal also needs PRIVATE_GROUP_MODERATE (§9.4, gap 3; BR-040), and the entry
 --                         says so. Everything else as in 20261020300000.
 -- reports                 gain thread_post_id: for a comment report, the comment's post (set at report time by the reporter's own read).
@@ -22,7 +22,7 @@
 --                         inside its own transaction only (posts_group_hide and comments_group_hide altered).
 --                         A staff account files no report (reports_insert_community, RESTRICTIVE): staff act, they do not report (§9.7: a
 --                         Moderator never posts, comments or sends requests; every other social write already refuses a staff account).
--- report_escalations      "escalate to the Admin" with a note (§9.9): a Moderator with REPORTS_VIEW, once per open report; REPORTS_VIEW reads
+-- report_escalations      "escalate to the Admin" with a note (§9.9): a Moderator with REPORTS_VIEW, on an open report (again if needed, each with its note); REPORTS_VIEW reads
 --                         them; audited (report_escalated, the note as the reason). No UPDATE, no DELETE; they go with their report.
 -- group_staff_views       a staff review of a Private Group's page by PRIVATE_GROUP_MODERATE, audited (private_group_viewed); its content is readable
 --                         in that transaction only.
@@ -82,20 +82,54 @@ as $$
 $$;
 
 -- 3. Children's tracker data, as trends only (§9.2) ---------------------------------------------------------------------------------
--- The owner role reads tracker events, children and the parents' account status only while child_tracker_trends() has named its purpose
--- in this transaction (it sets the scope for its one aggregate statement and clears it), and only for a caller who holds CHILD_DATA_VIEW: a
--- caller who names the scope and then reaches another definer gains nothing without the key.
+-- The scope of one trends call: a random nonce child_tracker_trends() writes here for its own transaction, names in nestly.child_data_scope for
+-- its one aggregate statement, and deletes again. No runtime role reads or writes this table, so a caller who sets the setting itself (to any
+-- value) cannot match a row: only the function opens the reads below, and only while it runs.
+create table nestly.trend_scopes (
+  nonce uuid not null,
+  xact  xid8 not null default pg_catalog.pg_current_xact_id(),
+  constraint trend_scopes_pkey primary key (nonce)
+);
+
+alter table nestly.trend_scopes enable row level security, force row level security;
+
+create policy trend_scopes_insert_definer on nestly.trend_scopes
+  for insert to app_owner
+  with check (xact = pg_catalog.pg_current_xact_id() and (select nestly.has_permission('CHILD_DATA_VIEW')));
+
+create policy trend_scopes_select_definer on nestly.trend_scopes
+  for select to app_owner
+  using (xact = pg_catalog.pg_current_xact_id_if_assigned());
+
+create policy trend_scopes_delete_definer on nestly.trend_scopes
+  for delete to app_owner
+  using (xact = pg_catalog.pg_current_xact_id_if_assigned());
+
+revoke all on table nestly.trend_scopes from public, anon, authenticated;
+
+-- The owner role reads tracker events, children and the parents' account type and status only while child_tracker_trends() holds the scope
+-- (the setting names the nonce of a row of this transaction), and only for a caller who holds CHILD_DATA_VIEW.
 create policy tracker_events_select_child_data on nestly.tracker_events
   for select to app_owner
-  using (pg_catalog.current_setting('nestly.child_data_scope', true) = 'on' and (select nestly.has_permission('CHILD_DATA_VIEW')));
+  using ((select nestly.has_permission('CHILD_DATA_VIEW'))
+    and exists (select 1 from nestly.trend_scopes s
+                 where s.xact = pg_catalog.pg_current_xact_id_if_assigned()
+                   and s.nonce::text = pg_catalog.current_setting('nestly.child_data_scope', true)));
 
 create policy children_select_child_data on nestly.children
   for select to app_owner
-  using (pg_catalog.current_setting('nestly.child_data_scope', true) = 'on' and (select nestly.has_permission('CHILD_DATA_VIEW')));
+  using ((select nestly.has_permission('CHILD_DATA_VIEW'))
+    and exists (select 1 from nestly.trend_scopes s
+                 where s.xact = pg_catalog.pg_current_xact_id_if_assigned()
+                   and s.nonce::text = pg_catalog.current_setting('nestly.child_data_scope', true)));
 
+-- only Regular accounts (the parents), to count the children of the active ones
 create policy users_select_child_data on nestly.users
   for select to app_owner
-  using (pg_catalog.current_setting('nestly.child_data_scope', true) = 'on' and (select nestly.has_permission('CHILD_DATA_VIEW')));
+  using (account_type = 'regular' and (select nestly.has_permission('CHILD_DATA_VIEW'))
+    and exists (select 1 from nestly.trend_scopes s
+                 where s.xact = pg_catalog.pg_current_xact_id_if_assigned()
+                   and s.nonce::text = pg_catalog.current_setting('nestly.child_data_scope', true)));
 
 -- the trends read events of one kind over a period
 create index tracker_events_kind_occurred_at_idx on nestly.tracker_events (kind, occurred_at);
@@ -118,6 +152,7 @@ declare
   v_role text := nestly.caller_staff_role();
   v_min constant integer := 10;
   v_cells integer;
+  v_nonce uuid := pg_catalog.gen_random_uuid();
 begin
   if v_role is null or not nestly.has_permission('CHILD_DATA_VIEW') then
     raise exception 'child_tracker_trends: not allowed' using errcode = '42501';
@@ -132,7 +167,8 @@ begin
     raise exception 'child_tracker_trends: not a metric, field, dimension and period from the lists' using errcode = '22023';
   end if;
 
-  perform pg_catalog.set_config('nestly.child_data_scope', 'on', true);
+  insert into nestly.trend_scopes (nonce) values (v_nonce);
+  perform pg_catalog.set_config('nestly.child_data_scope', v_nonce::text, true);
   return query
   with ev as (
     select e.child_id, e.user_id, l.local::date as day, l.local, c.sex, c.birth_date, e.occurred_at,
@@ -202,6 +238,7 @@ begin
    order by b.ord;
   get diagnostics v_cells = row_count;
   perform pg_catalog.set_config('nestly.child_data_scope', '', true);
+  delete from nestly.trend_scopes where nonce = v_nonce;
 
   insert into nestly.audit_log (actor_role, permission_key, action, target_kind, after_state)
   values (v_role, 'CHILD_DATA_VIEW', 'child_data_queried', 'child_data',
@@ -214,6 +251,15 @@ revoke execute on function nestly.child_tracker_trends(text, text, text, integer
 grant execute on function nestly.child_tracker_trends(text, text, text, integer) to authenticated;
 
 -- 4. The audited reveal: on Private Group content also PRIVATE_GROUP_MODERATE (§9.4, BR-040) --------------------------------------
+-- The owner role reads the one post and the one Group reveal_post_author() names (its Group and privacy now), as post_authors_select_reveal.
+create policy posts_select_reveal on nestly.posts
+  for select to app_owner
+  using (id::text = pg_catalog.current_setting('nestly.reveal_post', true));
+
+create policy groups_select_reveal on nestly.groups
+  for select to app_owner
+  using (id::text = pg_catalog.current_setting('nestly.reveal_group', true));
+
 create or replace function nestly.reveal_post_author(p_post uuid)
 returns table (user_id uuid, full_name text)
 language plpgsql
@@ -226,6 +272,9 @@ declare
   v_name text;
   v_report uuid;
   v_private boolean;
+  v_seen boolean;
+  v_group uuid;
+  v_privacy text;
   v_role text := nestly.caller_staff_role();
 begin
   if v_role is null or not (nestly.has_permission('REPORTS_VIEW') and nestly.has_permission('CONTENT_MODERATE')) then
@@ -238,12 +287,19 @@ begin
     perform pg_catalog.set_config('nestly.reveal_post', '', true);
     raise exception 'reveal: no open report on this post' using errcode = '42501';
   end if;
-  -- Private Group content as the post is now, not only as it was reported: a post this caller cannot see as a non-group or Public Group
-  -- post (the RESTRICTIVE posts_group_hide hides a Private Group's post from the owner role as from the caller) counts as private.
+  -- Private Group content as the post is now, not only as it was reported: the post's Group read through posts_select_reveal and
+  -- groups_select_reveal (TO app_owner, the one post and the one Group this call names). A post the owner role still cannot read (the
+  -- RESTRICTIVE posts_group_hide hides a Private Group's post) or a Group that is not Public counts as private.
+  select true, p.group_id into v_seen, v_group from nestly.posts p where p.id = p_post;
+  if v_group is not null then
+    perform pg_catalog.set_config('nestly.reveal_group', v_group::text, true);
+    select g.privacy into v_privacy from nestly.groups g where g.id = v_group;
+    perform pg_catalog.set_config('nestly.reveal_group', '', true);
+  end if;
   v_private := coalesce(v_private, true)
     or exists (select 1 from nestly.reports r where r.post_id = p_post and r.status = 'open' and r.is_private_group)
-    or not exists (select 1 from nestly.posts p where p.id = p_post
-                     and (p.group_id is null or exists (select 1 from nestly.groups g where g.id = p.group_id and g.privacy = 'public')));
+    or v_seen is distinct from true
+    or (v_group is not null and v_privacy is distinct from 'public');
   if v_private and not nestly.has_permission('PRIVATE_GROUP_MODERATE') then
     perform pg_catalog.set_config('nestly.reveal_post', '', true);
     raise exception 'reveal: Private Group content needs PRIVATE_GROUP_MODERATE' using errcode = '42501';
@@ -407,13 +463,14 @@ create table nestly.report_escalations (
   note         text        not null,
   created_at   timestamptz not null default now(),
   constraint report_escalations_pkey primary key (id),
-  constraint report_escalations_report_id_key unique (report_id),
   constraint report_escalations_note_check check (char_length(note) <= 500 and char_length(btrim(note)) >= 2),
   constraint report_escalations_report_id_fkey foreign key (report_id) references nestly.reports (id) on delete cascade,
   constraint report_escalations_escalated_by_fkey foreign key (escalated_by) references nestly.users (id) on delete restrict
 );
 
 create index report_escalations_escalated_by_idx on nestly.report_escalations (escalated_by);
+-- an open report may be escalated again, each time with its own note (the newest one shows): no "once ever" rule (I14 completion review)
+create index report_escalations_report_id_idx on nestly.report_escalations (report_id, created_at desc);
 
 alter table nestly.report_escalations enable row level security, force row level security;
 
@@ -694,10 +751,18 @@ create trigger group_staff_views_audit
 comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement, an Admin''s creation, edit, publication or hiding of a status guide, a staff decision on an image or a suspicion marked on one, a Support request''s status change, a Support reply or internal note, a staff view of a reported chat message, a Moderator invitation issued or revoked, a Moderator joining with one (with the invitation''s id), a System Announcement created, edited, published or removed, a staff view of reported Private Group content, a Marketplace listing hidden or restored, a Sponsored Product created, edited, published, paused or removed, a reported review or article hidden, removed or restored, or a report escalated to the Admin: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason; the note of an escalation) and Before/After. A caller who is no staff member leaves none.';
 comment on function nestly.has_permission(text) is 'SECURITY INVOKER, caller only (rule 16): true for an active Admin on any known key (CHILD_DATA_VIEW included); for a Moderator only when the key is assigned and its companion key is too (SUPPORT_HANDLE needs SUPPORT_VIEW; USER_WARN, USER_SUSPEND and USER_BAN need USER_VIEW; PRIVATE_GROUP_MODERATE needs REPORTS_VIEW; CHILD_DATA_VIEW needs none and is not part of ANALYTICS_VIEW). Admin-only keys are never true for a Moderator. Deny by default.';
 comment on column nestly.moderator_invitations.expires_at is 'Forty-eight hours after issue (Afik 21.10.2026); an expired invitation cannot be redeemed.';
-comment on function nestly.child_tracker_trends(text, text, text, integer) is 'SECURITY DEFINER (approved exception, Afik 21.10.2026, decisions-in-force.md §9.2), owner app_owner, pinned search_path. Children''s tracker data as general trends only, for CHILD_DATA_VIEW (the Admin always; not part of ANALYTICS_VIEW) with a valid session: metric (a tracker kind) x field (events_per_day; duration_minutes for breastfeeding and sleep; amount_ml for bottle; weight_kg, height_cm, head_cm for growth) x dimension (child_age, child_sex, week, month) over the last 30, 90 or 365 days, each from a closed list (else 22023). One row per cell of a fixed bucket list: the number of children and one average (of each child''s own average), both NULL and is_suppressed unless the cell holds at least 10 children of at least 10 families (OP-052). Only children of active accounts count. Never a row, an id, a name, a birth date, a medicine''s or vaccine''s name or a note. Appends child_data_queried to the Audit Log in the same call. Reads through tracker_events_select_child_data, children_select_child_data and users_select_child_data, opened only while it has set nestly.child_data_scope.';
-comment on policy tracker_events_select_child_data on nestly.tracker_events is 'Approved exception (§9.2): the owner role reads tracker events only while child_tracker_trends() has set nestly.child_data_scope in this transaction, for a caller holding CHILD_DATA_VIEW; no runtime role is a member of app_owner.';
-comment on policy children_select_child_data on nestly.children is 'Approved exception (§9.2): the owner role reads children (for their age and sex) only while child_tracker_trends() has set nestly.child_data_scope, for a caller holding CHILD_DATA_VIEW.';
-comment on policy users_select_child_data on nestly.users is 'Approved exception (§9.2): the owner role reads accounts (only to count the children of active ones) only while child_tracker_trends() has set nestly.child_data_scope, for a caller holding CHILD_DATA_VIEW.';
+comment on function nestly.child_tracker_trends(text, text, text, integer) is 'SECURITY DEFINER (approved exception, Afik 21.10.2026, decisions-in-force.md §9.2), owner app_owner, pinned search_path. Children''s tracker data as general trends only, for CHILD_DATA_VIEW (the Admin always; not part of ANALYTICS_VIEW) with a valid session: metric (a tracker kind) x field (events_per_day; duration_minutes for breastfeeding and sleep; amount_ml for bottle; weight_kg, height_cm, head_cm for growth) x dimension (child_age, child_sex, week, month) over the last 30, 90 or 365 days, each from a closed list (else 22023). One row per cell of a fixed bucket list: the number of children and one average (of each child''s own average), both NULL and is_suppressed unless the cell holds at least 10 children of at least 10 families (OP-052). Only children of active accounts count. Never a row, an id, a name, a birth date, a medicine''s or vaccine''s name or a note. Appends child_data_queried to the Audit Log in the same call. Reads through tracker_events_select_child_data, children_select_child_data and users_select_child_data, opened only while it holds its scope: a random nonce in trend_scopes for its own transaction, named in nestly.child_data_scope (a caller who sets the setting itself opens nothing).';
+comment on policy tracker_events_select_child_data on nestly.tracker_events is 'Approved exception (§9.2): the owner role reads tracker events only while child_tracker_trends() holds its scope (nestly.child_data_scope names this transaction''s nonce in trend_scopes), for a caller holding CHILD_DATA_VIEW.';
+comment on policy children_select_child_data on nestly.children is 'Approved exception (§9.2): the owner role reads children (for their age and sex) only while child_tracker_trends() holds its scope, for a caller holding CHILD_DATA_VIEW.';
+comment on table nestly.trend_scopes is 'I14 completion (§9.2): the scope of one child_tracker_trends() call: a random nonce for its own transaction, written and deleted by the function (TO app_owner policies only; no runtime role reads or writes it). The child-data reads open only while nestly.child_data_scope names a row of this table.';
+comment on column nestly.trend_scopes.nonce is 'The call''s random nonce (gen_random_uuid()).';
+comment on column nestly.trend_scopes.xact is 'The call''s transaction (the database''s default).';
+comment on policy trend_scopes_insert_definer on nestly.trend_scopes is 'Approved exception (§9.2): child_tracker_trends() writes its nonce for this transaction, for a CHILD_DATA_VIEW caller.';
+comment on policy trend_scopes_select_definer on nestly.trend_scopes is 'Approved exception (§9.2): the child-data policies read the nonce of this transaction.';
+comment on policy trend_scopes_delete_definer on nestly.trend_scopes is 'Approved exception (§9.2): child_tracker_trends() deletes its nonce when it is done.';
+comment on policy users_select_child_data on nestly.users is 'Approved exception (§9.2): the owner role reads Regular accounts (to count the children of active ones) only while child_tracker_trends() holds its scope, for a CHILD_DATA_VIEW caller.';
+comment on policy posts_select_reveal on nestly.posts is 'Approved exception (rule 19): the owner role reads the one post reveal_post_author() names, to know its Group now.';
+comment on policy groups_select_reveal on nestly.groups is 'Approved exception (rule 19): the owner role reads the one Group reveal_post_author() names, to know its privacy now.';
 comment on function nestly.reveal_post_author(uuid) is 'SECURITY DEFINER (approved exception, rule 19), owner app_owner, pinned search_path. Returns the real author of an anonymous post to a caller with REPORTS_VIEW and CONTENT_MODERATE (and PRIVATE_GROUP_MODERATE when the post is Private Group content) and a valid session, only while an OPEN report on that post exists, and appends author_revealed (with the report id and whether it is Private Group content) in the same call.';
 comment on column nestly.reports.thread_post_id is 'For a comment report: the comment''s post, set at report time (reports_thread_post, as the reporter). Opens the report''s context to REPORTS_VIEW (the post and its thread).';
 comment on function nestly.reports_thread_post() is 'BEFORE INSERT, SECURITY INVOKER. A comment report records the comment''s post (read as the reporter); every other report records none.';
@@ -706,7 +771,7 @@ comment on function nestly.private_group_content_views_target() is 'BEFORE INSER
 comment on policy posts_group_hide on nestly.posts is 'RESTRICTIVE (I10): a group post is readable while its Group is active and Public or the caller is a member (AC-036/037, NFR-PRIV-002, ERR-017); to staff only inside the transaction of an audited view of a report on it or on a comment in it (ERR-024; the context, I14 completion); never on the analytics screen (rows, not columns).';
 comment on policy comments_group_hide on nestly.comments is 'RESTRICTIVE (I10): a group comment is readable as its post''s Group allows; to staff only inside an audited view of a report on it, on its post or on a comment of its post (the thread).';
 comment on policy reports_insert_community on nestly.reports is 'RESTRICTIVE (I14 completion, §9.7): only a Regular or Professional account files a report; a staff account acts, it does not report.';
-comment on table nestly.report_escalations is 'I14 completion (Afik 21.10.2026, §9.9): a Moderator escalated an open report to the Admin, with a note (2-500). Once per report; REPORTS_VIEW reads them; audited (report_escalated). No UPDATE or DELETE; they go with their report.';
+comment on table nestly.report_escalations is 'I14 completion (Afik 21.10.2026, §9.9): a Moderator escalated an open report to the Admin, with a note (up to 500). An open report may be escalated again (each note kept; the newest shows); REPORTS_VIEW reads them; audited (report_escalated). No UPDATE or DELETE; they go with their report.';
 comment on column nestly.report_escalations.id is 'The escalation.';
 comment on column nestly.report_escalations.report_id is 'The report escalated (on the screens: the oldest open report on its target).';
 comment on column nestly.report_escalations.escalated_by is 'The Moderator (default auth.uid()).';

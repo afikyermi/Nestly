@@ -331,6 +331,9 @@ drop index nestly.tracker_events_kind_occurred_at_idx;
 drop policy users_select_child_data on nestly.users;
 drop policy children_select_child_data on nestly.children;
 drop policy tracker_events_select_child_data on nestly.tracker_events;
+drop table nestly.trend_scopes;
+drop policy groups_select_reveal on nestly.groups;
+drop policy posts_select_reveal on nestly.posts;
 
 create or replace function nestly.has_permission(p_key text)
 returns boolean
