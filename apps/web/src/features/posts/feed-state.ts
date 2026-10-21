@@ -1,5 +1,6 @@
 import type { FeedPageResponse, FeedUnit, PostView, PublishedAnnouncement } from '@nestly/shared';
 import { loadedMoreText } from './feed-texts';
+import { rememberPromoted } from './promoted-feed';
 
 /**
  * initial: no page yet (skeleton) · ready: a page arrived (the list, or the empty state) · first-error / more-error: the request for the
@@ -85,7 +86,10 @@ export function withPromoted(page: FeedPageResponse): FeedUnit[] {
     out.push(unit);
     while (next < promoted.length && promoted[next]?.afterIndex === index + 1) {
       const slot = promoted[next];
-      if (slot !== undefined) out.push(slot.unit);
+      if (slot !== undefined) {
+        rememberPromoted(slot.unit.id, slot.promotionId);
+        out.push(slot.unit);
+      }
       next += 1;
     }
   });

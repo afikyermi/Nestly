@@ -154,7 +154,8 @@ describe('[I13] promotions', () => {
     listingPromotion = ok(await buyPromotion(database, as(seller), { planKey: 'listing_3', target: { kind: 'listing', listingId: stroller } })).promotionId;
     const page = await listMarketplace(database, as(viewer), undefined, { q: tag });
     expect(page.promoted.map((unit) => unit.listing.id)).toContain(stroller);
-    expect(page.listings.map((card) => card.id)).not.toContain(stroller);
+    // AC-062: the organic list is exactly as without promotions (the listing matches the search, so it is there too)
+    expect(page.listings.map((card) => card.id)).toContain(stroller);
     expect((await listMarketplace(database, as(viewer), undefined, { q: tag, category: 'toys' })).promoted.map((unit) => unit.listing.id)).not.toContain(stroller);
     // no daily cap on the Marketplace (§11.3): the same viewer keeps seeing it
     for (let i = 0; i < 4; i += 1) await listMarketplace(database, as(viewer2), undefined, { q: tag });

@@ -357,6 +357,20 @@ const adminRow = z.object({
   clicks: count,
 });
 
+const totalsRow = z.object({ running: count, stopped: count, ended: count, impressions: count, clicks: count });
+
+/** The totals over every promotion of these kinds the caller reads (not only the listed 200): by state, and the paid events it reads. */
+export async function readPromotionTotals(tx: IdentityTx, kinds: readonly PromotionTargetKind[]): Promise<z.infer<typeof totalsRow>> {
+  const [row] = z.array(totalsRow).parse(
+    await tx.execute(sql`
+      select count(*) filter (where ${stateOf} = 'running') as running, count(*) filter (where ${stateOf} = 'stopped') as stopped,
+             count(*) filter (where ${stateOf} = 'ended') as ended,
+             coalesce(sum(${eventSum('impression')}), 0) as impressions, coalesce(sum(${eventSum('click')}), 0) as clicks
+      from nestly.promotions p where p.target_kind = any (${sql.param([...kinds])}::text[])`),
+  );
+  return row ?? { running: 0, stopped: 0, ended: 0, impressions: 0, clicks: 0 };
+}
+
 /** Every promotion with its payment's sample amount and its paid counts, newest first (read only; the finance policies decide who reads). */
 export async function readAdminPromotions(tx: IdentityTx): Promise<AdminPromotions> {
   const rows = z.array(adminRow).parse(
@@ -373,20 +387,7 @@ export async function readAdminPromotions(tx: IdentityTx): Promise<AdminPromotio
   const [money] = z
     .array(z.object({ payments: count, revenue: count }))
     .parse(await tx.execute(sql`select count(*) as payments, coalesce(sum(amount_ils), 0) as revenue from nestly.promotion_payments`));
-  const tally = (state: string) => rows.filter((row) => row.state === state).length;
-  return {
-    totals: {
-      running: tally('running'),
-      stopped: tally('stopped'),
-      ended: tally('ended'),
-      payments: money?.payments ?? 0,
-      sampleRevenueIls: money?.revenue ?? 0,
-      impressions: rows.reduce((sum, row) => sum + row.impressions, 0),
-      clicks: rows.reduce((sum, row) => sum + row.clicks, 0),
-    },
-    promotions: rows,
-    isFinance: false,
-  };
+  return { totals: { ...(await readPromotionTotals(tx, PROMOTION_TARGET_KINDS)), payments: money?.payments ?? 0, sampleRevenueIls: money?.revenue ?? 0 }, promotions: rows, isFinance: false };
 }
 
 const dayRow = z.object({ day: z.string(), count });

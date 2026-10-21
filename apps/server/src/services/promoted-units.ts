@@ -26,7 +26,6 @@ import {
   insertUsageEvent,
   readMatchingPosts,
   readPromotedCandidates,
-  readProfessionalAuthors,
   readPromotionConfig,
   readRecentPostCount,
   readTodayImpressions,
@@ -105,6 +104,7 @@ export async function promotedPosts(
   stages: readonly string[],
   onPage: ReadonlySet<string>,
   organicCount: number,
+  laterPage: boolean,
   onSkip?: OnSkip,
 ): Promise<{ promotionId: string; postId: string; afterIndex: number }[]> {
   if ((patterns.length === 0 && stages.length === 0) || organicCount === 0 || !(await viewerSeesAds(tx))) return [];
@@ -115,7 +115,9 @@ export async function promotedPosts(
   const slots = Math.floor(organicCount / gap);
   if (slots === 0) return [];
   const relevance = await readMatchingPosts(tx, candidates.map((c) => c.targetId), patterns, stages);
-  const matching = candidates.filter((c) => relevance.has(c.targetId));
+  // a later page of the same scroll never repeats a promotion the viewer already saw today (it would be dropped as a duplicate on screen)
+  const seenToday = laterPage ? await readTodayImpressions(tx, candidates.map((c) => c.promotionId)) : new Map<string, number>();
+  const matching = candidates.filter((c) => relevance.has(c.targetId) && (seenToday.get(c.promotionId) ?? 0) === 0);
   if (matching.length < candidates.length) onSkip?.('not_matching', candidates.length - matching.length);
   const chosen = await rankPaid(tx, matching, config, slots, onSkip, { relevance });
   return chosen.map((c, i) => ({ promotionId: c.promotionId, postId: c.targetId, afterIndex: gap * (i + 1) }));
@@ -149,12 +151,3 @@ export async function recordExposure(database: Database, identity: Identity, exp
   }
 }
 
-/** FR-PRO-002: the Professionals among the authors of these posts (other than the caller), whose organic post views a page counts. */
-export async function professionalAuthorsOf(database: Database, identity: Identity, postIds: readonly string[]): Promise<string[]> {
-  if (postIds.length === 0) return [];
-  try {
-    return await inIdentityTransaction(database, identity, (tx) => readProfessionalAuthors(tx, postIds));
-  } catch {
-    return [];
-  }
-}

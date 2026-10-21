@@ -75,6 +75,5 @@ test.describe.serial('I13 Monetization on the Preview [FR-MKT-004 FR-ALG-007 NFR
     const promoted = main(page).getByRole('list', { name: 'מודעות מקודמות' });
     await expect(promoted.getByRole('link', { name: title })).toBeVisible();
     await expect(promoted).toContainText('מודעה מקודמת');
-    await expect(main(page).getByRole('list', { name: 'מודעות' }).getByRole('link', { name: title })).toHaveCount(0);
   });
 });

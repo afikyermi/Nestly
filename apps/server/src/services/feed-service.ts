@@ -41,7 +41,8 @@ import { readOwnTopicWeights } from '../repositories/search-repository.js';
 import type { MediaStorage } from '../media/storage-admin.js';
 import type { PostImageRow } from '../repositories/media-repository.js';
 import { imagesByPost, readPostImageRows } from './posts-service.js';
-import { professionalAuthorsOf, promotedPosts, recordExposure } from './promoted-units.js';
+import { readProfessionalAuthors } from '../repositories/promotions-repository.js';
+import { promotedPosts, recordExposure } from './promoted-units.js';
 
 /** The caller cannot read a feed: a stopped account (ERR-037), or an account that is neither a Regular parent's nor a Professional's. */
 export type FeedRefusal = { readonly kind: 'stopped' } | { readonly kind: 'forbidden' };
@@ -169,7 +170,14 @@ async function readIntents(tx: IdentityTx, asOf: string, halfLifeHours: number):
 }
 
 /** One page, inside the caller's transaction. `cursor` is null for a first page; a cursor whose `asOf` is in the database's future is refused. */
-async function readPage(tx: IdentityTx, viewerId: string, cursor: FeedCursor | null, storage: MediaStorage | undefined, imageRows: PostImageRow[]): Promise<FeedOutcome> {
+async function readPage(
+  tx: IdentityTx,
+  viewerId: string,
+  cursor: FeedCursor | null,
+  storage: MediaStorage | undefined,
+  imageRows: PostImageRow[],
+  professionalAuthors: string[],
+): Promise<FeedOutcome> {
   const viewer = await classifyViewer(tx);
   if (viewer.kind !== 'viewer') return viewer;
   const clock = await readSnapshotClock(tx, cursor === null ? null : cursor.asOf);
@@ -237,7 +245,7 @@ async function readPage(tx: IdentityTx, viewerId: string, cursor: FeedCursor | n
   if (viewer.review !== true) {
     const intents = parameters.profile === 'regular' && (parameters.intents?.length ?? 0) > 0 ? (parameters.intents ?? []) : await readIntents(tx, asOf, config.intentHalfLifeHours);
     const stages = ownStages;
-    const slots = await promotedPosts(tx, intents.map((intent) => intent.pattern), stages, new Set(pageIds), items.length);
+    const slots = await promotedPosts(tx, intents.map((intent) => intent.pattern), stages, new Set(pageIds), items.length, after !== null);
     if (slots.length > 0) {
       const ids = slots.map((slot) => slot.postId);
       const promotedRows = new Map((await readDisplayPosts(tx, ids)).map((row) => [row.id, row]));
@@ -255,6 +263,8 @@ async function readPage(tx: IdentityTx, viewerId: string, cursor: FeedCursor | n
       }
     }
   }
+  // FR-PRO-002 (I13): the Professionals among the page's authors, whose organic post views the page counts (recorded after the read)
+  if (viewer.review !== true) professionalAuthors.push(...(await readProfessionalAuthors(tx, pageIds)));
   // I14 (FR-ADMIN-008): the published System Announcements ride on the first page only, never into the ranking
   const announcements = after === null ? await readPublishedAnnouncements(tx) : [];
   const page = feedPageResponse.parse({
@@ -274,7 +284,10 @@ async function readPage(tx: IdentityTx, viewerId: string, cursor: FeedCursor | n
  */
 export async function readFeedPage(database: Database, identity: Identity, cursor: FeedCursor | null, storage?: MediaStorage): Promise<FeedOutcome> {
   const imageRows: PostImageRow[] = [];
-  const outcome = await inIdentityTransaction(database, identity, (tx) => readPage(tx, identity.userId, cursor, storage, imageRows), { isolationLevel: 'repeatable read' });
+  const professionalAuthors: string[] = [];
+  const outcome = await inIdentityTransaction(database, identity, (tx) => readPage(tx, identity.userId, cursor, storage, imageRows, professionalAuthors), {
+    isolationLevel: 'repeatable read',
+  });
   if (outcome.kind !== 'page') return outcome;
   // I13 (OP-039, FR-PRO-002, FR-ALG-007): the page's exposure — a post view, its Professionals' organic post views, the promoted posts'
   // impressions — recorded after the page was read, in its own transaction (never the page's failure)
@@ -282,7 +295,7 @@ export async function readFeedPage(database: Database, identity: Identity, curso
   await recordExposure(database, identity, {
     usage: 'post_view',
     impressions: promoted.map((slot) => slot.promotionId),
-    professionalViews: (await professionalAuthorsOf(database, identity, outcome.page.items.map((item) => item.id))).map((professionalId) => ({ professionalId, kind: 'post_view' as const })),
+    professionalViews: professionalAuthors.map((professionalId) => ({ professionalId, kind: 'post_view' as const })),
   });
   if (imageRows.length === 0) return outcome;
   const imagesOf = await imagesByPost(storage, imageRows);

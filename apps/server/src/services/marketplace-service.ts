@@ -207,9 +207,10 @@ export async function listMarketplace(database: Database, identity: Identity, st
     // I13 (§11.3, FR-MKT-004): every promoted listing that matches the same search and filters, at the top, labelled "מודעה מקודמת"
     const promoted = await promotedListings(tx, query);
     const promotedIds = new Set(promoted.map((unit) => unit.row.id));
-    const images = storage === undefined ? [] : await readListingImages(tx, [...listings.map((row) => row.id), ...promotedIds]);
+    const images = storage === undefined ? [] : await readListingImages(tx, [...new Set([...listings.map((row) => row.id), ...promotedIds])]);
     const sponsoredImages = storage === undefined ? [] : await readSponsoredImages(tx, sponsored.map((row) => row.id));
-    return { listings: listings.filter((row) => !promotedIds.has(row.id)), sponsored, promoted, images, sponsoredImages };
+    // the organic list is exactly as without promotions (BR-004, AC-062): a promoted listing may appear in it too
+    return { listings, sponsored, promoted, images, sponsoredImages };
   });
   const byListing = await imagesByKey(storage, coverRows([...read.listings, ...read.promoted.map((unit) => unit.row)], read.images));
   const byProduct = await imagesByKey(storage, read.sponsoredImages);

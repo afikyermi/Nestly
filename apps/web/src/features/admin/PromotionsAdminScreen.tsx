@@ -80,7 +80,7 @@ export function PromotionsAdminScreen() {
       <section className="rounded-lg bg-card p-4 shadow-card">
         <h3 className="text-label">{ADMIN_TOTALS}</h3>
         <p className="mt-1">{totalsText(data.totals)}</p>
-        <p className="mt-1 text-small text-muted-foreground">{countsText(data.totals.impressions, data.totals.clicks)}</p>
+        {data.isFinance ? <p className="mt-1 text-small text-muted-foreground">{countsText(data.totals.impressions, data.totals.clicks)}</p> : null}
         {data.isFinance ? <p className="mt-1 text-small text-muted-foreground">{revenueText(data.totals.payments, data.totals.sampleRevenueIls)}</p> : null}
       </section>
       <p role="status" className="text-small">
@@ -92,11 +92,19 @@ export function PromotionsAdminScreen() {
           <li key={item.id}>
             <StaffPromotionCard
               item={item}
+              showCounts={data.isFinance}
               onStopped={() => {
                 setNotice(ADMIN_STOPPED);
                 setView((now) =>
                   now.kind === 'loaded'
-                    ? { kind: 'loaded', data: { ...now.data, promotions: now.data.promotions.map((row) => (row.id === item.id ? { ...row, state: 'stopped', stoppedBy: 'staff' } : row)) } }
+                    ? {
+                        kind: 'loaded',
+                        data: {
+                          ...now.data,
+                          totals: { ...now.data.totals, running: Math.max(0, now.data.totals.running - 1), stopped: now.data.totals.stopped + 1 },
+                          promotions: now.data.promotions.map((row) => (row.id === item.id ? { ...row, state: 'stopped', stoppedBy: 'staff' } : row)),
+                        },
+                      }
                     : now,
                 );
               }}
@@ -109,7 +117,8 @@ export function PromotionsAdminScreen() {
   );
 }
 
-function StaffPromotionCard({ item, onStopped }: { item: AdminPromotionItem; onStopped: () => void }) {
+// A Moderator reads no paid event (BILLING_FINANCE_MANAGE is Admin Only), so the counts are the Admin's only.
+function StaffPromotionCard({ item, showCounts, onStopped }: { item: AdminPromotionItem; showCounts: boolean; onStopped: () => void }) {
   const call = useAdminCall();
   const id = useId();
   const [reason, setReason] = useState('');
@@ -140,8 +149,8 @@ function StaffPromotionCard({ item, onStopped }: { item: AdminPromotionItem; onS
         {OWNER_LABEL}: <span dir="auto">{item.ownerName ?? '—'}</span>
       </p>
       <p className="mt-1 text-small text-muted-foreground">
-        <time dateTime={item.startsAt}>{formatPostTime(item.startsAt)}</time> – <time dateTime={item.endsAt}>{formatPostTime(item.endsAt)}</time> ·{' '}
-        {countsText(item.impressions, item.clicks)}
+        <time dateTime={item.startsAt}>{formatPostTime(item.startsAt)}</time> – <time dateTime={item.endsAt}>{formatPostTime(item.endsAt)}</time>
+        {showCounts ? ` · ${countsText(item.impressions, item.clicks)}` : null}
       </p>
       {item.state === 'running' ? (
         <div className="mt-2 flex flex-col gap-2">
