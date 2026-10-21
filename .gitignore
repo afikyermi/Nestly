@@ -52,3 +52,6 @@ incidents.md
 
 # Supabase CLI local cache
 supabase/.temp/
+
+# Initiative briefs (srs-lookup "Brief"); local working files
+.work/briefs/

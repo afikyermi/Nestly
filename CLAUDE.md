@@ -26,9 +26,10 @@ React + TypeScript + Tailwind (Vite) · Fastify + TypeScript · Zod in `packages
 - Before every merge, check that the latest run on main is green. A PR that touches shared files (layout, app shell, menu, routing) runs the full Chrome suite (dispatch) before merge, not just the changed specs.
 - A red nightly run or red main is fixed before any new merge. A test that fails and passes on one rerun gets a line in WORKPLAN and does not block the merge; only a repeating failure blocks.
 - Tests: pgTAP for permissions, server tests for rules, one Playwright test per new screen's main flow (desktop). No new visual baselines, no phone duplicates.
+- Before each initiative (or completion): the brief (`srs-lookup` → "Brief", `.work/briefs/<initiative>.md`). Before merging its code: `done-check`. e2e-preview flows follow `e2e-preview/README.md`.
 - A feature is done only after its main flow passes against a real Preview (an e2e-preview flow with a real server), not just against a stub.
 - Sensitive parts (authorization, minors/health data, media, deletion, money): `/code-review` on the diff before the PR.
-- SRS: updated in the same PR, following `.claude/rules/srs-editing.md` (IDs continue their sequence, open items stay open, `node tools/build-srs-index.js` must pass). It states WHAT the product does, never how it is built or by whom. Every new decision of Afik's that changes behaviour (UX, rules, policy) enters the SRS too. At each initiative's end: one version row in `00-document-info.md` and `17-traceability.md` updated.
+- SRS: updated in the same PR, following `.claude/rules/srs-editing.md` (IDs continue their sequence, an open question is built per its ⭐ with an OP row, `node tools/build-srs-index.js` must pass). It states WHAT the product does, never how it is built or by whom. Every new decision of Afik's that changes behaviour (UX, rules, policy) enters the SRS too. At each initiative's end: one version row in `00-document-info.md` and `17-traceability.md` updated.
 
 ## Records
 None except: PR body (what, `Implements:` IDs), the SRS, `decisions-in-force.md` (new Afik decisions only), and WORKPLAN-HE.md (short status, "ממתין לך").

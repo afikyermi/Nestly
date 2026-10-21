@@ -8,8 +8,8 @@ paths:
 
 # rtl-hebrew — a Hebrew interface that reads right
 
-**Version:** 1.2 · market: Israel (SRS §11, OP-001). The stack is Tailwind 4 (WORKPLAN 7.0); the logical
-utilities below are native there. From 9.7 a CI lint rejects the physical ones (Forbidden 1).
+**Version:** 1.2 · market: Israel (SRS §11, OP-001). The stack is Tailwind 4; the logical
+utilities below are native there. A CI lint rejects the physical ones (Forbidden 1).
 
 **Not here:** what a field accepts — formats such as phone numbers and dates are VAL items in SRS §9. This skill
 covers display and layout. Copy wording is in `ux-copy-he`.
@@ -80,8 +80,8 @@ isolation · every displayed date or number goes through `Intl` with `he-IL`.
 · [MDN — bdi](https://developer.mozilla.org/docs/Web/HTML/Element/bdi) · [MDN — Intl](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Intl)
 
 ## Changelog
-- 1.0 — 2026-10-11 — created (Afik's skills decision). Provisional until 5 features.
+- 1.0 — 2026-10-11 — created (Afik's skills decision).
 - 1.1 — 2026-10-11 — aligned with the approved design (WORKPLAN 9.6): Tailwind 4, the CI lint from 9.7, the rail
-  and drawer on the start side, Lucide. Patterns only; the forbidden list is unchanged. Provisional until 5 features.
+  and drawer on the start side, Lucide. Patterns only; the forbidden list is unchanged.
 - 1.2 — 2026-10-11 — Forbidden 1 widened to the lint's full list: inline style keys, CSS, float, clear, scroll-, origin-,
-  object-, bg- positions, translate-x- (UI wave 1 part a review, CRITIC finding 2; ORCHESTRATOR approved). Provisional until 5 features.
+  object-, bg- positions, translate-x- (UI wave 1 part a review).
