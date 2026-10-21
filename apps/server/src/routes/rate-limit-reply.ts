@@ -5,7 +5,15 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { RateLimited } from '../lib/profile-open-limit.js';
 
-export function replyRateLimited(request: FastifyRequest, reply: FastifyReply, limited: RateLimited): FastifyReply {
-  if (limited.misconfigured) request.log.error({ sqlstate: 'NS001' }, 'profile open limit missing or invalid');
+/** Which limit refused: each caller logs its own fixed line, so a misconfigured People Search limit is not reported as the profile one. */
+export type LimitName = 'profile_open' | 'people_search';
+
+const MISCONFIGURED: Record<LimitName, string> = {
+  profile_open: 'profile open limit missing or invalid',
+  people_search: 'people search limit missing or invalid',
+};
+
+export function replyRateLimited(request: FastifyRequest, reply: FastifyReply, limited: RateLimited, limit: LimitName = 'profile_open'): FastifyReply {
+  if (limited.misconfigured) request.log.error({ sqlstate: 'NS001' }, MISCONFIGURED[limit]);
   return reply.code(429).send({ error: 'rate_limited' });
 }

@@ -159,7 +159,7 @@ afterAll(async () => {
 const PINNED = 9001;
 const PINNED_CONFIG: FeedConfig = {
   wFresh: 1, halfLifeHours: 24, wFriend: 2, wQuality: 0.2, qualityCap: 20, wStage: 2, scoredWindowDays: 14,
-  maxSameCreatorInWindow: 2, diversityWindow: 5, maxAnonymousInWindow: 2, pageSize: 20,
+  maxSameCreatorInWindow: 2, diversityWindow: 5, maxAnonymousInWindow: 2, pageSize: 20, wIntent: 0, intentHalfLifeHours: 168,
 };
 const pinnedCursor = (): string => serializeFeedCursor({ asOf: ASOF, configVersion: PINNED, tier: 0, score: 1e9, createdAt: ASOF, id: TOP_ID });
 const PRO: Member = { id: P, header: '' };

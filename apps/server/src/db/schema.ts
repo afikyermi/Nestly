@@ -11,6 +11,9 @@ import {
   ACCOUNT_TYPES,
   CHILD_SEXES,
   FRIENDSHIP_STATUSES,
+  NOTIFICATION_CATEGORIES,
+  NOTIFICATION_TARGET_KINDS,
+  NOTIFICATION_TYPES,
   IDENTITY_LINK_VERDICTS,
   JOURNEY_STAGES,
   PARENT_GENDERS,
@@ -375,6 +378,76 @@ export const postsUpdate = nestly.table('posts', {
   audience: text('audience', { enum: POST_AUDIENCES }).notNull(),
   body: text('body'),
   stageTag: text('stage_tag', { enum: JOURNEY_STAGES }),
+});
+
+// Notifications and People Search (migration 20261020400000). A notification is written only by the database's own triggers; the recipient
+// reads and marks read. Preferences and the Intent Signal are the owner's. The counts of People Search are reached only inside search_people.
+
+/** FR-NOTIF-001: one event for the recipient. Read-only here but for `read_at` (the update target below). */
+export const notifications = nestly.table('notifications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  recipientId: uuid('recipient_id').notNull(),
+  type: text('type', { enum: NOTIFICATION_TYPES }).notNull(),
+  actorId: uuid('actor_id'),
+  targetKind: text('target_kind', { enum: NOTIFICATION_TARGET_KINDS }).notNull(),
+  targetId: uuid('target_id').notNull(),
+  subjectId: uuid('subject_id').notNull(),
+  isCritical: boolean('is_critical').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  readAt: timestamp('read_at', { withTimezone: true }),
+});
+
+/** UPDATE target only: `read_at` is the one column granted; the database fixes its value. */
+export const notificationsUpdate = nestly.table('notifications', {
+  id: uuid('id').primaryKey(),
+  readAt: timestamp('read_at', { withTimezone: true }),
+});
+
+/** FR-NOTIF-002: whether a category creates In-App notifications. No row means on. */
+export const notificationPreferences = nestly.table('notification_preferences', {
+  userId: uuid('user_id').notNull(),
+  category: text('category', { enum: NOTIFICATION_CATEGORIES }).notNull(),
+  isInAppEnabled: boolean('is_in_app_enabled').notNull().default(true),
+  isPushEnabled: boolean('is_push_enabled').notNull().default(false),
+});
+
+/** INSERT target: the granted columns only (user_id takes auth.uid()). */
+export const notificationPreferencesInsert = nestly.table('notification_preferences', {
+  category: text('category', { enum: NOTIFICATION_CATEGORIES }).notNull(),
+  isInAppEnabled: boolean('is_in_app_enabled').notNull().default(true),
+});
+
+/** FR-NOTIF-003: "tell me when this Friend posts". */
+export const friendContentNotificationPreferences = nestly.table('friend_content_notification_preferences', {
+  userId: uuid('user_id').notNull(),
+  friendId: uuid('friend_id').notNull(),
+  isEnabled: boolean('is_enabled').notNull().default(true),
+});
+
+/** INSERT target: friend_id and is_enabled are granted. */
+export const friendContentNotificationPreferencesInsert = nestly.table('friend_content_notification_preferences', {
+  friendId: uuid('friend_id').notNull(),
+  isEnabled: boolean('is_enabled').notNull().default(true),
+});
+
+/** Drift only: reached by search_people, never queried. */
+export const peopleSearchCounts = nestly.table('people_search_counts', {
+  userId: uuid('user_id').primaryKey(),
+  searchedAt: timestamp('searched_at', { withTimezone: true }).array().notNull().default(sql`'{}'`),
+  isRefusalRecorded: boolean('is_refusal_recorded').notNull().default(false),
+});
+
+/** FR-ALG-008 Intent Signal: the topic of a search, the user and the date - never the typed text. Deleted after 30 days. */
+export const searchIntents = nestly.table('search_intents', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull(),
+  topic: text('topic').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** INSERT target: topic is the only granted column. */
+export const searchIntentsInsert = nestly.table('search_intents', {
+  topic: text('topic').notNull(),
 });
 
 // Trackers, cycle and status guides (I6; migration 20261020100000). Health data: the owner reads and writes, nobody else (RLS).

@@ -141,6 +141,21 @@ const APPROVED_F31A: ColumnShape[] = [
   col('posts', 'created_at', TZ, true),
   col('posts', 'is_anonymous', 'boolean', true),
 ];
+// I7 (migration 20261020400000): notifications, preferences, People Search counts and the Intent Signal, as Drizzle declares them.
+const APPROVED_I7: ColumnShape[] = [
+  col('notifications', 'id', 'uuid', true), col('notifications', 'recipient_id', 'uuid', true), col('notifications', 'type', 'text', true),
+  col('notifications', 'actor_id', 'uuid', false), col('notifications', 'target_kind', 'text', true), col('notifications', 'target_id', 'uuid', true),
+  col('notifications', 'subject_id', 'uuid', true), col('notifications', 'is_critical', 'boolean', true), col('notifications', 'created_at', TZ, true),
+  col('notifications', 'read_at', TZ, false),
+  col('notification_preferences', 'user_id', 'uuid', true), col('notification_preferences', 'category', 'text', true),
+  col('notification_preferences', 'is_in_app_enabled', 'boolean', true), col('notification_preferences', 'is_push_enabled', 'boolean', true),
+  col('friend_content_notification_preferences', 'user_id', 'uuid', true), col('friend_content_notification_preferences', 'friend_id', 'uuid', true),
+  col('friend_content_notification_preferences', 'is_enabled', 'boolean', true),
+  col('people_search_counts', 'user_id', 'uuid', true), col('people_search_counts', 'searched_at', `${TZ}[]`, true),
+  col('people_search_counts', 'is_refusal_recorded', 'boolean', true),
+  col('search_intents', 'id', 'uuid', true), col('search_intents', 'user_id', 'uuid', true), col('search_intents', 'topic', 'text', true),
+  col('search_intents', 'created_at', TZ, true),
+];
 // I6 (migration 20261020100000): trackers, cycle and status guides, the columns Drizzle declares.
 const APPROVED_I6: ColumnShape[] = [
   col('tracker_events', 'id', 'uuid', true), col('tracker_events', 'user_id', 'uuid', true), col('tracker_events', 'child_id', 'uuid', true),
@@ -156,7 +171,7 @@ const APPROVED_I6: ColumnShape[] = [
   col('status_guides', 'source', 'text', true), col('status_guides', 'source_checked_on', 'date', false), col('status_guides', 'status', 'text', true),
   col('status_guides', 'published_at', TZ, false), col('status_guides', 'created_at', TZ, true),
 ];
-const APPROVED_ALL: ColumnShape[] = [...APPROVED, ...APPROVED_F14, ...APPROVED_F16, ...APPROVED_F20, ...APPROVED_F24A, ...APPROVED_F24C1, ...APPROVED_F31A, ...APPROVED_I6];
+const APPROVED_ALL: ColumnShape[] = [...APPROVED, ...APPROVED_F14, ...APPROVED_F16, ...APPROVED_F20, ...APPROVED_F24A, ...APPROVED_F24C1, ...APPROVED_F31A, ...APPROVED_I6, ...APPROVED_I7];
 const APPROVED_BEFORE_F16: ColumnShape[] = [...APPROVED, ...APPROVED_F14];
 
 const without = (rows: ColumnShape[], table: string, column: string): ColumnShape[] =>
