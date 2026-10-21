@@ -72,12 +72,14 @@ describe('ux-polish-b c11 [NFR-USAB-004 FR-PROFILE-002 DR-1 DR-3 FR-REL-001] con
       [
         'features/admin-guides/AdminGuidesScreen.tsx',
         'features/admin/AnnouncementsScreen.tsx', // I14: removing a System Announcement is final (NFR-USAB-004)
+        'features/admin/SponsoredScreen.tsx', // I12: removing a Sponsored Product is final (FR-ADMIN-009)
         'features/admin/SupportInboxScreen.tsx', // I8: closing a Support request is final
         'features/friends/FriendsContent.tsx',
         'features/groups/GroupManage.tsx', // I10: deleting a Group is final
         'features/groups/GroupMembers.tsx', // I10: transfer of ownership, removal and block (FR-GRP-003)
         'features/groups/GroupScreen.tsx', // I10: leaving a Group (a Private one cannot be seen again without asking)
         'features/journeys/JourneysContent.tsx',
+        'features/marketplace/ListingScreen.tsx', // I12: deleting a listing is final (deleted at once)
         'features/professionals/ArticlesScreen.tsx', // I11: deleting an article is final (FR-PRO-003)
         'features/posts/CommentsView.tsx',
         'features/posts/FeedContent.tsx',

@@ -9,7 +9,7 @@ import { forgetDraft, isSending, keepDraft, recallDraft, setSending, watchSendin
 import { checkPostForm, type PostFormErrors, type PostFormValues } from './post-form';
 import { failureText, refusedErrors } from './post-outcome';
 import { PostForm, type PostFormFocus } from './PostForm';
-import { PostImagesPicker } from './PostImagesPicker';
+import { ImagesPicker } from '@/components/domain/images-picker';
 import { usePickedImages } from '@/hooks/use-picked-images';
 import { PUBLISH_FAILED_TEXT } from './posts-texts';
 import { useFeedSource } from './feed-source';
@@ -153,7 +153,7 @@ function Composer({ owner, memory, focusText, everyoneOnly, onPublished }: Compo
         onChange={change}
         onSubmit={() => void submit()}
         attachments={
-          <PostImagesPicker
+          <ImagesPicker
             items={pictures.items}
             error={pictures.error}
             full={pictures.items.length >= POST_MAX_IMAGES}

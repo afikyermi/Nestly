@@ -26,6 +26,8 @@ export const ADMIN_TABS: ReadonlyArray<{ tab: AdminTab; path: string }> = [
   { tab: 'community', path: PATHS.adminCommunity },
   { tab: 'announcements', path: PATHS.adminAnnouncements },
   { tab: 'analytics', path: PATHS.adminAnalytics },
+  { tab: 'marketplace', path: PATHS.adminMarketplace },
+  { tab: 'sponsored', path: PATHS.adminSponsored },
 ];
 
 /** AC-044: what waits on a tab, from the staff inbox (an area the keys do not cover is absent, so no badge). */

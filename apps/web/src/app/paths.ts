@@ -13,6 +13,7 @@ import {
   SERVICES_PATH,
 } from '@/lib/professional-link';
 import { TRACKER_PATTERN } from '@/lib/tracker-link';
+import { EDIT_LISTING_PATTERN, LISTING_PATTERN, MARKETPLACE_PATH, MY_LISTINGS_PATH, NEW_LISTING_PATH } from '@/lib/marketplace-link';
 import { GROUP_PATTERN } from '@/lib/group-link';
 
 // The route table (F1.2, Q2). Guest paths are the allow-list: every other path is protected (deny by default).
@@ -88,6 +89,16 @@ export const PATHS = {
   proProfile: PRO_PROFILE_PATH,
   proArticles: PRO_ARTICLES_PATH,
   offers: OFFERS_PATH,
+  /** I12: the Marketplace (PG-010, from the bottom navigation "חנות"), the caller's listings, a new listing, one listing `/marketplace/<id>`
+   *  (PG-019) and its edit `/marketplace/<id>/edit` (both by pattern, see `listingIdOfPath`). */
+  marketplace: MARKETPLACE_PATH,
+  myListings: MY_LISTINGS_PATH,
+  newListing: NEW_LISTING_PATH,
+  listing: LISTING_PATTERN,
+  editListing: EDIT_LISTING_PATTERN,
+  /** I12: the staff's Marketplace listings (MARKETPLACE_MODERATE) and Sponsored Products (FR-ADMIN-009, Admin only). */
+  adminMarketplace: '/admin/marketplace',
+  adminSponsored: '/admin/sponsored',
   /** I11 follow-ups (Afik 21.10.2026, §9.8): the Professionals one follows (PG-039), a Professional's help-requests page, and its promotion and
    *  billing pages (I13 fills them). */
   following: FOLLOWING_PATH,
@@ -140,6 +151,11 @@ export const PROTECTED_PATHS: readonly string[] = [
   PATHS.proProfile,
   PATHS.proArticles,
   PATHS.offers,
+  PATHS.marketplace,
+  PATHS.myListings,
+  PATHS.newListing,
+  PATHS.adminMarketplace,
+  PATHS.adminSponsored,
   PATHS.following,
   PATHS.helpRequests,
   PATHS.proPromotion,
