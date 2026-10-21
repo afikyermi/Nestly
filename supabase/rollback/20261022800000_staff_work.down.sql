@@ -23,9 +23,11 @@ begin
   alter table nestly.moderator_permissions no force row level security;
   alter table nestly.report_escalations no force row level security;
   alter table nestly.report_openings no force row level security;
+  alter table nestly.group_staff_views no force row level security;
   if exists (select 1 from nestly.moderator_permissions where permission_key = 'CHILD_DATA_VIEW')
-     or exists (select 1 from nestly.report_escalations) or exists (select 1 from nestly.report_openings) then
-    raise exception 'a CHILD_DATA_VIEW grant, an escalation or an opening exists: the down script refuses';
+     or exists (select 1 from nestly.report_escalations) or exists (select 1 from nestly.report_openings)
+     or exists (select 1 from nestly.group_staff_views) then
+    raise exception 'a CHILD_DATA_VIEW grant, an escalation, an opening or a staff Group view exists: the down script refuses';
   end if;
   alter table nestly.moderator_permissions force row level security;
   alter table nestly.report_escalations force row level security;
@@ -279,9 +281,10 @@ begin
   return new;
 end
 $$;
+drop table nestly.group_staff_views;
+drop policy comments_select_staff_review on nestly.comments;
+drop policy posts_select_staff_review on nestly.posts;
 alter table nestly.private_group_content_views drop column thread_post_id;
-drop policy comments_select_staff_context on nestly.comments;
-drop policy posts_select_staff_context on nestly.posts;
 drop trigger reports_thread_post on nestly.reports;
 drop function nestly.reports_thread_post();
 alter table nestly.reports drop column thread_post_id;

@@ -172,26 +172,14 @@ select tests.fx_fr_add(pg_temp.id('a'), pg_temp.id('c'), 'accepted');
 select set_config('t.fp', pg_temp.q('a', $$ insert into nestly.posts (audience, body) values ('friends', 'friends only') returning id::text $$), true);
 select set_config('t.fc1', pg_temp.q('c', format($q$ insert into nestly.comments (post_id, body) values (%L, 'friend comment') returning id::text $q$, pg_temp.g('fp'))), true);
 select set_config('t.fc2', pg_temp.q('a', format($q$ insert into nestly.comments (post_id, body) values (%L, 'author reply') returning id::text $q$, pg_temp.g('fp'))), true);
-select is(pg_temp.staff('m1', format($q$ select count(*)::text from nestly.posts where id = %L $q$, pg_temp.g('fp')))
-       || '/' || pg_temp.staff('m1', format($q$ select count(*)::text from nestly.comments where post_id = %L $q$, pg_temp.g('fp'))), '0/0',
-  '[I14c c5] before any report, staff read nothing of a Friends-only post');
-select set_config('t.rc', tests.fx_rp_add(pg_temp.id('a'), 'comment', pg_temp.g('fc1'))::text, true);
-select is(pg_temp.staff('m1', format($q$ select (thread_post_id = %L)::text from nestly.reports where id = %L $q$, pg_temp.g('fp'), pg_temp.g('rc'))), 'true',
-  '[I14c c5 §9.7] a comment report records the comment''s post');
-select is(pg_temp.staff('m1', format($q$ select count(*)::text from nestly.posts where id = %L $q$, pg_temp.g('fp')))
-       || '/' || pg_temp.staff('m1', format($q$ select count(*)::text from nestly.comments where post_id = %L $q$, pg_temp.g('fp'))), '1/2',
-  '[I14c c5 §9.7 FR-MOD-003] REPORTS_VIEW reads the reported comment''s post and its whole thread');
 select is(pg_temp.staff('m0', format($q$ select count(*)::text from nestly.posts where id = %L $q$, pg_temp.g('fp')))
-       || '/' || pg_temp.staff('m0', format($q$ select count(*)::text from nestly.comments where post_id = %L $q$, pg_temp.g('fp'))), '0/0',
-  '[I14c c5] a Moderator without REPORTS_VIEW reads none of it');
+       || '/' || pg_temp.staff('m0', format($q$ select count(*)::text from nestly.comments where post_id = %L $q$, pg_temp.g('fp'))), '1/2',
+  '[I14c c5 §9.7] independent review: every staff account, even with no key, reads an active Friends-only post and its comments');
 select is(pg_temp.q('e', format($q$ select count(*)::text from nestly.posts where id = %L $q$, pg_temp.g('fp'))), '0',
   '[I14c c5] and nothing changes for a community user who is no Friend');
-select set_config('t.fp2', pg_temp.q('a', $$ insert into nestly.posts (audience, body) values ('friends', 'reported post') returning id::text $$), true);
-select set_config('t.fc3', pg_temp.q('c', format($q$ insert into nestly.comments (post_id, body) values (%L, 'under a reported post') returning id::text $q$, pg_temp.g('fp2'))), true);
-select ok(tests.fx_rp_add(pg_temp.id('c'), 'post', pg_temp.g('fp2')) is not null, '[I14c c5] control: C reports the post');
-select is(pg_temp.staff('m1', format($q$ select count(*)::text from nestly.comments where post_id = %L $q$, pg_temp.g('fp2'))), '1',
-  '[I14c c5 §9.7] REPORTS_VIEW reads the comments of a reported post');
-
+select set_config('t.rc', tests.fx_rp_add(pg_temp.id('a'), 'comment', pg_temp.g('fc1'))::text, true);
+select is(pg_temp.staff('m1', format($q$ select (thread_post_id = %L)::text from nestly.reports where id = %L $q$, pg_temp.g('fp'), pg_temp.g('rc'))), 'true',
+  '[I14c c5 §9.7] a comment report records the comment''s post (its thread, for a Private Group''s audited opening)');
 -- ---- c6: Private Group content: the reveal and the context (§9.4, §9.7, BR-040) -------------------------------------------------
 select set_config('t.priv', pg_temp.q('p', $$ insert into nestly.groups (name, description, privacy) values ('Night feeds', 'about us', 'private') returning id::text $$), true);
 -- membership through the Owner's approval of a join request (the I10 path)
@@ -296,9 +284,6 @@ select is(pg_temp.dml('m1', format($q$ insert into nestly.report_escalations (re
   '[I14c c8 rule 12] the escalating Moderator is the database''s');
 select is(pg_temp.dml('m5', format($q$ update nestly.reports set status = 'handled', resolution = 'dismissed' where id = %L $q$, pg_temp.g('rc'))), 'OK:1', '[I14c c8] control: the report is closed');
 select is(pg_temp.esc('m5', 'rc'), 'ERR:42501', '[I14c c8] a closed report is not escalated');
-select is(pg_temp.staff('m1', format($q$ select count(*)::text from nestly.posts where id = %L $q$, pg_temp.g('fp')))
-       || '/' || pg_temp.staff('m1', format($q$ select count(*)::text from nestly.comments where post_id = %L and id <> %L $q$, pg_temp.g('fp'), pg_temp.g('fc1'))), '0/0',
-  '[I14c c8 §9.7] once the report is closed, its context closes too (only the reported comment stays readable to staff)');
 select is(pg_temp.esc('m1', 'rpa', 'ab' || repeat(' ', 600)), 'ERR:23514', '[I14c c8] a note of at most 500 characters, blanks included');
 
 -- ---- c9: who opened a report (§9.10) ---------------------------------------------------------------------------------------------
@@ -317,6 +302,29 @@ select is(pg_temp.q('d', format($q$ select count(*)::text from nestly.report_ope
   '[I14c c9 §9.10] the Admin reads who opened it');
 select is(pg_temp.q('a', 'select count(*)::text from nestly.report_openings'), '0', '[I14c c9] a parent reads none');
 select is(tests.fx_sf_audit('report_opened'), 0::bigint, '[I14c c9] an opening is no action: nothing in the Audit Log');
+
+-- ---- c10: a Private Group's page, opened for review (§9.7, BR-040) -----------------------------------------------------------------
+create function pg_temp.gview(p_who text, p_group text) returns text language sql as $f$
+  select pg_temp.dml(p_who, format($q$ insert into nestly.group_staff_views (group_id) values (%L) $q$, pg_temp.g(p_group)))
+$f$;
+select set_config('t.pub2', pg_temp.q('p', $$ insert into nestly.groups (name, description, privacy) values ('Sunny side', 'about us', 'public') returning id::text $$), true);
+select set_config('t.priv2', pg_temp.q('p', $$ insert into nestly.groups (name, description, privacy) values ('Quiet evenings', 'about us', 'private') returning id::text $$), true);
+select set_config('t.pv2post', pg_temp.q('p', format($q$ insert into nestly.posts (audience, body, group_id) values ('everyone', 'owner only so far', %L) returning id::text $q$,
+  pg_temp.g('priv2'))), true);
+select is(pg_temp.staff('d', format($q$ select count(*)::text from nestly.posts where group_id = %L $q$, pg_temp.g('priv2'))), '0',
+  '[I14c c10 BR-040] before an opening, even the Admin reads nothing of a Private Group');
+select is(pg_temp.gview('m1', 'priv2'), 'ERR:42501', '[I14c c10] without PRIVATE_GROUP_MODERATE a Private Group is not opened');
+select is(pg_temp.gview('a', 'priv2'), 'ERR:42501', '[I14c c10] a community user opens nothing');
+select is(pg_temp.gview('m2', 'pub2'), 'ERR:42501', '[I14c c10] only a Private Group is opened this way (a Public one is open to all)');
+select is(tests.fx_sf_audit('private_group_viewed'), 0::bigint, '[I14c c10] (nothing recorded yet)');
+select is(pg_temp.gview('m2', 'priv2'), 'OK:1', '[I14c c10 §9.7] PRIVATE_GROUP_MODERATE opens a Private Group''s page for review');
+select is(tests.fx_sw_audit_row('private_group_viewed') like 'PRIVATE_GROUP_MODERATE|group|' || pg_temp.g('priv2')::text || '|%', true, '[I14c c10 NFR-PRIV-002] audited, naming the Group');
+select is(pg_temp.staff('m2', format($q$ select count(*)::text from nestly.posts where group_id = %L $q$, pg_temp.g('priv2'))), '1',
+  '[I14c c10] inside that transaction it reads the Group''s posts');
+select is(pg_temp.staff('m2', format($q$ select count(*)::text from nestly.group_members where group_id = %L $q$, pg_temp.g('priv2'))), '0',
+  '[I14c c10] and no Membership comes with it');
+select is(pg_temp.dml('m2', format($q$ insert into nestly.comments (post_id, body) values (%L, 'staff comment') $q$, pg_temp.g('pv2post'))), 'ERR:42501',
+  '[I14c c10 §9.7] and it still writes nothing there');
 
 select * from finish();
 rollback;

@@ -17,14 +17,15 @@
 -- reveal_post_author()    replaced: on Private Group content the reveal also needs PRIVATE_GROUP_MODERATE (§9.4, gap 3; BR-040), and the entry
 --                         says so. Everything else as in 20261020300000.
 -- reports                 gain thread_post_id: for a comment report, the comment's post (set at report time by the reporter's own read).
---                         With it the report shows its context (§9.7): REPORTS_VIEW reads the post of a reported comment and the comments of a
---                         reported post or of a reported comment's post (posts_select_staff_context, comments_select_staff_context). On Private
---                         Group content the audited opening (private_group_content_views, which gains thread_post_id) opens that context too,
+--                         Every active staff account reads every active post and comment for independent review (posts_select_staff_review,
+--                         comments_select_staff_review: whatever the audience or the author's privacy). On Private Group content the audited opening (private_group_content_views, which gains thread_post_id) opens that context too,
 --                         inside its own transaction only (posts_group_hide and comments_group_hide altered).
 --                         A staff account files no report (reports_insert_community, RESTRICTIVE): staff act, they do not report (§9.7: a
 --                         Moderator never posts, comments or sends requests; every other social write already refuses a staff account).
 -- report_escalations      "escalate to the Admin" with a note (§9.9): a Moderator with REPORTS_VIEW, once per open report; REPORTS_VIEW reads
 --                         them; audited (report_escalated, the note as the reason). No UPDATE, no DELETE; they go with their report.
+-- group_staff_views       a staff review of a Private Group's page by PRIVATE_GROUP_MODERATE, audited (private_group_viewed); its content is readable
+--                         in that transaction only.
 -- report_openings         who opened a report, and when (§9.10, the Admin's handling status): one row per report and staff member, written by
 --                         REPORTS_VIEW when it opens the report; REPORTS_VIEW reads them. Not audited (an opening is no action). They go with
 --                         their report.
@@ -297,18 +298,50 @@ update nestly.reports r set thread_post_id = c.post_id
 alter table nestly.comments force row level security;
 alter table nestly.reports force row level security;
 
--- While a report is open, REPORTS_VIEW reads the post of a reported comment, and the comments of a reported post or of a reported comment's
--- post (any state but deleted). Each reads reports only, never the other content table (no policy recursion). Private Group content stays
--- behind its audited opening (the RESTRICTIVE group policies below).
-create policy posts_select_staff_context on nestly.posts
+-- Independent review (§9.7, Afik 21.10.2026: "a Moderator opens any page for review, views and acts per its keys, never posts"): every active
+-- staff account reads every active post and comment, whatever its audience or its author's privacy (a Friends-only or followers-only post, a
+-- closed profile's author, a block). Group content stays behind the RESTRICTIVE group policies: a Public Group's for everyone, a Private Group's
+-- only inside an audited opening (a reported item, or the Group's page by PRIVATE_GROUP_MODERATE, group_staff_views below). Writes are unchanged:
+-- staff post, comment, like and request nothing (file 100 c7).
+create policy posts_select_staff_review on nestly.posts
   for select to authenticated
-  using ((select nestly.is_active_account()) and (select nestly.has_permission('REPORTS_VIEW')) and status <> 'deleted'
-    and exists (select 1 from nestly.reports r where r.thread_post_id = posts.id and r.status = 'open'));
+  using ((select nestly.is_active_account()) and (select nestly.caller_staff_role()) is not null and status = 'active');
 
-create policy comments_select_staff_context on nestly.comments
+create policy comments_select_staff_review on nestly.comments
   for select to authenticated
-  using ((select nestly.is_active_account()) and (select nestly.has_permission('REPORTS_VIEW')) and status <> 'deleted'
-    and exists (select 1 from nestly.reports r where (r.post_id = comments.post_id or r.thread_post_id = comments.post_id) and r.status = 'open'));
+  using ((select nestly.is_active_account()) and (select nestly.caller_staff_role()) is not null and status = 'active');
+
+-- A staff review of a Private Group's page (§9.7, BR-040, NFR-PRIV-002): PRIVATE_GROUP_MODERATE (the Admin always) opens one Group for the
+-- transaction of the opening only, audited (private_group_viewed). No Membership comes with it.
+create table nestly.group_staff_views (
+  id         uuid        not null default gen_random_uuid(),
+  group_id   uuid        not null,
+  viewer_id  uuid        not null default auth.uid(),
+  view_xact  xid8        not null default pg_catalog.pg_current_xact_id(),
+  created_at timestamptz not null default now(),
+  constraint group_staff_views_pkey primary key (id),
+  constraint group_staff_views_group_id_fkey foreign key (group_id) references nestly.groups (id) on delete cascade,
+  constraint group_staff_views_viewer_id_fkey foreign key (viewer_id) references nestly.users (id) on delete restrict
+);
+
+create index group_staff_views_group_id_idx on nestly.group_staff_views (group_id);
+create index group_staff_views_viewer_id_idx on nestly.group_staff_views (viewer_id);
+
+alter table nestly.group_staff_views enable row level security, force row level security;
+
+create policy group_staff_views_select_own on nestly.group_staff_views
+  for select to authenticated
+  using ((select nestly.is_active_account()) and viewer_id = (select auth.uid()));
+
+create policy group_staff_views_insert_staff on nestly.group_staff_views
+  for insert to authenticated
+  with check ((select nestly.is_active_account()) and viewer_id = (select auth.uid())
+    and (select nestly.has_permission('PRIVATE_GROUP_MODERATE'))
+    and exists (select 1 from nestly.groups g where g.id = group_staff_views.group_id and g.status = 'active' and g.privacy = 'private'));
+
+revoke all on table nestly.group_staff_views from public, anon;
+grant select on table nestly.group_staff_views to authenticated;
+grant insert (group_id) on table nestly.group_staff_views to authenticated;
 
 -- the audited opening of Private Group content opens its context too: the post and its thread, in that transaction only
 alter table nestly.private_group_content_views add column thread_post_id uuid;
@@ -342,7 +375,10 @@ alter policy posts_group_hide on nestly.posts
                     or exists (select 1 from nestly.group_access a where a.group_id = g.id and a.user_id = (select auth.uid()))))
     or exists (select 1 from nestly.private_group_content_views v
                 where v.viewer_id = (select auth.uid()) and (v.post_id = posts.id or v.thread_post_id = posts.id)
-                  and v.view_xact = pg_catalog.pg_current_xact_id_if_assigned()));
+                  and v.view_xact = pg_catalog.pg_current_xact_id_if_assigned())
+    or exists (select 1 from nestly.group_staff_views s
+                where s.viewer_id = (select auth.uid()) and s.group_id = posts.group_id
+                  and s.view_xact = pg_catalog.pg_current_xact_id_if_assigned()));
 
 alter policy comments_group_hide on nestly.comments
   using (group_id is null
@@ -353,7 +389,10 @@ alter policy comments_group_hide on nestly.comments
     or exists (select 1 from nestly.private_group_content_views v
                 where v.viewer_id = (select auth.uid())
                   and (v.comment_id = comments.id or v.post_id = comments.post_id or v.thread_post_id = comments.post_id)
-                  and v.view_xact = pg_catalog.pg_current_xact_id_if_assigned()));
+                  and v.view_xact = pg_catalog.pg_current_xact_id_if_assigned())
+    or exists (select 1 from nestly.group_staff_views s
+                where s.viewer_id = (select auth.uid()) and s.group_id = comments.group_id
+                  and s.view_xact = pg_catalog.pg_current_xact_id_if_assigned()));
 
 -- A staff account files no report (§9.7): only a Regular or Professional account reports.
 create policy reports_insert_community on nestly.reports
@@ -619,6 +658,12 @@ begin
     v_after := pg_catalog.jsonb_build_object('status', v_new ->> 'status', 'title', v_new ->> 'title', 'sponsor', v_new ->> 'sponsor_name',
       'category', v_new ->> 'category', 'linkUrl', v_new ->> 'link_url',
       'descriptionChanged', tg_op = 'UPDATE' and v_new ->> 'description' is distinct from v_old ->> 'description');
+  elsif tg_table_name = 'group_staff_views' then
+    -- I14 completion (§9.7, BR-040): a staff member opened a Private Group's page for review (its content, in that transaction only).
+    v_key := 'PRIVATE_GROUP_MODERATE';
+    v_action := 'private_group_viewed';
+    v_kind := 'group';
+    v_target := (v_new ->> 'group_id')::uuid;
   elsif tg_table_name = 'report_escalations' then
     -- I14 completion (Afik 21.10.2026, §9.9): a Moderator escalated a report to the Admin; the note is the entry's reason.
     v_key := 'REPORTS_VIEW';
@@ -641,6 +686,10 @@ create trigger report_escalations_audit
   after insert on nestly.report_escalations
   for each row execute function nestly.audit_trigger();
 
+create trigger group_staff_views_audit
+  after insert on nestly.group_staff_views
+  for each row execute function nestly.audit_trigger();
+
 -- 9. Comments ----------------------------------------------------------------------------------------------------------------------
 comment on function nestly.audit_trigger() is 'SECURITY DEFINER (approved exception, rule 18), owner app_owner, pinned search_path. After a permission change, a report-reason change, a report closed, a moderation move, an enforcement, an Admin''s creation, edit, publication or hiding of a status guide, a staff decision on an image or a suspicion marked on one, a Support request''s status change, a Support reply or internal note, a staff view of a reported chat message, a Moderator invitation issued or revoked, a Moderator joining with one (with the invitation''s id), a System Announcement created, edited, published or removed, a staff view of reported Private Group content, a Marketplace listing hidden or restored, a Sponsored Product created, edited, published, paused or removed, a reported review or article hidden, removed or restored, or a report escalated to the Admin: appends the Audit entry for the caller''s staff role, with the reason (nestly.audit_reason; the note of an escalation) and Before/After. A caller who is no staff member leaves none.';
 comment on function nestly.has_permission(text) is 'SECURITY INVOKER, caller only (rule 16): true for an active Admin on any known key (CHILD_DATA_VIEW included); for a Moderator only when the key is assigned and its companion key is too (SUPPORT_HANDLE needs SUPPORT_VIEW; USER_WARN, USER_SUSPEND and USER_BAN need USER_VIEW; PRIVATE_GROUP_MODERATE needs REPORTS_VIEW; CHILD_DATA_VIEW needs none and is not part of ANALYTICS_VIEW). Admin-only keys are never true for a Moderator. Deny by default.';
@@ -652,8 +701,6 @@ comment on policy users_select_child_data on nestly.users is 'Approved exception
 comment on function nestly.reveal_post_author(uuid) is 'SECURITY DEFINER (approved exception, rule 19), owner app_owner, pinned search_path. Returns the real author of an anonymous post to a caller with REPORTS_VIEW and CONTENT_MODERATE (and PRIVATE_GROUP_MODERATE when the post is Private Group content) and a valid session, only while an OPEN report on that post exists, and appends author_revealed (with the report id and whether it is Private Group content) in the same call.';
 comment on column nestly.reports.thread_post_id is 'For a comment report: the comment''s post, set at report time (reports_thread_post, as the reporter). Opens the report''s context to REPORTS_VIEW (the post and its thread).';
 comment on function nestly.reports_thread_post() is 'BEFORE INSERT, SECURITY INVOKER. A comment report records the comment''s post (read as the reporter); every other report records none.';
-comment on policy posts_select_staff_context on nestly.posts is 'I14 completion (§9.7): while the report is open, REPORTS_VIEW reads the post of a reported comment (its context), in any state but deleted.';
-comment on policy comments_select_staff_context on nestly.comments is 'I14 completion (§9.7): while the report is open, REPORTS_VIEW reads the comments of a reported post, and of a reported comment''s post (the thread), in any state but deleted.';
 comment on column nestly.private_group_content_views.thread_post_id is 'For a comment report: the comment''s post (from the report; set by the trigger). The opening shows the post and its thread too.';
 comment on function nestly.private_group_content_views_target() is 'BEFORE INSERT, SECURITY INVOKER. The view names the reported post or comment, and a comment''s post (its thread), from the report (read under the caller''s RLS); only a report on Private Group content.';
 comment on policy posts_group_hide on nestly.posts is 'RESTRICTIVE (I10): a group post is readable while its Group is active and Public or the caller is a member (AC-036/037, NFR-PRIV-002, ERR-017); to staff only inside the transaction of an audited view of a report on it or on a comment in it (ERR-024; the context, I14 completion); never on the analytics screen (rows, not columns).';
@@ -667,6 +714,16 @@ comment on column nestly.report_escalations.note is 'What the Moderator asks of 
 comment on column nestly.report_escalations.created_at is 'Database clock.';
 comment on policy report_escalations_select_staff on nestly.report_escalations is 'REPORTS_VIEW (the Admin always) reads the escalations.';
 comment on policy report_escalations_insert_moderator on nestly.report_escalations is 'A Moderator with REPORTS_VIEW escalates an open report it can read, in its own name.';
+comment on policy posts_select_staff_review on nestly.posts is 'I14 completion (§9.7): every active staff account reads every active post for independent review, whatever its audience; group posts stay behind posts_group_hide. Staff write nothing.';
+comment on policy comments_select_staff_review on nestly.comments is 'I14 completion (§9.7): every active staff account reads every active comment for independent review; group comments stay behind comments_group_hide.';
+comment on table nestly.group_staff_views is 'I14 completion (§9.7, BR-040, NFR-PRIV-002): a staff review of a Private Group''s page, one row per opening, by PRIVATE_GROUP_MODERATE (the Admin always), audited (private_group_viewed). Only inside that transaction is the Group''s content readable to them. No Membership, no UPDATE or DELETE.';
+comment on column nestly.group_staff_views.id is 'Row id.';
+comment on column nestly.group_staff_views.group_id is 'The Private Group opened.';
+comment on column nestly.group_staff_views.viewer_id is 'The staff member (default auth.uid()).';
+comment on column nestly.group_staff_views.view_xact is 'The viewing transaction (the database''s default; not granted): the content is readable only inside it.';
+comment on column nestly.group_staff_views.created_at is 'Database clock.';
+comment on policy group_staff_views_select_own on nestly.group_staff_views is 'A staff member reads its own openings.';
+comment on policy group_staff_views_insert_staff on nestly.group_staff_views is 'PRIVATE_GROUP_MODERATE (the Admin always) opens an active Private Group, in its own name.';
 comment on table nestly.report_openings is 'I14 completion (Afik 21.10.2026, §9.10): who opened a report on the admin screens, and when (the Admin''s handling status). One row per report and staff member; REPORTS_VIEW writes its own and reads all. Not audited. They go with their report.';
 comment on column nestly.report_openings.id is 'Row id.';
 comment on column nestly.report_openings.report_id is 'The report opened.';
