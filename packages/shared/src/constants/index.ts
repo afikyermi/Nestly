@@ -16,3 +16,4 @@ export * from './groups.js';
 export * from './chat.js';
 export * from './professionals.js';
 export * from './marketplace.js';
+export * from './promotions.js';

@@ -157,9 +157,12 @@ export const professionalCard = z.strictObject({
   reviewCount: z.number().int(),
 });
 export type ProfessionalCard = z.infer<typeof professionalCard>;
-export const directoryResponse = z.strictObject({ professionals: z.array(professionalCard) });
+/** FR-ALG-007, BR-005 (I13): a promoted Professional, apart from the organic list and always labelled "פרסומת"; the organic order never weighs it. */
+export const promotedProfessional = z.strictObject({ promotionId: z.guid(), card: professionalCard });
+export type PromotedProfessional = z.infer<typeof promotedProfessional>;
+export const directoryResponse = z.strictObject({ professionals: z.array(professionalCard), promoted: z.array(promotedProfessional).default([]) });
 /** GET /api/professionals/following (PG-039, FR-FOLLOW-001): the Professionals the caller follows, as directory cards. */
-export const followingResponse = directoryResponse;
+export const followingResponse = z.strictObject({ professionals: z.array(professionalCard) });
 
 export const professionalReviewItem = z.strictObject({ id: z.guid(), rating: z.number().int(), text: z.string(), at });
 export type ProfessionalReviewItem = z.infer<typeof professionalReviewItem>;

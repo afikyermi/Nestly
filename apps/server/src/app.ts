@@ -17,6 +17,7 @@ import { registerGroupsRoutes } from './routes/groups.js';
 import { registerChatRoutes } from './routes/chat.js';
 import { registerProfessionalsRoutes } from './routes/professionals.js';
 import { registerMarketplaceRoutes } from './routes/marketplace.js';
+import { registerPromotionsRoutes } from './routes/promotions.js';
 import { registerSupportRoutes } from './routes/support.js';
 import { registerReportsRoutes } from './routes/reports.js';
 import { registerNotificationsRoutes } from './routes/notifications.js';
@@ -160,6 +161,7 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerChatRoutes(app, { database });
   registerProfessionalsRoutes(app, { database });
   registerMarketplaceRoutes(app, { database, storage: media.storage });
+  registerPromotionsRoutes(app, { database });
   registerSupportRoutes(app, { database });
   registerAdminReadRoutes(app, { database, storage: media.storage });
   registerAdminActionRoutes(app, { database });
