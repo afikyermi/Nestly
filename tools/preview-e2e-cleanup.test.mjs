@@ -81,7 +81,7 @@ const GOOD_FACTS = {
   dbUser: 'postgres',
   bypassRls: true,
   canDeleteAuthUsers: true,
-  nestlyTables: ['algorithm_configurations', 'audit_log', 'chat_blocks', 'chat_reads', 'chat_requests', 'children', 'comments', 'conversations', 'cycle_entries', 'friend_content_notification_preferences', 'friendships', 'group_access', 'group_bans', 'group_highlight_configurations', 'group_invitations', 'group_join_requests', 'group_members', 'group_notification_preferences', 'group_staff_views', 'group_suggestions', 'groups', 'identity_link_checks', 'journey_contexts', 'legal_consents', 'marketplace_listings', 'media_assets', 'media_reviews', 'media_training_candidates', 'media_training_events', 'media_training_samples', 'messages', 'moderator_invitations', 'moderator_permissions', 'notification_preferences', 'notifications', 'outreach_requests', 'people_search_counts', 'post_authors', 'post_hides', 'posts', 'private_group_content_views', 'professional_articles', 'professional_follows', 'professional_profiles', 'professional_reviews', 'profile_open_counts', 'profile_photos', 'reaction_owners', 'reactions', 'recovery_answers', 'recovery_events', 'recovery_throttles', 'regular_names', 'regular_profiles', 'report_escalations', 'report_openings', 'report_reasons', 'reported_message_views', 'reports', 'search_intents', 'security_events', 'security_limits', 'sponsored_products', 'staff_roles', 'status_guides', 'stories', 'support_messages', 'support_requests', 'system_announcements', 'tracker_events', 'trend_scopes', 'user_blocks', 'user_enforcements', 'users'],
+  nestlyTables: ['algorithm_configurations', 'audit_log', 'chat_blocks', 'chat_reads', 'chat_requests', 'children', 'comments', 'conversations', 'cycle_entries', 'friend_content_notification_preferences', 'friendships', 'group_access', 'group_bans', 'group_highlight_configurations', 'group_invitations', 'group_join_requests', 'group_members', 'group_notification_preferences', 'group_staff_views', 'group_suggestions', 'groups', 'identity_link_checks', 'journey_contexts', 'legal_consents', 'marketplace_listings', 'media_assets', 'media_reviews', 'media_training_candidates', 'media_training_events', 'media_training_samples', 'messages', 'moderator_invitations', 'moderator_permissions', 'notification_preferences', 'notifications', 'outreach_requests', 'people_search_counts', 'post_authors', 'post_hides', 'posts', 'private_group_content_views', 'professional_articles', 'professional_follows', 'professional_profiles', 'professional_reviews', 'profile_open_counts', 'profile_photos', 'promotion_events', 'promotion_payments', 'promotion_plans', 'promotions', 'reaction_owners', 'reactions', 'recovery_answers', 'recovery_events', 'recovery_throttles', 'regular_names', 'regular_profiles', 'report_escalations', 'report_openings', 'report_reasons', 'reported_message_views', 'reports', 'search_intents', 'security_events', 'security_limits', 'sponsored_products', 'staff_roles', 'status_guides', 'stories', 'support_messages', 'support_requests', 'system_announcements', 'tracker_events', 'trend_scopes', 'user_blocks', 'user_enforcements', 'users'],
 };
 
 test('[E c8] preflight passes only for the exact expected facts, in any table order', () => {
@@ -468,15 +468,15 @@ test('[cleanup a] the expected tables are exactly the nestly tables the migratio
   assert.doesNotMatch(code, /alter\s+table\s+(?:if\s+exists\s+)?nestly\.[a-z_]+\s+rename\s+to/i, 'a renamed table: update this test');
   assert.deepEqual([...cleanup.EXPECTED_NESTLY_TABLES], [...created].sort());
   assert.ok(created.has('identity_link_checks'));
-  assert.equal(cleanup.EXPECTED_NESTLY_TABLES.length, 74);
+  assert.equal(cleanup.EXPECTED_NESTLY_TABLES.length, 78);
   for (const t of ['algorithm_configurations', 'post_authors', 'post_hides', 'posts', 'comments', 'reaction_owners', 'reactions', 'reports']) assert.ok(cleanup.EXPECTED_NESTLY_TABLES.includes(t), t);
 });
 
-test('[cleanup a] the preflight with all seventy-four tables passes; the seventy-three left without identity_link_checks fail', () => {
-  assert.equal(GOOD_FACTS.nestlyTables.length, 74);
+test('[cleanup a] the preflight with all seventy-eight tables passes; the seventy-seven left without identity_link_checks fail', () => {
+  assert.equal(GOOD_FACTS.nestlyTables.length, 78);
   assert.equal(cleanup.decidePreflight(GOOD_FACTS).ok, true);
   const rest = GOOD_FACTS.nestlyTables.filter((t) => t !== 'identity_link_checks');
-  assert.equal(rest.length, 73);
+  assert.equal(rest.length, 77);
   assert.equal(cleanup.decidePreflight({ ...GOOD_FACTS, nestlyTables: rest }).ok, false);
 });
 
@@ -513,8 +513,9 @@ test('[F2.4c1 c20 c21 c22] the preflight fails closed when any of the three F2.4
 // I14: moderator_invitations and system_announcements are written by staff only (a test user is never staff); an invitation
 // accepted by an account goes with it by cascade.
 // I12: sponsored_products are written by the Admin only (a test user is never staff).
+// I13: promotion_plans is the seeded sample price list (no runtime role writes it).
 // I14 completion: report_escalations and report_openings are written by staff only and go with their report by cascade; group_staff_views with its Group; trend_scopes holds no user and is always empty between calls.
-const NO_DELETE = ['security_limits', 'algorithm_configurations', 'status_guides', 'report_reasons', 'audit_log', 'media_training_samples', 'media_training_events', 'media_reviews', 'media_training_candidates', 'moderator_invitations', 'system_announcements', 'group_highlight_configurations', 'sponsored_products', 'report_escalations', 'report_openings', 'group_staff_views', 'trend_scopes'];
+const NO_DELETE = ['security_limits', 'algorithm_configurations', 'status_guides', 'report_reasons', 'audit_log', 'media_training_samples', 'media_training_events', 'media_reviews', 'media_training_candidates', 'moderator_invitations', 'system_announcements', 'group_highlight_configurations', 'sponsored_products', 'report_escalations', 'report_openings', 'group_staff_views', 'trend_scopes', 'promotion_plans'];
 
 test('[cleanup a] every expected table is deleted from in the user transaction, but the configuration tables; identity_link_checks just before nestly.users', () => {
   const order = [...cliText.matchAll(/delete from (nestly\.[a-z_]+|auth\.users)/g)].map((m) => m[1]);
@@ -540,7 +541,7 @@ test('[cleanup a] every expected table is deleted from in the user transaction, 
   assert.deepEqual(order.filter((t) => !['nestly.identity_link_checks', 'nestly.post_hides', 'nestly.posts', 'nestly.post_authors', 'nestly.reports', 'nestly.reactions', 'nestly.comments'].includes(t)), [
     'nestly.recovery_throttles', 'nestly.recovery_events', 'nestly.legal_consents', 'nestly.recovery_answers', 'nestly.tracker_events', 'nestly.cycle_entries', 'nestly.children',
     'nestly.journey_contexts', 'nestly.notifications', 'nestly.notification_preferences', 'nestly.friend_content_notification_preferences',
-    'nestly.reported_message_views', 'nestly.private_group_content_views', 'nestly.stories', 'nestly.profile_photos', 'nestly.media_assets', 'nestly.marketplace_listings',
+    'nestly.reported_message_views', 'nestly.private_group_content_views', 'nestly.promotion_events', 'nestly.promotions', 'nestly.promotion_payments', 'nestly.stories', 'nestly.profile_photos', 'nestly.media_assets', 'nestly.marketplace_listings',
     'nestly.groups', 'nestly.group_suggestions', 'nestly.group_invitations', 'nestly.group_join_requests', 'nestly.group_bans',
     'nestly.group_notification_preferences', 'nestly.group_access', 'nestly.group_members',
     'nestly.professional_reviews', 'nestly.professional_follows', 'nestly.professional_articles', 'nestly.outreach_requests',
