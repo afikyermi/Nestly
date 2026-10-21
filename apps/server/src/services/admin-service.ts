@@ -188,7 +188,9 @@ export async function handleReports(database: Database, identity: Identity, requ
       if (request.moderation !== undefined && request.targetKind === 'listing') {
         await setAuditReason(tx, request.moderation.reason);
         const hidden = request.moderation.status !== 'active';
-        if ((await setListingHidden(tx, request.targetId, hidden)) === 0 && (await readListingContent(tx, request.targetId))?.status !== (hidden ? 'hidden' : 'active')) {
+        const listing = await readListing(tx, request.targetId);
+        // already as asked: nothing to move, the reports still close; otherwise the move must take
+        if (listing === undefined || (listing.isHidden !== hidden && (await setListingHidden(tx, request.targetId, hidden)) === 0)) {
           return missingOrRefused(tx, request.targetKind, request.targetId);
         }
       } else if (request.moderation !== undefined) {

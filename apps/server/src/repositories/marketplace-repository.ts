@@ -8,6 +8,7 @@ import {
   LISTING_CATEGORIES,
   LISTING_CATEGORY_TOPICS,
   LISTING_CONDITIONS,
+  LISTING_MAX_IMAGES,
   LISTING_STATUSES,
   MARKETPLACE_PAGE,
   PROFESSIONAL_AREAS,
@@ -162,12 +163,14 @@ export async function readSponsoredImages(tx: IdentityTx, productIds: readonly s
   );
 }
 
-/** The next free places of a listing's images (the positions after the last one taken). */
-export async function nextListingPosition(tx: IdentityTx, listingId: string): Promise<number> {
-  const [row] = z
-    .array(z.object({ next: z.number().int() }))
-    .parse(await tx.execute(sql`select coalesce(max(m.position) + 1, 0)::int as next from nestly.media_assets m where m.listing_id = ${listingId}::uuid`));
-  return row?.next ?? 0;
+/** The first free place of a listing's images (a place freed by a removed picture is used again); null when all six are taken. */
+export async function nextListingPosition(tx: IdentityTx, listingId: string): Promise<number | null> {
+  const [row] = z.array(z.object({ next: z.number().int().nullable() })).parse(
+    await tx.execute(sql`
+      select min(p)::int as next from generate_series(0, ${LISTING_MAX_IMAGES - 1}) as p
+      where not exists (select 1 from nestly.media_assets m where m.listing_id = ${listingId}::uuid and m.position = p)`),
+  );
+  return row?.next ?? null;
 }
 
 /** Attaches one of the caller's unattached listing images at a place; false when the database did not (not theirs, not a listing image, taken). */

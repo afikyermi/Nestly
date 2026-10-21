@@ -88,6 +88,7 @@ export function SponsoredScreen() {
   const call = useAdminCall();
   const [view, setView] = useState<View>({ kind: 'loading' });
   const [notice, setNotice] = useState('');
+  const [formKey, setFormKey] = useState(0);
 
   const load = useCallback(async () => {
     const outcome = await call((token) => fetchSponsored(token));
@@ -125,11 +126,13 @@ export function SponsoredScreen() {
     <div className="flex flex-col gap-8">
       <p className="text-small text-muted-foreground">{SPONSORED_INTRO}</p>
       <ProductForm
+        key={formKey}
         heading={SPONSORED_NEW_HEADING}
         submitLabel={SPONSORED_CREATE}
         initial={EMPTY}
         onSubmit={(body) => call((token) => createSponsored(token, body))}
         onSaved={(item) => {
+          setFormKey((n) => n + 1);
           setNotice(SPONSORED_SAVED);
           setView((now) => (now.kind === 'loaded' ? { kind: 'loaded', items: [item, ...now.items] } : now));
         }}

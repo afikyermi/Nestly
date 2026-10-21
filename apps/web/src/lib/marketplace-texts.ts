@@ -94,6 +94,7 @@ export const SAVING = 'שומרים';
 export const SAVE_FAILED = 'המודעה לא נשמרה. אפשר לנסות שוב.';
 export const NOT_REGULAR_TEXT = 'רק חשבון הורה יכול לפרסם מודעה.';
 export const REMOVE_EXISTING_IMAGE = 'הסרת התמונה';
+export const IMAGE_IN_REVIEW = 'אי אפשר להסיר תמונה שממתינה לבדיקת הצוות. אפשר לנסות שוב אחרי הבדיקה.';
 export const FORM_ERRORS: Record<string, string> = {
   title_length: 'כותרת של 2 עד 80 תווים',
   category_required: 'צריך לבחור קטגוריה',

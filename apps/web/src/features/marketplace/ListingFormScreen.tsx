@@ -33,6 +33,7 @@ import {
   FORM_ERRORS,
   GIVE_AWAY_LABEL,
   IMAGES_HINT,
+  IMAGE_IN_REVIEW,
   IMAGES_LABEL,
   LISTING_GONE,
   LOAD_FAILED,
@@ -139,7 +140,7 @@ export function ListingFormScreen({ listingId }: { listingId?: string }) {
     if (listingId === undefined) return;
     const result = await call((token) => deleteListingImage(token, listingId, imageId));
     if (result.kind === 'ok') setLoaded((now) => (now.kind === 'ready' ? { kind: 'ready', images: now.images.filter((image) => image.id !== imageId) } : now));
-    else setFailure(SAVE_FAILED);
+    else setFailure(result.kind === 'unavailable' ? IMAGE_IN_REVIEW : SAVE_FAILED);
   }
 
   if (loaded.kind === 'loading') {
@@ -182,9 +183,11 @@ export function ListingFormScreen({ listingId }: { listingId?: string }) {
             {existing.map((image, index) => (
               <li key={image.id} className="relative">
                 <MediaTile image={image} alt={imageAltOf(values.title, index, existing.length)} className="aspect-square w-full" />
-                <Button iconOnly label={`${REMOVE_EXISTING_IMAGE} ${index + 1}`} className="absolute end-2 bottom-2 bg-card" onClick={() => void dropExisting(image.id)}>
-                  <CloseIcon />
-                </Button>
+                {image.state === 'rejected' ? null : (
+                  <Button iconOnly label={`${REMOVE_EXISTING_IMAGE} ${index + 1}`} className="absolute end-2 bottom-2 bg-card" onClick={() => void dropExisting(image.id)}>
+                    <CloseIcon />
+                  </Button>
+                )}
               </li>
             ))}
           </ul>

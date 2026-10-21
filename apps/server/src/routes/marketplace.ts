@@ -12,7 +12,7 @@
 //   DELETE /api/marketplace/listings/:id/images/:imageId                 → 204 · 404 unavailable
 //   POST   /api/marketplace/listings/:id/contact { text }                → 200 { conversationId } · 404 unavailable · 403 not_allowed (FR-MKT-005, AC-059)
 //   staff (MARKETPLACE_MODERATE / SPONSORED_PRODUCT_MANAGE; 403 forbidden without the key):
-//   GET    /api/admin/listings?search                                    → 200 { listings }
+//   POST   /api/admin/listings/search { search }                         → 200 { listings } (the text in a body, never an address)
 //   POST   /api/admin/listings/:id/visibility { hidden, reason }         → 200 {} · 404 not_found (audited)
 //   GET    /api/admin/sponsored                                          → 200 { items }
 //   POST   /api/admin/sponsored { …product }                             → 201 the product (a draft; audited)
@@ -107,7 +107,7 @@ async function answer<T>(
 const invalid = (reply: FastifyReply) => reply.code(400).header('cache-control', 'no-store').send({ error: 'invalid' });
 const ok = <T extends object>(value: T) => ({ kind: 'ok' as const, ...value });
 const imageParams = z.object({ id: z.guid(), imageId: z.guid() });
-const staffSearch = z.object({ search: z.string().max(400).optional() });
+const staffSearch = z.strictObject({ search: z.string().max(400).optional() });
 
 const ALL = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] as const;
 type Method = (typeof ALL)[number];
@@ -188,12 +188,12 @@ export function registerMarketplaceRoutes(app: FastifyInstance, deps: Marketplac
   const staff = <T>(request: FastifyRequest, reply: FastifyReply, line: string, call: (database: Database, identity: Identity) => Promise<MarketOutcome<T>>, shape: (v: T) => unknown, status = 200) =>
     answer(request, reply, db(), line, call, shape, status, STAFF_STATUS);
 
-  app.get('/api/admin/listings', (request, reply) => {
-    const query = staffSearch.safeParse(request.query ?? {});
+  app.post('/api/admin/listings/search', { bodyLimit: 4 * 1024 }, (request, reply) => {
+    const query = staffSearch.safeParse(request.body ?? {});
     if (!query.success) return invalid(reply);
     return staff(request, reply, 'staff listings failed', (database, identity) => listStaffListings(database, identity, storage, query.data.search ?? ''), (v) => ({ listings: v.listings }));
   });
-  others('/api/admin/listings', ['GET']);
+  others('/api/admin/listings/search', ['POST']);
 
   app.post('/api/admin/listings/:id/visibility', (request, reply) => {
     const id = idOf(request);

@@ -120,8 +120,7 @@ export async function contactSeller(token: string, id: string, text: string): Pr
 // ---- staff ------------------------------------------------------------------------------------------------------------------------------
 
 export async function fetchStaffListings(token: string, search: string): Promise<AdminOutcome<StaffListing[]>> {
-  const text = search.trim();
-  const outcome = await staffCall(token, 'GET', text === '' ? '/api/admin/listings' : `/api/admin/listings?search=${enc(text)}`, staffListingsResponse);
+  const outcome = await staffCall(token, 'POST', '/api/admin/listings/search', staffListingsResponse, { search: search.trim() });
   return outcome.kind === 'ok' ? { kind: 'ok', value: outcome.value.listings } : outcome;
 }
 export const setListingVisibility = (token: string, id: string, hidden: boolean, reason: string): Promise<AdminOutcome<unknown>> =>

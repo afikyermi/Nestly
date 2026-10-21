@@ -125,7 +125,7 @@ export async function setupMarketplace(page: Page, start: Partial<MarketNet> = {
         net.mineStatus = sent.status === 'sold' ? 'sold' : 'active';
         return route.fulfill({ status: 204, headers: CORS });
       }
-      if (path === '/api/admin/listings') {
+      if (path === '/api/admin/listings/search') {
         return json(route, 200, { listings: [{ ...listingCard(STROLLER, 'עגלת תינוק כחולה', { isHidden: net.hidden }), sellerId: SELLER }] });
       }
       if (path === `/api/admin/listings/${STROLLER}/visibility`) {

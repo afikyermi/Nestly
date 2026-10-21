@@ -110,6 +110,17 @@ async function inTx<T>(database: Database, identity: Identity, work: (tx: Identi
   });
 }
 
+/**
+ * FR-ALG-008: a search's topics, for a Regular or Professional account. search_intents_insert_own refuses any other (a staff account browsing
+ * the Marketplace): that refusal, in its own savepoint, records nothing and the list still answers.
+ */
+async function recordOwnTopics(tx: IdentityTx, topics: readonly string[]): Promise<void> {
+  if (topics.length === 0) return;
+  await tx.transaction((savepoint) => recordTopics(savepoint, topics)).catch((error: unknown) => {
+    if (readDatabaseFault(error)?.code !== '42501') throw error;
+  });
+}
+
 /** The Intent Signal's half-life for the Marketplace order (FR-ALG-008: it decays; a topic is gone after 30 days). */
 const INTENT_HALF_LIFE_HOURS = 24 * 7;
 
@@ -123,6 +134,19 @@ async function imagesByKey(storage: MediaStorage | undefined, rows: readonly Own
     if (view !== undefined) out.set(row.ownerKey, [...(out.get(row.ownerKey) ?? []), view]);
   }
   return out;
+}
+
+/** Per listing, the one row a card shows: the first checked image, or for the owner's own listing the first at all. Only these are signed. */
+function coverRows(listings: readonly ListingRow[], rows: readonly OwnedImageRow[]): OwnedImageRow[] {
+  const mine = new Set(listings.filter((row) => row.isMine).map((row) => row.id));
+  const out = new Map<string, OwnedImageRow>();
+  for (const row of rows) {
+    const ready = row.status === 'passed' || row.status === 'approved';
+    const current = out.get(row.ownerKey);
+    const currentReady = current !== undefined && (current.status === 'passed' || current.status === 'approved');
+    if (current === undefined ? ready || mine.has(row.ownerKey) : ready && !currentReady) out.set(row.ownerKey, row);
+  }
+  return [...out.values()];
 }
 
 /** The card's picture: the first ready image, or for the owner the first one at all (it sees its own pending pictures). */
@@ -175,7 +199,7 @@ function sponsoredItem(row: SponsoredRow, images: readonly MediaImage[] | undefi
  */
 export async function listMarketplace(database: Database, identity: Identity, storage: MediaStorage | undefined, query: MarketplaceQuery): Promise<MarketplaceResponse> {
   const read = await inIdentityTransaction(database, identity, async (tx) => {
-    if (query.q !== undefined && query.q !== '') await recordTopics(tx, detectTopics(query.q).slice(0, MAX_TOPICS_PER_SEARCH));
+    if (query.q !== undefined && query.q !== '') await recordOwnTopics(tx, detectTopics(query.q).slice(0, MAX_TOPICS_PER_SEARCH));
     const weights = (query.sort ?? 'match') === 'match' ? await readOwnTopicWeights(tx, new Date().toISOString(), INTENT_HALF_LIFE_HOURS) : [];
     const listings = await readMarketplace(tx, query, weights);
     const sponsored = await readPublishedSponsored(tx, query.category);
@@ -183,7 +207,7 @@ export async function listMarketplace(database: Database, identity: Identity, st
     const sponsoredImages = storage === undefined ? [] : await readSponsoredImages(tx, sponsored.map((row) => row.id));
     return { listings, sponsored, images, sponsoredImages };
   });
-  const byListing = await imagesByKey(storage, read.images);
+  const byListing = await imagesByKey(storage, coverRows(read.listings, read.images));
   const byProduct = await imagesByKey(storage, read.sponsoredImages);
   return {
     listings: read.listings.map((row) => card(row, byListing.get(row.id))),
@@ -197,7 +221,7 @@ export async function listOwnListings(database: Database, identity: Identity, st
     const listings = await readOwnListings(tx);
     return { listings, images: storage === undefined ? [] : await readListingImages(tx, listings.map((row) => row.id)) };
   });
-  const byListing = await imagesByKey(storage, read.images);
+  const byListing = await imagesByKey(storage, coverRows(read.listings, read.images));
   return read.listings.map((row) => card(row, byListing.get(row.id)));
 }
 
@@ -218,11 +242,9 @@ export async function readListingPage(database: Database, identity: Identity, st
 
 /** Attaches new images after the ones already there; any image that will not attach (not the caller's, refused, taken) rolls everything back. */
 async function attachAll(tx: IdentityTx, listingId: string, imageIds: readonly string[]): Promise<void> {
-  if (imageIds.length === 0) return;
-  let position = await nextListingPosition(tx, listingId);
   for (const imageId of imageIds) {
-    if (!(await attachListingImage(tx, imageId, listingId, position))) throw new Refused({ kind: 'invalid' });
-    position += 1;
+    const position = await nextListingPosition(tx, listingId);
+    if (position === null || !(await attachListingImage(tx, imageId, listingId, position))) throw new Refused({ kind: 'invalid' });
   }
 }
 
@@ -297,7 +319,7 @@ export async function listStaffListings(database: Database, identity: Identity, 
     return { listings, images: storage === undefined ? [] : await readListingImages(tx, listings.map((row) => row.id)) };
   });
   if (read === undefined) return { kind: 'forbidden' };
-  const byListing = await imagesByKey(storage, read.images);
+  const byListing = await imagesByKey(storage, coverRows(read.listings, read.images));
   return { kind: 'ok', listings: read.listings.map((row) => ({ ...card(row, byListing.get(row.id)), sellerId: row.sellerId })) };
 }
 
