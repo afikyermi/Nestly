@@ -6,6 +6,9 @@ import { useSessionAccount } from '@/hooks/use-session-account';
 import { userIdOfAccessToken } from '@/lib/access-token';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
 import { fetchFeedPage } from '@/services/api/feed';
+import { fetchGroupFeedPage, removeGroupPost } from '@/services/api/groups';
+import { REMOVE_NOT_ALLOWED_TEXT } from '@/lib/group-post-texts';
+import { useFeedSource } from './feed-source';
 import { setLike } from '@/services/api/likes';
 import { deletePost } from '@/services/api/posts';
 import { setHidden } from '@/services/api/post-hides';
@@ -74,6 +77,9 @@ export interface FeedFlow {
 // (ERR-038, ERR-037).
 export function useFeed(onRestart: () => void): FeedFlow {
   const account = useSessionAccount();
+  // I10: a Group's discussion reads its own pages and is never remembered for Back (the remembered pages are the community feed's).
+  const source = useFeedSource();
+  const groupId = source.kind === 'group' ? source.groupId : null;
   // How the screen was reached, read once: an overlay's own history entry (a card's menu, F3.9) changes the type without leaving the feed.
   const [navigationType] = useState(useNavigationType());
   const [state, setState] = useState<FeedState>(INITIAL_FEED);
@@ -95,7 +101,8 @@ export function useFeed(onRestart: () => void): FeedFlow {
       const id = (runs.current += 1);
       setState((current) => ({ ...current, loading: true, focusIndex: null }));
       const token = account === null ? null : await account.getAccessToken().catch(() => null);
-      const outcome = token === null ? ({ kind: 'failed' } as const) : await fetchFeedPage(token, cursor);
+      const outcome =
+        token === null ? ({ kind: 'failed' } as const) : groupId === null ? await fetchFeedPage(token, cursor) : await fetchGroupFeedPage(token, groupId, cursor);
       if (id !== runs.current) return;
       if (outcome.kind === 'page') {
         busy.current = false;
@@ -113,7 +120,7 @@ export function useFeed(onRestart: () => void): FeedFlow {
       const message = outcome.kind === 'account-unavailable' ? STOPPED_TEXT : FEED_LOAD_FAILED_TEXT;
       setState((current) => ({ ...current, phase: cursor === null ? 'first-error' : 'more-error', loading: false, message }));
     },
-    [account],
+    [account, groupId],
   );
 
   // Back (a history pop) brings the remembered pages and scroll back, only when the current token names the user they were kept for (else
@@ -121,10 +128,10 @@ export function useFeed(onRestart: () => void): FeedFlow {
   useEffect(() => {
     let cancelled = false;
     const start = () => {
-      forgetFeed();
+      if (groupId === null) forgetFeed();
       void run(null, false);
     };
-    if (navigationType !== NavigationType.Pop) start();
+    if (navigationType !== NavigationType.Pop || groupId !== null) start();
     else {
       void (async () => {
         const token = account === null ? null : await account.getAccessToken().catch(() => null);
@@ -145,11 +152,12 @@ export function useFeed(onRestart: () => void): FeedFlow {
       runs.current += 1;
       busy.current = false;
     };
-  }, [run, account, navigationType]);
+  }, [run, account, navigationType, groupId]);
 
   useEffect(() => {
+    if (groupId !== null) return;
     if (state.phase === 'ready' || state.phase === 'more-error') rememberFeed(withoutHidden(state.items, state.hiddenIds), state.nextCursor, owner.current);
-  }, [state.phase, state.items, state.nextCursor, state.hiddenIds]);
+  }, [state.phase, state.items, state.nextCursor, state.hiddenIds, groupId]);
 
   const loadMore = useCallback(() => {
     if (state.phase === 'ready' && state.nextCursor !== null) void run(state.nextCursor, false);
@@ -210,6 +218,17 @@ export function useFeed(onRestart: () => void): FeedFlow {
   const remove = useCallback(
     async (unitId: string): Promise<{ ok: true } | { ok: false; failure: string }> => {
       const token = account === null ? null : await account.getAccessToken().catch(() => null);
+      // I10: another member's post in a Group is removed through the Group, which tells a refusal (a higher Role's post) from a post gone
+      const mine = latest.current.items.find((unit) => unit.id === unitId)?.isMine === true;
+      if (groupId !== null && !mine) {
+        const result = token === null ? null : await removeGroupPost(token, groupId, unitId);
+        if (result !== null && (result.kind === 'ok' || result.error === 'user_unavailable')) {
+          setState((now) => withHideResult(now, unitId, { kind: 'removed', status: DELETED_STATUS }));
+          return { ok: true };
+        }
+        if (result !== null && result.kind === 'error' && (result.error === 'unauthenticated' || result.error === 'account-unavailable')) void account?.recheck();
+        return { ok: false, failure: result !== null && result.kind === 'error' && result.error === 'role_not_allowed' ? REMOVE_NOT_ALLOWED_TEXT : DELETE_FAILED_TEXT };
+      }
       const outcome = token === null ? ({ kind: 'failed' } as const) : await deletePost(token, unitId);
       if (outcome.kind === 'deleted' || outcome.kind === 'unavailable') {
         setState((now) => withHideResult(now, unitId, { kind: 'removed', status: DELETED_STATUS }));
@@ -218,7 +237,7 @@ export function useFeed(onRestart: () => void): FeedFlow {
       if (outcome.kind === 'unauthenticated' || outcome.kind === 'account-unavailable') void account?.recheck();
       return { ok: false, failure: outcome.kind === 'account-unavailable' ? STOPPED_TEXT : failureText(outcome, DELETE_FAILED_TEXT) };
     },
-    [account],
+    [account, groupId],
   );
 
   const addPublished = useCallback((unit: FeedUnit) => setState((current) => withPublished(current, unit)), []);

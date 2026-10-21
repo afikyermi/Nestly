@@ -35,13 +35,14 @@ select is(
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and not pol.polpermissive and pol.polname !~ '_block_hide$'),
-  0::bigint, '[F3.0-a c1 · I4 blocking] no restrictive policy hides an unreviewed branch (the reviewed block policies, file 91, excepted)');
+    where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and not pol.polpermissive and pol.polname !~ '_block_hide$' and pol.polname !~ '_group_(hide|insert)$'),
+  0::bigint, '[F3.0-a c1 · I4 blocking · I10] no restrictive policy hides an unreviewed branch (the reviewed block policies, file 91, and I10''s group policies, file 96, excepted)');
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and pol.polname !~ '_(jobs|notify)$' and pol.polname !~ '_reveal$'
       and pol.polname !~ '_block_hide$' -- restrictive: it only narrows the gated permissive policies (file 91)
+      and pol.polname !~ '_group_(hide|insert)$' -- restrictive (I10, file 96)
       and (coalesce(pg_catalog.pg_get_expr(pol.polqual, pol.polrelid), '') || coalesce(pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid), ''))
           !~ 'is_active_account\(\)'),
   0::bigint, '[F3.0-a c1 c2 platform r15] every policy is gated by is_active_account()');
@@ -76,8 +77,8 @@ select is(
      from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = 'posts' and a.attnum > 0 and not a.attisdropped
       and has_column_privilege('authenticated', c.oid, a.attnum, 'SELECT')),
-  'anonymous_post_id, audience, author_id, author_status, body, created_at, held_at, held_until, id, is_anonymous, is_share, shared_post_id, stage_tag, status',
-  '[F3.0-b finding 1 c14] authenticated may SELECT exactly these posts columns: everything but held_xact');
+  'anonymous_post_id, audience, author_id, author_status, body, created_at, group_id, held_at, held_until, id, is_anonymous, is_share, shared_post_id, stage_tag, status',
+  '[F3.0-b finding 1 c14 · I10] authenticated may SELECT exactly these posts columns: everything but held_xact');
 
 select is(
   (select count(*) from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
@@ -90,7 +91,7 @@ select is(
      from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and a.attnum > 0 and not a.attisdropped
       and has_column_privilege('authenticated', c.oid, a.attnum, 'INSERT')),
-  'post_authors.post_id, post_hides.post_id, posts.audience, posts.body, posts.is_anonymous, posts.shared_post_id, posts.stage_tag',
+  'post_authors.post_id, post_hides.post_id, posts.audience, posts.body, posts.group_id, posts.is_anonymous, posts.shared_post_id, posts.stage_tag',
   '[F3.0-a c1 c6 platform r12 r13] authenticated may INSERT exactly these columns: never the author, the status, a copy, an id or a clock');
 
 select is(
@@ -121,9 +122,9 @@ select is(
 select is(
   (select string_agg(c.relname, ', ' order by c.relname) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p')),
-  'algorithm_configurations, audit_log, chat_blocks, chat_reads, chat_requests, children, comments, conversations, cycle_entries, friend_content_notification_preferences, friendships, identity_link_checks, journey_contexts, legal_consents, media_assets, media_reviews, media_training_candidates, media_training_events, media_training_samples, messages, moderator_invitations, moderator_permissions, notification_preferences, notifications, people_search_counts, post_authors, '
-  || 'post_hides, posts, profile_open_counts, profile_photos, reaction_owners, reactions, recovery_answers, recovery_events, recovery_throttles, regular_names, regular_profiles, report_reasons, reported_message_views, reports, search_intents, security_events, security_limits, staff_roles, status_guides, stories, support_messages, support_requests, system_announcements, tracker_events, user_blocks, user_enforcements, users',
-  '[F3.0-a c17 F3.0-b c1 · I14] schema nestly holds exactly the fourteen earlier tables plus the schema.md and schema-b.md names (53, with I14''s moderator_invitations and system_announcements, with I6''s cycle_entries, status_guides and tracker_events, plus I4''s five, user_blocks and the five notification and search tables and I5''s seven media tables and I8''s eight chat, Support and reported-message tables): no events table');
+  'algorithm_configurations, audit_log, chat_blocks, chat_reads, chat_requests, children, comments, conversations, cycle_entries, friend_content_notification_preferences, friendships, group_access, group_bans, group_highlight_configurations, group_invitations, group_join_requests, group_members, group_notification_preferences, group_suggestions, groups, identity_link_checks, journey_contexts, legal_consents, media_assets, media_reviews, media_training_candidates, media_training_events, media_training_samples, messages, moderator_invitations, moderator_permissions, notification_preferences, notifications, people_search_counts, post_authors, '
+  || 'post_hides, posts, private_group_content_views, profile_open_counts, profile_photos, reaction_owners, reactions, recovery_answers, recovery_events, recovery_throttles, regular_names, regular_profiles, report_reasons, reported_message_views, reports, search_intents, security_events, security_limits, staff_roles, status_guides, stories, support_messages, support_requests, system_announcements, tracker_events, user_blocks, user_enforcements, users',
+  '[F3.0-a c17 F3.0-b c1 · I14] schema nestly holds exactly the fourteen earlier tables plus the schema.md and schema-b.md names (63, with I10''s ten group tables, file 96, with I14''s moderator_invitations and system_announcements, with I6''s cycle_entries, status_guides and tracker_events, plus I4''s five, user_blocks and the five notification and search tables and I5''s seven media tables and I8''s eight chat, Support and reported-message tables): no events table');
 
 select is(
   (select count(*) from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
@@ -141,13 +142,13 @@ select is(
 select is(
   (select count(*) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'nestly' and (p.proname like 'post%' or p.proname like 'algorithm%')),
-  5::bigint, '[F3.0-a c17 · F3.5 c8] exactly five functions: four came with F3.0a (schema.md + the hide-own-post guard) and posts_update_share_guard (I3 rest PR-A)');
+  7::bigint, '[F3.0-a c17 · F3.5 c8 · I10] exactly seven functions: four came with F3.0a (schema.md + the hide-own-post guard), posts_update_share_guard (I3 rest PR-A) and I10''s posts_group_share_guard and posts_reject_group_edit (file 96)');
 
 select is(
   (select string_agg(p.proname, ', ' order by p.proname) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'nestly' and (p.proname like 'post%' or p.proname like 'algorithm%')),
-  'algorithm_configurations_guard, post_hides_insert_guard, posts_insert_author, posts_insert_prepare, posts_update_share_guard',
-  '[F3.0-a c17 · F3.5 c8] the five are insert/update guards; none is a view, impression, click or dwell recorder');
+  'algorithm_configurations_guard, post_hides_insert_guard, posts_group_share_guard, posts_insert_author, posts_insert_prepare, posts_reject_group_edit, posts_update_share_guard',
+  '[F3.0-a c17 · F3.5 c8 · I10] the seven are insert/update guards; none is a view, impression, click or dwell recorder');
 
 select is(
   (select count(*) from pg_catalog.pg_trigger t join pg_catalog.pg_class c on c.oid = t.tgrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace

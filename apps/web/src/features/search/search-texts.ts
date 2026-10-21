@@ -17,7 +17,7 @@ export const PROMPT_TEXT = "אפשר לחפש משתי אותיות";
 export const LOADING_TEXT = "מחפשים";
 export const NONE_TEXT = "לא מצאנו תוצאות. אפשר לנסות מילים אחרות";
 export const PEOPLE_NONE_TEXT = "לא נמצאו אנשים בשם הזה";
-export const GROUPS_NONE_TEXT = "עדיין אין קבוצות לחיפוש";
+export const GROUPS_NONE_TEXT = "לא נמצאו קבוצות";
 export const POSTS_NONE_TEXT = "לא נמצאו פוסטים";
 export const LIMITED_TEXT =
   "הגעתם למספר החיפושים לשעה. אפשר להמשיך לחפש פוסטים, ולחפש אנשים בעוד זמן מה";
@@ -25,3 +25,6 @@ export const FAILED_TEXT = "לא הצלחנו לחפש. אפשר לנסות שו
 export const RETRY_LABEL = "ניסיון נוסף";
 export const ANONYMOUS_AUTHOR = 'פוסט אנונימי';
 export const personLink = (name: string): string => `לפרופיל של ${name}`;
+
+/** I10: under a Group's name in the results. */
+export const GROUP_PRIVACY_LABEL = { public: "קבוצה ציבורית", private: "קבוצה פרטית" } as const;

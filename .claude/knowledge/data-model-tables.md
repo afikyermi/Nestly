@@ -20,6 +20,7 @@ does not instruct loading every link. Column sections and rule matrices are both
 | user_blocks | Blocking a user (I4); Friendships and regular names; Notifications and People Search |
 | chat_requests, conversations, messages, chat_blocks, chat_reads, support_requests, support_messages, reported_message_views | Chat and Support (I8); Friendships and regular names; Blocking a user; Safety and admin core (reports, audit) |
 | moderator_invitations, system_announcements, the analytics reads | Moderators team (I14); Safety and admin core (staff roles, keys, audit) |
+| groups, group_members, group_access, group_join_requests, group_invitations, group_bans, group_notification_preferences, group_suggestions, group_highlight_configurations, private_group_content_views | Groups (I10); posts, comments, reactions (group content); Notifications and People Search (notify_group); Safety and admin core (reports, audit) |
 
 | tracker_events, cycle_entries, status_guides | Trackers, cycle and status guides (I6); children for the child FK |
 | media_assets, media_reviews, profile_photos, stories, media_training_candidates, media_training_samples, media_training_events | Media and Stories (I5); posts and post_authors (attach), friendships (Story audience), Safety and admin core (CONTENT_MODERATE, audit) |
@@ -557,6 +558,33 @@ reactions, reports, user_enforcements and friendships, through `analytics_reader
 (the Admin always) only in a transaction that set `nestly.analytics_view` = on. This extends deviation (a) of the core: in that transaction the rows
 are readable to that staff member, and the server answers aggregates only (no id, name or text; BR-058). No child, journey, tracker, chat, support or
 media row is opened. Cleanup: both tables are listed and never deleted from (a test user is never staff).
+
+## Groups (I10)
+
+Built by `20261022300000_groups.sql` (down script in `supabase/rollback/`; refuses while a Group or a staff view exists). One new SECURITY DEFINER,
+`notify_group()` (rule 17, `data-model.md` "Approved exceptions"); `audit_trigger()` gains the private_group_content_views branch (I14's body otherwise verbatim);
+`notify_post()` returns early for a group post. Helpers `group_role_rank(text)` (immutable) and `my_group_rank(uuid)` (invoker, the caller's own rank from
+`group_access`). Error codes: NS026 (Owner leaves or steps down without a transfer), NS027 (privacy/delete by a non-Owner), NS028 (blocked from the Group).
+
+| Table | Columns and meaning | Authorization |
+|---|---|---|
+| `groups` | id, name (3-60), description (≤1,000), rules (≤2,000), privacy public/private, status active/deleted, pinned_post_id (FK (pinned_post_id, id) -> posts (id, group_id), SET NULL), created_by, created_at, updated_at, deleted_at, deleted_xact | SELECT every active account (active; a deleted row only in its deleting transaction); INSERT an active Regular/Professional in its own name (the Owner row follows by trigger); UPDATE Owner/Admin (name, description, rules, pin); privacy and status the Owner only (`groups_update_guard`, NS027) |
+| `group_members` | group_id, user_id, member_status (users status copy), role owner/admin/moderator/member, created_at; one Owner (deferred exclusion) | SELECT own rows, fellow members (via `group_access`), active rows of a Public Group; INSERT the creator as Owner, self Join (Public, or an invitation accepted in this transaction), a requester approved in this transaction by Owner/Admin; UPDATE role: a higher Role sets a lower one below its own, the Owner may make an Owner and then step down (`group_members_guard`: NS026 without another Owner); DELETE self (never the Owner) or a higher Role removes a lower one |
+| `group_access` | group_id, user_id, role: FK (group_id, user_id, role) -> group_members ON UPDATE/DELETE CASCADE | SELECT own only; INSERT by the members trigger (the FK proves it). The copy exists so policies ask the caller's Role without reading group_members inside its own policies |
+| `group_join_requests` | id, group_id, user_id, status pending/approved/rejected/cancelled, created_at, decided_by, decided_at, decided_xact; one pending per pair | SELECT requester, Owner/Admin; INSERT a non-member, non-blocked Regular/Professional for an active Private Group; UPDATE the requester cancels, Owner/Admin approve/reject (the approval inserts the member in the same statement) |
+| `group_invitations` | id, group_id, inviter_id, invitee_id, status pending/accepted/declined/cancelled, created_at, decided_at, decided_xact; one pending per pair | SELECT invitee, inviter, Owner/Admin; INSERT Owner/Admin, of an active Friend who is neither member nor blocked; UPDATE invitee accepts (becomes a member)/declines, inviter or Owner/Admin cancel |
+| `group_bans` | group_id, user_id, banned_by, created_at | SELECT the blocked user, Moderator+; INSERT Moderator+ against a lower Role or a non-member (removes the Membership); DELETE Moderator+ |
+| `group_notification_preferences` | group_id, user_id (FK -> group_members, cascade), mode all/highlights/off, updated_at; no row = highlights | own rows; `*_select_notify` TO app_owner for notify_group |
+| `group_suggestions` | id, group_id, sender_id, recipient_id, created_at; once per triple | SELECT sender/recipient; INSERT a Regular user to an active Friend (notification group_recommended) |
+| `group_highlight_configurations` | version, engagement_threshold (v1 = 5), is_active, created_at, reason | SELECT every active account; no writer but migrations |
+| `private_group_content_views` | id, report_id, viewer_id, post_id/comment_id (from the report), view_xact, created_at | SELECT own; INSERT PRIVATE_GROUP_MODERATE (Admin always) for a report with `is_private_group`; audited (private_group_content_viewed); the reported item is readable to that viewer inside that transaction only |
+
+Other changes: `posts.group_id` (insert-only; group posts are audience everyone, never a share; a Private Group post is never shared, NS002), `comments.group_id`
+(by trigger), `reports.is_private_group` (and no `target_text` copy for Private Group content). RESTRICTIVE `posts_group_hide`, `comments_group_hide` (Group active and
+Public, or the caller a member; staff only through a view in the same transaction; analytics counts), `posts_group_insert`, `comments_group_insert`,
+`reactions_group_insert` (members only). Group Moderator+ remove a lower Role's post or comment (`*_delete_group_manager`, and the hold path
+`*_update_group_manager` + `*_select_group_held`). Names: `regular_names_select_group_member/_requester/_banned`. Notifications (`notify_group`): group_recommended,
+group_invited, group_join_requested (Owner/Admins), group_join_approved, group_post (mode all), group_pinned and group_highlight (all/highlights), category `groups`.
 
 ## New entity template
 

@@ -140,7 +140,7 @@ describe('[FR-NOTIF-002 FR-NOTIF-003 AC-041] preferences', () => {
     const first = await get(app, hA, '/api/notification-preferences');
     expect(first.statusCode, first.body).toBe(200);
     const body = z.object({ categories: z.array(z.object({ category: z.string(), isEnabled: z.boolean() })) }).parse(JSON.parse(first.body));
-    expect(body.categories.map((c) => [c.category, c.isEnabled])).toEqual([['friends', true], ['comments', true], ['shares', true], ['friend_posts', true]]);
+    expect(body.categories.map((c) => [c.category, c.isEnabled])).toEqual([['friends', true], ['comments', true], ['shares', true], ['friend_posts', true], ['groups', true]]);
     expect((await put(app, hA, '/api/notification-preferences/categories/comments', { isEnabled: false })).statusCode).toBe(200);
     const created = await createPost(app, hA, { body: 'x post', audience: 'everyone' });
     const postId = String(jsonOf(created.body).id);

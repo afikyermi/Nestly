@@ -48,11 +48,11 @@
 | GroupJoinRequest | User, Group, status Pending/Approved/Rejected, requestedAt, decidedBy/decidedAt. |
 | GroupRoleAssignment | Group, User, role Owner/Admin/Moderator, assignedBy, timestamps. System Moderator אינו נשמר כאן אלא ב-ModeratorPermission. |
 | NotificationPreference | User + Notification Type/Category + inAppEnabled + pushEnabled. Security/Critical categories הן mandatory ב-In-App. pushEnabled משמש רק בשלב Mobile ואפקטיבי רק כאשר הקטגוריה מאופשרת והרשאת Push של מערכת ההפעלה קיימת. Group-specific level נשמר ב-GroupNotificationPreference. |
-| GroupNotificationPreference | User + Group + mode All/Highlights/Off. Highlights logic תוגדר במשימת האלגוריתמים. |
+| GroupNotificationPreference | User + Group + mode All/Highlights/Off; בלי בחירה — Highlights. Highlights לפי FR-ALG-010. נמחקת עם ה-Membership. |
 | FriendContentNotificationPreference | User + Friend + enabled עבור “פוסט חדש של חבר”, כדי שההתראה לא תישלח אוטומטית מכל Friend. |
 | ChildBirthdayVisibility | העדפת פרטיות של ההורה הקובעת האם ניתן להשתמש ביום ההולדת של הילד לצורך Notification לחברים. אחת לכל הורה; ברירת מחדל: מאושר (החלטת אפיק מ-16.10.2026). |
-| GroupInvitation | Group, inviter, invitee, status Pending/Accepted/Declined, createdAt/decidedAt. קבלת הזמנה יכולה ליצור Membership בהתאם לכללי הקבוצה. |
-| GroupMemberEnforcement | פעולת ניהול ברמת קבוצה כגון Warning/Mute/Remove/Block/Unblock: Group, Target User, Action, Actor/Group Role, Reason, timestamps ומשך/סטטוס לפי הצורך. |
+| GroupInvitation | Group, inviter, invitee, status Pending/Accepted/Declined/Cancelled, createdAt/decidedAt. Owner/Admin מזמינים Friend פעיל; הזמנה אחת ממתינה לכל קבוצה ומוזמן; קבלה יוצרת Membership. |
+| GroupMemberEnforcement | פעולת ניהול ברמת קבוצה כגון Warning/Mute/Remove/Block/Unblock: Group, Target User, Action, Actor/Group Role, Reason, timestamps ומשך/סטטוס לפי הצורך. ב-v1: Remove, Block ו-Unblock (OP-047). |
 | CommunityConfiguration | הגדרות קהילה תפעוליות כגון קטגוריות, סיבות דיווח ותצורות Moderation מאושרות; כוללות metadata של שינוי לפי הצורך. |
 | SystemAnnouncement | הודעת מערכת רשמית: title (2–80) ו-body (עד 1,000), status Draft/Published/Removed (Removed סופי), author, זמני יצירה, עדכון, פרסום והסרה. Target scope — כל המשתמשים עד ההחלטה ב-OP-042. |
 | ModeratorInvitation | הזמנה חד-פעמית של Admin להצטרפות Moderator (FR-ADMIN-004): תיאור קצר למי ההזמנה, ה-Admin שהנפיק, זמן הנפקה, תוקף (7 ימים), החשבון שנוצר ממנה וזמן ההצטרפות, או זמן הביטול. נשמר רק תקציר (hash) של קוד ההזמנה, לעולם לא הקוד עצמו. |

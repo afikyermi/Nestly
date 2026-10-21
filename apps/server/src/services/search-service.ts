@@ -17,6 +17,7 @@ import { rateLimitFault, type RateLimited } from '../lib/profile-open-limit.js';
 import type { Identity } from '../lib/token-verifier.js';
 import { readVisibleNames } from '../repositories/friends-repository.js';
 import { recordTopics, searchPeople, searchPosts } from '../repositories/search-repository.js';
+import { searchGroups } from '../repositories/groups-repository.js';
 import { classifyMember, isRefusal, type MemberRefusal } from './membership.js';
 
 export type SearchOutcome = { readonly kind: 'ok'; readonly response: SearchResponse } | RateLimited | MemberRefusal;
@@ -42,6 +43,10 @@ export async function search(database: Database, identity: Identity, text: strin
         const found = await searchPeople(tx, text, SEARCH_RESULT_LIMIT);
         if (found.kind === 'limited') response.peopleLimited = true;
         else response.people = found.people;
+      }
+      if (type === 'all' || type === 'groups') {
+        // I10 (BR-031, BR-032): every active Group's details are discoverable, Public and Private alike; content is not searched here.
+        response.groups = await searchGroups(tx, text, SEARCH_RESULT_LIMIT);
       }
       if (type === 'all' || type === 'posts') {
         const found = await searchPosts(tx, text, SEARCH_RESULT_LIMIT);

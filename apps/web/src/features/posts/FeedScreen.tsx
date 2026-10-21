@@ -36,6 +36,8 @@ import { useCommentApi } from './use-comment-api';
 import { useFeedComments } from './use-feed-comments';
 import { useFeedCommentWrites } from './use-feed-comment-writes';
 import { useNearCards } from './use-near-cards';
+import { useFeedSource } from './feed-source';
+import { PIN_LABEL, REMOVE_FROM_GROUP_LABEL, UNPIN_LABEL } from '@/lib/group-post-texts';
 
 /**
  * What is open over the feed: one card's menu, one comment's menu (ux-polish-a c10), or the delete confirmation of a card or of a comment in it
@@ -60,6 +62,9 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
   const own = useOwnUserId();
   // A Professional (no parent profile, D1) may not hide a post (post_hides_insert_guard): the item is not offered.
   const professional = right === 'everyone-only';
+  // I10: the same screen shows one Group's discussion (feed-source.ts).
+  const source = useFeedSource();
+  const group = source.kind === 'group' ? source : null;
   const canHide = !professional;
   const rootRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -144,7 +149,16 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
   };
   const pressedOutside = outsidePressHandler({ closingByPointer, followAfterClose });
   useEffect(() => holdLinksWhileClosing({ closing, followAfterClose }), [closing, followAfterClose]);
-  const actionsFor = (unit: FeedUnit): MoreActionsItem[] =>
+  const pinItems = (unit: FeedUnit): MoreActionsItem[] =>
+    group === null || !group.canPin || unit.kind !== 'post'
+      ? []
+      : [
+          group.pinnedPostId === unit.id
+            ? { key: 'unpin', label: UNPIN_LABEL, onSelect: () => group.onPin(null) }
+            : { key: 'pin', label: PIN_LABEL, onSelect: () => group.onPin(unit.id) },
+        ];
+  const actionsFor = (unit: FeedUnit): MoreActionsItem[] => [...pinItems(unit), ...ownOrOther(unit)];
+  const ownOrOther = (unit: FeedUnit): MoreActionsItem[] =>
     unit.isMine
       ? [
           // A share's text cannot be edited (F3.5, NS005): its own menu offers delete only.
@@ -163,10 +177,14 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
           ...(canHide ? [{ key: 'hide', label: HIDE_LABEL, onSelect: () => hide(unit.id), disabled: state.pendingHideIds.includes(unit.id) }] : []),
           // F3.7 c9: every card the viewer did not write, an anonymous one included (its isMine is false); a share is reported as itself.
           { key: 'report', label: REPORT_POST_ITEM, onSelect: () => report.start({ kind: 'post', id: unit.id }) },
+          // I10: a Group Moderator or higher removes a member's post (the database refuses a higher Role's: the card then stays, with the failure text)
+          ...(group?.canModerate === true
+            ? [{ key: 'remove', label: REMOVE_FROM_GROUP_LABEL, onSelect: () => setOverlay({ kind: 'confirm', unitId: unit.id, saving: false, failure: null }) }]
+            : []),
         ];
 
   const shareActionsFor = (unit: FeedUnit) => {
-    if (professional) return {};
+    if (professional || group?.privacy === 'private') return {};
     const link = postLinkOf(shareLink.origin, unit);
     return {
       onShareInFeed:
@@ -299,9 +317,15 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
 
   return (
     <div ref={rootRef}>
-      <h1 ref={headingRef} tabIndex={-1} className="text-h2">
-        {FEED_TITLE}
-      </h1>
+      {group === null ? (
+        <h1 ref={headingRef} tabIndex={-1} className="text-h2">
+          {FEED_TITLE}
+        </h1>
+      ) : (
+        <h2 ref={headingRef} tabIndex={-1} className="text-h3">
+          {group.heading}
+        </h2>
+      )}
       <p role="status" data-testid="feed-status" className={cn(visible ? 'mt-1 text-body text-muted-foreground' : 'sr-only')}>
         {status}
       </p>
@@ -311,7 +335,7 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
         </div>
       ) : null}
       {none ? <p className="mt-1 text-body text-muted-foreground">{PLACEHOLDER_TEXT}</p> : null}
-      <SystemNotices notices={state.notices} />
+      {group === null ? <SystemNotices notices={state.notices} /> : null}
       {none ? null : stories}
       {/* One fixed place, before the list or the empty state: a form sending a post survives the feed changing phase. */}
       {write}

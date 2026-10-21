@@ -202,6 +202,7 @@ test.describe('AppShell: side menu', () => {
     for (const s of sections) expect(s.href ?? '', s.name).toMatch(/^\/settings(?:[#/?]|$)/);
     expect(new Set(sections.map((s) => s.href)).size, 'a distinct address per section').toBe(4);
     expect(shown.map((i) => ({ ...i, href: i.href?.startsWith('/settings') === true ? '/settings*' : i.href }))).toEqual([
+      { tag: 'a', name: 'הקבוצות שלי', href: '/groups' }, // I10: My Groups first (FR-MENU-001: My Groups, Friends, ...)
       { tag: 'a', name: 'חברים', href: '/friends' }, // F2.4b c13, before Settings (FR-MENU-001)
       { tag: 'a', name: 'כללי הקהילה', href: '/community-rules' }, // F3.7 c14, right after Friends
       { tag: 'a', name: 'חשבון', href: '/settings*' },
@@ -219,8 +220,8 @@ test.describe('AppShell: side menu', () => {
       await expect(drawer.locator(`a[href="${dest}"]`)).toHaveCount(0);
     }
     const text = await drawer.innerText();
-    // "התראות" is now the Settings section (FR-NOTIF-002), so it is no longer banned here.
-    for (const banned of ['חנות', 'יועצים', 'קבוצות', 'עוקבים', 'מקצועיים במעקב', 'עזרה', 'מחיקת חשבון', 'מחיקה', 'בית', 'פיד', 'פרופיל']) {
+    // "התראות" is now the Settings section (FR-NOTIF-002), so it is no longer banned here. I10: "הקבוצות שלי" (My Groups) is now in the drawer.
+    for (const banned of ['חנות', 'יועצים', 'עוקבים', 'מקצועיים במעקב', 'עזרה', 'מחיקת חשבון', 'מחיקה', 'בית', 'פיד', 'פרופיל']) {
       expect(text, `the drawer must not hold "${banned}"`).not.toContain(banned);
     }
   });
