@@ -10,7 +10,7 @@
 | Actor | System / Regular User / Professional User |
 | תיאור | המערכת תאסוף Personalization Signals מאושרים ותתחזק Interest Profile ו-Intent Signals נגזרים לצורך התאמה אורגנית. ה-Profile הנגזר אינו גלוי ל-Professional/Advertiser. |
 | תנאים מוקדמים | Session פעיל והאירוע מותר לפי Privacy/Data Rules. |
-| קלט / Trigger | Search, Impression/Dwell, Open, Like/Reaction, Comment, Save, Follow, Group Membership, Profile/Product open, Not Interested/Show Less; ל-Regular גם Stage. תוכן Chat/Support מוחרג. הסתרת פוסט אינה Signal (FR-ALG-009; החלטת אפיק מ-18.10.2026, 8א). |
+| קלט / Trigger | Search, Impression/Dwell, Open, Like/Reaction, Comment, Save, Follow, Group Membership, Profile/Product open; ל-Regular גם Stage. תוכן Chat/Support מוחרג. הסתרת פוסט אינה Signal (FR-ALG-009; החלטת אפיק מ-18.10.2026, 8א). |
 | תהליך מערכת | נרמול האירוע → שיוך Topic/Context → עדכון Score מצטבר עם Freshness/Decay. משקולות/Decay נשמרים ב-AlgorithmConfiguration ולא Hard-coded. |
 | פלט | Interest/Intent scores לפי Topic/Context. |
 | מצב לאחר ביצוע | Signals זמינים ל-Ranking עתידי וניתנים ל-Audit ברמת Configuration/Event metadata. |
@@ -114,19 +114,19 @@
 | מצב לאחר ביצוע | Intent Signal (החלטת אפיק מ-20.10.2026): מכל חיפוש נשמרים הנושא או קטגוריית המוצר שזוהו, מזהה המשתמש והתאריך — לעולם לא הטקסט שהוקלד. הזיהוי בכללים קבועים (מילים לנושא), ללא ML. הנושא נמחק אחרי 30 יום, והשפעתו דועכת עם הזמן. הנושא מקדם תוכן תואם — פוסטים, מודעות Marketplace ויועצים, אורגניים וממומנים כאחד (בכפוף לכללי Sponsored Eligibility) — בלי ניתוח של Admin. הפיד משתמש בנושאים כבר עכשיו: פוסט שהטקסט שלו תואם נושא של חיפושי המשתמש עולה בדירוג שלו, לפי משקל שדועך עם הזמן מאז החיפוש (מחצית ההשפעה בכל שבוע, כ-Configuration), וכל נושא נספר לכל היותר פעם ביום. ה-Marketplace והיועצים ישתמשו בהם כשייבנו. |
 | בעל אחריות לוגי (Page / Feature) | חיפוש גלובלי / רישום אירועי שימוש |
 
-## FR-ALG-009 — Negative Feedback, Diversity & Exploration
+## FR-ALG-009 — Diversity, Exploration והסתרת פוסט
 
 | שדה | הגדרה |
 |---|---|
 | סטטוס | מאושר — חובה ל-v1 |
 | Actor | Regular User / Professional User / System |
-| תיאור | המערכת תאפשר Not Interested/Show Less ותשתמש במשוב להפחתת תוכן דומה; Re-ranking ימנע חזרתיות יתר של Creator/Topic/Source וישאיר מקום ל-Exploration רלוונטי. **הסתרת פוסט** (החלטת אפיק מ-18.10.2026): "הסתרת הפוסט" בתפריט "⋯" של כרטיס בפיד מסתירה פוסט אחד מהמשתמש עצמו בלבד. היא אינה Signal, אינה נשמרת כ-RecommendationFeedback ואינה משנה את הדירוג של שום פריט אחר, למשתמש או לאחרים. הכותב ושאר הקוראים ממשיכים לראות את הפוסט, המונים אינם משתנים, ואף אחד אינו יודע על ההסתרה. אי אפשר להסתיר פוסט של המשתמש עצמו, גם אנונימי. הכרטיס הופך במקום ל"הפוסט הוסתר" עם "ביטול ההסתרה", עד שהמשתמש עוזב את הפיד או טוען אותו מחדש; אחר כך ההסתרה קבועה ב-MVP, ואין רשימת פוסטים מוסתרים. הסתרת שיתוף מסתירה את השיתוף בלבד; שיתוף של פוסט מוסתר מציג "הפוסט המקורי כבר לא זמין" (BR-065). |
+| תיאור | אין Not Interested / Show Less ואין משוב שלילי מפורש על המלצות — לא נבנה ולא מתוכנן (החלטת אפיק מ-21.10.2026). Re-ranking ימנע חזרתיות יתר של Creator/Topic/Source וישאיר מקום ל-Exploration רלוונטי. **הסתרת פוסט** (החלטת אפיק מ-18.10.2026): "הסתרת הפוסט" בתפריט "⋯" של כרטיס בפיד מסתירה פוסט אחד מהמשתמש עצמו בלבד. היא אינה Signal ואינה משנה את הדירוג של שום פריט אחר, למשתמש או לאחרים. הכותב ושאר הקוראים ממשיכים לראות את הפוסט, המונים אינם משתנים, ואף אחד אינו יודע על ההסתרה. אי אפשר להסתיר פוסט של המשתמש עצמו, גם אנונימי. הכרטיס הופך במקום ל"הפוסט הוסתר" עם "ביטול ההסתרה", עד שהמשתמש עוזב את הפיד או טוען אותו מחדש; אחר כך ההסתרה קבועה ב-MVP, ואין רשימת פוסטים מוסתרים. הסתרת שיתוף מסתירה את השיתוף בלבד; שיתוף של פוסט מוסתר מציג "הפוסט המקורי כבר לא זמין" (BR-065). |
 | תנאים מוקדמים | Recommendation/Feed unit מוצג. |
-| קלט / Trigger | Feedback explicit + current feed composition. |
-| תהליך מערכת | שמירת RecommendationFeedback → suppression/score reduction לפי creator/topic/source → diversity pass → exploration candidates שעברו Eligibility. אחוזים וספים ניתנים לכיול ב-Configuration. הסתרת פוסט נשמרת בשרת (PostHide, §13) ומוציאה את הפוסט מה-Eligibility של המשתמש בלבד, גם במכשיר אחר ואחרי התחברות מחדש; היא נמחקת עם ביטול ההסתרה, עם מחיקת הפוסט או עם מחיקת החשבון. |
-| פלט | Feed מגוון יותר ומותאם למשוב המשתמש. |
-| מצב לאחר ביצוע | העדפה נשמרת ומשפיעה על Re-ranking עתידי (Not Interested/Show Less). |
-| בעל אחריות לוגי (Page / Feature) | משוב על המלצות / מנוע ההמלצות מבוסס הכללים |
+| קלט / Trigger | הרכב הפיד הנוכחי; "הסתרת הפוסט". |
+| תהליך מערכת | diversity pass (בלי חזרתיות יתר של Creator/Topic/Source) → exploration candidates שעברו Eligibility. אחוזים וספים ניתנים לכיול ב-Configuration. הסתרת פוסט נשמרת בשרת (PostHide, §13) ומוציאה את הפוסט מה-Eligibility של המשתמש בלבד, גם במכשיר אחר ואחרי התחברות מחדש; היא נמחקת עם ביטול ההסתרה, עם מחיקת הפוסט או עם מחיקת החשבון. |
+| פלט | Feed מגוון; פוסט שהוסתר אינו מוצג למסתיר. |
+| מצב לאחר ביצוע | ההסתרה נשמרת למשתמש בלבד; אין העדפה שמשפיעה על Re-ranking. |
+| בעל אחריות לוגי (Page / Feature) | הסתרת פוסט / מנוע ההמלצות מבוסס הכללים |
 
 ## FR-ALG-010 — Group Notification Highlights v1
 
@@ -136,7 +136,7 @@
 | Actor | Regular User / Professional User / System |
 | תיאור | ב-Group Notification mode=Highlights יוצגו אירועים ישירים/חשובים לפי כללים דטרמיניסטיים; mode=All מציג את כל האירועים המותרים ו-Off מדכא פעילות אופציונלית. |
 | תנאים מוקדמים | Membership פעילה והעדפת Group Notification קיימת. |
-| קלט / Trigger | Mention/Reply, Join/Invite decision, Owner/Admin announcement/pinned content, post engagement threshold, user preference. |
+| קלט / Trigger | Reply, Join/Invite decision, Owner/Admin announcement/pinned content, post engagement threshold, user preference. |
 | תהליך מערכת | אירועים ישירים המשפיעים על המשתמש נשמרים בכל mode: Reply/תגובה לפוסט שלו, החלטה על בקשת ההצטרפות שלו, הזמנה, המלצה של Friend, ול-Owner/Admin — בקשת הצטרפות חדשה. All: כל פוסט חדש בקבוצה, פוסט מוצמד ופוסט שעבר את ה-threshold. Highlights (ברירת המחדל כשלא נבחר mode): פוסט מוצמד (Announcement) ופוסט שעבר את ה-threshold. Off: אף אחד מאלה. ה-threshold הוא Configuration עם גרסה: מספר הלייקים והתגובות של אחרים על פוסט בקבוצה, 5 ב-v1 (OP-048); כל פוסט מדווח כ-Highlight פעם אחת לכל חבר, לא לכותב ולא למי שביצע את הפעולה. Off אינו מבטל Security/Critical/direct account events. הקטגוריה "קבוצות" בהגדרות ההתראות (FR-NOTIF-002) מכבה את כל התראות הקבוצות. |
 | פלט | Notification set בהתאם ל-All/Highlights/Off. |
 | מצב לאחר ביצוע | NotificationPreference נשמרת; אין ML dependency. |

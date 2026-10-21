@@ -67,7 +67,7 @@
 | AC-061 | Professional Feed אינו משתמש ב-Child/Journey/Tracker Data ומבוסס profession/groups/follows/search/content signals בלבד. בפיד הקהילה Professional מקבל את פוסטי "כולם" ואת הפוסטים שלו, בדירוג תוכן בלבד — בלי רכיב Friend, בלי רכיב Stage ובלי שום קריאה של מסלולים, ילדים או Friendship (FR-ALG-003). |
 | AC-062 | Paid Promotion אינו משנה Organic Score/Reputation; כל Paid unit מסומן ומדווח בנפרד. |
 | AC-063 | Sponsored candidate שנכשל Privacy/Safety/Relevance eligibility אינו מוצג גם אם Campaign פעיל/משולם. |
-| AC-064 | Not Interested/Show Less משפיעים על ranking עתידי לפי creator/topic/source וניתנים למדידה. הסתרת פוסט אינה משפיעה על ranking (AC-127; החלטת אפיק מ-18.10.2026). |
+| AC-064 | ~~Not Interested/Show Less משפיעים על ranking עתידי לפי creator/topic/source וניתנים למדידה.~~ — **בוטל** (Not Interested / Show Less בוטלו, החלטת אפיק מ-21.10.2026). הסתרת פוסט אינה משפיעה על ranking (AC-127; החלטת אפיק מ-18.10.2026). |
 | AC-065 | Global Search מבצע Authorization לפני דירוג ומיישם Exact/Prefix/Keyword ranking; Semantic AI אינו דרישת v1. |
 | AC-066 | Group Highlights פועל ללא ML לפי direct events, announcements/pinned ו-threshold configurable; All/Highlights/Off מכובד. |
 | AC-067 | Chat/Support message body אינו נכתב ל-PersonalizationProfile ואינו משמש Recommendation/Paid Targeting. |

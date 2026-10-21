@@ -113,7 +113,7 @@
 | Page | מסך מוצרים ממומנים (PG-044) | מסך Admin לניהול Sponsored Products; אין Brand User בשלב הראשון. |
 | Feature / Container | קליטת אותות ההתאמה האישית | קולט אירועי חיפוש/צריכה/אינטראקציה מאושרים ומעדכן Interest Profile ו-Intent Signals. אינו משתמש בתוכן Chat/Support; עבור Professional אינו משתמש ב-Child/Tracker Data. |
 | Feature / Container | מנוע ההמלצות מבוסס הכללים | מנוע v1 דטרמיניסטי ל-Candidate Generation, Ranking ו-Re-ranking עבור Feed, Professionals, Marketplace/Products ו-Contextual Guidance. הכללים והמשקולות ניתנים להגדרה באמצעות AlgorithmConfiguration. |
-| Feature / Container | משוב על המלצות | מנהל Not Interested / Show Less ואת השפעתם על Creator/Topic/Source ברמת המשתמש. "הסתרת הפוסט" נשמרת כאן ב-PostHide בלבד ואינה משפיעה על הדירוג (FR-ALG-009). |
+| Feature / Container | הסתרת פוסט | שומר את "הסתרת הפוסט" של המשתמש בלבד; אינה משפיעה על הדירוג (FR-ALG-009). אין משוב Not Interested / Show Less (Not Interested / Show Less בוטלו, החלטת אפיק מ-21.10.2026). |
 | Feature / Container | רישום אירועי שימוש | רושם Event Taxonomy אחיד ל-Impression, Open, Dwell, Search, Engagement, Conversion ו-Administrative metrics ללא שמירת גוף Chat/Support באירועי Analytics כלליים. |
 | Feature / Container | חישוב נתוני הניהול | מחשב נתונים ל-Owner/Admin: Lifecycle, Retention, Feed/Search, Groups, Professionals, Marketplace, Promotion, Moderation/Support ו-Recommendation Quality — גם ברמת משתמש בודד, בלי שמות ובלי פרטים מזהים (FR-ADMIN-010, החלטת אפיק מ-18.10.2026). אילו תחומים זמינים לפני שאירועי השימוש נאספים — OP-039. |
 | Feature / Container | מטא-דאטה של תוכן | מחזיק Topic/Category/Stage metadata לצורכי v1 באמצעות שדות מובנים, Group/Category context, Tags ומילות מפתח. סיווג סמנטי אוטומטי/Embeddings הוא Future Enhancement. |
