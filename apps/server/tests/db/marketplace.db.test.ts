@@ -126,6 +126,8 @@ describe('[I12] Marketplace', () => {
     const page = ok(await readListingPage(database, as(buyer), undefined, stroller)).page;
     expect(page.sellerId).toBe(seller);
     expect(page.conversationId).toBeNull();
+    // a staff account browses and searches too (its search records no Intent Signal topic: search_intents is a Regular's or a Professional's)
+    expect((await listMarketplace(database, as(admin), undefined, { q: `עגלת תינוק ${tag}` })).listings.map((card) => card.id)).toContain(stroller);
   });
 
   it('[FR-MKT-001] filters: category, city, for free, maximum price', T, async () => {
