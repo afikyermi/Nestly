@@ -3,7 +3,8 @@
 // (groups_select_active), Public Groups' members and content (group_members_select_viewer, posts_group_hide, comments_group_hide), active
 // Professionals (professional_profiles_select_viewer shows a staff caller the active ones only; user_status is not granted), reviews (professional_reviews_select_viewer) and the analytics reads of follows,
 // conversations and listings (migration 20261023100000). A Private Group's members and content are not counted. Numbers only: no name, id or
-// text leaves this file.
+// text leaves this file. Only active posts and comments count: staff keys that read more (a hidden or removed item, for a report) must never
+// change a number, so every holder of ANALYTICS_VIEW reads the same ones.
 
 import { LISTING_CATEGORIES, PROFESSIONAL_FIELDS, type AnalyticsPeriod, type AnalyticsView } from '@nestly/shared';
 import { sql } from 'drizzle-orm';
@@ -29,9 +30,9 @@ export async function readAreaAnalytics(tx: IdentityTx, days: AnalyticsPeriod): 
              (select count(*) from nestly.group_members m join nestly.groups g on g.id = m.group_id
                where g.status = 'active' and g.privacy = 'public' and m.member_status = 'active' and m.role <> 'owner' and m.created_at >= ${since}) as joins,
              (select count(*) from nestly.posts p join nestly.groups g on g.id = p.group_id
-               where g.status = 'active' and g.privacy = 'public' and p.created_at >= ${since}) as posts,
+               where g.status = 'active' and g.privacy = 'public' and p.status = 'active' and p.created_at >= ${since}) as posts,
              (select count(*) from nestly.comments c join nestly.groups g on g.id = c.group_id
-               where g.status = 'active' and g.privacy = 'public' and c.created_at >= ${since}) as comments`),
+               where g.status = 'active' and g.privacy = 'public' and c.status = 'active' and c.created_at >= ${since}) as comments`),
   );
 
   const [pros] = one({ active: count, follows: count, chats: count, reviews: count }).parse(

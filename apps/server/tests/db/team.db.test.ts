@@ -283,18 +283,20 @@ describe('[I14 FR-ADMIN-010 BR-058 AC-071 AC-044] numbers only', () => {
     expect((await readAdminAnalytics(database, id(regular), 30)).kind).toBe('forbidden');
   });
 
-  it('[FR-ADMIN-010 AC-071 SRS audit] a Moderator holding ANALYTICS_VIEW gets the Groups, Professionals and Marketplace counts, numbers only, with no error', T, async () => {
+  it('[FR-ADMIN-010 AC-071 SRS audit] a Moderator holding ANALYTICS_VIEW gets the same Groups, Professionals and Marketplace counts as the Admin, numbers only', T, async () => {
     await grant(reportsOnly, ['ANALYTICS_VIEW']);
     for (const days of [7, 30, 90] as const) {
-      const view = await readAdminAnalytics(database, id(reportsOnly), days);
-      if (view.kind !== 'ok') throw new Error(`analytics refused for ${days} days: ${view.kind}`);
-      const { groups, professionals, marketplace } = view.view;
-      for (const n of [groups.active.public, groups.active.private, groups.created, groups.publicMembers, groups.publicJoins, groups.publicPosts, groups.publicComments]) expect(n).toBeGreaterThanOrEqual(0);
-      for (const n of [professionals.active, professionals.follows, professionals.chatStarts, professionals.reviews]) expect(n).toBeGreaterThanOrEqual(0);
-      for (const n of [marketplace.active, marketplace.created, marketplace.sold, marketplace.chats]) expect(n).toBeGreaterThanOrEqual(0);
-      expect(Array.isArray(professionals.byField) && Array.isArray(marketplace.byCategory)).toBe(true);
-      expect(JSON.stringify({ groups, professionals, marketplace })).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-/); // no id
+      const moderator = await readAdminAnalytics(database, id(reportsOnly), days);
+      const owner = await readAdminAnalytics(database, id(admin), days);
+      if (moderator.kind !== 'ok' || owner.kind !== 'ok') throw new Error(`analytics refused for ${days} days: ${moderator.kind} / ${owner.kind}`);
+      const areas = (view: typeof moderator.view) => ({ groups: view.groups, professionals: view.professionals, marketplace: view.marketplace });
+      // the same key reads the same numbers, whoever holds it: no staff-only visibility (hidden listings, private Groups) leaks in or out
+      expect(areas(moderator.view), `${days} days`).toEqual(areas(owner.view));
+      expect(JSON.stringify(areas(moderator.view))).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-/); // no id
     }
+    // and the counts are real: the Professionals of this database are counted (professionals-followups and others seed some)
+    const view = await readAdminAnalytics(database, id(reportsOnly), 30);
+    expect(view.kind === 'ok' && view.view.professionals.byField.reduce((sum, row) => sum + row.count, 0)).toBe(view.kind === 'ok' ? view.view.professionals.active : -1);
   });
 
   it('[AC-044] the staff inbox counts only the areas the keys cover', T, async () => {
