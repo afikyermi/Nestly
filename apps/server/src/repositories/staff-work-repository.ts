@@ -71,7 +71,7 @@ export async function readHandling(tx: IdentityTx, kind: ReportTargetKind, targe
         from nestly.report_openings o
         join nestly.reports r on r.id = o.report_id
         left join nestly.moderator_invitations i on i.accepted_by = o.opened_by
-        where ${column(kind)} = ${targetId}::uuid
+        where ${column(kind)} = ${targetId}::uuid and r.status = 'open'
         group by o.opened_by, i.note
         order by min(o.opened_at)`),
     );
@@ -134,8 +134,9 @@ export async function readReportContext(tx: IdentityTx, kind: 'post' | 'comment'
                exists (select 1 from nestly.reports r where r.comment_id = c.id) as "isReported"
         from nestly.comments c
         where c.post_id = ${postId}::uuid and c.status <> 'deleted'
-        order by c.created_at, c.id
-        limit ${CONTEXT_COMMENTS}`),
+          and (c.id = ${kind === 'comment' ? targetId : null}::uuid or c.parent_id = ${kind === 'comment' ? targetId : null}::uuid
+               or c.id in (select x.id from nestly.comments x where x.post_id = ${postId}::uuid and x.status <> 'deleted' order by x.created_at, x.id limit ${CONTEXT_COMMENTS}))
+        order by c.created_at, c.id`),
     );
   return { post: kind === 'comment' ? (posts[0] ?? null) : null, comments };
 }
@@ -206,7 +207,7 @@ export async function readReportPace(tx: IdentityTx): Promise<{ lastDay: number;
       await tx.execute(sql`
         select count(*) filter (where created_at > now() - interval '1 day') as "lastDay",
                count(*) filter (where created_at <= now() - interval '1 day' and created_at > now() - interval '8 days') as "weekBefore"
-        from nestly.reports`),
+        from nestly.reports where created_at > now() - interval '8 days'`),
     );
   return rows[0] ?? { lastDay: 0, weekBefore: 0 };
 }
@@ -217,14 +218,14 @@ export async function readWeekMetrics(tx: IdentityTx): Promise<Array<{ key: 'reg
   const pair = (table: string, extra = '') =>
     sql.raw(`select count(*) filter (where created_at > now() - interval '7 days') as current,
                     count(*) filter (where created_at <= now() - interval '7 days' and created_at > now() - interval '14 days') as previous
-             from nestly.${table} ${extra}`);
+             from nestly.${table} where created_at > now() - interval '14 days' ${extra === '' ? '' : `and ${extra}`}`);
   const read = async (statement: SQL) => z.array(z.object({ current: count, previous: count })).parse(await tx.execute(statement))[0] ?? { current: 0, previous: 0 };
   const result = [
-    { key: 'registrations' as const, ...(await read(pair('users', "where account_type in ('regular', 'professional')"))) },
+    { key: 'registrations' as const, ...(await read(pair('users', "account_type in ('regular', 'professional')"))) },
     { key: 'posts' as const, ...(await read(pair('posts'))) },
     { key: 'comments' as const, ...(await read(pair('comments'))) },
     { key: 'reports' as const, ...(await read(pair('reports'))) },
-    { key: 'enforcements' as const, ...(await read(pair('user_enforcements', "where kind in ('warning', 'suspension', 'ban')"))) },
+    { key: 'enforcements' as const, ...(await read(pair('user_enforcements', "kind in ('warning', 'suspension', 'ban')"))) },
     { key: 'support' as const, ...(await read(pair('support_requests'))) },
   ];
   await tx.execute(sql`select set_config('nestly.analytics_view', '', true)`);

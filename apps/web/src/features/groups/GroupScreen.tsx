@@ -1,3 +1,5 @@
+import { useStaffAccess } from '@/hooks/use-staff-access';
+import { STAFF_REVIEW_NOTE } from '@/lib/staff-review-texts';
 import { useCallback, useEffect, useId, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { groupRoleRank, type GroupDetail, type GroupFriend, type GroupNotificationMode } from '@nestly/shared';
@@ -104,6 +106,7 @@ export interface GroupScreenProps {
 // rules), and management for a Group Moderator or higher. The server decides every right; the screen only offers what the Role allows.
 export function GroupScreen({ groupId, discussion }: GroupScreenProps) {
   const call = useGroupsCall();
+  const reviewing = useStaffAccess().kind === 'staff';
   const navigate = useNavigate();
   const ids = useId();
   const { right } = usePostingProfile();
@@ -248,8 +251,9 @@ export function GroupScreen({ groupId, discussion }: GroupScreenProps) {
     ...(isMember && group.myRole !== 'owner' ? [{ key: 'leave', label: LEAVE_LABEL, onSelect: () => setSheet({ kind: 'leave', saving: false }) }] : []),
   ];
 
+  // I14 completion (§9.7): a staff account reviews the Group: no join, request, members list or menu (it is a member of nothing)
   const mainLabel =
-    group.state === 'member' || group.state === 'blocked'
+    reviewing || group.state === 'member' || group.state === 'blocked'
       ? null
       : group.state === 'invited'
         ? ACCEPT_LABEL
@@ -261,7 +265,7 @@ export function GroupScreen({ groupId, discussion }: GroupScreenProps) {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'discussion', label: TAB_DISCUSSION },
-    { key: 'members', label: TAB_MEMBERS },
+    ...(reviewing ? [] : [{ key: 'members' as const, label: TAB_MEMBERS }]),
     { key: 'about', label: TAB_ABOUT },
     ...(rank >= 2 ? [{ key: 'manage' as const, label: TAB_MANAGE }] : []),
   ];
@@ -279,7 +283,7 @@ export function GroupScreen({ groupId, discussion }: GroupScreenProps) {
         </Link>
         <div className="flex items-start justify-between gap-3">
           <h1 className="text-h2">{group.name}</h1>
-          {menu.length > 0 ? <MoreActionsMenu label={MORE_LABEL} menuLabel={MORE_MENU_LABEL} items={menu} /> : null}
+          {menu.length > 0 && !reviewing ? <MoreActionsMenu label={MORE_LABEL} menuLabel={MORE_MENU_LABEL} items={menu} /> : null}
         </div>
         <p className="text-small text-muted-foreground">
           {PRIVACY_LABEL[group.privacy]}
@@ -290,6 +294,7 @@ export function GroupScreen({ groupId, discussion }: GroupScreenProps) {
         {group.state === 'requested' ? <p className="text-body">{REQUESTED_LABEL}</p> : null}
         {group.state === 'blocked' ? <p className="text-body">{BLOCKED_TEXT}</p> : null}
         {alert !== '' ? <InlineAlert>{alert}</InlineAlert> : null}
+        {reviewing ? <p className="rounded-md bg-muted p-3 text-small">{STAFF_REVIEW_NOTE}</p> : null}
         {mainLabel !== null ? (
           <div className="flex gap-2">
             <Button variant={group.state === 'requested' ? 'soft' : 'primary'} pending={busy} onClick={() => void main()}>

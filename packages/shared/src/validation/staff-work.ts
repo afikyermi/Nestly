@@ -93,6 +93,7 @@ export type ChildTrends = z.infer<typeof childTrendsBody>;
 export const SENSITIVE_AUDIT_ACTIONS = [
   'author_revealed',
   'private_group_content_viewed',
+  'private_group_viewed',
   'reported_message_viewed',
   'child_data_queried',
   'permission_granted',

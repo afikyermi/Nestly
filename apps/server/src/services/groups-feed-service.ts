@@ -47,8 +47,9 @@ export async function readGroupFeed(
     async (tx): Promise<GroupResult<FeedPageResponse>> => {
       const reader = await classifyReader(tx);
       if (isRefusal(reader)) return reader;
-      // I14 completion (§9.7): a staff account reviews; a Private Group opens to it only with PRIVATE_GROUP_MODERATE, audited
-      if (reader.kind === 'staff') await openPrivateGroupForReview(tx, id);
+      // I14 completion (§9.7): a staff account reviews; a Private Group opens to it only with PRIVATE_GROUP_MODERATE, audited once per visit
+      // (the first page; a later page of the same visit reads only what is public to it)
+      if (reader.kind === 'staff' && after === null) await openPrivateGroupForReview(tx, id);
       const group = await readGroupDetail(tx, id);
       if (group === undefined) return fail('group_unavailable');
       const pinned = after === null && group.pinnedPostId !== null && (await readGroupPostExists(tx, id, group.pinnedPostId)) ? group.pinnedPostId : null;

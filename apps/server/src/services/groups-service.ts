@@ -140,15 +140,10 @@ export async function detailIn(tx: IdentityTx, id: string): Promise<GroupDetail 
 
 /** GET /api/groups/:id */
 export async function readGroup(database: Database, identity: Identity, id: string): Promise<GroupResult<GroupDetail>> {
-  return asReader(
-    database,
-    identity,
-    async (tx) => {
-      const detail = await detailIn(tx, id);
-      return detail === undefined ? fail('group_unavailable') : ok(detail);
-    },
-    id,
-  );
+  return asReader(database, identity, async (tx) => {
+    const detail = await detailIn(tx, id);
+    return detail === undefined ? fail('group_unavailable') : ok(detail);
+  });
 }
 
 /** POST /api/groups (FR-GRP-004, AC-056): the creator becomes the Owner in the same statement. */

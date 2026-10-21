@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { SENSITIVE_AUDIT_ACTIONS, type AuditEntry, type AuditFilters } from '@nestly/shared';
 import { FormField } from '@/components/shared/form-field';
 import { InlineAlert } from '@/components/shared/inline-alert';
@@ -58,6 +58,8 @@ export function AuditLogScreen({ initialSensitive = false }: { initialSensitive?
   const [period, setPeriod] = useState<Period>('');
   const [sensitive, setSensitive] = useState(initialSensitive);
   const filtered = action !== '' || role !== '' || period !== '' || sensitive;
+  // the newest request wins: an answer for older filters arriving late is dropped
+  const runs = useRef(0);
 
   const load = useCallback(
     async (before: string | null, previous: AuditEntry[]) => {
@@ -69,7 +71,9 @@ export function AuditLogScreen({ initialSensitive = false }: { initialSensitive?
         ...(from === undefined ? {} : { from }),
         ...(sensitive ? { sensitive: 'true' as const } : {}),
       };
+      const run = ++runs.current;
       const outcome = await call((token) => fetchAuditFiltered(token, filters, before));
+      if (run !== runs.current) return;
       if (outcome.kind === 'ok') {
         setView({ kind: 'loaded', entries: [...previous, ...outcome.value.entries], next: outcome.value.next, more: false });
       } else {

@@ -24,7 +24,6 @@ import {
   ESCALATE_LABEL,
   ESCALATE_NOTE_LABEL,
   ESCALATE_SEND,
-  ESCALATED_ALREADY,
   ESCALATION_SHOWN,
   HANDLING_TITLE,
   ME,
@@ -68,7 +67,7 @@ export function StaffWorkPanel({ detail, user, isOpen, onEscalated }: { detail: 
       setNote('');
       onEscalated();
     } else {
-      setMessage({ ok: false, text: outcome.kind === 'not-applicable' ? ESCALATED_ALREADY : outcome.kind === 'forbidden' ? FORBIDDEN_TEXT : LOAD_FAILED_TEXT });
+      setMessage({ ok: false, text: outcome.kind === 'forbidden' ? FORBIDDEN_TEXT : LOAD_FAILED_TEXT });
     }
   };
 
@@ -144,7 +143,7 @@ export function StaffWorkPanel({ detail, user, isOpen, onEscalated }: { detail: 
           )}
         </section>
       )}
-      {isModerator && isOpen && handling?.escalation === null ? (
+      {isModerator && isOpen ? (
         <section aria-labelledby={`${id}-escalate`} className="flex flex-col gap-2 rounded-lg border border-border p-4">
           <h4 id={`${id}-escalate`} className="text-h3">
             {ESCALATE_LABEL}
