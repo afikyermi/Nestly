@@ -64,18 +64,19 @@ test('[F1.2 c27][NFR-USAB-004] Storybook has stories for the Welcome page and fo
   ).toBeGreaterThanOrEqual(1);
   expect(welcome.some((f) => ['יצירת חשבון חדש', 'המשך עם Google', 'כבר יש לי חשבון'].every((a) => f.actions.includes(a)))).toBe(true);
 
-  for (const item of ['בית', 'פיד', 'פרופיל']) {
-    const hit = all.find((f) => f.currentNav.length === 1 && f.currentNav[0] === item && f.navLinks.length === 3);
+  // I11: "יועצים" (the Professionals' directory, FR-SERV-001) joined the navigation before "פרופיל".
+  for (const item of ['בית', 'פיד', 'יועצים', 'פרופיל']) {
+    const hit = all.find((f) => f.currentNav.length === 1 && f.currentNav[0] === item && f.navLinks.length === 4);
     expect(hit, `a story shows the shell with "${item}" as the current nav item`).toBeDefined();
-    expect(hit?.navLinks.map((l) => l.name)).toEqual(['בית', 'פיד', 'פרופיל']);
+    expect(hit?.navLinks.map((l) => l.name)).toEqual(['בית', 'פיד', 'יועצים', 'פרופיל']);
   }
 
   const drawer = all.find(
-    (f) => f.drawerOpen && f.drawerItems.includes('חשבון') && f.drawerItems.includes('התנתקות') && f.navLinks.length === 3,
+    (f) => f.drawerOpen && f.drawerItems.includes('חשבון') && f.drawerItems.includes('התנתקות') && f.navLinks.length === 4,
   );
   expect(drawer, 'a story shows the composed shell with the drawer open, holding חשבון and התנתקות').toBeDefined();
   // F3.7 c14 added "כללי הקהילה" after "חברים"; F3.6 c11 added "שיתוף Nestly" before the logout (same order as app-shell-guard-shell c19).
-  expect(drawer?.drawerItems.filter((i) => i !== 'סגירת התפריט')).toEqual(['הקבוצות שלי', 'חברים', 'כללי הקהילה', 'חשבון', 'פרטיות ואבטחה', 'התראות', 'תנאים ופרטיות', 'פנייה למוקד רפואי', 'שאלות לשחזור סיסמה', 'החלפת סיסמה', 'פנייה לתמיכה', 'שיתוף Nestly', 'התנתקות']); // F1.6 c18, F2.0 c15, F2.5 c1, F3.8 c5, F3.7 c14, F3.6 c11
+  expect(drawer?.drawerItems.filter((i) => i !== 'סגירת התפריט')).toEqual(['הקבוצות שלי', 'חברים', 'כללי הקהילה', 'בעלי מקצוע', 'הצעות עזרה', 'חשבון', 'פרטיות ואבטחה', 'התראות', 'תנאים ופרטיות', 'פנייה למוקד רפואי', 'שאלות לשחזור סיסמה', 'החלפת סיסמה', 'פנייה לתמיכה', 'שיתוף Nestly', 'התנתקות']); // F1.6 c18, F2.0 c15, F2.5 c1, F3.8 c5, F3.7 c14, F3.6 c11
 });
 
 test('[F1.2 c27][NFR-A11Y-001] the Welcome story and the composed shell stories have zero axe violations at 375 and 1024', async ({
@@ -85,7 +86,7 @@ test('[F1.2 c27][NFR-A11Y-001] the Welcome story and the composed shell stories 
   const targets: string[] = [];
   for (const id of ids) {
     const f = await factsOf(page, id);
-    if (f.welcome || f.navLinks.length === 3 || (f.drawerOpen && f.drawerItems.includes('התנתקות'))) targets.push(id);
+    if (f.welcome || f.navLinks.length === 4 || (f.drawerOpen && f.drawerItems.includes('התנתקות'))) targets.push(id);
   }
   expect(targets.length).toBeGreaterThanOrEqual(1);
   expect(

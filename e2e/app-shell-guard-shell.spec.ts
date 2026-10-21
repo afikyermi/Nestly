@@ -204,9 +204,9 @@ test.describe('AppShell: side menu', () => {
     expect(shown.map((i) => ({ ...i, href: i.href?.startsWith('/settings') === true ? '/settings*' : i.href }))).toEqual([
       { tag: 'a', name: 'הקבוצות שלי', href: '/groups' }, // I10: My Groups first (FR-MENU-001: My Groups, Friends, ...)
       { tag: 'a', name: 'חברים', href: '/friends' }, // F2.4b c13, before Settings (FR-MENU-001)
+      { tag: 'a', name: 'כללי הקהילה', href: '/community-rules' }, // F3.7 c14, right after Friends
       { tag: 'a', name: 'בעלי מקצוע', href: '/services' }, // I11: the directory (FR-SERV-001)
       { tag: 'a', name: 'הצעות עזרה', href: '/offers' }, // I11: Offer Help (FR-SERV-006)
-      { tag: 'a', name: 'כללי הקהילה', href: '/community-rules' }, // F3.7 c14, right after Friends
       { tag: 'a', name: 'חשבון', href: '/settings*' },
       { tag: 'a', name: 'פרטיות ואבטחה', href: '/settings*' },
       { tag: 'a', name: 'התראות', href: '/settings*' }, // FR-NOTIF-002: the notifications section of Settings

@@ -116,6 +116,9 @@ export function ProtectedLayout() {
               {ADMIN_MENU_LABEL}
             </MenuItem>
           ) : null}
+          <MenuItem href={PATHS.communityRules} current={PATHS.communityRules === current} onNavigate={leaving(closeMenu)}>
+            {RULES_TITLE}
+          </MenuItem>
           {/* I11: the directory, Offer Help (FR-SERV-001/005/006) and, for a Professional, its profile and articles (FR-PRO-003). */}
           {staff.kind === 'none' ? (
             <MenuItem href={PATHS.services} current={PATHS.services === current} onNavigate={leaving(closeMenu)}>
@@ -137,9 +140,6 @@ export function ProtectedLayout() {
               {MY_ARTICLES}
             </MenuItem>
           ) : null}
-          <MenuItem href={PATHS.communityRules} current={PATHS.communityRules === current} onNavigate={leaving(closeMenu)}>
-            {RULES_TITLE}
-          </MenuItem>
           {SETTINGS_SECTIONS.map((section) => (
             <MenuItem
               key={section.id}

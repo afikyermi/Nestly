@@ -621,7 +621,7 @@ describe('[F3.2-a2 c2 c5] the statements that really run', () => {
       expect(tableWildcards(q, ctes), q).toEqual([]);
       for (const m of q.matchAll(/\b(?:from|join)\s+([\w".]+)(?![\w".]|\s*\()/gi)) {
         const table = (m[1] ?? '').replace(/"/g, '').split('.').pop() ?? '';
-        if (!ctes.has(table.toLowerCase())) expect(['posts', 'friendships', 'comments', 'reactions', 'algorithm_configurations', 'regular_names'], q).toContain(table);
+        if (!ctes.has(table.toLowerCase())) expect(['posts', 'friendships', 'comments', 'reactions', 'algorithm_configurations', 'regular_names', 'professional_follows', 'professional_profiles'], q).toContain(table);
       }
     }
     const ranking = onPosts.filter((q) => /power\s*\(/i.test(q));

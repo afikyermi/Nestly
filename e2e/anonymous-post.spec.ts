@@ -207,6 +207,8 @@ test.describe('F3.4 c11 [FR-FEED-005 r.1] the composer toggle (in the feed: feed
     await page.keyboard.press('Tab');
     await expect(page.getByRole('radio', { name: 'בלי תגית' })).toBeFocused(); // the first control after the toggle is the tag group
     await page.keyboard.press('Tab');
+    await expect(page.getByRole('checkbox', { name: 'הפוסט מבקש עזרה מבעלי מקצוע' })).toBeFocused(); // I11 (OP-038): an anonymous post may ask for help
+    await page.keyboard.press('Tab');
     await expect(page.getByRole('button', { name: 'הוספת תמונה', exact: true })).toBeFocused(); // I5: the pictures, just before "פרסום"
     await page.keyboard.press('Tab');
     await expect(publish(page)).toBeFocused();
