@@ -5,10 +5,12 @@ import { Avatar } from "@/components/ui/avatar";
 import { formatPostTime } from "@/lib/format-post-time";
 import { postPath } from "@/lib/post-link";
 import { userProfilePath } from "@/lib/profile-link";
+import { groupPath } from "@/lib/group-link";
 import {
   ANONYMOUS_AUTHOR,
   GROUPS_NONE_TEXT,
   GROUPS_TITLE,
+  GROUP_PRIVACY_LABEL,
   LIMITED_TEXT,
   PEOPLE_NONE_TEXT,
   PEOPLE_TITLE,
@@ -84,9 +86,28 @@ export function SearchResults({
           >
             {GROUPS_TITLE}
           </h2>
-          <p className="py-2 text-small text-muted-foreground">
-            {data.groups.length === 0 ? GROUPS_NONE_TEXT : ""}
-          </p>
+          {data.groups.length === 0 ? (
+            <p className="py-2 text-small text-muted-foreground">
+              {GROUPS_NONE_TEXT}
+            </p>
+          ) : (
+            <ul>
+              {take(data.groups).map((group) => (
+                <li key={group.id}>
+                  <Link
+                    to={groupPath(group.id)}
+                    onClick={onChoose}
+                    className="flex min-h-12 flex-col justify-center rounded-md px-2 py-1 text-foreground no-underline hover:bg-muted"
+                  >
+                    <span className="text-body">{group.name}</span>
+                    <span className="text-caption text-muted-foreground">
+                      {GROUP_PRIVACY_LABEL[group.privacy]}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       ) : null}
       {show("posts") ? (

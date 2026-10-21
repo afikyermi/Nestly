@@ -4,6 +4,7 @@
 import type { NotificationItem, NotificationType } from "@nestly/shared";
 import { postPath } from "@/lib/post-link";
 import { userProfilePath } from "@/lib/profile-link";
+import { groupPath } from "@/lib/group-link";
 
 export const BELL_LABEL = "התראות";
 export const unreadBellLabel = (count: number): string =>
@@ -23,18 +24,28 @@ export const UNREAD_MARK = "חדשה";
 export const NO_ACTOR = "מישהו";
 export const AUTHOR_LABEL = "המחבר";
 
-const SENTENCES: Record<NotificationType, (who: string) => string> = {
+/** I10: a Group's name inside a sentence, or a plain "קבוצה" when it is not shown (the Group is gone). */
+const inGroup = (name: string | null | undefined): string => (name === null || name === undefined ? "לקבוצה" : `לקבוצה ${name}`);
+
+const SENTENCES: Record<NotificationType, (who: string, group: string | null | undefined) => string> = {
   friend_request: (who) => `בקשת חברות חדשה מ${who}`,
   friend_accepted: (who) => `בקשת החברות שלך אושרה על ידי ${who}`,
   post_comment: (who) => `תגובה חדשה של ${who} על הפוסט שלך`,
   comment_reply: (who) => `תשובה חדשה של ${who} לתגובה שלך`,
   post_shared: (who) => `הפוסט שלך שותף על ידי ${who}`,
   friend_post: (who) => `פוסט חדש של ${who}`,
+  group_recommended: (who, group) => `המלצה מ${who} להצטרף ${inGroup(group)}`,
+  group_invited: (who, group) => `הזמנה מ${who} ${inGroup(group)}`,
+  group_join_requested: (who, group) => `בקשת הצטרפות חדשה מ${who} ${inGroup(group)}`,
+  group_join_approved: (_who, group) => `הבקשה שלך להצטרף ${inGroup(group)} אושרה`,
+  group_post: () => "פוסט חדש באחת הקבוצות שלך",
+  group_pinned: () => "פוסט חדש הוצמד בקבוצה",
+  group_highlight: () => "פוסט בקבוצה שלך מעורר עניין",
 };
 
 /** The sentence of one notification: the name when shown, "מישהו" when hidden, "המחבר" for the anonymous author's own comment. */
 export function sentenceOf(
-  item: Pick<NotificationItem, "type" | "actor" | "actorName">,
+  item: Pick<NotificationItem, "type" | "actor" | "actorName"> & { targetName?: string | null | undefined },
 ): string {
   const who =
     item.actor === "author"
@@ -42,7 +53,7 @@ export function sentenceOf(
       : item.actor === "named" && item.actorName !== null
         ? item.actorName
         : NO_ACTOR;
-  return SENTENCES[item.type](who);
+  return SENTENCES[item.type](who, item.targetName);
 }
 
 /** Where a notification leads. Opening it asks the server again; a post or person no longer available shows its own page's message. */
@@ -51,7 +62,9 @@ export function hrefOf(
 ): string {
   return item.targetKind === "post"
     ? postPath(item.targetId)
-    : userProfilePath(item.targetId);
+    : item.targetKind === "group"
+      ? groupPath(item.targetId)
+      : userProfilePath(item.targetId);
 }
 
 // FR-NOTIF-002: the settings section.
@@ -63,6 +76,7 @@ export const CATEGORY_LABELS = {
   comments: "תגובות על פוסטים ותשובות לתגובות",
   shares: "שיתוף של פוסט שלי",
   friend_posts: "פוסטים חדשים של חברים שבחרתי",
+  groups: "קבוצות: המלצות, הזמנות, בקשות ופעילות בקבוצות",
 } as const;
 export const FRIENDS_FOLLOW_TITLE = "פוסטים חדשים של חברים";
 export const FRIENDS_FOLLOW_HINT =

@@ -12,4 +12,5 @@ export * from './notifications.js';
 export * from './search.js';
 export * from './admin.js';
 export * from './trackers.js';
+export * from './groups.js';
 export * from './chat.js';
