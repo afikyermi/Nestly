@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
-import { JOURNEY_STAGES, POST_AUDIENCES } from '@nestly/shared';
+import { JOURNEY_STAGES } from '@nestly/shared';
 import { ChoiceCardGroup, type ChoiceOption } from '@/components/shared/choice-card-group';
 import { FieldHint } from '@/components/shared/field-message';
 import { FormField } from '@/components/shared/form-field';
@@ -14,11 +14,14 @@ import {
   ANONYMOUS_LABEL,
   ANONYMOUS_NOTICE_TEXT,
   AUDIENCE_LABELS,
+  HELP_REQUEST_HINT_TEXT,
+  HELP_REQUEST_LABEL,
+  PROFESSIONAL_AUDIENCES,
+  REGULAR_AUDIENCES,
   AUDIENCE_LEGEND,
   BODY_LABEL,
   CANCEL_LABEL,
   EDIT_FORM_LABEL,
-  EVERYONE_ONLY_TEXT,
   NAME_NOTICE_TEXT,
   NEW_POST_LABEL,
   NO_TAG_LABEL,
@@ -31,7 +34,8 @@ import {
   TAG_LEGEND,
 } from './posts-texts';
 
-const AUDIENCE_OPTIONS: ChoiceOption[] = POST_AUDIENCES.map((value) => ({ value, label: AUDIENCE_LABELS[value] }));
+const AUDIENCE_OPTIONS: ChoiceOption[] = REGULAR_AUDIENCES.map((value) => ({ value, label: AUDIENCE_LABELS[value] }));
+const PROFESSIONAL_AUDIENCE_OPTIONS: ChoiceOption[] = PROFESSIONAL_AUDIENCES.map((value) => ({ value, label: AUDIENCE_LABELS[value] }));
 const TAG_OPTIONS: ChoiceOption[] = [{ value: '', label: NO_TAG_LABEL }, ...JOURNEY_STAGES.map((value) => ({ value, label: STAGE_LABELS[value] }))];
 /** The counter speaks only at this many characters left or fewer (c16). */
 const COUNTER_FROM = 100;
@@ -60,8 +64,8 @@ export interface PostFormProps {
   /** Create only: the box was toggled. */
   onAnonymousChange?: (checked: boolean) => void;
   /**
-   * The writer's posts are named and for everyone, with no tag (a Professional; professional-posting D2, D3, DR-2): no box, no audience or
-   * tag group, no name notice; the fixed line "הפוסט יוצג לכולם" stands in for the audience group. Default false.
+   * The writer is a Professional (professional-posting D2, D3, DR-2; I11 AC-130): named posts with no tag and no help marking, for everyone or for
+   * its followers only: no box and no tag group; the audience group offers "כולם" and "עוקבים בלבד". Default false.
    */
   everyoneOnly?: boolean;
   /** I5: the composer's pictures (create only, shown with the rest of the options): rendered after the text. */
@@ -78,6 +82,7 @@ export function PostForm(props: PostFormProps) {
   const ids = useId();
   const noticeId = `${ids}-notice`;
   const tagHintId = `${ids}-tag-hint`;
+  const helpHintId = `${ids}-help-hint`;
 
   useEffect(() => {
     if (focus === undefined || focus.tick === 0) return;
@@ -119,7 +124,20 @@ export function PostForm(props: PostFormProps) {
         </p>
       </div>
       {everyoneOnly ? (
-        compact ? null : <FieldHint id={noticeId}>{EVERYONE_ONLY_TEXT}</FieldHint>
+        compact ? null : (
+          <div className="flex flex-col gap-1.5">
+            <ChoiceCardGroup
+              legend={AUDIENCE_LEGEND}
+              name="post-audience"
+              options={PROFESSIONAL_AUDIENCE_OPTIONS}
+              value={values.audience}
+              onChange={(value) => {
+                if (isAudience(value)) onChange({ ...values, audience: value });
+              }}
+            />
+            {mode === 'create' ? <FieldHint id={noticeId}>{NAME_NOTICE_TEXT}</FieldHint> : null}
+          </div>
+        )
       ) : mode === 'create' && !compact ? (
         <div className="flex flex-col gap-1.5">
           <Checkbox checked={anonymous} onCheckedChange={(checked) => onAnonymousChange?.(checked)}>
@@ -129,6 +147,15 @@ export function PostForm(props: PostFormProps) {
         </div>
       ) : null}
       {mode === 'edit' && anonymous ? <p className="text-small text-muted-foreground">{ANONYMOUS_FIXED_TEXT}</p> : null}
+      {/* I11 (OP-038 ⭐ (a)): a Regular's post may ask Professionals for help; a Professional's never does. */}
+      {compact || everyoneOnly || mode === 'edit' ? null : (
+        <div className="flex flex-col gap-1.5">
+          <Checkbox checked={values.isHelpRequest === true} aria-describedby={helpHintId} onCheckedChange={(checked) => onChange({ ...values, isHelpRequest: checked })}>
+            {HELP_REQUEST_LABEL}
+          </Checkbox>
+          <FieldHint id={helpHintId}>{HELP_REQUEST_HINT_TEXT}</FieldHint>
+        </div>
+      )}
       {anonymous || compact || everyoneOnly ? null : (
         <div className="flex flex-col gap-1.5">
           <ChoiceCardGroup

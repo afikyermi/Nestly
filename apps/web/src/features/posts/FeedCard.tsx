@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ShareInFeedIcon, ShareLinkIcon } from '@/components/ui/icons';
 import { SHARE_LINK_LABEL } from '@/lib/share-link-texts';
 import { MoreActionsMenu, type MoreActionsItem } from '@/components/ui/more-actions-menu';
-import { AUDIENCE_LABELS } from './posts-texts';
+import { AUDIENCE_LABELS, HELP_REQUEST_BADGE } from './posts-texts';
 import { COMMENTS_TITLE, LIKE_LABEL } from './comments-texts';
 import { STAGE_LABELS } from '@/lib/child-fields';
 import { formatPostTime } from '@/lib/format-post-time';
@@ -80,9 +80,14 @@ export function FeedCard(props: FeedCardProps) {
       <header className="order-1 flex min-w-0 flex-1 flex-col gap-1">
         <span id={authorId} className="text-label">
           {author}
+          {/* I11: a Professional author's "יועץ · תחום" tag (decisions-in-force §4) */}
+          {!unit.isAnonymous && unit.author.tag !== undefined ? <span className="text-small font-normal text-primary-strong"> · {unit.author.tag}</span> : null}
         </span>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className={AUDIENCE_CLASS}>{AUDIENCE_LABELS[unit.audience]}</span>
+          {unit.kind === 'post' && unit.isHelpRequest === true ? (
+            <span className="rounded-full bg-badge px-2.5 text-small text-badge-foreground">{HELP_REQUEST_BADGE}</span>
+          ) : null}
           {unit.stageTag !== null ? (
             <span className="rounded-full bg-badge px-2.5 text-small text-badge-foreground">{STAGE_LABELS[unit.stageTag]}</span>
           ) : null}

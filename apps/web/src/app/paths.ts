@@ -1,6 +1,7 @@
 import { CONVERSATION_PATTERN, SUPPORT_THREAD_PATTERN } from '@/lib/chat-link';
 import { POST_PATTERN } from '@/lib/post-link';
 import { USER_PROFILE_PATTERN } from '@/lib/profile-link';
+import { OFFERS_PATH, PRO_ARTICLES_PATH, PRO_PROFILE_PATH, PROFESSIONAL_PAGE_PATTERN, SERVICES_PATH } from '@/lib/professional-link';
 import { TRACKER_PATTERN } from '@/lib/tracker-link';
 
 // The route table (F1.2, Q2). Guest paths are the allow-list: every other path is protected (deny by default).
@@ -66,6 +67,13 @@ export const PATHS = {
   /** I14: joining the team with an invitation link (the one-time code rides in the fragment). Open to a Guest, and to an Auth session with no
    *  Nestly account yet (the person has just signed up there). */
   joinTeam: '/team/join',
+  /** I11: the directory (FR-SERV-001), one Professional's page `/pros/<id>` (FR-SERV-003; by pattern, see `professionalIdOfPath`), the owner's
+   *  profile and articles (FR-PRO-003), and Offer Help (FR-SERV-005/006). */
+  services: SERVICES_PATH,
+  professional: PROFESSIONAL_PAGE_PATTERN,
+  proProfile: PRO_PROFILE_PATH,
+  proArticles: PRO_ARTICLES_PATH,
+  offers: OFFERS_PATH,
 } as const;
 
 /** The only paths a Guest may open. */
@@ -107,6 +115,10 @@ export const PROTECTED_PATHS: readonly string[] = [
   PATHS.adminCommunity,
   PATHS.adminAnnouncements,
   PATHS.adminAnalytics,
+  PATHS.services,
+  PATHS.proProfile,
+  PATHS.proArticles,
+  PATHS.offers,
 ];
 
 /** Where a Guest goes from a protected path (ERR-012, Q3): Welcome. The requested path is not kept. */

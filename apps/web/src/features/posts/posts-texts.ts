@@ -9,7 +9,14 @@ export const CHECKING_TEXT = 'בודקים אם אפשר לכתוב פוסט';
 
 export const BODY_LABEL = 'מה תרצו לשתף?';
 export const AUDIENCE_LEGEND = 'מי יראה את הפוסט'; // c15
-export const AUDIENCE_LABELS: Record<PostAudience, string> = { everyone: 'כולם', friends: 'חברים בלבד' };
+export const AUDIENCE_LABELS: Record<PostAudience, string> = { everyone: 'כולם', friends: 'חברים בלבד', followers: 'עוקבים בלבד' };
+/** VAL-049: who a Regular may choose, and who a Professional may choose (AC-130). */
+export const REGULAR_AUDIENCES: readonly PostAudience[] = ['everyone', 'friends'];
+export const PROFESSIONAL_AUDIENCES: readonly PostAudience[] = ['everyone', 'followers'];
+/** I11 (OP-038 ⭐ (a)): the author marks the post as asking for help from Professionals. */
+export const HELP_REQUEST_LABEL = 'הפוסט מבקש עזרה מבעלי מקצוע';
+export const HELP_REQUEST_HINT_TEXT = 'בעלי מקצוע יוכלו להציע עזרה. הצעה פותחת שיחה רק אם מאשרים אותה';
+export const HELP_REQUEST_BADGE = 'מבקשים עזרה';
 /** Afik 6ב: a named post says whose name it carries. */
 export const NAME_NOTICE_TEXT = 'השם שלכם יוצג לכל מי שיכול לראות את הפוסט';
 // F3.4 (.work/anonymous-post/screen.md). The anonymous notice is the ⭐ text of Gate 1 decision 2, until Afik answers the DR on staff access.

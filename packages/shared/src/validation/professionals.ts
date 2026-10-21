@@ -14,6 +14,7 @@ import {
   FIELD_OTHER_MIN,
   FULL_NAME_MAX_LENGTH,
   FULL_NAME_MIN_LENGTH,
+  OUTREACH_STATUSES,
   PARENT_GENDERS,
   PRICE_FROM_MAX,
   PROFESSIONAL_ABOUT_MAX,
@@ -21,10 +22,6 @@ import {
   PROFESSIONAL_FIELDS,
   REVIEW_TEXT_MAX,
   YEARS_EXPERIENCE_MAX,
-  type ArticleStatus,
-  type OutreachStatus,
-  type ParentGender,
-  type ProfessionalArea,
   type ProfessionalField,
 } from '../constants/index.js';
 import { registrationConsentInput } from './registration-credentials.js';
@@ -104,8 +101,9 @@ const queryNumber = (max: number) =>
     .pipe(z.number().int().min(0).max(max))
     .optional();
 
-/** GET /api/professionals (FR-SERV-001/002, AC-009): category, area, minimum rating, maximum price, minimum experience, sort. */
-export const directoryQuerySchema = z.strictObject({
+/** GET /api/professionals (FR-SERV-001/002, AC-009): category, area, minimum rating, maximum price, minimum experience, sort. Not strict: a
+ * platform rewrite may add its own query parameter (e.g. `path`), which is ignored. */
+export const directoryQuerySchema = z.object({
   field: z.enum(PROFESSIONAL_FIELDS).optional(),
   area: z.enum(PROFESSIONAL_AREAS).optional(),
   minRating: queryNumber(5),
@@ -134,94 +132,112 @@ export const articleSchema = z.strictObject({
 });
 export type ArticleWrite = z.output<typeof articleSchema>;
 
-// ---- what the server answers ----------------------------------------------------------------------------------------------------------
+// ---- what the server answers (the web checks every answer with these) -------------------------------------------------------------
 
-/** A directory card (FR-SERV-001): the public profile with its rating. */
-export interface ProfessionalCard {
-  readonly id: string;
-  readonly fullName: string;
-  readonly businessName: string | null;
-  readonly field: ProfessionalField;
-  readonly fieldOther: string | null;
-  readonly yearsExperience: number;
-  readonly area: ProfessionalArea | null;
-  readonly priceFrom: number | null;
-  /** BR-072: the average of the reviews, one decimal; null with no review. */
-  readonly rating: number | null;
-  readonly reviewCount: number;
-}
+const fieldEnum = z.enum(PROFESSIONAL_FIELDS);
+const at = z.string().min(1);
 
-export interface ProfessionalReviewItem {
-  readonly id: string;
-  readonly rating: number;
-  readonly text: string;
-  readonly at: string;
-}
+/** A directory card (FR-SERV-001): the public profile with its rating (BR-072: the average of the reviews, one decimal; null with none). */
+export const professionalCard = z.strictObject({
+  id: z.guid(),
+  fullName: z.string(),
+  businessName: z.string().nullable(),
+  field: fieldEnum,
+  fieldOther: z.string().nullable(),
+  yearsExperience: z.number().int(),
+  area: z.enum(PROFESSIONAL_AREAS).nullable(),
+  priceFrom: z.number().int().nullable(),
+  rating: z.number().nullable(),
+  reviewCount: z.number().int(),
+});
+export type ProfessionalCard = z.infer<typeof professionalCard>;
+export const directoryResponse = z.strictObject({ professionals: z.array(professionalCard) });
 
-export interface ProfessionalArticleItem {
-  readonly id: string;
-  readonly title: string;
-  readonly body: string;
-  readonly field: ProfessionalField;
-  readonly status: ArticleStatus;
-  readonly at: string;
-  readonly isMine: boolean;
-}
+export const professionalReviewItem = z.strictObject({ id: z.guid(), rating: z.number().int(), text: z.string(), at });
+export type ProfessionalReviewItem = z.infer<typeof professionalReviewItem>;
+
+export const professionalArticleItem = z.strictObject({
+  id: z.guid(),
+  title: z.string(),
+  body: z.string(),
+  field: fieldEnum,
+  status: z.enum(ARTICLE_STATUSES),
+  at,
+  isMine: z.boolean(),
+});
+export type ProfessionalArticleItem = z.infer<typeof professionalArticleItem>;
 
 /** GET /api/professionals/:id (FR-SERV-003): the profile, the viewer's Follow, what it may do, reviews and articles. */
-export interface ProfessionalPage extends ProfessionalCard {
-  readonly gender: ParentGender | null;
-  readonly about: string | null;
-  readonly isMe: boolean;
-  readonly isFollowing: boolean;
-  /** FR-SERV-004: a Regular viewer may open a chat (or go to its conversation). */
-  readonly conversationId: string | null;
-  readonly canChat: boolean;
+export const professionalPage = professionalCard.extend({
+  gender: z.enum(PARENT_GENDERS).nullable(),
+  about: z.string().nullable(),
+  isMe: z.boolean(),
+  isFollowing: z.boolean(),
+  /** The caller's conversation with the Professional, if any. */
+  conversationId: z.guid().nullable(),
+  /** FR-SERV-004: a Regular viewer may write to the Professional. */
+  canChat: z.boolean(),
   /** FR-SERV-011: the conversation a Regular viewer can review this Professional on, if any. */
-  readonly reviewableConversationId: string | null;
-  readonly reviews: readonly ProfessionalReviewItem[];
-  readonly articles: readonly ProfessionalArticleItem[];
-}
+  reviewableConversationId: z.guid().nullable(),
+  reviews: z.array(professionalReviewItem),
+  articles: z.array(professionalArticleItem),
+});
+export type ProfessionalPage = z.infer<typeof professionalPage>;
 
-/** An Offer Help as its two sides see it (FR-SERV-005/006). The post's text is a short excerpt. */
-export interface OutreachItem {
-  readonly id: string;
-  readonly professionalId: string;
-  readonly professionalName: string | null;
-  readonly field: ProfessionalField | null;
-  readonly fieldOther: string | null;
-  readonly postId: string | null;
-  readonly postExcerpt: string | null;
-  readonly text: string;
-  readonly status: OutreachStatus;
-  readonly at: string;
-  readonly conversationId: string | null;
-}
+/** An Offer Help as its two sides see it (FR-SERV-005/006). The post's text is a short excerpt; an anonymous author is never named. */
+export const outreachItem = z.strictObject({
+  id: z.guid(),
+  professionalId: z.guid(),
+  professionalName: z.string().nullable(),
+  field: fieldEnum.nullable(),
+  fieldOther: z.string().nullable(),
+  postId: z.guid().nullable(),
+  postExcerpt: z.string().nullable(),
+  text: z.string(),
+  status: z.enum(OUTREACH_STATUSES),
+  at,
+  conversationId: z.guid().nullable(),
+});
+export type OutreachItem = z.infer<typeof outreachItem>;
+export const outreachResponse = z.strictObject({ received: z.array(outreachItem), sent: z.array(outreachItem) });
 
-/** GET /api/professional/dashboard (FR-PRO-001, AC-018): aggregates of the caller's own account only. */
-export interface ProfessionalDashboard {
-  readonly fullName: string;
-  readonly field: ProfessionalField;
-  readonly fieldOther: string | null;
-  readonly followers: number;
+/** FR-PRO-001, AC-018: aggregates of the caller's own account only (VAL-032). */
+export const professionalDashboard = z.strictObject({
+  fullName: z.string(),
+  field: fieldEnum,
+  fieldOther: z.string().nullable(),
+  followers: z.number().int(),
   /** Conversations with the Professional opened in the last 30 days (Chat Starts). */
-  readonly chatStarts30d: number;
-  readonly rating: number | null;
-  readonly reviewCount: number;
+  chatStarts30d: z.number().int(),
+  rating: z.number().nullable(),
+  reviewCount: z.number().int(),
   /** Likes and comments by others on the Professional's posts in the last 30 days (Organic Engagement). */
-  readonly engagement30d: number;
-  readonly posts30d: number;
-  readonly articles: number;
-  readonly offersToday: number;
-  readonly offersPerDay: number;
-}
+  engagement30d: z.number().int(),
+  posts30d: z.number().int(),
+  articles: z.number().int(),
+  offersToday: z.number().int(),
+  offersPerDay: z.number().int(),
+});
+export type ProfessionalDashboard = z.infer<typeof professionalDashboard>;
 
 /** A post that asks for help, as a Professional's home lists it (FR-SERV-005). */
-export interface HelpRequestItem {
-  readonly postId: string;
-  readonly excerpt: string;
-  readonly isAnonymous: boolean;
-  readonly authorName: string | null;
-  readonly at: string;
-  readonly offered: boolean;
-}
+export const helpRequestItem = z.strictObject({
+  postId: z.guid(),
+  excerpt: z.string(),
+  isAnonymous: z.boolean(),
+  authorName: z.string().nullable(),
+  at,
+  offered: z.boolean(),
+});
+export type HelpRequestItem = z.infer<typeof helpRequestItem>;
+export const professionalHomeResponse = z.strictObject({ dashboard: professionalDashboard, helpRequests: z.array(helpRequestItem) });
+
+export const accountKindResponse = z.strictObject({ kind: z.enum(['regular', 'professional', 'staff', 'none']) });
+export type AccountKind = z.infer<typeof accountKindResponse>['kind'];
+
+/** A created row's id (an article, an Offer Help). */
+export const createdIdResponse = z.strictObject({ id: z.guid() });
+/** An accepted Offer Help's conversation (FR-SERV-006). */
+export const outreachAcceptResponse = z.strictObject({ conversationId: z.guid() });
+/** A registration or a review that was saved. */
+export const createdStatusResponse = z.strictObject({ status: z.literal('created') });

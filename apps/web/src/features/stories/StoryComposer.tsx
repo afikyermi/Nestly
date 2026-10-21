@@ -47,7 +47,10 @@ export function StoryComposer({ open, memory, onClose, onPublished }: StoryCompo
   const account = useSessionAccount();
   const picture = usePickedImages('story', 1);
   const [caption, setCaption] = useState('');
-  const [audience, setAudience] = useState<StoryAudience>(() => memory.read() ?? 'everyone');
+  const [audience, setAudience] = useState<StoryAudience>(() => {
+    const remembered = memory.read();
+    return remembered === 'friends' ? 'friends' : 'everyone';
+  });
   const [failure, setFailure] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const input = useRef<HTMLInputElement>(null);

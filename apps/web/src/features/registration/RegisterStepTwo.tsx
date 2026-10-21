@@ -30,8 +30,10 @@ import {
 } from './step2-form';
 
 export interface RegisterStepTwoProps {
-  /** The parsed step-1 value, in memory only; it goes to the server with the consent declaration. */
-  step1: RegistrationStep1;
+  /** The parsed step-1 value, in memory only; it goes to the server with the consent declaration. Null with `submitAccount` (I11). */
+  step1: RegistrationStep1 | null;
+  /** I11 (FR-PROREG-002): the call that creates the account, in place of the Regular one (a Professional's step 1 rides in it). */
+  submitAccount?: (accessToken: string) => Promise<RegisterOutcome>;
   /** The email lives in the flow, so it survives "חזרה" and a return to this step (criterion 19). The password does not. */
   email: string;
   onEmailChange: (email: string) => void;
@@ -56,7 +58,7 @@ const OUTCOME_NOTICE: Record<Exclude<RegisterOutcome, 'created'>, Notice> = {
 
 // Registration step 2 (FR-REG-004): email, password and one consent. Sign-up goes to Auth from here, then the new session
 // calls our server. The session token and the password live in this component's memory only; nothing is stored (Q7).
-export function RegisterStepTwo({ step1, email, onEmailChange, onBack }: RegisterStepTwoProps) {
+export function RegisterStepTwo({ step1, submitAccount, email, onEmailChange, onBack }: RegisterStepTwoProps) {
   const authPort = useAuthPort();
   const sessionEntry = useSessionEntry();
   const toLogin = useLinkClickHandler(PATHS.login);
@@ -129,7 +131,7 @@ export function RegisterStepTwo({ step1, email, onEmailChange, onBack }: Registe
       if (token === null) return;
       accessToken.current = token;
       setHeld(true);
-      const outcome = await registerAccount(token, step1);
+      const outcome = submitAccount !== undefined ? await submitAccount(token) : step1 !== null ? await registerAccount(token, step1) : 'failed';
       if (outcome === 'created') {
         finished = true;
         sessionEntry?.signIn();
