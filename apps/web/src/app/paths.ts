@@ -79,6 +79,8 @@ export const PATHS = {
   adminCommunity: '/admin/community',
   adminAnnouncements: '/admin/announcements',
   adminAnalytics: '/admin/analytics',
+  /** I14 completion: children's tracker data as trends only (CHILD_DATA_VIEW, §9.2). */
+  adminChildData: '/admin/child-data',
   /** I14: joining the team with an invitation link (the one-time code rides in the fragment). Open to a Guest, and to an Auth session with no
    *  Nestly account yet (the person has just signed up there). */
   joinTeam: '/team/join',
@@ -147,6 +149,7 @@ export const PROTECTED_PATHS: readonly string[] = [
   PATHS.adminCommunity,
   PATHS.adminAnnouncements,
   PATHS.adminAnalytics,
+  PATHS.adminChildData,
   PATHS.services,
   PATHS.proProfile,
   PATHS.proArticles,

@@ -40,12 +40,14 @@ export interface CommentsViewProps {
   menu: Omit<CommentMenu, 'onDelete'>;
   /** The report window of a comment (F3.7 c10), open while set; it closes onto that comment's "⋯". */
   report?: { commentId: string; sheet: Omit<ReportSheetProps, 'finalFocus'> } | null;
+  /** I14 completion (§9.7): a staff account reviews: the thread as it is, with no like, comment, reply or menu (the server refuses them too). */
+  readOnly?: boolean;
 }
 
 // The comments region under a post (F3.3 w1; FR-FEED-003): the post's like, the thread (top-level comments, one level of replies), the
 // comment box, the delete confirmation and the report window (F3.7). Display only: the requests come from the hooks. The heading is the focus target of the
 // comments link, of a delete and of the pages that bring new comments.
-export function CommentsView({ flow, writes, landOnHeading = false, asAnonymousAuthor = false, namesWriter = true, menu, report = null }: CommentsViewProps) {
+export function CommentsView({ flow, writes, landOnHeading = false, asAnonymousAuthor = false, namesWriter = true, menu, report = null, readOnly = false }: CommentsViewProps) {
   const notice = asAnonymousAuthor ? COMMENT_AUTHOR_NOTICE_TEXT : namesWriter ? COMMENT_NAME_NOTICE_TEXT : null;
   const { thread, focus } = flow;
   const { root, reply, confirm } = writes;
@@ -80,9 +82,11 @@ export function CommentsView({ flow, writes, landOnHeading = false, asAnonymousA
       <h2 id="comments" ref={headingRef} tabIndex={-1} className="text-h3">
         {COMMENTS_TITLE}
       </h2>
-      <div>
-        <LikeButton label={LIKE_LABEL} count={thread.postLikes} liked={thread.postLiked} onToggle={() => flow.toggleLike('posts', '')} />
-      </div>
+      {readOnly ? null : (
+        <div>
+          <LikeButton label={LIKE_LABEL} count={thread.postLikes} liked={thread.postLiked} onToggle={() => flow.toggleLike('posts', '')} />
+        </div>
+      )}
       <p role="status" data-testid="comments-status" className={status !== '' && thread.phase !== 'loading' ? 'text-body text-muted-foreground' : 'sr-only'}>
         {status}
       </p>
@@ -111,6 +115,7 @@ export function CommentsView({ flow, writes, landOnHeading = false, asAnonymousA
               menu={{ ...menu, onDelete: writes.askDelete }}
               onReply={writes.openReply}
               onMoreReplies={flow.showMoreReplies}
+              readOnly={readOnly}
               replyBox={
                 reply !== null && reply.parentId === item.id ? (
                   <CommentComposer mode="reply" state={reply} notice={notice} onChange={writes.changeReply} onSend={writes.sendReply} onCancel={writes.cancelReply} />
@@ -137,7 +142,7 @@ export function CommentsView({ flow, writes, landOnHeading = false, asAnonymousA
           </Button>
         </div>
       ) : null}
-      {thread.phase === 'ready' ? <CommentComposer mode="comment" state={root} notice={notice} onChange={writes.changeRoot} onSend={writes.sendRoot} /> : null}
+      {thread.phase === 'ready' && !readOnly ? <CommentComposer mode="comment" state={root} notice={notice} onChange={writes.changeRoot} onSend={writes.sendRoot} /> : null}
       {confirm !== null ? (
         <ConfirmDialog
           open

@@ -1,7 +1,8 @@
 // The admin screens' reads (FR-MOD-003, FR-ADMIN-005, FR-MOD-002). Signed in: the authentication hook has run before anything here. Staff only: an
 // account without the Permission Key gets 403 forbidden; the policies behind it return nothing to such an account anyway.
 //   GET {admin}/access                        → 200 { staff: true, role, permissions[] } | { staff: false }
-//   GET {admin}/audit?before=<ISO time>       → 200 { entries[], next }                          (AUDIT_LOG_VIEW)
+//   GET {admin}/audit?before=<ISO time>       → 200 { entries[], next }                          (AUDIT_LOG_VIEW; I14 completion: &action=
+//                                               &role=&targetKind=&from=&to=&sensitive=true filter it)
 //   GET {admin}/reports                       → 200 { items[] } the moderation queue              (REPORTS_VIEW)
 //   GET {admin}/reports/:kind/:id[?open=true] → 200 the target, its reports, the account          (REPORTS_VIEW; I10: open=true opens Private
 //                                               Group content, audited, PRIVATE_GROUP_MODERATE)
@@ -54,7 +55,8 @@ export function registerAdminReadRoutes(app: FastifyInstance, deps: AdminRouteDe
     if (request.identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
     const { identity } = request;
     const database = deps.database;
-    return answer(request, reply, 'admin audit failed', () => readAudit(database, identity, query.value.before), (ok) => ok.page);
+    const { before, ...filters } = query.value;
+    return answer(request, reply, 'admin audit failed', () => readAudit(database, identity, before, filters), (ok) => ok.page);
   });
 
   get(`${ADMIN}/reports`, (request, reply) => {

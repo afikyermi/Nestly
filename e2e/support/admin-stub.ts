@@ -118,6 +118,39 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
       });
     }
     if (path === '/api/admin/access') return json(route, 200, net.staff ? { staff: true, role: net.role, permissions: net.permissions } : { staff: false });
+    // I14 completion: the staff homes and the children's trends
+    if (path === '/api/admin/my-work') {
+      const reports = net.permissions.includes('REPORTS_VIEW');
+      const first = net.queue[0];
+      const item = first === undefined ? null : { targetKind: first.targetKind, targetId: first.targetId, priority: first.priority, waitingSince: first.firstReportedAt, timeTargetHours: first.priority === 1 ? 1 : 24, pastTarget: true };
+      return json(route, 200, {
+        permissions: net.permissions,
+        counters: reports ? { openReports: net.queue.length, childSafetyReports: net.queue.filter((q) => q.priority === 1).length, pastTargetReports: net.queue.length, escalatedReports: 0 } : {},
+        oldest: reports ? item : null,
+        next: reports ? item : null,
+      });
+    }
+    if (path === '/api/admin/overview') {
+      return json(route, 200, {
+        childSafetyOpen: net.queue.filter((q) => q.priority === 1).length,
+        attention: { openReports: net.queue.length, pastTargetReports: 1, escalatedReports: 1, queuedImages: net.mediaQueue.length, openSupport: 0, openInvitations: 1, expiringInvitations: 0, guidesToRecheck: 9, reportSpike: { lastDay: 6, dailyAverage: 1, isSpike: true } },
+        metrics: ['registrations', 'posts', 'comments', 'reports', 'enforcements', 'support'].map((key, index) => ({ key, current: 10 + index, previous: 5 })),
+        team: [{ userId: ID(70), label: 'נועה לוי', status: 'active', keyCount: 3, lastActionAt: '2026-06-14T09:00:00.000Z', actionsThisWeek: 4 }],
+      });
+    }
+    if (path === '/api/admin/child-trends') {
+      return json(route, 200, {
+        metric: url.searchParams.get('metric'),
+        field: url.searchParams.get('field'),
+        dimension: 'child_sex',
+        days: 90,
+        cells: [
+          { bucket: 'girl', order: 1, children: 12, value: 125, suppressed: false },
+          { bucket: 'boy', order: 2, children: null, value: null, suppressed: true },
+          { bucket: 'unknown', order: 3, children: null, value: null, suppressed: true },
+        ],
+      });
+    }
     if (path === '/api/admin/reports') return json(route, 200, { items: net.queue });
     if (path.startsWith('/api/admin/reports/')) {
       const [, , , , kind, id] = path.split('/');
@@ -139,6 +172,10 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
             : []),
         ],
         user: { userId: USER_RINA, accountType: 'regular', status: net.userStatus, suspendedUntil: null, fullName: 'רינה כהן', history: net.history, suggestion: { kind: 'warning', hours: null } },
+        // I14 completion: the context, the author card and the handling status
+        context: { post: null, comments: [{ id: ID(80), parentId: null, text: 'תגובה בשרשור', status: 'active', isAnonymous: false, createdAt: '2026-06-13T10:00:00.000Z', isReported: false }] },
+        authorCard: { accountAgeDays: 400, enforcementsLastYear: 1 },
+        handling: { openings: [{ label: null, isMe: true, at: '2026-06-15T08:00:00.000Z' }], escalation: null },
       });
     }
     if (path === '/api/admin/audit') {

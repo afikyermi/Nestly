@@ -38,7 +38,7 @@ const REFUSALS: Record<string, AdminRefusal> = {
 };
 const anything: Parser<unknown> = { safeParse: (value: unknown) => ({ success: true, data: value }) };
 
-async function call<T>(token: string, method: 'GET' | 'POST' | 'PUT' | 'PATCH', path: string, schema: Parser<T>, body?: unknown): Promise<AdminOutcome<T>> {
+export async function call<T>(token: string, method: 'GET' | 'POST' | 'PUT' | 'PATCH', path: string, schema: Parser<T>, body?: unknown): Promise<AdminOutcome<T>> {
   let response: Response;
   try {
     response = await fetch(path, {

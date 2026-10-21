@@ -24,7 +24,7 @@ export const TEAM_INVITE_NOTE = 'למי ההזמנה';
 export const TEAM_INVITE_NOTE_HINT = 'שם או תיאור קצר, רק לצוות הניהול (2 עד 80 תווים)';
 export const TEAM_INVITE_NOTE_ERROR = 'יש לכתוב 2 עד 80 תווים';
 export const TEAM_INVITE_SEND = 'יצירת הזמנה';
-export const TEAM_INVITE_READY = 'ההזמנה מוכנה. הקישור מוצג רק עכשיו: אפשר להעתיק ולשלוח אותו. הוא תקף 7 ימים ולשימוש אחד';
+export const TEAM_INVITE_READY = 'ההזמנה מוכנה. הקישור מוצג רק עכשיו: אפשר להעתיק ולשלוח אותו. הוא תקף 48 שעות ולשימוש אחד';
 export const TEAM_INVITE_LINK = 'קישור ההזמנה';
 export const TEAM_INVITE_COPY = 'העתקת הקישור';
 export const TEAM_INVITE_COPIED = 'הקישור הועתק';
@@ -51,6 +51,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   COMMUNITY_CONFIG: 'הגדרות הקהילה',
   SYSTEM_ANNOUNCEMENTS: 'הודעות מערכת',
   PRIVATE_GROUP_MODERATE: 'טיפול בתוכן של קבוצה פרטית',
+  CHILD_DATA_VIEW: 'מגמות בנתוני ילדים (בלי זיהוי)',
 };
 
 // ---- joining (the invited person)

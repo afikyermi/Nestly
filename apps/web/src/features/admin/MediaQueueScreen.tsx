@@ -1,3 +1,4 @@
+import { GuardedImage } from './GuardedImage';
 import { useCallback, useEffect, useState } from 'react';
 import { MEDIA_QUEUE_PAGE, type MediaDecision, type MediaQueueItem } from '@nestly/shared';
 import { InlineAlert } from '@/components/shared/inline-alert';
@@ -124,7 +125,9 @@ function QueueCard({ item, onDone }: { item: MediaQueueItem; onDone: (id: string
       {item.url === null ? (
         <p className="text-small text-muted-foreground">{MEDIA_NO_IMAGE}</p>
       ) : (
-        <img src={item.url} alt={MEDIA_IMAGE_ALT} width={item.width} height={item.height} className="max-h-80 w-full rounded-md object-contain bg-muted" />
+        <GuardedImage>
+          <img src={item.url} alt={MEDIA_IMAGE_ALT} width={item.width} height={item.height} className="max-h-80 w-full rounded-md object-contain bg-muted" />
+        </GuardedImage>
       )}
       <p className="text-small text-muted-foreground">
         {item.topScore === null ? null : <span dir="auto">{mediaScoreText(item.topScore)} · </span>}

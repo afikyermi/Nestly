@@ -46,6 +46,8 @@ export interface CommentActions {
 
 interface CommentBlockProps extends CommentActions {
   comment: CommentView;
+  /** I14 completion: a staff account's review: the comment as it is, with no like, reply or menu. */
+  readOnly?: boolean;
   /** The reply button; top-level comments only. */
   onReply?: (() => void) | undefined;
   children?: ReactNode;
@@ -54,7 +56,7 @@ interface CommentBlockProps extends CommentActions {
 // One comment or reply (F3.3 w1; FR-FEED-003): the author line, the time, the text and its actions. The text is the person's own, so it is
 // plain text (never markup), keeps its line breaks and takes its own direction. The item is named by its author line. Its "⋯" sits in the
 // author line, before the text and the replies, so it is the first menu button inside the item (focus returns to it after the menu's action).
-function CommentBlock({ comment, onReply, onLike, menu, children }: CommentBlockProps) {
+function CommentBlock({ comment, onReply, onLike, menu, children, readOnly = false }: CommentBlockProps) {
   const authorId = useId();
   return (
     <li
@@ -71,7 +73,7 @@ function CommentBlock({ comment, onReply, onLike, menu, children }: CommentBlock
           <time dateTime={comment.createdAt} className="text-small text-muted-foreground">
             {formatPostTime(comment.createdAt)}
           </time>
-          <MoreActionsMenu
+          {readOnly ? null : <MoreActionsMenu
             label={COMMENT_MORE_LABEL}
             menuLabel={MORE_ACTIONS_MENU_LABEL}
             items={
@@ -82,20 +84,20 @@ function CommentBlock({ comment, onReply, onLike, menu, children }: CommentBlock
             open={menu.openId === comment.id}
             onOpenChange={(open) => menu.onOpenChange(comment.id, open)}
             {...(menu.onPressOutside === undefined ? {} : { onPressOutside: menu.onPressOutside })}
-          />
+          />}
         </div>
       </div>
       <p dir="auto" className="whitespace-pre-wrap wrap-anywhere">
         {comment.body}
       </p>
-      <div className="flex flex-wrap items-center gap-x-2">
+      {readOnly ? null : <div className="flex flex-wrap items-center gap-x-2">
         <LikeButton label={LIKE_LABEL} count={comment.likeCount} liked={comment.likedByMe} onToggle={() => onLike(comment.id)} />
         {onReply !== undefined ? (
           <Button variant="text" data-reply-button onClick={onReply}>
             {REPLY_LABEL}
           </Button>
         ) : null}
-      </div>
+      </div>}
       {children}
     </li>
   );
@@ -107,17 +109,18 @@ export interface CommentItemProps extends CommentActions {
   onMoreReplies: (commentId: string) => void;
   /** The reply box, when it is open under this comment. */
   replyBox?: ReactNode;
+  readOnly?: boolean;
 }
 
 // A top-level comment with its replies (one level), the button for the replies not loaded yet, and the reply box when it is open here.
-export function CommentItem({ item, onReply, onMoreReplies, onLike, menu, replyBox }: CommentItemProps) {
+export function CommentItem({ item, onReply, onMoreReplies, onLike, menu, replyBox, readOnly = false }: CommentItemProps) {
   const more = hasMoreReplies(item);
   return (
-    <CommentBlock comment={item} onReply={() => onReply(item.id)} onLike={onLike} menu={menu}>
+    <CommentBlock comment={item} onReply={() => onReply(item.id)} onLike={onLike} menu={menu} readOnly={readOnly}>
       {item.replies.length > 0 ? (
         <ul aria-label={REPLIES_LIST_LABEL} className="flex flex-col gap-2 border-s-2 border-border ps-3">
           {item.replies.map((reply) => (
-            <CommentBlock key={reply.id} comment={reply} onLike={onLike} menu={menu} />
+            <CommentBlock key={reply.id} comment={reply} onLike={onLike} menu={menu} readOnly={readOnly} />
           ))}
         </ul>
       ) : null}

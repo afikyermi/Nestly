@@ -1,3 +1,4 @@
+import { useStaffAccess } from '@/hooks/use-staff-access';
 import { useState } from 'react';
 import { useLocation } from 'react-router';
 import { PATHS } from '@/app/paths';
@@ -40,6 +41,8 @@ export function CommentsSection({ right, ...props }: CommentsSectionProps) {
 // of the menu, the confirmation or the window is open, and stays on the post (direction.md); a request in flight keeps its dialog.
 function CommentsRegion({ postId, liked, likes, asAnonymousAuthor = false, namesWriter }: Omit<CommentsSectionProps, 'right'> & { namesWriter: boolean }) {
   const api = useCommentApi();
+  // I14 completion (§9.7): a staff account reads the thread for review and writes nothing
+  const reviewing = useStaffAccess().kind === 'staff';
   const flow = useComments(postId, { liked, likes }, api);
   const writes = useCommentWrites(postId, flow, api);
   const { hash } = useLocation();
@@ -61,6 +64,7 @@ function CommentsRegion({ postId, liked, likes, asAnonymousAuthor = false, names
       landOnHeading={hash === '#comments'}
       asAnonymousAuthor={asAnonymousAuthor}
       namesWriter={namesWriter}
+      readOnly={reviewing}
       menu={{
         openId: menuId,
         onPressOutside: pressedOutside,

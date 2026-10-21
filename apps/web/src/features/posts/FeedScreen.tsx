@@ -38,6 +38,8 @@ import { useFeedCommentWrites } from './use-feed-comment-writes';
 import { useNearCards } from './use-near-cards';
 import { useFeedSource } from './feed-source';
 import { PIN_LABEL, REMOVE_FROM_GROUP_LABEL, UNPIN_LABEL } from '@/lib/group-post-texts';
+import { useStaffAccess } from '@/hooks/use-staff-access';
+import { STAFF_REVIEW_NOTE } from '@/lib/staff-review-texts';
 
 /**
  * What is open over the feed: one card's menu, one comment's menu (ux-polish-a c10), or the delete confirmation of a card or of a comment in it
@@ -60,6 +62,9 @@ type Overlay =
 export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
   const { right, fullName } = usePostingProfile();
   const own = useOwnUserId();
+  // I14 completion (§9.7, Afik 21.10.2026): a staff account reads the feed for independent review and writes nothing (no composer, like, comment,
+  // share, hide or report here; the server and RLS refuse those writes too)
+  const reviewing = useStaffAccess().kind === 'staff';
   // A Professional (no parent profile, D1) may not hide a post (post_hides_insert_guard): the item is not offered.
   const professional = right === 'everyone-only';
   // I10: the same screen shows one Group's discussion (feed-source.ts).
@@ -250,8 +255,8 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
       state={state}
       sentinelRef={sentinelRef}
       onRetry={retry}
-      onToggleLike={toggleLike}
-      actionsFor={actionsFor}
+      {...(reviewing ? {} : { onToggleLike: toggleLike })}
+      actionsFor={reviewing ? () => [] : actionsFor}
       edit={cardEdit.edit}
       onEditChange={cardEdit.change}
       onEditSave={cardEdit.save}
@@ -277,8 +282,7 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
             ? { commentId: report.draft.target.id, sheet: reportSheetProps(report, report.draft, PATHS.communityRules) }
             : { unitId: report.draft.target.id, sheet: reportSheetProps(report, report.draft, PATHS.communityRules) }
       }
-      commentsFor={commentsFor}
-      shareActionsFor={shareActionsFor}
+      {...(reviewing ? {} : { commentsFor, shareActionsFor })}
       shareFeed={
         shareFeed.draft === null
           ? null
@@ -306,7 +310,9 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
   // An account without a parent profile (D1 reads it as a Professional) gets the composer only after the feed's first answer, so an
   // account the server gives no feed (403, `blocked`: Admin, Moderator) never sees it, not even briefly. A Regular's composer stays from
   // the first paint (feed-composer c1, c7). The phase never returns to `initial`; a focus asked by /posts/new is taken when it mounts.
-  const write = none || (right === 'everyone-only' && state.phase === 'initial') ? null : (
+  const write = reviewing ? (
+    <p className="mt-3 rounded-md bg-muted p-3 text-small">{STAFF_REVIEW_NOTE}</p>
+  ) : none || (right === 'everyone-only' && state.phase === 'initial') ? null : (
     <FeedComposer
       right={right}
       own={own}

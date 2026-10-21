@@ -3,6 +3,8 @@ import type { EnforcementKind, PermissionKey, ReportTargetKind } from '@nestly/s
 // The admin screens' texts (FR-MOD-002, FR-MOD-003, FR-ADMIN-005). Hebrew, gender-neutral (NFR-USAB-003); an action names what it does.
 export const ADMIN_TITLE = 'ניהול';
 export const ADMIN_MENU_LABEL = 'ניהול';
+/** I14 completion: a staff account opens the Groups for review (it is a member of none). */
+export const STAFF_GROUPS_MENU_LABEL = 'קבוצות';
 export const ADMIN_NAV_LABEL = 'מסכי הניהול';
 export const ADMIN_NO_ACCESS_TEXT = 'אין הרשאה למסך הזה';
 export const ADMIN_NO_SCREENS_TEXT = 'אין מסכי ניהול זמינים לחשבון הזה';
@@ -16,6 +18,7 @@ export const REASON_REQUIRED_TEXT = 'יש לכתוב סיבה';
 export const NOT_APPLICABLE_TEXT = 'הפעולה לא מתאימה למצב החשבון עכשיו';
 
 export const TAB_LABELS = {
+  home: 'בית',
   reports: 'דיווחים',
   users: 'משתמשים',
   audit: 'יומן פעולות',
@@ -28,11 +31,14 @@ export const TAB_LABELS = {
   analytics: 'נתונים',
   marketplace: 'מודעות Marketplace',
   sponsored: 'מוצרים ממומנים',
+  childData: 'נתוני ילדים',
 } as const;
 export type AdminTab = keyof typeof TAB_LABELS;
 
 /** The key each tab needs (the Admin holds all of them); 'ADMIN' marks a screen for the Admin role only (FR-ADMIN-012: status guides). */
-export const TAB_KEYS: Record<AdminTab, PermissionKey | 'ADMIN'> = {
+export const TAB_KEYS: Record<AdminTab, PermissionKey | 'ADMIN' | 'STAFF'> = {
+  // I14 completion: every staff account's home (the Admin's home, or a Moderator's "my work")
+  home: 'STAFF',
   reports: 'REPORTS_VIEW',
   users: 'USER_VIEW',
   audit: 'AUDIT_LOG_VIEW',
@@ -46,6 +52,8 @@ export const TAB_KEYS: Record<AdminTab, PermissionKey | 'ADMIN'> = {
   marketplace: 'MARKETPLACE_MODERATE',
   // FR-ADMIN-009: SPONSORED_PRODUCT_MANAGE is Admin Only (§3.2)
   sponsored: 'ADMIN',
+  // I14 completion (§9.2): children's tracker trends, a key of its own (not part of ANALYTICS_VIEW)
+  childData: 'CHILD_DATA_VIEW',
 };
 
 // ---- the Support inbox (FR-ADMIN-002)
@@ -106,6 +114,11 @@ export const ACTION_LABELS: Record<string, string> = {
   announcement_edited: 'עריכת הודעת מערכת',
   announcement_published: 'פרסום הודעת מערכת',
   announcement_removed: 'הסרת הודעת מערכת',
+  // I14 completion
+  child_data_queried: 'שאילתה על נתוני ילדים',
+  report_escalated: 'העברת דיווח למנהל',
+  private_group_viewed: 'פתיחת קבוצה פרטית לבדיקה',
+  private_group_content_viewed: 'פתיחת תוכן מקבוצה פרטית',
 };
 export const TARGET_LABELS: Record<string, string> = {
   user: 'משתמש',
@@ -119,6 +132,8 @@ export const TARGET_LABELS: Record<string, string> = {
   announcement: 'הודעת מערכת',
   review: 'ביקורת על בעל מקצוע',
   article: 'מאמר של בעל מקצוע',
+  child_data: 'נתוני ילדים',
+  group: 'קבוצה',
 };
 export const actionLabel = (action: string): string => ACTION_LABELS[action] ?? action;
 export const targetLabel = (kind: string): string => TARGET_LABELS[kind] ?? kind;

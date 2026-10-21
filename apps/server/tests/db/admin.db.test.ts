@@ -121,7 +121,7 @@ describe('[I4 FR-MOD-002 AC-025 AC-031] who is staff, and with which keys', () =
   it('[AC-025] the Admin holds every Moderator key; [AC-031] a Moderator only its own; a Regular account and a key-less Moderator are forbidden', T, async () => {
     const a = await readAccess(database, id(admin));
     expect(a.kind === 'ok' && a.access.role).toBe('admin');
-    expect(a.kind === 'ok' && a.access.permissions.length).toBe(14);
+    expect(a.kind === 'ok' && a.access.permissions.length).toBe(15);
     const m = await readAccess(database, id(content));
     expect(m.kind === 'ok' && m.access.permissions).toEqual(['AUDIT_LOG_VIEW', 'CONTENT_MODERATE', 'REPORTS_VIEW']);
     expect((await readAccess(database, id(author))).kind).toBe('forbidden');
