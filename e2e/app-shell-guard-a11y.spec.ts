@@ -166,7 +166,7 @@ test.describe('titles and focus', () => {
     page,
   }) => {
     await open(page, '/feed', 'signed-in');
-    const names = await tabNames(page, 8);
+    const names = await tabNames(page, 9); // I11: "יועצים" joined the nav before "פרופיל"
     const i = [MENU_BUTTON, 'בית', 'פיד', 'פרופיל'].map((n) => names.indexOf(n));
     expect(
       i.every((x) => x >= 0),
@@ -190,7 +190,7 @@ test.describe('titles and focus', () => {
     await expect(drawerOf(page)).toBeVisible();
     const inside = await page.evaluate(() => document.activeElement?.closest('[role="dialog"]') != null);
     expect(inside, 'focus is inside the drawer').toBe(true);
-    const names = await tabNames(page, 15); // F3.6 c11: "שיתוף Nestly" joined the drawer before the logout; I7 "התראות", I8 "פנייה לתמיכה" and I10 "הקבוצות שלי" joined too
+    const names = await tabNames(page, 17); // F3.6 c11: "שיתוף Nestly" joined the drawer before the logout; I7 "התראות", I8 "פנייה לתמיכה" and I10 "הקבוצות שלי" joined too; I11 "בעלי מקצוע" and "הצעות עזרה"
     expect(names.indexOf('חשבון')).toBeGreaterThanOrEqual(0);
     expect(names.indexOf('התנתקות')).toBeGreaterThan(names.indexOf('חשבון'));
     await drawerOf(page).getByRole('link', { name: 'חשבון', exact: true }).focus();

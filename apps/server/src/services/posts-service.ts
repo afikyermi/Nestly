@@ -29,6 +29,8 @@ export interface NewPost {
   readonly isAnonymous?: boolean | undefined;
   /** I5: the caller's own unattached post images, in order (VAL-041: at most 4). */
   readonly imageIds?: readonly string[] | undefined;
+  /** I11 (OP-038): the author asks for help. */
+  readonly isHelpRequest?: boolean | undefined;
   /** I10: the Group the post is written in (members only: the database refuses anyone else, 42501). */
   readonly groupId?: string | undefined;
 }
@@ -114,6 +116,7 @@ export async function createPost(database: Database, identity: Identity, input: 
         audience: input.audience,
         stageTag: input.stageTag ?? null,
         isAnonymous: input.isAnonymous ?? false,
+        isHelpRequest: input.isHelpRequest ?? false,
         groupId: input.groupId ?? null,
       }),
     );

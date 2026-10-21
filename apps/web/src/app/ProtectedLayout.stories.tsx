@@ -43,6 +43,9 @@ export const FeedCurrent: Story = { render: () => <SignedInAt path={PATHS.feed} 
 
 export const ProfileCurrent: Story = { render: () => <SignedInAt path={PATHS.profile} /> };
 
+// I11: the Professionals' directory (FR-SERV-001), the fourth navigation item.
+export const ServicesCurrent: Story = { render: () => <SignedInAt path={PATHS.services} /> };
+
 // Settings is reached from the menu, not the navigation: no nav item is current. A section's address is the hash (F2.5 c2).
 export const SettingsNoneCurrent: Story = { render: () => <SignedInAt path={PATHS.settings} /> };
 

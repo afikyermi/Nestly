@@ -46,18 +46,21 @@ const conversationRow = z.object({
 export async function readConversations(tx: IdentityTx): Promise<ConversationItem[]> {
   const rows = z.array(conversationRow).parse(
     await tx.execute(sql`
-      select c.id, ${other} as "otherUserId", n.full_name as "otherName",
-             coalesce(lm.body, op.opening_message) as "lastText",
-             to_char(coalesce(lm.created_at, op.created_at) at time zone 'UTC', ${isoMs}) as "lastAt",
-             coalesce(lm.mine, op.mine) as "lastMine",
+      select c.id, ${other} as "otherUserId", coalesce(n.full_name, pp.full_name) as "otherName",
+             coalesce(lm.body, op.opening_message, oo.opening_message) as "lastText",
+             to_char(coalesce(lm.created_at, op.created_at, oo.created_at) at time zone 'UTC', ${isoMs}) as "lastAt",
+             coalesce(lm.mine, op.mine, oo.mine) as "lastMine",
              ${unreadIn} as unread, not ${chatBlocked} as "canSend"
       from nestly.conversations c
       left join nestly.regular_names n on n.user_id = ${other}
+      left join nestly.professional_profiles pp on pp.user_id = ${other}
       left join lateral (select m.body, m.created_at, m.sender_id = (select auth.uid()) as mine from nestly.messages m
                           where m.conversation_id = c.id order by m.created_at desc, m.id desc limit 1) lm on true
       left join lateral (select r.opening_message, r.created_at, r.requester_id = (select auth.uid()) as mine from nestly.chat_requests r
                           where r.id = c.chat_request_id) op on true
-      order by coalesce(lm.created_at, op.created_at, c.created_at) desc, c.id
+      left join lateral (select o.opening_message, o.created_at, o.professional_id = (select auth.uid()) as mine from nestly.outreach_requests o
+                          where o.id = c.outreach_request_id) oo on true
+      order by coalesce(lm.created_at, op.created_at, oo.created_at, c.created_at) desc, c.id
       limit ${LIST_LIMIT}`),
   );
   return rows.map((row) => ({
@@ -78,8 +81,9 @@ export async function readPendingRequests(tx: IdentityTx, direction: 'incoming' 
   const theirs = direction === 'incoming' ? sql`r.requester_id` : sql`r.target_id`;
   return z.array(requestRow).parse(
     await tx.execute(sql`
-      select r.id, ${theirs} as "userId", n.full_name as name, r.opening_message as text, to_char(r.created_at at time zone 'UTC', ${isoMs}) as at
+      select r.id, ${theirs} as "userId", coalesce(n.full_name, pp.full_name) as name, r.opening_message as text, to_char(r.created_at at time zone 'UTC', ${isoMs}) as at
       from nestly.chat_requests r left join nestly.regular_names n on n.user_id = ${theirs}
+      left join nestly.professional_profiles pp on pp.user_id = ${theirs}
       where ${mine} = (select auth.uid()) and r.status = 'pending'
       order by r.created_at desc, r.id
       limit ${LIST_LIMIT}`),
@@ -130,7 +134,13 @@ export async function readUnreadCount(tx: IdentityTx): Promise<number> {
   return rows[0]?.count ?? 0;
 }
 
-const threadHead = z.object({ id: z.guid(), otherUserId: z.guid(), otherName: z.string().nullable(), chatRequestId: z.guid().nullable() });
+const threadHead = z.object({
+  id: z.guid(),
+  otherUserId: z.guid(),
+  otherName: z.string().nullable(),
+  chatRequestId: z.guid().nullable(),
+  outreachRequestId: z.guid().nullable(),
+});
 
 /**
  * One conversation the caller can read, oldest message first (the latest THREAD_LIMIT), with the opening message of the request it came from.
@@ -139,8 +149,10 @@ const threadHead = z.object({ id: z.guid(), otherUserId: z.guid(), otherName: z.
 export async function readThread(tx: IdentityTx, conversationId: string): Promise<ConversationThread | undefined> {
   const [head] = z.array(threadHead).parse(
     await tx.execute(sql`
-      select c.id, ${other} as "otherUserId", n.full_name as "otherName", c.chat_request_id as "chatRequestId"
+      select c.id, ${other} as "otherUserId", coalesce(n.full_name, pp.full_name) as "otherName", c.chat_request_id as "chatRequestId",
+             c.outreach_request_id as "outreachRequestId"
       from nestly.conversations c left join nestly.regular_names n on n.user_id = ${other}
+      left join nestly.professional_profiles pp on pp.user_id = ${other}
       where c.id = ${conversationId}::uuid`),
   );
   if (head === undefined) return undefined;
@@ -162,6 +174,15 @@ export async function readThread(tx: IdentityTx, conversationId: string): Promis
       await tx.execute(sql`
         select r.id, r.opening_message as text, to_char(r.created_at at time zone 'UTC', ${isoMs}) as at, r.requester_id = (select auth.uid()) as mine
         from nestly.chat_requests r where r.id = ${head.chatRequestId}::uuid`),
+    );
+    if (opening !== undefined && messages.length < THREAD_LIMIT) thread.unshift({ ...opening, isOpening: true });
+  }
+  // I11 (FR-SERV-006): an accepted Offer Help's first message opens its conversation, as a chat request's does.
+  if (head.outreachRequestId !== null) {
+    const [opening] = z.array(z.object({ id: z.guid(), text: z.string(), at: z.string(), mine: z.boolean() })).parse(
+      await tx.execute(sql`
+        select o.id, o.opening_message as text, to_char(o.created_at at time zone 'UTC', ${isoMs}) as at, o.professional_id = (select auth.uid()) as mine
+        from nestly.outreach_requests o where o.id = ${head.outreachRequestId}::uuid`),
     );
     if (opening !== undefined && messages.length < THREAD_LIMIT) thread.unshift({ ...opening, isOpening: true });
   }

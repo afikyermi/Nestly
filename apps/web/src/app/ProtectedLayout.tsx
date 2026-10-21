@@ -6,7 +6,9 @@ import { MenuItem } from '@/components/shared/menu-item';
 import { NotificationBell } from '@/features/notifications/NotificationBell';
 import { NotificationsProvider, useNotifications } from '@/features/notifications/NotificationsProvider';
 import { SearchBox } from '@/features/search/SearchBox';
-import { HomeIcon, NestIcon, UserIcon } from '@/components/ui/icons';
+import { HomeIcon, NestIcon, SparkIcon, UserIcon } from '@/components/ui/icons';
+import { AccountKindProvider, useAccountKindQuery } from '@/hooks/use-account-kind';
+import { DIRECTORY_NAV_LABEL, DIRECTORY_TITLE, MY_ARTICLES, OFFERS_TITLE, PROFILE_EDIT_TITLE } from '@/lib/professional-texts';
 import { useBackCloses } from '@/hooks/use-back-closes';
 import { useSession } from '@/hooks/use-session';
 import { StaffAccessProvider, useStaffAccessQuery } from '@/hooks/use-staff-access';
@@ -20,12 +22,14 @@ import { HOTLINES_TITLE } from '@/pages/medical-hotlines/medical-hotlines-texts'
 import { parseSettingsSection, SETTINGS_SECTIONS, settingsSectionHash } from '@/lib/settings-sections';
 import { normalizePath, PATHS } from './paths';
 
-// The three MVP destinations of a Regular user (AC-005, §7.1). The profile tab shows the generic person
-// icon until profile photos exist (I5, Q7). "חנות" and "יועצים" are absent, not disabled.
-const NAV_ITEMS = [
+// The MVP destinations of a community account (AC-005, §7.1): home, feed, the Professionals' directory (I11, FR-SERV-001) and the profile. The
+// profile tab shows the generic person icon until profile photos exist (I5, Q7); a Professional's profile tab is its Professional profile.
+// "חנות" is absent, not disabled.
+const navItems = (professional: boolean) => [
   { key: 'home', label: 'בית', href: PATHS.home, icon: <HomeIcon /> },
   { key: 'feed', label: 'פיד', href: PATHS.feed, icon: <NestIcon /> },
-  { key: 'profile', label: 'פרופיל', href: PATHS.profile, icon: <UserIcon /> },
+  { key: 'services', label: DIRECTORY_NAV_LABEL, href: PATHS.services, icon: <SparkIcon /> },
+  { key: 'profile', label: 'פרופיל', href: professional ? PATHS.proProfile : PATHS.profile, icon: <UserIcon /> },
 ];
 
 /** The top bar's search and bell (AC-033): a Regular or Professional account only. An Admin or Moderator account has neither. */
@@ -52,6 +56,8 @@ export function ProtectedLayout() {
   const navigate = useNavigate();
   const { signOut } = useSession();
   const staff = useStaffAccessQuery();
+  const kind = useAccountKindQuery();
+  const professional = kind === 'professional';
   const current = normalizePath(pathname);
   // The Settings section open now (a section's address is the hash of the Settings path), or null.
   const openSection = current === PATHS.settings ? parseSettingsSection(hash) : null;
@@ -81,10 +87,11 @@ export function ProtectedLayout() {
 
   return (
     <StaffAccessProvider value={staff}>
+    <AccountKindProvider value={kind}>
     <NotificationsProvider>
     <AppShell
       topBarActions={<TopBarActions chat={staff.kind === 'none' ? <ChatTopBarButton current={current} /> : null} />}
-      navItems={NAV_ITEMS.map((item) => ({ ...item, current: item.href === current }))}
+      navItems={navItems(professional).map((item) => ({ ...item, current: item.href === current }))}
       navLabel="ניווט ראשי"
       menuLabel="פתיחת התפריט"
       drawerTitle="תפריט"
@@ -112,6 +119,27 @@ export function ProtectedLayout() {
           <MenuItem href={PATHS.communityRules} current={PATHS.communityRules === current} onNavigate={leaving(closeMenu)}>
             {RULES_TITLE}
           </MenuItem>
+          {/* I11: the directory, Offer Help (FR-SERV-001/005/006) and, for a Professional, its profile and articles (FR-PRO-003). */}
+          {staff.kind === 'none' ? (
+            <MenuItem href={PATHS.services} current={PATHS.services === current} onNavigate={leaving(closeMenu)}>
+              {DIRECTORY_TITLE}
+            </MenuItem>
+          ) : null}
+          {staff.kind === 'none' ? (
+            <MenuItem href={PATHS.offers} current={PATHS.offers === current} onNavigate={leaving(closeMenu)}>
+              {OFFERS_TITLE}
+            </MenuItem>
+          ) : null}
+          {professional ? (
+            <MenuItem href={PATHS.proProfile} current={PATHS.proProfile === current} onNavigate={leaving(closeMenu)}>
+              {PROFILE_EDIT_TITLE}
+            </MenuItem>
+          ) : null}
+          {professional ? (
+            <MenuItem href={PATHS.proArticles} current={PATHS.proArticles === current} onNavigate={leaving(closeMenu)}>
+              {MY_ARTICLES}
+            </MenuItem>
+          ) : null}
           {SETTINGS_SECTIONS.map((section) => (
             <MenuItem
               key={section.id}
@@ -164,6 +192,7 @@ export function ProtectedLayout() {
       {shareLink.sheet !== null ? <ShareLinkSheet {...shareLinkSheetProps(shareLink, shareLink.sheet, SHARE_SITE_LABEL)} /> : null}
     </AppShell>
     </NotificationsProvider>
+    </AccountKindProvider>
     </StaffAccessProvider>
   );
 }

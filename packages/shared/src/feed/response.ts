@@ -2,12 +2,13 @@
 // flag or ranking count can ride along (only the displayed likeCount, commentCount and likedByMe do, F3.3), and an anonymous unit has no `author` key at all (not a null one). The server builds the answer with
 // it and the web checks every answer with it.
 import { z } from 'zod';
-import { JOURNEY_STAGES } from '../constants/index.js';
+import { JOURNEY_STAGES, POST_AUDIENCES } from '../constants/index.js';
 import { mediaImage, POST_MAX_IMAGES } from '../media/index.js';
 import { publishedAnnouncement } from '../validation/team.js';
 
-const audience = z.enum(['everyone', 'friends']);
-const author = z.strictObject({ name: z.string().nullable() });
+const audience = z.enum(POST_AUDIENCES);
+/** I11: a Professional author carries its "יועץ · תחום" tag (decisions-in-force §4); a Regular author has no `tag` key. */
+const author = z.strictObject({ name: z.string().nullable(), tag: z.string().min(1).optional() });
 const unitId = z.guid();
 const createdAt = z.iso.datetime();
 
@@ -30,7 +31,14 @@ export const shareOriginal = z.union([
 const original = shareOriginal;
 
 /** I5: a post's images the viewer may see, in order (absent: none). */
-const post = { ...common, kind: z.literal('post'), body: z.string(), images: z.array(mediaImage).max(POST_MAX_IMAGES).optional() };
+/** I11 (OP-038): `isHelpRequest` is present (true) only on a post that asks for help. */
+const post = {
+  ...common,
+  kind: z.literal('post'),
+  body: z.string(),
+  images: z.array(mediaImage).max(POST_MAX_IMAGES).optional(),
+  isHelpRequest: z.literal(true).optional(),
+};
 const share = { ...common, kind: z.literal('share'), body: z.string().nullable(), sharerText: z.string().nullable(), original };
 
 export const feedUnit = z.union([

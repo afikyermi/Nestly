@@ -7,6 +7,7 @@
 
 import {
   feedPageResponse,
+  professionalTag,
   resolveFeedConfig,
   selectFeedPage,
   serializeFeedCursor,
@@ -17,6 +18,7 @@ import {
   type FeedPageResponse,
   type FeedUnit,
   type AccountType,
+  type ProfessionalField,
 } from '@nestly/shared';
 import type { Database } from '../db/client.js';
 import { inIdentityTransaction, type IdentityTx } from '../db/identity-transaction.js';
@@ -88,6 +90,11 @@ async function classifyViewer(tx: IdentityTx): Promise<FeedRefusal | { readonly 
   return profile === null ? { kind: 'forbidden' } : { kind: 'viewer', profile };
 }
 
+/** A named author: its name and, for a Professional, the "יועץ · תחום" tag (decisions-in-force §4, I11). */
+function authorOf(name: string | null, field: ProfessionalField | null, fieldOther: string | null): { name: string | null; tag?: string } {
+  return field === null ? { name } : { name, tag: professionalTag(field, fieldOther) };
+}
+
 /** The displayed counts and the viewer's own like-state of one unit (F3.3): read after the ranking, never an input to it. */
 export interface UnitReactions {
   readonly likeCount: number;
@@ -119,9 +126,11 @@ export function unitOf(row: DisplayPost, reactions: UnitReactions): FeedUnit | u
   const named = {
     isMine: row.isMine,
     isAnonymous: false,
-    author: { name: row.authorName },
+    author: authorOf(row.authorName, row.authorField, row.authorFieldOther),
   } as const;
-  if (!row.isShare) return row.body === null ? undefined : { ...common, kind: 'post', body: row.body, ...named };
+  if (!row.isShare) {
+    return row.body === null ? undefined : { ...common, kind: 'post', body: row.body, ...(row.isHelpRequest ? { isHelpRequest: true as const } : {}), ...named };
+  }
   const { originalId, originalBody, originalAudience, originalCreatedAt, originalIsAnonymous } = row;
   const original =
     originalId !== null && originalBody !== null && originalAudience !== null && originalCreatedAt !== null && originalIsAnonymous === false
@@ -133,7 +142,7 @@ export function unitOf(row: DisplayPost, reactions: UnitReactions): FeedUnit | u
           createdAt: originalCreatedAt,
           isAnonymous: false,
           isMine: row.originalIsMine,
-          author: { name: row.originalAuthorName },
+          author: authorOf(row.originalAuthorName, row.originalAuthorField, row.originalAuthorFieldOther),
         } as const)
       : ({ available: false } as const);
   // A share's own text is `sharerText`; `body` stays empty (a1 findings, "For a2").
@@ -155,7 +164,7 @@ async function readIntents(tx: IdentityTx, asOf: string, halfLifeHours: number):
 }
 
 /** One page, inside the caller's transaction. `cursor` is null for a first page; a cursor whose `asOf` is in the database's future is refused. */
-async function readPage(tx: IdentityTx, cursor: FeedCursor | null, storage: MediaStorage | undefined, imageRows: PostImageRow[]): Promise<FeedOutcome> {
+async function readPage(tx: IdentityTx, viewerId: string, cursor: FeedCursor | null, storage: MediaStorage | undefined, imageRows: PostImageRow[]): Promise<FeedOutcome> {
   const viewer = await classifyViewer(tx);
   if (viewer.kind !== 'viewer') return viewer;
   const clock = await readSnapshotClock(tx, cursor === null ? null : cursor.asOf);
@@ -178,7 +187,7 @@ async function readPage(tx: IdentityTx, cursor: FeedCursor | null, storage: Medi
           stages: readsViewerStages(viewer.profile, config.wStage) ? await readOwnStages(tx) : [],
           intents: config.wIntent > 0 ? await readIntents(tx, asOf, config.intentHalfLifeHours) : [],
         }
-      : { profile: 'content', asOf, config, after };
+      : { profile: 'content', asOf, config, after, viewerId };
 
   const ranked = await readRankedPosts(tx, parameters);
   const selection = selectFeedPage(ranked, config);
@@ -231,7 +240,7 @@ async function readPage(tx: IdentityTx, cursor: FeedCursor | null, storage: Medi
  */
 export async function readFeedPage(database: Database, identity: Identity, cursor: FeedCursor | null, storage?: MediaStorage): Promise<FeedOutcome> {
   const imageRows: PostImageRow[] = [];
-  const outcome = await inIdentityTransaction(database, identity, (tx) => readPage(tx, cursor, storage, imageRows), { isolationLevel: 'repeatable read' });
+  const outcome = await inIdentityTransaction(database, identity, (tx) => readPage(tx, identity.userId, cursor, storage, imageRows), { isolationLevel: 'repeatable read' });
   if (outcome.kind !== 'page' || imageRows.length === 0) return outcome;
   const imagesOf = await imagesByPost(storage, imageRows);
   const items = outcome.page.items.map((item) => {

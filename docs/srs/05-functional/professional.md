@@ -11,7 +11,7 @@
 | תיאור | המערכת תספק לבעל מקצוע מסך ניהול עסקי במקום חוויית מעקב הורי. המסך ירכז Profile Views, Followers, Organic Reach/Engagement, Chat Starts ו-Promotion Analytics, תוך הפרדה בין Organic ל-Paid. |
 | תנאים מוקדמים | Professional User מחובר. |
 | קלט / Trigger | Aggregated events של ProfessionalProfile, Post ו-Promotion השייכים לחשבון המקצועי. |
-| תהליך מערכת | טעינת Aggregates מאושרים בלבד; אין חשיפת זהות משתמשים, raw search queries, Child/Tracker או מידע פרטי מאחורי המדדים. |
+| תהליך מערכת | טעינת Aggregates מאושרים בלבד; אין חשיפת זהות משתמשים, raw search queries, Child/Tracker או מידע פרטי מאחורי המדדים. הבית של Professional הוא לוח הבקרה (AC-018): עוקבים, שיחות חדשות ב-30 יום, דירוג ומספר ביקורות, לייקים ותגובות של אחרים על הפוסטים שלו ב-30 יום, פוסטים ב-30 יום, מאמרים, והצעות העזרה של היום מתוך 10. Profile Views ו-Reach אינם מוצגים עד שאירועי השימוש נאספים (§13.3, OP-039); Promotion — FR-PRO-002. לא ניתן לראות מי עוקב או מי כתב ביקורת. |
 | פלט | Dashboard עסקי עם Organic/Paid KPIs. |
 | מצב לאחר ביצוע | בעל המקצוע יכול לעקוב אחר ביצועי הנוכחות והקידום שלו ללא User-level targeting data. |
 | בעל אחריות לוגי (Page / Feature) | מסך לוח הבקרה המקצועי / נתוני לוח הבקרה המקצועי |

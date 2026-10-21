@@ -372,6 +372,8 @@ export const postsInsert = nestly.table('posts', {
   audience: text('audience', { enum: POST_AUDIENCES }).notNull(),
   body: text('body'),
   stageTag: text('stage_tag', { enum: JOURNEY_STAGES }),
+  /** I11 (OP-038): asks for help; a Regular's post only (posts_insert_author). */
+  isHelpRequest: boolean('is_help_request').notNull().default(false),
 });
 
 /** UPDATE target only. audience, body and stage_tag are the columns granted UPDATE for a post's text; id is for WHERE only (42501 if set). */
@@ -380,6 +382,7 @@ export const postsUpdate = nestly.table('posts', {
   audience: text('audience', { enum: POST_AUDIENCES }).notNull(),
   body: text('body'),
   stageTag: text('stage_tag', { enum: JOURNEY_STAGES }),
+  isHelpRequest: boolean('is_help_request').notNull().default(false),
 });
 
 // Notifications and People Search (migration 20261020400000). A notification is written only by the database's own triggers; the recipient

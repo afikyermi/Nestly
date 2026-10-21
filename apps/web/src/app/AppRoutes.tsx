@@ -31,6 +31,11 @@ import { SupportThreadPage } from '@/pages/support/SupportThreadPage';
 import { TrackerPage } from '@/pages/tracker/TrackerPage';
 import { UserProfilePage } from '@/pages/user-profile/UserProfilePage';
 import { WelcomePage } from '@/pages/welcome/WelcomePage';
+import { OffersPage } from '@/pages/professionals/OffersPage';
+import { ProArticlesPage } from '@/pages/professionals/ProArticlesPage';
+import { ProfessionalPage } from '@/pages/professionals/ProfessionalPage';
+import { ProProfilePage } from '@/pages/professionals/ProProfilePage';
+import { ServicesPage } from '@/pages/professionals/ServicesPage';
 import { FocusOnNavigation } from './FocusOnNavigation';
 import { PATHS } from './paths';
 import { ProtectedLayout } from './ProtectedLayout';
@@ -75,6 +80,11 @@ export function AppRoutes() {
             <Route path={PATHS.conversation} element={<ConversationPage />} />
             <Route path={PATHS.support} element={<SupportPage />} />
             <Route path={PATHS.supportThread} element={<SupportThreadPage />} />
+            <Route path={PATHS.services} element={<ServicesPage />} />
+            <Route path={PATHS.professional} element={<ProfessionalPage />} />
+            <Route path={PATHS.proProfile} element={<ProProfilePage />} />
+            <Route path={PATHS.proArticles} element={<ProArticlesPage />} />
+            <Route path={PATHS.offers} element={<OffersPage />} />
             <Route path={PATHS.admin} element={<AdminLayout />}>
               <Route index element={<AdminIndex />} />
               <Route path="reports" element={<AdminReportsPage />} />

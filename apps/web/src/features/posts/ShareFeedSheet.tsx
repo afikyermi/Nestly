@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { SheetPanel, SheetTitle } from '@/components/ui/dialog';
 import { TextArea } from '@/components/ui/text-area';
 import { OriginalQuote } from './OriginalQuote';
-import { AUDIENCE_LABELS, BODY_TOO_LONG_TEXT, RETRY_LABEL, remainingText } from './posts-texts';
+import { AUDIENCE_LABELS, BODY_TOO_LONG_TEXT, REGULAR_AUDIENCES, RETRY_LABEL, remainingText } from './posts-texts';
 import {
   SHARE_AUDIENCE_LEGEND,
   SHARE_CANCEL_LABEL,
@@ -20,7 +20,7 @@ import type { ShareQuote } from './use-share-in-feed';
 
 /** The counter speaks only at this many characters left or fewer (the composer's rule). */
 const COUNTER_FROM = 100;
-const AUDIENCE_OPTIONS = POST_AUDIENCES.map((value) => ({ value, label: AUDIENCE_LABELS[value] }));
+const AUDIENCE_OPTIONS = REGULAR_AUDIENCES.map((value) => ({ value, label: AUDIENCE_LABELS[value] }));
 const isAudience = (value: string): value is PostAudience => POST_AUDIENCES.some((audience) => audience === value);
 
 export interface ShareFeedSheetProps {
