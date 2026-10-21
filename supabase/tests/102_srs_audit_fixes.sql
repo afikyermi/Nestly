@@ -146,6 +146,29 @@ select is(tests.fx_pr_count('nestly.notifications n join nestly.children c on c.
   '[audit-fix FR-PRIV-001] no notification carries a child''s id');
 select is(pg_temp.q('a', $q$ select count(*)::text from nestly.notifications where type = 'child_birthday' $q$), '2',
   '[audit-fix FR-NOTIF-001] the recipient reads them');
+
+-- Afik 21.10.2026 (night): the child's first name only to a Friend who already sees it on the parent's profile; never age, never birth date.
+-- The profile shows a child's name to no one but the parent (FR-PRIV-001, BR-044: a Friend sees the Journey Summary only, in both modes),
+-- so no Friend qualifies and the notification carries nothing about the child.
+select is(
+  (select string_agg(a.attname || ':' || pg_catalog.format_type(a.atttypid, a.atttypmod), ',' order by a.attnum)
+     from pg_catalog.pg_attribute a where a.attrelid = 'nestly.notifications'::regclass and a.attnum > 0 and not a.attisdropped),
+  'id:uuid,recipient_id:uuid,type:text,actor_id:uuid,target_kind:text,target_id:uuid,subject_id:uuid,is_critical:boolean,created_at:timestamp with time zone,read_at:timestamp with time zone',
+  '[audit-fix FR-PRIV-001 Afik 21.10 night] a notification has no column that could carry a child''s name, sex, age or birth date (type and target_kind are short codes)');
+select is(pg_temp.q('a', format($q$ select (coalesce(string_agg(row_to_json(n)::text, ' '), '') ~ 'Noa|girl|%s|%s')::text
+                                     from nestly.notifications n where n.type = 'child_birthday' $q$, pg_temp.born(3, 0), pg_temp.born(1, 6))),
+  'false', '[audit-fix FR-PRIV-001 Afik 21.10 night] what the Friend reads names no child, no sex and no birth date');
+select is(
+  (select pg_catalog.pg_get_function_result(p.oid) ~* 'name|sex|birth'
+     from pg_catalog.pg_proc p where p.proname = 'profile_view' and p.pronamespace = 'nestly'::regnamespace),
+  false, '[audit-fix FR-PRIV-001 BR-044] the profile returns no child''s name, sex or birth date to anyone (only full_name, the parent''s)');
+select is(pg_temp.q('a', format($q$ select string_agg(v.outcome || '/' || v.relationship || '/' || (row_to_json(v)::text ~ 'Noa')::text, ',')
+                                     from nestly.profile_view(%L) v $q$, pg_temp.id('b'))),
+  'shown/friends/false', '[audit-fix FR-PRIV-001 Afik 21.10 night] a Friend opening the parent''s Open profile does not see the child''s name - so the birthday names no child');
+select is(pg_temp.dml('b', $q$ update nestly.regular_profiles set profile_visibility = 'restricted' $q$), 'OK:1', '[audit-fix] (setup) B''s profile Restricted');
+select is(pg_temp.q('a', format($q$ select string_agg(v.outcome || '/' || (row_to_json(v)::text ~ 'Noa')::text, ',') from nestly.profile_view(%L) v $q$, pg_temp.id('b'))),
+  'shown/false', '[audit-fix FR-PRIV-001] nor in Restricted (a Friend sees the Open view, children only as the Journey Summary)');
+select is(pg_temp.dml('b', $q$ update nestly.regular_profiles set profile_visibility = 'open' $q$), 'OK:1', '[audit-fix] (setup) back to Open');
 select is(pg_temp.deliver('a'), '0', '[audit-fix] a birthday notifies once: a second opening adds nothing');
 select is(pg_temp.deliver('b'), '0', '[audit-fix] a parent is not notified of its own children');
 select is(pg_temp.deliver('c'), '0', '[audit-fix FR-NOTIF-003] someone who is not a Friend is not notified');
@@ -175,12 +198,23 @@ select tests.set_status(pg_temp.id('a'), 'suspended');
 select is(pg_temp.deliver('a'), '0', '[audit-fix platform r15] a suspended caller gets nothing');
 select tests.set_status(pg_temp.id('a'), 'active');
 
--- condition 3: never across a user block (either direction)
+-- condition 3: never across a user block (either direction). A block ends the Friendship; the fixture re-creates it after the block,
+-- so the block alone is what stops the delivery.
 select pg_temp.reset();
 select tests.fx_fr_add(pg_temp.id('a'), pg_temp.id('b'), 'accepted');
 select is(pg_temp.dml('b', format($q$ insert into nestly.user_blocks (blocked_id, blocked_account_type) values (%L, 'regular') $q$, pg_temp.id('a'))),
   'OK:1', '[audit-fix] (setup) the parent B blocks A');
-select is(pg_temp.deliver('a'), '0', '[audit-fix condition 3 FR-REL-002] no birthday notification across a block');
+select pg_temp.reset();
+select tests.fx_fr_add(pg_temp.id('a'), pg_temp.id('b'), 'accepted');
+select is(pg_temp.deliver('a'), '0', '[audit-fix condition 3 FR-REL-002] no birthday notification across a block (the parent blocked the Friend)');
+select is(pg_temp.dml('b', format($q$ update nestly.user_blocks set lifted_at = now() where blocked_id = %L and lifted_at is null $q$, pg_temp.id('a'))), 'OK:1', '[audit-fix] (setup) B lifts the block');
+select is(pg_temp.deliver('a'), '2', '[audit-fix condition 3] (control) without the block, they come');
+select pg_temp.reset();
+select is(pg_temp.dml('a', format($q$ insert into nestly.user_blocks (blocked_id, blocked_account_type) values (%L, 'regular') $q$, pg_temp.id('b'))),
+  'OK:1', '[audit-fix] (setup) the Friend A blocks the parent B');
+select tests.fx_fr_add(pg_temp.id('a'), pg_temp.id('b'), 'accepted');
+select is(pg_temp.deliver('a'), '0', '[audit-fix condition 3 FR-REL-002] nor when the recipient is the one who blocked');
+select is(pg_temp.dml('a', format($q$ update nestly.user_blocks set lifted_at = now() where blocked_id = %L and lifted_at is null $q$, pg_temp.id('b'))), 'OK:1', '[audit-fix] (setup) A lifts the block');
 
 -- only Regular callers
 select is(pg_temp.deliver('q1') || pg_temp.deliver('d') || pg_temp.deliver('m0'), '000',

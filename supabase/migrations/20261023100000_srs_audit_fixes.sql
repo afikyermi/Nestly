@@ -12,13 +12,15 @@
 --      marks a Professional. Everything else is unchanged: no query (under 2 or over 100 characters) returns nothing and is not counted,
 --      the limit and its Security event, never the caller, never an Admin or a Moderator (neither has a Regular or a Professional profile:
 --      both tables reference users with their account_type), never a suspended or banned account.
--- 2. deliver_child_birthdays()   SECURITY DEFINER (rule 17, the I7 shape; to be confirmed by Afik — see WORKPLAN "ממתין לך"). Called by the
+-- 2. deliver_child_birthdays()   SECURITY DEFINER (rule 17, the I7 shape; approved by Afik 21.10.2026, night, decisions-in-force.md §12). Called by the
 --      request server when the caller opens the notifications: writes into the caller's own notifications one `child_birthday` per child of
 --      an accepted, active Friend whose birthday (Israel's date) fell in the last seven days, today included — only when the parent allows
 --      the birthday in notifications to Friends (regular_profiles.is_child_birthday_shared, BR-037), the caller's `birthdays` category is
 --      on, and no user block stands between them. The notification is timed at the start of the birthday, names the parent as its actor and
---      leads to the parent's profile; it carries no child's name, sex, age or id (subject_id is a hash of the child and the year, so one
---      birthday notifies once). A Regular caller only. Nothing is returned but the number written.
+--      leads to the parent's profile; it carries no child's name, sex, age, birth date or id (subject_id is a hash of the child and the year,
+--      so one birthday notifies once). Afik's approval names the child only to a Friend who already sees the child's name on the parent's
+--      profile; the profile shows a child's name to no one but the parent (FR-PRIV-001, BR-044, profile_view returns none), so no Friend
+--      qualifies and nothing about the child is copied out. A Regular caller only. Nothing is returned but the number written.
 --      Scope `birthday` opens two new TO app_owner policies, each limited to the caller's accepted Friends: regular_profiles (the switch)
 --      and children (the birth date; the same Friendship check, and the parent's switch on). The other rows it reads (the caller's friendships, preferences and
 --      blocks) are the caller's own.
@@ -187,7 +189,7 @@ create policy marketplace_listings_select_analytics on nestly.marketplace_listin
 comment on function nestly.search_people(text, integer, integer) is
   'FR-SEARCH-001, NFR-SEC-006, BR-044, BR-063, VAL-037, AC-078: People Search. A query under two or over 100 characters returns nothing and is not counted. Counts the call (people_search limit from security_limits, 60 per 3600 s at the seed); the call over the limit returns one row with outcome limited and records one Security event per stretch; absent or invalid configuration raises NS001. Otherwise rows (user_id, full_name, outcome found, account_type) of active Regular and Professional accounts other than the caller (a Professional through its own reader policy, so never across a user block), ranked exact, prefix, word prefix, contains; at most 50 per call, offset up to 200. Never a list without a query, never an Admin or a Moderator. SECURITY DEFINER (rule 17, approved by Afik 20.10.2026 with conditions).';
 comment on function nestly.deliver_child_birthdays() is
-  'FR-NOTIF-003, BR-037, AC-046: writes into the caller''s own notifications one child_birthday per child of an accepted, active Friend whose birthday (Israel''s date) fell in the last seven days, today included, timed at the start of that day; only when the parent allows it (is_child_birthday_shared), the caller''s birthdays category is on and no user block stands between them. Actor and target: the parent; no child''s name, sex, age or id. Regular callers only; returns the number written. SECURITY DEFINER (rule 17, the I7 shape); scope birthday.';
+  'FR-NOTIF-003, BR-037, AC-046: writes into the caller''s own notifications one child_birthday per child of an accepted, active Friend whose birthday (Israel''s date) fell in the last seven days, today included, timed at the start of that day; only when the parent allows it (is_child_birthday_shared), the caller''s birthdays category is on and no user block stands between them. Actor and target: the parent; no child''s name, sex, age, birth date or id (a child''s name only to a Friend who sees it on the parent''s profile, and the profile shows it to no one: FR-PRIV-001). Regular callers only; returns the number written. SECURITY DEFINER (rule 17, the I7 shape; approved by Afik 21.10.2026); scope birthday.';
 comment on policy regular_profiles_select_birthday on nestly.regular_profiles is 'deliver_child_birthdays (scope birthday) reads the birthday switch of the caller''s accepted, active Friends only.';
 comment on policy children_select_birthday on nestly.children is 'deliver_child_birthdays (scope birthday) reads the children of the caller''s accepted, active Friends only, and only of a parent whose switch is on (BR-037).';
 comment on policy professional_follows_select_analytics on nestly.professional_follows is 'FR-ADMIN-010, BR-058: ANALYTICS_VIEW counts new follows on the analytics screen only; follower_id is never granted.';
