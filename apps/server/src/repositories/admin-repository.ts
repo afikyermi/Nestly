@@ -5,6 +5,7 @@
 
 import {
   PERMISSION_KEYS,
+  REPORT_TARGET_KINDS,
   REPORT_RESOLUTIONS,
   ladderSuggestion,
   violationWeight,
@@ -25,6 +26,12 @@ import type { IdentityTx } from '../db/identity-transaction.js';
 
 const isoMs = sql.raw(`'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'`);
 const isoUs = sql.raw(`'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'`);
+/** The reports column that names a target of this kind (I8 adds the chat message). */
+function targetColumn(kind: ReportTargetKind, alias: 'r' | null) {
+  const column = kind === 'post' ? 'post_id' : kind === 'comment' ? 'comment_id' : kind === 'message' ? 'message_id' : 'reported_user_id';
+  return sql.raw(alias === null ? column : `${alias}.${column}`);
+}
+
 const keyList = sql.join(
   PERMISSION_KEYS.map((key) => sql`${key}`),
   sql`, `,
@@ -82,7 +89,7 @@ export async function readQueue(tx: IdentityTx): Promise<QueueItem[]> {
   const rows = z
     .array(
       z.object({
-        targetKind: z.enum(['post', 'comment', 'user']),
+        targetKind: z.enum(REPORT_TARGET_KINDS),
         targetId: z.guid(),
         reportCount: z.number().int(),
         basePriority: z.number().int(),
@@ -92,14 +99,14 @@ export async function readQueue(tx: IdentityTx): Promise<QueueItem[]> {
     )
     .parse(
       await tx.execute(sql`
-        select r.target_kind as "targetKind", coalesce(r.post_id, r.comment_id, r.reported_user_id) as "targetId",
+        select r.target_kind as "targetKind", coalesce(r.post_id, r.comment_id, r.reported_user_id, r.message_id) as "targetId",
                count(*)::int as "reportCount", min(rr.priority)::int as "basePriority",
                (array_agg(rr.label order by rr.priority, r.created_at))[1] as "topReasonLabel",
                to_char(min(r.created_at) at time zone 'UTC', ${isoMs}) as "firstReportedAt"
         from nestly.reports r
         join nestly.report_reasons rr on rr.key = r.reason
-        where r.status = 'open' and coalesce(r.post_id, r.comment_id, r.reported_user_id) is not null
-        group by r.target_kind, coalesce(r.post_id, r.comment_id, r.reported_user_id)
+        where r.status = 'open' and coalesce(r.post_id, r.comment_id, r.reported_user_id, r.message_id) is not null
+        group by r.target_kind, coalesce(r.post_id, r.comment_id, r.reported_user_id, r.message_id)
         order by case when min(rr.priority) = 1 then 1
                       else greatest(2, min(rr.priority) - case when r.target_kind = 'post' and count(*) >= 3 then 1 else 0 end) end,
                  min(r.created_at), 2`),
@@ -134,7 +141,7 @@ export interface ReportRow {
 
 /** Every report (open or closed) on one target, oldest first. */
 export async function readReportsOn(tx: IdentityTx, kind: ReportTargetKind, targetId: string): Promise<ReportRow[]> {
-  const column = kind === 'post' ? sql`r.post_id` : kind === 'comment' ? sql`r.comment_id` : sql`r.reported_user_id`;
+  const column = targetColumn(kind, 'r');
   return z
     .array(
       z.object({
@@ -261,7 +268,7 @@ export async function closeReports(
   resolution: ReportResolution,
   note: string | undefined,
 ): Promise<number> {
-  const column = kind === 'post' ? sql`post_id` : kind === 'comment' ? sql`comment_id` : sql`reported_user_id`;
+  const column = targetColumn(kind, null);
   const rows = await tx.execute(
     sql`update nestly.reports set status = 'handled', resolution = ${resolution}, handler_note = ${note ?? null}
         where ${column} = ${targetId}::uuid and status = 'open' returning id`,
@@ -271,7 +278,7 @@ export async function closeReports(
 
 /** Whether the caller can see an open report on the target (REPORTS_VIEW reads reports): tells a refused move from a missing target. */
 export async function hasOpenReports(tx: IdentityTx, kind: ReportTargetKind, targetId: string): Promise<boolean> {
-  const column = kind === 'post' ? sql`r.post_id` : kind === 'comment' ? sql`r.comment_id` : sql`r.reported_user_id`;
+  const column = targetColumn(kind, 'r');
   const rows = z
     .array(z.object({ found: z.boolean() }))
     .parse(await tx.execute(sql`select exists (select 1 from nestly.reports r where ${column} = ${targetId}::uuid and r.status = 'open') as found`));

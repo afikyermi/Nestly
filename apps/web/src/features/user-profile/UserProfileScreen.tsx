@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { RelationshipState } from '@nestly/shared';
 import { PATHS } from '@/app/paths';
 import { useBackCloses } from '@/hooks/use-back-closes';
@@ -47,7 +47,7 @@ const MOVES_TO: Partial<Record<Action, RelationshipState>> = { send: 'sent', can
 // (or the send's body) and never its own. Every open asks the server again and keeps nothing: the profile lives in this component's
 // memory only, so it is gone when the screen is (sign-out included, c27). A refused token (401) or a stopped account (403) asks the
 // session for the account state again, and the session guard ends the session with its notice (ERR-038, ERR-037).
-export function UserProfileScreen({ userId }: { userId: string }) {
+export function UserProfileScreen({ userId, chatAction }: { userId: string; chatAction?: (name: string) => ReactNode }) {
   const account = useSessionAccount();
   const [view, setView] = useState<UserProfileView>({ kind: 'loading' });
   const [focus, setFocus] = useState<UserProfileFocus>({ target: 'action', tick: 0 });
@@ -228,6 +228,7 @@ export function UserProfileScreen({ userId }: { userId: string }) {
     <UserProfileContent
       view={view}
       focus={focus}
+      {...(chatAction === undefined ? {} : { chatAction })}
       onRetry={() => void open(null, true)}
       {...actions}
       report={report.draft === null ? null : reportSheetProps(report, report.draft, PATHS.communityRules)}

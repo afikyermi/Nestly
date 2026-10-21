@@ -1,3 +1,4 @@
+import { CONVERSATION_PATTERN, SUPPORT_THREAD_PATTERN } from '@/lib/chat-link';
 import { POST_PATTERN } from '@/lib/post-link';
 import { USER_PROFILE_PATTERN } from '@/lib/profile-link';
 import { TRACKER_PATTERN } from '@/lib/tracker-link';
@@ -40,6 +41,14 @@ export const PATHS = {
   adminReports: '/admin/reports',
   adminUsers: '/admin/users',
   adminAudit: '/admin/audit',
+  /** I8: the Support inbox (FR-ADMIN-002), SUPPORT_VIEW. */
+  adminSupport: '/admin/support',
+  /** I8: the Chat Center (FR-CHAT-001), from the Top Bar; one conversation is `/chat/<id>` (protected by pattern, see `conversationIdOfPath`). */
+  chat: '/chat',
+  conversation: CONVERSATION_PATTERN,
+  /** I8: the Support form and the caller's requests (FR-ADMIN-001), from the side menu; one request is `/support/<id>` (`supportIdOfPath`). */
+  support: '/support',
+  supportThread: SUPPORT_THREAD_PATTERN,
   /** I5: the image approval queue (CONTENT_MODERATE). */
   adminMedia: '/admin/media',
   /** F3.7: the community rules page (PG-049, BR-075, Q2: signed-in only), from the side menu and the report window. */
@@ -89,6 +98,9 @@ export const PROTECTED_PATHS: readonly string[] = [
   PATHS.adminReports,
   PATHS.adminUsers,
   PATHS.adminAudit,
+  PATHS.adminSupport,
+  PATHS.chat,
+  PATHS.support,
   PATHS.adminGuides,
   PATHS.adminMedia,
   PATHS.adminTeam,
