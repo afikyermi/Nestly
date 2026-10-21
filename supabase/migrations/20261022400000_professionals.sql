@@ -30,7 +30,7 @@
 --                          payment: FR-SERV-004, BR-006, AC-010) and 'outreach' (the author of an accepted Offer Help opens it with the
 --                          Professional: FR-SERV-006/007, AC-013). Messages, reads and Chat Blocks are unchanged (I8).
 -- professional_reviews     ProfessionalReview (FR-SERV-011, BR-072, AC-093): a Regular rates a Professional 1-5 with a text, once per
---                          conversation of context professional or outreach in which the Professional has answered (OP-045, default:
+--                          conversation of context professional or outreach in which the Professional has answered (OP-049, default:
 --                          "a request the Professional approved" = a professional conversation the Professional replied in). Every active
 --                          account reads them (the profile page; the rating is their average); reviewer_id is never granted for SELECT.
 -- professional_articles    ProfessionalArticle (FR-PRO-003, BR-071, AC-094): the owner writes, edits, hides and deletes its articles;
@@ -482,7 +482,7 @@ create policy conversations_insert_party on nestly.conversations
 
 -- professional_reviews. Every active account reads the reviews of an active reviewer — not filtered by user blocks: the reviewer is never
 -- shown, and a filter on the caller's own block list would let it find out who wrote a review by blocking and counting. A Regular reviews a
--- Professional once per professional conversation in which the Professional has written (FR-SERV-011, OP-045).
+-- Professional once per professional conversation in which the Professional has written (FR-SERV-011, OP-049).
 create policy professional_reviews_select_viewer on nestly.professional_reviews
   for select to authenticated
   using ((select nestly.is_active_account()) and (reviewer_id = (select auth.uid()) or reviewer_status = 'active'));
@@ -574,12 +574,12 @@ comment on column nestly.conversations.outreach_request_id is 'The accepted Offe
 comment on index nestly.conversations_outreach_request_id_idx is 'The conversation of an accepted Offer Help.';
 
 comment on table nestly.professional_reviews is
-  'SRS ProfessionalReview (§13, FR-SERV-011, BR-072, AC-093): a Regular''s 1-5 rating and text of a Professional, once per professional conversation in which the Professional wrote (OP-045 default). Immutable. Read by every active account; the reviewer is never granted for SELECT.';
+  'SRS ProfessionalReview (§13, FR-SERV-011, BR-072, AC-093): a Regular''s 1-5 rating and text of a Professional, once per professional conversation in which the Professional wrote (OP-049 default). Immutable. Read by every active account; the reviewer is never granted for SELECT.';
 comment on column nestly.professional_reviews.id is 'The review id.';
 comment on column nestly.professional_reviews.reviewer_id is 'The Regular reviewer (default auth.uid()). Never granted for SELECT.';
 comment on column nestly.professional_reviews.reviewer_status is 'Copy of the reviewer''s users.status (FK): a suspended reviewer''s review is hidden. Never granted.';
 comment on column nestly.professional_reviews.professional_id is 'The reviewed Professional.';
-comment on column nestly.professional_reviews.conversation_id is 'The conversation the review rests on: one review per conversation (the "approved request", OP-045). Not readable (no SELECT grant): joined to the conversation it would name the reviewer.';
+comment on column nestly.professional_reviews.conversation_id is 'The conversation the review rests on: one review per conversation (the "approved request", OP-049). Not readable (no SELECT grant): joined to the conversation it would name the reviewer.';
 comment on column nestly.professional_reviews.rating is '1 to 5. The Professional''s rating is the average (BR-072).';
 comment on column nestly.professional_reviews.body is 'The review text, 1 to 1000 characters. The writer is responsible for it (BR-071).';
 comment on column nestly.professional_reviews.created_at is 'When the review was written. UTC.';
@@ -622,7 +622,7 @@ comment on policy outreach_requests_update_target on nestly.outreach_requests is
 comment on policy conversations_insert_party on nestly.conversations is
   'A party opens a conversation: Friends (FR-CHAT-002), a pair''s accepted chat request (I8), a Regular with an active Professional (FR-SERV-004, AC-010), or the author of an accepted Offer Help with its Professional (FR-SERV-006, AC-013). Never across a user block.';
 comment on policy professional_reviews_select_viewer on nestly.professional_reviews is 'Every active account reads the reviews of an active reviewer (no block filter: it would reveal the hidden reviewer); the reviewer reads its own.';
-comment on policy professional_reviews_insert_reviewer on nestly.professional_reviews is 'A Regular reviews a Professional once per professional or outreach conversation of theirs in which the Professional wrote (FR-SERV-011, OP-045).';
+comment on policy professional_reviews_insert_reviewer on nestly.professional_reviews is 'A Regular reviews a Professional once per professional or outreach conversation of theirs in which the Professional wrote (FR-SERV-011, OP-049).';
 comment on policy professional_articles_select_viewer on nestly.professional_articles is 'The owner reads all its articles; every active account reads a published article of an active author with no user block between them.';
 comment on policy professional_articles_insert_own on nestly.professional_articles is 'An active Professional writes its own article (FR-PRO-003).';
 comment on policy professional_articles_update_own on nestly.professional_articles is 'Only the owner edits or hides its article (AC-094).';

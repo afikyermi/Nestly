@@ -272,7 +272,7 @@ select is(pg_temp.open_conv('b', 'q2', 'professional'), 'ERR:42501', '[F11.1-a c
 
 -- ---- reviews (FR-SERV-011, BR-072, AC-093) ---------------------------------------------------------------------------------
 select is(pg_temp.open_conv('a', 'q2', 'professional'), 'OK:1', '[F11.1-a c8] control: a opens a conversation with pr_2');
-select is(pg_temp.review('a', 'q2', pg_temp.conv('a', 'q2')), 'ERR:42501', '[F11.1-a c8 AC-093 OP-045] no review before the Professional has answered');
+select is(pg_temp.review('a', 'q2', pg_temp.conv('a', 'q2')), 'ERR:42501', '[F11.1-a c8 AC-093 OP-049] no review before the Professional has answered');
 select is(pg_temp.review('a', 'q1', pg_temp.conv('a', 'q1'), 4), 'OK:1', '[F11.1-a c8 AC-093] a review on an accepted Offer Help the Professional answered');
 select is(pg_temp.review('a', 'q1', pg_temp.conv('a', 'q1'), 5), 'ERR:23505', '[F11.1-a c8 AC-093] a second review of the same conversation is refused');
 select is(pg_temp.review('b', 'q1', pg_temp.conv('a', 'q1')), 'ERR:42501', '[F11.1-a c8] never on someone else''s conversation');
