@@ -223,9 +223,9 @@ select is(
   tests.as_role('authenticated', tests.claims(tests.fx_id('a')),
     $q$ select count(*)::text from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
          where n.nspname = 'nestly' and has_function_privilege('authenticated', p.oid, 'EXECUTE') and p.pronargs > 0
-           and p.oid::regprocedure::text not in ('nestly.profile_view(text)', 'nestly.delete_post(uuid)', 'nestly.delete_comment(uuid)', 'nestly.has_permission(text)', 'nestly.reveal_post_author(uuid)', 'nestly.search_people(text,integer,integer)', 'nestly.group_role_rank(text)', 'nestly.my_group_rank(uuid)') $q$),
+           and p.oid::regprocedure::text not in ('nestly.profile_view(text)', 'nestly.delete_post(uuid)', 'nestly.delete_comment(uuid)', 'nestly.has_permission(text)', 'nestly.reveal_post_author(uuid)', 'nestly.search_people(text,integer,integer)', 'nestly.group_role_rank(text)', 'nestly.my_group_rank(uuid)', 'nestly.child_tracker_trends(text,text,text,integer)') $q$),
   '0',
-  '[F1.1-b c18 layer 13 · F2.3b c15] seen from authenticated: no function in schema nestly that it can execute takes an argument, except the approved profile_view(text), which returns no account status (file 53, c13), and F3.0b''s delete_post / delete_comment (a content id; they return a row count) and search_people (id and full name only), and I10''s group_role_rank / my_group_rank (a Role''s rank; the caller''s own rank in a Group: file 96)');
+  '[F1.1-b c18 layer 13 · F2.3b c15] seen from authenticated: no function in schema nestly that it can execute takes an argument, except the approved profile_view(text), which returns no account status (file 53, c13), and F3.0b''s delete_post / delete_comment (a content id; they return a row count) and search_people (id and full name only), and I10''s group_role_rank / my_group_rank (a Role''s rank; the caller''s own rank in a Group: file 96), and the I14 completion''s child_tracker_trends (cells of at least ten children, never an account: file 100)');
 
 -- =====================================================================================================================
 -- Debt D1 (CRITIC b-1) — the function checks the caller's OWN row and its STATUS by itself, not through the users policy.

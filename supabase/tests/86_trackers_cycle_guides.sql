@@ -46,14 +46,16 @@ select set_eq(
             ('cycle_entries.cycle_entries_select_own.r'), ('cycle_entries.cycle_entries_insert_own.a'),
             ('cycle_entries.cycle_entries_update_own.w'), ('cycle_entries.cycle_entries_delete_own.d'),
             ('status_guides.status_guides_select_published.r'), ('status_guides.status_guides_select_admin.r'),
-            ('status_guides.status_guides_insert_admin.a'), ('status_guides.status_guides_update_admin.w') $$,
-  '[I6 layer 9] the policies are exactly these twelve: the owner for events and cycle, published rows for users and the Admin''s own for guides (file 87)');
+            ('status_guides.status_guides_insert_admin.a'), ('status_guides.status_guides_update_admin.w'),
+            ('tracker_events.tracker_events_select_child_data.r') $$,
+  '[I6 layer 9 · I14c] the policies are exactly these thirteen: the owner for events and cycle, published rows for users and the Admin''s own for guides (file 87), and the trends function''s read TO app_owner (§9.2, file 100)');
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol
     where pol.polrelid in (pg_temp.rel('tracker_events'), pg_temp.rel('cycle_entries'), pg_temp.rel('status_guides'))
-      and pol.polroles <> array[(select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated')]),
-  0::bigint, '[I6] every policy is TO authenticated only');
+      and pol.polroles <> array[(select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated')]
+      and pol.polname <> 'tracker_events_select_child_data'),
+  0::bigint, '[I6 · I14c] every policy is TO authenticated only, but the trends function''s read TO app_owner (file 100: opened only inside child_tracker_trends)');
 
 select set_eq(
   $$ select a.attname::text from pg_catalog.pg_attribute a
