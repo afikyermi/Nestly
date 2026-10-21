@@ -137,6 +137,8 @@ describe('[I11 follow-ups] Professionals', () => {
     expect(await types(pro)).not.toContain('followers_weekly');
     const prefs = await readPreferences(database, as(pro));
     expect(prefs.kind === 'ok' && prefs.categories.map((c) => c.category)).toEqual(expect.arrayContaining(['offers', 'reviews', 'followers']));
+    // FR-NOTIF-002 (SRS audit 21.10.2026): a Professional has no Friends, so no Friends, Friends' posts or children's birthdays categories
+    expect(prefs.kind === 'ok' && prefs.categories.map((c) => c.category).filter((c) => ['friends', 'friend_posts', 'birthdays'].includes(c))).toEqual([]);
     const regular = await readPreferences(database, as(mia));
     expect(regular.kind === 'ok' && regular.categories.map((c) => c.category)).not.toContain('offers');
   });

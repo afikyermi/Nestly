@@ -26,6 +26,7 @@ const account: SessionAccount = {
 const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
 let asked: string[] = [];
 let kindAnswer = 'professional';
+const PRO_CATEGORIES = ['comments', 'shares', 'groups', 'offers', 'reviews', 'followers'].map((category) => ({ category, isEnabled: true }));
 
 beforeEach(() => {
   asked = [];
@@ -36,7 +37,8 @@ beforeEach(() => {
     if (path === '/api/privacy') return Promise.resolve(json({ profileVisibility: 'open', isEmptyJourneySentenceShown: true, isChildBirthdayShared: true }));
     if (path === '/api/blocks') return Promise.resolve(json({ blocked: [] }));
     if (path === '/api/account/kind') return Promise.resolve(json({ kind: kindAnswer }));
-    if (path === '/api/notification-preferences') return Promise.resolve(json({ categories: [], friends: [] }));
+    // the server answers each kind its own categories (FR-NOTIF-002): a Professional's has no Friends and no birthdays
+    if (path === '/api/notification-preferences') return Promise.resolve(json({ categories: kindAnswer === 'professional' ? PRO_CATEGORIES : [], friends: [] }));
     return Promise.resolve(new Response('{}', { status: 404 }));
   });
 });
@@ -73,6 +75,18 @@ describe('[FR-SET-001 SRS audit] Settings by account kind', () => {
     expect(screen.queryByRole('radiogroup')).toBeNull();
     expect(screen.queryByRole('button', { name: 'נסו שוב' })).toBeNull();
     expect(asked).not.toContain('/api/privacy');
+  });
+
+  it('[FR-SET-001 FR-NOTIF-002 FR-REL-002] a Professional: its own notification categories (no "ימי הולדת") and the blocked list render', async () => {
+    kindAnswer = 'professional';
+    draw('professional');
+    expect(await screen.findByText('ביקורות חדשות על הפרופיל המקצועי')).toBeTruthy();
+    expect(screen.getByText('הצעות עזרה שאושרו או נדחו')).toBeTruthy();
+    expect(screen.getByText('סיכום שבועי של עוקבים חדשים')).toBeTruthy();
+    expect(screen.queryByText(/ימי הולדת/)).toBeNull();
+    expect(await screen.findByText('אין משתמשים חסומים. אפשר לחסום משתמש מהפרופיל שלו')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'משתמשים חסומים' })).toBeTruthy();
+    expect(asked).toEqual(expect.arrayContaining(['/api/notification-preferences', '/api/blocks']));
   });
 
   it('[FR-SET-001 FR-NOTIF-002] a staff account: no profile link, no blocked list, no notification settings; the password links and the terms', () => {
