@@ -698,6 +698,7 @@ create policy group_members_insert_approved on nestly.group_members
   for insert to authenticated
   with check ((select nestly.is_active_account()) and user_id <> (select auth.uid()) and role = 'member' and member_status = 'active'
     and nestly.my_group_rank(group_id) >= 3
+    and exists (select 1 from nestly.groups g where g.id = group_members.group_id and g.status = 'active')
     and exists (select 1 from nestly.group_join_requests r
                  where r.group_id = group_members.group_id and r.user_id = group_members.user_id and r.status = 'approved'
                    and r.decided_xact = pg_catalog.pg_current_xact_id_if_assigned()));
@@ -743,7 +744,7 @@ create policy group_access_select_own on nestly.group_access
 
 create policy group_access_insert_member on nestly.group_access
   for insert to authenticated
-  with check ((select nestly.is_active_account()));
+  with check ((select nestly.is_active_account()) and (user_id = (select auth.uid()) or nestly.my_group_rank(group_id) >= 3));
 
 grant select on table nestly.group_access to authenticated;
 grant insert (group_id, user_id, role) on table nestly.group_access to authenticated;
@@ -767,7 +768,8 @@ create policy group_join_requests_update_requester on nestly.group_join_requests
 
 create policy group_join_requests_update_manager on nestly.group_join_requests
   for update to authenticated
-  using ((select nestly.is_active_account()) and nestly.my_group_rank(group_id) >= 3 and status = 'pending')
+  using ((select nestly.is_active_account()) and nestly.my_group_rank(group_id) >= 3 and status = 'pending'
+    and exists (select 1 from nestly.groups g where g.id = group_join_requests.group_id and g.status = 'active'))
   with check (nestly.my_group_rank(group_id) >= 3 and status in ('approved', 'rejected'));
 
 grant select (id, group_id, user_id, status, created_at, decided_by, decided_at, decided_xact) on table nestly.group_join_requests to authenticated;
@@ -821,7 +823,9 @@ create policy group_bans_insert_manager on nestly.group_bans
 
 create policy group_bans_delete_manager on nestly.group_bans
   for delete to authenticated
-  using ((select nestly.is_active_account()) and nestly.my_group_rank(group_id) >= 2);
+  using ((select nestly.is_active_account()) and nestly.my_group_rank(group_id) >= 2
+    and coalesce((select nestly.group_role_rank(m.role) from nestly.group_members m
+                   where m.group_id = group_bans.group_id and m.user_id = group_bans.banned_by), 0) <= nestly.my_group_rank(group_id));
 
 grant select (group_id, user_id, banned_by, created_at), delete on table nestly.group_bans to authenticated;
 grant insert (group_id, user_id) on table nestly.group_bans to authenticated;
@@ -886,7 +890,8 @@ grant select on table nestly.private_group_content_views to authenticated;
 grant insert (report_id) on table nestly.private_group_content_views to authenticated;
 
 -- posts. RESTRICTIVE: a group post is readable while its Group is active and Public or the caller is a member; to staff only inside the
--- transaction of an audited view of a report on it; counted (never read) on the analytics screen.
+-- transaction of an audited view of a report on it. The analytics screen does not count Private Group content (a policy that let it count
+-- would let it read).
 create policy posts_group_hide on nestly.posts
   as restrictive for select to authenticated
   using (group_id is null
@@ -896,8 +901,7 @@ create policy posts_group_hide on nestly.posts
                     or exists (select 1 from nestly.group_access a where a.group_id = g.id and a.user_id = (select auth.uid()))))
     or exists (select 1 from nestly.private_group_content_views v
                 where v.viewer_id = (select auth.uid()) and v.post_id = posts.id
-                  and v.view_xact = pg_catalog.pg_current_xact_id_if_assigned())
-    or (pg_catalog.current_setting('nestly.analytics_view', true) = 'on' and (select nestly.analytics_reader())));
+                  and v.view_xact = pg_catalog.pg_current_xact_id_if_assigned()));
 
 create policy posts_group_insert on nestly.posts
   as restrictive for insert to authenticated
@@ -937,8 +941,7 @@ create policy comments_group_hide on nestly.comments
                     or exists (select 1 from nestly.group_access a where a.group_id = g.id and a.user_id = (select auth.uid()))))
     or exists (select 1 from nestly.private_group_content_views v
                 where v.viewer_id = (select auth.uid()) and v.comment_id = comments.id
-                  and v.view_xact = pg_catalog.pg_current_xact_id_if_assigned())
-    or (pg_catalog.current_setting('nestly.analytics_view', true) = 'on' and (select nestly.analytics_reader())));
+                  and v.view_xact = pg_catalog.pg_current_xact_id_if_assigned()));
 
 create policy comments_group_insert on nestly.comments
   as restrictive for insert to authenticated
@@ -1048,6 +1051,13 @@ declare
   v_count bigint;
   r record;
 begin
+  if tg_table_name in ('comments', 'reactions') then
+    v_post := new.post_id;
+    v_group := (select p.group_id from nestly.posts p where p.id = v_post);
+    if v_group is null then
+      return null;   -- not a group post: nothing to do
+    end if;
+  end if;
   perform pg_catalog.set_config('nestly.notify_scope', 'group', true);
   if tg_table_name = 'group_recommendations' then
     perform nestly.notify_deliver(new.recipient_id, 'group_recommended', 'groups', new.sender_id, 'group', new.group_id, new.id, false);
@@ -1083,17 +1093,16 @@ begin
       perform nestly.notify_deliver(r.user_id, 'group_pinned', 'groups', v_me, 'post', new.pinned_post_id, new.pinned_post_id, false);
     end loop;
   else
-    -- a like or a comment on a group post: the post becomes a highlight when the likes and comments by others reach the threshold
-    v_post := new.post_id;
-    if v_post is not null then
-      select p.group_id, coalesce(p.author_id, pa.author_id) into v_group, v_author
-        from nestly.posts p left join nestly.post_authors pa on pa.post_id = p.id
-       where p.id = v_post;
-      select c.engagement_threshold into v_threshold from nestly.group_highlight_configurations c where c.is_active;
-      if v_group is not null and v_threshold is not null then
-        v_count := (select count(*) from nestly.reactions x where x.post_id = v_post and not x.is_by_author)
-                 + (select count(*) from nestly.comments c where c.post_id = v_post and c.status = 'active' and not c.is_by_post_author);
-        if v_count = v_threshold then
+    -- a like or a comment on a group post: the post becomes a highlight when the likes and comments by others reach the threshold. Tried
+    -- at the threshold and a little past it (concurrent engagements can step over the exact count); notify_deliver delivers it once.
+    select coalesce(p.author_id, pa.author_id) into v_author
+      from nestly.posts p left join nestly.post_authors pa on pa.post_id = p.id
+     where p.id = v_post;
+    select c.engagement_threshold into v_threshold from nestly.group_highlight_configurations c where c.is_active;
+    if v_threshold is not null then
+      v_count := (select count(*) from nestly.reactions x where x.post_id = v_post and not x.is_by_author)
+               + (select count(*) from nestly.comments c where c.post_id = v_post and c.status = 'active' and not c.is_by_post_author);
+      if v_count between v_threshold and v_threshold + 4 then
           for r in
             select m.user_id from nestly.group_members m
               left join nestly.group_notification_preferences gp on gp.group_id = m.group_id and gp.user_id = m.user_id
@@ -1102,7 +1111,6 @@ begin
           loop
             perform nestly.notify_deliver(r.user_id, 'group_highlight', 'groups', null, 'post', v_post, v_post, false);
           end loop;
-        end if;
       end if;
     end if;
   end if;
@@ -1355,7 +1363,7 @@ comment on column nestly.groups.description is 'The basic description, up to 1,0
 comment on column nestly.groups.rules is 'The Group''s rules (FR-GRP-003: Admin manages Rules), up to 2,000 characters; NULL when none.';
 comment on column nestly.groups.privacy is 'public or private (FR-GRP-001). Only the Owner changes it.';
 comment on column nestly.groups.status is 'active or deleted. A deleted Group, its members'' view and its content are gone for everyone.';
-comment on column nestly.groups.pinned_post_id is 'The pinned post (an announcement; FR-ALG-010), an active post of this Group; NULL when none; cleared when the post goes.';
+comment on column nestly.groups.pinned_post_id is 'The pinned post (an announcement; FR-ALG-010): an active post of this Group when pinned; NULL when none; cleared when the post row is deleted. A pin whose post a reader cannot read (held, hidden, removed) simply shows nothing.';
 comment on column nestly.groups.created_by is 'Who created it (default auth.uid()); not the Owner after a transfer (group_members holds the Roles).';
 comment on column nestly.groups.created_at is 'When it was created.';
 comment on column nestly.groups.updated_at is 'When it last changed (the database clock).';
@@ -1459,7 +1467,7 @@ comment on policy group_members_delete_self on nestly.group_members is 'A member
 comment on policy group_members_delete_manager on nestly.group_members is 'A Group Moderator or higher removes a member of a lower Role (ERR-019).';
 comment on policy group_members_select_notify on nestly.group_members is 'notify_group only (nestly.notify_scope = group): the recipients of a Group''s notification.';
 comment on policy group_access_select_own on nestly.group_access is 'The member reads their own copy; nobody else.';
-comment on policy group_access_insert_member on nestly.group_access is 'Written by group_members_insert_access; the foreign key proves the Membership and its Role.';
+comment on policy group_access_insert_member on nestly.group_access is 'Written by group_members_insert_access: one''s own copy, or (the approval) an Owner''s or Admin''s copy of the admitted requester; the foreign key proves the Membership and its Role. Nobody else writes a row, so no insert can test another account''s Membership.';
 comment on policy group_join_requests_select_party on nestly.group_join_requests is 'The requester and the Group''s Owner and Admins.';
 comment on policy group_join_requests_insert_self on nestly.group_join_requests is 'A non-member Regular or Professional account asks to join an active Private Group, unless blocked from it (VAL-020).';
 comment on policy group_join_requests_update_requester on nestly.group_join_requests is 'The requester cancels a pending request.';
@@ -1470,7 +1478,7 @@ comment on policy group_invitations_update_invitee on nestly.group_invitations i
 comment on policy group_invitations_update_manager on nestly.group_invitations is 'The inviter, the Owner or a Group Admin cancels a pending invitation.';
 comment on policy group_bans_select_party on nestly.group_bans is 'The blocked user (their own row) and the Group''s Moderators and higher.';
 comment on policy group_bans_insert_manager on nestly.group_bans is 'A Group Moderator or higher blocks a user of a lower Role, or a non-member (ERR-019).';
-comment on policy group_bans_delete_manager on nestly.group_bans is 'A Group Moderator or higher unblocks.';
+comment on policy group_bans_delete_manager on nestly.group_bans is 'A Group Moderator or higher unblocks, never a block made by a higher Role (ERR-019).';
 comment on policy group_notification_preferences_select_own on nestly.group_notification_preferences is 'The member reads their own modes.';
 comment on policy group_notification_preferences_insert_own on nestly.group_notification_preferences is 'The member sets a mode for a Group they belong to (the foreign key proves it).';
 comment on policy group_notification_preferences_update_own on nestly.group_notification_preferences is 'The member changes their own mode.';
@@ -1480,7 +1488,7 @@ comment on policy group_recommendations_insert_sender on nestly.group_recommenda
 comment on policy group_highlight_configurations_select_all on nestly.group_highlight_configurations is 'Every version is readable by an active account (a constant, no personal data). No write policy for any role.';
 comment on policy private_group_content_views_select_own on nestly.private_group_content_views is 'A staff member reads their own views.';
 comment on policy private_group_content_views_insert_staff on nestly.private_group_content_views is 'PRIVATE_GROUP_MODERATE (REPORTS_VIEW with it; the Admin always) opens a report on Private Group content (the trigger checks the report); audited.';
-comment on policy posts_group_hide on nestly.posts is 'RESTRICTIVE (I10): a group post is readable while its Group is active and Public or the caller is a member (AC-036/037, NFR-PRIV-002, ERR-017); to staff only inside the transaction of an audited view of a report on it (ERR-024); counted on the analytics screen.';
+comment on policy posts_group_hide on nestly.posts is 'RESTRICTIVE (I10): a group post is readable while its Group is active and Public or the caller is a member (AC-036/037, NFR-PRIV-002, ERR-017); to staff only inside the transaction of an audited view of a report on it (ERR-024); never on the analytics screen (rows, not columns).';
 comment on policy posts_group_insert on nestly.posts is 'RESTRICTIVE (I10): only a member posts in an active Group (AC-036).';
 comment on policy posts_delete_group_manager on nestly.posts is 'A Group Moderator or higher removes a post of a lower Role in the Group (an anonymous post counts as a member''s).';
 comment on policy posts_update_group_manager on nestly.posts is 'The same manager holds such a post (status deleted) when an open report prevents its deletion (delete_post).';

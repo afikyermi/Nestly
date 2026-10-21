@@ -168,6 +168,12 @@ select is(pg_temp.decide('p', 'priv', 'b', 'approved'), 'OK:1', '[I10 c4 BR-032]
 select is(pg_temp.role_of('priv', 'b'), 'member', '[I10 c4] the approval makes the requester a member in the same statement');
 select is(tests.fx_gr_request(pg_temp.g('priv'), pg_temp.id('b')), 'approved', '[I10 c4] and the request is approved');
 select is(pg_temp.decide('p', 'priv', 'b', 'rejected'), 'OK:0', '[I10 c4] an answered request is not answered again');
+select is(pg_temp.dml('c', format($q$ insert into nestly.group_access (group_id, user_id, role) values (%L, %L, 'member') $q$, pg_temp.g('priv'), pg_temp.id('b'))),
+  'ERR:42501', '[I10 c4 NFR-PRIV-002] nobody writes another account''s access copy: no insert can test who belongs to a Private Group (a member)');
+select is(pg_temp.dml('c', format($q$ insert into nestly.group_access (group_id, user_id, role) values (%L, %L, 'member') $q$, pg_temp.g('priv'), pg_temp.id('e'))),
+  'ERR:42501', '[I10 c4 NFR-PRIV-002] (a non-member: the same answer)');
+select is(pg_temp.dml('c', format($q$ insert into nestly.group_access (group_id, user_id, role) values (%L, %L, 'member') $q$, pg_temp.g('priv'), pg_temp.id('c'))),
+  'ERR:23503', '[I10 c4] nor writes a copy of a Membership it does not hold');
 select is(pg_temp.ask('c', 'priv'), 'OK:1', '[I10 c4 fixture] c asks');
 select is(pg_temp.decide('b', 'priv', 'c', 'approved'), 'OK:0', '[I10 c4 FR-GRP-003] a plain member cannot approve (0 rows)');
 select is(pg_temp.decide('p', 'priv', 'c', 'rejected'), 'OK:1', '[I10 c4] the Owner rejects');
@@ -302,6 +308,12 @@ select is(pg_temp.dml('f', format($q$ insert into nestly.group_bans (group_id, u
 select is(pg_temp.dml('c', format($q$ delete from nestly.group_bans where group_id = %L and user_id = %L $q$, pg_temp.g('pub'), pg_temp.id('f'))), 'OK:1',
   '[I10 c9] a Group Moderator unblocks');
 select is(pg_temp.join('f', 'pub'), 'OK:1', '[I10 c9] and the user may join again');
+select is(pg_temp.dml('b', format($q$ insert into nestly.group_bans (group_id, user_id) values (%L, %L) $q$, pg_temp.g('pub'), pg_temp.id('e'))), 'OK:1',
+  '[I10 c9] the Owner blocks a non-member');
+select is(pg_temp.dml('c', format($q$ delete from nestly.group_bans where group_id = %L and user_id = %L $q$, pg_temp.g('pub'), pg_temp.id('e'))), 'OK:0',
+  '[I10 c9 ERR-019] a Group Moderator does not lift a block made by a higher Role');
+select is(pg_temp.dml('b', format($q$ delete from nestly.group_bans where group_id = %L and user_id = %L $q$, pg_temp.g('pub'), pg_temp.id('e'))), 'OK:1',
+  '[I10 c9] the Owner lifts it');
 
 -- ---- invitations (FR-GRP-002) -------------------------------------------------------------------------------------------------
 select set_config('t.priv2', pg_temp.mk('a', 'Private circle', 'private'), true);
@@ -411,6 +423,11 @@ select is(pg_temp.n('e', format($q$ select status from nestly.groups where id = 
   '[I10 c13] inside the deleting transaction only, the deleted row stays readable (the UPDATE needs it); every later transaction reads nothing');
 select is(pg_temp.sees_post('e', pg_temp.g('n3')), '0', '[I10 c13] and so is its content');
 select is(pg_temp.dml('b', format($q$ update nestly.groups set status = 'active' where id = %L $q$, pg_temp.g('g3'))), 'OK:0', '[I10 c13] a deletion is final');
+
+select is(pg_temp.ask('f', 'priv2'), 'OK:1', '[I10 c13 fixture] a pending request on another Group');
+select is(pg_temp.dml('a', format($q$ update nestly.groups set status = 'deleted' where id = %L $q$, pg_temp.g('priv2'))), 'OK:1', '[I10 c13 fixture] its Owner deletes it');
+select is(pg_temp.decide('a', 'priv2', 'f', 'approved'), 'OK:0', '[I10 c13] nobody is admitted to a deleted Group');
+select is(pg_temp.role_of('priv2', 'f'), '-', '[I10 c13] (no Membership)');
 
 -- ---- suspended accounts (r15) ---------------------------------------------------------------------------------------------------
 select tests.set_status(pg_temp.id('c'), 'suspended');
