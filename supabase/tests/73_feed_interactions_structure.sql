@@ -171,8 +171,8 @@ select is(
      from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace,
           unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']) p
     where n.nspname = 'nestly' and c.relkind in ('r', 'p') and has_table_privilege('app_jobs', c.oid, p)),
-  'comments=DELETE, comments=SELECT, posts=DELETE, posts=SELECT, reports=SELECT, search_intents=DELETE, search_intents=SELECT',
-  '[F3.0-b c14 platform r6] app_jobs holds table privileges on posts, comments and reports (and, from the Intent Signal, search_intents) only, and only SELECT, DELETE (SELECT on reports)');
+  'comments=DELETE, comments=SELECT, posts=DELETE, posts=SELECT, professional_views=DELETE, professional_views=SELECT, reports=SELECT, search_intents=DELETE, search_intents=SELECT, usage_events=DELETE, usage_events=SELECT',
+  '[F3.0-b c14 platform r6] app_jobs holds table privileges on posts, comments and reports (and, from the Intent Signal, search_intents; from I13 usage_events and professional_views, file 103) only, and only SELECT, DELETE (SELECT on reports)');
 
 select is(
   (select string_agg(c.relname || '.' || a.attname, ', ' order by c.relname, a.attname)
