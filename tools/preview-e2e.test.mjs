@@ -136,45 +136,57 @@ function sandbox(ready, { rejectPushes = false } = {}) {
 }
 
 const candidate = dsteps.find((s) => s.id === 'candidate');
-for (const [label, ready] of [['ready/nightly missing: created at main', undefined], ['ready/nightly behind main: fast-forwarded', 'c1']]) {
+const treeOf = (box, rev) => g(box.work, 'rev-parse', `${rev}^{tree}`);
+const parentsOf = (box, rev) => { g(box.work, 'fetch', '-q', 'origin', 'refs/heads/ready/nightly'); return g(box.work, 'rev-list', '--parents', '-n', '1', rev).split(' ').slice(1); };
+for (const [label, ready] of [
+  ['ready/nightly missing: created as a new commit of main', undefined],
+  ['ready/nightly behind main: a new child of it and of main', 'c1'],
+  ["ready/nightly at main's own commit (Production, no Preview): a new child", 'c2'],
+  ['ready/nightly diverged from main: still a fast-forward, a child of both', 'diverged'],
+]) {
   test(`[E c1] ${label}`, { skip: toolsMissing }, () => {
     const box = sandbox(ready);
     try {
       const r = runStepIn(box.work, candidate, {});
       assert.equal(r.status, 0, r.text);
-      assert.equal(r.out.sha, box.c2);
-      assert.equal(box.remote(), box.c2);
+      assert.equal(box.remote(), r.out.sha);
+      assert.notEqual(r.out.sha, box.c2, "never main's own commit: Vercel builds no Preview of it");
+      assert.equal(treeOf(box, r.out.sha), treeOf(box, box.c2), "exactly main's tree");
+      const parents = parentsOf(box, r.out.sha);
+      assert.ok(parents.includes(box.c2), 'a child of main');
+      if (box.before) assert.ok(parents.includes(box.before), 'a child of the old tip, so the push is a fast-forward');
     } finally {
       rmSync(box.dir, { recursive: true, force: true });
     }
   });
 }
 
-test('[E c1] ready/nightly already at main: nothing is pushed (a push would be refused here) and the commit is used', { skip: toolsMissing }, () => {
-  const box = sandbox('c2', { rejectPushes: true });
+test("[E c1] ready/nightly already holds main's tree in a nightly commit: nothing is pushed (a push would be refused here) and that commit is used", { skip: toolsMissing }, () => {
+  const box = sandbox('c2');
   try {
+    const first = runStepIn(box.work, candidate, {});
+    assert.equal(first.status, 0, first.text);
+    writeFileSync(join(box.dir, 'origin.git', 'hooks', 'pre-receive'), '#!/bin/sh\necho "rejected by a rule" >&2\nexit 1\n', { mode: 0o755 });
     const r = runStepIn(box.work, candidate, {});
     assert.equal(r.status, 0, r.text);
-    assert.equal(r.out.sha, box.c2);
+    assert.equal(r.out.sha, first.out.sha);
     assert.match(r.text, /nothing pushed/);
   } finally {
     rmSync(box.dir, { recursive: true, force: true });
   }
 });
 
-for (const [label, ready, opts] of [['ready/nightly diverged from main', 'diverged', {}], ['the push is refused by the server', 'c1', { rejectPushes: true }]]) {
-  test(`[E c1] ${label}: the run fails, says it is never forced, and the branch is unchanged`, { skip: toolsMissing }, () => {
-    const box = sandbox(ready, opts);
-    try {
-      const r = runStepIn(box.work, candidate, {});
-      assert.equal(r.status, 1, r.text);
-      assert.match(r.text, /never force-pushed/);
-      assert.equal(box.remote(), box.before);
-    } finally {
-      rmSync(box.dir, { recursive: true, force: true });
-    }
-  });
-}
+test('[E c1] the push is refused by the server: the run fails, says it is never forced, and the branch is unchanged', { skip: toolsMissing }, () => {
+  const box = sandbox('c1', { rejectPushes: true });
+  try {
+    const r = runStepIn(box.work, candidate, {});
+    assert.equal(r.status, 1, r.text);
+    assert.match(r.text, /never force-pushed/);
+    assert.equal(box.remote(), box.before);
+  } finally {
+    rmSync(box.dir, { recursive: true, force: true });
+  }
+});
 
 const SHA = 'a'.repeat(40);
 const PROD = 'https://nestly-prod111-afikyermis-projects.vercel.app';
