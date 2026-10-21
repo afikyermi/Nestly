@@ -127,7 +127,8 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
                        or post_id in (select id from nestly.posts
                                        where group_id in (select group_id from nestly.group_members where user_id = ${id} and role = 'owner'))
                        or comment_id in (select id from nestly.comments
-                                          where group_id in (select group_id from nestly.group_members where user_id = ${id} and role = 'owner'))`
+                                          where group_id in (select group_id from nestly.group_members where user_id = ${id} and role = 'owner'))
+                       or listing_id in (select id from nestly.marketplace_listings where owner_id = ${id})`
         ).count;
         counts['reactions'] = (
           await tx`delete from nestly.reactions where id in (select reaction_id from nestly.reaction_owners where user_id = ${id})`
@@ -140,6 +141,9 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         counts['stories'] = (await tx`delete from nestly.stories where author_id = ${id}`).count;
         counts['profile_photos'] = (await tx`delete from nestly.profile_photos where user_id = ${id}`).count;
         counts['media_assets'] = (await tx`delete from nestly.media_assets where owner_id = ${id}`).count;
+        // Marketplace (I12): the user's listings (their reports went above; others' conversations about one keep their row, listing_id SET
+        // NULL). sponsored_products are written by the Admin only (a test user is never staff): never touched.
+        counts['marketplace_listings'] = (await tx`delete from nestly.marketplace_listings where owner_id = ${id}`).count;
         counts['post_hides'] = (await tx`delete from nestly.post_hides where user_id = ${id}`).count;
         counts['comments'] = (
           await tx`delete from nestly.comments

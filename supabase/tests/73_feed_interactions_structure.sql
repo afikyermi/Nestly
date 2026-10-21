@@ -95,7 +95,7 @@ select is(
     where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and a.attnum > 0 and not a.attisdropped
       and has_column_privilege('authenticated', c.oid, a.attnum, 'INSERT')),
   'comments.body, comments.parent_id, comments.post_id, reaction_owners.reaction_id, reaction_owners.target_id, reactions.comment_id, reactions.post_id, '
-  || 'reports.comment_id, reports.details, reports.message_id, reports.post_id, reports.reason, reports.reported_user_id, reports.target_kind',
+  || 'reports.comment_id, reports.details, reports.listing_id, reports.message_id, reports.post_id, reports.reason, reports.reported_user_id, reports.target_kind',
   '[F3.0-b c10 c11 c12 c15] authenticated may INSERT exactly these columns: never an author, a mark, a status, a copy, a clock or a reporter');
 
 select is(
@@ -241,7 +241,7 @@ select is(
 select is(
   (select count(*) from pg_catalog.pg_constraint con join pg_catalog.pg_class c on c.oid = con.conrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = 'reports' and con.contype = 'f' and con.confdeltype = 'n'),
-  4::bigint, '[F3.0-b c14 c15 · I8] the four target columns of a report (I8 adds message_id) are SET NULL: a report outlives its content');
+  5::bigint, '[F3.0-b c14 c15 · I8 · I12] the five target columns of a report (I8 adds message_id, I12 listing_id) are SET NULL: a report outlives its content');
 
 -- ---- c12 c15 c16: who may depend on whom -----------------------------------------------------------------------------------------
 select is(
@@ -253,16 +253,16 @@ select is(
         and pg_describe_object(dep.classid, dep.objid, dep.objsubid) !~ 'reports'
         and pg_describe_object(dep.classid, dep.objid, dep.objsubid) !~ '(_staff on table|user_enforcements)'
         and dep.deptype <> 'i') x),
-  'constraint private_group_content_views_report_id_fkey on table nestly.private_group_content_views ; constraint reported_message_views_report_id_fkey on table nestly.reported_message_views ; policy posts_select_viewer on table nestly.posts',
-  '[F3.0-b c16 7א · I4] only posts_select_viewer (and the staff policies and the enforcement link, file 90; I8''s audited staff view of a reported message, file 94; I10''s audited staff view of reported Private Group content, file 96) depends on reports besides the table''s own objects: no other policy, function or view, never a ranking input');
+  'constraint private_group_content_views_report_id_fkey on table nestly.private_group_content_views ; constraint reported_message_views_report_id_fkey on table nestly.reported_message_views ; policy marketplace_listings_select_viewer on table nestly.marketplace_listings ; policy posts_select_viewer on table nestly.posts',
+  '[F3.0-b c16 7א · I4 · I12] only posts_select_viewer and marketplace_listings_select_viewer (a reported post or listing is hidden from its reporter; and the staff policies and the enforcement link, file 90; I8''s audited staff view of a reported message, file 94; I10''s audited staff view of reported Private Group content, file 96) depends on reports besides the table''s own objects: no other policy, function or view, never a ranking input');
 
 select is(
   (select coalesce(string_agg(c.relname || '.' || pol.polname, ', ' order by c.relname, pol.polname), '(none)')
      from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname <> 'reports' and pol.polname !~ '_staff$'
       and (coalesce(pg_catalog.pg_get_expr(pol.polqual, pol.polrelid), '') || coalesce(pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid), '')) ~ '\mreports\M'),
-  'posts.posts_select_viewer',
-  '[F3.0-b c16 Afik 18.10] no policy of comments, users or any other table reads reports: a reported comment or user is hidden from nobody');
+  'marketplace_listings.marketplace_listings_select_viewer, posts.posts_select_viewer',
+  '[F3.0-b c16 Afik 18.10] no policy of comments, users or any other table reads reports: a reported comment or user is hidden from nobody (a listing, like a post, is hidden from its reporter, I12)');
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
