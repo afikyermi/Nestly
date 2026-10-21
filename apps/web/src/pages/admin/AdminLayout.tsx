@@ -19,6 +19,7 @@ export const ADMIN_TABS: ReadonlyArray<{ tab: AdminTab; path: string }> = [
   { tab: 'reports', path: PATHS.adminReports },
   { tab: 'users', path: PATHS.adminUsers },
   { tab: 'audit', path: PATHS.adminAudit },
+  { tab: 'support', path: PATHS.adminSupport },
   { tab: 'guides', path: PATHS.adminGuides },
   { tab: 'media', path: PATHS.adminMedia },
   { tab: 'team', path: PATHS.adminTeam },
