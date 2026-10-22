@@ -12,13 +12,13 @@ export const MAX_SWEEP_PER_RUN = 10; // leftovers (not this run's) deleted per r
 export const MAX_PATTERN_USERS = 50; // more of this run's own users than this: a wrong pattern, delete nothing and fail
 
 /**
- * The eighty-nine tables the preflight expects in `nestly`, sorted; an unknown table means this design needs re-review. A part that
+ * The ninety-one tables the preflight expects in `nestly`, sorted; an unknown table means this design needs re-review. A part that
  * adds a `nestly` table updates this list and the delete order in the CLI in the same PR (Afik, 17.10.2026).
  */
 export const EXPECTED_NESTLY_TABLES: readonly string[] = [
   'algorithm_configurations', 'audit_log', 'auto_hide_scopes', 'chat_blocks', 'chat_reads', 'chat_requests', 'children', 'comments',
   'conversations', 'cycle_entries', 'enforcement_records', 'friend_content_notification_preferences', 'friendships', 'group_access',
-  'group_bans', 'group_highlight_configurations', 'group_invitations', 'group_join_requests', 'group_members',
+  'group_bans', 'group_highlight_configurations', 'group_highlights', 'group_invitations', 'group_join_requests', 'group_member_enforcements', 'group_members',
   'group_notification_preferences', 'group_staff_views', 'group_suggestions', 'groups', 'identity_link_checks', 'journey_contexts',
   'legal_consents', 'marketplace_listings', 'media_assets', 'media_fingerprints', 'media_reviews', 'media_training_candidates',
   'media_training_events', 'media_training_samples', 'messages', 'moderator_invitations', 'moderator_permissions',
