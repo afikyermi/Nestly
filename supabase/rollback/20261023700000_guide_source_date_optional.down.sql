@@ -14,3 +14,6 @@ alter table nestly.status_guides
   add constraint status_guides_published_check check (status <> 'published' or (source_checked_on is not null and published_at is not null));
 
 comment on policy status_guides_update_admin on nestly.status_guides is 'The Admin edits, publishes and hides a guide (FR-ADMIN-012); the CHECKs still require a source check date to publish.';
+
+-- The CLI's history row, so a later push applies the migration again.
+delete from supabase_migrations.schema_migrations where version = '20261023700000';
