@@ -124,6 +124,11 @@ test('[FR-SEARCH-001 FR-SET-001 FR-NOTIF-002 BR-037 AC-046] the SRS-audit fixes,
     const pro = peopleOf(found.body).find((person) => person.fullName === proName);
     expect(pro?.isProfessional, 'the Professional is found and marked').toBe(true);
     await seeker.goto('/feed');
+    // A phone's top bar has the search icon, which opens the search page; a wider screen has the field in the top bar
+    if ((seeker.viewportSize()?.width ?? 1280) < 768) {
+      await seeker.getByRole('banner').getByRole('link', { name: 'חיפוש', exact: true }).click();
+      await expect(seeker).toHaveURL(/\/search$/);
+    }
     const box = seeker.getByRole('searchbox', { name: 'חיפוש אנשים ופוסטים' }).first();
     await box.fill(proName);
     await box.press('Enter');

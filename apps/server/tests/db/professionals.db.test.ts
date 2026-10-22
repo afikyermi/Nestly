@@ -1,6 +1,6 @@
 import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { feedPageResponse, type ProfessionalProfileWrite } from '@nestly/shared';
+import { feedPageResponse, professionalHomeResponse, type ProfessionalProfileWrite } from '@nestly/shared';
 import { createDatabase, type Database } from '../../src/db/client.js';
 import { openThread, sendMessage, startChat } from '../../src/services/chat-service.js';
 import { readFeedPage } from '../../src/services/feed-service.js';
@@ -109,6 +109,31 @@ describe('[I11] Professionals and services', () => {
     expect(await readAccountKind(database, as(doula))).toBe('professional');
     expect(await readAccountKind(database, as(rina))).toBe('regular');
     expect(await registerProfessional(database, as(rina), profile())).toEqual({ kind: 'already_registered' });
+  });
+
+  it('[FR-PRO-001 AC-018] a Professional that just signed up reads its home: an empty dashboard and the help requests', T, async () => {
+    // through HTTP, as the sign-up screen and the home do: only the required fields, the consent and the declaration
+    const fresh = await text(side`select tests.fx_new_auth_user()::text as v`);
+    const authorization = `Bearer ${await token({ key, sub: fresh })}`;
+    const required = { businessName: null, gender: null, area: null, about: null, priceFrom: null };
+    const registered = await app.inject({
+      method: 'POST',
+      url: '/api/register/professional',
+      headers: { authorization, 'content-type': 'application/json' },
+      payload: JSON.stringify({ ...profile({ fullName: 'Nava New', ...required }), consent: true, qualification: true }),
+    });
+    expect(registered.statusCode, registered.body).toBe(201);
+    const kind = await app.inject({ method: 'GET', url: '/api/account/kind', headers: { authorization } });
+    expect(kind.statusCode, kind.body).toBe(200);
+    expect(JSON.parse(kind.body)).toEqual({ kind: 'professional' });
+    // the platform rewrite's own `path` query parameter (#147) is ignored
+    for (const url of ['/api/professional/home', '/api/professional/home?path=professional%2Fhome']) {
+      const res = await app.inject({ method: 'GET', url, headers: { authorization } });
+      expect(res.statusCode, res.body).toBe(200);
+      const home = professionalHomeResponse.parse(JSON.parse(res.body));
+      expect(home.dashboard).toMatchObject({ userId: fresh, followers: 0, rating: null, reviewCount: 0, offersToday: 0, unreadChats: 0, offersPerDay: 10 });
+      expect(home.dashboard.profileMissing).toEqual(['businessName', 'gender', 'area', 'about', 'priceFrom']);
+    }
   });
 
   it('[FR-SERV-001/002 AC-009] the directory filters by field, area, price and experience', T, async () => {
