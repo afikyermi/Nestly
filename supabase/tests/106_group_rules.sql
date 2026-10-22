@@ -152,6 +152,11 @@ select is(pg_temp.inv_set('b', 'circle', 'e', 'pending'), 'OK:0', '[F10.3-a c3] 
 select is(pg_temp.invite('a', 'circle', 'f'), 'OK:1', '[F10.3-a c3] one more that waits');
 select is(pg_temp.inv_set('a', 'circle', 'f', 'cancelled'), 'OK:1', '[F10.3-a c3] the inviter cancels it before approval');
 select is(pg_temp.count('f', 'nestly.group_invitations'), '0', '[F10.3-a c3] and the invitee never sees it');
+select is(pg_temp.invite('a', 'circle', 'f'), 'OK:1', '[F10.3-a c3] invited again, waiting');
+select is(pg_temp.admit('b', 'f', 'circle'), 'OK:1/OK:1', '[F10.3-a c3 fixture] meanwhile the invitee joins through a request');
+select is(pg_temp.inv_set('b', 'circle', 'f', 'pending'), 'ERR:42501', '[F10.3-a c3] an invitation of someone who is already a member is not approved');
+select is(pg_temp.inv_set('b', 'circle', 'f', 'rejected'), 'OK:1', '[F10.3-a c3] it can be rejected');
+select pg_temp.dml('f', format($q$ delete from nestly.group_members where group_id = %L and user_id = %L $q$, pg_temp.g('circle'), pg_temp.id('f')));
 select is(pg_temp.invite('a', 'circle', 'b'), 'ERR:42501', '[F10.3-a c3] only a Friend is invited (a and b are not Friends)');
 select is(pg_temp.invite('b', 'circle', 'a'), 'ERR:42501', '[F10.3-a c3] a member is not invited');
 select is(pg_temp.invite('p', 'circle', 'a'), 'ERR:42501', '[F10.3-a c3] a non-member invites no one');
@@ -191,6 +196,7 @@ select is(pg_temp.n('f', format($q$ select string_agg(kind || ':' || reason_key 
                                      from nestly.group_member_enforcements where group_id = %L $q$, pg_temp.g('pub'))),
   'warn_mute:spam:true', '[F10.3-a c4 ⭐] the member reads their own notice and when the mute ends');
 select is(pg_temp.count('e', 'nestly.group_member_enforcements'), '0', '[F10.3-a c4 ⭐] another member reads none of it');
+select is(pg_temp.n('f', 'select count(actor_id)::text from nestly.group_member_enforcements'), 'ERR:42501', '[F10.3-a c4] no one reads which manager acted');
 select is(pg_temp.count('c', format('nestly.group_member_enforcements where group_id = %L', pg_temp.g('pub'))), '1', '[F10.3-a c4 ⭐] the Group''s managers read the history');
 select is(pg_temp.count('f', format('nestly.posts where group_id = %L', pg_temp.g('pub'))), '1', '[F10.3-a c4] a muted member still reads the Group');
 select is(pg_temp.gpost('f', 'pub', 'muted post'), 'ERR:42501', '[F10.3-a c4 §11.16] but cannot post');

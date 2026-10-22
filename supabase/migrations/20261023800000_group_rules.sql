@@ -95,6 +95,31 @@ create table nestly.group_highlights (
 
 create index group_highlights_group_id_idx on nestly.group_highlights (group_id, reached_at desc);
 
+-- Backfill (data-model.md 'Backfills', computed): the group posts that already reach the v2 threshold of their Group's active members today, so
+-- the Highlights told under v1 are not lost from the main feed. As owner, before RLS is enabled on the new table; FORCE is lifted on the
+-- sources for this statement only, inside this transaction, and put back at once.
+alter table nestly.posts no force row level security;
+alter table nestly.reactions no force row level security;
+alter table nestly.comments no force row level security;
+alter table nestly.groups no force row level security;
+alter table nestly.group_members no force row level security;
+alter table nestly.group_highlight_configurations no force row level security;
+insert into nestly.group_highlights (post_id, group_id, threshold, member_count, configuration_version)
+select p.id, p.group_id, nestly.group_highlight_threshold(m.n), m.n, 2
+  from nestly.posts p
+  join nestly.groups g on g.id = p.group_id and g.status = 'active'
+  cross join lateral (select count(*)::integer as n from nestly.group_members gm where gm.group_id = p.group_id and gm.member_status = 'active') m
+ where p.group_id is not null and p.status = 'active'
+   and (select count(*) from nestly.reactions x where x.post_id = p.id and not x.is_by_author)
+     + (select count(*) from nestly.comments c where c.post_id = p.id and c.status = 'active' and not c.is_by_post_author)
+     >= nestly.group_highlight_threshold(m.n);
+alter table nestly.posts force row level security;
+alter table nestly.reactions force row level security;
+alter table nestly.comments force row level security;
+alter table nestly.groups force row level security;
+alter table nestly.group_members force row level security;
+alter table nestly.group_highlight_configurations force row level security;
+
 alter table nestly.group_highlights enable row level security, force row level security;
 revoke all on table nestly.group_highlights from public, anon, authenticated;
 
@@ -211,7 +236,8 @@ create policy group_member_enforcements_insert_manager on nestly.group_member_en
       else false
     end);
 
-grant select (id, group_id, user_id, kind, reason_key, reason_text, mute_hours, mute_until, actor_id, created_at)
+-- actor_id is not readable (the member is never told which manager acted; the history shows the action, the reason and the time).
+grant select (id, group_id, user_id, kind, reason_key, reason_text, mute_hours, mute_until, created_at)
   on table nestly.group_member_enforcements to authenticated;
 grant insert (group_id, user_id, kind, reason_key, reason_text, mute_hours) on table nestly.group_member_enforcements to authenticated;
 
@@ -256,7 +282,7 @@ $$;
 
 -- An invitation moves once from each state: awaiting_approval -> pending (approved by the Owner or a Group Admin), rejected (by them) or
 -- cancelled; pending -> accepted or declined (the invitee) or cancelled. The approver, times and transaction are the database's; a blocked
--- user is never approved and never accepts (NS028).
+-- user is never approved and never accepts (NS028); an invitation whose inviter left, or whose invitee is already a member, is not approved.
 create or replace function nestly.group_invitations_decide()
 returns trigger
 language plpgsql
@@ -276,6 +302,11 @@ begin
   if new.status in ('accepted', 'pending')
      and exists (select 1 from nestly.group_bans b where b.group_id = new.group_id and b.user_id = new.invitee_id) then
     raise exception 'group_invitations: the user is blocked from the Group' using errcode = 'NS028';
+  end if;
+  if new.status = 'pending'
+     and (not exists (select 1 from nestly.group_members m where m.group_id = new.group_id and m.user_id = new.inviter_id)
+       or exists (select 1 from nestly.group_members m where m.group_id = new.group_id and m.user_id = new.invitee_id)) then
+    raise exception 'group_invitations: the invitation is no longer valid (the inviter left, or the invitee is a member)' using errcode = '42501';
   end if;
   if new.status = 'pending' then
     new.approved_by := auth.uid();
@@ -494,7 +525,8 @@ begin
     select count(*)::integer into v_members from nestly.group_members m where m.group_id = v_group and m.member_status = 'active';
     select c.version into v_version from nestly.group_highlight_configurations c where c.is_active;
     v_threshold := nestly.group_highlight_threshold(v_members);
-    if v_threshold is not null and v_version is not null then
+    if v_threshold is not null and v_version is not null
+       and not exists (select 1 from nestly.group_highlights h where h.post_id = v_post) then
       v_count := (select count(*) from nestly.reactions x where x.post_id = v_post and not x.is_by_author)
                + (select count(*) from nestly.comments c where c.post_id = v_post and c.status = 'active' and not c.is_by_post_author);
       if v_count >= v_threshold then
@@ -575,7 +607,7 @@ comment on column nestly.group_member_enforcements.reason_key is 'The reason fro
 comment on column nestly.group_member_enforcements.reason_text is 'Free text, up to 500 characters, only with the reason other (as §11.9).';
 comment on column nestly.group_member_enforcements.mute_hours is 'warn_mute: 24 or 168 (7 days); NULL otherwise.';
 comment on column nestly.group_member_enforcements.mute_until is 'warn_mute: when the mute ends by itself (the database clock plus mute_hours); NULL otherwise.';
-comment on column nestly.group_member_enforcements.actor_id is 'Who acted (default auth.uid()); NULL once that account is gone.';
+comment on column nestly.group_member_enforcements.actor_id is 'Who acted (default auth.uid()); NULL once that account is gone. Never granted for SELECT: no member learns which manager acted.';
 comment on column nestly.group_member_enforcements.created_at is 'When (the database clock).';
 comment on column nestly.group_member_enforcements.created_xact is 'The writing transaction. Never granted.';
 comment on function nestly.group_member_enforcements_apply() is 'BEFORE INSERT: created_at, created_xact and mute_until are the database''s. AFTER INSERT, SECURITY INVOKER: the action with the caller''s own rights in the same statement (remove_block inserts the block, which ends the Membership; unblock lifts it, or is refused, 42501).';
