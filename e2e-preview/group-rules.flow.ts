@@ -34,12 +34,12 @@ async function signUp(page: Page, fullName: string): Promise<string> {
   await page.keyboard.press('Space');
   await expect(box).toBeChecked();
   await page.getByRole('button', { name: 'יצירת חשבון', exact: true }).click();
-  await expect(page).toHaveURL(/\/recovery-questions$/);
+  await expect(page).toHaveURL(/\/recovery-questions$/, { timeout: 30_000 });
   await page.getByLabel(/חיית המחמד/).fill(u.answers.pet);
   await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);
   const bell = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/notifications' && r.request().method() === 'GET');
   await page.getByRole('button', { name: 'שמירה', exact: true }).click();
-  await expect(page).toHaveURL(/\/(feed|home)$/);
+  await expect(page).toHaveURL(/\/(feed|home)$/, { timeout: 30_000 });
   const authorization = (await (await bell).request().headerValue('authorization')) ?? '';
   expect(authorization).toMatch(/^Bearer /);
   return authorization;
@@ -81,6 +81,8 @@ test('[FR-GRP-001 FR-GRP-002 FR-GRP-003 FR-ALG-010 AC-038 AC-066 §11.13-11.17] 
   baseURL,
   bypassSecret,
 }) => {
+  // a slow Preview: five sign-ups and many round trips
+  test.setTimeout(300_000);
   if (baseURL === undefined) throw new Error('preview-e2e: no baseURL');
   const origin = new URL(baseURL).origin;
   const contexts: BrowserContext[] = [];
@@ -105,7 +107,7 @@ test('[FR-GRP-001 FR-GRP-002 FR-GRP-003 FR-ALG-010 AC-038 AC-066 §11.13-11.17] 
     await sheet.getByLabel('שם הקבוצה').fill(groupName);
     await sheet.getByText('קבוצה ציבורית', { exact: true }).click();
     await sheet.getByRole('button', { name: 'יצירה' }).click();
-    await expect(page).toHaveURL(/\/groups\/[0-9a-f-]{36}$/);
+    await expect(page).toHaveURL(/\/groups\/[0-9a-f-]{36}$/, { timeout: 30_000 });
     const groupId = new URL(page.url()).pathname.split('/').pop() ?? '';
 
     // two members join through the Group page; one posts in its discussion
@@ -116,7 +118,7 @@ test('[FR-GRP-001 FR-GRP-002 FR-GRP-003 FR-ALG-010 AC-038 AC-066 §11.13-11.17] 
     for (const p of [bPage, cPage]) {
       await p.goto(`/groups/${groupId}`);
       await main(p).getByRole('button', { name: 'הצטרפות', exact: true }).click();
-      await expect(main(p).getByText(/חברים בקבוצה · חבר$/)).toBeVisible();
+      await expect(main(p).getByText(/חברים בקבוצה · חבר$/)).toBeVisible({ timeout: 20_000 });
     }
     const text = `שאלה טובה ${family}`;
     await main(bPage).getByRole('textbox', { name: /מה/ }).first().fill(text);
@@ -137,7 +139,7 @@ test('[FR-GRP-001 FR-GRP-002 FR-GRP-003 FR-ALG-010 AC-038 AC-066 §11.13-11.17] 
     // the other member sees it in the main feed with "מתוך: <name>"; the plain post is only on the Group page
     await cPage.goto('/feed');
     const card = main(cPage).getByRole('article').filter({ hasText: text });
-    await expect(card).toBeVisible();
+    await expect(card).toBeVisible({ timeout: 30_000 });
     await expect(card.getByRole('link', { name: `מתוך: ${groupName}` })).toHaveAttribute('href', `/groups/${groupId}`);
     await expect(main(cPage).getByText(`רגיל ${family}`)).toHaveCount(0);
 
