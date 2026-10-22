@@ -151,8 +151,19 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
           await tx`delete from nestly.promotion_events
                     where viewer_id = ${id} or promotion_id in (select id from nestly.promotions where owner_id = ${id})`
         ).count;
+        // §11.4: the monthly summaries of the user's promotions (the retention job writes them; a summary of a deleted promotion keeps
+        // its row without it, SET NULL — deleted here so a test user leaves nothing behind). promotion_settings is configuration.
+        counts['promotion_monthly_summaries'] = (
+          await tx`delete from nestly.promotion_monthly_summaries where promotion_id in (select id from nestly.promotions where owner_id = ${id})`
+        ).count;
         counts['promotions'] = (await tx`delete from nestly.promotions where owner_id = ${id}`).count;
         counts['promotion_payments'] = (await tx`delete from nestly.promotion_payments where payer_id = ${id}`).count;
+        // Usage events (I13 follow-up): the user's views of Professionals and the views of the user's professional profile, then the
+        // user's own usage counters.
+        counts['professional_views'] = (
+          await tx`delete from nestly.professional_views where viewer_id = ${id} or professional_id = ${id}`
+        ).count;
+        counts['usage_events'] = (await tx`delete from nestly.usage_events where user_id = ${id}`).count;
         counts['stories'] = (await tx`delete from nestly.stories where author_id = ${id}`).count;
         counts['profile_photos'] = (await tx`delete from nestly.profile_photos where user_id = ${id}`).count;
         counts['media_assets'] = (await tx`delete from nestly.media_assets where owner_id = ${id}`).count;
