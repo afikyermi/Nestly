@@ -190,7 +190,8 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
         ];
 
   const shareActionsFor = (unit: FeedUnit) => {
-    if (professional || group?.privacy === 'private') return {};
+    // I10-C: a Private Group's Highlight in the main feed is never shared either (only its members may read it)
+    if (professional || group?.privacy === 'private' || (unit.kind === 'post' && unit.group?.privacy === 'private')) return {};
     const link = postLinkOf(shareLink.origin, unit);
     return {
       onShareInFeed:
@@ -256,7 +257,7 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
       state={state}
       sentinelRef={sentinelRef}
       onRetry={retry}
-      {...(reviewing ? {} : { onToggleLike: toggleLike })}
+      {...(reviewing || group?.readOnly === true ? {} : { onToggleLike: toggleLike })}
       actionsFor={reviewing ? () => [] : actionsFor}
       edit={cardEdit.edit}
       onEditChange={cardEdit.change}

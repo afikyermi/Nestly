@@ -132,7 +132,7 @@ describe('[I10-C] Group Highlights, exposure, invitations and enforcement', () =
     await commentOn(c, highlight);
     feed = await wholeFeed(a);
     const unit = feed.units.find((u) => u.id === highlight);
-    expect(unit?.kind === 'post' ? unit.group : undefined).toEqual({ id: pub, name: 'שכונה ערה' });
+    expect(unit?.kind === 'post' ? unit.group : undefined).toEqual({ id: pub, name: 'שכונה ערה', privacy: 'public' });
     expect(feed.units.map((u) => u.id), 'a post that is not a Highlight stays on the Group page').not.toContain(quiet);
     const page = feedPageResponse.parse(body(await call('GET', `/api/groups/${pub}/posts`, a)));
     expect(page.items.map((u) => u.id)).toEqual(expect.arrayContaining([highlight, quiet]));

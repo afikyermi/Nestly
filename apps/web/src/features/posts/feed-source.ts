@@ -22,6 +22,8 @@ export type FeedSource =
       readonly canPin: boolean;
       readonly pinnedPostId: string | null;
       readonly onPin: (postId: string | null) => void;
+      /** I10-C (§11.16): a muted member reads only: no like, comment or post on the cards. */
+      readonly readOnly?: boolean;
       /** I10-C: every post, or the Group's Highlights only. Absent: every post. */
       readonly view?: GroupPostView;
     };

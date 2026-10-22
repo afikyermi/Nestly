@@ -113,7 +113,10 @@ export interface UnitReactions {
  * (§11.13): a Group's post carries its Group ("מתוך: <name>") in the main feed; on the Group's own page `showGroup` is false.
  */
 export function unitOf(row: DisplayPost, reactions: UnitReactions, showGroup = true): FeedUnit | undefined {
-  const group = showGroup && row.groupId !== null && row.groupName !== null ? { group: { id: row.groupId, name: row.groupName } } : {};
+  const group =
+    showGroup && row.groupId !== null && row.groupName !== null && row.groupPrivacy !== null
+      ? { group: { id: row.groupId, name: row.groupName, privacy: row.groupPrivacy } }
+      : {};
   const common = {
     id: row.id,
     source: 'organic',

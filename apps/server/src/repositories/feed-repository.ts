@@ -8,7 +8,7 @@
 //   - the configuration rows and the snapshot clock
 // Timestamps leave the database as text with six fractional digits (the cursor's own format) and come back as text: never a JS Date.
 
-import { JOURNEY_STAGES, POST_AUDIENCES, PROFESSIONAL_FIELDS, dbTimestamp, type FeedConfigRow } from '@nestly/shared';
+import { GROUP_PRIVACIES, JOURNEY_STAGES, POST_AUDIENCES, PROFESSIONAL_FIELDS, dbTimestamp, type FeedConfigRow } from '@nestly/shared';
 import { sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { IdentityTx } from '../db/identity-transaction.js';
@@ -281,6 +281,7 @@ const displayRow = z.object({
   originalAuthorFieldOther: z.string().nullable(),
   groupId: z.guid().nullable(),
   groupName: z.string().nullable(),
+  groupPrivacy: z.enum(GROUP_PRIVACIES).nullable(),
 });
 
 export type DisplayPost = z.infer<typeof displayRow>;
@@ -301,7 +302,7 @@ export function displayStatement(ids: readonly string[]): SQL {
            coalesce(o.author_id = (select auth.uid()), false) as "originalIsMine",
            coalesce(oa.full_name, oap.full_name) as "originalAuthorName", oap.field as "originalAuthorField",
            oap.field_other as "originalAuthorFieldOther",
-           gg.id as "groupId", gg.name as "groupName"
+           gg.id as "groupId", gg.name as "groupName", gg.privacy as "groupPrivacy"
     from nestly.posts p
     left join nestly.groups gg on gg.id = p.group_id
     left join nestly.regular_names n on n.user_id = p.author_id

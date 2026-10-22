@@ -28,7 +28,7 @@ test('[FR-GRP-001 FR-FEED-001 §11.13 §11.14] the main feed: a Group\'s Highlig
         {
           id: NID(31), source: 'organic', audience: 'everyone', stageTag: null, createdAt: '2026-06-15T11:00:00.000Z', likeCount: 4, commentCount: 1,
           likedByMe: false, kind: 'post', body: 'מה עוזר לכם בלילות?', isMine: false, isAnonymous: false, author: { name: 'יוסי כהן' },
-          group: { id: GID(1), name: WALKS.name },
+          group: { id: GID(1), name: WALKS.name, privacy: 'public' },
         },
       ],
       nextCursor: null,

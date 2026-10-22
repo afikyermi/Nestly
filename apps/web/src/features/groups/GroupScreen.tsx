@@ -266,7 +266,7 @@ export function GroupScreen({ groupId, discussion }: GroupScreenProps) {
 
   const menu: MoreActionsItem[] = [
     // I10-C (§11.15): any member invites Friends; a muted member invites and recommends no one
-    ...(isMember && regular && !muted ? [{ key: 'invite', label: INVITE_LABEL, onSelect: () => void openFriends('invite') }] : []),
+    ...(isMember && !muted ? [{ key: 'invite', label: INVITE_LABEL, onSelect: () => void openFriends('invite') }] : []),
     ...(regular && !muted ? [{ key: 'recommend', label: RECOMMEND_LABEL, onSelect: () => void openFriends('recommend') }] : []),
     ...(isMember ? [{ key: 'mode', label: MODE_LABEL, onSelect: () => setSheet({ kind: 'mode' }) }] : []),
     ...(isMember && group.myRole !== 'owner' ? [{ key: 'leave', label: LEAVE_LABEL, onSelect: () => setSheet({ kind: 'leave', saving: false }) }] : []),

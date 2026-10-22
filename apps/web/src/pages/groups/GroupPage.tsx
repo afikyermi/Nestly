@@ -31,6 +31,7 @@ export function GroupPage() {
           pinnedPostId: group.pinnedPostId,
           onPin,
           view,
+          readOnly: group.myMute !== null,
         }}
       >
         <FeedScreen key={`${group.id}:${group.pinnedPostId ?? ""}:${view}`} />

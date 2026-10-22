@@ -160,6 +160,7 @@ export function GroupMembers({ group, onChanged }: { group: GroupDetail; onChang
         })}
       </ul>
       <GroupEnforcementSheet
+        key={enforce === null ? 'closed' : `${enforce.kind}:${enforce.member.userId}`}
         target={enforce === null ? null : { kind: enforce.kind, userId: enforce.member.userId, name: enforce.member.fullName ?? NO_NAME }}
         pending={enforce?.saving === true}
         failure={enforce?.failure ?? null}

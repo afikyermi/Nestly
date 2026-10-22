@@ -78,15 +78,15 @@ export function GroupManage({ group, onUpdated, onDeleted, onChanged }: GroupMan
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (rank >= 3) {
-      const r = await call((token) => listRequests(token, group.id));
-      setRequests(r.kind === 'ok' ? r.value : []);
-      const i = await call((token) => listAwaitingInvitations(token, group.id));
-      setAwaiting(i.kind === 'ok' ? i.value : []);
-    }
-    const b = await call((token) => listBans(token, group.id));
+    const [r, i, b, h] = await Promise.all([
+      rank >= 3 ? call((token) => listRequests(token, group.id)) : null,
+      rank >= 3 ? call((token) => listAwaitingInvitations(token, group.id)) : null,
+      call((token) => listBans(token, group.id)),
+      call((token) => listEnforcements(token, group.id)),
+    ]);
+    if (r !== null) setRequests(r.kind === 'ok' ? r.value : []);
+    if (i !== null) setAwaiting(i.kind === 'ok' ? i.value : []);
     setBans(b.kind === 'ok' ? b.value : []);
-    const h = await call((token) => listEnforcements(token, group.id));
     setHistory(h.kind === 'ok' ? h.value : []);
   }, [call, group.id, rank]);
 

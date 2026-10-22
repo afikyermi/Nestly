@@ -20,7 +20,7 @@ export function groupActivityScore(): SQL {
                     where c.group_id = g.id and c.created_at > now() - make_interval(days => ${GROUP_ACTIVITY_WINDOW_DAYS}::integer)
                    union all
                    select m.created_at from nestly.group_members m
-                    where m.group_id = g.id and m.role <> 'owner' and m.created_at > now() - make_interval(days => ${GROUP_ACTIVITY_WINDOW_DAYS}::integer)) e)`;
+                    where m.group_id = g.id and m.role <> 'owner' and m.member_status = 'active' and m.created_at > now() - make_interval(days => ${GROUP_ACTIVITY_WINDOW_DAYS}::integer)) e)`;
 }
 
 /**
@@ -32,7 +32,7 @@ export async function readFeedGroupSuggestions(tx: IdentityTx, limit: number): P
     select s.id, s.name, s.description, s."memberCount"
     from (
       select g.id, g.name, g.description, g.created_at,
-             (select count(*) from nestly.group_members m where m.group_id = g.id)::int as "memberCount",
+             (select count(*) from nestly.group_members m where m.group_id = g.id and m.member_status = 'active')::int as "memberCount",
              ${groupActivityScore()} as activity
       from nestly.groups g
       where g.privacy = 'public'

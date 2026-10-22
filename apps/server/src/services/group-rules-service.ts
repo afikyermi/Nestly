@@ -20,9 +20,9 @@ import {
 } from '../repositories/group-rules-repository.js';
 import { asMember, fail, ok, refusalOf, type GroupFailure, type GroupResult } from './groups-service.js';
 
-/** A refused enforcement: an equal or higher Role (42501, ERR-019) or, for a removal, a user already blocked (23505: the same answer as done). */
+/** A refused enforcement: an equal or higher Role (42501, ERR-019) or, for a removal racing another, a user already blocked (23505). */
 function enforcementRefusal(error: unknown): GroupFailure {
-  return readDatabaseFault(error)?.code === '42501' ? fail('role_not_allowed') : refusalOf(error, fail('user_unavailable'), fail('already_member'));
+  return readDatabaseFault(error)?.code === '42501' ? fail('role_not_allowed') : refusalOf(error, fail('user_unavailable'), fail('blocked_from_group'));
 }
 
 /**
@@ -113,7 +113,8 @@ export async function decideInvitation(
       if (group === undefined) return fail('group_unavailable');
       if (group.myRole !== 'owner' && group.myRole !== 'admin') return fail('not_allowed');
       const changed = await decideAwaitingInvitation(tx, id, invitationId, decision === 'approve' ? 'pending' : 'rejected');
-      return changed === 0 ? fail('user_unavailable') : ok(null);
+      // 0 rows: decided already (by another manager) or gone — the same answer as an invitation no longer valid
+      return changed === 0 ? fail('invitation_unavailable') : ok(null);
     },
     // 42501: the inviter left or the invitee is already a member (the invitation is no longer valid), or the caller is no Owner or Admin
     (error) => (readDatabaseFault(error)?.code === '42501' ? fail('invitation_unavailable') : refusalOf(error)),
