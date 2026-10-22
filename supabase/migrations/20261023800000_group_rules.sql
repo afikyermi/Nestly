@@ -24,7 +24,8 @@
 -- group_suggestions               a muted member recommends the Group to no one.
 -- regular_names                   the Group's managers read the names of invitees awaiting approval and of members in its enforcement
 --                                 history (regular_names_select_group_manager).
--- notify_group()                  replaced (the approved definer, rule 17; decisions-in-force.md §9.3): the threshold of v2, the
+-- notify_group()                  replaced (the approved definer, rule 17; decisions-in-force.md §9.3): refuses the invitation of a user
+--                                 blocked from the Group (NS028; scope group opens group_bans_select_notify), the threshold of v2, the
 --                                 Highlight row, an invitation awaiting approval (to the Owner and Admins), its approval (to the invitee
 --                                 and the inviter) or rejection (to the inviter), and the mute notice (to the member, critical). Scope
 --                                 `group` also opens group_highlights_insert_notify (TO app_owner).
@@ -469,6 +470,11 @@ begin
   if tg_table_name = 'group_suggestions' then
     perform nestly.notify_deliver(new.recipient_id, 'group_recommended', 'groups', new.sender_id, 'group', new.group_id, new.id, false);
   elsif tg_table_name = 'group_invitations' then
+    -- a plain member cannot read the Group's blocks, so the insert policy's "not blocked" test is the inviter's view only; here the invitation
+    -- of a user blocked from the Group is refused outright (the statement fails, nothing is sent)
+    if tg_op = 'INSERT' and exists (select 1 from nestly.group_bans b where b.group_id = new.group_id and b.user_id = new.invitee_id) then
+      raise exception 'group_invitations: the user is blocked from the Group' using errcode = 'NS028';
+    end if;
     if tg_op = 'INSERT' and new.status = 'awaiting_approval' then
       -- a member's invitation to a Private Group: the Owner and Group Admins are asked to approve it (the invitee hears nothing yet)
       for r in
@@ -566,6 +572,11 @@ create trigger notify_group_enforcement
   after insert on nestly.group_member_enforcements
   for each row when (new.kind = 'warn_mute') execute function nestly.notify_group();
 
+-- notify_group: whether an invitee is blocked from the Group (a plain member inviting cannot read the blocks).
+create policy group_bans_select_notify on nestly.group_bans
+  for select to app_owner
+  using ((select nestly.notify_scope()) = 'group');
+
 -- 9. Comments ------------------------------------------------------------------------------------------------------------------
 comment on table nestly.group_highlight_configurations is
   'SRS FR-ALG-010, BR-059, BR-060: the versioned Highlights threshold. v1: a fixed count (5, inactive since I10 completion C). v2: member_percent of the Group''s active members, rounded up, within minimum_threshold..maximum_threshold (5%, 3, 20; Afik 21.10.2026). Exactly one version is active; a change is a new version by migration (no write policy).';
@@ -617,5 +628,6 @@ comment on policy group_members_delete_blocked on nestly.group_members is 'A Gro
 comment on policy regular_names_select_group_manager on nestly.regular_names is 'The Group''s Owner and Admins read the names of invitees awaiting their approval; its Moderators and higher the names in its enforcement history.';
 comment on policy group_highlights_select_member on nestly.group_highlights is 'The Group''s members read its Highlights (the main feed); no one else.';
 comment on policy group_highlights_insert_notify on nestly.group_highlights is 'notify_group() only (TO app_owner, scope group), at the threshold.';
+comment on policy group_bans_select_notify on nestly.group_bans is 'notify_group() only (TO app_owner, scope group): an invitation of a user blocked from the Group is refused (NS028).';
 comment on function nestly.notify_group() is
   'SECURITY DEFINER (approved exception, rule 17; I10, extended in I10 completion C). After a Group recommendation (to the Friend), an invitation (pending: to the invitee; awaiting approval: to the Owner and Group Admins), its approval (to the invitee and the inviter) or rejection (to the inviter), a mute notice (to the member, critical), a Join Request (to the Owner and Group Admins) or its approval (to the requester); a new group post (members whose mode is all); a pinned post, or a post whose likes and comments by others reached the threshold of the active version for the Group''s active members (members on all or highlights; FR-ALG-010, BR-060: deterministic), recorded once in group_highlights. Never to the actor, never across a block (notify_deliver), and every category switch is honoured but for the mute notice. Declares nestly.notify_scope = group and clears it. No EXECUTE for any runtime role.';

@@ -94,7 +94,7 @@ select is((select string_agg(c.relname || '.' || pl.polname || ':' || pl.polcmd:
               'group_invitations', 'group_bans', 'group_notification_preferences', 'group_suggestions', 'group_highlight_configurations',
               'private_group_content_views')),
   'group_access.group_access_insert_member:a, group_access.group_access_select_own:r, group_bans.group_bans_delete_manager:d, '
-  || 'group_bans.group_bans_insert_manager:a, group_bans.group_bans_select_party:r, group_highlight_configurations.group_highlight_configurations_select_all:r, '
+  || 'group_bans.group_bans_insert_manager:a, group_bans.group_bans_select_notify:r, group_bans.group_bans_select_party:r, group_highlight_configurations.group_highlight_configurations_select_all:r, '
   || 'group_invitations.group_invitations_insert_member:a, group_invitations.group_invitations_select_party:r, group_invitations.group_invitations_update_approver:w, '
   || 'group_invitations.group_invitations_update_invitee:w, group_invitations.group_invitations_update_manager:w, group_join_requests.group_join_requests_insert_self:a, group_join_requests.group_join_requests_select_party:r, '
   || 'group_join_requests.group_join_requests_update_manager:w, group_join_requests.group_join_requests_update_requester:w, '
@@ -110,7 +110,7 @@ select is((select string_agg(c.relname || '.' || pl.polname || ':' || pl.polcmd:
 select is((select count(*) from pg_policy pl join pg_class c on c.oid = pl.polrelid
             where c.relnamespace = 'nestly'::regnamespace and c.relname like 'group%' and pl.polname !~ '_notify$' and pl.polname <> 'groups_select_reveal'
               and pl.polroles <> array[(select oid from pg_roles where rolname = 'authenticated')]::oid[]), 0::bigint,
-  '[I10 c1 r4 · F14.2-a] every group policy but the two *_select_notify (TO app_owner, notify_group) and the reveal''s groups_select_reveal (TO app_owner, file 100) is TO authenticated');
+  '[I10 c1 r4 · F14.2-a] every group policy but the *_select_notify (TO app_owner, notify_group; group_bans_select_notify from file 106) and the reveal''s groups_select_reveal (TO app_owner, file 100) is TO authenticated');
 select is((select string_agg(p.proname || ':' || p.prosecdef::text, ', ' order by p.proname) from pg_proc p
             where p.pronamespace = 'nestly'::regnamespace and p.proname in ('notify_group', 'my_group_rank', 'group_role_rank', 'group_members_guard')),
   'group_members_guard:false, group_role_rank:false, my_group_rank:false, notify_group:true', '[I10 c1 r10] notify_group is the one new SECURITY DEFINER; the helpers are invoker');

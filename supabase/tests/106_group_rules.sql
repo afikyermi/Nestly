@@ -242,6 +242,7 @@ select is(pg_temp.enf('a', 'pub', 'e', 'unblock'), 'OK:1', '[F10.3-a c5] the Own
 select is(pg_temp.enf('e', 'pub', 'f', 'remove_block', 'spam'), 'ERR:42501', '[F10.3-a c5] a non-manager removes no one');
 select is(pg_temp.enf('c', 'pub', 'b', 'remove_block', 'spam'), 'OK:1', '[F10.3-a c5] a non-member may be blocked too (cannot join, ask or be invited)');
 select is(pg_temp.dml('b', format($q$ insert into nestly.group_members (group_id) values (%L) $q$, pg_temp.g('pub'))), 'ERR:42501', '[F10.3-a c5] and cannot join');
+select is(pg_temp.invite('f', 'pub', 'b'), 'ERR:NS028', '[F10.3-a c5] nor be invited, even by a member who cannot see the blocks');
 select is(pg_temp.count('c', format('nestly.group_member_enforcements where group_id = %L', pg_temp.g('pub'))), '6', '[F10.3-a c5 ⭐] every action is in the history');
 
 -- ---- c6 Highlights (§11.13, §11.17, FR-GRP-001, FR-ALG-010) --------------------------------------------------------------------------

@@ -33,6 +33,7 @@ $$;
 -- notify_group(), as 20261022300000 wrote it
 drop trigger notify_group_enforcement on nestly.group_member_enforcements;
 drop trigger notify_group_invitation_decided on nestly.group_invitations;
+drop policy group_bans_select_notify on nestly.group_bans;
 create or replace function nestly.notify_group()
 returns trigger
 language plpgsql
