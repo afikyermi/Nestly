@@ -7,6 +7,7 @@ Codex's entry file is `AGENTS.md` at the repo root; the sync protocol is its §8
 - `adaptations.md` — where Codex had to apply a rule or a `.claude/skills` procedure differently (Claude-only tools
   such as subagents, `/code-review`, scheduled tasks), and why.
 - `session-log.md` — one entry per Codex session: what was done, what is half-done and where, notes for Claude.
+- `START-PROMPT.md` — the prompt Afik gives Codex to start its first session after a handoff.
 
 **Claude Code:** on takeover, read `session-log.md` (latest entries) and `adaptations.md` after WORKPLAN. Don't edit
 Codex's entries; raise disagreements with Afik in WORKPLAN "ממתין לך". These files are not product records and not
