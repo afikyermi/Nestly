@@ -203,6 +203,18 @@ function usesIntent(parameters: RankingParameters): boolean {
 }
 
 /**
+ * I10 completion C (§11.13, FR-GRP-001): a feed post, or a Group's Highlight in the main feed of the Group's members only. A Highlight is a
+ * post the database recorded as one (group_highlights, readable by the Group's members only) by the snapshot's `asOf`, or the Group's pinned
+ * post when the caller belongs to it (the caller's own group_access rows). Every other group post stays on its Group's page. Who may read
+ * the post at all is still the posts policies' (a Private Group's post never reaches a non-member).
+ */
+function groupHighlightsOnly(asOf: string): SQL {
+  return sql`(p.group_id is null
+        or exists (select 1 from nestly.group_highlights h where h.post_id = p.id and h.reached_at <= ${asOf}::timestamptz)
+        or exists (select 1 from nestly.groups g join nestly.group_access a on a.group_id = g.id where g.pinned_post_id = p.id))`;
+}
+
+/**
  * The ranking statement: `pageSize + 1` posts of the snapshot in ranked order. Every input is bounded by `asOf`; the counts are over the rows
  * the caller's policies show (a count, never who); the whole score is double precision. The `content` profile does not select the tag.
  */
@@ -214,7 +226,7 @@ export function rankingStatement(parameters: RankingParameters): SQL {
       select p.id, p.author_id, p.is_anonymous, p.shared_post_id, ${tagColumn}p.created_at,
              extract(epoch from (${asOf}::timestamptz - p.created_at))::float8 / 3600::float8 as age_hours
       from nestly.posts p
-      where p.created_at <= ${asOf}::timestamptz and p.group_id is null
+      where p.created_at <= ${asOf}::timestamptz and ${groupHighlightsOnly(asOf)}
     ), tiered as (
       select c.*, case when c.age_hours <= ${config.scoredWindowDays * 24}::float8 then 0 else 1 end as tier
       from candidates c
@@ -267,6 +279,8 @@ const displayRow = z.object({
   originalAuthorName: z.string().nullable(),
   originalAuthorField: z.enum(PROFESSIONAL_FIELDS).nullable(),
   originalAuthorFieldOther: z.string().nullable(),
+  groupId: z.guid().nullable(),
+  groupName: z.string().nullable(),
 });
 
 export type DisplayPost = z.infer<typeof displayRow>;
@@ -286,8 +300,10 @@ export function displayStatement(ids: readonly string[]): SQL {
            ${isoText(sql`o.created_at`)} as "originalCreatedAt", o.is_anonymous as "originalIsAnonymous",
            coalesce(o.author_id = (select auth.uid()), false) as "originalIsMine",
            coalesce(oa.full_name, oap.full_name) as "originalAuthorName", oap.field as "originalAuthorField",
-           oap.field_other as "originalAuthorFieldOther"
+           oap.field_other as "originalAuthorFieldOther",
+           gg.id as "groupId", gg.name as "groupName"
     from nestly.posts p
+    left join nestly.groups gg on gg.id = p.group_id
     left join nestly.regular_names n on n.user_id = p.author_id
     left join nestly.professional_profiles ap on ap.user_id = p.author_id
     left join nestly.posts o on o.id = p.shared_post_id

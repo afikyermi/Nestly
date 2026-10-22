@@ -19,9 +19,6 @@ import { readListedRows, readVisibleNames } from '../repositories/friends-reposi
 import {
   answerInvitation,
   decideRequest,
-  deleteBan,
-  deleteMember,
-  insertBan,
   readBanned,
   insertInvitation,
   insertRecommendation,
@@ -71,26 +68,6 @@ export async function changeRole(database: Database, identity: Identity, id: str
   );
 }
 
-/** DELETE /api/groups/:id/members/:userId[?block=true]: remove a lower Role (ERR-019), and with `block` keep them out. */
-export async function removeMember(database: Database, identity: Identity, id: string, userId: string, block: boolean): Promise<GroupResult<null>> {
-  if (userId === identity.userId.toLowerCase()) return fail('role_not_allowed');
-  return asMember(
-    database,
-    identity,
-    async (tx) => {
-      if ((await readGroupDetail(tx, id)) === undefined) return fail('group_unavailable');
-      if (block) {
-        if (await readBanned(tx, id, userId)) return ok(null); // already blocked: the same answer
-        await insertBan(tx, id, userId);
-        return ok(null);
-      }
-      if ((await readMemberRole(tx, id, userId)) === undefined) return fail('user_unavailable');
-      return (await deleteMember(tx, id, userId)) === 0 ? fail('role_not_allowed') : ok(null);
-    },
-    (error) => (readDatabaseFault(error)?.code === '42501' ? fail('role_not_allowed') : refusalOf(error, fail('user_unavailable'), fail('already_member'))),
-  );
-}
-
 /** GET /api/groups/:id/requests: pending Join Requests (the Owner and Admins; anyone else reads none). */
 export async function listRequests(database: Database, identity: Identity, id: string): Promise<GroupResult<GroupPerson[]>> {
   return asMember(database, identity, async (tx) => {
@@ -114,22 +91,13 @@ export async function decide(database: Database, identity: Identity, id: string,
   );
 }
 
-/** GET /api/groups/:id/bans and DELETE /api/groups/:id/bans/:userId (Moderators and higher). */
+/** GET /api/groups/:id/bans (Moderators and higher); unblocking is an enforcement record (group-rules-service). */
 export async function listBans(database: Database, identity: Identity, id: string): Promise<GroupResult<GroupPerson[]>> {
   return asMember(database, identity, async (tx) => {
     const group = await readGroupDetail(tx, id);
     if (group === undefined) return fail('group_unavailable');
     if (group.myRole === null || group.myRole === 'member') return fail('not_allowed');
     return ok(await readBans(tx, id, GROUP_MEMBERS_PAGE_SIZE));
-  });
-}
-
-export async function unblock(database: Database, identity: Identity, id: string, userId: string): Promise<GroupResult<null>> {
-  return asMember(database, identity, async (tx) => {
-    if ((await readGroupDetail(tx, id)) === undefined) return fail('group_unavailable');
-    if ((await deleteBan(tx, id, userId)) > 0) return ok(null);
-    // still blocked (a higher Role's block: ERR-019), or no longer blocked at all
-    return (await readBanned(tx, id, userId)) ? fail('role_not_allowed') : fail('user_unavailable');
   });
 }
 
@@ -144,25 +112,30 @@ export async function listFriendsForGroup(database: Database, identity: Identity
     const friends = friendIds.flatMap((userId): GroupFriend[] => {
       const fullName = names.get(userId);
       const flag = flags.get(userId);
-      return fullName === undefined || flag === undefined ? [] : [{ userId, fullName, isMember: flag.isMember, isInvited: flag.isInvited, isRecommended: flag.isRecommended }];
+      return fullName === undefined || flag === undefined
+        ? []
+        : [{ userId, fullName, isMember: flag.isMember, isInvited: flag.isInvited, isAwaitingApproval: flag.isAwaitingApproval, isRecommended: flag.isRecommended }];
     });
     return ok(friends.sort((a, b) => a.fullName.localeCompare(b.fullName, 'he') || a.userId.localeCompare(b.userId)));
   });
 }
 
-/** POST /api/groups/:id/invitations { userId }: the Owner or an Admin invites an active Friend. */
-export async function invite(database: Database, identity: Identity, id: string, userId: string): Promise<GroupResult<null>> {
+/**
+ * POST /api/groups/:id/invitations { userId } (§11.15): any member who is not muted invites an active Friend. In a Private Group a member's
+ * invitation waits for the Owner's or an Admin's approval (the database decides): the answer says which way it went.
+ */
+export async function invite(database: Database, identity: Identity, id: string, userId: string): Promise<GroupResult<'sent' | 'awaiting_approval'>> {
   return asMember(
     database,
     identity,
     async (tx) => {
       const group = await readGroupDetail(tx, id);
       if (group === undefined) return fail('group_unavailable');
-      if (group.myRole !== 'owner' && group.myRole !== 'admin') return fail('not_allowed');
+      if (group.myRole === null) return fail('not_allowed');
+      if (group.muteUntil !== null) return fail('muted');
       if ((await readMemberRole(tx, id, userId)) !== undefined) return fail('already_member');
       if (await readBanned(tx, id, userId)) return fail('blocked_from_group');
-      await insertInvitation(tx, id, userId);
-      return ok(null);
+      return ok(await insertInvitation(tx, id, userId));
     },
     (error) => (readDatabaseFault(error)?.code === '42501' ? fail('not_a_friend') : refusalOf(error, fail('user_unavailable'), fail('already_requested'))),
   );
@@ -174,7 +147,9 @@ export async function recommend(database: Database, identity: Identity, id: stri
     database,
     identity,
     async (tx) => {
-      if ((await readGroupDetail(tx, id)) === undefined) return fail('group_unavailable');
+      const group = await readGroupDetail(tx, id);
+      if (group === undefined) return fail('group_unavailable');
+      if (group.muteUntil !== null) return fail('muted');
       await insertRecommendation(tx, id, userId);
       return ok(null);
     },

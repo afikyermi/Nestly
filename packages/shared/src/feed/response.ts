@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { JOURNEY_STAGES, POST_AUDIENCES } from '../constants/index.js';
 import { mediaImage, POST_MAX_IMAGES } from '../media/index.js';
 import { publishedAnnouncement } from '../validation/team.js';
+import { feedGroupSuggestion } from '../validation/groups.js';
 
 const audience = z.enum(POST_AUDIENCES);
 /** I11: a Professional author carries its "יועץ · תחום" tag (decisions-in-force §4); a Regular author has no `tag` key. */
@@ -38,6 +39,8 @@ const post = {
   body: z.string(),
   images: z.array(mediaImage).max(POST_MAX_IMAGES).optional(),
   isHelpRequest: z.literal(true).optional(),
+  /** I10-C (§11.13): a Group's Highlight in the main feed of its members carries its Group ("מתוך: <name>"); absent on a feed post. */
+  group: z.strictObject({ id: z.guid(), name: z.string() }).optional(),
 };
 const share = { ...common, kind: z.literal('share'), body: z.string().nullable(), sharerText: z.string().nullable(), original };
 
@@ -56,6 +59,8 @@ export const feedPageResponse = z.strictObject({
   restarted: z.boolean().optional(),
   /** I14 (FR-ADMIN-008): the published System Announcements, newest first, on the first page only. */
   announcements: z.array(publishedAnnouncement).optional(),
+  /** I10-C (§11.14): active Public Groups the viewer is not a member of, on the first page only, never inside the ranking. */
+  suggestedGroups: z.array(feedGroupSuggestion).optional(),
 });
 
 export type FeedUnit = z.infer<typeof feedUnit>;
