@@ -6,7 +6,7 @@
 // The privacy form itself is F2.3's (e2e/privacy.spec.ts). Visual baselines are the entries in e2e/visual-screens.ts.
 import { expect, test } from '@playwright/test';
 import type { Locator, Page, Route } from '@playwright/test';
-import { APP, MENU_BUTTON, WELCOME_H1, open, pathOf } from './app-helpers';
+import { APP, MENU_BUTTON, WELCOME_H1, open, pathOf, stubAccountKind } from './app-helpers';
 import { CORS, DESKTOP_1280, EMAIL, NOW, json, main, scan, session } from './support/journeys-stub';
 
 test.use({ baseURL: APP, viewport: { width: 360, height: 800 } });
@@ -37,6 +37,7 @@ async function setup(page: Page): Promise<Net> {
   });
   const net: Net = { calls: [], get: 200, me: 'active', releaseGet: release };
   await page.clock.setFixedTime(NOW);
+  await stubAccountKind(page);
   await page.addInitScript(() => {
     Reflect.set(window, 'nestlyRealSession', true);
   });

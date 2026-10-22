@@ -21,7 +21,8 @@ export function checkSearchQuery(body: unknown): SearchQueryCheck {
   return { ok: true, text, type: parsed.data.type ?? 'all' };
 }
 
-export const searchPerson = z.strictObject({ userId: z.guid(), fullName: z.string() });
+/** One person found. `isProfessional`: a Professional account, which the results mark as one and open on its Professional page (FR-SEARCH-001). */
+export const searchPerson = z.strictObject({ userId: z.guid(), fullName: z.string(), isProfessional: z.boolean() });
 export const searchPost = z.strictObject({
   id: z.guid(),
   authorId: z.guid().nullable(),

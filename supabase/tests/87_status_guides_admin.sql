@@ -56,10 +56,10 @@ select is(pg_temp.dml('d', $$ update nestly.status_guides set published_at = now
 select is(pg_temp.dml('d', $$ delete from nestly.status_guides $$), 'ERR:42501', '[F6.1-a c4] nobody deletes a guide: it is hidden (42501)');
 
 -- ---- publishing and hiding (BR-070, AC-095) -------------------------------------------------------------------------------------
-select is(pg_temp.dml('d', $$ update nestly.status_guides set status = 'published' where title = 'מדריך ערוך' $$), 'ERR:23514',
-  '[F6.1-a c5 BR-070] publishing needs a source check date (23514)');
+select is(pg_temp.dml('d', $$ update nestly.status_guides set status = 'published' where title = 'מדריך ערוך' $$), 'OK:1',
+  '[F6.1-a c5 BR-070 FR-ADMIN-012] the Admin publishes with no source check date (Afik 21.10.2026; migration 20261023700000)');
 select is(pg_temp.dml('d', $$ update nestly.status_guides set status = 'published', source_checked_on = date '2026-10-21' where title = 'מדריך ערוך' $$), 'OK:1',
-  '[F6.1-a c5 BR-070] the Admin publishes with a source check date');
+  '[F6.1-a c5 BR-070] an edit of the published guide adds a source check date');
 select is(pg_temp.n('d', $$nestly.status_guides where status = 'published' and published_at is not null$$), '1', '[F6.1-a c5] the database stamped the publication time');
 select is(pg_temp.n('a', 'nestly.status_guides'), '1', '[F6.1-a c5 AC-095] a user now reads that one guide');
 select is(pg_temp.n('m3', 'nestly.status_guides'), '1', '[F6.1-a c5 AC-095] and so does a Moderator, as a user (published only)');
@@ -77,7 +77,7 @@ select is(pg_temp.n('d', $$nestly.status_guides where status = 'draft' and publi
 
 -- ---- the Audit Log (BR-026, FR-ADMIN-012 "Audit לכל פרסום, הסתרה ועריכה") ------------------------------------------------------
 select is(tests.fx_sf_audit('guide_created'), 1::bigint, '[F6.1-a c6 BR-026] the creation is in the Audit Log');
-select is(tests.fx_sf_audit('guide_edited'), 1::bigint, '[F6.1-a c6 BR-026] the edit is in the Audit Log');
+select is(tests.fx_sf_audit('guide_edited'), 2::bigint, '[F6.1-a c6 BR-026] both edits are in the Audit Log (the text edit, and the source date added after publishing)');
 select is(tests.fx_sf_audit('guide_published'), 1::bigint, '[F6.1-a c6 BR-026] the publication is in the Audit Log');
 select is(tests.fx_sf_audit('guide_hidden'), 1::bigint, '[F6.1-a c6 BR-026] the hiding is in the Audit Log');
 select is(tests.fx_sf_audit('guide_unpublished'), 1::bigint, '[F6.1-a c6 BR-026] the return to a draft is in the Audit Log');
@@ -87,7 +87,7 @@ select is((select actor_role || ':' || target_kind || ':' || coalesce(permission
 select is((select (before_state->>'status') || '>' || (after_state->>'status') from tests.fx_audit_rows() where action = 'guide_published'), 'draft>published', '[F6.1-a c6] Before and After carry the status');
 select is((select count(*) from tests.fx_audit_rows() where action like 'guide\_%' and (before_state::text like '%גוף המדריך%' or after_state::text like '%גוף המדריך%')), 0::bigint,
   '[F6.1-a c6] the log carries the guide''s length, never its text');
-select is((select (after_state->>'bodyChanged') from tests.fx_audit_rows() where action = 'guide_edited'), 'false', '[F6.1-a c6] an edit says whether the text changed');
+select is((select string_agg(distinct after_state->>'bodyChanged', ',') from tests.fx_audit_rows() where action = 'guide_edited'), 'false', '[F6.1-a c6] an edit says whether the text changed');
 
 -- ---- a stopped Admin writes nothing ---------------------------------------------------------------------------------------------
 select tests.set_status(pg_temp.id('d'), 'suspended');

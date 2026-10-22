@@ -25,6 +25,9 @@ export const FAILED_TEXT = "לא הצלחנו לחפש. אפשר לנסות שו
 export const RETRY_LABEL = "ניסיון נוסף";
 export const ANONYMOUS_AUTHOR = 'פוסט אנונימי';
 export const personLink = (name: string): string => `לפרופיל של ${name}`;
+/** FR-SEARCH-001: a Professional in People is marked as one, and opens its Professional page. */
+export const PROFESSIONAL_MARK = "חשבון מקצועי";
+export const professionalLink = (name: string): string => `לעמוד המקצועי של ${name}`;
 
 /** I10: under a Group's name in the results. */
 export const GROUP_PRIVACY_LABEL = { public: "קבוצה ציבורית", private: "קבוצה פרטית" } as const;

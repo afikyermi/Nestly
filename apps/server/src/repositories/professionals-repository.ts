@@ -411,8 +411,8 @@ export async function readDashboard(tx: IdentityTx): Promise<ProfessionalDashboa
         (select count(*)::int from nestly.professional_follows f where f.professional_id = pp.user_id) as followers,
         (select count(*)::int from nestly.conversations c where pp.user_id in (c.user_a, c.user_b)
            and c.context in ('professional', 'outreach') and c.created_at > now() - interval '30 days') as "chatStarts30d",
-        (select round(avg(r.rating)::numeric, 1)::float8 from nestly.professional_reviews r where r.professional_id = pp.user_id) as rating,
-        (select count(*)::int from nestly.professional_reviews r where r.professional_id = pp.user_id) as "reviewCount",
+        (select round(avg(r.rating)::numeric, 1)::float8 from nestly.professional_reviews r where r.professional_id = pp.user_id and r.moderation = 'active') as rating,
+        (select count(*)::int from nestly.professional_reviews r where r.professional_id = pp.user_id and r.moderation = 'active') as "reviewCount",
         ((select count(*) from nestly.reactions x join nestly.posts p on p.id = x.post_id
             where p.author_id = pp.user_id and not x.is_by_author and x.created_at > now() - interval '30 days')
          + (select count(*) from nestly.comments m join nestly.posts p on p.id = m.post_id

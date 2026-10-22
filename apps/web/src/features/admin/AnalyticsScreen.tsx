@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ANALYTICS_PERIODS as PERIODS, type AnalyticsPeriod, type AnalyticsView } from '@nestly/shared';
+import { ANALYTICS_PERIODS as PERIODS, LISTING_CATEGORY_LABELS, PROFESSIONAL_FIELD_LABELS, type AnalyticsPeriod, type AnalyticsView } from '@nestly/shared';
 import { BarChart } from '@/components/shared/bar-chart';
 import { FormField } from '@/components/shared/form-field';
 import { InlineAlert } from '@/components/shared/inline-alert';
@@ -24,6 +24,27 @@ import {
   ANALYTICS_FRIEND_REQUESTS,
   ANALYTICS_FRIENDS,
   ANALYTICS_FRIENDS_ACCEPTED,
+  ANALYTICS_GROUPS,
+  ANALYTICS_GROUPS_COMMENTS,
+  ANALYTICS_GROUPS_CREATED,
+  ANALYTICS_GROUPS_JOINS,
+  ANALYTICS_GROUPS_MEMBERS,
+  ANALYTICS_GROUPS_NOTE,
+  ANALYTICS_GROUPS_POSTS,
+  ANALYTICS_GROUPS_PRIVATE,
+  ANALYTICS_GROUPS_PUBLIC,
+  ANALYTICS_MARKET,
+  ANALYTICS_MARKET_ACTIVE,
+  ANALYTICS_MARKET_BY_CATEGORY,
+  ANALYTICS_MARKET_CHATS,
+  ANALYTICS_MARKET_CREATED,
+  ANALYTICS_MARKET_SOLD,
+  ANALYTICS_PROS,
+  ANALYTICS_PROS_ACTIVE,
+  ANALYTICS_PROS_BY_FIELD,
+  ANALYTICS_PROS_CHATS,
+  ANALYTICS_PROS_FOLLOWS,
+  ANALYTICS_PROS_REVIEWS,
   ANALYTICS_LIKES,
   ANALYTICS_MEDIAN,
   ANALYTICS_MODERATION,
@@ -85,6 +106,7 @@ function Chart({ title, points }: { title: string; points: ReadonlyArray<{ day: 
 
 // The Admin Analytics (FR-ADMIN-010, FR-ADMIN-003, PG-026, AC-071): ANALYTICS_VIEW (the Admin always). Numbers only, computed from the product's own
 // tables (open item 7, default (a)); no name, id or text ever comes back (BR-058). Domains that need usage events wait for them (OP-039).
+// Groups, Professionals and Marketplace are counted from their tables too (SRS audit 21.10.2026).
 export function AnalyticsScreen() {
   const call = useAdminCall();
   const [days, setDays] = useState<AnalyticsPeriod>(30);
@@ -228,6 +250,7 @@ function Loaded({ data }: { data: AnalyticsView }) {
           <Stats items={data.support.byTopic.map((row) => ({ label: TOPIC_LABELS[row.topic], value: row.count }))} />
         )}
       </section>
+      <Areas data={data} />
       <section aria-labelledby="analytics-waiting" className="flex flex-col gap-2">
         <h3 id="analytics-waiting" className="text-h4">
           {ANALYTICS_WAITING_HEADING}
@@ -235,5 +258,68 @@ function Loaded({ data }: { data: AnalyticsView }) {
         <p className="text-muted-foreground">{ANALYTICS_WAITING}</p>
       </section>
     </div>
+  );
+}
+
+function Areas({ data }: { data: AnalyticsView }) {
+  const { groups, professionals, marketplace } = data;
+  return (
+    <>
+      <section aria-labelledby="analytics-groups" className="flex flex-col gap-4">
+        <h3 id="analytics-groups" className="text-h4">
+          {ANALYTICS_GROUPS}
+        </h3>
+        <Stats
+          items={[
+            { label: ANALYTICS_GROUPS_PUBLIC, value: groups.active.public },
+            { label: ANALYTICS_GROUPS_PRIVATE, value: groups.active.private },
+            { label: ANALYTICS_GROUPS_CREATED, value: groups.created },
+            { label: ANALYTICS_GROUPS_MEMBERS, value: groups.publicMembers },
+            { label: ANALYTICS_GROUPS_JOINS, value: groups.publicJoins },
+            { label: ANALYTICS_GROUPS_POSTS, value: groups.publicPosts },
+            { label: ANALYTICS_GROUPS_COMMENTS, value: groups.publicComments },
+          ]}
+        />
+        <p className="text-small text-muted-foreground">{ANALYTICS_GROUPS_NOTE}</p>
+      </section>
+      <section aria-labelledby="analytics-pros" className="flex flex-col gap-4">
+        <h3 id="analytics-pros" className="text-h4">
+          {ANALYTICS_PROS}
+        </h3>
+        <Stats
+          items={[
+            { label: ANALYTICS_PROS_ACTIVE, value: professionals.active },
+            { label: ANALYTICS_PROS_FOLLOWS, value: professionals.follows },
+            { label: ANALYTICS_PROS_CHATS, value: professionals.chatStarts },
+            { label: ANALYTICS_PROS_REVIEWS, value: professionals.reviews },
+          ]}
+        />
+        <h4 className="text-label">{ANALYTICS_PROS_BY_FIELD}</h4>
+        {professionals.byField.length === 0 ? (
+          <p className="text-muted-foreground">{ANALYTICS_EMPTY}</p>
+        ) : (
+          <Stats items={professionals.byField.map((row) => ({ label: PROFESSIONAL_FIELD_LABELS[row.field], value: row.count }))} />
+        )}
+      </section>
+      <section aria-labelledby="analytics-market" className="flex flex-col gap-4">
+        <h3 id="analytics-market" className="text-h4">
+          {ANALYTICS_MARKET}
+        </h3>
+        <Stats
+          items={[
+            { label: ANALYTICS_MARKET_ACTIVE, value: marketplace.active },
+            { label: ANALYTICS_MARKET_CREATED, value: marketplace.created },
+            { label: ANALYTICS_MARKET_SOLD, value: marketplace.sold },
+            { label: ANALYTICS_MARKET_CHATS, value: marketplace.chats },
+          ]}
+        />
+        <h4 className="text-label">{ANALYTICS_MARKET_BY_CATEGORY}</h4>
+        {marketplace.byCategory.length === 0 ? (
+          <p className="text-muted-foreground">{ANALYTICS_EMPTY}</p>
+        ) : (
+          <Stats items={marketplace.byCategory.map((row) => ({ label: LISTING_CATEGORY_LABELS[row.category], value: row.count }))} />
+        )}
+      </section>
+    </>
   );
 }
