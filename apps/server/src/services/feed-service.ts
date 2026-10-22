@@ -190,8 +190,6 @@ async function readPage(
   const asOf = after === null ? clock.nowText : after.asOf;
   // The Stage is read in the Regular branch only: the content profile's statement has no Stage term to give it to.
   // FR-ALG-008: the viewer's own search topics, weighted for this snapshot's asOf, in the Regular branch only and only above weight 0.
-  // I13 (§11.2): the same Stage also decides which promoted posts are relevant to the viewer, so it is read once here (Regular only)
-  const ownStages = viewer.profile === 'regular' ? await readOwnStages(tx) : [];
   const parameters: RankingParameters =
     viewer.profile === 'regular'
       ? {
@@ -199,7 +197,7 @@ async function readPage(
           asOf,
           config,
           after,
-          stages: readsViewerStages(viewer.profile, config.wStage) ? ownStages : [],
+          stages: readsViewerStages(viewer.profile, config.wStage) ? await readOwnStages(tx) : [],
           intents: config.wIntent > 0 ? await readIntents(tx, asOf, config.intentHalfLifeHours) : [],
         }
       : viewer.review === true
@@ -244,8 +242,10 @@ async function readPage(
   const promoted: { promotionId: string; afterIndex: number; unit: FeedUnit }[] = [];
   if (viewer.review !== true) {
     const intents = parameters.profile === 'regular' && (parameters.intents?.length ?? 0) > 0 ? (parameters.intents ?? []) : await readIntents(tx, asOf, config.intentHalfLifeHours);
-    const stages = ownStages;
-    const slots = await promotedPosts(tx, intents.map((intent) => intent.pattern), stages, new Set(pageIds), items.length, after !== null);
+    // I13 (§11.2): the Stage decides which promoted posts are relevant (Regular only), read only when a promoted post is running
+    const rankedStages = parameters.profile === 'regular' && parameters.stages.length > 0 ? parameters.stages : undefined;
+    const readStages = async () => rankedStages ?? (viewer.profile === 'regular' ? await readOwnStages(tx) : []);
+    const slots = await promotedPosts(tx, intents.map((intent) => intent.pattern), readStages, new Set(pageIds), items.length, after !== null);
     if (slots.length > 0) {
       const ids = slots.map((slot) => slot.postId);
       const promotedRows = new Map((await readDisplayPosts(tx, ids)).map((row) => [row.id, row]));

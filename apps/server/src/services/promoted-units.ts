@@ -102,20 +102,23 @@ export async function promotedListings(tx: IdentityTx, query: MarketplaceQuery, 
 
 /**
  * The feed's promoted posts (§11.2): relevant to the viewer (a search topic or its Stage), not already on the page; one after every `gap`
- * organic posts, `gap` from 4 to 7 by the last 48 hours' volume. No relevant candidate, no promoted post.
+ * organic posts, `gap` from 4 to 7 by the last 48 hours' volume. No relevant candidate, no promoted post. The viewer's Stage is read only once a
+ * running promoted post exists (the organic feed never reads it while its weight is 0).
  */
 export async function promotedPosts(
   tx: IdentityTx,
   patterns: readonly string[],
-  stages: readonly string[],
+  readStages: () => Promise<readonly string[]>,
   onPage: ReadonlySet<string>,
   organicCount: number,
   laterPage: boolean,
   onSkip: OnSkip = skipLog,
 ): Promise<{ promotionId: string; postId: string; afterIndex: number }[]> {
-  if ((patterns.length === 0 && stages.length === 0) || organicCount === 0 || !(await viewerSeesAds(tx))) return [];
+  if (organicCount === 0 || !(await viewerSeesAds(tx))) return [];
   const candidates = (await readPromotedCandidates(tx, 'post')).filter((c) => !onPage.has(c.targetId));
   if (candidates.length === 0) return [];
+  const stages = await readStages();
+  if (patterns.length === 0 && stages.length === 0) return [];
   const config = await readPromotionConfig(tx);
   const gap = feedPromotionGap(config, await readRecentPostCount(tx));
   const slots = Math.floor(organicCount / gap);
