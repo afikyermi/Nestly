@@ -73,8 +73,7 @@ verbatim.
 - No new term was invented.
 
 ## Changelog
-- 1.0 — 2026-10-11 — created after Afik decided on gender-neutral copy (NFR-USAB-003). Provisional until 5
-  features.
+- 1.0 — 2026-10-11 — created after Afik decided on gender-neutral copy (NFR-USAB-003).
 - 1.1 — 2026-10-11 — aligned with the approved design and decisions (WORKPLAN 9.6): system-message tone,
   icon-button names, OP-021 closed (the sentence is used verbatim), new terms go to their decision owner. Patterns
-  only; the forbidden list is unchanged. Provisional until 5 features.
+  only; the forbidden list is unchanged.

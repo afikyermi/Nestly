@@ -21,10 +21,11 @@ does not instruct loading every link. Column sections and rule matrices are both
 | chat_requests, conversations, messages, chat_blocks, chat_reads, support_requests, support_messages, reported_message_views | Chat and Support (I8); Friendships and regular names; Blocking a user; Safety and admin core (reports, audit) |
 | moderator_invitations, system_announcements, the analytics reads | Moderators team (I14); Safety and admin core (staff roles, keys, audit) |
 | report_escalations, report_openings, group_staff_views, child_tracker_trends, the staff review reads | Staff work (I14 completion); Safety and admin core (reports, audit); Groups (Private Group views); Trackers (I6) |
+| enforcement_records, report_auto_hides, reported_comment_views, profile_staff_views, media_fingerprints, suspected_image_fingerprints | Staff rules (I14 completion B); Staff work; Safety and admin core (reports, audit); Media and Stories (the job) |
 | groups, group_members, group_access, group_join_requests, group_invitations, group_bans, group_notification_preferences, group_suggestions, group_highlight_configurations, private_group_content_views | Groups (I10); posts, comments, reactions (group content); Notifications and People Search (notify_group); Safety and admin core (reports, audit) |
 | professional_profiles, professional_follows, outreach_requests, professional_reviews, professional_articles | Professionals (I11); posts (audience followers, is_help_request), Chat and Support (conversations: contexts professional and outreach); Blocking a user |
 | marketplace_listings, sponsored_products | Marketplace (I12); Media and Stories (listing and sponsored images), Chat and Support (conversations: context marketplace), Safety and admin core (reports, audit); Blocking a user |
-| promotion_plans, promotion_payments, promotions, promotion_events | Monetization (I13); Professionals (profiles, posts, follows), Marketplace (listings), Chat and Support (conversations: attribution); Blocking a user |
+| promotion_plans, promotion_payments, promotions, promotion_events, usage_events, professional_views, promotion_settings, promotion_monthly_summaries | Monetization (I13); Professionals (profiles, posts, follows), Marketplace (listings), Chat and Support (conversations: attribution); Blocking a user |
 
 | tracker_events, cycle_entries, status_guides | Trackers, cycle and status guides (I6); children for the child FK |
 | media_assets, media_reviews, profile_photos, stories, media_training_candidates, media_training_samples, media_training_events | Media and Stories (I5); posts and post_authors (attach), friendships (Story audience), Safety and admin core (CONTENT_MODERATE, audit) |
@@ -586,6 +587,37 @@ inside the audited opening's transaction only. `reports_insert_community` (RESTR
 (staff never post, comment, send requests or report, §9.7; every other social write already refuses a staff account: file 100 c7). Cleanup: both new
 tables are listed and never deleted from by name (staff rows; they go with their report by cascade).
 
+## Staff rules (I14 completion B)
+
+Built by `20261023500000_staff_rules.sql` (Afik 21.10.2026 (b), decisions-in-force.md §10; down script in `supabase/rollback/`, refuses while any of
+its seven tables holds a row or an announcement addresses anyone but everyone). One new SECURITY DEFINER, `identical_reports_hide()` (rule 17, TO BE
+CONFIRMED BY AFIK; data-model.md "Approved exceptions"); `child_tracker_trends(text, text, text, text)` a new version of the approved family (the
+integer one stays until the code PR, then a contract migration drops it); `profile_view()`, `audit_trigger()`, `reports_handle_guard()`,
+`media_assets_update_guard()`, `media_reviews_guard()` replaced. pgTAP: file 103.
+
+| Table | Columns and meaning | Authorization |
+|---|---|---|
+| `enforcement_records` | id, user_id (the author; NULL for an anonymous post and its author's comments; FK users restrict), target_kind (post, comment, listing, review, article), target_id (no FK), rule (report_reasons), excerpt (<= 100; a listing or article: its title), report_id (SET NULL), decided_by (default auth.uid()), decided_at; unique (target_kind, target_id) | RLS + FORCE; SELECT USER_VIEW (the Admin always); INSERT only by `content_staff_delete()` (BEFORE DELETE on the five content tables, as the staff member): the content key and a report this caller closed as action_taken in this transaction; no UPDATE or DELETE; audited (`content_deleted`) |
+| `report_auto_hides` | id, target_kind, one of post_id / comment_id / listing_id / review_id / article_id (unique, cascade), reason, author_id (cascade), hidden_at, hidden_until (<= +90 days) | RLS + FORCE; SELECT (column-level: the item and hidden_until, never the reason or author_id) every active account except the item's author and its reporters (so they see no change), and REPORTS_VIEW; DELETE REPORTS_VIEW once no report on the item is open (`report_auto_hides_lift`, AFTER UPDATE of reports); INSERT/SELECT TO app_owner for `identical_reports_hide()` only, scoped by `nestly.auto_hide_target`. RESTRICTIVE `*_auto_hide` SELECT policies on posts, comments, marketplace_listings, professional_reviews and professional_articles hide an item whose hide row is readable (staff see it) |
+| `reported_comment_views` | id, report_id (cascade), viewer_id (default auth.uid(), restrict), created_at | RLS + FORCE; SELECT own; INSERT (report_id) REPORTS_VIEW on a comment report whose comment exists, open or closed; audited (`reported_comment_viewed`) every time |
+| `profile_staff_views` | id, target_id (cascade), viewer_id (restrict), view_xact, created_at | RLS + FORCE; SELECT own; INSERT (target_id) any active staff account; audited (`staff_profile_viewed`); `profile_view()` shows that viewer the full profile (as a Friend) inside that transaction; never tracker data |
+| `media_fingerprints` | media_id PK (cascade), fingerprint (64-bit difference hash), created_at | RLS + FORCE; the job: SELECT; INSERT once for a pending image or a suspected one; CONTENT_MODERATE reads a match's own hash only inside the transaction that decided it not_abuse |
+| `suspected_image_fingerprints` | id, fingerprint (unique), source_media_id (unique, no FK), created_at | RLS + FORCE; the job: SELECT; INSERT the recorded hash of an image a staff member marked or confirmed as suspected (suspected_by); CONTENT_MODERATE reads and DELETEs the listed hashes within 6 bits of a match only inside the transaction that decided it not_abuse (`media_hash_not_abuse()`), each removal audited (`media_hash_removed`); no expiry (Afik 21.10.2026) |
+| `auto_hide_scopes` | nonce PK, xact | RLS + FORCE; TO app_owner only (the trend_scopes pattern): `identical_reports_hide()` writes its nonce, names it in `nestly.auto_hide_scope` and deletes it; `auto_hide_scoped()` (invoker, no runtime EXECUTE) opens its scoped policies |
+
+Other changes: staff `*_delete_staff` policies on posts, comments, marketplace_listings (MARKETPLACE_MODERATE), professional_reviews (DELETE granted, staff
+only) and professional_articles, only in the transaction that closed a report on the row as action_taken by the caller; `content_staff_delete()` expires the
+open reports on a deleted post's comments or a deleted comment's replies (`reports_handle_guard` accepts open -> expired from inside another trigger only;
+`reports_update_staff` WITH CHECK widened to it). `identical_reports_hide()`: AFTER INSERT on reports, as the reporter; counts the different people with an
+open report of the same reason on the item (advisory lock per item); at 10 or more writes the hide naming the author (post_authors for an anonymous post),
+reading through seven `*_select_auto_hide` TO app_owner policies. `system_announcements.audience` (everyone, parents, professionals, stage) and
+`audience_stage` (planning, pregnant, has_child), `system_announcements_select_published` by audience (staff: everyone only). `child_tracker_trends(text, text,
+text, text)`: period this_week / last_week / this_month / last_month (Israel, the week from Sunday), dimensions child_age and child_sex only, children
+rounded to 10 and averages to one decimal, hidden on the true count. `media_reviews` gains match_decision (confirmed / not_abuse, once, CONTENT_MODERATE, `media_reviews_update_hash_staff`; audited `media_hash_confirmed` / `media_hash_not_abuse`), match_decided_by and match_decided_at; `media_reviews.queue_reason` gains hash_match: the job may mark a pending upload whose
+fingerprint is within 6 bits of the block list as suspected (no staff member, 90 days) and move it to rejected and held (`is_held` granted to the job). Cleanup:
+reported_comment_views, profile_staff_views and enforcement_records by the user before reports; report_auto_hides and media_fingerprints go by cascade;
+suspected_image_fingerprints names no user and is never written by the cleanup.
+
 ## Groups (I10)
 
 Built by `20261022300000_groups.sql` (down script in `supabase/rollback/`; refuses while a Group or a staff view exists). One new SECURITY DEFINER,
@@ -694,3 +726,32 @@ Attribution: a follow of a Professional, or a professional / marketplace convers
 that Professional or listing, adds a follow / chat_start event (as the caller); a refusal of that event never fails the follow or the conversation. No organic table is written and no organic read joins these tables (AC-062).
 Cleanup: `promotion_events` (the user's own and those on the user's promotions), then `promotions`, then `promotion_payments`, after the private-group views and
 before the Stories; `promotion_plans` never (configuration).
+
+### Promotion rules and usage events (I13 follow-up, Afik §11.1–11.6)
+
+Built by `20261023600000_promotion_rules.sql` (down script in `supabase/rollback/`; refuses once a usage event, a professional view, a summary, a settings
+version beyond v1, a staff stop or an anonymised payment exists). No new SECURITY DEFINER; `audit_trigger()` gains `promotion_stopped` and
+`promotion_settings_changed`. Invoker triggers: `usage_events_guard` (advisory lock 8115 per account and kind; a same-day repeat adds one to the caller's row
+and inserts none; daily_login once a day, profile_view / post_view up to 1000 a day), `professional_views_guard` (advisory lock 8116 per Professional and
+viewer; a repeat adds one, up to 100 a day) and `promotion_settings_prepare` (advisory lock 8117; numbers the version). A caller that is not an active
+Regular or Professional, a Professional's own view and a view across a user block are dropped silently (recording never fails a page and never reveals a
+block). Retention (rule 6, both EXECUTE app_jobs only, run by the daily job in I9, not called before): `purge_usage_events()` deletes usage events older
+than 90 Israel-time days (⭐); `purge_promotion_data()` first sums every completed month of paid events into `promotion_monthly_summaries` (overwriting the
+month, so a rerun changes nothing), then deletes paid events and professional views of the months more than 12 months back (§11.4).
+`promotion_events_guard()` is replaced: an impression counts up to the newest `promotion_settings.daily_cap` a day (100 when none).
+
+| Table | Columns and meaning | Authorization |
+|---|---|---|
+| `usage_events` | user_id (default auth.uid(); never readable), kind daily_login/profile_view/post_view, occurred_on (Israel date), times 1-1000 (daily_login 1); PK (user, kind, day). No target, no content, no IP, no time | SELECT own rows; ANALYTICS_VIEW on the analytics screen (`nestly.analytics_view`), kind/day/count only; INSERT an active Regular or Professional, own row (staff never recorded); UPDATE own row of today, times + 1; app_jobs SELECT/DELETE rows older than 90 days; no client DELETE |
+| `professional_views` | id (not readable), professional_id (FK professional_profiles, cascade), viewer_id (default auth.uid(); never readable; cascade), kind profile_view/post_view, occurred_on (Israel date), times 1-100; unique (professional, viewer, kind, day). No post, no time | SELECT the Professional its own rows as counts (row count = reach, sum = views; FR-PRO-002, VAL-032), the viewer its own rows; ANALYTICS_VIEW on the analytics screen; INSERT an active Regular or Professional, own row, not the Professional itself, no user block between them; UPDATE own row of today, times + 1; app_jobs SELECT/DELETE rows of the months more than 12 months back |
+| `promotion_settings` | version (PK, the database's: newest + 1), daily_cap 1-100, directory_units_per_page 1-3, feed_gap_min 1-20, feed_gap_max (≥ min, ≤ 20), feed_low_posts / feed_high_posts (posts of the last 48 hours; high > low), reason 1-500, created_by (not readable; SET NULL), created_at. v1: 3, 1, 4, 7, 20, 200 | SELECT every active account; INSERT BILLING_FINANCE_MANAGE (Admin Only), audited (`promotion_settings_changed`, before = the previous version); no UPDATE/DELETE (append-only) |
+| `promotion_monthly_summaries` | id, promotion_id (FK promotions, SET NULL: outlives it), target_kind, professional_field, month (first day), impressions, clicks, follows, chat_starts, updated_at; unique (promotion, month) | SELECT the promotion's owner, BILLING_FINANCE_MANAGE; app_jobs SELECT/INSERT (a month is written once); no client write; kept forever (§11.4) |
+
+`promotions` gains `stopped_by` (owner | staff; set exactly when stopped). `promotions_update_guard()` is replaced: the owner stops its own; staff with
+CONTENT_MODERATE (a profile or post promotion) or MARKETPLACE_MODERATE (a listing promotion) stop anyone's with a reason in `nestly.audit_reason`
+(`promotions_select_staff`, `promotions_update_staff`; audited by `promotions_staff_stop_audit`); no refund (the payment is never touched). The promoter reads
+`stopped_by` and the screen says "הקידום הופסק". `promotion_payments.payer_id` is now nullable, FK ON DELETE SET NULL (§11.6: a payment record outlives the
+account), and gains `professional_field` (copied from the payer's Professional profile by `promotion_payments_prepare()` for a profile or post plan). app_jobs
+reads promotion_events (no viewer_id), promotions (id, kind, payment) and payments (id, field) for the summaries. Cleanup: the summaries of the user's
+promotions before the promotions; `professional_views` (the user's views and the views of the user's profile) and the user's `usage_events` after
+`promotion_payments`; `promotion_settings` is configuration.

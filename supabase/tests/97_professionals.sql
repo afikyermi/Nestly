@@ -87,19 +87,19 @@ select is((select count(*) from pg_class c join pg_namespace n on n.oid = c.reln
   '[F11.1-a c1] the five new tables have RLS enabled and forced');
 select is((select string_agg(c.relname || '.' || pl.polname || ':' || pl.polcmd::text, ', ' order by c.relname, pl.polname)
              from pg_policy pl join pg_class c on c.oid = pl.polrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'nestly'
-              and c.relname = any (pg_temp.new_tables())),
+              and c.relname = any (pg_temp.new_tables()) and pl.polname !~ '_(auto_hide|delete_staff)$'),
   'outreach_requests.outreach_requests_insert_professional:a, outreach_requests.outreach_requests_select_professional:r, '
   || 'outreach_requests.outreach_requests_select_target:r, outreach_requests.outreach_requests_update_target:w, '
   || 'professional_articles.professional_articles_delete_own:d, professional_articles.professional_articles_insert_own:a, '
   || 'professional_articles.professional_articles_select_staff:r, professional_articles.professional_articles_select_viewer:r, professional_articles.professional_articles_update_own:w, professional_articles.professional_articles_update_staff:w, '
   || 'professional_follows.professional_follows_delete_follower:d, professional_follows.professional_follows_insert_follower:a, '
-  || 'professional_follows.professional_follows_select_party:r, '
+  || 'professional_follows.professional_follows_select_analytics:r, professional_follows.professional_follows_select_party:r, '
   || 'professional_profiles.professional_profiles_insert_own:a, professional_profiles.professional_profiles_select_viewer:r, '
   || 'professional_profiles.professional_profiles_update_own:w, '
   || 'professional_reviews.professional_reviews_insert_reviewer:a, professional_reviews.professional_reviews_select_staff:r, professional_reviews.professional_reviews_select_viewer:r, professional_reviews.professional_reviews_update_staff:w',
-  '[F11.1-a c1] exactly these policies: no update or delete of a review, no delete of a profile or an Offer Help, the Professional never answers its own request (the I11 follow-ups add the staff read and moderation of a reported review or article, file 98)');
+  '[F11.1-a c1] exactly these policies: no update or delete of a review, no delete of a profile or an Offer Help, the Professional never answers its own request (the SRS-audit fixes add the follows analytics read, file 102) (the I11 follow-ups add the staff read and moderation of a reported review or article, file 98; completion B''s hide after ten identical reports and its staff deletion by a justified decision are file 103''s)');
 select is((select count(*) from pg_policy pl join pg_class c on c.oid = pl.polrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'nestly'
-            and c.relname = any (pg_temp.new_tables())
+            and c.relname = any (pg_temp.new_tables()) and pl.polname !~ '_auto_hide$'
             and (pl.polroles <> array[(select oid from pg_roles where rolname = 'authenticated')]::oid[] or not pl.polpermissive
                  or (coalesce(pg_get_expr(pl.polqual, pl.polrelid), '') || coalesce(pg_get_expr(pl.polwithcheck, pl.polrelid), '')) !~ 'is_active_account\(\)')),
   0::bigint, '[F11.1-a c1 platform r15] every policy of the new tables is permissive, TO authenticated and gated by is_active_account()');

@@ -58,7 +58,7 @@
 | BR-052 | תוכן Chat/Support אינו Signal ל-Personalization ואינו משמש Paid Targeting. |
 | BR-053 | Child/Tracker Data יכולים לשמש Organic Contextual Guidance בלבד; אסור להשתמש בהם ל-Paid Targeting או לשתף אותם עם Professional/Advertiser דרך ערוצי Targeting, Analytics או Dashboard. צפייה בפרופיל כפופה ל-FR-PRIV-001 באופן זהה לכל צופה (NFR-PRIV-005). |
 | BR-054 | Paid Promotion עובר Sponsored Eligibility ורלוונטיות לפני הצגה. Budget/Payment אינם יכולים לבטל Privacy, Safety או Relevance eligibility. |
-| BR-055 | Not Interested/Show Less הם Signals שליליים שחייבים להשפיע על Re-ranking עתידי; exact weights/decay הם Configuration. הסתרת פוסט אינה Signal (FR-ALG-009; החלטת אפיק מ-18.10.2026, 8א). |
+| BR-055 | ~~Not Interested/Show Less הם Signals שליליים שחייבים להשפיע על Re-ranking עתידי.~~ — **בוטל** (Not Interested / Show Less בוטלו, החלטת אפיק מ-21.10.2026). הסתרת פוסט אינה Signal (FR-ALG-009; החלטת אפיק מ-18.10.2026, 8א). |
 | BR-056 | Recommendation Engine חייב לשמור Diversity בין creator/topic/source ולהימנע מחזרתיות מוגזמת; exploration יתבצע רק מתוך Eligible content. |
 | BR-057 | Professional Analytics מציג Aggregates של החשבון המקצועי בלבד ואינו חושף identity/search/private data של משתמשים בודדים. |
 | BR-058 | Admin Analytics (FR-ADMIN-010): מחזיק ANALYTICS_VIEW רואה את כל הנתונים, גם ברמת משתמש בודד וגם בקבוצות קטנות, בלי מינימום, בלי שמות ובלי פרטים מזהים — מספרים ונתונים רלוונטיים בלבד (החלטת אפיק מ-18.10.2026). גישה לנתונים מזוהים ברמת משתמש מיועדת לצורך תפעולי/אבטחה/Debug בהתאם להרשאה ול-Audit, לא להצגת Dashboard רגילה. אילו תחומים זמינים לפני שאירועי השימוש נאספים — OP-039. |
