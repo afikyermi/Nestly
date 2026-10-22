@@ -44,7 +44,14 @@ test.describe.serial('[I11 follow-ups] a Professional and a follower on the Prev
     await page.getByRole('button', { name: 'המשך', exact: true }).click();
     await credentialsAndAnswers(page, u);
 
+    // The dashboard's own answer first, so a refusal or a slow answer is named as such and not as missing headings (the function's own limit is
+    // 30 seconds, vercel.json)
+    const asked = Date.now();
+    const homeAnswer = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/professional/home' && r.request().method() === 'GET', { timeout: 30_000 });
     await page.goto('/home');
+    const answer = await homeAnswer;
+    console.log(`[${info.project.name}] GET /api/professional/home answered ${answer.status()} after ${Date.now() - asked} ms`);
+    expect(answer.status(), 'GET /api/professional/home').toBe(200);
     const main = page.getByRole('main');
     await expect(main.getByRole('heading', { level: 1, name: 'לוח הבקרה' })).toBeVisible();
     await expect(main.getByRole('heading', { level: 2 })).toHaveText(['מחכה לך', 'פוסטים שמבקשים עזרה', 'הנתונים שלך', 'השלמת הפרופיל', 'תוצאות התוכן', 'קידום']);
