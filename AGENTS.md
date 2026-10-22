@@ -52,6 +52,26 @@ Supabase Auth/Storage · Vercel. TS strict. Node ≥ 22.22. Windows machine, Git
   `design-system` (semantic tokens only, shared components, one primary action), `ux-copy-he` (gender-neutral
   Hebrew, no slash forms, errors from the SRS ERR catalog).
 
+**Mandatory — read the skill file at that moment, every time (not from memory):**
+| When | Read and follow |
+|---|---|
+| Before an initiative or completion | `srs-lookup` → write/refresh `.work/briefs/<initiative>.md` |
+| Before writing or changing any screen or component | `accessibility`, `rtl-hebrew`, `design-system`, `ux-copy-he` |
+| Any user-facing text or error | `ux-copy-he` (errors from the SRS ERR catalog) |
+| After any SRS change, and at an initiative's end | `srs-update` + `.claude/rules/srs-editing.md` |
+| Before merging an initiative's code PR | `done-check` |
+
+**Where a skill or CLAUDE.md assumes Claude-only tools, do this instead** (record any further adaptation in
+`.codex/adaptations.md`, see §8):
+- "run in a separate subagent" (`done-check`) → a separate pass: finish the code, then start fresh — re-read the brief,
+  `git diff origin/main...HEAD` and the skill, and fill its table as if someone else wrote the code. Put the table in
+  the PR body.
+- `/code-review` on sensitive diffs → a separate self-review pass on the diff for authorization, RLS, minors/health
+  data, media, deletion and money; list findings and fixes in the PR body.
+- "builder subagents in parallel" → work one initiative at a time (or parallel Codex tasks, each in its own worktree).
+- The daily 20:00 scheduled message → write it at the end of each working day into WORKPLAN "ממתין לך" top line or
+  give it to Afik in chat.
+
 ## 5. How the work is done (from CLAUDE.md, adapted to Codex)
 - **Agents:** Claude ran as orchestrator with up to 2–3 builder subagents, each in its own worktree on a different
   initiative. You may work the same way (one worktree per branch under `.work/wt/`) or serially. One initiative
@@ -107,9 +127,26 @@ Next steps, in order:
 7. 24.10: missing e2e-preview flows (list in WORKPLAN). 25–26.10: per CLAUDE.md "Dates" + the 25-item bug list.
 If 23.10 ends without I11/I12-B, do I9 first.
 
-## 8. Recording your work so Claude Code can take over again
-Claude Code will resume this project after you, cold, from the repo alone. It reads `CLAUDE.md`, its own memory
-and `WORKPLAN-HE.md` — nothing you keep in your own session. So:
+## 8. Full sync between Codex and Claude Code (both directions)
+Both agents resume cold, from the repo alone (main + open PRs). Nothing in either agent's private session or memory
+carries over. One project, one set of records, one rulebook (`CLAUDE.md`); the skills stay single-source in
+`.claude/skills/` — never copy them, so they cannot drift.
+
+**`.codex/` — Codex's own folder** (Claude Code knows it is Codex's; see `.codex/README.md`):
+- `.codex/adaptations.md` — every place you had to do a rule or skill differently from how it is written, and why.
+  Claude reads it on takeover; a rule that should change for both goes to Afik in "ממתין לך".
+- `.codex/session-log.md` — one short entry per Codex session: date, what was done (PR numbers), what was left
+  half-done and where (branch, commit), anything Claude must know that does not belong in WORKPLAN.
+- Any other Codex-only working file goes here, not in `.claude/`, `.work/` records or the repo root.
+
+**Handover checklist — run it when you stop (and Claude runs the same when it stops):**
+1. Every branch committed and pushed; no work left only in a local worktree.
+2. WORKPLAN updated with the exact state (below), the "עובד כרגע/נעצר" line set, and pushed to main via a
+   records-only PR (merge it when its CI is green).
+3. `.codex/session-log.md` entry written (Codex) / `AGENTS.md` §7 refreshed (Claude, if Codex continues next).
+4. Open PRs each have an up-to-date body: what is done, what is left, CI state.
+
+Claude Code reads `CLAUDE.md`, its own memory and `WORKPLAN-HE.md` — nothing you keep in your own session. So:
 - **WORKPLAN-HE.md is the handover.** After every step (a PR opened, merged, a migrate run, a blocker found) update
   "איפה אנחנו עומדים", the initiatives table, "ענפים ו-PR פתוחים" (branch, last commit, what is left, CI state)
   and "המשך מכאן". Write the exact state, not intentions: what is done, what is red and why, what was not checked.
