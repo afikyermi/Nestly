@@ -92,6 +92,17 @@ export async function signOutCalls(page: Page): Promise<number> {
 export const waitForSeam = (page: Page): Promise<unknown> =>
   page.waitForFunction(() => Reflect.get(window, 'nestlyTestSession') !== undefined);
 
+const KIND_CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
+
+/** /api/account/kind answers `kind` (Settings shows the sections of that kind; with no answer it shows a load failure, SRS audit 21.10.2026). */
+export async function stubAccountKind(page: Page, kind: 'regular' | 'professional' | 'staff' = 'regular'): Promise<void> {
+  await page.route('**/api/account/kind', (r) =>
+    r.request().method() === 'OPTIONS'
+      ? r.fulfill({ status: 204, headers: KIND_CORS })
+      : r.fulfill({ status: 200, headers: { ...KIND_CORS, 'content-type': 'application/json' }, body: JSON.stringify({ kind }) }),
+  );
+}
+
 /** Loads a path (the session starts in `loading`), then moves the seam to `state` (null = leave it loading). */
 export async function open(page: Page, route: string, state: SessionState | null): Promise<void> {
   await page.goto(APP + route);

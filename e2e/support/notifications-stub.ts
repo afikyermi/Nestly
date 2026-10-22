@@ -110,7 +110,7 @@ export async function setupNotifications(page: Page, start: Partial<Pick<Notific
     };
     net.searches.push(`${field('q')}|${field('type')}`);
     return json(route, 200, {
-      people: net.limited ? [] : [{ userId: NID(12), fullName: 'יוסי כהן' }],
+      people: net.limited ? [] : [{ userId: NID(12), fullName: 'יוסי כהן', isProfessional: false }],
       groups: [],
       posts: [{ id: NID(21), authorId: NID(11), authorName: 'דנה לוי', snippet: 'מי מכירה יועצת שינה טובה?', createdAt: '2026-06-15T09:00:00.000Z' }],
       peopleLimited: net.limited,

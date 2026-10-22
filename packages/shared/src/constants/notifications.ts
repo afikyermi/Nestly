@@ -6,11 +6,13 @@ export const NOTIFICATION_TYPES = ['friend_request', 'friend_accepted', 'post_co
   // I10 (FR-GRP-002, FR-ALG-010): Group events, written by notify_group()
   'group_recommended', 'group_invited', 'group_join_requested', 'group_join_approved', 'group_post', 'group_pinned', 'group_highlight',
   // I11 follow-ups (OP-051 cancelled, Afik 21.10.2026): the Professional's events, written by notify_professional()
-  'offer_accepted', 'offer_declined', 'review_received', 'followers_weekly'] as const;
+  'offer_accepted', 'offer_declined', 'review_received', 'followers_weekly',
+  // SRS-audit fixes (BR-037, AC-046): a Friend's child's birthday, written by deliver_child_birthdays() when the list is opened
+  'child_birthday'] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 /** The groups a user switches on and off (FR-NOTIF-002). `security` is critical and cannot be switched off (BR-038); no event of it exists yet. */
-export const NOTIFICATION_CATEGORIES = ['friends', 'comments', 'shares', 'friend_posts', 'groups', 'offers', 'reviews', 'followers'] as const;
+export const NOTIFICATION_CATEGORIES = ['friends', 'comments', 'shares', 'friend_posts', 'groups', 'offers', 'reviews', 'followers', 'birthdays'] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 
 /** Which category switches an event on or off. */
@@ -32,10 +34,11 @@ export const NOTIFICATION_CATEGORY_OF: Readonly<Record<NotificationType, Notific
   offer_declined: 'offers',
   review_received: 'reviews',
   followers_weekly: 'followers',
+  child_birthday: 'birthdays',
 };
 
 /** The categories only a Regular account has (Friends), and only a Professional has (its business events). */
-export const REGULAR_ONLY_CATEGORIES: readonly NotificationCategory[] = ['friends', 'friend_posts'];
+export const REGULAR_ONLY_CATEGORIES: readonly NotificationCategory[] = ['friends', 'friend_posts', 'birthdays'];
 export const PROFESSIONAL_ONLY_CATEGORIES: readonly NotificationCategory[] = ['offers', 'reviews', 'followers'];
 
 /** Where a notification leads: a post, a person, a Group (I10), an Offer Help or a Professional's page (I11 follow-ups). Authorized again when opened. */

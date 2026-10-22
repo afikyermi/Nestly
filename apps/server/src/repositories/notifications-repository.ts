@@ -1,7 +1,8 @@
 // Notifications and their preferences (FR-NOTIF-001/002/003; migration 20261020400000). Runs inside the caller's identity transaction and
 // nowhere else. Which notifications the caller reads and marks is the database's (notifications_select_recipient, notifications_update_recipient):
 // nothing here narrows rows for permission - there is no recipient predicate, the policy returns the caller's own rows. Notifications are
-// written by the database's own triggers, never from here. The ids in a `where` below name a row to act on, never a permission filter.
+// written by the database's own triggers and definers, never by a statement here: deliverChildBirthdays only asks the definer to write the
+// caller's own birthday notifications. The ids in a `where` below name a row to act on, never a permission filter.
 
 import {
   NOTIFICATION_CATEGORIES,
@@ -36,6 +37,16 @@ const digestShown = sql`not (${notifications.type} = 'followers_weekly' and (
   or not exists (select 1 from nestly.professional_follows f where f.professional_id = (select auth.uid())
                   and f.created_at >= ((${notifications.createdAt} at time zone 'Asia/Jerusalem') - interval '7 days') at time zone 'Asia/Jerusalem'
                   and f.created_at < ${notifications.createdAt})))`;
+
+/**
+ * BR-037, AC-046 (migration 20261023100000): the caller's own notifications of a Friend's child's birthday in the last seven days, written by
+ * nestly.deliver_child_birthdays() - only where the parent allows it, the caller's `birthdays` category is on and no block stands between
+ * them; once per birthday. Returns how many were written.
+ */
+export async function deliverChildBirthdays(tx: IdentityTx): Promise<number> {
+  const rows = z.array(z.object({ n: z.number().int().nonnegative() })).parse(await tx.execute(sql`select nestly.deliver_child_birthdays() as n`));
+  return rows[0]?.n ?? 0;
+}
 
 /** The caller's notifications, newest first, older than `before` when given (keyset on time and id). */
 export async function readLatest(tx: IdentityTx, limit: number, before: { at: string; id: string } | null = null): Promise<NotificationRow[]> {

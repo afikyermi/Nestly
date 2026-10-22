@@ -3,6 +3,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ProfessionalProfileWrite } from '@nestly/shared';
 import { createDatabase, type Database } from '../../src/db/client.js';
 import { moderateContent, readReportDetail, readReportQueue } from '../../src/services/admin-service.js';
+import { readAdminAnalytics } from '../../src/services/team-service.js';
+import { search } from '../../src/services/search-service.js';
 import { openThread, sendMessage, startChat } from '../../src/services/chat-service.js';
 import { readNotifications, readPreferences } from '../../src/services/notifications-service.js';
 import { createPost } from '../../src/services/posts-service.js';
@@ -111,6 +113,15 @@ describe('[I11 follow-ups] Professionals', () => {
     expect(await count(`nestly.legal_consents where user_id = '${mia}' and not has_declared_qualification`)).toBe(1);
   });
 
+  it('[FR-SEARCH-001 SRS audit 21.10] People Search finds a Professional, marked as one; a Regular account unmarked', T, async () => {
+    const found = await search(database, as(mia), 'Lea Lactation', 'people');
+    if (found.kind !== 'ok') throw new Error(`search: ${found.kind}`);
+    expect(found.response.people).toContainEqual({ userId: pro, fullName: 'Lea Lactation', isProfessional: true });
+    const regular = await search(database, as(pro), 'Mia Regular', 'people');
+    if (regular.kind !== 'ok') throw new Error(`search: ${regular.kind}`);
+    expect(regular.response.people).toContainEqual({ userId: mia, fullName: 'Mia Regular', isProfessional: false });
+  });
+
   it('[PG-039 FR-FOLLOW-001] the following list shows whom the caller follows, and unfollow removes it', T, async () => {
     expect(await listFollowing(database, as(mia))).toEqual([]);
     ok(await changeFollow(database, as(mia), pro, true));
@@ -126,6 +137,8 @@ describe('[I11 follow-ups] Professionals', () => {
     expect(await types(pro)).not.toContain('followers_weekly');
     const prefs = await readPreferences(database, as(pro));
     expect(prefs.kind === 'ok' && prefs.categories.map((c) => c.category)).toEqual(expect.arrayContaining(['offers', 'reviews', 'followers']));
+    // FR-NOTIF-002 (SRS audit 21.10.2026): a Professional has no Friends, so no Friends, Friends' posts or children's birthdays categories
+    expect(prefs.kind === 'ok' && prefs.categories.map((c) => c.category).filter((c) => ['friends', 'friend_posts', 'birthdays'].includes(c))).toEqual([]);
     const regular = await readPreferences(database, as(mia));
     expect(regular.kind === 'ok' && regular.categories.map((c) => c.category)).not.toContain('offers');
   });
@@ -186,11 +199,40 @@ describe('[I11 follow-ups] Professionals', () => {
     const before = Number(await text(side`select tests.fx_sf_audit('content_hidden') as v`));
     ok(await moderateContent(database, as(admin), { targetKind: 'review', targetId: review.id, status: 'hidden', reason: 'פוגעני' }));
     expect(Number(await text(side`select tests.fx_sf_audit('content_hidden') as v`))).toBe(before + 1);
-    expect(ok(await readProfessional(database, as(noa), pro)).page.reviews.map((item) => item.id)).not.toContain(review.id);
+    const shown = ok(await readProfessional(database, as(noa), pro)).page;
+    expect(shown.reviews.map((item) => item.id)).not.toContain(review.id);
+    // BR-072 (SRS audit 21.10): the Professional's own dashboard shows the public rating, without the hidden review
+    const dashboard = ok(await readProfessionalHome(database, as(pro))).dashboard;
+    expect({ rating: dashboard.rating, reviewCount: dashboard.reviewCount }).toEqual({ rating: shown.rating, reviewCount: shown.reviewCount });
+    expect(dashboard.reviewCount).toBe(0);
     expect(await moderateContent(database, as(noa), { targetKind: 'article', targetId: article.id, status: 'removed', reason: 'x' })).toEqual({ kind: 'forbidden' });
 
     // the owner deletes the reported article: its open report expires with it
     ok(await removeArticle(database, as(pro), article.id));
     expect(await count(`nestly.reports where target_kind = 'article' and article_id is null and status = 'expired' and reason = 'medical_misinformation'`)).toBeGreaterThanOrEqual(1);
+  });
+it('[FR-ADMIN-010 BR-058 SRS audit 21.10] the analytics screen counts Groups, Professionals and Marketplace: numbers only', T, async () => {
+    const read = async () => {
+      const outcome = await readAdminAnalytics(database, as(admin), 7);
+      if (outcome.kind !== 'ok') throw new Error(`analytics: ${outcome.kind}`);
+      return outcome.view;
+    };
+    const before = await read();
+    ok(await changeFollow(database, as(mia), pro, true));
+    const after = await read();
+    expect(after.professionals.follows).toBe(before.professionals.follows + 1);
+    expect(after.professionals.active).toBe(await count(`nestly.professional_profiles where user_status = 'active'`));
+    expect(after.professionals.byField.find((row) => row.field === 'lactation')?.count).toBeGreaterThanOrEqual(1);
+    expect(after.professionals.chatStarts).toBeGreaterThanOrEqual(1); // mia's chat with the Professional, this week
+    const since = `(date_trunc('day', now() at time zone 'Asia/Jerusalem') - interval '6 days') at time zone 'Asia/Jerusalem'`;
+    expect(after.marketplace.created).toBe(await count(`nestly.marketplace_listings where created_at >= ${since}`));
+    expect(after.groups.active.public).toBe(await count(`nestly.groups where status = 'active' and privacy = 'public'`));
+    expect(after.groups.active.private).toBe(await count(`nestly.groups where status = 'active' and privacy = 'private'`));
+    // Public Group content is counted in active Groups only, as the members are (a deleted Group's posts are not)
+    const inPublic = (table: string) => `nestly.${table} x join nestly.groups g on g.id = x.group_id where g.status = 'active' and g.privacy = 'public' and x.created_at >= ${since}`;
+    expect(after.groups.publicPosts).toBe(await count(inPublic('posts')));
+    expect(after.groups.publicComments).toBe(await count(inPublic('comments')));
+    expect(JSON.stringify({ g: after.groups, p: after.professionals, m: after.marketplace })).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-/);
+    expect((await readAdminAnalytics(database, as(mia), 7)).kind).toBe('forbidden');
   });
 });

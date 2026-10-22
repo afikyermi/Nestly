@@ -50,6 +50,7 @@ import {
   updateAnnouncement,
   updateReportReason,
 } from '../repositories/team-repository.js';
+import { readAreaAnalytics } from '../repositories/analytics-areas-repository.js';
 import type { Outcome, Refusal } from './admin-service.js';
 
 /** The SHA-256 (hex) of an invitation code: the only form the database keeps. */
@@ -245,7 +246,7 @@ export async function readAdminAnalytics(database: Database, identity: Identity,
   return inIdentityTransaction(database, identity, async (tx) => {
     if (!(await holds(tx, 'ANALYTICS_VIEW'))) return { kind: 'forbidden' };
     await nameAnalytics(tx);
-    return { kind: 'ok', view: await readAnalytics(tx, days) };
+    return { kind: 'ok', view: { ...(await readAnalytics(tx, days)), ...(await readAreaAnalytics(tx, days)) } };
   });
 }
 

@@ -228,7 +228,7 @@ test.describe('AppShell: side menu', () => {
     }
   });
 
-  test('[F1.2 c20][F2.5 c2][FR-MENU-001] activating "חשבון" closes the drawer, shows Settings (h1 הגדרות, the Account h2 focused) with no reload', async ({
+  test('[F1.2 c20][F2.5 c2][FR-MENU-001] activating "חשבון" closes the drawer, shows Settings (h1 הגדרות) with no reload; the section focus with a real session is settings-menu.spec', async ({
     page,
   }) => {
     await open(page, '/feed', 'signed-in');
@@ -238,7 +238,8 @@ test.describe('AppShell: side menu', () => {
     await expect.poll(() => new URL(page.url()).pathname).toBe('/settings');
     await expect(drawerOf(page)).toHaveCount(0);
     await expect(h1Of(page)).toHaveText('הגדרות');
-    await expect(page.getByRole('heading', { level: 2, name: 'חשבון', exact: true })).toBeFocused();
+    // a forced session has no token, so the account's kind is unknown: Settings shows its load failure, never a guessed section (SRS audit 21.10)
+    await expect(page.getByText('לא הצלחנו לטעון את ההגדרות. אפשר לנסות שוב')).toBeVisible();
     expect(await markerAlive(page)).toBe(true);
   });
 

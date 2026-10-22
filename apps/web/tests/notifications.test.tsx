@@ -18,6 +18,9 @@ describe('[AC-040] the sentence and the link', () => {
     expect(sentenceOf({ ...base, type: 'comment_reply', actor: 'author', actorName: null })).toBe('תשובה חדשה של המחבר לתגובה שלך');
   });
 
+  it("[BR-037 AC-046] a Friend's child's birthday names the parent only: no child's name, age or birth date (Afik 21.10, OP-060)", () => {
+    expect(sentenceOf({ ...base, type: 'child_birthday' })).toBe('יום הולדת לילד או לילדה של דנה לוי');
+  });
   it('[AC-040] a post notification links to the post, a person one to the profile; the bell\'s name carries the unread count', () => {
     expect(hrefOf(base)).toBe(`/posts/${ID}`);
     expect(hrefOf({ targetKind: 'user', targetId: ID })).toBe(`/u/${ID}`);
