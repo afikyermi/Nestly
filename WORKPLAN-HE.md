@@ -69,6 +69,7 @@
 - `apps/web/tests/google/google-completion.test.tsx` — "an email+password orphan: step 2 has no password field": נכשל בהרצה מלאה תחת עומס ועבר בהרצה חוזרת (20.10, פעמיים).
 - `registration-children-handoff.test.tsx` — נכשל פעם בהרצה מלאה ועבר לבד (20.10).
 - `e2e/journeys-remove.spec.ts` c26 (Escape מחזיר פוקוס ל"הסרה") ו-`e2e/posts.spec.ts` c18 (חלון המחיקה, desktop) — נכשלו פעם אחת בהרצת Chrome מלאה של #138 (ריצה 39519509198) ועברו בהרצה חוזרת (21.10).
+- `e2e/app-shell-guard-stories.spec.ts:82` c27 (axe על סיפורי ה-shell) — ה-story לא סיים להיטען (240 שניות) בהרצת Chrome מלאה מקומית של #168; עבר בהרצה חוזרת לבד (22.10).
 
 ## באגים לטיפול ב-25–26.10
 מתוך יומן החוב שנמחק ב-20.10 (בהיסטוריית git). 🔒 = אבטחה או פרטיות.
