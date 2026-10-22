@@ -180,8 +180,8 @@ select is(
      from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p') and a.attnum > 0 and not a.attisdropped
       and (has_column_privilege('app_jobs', c.oid, a.attnum, 'UPDATE') or has_column_privilege('app_jobs', c.oid, a.attnum, 'INSERT'))),
-  'reports.closed_at, reports.status',
-  '[F3.0-b c14] and may write exactly the status and the close time of a report');
+  'promotion_monthly_summaries.chat_starts, promotion_monthly_summaries.clicks, promotion_monthly_summaries.follows, promotion_monthly_summaries.id, promotion_monthly_summaries.impressions, promotion_monthly_summaries.month, promotion_monthly_summaries.professional_field, promotion_monthly_summaries.promotion_id, promotion_monthly_summaries.target_kind, promotion_monthly_summaries.updated_at, reports.closed_at, reports.status',
+  '[F3.0-b c14 · I13 file 104] and may write exactly the status and the close time of a report, and insert (never update) a month''s promotion summary row');
 
 select is((select pg_catalog.has_schema_privilege('app_jobs', n.oid, 'USAGE') and not pg_catalog.has_schema_privilege('app_jobs', n.oid, 'CREATE')
              from pg_catalog.pg_namespace n where n.nspname = 'nestly'), true, '[F3.0-b c14] app_jobs may use schema nestly, not create in it');
