@@ -9,6 +9,7 @@ Nestly is a community social network for pregnancy planning, pregnancy and paren
 - DB and RLS rules: `.claude/knowledge/data-model.md` (tables: `data-model-tables.md`). Code conventions: `.claude/knowledge/conventions.md`. Design: `docs/design/`.
 - UI skills: `accessibility`, `rtl-hebrew`, `design-system`, `ux-copy-he`. SRS skills: `srs-lookup`, `srs-update`.
 - Open SRS item: ask Afik once per initiative, in one batch, in WORKPLAN "ממתין לך"; keep building other things meanwhile.
+- `AGENTS.md`: the handoff file for Codex, which may work on Nestly between Claude sessions under the same rules. When you start, check WORKPLAN for "עובד כרגע: Codex" / "נעצר: … Codex": take over from its "המשך מכאן", and treat PRs marked "Prepared by Codex" like your own builders' work (done-check before merge). Keep `AGENTS.md` §7 current if Codex will continue.
 
 ## Stack
 React + TypeScript + Tailwind (Vite) · Fastify + TypeScript · Zod in `packages/shared` · PostgreSQL on Supabase via Drizzle · Supabase Auth/Storage · Vercel. TypeScript strict. Reuse existing patterns and components.
