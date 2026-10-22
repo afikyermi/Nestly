@@ -77,7 +77,7 @@ select is(pg_temp.n('d', $$nestly.status_guides where status = 'draft' and publi
 
 -- ---- the Audit Log (BR-026, FR-ADMIN-012 "Audit לכל פרסום, הסתרה ועריכה") ------------------------------------------------------
 select is(tests.fx_sf_audit('guide_created'), 1::bigint, '[F6.1-a c6 BR-026] the creation is in the Audit Log');
-select is(tests.fx_sf_audit('guide_edited'), 1::bigint, '[F6.1-a c6 BR-026] the edit is in the Audit Log');
+select is(tests.fx_sf_audit('guide_edited'), 2::bigint, '[F6.1-a c6 BR-026] both edits are in the Audit Log (the text edit, and the source date added after publishing)');
 select is(tests.fx_sf_audit('guide_published'), 1::bigint, '[F6.1-a c6 BR-026] the publication is in the Audit Log');
 select is(tests.fx_sf_audit('guide_hidden'), 1::bigint, '[F6.1-a c6 BR-026] the hiding is in the Audit Log');
 select is(tests.fx_sf_audit('guide_unpublished'), 1::bigint, '[F6.1-a c6 BR-026] the return to a draft is in the Audit Log');
@@ -87,7 +87,7 @@ select is((select actor_role || ':' || target_kind || ':' || coalesce(permission
 select is((select (before_state->>'status') || '>' || (after_state->>'status') from tests.fx_audit_rows() where action = 'guide_published'), 'draft>published', '[F6.1-a c6] Before and After carry the status');
 select is((select count(*) from tests.fx_audit_rows() where action like 'guide\_%' and (before_state::text like '%גוף המדריך%' or after_state::text like '%גוף המדריך%')), 0::bigint,
   '[F6.1-a c6] the log carries the guide''s length, never its text');
-select is((select (after_state->>'bodyChanged') from tests.fx_audit_rows() where action = 'guide_edited'), 'false', '[F6.1-a c6] an edit says whether the text changed');
+select is((select string_agg(distinct after_state->>'bodyChanged', ',') from tests.fx_audit_rows() where action = 'guide_edited'), 'false', '[F6.1-a c6] an edit says whether the text changed');
 
 -- ---- a stopped Admin writes nothing ---------------------------------------------------------------------------------------------
 select tests.set_status(pg_temp.id('d'), 'suspended');
