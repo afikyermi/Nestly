@@ -6,6 +6,8 @@ import type { Page } from '@playwright/test';
 import { APP, pathOf } from './app-helpers';
 import { ID, setupAdmin } from './support/admin-stub';
 import { CORS, DESKTOP_1280, EMAIL, json, main } from './support/journeys-stub';
+import { named, pageOf, range, setupFeed } from './support/feed-stub';
+import { setupMarketplace } from './support/marketplace-stub';
 import { PROMO, setupProfessionals } from './support/professionals-stub';
 
 test.use({ baseURL: APP, viewport: DESKTOP_1280 });
@@ -115,5 +117,106 @@ test.describe('[I13 §11.1 §11.2] the staff promotions screen', () => {
     await expect(main(page)).toContainText('הגרסה החדשה נשמרה');
     expect(sent.find((s) => s.path === '/api/admin/promotion-settings')?.body).toMatchObject({ feedHighPosts: 300, feedGapMin: 4, feedGapMax: 7, reason: 'יותר תוכן בקהילה' });
     expect(net.sent.length).toBeGreaterThanOrEqual(0);
+  });
+});
+
+test.describe('[I13 §11.1 PG-059] a Moderator on the staff promotions screen', () => {
+  const rows = [
+    { id: ID(81), ownerName: 'רותם צלמת', ownerKind: 'professional', targetKind: 'profile', planKey: 'profile_7' },
+    { id: ID(82), ownerName: 'רותם צלמת', ownerKind: 'professional', targetKind: 'post', planKey: 'post_3' },
+    { id: ID(83), ownerName: 'שירה כהן', ownerKind: 'regular', targetKind: 'listing', planKey: 'listing_3' },
+  ] as const;
+  /** Plays the server: a Moderator reads the promotions of its key only, never the payments or the settings; no key is refused. */
+  async function stubPromotions(page: Page, permissions: readonly string[]): Promise<string[]> {
+    const paths: string[] = [];
+    await page.route('**/api/admin/promotion**', async (route) => {
+      const req = route.request();
+      if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+      const path = new URL(req.url()).pathname;
+      paths.push(path);
+      if (path !== '/api/admin/promotions') return json(route, 403, { error: 'forbidden' });
+      const kinds = [...(permissions.includes('CONTENT_MODERATE') ? ['profile', 'post'] : []), ...(permissions.includes('MARKETPLACE_MODERATE') ? ['listing'] : [])];
+      if (kinds.length === 0) return json(route, 403, { error: 'forbidden' });
+      const promotions = rows
+        .filter((row) => kinds.includes(row.targetKind))
+        .map((row) => ({ ...row, state: 'running', startsAt: '2026-06-15T09:00:00.000Z', endsAt: '2026-06-22T09:00:00.000Z', stoppedBy: null, amountIls: 0, impressions: 0, clicks: 0 }));
+      return json(route, 200, { totals: { running: promotions.length, stopped: 0, ended: 0, payments: 0, sampleRevenueIls: 0, impressions: 0, clicks: 0 }, promotions, isFinance: false });
+    });
+    return paths;
+  }
+
+  test('CONTENT_MODERATE sees the Professionals\' promotions only, with no payments and no settings', async ({ page }) => {
+    await setupAdmin(page, { role: 'moderator', permissions: ['REPORTS_VIEW', 'CONTENT_MODERATE'] });
+    const paths = await stubPromotions(page, ['REPORTS_VIEW', 'CONTENT_MODERATE']);
+    await signIn(page);
+    await page.goto('/admin/promotions');
+    await expect(main(page).getByRole('article')).toHaveCount(2);
+    await expect(main(page).getByRole('article', { name: /פרופיל מקצועי/ })).toBeVisible();
+    await expect(main(page).getByRole('article', { name: /^פוסט/ })).toBeVisible();
+    await expect(main(page).getByRole('article', { name: /מודעה/ })).toHaveCount(0);
+    await expect(main(page)).not.toContainText('תשלומים מדומים');
+    await expect(main(page).getByRole('heading', { name: 'הגדרות הקידום' })).toHaveCount(0);
+    expect(paths).not.toContain('/api/admin/promotion-settings');
+  });
+
+  test('MARKETPLACE_MODERATE sees the listings\' promotions only', async ({ page }) => {
+    await setupAdmin(page, { role: 'moderator', permissions: ['MARKETPLACE_MODERATE'] });
+    await stubPromotions(page, ['MARKETPLACE_MODERATE']);
+    await signIn(page);
+    await page.goto('/admin/promotions');
+    await expect(main(page).getByRole('article')).toHaveCount(1);
+    await expect(main(page).getByRole('article', { name: /מודעה/ })).toBeVisible();
+    await expect(main(page)).not.toContainText('תשלומים מדומים');
+    await expect(main(page).getByRole('heading', { name: 'הגדרות הקידום' })).toHaveCount(0);
+  });
+
+  test('a Moderator with neither key is refused', async ({ page }) => {
+    await setupAdmin(page, { role: 'moderator', permissions: ['REPORTS_VIEW'] });
+    await stubPromotions(page, ['REPORTS_VIEW']);
+    await signIn(page);
+    await page.goto('/admin/promotions');
+    await expect(main(page)).toContainText('אין הרשאה');
+    await expect(main(page).getByRole('article')).toHaveCount(0);
+  });
+});
+
+test.describe('[I13 FR-MKT-004 BR-005 §11.3 §11.5] the Marketplace "מודעה מקודמת" strip', () => {
+  test('a promoted listing is shown at the top in its own strip, marked "מודעה מקודמת", apart from the listings and the sponsored products', async ({ page }) => {
+    await setupMarketplace(page, { promotedListing: true });
+    await signIn(page);
+    await page.goto('/marketplace');
+    const strip = main(page).getByRole('list', { name: 'מודעות מקודמות' });
+    await expect(strip.getByRole('link', { name: 'מנשא מקודם' })).toBeVisible();
+    await expect(strip).toContainText('מודעה מקודמת');
+    await expect(main(page).getByRole('list', { name: 'מודעות', exact: true })).not.toContainText('מנשא מקודם');
+    await expect(main(page).getByRole('region', { name: 'מוצרים ממומנים' })).not.toContainText('מנשא מקודם');
+  });
+});
+
+test.describe('[I13 FR-ALG-007 BR-005 VAL-012 §11.2] the feed "ממומן" post', () => {
+  test('a promoted post sits after its organic posts, marked "ממומן"; its impression is reported once it is shown', async ({ page }) => {
+    const FEED_PROMOTION = '10000000-0000-4000-8000-000000000091';
+    const promoted = named(90, { source: 'promoted', body: 'טיפים לשינה של תינוקות', author: { name: 'יועצת שינה' } });
+    const net = await setupFeed(page, () => pageOf(range(1, 8), null, { promoted: [{ promotionId: FEED_PROMOTION, afterIndex: 4, unit: promoted }] }));
+    const impressions: string[] = [];
+    await page.route(/\/api\/promotions\/[^/]+\/impression$/, async (route) => {
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+      impressions.push(new URL(route.request().url()).pathname);
+      return route.fulfill({ status: 204, headers: CORS });
+    });
+    await page.goto('/login');
+    await page.getByRole('textbox', { name: 'אימייל', exact: true }).fill(EMAIL);
+    await page.getByLabel('סיסמה', { exact: true }).fill(PASSWORD);
+    await page.getByRole('button', { name: 'התחברות', exact: true }).click();
+    await expect.poll(() => pathOf(page)).not.toBe('/login');
+    await page.waitForLoadState('networkidle');
+    net.armed = true;
+    await page.goto('/feed');
+    const cards = page.getByRole('feed', { name: 'פוסטים בפיד' }).getByRole('article');
+    await expect(cards).toHaveCount(9);
+    await expect(cards.nth(4)).toContainText('טיפים לשינה של תינוקות');
+    await expect(cards.nth(4)).toContainText('ממומן');
+    for (const n of [0, 1, 2, 3, 5]) await expect(cards.nth(n)).not.toContainText('ממומן');
+    await expect.poll(() => impressions).toEqual([`/api/promotions/${FEED_PROMOTION}/impression`]);
   });
 });

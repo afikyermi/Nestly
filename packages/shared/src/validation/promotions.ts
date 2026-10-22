@@ -169,8 +169,9 @@ export const promotionSettingsVersion = z.strictObject({
   feedGapMax: z.number().int(),
   feedLowPosts: z.number().int(),
   feedHighPosts: z.number().int(),
-  reason: z.string(),
-  at,
+  /** From the version's Audit Log entry; null for v1 (the default the product started with). */
+  reason: z.string().nullable(),
+  at: at.nullable(),
 });
 export type PromotionSettingsVersion = z.infer<typeof promotionSettingsVersion>;
 export const promotionSettingsResponse = z.strictObject({ versions: z.array(promotionSettingsVersion) });

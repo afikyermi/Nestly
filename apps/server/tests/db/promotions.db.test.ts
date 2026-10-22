@@ -1,10 +1,16 @@
+import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { ListingWrite, ProfessionalProfileWrite } from '@nestly/shared';
+import { parseFeedCursor, type FeedPageResponse, type ListingWrite, type ProfessionalProfileWrite } from '@nestly/shared';
 import { createDatabase, type Database } from '../../src/db/client.js';
 import { inIdentityTransaction } from '../../src/db/identity-transaction.js';
 import { readPromotionConfig } from '../../src/repositories/promotions-repository.js';
-import { createListing, listMarketplace } from '../../src/services/marketplace-service.js';
+import { recordTopics } from '../../src/repositories/search-repository.js';
+import { readFeedPage } from '../../src/services/feed-service.js';
+import { createPost } from '../../src/services/posts-service.js';
+import { onPromotionSkip, type SkipReason } from '../../src/services/promoted-units.js';
+import { readAdminAnalytics } from '../../src/services/team-service.js';
+import { changeListingStatus, createListing, listMarketplace } from '../../src/services/marketplace-service.js';
 import { listProfessionals, registerProfessional } from '../../src/services/professionals-service.js';
 import {
   buyPromotion,
@@ -18,7 +24,7 @@ import {
   writeSettings,
 } from '../../src/services/promotions-service.js';
 import { AUDIENCE, COLD_START_MS, ISSUER, newKey, restoreEnv, startJwks, token, type App, type JwksServer, type TestKey } from '../helpers/identity-fixtures.js';
-import { buildRegisterApp, CLOCK_NOW, post, validBody } from '../helpers/register-app.js';
+import { buildRegisterApp, CLOCK_NOW, EMPTY_DATE, post, validBody } from '../helpers/register-app.js';
 
 // Monetization (I13; Afik 21.10.2026 §11.1–11.6) through the services against the real database (CI `db` job, as app_server): a Professional
 // buys a promotion of its profile with a simulated payment (FR-SERV-010, NFR-SEC-007, AC-098); the Directory shows it apart from the organic list
@@ -118,13 +124,14 @@ describe('[I13] promotions', () => {
   let listingPromotion = '';
   let stroller = '';
 
-  it('[FR-SERV-010 NFR-SEC-007 AC-098 BR-047] a Professional buys a profile promotion with a simulated payment of the sample price', T, async () => {
+  it('[FR-SERV-010 NFR-SEC-007 AC-098 BR-047 ERR-047] a Professional buys a profile promotion with a simulated payment of the sample price', T, async () => {
     const overview = await readOverview(database, as(pro));
     expect(overview.plans.map((plan) => plan.targetKind)).toEqual(expect.arrayContaining(['profile', 'post']));
     expect(overview.plans.some((plan) => plan.targetKind === 'listing')).toBe(false);
     const bought = ok(await buyPromotion(database, as(pro), { planKey: 'profile_7', target: { kind: 'profile' } }));
     profilePromotion = bought.promotionId;
     expect(bought.receipt).toMatchObject({ amountIls: 49, isSimulated: true });
+    // ERR-047: a target that already has a running promotion is refused (no second payment)
     expect(await buyPromotion(database, as(pro), { planKey: 'profile_30', target: { kind: 'profile' } })).toEqual({ kind: 'already_promoted' });
     const billing = await readBilling(database, as(pro));
     expect(billing).toContainEqual(expect.objectContaining({ planKey: 'profile_7', amountIls: 49, isSimulated: true }));
@@ -210,5 +217,182 @@ describe('[I13] promotions', () => {
     expect(await auditCount('promotion_settings_changed')).toBe(before + 1);
     expect((await inIdentityTransaction(database, as(viewer), (tx) => readPromotionConfig(tx))).version).toBe(version);
     expect(ok(await readSettings(database, as(admin))).settings.versions[0]).toMatchObject({ version, reason: `test ${tag}` });
+  });
+});
+
+// ---- the rules around a running promotion: purchase refusals, the feed, privacy and the staff views ----------------------------------------
+const recording = (statements: string[]): Database => {
+  const client = postgres(url(), { max: 1, prepare: false, onnotice: () => undefined, debug: (_c: number, query: string) => void statements.push(query) });
+  return { db: drizzle({ client }), client, close: () => client.end() };
+};
+/** The promoted slot of the viewer's feed that serves `promotionId`, page by page (at most 4); undefined when none does. */
+async function feedSlotOf(userId: string, promotionId: string, db: Database = database): Promise<{ afterIndex: number; organic: number } | undefined> {
+  let cursor: string | null = null;
+  for (let pageNo = 0; pageNo < 4; pageNo += 1) {
+    const outcome = await readFeedPage(db, as(userId), cursor === null ? null : parseFeedCursor(cursor));
+    if (outcome.kind !== 'page') throw new Error(`feed: ${outcome.kind}`);
+    const page: FeedPageResponse = outcome.page;
+    const slot = (page.promoted ?? []).find((unit) => unit.promotionId === promotionId);
+    if (slot !== undefined) return { afterIndex: slot.afterIndex, organic: page.items.length };
+    if (page.nextCursor === null) return undefined;
+    cursor = page.nextCursor;
+  }
+  return undefined;
+}
+const sumOf = (days: ReadonlyArray<{ count: number }> | undefined): number => (days ?? []).reduce((sum, day) => sum + day.count, 0);
+
+describe('[I13] the rules of a running promotion', () => {
+  let pro2 = '';
+  let proPost = '';
+  let followersPost = '';
+  let postPromotion = '';
+  let planner = '';
+  let sleeper = '';
+  let marketMod = ''; // sf_m5: MARKETPLACE_MODERATE (granted here, removed after)
+  let analyst = ''; // sf_m3: ANALYTICS_VIEW only
+  let bare = ''; // sf_m1: staff with no key
+  const skips: SkipReason[] = [];
+  const settings = { dailyCap: 3, directoryUnitsPerPage: 1, feedGapMin: 4, feedGapMax: 7, feedLowPosts: 20, feedHighPosts: 200 };
+
+  beforeAll(async () => {
+    const register = async (fullName: string, over: Record<string, unknown>): Promise<string> => {
+      const userId = await text(side`select tests.fx_new_auth_user()::text as v`);
+      const res = await post(app, `Bearer ${await token({ key, sub: userId })}`, validBody({ fullName, ...over }));
+      if (res.statusCode !== 201) throw new Error(`could not register ${fullName}: ${res.statusCode} ${res.body}`);
+      return userId;
+    };
+    const planning = { stages: ['planning'], dueDate: EMPTY_DATE, children: [] };
+    planner = await register('Pele Planner', planning);
+    sleeper = await register('Shira Sleeper', planning);
+    // a search topic, as the search screen stores it (the topic only, never the text: FR-ALG-008)
+    await inIdentityTransaction(database, as(sleeper), (tx) => recordTopics(tx, ['sleep']));
+    pro2 = await text(side`select tests.fx_new_auth_user()::text as v`);
+    expect(await registerProfessional(database, as(pro2), { ...profile, fullName: 'Shoshi Sleep', field: 'sleep', about: `יועצת שינה ${tag}` })).toEqual({ kind: 'created' });
+    proPost = (await createPost(database, as(pro2), { body: `שינה טובה לתינוק ${tag}`, audience: 'everyone', stageTag: 'has_child' })).id;
+    followersPost = (await createPost(database, as(pro2), { body: `לעוקבים בלבד ${tag}`, audience: 'followers' })).id;
+    for (let i = 0; i < 12; i += 1) await createPost(database, as(seller), { body: `פוסט רגיל ${i} ${tag}`, audience: 'everyone' });
+    postPromotion = ok(await buyPromotion(database, as(pro2), { planKey: 'post_3', target: { kind: 'post', postId: proPost } })).promotionId;
+    marketMod = await text(side`select tests.fx_sf_id('sf_m5')::text as v`);
+    analyst = await text(side`select tests.fx_sf_id('sf_m3')::text as v`);
+    bare = await text(side`select tests.fx_sf_id('sf_m1')::text as v`);
+    for (const who of [marketMod, analyst, bare]) await side`select tests.fx_sf_revoke_all(${who}::uuid)`;
+    await side.begin(async (tx) => {
+      await tx`select 1`;
+      await tx`select tests.fx_sf_grant(${marketMod}::uuid, ${['MARKETPLACE_MODERATE']}::text[])`;
+      await tx`select tests.fx_sf_grant(${analyst}::uuid, ${['ANALYTICS_VIEW']}::text[])`;
+    });
+    onPromotionSkip((reason) => void skips.push(reason));
+  }, COLD_START_MS * 3);
+
+  afterAll(async () => {
+    onPromotionSkip(() => undefined);
+    for (const who of [marketMod, analyst, bare]) await side`select tests.fx_sf_revoke_all(${who}::uuid)`;
+    // v1's values are put back as the newest version
+    await writeSettings(database, as(admin), { ...settings, reason: `restore ${tag}` });
+  });
+
+  it("[ERR-047 VAL-051 BR-047 FR-MKT-004] a purchase is refused for another account's post or listing, a plan of the wrong kind, and a target that is not active or not public", T, async () => {
+    // another Professional's post
+    expect((await buyPromotion(database, as(pro), { planKey: 'post_3', target: { kind: 'post', postId: proPost } })).kind).not.toBe('ok');
+    // another account's listing
+    const theirs = ok(await createListing(database, as(seller), listing({ title: `עגלה של אחרת ${tag}` }))).id;
+    expect((await buyPromotion(database, as(viewer), { planKey: 'listing_3', target: { kind: 'listing', listingId: theirs } })).kind).not.toBe('ok');
+    // a plan of the wrong kind: a profile plan for a post, a post plan for the profile, a post plan for a listing
+    expect((await buyPromotion(database, as(pro2), { planKey: 'profile_7', target: { kind: 'post', postId: proPost } })).kind).not.toBe('ok');
+    expect((await buyPromotion(database, as(pro2), { planKey: 'post_7', target: { kind: 'profile' } })).kind).not.toBe('ok');
+    expect((await buyPromotion(database, as(seller), { planKey: 'post_3', target: { kind: 'listing', listingId: theirs } })).kind).not.toBe('ok');
+    // ERR-047: a target that is no longer eligible — a sold listing, a post not shown to everyone
+    ok(await changeListingStatus(database, as(seller), theirs, 'sold'));
+    expect((await buyPromotion(database, as(seller), { planKey: 'listing_3', target: { kind: 'listing', listingId: theirs } })).kind).not.toBe('ok');
+    expect((await buyPromotion(database, as(pro2), { planKey: 'post_3', target: { kind: 'post', postId: followersPost } })).kind).not.toBe('ok');
+    // nothing was paid for any refusal (the payment and the promotion are one step)
+    expect((await readBilling(database, as(pro2))).map((item) => item.planKey)).toEqual(['post_3']);
+    expect(await readBilling(database, as(viewer))).toEqual([]);
+  });
+
+  it("[FR-ALG-007 §11.2 BR-059] the feed places the promoted post after every N organic posts, N from the Admin's thresholds and the last 48 hours' posts", T, async () => {
+    // fewer posts than the "few" threshold: the smaller gap
+    ok(await writeSettings(database, as(admin), { ...settings, feedLowPosts: 99_998, feedHighPosts: 99_999, reason: `few ${tag}` }));
+    const few = await feedSlotOf(viewer, postPromotion);
+    expect(few, 'the Stage-matching viewer is served the promoted post').toBeDefined();
+    expect((few?.afterIndex ?? 1) % 4).toBe(0);
+    expect(few?.afterIndex ?? 99).toBeLessThanOrEqual(few?.organic ?? 0);
+    // at least the "many" threshold: the larger gap
+    ok(await writeSettings(database, as(admin), { ...settings, feedLowPosts: 0, feedHighPosts: 1, reason: `many ${tag}` }));
+    const many = await feedSlotOf(viewer2, postPromotion);
+    expect(many).toBeDefined();
+    expect((many?.afterIndex ?? 1) % 7).toBe(0);
+    // the Admin's own gap (the gradual middle is packages/shared/tests/promotions.test.ts)
+    ok(await writeSettings(database, as(admin), { ...settings, feedGapMin: 5, feedGapMax: 5, reason: `five ${tag}` }));
+    expect(((await feedSlotOf(viewer, postPromotion))?.afterIndex ?? 1) % 5).toBe(0);
+  });
+
+  it('[FR-ALG-007 §11.2 ERR-028 AC-063] relevance by Stage or search topic; no match means no promoted post, and the skip is logged by reason only', T, async () => {
+    ok(await writeSettings(database, as(admin), { ...settings, reason: `relevance ${tag}` }));
+    // the viewer's Stage (has_child) matches the post's tag; the sleeper's search topic (sleep) matches its text
+    expect(await feedSlotOf(viewer, postPromotion)).toBeDefined();
+    expect(await feedSlotOf(sleeper, postPromotion)).toBeDefined();
+    // a planner with no search topic: neither matches, so no promoted post, and ERR-028's reason code is recorded
+    skips.length = 0;
+    expect(await feedSlotOf(planner, postPromotion)).toBeUndefined();
+    expect(skips).toContain('not_matching');
+    // the owner is never served its own promotion
+    expect(await feedSlotOf(pro2, postPromotion)).toBeUndefined();
+  });
+
+  it('[AC-068 BR-053 VAL-030] paid targeting reads no child, birth date or tracker data, and the analytics carry none', T, async () => {
+    const statements: string[] = [];
+    const db = recording(statements);
+    try {
+      await feedSlotOf(viewer, postPromotion, db);
+      await listProfessionals(db, as(viewer), { field: 'sleep' });
+      await listMarketplace(db, as(viewer), undefined, { q: tag });
+      const overview = await readOverview(db, as(pro2));
+      const view = ok(await readAdminAnalytics(database, as(admin), 30)).view;
+      const childData = /\bnestly\.(children|tracker_events|cycle_entries)\b|birth_date|due_date/i;
+      expect(statements.length).toBeGreaterThan(0);
+      expect(statements.filter((q) => childData.test(q))).toEqual([]);
+      for (const shown of [JSON.stringify(overview.analytics), JSON.stringify(view.promotions), JSON.stringify(view.usage)]) {
+        expect(shown).not.toMatch(/child|birth|due|tracker|cycle|stage/i);
+      }
+    } finally {
+      await db.close();
+    }
+  });
+
+  it("[AC-072 BR-057 VAL-032 FR-PRO-002] the Professional's analytics are its own aggregates: no viewer identity and no search text", T, async () => {
+    await listProfessionals(database, as(sleeper), { field: 'sleep' });
+    await feedSlotOf(sleeper, postPromotion);
+    ok(await recordPromotionEvent(database, as(sleeper), postPromotion, 'click'));
+    const analytics = (await readOverview(database, as(pro2))).analytics;
+    expect(analytics?.paid.clicks).toBeGreaterThanOrEqual(1);
+    const shown = JSON.stringify(analytics);
+    for (const who of [sleeper, viewer, viewer2, planner]) expect(shown).not.toContain(who);
+    // no search text or topic: numbers only, under the fixed keys
+    expect(shown).not.toMatch(new RegExp(`sleep|שינה|תינוק|${tag}`));
+    expect(Object.keys(analytics?.organic ?? {}).sort()).toEqual(['chatStarts', 'engagement', 'followers', 'postReach', 'postViews', 'profileViewers', 'profileViews']);
+    expect(Object.values({ ...analytics?.organic, ...analytics?.paid }).every((value) => value === null || typeof value === 'number')).toBe(true);
+  });
+
+  it('[§11.1 PG-059] a Moderator sees only the promotions of its key, with no payments; staff with no key is refused', T, async () => {
+    const market = ok(await readAdminView(database, as(marketMod))).view;
+    expect(market.isFinance).toBe(false);
+    expect(new Set(market.promotions.map((row) => row.targetKind))).toEqual(new Set(['listing']));
+    expect(market.totals.payments).toBe(0);
+    expect(market.totals.sampleRevenueIls).toBe(0);
+    expect(await readAdminView(database, as(bare))).toEqual({ kind: 'forbidden' });
+    expect(await readSettings(database, as(marketMod))).toEqual({ kind: 'forbidden' });
+  });
+
+  it('[AC-071 OP-039 FR-ADMIN-010] Admin Analytics: usage by day for ANALYTICS_VIEW; the Promotions domain for the Admin only', T, async () => {
+    const forAdmin = ok(await readAdminAnalytics(database, as(admin), 30)).view;
+    expect(forAdmin.usage.dailyLogins).toHaveLength(30);
+    expect(sumOf(forAdmin.usage.postViews)).toBeGreaterThanOrEqual(1);
+    expect(sumOf(forAdmin.promotions?.purchases)).toBeGreaterThanOrEqual(1);
+    expect(forAdmin.promotions?.running.post).toBeGreaterThanOrEqual(1);
+    const forAnalyst = ok(await readAdminAnalytics(database, as(analyst), 30)).view;
+    expect(sumOf(forAnalyst.usage.postViews)).toBe(sumOf(forAdmin.usage.postViews));
+    expect(forAnalyst.promotions).toBeUndefined();
+    expect(await readAdminAnalytics(database, as(viewer), 30)).toEqual({ kind: 'forbidden' });
   });
 });

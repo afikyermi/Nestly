@@ -33,6 +33,7 @@ import {
   countsText,
   revenueText,
   totalsText,
+  SETTINGS_DEFAULT_VERSION,
   versionText,
 } from '@/lib/promotion-texts';
 import { fetchAdminPromotions, fetchPromotionSettings, savePromotionSettings, staffStopPromotion } from '@/services/api/promotions';
@@ -248,8 +249,13 @@ function SettingsPanel() {
         <ul className="mt-4 flex flex-col gap-2 text-small">
           {versions.map((version) => (
             <li key={version.version}>
-              <span className="text-label">{versionText(version.version)}</span> · <time dateTime={version.at}>{formatPostTime(version.at)}</time> ·{' '}
-              <span dir="auto">{version.reason}</span>
+              <span className="text-label">{versionText(version.version)}</span> ·{' '}
+              {version.at === null ? null : (
+                <>
+                  <time dateTime={version.at}>{formatPostTime(version.at)}</time> ·{' '}
+                </>
+              )}
+              <span dir="auto">{version.reason ?? SETTINGS_DEFAULT_VERSION}</span>
             </li>
           ))}
         </ul>

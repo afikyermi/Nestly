@@ -216,13 +216,23 @@ export async function readPromotionConfig(tx: IdentityTx): Promise<PromotionConf
   return row ?? DEFAULT_PROMOTION_CONFIG;
 }
 
-const settingsRow = configRow.extend({ reason: z.string(), at: z.string() });
+const settingsRow = configRow.extend({ reason: z.string().nullable(), at: z.string().nullable() });
 export type PromotionSettingsRow = z.infer<typeof settingsRow>;
 
-/** Every settings version, newest first (the Admin's settings screen). */
+/**
+ * Every settings version, newest first (the Admin's settings screen). The numbers are every active account's; the reason and the time are
+ * read from the version's Audit Log entry (the Admin or AUDIT_LOG_VIEW: audit_log_select_viewer), never from the settings row (20261023900000).
+ * v1, written by the migration, has no entry: no reason and no time.
+ */
 export async function readPromotionSettingsHistory(tx: IdentityTx): Promise<PromotionSettingsRow[]> {
   return z.array(settingsRow).parse(
-    await tx.execute(sql`select ${configColumns}, reason, ${iso('created_at')} as at from nestly.promotion_settings order by version desc limit 20`),
+    await tx.execute(sql`
+      select s.${configColumns}, a.reason, case when a.occurred_at is null then null else ${iso('a.occurred_at')} end as at
+      from nestly.promotion_settings s
+      left join lateral (select l.reason, l.occurred_at from nestly.audit_log l
+                         where l.action = 'promotion_settings_changed' and l.after_state ->> 'version' = s.version::text
+                         order by l.occurred_at desc limit 1) a on true
+      order by s.version desc limit 20`),
   );
 }
 

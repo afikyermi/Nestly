@@ -9,6 +9,8 @@ import { expect, test } from './support/fixtures.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
 
 const main = (page: Page) => page.getByRole('main');
+/** A Preview can take 10 s or more to sign a user up or in (a cold server function): every sign-up step waits this long. */
+const SLOW = 45_000;
 const fresh = (): TestUser => generateTestUser(process.env['GITHUB_RUN_ID'] ?? '', process.env['GITHUB_RUN_ATTEMPT'] ?? '');
 
 async function signUp(page: Page, u: TestUser, fullName: string): Promise<void> {
@@ -23,15 +25,16 @@ async function signUp(page: Page, u: TestUser, fullName: string): Promise<void> 
   await page.keyboard.press('Space');
   await expect(box).toBeChecked();
   await page.getByRole('button', { name: 'יצירת חשבון', exact: true }).click();
-  await expect(page).toHaveURL(/\/recovery-questions$/);
+  await expect(page).toHaveURL(/\/recovery-questions$/, { timeout: SLOW });
   await page.getByLabel(/חיית המחמד/).fill(u.answers.pet);
   await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);
   await page.getByRole('button', { name: 'שמירה', exact: true }).click();
-  await expect(page).toHaveURL(/\/feed$/);
+  await expect(page).toHaveURL(/\/feed$/, { timeout: SLOW });
 }
 
 test.describe.serial('I13 Monetization on the Preview [FR-MKT-004 FR-ALG-007 NFR-SEC-007]', () => {
   test('a Regular promotes its listing with a simulated payment; another Regular finds it at the top, marked "מודעה מקודמת"', async ({ page }, info) => {
+    test.setTimeout(240_000); // three sign-ups on a Preview that may be cold
     const seller = fresh();
     const title = `מנשא לקידום ${/-([0-9a-f]{16})@/.exec(seller.email)?.[1] ?? info.project.name}`;
     await signUp(page, seller, 'שירה מקדמת');
@@ -102,11 +105,11 @@ async function signUpProfessional(page: Page, u: TestUser, fullName: string, fie
   await page.keyboard.press('Space');
   await expect(box).toBeChecked();
   await page.getByRole('button', { name: 'יצירת חשבון', exact: true }).click();
-  await expect(page).toHaveURL(/\/recovery-questions$/);
+  await expect(page).toHaveURL(/\/recovery-questions$/, { timeout: SLOW });
   await page.getByLabel(/חיית המחמד/).fill(u.answers.pet);
   await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);
   await page.getByRole('button', { name: 'שמירה', exact: true }).click();
-  await expect(page).toHaveURL(/\/feed$/);
+  await expect(page).toHaveURL(/\/feed$/, { timeout: SLOW });
 }
 
 async function signOut(page: Page): Promise<void> {
@@ -119,6 +122,7 @@ async function signOut(page: Page): Promise<void> {
 
 test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-PRO-002 FR-ALG-007 BR-005]', () => {
   test('a Professional promotes its profile; a Regular sees it marked "ממומן" and opens it; the Professional sees the counts', async ({ page }, info) => {
+    test.setTimeout(240_000); // three sign-ups on a Preview that may be cold
     const pro = PRO_BY_PROJECT[info.project.name] ?? { name: 'נועה צלמת', field: 'photography' };
     const proUser = fresh();
     await signUpProfessional(page, proUser, pro.name, pro.field);
@@ -157,9 +161,14 @@ test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-
     await page.getByRole('textbox', { name: 'אימייל', exact: true }).fill(proUser.email);
     await page.getByLabel('סיסמה', { exact: true }).fill(proUser.password);
     await page.getByRole('button', { name: 'התחברות', exact: true }).click();
-    await expect(page).not.toHaveURL(/\/login$/);
+    await expect(page).not.toHaveURL(/\/login$/, { timeout: SLOW });
     await page.goto('/pro/promotion');
     await expect(main(page).getByRole('list', { name: 'הקידומים שלי' })).toContainText(/[1-9]\d* חשיפות · [1-9]\d* לחיצות/);
     await expect(main(page).getByRole('heading', { name: 'מקידום בתשלום' })).toBeVisible();
+
+    // TODO(I13 §11.1, WORKPLAN "ממתין לך" 1): the staff step — an Admin or a Moderator with CONTENT_MODERATE stops this promotion with a reason,
+    // then the Professional sees "הקידום הופסק" (no refund). It needs a staff test user on the Preview, created by the CI job with the cleanup
+    // credential (e2e-preview/README.md); that is waiting on Afik. Until then the stop is covered by tests/db/promotions.db.test.ts, pgTAP 104
+    // and e2e/promotions.spec.ts. Never fake it here with a real staff account or one made through the app.
   });
 });

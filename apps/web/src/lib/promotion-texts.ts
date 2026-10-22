@@ -127,4 +127,6 @@ export const SAVE_SETTINGS = 'שמירת גרסה חדשה';
 export const SETTINGS_SAVED = 'הגרסה החדשה נשמרה ונרשמה ביומן הפעולות.';
 export const SETTINGS_FAILED = 'לא הצלחנו לשמור. יש לבדוק את הערכים ולנסות שוב.';
 export const SETTINGS_INVALID = 'הערכים לא תקינים: המרווח הגדול לא קטן מהקטן, והסף של "הרבה" גבוה מהסף של "מעט".';
+/** v1, the product's starting values (no Audit Log entry). */
+export const SETTINGS_DEFAULT_VERSION = 'ערכי ההתחלה';
 export const versionText = (version: number): string => `גרסה ${version}`;
