@@ -15,7 +15,7 @@ import {
   type PromotionTargetKind,
   type UsageEventKind,
 } from '@nestly/shared';
-import { sql, type SQL } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { IdentityTx } from '../db/identity-transaction.js';
 
@@ -260,6 +260,9 @@ export async function staffStopPromotion(tx: IdentityTx, id: string, reason: str
   return rows.length;
 }
 
+/** A random sample of this size per page view, so that with many running promotions each still gets its turn (rotation, FR-ALG-007). */
+const CANDIDATE_LIMIT = 500;
+
 const candidateRow = z.object({ promotionId: z.guid(), targetId: z.guid() });
 export type PromotedCandidate = z.infer<typeof candidateRow>;
 
@@ -284,7 +287,7 @@ export async function readPromotedCandidates(tx: IdentityTx, kind: PromotionTarg
       select p.id as "promotionId", ${target} as "targetId" from nestly.promotions p
       where p.target_kind = ${kind} and p.status = 'active' and p.starts_at <= now() and p.ends_at > now()
         and p.owner_id <> (select auth.uid()) and ${eligible}
-      order by p.id limit 200`),
+      order by random() limit ${CANDIDATE_LIMIT}`),
   );
 }
 
@@ -371,9 +374,12 @@ export async function readPromotionTotals(tx: IdentityTx, kinds: readonly Promot
   return row ?? { running: 0, stopped: 0, ended: 0, impressions: 0, clicks: 0 };
 }
 
-/** Every promotion with its payment's sample amount and its paid counts, newest first (read only; the finance policies decide who reads). */
-export async function readAdminPromotions(tx: IdentityTx): Promise<AdminPromotions> {
-  const rows = z.array(adminRow).parse(
+/**
+ * The promotions of these kinds with their payment's sample amount and paid counts, newest first, up to 200 (read only; the policies decide
+ * who reads which rows). The kinds narrow the list before the limit, so a Moderator's 200 are all of its keys' kinds.
+ */
+export async function readAdminPromotions(tx: IdentityTx, kinds: readonly PromotionTargetKind[]): Promise<AdminPromotions['promotions']> {
+  return z.array(adminRow).parse(
     await tx.execute(sql`
       select p.id, coalesce(pr.full_name, n.full_name) as "ownerName", case when p.target_kind = 'listing' then 'regular' else 'professional' end as "ownerKind",
              p.target_kind as "targetKind", p.plan_key as "planKey", ${stateOf} as state, ${iso('p.starts_at')} as "startsAt", ${iso('p.ends_at')} as "endsAt",
@@ -382,40 +388,16 @@ export async function readAdminPromotions(tx: IdentityTx): Promise<AdminPromotio
       from nestly.promotions p
       left join nestly.professional_profiles pr on pr.user_id = p.owner_id
       left join nestly.regular_names n on n.user_id = p.owner_id
+      where p.target_kind = any (${sql.param([...kinds])}::text[])
       order by p.created_at desc, p.id limit 200`),
   );
+}
+
+/** The Admin's totals: every promotion by state and its paid events, and the simulated payments (BILLING_FINANCE_MANAGE's rows). */
+export async function readFinanceTotals(tx: IdentityTx): Promise<AdminPromotions['totals']> {
   const [money] = z
     .array(z.object({ payments: count, revenue: count }))
     .parse(await tx.execute(sql`select count(*) as payments, coalesce(sum(amount_ils), 0) as revenue from nestly.promotion_payments`));
-  return { totals: { ...(await readPromotionTotals(tx, PROMOTION_TARGET_KINDS)), payments: money?.payments ?? 0, sampleRevenueIls: money?.revenue ?? 0 }, promotions: rows, isFinance: false };
+  return { ...(await readPromotionTotals(tx, PROMOTION_TARGET_KINDS)), payments: money?.payments ?? 0, sampleRevenueIls: money?.revenue ?? 0 };
 }
 
-const dayRow = z.object({ day: z.string(), count });
-
-/** Admin Analytics (AC-071): the Promotions domain by day — purchases, impressions and clicks — over the rows the finance policies show. */
-export async function readPromotionDays(tx: IdentityTx, days: number): Promise<{ purchases: z.infer<typeof dayRow>[]; impressions: z.infer<typeof dayRow>[]; clicks: z.infer<typeof dayRow>[] }> {
-  const series = (inner: SQL) =>
-    sql`select to_char(g.day, 'YYYY-MM-DD') as day, coalesce(c.n, 0) as count
-        from generate_series((${today} - ${days - 1}::int)::timestamp, ${today}::timestamp, interval '1 day') as g(day)
-        left join (${inner}) c on c.d = g.day::date order by g.day`;
-  const purchases = z.array(dayRow).parse(
-    await tx.execute(series(sql`select (created_at at time zone 'Asia/Jerusalem')::date as d, count(*) as n from nestly.promotion_payments group by 1`)),
-  );
-  const events = (kind: string) => sql`select occurred_on as d, sum(times) as n from nestly.promotion_events where kind = ${kind} group by 1`;
-  const impressions = z.array(dayRow).parse(await tx.execute(series(events('impression'))));
-  const clicks = z.array(dayRow).parse(await tx.execute(series(events('click'))));
-  return { purchases, impressions, clicks };
-}
-
-/** Admin Analytics (OP-039): daily logins (one per account and day) and views by day, from the usage events (ANALYTICS_VIEW, no account). */
-export async function readUsageDays(tx: IdentityTx, days: number): Promise<{ logins: z.infer<typeof dayRow>[]; views: z.infer<typeof dayRow>[] }> {
-  const series = (kinds: readonly string[]) =>
-    sql`select to_char(g.day, 'YYYY-MM-DD') as day, coalesce(c.n, 0) as count
-        from generate_series((${today} - ${days - 1}::int)::timestamp, ${today}::timestamp, interval '1 day') as g(day)
-        left join (select occurred_on as d, sum(times) as n from nestly.usage_events where kind = any (${sql.param([...kinds])}::text[]) group by 1) c
-          on c.d = g.day::date order by g.day`;
-  return {
-    logins: z.array(dayRow).parse(await tx.execute(series(['daily_login']))),
-    views: z.array(dayRow).parse(await tx.execute(series(['profile_view', 'post_view']))),
-  };
-}

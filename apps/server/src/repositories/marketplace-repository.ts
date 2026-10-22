@@ -93,7 +93,7 @@ export async function readMarketplace(
       left join nestly.regular_names n on n.user_id = l.owner_id
       where ${sql.join(filters, sql` and `)}
       order by ${order}, l.id
-      limit ${MARKETPLACE_PAGE}`),
+      limit ${onlyIds === undefined ? MARKETPLACE_PAGE : Math.max(onlyIds.length, 1)}`),
   );
 }
 

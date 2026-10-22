@@ -98,6 +98,10 @@ export const stopOwnPromotion = (token: string, id: string): Promise<ProResult<n
 /** POST /api/promotions/:id/click: the viewer opened a promoted unit (a paid click). Best effort: the screen never waits on it. */
 export const reportPromotionClick = (token: string, id: string): Promise<ProResult<null>> => call(token, 'POST', `/api/promotions/${enc(id)}/click`, nothing);
 
+/** POST /api/promotions/:id/impression: the feed showed a promoted post (FR-ALG-007). Best effort: the screen never waits on it. */
+export const reportPromotionImpression = (token: string, id: string): Promise<ProResult<null>> =>
+  call(token, 'POST', `/api/promotions/${enc(id)}/impression`, nothing);
+
 /** GET /api/promotions/billing (PG-042): the caller's simulated payments. */
 export async function fetchBilling(token: string): Promise<ProResult<BillingItem[]>> {
   const result = await call(token, 'GET', '/api/promotions/billing', billingResponse);

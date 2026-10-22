@@ -26,7 +26,7 @@ import {
   readBilling,
   readOverview,
   readSettings,
-  recordClick,
+  recordPromotionEvent,
   staffStop,
   stopOwnPromotion,
   writeSettings,
@@ -111,9 +111,16 @@ export function registerPromotionsRoutes(app: FastifyInstance, deps: PromotionsR
   app.post('/api/promotions/:id/click', (request, reply) => {
     const id = idOf(request);
     if (!id.success) return invalid(reply);
-    return answer(request, reply, db(), 'promotion click failed', (database, identity) => recordClick(database, identity, id.data.id), () => null);
+    return answer(request, reply, db(), 'promotion click failed', (database, identity) => recordPromotionEvent(database, identity, id.data.id, 'click'), () => null);
   });
   others('/api/promotions/:id/click', ['POST']);
+
+  app.post('/api/promotions/:id/impression', (request, reply) => {
+    const id = idOf(request);
+    if (!id.success) return invalid(reply);
+    return answer(request, reply, db(), 'promotion impression failed', (database, identity) => recordPromotionEvent(database, identity, id.data.id, 'impression'), () => null);
+  });
+  others('/api/promotions/:id/impression', ['POST']);
 
   app.get('/api/admin/promotions', (request, reply) =>
     answer(request, reply, db(), 'admin promotions failed', (database, identity) => readAdminView(database, identity), (v) => v.view),

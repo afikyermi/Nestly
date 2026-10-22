@@ -148,7 +148,7 @@ export async function readDirectory(
       ) x
       where coalesce(x.rating, 0) >= ${minRating}
       order by ${order}, x.id
-      limit ${DIRECTORY_LIMIT}`),
+      limit ${onlyIds === undefined ? DIRECTORY_LIMIT : Math.max(onlyIds.length, 1)}`),
   );
 }
 

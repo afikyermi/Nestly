@@ -34,8 +34,14 @@ import {
 } from '../repositories/promotions-repository.js';
 
 /** Why an eligible-looking candidate was not shown (ERR-028): its frequency cap for this viewer, or it did not match the page. */
-export type SkipReason = 'cap' | 'not_matching';
+export type SkipReason = 'cap' | 'not_matching' | 'seen_today';
 export type OnSkip = (reason: SkipReason, count: number) => void;
+
+// ERR-028: where a skipped candidate's reason is recorded (the server's log, set once at start; by reason and count, never by id)
+let skipLog: OnSkip = () => undefined;
+export function onPromotionSkip(log: OnSkip): void {
+  skipLog = log;
+}
 
 /** Only a Regular or a Professional is shown promoted units; a staff account (and no account) never. */
 async function viewerSeesAds(tx: IdentityTx): Promise<boolean> {
@@ -65,14 +71,14 @@ export async function rankPaid(
 }
 
 /** The Directory's promoted Professionals (above the organic list, up to `directoryUnitsPerPage`), matching the page's filters. */
-export async function promotedProfessionals(tx: IdentityTx, query: DirectoryQuery, onSkip?: OnSkip): Promise<{ promotionId: string; card: ProfessionalCard }[]> {
+export async function promotedProfessionals(tx: IdentityTx, query: DirectoryQuery, onSkip: OnSkip = skipLog): Promise<{ promotionId: string; card: ProfessionalCard }[]> {
   if (!(await viewerSeesAds(tx))) return [];
   const candidates = await readPromotedCandidates(tx, 'profile');
   if (candidates.length === 0) return [];
   const config = await readPromotionConfig(tx);
   const cards = new Map((await readDirectory(tx, { ...query, sort: 'rating' }, [], candidates.map((c) => c.targetId))).map((card) => [card.id, card]));
   const matching = candidates.filter((c) => cards.has(c.targetId));
-  if (matching.length < candidates.length) onSkip?.('not_matching', candidates.length - matching.length);
+  if (matching.length < candidates.length) onSkip('not_matching', candidates.length - matching.length);
   return (await rankPaid(tx, matching, config, config.directoryUnitsPerPage, onSkip)).flatMap((c) => {
     const card = cards.get(c.targetId);
     return card === undefined ? [] : [{ promotionId: c.promotionId, card }];
@@ -80,14 +86,14 @@ export async function promotedProfessionals(tx: IdentityTx, query: DirectoryQuer
 }
 
 /** The Marketplace's promoted listings (§11.3): at the top, every one that matches the search and the filters, no cap; apart from the sponsored products. */
-export async function promotedListings(tx: IdentityTx, query: MarketplaceQuery, onSkip?: OnSkip): Promise<{ promotionId: string; row: ListingRow }[]> {
+export async function promotedListings(tx: IdentityTx, query: MarketplaceQuery, onSkip: OnSkip = skipLog): Promise<{ promotionId: string; row: ListingRow }[]> {
   if (!(await viewerSeesAds(tx))) return [];
   const candidates = await readPromotedCandidates(tx, 'listing');
   if (candidates.length === 0) return [];
   const config = await readPromotionConfig(tx);
   const rows = new Map((await readMarketplace(tx, { ...query, sort: 'new' }, [], candidates.map((c) => c.targetId))).map((row) => [row.id, row]));
   const matching = candidates.filter((c) => rows.has(c.targetId));
-  if (matching.length < candidates.length) onSkip?.('not_matching', candidates.length - matching.length);
+  if (matching.length < candidates.length) onSkip('not_matching', candidates.length - matching.length);
   return (await rankPaid(tx, matching, config, matching.length, onSkip, { capped: false })).flatMap((c) => {
     const row = rows.get(c.targetId);
     return row === undefined ? [] : [{ promotionId: c.promotionId, row }];
@@ -105,7 +111,7 @@ export async function promotedPosts(
   onPage: ReadonlySet<string>,
   organicCount: number,
   laterPage: boolean,
-  onSkip?: OnSkip,
+  onSkip: OnSkip = skipLog,
 ): Promise<{ promotionId: string; postId: string; afterIndex: number }[]> {
   if ((patterns.length === 0 && stages.length === 0) || organicCount === 0 || !(await viewerSeesAds(tx))) return [];
   const candidates = (await readPromotedCandidates(tx, 'post')).filter((c) => !onPage.has(c.targetId));
@@ -117,8 +123,10 @@ export async function promotedPosts(
   const relevance = await readMatchingPosts(tx, candidates.map((c) => c.targetId), patterns, stages);
   // a later page of the same scroll never repeats a promotion the viewer already saw today (it would be dropped as a duplicate on screen)
   const seenToday = laterPage ? await readTodayImpressions(tx, candidates.map((c) => c.promotionId)) : new Map<string, number>();
-  const matching = candidates.filter((c) => relevance.has(c.targetId) && (seenToday.get(c.promotionId) ?? 0) === 0);
-  if (matching.length < candidates.length) onSkip?.('not_matching', candidates.length - matching.length);
+  const relevant = candidates.filter((c) => relevance.has(c.targetId));
+  if (relevant.length < candidates.length) onSkip('not_matching', candidates.length - relevant.length);
+  const matching = relevant.filter((c) => (seenToday.get(c.promotionId) ?? 0) === 0);
+  if (matching.length < relevant.length) onSkip('seen_today', relevant.length - matching.length);
   const chosen = await rankPaid(tx, matching, config, slots, onSkip, { relevance });
   return chosen.map((c, i) => ({ promotionId: c.promotionId, postId: c.targetId, afterIndex: gap * (i + 1) }));
 }

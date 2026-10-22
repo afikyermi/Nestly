@@ -58,9 +58,9 @@ export const PLAN_LABELS: Readonly<Record<PromotionPlanKey, string>> = {
 
 export const ORGANIC_LABELS = {
   profileViews: 'צפיות בפרופיל',
-  profileViewers: 'צופים בפרופיל',
+  profileViewers: 'צופים בפרופיל (כל צופה פעם ביום)',
   postViews: 'צפיות בפוסטים',
-  postReach: 'חשיפה של הפוסטים',
+  postReach: 'חשיפה של הפוסטים (כל צופה פעם ביום)',
   followers: 'עוקבים',
   engagement: 'תגובות ולייקים',
   chatStarts: 'שיחות שנפתחו',

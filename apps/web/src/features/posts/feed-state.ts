@@ -96,6 +96,12 @@ export function withPromoted(page: FeedPageResponse): FeedUnit[] {
   return out;
 }
 
+/** I13 (FR-ALG-007): the promotions whose post this page adds to `shown` as a promoted unit (not already on the list, nor organic on the page). */
+export function shownPromotions(shown: readonly FeedUnit[], page: FeedPageResponse): string[] {
+  const seen = new Set([...shown, ...page.items].map((unit) => unit.id));
+  return (page.promoted ?? []).filter((slot) => !seen.has(slot.unit.id)).map((slot) => slot.promotionId);
+}
+
 /** A loaded page joins the list (de-duplicated by unit id), or replaces it: the first page and `restarted` (a new snapshot). */
 export function withPage(state: FeedState, page: FeedPageResponse, firstPage: boolean, afterRetry: boolean): FeedState {
   const replace = firstPage || page.restarted === true;

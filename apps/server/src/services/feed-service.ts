@@ -289,12 +289,11 @@ export async function readFeedPage(database: Database, identity: Identity, curso
     isolationLevel: 'repeatable read',
   });
   if (outcome.kind !== 'page') return outcome;
-  // I13 (OP-039, FR-PRO-002, FR-ALG-007): the page's exposure — a post view, its Professionals' organic post views, the promoted posts'
-  // impressions — recorded after the page was read, in its own transaction (never the page's failure)
+  // I13 (OP-039, FR-PRO-002): the page's exposure — a post view and its Professionals' organic post views — recorded after the page was read,
+  // in its own transaction (never the page's failure). A promoted post's impression is reported by the screen when it shows it (FR-ALG-007).
   const promoted = outcome.page.promoted ?? [];
   await recordExposure(database, identity, {
     usage: 'post_view',
-    impressions: promoted.map((slot) => slot.promotionId),
     professionalViews: professionalAuthors.map((professionalId) => ({ professionalId, kind: 'post_view' as const })),
   });
   if (imageRows.length === 0) return outcome;

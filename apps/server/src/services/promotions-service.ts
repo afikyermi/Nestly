@@ -27,6 +27,7 @@ import {
   insertPromotion,
   insertPromotionEvent,
   readAdminPromotions,
+  readFinanceTotals,
   readPromotionTotals,
   readOwnAnalyticsCounts,
   readOwnPayments,
@@ -161,11 +162,15 @@ export async function readBilling(database: Database, identity: Identity): Promi
   return inIdentityTransaction(database, identity, (tx) => readOwnPayments(tx));
 }
 
-/** POST /api/promotions/:id/click: the viewer opened a promoted unit (a paid click; the owner's own and staff's are refused by the database). */
-export async function recordClick(database: Database, identity: Identity, id: string): Promise<PromotionOutcome<object>> {
+/**
+ * POST /api/promotions/:id/click: the viewer opened a promoted unit (a paid click). POST /api/promotions/:id/impression: the feed showed a promoted
+ * post — reported by the screen, which alone knows the post was not already on it (a duplicate is never shown, so never counted). The owner's
+ * own and staff's are refused by the database, which also caps both a day.
+ */
+export async function recordPromotionEvent(database: Database, identity: Identity, id: string, kind: 'click' | 'impression'): Promise<PromotionOutcome<object>> {
   return guarded(() =>
     inIdentityTransaction(database, identity, async (tx): Promise<PromotionOutcome<object>> => {
-      await insertPromotionEvent(tx, id, 'click');
+      await insertPromotionEvent(tx, id, kind);
       return { kind: 'ok' };
     }),
   );
@@ -193,11 +198,10 @@ export async function readAdminView(database: Database, identity: Identity): Pro
     const isFinance = access.role === 'admin';
     const kinds = staffKinds(access);
     if (!isFinance && kinds.length === 0) return { kind: 'forbidden' };
-    const view = await readAdminPromotions(tx);
-    if (isFinance) return { kind: 'ok', view: { ...view, isFinance } };
     // A Moderator works with the promotions of its keys (§11.1). This narrows the list to what it may act on; what it may read and stop is
     // the database's (promotions_select_staff / promotions_update_staff), and it reads no payment and no paid event (BILLING_FINANCE_MANAGE).
-    const promotions = view.promotions.filter((row) => kinds.includes(row.targetKind));
+    const promotions = await readAdminPromotions(tx, kinds);
+    if (isFinance) return { kind: 'ok', view: { totals: await readFinanceTotals(tx), promotions, isFinance } };
     const totals = { ...(await readPromotionTotals(tx, kinds)), payments: 0, sampleRevenueIls: 0 };
     return { kind: 'ok', view: { totals, promotions, isFinance } };
   });

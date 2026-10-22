@@ -18,6 +18,7 @@ import { registerChatRoutes } from './routes/chat.js';
 import { registerProfessionalsRoutes } from './routes/professionals.js';
 import { registerMarketplaceRoutes } from './routes/marketplace.js';
 import { registerPromotionsRoutes } from './routes/promotions.js';
+import { onPromotionSkip } from './services/promoted-units.js';
 import { registerSupportRoutes } from './routes/support.js';
 import { registerReportsRoutes } from './routes/reports.js';
 import { registerNotificationsRoutes } from './routes/notifications.js';
@@ -162,6 +163,8 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerProfessionalsRoutes(app, { database });
   registerMarketplaceRoutes(app, { database, storage: media.storage });
   registerPromotionsRoutes(app, { database });
+  // ERR-028: a promoted candidate not shown is recorded by its reason code only
+  onPromotionSkip((reason, count) => app.log.info({ promotionSkip: reason, count }, 'promoted candidates skipped'));
   registerSupportRoutes(app, { database });
   registerAdminReadRoutes(app, { database, storage: media.storage });
   registerAdminActionRoutes(app, { database });

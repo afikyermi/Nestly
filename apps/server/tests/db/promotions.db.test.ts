@@ -12,7 +12,7 @@ import {
   readBilling,
   readOverview,
   readSettings,
-  recordClick,
+  recordPromotionEvent,
   staffStop,
   stopOwnPromotion,
   writeSettings,
@@ -141,7 +141,7 @@ describe('[I13] promotions', () => {
     // the owner is never shown its own promotion
     expect((await listProfessionals(database, as(pro), { field: 'photography' })).promoted.map((unit) => unit.promotionId)).not.toContain(profilePromotion);
     // a paid click is recorded; the owner's analytics count it apart from the organic numbers (FR-PRO-002, AC-072)
-    ok(await recordClick(database, as(viewer), profilePromotion));
+    ok(await recordPromotionEvent(database, as(viewer), profilePromotion, 'click'));
     const analytics = (await readOverview(database, as(pro))).analytics;
     expect(analytics?.paid.clicks).toBeGreaterThanOrEqual(1);
     expect(analytics?.paid.impressions).toBeGreaterThanOrEqual(1);

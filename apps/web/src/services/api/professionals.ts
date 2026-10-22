@@ -91,11 +91,6 @@ export async function fetchAccountKind(token: string): Promise<ProResult<Account
   return result.kind === 'ok' ? { kind: 'ok', value: result.value.kind } : result;
 }
 
-export async function fetchDirectory(token: string, query: DirectoryQuery): Promise<ProResult<ProfessionalCard[]>> {
-  const result = await fetchDirectoryPage(token, query);
-  return result.kind === 'ok' ? { kind: 'ok', value: result.value.professionals } : result;
-}
-
 /** GET /api/professionals with the promoted Professionals that match the same filters (I13: shown apart, labelled "ממומן"). */
 export function fetchDirectoryPage(token: string, query: DirectoryQuery): Promise<ProResult<{ professionals: ProfessionalCard[]; promoted: PromotedProfessional[] }>> {
   const params = new URLSearchParams();
