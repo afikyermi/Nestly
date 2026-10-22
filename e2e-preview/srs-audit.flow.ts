@@ -85,6 +85,8 @@ function israelToday(): { day: number; month: number; year: number } {
 }
 
 test('[FR-SEARCH-001 FR-SET-001 FR-NOTIF-002 BR-037 AC-046] the SRS-audit fixes, each seen from the other side', async ({ page, browser, baseURL, bypassSecret }) => {
+  // Three fresh accounts sign up on a cold Preview (each sign-up can take 10 s or more): 3 minutes, not the config's 90 s.
+  test.setTimeout(180_000);
   if (baseURL === undefined) throw new Error('preview-e2e: no baseURL');
   const origin = new URL(baseURL).origin;
   const contexts: BrowserContext[] = [];
