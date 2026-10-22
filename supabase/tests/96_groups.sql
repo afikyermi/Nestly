@@ -95,10 +95,10 @@ select is((select string_agg(c.relname || '.' || pl.polname || ':' || pl.polcmd:
               'private_group_content_views')),
   'group_access.group_access_insert_member:a, group_access.group_access_select_own:r, group_bans.group_bans_delete_manager:d, '
   || 'group_bans.group_bans_insert_manager:a, group_bans.group_bans_select_party:r, group_highlight_configurations.group_highlight_configurations_select_all:r, '
-  || 'group_invitations.group_invitations_insert_manager:a, group_invitations.group_invitations_select_party:r, group_invitations.group_invitations_update_invitee:w, '
-  || 'group_invitations.group_invitations_update_manager:w, group_join_requests.group_join_requests_insert_self:a, group_join_requests.group_join_requests_select_party:r, '
+  || 'group_invitations.group_invitations_insert_member:a, group_invitations.group_invitations_select_party:r, group_invitations.group_invitations_update_approver:w, '
+  || 'group_invitations.group_invitations_update_invitee:w, group_invitations.group_invitations_update_manager:w, group_join_requests.group_join_requests_insert_self:a, group_join_requests.group_join_requests_select_party:r, '
   || 'group_join_requests.group_join_requests_update_manager:w, group_join_requests.group_join_requests_update_requester:w, '
-  || 'group_members.group_members_delete_manager:d, group_members.group_members_delete_self:d, group_members.group_members_insert_approved:a, '
+  || 'group_members.group_members_delete_blocked:d, group_members.group_members_delete_self:d, group_members.group_members_insert_approved:a, '
   || 'group_members.group_members_insert_owner:a, group_members.group_members_insert_self:a, group_members.group_members_select_notify:r, '
   || 'group_members.group_members_select_viewer:r, group_members.group_members_update_manager:w, group_members.group_members_update_owner_step_down:w, '
   || 'group_notification_preferences.group_notification_preferences_insert_own:a, group_notification_preferences.group_notification_preferences_select_notify:r, '
@@ -106,7 +106,7 @@ select is((select string_agg(c.relname || '.' || pl.polname || ':' || pl.polcmd:
   || 'group_suggestions.group_suggestions_insert_sender:a, group_suggestions.group_suggestions_select_party:r, '
   || 'groups.groups_insert_creator:a, groups.groups_select_active:r, groups.groups_select_reveal:r, groups.groups_update_manager:w, '
   || 'private_group_content_views.private_group_content_views_insert_staff:a, private_group_content_views.private_group_content_views_select_own:r',
-  '[I10 c1] the policies of the group tables, exactly (no client delete of a request, invitation or recommendation; no write on the configuration)');
+  '[I10 c1 · F10.3-a c1] the policies of the group tables, exactly (no client delete of a request, invitation or recommendation; no write on the configuration; I10 completion C: invitations by any member with approval, no plain removal, file 106)');
 select is((select count(*) from pg_policy pl join pg_class c on c.oid = pl.polrelid
             where c.relnamespace = 'nestly'::regnamespace and c.relname like 'group%' and pl.polname !~ '_notify$' and pl.polname <> 'groups_select_reveal'
               and pl.polroles <> array[(select oid from pg_roles where rolname = 'authenticated')]::oid[]), 0::bigint,
@@ -265,11 +265,9 @@ select is(pg_temp.set_role('b', 'pub', 'e', 'member'), 'OK:0', '[I10 c7 AC-038 E
 select is(pg_temp.remove('b', 'pub', 'e'), 'OK:0', '[I10 c7 ERR-019] nor remove them');
 select is(pg_temp.set_role('c', 'pub', 'f', 'moderator'), 'OK:0', '[I10 c7] a Group Moderator manages no Role');
 select is(pg_temp.remove('c', 'pub', 'b'), 'OK:0', '[I10 c7 AC-038] a Group Moderator does not remove an Admin');
-select is(pg_temp.remove('c', 'pub', 'f'), 'OK:1', '[I10 c7 AC-038] a Group Moderator removes a member');
-select is(pg_temp.role_of('pub', 'f'), '-', '[I10 c7] who is no longer a member');
-select is(tests.fx_gr_access(pg_temp.g('pub')) like '%' || pg_temp.id('f')::text || '%', false, '[I10 c7] and whose access copy went with it');
-select is(pg_temp.join('f', 'pub'), 'OK:1', '[I10 c7] a removed member may join a Public Group again (removal is not a block)');
-select is(pg_temp.remove('b', 'pub', 'c'), 'OK:1', '[I10 c7] an Admin removes a Group Moderator');
+select is(pg_temp.remove('c', 'pub', 'f'), 'OK:0', '[I10 c7 · F10.3-a c5 AC-038] a Group Moderator does not simply remove a member: removal comes only with the block (§11.16, file 106)');
+select is(pg_temp.role_of('pub', 'f'), 'member', '[I10 c7 · F10.3-a c5] who stays a member');
+select is(pg_temp.remove('b', 'pub', 'c'), 'OK:0', '[I10 c7 · F10.3-a c5] nor does an Admin simply remove a Group Moderator');
 select pg_temp.join('c', 'pub');
 select is(pg_temp.remove('a', 'pub', 'a'), 'ERR:NS026', '[I10 c7 ERR-026 BR-041] the Owner does not leave before transferring ownership');
 select is(pg_temp.set_role('a', 'pub', 'a', 'admin'), 'ERR:NS026', '[I10 c7 ERR-026] nor steps down without another Owner');
@@ -330,7 +328,7 @@ select is(pg_temp.role_of('priv2', 'c'), 'member', '[I10 c10] and becomes a memb
 select is(pg_temp.dml('a', format($q$ insert into nestly.group_invitations (group_id, invitee_id) values (%L, %L) $q$, pg_temp.g('priv2'), pg_temp.id('c'))),
   'ERR:42501', '[I10 c10] a member is not invited');
 select is(pg_temp.dml('c', format($q$ insert into nestly.group_invitations (group_id, invitee_id) values (%L, %L) $q$, pg_temp.g('priv2'), pg_temp.id('a'))),
-  'ERR:42501', '[I10 c10 FR-GRP-003] a plain member does not invite');
+  'ERR:42501', '[I10 c10 · F10.3-a c3] a member of the Group is not invited (whoever invites; invitations by any member: file 106)');
 select is(pg_temp.dml('a', format($q$ insert into nestly.group_invitations (group_id, invitee_id) values (%L, %L) $q$, pg_temp.g('priv2'), pg_temp.id('e'))),
   'OK:1', '[I10 c10] another invitation');
 select is(pg_temp.dml('e', format($q$ update nestly.group_invitations set status = 'declined' where group_id = %L $q$, pg_temp.g('priv2'))), 'OK:1',
@@ -394,15 +392,14 @@ select pg_temp.decide('b', 'g3', 'f', 'approved');
 select tests.fx_nt_purge();
 select pg_temp.like_post('b', pg_temp.g('n3'));
 select pg_temp.like_post('e', pg_temp.g('n3'));
-select pg_temp.comment('b', pg_temp.g('n3'), 'one');
-select pg_temp.comment('e', pg_temp.g('n3'), 'two');
-select is(pg_temp.types('f'), '', '[I10 c12 BR-060] below the threshold (5) no highlight');
+select is(pg_temp.types('f'), '', '[I10 c12 BR-060 · F10.3-a c2] below the threshold (four members: 5% rounded up, at least 3) no highlight');
 select pg_temp.like_post('f', pg_temp.g('n3'));
-select is(pg_temp.types('f'), '', '[I10 c12] the fifth engagement is the actor''s own: the actor is not told');
+select is(pg_temp.types('f'), '', '[I10 c12] the third engagement is the actor''s own: the actor is not told');
 select is(pg_temp.types('b'), 'group_highlight', '[I10 c12 FR-ALG-010 AC-066 BR-060] at the threshold a member on "highlights" hears of the highlight (deterministic, no ML)');
 select is(pg_temp.types('e'), '', '[I10 c12 VAL-035] a member on "off" does not');
 select is(position('group_highlight' in pg_temp.types('a')), 0, '[I10 c12] nor the post''s author');
-select pg_temp.comment('f', pg_temp.g('n3'), 'three');
+select pg_temp.comment('b', pg_temp.g('n3'), 'one');
+select pg_temp.comment('f', pg_temp.g('n3'), 'two');
 select is(pg_temp.types('b'), 'group_highlight', '[I10 c12] a highlight is told once');
 select tests.fx_nt_pref(pg_temp.id('a'), 'groups', false);
 select set_config('t.n4', pg_temp.gpost('b', 'g3', 'muted category'), true);
