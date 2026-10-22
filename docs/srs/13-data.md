@@ -51,8 +51,9 @@
 | GroupNotificationPreference | User + Group + mode All/Highlights/Off; בלי בחירה — Highlights. Highlights לפי FR-ALG-010. נמחקת עם ה-Membership. |
 | FriendContentNotificationPreference | User + Friend + enabled עבור “פוסט חדש של חבר”, כדי שההתראה לא תישלח אוטומטית מכל Friend. |
 | ChildBirthdayVisibility | העדפת פרטיות של ההורה הקובעת האם ניתן להשתמש ביום ההולדת של הילד לצורך Notification לחברים. אחת לכל הורה; ברירת מחדל: מאושר (החלטת אפיק מ-16.10.2026). |
-| GroupInvitation | Group, inviter, invitee, status Pending/Accepted/Declined/Cancelled, createdAt/decidedAt. Owner/Admin מזמינים Friend פעיל; הזמנה אחת ממתינה לכל קבוצה ומוזמן; קבלה יוצרת Membership. |
-| GroupMemberEnforcement | פעולת ניהול ברמת קבוצה כגון Warning/Mute/Remove/Block/Unblock: Group, Target User, Action, Actor/Group Role, Reason, timestamps ומשך/סטטוס לפי הצורך. ב-v1: Remove, Block ו-Unblock (OP-047). |
+| GroupInvitation | Group, inviter, invitee, status Awaiting approval/Pending/Accepted/Declined/Cancelled/Rejected, האם נדרש אישור, מי אישר או דחה ומתי, createdAt/decidedAt. כל חבר שאינו מושתק מזמין Friend פעיל; בקבוצה פרטית הזמנה של מי שאינו Owner או Admin ממתינה לאישורם ואינה גלויה למוזמן עד האישור; הזמנה פתוחה אחת לכל קבוצה ומוזמן; קבלה יוצרת Membership. |
+| GroupMemberEnforcement | פעולת אכיפה ברמת קבוצה, שלושה סוגים בלבד: אזהרה והשתקה (יחד), הסרה וחסימה (יחד), ביטול חסימה. Group, Target User, Action, Actor, Reason (רשימה סגורה, ו"אחר" עם טקסט עד 500 תווים), משך ההשתקה (24 שעות או 7 ימים) ומועד סיומה, זמן. היסטוריה שאינה נערכת ואינה נמחקת בידי משתמש; גלויה לחבר שהיא נוגעת בו ול-Group Moderator ומעלה בקבוצה, בלי זהות מי שביצע. |
+| GroupHighlight | פוסט בקבוצה שהגיע לסף ה-Highlight (FR-ALG-010): הפוסט, הקבוצה, הסף, מספר החברים וגרסת ה-Configuration, ומתי. נשמר פעם אחת לכל פוסט; גלוי לחברי הקבוצה בלבד. |
 | CommunityConfiguration | הגדרות קהילה תפעוליות כגון קטגוריות, סיבות דיווח ותצורות Moderation מאושרות; כוללות metadata של שינוי לפי הצורך. |
 | SystemAnnouncement | הודעת מערכת רשמית: title (2–80) ו-body (עד 1,000), status Draft/Published/Removed (Removed סופי), author, זמני יצירה, עדכון, פרסום והסרה. Target scope — כל המשתמשים עד ההחלטה ב-OP-042. |
 | ModeratorInvitation | הזמנה חד-פעמית של Admin להצטרפות Moderator (FR-ADMIN-004): תיאור קצר למי ההזמנה, ה-Admin שהנפיק, זמן הנפקה, תוקף (48 שעות, החלטת אפיק מ-21.10.2026), החשבון שנוצר ממנה וזמן ההצטרפות, או זמן הביטול. נשמר רק תקציר (hash) של קוד ההזמנה, לעולם לא הקוד עצמו. |
@@ -154,6 +155,7 @@ NotificationPreference ו-GroupNotificationPreference מסננים אירועי 
 |---|---|---|
 | Account/Profile/Content | נדרש לתפעול החשבון והתוכן | מחיקת חשבון — BR-073: הכל נמחק, חוץ מרשומות אבטחה וביקורת (90 יום ואז מחיקה) ומהשיחות שנשמרות לצד השני (החריג המוגדר היחיד; 17.10.2026); תמונות — BR-077. משך מדויק ייקבע לפי Privacy Policy/שוק ראשון; מחיקה/ייצוא לפי USER_DATA_EXPORT_DELETE ותהליך המשתמש. פוסט או תגובה שהכותב מחק — נמחקים מיד; תחת דיווח פתוח — מוסתרים מכולם עד הטיפול, לכל היותר 90 יום, ואז נמחקים על ידי משימת רקע (BR-080). הסתרת פוסט נשמרת עד שהמשתמש מבטל אותה, עד מחיקת הפוסט או עד מחיקת החשבון. |
 | Notifications | הצגת התראות | 90 יום (החלטת אפיק מ-18.10.2026, 15א). |
+| Group membership and enforcement | הזמנות, חסימות, השתקות ואזהרות של קבוצה, ו-Highlights | נשמרים עם הקבוצה, גם השתקה שהסתיימה, ונמחקים עם הקבוצה או עם החשבון (BR-073). |
 | Rate-limit counters | הגבלת קצב (NFR-SEC-006, NFR-SEC-010) | יום אחרי שהמונה פג (15א). |
 | Search Intent (נושא החיפוש) | התאמת פוסטים, מודעות ויועצים למה שהמשתמש חיפש (FR-ALG-008) | 30 יום ואז נמחק (החלטת אפיק מ-20.10.2026); נשמר הנושא בלבד, לא טקסט החיפוש; מדיניות הפרטיות מציינת זאת. |
 | Interaction/Search/Recommendation Events | Personalization + Analytics | Retention period לא ייקבע שרירותית ב-SRS; יש לקבוע לפני Production ולהתאים ל-Notice/Consent. Aggregates יכולים להישמר בנפרד לפי policy. |

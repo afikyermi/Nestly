@@ -15,6 +15,8 @@ export interface StubGroup {
   myRole: 'owner' | 'admin' | 'moderator' | 'member' | null;
   state: 'member' | 'requested' | 'invited' | 'none' | 'blocked';
   rules: string | null;
+  /** I10-C: the caller's own mute, when muted. */
+  myMute?: { until: string; reason: 'spam' | 'other'; reasonText: string | null } | null;
 }
 
 export interface GroupsNet {
@@ -29,6 +31,8 @@ const detailOf = (g: StubGroup) => ({
   notificationMode: g.myRole === null ? null : 'highlights',
   invitationId: null,
   createdAt: '2026-06-01T09:00:00.000Z',
+  myMute: g.myMute ?? null,
+  highlightThreshold: g.myRole === null ? null : 3,
 });
 const summaryOf = (g: StubGroup) => ({ id: g.id, name: g.name, description: g.description, privacy: g.privacy, memberCount: g.memberCount, myRole: g.myRole, state: g.state });
 
@@ -115,6 +119,25 @@ export async function setupGroups(page: Page, start: StubGroup[] = [WALKS]): Pro
       return json(route, 200, { people: [{ userId: NID(13), fullName: 'מירי אברהם', at: '2026-06-15T10:00:00.000Z' }] });
     }
     if (sub === 'bans') return json(route, 200, { people: [] });
+    // I10-C (§11.15, §11.16)
+    if (sub === 'enforcements') {
+      if (req.method() === 'POST') return route.fulfill({ status: 204, headers: CORS });
+      return json(route, 200, { records: [] });
+    }
+    if (sub === 'invitations') {
+      if (req.method() === 'PUT') return route.fulfill({ status: 204, headers: CORS });
+      if (req.method() === 'POST') return json(route, 200, { status: group.privacy === 'private' && (group.myRole === 'member' || group.myRole === 'moderator') ? 'awaiting_approval' : 'sent' });
+      return json(route, 200, {
+        invitations: [
+          { id: NID(21), inviter: { userId: NID(12), fullName: 'יוסי כהן' }, invitee: { userId: NID(14), fullName: 'נועה לוי' }, createdAt: '2026-06-15T10:00:00.000Z' },
+        ],
+      });
+    }
+    if (sub === 'friends') {
+      return json(route, 200, {
+        friends: [{ userId: NID(14), fullName: 'נועה לוי', isMember: false, isInvited: false, isAwaitingApproval: false, isRecommended: false }],
+      });
+    }
     return json(route, 404, { error: 'group_unavailable' });
   });
   return net;

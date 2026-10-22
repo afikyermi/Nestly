@@ -33,7 +33,7 @@
 | PG-030 | ~~מסך תור האימות המקצועי / ניהול אימות מקצועי~~ — **בוטל** (OP-005 נסגר, 18.10.2026) | FR-ADMIN-006 (בוטל) | UC-18 (בוטל) | — |
 | PG-031 | מסך הגדרות הקהילה / ניהול הגדרות הקהילה | FR-ADMIN-007 | UC-28 | CommunityConfiguration, AuditLogEntry |
 | PG-032 | מסך הודעות מערכת / ניהול הודעות מערכת | FR-ADMIN-008 | UC-29 | SystemAnnouncement, AuditLogEntry |
-| PG-033/034/035 | ניהול הקבוצות / ניהול קבוצה | FR-GRP-001..004 | UC-22/23/32 | Group, Membership, GroupJoinRequest, GroupInvitation, GroupRoleAssignment, GroupMemberEnforcement, GroupNotificationPreference; AC-036–038, AC-050, AC-056, AC-066, AC-144, AC-145 |
+| PG-033/034/035 | ניהול הקבוצות / ניהול קבוצה | FR-GRP-001..004 | UC-22/23/32 | Group, Membership, GroupJoinRequest, GroupInvitation, GroupRoleAssignment, GroupMemberEnforcement, GroupHighlight, GroupNotificationPreference; AC-036–038, AC-050, AC-056, AC-066, AC-144, AC-145, AC-164–AC-168 |
 | PG-036 | מסך החברים / ניהול חברים | FR-REL-001 / FR-PRIV-001 / FR-MENU-001 | UC-20 | Friendship, FriendContentNotificationPreference, ProfileOpenCount |
 | Multiple / ProfessionalProfile | מעקב אחר בעל מקצוע | FR-FOLLOW-001 | UC-21 | ProfessionalFollow, ProfessionalProfile |
 | מעטפת האפליקציה (גלובלי) | Top Bar / בניית התפריט הצדדי / חלון שיתוף קישור | FR-TOP-001 / FR-MENU-001 / FR-FEED-007 | — | Role, ModeratorPermission, Notification counts |
@@ -69,3 +69,9 @@
 | FR-NOTIF-003 | Built | I7, תיקוני בדיקת ה-SRS (21.10) | התראה על יום הולדת של ילד של Friend |
 | FR-ADMIN-010 | Built | I14, תיקוני בדיקת ה-SRS (21.10) | קבוצות, בעלי מקצוע ו-Marketplace במסך הנתונים |
 | FR-PRO-001 | Built | I11, תיקוני בדיקת ה-SRS (21.10) | הדירוג בלוח הבקרה |
+| FR-GRP-001 | Built | I10, השלמת I10 ג' (22.10) | רק Highlights בפיד הראשי של חברי הקבוצה, עם "מתוך"; "כל הפוסטים" / "עיקרי הדברים" |
+| FR-GRP-002 | Built | I10, השלמת I10 ג' (22.10) | כל חבר מזמין Friends; בקבוצה פרטית — אישור Owner או Admin |
+| FR-GRP-003 | Built | I10, השלמת I10 ג' (22.10) | אזהרה והשתקה, הסרה וחסימה, ביטול חסימה, היסטוריה; אין הסרה רגילה |
+| FR-GRP-004 | Built | I10 | ללא שינוי |
+| FR-ALG-010 | Built | I10, השלמת I10 ג' (22.10) | סף 5% מהחברים (3 עד 20); חשיפת קבוצות פעילות בחיפוש, ב-Discovery ובפיד |
+| FR-FEED-001 | Built | I3, I10 ג' (22.10) | Highlights של קבוצות ויחידת קבוצות פעילות |
