@@ -59,3 +59,13 @@
 | PG-052 | מסך שאלות לשחזור סיסמה / שחזור סיסמה | FR-AUTH-003 / FR-REG-004 / FR-MENU-001 | UC-01 | User, RecoveryAnswers, RecoveryEvent |
 | PG-053 | מסך קביעת סיסמה חדשה / קביעת סיסמה חדשה בכפייה | FR-AUTH-005 | — | User, AccountTakeoverCheck, RecoveryAnswers, RecoveryEvent |
 | PG-054 | מסך החלפת סיסמה / החלפת סיסמה | FR-AUTH-003 / FR-MENU-001 | — | User, RecoveryAnswers, RecoveryThrottle, RecoveryEvent |
+
+## 17.1 סטטוס בנייה
+
+| FR / NFR | סטטוס | Initiative | הערה |
+|---|---|---|---|
+| FR-SERV-010 | Built | I13 | קידום פרופיל ופוסט, תשלום מדומה, עצירה על ידי הבעלים או הצוות (בלי החזר) |
+| FR-MKT-004 | Built | I13 | קידום מודעה מ"המודעות שלי", בראש התוצאות התואמות, "מודעה מקודמת" |
+| FR-PRO-002 | Built | I13 | תוצאות 30 יום: אורגני ובתשלום בנפרד, מספרים בלבד |
+| FR-ALG-007 | Built | I13 | התאמה, דירוג בין הממומנים, מגבלת תדירות, שילוב בפיד כל 4–7 פוסטים, סימון "ממומן" |
+| NFR-SEC-007 | Built | I13 | ממשק תשלום אחד, מדומה, בלי פרטי כרטיס, "מחיר לדוגמה" |
