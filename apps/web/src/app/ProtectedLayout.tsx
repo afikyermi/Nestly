@@ -31,7 +31,7 @@ import { shareLinkSheetProps, useShareLink } from '@/hooks/use-share-link';
 import { SHARE_SITE_LABEL } from '@/lib/share-link-texts';
 import { RULES_TITLE } from '@/pages/community-rules/community-rules-texts';
 import { HOTLINES_TITLE } from '@/pages/medical-hotlines/medical-hotlines-texts';
-import { parseSettingsSection, SETTINGS_SECTIONS, settingsSectionHash } from '@/lib/settings-sections';
+import { parseSettingsSection, SETTINGS_SECTIONS, settingsSectionHash, STAFF_SETTINGS_SECTIONS } from '@/lib/settings-sections';
 import { normalizePath, PATHS } from './paths';
 
 // The destinations of a community account (AC-005, §7.1, in the sketch's order): home, the Marketplace (I12, "חנות", FR-MKT-001), feed, the
@@ -174,7 +174,7 @@ export function ProtectedLayout() {
               {OFFERS_TITLE}
             </MenuItem>
           ) : null}
-          {SETTINGS_SECTIONS.map((section) => (
+          {(staff.kind === 'staff' ? STAFF_SETTINGS_SECTIONS : SETTINGS_SECTIONS).map((section) => (
             <MenuItem
               key={section.id}
               href={`${PATHS.settings}${settingsSectionHash(section.id)}`}

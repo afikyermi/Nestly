@@ -3,7 +3,7 @@
 // Friendship ended, who may block) are pgTAP's (file 91) and tests/db/blocks.db.test.ts.
 import { expect, test } from '@playwright/test';
 import type { Page, Route } from '@playwright/test';
-import { APP, pathOf } from './app-helpers';
+import { APP, pathOf, stubAccountKind } from './app-helpers';
 import { CORS, DESKTOP_1280, json, main } from './support/journeys-stub';
 import { setupProfiles } from './support/profiles-stub';
 import { LIOR, LIOR_ID, dialog, openProfile, world } from './support/profiles-fixtures';
@@ -17,6 +17,7 @@ interface BlocksNet {
 
 async function setupBlocks(page: Page): Promise<BlocksNet> {
   const net: BlocksNet = { blocked: [], calls: [] };
+  await stubAccountKind(page);
   await page.route(
     (url) => /^\/api\/users\/[^/]+\/block$/.test(url.pathname) || url.pathname === '/api/blocks',
     async (route: Route) => {

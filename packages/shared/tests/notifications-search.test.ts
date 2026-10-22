@@ -14,8 +14,9 @@ import {
 const ID = '11111111-1111-4111-8111-111111111111';
 
 describe('[FR-NOTIF-002 AC-041] notification preferences', () => {
-  it('[AC-041] every event belongs to one of the eight switchable categories (I10 adds groups; the I11 follow-ups offers, reviews and followers); there is no security category to switch', () => {
-    for (const type of NOTIFICATION_TYPES) expect(['friends', 'comments', 'shares', 'friend_posts', 'groups', 'offers', 'reviews', 'followers']).toContain(NOTIFICATION_CATEGORY_OF[type]);
+  it('[AC-041] every event belongs to one of the nine switchable categories (I10 adds groups; the I11 follow-ups offers, reviews and followers; BR-037 birthdays); there is no security category to switch', () => {
+    for (const type of NOTIFICATION_TYPES) expect(['friends', 'comments', 'shares', 'friend_posts', 'groups', 'offers', 'reviews', 'followers', 'birthdays']).toContain(NOTIFICATION_CATEGORY_OF[type]);
+    expect(NOTIFICATION_CATEGORY_OF.child_birthday).toBe('birthdays');
     expect(checkCategoryUpdate('security', { isEnabled: false }).ok).toBe(false);
     expect(checkCategoryUpdate('comments', { isEnabled: false })).toEqual({ ok: true, value: { category: 'comments', isEnabled: false } });
   });

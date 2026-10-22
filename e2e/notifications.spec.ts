@@ -3,7 +3,7 @@
 // is apps/server/tests/db/notifications.db.test.ts and supabase/tests/90_notifications_search.sql.
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { APP, pathOf } from './app-helpers';
+import { APP, pathOf, stubAccountKind } from './app-helpers';
 import { DESKTOP_1280, EMAIL, main } from './support/journeys-stub';
 import { COMMENT, REQUEST, setupNotifications } from './support/notifications-stub';
 
@@ -13,6 +13,7 @@ test.use({ baseURL: APP, viewport: DESKTOP_1280 });
 const section = (page: Page) => page.locator('[data-settings-section="notifications"]');
 
 async function signIn(page: Page): Promise<void> {
+  await stubAccountKind(page);
   await page.goto('/login');
   await page.getByRole('textbox', { name: 'אימייל', exact: true }).fill(EMAIL);
   await page.getByLabel('סיסמה', { exact: true }).fill('Zq-7-unique-pw-marker-91');

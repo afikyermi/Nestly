@@ -5,6 +5,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { formatPostTime } from "@/lib/format-post-time";
 import { postPath } from "@/lib/post-link";
 import { userProfilePath } from "@/lib/profile-link";
+import { professionalPagePath } from "@/lib/professional-link";
 import { groupPath } from "@/lib/group-link";
 import {
   ANONYMOUS_AUTHOR,
@@ -16,6 +17,8 @@ import {
   PEOPLE_TITLE,
   personLink,
   POSTS_NONE_TEXT,
+  PROFESSIONAL_MARK,
+  professionalLink,
   POSTS_TITLE,
 } from "./search-texts";
 
@@ -64,13 +67,18 @@ export function SearchResults({
               {take(data.people).map((person) => (
                 <li key={person.userId}>
                   <Link
-                    to={userProfilePath(person.userId)}
+                    to={person.isProfessional ? professionalPagePath(person.userId) : userProfilePath(person.userId)}
                     onClick={onChoose}
-                    aria-label={personLink(person.fullName)}
+                    aria-label={person.isProfessional ? professionalLink(person.fullName) : personLink(person.fullName)}
                     className="flex min-h-12 items-center gap-3 rounded-md px-2 text-foreground no-underline hover:bg-muted"
                   >
                     <Avatar name={person.fullName} decorative />
-                    <span className="text-body">{person.fullName}</span>
+                    <span className="flex flex-col">
+                      <span className="text-body">{person.fullName}</span>
+                      {person.isProfessional ? (
+                        <span className="text-small text-muted-foreground">{PROFESSIONAL_MARK}</span>
+                      ) : null}
+                    </span>
                   </Link>
                 </li>
               ))}

@@ -231,8 +231,8 @@ select is(tests.fx_sg_count('draft'), 9::bigint, '[I6 BR-070] all of them are dr
 select is(tests.n_as(pg_temp.id('a'), 'nestly.status_guides'), '0', '[I6 AC-095] a user reads no draft');
 select is(tests.n_as(pg_temp.id('p'), 'nestly.status_guides'), '0', '[I6 AC-095] a Professional reads no draft');
 select ok(tests.fx_sg_id('planning') is not null, '[I6] the planning guide exists');
-select is(tests.fx_sg_exec(format($q$ update nestly.status_guides set status = 'published' where id = %L $q$, tests.fx_sg_id('planning'))), 'ERR:23514',
-  '[I6 BR-070] a guide cannot be published without a source check date (23514)');
+select is(tests.fx_sg_exec(format($q$ update nestly.status_guides set status = 'published' where id = %L $q$, tests.fx_sg_id('planning'))), 'OK:1',
+  '[I6 BR-070 FR-ADMIN-012] a guide is published without a source check date (Afik 21.10.2026; migration 20261023700000)');
 select is(tests.fx_sg_exec(format($q$ update nestly.status_guides set status = 'published', published_at = now(), source_checked_on = date '2026-10-20' where id = %L $q$, tests.fx_sg_id('planning'))), 'OK:1',
   '[I6 AC-095] a guide with a source date is published');
 select is(tests.n_as(pg_temp.id('a'), 'nestly.status_guides'), '1', '[I6 AC-095] and a user reads that one guide');

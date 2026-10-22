@@ -6,7 +6,9 @@ import { ACCOUNT_A, ACCOUNT_B, AUDIENCE, COLD_START_MS, ISSUER, newKey, restoreE
 import { CLOCK_NOW, buildRegisterApp, captureLog, jsonOf } from '../helpers/register-app.js';
 import { createPost } from '../helpers/posts-api.js';
 import { addComment } from '../helpers/comments-api.js';
-import { sendTo } from '../helpers/friends-api.js';
+import { act, sendTo } from '../helpers/friends-api.js';
+import { addOwnChild, removeOwnChild } from '../../src/services/journeys-service.js';
+import { readOwnPrivacy, updateOwnPrivacy } from '../../src/services/privacy-service.js';
 
 // FR-NOTIF-001/002/003 and FR-SEARCH-001 / FR-ALG-008 through the API, against the real database (CI `db` job, as app_server).
 // A = Alice Aaron, B = Bella Baruch (10_ fixtures), M the Moderator of 60_ fixtures. Notifications are created by the database's own
@@ -29,6 +31,12 @@ function url(): string {
   return value;
 }
 const env = () => ({ SUPABASE_JWKS_URL: jwks.url, SUPABASE_JWT_ISSUER: ISSUER, SUPABASE_JWT_AUDIENCE: AUDIENCE, DATABASE_URL: url() });
+/** The database of the app started last (a service call shares its pool). */
+const database = (): Database => {
+  const last = toClose.at(-1);
+  if (last === undefined) throw new Error('start() first');
+  return last.database;
+};
 async function start(): Promise<App> {
   const database = createDatabase(url());
   const app = await buildRegisterApp(env(), { database, clock: () => CLOCK_NOW });
@@ -58,6 +66,8 @@ const clear = async (): Promise<void> => {
     await side`select tests.fx_open_reset(${who}::uuid)`;
   }
   await side`select tests.fx_ns_set_limit(60, 3600)`;
+  // a fixture child's birthday (BR-037) must never add a notification to the exact counts below: the birthday test switches it back on
+  for (const who of [ACCOUNT_A, ACCOUNT_B]) await side`select tests.fx_nt_pref(${who}::uuid, 'birthdays', false)`;
   for (const who of [ACCOUNT_A, ACCOUNT_B]) {
     // the rolling window forgets searches older than an hour: move any earlier ones out of it (no row yet: nothing to move)
     await side`select tests.fx_ns_age(${who}::uuid, interval '2 hours')`.catch(() => undefined);
@@ -137,10 +147,11 @@ describe('[FR-NOTIF-001 AC-040] the bell, the list, mark read', () => {
 describe('[FR-NOTIF-002 FR-NOTIF-003 AC-041] preferences', () => {
   it('a category switched off creates no notification; switched on again it does; every category is listed, on by default', T, async () => {
     const app = await start();
+    await side`select tests.fx_nt_purge()`; // no stored switch: every category at its default
     const first = await get(app, hA, '/api/notification-preferences');
     expect(first.statusCode, first.body).toBe(200);
     const body = z.object({ categories: z.array(z.object({ category: z.string(), isEnabled: z.boolean() })) }).parse(JSON.parse(first.body));
-    expect(body.categories.map((c) => [c.category, c.isEnabled])).toEqual([['friends', true], ['comments', true], ['shares', true], ['friend_posts', true], ['groups', true]]);
+    expect(body.categories.map((c) => [c.category, c.isEnabled])).toEqual([['friends', true], ['comments', true], ['shares', true], ['friend_posts', true], ['groups', true], ['birthdays', true]]);
     expect((await put(app, hA, '/api/notification-preferences/categories/comments', { isEnabled: false })).statusCode).toBe(200);
     const created = await createPost(app, hA, { body: 'x post', audience: 'everyone' });
     const postId = String(jsonOf(created.body).id);
@@ -172,6 +183,38 @@ describe('[FR-NOTIF-002 FR-NOTIF-003 AC-041] preferences', () => {
     await createPost(app, hA, { body: 'anonymous after following', audience: 'everyone', isAnonymous: true });
     expect((await list(app, hB)).items.map((i) => i.type).sort()).toEqual(['friend_post', 'friend_request']);
     expect((await put(app, hA, `/api/notification-preferences/friends/${M}`, { isEnabled: true })).statusCode, 'not a Friend').toBe(404);
+  });
+});
+
+describe("[FR-NOTIF-003 BR-037 AC-046] a Friend's child's birthday", () => {
+  it('a Friend is notified on the birthday, named by the parent and leading to the parent; never when the parent switched it off', T, async () => {
+    const app = await start();
+    expect((await sendTo(app, hA, ACCOUNT_B)).statusCode).toBe(201);
+    expect((await act(app, hB, 'accept', ACCOUNT_A)).statusCode).toBe(200);
+    await side`select tests.fx_nt_pref(${ACCOUNT_B}::uuid, 'birthdays', true)`;
+    // A's child turns two today (Israel's date)
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
+    const born = `${Number(today.slice(0, 4)) - 2}${today.slice(4)}`;
+    const added = await addOwnChild(database(), { userId: ACCOUNT_A }, { name: 'תמר', sex: 'girl', birthDate: born });
+    if (added.kind !== 'journeys') throw new Error(`could not add a child: ${added.kind}`);
+    const childId = added.journeys.children.find((c) => c.name === 'תמר')?.id;
+    const privacy = await readOwnPrivacy(database(), { userId: ACCOUNT_A });
+    if (privacy.kind !== 'settings') throw new Error('no privacy settings');
+    try {
+      const birthdays = (await list(app, hB)).items.filter((item) => item.type === 'child_birthday');
+      expect(birthdays).toContainEqual(expect.objectContaining({ actorName: NAME_A, targetKind: 'user', targetId: ACCOUNT_A, isRead: false }));
+      expect(JSON.stringify(birthdays)).not.toContain('תמר'); // the child is never named (FR-PRIV-001)
+      expect((await list(app, hA)).items.filter((item) => item.type === 'child_birthday'), 'a parent is not told of its own child').toHaveLength(0);
+      const again = (await list(app, hB)).items.filter((item) => item.type === 'child_birthday');
+      expect(again).toHaveLength(birthdays.length); // once per birthday
+
+      await side`select tests.fx_nt_purge()`;
+      expect((await updateOwnPrivacy(database(), { userId: ACCOUNT_A }, { ...privacy.settings, isChildBirthdayShared: false })).kind).toBe('settings');
+      expect((await list(app, hB)).items.filter((item) => item.type === 'child_birthday'), 'BR-037: the parent switched it off').toHaveLength(0);
+    } finally {
+      await updateOwnPrivacy(database(), { userId: ACCOUNT_A }, privacy.settings);
+      if (childId !== undefined) await removeOwnChild(database(), { userId: ACCOUNT_A }, childId);
+    }
   });
 });
 

@@ -6,7 +6,7 @@
 import { expect, test } from '@playwright/test';
 import type { Locator, Page, Route } from '@playwright/test';
 import { MOBILE, runAxe } from './helpers';
-import { APP, open, pathOf } from './app-helpers';
+import { APP, open, pathOf, stubAccountKind } from './app-helpers';
 
 test.use({ baseURL: APP, viewport: MOBILE });
 
@@ -64,6 +64,7 @@ function isSettings(v: unknown): v is Settings {
 async function setup(page: Page, start: Settings = DEFAULTS, shortSession = false): Promise<Net> {
   const net: Net = { stored: { ...start }, get: 200, put: 200, holdGet: null, holdPut: null, gets: 0, sent: [], refreshOk: true, me: 'active' };
   await page.clock.setFixedTime(NOW);
+  await stubAccountKind(page);
   await page.addInitScript(() => {
     Reflect.set(window, 'nestlyRealSession', true);
   });
@@ -225,7 +226,8 @@ test.describe('F2.3a c5 c22 [FR-AUTH-004 NFR-SEC-002] state forced to signed-in,
     await open(page, '/settings', 'signed-in');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('הגדרות');
     await expect(page).toHaveTitle('הגדרות · Nestly');
-    await expect(main(page).getByText(T.loadFailed)).toBeVisible();
+    // with no session the account's kind cannot be asked: Settings shows its own load failure, never a guessed screen (SRS audit 21.10)
+    await expect(main(page).getByText('לא הצלחנו לטעון את ההגדרות. אפשר לנסות שוב')).toBeVisible();
     await expect(main(page).getByRole('radio')).toHaveCount(0);
     await expect(main(page).getByRole('checkbox')).toHaveCount(0);
     await expect(saveButton(page)).toHaveCount(0);

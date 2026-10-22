@@ -208,6 +208,9 @@ async function stubTeam(page: Page): Promise<TeamNet> {
         answered: 5,
         medianHoursToFirstReply: 1.5,
       },
+      groups: { active: { public: 3, private: 1 }, created: 1, publicMembers: 12, publicJoins: 4, publicPosts: 6, publicComments: 9 },
+      professionals: { active: 2, byField: [{ field: 'doula', count: 2 }], follows: 5, chatStarts: 3, reviews: 1 },
+      marketplace: { active: 4, byCategory: [{ category: 'strollers', count: 4 }], created: 2, sold: 1, chats: 2 },
     });
   });
   return net;
@@ -289,6 +292,10 @@ test.describe('[I14] the Moderators team', () => {
     await expect(page.getByRole('heading', { level: 3, name: 'חשבונות' })).toBeVisible();
     await expect(page.getByRole('img', { name: 'פוסטים ליום' })).toBeVisible();
     await expect(page.getByText('זמן טיפול חציוני (שעות)')).toBeVisible();
+    // SRS audit 21.10: Groups, Professionals and Marketplace are measured, not "not yet measured"
+    for (const name of ['קבוצות', 'בעלי מקצוע', 'Marketplace']) await expect(page.getByRole('heading', { level: 3, name, exact: true })).toBeVisible();
+    await expect(page.getByText('חשבונות מקצועיים פעילים', { exact: true })).toBeVisible();
+    await expect(page.getByText('מודעות מוצגות עכשיו', { exact: true })).toBeVisible();
     await page.getByLabel('תקופה').selectOption('7');
     await expect.poll(() => net.sent.filter((s) => s.path === '/api/admin/analytics').length).toBeGreaterThanOrEqual(2);
   });

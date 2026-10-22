@@ -21,6 +21,7 @@ import type { Identity } from '../lib/token-verifier.js';
 import { readListedRows, readVisibleNames } from '../repositories/friends-repository.js';
 import {
   countUnread,
+  deliverChildBirthdays,
   markAllRead,
   markOneRead,
   readCategoryRows,
@@ -49,6 +50,8 @@ export async function readNotifications(database: Database, identity: Identity, 
   return inIdentityTransaction(database, identity, async (tx): Promise<NotificationsOutcome> => {
     const member = await classifyMember(tx);
     if (isRefusal(member)) return member;
+    // BR-037, AC-046: a Friend's child's birthday becomes the caller's notification when the list is opened (a Regular account only)
+    if (member.kind === 'regular' && before === null) await deliverChildBirthdays(tx);
     const rows = await readLatest(tx, NOTIFICATIONS_PAGE_SIZE + 1, before);
     const page = rows.slice(0, NOTIFICATIONS_PAGE_SIZE);
     const last = page.at(-1);

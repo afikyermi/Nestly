@@ -20,7 +20,7 @@
 | PG-014/015/016 | ניהול השיחות / פנייה יזומה של בעל מקצוע | FR-SERV-004..010 / FR-CHAT-001..004 | UC-09/25/30/31 | Conversation, Message, RegularChatRequest, ProfessionalOutreachRequest, Friendship, MarketplaceListing, ChatBlock, SupportRequest, Report (דיווח על הודעה, FR-MOD-001) |
 | PG-012 | מסך פרופיל משתמש / עריכת פרופיל / ניהול מסלולי המסע / פעולת דיווח | FR-PROFILE-001/002 / FR-PRIV-001 / FR-REL-001 / FR-MOD-001 | UC-10/20/26 | User, RegularProfile, Child, JourneyContext, PrivacyPreference, Friendship, ProfileOpenCount, SecurityConfiguration, SecurityEvent, Report |
 | Multiple / UserBlock | חסימת משתמש | FR-REL-002 | — | UserBlock, Friendship |
-| PG-017 | חיפוש גלובלי / רישום אירועי שימוש | FR-SEARCH-001 / FR-PRIV-001 / FR-ALG-008 | UC-19/33 | Post, User/Profiles, PrivacyPreference, Group/Membership, SearchEvent, AnalyticsEvent |
+| PG-017 | חיפוש גלובלי / רישום אירועי שימוש | FR-SEARCH-001 / FR-PRIV-001 / FR-ALG-008 | UC-19/33 | Post, User/Profiles, ProfessionalProfile, PrivacyPreference, Group/Membership, SearchEvent, AnalyticsEvent |
 | PG-018 | מרכז ההתראות / ניהול הקבוצות | FR-NOTIF-001 / FR-ALG-010 | UC-24 | Notification, NotificationPreference, GroupNotificationPreference, AnalyticsEvent; התראות בעל מקצוע וסיכום עוקבים שבועי — AC-149 |
 | PG-022 | נתוני לוח הבקרה המקצועי / קידום מקצועי | FR-PRO-001/002 / FR-ALG-007 | UC-11/42 | ProfessionalProfile, Post, Promotion, PromotionPerformanceEvent, AnalyticsAggregate; לוח הבקרה בסדר של אפיק (21.10.2026): "מחכה לך", בקשות עזרה, מדדים, השלמת פרופיל, תוצאות תוכן, קידום — AC-018 |
 | PG-021/023 | מסך Tracker / מסך מעקב הנקה / ניהול Tracker, כולל מחזור וביוץ | FR-HOME-003 / FR-TRACK-001/002 | UC-06/14 | TrackerEvent, CycleEntry, TrackerData |
@@ -58,3 +58,14 @@
 | PG-052 | מסך שאלות לשחזור סיסמה / שחזור סיסמה | FR-AUTH-003 / FR-REG-004 / FR-MENU-001 | UC-01 | User, RecoveryAnswers, RecoveryEvent |
 | PG-053 | מסך קביעת סיסמה חדשה / קביעת סיסמה חדשה בכפייה | FR-AUTH-005 | — | User, AccountTakeoverCheck, RecoveryAnswers, RecoveryEvent |
 | PG-054 | מסך החלפת סיסמה / החלפת סיסמה | FR-AUTH-003 / FR-MENU-001 | — | User, RecoveryAnswers, RecoveryThrottle, RecoveryEvent |
+
+## 17.1 סטטוס בנייה
+
+| FR / NFR | סטטוס | Initiative | הערה |
+|---|---|---|---|
+| FR-SET-001 | Built | I2, תיקוני בדיקת ה-SRS (21.10) | ההגדרות לפי סוג החשבון: הורה, בעל מקצוע, צוות |
+| FR-SEARCH-001 | Built | I7, תיקוני בדיקת ה-SRS (21.10) | בעלי מקצוע ב"אנשים", מסומנים, נפתחים בעמוד המקצועי |
+| FR-NOTIF-002 | Built | I7, I11, תיקוני בדיקת ה-SRS (21.10) | קטגוריות לפי סוג החשבון, "ימי הולדת" להורה בלבד |
+| FR-NOTIF-003 | Built | I7, תיקוני בדיקת ה-SRS (21.10) | התראה על יום הולדת של ילד של Friend |
+| FR-ADMIN-010 | Built | I14, תיקוני בדיקת ה-SRS (21.10) | קבוצות, בעלי מקצוע ו-Marketplace במסך הנתונים |
+| FR-PRO-001 | Built | I11, תיקוני בדיקת ה-SRS (21.10) | הדירוג בלוח הבקרה |

@@ -9,6 +9,9 @@ export const SETTINGS_SECTIONS = [
 
 export type SettingsSectionId = (typeof SETTINGS_SECTIONS)[number]['id'];
 
+/** The sections a staff account has (no profile, no notification settings: FR-NOTIF-002); every other account has all four. */
+export const STAFF_SETTINGS_SECTIONS = SETTINGS_SECTIONS.filter((section) => section.id === 'privacy' || section.id === 'terms');
+
 /** The section a location hash names, or null for no hash or an unknown one (the top of Settings, no error). */
 export function parseSettingsSection(hash: string): SettingsSectionId | null {
   const name = hash.startsWith('#') ? hash.slice(1) : hash;
