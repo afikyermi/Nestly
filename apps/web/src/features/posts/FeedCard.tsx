@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { ShareInFeedIcon, ShareLinkIcon } from '@/components/ui/icons';
 import { SHARE_LINK_LABEL } from '@/lib/share-link-texts';
 import { MoreActionsMenu, type MoreActionsItem } from '@/components/ui/more-actions-menu';
-import { AUDIENCE_LABELS, HELP_REQUEST_BADGE } from './posts-texts';
+import { AUDIENCE_LABELS, fromGroup, HELP_REQUEST_BADGE } from './posts-texts';
+import { groupPath } from '@/lib/group-link';
 import { COMMENTS_TITLE, LIKE_LABEL } from './comments-texts';
 import { STAGE_LABELS } from '@/lib/child-fields';
 import { formatPostTime } from '@/lib/format-post-time';
@@ -84,7 +85,14 @@ export function FeedCard(props: FeedCardProps) {
           {!unit.isAnonymous && unit.author.tag !== undefined ? <span className="text-small font-normal text-primary-strong"> · {unit.author.tag}</span> : null}
         </span>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className={AUDIENCE_CLASS}>{AUDIENCE_LABELS[unit.audience]}</span>
+          {/* I10-C (§11.13): a Group's Highlight says where it is from instead of its audience (the Group decides who reads it) */}
+          {unit.kind === 'post' && unit.group !== undefined ? (
+            <Link to={groupPath(unit.group.id)} className="text-small font-semibold text-primary-strong underline underline-offset-4">
+              {fromGroup(unit.group.name)}
+            </Link>
+          ) : (
+            <span className={AUDIENCE_CLASS}>{AUDIENCE_LABELS[unit.audience]}</span>
+          )}
           {unit.kind === 'post' && unit.isHelpRequest === true ? (
             <span className="rounded-full bg-badge px-2.5 text-small text-badge-foreground">{HELP_REQUEST_BADGE}</span>
           ) : null}

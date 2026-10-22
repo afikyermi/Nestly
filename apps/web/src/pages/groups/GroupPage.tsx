@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router';
-import type { GroupDetail } from '@nestly/shared';
+import type { GroupDetail, GroupPostView } from '@nestly/shared';
 import { normalizePath } from '@/app/paths';
 import { FeedScreen } from '@/features/posts/FeedScreen';
 import { FeedSourceContext } from '@/features/posts/feed-source';
@@ -15,7 +15,7 @@ export function GroupPage() {
   const { pathname } = useLocation();
   const groupId = groupIdOfPath(normalizePath(pathname));
   if (groupId === null) return null;
-  const discussion = (group: GroupDetail, onPin: (postId: string | null) => void) => {
+  const discussion = (group: GroupDetail, onPin: (postId: string | null) => void, view: GroupPostView) => {
     const rank = groupRoleRank(group.myRole);
     return (
       <FeedSourceContext
@@ -24,14 +24,16 @@ export function GroupPage() {
           groupId: group.id,
           privacy: group.privacy,
           heading: DISCUSSION_HEADING,
-          canPost: group.myRole !== null,
+          // I10-C (§11.16): a muted member reads only
+          canPost: group.myRole !== null && group.myMute === null,
           canModerate: rank >= 2,
           canPin: rank >= 3,
           pinnedPostId: group.pinnedPostId,
           onPin,
+          view,
         }}
       >
-        <FeedScreen key={`${group.id}:${group.pinnedPostId ?? ""}`} />
+        <FeedScreen key={`${group.id}:${group.pinnedPostId ?? ""}:${view}`} />
       </FeedSourceContext>
     );
   };

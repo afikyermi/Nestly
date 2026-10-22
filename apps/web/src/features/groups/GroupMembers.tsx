@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
-import { groupRoleRank, type GroupDetail, type GroupMember, type GroupRole } from '@nestly/shared';
+import { groupRoleRank, type GroupDetail, type GroupEnforcementBody, type GroupMember, type GroupRole } from '@nestly/shared';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { MoreActionsMenu, type MoreActionsItem } from '@/components/ui/more-actions-menu';
-import { listMembers, removeMember, setMemberRole } from '@/services/api/groups';
+import { enforceMember, listMembers, setMemberRole } from '@/services/api/groups';
+import { GroupEnforcementSheet } from './GroupEnforcementSheet';
 import {
   ACTION_FAILED_TEXT,
-  BLOCK_DESCRIPTION,
   BLOCK_MEMBER,
-  BLOCK_TITLE,
   CANCEL_LABEL,
   GROUP_LOADING_TEXT,
   MAKE_ADMIN,
@@ -20,8 +19,6 @@ import {
   MEMBER_MENU_LABEL,
   MEMBERS_ONLY_TEXT,
   NO_NAME,
-  REMOVE_MEMBER,
-  REMOVE_TITLE,
   REMOVED_STATUS,
   RETRY_LABEL,
   ROLE_CHANGED_STATUS,
@@ -29,11 +26,14 @@ import {
   ROLE_NOT_ALLOWED_TEXT,
   TRANSFER_DESCRIPTION,
   TRANSFER_TITLE,
+  WARN_MEMBER,
+  WARNED_STATUS,
   YOU_LABEL,
 } from './groups-texts';
 import { useGroupsCall } from './use-groups-call';
 
-type Confirm = { kind: 'owner' | 'remove' | 'block'; member: GroupMember; saving: boolean } | null;
+type Confirm = { kind: 'owner'; member: GroupMember; saving: boolean } | null;
+type Enforce = { kind: 'warn_mute' | 'remove_block'; member: GroupMember; saving: boolean; failure: string | null } | null;
 
 const ROLE_ACTIONS: { role: Exclude<GroupRole, 'owner'>; label: string }[] = [
   { role: 'admin', label: MAKE_ADMIN },
@@ -43,11 +43,13 @@ const ROLE_ACTIONS: { role: Exclude<GroupRole, 'owner'>; label: string }[] = [
 
 // The members of a Group (PG-035; FR-GRP-003, BR-041, AC-038): fellow members only, highest Role first. A Role acts only on a lower one: the
 // Owner appoints and removes Admins and Group Moderators and may transfer ownership; an Admin manages Group Moderators and members; a Group
-// Moderator removes members. The menu offers only what the caller's Role allows; the database decides (ERR-019).
+// Moderator or higher warns and mutes, or removes and blocks, a lower Role (I10-C §11.16: no plain removal). The menu offers only what the
+// caller's Role allows; the database decides (ERR-019).
 export function GroupMembers({ group, onChanged }: { group: GroupDetail; onChanged: () => void }) {
   const call = useGroupsCall();
   const [members, setMembers] = useState<GroupMember[] | null | 'failed'>(null);
   const [confirm, setConfirm] = useState<Confirm>(null);
+  const [enforce, setEnforce] = useState<Enforce>(null);
   const [status, setStatus] = useState('');
   const [failure, setFailure] = useState<string | null>(null);
   const myRank = groupRoleRank(group.myRole);
@@ -85,19 +87,26 @@ export function GroupMembers({ group, onChanged }: { group: GroupDetail; onChang
 
   async function confirmed() {
     if (confirm === null || confirm.saving) return;
-    const { kind, member } = confirm;
     setConfirm({ ...confirm, saving: true });
-    if (kind === 'owner') {
-      await changeRole(member, 'owner');
-      setConfirm(null);
+    await changeRole(confirm.member, 'owner');
+    setConfirm(null);
+  }
+
+  async function enforced(body: GroupEnforcementBody) {
+    if (enforce === null || enforce.saving) return;
+    const { member } = enforce;
+    setEnforce({ ...enforce, saving: true, failure: null });
+    const result = await call((token) => enforceMember(token, group.id, body));
+    if (result.kind !== 'ok') {
+      setEnforce((now) => (now === null ? now : { ...now, saving: false, failure: result.error === 'role_not_allowed' ? ROLE_NOT_ALLOWED_TEXT : ACTION_FAILED_TEXT }));
       return;
     }
-    const result = await call((token) => removeMember(token, group.id, member.userId, kind === 'block'));
-    setConfirm(null);
-    if (result.kind === 'ok') {
+    setEnforce(null);
+    if (body.kind === 'remove_block') {
       setMembers((now) => (Array.isArray(now) ? now.filter((m) => m.userId !== member.userId) : now));
       setStatus(REMOVED_STATUS);
-    } else setFailure(result.error === 'role_not_allowed' ? ROLE_NOT_ALLOWED_TEXT : ACTION_FAILED_TEXT);
+      onChanged();
+    } else setStatus(WARNED_STATUS);
   }
 
   const actionsFor = (member: GroupMember): MoreActionsItem[] => {
@@ -116,8 +125,8 @@ export function GroupMembers({ group, onChanged }: { group: GroupDetail; onChang
       ...(myRank === 4 ? [{ key: 'owner', label: MAKE_OWNER, onSelect: () => setConfirm({ kind: 'owner', member, saving: false }) }] : []),
       ...(myRank >= 2
         ? [
-            { key: 'remove', label: REMOVE_MEMBER, onSelect: () => setConfirm({ kind: 'remove', member, saving: false }) },
-            { key: 'block', label: BLOCK_MEMBER, onSelect: () => setConfirm({ kind: 'block', member, saving: false }) },
+            { key: 'warn', label: WARN_MEMBER, onSelect: () => setEnforce({ kind: 'warn_mute', member, saving: false, failure: null }) },
+            { key: 'block', label: BLOCK_MEMBER, onSelect: () => setEnforce({ kind: 'remove_block', member, saving: false, failure: null }) },
           ]
         : []),
     ];
@@ -150,11 +159,18 @@ export function GroupMembers({ group, onChanged }: { group: GroupDetail; onChang
           );
         })}
       </ul>
+      <GroupEnforcementSheet
+        target={enforce === null ? null : { kind: enforce.kind, userId: enforce.member.userId, name: enforce.member.fullName ?? NO_NAME }}
+        pending={enforce?.saving === true}
+        failure={enforce?.failure ?? null}
+        onSubmit={(body) => void enforced(body)}
+        onClose={() => setEnforce(null)}
+      />
       <ConfirmDialog
         open={confirm !== null}
-        title={confirm?.kind === 'owner' ? TRANSFER_TITLE : confirm?.kind === 'block' ? BLOCK_TITLE : REMOVE_TITLE}
-        {...(confirm?.kind === 'owner' ? { description: TRANSFER_DESCRIPTION } : confirm?.kind === 'block' ? { description: BLOCK_DESCRIPTION } : {})}
-        confirmLabel={confirm?.kind === 'owner' ? MAKE_OWNER : confirm?.kind === 'block' ? BLOCK_MEMBER : REMOVE_MEMBER}
+        title={TRANSFER_TITLE}
+        description={TRANSFER_DESCRIPTION}
+        confirmLabel={MAKE_OWNER}
         cancelLabel={CANCEL_LABEL}
         pending={confirm?.saving === true}
         onConfirm={() => void confirmed()}

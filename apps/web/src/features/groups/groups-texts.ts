@@ -1,5 +1,5 @@
 // The texts of the Groups screens (I10; FR-GRP-001..004, FR-ALG-010; ux-copy-he: short, calm, gender-neutral, no slashes).
-import type { GroupNotificationMode, GroupPrivacy, GroupRole } from '@nestly/shared';
+import type { GroupEnforcementReason, GroupMuteHours, GroupNotificationMode, GroupPostView, GroupPrivacy, GroupRole } from '@nestly/shared';
 
 export const GROUPS_TITLE = 'קבוצות';
 export const MY_GROUPS_TAB = 'הקבוצות שלי';
@@ -73,6 +73,11 @@ export const FIELD_ERRORS = {
 
 // The Group page
 export const TAB_DISCUSSION = 'דיון';
+export const VIEW_LABEL = 'מה מוצג בדיון';
+export const VIEW_OPTIONS: { value: GroupPostView; label: string }[] = [
+  { value: 'all', label: 'כל הפוסטים' },
+  { value: 'highlights', label: 'עיקרי הדברים' },
+];
 export const TAB_MEMBERS = 'חברים';
 export const TAB_ABOUT = 'על הקבוצה';
 export const TAB_MANAGE = 'ניהול';
@@ -106,6 +111,9 @@ export const INVITE_TITLE = 'הזמנת חברים לקבוצה';
 export const RECOMMEND_TITLE = 'המלצה על הקבוצה לחברים';
 export const RECOMMEND_DESCRIPTION = 'החברים יקבלו התראה עם קישור לקבוצה. ההמלצה לא מצרפת אותם';
 export const INVITE_DESCRIPTION = 'החברים יקבלו הזמנה ויוכלו להצטרף בלחיצה';
+export const INVITE_PRIVATE_DESCRIPTION = 'זו קבוצה פרטית: ההזמנה תישלח אחרי שבעלי הקבוצה או מנהל יאשרו אותה';
+export const AWAITING_ONE = 'ממתין לאישור המנהל';
+export const INVITE_AWAITING_STATUS = 'ההזמנה נשלחה לאישור המנהל';
 export const NO_FRIENDS_TEXT = 'עדיין אין חברים ברשימה';
 export const INVITE_ONE = 'הזמנה';
 export const INVITED_ONE = 'הוזמנו';
@@ -122,15 +130,35 @@ export const MAKE_ADMIN = 'מינוי למנהל';
 export const MAKE_MODERATOR = 'מינוי למנחה';
 export const MAKE_MEMBER = 'החזרה לחבר רגיל';
 export const MAKE_OWNER = 'העברת הבעלות';
-export const REMOVE_MEMBER = 'הסרה מהקבוצה';
+export const WARN_MEMBER = 'אזהרה והשתקה';
 export const BLOCK_MEMBER = 'הסרה וחסימה';
 export const TRANSFER_TITLE = 'להעביר את הבעלות על הקבוצה?';
 export const TRANSFER_DESCRIPTION = 'הבעלים החדשים ינהלו את הקבוצה. התפקיד שלך יהיה מנהל';
-export const REMOVE_TITLE = 'להסיר מהקבוצה?';
-export const BLOCK_TITLE = 'להסיר ולחסום?';
+export const BLOCK_TITLE = 'הסרה וחסימה מהקבוצה';
 export const BLOCK_DESCRIPTION = 'לא תהיה אפשרות להצטרף שוב, לבקש או לקבל הזמנה, עד שהחסימה תבוטל';
+export const WARN_TITLE = 'אזהרה והשתקה';
+export const WARN_DESCRIPTION = 'תישלח הודעה עם הסיבה. בזמן ההשתקה אפשר רק לקרוא: בלי פוסטים, תגובות, לייקים והזמנות';
+export const REASON_LEGEND = 'הסיבה';
+export const REASON_OTHER_LABEL = 'פירוט הסיבה';
+export const REASON_OTHER_HINT = 'עד 500 תווים';
+export const REASON_OTHER_REQUIRED = 'צריך לכתוב את הסיבה';
+export const REASON_REQUIRED = 'צריך לבחור סיבה';
+export const DURATION_LEGEND = 'משך ההשתקה';
+export const REASON_LABEL: Record<GroupEnforcementReason, string> = {
+  offensive: 'פגיעה או שפה פוגענית',
+  spam: 'ספאם או פרסום',
+  off_topic: 'לא קשור לנושא הקבוצה',
+  privacy: 'פגיעה בפרטיות',
+  rules: 'הפרת כללי הקבוצה',
+  other: 'אחר',
+};
+export const DURATION_LABEL: Record<GroupMuteHours, string> = { 24: '24 שעות', 168: '7 ימים' };
+export const WARN_SUBMIT = 'שליחת אזהרה והשתקה';
+export const WARNED_STATUS = 'האזהרה נשלחה וההשתקה התחילה';
+export const muteBanner = (until: string, reason: string): string => `קיבלת אזהרה בקבוצה הזו (${reason}). עד ${until} אפשר רק לקרוא`;
 export const ROLE_CHANGED_STATUS = 'התפקיד עודכן';
-export const REMOVED_STATUS = 'הוסר מהקבוצה';
+export const REMOVED_STATUS = 'ההסרה והחסימה בוצעו';
+export const MUTED_TEXT = 'בזמן ההשתקה אפשר רק לקרוא';
 export const ROLE_NOT_ALLOWED_TEXT = 'אין הרשאה לפעולה הזו מול התפקיד הזה';
 export const NO_NAME = 'חבר בקבוצה';
 
@@ -140,6 +168,22 @@ export const APPROVE_LABEL = 'אישור';
 export const REJECT_LABEL = 'דחייה';
 export const APPROVED_STATUS = 'הבקשה אושרה';
 export const REJECTED_STATUS = 'הבקשה נדחתה';
+export const AWAITING_TITLE = 'הזמנות שמחכות לאישור';
+export const NO_AWAITING_TEXT = 'אין הזמנות שמחכות';
+export const invitedByLine = (inviter: string, invitee: string): string => `${invitee}, בהזמנה של ${inviter}`;
+export const INVITATION_APPROVED_STATUS = 'ההזמנה אושרה ונשלחה';
+export const INVITATION_REJECTED_STATUS = 'ההזמנה נדחתה';
+export const INVITATION_GONE_TEXT = 'ההזמנה כבר לא בתוקף';
+export const HISTORY_TITLE = 'היסטוריית אכיפה';
+export const NO_HISTORY_TEXT = 'עדיין לא בוצעה אכיפה בקבוצה';
+export const HISTORY_KIND: Record<'warn_mute' | 'remove_block' | 'unblock', string> = {
+  warn_mute: 'אזהרה והשתקה',
+  remove_block: 'הסרה וחסימה',
+  unblock: 'ביטול חסימה',
+};
+export const muteUntilLine = (until: string): string => `עד ${until}`;
+export const highlightRule = (threshold: number): string =>
+  `פוסט נכנס לעיקרי הדברים ולפיד הראשי של החברים כשהוא מגיע ל-${threshold} לייקים ותגובות של אחרים`;
 export const BANS_TITLE = 'חסומים בקבוצה';
 export const NO_BANS_TEXT = 'אין חסומים';
 export const UNBLOCK_LABEL = 'ביטול החסימה';

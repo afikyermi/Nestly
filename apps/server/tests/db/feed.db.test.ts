@@ -506,7 +506,10 @@ describe('[F3.2-a2 c10 c11] configuration, cold start, empty feed, logs', () => 
     await mk({ by: F, aud: 'friends' });
     const res = await feed(app, V.header);
     expect(res.statusCode, res.body).toBe(200);
-    expect(JSON.parse(res.body)).toEqual({ items: [], nextCursor: null, configVersion: 1 });
+    // I10-C (§11.14): active Groups the viewer is not in may ride along on a first page (other files' Groups); never a post
+    const page = feedPageResponse.parse(JSON.parse(res.body));
+    expect({ items: page.items, nextCursor: page.nextCursor, configVersion: page.configVersion }).toEqual({ items: [], nextCursor: null, configVersion: 1 });
+    expect(Object.keys(page).filter((k) => k !== 'suggestedGroups')).toEqual(['items', 'nextCursor', 'configVersion']);
   });
 
   it('[F3.2-a2 c11] the log holds no cursor text and no post id: on success, on a 400, and on a database failure', T, async () => {
@@ -604,7 +607,10 @@ describe('[F3.2-a2 c2 c5] the statements that really run', () => {
     const original = await mk({ by: Tm, ago: 3 });
     await mkAll([{ by: F, ago: 1 }, { by: U, shared: original, ago: 2 }]);
     await page(app, V.header);
-    const onPosts = statements.filter((q) => /\b(posts|regular_names|friendships|comments|reactions|algorithm_configurations)\b/i.test(q));
+    // I10-C (§11.14): the Group suggestions are a separate statement over Groups (their activity is counted, no post is read out): not a feed-post statement
+    const onPosts = statements.filter(
+      (q) => /\b(posts|regular_names|friendships|comments|reactions|algorithm_configurations)\b/i.test(q) && !/from nestly\.groups g\s+where g\.privacy = 'public'/i.test(q),
+    );
     expect(onPosts.length).toBeGreaterThanOrEqual(2);
     const forbidden = /post_hides|\breports\b|post_authors|reaction_owners|journey_contexts|\bheld_|author_visibility|\b(author_|liker_)?status\b|is_active_account|select\s+\*/i;
     const tableWildcards = (q: string, ctes: Set<string>): string[] => {
@@ -621,7 +627,9 @@ describe('[F3.2-a2 c2 c5] the statements that really run', () => {
       expect(tableWildcards(q, ctes), q).toEqual([]);
       for (const m of q.matchAll(/\b(?:from|join)\s+([\w".]+)(?![\w".]|\s*\()/gi)) {
         const table = (m[1] ?? '').replace(/"/g, '').split('.').pop() ?? '';
-        if (!ctes.has(table.toLowerCase())) expect(['posts', 'friendships', 'comments', 'reactions', 'algorithm_configurations', 'regular_names', 'professional_follows', 'professional_profiles'], q).toContain(table);
+        if (!ctes.has(table.toLowerCase())) expect(['posts', 'friendships', 'comments', 'reactions', 'algorithm_configurations', 'regular_names', 'professional_follows', 'professional_profiles',
+          // I10-C (§11.13): a Group's Highlights for its members (each read under its own policy)
+          'group_highlights', 'groups', 'group_access'], q).toContain(table);
       }
     }
     const ranking = onPosts.filter((q) => /power\s*\(/i.test(q));

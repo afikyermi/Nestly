@@ -1,7 +1,10 @@
 import {
   feedPageResponse,
   groupDetail,
+  groupEnforcementsResponse,
   groupFriendsResponse,
+  groupInviteResponse,
+  groupPendingInvitationsResponse,
   groupInvitationsResponse,
   groupMembersResponse,
   groupPeopleResponse,
@@ -9,7 +12,12 @@ import {
   type CreateGroupBody,
   type FeedPageResponse,
   type GroupDetail,
+  type GroupEnforcementBody,
+  type GroupEnforcementRecord,
   type GroupFriend,
+  type GroupInviteResponse,
+  type GroupPendingInvitation,
+  type GroupPostView,
   type GroupInvitation,
   type GroupMember,
   type GroupNotificationMode,
@@ -35,6 +43,8 @@ export type GroupsError =
   | 'already_requested'
   | 'already_member'
   | 'not_a_friend'
+  | 'muted'
+  | 'invitation_unavailable'
   | 'name_too_short'
   | 'name_too_long'
   | 'description_too_long'
@@ -53,6 +63,8 @@ const KNOWN: ReadonlySet<string> = new Set([
   'already_requested',
   'already_member',
   'not_a_friend',
+  'muted',
+  'invitation_unavailable',
   'name_too_short',
   'name_too_long',
   'description_too_long',
@@ -119,8 +131,6 @@ export const listMembers = (token: string, id: string): Promise<GroupsOutcome<Gr
   call(token, 'GET', `${g(id)}/members`, undefined, listOf('members', groupMembersResponse));
 export const setMemberRole = (token: string, id: string, userId: string, role: GroupRole): Promise<GroupsOutcome<GroupMember[]>> =>
   call(token, 'PATCH', `${g(id)}/members/${encodeURIComponent(userId)}`, { role }, listOf('members', groupMembersResponse));
-export const removeMember = (token: string, id: string, userId: string, block: boolean): Promise<GroupsOutcome<null>> =>
-  call(token, 'DELETE', `${g(id)}/members/${encodeURIComponent(userId)}${block ? '?block=true' : ''}`, undefined, NOTHING);
 export const listRequests = (token: string, id: string): Promise<GroupsOutcome<GroupPerson[]>> =>
   call(token, 'GET', `${g(id)}/requests`, undefined, listOf('people', groupPeopleResponse));
 export const decideRequest = (token: string, id: string, userId: string, decision: 'approve' | 'reject'): Promise<GroupsOutcome<null>> =>
@@ -130,7 +140,18 @@ export const unblock = (token: string, id: string, userId: string): Promise<Grou
   call(token, 'DELETE', `${g(id)}/bans/${encodeURIComponent(userId)}`, undefined, NOTHING);
 export const listGroupFriends = (token: string, id: string): Promise<GroupsOutcome<GroupFriend[]>> =>
   call(token, 'GET', `${g(id)}/friends`, undefined, listOf('friends', groupFriendsResponse));
-export const inviteFriend = (token: string, id: string, userId: string): Promise<GroupsOutcome<null>> => call(token, 'POST', `${g(id)}/invitations`, { userId }, NOTHING);
+/** I10-C (§11.15): any member invites; the answer says whether it was sent or waits for the Owner's or an Admin's approval. */
+export const inviteFriend = (token: string, id: string, userId: string): Promise<GroupsOutcome<GroupInviteResponse['status']>> =>
+  call(token, 'POST', `${g(id)}/invitations`, { userId }, listOf('status', groupInviteResponse));
+/** I10-C (§11.16): warning + mute, or removal + block, of a member of a lower Role. */
+export const enforceMember = (token: string, id: string, body: GroupEnforcementBody): Promise<GroupsOutcome<null>> =>
+  call(token, 'POST', `${g(id)}/enforcements`, body, NOTHING);
+export const listEnforcements = (token: string, id: string): Promise<GroupsOutcome<GroupEnforcementRecord[]>> =>
+  call(token, 'GET', `${g(id)}/enforcements`, undefined, listOf('records', groupEnforcementsResponse));
+export const listAwaitingInvitations = (token: string, id: string): Promise<GroupsOutcome<GroupPendingInvitation[]>> =>
+  call(token, 'GET', `${g(id)}/invitations`, undefined, listOf('invitations', groupPendingInvitationsResponse));
+export const decideInvitation = (token: string, id: string, invitationId: string, decision: 'approve' | 'reject'): Promise<GroupsOutcome<null>> =>
+  call(token, 'PUT', `${g(id)}/invitations/${encodeURIComponent(invitationId)}`, { decision }, NOTHING);
 export const recommendGroup = (token: string, id: string, userId: string): Promise<GroupsOutcome<null>> => call(token, 'POST', `${g(id)}/recommendations`, { userId }, NOTHING);
 export const setGroupMode = (token: string, id: string, mode: GroupNotificationMode): Promise<GroupsOutcome<null>> => call(token, 'PUT', `${g(id)}/notifications`, { mode }, NOTHING);
 /** DELETE /api/groups/:id/posts/:postId: a Group Moderator or higher removes a lower Role's post (403 role_not_allowed otherwise). */
@@ -142,9 +163,13 @@ export const listInvitations = (token: string): Promise<GroupsOutcome<GroupInvit
 export const answerInvitation = (token: string, id: string, answer: 'accept' | 'decline'): Promise<GroupsOutcome<null>> =>
   call(token, 'PUT', `/api/group-invitations/${encodeURIComponent(id)}`, { answer }, NOTHING);
 
-/** GET /api/groups/:id/posts?cursor=: a page of the Group's discussion, in the feed's own shape (so the feed's cards show it). */
-export async function fetchGroupFeedPage(token: string, groupId: string, cursor: string | null): Promise<FeedOutcome> {
-  const outcome = await call<FeedPageResponse>(token, 'GET', `${g(groupId)}/posts${cursor === null ? '' : `?cursor=${encodeURIComponent(cursor)}`}`, undefined, feedPageResponse);
+/** GET /api/groups/:id/posts?cursor=&view=: a page of the Group's discussion (or its Highlights), in the feed's own shape (the feed's cards show it). */
+export async function fetchGroupFeedPage(token: string, groupId: string, cursor: string | null, view: GroupPostView = 'all'): Promise<FeedOutcome> {
+  const query = new URLSearchParams();
+  if (cursor !== null) query.set('cursor', cursor);
+  if (view === 'highlights') query.set('view', view);
+  const search = query.toString();
+  const outcome = await call<FeedPageResponse>(token, 'GET', `${g(groupId)}/posts${search === '' ? '' : `?${search}`}`, undefined, feedPageResponse);
   if (outcome.kind === 'ok') return { kind: 'page', page: outcome.value };
   if (outcome.error === 'unauthenticated') return { kind: 'unauthenticated' };
   if (outcome.error === 'account-unavailable') return { kind: 'account-unavailable' };

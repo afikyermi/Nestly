@@ -1,24 +1,46 @@
 import { useCallback, useEffect, useId, useState, type ReactNode } from 'react';
-import { groupRoleRank, type GroupDetail, type GroupPerson } from '@nestly/shared';
+import { groupRoleRank, type GroupDetail, type GroupEnforcementRecord, type GroupPendingInvitation, type GroupPerson } from '@nestly/shared';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { Button } from '@/components/ui/button';
-import { decideRequest, deleteGroup, editGroup, listBans, listRequests, unblock } from '@/services/api/groups';
+import {
+  decideInvitation,
+  decideRequest,
+  deleteGroup,
+  editGroup,
+  listAwaitingInvitations,
+  listBans,
+  listEnforcements,
+  listRequests,
+  unblock,
+} from '@/services/api/groups';
+import { formatPostTime } from '@/lib/format-post-time';
 import { GroupForm, type GroupFieldErrors, type GroupFormValues } from './GroupForm';
 import {
   ACTION_FAILED_TEXT,
   APPROVE_LABEL,
   APPROVED_STATUS,
+  AWAITING_TITLE,
   BANS_TITLE,
   CANCEL_LABEL,
   DELETE_DESCRIPTION,
   DELETE_GROUP_LABEL,
   DELETE_TITLE,
   FIELD_ERRORS,
+  HISTORY_KIND,
+  HISTORY_TITLE,
+  INVITATION_APPROVED_STATUS,
+  INVITATION_GONE_TEXT,
+  INVITATION_REJECTED_STATUS,
+  invitedByLine,
+  muteUntilLine,
+  NO_AWAITING_TEXT,
   NO_BANS_TEXT,
+  NO_HISTORY_TEXT,
   NO_NAME,
   NO_REQUESTS_TEXT,
   REJECT_LABEL,
   REJECTED_STATUS,
+  REASON_LABEL,
   REQUESTS_TITLE,
   ROLE_NOT_ALLOWED_TEXT,
   SAVE_LABEL,
@@ -38,14 +60,18 @@ export interface GroupManageProps {
   onChanged: () => void;
 }
 
-// The Group's management (PG-035; FR-GRP-002/003): Join Requests (the Owner and Admins: approve or reject), the users blocked from the
-// Group (a Group Moderator or higher: unblock), the Group's details (the Owner and Admins; Public/Private and deletion are the Owner's).
+// The Group's management (PG-035; FR-GRP-002/003): Join Requests and invitations waiting for approval (the Owner and Admins: approve or
+// reject; I10-C §11.15), the users blocked from the Group (a Group Moderator or higher: unblock), the enforcement history (Moderators and
+// higher; never who acted; §11.16), the Highlights rule of the Group (FR-ALG-010) and its details (the Owner and Admins; Public/Private and
+// deletion are the Owner's).
 export function GroupManage({ group, onUpdated, onDeleted, onChanged }: GroupManageProps) {
   const call = useGroupsCall();
   const ids = useId();
   const rank = groupRoleRank(group.myRole);
   const [requests, setRequests] = useState<GroupPerson[] | null>(null);
   const [bans, setBans] = useState<GroupPerson[] | null>(null);
+  const [awaiting, setAwaiting] = useState<GroupPendingInvitation[] | null>(null);
+  const [history, setHistory] = useState<GroupEnforcementRecord[] | null>(null);
   const [status, setStatus] = useState('');
   const [failure, setFailure] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<{ saving: boolean; failure: string | null } | null>(null);
@@ -55,9 +81,13 @@ export function GroupManage({ group, onUpdated, onDeleted, onChanged }: GroupMan
     if (rank >= 3) {
       const r = await call((token) => listRequests(token, group.id));
       setRequests(r.kind === 'ok' ? r.value : []);
+      const i = await call((token) => listAwaitingInvitations(token, group.id));
+      setAwaiting(i.kind === 'ok' ? i.value : []);
     }
     const b = await call((token) => listBans(token, group.id));
     setBans(b.kind === 'ok' ? b.value : []);
+    const h = await call((token) => listEnforcements(token, group.id));
+    setHistory(h.kind === 'ok' ? h.value : []);
   }, [call, group.id, rank]);
 
   useEffect(() => {
@@ -77,6 +107,17 @@ export function GroupManage({ group, onUpdated, onDeleted, onChanged }: GroupMan
     if (decision === 'approve') onChanged();
   }
 
+  async function decideInvite(invitation: GroupPendingInvitation, decision: 'approve' | 'reject') {
+    setBusyId(invitation.id);
+    const result = await call((token) => decideInvitation(token, group.id, invitation.id, decision));
+    setBusyId(null);
+    if (result.kind !== 'ok') {
+      setStatus(result.error === 'invitation_unavailable' ? INVITATION_GONE_TEXT : ACTION_FAILED_TEXT);
+      if (result.error !== 'invitation_unavailable') return;
+    } else setStatus(decision === 'approve' ? INVITATION_APPROVED_STATUS : INVITATION_REJECTED_STATUS);
+    setAwaiting((now) => (now ?? []).filter((i) => i.id !== invitation.id));
+  }
+
   async function lift(person: GroupPerson) {
     setBusyId(person.userId);
     const result = await call((token) => unblock(token, group.id, person.userId));
@@ -87,6 +128,8 @@ export function GroupManage({ group, onUpdated, onDeleted, onChanged }: GroupMan
     }
     setBans((now) => (now ?? []).filter((p) => p.userId !== person.userId));
     setStatus(UNBLOCKED_STATUS);
+    const h = await call((token) => listEnforcements(token, group.id));
+    if (h.kind === 'ok') setHistory(h.value);
   }
 
   async function save(values: GroupFormValues): Promise<GroupFieldErrors | null> {
@@ -157,6 +200,35 @@ export function GroupManage({ group, onUpdated, onDeleted, onChanged }: GroupMan
               ))}
         </section>
       ) : null}
+      {rank >= 3 ? (
+        <section aria-labelledby={`${ids}-awaiting`} className="flex flex-col gap-3 rounded-lg bg-card p-4 shadow-card">
+          <h2 id={`${ids}-awaiting`} className="text-h3">
+            {AWAITING_TITLE}
+          </h2>
+          {awaiting === null ? null : awaiting.length === 0 ? (
+            <p className="text-body text-muted-foreground">{NO_AWAITING_TEXT}</p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {awaiting.map((i) => (
+                <li key={i.id} className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-col">
+                    <span className="text-body">{invitedByLine(i.inviter.fullName ?? NO_NAME, i.invitee.fullName ?? NO_NAME)}</span>
+                    <span className="text-small text-muted-foreground">{formatPostTime(i.createdAt)}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button pending={busyId === i.id} onClick={() => void decideInvite(i, 'approve')}>
+                      {APPROVE_LABEL}
+                    </Button>
+                    <Button variant="text" onClick={() => void decideInvite(i, 'reject')}>
+                      {REJECT_LABEL}
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
       <section aria-labelledby={`${ids}-bans`} className="flex flex-col gap-3 rounded-lg bg-card p-4 shadow-card">
         <h2 id={`${ids}-bans`} className="text-h3">
           {BANS_TITLE}
@@ -168,6 +240,31 @@ export function GroupManage({ group, onUpdated, onDeleted, onChanged }: GroupMan
                 {UNBLOCK_LABEL}
               </Button>
             ))}
+      </section>
+      <section aria-labelledby={`${ids}-history`} className="flex flex-col gap-3 rounded-lg bg-card p-4 shadow-card">
+        <h2 id={`${ids}-history`} className="text-h3">
+          {HISTORY_TITLE}
+        </h2>
+        {history === null ? null : history.length === 0 ? (
+          <p className="text-body text-muted-foreground">{NO_HISTORY_TEXT}</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {history.map((r) => (
+              <li key={r.id} className="flex flex-col">
+                <span className="text-body">{`${HISTORY_KIND[r.kind]} · ${r.fullName ?? NO_NAME}`}</span>
+                <span className="text-small text-muted-foreground">
+                  {[
+                    r.reason === null ? null : r.reason === 'other' && r.reasonText !== null ? r.reasonText : REASON_LABEL[r.reason],
+                    r.muteUntil === null ? null : muteUntilLine(formatPostTime(r.muteUntil)),
+                    formatPostTime(r.createdAt),
+                  ]
+                    .filter((x) => x !== null)
+                    .join(' · ')}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
       {rank >= 3 ? (
         <section aria-labelledby={`${ids}-settings`} className="flex flex-col gap-3 rounded-lg bg-card p-4 shadow-card">

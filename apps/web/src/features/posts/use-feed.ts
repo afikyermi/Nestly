@@ -80,6 +80,7 @@ export function useFeed(onRestart: () => void): FeedFlow {
   // I10: a Group's discussion reads its own pages and is never remembered for Back (the remembered pages are the community feed's).
   const source = useFeedSource();
   const groupId = source.kind === 'group' ? source.groupId : null;
+  const groupView = source.kind === 'group' ? (source.view ?? 'all') : 'all';
   // How the screen was reached, read once: an overlay's own history entry (a card's menu, F3.9) changes the type without leaving the feed.
   const [navigationType] = useState(useNavigationType());
   const [state, setState] = useState<FeedState>(INITIAL_FEED);
@@ -102,7 +103,7 @@ export function useFeed(onRestart: () => void): FeedFlow {
       setState((current) => ({ ...current, loading: true, focusIndex: null }));
       const token = account === null ? null : await account.getAccessToken().catch(() => null);
       const outcome =
-        token === null ? ({ kind: 'failed' } as const) : groupId === null ? await fetchFeedPage(token, cursor) : await fetchGroupFeedPage(token, groupId, cursor);
+        token === null ? ({ kind: 'failed' } as const) : groupId === null ? await fetchFeedPage(token, cursor) : await fetchGroupFeedPage(token, groupId, cursor, groupView);
       if (id !== runs.current) return;
       if (outcome.kind === 'page') {
         busy.current = false;
@@ -120,7 +121,7 @@ export function useFeed(onRestart: () => void): FeedFlow {
       const message = outcome.kind === 'account-unavailable' ? STOPPED_TEXT : FEED_LOAD_FAILED_TEXT;
       setState((current) => ({ ...current, phase: cursor === null ? 'first-error' : 'more-error', loading: false, message }));
     },
-    [account, groupId],
+    [account, groupId, groupView],
   );
 
   // Back (a history pop) brings the remembered pages and scroll back, only when the current token names the user they were kept for (else
