@@ -172,16 +172,16 @@ select is(
      from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace,
           unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']) p
     where n.nspname = 'nestly' and c.relkind in ('r', 'p') and has_table_privilege('app_jobs', c.oid, p)),
-  'comments=DELETE, comments=SELECT, posts=DELETE, posts=SELECT, reports=SELECT, search_intents=DELETE, search_intents=SELECT',
-  '[F3.0-b c14 platform r6] app_jobs holds table privileges on posts, comments and reports (and, from the Intent Signal, search_intents) only, and only SELECT, DELETE (SELECT on reports)');
+  'comments=DELETE, comments=SELECT, posts=DELETE, posts=SELECT, professional_views=DELETE, professional_views=SELECT, promotion_events=DELETE, promotion_monthly_summaries=INSERT, promotion_monthly_summaries=SELECT, reports=SELECT, search_intents=DELETE, search_intents=SELECT, usage_events=DELETE, usage_events=SELECT',
+  '[F3.0-b c14 platform r6] app_jobs holds table privileges on posts, comments and reports (and, from the Intent Signal, search_intents; from the I13 follow-up usage_events, professional_views, the paid events'' 12-month delete and the monthly summaries, file 104; column-level reads of the paid events, promotions and payments) only, and only SELECT, DELETE (SELECT on reports; SELECT, INSERT on the summaries)');
 
 select is(
   (select string_agg(c.relname || '.' || a.attname, ', ' order by c.relname, a.attname)
      from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p') and a.attnum > 0 and not a.attisdropped
       and (has_column_privilege('app_jobs', c.oid, a.attnum, 'UPDATE') or has_column_privilege('app_jobs', c.oid, a.attnum, 'INSERT'))),
-  'reports.closed_at, reports.status',
-  '[F3.0-b c14] and may write exactly the status and the close time of a report');
+  'promotion_monthly_summaries.chat_starts, promotion_monthly_summaries.clicks, promotion_monthly_summaries.follows, promotion_monthly_summaries.id, promotion_monthly_summaries.impressions, promotion_monthly_summaries.month, promotion_monthly_summaries.professional_field, promotion_monthly_summaries.promotion_id, promotion_monthly_summaries.target_kind, promotion_monthly_summaries.updated_at, reports.closed_at, reports.status',
+  '[F3.0-b c14 · I13 file 104] and may write exactly the status and the close time of a report, and insert (never update) a month''s promotion summary row');
 
 select is((select pg_catalog.has_schema_privilege('app_jobs', n.oid, 'USAGE') and not pg_catalog.has_schema_privilege('app_jobs', n.oid, 'CREATE')
              from pg_catalog.pg_namespace n where n.nspname = 'nestly'), true, '[F3.0-b c14] app_jobs may use schema nestly, not create in it');

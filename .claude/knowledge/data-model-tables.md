@@ -25,7 +25,7 @@ does not instruct loading every link. Column sections and rule matrices are both
 | groups, group_members, group_access, group_join_requests, group_invitations, group_bans, group_notification_preferences, group_suggestions, group_highlight_configurations, private_group_content_views | Groups (I10); posts, comments, reactions (group content); Notifications and People Search (notify_group); Safety and admin core (reports, audit) |
 | professional_profiles, professional_follows, outreach_requests, professional_reviews, professional_articles | Professionals (I11); posts (audience followers, is_help_request), Chat and Support (conversations: contexts professional and outreach); Blocking a user |
 | marketplace_listings, sponsored_products | Marketplace (I12); Media and Stories (listing and sponsored images), Chat and Support (conversations: context marketplace), Safety and admin core (reports, audit); Blocking a user |
-| promotion_plans, promotion_payments, promotions, promotion_events | Monetization (I13); Professionals (profiles, posts, follows), Marketplace (listings), Chat and Support (conversations: attribution); Blocking a user |
+| promotion_plans, promotion_payments, promotions, promotion_events, usage_events, professional_views, promotion_settings, promotion_monthly_summaries | Monetization (I13); Professionals (profiles, posts, follows), Marketplace (listings), Chat and Support (conversations: attribution); Blocking a user |
 
 | tracker_events, cycle_entries, status_guides | Trackers, cycle and status guides (I6); children for the child FK |
 | media_assets, media_reviews, profile_photos, stories, media_training_candidates, media_training_samples, media_training_events | Media and Stories (I5); posts and post_authors (attach), friendships (Story audience), Safety and admin core (CONTENT_MODERATE, audit) |
@@ -461,7 +461,7 @@ No SECURITY DEFINER, no function; `tests.approved_security_definer()` unchanged.
 | Columns | id, user_id (default auth.uid()), child_id, kind, occurred_at, ended_at, amount_ml, choice, name, dosage, weight_kg, height_cm, head_cm, note, created_at | id, user_id, start_date, cycle_length_days (15..60), created_at | id, stage_kind, range_from, range_to, title, body, source, source_checked_on, status (draft, published, hidden), published_at, created_at |
 | Not stored | no photo, no sharing, no free-form extra fields (OP-008) | no symptoms, no relations (OP-008) | no per-user state; no read counters |
 | Authorization | owner only, active account: `tracker_events_select_own`, `_insert_own` (also Regular and a child the caller can read), `_update_own`, `_delete_own`. INSERT per column (no id, user_id, created_at); UPDATE per column without kind and child_id. Nobody else reads: Admin, Moderator and Professional included (layer 9, BR-053) | owner only, same shape: `cycle_entries_select_own`, `_insert_own`, `_update_own`, `_delete_own` | `status_guides_select_published` (status = 'published', active account); from `20261021100000_status_guides_admin.sql`: `status_guides_select_admin`, `_insert_admin` (a draft only), `_update_admin`, all `caller_staff_role() = 'admin'` (FR-ADMIN-012 is Admin only; no Permission Key covers guides, so a Moderator with every key is refused). INSERT per content column, UPDATE per content column and status; no DELETE (a guide is hidden). `status_guides_prepare` stamps `published_at`; `audit_trigger()` (replaced with one more branch, still the one definer) appends created, edited, published, hidden and unpublished with Before/After (never the text) |
-| Constraints | `tracker_events_fields_check`: the fields each kind needs and no others; end not before start for breastfeeding and sleep (AC-023) | unique (user_id, start_date) | published needs `source_checked_on` and `published_at` (BR-070); planning has no range |
+| Constraints | `tracker_events_fields_check`: the fields each kind needs and no others; end not before start for breastfeeding and sleep (AC-023) | unique (user_id, start_date) | published needs `published_at` (`status_guides_published_at_check`; the source date optional since 20261023700000, FR-ADMIN-012, Afik 21.10.2026); planning has no range |
 | Relations | user_id -> regular_profiles (cascade); child_id -> children (cascade: a removed child takes its events) | user_id -> regular_profiles (cascade) | none |
 | Indexes | (user_id, kind, occurred_at desc): the page's history and period; (child_id): the cascade | (user_id, start_date desc): history and latest | partial (stage_kind, range_from) where published: the home lookup |
 | Retention | hard delete by the owner | hard delete by the owner | the nine seed rows are drafts awaiting approval; `hidden` keeps the row |
@@ -726,3 +726,32 @@ Attribution: a follow of a Professional, or a professional / marketplace convers
 that Professional or listing, adds a follow / chat_start event (as the caller); a refusal of that event never fails the follow or the conversation. No organic table is written and no organic read joins these tables (AC-062).
 Cleanup: `promotion_events` (the user's own and those on the user's promotions), then `promotions`, then `promotion_payments`, after the private-group views and
 before the Stories; `promotion_plans` never (configuration).
+
+### Promotion rules and usage events (I13 follow-up, Afik §11.1–11.6)
+
+Built by `20261023600000_promotion_rules.sql` (down script in `supabase/rollback/`; refuses once a usage event, a professional view, a summary, a settings
+version beyond v1, a staff stop or an anonymised payment exists). No new SECURITY DEFINER; `audit_trigger()` gains `promotion_stopped` and
+`promotion_settings_changed`. Invoker triggers: `usage_events_guard` (advisory lock 8115 per account and kind; a same-day repeat adds one to the caller's row
+and inserts none; daily_login once a day, profile_view / post_view up to 1000 a day), `professional_views_guard` (advisory lock 8116 per Professional and
+viewer; a repeat adds one, up to 100 a day) and `promotion_settings_prepare` (advisory lock 8117; numbers the version). A caller that is not an active
+Regular or Professional, a Professional's own view and a view across a user block are dropped silently (recording never fails a page and never reveals a
+block). Retention (rule 6, both EXECUTE app_jobs only, run by the daily job in I9, not called before): `purge_usage_events()` deletes usage events older
+than 90 Israel-time days (⭐); `purge_promotion_data()` first sums every completed month of paid events into `promotion_monthly_summaries` (overwriting the
+month, so a rerun changes nothing), then deletes paid events and professional views of the months more than 12 months back (§11.4).
+`promotion_events_guard()` is replaced: an impression counts up to the newest `promotion_settings.daily_cap` a day (100 when none).
+
+| Table | Columns and meaning | Authorization |
+|---|---|---|
+| `usage_events` | user_id (default auth.uid(); never readable), kind daily_login/profile_view/post_view, occurred_on (Israel date), times 1-1000 (daily_login 1); PK (user, kind, day). No target, no content, no IP, no time | SELECT own rows; ANALYTICS_VIEW on the analytics screen (`nestly.analytics_view`), kind/day/count only; INSERT an active Regular or Professional, own row (staff never recorded); UPDATE own row of today, times + 1; app_jobs SELECT/DELETE rows older than 90 days; no client DELETE |
+| `professional_views` | id (not readable), professional_id (FK professional_profiles, cascade), viewer_id (default auth.uid(); never readable; cascade), kind profile_view/post_view, occurred_on (Israel date), times 1-100; unique (professional, viewer, kind, day). No post, no time | SELECT the Professional its own rows as counts (row count = reach, sum = views; FR-PRO-002, VAL-032), the viewer its own rows; ANALYTICS_VIEW on the analytics screen; INSERT an active Regular or Professional, own row, not the Professional itself, no user block between them; UPDATE own row of today, times + 1; app_jobs SELECT/DELETE rows of the months more than 12 months back |
+| `promotion_settings` | version (PK, the database's: newest + 1), daily_cap 1-100, directory_units_per_page 1-3, feed_gap_min 1-20, feed_gap_max (≥ min, ≤ 20), feed_low_posts / feed_high_posts (posts of the last 48 hours; high > low), reason 1-500, created_by (not readable; SET NULL), created_at. v1: 3, 1, 4, 7, 20, 200 | SELECT every active account; INSERT BILLING_FINANCE_MANAGE (Admin Only), audited (`promotion_settings_changed`, before = the previous version); no UPDATE/DELETE (append-only) |
+| `promotion_monthly_summaries` | id, promotion_id (FK promotions, SET NULL: outlives it), target_kind, professional_field, month (first day), impressions, clicks, follows, chat_starts, updated_at; unique (promotion, month) | SELECT the promotion's owner, BILLING_FINANCE_MANAGE; app_jobs SELECT/INSERT (a month is written once); no client write; kept forever (§11.4) |
+
+`promotions` gains `stopped_by` (owner | staff; set exactly when stopped). `promotions_update_guard()` is replaced: the owner stops its own; staff with
+CONTENT_MODERATE (a profile or post promotion) or MARKETPLACE_MODERATE (a listing promotion) stop anyone's with a reason in `nestly.audit_reason`
+(`promotions_select_staff`, `promotions_update_staff`; audited by `promotions_staff_stop_audit`); no refund (the payment is never touched). The promoter reads
+`stopped_by` and the screen says "הקידום הופסק". `promotion_payments.payer_id` is now nullable, FK ON DELETE SET NULL (§11.6: a payment record outlives the
+account), and gains `professional_field` (copied from the payer's Professional profile by `promotion_payments_prepare()` for a profile or post plan). app_jobs
+reads promotion_events (no viewer_id), promotions (id, kind, payment) and payments (id, field) for the summaries. Cleanup: the summaries of the user's
+promotions before the promotions; `professional_views` (the user's views and the views of the user's profile) and the user's `usage_events` after
+`promotion_payments`; `promotion_settings` is configuration.

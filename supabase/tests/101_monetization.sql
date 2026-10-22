@@ -67,19 +67,20 @@ select is((select count(*) from pg_class c join pg_namespace n on n.oid = c.reln
 select is((select string_agg(c.relname || '.' || pl.polname || ':' || pl.polcmd::text, ', ' order by c.relname, pl.polname)
              from pg_policy pl join pg_class c on c.oid = pl.polrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'nestly'
               and c.relname in ('promotion_plans', 'promotion_payments', 'promotions', 'promotion_events')),
-  'promotion_events.promotion_events_insert_viewer:a, promotion_events.promotion_events_select_finance:r, '
-  || 'promotion_events.promotion_events_select_owner:r, promotion_events.promotion_events_select_viewer:r, '
+  'promotion_events.promotion_events_delete_jobs:d, promotion_events.promotion_events_insert_viewer:a, promotion_events.promotion_events_select_finance:r, '
+  || 'promotion_events.promotion_events_select_jobs:r, promotion_events.promotion_events_select_owner:r, promotion_events.promotion_events_select_viewer:r, '
   || 'promotion_events.promotion_events_update_viewer:w, '
   || 'promotion_payments.promotion_payments_insert_payer:a, promotion_payments.promotion_payments_select_finance:r, '
-  || 'promotion_payments.promotion_payments_select_payer:r, promotion_plans.promotion_plans_select_reader:r, '
-  || 'promotions.promotions_insert_owner:a, promotions.promotions_select_finance:r, promotions.promotions_select_owner:r, '
-  || 'promotions.promotions_select_viewer:r, promotions.promotions_update_owner:w',
-  '[F13.1-a c1] exactly these policies: nobody writes the price list, nobody updates or deletes a payment, nobody deletes a promotion or an event');
+  || 'promotion_payments.promotion_payments_select_jobs:r, promotion_payments.promotion_payments_select_payer:r, promotion_plans.promotion_plans_select_reader:r, '
+  || 'promotions.promotions_insert_owner:a, promotions.promotions_select_finance:r, promotions.promotions_select_jobs:r, promotions.promotions_select_owner:r, '
+  || 'promotions.promotions_select_staff:r, promotions.promotions_select_viewer:r, promotions.promotions_update_owner:w, promotions.promotions_update_staff:w',
+  '[F13.1-a c1] exactly these policies: nobody writes the price list, nobody updates or deletes a payment, no client deletes a promotion or an event (the I13 follow-up adds the staff stop and the retention job''s reads and 12-month delete, file 104)');
 select is((select count(*) from pg_policy pl join pg_class c on c.oid = pl.polrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'nestly'
             and c.relname in ('promotion_plans', 'promotion_payments', 'promotions', 'promotion_events')
+            and pl.polname !~ '_jobs$'
             and (pl.polroles <> array[(select oid from pg_roles where rolname = 'authenticated')]::oid[] or not pl.polpermissive
                  or (coalesce(pg_get_expr(pl.polqual, pl.polrelid), '') || coalesce(pg_get_expr(pl.polwithcheck, pl.polrelid), '')) !~ 'is_active_account\(\)')),
-  0::bigint, '[F13.1-a c1 platform r15] every policy of the new tables is permissive, TO authenticated and gated by is_active_account()');
+  0::bigint, '[F13.1-a c1 platform r15] every client policy of the new tables is permissive, TO authenticated and gated by is_active_account() (the retention job''s, file 104, are TO app_jobs)');
 select is((select string_agg(c.relname || '.' || a.attname, ', ' order by c.relname, a.attname)
              from pg_attribute a join pg_class c on c.oid = a.attrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'nestly'
               and c.relname in ('promotion_plans', 'promotion_payments', 'promotions', 'promotion_events') and a.attnum > 0 and not a.attisdropped
