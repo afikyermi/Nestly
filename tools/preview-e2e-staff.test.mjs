@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { checkStaffContext, makeStaffUsers } from './preview-e2e-staff.ts';
+import { checkStaffContext, makeStaffUsers, maskStaffUsers } from './preview-e2e-staff.ts';
 import { readStaffUser } from '../e2e-preview/support/staff-user.ts';
 import { TEST_EMAIL_REGEX } from '../e2e-preview/support/test-user.ts';
 
@@ -45,7 +45,18 @@ test('[BR-083 Preview] setup creates only a minimal Moderator; credentials are p
   assert.match(cli, /values \(\$\{id\}, 'CONTENT_MODERATE', \$\{id\}\)/);
   assert.doesNotMatch(cli, /insert into nestly\.staff_roles|AUDIT_LOG_VIEW|MARKETPLACE_MODERATE|BILLING_FINANCE_MANAGE/);
   assert.match(cli, /mode: 0o600, flag: 'wx'/);
+  assert.match(cli, /maskStaffUsers\(users,/);
   assert.doesNotMatch(cli, /console\.|stdout\.write\([^)]*(user\.|password|url)|stderr\.write\([^)]*(user\.|password|url)/);
+});
+
+test('[BR-083 Preview] every staff password/recovery answer is masked; control-command injection is escaped', () => {
+  const users = makeStaffUsers('12345','2');
+  const commands = [];
+  maskStaffUsers(users, (command) => commands.push(command));
+  assert.deepEqual(commands, Object.values(users).flatMap((u) => [u.password,u.answers.pet,u.answers.nickname].map((s) => `::add-mask::${s}\n`)));
+  const injected = [];
+  maskStaffUsers({ one:{email:'unused',password:'x%\n::warning::bad\r',answers:{pet:'safe',nickname:'safe'}} }, (c) => injected.push(c));
+  assert.equal(injected[0],'::add-mask::x%25%0A::warning::bad%0D\n');
 });
 
 test('[BR-083 Preview] Audit removal is scoped after the locked pattern user, within the existing transaction', () => {
