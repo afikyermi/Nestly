@@ -15,7 +15,7 @@ export function planTargetKind(plan: PromotionPlanKey): PromotionTargetKind {
 }
 
 /**
- * POST /api/promotions (FR-SERV-010, FR-MKT-004; VAL-047): a plan and the caller's own target of the plan's kind. Who owns the target, whether
+ * POST /api/promotions (FR-SERV-010, FR-MKT-004; VAL-051): a plan and the caller's own target of the plan's kind. Who owns the target, whether
  * it is still eligible and whether it is already promoted is the database's answer (ERR-047).
  */
 export const promotionPurchaseSchema = z
