@@ -191,6 +191,12 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         ).count;
         counts['group_invitations'] = (await tx`delete from nestly.group_invitations where inviter_id = ${id} or invitee_id = ${id}`).count;
         counts['group_join_requests'] = (await tx`delete from nestly.group_join_requests where user_id = ${id}`).count;
+        // I10 completion C: the Group enforcement history naming the user (as the member or as the manager who acted; others' records of a
+        // deleted manager keep their row by SET NULL, but a test user's are deleted here). group_highlights names no user: it goes with its
+        // post or Group by cascade.
+        counts['group_member_enforcements'] = (
+          await tx`delete from nestly.group_member_enforcements where user_id = ${id} or actor_id = ${id}`
+        ).count;
         counts['group_bans'] = (await tx`delete from nestly.group_bans where user_id = ${id}`).count;
         counts['group_notification_preferences'] = (await tx`delete from nestly.group_notification_preferences where user_id = ${id}`).count;
         counts['group_access'] = (await tx`delete from nestly.group_access where user_id = ${id}`).count;
