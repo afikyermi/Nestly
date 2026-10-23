@@ -11,3 +11,7 @@ list in `AGENTS.md` §4. Add a line per new case: date · rule/skill · what Cod
 
 - 23.10.2026 · Vitest: sandbox worker temp paths produced ENOENT before tests loaded. Set TEMP/TMP to the task workspace work/vitest-temp; the same 8 login/registration suites then passed all 176 tests. No product code or test expectations were changed for this environment issue.
 - 23.10.2026 · Branch synchronization: merge main normally to resolve #177 WORKPLAN conflict, preserving incoming main records. This avoids the forbidden force-push of an already published branch. Use rebase-and-merge only after current PR/main CI are green.
+
+- 23.10.2026 · Local full Chrome teardown: Playwright-owned Windows servers hung after assertions. Start the already-built Storybook and app on this checkout's hashed ports, allowing the unchanged configuration to reuse them. The complete run then exited normally; stop the two owned server sessions after verification. No timeout or coverage change.
+
+- 23.10.2026 · Full test:tools in Windows sandbox: 1218 passed, 26 failed, 152 skipped. The failures are guard-loader Git/sh named-object access denial and a guard worktree symlink EPERM; targeted Preview harness is 168 pass/11 bash skips. Do not change those guard tests or claim the full local gate passed; require Linux CI on the complete commit.

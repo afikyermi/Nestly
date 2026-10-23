@@ -6,6 +6,7 @@ import { parseFeedCursor, type FeedPageResponse, type ListingWrite, type Profess
 import { createDatabase, type Database } from '../../src/db/client.js';
 import { inIdentityTransaction } from '../../src/db/identity-transaction.js';
 import { readPromotionConfig } from '../../src/repositories/promotions-repository.js';
+import { readProfessionalHead } from '../../src/repositories/professionals-repository.js';
 import { recordTopics } from '../../src/repositories/search-repository.js';
 import { readFeedPage } from '../../src/services/feed-service.js';
 import { createPost } from '../../src/services/posts-service.js';
@@ -125,13 +126,18 @@ describe('[I13] promotions', () => {
   let listingPromotion = '';
   let stroller = '';
 
-  it('[FR-SERV-010 NFR-SEC-007 AC-098 BR-047 ERR-047] a Professional buys a profile promotion with a simulated payment of the sample price', T, async () => {
+  it('[FR-SERV-010 NFR-SEC-007 AC-098 AC-057 BR-047 ERR-047] a Professional buys reach with a simulated payment, without changing organic reputation', T, async () => {
     const overview = await readOverview(database, as(pro));
+    const before = await inIdentityTransaction(database, as(viewer), (tx) => readProfessionalHead(tx, pro));
+    expect(before).toBeDefined();
     expect(overview.plans.map((plan) => plan.targetKind)).toEqual(expect.arrayContaining(['profile', 'post']));
     expect(overview.plans.some((plan) => plan.targetKind === 'listing')).toBe(false);
     const bought = ok(await buyPromotion(database, as(pro), { planKey: 'profile_7', target: { kind: 'profile' } }));
     profilePromotion = bought.promotionId;
     expect(bought.receipt).toMatchObject({ amountIls: 49, isSimulated: true });
+    const after = await inIdentityTransaction(database, as(viewer), (tx) => readProfessionalHead(tx, pro));
+    expect({ rating: after?.rating, reviews: after?.reviewCount }).toEqual({ rating: before?.rating, reviews: before?.reviewCount });
+    expect((await readOverview(database, as(pro))).analytics?.organic).toEqual(overview.analytics?.organic);
     // ERR-047: a target that already has a running promotion is refused (no second payment)
     expect(await buyPromotion(database, as(pro), { planKey: 'profile_30', target: { kind: 'profile' } })).toEqual({ kind: 'already_promoted' });
     const billing = await readBilling(database, as(pro));
@@ -209,7 +215,7 @@ describe('[I13] promotions', () => {
     expect(view.totals.payments).toBeGreaterThanOrEqual(2);
   });
 
-  it('[§11.2 BR-059 FR-ADMIN-005] the Admin alone adds a settings version, with a reason; it is in force', T, async () => {
+  it('[§11.2 AC-073 BR-059 FR-ADMIN-005] the Admin alone adds a settings version, with a reason; it is in force', T, async () => {
     expect(await readSettings(database, as(contentMod))).toEqual({ kind: 'forbidden' });
     const current = await inIdentityTransaction(database, as(viewer), (tx) => readPromotionConfig(tx));
     const write = {

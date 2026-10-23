@@ -261,10 +261,9 @@ test('[E c1] wait: a URL with a newline or a space cannot reach the output file'
 });
 
 // ---- criterion 2: environment and secrets -----------------------------------------------------------------------------
-test('[E c2] the test workflow declares no environment (the credential environment belongs to the cleanup workflow only)', () => {
-  assert.equal(job.environment, undefined);
+test('[E c2] temporary staff setup uses the main-restricted preview-e2e environment (Afik 23.10)', () => {
+  assert.equal(job.environment, 'preview-e2e');
   assert.equal(wf.environment, undefined);
-  assert.doesNotMatch(workflowText, /^\s*environment\s*:/m);
 });
 
 test('[E c2] no secret is in the workflow-level or job-level env', () => {

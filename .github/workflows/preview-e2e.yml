@@ -20,7 +20,8 @@
 # (e2e-preview/support/bypass.ts).
 #
 # Cleanup is NOT here: .github/workflows/preview-e2e-cleanup.yml runs after this workflow completes (workflow_run, the
-# default branch's code). This workflow holds no environment and never sees PREVIEW_DB_ADMIN_URL.
+# default branch's code). Afik 23.10: one trusted-main setup step may create temporary Preview Moderators.
+# Only that step receives PREVIEW_DB_ADMIN_URL; browser flows never receive database credentials.
 
 name: preview-e2e
 
@@ -152,6 +153,7 @@ jobs:
   e2e:
     name: preview-e2e
     needs: deployment
+    environment: preview-e2e
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -170,13 +172,31 @@ jobs:
         run: node tools/preview-e2e-url-guard.ts
       - run: npm ci
       - run: npx playwright install --with-deps chrome
+      - name: Check out trusted main harness
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: .preview-harness
+          persist-credentials: false
+      - name: Prepare temporary Preview Moderators
+        timeout-minutes: 2
+        env:
+          PREVIEW_DB_ADMIN_URL: ${{ secrets.PREVIEW_DB_ADMIN_URL }}
+          PREVIEW_E2E_STAFF_FILE: ${{ runner.temp }}/preview-e2e-staff.json
+        run: node .preview-harness/tools/preview-e2e-staff-cli.ts
       - name: Walk the flows on the preview
         timeout-minutes: 12
         env:
           PREVIEW_E2E_BASE_URL: ${{ steps.guard.outputs.base_url }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           PREVIEW_E2E_REPORT_FILE: ${{ runner.temp }}/preview-e2e-report.json
+          PREVIEW_E2E_STAFF_FILE: ${{ runner.temp }}/preview-e2e-staff.json
         run: npx playwright test -c e2e-preview/playwright.config.ts
+      - name: Remove temporary staff credentials
+        if: always()
+        env:
+          PREVIEW_E2E_STAFF_FILE: ${{ runner.temp }}/preview-e2e-staff.json
+        run: node -e "require('node:fs').rmSync(process.env.PREVIEW_E2E_STAFF_FILE, { force:true })"
       - name: Summary
         if: always()
         env:

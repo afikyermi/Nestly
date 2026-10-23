@@ -7,5 +7,5 @@
     "types": ["node"],
     "allowImportingTsExtensions": true
   },
-  "include": ["e2e-preview", "tools/preview-e2e-url-check.ts", "tools/preview-e2e-url-guard.ts", "tools/preview-e2e-cleanup.ts", "tools/preview-e2e-cleanup-cli.ts"]
+  "include": ["e2e-preview", "tools/preview-e2e-url-check.ts", "tools/preview-e2e-url-guard.ts", "tools/preview-e2e-cleanup.ts", "tools/preview-e2e-cleanup-cli.ts", "tools/preview-e2e-staff.ts", "tools/preview-e2e-staff-cli.ts"]
 }

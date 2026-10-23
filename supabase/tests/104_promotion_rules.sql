@@ -286,7 +286,7 @@ select is(pg_temp.q('a', $q$ select string_agg(version || ':' || daily_cap || ':
             from nestly.promotion_settings $q$), '1:3:4:7:20:200,2:5:5:8:30:300', '[F13.2-a c7 BR-059] it is version 2; version 1 stays (append-only)');
 select is(tests.fx_sw_count($q$nestly.audit_log where action = 'promotion_settings_changed' and permission_key = 'BILLING_FINANCE_MANAGE'
             and reason = 'more reach for the demo' and before_state ->> 'daily_cap' = '3' and after_state ->> 'daily_cap' = '5' and after_state ->> 'version' = '2'$q$),
-  1::bigint, '[F13.2-a c7 FR-ADMIN-005 §3.3] the change is audited with the reason and the values before and after');
+  1::bigint, '[F13.2-a c7 AC-073 FR-ADMIN-005 §3.3] the change is audited with the reason and the values before and after');
 select is(pg_temp.dml('d', $q$ update nestly.promotion_settings set daily_cap = 9 $q$), 'ERR:42501', '[F13.2-a c7 BR-059] a version is never changed');
 select is(pg_temp.dml('d', $q$ delete from nestly.promotion_settings $q$), 'ERR:42501', '[F13.2-a c7 BR-059] nor deleted');
 select is((select string_agg(pg_temp.dml('a', format($q$ insert into nestly.promotion_events (promotion_id, kind) values (%L, 'impression') $q$, current_setting('t.promo'))), '')

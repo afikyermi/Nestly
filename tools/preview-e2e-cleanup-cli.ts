@@ -9,7 +9,7 @@
 // Reads PREVIEW_DB_ADMIN_URL (postgres@nestly-preview through the session pooler), TARGET_RUN_ID and TARGET_RUN_ATTEMPT (the
 // run being cleaned up: workflow_run's id and attempt) from the environment. The URL is checked before anything connects.
 // The credential bypasses RLS: it is read in this one step of the preview-e2e-cleanup workflow (main's code, run on
-// workflow_run) and nowhere else (data-model.md, Approved exceptions). It never prints the URL, an email, an id or a
+// workflow_run), plus the trusted-main staff setup step approved by Afik 23.10. It never prints the URL, an email, an id or a
 // password; it prints counts. Exit 0 only when every user is gone and none of this run remains.
 
 import { appendFileSync } from 'node:fs';
@@ -87,6 +87,17 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         const locked = await tx`select id from auth.users where id = ${id} and email ~ ${TEST_EMAIL_PATTERN} for update`;
         const counts: DeleteCounts = {};
         if (locked.length === 0) return counts; // already gone, or no longer matches: nothing to do
+        // Afik 23.10: only this locked pattern user's own Audit entries, Preview only (URL + preflight above).
+        // ALTER takes a table lock; no concurrent session observes a disabled trigger. Failure rolls all DDL/deletes back.
+        const audit = await tx`select 1 from nestly.audit_log where actor_id = ${id} limit 1`;
+        if (audit.length > 0) {
+          const [guard] = await tx<{ tgenabled: string }[]>`select tgenabled from pg_trigger
+            where tgrelid = 'nestly.audit_log'::regclass and tgname = 'audit_log_append_only'`;
+          if (guard?.tgenabled !== 'O') throw new Error('Audit append-only guard is not enabled');
+          await tx`alter table nestly.audit_log disable trigger audit_log_append_only`;
+          counts['audit_log'] = (await tx`delete from nestly.audit_log where actor_id = ${id}`).count;
+          await tx`alter table nestly.audit_log enable trigger audit_log_append_only`;
+        }
         counts['recovery_throttles'] = (
           await tx`delete from nestly.recovery_throttles t using nestly.recovery_answers a
                     where a.user_id = ${id} and t.subject_kind = 'handle' and t.subject_hash = a.email_handle`

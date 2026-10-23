@@ -4,7 +4,7 @@
 // the second test (below). The staff stop and the settings
 // are covered by tests/db/promotions.db.test.ts and pgTAP 104. Users are made through the app (the cleanup covers their listings, promotions,
 // payments and events). No recovery attempts are made.
-import { promotionOverview } from '@nestly/shared';
+import { promotionOverview, promotionPurchaseResponse } from '@nestly/shared';
 import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
@@ -122,10 +122,11 @@ async function signOut(page: Page): Promise<void> {
 }
 
 test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-PRO-002 FR-ALG-007 BR-005]', () => {
-  test('a Professional promotes its profile; a Regular sees it marked "ממומן" and opens it; the Professional sees the counts', async ({ page }, info) => {
-    test.setTimeout(240_000); // three sign-ups on a Preview that may be cold
-    const pro = PRO_BY_PROJECT[info.project.name] ?? { name: 'נועה צלמת', field: 'photography' };
+  test('[BR-083 AC-072] a Professional promotes its profile; a Regular sees it; a Moderator stops it and the owner sees the result', async ({ page, staffUser }, info) => {
+    test.setTimeout(300_000); // real sign-ups, paid visit, staff recovery setup and two owner sign-ins
     const proUser = fresh();
+    const base = PRO_BY_PROJECT[info.project.name] ?? { name: 'נועה צלמת', field: 'photography' };
+    const pro = { ...base, name: `${base.name} ${proUser.email.split('@')[0]?.split('-').at(-1) ?? info.project.name}` };
     await signUpProfessional(page, proUser, pro.name, pro.field);
 
     const [initialOverview] = await Promise.all([
@@ -143,6 +144,7 @@ test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-
       dialog.getByRole('button', { name: 'אישור התשלום' }).click(),
     ]);
     expect(bought.status(), 'POST /api/promotions status').toBe(201);
+    const purchase = promotionPurchaseResponse.parse(await bought.json());
     await expect(main(page).getByRole('list', { name: 'הקידומים שלי' })).toContainText('פעיל');
 
     // the other side: a fresh Regular on the Directory, filtered to the Professional's field
@@ -178,9 +180,40 @@ test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-
     await expect(main(page).getByRole('list', { name: 'הקידומים שלי' })).toContainText(/[1-9]\d* חשיפות · [1-9]\d* לחיצות/);
     await expect(main(page).getByRole('heading', { name: 'מקידום בתשלום' })).toBeVisible();
 
-    // TODO(I13 §11.1, WORKPLAN "ממתין לך" 1): the staff step — an Admin or a Moderator with CONTENT_MODERATE stops this promotion with a reason,
-    // then the Professional sees "הקידום הופסק" (no refund). It needs a staff test user on the Preview, created by the CI job with the cleanup
-    // credential (e2e-preview/README.md); that is waiting on Afik. Until then the stop is covered by tests/db/promotions.db.test.ts, pgTAP 104
-    // and e2e/promotions.spec.ts. Never fake it here with a real staff account or one made through the app.
+    // BR-083: a temporary CONTENT_MODERATE actor, created by the trusted-main CI setup (Afik, 23.10).
+    await signOut(page);
+    await page.goto('/login');
+    await page.getByRole('textbox', { name: 'אימייל', exact: true }).fill(staffUser.email);
+    await page.getByLabel('סיסמה', { exact: true }).fill(staffUser.password);
+    await page.getByRole('button', { name: 'התחברות', exact: true }).click();
+    await expect(page).toHaveURL(/\/recovery-questions$/, { timeout: SLOW });
+    await page.getByLabel(/חיית המחמד/).fill(staffUser.answers.pet);
+    await page.getByLabel(/כינו אתכם/).fill(staffUser.answers.nickname);
+    await page.getByRole('button', { name: 'שמירה', exact: true }).click();
+    await expect(page).not.toHaveURL(/\/recovery-questions$/, { timeout: SLOW });
+    await page.goto('/admin/promotions');
+    const card = main(page).getByRole('article').filter({ hasText: pro.name });
+    await expect(card).toHaveCount(1);
+    await card.getByLabel('סיבת העצירה', { exact: true }).fill('בדיקת עצירה בידי צוות בסביבת Preview');
+    const [stopped] = await Promise.all([
+      page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === `/api/admin/promotions/${purchase.promotionId}/stop`),
+      card.getByRole('button', { name: 'עצירה', exact: true }).click(),
+    ]);
+    expect(stopped.status()).toBe(204);
+    await expect(main(page).getByRole('heading', { name: 'הגדרות הקידום' })).toHaveCount(0);
+    await signOut(page);
+    await page.goto('/login');
+    await page.getByRole('textbox', { name: 'אימייל', exact: true }).fill(proUser.email);
+    await page.getByLabel('סיסמה', { exact: true }).fill(proUser.password);
+    await page.getByRole('button', { name: 'התחברות', exact: true }).click();
+    await expect(page).not.toHaveURL(/\/login$/, { timeout: SLOW });
+    const [ownerResult] = await Promise.all([
+      page.waitForResponse((r) => r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/promotions'),
+      page.goto('/pro/promotion'),
+    ]);
+    const overview = promotionOverview.parse(await ownerResult.json());
+    expect(overview.promotions.find((item) => item.id === purchase.promotionId)).toMatchObject({ state: 'stopped', stoppedBy: 'staff' });
+    expect(overview.analytics?.paid.sampleSpentIls, 'staff stop does not refund the sample payment').toBe(metrics?.paid.sampleSpentIls);
+    await expect(main(page).getByRole('list', { name: 'הקידומים שלי' })).toContainText('הקידום הופסק');
   });
 });
