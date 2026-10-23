@@ -265,17 +265,17 @@ describe('[I13] the rules of a running promotion', () => {
     planner = await register('Pele Planner', planning);
     sleeper = await register('Shira Sleeper', planning);
     // a search topic, as the search screen stores it (the topic only, never the text: FR-ALG-008)
-    await inIdentityTransaction(database, as(sleeper), (tx) => recordTopics(tx, ['sleep']));
+    for (const who of [viewer, viewer2, sleeper]) await inIdentityTransaction(database, as(who), (tx) => recordTopics(tx, ['sleep']));
     pro2 = await text(side`select tests.fx_new_auth_user()::text as v`);
     expect(await registerProfessional(database, as(pro2), { ...profile, fullName: 'Shoshi Sleep', field: 'sleep', about: `יועצת שינה ${tag}` })).toEqual({ kind: 'created' });
-    proPost = (await createPost(database, as(pro2), { body: `שינה טובה לתינוק ${tag}`, audience: 'everyone', stageTag: 'has_child' })).id;
+    proPost = (await createPost(database, as(pro2), { body: `שינה טובה לתינוק ${tag}`, audience: 'everyone' })).id;
     followersPost = (await createPost(database, as(pro2), { body: `לעוקבים בלבד ${tag}`, audience: 'followers' })).id;
     for (let i = 0; i < 12; i += 1) await createPost(database, as(seller), { body: `פוסט רגיל ${i} ${tag}`, audience: 'everyone' });
     postPromotion = ok(await buyPromotion(database, as(pro2), { planKey: 'post_3', target: { kind: 'post', postId: proPost } })).promotionId;
     marketMod = await text(side`select tests.fx_sf_id('sf_m5')::text as v`);
     analyst = await text(side`select tests.fx_sf_id('sf_m3')::text as v`);
     bare = await text(side`select tests.fx_sf_id('sf_m1')::text as v`);
-    for (const who of [marketMod, analyst, bare]) await side`select tests.fx_sf_revoke_all(${who}::uuid)`;
+    for (const who of [marketMod, analyst, bare].filter((id) => id !== '')) await side`select tests.fx_sf_revoke_all(${who}::uuid)`;
     await side.begin(async (tx) => {
       await tx`select 1`;
       await tx`select tests.fx_sf_grant(${marketMod}::uuid, ${['MARKETPLACE_MODERATE']}::text[])`;
@@ -314,7 +314,7 @@ describe('[I13] the rules of a running promotion', () => {
     // fewer posts than the "few" threshold: the smaller gap
     ok(await writeSettings(database, as(admin), { ...settings, feedLowPosts: 99_998, feedHighPosts: 99_999, reason: `few ${tag}` }));
     const few = await feedSlotOf(viewer, postPromotion);
-    expect(few, 'the Stage-matching viewer is served the promoted post').toBeDefined();
+    expect(few, 'the topic-matching viewer is served the promoted post').toBeDefined();
     expect((few?.afterIndex ?? 1) % 4).toBe(0);
     expect(few?.afterIndex ?? 99).toBeLessThanOrEqual(few?.organic ?? 0);
     // at least the "many" threshold: the larger gap
@@ -327,14 +327,16 @@ describe('[I13] the rules of a running promotion', () => {
     expect(((await feedSlotOf(viewer, postPromotion))?.afterIndex ?? 1) % 5).toBe(0);
   });
 
-  it('[FR-ALG-007 §11.2 ERR-028 AC-063] relevance by Stage or search topic; no match means no promoted post, and the skip is logged by reason only', T, async () => {
+  it('[FR-ALG-007 §11.2 ERR-028 AC-063] relevance by search topic; no match means no promoted post, and the skip is logged by reason only', T, async () => {
     ok(await writeSettings(database, as(admin), { ...settings, reason: `relevance ${tag}` }));
-    // the viewer's Stage (has_child) matches the post's tag; the sleeper's search topic (sleep) matches its text
+    // Professionals post without a Stage tag (VAL-049); the viewers' stored search topic (sleep) matches this public post's text.
     expect(await feedSlotOf(viewer, postPromotion)).toBeDefined();
     expect(await feedSlotOf(sleeper, postPromotion)).toBeDefined();
     // a planner with no search topic: neither matches, so no promoted post, and ERR-028's reason code is recorded
     skips.length = 0;
     expect(await feedSlotOf(planner, postPromotion)).toBeUndefined();
+    // Afik, 23.10.2026: a Stage alone is not paid targeting; this has-child viewer has no search topics.
+    expect(await feedSlotOf(seller, postPromotion)).toBeUndefined();
     expect(skips).toContain('not_matching');
     // the owner is never served its own promotion
     expect(await feedSlotOf(pro2, postPromotion)).toBeUndefined();
@@ -349,7 +351,7 @@ describe('[I13] the rules of a running promotion', () => {
       await listMarketplace(db, as(viewer), undefined, { q: tag });
       const overview = await readOverview(db, as(pro2));
       const view = ok(await readAdminAnalytics(database, as(admin), 30)).view;
-      const childData = /\bnestly\.(children|tracker_events|cycle_entries)\b|birth_date|due_date/i;
+      const childData = /\bnestly\.(children|tracker_events|cycle_entries|journey_contexts)\b|birth_date|due_date/i;
       expect(statements.length).toBeGreaterThan(0);
       expect(statements.filter((q) => childData.test(q))).toEqual([]);
       for (const shown of [JSON.stringify(overview.analytics), JSON.stringify(view.promotions), JSON.stringify(view.usage)]) {
