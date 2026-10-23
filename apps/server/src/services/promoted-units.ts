@@ -1,9 +1,9 @@
 // Promoted units on the Directory, the Marketplace and the feed (I13; FR-ALG-007, BR-003, BR-004, BR-005, BR-053, BR-054, AC-062, AC-063,
 // AC-068, VAL-012, VAL-030, ERR-028). The pipeline, per surface and page view:
 //   1. eligibility — a running promotion of another account (no user block), its target still eligible (the viewer policy and the candidate
-//      query), and matching the page: the surface's own filters (Directory, Marketplace) or, in the feed, the viewer's search topics or Stage
-//      (§11.2: relevance by Stage and search topics);
-//   2. paid ranking — among the eligible paid candidates only: topic matches before Stage matches (the feed), then the fewest impressions this
+//      query), and matching the page: the surface's own filters (Directory, Marketplace) or, in the feed, the viewer's search topics
+//      (Afik, 23.10.2026: Stage targeting deferred);
+//   2. paid ranking — among the eligible paid candidates only: matching search topics (the feed), then the fewest impressions this
 //      viewer had today (rotation), ties at random;
 //   3. the frequency cap — a promotion this viewer already saw `dailyCap` times today is skipped (FR-ALG-007; the database counts no more);
 //      the Marketplace has no cap (§11.3: every promoted listing that matches the search and the filters is shown at the top);
