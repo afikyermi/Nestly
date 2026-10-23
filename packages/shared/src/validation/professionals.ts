@@ -119,6 +119,9 @@ export const directoryQuerySchema = z.object({
 });
 export type DirectoryQuery = z.output<typeof directoryQuerySchema>;
 
+/** FR-PRO-002: a direct promoted-profile arrival. The server verifies the promotion; platform query keys are ignored. */
+export const professionalPageQuerySchema = z.object({ promotion: z.guid().optional() });
+
 /** POST /api/posts/:id/offer-help (FR-SERV-005): the first message. Same rule as a chat message. */
 export const offerHelpSchema = z.strictObject({ text: textOf(CHAT_TEXT_MAX, 'invalid') });
 
