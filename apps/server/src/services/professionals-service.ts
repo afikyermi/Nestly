@@ -26,6 +26,7 @@ import { readDatabaseFault } from '../lib/pg-error.js';
 import type { Identity } from '../lib/token-verifier.js';
 import { markRead } from '../repositories/chat-repository.js';
 import { promotedProfessionals, recordExposure } from './promoted-units.js';
+import { isPromotedProfileSource } from '../repositories/promotions-repository.js';
 import {
   answerOutreach,
   deleteArticle,
@@ -152,8 +153,8 @@ export async function listProfessionals(database: Database, identity: Identity, 
 }
 
 /** GET /api/professionals/:id (FR-SERV-003). */
-export async function readProfessional(database: Database, identity: Identity, id: string): Promise<ProOutcome<{ page: ProfessionalPage }>> {
-  const outcome = await inIdentityTransaction(database, identity, async (tx): Promise<ProOutcome<{ page: ProfessionalPage }>> => {
+export async function readProfessional(database: Database, identity: Identity, id: string, promotionId?: string): Promise<ProOutcome<{ page: ProfessionalPage }>> {
+  const outcome = await inIdentityTransaction(database, identity, async (tx): Promise<ProOutcome<{ page: ProfessionalPage; paid: boolean }>> => {
     const head = await readProfessionalHead(tx, id);
     if (head === undefined) return { kind: 'unavailable' };
     const caller = await readOwnAccountType(tx);
@@ -165,11 +166,11 @@ export async function readProfessional(database: Database, identity: Identity, i
       reviews: await readReviews(tx, id),
       articles: await readArticles(tx, id),
     };
-    return { kind: 'ok', page };
+    return { kind: 'ok', page, paid: promotionId !== undefined && await isPromotedProfileSource(tx, promotionId, id) };
   });
   // FR-PRO-002 (I13): an organic view of the Professional's profile, recorded apart from the read (its own view, staff and a block: dropped)
-  if (outcome.kind === 'ok' && !outcome.page.isMe) await recordExposure(database, identity, { professionalViews: [{ professionalId: id, kind: 'profile_view' }] });
-  return outcome;
+  if (outcome.kind === 'ok' && !outcome.page.isMe && !outcome.paid) await recordExposure(database, identity, { professionalViews: [{ professionalId: id, kind: 'profile_view' }] });
+  return outcome.kind === 'ok' ? { kind: 'ok', page: outcome.page } : outcome;
 }
 
 /** PUT /api/professional/profile: the owner's edit. */

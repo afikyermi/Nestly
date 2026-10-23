@@ -87,11 +87,11 @@ const SORT_OPTIONS = DIRECTORY_SORTS.map((value) => ({ value, label: SORT_LABELS
 type Results = { kind: 'loading' } | { kind: 'failed' } | { kind: 'loaded'; cards: ProfessionalCard[]; promoted: PromotedProfessional[] };
 
 /** One Professional's card on the directory (the organic list and, apart, a promoted one). */
-function Card({ card, badge, onOpen }: { card: ProfessionalCard; badge?: string; onOpen?: () => void }) {
+function Card({ card, badge, onOpen, promotionId }: { card: ProfessionalCard; badge?: string; onOpen?: () => void; promotionId?: string }) {
   return (
     <>
       {badge === undefined ? null : <p className="mb-1 inline-flex rounded-sm bg-muted px-2 text-label">{badge}</p>}
-      <Link to={professionalPagePath(card.id)} onClick={onOpen} className="block text-h3 text-primary-strong underline-offset-4 hover:underline">
+      <Link to={professionalPagePath(card.id) + (promotionId === undefined ? '' : `?promotion=${encodeURIComponent(promotionId)}`)} onClick={onOpen} className="block text-h3 text-primary-strong underline-offset-4 hover:underline">
         {card.fullName}
       </Link>
       {card.businessName === null ? null : <p className="text-small text-muted-foreground">{card.businessName}</p>}
@@ -183,7 +183,7 @@ export function DirectoryScreen() {
           <ul aria-label={PROMOTED_PROFESSIONALS_HEADING} className="mt-3 flex flex-col gap-3">
             {results.promoted.map(({ promotionId, card }) => (
               <li key={promotionId} className="rounded-lg bg-card p-4 shadow-card">
-                <Card card={card} badge={SPONSORED_LABEL} onOpen={() => void call((token) => reportPromotionClick(token, promotionId))} />
+                <Card card={card} promotionId={promotionId} badge={SPONSORED_LABEL} onOpen={() => void call((token) => reportPromotionClick(token, promotionId))} />
               </li>
             ))}
           </ul>

@@ -105,8 +105,8 @@ export async function fetchFollowing(token: string): Promise<ProResult<Professio
   return result.kind === 'ok' ? { kind: 'ok', value: result.value.professionals } : result;
 }
 
-export const fetchProfessional = (token: string, userId: string): Promise<ProResult<ProfessionalPage>> =>
-  call(token, 'GET', `/api/professionals/${enc(userId)}`, professionalPage);
+export const fetchProfessional = (token: string, userId: string, promotionId?: string): Promise<ProResult<ProfessionalPage>> =>
+  call(token, 'GET', `/api/professionals/${enc(userId)}${promotionId === undefined ? '' : `?promotion=${enc(promotionId)}`}`, professionalPage);
 
 export const setFollow = (token: string, userId: string, follow: boolean): Promise<ProResult<null>> =>
   call(token, follow ? 'PUT' : 'DELETE', `/api/professionals/${enc(userId)}/follow`, nothing);

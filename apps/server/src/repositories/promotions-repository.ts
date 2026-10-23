@@ -353,6 +353,15 @@ export async function readProfessionalAuthors(tx: IdentityTx, postIds: readonly 
   return rows.map((row) => row.id);
 }
 
+/** FR-PRO-002: only a readable running profile promotion of this Professional can identify a paid arrival. */
+export async function isPromotedProfileSource(tx: IdentityTx, promotionId: string, professionalId: string): Promise<boolean> {
+  const [row] = z.array(z.object({ paid: z.boolean() })).parse(await tx.execute(sql`select exists (
+    select 1 from nestly.promotions p where p.id = ${promotionId}::uuid and p.owner_id = ${professionalId}::uuid
+      and p.target_kind = 'profile' and p.status = 'active' and p.starts_at <= now() and p.ends_at > now()
+  ) as paid`));
+  return row?.paid === true;
+}
+
 // ---- the Admin (BILLING_FINANCE_MANAGE, Admin Only) -----------------------------------------------------------------------------------
 
 const adminRow = z.object({

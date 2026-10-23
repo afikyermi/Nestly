@@ -65,7 +65,13 @@ test.describe('[I13 FR-ALG-007 BR-005 §11.5] promoted units on the surfaces', (
     await expect(promoted).toContainText('ממומן');
     await expect(promoted).toContainText('רותם צלמת');
     await expect(main(page).getByRole('list', { name: 'תוצאות' })).not.toContainText('רותם צלמת');
-    await promoted.getByRole('link', { name: 'רותם צלמת' }).click();
+    const link = promoted.getByRole('link', { name: 'רותם צלמת' });
+    await expect(link).toHaveAttribute('href', new RegExp('[?]promotion=' + PROMO));
+    const [profileRequest] = await Promise.all([
+      page.waitForRequest((request) => /\/api\/professionals\/[0-9a-f-]{36}$/.test(new URL(request.url()).pathname)),
+      link.click(),
+    ]);
+    expect(new URL(profileRequest.url()).searchParams.get('promotion'), '[AC-072] paid source reaches the profile read').toBe(PROMO);
     await expect.poll(() => net.sent.some((s) => s.method === 'POST' && s.path === `/api/promotions/${PROMO}/click`)).toBe(true);
   });
 });

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { professionalPageQuerySchema } from '../src/validation/professionals.js';
 import { feedPromotionGap, promotionSettingsWriteSchema, promotionStopSchema } from '../src/validation/promotions.js';
 
 const v1 = { feedGapMin: 4, feedGapMax: 7, feedLowPosts: 20, feedHighPosts: 200 };
@@ -29,4 +30,12 @@ describe('[I13 §11.1 §11.2] staff input', () => {
     expect(promotionSettingsWriteSchema.safeParse({ ...base, dailyCap: 0 }).success).toBe(false);
     expect(promotionSettingsWriteSchema.safeParse({ ...base, reason: '' }).success).toBe(false);
   });
+});
+
+
+it('[FR-PRO-002 AC-072] paid profile source is a UUID and accepts the Preview rewrite path', () => {
+  const promotion = 'a0000000-0000-4000-8000-000000000001';
+  expect(professionalPageQuerySchema.parse({ promotion, path: 'professionals/one' })).toEqual({ promotion });
+  expect(professionalPageQuerySchema.parse({ path: 'professionals/one' })).toEqual({});
+  expect(professionalPageQuerySchema.safeParse({ promotion: 'bad' }).success).toBe(false);
 });

@@ -4,6 +4,7 @@
 // the second test (below). The staff stop and the settings
 // are covered by tests/db/promotions.db.test.ts and pgTAP 104. Users are made through the app (the cleanup covers their listings, promotions,
 // payments and events). No recovery attempts are made.
+import { promotionOverview } from '@nestly/shared';
 import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
@@ -127,7 +128,12 @@ test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-
     const proUser = fresh();
     await signUpProfessional(page, proUser, pro.name, pro.field);
 
-    await page.goto('/pro/promotion');
+    const [initialOverview] = await Promise.all([
+      page.waitForResponse((r) => r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/promotions'),
+      page.goto('/pro/promotion'),
+    ]);
+    const organicBefore = promotionOverview.parse(await initialOverview.json()).analytics?.organic.profileViews;
+    expect(organicBefore).toBeDefined();
     await expect(main(page).getByText('התשלום מדומה: לא נגבה כסף ולא נדרשים פרטי כרטיס.').first()).toBeVisible();
     await expect(main(page).getByLabel('משך הקידום', { exact: true })).toContainText('מחיר לדוגמה');
     await main(page).getByRole('button', { name: 'לתשלום ולהפעלת הקידום' }).click();
@@ -162,7 +168,13 @@ test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-
     await page.getByLabel('סיסמה', { exact: true }).fill(proUser.password);
     await page.getByRole('button', { name: 'התחברות', exact: true }).click();
     await expect(page).not.toHaveURL(/\/login$/, { timeout: SLOW });
-    await page.goto('/pro/promotion');
+    const [finalOverview] = await Promise.all([
+      page.waitForResponse((r) => r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/promotions'),
+      page.goto('/pro/promotion'),
+    ]);
+    const metrics = promotionOverview.parse(await finalOverview.json()).analytics;
+    expect(metrics?.organic.profileViews, '[AC-072] the paid visit is not also organic').toBe(organicBefore);
+    expect(metrics?.paid.profileVisits).toBeGreaterThanOrEqual(1);
     await expect(main(page).getByRole('list', { name: 'הקידומים שלי' })).toContainText(/[1-9]\d* חשיפות · [1-9]\d* לחיצות/);
     await expect(main(page).getByRole('heading', { name: 'מקידום בתשלום' })).toBeVisible();
 

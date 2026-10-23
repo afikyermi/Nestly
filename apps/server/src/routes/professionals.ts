@@ -24,6 +24,7 @@ import {
   directoryQuerySchema,
   offerHelpSchema,
   professionalIdParams,
+  professionalPageQuerySchema,
   professionalProfileSchema,
   professionalRegistrationSchema,
   reviewSchema,
@@ -147,8 +148,9 @@ export function registerProfessionalsRoutes(app: FastifyInstance, deps: Professi
 
   app.get('/api/professionals/:id', (request, reply) => {
     const id = idOf(request);
-    if (!id.success) return invalid(reply);
-    return answer(request, reply, db(), 'professional page failed', (database, identity) => readProfessional(database, identity, id.data.id), (ok) => ok.page);
+    const query = professionalPageQuerySchema.safeParse(request.query);
+    if (!id.success || !query.success) return invalid(reply);
+    return answer(request, reply, db(), 'professional page failed', (database, identity) => readProfessional(database, identity, id.data.id, query.data.promotion), (ok) => ok.page);
   });
   others('/api/professionals/:id', ['GET']);
 

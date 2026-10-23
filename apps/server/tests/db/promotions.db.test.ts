@@ -12,7 +12,7 @@ import { createPost } from '../../src/services/posts-service.js';
 import { onPromotionSkip, type SkipReason } from '../../src/services/promoted-units.js';
 import { readAdminAnalytics } from '../../src/services/team-service.js';
 import { changeListingStatus, createListing, listMarketplace } from '../../src/services/marketplace-service.js';
-import { listProfessionals, registerProfessional } from '../../src/services/professionals-service.js';
+import { listProfessionals, readProfessional, registerProfessional } from '../../src/services/professionals-service.js';
 import {
   buyPromotion,
   readAdminView,
@@ -168,6 +168,16 @@ describe('[I13] promotions', () => {
     // no daily cap on the Marketplace (§11.3): the same viewer keeps seeing it
     for (let i = 0; i < 4; i += 1) await listMarketplace(database, as(viewer2), undefined, { q: tag });
     expect((await listMarketplace(database, as(viewer2), undefined, { q: tag })).promoted.map((unit) => unit.listing.id)).toContain(stroller);
+  });
+
+  it('[FR-PRO-002 AC-072 BR-057] a paid profile arrival is not also organic; an unrelated source cannot suppress an organic view', T, async () => {
+    const before = (await readOverview(database, as(pro))).analytics?.organic.profileViews ?? 0;
+    ok(await readProfessional(database, as(viewer), pro, profilePromotion));
+    expect((await readOverview(database, as(pro))).analytics?.organic.profileViews).toBe(before);
+    ok(await readProfessional(database, as(viewer), pro, listingPromotion));
+    expect((await readOverview(database, as(pro))).analytics?.organic.profileViews).toBe(before + 1);
+    ok(await readProfessional(database, as(viewer), pro));
+    expect((await readOverview(database, as(pro))).analytics?.organic.profileViews).toBe(before + 2);
   });
 
   it('[§11.1 FR-ADMIN-005] a Moderator with CONTENT_MODERATE stops a Professional promotion with a reason; audited; no refund; the promoter sees it was staff', T, async () => {
