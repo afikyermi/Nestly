@@ -139,7 +139,7 @@ test.describe('[I13 §11.1 PG-059] a Moderator on the staff promotions screen', 
       if (kinds.length === 0) return json(route, 403, { error: 'forbidden' });
       const promotions = rows
         .filter((row) => kinds.includes(row.targetKind))
-        .map((row) => ({ ...row, state: 'running', startsAt: '2026-06-15T09:00:00.000Z', endsAt: '2026-06-22T09:00:00.000Z', stoppedBy: null, amountIls: 0, impressions: 0, clicks: 0 }));
+        .map((row) => ({ ...row, state: 'running', startsAt: '2026-06-15T09:00:00.000Z', endsAt: '2026-06-22T09:00:00.000Z', stoppedBy: null, amountIls: row.planKey === 'profile_7' ? 49 : row.planKey === 'post_3' ? 19 : 9, impressions: 0, clicks: 0 }));
       return json(route, 200, { totals: { running: promotions.length, stopped: 0, ended: 0, payments: 0, sampleRevenueIls: 0, impressions: 0, clicks: 0 }, promotions, isFinance: false });
     });
     return paths;
