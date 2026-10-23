@@ -101,14 +101,12 @@ export async function promotedListings(tx: IdentityTx, query: MarketplaceQuery, 
 }
 
 /**
- * The feed's promoted posts (§11.2): relevant to the viewer (a search topic or its Stage), not already on the page; one after every `gap`
- * organic posts, `gap` from 4 to 7 by the last 48 hours' volume. No relevant candidate, no promoted post. The viewer's Stage is read only once a
- * running promoted post exists (the organic feed never reads it while its weight is 0).
+ * The feed's promoted posts (§11.2): relevant to the viewer's search topics (Afik, 23.10.2026; Stage targeting deferred), not already on the page; one after every `gap`
+ * organic posts, `gap` from 4 to 7 by the last 48 hours' volume. No matching topic, no promoted post; no Stage data is read.
  */
 export async function promotedPosts(
   tx: IdentityTx,
   patterns: readonly string[],
-  readStages: () => Promise<readonly string[]>,
   onPage: ReadonlySet<string>,
   organicCount: number,
   laterPage: boolean,
@@ -117,13 +115,15 @@ export async function promotedPosts(
   if (organicCount === 0 || !(await viewerSeesAds(tx))) return [];
   const candidates = (await readPromotedCandidates(tx, 'post')).filter((c) => !onPage.has(c.targetId));
   if (candidates.length === 0) return [];
-  const stages = await readStages();
-  if (patterns.length === 0 && stages.length === 0) return [];
+  if (patterns.length === 0) {
+    onSkip('not_matching', candidates.length);
+    return [];
+  }
   const config = await readPromotionConfig(tx);
   const gap = feedPromotionGap(config, await readRecentPostCount(tx));
   const slots = Math.floor(organicCount / gap);
   if (slots === 0) return [];
-  const relevance = await readMatchingPosts(tx, candidates.map((c) => c.targetId), patterns, stages);
+  const relevance = await readMatchingPosts(tx, candidates.map((c) => c.targetId), patterns);
   // a later page of the same scroll never repeats a promotion the viewer already saw today (it would be dropped as a duplicate on screen)
   const seenToday = laterPage ? await readTodayImpressions(tx, candidates.map((c) => c.promotionId)) : new Map<string, number>();
   const relevant = candidates.filter((c) => relevance.has(c.targetId));
@@ -161,4 +161,3 @@ export async function recordExposure(database: Database, identity: Identity, exp
     // recording is best effort: the page has already been answered from its own transaction
   }
 }
-

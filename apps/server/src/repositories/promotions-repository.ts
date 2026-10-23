@@ -302,16 +302,16 @@ export async function readPromotedCandidates(tx: IdentityTx, kind: PromotionTarg
 }
 
 /**
- * §11.2 relevance: the posts among `ids` whose text matches one of the viewer's search topics or whose Stage tag is one of the viewer's stages
+ * §11.2 relevance: the posts among `ids` whose text matches one of the viewer's search topics (Stage targeting deferred by Afik, 23.10.2026)
  * (never a child's data, a tracker, a chat, Support or a private Group: BR-053, VAL-030). Topic matches first.
  */
-export async function readMatchingPosts(tx: IdentityTx, ids: readonly string[], patterns: readonly string[], stages: readonly string[]): Promise<Map<string, number>> {
-  if (ids.length === 0 || (patterns.length === 0 && stages.length === 0)) return new Map();
+export async function readMatchingPosts(tx: IdentityTx, ids: readonly string[], patterns: readonly string[]): Promise<Map<string, number>> {
+  if (ids.length === 0 || patterns.length === 0) return new Map();
   const rows = z.array(z.object({ id: z.guid(), byTopic: z.boolean() })).parse(
     await tx.execute(sql`
       select p.id, (p.body ~* any (${sql.param([...patterns])}::text[])) is true as "byTopic" from nestly.posts p
       where p.id = any (${sql.param([...ids])}::uuid[])
-        and ((p.body ~* any (${sql.param([...patterns])}::text[])) is true or p.stage_tag = any (${sql.param([...stages])}::text[]))`),
+        and (p.body ~* any (${sql.param([...patterns])}::text[])) is true`),
   );
   return new Map(rows.map((row) => [row.id, row.byTopic ? 2 : 1]));
 }
@@ -410,4 +410,3 @@ export async function readFinanceTotals(tx: IdentityTx): Promise<AdminPromotions
     .parse(await tx.execute(sql`select count(*) as payments, coalesce(sum(amount_ils), 0) as revenue from nestly.promotion_payments`));
   return { ...(await readPromotionTotals(tx, PROMOTION_TARGET_KINDS)), payments: money?.payments ?? 0, sampleRevenueIls: money?.revenue ?? 0 };
 }
-

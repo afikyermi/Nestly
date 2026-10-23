@@ -245,8 +245,8 @@ async function readPage(
   const promoted: { promotionId: string; afterIndex: number; unit: FeedUnit }[] = [];
   if (viewer.review !== true) {
     const intents = parameters.profile === 'regular' && (parameters.intents?.length ?? 0) > 0 ? (parameters.intents ?? []) : await readIntents(tx, asOf, config.intentHalfLifeHours);
-    // I13 (§11.2): the Stage decides which promoted posts are relevant (Regular only), read only when a promoted post is running
-    const slots = await promotedPosts(tx, intents.map((intent) => intent.pattern), stagesOnce, new Set(pageIds), items.length, after !== null);
+    // I13 (Afik, 23.10.2026): paid relevance uses search topics only; Stage targeting is deferred.
+    const slots = await promotedPosts(tx, intents.map((intent) => intent.pattern), new Set(pageIds), items.length, after !== null);
     if (slots.length > 0) {
       const ids = slots.map((slot) => slot.postId);
       const promotedRows = new Map((await readDisplayPosts(tx, ids)).map((row) => [row.id, row]));
