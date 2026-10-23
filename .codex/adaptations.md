@@ -15,3 +15,6 @@ list in `AGENTS.md` §4. Add a line per new case: date · rule/skill · what Cod
 - 23.10.2026 · Local full Chrome teardown: Playwright-owned Windows servers hung after assertions. Start the already-built Storybook and app on this checkout's hashed ports, allowing the unchanged configuration to reuse them. The complete run then exited normally; stop the two owned server sessions after verification. No timeout or coverage change.
 
 - 23.10.2026 · Full test:tools in Windows sandbox: 1218 passed, 26 failed, 152 skipped. The failures are guard-loader Git/sh named-object access denial and a guard worktree symlink EPERM; targeted Preview harness is 168 pass/11 bash skips. Do not change those guard tests or claim the full local gate passed; require Linux CI on the complete commit.
+
+- 23.10.2026 · Afik will be away from his computer: never ask him to run PowerShell. Request the required tool permission and perform the action directly; GitHub remote writes continue through the signed-in UI.
+- 23.10.2026 · Final #177 merge: GitHub reports rebaseable=false; current main is already an ancestor and the published branch contains normal merges. Use an ordinary merge commit after green current PR/main CI, preserving history and avoiding the forbidden force-push.
