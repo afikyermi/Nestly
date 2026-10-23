@@ -1,10 +1,10 @@
-// Trusted-main, CI-only Preview fixture. Never prints connection data or generated credentials.
+// Trusted-main, CI-only Preview fixture. Fixed logs only, plus Actions secret-mask control commands.
 import { randomUUID } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import postgres from 'postgres';
 import { checkCleanupUrl, decidePreflight, errorCode } from './preview-e2e-cleanup.ts';
-import { checkStaffContext, makeStaffUsers } from './preview-e2e-staff.ts';
+import { checkStaffContext, makeStaffUsers, maskStaffUsers } from './preview-e2e-staff.ts';
 
 async function main(): Promise<void> {
   checkStaffContext(process.env);
@@ -49,6 +49,7 @@ async function main(): Promise<void> {
       }
     });
     writeFileSync(file, JSON.stringify(users), { mode: 0o600, flag: 'wx' });
+    maskStaffUsers(users, (command) => { process.stdout.write(command); });
     process.stdout.write('preview staff: 2 temporary Moderators prepared\n');
   } finally {
     await sql.end({ timeout: 5 });
