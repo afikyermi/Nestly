@@ -271,7 +271,11 @@ describe('[I13] the rules of a running promotion', () => {
     expect(await registerProfessional(database, as(pro2), { ...profile, fullName: 'Shoshi Sleep', field: 'sleep', about: `יועצת שינה ${tag}` })).toEqual({ kind: 'created' });
     proPost = (await createPost(database, as(pro2), { body: `שינה טובה לתינוק ${tag}`, audience: 'everyone' })).id;
     followersPost = (await createPost(database, as(pro2), { body: `לעוקבים בלבד ${tag}`, audience: 'followers' })).id;
-    for (let i = 0; i < 12; i += 1) await createPost(database, as(seller), { body: `פוסט רגיל ${i} ${tag}`, audience: 'everyone' });
+    // Keep the paid candidate off the first organic page: equally relevant newer posts from 11 authors survive the per-author cap.
+    for (const name of ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven']) {
+      const author = await register('Rina Organic ' + name, {});
+      for (let i = 0; i < 2; i += 1) await createPost(database, as(author), { body: `שינה טובה פוסט רגיל ${i} ${tag}`, audience: 'everyone' });
+    }
     postPromotion = ok(await buyPromotion(database, as(pro2), { planKey: 'post_3', target: { kind: 'post', postId: proPost } })).promotionId;
     marketMod = await text(side`select tests.fx_sf_id('sf_m5')::text as v`);
     analyst = await text(side`select tests.fx_sf_id('sf_m3')::text as v`);
