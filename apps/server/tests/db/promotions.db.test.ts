@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -397,4 +398,24 @@ describe('[I13] the rules of a running promotion', () => {
     expect(forAnalyst.promotions).toBeUndefined();
     expect(await readAdminAnalytics(database, as(viewer), 30)).toEqual({ kind: 'forbidden' });
   });
+
+  it('[FR-MKT-004 §11.3 AC-063] all 501 matching promoted listings are shown, beyond the feed and Directory sampling size', T, async () => {
+    const query = 'batch' + tag;
+    const listingIds = await inIdentityTransaction(database, as(seller), async (tx) => {
+      // Real RLS writes as the seller, in bulk so this boundary regression does not require 1,503 round trips.
+      const listings = await tx.execute(sql`insert into nestly.marketplace_listings (title, category, item_condition, price, city)
+        select ${query} || n::text, 'feeding', 'like_new', 200, 'eilat' from generate_series(1, 501) as n returning id`);
+      const payments = await tx.execute(sql`insert into nestly.promotion_payments (plan_key)
+        select 'listing_3' from generate_series(1, 501) returning id`);
+      expect(listings).toHaveLength(501);
+      expect(payments).toHaveLength(501);
+      const values = listings.map((row, index) => sql`('listing', 'listing_3', ${payments[index]?.id}::uuid, ${row.id}::uuid)`);
+      await tx.execute(sql`insert into nestly.promotions (target_kind, plan_key, payment_id, listing_id) values ${sql.join(values, sql`,`)}`);
+      return listings.map((row) => String(row.id));
+    });
+    const page = await listMarketplace(database, as(viewer2), undefined, { q: query });
+    expect(page.promoted).toHaveLength(501);
+    expect(new Set(page.promoted.map((unit) => unit.listing.id))).toEqual(new Set(listingIds));
+  });
+
 });

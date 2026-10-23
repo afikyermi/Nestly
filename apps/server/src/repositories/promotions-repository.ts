@@ -270,7 +270,7 @@ export async function staffStopPromotion(tx: IdentityTx, id: string, reason: str
   return rows.length;
 }
 
-/** A random sample of this size per page view, so that with many running promotions each still gets its turn (rotation, FR-ALG-007). */
+/** Directory/feed sample size for rotation (FR-ALG-007). Marketplace candidates are uncapped (§11.3). */
 const CANDIDATE_LIMIT = 500;
 
 const candidateRow = z.object({ promotionId: z.guid(), targetId: z.guid() });
@@ -297,7 +297,7 @@ export async function readPromotedCandidates(tx: IdentityTx, kind: PromotionTarg
       select p.id as "promotionId", ${target} as "targetId" from nestly.promotions p
       where p.target_kind = ${kind} and p.status = 'active' and p.starts_at <= now() and p.ends_at > now()
         and p.owner_id <> (select auth.uid()) and ${eligible}
-      order by random() limit ${CANDIDATE_LIMIT}`),
+      order by random() ${kind === 'listing' ? sql`` : sql`limit ${CANDIDATE_LIMIT}`}`),
   );
 }
 
