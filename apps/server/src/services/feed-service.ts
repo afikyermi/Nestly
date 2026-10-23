@@ -190,9 +190,6 @@ async function readPage(
   const asOf = after === null ? clock.nowText : after.asOf;
   // The Stage is read in the Regular branch only: the content profile's statement has no Stage term to give it to.
   // FR-ALG-008: the viewer's own search topics, weighted for this snapshot's asOf, in the Regular branch only and only above weight 0.
-  // The viewer's own Stage, read at most once a page (Regular only): by the ranking when its weight is above 0, and by the promoted posts (§11.2)
-  let ownStages: readonly string[] | undefined;
-  const stagesOnce = async (): Promise<readonly string[]> => (ownStages ??= viewer.profile === 'regular' ? await readOwnStages(tx) : []);
   const parameters: RankingParameters =
     viewer.profile === 'regular'
       ? {
@@ -200,7 +197,7 @@ async function readPage(
           asOf,
           config,
           after,
-          stages: readsViewerStages(viewer.profile, config.wStage) ? [...(await stagesOnce())] : [],
+          stages: readsViewerStages(viewer.profile, config.wStage) ? await readOwnStages(tx) : [],
           intents: config.wIntent > 0 ? await readIntents(tx, asOf, config.intentHalfLifeHours) : [],
         }
       : viewer.review === true
@@ -240,7 +237,7 @@ async function readPage(
           createdAt: last.createdAt,
           id: last.id,
         });
-  // I13 (FR-ALG-007, §11.2): promoted posts relevant to the viewer (a search topic or its Stage), each in its own slot after every 4 to 7
+  // I13 (FR-ALG-007, §11.2): promoted posts relevant to the viewer's search topics, each in its own slot after every 4 to 7
   // organic posts; read after the organic order is fixed and never part of it (BR-004, AC-062). A staff reviewer gets none.
   const promoted: { promotionId: string; afterIndex: number; unit: FeedUnit }[] = [];
   if (viewer.review !== true) {
