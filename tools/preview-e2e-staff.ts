@@ -17,3 +17,13 @@ export function checkStaffContext(env: NodeJS.ProcessEnv): void {
 export function makeStaffUsers(runId: string, attempt: string): StaffUsers {
   return Object.fromEntries(STAFF_PROJECTS.map((project) => [project, generateTestUser(runId, attempt)]));
 }
+
+/** Register generated secrets with the Actions runner before a browser error can quote a fill value. */
+export function maskStaffUsers(users: StaffUsers, write: (command: string) => void): void {
+  for (const user of Object.values(users)) {
+    for (const value of [user.password, user.answers.pet, user.answers.nickname]) {
+      const escaped = value.replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
+      write(`::add-mask::${escaped}\n`);
+    }
+  }
+}
