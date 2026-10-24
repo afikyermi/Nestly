@@ -1,6 +1,6 @@
 // Regenerates docs/srs/INDEX.md from the markdown SRS, which is the master.
 //
-// Usage:  node tools/build-srs-index.js
+// Usage:  node tools/build-srs-index.js [--check]   (--check writes nothing, exits 1 when INDEX.md or SECTIONS.md is stale)
 //
 // Reads only docs/srs/**/*.md (except INDEX.md) and tools/srs-ac-names.json. Writes only docs/srs/INDEX.md.
 // Run it after any change that adds, removes or renames an FR or AC, or a new section file.
@@ -31,12 +31,13 @@ const FAMILIES = [
   ['ALG', /^\| (ALG-\d+) \|/, 'קטלוג האלגוריתמים'], ['P-ALG', /^\| (P-ALG-\d+) \|/, 'עקרונות האלגוריתמים'],
 ];
 
+const CHECK = process.argv.includes('--check');
 const fail = [];
 const read = (rel) => fs.readFileSync(path.join(SRS, rel), 'utf8').split(/\r?\n/);
 const h1 = (lines) => (lines.find((l) => /^# /.test(l)) || '').replace(/^# /, '');
 
 // ---- section files (top level) ----
-const top = fs.readdirSync(SRS).filter((f) => f.endsWith('.md') && f !== 'INDEX.md');
+const top = fs.readdirSync(SRS).filter((f) => f.endsWith('.md') && f !== 'INDEX.md' && f !== 'SECTIONS.md');
 const rank = (f) => (f.startsWith('appendix-') ? 1000 + f.charCodeAt(9) : parseInt(f, 10));
 top.sort((a, b) => rank(a) - rank(b));
 
@@ -92,12 +93,16 @@ const version = verLine ? verLine.split('|')[2].trim() : '?';
 const dateLine = read('00-document-info.md').find((l) => /^\| תאריך \|/.test(l));
 const date = dateLine ? dateLine.split('|')[2].trim() : '?';
 
+// ---- SECTIONS.md (outline of every SRS file), generated first so the index can link to it ----
+require('child_process').execFileSync(process.execPath, [path.join(__dirname, 'build-srs-sections.mjs'), ...(CHECK ? ['--check'] : [])], { stdio: 'inherit' });
+
 // ---- render ----
 const link = (rel) => `[${path.posix.basename(rel)}](${rel})`;
 const out = [];
 out.push('[← README הפרויקט](../../README.md)', '', '# SRS — אינדקס', '');
 out.push(`**מקור האמת של מוצר Nestly.** SRS v${version} · ${date}.`, '');
 out.push('ה-SRS מתוחזק ב-markdown ומפוצל לפי סעיפים. גרסאות ה-Word הקודמות נמצאות ב-[`archive/`](archive/) כהיסטוריה בלבד.', '');
+out.push('לנושא ללא מזהה: מצאו את הכותרת ב-[SECTIONS.md](SECTIONS.md) (מפת כותרות לכל קובץ), ואז `grep` לכותרת.', '');
 out.push('**הקובץ הזה נוצר אוטומטית** — `node tools/build-srs-index.js`. אין לערוך אותו ידנית. כשנוסף או משתנה FR או AC, מריצים את הכלי מחדש. ל-AC חדש מוסיפים קודם שם מקוצר ב-`tools/srs-ac-names.json`.', '');
 out.push('## קבצים', '', '| § | קובץ | נושא |', '|---|---|---|');
 for (const f of top) {
@@ -122,6 +127,11 @@ for (const m of text.matchAll(/\]\(([^)]+)\)/g)) {
   if (!fs.existsSync(path.join(SRS, m[1]))) fail.push(`broken link: ${m[1]}`);
 }
 if (fail.length) { console.error('INDEX NOT WRITTEN:\n  ' + fail.join('\n  ')); process.exit(1); }
-fs.writeFileSync(path.join(SRS, 'INDEX.md'), text, 'utf8');
+const indexFile = path.join(SRS, 'INDEX.md');
+if (CHECK) {
+  if (!fs.existsSync(indexFile) || fs.readFileSync(indexFile, 'utf8') !== text) { console.error('docs/srs/INDEX.md is stale: run node tools/build-srs-index.js'); process.exit(1); }
+  process.exit(0);
+}
+fs.writeFileSync(indexFile, text, 'utf8');
 console.log(`INDEX.md written — SRS v${version}: ${frs.length} FR in ${domains.length} domain files, ${acs.length} AC, ${top.length} section files.`);
 for (const s of fam) console.log(`  ${s.key}: ${s.count} (${s.first}…${s.last}) in ${s.file}`);
