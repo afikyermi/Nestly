@@ -5,13 +5,15 @@
 // are covered by tests/db/promotions.db.test.ts and pgTAP 104. Users are made through the app (the cleanup covers their listings, promotions,
 // payments and events). No recovery attempts are made.
 import { promotionOverview, promotionPurchaseResponse } from '@nestly/shared';
-import type { Page } from '@playwright/test';
+import type { Page, Response } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
 
 const main = (page: Page) => page.getByRole('main');
 /** A Preview can take 10 s or more to sign a user up or in (a cold server function): every sign-up step waits this long. */
 const SLOW = 45_000;
+/** The answer to one API call by method and path (a slow Preview's answer can take longer than an assertion's 10 s). */
+const answerTo = (method: string, path: string) => (r: Response) => r.request().method() === method && new URL(r.url()).pathname === path;
 const fresh = (): TestUser => generateTestUser(process.env['GITHUB_RUN_ID'] ?? '', process.env['GITHUB_RUN_ATTEMPT'] ?? '');
 
 async function signUp(page: Page, u: TestUser, fullName: string): Promise<void> {
@@ -60,11 +62,14 @@ test.describe.serial('I13 Monetization on the Preview [FR-MKT-004 FR-ALG-007 NFR
     await mine.getByRole('button', { name: 'קידום המודעה' }).click();
     const dialog = page.getByRole('alertdialog', { name: 'קידום המודעה' });
     await expect(dialog).toContainText('התשלום מדומה');
-    const [bought] = await Promise.all([
-      page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/promotions'),
+    // the screen reads its promotions again after the purchase (GET /api/promotions): its answer is awaited before the label is checked
+    const [bought, reread] = await Promise.all([
+      page.waitForResponse(answerTo('POST', '/api/promotions')),
+      page.waitForResponse(answerTo('GET', '/api/promotions'), { timeout: SLOW }),
       dialog.getByRole('button', { name: 'אישור התשלום' }).click(),
     ]);
     expect(bought.status(), 'POST /api/promotions status').toBe(201);
+    expect(reread.status(), 'GET /api/promotions status').toBe(200);
     // AC-098: the request names the plan and the target only, never an amount or a card
     const sentBody: unknown = bought.request().postDataJSON();
     expect(typeof sentBody === 'object' && sentBody !== null ? Object.keys(sentBody).sort() : []).toEqual(['planKey', 'target']);
@@ -79,7 +84,12 @@ test.describe.serial('I13 Monetization on the Preview [FR-MKT-004 FR-ALG-007 NFR
     await signUp(page, fresh(), 'ורד מחפשת');
     await page.goto('/marketplace');
     await main(page).getByLabel('חיפוש מוצר', { exact: true }).fill(title);
-    await main(page).getByRole('button', { name: 'הצגה', exact: true }).click();
+    const [searched] = await Promise.all([
+      // the search's own answer (the screen's first, unfiltered read may still be on its way on a slow Preview)
+      page.waitForResponse((r) => answerTo('POST', '/api/marketplace')(r) && (r.request().postData() ?? '').includes(title), { timeout: SLOW }),
+      main(page).getByRole('button', { name: 'הצגה', exact: true }).click(),
+    ]);
+    expect(searched.status(), 'POST /api/marketplace status').toBe(200);
     const promoted = main(page).getByRole('list', { name: 'מודעות מקודמות' });
     await expect(promoted.getByRole('link', { name: title })).toBeVisible();
     await expect(promoted).toContainText('מודעה מקודמת');
@@ -142,11 +152,13 @@ test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-
     await expect(main(page).getByLabel('משך הקידום', { exact: true })).toContainText('מחיר לדוגמה');
     await main(page).getByRole('button', { name: 'לתשלום ולהפעלת הקידום' }).click();
     const dialog = page.getByRole('alertdialog', { name: 'אישור תשלום מדומה' });
-    const [bought] = await Promise.all([
-      page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/promotions'),
+    const [bought, reread] = await Promise.all([
+      page.waitForResponse(answerTo('POST', '/api/promotions')),
+      page.waitForResponse(answerTo('GET', '/api/promotions'), { timeout: SLOW }),
       dialog.getByRole('button', { name: 'אישור התשלום' }).click(),
     ]);
     expect(bought.status(), 'POST /api/promotions status').toBe(201);
+    expect(reread.status(), 'GET /api/promotions status').toBe(200);
     const purchase = promotionPurchaseResponse.parse(await bought.json());
     await expect(main(page).getByRole('list', { name: 'הקידומים שלי' })).toContainText('פעיל');
 

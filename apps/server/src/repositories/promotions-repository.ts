@@ -15,7 +15,7 @@ import {
   type PromotionTargetKind,
   type UsageEventKind,
 } from '@nestly/shared';
-import { sql } from 'drizzle-orm';
+import { sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { IdentityTx } from '../db/identity-transaction.js';
 
@@ -349,6 +349,43 @@ export async function insertUsageEvent(tx: IdentityTx, kind: UsageEventKind, tim
 export async function insertProfessionalView(tx: IdentityTx, professionalId: string, kind: 'profile_view' | 'post_view', times = 1): Promise<void> {
   if (times < 1) return;
   await tx.execute(sql`insert into nestly.professional_views (professional_id, kind) select ${professionalId}::uuid, ${kind} from pg_catalog.generate_series(1, ${times})`);
+}
+
+/** One page view's exposure rows, as `insertExposureBatch` writes them. */
+export interface ExposureBatch {
+  readonly impressions: readonly string[];
+  readonly usage?: { readonly kind: UsageEventKind; readonly times: number };
+  readonly views: readonly { readonly professionalId: string; readonly kind: 'profile_view' | 'post_view'; readonly times: number }[];
+}
+
+/**
+ * A page view's impressions, usage events and Professional views in ONE statement (one round trip), under the caller's own role and
+ * policies. Each part inserts the same rows as insertPromotionEvent / insertUsageEvent / insertProfessionalView, so the same row triggers
+ * count them (one per row, the day's row and its limit, the frequency cap). The insert of each table is its own data-modifying CTE; the
+ * three tables' guards read none of the others. An impression is kept only for a promotion its guard and insert policy would accept (a running
+ * promotion of another that the caller reads, an active Regular or Professional caller): they would refuse the others, and a refusal here would fail the
+ * whole statement. Anything else the guards refuse throws, and the caller then records row by row (recordExposure).
+ */
+export async function insertExposureBatch(tx: IdentityTx, batch: ExposureBatch): Promise<void> {
+  const parts: SQL[] = [];
+  if (batch.impressions.length > 0)
+    parts.push(sql`i as (insert into nestly.promotion_events (promotion_id, kind)
+      select x.id, 'impression' from unnest(${sql.param([...batch.impressions])}::uuid[]) with ordinality as x(id, n)
+      where (select nestly.is_active_account()) and coalesce((select nestly.caller_account_type()), '') in ('regular', 'professional')
+        and exists (select 1 from nestly.promotions p where p.id = x.id and p.owner_id <> (select auth.uid())
+                      and p.status = 'active' and p.starts_at <= now() and p.ends_at > now())
+      order by x.n)`);
+  if (batch.usage !== undefined && batch.usage.times >= 1)
+    parts.push(sql`u as (insert into nestly.usage_events (kind) select ${batch.usage.kind} from pg_catalog.generate_series(1, ${batch.usage.times}))`);
+  const views = batch.views.filter((view) => view.times >= 1);
+  if (views.length > 0)
+    parts.push(sql`v as (insert into nestly.professional_views (professional_id, kind)
+      select x.pid, x.kind from unnest(${sql.param(views.map((view) => view.professionalId))}::uuid[], ${sql.param(views.map((view) => view.kind))}::text[],
+                                       ${sql.param(views.map((view) => view.times))}::integer[]) with ordinality as x(pid, kind, times, n)
+      cross join lateral pg_catalog.generate_series(1, x.times) as g(k)
+      order by x.n, g.k)`);
+  if (parts.length === 0) return;
+  await tx.execute(sql`with ${sql.join(parts, sql`, `)} select 1`);
 }
 
 /** The Professionals among the authors of these posts, with how many of these posts are theirs (each shown post is one view of theirs). */
