@@ -131,7 +131,7 @@ select is(pg_temp.n('m4', format($q$ nestly.reports where review_id = %L or arti
   '[F11.2-a c6 FR-MOD-003] REPORTS_VIEW reads the two reports');
 select is(pg_temp.moderate('m4', 'professional_reviews', current_setting('t.review')::uuid, 'hidden'), 'OK:0',
   '[F11.2-a c6 AC-022] REPORTS_VIEW alone does not moderate (no row)');
-select is(pg_temp.moderate('a', 'professional_reviews', current_setting('t.review')::uuid, 'hidden'), 'OK:0', '[F11.2-a c6] a user does not moderate');
+select is(pg_temp.moderate('a', 'professional_reviews', current_setting('t.review')::uuid, 'hidden'), 'ERR:42501', '[F11.2-a c6] a user does not moderate (its writer, who may edit it since I11-C, is refused by the moderation guard)');
 select is(pg_temp.moderate('q1', 'professional_articles', current_setting('t.article')::uuid, 'hidden'), 'ERR:42501',
   '[F11.2-a c6] the article''s owner cannot move its moderation (42501)');
 select is(pg_temp.moderate('m3', 'professional_reviews', current_setting('t.review')::uuid, 'hidden', ' '), 'ERR:NS011',
