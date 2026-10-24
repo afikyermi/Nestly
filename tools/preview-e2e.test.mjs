@@ -703,7 +703,13 @@ test('[E c10] the final step runs if: always()', () => {
 test('[E c10] the JSON report path is under runner.temp and is never uploaded', () => {
   const pw = steps.find((s) => /playwright test/.test(runOf(s)));
   assert.match(pw.env.PREVIEW_E2E_REPORT_FILE, /^\$\{\{\s*runner\.temp\s*\}\}\//);
-  assert.doesNotMatch(workflowText, /upload-artifact/);
+  // The one upload (24.10.2026, failure only) is the redacted error-context.md folder: never the report, a trace, a video or a screenshot.
+  const uploads = steps.filter((s) => /upload-artifact/.test(String(s.uses ?? '')));
+  assert.equal(uploads.length, 1);
+  assert.equal(String(uploads[0].if).trim(), 'failure()');
+  assert.match(uploads[0].with.path, /preview-e2e-failures$/);
+  assert.equal(String(uploads[0].with['retention-days']), '7');
+  assert.doesNotMatch(String(uploads[0].with.path), /report/);
 });
 
 test('[E c10] the summary prints a passed/failed line for each of mobile-375 and desktop-1280', (t) => {

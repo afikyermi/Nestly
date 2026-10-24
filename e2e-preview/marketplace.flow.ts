@@ -4,6 +4,7 @@
 // through the app (same email pattern as the fixture's, so the cleanup sweep covers it, listings included). No recovery attempts are made.
 import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
+import { createAccount } from './support/timed-steps.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
 
 const main = (page: Page) => page.getByRole('main');
@@ -28,7 +29,7 @@ async function signUp(page: Page, u: TestUser): Promise<void> {
   await box.focus();
   await page.keyboard.press('Space');
   await expect(box).toBeChecked();
-  await page.getByRole('button', { name: 'יצירת חשבון', exact: true }).click();
+  await createAccount(page);
   await expect(page).toHaveURL(/\/recovery-questions$/);
   await page.getByLabel(/חיית המחמד/).fill(u.answers.pet);
   await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);

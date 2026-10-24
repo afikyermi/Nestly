@@ -9,6 +9,7 @@
 // in the whole run: 2 projects x (1 wrong change + 1 wrong reset) = 4 (limit 10).
 import type { Page, Response } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
+import { createAccount } from './support/timed-steps.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
 const passwordField = (page: Page) => page.getByLabel('סיסמה', { exact: true });
@@ -53,7 +54,7 @@ test.describe.serial('F1.6 on the Preview [preview-e2e c6 c7 · F1.6 c9 c16 c17 
     await box.focus();
     await page.keyboard.press('Space');
     await expect(box).toBeChecked();
-    await page.getByRole('button', { name: 'יצירת חשבון', exact: true }).click();
+    await createAccount(page);
     await expect(page).toHaveURL(/\/recovery-questions$/);
     await expect(pet(page)).toBeVisible();
     await page.goto('/feed');
