@@ -12,13 +12,13 @@ const label = (page: Page): string => `${page.viewportSize()?.width ?? '?'}px`;
 
 /**
  * The server's own split of an answer's time, from the Preview's Server-Timing header (apps/server/src/lib/server-timing.ts):
- * " [cold=0 dbwait=1.2 db=35.0 total=40.3]", or "" when the answer has none (Auth, a platform error page). Only those four
- * numeric metrics are read; anything else in the header is ignored.
+ * " [cold=0 dbwait=1.2 db=35.0 total=40.3 s1=0.4 s2=30.1]", or "" when the answer has none (Auth, a platform error page). Only those
+ * numeric metrics (and the statements s1..sN by position) are read; anything else in the header is ignored.
  */
 export function serverTiming(response: Response): string {
   const header = response.headers()['server-timing'] ?? '';
   const parts = header.split(',').flatMap((entry) => {
-    const match = /^\s*(cold|dbwait|db|total);dur=(\d+(?:\.\d+)?)\s*$/.exec(entry);
+    const match = /^\s*(cold|dbwait|db|total|sd{1,2});dur=(\d+(?:\.\d+)?)\s*$/.exec(entry);
     return match === null ? [] : [`${match[1]}=${match[2]}`];
   });
   return parts.length === 0 ? '' : ` [${parts.join(' ')}]`;
