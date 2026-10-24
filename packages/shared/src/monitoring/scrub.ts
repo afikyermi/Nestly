@@ -22,8 +22,10 @@ const REPLACEMENTS: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(?=[\w-]*\d)[A-Za-z0-9_-]{20,}\b/g, '[id]'],
   // Phone numbers, ID numbers and other long digit runs.
   [/\+?\d[\d -]{6,}\d/g, '[number]'],
-  // Hebrew is user text in this product (posts, names, messages): any run of it goes.
-  [/[֐-׿][֐-׿\s\d'"׳״.,:;!?()-]*/g, '[text] '],
+  // Text outside ASCII is user text in this product: Hebrew posts, names and messages, and also Russian, Arabic or an accented Latin
+  // name (José). Every word holding such a letter goes whole, and a run of them, with what lies between, becomes one placeholder.
+  [/[^\s"'`<>()[\]{}=,;:]*[^\s!-~][^\s"'`<>()[\]{}=,;:]*/g, '[text]'],
+  [/\[text\](?:[\s\d'".,!?-]*\[text\])+/g, '[text]'],
   // A quoted string with a space in it, or a long one, is most likely quoted input (JSON.parse, a validator); an identifier (a
   // constraint, a property) has no space.
   [/"(?=[^"\n]*\s)[^"\n]{6,}"|"[^"\n]{40,}"/g, '"[text]"'],
@@ -42,7 +44,8 @@ const ID_SEGMENT = [
   /^\d+$/,
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
   /^(?=.*\d)[A-Za-z0-9_-]{16,}$/,
-  /@/,
+  // An email or a user name before an @; a scoped package (`node_modules/@supabase/…`, a stack frame's file) keeps its name.
+  /.@/,
 ];
 
 function templateSegment(segment: string): string {
