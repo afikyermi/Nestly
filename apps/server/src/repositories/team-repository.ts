@@ -248,7 +248,7 @@ export async function nameAnalytics(tx: IdentityTx): Promise<void> {
 const dayCounts = z.array(z.object({ day: z.string(), count }));
 
 /** Everything but the Groups, Professionals and Marketplace areas (analytics-areas-repository.ts). */
-export async function readAnalytics(tx: IdentityTx, days: AnalyticsPeriod): Promise<Omit<AnalyticsView, 'groups' | 'professionals' | 'marketplace'>> {
+export async function readAnalytics(tx: IdentityTx, days: AnalyticsPeriod): Promise<Omit<AnalyticsView, 'groups' | 'professionals' | 'marketplace' | 'usage' | 'promotions'>> {
   // the period's days in Israel (the UI's zone), as timestamps for generate_series
   const firstDay = sql`(((now() at time zone 'Asia/Jerusalem')::date - ${days - 1}::int)::timestamp)`;
   const lastDay = sql`((now() at time zone 'Asia/Jerusalem')::date::timestamp)`;

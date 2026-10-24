@@ -17,6 +17,7 @@ import {
   type ProfessionalDashboard,
   type ProfessionalPage,
   type ProfessionalProfileInput,
+  type PromotedProfessional,
   type ProfessionalRegistrationInput,
 } from '@nestly/shared';
 
@@ -90,12 +91,12 @@ export async function fetchAccountKind(token: string): Promise<ProResult<Account
   return result.kind === 'ok' ? { kind: 'ok', value: result.value.kind } : result;
 }
 
-export async function fetchDirectory(token: string, query: DirectoryQuery): Promise<ProResult<ProfessionalCard[]>> {
+/** GET /api/professionals with the promoted Professionals that match the same filters (I13: shown apart, labelled "ממומן"). */
+export function fetchDirectoryPage(token: string, query: DirectoryQuery): Promise<ProResult<{ professionals: ProfessionalCard[]; promoted: PromotedProfessional[] }>> {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) if (value !== undefined) params.set(key, String(value));
   const text = params.toString();
-  const result = await call(token, 'GET', text === '' ? '/api/professionals' : `/api/professionals?${text}`, directoryResponse);
-  return result.kind === 'ok' ? { kind: 'ok', value: result.value.professionals } : result;
+  return call(token, 'GET', text === '' ? '/api/professionals' : `/api/professionals?${text}`, directoryResponse);
 }
 
 /** GET /api/professionals/following (PG-039): the Professionals the caller follows. */
@@ -104,8 +105,8 @@ export async function fetchFollowing(token: string): Promise<ProResult<Professio
   return result.kind === 'ok' ? { kind: 'ok', value: result.value.professionals } : result;
 }
 
-export const fetchProfessional = (token: string, userId: string): Promise<ProResult<ProfessionalPage>> =>
-  call(token, 'GET', `/api/professionals/${enc(userId)}`, professionalPage);
+export const fetchProfessional = (token: string, userId: string, promotionId?: string): Promise<ProResult<ProfessionalPage>> =>
+  call(token, 'GET', `/api/professionals/${enc(userId)}${promotionId === undefined ? '' : `?promotion=${enc(promotionId)}`}`, professionalPage);
 
 export const setFollow = (token: string, userId: string, follow: boolean): Promise<ProResult<null>> =>
   call(token, follow ? 'PUT' : 'DELETE', `/api/professionals/${enc(userId)}/follow`, nothing);

@@ -10,6 +10,20 @@ const LIMIT_MS = 30_000;
 
 const label = (page: Page): string => `${page.viewportSize()?.width ?? '?'}px`;
 
+/**
+ * The server's own split of an answer's time, from the Preview's Server-Timing header (apps/server/src/lib/server-timing.ts):
+ * " [cold=0 dbwait=1.2 db=35.0 total=40.3]", or "" when the answer has none (Auth, a platform error page). Only those four
+ * numeric metrics are read; anything else in the header is ignored.
+ */
+export function serverTiming(response: Response): string {
+  const header = response.headers()['server-timing'] ?? '';
+  const parts = header.split(',').flatMap((entry) => {
+    const match = /^\s*(cold|dbwait|db|total);dur=(\d+(?:\.\d+)?)\s*$/.exec(entry);
+    return match === null ? [] : [`${match[1]}=${match[2]}`];
+  });
+  return parts.length === 0 ? '' : ` [${parts.join(' ')}]`;
+}
+
 function isAuthSignUp(r: Response): boolean {
   const u = new URL(r.url());
   return r.request().method() === 'POST' && u.hostname.endsWith('.supabase.co') && u.pathname === '/auth/v1/signup';
@@ -39,7 +53,7 @@ export async function timedResponse(
     console.log(`[${label(page)}] ${name}: no answer within ${LIMIT_MS} ms (page at ${new URL(page.url()).pathname})`);
     throw new Error(`${name}: no network answer within ${LIMIT_MS} ms`);
   }
-  console.log(`[${label(page)}] ${name} answered ${response.status()} after ${Date.now() - started} ms`);
+  console.log(`[${label(page)}] ${name} answered ${response.status()} after ${Date.now() - started} ms${serverTiming(response)}`);
   expect(ok(response.status()), `${name} answered ${response.status()}`).toBe(true);
   return response;
 }
@@ -66,7 +80,40 @@ export async function createAccount(page: Page): Promise<void> {
       console.log(`[${label(page)}] ${name}: no answer within ${LIMIT_MS} ms after the click (page at ${new URL(page.url()).pathname})`);
       throw new Error(`${name}: no network answer within ${LIMIT_MS} ms`);
     }
-    console.log(`[${label(page)}] ${name} answered ${response.status()} after ${Date.now() - started} ms`);
+    console.log(`[${label(page)}] ${name} answered ${response.status()} after ${Date.now() - started} ms${serverTiming(response)}`);
     expect(response.status(), name).toBeLessThan(300);
   }
 }
+
+/** A slow Preview took over 10 s from "התחברות" to the next screen (preview-e2e 24.10): Auth's token answer, then /api/me. */
+export const SIGN_IN_MS = 45_000;
+
+function isAuthToken(r: Response): boolean {
+  return r.request().method() === 'POST' && new URL(r.url()).pathname === '/auth/v1/token';
+}
+
+/**
+ * Clicks "התחברות" and waits up to SIGN_IN_MS for Auth's token answer, a refusal too (its status and duration are logged, never
+ * asserted: a wrong password is a flow's own check). The caller asserts where the page lands, with `{ timeout: SIGN_IN_MS }`.
+ */
+export async function submitSignIn(page: Page): Promise<Response> {
+  const started = Date.now();
+  const waiting = page.waitForResponse(isAuthToken, { timeout: SIGN_IN_MS });
+  waiting.catch(() => undefined);
+  await page.getByRole('button', { name: 'התחברות', exact: true }).click();
+  let response: Response;
+  try {
+    response = await waiting;
+  } catch {
+    console.log(`[${label(page)}] Auth sign-in: no answer within ${SIGN_IN_MS} ms (page at ${new URL(page.url()).pathname})`);
+    throw new Error(`Auth sign-in: no network answer within ${SIGN_IN_MS} ms`);
+  }
+  console.log(`[${label(page)}] Auth sign-in answered ${response.status()} after ${Date.now() - started} ms`);
+  return response;
+}
+
+/**
+ * From "שמירה" on the recovery questions after a sign-up to the feed: the answers' write, then /api/me. A slow Preview took over 10 s
+ * (preview-e2e 24.10), so the landing gets as long as a sign-in's.
+ */
+export const AFTER_ANSWERS_MS = SIGN_IN_MS;

@@ -27,6 +27,9 @@ export interface ProNet {
   kind: 'regular' | 'professional';
   following: boolean;
   offered: boolean;
+  /** I13: the caller's promotions (the promotion screen and billing), and whether the Directory serves a promoted card. */
+  promotions: Array<{ id: string; state: 'running' | 'stopped' | 'ended'; stoppedBy: 'owner' | 'staff' | null }>;
+  promotedCard: boolean;
   sent: ProSent[];
   /** I11-C (§11.21): the viewer's own review of DANA, written, edited (editedAt) or deleted through the stub. */
   myReview: { rating: number; text: string; editedAt: string | null } | null;
@@ -37,6 +40,7 @@ export interface ProNet {
   /** How many times the feed was read. */
   feedReads: number;
 }
+export const PROMO = PID(60);
 
 const AT = '2026-06-15T09:00:00.000Z';
 const EDITED_AT = '2026-06-15T11:00:00.000Z';
@@ -55,7 +59,7 @@ const card = (id: string, fullName: string, field: string, area: string, years: 
 });
 
 export async function setupProfessionals(page: Page, start: Partial<ProNet> = {}): Promise<ProNet> {
-  const net: ProNet = { kind: 'regular', following: false, offered: false, sent: [], myReview: null, feedPost: false, unread: 0, feedReads: 0, ...start };
+  const net: ProNet = { kind: 'regular', following: false, offered: false, promotions: [], promotedCard: false, sent: [], myReview: null, feedPost: false, unread: 0, feedReads: 0, ...start };
   await page.clock.setFixedTime(NOW);
   await page.addInitScript(() => {
     Reflect.set(window, 'nestlyRealSession', true);
@@ -115,6 +119,7 @@ export async function setupProfessionals(page: Page, start: Partial<ProNet> = {}
       url.pathname === '/api/chat/start' ||
       url.pathname === '/api/register/professional' ||
       url.pathname === '/api/reports' ||
+      url.pathname.startsWith('/api/promotions') ||
       /^\/api\/posts\/[^/]+\/offer-help$/.test(url.pathname),
     async (route) => {
       const req = route.request();
@@ -135,7 +140,8 @@ export async function setupProfessionals(page: Page, start: Partial<ProNet> = {}
       if (path === '/api/professionals') {
         const field = url.searchParams.get('field');
         const all = [card(DANA, 'דנה דולה', 'doula', 'tel_aviv', 9, 1500, 4.5), card(SHAI, 'שי שינה', 'sleep', 'haifa', 3, 400, null)];
-        return json(route, 200, { professionals: field === null ? all : all.filter((c) => c.field === field) });
+        const promoted = net.promotedCard ? [{ promotionId: PROMO, card: card(PID(61), 'רותם צלמת', 'photography', 'eilat', 4, 800, null) }] : [];
+        return json(route, 200, { professionals: field === null ? all : all.filter((c) => c.field === field), promoted });
       }
       if (path === `/api/professionals/${DANA}`) {
         return json(route, 200, {
@@ -239,6 +245,57 @@ export async function setupProfessionals(page: Page, start: Partial<ProNet> = {}
       }
       if (path === `/api/outreach/${OFFER}/accept`) return json(route, 200, { conversationId: CONV });
       if (path === '/api/register/professional') return json(route, 201, { status: 'created' });
+      // I13: the promotion screen (PG-041), billing (PG-042) and a paid click; sample prices, simulated payment
+      if (path === '/api/promotions' && method === 'GET') {
+        const plans =
+          net.kind === 'professional'
+            ? [
+                { key: 'profile_7', targetKind: 'profile', days: 7, samplePriceIls: 49 },
+                { key: 'profile_30', targetKind: 'profile', days: 30, samplePriceIls: 149 },
+                { key: 'post_3', targetKind: 'post', days: 3, samplePriceIls: 19 },
+              ]
+            : [{ key: 'listing_3', targetKind: 'listing', days: 3, samplePriceIls: 9 }];
+        const zero = { impressions: 0, clicks: 0, follows: 0, chatStarts: 0 };
+        return json(route, 200, {
+          plans,
+          promotions: net.promotions.map((p) => ({
+            id: p.id,
+            targetKind: 'profile',
+            planKey: 'profile_7',
+            state: p.state,
+            startsAt: AT,
+            endsAt: '2026-06-22T09:00:00.000Z',
+            stoppedAt: p.state === 'stopped' ? AT : null,
+            stoppedBy: p.stoppedBy,
+            postId: null,
+            listingId: null,
+            targetLabel: null,
+            counts: { ...zero, impressions: 12, clicks: 2 },
+          })),
+          posts: [{ id: POST, excerpt: 'שלושה טיפים להנקה' }],
+          analytics:
+            net.kind === 'professional'
+              ? {
+                  days: 30,
+                  organic: { profileViews: 40, profileViewers: 25, postViews: 120, postReach: 80, followers: 12, engagement: 17, chatStarts: 3 },
+                  paid: { ...zero, impressions: 12, clicks: 2, profileVisits: 2, sampleSpentIls: 49, costPerClickIls: 24.5 },
+                }
+              : null,
+        });
+      }
+      if (path === '/api/promotions' && method === 'POST') {
+        net.promotions.unshift({ id: PROMO, state: 'running', stoppedBy: null });
+        return json(route, 201, { promotionId: PROMO, receipt: { reference: PID(62), amountIls: 49, isSimulated: true } });
+      }
+      if (path === '/api/promotions/billing') {
+        return json(route, 200, {
+          payments: net.promotions.map(() => ({ id: PID(63), planKey: 'profile_7', targetKind: 'profile', amountIls: 49, isSimulated: true, reference: PID(62), at: AT })),
+        });
+      }
+      if (/^\/api\/promotions\/[^/]+\/(stop|click)$/.test(path)) {
+        if (path.endsWith('/stop')) net.promotions = net.promotions.map((p) => (p.id === path.split('/')[3] ? { ...p, state: 'stopped', stoppedBy: 'owner' } : p));
+        return route.fulfill({ status: 204, headers: CORS });
+      }
       return json(route, 404, { error: 'unstubbed' });
     },
   );

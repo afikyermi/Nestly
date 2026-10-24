@@ -13,7 +13,8 @@
 | PG-056 | מסך ההצטרפות לצוות | FR-ADMIN-004 | UC-15 | User, ModeratorInvitation, AuditLogEntry |
 | PG-057 | מסך בקשות העזרה / הצעת עזרה (מלוח הבקרה ומהתפריט של Professional) | FR-SERV-005 / FR-SERV-008 / FR-PRO-001 | UC-25 | Post, ProfessionalProfile (התחום), ProfessionalOutreachRequest; AC-148, AC-169, AC-171 |
 | PG-058 | מסך בית הצוות / בית הניהול / העבודה שלי / מגמות נתוני ילדים | FR-ADMIN-014 / FR-ADMIN-015 / FR-ADMIN-005 / FR-MOD-003 | UC-15/27 | Report, ReportEscalation, ReportOpening, TrackerEvent (מגמות בלבד), AuditLogEntry; AC-152–AC-158 |
-| PG-041/042 | מסך הקידום המקצועי / מסך חיובים וקידומים (עד I13: "עוד לא זמין") | FR-PRO-002 / FR-SERV-010 | UC-42 | — |
+| PG-041/042 | מסך הקידום המקצועי / מסך חיובים וקידומים (I13: קידום, תוצאות, תשלומים מדומים) | FR-PRO-002 / FR-SERV-010 | UC-42 | Promotion, PromotionPerformanceEvent |
+| PG-059 | מסך הקידומים בניהול (I13) | FR-SERV-010 / FR-MKT-004 / FR-ALG-007 / BR-083 | UC-42 | Promotion, AuditLogEntry, AlgorithmConfiguration |
 | PG-009 | מעקב בעמוד הבית | FR-HOME-001..004, FR-ALG-004 | UC-05/06 | JourneyContext, Child, TrackerEvent, CycleEntry, Article |
 | PG-010/019 | ניהול ה-Marketplace (רשימה, "המודעות שלי", מודעה חדשה ועריכה) / קידום מודעת Marketplace / מסך פריט Marketplace (פנייה בצ'אט, דיווח) / מנוע ההמלצות מבוסס הכללים | FR-MKT-001..005 / FR-ALG-006/007/008 / FR-CHAT-002 / FR-MOD-001 | UC-07/39 | MarketplaceListing, SponsoredProduct, Promotion, MediaAsset, Conversation (Marketplace), Report, IntentSignal, PromotionPerformanceEvent, ContentImpression, AnalyticsEvent |
 | PG-011/013 | מדריך נותני השירות / מסך פרופיל מקצועי / מנוע ההמלצות מבוסס הכללים / ביקורות על בעל מקצוע / מאמרים מקצועיים | FR-SERV-001..003 / FR-SERV-011 / FR-PRO-003 / FR-ALG-005 | UC-08/38 | ProfessionalProfile, ServiceCategory, PersonalizationProfile, AnalyticsEvent, ProfessionalReview, ProfessionalArticle |
@@ -67,8 +68,13 @@
 | FR-SEARCH-001 | Built | I7, תיקוני בדיקת ה-SRS (21.10) | בעלי מקצוע ב"אנשים", מסומנים, נפתחים בעמוד המקצועי |
 | FR-NOTIF-002 | Built | I7, I11, תיקוני בדיקת ה-SRS (21.10) | קטגוריות לפי סוג החשבון, "ימי הולדת" להורה בלבד |
 | FR-NOTIF-003 | Built | I7, תיקוני בדיקת ה-SRS (21.10) | התראה על יום הולדת של ילד של Friend |
-| FR-ADMIN-010 | Built | I14, תיקוני בדיקת ה-SRS (21.10) | קבוצות, בעלי מקצוע ו-Marketplace במסך הנתונים |
+| FR-ADMIN-010 | Built | I14, I13, תיקוני בדיקת ה-SRS (21.10) | קבוצות, בעלי מקצוע ו-Marketplace במסך הנתונים; שימוש לפי יום (OP-039), ותחום הקידום ל-Admin בלבד (AC-071) |
 | FR-PRO-001 | Built | I11, תיקוני בדיקת ה-SRS (21.10), השלמת I11 ג' | הדירוג בלוח הבקרה; "פוסטים בתחום שלך" |
+| FR-SERV-010 | Built | I13 | קידום פרופיל ופוסט, תשלום מדומה, עצירה על ידי הבעלים או הצוות (בלי החזר) |
+| FR-MKT-004 | Built | I13 | קידום מודעה מ"המודעות שלי", בראש התוצאות התואמות, "מודעה מקודמת" |
+| FR-PRO-002 | Built | I13 | תוצאות 30 יום: אורגני ובתשלום בנפרד, מספרים בלבד |
+| FR-ALG-007 | Built | I13 | התאמה לפי נושאי חיפוש, דירוג בין הממומנים, מגבלת תדירות, שילוב בפיד כברירת מחדל כל 4–7 פוסטים (טווח וספים ניתנים לשינוי בידי Admin, אפיק 23.10.2026), סימון "ממומן"; התאמה לשלב נדחית בהחלטת אפיק מ-23.10.2026 |
+| NFR-SEC-007 | Built | I13 | ממשק תשלום אחד, מדומה, בלי פרטי כרטיס, "מחיר לדוגמה" |
 | FR-SERV-003 | Built | I11, השלמת I11 ג' | הדירוג בספרה אחת מעל כוכבים ברבעים, גם בכרטיסים |
 | FR-SERV-005 | Built | I11, השלמת I11 ג' | הצעת עזרה על כל פוסט שבעל המקצוע רשאי לראות, מהכרטיס, מעמוד הפוסט ומ"בקשות עזרה" לפי תחום; בלי סימון "מבקש עזרה" |
 | FR-SERV-008 | Built | I11, השלמת I11 ג' | אחת לכל פוסט, עד 100 ב-24 שעות |

@@ -182,6 +182,18 @@ added:    2026-10-15, proposed by BUILDER (F1.5 part b), validated by CRITIC wit
 Each entry:
 
 ```
+### CI, Preview and orchestration
+rule:     (1) Evidence is in GitHub, not on disk: re-check a branch with a workflow_dispatch CI run, not a local
+          Chrome run; read logs with the GitHub MCP `get_job_logs` (gh downloads are blocked). (2) An e2e-preview
+          step waits for the server answer it needs (45 s), never a bare 10 s UI wait. (3) Writes added on a hot
+          read path (/api/me, feed, profile) are batched. (4) Before asking Afik, above all about a service, check
+          decisions-in-force (§15), SRS §12 and the code. (5) A job marked cancelled whose tests passed is infra:
+          one rerun.
+why:      24.10: lost local logs, 10 s waits failing on a slow Preview, per-read writes slowing it, and questions
+          to Afik that were already answered.
+example:  #207, #209, #210
+added:    2026-10-24, Claude
+
 ### <area>
 rule:     what to do
 why:      the reason — without this, the rule gets cargo-culted or discarded

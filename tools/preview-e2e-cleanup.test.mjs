@@ -447,9 +447,13 @@ test('[E c8] the cleanup workflow has contents: read only', () => {
   assert.ok(cjob.permissions === undefined || cjob.permissions === null);
 });
 
-test('[E c8] the test workflow has no cleanup step and no PREVIEW_DB_ADMIN_URL anywhere', () => {
-  const code = workflowText.replace(/^\s*#.*$/gm, ''); // comments may explain where the cleanup went
-  assert.doesNotMatch(code, /PREVIEW_DB_ADMIN_URL/);
+test('[E c8] database credentials reach only trusted-main staff setup, never flows or cleanup in the test job', () => {
+  const holders = steps.filter((s) => JSON.stringify(s.env ?? {}).includes('PREVIEW_DB_ADMIN_URL'));
+  assert.equal(holders.length, 1);
+  assert.equal(runOf(holders[0]), 'node .preview-harness/tools/preview-e2e-staff-cli.ts');
+  const trusted = steps.find((s) => s.with?.path === '.preview-harness');
+  assert.equal(trusted.with.ref, '${{ github.event.repository.default_branch }}');
+  assert.equal(String(trusted.with['persist-credentials']), 'false');
   for (const s of steps) assert.doesNotMatch(runOf(s), /preview-e2e-cleanup(-cli)?\.ts/);
 });
 
@@ -517,7 +521,7 @@ test('[F2.4c1 c20 c21 c22] the preflight fails closed when any of the three F2.4
 // I12: sponsored_products are written by the Admin only (a test user is never staff).
 // I13: promotion_plans is the seeded sample price list (no runtime role writes it); promotion_settings is written by the Admin only.
 // I14 completion: report_escalations and report_openings are written by staff only and go with their report by cascade; group_staff_views with its Group; trend_scopes holds no user and is always empty between calls.
-const NO_DELETE = ['security_limits', 'algorithm_configurations', 'status_guides', 'report_reasons', 'audit_log', 'media_training_samples', 'media_training_events', 'media_reviews', 'media_training_candidates', 'moderator_invitations', 'system_announcements', 'group_highlight_configurations', 'sponsored_products', 'report_escalations', 'report_openings', 'group_staff_views', 'trend_scopes', 'promotion_plans',
+const NO_DELETE = ['security_limits', 'algorithm_configurations', 'status_guides', 'report_reasons', 'media_training_samples', 'media_training_events', 'media_reviews', 'media_training_candidates', 'moderator_invitations', 'system_announcements', 'group_highlight_configurations', 'sponsored_products', 'report_escalations', 'report_openings', 'group_staff_views', 'trend_scopes', 'promotion_plans',
   // I14 completion B: a hide goes with its item or author, a fingerprint with its image (cascades); the block list names no user
   'report_auto_hides', 'media_fingerprints', 'suspected_image_fingerprints', 'auto_hide_scopes', 'promotion_settings',
   // I10 completion C: a Highlight goes with its post or Group (cascade); it names no user
@@ -545,7 +549,7 @@ test('[cleanup a] every expected table is deleted from in the user transaction, 
   assert.ok(at('nestly.post_hides') < at('nestly.comments') && at('nestly.comments') < at('nestly.posts'), 'comments between the hides and the posts');
   assert.ok(at('nestly.recovery_answers') < at('nestly.reports'), 'F3.0b rows after the recovery rows');
   assert.deepEqual(order.filter((t) => !['nestly.identity_link_checks', 'nestly.post_hides', 'nestly.posts', 'nestly.post_authors', 'nestly.reports', 'nestly.reactions', 'nestly.comments'].includes(t)), [
-    'nestly.recovery_throttles', 'nestly.recovery_events', 'nestly.legal_consents', 'nestly.recovery_answers', 'nestly.tracker_events', 'nestly.cycle_entries', 'nestly.children',
+    'nestly.audit_log', 'nestly.recovery_throttles', 'nestly.recovery_events', 'nestly.legal_consents', 'nestly.recovery_answers', 'nestly.tracker_events', 'nestly.cycle_entries', 'nestly.children',
     'nestly.journey_contexts', 'nestly.notifications', 'nestly.notification_preferences', 'nestly.friend_content_notification_preferences',
     'nestly.reported_message_views', 'nestly.private_group_content_views', 'nestly.reported_comment_views', 'nestly.profile_staff_views', 'nestly.enforcement_records', 'nestly.promotion_events', 'nestly.promotion_monthly_summaries', 'nestly.promotions', 'nestly.promotion_payments', 'nestly.professional_views', 'nestly.usage_events', 'nestly.stories', 'nestly.profile_photos', 'nestly.media_assets', 'nestly.marketplace_listings',
     'nestly.groups', 'nestly.group_suggestions', 'nestly.group_invitations', 'nestly.group_join_requests', 'nestly.group_member_enforcements', 'nestly.group_bans',
@@ -579,7 +583,8 @@ test('[F3.0-b c19] the cleanup deletes the reports, likes and comments with the 
   assert.match(cliText, /parent_id in \(select id from nestly\.comments where author_id = \$\{id\}\)/);
   assert.match(cliText, /delete from nestly\.reactions where id in \(select reaction_id from nestly\.reaction_owners where user_id = \$\{id\}\)/);
   assert.match(cliText, /delete from nestly\.comments\s+where author_id = \$\{id\}\s+or \(author_id is null and post_id in \(select post_id from nestly\.post_authors where author_id = \$\{id\}\)\)/);
-  assert.doesNotMatch(cliText, /update\s+nestly\.reports|disable trigger|session_replication_role/i);
+  assert.doesNotMatch(cliText, /update\s+nestly\.reports|alter table nestly\.reports.*disable trigger|session_replication_role/i);
+  assert.deepEqual([...cliText.matchAll(/disable trigger ([a-z_]+)/g)].map((m) => m[1]), ['audit_log_append_only']);
 });
 
 test('[F2.4c1 c22] the cleanup never writes security_limits: no delete, update, truncate or insert on the configuration table', () => {

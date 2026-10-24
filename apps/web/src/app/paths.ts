@@ -101,6 +101,7 @@ export const PATHS = {
   /** I12: the staff's Marketplace listings (MARKETPLACE_MODERATE) and Sponsored Products (FR-ADMIN-009, Admin only). */
   adminMarketplace: '/admin/marketplace',
   adminSponsored: '/admin/sponsored',
+  adminPromotions: '/admin/promotions',
   /** I11 follow-ups (Afik 21.10.2026, §9.8): the Professionals one follows (PG-039), a Professional's help-requests page, and its promotion and
    *  billing pages (I13 fills them). */
   following: FOLLOWING_PATH,
@@ -159,6 +160,7 @@ export const PROTECTED_PATHS: readonly string[] = [
   PATHS.newListing,
   PATHS.adminMarketplace,
   PATHS.adminSponsored,
+  PATHS.adminPromotions,
   PATHS.following,
   PATHS.helpRequests,
   PATHS.proPromotion,

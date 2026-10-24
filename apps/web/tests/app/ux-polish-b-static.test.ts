@@ -80,11 +80,13 @@ describe('ux-polish-b c11 [NFR-USAB-004 FR-PROFILE-002 DR-1 DR-3 FR-REL-001] con
         'features/groups/GroupScreen.tsx', // I10: leaving a Group (a Private one cannot be seen again without asking)
         'features/journeys/JourneysContent.tsx',
         'features/marketplace/ListingScreen.tsx', // I12: deleting a listing is final (deleted at once)
+        'features/marketplace/PromoteListing.tsx', // I13: a payment (simulated) is confirmed before it is made (NFR-SEC-007)
         'features/professionals/ArticlesScreen.tsx', // I11: deleting an article is final (FR-PRO-003)
         'features/professionals/ReviewsSection.tsx', // I11-C: deleting one's own review is final (§11.21)
         'features/posts/CommentsView.tsx',
         'features/posts/FeedContent.tsx',
         'features/posts/PostContent.tsx',
+        'features/promotions/PromotionScreen.tsx', // I13: a payment (simulated) is confirmed before it is made (NFR-SEC-007)
         'features/trackers/CycleScreen.tsx',
         'features/trackers/TrackerScreen.tsx',
         'features/user-profile/UserProfileContent.tsx',

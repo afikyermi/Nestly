@@ -215,6 +215,19 @@ export const analyticsBody = z.object({
     sold: z.number().int(),
     chats: z.number().int(),
   }),
+  /** FR-ADMIN-010, OP-039 (I13): usage by day — accounts that came in (one a day each), profile and post views. Never an account or a target. */
+  usage: z.object({ dailyLogins: z.array(dayCount), profileViews: z.array(dayCount), postViews: z.array(dayCount) }),
+  /** AC-071 Promotions (I13): present for BILLING_FINANCE_MANAGE (the Admin) only — running promotions by kind, the period's simulated
+   *  purchases, impressions and clicks by day, and the sample amount paid. Never a promoter, a promotion or a target. */
+  promotions: z
+    .object({
+      running: z.object({ profile: z.number().int(), post: z.number().int(), listing: z.number().int() }),
+      purchases: z.array(dayCount),
+      impressions: z.array(dayCount),
+      clicks: z.array(dayCount),
+      sampleRevenueIls: z.number().int(),
+    })
+    .optional(),
 });
 export type AnalyticsView = z.infer<typeof analyticsBody>;
 

@@ -17,6 +17,8 @@ import { registerGroupsRoutes } from './routes/groups.js';
 import { registerChatRoutes } from './routes/chat.js';
 import { registerProfessionalsRoutes } from './routes/professionals.js';
 import { registerMarketplaceRoutes } from './routes/marketplace.js';
+import { registerPromotionsRoutes } from './routes/promotions.js';
+import { onPromotionSkip } from './services/promoted-units.js';
 import { registerSupportRoutes } from './routes/support.js';
 import { registerReportsRoutes } from './routes/reports.js';
 import { registerNotificationsRoutes } from './routes/notifications.js';
@@ -48,6 +50,7 @@ import { registerRecoveryQuestionsRoute } from './routes/recovery-questions.js';
 import { registerRecoveryResetRoute } from './routes/recovery-reset.js';
 import { registerRegistrationRoute } from './routes/register.js';
 import { registerStripBypassHeader } from './plugins/strip-bypass-header.js';
+import { registerServerTiming, serverTimingEnabled } from './lib/server-timing.js';
 
 export interface AppDependencies {
   /** Defaults to the process environment. */
@@ -65,6 +68,8 @@ export interface AppDependencies {
   readonly recovery?: Partial<RecoveryDependencies>;
   /** I5: image storage, the image re-encoder and the background check's trigger. Defaults read the environment; a test passes fakes. */
   readonly media?: Partial<MediaDependencies>;
+  /** The Server-Timing header (lib/server-timing.ts). Defaults to on for a Vercel Preview or Production deployment (VERCEL_ENV). */
+  readonly serverTiming?: boolean;
 }
 
 export function buildApp(deps: AppDependencies = {}): FastifyInstance {
@@ -98,6 +103,8 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
 
   // Before authentication: the first onRequest hook of the app.
   registerStripBypassHeader(app);
+  // Right after it, so it times the rest of the request: a Vercel Preview only (never Production, never a test unless it asks).
+  registerServerTiming(app, deps.serverTiming ?? serverTimingEnabled(process.env));
 
   const recovery = createRecoveryDependencies(deps.recovery);
   registerAuthentication(app, {
@@ -160,6 +167,9 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerChatRoutes(app, { database });
   registerProfessionalsRoutes(app, { database });
   registerMarketplaceRoutes(app, { database, storage: media.storage });
+  registerPromotionsRoutes(app, { database });
+  // ERR-028: a promoted candidate not shown is recorded by its reason code only
+  onPromotionSkip((reason, count) => app.log.info({ promotionSkip: reason, count }, 'promoted candidates skipped'));
   registerSupportRoutes(app, { database });
   registerAdminReadRoutes(app, { database, storage: media.storage });
   registerAdminActionRoutes(app, { database });

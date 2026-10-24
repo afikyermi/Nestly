@@ -4,7 +4,7 @@
 // email pattern as the fixture's, so the cleanup sweep covers it). No recovery attempts are made.
 import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
-import { createAccount } from './support/timed-steps.ts';
+import { AFTER_ANSWERS_MS, createAccount, SIGN_IN_MS, submitSignIn } from './support/timed-steps.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
@@ -15,6 +15,8 @@ const openRadio = (page: Page) => main(page).getByRole('radio', { name: /^פרו
 const restrictedRadio = (page: Page) => main(page).getByRole('radio', { name: /^פרופיל מוגבל/ });
 const sentenceBox = (page: Page) => main(page).getByRole('checkbox', { name: 'הצגת המשפט כשאין ילדים והריון', exact: true });
 const birthdayBox = (page: Page) => main(page).getByRole('checkbox', { name: 'יום הולדת של ילד בהתראות לחברים', exact: true });
+/** The settings screen reads several sections before it shows the privacy choice; a slow Preview took over 10 s (preview-e2e 24.10). */
+const SETTINGS_LOAD = 30_000;
 const isPut = (r: { request: () => { method: () => string }; url: () => string }) =>
   r.request().method() === 'PUT' && new URL(r.url()).pathname === '/api/privacy';
 
@@ -31,10 +33,10 @@ async function signIn(page: Page, u: TestUser): Promise<void> {
   await page.goto('/login');
   await emailField(page).fill(u.email);
   await passwordField(page).fill(u.password);
-  await page.getByRole('button', { name: 'התחברות', exact: true }).click();
-  await expect(page).toHaveURL(/\/feed$/);
+  await submitSignIn(page);
+  await expect(page).toHaveURL(/\/feed$/, { timeout: SIGN_IN_MS });
   await page.goto('/settings');
-  await expect(openRadio(page)).toBeVisible();
+  await expect(openRadio(page)).toBeVisible({ timeout: SETTINGS_LOAD });
 }
 
 test.describe.serial('F2.3a privacy settings on the Preview [c1 c2 c6]', () => {
@@ -55,10 +57,11 @@ test.describe.serial('F2.3a privacy settings on the Preview [c1 c2 c6]', () => {
     await page.getByLabel(/חיית המחמד/).fill(u.answers.pet);
     await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);
     await page.getByRole('button', { name: 'שמירה', exact: true }).click();
-    await expect(page).toHaveURL(/\/feed$/);
+    await expect(page).toHaveURL(/\/feed$/, { timeout: AFTER_ANSWERS_MS });
     await page.getByRole('button', { name: 'פתיחת התפריט', exact: true }).click();
     await page.getByRole('dialog', { name: 'תפריט' }).getByRole('link', { name: 'פרטיות ואבטחה', exact: true }).click();
     await expect(page).toHaveURL(/\/settings#privacy$/);
+    await expect(openRadio(page)).toBeVisible({ timeout: SETTINGS_LOAD });
     await expect(openRadio(page)).toBeChecked();
     await expect(restrictedRadio(page)).not.toBeChecked();
     await expect(sentenceBox(page)).toBeChecked();

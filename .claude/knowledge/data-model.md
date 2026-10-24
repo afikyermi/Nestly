@@ -174,12 +174,11 @@ F1.6 recovery and F2.0 S-01/S-16 (FR-AUTH-003/005, OP-029) — Afik 2026-10-13, 
 ```
 Preview E2E test-user cleanup (DR-E1, option 1) — credential PREVIEW_DB_ADMIN_URL: role `postgres` (BYPASSRLS), nestly-preview only, user postgres.<preview
 ref>, session pooler, port 5432. CI only, `preview-e2e-cleanup`: main's code (never the deployment sha), in environment `preview-e2e` restricted to `main`
-(Afik, 17.10; verified via API). On `workflow_run`: the per-run cleanup. On manual `workflow_dispatch` (main only): mode `dry-run` only (preflight, counts,
+(Afik, 17.10; verified via API). Afik 23.10.2026 extends this exception: one main-only step of `preview-e2e`, in environment `preview-e2e`, runs staff setup from a separate trusted-main checkout, creates two fresh reserved-pattern Moderators with CONTENT_MODERATE only, and writes generated login data to a private runner-temp file removed after the flows. Database credentials never reach a flow. Cleanup may remove Audit rows whose actor is the exact locked pattern user, disabling only `audit_log_append_only` and restoring it inside the same user transaction; URL/preflight guards and limits remain unchanged. Production is excluded. On `workflow_run`: the per-run cleanup. On manual `workflow_dispatch` (main only): mode `dry-run` only (preflight, counts,
 ages; no delete; `backlog` removed in F3.0a). Victims: only the exact `TEST_EMAIL_PATTERN`. Caps unchanged: this run's
-users uncapped, sweep 10, refusal above 50 (workflow_run). One transaction per user, leaf first, SET LOCAL row_security = off (raises, never filters); feed rows per
+users uncapped, sweep 10, refusal above 50 (workflow_run). One transaction per user, leaf first, SET LOCAL row_security = off (raises, never filters) except around the `moderator_permissions` delete, whose SECURITY DEFINER Audit trigger (`app_owner`, FORCE RLS) cannot run with it off (42501); staff setup inserts with it on (postgres bypasses RLS anyway); feed rows per
 user before friendships: reports, reactions (reaction_owners by cascade), post_hides, comments, posts (post_authors by cascade).
-Fail-closed preflight: exactly the thirty nestly tables (F2.4c1 fourteen; F3.0a +4, F3.0b +4, I6 +3, I4 +5; security_limits, algorithm_configurations, status_guides, report_reasons and audit_log listed, never
-written). · .work/preview-e2e/schema.md, .work/feed-groundwork/schema.md, schema-b.md · decisions/2026-10.md "DR-E1", "Preview cleanup"
+Fail-closed preflight: exactly the expected nestly tables (the maintained list in the cleanup tool); configuration is never written. Audit is subject only to the scoped Preview test-actor exception above. · .work/preview-e2e/schema.md · decisions/2026-10.md "DR-E1", "Preview cleanup"
 ```
 
 ```

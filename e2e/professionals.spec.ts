@@ -103,7 +103,7 @@ test.describe('[I11 FR-PRO-001 AC-018 FR-SERV-005 AC-171] the Professional home'
     await expect(main(page).getByText('75% (3/4)')).toBeVisible();
     await expect(main(page).getByRole('progressbar', { name: 'השלמת הפרופיל' })).toHaveAttribute('aria-valuenow', '75');
     await expect(main(page).getByText('חסר: שם העסק, על השירות')).toBeVisible();
-    await expect(main(page).getByText('קידום בתשלום עדיין לא זמין', { exact: false })).toBeVisible();
+    await expect(main(page).getByText('התשלום מדומה והמחירים לדוגמה', { exact: false })).toBeVisible();
     const help = main(page).getByRole('list', { name: 'פוסטים בתחום שלך' });
     await expect(help).toContainText('פוסט אנונימי');
     await help.getByRole('button', { name: 'הצעת עזרה' }).click();
@@ -277,7 +277,7 @@ test.describe('[I11-C AC-148 AC-171 FR-SERV-005] a Professional\'s navigation an
     }
     await drawer.getByRole('link', { name: 'קידום ותוצאות', exact: true }).click();
     await expect.poll(() => pathOf(page)).toBe('/pro/promotion');
-    await expect(main(page).getByText('קידום בתשלום עדיין לא זמין', { exact: false })).toBeVisible();
+    await expect(main(page).getByText('קידום בתשלום מגדיל את החשיפה בלבד', { exact: false })).toBeVisible();
   });
 });
 

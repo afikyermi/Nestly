@@ -12,10 +12,16 @@ import { replySessionRefused } from '../plugins/authentication.js';
 import { clientAddress } from '../recovery/client-ip.js';
 import type { RecoveryDependencies } from '../recovery/dependencies.js';
 import { readAccountState, type HandleRekey } from '../services/account-state-service.js';
+import { createDailyLoginMemo, type DailyLoginMemo } from '../services/daily-login-memo.js';
+import { recordExposure } from '../services/promoted-units.js';
 
 export interface MeRouteDependencies {
   readonly database: Database | undefined;
   readonly recovery: RecoveryDependencies;
+  /** This instance's memory of the day's recorded logins (one per app when not given). */
+  readonly dailyLogins?: DailyLoginMemo;
+  /** The clock that dates the day's login in that memory (the database dates the row by its own clock). */
+  readonly now?: () => Date;
 }
 
 const PATH = '/api/me';
@@ -39,14 +45,23 @@ function rekeyFor(request: FastifyRequest, deps: MeRouteDependencies): HandleRek
   };
 }
 
-async function me(request: FastifyRequest, reply: FastifyReply, deps: MeRouteDependencies) {
+async function me(request: FastifyRequest, reply: FastifyReply, deps: MeRouteDependencies & { readonly dailyLogins: DailyLoginMemo; readonly now: () => Date }) {
   const { identity } = request;
   if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
 
   // A state is never cached: the next request must see a status change (BR-024).
   reply.header('cache-control', 'no-store');
   try {
-    return reply.code(200).send(await readAccountState(deps.database, identity, rekeyFor(request, deps)));
+    const state = await readAccountState(deps.database, identity, rekeyFor(request, deps));
+    // I13 (OP-039): the day's login, one counter a day (staff and inactive accounts are dropped by the database; never this answer's failure).
+    // Written once a day per account and instance: remembered only once committed for an active account (what the database counts), so an
+    // account that becomes active later the same day is still counted.
+    const at = deps.now();
+    if (!deps.dailyLogins.has(identity.userId, at)) {
+      const recorded = await recordExposure(deps.database, identity, { usage: 'daily_login' });
+      if (recorded && state.state === 'active') deps.dailyLogins.remember(identity.userId, at);
+    }
+    return reply.code(200).send(state);
   } catch (error) {
     const refused = replySessionRefused(reply, error);
     if (refused !== undefined) return refused;
@@ -58,10 +73,11 @@ async function me(request: FastifyRequest, reply: FastifyReply, deps: MeRouteDep
 }
 
 export function registerMeRoute(app: FastifyInstance, deps: MeRouteDependencies): void {
+  const routeDeps = { ...deps, dailyLogins: deps.dailyLogins ?? createDailyLoginMemo(), now: deps.now ?? (() => new Date()) };
   app.route({
     method: 'GET',
     url: PATH,
-    handler: (request, reply) => me(request, reply, deps),
+    handler: (request, reply) => me(request, reply, routeDeps),
   });
 
   // Any other method: 405 with the Allow header. Authentication still comes first, like everywhere.

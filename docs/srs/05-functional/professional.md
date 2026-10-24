@@ -25,7 +25,7 @@
 | תיאור | Professional Dashboard/Promotion Analytics יציגו רק מדדים מצטברים של החשבון המקצועי: Profile Views, Followers, Organic Reach/Engagement, Chat Starts, Paid Impressions/Clicks/Profile Visits/Follows/Chat Starts ועלות נגזרת אם זמינה. |
 | תנאים מוקדמים | Professional User מחובר ובבעלותו התוכן/Promotion. |
 | קלט / Trigger | Aggregated events של ProfessionalProfile/Post/Promotion. |
-| תהליך מערכת | Aggregation לפי תקופה ו-Organic/Paid source; אין חשיפת identity, search terms או private data של משתמשים בודדים. |
+| תהליך מערכת | Aggregation לפי תקופה ו-Organic/Paid source; אין חשיפת identity, search terms או private data של משתמשים בודדים. **v1 (I13):** מסך הקידום מציג את 30 הימים האחרונים: אורגני (צפיות בפרופיל וצופים, צפיות וחשיפה של הפוסטים, עוקבים, תגובות ולייקים, שיחות שנפתחו) ובתשלום (חשיפות, לחיצות, כניסות לפרופיל, עוקבים ושיחות מקידום, הסכום לדוגמה ששולם ועלות ללחיצה לדוגמה), בנפרד, ובלי לזהות אף משתמש. פירוט אירועי הקידום והצפיות נשמר 12 חודשים; לכל קידום נשמר סיכום חודשי לתמיד (החלטת אפיק מ-21.10.2026, §13.4). |
 | פלט | Professional KPIs ו-Promotion performance. |
 | מצב לאחר ביצוע | בעל המקצוע יכול להעריך ביצועים וקידום בלי לקבל User-level targeting data. |
 | בעל אחריות לוגי (Page / Feature) | נתוני לוח הבקרה המקצועי / קידום מקצועי / מסך תוצאות הקידום |

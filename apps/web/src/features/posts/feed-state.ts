@@ -1,5 +1,6 @@
 import type { FeedPageResponse, FeedUnit, PostView, PublishedAnnouncement } from '@nestly/shared';
 import { loadedMoreText } from './feed-texts';
+import { rememberPromoted } from './promoted-feed';
 
 /**
  * initial: no page yet (skeleton) · ready: a page arrived (the list, or the empty state) · first-error / more-error: the request for the
@@ -72,13 +73,42 @@ export function freshUnits(shown: readonly FeedUnit[], page: readonly FeedUnit[]
   });
 }
 
+/**
+ * I13 (FR-ALG-007, §11.2): the page's organic units with its promoted posts in their slots — each after `afterIndex` organic units of this
+ * page. A promoted unit carries source 'promoted' and is marked "ממומן" by its card; it never changes the organic order.
+ */
+export function withPromoted(page: FeedPageResponse): FeedUnit[] {
+  const promoted = [...(page.promoted ?? [])].sort((a, b) => a.afterIndex - b.afterIndex);
+  if (promoted.length === 0) return [...page.items];
+  const out: FeedUnit[] = [];
+  let next = 0;
+  page.items.forEach((unit, index) => {
+    out.push(unit);
+    while (next < promoted.length && promoted[next]?.afterIndex === index + 1) {
+      const slot = promoted[next];
+      if (slot !== undefined) {
+        rememberPromoted(slot.unit.id, slot.promotionId);
+        out.push(slot.unit);
+      }
+      next += 1;
+    }
+  });
+  return out;
+}
+
+/** I13 (FR-ALG-007): the promotions whose post this page adds to `shown` as a promoted unit (not already on the list, nor organic on the page). */
+export function shownPromotions(shown: readonly FeedUnit[], page: FeedPageResponse): string[] {
+  const seen = new Set([...shown, ...page.items].map((unit) => unit.id));
+  return (page.promoted ?? []).filter((slot) => !seen.has(slot.unit.id)).map((slot) => slot.promotionId);
+}
+
 /** A loaded page joins the list (de-duplicated by unit id), or replaces it: the first page and `restarted` (a new snapshot). */
 export function withPage(state: FeedState, page: FeedPageResponse, firstPage: boolean, afterRetry: boolean): FeedState {
   const replace = firstPage || page.restarted === true;
   // A post the viewer published while the first page was loading stays first when it arrives; the server's copy is dropped. A first-page retry is a new snapshot (c9).
   const own = firstPage && state.phase === 'initial' ? state.items : [];
   const kept = replace ? own : state.items;
-  const added = freshUnits(kept, page.items);
+  const added = freshUnits(kept, withPromoted(page));
   const announced = !replace && added.length > 0;
   return {
     ...state,
