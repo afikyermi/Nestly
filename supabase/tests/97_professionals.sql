@@ -96,8 +96,8 @@ select is((select string_agg(c.relname || '.' || pl.polname || ':' || pl.polcmd:
   || 'professional_follows.professional_follows_select_analytics:r, professional_follows.professional_follows_select_party:r, '
   || 'professional_profiles.professional_profiles_insert_own:a, professional_profiles.professional_profiles_select_viewer:r, '
   || 'professional_profiles.professional_profiles_update_own:w, '
-  || 'professional_reviews.professional_reviews_insert_reviewer:a, professional_reviews.professional_reviews_select_staff:r, professional_reviews.professional_reviews_select_viewer:r, professional_reviews.professional_reviews_update_staff:w',
-  '[F11.1-a c1] exactly these policies: no update or delete of a review, no delete of a profile or an Offer Help, the Professional never answers its own request (the SRS-audit fixes add the follows analytics read, file 102) (the I11 follow-ups add the staff read and moderation of a reported review or article, file 98; completion B''s hide after ten identical reports and its staff deletion by a justified decision are file 103''s)');
+  || 'professional_reviews.professional_reviews_delete_reviewer:d, professional_reviews.professional_reviews_insert_reviewer:a, professional_reviews.professional_reviews_select_staff:r, professional_reviews.professional_reviews_select_viewer:r, professional_reviews.professional_reviews_update_reviewer:w, professional_reviews.professional_reviews_update_staff:w',
+  '[F11.1-a c1] exactly these policies: a review is edited and deleted by its writer only (I11 completion C, file 108), no delete of a profile or an Offer Help, the Professional never answers its own request (the SRS-audit fixes add the follows analytics read, file 102) (the I11 follow-ups add the staff read and moderation of a reported review or article, file 98; completion B''s hide after ten identical reports and its staff deletion by a justified decision are file 103''s)');
 select is((select count(*) from pg_policy pl join pg_class c on c.oid = pl.polrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'nestly'
             and c.relname = any (pg_temp.new_tables()) and pl.polname !~ '_auto_hide$'
             and (pl.polroles <> array[(select oid from pg_roles where rolname = 'authenticated')]::oid[] or not pl.polpermissive
@@ -210,7 +210,7 @@ select is((select count(*) from pg_trigger t join pg_class c on c.oid = t.tgreli
 select is(pg_temp.post('a', 'אנונימי לעוקבים', false, true, 'followers'), 'ERR:42501', '[F11.1-a c5] an anonymous post is everyone only');
 
 -- ---- Offer Help (FR-SERV-005/006/008, BR-007..010, VAL-010, AC-011, AC-012, AC-014) ------------------------------------
-select is(pg_temp.offer('q1', pg_temp.pid('b', 'סתם פוסט')), 'ERR:42501', '[F11.1-a c6 AC-014 (c) BR-009] no Offer Help on a post that does not ask for help');
+-- (AC-014 (c) "only a post that asks for help" is removed, §13.1: Offer Help on any post the Professional may read is file 108's)
 select is(pg_temp.offer('q1', pg_temp.pid('a', 'עזרה בשינה')), 'OK:1', '[F11.1-a c6 FR-SERV-005] a Professional offers help on a help-request post');
 select is(pg_temp.offer('q1', pg_temp.pid('a', 'עזרה בשינה')), 'ERR:23505', '[F11.1-a c6 AC-011 AC-014 (a) BR-008] a second request on the same post is refused');
 select is(pg_temp.offer('q2', pg_temp.pid('a', 'עזרה בשינה')), 'OK:1', '[F11.1-a c6 AC-014 (a)] another Professional''s request on the same post is accepted');
@@ -252,14 +252,7 @@ select is(pg_temp.post('b', 'עזרה של בלה', true), 'OK:1', '[F11.1-a c6]
 select is(pg_temp.dml('b', format($q$ insert into nestly.user_blocks (blocked_id, blocked_account_type) values (%L, 'professional') $q$, pg_temp.id('q2'))), 'OK:1',
   '[F11.1-a c6] control: b blocks pr_2');
 select is(pg_temp.offer('q2', pg_temp.pid('b', 'עזרה של בלה')), 'ERR:42501', '[F11.1-a c6 FR-REL-002] no Offer Help across a user block');
--- the daily limit: q2 already sent one (declined, still counted); nine more pass, the eleventh is refused
-select is((select string_agg(pg_temp.post('a', 'עזרה ' || g, true), ',') from generate_series(1, 10) g), 'OK:1,OK:1,OK:1,OK:1,OK:1,OK:1,OK:1,OK:1,OK:1,OK:1',
-  '[F11.1-a c6] control: ten more help-request posts');
-select is((select string_agg(pg_temp.offer('q2', pg_temp.pid('a', 'עזרה ' || g)), ',') from generate_series(1, 9) g), 'OK:1,OK:1,OK:1,OK:1,OK:1,OK:1,OK:1,OK:1,OK:1',
-  '[F11.1-a c6 AC-014 (b)] the tenth request of the day is accepted (a declined one counts)');
-select is(pg_temp.offer('q2', pg_temp.pid('a', 'עזרה 10')), 'ERR:NS029', '[F11.1-a c6 AC-014 (b) FR-SERV-008] the eleventh in 24 hours is refused');
-select is(pg_temp.offer('q1', pg_temp.pid('a', 'עזרה 10')), 'OK:1', '[F11.1-a c6 AC-014 (b)] another Professional is not limited by it');
-select is(tests.fx_pr_count(format('nestly.outreach_requests where professional_id = %L', pg_temp.id('q2'))), 10::bigint, '[F11.1-a c6] exactly ten rows');
+-- the daily limit (100 since I11 completion C, §13.3) is file 108's
 
 -- ---- a Regular opens a chat with a Professional (FR-SERV-004, BR-006, AC-010) ------------------------------------------
 select is(pg_temp.open_conv('q1', 'b', 'professional'), 'ERR:42501', '[F11.1-a c7 BR-007] a Professional does not open a conversation with a Regular');
@@ -285,7 +278,7 @@ select is(pg_temp.n('q1', 'select reviewer_id::text from nestly.professional_rev
 select is(pg_temp.n('q1', 'select conversation_id::text from nestly.professional_reviews limit 1'), 'ERR:42501', '[F11.1-a c8] nor the conversation that would name it');
 select is(pg_temp.n('q2', format($q$ select count(*)::text from nestly.professional_reviews where professional_id = %L $q$, pg_temp.id('q1'))), '2',
   '[F11.1-a c8] a block does not hide a review (blocking would reveal its writer)');
-select is(pg_temp.dml('a', 'update nestly.professional_reviews set rating = 1'), 'ERR:42501', '[F11.1-a c8] a review is not edited');
+select is(pg_temp.dml('q2', 'update nestly.professional_reviews set rating = 1'), 'OK:0', '[F11.1-a c8 §11.21] nobody but its writer edits a review (the writer''s edit is file 108''s)');
 select tests.set_status(pg_temp.id('b'), 'suspended');
 select is(pg_temp.n('p', format($q$ select count(*)::text from nestly.professional_reviews where professional_id = %L $q$, pg_temp.id('q1'))), '1',
   '[F11.1-a c8] a suspended reviewer''s review is hidden');

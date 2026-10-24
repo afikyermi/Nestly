@@ -334,7 +334,7 @@ select is(tests.fx_sf_enf(pg_temp.id('s')) like '%,warning:ban:t', true, '[BR-07
 
 -- 7  report reasons (FR-ADMIN-007)
 select pg_temp.reset();
-select is(pg_temp.n('a', 'nestly.report_reasons'), '8', '[FR-MOD-001 I4] every active account reads the eight reasons');
+select is(pg_temp.n('a', 'nestly.report_reasons'), '12', '[FR-MOD-001 I4 · I11 completion C §11.10] every active account reads the eight reasons and the four review reasons');
 select is(tests.dml_as('anon', tests.claims(pg_temp.id('a')), 'select 1 from nestly.report_reasons'), 'ERR:42501', '[I4] anon reads none');
 select is(pg_temp.dml('a', 'update nestly.report_reasons set label = ''חדש'''), 'OK:0', '[FR-ADMIN-007 I4] a Regular account edits nothing');
 select is(pg_temp.dml('m1', 'update nestly.report_reasons set label = ''חדש'''), 'OK:0', '[FR-ADMIN-007 I4] a Moderator without COMMUNITY_CONFIG edits nothing');
@@ -348,7 +348,7 @@ select is(pg_temp.dml('m3', 'update nestly.report_reasons set priority = 1 where
 select is(pg_temp.dml('m3', 'insert into nestly.report_reasons (key, label, priority, sort_order) values (''zz_top'', ''עדיפות עליונה'', 1, 91)', false), 'ERR:23514', '[AC-106 I4] nor a new one');
 select is(pg_temp.dml('m3', 'update nestly.report_reasons set priority = 2 where key = ''spam'''), 'OK:1', '[FR-ADMIN-007 I4] a priority can be changed');
 select is(pg_temp.dml('m3', 'insert into nestly.report_reasons (key, label, priority, sort_order) values (''custom_1'', ''סיבה חדשה'', 3, 90)'), 'OK:1', '[FR-ADMIN-007 I4] a reason can be added');
-select is(pg_temp.n('a', 'nestly.report_reasons'), '9', '[FR-ADMIN-007 I4] it is listed for everyone');
+select is(pg_temp.n('a', 'nestly.report_reasons'), '13', '[FR-ADMIN-007 I4] it is listed for everyone');
 select is(pg_temp.dml('m3', 'update nestly.report_reasons set is_active = false where key = ''custom_1'''), 'OK:1', '[FR-ADMIN-007 I4] and switched off');
 select set_config('t.p9', pg_temp.post('a')::text, true);
 select is(pg_temp.dml('b', format($q$ insert into nestly.reports (target_kind, post_id, reason) values ('post', %L, 'custom_1') $q$, current_setting('t.p9')), false), 'ERR:42501', '[FR-ADMIN-007 I4] a switched-off reason cannot be used for a new report');
