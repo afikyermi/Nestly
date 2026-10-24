@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // URL guard for the `migrate` workflow (I1 F1.1, spec criterion 5).
 //
-//   node tools/migrate-url-guard.mjs <db-preview|db-production>
+//   node tools/migrate-url-guard.mjs <db-preview|db-production> [--mask]
 //
 // Reads APP_OWNER_DATABASE_URL from the environment and refuses it unless it is the session-pooler URL of
 // app_owner for that GitHub environment: user `app_owner.<project ref>`, a *.pooler.supabase.com host, port 5432
@@ -9,8 +9,14 @@
 // what would make libpq print the password or skip TLS: a password that is not valid percent-encoding or decodes to
 // a NUL, a fragment or any raw "#", and an sslmode other than require / verify-full (part a CRITIC findings 1 and 6).
 //
+// TLS is fail-closed: a URL without an sslmode of its own is accepted only when PGSSLMODE (libpq, pgx and so the
+// Supabase CLI all read it) is require or verify-full in the step's environment (finding 2 of the 14.10 review).
+//
 // It never prints the URL or any part of it — not on success, not in a reason. A reason names only what was
-// expected. Exit 0 when the URL is acceptable, 1 otherwise. `checkMigrationUrl` is exported for unit tests.
+// expected. With --mask, and only after the URL passed, it prints `::add-mask::` for the password in every form a
+// tool could print it (raw, percent-decoded, re-encoded) and for the whole URL, so the log hides them even when a
+// CLI quotes the URL in a form GitHub's exact-match masking would miss. Exit 0 when the URL is acceptable, 1 otherwise.
+// `checkMigrationUrl` and `maskValues` are exported for unit tests.
 
 import { pathToFileURL } from 'node:url';
 
@@ -28,9 +34,11 @@ const ALLOWED_SSLMODES = new Set(['require', 'verify-full']);
 /**
  * @param {string | undefined} raw  the connection string
  * @param {string} environment      the GitHub environment the job runs in
+ * @param {{ pgsslmode?: string }} [options]  the step's PGSSLMODE; when given, a URL without its own sslmode passes only
+ *                                   if it is require / verify-full (fail closed)
  * @returns {{ ok: true } | { ok: false, reason: string }}
  */
-export function checkMigrationUrl(raw, environment) {
+export function checkMigrationUrl(raw, environment, { pgsslmode } = {}) {
   const ref = Object.hasOwn(PROJECT_REFS, environment) ? PROJECT_REFS[environment] : undefined;
   if (!ref) return { ok: false, reason: 'unknown environment: expected db-preview or db-production' };
   if (typeof raw !== 'string' || raw.trim() === '') {
@@ -71,6 +79,9 @@ export function checkMigrationUrl(raw, environment) {
     return { ok: false, reason: 'the URL host is not a single *.pooler.supabase.com host' };
   }
   if (url.port !== '5432') return { ok: false, reason: 'the URL port is not 5432 (session pooler)' };
+  if (pgsslmode !== undefined && !url.searchParams.has('sslmode') && !ALLOWED_SSLMODES.has(pgsslmode)) {
+    return { ok: false, reason: 'TLS is not guaranteed: the URL has no sslmode and PGSSLMODE is not require or verify-full' };
+  }
   for (const [key, value] of url.searchParams) {
     if (!ALLOWED_QUERY_KEYS.has(key)) {
       return { ok: false, reason: 'the URL has a query parameter other than sslmode' };
@@ -82,12 +93,25 @@ export function checkMigrationUrl(raw, environment) {
   return { ok: true };
 }
 
+/** Every form of the password (and the whole URL) a tool might print. Call only on a URL that passed the check. */
+export function maskValues(raw) {
+  const url = new URL(raw);
+  const decoded = decodeURIComponent(url.password);
+  const values = new Set([raw, url.password, decoded, encodeURIComponent(decoded)]);
+  // GitHub masks one line at a time; a value with a line break cannot be masked as one.
+  return [...values].filter((v) => v !== '' && !/[\r\n]/.test(v));
+}
+
 function main() {
   const environment = process.argv[2] ?? '';
-  const result = checkMigrationUrl(process.env.APP_OWNER_DATABASE_URL, environment);
+  const raw = process.env.APP_OWNER_DATABASE_URL;
+  const result = checkMigrationUrl(raw, environment, { pgsslmode: process.env.PGSSLMODE ?? '' });
   if (!result.ok) {
     process.stdout.write(`::error::migrate-url-guard: ${result.reason}\n`);
     process.exit(1);
+  }
+  if (process.argv.includes('--mask')) {
+    for (const value of maskValues(raw)) process.stdout.write(`::add-mask::${value}\n`);
   }
   process.stdout.write(`migrate-url-guard: OK - app_owner.${PROJECT_REFS[environment]} on the session pooler, port 5432\n`);
 }
