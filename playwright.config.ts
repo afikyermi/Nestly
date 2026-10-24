@@ -20,6 +20,11 @@ export default defineConfig({
   // - Parallelism is per file, never global fullyParallel: only a file whose tests share no state, hooks or order opts
   //   in with test.describe.configure({ mode: 'parallel' }) (today e2e/a11y.spec.ts), so its tests share the workers of
   //   their shard. Shards are split by test count in file order (no hand-made file lists: a new file is never dropped).
+  // - Ten shards, not five (24.10): Playwright deals shards as contiguous runs of files by test COUNT, and the files from
+  //   a to j are app flows that cost ~1.4 s a test against ~0.4 s for the story files after them, so with five shards
+  //   shard 2 took 12.2 min (718 tests) while shards 3 and 4 took 6 and 6.7 (main run 40077357689) and sometimes hit
+  //   the globalTimeout; with eight the slowest still took 11.5 min (CI 40094702922: app-shell-guard-stories alone 6 min).
+  //   Smaller runs shrink that spread; the timeout is unchanged.
   // - On CI the run ends itself before the job's timeout-minutes, so a hang still reports and uploads its report.
   timeout: 30_000,
   globalTimeout: isCi ? 13 * 60_000 : 0,
