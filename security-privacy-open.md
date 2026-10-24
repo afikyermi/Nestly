@@ -79,8 +79,8 @@
 | # | נושא | תיאור | מקור | מצב |
 |---|---|---|---|---|
 | S-59 | אישור migrate ל-production הוסר | אפיק הסיר את דרישת האישור ב-environment ‏`db-production` (ההגבלה ל-main נשארת), ו-ORCHESTRATOR מריץ migrate ל-production בעצמו, באצווה | decisions 2026-10-16 "I2 questionnaire" · שאלון I2, 6 | 🔴 פתוח — **להחזיר את דרישת האישור לפני השקה** |
-| S-50 | ‏Actions בתגיות שאפשר להזיז | ‏`@v4` ולא SHA, כולל job ה-migrate שמחזיק את הסוד של owner ב-prod; ‏Node 20 יוצא משימוש | ‏debt.md:28, :59 · ‏WORKPLAN | 🔴 פתוח |
-| S-51 | ‏migrate ו-libpq | סיסמת prod פגומה עלולה להופיע בשגיאת libpq בלוג ציבורי; אין PGSSLMODE; ‏`|| true` | ‏debt.md:58 · ‏identity-platform findings | 🔍 לאמת — חלק נסגר ב-app-shell-guard |
+| S-50 | ‏Actions בתגיות שאפשר להזיז | ‏`@v4` ולא SHA, כולל job ה-migrate שמחזיק את הסוד של owner ב-prod; ‏Node 20 יוצא משימוש | ‏debt.md:28, :59 · ‏WORKPLAN | ✅ SHA — #196 (24.10); ‏Node 20 (actions v4) נשאר פתוח |
+| S-51 | ‏migrate ו-libpq | סיסמת prod פגומה עלולה להופיע בשגיאת libpq בלוג ציבורי; אין PGSSLMODE; ‏`|| true` | ‏debt.md:58 · ‏identity-platform findings | ✅ #196 (24.10): ‏TLS חובה, יומן db push מסונן, mask לסיסמה; אומת בריצה 40088324381 |
 | S-52 | סוד ה-bypass של Vercel | ‏repository secret; ענף שנפרס יכול להביא workflow משלו ולחשוף אותו (מקודד); ‏environment מוגן — "לא עכשיו" | ‏debt.md:70, :71 · decisions 14.10 | ⚖️ מקובל (Git Fork Protection פועל) |
 | S-53 | נתיב קובץ ה-bypass ב-flow | `PREVIEW_E2E_BYPASS_FILE` מגיע ל-workers, וכל קובץ `e2e-preview/<name>.flow.ts` יכול לבקש את ה-fixture `bypassSecret` (`e2e-preview/support/fixtures.ts:39`) ולשלוח אותו לכל מקום; ה-guard לא רואה את זה. קובץ ה-flow של F1.8 לא קורא שום סוד (CRITIC opus, 17.10) | debt.md:94 · F1.8 findings | 🔴 פתוח — CRITIC בודק כל קובץ flow חדש עד שייסגר |
 | S-54 | כשל ב-job `changes` | מדלג על db, ‏browser ו-storybook ומדווח עליהם כעוברים; צריך required check ב-branch protection | ‏debt.md:67 | 🔴 פתוח (הגדרת GitHub, אפיק) |
