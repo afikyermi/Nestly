@@ -10,6 +10,20 @@ const LIMIT_MS = 30_000;
 
 const label = (page: Page): string => `${page.viewportSize()?.width ?? '?'}px`;
 
+/**
+ * The server's own split of an answer's time, from the Preview's Server-Timing header (apps/server/src/lib/server-timing.ts):
+ * " [cold=0 dbwait=1.2 db=35.0 total=40.3]", or "" when the answer has none (Auth, a platform error page). Only those four
+ * numeric metrics are read; anything else in the header is ignored.
+ */
+export function serverTiming(response: Response): string {
+  const header = response.headers()['server-timing'] ?? '';
+  const parts = header.split(',').flatMap((entry) => {
+    const match = /^\s*(cold|dbwait|db|total);dur=(\d+(?:\.\d+)?)\s*$/.exec(entry);
+    return match === null ? [] : [`${match[1]}=${match[2]}`];
+  });
+  return parts.length === 0 ? '' : ` [${parts.join(' ')}]`;
+}
+
 function isAuthSignUp(r: Response): boolean {
   const u = new URL(r.url());
   return r.request().method() === 'POST' && u.hostname.endsWith('.supabase.co') && u.pathname === '/auth/v1/signup';
@@ -39,7 +53,7 @@ export async function timedResponse(
     console.log(`[${label(page)}] ${name}: no answer within ${LIMIT_MS} ms (page at ${new URL(page.url()).pathname})`);
     throw new Error(`${name}: no network answer within ${LIMIT_MS} ms`);
   }
-  console.log(`[${label(page)}] ${name} answered ${response.status()} after ${Date.now() - started} ms`);
+  console.log(`[${label(page)}] ${name} answered ${response.status()} after ${Date.now() - started} ms${serverTiming(response)}`);
   expect(ok(response.status()), `${name} answered ${response.status()}`).toBe(true);
   return response;
 }
@@ -66,7 +80,7 @@ export async function createAccount(page: Page): Promise<void> {
       console.log(`[${label(page)}] ${name}: no answer within ${LIMIT_MS} ms after the click (page at ${new URL(page.url()).pathname})`);
       throw new Error(`${name}: no network answer within ${LIMIT_MS} ms`);
     }
-    console.log(`[${label(page)}] ${name} answered ${response.status()} after ${Date.now() - started} ms`);
+    console.log(`[${label(page)}] ${name} answered ${response.status()} after ${Date.now() - started} ms${serverTiming(response)}`);
     expect(response.status(), name).toBeLessThan(300);
   }
 }

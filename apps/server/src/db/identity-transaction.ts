@@ -14,6 +14,7 @@ import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Database } from './client.js';
 import type { Identity } from '../lib/token-verifier.js';
+import { timeTransaction } from '../lib/server-timing.js';
 
 export type IdentityTx = Parameters<Parameters<Database['db']['transaction']>[0]>[0];
 
@@ -83,12 +84,18 @@ export async function inIdentityTransaction<T>(
   work: (tx: IdentityTx, guard: ProceedGuard) => Promise<T>,
   options: IdentityTransactionOptions = {},
 ): Promise<T> {
+  const began = timeTransaction(); // Server-Timing on a Vercel deployment (lib/server-timing.ts); a no-op otherwise
   return database.db.transaction(async (tx) => {
-    // Before any query takes the snapshot (the role and the claims are set after it): one snapshot for everything the work reads.
-    if (options.isolationLevel === 'repeatable read') await tx.execute(sql`set transaction isolation level repeatable read`);
-    const guard = await enter(tx, identity);
-    if (guard !== 'ok' && guard !== 'must_set') throw new SessionRefused(guard);
-    return work(tx, guard);
+    const settled = began();
+    try {
+      // Before any query takes the snapshot (the role and the claims are set after it): one snapshot for everything the work reads.
+      if (options.isolationLevel === 'repeatable read') await tx.execute(sql`set transaction isolation level repeatable read`);
+      const guard = await enter(tx, identity);
+      if (guard !== 'ok' && guard !== 'must_set') throw new SessionRefused(guard);
+      return await work(tx, guard);
+    } finally {
+      settled();
+    }
   });
 }
 
@@ -102,5 +109,13 @@ export async function inLinkCheckTransaction<T>(
   identity: Identity,
   work: (tx: IdentityTx, guard: SessionGuard) => Promise<T>,
 ): Promise<T> {
-  return database.db.transaction(async (tx) => work(tx, await enter(tx, identity)));
+  const began = timeTransaction();
+  return database.db.transaction(async (tx) => {
+    const settled = began();
+    try {
+      return await work(tx, await enter(tx, identity));
+    } finally {
+      settled();
+    }
+  });
 }
