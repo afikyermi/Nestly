@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useLinkClickHandler } from 'react-router';
 import { PATHS } from '@/app/paths';
 import { AuthLayout } from '@/components/layout/auth-layout';
@@ -11,11 +12,12 @@ import { PLACEHOLDER_TEXT } from './placeholder-text';
 export interface GuestPlaceholderPageProps {
   /** The screen's h1, and its document title. */
   title: string;
+  children?: ReactNode;
 }
 
-// A screen not built yet that a Guest may open (the two documents, I9): its heading, one line and a way back, to Welcome, or for a
-// signed-in user to the Terms & Privacy section of Settings (F2.5 c7). It sends no request anywhere.
-export function GuestPlaceholderPage({ title }: GuestPlaceholderPageProps) {
+// Shared public-document frame: supplied document content, or the remaining Terms placeholder (I9).
+// Both guests and signed-in accounts can read it without requests; the back link returns to their entry surface.
+export function GuestPlaceholderPage({ title, children }: GuestPlaceholderPageProps) {
   const { state } = useSession();
   const backTo = state === 'signed-in' ? `${PATHS.settings}${settingsSectionHash('terms')}` : PATHS.welcome;
   const toBack = useLinkClickHandler(backTo);
@@ -30,7 +32,7 @@ export function GuestPlaceholderPage({ title }: GuestPlaceholderPageProps) {
         }
       >
         <h1 className="mb-2 text-h1">{title}</h1>
-        <p className="text-body text-muted-foreground">{PLACEHOLDER_TEXT}</p>
+        {children ?? <p className="text-body text-muted-foreground">{PLACEHOLDER_TEXT}</p>}
       </AuthLayout>
     </main>
   );
