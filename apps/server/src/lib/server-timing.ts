@@ -1,6 +1,6 @@
-// Server-Timing on a Preview deployment only (VERCEL_ENV=preview; never Production, never a local test unless the test turns it
-// on): where an /api request's time went, for the preview-e2e flows to print next to each timed request. Four metrics and
-// nothing else — no id, no route, no parameter, no user data:
+// Server-Timing on a Vercel deployment, Preview and Production (VERCEL_ENV=preview or production; never development, never a local
+// test unless the test turns it on): where an /api request's time went, for the preview-e2e flows to print next to each timed
+// request and for measuring the live site from the browser (24.10). Four metrics and nothing else — no id, no route, no parameter, no user data:
 //   cold    1 for the first request this server instance answers (a cold start), else 0
 //   dbwait  time from asking for a transaction until its first statement may run (acquiring a pooled connection, and BEGIN)
 //   db      time inside the request's transactions (its statements and the work between them)
@@ -24,9 +24,9 @@ const store = new AsyncLocalStorage<RequestTiming>();
 const byRequest = new WeakMap<FastifyRequest, RequestTiming>();
 let answered = false;
 
-/** Whether this deployment adds the header: a Vercel Preview only. */
+/** Whether this deployment adds the header: a Vercel Preview or Production deployment. */
 export function serverTimingEnabled(env: Readonly<Record<string, string | undefined>>): boolean {
-  return env['VERCEL_ENV'] === 'preview';
+  return env['VERCEL_ENV'] === 'preview' || env['VERCEL_ENV'] === 'production';
 }
 
 /**

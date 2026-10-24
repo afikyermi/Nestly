@@ -1,8 +1,8 @@
 import Fastify from 'fastify';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-// Server-Timing (preview-e2e measurement, 24.10): on a Vercel Preview only, and then exactly four numeric metrics — no id, no route,
-// no parameter, no user data.
+// Server-Timing (preview-e2e measurement and the live site's, 24.10): on a Vercel Preview or Production deployment only, and then
+// exactly four numeric metrics — no id, no route, no parameter, no user data.
 
 const HEADER = /^cold;dur=[01], dbwait;dur=\d+(\.\d)?, db;dur=\d+(\.\d)?, total;dur=\d+(\.\d)?$/;
 const saved = process.env['VERCEL_ENV'];
@@ -29,14 +29,13 @@ async function healthHeader(env: string | undefined): Promise<string | string[] 
 }
 
 describe('Server-Timing', () => {
-  it('is absent in Production, in development and in a test (no VERCEL_ENV)', async () => {
-    expect(await healthHeader('production')).toBeUndefined();
+  it('is absent in development and in a test (no VERCEL_ENV)', async () => {
     expect(await healthHeader('development')).toBeUndefined();
     expect(await healthHeader(undefined)).toBeUndefined();
   });
 
-  it('on a Preview carries exactly cold, dbwait, db and total', async () => {
-    const header = await healthHeader('preview');
+  it.each(['preview', 'production'])('on a %s deployment carries exactly cold, dbwait, db and total', async (env) => {
+    const header = await healthHeader(env);
     expect(typeof header).toBe('string');
     expect(String(header)).toMatch(HEADER);
   });
