@@ -3,13 +3,14 @@
 // the screen's skeleton (headings, buttons, links, key texts by role and name), rtl, no horizontal scroll, no text cut off, no
 // overlap, and axe. No images: a deliberate design change passes, only real breakage fails. The skeletons state what each screen
 // is for, from its spec and SRS texts, not from its markup. The visual specs stay as they were and no longer block (ci.yml).
-// Each test opens its own pages on read-only stubs and shares no state, hooks or order with another: parallel (P3,
+// Each test opens its own contexts on read-only stubs and shares no state, hooks or order with another: parallel (P3,
 // tools/ci-browser.test.mjs PARALLEL_FILES).
 import { expect, test } from '@playwright/test';
-import type { BrowserContext, Page } from '@playwright/test';
+import type { Browser, Page } from '@playwright/test';
 import { APP, MENU_BUTTON, open, pathOf } from './app-helpers';
 import { openStory } from './helpers';
 import { SCREENS } from './visual-screens';
+import { STORYBOOK_PORT } from '../playwright.ports';
 import type { Screen } from './visual-screens';
 import { button, heading, layoutProblems, link, role, text } from './support/layout-rules';
 import type { Skeleton } from './support/layout-rules';
@@ -22,23 +23,29 @@ import { EDIT_ITEM, chooseFromPostMenu, postMore } from './support/post-menu';
 import { anonToggle, bodyBox, choice, feedCards, feedStatus, openComposer, openFeedAt, publishButton } from './support/composer';
 
 test.describe.configure({ mode: 'parallel' });
-test.use({ reducedMotion: 'reduce' });
 
+const STORYBOOK = `http://127.0.0.1:${STORYBOOK_PORT}`;
 const SIZES = [
   { label: '375', viewport: { width: 375, height: 812 } },
   { label: '1280', viewport: { width: 1280, height: 800 } },
 ] as const;
 type Size = (typeof SIZES)[number];
 
-/** Opens the screen afresh in a new page at each size, checks it there, and asserts once with both sizes' problems. */
-async function checkAtBothSizes(context: BrowserContext, skeleton: Skeleton, show: (page: Page, size: Size) => Promise<void>): Promise<void> {
+/**
+ * Opens the screen afresh at each size, in a context of its own (a signed-in session in storage would otherwise skip the second
+ * sign-in), checks it there, and asserts once with both sizes' problems.
+ */
+async function checkAtBothSizes(browser: Browser, baseURL: string, skeleton: Skeleton, show: (page: Page, size: Size) => Promise<void>): Promise<void> {
   const problems: string[] = [];
   for (const size of SIZES) {
-    const page = await context.newPage();
-    await page.setViewportSize(size.viewport);
-    await show(page, size);
-    problems.push(...(await layoutProblems(page, skeleton)).map((p) => `@${size.label} ${p}`));
-    await page.close();
+    const context = await browser.newContext({ baseURL, viewport: size.viewport, reducedMotion: 'reduce' });
+    try {
+      const page = await context.newPage();
+      await show(page, size);
+      problems.push(...(await layoutProblems(page, skeleton)).map((p) => `@${size.label} ${p}`));
+    } finally {
+      await context.close();
+    }
   }
   expect(problems).toEqual([]);
 }
@@ -197,11 +204,11 @@ async function showScreen(page: Page, screen: Screen): Promise<void> {
 }
 
 for (const screen of SCREENS) {
-  test(`[layer 1] ${screen.name}: skeleton, rtl, no horizontal scroll, no cut text, no overlap, axe at 375 and 1280`, async ({ context }) => {
+  test(`[layer 1] ${screen.name}: skeleton, rtl, no horizontal scroll, no cut text, no overlap, axe at 375 and 1280`, async ({ browser }) => {
     test.setTimeout(60_000);
     const skeleton = SKELETONS[screen.name];
     if (skeleton === undefined) throw new Error(`no skeleton for ${screen.name}`);
-    await checkAtBothSizes(context, skeleton, (page) => showScreen(page, screen));
+    await checkAtBothSizes(browser, STORYBOOK, skeleton, (page) => showScreen(page, screen));
   });
 }
 
@@ -479,11 +486,10 @@ const FLOWS: Flow[] = [
 ];
 
 test.describe('[layer 1] flows', () => {
-  test.use({ baseURL: APP });
   for (const flow of FLOWS) {
-    test(`[layer 1] ${flow.name}: skeleton, rtl, no horizontal scroll, no cut text, no overlap, axe at 375 and 1280`, async ({ context }) => {
+    test(`[layer 1] ${flow.name}: skeleton, rtl, no horizontal scroll, no cut text, no overlap, axe at 375 and 1280`, async ({ browser }) => {
       test.setTimeout(90_000);
-      await checkAtBothSizes(context, flow.skeleton, flow.show);
+      await checkAtBothSizes(browser, APP, flow.skeleton, flow.show);
     });
   }
 });
