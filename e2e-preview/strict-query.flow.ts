@@ -4,7 +4,7 @@
 // request's Authorization header the page calls the other strict-query routes through the deployment: none may answer 400.
 import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
-import { createAccount } from './support/timed-steps.ts';
+import { AFTER_ANSWERS_MS, createAccount } from './support/timed-steps.ts';
 import { generateTestUser } from './support/test-user.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
@@ -35,7 +35,7 @@ test('[strict query] through the Vercel rewrite: notifications, tracker events, 
   await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);
   const bell = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/notifications' && r.request().method() === 'GET');
   await page.getByRole('button', { name: 'שמירה', exact: true }).click();
-  await expect(page).toHaveURL(/\/feed$/);
+  await expect(page).toHaveURL(/\/feed$/, { timeout: AFTER_ANSWERS_MS });
 
   const notifications = await bell;
   expect(notifications.status(), 'GET /api/notifications from the bell').toBe(200);

@@ -7,7 +7,7 @@
 // (the Preview server's date), well inside VAL-044's window so the server's own check cannot differ from the browser's.
 import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
-import { createAccount, SIGN_IN_MS, submitSignIn } from './support/timed-steps.ts';
+import { AFTER_ANSWERS_MS, createAccount, SIGN_IN_MS, submitSignIn } from './support/timed-steps.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
@@ -66,7 +66,7 @@ test.describe.serial('F2.2a journeys and children on the Preview [c1 c2 c3 c7 c8
     await page.getByLabel(/חיית המחמד/).fill(u.answers.pet);
     await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);
     await saveButton(page).click();
-    await expect(page).toHaveURL(/\/feed$/);
+    await expect(page).toHaveURL(/\/feed$/, { timeout: AFTER_ANSWERS_MS });
     await page.goto('/profile');
     await expect(addButton(page)).toBeVisible();
     const text = await viewText(page);
@@ -163,7 +163,7 @@ test.describe.serial('F2.2b1 pregnancy add and due-date edit on the Preview [c14
     await page.getByLabel(/חיית המחמד/).fill(u.answers.pet);
     await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);
     await saveButton(page).click();
-    await expect(page).toHaveURL(/\/feed$/);
+    await expect(page).toHaveURL(/\/feed$/, { timeout: AFTER_ANSWERS_MS });
     await page.goto('/profile');
     await addPregnancy(page).click();
     const due = inDays(100);

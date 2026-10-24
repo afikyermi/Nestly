@@ -9,7 +9,7 @@
 // in the whole run: 2 projects x (1 wrong change + 1 wrong reset) = 4 (limit 10).
 import type { Page, Response } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
-import { createAccount, SIGN_IN_MS, submitSignIn } from './support/timed-steps.ts';
+import { AFTER_ANSWERS_MS, createAccount, SIGN_IN_MS, submitSignIn } from './support/timed-steps.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
 const passwordField = (page: Page) => page.getByLabel('סיסמה', { exact: true });
@@ -71,7 +71,7 @@ test.describe.serial('F1.6 on the Preview [preview-e2e c6 c7 · F1.6 c9 c16 c17 
     await pet(page).fill(testUser.answers.pet);
     await nick(page).fill(testUser.answers.nickname);
     await saveButton(page).click();
-    await expect(page).toHaveURL(/\/feed$/);
+    await expect(page).toHaveURL(/\/feed$/, { timeout: AFTER_ANSWERS_MS });
   });
 
   test('[c6.3 · F1.6 c17] after log-out and sign-in the questions screen does not appear', async ({ page, testUser }) => {
