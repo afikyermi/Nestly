@@ -22,7 +22,7 @@ argument-hint: <what changed, and Afik's decision it rests on>
 3. **WHAT, not HOW.** The SRS states what the product does: no table or column names, functions, endpoints,
    algorithms, storage layout or internal codes. Technology choices (Supabase, Vercel, NudeNet…) are fine.
 4. **Decisions and open items.** Every decision of Afik's that the change rests on is written into the SRS in the
-   same PR, and its line leaves `decisions-in-force.md`. A question Afik has not answered: build per its ⭐, and the
+   same PR, and its line in `decisions-in-force.md` stays, shortened to one line with the SRS reference. A question Afik has not answered: build per its ⭐, and the
    SRS gets an OP row in `appendix-b-open-points.md` "built per ⭐, awaiting confirmation", plus a line in WORKPLAN
    "ממתין לך".
 5. **Traceability.** When pages, FRs or entities changed, update `17-traceability.md`. Every FR changed gets a

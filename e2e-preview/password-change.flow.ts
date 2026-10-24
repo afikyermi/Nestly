@@ -5,7 +5,7 @@
 // IP-level failures added to the run: 1 per project (limit 10; the recovery flow uses 2 per project).
 import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
-import { createAccount } from './support/timed-steps.ts';
+import { AFTER_ANSWERS_MS, createAccount, SIGN_IN_MS, submitSignIn } from './support/timed-steps.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
@@ -27,11 +27,12 @@ function userOf(project: string): TestUser {
   return u;
 }
 
+/** Signs in and waits for Auth's answer (a refusal too); the caller asserts where it lands. */
 async function signIn(page: Page, email: string, password: string): Promise<void> {
   await page.goto('/login');
   await emailField(page).fill(email);
   await passwordField(page).fill(password);
-  await page.getByRole('button', { name: 'התחברות', exact: true }).click();
+  await submitSignIn(page);
 }
 async function logOut(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'פתיחת התפריט' }).click();
@@ -62,13 +63,13 @@ test.describe.serial('F2.0 password change on the Preview [c10 c15]', () => {
     await pet(page).fill(u.answers.pet);
     await nick(page).fill(u.answers.nickname);
     await saveButton(page).click();
-    await expect(page).toHaveURL(/\/feed$/);
+    await expect(page).toHaveURL(/\/feed$/, { timeout: AFTER_ANSWERS_MS });
   });
 
   test('[c10 c15] a wrong answer shows an error and leaves the password; the right answers change it', async ({ page, recoveryAttempts }, info) => {
     const u = userOf(info.project.name);
     await signIn(page, u.email, u.password);
-    await expect(page).toHaveURL(/\/feed$/);
+    await expect(page).toHaveURL(/\/feed$/, { timeout: SIGN_IN_MS });
     await openChange(page);
     recoveryAttempts.recordFailedAttempt(u.email);
     await pet(page).fill('wronganswer1');
@@ -93,7 +94,7 @@ test.describe.serial('F2.0 password change on the Preview [c10 c15]', () => {
   test('[c10] the new password signs in; the old one is refused', async ({ page }, info) => {
     const u = userOf(info.project.name);
     await signIn(page, u.email, `${u.password}-new`);
-    await expect(page).toHaveURL(/\/feed$/);
+    await expect(page).toHaveURL(/\/feed$/, { timeout: SIGN_IN_MS });
     await logOut(page);
     await signIn(page, u.email, u.password);
     await expect(page.getByRole('alert')).toHaveCount(1);
