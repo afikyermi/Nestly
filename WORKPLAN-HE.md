@@ -5,7 +5,14 @@
 ## איפה אנחנו עומדים
 **נעצר:** 24.10.2026 לילה — Claude. הכול על GitHub; אין שינוי חצי-גמור ב-main או במסד.
 **SRS:** 2.40 על main (2.39 ב-#205, ‏2.41 ב-#180, ‏2.42 ב-#201, ‏2.43 ב-#217) · **Production:** [nestly-blue.vercel.app](https://nestly-blue.vercel.app)
-- **Preview:** אדום מאז #177 — איטיות בלבד. הסיבה: שרת Nano (תוכנית חינמית) נגמר מזיכרון בזמן ריצה → Swap → תקציב Disk IO נשרף. ‏`Server-Timing` (Preview בלבד) הראה `db`≈`total`, בלי `dbwait` ובלי `cold`. לא קוד; לא לתקן עוד flows (§17).
+- **Preview:** אדום מאז #177 — איטיות בלבד. הסיבה העיקרית: שרת Nano (תוכנית חינמית) נגמר מזיכרון בזמן ריצה → Swap → תקציב Disk IO נשרף; לא לתקן עוד flows (§17). ‏`Server-Timing` פועל ב-Preview וב-Production (#222).
+- **ממצאי ביצועים נוספים (לטיפול):**
+  - ‏`dbwait` הגיע ל-2–7.5 ש׳ ב-`POST /api/register` (ריצה 19:37): חיבור אחד למסד לכל מופע (`max: 1`, `apps/server/src/db/client.ts:20`).
+  - הפיד מדרג את כל טבלת הפוסטים תחת RLS בכל עמוד.
+  - בקשות שמחכות זו לזו: `/me`→`/account/kind`→`/home` · `/admin/access`→`/chat/unread` · `/profile`→`/profile/photo`.
+  - אין cache בצד הלקוח; מונה הצ'אט נטען פעמיים בכל מעבר מסך, ועוד רענון כל 30 ש׳.
+  - ‏`sharp` נטען בכל cold start.
+  - **לא לעשות:** גישה ישירה מהדפדפן ל-Supabase — חושפת `notifications.actor_id`, והעלאות עוקפות את הסרת ה-GPS/EXIF.
 - **CI:** 10 shards; ב-CI ידני רק 50 כשלי visual ידועים (לא חוסמים אחרי #214).
 - **🔒 פתוחים:** `security-privacy-open.md` — S-52/S-53 · S-07 · S-67 · באג 24. ‏S-23/S-30 נסגרים ב-#217.
 
