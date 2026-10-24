@@ -71,6 +71,19 @@ test.describe('[AC-039 PG-017] the results screen', () => {
     expect(net.searches.filter((s) => s === 'יוסי|all').length).toBeLessThanOrEqual(1);
   });
 
+  test('[FR-SEARCH-001] right after the feed loads, the top bar field and Enter open the results, where a Professional is marked and opens its page', async ({ page }) => {
+    await setupNotifications(page);
+    await signIn(page);
+    await page.goto('/feed');
+    await field(page).fill('דנה מילר');
+    await field(page).press('Enter');
+    await expect.poll(() => pathOf(page)).toBe('/search');
+    const link = main(page).getByRole('link', { name: 'לעמוד המקצועי של דנה מילר' });
+    await expect(link).toBeVisible();
+    await expect(link).toContainText('חשבון מקצועי');
+    await expect(link).toHaveAttribute('href', `/pros/${NID(13)}`);
+  });
+
   test('[AC-078] at the People Search limit the screen says so and still shows the posts', async ({ page }) => {
     const net = await setupNotifications(page);
     net.limited = true;
