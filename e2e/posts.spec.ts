@@ -173,7 +173,7 @@ test.describe('F3.1b c17 [FR-FEED-002 ERR-004] publishing (feed-composer c7, c10
     await expect(feedCards(page)).toHaveCount(4);
     expect(net.creates).toHaveLength(1);
   });
-  test('[c17 c16] keyboard only: Tab from the heading reaches the text field and reveals the options, Tab reaches the anonymous checkbox (F3.4), the audience group, the tag group, the help marking (I11) and "פרסום"; Enter on it publishes', async ({ page }) => {
+  test('[c17 c16] keyboard only: Tab from the heading reaches the text field and reveals the options, Tab reaches the anonymous checkbox (F3.4), the audience group, the tag group, "הוספת תמונה" and "פרסום" (I11-C: no help marking); Enter on it publishes', async ({ page }) => {
     const net = await feedAt(page);
     await page.getByRole('heading', { level: 1, name: 'הפיד' }).focus();
     await page.keyboard.press('Tab');
