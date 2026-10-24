@@ -53,7 +53,7 @@ jobs:
     steps:
       # Full history, so a fast-forward of ready/nightly can be checked. The token stays in the checkout for the push;
       # this job runs no repository code.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
@@ -157,11 +157,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ needs.deployment.outputs.sha }}
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -174,7 +174,7 @@ jobs:
       # checked out and gets its own install with lifecycle scripts off, and the setup step runs with NODE_OPTIONS cleared,
       # so no dependency script of the tested tree can reach that step's environment, $GITHUB_ENV or its process.
       - name: Check out trusted main harness
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ github.event.repository.default_branch }}
           path: .preview-harness
@@ -218,7 +218,7 @@ jobs:
         run: node -e "require('node:fs').rmSync(process.env.PREVIEW_E2E_STAFF_FILE, { force:true })"
       - name: Upload the failure context
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: preview-e2e-failure-context
           path: ${{ runner.temp }}/preview-e2e-failures
