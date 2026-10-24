@@ -16,11 +16,12 @@
 
 import { feedPromotionGap, type DirectoryQuery, type MarketplaceQuery, type ProfessionalCard, type UsageEventKind } from '@nestly/shared';
 import type { Database } from '../db/client.js';
-import { inIdentityTransaction, type IdentityTx } from '../db/identity-transaction.js';
+import { inIdentityTransaction, SessionRefused, type IdentityTx } from '../db/identity-transaction.js';
 import type { Identity } from '../lib/token-verifier.js';
 import { readMarketplace, type ListingRow } from '../repositories/marketplace-repository.js';
 import { readDirectory, readOwnAccountType } from '../repositories/professionals-repository.js';
 import {
+  insertExposureBatch,
   insertProfessionalView,
   insertPromotionEvent,
   insertUsageEvent,
@@ -29,6 +30,7 @@ import {
   readPromotionConfig,
   readRecentPostCount,
   readTodayImpressions,
+  type ExposureBatch,
   type PromotedCandidate,
   type PromotionConfig,
 } from '../repositories/promotions-repository.js';
@@ -147,23 +149,37 @@ export interface Exposure {
 
 /**
  * Records a page view's exposure in its own transaction, after the page was read (the feed reads at REPEATABLE READ; a counter written there
- * could meet a concurrent one). Each row in its own savepoint; a refusal (a promotion that just ended, a staff caller) records nothing and never
- * fails the page. Faults are swallowed too: recording is never a reason for a page to fail.
+ * could meet a concurrent one). All rows go in one statement (insertExposureBatch: one round trip after the identity, instead of a savepoint,
+ * a statement and a release per write). Should that statement be refused (a row a guard refuses), the rows are recorded again one by one,
+ * each in its own savepoint, as before: a refusal records nothing for that row and never fails the page. Faults are swallowed too:
+ * recording is never a reason for a page to fail. Answers whether the transaction committed (a row the database drops silently, such as a
+ * staff caller's, still counts as committed).
  */
-export async function recordExposure(database: Database, identity: Identity, exposure: Exposure): Promise<void> {
+export async function recordExposure(database: Database, identity: Identity, exposure: Exposure): Promise<boolean> {
+  const batch: ExposureBatch = {
+    impressions: exposure.impressions ?? [],
+    ...(exposure.usage === undefined || (exposure.usageTimes ?? 1) < 1 ? {} : { usage: { kind: exposure.usage, times: exposure.usageTimes ?? 1 } }),
+    views: (exposure.professionalViews ?? []).map((view) => ({ professionalId: view.professionalId, kind: view.kind, times: view.times ?? 1 })),
+  };
+  if (batch.impressions.length === 0 && batch.usage === undefined && batch.views.every((view) => view.times < 1)) return true;
+  try {
+    await inIdentityTransaction(database, identity, (tx) => insertExposureBatch(tx, batch));
+    return true;
+  } catch (error) {
+    if (error instanceof SessionRefused) return false;
+  }
   const writes: ((tx: IdentityTx) => Promise<void>)[] = [
-    ...(exposure.impressions ?? []).map((id) => (tx: IdentityTx) => insertPromotionEvent(tx, id, 'impression')),
-    ...(exposure.usage === undefined || (exposure.usageTimes ?? 1) < 1
-      ? []
-      : [(tx: IdentityTx) => insertUsageEvent(tx, exposure.usage ?? 'post_view', exposure.usageTimes ?? 1)]),
-    ...(exposure.professionalViews ?? []).map((view) => (tx: IdentityTx) => insertProfessionalView(tx, view.professionalId, view.kind, view.times ?? 1)),
+    ...batch.impressions.map((id) => (tx: IdentityTx) => insertPromotionEvent(tx, id, 'impression')),
+    ...(batch.usage === undefined ? [] : [(tx: IdentityTx) => insertUsageEvent(tx, batch.usage?.kind ?? 'post_view', batch.usage?.times ?? 1)]),
+    ...batch.views.map((view) => (tx: IdentityTx) => insertProfessionalView(tx, view.professionalId, view.kind, view.times)),
   ];
-  if (writes.length === 0) return;
   try {
     await inIdentityTransaction(database, identity, async (tx) => {
       for (const write of writes) await tx.transaction((savepoint) => write(savepoint)).catch(() => undefined);
     });
+    return true;
   } catch {
     // recording is best effort: the page has already been answered from its own transaction
+    return false;
   }
 }

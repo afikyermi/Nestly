@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
@@ -10,7 +11,7 @@ import { readProfessionalHead } from '../../src/repositories/professionals-repos
 import { recordTopics } from '../../src/repositories/search-repository.js';
 import { readFeedPage } from '../../src/services/feed-service.js';
 import { createPost } from '../../src/services/posts-service.js';
-import { onPromotionSkip, type SkipReason } from '../../src/services/promoted-units.js';
+import { onPromotionSkip, recordExposure, type SkipReason } from '../../src/services/promoted-units.js';
 import { readAdminAnalytics } from '../../src/services/team-service.js';
 import { changeListingStatus, createListing, listMarketplace } from '../../src/services/marketplace-service.js';
 import { listProfessionals, readProfessional, registerProfessional } from '../../src/services/professionals-service.js';
@@ -458,6 +459,93 @@ describe('[I13] the rules of a running promotion', () => {
     const now = await organic();
     expect((now?.postViews ?? 0) - (was?.postViews ?? 0)).toBe(3);
     expect((now?.postReach ?? 0) - (was?.postReach ?? 0)).toBeLessThanOrEqual(1);
+  });
+
+  it('[OP-039 FR-PRO-002 FR-ALG-007] a page view is recorded in one statement, counted row by row as before; a refused row falls back to one by one', T, async () => {
+    const userId = await text(side`select tests.fx_new_auth_user()::text as v`);
+    const res = await post(app, `Bearer ${await token({ key, sub: userId })}`, validBody({ fullName: 'Bat Batch' }));
+    expect(res.statusCode).toBe(201);
+    const ownUsage = async (kind: string): Promise<number> =>
+      Number(
+        (await inIdentityTransaction(database, as(userId), (tx) => tx.execute(sql`select coalesce(sum(times), 0)::integer as n from nestly.usage_events where kind = ${kind}`)))[0]?.n ?? 0,
+      );
+    const impressionsOf = async (): Promise<number> => (await readOverview(database, as(pro2))).promotions.find((row) => row.id === postPromotion)?.counts.impressions ?? 0;
+    const organic = async () => (await readOverview(database, as(pro2))).analytics?.organic;
+    const stopped = ok(await buyPromotion(database, as(pro2), { planKey: 'profile_7', target: { kind: 'profile' } })).promotionId;
+    ok(await stopOwnPromotion(database, as(pro2), stopped));
+    const statements: string[] = [];
+    // the same Database, counting the statements its transactions send (begin, commit and savepoints are not tx.execute)
+    const countingTx = (tx: object): object =>
+      new Proxy(tx, {
+        get(target, prop) {
+          const value: unknown = Reflect.get(target, prop);
+          if (typeof value !== 'function') return value;
+          if (prop !== 'execute') {
+            const bound: unknown = value.bind(target);
+            return bound;
+          }
+          return (...args: unknown[]): unknown => {
+            statements.push('execute');
+            const answer: unknown = Reflect.apply(value, target, args);
+            return answer;
+          };
+        },
+      });
+    const counting: Database = {
+      ...database,
+      db: new Proxy(database.db, {
+        get(target, prop) {
+          const value: unknown = Reflect.get(target, prop);
+          if (typeof value !== 'function') return value;
+          if (prop !== 'transaction') {
+            const bound: unknown = value.bind(target);
+            return bound;
+          }
+          return (work: (tx: object) => unknown, ...rest: unknown[]): unknown => {
+            const answer: unknown = Reflect.apply(value, target, [(tx: object) => work(countingTx(tx)), ...rest]);
+            return answer;
+          };
+        },
+      }),
+    };
+    const was = { impressions: await impressionsOf(), postViews: await ownUsage('post_view'), organic: await organic() };
+    // two impressions of a running promotion, one of a stopped one (its guard would refuse it), three post views, two views of a Professional
+    // (two posts of theirs), and a view of its own profile (dropped by the database)
+    expect(
+      await recordExposure(counting, as(userId), {
+        impressions: [postPromotion, stopped, postPromotion],
+        usage: 'post_view',
+        usageTimes: 3,
+        professionalViews: [{ professionalId: pro2, kind: 'post_view', times: 2 }, { professionalId: userId, kind: 'profile_view' }],
+      }),
+    ).toBe(true);
+    // the identity (role, then claims and guard) and ONE statement for every row; no savepoint
+    expect(statements).toHaveLength(3);
+    expect(await impressionsOf()).toBe(was.impressions + 2);
+    expect(await ownUsage('post_view')).toBe(was.postViews + 3);
+    expect(((await organic())?.postViews ?? 0) - (was.organic?.postViews ?? 0)).toBe(2);
+    // a row the database refuses (a view of an account that no longer exists: 23503) fails the statement; the rest is then recorded one by
+    // one, each in its own savepoint, as before
+    statements.length = 0;
+    expect(await recordExposure(counting, as(userId), { usage: 'post_view', usageTimes: 2, professionalViews: [{ professionalId: randomUUID(), kind: 'post_view' }] })).toBe(true);
+    expect(statements.length).toBeGreaterThan(3);
+    expect(await ownUsage('post_view')).toBe(was.postViews + 5);
+    // the day's login: GET /api/me writes it once per instance a day; the second call reads the state only
+    const me = async (): Promise<number> => {
+      statements.length = 0;
+      const answer = await meApp.inject({ method: 'GET', url: '/api/me', headers: { authorization: `Bearer ${await token({ key, sub: userId })}` } });
+      expect(answer.statusCode).toBe(200);
+      return statements.length;
+    };
+    const meApp = await buildRegisterApp({ SUPABASE_JWKS_URL: jwks.url, SUPABASE_JWT_ISSUER: ISSUER, SUPABASE_JWT_AUDIENCE: AUDIENCE, DATABASE_URL: url() }, { database: counting, clock: () => CLOCK_NOW });
+    try {
+      const first = await me();
+      const second = await me();
+      expect(second, 'the second call skips the login write (its transaction: the identity and one statement)').toBeLessThanOrEqual(first - 3);
+      expect(await ownUsage('daily_login')).toBe(1);
+    } finally {
+      await meApp.close();
+    }
   });
 
   it('[AC-071 OP-039 FR-ADMIN-010] Admin Analytics: usage by day for ANALYTICS_VIEW; the Promotions domain for the Admin only', T, async () => {

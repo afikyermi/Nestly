@@ -29,11 +29,19 @@ let mismatchOnChange = '';
 const answered = (method: string, path: string, status: number) => (r: Response): boolean =>
   r.request().method() === method && new URL(r.url()).pathname === path && r.status() === status;
 
+/** A slow Preview took over 10 s from "התחברות" to the next screen (preview-e2e 24.10): Auth's token answer, then /api/me. */
+const SIGN_IN_MS = 45_000;
+const isAuthToken = (r: Response) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/auth/v1/token';
+
+/** Signs in and waits for Auth's answer (a refusal too); the caller asserts where it lands. */
 async function signIn(page: Page, email: string, password: string): Promise<void> {
   await page.goto('/login');
   await emailField(page).fill(email);
   await passwordField(page).fill(password);
-  await page.getByRole('button', { name: 'התחברות', exact: true }).click();
+  await Promise.all([
+    page.waitForResponse(isAuthToken, { timeout: SIGN_IN_MS }),
+    page.getByRole('button', { name: 'התחברות', exact: true }).click(),
+  ]);
 }
 
 async function logOut(page: Page): Promise<void> {
@@ -75,16 +83,16 @@ test.describe.serial('F1.6 on the Preview [preview-e2e c6 c7 · F1.6 c9 c16 c17 
 
   test('[c6.3 · F1.6 c17] after log-out and sign-in the questions screen does not appear', async ({ page, testUser }) => {
     await signIn(page, testUser.email, testUser.password);
-    await expect(page).toHaveURL(/\/feed$/);
+    await expect(page).toHaveURL(/\/feed$/, { timeout: SIGN_IN_MS });
     await logOut(page);
     await signIn(page, testUser.email, testUser.password);
-    await expect(page).toHaveURL(/\/feed$/);
+    await expect(page).toHaveURL(/\/feed$/, { timeout: SIGN_IN_MS });
     await expect(pet(page)).toHaveCount(0);
   });
 
   test('[c6.4 · F1.6 c18] menu: wrong current answers show the mismatch text, correct ones a confirmation', async ({ page, testUser, recoveryAttempts }) => {
     await signIn(page, testUser.email, testUser.password);
-    await expect(page).toHaveURL(/\/feed$/);
+    await expect(page).toHaveURL(/\/feed$/, { timeout: SIGN_IN_MS });
     await page.getByRole('button', { name: 'פתיחת התפריט' }).click();
     await page.getByRole('link', { name: 'שאלות לשחזור סיסמה', exact: true }).click();
     await expect(page).toHaveURL(/\/recovery-questions$/);
@@ -127,7 +135,7 @@ test.describe.serial('F1.6 on the Preview [preview-e2e c6 c7 · F1.6 c9 c16 c17 
 
   test('[c6.5 · F1.6 c9 c16] log out, /recovery with email, both answers and a new password shows success', async ({ page, testUser }) => {
     await signIn(page, testUser.email, testUser.password);
-    await expect(page).toHaveURL(/\/feed$/);
+    await expect(page).toHaveURL(/\/feed$/, { timeout: SIGN_IN_MS });
     await logOut(page);
     await page.goto('/recovery');
     await emailField(page).fill(testUser.email);
@@ -141,7 +149,7 @@ test.describe.serial('F1.6 on the Preview [preview-e2e c6 c7 · F1.6 c9 c16 c17 
 
   test('[c6.6 · F1.6 c9] the new password signs in to /feed and the old one gets the invalid-credentials text', async ({ page, testUser }) => {
     await signIn(page, testUser.email, `${testUser.password}-new`);
-    await expect(page).toHaveURL(/\/feed$/);
+    await expect(page).toHaveURL(/\/feed$/, { timeout: SIGN_IN_MS });
     await logOut(page);
     await signIn(page, testUser.email, testUser.password);
     await expect(page.getByRole('alert')).toHaveCount(1);
