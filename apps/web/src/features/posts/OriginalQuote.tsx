@@ -1,4 +1,4 @@
-import { formatPostTime } from '@/lib/format-post-time';
+import { PublishedTime } from '@/components/domain/published-time';
 import type { PostAudience } from '@nestly/shared';
 import { AUDIENCE_LABELS } from './posts-texts';
 import { MEMBER_FALLBACK_LABEL, ORIGINAL_UNAVAILABLE_TEXT } from './feed-texts';
@@ -35,9 +35,7 @@ export function OriginalQuote({ quote, className, testId, unavailableTestId }: O
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         {quote.author !== null ? <span className="text-label">{quote.author.name ?? MEMBER_FALLBACK_LABEL}</span> : null}
         <span className="text-small text-muted-foreground">{AUDIENCE_LABELS[quote.audience]}</span>
-        <time dateTime={quote.createdAt} className="text-small text-muted-foreground">
-          {formatPostTime(quote.createdAt)}
-        </time>
+        <PublishedTime iso={quote.createdAt} className="text-small text-muted-foreground" />
       </div>
       <p dir="auto" className="whitespace-pre-wrap wrap-anywhere">
         {quote.body}

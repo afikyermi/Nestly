@@ -14,6 +14,7 @@ import {
   type AuditPage,
   type EnforceRequest,
   type HandleReportsRequest,
+  type MatchDecision,
   type MediaDecision,
   type MediaQueueResponse,
   type ModerateContentRequest,
@@ -105,5 +106,8 @@ export const fetchUser = (token: string, id: string): Promise<AdminOutcome<Targe
 export const fetchMediaQueue = (token: string): Promise<AdminOutcome<MediaQueueResponse>> => call(token, 'GET', '/api/admin/media-queue', mediaQueueResponse);
 export const decideMedia = (token: string, id: string, decision: MediaDecision, isChild: boolean): Promise<AdminOutcome<unknown>> =>
   call(token, 'POST', `/api/admin/media/${encodeURIComponent(id)}/decision`, anything, { decision, isChild });
+/** I14 completion B: staff decide a block-list match (confirmed, or not_abuse: its matched hashes leave the list). */
+export const decideMediaMatch = (token: string, id: string, decision: MatchDecision): Promise<AdminOutcome<unknown>> =>
+  call(token, 'POST', `/api/admin/media/${encodeURIComponent(id)}/match`, anything, { decision });
 export const removeMediaAfterReport = (token: string, id: string, suspected: boolean): Promise<AdminOutcome<unknown>> =>
   call(token, 'POST', `/api/admin/media/${encodeURIComponent(id)}/removal`, anything, { suspected });

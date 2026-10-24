@@ -65,23 +65,24 @@ test.describe('[I4 FR-MOD-003] the moderation queue', () => {
     await expect(main(page).getByRole('heading', { name: /פרטי הדיווח/ })).toBeVisible();
   });
 
-  test('[I4 AC-022 AC-029] hiding a reported post needs a reason, closes the report and leaves the queue', async ({ page }) => {
+  test('[I4 AC-022 AC-029 · I14c-B AC-131 AC-159 OP-053] a justified report deletes the post: it needs a reason, closes the report and leaves the queue', async ({ page }) => {
     const net = await setupAdmin(page);
     await signIn(page);
     await page.goto('/admin/reports');
     await page.getByRole('listitem').filter({ hasText: 'ספאם' }).getByRole('button', { name: 'פתיחת הדיווח' }).click();
     const actions = page.getByRole('group', { name: 'טיפול' });
-    await actions.getByRole('button', { name: 'הסתרת התוכן וסגירת הדיווח' }).click();
+    await expect(actions.getByRole('button', { name: /הסתרת התוכן/ }), 'the reversible hide is gone (completion B)').toHaveCount(0);
+    await actions.getByRole('button', { name: 'דיווח מוצדק: מחיקת התוכן' }).click();
     await expect(actions.getByText('יש לכתוב סיבה')).toBeVisible();
     expect(net.sent).toHaveLength(0);
     await actions.getByLabel('סיבה (נרשמת ביומן)').fill('פרסום ללא שיתוף ידע');
-    await actions.getByRole('button', { name: 'הסתרת התוכן וסגירת הדיווח' }).click();
+    await actions.getByRole('button', { name: 'דיווח מוצדק: מחיקת התוכן' }).click();
     await expect(page.getByText('הדיווח נסגר')).toBeVisible();
     expect(net.sent).toEqual([
       {
         method: 'POST',
         path: '/api/admin/reports/handle',
-        body: { targetKind: 'post', targetId: POST_SPAM, resolution: 'action_taken', moderation: { status: 'hidden', reason: 'פרסום ללא שיתוף ידע' } },
+        body: { targetKind: 'post', targetId: POST_SPAM, resolution: 'action_taken', moderation: { status: 'removed', reason: 'פרסום ללא שיתוף ידע' } },
       },
     ]);
     await expect(page.getByRole('list', { name: 'דיווחים פתוחים' }).getByRole('listitem')).toHaveCount(1);
@@ -180,5 +181,63 @@ test.describe('[I5 BR-076] an image removed after a report', () => {
     await expect(page.getByRole('status').filter({ hasText: 'התמונה הוסרה' })).toBeVisible();
     await expect(images.getByText('התמונה לא אושרה לפי מדיניות התמונות')).toBeVisible();
     expect(net.sent.filter((s) => s.path.endsWith('/removal'))).toEqual([{ method: 'POST', path: `/api/admin/media/${ID(72)}/removal`, body: { suspected: false } }]);
+  });
+});
+
+test.describe('[F14.3-b Afik 21.10] the staff rules, second completion', () => {
+  test('[F14.3-b AC-162] a block-list match is a queue item: staff decide it was not abuse, and it leaves the queue', async ({ page }) => {
+    const net = await setupAdmin(page, { role: 'moderator', permissions: ['CONTENT_MODERATE'], mediaQueue: [], mediaMatches: [ID(73)] });
+    await signIn(page);
+    await page.goto('/admin/media');
+    const items = page.getByRole('list', { name: 'תמונות שממתינות לבדיקה' }).getByRole('listitem');
+    await expect(items).toHaveCount(1);
+    await expect(items.first()).toContainText('תואמת תמונה שסומנה בחשד לפגיעה בילד');
+    await expect(items.first().getByRole('checkbox', { name: 'יש בתמונה ילד' }), 'a match offers its own two decisions').toHaveCount(0);
+    await items.first().getByRole('button', { name: 'לא פגיעה בילד: התאמה שגויה' }).click();
+    await expect(page.getByText('אין תמונות שממתינות לבדיקה')).toBeVisible();
+    expect(net.sent.filter((s) => s.path.endsWith('/match'))).toEqual([{ method: 'POST', path: `/api/admin/media/${ID(73)}/match`, body: { decision: 'not_abuse' } }]);
+  });
+
+  test('[F14.3-b AC-159 PG-028] the user screen shows the content that justified reports deleted, with the rule and the first characters', async ({ page }) => {
+    await setupAdmin(page, {
+      contentDecisions: [{ targetKind: 'post', rule: 'spam', ruleLabel: 'ספאם או פרסום לא קשור', excerpt: 'מבצע ענק על עגלות רק היום', decidedAt: '2026-06-15T08:00:00.000Z' }],
+    });
+    await signIn(page);
+    await page.goto('/admin/users');
+    await page.getByLabel('חיפוש לפי שם').fill('רינה');
+    await page.getByRole('button', { name: 'חיפוש', exact: true }).click();
+    await page.getByRole('listitem').filter({ hasText: 'רינה כהן' }).getByRole('button', { name: 'פתיחה החשבון של רינה כהן' }).click();
+    const list = page.getByRole('list', { name: 'תוכן שנמחק בעקבות דיווח מוצדק' });
+    await expect(list.getByRole('listitem')).toHaveCount(1);
+    await expect(list).toContainText('פוסט · ספאם או פרסום לא קשור');
+    await expect(list).toContainText('מבצע ענק על עגלות רק היום');
+  });
+
+  test('[F14.3-b AC-160 BR-074] an item hidden after ten identical reports says so in the queue, with the reason and the number of people', async ({ page }) => {
+    await setupAdmin(page, {
+      queue: [
+        { targetKind: 'comment', targetId: ID(81), reportCount: 12, priority: 2, topReasonLabel: 'הטרדה או בריונות', isRising: false, firstReportedAt: '2026-06-14T08:00:00.000Z', autoHidden: true, autoHiddenReasonLabel: 'הטרדה או בריונות', autoHiddenReporters: 12 },
+        { targetKind: 'post', targetId: POST_SPAM, reportCount: 1, priority: 4, topReasonLabel: 'ספאם או פרסום לא קשור', isRising: false, firstReportedAt: '2026-06-10T09:00:00.000Z' },
+      ],
+    });
+    await signIn(page);
+    await page.goto('/admin/reports');
+    const items = page.getByRole('list', { name: 'דיווחים פתוחים' }).getByRole('listitem');
+    await expect(items.first()).toContainText('מוסתר מכולם עד ההחלטה: 12 אנשים דיווחו "הטרדה או בריונות"');
+    await expect(items.nth(1).locator('[data-auto-hidden]')).toHaveCount(0);
+  });
+
+  test('[F14.3-b AC-161 decision 10.9] a reported comment opens alone: no post, no thread and no page link', async ({ page }) => {
+    await setupAdmin(page, {
+      queue: [{ targetKind: 'comment', targetId: ID(81), reportCount: 1, priority: 2, topReasonLabel: 'הטרדה או בריונות', isRising: false, firstReportedAt: '2026-06-14T08:00:00.000Z' }],
+    });
+    await signIn(page);
+    await page.goto('/admin/reports');
+    await page.getByRole('listitem').filter({ hasText: 'הטרדה או בריונות' }).getByRole('button', { name: 'פתיחת הדיווח' }).click();
+    await expect(main(page).getByRole('heading', { name: /פרטי הדיווח/ })).toBeVisible();
+    await expect(main(page).getByText('טקסט הפוסט שדווח', { exact: true }).first()).toBeVisible();
+    await expect(main(page).getByRole('heading', { name: 'ההקשר' })).toHaveCount(0);
+    await expect(main(page).getByText('תגובה בשרשור')).toHaveCount(0);
+    await expect(main(page).getByRole('link', { name: 'פתיחת העמוד לבדיקה' })).toHaveCount(0);
   });
 });

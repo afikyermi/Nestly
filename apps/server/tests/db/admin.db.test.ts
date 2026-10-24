@@ -183,23 +183,23 @@ describe('[I4 FR-MOD-003 AC-022 AC-106 AC-107 BR-074] the moderation queue', () 
 });
 
 describe('[I4 FR-MOD-003 AC-029 BR-080] handling reports and moderating content', () => {
-  it('hides the post and closes the report in one step; the audit has both entries with the reason; the report leaves the queue', T, async () => {
+  it('[AC-159] a justified report deletes the post and closes the report in one step; the audit has both entries; the report leaves the queue', T, async () => {
     const p = await seedPost(author);
     await seedReport(reporter, 'post', p, 'harassment');
-    const before = await auditCount('content_hidden');
+    const before = await auditCount('content_deleted');
     const r = await handleReports(database, id(content), {
       targetKind: 'post',
       targetId: p,
       resolution: 'action_taken',
-      moderation: { status: 'hidden', reason: 'against the rules' },
+      moderation: { status: 'removed', reason: 'against the rules' },
     });
     expect(r).toMatchObject({ kind: 'ok', closed: 1 });
-    expect(await auditCount('content_hidden')).toBe(before + 1);
+    expect(await auditCount('content_deleted')).toBe(before + 1);
     expect(await auditCount('report_handled')).toBeGreaterThan(0);
     const q = await readReportQueue(database, id(content));
     expect(q.kind === 'ok' && q.items.length).toBe(0);
-    const detail = await readReportDetail(database, id(content), 'post', p);
-    expect(detail.kind === 'ok' && detail.detail.content?.status).toBe('hidden');
+    // the post is gone: its closed report no longer names it, so there is nothing to open
+    expect((await readReportDetail(database, id(content), 'post', p)).kind).toBe('not_found');
   });
 
   it('a moderation move needs CONTENT_MODERATE and a reason; a report is not closed twice; the content is restored by a later move', T, async () => {
@@ -210,7 +210,9 @@ describe('[I4 FR-MOD-003 AC-029 BR-080] handling reports and moderating content'
     expect((await handleReports(database, id(content), { targetKind: 'post', targetId: NOBODY, resolution: 'dismissed' })).kind).toBe('not_found');
     expect(await handleReports(database, id(content), { targetKind: 'post', targetId: p, resolution: 'dismissed', note: 'no problem' })).toMatchObject({ kind: 'ok', closed: 1 });
     expect((await handleReports(database, id(content), { targetKind: 'post', targetId: p, resolution: 'dismissed' })).kind).toBe('not_found');
-    expect((await moderateContent(database, id(content), { targetKind: 'post', targetId: p, status: 'removed', reason: 'later' })).kind).toBe('ok');
+    // I14 completion B (OP-053): a move on its own only restores; content leaves by a justified report
+    expect((await moderateContent(database, id(content), { targetKind: 'post', targetId: p, status: 'removed', reason: 'later' })).kind).toBe('invalid');
+    await inTx(async (tx) => void (await tx`select tests.fx_po_status(${p}::uuid, 'hidden')`));
     expect((await moderateContent(database, id(content), { targetKind: 'post', targetId: p, status: 'active', reason: 'restored' })).kind).toBe('ok');
     expect(await auditCount('content_restored')).toBeGreaterThan(0);
   });

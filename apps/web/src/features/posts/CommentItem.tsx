@@ -5,7 +5,7 @@ import { LikeButton } from '@/components/shared/like-button';
 import { Button } from '@/components/ui/button';
 import { MoreActionsMenu } from '@/components/ui/more-actions-menu';
 import { COMMENT_MORE_LABEL, REPORT_COMMENT_ITEM } from '@/lib/report-texts';
-import { formatPostTime } from '@/lib/format-post-time';
+import { PublishedTime } from '@/components/domain/published-time';
 import { hasMoreReplies, type ThreadItem } from './comments-state';
 import {
   AUTHOR_LABEL,
@@ -70,9 +70,7 @@ function CommentBlock({ comment, onReply, onLike, menu, children, readOnly = fal
           {authorLine(comment)}
         </span>
         <div className="flex items-center gap-1">
-          <time dateTime={comment.createdAt} className="text-small text-muted-foreground">
-            {formatPostTime(comment.createdAt)}
-          </time>
+          <PublishedTime iso={comment.createdAt} className="text-small text-muted-foreground" />
           {readOnly ? null : <MoreActionsMenu
             label={COMMENT_MORE_LABEL}
             menuLabel={MORE_ACTIONS_MENU_LABEL}

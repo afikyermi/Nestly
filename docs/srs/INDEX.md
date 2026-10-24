@@ -2,7 +2,7 @@
 
 # SRS — אינדקס
 
-**מקור האמת של מוצר Nestly.** SRS v2.38 · 21.10.2026.
+**מקור האמת של מוצר Nestly.** SRS v2.39 · 21.10.2026.
 
 ה-SRS מתוחזק ב-markdown ומפוצל לפי סעיפים. גרסאות ה-Word הקודמות נמצאות ב-[`archive/`](archive/) כהיסטוריה בלבד.
 
@@ -161,7 +161,7 @@
 | FR-ALG-010 | Group Notification Highlights v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-DATA-001 | Analytics Event Tracking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 
-## קריטריוני קבלה — 158
+## קריטריוני קבלה — 163
 
 > השמות קוצרו לצורך ניווט בלבד. הנוסח המחייב נמצא ב-[15-acceptance.md](15-acceptance.md).
 
@@ -325,17 +325,22 @@
 | AC-156 | תור העבודה של הצוות | [15-acceptance.md](15-acceptance.md) |
 | AC-157 | בית הניהול ומסנני היומן | [15-acceptance.md](15-acceptance.md) |
 | AC-158 | חשיפת מחבר בקבוצה פרטית | [15-acceptance.md](15-acceptance.md) |
+| AC-159 | דיווח מוצדק מוחק | [15-acceptance.md](15-acceptance.md) |
+| AC-160 | הסתרה בדיווחים זהים | [15-acceptance.md](15-acceptance.md) |
+| AC-161 | רק הפריט שדווח | [15-acceptance.md](15-acceptance.md) |
+| AC-162 | רשימת חסימה בהעלאה | [15-acceptance.md](15-acceptance.md) |
+| AC-163 | קהל להודעות מערכת | [15-acceptance.md](15-acceptance.md) |
 
 ## מזהים נוספים
 
 | סוג | נושא | טווח | כמות | קובץ |
 |---|---|---|---|---|
 | BR | חוקים עסקיים | BR-001 … BR-082 | 82 | [08-business-rules.md](08-business-rules.md) |
-| VAL | ולידציות | VAL-001 … VAL-049 | 49 | [09-validations.md](09-validations.md) |
+| VAL | ולידציות | VAL-001 … VAL-050 | 50 | [09-validations.md](09-validations.md) |
 | ERR | שגיאות ותרחישי קצה | ERR-001 … ERR-046 | 46 | [10-errors-edge-cases.md](10-errors-edge-cases.md) |
-| NFR | דרישות לא-פונקציונליות | NFR-SEC-001 … NFR-SEC-010 | 36 | [06-non-functional.md](06-non-functional.md) |
+| NFR | דרישות לא-פונקציונליות | NFR-SEC-001 … NFR-SEC-010 | 37 | [06-non-functional.md](06-non-functional.md) |
 | UC | Use Cases | UC-01 … UC-42 | 42 | [14-use-cases.md](14-use-cases.md) |
 | PG | מסכים | PG-001 … PG-058 | 58 | [07-screens-navigation.md](07-screens-navigation.md) |
-| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-061 | 61 | [appendix-b-open-points.md](appendix-b-open-points.md) |
+| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-064 | 64 | [appendix-b-open-points.md](appendix-b-open-points.md) |
 | ALG | קטלוג האלגוריתמים | ALG-01 … ALG-09 | 9 | [18-algorithms-spec.md](18-algorithms-spec.md) |
 | P-ALG | עקרונות האלגוריתמים | P-ALG-01 … P-ALG-08 | 8 | [18-algorithms-spec.md](18-algorithms-spec.md) |

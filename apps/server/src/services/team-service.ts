@@ -167,7 +167,7 @@ export async function createAnnouncement(database: Database, identity: Identity,
   return guarded<{ item: Announcement }>(() =>
     inIdentityTransaction(database, identity, async (tx) => {
       if (!(await holds(tx, 'SYSTEM_ANNOUNCEMENTS'))) return { kind: 'forbidden' };
-      const item = await insertAnnouncement(tx, request.title, request.body);
+      const item = await insertAnnouncement(tx, request);
       return item === undefined ? { kind: 'forbidden' } : { kind: 'ok', item };
     }),
   );
@@ -177,7 +177,7 @@ export async function editAnnouncement(database: Database, identity: Identity, i
   return guarded<{ item: Announcement | null }>(() =>
     inIdentityTransaction(database, identity, async (tx) => {
       if (!(await holds(tx, 'SYSTEM_ANNOUNCEMENTS'))) return { kind: 'forbidden' };
-      const item = await updateAnnouncement(tx, id, request.title, request.body);
+      const item = await updateAnnouncement(tx, id, request);
       if (item !== undefined) return { kind: 'ok', item };
       // nothing written: unknown (404), removed (409), or the same text (200, nothing changed)
       const current = await readAnnouncement(tx, id);
