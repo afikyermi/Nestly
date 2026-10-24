@@ -44,8 +44,9 @@ async function main(): Promise<void> {
         await tx`insert into auth.identities (id, user_id, provider_id, identity_data, provider, created_at, updated_at)
           values (${randomUUID()}, ${id}, ${id}, ${sql.json({ sub: id, email: user.email, email_verified: true, phone_verified: false })}, 'email', now(), now())`;
         await tx`insert into nestly.users (id, account_type, status) values (${id}, 'moderator', 'active')`;
+        // CONTENT_MODERATE (Afik 23.10: the promotion stop) and REPORTS_VIEW (staff-rules.flow: the report queue and a justified decision)
         await tx`insert into nestly.moderator_permissions (user_id, permission_key, granted_by)
-          values (${id}, 'CONTENT_MODERATE', ${id})`;
+          values (${id}, 'CONTENT_MODERATE', ${id}), (${id}, 'REPORTS_VIEW', ${id})`;
       }
     });
     writeFileSync(file, JSON.stringify(users), { mode: 0o600, flag: 'wx' });

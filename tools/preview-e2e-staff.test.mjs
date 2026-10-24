@@ -43,6 +43,9 @@ test('[BR-083 Preview] setup creates only a minimal Moderator; credentials are p
   assert.match(cli, /decidePreflight/);
   assert.match(cli, /values \(\$\{id\}, 'moderator', 'active'\)/);
   assert.match(cli, /values \(\$\{id\}, 'CONTENT_MODERATE', \$\{id\}\)/);
+  // I14 completion B: REPORTS_VIEW too, for the report queue of staff-rules.flow (the base key of report handling); nothing more
+  assert.match(cli, /\(\$\{id\}, 'REPORTS_VIEW', \$\{id\}\)/);
+  assert.equal((cli.match(/'[A-Z_]+_(MODERATE|VIEW|MANAGE|HANDLE|WARN|SUSPEND|BAN)'/g) ?? []).sort().join(), "'CONTENT_MODERATE','REPORTS_VIEW'");
   assert.doesNotMatch(cli, /insert into nestly\.staff_roles|AUDIT_LOG_VIEW|MARKETPLACE_MODERATE|BILLING_FINANCE_MANAGE/);
   assert.match(cli, /mode: 0o600, flag: 'wx'/);
   assert.match(cli, /maskStaffUsers\(users,/);

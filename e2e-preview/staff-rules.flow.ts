@@ -4,14 +4,13 @@
 // 1. Community side (always): A signs up and publishes a post; B, in another browser context, reports it with "אחר" and a 500-character text
 //    (VAL-048: 501 is refused); the new strict queries pass Vercel's `path` parameter (#147): the children's trends by calendar period answer a
 //    parent 403 (not 400), and a thread read with `?group=` answers 200.
-// 2. Staff side (decision §10.1, a Moderator on the Preview only, created by the CI job and removed with the run): the Moderator opens the queue,
-//    finds B's report and decides it justified; the post is then gone for B too (AC-159). Its sign-in comes from the file the CI job writes
-//    (PREVIEW_E2E_STAFF_FILE: {"email","password"}); without it this part is skipped and says why. Never a real staff account.
-import { readFileSync } from 'node:fs';
+// 2. Staff side (decision §10.1; Afik 23.10.2026): the temporary Preview Moderator of this run and project (`staffUser`, written by the
+//    trusted-main CI step "Prepare temporary Preview Moderators", REPORTS_VIEW + CONTENT_MODERATE, removed by the cleanup) opens B's report
+//    and decides it justified; the post is then gone, for its author too (AC-159). Never a real staff account.
 import type { BrowserContext, Page } from '@playwright/test';
 import { createBypassRouteHandler } from './support/bypass.ts';
 import { expect, test } from './support/fixtures.ts';
-import { generateTestUser } from './support/test-user.ts';
+import { generateTestUser, type TestUser } from './support/test-user.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
 const passwordField = (page: Page) => page.getByLabel('סיסמה', { exact: true });
@@ -58,18 +57,34 @@ async function api(page: Page, authorization: string, path: string, init: { meth
   );
 }
 
-/** The staff sign-in the CI job wrote for this run, or null (then the staff part is skipped). */
-function staffSignIn(): { email: string; password: string } | null {
-  const file = process.env['PREVIEW_E2E_STAFF_FILE'];
-  if (file === undefined || file === '') return null;
-  const value: unknown = JSON.parse(readFileSync(file, 'utf8'));
-  if (typeof value !== 'object' || value === null) return null;
-  const email: unknown = Reflect.get(value, 'email');
-  const password: unknown = Reflect.get(value, 'password');
-  return typeof email === 'string' && typeof password === 'string' ? { email, password } : null;
+/** A Preview can take 10 s or more to sign in (a cold server function). */
+const SLOW = 45_000;
+
+/**
+ * Signs the run's temporary Moderator in and opens `path`, waiting for `ready`. The first sign-in of the run meets the recovery-question gate
+ * (completed through the app, as monetization.flow does); a later one (another flow of the same project signed it in first) goes straight on.
+ */
+async function openAsStaff(page: Page, staff: TestUser, path: string, ready: (page: Page) => ReturnType<Page['getByRole']>): Promise<void> {
+  await page.goto('/login');
+  await emailField(page).fill(staff.email);
+  await passwordField(page).fill(staff.password);
+  await page.getByRole('button', { name: 'התחברות', exact: true }).click();
+  await expect(page).not.toHaveURL(/\/login$/, { timeout: SLOW });
+  await page.goto(path);
+  const gate = page.getByLabel(/חיית המחמד/);
+  await expect(ready(page).or(gate)).toBeVisible({ timeout: SLOW });
+  if (await gate.isVisible()) {
+    await gate.fill(staff.answers.pet);
+    await page.getByLabel(/כינו אתכם/).fill(staff.answers.nickname);
+    await page.getByRole('button', { name: 'שמירה', exact: true }).click();
+    await expect(page).not.toHaveURL(/\/recovery-questions$/, { timeout: SLOW });
+    await page.goto(path);
+    await expect(ready(page)).toBeVisible({ timeout: SLOW });
+  }
 }
 
-test('[F14.3-b AC-159 VAL-048 §11.9] a report reaches the staff on the Preview; a justified decision deletes the post for everyone', async ({ page, browser, baseURL, bypassSecret }) => {
+test('[F14.3-b AC-159 VAL-048 §11.9] a report reaches the staff on the Preview; a justified decision deletes the post for everyone', async ({ page, browser, baseURL, bypassSecret, staffUser }) => {
+  test.setTimeout(240_000); // three real sign-ups/sign-ins on a cold Preview
   if (baseURL === undefined) throw new Error('preview-e2e: no baseURL');
   const origin = new URL(baseURL).origin;
   const contexts: BrowserContext[] = [];
@@ -102,22 +117,10 @@ test('[F14.3-b AC-159 VAL-048 §11.9] a report reaches the staff on the Preview;
     const thread = await api(page, authorA, `/api/posts/${postId}/comments?group=00000000-0000-4000-8000-000000000000`);
     expect(thread.status, thread.body).toBe(200);
 
-    // the staff side: a Moderator of this run (decision §10.1)
-    const staff = staffSignIn();
-    if (staff === null) {
-      // the community part above passed; the staff part waits for the CI step (WORKPLAN "ממתין לך")
-      test.info().annotations.push({ type: 'staff part not run', description: 'no test Moderator on this Preview run (PREVIEW_E2E_STAFF_FILE)' });
-      return;
-    }
+    // the staff side: the temporary Moderator of this run (decision §10.1, Afik 23.10.2026)
     const pageM = await open();
-    await pageM.goto('/login');
-    await emailField(pageM).fill(staff.email);
-    await passwordField(pageM).fill(staff.password);
-    await pageM.getByRole('button', { name: 'התחברות', exact: true }).click();
-    await expect(pageM).toHaveURL(/\/admin/);
     // straight to this run's item (the "next in queue" address)
-    await pageM.goto(`/admin/reports?target=post:${postId}`);
-    await expect(pageM.getByRole('heading', { name: /פרטי הדיווח/ })).toBeVisible();
+    await openAsStaff(pageM, staffUser, `/admin/reports?target=post:${postId}`, (p) => p.getByRole('heading', { name: /פרטי הדיווח/ }));
     const actions = pageM.getByRole('group', { name: 'טיפול' });
     await actions.getByLabel('סיבה (נרשמת ביומן)').fill('בדיקה אוטומטית של כללי הצוות');
     await actions.getByRole('button', { name: 'דיווח מוצדק: מחיקת התוכן' }).click();
@@ -126,6 +129,8 @@ test('[F14.3-b AC-159 VAL-048 §11.9] a report reaches the staff on the Preview;
     // the result from the other side: A's post is gone, for A too
     const gone = await api(page, authorA, `/api/posts/${postId}`);
     expect(gone.status, gone.body).toBe(404);
+    const goneForB = await api(pageB, authorB, `/api/posts/${postId}`);
+    expect(goneForB.status, goneForB.body).toBe(404);
   } finally {
     for (const context of contexts) await context.close();
   }
