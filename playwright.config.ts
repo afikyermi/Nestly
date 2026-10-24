@@ -33,7 +33,8 @@ export default defineConfig({
   //   tests: each test ran ~35-40% slower and the slowest shard gained ~40 s, within run-to-run noise; not kept.
   forbidOnly: isCi,
   retries: isCi ? 1 : 0,
-  reporter: isCi ? [['list'], ['html', { open: 'never' }]] : 'list',
+  // On CI the `github` reporter also writes each failure as an annotation on the job, readable where the logs are not.
+  reporter: isCi ? [['list'], ['html', { open: 'never' }], ['github']] : 'list',
   // One baseline per screen and size, no OS or project in the name: CI (Linux Chrome) is the only place baselines are made.
   snapshotPathTemplate: '{testDir}/__screenshots__/{arg}{ext}',
   // Starts tight (about 150 px at 375x812). Raised only after a flake observed on CI and recorded in decisions.md; nothing is masked.
