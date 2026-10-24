@@ -9,7 +9,7 @@ import { randomBytes } from 'node:crypto';
 import type { BrowserContext, Page } from '@playwright/test';
 import { createBypassRouteHandler } from './support/bypass.ts';
 import { expect, test } from './support/fixtures.ts';
-import { createAccount, serverTiming } from './support/timed-steps.ts';
+import { AFTER_ANSWERS_MS, createAccount, serverTiming } from './support/timed-steps.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
@@ -36,7 +36,7 @@ async function credentialsAndAnswers(page: Page, u: TestUser): Promise<string> {
   await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);
   const bell = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/notifications' && r.request().method() === 'GET');
   await page.getByRole('button', { name: 'שמירה', exact: true }).click();
-  await expect(page).toHaveURL(/\/(feed|home)$/);
+  await expect(page).toHaveURL(/\/(feed|home)$/, { timeout: AFTER_ANSWERS_MS });
   const authorization = (await (await bell).request().headerValue('authorization')) ?? '';
   expect(authorization).toMatch(/^Bearer /);
   return authorization;

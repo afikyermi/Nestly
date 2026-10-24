@@ -111,3 +111,9 @@ export async function submitSignIn(page: Page): Promise<Response> {
   console.log(`[${label(page)}] Auth sign-in answered ${response.status()} after ${Date.now() - started} ms`);
   return response;
 }
+
+/**
+ * From "שמירה" on the recovery questions after a sign-up to the feed: the answers' write, then /api/me. A slow Preview took over 10 s
+ * (preview-e2e 24.10), so the landing gets as long as a sign-in's.
+ */
+export const AFTER_ANSWERS_MS = SIGN_IN_MS;
