@@ -11,7 +11,7 @@
 | PG-008 | בניית הפיד / יצירת פוסט / תגובות ולייקים לפוסט / שיתוף פוסט / חלון שיתוף קישור / פעולת דיווח / קליטת אותות ההתאמה האישית / מנוע ההמלצות מבוסס הכללים | FR-FEED-001..007 / FR-ALG-001..004 / FR-ALG-009 / FR-MOD-001 | UC-04/26/36/37/40 | Post (כולל שיתופים), Comment, Reaction, PostHide, Report, Group, Friendship, ProfessionalFollow, PersonalizationProfile, ContentImpression, RecommendationFeedback, ContentMetadata, AlgorithmConfiguration |
 | PG-055 | עמוד פוסט / תגובות ולייקים לפוסט / שיתוף פוסט / חלון שיתוף קישור / פעולת דיווח | FR-FEED-002/003/005/006/007 / FR-MOD-001 / FR-AUTH-004 | UC-04/26 | Post (כולל שיתופים), Comment, Reaction, Report |
 | PG-056 | מסך ההצטרפות לצוות | FR-ADMIN-004 | UC-15 | User, ModeratorInvitation, AuditLogEntry |
-| PG-057 | מסך בקשות העזרה / הצעת עזרה (ניווט Professional) | FR-SERV-005 / FR-SERV-008 | UC-25 | Post (מבקש עזרה), ProfessionalOutreachRequest; AC-148 |
+| PG-057 | מסך בקשות העזרה / הצעת עזרה (מלוח הבקרה ומהתפריט של Professional) | FR-SERV-005 / FR-SERV-008 / FR-PRO-001 | UC-25 | Post, ProfessionalProfile (התחום), ProfessionalOutreachRequest; AC-148, AC-169, AC-171 |
 | PG-058 | מסך בית הצוות / בית הניהול / העבודה שלי / מגמות נתוני ילדים | FR-ADMIN-014 / FR-ADMIN-015 / FR-ADMIN-005 / FR-MOD-003 | UC-15/27 | Report, ReportEscalation, ReportOpening, TrackerEvent (מגמות בלבד), AuditLogEntry; AC-152–AC-158 |
 | PG-041/042 | מסך הקידום המקצועי / מסך חיובים וקידומים (עד I13: "עוד לא זמין") | FR-PRO-002 / FR-SERV-010 | UC-42 | — |
 | PG-009 | מעקב בעמוד הבית | FR-HOME-001..004, FR-ALG-004 | UC-05/06 | JourneyContext, Child, TrackerEvent, CycleEntry, Article |
@@ -68,4 +68,10 @@
 | FR-NOTIF-002 | Built | I7, I11, תיקוני בדיקת ה-SRS (21.10) | קטגוריות לפי סוג החשבון, "ימי הולדת" להורה בלבד |
 | FR-NOTIF-003 | Built | I7, תיקוני בדיקת ה-SRS (21.10) | התראה על יום הולדת של ילד של Friend |
 | FR-ADMIN-010 | Built | I14, תיקוני בדיקת ה-SRS (21.10) | קבוצות, בעלי מקצוע ו-Marketplace במסך הנתונים |
-| FR-PRO-001 | Built | I11, תיקוני בדיקת ה-SRS (21.10) | הדירוג בלוח הבקרה |
+| FR-PRO-001 | Built | I11, תיקוני בדיקת ה-SRS (21.10), השלמת I11 ג' | הדירוג בלוח הבקרה; "פוסטים בתחום שלך" |
+| FR-SERV-003 | Built | I11, השלמת I11 ג' | הדירוג בספרה אחת מעל כוכבים ברבעים, גם בכרטיסים |
+| FR-SERV-005 | Built | I11, השלמת I11 ג' | הצעת עזרה על כל פוסט שבעל המקצוע רשאי לראות, מהכרטיס, מעמוד הפוסט ומ"בקשות עזרה" לפי תחום; בלי סימון "מבקש עזרה" |
+| FR-SERV-008 | Built | I11, השלמת I11 ג' | אחת לכל פוסט, עד 100 ב-24 שעות |
+| FR-SERV-011 | Built | I11, השלמת I11 ג' | ביקורת אחת להורה לכל בעל מקצוע, עריכה ("נערכה") ומחיקה בידי הכותב |
+| FR-MOD-001 | Built | I3, I11, השלמת I11 ג' | ארבע סיבות הביקורת לבעל המקצוע שהביקורת עליו |
+| FR-MENU-001 | Built | I2, I11, השלמת I11 ג' | "בקשות עזרה" בתפריט של Professional |
