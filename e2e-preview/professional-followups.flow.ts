@@ -4,7 +4,7 @@
 // No recovery attempts are made.
 import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
-import { createAccount } from './support/timed-steps.ts';
+import { createAccount, serverTiming } from './support/timed-steps.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
@@ -51,7 +51,7 @@ test.describe.serial('[I11 follow-ups] a Professional and a follower on the Prev
     const homeAnswer = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/professional/home' && r.request().method() === 'GET', { timeout: 30_000 });
     await page.goto('/home');
     const answer = await homeAnswer;
-    console.log(`[${info.project.name}] GET /api/professional/home answered ${answer.status()} after ${Date.now() - asked} ms`);
+    console.log(`[${info.project.name}] GET /api/professional/home answered ${answer.status()} after ${Date.now() - asked} ms${serverTiming(answer)}`);
     expect(answer.status(), 'GET /api/professional/home').toBe(200);
     const main = page.getByRole('main');
     await expect(main.getByRole('heading', { level: 1, name: 'לוח הבקרה' })).toBeVisible();
