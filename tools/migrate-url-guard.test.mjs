@@ -151,7 +151,7 @@ test('[F1.1-a c5] no rejection reason contains the password, the full URL or the
 // ---- the command line: what the workflow actually runs and what ends up in the job log -----------------------------
 
 function run(args, env) {
-  const clean = { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot, ...env };
+  const clean = { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot, PGSSLMODE: 'require', ...env };
   const result = spawnSync(process.execPath, [script, ...args], { env: clean, encoding: 'utf8' });
   return { status: result.status, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
 }
