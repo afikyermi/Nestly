@@ -1,5 +1,5 @@
 // "בקשות עזרה" (I11 completion C; FR-SERV-005, FR-PRO-001, PG-057, §13.4): the newest posts the caller may Offer Help on whose text speaks of
-// its field. Runs inside the caller's identity transaction only: the posts it may read are its own posts RLS (no Friends-only post of
+// its field, from the last 30 days (⭐ OP-072: a bound that keeps the read small). Runs inside the caller's identity transaction only: the posts it may read are its own posts RLS (no Friends-only post of
 // another, no Private Group it is not in, nothing it hid or reported); this read adds only what the offer's policy asks of the post (active,
 // not a share, a Regular's) and the field's topic patterns (shared/search/topics.ts, the directory's matching). No author id leaves it.
 
@@ -30,7 +30,7 @@ export async function readHelpRequests(tx: IdentityTx, patterns: readonly string
              to_char(p.created_at at time zone 'UTC', ${isoMs}) as at,
              exists (select 1 from nestly.outreach_requests o where o.post_id = p.id and o.professional_id = (select auth.uid())) as offered
       from nestly.posts p left join nestly.regular_names n on n.user_id = p.author_id
-      where p.status = 'active' and not p.is_share and p.body is not null
+      where p.status = 'active' and not p.is_share and p.body is not null and p.created_at > now() - interval '30 days'
         and (p.author_id is null or not exists (select 1 from nestly.professional_profiles pp where pp.user_id = p.author_id))
         and ${topic}
       order by p.created_at desc, p.id

@@ -40,7 +40,7 @@ import { useFeedSource } from './feed-source';
 import { PIN_LABEL, REMOVE_FROM_GROUP_LABEL, UNPIN_LABEL } from '@/lib/group-post-texts';
 import { useStaffAccess } from '@/hooks/use-staff-access';
 import { STAFF_REVIEW_NOTE } from '@/lib/staff-review-texts';
-import { OfferHelpSheet } from '@/components/domain/offer-help-sheet';
+import { OFFER_CONTROL_SELECTOR, OfferHelpSheet } from '@/components/domain/offer-help-sheet';
 import { useOfferHelp } from '@/hooks/use-offer-help';
 
 /**
@@ -364,7 +364,7 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
           onSend={offer.send}
           onCancel={offer.cancel}
           finalFocus={() =>
-            rootRef.current?.querySelector<HTMLElement>(`article[data-unit-id="${offer.draft?.postId ?? ''}"] :is([data-offer-help], [data-offer-sent])`) ?? null
+            rootRef.current?.querySelector<HTMLElement>(`article[data-unit-id="${offer.draft?.postId ?? ''}"] :is(${OFFER_CONTROL_SELECTOR})`) ?? null
           }
         />
       ) : null}

@@ -79,6 +79,8 @@ export const DELETE_REVIEW_CONFIRM = 'למחוק את הביקורת? אי אפ�
 export const DELETE_REVIEW_YES = 'מחיקה';
 export const REVIEW_DELETED = 'הביקורת נמחקה.';
 export const REVIEW_GONE = 'הביקורת כבר לא זמינה לעריכה.';
+export const REVIEW_HELD = 'כבר יש ביקורת שלך על בעל המקצוע הזה, והיא לא מוצגת כרגע.';
+export const REVIEW_NOT_EDITABLE = 'אי אפשר לערוך את הביקורת כרגע.';
 export const EDITED_LABEL = 'נערכה';
 export const reviewStars = (rating: number): string => `${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}`;
 export const reviewStarsLabel = (rating: number): string => `${rating} מתוך 5`;

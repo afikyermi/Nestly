@@ -21,8 +21,7 @@ import { ShareFeedSheet, type ShareFeedSheetProps } from './ShareFeedSheet';
 import { SHARE_IN_FEED_LABEL } from './share-texts';
 import { MORE_ACTIONS_LABEL, MORE_ACTIONS_MENU_LABEL } from './hide-texts';
 import { PostImages } from './PostImages';
-import { OfferHelpSheet, type OfferHelpSheetProps } from '@/components/domain/offer-help-sheet';
-import { OFFER_HELP, OFFERED } from '@/lib/professional-texts';
+import { OFFER_CONTROL_SELECTOR, OfferHelpControl, OfferHelpSheet, type OfferHelpSheetProps } from '@/components/domain/offer-help-sheet';
 import {
   ANONYMOUS_OWN_NOTE,
   audienceLine,
@@ -244,15 +243,7 @@ export function PostContent(props: PostContentProps) {
             ) : null}
             {onShareInFeed !== undefined || onShareLink !== undefined || offerHelp !== undefined ? (
               <div className="flex flex-wrap items-center gap-x-2">
-                {offerHelp === undefined ? null : offerHelp.sent ? (
-                  <span tabIndex={-1} className="inline-flex min-h-11 items-center px-2 text-label text-muted-foreground" data-offer-sent="">
-                    {OFFERED}
-                  </span>
-                ) : (
-                  <Button variant="soft" data-offer-help="" onClick={offerHelp.onOffer}>
-                    {OFFER_HELP}
-                  </Button>
-                )}
+                {offerHelp === undefined ? null : <OfferHelpControl {...offerHelp} />}
                 {onShareInFeed === undefined ? null : (
                   <Button iconOnly label={SHARE_IN_FEED_LABEL} data-share-feed onClick={onShareInFeed}>
                     <ShareInFeedIcon className="size-5" />
@@ -296,7 +287,7 @@ export function PostContent(props: PostContentProps) {
       ) : null}
       {shareFeed !== null ? <ShareFeedSheet {...shareFeed} finalFocus={() => rootRef.current?.querySelector<HTMLElement>('[data-share-feed]') ?? null} /> : null}
       {offerSheet !== null ? (
-        <OfferHelpSheet {...offerSheet} finalFocus={() => rootRef.current?.querySelector<HTMLElement>('[data-offer-help], [data-offer-sent]') ?? null} />
+        <OfferHelpSheet {...offerSheet} finalFocus={() => rootRef.current?.querySelector<HTMLElement>(OFFER_CONTROL_SELECTOR) ?? null} />
       ) : null}
       {shareLink !== null ? <ShareLinkSheet {...shareLink} finalFocus={() => rootRef.current?.querySelector<HTMLElement>('[data-share-link]') ?? null} /> : null}
     </div>

@@ -25,6 +25,8 @@ import {
   REVIEW_ALREADY,
   REVIEW_DELETED,
   REVIEW_GONE,
+  REVIEW_HELD,
+  REVIEW_NOT_EDITABLE,
   REVIEW_NOTE,
   REVIEW_RATING_LABEL,
   REVIEW_RATING_REQUIRED,
@@ -122,7 +124,8 @@ export function ReviewsSection({ page, onChanged, onStatus, onReport }: ReviewsS
         setEditing(false);
         setFailure(REVIEW_GONE);
         await onChanged();
-      } else setFailure(result.kind === 'already-done' ? REVIEW_ALREADY : ACTION_FAILED);
+      } else if (result.kind === 'already-done') setFailure(mine === null ? REVIEW_HELD : REVIEW_ALREADY);
+      else setFailure(result.kind === 'not-allowed' && editing ? REVIEW_NOT_EDITABLE : ACTION_FAILED);
     });
   };
 

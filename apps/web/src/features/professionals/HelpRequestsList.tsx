@@ -13,6 +13,7 @@ import {
   ANONYMOUS_AUTHOR,
   CANCEL,
   HELP_HEADING,
+  MESSAGE_TOO_LONG,
   NO_HELP,
   OFFER_ALREADY,
   OFFER_HELP,
@@ -50,8 +51,9 @@ export function HelpRequestsList({ items, onSent }: HelpRequestsListProps) {
   async function send(event: FormEvent, postId: string) {
     event.preventDefault();
     if (running.current) return;
-    if (chatTextProblem(text) !== null) {
-      setTextError(OFFER_TEXT_REQUIRED);
+    const problem = chatTextProblem(text);
+    if (problem !== null) {
+      setTextError(problem === 'long' ? MESSAGE_TOO_LONG : OFFER_TEXT_REQUIRED);
       return;
     }
     running.current = true;

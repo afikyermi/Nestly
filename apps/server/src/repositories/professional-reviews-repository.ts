@@ -28,7 +28,7 @@ export async function readReviews(tx: IdentityTx, professionalId: string): Promi
 }
 
 /**
- * §11.21: the caller's own active review of this Professional, or undefined. A row lock (FOR UPDATE) passes only the rows the UPDATE policy's
+ * §11.21: the caller's own active review of this Professional, or undefined. The weakest row lock (FOR KEY SHARE: it blocks no edit or moderation of the row) passes only the rows the UPDATE policy's
  * USING also passes, and for a Regular that is professional_reviews_update_reviewer: its own unmoderated review (one per pair). Call it for a
  * Regular caller only (staff hold a moderation update policy of their own).
  */
@@ -37,7 +37,7 @@ export async function readOwnReview(tx: IdentityTx, professionalId: string): Pro
     await tx.execute(sql`
       select ${reviewColumns}
       from nestly.professional_reviews r where r.professional_id = ${professionalId}::uuid and r.moderation = 'active'
-      for update`),
+      for key share`),
   );
   return row;
 }

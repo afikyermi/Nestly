@@ -25,6 +25,8 @@ import type { IdentityTx } from '../db/identity-transaction.js';
 const isoMs = sql.raw(`'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'`);
 const idRow = z.object({ id: z.guid() });
 const count = z.coerce.number().int();
+/** I11-C: the reviewed Professional's four reasons (§11.10) are told apart from the community's in the analytics ("אחר" is in both lists). */
+const REVIEW_REASON_PREFIX = 'ביקורת על בעל מקצוע: ';
 
 // ---- the team (FR-ADMIN-004) --------------------------------------------------------------------------------------------------
 
@@ -298,8 +300,9 @@ export async function readAnalytics(tx: IdentityTx, days: AnalyticsPeriod): Prom
     .array(z.object({ label: z.string(), count }))
     .parse(
       await tx.execute(sql`
-        select rr.label, count(*) as count from nestly.reports r join nestly.report_reasons rr on rr.key = r.reason
-        where r.created_at >= ${since} group by rr.label, rr.sort_order order by count(*) desc, rr.sort_order`),
+        select case when rr.scope = 'reviewed_professional' then ${REVIEW_REASON_PREFIX} || rr.label else rr.label end as label, count(*) as count
+        from nestly.reports r join nestly.report_reasons rr on rr.key = r.reason
+        where r.created_at >= ${since} group by rr.scope, rr.label, rr.sort_order order by count(*) desc, rr.sort_order`),
     );
   const outcome = z
     .array(z.object({ open: count, actionTaken: count, dismissed: count, median: z.coerce.number().nullable() }))

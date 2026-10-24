@@ -4,7 +4,7 @@ import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
 import { SheetDescription, SheetPanel, SheetTitle } from '@/components/ui/dialog';
 import { TextArea } from '@/components/ui/text-area';
-import { CANCEL, OFFER_ANONYMOUS_NOTE, OFFER_HELP, OFFER_SEND, OFFER_SENDING, OFFER_SHEET_INTRO, OFFER_TEXT_LABEL } from '@/lib/professional-texts';
+import { CANCEL, OFFER_ANONYMOUS_NOTE, OFFER_HELP, OFFERED, OFFER_SEND, OFFER_SENDING, OFFER_SHEET_INTRO, OFFER_TEXT_LABEL } from '@/lib/professional-texts';
 
 export interface OfferHelpSheetProps {
   /** The post carries no name (AC-147): one more line says the identity stays hidden until an accept. */
@@ -61,5 +61,22 @@ export function OfferHelpSheet(props: OfferHelpSheetProps) {
         </div>
       </form>
     </SheetPanel>
+  );
+}
+
+/** Where an Offer Help window returns focus: the control below, in the card or on the post page. */
+export const OFFER_CONTROL_SELECTOR = '[data-offer-help], [data-offer-sent]';
+
+// A Professional's Offer Help control in a post's action row (FR-SERV-005; the feed card and the post page): "הצעת עזרה", or once sent
+// "נשלחה הצעה" (one per post), which can take focus back from the window. Display only.
+export function OfferHelpControl({ sent, onOffer }: { sent: boolean; onOffer: () => void }) {
+  return sent ? (
+    <span tabIndex={-1} className="inline-flex min-h-11 items-center px-2 text-label text-muted-foreground" data-offer-sent="">
+      {OFFERED}
+    </span>
+  ) : (
+    <Button variant="soft" data-offer-help="" onClick={onOffer}>
+      {OFFER_HELP}
+    </Button>
   );
 }

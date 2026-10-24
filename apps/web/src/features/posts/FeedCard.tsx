@@ -7,7 +7,7 @@ import { ShareInFeedIcon, ShareLinkIcon } from '@/components/ui/icons';
 import { SHARE_LINK_LABEL } from '@/lib/share-link-texts';
 import { MoreActionsMenu, type MoreActionsItem } from '@/components/ui/more-actions-menu';
 import { AUDIENCE_LABELS } from './posts-texts';
-import { OFFER_HELP, OFFERED } from '@/lib/professional-texts';
+import { OfferHelpControl } from '@/components/domain/offer-help-sheet';
 import { COMMENTS_TITLE, LIKE_LABEL } from './comments-texts';
 import { STAGE_LABELS } from '@/lib/child-fields';
 import { formatPostTime } from '@/lib/format-post-time';
@@ -142,15 +142,7 @@ export function FeedCard(props: FeedCardProps) {
                 {COMMENTS_TITLE}
                 {unit.commentCount > 0 ? ` ${unit.commentCount.toLocaleString('en-US')}` : null}
               </button>
-              {offerHelp === undefined ? null : offerHelp.sent ? (
-                <span tabIndex={-1} className="inline-flex min-h-11 items-center px-2 text-label text-muted-foreground" data-offer-sent="">
-                  {OFFERED}
-                </span>
-              ) : (
-                <Button variant="soft" data-offer-help="" onClick={offerHelp.onOffer}>
-                  {OFFER_HELP}
-                </Button>
-              )}
+              {offerHelp === undefined ? null : <OfferHelpControl {...offerHelp} />}
               {onShareInFeed === undefined ? null : (
                 <Button iconOnly label={SHARE_IN_FEED_LABEL} data-share-feed onClick={onShareInFeed}>
                   <ShareInFeedIcon className="size-5" />
