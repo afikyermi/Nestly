@@ -8,12 +8,18 @@ import { promotionOverview, promotionPurchaseResponse } from '@nestly/shared';
 import type { Page, Response } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
+import { timedResponse } from './support/timed-steps.ts';
 
 const main = (page: Page) => page.getByRole('main');
 /** A Preview can take 10 s or more to sign a user up or in (a cold server function): every sign-up step waits this long. */
 const SLOW = 45_000;
 /** The answer to one API call by method and path (a slow Preview's answer can take longer than an assertion's 10 s). */
 const answerTo = (method: string, path: string) => (r: Response) => r.request().method() === method && new URL(r.url()).pathname === path;
+/** A response's JSON, after its status is asserted: a platform error page (not JSON) then fails with the status, not a parse error. */
+async function jsonOf(response: Response, name: string): Promise<unknown> {
+  expect(response.status(), `${name} status`).toBe(200);
+  return response.json();
+}
 const fresh = (): TestUser => generateTestUser(process.env['GITHUB_RUN_ID'] ?? '', process.env['GITHUB_RUN_ATTEMPT'] ?? '');
 
 async function signUp(page: Page, u: TestUser, fullName: string): Promise<void> {
@@ -150,7 +156,7 @@ test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-
       page.waitForResponse((r) => r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/promotions'),
       page.goto('/pro/promotion'),
     ]);
-    const organicBefore = promotionOverview.parse(await initialOverview.json()).analytics?.organic.profileViews;
+    const organicBefore = promotionOverview.parse(await jsonOf(initialOverview, 'GET /api/promotions')).analytics?.organic.profileViews;
     expect(organicBefore).toBeDefined();
     await expect(main(page).getByText('התשלום מדומה: לא נגבה כסף ולא נדרשים פרטי כרטיס.').first()).toBeVisible();
     await expect(main(page).getByLabel('משך הקידום', { exact: true })).toContainText('מחיר לדוגמה');
@@ -207,7 +213,7 @@ test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-
       page.waitForResponse((r) => r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/promotions'),
       page.goto('/pro/promotion'),
     ]);
-    const metrics = promotionOverview.parse(await finalOverview.json()).analytics;
+    const metrics = promotionOverview.parse(await jsonOf(finalOverview, 'GET /api/promotions')).analytics;
     expect(metrics?.organic.profileViews, '[AC-072] the paid visit is not also organic').toBe(organicBefore);
     expect(metrics?.paid.profileVisits).toBeGreaterThanOrEqual(1);
     await expect(main(page).getByRole('list', { name: 'הקידומים שלי' })).toContainText(/[1-9]\d* חשיפות · [1-9]\d* לחיצות/);
@@ -224,7 +230,8 @@ test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-
     await page.getByLabel(/כינו אתכם/).fill(staffUser.answers.nickname);
     await page.getByRole('button', { name: 'שמירה', exact: true }).click();
     await expect(page).not.toHaveURL(/\/recovery-questions$/, { timeout: SLOW });
-    await page.goto('/admin/promotions');
+    // the staff list's own answer, its status and time logged (a refusal and a slow read look the same on screen: no card)
+    await timedResponse(page, 'GET /api/admin/promotions', answerTo('GET', '/api/admin/promotions'), () => page.goto('/admin/promotions'));
     const card = main(page).getByRole('article').filter({ hasText: pro.name });
     await expect(card).toHaveCount(1);
     await card.getByLabel('סיבת העצירה', { exact: true }).fill('בדיקת עצירה בידי צוות בסביבת Preview');
@@ -244,7 +251,7 @@ test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-
       page.waitForResponse((r) => r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/promotions'),
       page.goto('/pro/promotion'),
     ]);
-    const overview = promotionOverview.parse(await ownerResult.json());
+    const overview = promotionOverview.parse(await jsonOf(ownerResult, 'GET /api/promotions'));
     expect(overview.promotions.find((item) => item.id === purchase.promotionId)).toMatchObject({ state: 'stopped', stoppedBy: 'staff' });
     expect(overview.analytics?.paid.sampleSpentIls, 'staff stop does not refund the sample payment').toBe(metrics?.paid.sampleSpentIls);
     await expect(main(page).getByRole('list', { name: 'הקידומים שלי' })).toContainText('הקידום הופסק');
