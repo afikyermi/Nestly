@@ -13,11 +13,29 @@
 # Only this job can write (contents: write, to push the branch; deployments: read); it runs git and gh only, no code
 # from the repository.
 #
-# Job `e2e` (check name preview-e2e) checks out that commit with a read-only token. The deployment URL reaches the guard
-# (tools/preview-e2e-url-guard.ts) through env and is checked before anything else runs: only a unique Preview
+# Job `e2e` (checks preview-e2e (mobile-375) and preview-e2e (desktop-1280)) checks out that commit with a read-only token.
+# The deployment URL reaches the guard (tools/preview-e2e-url-guard.ts) through env and is checked before anything else runs: only a unique Preview
 # deployment host is accepted. The Playwright step receives only the checked URL. The Vercel bypass secret is in the env
 # of that one step; the flows get only a generated user and that URL, and the bypass goes to the deployment host only
 # (e2e-preview/support/bypass.ts).
+#
+# Two runners at once (Afik 24.10.2026, §14.2): job `e2e` is a matrix over the two Playwright projects (mobile-375, desktop-1280),
+# fail-fast off, each runner walking only its own project (`--project`), with its own staff setup (only its viewport's Moderator), its
+# own staff file, report, failure-context artifact and credential removal. Why the two runners do not collide:
+# - users: every generated email is nestly-e2e-<run>-<attempt>-<16 random hex>@gmail.com (support/test-user.ts), so the two runners'
+#   sign-ups and the two setups' inserts never meet on auth.users' unique email; each flow's names and titles carry the user's random
+#   part or random letters, so a search finds only its own runner's rows.
+# - staff: each setup inserts one Moderator in its own transaction (fresh random ids; no shared row is updated), into its own
+#   runner-temp file; the flows read the Moderator of their own project only (support/staff-user.ts).
+# - recovery: the failed-attempt counter is per user and per process; the IP limit (10 in 15 min) is not reached even if both runners
+#   leave through one address (2 projects x 3 deliberate failures, as before, when the two ran one after the other).
+# - shared Preview rows: the Directory's one promoted slot is matched by the page's filters, and each project's Professional is in its
+#   own field (monetization.flow.ts PRO_BY_PROJECT), so the two promotions never compete; Marketplace promotions are matched by a
+#   per-user title.
+# - cleanup: workflow_run fires once, when the whole run (both runners) completes, and deletes every user of that run and attempt
+#   (by the email prefix), both projects' together. A rerun of one failed runner is a new attempt with its own prefix and its own
+#   cleanup.
+# - one run at a time (concurrency group preview-e2e, at the workflow level): two runs never share the Preview's database.
 #
 # Cleanup is NOT here: .github/workflows/preview-e2e-cleanup.yml runs after this workflow completes (workflow_run, the
 # default branch's code). Afik 23.10: one trusted-main setup step may create temporary Preview Moderators.
@@ -151,11 +169,17 @@ jobs:
           done
 
   e2e:
-    name: preview-e2e
+    name: preview-e2e (${{ matrix.project }})
     needs: deployment
     environment: preview-e2e
     runs-on: ubuntu-latest
-    timeout-minutes: 26
+    timeout-minutes: 20
+    # One runner per Playwright project, at the same time (Afik 24.10, §14.2). Not fail-fast: one viewport's failure never cancels the
+    # other's run (a cancelled flow would leave its users half-made; the cleanup deletes them either way).
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [mobile-375, desktop-1280]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -182,24 +206,28 @@ jobs:
       - name: Install the harness (no lifecycle scripts)
         working-directory: .preview-harness
         run: npm ci --ignore-scripts
-      - name: Prepare temporary Preview Moderators
+      # Only this runner's project's Moderator (the other runner makes its own), in a file named for the project.
+      - name: Prepare the temporary Preview Moderator
         timeout-minutes: 2
         env:
           NODE_OPTIONS: ''
           PREVIEW_DB_ADMIN_URL: ${{ secrets.PREVIEW_DB_ADMIN_URL }}
-          PREVIEW_E2E_STAFF_FILE: ${{ runner.temp }}/preview-e2e-staff.json
+          PREVIEW_E2E_PROJECT: ${{ matrix.project }}
+          PREVIEW_E2E_STAFF_FILE: ${{ runner.temp }}/preview-e2e-staff-${{ matrix.project }}.json
         run: node .preview-harness/tools/preview-e2e-staff-cli.ts
       - run: npm ci
       - run: npx playwright install --with-deps chrome
-      # 78 flows took 10.1 min on 24.10 (I13 added the monetization flows); a slow Preview made one run pass 12 min, so 16
+      # 78 flows (both projects) took 10.1 min on 24.10 and a slow Preview 12 min: one project is about half of that; 12 leaves room for a
+      # slow Preview serving both runners at once
       - name: Walk the flows on the preview
-        timeout-minutes: 16
+        timeout-minutes: 12
         env:
           PREVIEW_E2E_BASE_URL: ${{ steps.guard.outputs.base_url }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-          PREVIEW_E2E_REPORT_FILE: ${{ runner.temp }}/preview-e2e-report.json
-          PREVIEW_E2E_STAFF_FILE: ${{ runner.temp }}/preview-e2e-staff.json
-        run: npx playwright test -c e2e-preview/playwright.config.ts
+          PREVIEW_E2E_PROJECT: ${{ matrix.project }}
+          PREVIEW_E2E_REPORT_FILE: ${{ runner.temp }}/preview-e2e-report-${{ matrix.project }}.json
+          PREVIEW_E2E_STAFF_FILE: ${{ runner.temp }}/preview-e2e-staff-${{ matrix.project }}.json
+        run: npx playwright test -c e2e-preview/playwright.config.ts --project="${PREVIEW_E2E_PROJECT}"
       # On failure only: the error-context.md of each failed test (the page's accessibility snapshot at the failure). Trace,
       # video and screenshots stay off (playwright.config.ts), since the Vercel bypass header or a typed password could land
       # in them. The trusted harness copies each snapshot with every form-field value redacted and every occurrence of a
@@ -209,19 +237,20 @@ jobs:
         if: failure()
         env:
           NODE_OPTIONS: ''
-          PREVIEW_E2E_STAFF_FILE: ${{ runner.temp }}/preview-e2e-staff.json
+          PREVIEW_E2E_STAFF_FILE: ${{ runner.temp }}/preview-e2e-staff-${{ matrix.project }}.json
         run: node .preview-harness/tools/preview-e2e-failure-context-cli.ts
       - name: Remove temporary staff credentials
         if: always()
         env:
           NODE_OPTIONS: ''
-          PREVIEW_E2E_STAFF_FILE: ${{ runner.temp }}/preview-e2e-staff.json
+          PREVIEW_E2E_STAFF_FILE: ${{ runner.temp }}/preview-e2e-staff-${{ matrix.project }}.json
         run: node -e "require('node:fs').rmSync(process.env.PREVIEW_E2E_STAFF_FILE, { force:true })"
       - name: Upload the failure context
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: preview-e2e-failure-context
+          # one artifact per project: two uploads under one name would collide in the run
+          name: preview-e2e-failure-context-${{ matrix.project }}
           path: ${{ runner.temp }}/preview-e2e-failures
           if-no-files-found: ignore
           retention-days: 7
@@ -229,15 +258,16 @@ jobs:
         if: always()
         env:
           JOB_STATUS: ${{ job.status }}
-          REPORT_FILE: ${{ runner.temp }}/preview-e2e-report.json
+          PROJECT: ${{ matrix.project }}
+          REPORT_FILE: ${{ runner.temp }}/preview-e2e-report-${{ matrix.project }}.json
         run: |
           {
-            echo "preview-e2e: ${JOB_STATUS} (run ${GITHUB_RUN_ID}, attempt ${GITHUB_RUN_ATTEMPT})"
+            echo "preview-e2e ${PROJECT}: ${JOB_STATUS} (run ${GITHUB_RUN_ID}, attempt ${GITHUB_RUN_ATTEMPT})"
             # Per project, counts only: the report is read for status, never printed, and is not uploaded.
             if [ -f "${REPORT_FILE}" ]; then
               jq -r '[.. | objects | select(has("projectName") and has("results"))] | group_by(.projectName)[] | "- \(.[0].projectName): \([.[] | select(.status == "expected")] | length) passed, \([.[] | select(.status != "expected" and .status != "skipped")] | length) failed"' "${REPORT_FILE}" || echo "- the report could not be read"
             else
               echo "- no report (the run stopped before the tests)"
             fi
-            echo "cleanup of the test users runs in the follow-up workflow preview-e2e-cleanup"
+            echo "cleanup of both projects' test users runs once, after both runners, in the follow-up workflow preview-e2e-cleanup"
           } >> "${GITHUB_STEP_SUMMARY}"

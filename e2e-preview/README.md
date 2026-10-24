@@ -9,8 +9,11 @@ Flows that run against a deployed Preview (workflow `preview-e2e`), on Chrome at
 - Call `recoveryAttempts.recordFailedAttempt(email)` before each wrong /recovery submission (max 4 per user).
 - No secrets, no logging of password or answers, no video, trace or screenshots. Retries are off.
 - Test users are deleted after each run by `preview-e2e-cleanup` (workflow_run, main's code; DR-E1). Flows never clean up.
-- Run: `npx playwright test -c e2e-preview/playwright.config.ts` with `PREVIEW_E2E_BASE_URL`,
+- Run: `npx playwright test -c e2e-preview/playwright.config.ts --project=<mobile-375|desktop-1280>` with `PREVIEW_E2E_BASE_URL`,
   `VERCEL_AUTOMATION_BYPASS_SECRET`, `GITHUB_RUN_ID` and `GITHUB_RUN_ATTEMPT` set.
+- The workflow walks the two projects at the same time, each on its own runner (Afik 24.10, §14.2). A flow therefore never
+  relies on the other viewport having run first or not at all: names, titles and filters it searches by are its own (the
+  user's random part, random letters, or a per-project value such as the Directory field in `monetization.flow.ts`).
 
 ## The main flow
 
