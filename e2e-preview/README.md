@@ -3,6 +3,8 @@
 Flows that run against a deployed Preview (workflow `preview-e2e`), on Chrome at 375x812 and 1280x800.
 
 - One file per feature: `e2e-preview/<feature>.flow.ts`. The config finds them by glob; no workflow edit.
+- By hand, `preview-e2e` can walk some flows alone: input `flows` (names without `.flow.ts`, space-separated) and
+  `project` (`both`, `desktop-1280`, `mobile-375`). Used once per merge when the full walk stopped before a feature's flow.
 - Import `test` and `expect` from `./support/fixtures.ts`, never from `@playwright/test`.
 - Fixtures: `testUser` (own email, password, answers per viewport), `recoveryAttempts`, `baseURL`; use relative `page.goto`.
 - Real Auth, real server. Create users only through the app; the email pattern is `support/test-user.ts`.

@@ -7,6 +7,7 @@
 
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres, { type Sql } from 'postgres';
+import { markStatement } from '../lib/server-timing.js';
 
 export interface Database {
   readonly db: PostgresJsDatabase;
@@ -17,7 +18,8 @@ export interface Database {
 
 /** postgres-js connects lazily: creating the client opens nothing until the first query. */
 export function createDatabase(url: string): Database {
-  const client = postgres(url, { max: 1, prepare: false });
+  // debug: marks each statement for Server-Timing (lib/server-timing.ts); it reads neither the text nor the parameters
+  const client = postgres(url, { max: 1, prepare: false, debug: () => markStatement() });
   return {
     db: drizzle({ client }),
     client,

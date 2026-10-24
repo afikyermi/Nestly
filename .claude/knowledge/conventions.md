@@ -182,21 +182,17 @@ added:    2026-10-15, proposed by BUILDER (F1.5 part b), validated by CRITIC wit
 Each entry:
 
 ```
-### CI, Preview and orchestration (lessons of 24.10)
-rule:     (1) Evidence lives in GitHub, not on disk: a fresh session has no `.work/*.log`; re-check a branch with a
-          workflow_dispatch CI run, not a local Chrome run (a loaded machine invents failures). Logs: GitHub MCP
-          `get_job_logs` (gh log/artifact downloads are blocked by the proxy). (2) A PR that changes Preview-only
-          code (e2e-preview, tools/preview-e2e-*, preview-e2e.yml) is followed by a `preview-e2e` dispatch from main
-          before any other merge. (3) An e2e-preview step waits for the server answer it depends on (SLOW 45 s),
-          never a bare 10 s UI timeout. (4) A feature that adds writes on a hot read path (/api/me, feed, profile)
-          batches them and measures Preview timings before merge. (5) Before asking Afik — above all to set up, enter
-          or connect a service — check decisions-in-force (§15 services), SRS §12, the code and WORKPLAN first. (6) A job marked cancelled whose tests passed is
-          infra: one rerun; a test that fails on the rerun is real or flaky — fix its cause before the next merge.
-why:      24.10: lost local logs; #177 staff setup failed on its first real Preview run (42501); 10 s waits failed
-          on a slow Preview; #177's per-read writes slowed the Preview 5–10x; two questions to Afik were already
-          answered (E1 fixed, temporary Moderators approved 23.10/24.10).
-example:  #206, #207, #209, #210
-added:    2026-10-24, Claude (orchestrator)
+### CI, Preview and orchestration
+rule:     (1) Evidence is in GitHub, not on disk: re-check a branch with a workflow_dispatch CI run, not a local
+          Chrome run; read logs with the GitHub MCP `get_job_logs` (gh downloads are blocked). (2) An e2e-preview
+          step waits for the server answer it needs (45 s), never a bare 10 s UI wait. (3) Writes added on a hot
+          read path (/api/me, feed, profile) are batched. (4) Before asking Afik, above all about a service, check
+          decisions-in-force (§15), SRS §12 and the code. (5) A job marked cancelled whose tests passed is infra:
+          one rerun.
+why:      24.10: lost local logs, 10 s waits failing on a slow Preview, per-read writes slowing it, and questions
+          to Afik that were already answered.
+example:  #207, #209, #210
+added:    2026-10-24, Claude
 
 ### <area>
 rule:     what to do
