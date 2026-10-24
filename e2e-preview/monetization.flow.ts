@@ -99,17 +99,21 @@ test.describe.serial('I13 Monetization on the Preview [FR-MKT-004 FR-ALG-007 NFR
 // FR-SERV-010, FR-PRO-002, FR-ALG-007, BR-005 (§11.5): a fresh Professional buys a profile promotion; a fresh Regular finds it on the Directory,
 // apart from the organic list and marked "ממומן", and opens it; the Professional then sees the impression and the click as counts only. Each
 // viewport uses its own field, so the two runs of this flow never compete for the Directory's one promoted slot.
+// The Directory shows one promoted Professional per page (the settings' default) and breaks a tie at random, so another promoted Professional
+// of the same field would make the check a coin flip. This Professional states 59 years of experience and the Regular filters on at least
+// 59: no other account is expected to match both the field and that filter.
+const PROMOTED_YEARS = 59;
 const PRO_BY_PROJECT: Readonly<Record<string, { readonly name: string; readonly field: string }>> = {
   'mobile-375': { name: 'מיכל קלינאית', field: 'speech' },
   'desktop-1280': { name: 'נועה צלמת', field: 'photography' },
 };
 
-async function signUpProfessional(page: Page, u: TestUser, fullName: string, field: string): Promise<void> {
+async function signUpProfessional(page: Page, u: TestUser, fullName: string, field: string, years: number): Promise<void> {
   await page.goto('/register');
   await page.getByRole('button', { name: 'נרשמים כבעלי מקצוע? להרשמה לחשבון מקצועי', exact: true }).click();
   await page.getByLabel(/^שם מלא/).fill(fullName);
   await page.getByLabel(/^תחום/).selectOption(field);
-  await page.getByLabel(/^שנות ניסיון/).fill('6');
+  await page.getByLabel(/^שנות ניסיון/).fill(String(years));
   await page.getByRole('checkbox', { name: 'הצהרה: יש לי ההכשרה והרישיון הנדרשים בתחום שבחרתי' }).check();
   await page.getByRole('button', { name: 'המשך', exact: true }).click();
   await page.getByRole('textbox', { name: 'אימייל', exact: true }).fill(u.email);
@@ -140,7 +144,7 @@ test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-
     const proUser = fresh();
     const base = PRO_BY_PROJECT[info.project.name] ?? { name: 'נועה צלמת', field: 'photography' };
     const pro = { ...base, name: `${base.name} ${proUser.email.split('@')[0]?.split('-').at(-1) ?? info.project.name}` };
-    await signUpProfessional(page, proUser, pro.name, pro.field);
+    await signUpProfessional(page, proUser, pro.name, pro.field, PROMOTED_YEARS);
 
     const [initialOverview] = await Promise.all([
       page.waitForResponse((r) => r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/promotions'),
@@ -167,7 +171,19 @@ test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-
     await signUp(page, fresh(), 'יעל מחפשת');
     await page.goto('/services');
     await main(page).getByLabel('תחום', { exact: true }).selectOption(pro.field);
-    await main(page).getByRole('button', { name: 'הצגת תוצאות', exact: true }).click();
+    await main(page).getByLabel('ניסיון של לפחות (שנים)', { exact: true }).fill(String(PROMOTED_YEARS));
+    // the filtered read's own answer (the screen's first, unfiltered read may still be on its way on a slow Preview)
+    const [directory] = await Promise.all([
+      page.waitForResponse(
+        (r) => {
+          const u = new URL(r.url());
+          return r.request().method() === 'GET' && u.pathname === '/api/professionals' && u.searchParams.get('field') === pro.field;
+        },
+        { timeout: SLOW },
+      ),
+      main(page).getByRole('button', { name: 'הצגת תוצאות', exact: true }).click(),
+    ]);
+    expect(directory.status(), 'GET /api/professionals status').toBe(200);
     const promoted = main(page).getByRole('list', { name: 'בעלי מקצוע ממומנים' });
     await expect(promoted.getByRole('link', { name: pro.name })).toBeVisible();
     await expect(promoted).toContainText('ממומן');

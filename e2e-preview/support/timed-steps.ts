@@ -70,3 +70,30 @@ export async function createAccount(page: Page): Promise<void> {
     expect(response.status(), name).toBeLessThan(300);
   }
 }
+
+/** A slow Preview took over 10 s from "התחברות" to the next screen (preview-e2e 24.10): Auth's token answer, then /api/me. */
+export const SIGN_IN_MS = 45_000;
+
+function isAuthToken(r: Response): boolean {
+  return r.request().method() === 'POST' && new URL(r.url()).pathname === '/auth/v1/token';
+}
+
+/**
+ * Clicks "התחברות" and waits up to SIGN_IN_MS for Auth's token answer, a refusal too (its status and duration are logged, never
+ * asserted: a wrong password is a flow's own check). The caller asserts where the page lands, with `{ timeout: SIGN_IN_MS }`.
+ */
+export async function submitSignIn(page: Page): Promise<Response> {
+  const started = Date.now();
+  const waiting = page.waitForResponse(isAuthToken, { timeout: SIGN_IN_MS });
+  waiting.catch(() => undefined);
+  await page.getByRole('button', { name: 'התחברות', exact: true }).click();
+  let response: Response;
+  try {
+    response = await waiting;
+  } catch {
+    console.log(`[${label(page)}] Auth sign-in: no answer within ${SIGN_IN_MS} ms (page at ${new URL(page.url()).pathname})`);
+    throw new Error(`Auth sign-in: no network answer within ${SIGN_IN_MS} ms`);
+  }
+  console.log(`[${label(page)}] Auth sign-in answered ${response.status()} after ${Date.now() - started} ms`);
+  return response;
+}
