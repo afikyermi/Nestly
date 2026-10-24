@@ -9,7 +9,7 @@ import { randomBytes } from 'node:crypto';
 import type { BrowserContext, Page } from '@playwright/test';
 import { createBypassRouteHandler } from './support/bypass.ts';
 import { expect, test } from './support/fixtures.ts';
-import { AFTER_ANSWERS_MS, createAccount } from './support/timed-steps.ts';
+import { AFTER_ANSWERS_MS, createAccount, serverTiming } from './support/timed-steps.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
@@ -143,7 +143,7 @@ test('[FR-SEARCH-001 FR-SET-001 FR-NOTIF-002 BR-037 AC-046] the SRS-audit fixes,
     await box.press('Enter');
     await expect(seeker).toHaveURL(/\/search$/);
     const answer = await searched;
-    console.log(`[${info.project.name}] POST /api/search from the search screen answered ${answer.status()} after ${Date.now() - asked} ms`);
+    console.log(`[${info.project.name}] POST /api/search from the search screen answered ${answer.status()} after ${Date.now() - asked} ms${serverTiming(answer)}`);
     expect(answer.status(), 'the search the screen shows').toBe(200);
     const link = seeker.getByRole('main').getByRole('link', { name: `לעמוד המקצועי של ${proName}` });
     await expect(link).toBeVisible({ timeout: 30_000 });
