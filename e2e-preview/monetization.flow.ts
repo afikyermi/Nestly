@@ -5,13 +5,21 @@
 // are covered by tests/db/promotions.db.test.ts and pgTAP 104. Users are made through the app (the cleanup covers their listings, promotions,
 // payments and events). No recovery attempts are made.
 import { promotionOverview, promotionPurchaseResponse } from '@nestly/shared';
-import type { Page } from '@playwright/test';
+import type { Page, Response } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
+import { createAccount, submitSignIn, timedResponse } from './support/timed-steps.ts';
 
 const main = (page: Page) => page.getByRole('main');
 /** A Preview can take 10 s or more to sign a user up or in (a cold server function): every sign-up step waits this long. */
 const SLOW = 45_000;
+/** The answer to one API call by method and path (a slow Preview's answer can take longer than an assertion's 10 s). */
+const answerTo = (method: string, path: string) => (r: Response) => r.request().method() === method && new URL(r.url()).pathname === path;
+/** A response's JSON, after its status is asserted: a platform error page (not JSON) then fails with the status, not a parse error. */
+async function jsonOf(response: Response, name: string): Promise<unknown> {
+  expect(response.status(), `${name} status`).toBe(200);
+  return response.json();
+}
 const fresh = (): TestUser => generateTestUser(process.env['GITHUB_RUN_ID'] ?? '', process.env['GITHUB_RUN_ATTEMPT'] ?? '');
 
 async function signUp(page: Page, u: TestUser, fullName: string): Promise<void> {
@@ -25,7 +33,7 @@ async function signUp(page: Page, u: TestUser, fullName: string): Promise<void> 
   await box.focus();
   await page.keyboard.press('Space');
   await expect(box).toBeChecked();
-  await page.getByRole('button', { name: 'יצירת חשבון', exact: true }).click();
+  await createAccount(page);
   await expect(page).toHaveURL(/\/recovery-questions$/, { timeout: SLOW });
   await page.getByLabel(/חיית המחמד/).fill(u.answers.pet);
   await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);
@@ -60,11 +68,14 @@ test.describe.serial('I13 Monetization on the Preview [FR-MKT-004 FR-ALG-007 NFR
     await mine.getByRole('button', { name: 'קידום המודעה' }).click();
     const dialog = page.getByRole('alertdialog', { name: 'קידום המודעה' });
     await expect(dialog).toContainText('התשלום מדומה');
-    const [bought] = await Promise.all([
-      page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/promotions'),
+    // the screen reads its promotions again after the purchase (GET /api/promotions): its answer is awaited before the label is checked
+    const [bought, reread] = await Promise.all([
+      page.waitForResponse(answerTo('POST', '/api/promotions')),
+      page.waitForResponse(answerTo('GET', '/api/promotions'), { timeout: SLOW }),
       dialog.getByRole('button', { name: 'אישור התשלום' }).click(),
     ]);
     expect(bought.status(), 'POST /api/promotions status').toBe(201);
+    expect(reread.status(), 'GET /api/promotions status').toBe(200);
     // AC-098: the request names the plan and the target only, never an amount or a card
     const sentBody: unknown = bought.request().postDataJSON();
     expect(typeof sentBody === 'object' && sentBody !== null ? Object.keys(sentBody).sort() : []).toEqual(['planKey', 'target']);
@@ -79,7 +90,12 @@ test.describe.serial('I13 Monetization on the Preview [FR-MKT-004 FR-ALG-007 NFR
     await signUp(page, fresh(), 'ורד מחפשת');
     await page.goto('/marketplace');
     await main(page).getByLabel('חיפוש מוצר', { exact: true }).fill(title);
-    await main(page).getByRole('button', { name: 'הצגה', exact: true }).click();
+    const [searched] = await Promise.all([
+      // the search's own answer (the screen's first, unfiltered read may still be on its way on a slow Preview)
+      page.waitForResponse((r) => answerTo('POST', '/api/marketplace')(r) && (r.request().postData() ?? '').includes(title), { timeout: SLOW }),
+      main(page).getByRole('button', { name: 'הצגה', exact: true }).click(),
+    ]);
+    expect(searched.status(), 'POST /api/marketplace status').toBe(200);
     const promoted = main(page).getByRole('list', { name: 'מודעות מקודמות' });
     await expect(promoted.getByRole('link', { name: title })).toBeVisible();
     await expect(promoted).toContainText('מודעה מקודמת');
@@ -89,17 +105,21 @@ test.describe.serial('I13 Monetization on the Preview [FR-MKT-004 FR-ALG-007 NFR
 // FR-SERV-010, FR-PRO-002, FR-ALG-007, BR-005 (§11.5): a fresh Professional buys a profile promotion; a fresh Regular finds it on the Directory,
 // apart from the organic list and marked "ממומן", and opens it; the Professional then sees the impression and the click as counts only. Each
 // viewport uses its own field, so the two runs of this flow never compete for the Directory's one promoted slot.
+// The Directory shows one promoted Professional per page (the settings' default) and breaks a tie at random, so another promoted Professional
+// of the same field would make the check a coin flip. This Professional states 59 years of experience and the Regular filters on at least
+// 59: no other account is expected to match both the field and that filter.
+const PROMOTED_YEARS = 59;
 const PRO_BY_PROJECT: Readonly<Record<string, { readonly name: string; readonly field: string }>> = {
   'mobile-375': { name: 'מיכל קלינאית', field: 'speech' },
   'desktop-1280': { name: 'נועה צלמת', field: 'photography' },
 };
 
-async function signUpProfessional(page: Page, u: TestUser, fullName: string, field: string): Promise<void> {
+async function signUpProfessional(page: Page, u: TestUser, fullName: string, field: string, years: number): Promise<void> {
   await page.goto('/register');
   await page.getByRole('button', { name: 'נרשמים כבעלי מקצוע? להרשמה לחשבון מקצועי', exact: true }).click();
   await page.getByLabel(/^שם מלא/).fill(fullName);
   await page.getByLabel(/^תחום/).selectOption(field);
-  await page.getByLabel(/^שנות ניסיון/).fill('6');
+  await page.getByLabel(/^שנות ניסיון/).fill(String(years));
   await page.getByRole('checkbox', { name: 'הצהרה: יש לי ההכשרה והרישיון הנדרשים בתחום שבחרתי' }).check();
   await page.getByRole('button', { name: 'המשך', exact: true }).click();
   await page.getByRole('textbox', { name: 'אימייל', exact: true }).fill(u.email);
@@ -108,7 +128,7 @@ async function signUpProfessional(page: Page, u: TestUser, fullName: string, fie
   await box.focus();
   await page.keyboard.press('Space');
   await expect(box).toBeChecked();
-  await page.getByRole('button', { name: 'יצירת חשבון', exact: true }).click();
+  await createAccount(page);
   await expect(page).toHaveURL(/\/recovery-questions$/, { timeout: SLOW });
   await page.getByLabel(/חיית המחמד/).fill(u.answers.pet);
   await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);
@@ -130,23 +150,22 @@ test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-
     const proUser = fresh();
     const base = PRO_BY_PROJECT[info.project.name] ?? { name: 'נועה צלמת', field: 'photography' };
     const pro = { ...base, name: `${base.name} ${proUser.email.split('@')[0]?.split('-').at(-1) ?? info.project.name}` };
-    await signUpProfessional(page, proUser, pro.name, pro.field);
+    await signUpProfessional(page, proUser, pro.name, pro.field, PROMOTED_YEARS);
 
-    const [initialOverview] = await Promise.all([
-      page.waitForResponse((r) => r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/promotions'),
-      page.goto('/pro/promotion'),
-    ]);
-    const organicBefore = promotionOverview.parse(await initialOverview.json()).analytics?.organic.profileViews;
+    const initialOverview = await timedResponse(page, 'GET /api/promotions', answerTo('GET', '/api/promotions'), () => page.goto('/pro/promotion'));
+    const organicBefore = promotionOverview.parse(await jsonOf(initialOverview, 'GET /api/promotions')).analytics?.organic.profileViews;
     expect(organicBefore).toBeDefined();
     await expect(main(page).getByText('התשלום מדומה: לא נגבה כסף ולא נדרשים פרטי כרטיס.').first()).toBeVisible();
     await expect(main(page).getByLabel('משך הקידום', { exact: true })).toContainText('מחיר לדוגמה');
     await main(page).getByRole('button', { name: 'לתשלום ולהפעלת הקידום' }).click();
     const dialog = page.getByRole('alertdialog', { name: 'אישור תשלום מדומה' });
-    const [bought] = await Promise.all([
-      page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/promotions'),
+    const [bought, reread] = await Promise.all([
+      page.waitForResponse(answerTo('POST', '/api/promotions')),
+      page.waitForResponse(answerTo('GET', '/api/promotions'), { timeout: SLOW }),
       dialog.getByRole('button', { name: 'אישור התשלום' }).click(),
     ]);
     expect(bought.status(), 'POST /api/promotions status').toBe(201);
+    expect(reread.status(), 'GET /api/promotions status').toBe(200);
     const purchase = promotionPurchaseResponse.parse(await bought.json());
     await expect(main(page).getByRole('list', { name: 'הקידומים שלי' })).toContainText('פעיל');
 
@@ -155,11 +174,25 @@ test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-
     await signUp(page, fresh(), 'יעל מחפשת');
     await page.goto('/services');
     await main(page).getByLabel('תחום', { exact: true }).selectOption(pro.field);
-    await main(page).getByRole('button', { name: 'הצגת תוצאות', exact: true }).click();
+    await main(page).getByLabel('ניסיון של לפחות (שנים)', { exact: true }).fill(String(PROMOTED_YEARS));
+    // the filtered read's own answer (the screen's first, unfiltered read may still be on its way on a slow Preview)
+    const [directory] = await Promise.all([
+      page.waitForResponse(
+        (r) => {
+          const u = new URL(r.url());
+          return r.request().method() === 'GET' && u.pathname === '/api/professionals' && u.searchParams.get('field') === pro.field;
+        },
+        { timeout: SLOW },
+      ),
+      main(page).getByRole('button', { name: 'הצגת תוצאות', exact: true }).click(),
+    ]);
+    expect(directory.status(), 'GET /api/professionals status').toBe(200);
     const promoted = main(page).getByRole('list', { name: 'בעלי מקצוע ממומנים' });
     await expect(promoted.getByRole('link', { name: pro.name })).toBeVisible();
     await expect(promoted).toContainText('ממומן');
-    await expect(main(page).getByRole('list', { name: 'תוצאות' })).not.toContainText(pro.name); // BR-004: never also in the organic list
+    // BR-004, AC-062: the organic list is read exactly as without promotions, so the Professional may also hold its own organic place there
+    // (it matches the field filter); no organic card is ever marked "ממומן"
+    await expect(main(page).getByRole('list', { name: 'תוצאות' })).not.toContainText('ממומן');
     const [clicked] = await Promise.all([
       page.waitForResponse((r) => r.request().method() === 'POST' && /^\/api\/promotions\/[0-9a-f-]{36}\/click$/.test(new URL(r.url()).pathname)),
       promoted.getByRole('link', { name: pro.name }).click(),
@@ -171,13 +204,10 @@ test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-
     await page.goto('/login');
     await page.getByRole('textbox', { name: 'אימייל', exact: true }).fill(proUser.email);
     await page.getByLabel('סיסמה', { exact: true }).fill(proUser.password);
-    await page.getByRole('button', { name: 'התחברות', exact: true }).click();
+    await submitSignIn(page);
     await expect(page).not.toHaveURL(/\/login$/, { timeout: SLOW });
-    const [finalOverview] = await Promise.all([
-      page.waitForResponse((r) => r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/promotions'),
-      page.goto('/pro/promotion'),
-    ]);
-    const metrics = promotionOverview.parse(await finalOverview.json()).analytics;
+    const finalOverview = await timedResponse(page, 'GET /api/promotions', answerTo('GET', '/api/promotions'), () => page.goto('/pro/promotion'));
+    const metrics = promotionOverview.parse(await jsonOf(finalOverview, 'GET /api/promotions')).analytics;
     expect(metrics?.organic.profileViews, '[AC-072] the paid visit is not also organic').toBe(organicBefore);
     expect(metrics?.paid.profileVisits).toBeGreaterThanOrEqual(1);
     await expect(main(page).getByRole('list', { name: 'הקידומים שלי' })).toContainText(/[1-9]\d* חשיפות · [1-9]\d* לחיצות/);
@@ -188,13 +218,14 @@ test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-
     await page.goto('/login');
     await page.getByRole('textbox', { name: 'אימייל', exact: true }).fill(staffUser.email);
     await page.getByLabel('סיסמה', { exact: true }).fill(staffUser.password);
-    await page.getByRole('button', { name: 'התחברות', exact: true }).click();
+    await submitSignIn(page);
     await expect(page).toHaveURL(/\/recovery-questions$/, { timeout: SLOW });
     await page.getByLabel(/חיית המחמד/).fill(staffUser.answers.pet);
     await page.getByLabel(/כינו אתכם/).fill(staffUser.answers.nickname);
     await page.getByRole('button', { name: 'שמירה', exact: true }).click();
     await expect(page).not.toHaveURL(/\/recovery-questions$/, { timeout: SLOW });
-    await page.goto('/admin/promotions');
+    // the staff list's own answer, its status and time logged (a refusal and a slow read look the same on screen: no card)
+    await timedResponse(page, 'GET /api/admin/promotions', answerTo('GET', '/api/admin/promotions'), () => page.goto('/admin/promotions'));
     const card = main(page).getByRole('article').filter({ hasText: pro.name });
     await expect(card).toHaveCount(1);
     await card.getByLabel('סיבת העצירה', { exact: true }).fill('בדיקת עצירה בידי צוות בסביבת Preview');
@@ -208,13 +239,10 @@ test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-
     await page.goto('/login');
     await page.getByRole('textbox', { name: 'אימייל', exact: true }).fill(proUser.email);
     await page.getByLabel('סיסמה', { exact: true }).fill(proUser.password);
-    await page.getByRole('button', { name: 'התחברות', exact: true }).click();
+    await submitSignIn(page);
     await expect(page).not.toHaveURL(/\/login$/, { timeout: SLOW });
-    const [ownerResult] = await Promise.all([
-      page.waitForResponse((r) => r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/promotions'),
-      page.goto('/pro/promotion'),
-    ]);
-    const overview = promotionOverview.parse(await ownerResult.json());
+    const ownerResult = await timedResponse(page, 'GET /api/promotions', answerTo('GET', '/api/promotions'), () => page.goto('/pro/promotion'));
+    const overview = promotionOverview.parse(await jsonOf(ownerResult, 'GET /api/promotions'));
     expect(overview.promotions.find((item) => item.id === purchase.promotionId)).toMatchObject({ state: 'stopped', stoppedBy: 'staff' });
     expect(overview.analytics?.paid.sampleSpentIls, 'staff stop does not refund the sample payment').toBe(metrics?.paid.sampleSpentIls);
     await expect(main(page).getByRole('list', { name: 'הקידומים שלי' })).toContainText('הקידום הופסק');

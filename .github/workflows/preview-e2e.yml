@@ -155,7 +155,7 @@ jobs:
     needs: deployment
     environment: preview-e2e
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 26
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -191,8 +191,9 @@ jobs:
         run: node .preview-harness/tools/preview-e2e-staff-cli.ts
       - run: npm ci
       - run: npx playwright install --with-deps chrome
+      # 78 flows took 10.1 min on 24.10 (I13 added the monetization flows); a slow Preview made one run pass 12 min, so 16
       - name: Walk the flows on the preview
-        timeout-minutes: 12
+        timeout-minutes: 16
         env:
           PREVIEW_E2E_BASE_URL: ${{ steps.guard.outputs.base_url }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
