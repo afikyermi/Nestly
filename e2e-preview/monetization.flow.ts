@@ -38,6 +38,9 @@ test.describe.serial('I13 Monetization on the Preview [FR-MKT-004 FR-ALG-007 NFR
     test.setTimeout(240_000); // three sign-ups on a Preview that may be cold
     const seller = fresh();
     const title = `מנשא לקידום ${/-([0-9a-f]{16})@/.exec(seller.email)?.[1] ?? info.project.name}`;
+    // OP-039 / AC-071: collection disclosure is readable before registration on the real deployment.
+    await page.goto('/privacy');
+    await expect(main(page).getByRole('region', { name: 'מדידת השימוש' })).toContainText('בלי תוכן ובלי זיהוי הפרופיל או הפוסט שנצפה');
     await signUp(page, seller, 'שירה מקדמת');
 
     await page.goto('/marketplace/new');
