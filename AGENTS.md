@@ -1,5 +1,7 @@
 # AGENTS.md — handoff to Codex (from Claude Code, 22.10.2026)
 
+> **24.10:** dates, models, file locations and state below are historical. `CLAUDE.md` (Stages, model per task) and `WORKPLAN-HE.md` win; the initiative map is `docs/initiative-map.md`, the bug list `docs/final-stage-HE.md`.
+
 > Codex reads this file automatically (as Claude Code reads `CLAUDE.md`). `CLAUDE.md` stays the rulebook for both;
 > this file only adds what Codex needs to take over and to hand back (§8).
 
