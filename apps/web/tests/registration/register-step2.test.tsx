@@ -57,7 +57,7 @@ describe('F1.4 criterion 4 [FR-REG-004 · AC-084 · AC-088 · BR-068] step 2 fie
     expect(submit()).toBeInTheDocument();
   });
 
-  it('[BR-068][AC-084] ONE required checkbox for terms, privacy and 18+, with links to the placeholder pages that open in a new tab', async () => {
+  it('[BR-068][AC-084] ONE required checkbox for terms, privacy and 18+, with links to the public documents that open in a new tab', async () => {
     const { port } = makePort(ok());
     await toStep2(user(), port);
     expect(consentBox()).not.toBeChecked();
