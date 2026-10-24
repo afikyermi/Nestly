@@ -122,6 +122,12 @@ export async function setupGroups(page: Page, start: StubGroup[] = [WALKS]): Pro
     // I10-C (§11.15, §11.16)
     if (sub === 'enforcements') {
       if (req.method() === 'POST') return route.fulfill({ status: 204, headers: CORS });
+      // OP-070: the caller's own records — the current mute, when there is one
+      const mute = group.myMute ?? null;
+      if (parts[4] === 'mine' && mute !== null) {
+        const record = { id: NID(31), userId: NID(11), fullName: 'דנה כהן', kind: 'warn_mute', reason: mute.reason, reasonText: mute.reasonText, muteUntil: mute.until, createdAt: '2026-06-15T10:00:00.000Z' };
+        return json(route, 200, { records: [record] });
+      }
       return json(route, 200, { records: [] });
     }
     if (sub === 'invitations') {

@@ -3,7 +3,9 @@
 //      and the other member sees the post in the main feed, labelled "מתוך: <name>"; a post that is not a Highlight stays on the Group page.
 //   2. The Owner makes a member Group Moderator, who warns and mutes the other member (a reason, 7 days): that member sees the notice and
 //      the read-only banner, has no composer, and the server refuses a post. Then remove + block and unblock.
-//   3. A Private Group: a member's invitation of a Friend waits for the Owner, who approves it on the management tab; then the Friend sees it.
+//      C reads their own history on "about" (OP-070): the three records, never who acted.
+//   3. A Private Group: a member's invitation of a Friend waits for the Owner, who approves it on the management tab; then the Friend sees
+//      it, accepts it on the Group page and is a member; the Owner sees the new member in the members list.
 // Every user is fresh (the cleanup sweep's email pattern). No recovery attempts are made.
 import { randomBytes } from 'node:crypto';
 import type { BrowserContext, Page } from '@playwright/test';
@@ -75,7 +77,7 @@ async function personId(page: Page, authorization: string, name: string): Promis
   return id;
 }
 
-test('[FR-GRP-001 FR-GRP-002 FR-GRP-003 FR-ALG-010 AC-038 AC-066 §11.13-11.17] Group Highlights in the feed, warning + mute, invitations with approval', async ({
+test('[FR-GRP-001 FR-GRP-002 FR-GRP-003 FR-ALG-010 AC-038 AC-066 AC-164 AC-167 AC-168 OP-070 §11.13-11.17] Group Highlights in the feed, warning + mute, invitations with approval', async ({
   page,
   browser,
   baseURL,
@@ -171,6 +173,17 @@ test('[FR-GRP-001 FR-GRP-002 FR-GRP-003 FR-ALG-010 AC-038 AC-066 §11.13-11.17] 
     expect((await api(bPage, bAuth, `/api/groups/${groupId}/bans/${cId}`, { method: 'DELETE' })).status).toBe(204);
     expect(field((await api(cPage, cAuth, `/api/groups/${groupId}`)).body, 'state')).toBe('none');
 
+    // C reads their own enforcement history on "about" (OP-070), newest first, with the reason and never the manager
+    await cPage.goto(`/groups/${groupId}`);
+    await main(cPage).getByRole('tab', { name: 'על הקבוצה' }).click();
+    const mine = main(cPage).getByRole('region', { name: 'האכיפה כלפיי בקבוצה' });
+    await expect(mine.getByRole('listitem')).toHaveCount(3);
+    await expect(mine.getByRole('listitem').nth(0)).toContainText('ביטול חסימה');
+    await expect(mine.getByRole('listitem').nth(1)).toContainText('הסרה וחסימה');
+    await expect(mine.getByRole('listitem').nth(2)).toContainText('אזהרה והשתקה');
+    await expect(mine).toContainText('ספאם או פרסום');
+    await expect(mine).not.toContainText(bName);
+
     // 3. A Private Group: B (a member) invites C (a Friend); it waits for the Owner, who approves it on the management tab
     const priv = await api(page, ownerAuth, '/api/groups', { method: 'POST', body: { name: `מעגל ${family}`, privacy: 'private' } });
     const privId = String(field(priv.body, 'id'));
@@ -190,6 +203,16 @@ test('[FR-GRP-001 FR-GRP-002 FR-GRP-003 FR-ALG-010 AC-038 AC-066 §11.13-11.17] 
     await cPage.goto('/groups');
     await expect(main(cPage).getByText(`מעגל ${family}`).first()).toBeVisible();
     expect(list((await api(cPage, cAuth, '/api/group-invitations')).body, 'invitations').some((i) => field(field(i, 'group'), 'id') === privId)).toBe(true);
+
+    // C accepts on the Private Group's page and is a member; the Owner sees C among the members
+    await cPage.goto(`/groups/${privId}`);
+    await expect(main(cPage).getByText('הוזמנת לקבוצה הזו')).toBeVisible({ timeout: 20_000 });
+    await main(cPage).getByRole('button', { name: 'הצטרפות', exact: true }).click();
+    await expect(main(cPage).getByText(/חברים בקבוצה · חבר$/)).toBeVisible({ timeout: 20_000 });
+    await page.goto(`/groups/${privId}`);
+    await main(page).getByRole('tab', { name: 'חברים' }).click();
+    await expect(main(page).getByRole('listitem').filter({ hasText: cName })).toBeVisible({ timeout: 20_000 });
+    await expect(main(page).getByText('3 חברים בקבוצה', { exact: false })).toBeVisible();
   } finally {
     for (const context of contexts) await context.close();
   }

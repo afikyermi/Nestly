@@ -12,6 +12,7 @@
 //   GET    /api/groups/:id/members                      → 200 { members }        PATCH /api/groups/:id/members/:userId { role } → 200 { members }
 //   POST   /api/groups/:id/enforcements { userId, kind, reason, reasonText?, muteHours? } → 204 (warn+mute, remove+block; I10-C)
 //   GET    /api/groups/:id/enforcements → 200 { records }   GET /api/groups/:id/invitations → 200 { invitations } (awaiting approval)
+//   GET    /api/groups/:id/enforcements/mine → 200 { records } (the records about the caller, any account; OP-070)
 //   PUT    /api/groups/:id/invitations/:invitationId { decision } → 204
 //   GET    /api/groups/:id/requests                     → 200 { people }         PUT /api/groups/:id/requests/:userId { decision } → 204
 //   GET    /api/groups/:id/bans                         → 200 { people }         DELETE /api/groups/:id/bans/:userId → 204

@@ -118,7 +118,7 @@ describe('[I10-C] Group Highlights, exposure, invitations and enforcement', () =
   let anonymous = '';
   let privHighlight = '';
 
-  it('[FR-GRP-001 FR-ALG-010 AC-066 BR-060 §11.13] a Group post reaches its members\' main feed only as a Highlight, with "מתוך"; the rest stays in the Group', T, async () => {
+  it('[FR-GRP-001 FR-ALG-010 AC-066 AC-164 AC-165 BR-060 §11.13] a Group post reaches its members\' main feed only as a Highlight, with "מתוך"; the rest stays in the Group', T, async () => {
     pub = await createGroup(owner, 'שכונה ערה', 'public');
     for (const who of [a, b, c]) expect((await call('PUT', `/api/groups/${pub}/membership`, who)).statusCode).toBe(200);
     const detail = groupDetail.parse(body(await call('GET', `/api/groups/${pub}`, a)));
@@ -141,7 +141,7 @@ describe('[I10-C] Group Highlights, exposure, invitations and enforcement', () =
     expect(highlights.items.map((u) => u.id)).toEqual([highlight]);
   });
 
-  it('[§11.13 FR-FEED-001] a non-member never gets a Group\'s Highlight in the main feed (a Public one neither); it gets the active Group as a unit', T, async () => {
+  it('[§11.13 FR-FEED-001 AC-164 AC-166] a non-member never gets a Group\'s Highlight in the main feed (a Public one neither); it gets the active Group as a unit', T, async () => {
     const feed = await wholeFeed(outsider);
     expect(feed.units.map((u) => u.id)).not.toContain(highlight);
     expect((feed.first.suggestedGroups ?? []).map((g) => g.id), '§11.14: an active Public Group is suggested to a non-member').toContain(pub);
@@ -151,7 +151,7 @@ describe('[I10-C] Group Highlights, exposure, invitations and enforcement', () =
     expect((mine.first.suggestedGroups ?? []).map((g) => g.id), 'never a Group one is already in').not.toContain(pub);
   });
 
-  it('[§11.13 OP-045 FR-FEED-005] an anonymous Highlight stays anonymous in the feed, with its Group', T, async () => {
+  it('[§11.13 OP-045 FR-FEED-005 AC-164] an anonymous Highlight stays anonymous in the feed, with its Group', T, async () => {
     anonymous = await groupPost(a, pub, 'שאלה אנונימית', true);
     for (const who of [owner, b, c]) await like(who, anonymous);
     const unit = (await wholeFeed(b)).units.find((u) => u.id === anonymous);
@@ -160,7 +160,7 @@ describe('[I10-C] Group Highlights, exposure, invitations and enforcement', () =
     expect(unit?.kind === 'post' ? unit.group?.id : undefined).toBe(pub);
   });
 
-  it('[§11.13 BR-032] a Private Group\'s Highlight reaches its members and no one else', T, async () => {
+  it('[§11.13 BR-032 AC-164 AC-166] a Private Group\'s Highlight reaches its members and no one else', T, async () => {
     priv = await createGroup(owner, 'סוד קטן', 'private');
     for (const who of [a, b, c]) {
       expect((await call('PUT', `/api/groups/${priv}/membership`, who)).statusCode).toBe(200);
@@ -177,7 +177,7 @@ describe('[I10-C] Group Highlights, exposure, invitations and enforcement', () =
     expect((out.first.suggestedGroups ?? []).map((g) => g.id), 'a Private Group is never suggested from its activity').not.toContain(priv);
   });
 
-  it('[§11.14 FR-SEARCH-001] two Groups that match alike: the active one ranks first in search and discovery; a quiet one is not lifted', T, async () => {
+  it('[§11.14 FR-SEARCH-001 AC-166] two Groups that match alike: the active one ranks first in search and discovery; a quiet one is not lifted', T, async () => {
     const still = await createGroup(owner, 'מפגש גלים שקט', 'public');
     const lively = await createGroup(owner, 'מפגש גלים חי', 'public');
     for (const who of [a, b, c]) expect((await call('PUT', `/api/groups/${lively}/membership`, who)).statusCode).toBe(200);
@@ -191,7 +191,7 @@ describe('[I10-C] Group Highlights, exposure, invitations and enforcement', () =
     expect((out.first.suggestedGroups ?? []).map((g) => g.id), 'a quiet Group is never suggested').not.toContain(still);
   });
 
-  it('[FR-GRP-002 §11.15] any member invites a Friend; in a Private Group it waits for the Owner, who approves; the invitee joins', T, async () => {
+  it('[FR-GRP-002 AC-050 AC-167 §11.15] any member invites a Friend; in a Private Group it waits for the Owner, who approves; the invitee joins', T, async () => {
     const sent = await call('POST', `/api/groups/${priv}/invitations`, a, { userId: outsider });
     expect([sent.statusCode, body(sent)]).toEqual([200, { status: 'awaiting_approval' }]);
     const before = groupInvitationsResponse.parse(body(await call('GET', '/api/group-invitations', outsider)));
@@ -215,7 +215,7 @@ describe('[I10-C] Group Highlights, exposure, invitations and enforcement', () =
     expect([publicInvite.statusCode, body(publicInvite)], 'a Public Group: sent at once').toEqual([200, { status: 'sent' }]);
   });
 
-  it('[FR-GRP-003 AC-038 §11.16] warning + mute: read-only with a notice; remove + block; unblock; a plain member enforces nothing', T, async () => {
+  it('[FR-GRP-003 AC-038 AC-168 §11.16] warning + mute: read-only with a notice; remove + block; unblock; a plain member enforces nothing', T, async () => {
     expect((await call('PATCH', `/api/groups/${pub}/members/${b}`, owner, { role: 'moderator' })).statusCode).toBe(200);
     expect((await call('POST', `/api/groups/${pub}/enforcements`, a, { userId: c, kind: 'warn_mute', reason: 'spam', muteHours: 24 })).statusCode).toBe(403);
     expect((await call('POST', `/api/groups/${pub}/enforcements`, b, { userId: c, kind: 'warn_mute', reason: 'spam' })).statusCode, 'a mute has its duration').toBe(400);
@@ -232,6 +232,14 @@ describe('[I10-C] Group Highlights, exposure, invitations and enforcement', () =
     expect([notice?.targetKind, notice?.targetId, notice?.actorName], 'no manager is named').toEqual(['group', pub, null]);
     expect((await call('POST', '/api/posts', c, { body: 'מושתק', audience: 'everyone', groupId: pub })).statusCode).toBe(403);
     expect((await call('POST', `/api/groups/${pub}/invitations`, c, { userId: outsider })).statusCode).toBe(403);
+    expect([403, 404], 'AC-168: no comment').toContain((await call('POST', `/api/posts/${highlight}/comments`, c, { body: 'מושתק' })).statusCode);
+    expect([403, 404], 'AC-168: no like').toContain((await call('PUT', `/api/posts/${quiet}/like`, c)).statusCode);
+    expect((await call('POST', `/api/groups/${pub}/recommendations`, c, { userId: outsider })).statusCode, 'AC-168: no recommendation').toBe(403);
+    const own = groupEnforcementsResponse.parse(body(await call('GET', `/api/groups/${pub}/enforcements/mine`, c)));
+    expect(own.records.map((r) => [r.kind, r.reason, r.reasonText]), 'OP-070: the member reads their own record').toEqual([['warn_mute', 'other', 'נא לשמור על טון מכבד']]);
+    expect(own.records[0]?.muteUntil).toBe(seen.myMute?.until);
+    expect(JSON.stringify(own), 'never who acted').not.toContain(b);
+    expect(groupEnforcementsResponse.parse(body(await call('GET', `/api/groups/${pub}/enforcements/mine`, a))).records, 'nor anyone else').toEqual([]);
     expect(feedPageResponse.parse(body(await call('GET', `/api/groups/${pub}/posts`, c))).items.length, 'a muted member still reads').toBeGreaterThan(0);
     const history = groupEnforcementsResponse.parse(body(await call('GET', `/api/groups/${pub}/enforcements`, b)));
     expect(history.records.map((r) => [r.kind, r.userId, r.fullName])).toEqual([['warn_mute', c, 'Chen Member']]);
@@ -240,6 +248,8 @@ describe('[I10-C] Group Highlights, exposure, invitations and enforcement', () =
     expect((await call('DELETE', `/api/groups/${pub}/members/${c}`, b)).statusCode, 'no plain removal').toBe(404);
     expect((await call('POST', `/api/groups/${pub}/enforcements`, b, { userId: c, kind: 'remove_block', reason: 'offensive' })).statusCode).toBe(204);
     expect(groupDetail.parse(body(await call('GET', `/api/groups/${pub}`, c))).state).toBe('blocked');
+    const removed = groupEnforcementsResponse.parse(body(await call('GET', `/api/groups/${pub}/enforcements/mine`, c)));
+    expect(removed.records.map((r) => r.kind), 'OP-070: a removed user still reads their history (no longer a member)').toEqual(['remove_block', 'warn_mute']);
     expect((await call('PUT', `/api/groups/${pub}/membership`, c)).statusCode).toBe(403);
     expect((await call('DELETE', `/api/groups/${pub}/bans/${c}`, b)).statusCode).toBe(204);
     expect(groupDetail.parse(body(await call('GET', `/api/groups/${pub}`, c))).state).toBe('none');

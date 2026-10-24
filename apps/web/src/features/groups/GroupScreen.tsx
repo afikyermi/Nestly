@@ -26,6 +26,7 @@ import {
 } from '@/services/api/groups';
 import { GroupManage } from './GroupManage';
 import { GroupMembers } from './GroupMembers';
+import { GroupMyHistory } from './GroupMyHistory';
 import {
   ACCEPT_LABEL,
   ACTION_FAILED_TEXT,
@@ -385,21 +386,24 @@ export function GroupScreen({ groupId, discussion }: GroupScreenProps) {
         ) : null}
         {tab === 'members' ? <GroupMembers group={group} onChanged={() => void reload()} /> : null}
         {tab === 'about' ? (
-          <section className="flex flex-col gap-4 rounded-lg bg-card p-4 shadow-card">
-            <div>
-              <h2 className="text-h3">{DESCRIPTION_LABEL}</h2>
-              <p className="mt-1 whitespace-pre-line text-body">{group.description ?? NO_DESCRIPTION_TEXT}</p>
-            </div>
-            <div>
-              <h2 className="text-h3">{PRIVACY_LABEL[group.privacy]}</h2>
-              <p className="mt-1 text-body">{PRIVACY_HINT[group.privacy]}</p>
-            </div>
-            <div>
-              <h2 className="text-h3">{RULES_LABEL}</h2>
-              <p className="mt-1 whitespace-pre-line text-body">{group.rules ?? NO_RULES_TEXT}</p>
-            </div>
-            {group.highlightThreshold === null ? null : <p className="text-small text-muted-foreground">{highlightRule(group.highlightThreshold)}</p>}
-          </section>
+          <div className="flex flex-col gap-4">
+            <section className="flex flex-col gap-4 rounded-lg bg-card p-4 shadow-card">
+              <div>
+                <h2 className="text-h3">{DESCRIPTION_LABEL}</h2>
+                <p className="mt-1 whitespace-pre-line text-body">{group.description ?? NO_DESCRIPTION_TEXT}</p>
+              </div>
+              <div>
+                <h2 className="text-h3">{PRIVACY_LABEL[group.privacy]}</h2>
+                <p className="mt-1 text-body">{PRIVACY_HINT[group.privacy]}</p>
+              </div>
+              <div>
+                <h2 className="text-h3">{RULES_LABEL}</h2>
+                <p className="mt-1 whitespace-pre-line text-body">{group.rules ?? NO_RULES_TEXT}</p>
+              </div>
+              {group.highlightThreshold === null ? null : <p className="text-small text-muted-foreground">{highlightRule(group.highlightThreshold)}</p>}
+            </section>
+            {reviewing ? null : <GroupMyHistory groupId={group.id} />}
+          </div>
         ) : null}
         {tab === 'manage' && rank >= 2 ? (
           <GroupManage

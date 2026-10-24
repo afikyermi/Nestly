@@ -79,6 +79,18 @@ export async function listEnforcements(database: Database, identity: Identity, i
   });
 }
 
+/**
+ * GET /api/groups/:id/enforcements/mine (OP-070, §13): the records about the caller in this Group — a warning and mute (also after it
+ * ended), a removal and block, its lifting — for any account, a member or one who was removed; never who acted. The policy lets each user
+ * read only their own records; the statement asks for no more.
+ */
+export async function listMyEnforcements(database: Database, identity: Identity, id: string): Promise<GroupResult<GroupEnforcementRecord[]>> {
+  return asMember(database, identity, async (tx) => {
+    if ((await readGroupDetail(tx, id)) === undefined) return fail('group_unavailable');
+    return ok(await readEnforcements(tx, id, GROUP_MEMBERS_PAGE_SIZE, true));
+  });
+}
+
 /** GET /api/groups/:id/invitations: the invitations waiting for approval (the Owner and Admins), oldest first. */
 export async function listAwaitingInvitations(database: Database, identity: Identity, id: string): Promise<GroupResult<GroupPendingInvitation[]>> {
   return asMember(database, identity, async (tx) => {

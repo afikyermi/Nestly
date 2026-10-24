@@ -20,7 +20,7 @@ async function signIn(page: Page): Promise<void> {
 
 const OWNED: StubGroup = { ...WALKS, myRole: 'owner', state: 'member', privacy: 'private', memberCount: 12 };
 
-test('[FR-GRP-001 FR-FEED-001 §11.13 §11.14] the main feed: a Group\'s Highlight says "מתוך: <name>" and links to it; active Groups are suggested', async ({ page }) => {
+test('[FR-GRP-001 FR-FEED-001 AC-164 AC-166 §11.13 §11.14] the main feed: a Group\'s Highlight says "מתוך: <name>" and links to it; active Groups are suggested', async ({ page }) => {
   await setupGroups(page);
   await page.route('**/api/feed**', (route) =>
     json(route, 200, {
@@ -45,7 +45,7 @@ test('[FR-GRP-001 FR-FEED-001 §11.13 §11.14] the main feed: a Group\'s Highlig
   await expect.poll(() => pathOf(page)).toBe(`/groups/${GID(1)}`);
 });
 
-test('[FR-GRP-003 AC-038 §11.16] a Group manager warns and mutes a member (a reason and a duration), or removes and blocks; there is no plain removal', async ({ page }) => {
+test('[FR-GRP-003 AC-038 AC-168 §11.16] a Group manager warns and mutes a member (a reason and a duration), or removes and blocks; there is no plain removal', async ({ page }) => {
   const net = await setupGroups(page, [OWNED]);
   await signIn(page);
   await page.goto(`/groups/${GID(1)}`);
@@ -76,7 +76,7 @@ test('[FR-GRP-003 AC-038 §11.16] a Group manager warns and mutes a member (a re
   await expect(main(page).getByText('יוסי כהן')).toHaveCount(0);
 });
 
-test('[FR-GRP-002 §11.15 PG-035] the Owner sees an invitation waiting for approval beside the Join Requests and approves it', async ({ page }) => {
+test('[FR-GRP-002 AC-167 §11.15 PG-035] the Owner sees an invitation waiting for approval beside the Join Requests and approves it', async ({ page }) => {
   const net = await setupGroups(page, [OWNED]);
   await signIn(page);
   await page.goto(`/groups/${GID(1)}`);
@@ -88,7 +88,7 @@ test('[FR-GRP-002 §11.15 PG-035] the Owner sees an invitation waiting for appro
   expect(net.writes.find((w) => w.path === `/api/groups/${GID(1)}/invitations/${NID(21)}`)?.body).toEqual({ decision: 'approve' });
 });
 
-test('[FR-GRP-002 §11.15 §11.16] a member invites a Friend to a Private Group (waits for approval); a muted member reads only', async ({ page }) => {
+test('[FR-GRP-002 AC-167 AC-168 OP-070 §11.15 §11.16] a member invites a Friend to a Private Group (waits for approval); a muted member reads only', async ({ page }) => {
   const member: StubGroup = { ...WALKS, myRole: 'member', state: 'member', privacy: 'private' };
   const net = await setupGroups(page, [member]);
   await signIn(page);
@@ -108,4 +108,11 @@ test('[FR-GRP-002 §11.15 §11.16] a member invites a Friend to a Private Group 
   await expect(main(page).getByRole('button', { name: 'פרסום', exact: true })).toHaveCount(0);
   await main(page).getByRole('button', { name: 'עוד פעולות בקבוצה' }).click();
   await expect(page.getByRole('menuitem', { name: 'הזמנת חברים' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  // OP-070: the member reads their own enforcement history on "about", without the manager
+  await main(page).getByRole('tab', { name: 'על הקבוצה' }).click();
+  const mine = main(page).getByRole('region', { name: 'האכיפה כלפיי בקבוצה' });
+  await expect(mine.getByRole('listitem')).toHaveCount(1);
+  await expect(mine).toContainText('אזהרה והשתקה');
+  await expect(mine).toContainText('ספאם או פרסום');
 });

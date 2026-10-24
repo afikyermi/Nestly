@@ -148,6 +148,9 @@ export const enforceMember = (token: string, id: string, body: GroupEnforcementB
   call(token, 'POST', `${g(id)}/enforcements`, body, NOTHING);
 export const listEnforcements = (token: string, id: string): Promise<GroupsOutcome<GroupEnforcementRecord[]>> =>
   call(token, 'GET', `${g(id)}/enforcements`, undefined, listOf('records', groupEnforcementsResponse));
+/** OP-070: the records about the caller in this Group (any account; never who acted). */
+export const listMyEnforcements = (token: string, id: string): Promise<GroupsOutcome<GroupEnforcementRecord[]>> =>
+  call(token, 'GET', `${g(id)}/enforcements/mine`, undefined, listOf('records', groupEnforcementsResponse));
 export const listAwaitingInvitations = (token: string, id: string): Promise<GroupsOutcome<GroupPendingInvitation[]>> =>
   call(token, 'GET', `${g(id)}/invitations`, undefined, listOf('invitations', groupPendingInvitationsResponse));
 export const decideInvitation = (token: string, id: string, invitationId: string, decision: 'approve' | 'reject'): Promise<GroupsOutcome<null>> =>

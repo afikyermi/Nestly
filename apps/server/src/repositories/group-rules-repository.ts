@@ -36,14 +36,19 @@ const recordRow = z.object({
   createdAt: z.string(),
 });
 
-/** The Group's enforcement history the caller may read (its Moderators and higher), newest first; never who acted. */
-export async function readEnforcements(tx: IdentityTx, groupId: string, limit: number): Promise<z.infer<typeof recordRow>[]> {
+/**
+ * The Group's enforcement history the caller may read (its Moderators and higher read all of it; anyone reads the records about them),
+ * newest first; never who acted. `mine`: only the records about the caller (OP-070: the member's own history, also after a mute ended
+ * or a removal).
+ */
+export async function readEnforcements(tx: IdentityTx, groupId: string, limit: number, mine = false): Promise<z.infer<typeof recordRow>[]> {
+  const own = mine ? sql`and e.user_id = (select auth.uid())` : sql``;
   const rows = await tx.execute(sql`
     select e.id, e.user_id as "userId", n.full_name as "fullName", e.kind, e.reason_key as reason, e.reason_text as "reasonText",
            to_char(e.mute_until at time zone 'UTC', ${isoMs}) as "muteUntil", to_char(e.created_at at time zone 'UTC', ${isoMs}) as "createdAt"
     from nestly.group_member_enforcements e
     left join nestly.regular_names n on n.user_id = e.user_id
-    where e.group_id = ${groupId}::uuid
+    where e.group_id = ${groupId}::uuid ${own}
     order by e.created_at desc, e.id
     limit ${limit}`);
   return z.array(recordRow).parse(rows);

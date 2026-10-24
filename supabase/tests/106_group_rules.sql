@@ -120,15 +120,15 @@ select is(pg_temp.n('a', $q$ select concat_ws(',', nestly.group_highlight_thresh
                                               nestly.group_highlight_threshold(400), nestly.group_highlight_threshold(401), nestly.group_highlight_threshold(1000),
                                               nestly.group_highlight_threshold(100000)) $q$),
   '3,3,3,4,5,20,20,20,20,20',
-  '[F10.3-a c2 FR-ALG-010 BR-060 AC-066] 5% of the members rounded up, at least 3, at most 20: 10 members -> 3; 61 -> 4; 100 -> 5; 400 -> 20; 1,000 and more never above 20');
+  '[F10.3-a c2 FR-ALG-010 BR-060 AC-066 AC-165] 5% of the members rounded up, at least 3, at most 20: 10 members -> 3; 61 -> 4; 100 -> 5; 400 -> 20; 1,000 and more never above 20');
 
 -- ---- c3 invitations (§11.15, FR-GRP-002, AC-050) -----------------------------------------------------------------------------------
 select set_config('t.circle', pg_temp.mk('b', 'Private circle', 'private'), true);
 select is(pg_temp.admit('b', 'a', 'circle'), 'OK:1/OK:1', '[F10.3-a c3 fixture] a joins the Private Group through an approved request');
 select tests.fx_nt_purge();
-select is(pg_temp.invite('a', 'circle', 'c'), 'OK:1', '[F10.3-a c3 FR-GRP-002] a plain member invites a Friend');
+select is(pg_temp.invite('a', 'circle', 'c'), 'OK:1', '[F10.3-a c3 FR-GRP-002 AC-167] a plain member invites a Friend');
 select is(pg_temp.inv('circle', 'c'), 'awaiting_approval needs_approval=t approved=f', '[F10.3-a c3] in a Private Group it waits for approval');
-select is(pg_temp.count('c', 'nestly.group_invitations'), '0', '[F10.3-a c3] the invitee does not see it yet');
+select is(pg_temp.count('c', 'nestly.group_invitations'), '0', '[F10.3-a c3 AC-167] the invitee does not see it yet');
 select is(pg_temp.count('b', format('nestly.group_invitations where group_id = %L', pg_temp.g('circle'))), '1', '[F10.3-a c3] the Owner sees it');
 select is(pg_temp.count('b', format('nestly.regular_names where user_id = %L', pg_temp.id('c'))), '1', '[F10.3-a c3] with the invitee''s name (to decide)');
 select is(pg_temp.types('b') || '|' || pg_temp.types('c'), 'group_invitation_pending|', '[F10.3-a c3] the Owner is asked to approve; the invitee hears nothing');
@@ -137,17 +137,17 @@ select is(tests.fx_nt_one(pg_temp.id('b'), 'group_invitation_pending'), 'actor='
 select is(pg_temp.inv_set('c', 'circle', 'c', 'accepted'), 'OK:0', '[F10.3-a c3] the invitee cannot accept an invitation that waits');
 select is(pg_temp.inv_set('a', 'circle', 'c', 'pending'), 'ERR:42501', '[F10.3-a c3] the inviting member does not approve it');
 select is(pg_temp.invite('a', 'circle', 'c'), 'ERR:23505', '[F10.3-a c3] one open invitation per Group and invitee');
-select is(pg_temp.inv_set('b', 'circle', 'c', 'pending'), 'OK:1', '[F10.3-a c3 FR-GRP-002] the Owner approves');
+select is(pg_temp.inv_set('b', 'circle', 'c', 'pending'), 'OK:1', '[F10.3-a c3 FR-GRP-002 AC-167] the Owner approves');
 select is(pg_temp.inv('circle', 'c'), 'pending needs_approval=t approved=t', '[F10.3-a c3] now it is open');
 select is(pg_temp.count('c', 'nestly.group_invitations'), '1', '[F10.3-a c3] and the invitee sees it');
-select is(pg_temp.types('c') || '|' || pg_temp.types('a'), 'group_invited|group_invitation_approved', '[F10.3-a c3] the invitee is invited and the inviter told');
+select is(pg_temp.types('c') || '|' || pg_temp.types('a'), 'group_invited|group_invitation_approved', '[F10.3-a c3 AC-167] the invitee is invited and the inviter told');
 select is(pg_temp.inv_set('c', 'circle', 'c', 'accepted'), 'OK:1', '[F10.3-a c3] the invitee accepts');
 select is(pg_temp.role_of('circle', 'c'), 'member', '[F10.3-a c3] and is a member of the Private Group');
 select tests.fx_nt_purge();
 select is(pg_temp.invite('a', 'circle', 'e'), 'OK:1', '[F10.3-a c3] another invitation that waits');
 select is(pg_temp.inv_set('b', 'circle', 'e', 'rejected'), 'OK:1', '[F10.3-a c3] the Owner rejects it');
 select is(pg_temp.count('e', 'nestly.group_invitations'), '0', '[F10.3-a c3] the invitee never sees a rejected invitation');
-select is(pg_temp.types('a') || '|' || pg_temp.types('e'), 'group_invitation_rejected|', '[F10.3-a c3] the inviter is told; the invitee is not');
+select is(pg_temp.types('a') || '|' || pg_temp.types('e'), 'group_invitation_rejected|', '[F10.3-a c3 AC-167] the inviter is told; the invitee is not');
 select is(pg_temp.inv_set('b', 'circle', 'e', 'pending'), 'OK:0', '[F10.3-a c3] a rejected invitation stays rejected');
 select is(pg_temp.invite('a', 'circle', 'f'), 'OK:1', '[F10.3-a c3] one more that waits');
 select is(pg_temp.inv_set('a', 'circle', 'f', 'cancelled'), 'OK:1', '[F10.3-a c3] the inviter cancels it before approval');
@@ -188,18 +188,18 @@ select is(pg_temp.enf('c', 'pub', 'f', 'warn_mute', null, 24), 'ERR:23514', '[F1
 select is(pg_temp.enf('c', 'pub', 'f', 'warn_mute', 'other', 24), 'ERR:23514', '[F10.3-a c4] "other" comes with its text');
 select is(pg_temp.enf('c', 'pub', 'f', 'warn_mute', 'other', 24, repeat('x', 501)), 'ERR:23514', '[F10.3-a c4] of up to 500 characters');
 select is(pg_temp.enf('c', 'pub', 'f', 'warn_mute', 'spam', 168, 'more'), 'ERR:23514', '[F10.3-a c4] text comes only with "other"');
-select is(pg_temp.enf('c', 'pub', 'f', 'warn_mute', 'spam', 24), 'OK:1', '[F10.3-a c4 FR-GRP-003] a Group Moderator warns and mutes a member, together');
+select is(pg_temp.enf('c', 'pub', 'f', 'warn_mute', 'spam', 24), 'OK:1', '[F10.3-a c4 FR-GRP-003 AC-168] a Group Moderator warns and mutes a member, together');
 select is(pg_temp.types('f'), 'group_member_muted', '[F10.3-a c4] the member gets the notice');
 select is(tests.fx_nt_one(pg_temp.id('f'), 'group_member_muted'), 'actor=- target=group:' || pg_temp.g('pub') || ' critical=t read=f',
   '[F10.3-a c4] a critical notice about the Group that does not name the manager');
 select is(pg_temp.n('f', format($q$ select string_agg(kind || ':' || reason_key || ':' || (mute_until > now() + interval '23 hours')::text, ',')
                                      from nestly.group_member_enforcements where group_id = %L $q$, pg_temp.g('pub'))),
-  'warn_mute:spam:true', '[F10.3-a c4 ⭐] the member reads their own notice and when the mute ends');
+  'warn_mute:spam:true', '[F10.3-a c4 ⭐ AC-168 OP-070] the member reads their own notice and when the mute ends');
 select is(pg_temp.count('e', 'nestly.group_member_enforcements'), '0', '[F10.3-a c4 ⭐] another member reads none of it');
 select is(pg_temp.n('f', 'select count(actor_id)::text from nestly.group_member_enforcements'), 'ERR:42501', '[F10.3-a c4] no one reads which manager acted');
 select is(pg_temp.count('c', format('nestly.group_member_enforcements where group_id = %L', pg_temp.g('pub'))), '1', '[F10.3-a c4 ⭐] the Group''s managers read the history');
 select is(pg_temp.count('f', format('nestly.posts where group_id = %L', pg_temp.g('pub'))), '1', '[F10.3-a c4] a muted member still reads the Group');
-select is(pg_temp.gpost('f', 'pub', 'muted post'), 'ERR:42501', '[F10.3-a c4 §11.16] but cannot post');
+select is(pg_temp.gpost('f', 'pub', 'muted post'), 'ERR:42501', '[F10.3-a c4 §11.16 AC-168] but cannot post');
 select is(pg_temp.comment('f', pg_temp.g('pubpost')), 'ERR:42501', '[F10.3-a c4] cannot comment');
 select is(pg_temp.like_post('f', pg_temp.g('pubpost')), 'ERR:42501', '[F10.3-a c4] cannot like');
 select is(pg_temp.invite('f', 'pub', 'a'), 'ERR:42501', '[F10.3-a c4] (the Owner is a member)');
@@ -214,9 +214,9 @@ select is(pg_temp.dml('c', format($q$ update nestly.group_member_enforcements se
 select is(pg_temp.dml('c', format($q$ delete from nestly.group_member_enforcements where group_id = %L $q$, pg_temp.g('pub'))), 'ERR:42501',
   '[F10.3-a c4] nor deleted');
 select tests.fx_grr_end_mute(pg_temp.g('pub'), pg_temp.id('f'));
-select is(pg_temp.gpost('f', 'pub', 'back again'), 'OK:1', '[F10.3-a c4 §11.16] the mute ends by itself: the member posts again');
+select is(pg_temp.gpost('f', 'pub', 'back again'), 'OK:1', '[F10.3-a c4 §11.16 AC-168] the mute ends by itself: the member posts again');
 select is(pg_temp.like_post('f', pg_temp.g('pubpost')), 'OK:1', '[F10.3-a c4] and likes');
-select is(pg_temp.count('c', format('nestly.group_member_enforcements where group_id = %L', pg_temp.g('pub'))), '1', '[F10.3-a c4 ⭐] the ended mute stays as history');
+select is(pg_temp.count('c', format('nestly.group_member_enforcements where group_id = %L', pg_temp.g('pub'))), '1', '[F10.3-a c4 ⭐ AC-168 OP-070] the ended mute stays as history');
 select is(pg_temp.dml('f', format($q$ delete from nestly.group_members where group_id = %L and user_id = %L $q$, pg_temp.g('pub'), pg_temp.id('f'))), 'OK:1',
   '[F10.3-a c4] a member (muted or not) may always leave');
 select pg_temp.join('f', 'pub');
@@ -227,10 +227,10 @@ select is(pg_temp.dml('c', format($q$ delete from nestly.group_members where gro
 select is(pg_temp.role_of('pub', 'e'), 'member', '[F10.3-a c5] who stays a member');
 select is(pg_temp.enf('c', 'pub', 'e', 'remove_block'), 'ERR:23514', '[F10.3-a c5] remove + block has a reason');
 select is(pg_temp.enf('c', 'pub', 'a', 'remove_block', 'offensive'), 'ERR:42501', '[F10.3-a c5 BR-041] a Group Moderator does not remove the Owner');
-select is(pg_temp.enf('c', 'pub', 'e', 'remove_block', 'offensive'), 'OK:1', '[F10.3-a c5 FR-GRP-003] a Group Moderator removes and blocks a member, together');
+select is(pg_temp.enf('c', 'pub', 'e', 'remove_block', 'offensive'), 'OK:1', '[F10.3-a c5 FR-GRP-003 AC-168] a Group Moderator removes and blocks a member, together');
 select is(pg_temp.role_of('pub', 'e') || '|' || tests.fx_grr_banned(pg_temp.g('pub'), pg_temp.id('e'))::text, '-|true', '[F10.3-a c5] out of the Group and blocked, in one statement');
 select is(pg_temp.join('e', 'pub'), 'ERR:42501', '[F10.3-a c5] the blocked user cannot join');
-select is(pg_temp.count('e', format('nestly.group_member_enforcements where group_id = %L', pg_temp.g('pub'))), '1', '[F10.3-a c5 ⭐] reads their own record');
+select is(pg_temp.count('e', format('nestly.group_member_enforcements where group_id = %L', pg_temp.g('pub'))), '1', '[F10.3-a c5 ⭐ OP-070] reads their own record');
 select is(pg_temp.count('c', format('nestly.regular_names where user_id = %L', pg_temp.id('e'))), '1', '[F10.3-a c5] the managers read the name in the history');
 select is(pg_temp.enf('c', 'pub', 'e', 'unblock'), 'OK:1', '[F10.3-a c5 FR-GRP-003] a Group Moderator unblocks');
 select is(tests.fx_grr_banned(pg_temp.g('pub'), pg_temp.id('e')), false, '[F10.3-a c5] the block is lifted');
@@ -240,7 +240,7 @@ select is(pg_temp.enf('a', 'pub', 'e', 'remove_block', 'rules'), 'OK:1', '[F10.3
 select is(pg_temp.enf('c', 'pub', 'e', 'unblock'), 'ERR:42501', '[F10.3-a c5 BR-041 ERR-019] a Group Moderator does not lift a block made by a higher Role');
 select is(pg_temp.enf('a', 'pub', 'e', 'unblock'), 'OK:1', '[F10.3-a c5] the Owner lifts it');
 select is(pg_temp.enf('e', 'pub', 'f', 'remove_block', 'spam'), 'ERR:42501', '[F10.3-a c5] a non-manager removes no one');
-select is(pg_temp.enf('c', 'pub', 'b', 'remove_block', 'spam'), 'OK:1', '[F10.3-a c5] a non-member may be blocked too (cannot join, ask or be invited)');
+select is(pg_temp.enf('c', 'pub', 'b', 'remove_block', 'spam'), 'OK:1', '[F10.3-a c5 AC-167] a non-member may be blocked too (cannot join, ask or be invited)');
 select is(pg_temp.dml('b', format($q$ insert into nestly.group_members (group_id) values (%L) $q$, pg_temp.g('pub'))), 'ERR:42501', '[F10.3-a c5] and cannot join');
 select is(pg_temp.invite('f', 'pub', 'b'), 'ERR:NS028', '[F10.3-a c5] nor be invited, even by a member who cannot see the blocks');
 select is(pg_temp.count('c', format('nestly.group_member_enforcements where group_id = %L', pg_temp.g('pub'))), '6', '[F10.3-a c5 ⭐] every action is in the history');
@@ -256,16 +256,16 @@ select pg_temp.like_post('a', pg_temp.g('hp'));
 select pg_temp.comment('e', pg_temp.g('hp'), 'one');
 select is(tests.fx_grr_highlight(pg_temp.g('hp')), '', '[F10.3-a c6 BR-060] two likes and comments by others, the author''s own like aside: not yet a Highlight (four members: 3)');
 select pg_temp.comment('f', pg_temp.g('hp'), 'two');
-select is(tests.fx_grr_highlight(pg_temp.g('hp')), 'threshold=3 members=4 version=2', '[F10.3-a c6 FR-ALG-010 AC-066] at the threshold it is a Highlight, recorded once');
-select is(pg_temp.count('e', format('nestly.group_highlights where post_id = %L', pg_temp.g('hp'))), '1', '[F10.3-a c6 FR-GRP-001] a member reads it (the main feed)');
-select is(pg_temp.count('c', 'nestly.group_highlights'), '0', '[F10.3-a c6 §11.13] a non-member reads no Highlight of a Private Group');
+select is(tests.fx_grr_highlight(pg_temp.g('hp')), 'threshold=3 members=4 version=2', '[F10.3-a c6 FR-ALG-010 AC-066 AC-165] at the threshold it is a Highlight, recorded once');
+select is(pg_temp.count('e', format('nestly.group_highlights where post_id = %L', pg_temp.g('hp'))), '1', '[F10.3-a c6 FR-GRP-001 AC-164] a member reads it (the main feed)');
+select is(pg_temp.count('c', 'nestly.group_highlights'), '0', '[F10.3-a c6 §11.13 AC-164] a non-member reads no Highlight of a Private Group');
 select is(pg_temp.count('c', format('nestly.posts where id = %L', pg_temp.g('hp'))), '0', '[F10.3-a c6 §11.13] nor its post');
 select is(tests.fn_staff(tests.claims(pg_temp.id('d')), $q$ select count(*)::text from nestly.group_highlights $q$), '0', '[F10.3-a c6 §10.3] nor does staff, outside the audited review');
 select is(pg_temp.dml('a', format($q$ delete from nestly.group_members where group_id = %L and user_id = %L $q$, pg_temp.g('quiet'), pg_temp.id('e'))), 'OK:0',
   '[F10.3-a c6 fixture] (a member removes no one)');
 select pg_temp.dml('e', format($q$ delete from nestly.group_members where group_id = %L and user_id = %L $q$, pg_temp.g('quiet'), pg_temp.id('e')));
 select pg_temp.dml('f', format($q$ delete from nestly.group_members where group_id = %L and user_id = %L $q$, pg_temp.g('quiet'), pg_temp.id('f')));
-select is(tests.fx_grr_highlight(pg_temp.g('hp')), 'threshold=3 members=4 version=2', '[F10.3-a c6 ⭐ OP-048] a Highlight stays when members later leave');
+select is(tests.fx_grr_highlight(pg_temp.g('hp')), 'threshold=3 members=4 version=2', '[F10.3-a c6 ⭐ OP-048 OP-068 AC-165] a Highlight stays when members later leave');
 select is(pg_temp.count('e', 'nestly.group_highlights'), '0', '[F10.3-a c6] and one who left no longer reads it');
 
 select * from finish();

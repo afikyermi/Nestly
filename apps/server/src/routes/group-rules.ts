@@ -38,6 +38,17 @@ export function registerGroupRulesRoutes(app: FastifyInstance, deps: GroupsRoute
     }),
   });
   app.route({
+    method: 'GET',
+    url: '/api/groups/:id/enforcements/mine',
+    handler: guarded('group own enforcements failed', async (database, identity, request, reply) => {
+      const id = groupId(request);
+      if (id === null) return notFound(reply);
+      return send(reply, await rules.listMyEnforcements(database, identity, id), (records) =>
+        reply.code(200).send(groupEnforcementsResponse.parse({ records })),
+      );
+    }),
+  });
+  app.route({
     method: 'DELETE',
     url: '/api/groups/:id/bans/:userId',
     handler: guarded('group unblock failed', async (database, identity, request, reply) => {

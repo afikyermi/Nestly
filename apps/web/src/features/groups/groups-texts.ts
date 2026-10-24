@@ -181,6 +181,7 @@ export const HISTORY_KIND: Record<'warn_mute' | 'remove_block' | 'unblock', stri
   remove_block: 'הסרה וחסימה',
   unblock: 'ביטול חסימה',
 };
+export const MY_HISTORY_TITLE = 'האכיפה כלפיי בקבוצה';
 export const muteUntilLine = (until: string): string => `עד ${until}`;
 export const highlightRule = (threshold: number): string =>
   `פוסט נכנס לעיקרי הדברים ולפיד הראשי של החברים כשהוא מגיע ל-${threshold} לייקים ותגובות של אחרים`;
