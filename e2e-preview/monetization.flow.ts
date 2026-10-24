@@ -159,7 +159,9 @@ test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-
     const promoted = main(page).getByRole('list', { name: 'בעלי מקצוע ממומנים' });
     await expect(promoted.getByRole('link', { name: pro.name })).toBeVisible();
     await expect(promoted).toContainText('ממומן');
-    await expect(main(page).getByRole('list', { name: 'תוצאות' })).not.toContainText(pro.name); // BR-004: never also in the organic list
+    // BR-004, AC-062: the organic list is read exactly as without promotions, so the Professional may also hold its own organic place there
+    // (it matches the field filter); no organic card is ever marked "ממומן"
+    await expect(main(page).getByRole('list', { name: 'תוצאות' })).not.toContainText('ממומן');
     const [clicked] = await Promise.all([
       page.waitForResponse((r) => r.request().method() === 'POST' && /^\/api\/promotions\/[0-9a-f-]{36}\/click$/.test(new URL(r.url()).pathname)),
       promoted.getByRole('link', { name: pro.name }).click(),
