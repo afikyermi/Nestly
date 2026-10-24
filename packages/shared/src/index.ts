@@ -6,3 +6,4 @@ export * from './feed/index.js';
 export * from './search/index.js';
 export * from './media/index.js';
 export * from './tracking/index.js';
+export * from './monitoring/index.js';
