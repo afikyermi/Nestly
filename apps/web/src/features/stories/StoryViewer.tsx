@@ -3,7 +3,7 @@ import type { StoryAuthorGroup } from '@nestly/shared';
 import { MediaTile } from '@/components/shared/media-tile';
 import { Button } from '@/components/ui/button';
 import { SheetPanel, SheetTitle } from '@/components/ui/dialog';
-import { formatPostTime } from '@/lib/format-post-time';
+import { PublishedTime } from '@/components/domain/published-time';
 import { PENDING_LABEL } from '@/lib/media-texts';
 import { CLOSE_LABEL, MEMBER_FALLBACK, MY_STORY_LABEL, NEXT_LABEL, PENDING_HINT, PREVIOUS_LABEL, storyOf, storyPosition } from './stories-texts';
 
@@ -40,7 +40,7 @@ export function StoryViewer({ group, onClose }: StoryViewerProps) {
             </p>
           ) : null}
           <p className="text-small text-muted-foreground">
-            {formatPostTime(current.createdAt)} · {storyPosition(index, items.length)}
+            <PublishedTime iso={current.createdAt} /> · {storyPosition(index, items.length)}
           </p>
           {current.image.state === 'pending' ? <p className="text-small text-muted-foreground">{`${PENDING_LABEL}. ${PENDING_HINT}`}</p> : null}
           <div className="flex items-center justify-between gap-2">

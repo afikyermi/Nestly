@@ -12,6 +12,7 @@ import { OPEN_LIMITED, rateLimitFault, type RateLimited } from '../lib/profile-o
 import type { Identity } from '../lib/token-verifier.js';
 import { readOwnAccounts } from '../repositories/account-state-repository.js';
 import { openProfile } from '../repositories/profile-view-repository.js';
+import { recordProfileOpening } from '../repositories/staff-rules-repository.js';
 import type { MediaStorage } from '../media/storage-admin.js';
 import { readProfilePhotos } from '../repositories/media-repository.js';
 import type { PhotoRow } from '../repositories/media-repository.js';
@@ -29,12 +30,13 @@ export type ViewOutcome =
  * The viewer's state: a stopped account is refused (ERR-037); an account that does not exist is `forbidden`, as in F2.4a. Any active
  * account type may view (a Professional gets the same view, OP-020), so the type is not asked.
  */
-async function classifyViewer(tx: IdentityTx): Promise<ActorRefusal | undefined> {
+async function classifyViewer(tx: IdentityTx): Promise<ActorRefusal | { kind: 'viewer'; isStaff: boolean }> {
   const accounts = await readOwnAccounts(tx);
   if (accounts.length > 1) throw new Error('more than one own users row');
   const [account] = accounts;
   if (account === undefined) return { kind: 'forbidden' };
-  return account.status === 'active' ? undefined : { kind: 'stopped' };
+  if (account.status !== 'active') return { kind: 'stopped' };
+  return { kind: 'viewer', isStaff: account.accountType === 'admin' || account.accountType === 'moderator' };
 }
 
 /** GET /api/profiles/:userId. `targetId` is a lowercase uuid's text form (the route checked it). */
@@ -42,8 +44,11 @@ export async function readUserProfile(database: Database, identity: Identity, ta
   let photoRow: PhotoRow | undefined;
   try {
     const outcome = await inIdentityTransaction(database, identity, async (tx): Promise<ViewOutcome> => {
-      const refusal = await classifyViewer(tx);
-      if (refusal !== undefined) return refusal;
+      const viewer = await classifyViewer(tx);
+      if (viewer.kind !== 'viewer') return viewer;
+      // I14 completion B (BR-081, Afik 21.10.2026): a staff member's opening is recorded (audited) first; in this transaction the database then
+      // shows the profile in full, as a Friend sees it, a restricted one too, and never tracker data (no profile view carries it)
+      if (viewer.isStaff) await recordProfileOpening(tx, targetId);
       const [row, ...others] = await openProfile(tx, targetId);
       if (row === undefined) return { kind: 'unavailable' };
       if (others.length > 0) throw new Error('profile_view returned more than one row');

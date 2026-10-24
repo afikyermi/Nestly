@@ -1,4 +1,5 @@
 import type { PublishedAnnouncement } from '@nestly/shared';
+import { PublishedTime } from '@/components/domain/published-time';
 import { SYSTEM_NOTICES_LABEL } from './feed-texts';
 
 // The published System Announcements at the top of the feed (FR-ADMIN-008): official text from the Nestly team, newest first. Read only: no
@@ -15,6 +16,8 @@ export function SystemNotices({ notices }: { notices: readonly PublishedAnnounce
           <p className="mt-1 whitespace-pre-wrap text-body" dir="auto">
             {notice.body}
           </p>
+          {/* Afik 21.10.2026 (decision 11.8): every publication shows its relative time */}
+          <PublishedTime iso={notice.publishedAt} className="mt-1 block text-small text-muted-foreground" />
         </article>
       ))}
     </section>

@@ -2,7 +2,7 @@ import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ProfessionalProfileWrite } from '@nestly/shared';
 import { createDatabase, type Database } from '../../src/db/client.js';
-import { moderateContent, readReportDetail, readReportQueue } from '../../src/services/admin-service.js';
+import { handleReports, moderateContent, readReportDetail, readReportQueue } from '../../src/services/admin-service.js';
 import { readAdminAnalytics } from '../../src/services/team-service.js';
 import { search } from '../../src/services/search-service.js';
 import { openThread, sendMessage, startChat } from '../../src/services/chat-service.js';
@@ -196,16 +196,18 @@ describe('[I11 follow-ups] Professionals', () => {
     const reviewDetail = ok(await readReportDetail(database, as(admin), 'review', review.id)).detail;
     expect(reviewDetail.user).toBeNull(); // a review never names its writer
 
-    const before = Number(await text(side`select tests.fx_sf_audit('content_hidden') as v`));
-    ok(await moderateContent(database, as(admin), { targetKind: 'review', targetId: review.id, status: 'hidden', reason: 'פוגעני' }));
-    expect(Number(await text(side`select tests.fx_sf_audit('content_hidden') as v`))).toBe(before + 1);
+    // I14 completion B (OP-053, AC-159): no hide on its own any more; a justified report deletes the review (audited)
+    expect(await moderateContent(database, as(admin), { targetKind: 'review', targetId: review.id, status: 'hidden', reason: 'פוגעני' })).toEqual({ kind: 'invalid' });
+    const before = Number(await text(side`select tests.fx_sf_audit('content_deleted') as v`));
+    ok(await handleReports(database, as(admin), { targetKind: 'review', targetId: review.id, resolution: 'action_taken', moderation: { status: 'removed', reason: 'פוגעני' } }));
+    expect(Number(await text(side`select tests.fx_sf_audit('content_deleted') as v`))).toBe(before + 1);
     const shown = ok(await readProfessional(database, as(noa), pro)).page;
     expect(shown.reviews.map((item) => item.id)).not.toContain(review.id);
-    // BR-072 (SRS audit 21.10): the Professional's own dashboard shows the public rating, without the hidden review
+    // BR-072 (SRS audit 21.10): the Professional's own dashboard shows the public rating, without the deleted review
     const dashboard = ok(await readProfessionalHome(database, as(pro))).dashboard;
     expect({ rating: dashboard.rating, reviewCount: dashboard.reviewCount }).toEqual({ rating: shown.rating, reviewCount: shown.reviewCount });
     expect(dashboard.reviewCount).toBe(0);
-    expect(await moderateContent(database, as(noa), { targetKind: 'article', targetId: article.id, status: 'removed', reason: 'x' })).toEqual({ kind: 'forbidden' });
+    expect(await moderateContent(database, as(noa), { targetKind: 'article', targetId: article.id, status: 'active', reason: 'x' })).toEqual({ kind: 'forbidden' });
 
     // the owner deletes the reported article: its open report expires with it
     ok(await removeArticle(database, as(pro), article.id));

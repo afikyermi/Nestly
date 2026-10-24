@@ -17,7 +17,7 @@ import { conversationPath } from '@/lib/chat-link';
 import { PRO_PROFILE_PATH } from '@/lib/professional-link';
 import { documentTitle } from '@/lib/document-title';
 import { ALREADY_REPORTED_STATUS, REPORT_RECEIVED_STATUS, REPORT_UNAVAILABLE_STATUS } from '@/lib/report-texts';
-import { formatPostTime } from '@/lib/format-post-time';
+import { PublishedTime } from '@/components/domain/published-time';
 import {
   ABOUT_HEADING,
   ACTION_FAILED,
@@ -264,7 +264,7 @@ export function ProfessionalScreen({ professionalId }: { professionalId: string 
                   />
                 </div>
                 <p className="mt-1 whitespace-pre-line">{item.text}</p>
-                <p className="mt-1 text-small text-muted-foreground">{formatPostTime(item.at)}</p>
+                <p className="mt-1 text-small text-muted-foreground"><PublishedTime iso={item.at} /></p>
               </li>
             ))}
           </ul>

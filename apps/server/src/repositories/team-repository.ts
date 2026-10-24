@@ -3,12 +3,15 @@
 // ANALYTICS_VIEW on the analytics screen (nestly.analytics_view). A `where` names the rows a step works on; the policy is the limit.
 
 import {
+  ANNOUNCEMENT_AUDIENCES,
   FEED_ANNOUNCEMENTS_MAX,
+  JOURNEY_STAGES,
   PERMISSION_KEYS,
   SUPPORT_TOPICS,
   type AnalyticsPeriod,
   type AnalyticsView,
   type Announcement,
+  type AnnouncementRequest,
   type PermissionKey,
   type PublishedAnnouncement,
   type ReportReasonCreate,
@@ -143,11 +146,13 @@ const announcementRow = z.object({
   title: z.string(),
   body: z.string(),
   status: z.enum(['draft', 'published', 'removed']),
+  audience: z.enum(ANNOUNCEMENT_AUDIENCES),
+  audienceStage: z.enum(JOURNEY_STAGES).nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
   publishedAt: z.string().nullable(),
 });
-const announcementColumns = sql`id, title, body, status, to_char(created_at at time zone 'UTC', ${isoMs}) as "createdAt",
+const announcementColumns = sql`id, title, body, status, audience, audience_stage as "audienceStage", to_char(created_at at time zone 'UTC', ${isoMs}) as "createdAt",
   to_char(updated_at at time zone 'UTC', ${isoMs}) as "updatedAt", to_char(published_at at time zone 'UTC', ${isoMs}) as "publishedAt"`;
 
 /** Every announcement the key holder reads, drafts first then newest. */
@@ -160,15 +165,24 @@ export async function readAnnouncements(tx: IdentityTx): Promise<Announcement[]>
   );
 }
 
-export async function insertAnnouncement(tx: IdentityTx, title: string, body: string): Promise<Announcement | undefined> {
-  return z.array(announcementRow).parse(await tx.execute(sql`insert into nestly.system_announcements (title, body) values (${title}, ${body}) returning ${announcementColumns}`))[0];
+export async function insertAnnouncement(tx: IdentityTx, request: AnnouncementRequest): Promise<Announcement | undefined> {
+  return z
+    .array(announcementRow)
+    .parse(
+      await tx.execute(sql`insert into nestly.system_announcements (title, body, audience, audience_stage)
+        values (${request.title}, ${request.body}, ${request.audience}, ${request.audienceStage}) returning ${announcementColumns}`),
+    )[0];
 }
 
 /** Edits a draft or published announcement; undefined when nothing was written (removed, unknown, not allowed, or no change). */
-export async function updateAnnouncement(tx: IdentityTx, id: string, title: string, body: string): Promise<Announcement | undefined> {
+export async function updateAnnouncement(tx: IdentityTx, id: string, request: AnnouncementRequest): Promise<Announcement | undefined> {
   return z
     .array(announcementRow)
-    .parse(await tx.execute(sql`update nestly.system_announcements set title = ${title}, body = ${body} where id = ${id}::uuid returning ${announcementColumns}`))[0];
+    .parse(
+      await tx.execute(sql`update nestly.system_announcements
+        set title = ${request.title}, body = ${request.body}, audience = ${request.audience}, audience_stage = ${request.audienceStage}
+        where id = ${id}::uuid returning ${announcementColumns}`),
+    )[0];
 }
 
 export async function setAnnouncementStatus(tx: IdentityTx, id: string, status: 'published' | 'removed'): Promise<Announcement | undefined> {
@@ -201,6 +215,9 @@ export async function readPublishedAnnouncements(tx: IdentityTx): Promise<Publis
       await tx.execute(sql`
         select id, title, body, to_char(published_at at time zone 'UTC', ${isoMs}) as "publishedAt"
         from nestly.system_announcements where status = 'published'
+          -- who may read which announcement is the database's (system_announcements_select_published). This line is no permission: a
+          -- SYSTEM_ANNOUNCEMENTS holder may read them all (the admin screen), but a staff account's FEED shows the everyone ones only (FR-ADMIN-008)
+          and (audience = 'everyone' or nestly.caller_staff_role() is null)
         order by published_at desc, id
         limit ${FEED_ANNOUNCEMENTS_MAX}`),
     );

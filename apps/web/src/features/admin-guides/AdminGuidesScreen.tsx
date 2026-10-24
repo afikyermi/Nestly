@@ -174,11 +174,8 @@ export function AdminGuidesScreen() {
                   {GUIDES_TEXT.edit}
                 </Button>
                 {guide.status !== 'published' ? (
-                  <Button
-                    type="button"
-                    variant="text"
-                    onClick={() => (guide.sourceCheckedOn === null ? setNotice(GUIDES_TEXT.needsSourceDate) : setMove({ guide, status: 'published', pending: false, failure: null }))}
-                  >
+                  // FR-ADMIN-012 (Afik 21.10.2026): the source check date is not a condition for publishing
+                  <Button type="button" variant="text" onClick={() => setMove({ guide, status: 'published', pending: false, failure: null })}>
                     {GUIDES_TEXT.publish}
                   </Button>
                 ) : null}

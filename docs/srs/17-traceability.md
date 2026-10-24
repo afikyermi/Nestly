@@ -28,12 +28,12 @@
 | PG-024/025/026 | שליחת פנייה ל-Support / טיפול בתיבת הפניות / תצוגת ה-Analytics לניהול / חישוב נתוני הניהול | FR-ADMIN-001..003/010 / FR-CHAT-004 / FR-DATA-001 | UC-12/13/31/41 | SupportRequest, Conversation/Message, AnalyticsEvent, AnalyticsAggregate, ModeratorPermission, AuditLogEntry, AlgorithmConfiguration |
 | Multiple / פעולת דיווח | טיפול בדיווחים | FR-MOD-001 | UC-26 | Report, Post, Comment, User, ProfessionalReview, ProfessionalArticle (דיווח על ביקורת ומאמר — AC-150) |
 | PG-027 | מסך הרשאות Moderator / ניהול הרשאות Moderator | FR-ADMIN-004 | UC-15 | User, ModeratorPermission, AuditLogEntry |
-| PG-028 | מסך ניהול משתמשים / ניהול משתמשים ואכיפה | FR-MOD-002 | UC-16 | User, AccountEnforcement, AuditLogEntry |
-| PG-028 | תור אישור התמונות ("תמונות לבדיקה") | BR-076 / BR-077 / FR-MOD-003 | — | MediaAsset, TrainingSample, AuditLogEntry |
+| PG-028 | מסך ניהול משתמשים / ניהול משתמשים ואכיפה | FR-MOD-002 | UC-16 | User, AccountEnforcement, EnforcementRecord, AuditLogEntry; AC-159 |
+| PG-028 | תור אישור התמונות ("תמונות לבדיקה") | BR-076 / BR-077 / FR-MOD-003 / NFR-MEDIA-001 | — | MediaAsset, TrainingSample, ImageFingerprint, AuditLogEntry; AC-162 |
 | PG-029 | מסך יומן ה-Audit / יומן ה-Audit | FR-ADMIN-005 | UC-17 | AuditLogEntry |
 | PG-030 | ~~מסך תור האימות המקצועי / ניהול אימות מקצועי~~ — **בוטל** (OP-005 נסגר, 18.10.2026) | FR-ADMIN-006 (בוטל) | UC-18 (בוטל) | — |
 | PG-031 | מסך הגדרות הקהילה / ניהול הגדרות הקהילה | FR-ADMIN-007 | UC-28 | CommunityConfiguration, AuditLogEntry |
-| PG-032 | מסך הודעות מערכת / ניהול הודעות מערכת | FR-ADMIN-008 | UC-29 | SystemAnnouncement, AuditLogEntry |
+| PG-032 | מסך הודעות מערכת / ניהול הודעות מערכת | FR-ADMIN-008 / VAL-050 | UC-29 | SystemAnnouncement, AuditLogEntry; AC-163 |
 | PG-033/034/035 | ניהול הקבוצות / ניהול קבוצה | FR-GRP-001..004 | UC-22/23/32 | Group, Membership, GroupJoinRequest, GroupInvitation, GroupRoleAssignment, GroupMemberEnforcement, GroupNotificationPreference; AC-036–038, AC-050, AC-056, AC-066, AC-144, AC-145 |
 | PG-036 | מסך החברים / ניהול חברים | FR-REL-001 / FR-PRIV-001 / FR-MENU-001 | UC-20 | Friendship, FriendContentNotificationPreference, ProfileOpenCount |
 | Multiple / ProfessionalProfile | מעקב אחר בעל מקצוע | FR-FOLLOW-001 | UC-21 | ProfessionalFollow, ProfessionalProfile |
@@ -42,7 +42,7 @@
 | Global Routing | Authentication / הגנת נתיבים | FR-AUTH-004 | — | User / Session |
 | PG-003 | מסך בחירת סוג חשבון | FR-REG-001 | UC-01/02 | — |
 | PG-020 | מסך טיפ / מאמר / תוכן מותאם לשלב | FR-HOME-004 | — | Article / Tip |
-| PG-037 | מסך תור הדיווחים / טיפול בדיווחים | FR-MOD-003 / BR-081 / BR-082 | UC-27 | Report, ReportEscalation, ReportOpening, StaffGroupView, AuditLogEntry; AC-155/156/158 |
+| PG-037 | מסך תור הדיווחים / טיפול בדיווחים | FR-MOD-001 / FR-MOD-003 / BR-074 / BR-081 / BR-082 | UC-27 | Report, ReportEscalation, ReportOpening, StaffGroupView, ReportAutoHide, StaffCommentView, EnforcementRecord, AuditLogEntry; AC-155/156/158/159/160/161 |
 | PG-038 | מסך ההגדרות / ניהול ההגדרות | FR-SET-001 / FR-PRIV-001 / FR-NOTIF-002 / FR-MENU-001 | UC-33/24 | PrivacyPreference, ChildBirthdayVisibility, NotificationPreference |
 | PG-039 | מסך בעלי מקצוע במעקב / מעקב אחר בעל מקצוע | FR-FOLLOW-001 / FR-MENU-001 | UC-21 | ProfessionalFollow (רשימה ב-`/following` עם הפסקת מעקב; מספר העוקבים בלוח הבקרה); AC-035, AC-151 |
 | PG-040 | ~~מסך סטטוס האימות המקצועי / אימות מקצועי~~ — **בוטל** (OP-005 נסגר, 18.10.2026) | FR-PROREG-003 (בוטל) | — | — |
@@ -70,6 +70,15 @@
 | FR-NOTIF-003 | Built | I7, תיקוני בדיקת ה-SRS (21.10) | התראה על יום הולדת של ילד של Friend |
 | FR-ADMIN-010 | Built | I14, I13, תיקוני בדיקת ה-SRS (21.10) | קבוצות, בעלי מקצוע ו-Marketplace במסך הנתונים; שימוש לפי יום (OP-039), ותחום הקידום ל-Admin בלבד (AC-071) |
 | FR-PRO-001 | Built | I11, תיקוני בדיקת ה-SRS (21.10) | הדירוג בלוח הבקרה |
+| FR-MOD-001 | Built | I3, I14 (השלמה ב') | "אחר" ו-500 תווים בכל דיווח; תגובה והודעה שדווחו — רק הפריט |
+| FR-MOD-002 | Built | I4, I14 (השלמה ב') | היסטוריית האכיפה של תוכן שנמחק |
+| FR-MOD-003 | Built | I4, I14 (השלמה ב') | דיווח מוצדק מוחק; הסתרה אחרי 10 דיווחים זהים |
+| FR-ADMIN-008 | Built | I14 (השלמה ב') | קהל לכל הודעה |
+| FR-ADMIN-012 | Built | I6, I14 (השלמה ב') | פרסום בלי תאריך בדיקת מקורות |
+| FR-ADMIN-014 | Built | I14 (השלמה א', ב') | "דורש תשומת לב" בלי הזמנות שעומדות לפוג; מדריכים בטיוטה בלבד |
+| FR-ADMIN-015 | Built | I14 (השלמה א', ב') | תקופה קלנדרית, מספרים מעוגלים |
+| NFR-MEDIA-001 | Built | I5, I14 (השלמה ב') | רשימת חסימה בהעלאה |
+| NFR-USAB-005 | Built | I14 (השלמה ב') | זמן יחסי בכל פרסום |
 | FR-SERV-010 | Built | I13 | קידום פרופיל ופוסט, תשלום מדומה, עצירה על ידי הבעלים או הצוות (בלי החזר) |
 | FR-MKT-004 | Built | I13 | קידום מודעה מ"המודעות שלי", בראש התוצאות התואמות, "מודעה מקודמת" |
 | FR-PRO-002 | Built | I13 | תוצאות 30 יום: אורגני ובתשלום בנפרד, מספרים בלבד |

@@ -9,7 +9,7 @@ import { MoreActionsMenu, type MoreActionsItem } from '@/components/ui/more-acti
 import { AUDIENCE_LABELS, HELP_REQUEST_BADGE } from './posts-texts';
 import { COMMENTS_TITLE, LIKE_LABEL } from './comments-texts';
 import { STAGE_LABELS } from '@/lib/child-fields';
-import { formatPostTime } from '@/lib/format-post-time';
+import { PublishedTime } from '@/components/domain/published-time';
 import { postPath } from '@/lib/post-link';
 import { MEMBER_FALLBACK_LABEL } from './feed-texts';
 import { OriginalQuote } from './OriginalQuote';
@@ -169,7 +169,7 @@ export function FeedCard(props: FeedCardProps) {
             to={postPath(unit.id)}
             className="order-2 inline-flex min-h-11 min-w-11 items-center rounded-sm text-small text-muted-foreground underline underline-offset-4"
           >
-            <time dateTime={unit.createdAt}>{formatPostTime(unit.createdAt)}</time>
+            <PublishedTime iso={unit.createdAt} />
           </Link>
           {actions.length === 0 ? null : (
             <div className="order-2">

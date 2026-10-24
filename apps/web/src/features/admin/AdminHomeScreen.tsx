@@ -33,7 +33,7 @@ import {
 
 type View = { kind: 'loading' } | { kind: 'failed'; message: string } | { kind: 'loaded'; overview: AdminOverview };
 type AttentionKey = keyof typeof ATTENTION_LABELS;
-const ATTENTION_KEYS: readonly AttentionKey[] = ['openReports', 'pastTargetReports', 'escalatedReports', 'queuedImages', 'openSupport', 'openInvitations', 'expiringInvitations', 'guidesToRecheck'];
+const ATTENTION_KEYS: readonly AttentionKey[] = ['openReports', 'pastTargetReports', 'escalatedReports', 'queuedImages', 'openSupport', 'openInvitations', 'draftGuides'];
 
 /** Where each "needs attention" line leads. */
 const ATTENTION_PATHS: Record<AttentionKey, string> = {
@@ -43,8 +43,7 @@ const ATTENTION_PATHS: Record<AttentionKey, string> = {
   queuedImages: PATHS.adminMedia,
   openSupport: PATHS.adminSupport,
   openInvitations: PATHS.adminTeam,
-  expiringInvitations: PATHS.adminTeam,
-  guidesToRecheck: PATHS.adminGuides,
+  draftGuides: PATHS.adminGuides,
 };
 
 // The Admin's home (I14 completion, Afik 21.10.2026, §9.10): a red bar while a child-safety report is open; what needs attention (reports,
