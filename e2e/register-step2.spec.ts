@@ -700,13 +700,18 @@ test.describe('F1.4 criterion 19 [F1.3 criterion 13] back from step 2', () => {
   });
 });
 
-test.describe('F1.4 criterion 4 the placeholder pages the consent links lead to', () => {
+test.describe('F1.4 criterion 4 the public documents the consent links lead to', () => {
   for (const [path, h1] of [['/terms', 'תנאי השימוש'], ['/privacy', 'מדיניות הפרטיות']] as const) {
     // /recovery stopped being a placeholder in F1.6 c16; recovery-web.spec.ts covers it
-    test(`[F1.4 c4] ${path} is a Guest placeholder page "${h1}" with the "בקרוב" line`, async ({ page }) => {
+    test(`[F1.4 c4 OP-039] ${path} opens the consent document "${h1}" for a Guest`, async ({ page }) => {
       await open(page, path, 'signed-out');
       await expect(h1Of(page)).toHaveText(h1);
-      await expect(page.getByText('המסך הזה ייפתח בקרוב.')).toBeVisible();
+      if (path === '/privacy') {
+        await expect(page.getByRole('region', { name: 'מדידת השימוש' })).toContainText('בלי תוכן ובלי זיהוי הפרופיל או הפוסט שנצפה');
+        await expect(page.getByText('המסך הזה ייפתח בקרוב.')).toHaveCount(0);
+      } else {
+        await expect(page.getByText('המסך הזה ייפתח בקרוב.')).toBeVisible();
+      }
       expect(pathOf(page)).toBe(path);
     });
   }

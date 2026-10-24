@@ -608,8 +608,13 @@ describe('[F3.2-a2 c2 c5] the statements that really run', () => {
     await mkAll([{ by: F, ago: 1 }, { by: U, shared: original, ago: 2 }]);
     await page(app, V.header);
     // I10-C (§11.14): the Group suggestions are a separate statement over Groups (their activity is counted, no post is read out): not a feed-post statement
+    // I13: the paid pipeline's reads (the running promotions, after the organic order is fixed) are not the organic allow-list; its own rules
+    // are tests/db/promotions.db.test.ts and pgTAP 101/104
     const onPosts = statements.filter(
-      (q) => /\b(posts|regular_names|friendships|comments|reactions|algorithm_configurations)\b/i.test(q) && !/from nestly\.groups g\s+where g\.privacy = 'public'/i.test(q),
+      (q) =>
+        /\b(posts|regular_names|friendships|comments|reactions|algorithm_configurations)\b/i.test(q) &&
+        !/from nestly\.groups g\s+where g\.privacy = 'public'/i.test(q) &&
+        !/\bnestly\.promotions\b/i.test(q),
     );
     expect(onPosts.length).toBeGreaterThanOrEqual(2);
     const forbidden = /post_hides|\breports\b|post_authors|reaction_owners|journey_contexts|\bheld_|author_visibility|\b(author_|liker_)?status\b|is_active_account|select\s+\*/i;

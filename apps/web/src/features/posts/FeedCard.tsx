@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react';
+import { useId, type MouseEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { ANONYMOUS_AUTHOR_LABEL, type FeedUnit } from '@nestly/shared';
 import { LikeButton } from '@/components/shared/like-button';
@@ -19,6 +19,10 @@ import { PostForm } from './PostForm';
 import type { CardEdit } from './use-card-edit';
 import { SHARE_IN_FEED_LABEL } from './share-texts';
 import { PostImages } from './PostImages';
+import { SPONSORED_LABEL } from '@/lib/promotion-texts';
+import { useProCall } from '@/hooks/use-pro-call';
+import { reportPromotionClick } from '@/services/api/promotions';
+import { promotionOf } from './promoted-feed';
 
 const AUDIENCE_CLASS = 'text-small text-muted-foreground';
 
@@ -69,8 +73,16 @@ export function FeedCard(props: FeedCardProps) {
   const { edit, onEditChange, onEditSave, onEditCancel, comments } = props;
   const authorId = useId();
   const author = unit.isAnonymous ? ANONYMOUS_AUTHOR_LABEL : (unit.author.name ?? MEMBER_FALLBACK_LABEL);
+  const call = useProCall();
+  // I13 (FR-PRO-002): opening a link of a promoted post is the promotion's paid click (best effort; the navigation never waits on it)
+  const onLinkOpen = (event: MouseEvent<HTMLElement>) => {
+    const promotionId = unit.source === 'promoted' ? promotionOf(unit.id) : undefined;
+    if (promotionId === undefined || !(event.target instanceof Element) || event.target.closest('a') === null) return;
+    void call((token) => reportPromotionClick(token, promotionId));
+  };
   return (
     <article
+      onClickCapture={unit.source === 'promoted' ? onLinkOpen : undefined}
       aria-labelledby={authorId}
       aria-posinset={position}
       aria-setsize={-1}
@@ -85,6 +97,8 @@ export function FeedCard(props: FeedCardProps) {
           {!unit.isAnonymous && unit.author.tag !== undefined ? <span className="text-small font-normal text-primary-strong"> · {unit.author.tag}</span> : null}
         </span>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          {/* I13 (BR-005, VAL-012, §11.5): a promoted post is always marked "ממומן" */}
+          {unit.source === 'promoted' ? <span className="rounded-full bg-badge px-2.5 text-small text-badge-foreground">{SPONSORED_LABEL}</span> : null}
           {/* I10-C (§11.13): a Group's Highlight says where it is from instead of its audience (the Group decides who reads it) */}
           {unit.kind === 'post' && unit.group !== undefined ? (
             <Link to={groupPath(unit.group.id)} className="text-small font-semibold text-primary-strong underline underline-offset-4">

@@ -68,6 +68,19 @@ import {
   ANALYTICS_TYPES,
   ANALYTICS_WAITING,
   ANALYTICS_WAITING_HEADING,
+  ANALYTICS_USAGE,
+  ANALYTICS_USAGE_LOGINS,
+  ANALYTICS_USAGE_PROFILE_VIEWS,
+  ANALYTICS_USAGE_POST_VIEWS,
+  ANALYTICS_USAGE_NOTE,
+  ANALYTICS_PROMOTIONS,
+  ANALYTICS_PROMOTIONS_PROFILE,
+  ANALYTICS_PROMOTIONS_POST,
+  ANALYTICS_PROMOTIONS_LISTING,
+  ANALYTICS_PROMOTIONS_REVENUE,
+  ANALYTICS_PROMOTIONS_PURCHASES,
+  ANALYTICS_PROMOTIONS_IMPRESSIONS,
+  ANALYTICS_PROMOTIONS_CLICKS,
 } from './team-texts';
 
 type View = { kind: 'loading' } | { kind: 'failed'; message: string } | { kind: 'loaded'; data: AnalyticsView };
@@ -105,7 +118,7 @@ function Chart({ title, points }: { title: string; points: ReadonlyArray<{ day: 
 }
 
 // The Admin Analytics (FR-ADMIN-010, FR-ADMIN-003, PG-026, AC-071): ANALYTICS_VIEW (the Admin always). Numbers only, computed from the product's own
-// tables (open item 7, default (a)); no name, id or text ever comes back (BR-058). Domains that need usage events wait for them (OP-039).
+// tables (open item 7, default (a)); no name, id or text ever comes back (BR-058). Usage comes from the usage events (OP-039); Promotions (AC-071) is the Admin's only.
 // Groups, Professionals and Marketplace are counted from their tables too (SRS audit 21.10.2026).
 export function AnalyticsScreen() {
   const call = useAdminCall();
@@ -251,6 +264,7 @@ function Loaded({ data }: { data: AnalyticsView }) {
         )}
       </section>
       <Areas data={data} />
+      <UsageAndPromotions data={data} />
       <section aria-labelledby="analytics-waiting" className="flex flex-col gap-2">
         <h3 id="analytics-waiting" className="text-h4">
           {ANALYTICS_WAITING_HEADING}
@@ -320,6 +334,42 @@ function Areas({ data }: { data: AnalyticsView }) {
           <Stats items={marketplace.byCategory.map((row) => ({ label: LISTING_CATEGORY_LABELS[row.category], value: row.count }))} />
         )}
       </section>
+    </>
+  );
+}
+
+/** OP-039 usage and, for the Admin only, AC-071 Promotions (I13): numbers by day, never an account, a promotion or a target. */
+function UsageAndPromotions({ data }: { data: AnalyticsView }) {
+  const { usage, promotions } = data;
+  return (
+    <>
+      <section aria-labelledby="analytics-usage" className="flex flex-col gap-4">
+        <h3 id="analytics-usage" className="text-h4">
+          {ANALYTICS_USAGE}
+        </h3>
+        <Chart title={ANALYTICS_USAGE_LOGINS} points={usage.dailyLogins} />
+        <Chart title={ANALYTICS_USAGE_PROFILE_VIEWS} points={usage.profileViews} />
+        <Chart title={ANALYTICS_USAGE_POST_VIEWS} points={usage.postViews} />
+        <p className="text-small text-muted-foreground">{ANALYTICS_USAGE_NOTE}</p>
+      </section>
+      {promotions === undefined ? null : (
+        <section aria-labelledby="analytics-promotions" className="flex flex-col gap-4">
+          <h3 id="analytics-promotions" className="text-h4">
+            {ANALYTICS_PROMOTIONS}
+          </h3>
+          <Stats
+            items={[
+              { label: ANALYTICS_PROMOTIONS_PROFILE, value: promotions.running.profile },
+              { label: ANALYTICS_PROMOTIONS_POST, value: promotions.running.post },
+              { label: ANALYTICS_PROMOTIONS_LISTING, value: promotions.running.listing },
+              { label: ANALYTICS_PROMOTIONS_REVENUE, value: promotions.sampleRevenueIls },
+            ]}
+          />
+          <Chart title={ANALYTICS_PROMOTIONS_PURCHASES} points={promotions.purchases} />
+          <Chart title={ANALYTICS_PROMOTIONS_IMPRESSIONS} points={promotions.impressions} />
+          <Chart title={ANALYTICS_PROMOTIONS_CLICKS} points={promotions.clicks} />
+        </section>
+      )}
     </>
   );
 }

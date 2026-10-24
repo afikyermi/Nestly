@@ -137,7 +137,10 @@ export const sponsoredCard = z.strictObject({
 export type SponsoredCard = z.infer<typeof sponsoredCard>;
 
 /** GET /api/marketplace: the organic listings and, apart from them, the sponsored units (FR-ALG-006: a separate exposure layer). */
-export const marketplaceResponse = z.strictObject({ listings: z.array(listingCard), sponsored: z.array(sponsoredCard) });
+/** FR-MKT-004, BR-005 (I13): a promoted listing, in its own strip labelled "מודעה מקודמת", apart from the listings and from the sponsored products. */
+export const promotedListing = z.strictObject({ promotionId: z.guid(), listing: listingCard });
+export type PromotedListing = z.infer<typeof promotedListing>;
+export const marketplaceResponse = z.strictObject({ listings: z.array(listingCard), sponsored: z.array(sponsoredCard), promoted: z.array(promotedListing).default([]) });
 export type MarketplaceResponse = z.infer<typeof marketplaceResponse>;
 
 /** GET /api/marketplace/mine: the caller's own listings, every state. */

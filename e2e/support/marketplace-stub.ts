@@ -23,8 +23,12 @@ export interface MarketNet {
   mineStatus: 'active' | 'sold';
   hidden: boolean;
   sponsoredStatus: 'draft' | 'published' | 'paused' | 'removed';
+  /** I13 (FR-MKT-004): whether the search serves a promoted listing in its own strip. */
+  promotedListing: boolean;
   sent: MarketSent[];
 }
+export const PROMOTED_LISTING = MID(41);
+export const LISTING_PROMOTION = MID(40);
 
 const AT = '2026-06-15T09:00:00.000Z';
 const LATER = '2026-08-14T09:00:00.000Z';
@@ -95,7 +99,7 @@ async function signedIn(page: Page): Promise<void> {
 
 /** The Marketplace endpoints. With `account`, the Regular session and shell reads too (the staff specs bring theirs from admin-stub.ts). */
 export async function setupMarketplace(page: Page, start: Partial<MarketNet> = {}, account = true): Promise<MarketNet> {
-  const net: MarketNet = { mineStatus: 'active', hidden: false, sponsoredStatus: 'draft', sent: [], ...start };
+  const net: MarketNet = { mineStatus: 'active', hidden: false, sponsoredStatus: 'draft', promotedListing: false, sent: [], ...start };
   if (account) await signedIn(page);
   await page.route(
     (url) => url.pathname.startsWith('/api/marketplace') || url.pathname.startsWith('/api/admin/listings') || url.pathname.startsWith('/api/admin/sponsored'),
@@ -110,7 +114,8 @@ export async function setupMarketplace(page: Page, start: Partial<MarketNet> = {
         const all = [listingCard(STROLLER, 'עגלת תינוק כחולה'), listingCard(CRIB, 'מיטת תינוק', { category: 'furniture', price: null, city: 'haifa' })];
         const listings = typeof sent.category === 'string' ? all.filter((card) => card.category === sent.category) : all;
         const { id, sponsorName, title, description, category, linkUrl, image } = sponsoredItem('published');
-        return json(route, 200, { listings, sponsored: [{ id, sponsorName, title, description, category, linkUrl, image }] });
+        const promoted = net.promotedListing ? [{ promotionId: LISTING_PROMOTION, listing: listingCard(PROMOTED_LISTING, 'מנשא מקודם', { category: 'feeding', sellerName: 'דנה מוכרת' }) }] : [];
+        return json(route, 200, { listings, sponsored: [{ id, sponsorName, title, description, category, linkUrl, image }], promoted });
       }
       if (path === '/api/marketplace/mine') return json(route, 200, { listings: [listingCard(MINE, 'כיסא אוכל', { category: 'feeding', isMine: true, status: net.mineStatus, sellerName: 'נועה לוי' })] });
       if (path === '/api/marketplace/listings' && method === 'POST') return json(route, 201, { id: MINE });

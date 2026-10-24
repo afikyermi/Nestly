@@ -137,7 +137,7 @@ describe('[I11] Professionals and services', () => {
   });
 
   it('[FR-SERV-001/002 AC-009] the directory filters by field, area, price and experience', T, async () => {
-    const ids = async (query: Parameters<typeof listProfessionals>[2]) => (await listProfessionals(database, as(rina), query)).map((card) => card.id);
+    const ids = async (query: Parameters<typeof listProfessionals>[2]) => (await listProfessionals(database, as(rina), query)).professionals.map((card) => card.id);
     expect(await ids({ field: 'doula' })).toContain(doula);
     expect(await ids({ field: 'doula' })).not.toContain(sleeper);
     expect(await ids({ area: 'haifa' })).toContain(sleeper);
@@ -147,14 +147,14 @@ describe('[I11] Professionals and services', () => {
     expect(await ids({ minYears: 5 })).toContain(doula);
     expect(await ids({ minYears: 5 })).not.toContain(sleeper);
     expect(await ids({})).toEqual(expect.arrayContaining([doula, sleeper]));
-    expect(await listProfessionals(database, as(doula), {})).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: doula })]));
+    expect((await listProfessionals(database, as(doula), {})).professionals).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: doula })]));
   });
 
   it('[FR-ALG-005 FR-ALG-008] the organic order puts a Professional whose field matches the caller search topic first', T, async () => {
     const lactation = await text(side`select tests.fx_new_auth_user()::text as v`);
     expect(await registerProfessional(database, as(lactation), profile({ fullName: 'Lea Lactation', field: 'lactation', about: null, area: null, priceFrom: null, yearsExperience: 1 }))).toEqual({ kind: 'created' });
     await search(database, as(tal), 'יועצת הנקה', 'posts');
-    const order = (await listProfessionals(database, as(tal), { sort: 'match' })).map((card) => card.id);
+    const order = (await listProfessionals(database, as(tal), { sort: 'match' })).professionals.map((card) => card.id);
     expect(order.indexOf(lactation)).toBeGreaterThanOrEqual(0);
     expect(order.indexOf(lactation)).toBeLessThan(order.indexOf(doula));
   });

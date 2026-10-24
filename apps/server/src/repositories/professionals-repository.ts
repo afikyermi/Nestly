@@ -111,8 +111,11 @@ export async function readDirectory(
   tx: IdentityTx,
   query: DirectoryQuery,
   intents: readonly { readonly pattern: string; readonly weight: number }[],
+  onlyIds?: readonly string[],
 ): Promise<ProfessionalCard[]> {
   const filters: SQL[] = [sql`pp.user_id <> (select auth.uid())`];
+  // I13: the same filters decide whether a promoted Professional matches the page (FR-ALG-007 eligibility); the organic call passes none
+  if (onlyIds !== undefined) filters.push(sql`pp.user_id = any (${sql.param([...onlyIds])}::uuid[])`);
   if (query.field !== undefined) filters.push(sql`pp.field = ${query.field}`);
   if (query.area !== undefined) filters.push(sql`pp.area = ${query.area}`);
   if (query.maxPrice !== undefined) filters.push(sql`pp.price_from <= ${query.maxPrice}`);
@@ -145,7 +148,7 @@ export async function readDirectory(
       ) x
       where coalesce(x.rating, 0) >= ${minRating}
       order by ${order}, x.id
-      limit ${DIRECTORY_LIMIT}`),
+      limit ${onlyIds === undefined ? DIRECTORY_LIMIT : Math.max(onlyIds.length, 1)}`),
   );
 }
 
