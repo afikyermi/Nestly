@@ -134,11 +134,15 @@ export async function promotedPosts(
   return chosen.map((c, i) => ({ promotionId: c.promotionId, postId: c.targetId, afterIndex: gap * (i + 1) }));
 }
 
-/** What one page view showed: the promoted units served, the usage event, and the Professionals whose profile or posts were seen. */
+/**
+ * What one page view showed: the promoted units served, the usage event (`usageTimes` of it: one per post a feed page shows; default one), and
+ * the Professionals whose profile or posts were seen (`times`: how many of their posts; default one).
+ */
 export interface Exposure {
   readonly impressions?: readonly string[];
   readonly usage?: UsageEventKind;
-  readonly professionalViews?: readonly { readonly professionalId: string; readonly kind: 'profile_view' | 'post_view' }[];
+  readonly usageTimes?: number;
+  readonly professionalViews?: readonly { readonly professionalId: string; readonly kind: 'profile_view' | 'post_view'; readonly times?: number }[];
 }
 
 /**
@@ -149,8 +153,10 @@ export interface Exposure {
 export async function recordExposure(database: Database, identity: Identity, exposure: Exposure): Promise<void> {
   const writes: ((tx: IdentityTx) => Promise<void>)[] = [
     ...(exposure.impressions ?? []).map((id) => (tx: IdentityTx) => insertPromotionEvent(tx, id, 'impression')),
-    ...(exposure.usage === undefined ? [] : [(tx: IdentityTx) => insertUsageEvent(tx, exposure.usage ?? 'post_view')]),
-    ...(exposure.professionalViews ?? []).map((view) => (tx: IdentityTx) => insertProfessionalView(tx, view.professionalId, view.kind)),
+    ...(exposure.usage === undefined || (exposure.usageTimes ?? 1) < 1
+      ? []
+      : [(tx: IdentityTx) => insertUsageEvent(tx, exposure.usage ?? 'post_view', exposure.usageTimes ?? 1)]),
+    ...(exposure.professionalViews ?? []).map((view) => (tx: IdentityTx) => insertProfessionalView(tx, view.professionalId, view.kind, view.times ?? 1)),
   ];
   if (writes.length === 0) return;
   try {

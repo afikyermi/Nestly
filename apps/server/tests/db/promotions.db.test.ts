@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { parseFeedCursor, type FeedPageResponse, type ListingWrite, type ProfessionalProfileWrite } from '@nestly/shared';
 import { createDatabase, type Database } from '../../src/db/client.js';
 import { inIdentityTransaction } from '../../src/db/identity-transaction.js';
-import { readPromotionConfig } from '../../src/repositories/promotions-repository.js';
+import { insertProfessionalView, readPromotionConfig } from '../../src/repositories/promotions-repository.js';
 import { readProfessionalHead } from '../../src/repositories/professionals-repository.js';
 import { recordTopics } from '../../src/repositories/search-repository.js';
 import { readFeedPage } from '../../src/services/feed-service.js';
@@ -193,7 +193,10 @@ describe('[I13] promotions', () => {
     expect(view.isFinance).toBe(false);
     expect(view.promotions.map((row) => row.id)).toContain(profilePromotion);
     expect(view.promotions.map((row) => row.targetKind)).not.toContain('listing');
-    expect(view.totals.payments).toBe(0);
+    // a Moderator reads no payment and no paid event: those are null, never a misleading 0 or the plan's price
+    expect(view.promotions.find((row) => row.id === profilePromotion)).toMatchObject({ amountIls: null, impressions: null, clicks: null });
+    expect(view.totals).toMatchObject({ payments: null, sampleRevenueIls: null, impressions: null, clicks: null });
+    expect(view.totals.running).toBeGreaterThanOrEqual(1);
     // CONTENT_MODERATE does not stop a listing promotion
     expect(await staffStop(database, as(contentMod), listingPromotion, { reason: 'לא קשור' })).toEqual({ kind: 'unavailable' });
     ok(await staffStop(database, as(contentMod), profilePromotion, { reason: 'טענות רפואיות מטעות' }));
@@ -213,6 +216,11 @@ describe('[I13] promotions', () => {
     expect(view.isFinance).toBe(true);
     expect(view.promotions.map((row) => row.id)).toEqual(expect.arrayContaining([profilePromotion, listingPromotion]));
     expect(view.totals.payments).toBeGreaterThanOrEqual(2);
+    // the Admin sees each promotion's own paid amount (its payment's amount_ils) and its paid counts
+    expect(view.promotions.find((row) => row.id === profilePromotion)).toMatchObject({ amountIls: 49 });
+    expect(view.promotions.find((row) => row.id === listingPromotion)).toMatchObject({ amountIls: 9 });
+    expect(view.promotions.find((row) => row.id === profilePromotion)?.clicks).toBeGreaterThanOrEqual(1);
+    expect(view.promotions.find((row) => row.id === profilePromotion)?.impressions).toBeGreaterThanOrEqual(1);
   });
 
   it('[§11.2 AC-073 BR-059 FR-ADMIN-005] the Admin alone adds a settings version, with a reason; it is in force', T, async () => {
@@ -401,10 +409,55 @@ describe('[I13] the rules of a running promotion', () => {
     const market = ok(await readAdminView(database, as(marketMod))).view;
     expect(market.isFinance).toBe(false);
     expect(new Set(market.promotions.map((row) => row.targetKind))).toEqual(new Set(['listing']));
-    expect(market.totals.payments).toBe(0);
-    expect(market.totals.sampleRevenueIls).toBe(0);
+    expect(market.totals.payments).toBeNull();
+    expect(market.totals.sampleRevenueIls).toBeNull();
+    expect(market.promotions.every((row) => row.amountIls === null && row.impressions === null && row.clicks === null)).toBe(true);
     expect(await readAdminView(database, as(bare))).toEqual({ kind: 'forbidden' });
     expect(await readSettings(database, as(marketMod))).toEqual({ kind: 'forbidden' });
+  });
+
+  it('[BR-005 §11.5 FR-ALG-007] a staff viewer is served no promoted unit on the feed, the Directory or the Marketplace, and records no paid event', T, async () => {
+    const shelf = ok(await createListing(database, as(seller), listing({ title: `שידה ${tag}` }))).id;
+    const shelfPromotion = ok(await buyPromotion(database, as(seller), { planKey: 'listing_3', target: { kind: 'listing', listingId: shelf } })).promotionId;
+    const proPromotion = ok(await buyPromotion(database, as(pro2), { planKey: 'profile_7', target: { kind: 'profile' } })).promotionId;
+    const paidOf = async (owner: string, id: string): Promise<number> => {
+      const item = (await readOverview(database, as(owner))).promotions.find((row) => row.id === id);
+      return (item?.counts.impressions ?? 0) + (item?.counts.clicks ?? 0);
+    };
+    const before = { post: await paidOf(pro2, postPromotion), profile: await paidOf(pro2, proPromotion), shelf: await paidOf(seller, shelfPromotion) };
+    // a Regular is served them (the units are live), so an empty staff result below is the staff rule, not an empty pool
+    expect((await listMarketplace(database, as(viewer2), undefined, { q: `שידה ${tag}` })).promoted.map((unit) => unit.listing.id)).toContain(shelf);
+    for (const staff of [contentMod, marketMod, admin]) {
+      const feed = await readFeedPage(database, as(staff), null);
+      if (feed.kind === 'page') expect(feed.page.promoted ?? []).toEqual([]);
+      expect((await listProfessionals(database, as(staff), { field: 'sleep' })).promoted).toEqual([]);
+      expect((await listMarketplace(database, as(staff), undefined, { q: `שידה ${tag}` })).promoted).toEqual([]);
+      // a click a staff account sends is not recorded either (checked by the counts below)
+      await recordPromotionEvent(database, as(staff), shelfPromotion, 'click');
+    }
+    expect({ post: await paidOf(pro2, postPromotion), profile: await paidOf(pro2, proPromotion), shelf: await paidOf(seller, shelfPromotion) }).toEqual(before);
+    ok(await stopOwnPromotion(database, as(seller), shelfPromotion));
+    ok(await stopOwnPromotion(database, as(pro2), proPromotion));
+  });
+
+  it('[OP-039 FR-PRO-002] a feed page counts one post view per post it shows; a Professional gets one organic post view per post of theirs', T, async () => {
+    const ownPostViews = async (who: string): Promise<number> =>
+      Number(
+        (await inIdentityTransaction(database, as(who), (tx) => tx.execute(sql`select coalesce(sum(times), 0)::integer as n from nestly.usage_events where kind = 'post_view'`)))[0]?.n ?? 0,
+      );
+    const before = await ownPostViews(planner);
+    const outcome = await readFeedPage(database, as(planner), null);
+    if (outcome.kind !== 'page') throw new Error(`feed: ${outcome.kind}`);
+    const shown = outcome.page.items.length + (outcome.page.promoted ?? []).length;
+    expect(shown, 'the page shows posts').toBeGreaterThan(1);
+    expect(await ownPostViews(planner)).toBe(before + shown);
+    // three posts of one Professional on a page are three views of theirs, from one viewer (reach one)
+    const organic = async () => (await readOverview(database, as(pro2))).analytics?.organic;
+    const was = await organic();
+    await inIdentityTransaction(database, as(sleeper), (tx) => insertProfessionalView(tx, pro2, 'post_view', 3));
+    const now = await organic();
+    expect((now?.postViews ?? 0) - (was?.postViews ?? 0)).toBe(3);
+    expect((now?.postReach ?? 0) - (was?.postReach ?? 0)).toBeLessThanOrEqual(1);
   });
 
   it('[AC-071 OP-039 FR-ADMIN-010] Admin Analytics: usage by day for ANALYTICS_VIEW; the Promotions domain for the Admin only', T, async () => {

@@ -31,6 +31,7 @@ import {
   STOPPED_BY_STAFF_SHORT,
   TARGET_KIND_LABELS,
   countsText,
+  paidText,
   revenueText,
   totalsText,
   SETTINGS_DEFAULT_VERSION,
@@ -81,8 +82,12 @@ export function PromotionsAdminScreen() {
       <section className="rounded-lg bg-card p-4 shadow-card">
         <h3 className="text-label">{ADMIN_TOTALS}</h3>
         <p className="mt-1">{totalsText(data.totals)}</p>
-        {data.isFinance ? <p className="mt-1 text-small text-muted-foreground">{countsText(data.totals.impressions, data.totals.clicks)}</p> : null}
-        {data.isFinance ? <p className="mt-1 text-small text-muted-foreground">{revenueText(data.totals.payments, data.totals.sampleRevenueIls)}</p> : null}
+        {data.totals.impressions !== null && data.totals.clicks !== null ? (
+          <p className="mt-1 text-small text-muted-foreground">{countsText(data.totals.impressions, data.totals.clicks)}</p>
+        ) : null}
+        {data.totals.payments !== null && data.totals.sampleRevenueIls !== null ? (
+          <p className="mt-1 text-small text-muted-foreground">{revenueText(data.totals.payments, data.totals.sampleRevenueIls)}</p>
+        ) : null}
       </section>
       <p role="status" className="text-small">
         {notice}
@@ -93,7 +98,6 @@ export function PromotionsAdminScreen() {
           <li key={item.id}>
             <StaffPromotionCard
               item={item}
-              showCounts={data.isFinance}
               onStopped={() => {
                 setNotice(ADMIN_STOPPED);
                 setView((now) =>
@@ -118,8 +122,8 @@ export function PromotionsAdminScreen() {
   );
 }
 
-// A Moderator reads no paid event (BILLING_FINANCE_MANAGE is Admin Only), so the counts are the Admin's only.
-function StaffPromotionCard({ item, showCounts, onStopped }: { item: AdminPromotionItem; showCounts: boolean; onStopped: () => void }) {
+// A Moderator reads no payment and no paid event (BILLING_FINANCE_MANAGE is Admin Only): the server sends those as null, and nothing is shown.
+function StaffPromotionCard({ item, onStopped }: { item: AdminPromotionItem; onStopped: () => void }) {
   const call = useAdminCall();
   const id = useId();
   const [reason, setReason] = useState('');
@@ -151,8 +155,9 @@ function StaffPromotionCard({ item, showCounts, onStopped }: { item: AdminPromot
       </p>
       <p className="mt-1 text-small text-muted-foreground">
         <time dateTime={item.startsAt}>{formatPostTime(item.startsAt)}</time> – <time dateTime={item.endsAt}>{formatPostTime(item.endsAt)}</time>
-        {showCounts ? ` · ${countsText(item.impressions, item.clicks)}` : null}
+        {item.impressions !== null && item.clicks !== null ? ` · ${countsText(item.impressions, item.clicks)}` : null}
       </p>
+      {item.amountIls === null ? null : <p className="mt-1 text-small text-muted-foreground">{paidText(item.amountIls)}</p>}
       {item.state === 'running' ? (
         <div className="mt-2 flex flex-col gap-2">
           <FormField label={ADMIN_STOP_REASON} htmlFor={`${id}-reason`} {...(problem === '' ? {} : { error: problem })}>

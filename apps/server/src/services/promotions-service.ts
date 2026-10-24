@@ -200,9 +200,11 @@ export async function readAdminView(database: Database, identity: Identity): Pro
     if (!isFinance && kinds.length === 0) return { kind: 'forbidden' };
     // A Moderator works with the promotions of its keys (§11.1). This narrows the list to what it may act on; what it may read and stop is
     // the database's (promotions_select_staff / promotions_update_staff), and it reads no payment and no paid event (BILLING_FINANCE_MANAGE).
-    const promotions = await readAdminPromotions(tx, kinds);
+    const promotions = await readAdminPromotions(tx, kinds, isFinance);
     if (isFinance) return { kind: 'ok', view: { totals: await readFinanceTotals(tx), promotions, isFinance } };
-    const totals = { ...(await readPromotionTotals(tx, kinds)), payments: 0, sampleRevenueIls: 0 };
+    // No payment and no paid event is readable here: those totals are null, not 0.
+    const { running, stopped, ended } = await readPromotionTotals(tx, kinds);
+    const totals = { running, stopped, ended, payments: null, sampleRevenueIls: null, impressions: null, clicks: null };
     return { kind: 'ok', view: { totals, promotions, isFinance } };
   });
 }

@@ -69,3 +69,27 @@ test('[BR-083 Preview] Audit removal is scoped after the locked pattern user, wi
   assert.match(cli, /guard\?\.tgenabled !== 'O'/);
   assert.doesNotMatch(cli, /disable trigger all|disable trigger audit_log_no_truncate|session_replication_role/i);
 });
+
+test('[BR-083 Preview] failure context: field values and every staff password/recovery answer are redacted', async () => {
+  const { redactFailureContext, staffSecrets, FIELD_REDACTED, SECRET_REDACTED } = await import('./preview-e2e-failure-context.ts');
+  const users = makeStaffUsers('12345', '2');
+  const secrets = staffSecrets(JSON.stringify(users));
+  const all = Object.values(users).flatMap((u) => [u.password, u.answers.pet, u.answers.nickname]);
+  assert.deepEqual([...secrets].sort(), [...new Set(all)].sort());
+  const one = Object.values(users)[0];
+  const text = [
+    `- heading "Error: expected ${one.password}" [level=1]`,
+    `  - textbox "סיסמה": ${one.password}`,
+    `  - combobox "שאלה" [expanded]: anything`,
+    `call log: fill("${JSON.stringify(one.answers.pet).slice(1, -1)}") and ${one.answers.nickname}`,
+    '- button "התחברות"',
+  ].join('\n');
+  const out = redactFailureContext(text, secrets);
+  for (const secret of all) assert.ok(!out.includes(secret), 'a staff secret survived');
+  assert.ok(out.includes(`textbox "סיסמה": ${FIELD_REDACTED}`));
+  assert.match(out, /combobox "שאלה" \[expanded\]: \[value redacted\]/);
+  assert.ok(out.includes(SECRET_REDACTED));
+  assert.match(out, /- button "התחברות"/);
+  assert.deepEqual(staffSecrets(null), []);
+  assert.deepEqual(staffSecrets('not json'), []);
+});

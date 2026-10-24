@@ -34,6 +34,8 @@ export const BUY_FAILED = 'לא הצלחנו להפעיל את הקידום. א�
 export const MY_PROMOTIONS = 'הקידומים שלי';
 export const NO_PROMOTIONS = 'עוד אין קידומים.';
 export const STOP = 'עצירת הקידום';
+export const STOP_CONFIRM_TITLE = 'לעצור את הקידום?';
+export const STOP_CONFIRM_TEXT = 'הקידום ייעצר ולא יהיה אפשר לחדש אותו. אין החזר.';
 export const STOP_FAILED = 'לא הצלחנו לעצור את הקידום. אפשר לנסות שוב.';
 export const STOPPED_BY_STAFF = 'הקידום הופסק';
 export const STOPPED_BY_STAFF_NOTE = 'צוות האתר עצר את הקידום. אין החזר על קידום שהופסק.';
@@ -109,6 +111,8 @@ export const FORBIDDEN = 'אין הרשאה לעמוד הזה.';
 export const OWNER_LABEL = 'בעלים';
 export const STOPPED_BY_STAFF_SHORT = 'נעצר על ידי הצוות';
 export const totalsText = (t: { running: number; stopped: number; ended: number }): string => `${t.running} פעילים · ${t.stopped} נעצרו · ${t.ended} הסתיימו`;
+/** The Admin's line for one promotion's own simulated payment. */
+export const paidText = (amount: number): string => `תשלום מדומה ${shekels(amount)} (${SAMPLE_PRICE})`;
 export const revenueText = (payments: number, revenue: number): string => `${payments} תשלומים מדומים · ${shekels(revenue)} (${SAMPLE_PRICE})`;
 
 export const SETTINGS_HEADING = 'הגדרות הקידום';

@@ -23,7 +23,7 @@ async function signIn(page: Page): Promise<void> {
 }
 
 test.describe('[I13 FR-SERV-010 NFR-SEC-007 AC-098] the promotion screen', () => {
-  test('a Professional buys a profile promotion at a sample price with a simulated payment; it runs and shows in billing', async ({ page }) => {
+  test('[PG-041 PG-042] a Professional buys a profile promotion at a sample price with a simulated payment; it runs and shows in billing', async ({ page }) => {
     const net = await setupProfessionals(page, { kind: 'professional' });
     await signIn(page);
     await page.goto('/pro/promotion');
@@ -44,6 +44,33 @@ test.describe('[I13 FR-SERV-010 NFR-SEC-007 AC-098] the promotion screen', () =>
     await main(page).getByRole('link', { name: 'לחיובים ולתשלומים' }).click();
     await expect.poll(() => pathOf(page)).toBe('/pro/billing');
     await expect(main(page).getByRole('list', { name: 'חיוב ותשלומים' })).toContainText('₪49');
+  });
+
+  test('[§11.1 FR-SERV-010] stopping an own promotion asks first (irreversible, no refund); cancel keeps it, confirming stops it once', async ({ page }) => {
+    const net = await setupProfessionals(page, { kind: 'professional', promotions: [{ id: PROMO, state: 'running', stoppedBy: null }] });
+    await signIn(page);
+    await page.goto('/pro/promotion');
+    const mine = main(page).getByRole('list', { name: 'הקידומים שלי' });
+    const stops = () => net.sent.filter((s) => s.method === 'POST' && s.path === `/api/promotions/${PROMO}/stop`);
+    const stopButton = mine.getByRole('button', { name: 'עצירת הקידום', exact: true });
+    await stopButton.click();
+    const dialog = page.getByRole('alertdialog', { name: 'לעצור את הקידום?' });
+    await expect(dialog).toContainText('הקידום ייעצר ולא יהיה אפשר לחדש אותו. אין החזר.');
+    await expect(dialog.getByRole('button', { name: 'ביטול', exact: true })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(stopButton).toBeFocused();
+    await stopButton.click();
+    await dialog.getByRole('button', { name: 'ביטול', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    expect(stops()).toHaveLength(0);
+    await expect(mine).toContainText('פעיל');
+    await stopButton.click();
+    await dialog.getByRole('button', { name: 'עצירת הקידום', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(mine.getByRole('button', { name: 'עצירת הקידום', exact: true })).toHaveCount(0);
+    await expect(main(page).getByRole('heading', { name: 'הקידומים שלי', level: 2 })).toBeFocused();
+    expect(stops()).toHaveLength(1);
   });
 
   test('[§11.1] a promotion staff stopped says "הקידום הופסק", with no refund', async ({ page }) => {
@@ -109,6 +136,8 @@ test.describe('[I13 §11.1 §11.2] the staff promotions screen', () => {
     await page.goto('/admin/promotions');
     await expect(main(page)).toContainText('תשלומים מדומים');
     const card = main(page).getByRole('article', { name: /פרופיל מקצועי/ });
+    await expect(card).toContainText('12 חשיפות · 2 לחיצות');
+    await expect(card).toContainText('תשלום מדומה ₪49');
     await card.getByRole('button', { name: 'עצירה' }).click();
     await expect(card).toContainText('יש לכתוב סיבה');
     await card.getByLabel('סיבת העצירה', { exact: true }).fill('טענות רפואיות מטעות');
@@ -145,8 +174,8 @@ test.describe('[I13 §11.1 PG-059] a Moderator on the staff promotions screen', 
       if (kinds.length === 0) return json(route, 403, { error: 'forbidden' });
       const promotions = rows
         .filter((row) => kinds.includes(row.targetKind))
-        .map((row) => ({ ...row, state: 'running', startsAt: '2026-06-15T09:00:00.000Z', endsAt: '2026-06-22T09:00:00.000Z', stoppedBy: null, amountIls: row.planKey === 'profile_7' ? 49 : row.planKey === 'post_3' ? 19 : 9, impressions: 0, clicks: 0 }));
-      return json(route, 200, { totals: { running: promotions.length, stopped: 0, ended: 0, payments: 0, sampleRevenueIls: 0, impressions: 0, clicks: 0 }, promotions, isFinance: false });
+        .map((row) => ({ ...row, state: 'running', startsAt: '2026-06-15T09:00:00.000Z', endsAt: '2026-06-22T09:00:00.000Z', stoppedBy: null, amountIls: null, impressions: null, clicks: null }));
+      return json(route, 200, { totals: { running: promotions.length, stopped: 0, ended: 0, payments: null, sampleRevenueIls: null, impressions: null, clicks: null }, promotions, isFinance: false });
     });
     return paths;
   }
@@ -161,6 +190,9 @@ test.describe('[I13 §11.1 PG-059] a Moderator on the staff promotions screen', 
     await expect(main(page).getByRole('article', { name: /^פוסט/ })).toBeVisible();
     await expect(main(page).getByRole('article', { name: /מודעה/ })).toHaveCount(0);
     await expect(main(page)).not.toContainText('תשלומים מדומים');
+    // The paid counts and amounts are not readable for a Moderator: nothing is shown, never a 0
+    await expect(main(page)).not.toContainText('חשיפות');
+    await expect(main(page)).not.toContainText('תשלום מדומה');
     await expect(main(page).getByRole('heading', { name: 'הגדרות הקידום' })).toHaveCount(0);
     expect(paths).not.toContain('/api/admin/promotion-settings');
   });
@@ -187,7 +219,7 @@ test.describe('[I13 §11.1 PG-059] a Moderator on the staff promotions screen', 
 });
 
 test.describe('[I13 FR-MKT-004 BR-005 §11.3 §11.5] the Marketplace "מודעה מקודמת" strip', () => {
-  test('a promoted listing is shown at the top in its own strip, marked "מודעה מקודמת", apart from the listings and the sponsored products', async ({ page }) => {
+  test('[AC-020 AC-008] a promoted listing is shown at the top in its own strip, marked "מודעה מקודמת", apart from the listings and the sponsored products', async ({ page }) => {
     await setupMarketplace(page, { promotedListing: true });
     await signIn(page);
     await page.goto('/marketplace');

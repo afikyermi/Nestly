@@ -176,7 +176,7 @@ async function readPage(
   cursor: FeedCursor | null,
   storage: MediaStorage | undefined,
   imageRows: PostImageRow[],
-  professionalAuthors: string[],
+  professionalAuthors: { id: string; posts: number }[],
 ): Promise<FeedOutcome> {
   const viewer = await classifyViewer(tx);
   if (viewer.kind !== 'viewer') return viewer;
@@ -282,17 +282,19 @@ async function readPage(
  */
 export async function readFeedPage(database: Database, identity: Identity, cursor: FeedCursor | null, storage?: MediaStorage): Promise<FeedOutcome> {
   const imageRows: PostImageRow[] = [];
-  const professionalAuthors: string[] = [];
+  const professionalAuthors: { id: string; posts: number }[] = [];
   const outcome = await inIdentityTransaction(database, identity, (tx) => readPage(tx, identity.userId, cursor, storage, imageRows, professionalAuthors), {
     isolationLevel: 'repeatable read',
   });
   if (outcome.kind !== 'page') return outcome;
-  // I13 (OP-039, FR-PRO-002): the page's exposure — a post view and its Professionals' organic post views — recorded after the page was read,
-  // in its own transaction (never the page's failure). A promoted post's impression is reported by the screen when it shows it (FR-ALG-007).
+  // I13 (OP-039, FR-PRO-002): the page's exposure — one post view per post it shows, and one organic post view for a Professional per post of
+  // theirs among its organic posts — recorded after the page was read, in its own transaction (never the page's failure). A promoted post's
+  // impression is reported by the screen when it shows it (FR-ALG-007), never as an organic view.
   const promoted = outcome.page.promoted ?? [];
   await recordExposure(database, identity, {
     usage: 'post_view',
-    professionalViews: professionalAuthors.map((professionalId) => ({ professionalId, kind: 'post_view' as const })),
+    usageTimes: outcome.page.items.length + promoted.length,
+    professionalViews: professionalAuthors.map(({ id, posts }) => ({ professionalId: id, kind: 'post_view' as const, times: posts })),
   });
   if (imageRows.length === 0) return outcome;
   const imagesOf = await imagesByPost(storage, imageRows);

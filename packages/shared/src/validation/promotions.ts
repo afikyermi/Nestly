@@ -125,13 +125,24 @@ export const adminPromotionItem = z.strictObject({
   startsAt: at,
   endsAt: at,
   stoppedBy: z.enum(['owner', 'staff']).nullable(),
-  amountIls: z.number().int().positive(),
-  impressions: count,
-  clicks: count,
+  /** The amount of the promotion's own payment; null for a Moderator, who reads no payment (BILLING_FINANCE_MANAGE). */
+  amountIls: z.number().int().positive().nullable(),
+  /** Paid counts; null for a Moderator, who reads no paid event (BILLING_FINANCE_MANAGE), rather than a misleading 0. */
+  impressions: count.nullable(),
+  clicks: count.nullable(),
 });
 export type AdminPromotionItem = z.infer<typeof adminPromotionItem>;
 export const adminPromotionsResponse = z.strictObject({
-  totals: z.strictObject({ running: count, stopped: count, ended: count, payments: count, sampleRevenueIls: count, impressions: count, clicks: count }),
+  /** By state for everyone; the payments and the paid counts for the Admin only (null for a Moderator). */
+  totals: z.strictObject({
+    running: count,
+    stopped: count,
+    ended: count,
+    payments: count.nullable(),
+    sampleRevenueIls: count.nullable(),
+    impressions: count.nullable(),
+    clicks: count.nullable(),
+  }),
   promotions: z.array(adminPromotionItem),
   /** The Admin only (BILLING_FINANCE_MANAGE): the payments' totals and the settings are shown; a Moderator sees its promotions only. */
   isFinance: z.boolean(),

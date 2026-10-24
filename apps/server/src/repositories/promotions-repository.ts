@@ -332,25 +332,33 @@ export async function insertPromotionEvent(tx: IdentityTx, promotionId: string, 
   await tx.execute(sql`insert into nestly.promotion_events (promotion_id, kind) values (${promotionId}::uuid, ${kind})`);
 }
 
-/** One usage event of the caller (OP-039); staff and inactive accounts are dropped by the database. */
-export async function insertUsageEvent(tx: IdentityTx, kind: UsageEventKind): Promise<void> {
-  await tx.execute(sql`insert into nestly.usage_events (kind) values (${kind})`);
+/**
+ * `times` usage events of the caller (OP-039: one per post shown); staff and inactive accounts are dropped by the database. One statement of
+ * `times` rows: the guard sees the rows before it in the same statement, so the first makes (or adds one to) the day's row and each next adds one,
+ * up to the day's limit.
+ */
+export async function insertUsageEvent(tx: IdentityTx, kind: UsageEventKind, times = 1): Promise<void> {
+  if (times < 1) return;
+  await tx.execute(sql`insert into nestly.usage_events (kind) select ${kind} from pg_catalog.generate_series(1, ${times})`);
 }
 
-/** One view of a Professional's profile or post by the caller (FR-PRO-002); its own, staff's and a blocked pair's are dropped by the database. */
-export async function insertProfessionalView(tx: IdentityTx, professionalId: string, kind: 'profile_view' | 'post_view'): Promise<void> {
-  await tx.execute(sql`insert into nestly.professional_views (professional_id, kind) values (${professionalId}::uuid, ${kind})`);
+/**
+ * `times` views of a Professional's profile or posts by the caller (FR-PRO-002: a post view per post of theirs shown); its own, staff's and a
+ * blocked pair's are dropped by the database. One statement, counted row by row by the guard as above (up to 100 a day).
+ */
+export async function insertProfessionalView(tx: IdentityTx, professionalId: string, kind: 'profile_view' | 'post_view', times = 1): Promise<void> {
+  if (times < 1) return;
+  await tx.execute(sql`insert into nestly.professional_views (professional_id, kind) select ${professionalId}::uuid, ${kind} from pg_catalog.generate_series(1, ${times})`);
 }
 
-/** The Professionals among the authors of these posts (their posts' views count for them). */
-export async function readProfessionalAuthors(tx: IdentityTx, postIds: readonly string[]): Promise<string[]> {
+/** The Professionals among the authors of these posts, with how many of these posts are theirs (each shown post is one view of theirs). */
+export async function readProfessionalAuthors(tx: IdentityTx, postIds: readonly string[]): Promise<{ id: string; posts: number }[]> {
   if (postIds.length === 0) return [];
-  const rows = z.array(z.object({ id: z.guid() })).parse(
+  return z.array(z.object({ id: z.guid(), posts: z.coerce.number().int().positive() })).parse(
     await tx.execute(sql`
-      select distinct p.author_id as id from nestly.posts p join nestly.professional_profiles pr on pr.user_id = p.author_id
-      where p.id = any (${sql.param([...postIds])}::uuid[]) and p.author_id <> (select auth.uid())`),
+      select p.author_id as id, count(*)::integer as posts from nestly.posts p join nestly.professional_profiles pr on pr.user_id = p.author_id
+      where p.id = any (${sql.param([...postIds])}::uuid[]) and p.author_id <> (select auth.uid()) group by p.author_id`),
   );
-  return rows.map((row) => row.id);
 }
 
 /** FR-PRO-002: only a readable running profile promotion of this Professional can identify a paid arrival. */
@@ -374,9 +382,9 @@ const adminRow = z.object({
   startsAt: z.string(),
   endsAt: z.string(),
   stoppedBy: z.enum(['owner', 'staff']).nullable(),
-  amountIls: z.number().int(),
-  impressions: count,
-  clicks: count,
+  amountIls: z.number().int().nullable(),
+  impressions: count.nullable(),
+  clicks: count.nullable(),
 });
 
 const totalsRow = z.object({ running: count, stopped: count, ended: count, impressions: count, clicks: count });
@@ -394,16 +402,23 @@ export async function readPromotionTotals(tx: IdentityTx, kinds: readonly Promot
 }
 
 /**
- * The promotions of these kinds with their payment's sample amount and paid counts, newest first, up to 200 (read only; the policies decide
- * who reads which rows). The kinds narrow the list before the limit, so a Moderator's 200 are all of its keys' kinds.
+ * The promotions of these kinds, newest first, up to 200 (read only; the policies decide who reads which rows). The kinds narrow the list
+ * before the limit, so a Moderator's 200 are all of its keys' kinds. With `finance` (the Admin) each carries the amount of its own payment and
+ * its paid counts; without it they are null: a Moderator reads no payment and no paid event, and a 0 would be untrue.
+ * The payment is the one bought with the promotion: the same payer, plan and transaction time (both rows take now() in the purchase's one
+ * transaction; the promotion's payment_id is not readable by accounts).
  */
-export async function readAdminPromotions(tx: IdentityTx, kinds: readonly PromotionTargetKind[]): Promise<AdminPromotions['promotions']> {
+export async function readAdminPromotions(tx: IdentityTx, kinds: readonly PromotionTargetKind[], finance: boolean): Promise<AdminPromotions['promotions']> {
+  const paid = finance
+    ? sql`(select pp.amount_ils from nestly.promotion_payments pp
+            where pp.payer_id = p.owner_id and pp.plan_key = p.plan_key and pp.created_at = p.created_at limit 1) as "amountIls",
+           ${eventSum('impression')} as impressions, ${eventSum('click')} as clicks`
+    : sql`null::integer as "amountIls", null::integer as impressions, null::integer as clicks`;
   return z.array(adminRow).parse(
     await tx.execute(sql`
       select p.id, coalesce(pr.full_name, n.full_name) as "ownerName", case when p.target_kind = 'listing' then 'regular' else 'professional' end as "ownerKind",
              p.target_kind as "targetKind", p.plan_key as "planKey", ${stateOf} as state, ${iso('p.starts_at')} as "startsAt", ${iso('p.ends_at')} as "endsAt",
-             p.stopped_by as "stoppedBy", (select pl.sample_price_ils from nestly.promotion_plans pl where pl.key = p.plan_key) as "amountIls",
-             ${eventSum('impression')} as impressions, ${eventSum('click')} as clicks
+             p.stopped_by as "stoppedBy", ${paid}
       from nestly.promotions p
       left join nestly.professional_profiles pr on pr.user_id = p.owner_id
       left join nestly.regular_names n on n.user_id = p.owner_id

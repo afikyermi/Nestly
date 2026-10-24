@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { planTargetKind, type PromotionItem, type PromotionOverview, type PromotionPlanKey } from '@nestly/shared';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
@@ -36,6 +36,8 @@ import {
   SIMULATED_NOTE,
   STATE_LABELS,
   STOP,
+  STOP_CONFIRM_TEXT,
+  STOP_CONFIRM_TITLE,
   STOPPED_BY_STAFF,
   STOPPED_BY_STAFF_NOTE,
   STOP_FAILED,
@@ -87,7 +89,13 @@ export function PromotionScreen() {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
-  const [stopping, setStopping] = useState<string | null>(null);
+  // The running promotion whose stop is being confirmed (irreversible, no refund: §11.1), and whether that stop is in flight.
+  const [stopTarget, setStopTarget] = useState<string | null>(null);
+  const [stopping, setStopping] = useState(false);
+  const [stopFailure, setStopFailure] = useState<string | null>(null);
+  // After a stop the row's button is gone: focus goes to the list's heading instead of being lost.
+  const stopped = useRef(false);
+  const mineHeading = useRef<HTMLHeadingElement>(null);
 
   const refresh = useCallback(async () => {
     const result = await call((token) => fetchPromotionOverview(token));
@@ -134,11 +142,17 @@ export function PromotionScreen() {
   }
 
   async function stop(id: string) {
-    setStopping(id);
+    setStopping(true);
+    setStopFailure(null);
     const result = await call((token) => stopOwnPromotion(token, id));
-    setStopping(null);
-    if (result.kind === 'ok') await refresh();
-    else setNotice({ ok: false, text: STOP_FAILED });
+    setStopping(false);
+    if (result.kind !== 'ok') {
+      setStopFailure(STOP_FAILED);
+      return;
+    }
+    stopped.current = true;
+    setStopTarget(null);
+    await refresh();
   }
 
   const analytics = overview.analytics;
@@ -174,13 +188,21 @@ export function PromotionScreen() {
       </section>
 
       <section aria-labelledby={ids.mine}>
-        <h2 id={ids.mine} className="text-h3">
+        <h2 id={ids.mine} ref={mineHeading} tabIndex={-1} className="text-h3">
           {MY_PROMOTIONS}
         </h2>
         {overview.promotions.length === 0 ? <p className="mt-2 text-muted-foreground">{NO_PROMOTIONS}</p> : null}
         <ul aria-label={MY_PROMOTIONS} className="mt-3 flex flex-col gap-3">
           {overview.promotions.map((item) => (
-            <PromotionRow key={item.id} item={item} stopping={stopping === item.id} onStop={(id) => void stop(id)} />
+            <PromotionRow
+              key={item.id}
+              item={item}
+              stopping={stopping && stopTarget === item.id}
+              onStop={(id) => {
+                setStopFailure(null);
+                setStopTarget(id);
+              }}
+            />
           ))}
         </ul>
         <Link to={PRO_BILLING_PATH} className="mt-3 inline-flex min-h-11 items-center text-label text-primary-strong underline underline-offset-4">
@@ -234,6 +256,27 @@ export function PromotionScreen() {
         onConfirm={() => void buy()}
         onCancel={() => {
           if (!busy) setConfirming(false);
+        }}
+      />
+
+      <ConfirmDialog
+        open={stopTarget !== null}
+        title={STOP_CONFIRM_TITLE}
+        description={STOP_CONFIRM_TEXT}
+        confirmLabel={STOP}
+        cancelLabel={CANCEL}
+        pending={stopping}
+        failure={stopFailure}
+        finalFocus={() => {
+          if (!stopped.current) return null;
+          stopped.current = false;
+          return mineHeading.current;
+        }}
+        onConfirm={() => {
+          if (stopTarget !== null && !stopping) void stop(stopTarget);
+        }}
+        onCancel={() => {
+          if (!stopping) setStopTarget(null);
         }}
       />
     </div>

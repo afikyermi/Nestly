@@ -733,3 +733,39 @@ test('[E c10] the summary prints a passed/failed line for each of mobile-375 and
   }
 });
 
+
+// ---- temporary staff (Afik 23.10.2026; review 24.10.2026): the database credential never meets the tested tree's code -----
+const idxOf = (re) => steps.findIndex((s) => re.test(runOf(s)) || re.test(String(s.uses ?? '')) || re.test(String(s.name ?? '')));
+
+test('[BR-083 Preview] the harness checkout, its own script-free install and the staff setup all run before the tested tree is installed', () => {
+  const harness = steps.findIndex((s) => /actions\/checkout/.test(String(s.uses ?? '')) && s.with?.path === '.preview-harness');
+  const harnessInstall = steps.findIndex((s) => s['working-directory'] === '.preview-harness' && /npm ci/.test(runOf(s)));
+  const setup = idxOf(/preview-e2e-staff-cli\.ts/);
+  const testedInstall = steps.findIndex((s) => s['working-directory'] === undefined && /^\s*npm ci\s*$/.test(runOf(s)));
+  const browsers = idxOf(/playwright install/);
+  assert.ok(harness >= 0 && harness < harnessInstall && harnessInstall < setup, 'harness checkout, then its install, then setup');
+  assert.ok(setup < testedInstall && setup < browsers, 'staff setup must come before the tested tree is installed');
+  assert.match(runOf(steps[harnessInstall]), /npm ci --ignore-scripts/);
+  assert.equal(steps[harness].with.ref, '${{ github.event.repository.default_branch }}');
+  assert.equal(String(steps[harness].with['persist-credentials']), 'false');
+});
+
+test('[BR-083 Preview] only the staff setup step holds PREVIEW_DB_ADMIN_URL, and it runs with NODE_OPTIONS cleared', () => {
+  const holders = steps.filter((s) => JSON.stringify(s.env ?? {}).includes('PREVIEW_DB_ADMIN_URL'));
+  assert.equal(holders.length, 1);
+  assert.match(runOf(holders[0]), /^node \.preview-harness\/tools\/preview-e2e-staff-cli\.ts$/);
+  assert.equal(holders[0].env.NODE_OPTIONS, '');
+});
+
+test('[BR-083 Preview] the failure context is collected by the harness while the staff file exists; removal always runs after it', () => {
+  const collect = idxOf(/preview-e2e-failure-context-cli\.ts/);
+  const remove = steps.findIndex((s) => /rmSync\(process\.env\.PREVIEW_E2E_STAFF_FILE/.test(runOf(s)));
+  const upload = steps.findIndex((s) => /upload-artifact/.test(String(s.uses ?? '')));
+  const pw = idxOf(/playwright test/);
+  assert.ok(pw < collect && collect < remove && remove < upload);
+  assert.equal(String(steps[collect].if).trim(), 'failure()');
+  assert.equal(String(steps[remove].if).trim(), 'always()');
+  assert.match(steps[collect].env.PREVIEW_E2E_STAFF_FILE, /^\$\{\{\s*runner\.temp\s*\}\}\/preview-e2e-staff\.json$/);
+  assert.equal(steps[collect].env.NODE_OPTIONS, '');
+  assert.match(runOf(steps[collect]), /^node \.preview-harness\//);
+});
