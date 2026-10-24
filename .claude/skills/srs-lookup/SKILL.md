@@ -25,7 +25,7 @@ user-invocable: false
 ## Brief
 
 Before every initiative or completion, in a separate subagent, write `.work/briefs/<initiative>.md` (git-ignored),
-at most ~170 lines, from the initiative map (`decisions-in-force.md` §5), the SRS via the INDEX and the decisions.
+at most ~170 lines, from the initiative map (`docs/initiative-map.md`), the SRS via the INDEX and the decisions.
 The builder works from it; `done-check` checks the PR against it. Sections:
 - **(a) Requirements** — per FR / BR / AC / VAL / ERR / PG: `ID (file) — what has to happen · how we know it works`.
 - **(b) Afik's decisions** — the whole of `decisions-in-force.md`, not only the initiative's §: every cross-cutting
