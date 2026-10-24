@@ -675,7 +675,7 @@ triggers: `professional_profiles_update_guard`, `outreach_requests_insert_limit`
 | `professional_profiles` | user_id (PK, = users.id), account_type = professional (composite FK), user_status (copy), full_name 2-60, business_name, gender, field (list) + field_other when other, years_experience 0-60, area (list, §12), about ≤1,000, price_from, created_at, updated_at | SELECT own, or any active account while the Professional is active and no user block; INSERT/UPDATE own (Professional), per column; no DELETE |
 | `professional_follows` | id, follower_id (never granted for SELECT), follower_status (copy), professional_id (FK -> professional_profiles), created_at; one per pair, never self | SELECT the follower's own rows, and the rows naming the Professional while the follower is active (a count); INSERT an active Regular/Professional toward a readable profile; DELETE own |
 | `outreach_requests` | id, professional_id (FK -> professional_profiles), professional_status (copy), post_id (SET NULL), opening_message 1-2,000, status pending/accepted/declined, created_at, responded_at; one per Professional and post | SELECT the Professional (own), the post's author (named or through post_authors) while the Professional is active and unblocked; INSERT an active Professional on an active readable help-request post; UPDATE the author, pending -> accepted (no Chat Block) / declined |
-| `professional_reviews` | id, reviewer_id and reviewer_status (never granted for SELECT), professional_id, conversation_id (unique), rating 1-5, body 1-1,000, created_at | SELECT every active account (active, unblocked reviewer); INSERT a Regular, once per professional/outreach conversation of theirs in which the Professional wrote; no UPDATE/DELETE |
+| `professional_reviews` | id, reviewer_id and reviewer_status (never granted for SELECT), professional_id, conversation_id (unique), rating 1-5, body 1-1,000, created_at, edited_at (I11-C); one per (reviewer, Professional) since I11-C | SELECT every active account (active, unblocked reviewer); INSERT a Regular after a professional/outreach conversation of theirs in which the Professional wrote; UPDATE (rating, body) and DELETE the writer (I11-C) |
 | `professional_articles` | id, author_id, author_status (copy), title 2-120, body 1-10,000, field (list), status published/hidden, created_at, updated_at | SELECT own, or a published article of an active unblocked author; INSERT/UPDATE/DELETE own (Professional) |
 
 Other changes: `users_insert_own` allows a Professional; `posts.is_help_request` (Regular only, never a share; OP-038) and audience `followers` (Professional only;
@@ -766,3 +766,21 @@ account), and gains `professional_field` (copied from the payer's Professional p
 reads promotion_events (no viewer_id), promotions (id, kind, payment) and payments (id, field) for the summaries. Cleanup: the summaries of the user's
 promotions before the promotions; `professional_views` (the user's views and the views of the user's profile) and the user's `usage_events` after
 `promotion_payments`; `promotion_settings` is configuration.
+
+### Help offers, reviews and review report reasons (I11 completion C, Afik §13.1–13.3, §11.21, §11.10)
+
+Built by `20261024000000_help_offers_reviews.sql` (down script in `supabase/rollback/`; refuses while a report uses a review reason; cannot restore the
+duplicate reviews its data step deleted). No new table, no new SECURITY DEFINER, `audit_trigger()` unchanged. New invoker trigger
+`professional_reviews_update_guard` (before update of rating, body: only the writer, staff never; stamps `edited_at`).
+
+- `outreach_requests_insert_professional`: an active Professional offers help on any active, non-share post it can read under its own posts RLS (no
+  Friends-only post of another, no Private Group it is not in) whose author is a Regular (named: no `professional_profiles` row; anonymous posts are
+  Regular-only), no user block with a named author. One per post (key); `outreach_requests_insert_limit()` 100 in 24 hours (NS029).
+- `posts.is_help_request` is inert (no Offer Help policy reads it); column, check, index, grants and edit-guard column lists stay until a follow-up
+  migration after the code PR drops them.
+- `professional_reviews`: unique (reviewer_id, professional_id) (data step kept the newest per pair ⭐); `edited_at` (NULL = never edited, readable);
+  UPDATE (rating, body) granted — `professional_reviews_update_reviewer` (the writer, unmoderated review, conversation with a Professional message);
+  `professional_reviews_delete_reviewer` (the writer; open reports expire). `conversation_id` stays unique (one conversation per pair).
+- `report_reasons.scope` community | reviewed_professional; four core rows (review_offensive 2, review_false 4, review_personal_info 2, review_other 4).
+  `reports_insert_check()`: the reviewed Professional on a review about itself uses a reviewed_professional reason, everyone else a community one (23514);
+  `reports_other_details_check` also asks a text for review_other. `reports_details_length_check` still 1,000 (500 after the code on main holds 500).
