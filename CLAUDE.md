@@ -38,4 +38,4 @@ None except: PR body (what, `Implements:` IDs), the SRS, `decisions-in-force.md`
 
 ## Stages (Afik 24.10)
 No fixed freeze. Each initiative is tested when it ends, including its main flow on a real Preview, before the next one. Work through the night; never wait for Afik: what needs him goes to "ממתין לך". Final stage, after all initiatives: full test suite, Edge and visual tests with baselines refreshed, bug fixes (WORKPLAN list), demo users for every role and demo content created through the product per `docs/lecturer-demo-plan-HE.md`, SRS–code check, FR status table in `17-traceability.md`, Word export (`node tools/export-srs-docx.js`).
-Every day 20:00: a short message to Afik — built today, waiting for him, today's new screens with a direct link to each on nestly-blue.vercel.app, forecast for 26.10.
+No message at a fixed time (Afik 24.10). When Afik asks to end a session: a short summary — what was built, what waits for him, new screens with a direct link to each on nestly-blue.vercel.app, forecast to 27.10.
