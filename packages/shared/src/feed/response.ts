@@ -2,7 +2,7 @@
 // flag or ranking count can ride along (only the displayed likeCount, commentCount and likedByMe do, F3.3), and an anonymous unit has no `author` key at all (not a null one). The server builds the answer with
 // it and the web checks every answer with it.
 import { z } from 'zod';
-import { JOURNEY_STAGES, POST_AUDIENCES } from '../constants/index.js';
+import { JOURNEY_STAGES, OFFER_HELP_STATES, POST_AUDIENCES } from '../constants/index.js';
 import { mediaImage, POST_MAX_IMAGES } from '../media/index.js';
 import { publishedAnnouncement } from '../validation/team.js';
 
@@ -31,13 +31,16 @@ export const shareOriginal = z.union([
 const original = shareOriginal;
 
 /** I5: a post's images the viewer may see, in order (absent: none). */
-/** I11 (OP-038): `isHelpRequest` is present (true) only on a post that asks for help. */
+/**
+ * I11 completion C (FR-SERV-005, §13.2): `offerHelp` is present only for a Professional viewer on a post it may Offer Help on (a Regular's
+ * post, not a share): `available`, or `sent` once it has (one per post). Never for anyone else.
+ */
 const post = {
   ...common,
   kind: z.literal('post'),
   body: z.string(),
   images: z.array(mediaImage).max(POST_MAX_IMAGES).optional(),
-  isHelpRequest: z.literal(true).optional(),
+  offerHelp: z.enum(OFFER_HELP_STATES).optional(),
 };
 const share = { ...common, kind: z.literal('share'), body: z.string().nullable(), sharerText: z.string().nullable(), original };
 

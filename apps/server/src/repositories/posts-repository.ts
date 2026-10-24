@@ -4,11 +4,12 @@
 // permission. SELECT is column-level: every query lists its columns, and nothing here reads or returns `*`. The real author of an anonymous
 // post is read in one place only: the post page's `isMine` (data-model rule 20; the A&D amendment of F3.4), a flag that never leaves as an id.
 
-import { JOURNEY_STAGES, POST_AUDIENCES, type PostAudience, type PostWrite } from '@nestly/shared';
+import { JOURNEY_STAGES, OFFER_HELP_STATES, POST_AUDIENCES, type PostAudience, type PostWrite } from '@nestly/shared';
 import { eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { IdentityTx } from '../db/identity-transaction.js';
 import { posts, postsInsert, postsUpdate } from '../db/schema.js';
+import { offerHelpState } from './offer-help-state.js';
 
 export type PostRow = typeof posts.$inferSelect;
 /** The readability gate's row: what it read before F3.4, unchanged. */
@@ -45,6 +46,8 @@ const postDetailRow = z.object({
   originalIsAnonymous: z.boolean().nullable(),
   originalIsMine: z.boolean(),
   originalAuthorName: z.string().nullable(),
+  /** I11 completion C: the caller's Offer Help state (offer-help-state.ts); null for anyone but a Professional on an eligible post. */
+  offerHelp: z.enum(OFFER_HELP_STATES).nullable(),
 });
 
 export type PostDetailRow = z.infer<typeof postDetailRow>;
@@ -52,7 +55,7 @@ export type PostDetailRow = z.infer<typeof postDetailRow>;
 /** Inserts the caller's post; the author and status are the database's (an anonymous post's author goes to post_authors by trigger). */
 export async function insertPost(
   tx: IdentityTx,
-  values: { body: string; audience: PostAudience; stageTag: PostRow['stageTag']; isAnonymous: boolean; groupId: string | null; isHelpRequest: boolean },
+  values: { body: string; audience: PostAudience; stageTag: PostRow['stageTag']; isAnonymous: boolean; groupId: string | null },
 ): Promise<PostRow[]> {
   return tx.insert(postsInsert).values(values).returning(postColumns);
 }
@@ -92,7 +95,8 @@ export async function readPostDetail(tx: IdentityTx, id: string): Promise<PostDe
            p.is_share as "isShare", n.full_name as "authorName",
            o.id as "originalId", o.body as "originalBody", o.audience as "originalAudience",
            to_char(o.created_at at time zone 'UTC', ${isoMs}) as "originalCreatedAt", o.is_anonymous as "originalIsAnonymous",
-           coalesce(o.author_id = (select auth.uid()), false) as "originalIsMine", oa.full_name as "originalAuthorName"
+           coalesce(o.author_id = (select auth.uid()), false) as "originalIsMine", oa.full_name as "originalAuthorName",
+           ${offerHelpState('p')} as "offerHelp"
     from nestly.posts p
     left join nestly.regular_names n on p.is_share and n.user_id = p.author_id
     left join nestly.posts o on o.id = p.shared_post_id

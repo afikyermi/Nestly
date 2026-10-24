@@ -1,4 +1,5 @@
 import {
+  OUTREACH_PER_DAY,
   PROFESSIONAL_AREA_LABELS,
   type ProfileOptionalField,
   PROFESSIONAL_FIELD_LABELS,
@@ -35,8 +36,13 @@ export const fieldText = (field: ProfessionalField, other: string | null): strin
 export const areaText = (area: ProfessionalArea | null): string | null => (area === null ? null : PROFESSIONAL_AREA_LABELS[area]);
 export const yearsText = (years: number): string => (years === 0 ? 'בתחילת הדרך' : years === 1 ? 'שנת ניסיון אחת' : `${years} שנות ניסיון`);
 export const priceText = (price: number | null): string | null => (price === null ? null : `החל מ-${price.toLocaleString('he-IL')} ₪`);
+/** §11.22: the average with one decimal ("4.3"), as the profile shows it above its stars. */
+export const ratingValueText = (rating: number): string => rating.toLocaleString('he-IL', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+export const NO_RATING = 'עוד אין ביקורות';
+export const reviewCountText = (count: number): string => (count === 1 ? 'ביקורת אחת' : `${count} ביקורות`);
+/** The rating's accessible name and the cards' text: "דירוג 4.3 מתוך 5 · 3 ביקורות". */
 export const ratingText = (rating: number | null, count: number): string =>
-  rating === null ? 'עוד אין ביקורות' : `דירוג ${rating.toLocaleString('he-IL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} מתוך 5 · ${count === 1 ? 'ביקורת אחת' : `${count} ביקורות`}`;
+  rating === null ? NO_RATING : `דירוג ${ratingValueText(rating)} מתוך 5 · ${reviewCountText(count)}`;
 
 // ---- the profile page
 export const FOLLOW = 'מעקב';
@@ -58,10 +64,24 @@ export const REVIEW_RATING_LABEL = 'דירוג';
 export const REVIEW_TEXT_LABEL = 'הביקורת';
 export const REVIEW_SEND = 'פרסום הביקורת';
 export const REVIEW_SAVED = 'הביקורת פורסמה. תודה!';
-export const REVIEW_ALREADY = 'כבר נכתבה ביקורת על הפנייה הזו.';
+export const REVIEW_ALREADY = 'כבר נכתבה ביקורת על בעל המקצוע הזה. אפשר לערוך אותה.';
 export const REVIEW_TEXT_REQUIRED = 'יש לכתוב כמה מילים';
 export const REVIEW_RATING_REQUIRED = 'יש לבחור דירוג';
-export const REVIEW_NOTE = 'ביקורת אחת לכל פנייה. האחריות לתוכן הביקורת היא של מי שכתב אותה.';
+export const REVIEW_NOTE = 'ביקורת אחת לכל בעל מקצוע, ואפשר לערוך אותה בהמשך. האחריות לתוכן הביקורת היא של מי שכתב אותה.';
+// §11.21: the writer's own review, edited or deleted
+export const MY_REVIEW_HEADING = 'הביקורת שלך';
+export const MY_REVIEW_NOTE = 'רק הביקורת מוצגת לאחרים, בלי השם שלך.';
+export const EDIT_REVIEW = 'עריכת הביקורת';
+export const REVIEW_UPDATE = 'שמירת השינויים';
+export const REVIEW_UPDATED = 'הביקורת עודכנה.';
+export const DELETE_REVIEW = 'מחיקת הביקורת';
+export const DELETE_REVIEW_CONFIRM = 'למחוק את הביקורת? אי אפשר לשחזר אותה.';
+export const DELETE_REVIEW_YES = 'מחיקה';
+export const REVIEW_DELETED = 'הביקורת נמחקה.';
+export const REVIEW_GONE = 'הביקורת כבר לא זמינה לעריכה.';
+export const REVIEW_HELD = 'כבר יש ביקורת שלך על בעל המקצוע הזה, והיא לא מוצגת כרגע.';
+export const REVIEW_NOT_EDITABLE = 'אי אפשר לערוך את הביקורת כרגע.';
+export const EDITED_LABEL = 'נערכה';
 export const reviewStars = (rating: number): string => `${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}`;
 export const reviewStarsLabel = (rating: number): string => `${rating} מתוך 5`;
 export const ARTICLES_HEADING = 'מאמרים';
@@ -114,9 +134,9 @@ export const KPI_POSTS = 'פוסטים (30 יום)';
 export const KPI_ARTICLES = 'מאמרים';
 export const KPI_NOTE = 'הנתונים מצטברים בלבד ואינם מראים מי עשה מה.';
 export const offersLeftText = (used: number, limit: number): string => `הצעות עזרה היום: ${used} מתוך ${limit}`;
-export const HELP_HEADING = 'פוסטים שמבקשים עזרה';
-export const HELP_INTRO = 'אפשר להציע עזרה פעם אחת לכל פוסט, ועד 10 הצעות ביום. אין לשלוח הודעות פרסום.';
-export const NO_HELP = 'כרגע אין פוסטים שמבקשים עזרה.';
+export const HELP_HEADING = 'פוסטים בתחום שלך';
+export const HELP_INTRO = `פוסטים של הורים בנושאים של התחום שלך. אפשר להציע עזרה פעם אחת לכל פוסט, ועד ${OUTREACH_PER_DAY} הצעות ביום. אין לשלוח הודעות פרסום.`;
+export const NO_HELP = 'כרגע אין פוסטים חדשים בתחום שלך. אפשר להציע עזרה גם מכל פוסט בפיד.';
 export const ANONYMOUS_AUTHOR = 'פוסט אנונימי';
 export const OFFER_HELP = 'הצעת עזרה';
 export const OFFERED = 'נשלחה הצעה';
@@ -124,10 +144,14 @@ export const OPEN_POST = 'לפוסט';
 export const OFFER_TEXT_LABEL = 'ההודעה הראשונה';
 export const OFFER_SEND = 'שליחת ההצעה';
 export const OFFER_SENT = 'ההצעה נשלחה. אם תאושר, תיפתח שיחה.';
-export const OFFER_LIMIT = 'הגעת ל-10 הצעות עזרה היום. אפשר לנסות שוב מחר.';
+export const OFFER_LIMIT = `נשלחו היום ${OUTREACH_PER_DAY} הצעות עזרה, המכסה היומית. אפשר להציע שוב מחר.`;
 export const OFFER_ALREADY = 'כבר נשלחה הצעה לפוסט הזה.';
 export const OFFER_NOT_ALLOWED = 'אי אפשר להציע עזרה לפוסט הזה.';
 export const OFFER_TEXT_REQUIRED = 'יש לכתוב הודעה';
+/** The Offer Help window from a feed card or a post page (FR-SERV-005, §13.2). */
+export const OFFER_SHEET_INTRO = 'ההודעה תגיע לכותבי הפוסט כהצעת עזרה. שיחה תיפתח רק אם יאשרו אותה. אין לשלוח הודעות פרסום.';
+export const OFFER_ANONYMOUS_NOTE = 'הפוסט אנונימי: הזהות של הכותבים תיחשף רק אם יאשרו את ההצעה.';
+export const OFFER_SENDING = 'שולחים';
 export const EDIT_PROFILE = 'עריכת הפרופיל המקצועי';
 export const MY_ARTICLES = 'המאמרים שלי';
 
@@ -149,7 +173,7 @@ export const ARTICLE_ERRORS = { title: 'כותרת באורך 2 עד 120 תוו�
 
 // ---- Offer Help, the author's side
 export const OFFERS_TITLE = 'הצעות עזרה';
-export const OFFERS_INTRO = 'בעלי מקצוע שהציעו עזרה בעקבות פוסט שביקש עזרה. רק אישור פותח שיחה; אפשר גם לדחות או להתעלם.';
+export const OFFERS_INTRO = 'בעלי מקצוע שהציעו עזרה בעקבות פוסט שלך. רק אישור פותח שיחה; אפשר גם לדחות או להתעלם.';
 export const OFFERS_RECEIVED = 'הצעות שקיבלת';
 export const OFFERS_SENT = 'הצעות ששלחת';
 export const NO_OFFERS = 'אין הצעות עזרה.';
@@ -158,14 +182,10 @@ export const DECLINE = 'דחייה';
 export const STATUS_LABELS = { pending: 'ממתינה', accepted: 'אושרה', declined: 'נדחתה' } as const;
 export const ON_POST = 'על הפוסט:';
 
-// ---- the feed
-export const HELP_REQUEST_CHECKBOX = 'הפוסט מבקש עזרה מבעלי מקצוע';
-export const HELP_REQUEST_HINT = 'בעלי מקצוע יוכלו להציע עזרה. הצעה פותחת שיחה רק אם מאשרים אותה.';
-export const HELP_REQUEST_BADGE = 'מבקשים עזרה';
-
 // ---- reporting a review or an article (I11 follow-ups, FR-MOD-001)
 export const REPORT_REVIEW = 'דיווח על הביקורת';
 export const REPORT_ARTICLE = 'דיווח על המאמר';
+export const REVIEW_ACTIONS = 'פעולות לביקורת';
 
 // ---- the Professional's home, in Afik's order (21.10.2026, decisions-in-force.md §9.8)
 export const WAITING_HEADING = 'מחכה לך';
@@ -173,7 +193,7 @@ export const NOTHING_WAITING = 'אין כרגע דברים שמחכים לך.';
 export const unreadChatsText = (n: number): string => (n === 1 ? 'שיחה אחת עם הודעה שלא נקראה' : `${n} שיחות עם הודעות שלא נקראו`);
 export const acceptedOffersText = (n: number): string => (n === 1 ? 'הצעת עזרה אחת אושרה' : `${n} הצעות עזרה אושרו`);
 export const newReviewsText = (n: number): string => (n === 1 ? 'ביקורת חדשה אחת' : `${n} ביקורות חדשות`);
-export const ALL_HELP_REQUESTS = 'לכל הפוסטים שמבקשים עזרה';
+export const ALL_HELP_REQUESTS = 'לכל הפוסטים בתחום שלך';
 export const KPI_ACCEPTANCE = 'הצעות עזרה שאושרו';
 /** The Offer Help acceptance rate: accepted out of answered (pending ones are not counted). */
 export const acceptanceText = (accepted: number, answered: number): string => (answered === 0 ? '—' : `${Math.round((accepted / answered) * 100)}% (${accepted}/${answered})`);
@@ -194,6 +214,10 @@ export const PROMOTION_NOT_YET = 'קידום בתשלום עדיין לא זמי
 
 // ---- the Professional's menu and navigation (Afik 21.10.2026, §9.8)
 export const HELP_REQUESTS_TITLE = 'בקשות עזרה';
+/** §11.20: the Professional's bottom navigation item for its conversations. */
+export const CHATS_NAV_LABEL = 'שיחות';
+/** Said after the tab's label (WCAG 2.5.3: the visible label first): ", 3 עם הודעות חדשות". */
+export const CHATS_NAV_UNREAD = (shown: string): string => `, ${shown} עם הודעות חדשות`;
 export const FOLLOWING_TITLE = 'בעלי מקצוע במעקב';
 export const FOLLOWING_LIST_LABEL = 'בעלי מקצוע במעקב';
 export const FOLLOWING_EMPTY = 'עדיין אין בעלי מקצוע במעקב. אפשר למצוא בעלי מקצוע ולעקוב אחריהם במדריך.';

@@ -13,6 +13,7 @@ import {
   ANONYMOUS_AUTHOR,
   CANCEL,
   HELP_HEADING,
+  MESSAGE_TOO_LONG,
   NO_HELP,
   OFFER_ALREADY,
   OFFER_HELP,
@@ -35,8 +36,8 @@ export interface HelpRequestsListProps {
   onSent: () => Promise<void>;
 }
 
-// The newest posts that ask for help, each with "הצעת עזרה" once (FR-SERV-005, BR-008/009: one per post, at most 10 a day; the database holds both
-// rules). Used by the Professional's home and by the help-requests page of its bottom navigation (Afik 21.10.2026).
+// The newest posts in the Professional's field it may Offer Help on (FR-SERV-005, §13.4), each with "הצעת עזרה" once (BR-008/009: one per post,
+// at most 100 a day; the database holds both rules). Used by the Professional's home and by "בקשות עזרה" (reached from the home and the menu, §11.20).
 export function HelpRequestsList({ items, onSent }: HelpRequestsListProps) {
   const call = useProCall();
   const [offering, setOffering] = useState<string | null>(null);
@@ -50,8 +51,9 @@ export function HelpRequestsList({ items, onSent }: HelpRequestsListProps) {
   async function send(event: FormEvent, postId: string) {
     event.preventDefault();
     if (running.current) return;
-    if (chatTextProblem(text) !== null) {
-      setTextError(OFFER_TEXT_REQUIRED);
+    const problem = chatTextProblem(text);
+    if (problem !== null) {
+      setTextError(problem === 'long' ? MESSAGE_TOO_LONG : OFFER_TEXT_REQUIRED);
       return;
     }
     running.current = true;

@@ -21,6 +21,7 @@ import { ShareFeedSheet, type ShareFeedSheetProps } from './ShareFeedSheet';
 import { SHARE_IN_FEED_LABEL } from './share-texts';
 import { MORE_ACTIONS_LABEL, MORE_ACTIONS_MENU_LABEL } from './hide-texts';
 import { PostImages } from './PostImages';
+import { OFFER_CONTROL_SELECTOR, OfferHelpControl, OfferHelpSheet, type OfferHelpSheetProps } from '@/components/domain/offer-help-sheet';
 import {
   ANONYMOUS_OWN_NOTE,
   audienceLine,
@@ -95,6 +96,10 @@ export interface PostContentProps {
   shareLink?: Omit<ShareLinkSheetProps, 'finalFocus'> | null;
   /** A page-level alert (F3.5 c11: the share was refused for the caller). Empty: none. */
   pageAlert?: string;
+  /** I11 completion C (FR-SERV-005, §13.2): a Professional's "הצעת עזרה" on a post it may offer on; `sent`: "נשלחה הצעה". */
+  offerHelp?: { sent: boolean; onOffer: () => void } | undefined;
+  /** The Offer Help window, open while set; it closes onto the post's offer control. */
+  offerSheet?: Omit<OfferHelpSheetProps, 'finalFocus'> | null;
 }
 
 // The author's "⋯" of the post (ux-polish-b c3): where focus returns after an edit, a cancelled delete.
@@ -109,7 +114,7 @@ const FOCUS_MORE = '[data-more-actions]';
 export function PostContent(props: PostContentProps) {
   const { view, focus, onRetry, onEditChange, onEditSave, onEditCancel, onConfirmDelete, onCancelDelete, thread } = props;
   const { moreActions = [], menuOpen, onMenuOpenChange, onMenuPressOutside, report = null, everyoneOnly = false } = props;
-  const { onShareInFeed, onShareLink, shareFeed = null, shareLink = null, pageAlert = '' } = props;
+  const { onShareInFeed, onShareLink, shareFeed = null, shareLink = null, pageAlert = '', offerHelp, offerSheet = null } = props;
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -236,8 +241,9 @@ export function PostContent(props: PostContentProps) {
                 {tagLine(STAGE_LABELS[loaded.post.stageTag])}
               </p>
             ) : null}
-            {onShareInFeed !== undefined || onShareLink !== undefined ? (
+            {onShareInFeed !== undefined || onShareLink !== undefined || offerHelp !== undefined ? (
               <div className="flex flex-wrap items-center gap-x-2">
+                {offerHelp === undefined ? null : <OfferHelpControl {...offerHelp} />}
                 {onShareInFeed === undefined ? null : (
                   <Button iconOnly label={SHARE_IN_FEED_LABEL} data-share-feed onClick={onShareInFeed}>
                     <ShareInFeedIcon className="size-5" />
@@ -280,6 +286,9 @@ export function PostContent(props: PostContentProps) {
         />
       ) : null}
       {shareFeed !== null ? <ShareFeedSheet {...shareFeed} finalFocus={() => rootRef.current?.querySelector<HTMLElement>('[data-share-feed]') ?? null} /> : null}
+      {offerSheet !== null ? (
+        <OfferHelpSheet {...offerSheet} finalFocus={() => rootRef.current?.querySelector<HTMLElement>(OFFER_CONTROL_SELECTOR) ?? null} />
+      ) : null}
       {shareLink !== null ? <ShareLinkSheet {...shareLink} finalFocus={() => rootRef.current?.querySelector<HTMLElement>('[data-share-link]') ?? null} /> : null}
     </div>
   );

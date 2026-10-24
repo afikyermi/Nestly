@@ -8,6 +8,7 @@ import { Popover } from '@/components/ui/popover';
 import { useChatCall } from '@/hooks/use-chat-call';
 import { conversationPath, supportThreadPath } from '@/lib/chat-link';
 import { fetchChatOverview, fetchChatUnread } from '@/services/api/chat';
+import { publishChatUnread } from './chat-unread';
 import {
   CHAT_ALL_LABEL,
   CHAT_DROPDOWN_LABEL,
@@ -29,10 +30,12 @@ const RECENT = 5;
 type Recent = { kind: 'loading' } | { kind: 'failed' } | { kind: 'loaded'; overview: ChatOverview };
 
 // The Chat icon in the Top Bar (FR-CHAT-001, BR-036): the unread badge (messages, Support replies and requests waiting for an answer), and a
-// dropdown of the latest conversations with a link to the whole Chat Center. A chat message is never also a notification.
+// dropdown of the latest conversations with a link to the whole Chat Center. A chat message is never also a notification. The count is also
+// published for a Professional's "שיחות" tab (I11 completion C, §11.20), so it is asked for once.
 export function ChatTopBarButton({ current }: { current: string }) {
   const call = useChatCall();
   const [unread, setUnread] = useState(0);
+  useEffect(() => publishChatUnread(unread), [unread]);
   const [open, setOpen] = useState(false);
   const [recent, setRecent] = useState<Recent>({ kind: 'loading' });
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { RatingLine } from '@/components/domain/star-rating';
 import { Link } from 'react-router';
 import {
   DIRECTORY_SORTS,
@@ -40,7 +41,6 @@ import {
   areaText,
   fieldText,
   priceText,
-  ratingText,
   yearsText,
 } from '@/lib/professional-texts';
 import { fetchDirectory } from '@/services/api/professionals';
@@ -177,7 +177,7 @@ export function DirectoryScreen() {
                 <p className="mt-1 text-small text-muted-foreground">
                   {[yearsText(card.yearsExperience), areaText(card.area), priceText(card.priceFrom)].filter((part) => part !== null).join(' · ')}
                 </p>
-                <p className="mt-1 text-small">{ratingText(card.rating, card.reviewCount)}</p>
+                <RatingLine rating={card.rating} count={card.reviewCount} className="mt-1" />
               </li>
             ))}
           </ul>

@@ -14,9 +14,6 @@ export const AUDIENCE_LABELS: Record<PostAudience, string> = { everyone: 'כול
 export const REGULAR_AUDIENCES: readonly PostAudience[] = ['everyone', 'friends'];
 export const PROFESSIONAL_AUDIENCES: readonly PostAudience[] = ['everyone', 'followers'];
 /** I11 (OP-038 ⭐ (a)): the author marks the post as asking for help from Professionals. */
-export const HELP_REQUEST_LABEL = 'הפוסט מבקש עזרה מבעלי מקצוע';
-export const HELP_REQUEST_HINT_TEXT = 'בעלי מקצוע יוכלו להציע עזרה. הצעה פותחת שיחה רק אם מאשרים אותה';
-export const HELP_REQUEST_BADGE = 'מבקשים עזרה';
 /** Afik 6ב: a named post says whose name it carries. */
 export const NAME_NOTICE_TEXT = 'השם שלכם יוצג לכל מי שיכול לראות את הפוסט';
 // F3.4 (.work/anonymous-post/screen.md). The anonymous notice is the ⭐ text of Gate 1 decision 2, until Afik answers the DR on staff access.

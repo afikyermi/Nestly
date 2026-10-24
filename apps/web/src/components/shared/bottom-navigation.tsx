@@ -9,6 +9,11 @@ export interface BottomNavigationItem {
   icon: ReactNode;
   /** At most one item is current: when several are set, only the first is marked. */
   current?: boolean;
+  /**
+   * A quiet count drawn on the icon (design-system: `badge`, no red, no pulse), e.g. unread conversations. The item renders it itself and it
+   * carries its own screen-reader text after the label ("שיחות, 3 עם הודעות חדשות"); nothing: no badge.
+   */
+  badge?: ReactNode;
 }
 
 export interface BottomNavigationProps {
@@ -56,7 +61,7 @@ export function BottomNavigation({ items, label, onNavigate, className }: Bottom
                       }
                 }
                 className={cn(
-                  'group flex min-h-14 flex-col items-center gap-0.5 rounded-md pt-1 text-center text-caption no-underline',
+                  'group relative flex min-h-14 flex-col items-center gap-0.5 rounded-md pt-1 text-center text-caption no-underline',
                   current ? 'font-semibold text-primary-strong' : 'text-muted-foreground',
                 )}
               >
@@ -70,6 +75,7 @@ export function BottomNavigation({ items, label, onNavigate, className }: Bottom
                   {item.icon}
                 </span>
                 {item.label}
+                {item.badge}
               </a>
             </li>
           );

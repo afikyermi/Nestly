@@ -24,6 +24,7 @@ import { usePostScroll } from './post-scroll';
 import { shareFeedSheetValues, useShareInFeed } from './use-share-in-feed';
 import { CONFIRM_DELETE_LABEL, DELETE_FAILED_TEXT, DELETED_STATUS, LOAD_FAILED_TEXT, SAVE_FAILED_TEXT, UPDATED_STATUS } from './posts-texts';
 import { EDIT_ITEM_LABEL } from './hide-texts';
+import { useOfferHelp } from '@/hooks/use-offer-help';
 
 type Loaded = Extract<PostScreenView, { kind: 'loaded' }>;
 
@@ -71,18 +72,21 @@ export function PostScreen({ postId }: { postId: string }) {
     () => setPageAlert(SHARE_FAILED_TEXT),
   );
   const shareLink = useShareLink();
+  // I11 completion C (FR-SERV-005, §13.2): a Professional offers help from the post the server marked; what happened goes to the status line.
+  const offer = useOfferHelp((_postId, text) => setView((current) => (current.kind === 'loaded' ? { ...current, status: text } : current)));
   // The delete confirmation shares the one history entry (ux-polish-b c4). Back while the report, the share or the delete is in flight keeps the
   // window (the hook adds its entry again). A press outside the menu: as the feed's (F3.9).
-  const sheetOpen = report.draft !== null || shareFeed.draft !== null || shareLink.sheet !== null;
+  const sheetOpen = report.draft !== null || shareFeed.draft !== null || shareLink.sheet !== null || offer.draft !== null;
   const confirming = view.kind === 'loaded' && view.confirm !== null;
   const back = useBackCloses(menuOpen || sheetOpen || confirming, () => {
     const now = latestView.current;
-    if (report.draft?.sending === true || shareFeed.draft?.sending === true || (now.kind === 'loaded' && now.confirm?.saving === true)) return false;
+    if (report.draft?.sending === true || shareFeed.draft?.sending === true || offer.draft?.sending === true || (now.kind === 'loaded' && now.confirm?.saving === true)) return false;
     if (now.kind === 'loaded' && now.confirm !== null) setView({ ...now, confirm: null });
     setMenuOpen(false);
     report.cancel();
     shareFeed.cancel();
     shareLink.close();
+    offer.cancel();
     return true;
   });
   const pressedOutside = outsidePressHandler(back);
@@ -293,6 +297,15 @@ export function PostScreen({ postId }: { postId: string }) {
           : shareLinkSheetProps(shareLink, shareLink.sheet, SHARE_LINK_LABEL)
       }
       pageAlert={pageAlert}
+      offerHelp={
+        loaded === null || loaded.edit !== null || reviewing || loaded.post.kind !== 'post' || loaded.post.offerHelp === undefined
+          ? undefined
+          : (() => {
+              const { post } = loaded;
+              return { sent: post.offerHelp === 'sent' || offer.isSent(post.id), onOffer: () => offer.start(post.id, post.isAnonymous) };
+            })()
+      }
+      offerSheet={offer.draft === null ? null : { ...offer.draft, onTextChange: offer.change, onSend: offer.send, onCancel: offer.cancel }}
     />
   );
 }
