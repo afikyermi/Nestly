@@ -11,7 +11,7 @@ user-invocable: false
 ## Steps
 
 1. **Start at `docs/srs/INDEX.md`.** It maps every section file, every FR and AC to its file, and the ID range of
-   every prefix to its file. The INDEX is authoritative. Do not guess a file from memory.
+   every prefix to its file. The INDEX is authoritative. Do not guess a file from memory. No ID? Find the heading in `docs/srs/SECTIONS.md`, then grep it.
 2. **Grep, then read narrowly.** Search for the ID across `docs/srs/` — that shows its definition and every place
    that references it. Read the definition's table row or section, not the whole file.
 3. **Collect what belongs to an FR.** The BR, VAL, ERR and AC items that cite it or that it cites, and its row in
