@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { NotificationList } from "./NotificationList";
 import { useNotifications } from "./NotificationsProvider";
@@ -18,6 +18,12 @@ export function NotificationsScreen() {
   const { state, refresh, markAll, markOne, loadMore } = useNotifications();
   const [markFailed, setMarkFailed] = useState(false);
   const [moreFailed, setMoreFailed] = useState(false);
+  // OP-059: opening the page asks for a fresh list (a Friend's child's birthday is delivered then). Not when the app itself opened
+  // on this page: the provider's first load is that request.
+  const openedReady = useRef(state.kind === "ready");
+  useEffect(() => {
+    if (openedReady.current) void refresh();
+  }, [refresh]);
 
   if (state.kind === "loading")
     return <p role="status" className="text-muted-foreground" />;

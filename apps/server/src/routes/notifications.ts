@@ -1,6 +1,6 @@
 // Notifications (FR-NOTIF-001/002/003; AC-040, AC-041). Signed in: the authentication hook has run before anything here. The caller is never
 // named; a notification is named by its id in the path.
-//   GET  /api/notifications[?before=<cursor>]     → 200 { items:[{id,type,actor,actorName,targetKind,targetId,createdAt,isRead}], unreadCount, nextCursor } · 400 invalid
+//   GET  /api/notifications[?before=<cursor>][&poll=1] → 200 { items:[{id,type,actor,actorName,targetKind,targetId,createdAt,isRead}], unreadCount, nextCursor } · 400 invalid
 //   POST /api/notifications/read-all              → 200 {}   (Mark all as read)
 //   POST /api/notifications/:id/read              → 200 {} · 404 unavailable (not the caller's) · 400 invalid
 //   GET  /api/notification-preferences            → 200 { categories:[{category,isEnabled}], friends:[{userId,fullName,isEnabled}] }
@@ -77,10 +77,11 @@ export function registerNotificationsRoutes(app: FastifyInstance, deps: Notifica
     method: 'GET',
     url: '/api/notifications',
     handler: guarded('notifications read failed', async (database, request, reply, identity) => {
-      const query = z.strictObject({ before: z.string().optional() }).safeParse(request.query ?? {});
+      const query = z.strictObject({ before: z.string().optional(), poll: z.literal('1').optional() }).safeParse(request.query ?? {});
       const before = query.success ? parseNotificationsCursor(query.data.before) : 'invalid';
       if (before === 'invalid') return reply.code(400).send({ error: 'invalid' });
-      const outcome = await readNotifications(database, identity, before);
+      // poll=1: the bell's background refresh, which reads only (no birthday is delivered on it, OP-059)
+      const outcome = await readNotifications(database, identity, before, { deliver: query.success && query.data.poll === undefined });
       if (outcome.kind !== 'ok') return replyRefusal(reply, outcome);
       return reply.code(200).send(notificationsResponse.parse({ items: outcome.items, unreadCount: outcome.unreadCount, nextCursor: outcome.nextCursor }));
     }),
