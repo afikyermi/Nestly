@@ -424,9 +424,9 @@ describe('[I13] the rules of a running promotion', () => {
       const item = (await readOverview(database, as(owner))).promotions.find((row) => row.id === id);
       return (item?.counts.impressions ?? 0) + (item?.counts.clicks ?? 0);
     };
-    const before = { post: await paidOf(pro2, postPromotion), profile: await paidOf(pro2, proPromotion), shelf: await paidOf(seller, shelfPromotion) };
-    // a Regular is served them (the units are live), so an empty staff result below is the staff rule, not an empty pool
+    // a Regular is served them (the units are live; its impression is counted before the baseline), so an empty staff result is the rule
     expect((await listMarketplace(database, as(viewer2), undefined, { q: `שידה ${tag}` })).promoted.map((unit) => unit.listing.id)).toContain(shelf);
+    const before = { post: await paidOf(pro2, postPromotion), profile: await paidOf(pro2, proPromotion), shelf: await paidOf(seller, shelfPromotion) };
     for (const staff of [contentMod, marketMod, admin]) {
       const feed = await readFeedPage(database, as(staff), null);
       if (feed.kind === 'page') expect(feed.page.promoted ?? []).toEqual([]);
