@@ -134,10 +134,18 @@ export async function invite(database: Database, identity: Identity, id: string,
       if (group.myRole === null) return fail('not_allowed');
       if (group.muteUntil !== null) return fail('muted');
       if ((await readMemberRole(tx, id, userId)) !== undefined) return fail('already_member');
+      // a manager reads the Group's blocks and is told plainly; a plain member cannot, and the database refuses the invitation (NS028)
       if (await readBanned(tx, id, userId)) return fail('blocked_from_group');
       return ok(await insertInvitation(tx, id, userId));
     },
-    (error) => (readDatabaseFault(error)?.code === '42501' ? fail('not_a_friend') : refusalOf(error, fail('user_unavailable'), fail('already_requested'))),
+    // NS028 here reaches only a caller who cannot read the blocks: the same answer as any invitee who is not available, so a plain member
+    // never learns of a manager's decision (review of #180)
+    (error) => {
+      const code = readDatabaseFault(error)?.code;
+      if (code === '42501') return fail('not_a_friend');
+      if (code === 'NS028') return fail('user_unavailable');
+      return refusalOf(error, fail('user_unavailable'), fail('already_requested'));
+    },
   );
 }
 

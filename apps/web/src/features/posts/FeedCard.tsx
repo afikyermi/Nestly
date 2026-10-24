@@ -8,7 +8,7 @@ import { SHARE_LINK_LABEL } from '@/lib/share-link-texts';
 import { MoreActionsMenu, type MoreActionsItem } from '@/components/ui/more-actions-menu';
 import { AUDIENCE_LABELS, fromGroup, HELP_REQUEST_BADGE } from './posts-texts';
 import { groupPath } from '@/lib/group-link';
-import { COMMENTS_TITLE, LIKE_LABEL } from './comments-texts';
+import { COMMENTS_TITLE, LIKE_LABEL, MUTED_IN_GROUP_TEXT } from './comments-texts';
 import { STAGE_LABELS } from '@/lib/child-fields';
 import { formatPostTime } from '@/lib/format-post-time';
 import { postPath } from '@/lib/post-link';
@@ -124,6 +124,12 @@ export function FeedCard(props: FeedCardProps) {
               {unit.sharerText !== null ? <Text>{unit.sharerText}</Text> : null}
               <OriginalQuote className="order-3 w-full" quote={unit.original.available ? unit.original : null} />
             </>
+          ) : null}
+          {/* I10-C (§11.16): a member muted in the Group reads its Highlight only: no like, no comments to write */}
+          {unit.kind === 'post' && unit.group?.muted === true ? (
+            <p role="note" className="order-3 w-full text-small text-muted-foreground">
+              {MUTED_IN_GROUP_TEXT}
+            </p>
           ) : null}
           {onToggleLike === undefined ? null : (
             <div className="order-3 w-full flex flex-wrap items-center gap-x-2">

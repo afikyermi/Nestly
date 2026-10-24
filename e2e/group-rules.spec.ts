@@ -116,3 +116,53 @@ test('[FR-GRP-002 AC-167 AC-168 OP-070 §11.15 §11.16] a member invites a Frien
   await expect(mine).toContainText('אזהרה והשתקה');
   await expect(mine).toContainText('ספאם או פרסום');
 });
+
+test('[FR-GRP-001 AC-164 review #180] the "עיקרי הדברים" toggle is the members\': a non-member of a Public Group reads every post with no toggle', async ({ page }) => {
+  await setupGroups(page, [WALKS, { ...WALKS, id: GID(2), name: 'אבות בבוקר', myRole: 'member', state: 'member' }]);
+  await signIn(page);
+  await page.goto(`/groups/${GID(1)}`);
+  await expect(main(page).getByRole('heading', { name: WALKS.name })).toBeVisible();
+  await expect(main(page).getByRole('button', { name: 'עיקרי הדברים' })).toHaveCount(0);
+  await page.goto(`/groups/${GID(2)}`);
+  await expect(main(page).getByRole('button', { name: 'עיקרי הדברים' })).toBeVisible();
+});
+
+test('[FR-GRP-003 AC-168 review #180] a muted member reads only: the Highlight in the main feed and its post page have no like, comment or reply, and say why', async ({ page }) => {
+  await setupGroups(page);
+  const highlight = {
+    id: NID(31), source: 'organic', audience: 'everyone', stageTag: null, createdAt: '2026-06-15T11:00:00.000Z', likeCount: 4, commentCount: 1,
+    likedByMe: false, kind: 'post', body: 'מה עוזר לכם בלילות?', isMine: false, isAnonymous: false, author: { name: 'יוסי כהן' },
+    group: { id: GID(1), name: WALKS.name, privacy: 'public', muted: true },
+  };
+  await page.route('**/api/feed**', (route) => json(route, 200, { items: [highlight], nextCursor: null, configVersion: 1 }));
+  await page.route(/\/api\/posts\/[^/?]+$/, (route) =>
+    json(route, 200, {
+      kind: 'post', id: NID(31), body: 'מה עוזר לכם בלילות?', audience: 'everyone', stageTag: null, createdAt: '2026-06-15T11:00:00.000Z',
+      isAnonymous: false, isMine: false, likeCount: 4, commentCount: 1, likedByMe: false, mutedInGroup: true,
+    }),
+  );
+  await page.route(/\/api\/posts\/[^/?]+\/comments(\?.*)?$/, (route) =>
+    json(route, 200, {
+      items: [
+        {
+          id: NID(41), parentId: null, body: 'רעש לבן', createdAt: '2026-06-15T11:10:00.000Z', isMine: false, byAuthor: false, author: { name: 'דנה כהן' },
+          likeCount: 0, likedByMe: false, replies: [], replyCount: 0,
+        },
+      ],
+      nextCursor: null,
+    }),
+  );
+  await signIn(page);
+  await page.goto('/feed');
+  const card = main(page).getByRole('article', { name: /יוסי כהן/ });
+  await expect(card.getByRole('note')).toHaveText('בזמן ההשתקה בקבוצה אפשר רק לקרוא');
+  await expect(card.getByRole('button', { name: /לייק/ })).toHaveCount(0);
+  await expect(card.getByRole('textbox')).toHaveCount(0);
+  await page.goto(`/posts/${NID(31)}`);
+  const comments = main(page).getByRole('region', { name: 'תגובות' });
+  await expect(comments.getByText('רעש לבן')).toBeVisible();
+  await expect(comments.getByRole('note')).toHaveText('בזמן ההשתקה בקבוצה אפשר רק לקרוא');
+  await expect(comments.getByRole('textbox')).toHaveCount(0);
+  await expect(comments.getByRole('button', { name: /לייק/ })).toHaveCount(0);
+  await expect(comments.getByRole('button', { name: 'השבה' })).toHaveCount(0);
+});

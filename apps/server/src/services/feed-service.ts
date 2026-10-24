@@ -38,6 +38,7 @@ import {
 } from '../repositories/feed-repository.js';
 import { readOwnStages } from '../repositories/journeys-repository.js';
 import { readFeedGroupSuggestions } from '../repositories/group-activity-repository.js';
+import { readMutedGroupIds } from '../repositories/group-rules-repository.js';
 import { readCommentCounts, readLikeCounts, readLikedTargetIds } from '../repositories/likes-repository.js';
 import { readOwnTopicWeights } from '../repositories/search-repository.js';
 import type { MediaStorage } from '../media/storage-admin.js';
@@ -112,10 +113,11 @@ export interface UnitReactions {
  * The unit as the answer carries it, or undefined for a row that cannot be one (a shape the database forbids): it is left out. I10-C
  * (§11.13): a Group's post carries its Group ("מתוך: <name>") in the main feed; on the Group's own page `showGroup` is false.
  */
-export function unitOf(row: DisplayPost, reactions: UnitReactions, showGroup = true): FeedUnit | undefined {
+export function unitOf(row: DisplayPost, reactions: UnitReactions, showGroup = true, mutedGroups: ReadonlySet<string> = new Set()): FeedUnit | undefined {
+  const muted = row.groupId !== null && mutedGroups.has(row.groupId) ? { muted: true as const } : {};
   const group =
     showGroup && row.groupId !== null && row.groupName !== null && row.groupPrivacy !== null
-      ? { group: { id: row.groupId, name: row.groupName, privacy: row.groupPrivacy } }
+      ? { group: { id: row.groupId, name: row.groupName, privacy: row.groupPrivacy, ...muted } }
       : {};
   const common = {
     id: row.id,
@@ -215,6 +217,8 @@ async function readPage(tx: IdentityTx, viewerId: string, cursor: FeedCursor | n
   const liked = await readLikedTargetIds(tx, pageIds);
   // I5: a post's image rows the viewer may read, read after the order is fixed (never a ranking input); signed after the transaction
   imageRows.push(...(await readPostImageRows(tx, storage, pageIds)));
+  // I10-C (§11.16, review of #180): the Groups of this page's Highlights the viewer is muted in: those cards read only
+  const mutedGroups = await readMutedGroupIds(tx, [...new Set([...display.values()].flatMap((row) => (row.groupId === null ? [] : [row.groupId])))]);
   const items: FeedUnit[] = [];
   for (const unit of selection.units) {
     const row = display.get(unit.id); // gone since the ranking statement: no longer readable, so not listed
@@ -223,7 +227,7 @@ async function readPage(tx: IdentityTx, viewerId: string, cursor: FeedCursor | n
       commentCount: commentCounts.get(unit.id) ?? 0,
       likedByMe: liked.has(unit.id),
     };
-    const item = row === undefined ? undefined : unitOf(row, reactions);
+    const item = row === undefined ? undefined : unitOf(row, reactions, true, mutedGroups);
     if (item !== undefined) items.push(item);
   }
   const last = selection.cursorFrom;

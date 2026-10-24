@@ -12,7 +12,7 @@ import { useFeedSource } from './feed-source';
 import { setLike } from '@/services/api/likes';
 import { deletePost } from '@/services/api/posts';
 import { setHidden } from '@/services/api/post-hides';
-import { LIKE_FAILED_TEXT } from './comments-texts';
+import { LIKE_FAILED_TEXT, MUTED_IN_GROUP_TEXT } from './comments-texts';
 import { forgetFeed, recallFeed, rememberFeed, type FeedScroll } from './feed-memory';
 import {
   INITIAL_FEED,
@@ -183,7 +183,7 @@ export function useFeed(onRestart: () => void): FeedFlow {
         const outcome = token === null ? ({ kind: 'failed' } as const) : await setLike(token, 'posts', unitId, !before);
         if (outcome.kind === 'done') return;
         if (outcome.kind === 'unauthenticated' || outcome.kind === 'account-unavailable') void account?.recheck();
-        apply(before, outcome.kind === 'account-unavailable' ? STOPPED_TEXT : LIKE_FAILED_TEXT);
+        apply(before, outcome.kind === 'account-unavailable' ? STOPPED_TEXT : outcome.kind === 'muted' ? MUTED_IN_GROUP_TEXT : LIKE_FAILED_TEXT);
       } finally {
         flying.current.delete(unitId);
       }

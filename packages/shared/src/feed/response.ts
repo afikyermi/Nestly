@@ -40,7 +40,8 @@ const post = {
   images: z.array(mediaImage).max(POST_MAX_IMAGES).optional(),
   isHelpRequest: z.literal(true).optional(),
   /** I10-C (§11.13): a Group's Highlight in the main feed of its members carries its Group ("מתוך: <name>"); absent on a feed post. */
-  group: z.strictObject({ id: z.guid(), name: z.string(), privacy: z.enum(GROUP_PRIVACIES) }).optional(),
+  /** I10-C: the Group of a Highlight in the main feed; `muted`: the viewer is muted there and reads only (§11.16). */
+  group: z.strictObject({ id: z.guid(), name: z.string(), privacy: z.enum(GROUP_PRIVACIES), muted: z.literal(true).optional() }).optional(),
 };
 const share = { ...common, kind: z.literal('share'), body: z.string().nullable(), sharerText: z.string().nullable(), original };
 

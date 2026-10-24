@@ -361,24 +361,27 @@ export function GroupScreen({ groupId, discussion }: GroupScreenProps) {
         {tab === 'discussion' ? (
           canSee ? (
             <div className="flex flex-col gap-3">
-              <div role="group" aria-label={VIEW_LABEL} className="flex gap-2">
-                {VIEW_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    aria-pressed={view === option.value}
-                    className={
-                      view === option.value
-                        ? 'min-h-11 rounded-full bg-primary-soft px-4 text-label font-semibold text-primary-strong'
-                        : 'min-h-11 rounded-full px-4 text-label text-muted-foreground hover:bg-muted'
-                    }
-                    onClick={() => setView(option.value)}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-              {discussion(group, pin, view)}
+              {/* the Highlights are the members' (review of #180): a non-member of a Public Group reads all its posts, with no toggle */}
+              {isMember ? (
+                <div role="group" aria-label={VIEW_LABEL} className="flex gap-2">
+                  {VIEW_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      aria-pressed={view === option.value}
+                      className={
+                        view === option.value
+                          ? 'min-h-11 rounded-full bg-primary-soft px-4 text-label font-semibold text-primary-strong'
+                          : 'min-h-11 rounded-full px-4 text-label text-muted-foreground hover:bg-muted'
+                      }
+                      onClick={() => setView(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {discussion(group, pin, isMember ? view : 'all')}
             </div>
           ) : (
             <p className="text-body text-muted-foreground">{PRIVATE_CONTENT_TEXT}</p>

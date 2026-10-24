@@ -14,6 +14,7 @@ import {
 } from '@nestly/shared';
 import { createDatabase, type Database } from '../../src/db/client.js';
 import { withoutRewriteParam } from '../../src/lib/vercel-rewrite.js';
+import { registerProfessional } from '../../src/services/professionals-service.js';
 import { AUDIENCE, COLD_START_MS, ISSUER, newKey, restoreEnv, startJwks, token, type App, type JwksServer, type TestKey } from '../helpers/identity-fixtures.js';
 import { buildRegisterApp, CLOCK_NOW, post, validBody } from '../helpers/register-app.js';
 
@@ -34,6 +35,8 @@ let a = '';
 let b = '';
 let c = '';
 let outsider = '';
+let pro = '';
+let staff = '';
 
 function url(): string {
   const value = process.env.DATABASE_URL;
@@ -93,6 +96,12 @@ beforeAll(async () => {
     made.push(userId);
   }
   [owner = '', a = '', b = '', c = '', outsider = ''] = made;
+  pro = await text(side`select tests.fx_new_auth_user()::text as v`);
+  const registered = await registerProfessional(database, { userId: pro }, {
+    fullName: 'Lea Doula', businessName: null, gender: 'woman', field: 'doula', fieldOther: null, yearsExperience: 5, area: 'center', about: null, priceFrom: 300,
+  });
+  expect(registered).toEqual({ kind: 'created' });
+  staff = await text(side`select tests.fx_fr_id('fr_d')::text as v`);
   await side.begin(async (tx) => {
     await tx`select 1`;
     await tx`select tests.fx_fr_add(${a}::uuid, ${outsider}::uuid, 'accepted', false)`;
@@ -215,7 +224,7 @@ describe('[I10-C] Group Highlights, exposure, invitations and enforcement', () =
     expect([publicInvite.statusCode, body(publicInvite)], 'a Public Group: sent at once').toEqual([200, { status: 'sent' }]);
   });
 
-  it('[FR-GRP-003 AC-038 AC-168 §11.16] warning + mute: read-only with a notice; remove + block; unblock; a plain member enforces nothing', T, async () => {
+  it('[FR-GRP-003 AC-038 AC-144 AC-168 §11.16] warning + mute: read-only with a notice; remove + block; unblock; a plain member enforces nothing', T, async () => {
     expect((await call('PATCH', `/api/groups/${pub}/members/${b}`, owner, { role: 'moderator' })).statusCode).toBe(200);
     expect((await call('POST', `/api/groups/${pub}/enforcements`, a, { userId: c, kind: 'warn_mute', reason: 'spam', muteHours: 24 })).statusCode).toBe(403);
     expect((await call('POST', `/api/groups/${pub}/enforcements`, b, { userId: c, kind: 'warn_mute', reason: 'spam' })).statusCode, 'a mute has its duration').toBe(400);
@@ -232,8 +241,17 @@ describe('[I10-C] Group Highlights, exposure, invitations and enforcement', () =
     expect([notice?.targetKind, notice?.targetId, notice?.actorName], 'no manager is named').toEqual(['group', pub, null]);
     expect((await call('POST', '/api/posts', c, { body: 'מושתק', audience: 'everyone', groupId: pub })).statusCode).toBe(403);
     expect((await call('POST', `/api/groups/${pub}/invitations`, c, { userId: outsider })).statusCode).toBe(403);
-    expect([403, 404], 'AC-168: no comment').toContain((await call('POST', `/api/posts/${highlight}/comments`, c, { body: 'מושתק' })).statusCode);
-    expect([403, 404], 'AC-168: no like').toContain((await call('PUT', `/api/posts/${quiet}/like`, c)).statusCode);
+    // AC-168 (review of #180): the refusal names the mute, so the member is told why; the reads say it too
+    const comment = await call('POST', `/api/posts/${highlight}/comments`, c, { body: 'מושתק' });
+    expect([comment.statusCode, body(comment)], 'AC-168: no comment').toEqual([403, { error: 'muted' }]);
+    const liked = await call('PUT', `/api/posts/${quiet}/like`, c);
+    expect([liked.statusCode, body(liked)], 'AC-168: no like').toEqual([403, { error: 'muted' }]);
+    expect(Reflect.get(Object(body(await call('GET', `/api/posts/${highlight}`, c))), 'mutedInGroup'), 'the post page reads only').toBe(true);
+    expect(Reflect.get(Object(body(await call('GET', `/api/posts/${highlight}`, a))), 'mutedInGroup'), 'not for anyone else').toBeUndefined();
+    const mutedFeed = (await wholeFeed(c)).units.find((u) => u.id === highlight);
+    expect(mutedFeed?.kind === 'post' ? mutedFeed.group?.muted : undefined, 'the Highlight in the main feed reads only').toBe(true);
+    const othersFeed = (await wholeFeed(a)).units.find((u) => u.id === highlight);
+    expect(othersFeed?.kind === 'post' ? othersFeed.group?.muted : undefined).toBeUndefined();
     expect((await call('POST', `/api/groups/${pub}/recommendations`, c, { userId: outsider })).statusCode, 'AC-168: no recommendation').toBe(403);
     const own = groupEnforcementsResponse.parse(body(await call('GET', `/api/groups/${pub}/enforcements/mine`, c)));
     expect(own.records.map((r) => [r.kind, r.reason, r.reasonText]), 'OP-070: the member reads their own record').toEqual([['warn_mute', 'other', 'נא לשמור על טון מכבד']]);
@@ -246,15 +264,49 @@ describe('[I10-C] Group Highlights, exposure, invitations and enforcement', () =
     expect(JSON.stringify(history), 'never who acted').not.toContain(b);
     expect((await call('GET', `/api/groups/${pub}/enforcements`, a)).statusCode).toBe(403);
     expect((await call('DELETE', `/api/groups/${pub}/members/${c}`, b)).statusCode, 'no plain removal').toBe(404);
-    expect((await call('POST', `/api/groups/${pub}/enforcements`, b, { userId: c, kind: 'remove_block', reason: 'offensive' })).statusCode).toBe(204);
+    expect((await call('POST', `/api/groups/${pub}/enforcements`, b, { userId: c, kind: 'remove_block', reason: 'offensive' })).statusCode, 'AC-144: removed and blocked').toBe(204);
     expect(groupDetail.parse(body(await call('GET', `/api/groups/${pub}`, c))).state).toBe('blocked');
     const removed = groupEnforcementsResponse.parse(body(await call('GET', `/api/groups/${pub}/enforcements/mine`, c)));
     expect(removed.records.map((r) => r.kind), 'OP-070: a removed user still reads their history (no longer a member)').toEqual(['remove_block', 'warn_mute']);
-    expect((await call('PUT', `/api/groups/${pub}/membership`, c)).statusCode).toBe(403);
+    expect((await call('PUT', `/api/groups/${pub}/membership`, c)).statusCode, 'AC-144: a blocked user cannot join').toBe(403);
     expect((await call('DELETE', `/api/groups/${pub}/bans/${c}`, b)).statusCode).toBe(204);
     expect(groupDetail.parse(body(await call('GET', `/api/groups/${pub}`, c))).state).toBe('none');
     const after = groupEnforcementsResponse.parse(body(await call('GET', `/api/groups/${pub}/enforcements`, owner)));
     expect(after.records.map((r) => r.kind)).toEqual(['unblock', 'remove_block', 'warn_mute']);
+  });
+
+  it('[FR-GRP-002 AC-144 AC-167 review #180] a blocked invitee: a plain member gets the answer of any unavailable invitee; a manager is told it is blocked', T, async () => {
+    const third = await createGroup(owner, 'גינה קהילתית', 'public');
+    expect((await call('PUT', `/api/groups/${third}/membership`, a)).statusCode).toBe(200);
+    expect((await call('POST', `/api/groups/${third}/enforcements`, owner, { userId: outsider, kind: 'remove_block', reason: 'spam' })).statusCode).toBe(204);
+    const plain = await call('POST', `/api/groups/${third}/invitations`, a, { userId: outsider });
+    expect([plain.statusCode, body(plain)], 'never reveals the managers’ block').toEqual([404, { error: 'user_unavailable' }]);
+    expect(JSON.stringify(body(plain))).not.toContain('blocked');
+    const manager = await call('POST', `/api/groups/${third}/invitations`, owner, { userId: outsider });
+    expect([manager.statusCode, body(manager)]).toEqual([403, { error: 'blocked_from_group' }]);
+  });
+
+  it('[FR-GRP-001 FR-GRP-002 AC-164 AC-166 every account] a Professional: suggested, joins, reads the Highlight with its Group; has no Friends to invite', T, async () => {
+    const before = await wholeFeed(pro);
+    expect((before.first.suggestedGroups ?? []).map((g) => g.id), 'an active Public Group is suggested to a Professional too').toContain(pub);
+    expect(before.units.map((u) => u.id)).not.toContain(highlight);
+    expect((await call('PUT', `/api/groups/${pub}/membership`, pro)).statusCode).toBe(200);
+    const after = await wholeFeed(pro);
+    const unit = after.units.find((u) => u.id === highlight);
+    expect(unit?.kind === 'post' ? unit.group?.id : undefined, 'a member Professional reads the Highlight, with "מתוך"').toBe(pub);
+    expect(after.units.map((u) => u.id)).not.toContain(quiet);
+    expect((after.first.suggestedGroups ?? []).map((g) => g.id)).not.toContain(pub);
+    const friends = await call('GET', `/api/groups/${pub}/friends`, pro);
+    expect([friends.statusCode, body(friends)], 'a Professional has no Friends: an empty list').toEqual([200, { friends: [] }]);
+    const invite = await call('POST', `/api/groups/${pub}/invitations`, pro, { userId: outsider });
+    expect([invite.statusCode, body(invite)], 'an invitation is only for a Friend').toEqual([422, { error: 'not_a_friend' }]);
+  });
+
+  it('[FR-FEED-001 §10.3 AC-164 AC-166 every account] a staff account reads the review feed: no Group Highlight, no suggested Groups', T, async () => {
+    const feed = await wholeFeed(staff);
+    expect(feed.units.map((u) => u.id)).not.toContain(highlight);
+    expect(feed.units.map((u) => u.id)).not.toContain(privHighlight);
+    expect(feed.first.suggestedGroups, 'staff gets no Group unit').toBeUndefined();
   });
 
   it('[#147 strict query] the Group page\'s query, as Vercel\'s rewrite sends it, is accepted after the adapter', T, async () => {

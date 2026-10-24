@@ -54,6 +54,30 @@ export async function readEnforcements(tx: IdentityTx, groupId: string, limit: n
   return z.array(recordRow).parse(rows);
 }
 
+/**
+ * Whether the caller is muted now (§11.16) in the Group of this post, or of this comment's post: the caller's own records only (the policy
+ * shows no one else's). Not a permission: the policies refuse the write either way; this names the refusal, so the member is told why.
+ */
+export async function readMutedHere(tx: IdentityTx, target: 'post' | 'comment', id: string): Promise<boolean> {
+  const post = target === 'post' ? sql`${id}::uuid` : sql`(select c.post_id from nestly.comments c where c.id = ${id}::uuid)`;
+  const rows = await tx.execute(sql`
+    select exists (
+      select 1 from nestly.posts p
+      join nestly.group_member_enforcements e on e.group_id = p.group_id
+      where p.id = ${post} and e.user_id = (select auth.uid()) and e.kind = 'warn_mute' and e.mute_until > now()
+    ) as muted`);
+  return z.array(z.object({ muted: z.boolean() })).length(1).parse(rows)[0]?.muted === true;
+}
+
+/** Of these Groups, the ones the caller is muted in now (their own records only; §11.16). Display only: the policies refuse the writes. */
+export async function readMutedGroupIds(tx: IdentityTx, groupIds: readonly string[]): Promise<ReadonlySet<string>> {
+  if (groupIds.length === 0) return new Set();
+  const rows = await tx.execute(sql`
+    select distinct e.group_id as "groupId" from nestly.group_member_enforcements e
+    where e.group_id = any(${sql.param([...groupIds])}::uuid[]) and e.user_id = (select auth.uid()) and e.kind = 'warn_mute' and e.mute_until > now()`);
+  return new Set(z.array(z.object({ groupId: z.guid() })).parse(rows).map((r) => r.groupId));
+}
+
 const pendingRow = z.object({
   id: z.guid(),
   inviterId: z.guid(),

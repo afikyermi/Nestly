@@ -7,6 +7,7 @@ import type { PostingRight } from '@/hooks/use-posting-right';
 import { reportSheetProps, useReport, type ReportResult } from '@/hooks/use-report';
 import { ALREADY_REPORTED_STATUS, REPORT_RECEIVED_STATUS, REPORT_UNAVAILABLE_STATUS } from '@/lib/report-texts';
 import { CommentsView } from './CommentsView';
+import { MUTED_IN_GROUP_TEXT } from './comments-texts';
 import { outsidePressHandler } from './outside-press';
 import { useCommentApi } from './use-comment-api';
 import { useCommentWrites } from './use-comment-writes';
@@ -21,6 +22,8 @@ export interface CommentsSectionProps {
   asAnonymousAuthor?: boolean;
   /** The viewer's posting right, read once by the post page. */
   right: PostingRight;
+  /** I10-C (§11.16): the viewer is muted in the post's Group: the thread is read only, and says why. */
+  mutedInGroup?: boolean;
 }
 
 /** F3.7 c13: a comment report changes nothing on the screen (Afik 18.10): what happened is said, and focus goes back to the "⋯". */
@@ -39,7 +42,7 @@ export function CommentsSection({ right, ...props }: CommentsSectionProps) {
 
 // F3.7: every comment's "⋯" (own: delete, opening F3.3's confirmation; anyone else's: report) and the report window. Back closes whichever
 // of the menu, the confirmation or the window is open, and stays on the post (direction.md); a request in flight keeps its dialog.
-function CommentsRegion({ postId, liked, likes, asAnonymousAuthor = false, namesWriter }: Omit<CommentsSectionProps, 'right'> & { namesWriter: boolean }) {
+function CommentsRegion({ postId, liked, likes, asAnonymousAuthor = false, namesWriter, mutedInGroup = false }: Omit<CommentsSectionProps, 'right'> & { namesWriter: boolean }) {
   const api = useCommentApi();
   // I14 completion (§9.7): a staff account reads the thread for review and writes nothing
   const reviewing = useStaffAccess().kind === 'staff';
@@ -64,7 +67,8 @@ function CommentsRegion({ postId, liked, likes, asAnonymousAuthor = false, names
       landOnHeading={hash === '#comments'}
       asAnonymousAuthor={asAnonymousAuthor}
       namesWriter={namesWriter}
-      readOnly={reviewing}
+      readOnly={reviewing || mutedInGroup}
+      {...(mutedInGroup && !reviewing ? { readOnlyNote: MUTED_IN_GROUP_TEXT } : {})}
       menu={{
         openId: menuId,
         onPressOutside: pressedOutside,

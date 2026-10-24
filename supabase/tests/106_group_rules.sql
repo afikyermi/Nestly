@@ -227,9 +227,9 @@ select is(pg_temp.dml('c', format($q$ delete from nestly.group_members where gro
 select is(pg_temp.role_of('pub', 'e'), 'member', '[F10.3-a c5] who stays a member');
 select is(pg_temp.enf('c', 'pub', 'e', 'remove_block'), 'ERR:23514', '[F10.3-a c5] remove + block has a reason');
 select is(pg_temp.enf('c', 'pub', 'a', 'remove_block', 'offensive'), 'ERR:42501', '[F10.3-a c5 BR-041] a Group Moderator does not remove the Owner');
-select is(pg_temp.enf('c', 'pub', 'e', 'remove_block', 'offensive'), 'OK:1', '[F10.3-a c5 FR-GRP-003 AC-168] a Group Moderator removes and blocks a member, together');
-select is(pg_temp.role_of('pub', 'e') || '|' || tests.fx_grr_banned(pg_temp.g('pub'), pg_temp.id('e'))::text, '-|true', '[F10.3-a c5] out of the Group and blocked, in one statement');
-select is(pg_temp.join('e', 'pub'), 'ERR:42501', '[F10.3-a c5] the blocked user cannot join');
+select is(pg_temp.enf('c', 'pub', 'e', 'remove_block', 'offensive'), 'OK:1', '[F10.3-a c5 FR-GRP-003 AC-144 AC-168] a Group Moderator removes and blocks a member, together');
+select is(pg_temp.role_of('pub', 'e') || '|' || tests.fx_grr_banned(pg_temp.g('pub'), pg_temp.id('e'))::text, '-|true', '[F10.3-a c5 AC-144] out of the Group and blocked, in one statement');
+select is(pg_temp.join('e', 'pub'), 'ERR:42501', '[F10.3-a c5 AC-144] the blocked user cannot join');
 select is(pg_temp.count('e', format('nestly.group_member_enforcements where group_id = %L', pg_temp.g('pub'))), '1', '[F10.3-a c5 ⭐ OP-070] reads their own record');
 select is(pg_temp.count('c', format('nestly.regular_names where user_id = %L', pg_temp.id('e'))), '1', '[F10.3-a c5] the managers read the name in the history');
 select is(pg_temp.enf('c', 'pub', 'e', 'unblock'), 'OK:1', '[F10.3-a c5 FR-GRP-003] a Group Moderator unblocks');
@@ -237,10 +237,10 @@ select is(tests.fx_grr_banned(pg_temp.g('pub'), pg_temp.id('e')), false, '[F10.3
 select is(pg_temp.join('e', 'pub'), 'OK:1', '[F10.3-a c5] and the user may join again');
 select is(pg_temp.enf('c', 'pub', 'e', 'unblock'), 'ERR:42501', '[F10.3-a c5] there is nothing to lift now');
 select is(pg_temp.enf('a', 'pub', 'e', 'remove_block', 'rules'), 'OK:1', '[F10.3-a c5] the Owner removes and blocks');
-select is(pg_temp.enf('c', 'pub', 'e', 'unblock'), 'ERR:42501', '[F10.3-a c5 BR-041 ERR-019] a Group Moderator does not lift a block made by a higher Role');
+select is(pg_temp.enf('c', 'pub', 'e', 'unblock'), 'ERR:42501', '[F10.3-a c5 AC-144 BR-041 ERR-019] a Group Moderator does not lift a block made by a higher Role');
 select is(pg_temp.enf('a', 'pub', 'e', 'unblock'), 'OK:1', '[F10.3-a c5] the Owner lifts it');
 select is(pg_temp.enf('e', 'pub', 'f', 'remove_block', 'spam'), 'ERR:42501', '[F10.3-a c5] a non-manager removes no one');
-select is(pg_temp.enf('c', 'pub', 'b', 'remove_block', 'spam'), 'OK:1', '[F10.3-a c5 AC-167] a non-member may be blocked too (cannot join, ask or be invited)');
+select is(pg_temp.enf('c', 'pub', 'b', 'remove_block', 'spam'), 'OK:1', '[F10.3-a c5 AC-144 AC-167] a non-member may be blocked too (cannot join, ask or be invited)');
 select is(pg_temp.dml('b', format($q$ insert into nestly.group_members (group_id) values (%L) $q$, pg_temp.g('pub'))), 'ERR:42501', '[F10.3-a c5] and cannot join');
 select is(pg_temp.invite('f', 'pub', 'b'), 'ERR:NS028', '[F10.3-a c5] nor be invited, even by a member who cannot see the blocks');
 select is(pg_temp.count('c', format('nestly.group_member_enforcements where group_id = %L', pg_temp.g('pub'))), '6', '[F10.3-a c5 ⭐] every action is in the history');
