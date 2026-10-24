@@ -14,7 +14,7 @@
   - ‏`sharp` נטען בכל cold start.
   - ‏`deliver_child_birthdays()` רץ (וכותב) בכל poll של הפעמון, כל 30 ש׳ — #225.
   - **לא לעשות:** גישה ישירה מהדפדפן ל-Supabase — חושפת `notifications.actor_id`, והעלאות עוקפות את הסרת ה-GPS/EXIF.
-- **מדידה ב-Production 25.10 (Admin, `db` במ״ש):** ‏`/api/admin/promotions` 957 · ‏`/api/admin/listings/search` 1223 · ‏`/api/admin/analytics?days=30` 1217 · ‏`/api/admin/support?status=open` 533 · ‏`/api/admin/inbox` 69–630 · ‏`/api/admin/overview` 290 · כל השאר מתחת ל-130; ‏`dbwait` 3–8 (חוץ מ-46 פעם אחת), ‏`cold` 0. איטי גם ב-Production → מהקוד (§18.3). כל 15 מסכי הניהול נטענים בלי שגיאה. ‏Regular ו-Professional — עוד לא נמדדו. #226 מוסיף זמן לכל שאילתה (`s1..sN`) כדי למצוא את האיטית.
+- **מדידה ב-Production 25.10 (Admin, `db` במ״ש):** ‏`/api/admin/promotions` 957 · ‏`/api/admin/listings/search` 1223 · ‏`/api/admin/analytics?days=30` 1217 · ‏`/api/admin/support?status=open` 533 · ‏`/api/admin/inbox` 69–630 · ‏`/api/admin/overview` 290 · כל השאר מתחת ל-130; ‏`dbwait` 3–8 (חוץ מ-46 פעם אחת), ‏`cold` 0. איטי גם ב-Production → מהקוד (§18.3). כל 15 מסכי הניהול נטענים בלי שגיאה. **Professional:** ‏`/api/professional/home` ‏0.9–8.3 ש׳ (ו-`/api/chat/unread` מחכה לחיבור עד 6.8 ש׳ בזמן הזה — `max: 1`) · ‏`/api/feed` 5.2 ש׳ · ‏`/api/marketplace` 2.8 · ‏`/api/promotions` 2.0 · ‏`/api/stories` 0.07–3.6 · ‏`/api/groups?scope=mine` 1.3 · ‏`/api/support` 1.1 · ‏`/api/group-invitations` 1.0; כל מסכי ה-Professional נטענים בלי שגיאה. ‏Regular — עוד לא נמדד. `s1..sN` (זמן לכל שאילתה): #226 מוזג אבל לא עבד ב-Production — התיקון #228.
 - **CI:** 10 shards; ב-CI ידני רק 50 כשלי visual ידועים (לא חוסמים אחרי #214).
 - **🔒 פתוחים:** `security-privacy-open.md` — S-52/S-53 · S-07 · S-67 · באג 24. ‏S-23/S-30 נסגרים ב-#217.
 
@@ -28,8 +28,8 @@
 | #109 ניקוי יומי (`work/purge-schedule`, טיוטה) | אפיק אישר (§14) | לרענן מ-main ולהשלים |
 | #213 Preview במקביל | מוכן | **מוקפא** (§17) |
 | #224 בחירת flows ב-`preview-e2e` (§18.2) | מוזג | |
-| #225 הפעמון לא מפעיל את ימי ההולדת ב-poll | ירוק; Chrome מלא רץ (נוגע ב-App Shell) | למזג → Preview |
-| #226 ‏Server-Timing לכל שאילתה | CI רץ | למזג → למדוד ב-Production |
+| #225 הפעמון לא מפעיל את ימי ההולדת ב-poll | ירוק; Chrome מלא: רק 50 ה-visual הידועים | למזג → Preview |
+| #226 ‏Server-Timing לכל שאילתה | מוזג; לא עבד ב-Production | #228 מתקן |
 | I12 השלמה ב' · I9 | ⬜ | |
 
 ## המשך מכאן
@@ -80,7 +80,8 @@
      - #168 מוזג כשה-CI הידני היה אדום בטסטי התמונות בלבד — על סמך push CI ירוק והרצת Chrome מלאה מקומית.
      - #193 מוזג כשה-Preview הלילי היה אדום — ה-migration של I11-C תלוי בו.
      - תיקנתי ומיזגתי את #176 בעצמי (תגיות pgTAP, שורת ההיסטוריה ב-down, ספירת העריכות בטסט 87).
-4. **לבדוק ב-Production:** ניהול ✅ (25.10). נשאר: Regular ו-Professional — התחברות שלך בדפדפן (אני לא מזין סיסמאות ב-Production).
+4. **לבדוק ב-Production:** ניהול ו-Professional ✅ (25.10). נשאר: Regular — התחברות שלך בחלונית הדפדפן של האפליקציה (אני לא מזין סיסמאות ב-Production).
+12. **אחרי 24.10 אין פיצ'ר חדש (CLAUDE.md):** I9 (מחיקת חשבון ו-Turnstile) לא נבנה הלילה — רק מיזוג מה שכבר נבנה, ביצועים ובאגים. להחליט אם I9 נכנס.
 5. **מדריכי הסטטוס (BR-070):** לאשר ולפרסם את תשעת המדריכים.
 6. **במכשיר:** מקלדת באייפון ("החלפת סיסמה") · גיליון השיתוף · חיוג למוקד · HEIC/Android.
 7. **מהרשימה הקודמת (⭐):** 19 ERR-043 בלי הפניה ל-Support · 21 דחיית תמונות אחרי דיווח ישן · 26 דגימת אימון עלולה ללכת לאיבוד · 28 ברירות I8 · 8 OP-040 · 20 מונה כשלונות השחזור (I9) · 5 OP-037.
@@ -96,3 +97,4 @@ claim-lock בתור · אישור שני אנשים לפעולות רגישות 
 נכשל ועבר בהרצה חוזרת אחת — שורה כאן, לא חוסם; כשל שחוזר חוסם. היסטוריה: `docs/final-stage-HE.md`.
 - `e2e/posts.spec.ts:280` c18 desktop — axe `page-has-heading-one` בסריקה הראשונה.
 - `app-shell-guard-stories.spec.ts:50/:82` — Storybook איטי בעומס.
+- `app-shell-guard-a11y.spec.ts:205` — יציאה במקלדת (Space), flaky ב-Chrome מלא של #225 (25.10).
