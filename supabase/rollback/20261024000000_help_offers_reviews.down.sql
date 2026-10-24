@@ -4,9 +4,9 @@
 --
 -- Run as:   app_owner, in one transaction. CI runs it once per build (up -> down -> up) against the disposable database.
 --           Against nestly-preview or nestly-prod it is a destructive change: Afik only.
--- Safe:     only while no report uses one of the four review reasons (refuses otherwise: the reasons cannot go while a report names
---           one). Drops the edit clock of the reviews (edited_at). CANNOT restore the duplicate reviews per (reviewer, Professional) that
---           the up's data step deleted; Offer Help already sent on posts not marked as asking for help stay (a policy checks new rows only).
+-- Safe:     only while no report uses one of the four review reasons (the reasons cannot go while a report names one) and no Offer
+--           Help exists on a post not marked as asking for help (the restored policy would not have admitted it); refuses otherwise. Drops the edit clock of the reviews (edited_at). CANNOT restore the duplicate reviews per (reviewer, Professional) that
+--           the up's data step deleted.
 -- Restores: outreach_requests_insert_professional and outreach_requests_insert_limit() (10 a day) and reports_insert_check() as
 --           20261022400000 / 20261022700000 wrote them, reports_other_details_check, the comments; drops what the migration added; the
 --           history row is deleted.
@@ -25,6 +25,13 @@ begin
     raise exception 'a report uses a review reason: the down script refuses';
   end if;
   alter table nestly.reports force row level security;
+  alter table nestly.outreach_requests no force row level security;
+  alter table nestly.posts no force row level security;
+  if exists (select 1 from nestly.outreach_requests o join nestly.posts p on p.id = o.post_id where not p.is_help_request) then
+    raise exception 'an Offer Help exists on a post not marked as asking for help: the down script refuses';
+  end if;
+  alter table nestly.posts force row level security;
+  alter table nestly.outreach_requests force row level security;
 end
 $$;
 
