@@ -438,8 +438,12 @@ test.describe('F2.1 c16 [ERR-038] a save whose token is refused on refresh', () 
 test.describe('F2.1 c11 [ERR-037] a stopped account', () => {
   test('[F2.1 c11 A9] GET answers 403 and the account is stopped: no profile data on the page, the ERR-037 text', async ({ page }) => {
     const net = await setup(page);
-    net.get = 403;
     await signIn(page);
+    // The sign-in lands on /feed, whose own calls (its own-profile GET among them) recheck the account on a 403. The landing page is left
+    // before the account is stopped, so no answer of the stopped state reaches it: had it seen one, it would end the session (and remove
+    // the stored one) before the reload below, which would then open as a Guest, without the ERR-037 text.
+    await page.goto('about:blank');
+    net.get = 403;
     net.me = 'unavailable';
     await page.goto('/profile');
     await expect(page.getByText('הכניסה לחשבון הזה אינה זמינה כרגע').first()).toBeVisible();

@@ -4,7 +4,7 @@
 // through the app (same email pattern as the fixture's, so the cleanup sweep covers it, listings included). No recovery attempts are made.
 import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
-import { createAccount } from './support/timed-steps.ts';
+import { AFTER_ANSWERS_MS, createAccount } from './support/timed-steps.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
 
 const main = (page: Page) => page.getByRole('main');
@@ -34,7 +34,7 @@ async function signUp(page: Page, u: TestUser): Promise<void> {
   await page.getByLabel(/חיית המחמד/).fill(u.answers.pet);
   await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);
   await page.getByRole('button', { name: 'שמירה', exact: true }).click();
-  await expect(page).toHaveURL(/\/feed$/);
+  await expect(page).toHaveURL(/\/feed$/, { timeout: AFTER_ANSWERS_MS });
 }
 
 test.describe.serial('I12 Marketplace on the Preview [FR-MKT-001 FR-MKT-002 FR-MKT-005]', () => {
