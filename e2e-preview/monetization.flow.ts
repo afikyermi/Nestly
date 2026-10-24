@@ -8,6 +8,7 @@ import { promotionOverview, promotionPurchaseResponse } from '@nestly/shared';
 import type { Page, Response } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
+import { timedResponse } from './support/timed-steps.ts';
 
 const main = (page: Page) => page.getByRole('main');
 /** A Preview can take 10 s or more to sign a user up or in (a cold server function): every sign-up step waits this long. */
@@ -224,7 +225,8 @@ test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-
     await page.getByLabel(/כינו אתכם/).fill(staffUser.answers.nickname);
     await page.getByRole('button', { name: 'שמירה', exact: true }).click();
     await expect(page).not.toHaveURL(/\/recovery-questions$/, { timeout: SLOW });
-    await page.goto('/admin/promotions');
+    // the staff list's own answer, its status and time logged (a refusal and a slow read look the same on screen: no card)
+    await timedResponse(page, 'GET /api/admin/promotions', answerTo('GET', '/api/admin/promotions'), () => page.goto('/admin/promotions'));
     const card = main(page).getByRole('article').filter({ hasText: pro.name });
     await expect(card).toHaveCount(1);
     await card.getByLabel('סיבת העצירה', { exact: true }).fill('בדיקת עצירה בידי צוות בסביבת Preview');
