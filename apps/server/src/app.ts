@@ -51,6 +51,7 @@ import { registerRecoveryQuestionsRoute } from './routes/recovery-questions.js';
 import { registerRecoveryResetRoute } from './routes/recovery-reset.js';
 import { registerRegistrationRoute } from './routes/register.js';
 import { registerStripBypassHeader } from './plugins/strip-bypass-header.js';
+import { registerServerTiming, serverTimingEnabled } from './lib/server-timing.js';
 
 export interface AppDependencies {
   /** Defaults to the process environment. */
@@ -70,6 +71,8 @@ export interface AppDependencies {
   readonly media?: Partial<MediaDependencies>;
   /** Where 5xx answers are reported (lib/error-monitoring.ts). Defaults to none; the deployed function passes Sentry's. */
   readonly errorMonitor?: ErrorMonitor;
+  /** The Server-Timing header (lib/server-timing.ts). Defaults to on for a Vercel Preview or Production deployment (VERCEL_ENV). */
+  readonly serverTiming?: boolean;
 }
 
 export function buildApp(deps: AppDependencies = {}): FastifyInstance {
@@ -103,6 +106,8 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
 
   // Before authentication: the first onRequest hook of the app.
   registerStripBypassHeader(app);
+  // Right after it, so it times the rest of the request: a Vercel Preview only (never Production, never a test unless it asks).
+  registerServerTiming(app, deps.serverTiming ?? serverTimingEnabled(process.env));
 
   // Every 5xx is reported: a thrown error by the error handler below (with its stack), any other 5xx here, by status and route
   // template only (`/api/posts/:postId`, never the address). Nothing from the request goes with it.

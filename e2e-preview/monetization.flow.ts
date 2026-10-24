@@ -8,7 +8,7 @@ import { promotionOverview, promotionPurchaseResponse } from '@nestly/shared';
 import type { Page, Response } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
-import { timedResponse } from './support/timed-steps.ts';
+import { createAccount, submitSignIn, timedResponse } from './support/timed-steps.ts';
 
 const main = (page: Page) => page.getByRole('main');
 /** A Preview can take 10 s or more to sign a user up or in (a cold server function): every sign-up step waits this long. */
@@ -33,7 +33,7 @@ async function signUp(page: Page, u: TestUser, fullName: string): Promise<void> 
   await box.focus();
   await page.keyboard.press('Space');
   await expect(box).toBeChecked();
-  await page.getByRole('button', { name: 'יצירת חשבון', exact: true }).click();
+  await createAccount(page);
   await expect(page).toHaveURL(/\/recovery-questions$/, { timeout: SLOW });
   await page.getByLabel(/חיית המחמד/).fill(u.answers.pet);
   await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);
@@ -128,7 +128,7 @@ async function signUpProfessional(page: Page, u: TestUser, fullName: string, fie
   await box.focus();
   await page.keyboard.press('Space');
   await expect(box).toBeChecked();
-  await page.getByRole('button', { name: 'יצירת חשבון', exact: true }).click();
+  await createAccount(page);
   await expect(page).toHaveURL(/\/recovery-questions$/, { timeout: SLOW });
   await page.getByLabel(/חיית המחמד/).fill(u.answers.pet);
   await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);
@@ -152,10 +152,7 @@ test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-
     const pro = { ...base, name: `${base.name} ${proUser.email.split('@')[0]?.split('-').at(-1) ?? info.project.name}` };
     await signUpProfessional(page, proUser, pro.name, pro.field, PROMOTED_YEARS);
 
-    const [initialOverview] = await Promise.all([
-      page.waitForResponse((r) => r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/promotions'),
-      page.goto('/pro/promotion'),
-    ]);
+    const initialOverview = await timedResponse(page, 'GET /api/promotions', answerTo('GET', '/api/promotions'), () => page.goto('/pro/promotion'));
     const organicBefore = promotionOverview.parse(await jsonOf(initialOverview, 'GET /api/promotions')).analytics?.organic.profileViews;
     expect(organicBefore).toBeDefined();
     await expect(main(page).getByText('התשלום מדומה: לא נגבה כסף ולא נדרשים פרטי כרטיס.').first()).toBeVisible();
@@ -207,12 +204,9 @@ test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-
     await page.goto('/login');
     await page.getByRole('textbox', { name: 'אימייל', exact: true }).fill(proUser.email);
     await page.getByLabel('סיסמה', { exact: true }).fill(proUser.password);
-    await page.getByRole('button', { name: 'התחברות', exact: true }).click();
+    await submitSignIn(page);
     await expect(page).not.toHaveURL(/\/login$/, { timeout: SLOW });
-    const [finalOverview] = await Promise.all([
-      page.waitForResponse((r) => r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/promotions'),
-      page.goto('/pro/promotion'),
-    ]);
+    const finalOverview = await timedResponse(page, 'GET /api/promotions', answerTo('GET', '/api/promotions'), () => page.goto('/pro/promotion'));
     const metrics = promotionOverview.parse(await jsonOf(finalOverview, 'GET /api/promotions')).analytics;
     expect(metrics?.organic.profileViews, '[AC-072] the paid visit is not also organic').toBe(organicBefore);
     expect(metrics?.paid.profileVisits).toBeGreaterThanOrEqual(1);
@@ -224,7 +218,7 @@ test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-
     await page.goto('/login');
     await page.getByRole('textbox', { name: 'אימייל', exact: true }).fill(staffUser.email);
     await page.getByLabel('סיסמה', { exact: true }).fill(staffUser.password);
-    await page.getByRole('button', { name: 'התחברות', exact: true }).click();
+    await submitSignIn(page);
     await expect(page).toHaveURL(/\/recovery-questions$/, { timeout: SLOW });
     await page.getByLabel(/חיית המחמד/).fill(staffUser.answers.pet);
     await page.getByLabel(/כינו אתכם/).fill(staffUser.answers.nickname);
@@ -245,12 +239,9 @@ test.describe.serial('I13 Professional promotion on the Preview [FR-SERV-010 FR-
     await page.goto('/login');
     await page.getByRole('textbox', { name: 'אימייל', exact: true }).fill(proUser.email);
     await page.getByLabel('סיסמה', { exact: true }).fill(proUser.password);
-    await page.getByRole('button', { name: 'התחברות', exact: true }).click();
+    await submitSignIn(page);
     await expect(page).not.toHaveURL(/\/login$/, { timeout: SLOW });
-    const [ownerResult] = await Promise.all([
-      page.waitForResponse((r) => r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/promotions'),
-      page.goto('/pro/promotion'),
-    ]);
+    const ownerResult = await timedResponse(page, 'GET /api/promotions', answerTo('GET', '/api/promotions'), () => page.goto('/pro/promotion'));
     const overview = promotionOverview.parse(await jsonOf(ownerResult, 'GET /api/promotions'));
     expect(overview.promotions.find((item) => item.id === purchase.promotionId)).toMatchObject({ state: 'stopped', stoppedBy: 'staff' });
     expect(overview.analytics?.paid.sampleSpentIls, 'staff stop does not refund the sample payment').toBe(metrics?.paid.sampleSpentIls);
