@@ -127,7 +127,7 @@ select is(pg_temp.dml('b', format($q$ delete from nestly.professional_reviews wh
   '[F11.3-c c4 ⭐ WORKPLAN 10] nobody else deletes it');
 
 -- ---- review report reasons (FR-MOD-001, BR-074, VAL-048, AC-150, §11.10) -----------------------------------------------------
-select is((select string_agg(key || ':' || priority || ':' || is_core::text, ', ' order by sort_order) from nestly.report_reasons where scope = 'reviewed_professional'),
+select is(pg_temp.q('a', $q$ select string_agg(key || ':' || priority || ':' || is_core::text, ', ' order by sort_order) from nestly.report_reasons where scope = 'reviewed_professional' $q$),
   'review_offensive:2:true, review_false:4:true, review_personal_info:2:true, review_other:4:true',
   '[F11.3-c c5 §11.10 BR-074 ⭐ (a) 8] the four review reasons, fixed, offensive and personal information at priority 2');
 select is(pg_temp.q('a', $q$ select string_agg(label, ' · ' order by sort_order) from nestly.report_reasons where scope = 'reviewed_professional' $q$),
