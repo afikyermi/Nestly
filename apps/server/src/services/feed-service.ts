@@ -7,6 +7,7 @@
 // for the Regular profile and only when the configuration gives it weight. An empty feed is a page, never an error.
 
 import {
+  FEED_GROUP_SUGGESTIONS,
   feedPageResponse,
   professionalTag,
   resolveFeedConfig,
@@ -36,6 +37,8 @@ import {
   type RankingProfile,
 } from '../repositories/feed-repository.js';
 import { readOwnStages } from '../repositories/journeys-repository.js';
+import { readFeedGroupSuggestions } from '../repositories/group-activity-repository.js';
+import { readMutedGroupIds } from '../repositories/group-rules-repository.js';
 import { readCommentCounts, readLikeCounts, readLikedTargetIds } from '../repositories/likes-repository.js';
 import { readOwnTopicWeights } from '../repositories/search-repository.js';
 import type { MediaStorage } from '../media/storage-admin.js';
@@ -108,8 +111,16 @@ export interface UnitReactions {
   readonly likedByMe: boolean;
 }
 
-/** The unit as the answer carries it, or undefined for a row that cannot be one (a shape the database forbids): it is left out. */
-export function unitOf(row: DisplayPost, reactions: UnitReactions): FeedUnit | undefined {
+/**
+ * The unit as the answer carries it, or undefined for a row that cannot be one (a shape the database forbids): it is left out. I10-C
+ * (§11.13): a Group's post carries its Group ("מתוך: <name>") in the main feed; on the Group's own page `showGroup` is false.
+ */
+export function unitOf(row: DisplayPost, reactions: UnitReactions, showGroup = true, mutedGroups: ReadonlySet<string> = new Set()): FeedUnit | undefined {
+  const muted = row.groupId !== null && mutedGroups.has(row.groupId) ? { muted: true as const } : {};
+  const group =
+    showGroup && row.groupId !== null && row.groupName !== null && row.groupPrivacy !== null
+      ? { group: { id: row.groupId, name: row.groupName, privacy: row.groupPrivacy, ...muted } }
+      : {};
   const common = {
     id: row.id,
     source: 'organic',
@@ -125,6 +136,7 @@ export function unitOf(row: DisplayPost, reactions: UnitReactions): FeedUnit | u
       ...common,
       kind: 'post',
       body: row.body,
+      ...group,
       isMine: false,
       isAnonymous: true,
     };
@@ -135,7 +147,7 @@ export function unitOf(row: DisplayPost, reactions: UnitReactions): FeedUnit | u
     author: authorOf(row.authorName, row.authorField, row.authorFieldOther),
   } as const;
   if (!row.isShare) {
-    return row.body === null ? undefined : { ...common, kind: 'post', body: row.body, ...(row.isHelpRequest ? { isHelpRequest: true as const } : {}), ...named };
+    return row.body === null ? undefined : { ...common, kind: 'post', body: row.body, ...(row.isHelpRequest ? { isHelpRequest: true as const } : {}), ...group, ...named };
   }
   const { originalId, originalBody, originalAudience, originalCreatedAt, originalIsAnonymous } = row;
   const original =
@@ -214,6 +226,8 @@ async function readPage(
   const liked = await readLikedTargetIds(tx, pageIds);
   // I5: a post's image rows the viewer may read, read after the order is fixed (never a ranking input); signed after the transaction
   imageRows.push(...(await readPostImageRows(tx, storage, pageIds)));
+  // I10-C (§11.16, review of #180): the Groups of this page's Highlights the viewer is muted in: those cards read only
+  const mutedGroups = await readMutedGroupIds(tx, [...new Set([...display.values()].flatMap((row) => (row.groupId === null ? [] : [row.groupId])))]);
   const items: FeedUnit[] = [];
   for (const unit of selection.units) {
     const row = display.get(unit.id); // gone since the ranking statement: no longer readable, so not listed
@@ -222,7 +236,7 @@ async function readPage(
       commentCount: commentCounts.get(unit.id) ?? 0,
       likedByMe: liked.has(unit.id),
     };
-    const item = row === undefined ? undefined : unitOf(row, reactions);
+    const item = row === undefined ? undefined : unitOf(row, reactions, true, mutedGroups);
     if (item !== undefined) items.push(item);
   }
   const last = selection.cursorFrom;
@@ -265,12 +279,15 @@ async function readPage(
   if (viewer.review !== true) professionalAuthors.push(...(await readProfessionalAuthors(tx, pageIds)));
   // I14 (FR-ADMIN-008): the published System Announcements ride on the first page only, never into the ranking
   const announcements = after === null ? await readPublishedAnnouncements(tx) : [];
+  // I10-C (§11.14): active Public Groups the viewer is not a member of, on the first page only and never inside the ranking (staff: none)
+  const suggestedGroups = after === null && viewer.review !== true ? await readFeedGroupSuggestions(tx, FEED_GROUP_SUGGESTIONS) : [];
   const page = feedPageResponse.parse({
     items,
     nextCursor,
     configVersion,
     ...(resolution.restarted ? { restarted: true } : {}),
     ...(announcements.length > 0 ? { announcements } : {}),
+    ...(suggestedGroups.length > 0 ? { suggestedGroups } : {}),
     ...(promoted.length > 0 ? { promoted } : {}),
   });
   return { kind: 'page', page, fallback: resolution.fallback };

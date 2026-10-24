@@ -11,8 +11,8 @@ import {
   groupModeBody,
   groupPeopleResponse,
   groupPinBody,
+  groupInviteResponse,
   groupRecommendBody,
-  groupRemoveQuery,
   groupRequestDecisionBody,
   groupRoleBody,
 } from '@nestly/shared';
@@ -21,7 +21,7 @@ import * as people from '../services/groups-people-service.js';
 import { groupsHelpers, send, type GroupsRouteDependencies } from './groups-shared.js';
 
 export function registerGroupPeopleRoutes(app: FastifyInstance, deps: GroupsRouteDependencies): void {
-  const { guarded, invalid, notFound, noBody, groupId, groupUser, detailOk, noContent } = groupsHelpers(deps);
+  const { guarded, invalid, notFound, groupId, groupUser, detailOk, noContent } = groupsHelpers(deps);
 
   app.route({
     method: 'GET',
@@ -42,17 +42,6 @@ export function registerGroupPeopleRoutes(app: FastifyInstance, deps: GroupsRout
       if (!body.success) return invalid(reply);
       const result = await people.changeRole(database, identity, path.id, path.userId, body.data.role);
       return send(reply, result, (members) => reply.code(200).send(groupMembersResponse.parse({ members })));
-    }),
-  });
-  app.route({
-    method: 'DELETE',
-    url: '/api/groups/:id/members/:userId',
-    handler: guarded('group remove failed', async (database, identity, request, reply) => {
-      const path = groupUser(request);
-      if (path === null) return notFound(reply);
-      const query = groupRemoveQuery.safeParse(request.query ?? {});
-      if (!query.success || !noBody(request)) return invalid(reply);
-      return send(reply, await people.removeMember(database, identity, path.id, path.userId, query.data.block === 'true'), noContent(reply));
     }),
   });
   app.route({
@@ -85,16 +74,6 @@ export function registerGroupPeopleRoutes(app: FastifyInstance, deps: GroupsRout
     }),
   });
   app.route({
-    method: 'DELETE',
-    url: '/api/groups/:id/bans/:userId',
-    handler: guarded('group unblock failed', async (database, identity, request, reply) => {
-      const path = groupUser(request);
-      if (path === null) return notFound(reply);
-      if (!noBody(request)) return invalid(reply);
-      return send(reply, await people.unblock(database, identity, path.id, path.userId), noContent(reply));
-    }),
-  });
-  app.route({
     method: 'GET',
     url: '/api/groups/:id/friends',
     handler: guarded('group friends failed', async (database, identity, request, reply) => {
@@ -111,7 +90,9 @@ export function registerGroupPeopleRoutes(app: FastifyInstance, deps: GroupsRout
       if (id === null) return notFound(reply);
       const body = groupInviteBody.safeParse(request.body);
       if (!body.success) return invalid(reply);
-      return send(reply, await people.invite(database, identity, id, body.data.userId.toLowerCase()), noContent(reply));
+      return send(reply, await people.invite(database, identity, id, body.data.userId.toLowerCase()), (status) =>
+        reply.code(200).send(groupInviteResponse.parse({ status })),
+      );
     }),
   });
   app.route({

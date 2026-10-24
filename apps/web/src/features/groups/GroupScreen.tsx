@@ -2,7 +2,8 @@ import { useStaffAccess } from '@/hooks/use-staff-access';
 import { STAFF_REVIEW_NOTE } from '@/lib/staff-review-texts';
 import { useCallback, useEffect, useId, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { groupRoleRank, type GroupDetail, type GroupFriend, type GroupNotificationMode } from '@nestly/shared';
+import { groupRoleRank, type GroupDetail, type GroupFriend, type GroupNotificationMode, type GroupPostView } from '@nestly/shared';
+import { formatPostTime } from '@/lib/format-post-time';
 import { ChoiceCardGroup } from '@/components/shared/choice-card-group';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { InlineAlert } from '@/components/shared/inline-alert';
@@ -25,10 +26,12 @@ import {
 } from '@/services/api/groups';
 import { GroupManage } from './GroupManage';
 import { GroupMembers } from './GroupMembers';
+import { GroupMyHistory } from './GroupMyHistory';
 import {
   ACCEPT_LABEL,
   ACTION_FAILED_TEXT,
   ALREADY_MEMBER,
+  AWAITING_ONE,
   BACK_TO_GROUPS,
   BLOCKED_TEXT,
   CANCEL_LABEL,
@@ -39,8 +42,11 @@ import {
   GROUP_LOADING_TEXT,
   GROUP_TABS_LABEL,
   GROUP_UNAVAILABLE_TEXT,
+  highlightRule,
+  INVITE_AWAITING_STATUS,
   INVITE_DESCRIPTION,
   INVITE_LABEL,
+  INVITE_PRIVATE_DESCRIPTION,
   INVITE_ONE,
   INVITE_TITLE,
   INVITED_ONE,
@@ -60,6 +66,8 @@ import {
   MODE_TITLE,
   MORE_LABEL,
   MORE_MENU_LABEL,
+  MUTED_TEXT,
+  muteBanner,
   NO_DESCRIPTION_TEXT,
   NO_FRIENDS_TEXT,
   NO_RULES_TEXT,
@@ -72,6 +80,7 @@ import {
   RECOMMEND_LABEL,
   RECOMMEND_ONE,
   RECOMMEND_TITLE,
+  REASON_LABEL,
   RECOMMENDED_ONE,
   recommendFriendLabel,
   REQUEST_CANCELLED_STATUS,
@@ -87,6 +96,8 @@ import {
   TAB_MEMBERS,
   UNPINNED_STATUS,
   DESCRIPTION_LABEL,
+  VIEW_LABEL,
+  VIEW_OPTIONS,
 } from './groups-texts';
 import { useGroupsCall } from './use-groups-call';
 
@@ -96,8 +107,8 @@ type Sheet = { kind: 'invite' | 'recommend'; friends: GroupFriend[] | null; busy
 
 export interface GroupScreenProps {
   groupId: string;
-  /** The discussion (the feed's screen over the Group's posts), given the Group and how the screen pins a post. */
-  discussion: (group: GroupDetail, onPin: (postId: string | null) => void) => ReactNode;
+  /** The discussion (the feed's screen over the Group's posts), given the Group, how the screen pins a post and what it shows (I10-C). */
+  discussion: (group: GroupDetail, onPin: (postId: string | null) => void, view: GroupPostView) => ReactNode;
 }
 
 // One Group's page (PG-034, PG-035; FR-GRP-001..003, FR-ALG-010): the header (name, Public or Private, the member count, the caller's Role)
@@ -116,6 +127,7 @@ export function GroupScreen({ groupId, discussion }: GroupScreenProps) {
   const [alert, setAlert] = useState('');
   const [busy, setBusy] = useState(false);
   const [sheet, setSheet] = useState<Sheet>(null);
+  const [view, setView] = useState<GroupPostView>('all');
 
   const reload = useCallback(async () => {
     const result = await call((token) => fetchGroup(token, groupId));
@@ -126,6 +138,7 @@ export function GroupScreen({ groupId, discussion }: GroupScreenProps) {
   useEffect(() => {
     setLoad({ phase: 'loading' });
     setTab('discussion');
+    setView('all');
     void reload();
   }, [reload]);
 
@@ -158,6 +171,7 @@ export function GroupScreen({ groupId, discussion }: GroupScreenProps) {
   const isMember = group.myRole !== null;
   const canSee = group.privacy === 'public' || isMember;
   const regular = right === 'allowed';
+  const muted = group.myMute !== null;
 
   const update = (next: GroupDetail, said: string) => {
     setLoad({ phase: 'ready', group: next });
@@ -222,12 +236,19 @@ export function GroupScreen({ groupId, discussion }: GroupScreenProps) {
             ...now,
             busyId: null,
             friends: (now.friends ?? []).map((f) =>
-              f.userId !== friend.userId || result.kind !== 'ok' ? f : kind === 'invite' ? { ...f, isInvited: true } : { ...f, isRecommended: true },
+              f.userId !== friend.userId || result.kind !== 'ok'
+                ? f
+                : kind === 'recommend'
+                  ? { ...f, isRecommended: true }
+                  : result.value === 'awaiting_approval'
+                    ? { ...f, isAwaitingApproval: true }
+                    : { ...f, isInvited: true },
             ),
           }
         : now,
     );
-    if (result.kind !== 'ok') setStatus(ACTION_FAILED_TEXT);
+    if (result.kind !== 'ok') setStatus(result.error === 'muted' ? MUTED_TEXT : ACTION_FAILED_TEXT);
+    else if (result.value === 'awaiting_approval') setStatus(INVITE_AWAITING_STATUS);
   }
 
   async function chooseMode(mode: GroupNotificationMode) {
@@ -245,8 +266,9 @@ export function GroupScreen({ groupId, discussion }: GroupScreenProps) {
   };
 
   const menu: MoreActionsItem[] = [
-    ...(rank >= 3 ? [{ key: 'invite', label: INVITE_LABEL, onSelect: () => void openFriends('invite') }] : []),
-    ...(regular ? [{ key: 'recommend', label: RECOMMEND_LABEL, onSelect: () => void openFriends('recommend') }] : []),
+    // I10-C (§11.15): any member invites Friends; a muted member invites and recommends no one
+    ...(isMember && !muted ? [{ key: 'invite', label: INVITE_LABEL, onSelect: () => void openFriends('invite') }] : []),
+    ...(regular && !muted ? [{ key: 'recommend', label: RECOMMEND_LABEL, onSelect: () => void openFriends('recommend') }] : []),
     ...(isMember ? [{ key: 'mode', label: MODE_LABEL, onSelect: () => setSheet({ kind: 'mode' }) }] : []),
     ...(isMember && group.myRole !== 'owner' ? [{ key: 'leave', label: LEAVE_LABEL, onSelect: () => setSheet({ kind: 'leave', saving: false }) }] : []),
   ];
@@ -293,6 +315,11 @@ export function GroupScreen({ groupId, discussion }: GroupScreenProps) {
         {group.state === 'invited' ? <p className="text-body">{INVITED_TEXT}</p> : null}
         {group.state === 'requested' ? <p className="text-body">{REQUESTED_LABEL}</p> : null}
         {group.state === 'blocked' ? <p className="text-body">{BLOCKED_TEXT}</p> : null}
+        {group.myMute !== null ? (
+          <p role="note" className="rounded-md bg-muted p-3 text-small">
+            {muteBanner(formatPostTime(group.myMute.until), group.myMute.reason === 'other' && group.myMute.reasonText !== null ? group.myMute.reasonText : REASON_LABEL[group.myMute.reason])}
+          </p>
+        ) : null}
         {alert !== '' ? <InlineAlert>{alert}</InlineAlert> : null}
         {reviewing ? <p className="rounded-md bg-muted p-3 text-small">{STAFF_REVIEW_NOTE}</p> : null}
         {mainLabel !== null ? (
@@ -331,23 +358,55 @@ export function GroupScreen({ groupId, discussion }: GroupScreenProps) {
       </div>
 
       <div role="tabpanel" id={`${ids}-panel`} aria-labelledby={`${ids}-tab-${tab}`}>
-        {tab === 'discussion' ? canSee ? discussion(group, pin) : <p className="text-body text-muted-foreground">{PRIVATE_CONTENT_TEXT}</p> : null}
+        {tab === 'discussion' ? (
+          canSee ? (
+            <div className="flex flex-col gap-3">
+              {/* the Highlights are the members' (review of #180): a non-member of a Public Group reads all its posts, with no toggle */}
+              {isMember ? (
+                <div role="group" aria-label={VIEW_LABEL} className="flex gap-2">
+                  {VIEW_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      aria-pressed={view === option.value}
+                      className={
+                        view === option.value
+                          ? 'min-h-11 rounded-full bg-primary-soft px-4 text-label font-semibold text-primary-strong'
+                          : 'min-h-11 rounded-full px-4 text-label text-muted-foreground hover:bg-muted'
+                      }
+                      onClick={() => setView(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {discussion(group, pin, isMember ? view : 'all')}
+            </div>
+          ) : (
+            <p className="text-body text-muted-foreground">{PRIVATE_CONTENT_TEXT}</p>
+          )
+        ) : null}
         {tab === 'members' ? <GroupMembers group={group} onChanged={() => void reload()} /> : null}
         {tab === 'about' ? (
-          <section className="flex flex-col gap-4 rounded-lg bg-card p-4 shadow-card">
-            <div>
-              <h2 className="text-h3">{DESCRIPTION_LABEL}</h2>
-              <p className="mt-1 whitespace-pre-line text-body">{group.description ?? NO_DESCRIPTION_TEXT}</p>
-            </div>
-            <div>
-              <h2 className="text-h3">{PRIVACY_LABEL[group.privacy]}</h2>
-              <p className="mt-1 text-body">{PRIVACY_HINT[group.privacy]}</p>
-            </div>
-            <div>
-              <h2 className="text-h3">{RULES_LABEL}</h2>
-              <p className="mt-1 whitespace-pre-line text-body">{group.rules ?? NO_RULES_TEXT}</p>
-            </div>
-          </section>
+          <div className="flex flex-col gap-4">
+            <section className="flex flex-col gap-4 rounded-lg bg-card p-4 shadow-card">
+              <div>
+                <h2 className="text-h3">{DESCRIPTION_LABEL}</h2>
+                <p className="mt-1 whitespace-pre-line text-body">{group.description ?? NO_DESCRIPTION_TEXT}</p>
+              </div>
+              <div>
+                <h2 className="text-h3">{PRIVACY_LABEL[group.privacy]}</h2>
+                <p className="mt-1 text-body">{PRIVACY_HINT[group.privacy]}</p>
+              </div>
+              <div>
+                <h2 className="text-h3">{RULES_LABEL}</h2>
+                <p className="mt-1 whitespace-pre-line text-body">{group.rules ?? NO_RULES_TEXT}</p>
+              </div>
+              {group.highlightThreshold === null ? null : <p className="text-small text-muted-foreground">{highlightRule(group.highlightThreshold)}</p>}
+            </section>
+            {reviewing ? null : <GroupMyHistory groupId={group.id} />}
+          </div>
         ) : null}
         {tab === 'manage' && rank >= 2 ? (
           <GroupManage
@@ -361,14 +420,16 @@ export function GroupScreen({ groupId, discussion }: GroupScreenProps) {
 
       <SheetPanel open={friendsSheet !== null} onOpenChange={(open) => (open ? undefined : setSheet(null))}>
         <SheetTitle>{friendsSheet?.kind === 'invite' ? INVITE_TITLE : RECOMMEND_TITLE}</SheetTitle>
-        <SheetDescription>{friendsSheet?.kind === 'invite' ? INVITE_DESCRIPTION : RECOMMEND_DESCRIPTION}</SheetDescription>
+        <SheetDescription>
+          {friendsSheet?.kind === 'invite' ? (group.privacy === 'private' && rank < 3 ? INVITE_PRIVATE_DESCRIPTION : INVITE_DESCRIPTION) : RECOMMEND_DESCRIPTION}
+        </SheetDescription>
         {friendsSheet?.friends === null ? <p className="text-body text-muted-foreground">{GROUP_LOADING_TEXT}</p> : null}
         {friendsSheet?.friends?.length === 0 ? <p className="text-body text-muted-foreground">{NO_FRIENDS_TEXT}</p> : null}
         <ul className="flex flex-col gap-2">
           {(friendsSheet?.friends ?? []).map((friend) => {
             const invite = friendsSheet?.kind === 'invite';
-            const done = friend.isMember || (invite ? friend.isInvited : friend.isRecommended);
-            const doneLabel = friend.isMember ? ALREADY_MEMBER : invite ? INVITED_ONE : RECOMMENDED_ONE;
+            const done = friend.isMember || (invite ? friend.isInvited || friend.isAwaitingApproval : friend.isRecommended);
+            const doneLabel = friend.isMember ? ALREADY_MEMBER : !invite ? RECOMMENDED_ONE : friend.isAwaitingApproval ? AWAITING_ONE : INVITED_ONE;
             return (
               <li key={friend.userId} className="flex items-center justify-between gap-3">
                 <span className="text-body">{friend.fullName}</span>

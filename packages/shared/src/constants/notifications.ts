@@ -5,6 +5,8 @@
 export const NOTIFICATION_TYPES = ['friend_request', 'friend_accepted', 'post_comment', 'comment_reply', 'post_shared', 'friend_post',
   // I10 (FR-GRP-002, FR-ALG-010): Group events, written by notify_group()
   'group_recommended', 'group_invited', 'group_join_requested', 'group_join_approved', 'group_post', 'group_pinned', 'group_highlight',
+  // I10 completion C (§11.15, §11.16): an invitation awaiting approval (Owner, Admins), its approval or rejection (the inviter), the mute notice
+  'group_invitation_pending', 'group_invitation_approved', 'group_invitation_rejected', 'group_member_muted',
   // I11 follow-ups (OP-051 cancelled, Afik 21.10.2026): the Professional's events, written by notify_professional()
   'offer_accepted', 'offer_declined', 'review_received', 'followers_weekly',
   // SRS-audit fixes (BR-037, AC-046): a Friend's child's birthday, written by deliver_child_birthdays() when the list is opened
@@ -30,6 +32,10 @@ export const NOTIFICATION_CATEGORY_OF: Readonly<Record<NotificationType, Notific
   group_post: 'groups',
   group_pinned: 'groups',
   group_highlight: 'groups',
+  group_invitation_pending: 'groups',
+  group_invitation_approved: 'groups',
+  group_invitation_rejected: 'groups',
+  group_member_muted: 'groups',
   offer_accepted: 'offers',
   offer_declined: 'offers',
   review_received: 'reviews',

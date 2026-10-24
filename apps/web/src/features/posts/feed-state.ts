@@ -1,4 +1,4 @@
-import type { FeedPageResponse, FeedUnit, PostView, PublishedAnnouncement } from '@nestly/shared';
+import type { FeedGroupSuggestion, FeedPageResponse, FeedUnit, PostView, PublishedAnnouncement } from '@nestly/shared';
 import { loadedMoreText } from './feed-texts';
 import { rememberPromoted } from './promoted-feed';
 
@@ -20,6 +20,8 @@ export interface FeedState {
   phase: FeedPhase;
   /** I14 (FR-ADMIN-008): the published System Announcements, from the first page. */
   notices: PublishedAnnouncement[];
+  /** I10-C (§11.14): active Public Groups the viewer is not a member of, from the first page. */
+  groupSuggestions: FeedGroupSuggestion[];
   /** A request is in flight. */
   loading: boolean;
   items: FeedUnit[];
@@ -48,6 +50,7 @@ export interface FeedState {
 export const INITIAL_FEED: FeedState = {
   phase: 'initial',
   notices: [],
+  groupSuggestions: [],
   loading: false,
   items: [],
   nextCursor: null,
@@ -115,6 +118,7 @@ export function withPage(state: FeedState, page: FeedPageResponse, firstPage: bo
     phase: 'ready',
     loading: false,
     notices: replace ? (page.announcements ?? []) : state.notices,
+    groupSuggestions: replace ? (page.suggestedGroups ?? []) : state.groupSuggestions,
     items: [...kept, ...added],
     nextCursor: page.nextCursor,
     message: '',

@@ -42,6 +42,8 @@ export type GroupFailure =
   | { readonly kind: 'blocked_from_group' }
   | { readonly kind: 'not_a_friend' }
   | { readonly kind: 'user_unavailable' }
+  | { readonly kind: 'muted' }
+  | { readonly kind: 'invitation_unavailable' }
   | MemberRefusal;
 
 export type GroupResult<T> = { readonly kind: 'ok'; readonly value: T } | GroupFailure;
@@ -135,6 +137,8 @@ export async function detailIn(tx: IdentityTx, id: string): Promise<GroupDetail 
     notificationMode: row.myRole === null ? null : (row.mode ?? DEFAULT_GROUP_NOTIFICATION_MODE),
     invitationId: row.invitationId,
     createdAt: row.createdAt,
+    myMute: row.muteUntil === null || row.muteReason === null ? null : { until: row.muteUntil, reason: row.muteReason, reasonText: row.muteReasonText },
+    highlightThreshold: row.highlightThreshold,
   };
 }
 

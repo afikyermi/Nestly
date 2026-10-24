@@ -17,6 +17,11 @@ export const PROFESSIONAL_AUDIENCES: readonly PostAudience[] = ['everyone', 'fol
 export const HELP_REQUEST_LABEL = 'הפוסט מבקש עזרה מבעלי מקצוע';
 export const HELP_REQUEST_HINT_TEXT = 'בעלי מקצוע יוכלו להציע עזרה. הצעה פותחת שיחה רק אם מאשרים אותה';
 export const HELP_REQUEST_BADGE = 'מבקשים עזרה';
+/** I10-C (§11.13): a Group's Highlight in the main feed names its Group (a link to it). */
+export const fromGroup = (name: string): string => `מתוך: ${name}`;
+/** I10-C (§11.14): active Groups suggested in the feed. */
+export const ACTIVE_GROUPS_TITLE = 'קבוצות פעילות שאולי יעניינו אותך';
+export const activeGroupMembers = (count: number): string => (count === 1 ? 'חבר אחד בקבוצה' : `${count} חברים בקבוצה`);
 /** Afik 6ב: a named post says whose name it carries. */
 export const NAME_NOTICE_TEXT = 'השם שלכם יוצג לכל מי שיכול לראות את הפוסט';
 // F3.4 (.work/anonymous-post/screen.md). The anonymous notice is the ⭐ text of Gate 1 decision 2, until Afik answers the DR on staff access.

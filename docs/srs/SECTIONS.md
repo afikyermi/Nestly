@@ -62,7 +62,7 @@
 - FR-ALG-007 — Sponsored Eligibility & Placement
 - FR-ALG-008 — Global Search Ranking v1
 - FR-ALG-009 — Diversity, Exploration והסתרת פוסט
-- FR-ALG-010 — Group Notification Highlights v1
+- FR-ALG-010 — Group Highlights v1 וחשיפת קבוצות פעילות
 - FR-DATA-001 — Analytics Event Tracking v1
 
 ## [05-functional/auth.md](05-functional/auth.md)
