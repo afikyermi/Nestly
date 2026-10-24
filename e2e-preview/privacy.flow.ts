@@ -4,6 +4,7 @@
 // email pattern as the fixture's, so the cleanup sweep covers it). No recovery attempts are made.
 import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
+import { createAccount } from './support/timed-steps.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
@@ -49,7 +50,7 @@ test.describe.serial('F2.3a privacy settings on the Preview [c1 c2 c6]', () => {
     await box.focus();
     await page.keyboard.press('Space');
     await expect(box).toBeChecked();
-    await page.getByRole('button', { name: 'יצירת חשבון', exact: true }).click();
+    await createAccount(page);
     await expect(page).toHaveURL(/\/recovery-questions$/);
     await page.getByLabel(/חיית המחמד/).fill(u.answers.pet);
     await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);

@@ -193,7 +193,7 @@ describe('[I11] Professionals and services', () => {
 
   it('[FR-SERV-005/006/008 AC-011 AC-012 AC-013 AC-093] Offer Help once, accepted into a conversation, then a review', T, async () => {
     const help = await createPost(database, as(rina), { body: `עזרה בהנקה ${tag}`, audience: 'everyone', isHelpRequest: true });
-    const plain = await createPost(database, as(rina), { body: `סתם ${tag}`, audience: 'everyone' });
+    const plain = await createPost(database, as(rina), { body: `רק לחברים ${tag}`, audience: 'friends' }); // I11-C: any post the Professional reads; a Friends-only one it cannot
     expect(await offerHelp(database, as(doula), plain.id, 'אשמח לעזור')).toEqual({ kind: 'not_allowed' });
     expect(await offerHelp(database, as(tal), help.id, 'אשמח לעזור')).toEqual({ kind: 'not_allowed' });
     const offer = ok(await offerHelp(database, as(doula), help.id, 'אשמח לעזור בהנקה'));

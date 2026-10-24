@@ -67,8 +67,8 @@ select is((select string_agg(c.relname || '.' || a.attname, ', ' order by c.reln
               and c.relname in ('professional_reviews', 'professional_articles') and a.attnum > 0 and not a.attisdropped
               and has_column_privilege('authenticated', c.oid, a.attnum, 'UPDATE')),
   'professional_articles.body, professional_articles.field, professional_articles.moderation, professional_articles.status, professional_articles.title, '
-  || 'professional_reviews.moderation',
-  '[F11.2-a c1 conventions] UPDATE per column: a review''s moderation only; an article''s text, field, status and moderation');
+  || 'professional_reviews.body, professional_reviews.moderation, professional_reviews.rating',
+  '[F11.2-a c1 conventions · I11 completion C §11.21] UPDATE per column: a review''s moderation, and its rating and text (the writer only, file 108); an article''s text, field, status and moderation');
 select is((select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'nestly' and p.prosecdef
             and p.proname in ('reports_insert_check', 'reports_insert_snapshot', 'reports_target_gone', 'professional_content_moderation_guard')),
   0::bigint, '[F11.2-a c1 rule 10] no new SECURITY DEFINER');
@@ -111,7 +111,7 @@ select set_config('t.review', pg_temp.q('b', $q$ select id::text from nestly.pro
 select is(pg_temp.dml('q1', $q$ insert into nestly.professional_articles (title, body, field) values ('מאמר שנוי', 'טקסט שגוי', 'doula') $q$), 'OK:1', '[F11.2-a c4 fixture] an article');
 select set_config('t.article', pg_temp.q('b', $q$ select id::text from nestly.professional_articles where title = 'מאמר שנוי' $q$), true);
 
-select is(pg_temp.report('q1', 'review', current_setting('t.review')::uuid), 'OK:1', '[F11.2-a c4 FR-MOD-001] the reviewed Professional reports the review');
+select is(pg_temp.report('q1', 'review', current_setting('t.review')::uuid, 'review_offensive'), 'OK:1', '[F11.2-a c4 FR-MOD-001 §11.10] the reviewed Professional reports the review (with a review reason, file 108)');
 select is(pg_temp.report('b', 'review', current_setting('t.review')::uuid, 'other'), 'ERR:23514', '[F11.2-a c4] "other" needs details, as any report');
 select is(pg_temp.report('b', 'article', current_setting('t.article')::uuid), 'OK:1', '[F11.2-a c4 FR-MOD-001] a reader reports the article');
 select is(pg_temp.report('b', 'article', current_setting('t.article')::uuid), 'ERR:23505', '[F11.2-a c4 BR-074] one report per person and article');
@@ -131,7 +131,7 @@ select is(pg_temp.n('m4', format($q$ nestly.reports where review_id = %L or arti
   '[F11.2-a c6 FR-MOD-003] REPORTS_VIEW reads the two reports');
 select is(pg_temp.moderate('m4', 'professional_reviews', current_setting('t.review')::uuid, 'hidden'), 'OK:0',
   '[F11.2-a c6 AC-022] REPORTS_VIEW alone does not moderate (no row)');
-select is(pg_temp.moderate('a', 'professional_reviews', current_setting('t.review')::uuid, 'hidden'), 'OK:0', '[F11.2-a c6] a user does not moderate');
+select is(pg_temp.moderate('a', 'professional_reviews', current_setting('t.review')::uuid, 'hidden'), 'ERR:42501', '[F11.2-a c6] a user does not moderate (its writer, who may edit it since I11-C, is refused by the moderation guard)');
 select is(pg_temp.moderate('q1', 'professional_articles', current_setting('t.article')::uuid, 'hidden'), 'ERR:42501',
   '[F11.2-a c6] the article''s owner cannot move its moderation (42501)');
 select is(pg_temp.moderate('m3', 'professional_reviews', current_setting('t.review')::uuid, 'hidden', ' '), 'ERR:NS011',
