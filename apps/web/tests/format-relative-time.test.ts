@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { formatRelativeTime, JUST_NOW_TEXT } from '../src/lib/format-relative-time';
 
 // Every publication shows a relative time: minutes, hours, days, months, years (Afik 21.10.2026, decision 11.8).
-describe('[§11.8] the relative time of a publication', () => {
+describe('[NFR-USAB-005 §11.8] the relative time of a publication', () => {
   const now = new Date('2026-10-21T12:00:00.000Z');
   const ago = (ms: number): string => new Date(now.getTime() - ms).toISOString();
   const MIN = 60_000;
