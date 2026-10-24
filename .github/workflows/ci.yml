@@ -7,9 +7,9 @@
 #   `browser-changed`: only the e2e specs the pull request added or changed, in Chrome, skipped when it changed none. If
 #   the changed files cannot be read, the whole Chrome suite runs instead, in `browser` (fail-safe).
 # - push to main and the nightly schedule: everything above except schema-gate and `browser-changed`, and `browser`: the
-#   whole Chrome suite in eight shards, without the visual specs (*.visual.spec.ts).
+#   whole Chrome suite in ten shards, without the visual specs (*.visual.spec.ts).
 # - workflow_dispatch (by hand): as main, but `browser` includes the visual specs, and `browser-edge` runs the Edge suite
-#   in eight shards. Edge runs on no other event.
+#   in ten shards. Edge runs on no other event.
 # The job `changes` decides what a pull request needs; `db` needs Docker and runs in CI only.
 name: CI
 
@@ -198,7 +198,7 @@ jobs:
   # The whole Chrome suite against the built gallery and the e2e app build: on push to main, nightly, by hand, and on a
   # pull request whose changed files could not be read (changes: browser=full). Desktop and phone (the specs set their own
   # viewports). On push and schedule E2E_SKIP_VISUAL=true leaves out *.visual.spec.ts (playwright.config.ts); by hand
-  # and on the pull-request fail-safe the blocking visual regression runs too. Eight shards in parallel, each its own
+  # and on the pull-request fail-safe the blocking visual regression runs too. Ten shards in parallel, each its own
   # runner, on e2e stubs only. Playwright splits shards by test count in file order and keeps a non-parallel file in one
   # worker; e2e/a11y.spec.ts is parallel, so its tests share the shard's workers. Timeouts by test type and the CI
   # globalTimeout, two minutes or more under timeout-minutes: playwright.config.ts, guarded by tools/ci-browser.test.mjs.
@@ -211,7 +211,7 @@ jobs:
       fail-fast: false
       matrix:
         project: [chrome]
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -234,7 +234,7 @@ jobs:
       - run: npm run build-storybook
       - env:
           E2E_SKIP_VISUAL: ${{ github.event_name == 'push' || github.event_name == 'schedule' }}
-        run: npx playwright test --project=${{ matrix.project }} --shard=${{ matrix.shard }}/8
+        run: npx playwright test --project=${{ matrix.project }} --shard=${{ matrix.shard }}/10
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: ${{ !cancelled() }}
         with:
@@ -290,7 +290,7 @@ jobs:
           if-no-files-found: ignore
 
   # Edge (SRS NFR-QA-001) runs only by hand (workflow_dispatch): never on a pull request, a push to main or the nightly
-  # schedule. The visual regression is Chrome only (the edge project ignores *.visual.spec.ts). Eight shards, as Chrome (five let the heaviest, the alphabetical a-j app-flow files, run 12 min):
+  # schedule. The visual regression is Chrome only (the edge project ignores *.visual.spec.ts). Ten shards, as Chrome (five let the heaviest, the alphabetical a-j app-flow files, run 12 min; eight still 11.5):
   # three shards held ~1,050 tests each and hit the CI globalTimeout (playwright.config.ts).
   browser-edge:
     if: github.event_name == 'workflow_dispatch'
@@ -299,7 +299,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -318,7 +318,7 @@ jobs:
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
       - run: npx playwright install --with-deps msedge
       - run: npm run build-storybook
-      - run: npx playwright test --project=edge --shard=${{ matrix.shard }}/8
+      - run: npx playwright test --project=edge --shard=${{ matrix.shard }}/10
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: ${{ !cancelled() }}
         with:
