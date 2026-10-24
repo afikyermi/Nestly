@@ -1,0 +1,8 @@
+{
+  "name": "nestly-supabase-cli-pin",
+  "private": true,
+  "description": "Pins the Supabase CLI used by the CI db job and the migrate workflow (lockfile integrity + tools/install-supabase-cli.sh binary check).",
+  "dependencies": {
+    "supabase": "2.120.0"
+  }
+}

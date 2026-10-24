@@ -16,6 +16,10 @@
 # its user is app_owner.<that environment's project ref> and its port is 5432 (session pooler). Nothing prints the
 # URL: no set -x, no echo, and the guard's messages name only what was expected.
 #
+# Hardening (14.10 review findings 1-3, low 7): every action is pinned to a commit SHA; the CLI comes from a committed
+# lockfile with sha512 hashes (tools/supabase-cli); the guard also requires TLS (PGSSLMODE=require) and masks the
+# password in all its forms; the push output passes tools/filter-db-push-log.mjs, an allowlist.
+#
 # Before the push, each job checks the auth functions against the pins the CI `db` job checks (read only). Its psql
 # step requires TLS (PGSSLMODE=require) and first connects with all output discarded, since a libpq error can quote
 # the URL (part a CRITIC finding 1).
@@ -51,24 +55,29 @@ jobs:
     timeout-minutes: 15
     environment: db-preview
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .nvmrc
       # Installed before any step holds the secret.
-      - name: Install psql and the Supabase CLI (pinned)
+      - name: Install psql and the Supabase CLI (integrity-pinned)
         run: |
           set -eu
+          # psql: Ubuntu's signed archive (apt checks the signatures). An exact apt version is not pinned on purpose: the
+          # archive drops superseded versions, which would break this job on the day it matters. The version is only printed.
           sudo apt-get update -q
           sudo apt-get install -y -q --no-install-recommends postgresql-client
-          npm install --no-save --no-audit --no-fund --prefix "${RUNNER_TEMP}/supabase-cli" "supabase@${SUPABASE_CLI_VERSION}"
-          echo "${RUNNER_TEMP}/supabase-cli/node_modules/.bin" >> "${GITHUB_PATH}"
+          psql --version
+          # CLI: tools/supabase-cli/package-lock.json (sha512 per tarball) with npm ci --ignore-scripts.
+          bash tools/install-supabase-cli.sh
       - name: Check the connection URL
         env:
           APP_OWNER_DATABASE_URL: ${{ secrets.APP_OWNER_DATABASE_URL }}
-        run: node tools/migrate-url-guard.mjs db-preview
+          PGSSLMODE: require
+        # --mask registers the password (raw, decoded, re-encoded) and the URL as masks for the rest of the job.
+        run: node tools/migrate-url-guard.mjs db-preview --mask
       # Read only: the auth functions on the target are the ones every CI pgTAP result ran on (schema.md
       # "Addendum 1 — CI auth functions"). A mismatch stops the job before anything is applied.
       - name: Check the auth functions match the pinned hashes
@@ -89,7 +98,17 @@ jobs:
       - name: Apply pending migrations to nestly-preview
         env:
           APP_OWNER_DATABASE_URL: ${{ secrets.APP_OWNER_DATABASE_URL }}
-        run: supabase db push --db-url "${APP_OWNER_DATABASE_URL}" --yes --skip-vault --agent no
+          # pgx (the CLI's driver) reads the libpq variable: TLS is required even if the URL names no sslmode.
+          PGSSLMODE: require
+          PGCONNECT_TIMEOUT: "15"
+        # The CLI's output goes through an allowlist filter, never to the log as it is: a connection error can quote the
+        # URL. pipefail keeps the CLI's exit status.
+        run: |
+          set -euo pipefail
+          if ! supabase db push --db-url "${APP_OWNER_DATABASE_URL}" --yes --skip-vault --agent no 2>&1 | node tools/filter-db-push-log.mjs; then
+            echo "::error::supabase db push failed (its output is filtered: only migration names and ERROR/SQLSTATE lines are shown)"
+            exit 1
+          fi
 
   production:
     name: db-production
@@ -99,24 +118,29 @@ jobs:
     timeout-minutes: 15
     environment: db-production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .nvmrc
       # Installed before any step holds the secret.
-      - name: Install psql and the Supabase CLI (pinned)
+      - name: Install psql and the Supabase CLI (integrity-pinned)
         run: |
           set -eu
+          # psql: Ubuntu's signed archive (apt checks the signatures). An exact apt version is not pinned on purpose: the
+          # archive drops superseded versions, which would break this job on the day it matters. The version is only printed.
           sudo apt-get update -q
           sudo apt-get install -y -q --no-install-recommends postgresql-client
-          npm install --no-save --no-audit --no-fund --prefix "${RUNNER_TEMP}/supabase-cli" "supabase@${SUPABASE_CLI_VERSION}"
-          echo "${RUNNER_TEMP}/supabase-cli/node_modules/.bin" >> "${GITHUB_PATH}"
+          psql --version
+          # CLI: tools/supabase-cli/package-lock.json (sha512 per tarball) with npm ci --ignore-scripts.
+          bash tools/install-supabase-cli.sh
       - name: Check the connection URL
         env:
           APP_OWNER_DATABASE_URL: ${{ secrets.APP_OWNER_DATABASE_URL }}
-        run: node tools/migrate-url-guard.mjs db-production
+          PGSSLMODE: require
+        # --mask registers the password (raw, decoded, re-encoded) and the URL as masks for the rest of the job.
+        run: node tools/migrate-url-guard.mjs db-production --mask
       # Read only: the auth functions on the target are the ones every CI pgTAP result ran on (schema.md
       # "Addendum 1 — CI auth functions"). A mismatch stops the job before anything is applied.
       - name: Check the auth functions match the pinned hashes
@@ -137,4 +161,14 @@ jobs:
       - name: Apply pending migrations to nestly-prod
         env:
           APP_OWNER_DATABASE_URL: ${{ secrets.APP_OWNER_DATABASE_URL }}
-        run: supabase db push --db-url "${APP_OWNER_DATABASE_URL}" --yes --skip-vault --agent no
+          # pgx (the CLI's driver) reads the libpq variable: TLS is required even if the URL names no sslmode.
+          PGSSLMODE: require
+          PGCONNECT_TIMEOUT: "15"
+        # The CLI's output goes through an allowlist filter, never to the log as it is: a connection error can quote the
+        # URL. pipefail keeps the CLI's exit status.
+        run: |
+          set -euo pipefail
+          if ! supabase db push --db-url "${APP_OWNER_DATABASE_URL}" --yes --skip-vault --agent no 2>&1 | node tools/filter-db-push-log.mjs; then
+            echo "::error::supabase db push failed (its output is filtered: only migration names and ERROR/SQLSTATE lines are shown)"
+            exit 1
+          fi
