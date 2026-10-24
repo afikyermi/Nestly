@@ -362,8 +362,8 @@ export interface ExposureBatch {
  * A page view's impressions, usage events and Professional views in ONE statement (one round trip), under the caller's own role and
  * policies. Each part inserts the same rows as insertPromotionEvent / insertUsageEvent / insertProfessionalView, so the same row triggers
  * count them (one per row, the day's row and its limit, the frequency cap). The insert of each table is its own data-modifying CTE; the
- * three tables' guards read none of the others. An impression is kept only for a promotion its guard would accept (a running promotion of
- * another that the caller reads, a Regular or a Professional caller): the guard would refuse the others, and a refusal here would fail the
+ * three tables' guards read none of the others. An impression is kept only for a promotion its guard and insert policy would accept (a running
+ * promotion of another that the caller reads, an active Regular or Professional caller): they would refuse the others, and a refusal here would fail the
  * whole statement. Anything else the guards refuse throws, and the caller then records row by row (recordExposure).
  */
 export async function insertExposureBatch(tx: IdentityTx, batch: ExposureBatch): Promise<void> {
@@ -371,7 +371,7 @@ export async function insertExposureBatch(tx: IdentityTx, batch: ExposureBatch):
   if (batch.impressions.length > 0)
     parts.push(sql`i as (insert into nestly.promotion_events (promotion_id, kind)
       select x.id, 'impression' from unnest(${sql.param([...batch.impressions])}::uuid[]) with ordinality as x(id, n)
-      where coalesce((select nestly.caller_account_type()), '') in ('regular', 'professional')
+      where (select nestly.is_active_account()) and coalesce((select nestly.caller_account_type()), '') in ('regular', 'professional')
         and exists (select 1 from nestly.promotions p where p.id = x.id and p.owner_id <> (select auth.uid())
                       and p.status = 'active' and p.starts_at <= now() and p.ends_at > now())
       order by x.n)`);

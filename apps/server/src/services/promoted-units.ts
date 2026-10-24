@@ -152,8 +152,8 @@ export interface Exposure {
  * could meet a concurrent one). All rows go in one statement (insertExposureBatch: one round trip after the identity, instead of a savepoint,
  * a statement and a release per write). Should that statement be refused (a row a guard refuses), the rows are recorded again one by one,
  * each in its own savepoint, as before: a refusal records nothing for that row and never fails the page. Faults are swallowed too:
- * recording is never a reason for a page to fail. Answers whether the transaction committed (a row the database drops silently, such as a
- * staff caller's, still counts as committed).
+ * recording is never a reason for a page to fail. Answers whether every row was accepted and committed (a row the database drops silently,
+ * such as a staff caller's, counts as accepted; a row refused in the one-by-one fallback answers false).
  */
 export async function recordExposure(database: Database, identity: Identity, exposure: Exposure): Promise<boolean> {
   const batch: ExposureBatch = {
@@ -173,11 +173,15 @@ export async function recordExposure(database: Database, identity: Identity, exp
     ...(batch.usage === undefined ? [] : [(tx: IdentityTx) => insertUsageEvent(tx, batch.usage?.kind ?? 'post_view', batch.usage?.times ?? 1)]),
     ...batch.views.map((view) => (tx: IdentityTx) => insertProfessionalView(tx, view.professionalId, view.kind, view.times)),
   ];
+  let refused = false;
   try {
     await inIdentityTransaction(database, identity, async (tx) => {
-      for (const write of writes) await tx.transaction((savepoint) => write(savepoint)).catch(() => undefined);
+      for (const write of writes)
+        await tx.transaction((savepoint) => write(savepoint)).catch(() => {
+          refused = true;
+        });
     });
-    return true;
+    return !refused;
   } catch {
     // recording is best effort: the page has already been answered from its own transaction
     return false;

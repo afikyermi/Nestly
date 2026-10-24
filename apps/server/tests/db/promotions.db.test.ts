@@ -525,9 +525,9 @@ describe('[I13] the rules of a running promotion', () => {
     expect(await ownUsage('post_view')).toBe(was.postViews + 3);
     expect(((await organic())?.postViews ?? 0) - (was.organic?.postViews ?? 0)).toBe(2);
     // a row the database refuses (a view of an account that no longer exists: 23503) fails the statement; the rest is then recorded one by
-    // one, each in its own savepoint, as before
+    // one, each in its own savepoint, as before; the answer says a row was refused (so GET /api/me does not remember a login it did not write)
     statements.length = 0;
-    expect(await recordExposure(counting, as(userId), { usage: 'post_view', usageTimes: 2, professionalViews: [{ professionalId: randomUUID(), kind: 'post_view' }] })).toBe(true);
+    expect(await recordExposure(counting, as(userId), { usage: 'post_view', usageTimes: 2, professionalViews: [{ professionalId: randomUUID(), kind: 'post_view' }] })).toBe(false);
     expect(statements.length).toBeGreaterThan(3);
     expect(await ownUsage('post_view')).toBe(was.postViews + 5);
     // the day's login: GET /api/me writes it once per instance a day; the second call reads the state only
