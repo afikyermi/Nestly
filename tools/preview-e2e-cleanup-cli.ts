@@ -254,7 +254,11 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         // Afik DR-L (17.10.2026): a test user's Security events may be deleted here only; the FK stays RESTRICT for every other path.
         // security_limits is configuration with no user: never touched (deleting it would fail every later profile_view closed).
         counts['user_enforcements'] = (await tx`delete from nestly.user_enforcements where user_id = ${id}`).count;
+        // A temporary staff Moderator's keys: their delete fires the SECURITY DEFINER Audit trigger (owner app_owner, FORCE RLS), which
+        // raises 42501 under row_security = off; on for this one statement (postgres bypasses RLS; the caller has no staff role, no entry).
+        await tx`set local row_security = on`;
         counts['moderator_permissions'] = (await tx`delete from nestly.moderator_permissions where user_id = ${id}`).count;
+        await tx`set local row_security = off`;
         counts['staff_roles'] = (await tx`delete from nestly.staff_roles where user_id = ${id}`).count;
         counts['security_events'] = (await tx`delete from nestly.security_events where user_id = ${id}`).count;
         counts['identity_link_checks'] = (await tx`delete from nestly.identity_link_checks where user_id = ${id}`).count;
