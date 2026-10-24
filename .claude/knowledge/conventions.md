@@ -189,8 +189,8 @@ rule:     (1) Evidence lives in GitHub, not on disk: a fresh session has no `.wo
           code (e2e-preview, tools/preview-e2e-*, preview-e2e.yml) is followed by a `preview-e2e` dispatch from main
           before any other merge. (3) An e2e-preview step waits for the server answer it depends on (SLOW 45 s),
           never a bare 10 s UI timeout. (4) A feature that adds writes on a hot read path (/api/me, feed, profile)
-          batches them and measures Preview timings before merge. (5) Before asking Afik, check the code,
-          decisions-in-force and WORKPLAN for an existing answer. (6) A job marked cancelled whose tests passed is
+          batches them and measures Preview timings before merge. (5) Before asking Afik — above all to set up, enter
+          or connect a service — check decisions-in-force (§15 services), SRS §12, the code and WORKPLAN first. (6) A job marked cancelled whose tests passed is
           infra: one rerun; a test that fails on the rerun is real or flaky — fix its cause before the next merge.
 why:      24.10: lost local logs; #177 staff setup failed on its first real Preview run (42501); 10 s waits failed
           on a slow Preview; #177's per-read writes slowed the Preview 5–10x; two questions to Afik were already
