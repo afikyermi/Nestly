@@ -104,12 +104,17 @@ afterAll(async () => {
 
 describe('Server-Timing against the real database', () => {
   it('lists each statement of the request (s1..sN) as the request sends it', T, async () => {
-    const timed = createDatabase(url());
-    const app = await buildRegisterApp(env(), { database: timed, clock: () => CLOCK_NOW, serverTiming: true });
-    toClose.push({ app, database: timed });
-    const res = await get(app, hA, '/api/notifications');
-    expect(res.statusCode).toBe(200);
-    const header = String(res.headers['server-timing']);
+    // The app opens its own database from DATABASE_URL, as on a deployment: one module graph for the client and the timing
+    // (a database made here would load a second copy of lib/server-timing.ts after buildRegisterApp's module reset).
+    const app = await buildRegisterApp(env(), { clock: () => CLOCK_NOW, serverTiming: true });
+    let header: string;
+    try {
+      const res = await get(app, hA, '/api/notifications');
+      expect(res.statusCode).toBe(200);
+      header = String(res.headers['server-timing']);
+    } finally {
+      await app.close();
+    }
     // the identity entry and the reads are several statements: at least s1 and s2, numbered in order
     expect(header).toMatch(/, s1;dur=[0-9.]+, s2;dur=[0-9.]+/);
   });
