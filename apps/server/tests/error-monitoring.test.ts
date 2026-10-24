@@ -3,7 +3,7 @@ import type { ErrorEvent } from '@sentry/node';
 import { buildApp } from '../src/app.js';
 import type { ServerConfig } from '../src/lib/config.js';
 import { ACCOUNT_A, AUDIENCE, ISSUER, newKey, startFakeDb, startJwks, token, type FakeDb, type JwksServer, type TestKey } from './helpers/identity-fixtures.js';
-import { NO_DATA_COLLECTION, noErrorMonitor, sentryOptions, startErrorMonitor, type ErrorMonitor, type ErrorReport } from '../src/lib/error-monitoring.js';
+import { NO_DATA_COLLECTION, noErrorMonitor, sentryOptions, startErrorMonitor, withoutTracing, type ErrorMonitor, type ErrorReport } from '../src/lib/error-monitoring.js';
 import { scrubServerEvent } from '../src/lib/scrub-error-event.js';
 
 // SRS §12 "Error monitoring" (Afik 17.10 and 24.10.2026): Sentry, errors only, no personal data sent. These tests hold the privacy
@@ -116,6 +116,26 @@ describe('[§12 Error monitoring] Sentry starts only with a DSN, errors only', (
     const names = (Array.isArray(integrations) ? integrations : []).map((i) => i.name).sort();
     expect(names).toEqual(['Dedupe', 'LinkedErrors', 'OnUncaughtException', 'OnUnhandledRejection']);
     expect(sentryOptions(sentry, FAKE_DSN, {})?.environment).toBe('development');
+  });
+
+  it('no environment setting turns on tracing, debug output or a second destination', async () => {
+    const sentry = await import('@sentry/node');
+    const options = sentryOptions(sentry, FAKE_DSN, {});
+    expect(options).toMatchObject({ debug: false, spotlight: false, enableOpenTelemetrySetup: false, traceLifecycle: 'static' });
+    vi.stubEnv('SENTRY_TRACES_SAMPLE_RATE', '1');
+    try {
+      let client: ReturnType<typeof sentry.initWithoutDefaultIntegrations>;
+      const monitor = startErrorMonitor({ SENTRY_DSN: FAKE_DSN }, () =>
+        Promise.resolve({ ...sentry, initWithoutDefaultIntegrations: (o) => (client = sentry.initWithoutDefaultIntegrations({ ...o, transport: () => sentry.createTransport({ recordDroppedEvent: () => undefined }, () => Promise.resolve({})) })) }));
+      await monitor.flush(100);
+      expect(client).toBeDefined();
+      // The SDK took the rate from the environment; the monitor removed it, so no span records.
+      expect(client?.getOptions().tracesSampleRate).toBeUndefined();
+      expect(sentry.startInactiveSpan({ name: 'probe' }).isRecording()).toBe(false);
+      expect(() => withoutTracing(undefined)).not.toThrow();
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
 

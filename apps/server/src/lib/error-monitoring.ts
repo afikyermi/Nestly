@@ -53,6 +53,12 @@ export function sentryOptions(sentry: SentryNode, dsn: string, env: Env): Parame
     // is ever created. 'static' keeps SDK 11 from adding its span-streaming integration. Anything that is not an error event is
     // dropped before it leaves.
     traceLifecycle: 'static',
+    // The SDK also reads SENTRY_DEBUG (it would print events to the function's log), SENTRY_SPOTLIGHT (a second destination) and
+    // SENTRY_TRACES_SAMPLE_RATE (tracing) from the environment: the first two are fixed off here, the third is cleared after init
+    // (withoutTracing), so no environment setting can turn any of them on.
+    debug: false,
+    spotlight: false,
+    enableOpenTelemetrySetup: false,
     beforeSendTransaction: () => null,
     beforeBreadcrumb: () => null,
     // initWithoutDefaultIntegrations: nothing reads requests, console, HTTP calls, source lines or local variables.
@@ -83,12 +89,23 @@ export const NO_DATA_COLLECTION = {
 
 const DEFAULT_FLUSH_MS = 1500;
 
+/**
+ * Errors only, whatever the environment says: the SDK takes the trace sample rate from SENTRY_TRACES_SAMPLE_RATE when the options leave
+ * it out, and any value turns tracing on. Removing it from the started client's options keeps span recording off.
+ */
+export function withoutTracing(client: { getOptions(): { tracesSampleRate?: number; tracesSampler?: unknown } } | undefined): void {
+  if (client === undefined) return;
+  const options = client.getOptions();
+  delete options.tracesSampleRate;
+  delete options.tracesSampler;
+}
+
 export function startErrorMonitor(env: Env, load: () => Promise<SentryNode> = () => import('@sentry/node')): ErrorMonitor {
   const dsn = env.SENTRY_DSN?.trim();
   if (!dsn) return noErrorMonitor;
   const ready: Promise<SentryNode | undefined> = load()
     .then((sentry) => {
-      sentry.initWithoutDefaultIntegrations(sentryOptions(sentry, dsn, env));
+      withoutTracing(sentry.initWithoutDefaultIntegrations(sentryOptions(sentry, dsn, env)));
       return sentry;
     })
     // Monitoring never breaks the server: a failed load or init leaves it off.
