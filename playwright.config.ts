@@ -3,9 +3,10 @@ import { APP_PORT, STORYBOOK_PORT } from './playwright.ports.ts';
 
 // Playwright runs against the built Storybook, served as static files, and the e2e build of the app.
 // Browsers per SRS NFR-QA-001: Chrome and Edge. CI (.github/workflows/ci.yml): a pull request runs only the specs it
-// added or changed, in Chrome; a push to main and the nightly run take the whole Chrome suite without the visual specs;
-// a manual run takes the whole Chrome suite with them, and Edge. The tests live in e2e/. Visual regression
-// (*.visual.spec.ts) runs in Chrome only: its baselines are Linux Chrome renderings.
+// added or changed, in Chrome; a push to main and the nightly run take the whole Chrome suite; a manual run adds Edge and
+// the pixel visual specs. The tests live in e2e/. The pixel visual specs (*.visual.spec.ts) run in Chrome only (their
+// baselines are Linux Chrome renderings) and never block (Afik 24.10): every blocking CI job sets E2E_SKIP_VISUAL=true and
+// the manual job `browser-visual` runs them as a warning. What blocks instead is layer 1, e2e/layout-rules.spec.ts.
 const PORT = STORYBOOK_PORT;
 const isCi = process.env['CI'] !== undefined;
 // E2E_SKIP_VISUAL=true leaves the visual specs out of the chrome project (by file name, not by title).
