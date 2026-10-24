@@ -156,7 +156,7 @@ describe('[I11-C] Offer Help on any post the Professional may see', () => {
     expect(JSON.stringify(sent)).not.toContain(noa);
   });
 
-  it('[FR-SERV-005 AC-169] the feed and the post page tell only a Professional where it may offer, and that it already did', T, async () => {
+  it('[FR-SERV-005 AC-169] the feed and the post page tell only a Professional where it may offer (not a Regular, not staff), and that it already did', T, async () => {
     const fresh = await createPost(database, as(mia), { body: `פוסט חדש על לידה ${tag}`, audience: 'everyone' });
     const proPost = await createPost(database, as(sleeper), { body: `עוד טיפ ${tag}`, audience: 'everyone' });
     expect((await feedOf(doula)).find((unit) => unit.id === fresh.id)).toMatchObject({ offerHelp: 'available' });
@@ -164,6 +164,11 @@ describe('[I11-C] Offer Help on any post the Professional may see', () => {
     expect(await pageOf(doula, fresh.id)).toMatchObject({ offerHelp: 'available' });
     expect((await feedOf(noa)).find((unit) => unit.id === fresh.id)).not.toHaveProperty('offerHelp');
     expect(await pageOf(noa, fresh.id)).not.toHaveProperty('offerHelp');
+    // AC-169: staff (a Moderator, an Admin) read the post but hold no Offer Help, and an offer of theirs is refused
+    for (const staff of [await text(side`select tests.fx_fr_id('fr_m')::text as v`), await text(side`select tests.fx_fr_id('fr_d')::text as v`)]) {
+      expect(await pageOf(staff, fresh.id)).not.toHaveProperty('offerHelp');
+      expect(await offerHelp(database, as(staff), fresh.id, 'הצעה')).toEqual({ kind: 'not_allowed' });
+    }
     ok(await offerHelp(database, as(doula), fresh.id, 'אשמח לעזור'));
     expect((await feedOf(doula)).find((unit) => unit.id === fresh.id)).toMatchObject({ offerHelp: 'sent' });
     expect(await pageOf(doula, fresh.id)).toMatchObject({ offerHelp: 'sent' });
