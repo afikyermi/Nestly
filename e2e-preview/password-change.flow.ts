@@ -5,6 +5,7 @@
 // IP-level failures added to the run: 1 per project (limit 10; the recovery flow uses 2 per project).
 import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
+import { createAccount } from './support/timed-steps.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
@@ -56,7 +57,7 @@ test.describe.serial('F2.0 password change on the Preview [c10 c15]', () => {
     await box.focus();
     await page.keyboard.press('Space');
     await expect(box).toBeChecked();
-    await page.getByRole('button', { name: 'יצירת חשבון', exact: true }).click();
+    await createAccount(page);
     await expect(page).toHaveURL(/\/recovery-questions$/);
     await pet(page).fill(u.answers.pet);
     await nick(page).fill(u.answers.nickname);

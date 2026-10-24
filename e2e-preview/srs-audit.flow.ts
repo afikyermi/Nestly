@@ -9,6 +9,7 @@ import { randomBytes } from 'node:crypto';
 import type { BrowserContext, Page } from '@playwright/test';
 import { createBypassRouteHandler } from './support/bypass.ts';
 import { expect, test } from './support/fixtures.ts';
+import { createAccount } from './support/timed-steps.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
@@ -29,7 +30,7 @@ async function credentialsAndAnswers(page: Page, u: TestUser): Promise<string> {
   await box.focus();
   await page.keyboard.press('Space');
   await expect(box).toBeChecked();
-  await page.getByRole('button', { name: 'יצירת חשבון', exact: true }).click();
+  await createAccount(page);
   await expect(page).toHaveURL(/\/recovery-questions$/);
   await page.getByLabel(/חיית המחמד/).fill(u.answers.pet);
   await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);
@@ -84,7 +85,9 @@ function israelToday(): { day: number; month: number; year: number } {
   return { day: get('day'), month: get('month'), year: get('year') };
 }
 
-test('[FR-SEARCH-001 FR-SET-001 FR-NOTIF-002 BR-037 AC-046] the SRS-audit fixes, each seen from the other side', async ({ page, browser, baseURL, bypassSecret }) => {
+test('[FR-SEARCH-001 FR-SET-001 FR-NOTIF-002 BR-037 AC-046] the SRS-audit fixes, each seen from the other side', async ({ page, browser, baseURL, bypassSecret }, info) => {
+  // Three fresh accounts sign up on a cold Preview (each sign-up can take 10 s or more): 3 minutes, not the config's 90 s.
+  test.setTimeout(180_000);
   if (baseURL === undefined) throw new Error('preview-e2e: no baseURL');
   const origin = new URL(baseURL).origin;
   const contexts: BrowserContext[] = [];
@@ -129,11 +132,21 @@ test('[FR-SEARCH-001 FR-SET-001 FR-NOTIF-002 BR-037 AC-046] the SRS-audit fixes,
       await seeker.getByRole('banner').getByRole('link', { name: 'חיפוש', exact: true }).click();
       await expect(seeker).toHaveURL(/\/search$/);
     }
+    // Each step is checked on its own (nightly 24.10 failed on desktop with only "no link"): Enter opens /search, the search the screen
+    // shows answers 200 (its time is logged), then the result. The waiter is set before typing: on desktop the top bar's dropdown may run
+    // the search first, and the results screen then reuses its answer.
+    const searched = seeker.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/search', { timeout: 60_000 });
+    searched.catch(() => undefined); // a step before it may fail first; the wait is awaited below
     const box = seeker.getByRole('searchbox', { name: 'חיפוש אנשים ופוסטים' }).first();
+    const asked = Date.now();
     await box.fill(proName);
     await box.press('Enter');
-    const link = seeker.getByRole('link', { name: `לעמוד המקצועי של ${proName}` }).first();
-    await expect(link).toBeVisible();
+    await expect(seeker).toHaveURL(/\/search$/);
+    const answer = await searched;
+    console.log(`[${info.project.name}] POST /api/search from the search screen answered ${answer.status()} after ${Date.now() - asked} ms`);
+    expect(answer.status(), 'the search the screen shows').toBe(200);
+    const link = seeker.getByRole('main').getByRole('link', { name: `לעמוד המקצועי של ${proName}` });
+    await expect(link).toBeVisible({ timeout: 30_000 });
     await expect(link).toContainText('חשבון מקצועי');
     await expect(link).toHaveAttribute('href', `/pros/${pro?.userId ?? ''}`);
 
