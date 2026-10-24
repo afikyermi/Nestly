@@ -111,7 +111,7 @@ test('[BR-083 Preview] a setup failure names its step and code only, never a val
   for (const step of STAFF_STEPS) assert.ok(cli.includes(`step = '${step}'`) || step === 'context', `step ${step} is marked`);
   assert.match(cli, /stderr\.write\(staffFailureLine\(step, error\)\)/);
   const pgError = Object.assign(new Error('permission denied for postgres.secret@host user nestly-e2e-1-1-x@example.com'), { code: '42501' });
-  assert.equal(staffFailureLine('permission', pgError), 'preview staff: setup failed at step "permission" (code 42501)\n');
+  assert.equal(staffFailureLine('account and keys', pgError), 'preview staff: setup failed at step "account and keys" (code 42501)\n');
   assert.equal(staffFailureLine('context', new Error('staff setup requires the main Preview workflow')),
     'preview staff: setup failed at step "context" (code unknown)\n');
   assert.equal(staffFailureLine('auth user', { code: 'bad code; drop' }), 'preview staff: setup failed at step "auth user" (code unknown)\n');

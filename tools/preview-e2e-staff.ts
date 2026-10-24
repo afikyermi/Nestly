@@ -30,7 +30,7 @@ export function maskStaffUsers(users: StaffUsers, write: (command: string) => vo
 
 /** The setup's steps, in order. A failure names the step it reached and the error's code only: never a value, URL, email or id. */
 export const STAFF_STEPS = ['context', 'url guard', 'staff file path', 'preflight', 'transaction', 'auth user', 'auth identity',
-  'account', 'permission', 'staff file'] as const;
+  'account and keys', 'staff file'] as const;
 export type StaffStep = (typeof STAFF_STEPS)[number];
 
 export function staffFailureLine(step: StaffStep, error: unknown): string {

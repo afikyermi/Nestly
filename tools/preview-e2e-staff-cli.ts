@@ -52,9 +52,8 @@ async function main(): Promise<void> {
         step = 'auth identity';
         await tx`insert into auth.identities (id, user_id, provider_id, identity_data, provider, created_at, updated_at)
           values (${randomUUID()}, ${id}, ${id}, ${sql.json({ sub: id, email: user.email, email_verified: true, phone_verified: false })}, 'email', now(), now())`;
-        step = 'account';
+        step = 'account and keys';
         await tx`insert into nestly.users (id, account_type, status) values (${id}, 'moderator', 'active')`;
-        step = 'permission';
         await tx`insert into nestly.moderator_permissions (user_id, permission_key, granted_by)
           values (${id}, 'CONTENT_MODERATE', ${id})`;
       }
