@@ -280,6 +280,17 @@ select is(pg_temp.dml('d', $q$ insert into nestly.promotion_settings (daily_cap,
             values (5, 2, 4, 7, 20, 200, '  ') $q$), 'ERR:23514', '[F13.2-a c7 FR-ADMIN-005] a version needs a reason');
 select is(pg_temp.dml('d', $q$ insert into nestly.promotion_settings (version, daily_cap, directory_units_per_page, feed_gap_min, feed_gap_max, feed_low_posts, feed_high_posts, reason)
             values (9, 5, 2, 4, 7, 20, 200, 'x') $q$), 'ERR:42501', '[F13.2-a c7 BR-059] the version number is the database''s');
+-- FR-ADMIN-005 / AC-073: a real Audit write error must roll back the entire new settings version.
+select set_config('t.settings_before', tests.fx_promo_text($q$select jsonb_agg(to_jsonb(s) order by version)::text from nestly.promotion_settings s$q$), true);
+select set_config('t.settings_audit_before', tests.fx_sw_count(format($q$nestly.audit_log where actor_id = %L and action = 'promotion_settings_changed'$q$, pg_temp.id('d')))::text, true);
+select tests.fx_promo_break_audit(pg_temp.id('d'), 'promotion_settings_changed');
+select is(pg_temp.dml('d', $q$insert into nestly.promotion_settings (daily_cap, directory_units_per_page, feed_gap_min, feed_gap_max, feed_low_posts, feed_high_posts, reason)
+  values (5, 2, 5, 8, 30, 300, 'valid settings but Audit fails')$q$), 'ERR:XX000', '[FR-ADMIN-005 AC-073] settings fail when their Audit insert fails');
+select is(tests.fx_promo_text($q$select jsonb_agg(to_jsonb(s) order by version)::text from nestly.promotion_settings s$q$), current_setting('t.settings_before'),
+  '[FR-ADMIN-005 AC-073] failed Audit leaves every settings version unchanged');
+select is(tests.fx_sw_count(format($q$nestly.audit_log where actor_id = %L and action = 'promotion_settings_changed'$q$, pg_temp.id('d')))::text, current_setting('t.settings_audit_before'),
+  '[FR-ADMIN-005 AC-073] no partial Audit survives the failed settings change');
+select tests.fx_promo_unbreak_audit();
 select is(pg_temp.dml('d', $q$ insert into nestly.promotion_settings (daily_cap, directory_units_per_page, feed_gap_min, feed_gap_max, feed_low_posts, feed_high_posts, reason)
             values (5, 2, 5, 8, 30, 300, 'more reach for the demo') $q$), 'OK:1', '[F13.2-a c7 §11.2] the Admin adds a version');
 select is(pg_temp.q('a', $q$ select string_agg(version || ':' || daily_cap || ':' || feed_gap_min || ':' || feed_gap_max || ':' || feed_low_posts || ':' || feed_high_posts, ',' order by version)
@@ -338,6 +349,16 @@ select is(pg_temp.stop('m1', current_setting('t.promo'), 'spam'), 'OK:0', '[F13.
 select is(pg_temp.stop('m5', current_setting('t.promo'), 'spam'), 'OK:0', '[F13.2-a c9 §11.1] nor one with only MARKETPLACE_MODERATE, on a Professional''s promotion');
 select is(pg_temp.stop('m4', current_setting('t.lpromo'), 'spam'), 'OK:0', '[F13.2-a c9 §11.1] nor CONTENT_MODERATE on a listing promotion');
 select is(pg_temp.stop('m4', current_setting('t.promo')), 'ERR:23514', '[F13.2-a c9 §11.1 FR-ADMIN-005] a staff stop needs a reason');
+-- FR-ADMIN-005 / BR-083: exercise the real trigger failure, not merely a rejected reason or permission.
+select set_config('t.stop_before', tests.fx_promo_text(format($q$select to_jsonb(p)::text from nestly.promotions p where id = %L$q$, current_setting('t.promo'))), true);
+select set_config('t.stop_audit_before', tests.fx_sw_count(format($q$nestly.audit_log where action = 'promotion_stopped' and target_id = %L$q$, current_setting('t.promo')))::text, true);
+select tests.fx_promo_break_audit(pg_temp.id('m4'), 'promotion_stopped');
+select is(pg_temp.stop('m4', current_setting('t.promo'), 'valid stop but Audit fails'), 'ERR:XX000', '[FR-ADMIN-005 BR-083] staff stop fails when its Audit insert fails');
+select is(tests.fx_promo_text(format($q$select to_jsonb(p)::text from nestly.promotions p where id = %L$q$, current_setting('t.promo'))), current_setting('t.stop_before'),
+  '[FR-ADMIN-005 BR-083] failed Audit leaves the whole promotion unchanged, still active without stop attribution');
+select is(tests.fx_sw_count(format($q$nestly.audit_log where action = 'promotion_stopped' and target_id = %L$q$, current_setting('t.promo')))::text, current_setting('t.stop_audit_before'),
+  '[FR-ADMIN-005 BR-083] no partial Audit survives the failed stop');
+select tests.fx_promo_unbreak_audit();
 select is(pg_temp.stop('m4', current_setting('t.promo'), 'misleading health claims'), 'OK:1', '[F13.2-a c9 §11.1] CONTENT_MODERATE stops a Professional''s running promotion');
 select is(pg_temp.q('q1', format('select status || ''/'' || stopped_by from nestly.promotions where id = %L', current_setting('t.promo'))), 'stopped/staff',
   '[F13.2-a c9 §11.1] the promoter sees it was stopped by staff ("הקידום הופסק")');
