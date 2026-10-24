@@ -22,6 +22,7 @@ import {
   writeReview,
 } from '../../src/services/professionals-service.js';
 import { fileReport } from '../../src/services/reports-service.js';
+import { createShare } from '../../src/services/shares-service.js';
 import { activeReportReasons } from '../../src/services/team-service.js';
 import { AUDIENCE, COLD_START_MS, ISSUER, newKey, restoreEnv, startJwks, token, type App, type JwksServer, type TestKey } from '../helpers/identity-fixtures.js';
 import { buildRegisterApp, CLOCK_NOW, post, validBody } from '../helpers/register-app.js';
@@ -124,7 +125,7 @@ afterAll(async () => {
 });
 
 describe('[I11-C] Offer Help on any post the Professional may see', () => {
-  it('[FR-SERV-005 AC-014 AC-169] offers on a plain, an anonymous and a loss post; never Friends-only, a Private Group, a Professional post or across a block', LONG, async () => {
+  it('[FR-SERV-005 AC-014 AC-169] offers on a plain, an anonymous and a loss post; never Friends-only, a Private Group, a Professional post, a share or across a block', LONG, async () => {
     const plain = await createPost(database, as(mia), { body: `שאלה על לידה ${tag}`, audience: 'everyone' });
     const anonymous = await createPost(database, as(noa), { body: `פוסט אנונימי על הריון ${tag}`, audience: 'everyone', isAnonymous: true });
     const loss = await createPost(database, as(mia), { body: `איבדנו את ההריון ${tag}`, audience: 'everyone', stageTag: 'pregnant' });
@@ -132,12 +133,13 @@ describe('[I11-C] Offer Help on any post the Professional may see', () => {
     const professionalPost = await createPost(database, as(sleeper), { body: `טיפ על שינה ${tag}`, audience: 'everyone' });
     const group = ok(await createGroup(database, as(gil), { name: `קבוצה סגורה ${tag}`, privacy: 'private' })).value;
     const inGroup = await createPost(database, as(gil), { body: `בקבוצה ${tag}`, audience: 'everyone', groupId: group.id });
+    const share = await createShare(database, as(gil), plain.id, { text: `משתפת ${tag}`, audience: 'everyone' });
 
     ok(await offerHelp(database, as(doula), plain.id, 'אשמח לעזור'));
     ok(await offerHelp(database, as(doula), anonymous.id, 'אשמח לעזור גם כאן'));
     ok(await offerHelp(database, as(doula), loss.id, 'אני כאן אם צריך'));
     expect(await offerHelp(database, as(doula), plain.id, 'שוב')).toEqual({ kind: 'already_done' });
-    for (const refused of [friendsOnly.id, professionalPost.id, inGroup.id]) expect(await offerHelp(database, as(doula), refused, 'הצעה')).toEqual({ kind: 'not_allowed' });
+    for (const refused of [friendsOnly.id, professionalPost.id, inGroup.id, share.id]) expect(await offerHelp(database, as(doula), refused, 'הצעה')).toEqual({ kind: 'not_allowed' });
     expect(await offerHelp(database, as(noa), plain.id, 'לא בעלת מקצוע')).toEqual({ kind: 'not_allowed' });
 
     // a named post across a block is refused; the anonymous one of the same author is not (its author is not known to the Professional)

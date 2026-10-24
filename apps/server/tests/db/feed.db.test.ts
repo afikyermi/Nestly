@@ -621,8 +621,13 @@ describe('[F3.2-a2 c2 c5] the statements that really run', () => {
       expect(tableWildcards(q, ctes), q).toEqual([]);
       for (const m of q.matchAll(/\b(?:from|join)\s+([\w".]+)(?![\w".]|\s*\()/gi)) {
         const table = (m[1] ?? '').replace(/"/g, '').split('.').pop() ?? '';
-        if (!ctes.has(table.toLowerCase())) expect(['posts', 'friendships', 'comments', 'reactions', 'algorithm_configurations', 'regular_names', 'professional_follows', 'professional_profiles'], q).toContain(table);
+        if (!ctes.has(table.toLowerCase())) expect(['posts', 'friendships', 'comments', 'reactions', 'algorithm_configurations', 'regular_names', 'professional_follows', 'professional_profiles', 'outreach_requests'], q).toContain(table);
       }
+      // I11-C (FR-SERV-005): the display reads only the caller's own offers (the Offer Help state), never another Professional's
+      for (const m of q.matchAll(/\bfrom\s+nestly\.outreach_requests\s+(\w+)\s+where\s+(.*)/gi)) {
+        expect(m[2] ?? '', q).toMatch(new RegExp(`\\b${m[1] ?? ''}\\.professional_id\\s*=\\s*\\(select auth\\.uid\\(\\)\\)`, 'i'));
+      }
+      if (/outreach_requests/i.test(q)) expect(q, q).toMatch(/\bfrom\s+nestly\.outreach_requests\s+\w+\s+where\b/i);
     }
     const ranking = onPosts.filter((q) => /power\s*\(/i.test(q));
     const display = onPosts.filter((q) => /regular_names/i.test(q));
