@@ -7,7 +7,7 @@
 // (the Preview server's date), well inside VAL-044's window so the server's own check cannot differ from the browser's.
 import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
-import { createAccount } from './support/timed-steps.ts';
+import { createAccount, SIGN_IN_MS, submitSignIn } from './support/timed-steps.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
@@ -43,8 +43,8 @@ async function signIn(page: Page, u: TestUser): Promise<void> {
   await page.goto('/login');
   await emailField(page).fill(u.email);
   await passwordField(page).fill(u.password);
-  await page.getByRole('button', { name: 'התחברות', exact: true }).click();
-  await expect(page).toHaveURL(/\/feed$/);
+  await submitSignIn(page);
+  await expect(page).toHaveURL(/\/feed$/, { timeout: SIGN_IN_MS });
   await page.goto('/profile');
 }
 

@@ -9,7 +9,7 @@
 // in the whole run: 2 projects x (1 wrong change + 1 wrong reset) = 4 (limit 10).
 import type { Page, Response } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
-import { createAccount } from './support/timed-steps.ts';
+import { createAccount, SIGN_IN_MS, submitSignIn } from './support/timed-steps.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
 const passwordField = (page: Page) => page.getByLabel('סיסמה', { exact: true });
@@ -29,19 +29,12 @@ let mismatchOnChange = '';
 const answered = (method: string, path: string, status: number) => (r: Response): boolean =>
   r.request().method() === method && new URL(r.url()).pathname === path && r.status() === status;
 
-/** A slow Preview took over 10 s from "התחברות" to the next screen (preview-e2e 24.10): Auth's token answer, then /api/me. */
-const SIGN_IN_MS = 45_000;
-const isAuthToken = (r: Response) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/auth/v1/token';
-
 /** Signs in and waits for Auth's answer (a refusal too); the caller asserts where it lands. */
 async function signIn(page: Page, email: string, password: string): Promise<void> {
   await page.goto('/login');
   await emailField(page).fill(email);
   await passwordField(page).fill(password);
-  await Promise.all([
-    page.waitForResponse(isAuthToken, { timeout: SIGN_IN_MS }),
-    page.getByRole('button', { name: 'התחברות', exact: true }).click(),
-  ]);
+  await submitSignIn(page);
 }
 
 async function logOut(page: Page): Promise<void> {

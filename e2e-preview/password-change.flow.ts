@@ -3,9 +3,9 @@
 // It makes its own fresh user (the shared fixture user is already registered and has changed its password in
 // password-recovery.flow.ts). Same email pattern as the fixture's, so the sweep covers it. Failed attempts per user: 1 (limit 5);
 // IP-level failures added to the run: 1 per project (limit 10; the recovery flow uses 2 per project).
-import type { Page, Response } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
-import { createAccount } from './support/timed-steps.ts';
+import { createAccount, SIGN_IN_MS, submitSignIn } from './support/timed-steps.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
@@ -27,19 +27,12 @@ function userOf(project: string): TestUser {
   return u;
 }
 
-/** A slow Preview took over 10 s from "התחברות" to the next screen (preview-e2e 24.10): Auth's token answer, then /api/me. */
-const SIGN_IN_MS = 45_000;
-const isAuthToken = (r: Response) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/auth/v1/token';
-
 /** Signs in and waits for Auth's answer (a refusal too); the caller asserts where it lands. */
 async function signIn(page: Page, email: string, password: string): Promise<void> {
   await page.goto('/login');
   await emailField(page).fill(email);
   await passwordField(page).fill(password);
-  await Promise.all([
-    page.waitForResponse(isAuthToken, { timeout: SIGN_IN_MS }),
-    page.getByRole('button', { name: 'התחברות', exact: true }).click(),
-  ]);
+  await submitSignIn(page);
 }
 async function logOut(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'פתיחת התפריט' }).click();
