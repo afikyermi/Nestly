@@ -177,6 +177,28 @@ jobs:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           PREVIEW_E2E_REPORT_FILE: ${{ runner.temp }}/preview-e2e-report.json
         run: npx playwright test -c e2e-preview/playwright.config.ts
+      # On failure only: the error-context.md of each failed test (the page's accessibility snapshot at the failure). Trace,
+      # video and screenshots stay off (playwright.config.ts), since the Vercel bypass header or a typed password could land
+      # in them; the snapshot lists field values, so every textbox/combobox/searchbox/spinbutton value is redacted here
+      # first, and nothing else is uploaded. The bypass secret is in the env of the Playwright step only, never in the page.
+      - name: Collect the failure context (values redacted)
+        if: failure()
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/preview-e2e-failures"
+          find test-results -name error-context.md -type f 2>/dev/null | while IFS= read -r f; do
+            out="${RUNNER_TEMP}/preview-e2e-failures/$(printf '%s' "${f}" | md5sum | cut -c1-12).md"
+            { echo "# ${f}"; sed -E 's/^([[:space:]]*- (textbox|searchbox|combobox|spinbutton)[^:]*):.*/\1: [value redacted]/' "${f}"; } > "${out}"
+          done
+          ls "${RUNNER_TEMP}/preview-e2e-failures" | wc -l
+      - name: Upload the failure context
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-e2e-failure-context
+          path: ${{ runner.temp }}/preview-e2e-failures
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Summary
         if: always()
         env:
