@@ -18,10 +18,11 @@ export interface Database {
 
 /** postgres-js connects lazily: creating the client opens nothing until the first query. */
 export function createDatabase(url: string): Database {
-  // debug: marks each statement for Server-Timing (lib/server-timing.ts); it reads neither the text nor the parameters
-  const client = postgres(url, { max: 1, prepare: false, debug: () => markStatement() });
+  const client = postgres(url, { max: 1, prepare: false });
   return {
-    db: drizzle({ client }),
+    // The logger marks each statement for Server-Timing (lib/server-timing.ts) as the request's code sends it; it reads neither the text
+    // nor the parameters. (postgres-js's own debug hook may run from the socket's callback, outside the request.)
+    db: drizzle({ client, logger: { logQuery: () => markStatement() } }),
     client,
     close: () => client.end(),
   };

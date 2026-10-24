@@ -102,6 +102,19 @@ afterAll(async () => {
   restoreEnv();
 });
 
+describe('Server-Timing against the real database', () => {
+  it('lists each statement of the request (s1..sN) as the request sends it', T, async () => {
+    const timed = createDatabase(url());
+    const app = await buildRegisterApp(env(), { database: timed, clock: () => CLOCK_NOW, serverTiming: true });
+    toClose.push({ app, database: timed });
+    const res = await get(app, hA, '/api/notifications');
+    expect(res.statusCode).toBe(200);
+    const header = String(res.headers['server-timing']);
+    // the identity entry and the reads are several statements: at least s1 and s2, numbered in order
+    expect(header).toMatch(/, s1;dur=[0-9.]+, s2;dur=[0-9.]+/);
+  });
+});
+
 describe('[FR-NOTIF-001 AC-040] the bell, the list, mark read', () => {
   it('a Friend Request notifies the addressee with the sender\'s name and a link to the sender; Mark as read, then Mark all', T, async () => {
     const app = await start();
