@@ -15,6 +15,7 @@
 import { appendFileSync } from 'node:fs';
 import postgres from 'postgres';
 import {
+  DELETE_CONCURRENCY,
   MAX_SWEEP_PER_RUN,
   SWEEP_AGE_HOURS,
   TEST_EMAIL_PATTERN,
@@ -42,9 +43,12 @@ function stop(reason: string): never {
   process.exit(1);
 }
 
-/** Real client: one session, max one connection. Statements are the ones in schema.md, leaf first. */
+/**
+ * Real client: up to DELETE_CONCURRENCY connections, so that many users' transactions run at once (runCleanup); each user is still one
+ * transaction on one connection. Statements are the ones in schema.md, leaf first.
+ */
 function createClient(url: string): { client: CleanupClient & BacklogClient; close: () => Promise<void> } {
-  const sql = postgres(url, { max: 1, ssl: 'require', onnotice: () => undefined, connect_timeout: 20, idle_timeout: 5 });
+  const sql = postgres(url, { max: DELETE_CONCURRENCY, ssl: 'require', onnotice: () => undefined, connect_timeout: 20, idle_timeout: 5 });
   const client: CleanupClient & BacklogClient = {
     async preflight() {
       const rows = await sql<{ db_user: string; bypassrls: boolean | null; can_delete: boolean | null; tables: string[] }[]>`
@@ -276,6 +280,7 @@ function writeSummary(report: CleanupReport): void {
     `preview-e2e-cleanup: ${report.ok ? 'OK' : 'FAILED'}`,
     `- deleted ${report.deletedOwn} user(s) of the run and ${report.deletedSwept} leftover(s)`,
     `- ${report.failedUsers} failed; the run's remaining: ${report.leftovers ?? 'unknown'}`,
+    `- ${report.deferredSwept} leftover(s) left for the next runs (time budget)`,
     ...(report.ok ? [] : [`- ${report.reason ?? 'cleanup failed'}`]),
     '',
   ].join('\n');
@@ -323,7 +328,7 @@ async function main(): Promise<void> {
   try {
     const report = await runCleanup({ client, runId, runAttempt, log: line });
     writeSummary(report);
-    line(`preview-e2e-cleanup: deleted ${report.deletedOwn} of this run and ${report.deletedSwept} leftover(s); ${report.failedUsers} failed; leftovers of this run: ${report.leftovers ?? 'unknown'}`);
+    line(`preview-e2e-cleanup: deleted ${report.deletedOwn} of this run and ${report.deletedSwept} leftover(s); ${report.failedUsers} failed; leftovers of this run: ${report.leftovers ?? 'unknown'}; ${report.deferredSwept} leftover(s) left for the next runs`);
     const rows = Object.entries(report.tableCounts).map(([table, n]) => `${table}=${n}`).join(' ');
     if (rows !== '') line(`preview-e2e-cleanup: rows removed: ${rows}`);
     if (!report.ok) stop(report.reason ?? 'cleanup failed');

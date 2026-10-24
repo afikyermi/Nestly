@@ -108,9 +108,12 @@ for (const [label, over] of [
   });
 }
 
-test('[E c9] the sweep age is 3 hours, the sweep cap 10 per run, the pattern ceiling 50', () => {
+test('[E c9] the sweep age is 3 hours, the sweep cap 200 per run (bounded by a 240 s budget, 8 at once), the pattern ceiling 50', () => {
   assert.equal(cleanup.SWEEP_AGE_HOURS, 3);
-  assert.equal(cleanup.MAX_SWEEP_PER_RUN, 10);
+  assert.equal(cleanup.MAX_SWEEP_PER_RUN, 200);
+  assert.equal(cleanup.SWEEP_BUDGET_SECONDS, 240);
+  assert.equal(cleanup.DELETE_CONCURRENCY, 8);
+  assert.deepEqual([...cleanup.RETRY_CODES].sort(), ['40001', '40P01', '55P03']);
   assert.equal(cleanup.MAX_PATTERN_USERS, 50);
   assert.equal(cleanup.MAX_VICTIMS, undefined);
 });
@@ -154,20 +157,20 @@ test("[E c9] this run's users are never capped: 12 own and no leftovers are all 
   assert.equal(r.victims.length, 12);
 });
 
-test("[E c9] own users are all kept and the sweep takes at most 10 leftovers: 12 own + 15 leftovers -> 22", () => {
-  const r = cleanup.selectVictims([...cands(12, true, 'own'), ...cands(15, false, 'old')]);
+test("[E c9] own users are all kept and the sweep takes at most MAX_SWEEP_PER_RUN leftovers: 12 own + cap+5 leftovers -> 12 + cap", () => {
+  const r = cleanup.selectVictims([...cands(12, true, 'own'), ...cands(cleanup.MAX_SWEEP_PER_RUN + 5, false, 'old')]);
   assert.equal(r.ok, true);
   assert.equal(r.victims.filter((v) => v.own).length, 12);
-  assert.equal(r.victims.filter((v) => !v.own).length, 10);
+  assert.equal(r.victims.filter((v) => !v.own).length, cleanup.MAX_SWEEP_PER_RUN);
 });
 
-test('[E c9] exactly 10 leftovers are swept, oldest first, when more exist (candidates arrive oldest first)', () => {
-  const r = cleanup.selectVictims(cands(14, false, 'old'));
+test('[E c9] exactly MAX_SWEEP_PER_RUN leftovers are swept, oldest first, when more exist (candidates arrive oldest first)', () => {
+  const r = cleanup.selectVictims(cands(cleanup.MAX_SWEEP_PER_RUN + 4, false, 'old'));
   assert.equal(r.ok, true);
-  assert.deepEqual(r.victims.map((v) => v.id), Array.from({ length: 10 }, (_, i) => `old${i}`));
+  assert.deepEqual(r.victims.map((v) => v.id), Array.from({ length: cleanup.MAX_SWEEP_PER_RUN }, (_, i) => `old${i}`));
 });
 
-test('[E c9] fewer than 10 leftovers are all swept', () => {
+test('[E c9] fewer than MAX_SWEEP_PER_RUN leftovers are all swept', () => {
   const r = cleanup.selectVictims(cands(3, false, 'old'));
   assert.equal(r.victims.length, 3);
 });
@@ -184,8 +187,8 @@ test("[E c9] Afik 17.10 per-run limit: 50 of this run's users are allowed; 51 se
   assert.doesNotMatch(r.reason, /own\d|@|nestly-e2e/);
 });
 
-test("[E c9] Afik 17.10: leftovers do not count toward the 50: 3 own + 60 leftovers select the 3 and at most MAX_SWEEP_PER_RUN leftovers", () => {
-  const r = cleanup.selectVictims([...cands(3, true, 'own'), ...cands(60, false, 'old')]);
+test("[E c9] Afik 17.10: leftovers do not count toward the 50: 3 own + MAX_SWEEP_PER_RUN+10 leftovers select the 3 and at most MAX_SWEEP_PER_RUN leftovers", () => {
+  const r = cleanup.selectVictims([...cands(3, true, 'own'), ...cands(cleanup.MAX_SWEEP_PER_RUN + 10, false, 'old')]);
   assert.equal(r.ok, true);
   assert.equal(r.victims.filter((v) => v.own).length, 3);
   assert.equal(r.victims.filter((v) => !v.own).length, cleanup.MAX_SWEEP_PER_RUN);
@@ -296,14 +299,13 @@ test('[E c9] 12 own users and no leftovers: all 12 are deleted and the cleanup s
   assert.equal(r.ok, true);
 });
 
-test('[E c9] 15 leftovers: exactly 10 are deleted, oldest first, and the cleanup succeeds', async () => {
-  const { client, calls } = stubClient({ findCandidates: async () => found(cands(15, false, 'old')) });
+test('[E c9] cap+5 leftovers: exactly MAX_SWEEP_PER_RUN are deleted, oldest first, and the cleanup succeeds', async () => {
+  const { client, calls } = stubClient({ findCandidates: async () => found(cands(cleanup.MAX_SWEEP_PER_RUN + 5, false, 'old')) });
   const r = await runIt(client);
-  assert.deepEqual(calls.deleted, Array.from({ length: 10 }, (_, i) => `old${i}`));
-  assert.equal(r.deletedSwept, 10);
+  assert.deepEqual(calls.deleted, Array.from({ length: cleanup.MAX_SWEEP_PER_RUN }, (_, i) => `old${i}`));
+  assert.equal(r.deletedSwept, cleanup.MAX_SWEEP_PER_RUN);
   assert.equal(r.ok, true);
 });
-
 for (const [label, facts] of [
   ['no BYPASSRLS', { ...GOOD_FACTS, bypassRls: false }],
   ['an unknown nestly table', { ...GOOD_FACTS, nestlyTables: [...GOOD_FACTS.nestlyTables, 'x'] }],
