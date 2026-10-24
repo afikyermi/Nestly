@@ -11,6 +11,7 @@ import {
   PROFESSIONAL_AREA_LABELS,
   type ListingCard,
   type MarketplaceFilters,
+  type PromotedListing,
   type SponsoredCard,
 } from '@nestly/shared';
 import { MarketplaceCard } from '@/components/domain/marketplace-card';
@@ -22,6 +23,8 @@ import { SelectInput } from '@/components/ui/select-input';
 import { TextInput } from '@/components/ui/text-input';
 import { useProCall } from '@/hooks/use-pro-call';
 import { listingPath } from '@/lib/marketplace-link';
+import { PROMOTED_LISTINGS_HEADING, PROMOTED_LISTING_LABEL } from '@/lib/promotion-texts';
+import { reportPromotionClick } from '@/services/api/promotions';
 import {
   ANY_CATEGORY,
   ANY_CITY,
@@ -88,7 +91,7 @@ const CITY_OPTIONS = PROFESSIONAL_AREAS.map((value) => ({ value, label: PROFESSI
 const CONDITION_OPTIONS = LISTING_CONDITIONS.map((value) => ({ value, label: LISTING_CONDITION_LABELS[value] }));
 const SORT_OPTIONS = MARKETPLACE_SORTS.map((value) => ({ value, label: SORT_LABELS[value] }));
 
-type Results = { kind: 'loading' } | { kind: 'failed' } | { kind: 'loaded'; listings: ListingCard[]; sponsored: SponsoredCard[] };
+type Results = { kind: 'loading' } | { kind: 'failed' } | { kind: 'loaded'; listings: ListingCard[]; sponsored: SponsoredCard[]; promoted: PromotedListing[] };
 
 // The Marketplace (FR-MKT-001, FR-ALG-006, PG-010): a product search, filters by category, city or area (§12), condition, maximum price and "for
 // free only", the order, the user's listings and - apart from them, always marked "ממומן" (BR-005, AC-008, AC-020) - up to three Sponsored
@@ -97,6 +100,7 @@ export function MarketplaceScreen() {
   const call = useProCall();
   const listId = useId();
   const sponsoredId = useId();
+  const promotedId = useId();
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [applied, setApplied] = useState<Filters>(NO_FILTERS);
   const [results, setResults] = useState<Results>({ kind: 'loading' });
@@ -108,7 +112,11 @@ export function MarketplaceScreen() {
       setResults({ kind: 'loading' });
       const result = await call((token) => fetchMarketplace(token, queryOf(next)));
       if (ticket !== latest.current) return;
-      setResults(result.kind === 'ok' ? { kind: 'loaded', listings: result.value.listings, sponsored: result.value.sponsored } : { kind: 'failed' });
+      setResults(
+        result.kind === 'ok'
+          ? { kind: 'loaded', listings: result.value.listings, sponsored: result.value.sponsored, promoted: result.value.promoted }
+          : { kind: 'failed' },
+      );
     },
     [call],
   );
@@ -164,6 +172,39 @@ export function MarketplaceScreen() {
           </Button>
         </div>
       </form>
+
+      {results.kind === 'loaded' && results.promoted.length > 0 ? (
+        // FR-MKT-004, §11.3, §11.5: the promoted listings that match the search and the filters, at the top, each marked "מודעה מקודמת"
+        <section aria-labelledby={promotedId}>
+          <h2 id={promotedId} className="text-h3">
+            {PROMOTED_LISTINGS_HEADING}
+          </h2>
+          <ul aria-label={PROMOTED_LISTINGS_HEADING} className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+            {results.promoted.map(({ promotionId, listing }) => (
+              <li key={promotionId}>
+                <MarketplaceCard
+                  variant="listing"
+                  title={
+                    <Link
+                      to={listingPath(listing.id)}
+                      className="text-primary-strong underline-offset-4 hover:underline"
+                      dir="auto"
+                      onClick={() => void call((token) => reportPromotionClick(token, promotionId))}
+                    >
+                      {listing.title}
+                    </Link>
+                  }
+                  image={listing.image}
+                  imageAlt={imageAltOf(listing.title, 0, 1)}
+                  price={priceText(listing.price)}
+                  meta={[conditionText(listing.condition), cityText(listing.city), sellerText(listing.sellerName)].join(' · ')}
+                  badges={[PROMOTED_LISTING_LABEL]}
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {results.kind === 'loaded' && results.sponsored.length > 0 ? (
         <section aria-labelledby={sponsoredId}>

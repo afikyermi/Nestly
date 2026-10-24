@@ -31,6 +31,7 @@ export const TAB_LABELS = {
   analytics: 'נתונים',
   marketplace: 'מודעות Marketplace',
   sponsored: 'מוצרים ממומנים',
+  promotions: 'קידומים',
   childData: 'נתוני ילדים',
 } as const;
 export type AdminTab = keyof typeof TAB_LABELS;
@@ -52,6 +53,8 @@ export const TAB_KEYS: Record<AdminTab, PermissionKey | 'ADMIN' | 'STAFF'> = {
   marketplace: 'MARKETPLACE_MODERATE',
   // FR-ADMIN-009: SPONSORED_PRODUCT_MANAGE is Admin Only (§3.2)
   sponsored: 'ADMIN',
+  // I13 (§11.1): the Admin, or a Moderator with CONTENT_MODERATE or MARKETPLACE_MODERATE (tabAllowed checks either)
+  promotions: 'CONTENT_MODERATE',
   // I14 completion (§9.2): children's tracker trends, a key of its own (not part of ANALYTICS_VIEW)
   childData: 'CHILD_DATA_VIEW',
 };

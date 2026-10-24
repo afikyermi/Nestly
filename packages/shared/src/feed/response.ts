@@ -15,7 +15,8 @@ const createdAt = z.iso.datetime();
 /** The displayed counts and the viewer's own like-state (F3.3 c11, c12): never the score's `n`, never who liked. */
 const reactions = { likeCount: z.number().int().nonnegative(), commentCount: z.number().int().nonnegative(), likedByMe: z.boolean() };
 
-const common = { id: unitId, source: z.literal('organic'), audience, stageTag: z.enum(JOURNEY_STAGES).nullable(), createdAt, ...reactions };
+/** I13 (FR-ALG-007, BR-005): 'promoted' only on a promoted post, which the screen labels "ממומן" (§11.5); every unit of `items` is organic. */
+const common = { id: unitId, source: z.enum(['organic', 'promoted']), audience, stageTag: z.enum(JOURNEY_STAGES).nullable(), createdAt, ...reactions };
 const named = { isMine: z.boolean(), isAnonymous: z.literal(false), author };
 const anonymousPost = { isMine: z.literal(false), isAnonymous: z.literal(true) };
 
@@ -56,6 +57,11 @@ export const feedPageResponse = z.strictObject({
   restarted: z.boolean().optional(),
   /** I14 (FR-ADMIN-008): the published System Announcements, newest first, on the first page only. */
   announcements: z.array(publishedAnnouncement).optional(),
+  /**
+   * I13 (FR-ALG-007, §11.2): the promoted posts of this page, each in its own slot after `afterIndex` organic units (every 4 to 7, by the last 48
+   * hours' volume); never part of the organic order (AC-062).
+   */
+  promoted: z.array(z.strictObject({ promotionId: unitId, afterIndex: z.number().int().positive(), unit: feedUnit })).optional(),
 });
 
 export type FeedUnit = z.infer<typeof feedUnit>;

@@ -51,6 +51,7 @@ import {
   updateReportReason,
 } from '../repositories/team-repository.js';
 import { readAreaAnalytics } from '../repositories/analytics-areas-repository.js';
+import { holdsFinance, readPromotionAnalytics, readUsageAnalytics } from '../repositories/analytics-promotions-repository.js';
 import type { Outcome, Refusal } from './admin-service.js';
 
 /** The SHA-256 (hex) of an invitation code: the only form the database keeps. */
@@ -246,7 +247,14 @@ export async function readAdminAnalytics(database: Database, identity: Identity,
   return inIdentityTransaction(database, identity, async (tx) => {
     if (!(await holds(tx, 'ANALYTICS_VIEW'))) return { kind: 'forbidden' };
     await nameAnalytics(tx);
-    return { kind: 'ok', view: { ...(await readAnalytics(tx, days)), ...(await readAreaAnalytics(tx, days)) } };
+    const usage = await readUsageAnalytics(tx, days);
+    // AC-071: the Promotions domain is BILLING_FINANCE_MANAGE's (the Admin's); the finance policies decide the rows, this only leaves the
+    // section out for a Moderator (whose policies would show it nothing)
+    const promotions = (await holdsFinance(tx)) ? await readPromotionAnalytics(tx, days) : undefined;
+    return {
+      kind: 'ok',
+      view: { ...(await readAnalytics(tx, days)), ...(await readAreaAnalytics(tx, days)), usage, ...(promotions === undefined ? {} : { promotions }) },
+    };
   });
 }
 

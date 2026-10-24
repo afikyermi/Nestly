@@ -1,5 +1,5 @@
 import { Route, Routes } from 'react-router';
-import { AdminAnalyticsPage, AdminAnnouncementsPage, AdminChildDataPage, AdminMarketplacePage, AdminSponsoredPage, AdminAuditPage, AdminCommunityPage, AdminMediaPage, AdminReportsPage, AdminSupportPage, AdminTeamPage, AdminUsersPage } from '@/pages/admin/AdminPages';
+import { AdminAnalyticsPage, AdminAnnouncementsPage, AdminChildDataPage, AdminMarketplacePage, AdminPromotionsPage, AdminSponsoredPage, AdminAuditPage, AdminCommunityPage, AdminMediaPage, AdminReportsPage, AdminSupportPage, AdminTeamPage, AdminUsersPage } from '@/pages/admin/AdminPages';
 import { JoinTeamPage } from '@/pages/join-team/JoinTeamPage';
 import { AdminIndex, AdminLayout } from '@/pages/admin/AdminLayout';
 import { ChangePasswordPage } from '@/pages/change-password/ChangePasswordPage';
@@ -15,6 +15,7 @@ import { GroupsPage } from '@/pages/groups/GroupsPage';
 import { HomePage } from '@/pages/home/HomePage';
 import { GoogleReturnPage } from '@/pages/google-return/GoogleReturnPage';
 import { GuestPlaceholderPage } from '@/pages/placeholder/GuestPlaceholderPage';
+import { PrivacyPage } from '@/pages/privacy/PrivacyPage';
 import { LoginPage } from '@/pages/login/LoginPage';
 import { MedicalHotlinesPage } from '@/pages/medical-hotlines/MedicalHotlinesPage';
 import { NotificationsPage } from '@/pages/notifications/NotificationsPage';
@@ -57,7 +58,7 @@ export function AppRoutes() {
           <Route path={PATHS.googleEntry} element={<GoogleReturnPage />} />
           <Route path={PATHS.recovery} element={<RecoveryPage />} />
           <Route path={PATHS.terms} element={<GuestPlaceholderPage title="תנאי השימוש" />} />
-          <Route path={PATHS.privacy} element={<GuestPlaceholderPage title="מדיניות הפרטיות" />} />
+          <Route path={PATHS.privacy} element={<PrivacyPage />} />
           <Route path={PATHS.joinTeam} element={<JoinTeamPage />} />
           <Route element={<ProtectedLayout />}>
             <Route path={PATHS.home} element={<HomePage />} />
@@ -111,6 +112,7 @@ export function AppRoutes() {
               <Route path="child-data" element={<AdminChildDataPage />} />
               <Route path="marketplace" element={<AdminMarketplacePage />} />
               <Route path="sponsored" element={<AdminSponsoredPage />} />
+              <Route path="promotions" element={<AdminPromotionsPage />} />
             </Route>
           </Route>
         </Routes>

@@ -213,6 +213,8 @@ async function stubTeam(page: Page): Promise<TeamNet> {
       groups: { active: { public: 3, private: 1 }, created: 1, publicMembers: 12, publicJoins: 4, publicPosts: 6, publicComments: 9 },
       professionals: { active: 2, byField: [{ field: 'doula', count: 2 }], follows: 5, chatStarts: 3, reviews: 1 },
       marketplace: { active: 4, byCategory: [{ category: 'strollers', count: 4 }], created: 2, sold: 1, chats: 2 },
+      usage: { dailyLogins: days, profileViews: days, postViews: days },
+      promotions: { running: { profile: 2, post: 1, listing: 3 }, purchases: days, impressions: days, clicks: days, sampleRevenueIls: 147 },
     });
   });
   return net;
@@ -302,6 +304,10 @@ test.describe('[I14] the Moderators team', () => {
     for (const name of ['קבוצות', 'בעלי מקצוע', 'Marketplace']) await expect(page.getByRole('heading', { level: 3, name, exact: true })).toBeVisible();
     await expect(page.getByText('חשבונות מקצועיים פעילים', { exact: true })).toBeVisible();
     await expect(page.getByText('מודעות מוצגות עכשיו', { exact: true })).toBeVisible();
+    // I13 (OP-039, AC-071): usage by day, and the Admin's Promotions domain
+    for (const name of ['שימוש', 'קידום']) await expect(page.getByRole('heading', { level: 3, name, exact: true })).toBeVisible();
+    await expect(page.getByRole('img', { name: 'חשבונות שנכנסו' })).toBeVisible();
+    await expect(page.getByText('קידומי מודעה פעילים', { exact: true })).toBeVisible();
     await page.getByLabel('תקופה').selectOption('7');
     await expect.poll(() => net.sent.filter((s) => s.path === '/api/admin/analytics').length).toBeGreaterThanOrEqual(2);
   });

@@ -1,18 +1,9 @@
-import { Link } from 'react-router';
 import { FollowingScreen } from '@/features/professionals/FollowingScreen';
 import { HelpRequestsScreen } from '@/features/professionals/HelpRequestsScreen';
+import { BillingScreen } from '@/features/promotions/BillingScreen';
+import { PromotionScreen } from '@/features/promotions/PromotionScreen';
 import { documentTitle } from '@/lib/document-title';
-import { PRO_ARTICLES_PATH } from '@/lib/professional-link';
-import {
-  BILLING_NOT_YET,
-  BILLING_TITLE,
-  FOLLOWING_TITLE,
-  HELP_REQUESTS_TITLE,
-  MY_ARTICLES,
-  NOT_YET_NOTE,
-  PROMOTION_NOT_YET,
-  PROMOTION_TITLE,
-} from '@/lib/professional-texts';
+import { BILLING_TITLE, FOLLOWING_TITLE, HELP_REQUESTS_TITLE, PROMOTION_TITLE } from '@/lib/professional-texts';
 
 /** PG-039: the Professionals the caller follows, from the side menu (I11 follow-ups). */
 export function FollowingPage() {
@@ -40,29 +31,28 @@ export function HelpRequestsPage() {
   );
 }
 
-/** Promotion and its results (FR-PRO-002, built in I13): until then the page says that paid promotion is not available yet, and nothing more. */
+/** PG-041: promotion and its results (FR-SERV-010, FR-PRO-002; I13). */
 export function PromotionPage() {
   return (
     <>
       <title>{documentTitle(PROMOTION_TITLE)}</title>
       <h1 className="text-h2">{PROMOTION_TITLE}</h1>
-      <p className="mt-4">{PROMOTION_NOT_YET}</p>
-      <p className="mt-2 text-small text-muted-foreground">{NOT_YET_NOTE}</p>
-      <Link to={PRO_ARTICLES_PATH} className="mt-3 inline-flex min-h-11 items-center text-label text-primary-strong underline underline-offset-4">
-        {MY_ARTICLES}
-      </Link>
+      <div className="mt-5">
+        <PromotionScreen />
+      </div>
     </>
   );
 }
 
-/** Billing (FR-SERV-010, NFR-SEC-007, built in I13): until then the page says there is nothing to pay, and nothing more. */
+/** PG-042: billing (FR-SERV-010, NFR-SEC-007; I13): the simulated payments. */
 export function BillingPage() {
   return (
     <>
       <title>{documentTitle(BILLING_TITLE)}</title>
       <h1 className="text-h2">{BILLING_TITLE}</h1>
-      <p className="mt-4">{BILLING_NOT_YET}</p>
-      <p className="mt-2 text-small text-muted-foreground">{NOT_YET_NOTE}</p>
+      <div className="mt-5">
+        <BillingScreen />
+      </div>
     </>
   );
 }

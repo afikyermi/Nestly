@@ -16,14 +16,21 @@ import { SECRET_FILE_ENV } from './global-setup.ts';
 import { createBypassRouteHandler } from './bypass.ts';
 import { createRecoveryAttempts, type RecoveryAttempts } from './recovery-attempts.ts';
 import { generateTestUser, type TestUser } from './test-user.ts';
+import { readStaffUser } from './staff-user.ts';
 
 interface WorkerFixtures {
   testUser: TestUser;
   recoveryAttempts: RecoveryAttempts;
   bypassSecret: string;
+  staffUser: TestUser;
 }
 
 export const test = base.extend<object, WorkerFixtures>({
+  staffUser: [async ({}, use, info) => {
+    const file = process.env['PREVIEW_E2E_STAFF_FILE'];
+    if (file === undefined) throw new Error('temporary Preview staff setup did not run');
+    await use(readStaffUser(file, info.project.name, process.env['GITHUB_RUN_ID'] ?? '', process.env['GITHUB_RUN_ATTEMPT'] ?? ''));
+  }, { scope: 'worker' }],
   testUser: [
     async ({}, use) => {
       await use(generateTestUser(process.env['GITHUB_RUN_ID'] ?? '', process.env['GITHUB_RUN_ATTEMPT'] ?? ''));

@@ -22,8 +22,13 @@ Flows that run against a deployed Preview (workflow `preview-e2e`), on Chrome at
 - **A Professional:** `/register` → "נרשמים כבעלי מקצוע? להרשמה לחשבון מקצועי", the qualification declaration, then
   step 2 — as in `professional-followups.flow.ts`. Its pages are under `/pro/*`.
 - **A staff user (Moderator / Admin): only on the Preview, never on Production** (Afik, 21.10, decision §10.1). It is
-  created by the CI job with the cleanup credential (same email pattern, so the cleanup deletes it with the run), with
-  the permissions the flow needs. A flow never creates staff through the app and never uses a real staff account.
+  created by the CI job with the cleanup credential (same email pattern, so the cleanup deletes it with the run).
+  Afik approved the temporary setup/cleanup on 23.10: two separate viewport Moderators, CONTENT_MODERATE only;
+  a trusted-main setup checkout, main-restricted `preview-e2e` environment, and one setup step holding the DB credential.
+  `staffUser` supplies generated credentials from a private runner-temp file removed after the flows. The normal
+  recovery-question gate is completed through the app. Cleanup removes only the locked pattern actor's Audit rows,
+  disabling/re-enabling only the append-only trigger within that same transaction; Production is excluded by the URL guard.
+  A flow never creates staff through the app and never uses a real staff account.
 - **The strict-query trap (#147):** Vercel's rewrite `/api/:path*` → `/api/index` adds a `path` query parameter. A
   route whose query schema is strict answers 400 on the Preview and in Production, though the local server and stubs
   pass. Every new route with a query goes through a flow on the Preview (see `strict-query.flow.ts`); its schema

@@ -119,6 +119,9 @@ export const directoryQuerySchema = z.object({
 });
 export type DirectoryQuery = z.output<typeof directoryQuerySchema>;
 
+/** FR-PRO-002: a direct promoted-profile arrival. The server verifies the promotion; platform query keys are ignored. */
+export const professionalPageQuerySchema = z.object({ promotion: z.guid().optional() });
+
 /** POST /api/posts/:id/offer-help (FR-SERV-005): the first message. Same rule as a chat message. */
 export const offerHelpSchema = z.strictObject({ text: textOf(CHAT_TEXT_MAX, 'invalid') });
 
@@ -157,9 +160,12 @@ export const professionalCard = z.strictObject({
   reviewCount: z.number().int(),
 });
 export type ProfessionalCard = z.infer<typeof professionalCard>;
-export const directoryResponse = z.strictObject({ professionals: z.array(professionalCard) });
+/** FR-ALG-007, BR-005 (I13): a promoted Professional, apart from the organic list and always labelled "ממומן" (§11.5); the organic order never weighs it. */
+export const promotedProfessional = z.strictObject({ promotionId: z.guid(), card: professionalCard });
+export type PromotedProfessional = z.infer<typeof promotedProfessional>;
+export const directoryResponse = z.strictObject({ professionals: z.array(professionalCard), promoted: z.array(promotedProfessional).default([]) });
 /** GET /api/professionals/following (PG-039, FR-FOLLOW-001): the Professionals the caller follows, as directory cards. */
-export const followingResponse = directoryResponse;
+export const followingResponse = z.strictObject({ professionals: z.array(professionalCard) });
 
 export const professionalReviewItem = z.strictObject({ id: z.guid(), rating: z.number().int(), text: z.string(), at });
 export type ProfessionalReviewItem = z.infer<typeof professionalReviewItem>;

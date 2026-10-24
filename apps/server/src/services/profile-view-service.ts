@@ -17,6 +17,7 @@ import type { MediaStorage } from '../media/storage-admin.js';
 import { readProfilePhotos } from '../repositories/media-repository.js';
 import type { PhotoRow } from '../repositories/media-repository.js';
 import { withUrls } from './media-service.js';
+import { recordExposure } from './promoted-units.js';
 import type { ActorRefusal } from './friends-service.js';
 
 export type ViewOutcome =
@@ -70,6 +71,8 @@ export async function readUserProfile(database: Database, identity: Identity, ta
         }),
       };
     });
+    // I13 (OP-039): a profile opened is a usage event of the viewer (a count, no target), recorded apart from the read
+    if (outcome.kind === 'profile' && targetId !== identity.userId) await recordExposure(database, identity, { usage: 'profile_view' });
     // the read address is signed after the transaction, so no connection waits on Storage
     if (outcome.kind !== 'profile' || photoRow === undefined || storage === undefined) return outcome;
     const photo = (await withUrls(storage, [photoRow])).get(photoRow.id);
