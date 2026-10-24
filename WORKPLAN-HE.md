@@ -5,7 +5,7 @@
 
 ## איפה אנחנו עומדים
 **נעצר:** 24.10.2026, לילה — Claude (אפיק ביקש לעצור; הכול דחוף, אין עבודה מקומית בלבד; אין שינוי חצי-גמור ב-main או במסד) · **SRS:** 2.40 על main (2.39 ב-#205, ‏2.41 ב-#180, ‏2.42 ב-#201, ‏2.43 ב-#217) · **Production:** [nestly-blue.vercel.app](https://nestly-blue.vercel.app)
-- **Preview אמיתי:** 🔄 אדום מאז #177 — בכל ריצה 1–4 כשלים בדסקטופ, כולם איטיות (לוח הבקרה של Professional 17–28 ש׳, `/api/promotions` עבר 30 ש׳ פעם אחת, הרשמות עד 16 ש׳). השאילתה עצמה מהירה מקומית (<0.25 ש׳ עם RLS). **גורם סביר:** Supabase התריעו ש-`nestly-preview` מכלה את תקציב ה-Disk IO (האטה/throttling). #220 (מוזג) מוסיף `Server-Timing` (cold/dbwait/db/total) רק ב-Preview — ריצת `preview-e2e` ‏40126133925 (רצה בעצירה; התוצאה בשורה למטה) היא הראשונה עם זמנים.
+- **Preview אמיתי:** 🔄 אדום מאז #177 — בכל ריצה 1–4 כשלים בדסקטופ, כולם איטיות (לוח הבקרה של Professional 17–28 ש׳, `/api/promotions` עבר 30 ש׳ פעם אחת, הרשמות עד 16 ש׳). השאילתה עצמה מהירה מקומית (<0.25 ש׳ עם RLS). **גורם סביר:** Supabase התריעו ש-`nestly-preview` מכלה את תקציב ה-Disk IO (האטה/throttling). #220 (מוזג) מוסיף `Server-Timing` (cold/dbwait/db/total) רק ב-Preview — ריצת `preview-e2e` ‏40126133925 (הראשונה עם זמנים): 52 עברו, 9 נכשלו, 17 לא רצו (נעצרה ב-16 דק׳). **ממצא:** בבקשות האיטיות `db` ≈ `total` (8–19.5 ש׳ על `GET /api/promotions`), `dbwait` 2–4 מ״ש, `cold=0`; ‏Supabase Auth לא ענה 19:44–19:48. אותן שאילתות לוקחות 50–150 מ״ש מקומית על יותר נתונים → **האטת Disk IO של Supabase, לא הקוד**. תיקוני flows נוספים לא יעזרו עד החלטת Disk IO (ממתין לך).
 - **CI:** 10 shards; האיטי ~10 דק׳. CI ידני: 50 visual ידועים בלבד (נהיים לא-חוסמים ב-#214).
 - **🔒 פתוחים:** `security-privacy-open.md`. החשובים: S-52/S-53 סוד ה-bypass · S-07 ניקוי שחזור · S-67 מחיקת תוכן מוחזק (I9) · באג 24. S-23/S-30 (logger) נסגרים ב-#217.
 
@@ -24,7 +24,7 @@
 | I12 השלמה ב' · I9 | ⬜ |
 
 ## המשך מכאן
-1. **Preview:** לקרוא את ריצת `preview-e2e` האחרונה (עם `Server-Timing`): `total` גבוה מ-`dbwait`+`db` → מחוץ למסד; `dbwait` גבוה → חיבורים; `cold=1` → עלייה קרה. לשקול את Disk IO (ממתין לך) — אם זה הגורם, לא לבזבז עוד תיקוני flows. כשיש Preview ירוק אחד (או החלטת אפיק): #214 → #213 (+`preview-e2e` מיד) → #217.
+1. **Preview:** הגורם הוכח — Disk IO של `nestly-preview` (ראה למעלה). לא לתקן עוד flows; לחכות להחלטת אפיק (ממתין לך), ואז `preview-e2e` מ-main. איך לקרוא זמנים: `[cold= dbwait= db= total=]` בשורות הלוג. כשיש Preview ירוק אחד (או החלטת אפיק): #214 → #213 (+`preview-e2e` מיד) → #217.
 2. **מיזוג לפי הסדר**, כל אחד: מיזוג main → CI (קבצים משותפים: CI ידני מלא) → מיזוג → `preview-e2e`: #180 → #201 → #205 (לסגור את #174).
 3. **#109:** לרענן מ-main ולהשלים (אפיק אישר הפעלה יומית).
 4. **migrations המשך** (אחד-אחד): I11-C — הסרת `is_help_request` (עמודה, check, index, grants, trigger, תנאי posts_insert/update_author, drift.test), סיבות ביקורת בלבד ל-Professional על ביקורת עליו · I14-B — `reports_details_length_check` 1000→500 · I10 — Highlight לפי אנשים שונים, Moderator מושתק בלי פעולות ניהול, `group_bans` רק דרך רשומת אכיפה. אחרי כל merge: `migrate.yml` dispatch מ-main (preview → production).
