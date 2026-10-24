@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { checkStaffContext, makeStaffUsers, maskStaffUsers } from './preview-e2e-staff.ts';
+import { STAFF_STEPS, checkStaffContext, makeStaffUsers, maskStaffUsers, staffFailureLine } from './preview-e2e-staff.ts';
 import { readStaffUser } from '../e2e-preview/support/staff-user.ts';
 import { TEST_EMAIL_REGEX } from '../e2e-preview/support/test-user.ts';
 
@@ -92,4 +92,27 @@ test('[BR-083 Preview] failure context: field values and every staff password/re
   assert.match(out, /- button "התחברות"/);
   assert.deepEqual(staffSecrets(null), []);
   assert.deepEqual(staffSecrets('not json'), []);
+});
+
+test('[BR-083 Preview] staff setup never turns row_security off: the definer Audit triggers raise 42501 under it', () => {
+  const cli = readFileSync(new URL('./preview-e2e-staff-cli.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(cli, /row_security\s*=\s*off/);
+  assert.match(cli, /decidePreflight/); // postgres must hold BYPASSRLS, so its inserts are never filtered with row_security on
+  const cleanup = readFileSync(new URL('./preview-e2e-cleanup-cli.ts', import.meta.url), 'utf8');
+  const on = cleanup.indexOf('set local row_security = on');
+  const del = cleanup.indexOf('delete from nestly.moderator_permissions where user_id = ${id}');
+  const off = cleanup.indexOf('set local row_security = off', on);
+  assert.ok(cleanup.indexOf('set local row_security = off') < on && on < del && del < off, 'row_security on only around the keys delete');
+  assert.equal(cleanup.split('set local row_security = on').length, 2);
+});
+
+test('[BR-083 Preview] a setup failure names its step and code only, never a value', () => {
+  const cli = readFileSync(new URL('./preview-e2e-staff-cli.ts', import.meta.url), 'utf8');
+  for (const step of STAFF_STEPS) assert.ok(cli.includes(`step = '${step}'`) || step === 'context', `step ${step} is marked`);
+  assert.match(cli, /stderr\.write\(staffFailureLine\(step, error\)\)/);
+  const pgError = Object.assign(new Error('permission denied for postgres.secret@host user nestly-e2e-1-1-x@example.com'), { code: '42501' });
+  assert.equal(staffFailureLine('account and keys', pgError), 'preview staff: setup failed at step "account and keys" (code 42501)\n');
+  assert.equal(staffFailureLine('context', new Error('staff setup requires the main Preview workflow')),
+    'preview staff: setup failed at step "context" (code unknown)\n');
+  assert.equal(staffFailureLine('auth user', { code: 'bad code; drop' }), 'preview staff: setup failed at step "auth user" (code unknown)\n');
 });
