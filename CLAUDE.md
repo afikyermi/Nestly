@@ -5,7 +5,7 @@ Social network for pregnancy planning, pregnancy and parenting. Owner: Afik. Goa
 Nestly is a community social network for pregnancy planning, pregnancy and parenting, with additions: trackers, Professionals, Marketplace and groups. Development is done with product thinking: before every feature, understand who uses it (Regular, Professional, Moderator, Admin), what each of them needs and what their experience will be. Draw on how successful social networks work (feed, groups, promotion, reviews, moderation) and adapt it to a sensitive parenting community: safety, privacy, children. A feature isn't just "meets the requirement"; it's what a real user would expect to find. If a requirement leads to a bad experience for one of the user types, write it in "ממתין לך" with a suggestion.
 
 ## Sources
-- Product: `docs/srs/` (INDEX.md first; read only what you need). Afik's decisions not in the SRS: `decisions-in-force.md`; the initiative map (FR/BR/AC per initiative): `docs/initiative-map.md`.
+- Product: `docs/srs/` (INDEX.md first; read only what you need). Afik's decisions (one line each, with the SRS reference when there is one): `decisions-in-force.md`; the initiative map (FR/BR/AC per initiative): `docs/initiative-map.md`.
 - DB and RLS rules: `.claude/knowledge/data-model.md` (tables: `data-model-tables.md`). Code conventions: `.claude/knowledge/conventions.md`. Design: `docs/design/`.
 - UI skills: `accessibility`, `rtl-hebrew`, `design-system`, `ux-copy-he`. SRS skills: `srs-lookup`, `srs-update`.
 - Open SRS item: ask Afik once per initiative, in one batch, in WORKPLAN "ממתין לך"; keep building other things meanwhile.

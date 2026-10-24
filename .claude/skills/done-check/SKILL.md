@@ -31,7 +31,7 @@ initiative's (or a completion's) code PR.
    strict-query trap (#147: a route that validates its query strictly accepts Vercel's `path` parameter).
 5. **SRS:**
    - Every decision in `decisions-in-force.md` that this initiative touches is written in the SRS, and its line
-     left decisions-in-force in the same PR.
+     in decisions-in-force is one line with the SRS reference.
    - No HOW text in the changed SRS lines: no table, column, function or endpoint names, algorithms, storage
      layout or internal codes (technology choices are fine). Check with `git diff origin/main -- docs/srs`.
    - Every FR changed has its status row in `17-traceability.md` (Built / Partial / Planned + initiative).
