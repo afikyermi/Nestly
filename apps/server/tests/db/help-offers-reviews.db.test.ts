@@ -146,9 +146,9 @@ describe('[I11-C] Offer Help on any post the Professional may see', () => {
     expect(await offerHelp(database, as(sleeper), noaNamed.id, 'הצעה')).toEqual({ kind: 'not_allowed' });
     ok(await offerHelp(database, as(sleeper), anonymous.id, 'הצעה על פוסט אנונימי'));
 
-    // AC-147: the author of the anonymous post sees the offers; nobody learns who she is
+    // AC-147: the author of the anonymous post sees the offers, but not the one of the Professional she blocked; nobody learns who she is
     const received = (await listOutreach(database, as(noa))).received.filter((item) => item.postId === anonymous.id);
-    expect(received).toHaveLength(2);
+    expect(received.map((item) => item.professionalId)).toEqual([doula]);
     const sent = (await listOutreach(database, as(doula))).sent.find((item) => item.postId === anonymous.id);
     expect(sent?.conversationId ?? null).toBeNull();
     expect(JSON.stringify(sent)).not.toContain(noa);
