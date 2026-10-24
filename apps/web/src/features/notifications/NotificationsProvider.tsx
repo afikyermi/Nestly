@@ -36,7 +36,8 @@ export type NotificationsState =
 
 export interface NotificationsApi {
   state: NotificationsState;
-  refresh: () => Promise<void>;
+  /** A fresh first page; `poll` for the background refresh only. */
+  refresh: (options?: { readonly poll?: boolean }) => Promise<void>;
   /** Mark all as read; false when it failed. */
   markAll: () => Promise<boolean>;
   markOne: (id: string) => Promise<void>;
@@ -73,11 +74,11 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     [account],
   );
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async ({ poll = false }: { readonly poll?: boolean } = {}) => {
     const run = (runs.current += 1);
     const accessToken = await token();
     if (accessToken === null) return;
-    const outcome = await fetchNotifications(accessToken);
+    const outcome = await fetchNotifications(accessToken, null, poll);
     if (run !== runs.current) return;
     if (outcome.kind === "forbidden") setState({ kind: "unavailable" });
     else if (outcome.kind === "list") {
@@ -108,9 +109,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     const visible = () => visibility?.isTabVisible?.() ?? true;
     if (visible()) void refresh();
     const timer = setInterval(() => {
-      if (visible()) void refresh();
+      if (visible()) void refresh({ poll: true });
     }, POLL_MS);
-    const stopListening = visibility?.onTabVisible(() => void refresh());
+    const stopListening = visibility?.onTabVisible(() => void refresh({ poll: true }));
     return () => {
       clearInterval(timer);
       stopListening?.();

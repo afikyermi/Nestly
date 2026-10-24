@@ -201,6 +201,11 @@ describe("[FR-NOTIF-003 BR-037 AC-046] a Friend's child's birthday", () => {
     const privacy = await readOwnPrivacy(database(), { userId: ACCOUNT_A });
     if (privacy.kind !== 'settings') throw new Error('no privacy settings');
     try {
+      // OP-059: the bell's background poll only reads; the birthday is delivered when the list is opened
+      const polled = await get(app, hB, '/api/notifications?poll=1');
+      expect(polled.statusCode).toBe(200);
+      expect(listBody.parse(JSON.parse(polled.body)).items.filter((item) => item.type === 'child_birthday'), 'a poll delivers nothing').toHaveLength(0);
+      expect((await get(app, hB, '/api/notifications?poll=2')).statusCode).toBe(400);
       const birthdays = (await list(app, hB)).items.filter((item) => item.type === 'child_birthday');
       expect(birthdays).toContainEqual(expect.objectContaining({ actorName: NAME_A, targetKind: 'user', targetId: ACCOUNT_A, isRead: false }));
       expect(JSON.stringify(birthdays)).not.toContain('תמר'); // the child is never named (FR-PRIV-001)
