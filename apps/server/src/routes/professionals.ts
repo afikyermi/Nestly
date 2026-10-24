@@ -7,9 +7,10 @@
 //   GET    /api/professionals/following                 → 200 { professionals } (PG-039: the Professionals the caller follows)
 //   GET    /api/professionals/:id                       → 200 the profile page · 404 unavailable (FR-SERV-003)
 //   PUT    /api/professionals/:id/follow · DELETE      → 204 · 403 not_allowed (FR-FOLLOW-001, AC-035)
-//   POST   /api/professionals/:id/reviews { rating, text } → 201 · 403 not_allowed · 409 already_done (FR-SERV-011, AC-093)
+//   POST   /api/professionals/:id/reviews { rating, text } → 201 · 403 not_allowed · 409 already_done (FR-SERV-011, AC-093: one per parent)
+//   PUT    /api/professionals/:id/reviews { rating, text } · DELETE → 204 · 404 unavailable (the caller's own review, §11.21) · 403
 //   PUT    /api/professional/profile { …profile }       → 204 · 403 not_allowed (the owner's edit)
-//   GET    /api/professional/home                       → 200 { dashboard, helpRequests } · 403 not_allowed (FR-PRO-001, AC-018)
+//   GET    /api/professional/home                       → 200 { dashboard, helpRequests: posts in its field } · 403 (FR-PRO-001, AC-018)
 //   POST   /api/professional/articles { title, body, field, status } → 201 { id } · 403 (FR-PRO-003)
 //   PUT    /api/professional/articles/:id · DELETE      → 204 · 404 unavailable (AC-094: the owner only)
 //   POST   /api/posts/:id/offer-help { text }           → 201 { id } · 403 not_allowed · 409 already_done · 429 rate_limited (FR-SERV-005/008, AC-014)
@@ -26,12 +27,12 @@ import {
   professionalIdParams,
   professionalProfileSchema,
   professionalRegistrationSchema,
-  reviewSchema,
 } from '@nestly/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
 import type { Identity } from '../lib/token-verifier.js';
 import { notAllowedMethod, replyChatFailure } from './chat.js';
+import { registerReviewRoutes } from './professional-reviews.js';
 import {
   acceptOutreach,
   changeFollow,
@@ -48,7 +49,6 @@ import {
   readProfessionalHome,
   registerProfessional,
   removeArticle,
-  writeReview,
   type ProOutcome,
   type ProRefusal,
 } from '../services/professionals-service.js';
@@ -60,7 +60,7 @@ export interface ProfessionalsRouteDependencies {
 const STATUS: Record<ProRefusal['kind'], number> = { invalid: 400, unavailable: 404, not_allowed: 403, already_done: 409, rate_limited: 429 };
 
 /** Runs a call for a signed-in caller and answers its outcome: `shape` on success (null: 204), the refusal's status otherwise. */
-async function answer<T>(
+export async function answer<T>(
   request: FastifyRequest,
   reply: FastifyReply,
   database: Database | undefined,
@@ -82,7 +82,7 @@ async function answer<T>(
   }
 }
 
-const invalid = (reply: FastifyReply) => reply.code(400).header('cache-control', 'no-store').send({ error: 'invalid' });
+export const invalid = (reply: FastifyReply) => reply.code(400).header('cache-control', 'no-store').send({ error: 'invalid' });
 
 const ALL = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] as const;
 type Method = (typeof ALL)[number];
@@ -161,13 +161,8 @@ export function registerProfessionalsRoutes(app: FastifyInstance, deps: Professi
   app.delete('/api/professionals/:id/follow', follow(false));
   others('/api/professionals/:id/follow', ['PUT', 'DELETE']);
 
-  app.post('/api/professionals/:id/reviews', (request, reply) => {
-    const id = idOf(request);
-    const body = reviewSchema.safeParse(request.body);
-    if (!id.success || !body.success) return invalid(reply);
-    return answer(request, reply, db(), 'review failed', (database, identity) => writeReview(database, identity, id.data.id, body.data), () => ({ status: 'created' }), 201);
-  });
-  others('/api/professionals/:id/reviews', ['POST']);
+  registerReviewRoutes(app, db, idOf);
+  others('/api/professionals/:id/reviews', ['POST', 'PUT', 'DELETE']);
 
   app.put('/api/professional/profile', (request, reply) => {
     const body = professionalProfileSchema.safeParse(request.body);

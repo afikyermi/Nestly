@@ -214,7 +214,7 @@ export async function readReportReasons(tx: IdentityTx, activeOnly: boolean): Pr
   return z.array(reasonRow).parse(
     await tx.execute(sql`
       select key, label, priority, sort_order as "sortOrder", is_active as "isActive", is_core as "isCore"
-      from nestly.report_reasons ${activeOnly ? sql`where is_active` : sql``}
+      from nestly.report_reasons where scope = 'community' ${activeOnly ? sql`and is_active` : sql``}
       order by sort_order, key`),
   );
 }
@@ -223,7 +223,7 @@ export async function updateReportReason(tx: IdentityTx, key: string, change: Re
   return z.array(reasonRow).parse(
     await tx.execute(sql`
       update nestly.report_reasons set label = ${change.label}, priority = ${change.priority}, sort_order = ${change.sortOrder}, is_active = ${change.isActive}
-      where key = ${key}
+      where key = ${key} and scope = 'community'
       returning key, label, priority, sort_order as "sortOrder", is_active as "isActive", is_core as "isCore"`),
   )[0];
 }

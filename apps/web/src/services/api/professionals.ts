@@ -113,6 +113,14 @@ export const setFollow = (token: string, userId: string, follow: boolean): Promi
 export const writeReview = (token: string, userId: string, rating: number, text: string): Promise<ProResult<unknown>> =>
   call(token, 'POST', `/api/professionals/${enc(userId)}/reviews`, createdBody, { rating, text });
 
+/** PUT /api/professionals/:id/reviews (§11.21): the caller's own review, edited. */
+export const editReview = (token: string, userId: string, rating: number, text: string): Promise<ProResult<unknown>> =>
+  call(token, 'PUT', `/api/professionals/${enc(userId)}/reviews`, nothing, { rating, text });
+
+/** DELETE /api/professionals/:id/reviews: the caller's own review, deleted. */
+export const deleteReview = (token: string, userId: string): Promise<ProResult<null>> =>
+  call(token, 'DELETE', `/api/professionals/${enc(userId)}/reviews`, nothing);
+
 export const saveOwnProfile = (token: string, profile: ProfessionalProfileInput): Promise<ProResult<null>> =>
   call(token, 'PUT', '/api/professional/profile', nothing, profile);
 

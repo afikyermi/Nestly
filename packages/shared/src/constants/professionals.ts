@@ -78,8 +78,34 @@ export const YEARS_EXPERIENCE_MAX = 60;
 export const PROFESSIONAL_ABOUT_MAX = 1000;
 export const PRICE_FROM_MAX = 100000;
 
-/** FR-SERV-008, BR-009: Offer Help requests per Professional in 24 hours (outreach_requests_insert_limit, NS029). */
-export const OUTREACH_PER_DAY = 10;
+/** FR-SERV-008, BR-009 (§13.3, Afik 24.10.2026): Offer Help requests per Professional in 24 hours (outreach_requests_insert_limit, NS029). */
+export const OUTREACH_PER_DAY = 100;
+
+/** FR-SERV-005: a Professional viewer's Offer Help state on a post it may offer on (absent on any other post and for any other viewer). */
+export const OFFER_HELP_STATES = ['available', 'sent'] as const;
+export type OfferHelpState = (typeof OFFER_HELP_STATES)[number];
+
+/**
+ * FR-SERV-005, PG-057 (§13.4; ⭐ brief I11-C (d) 1): the posts a Professional's "בקשות עזרה" lists are the ones whose text speaks of its
+ * field, by the shared topic words (search/topics.ts). A field with no topic (`other`) lists the newest posts it may read, unfiltered.
+ */
+export const PROFESSIONAL_FIELD_TOPICS: Readonly<Record<ProfessionalField, readonly string[]>> = {
+  doula: ['pregnancy', 'birth', 'postpartum'],
+  midwife: ['pregnancy', 'birth', 'postpartum'],
+  lactation: ['breastfeeding'],
+  sleep: ['sleep'],
+  nutrition: ['nutrition'],
+  pediatric_physio: ['development'],
+  pelvic_physio: ['postpartum'],
+  psychology: ['mental_health', 'postpartum'],
+  parenting: ['sleep', 'development'],
+  child_development: ['development'],
+  speech: ['development'],
+  occupational: ['development'],
+  fertility: ['fertility', 'pregnancy_planning'],
+  photography: ['pregnancy', 'birth'],
+  other: [],
+};
 
 /** FR-SERV-011: a review's text, in code points (professional_reviews_body_check). */
 export const REVIEW_TEXT_MAX = 1000;

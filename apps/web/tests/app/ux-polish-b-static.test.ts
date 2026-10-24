@@ -81,6 +81,7 @@ describe('ux-polish-b c11 [NFR-USAB-004 FR-PROFILE-002 DR-1 DR-3 FR-REL-001] con
         'features/journeys/JourneysContent.tsx',
         'features/marketplace/ListingScreen.tsx', // I12: deleting a listing is final (deleted at once)
         'features/professionals/ArticlesScreen.tsx', // I11: deleting an article is final (FR-PRO-003)
+        'features/professionals/ReviewsSection.tsx', // I11-C: deleting one's own review is final (§11.21)
         'features/posts/CommentsView.tsx',
         'features/posts/FeedContent.tsx',
         'features/posts/PostContent.tsx',

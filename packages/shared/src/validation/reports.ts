@@ -2,7 +2,16 @@
 // strict: `reporterId`, `status`, `postId` and every other key are refused, because the reporter is the caller's by the database and a report
 // has no state a client may set. Nothing about a report is ever read back: the answer to a filed one is `{ received: true }` and no more.
 import { z } from 'zod';
-import { CUSTOM_REPORT_REASON, REPORT_DETAILS_MAX, REPORT_REASONS, REPORT_TARGET_KINDS, type ReportReason, type ReportTargetKind } from '../constants/index.js';
+import {
+  CUSTOM_REPORT_REASON,
+  REPORT_DETAILS_MAX,
+  REPORT_REASONS,
+  REPORT_TARGET_KINDS,
+  REVIEW_REPORT_REASONS,
+  reportReasonNeedsDetails,
+  type ReportReason,
+  type ReportTargetKind,
+} from '../constants/index.js';
 import { codePointLength } from './text.js';
 
 /** What is wrong with a report text, by the rule the server applies to the trimmed text: a NUL (Postgres text cannot hold it), or too long. */
@@ -25,8 +34,9 @@ const reportDetails = z
 export const createReportSchema = z.strictObject({
   targetKind: z.enum(REPORT_TARGET_KINDS),
   targetId: z.guid(),
-  // a core reason, or one the community settings added (FR-ADMIN-007); the database refuses an unknown or switched-off one
-  reason: z.union([z.enum(REPORT_REASONS), z.custom<`custom_${string}`>((value) => typeof value === 'string' && CUSTOM_REPORT_REASON.test(value))]),
+  // a core reason, one the community settings added (FR-ADMIN-007), or a review reason of the reviewed Professional (§11.10); the database
+  // refuses an unknown or switched-off one, and a review reason from anyone but the reviewed Professional on a review about itself
+  reason: z.union([z.enum(REPORT_REASONS), z.enum(REVIEW_REPORT_REASONS), z.custom<`custom_${string}`>((value) => typeof value === 'string' && CUSTOM_REPORT_REASON.test(value))]),
   details: reportDetails.optional(),
 });
 
@@ -46,7 +56,7 @@ export function checkCreateReport(input: unknown): ReportWriteCheck {
   const result = createReportSchema.safeParse(input);
   if (!result.success) return { ok: false, reason: 'invalid' };
   const { targetKind, targetId, reason, details = null } = result.data;
-  if (reason === 'other' && details === null) return { ok: false, reason: 'details_required' };
+  if (reportReasonNeedsDetails(reason) && details === null) return { ok: false, reason: 'details_required' };
   return { ok: true, value: { targetKind, targetId: targetId.toLowerCase(), reason, details } };
 }
 

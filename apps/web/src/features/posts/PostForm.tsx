@@ -14,8 +14,6 @@ import {
   ANONYMOUS_LABEL,
   ANONYMOUS_NOTICE_TEXT,
   AUDIENCE_LABELS,
-  HELP_REQUEST_HINT_TEXT,
-  HELP_REQUEST_LABEL,
   PROFESSIONAL_AUDIENCES,
   REGULAR_AUDIENCES,
   AUDIENCE_LEGEND,
@@ -64,7 +62,7 @@ export interface PostFormProps {
   /** Create only: the box was toggled. */
   onAnonymousChange?: (checked: boolean) => void;
   /**
-   * The writer is a Professional (professional-posting D2, D3, DR-2; I11 AC-130): named posts with no tag and no help marking, for everyone or for
+   * The writer is a Professional (professional-posting D2, D3, DR-2; I11 AC-130): named posts with no tag, for everyone or for
    * its followers only: no box and no tag group; the audience group offers "כולם" and "עוקבים בלבד". Default false.
    */
   everyoneOnly?: boolean;
@@ -84,7 +82,6 @@ export function PostForm(props: PostFormProps) {
   const ids = useId();
   const noticeId = `${ids}-notice`;
   const tagHintId = `${ids}-tag-hint`;
-  const helpHintId = `${ids}-help-hint`;
 
   useEffect(() => {
     if (focus === undefined || focus.tick === 0) return;
@@ -179,15 +176,6 @@ export function PostForm(props: PostFormProps) {
             }}
           />
           <FieldHint id={tagHintId}>{TAG_HINT_TEXT}</FieldHint>
-        </div>
-      )}
-      {/* I11 (OP-038 ⭐ (a)): a Regular's post may ask Professionals for help; a Professional's never does. */}
-      {compact || everyoneOnly || mode === 'edit' || (!anonymous && values.audience !== 'everyone') ? null : (
-        <div className="flex flex-col gap-1.5">
-          <Checkbox checked={values.isHelpRequest === true} aria-describedby={helpHintId} onCheckedChange={(checked) => onChange({ ...values, isHelpRequest: checked })}>
-            {HELP_REQUEST_LABEL}
-          </Checkbox>
-          <FieldHint id={helpHintId}>{HELP_REQUEST_HINT_TEXT}</FieldHint>
         </div>
       )}
       {/* I5: the pictures come after the options, just before "פרסום" (the text, then its options, keep their keyboard order) */}

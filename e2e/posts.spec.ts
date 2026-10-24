@@ -56,7 +56,8 @@ test.describe('F3.1b c14 [FR-FEED-002] the entry point (feed-composer c1)', () =
     await openComposer(page);
     expect(pathOf(page)).toBe('/feed');
     await expect(page.getByRole('heading', { level: 1, name: 'כתיבת פוסט' })).toHaveCount(0); // no page, no h1 of that name (feed-composer c11)
-    await expect(page.getByRole('checkbox')).toHaveCount(2); // F3.4 amends F3.1b c14: "פרסום אנונימי"; I11 (OP-038): "הפוסט מבקש עזרה מבעלי מקצוע"
+    await expect(page.getByRole('checkbox')).toHaveCount(1); // F3.4 amends F3.1b c14: "פרסום אנונימי"; I11-C (§13.1): no help-request box
+    await expect(page.getByText('הפוסט מבקש עזרה מבעלי מקצוע')).toHaveCount(0);
     await expect(anonToggle(page)).toBeVisible();
     await expect(page.getByRole('switch')).toHaveCount(0);
   });
@@ -185,8 +186,6 @@ test.describe('F3.1b c17 [FR-FEED-002 ERR-004] publishing (feed-composer c7, c10
     await expect(page.getByRole('radio', { name: 'כולם' })).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByRole('radio', { name: 'בלי תגית' })).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(page.getByRole('checkbox', { name: 'הפוסט מבקש עזרה מבעלי מקצוע' })).toBeFocused(); // I11 (OP-038), after the tag
     await page.keyboard.press('Tab');
     await expect(page.getByRole('button', { name: 'הוספת תמונה', exact: true })).toBeFocused(); // I5: the pictures, just before "פרסום"
     await page.keyboard.press('Tab');

@@ -123,6 +123,7 @@ export function unitOf(row: DisplayPost, reactions: UnitReactions): FeedUnit | u
       ...common,
       kind: 'post',
       body: row.body,
+      ...(row.offerHelp === null ? {} : { offerHelp: row.offerHelp }),
       isMine: false,
       isAnonymous: true,
     };
@@ -133,7 +134,7 @@ export function unitOf(row: DisplayPost, reactions: UnitReactions): FeedUnit | u
     author: authorOf(row.authorName, row.authorField, row.authorFieldOther),
   } as const;
   if (!row.isShare) {
-    return row.body === null ? undefined : { ...common, kind: 'post', body: row.body, ...(row.isHelpRequest ? { isHelpRequest: true as const } : {}), ...named };
+    return row.body === null ? undefined : { ...common, kind: 'post', body: row.body, ...(row.offerHelp === null ? {} : { offerHelp: row.offerHelp }), ...named };
   }
   const { originalId, originalBody, originalAudience, originalCreatedAt, originalIsAnonymous } = row;
   const original =
