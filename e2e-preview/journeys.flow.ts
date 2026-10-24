@@ -7,6 +7,7 @@
 // (the Preview server's date), well inside VAL-044's window so the server's own check cannot differ from the browser's.
 import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
+import { createAccount } from './support/timed-steps.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
@@ -60,7 +61,7 @@ test.describe.serial('F2.2a journeys and children on the Preview [c1 c2 c3 c7 c8
     await box.focus();
     await page.keyboard.press('Space');
     await expect(box).toBeChecked();
-    await page.getByRole('button', { name: 'יצירת חשבון', exact: true }).click();
+    await createAccount(page);
     await expect(page).toHaveURL(/\/recovery-questions$/);
     await page.getByLabel(/חיית המחמד/).fill(u.answers.pet);
     await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);
@@ -157,7 +158,7 @@ test.describe.serial('F2.2b1 pregnancy add and due-date edit on the Preview [c14
     await box.focus();
     await page.keyboard.press('Space');
     await expect(box).toBeChecked();
-    await page.getByRole('button', { name: 'יצירת חשבון', exact: true }).click();
+    await createAccount(page);
     await expect(page).toHaveURL(/\/recovery-questions$/);
     await page.getByLabel(/חיית המחמד/).fill(u.answers.pet);
     await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);

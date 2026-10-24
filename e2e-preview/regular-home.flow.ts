@@ -4,6 +4,7 @@
 // to /profile and the privacy form loaded. It makes its own fresh user (same email pattern as the fixture's, so the cleanup sweep covers it).
 import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
+import { createAccount } from './support/timed-steps.ts';
 import { generateTestUser } from './support/test-user.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
@@ -24,7 +25,7 @@ test('[FR-HOME-001 FR-PROFILE-001 FR-SET-001] a new Regular user: home and profi
   await box.focus();
   await page.keyboard.press('Space');
   await expect(box).toBeChecked();
-  await page.getByRole('button', { name: 'יצירת חשבון', exact: true }).click();
+  await createAccount(page);
   await expect(page).toHaveURL(/\/recovery-questions$/);
   await page.getByLabel(/חיית המחמד/).fill(u.answers.pet);
   await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);
