@@ -226,6 +226,7 @@ async function signInAt(page: Page, path: string): Promise<void> {
 const FEED = heading('הפיד', 1);
 const POST = heading('פוסט', 1);
 const COMPOSER: Skeleton = [FEED, role('form', 'כתיבת פוסט'), role('textbox', 'מה תרצו לשתף?'), button('פרסום'), role('feed', 'פוסטים בפיד')];
+const PRO_AUDIENCE: Skeleton = [role('radiogroup', 'מי יראה את הפוסט'), role('radio', 'כולם'), role('radio', 'עוקבים בלבד')];
 const threeCards = async (page: Page) => {
   const net = await setupFeed(page, () => pageOf(range(1, 3), null));
   await openFeedAt(page, net);
@@ -346,7 +347,8 @@ const FLOWS: Flow[] = [
   },
   {
     name: 'professional posting: composer engaged',
-    skeleton: [...COMPOSER, text('הפוסט יוצג לכולם')],
+    // I11 (AC-130): the fixed line "הפוסט יוצג לכולם" gave way to the audience group "כולם" / "עוקבים בלבד".
+    skeleton: [...COMPOSER, ...PRO_AUDIENCE],
     show: async (page) => {
       const net = await setupFeed(page, () => pageOf(range(1, 3), null), { professional: true });
       await openFeedAt(page, net);
@@ -357,7 +359,7 @@ const FLOWS: Flow[] = [
   },
   {
     name: 'professional posting: own post, edit form',
-    skeleton: [POST, role('form', 'עריכת פוסט'), text('הפוסט יוצג לכולם'), button('שמירה'), button('ביטול')],
+    skeleton: [POST, role('form', 'עריכת פוסט'), ...PRO_AUDIENCE, button('שמירה'), button('ביטול')],
     show: async (page) => {
       await setupPosts(page, { posts: [{ ...MINE, stageTag: null }], professional: true });
       await signInAt(page, `/posts/${POST_ID}`);
@@ -466,7 +468,7 @@ const FLOWS: Flow[] = [
     },
   },
   {
-    name: 'ux-polish: "חזרה למעלה" after scrolling the feed (its tooltip on hover at 1280)',
+    name: 'ux-polish: "חזרה למעלה" after scrolling the feed (its tooltip on hover, where only the icon shows)',
     skeleton: [FEED, button('חזרה למעלה')],
     show: async (page, size) => {
       const net = await setupFeed(page, (cursor) => (cursor === null ? pageOf(range(1, 12), 'c1') : cursor === 'c1' ? pageOf(range(13, 24), null) : pageOf([], null)));
@@ -477,7 +479,8 @@ const FLOWS: Flow[] = [
       await feedCards(page).last().scrollIntoViewIfNeeded();
       const toTop = page.getByRole('button', { name: 'חזרה למעלה', exact: true });
       await expect(toTop).toBeVisible();
-      if (size.viewport.width >= 1024) {
+      // The tooltip is for the icon-only button (from 1024 px while the shell is narrower than 72rem); at 375 and 1280 the words show.
+      if (size.viewport.width >= 1024 && (await page.getByText('חזרה למעלה', { exact: true }).isHidden())) {
         await toTop.hover();
         await expect(page.getByRole('tooltip')).toHaveText('חזרה למעלה');
       }
