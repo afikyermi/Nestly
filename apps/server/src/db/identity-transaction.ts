@@ -84,7 +84,7 @@ export async function inIdentityTransaction<T>(
   work: (tx: IdentityTx, guard: ProceedGuard) => Promise<T>,
   options: IdentityTransactionOptions = {},
 ): Promise<T> {
-  const began = timeTransaction(); // Server-Timing on a Preview only (lib/server-timing.ts); a no-op otherwise
+  const began = timeTransaction(); // Server-Timing on a Vercel deployment (lib/server-timing.ts); a no-op otherwise
   return database.db.transaction(async (tx) => {
     const settled = began();
     try {

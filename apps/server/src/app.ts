@@ -68,7 +68,7 @@ export interface AppDependencies {
   readonly recovery?: Partial<RecoveryDependencies>;
   /** I5: image storage, the image re-encoder and the background check's trigger. Defaults read the environment; a test passes fakes. */
   readonly media?: Partial<MediaDependencies>;
-  /** The Server-Timing header (lib/server-timing.ts). Defaults to on for a Vercel Preview only (VERCEL_ENV=preview). */
+  /** The Server-Timing header (lib/server-timing.ts). Defaults to on for a Vercel Preview or Production deployment (VERCEL_ENV). */
   readonly serverTiming?: boolean;
 }
 
