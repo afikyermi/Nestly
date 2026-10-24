@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { STAFF_STEPS, checkStaffContext, makeStaffUsers, maskStaffUsers, staffFailureLine } from './preview-e2e-staff.ts';
+import { STAFF_PROJECTS, STAFF_STEPS, checkStaffContext, makeStaffUsers, maskStaffUsers, staffFailureLine, staffFileName, staffProjectOf } from './preview-e2e-staff.ts';
 import { readStaffUser } from '../e2e-preview/support/staff-user.ts';
 import { TEST_EMAIL_REGEX } from '../e2e-preview/support/test-user.ts';
 
@@ -19,8 +19,12 @@ test('[BR-083 Preview] staff setup refuses other repositories, branches, events 
 });
 
 test('[BR-083 Preview] viewport actors are separate, reserved-pattern, and refused by another run/project', () => {
-  const users = makeStaffUsers('12345','2');
-  assert.deepEqual(Object.keys(users), ['mobile-375','desktop-1280']);
+  // §14.2: each runner makes only its own project's actor; the two runners' actors still differ
+  const mobile = makeStaffUsers('12345','2','mobile-375');
+  const desktop = makeStaffUsers('12345','2','desktop-1280');
+  assert.deepEqual(Object.keys(mobile), ['mobile-375']);
+  assert.deepEqual(Object.keys(desktop), ['desktop-1280']);
+  const users = { ...mobile, ...desktop };
   assert.notEqual(users['mobile-375'].email, users['desktop-1280'].email);
   for (const user of Object.values(users)) assert.match(user.email, TEST_EMAIL_REGEX);
   const dir = mkdtempSync(join(tmpdir(), 'nestly-staff-test-'));
@@ -31,9 +35,19 @@ test('[BR-083 Preview] viewport actors are separate, reserved-pattern, and refus
     assert.throws(() => readStaffUser(file,'mobile-375','12346','2'));
     assert.throws(() => readStaffUser(file,'desktop-1280','12345','1'));
     assert.throws(() => readStaffUser(file,'unknown','12345','2'));
+    writeFileSync(file,JSON.stringify(mobile), { mode:0o600 });
+    assert.throws(() => readStaffUser(file,'desktop-1280','12345','2'), 'a runner never reads the other project\'s actor');
     writeFileSync(file,JSON.stringify({ ...users, 'mobile-375':{ ...users['mobile-375'], email:'real@example.com' } }));
     assert.throws(() => readStaffUser(file,'mobile-375','12345','2'));
   } finally { rmSync(dir,{recursive:true,force:true}); }
+});
+
+test('[§14.2] the setup needs one known project; each project has its own staff file name', () => {
+  assert.equal(staffProjectOf({ PREVIEW_E2E_PROJECT: 'mobile-375' }), 'mobile-375');
+  assert.equal(staffProjectOf({ PREVIEW_E2E_PROJECT: 'desktop-1280' }), 'desktop-1280');
+  for (const bad of [undefined, '', 'tablet', 'mobile-375 ', '../x']) assert.throws(() => staffProjectOf({ PREVIEW_E2E_PROJECT: bad }));
+  assert.throws(() => staffProjectOf({}));
+  assert.deepEqual(STAFF_PROJECTS.map(staffFileName), ['preview-e2e-staff-mobile-375.json', 'preview-e2e-staff-desktop-1280.json']);
 });
 
 test('[BR-083 Preview] setup creates only a minimal Moderator; credentials are private, exclusive and not logged', () => {
@@ -50,7 +64,7 @@ test('[BR-083 Preview] setup creates only a minimal Moderator; credentials are p
 });
 
 test('[BR-083 Preview] every staff password/recovery answer is masked; control-command injection is escaped', () => {
-  const users = makeStaffUsers('12345','2');
+  const users = { ...makeStaffUsers('12345','2','mobile-375'), ...makeStaffUsers('12345','2','desktop-1280') };
   const commands = [];
   maskStaffUsers(users, (command) => commands.push(command));
   assert.deepEqual(commands, Object.values(users).flatMap((u) => [u.password,u.answers.pet,u.answers.nickname].map((s) => `::add-mask::${s}\n`)));
@@ -72,7 +86,7 @@ test('[BR-083 Preview] Audit removal is scoped after the locked pattern user, wi
 
 test('[BR-083 Preview] failure context: field values and every staff password/recovery answer are redacted', async () => {
   const { redactFailureContext, staffSecrets, FIELD_REDACTED, SECRET_REDACTED } = await import('./preview-e2e-failure-context.ts');
-  const users = makeStaffUsers('12345', '2');
+  const users = { ...makeStaffUsers('12345', '2', 'mobile-375'), ...makeStaffUsers('12345', '2', 'desktop-1280') };
   const secrets = staffSecrets(JSON.stringify(users));
   const all = Object.values(users).flatMap((u) => [u.password, u.answers.pet, u.answers.nickname]);
   assert.deepEqual([...secrets].sort(), [...new Set(all)].sort());

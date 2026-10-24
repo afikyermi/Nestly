@@ -765,7 +765,9 @@ test('[BR-083 Preview] the failure context is collected by the harness while the
   assert.ok(pw < collect && collect < remove && remove < upload);
   assert.equal(String(steps[collect].if).trim(), 'failure()');
   assert.equal(String(steps[remove].if).trim(), 'always()');
-  assert.match(steps[collect].env.PREVIEW_E2E_STAFF_FILE, /^\$\{\{\s*runner\.temp\s*\}\}\/preview-e2e-staff\.json$/);
+  assert.match(steps[collect].env.PREVIEW_E2E_STAFF_FILE, /^\$\{\{\s*runner\.temp\s*\}\}\/preview-e2e-staff-\$\{\{\s*matrix\.project\s*\}\}\.json$/);
   assert.equal(steps[collect].env.NODE_OPTIONS, '');
   assert.match(runOf(steps[collect]), /^node \.preview-harness\//);
 });
+
+// The two runners at once (§14.2): tools/preview-e2e-parallel.test.mjs.

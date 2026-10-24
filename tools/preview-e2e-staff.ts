@@ -4,7 +4,23 @@ import { generateTestUser, type TestUser } from '../e2e-preview/support/test-use
 import { errorCode, runEmailPrefix } from './preview-e2e-cleanup.ts';
 
 export const STAFF_PROJECTS = ['mobile-375', 'desktop-1280'] as const;
+export type StaffProject = (typeof STAFF_PROJECTS)[number];
 export type StaffUsers = Record<string, TestUser>;
+
+/**
+ * The one Playwright project this runner walks (Afik 24.10, §14.2: each viewport on its own runner, at the same time). Each runner's
+ * setup creates only its own viewport's Moderator, so the two runners never share an account, a recovery-question gate or a staff file.
+ */
+export function staffProjectOf(env: NodeJS.ProcessEnv): StaffProject {
+  const project = STAFF_PROJECTS.find((name) => name === env['PREVIEW_E2E_PROJECT']);
+  if (project === undefined) throw new Error('staff setup needs PREVIEW_E2E_PROJECT, one of the Playwright projects');
+  return project;
+}
+
+/** The private runner-temp file of one project's staff credentials (one file per project, so no runner reads another's). */
+export function staffFileName(project: StaffProject): string {
+  return `preview-e2e-staff-${project}.json`;
+}
 
 export function checkStaffContext(env: NodeJS.ProcessEnv): void {
   if (env['GITHUB_ACTIONS'] !== 'true' || env['GITHUB_REPOSITORY'] !== 'afikyermi/Nestly' || env['GITHUB_REF'] !== 'refs/heads/main' ||
@@ -14,8 +30,9 @@ export function checkStaffContext(env: NodeJS.ProcessEnv): void {
   runEmailPrefix(env['GITHUB_RUN_ID'] ?? '', env['GITHUB_RUN_ATTEMPT'] ?? '');
 }
 
-export function makeStaffUsers(runId: string, attempt: string): StaffUsers {
-  return Object.fromEntries(STAFF_PROJECTS.map((project) => [project, generateTestUser(runId, attempt)]));
+/** One project's Moderator, keyed by its project (support/staff-user.ts reads it by `info.project.name`). */
+export function makeStaffUsers(runId: string, attempt: string, project: StaffProject): StaffUsers {
+  return { [project]: generateTestUser(runId, attempt) };
 }
 
 /** Register generated secrets with the Actions runner before a browser error can quote a fill value. */
