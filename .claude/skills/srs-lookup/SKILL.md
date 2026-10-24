@@ -11,7 +11,7 @@ user-invocable: false
 ## Steps
 
 1. **Start at `docs/srs/INDEX.md`.** It maps every section file, every FR and AC to its file, and the ID range of
-   every prefix to its file. The INDEX is authoritative. Do not guess a file from memory.
+   every prefix to its file. The INDEX is authoritative. Do not guess a file from memory. No ID? Find the heading in `docs/srs/SECTIONS.md`, then grep it.
 2. **Grep, then read narrowly.** Search for the ID across `docs/srs/` — that shows its definition and every place
    that references it. Read the definition's table row or section, not the whole file.
 3. **Collect what belongs to an FR.** The BR, VAL, ERR and AC items that cite it or that it cites, and its row in
@@ -25,7 +25,7 @@ user-invocable: false
 ## Brief
 
 Before every initiative or completion, in a separate subagent, write `.work/briefs/<initiative>.md` (git-ignored),
-at most ~170 lines, from the initiative map (`decisions-in-force.md` §5), the SRS via the INDEX and the decisions.
+at most ~170 lines, from the initiative map (`docs/initiative-map.md`), the SRS via the INDEX and the decisions.
 The builder works from it; `done-check` checks the PR against it. Sections:
 - **(a) Requirements** — per FR / BR / AC / VAL / ERR / PG: `ID (file) — what has to happen · how we know it works`.
 - **(b) Afik's decisions** — the whole of `decisions-in-force.md`, not only the initiative's §: every cross-cutting

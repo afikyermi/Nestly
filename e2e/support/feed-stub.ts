@@ -9,7 +9,14 @@ import type { PostsNet, StoredPost } from './posts-stub';
 export const id = (n: number): string => `e0000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
 export type Unit = Record<string, unknown>;
-export interface FeedPage { items: Unit[]; nextCursor: string | null; configVersion: number; restarted?: boolean }
+export interface FeedPage {
+  items: Unit[];
+  nextCursor: string | null;
+  configVersion: number;
+  restarted?: boolean;
+  /** I13 (FR-ALG-007): the page's promoted posts, each after `afterIndex` organic units. */
+  promoted?: Array<{ promotionId: string; afterIndex: number; unit: Unit }>;
+}
 /** What one GET /api/feed gets: a page, a failure status, or a dropped connection. */
 export type Answer = FeedPage | number | 'abort';
 

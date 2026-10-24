@@ -125,6 +125,7 @@ export function registerMarketplaceRoutes(app: FastifyInstance, deps: Marketplac
     return answer(request, reply, db(), 'marketplace failed', async (database, identity) => ok(await listMarketplace(database, identity, storage, query.data)), (v) => ({
       listings: v.listings,
       sponsored: v.sponsored,
+      promoted: v.promoted,
     }));
   });
   others('/api/marketplace', ['POST']);

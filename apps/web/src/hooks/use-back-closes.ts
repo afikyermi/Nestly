@@ -34,6 +34,15 @@ const holders = new Set<symbol>();
  */
 let settling: { readonly key: string; readonly timer: ReturnType<typeof setTimeout>; readonly owner: symbol } | null = null;
 
+/**
+ * The router commits a pushed entry in a transition, a moment after the overlay is already on screen. `unseenPush`: an overlay entry was
+ * pushed and the router has not yet shown it. `stepTookUnseen`: a step back left that entry before the router showed it (Esc pressed the
+ * instant a dialog appeared, bug 18), so when it does show it, it is not a stale entry to step over: that step back is already on its way,
+ * and a second one would leave the screen (the profile's dialog opened /feed). Shared like `holders`: any instance may see that commit.
+ */
+let unseenPush = false;
+let stepTookUnseen = false;
+
 function cancelSettling(): void {
   if (settling !== null) clearTimeout(settling.timer);
   settling = null;
@@ -71,6 +80,7 @@ export function useBackCloses(open: boolean, onBack: () => boolean): BackCloses 
   const stepping = useRef(false);
   const stepBack = useCallback(() => {
     stepping.current = true;
+    if (unseenPush) stepTookUnseen = true;
     void navigate(-1);
   }, [navigate]);
 
@@ -78,6 +88,7 @@ export function useBackCloses(open: boolean, onBack: () => boolean): BackCloses 
     // A new overlay entry goes on top of whatever the last step back left: that step back no longer guards a link (closing() is false).
     stepping.current = false;
     hold(true);
+    unseenPush = true;
     const { pathname, search, hash } = here.current;
     const state: unknown = here.current.state;
     void navigate({ pathname, search, hash }, { state: overlayState(state) });
@@ -117,7 +128,12 @@ export function useBackCloses(open: boolean, onBack: () => boolean): BackCloses 
 
   useEffect(() => {
     const overlayEntry = isOverlayState(location.state);
+    unseenPush = false;
     if (!overlayEntry) stepping.current = false;
+    // The entry a step back already took is shown only now (or never, when the router went straight to where the step lands): it counts
+    // as stepped over, so no instance steps over it again.
+    if (stepTookUnseen && overlayEntry) steppedOverKey = location.key;
+    stepTookUnseen = false;
     if (pendingRun.current !== null && !overlayEntry) {
       const run = pendingRun.current;
       pendingRun.current = null;

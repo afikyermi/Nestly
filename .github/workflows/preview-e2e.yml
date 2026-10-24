@@ -20,7 +20,8 @@
 # (e2e-preview/support/bypass.ts).
 #
 # Cleanup is NOT here: .github/workflows/preview-e2e-cleanup.yml runs after this workflow completes (workflow_run, the
-# default branch's code). This workflow holds no environment and never sees PREVIEW_DB_ADMIN_URL.
+# default branch's code). Afik 23.10: one trusted-main setup step may create temporary Preview Moderators.
+# Only that step receives PREVIEW_DB_ADMIN_URL; browser flows never receive database credentials.
 
 name: preview-e2e
 
@@ -52,7 +53,7 @@ jobs:
     steps:
       # Full history, so a fast-forward of ready/nightly can be checked. The token stays in the checkout for the push;
       # this job runs no repository code.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
@@ -152,14 +153,15 @@ jobs:
   e2e:
     name: preview-e2e
     needs: deployment
+    environment: preview-e2e
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ needs.deployment.outputs.sha }}
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -168,6 +170,25 @@ jobs:
         env:
           TARGET_URL: ${{ needs.deployment.outputs.target_url }}
         run: node tools/preview-e2e-url-guard.ts
+      # The database credential is used before any code of the tested tree is installed or run: the trusted main harness is
+      # checked out and gets its own install with lifecycle scripts off, and the setup step runs with NODE_OPTIONS cleared,
+      # so no dependency script of the tested tree can reach that step's environment, $GITHUB_ENV or its process.
+      - name: Check out trusted main harness
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: .preview-harness
+          persist-credentials: false
+      - name: Install the harness (no lifecycle scripts)
+        working-directory: .preview-harness
+        run: npm ci --ignore-scripts
+      - name: Prepare temporary Preview Moderators
+        timeout-minutes: 2
+        env:
+          NODE_OPTIONS: ''
+          PREVIEW_DB_ADMIN_URL: ${{ secrets.PREVIEW_DB_ADMIN_URL }}
+          PREVIEW_E2E_STAFF_FILE: ${{ runner.temp }}/preview-e2e-staff.json
+        run: node .preview-harness/tools/preview-e2e-staff-cli.ts
       - run: npm ci
       - run: npx playwright install --with-deps chrome
       - name: Walk the flows on the preview
@@ -176,24 +197,28 @@ jobs:
           PREVIEW_E2E_BASE_URL: ${{ steps.guard.outputs.base_url }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           PREVIEW_E2E_REPORT_FILE: ${{ runner.temp }}/preview-e2e-report.json
+          PREVIEW_E2E_STAFF_FILE: ${{ runner.temp }}/preview-e2e-staff.json
         run: npx playwright test -c e2e-preview/playwright.config.ts
       # On failure only: the error-context.md of each failed test (the page's accessibility snapshot at the failure). Trace,
       # video and screenshots stay off (playwright.config.ts), since the Vercel bypass header or a typed password could land
-      # in them; the snapshot lists field values, so every textbox/combobox/searchbox/spinbutton value is redacted here
-      # first, and nothing else is uploaded. The bypass secret is in the env of the Playwright step only, never in the page.
+      # in them. The trusted harness copies each snapshot with every form-field value redacted and every occurrence of a
+      # temporary staff password or recovery answer replaced, so it runs while the staff file still exists; nothing else is
+      # uploaded. The bypass secret is in the env of the Playwright step only, never in the page.
       - name: Collect the failure context (values redacted)
         if: failure()
-        run: |
-          set -euo pipefail
-          mkdir -p "${RUNNER_TEMP}/preview-e2e-failures"
-          find test-results -name error-context.md -type f 2>/dev/null | while IFS= read -r f; do
-            out="${RUNNER_TEMP}/preview-e2e-failures/$(printf '%s' "${f}" | md5sum | cut -c1-12).md"
-            { echo "# ${f}"; sed -E 's/^([[:space:]]*- (textbox|searchbox|combobox|spinbutton)[^:]*):.*/\1: [value redacted]/' "${f}"; } > "${out}"
-          done
-          ls "${RUNNER_TEMP}/preview-e2e-failures" | wc -l
+        env:
+          NODE_OPTIONS: ''
+          PREVIEW_E2E_STAFF_FILE: ${{ runner.temp }}/preview-e2e-staff.json
+        run: node .preview-harness/tools/preview-e2e-failure-context-cli.ts
+      - name: Remove temporary staff credentials
+        if: always()
+        env:
+          NODE_OPTIONS: ''
+          PREVIEW_E2E_STAFF_FILE: ${{ runner.temp }}/preview-e2e-staff.json
+        run: node -e "require('node:fs').rmSync(process.env.PREVIEW_E2E_STAFF_FILE, { force:true })"
       - name: Upload the failure context
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: preview-e2e-failure-context
           path: ${{ runner.temp }}/preview-e2e-failures

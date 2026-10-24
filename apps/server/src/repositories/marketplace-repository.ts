@@ -56,8 +56,15 @@ const listingColumns = sql`
  * (FR-ALG-008, Intent Signal: a category answers one topic, capped at 1) and freshness (half of it after a week); `new` is newest first;
  * `price_low` the lowest price first (for free first). A text is looked for in the title.
  */
-export async function readMarketplace(tx: IdentityTx, query: MarketplaceQuery, topicWeights: readonly { topic: string; weight: number }[]): Promise<ListingRow[]> {
+export async function readMarketplace(
+  tx: IdentityTx,
+  query: MarketplaceQuery,
+  topicWeights: readonly { topic: string; weight: number }[],
+  onlyIds?: readonly string[],
+): Promise<ListingRow[]> {
   const filters: SQL[] = [sql`l.status = 'active'`, sql`not l.is_hidden`, sql`l.expires_at > now()`];
+  // I13: the same filters decide whether a promoted listing matches the page (FR-ALG-007 eligibility); the organic call passes none
+  if (onlyIds !== undefined) filters.push(sql`l.id = any (${sql.param([...onlyIds])}::uuid[])`);
   if (query.category !== undefined) filters.push(sql`l.category = ${query.category}`);
   if (query.city !== undefined) filters.push(sql`l.city = ${query.city}`);
   if (query.condition !== undefined) filters.push(sql`l.item_condition = ${query.condition}`);
@@ -86,7 +93,7 @@ export async function readMarketplace(tx: IdentityTx, query: MarketplaceQuery, t
       left join nestly.regular_names n on n.user_id = l.owner_id
       where ${sql.join(filters, sql` and `)}
       order by ${order}, l.id
-      limit ${MARKETPLACE_PAGE}`),
+      limit ${onlyIds === undefined ? MARKETPLACE_PAGE : Math.max(onlyIds.length, 1)}`),
   );
 }
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import type { ListingCard } from '@nestly/shared';
+import type { ListingCard, PromotionOverview } from '@nestly/shared';
 import { MarketplaceCard } from '@/components/domain/marketplace-card';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,9 @@ import {
   imageAltOf,
   priceText,
 } from '@/lib/marketplace-texts';
+import { PromoteListing } from './PromoteListing';
 import { fetchMyListings } from '@/services/api/marketplace';
+import { fetchPromotionOverview } from '@/services/api/promotions';
 
 type View = { kind: 'loading' } | { kind: 'failed' } | { kind: 'loaded'; listings: ListingCard[] };
 
@@ -30,11 +32,19 @@ type View = { kind: 'loading' } | { kind: 'failed' } | { kind: 'loaded'; listing
 export function MyListingsScreen() {
   const call = useProCall();
   const [view, setView] = useState<View>({ kind: 'loading' });
+  // I13 (FR-MKT-004): the listing plans and the caller's promotions; without them the listings still show, with no promote button
+  const [promotions, setPromotions] = useState<PromotionOverview | null>(null);
+
+  const loadPromotions = useCallback(async () => {
+    const result = await call((token) => fetchPromotionOverview(token));
+    setPromotions(result.kind === 'ok' ? result.value : null);
+  }, [call]);
 
   const load = useCallback(async () => {
     const result = await call((token) => fetchMyListings(token));
     setView(result.kind === 'ok' ? { kind: 'loaded', listings: result.value } : { kind: 'failed' });
-  }, [call]);
+    void loadPromotions();
+  }, [call, loadPromotions]);
 
   useEffect(() => {
     void load();
@@ -78,6 +88,16 @@ export function MyListingsScreen() {
                 badges={[listing.status === 'sold' ? SOLD_BADGE : null, listing.isHidden ? HIDDEN_BADGE : null, listing.isExpired ? EXPIRED_BADGE : null].filter(
                   (badge) => badge !== null,
                 )}
+                footer={
+                  promotions === null || listing.status !== 'active' || listing.isHidden || listing.isExpired ? undefined : (
+                    <PromoteListing
+                      listingId={listing.id}
+                      plans={promotions.plans.filter((plan) => plan.targetKind === 'listing')}
+                      promotions={promotions.promotions.filter((item) => item.listingId === listing.id)}
+                      onPromoted={() => void loadPromotions()}
+                    />
+                  )
+                }
               />
             </li>
           ))}
