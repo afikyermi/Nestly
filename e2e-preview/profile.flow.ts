@@ -3,7 +3,7 @@
 // It makes its own fresh user (same email pattern as the fixture's, so the cleanup sweep covers it). No recovery attempts are made.
 import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
-import { createAccount, timedResponse, SIGN_IN_MS, submitSignIn } from './support/timed-steps.ts';
+import { AFTER_ANSWERS_MS, createAccount, timedResponse, SIGN_IN_MS, submitSignIn } from './support/timed-steps.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
@@ -44,7 +44,7 @@ test.describe.serial('F2.1 own profile on the Preview [c1 c5 c7]', () => {
     await pet(page).fill(u.answers.pet);
     await nick(page).fill(u.answers.nickname);
     await saveButton(page).click();
-    await expect(page).toHaveURL(/\/feed$/);
+    await expect(page).toHaveURL(/\/feed$/, { timeout: AFTER_ANSWERS_MS });
     await timedResponse(page, 'GET /api/profile', (r) => r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/profile', () => page.goto('/profile'));
     await expect(editButton(page)).toBeVisible();
     expect(await viewText(page)).toMatch(/שם מלא[:\s]+דנה כהן/);
