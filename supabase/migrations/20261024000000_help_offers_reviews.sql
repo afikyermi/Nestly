@@ -10,7 +10,10 @@
 --                        Professional offers help on any active, non-share post it can read under its own posts RLS (so never a
 --                        Friends-only post of someone else, never a post in a Private Group it is not a member of, never one it hid or
 --                        reported), named or anonymous, loss posts included, when the post's author is a Regular (a named post: the author
---                        has no professional_profiles row; an anonymous post is Regular-only, AC-130) and no user block stands between
+--                        has no professional_profiles row: staff never post (posts_insert_author) and an account's type never changes, so a
+--                        post author without a Professional profile is a Regular; the caller cannot read users.account_type of another
+--                        account, and no new SECURITY DEFINER is added for it; an anonymous post is Regular-only, AC-130) and no user
+--                        block stands between
 --                        them. One per post stays (outreach_requests_professional_post_key). outreach_requests_insert_limit(): 100 in 24
 --                        hours (was 10; NS029).
 -- posts.is_help_request  INERT from here: no policy of outreach_requests reads it. The column, its check, its index, its grants and the
@@ -25,14 +28,18 @@
 --                        context professional or outreach exists in which the Professional wrote (professional_reviews_update_reviewer;
 --                        UPDATE (rating, body) granted); edited_at is the database clock of the last edit (NULL = never edited), set by
 --                        professional_reviews_update_guard(), which also refuses a rating or text change by anyone but the writer (staff
---                        included: they moderate, never edit). The writer deletes its own review (professional_reviews_delete_reviewer,
---                        ⭐ WORKPLAN "ממתין לך" 10); its open reports expire (§11.11: no record).
+--                        included: they moderate, never edit). The writer deletes its own active review (professional_reviews_delete_reviewer,
+--                        ⭐ WORKPLAN "ממתין לך" 10; not a hidden or removed one, so a staff decision is not evaded); its open reports
+--                        expire (§11.11: no record).
 -- report_reasons         gain scope: 'community' (every reason so far, and every reason COMMUNITY_CONFIG adds) or 'reviewed_professional'
 --                        (the four reasons of §11.10: פוגענית · שקרית / בלי אינטראקציה · מידע אישי · אחר; core, so always active).
 --                        Priorities ⭐ (brief (a) 8): offensive and personal information 2, false and other 4.
--- reports                reports_insert_check(): the reviewed Professional reporting a review about itself chooses a
---                        'reviewed_professional' reason; everyone else, and every other target, a 'community' one (23514). "אחר" of
---                        the review list needs a text, as "other" does (reports_other_details_check).
+-- reports                reports_insert_check(): a 'reviewed_professional' reason is only for the reviewed Professional reporting a review
+--                        about itself; everyone else, and every other target, uses a 'community' one (23514). Transition (expand phase):
+--                        the reviewed Professional may still use a community reason too, because the code on main sends one until the
+--                        I11-C code pull request lands; the follow-up contract migration (with the is_help_request drop and the 500
+--                        details cap) tightens it to the review reasons only. "אחר" of the review list needs a text, as "other" does
+--                        (reports_other_details_check).
 --
 -- Not here: reports_details_length_check stays 1,000. The code on main still accepts up to 1,000 characters (REPORT_DETAILS_MAX, and
 -- main's server tests send 1,000), so 500 in the database now would break main; it moves to 500 with the follow-up migration, after the
@@ -42,8 +49,8 @@
 -- professional_reviews_update_guard().
 --
 -- Applied by the Supabase CLI as app_owner, in one transaction with its history row. Down script:
--- supabase/rollback/20261024000000_help_offers_reviews.down.sql (refuses while a report uses a review reason; drops the edit clock; cannot
--- restore the duplicate reviews the data step deleted).
+-- supabase/rollback/20261024000000_help_offers_reviews.down.sql (refuses while a report uses a review reason or an Offer Help exists on a post not
+-- marked as asking for help; drops the edit clock; cannot restore the duplicate reviews the data step deleted).
 -- =====================================================================================================================
 
 -- 1. Offer Help on any post the Professional may read (§13.1-13.3) -------------------------------------------------------------
@@ -83,6 +90,13 @@ $$;
 -- it nothing (no auth.uid()): lifted for this one statement and put back at once. The deletes run as the owner, so content_staff_delete()
 -- passes them; reports on a deleted review are set to NULL by the FK and expire (reports_target_gone).
 alter table nestly.professional_reviews no force row level security;
+do $$
+begin
+  raise notice 'I11-C data step: % duplicate review(s) per (reviewer, Professional) will be deleted, the newest of each pair kept',
+    (select pg_catalog.count(*) from (select pg_catalog.row_number() over (partition by reviewer_id, professional_id order by created_at desc, id desc) as n
+                                        from nestly.professional_reviews) d where d.n > 1);
+end
+$$;
 delete from nestly.professional_reviews r
  using (select id, row_number() over (partition by reviewer_id, professional_id order by created_at desc, id desc) as n
           from nestly.professional_reviews) d
@@ -134,7 +148,7 @@ create policy professional_reviews_update_reviewer on nestly.professional_review
 
 create policy professional_reviews_delete_reviewer on nestly.professional_reviews
   for delete to authenticated
-  using ((select nestly.is_active_account()) and reviewer_id = (select auth.uid()));
+  using ((select nestly.is_active_account()) and reviewer_id = (select auth.uid()) and moderation = 'active');
 
 -- 3. Review report reasons (§11.10) ---------------------------------------------------------------------------------------------
 alter table nestly.report_reasons
@@ -210,10 +224,10 @@ begin
   elsif new.target_kind = 'listing' then
     raise exception 'reports: a listing report names its listing' using errcode = '23514';
   end if;
-  -- I11 completion C (§11.10): the reviewed Professional reports a review about itself with the review reasons; every other report with
-  -- the community ones. An unknown reason is left to the foreign key.
-  if exists (select 1 from nestly.report_reasons rr where rr.key = new.reason
-              and rr.scope <> case when v_about_me then 'reviewed_professional' else 'community' end) then
+  -- I11 completion C (§11.10): the review reasons are only for the reviewed Professional on a review about itself; every other report uses
+  -- the community ones. Transition: the reviewed Professional may still use a community reason (main's code sends one); the follow-up
+  -- contract migration allows it the review reasons only. An unknown reason is left to the foreign key.
+  if not v_about_me and exists (select 1 from nestly.report_reasons rr where rr.key = new.reason and rr.scope <> 'community') then
     raise exception 'reports: this reason does not apply to this report' using errcode = '23514';
   end if;
   return new;
@@ -232,8 +246,8 @@ comment on column nestly.professional_reviews.edited_at is 'When the writer last
 comment on constraint professional_reviews_reviewer_professional_key on nestly.professional_reviews is 'One review per parent per Professional (§11.21, OP-049); a second is an edit of the first.';
 comment on function nestly.professional_reviews_update_guard() is 'BEFORE UPDATE OF rating, body, SECURITY INVOKER. Only the writer changes rating or text (42501; staff never edit); edited_at is the database clock. The owner role and cascades pass.';
 comment on policy professional_reviews_update_reviewer on nestly.professional_reviews is 'The writer edits its own unmoderated review while the conversation the review rests on, in which the Professional wrote, exists (§11.21, FR-SERV-011).';
-comment on policy professional_reviews_delete_reviewer on nestly.professional_reviews is 'The writer deletes its own review (⭐ WORKPLAN 10); its open reports expire (reports_target_gone, §11.11).';
+comment on policy professional_reviews_delete_reviewer on nestly.professional_reviews is 'The writer deletes its own active review (⭐ WORKPLAN 10; not one hidden or removed by staff); its open reports expire (reports_target_gone, §11.11).';
 comment on column nestly.report_reasons.scope is 'community: the reasons of every report (and every reason COMMUNITY_CONFIG adds); reviewed_professional: the four reasons the reviewed Professional uses on a review about itself (§11.10).';
 comment on function nestly.reports_insert_check() is
-  'SECURITY INVOKER. Before insert: a reported post, comment, chat message, listing, review or article must be readable to the reporter and (but a review, whose writer is never readable) not their own (42501); for a post or comment named or through post_authors. The reason''s scope fits the reporter (23514): reviewed_professional for the reviewed Professional on a review about itself, community otherwise (§11.10).';
+  'SECURITY INVOKER. Before insert: a reported post, comment, chat message, listing, review or article must be readable to the reporter and (but a review, whose writer is never readable) not their own (42501); for a post or comment named or through post_authors. A reviewed_professional reason only for the reviewed Professional on a review about itself (23514, §11.10); it may still use a community one until the follow-up migration.';
 comment on constraint reports_other_details_check on nestly.reports is '"other" and the review list''s "אחר" need a text (VAL-048).';

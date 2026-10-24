@@ -133,8 +133,8 @@ select is(pg_temp.q('a', $q$ select string_agg(key || ':' || priority || ':' || 
 select is(pg_temp.q('a', $q$ select string_agg(label, ' · ' order by sort_order) from nestly.report_reasons where scope = 'reviewed_professional' $q$),
   'פוגענית · שקרית / בלי אינטראקציה · מידע אישי · אחר', '[F11.3-c c5 §11.10] their labels, read by every active account');
 select is(pg_temp.dml('d', $q$ update nestly.report_reasons set is_active = false where key = 'review_false' $q$), 'ERR:23514', '[F11.3-c c5 §11.10] a review reason cannot be switched off');
-select is(pg_temp.report('q1', 'review', current_setting('t.rev_a')::uuid, 'harassment'), 'ERR:23514',
-  '[F11.3-c c5 AC-150 §11.10] the reviewed Professional does not use a community reason on a review about itself');
+select is(pg_temp.dml('q1', format($q$ insert into nestly.reports (target_kind, review_id, reason) values ('review', %L, 'harassment') $q$, current_setting('t.rev_a')), false), 'OK:1',
+  '[F11.3-c c5 AC-150 §11.10 transition] until the follow-up migration the reviewed Professional may still use a community reason (main''s code sends one; rolled back)');
 select is(pg_temp.report('q1', 'review', current_setting('t.rev_a')::uuid, 'review_offensive'), 'OK:1',
   '[F11.3-c c5 AC-150 FR-MOD-001 §11.10] the reviewed Professional reports the review with a review reason');
 select is(pg_temp.report('b', 'review', current_setting('t.rev_a')::uuid, 'review_false'), 'ERR:23514', '[F11.3-c c5 §11.10] another reporter does not use a review reason');
@@ -155,6 +155,8 @@ select is(pg_temp.dml('m3', format($q$ update nestly.professional_reviews set bo
 select is(pg_temp.moderate('m3', current_setting('t.rev_a')::uuid, 'hidden'), 'OK:1', '[F11.3-c c6 fixture] staff hide the reported review');
 select is(pg_temp.dml('a', format($q$ update nestly.professional_reviews set rating = 5 where id = %L $q$, current_setting('t.rev_a'))), 'OK:0',
   '[F11.3-c c6 §11.21] a moderated review is not edited by its writer');
+select is(pg_temp.dml('a', format($q$ delete from nestly.professional_reviews where id = %L $q$, current_setting('t.rev_a'))), 'OK:0',
+  '[F11.3-c c6 ⭐ WORKPLAN 10] nor deleted by its writer while staff hold it (a staff decision is not evaded)');
 select is(pg_temp.moderate('m3', current_setting('t.rev_a')::uuid, 'active'), 'OK:1', '[F11.3-c c6 fixture] staff restore it');
 select is(pg_temp.dml('a', format($q$ delete from nestly.professional_reviews where id = %L $q$, current_setting('t.rev_a'))), 'OK:1',
   '[F11.3-c c6 ⭐ WORKPLAN 10] the writer deletes its own review');
