@@ -1,7 +1,7 @@
 // Preview-only test harness. Afik approved temporary Moderators and scoped Audit cleanup, 23.10.2026.
 // No runtime import; the workflow runs this only from its trusted main checkout.
 import { generateTestUser, type TestUser } from '../e2e-preview/support/test-user.ts';
-import { runEmailPrefix } from './preview-e2e-cleanup.ts';
+import { errorCode, runEmailPrefix } from './preview-e2e-cleanup.ts';
 
 export const STAFF_PROJECTS = ['mobile-375', 'desktop-1280'] as const;
 export type StaffUsers = Record<string, TestUser>;
@@ -26,4 +26,13 @@ export function maskStaffUsers(users: StaffUsers, write: (command: string) => vo
       write(`::add-mask::${escaped}\n`);
     }
   }
+}
+
+/** The setup's steps, in order. A failure names the step it reached and the error's code only: never a value, URL, email or id. */
+export const STAFF_STEPS = ['context', 'url guard', 'staff file path', 'preflight', 'transaction', 'auth user', 'auth identity',
+  'account', 'permission', 'staff file'] as const;
+export type StaffStep = (typeof STAFF_STEPS)[number];
+
+export function staffFailureLine(step: StaffStep, error: unknown): string {
+  return `preview staff: setup failed at step "${step}" (code ${errorCode(error)})\n`;
 }
