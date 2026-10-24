@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { chatTextProblem, professionalTag, type ProfessionalPage } from '@nestly/shared';
 import { PATHS } from '@/app/paths';
 import { ReportSheet } from '@/components/domain/report-sheet';
@@ -73,6 +73,8 @@ export function ProfessionalScreen({ professionalId }: { professionalId: string 
   const call = useProCall();
   const chatCall = useChatCall();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const promotionId = searchParams.get('promotion') ?? undefined;
   const reviewsId = useId();
   const articlesId = useId();
   const [loaded, setLoaded] = useState<Loaded>({ kind: 'loading' });
@@ -92,10 +94,10 @@ export function ProfessionalScreen({ professionalId }: { professionalId: string 
   );
 
   const load = useCallback(async () => {
-    const result = await call((token) => fetchProfessional(token, professionalId));
+    const result = await call((token) => fetchProfessional(token, professionalId, promotionId));
     if (result.kind === 'ok') setLoaded({ kind: 'loaded', page: result.value });
     else setLoaded(result.kind === 'unavailable' ? { kind: 'gone' } : { kind: 'failed' });
-  }, [call, professionalId]);
+  }, [call, professionalId, promotionId]);
 
   useEffect(() => {
     void load();

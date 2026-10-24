@@ -34,6 +34,7 @@ export const ADMIN_TABS: ReadonlyArray<{ tab: AdminTab; path: string }> = [
   { tab: 'childData', path: PATHS.adminChildData },
   { tab: 'marketplace', path: PATHS.adminMarketplace },
   { tab: 'sponsored', path: PATHS.adminSponsored },
+  { tab: 'promotions', path: PATHS.adminPromotions },
 ];
 
 /** AC-044: what waits on a tab, from the staff inbox (an area the keys do not cover is absent, so no badge). */
@@ -49,6 +50,8 @@ export function tabAllowed(tab: AdminTab, role: 'admin' | 'moderator', permissio
   if (key === 'STAFF') return true;
   // the Admin's home holds the children's trends builder; the tab is a Moderator's way to it
   if (tab === 'childData' && role === 'admin') return false;
+  // I13 (§11.1): promotions are stopped by the target's moderation key
+  if (tab === 'promotions') return role === 'admin' || permissions.includes('CONTENT_MODERATE') || permissions.includes('MARKETPLACE_MODERATE');
   return key === 'ADMIN' ? role === 'admin' : permissions.includes(key);
 }
 

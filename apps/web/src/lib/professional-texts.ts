@@ -190,7 +190,7 @@ export const PROFILE_FIELD_NAMES: Readonly<Record<ProfileOptionalField, string>>
 };
 export const CONTENT_HEADING = 'תוצאות התוכן';
 export const PROMOTION_HEADING = 'קידום';
-export const PROMOTION_NOT_YET = 'קידום בתשלום עדיין לא זמין. כשייפתח, אפשר יהיה לקדם את הפרופיל והתוכן ולראות כאן את התוצאות.';
+export const PROMOTION_NOT_YET = 'אפשר לקדם את הפרופיל או פוסט ולראות את התוצאות, אורגני ובתשלום בנפרד. התשלום מדומה והמחירים לדוגמה.';
 
 // ---- the Professional's menu and navigation (Afik 21.10.2026, §9.8)
 export const HELP_REQUESTS_TITLE = 'בקשות עזרה';
@@ -203,6 +203,4 @@ export const unfollowedText = (name: string): string => `המעקב אחרי ${n
 export const MY_OFFERS = 'ההצעות שלי';
 export const PROMOTION_TITLE = 'קידום ותוצאות';
 export const BILLING_TITLE = 'חיוב ותשלומים';
-export const BILLING_NOT_YET = 'אין כרגע חיובים. תשלום יידרש רק לקידום בתשלום, שעדיין לא זמין.';
-export const NOT_YET_NOTE = 'העמוד הזה ייפתח בהמשך.';
 export const NOT_A_PROFESSIONAL = 'הרשימה הזו מיועדת לבעלי מקצוע.';

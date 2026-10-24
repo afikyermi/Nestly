@@ -41,7 +41,7 @@ export const ANON_MINE: StoredPost = { ...MINE, id: ANON_MINE_ID, body: 'שאל�
 export const ANON_OTHERS: StoredPost = { ...OTHERS, id: ANON_OTHERS_ID, body: 'שאלה אנונימית של מישהי', isMine: false, isAnonymous: true };
 
 export async function setupPosts(page: Page, start: { posts?: StoredPost[]; professional?: boolean } = {}): Promise<PostsNet> {
-  const net: PostsNet = { posts: [...(start.posts ?? [MINE, OTHERS])], create: 201, edit: 200, remove: 204, read: 200, holdCreate: null, creates: [], edits: [], deletes: [] };
+  const net: PostsNet = { posts: (start.posts ?? [MINE, OTHERS]).map((post) => ({ ...post })), create: 201, edit: 200, remove: 204, read: 200, holdCreate: null, creates: [], edits: [], deletes: [] };
   await page.clock.setFixedTime(NOW);
   await page.addInitScript(() => {
     Reflect.set(window, 'nestlyRealSession', true);

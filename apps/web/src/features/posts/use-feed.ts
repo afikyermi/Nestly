@@ -6,6 +6,7 @@ import { useSessionAccount } from '@/hooks/use-session-account';
 import { userIdOfAccessToken } from '@/lib/access-token';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
 import { fetchFeedPage } from '@/services/api/feed';
+import { reportPromotionImpression } from '@/services/api/promotions';
 import { fetchGroupFeedPage, removeGroupPost } from '@/services/api/groups';
 import { REMOVE_NOT_ALLOWED_TEXT } from '@/lib/group-post-texts';
 import { useFeedSource } from './feed-source';
@@ -14,6 +15,7 @@ import { deletePost } from '@/services/api/posts';
 import { setHidden } from '@/services/api/post-hides';
 import { LIKE_FAILED_TEXT } from './comments-texts';
 import { forgetFeed, recallFeed, rememberFeed, type FeedScroll } from './feed-memory';
+import { shownPromotions } from './feed-state';
 import {
   INITIAL_FEED,
   withEdited,
@@ -108,6 +110,9 @@ export function useFeed(onRestart: () => void): FeedFlow {
         busy.current = false;
         if (token !== null) owner.current = userIdOfAccessToken(token);
         if (cursor !== null && outcome.page.restarted === true) restarted.current();
+        // I13 (FR-ALG-007): a promoted post's impression is reported only when it joins the list (a post already shown is never shown twice)
+        const replace = cursor === null || outcome.page.restarted === true;
+        if (token !== null) for (const id of shownPromotions(replace ? [] : latest.current.items, outcome.page)) void reportPromotionImpression(token, id).catch(() => undefined);
         setState((current) => withPage(current, outcome.page, cursor === null, afterRetry));
         return;
       }

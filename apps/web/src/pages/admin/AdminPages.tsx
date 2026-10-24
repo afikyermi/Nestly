@@ -9,6 +9,8 @@ import { MarketplaceAdminScreen } from '@/features/admin/MarketplaceAdminScreen'
 import { MediaQueueScreen } from '@/features/admin/MediaQueueScreen';
 import { ReportsScreen } from '@/features/admin/ReportsScreen';
 import { SponsoredScreen } from '@/features/admin/SponsoredScreen';
+import { PromotionsAdminScreen } from '@/features/admin/PromotionsAdminScreen';
+import { ADMIN_PROMOTIONS_TITLE } from '@/lib/promotion-texts';
 import { SupportInboxScreen } from '@/features/admin/SupportInboxScreen';
 import { TeamScreen } from '@/features/admin/TeamScreen';
 import { UsersScreen } from '@/features/admin/UsersScreen';
@@ -134,6 +136,17 @@ export function AdminMarketplacePage() {
       <title>{documentTitle(ADMIN_LISTINGS_TITLE)}</title>
       <h2 className="mb-4 text-h3">{ADMIN_LISTINGS_TITLE}</h2>
       <MarketplaceAdminScreen />
+    </>
+  );
+}
+
+/** §11.1, §11.2: the promotions staff work with, and (the Admin) the settings of promoted units. */
+export function AdminPromotionsPage() {
+  return (
+    <>
+      <title>{documentTitle(ADMIN_PROMOTIONS_TITLE)}</title>
+      <h2 className="mb-4 text-h3">{ADMIN_PROMOTIONS_TITLE}</h2>
+      <PromotionsAdminScreen />
     </>
   );
 }

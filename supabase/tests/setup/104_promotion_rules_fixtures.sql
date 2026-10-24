@@ -93,4 +93,49 @@ grant execute on function tests.fx_promo_age(uuid, integer) to app_server;
 grant execute on function tests.fx_promo_drop(uuid) to app_server;
 grant execute on function tests.fx_promo_purge() to app_server;
 
+-- CI-only fault injection: a real Audit insert fails, scoped to one test actor and one I13 action.
+-- Installation/removal must remain in a test transaction; rollback removes the extra trigger even if a test aborts.
+create or replace function tests.fx_promo_break_audit_trg() returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if new.actor_id::text = tg_argv[0] and new.action::text = tg_argv[1] then
+    raise exception 'forced I13 Audit failure (CI test lever)' using errcode = 'XX000';
+  end if;
+  return new;
+end
+$$;
+
+create or replace function tests.fx_promo_break_audit(p_actor uuid, p_action text) returns void
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if transaction_timestamp() = statement_timestamp() then
+    raise exception 'Audit fault injection requires a test transaction';
+  end if;
+  if p_actor is null or p_action is null or p_action not in ('promotion_stopped', 'promotion_settings_changed') then
+    raise exception 'unsupported I13 Audit test scope';
+  end if;
+  execute 'drop trigger if exists zz_fx_promo_break_audit on nestly.audit_log';
+  execute format('create trigger zz_fx_promo_break_audit before insert on nestly.audit_log for each row execute function tests.fx_promo_break_audit_trg(%L, %L)', p_actor::text, p_action);
+end
+$$;
+
+create or replace function tests.fx_promo_unbreak_audit() returns void
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if transaction_timestamp() = statement_timestamp() then
+    raise exception 'Audit fault removal requires a test transaction';
+  end if;
+  execute 'drop trigger if exists zz_fx_promo_break_audit on nestly.audit_log';
+end
+$$;
+
+revoke all on function tests.fx_promo_break_audit_trg() from public;
+revoke all on function tests.fx_promo_break_audit(uuid, text) from public;
+revoke all on function tests.fx_promo_unbreak_audit() from public;
+grant execute on function tests.fx_promo_break_audit(uuid, text) to app_server;
+grant execute on function tests.fx_promo_unbreak_audit() to app_server;
+
 commit;

@@ -388,6 +388,30 @@ test.describe('F2.2b c26 [S3 NFR-A11Y-001 Q4] the dialog by keyboard and screen 
     });
   }
 
+  // Bug 18: Escape pressed the moment the dialog appears, before the router has committed the dialog's history entry. That entry, committed
+  // after the close, was taken for a stale one and stepped over too: a second step back left the profile for the screen before it (/feed).
+  test('[F2.2b c26] Escape the instant the dialog appears: the dialog closes and the profile stays', async ({ page }) => {
+    await setup(page);
+    await openLoaded(page);
+    await page.evaluate(() => new Promise<void>((resolve) => {
+      const watch = new MutationObserver(() => {
+        if (document.querySelector('[role="alertdialog"]') === null) return;
+        watch.disconnect();
+        (document.activeElement ?? document.body).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
+        resolve();
+      });
+      watch.observe(document.body, { childList: true, subtree: true });
+      const remove = [...document.querySelectorAll('main button')].find((b) => b.textContent?.trim() === 'הסרה');
+      if (remove instanceof HTMLElement) remove.click();
+    }));
+    await expect(dialog(page)).toHaveCount(0);
+    await expect(removeOf(page, NOA)).toBeFocused();
+    // The second step back came a few milliseconds after the first had landed: give it time to show, then the profile must still be open.
+    await page.waitForTimeout(500);
+    expect(pathOf(page)).toBe('/profile');
+    await expect(removeOf(page, NOA)).toBeFocused();
+  });
+
   test('[F2.2b c26] after a delete, focus moves to the h2 "המסע שלי"', async ({ page }) => {
     await setup(page);
     await openRemoveNoa(page);
