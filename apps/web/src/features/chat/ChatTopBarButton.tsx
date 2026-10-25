@@ -6,7 +6,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { MessageIcon } from '@/components/ui/icons';
 import { Popover } from '@/components/ui/popover';
 import { useChatCall } from '@/hooks/use-chat-call';
-import { conversationPath, supportThreadPath } from '@/lib/chat-link';
+import { conversationIdOfPath, conversationPath, supportIdOfPath, supportThreadPath } from '@/lib/chat-link';
 import { fetchChatOverview, fetchChatUnread } from '@/services/api/chat';
 import {
   CHAT_ALL_LABEL,
@@ -44,13 +44,15 @@ export function ChatTopBarButton({ current }: { current: string }) {
   // The badge: on every screen change (a thread just read) and every POLL_MS while the page is visible.
   useEffect(() => {
     void refresh();
-    // A thread opened by this screen change is marked read by its own GET: ask again once that has had its turn.
-    const settle = window.setTimeout(() => void refresh(), 1500);
+    // A thread opened by this screen change is marked read by its own GET: ask again once that has had its turn. Only on a thread: every
+    // other screen change would ask twice for nothing (25.10, a load on the database).
+    const isThread = conversationIdOfPath(current) !== null || supportIdOfPath(current) !== null;
+    const settle = isThread ? window.setTimeout(() => void refresh(), 1500) : undefined;
     const timer = window.setInterval(() => {
       if (document.visibilityState === 'visible') void refresh();
     }, POLL_MS);
     return () => {
-      window.clearTimeout(settle);
+      if (settle !== undefined) window.clearTimeout(settle);
       window.clearInterval(timer);
     };
   }, [refresh, current]);
