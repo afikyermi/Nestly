@@ -11,6 +11,8 @@ export interface Session {
   needsRecoveryQuestions: boolean;
   /** The session must set a new password after a takeover clear: the guard holds it on the new-password screen (F2.0 c14). */
   mustSetPassword: boolean;
+  /** The account is scheduled for deletion: the guard holds it on PG-050 until it cancels or signs out (FR-SET-002). */
+  deletionScheduled: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -22,5 +24,6 @@ export function useSession(): Session {
   const notice = useSyncExternalStore(store.subscribe, store.getNotice);
   const needsRecoveryQuestions = useSyncExternalStore(store.subscribe, store.getNeedsRecoveryQuestions);
   const mustSetPassword = useSyncExternalStore(store.subscribe, store.getMustSetPassword);
-  return { state, notice, needsRecoveryQuestions, mustSetPassword, signOut: store.signOut };
+  const deletionScheduled = useSyncExternalStore(store.subscribe, store.getDeletionScheduled);
+  return { state, notice, needsRecoveryQuestions, mustSetPassword, deletionScheduled, signOut: store.signOut };
 }

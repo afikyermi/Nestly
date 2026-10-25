@@ -34,6 +34,7 @@ import {
   readWeekMetrics,
 } from '../repositories/staff-work-repository.js';
 import { readModerators } from '../repositories/team-repository.js';
+import { countPendingDeletions } from '../repositories/account-deletion-repository.js';
 import type { Outcome } from './admin-service.js';
 
 function workItemOf(item: QueueItem, now: Date): WorkItem {
@@ -92,6 +93,7 @@ async function adminOverview(tx: IdentityTx): Promise<AdminOverview> {
   const activity = await readTeamActivity(tx);
   return {
     childSafetyOpen: await countChildSafetyTargets(tx),
+    accountDeletions: await countPendingDeletions(tx),
     attention: {
       openReports: queue.length,
       pastTargetReports: heads.pastTarget,

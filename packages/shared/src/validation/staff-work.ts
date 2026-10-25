@@ -170,6 +170,8 @@ export const metricPair = z.strictObject({
 /** GET /api/admin/overview (the Admin): what needs attention now, the week against the week before, and the team. */
 export const adminOverviewBody = z.strictObject({
   childSafetyOpen: z.number().int(),
+  /** I9 (§16.4): account deletions waiting for their date, and how many are past it (a red bar). Numbers only. */
+  accountDeletions: z.strictObject({ pending: z.number().int(), overdue: z.number().int() }),
   attention: z.strictObject({
     openReports: z.number().int(),
     pastTargetReports: z.number().int(),

@@ -48,6 +48,19 @@ export interface AuthPort {
   signUp(credentials: { email: string; password: string }): Promise<SignUpResponse>;
 }
 
+/**
+ * A password check with Auth that leaves the held session alone (VAL-052, the account deletion): a separate sign-in whose session is kept
+ * in memory only. `accessToken` proves a fresh password sign-in to the server; `release` ends that extra session (scope local). Never stored.
+ */
+export type PasswordCheckResponse =
+  | { accessToken: string; failure: null; release: () => Promise<void> }
+  | { accessToken: null; failure: AuthFailure };
+
+export interface PasswordCheckPort {
+  /** Checks the signed-in user's password with Auth, as a separate sign-in. Rejects when the call never answered. */
+  checkPassword(password: string): Promise<PasswordCheckResponse>;
+}
+
 /** What the stored session came to at page load: none there, a usable one, one Auth refused, or Auth could not be reached. */
 export type RestoreOutcome = 'none' | 'session' | 'refused' | 'unreachable';
 
@@ -176,7 +189,7 @@ function isStoredSession(raw: string): boolean {
   );
 }
 
-export type BrowserAuthPort = AuthPort & AuthSessionPort & GoogleAuthPort;
+export type BrowserAuthPort = AuthPort & AuthSessionPort & GoogleAuthPort & PasswordCheckPort;
 
 /** True for an absolute https URL, or http on localhost; anything else could send a password to our own origin or in the clear. */
 function isAuthUrl(url: string): boolean {
@@ -330,6 +343,40 @@ export function createAuthPort(
         storage?.removeItem(AUTH_STORAGE_KEY);
       }
       return told;
+    },
+
+    async checkPassword(password) {
+      if (config === undefined) return { accessToken: null, failure: NOT_CONFIGURED };
+      // The email is the held session's user (asked of Auth, nothing stored); the check signs in again on a client of its own, in memory,
+      // with no refresh, so the held session and its storage do not change.
+      const { data: held, error: heldError } = await getClient(config).getUser();
+      const email = held.user?.email;
+      if (heldError !== null || email === undefined) return { accessToken: null, failure: NO_SESSION };
+      const checker = new GoTrueClient({
+        url: `${config.url}/auth/v1`,
+        headers: { apikey: config.publishableKey },
+        storageKey: `${AUTH_STORAGE_KEY}-check`,
+        storage: memoryStorage(),
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        ...(seams.fetch !== undefined ? { fetch: seams.fetch } : {}),
+      });
+      const { data, error } = await checker.signInWithPassword({ email, password });
+      if (error !== null) return { accessToken: null, failure: { status: error.status, code: error.code, name: error.name } };
+      const accessToken = data.session?.access_token;
+      if (accessToken === undefined) return { accessToken: null, failure: NO_SESSION };
+      return {
+        accessToken,
+        failure: null,
+        release: async () => {
+          try {
+            await checker.signOut({ scope: 'local' });
+          } catch {
+            // Only tidiness: the extra session also ends when the account's sessions end.
+          }
+        },
+      };
     },
 
     async startGoogleSignIn(redirectTo) {

@@ -51,7 +51,8 @@ const NEEDS: Record<EnforcementKind, PermissionKey> = {
 
 /** The actions that fit the account's state and the keys held: a suspension can be ended, a ban lifted, nothing else reverses. */
 function availableKinds(user: TargetUser, permissions: readonly PermissionKey[]): EnforcementKind[] {
-  const kinds: EnforcementKind[] = user.status === 'banned' ? ['unban'] : user.status === 'suspended' ? ['warning', 'suspension', 'reinstate', 'ban'] : ['warning', 'suspension', 'ban'];
+  // An account scheduled for deletion can only be warned (the database refuses a suspension or a ban of it, I9).
+  const kinds: EnforcementKind[] = user.status === 'banned' ? ['unban'] : user.status === 'suspended' ? ['warning', 'suspension', 'reinstate', 'ban'] : user.status === 'deletion_scheduled' ? ['warning'] : ['warning', 'suspension', 'ban'];
   return kinds.filter((kind) => permissions.includes(NEEDS[kind]));
 }
 

@@ -6,8 +6,11 @@
 export const ACCOUNT_TYPES = ['regular', 'professional', 'admin', 'moderator'] as const;
 export type AccountType = (typeof ACCOUNT_TYPES)[number];
 
-/** Whether the account may use the product now (FR-MOD-002, BR-024). A warning is not a status. */
-export const ACCOUNT_STATUSES = ['active', 'suspended', 'banned'] as const;
+/**
+ * Whether the account may use the product now (FR-MOD-002, BR-024). A warning is not a status. `deletion_scheduled`: the account asked to
+ * be deleted and is in its 30-day window (FR-SET-002, BR-073); hidden from everyone like a suspended one, and only it can cancel.
+ */
+export const ACCOUNT_STATUSES = ['active', 'suspended', 'banned', 'deletion_scheduled'] as const;
 export type AccountStatus = (typeof ACCOUNT_STATUSES)[number];
 
 /** The parent's gender (VAL-006, OP-004 closed). Optional: no answer is stored as null, not as a value here. */
