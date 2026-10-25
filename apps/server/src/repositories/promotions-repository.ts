@@ -112,18 +112,31 @@ const ownRow = z.object({
 /** The caller's promotions, newest first, with their paid counts (FR-SERV-010 Promotion Analytics; never who). */
 export async function readOwnPromotions(tx: IdentityTx): Promise<PromotionItem[]> {
   const rows = z.array(ownRow).parse(
+    // The page first, then one pass over each promotion's events for its four counts (25.10: four sub-selects per row took 1.4 s on
+    // Production, each its own read of promotion_events under its policies).
     await tx.execute(sql`
+      with page as (
+        select p.id, p.target_kind, p.plan_key, p.status, p.starts_at, p.ends_at, p.stopped_at, p.stopped_by, p.post_id, p.listing_id, p.created_at
+        from nestly.promotions p
+        where p.owner_id = (select auth.uid())
+        order by p.created_at desc, p.id
+        limit ${OWN_LIMIT}
+      )
       select p.id, p.target_kind as "targetKind", p.plan_key as "planKey", ${stateOf} as state, ${iso('p.starts_at')} as "startsAt",
              ${iso('p.ends_at')} as "endsAt", case when p.stopped_at is null then null else ${iso('p.stopped_at')} end as "stoppedAt",
              p.stopped_by as "stoppedBy", p.post_id as "postId", p.listing_id as "listingId",
              coalesce(left(po.body, ${EXCERPT}), l.title) as "targetLabel",
-             ${eventSum('impression')} as impressions, ${eventSum('click')} as clicks, ${eventSum('follow')} as follows, ${eventSum('chat_start')} as "chatStarts"
-      from nestly.promotions p
+             ev.impressions, ev.clicks, ev.follows, ev."chatStarts"
+      from page p
       left join nestly.posts po on po.id = p.post_id
       left join nestly.marketplace_listings l on l.id = p.listing_id
-      where p.owner_id = (select auth.uid())
-      order by p.created_at desc, p.id
-      limit ${OWN_LIMIT}`),
+      cross join lateral (
+        select coalesce(sum(e.times) filter (where e.kind = 'impression'), 0) as impressions,
+               coalesce(sum(e.times) filter (where e.kind = 'click'), 0) as clicks,
+               coalesce(sum(e.times) filter (where e.kind = 'follow'), 0) as follows,
+               coalesce(sum(e.times) filter (where e.kind = 'chat_start'), 0) as "chatStarts"
+        from nestly.promotion_events e where e.promotion_id = p.id) ev
+      order by p.created_at desc, p.id`),
   );
   return rows.map(({ impressions, clicks, follows, chatStarts, ...rest }) => ({ ...rest, counts: { impressions, clicks, follows, chatStarts } }));
 }
