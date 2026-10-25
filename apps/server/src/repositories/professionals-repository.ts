@@ -397,10 +397,9 @@ export async function readDashboard(tx: IdentityTx): Promise<ProfessionalDashboa
         where r.professional_id = ${me} and r.moderation = 'active') as rating`),
     );
   const reviewCount = await count(sql`select count(*) from nestly.professional_reviews r where r.professional_id = ${me} and r.moderation = 'active'`);
-  const engagement30d = await count(sql`(select count(*) from nestly.reactions x join nestly.posts p on p.id = x.post_id
-      where p.author_id = ${me} and not x.is_by_author and x.created_at > now() - interval '30 days')
-    + (select count(*) from nestly.comments m join nestly.posts p on p.id = m.post_id
-      where p.author_id = ${me} and not m.is_by_post_author and m.created_at > now() - interval '30 days')`);
+  // Likes and comments of others on the caller's own posts, 30 days: one definer count, the same number the caller's policies give
+  // (decisions-in-force §19, supabase/tests/109) without each row re-checking its post (104–1545 ms on Production, 25.10)
+  const engagement30d = await count(sql`select nestly.own_post_engagement(30)`);
   const posts30d = await count(sql`select count(*) from nestly.posts p where p.author_id = ${me} and p.created_at > now() - interval '30 days'`);
   const articles = await count(sql`select count(*) from nestly.professional_articles a where a.author_id = ${me} and a.moderation = 'active'`);
   const offersToday = await count(sql`select count(*) from nestly.outreach_requests o where o.professional_id = ${me}
