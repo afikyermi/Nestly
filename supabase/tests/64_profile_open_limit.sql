@@ -221,9 +221,25 @@ select is(
      cross join pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname in ('security_limits', 'profile_open_counts', 'security_events')
       and (has_table_privilege(r.rolname, c.oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
-           or has_any_column_privilege(r.rolname, c.oid, 'SELECT,INSERT,UPDATE,REFERENCES'))),
+           or has_any_column_privilege(r.rolname, c.oid, 'SELECT,INSERT,UPDATE,REFERENCES'))
+      and not (r.rolname = 'app_jobs' and c.relname = 'security_events')),
   null,
-  '[F2.4-c c23 c21 c22] no runtime role holds any privilege, table or column, on the three tables (authenticated, anon, app_server, app_jobs, app_recovery, service_role, authenticator)');
+  '[F2.4-c c23 c21 c22 · I9] no runtime role holds any privilege, table or column, on the three tables (authenticated, anon, app_server, app_jobs, app_recovery, service_role, authenticator), but app_jobs on security_events (I9''s 90-day purge after an account deletion, BR-073: below and file 110)');
+select is(
+  (select string_agg(p, ', ' order by p) from (
+     select 'table:' || x.p as p from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace,
+            unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']) x(p)
+      where n.nspname = 'nestly' and c.relname = 'security_events' and has_table_privilege('app_jobs', c.oid, x.p)
+     union all
+     select 'write:' || a.attname from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace join pg_catalog.pg_attribute a on a.attrelid = c.oid
+      where n.nspname = 'nestly' and c.relname = 'security_events' and a.attnum > 0 and not a.attisdropped
+        and (has_column_privilege('app_jobs', c.oid, a.attnum, 'INSERT') or has_column_privilege('app_jobs', c.oid, a.attnum, 'UPDATE'))
+     union all
+     select 'select:' || a.attname from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace join pg_catalog.pg_attribute a on a.attrelid = c.oid
+      where n.nspname = 'nestly' and c.relname = 'security_events' and a.attnum > 0 and not a.attisdropped
+        and has_column_privilege('app_jobs', c.oid, a.attnum, 'SELECT')) s),
+  'select:id, select:user_id, table:DELETE',
+  '[I9 BR-073 rule 6] app_jobs on security_events: DELETE and a read of id and user_id, nothing else (the policies narrow both to accounts deleted 90 days ago)');
 select is(
   (select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace,
           aclexplode(coalesce(c.relacl, acldefault('r', c.relowner))) a
@@ -243,15 +259,17 @@ select is(
   (select string_agg(pol.polname, ', ' order by pol.polname)
      from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname in ('security_limits', 'profile_open_counts', 'security_events')),
-  'profile_open_counts_insert_profile_view, profile_open_counts_select_profile_view, profile_open_counts_update_profile_view, security_events_insert_profile_view, '
-  || 'security_events_insert_search, security_limits_select_profile_view, security_limits_select_search_people',
-  '[F2.4-c c23] the three closed tables carry exactly seven policies (five of profile_view, two of search_people - file 90), none for authenticated, anon or PUBLIC');
+  'profile_open_counts_insert_profile_view, profile_open_counts_select_profile_view, profile_open_counts_update_profile_view, security_events_delete_jobs, security_events_insert_profile_view, '
+  || 'security_events_insert_search, security_events_select_jobs, security_limits_select_profile_view, security_limits_select_search_people',
+  '[F2.4-c c23 · I9] the three closed tables carry exactly nine policies (five of profile_view, two of search_people - file 90, and I9''s 90-day purge read and delete - file 110), none for authenticated, anon or PUBLIC');
 select is(
-  (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+  (select string_agg(pol.polname, ', ' order by pol.polname) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname in ('security_limits', 'profile_open_counts', 'security_events')
-      and pol.polroles <> array[(select oid from pg_catalog.pg_roles where rolname = 'app_owner')]::oid[]),
-  0::bigint,
-  '[F2.4-c c23] and all seven are TO app_owner only');
+      and pol.polroles <> array[(select oid from pg_catalog.pg_roles where rolname = 'app_owner')]::oid[]
+      and not (pol.polname in ('security_events_select_jobs', 'security_events_delete_jobs')
+               and pol.polroles = array[(select oid from pg_catalog.pg_roles where rolname = 'app_jobs')]::oid[])),
+  null,
+  '[F2.4-c c23 · I9] and all seven others are TO app_owner only (the two purge policies TO app_jobs only)');
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and pol.polname like '%\_profile\_view'

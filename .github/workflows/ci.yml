@@ -435,7 +435,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.db == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30 # 20 cut the P6 expand check (main's server db tests, ~9 min) after ~12 min of migrations and pgTAP (PR 243, 25.10)
     env:
       # The image the pinned CLI itself uses; PostgreSQL 17.11, the minor of nestly-preview and nestly-prod.
       SUPABASE_POSTGRES_IMAGE: supabase/postgres:17.11.0.004

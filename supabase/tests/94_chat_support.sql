@@ -117,17 +117,18 @@ select is((select string_agg(c.relname || '.' || pl.polname || ':' || pl.polcmd:
   || 'chat_reads.chat_reads_insert_own:a, chat_reads.chat_reads_select_own:r, chat_reads.chat_reads_update_own:w, '
   || 'chat_requests.chat_requests_insert_requester:a, chat_requests.chat_requests_select_requester:r, chat_requests.chat_requests_select_target:r, '
   || 'chat_requests.chat_requests_update_requester:w, chat_requests.chat_requests_update_target:w, '
-  || 'conversations.conversations_insert_party:a, conversations.conversations_select_analytics:r, conversations.conversations_select_party:r, '
-  || 'messages.messages_insert_party:a, messages.messages_select_party:r, messages.messages_select_staff:r, '
+  || 'conversations.conversations_delete_jobs:d, conversations.conversations_insert_party:a, conversations.conversations_select_analytics:r, conversations.conversations_select_jobs:r, conversations.conversations_select_party:r, conversations.conversations_update_jobs:w, '
+  || 'messages.messages_insert_party:a, messages.messages_select_deletion_jobs:r, messages.messages_select_party:r, messages.messages_select_staff:r, '
   || 'reported_message_views.reported_message_views_insert_staff:a, reported_message_views.reported_message_views_select_own:r, '
   || 'support_messages.support_messages_insert_own:a, support_messages.support_messages_insert_staff:a, support_messages.support_messages_select_analytics:r, support_messages.support_messages_select_own:r, support_messages.support_messages_select_staff:r, '
   || 'support_requests.support_requests_insert_own:a, support_requests.support_requests_select_analytics:r, support_requests.support_requests_select_own:r, support_requests.support_requests_select_staff:r, support_requests.support_requests_update_staff:w',
-  '[I8 c1] exactly these policies: no DELETE anywhere, no UPDATE of a conversation, a message, a Support message or a view (the I11 follow-ups add the two analytics reads, file 98; the SRS-audit fixes the conversations analytics read, file 102)');
+  '[I8 c1 · I9] exactly these policies: no DELETE anywhere, no UPDATE of a conversation, a message, a Support message or a view (the I11 follow-ups add the two analytics reads, file 98; the SRS-audit fixes the conversations analytics read, file 102; I9 the deletion job''s read, detach and delete of a one-sided conversation and its message ids TO app_jobs, file 110)');
 select is((select count(*) from pg_policy pl join pg_class c on c.oid = pl.polrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'nestly'
             and c.relname in ('chat_requests', 'conversations', 'messages', 'chat_blocks', 'chat_reads', 'support_requests', 'support_messages', 'reported_message_views')
+            and not (pl.polname in ('conversations_select_jobs', 'conversations_update_jobs', 'conversations_delete_jobs', 'messages_select_deletion_jobs') and pl.polroles = array[(select oid from pg_roles where rolname = 'app_jobs')]::oid[])
             and (pl.polroles <> array[(select oid from pg_roles where rolname = 'authenticated')]::oid[] or not pl.polpermissive
                  or (coalesce(pg_get_expr(pl.polqual, pl.polrelid), '') || coalesce(pg_get_expr(pl.polwithcheck, pl.polrelid), '')) !~ 'is_active_account\(\)')),
-  0::bigint, '[I8 c1 platform r15] every policy of the new tables is permissive, TO authenticated and gated by is_active_account()');
+  0::bigint, '[I8 c1 platform r15 · I9] every policy of the new tables is permissive, TO authenticated and gated by is_active_account(), but I9''s four TO app_jobs (rule 6, file 110)');
 select is((select string_agg(c.relname || '.' || a.attname, ', ' order by c.relname, a.attname)
              from pg_attribute a join pg_class c on c.oid = a.attrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'nestly'
               and c.relname in ('chat_requests', 'conversations', 'messages', 'chat_blocks', 'chat_reads', 'support_requests', 'support_messages', 'reported_message_views')

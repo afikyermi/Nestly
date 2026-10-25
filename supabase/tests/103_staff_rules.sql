@@ -80,7 +80,8 @@ select is(has_any_column_privilege('authenticated', pg_temp.toid('auto_hide_scop
 select is(has_column_privilege('authenticated', pg_temp.toid('report_auto_hides'), 'author_id', 'SELECT') or has_column_privilege('authenticated', pg_temp.toid('report_auto_hides'), 'reason', 'SELECT'),
   false, '[F14.3-a c1 rule 20] no client reads a hide''s author (an anonymous post''s real author) or its reason, staff included');
 select is((select string_agg(p.polname || ':' || p.polcmd::text, ', ' order by p.polname) from pg_catalog.pg_policy p where p.polrelid = pg_temp.toid('enforcement_records')),
-  'enforcement_records_insert_staff:a, enforcement_records_select_staff:r', '[F14.3-a c1 AC-159] the enforcement history: one read, one write, no UPDATE or DELETE');
+  'enforcement_records_delete_jobs:d, enforcement_records_insert_staff:a, enforcement_records_select_jobs:r, enforcement_records_select_staff:r',
+  '[F14.3-a c1 AC-159 · I9] the enforcement history: one read, one write, no UPDATE; the only DELETE (and its read) is I9''s purge TO app_jobs, 90 days after the account''s deletion (BR-073, file 110)');
 select is(has_table_privilege('authenticated', pg_temp.toid('enforcement_records'), 'UPDATE') or has_table_privilege('authenticated', pg_temp.toid('enforcement_records'), 'DELETE'),
   false, '[F14.3-a c1 AC-159] nobody edits or deletes a record');
 select is(has_any_column_privilege('authenticated', pg_temp.toid('media_fingerprints'), 'INSERT,UPDATE')

@@ -7,10 +7,12 @@
 import {
   NOTIFICATION_CATEGORIES,
   type NotificationCategory,
+  NOTIFICATION_TYPES,
   type NotificationTargetKind,
 } from '@nestly/shared';
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { chatUnreadSql } from './chat-repository.js';
 import type { IdentityTx } from '../db/identity-transaction.js';
 import { friendContentNotificationPreferences, notificationPreferences, notifications, notificationsUpdate } from '../db/schema.js';
 
@@ -74,6 +76,24 @@ const countRow = z.array(z.object({ n: z.number().int().nonnegative() })).length
 export async function countUnread(tx: IdentityTx): Promise<number> {
   const rows = countRow.parse(await tx.execute(sql`select count(*)::int as n from nestly.notifications where read_at is null and ${digestShown}`));
   return rows[0]?.n ?? 0;
+}
+
+const bellRow = z.array(z.object({ unread: z.number().int().nonnegative(), chat: z.number().int().nonnegative(), latest: z.guid().nullable() })).length(1);
+
+/**
+ * The bell's light poll, one statement: the unread count exactly as countUnread, the Chat badge exactly as readUnreadCount, and the id of the
+ * newest notification readLatest would list (same digest rule, a type this build knows). Read under the caller's own policies.
+ */
+export async function readBellCounts(tx: IdentityTx): Promise<{ unread: number; chat: number; latest: string | null }> {
+  const types = sql.join(NOTIFICATION_TYPES.map((type) => sql`${type}`), sql`, `);
+  const rows = bellRow.parse(
+    await tx.execute(sql`select
+      (select count(*)::int from nestly.notifications where read_at is null and ${digestShown}) as unread,
+      ${chatUnreadSql} as chat,
+      (select id from nestly.notifications where ${digestShown} and type::text in (${types}) order by created_at desc, id desc limit 1) as latest`),
+  );
+  const row = rows[0];
+  return { unread: row?.unread ?? 0, chat: row?.chat ?? 0, latest: row?.latest ?? null };
 }
 
 /** The new followers of each digest's week (the week before its time), by notification id: a count of the rows naming the caller, never who. */

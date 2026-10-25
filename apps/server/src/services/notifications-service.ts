@@ -24,6 +24,7 @@ import {
   deliverChildBirthdays,
   markAllRead,
   markOneRead,
+  readBellCounts,
   readCategoryRows,
   readDigestCounts,
   readFollowRows,
@@ -88,6 +89,20 @@ export async function readNotifications(
       ];
     });
     return { kind: 'ok', items, unreadCount, nextCursor };
+  });
+}
+
+export type BellCountsOutcome =
+  | { readonly kind: 'ok'; readonly unreadCount: number; readonly chatUnread: number; readonly latestId: string | null }
+  | MemberRefusal;
+
+/** The bell's light poll: the two counters and the newest listed notification, with the same account rule as the list. Writes nothing. */
+export async function readBell(database: Database, identity: Identity): Promise<BellCountsOutcome> {
+  return inIdentityTransaction(database, identity, async (tx): Promise<BellCountsOutcome> => {
+    const member = await classifyMember(tx);
+    if (isRefusal(member)) return member;
+    const counts = await readBellCounts(tx);
+    return { kind: 'ok', unreadCount: counts.unread, chatUnread: counts.chat, latestId: counts.latest };
   });
 }
 

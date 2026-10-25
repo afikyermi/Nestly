@@ -81,17 +81,17 @@ select is(
       'recovery_answers_pkey', 'recovery_answers_email_handle_key', 'recovery_answers_question_order_check',
       'recovery_answers_salts_differ_check', 'recovery_answers_scrypt_log_n_check', 'recovery_answers_handle_claim_check', 'recovery_events_kind_check',
       'recovery_events_user_id_check', 'recovery_throttles_long_window_check', 'recovery_throttles_long_failures_check',
-      'recovery_answers_user_id_fkey', 'recovery_events_user_id_fkey')),
-  12::bigint,
-  '[F1.6-b c3 c8 c13 c21] the named constraints exist: pkey, handle uniqueness, handle and claim time null together, pair order, salts differ, scrypt N, event kind and user checks, throttle checks, two foreign keys');
+      'recovery_answers_user_id_fkey')),
+  11::bigint,
+  '[F1.6-b c3 c8 c13 c21 · I9] the named constraints exist: pkey, handle uniqueness, handle and claim time null together, pair order, salts differ, scrypt N, event kind and user checks, throttle checks, the answers foreign key (I9 dropped the audit''s: file 110)');
 
 select is(
   (select string_agg(c.relname || '->' || fc.relname || ':' || co.confdeltype::text, ', ' order by c.relname)
      from pg_catalog.pg_constraint co join pg_catalog.pg_class c on c.oid = co.conrelid
      join pg_catalog.pg_namespace n on n.oid = c.relnamespace join pg_catalog.pg_class fc on fc.oid = co.confrelid
     where n.nspname = 'nestly' and co.contype = 'f' and c.relname in ('recovery_answers', 'recovery_throttles', 'recovery_events')),
-  'recovery_answers->users:c, recovery_events->users:r',
-  '[F1.6-b c13] answers die with the account (CASCADE); the audit does not (RESTRICT); throttles, keyed by hashes, have no foreign key');
+  'recovery_answers->users:c',
+  '[F1.6-b c13 · I9 BR-073] answers die with the account (CASCADE); the audit outlives it with no foreign key (kept 90 days after the deletion, then purged: file 110); throttles, keyed by hashes, have no foreign key');
 
 select is(
   (select pg_catalog.pg_get_expr(i.indpred, i.indrelid) from pg_catalog.pg_index i join pg_catalog.pg_class ic on ic.oid = i.indexrelid
@@ -117,8 +117,9 @@ select set_eq(
             ('recovery_answers.recovery_answers_release_recovery.w'),
             ('recovery_throttles.recovery_throttles_select_recovery.r'), ('recovery_throttles.recovery_throttles_insert_recovery.a'),
             ('recovery_throttles.recovery_throttles_update_recovery.w'), ('recovery_events.recovery_events_insert_recovery.a'),
-            ('recovery_answers.recovery_answers_delete_clear.d'), ('recovery_events.recovery_events_insert_subject.a') $$,
-  '[F1.6-b c3 c5 c13 platform r14; F2.0-a D1] the recovery policies are exactly the eleven approved ones (nine of F1.6, plus the D1 answers delete and the subject-bound audit insert): no ALL policy, no policy for anon, no SELECT or UPDATE policy on the audit');
+            ('recovery_answers.recovery_answers_delete_clear.d'), ('recovery_events.recovery_events_insert_subject.a'),
+            ('recovery_events.recovery_events_select_jobs.r'), ('recovery_events.recovery_events_delete_jobs.d') $$,
+  '[F1.6-b c3 c5 c13 platform r14; F2.0-a D1 · I9] the recovery policies are exactly the thirteen approved ones (nine of F1.6, plus the D1 answers delete and the subject-bound audit insert, plus I9''s 90-day purge read and delete TO app_jobs, file 110): no ALL policy, no policy for anon, no SELECT or UPDATE policy on the audit');
 
 select is(
   (select string_agg(c.relname || '.' || pol.polname, ', ' order by c.relname, pol.polname)
@@ -266,8 +267,24 @@ select is_empty(
        cross join (values ('anon'), ('service_role'), ('app_server'), ('app_jobs')) as r(rolname)
       where n.nspname = 'nestly' and c.relname in ('recovery_answers', 'recovery_throttles', 'recovery_events')
         and (has_table_privilege(r.rolname, c.oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
-             or has_any_column_privilege(r.rolname, c.oid, 'SELECT,INSERT,UPDATE,REFERENCES')) $$,
-  '[F1.6-b c3 c13 platform r1, r7] anon, service_role, app_server and app_jobs hold no privilege on any recovery table (app_server only reaches them after SET ROLE)');
+             or has_any_column_privilege(r.rolname, c.oid, 'SELECT,INSERT,UPDATE,REFERENCES'))
+        and not (r.rolname = 'app_jobs' and c.relname = 'recovery_events') $$,
+  '[F1.6-b c3 c13 platform r1, r7 · I9] anon, service_role, app_server and app_jobs hold no privilege on any recovery table (app_server only reaches them after SET ROLE), but app_jobs on recovery_events (I9''s 90-day purge: exact grants below)');
+select is(
+  (with t as (select c.oid from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+               where n.nspname = 'nestly' and c.relname = 'recovery_events')
+   select string_agg(p, ', ' order by p) from (
+     select 'table:' || x.p as p from t, unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']) x(p)
+      where has_table_privilege('app_jobs', t.oid, x.p)
+     union all
+     select 'select:' || a.attname from t join pg_catalog.pg_attribute a on a.attrelid = t.oid
+      where a.attnum > 0 and not a.attisdropped and has_column_privilege('app_jobs', t.oid, a.attnum, 'SELECT')
+     union all
+     select 'write:' || a.attname from t join pg_catalog.pg_attribute a on a.attrelid = t.oid
+      where a.attnum > 0 and not a.attisdropped
+        and (has_column_privilege('app_jobs', t.oid, a.attnum, 'INSERT') or has_column_privilege('app_jobs', t.oid, a.attnum, 'UPDATE'))) s),
+  'select:id, select:user_id, table:DELETE',
+  '[I9 BR-073 rule 6] app_jobs on recovery_events: DELETE and a read of id and user_id only (the policies narrow both to accounts deleted 90 days ago)');
 
 select is(
   (select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace, lateral pg_catalog.aclexplode(c.relacl) a
