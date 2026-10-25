@@ -1,13 +1,25 @@
 import { useCallback, useEffect, useId, useState } from 'react';
-import { ANNOUNCEMENT_BODY_MAX, ANNOUNCEMENT_TITLE_MAX, ANNOUNCEMENT_TITLE_MIN, codePointLength, type Announcement } from '@nestly/shared';
+import {
+  ANNOUNCEMENT_AUDIENCES,
+  ANNOUNCEMENT_BODY_MAX,
+  ANNOUNCEMENT_TITLE_MAX,
+  ANNOUNCEMENT_TITLE_MIN,
+  JOURNEY_STAGES,
+  codePointLength,
+  type Announcement,
+  type AnnouncementAudience,
+  type JourneyStage,
+} from '@nestly/shared';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { FormField } from '@/components/shared/form-field';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TextArea } from '@/components/ui/text-area';
+import { SelectInput } from '@/components/ui/select-input';
 import { TextInput } from '@/components/ui/text-input';
 import { useAdminCall } from '@/hooks/use-admin-call';
+import { STAGE_LABELS } from '@/lib/child-fields';
 import type { AdminOutcome } from '@/services/api/admin';
 import { createAnnouncement, editAnnouncement, fetchAnnouncements, setAnnouncementStatus } from '@/services/api/team';
 import { formatAdminTime } from './admin-format';
@@ -31,7 +43,56 @@ import {
   ANNOUNCEMENT_TITLE_ERROR,
   ANNOUNCEMENT_TITLE_LABEL,
   ANNOUNCEMENTS_EMPTY,
+  AUDIENCE_LABEL,
+  AUDIENCE_LABELS,
+  AUDIENCE_STAGE_LABEL,
+  audienceText,
 } from './team-texts';
+
+interface Audience {
+  audience: AnnouncementAudience;
+  audienceStage: JourneyStage | null;
+}
+const EVERYONE: Audience = { audience: 'everyone', audienceStage: null };
+const isAudience = (value: string): value is AnnouncementAudience => ANNOUNCEMENT_AUDIENCES.some((a) => a === value);
+const isStage = (value: string): value is JourneyStage => JOURNEY_STAGES.some((s) => s === value);
+
+// I14 completion B (FR-ADMIN-008, OP-042, VAL-050): who reads the announcement once published: one choice from the list; a stage names one
+// of the journey stages (the first is offered when "a stage" is chosen).
+function AudienceFields({ id, value, onChange }: { id: string; value: Audience; onChange: (next: Audience) => void }) {
+  return (
+    <div className="flex flex-wrap gap-3">
+      <FormField label={AUDIENCE_LABEL} htmlFor={`${id}-audience`} className="min-w-44">
+        {(control) => (
+          <SelectInput
+            {...control}
+            options={ANNOUNCEMENT_AUDIENCES.map((a) => ({ value: a, label: AUDIENCE_LABELS[a] }))}
+            value={value.audience}
+            placeholder="—"
+            onChange={(next) => {
+              if (isAudience(next)) onChange({ audience: next, audienceStage: next === 'stage' ? (value.audienceStage ?? 'pregnant') : null });
+            }}
+          />
+        )}
+      </FormField>
+      {value.audience === 'stage' ? (
+        <FormField label={AUDIENCE_STAGE_LABEL} htmlFor={`${id}-stage`} className="min-w-44">
+          {(control) => (
+            <SelectInput
+              {...control}
+              options={JOURNEY_STAGES.map((s) => ({ value: s, label: STAGE_LABELS[s] }))}
+              value={value.audienceStage ?? 'pregnant'}
+              placeholder="—"
+              onChange={(next) => {
+                if (isStage(next)) onChange({ audience: 'stage', audienceStage: next });
+              }}
+            />
+          )}
+        </FormField>
+      ) : null}
+    </div>
+  );
+}
 
 type View = { kind: 'loading' } | { kind: 'failed'; message: string } | { kind: 'loaded'; items: Announcement[] };
 
@@ -116,6 +177,7 @@ function NewAnnouncement({ onCreated }: { onCreated: (item: Announcement) => voi
   const call = useAdminCall();
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
+  const [audience, setAudience] = useState<Audience>(EVERYONE);
   const [checked, setChecked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -127,11 +189,12 @@ function NewAnnouncement({ onCreated }: { onCreated: (item: Announcement) => voi
     if (found.title !== undefined || found.body !== undefined) return;
     setBusy(true);
     setError('');
-    const outcome = await call((token) => createAnnouncement(token, { title: title.trim(), body: body.trim() }));
+    const outcome = await call((token) => createAnnouncement(token, { title: title.trim(), body: body.trim(), ...audience }));
     setBusy(false);
     if (outcome.kind === 'ok') {
       setTitle('');
       setBody('');
+      setAudience(EVERYONE);
       setChecked(false);
       onCreated(outcome.value);
     } else {
@@ -150,6 +213,7 @@ function NewAnnouncement({ onCreated }: { onCreated: (item: Announcement) => voi
       <FormField label={ANNOUNCEMENT_BODY_LABEL} htmlFor="announcement-new-body" {...(problems.body !== undefined ? { error: problems.body } : {})}>
         {(control) => <TextArea {...control} rows={4} value={body} onChange={(event) => setBody(event.target.value)} />}
       </FormField>
+      <AudienceFields id="announcement-new" value={audience} onChange={setAudience} />
       <div>
         <Button variant="primary" pending={busy} disabled={busy} onClick={() => void create()}>
           {ANNOUNCEMENT_CREATE}
@@ -166,6 +230,7 @@ function AnnouncementCard({ item, onChanged }: { item: Announcement; onChanged: 
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(item.title);
   const [body, setBody] = useState(item.body);
+  const [audience, setAudience] = useState<Audience>({ audience: item.audience, audienceStage: item.audienceStage });
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState('');
@@ -175,7 +240,7 @@ function AnnouncementCard({ item, onChanged }: { item: Announcement; onChanged: 
     if (problems.title !== undefined || problems.body !== undefined) return;
     setBusy(true);
     setError('');
-    const outcome = await call((token) => editAnnouncement(token, item.id, { title: title.trim(), body: body.trim() }));
+    const outcome = await call((token) => editAnnouncement(token, item.id, { title: title.trim(), body: body.trim(), ...audience }));
     setBusy(false);
     if (outcome.kind === 'ok') {
       setEditing(false);
@@ -202,6 +267,7 @@ function AnnouncementCard({ item, onChanged }: { item: Announcement; onChanged: 
           {item.title}
         </h4>
         <span className="text-small">{ANNOUNCEMENT_STATUS[item.status]}</span>
+        <span className="text-small">{audienceText(item.audience === 'stage' && item.audienceStage !== null ? STAGE_LABELS[item.audienceStage] : AUDIENCE_LABELS[item.audience])}</span>
         <span className="text-small text-muted-foreground">{formatAdminTime(item.publishedAt ?? item.updatedAt)}</span>
       </header>
       {editing ? (
@@ -212,6 +278,7 @@ function AnnouncementCard({ item, onChanged }: { item: Announcement; onChanged: 
           <FormField label={ANNOUNCEMENT_BODY_LABEL} htmlFor={`${id}-edit-body`} {...(problems.body !== undefined ? { error: problems.body } : {})}>
             {(control) => <TextArea {...control} rows={4} value={body} onChange={(event) => setBody(event.target.value)} />}
           </FormField>
+          <AudienceFields id={`${id}-edit`} value={audience} onChange={setAudience} />
           <div className="flex flex-wrap gap-3">
             <Button variant="primary" pending={busy} disabled={busy} onClick={() => void save()}>
               {ANNOUNCEMENT_SAVE}
@@ -222,6 +289,7 @@ function AnnouncementCard({ item, onChanged }: { item: Announcement; onChanged: 
                 setEditing(false);
                 setTitle(item.title);
                 setBody(item.body);
+                setAudience({ audience: item.audience, audienceStage: item.audienceStage });
               }}
             >
               {ANNOUNCEMENT_CANCEL}

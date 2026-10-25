@@ -17,7 +17,7 @@ import { TextArea } from '@/components/ui/text-area';
 import { TextInput } from '@/components/ui/text-input';
 import { useOwnUserId } from '@/hooks/use-own-user-id';
 import { useProCall } from '@/hooks/use-pro-call';
-import { formatPostTime } from '@/lib/format-post-time';
+import { PublishedTime } from '@/components/domain/published-time';
 import {
   ACTION_FAILED,
   ARTICLE_BODY_LABEL,
@@ -189,7 +189,7 @@ export function ArticlesScreen() {
               <li key={article.id} className="rounded-lg bg-card p-4 shadow-card">
                 <h3 className="text-h3">{article.title}</h3>
                 <p className="text-small text-muted-foreground">
-                  {PROFESSIONAL_FIELD_LABELS[article.field]} · {formatPostTime(article.at)}
+                  {PROFESSIONAL_FIELD_LABELS[article.field]} · <PublishedTime iso={article.at} />
                   {article.status === 'hidden' ? ` · ${ARTICLE_HIDDEN_BADGE}` : ''}
                   {article.isTakenDown ? ` · ${ARTICLE_TAKEN_DOWN}` : ''}
                 </p>

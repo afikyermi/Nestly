@@ -6,7 +6,7 @@ import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
 import { TextArea } from '@/components/ui/text-area';
 import { useProCall } from '@/hooks/use-pro-call';
-import { formatPostTime } from '@/lib/format-post-time';
+import { PublishedTime } from '@/components/domain/published-time';
 import { postPath } from '@/lib/post-link';
 import {
   ACTION_FAILED,
@@ -90,7 +90,7 @@ export function HelpRequestsList({ items, onSent }: HelpRequestsListProps) {
           {items.map((item) => (
             <li key={item.postId} className="rounded-lg bg-card p-4 shadow-card">
               <p className="text-small text-muted-foreground">
-                {item.isAnonymous ? ANONYMOUS_AUTHOR : (item.authorName ?? '')} · {formatPostTime(item.at)}
+                {item.isAnonymous ? ANONYMOUS_AUTHOR : (item.authorName ?? '')} · <PublishedTime iso={item.at} />
               </p>
               <p className="mt-1 whitespace-pre-line">{item.excerpt}</p>
               <div className="mt-3 flex flex-wrap items-center gap-3">

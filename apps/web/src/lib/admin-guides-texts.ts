@@ -26,7 +26,6 @@ export const GUIDES_TEXT = {
   hideBody: 'המדריך לא יוצג יותר למשתמשים. ההסתרה נרשמת ביומן הפעולות.',
   draftQuestion: 'להחזיר את המדריך לטיוטה?',
   draftBody: 'המדריך לא יוצג למשתמשים עד שיפורסם שוב.',
-  needsSourceDate: 'כדי לפרסם יש להזין תאריך בדיקת מקורות.',
   stage: 'שלב',
   stagePlaceholder: 'בחירת שלב',
   stagePlanning: 'תכנון הריון',

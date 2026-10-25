@@ -40,11 +40,12 @@ export const CHILD_TREND_METRICS = ['breastfeeding', 'bottle', 'sleep', 'diaper'
 export type ChildTrendMetric = (typeof CHILD_TREND_METRICS)[number];
 export const CHILD_TREND_FIELDS = ['events_per_day', 'duration_minutes', 'amount_ml', 'weight_kg', 'height_cm', 'head_cm'] as const;
 export type ChildTrendField = (typeof CHILD_TREND_FIELDS)[number];
-export const CHILD_TREND_DIMENSIONS = ['child_age', 'child_sex', 'week', 'month'] as const;
+// I14 completion B (OP-056, Afik 21.10.2026): the week and month splits are gone (they overlapped the periods); periods are calendar ones
+export const CHILD_TREND_DIMENSIONS = ['child_age', 'child_sex'] as const;
 export type ChildTrendDimension = (typeof CHILD_TREND_DIMENSIONS)[number];
-export const CHILD_TREND_PERIODS = [30, 90, 365] as const;
+export const CHILD_TREND_PERIODS = ['this_week', 'last_week', 'this_month', 'last_month'] as const;
 export type ChildTrendPeriod = (typeof CHILD_TREND_PERIODS)[number];
-/** A cell is shown only with at least this many children, of at least this many families (OP-052). */
+/** A cell is shown only with at least this many children, of at least this many families (OP-052); a shown count is rounded to it (OP-056). */
 export const CHILD_TREND_MIN_CHILDREN = 10;
 
 /** The fields each metric offers (events per day for every one). */
@@ -59,13 +60,13 @@ export const CHILD_TREND_FIELDS_BY_METRIC: Readonly<Record<ChildTrendMetric, rea
   bath: ['events_per_day'],
 };
 
-/** GET /api/admin/child-trends?metric=&field=&dimension=&days= */
+/** GET /api/admin/child-trends?metric=&field=&dimension=&period= */
 export const childTrendsQuerySchema = z
   .strictObject({
     metric: z.enum(CHILD_TREND_METRICS),
     field: z.enum(CHILD_TREND_FIELDS),
     dimension: z.enum(CHILD_TREND_DIMENSIONS),
-    days: z.enum(['30', '90', '365']).transform((value): ChildTrendPeriod => (value === '30' ? 30 : value === '90' ? 90 : 365)),
+    period: z.enum(CHILD_TREND_PERIODS),
   })
   .refine((value) => CHILD_TREND_FIELDS_BY_METRIC[value.metric].includes(value.field), 'field');
 export type ChildTrendsQuery = z.infer<typeof childTrendsQuerySchema>;
@@ -73,7 +74,7 @@ export type ChildTrendsQuery = z.infer<typeof childTrendsQuerySchema>;
 export const childTrendCell = z.strictObject({
   bucket: z.string(),
   order: z.number().int(),
-  /** NULL when suppressed (fewer than 10 children or 10 families). */
+  /** NULL when suppressed (fewer than 10 children or 10 families); else rounded to the nearest 10 (OP-056). */
   children: z.number().int().nullable(),
   value: z.number().nullable(),
   suppressed: z.boolean(),
@@ -83,7 +84,7 @@ export const childTrendsBody = z.strictObject({
   metric: z.enum(CHILD_TREND_METRICS),
   field: z.enum(CHILD_TREND_FIELDS),
   dimension: z.enum(CHILD_TREND_DIMENSIONS),
-  days: z.union([z.literal(30), z.literal(90), z.literal(365)]),
+  period: z.enum(CHILD_TREND_PERIODS),
   cells: z.array(childTrendCell),
 });
 export type ChildTrends = z.infer<typeof childTrendsBody>;
@@ -105,6 +106,13 @@ export const SENSITIVE_AUDIT_ACTIONS = [
   'user_unban',
   'media_suspected',
   'report_escalated',
+  // I14 completion B (Afik 21.10.2026)
+  'reported_comment_viewed',
+  'staff_profile_viewed',
+  'content_deleted',
+  'media_hash_confirmed',
+  'media_hash_not_abuse',
+  'media_hash_removed',
 ] as const;
 export const AUDIT_ROLES = ['admin', 'moderator'] as const;
 const auditDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => !Number.isNaN(Date.parse(`${value}T00:00:00Z`)), 'invalid');
@@ -169,8 +177,8 @@ export const adminOverviewBody = z.strictObject({
     queuedImages: z.number().int(),
     openSupport: z.number().int(),
     openInvitations: z.number().int(),
-    expiringInvitations: z.number().int(),
-    guidesToRecheck: z.number().int(),
+    /** Guides waiting in draft for the Admin's approval (OP-057 closed, Afik 21.10.2026 §11.8). */
+    draftGuides: z.number().int(),
     reportSpike: z.strictObject({ lastDay: z.number().int(), dailyAverage: z.number(), isSpike: z.boolean() }),
   }),
   metrics: z.array(metricPair),
@@ -179,10 +187,6 @@ export const adminOverviewBody = z.strictObject({
 export type AdminOverview = z.infer<typeof adminOverviewBody>;
 /** A spike: the last 24 hours hold at least this many reports and at least twice the daily average of the 7 days before (OP-052). */
 export const REPORT_SPIKE_MIN = 5;
-/** A published guide whose sources were last checked this many months ago or more is due for a recheck (OP-052). */
-export const GUIDE_RECHECK_MONTHS = 12;
-/** An open invitation expiring within this many hours is "expiring". */
-export const INVITATION_EXPIRING_HOURS = 12;
 
 // ---- the report's context, author card and handling status (§9.7, §9.10) ----------------------------------------------------------
 export const contextComment = z.strictObject({
@@ -195,9 +199,9 @@ export const contextComment = z.strictObject({
   isReported: z.boolean(),
 });
 export const reportContextBody = z.strictObject({
-  /** For a comment: its post as it is now. */
+  /** Always null since I14 completion B: a reported comment opens alone (decision 10.9, AC-161); kept for older clients. */
   post: z.strictObject({ id: z.guid(), text: z.string().nullable(), status: z.string(), isAnonymous: z.boolean() }).nullable(),
-  /** The thread: the comments of the post (of the reported post, or of the reported comment's post), oldest first. */
+  /** The thread of a reported post, oldest first. */
   comments: z.array(contextComment),
 });
 export type ReportContext = z.infer<typeof reportContextBody>;

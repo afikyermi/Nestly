@@ -18,6 +18,8 @@ import {
   ENFORCEMENT_HEADING,
   HISTORY_EMPTY_TEXT,
   HISTORY_HEADING,
+  CONTENT_HISTORY_HEADING,
+  CONTENT_KIND_LABELS,
   KIND_ACTION_LABELS,
   PICK_ACTION_TEXT,
   REASON_LABEL,
@@ -110,6 +112,20 @@ export function EnforcementPanel({ user, permissions, report, pending, failure, 
           </ul>
         )}
       </div>
+      {user.contentDecisions === undefined || user.contentDecisions.length === 0 ? null : (
+        // I14 completion B (FR-MOD-002, PG-028, Afik 21.10.2026): the content of this account that justified reports deleted
+        <div>
+          <h4 className="text-label">{CONTENT_HISTORY_HEADING}</h4>
+          <ul className="mt-1 flex flex-col gap-1 text-small" aria-label={CONTENT_HISTORY_HEADING}>
+            {user.contentDecisions.map((row, index) => (
+              <li key={`${row.decidedAt}-${index}`}>
+                {formatAdminTime(row.decidedAt)} · {CONTENT_KIND_LABELS[row.targetKind]} · {row.ruleLabel} ·{' '}
+                <span dir="auto">{row.excerpt}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {kinds.length === 0 ? null : (
         <form
           className="flex flex-col gap-4"

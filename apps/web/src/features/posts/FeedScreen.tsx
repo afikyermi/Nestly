@@ -123,7 +123,8 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
   // ux-polish-a: the comments inside the cards; what they change in a card's count, and what they say, goes to the feed.
   const commentApi = useCommentApi();
   const commentsReport = { onCount: commented, onStatus: said };
-  const comments = useFeedComments(commentApi, commentsReport);
+  // I14 completion B (§10.3): a staff member reviewing a Private Group reads its comments too (the thread opens the Group again, audited)
+  const comments = useFeedComments(commentApi, commentsReport, reviewing && group !== null && group.privacy === 'private' ? group.groupId : undefined);
   const commentWrites = useFeedCommentWrites(comments, commentApi, commentsReport);
   // F3.7: the report window of a card or of a comment (from its menu) shares the menu's one history entry. A reported comment stays (c13).
   const report = useReport((target, result) => (target.kind === 'comment' ? said(COMMENT_REPORT_STATUS[result]) : reported(target.id, result)));

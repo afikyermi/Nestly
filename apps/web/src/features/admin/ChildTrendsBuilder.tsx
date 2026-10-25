@@ -45,20 +45,21 @@ const bucketLabel = (bucket: string): string => CHILD_TREND_BUCKET_LABELS[bucket
 
 // Children's tracker data as trends only (I14 completion, Afik 21.10.2026, §9.2): CHILD_DATA_VIEW (the Admin always) chooses a tracker, a measure,
 // a split and a period from closed lists; the server answers cells only, and a cell of fewer than 10 children or 10 families comes back hidden,
-// with no number. Each query is recorded in the Audit Log by the database. A bar per cell, and the same numbers as a table.
+// with no number; a shown number of children is rounded to the nearest 10 and the period is a calendar week or month (completion B, OP-056).
+// Each query is recorded in the Audit Log by the database. A bar per cell, and the same numbers as a table.
 export function ChildTrendsBuilder({ headingLevel = 3 }: { headingLevel?: 2 | 3 }) {
   const call = useAdminCall();
   const [metric, setMetric] = useState<ChildTrendMetric>('bottle');
   const [field, setField] = useState<ChildTrendField>('events_per_day');
   const [dimension, setDimension] = useState<ChildTrendDimension>('child_age');
-  const [days, setDays] = useState<ChildTrendPeriod>(90);
+  const [period, setPeriod] = useState<ChildTrendPeriod>('last_month');
   const [view, setView] = useState<View>({ kind: 'idle' });
   const fields = CHILD_TREND_FIELDS_BY_METRIC[metric];
   const Heading = headingLevel === 2 ? 'h2' : 'h3';
 
   const show = async () => {
     setView({ kind: 'loading' });
-    const outcome = await call((token) => fetchChildTrends(token, { metric, field, dimension, days }));
+    const outcome = await call((token) => fetchChildTrends(token, { metric, field, dimension, period }));
     setView(outcome.kind === 'ok' ? { kind: 'loaded', trends: outcome.value } : { kind: 'failed', message: outcome.kind === 'forbidden' ? FORBIDDEN_TEXT : LOAD_FAILED_TEXT });
   };
 
@@ -117,12 +118,12 @@ export function ChildTrendsBuilder({ headingLevel = 3 }: { headingLevel?: 2 | 3 
           {(control) => (
             <SelectInput
               {...control}
-              options={CHILD_TREND_PERIODS.map((value) => ({ value: String(value), label: CHILD_TREND_PERIOD_LABELS[value] }))}
-              value={String(days)}
+              options={CHILD_TREND_PERIODS.map((value) => ({ value, label: CHILD_TREND_PERIOD_LABELS[value] }))}
+              value={period}
               placeholder="—"
               onChange={(value) => {
-                const next = CHILD_TREND_PERIODS.find((period) => String(period) === value);
-                if (next !== undefined) setDays(next);
+                const next = CHILD_TREND_PERIODS.find((candidate) => candidate === value);
+                if (next !== undefined) setPeriod(next);
               }}
             />
           )}
