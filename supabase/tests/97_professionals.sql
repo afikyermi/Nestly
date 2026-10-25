@@ -87,7 +87,7 @@ select is((select count(*) from pg_class c join pg_namespace n on n.oid = c.reln
   '[F11.1-a c1] the five new tables have RLS enabled and forced');
 select is((select string_agg(c.relname || '.' || pl.polname || ':' || pl.polcmd::text, ', ' order by c.relname, pl.polname)
              from pg_policy pl join pg_class c on c.oid = pl.polrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'nestly'
-              and c.relname = any (pg_temp.new_tables()) and pl.polname !~ '_(auto_hide|delete_staff)$'),
+              and c.relname = any (pg_temp.new_tables()) and pl.polname !~ '_(auto_hide|delete_staff|deletion_jobs)$'),
   'outreach_requests.outreach_requests_insert_professional:a, outreach_requests.outreach_requests_select_professional:r, '
   || 'outreach_requests.outreach_requests_select_target:r, outreach_requests.outreach_requests_update_target:w, '
   || 'professional_articles.professional_articles_delete_own:d, professional_articles.professional_articles_insert_own:a, '
@@ -99,7 +99,7 @@ select is((select string_agg(c.relname || '.' || pl.polname || ':' || pl.polcmd:
   || 'professional_reviews.professional_reviews_delete_reviewer:d, professional_reviews.professional_reviews_insert_reviewer:a, professional_reviews.professional_reviews_select_staff:r, professional_reviews.professional_reviews_select_viewer:r, professional_reviews.professional_reviews_update_reviewer:w, professional_reviews.professional_reviews_update_staff:w',
   '[F11.1-a c1] exactly these policies: a review is edited and deleted by its writer only (I11 completion C, file 108), no delete of a profile or an Offer Help, the Professional never answers its own request (the SRS-audit fixes add the follows analytics read, file 102) (the I11 follow-ups add the staff read and moderation of a reported review or article, file 98; completion B''s hide after ten identical reports and its staff deletion by a justified decision are file 103''s)');
 select is((select count(*) from pg_policy pl join pg_class c on c.oid = pl.polrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'nestly'
-            and c.relname = any (pg_temp.new_tables()) and pl.polname !~ '_auto_hide$'
+            and c.relname = any (pg_temp.new_tables()) and pl.polname !~ '_auto_hide$' and pl.polname !~ '_deletion_jobs$' -- I9: the deletion job''s reads TO app_jobs (rule 6, file 110)
             and (pl.polroles <> array[(select oid from pg_roles where rolname = 'authenticated')]::oid[] or not pl.polpermissive
                  or (coalesce(pg_get_expr(pl.polqual, pl.polrelid), '') || coalesce(pg_get_expr(pl.polwithcheck, pl.polrelid), '')) !~ 'is_active_account\(\)')),
   0::bigint, '[F11.1-a c1 platform r15] every policy of the new tables is permissive, TO authenticated and gated by is_active_account()');

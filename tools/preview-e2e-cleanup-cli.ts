@@ -261,6 +261,8 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         await tx`set local row_security = off`;
         counts['staff_roles'] = (await tx`delete from nestly.staff_roles where user_id = ${id}`).count;
         counts['security_events'] = (await tx`delete from nestly.security_events where user_id = ${id}`).count;
+        // I9: the account deletion record names the account by id only (no FK); a test user that requested a deletion leaves rows.
+        counts['account_deletion_events'] = (await tx`delete from nestly.account_deletion_events where account_id = ${id}`).count;
         counts['identity_link_checks'] = (await tx`delete from nestly.identity_link_checks where user_id = ${id}`).count;
         counts['users'] = (await tx`delete from nestly.users where id = ${id}`).count;
         const authDeleted = (await tx`delete from auth.users where id = ${id} and email ~ ${TEST_EMAIL_PATTERN}`).count;

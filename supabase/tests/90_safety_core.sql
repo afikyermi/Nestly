@@ -293,7 +293,7 @@ select is(tests.dml_staff(tests.claims(pg_temp.id('m4')), format($q$ update nest
 select tests.fx_sf_expire(pg_temp.id('b'));
 select is(pg_temp.dml('b', 'update nestly.users set status = ''active'', suspended_until = null'), 'OK:1', '[FR-MOD-002 I4] once the end time has passed the account returns itself to active');
 select is(pg_temp.status_of('b'), 'active', '[FR-MOD-002 I4] and is active');
-select is(pg_temp.dml('b', 'update nestly.users set status = ''banned'''), 'OK:0', '[I4] an account cannot ban itself');
+select is(pg_temp.dml('b', 'update nestly.users set status = ''banned'''), 'ERR:42501', '[I4 · I9] an account cannot ban itself (I9: the deletion request policy opens its active row, users_status_guard refuses)');
 select is(pg_temp.dml('x', 'update nestly.users set status = ''active'', suspended_until = null'), 'OK:0', '[I4] a banned account cannot unban itself');
 select is(pg_temp.dml('s', 'update nestly.users set status = ''active'', suspended_until = null'), 'OK:0', '[I4] a suspended account with no end time cannot lift it');
 select is(tests.dml_staff(tests.claims(pg_temp.id('m3')), format($q$ update nestly.users set status = 'banned' where id = %L $q$, pg_temp.id('m5')), false) in ('OK:0', 'ERR:42501'), true, '[AC-027 I4] a Moderator cannot ban a Moderator by a direct update');

@@ -99,7 +99,8 @@ select is(tests.jobs_as(format('select count(*)::text from nestly.posts where id
 select is(tests.jobs_as($q$ select count(*)::text from nestly.posts where status = 'active' $q$), '0', '[F3.0-b c14] and no active one');
 select is(tests.jobs_as($q$ select count(*)::text from nestly.reports where status <> 'open' $q$), '0', '[F3.0-b c14] and no closed report');
 select is(tests.jobs_dml($q$ update nestly.posts set body = 'x' $q$), 'ERR:42501', '[F3.0-b c14] the jobs role updates no post');
-select is(tests.jobs_as($q$ select count(*)::text from nestly.users $q$), 'ERR:42501', '[F3.0-b c14] and reads no user');
+select is(tests.jobs_as($q$ select count(*)::text from nestly.users $q$), '0', '[F3.0-b c14 · I9] and reads no user but the accounts scheduled for deletion (users_select_jobs, file 110): none here');
+select is(tests.jobs_as($q$ select count(*)::text from nestly.users u join nestly.regular_profiles p on p.user_id = u.id $q$), 'ERR:42501', '[F3.0-b c14] and no profile');
 
 -- not before: open report, release not reached
 select ok(pg_temp.purge() !~ '^ERR', '[F3.0-b c14] the purge runs for the jobs role');

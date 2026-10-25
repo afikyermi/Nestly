@@ -46,7 +46,7 @@ select is(
 -- I4: an UPDATE of users.status is column-granted (staff enforcement), so for a caller the policies do not open it is refused by RLS as a statement
 -- that touches no row ('OK:0'), and the final check below proves nothing changed. Every other attempt stays a 42501.
 select is(
-  case when t.s ~* '^\s*update nestly\.users set status' or t.s ~* 'from nestly\.users for (update|share)'
+  case when t.s ~* '^\s*update nestly\.users set status' or t.s ~* 'from nestly\.users( where [^;]*)? for (update|share)'
        then coalesce(nullif(tests.dml_as(t.r, tests.claims(tests.fx_id(t.w)), t.s), 'OK:0'), 'ERR:42501')
        else tests.dml_as(t.r, tests.claims(tests.fx_id(t.w)), t.s) end,
   'ERR:42501',
@@ -93,8 +93,10 @@ from (values
   ('authenticated', 'a', $q$ delete from nestly.users where id = 'b0000000-0000-4000-8000-0000000000b2' $q$, 'DELETE another account''s User row'),
   ('authenticated', 'a', $q$ delete from nestly.users $q$, 'DELETE every User row'),
   ('authenticated', 'a', $q$ truncate nestly.users $q$, 'TRUNCATE User'),
-  ('authenticated', 'a', $q$ select id from nestly.users for update $q$, 'SELECT ... FOR UPDATE on User (a row lock needs UPDATE)'),
-  ('authenticated', 'a', $q$ select id from nestly.users for share $q$, 'SELECT ... FOR SHARE on User'),
+  -- I9: the own active row is lockable now (users_update_own_deletion_request opens it; asserted below the list)
+  ('authenticated', 'a', $q$ select id from nestly.users where id <> auth.uid() for update $q$, 'SELECT ... FOR UPDATE on another account''s User row (a row lock needs UPDATE)'),
+  ('authenticated', 'a', $q$ select id from nestly.users where id <> auth.uid() for share $q$, 'SELECT ... FOR SHARE on another account''s User row'),
+  ('authenticated', 's', $q$ select id from nestly.users for update $q$, 'SELECT ... FOR UPDATE on User by a suspended account (no policy opens any row)'),
   -- RegularProfile
   ('authenticated', 'c', $q$ insert into nestly.regular_profiles (full_name) values ('Cora Nobody') $q$,
      'INSERT a RegularProfile for an identity that has no User row'),
@@ -134,6 +136,16 @@ select is(
   tests.dml_as('authenticated', tests.claims(tests.fx_id('a')), $q$ insert into nestly.regular_profiles (full_name) values ('Alice Again') $q$),
   'ERR:23505',
   '[F1.1-b c13 · F1.4-a c10] a second RegularProfile for A is refused with 23505 (primary key), not accepted');
+
+-- ---- I9: the UPDATE policy of the own deletion request opens A's own active row, so A can lock it (only it) ----------------
+select is(
+  tests.dml_as('authenticated', tests.claims(tests.fx_id('a')), $q$ select id from nestly.users for update $q$),
+  'OK:1',
+  '[F1.1-b c13 · I9 FR-SET-002] SELECT ... FOR UPDATE by A locks exactly its own row (the deletion request policy); it changes nothing (below)');
+select is(
+  tests.dml_as('authenticated', tests.claims(tests.fx_id('a')), $q$ select id from nestly.users for share $q$),
+  'OK:1',
+  '[F1.1-b c13 · I9 FR-SET-002] SELECT ... FOR SHARE by A: its own row only');
 
 -- ---- and nothing changed ----------------------------------------------------------------------------------------------
 select is(tests.fx_state(), (select s0 from zz_state),

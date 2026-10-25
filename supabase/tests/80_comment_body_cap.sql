@@ -84,8 +84,8 @@ select is(pg_temp.cd('reaction_owners', 'user_id'),
   'The liker (default auth.uid(), a Regular or Professional account; reaction_owners_liker_status_fkey proves it in users). Readable only by that liker (reaction_owners_select_owner, table SELECT grant); no INSERT or UPDATE grant. API responses never emit it.',
   '[F3.3-a finding 8] reaction_owners.user_id description matches its grants');
 select is(pg_temp.cd('reports', 'reporter_id'),
-  'The reporter (default auth.uid()); ON DELETE RESTRICT: I9 decides the minimal record. Readable only by that reporter (reports_select_reporter, table SELECT grant); no INSERT or UPDATE grant. API responses never emit it.',
-  '[F3.3-a finding 8] reports.reporter_id description matches its grants');
+  'The reporter (default auth.uid()). No FK since I9: the report outlives a deleted reporter for 90 days (BR-073). Readable only by that reporter (reports_select_reporter, table SELECT grant); no INSERT or UPDATE grant. API responses never emit it.',
+  '[F3.3-a finding 8 · I9] reports.reporter_id description matches its grants');
 select is(pg_temp.cd('comments', 'body'),
   'The text of a comment or a reply: 1-1,000 characters (comments_body_check, comments_body_length_check; shared COMMENT_BODY_MAX).',
   '[F3.3-a c1] comments.body description states the 1,000 cap');

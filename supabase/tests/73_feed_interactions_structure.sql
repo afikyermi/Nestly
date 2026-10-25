@@ -32,8 +32,8 @@ select is(
     where n.nspname = 'nestly' and c.relname in ('comments', 'posts', 'reaction_owners', 'reactions', 'reports')
       and pol.polname !~ '_notify$'
       and pol.polroles <> array[(select oid from pg_catalog.pg_roles where rolname = 'authenticated')]::oid[]),
-  'comments.comments_delete_jobs, comments.comments_select_auto_hide, comments.comments_select_jobs, comments.comments_select_within_engagement, posts.posts_delete_jobs, posts.posts_select_auto_hide, posts.posts_select_jobs, posts.posts_select_reveal, reactions.reactions_select_within_engagement, reports.reports_select_auto_hide, reports.reports_select_jobs, reports.reports_select_reveal, reports.reports_update_jobs',
-  '[F3.0-b c14 platform r6 · I4] the only policies not TO authenticated are the six TO app_jobs of the purge (the approved exception) and the TO app_owner read of reveal_post_author (approved by Afik 20.10.2026); the *_notify policies TO app_owner of the notification definers are file 90''s; completion B''s *_select_auto_hide reads of identical_reports_hide are file 103''s; own_post_engagement''s two *_select_within_engagement reads (decisions-in-force §19) are file 109''s');
+  'comments.comments_delete_jobs, comments.comments_select_auto_hide, comments.comments_select_deletion_jobs, comments.comments_select_jobs, comments.comments_select_within_engagement, comments.comments_update_deletion_jobs, posts.posts_delete_jobs, posts.posts_select_auto_hide, posts.posts_select_deletion_jobs, posts.posts_select_jobs, posts.posts_select_reveal, reactions.reactions_select_within_engagement, reports.reports_delete_deletion_jobs, reports.reports_select_auto_hide, reports.reports_select_deletion_jobs, reports.reports_select_jobs, reports.reports_select_reveal, reports.reports_update_deletion_jobs, reports.reports_update_jobs',
+  '[F3.0-b c14 platform r6 · I4 · I9] the only policies not TO authenticated are the six TO app_jobs of the purge (the approved exception), I9''s five *_deletion_jobs of the account deletion job (file 110) and the TO app_owner read of reveal_post_author (approved by Afik 20.10.2026); the *_notify policies TO app_owner of the notification definers are file 90''s; completion B''s *_select_auto_hide reads of identical_reports_hide are file 103''s; own_post_engagement''s two *_select_within_engagement reads (decisions-in-force §19) are file 109''s');
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
@@ -81,9 +81,9 @@ select is(
      from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname in ('comments', 'reactions') and a.attnum > 0 and not a.attisdropped
       and has_column_privilege('authenticated', c.oid, a.attnum, 'SELECT')),
-  'comments.author_id, comments.author_status, comments.body, comments.created_at, comments.group_id, comments.held_at, comments.held_until, comments.id, comments.is_by_post_author, '
+  'comments.author_id, comments.author_status, comments.body, comments.created_at, comments.group_id, comments.held_at, comments.held_until, comments.id, comments.is_author_deleted, comments.is_by_post_author, '
   || 'comments.parent_id, comments.post_id, comments.status, reactions.comment_id, reactions.created_at, reactions.id, reactions.is_by_author, reactions.post_id, reactions.target_id',
-  '[F3.0-b finding 1 c12 c14 b-1] authenticated may SELECT exactly these comments and reactions columns: everything but comments.held_xact, comments.parent_status and reactions.liker_status');
+  '[F3.0-b finding 1 c12 c14 b-1 · I9] authenticated may SELECT exactly these comments and reactions columns: everything but comments.held_xact, comments.parent_status and reactions.liker_status (I9 adds comments.is_author_deleted, the "deleted user" row: file 110)');
 
 select is(
   (select count(*) from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
@@ -172,16 +172,17 @@ select is(
      from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace,
           unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']) p
     where n.nspname = 'nestly' and c.relkind in ('r', 'p') and has_table_privilege('app_jobs', c.oid, p)),
-  'comments=DELETE, comments=SELECT, posts=DELETE, posts=SELECT, professional_views=DELETE, professional_views=SELECT, promotion_events=DELETE, promotion_monthly_summaries=INSERT, promotion_monthly_summaries=SELECT, reports=SELECT, search_intents=DELETE, search_intents=SELECT, usage_events=DELETE, usage_events=SELECT',
-  '[F3.0-b c14 platform r6] app_jobs holds table privileges on posts, comments and reports (and, from the Intent Signal, search_intents; from the I13 follow-up usage_events, professional_views, the paid events'' 12-month delete and the monthly summaries, file 104; column-level reads of the paid events, promotions and payments) only, and only SELECT, DELETE (SELECT on reports; SELECT, INSERT on the summaries)');
+  'account_deletion_events=DELETE, account_deletion_events=SELECT, audit_log=DELETE, comments=DELETE, comments=SELECT, conversations=DELETE, enforcement_records=DELETE, posts=DELETE, posts=SELECT, professional_views=DELETE, professional_views=SELECT, promotion_events=DELETE, promotion_monthly_summaries=INSERT, promotion_monthly_summaries=SELECT, recovery_events=DELETE, reports=DELETE, reports=SELECT, search_intents=DELETE, search_intents=SELECT, security_events=DELETE, usage_events=DELETE, usage_events=SELECT, user_enforcements=DELETE, users=DELETE',
+  '[F3.0-b c14 platform r6 · I9: the deletion job''s DELETE on users, the deletion record, and the 90-day purge of the kept records, file 110] app_jobs holds table privileges on posts, comments and reports (and, from the Intent Signal, search_intents; from the I13 follow-up usage_events, professional_views, the paid events'' 12-month delete and the monthly summaries, file 104; column-level reads of the paid events, promotions and payments) only, and only SELECT, DELETE (SELECT on reports; SELECT, INSERT on the summaries)');
 
 select is(
   (select string_agg(c.relname || '.' || a.attname, ', ' order by c.relname, a.attname)
      from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relkind in ('r', 'p') and a.attnum > 0 and not a.attisdropped
       and (has_column_privilege('app_jobs', c.oid, a.attnum, 'UPDATE') or has_column_privilege('app_jobs', c.oid, a.attnum, 'INSERT'))),
-  'promotion_monthly_summaries.chat_starts, promotion_monthly_summaries.clicks, promotion_monthly_summaries.follows, promotion_monthly_summaries.id, promotion_monthly_summaries.impressions, promotion_monthly_summaries.month, promotion_monthly_summaries.professional_field, promotion_monthly_summaries.promotion_id, promotion_monthly_summaries.target_kind, promotion_monthly_summaries.updated_at, reports.closed_at, reports.status',
-  '[F3.0-b c14 · I13 file 104] and may write exactly the status and the close time of a report, and insert (never update) a month''s promotion summary row');
+  'account_deletion_events.account_id, account_deletion_events.account_type, account_deletion_events.due_at, account_deletion_events.kind, comments.author_id, comments.body, comments.is_author_deleted, conversations.user_a, conversations.user_b, '
+  || 'promotion_monthly_summaries.chat_starts, promotion_monthly_summaries.clicks, promotion_monthly_summaries.follows, promotion_monthly_summaries.id, promotion_monthly_summaries.impressions, promotion_monthly_summaries.month, promotion_monthly_summaries.professional_field, promotion_monthly_summaries.promotion_id, promotion_monthly_summaries.target_kind, promotion_monthly_summaries.updated_at, reports.closed_at, reports.status',
+  '[F3.0-b c14 · I13 file 104 · I9 file 110] and may write exactly the status and the close time of a report, and insert (never update) a month''s promotion summary row; I9: the execute row of the deletion record, the "deleted user" comment (author, body, flag) and the deleted side of a conversation');
 
 select is((select pg_catalog.has_schema_privilege('app_jobs', n.oid, 'USAGE') and not pg_catalog.has_schema_privilege('app_jobs', n.oid, 'CREATE')
              from pg_catalog.pg_namespace n where n.nspname = 'nestly'), true, '[F3.0-b c14] app_jobs may use schema nestly, not create in it');

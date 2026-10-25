@@ -113,8 +113,8 @@ select is(
      join pg_catalog.pg_class c     on c.oid = a.attrelid
      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = 'users' and c.relkind = 'r' and a.attnum > 0 and not a.attisdropped),
-  'account_type:text:nn, created_at:timestamp with time zone:nn, id:uuid:nn, status:text:nn, suspended_until:timestamp with time zone:null',
-  '[F1.1-b c10 NFR-SEC-001 · I4] nestly.users has exactly the approved columns: id uuid, account_type text, status text, created_at timestamptz, all NOT NULL, and the nullable suspended_until (end of a suspension)');
+  'account_type:text:nn, created_at:timestamp with time zone:nn, deletion_due_at:timestamp with time zone:null, id:uuid:nn, status:text:nn, suspended_until:timestamp with time zone:null',
+  '[F1.1-b c10 NFR-SEC-001 · I4 · I9] nestly.users has exactly the approved columns: id uuid, account_type text, status text, created_at timestamptz, all NOT NULL, the nullable suspended_until (end of a suspension) and I9''s nullable deletion_due_at (file 110)');
 
 select is(
   (select string_agg(a.attname || ':' || format_type(a.atttypid, a.atttypmod) || ':' || case when a.attnotnull then 'nn' else 'null' end,
@@ -278,8 +278,10 @@ select is_empty(
         and not (c.relname = 'journey_contexts' and pol.polname = 'journey_contexts_update_own' and pol.polcmd = 'w')
         and not (c.relname = 'children' and pol.polname = 'children_delete_own' and pol.polcmd = 'd')
         and not (c.relname = 'journey_contexts' and pol.polname = 'journey_contexts_delete_own' and pol.polcmd = 'd')
-        and not (c.relname = 'users' and pol.polname in ('users_update_staff', 'users_update_own_expired_suspension') and pol.polcmd = 'w') $$,
-  '[F1.1-b c13 platform r14 · F1.4-a c14 · F1.6 scoped · F2.1 c10 · F2.2a c9 · F2.2-b c18] no UPDATE, DELETE or ALL policy exists on the five F1.1/F1.4 tables except regular_profiles_update_own (F2.1), children_update_own (F2.2a), journey_contexts_update_own (F2.2b1) and the own-row deletes children_delete_own and journey_contexts_delete_own (F2.2b2, DR-1 A; recovery_answers has its own: file 30; files 50, 51 and 54 assert the policies)');
+        and not (c.relname = 'users' and pol.polname in ('users_update_staff', 'users_update_own_expired_suspension',
+                                                          'users_update_own_deletion_request', 'users_update_own_deletion_cancel') and pol.polcmd = 'w')
+        and not (c.relname = 'users' and pol.polname = 'users_delete_jobs' and pol.polcmd = 'd') $$,
+  '[F1.1-b c13 platform r14 · F1.4-a c14 · F1.6 scoped · F2.1 c10 · F2.2a c9 · F2.2-b c18 · I9] no UPDATE, DELETE or ALL policy exists on the five F1.1/F1.4 tables except regular_profiles_update_own (F2.1), children_update_own (F2.2a), journey_contexts_update_own (F2.2b1), the own-row deletes children_delete_own and journey_contexts_delete_own (F2.2b2, DR-1 A; recovery_answers has its own: file 30; files 50, 51 and 54 assert the policies) and I9''s own deletion request and cancel and the deletion job''s users_delete_jobs (file 110)');
 
 select is(
   (select string_agg(c.relname || '.' || pol.polname, ', ' order by c.relname, pol.polname)
@@ -298,8 +300,8 @@ select is_empty(
        join pg_catalog.pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'nestly' and c.relname in ('users', 'regular_profiles', 'journey_contexts', 'children', 'legal_consents')
         and pol.polroles <> array[(select r.oid from pg_catalog.pg_roles r where r.rolname = 'authenticated')]
-        and pol.polname not like '%\_select\_profile\_view' and pol.polname not in ('users_select_search', 'children_select_child_data', 'users_select_child_data', 'children_select_birthday', 'regular_profiles_select_birthday') $$,
-  '[F1.1-b c19 platform r4 · F1.6 scoped · F2.3b c15 · I14c] every policy on the five F1.1/F1.4 tables is TO authenticated only (not PUBLIC, not anon, not app_recovery), except the four *_select_profile_view policies, users_select_search and the I14 completion''s children_select_child_data and users_select_child_data, and the SRS-audit fixes'' children_select_birthday and regular_profiles_select_birthday TO app_owner (files 53, 90, 100 and 102 assert them)');
+        and pol.polname not like '%\_select\_profile\_view' and pol.polname not in ('users_select_search', 'children_select_child_data', 'users_select_child_data', 'children_select_birthday', 'regular_profiles_select_birthday', 'users_select_jobs', 'users_delete_jobs') $$,
+  '[F1.1-b c19 platform r4 · F1.6 scoped · F2.3b c15 · I14c · I9] every policy on the five F1.1/F1.4 tables is TO authenticated only (not PUBLIC, not anon, not app_recovery), except the four *_select_profile_view policies, users_select_search and the I14 completion''s children_select_child_data and users_select_child_data, and the SRS-audit fixes'' children_select_birthday and regular_profiles_select_birthday TO app_owner (files 53, 90, 100 and 102 assert them), and I9''s users_select_jobs and users_delete_jobs TO app_jobs (file 110)');
 
 select is(has_schema_privilege('authenticated', 'nestly', 'USAGE'), true,
   '[F1.1-b c12] authenticated has USAGE on schema nestly');
@@ -327,9 +329,10 @@ select is(
      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
      cross join (values ('anon'), ('service_role'), ('app_server'), ('app_jobs')) as r(rolname)
     where n.nspname = 'nestly' and c.relname in ('users', 'regular_profiles')
-      and has_table_privilege(r.rolname, c.oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')),
+      and has_table_privilege(r.rolname, c.oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+      and not (r.rolname = 'app_jobs' and c.relname = 'users')),
   0::bigint,
-  '[F1.1-b c19 platform r1,r7] anon, service_role, app_server and app_jobs hold no privilege at all on User or RegularProfile');
+  '[F1.1-b c19 platform r1,r7 · I9] anon, service_role, app_server and app_jobs hold no privilege at all on User or RegularProfile, but app_jobs on users (the deletion job: exact grants in file 110)');
 
 select is(
   (select count(*) from pg_catalog.pg_class c
@@ -417,9 +420,10 @@ select is(
      join pg_catalog.pg_namespace n on n.oid = p.pronamespace
      cross join (values ('anon'), ('service_role'), ('app_server'), ('app_jobs')) as r(rolname)
     where n.nspname = 'nestly' and has_function_privilege(r.rolname, p.oid, 'EXECUTE')
-      and not (r.rolname = 'app_jobs' and p.proname in ('purge_held_content', 'purge_search_intents', 'purge_usage_events', 'purge_promotion_data'))),
+      and not (r.rolname = 'app_jobs' and p.proname in ('purge_held_content', 'purge_search_intents', 'purge_usage_events', 'purge_promotion_data',
+                                                         'execute_account_deletions', 'purge_deleted_accounts'))),
   0::bigint,
-  '[F1.1-b c19 platform r4,r7 · F3.0-b c14] no function in schema nestly is executable by anon, service_role, app_server or app_jobs (so not by PUBLIC either), but the purge, executable by app_jobs only');
+  '[F1.1-b c19 platform r4,r7 · F3.0-b c14 · I9] no function in schema nestly is executable by anon, service_role, app_server or app_jobs (so not by PUBLIC either), but the purges and I9''s deletion job (file 110), executable by app_jobs only');
 
 -- No function that authenticated can execute returns another account's status: each one takes no argument and is not a definer.
 select is_empty(
