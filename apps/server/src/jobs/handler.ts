@@ -6,6 +6,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import postgres from 'postgres';
+import { noErrorMonitor, type ErrorMonitor } from '../lib/error-monitoring.js';
 import { createJobStorage } from '../media/storage-admin.js';
 import { readJobsConfig } from './config.js';
 import { runMediaJob } from './media-check.js';
@@ -29,19 +30,23 @@ export function isAuthorized(header: string | undefined, secret: string | undefi
   return given.length === expected.length && timingSafeEqual(given, expected);
 }
 
-export async function handleJobRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
+export async function handleJobRequest(req: IncomingMessage, res: ServerResponse, monitor: ErrorMonitor = noErrorMonitor): Promise<void> {
   const started = Date.now();
   const config = readJobsConfig();
   const path = (req.url ?? '').split('?')[0];
   if (path !== '/api/jobs/media-check' || (req.method !== 'POST' && req.method !== 'GET')) return send(res, 404, { error: 'not_found' });
   if (!isAuthorized(req.headers.authorization, config.secret)) return send(res, 401, { error: 'unauthorized' });
   const storage = createJobStorage();
-  if (config.databaseUrl === undefined || !storage.isConfigured()) return send(res, 503, { error: 'unavailable' });
+  if (config.databaseUrl === undefined || !storage.isConfigured()) {
+    monitor.captureStatus({ route: '/api/jobs/media-check', method: req.method ?? 'unknown', status: 503, surface: 'jobs' });
+    return send(res, 503, { error: 'unavailable' });
+  }
   const sql = postgres(config.databaseUrl, { max: 1, prepare: false, onnotice: () => undefined });
   try {
     const report = await runMediaJob({ db: createJobDb(sql), storage, model: loadNudeNet, config, timeLeft: () => BUDGET_MS - (Date.now() - started), full: req.method === 'GET' });
     send(res, 200, report);
-  } catch {
+  } catch (error) {
+    monitor.capture(error, { route: '/api/jobs/media-check', method: req.method ?? 'unknown', status: 500, surface: 'jobs' });
     send(res, 500, { error: 'internal' });
   } finally {
     await sql.end({ timeout: 2 });

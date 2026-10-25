@@ -13,7 +13,11 @@ export const AUDIENCE_LABELS: Record<PostAudience, string> = { everyone: 'כול
 /** VAL-049: who a Regular may choose, and who a Professional may choose (AC-130). */
 export const REGULAR_AUDIENCES: readonly PostAudience[] = ['everyone', 'friends'];
 export const PROFESSIONAL_AUDIENCES: readonly PostAudience[] = ['everyone', 'followers'];
-/** I11 (OP-038 ⭐ (a)): the author marks the post as asking for help from Professionals. */
+/** I10-C (§11.13): a Group's Highlight in the main feed names its Group (a link to it). */
+export const fromGroup = (name: string): string => `מתוך: ${name}`;
+/** I10-C (§11.14): active Groups suggested in the feed. */
+export const ACTIVE_GROUPS_TITLE = 'קבוצות פעילות שאולי יעניינו אותך';
+export const activeGroupMembers = (count: number): string => (count === 1 ? 'חבר אחד בקבוצה' : `${count} חברים בקבוצה`);
 /** Afik 6ב: a named post says whose name it carries. */
 export const NAME_NOTICE_TEXT = 'השם שלכם יוצג לכל מי שיכול לראות את הפוסט';
 // F3.4 (.work/anonymous-post/screen.md). The anonymous notice is the ⭐ text of Gate 1 decision 2, until Afik answers the DR on staff access.

@@ -11,6 +11,7 @@ import { inIdentityTransaction, type IdentityTx } from '../db/identity-transacti
 import { readDatabaseFault } from '../lib/pg-error.js';
 import type { Identity } from '../lib/token-verifier.js';
 import { readCommentCounts, readLikeCounts, readLikedTargetIds } from '../repositories/likes-repository.js';
+import { readMutedHere } from '../repositories/group-rules-repository.js';
 import type { MediaStorage } from '../media/storage-admin.js';
 import { attachImage, readImagesOfPosts, type PostImageRow } from '../repositories/media-repository.js';
 import { deletePost, insertPost, readPostKind, readPostDetail, updatePost, type PostDetailRow, type PostRow } from '../repositories/posts-repository.js';
@@ -187,6 +188,7 @@ export async function readPostById(
         commentCount,
         likedByMe,
         ...(row.offerHelp === null ? {} : { offerHelp: row.offerHelp }),
+        ...((await readMutedHere(tx, 'post', row.id)) ? { mutedInGroup: true as const } : {}),
       },
     };
   };

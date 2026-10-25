@@ -28,6 +28,8 @@ export const COMMENT_UNAVAILABLE_TEXT = 'התגובה אינה זמינה';
 export const MORE_FAILED_TEXT = 'לא הצלחנו לטעון עוד תגובות. אפשר לנסות שוב'; // ERR-004
 export const SEND_FAILED_TEXT = 'התגובה לא נשלחה. אפשר לנסות שוב'; // ERR-004
 export const LIKE_FAILED_TEXT = 'הלייק לא נשמר. אפשר לנסות שוב'; // ERR-004
+/** I10-C (§11.16, FR-GRP-003): a member muted in the post's Group reads only (the Group page's own mute notice says the reason and the end). */
+export const MUTED_IN_GROUP_TEXT = 'בזמן ההשתקה בקבוצה אפשר רק לקרוא';
 
 export const COMMENT_REQUIRED_TEXT = 'יש לכתוב משהו לפני השליחה';
 export const COMMENT_TOO_LONG_TEXT = `התגובה ארוכה מדי. אפשר לקצר אותה עד ${COMMENT_BODY_MAX.toLocaleString('en-US')} תווים`;

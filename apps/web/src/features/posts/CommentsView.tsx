@@ -42,12 +42,14 @@ export interface CommentsViewProps {
   report?: { commentId: string; sheet: Omit<ReportSheetProps, 'finalFocus'> } | null;
   /** I14 completion (§9.7): a staff account reviews: the thread as it is, with no like, comment, reply or menu (the server refuses them too). */
   readOnly?: boolean;
+  /** I10-C: why the thread is read only, said under it (a member muted in the post's Group). */
+  readOnlyNote?: string;
 }
 
 // The comments region under a post (F3.3 w1; FR-FEED-003): the post's like, the thread (top-level comments, one level of replies), the
 // comment box, the delete confirmation and the report window (F3.7). Display only: the requests come from the hooks. The heading is the focus target of the
 // comments link, of a delete and of the pages that bring new comments.
-export function CommentsView({ flow, writes, landOnHeading = false, asAnonymousAuthor = false, namesWriter = true, menu, report = null, readOnly = false }: CommentsViewProps) {
+export function CommentsView({ flow, writes, landOnHeading = false, asAnonymousAuthor = false, namesWriter = true, menu, report = null, readOnly = false, readOnlyNote }: CommentsViewProps) {
   const notice = asAnonymousAuthor ? COMMENT_AUTHOR_NOTICE_TEXT : namesWriter ? COMMENT_NAME_NOTICE_TEXT : null;
   const { thread, focus } = flow;
   const { root, reply, confirm } = writes;
@@ -143,6 +145,11 @@ export function CommentsView({ flow, writes, landOnHeading = false, asAnonymousA
         </div>
       ) : null}
       {thread.phase === 'ready' && !readOnly ? <CommentComposer mode="comment" state={root} notice={notice} onChange={writes.changeRoot} onSend={writes.sendRoot} /> : null}
+      {readOnlyNote === undefined ? null : (
+        <p role="note" className="rounded-md bg-muted p-3 text-small">
+          {readOnlyNote}
+        </p>
+      )}
       {confirm !== null ? (
         <ConfirmDialog
           open

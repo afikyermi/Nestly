@@ -3,41 +3,48 @@
 סטטוס קצר בלבד; ההיסטוריה ב-git. כללים: `CLAUDE.md` · החלטות: `decisions-in-force.md` · מוצר: `docs/srs/` · באגים לשלב האחרון: `docs/final-stage-HE.md`.
 
 ## איפה אנחנו עומדים
-**נעצר:** 24.10.2026 לילה — Claude. הכול על GitHub; אין שינוי חצי-גמור ב-main או במסד.
+**עובד כרגע:** Claude — לילה 25.10.2026 (סשן יחיד).
 **SRS:** 2.40 על main (2.39 ב-#205, ‏2.41 ב-#180, ‏2.42 ב-#201, ‏2.43 ב-#217) · **Production:** [nestly-blue.vercel.app](https://nestly-blue.vercel.app)
-- **Preview:** אדום מאז #177 — איטיות בלבד. הסיבה העיקרית: שרת Nano (תוכנית חינמית) נגמר מזיכרון בזמן ריצה → Swap → תקציב Disk IO נשרף; לא לתקן עוד flows (§17). ‏`Server-Timing` פועל ב-Preview וב-Production (#222).
+- **Preview:** **ירוק** בריצה אחרי #225 (25.10 לילה, 78/78) — לראשונה מאז #177. לפני כן אדום מאיטיות בלבד. הסיבה העיקרית: שרת Nano (תוכנית חינמית) נגמר מזיכרון בזמן ריצה → Swap → תקציב Disk IO נשרף; לא לתקן עוד flows (§17). ‏`Server-Timing` פועל ב-Preview וב-Production (#222).
 - **ממצאי ביצועים נוספים (לטיפול):**
   - ‏`dbwait` הגיע ל-2–7.5 ש׳ ב-`POST /api/register` (ריצה 19:37): חיבור אחד למסד לכל מופע (`max: 1`, `apps/server/src/db/client.ts:20`).
   - הפיד מדרג את כל טבלת הפוסטים תחת RLS בכל עמוד.
   - בקשות שמחכות זו לזו: `/me`→`/account/kind`→`/home` · `/admin/access`→`/chat/unread` · `/profile`→`/profile/photo`.
   - אין cache בצד הלקוח; מונה הצ'אט נטען פעמיים בכל מעבר מסך, ועוד רענון כל 30 ש׳.
   - ‏`sharp` נטען בכל cold start.
+  - ‏`deliver_child_birthdays()` רץ (וכותב) בכל poll של הפעמון, כל 30 ש׳ — #225.
   - **לא לעשות:** גישה ישירה מהדפדפן ל-Supabase — חושפת `notifications.actor_id`, והעלאות עוקפות את הסרת ה-GPS/EXIF.
+- **מדידה ב-Production 25.10 (Admin, `db` במ״ש):** ‏`/api/admin/promotions` 957 · ‏`/api/admin/listings/search` 1223 · ‏`/api/admin/analytics?days=30` 1217 · ‏`/api/admin/support?status=open` 533 · ‏`/api/admin/inbox` 69–630 · ‏`/api/admin/overview` 290 · כל השאר מתחת ל-130; ‏`dbwait` 3–8 (חוץ מ-46 פעם אחת), ‏`cold` 0. איטי גם ב-Production → מהקוד (§18.3). כל 15 מסכי הניהול נטענים בלי שגיאה. **Professional:** ‏`/api/professional/home` ‏0.9–8.3 ש׳ (ו-`/api/chat/unread` מחכה לחיבור עד 6.8 ש׳ בזמן הזה — `max: 1`) · ‏`/api/feed` 5.2 ש׳ · ‏`/api/marketplace` 2.8 · ‏`/api/promotions` 2.0 · ‏`/api/stories` 0.07–3.6 · ‏`/api/groups?scope=mine` 1.3 · ‏`/api/support` 1.1 · ‏`/api/group-invitations` 1.0; כל מסכי ה-Professional נטענים בלי שגיאה. ‏Regular — עוד לא נמדד. `s1..sN` (זמן לכל שאילתה): #226 מוזג אבל לא עבד ב-Production — התיקון #228.
 - **CI:** 10 shards; ב-CI ידני רק 50 כשלי visual ידועים (לא חוסמים אחרי #214).
 - **🔒 פתוחים:** `security-privacy-open.md` — S-52/S-53 · S-07 · S-67 · באג 24. ‏S-23/S-30 נסגרים ב-#217.
 
 | PR | מצב | הבא |
 |---|---|---|
 | #214 שכבה 1 (`ci/layer1-ui-rules`) | ירוק ב-CI ידני מלא | למזג אחרי ה-Preview הבא |
-| #217 Sentry (`feat/i9-sentry-errors`) | נסקר, ירוק | למזג אחרי #214 |
-| #180 השלמת I10 (`build/i10c-code`) | CI מלא: רק visual | מיזוג main → CI → מיזוג → Preview |
-| #201 השלמת I11 (`build/i11c-code`) | done-check ✅ חוץ מ-Preview | אחרי #180, אותו תהליך |
-| #205 השלמת I14 ב' (`build/i14b-rebuild`) | /code-review + done-check ✅ | אחרי #201; לסגור את #174 |
+| #217 Sentry (`feat/i9-sentry-errors`) | נסקר, ירוק (main מוזג 25.10) | למזג אחרי #214 |
+| #180 השלמת I10 (`build/i10c-code`) | main מוזג 25.10, ירוק | מיזוג main → CI → מיזוג → Preview |
+| #201 השלמת I11 (`build/i11c-code`) | done-check ✅ חוץ מ-Preview; main מוזג 25.10 (קונפליקטים ב-SRS ובמסכי Professional) | אחרי #180, אותו תהליך |
+| #205 השלמת I14 ב' (`build/i14b-rebuild`) | /code-review + done-check ✅; main מוזג 25.10 | אחרי #201; לסגור את #174 |
 | #109 ניקוי יומי (`work/purge-schedule`, טיוטה) | אפיק אישר (§14) | לרענן מ-main ולהשלים |
 | #213 Preview במקביל | מוכן | **מוקפא** (§17) |
+| #224 בחירת flows ב-`preview-e2e` (§18.2) | מוזג | |
+| #225 הפעמון לא מפעיל את ימי ההולדת ב-poll | מוזג | |
+| #226 + #228 ‏Server-Timing לכל שאילתה (`s1..sN`) | מוזגו; עובד ב-Production | |
+| #229 לוח הבקרה וספירות הקידום — שאילתה לכל מספר | מוזג; נמדד: `engagement30d` 104–1545 מ״ש, "בקשות עזרה" 175–652, רשימת הקידומים 1418 | |
+| #231 פחות בקשות כפולות (מונה הצ'אט, הפרופיל בפיד) | ירוק; Chrome מלא: רק 50 ה-visual | למזג → Preview |
+| #232 רשימת הקידומים — מעבר אחד על האירועים לכל קידום | CI רץ | למזג → Preview → למדוד |
 | I12 השלמה ב' · I9 | ⬜ | |
 
 ## המשך מכאן
 1. **`preview-e2e`:** רק לילי + פעם אחת אחרי כל מיזוג קוד; בלי הרצות חוזרות (§17). מיזוג לפי הטבלה.
-2. **הוזלת `deliver_child_birthdays()`** — השאילתה היקרה ביותר (351 מ״ש, בכל פתיחה של מסך ההתראות).
+2. **הוזלת `deliver_child_birthdays()`** — #225: לא רץ יותר ב-poll של הפעמון; נשאר: רק בפתיחת הרשימה.
 3. **migrations** (אחד-אחד, ואחרי כל אחד `migrate.yml` מ-main): I11-C — הסרת `is_help_request` (עמודה, check, index, grants, trigger, תנאי posts_insert/update_author, drift.test); סיבות ביקורת בלבד ל-Professional על ביקורת עליו · I14-B — `reports_details_length_check` 1000→500 · I10 — Highlight לפי אנשים שונים; Moderator מושתק בלי פעולות ניהול; `group_bans` רק דרך רשומת אכיפה.
 4. **I9 (§14, §16):** מחיקת חשבון — קודם לנתק מ-`users` את הרשומות שנשמרות 90 יום (FK RESTRICT חוסם היום כל מחיקה), ואז רשומת מחיקות נפרדת (`account_deletion_events`) → יישור פרטיות, תנאים, 18+, הגבלת קצב, נגישות → Turnstile (מפתחות קיימים, §15).
 5. **השלמת I12 ב'** · flows חסרים · **שלב אחרון** (`docs/final-stage-HE.md`).
 **מספרים פנויים:** AC מ-170 (#205: 159–163, #180: 164–168, #201: 169) · pgTAP 109.
 
 ## ממתין לך
-1. **כשל איטיות ב-Preview (הצעת Claude):** כשל שבו `Server-Timing` מראה `db`≈`total` ואין שגיאה אחרת — לא חוסם מיזוג; כל כשל אחר חוסם.
-2. **Production לפני הדמו:** ב-26.10 לבדוק Observability → Database אחרי יצירת הדמו. אם Swap עולה או commitment ‏SEVERE — לשקול Pro לחודש. היום: Swap יציב, ‏PROBLEMATIC.
+2. **Production לפני הדמו — ממצא 25.10 (לילה):** אותה שאילתה פשוטה (`/api/group-invitations`, בלי שורות) ענתה 1783 · 70 · 181 מ״ש בשלוש טעינות רצופות, ופעם אחת 5.2 ש׳; ‏`set role` לבד 163 מ״ש. לוח הבקרה של Professional — 0.5–8.3 ש׳ לאותה שאילתה; תגובות של פוסט — 10 ש׳ פעם אחת. פיזור כזה אומר שהמסד חסר זיכרון או Disk IO (דפים נזרקים ונקראים שוב מהדיסק), לא תוכנית שאילתה. Claude מוריד עומס בקוד (#225, #229 ועוד), אבל הסיבה העיקרית היא ה-Nano. **הצעה:** לבדוק כבר עכשיו Observability → Database (Swap, Disk IO budget) ולשקול Pro לפני יצירת הדמו, לא אחריה. — **מ-24.10:** ב-26.10 לבדוק Observability → Database אחרי יצירת הדמו. אם Swap עולה או commitment ‏SEVERE — לשקול Pro לחודש. היום: Swap יציב, ‏PROBLEMATIC.
 3. **לאשר — נבנו לפי ⭐ (שורה לכל החלטה):**
    - **I13 (#177):**
      - קידום: פריט מקודם מופיע גם במקומו ברשימה האורגנית (BR-004).
@@ -76,7 +83,8 @@
      - #168 מוזג כשה-CI הידני היה אדום בטסטי התמונות בלבד — על סמך push CI ירוק והרצת Chrome מלאה מקומית.
      - #193 מוזג כשה-Preview הלילי היה אדום — ה-migration של I11-C תלוי בו.
      - תיקנתי ומיזגתי את #176 בעצמי (תגיות pgTAP, שורת ההיסטוריה ב-down, ספירת העריכות בטסט 87).
-4. **לבדוק ב-Production:** `/admin/support`, `/admin/audit`, `/admin/analytics` (כ-Super Admin) ומהירות לוח הבקרה של Professional.
+4. **לבדוק ב-Production:** ניהול ו-Professional ✅ (25.10). נשאר: Regular — התחברות שלך בחלונית הדפדפן של האפליקציה (אני לא מזין סיסמאות ב-Production).
+12. **אחרי 24.10 אין פיצ'ר חדש (CLAUDE.md):** I9 (מחיקת חשבון ו-Turnstile) לא נבנה הלילה — רק מיזוג מה שכבר נבנה, ביצועים ובאגים. להחליט אם I9 נכנס.
 5. **מדריכי הסטטוס (BR-070):** לאשר ולפרסם את תשעת המדריכים.
 6. **במכשיר:** מקלדת באייפון ("החלפת סיסמה") · גיליון השיתוף · חיוג למוקד · HEIC/Android.
 7. **מהרשימה הקודמת (⭐):** 19 ERR-043 בלי הפניה ל-Support · 21 דחיית תמונות אחרי דיווח ישן · 26 דגימת אימון עלולה ללכת לאיבוד · 28 ברירות I8 · 8 OP-040 · 20 מונה כשלונות השחזור (I9) · 5 OP-037.
@@ -84,6 +92,8 @@
 9. **סודות למחיקה (S-56):** `.live/events.jsonl` מקומי · environment `preview-e2e`: `PREVIEW_SUPABASE_SECRET_KEY` (לא בשימוש) · Actions: `PREVIEW_TEST_EMAIL`, `PREVIEW_TEST_PASSWORD`.
 10. **לפני השקה:** קופוני הדמו · דומיין ו-DNS · SMTP (S-64) · Supabase Pro · CSAM · מסך ההסכמה של Google OAuth · אישור ב-`db-production` (S-59) · S-17/S-18/S-40 · Vercel Pro או השקה לא מסחרית.
 11. **מחקר התפקידים:** המסמך לא במאגר.
+14. **שרשרת RLS (הצעת Claude, דורשת אישור — כלל 17):** כל לייק ותגובה נבדקים שהפוסט שלהם גלוי (`reactions_select_reader` → `posts` עם ~10 policies → friendships, hides, reports). זה מה שמאט את ספירת המעורבות בלוח הבקרה (עד 1.5 ש׳) ואת ציון האיכות בפיד (לכל פוסט). **הצעה:** פונקציית SECURITY DEFINER אחת שסופרת לייקים ותגובות של אחרים על פוסטים שהקורא רשאי לראות, ומחזירה מספר בלבד (בצורה של I7). בלי זה — רק Pro מקצר.
+13. **קובץ החיבור של מסד ה-Preview (שורש המאגר):** הסיסמה לא עובדת (`password authentication failed`), אז `tools/db-preview.mjs` (EXPLAIN על ה-Preview) חסום. לעדכן את `PREVIEW_DATABASE_URL`.
 
 ## אחרי 27.10
 claim-lock בתור · אישור שני אנשים לפעולות רגישות · התראות צוות באימייל · מעקב בקשות פרטיות.
@@ -92,3 +102,5 @@ claim-lock בתור · אישור שני אנשים לפעולות רגישות 
 נכשל ועבר בהרצה חוזרת אחת — שורה כאן, לא חוסם; כשל שחוזר חוסם. היסטוריה: `docs/final-stage-HE.md`.
 - `e2e/posts.spec.ts:280` c18 desktop — axe `page-has-heading-one` בסריקה הראשונה.
 - `app-shell-guard-stories.spec.ts:50/:82` — Storybook איטי בעומס.
+- `app-shell-guard-a11y.spec.ts:205` — יציאה במקלדת (Space), flaky ב-Chrome מלא של #225 (25.10).
+- `e2e-preview/password-recovery.flow.ts:86` — אין הודעה תוך 10 ש׳ בשני הגדלים בריצה אחרי #226 (עומס על ה-Preview); עבר בריצה הבאה (25.10).

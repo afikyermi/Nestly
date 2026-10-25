@@ -235,6 +235,7 @@ export function PostScreen({ postId }: { postId: string }) {
         likes={loaded.post.likeCount}
         asAnonymousAuthor={loaded.post.isAnonymous && loaded.post.isMine}
         right={right}
+        mutedInGroup={loaded.post.kind === 'post' && loaded.post.mutedInGroup === true}
       />
     );
   // The "⋯" of the post (ux-polish-b c3): the author's edit (not on a share, F3.5 c8) and delete, else F3.7 c9's report for a post the viewer did

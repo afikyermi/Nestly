@@ -50,6 +50,11 @@ const SENTENCES: Record<NotificationType, (who: string, group: string | null | u
   group_post: () => "פוסט חדש באחת הקבוצות שלך",
   group_pinned: () => "פוסט חדש הוצמד בקבוצה",
   group_highlight: () => "פוסט בקבוצה שלך מעורר עניין",
+  // I10 completion C (§11.15, §11.16): the manager who acted is never named on the mute notice
+  group_invitation_pending: (who, group) => `הזמנה של ${who} ${inGroup(group)} מחכה לאישור שלך`,
+  group_invitation_approved: (_who, group) => `ההזמנה ששלחת ${inGroup(group)} אושרה ונשלחה`,
+  group_invitation_rejected: (_who, group) => `ההזמנה ששלחת ${inGroup(group)} לא אושרה`,
+  group_member_muted: (_who, group) => `קיבלת אזהרה ${group === null || group === undefined ? 'בקבוצה' : `בקבוצה ${group}`}. בינתיים אפשר רק לקרוא`,
   // I11 follow-ups (OP-051 cancelled): the Professional's events; who answered, reviewed or followed is never named
   offer_accepted: () => "הצעת עזרה שלך אושרה. אפשר להמשיך בשיחה",
   offer_declined: () => "הצעת עזרה שלך נדחתה",

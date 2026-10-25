@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button';
 import { ShareInFeedIcon, ShareLinkIcon } from '@/components/ui/icons';
 import { SHARE_LINK_LABEL } from '@/lib/share-link-texts';
 import { MoreActionsMenu, type MoreActionsItem } from '@/components/ui/more-actions-menu';
-import { AUDIENCE_LABELS } from './posts-texts';
+import { AUDIENCE_LABELS, fromGroup } from './posts-texts';
 import { OfferHelpControl } from '@/components/domain/offer-help-sheet';
-import { COMMENTS_TITLE, LIKE_LABEL } from './comments-texts';
+import { groupPath } from '@/lib/group-link';
+import { COMMENTS_TITLE, LIKE_LABEL, MUTED_IN_GROUP_TEXT } from './comments-texts';
 import { STAGE_LABELS } from '@/lib/child-fields';
 import { formatPostTime } from '@/lib/format-post-time';
 import { postPath } from '@/lib/post-link';
@@ -104,7 +105,14 @@ export function FeedCard(props: FeedCardProps) {
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           {/* I13 (BR-005, VAL-012, §11.5): a promoted post is always marked "ממומן" */}
           {unit.source === 'promoted' ? <span className="rounded-full bg-badge px-2.5 text-small text-badge-foreground">{SPONSORED_LABEL}</span> : null}
-          <span className={AUDIENCE_CLASS}>{AUDIENCE_LABELS[unit.audience]}</span>
+          {/* I10-C (§11.13): a Group's Highlight says where it is from instead of its audience (the Group decides who reads it) */}
+          {unit.kind === 'post' && unit.group !== undefined ? (
+            <Link to={groupPath(unit.group.id)} className="text-small font-semibold text-primary-strong underline underline-offset-4">
+              {fromGroup(unit.group.name)}
+            </Link>
+          ) : (
+            <span className={AUDIENCE_CLASS}>{AUDIENCE_LABELS[unit.audience]}</span>
+          )}
           {unit.stageTag !== null ? (
             <span className="rounded-full bg-badge px-2.5 text-small text-badge-foreground">{STAGE_LABELS[unit.stageTag]}</span>
           ) : null}
@@ -133,6 +141,12 @@ export function FeedCard(props: FeedCardProps) {
               {unit.sharerText !== null ? <Text>{unit.sharerText}</Text> : null}
               <OriginalQuote className="order-3 w-full" quote={unit.original.available ? unit.original : null} />
             </>
+          ) : null}
+          {/* I10-C (§11.16): a member muted in the Group reads its Highlight only: no like, no comments to write */}
+          {unit.kind === 'post' && unit.group?.muted === true ? (
+            <p role="note" className="order-3 w-full text-small text-muted-foreground">
+              {MUTED_IN_GROUP_TEXT}
+            </p>
           ) : null}
           {onToggleLike === undefined ? null : (
             <div className="order-3 w-full flex flex-wrap items-center gap-x-2">

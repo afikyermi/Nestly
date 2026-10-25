@@ -2,9 +2,10 @@
 // flag or ranking count can ride along (only the displayed likeCount, commentCount and likedByMe do, F3.3), and an anonymous unit has no `author` key at all (not a null one). The server builds the answer with
 // it and the web checks every answer with it.
 import { z } from 'zod';
-import { JOURNEY_STAGES, OFFER_HELP_STATES, POST_AUDIENCES } from '../constants/index.js';
+import { GROUP_PRIVACIES, JOURNEY_STAGES, OFFER_HELP_STATES, POST_AUDIENCES } from '../constants/index.js';
 import { mediaImage, POST_MAX_IMAGES } from '../media/index.js';
 import { publishedAnnouncement } from '../validation/team.js';
+import { feedGroupSuggestion } from '../validation/groups.js';
 
 const audience = z.enum(POST_AUDIENCES);
 /** I11: a Professional author carries its "יועץ · תחום" tag (decisions-in-force §4); a Regular author has no `tag` key. */
@@ -42,6 +43,9 @@ const post = {
   body: z.string(),
   images: z.array(mediaImage).max(POST_MAX_IMAGES).optional(),
   offerHelp: z.enum(OFFER_HELP_STATES).optional(),
+  /** I10-C (§11.13): a Group's Highlight in the main feed of its members carries its Group ("מתוך: <name>"); absent on a feed post. */
+  /** I10-C: the Group of a Highlight in the main feed; `muted`: the viewer is muted there and reads only (§11.16). */
+  group: z.strictObject({ id: z.guid(), name: z.string(), privacy: z.enum(GROUP_PRIVACIES), muted: z.literal(true).optional() }).optional(),
 };
 const share = { ...common, kind: z.literal('share'), body: z.string().nullable(), sharerText: z.string().nullable(), original };
 
@@ -60,6 +64,8 @@ export const feedPageResponse = z.strictObject({
   restarted: z.boolean().optional(),
   /** I14 (FR-ADMIN-008): the published System Announcements, newest first, on the first page only. */
   announcements: z.array(publishedAnnouncement).optional(),
+  /** I10-C (§11.14): active Public Groups the viewer is not a member of, on the first page only, never inside the ranking. */
+  suggestedGroups: z.array(feedGroupSuggestion).optional(),
   /**
    * I13 (FR-ALG-007, §11.2): the promoted posts of this page, each in its own slot after `afterIndex` organic units (every 4 to 7, by the last 48
    * hours' volume); never part of the organic order (AC-062).

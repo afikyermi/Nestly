@@ -176,7 +176,7 @@ export function FeedContent(props: FeedContentProps) {
               key={unit.id}
               unit={unit}
               position={index + 1}
-              {...(onToggleLike === undefined ? {} : { onToggleLike: () => onToggleLike(unit.id) })}
+              {...(onToggleLike === undefined || (unit.kind === 'post' && unit.group?.muted === true) ? {} : { onToggleLike: () => onToggleLike(unit.id) })}
               {...(actionsFor === undefined ? {} : { actions: actionsFor(unit) })}
               {...(shareActionsFor === undefined ? {} : shareActionsFor(unit))}
               {...(edit !== null && edit.unitId === unit.id

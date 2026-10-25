@@ -139,6 +139,8 @@ export const postReadView = postView.extend({
   likedByMe: z.boolean(),
   /** FR-SERV-005 (§13.2): present only for a Professional viewer on a post it may Offer Help on; `sent` once it has. */
   offerHelp: z.enum(OFFER_HELP_STATES).optional(),
+  /** I10-C (§11.16): the viewer is muted in the post's Group and reads only (absent: not muted). */
+  mutedInGroup: z.literal(true).optional(),
 });
 
 export type PostView = z.infer<typeof postView>;

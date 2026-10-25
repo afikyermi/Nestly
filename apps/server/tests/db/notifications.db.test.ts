@@ -102,6 +102,24 @@ afterAll(async () => {
   restoreEnv();
 });
 
+describe('Server-Timing against the real database', () => {
+  it('lists each statement of the request (s1..sN) as the request sends it', T, async () => {
+    // The app opens its own database from DATABASE_URL, as on a deployment: one module graph for the client and the timing
+    // (a database made here would load a second copy of lib/server-timing.ts after buildRegisterApp's module reset).
+    const app = await buildRegisterApp(env(), { clock: () => CLOCK_NOW, serverTiming: true });
+    let header: string;
+    try {
+      const res = await get(app, hA, '/api/notifications');
+      expect(res.statusCode).toBe(200);
+      header = String(res.headers['server-timing']);
+    } finally {
+      await app.close();
+    }
+    // the identity entry and the reads are several statements: at least s1 and s2, numbered in order
+    expect(header).toMatch(/, s1;dur=[0-9.]+, s2;dur=[0-9.]+/);
+  });
+});
+
 describe('[FR-NOTIF-001 AC-040] the bell, the list, mark read', () => {
   it('a Friend Request notifies the addressee with the sender\'s name and a link to the sender; Mark as read, then Mark all', T, async () => {
     const app = await start();
@@ -201,6 +219,11 @@ describe("[FR-NOTIF-003 BR-037 AC-046] a Friend's child's birthday", () => {
     const privacy = await readOwnPrivacy(database(), { userId: ACCOUNT_A });
     if (privacy.kind !== 'settings') throw new Error('no privacy settings');
     try {
+      // OP-059: the bell's background poll only reads; the birthday is delivered when the list is opened
+      const polled = await get(app, hB, '/api/notifications?poll=1');
+      expect(polled.statusCode).toBe(200);
+      expect(listBody.parse(JSON.parse(polled.body)).items.filter((item) => item.type === 'child_birthday'), 'a poll delivers nothing').toHaveLength(0);
+      expect((await get(app, hB, '/api/notifications?poll=2')).statusCode).toBe(400);
       const birthdays = (await list(app, hB)).items.filter((item) => item.type === 'child_birthday');
       expect(birthdays).toContainEqual(expect.objectContaining({ actorName: NAME_A, targetKind: 'user', targetId: ACCOUNT_A, isRead: false }));
       expect(JSON.stringify(birthdays)).not.toContain('תמר'); // the child is never named (FR-PRIV-001)

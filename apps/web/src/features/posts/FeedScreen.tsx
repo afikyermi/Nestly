@@ -15,6 +15,7 @@ import { CHECKING_TEXT, CONFIRM_DELETE_LABEL, DELETED_STATUS, FEED_TITLE, PUBLIS
 import { EDIT_ITEM_LABEL, HIDE_LABEL } from './hide-texts';
 import { FeedComposer } from './FeedComposer';
 import { SystemNotices } from './SystemNotices';
+import { GroupSuggestions } from './GroupSuggestions';
 import { takeComposerRequest } from './compose-draft';
 import { publishedUnit, sharedUnit } from './post-unit';
 import { SHARE_FAILED_TEXT, SHARED_STATUS } from './share-texts';
@@ -195,7 +196,8 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
         ];
 
   const shareActionsFor = (unit: FeedUnit) => {
-    if (professional || group?.privacy === 'private') return {};
+    // I10-C: a Private Group's Highlight in the main feed is never shared either (only its members may read it)
+    if (professional || group?.privacy === 'private' || (unit.kind === 'post' && unit.group?.privacy === 'private')) return {};
     const link = postLinkOf(shareLink.origin, unit);
     return {
       onShareInFeed:
@@ -266,7 +268,7 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
       state={state}
       sentinelRef={sentinelRef}
       onRetry={retry}
-      {...(reviewing ? {} : { onToggleLike: toggleLike })}
+      {...(reviewing || group?.readOnly === true ? {} : { onToggleLike: toggleLike })}
       actionsFor={reviewing ? () => [] : actionsFor}
       edit={cardEdit.edit}
       onEditChange={cardEdit.change}
@@ -353,6 +355,7 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
       ) : null}
       {none ? <p className="mt-1 text-body text-muted-foreground">{PLACEHOLDER_TEXT}</p> : null}
       {group === null ? <SystemNotices notices={state.notices} /> : null}
+      {group === null ? <GroupSuggestions groups={state.groupSuggestions} /> : null}
       {none ? null : stories}
       {/* One fixed place, before the list or the empty state: a form sending a post survives the feed changing phase. */}
       {write}
