@@ -33,6 +33,7 @@
 | #229 לוח הבקרה וספירות הקידום — שאילתה לכל מספר | מוזג; נמדד: `engagement30d` 104–1545 מ״ש, "בקשות עזרה" 175–652, רשימת הקידומים 1418 | |
 | #231 פחות בקשות כפולות (מונה הצ'אט, הפרופיל בפיד) | ירוק; Chrome מלא: רק 50 ה-visual | למזג → Preview |
 | #232 רשימת הקידומים — מעבר אחד על האירועים לכל קידום | CI רץ | למזג → Preview → למדוד |
+| ספירת מעורבות ב-SECURITY DEFINER (§19) — migration ואז קוד | נבנה | /code-review נפרד → מיזוג → `migrate.yml` → קוד |
 | I12 השלמה ב' · I9 | ⬜ | |
 
 ## המשך מכאן
@@ -92,7 +93,6 @@
 9. **סודות למחיקה (S-56):** `.live/events.jsonl` מקומי · environment `preview-e2e`: `PREVIEW_SUPABASE_SECRET_KEY` (לא בשימוש) · Actions: `PREVIEW_TEST_EMAIL`, `PREVIEW_TEST_PASSWORD`.
 10. **לפני השקה:** קופוני הדמו · דומיין ו-DNS · SMTP (S-64) · Supabase Pro · CSAM · מסך ההסכמה של Google OAuth · אישור ב-`db-production` (S-59) · S-17/S-18/S-40 · Vercel Pro או השקה לא מסחרית.
 11. **מחקר התפקידים:** המסמך לא במאגר.
-14. **שרשרת RLS (הצעת Claude, דורשת אישור — כלל 17):** כל לייק ותגובה נבדקים שהפוסט שלהם גלוי (`reactions_select_reader` → `posts` עם ~10 policies → friendships, hides, reports). זה מה שמאט את ספירת המעורבות בלוח הבקרה (עד 1.5 ש׳) ואת ציון האיכות בפיד (לכל פוסט). **הצעה:** פונקציית SECURITY DEFINER אחת שסופרת לייקים ותגובות של אחרים על פוסטים שהקורא רשאי לראות, ומחזירה מספר בלבד (בצורה של I7). בלי זה — רק Pro מקצר.
 13. **קובץ החיבור של מסד ה-Preview (שורש המאגר):** הסיסמה לא עובדת (`password authentication failed`), אז `tools/db-preview.mjs` (EXPLAIN על ה-Preview) חסום. לעדכן את `PREVIEW_DATABASE_URL`.
 
 ## אחרי 27.10
