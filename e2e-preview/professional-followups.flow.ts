@@ -1,5 +1,5 @@
 // I11 follow-ups on the real Preview (Afik 21.10.2026, decisions-in-force.md §9.8; PG-039): a Professional signs up with the required
-// qualification declaration, gets its business home in Afik's order, the bottom navigation's help requests and a menu with no Friends; a Regular
+// qualification declaration, gets its business home in Afik's order, the four tabs (§11.20), "בקשות עזרה" from its home and a menu with no Friends; a Regular
 // user then follows it from its page and finds it on "בעלי מקצוע במעקב", and unfollows. Both users are fresh (the cleanup sweep's email pattern).
 // No recovery attempts are made.
 import type { Page } from '@playwright/test';
@@ -55,19 +55,22 @@ test.describe.serial('[I11 follow-ups] a Professional and a follower on the Prev
     expect(answer.status(), 'GET /api/professional/home').toBe(200);
     const main = page.getByRole('main');
     await expect(main.getByRole('heading', { level: 1, name: 'לוח הבקרה' })).toBeVisible();
-    await expect(main.getByRole('heading', { level: 2 })).toHaveText(['מחכה לך', 'פוסטים שמבקשים עזרה', 'הנתונים שלך', 'השלמת הפרופיל', 'תוצאות התוכן', 'קידום']);
-    await expect(main.getByText('הצעות עזרה היום: 0 מתוך 10')).toBeVisible();
+    await expect(main.getByRole('heading', { level: 2 })).toHaveText(['מחכה לך', 'פוסטים בתחום שלך', 'הנתונים שלך', 'השלמת הפרופיל', 'תוצאות התוכן', 'קידום']);
+    await expect(main.getByText('הצעות עזרה היום: 0 מתוך 100')).toBeVisible();
     const own = await main.getByRole('link', { name: 'צפייה בעמוד שלי' }).getAttribute('href');
     expect(own).toMatch(/^\/pros\/[0-9a-f-]{36}$/);
     pages.set(info.project.name, own ?? '');
 
+    // I11-C (§11.20): בית · פיד · שיחות · פרופיל; "בקשות עזרה" from the home and the menu
     const nav = page.getByRole('navigation', { name: 'ניווט ראשי' });
-    await nav.getByRole('link', { name: 'בקשות עזרה' }).click();
+    expect((await nav.getByRole('link').allTextContents()).map((text) => text.split(/[\d,]/)[0])).toEqual(['בית', 'פיד', 'שיחות', 'פרופיל']);
+    await main.getByRole('link', { name: 'לכל הפוסטים בתחום שלך' }).click();
     await expect(page).toHaveURL(/\/help-requests$/);
     await expect(main.getByRole('heading', { level: 1, name: 'בקשות עזרה' })).toBeVisible();
 
     await page.getByRole('button', { name: 'פתיחת התפריט', exact: true }).click();
     const drawer = page.getByRole('dialog', { name: 'תפריט' });
+    await expect(drawer.getByRole('link', { name: 'בקשות עזרה', exact: true })).toBeVisible();
     await expect(drawer.getByRole('link', { name: 'בעלי מקצוע במעקב', exact: true })).toBeVisible();
     await expect(drawer.getByRole('link', { name: 'חברים', exact: true })).toHaveCount(0);
   });

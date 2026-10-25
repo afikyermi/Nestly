@@ -65,7 +65,7 @@ function Kpi({ label, value }: { label: string; value: string }) {
 }
 
 // The Professional's home (FR-PRO-001, AC-018; Afik 21.10.2026, decisions-in-force.md §9.8): a business dashboard in place of the parent's home, in
-// this order — what waits for it (unread conversations, accepted Offer Help, new reviews), the posts that ask for help with today's "X/10",
+// this order — what waits for it (unread conversations, accepted Offer Help, new reviews), the newest posts in its field (§13.4) with today's "X מתוך 100",
 // the metrics (conversations, followers, rating, the Offer Help acceptance rate), the profile's completeness, the content's results, and
 // promotion (I13; until then it says so). Aggregates of its own account only: never who (VAL-032).
 export function ProfessionalHomeScreen() {
@@ -133,11 +133,10 @@ export function ProfessionalHomeScreen() {
         <p className="mt-1 text-label">{offersLeftText(dashboard.offersToday, dashboard.offersPerDay)}</p>
         <p className="mt-1 text-small text-muted-foreground">{HELP_INTRO}</p>
         <HelpRequestsList items={help.slice(0, HOME_HELP_ITEMS)} onSent={load} />
-        {help.length > HOME_HELP_ITEMS ? (
-          <Link to={HELP_REQUESTS_PATH} className={`mt-2 ${LINK}`}>
-            {ALL_HELP_REQUESTS}
-          </Link>
-        ) : null}
+        {/* §11.20: "בקשות עזרה" left the bottom navigation; its whole list is reached from here and from the menu */}
+        <Link to={HELP_REQUESTS_PATH} className={`mt-2 ${LINK}`}>
+          {ALL_HELP_REQUESTS}
+        </Link>
       </section>
 
       <section aria-labelledby={ids.kpi}>

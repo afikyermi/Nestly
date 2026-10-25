@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { ShareInFeedIcon, ShareLinkIcon } from '@/components/ui/icons';
 import { SHARE_LINK_LABEL } from '@/lib/share-link-texts';
 import { MoreActionsMenu, type MoreActionsItem } from '@/components/ui/more-actions-menu';
-import { AUDIENCE_LABELS, fromGroup, HELP_REQUEST_BADGE } from './posts-texts';
+import { AUDIENCE_LABELS, fromGroup } from './posts-texts';
+import { OfferHelpControl } from '@/components/domain/offer-help-sheet';
 import { groupPath } from '@/lib/group-link';
 import { COMMENTS_TITLE, LIKE_LABEL, MUTED_IN_GROUP_TEXT } from './comments-texts';
 import { STAGE_LABELS } from '@/lib/child-fields';
@@ -59,6 +60,11 @@ export interface FeedCardProps {
   onEditCancel?: () => void;
   /** The card's comment area (ux-polish-a), drawn after the "⋯" (last in the tab order), only with the like control. */
   comments?: ReactNode;
+  /**
+   * I11 completion C (FR-SERV-005, §13.2): a Professional's "הצעת עזרה" in the action row, given only on a post it may offer on; `sent`: the
+   * offer went (one per post), so the row says "נשלחה הצעה" instead.
+   */
+  offerHelp?: { sent: boolean; onOffer: () => void } | undefined;
 }
 
 // One unit of the feed (F3.2b c14-c17; F3.3 c13; ux-polish-a): a post, an anonymous post (only "אנונימי": no name, avatar or link) or a share with its
@@ -70,7 +76,7 @@ export interface FeedCardProps {
 // tab order before the comment area (ux-polish-a c9); its items come in as actions.
 export function FeedCard(props: FeedCardProps) {
   const { unit, position, onToggleLike, onShareInFeed, onShareLink, actions = [], menuOpen, onMenuOpenChange, onMenuPressOutside } = props;
-  const { edit, onEditChange, onEditSave, onEditCancel, comments } = props;
+  const { edit, onEditChange, onEditSave, onEditCancel, comments, offerHelp } = props;
   const authorId = useId();
   const author = unit.isAnonymous ? ANONYMOUS_AUTHOR_LABEL : (unit.author.name ?? MEMBER_FALLBACK_LABEL);
   const call = useProCall();
@@ -107,9 +113,6 @@ export function FeedCard(props: FeedCardProps) {
           ) : (
             <span className={AUDIENCE_CLASS}>{AUDIENCE_LABELS[unit.audience]}</span>
           )}
-          {unit.kind === 'post' && unit.isHelpRequest === true ? (
-            <span className="rounded-full bg-badge px-2.5 text-small text-badge-foreground">{HELP_REQUEST_BADGE}</span>
-          ) : null}
           {unit.stageTag !== null ? (
             <span className="rounded-full bg-badge px-2.5 text-small text-badge-foreground">{STAGE_LABELS[unit.stageTag]}</span>
           ) : null}
@@ -167,6 +170,7 @@ export function FeedCard(props: FeedCardProps) {
                 {COMMENTS_TITLE}
                 {unit.commentCount > 0 ? ` ${unit.commentCount.toLocaleString('en-US')}` : null}
               </button>
+              {offerHelp === undefined ? null : <OfferHelpControl {...offerHelp} />}
               {onShareInFeed === undefined ? null : (
                 <Button iconOnly label={SHARE_IN_FEED_LABEL} data-share-feed onClick={onShareInFeed}>
                   <ShareInFeedIcon className="size-5" />

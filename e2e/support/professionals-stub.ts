@@ -13,6 +13,9 @@ export const POST = PID(10);
 export const OFFER = PID(20);
 export const CONV = PID(30);
 export const ARTICLE = PID(40);
+export const FEED_POST = PID(60);
+export const MY_REVIEW = PID(51);
+export const REVIEW_OF_ME = PID(52);
 
 export interface ProSent {
   method: string;
@@ -28,10 +31,19 @@ export interface ProNet {
   promotions: Array<{ id: string; state: 'running' | 'stopped' | 'ended'; stoppedBy: 'owner' | 'staff' | null }>;
   promotedCard: boolean;
   sent: ProSent[];
+  /** I11-C (§11.21): the viewer's own review of DANA, written, edited (editedAt) or deleted through the stub. */
+  myReview: { rating: number; text: string; editedAt: string | null } | null;
+  /** I11-C (§13.2): the feed holds one Regular's post the Professional may Offer Help on (FEED_POST). */
+  feedPost: boolean;
+  /** The Chat unread count (the Professional's "שיחות" tab badge, §11.20). */
+  unread: number;
+  /** How many times the feed was read. */
+  feedReads: number;
 }
 export const PROMO = PID(60);
 
 const AT = '2026-06-15T09:00:00.000Z';
+const EDITED_AT = '2026-06-15T11:00:00.000Z';
 
 const card = (id: string, fullName: string, field: string, area: string, years: number, price: number, rating: number | null) => ({
   id,
@@ -47,7 +59,7 @@ const card = (id: string, fullName: string, field: string, area: string, years: 
 });
 
 export async function setupProfessionals(page: Page, start: Partial<ProNet> = {}): Promise<ProNet> {
-  const net: ProNet = { kind: 'regular', following: false, offered: false, promotions: [], promotedCard: false, sent: [], ...start };
+  const net: ProNet = { kind: 'regular', following: false, offered: false, promotions: [], promotedCard: false, sent: [], myReview: null, feedPost: false, unread: 0, feedReads: 0, ...start };
   await page.clock.setFixedTime(NOW);
   await page.addInitScript(() => {
     Reflect.set(window, 'nestlyRealSession', true);
@@ -71,8 +83,32 @@ export async function setupProfessionals(page: Page, start: Partial<ProNet> = {}
         ? json(route, 200, { fullName: 'נועה לוי', parentGender: 'woman' })
         : json(route, 404, { error: 'no_profile' }),
   );
+  const feedUnit = () => ({
+    id: FEED_POST,
+    source: 'organic',
+    audience: 'everyone',
+    stageTag: null,
+    createdAt: AT,
+    likeCount: 0,
+    commentCount: 0,
+    likedByMe: false,
+    kind: 'post',
+    body: 'מחפשת עזרה עם הנקה בשבוע הראשון',
+    isMine: false,
+    isAnonymous: false,
+    author: { name: 'רינה כהן' },
+    ...(net.kind === 'professional' ? { offerHelp: net.offered ? 'sent' : 'available' } : {}),
+  });
   await page.route('**/api/feed**', (route) =>
-    route.request().method() === 'OPTIONS' ? route.fulfill({ status: 204, headers: CORS }) : json(route, 200, { items: [], nextCursor: null, configVersion: 1 }),
+    route.request().method() === 'OPTIONS'
+      ? route.fulfill({ status: 204, headers: CORS })
+      : ((net.feedReads += 1), json(route, 200, { items: net.feedPost ? [feedUnit()] : [], nextCursor: null, configVersion: 1 })),
+  );
+  await page.route('**/api/posts/*/comments**', (route) =>
+    route.request().method() === 'OPTIONS' ? route.fulfill({ status: 204, headers: CORS }) : json(route, 200, { items: [], nextCursor: null }),
+  );
+  await page.route('**/api/chat/unread', (route) =>
+    route.request().method() === 'OPTIONS' ? route.fulfill({ status: 204, headers: CORS }) : json(route, 200, { count: net.unread }),
   );
 
   await page.route(
@@ -117,7 +153,11 @@ export async function setupProfessionals(page: Page, start: Partial<ProNet> = {}
           conversationId: null,
           canChat: true,
           reviewableConversationId: CONV,
-          reviews: [{ id: PID(50), rating: 5, text: 'ליווי מדהים', at: AT }],
+          myReview: net.myReview === null ? null : { id: MY_REVIEW, at: AT, ...net.myReview },
+          reviews: [
+            ...(net.myReview === null ? [] : [{ id: MY_REVIEW, at: AT, ...net.myReview }]),
+            { id: PID(50), rating: 5, text: 'ליווי מדהים', at: AT, editedAt: null },
+          ],
           articles: [{ id: ARTICLE, title: 'שלושה דברים לפני הלידה', body: 'גוף המאמר', field: 'doula', status: 'published', at: AT, isMine: false, isTakenDown: false }],
         });
       }
@@ -131,7 +171,8 @@ export async function setupProfessionals(page: Page, start: Partial<ProNet> = {}
           conversationId: null,
           canChat: false,
           reviewableConversationId: null,
-          reviews: [],
+          myReview: null,
+          reviews: [{ id: REVIEW_OF_ME, rating: 1, text: 'לא הגיעה לפגישה', at: AT, editedAt: null }],
           articles: net.sent.some((s) => s.path === '/api/professional/articles' && s.method === 'POST')
             ? [{ id: ARTICLE, title: 'הנקה בשבוע הראשון', body: 'גוף', field: 'lactation', status: 'published', at: AT, isMine: true, isTakenDown: false }]
             : [],
@@ -141,7 +182,14 @@ export async function setupProfessionals(page: Page, start: Partial<ProNet> = {}
         net.following = method === 'PUT';
         return route.fulfill({ status: 204, headers: CORS });
       }
-      if (path === `/api/professionals/${DANA}/reviews`) return json(route, 201, { status: 'created' });
+      if (path === `/api/professionals/${DANA}/reviews`) {
+        const rating = typeof body.rating === 'number' ? body.rating : 0;
+        const text = typeof body.text === 'string' ? body.text : '';
+        if (method === 'POST') net.myReview = { rating, text, editedAt: null };
+        if (method === 'PUT') net.myReview = { rating, text, editedAt: EDITED_AT };
+        if (method === 'DELETE') net.myReview = null;
+        return method === 'POST' ? json(route, 201, { status: 'created' }) : route.fulfill({ status: 204, headers: CORS });
+      }
       if (path === '/api/chat/start') return json(route, 200, { kind: 'conversation', conversationId: CONV });
       if (path === '/api/professional/home') {
         return json(route, 200, {
@@ -158,7 +206,7 @@ export async function setupProfessionals(page: Page, start: Partial<ProNet> = {}
             posts30d: 4,
             articles: 1,
             offersToday: net.offered ? 1 : 0,
-            offersPerDay: 10,
+            offersPerDay: 100,
             unreadChats: 2,
             acceptedOffersNew: 1,
             reviewsNew: 0,
@@ -169,7 +217,7 @@ export async function setupProfessionals(page: Page, start: Partial<ProNet> = {}
           helpRequests: [{ postId: POST, excerpt: 'מישהי מכירה יועצת הנקה טובה?', isAnonymous: true, authorName: null, at: AT, offered: net.offered }],
         });
       }
-      if (path === `/api/posts/${POST}/offer-help`) {
+      if (path === `/api/posts/${POST}/offer-help` || path === `/api/posts/${FEED_POST}/offer-help`) {
         net.offered = true;
         return json(route, 201, { id: OFFER });
       }

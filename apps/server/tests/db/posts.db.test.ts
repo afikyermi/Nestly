@@ -464,12 +464,13 @@ describe('[professional-posting c2] POST /posts by a Professional', () => {
     expect(await scalar(side`select tests.fx_pa_count() as v`)).toBe('0');
   });
 
-  it('[professional-posting c2 · I11 AC-130] audience friends, any stageTag or a help request → 403 and no row; "followers" → 201 (AC-130)', T, async () => {
+  it('[professional-posting c2 · I11 AC-130] audience friends, any stageTag → 403 and no row; the removed help-request key → 400 (I11-C); "followers" → 201 (AC-130)', T, async () => {
     const app = await start();
-    for (const extra of [{ audience: 'friends' }, { stageTag: 'pregnant' }, { stageTag: 'planning' }, { stageTag: 'has_child' }, { isHelpRequest: true }]) {
+    for (const extra of [{ audience: 'friends' }, { stageTag: 'pregnant' }, { stageTag: 'planning' }, { stageTag: 'has_child' }]) {
       const res = await createPost(app, hP, { body: 'x', audience: 'everyone', ...extra });
       expect(res.statusCode, `${JSON.stringify(extra)}: ${res.body}`).toBe(403);
     }
+    expect((await createPost(app, hP, { body: 'x', audience: 'everyone', isHelpRequest: true })).statusCode).toBe(400);
     expect(await postCount()).toBe(0);
     expect((await createPost(app, hP, { body: 'x', audience: 'followers' })).statusCode).toBe(201);
     expect(await postCount()).toBe(1);

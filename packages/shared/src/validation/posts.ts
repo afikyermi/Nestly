@@ -5,7 +5,7 @@
 // `isAnonymous` either way: anonymity never changes after posting. The stage tag is the author's own choice (5א), one of JOURNEY_STAGES or
 // none; nothing derives it.
 import { z } from 'zod';
-import { JOURNEY_STAGES, POST_AUDIENCES, POST_BODY_MAX, type JourneyStage, type PostAudience } from '../constants/index.js';
+import { JOURNEY_STAGES, OFFER_HELP_STATES, POST_AUDIENCES, POST_BODY_MAX, type JourneyStage, type PostAudience } from '../constants/index.js';
 import { codePointLength } from './text.js';
 import { mediaImage, POST_MAX_IMAGES } from '../media/index.js';
 
@@ -37,8 +37,6 @@ export const createPostSchema = z
     stageTag: stageTag.optional(),
     isAnonymous: z.boolean().optional(),
     imageIds: imageIds.optional(),
-    /** OP-038 (I11): the author asks for help, so Professionals may Offer Help (FR-SERV-005). A Regular's post only (the database). */
-    isHelpRequest: z.boolean().optional(),
     /** I10: the Group the post is written in (members only, the database decides); a group post is always for everyone. */
     groupId: z.guid().optional(),
   })
@@ -47,7 +45,7 @@ export const createPostSchema = z
 
 /** PATCH /api/posts/:id: any of the three, at least one. Absent = unchanged; `stageTag: null` clears the tag. */
 export const updatePostSchema = z
-  .strictObject({ body: postBody.optional(), audience: audience.optional(), stageTag: stageTag.optional(), isHelpRequest: z.boolean().optional() })
+  .strictObject({ body: postBody.optional(), audience: audience.optional(), stageTag: stageTag.optional() })
   .refine((value) => Object.keys(value).length > 0, 'invalid');
 
 /** The `:id` of a post path: a uuid's text form (`guid`, so Postgres' cast cannot fail), else the caller answers 404 before any query. */
@@ -57,8 +55,6 @@ export interface PostWrite {
   readonly body?: string;
   readonly audience?: PostAudience;
   readonly stageTag?: JourneyStage | null;
-  /** OP-038 (I11): asks for help. */
-  readonly isHelpRequest?: boolean;
 }
 
 /** A create adds the one-time anonymity choice; present only when the body named it. */
@@ -81,14 +77,12 @@ interface ParsedWrite {
   readonly body?: string | undefined;
   readonly audience?: PostAudience | undefined;
   readonly stageTag?: JourneyStage | null | undefined;
-  readonly isHelpRequest?: boolean | undefined;
 }
 
-const writeOf = ({ body, audience: chosen, stageTag: tag, isHelpRequest: help }: ParsedWrite): PostWrite => ({
+const writeOf = ({ body, audience: chosen, stageTag: tag }: ParsedWrite): PostWrite => ({
   ...(body === undefined ? {} : { body }),
   ...(chosen === undefined ? {} : { audience: chosen }),
   ...(tag === undefined ? {} : { stageTag: tag }),
-  ...(help === undefined ? {} : { isHelpRequest: help }),
 });
 
 /** A shape, key or enum problem is `invalid` (400); an empty or too long text, or an anonymous friends-only post, is its code (422). */
@@ -143,6 +137,8 @@ export const postReadView = postView.extend({
   likeCount: z.number().int().nonnegative(),
   commentCount: z.number().int().nonnegative(),
   likedByMe: z.boolean(),
+  /** FR-SERV-005 (§13.2): present only for a Professional viewer on a post it may Offer Help on; `sent` once it has. */
+  offerHelp: z.enum(OFFER_HELP_STATES).optional(),
   /** I10-C (§11.16): the viewer is muted in the post's Group and reads only (absent: not muted). */
   mutedInGroup: z.literal(true).optional(),
 });

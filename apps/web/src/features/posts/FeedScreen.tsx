@@ -41,6 +41,8 @@ import { useFeedSource } from './feed-source';
 import { PIN_LABEL, REMOVE_FROM_GROUP_LABEL, UNPIN_LABEL } from '@/lib/group-post-texts';
 import { useStaffAccess } from '@/hooks/use-staff-access';
 import { STAFF_REVIEW_NOTE } from '@/lib/staff-review-texts';
+import { OFFER_CONTROL_SELECTOR, OfferHelpSheet } from '@/components/domain/offer-help-sheet';
+import { useOfferHelp } from '@/hooks/use-offer-help';
 
 /**
  * What is open over the feed: one card's menu, one comment's menu (ux-polish-a c10), or the delete confirmation of a card or of a comment in it
@@ -136,14 +138,18 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
   const shareSending = shareFeed.draft?.sending === true;
   // F3.6: the share-link window of a card; nothing is sent.
   const shareLink = useShareLink();
-  const sheetOpen = report.draft !== null || shareFeed.draft !== null || shareLink.sheet !== null;
+  // I11 completion C (FR-SERV-005, §13.2): a Professional offers help from a card the server marked; the window over the feed, once per post.
+  const offer = useOfferHelp((_postId, text) => said(text));
+  const offerSending = offer.draft?.sending === true;
+  const sheetOpen = report.draft !== null || shareFeed.draft !== null || shareLink.sheet !== null || offer.draft !== null;
   // Back while the delete, the report or the share is in flight keeps its dialog (and the hook adds its entry again, so the next Back still closes it).
   const { closingByPointer, followAfterClose, closing } = useBackCloses(overlay !== null || sheetOpen, () => {
-    if (saving || reportSending || shareSending) return false;
+    if (saving || reportSending || shareSending || offerSending) return false;
     setOverlay(null);
     report.cancel();
     shareFeed.cancel();
     shareLink.close();
+    offer.cancel();
     return true;
   });
   const confirmDelete = async (unitId: string, comment: { id: string; topLevel: boolean } | undefined) => {
@@ -204,6 +210,11 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
       onShareLink: link === null ? undefined : () => shareLink.openPost(link, unit.id),
     };
   };
+
+  const offerHelpFor = (unit: FeedUnit) =>
+    unit.kind === 'post' && unit.offerHelp !== undefined
+      ? { sent: unit.offerHelp === 'sent' || offer.isSent(unit.id), onOffer: () => offer.start(unit.id, unit.isAnonymous) }
+      : undefined;
 
   // ux-polish-a c1: a card asks for its comments once, when it first comes near (a hidden card's placeholder has no comment area).
   const nearKey = state.items.map((unit) => `${unit.id}${state.hiddenIds.includes(unit.id) ? '-' : ''}`).join(' ') + (cardEdit.edit?.unitId ?? '');
@@ -284,7 +295,7 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
             ? { commentId: report.draft.target.id, sheet: reportSheetProps(report, report.draft, PATHS.communityRules) }
             : { unitId: report.draft.target.id, sheet: reportSheetProps(report, report.draft, PATHS.communityRules) }
       }
-      {...(reviewing ? {} : { commentsFor, shareActionsFor })}
+      {...(reviewing ? {} : { commentsFor, shareActionsFor, offerHelpFor })}
       shareFeed={
         shareFeed.draft === null
           ? null
@@ -349,6 +360,17 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
       {/* One fixed place, before the list or the empty state: a form sending a post survives the feed changing phase. */}
       {write}
       {content}
+      {offer.draft !== null ? (
+        <OfferHelpSheet
+          {...offer.draft}
+          onTextChange={offer.change}
+          onSend={offer.send}
+          onCancel={offer.cancel}
+          finalFocus={() =>
+            rootRef.current?.querySelector<HTMLElement>(`article[data-unit-id="${offer.draft?.postId ?? ''}"] :is(${OFFER_CONTROL_SELECTOR})`) ?? null
+          }
+        />
+      ) : null}
       {/* F3.2b c20: in the shell's action bar (never over a card's controls), only after a long scroll. */}
       {far && actionBar !== null
         ? createPortal(

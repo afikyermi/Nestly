@@ -6,11 +6,12 @@ import { MenuItem } from '@/components/shared/menu-item';
 import { NotificationBell } from '@/features/notifications/NotificationBell';
 import { NotificationsProvider, useNotifications } from '@/features/notifications/NotificationsProvider';
 import { SearchBox } from '@/features/search/SearchBox';
-import { BagIcon, HomeIcon, NestIcon, SparkIcon, UserIcon } from '@/components/ui/icons';
+import { BagIcon, HomeIcon, MessageIcon, NestIcon, SparkIcon, UserIcon } from '@/components/ui/icons';
 import { MARKETPLACE_NAV_LABEL } from '@/lib/marketplace-texts';
 import { AccountKindProvider, useAccountKindQuery } from '@/hooks/use-account-kind';
 import {
   BILLING_TITLE,
+  CHATS_NAV_LABEL,
   DIRECTORY_NAV_LABEL,
   DIRECTORY_TITLE,
   FOLLOWING_TITLE,
@@ -26,6 +27,7 @@ import { useSession } from '@/hooks/use-session';
 import { StaffAccessProvider, useStaffAccessQuery } from '@/hooks/use-staff-access';
 import { ADMIN_MENU_LABEL, STAFF_GROUPS_MENU_LABEL } from '@/features/admin/admin-texts';
 import { ChatTopBarButton } from '@/features/chat/ChatTopBarButton';
+import { ChatsNavBadge } from '@/features/chat/ChatsNavBadge';
 import { NEW_SUPPORT_LABEL } from '@/lib/chat-texts';
 import { shareLinkSheetProps, useShareLink } from '@/hooks/use-share-link';
 import { SHARE_SITE_LABEL } from '@/lib/share-link-texts';
@@ -36,7 +38,8 @@ import { normalizePath, PATHS } from './paths';
 
 // The destinations of a community account (AC-005, §7.1, in the sketch's order): home, the Marketplace (I12, "חנות", FR-MKT-001), feed, the
 // Professionals' directory (I11, FR-SERV-001) and the profile. The profile tab shows the generic person icon until profile photos exist (I5, Q7). A
-// Professional's (Afik 21.10.2026, §9.8): home (its dashboard), feed, the posts that ask for help, and its Professional profile (no "חנות").
+// Professional's (§11.20, Afik 21.10.2026; AC-148): home (its dashboard), feed, its conversations with the unread badge, and its
+// Professional profile (no "חנות"; "בקשות עזרה" is reached from its home and its menu).
 // A staff account (I14 completion, Afik 21.10.2026): home (the admin area), the Marketplace, the feed and the directory, for review; no personal
 // profile (a work-only account).
 const navItems = (professional: boolean, staff = false) => [
@@ -44,7 +47,7 @@ const navItems = (professional: boolean, staff = false) => [
   ...(professional ? [] : [{ key: 'marketplace', label: MARKETPLACE_NAV_LABEL, href: PATHS.marketplace, icon: <BagIcon /> }]),
   { key: 'feed', label: 'פיד', href: PATHS.feed, icon: <NestIcon /> },
   professional
-    ? { key: 'help', label: HELP_REQUESTS_TITLE, href: PATHS.helpRequests, icon: <SparkIcon /> }
+    ? { key: 'chats', label: CHATS_NAV_LABEL, href: PATHS.chat, icon: <MessageIcon />, badge: <ChatsNavBadge /> }
     : { key: 'services', label: DIRECTORY_NAV_LABEL, href: PATHS.services, icon: <SparkIcon /> },
   ...(staff ? [] : [{ key: 'profile', label: 'פרופיל', href: professional ? PATHS.proProfile : PATHS.profile, icon: <UserIcon /> }]),
 ];
@@ -108,7 +111,10 @@ export function ProtectedLayout() {
     <NotificationsProvider>
     <AppShell
       topBarActions={<TopBarActions chat={staff.kind === 'none' ? <ChatTopBarButton current={current} /> : null} />}
-      navItems={navItems(professional, staff.kind === 'staff').map((item) => ({ ...item, current: item.href === current }))}
+      navItems={navItems(professional, staff.kind === 'staff').map((item) => ({
+        ...item,
+        current: item.href === current || (item.key === 'chats' && current.startsWith(`${PATHS.chat}/`)),
+      }))}
       navLabel="ניווט ראשי"
       menuLabel="פתיחת התפריט"
       drawerTitle="תפריט"
@@ -150,6 +156,10 @@ export function ProtectedLayout() {
               </MenuItem>
               <MenuItem href={PATHS.offers} current={PATHS.offers === current} onNavigate={leaving(closeMenu)}>
                 {MY_OFFERS}
+              </MenuItem>
+              {/* §11.20: out of the bottom navigation, reached from here and the home */}
+              <MenuItem href={PATHS.helpRequests} current={PATHS.helpRequests === current} onNavigate={leaving(closeMenu)}>
+                {HELP_REQUESTS_TITLE}
               </MenuItem>
               <MenuItem href={PATHS.proPromotion} current={PATHS.proPromotion === current} onNavigate={leaving(closeMenu)}>
                 {PROMOTION_TITLE}

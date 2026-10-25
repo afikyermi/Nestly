@@ -14,8 +14,8 @@ type Loaded =
   | { kind: 'not-professional' }
   | { kind: 'loaded'; dashboard: ProfessionalDashboard; help: HelpRequestItem[] };
 
-// The posts that ask for help (FR-SERV-005), a Professional's bottom navigation item (Afik 21.10.2026, §9.8): today's "X/10" and every request the
-// feed's rules let it read, each with "הצעת עזרה" once. The server answers a non-Professional with a refusal; the page then says so.
+// "בקשות עזרה" (FR-SERV-005, PG-057, §13.4): today's "X מתוך 100" and the newest posts in the Professional's field that the feed's rules let it
+// read, each with "הצעת עזרה" once; reached from its home and its menu (§11.20). The server answers a non-Professional with a refusal; the page then says so.
 export function HelpRequestsScreen() {
   const call = useProCall();
   const [loaded, setLoaded] = useState<Loaded>({ kind: 'loading' });
