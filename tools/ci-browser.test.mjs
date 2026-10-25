@@ -1,9 +1,13 @@
 // Repository tests for the browser jobs of .github/workflows/ci.yml (CI contract of 20.10.2026):
 // - `browser`: the whole Chrome suite as a matrix of ten parallel shards, when `changes` says browser=full (push to main,
-//   nightly schedule, workflow_dispatch, and a pull request whose changed files cannot be read). On push and schedule the
-//   visual specs are left out (E2E_SKIP_VISUAL, playwright.config.ts); by hand they run.
-// - `browser-changed`: a pull request's added or changed specs only, in Chrome, one job, skipped when there are none.
+//   nightly schedule, workflow_dispatch, and a pull request whose changed files cannot be read). The pixel visual specs are
+//   left out on every event (E2E_SKIP_VISUAL=true, playwright.config.ts): they never block (Afik 24.10, decisions-in-force
+//   §14.1). Layer 1 (e2e/layout-rules.spec.ts, rule-based UI checks) is an ordinary spec of this suite and blocks.
+// - `browser-changed`: a pull request's added or changed specs only, in Chrome, one job, skipped when there are none; a
+//   changed visual spec is left out too (E2E_SKIP_VISUAL=true, --pass-with-no-tests).
 // - `browser-edge`: the Edge suite in ten shards, by workflow_dispatch only.
+// - `browser-visual`: the pixel visual specs only, in Chrome, by workflow_dispatch only, non-blocking: the test step
+//   continues on error, a warning step reports it, the report is uploaded.
 // What must not drift: the matrix is exactly project x shard (so no browser or shard silently drops out), no leg stops the
 // others, each job installs only its own browser, builds the gallery before it runs, its report has its own name, the
 // --shard divisor equals the matrix length, and every browser job ends itself before its timeout (globalTimeout).
@@ -25,8 +29,9 @@ const projectNames = [...config.matchAll(/\{\s*name:\s*'([^']+)'/g)].map((m) => 
 const FULL_IF = /^(?:\$\{\{\s*)?needs\.changes\.outputs\.browser\s*==\s*'full'(?:\s*\}\})?$/;
 const CHANGED_IF = /^(?:\$\{\{\s*)?needs\.changes\.outputs\.browser\s*==\s*'changed'(?:\s*\}\})?$/;
 const EDGE_IF = /^(?:\$\{\{\s*)?github\.event_name\s*==\s*'workflow_dispatch'(?:\s*\}\})?$/;
-// The visual specs are left out on push and schedule only: a manual run (and the pull-request fail-safe) keeps them.
-const VISUAL_ENV = /^\$\{\{\s*github\.event_name\s*==\s*'push'\s*\|\|\s*github\.event_name\s*==\s*'schedule'\s*\}\}$/;
+// The pixel visual specs are left out of every blocking job, on every event (Afik 24.10): the literal true, no expression.
+const VISUAL_ENV = /^'?true'?$/;
+const isSkipTrue = (value) => VISUAL_ENV.test(String(value ?? '').trim());
 const PROJECT_FLAG = /--project=\$\{\{\s*matrix\.project\s*\}\}/;
 const SHARD_FLAG = /--shard=\$\{\{\s*matrix\.shard\s*\}\}\/(\d+)\b/;
 
@@ -57,7 +62,7 @@ function browserProblems(job, names) {
       const shard = SHARD_FLAG.exec(run);
       if (!shard) problems.push('the playwright step does not pass --shard=${{ matrix.shard }}/N');
       else if (Number(shard[1]) !== shards.length) problems.push(`--shard divides into ${shard[1]} but the matrix has ${shards.length} shards`);
-      if (!VISUAL_ENV.test(String(test.env?.E2E_SKIP_VISUAL ?? '').trim())) problems.push(`E2E_SKIP_VISUAL is not exactly push-or-schedule: ${String(test.env?.E2E_SKIP_VISUAL)}`);
+      if (!isSkipTrue(test.env?.E2E_SKIP_VISUAL)) problems.push(`E2E_SKIP_VISUAL is not the literal true (the visual specs would block): ${String(test.env?.E2E_SKIP_VISUAL)}`);
     }
   }
 
@@ -134,9 +139,11 @@ test('[CI contract] the browser problem check can fail: every drift from the con
     'another if': () => ({ ...clone(), if: "github.event_name == 'push'" }),
     'the old web filter': () => ({ ...clone(), if: "needs.changes.outputs.web == 'true'" }),
     'browser=changed runs the full suite': () => ({ ...clone(), if: "needs.changes.outputs.browser == 'changed'" }),
-    'visual specs skipped on every event': () => withStep(clone(), /playwright\s+test/, (s) => ({ env: { ...s.env, E2E_SKIP_VISUAL: 'true' } })),
-    'visual specs skipped by hand too': () => withStep(clone(), /playwright\s+test/, (s) => ({ env: { ...s.env, E2E_SKIP_VISUAL: "${{ github.event_name != 'pull_request' }}" } })),
+    'visual specs back by hand (the old push-or-schedule rule)': () =>
+      withStep(clone(), /playwright\s+test/, (s) => ({ env: { ...s.env, E2E_SKIP_VISUAL: "${{ github.event_name == 'push' || github.event_name == 'schedule' }}" } })),
+    'visual specs back on pull requests': () => withStep(clone(), /playwright\s+test/, (s) => ({ env: { ...s.env, E2E_SKIP_VISUAL: "${{ github.event_name != 'pull_request' }}" } })),
     'visual specs never skipped': () => withStep(clone(), /playwright\s+test/, (s) => ({ env: { ...s.env, E2E_SKIP_VISUAL: undefined } })),
+    'visual specs skip set to false': () => withStep(clone(), /playwright\s+test/, (s) => ({ env: { ...s.env, E2E_SKIP_VISUAL: 'false' } })),
     'if always()': () => ({ ...clone(), if: 'always()' }),
     'continue-on-error': () => ({ ...clone(), 'continue-on-error': 'true' }),
     'no --project flag': () => withStep(clone(), /playwright\s+test/, (s) => ({ run: runOf(s).replace(PROJECT_FLAG, '') })),
@@ -270,7 +277,8 @@ function changedProblems(job) {
   if (installAt > testAt || storybookAt > testAt) problems.push('the browser or the gallery comes after the tests');
   const step = steps[testAt];
   const run = runOf(step);
-  if (!/playwright\s+test\s+--project=chrome\s+\$\{SPECS\}\s*$/m.test(run)) problems.push('the tests are not `playwright test --project=chrome ${SPECS}`');
+  if (!/playwright\s+test\s+--project=chrome\s+--pass-with-no-tests\s+\$\{SPECS\}\s*$/m.test(run)) problems.push('the tests are not `playwright test --project=chrome --pass-with-no-tests ${SPECS}`');
+  if (!isSkipTrue(step.env?.E2E_SKIP_VISUAL)) problems.push('E2E_SKIP_VISUAL is not the literal true: a changed visual spec would block the pull request');
   if (/--shard|--project=edge|\$\{\{/.test(run)) problems.push('the run body shards, runs Edge or interpolates an expression');
   if (!/^\$\{\{\s*needs\.changes\.outputs\.specs\s*\}\}$/.test(String(step.env?.SPECS ?? '').trim())) problems.push('SPECS does not come from needs.changes.outputs.specs through env');
   if (!/^\s*set -euf\s*$/m.test(run)) problems.push('globbing is not off (set -f) where the list is split into words');
@@ -299,10 +307,12 @@ test('[CI contract] the browser-changed check can fail: every drift is caught (g
     'a matrix': () => ({ ...clone(), strategy: { matrix: { shard: ['1', '2'] } } }),
     'continue-on-error': () => ({ ...clone(), 'continue-on-error': 'true' }),
     'timeout 30': () => ({ ...clone(), 'timeout-minutes': '30' }),
-    'the whole suite': () => onTest((s) => ({ run: runOf(s).replace(/--project=chrome \$\{SPECS\}/, '--project=chrome') })),
+    'the whole suite': () => onTest((s) => ({ run: runOf(s).replace('--pass-with-no-tests ${SPECS}', '--pass-with-no-tests') })),
+    'a changed visual spec blocks again': () => onTest((s) => ({ env: { ...s.env, E2E_SKIP_VISUAL: undefined } })),
+    'a pull request of visual specs only fails on "no tests"': () => onTest((s) => ({ run: runOf(s).replace('--pass-with-no-tests ', '') })),
     'Edge instead of Chrome': () => onTest((s) => ({ run: runOf(s).replace('--project=chrome', '--project=edge') })),
     'specs interpolated in the run body': () => onTest((s) => ({ run: runOf(s).replace('${SPECS}', '${{ needs.changes.outputs.specs }}') })),
-    'SPECS from somewhere else': () => onTest((s) => ({ env: { SPECS: '${{ github.event.pull_request.title }}' } })),
+    'SPECS from somewhere else': () => onTest((s) => ({ env: { ...s.env, SPECS: '${{ github.event.pull_request.title }}' } })),
     'globbing left on': () => onTest((s) => ({ run: runOf(s).replace('set -euf', 'set -eu') })),
     'no second check of the list': () => onTest((s) => ({ run: runOf(s).replace(/case "\$\{SPECS\}" in[\s\S]*?esac/, '') })),
     'both browsers installed': () => ({ ...clone(), steps: clone().steps.map((s) => (/playwright\s+install/.test(runOf(s)) ? { ...s, run: 'npx playwright install --with-deps chrome msedge' } : s)) }),
@@ -310,6 +320,80 @@ test('[CI contract] the browser-changed check can fail: every drift is caught (g
   };
   for (const [label, make] of Object.entries(mutants)) {
     assert.notDeepEqual(changedProblems(make()), [], `${label} was not caught`);
+  }
+});
+
+// ---- browser-visual: the pixel visual specs, by hand, non-blocking ------------------------------------------------------------
+
+const visualJob = ci.jobs?.['browser-visual'];
+
+/** Everything that must hold for the job that runs the pixel visual specs without blocking. */
+function visualProblems(job) {
+  if (!job) return ['there is no browser-visual job'];
+  const problems = [];
+  const steps = stepsOf(job);
+  if (!EDGE_IF.test(String(job.if ?? '').trim())) problems.push(`the if is not exactly github.event_name == 'workflow_dispatch': ${String(job.if)}`);
+  // Non-blocking at the step, so the job (and the run) stays green; never at the job, which would still show a red job.
+  if (has(job, 'continue-on-error')) problems.push('the job has continue-on-error (the step carries it)');
+  if (has(job, 'strategy')) problems.push('the job has a strategy (one job)');
+  const minutes = Number(job['timeout-minutes']);
+  if (!(minutes >= 10 && minutes <= 15)) problems.push(`timeout-minutes is ${job['timeout-minutes']}, not 10 to 15`);
+  const idx = (re) => steps.findIndex((s) => re.test(runOf(s)));
+  const installAt = idx(/\bplaywright\s+install\b/);
+  const storybookAt = idx(/\bbuild-storybook\b/);
+  const testAt = idx(/\bplaywright\s+test\b/);
+  if (installAt < 0 || !/install\s+(?:--\S+\s+)*chrome\s*$/.test(runOf(steps[installAt]).trim())) problems.push('the install step is not exactly chrome');
+  if (storybookAt < 0) problems.push('no step builds the storybook');
+  if (testAt < 0) return [...problems, 'no step runs playwright test'];
+  if (installAt > testAt || storybookAt > testAt) problems.push('the browser or the gallery comes after the tests');
+  const step = steps[testAt];
+  const run = runOf(step).trim();
+  if (!/^npx playwright test --project=chrome '\\\.visual\\\.spec\\\.ts\$'$/.test(run)) problems.push(`the tests are not exactly the visual specs in chrome: ${run}`);
+  if (String(step['continue-on-error']) !== 'true') problems.push('the visual step does not continue on error: a stale baseline would fail the run');
+  if (step.env?.E2E_SKIP_VISUAL !== undefined) problems.push('E2E_SKIP_VISUAL is set: the visual specs would be left out of their own job');
+  const stepId = String(step.id ?? '');
+  const warn = steps.slice(testAt + 1).find((s) => /::warning::/.test(runOf(s)));
+  if (stepId === '' || !warn || !new RegExp(`steps\\.${stepId}\\.outcome\\s*==\\s*'failure'`).test(String(warn.if ?? ''))) problems.push('no step after the tests raises a ::warning:: when they failed');
+  const upload = steps.find((s) => typeof s.uses === 'string' && s.uses.startsWith('actions/upload-artifact'));
+  if (!upload || !/visual/.test(String(upload.with?.name ?? '')) || !/cancelled\(\)/.test(String(upload.if ?? ''))) problems.push('no upload-artifact step (unless cancelled) with its own visual report name');
+  return problems;
+}
+
+test('[CI contract] the pixel visual specs run by hand only, in Chrome, in browser-visual, and their failure is a warning, not a red run', () => {
+  assert.deepEqual(visualProblems(visualJob), []);
+});
+
+test('[CI contract] the browser-visual check can fail: every drift is caught (guards the test above)', () => {
+  const clone = () => structuredClone(visualJob);
+  const onTest = (change) => ({ ...clone(), steps: clone().steps.map((s) => (/playwright\s+test/.test(runOf(s)) ? change(s) : s)) });
+  const mutants = {
+    'no job': () => undefined,
+    'blocking again (no continue-on-error)': () =>
+      onTest((s) => {
+        const t = { ...s };
+        delete t['continue-on-error'];
+        return t;
+      }),
+    'continue-on-error at the job (a red job)': () => ({ ...clone(), 'continue-on-error': 'true' }),
+    'on pull requests too': () => ({ ...clone(), if: "github.event_name != 'push'" }),
+    'on every event': () => {
+      const j = clone();
+      delete j.if;
+      return j;
+    },
+    'the whole suite': () => onTest((s) => ({ ...s, run: 'npx playwright test --project=chrome' })),
+    'in Edge': () => onTest((s) => ({ ...s, run: runOf(s).replace('--project=chrome', '--project=edge') })),
+    'visual specs skipped in their own job': () => onTest((s) => ({ ...s, env: { E2E_SKIP_VISUAL: 'true' } })),
+    'no warning step': () => ({ ...clone(), steps: clone().steps.filter((s) => !/::warning::/.test(runOf(s))) }),
+    'the warning on success': () => ({ ...clone(), steps: clone().steps.map((s) => (/::warning::/.test(runOf(s)) ? { ...s, if: "${{ steps.visual.outcome == 'success' }}" } : s)) }),
+    'no storybook build': () => ({ ...clone(), steps: clone().steps.filter((s) => !/build-storybook/.test(runOf(s))) }),
+    'both browsers installed': () => ({ ...clone(), steps: clone().steps.map((s) => (/playwright\s+install/.test(runOf(s)) ? { ...s, run: 'npx playwright install --with-deps chrome msedge' } : s)) }),
+    'a matrix': () => ({ ...clone(), strategy: { matrix: { shard: ['1', '2'] } } }),
+    'timeout 30': () => ({ ...clone(), 'timeout-minutes': '30' }),
+    'no report': () => ({ ...clone(), steps: clone().steps.filter((s) => !(typeof s.uses === 'string' && s.uses.startsWith('actions/upload-artifact'))) }),
+  };
+  for (const [label, make] of Object.entries(mutants)) {
+    assert.notDeepEqual(visualProblems(make()), [], `${label} was not caught`);
   }
 });
 
@@ -326,17 +410,19 @@ function evaluate(expr, ctx) {
   }));
 }
 
-const BROWSER_JOBS = ['browser', 'browser-changed', 'browser-edge'];
+const BROWSER_JOBS = ['browser', 'browser-changed', 'browser-edge', 'browser-visual'];
 // [event, changes' browser output, the browser jobs that run, E2E_SKIP_VISUAL of `browser`]. Every event other than a
-// pull request gets browser=full from `changes` (tools/ci-path-filters.run.test.mjs).
+// pull request gets browser=full from `changes` (tools/ci-path-filters.run.test.mjs). The blocking job never runs the visual specs.
 const MATRIX = [
-  ['pull_request', 'changed', ['browser-changed'], 'false'],
-  ['pull_request', 'none', [], 'false'],
-  ['pull_request', 'full', ['browser'], 'false'],
+  ['pull_request', 'changed', ['browser-changed'], 'true'],
+  ['pull_request', 'none', [], 'true'],
+  ['pull_request', 'full', ['browser'], 'true'],
   ['push', 'full', ['browser'], 'true'],
   ['schedule', 'full', ['browser'], 'true'],
-  ['workflow_dispatch', 'full', ['browser', 'browser-edge'], 'false'],
+  ['workflow_dispatch', 'full', ['browser', 'browser-edge', 'browser-visual'], 'true'],
 ];
+/** E2E_SKIP_VISUAL's value on an event: the literal true, or an expression of the forms `evaluate` reads. */
+const skipOn = (value, ctx) => (isSkipTrue(value) ? 'true' : String(evaluate(value, ctx)));
 
 function matrixProblems(jobs) {
   const problems = [];
@@ -345,12 +431,12 @@ function matrixProblems(jobs) {
     const ctx = { 'github.event_name': event, 'needs.changes.outputs.browser': browser, 'needs.changes.outputs.web': 'true' };
     const runs = BROWSER_JOBS.filter((name) => jobs[name] && (jobs[name].if === undefined || evaluate(jobs[name].if, ctx)));
     if (JSON.stringify(runs) !== JSON.stringify(expected)) problems.push(`${event}/${browser}: [${runs}] run, not [${expected}]`);
-    if (visual === undefined || String(evaluate(visual, ctx)) !== skip) problems.push(`${event}: E2E_SKIP_VISUAL is not ${skip}`);
+    if (visual === undefined || skipOn(visual, ctx) !== skip) problems.push(`${event}: E2E_SKIP_VISUAL is not ${skip}`);
   }
   return problems;
 }
 
-test('[CI contract] PR: changed specs only (full suite when unreadable); main and nightly: full minus visual; by hand: full with visual, and Edge', () => {
+test('[CI contract] PR: changed specs only (full suite when unreadable); main and nightly: full; by hand: full, Edge and the non-blocking visual job; never visual in a blocking job', () => {
   assert.deepEqual(matrixProblems(ci.jobs), []);
 });
 
@@ -360,6 +446,16 @@ test('[CI contract] the event matrix check can fail (guards the test above)', ()
     'Edge on every event': withJob('browser-edge', { if: "github.event_name != 'never'" }),
     'the full suite on every pull request': withJob('browser', { if: "needs.changes.outputs.web == 'true'" }),
     'changed specs on push': withJob('browser-changed', { if: "needs.changes.outputs.browser == 'changed' || github.event_name == 'push'" }),
+    'the visual job on push': withJob('browser-visual', { if: "github.event_name == 'workflow_dispatch' || github.event_name == 'push'" }),
+    'the visual job gone': (() => {
+      const jobs = { ...ci.jobs };
+      delete jobs['browser-visual'];
+      return jobs;
+    })(),
+    'visual specs back in the blocking job by hand': {
+      ...ci.jobs,
+      browser: { ...ci.jobs.browser, steps: ci.jobs.browser.steps.map((s) => (/playwright\s+test/.test(runOf(s)) ? { ...s, env: { E2E_SKIP_VISUAL: "${{ github.event_name == 'push' || github.event_name == 'schedule' }}" } } : s)) },
+    },
   })) {
     assert.notDeepEqual(matrixProblems(jobs), [], `${label} was not caught`);
   }
@@ -425,10 +521,11 @@ function timingProblems(configText, files, jobMinutes) {
   return problems;
 }
 
-/** Files allowed in parallel mode, each after a check that its tests share no state. */
-const PARALLEL_FILES = ['e2e/a11y.spec.ts'];
+/** Files allowed in parallel mode, each after a check that its tests share no state. layout-rules.spec.ts: each test opens its
+ * own pages (one per size) on read-only stubs registered on that page, and has no hooks or order (layer 1, 24.10). */
+const PARALLEL_FILES = ['e2e/a11y.spec.ts', 'e2e/layout-rules.spec.ts'];
 const e2eFiles = Object.fromEntries(readdirSync(join(root, 'e2e')).filter((f) => f.endsWith('.ts')).map((f) => [`e2e/${f}`, read(`e2e/${f}`)]));
-const jobMinutes = { browser: browser?.['timeout-minutes'], 'browser-changed': ci.jobs?.['browser-changed']?.['timeout-minutes'], 'browser-edge': ci.jobs?.['browser-edge']?.['timeout-minutes'] };
+const jobMinutes = Object.fromEntries(BROWSER_JOBS.map((name) => [name, ci.jobs?.[name]?.['timeout-minutes']]));
 
 test('[P3] a11y runs in parallel, no global fullyParallel, 30 s per test, build limits kept, globalTimeout under the job timeout', () => {
   assert.deepEqual(timingProblems(config, e2eFiles, jobMinutes), []);

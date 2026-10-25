@@ -38,6 +38,8 @@ export interface RegisterSeams {
   logStream?: Writable;
   /** I5: fakes for image storage, the re-encoder and the job trigger. */
   media?: Partial<MediaDependencies>;
+  /** The Server-Timing header (off in a test unless asked). */
+  serverTiming?: boolean;
 }
 
 export async function buildRegisterApp(env: EnvValues, seams: RegisterSeams = {}): Promise<App> {
@@ -49,6 +51,7 @@ export async function buildRegisterApp(env: EnvValues, seams: RegisterSeams = {}
     ...(seams.clock ? { clock: seams.clock } : {}),
     ...(seams.logStream ? { logStream: seams.logStream } : {}),
     ...(seams.media ? { media: seams.media } : {}),
+    ...(seams.serverTiming === undefined ? {} : { serverTiming: seams.serverTiming }),
   });
 }
 

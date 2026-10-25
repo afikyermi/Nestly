@@ -6,7 +6,7 @@ import {
   type NotificationsResponse,
 } from '@nestly/shared';
 
-// GET /api/notifications, POST /api/notifications/read-all, POST /api/notifications/:id/read, GET /api/notification-preferences,
+// GET /api/notifications[?poll=1], POST /api/notifications/read-all, POST /api/notifications/:id/read, GET /api/notification-preferences,
 // PUT /api/notification-preferences/categories/:category and /friends/:userId (FR-NOTIF-001/002/003). The caller is never named. Only the
 // status, the one `error` code and a body that passes the shared response schema are read; no response text reaches the screen.
 export type NotificationsOutcome =
@@ -62,8 +62,13 @@ async function call(accessToken: string, init: Call): Promise<NotificationsOutco
   return parsed.success ? { kind: 'preferences', data: parsed.data } : { kind: 'failed' };
 }
 
-export const fetchNotifications = (token: string, before: string | null = null) =>
-  call(token, { method: 'GET', path: before === null ? '/api/notifications' : `/api/notifications?before=${encodeURIComponent(before)}`, reads: 'list' });
+// poll: the bell's background refresh, which the server only reads for (no birthday is delivered on it, OP-059)
+export const fetchNotifications = (token: string, before: string | null = null, poll = false) =>
+  call(token, {
+    method: 'GET',
+    path: before !== null ? `/api/notifications?before=${encodeURIComponent(before)}` : poll ? '/api/notifications?poll=1' : '/api/notifications',
+    reads: 'list',
+  });
 export const markAllNotificationsRead = (token: string) => call(token, { method: 'POST', path: '/api/notifications/read-all', reads: 'status' });
 export const markNotificationRead = (token: string, id: string) =>
   call(token, { method: 'POST', path: `/api/notifications/${encodeURIComponent(id)}/read`, reads: 'status' });
