@@ -1,6 +1,8 @@
 import {
+  bellCountsResponse,
   notificationPreferencesResponse,
   notificationsResponse,
+  type BellCountsResponse,
   type NotificationCategory,
   type NotificationPreferencesResponse,
   type NotificationsResponse,
@@ -11,6 +13,7 @@ import {
 // status, the one `error` code and a body that passes the shared response schema are read; no response text reaches the screen.
 export type NotificationsOutcome =
   | { kind: 'list'; data: NotificationsResponse }
+  | { kind: 'counts'; data: BellCountsResponse }
   | { kind: 'preferences'; data: NotificationPreferencesResponse }
   | { kind: 'done' }
   | { kind: 'unauthenticated' } // 401
@@ -19,7 +22,7 @@ export type NotificationsOutcome =
   | { kind: 'gone' } // 404: not the caller's notification, or not a Friend
   | { kind: 'failed' };
 
-type Reads = 'list' | 'preferences' | 'status';
+type Reads = 'list' | 'counts' | 'preferences' | 'status';
 interface Call {
   method: 'GET' | 'POST' | 'PUT';
   path: string;
@@ -58,6 +61,10 @@ async function call(accessToken: string, init: Call): Promise<NotificationsOutco
     const parsed = notificationsResponse.safeParse(body);
     return parsed.success ? { kind: 'list', data: parsed.data } : { kind: 'failed' };
   }
+  if (init.reads === 'counts') {
+    const counts = bellCountsResponse.safeParse(body);
+    return counts.success ? { kind: 'counts', data: counts.data } : { kind: 'failed' };
+  }
   const parsed = notificationPreferencesResponse.safeParse(body);
   return parsed.success ? { kind: 'preferences', data: parsed.data } : { kind: 'failed' };
 }
@@ -69,6 +76,8 @@ export const fetchNotifications = (token: string, before: string | null = null, 
     path: before !== null ? `/api/notifications?before=${encodeURIComponent(before)}` : poll ? '/api/notifications?poll=1' : '/api/notifications',
     reads: 'list',
   });
+// The bell's light poll: the unread notifications, the unread Chat and the newest listed notification's id (GET /api/notifications/counts)
+export const fetchBellCounts = (token: string) => call(token, { method: 'GET', path: '/api/notifications/counts', reads: 'counts' });
 export const markAllNotificationsRead = (token: string) => call(token, { method: 'POST', path: '/api/notifications/read-all', reads: 'status' });
 export const markNotificationRead = (token: string, id: string) =>
   call(token, { method: 'POST', path: `/api/notifications/${encodeURIComponent(id)}/read`, reads: 'status' });
