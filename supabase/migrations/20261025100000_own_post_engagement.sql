@@ -22,7 +22,7 @@
 --      account with no post gets 0.
 --      What it counts, over the caller's own posts, the same as the caller's policies decide today:
 --        posts      author_id = auth.uid(), status 'active', author_status 'active' — posts_select_viewer's own branch. Its two other terms
---                   cannot hold on one's own post: a hide of one's own post is refused (post_hides_insert_guard, 42501) and so is a report
+--                   cannot hold on one's own post: a hide of one's own post is refused (post_hides_insert_guard, NS003) and so is a report
 --                   of it (reports_insert_check, 42501); 109 pins both refusals, so the function does not read post_hides or reports.
 --                   An anonymous post has author_id NULL (post_authors holds its real author, rule 20): today's statement counts none of
 --                   its likes or comments for the author, and neither does this (it never reads post_authors).
