@@ -143,6 +143,8 @@ export const postReadView = postView.extend({
   likeCount: z.number().int().nonnegative(),
   commentCount: z.number().int().nonnegative(),
   likedByMe: z.boolean(),
+  /** I10-C (§11.16): the viewer is muted in the post's Group and reads only (absent: not muted). */
+  mutedInGroup: z.literal(true).optional(),
 });
 
 export type PostView = z.infer<typeof postView>;

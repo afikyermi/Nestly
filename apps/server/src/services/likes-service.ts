@@ -14,11 +14,13 @@ import {
   readReadablePost,
   type LikeTarget,
 } from '../repositories/likes-repository.js';
+import { readMutedHere } from '../repositories/group-rules-repository.js';
 
 /** The caller cannot like: a stopped account (ERR-037), or an Admin or Moderator account (DR-1: a Professional may). */
 export type LikeRefusal = { readonly kind: 'stopped' } | { readonly kind: 'forbidden' };
 
-export type LikeOutcome = { readonly kind: 'done' } | { readonly kind: 'not_found' } | LikeRefusal;
+/** I10-C (§11.16) `muted`: the caller is muted in the Group of the post (or of the comment's post) and reads only. */
+export type LikeOutcome = { readonly kind: 'done' } | { readonly kind: 'not_found' } | { readonly kind: 'muted' } | LikeRefusal;
 
 /** More than one own users row cannot happen with the primary key; seeing them means a policy is wrong. */
 export class LikesFault extends Error {
@@ -49,6 +51,7 @@ export async function likeTarget(database: Database, identity: Identity, target:
     const refusal = await classifyViewer(tx);
     if (refusal !== undefined) return refusal;
     if (!(await isReadable(tx, target, id))) return { kind: 'not_found' };
+    if (await readMutedHere(tx, target, id)) return { kind: 'muted' };
     await insertLike(tx, target, id);
     return { kind: 'done' };
   });

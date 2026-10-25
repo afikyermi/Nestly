@@ -6,6 +6,7 @@ export type LikeOutcome =
   | { kind: 'done' } // 204, also a repeat
   | { kind: 'unauthenticated' } // 401
   | { kind: 'account-unavailable' } // 403 account_unavailable: the session guard (ERR-037)
+  | { kind: 'muted' } // 403 muted: muted in the post's Group (I10-C)
   | { kind: 'failed' }; // 404, 403 not_allowed, 5xx, or the call did not reach the server
 
 /** Sets the caller's like on a post or comment: `liked` true is PUT, false is DELETE (both idempotent). */
@@ -26,6 +27,7 @@ export async function setLike(accessToken: string, target: LikeTarget, id: strin
     const body: unknown = await response.json().catch(() => undefined);
     const code: unknown = typeof body === 'object' && body !== null ? Reflect.get(body, 'error') : undefined;
     if (code === 'account_unavailable') return { kind: 'account-unavailable' };
+    if (code === 'muted') return { kind: 'muted' };
   }
   return { kind: 'failed' };
 }
