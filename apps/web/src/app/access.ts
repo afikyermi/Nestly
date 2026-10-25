@@ -18,6 +18,7 @@ const DOCUMENT_PATHS: readonly string[] = [PATHS.terms, PATHS.privacy];
 const COMPLETION_PATHS: readonly string[] = [PATHS.register, PATHS.joinTeam, ...DOCUMENT_PATHS];
 const QUESTIONS_HELD_PATHS: readonly string[] = [PATHS.recoveryQuestions, ...DOCUMENT_PATHS];
 const NEW_PASSWORD_HELD_PATHS: readonly string[] = [PATHS.setNewPassword, ...DOCUMENT_PATHS];
+const DELETION_HELD_PATHS: readonly string[] = [PATHS.deletionScheduled, ...DOCUMENT_PATHS];
 const RENDER: AccessDecision = { kind: 'render' };
 const LOADING: AccessDecision = { kind: 'loading' };
 const redirect = (to: string): AccessDecision => ({ kind: 'redirect', to });
@@ -31,6 +32,8 @@ const redirect = (to: string): AccessDecision => ({ kind: 'redirect', to });
 // documents leads to that screen, so there is no way past it.
 // `mustSetPassword` (F2.0 c14): the session must set a new password after a takeover clear; it holds before the questions do, and the
 // new-password screen opens only while it holds.
+// `options.deletionScheduled` (FR-SET-002, PG-050): the account is scheduled for deletion; only PG-050 and the two documents open, before any
+// other hold (the account can do nothing else until it cancels).
 // `options.fromGuest` (F2.4c2 c27, default true): the visitor has had no session in this page load. A Guest who opens a profile link
 // (`/u/<id>`) or a post link (`/posts/<id>`, F3.6 c8) then goes to Login, carrying the link; one who has just signed out or whose
 // session ended goes where every protected path leads. `options.returnTo`: that carried link, followed once the sign-in is done; only a
@@ -41,12 +44,13 @@ export function decideAccess(
   sessionEnded = false,
   needsQuestions = false,
   mustSetPassword = false,
-  options: { fromGuest?: boolean; returnTo?: string | null } = {},
+  options: { fromGuest?: boolean; returnTo?: string | null; deletionScheduled?: boolean } = {},
 ): AccessDecision {
   if (state === 'loading') return LOADING;
   const path = normalizePath(pathname);
   const isGuestPath = GUEST_PATHS.includes(path);
   if (state === 'signed-in') {
+    if (options.deletionScheduled === true) return DELETION_HELD_PATHS.includes(path) ? RENDER : redirect(PATHS.deletionScheduled);
     if (mustSetPassword) return NEW_PASSWORD_HELD_PATHS.includes(path) ? RENDER : redirect(PATHS.setNewPassword);
     if (needsQuestions) return QUESTIONS_HELD_PATHS.includes(path) ? RENDER : redirect(PATHS.recoveryQuestions);
     // I14: the team invitation page says to a signed-in account why it cannot join with that account (a staff account is separate)

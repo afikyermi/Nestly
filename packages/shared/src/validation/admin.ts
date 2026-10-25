@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { mediaImage } from '../media/index.js';
 import {
+  ACCOUNT_STATUSES,
   CONTENT_TARGET_KINDS,
   ENFORCEMENT_KINDS,
   MODERATION_STATUSES,
@@ -186,7 +187,7 @@ export type ContentDecision = z.infer<typeof contentDecision>;
 export const targetUser = z.object({
   userId: z.guid(),
   accountType: z.enum(['regular', 'professional', 'admin', 'moderator']),
-  status: z.enum(['active', 'suspended', 'banned']),
+  status: z.enum(ACCOUNT_STATUSES),
   suspendedUntil: z.string().nullable(),
   fullName: z.string().nullable(),
   history: z.array(enforcementRow),
@@ -220,12 +221,12 @@ export const reportDetailBody = z.object({
 export type ReportDetail = z.infer<typeof reportDetailBody>;
 
 export const userListBody = z.object({
-  users: z.array(z.object({ userId: z.guid(), accountType: z.enum(['regular', 'professional', 'admin', 'moderator']), status: z.enum(['active', 'suspended', 'banned']), fullName: z.string().nullable() })),
+  users: z.array(z.object({ userId: z.guid(), accountType: z.enum(['regular', 'professional', 'admin', 'moderator']), status: z.enum(ACCOUNT_STATUSES), fullName: z.string().nullable() })),
 });
 export type UserList = z.infer<typeof userListBody>;
 
 export const revealBody = z.object({ userId: z.guid(), fullName: z.string().nullable() });
-export const enforceBody = z.object({ status: z.enum(['active', 'suspended', 'banned']), suspendedUntil: z.string().nullable() });
+export const enforceBody = z.object({ status: z.enum(ACCOUNT_STATUSES), suspendedUntil: z.string().nullable() });
 
 export const ADMIN_ERROR_CODES = ['invalid', 'forbidden', 'not_found', 'not_applicable', 'reason_required'] as const;
 export type AdminErrorCode = (typeof ADMIN_ERROR_CODES)[number];

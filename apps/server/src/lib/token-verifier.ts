@@ -44,6 +44,11 @@ export interface VerifiedToken {
   readonly identity: Identity;
   readonly email: string | undefined;
   readonly issuedAt: number | undefined;
+  /**
+   * When this session last proved the password (the newest `password` entry of `amr`, whole seconds), or undefined. Read by ONE purpose:
+   * the account deletion request must follow a fresh password sign-in (VAL-052). Never authorization: the database decides what it may do.
+   */
+  readonly passwordAt?: number | undefined;
 }
 
 export type TokenVerifier = (token: string) => Promise<VerifiedToken>;
@@ -86,6 +91,19 @@ function authMethodsOf(amr: unknown): string[] | undefined {
     methods.push(method);
   }
   return methods;
+}
+
+/** The newest timestamp of a `password` entry, read with the same all-or-nothing rule: undefined unless the whole claim is well formed. */
+function passwordAtOf(amr: unknown): number | undefined {
+  if (authMethodsOf(amr) === undefined || !Array.isArray(amr)) return undefined;
+  let newest: number | undefined;
+  for (const entry of amr) {
+    const method: unknown = Reflect.get(Object(entry), 'method');
+    const at: unknown = Reflect.get(Object(entry), 'timestamp');
+    if (method !== 'password' || typeof at !== 'number' || !Number.isInteger(at)) continue;
+    if (newest === undefined || at > newest) newest = at;
+  }
+  return newest;
 }
 
 function classify(error: unknown): TokenRejected {
@@ -133,6 +151,7 @@ export function createTokenVerifier(config: AuthConfig): TokenVerifier {
       },
       email: typeof email === 'string' ? email : undefined,
       issuedAt: iat,
+      passwordAt: passwordAtOf(amr),
     };
   };
 }

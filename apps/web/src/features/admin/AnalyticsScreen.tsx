@@ -194,6 +194,7 @@ function Loaded({ data }: { data: AnalyticsView }) {
             { label: ANALYTICS_STATUSES.active, value: accounts.byStatus.active },
             { label: ANALYTICS_STATUSES.suspended, value: accounts.byStatus.suspended },
             { label: ANALYTICS_STATUSES.banned, value: accounts.byStatus.banned },
+            { label: ANALYTICS_STATUSES.deletionScheduled, value: accounts.byStatus.deletionScheduled },
           ]}
         />
         <Chart title={ANALYTICS_REGISTRATIONS} points={accounts.registrations.map((row) => ({ day: row.day, count: row.regular + row.professional }))} />

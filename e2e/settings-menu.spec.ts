@@ -202,10 +202,13 @@ test.describe('F2.5 c4 c7 [FR-SET-001 PG-038] the Settings page', () => {
     expect(await page.getByRole('heading', { level: 2 }).allInnerTexts()).toEqual([...SECTIONS]);
   });
 
-  test('[F2.5 c4 DR-3] Account holds one link "עריכת פרופיל" to the profile and nothing else', async ({ page }) => {
+  test('[F2.5 c4 DR-3 I9 FR-SET-002] Account holds the link "עריכת פרופיל" to the profile and the link "מחיקת חשבון", nothing else', async ({ page }) => {
     await signedInAtFeed(page);
     await choose(page, 'חשבון');
-    expect(await controlsOf(page, 'חשבון')).toEqual([{ tag: 'a', name: 'עריכת פרופיל', href: '/profile', type: null }]);
+    expect(await controlsOf(page, 'חשבון')).toEqual([
+      { tag: 'a', name: 'עריכת פרופיל', href: '/profile', type: null },
+      { tag: 'a', name: 'מחיקת חשבון', href: '/settings/delete-account', type: null },
+    ]);
     await main(page).getByRole('link', { name: 'עריכת פרופיל', exact: true }).click();
     await expect.poll(() => pathOf(page)).toBe('/profile');
   });
@@ -247,8 +250,9 @@ test.describe('F2.5 c4 c7 [FR-SET-001 PG-038] the Settings page', () => {
   });
 });
 
-test.describe('F2.5 c5 [A9 DR-1 U1] no account deletion, no Notification Settings', () => {
-  test('[F2.5 c5] nothing in Settings (every section), the menu or the page source offers deletion; no notification section; no DELETE request', async ({ page }) => {
+// I9 (FR-SET-002): account deletion exists now, as one link in Account to its own screen; the menu and every other section still offer none.
+test.describe('F2.5 c5 [A9 DR-1 U1 I9] account deletion only as the Account link', () => {
+  test('[F2.5 c5 I9 FR-SET-002] the menu and the other sections offer no deletion; Settings itself deletes nothing and sends no DELETE request', async ({ page }) => {
     const net = await signedInAtFeed(page);
     net.calls.length = 0;
     await openMenu(page);
@@ -259,8 +263,12 @@ test.describe('F2.5 c5 [A9 DR-1 U1] no account deletion, no Notification Setting
       await expect(h2(page, name)).toBeFocused();
     }
     await expect(page.getByRole('heading', { level: 1, name: 'הגדרות', exact: true })).toBeVisible();
-    expect(await main(page).innerText()).not.toMatch(/מחיקת חשבון|מחיקה/);
-    expect(await page.content()).not.toMatch(/מחיקת חשבון|מחיקה/);
+    const offers = main(page).getByText(/מחיקת חשבון|מחיקה/);
+    await expect(offers).toHaveCount(1);
+    await expect(main(page).getByRole('link', { name: 'מחיקת חשבון', exact: true })).toHaveAttribute('href', '/settings/delete-account');
+    for (const name of SECTIONS.filter((section) => section !== 'חשבון')) {
+      expect(await main(page).locator('section, div[data-settings-section]').filter({ has: h2(page, name) }).first().innerText()).not.toMatch(/מחיקת חשבון|מחיקה/);
+    }
     for (const control of await main(page).getByRole('button').all()) expect(await control.innerText()).not.toMatch(/מחיקה|מחק/);
     expect(net.calls.filter((c) => c.startsWith('DELETE'))).toEqual([]);
   });

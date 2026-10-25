@@ -5,16 +5,18 @@ import { AuthLayout } from '@/components/layout/auth-layout';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
 import { useSessionAccount } from '@/hooks/use-session-account';
+import { ACCOUNT_DELETED_TEXT } from '@/lib/account-deletion-texts';
 import { GOOGLE_FAILED_TEXT, STOPPED_TEXT } from '@/lib/auth-texts';
 import { documentTitle } from '@/lib/document-title';
 import { GOOGLE_CANCELLED_TEXT, readGoogleReturn } from './google-return';
 
-type Outcome = 'working' | 'failed' | 'cancelled' | 'stopped';
+type Outcome = 'working' | 'failed' | 'cancelled' | 'stopped' | 'deleted';
 
 const ALERT_TEXTS: Record<Exclude<Outcome, 'working'>, string> = {
   failed: GOOGLE_FAILED_TEXT,
   cancelled: GOOGLE_CANCELLED_TEXT,
   stopped: STOPPED_TEXT,
+  deleted: ACCOUNT_DELETED_TEXT, // I9: the account was deleted (BR-073)
 };
 
 // The Guest-only return route (FR-AUTH-005, AC-087). It reads the address once, replaces it with the bare path at once (so the code
@@ -45,6 +47,7 @@ export function GoogleReturn() {
     account.signInWithGoogle(found.code).then(
       (result) => {
         if (result.kind === 'stopped') setOutcome('stopped');
+        else if (result.kind === 'deleted') setOutcome('deleted');
         else if (result.kind === 'failed') setOutcome('failed');
       },
       () => {

@@ -12,7 +12,7 @@
 | PG-055 | עמוד פוסט / תגובות ולייקים לפוסט / שיתוף פוסט / חלון שיתוף קישור / פעולת דיווח | FR-FEED-002/003/005/006/007 / FR-MOD-001 / FR-AUTH-004 | UC-04/26 | Post (כולל שיתופים), Comment, Reaction, Report |
 | PG-056 | מסך ההצטרפות לצוות | FR-ADMIN-004 | UC-15 | User, ModeratorInvitation, AuditLogEntry |
 | PG-057 | מסך בקשות העזרה / הצעת עזרה (מלוח הבקרה ומהתפריט של Professional) | FR-SERV-005 / FR-SERV-008 / FR-PRO-001 | UC-25 | Post, ProfessionalProfile (התחום), ProfessionalOutreachRequest; AC-148, AC-169, AC-171 |
-| PG-058 | מסך בית הצוות / בית הניהול / העבודה שלי / מגמות נתוני ילדים | FR-ADMIN-014 / FR-ADMIN-015 / FR-ADMIN-005 / FR-MOD-003 | UC-15/27 | Report, ReportEscalation, ReportOpening, TrackerEvent (מגמות בלבד), AuditLogEntry; AC-152–AC-158 |
+| PG-058 | מסך בית הצוות / בית הניהול / העבודה שלי / מגמות נתוני ילדים | FR-ADMIN-014 / FR-ADMIN-015 / FR-ADMIN-005 / FR-MOD-003 / BR-084 | UC-15/27 | Report, ReportEscalation, ReportOpening, TrackerEvent (מגמות בלבד), AuditLogEntry, AccountDeletionEvent (מספרים בלבד); AC-152–AC-158, AC-184 |
 | PG-041/042 | מסך הקידום המקצועי / מסך חיובים וקידומים (I13: קידום, תוצאות, תשלומים מדומים) | FR-PRO-002 / FR-SERV-010 | UC-42 | Promotion, PromotionPerformanceEvent |
 | PG-059 | מסך הקידומים בניהול (I13) | FR-SERV-010 / FR-MKT-004 / FR-ALG-007 / BR-083 | UC-42 | Promotion, AuditLogEntry, AlgorithmConfiguration |
 | PG-009 | מעקב בעמוד הבית | FR-HOME-001..004, FR-ALG-004 | UC-05/06 | JourneyContext, Child, TrackerEvent, CycleEntry, Article |
@@ -54,7 +54,8 @@
 | PG-047 | מסך מוקדי רפואה | FR-MENU-001/002 | — | — |
 | PG-048 | מסך הסטורי / סטורי | FR-FEED-008 / VAL-042 / BR-076 / BR-077 | — | Story, MediaAsset |
 | PG-049 | מסך כללי הקהילה | FR-MOD-001 / FR-MENU-001/002 | — | — |
-| PG-050 | מחיקת חשבון | FR-SET-002 | — | User, AuditLogEntry |
+| PG-050 | מחיקת חשבון — החשבון מתוזמן למחיקה | FR-SET-002 / FR-AUTH-002 | — | User, AccountDeletionEvent; AC-108, AC-183 |
+| PG-060 | מסך ההגדרות / מחיקת חשבון | FR-SET-002 / FR-SET-001 / BR-073 / BR-084 | — | User, AccountDeletionEvent; AC-108, AC-175–AC-183 |
 | PG-051 | מסך שחזור סיסמה / שחזור סיסמה | FR-AUTH-003/004 | UC-03 | User, RecoveryAnswers, RecoveryThrottle, RecoveryEvent |
 | PG-052 | מסך שאלות לשחזור סיסמה / שחזור סיסמה | FR-AUTH-003 / FR-REG-004 / FR-MENU-001 | UC-01 | User, RecoveryAnswers, RecoveryEvent |
 | PG-053 | מסך קביעת סיסמה חדשה / קביעת סיסמה חדשה בכפייה | FR-AUTH-005 | — | User, AccountTakeoverCheck, RecoveryAnswers, RecoveryEvent |
@@ -64,7 +65,8 @@
 
 | FR / NFR | סטטוס | Initiative | הערה |
 |---|---|---|---|
-| FR-SET-001 | Built | I2, תיקוני בדיקת ה-SRS (21.10) | ההגדרות לפי סוג החשבון: הורה, בעל מקצוע, צוות |
+| FR-SET-001 | Built | I2, תיקוני בדיקת ה-SRS (21.10), I9 | ההגדרות לפי סוג החשבון: הורה, בעל מקצוע, צוות; "מחיקת חשבון" ב"חשבון" |
+| FR-SET-002 | Partial | I9 חלק 1 | בקשה עם אישור וסיסמה, 30 יום מוסתר, PG-050 וביטול, רשומת המחיקות, מונה ופס אדום ל-Admin, הביצוע ביום 30 והמחיקה של מה שנשמר אחרי 90 יום בבסיס הנתונים. חסר: הפעלה יומית של הביצוע, והסרת פרטי ההתחברות של החשבון שנמחק (ממתינים לאפיק) |
 | FR-SEARCH-001 | Built | I7, תיקוני בדיקת ה-SRS (21.10), השלמת I10 ג' (22.10) | בעלי מקצוע ב"אנשים", מסומנים, נפתחים בעמוד המקצועי; בין קבוצות שמתאימות באותה מידה — הפעילה קודם (AC-166) |
 | FR-NOTIF-002 | Built | I7, I11, תיקוני בדיקת ה-SRS (21.10) | קטגוריות לפי סוג החשבון, "ימי הולדת" להורה בלבד |
 | FR-NOTIF-003 | Built | I7, תיקוני בדיקת ה-SRS (21.10) | התראה על יום הולדת של ילד של Friend |
@@ -75,7 +77,7 @@
 | FR-MOD-003 | Built | I4, I14 (השלמה ב') | דיווח מוצדק מוחק; הסתרה אחרי 10 דיווחים זהים |
 | FR-ADMIN-008 | Built | I14 (השלמה ב') | קהל לכל הודעה |
 | FR-ADMIN-012 | Built | I6, I14 (השלמה ב') | פרסום בלי תאריך בדיקת מקורות |
-| FR-ADMIN-014 | Built | I14 (השלמה א', ב') | "דורש תשומת לב" בלי הזמנות שעומדות לפוג; מדריכים בטיוטה בלבד |
+| FR-ADMIN-014 | Built | I14 (השלמה א', ב'), I9 | "דורש תשומת לב" בלי הזמנות שעומדות לפוג; מדריכים בטיוטה בלבד; מונה מחיקות חשבון ופס אדום למחיקה שעברה את מועדה |
 | FR-ADMIN-015 | Built | I14 (השלמה א', ב') | תקופה קלנדרית, מספרים מעוגלים |
 | NFR-MEDIA-001 | Built | I5, I14 (השלמה ב') | רשימת חסימה בהעלאה |
 | NFR-USAB-005 | Built | I14 (השלמה ב') | זמן יחסי בכל פרסום |

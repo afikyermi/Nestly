@@ -21,6 +21,8 @@ import {
   METRICS_TITLE,
   NOTHING_NEEDS_ATTENTION,
   OPEN_LABEL,
+  OVERDUE_DELETIONS_BAR,
+  PENDING_DELETIONS_LABEL,
   REPORT_SPIKE_TEXT,
   SENSITIVE_LINK,
   TEAM_KEYS_COUNT,
@@ -49,7 +51,8 @@ const ATTENTION_PATHS: Record<AttentionKey, string> = {
 // The Admin's home (I14 completion, Afik 21.10.2026, §9.10): a red bar while a child-safety report is open; what needs attention (reports,
 // images, items past their time target, escalations, Support, invitations, guides to recheck, a spike in reports); this week against the week
 // before; the team's snapshot; the children's trends builder (CHILD_DATA_VIEW, the Admin always); a link to the Audit Log's sensitive events.
-// Numbers only: the server reads them through the Admin's policies.
+// I9 (§16.4): the account deletions waiting for their date, and a red bar while one is past it. Numbers only: the server reads them through
+// the Admin's policies.
 export function AdminHomeScreen() {
   const call = useAdminCall();
   const [view, setView] = useState<View>({ kind: 'loading' });
@@ -93,15 +96,27 @@ export function AdminHomeScreen() {
           </Link>
         </div>
       ) : null}
+      {overview.accountDeletions.overdue > 0 ? (
+        <div role="alert" className="rounded-md bg-destructive px-4 py-3 text-primary-foreground">
+          <strong>{OVERDUE_DELETIONS_BAR(overview.accountDeletions.overdue)}</strong>
+        </div>
+      ) : null}
       <section aria-labelledby="attention-title" className="flex flex-col gap-2">
         <h3 id="attention-title" className="text-h3">
           {ATTENTION_TITLE}
         </h3>
-        {attention.length === 0 && !spike.isSpike ? <p>{NOTHING_NEEDS_ATTENTION}</p> : null}
+        {attention.length === 0 && !spike.isSpike && overview.accountDeletions.pending === 0 ? <p>{NOTHING_NEEDS_ATTENTION}</p> : null}
         <ul className="flex flex-col gap-2">
           {spike.isSpike ? (
             <li className="rounded-md bg-muted p-3">
               <Link to={PATHS.adminReports}>{REPORT_SPIKE_TEXT(spike.lastDay, spike.dailyAverage)}</Link>
+            </li>
+          ) : null}
+          {overview.accountDeletions.pending > 0 ? (
+            <li className="flex items-center justify-between gap-3 rounded-md bg-muted p-3">
+              <span>
+                {PENDING_DELETIONS_LABEL}: <strong>{overview.accountDeletions.pending}</strong>
+              </span>
             </li>
           ) : null}
           {attention.map((key) => (

@@ -62,6 +62,8 @@ describe('[FR-SET-001 SRS audit] Settings by account kind', () => {
   it('[FR-PRIV-001] a Regular account: "עריכת פרופיל" opens /profile and the privacy form loads', async () => {
     draw('regular');
     expect(screen.getByRole('link', { name: 'עריכת פרופיל' }).getAttribute('href')).toBe('/profile');
+    // I9 (FR-SET-002, AC-183): account deletion is a link in Account
+    expect(screen.getByRole('link', { name: 'מחיקת חשבון' }).getAttribute('href')).toBe('/settings/delete-account');
     expect(await screen.findByRole('radiogroup')).toBeTruthy();
     expect(asked).toContain('/api/privacy');
   });
@@ -69,6 +71,8 @@ describe('[FR-SET-001 SRS audit] Settings by account kind', () => {
   it('[FR-SET-001 FR-PROFILE-001] a Professional: "עריכת פרופיל" opens its Professional profile; no profile-privacy form, no /api/privacy, no error', async () => {
     draw('professional');
     expect(screen.getByRole('link', { name: 'עריכת פרופיל' }).getAttribute('href')).toBe('/pro/profile');
+    // I9 (FR-SET-002, AC-183): a Professional deletes its account from the same link
+    expect(screen.getByRole('link', { name: 'מחיקת חשבון' }).getAttribute('href')).toBe('/settings/delete-account');
     expect(headings()).toEqual(expect.arrayContaining(['חשבון', 'פרטיות ואבטחה', 'תנאים ופרטיות']));
     expect(screen.getByRole('link', { name: 'החלפת סיסמה' })).toBeTruthy();
     await screen.findByRole('heading', { level: 2, name: 'התראות' });
@@ -92,6 +96,8 @@ describe('[FR-SET-001 SRS audit] Settings by account kind', () => {
   it('[FR-SET-001 FR-NOTIF-002] a staff account: no profile link, no blocked list, no notification settings; the password links and the terms', () => {
     draw('staff');
     expect(screen.queryByRole('link', { name: 'עריכת פרופיל' })).toBeNull();
+    // I9 (FR-SET-002, BR-084): a staff account has no self-deletion
+    expect(screen.queryByRole('link', { name: 'מחיקת חשבון' })).toBeNull();
     expect(headings()).toEqual(['פרטיות ואבטחה', 'תנאים ופרטיות']);
     expect(screen.getByRole('link', { name: 'שאלות לשחזור סיסמה' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'תנאי השימוש' })).toBeTruthy();

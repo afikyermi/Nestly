@@ -14,6 +14,7 @@ import { useSession } from '@/hooks/use-session';
 import { useSessionAccount } from '@/hooks/use-session-account';
 import { documentTitle } from '@/lib/document-title';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
+import { ACCOUNT_DELETED_TEXT } from '@/lib/account-deletion-texts';
 import { loginNoticeText, noticeText, problemText, validateLogin, type LoginErrors } from './login-form';
 
 // The login screen (FR-AUTH-002, UC-02): email and password. The password goes to Auth through the session source and nowhere
@@ -81,7 +82,7 @@ export function LoginForm() {
     try {
       const outcome = await account.signInWithPassword(result.value);
       if (outcome.kind === 'signed-in' || outcome.kind === 'unregistered') return;
-      setMessage(outcome.kind === 'stopped' ? STOPPED_TEXT : problemText(outcome.problem));
+      setMessage(outcome.kind === 'stopped' ? STOPPED_TEXT : outcome.kind === 'deleted' ? ACCOUNT_DELETED_TEXT : problemText(outcome.problem));
       if (outcome.kind === 'failed' && outcome.problem === 'invalid_credentials') {
         setPassword('');
         if (passwordInput.current !== null) passwordInput.current.value = '';

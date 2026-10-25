@@ -33,7 +33,8 @@ async function signUp(page: Page, fullName: string): Promise<string> {
   await expect(page).toHaveURL(/\/recovery-questions$/);
   await page.getByLabel(/חיית המחמד/).fill(u.answers.pet);
   await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);
-  const bell = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/notifications' && r.request().method() === 'GET');
+  // the bell's first request: the list on mount, or its light poll (/counts) when the list loaded before this wait (PR #241)
+  const bell = page.waitForResponse((r) => ['/api/notifications', '/api/notifications/counts'].includes(new URL(r.url()).pathname) && r.request().method() === 'GET');
   await page.getByRole('button', { name: 'שמירה', exact: true }).click();
   await expect(page).toHaveURL(/\/feed$/, { timeout: AFTER_ANSWERS_MS });
   const authorization = (await (await bell).request().headerValue('authorization')) ?? '';
