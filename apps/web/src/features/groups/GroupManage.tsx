@@ -77,17 +77,14 @@ export function GroupManage({ group, onUpdated, onDeleted, onChanged }: GroupMan
   const [deleting, setDeleting] = useState<{ saving: boolean; failure: string | null } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
+  // Each section shows as soon as its own answer arrives: on a slow server one late list does not hold the other three back.
   const load = useCallback(async () => {
-    const [r, i, b, h] = await Promise.all([
-      rank >= 3 ? call((token) => listRequests(token, group.id)) : null,
-      rank >= 3 ? call((token) => listAwaitingInvitations(token, group.id)) : null,
-      call((token) => listBans(token, group.id)),
-      call((token) => listEnforcements(token, group.id)),
+    await Promise.all([
+      rank >= 3 ? call((token) => listRequests(token, group.id)).then((r) => setRequests(r.kind === 'ok' ? r.value : [])) : null,
+      rank >= 3 ? call((token) => listAwaitingInvitations(token, group.id)).then((i) => setAwaiting(i.kind === 'ok' ? i.value : [])) : null,
+      call((token) => listBans(token, group.id)).then((b) => setBans(b.kind === 'ok' ? b.value : [])),
+      call((token) => listEnforcements(token, group.id)).then((h) => setHistory(h.kind === 'ok' ? h.value : [])),
     ]);
-    if (r !== null) setRequests(r.kind === 'ok' ? r.value : []);
-    if (i !== null) setAwaiting(i.kind === 'ok' ? i.value : []);
-    setBans(b.kind === 'ok' ? b.value : []);
-    setHistory(h.kind === 'ok' ? h.value : []);
   }, [call, group.id, rank]);
 
   useEffect(() => {
