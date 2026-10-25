@@ -5,6 +5,7 @@ import { PATHS } from '@/app/paths';
 import { Avatar } from '@/components/ui/avatar';
 import { MessageIcon } from '@/components/ui/icons';
 import { Popover } from '@/components/ui/popover';
+import { useBellPoll } from '@/hooks/use-bell-poll';
 import { useChatCall } from '@/hooks/use-chat-call';
 import { conversationIdOfPath, conversationPath, supportIdOfPath, supportThreadPath } from '@/lib/chat-link';
 import { fetchChatOverview, fetchChatUnread } from '@/services/api/chat';
@@ -23,8 +24,6 @@ import {
   YOU_PREFIX,
 } from '@/lib/chat-texts';
 
-/** How often the badge asks again while the page is visible (the MVP polls; no Realtime yet). */
-const POLL_MS = 30_000;
 const RECENT = 5;
 
 type Recent = { kind: 'loading' } | { kind: 'failed' } | { kind: 'loaded'; overview: ChatOverview };
@@ -39,24 +38,26 @@ export function ChatTopBarButton({ current }: { current: string }) {
   const [open, setOpen] = useState(false);
   const [recent, setRecent] = useState<Recent>({ kind: 'loading' });
 
+  // The periodic ask is the bell's light poll (one request for both counters, every 30 s while the page is visible): its Chat count lands here.
+  const bell = useBellPoll();
+  useEffect(() => {
+    if (bell !== null) setUnread(bell.chatUnread);
+  }, [bell]);
+
   const refresh = useCallback(async () => {
     const result = await call(fetchChatUnread);
     if (result.kind === 'ok') setUnread(result.value.count);
   }, [call]);
 
-  // The badge: on every screen change (a thread just read) and every POLL_MS while the page is visible.
+  // The badge: on every screen change (a thread just read); in between, the bell's poll.
   useEffect(() => {
     void refresh();
     // A thread opened by this screen change is marked read by its own GET: ask again once that has had its turn. Only on a thread: every
     // other screen change would ask twice for nothing (25.10, a load on the database).
     const isThread = conversationIdOfPath(current) !== null || supportIdOfPath(current) !== null;
     const settle = isThread ? window.setTimeout(() => void refresh(), 1500) : undefined;
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void refresh();
-    }, POLL_MS);
     return () => {
       if (settle !== undefined) window.clearTimeout(settle);
-      window.clearInterval(timer);
     };
   }, [refresh, current]);
 
