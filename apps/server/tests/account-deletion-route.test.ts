@@ -72,7 +72,7 @@ describe('[I9 VAL-052 ERR-048] the request needs a fresh password sign-in', () =
     expect(isFreshPasswordSignIn(null, NOW)).toBe(false);
   });
 
-  it('[ERR-048] a session with no recent password entry is 401 reauth_required, before any database work', T, async () => {
+  it('[ERR-048 AC-183] a session with no recent password entry is 401 reauth_required, before any database work', T, async () => {
     await setup();
     const cases: unknown[] = [
       undefined,

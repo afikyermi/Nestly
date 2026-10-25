@@ -116,14 +116,14 @@ describe('[I9 FR-SET-002 PG-050 AC-108] request and cancel', () => {
     expect(await cancelDeletion(database, id(owner))).toEqual({ kind: 'cancelled' });
   });
 
-  it('[FR-SET-002] a staff account cannot schedule its own deletion', T, async () => {
+  it('[FR-SET-002 AC-183] a staff account cannot schedule its own deletion', T, async () => {
     expect(await requestDeletion(database, id(admin), fresh(), new Date())).toEqual({ kind: 'not_allowed' });
     expect(await requestDeletion(database, id(moderator), fresh(), new Date())).toEqual({ kind: 'not_allowed' });
   });
 });
 
 describe('[I9 §16.4 BR-073] the Admin sees an overdue deletion; an executed account is told it was deleted', () => {
-  it('[§16.4] past its date the deletion is overdue and cannot be cancelled; executed, the identity reads `deleted`', T, async () => {
+  it('[§16.4 AC-184] past its date the deletion is overdue and cannot be cancelled; executed, the identity reads `deleted`', T, async () => {
     const before = await counts();
     expect((await requestDeletion(database, id(gone), fresh(), new Date())).kind).toBe('scheduled');
     await fixture((tx) => tx`select tests.fx_dl_due(${gone}::uuid, interval '31 days')::text as v`);

@@ -77,7 +77,7 @@ async function openDeletion(page: Page): Promise<void> {
 }
 
 test.describe('[I9 FR-SET-002 PG-050 PG-060] account deletion', () => {
-  test('[FR-SET-002 VAL-052 PG-050 AC-108] request with the box and the password, signed out with the date, held at PG-050, cancelled', async ({ page }) => {
+  test('[FR-SET-002 VAL-052 PG-050 AC-108 AC-183] request with the box and the password, signed out with the date, held at PG-050, cancelled', async ({ page }) => {
     const net = await setup(page);
     await signIn(page);
     await openDeletion(page);
@@ -119,7 +119,7 @@ test.describe('[I9 FR-SET-002 PG-050 PG-060] account deletion', () => {
     expect(net.deletionCalls.at(-1)).toMatchObject({ path: 'cancel', body: {} });
   });
 
-  test('[ERR-026 ERR-048] a Group Owner is told to transfer the ownership; a wrong password sends nothing', async ({ page }) => {
+  test('[ERR-026 ERR-048 AC-177 AC-183] a Group Owner is told to transfer the ownership; a wrong password sends nothing', async ({ page }) => {
     const net = await setup(page, { request: { status: 409, body: { error: 'group_owner' } } });
     await signIn(page);
     await openDeletion(page);
@@ -143,7 +143,7 @@ test.describe('[I9 FR-SET-002 PG-050 PG-060] account deletion', () => {
     expect(net.deletionCalls.length).toBe(calls);
   });
 
-  test('[§16.4] the Admin home counts the waiting deletions and shows a red bar for one past its date', async ({ page }) => {
+  test('[§16.4 AC-184] the Admin home counts the waiting deletions and shows a red bar for one past its date', async ({ page }) => {
     await setupAdmin(page, { queue: [], accountDeletions: { pending: 3, overdue: 1 } });
     await page.route('**/api/account/kind', (route) => (route.request().method() === 'OPTIONS' ? route.fulfill({ status: 204, headers: CORS }) : json(route, 200, { kind: 'staff' })));
     await signIn(page);
@@ -151,5 +151,19 @@ test.describe('[I9 FR-SET-002 PG-050 PG-060] account deletion', () => {
     await expect(page.getByRole('heading', { level: 2, name: 'בית הניהול' })).toBeVisible();
     await expect(page.getByRole('alert').filter({ hasText: 'מחיקת חשבון אחת עברה את מועד הביצוע' })).toBeVisible();
     await expect(page.getByText('מחיקות חשבון ממתינות: 3')).toBeVisible();
+  });
+
+  test('[FR-SET-002 BR-084 AC-183] a staff account that opens the deletion screen by its address is told it cannot, nothing breaks', async ({ page }) => {
+    const net = await setup(page, { request: { status: 409, body: { error: 'not_allowed' } } });
+    await page.route('**/api/account/kind', (route) => (route.request().method() === 'OPTIONS' ? route.fulfill({ status: 204, headers: CORS }) : json(route, 200, { kind: 'staff' })));
+    await signIn(page);
+    await page.goto('/settings/delete-account');
+    await expect(page.getByRole('heading', { level: 1, name: 'מחיקת חשבון' })).toBeVisible();
+    await page.getByRole('checkbox', { name: /החשבון וכל התוכן יימחקו לצמיתות/ }).check();
+    await page.getByLabel('סיסמה', { exact: true }).fill(PASSWORD);
+    await page.getByRole('button', { name: 'מחיקת החשבון', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText('אי אפשר למחוק את החשבון הזה מכאן');
+    expect(pathOf(page)).toBe('/settings/delete-account');
+    expect(net.me).toBe('active');
   });
 });
