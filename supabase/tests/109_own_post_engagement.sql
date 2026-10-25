@@ -202,6 +202,20 @@ select is(pg_temp.fn('a', 366), 'ERR:22023', '[F11.10-a c1 engage] a period over
 select is(pg_temp.q('a', 'select nestly.own_post_engagement(null)::text'), 'ERR:22023', '[F11.10-a c1 engage] no period is refused');
 select is(pg_temp.fn('a', 365), '5', '[F11.10-a c1 engage] 365 days is the longest period (A, after the block: everything but B''s comment)');
 
+-- =====================================================================================================================
+-- 6. The scope belongs to this function alone (review 25.10): its two app_owner policies open every qualifying like and comment, so no
+--    other function body may name the setting or write the scope row for it
+-- =====================================================================================================================
+select is(
+  (select count(*) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'nestly' and p.prosrc ~ 'engagement_scope' and p.proname <> 'own_post_engagement'),
+  0::bigint, '[F11.10-a c1 engage] no function but own_post_engagement() names nestly.engagement_scope');
+select is(
+  (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'nestly'
+      and (coalesce(pg_catalog.pg_get_expr(pol.polqual, pol.polrelid), '') || coalesce(pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid), '')) ~ 'engagement_scope'),
+  2::bigint, '[F11.10-a c1 engage] only the two *_select_within_engagement policies read nestly.engagement_scope');
+
 select * from finish();
 
 rollback;
