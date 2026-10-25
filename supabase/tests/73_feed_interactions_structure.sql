@@ -32,8 +32,8 @@ select is(
     where n.nspname = 'nestly' and c.relname in ('comments', 'posts', 'reaction_owners', 'reactions', 'reports')
       and pol.polname !~ '_notify$'
       and pol.polroles <> array[(select oid from pg_catalog.pg_roles where rolname = 'authenticated')]::oid[]),
-  'comments.comments_delete_jobs, comments.comments_select_auto_hide, comments.comments_select_jobs, posts.posts_delete_jobs, posts.posts_select_auto_hide, posts.posts_select_jobs, posts.posts_select_reveal, reports.reports_select_auto_hide, reports.reports_select_jobs, reports.reports_select_reveal, reports.reports_update_jobs',
-  '[F3.0-b c14 platform r6 · I4] the only policies not TO authenticated are the six TO app_jobs of the purge (the approved exception) and the TO app_owner read of reveal_post_author (approved by Afik 20.10.2026); the *_notify policies TO app_owner of the notification definers are file 90''s; completion B''s *_select_auto_hide reads of identical_reports_hide are file 103''s');
+  'comments.comments_delete_jobs, comments.comments_select_auto_hide, comments.comments_select_jobs, comments.comments_select_within_engagement, posts.posts_delete_jobs, posts.posts_select_auto_hide, posts.posts_select_jobs, posts.posts_select_reveal, reactions.reactions_select_within_engagement, reports.reports_select_auto_hide, reports.reports_select_jobs, reports.reports_select_reveal, reports.reports_update_jobs',
+  '[F3.0-b c14 platform r6 · I4] the only policies not TO authenticated are the six TO app_jobs of the purge (the approved exception) and the TO app_owner read of reveal_post_author (approved by Afik 20.10.2026); the *_notify policies TO app_owner of the notification definers are file 90''s; completion B''s *_select_auto_hide reads of identical_reports_hide are file 103''s; own_post_engagement''s two *_select_within_engagement reads (decisions-in-force §19) are file 109''s');
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
