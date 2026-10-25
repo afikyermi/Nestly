@@ -257,6 +257,32 @@ describe('[Afik 20.10] the approval queue', () => {
     expect((await json(app, admin, 'POST', `/api/admin/media/${media}/decision`, { decision: 'maybe', isChild: false })).statusCode).toBe(400);
   });
 
+  it('(Afik 25.10.2026) a reader gets the address signed earlier again; the queue signs a fresh one on every read; a refused image none', T, async () => {
+    const { app, fake } = await start();
+    const a = await registered(app, 'Stable Author');
+    const b = await registered(app, 'Stable Reader');
+    const admin = await bearerFor(ADMIN);
+    const shown = imageId((await upload(app, a.header, 'post')).body);
+    const queued = imageId((await upload(app, a.header, 'post')).body);
+    const created = z.object({ id: z.guid() }).parse(JSON.parse((await json(app, a.header, 'POST', '/api/posts', { body: 'יציב', audience: 'everyone', imageIds: [shown, queued] })).body));
+    await jobSets(shown, 'passed');
+    await jobSets(queued, 'queued', 'unsure');
+    const signsOf = (id: string) => fake.signed.filter((ids) => ids.includes(id)).length;
+    const asB = async () => z.object({ images: z.array(z.object({ id: z.guid() })) }).parse(JSON.parse((await json(app, b.header, 'GET', `/api/posts/${created.id}`)).body)).images.map((i) => i.id);
+    const before = signsOf(shown);
+    expect(await asB()).toEqual([shown]);
+    expect(await asB()).toEqual([shown]);
+    expect(signsOf(shown) - before, 'two reads, no new signing').toBe(0);
+    const queueReads = signsOf(queued);
+    expect((await json(app, admin, 'GET', '/api/admin/media-queue')).statusCode).toBe(200);
+    expect((await json(app, admin, 'GET', '/api/admin/media-queue')).statusCode).toBe(200);
+    expect(signsOf(queued) - queueReads, 'the queue signs on every read').toBe(2);
+    expect((await json(app, admin, 'POST', `/api/admin/media/${queued}/decision`, { decision: 'rejected', isChild: false })).statusCode).toBe(200);
+    expect(await asB(), 'a refused image is not shown, its kept address with it').toEqual([shown]);
+    const own = z.object({ images: z.array(z.object({ id: z.guid(), state: z.string(), url: z.string().nullable() })) }).parse(JSON.parse((await json(app, a.header, 'GET', `/api/posts/${created.id}`)).body));
+    expect(own.images.find((i) => i.id === queued)).toMatchObject({ state: 'rejected', url: null });
+  });
+
   it('[M6 C1] a suspected image reads to its uploader exactly as a rejected one', T, async () => {
     const { app } = await start();
     const a = await registered(app, 'Held Author');
