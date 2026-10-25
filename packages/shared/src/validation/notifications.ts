@@ -36,6 +36,18 @@ export const notificationsResponse = z.strictObject({
   nextCursor: z.string().max(200).nullable(),
 });
 
+/**
+ * GET /api/notifications/counts: the bell's light poll. The two counters the top bar shows (the unread notifications, the unread Chat) and
+ * `latestId`, the newest notification the list would show (null when it shows none): the web app fetches the list only when one of
+ * them changes, or while a list is on screen.
+ */
+export const bellCountsResponse = z.strictObject({
+  unreadCount: z.number().int().min(0),
+  chatUnread: z.number().int().min(0),
+  latestId: z.guid().nullable(),
+});
+export type BellCountsResponse = z.infer<typeof bellCountsResponse>;
+
 /** The notifications cursor: the last item's time (microseconds, UTC) and id. Opaque to the web app. */
 const cursorShape = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z)_([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
 export type NotificationsCursor = { at: string; id: string };

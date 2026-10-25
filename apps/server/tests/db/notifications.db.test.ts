@@ -6,6 +6,7 @@ import { ACCOUNT_A, ACCOUNT_B, AUDIENCE, COLD_START_MS, ISSUER, newKey, restoreE
 import { CLOCK_NOW, buildRegisterApp, captureLog, jsonOf } from '../helpers/register-app.js';
 import { createPost } from '../helpers/posts-api.js';
 import { addComment } from '../helpers/comments-api.js';
+import { putBlock, deleteBlock } from '../helpers/blocks-api.js';
 import { act, sendTo } from '../helpers/friends-api.js';
 import { addOwnChild, removeOwnChild } from '../../src/services/journeys-service.js';
 import { readOwnPrivacy, updateOwnPrivacy } from '../../src/services/privacy-service.js';
@@ -159,6 +160,112 @@ describe('[FR-NOTIF-001 AC-040] the bell, the list, mark read', () => {
     expect(jsonOf(res.body).error).toBe('forbidden');
     const guest = await app.inject({ method: 'GET', url: '/api/notifications' });
     expect(guest.statusCode).toBe(401);
+  });
+});
+
+describe('[FR-NOTIF-001 AC-040] the light bell poll: GET /api/notifications/counts', () => {
+  const countsBody = z.object({ unreadCount: z.number(), chatUnread: z.number(), latestId: z.string().nullable() });
+  async function counts(app: App, header: string): Promise<z.infer<typeof countsBody>> {
+    const res = await get(app, header, '/api/notifications/counts');
+    expect(res.statusCode, res.body).toBe(200);
+    return countsBody.parse(JSON.parse(res.body));
+  }
+  /** The counters equal what the list and the Chat badge show: same unread count, the newest listed item, the same Chat number. */
+  async function expectSame(app: App, header: string): Promise<z.infer<typeof countsBody>> {
+    const light = await counts(app, header);
+    const full = await list(app, header);
+    expect(light.unreadCount).toBe(full.unreadCount);
+    expect(light.latestId).toBe(full.items[0]?.id ?? null);
+    const chat = await get(app, header, '/api/chat/unread');
+    expect(light.chatUnread).toBe(z.object({ count: z.number() }).parse(JSON.parse(chat.body)).count);
+    return light;
+  }
+
+  it('is empty for a new account, follows the list through a notification, a read and Mark all, and writes nothing', T, async () => {
+    const app = await start();
+    expect(await expectSame(app, hA)).toEqual({ unreadCount: 0, chatUnread: 0, latestId: null });
+    expect((await sendTo(app, hB, ACCOUNT_A)).statusCode).toBe(201);
+    const one = await expectSame(app, hA);
+    expect(one.unreadCount).toBe(1);
+    expect(one.latestId).not.toBeNull();
+    const created = await createPost(app, hA, { body: 'שאלה על שינה', audience: 'everyone' });
+    const postId = String(jsonOf(created.body).id);
+    expect((await addComment(app, hB, postId, { body: 'תשובה' })).statusCode).toBe(201);
+    const two = await expectSame(app, hA);
+    expect(two.unreadCount).toBe(2);
+    expect(two.latestId).not.toBe(one.latestId);
+    const first = (await list(app, hA)).items[1]?.id;
+    expect((await post(app, hA, `/api/notifications/${first}/read`)).statusCode).toBe(200);
+    expect((await expectSame(app, hA)).unreadCount).toBe(1);
+    expect((await post(app, hA, '/api/notifications/read-all')).statusCode).toBe(200);
+    expect(await expectSame(app, hA)).toMatchObject({ unreadCount: 0, latestId: two.latestId });
+    expect((await counts(app, hB)).unreadCount, 'the caller sees only their own').toBe(0);
+  });
+
+  it('counts the Chat badge as the Chat endpoint does (a request waiting for an answer)', T, async () => {
+    const app = await start();
+    const started = await app.inject({ method: 'POST', url: '/api/chat/start', headers: { authorization: hA, 'content-type': 'application/json' }, payload: JSON.stringify({ userId: ACCOUNT_B, text: 'שלום' }) });
+    expect(started.statusCode, started.body).toBe(200);
+    const light = await expectSame(app, hB);
+    expect(light.chatUnread).toBeGreaterThan(0);
+    expect(light.unreadCount, 'a chat message is never also a notification').toBe(0);
+  });
+
+  it('follows the list when a block removes what the caller sees', T, async () => {
+    const app = await start();
+    expect((await sendTo(app, hA, ACCOUNT_B)).statusCode).toBe(201);
+    expect((await expectSame(app, hB)).unreadCount).toBe(1);
+    expect((await putBlock(app, hB, ACCOUNT_A)).statusCode).toBe(204);
+    try {
+      await expectSame(app, hB);
+    } finally {
+      await deleteBlock(app, hB, ACCOUNT_A);
+    }
+  });
+
+  it('delivers no birthday (like the poll) and then equals the list once the list has delivered it', T, async () => {
+    const app = await start();
+    expect((await sendTo(app, hA, ACCOUNT_B)).statusCode).toBe(201);
+    expect((await act(app, hB, 'accept', ACCOUNT_A)).statusCode).toBe(200);
+    await side`select tests.fx_nt_pref(${ACCOUNT_B}::uuid, 'birthdays', true)`;
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
+    const born = `${Number(today.slice(0, 4)) - 2}${today.slice(4)}`;
+    const added = await addOwnChild(database(), { userId: ACCOUNT_A }, { name: 'תמר', sex: 'girl', birthDate: born });
+    if (added.kind !== 'journeys') throw new Error(`could not add a child: ${added.kind}`);
+    const childId = added.journeys.children.find((c) => c.name === 'תמר')?.id;
+    try {
+      const before = await counts(app, hB);
+      expect(await counts(app, hB), 'asking twice changes nothing: the light poll delivered no birthday').toEqual(before);
+      const polled = listBody.parse(JSON.parse((await get(app, hB, '/api/notifications?poll=1')).body));
+      expect(polled.items.filter((item) => item.type === 'child_birthday')).toHaveLength(0);
+      expect(polled.unreadCount).toBe(before.unreadCount);
+      await list(app, hB); // the list delivers it
+      await expectSame(app, hB);
+    } finally {
+      if (childId !== undefined) await removeOwnChild(database(), { userId: ACCOUNT_A }, childId);
+    }
+  });
+
+  it('refuses an Admin or Moderator (403 forbidden), and a Guest (401, no query)', T, async () => {
+    const app = await start();
+    const res = await get(app, hM, '/api/notifications/counts');
+    expect(res.statusCode).toBe(403);
+    expect(jsonOf(res.body).error).toBe('forbidden');
+    expect((await app.inject({ method: 'GET', url: '/api/notifications/counts' })).statusCode).toBe(401);
+  });
+
+  it('asks the database for fewer statements than the list poll it replaces', T, async () => {
+    const app = await buildRegisterApp(env(), { clock: () => CLOCK_NOW, serverTiming: true });
+    try {
+      const statements = (header: unknown): number => String(header).split(', ').filter((part) => part.startsWith('s') && part.includes(';dur=') && part.charAt(1) >= '0' && part.charAt(1) <= '9').length;
+      const light = statements((await get(app, hA, '/api/notifications/counts')).headers['server-timing']);
+      const full = statements((await get(app, hA, '/api/notifications?poll=1')).headers['server-timing']);
+      const chat = statements((await get(app, hA, '/api/chat/unread')).headers['server-timing']);
+      console.info(`bell poll statements per cycle: before ${full} (list) + ${chat} (chat) = ${full + chat}; after ${light}`);
+      expect(light).toBeLessThan(full + chat);
+    } finally {
+      await app.close();
+    }
   });
 });
 

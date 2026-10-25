@@ -8,10 +8,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { NotificationItem } from "@nestly/shared";
+import type { BellCountsResponse, NotificationItem } from "@nestly/shared";
+import { BellPollContext, type BellPoll } from "@/hooks/use-bell-poll";
 import { useSessionAccount } from "@/hooks/use-session-account";
 import { useTabVisibility } from "@/hooks/use-tab-visibility";
 import {
+  fetchBellCounts,
   fetchNotifications,
   markAllNotificationsRead,
   markNotificationRead,
@@ -43,6 +45,11 @@ export interface NotificationsApi {
   markOne: (id: string) => Promise<void>;
   /** The next older page; false when it failed. */
   loadMore: () => Promise<boolean>;
+  /**
+   * A list is on screen (the open bell, the notifications page): while any is, every poll also fetches the full list, as before the light
+   * poll. Returns the call that stops watching.
+   */
+  watchList: () => () => void;
 }
 
 const Context = createContext<NotificationsApi | null>(null);
@@ -56,13 +63,20 @@ export function useNotifications(): NotificationsApi {
   return value;
 }
 
-// One place holds the notifications the bell and the page show, so marking read on one updates the other at once. It loads when the
+// The poll is light: GET /api/notifications/counts (the unread notifications, the unread Chat, the newest listed notification), and the full
+// list is fetched only when the count or the newest notification changed, or while a list is on screen. One place holds the notifications the bell and the page show, so marking read on one updates the other at once. It loads when the
 // signed-in app opens, then every POLL_MS while the tab is visible, and at once when the tab is shown again; a failed poll keeps what was
 // shown. An Admin or Moderator account (403 forbidden) has no notifications: the state is `unavailable` and polling stops (AC-033).
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const account = useSessionAccount();
   const [state, setState] = useState<NotificationsState>({ kind: "loading" });
   const runs = useRef(0);
+  const [poll, setPoll] = useState<BellPoll | null>(null);
+  /** What the list last fetched says the server has: the unread count and the newest notification's id. */
+  const seen = useRef<{ unread: number; latest: string | null } | null>(null);
+  const watchers = useRef(0);
+  const stateKind = useRef(state.kind);
+  stateKind.current = state.kind;
   const visibility = useTabVisibility();
   const stopped = state.kind === "unavailable";
 
@@ -83,6 +97,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     if (outcome.kind === "forbidden") setState({ kind: "unavailable" });
     else if (outcome.kind === "list") {
       const fresh = outcome.data;
+      seen.current = { unread: fresh.unreadCount, latest: fresh.items[0]?.id ?? null };
       setState((current) => {
         if (current.kind !== "ready" || !current.hasOlder)
           return { kind: "ready", items: fresh.items, unreadCount: fresh.unreadCount, nextCursor: fresh.nextCursor, hasOlder: false };
@@ -104,25 +119,42 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       );
   }, [token, account]);
 
+  // One light poll: the counters, then the list only when something it shows may have changed.
+  const check = useCallback(async () => {
+    const accessToken = await token();
+    if (accessToken === null) return;
+    const outcome = await fetchBellCounts(accessToken);
+    if (outcome.kind === "counts") {
+      const counts: BellCountsResponse = outcome.data;
+      setPoll((current) => ({ chatUnread: counts.chatUnread, seq: (current?.seq ?? 0) + 1 }));
+      const known = seen.current;
+      const changed = known === null || known.unread !== counts.unreadCount || known.latest !== counts.latestId;
+      if (changed || watchers.current > 0 || stateKind.current !== "ready") await refresh({ poll: true });
+    } else if (outcome.kind === "forbidden") setState({ kind: "unavailable" });
+    else if (outcome.kind === "unauthenticated" || outcome.kind === "account-unavailable") void account?.recheck();
+    else if (stateKind.current !== "ready") await refresh({ poll: true });
+  }, [token, account, refresh]);
+
   useEffect(() => {
     if (stopped) return;
     const visible = () => visibility?.isTabVisible?.() ?? true;
     if (visible()) void refresh();
     const timer = setInterval(() => {
-      if (visible()) void refresh({ poll: true });
+      if (visible()) void check();
     }, POLL_MS);
-    const stopListening = visibility?.onTabVisible(() => void refresh({ poll: true }));
+    const stopListening = visibility?.onTabVisible(() => void check());
     return () => {
       clearInterval(timer);
       stopListening?.();
     };
-  }, [refresh, stopped, visibility]);
+  }, [refresh, check, stopped, visibility]);
 
   const markAll = useCallback(async (): Promise<boolean> => {
     const accessToken = await token();
     if (accessToken === null) return false;
     const outcome = await markAllNotificationsRead(accessToken);
     if (outcome.kind !== "done") return false;
+    if (seen.current !== null) seen.current = { ...seen.current, unread: 0 };
     setState((current) =>
       current.kind === "ready"
         ? {
@@ -144,6 +176,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       setState((current) => {
         if (current.kind !== "ready") return current;
         const wasUnread = current.items.some((i) => i.id === id && !i.isRead);
+        if (wasUnread && seen.current !== null) seen.current = { ...seen.current, unread: Math.max(0, seen.current.unread - 1) };
         return {
           ...current,
           items: current.items.map((i) =>
@@ -176,9 +209,23 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     return true;
   }, [cursor, token]);
 
+  const watchList = useCallback(() => {
+    watchers.current += 1;
+    let done = false;
+    return () => {
+      if (done) return;
+      done = true;
+      watchers.current -= 1;
+    };
+  }, []);
+
   const value = useMemo(
-    () => ({ state, refresh, markAll, markOne, loadMore }),
-    [state, refresh, markAll, markOne, loadMore],
+    () => ({ state, refresh, markAll, markOne, loadMore, watchList }),
+    [state, refresh, markAll, markOne, loadMore, watchList],
   );
-  return <Context.Provider value={value}>{children}</Context.Provider>;
+  return (
+    <Context.Provider value={value}>
+      <BellPollContext.Provider value={poll}>{children}</BellPollContext.Provider>
+    </Context.Provider>
+  );
 }

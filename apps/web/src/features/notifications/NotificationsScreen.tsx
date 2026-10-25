@@ -15,7 +15,9 @@ import {
 // The notifications page (FR-NOTIF-001, AC-040): the latest notifications with their unread state and deep link, and "סימון הכול כנקרא".
 // The data is the provider's, the same the bell shows; marking read here updates the bell at once.
 export function NotificationsScreen() {
-  const { state, refresh, markAll, markOne, loadMore } = useNotifications();
+  const { state, refresh, markAll, markOne, loadMore, watchList } = useNotifications();
+  // the page shows the list: it follows every poll, as it always did
+  useEffect(() => watchList(), [watchList]);
   const [markFailed, setMarkFailed] = useState(false);
   const [moreFailed, setMoreFailed] = useState(false);
   // OP-059: opening the page asks for a fresh list (a Friend's child's birthday is delivered then). Not when the app itself opened

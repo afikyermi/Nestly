@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { PATHS } from "@/app/paths";
 import { Button } from "@/components/ui/button";
@@ -25,9 +25,11 @@ const DROPDOWN_ITEMS = 6;
 // "סימון הכול כנקרא", "כל ההתראות" and a settings icon. Opening a notification marks it read and follows its link; the target checks the
 // permission again. The count is announced as part of the button's name.
 export function NotificationBell() {
-  const { state, refresh, markAll, markOne } = useNotifications();
+  const { state, refresh, markAll, markOne, watchList } = useNotifications();
   const [open, setOpen] = useState(false);
   const [markFailed, setMarkFailed] = useState(false);
+  // while the dropdown is open its list follows every poll, as the bell always did
+  useEffect(() => (open ? watchList() : undefined), [open, watchList]);
   const unread = state.kind === "ready" ? state.unreadCount : 0;
 
   return (
