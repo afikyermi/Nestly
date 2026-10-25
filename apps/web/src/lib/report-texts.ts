@@ -1,4 +1,4 @@
-import { REPORT_DETAILS_MAX, type CoreReportReason, type ReportTargetKind } from '@nestly/shared';
+import { REPORT_DETAILS_MAX, REVIEW_REPORT_REASONS, type CoreReportReason, type ReportTargetKind, type ReviewReportReason } from '@nestly/shared';
 
 // The report window's texts and the entry points' names (F3.7). Written in .work/report/screen.md; gender-neutral (NFR-USAB-003). The reasons
 // are FR-MOD-001's, in its order (REPORT_REASONS); the spam hint is its parenthesis. The menu's own name, "פעולות נוספות", is F3.9's.
@@ -47,3 +47,15 @@ export function detailsRemainingText(left: number): string {
   if (left === 0) return 'לא נותרו תווים';
   return left === 1 ? 'נותר תו אחד' : `נותרו ${left.toLocaleString('en-US')} תווים`;
 }
+
+/** §11.10 (FR-MOD-001, AC-174): the four reasons the reviewed Professional chooses from on a review about itself, in their fixed order. */
+export const REVIEW_REASON_LABELS: Record<ReviewReportReason, string> = {
+  review_offensive: 'פוגענית',
+  review_false: 'שקרית / בלי אינטראקציה',
+  review_personal_info: 'מידע אישי',
+  review_other: 'אחר',
+};
+export const REVIEW_REPORT_REASON_OPTIONS: ReadonlyArray<{ key: ReviewReportReason; label: string }> = REVIEW_REPORT_REASONS.map((key) => ({
+  key,
+  label: REVIEW_REASON_LABELS[key],
+}));

@@ -13,10 +13,6 @@ export const AUDIENCE_LABELS: Record<PostAudience, string> = { everyone: 'כול
 /** VAL-049: who a Regular may choose, and who a Professional may choose (AC-130). */
 export const REGULAR_AUDIENCES: readonly PostAudience[] = ['everyone', 'friends'];
 export const PROFESSIONAL_AUDIENCES: readonly PostAudience[] = ['everyone', 'followers'];
-/** I11 (OP-038 ⭐ (a)): the author marks the post as asking for help from Professionals. */
-export const HELP_REQUEST_LABEL = 'הפוסט מבקש עזרה מבעלי מקצוע';
-export const HELP_REQUEST_HINT_TEXT = 'בעלי מקצוע יוכלו להציע עזרה. הצעה פותחת שיחה רק אם מאשרים אותה';
-export const HELP_REQUEST_BADGE = 'מבקשים עזרה';
 /** I10-C (§11.13): a Group's Highlight in the main feed names its Group (a link to it). */
 export const fromGroup = (name: string): string => `מתוך: ${name}`;
 /** I10-C (§11.14): active Groups suggested in the feed. */

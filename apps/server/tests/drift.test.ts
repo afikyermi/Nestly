@@ -141,7 +141,8 @@ const APPROVED_F31A: ColumnShape[] = [
   col('posts', 'body', 'text', false), col('posts', 'stage_tag', 'text', false),
   col('posts', 'created_at', TZ, true),
   col('posts', 'is_anonymous', 'boolean', true), col('posts', 'group_id', 'uuid', false),
-  // I11 (OP-038): the help-request marking, written by a Regular's post.
+  // I11 (OP-038): the help-request marking. Inert since 20261024000000 (§13.1): the database still holds it until the follow-up drop,
+  // Drizzle no longer names it (a catalog column Drizzle omits is allowed).
   col('posts', 'is_help_request', 'boolean', true),
 ];
 // I7 (migration 20261020400000): notifications, preferences, People Search counts and the Intent Signal, as Drizzle declares them.

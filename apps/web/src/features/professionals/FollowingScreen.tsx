@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { RatingLine } from '@/components/domain/star-rating';
 import { Link } from 'react-router';
 import type { ProfessionalCard } from '@nestly/shared';
 import { InlineAlert } from '@/components/shared/inline-alert';
@@ -17,7 +18,6 @@ import {
   unfollowedText,
   areaText,
   fieldText,
-  ratingText,
   unfollowSuffix,
 } from '@/lib/professional-texts';
 import { fetchFollowing, setFollow } from '@/services/api/professionals';
@@ -95,7 +95,8 @@ export function FollowingScreen() {
                   {card.fullName}
                 </Link>
                 <p className="mt-1 text-label">{fieldText(card.field, card.fieldOther)}</p>
-                <p className="mt-1 text-small text-muted-foreground">{[areaText(card.area), ratingText(card.rating, card.reviewCount)].filter((part) => part !== null).join(' · ')}</p>
+                {card.area === null ? null : <p className="mt-1 text-small text-muted-foreground">{areaText(card.area)}</p>}
+                <RatingLine rating={card.rating} count={card.reviewCount} className="mt-1" />
               </div>
               <Button type="button" variant="soft" pending={busyId === card.id} onClick={() => void unfollow(card)}>
                 {UNFOLLOW}

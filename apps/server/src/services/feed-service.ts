@@ -136,6 +136,7 @@ export function unitOf(row: DisplayPost, reactions: UnitReactions, showGroup = t
       ...common,
       kind: 'post',
       body: row.body,
+      ...(row.offerHelp === null ? {} : { offerHelp: row.offerHelp }),
       ...group,
       isMine: false,
       isAnonymous: true,
@@ -147,7 +148,7 @@ export function unitOf(row: DisplayPost, reactions: UnitReactions, showGroup = t
     author: authorOf(row.authorName, row.authorField, row.authorFieldOther),
   } as const;
   if (!row.isShare) {
-    return row.body === null ? undefined : { ...common, kind: 'post', body: row.body, ...(row.isHelpRequest ? { isHelpRequest: true as const } : {}), ...group, ...named };
+    return row.body === null ? undefined : { ...common, kind: 'post', body: row.body, ...(row.offerHelp === null ? {} : { offerHelp: row.offerHelp }), ...group, ...named };
   }
   const { originalId, originalBody, originalAudience, originalCreatedAt, originalIsAnonymous } = row;
   const original =

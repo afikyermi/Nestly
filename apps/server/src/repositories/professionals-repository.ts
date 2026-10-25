@@ -7,14 +7,11 @@
 import type {
   ArticleWrite,
   DirectoryQuery,
-  HelpRequestItem,
   OutreachItem,
   ProfessionalArticleItem,
   ProfessionalCard,
   ProfessionalDashboard,
   ProfessionalProfileWrite,
-  ProfessionalReviewItem,
-  ReviewWrite,
 } from '@nestly/shared';
 import {
   ARTICLE_STATUSES,
@@ -31,14 +28,12 @@ import { z } from 'zod';
 import type { IdentityTx } from '../db/identity-transaction.js';
 import { professionalConsentsInsert, usersInsert } from '../db/schema.js';
 
-const isoMs = sql.raw(`'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'`);
+export const isoMs = sql.raw(`'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'`);
 const DIRECTORY_LIMIT = 50;
 /** Far above any real number of Follows; the list is not paged. */
 const FOLLOWING_LIMIT = 500;
-const PAGE_REVIEWS = 50;
 const PAGE_ARTICLES = 50;
-const HELP_LIMIT = 30;
-const EXCERPT = 160;
+export const EXCERPT = 160;
 
 // ---- registration and the own profile -------------------------------------------------------------------------------------------------
 
@@ -187,17 +182,6 @@ export async function readReviewableConversation(tx: IdentityTx, professionalId:
         and exists (select 1 from nestly.messages m where m.conversation_id = c.id and m.sender_id = ${professionalId}::uuid)`),
   );
   return row?.id ?? null;
-}
-
-const reviewRow = z.object({ id: z.guid(), rating: z.number().int(), text: z.string(), at: z.string() });
-
-export async function readReviews(tx: IdentityTx, professionalId: string): Promise<ProfessionalReviewItem[]> {
-  return z.array(reviewRow).parse(
-    await tx.execute(sql`
-      select r.id, r.rating, r.body as text, to_char(r.created_at at time zone 'UTC', ${isoMs}) as at
-      from nestly.professional_reviews r where r.professional_id = ${professionalId}::uuid and r.moderation = 'active'
-      order by r.created_at desc, r.id limit ${PAGE_REVIEWS}`),
-  );
 }
 
 const articleRow = z.object({
@@ -350,13 +334,6 @@ export async function isReadableProfessional(tx: IdentityTx, userId: string): Pr
 
 // ---- reviews and articles ---------------------------------------------------------------------------------------------------------------
 
-/** FR-SERV-011: one review on one conversation. A refusal propagates (42501 not eligible, 23505 already reviewed). */
-export async function insertReview(tx: IdentityTx, professionalId: string, conversationId: string, review: ReviewWrite): Promise<void> {
-  await tx.execute(sql`
-    insert into nestly.professional_reviews (professional_id, conversation_id, rating, body)
-    values (${professionalId}::uuid, ${conversationId}::uuid, ${review.rating}, ${review.text})`);
-}
-
 export async function insertArticle(tx: IdentityTx, article: ArticleWrite): Promise<string> {
   const [row] = z.array(z.object({ id: z.guid() })).parse(
     await tx.execute(sql`
@@ -459,25 +436,3 @@ export async function readDashboard(tx: IdentityTx): Promise<ProfessionalDashboa
   };
 }
 
-const helpRow = z.object({
-  postId: z.guid(),
-  excerpt: z.string(),
-  isAnonymous: z.boolean(),
-  authorName: z.string().nullable(),
-  at: z.string(),
-  offered: z.boolean(),
-});
-
-/** FR-SERV-005: the newest posts that ask for help and that the caller can read (the feed's rules), with whether it already offered. */
-export async function readHelpRequests(tx: IdentityTx): Promise<HelpRequestItem[]> {
-  return z.array(helpRow).parse(
-    await tx.execute(sql`
-      select p.id as "postId", left(p.body, ${EXCERPT}) as excerpt, p.is_anonymous as "isAnonymous", n.full_name as "authorName",
-             to_char(p.created_at at time zone 'UTC', ${isoMs}) as at,
-             exists (select 1 from nestly.outreach_requests o where o.post_id = p.id and o.professional_id = (select auth.uid())) as offered
-      from nestly.posts p left join nestly.regular_names n on n.user_id = p.author_id
-      where p.is_help_request and p.status = 'active'
-      order by p.created_at desc, p.id
-      limit ${HELP_LIMIT}`),
-  );
-}

@@ -8,10 +8,11 @@
 //   - the configuration rows and the snapshot clock
 // Timestamps leave the database as text with six fractional digits (the cursor's own format) and come back as text: never a JS Date.
 
-import { GROUP_PRIVACIES, JOURNEY_STAGES, POST_AUDIENCES, PROFESSIONAL_FIELDS, dbTimestamp, type FeedConfigRow } from '@nestly/shared';
+import { GROUP_PRIVACIES, JOURNEY_STAGES, OFFER_HELP_STATES, POST_AUDIENCES, PROFESSIONAL_FIELDS, dbTimestamp, type FeedConfigRow } from '@nestly/shared';
 import { sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { IdentityTx } from '../db/identity-transaction.js';
+import { offerHelpState } from './offer-help-state.js';
 
 /** The cursor's timestamp format (shared/feed/cursor.ts), produced here and parsed back there. */
 const TIMESTAMP_TEXT = sql.raw(`'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'`);
@@ -266,7 +267,8 @@ const displayRow = z.object({
   stageTag: z.enum(JOURNEY_STAGES).nullable(),
   createdAt: z.string(),
   isMine: z.boolean(),
-  isHelpRequest: z.boolean(),
+  /** I11 completion C: the caller's Offer Help state (offer-help-state.ts); null for anyone but a Professional on an eligible post. */
+  offerHelp: z.enum(OFFER_HELP_STATES).nullable(),
   authorName: z.string().nullable(),
   authorField: z.enum(PROFESSIONAL_FIELDS).nullable(),
   authorFieldOther: z.string().nullable(),
@@ -295,7 +297,7 @@ export function displayStatement(ids: readonly string[]): SQL {
   return sql`
     select p.id, p.is_share as "isShare", p.is_anonymous as "isAnonymous", p.body, p.audience, p.stage_tag as "stageTag",
            ${isoText(sql`p.created_at`)} as "createdAt",
-           coalesce(p.author_id = (select auth.uid()), false) as "isMine", p.is_help_request as "isHelpRequest",
+           coalesce(p.author_id = (select auth.uid()), false) as "isMine", ${offerHelpState('p')} as "offerHelp",
            coalesce(n.full_name, ap.full_name) as "authorName", ap.field as "authorField", ap.field_other as "authorFieldOther",
            o.id as "originalId", o.body as "originalBody", o.audience as "originalAudience",
            ${isoText(sql`o.created_at`)} as "originalCreatedAt", o.is_anonymous as "originalIsAnonymous",

@@ -579,7 +579,7 @@ test.describe('feed-composer c12 [NFR-A11Y-001] size, motion and order', () => {
     await expect(publishButton(page)).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.locator('article:has(*:focus), article:focus').first()).toContainText('גוף הפוסט 1');
-    expect(stops.length).toBe(6); // presses: the checkbox, the audience group, the tag group, the help marking (I11), "הוספת תמונה" (I5), then "פרסום" — nothing else
+    expect(stops.length).toBe(5); // presses: the checkbox, the audience group, the tag group, "הוספת תמונה" (I5), then "פרסום" — nothing else (I11-C §13.1, OP-038: no help marking)
   });
 });
 

@@ -161,7 +161,7 @@
 | FR-ALG-010 | Group Highlights v1 וחשיפת קבוצות פעילות | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-DATA-001 | Analytics Event Tracking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 
-## קריטריוני קבלה — 163
+## קריטריוני קבלה — 169
 
 > השמות קוצרו לצורך ניווט בלבד. הנוסח המחייב נמצא ב-[15-acceptance.md](15-acceptance.md).
 
@@ -330,6 +330,12 @@
 | AC-166 | חשיפת קבוצות פעילות | [15-acceptance.md](15-acceptance.md) |
 | AC-167 | הזמנה לקבוצה ואישורה | [15-acceptance.md](15-acceptance.md) |
 | AC-168 | אזהרה והשתקה בקבוצה | [15-acceptance.md](15-acceptance.md) |
+| AC-169 | הצעת עזרה מהכרטיס ומעמוד הפוסט | [15-acceptance.md](15-acceptance.md) |
+| AC-170 | Professional מגיב ועושה לייק | [15-acceptance.md](15-acceptance.md) |
+| AC-171 | בקשות עזרה לפי תחום | [15-acceptance.md](15-acceptance.md) |
+| AC-172 | ביקורת אחת, עריכה ומחיקה | [15-acceptance.md](15-acceptance.md) |
+| AC-173 | דירוג בכוכבים ברבעים | [15-acceptance.md](15-acceptance.md) |
+| AC-174 | סיבות הדיווח על ביקורת | [15-acceptance.md](15-acceptance.md) |
 
 ## מזהים נוספים
 
@@ -341,6 +347,6 @@
 | NFR | דרישות לא-פונקציונליות | NFR-SEC-001 … NFR-SEC-010 | 36 | [06-non-functional.md](06-non-functional.md) |
 | UC | Use Cases | UC-01 … UC-42 | 42 | [14-use-cases.md](14-use-cases.md) |
 | PG | מסכים | PG-001 … PG-059 | 59 | [07-screens-navigation.md](07-screens-navigation.md) |
-| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-071 | 68 | [appendix-b-open-points.md](appendix-b-open-points.md) |
+| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-075 | 72 | [appendix-b-open-points.md](appendix-b-open-points.md) |
 | ALG | קטלוג האלגוריתמים | ALG-01 … ALG-09 | 9 | [18-algorithms-spec.md](18-algorithms-spec.md) |
 | P-ALG | עקרונות האלגוריתמים | P-ALG-01 … P-ALG-08 | 8 | [18-algorithms-spec.md](18-algorithms-spec.md) |

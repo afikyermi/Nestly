@@ -16,8 +16,6 @@ export interface PostFormValues {
   body: string;
   audience: PostAudience;
   stageTag: JourneyStage | '';
-  /** I11 (OP-038): asks Professionals for help (absent: no). */
-  isHelpRequest?: boolean;
 }
 
 export interface PostFormErrors {
@@ -47,7 +45,6 @@ export function checkPostForm(values: PostFormValues, anonymous: AnonymousMode =
     audience: anonymous === 'none' ? values.audience : 'everyone',
     stageTag: values.stageTag === '' ? null : values.stageTag,
     ...(anonymous === 'create' ? { isAnonymous: true } : {}),
-    ...(values.isHelpRequest === true && (anonymous !== 'none' || values.audience === 'everyone') ? { isHelpRequest: true } : {}),
   });
   if (result.ok) {
     if (anonymous !== 'edit') return result;

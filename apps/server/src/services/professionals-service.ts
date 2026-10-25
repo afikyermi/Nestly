@@ -17,6 +17,7 @@ import {
   type ProfessionalProfileWrite,
   type PromotedProfessional,
   type ReviewWrite,
+  PROFESSIONAL_FIELD_TOPICS,
   TOPIC_RULES,
   topicPatternSource,
 } from '@nestly/shared';
@@ -35,22 +36,21 @@ import {
   insertFollow,
   insertOutreach,
   insertProfessionalAccount,
-  insertReview,
   openOutreachConversation,
   readArticles,
   readDashboard,
   readFollowing,
   readDirectory,
-  readHelpRequests,
   readOutreach,
   readOwnAccountType,
   readProfessionalHead,
   readReviewableConversation,
-  readReviews,
   updateArticle,
   updateOwnProfile,
 } from '../repositories/professionals-repository.js';
 import { readOwnTopicWeights } from '../repositories/search-repository.js';
+import { readHelpRequests } from '../repositories/help-requests-repository.js';
+import { deleteOwnReview, insertReview, readOwnReview, readReviews, updateOwnReview } from '../repositories/professional-reviews-repository.js';
 
 export type ProRefusal =
   | { readonly kind: 'invalid' }
@@ -163,6 +163,7 @@ export async function readProfessional(database: Database, identity: Identity, i
       ...head,
       canChat: isRegular && !head.isMe,
       reviewableConversationId: isRegular ? await readReviewableConversation(tx, id) : null,
+      myReview: isRegular ? ((await readOwnReview(tx, id)) ?? null) : null,
       reviews: await readReviews(tx, id),
       articles: await readArticles(tx, id),
     };
@@ -239,7 +240,7 @@ export async function declineOutreach(database: Database, identity: Identity, id
 
 // ---- reviews and articles ---------------------------------------------------------------------------------------------------------------
 
-/** POST /api/professionals/:id/reviews (FR-SERV-011): on the caller's reviewable conversation with the Professional. */
+/** POST /api/professionals/:id/reviews (FR-SERV-011, AC-093): on the caller's reviewable conversation; a second one is 409 (edit it instead). */
 export async function writeReview(database: Database, identity: Identity, professionalId: string, review: ReviewWrite): Promise<ProOutcome<object>> {
   return guarded(() =>
     inIdentityTransaction(database, identity, async (tx): Promise<ProOutcome<object>> => {
@@ -248,6 +249,24 @@ export async function writeReview(database: Database, identity: Identity, profes
       await insertReview(tx, professionalId, conversationId, review);
       return { kind: 'ok' };
     }),
+  );
+}
+
+/** PUT /api/professionals/:id/reviews (§11.21): the writer edits its own active review; 404 when it has none, 403 when the database refuses. */
+export async function editReview(database: Database, identity: Identity, professionalId: string, review: ReviewWrite): Promise<ProOutcome<object>> {
+  return guarded(() =>
+    inIdentityTransaction(database, identity, async (tx): Promise<ProOutcome<object>> =>
+      (await updateOwnReview(tx, professionalId, review)) === 0 ? { kind: 'unavailable' } : { kind: 'ok' },
+    ),
+  );
+}
+
+/** DELETE /api/professionals/:id/reviews: the writer deletes its own active review; 404 when it has none. */
+export async function removeReview(database: Database, identity: Identity, professionalId: string): Promise<ProOutcome<object>> {
+  return guarded(() =>
+    inIdentityTransaction(database, identity, async (tx): Promise<ProOutcome<object>> =>
+      (await deleteOwnReview(tx, professionalId)) === 0 ? { kind: 'unavailable' } : { kind: 'ok' },
+    ),
   );
 }
 
@@ -271,7 +290,7 @@ export async function removeArticle(database: Database, identity: Identity, id: 
 
 // ---- the Professional's home ------------------------------------------------------------------------------------------------------------
 
-/** GET /api/professional/home (FR-PRO-001, AC-018): the own dashboard and the newest posts that ask for help. */
+/** GET /api/professional/home (FR-PRO-001, AC-018): the own dashboard and the newest posts in its field it may Offer Help on (§13.4). */
 export async function readProfessionalHome(
   database: Database,
   identity: Identity,
@@ -279,6 +298,7 @@ export async function readProfessionalHome(
   return inIdentityTransaction(database, identity, async (tx) => {
     const dashboard = await readDashboard(tx);
     if (dashboard === undefined) return { kind: 'not_allowed' };
-    return { kind: 'ok', dashboard, helpRequests: await readHelpRequests(tx) };
+    const patterns = PROFESSIONAL_FIELD_TOPICS[dashboard.field].map((topic) => topicPatternSource(topic));
+    return { kind: 'ok', dashboard, helpRequests: await readHelpRequests(tx, patterns) };
   });
 }

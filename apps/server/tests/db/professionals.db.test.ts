@@ -111,7 +111,7 @@ describe('[I11] Professionals and services', () => {
     expect(await registerProfessional(database, as(rina), profile())).toEqual({ kind: 'already_registered' });
   });
 
-  it('[FR-PRO-001 AC-018] a Professional that just signed up reads its home: an empty dashboard and the help requests', T, async () => {
+  it('[FR-PRO-001 AC-018] a Professional that just signed up reads its home: an empty dashboard and the posts in its field', T, async () => {
     // through HTTP, as the sign-up screen and the home do: only the required fields, the consent and the declaration
     const fresh = await text(side`select tests.fx_new_auth_user()::text as v`);
     const authorization = `Bearer ${await token({ key, sub: fresh })}`;
@@ -131,7 +131,7 @@ describe('[I11] Professionals and services', () => {
       const res = await app.inject({ method: 'GET', url, headers: { authorization } });
       expect(res.statusCode, res.body).toBe(200);
       const home = professionalHomeResponse.parse(JSON.parse(res.body));
-      expect(home.dashboard).toMatchObject({ userId: fresh, followers: 0, rating: null, reviewCount: 0, offersToday: 0, unreadChats: 0, offersPerDay: 10 });
+      expect(home.dashboard).toMatchObject({ userId: fresh, followers: 0, rating: null, reviewCount: 0, offersToday: 0, unreadChats: 0, offersPerDay: 100 });
       expect(home.dashboard.profileMissing).toEqual(['businessName', 'gender', 'area', 'about', 'priceFrom']);
     }
   });
@@ -192,7 +192,7 @@ describe('[I11] Professionals and services', () => {
   });
 
   it('[FR-SERV-005/006/008 AC-011 AC-012 AC-013 AC-093] Offer Help once, accepted into a conversation, then a review', T, async () => {
-    const help = await createPost(database, as(rina), { body: `עזרה בהנקה ${tag}`, audience: 'everyone', isHelpRequest: true });
+    const help = await createPost(database, as(rina), { body: `עזרה בהנקה אחרי לידה ${tag}`, audience: 'everyone' });
     const plain = await createPost(database, as(rina), { body: `רק לחברים ${tag}`, audience: 'friends' }); // I11-C: any post the Professional reads; a Friends-only one it cannot
     expect(await offerHelp(database, as(doula), plain.id, 'אשמח לעזור')).toEqual({ kind: 'not_allowed' });
     expect(await offerHelp(database, as(tal), help.id, 'אשמח לעזור')).toEqual({ kind: 'not_allowed' });
