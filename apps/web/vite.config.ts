@@ -12,6 +12,13 @@ const E2E_AUTH_STUB = {
   'import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY': JSON.stringify('e2e-stub-placeholder-not-a-real-key'),
 };
 
+// Error monitoring (SRS §12) tags each report with Vercel's environment and the deployed commit, read from the build's environment.
+// Neither is a secret. The DSN itself is VITE_SENTRY_DSN, read by Vite as any public variable.
+const DEPLOY_INFO = {
+  'import.meta.env.VITE_DEPLOY_ENV': JSON.stringify(process.env.VERCEL_ENV ?? ''),
+  'import.meta.env.VITE_DEPLOY_RELEASE': JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA ?? ''),
+};
+
 export default defineConfig(({ mode }) => {
   // A secret key in the public variable would be inlined into the bundle: stop the build, naming only the variable.
   if (isSecretKey(loadEnv(mode, fileURLToPath(new URL('.', import.meta.url)), 'VITE_').VITE_SUPABASE_PUBLISHABLE_KEY ?? '')) {
@@ -19,7 +26,7 @@ export default defineConfig(({ mode }) => {
   }
   return {
   plugins: [react(), tailwindcss()],
-  ...(mode === 'e2e' ? { define: E2E_AUTH_STUB } : {}),
+  define: { ...DEPLOY_INFO, ...(mode === 'e2e' ? E2E_AUTH_STUB : {}) },
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
     // @nestly/shared from source in dev, tests and Storybook; its built JS is for the Node function only.

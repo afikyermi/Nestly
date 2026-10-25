@@ -4,6 +4,7 @@ import { App } from '@/app/App';
 import { DirectionProvider } from '@/components/ui/direction-provider';
 import type { ControllableSessionSource } from '@/services/session/controllable-session-source';
 import type { SessionSource } from '@/services/session/session-source';
+import { monitorConfig } from '@/services/monitoring/monitor-config';
 import '@/styles/index.css';
 
 declare global {
@@ -13,6 +14,22 @@ declare global {
     /** Only read in the `e2e` build mode: set to true (Playwright `addInitScript`) before the page loads to run the real session source. */
     nestlyRealSession?: boolean;
   }
+}
+
+// Error monitoring (SRS §12): only a build with a Sentry DSN loads it, as a separate chunk, without holding up the first render. A
+// failed load leaves the app as it is. Each name is read on its own: the build replaces the two deploy values one expression at a time
+// (vite.config.ts), so they are not in the `import.meta.env` object.
+const monitor = monitorConfig({
+  VITE_SENTRY_DSN: import.meta.env.VITE_SENTRY_DSN,
+  VITE_DEPLOY_ENV: import.meta.env.VITE_DEPLOY_ENV,
+  VITE_DEPLOY_RELEASE: import.meta.env.VITE_DEPLOY_RELEASE,
+});
+if (monitor !== undefined) {
+  void Promise.all([import('@/platform/browser-error-monitor'), import('@/services/monitoring/scrub-browser-event')])
+    .then(([{ startBrowserErrorMonitor }, { scrubBrowserEvent, scrubBreadcrumb }]) => {
+      startBrowserErrorMonitor({ ...monitor, scrubEvent: scrubBrowserEvent, scrubBreadcrumb });
+    })
+    .catch(() => undefined);
 }
 
 const container = document.getElementById('root');
