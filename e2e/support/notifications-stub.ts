@@ -89,6 +89,12 @@ export async function setupNotifications(page: Page, start: Partial<Pick<Notific
     else net.items = net.items.map((i) => (path.includes(i.id) ? { ...i, isRead: true } : i));
     return json(route, 200, {});
   });
+  // the bell's light poll (registered after the catch-all above, so it answers first)
+  await page.route('**/api/notifications/counts', async (route) => {
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+    const latest = net.items[0];
+    return json(route, 200, { unreadCount: net.items.filter((i) => !i.isRead).length, chatUnread: 0, latestId: latest === undefined ? null : latest.id });
+  });
   await page.route('**/api/notification-preferences**', async (route) => {
     const req = route.request();
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });

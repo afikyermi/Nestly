@@ -134,7 +134,7 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         counts['enforcement_records'] = (await tx`delete from nestly.enforcement_records where user_id = ${id} or decided_by = ${id}`).count;
         counts['reports'] = (
           await tx`delete from nestly.reports
-                    where reporter_id = ${id} or reported_user_id = ${id}
+                    where reporter_id = ${id} or reported_user_id = ${id} or handled_by = ${id}
                        or message_id in (select id from nestly.messages
                                           where conversation_id in (select id from nestly.conversations where user_a = ${id} or user_b = ${id}))
                        or post_id in (select id from nestly.posts
@@ -150,8 +150,12 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
                                           where group_id in (select group_id from nestly.group_members where user_id = ${id} and role = 'owner'))
                        or listing_id in (select id from nestly.marketplace_listings where owner_id = ${id})`
         ).count;
-        // I14 completion: report_escalations and report_openings are staff rows (a test user is never staff); they go with these reports
-        // by cascade. reports.thread_post_id of another user's report on this user's post goes SET NULL with the post.
+        // I14 completion: report_escalations and report_openings go with these reports by cascade. A temporary staff Moderator's rows on
+        // reports it did not file (handled_by above; opened_by, escalated_by: users RESTRICT) go here, or its user delete fails 23503.
+        counts['report_openings'] = (await tx`delete from nestly.report_openings where opened_by = ${id}`).count;
+        counts['report_escalations'] = (await tx`delete from nestly.report_escalations where escalated_by = ${id}`).count;
+        counts['group_staff_views'] = (await tx`delete from nestly.group_staff_views where viewer_id = ${id}`).count;
+        // reports.thread_post_id of another user's report on this user's post goes SET NULL with the post.
         counts['reactions'] = (
           await tx`delete from nestly.reactions where id in (select reaction_id from nestly.reaction_owners where user_id = ${id})`
         ).count;
@@ -253,7 +257,7 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
         counts['people_search_counts'] = (await tx`delete from nestly.people_search_counts where user_id = ${id}`).count;
         // Afik DR-L (17.10.2026): a test user's Security events may be deleted here only; the FK stays RESTRICT for every other path.
         // security_limits is configuration with no user: never touched (deleting it would fail every later profile_view closed).
-        counts['user_enforcements'] = (await tx`delete from nestly.user_enforcements where user_id = ${id}`).count;
+        counts['user_enforcements'] = (await tx`delete from nestly.user_enforcements where user_id = ${id} or actor_id = ${id}`).count;
         // A temporary staff Moderator's keys: their delete fires the SECURITY DEFINER Audit trigger (owner app_owner, FORCE RLS), which
         // raises 42501 under row_security = off; on for this one statement (postgres bypasses RLS; the caller has no staff role, no entry).
         await tx`set local row_security = on`;

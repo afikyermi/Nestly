@@ -123,14 +123,14 @@ export async function readSupportThreads(tx: IdentityTx): Promise<SupportThreadI
   }));
 }
 
+/** The badge's number as one scalar expression (FR-CHAT-001): unread messages, unread Support replies, and pending requests to the caller. */
+export const chatUnreadSql = sql`((select coalesce(sum(${unreadIn}), 0) from nestly.conversations c)
+            + (select coalesce(sum(${unreadSupport}), 0) from nestly.support_requests s where s.user_id = (select auth.uid()))
+            + (select count(*) from nestly.chat_requests r where r.target_id = (select auth.uid()) and r.status = 'pending'))::int`;
+
 /** The badge (FR-CHAT-001): unread messages, unread Support replies, and pending requests to the caller. */
 export async function readUnreadCount(tx: IdentityTx): Promise<number> {
-  const rows = z.array(z.object({ count: z.number().int() })).parse(
-    await tx.execute(sql`
-      select ((select coalesce(sum(${unreadIn}), 0) from nestly.conversations c)
-            + (select coalesce(sum(${unreadSupport}), 0) from nestly.support_requests s where s.user_id = (select auth.uid()))
-            + (select count(*) from nestly.chat_requests r where r.target_id = (select auth.uid()) and r.status = 'pending'))::int as count`),
-  );
+  const rows = z.array(z.object({ count: z.number().int() })).parse(await tx.execute(sql`select ${chatUnreadSql} as count`));
   return rows[0]?.count ?? 0;
 }
 
