@@ -19,10 +19,9 @@ export const PASSWORD_SET_TEXT = 'הסיסמה החדשה נשמרה. אפשר �
 export const LOGIN_NOTICES = ['password-changed', 'password-set', 'deletion-scheduled'] as const;
 export type LoginNotice = (typeof LOGIN_NOTICES)[number];
 
-const LOGIN_NOTICE_TEXTS: Record<LoginNotice, string> = {
+const LOGIN_NOTICE_TEXTS: Record<Exclude<LoginNotice, 'deletion-scheduled'>, string> = {
   'password-changed': PASSWORD_CHANGED_TEXT,
   'password-set': PASSWORD_SET_TEXT,
-  'deletion-scheduled': deletionScheduledNotice(null),
 };
 
 /** The text of the router-state notice `state.loginNotice`, or null for anything else (state comes from history: never trusted). */

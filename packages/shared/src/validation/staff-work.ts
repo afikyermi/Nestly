@@ -2,6 +2,7 @@
 // Admin, the Audit Log filters, and children's tracker data as trends only (CHILD_DATA_VIEW). The web checks what it sends and the server checks
 // again, by the same rules. Every body is strict. Who may do what is the database's (RLS, the Permission Keys and child_tracker_trends()).
 import { z } from 'zod';
+import { accountDeletionCounts } from './account-deletion.js';
 import { PERMISSION_KEYS, REPORT_TARGET_KINDS } from '../constants/index.js';
 import { codePointLength } from './text.js';
 
@@ -171,7 +172,7 @@ export const metricPair = z.strictObject({
 export const adminOverviewBody = z.strictObject({
   childSafetyOpen: z.number().int(),
   /** I9 (§16.4): account deletions waiting for their date, and how many are past it (a red bar). Numbers only. */
-  accountDeletions: z.strictObject({ pending: z.number().int(), overdue: z.number().int() }),
+  accountDeletions: accountDeletionCounts,
   attention: z.strictObject({
     openReports: z.number().int(),
     pastTargetReports: z.number().int(),

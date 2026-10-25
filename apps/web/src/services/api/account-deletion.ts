@@ -1,4 +1,4 @@
-import { accountDeletionStatus, type AccountDeletionError, type AccountDeletionStatus } from '@nestly/shared';
+import { ACCOUNT_DELETION_ERRORS, accountDeletionStatus, type AccountDeletionError, type AccountDeletionStatus } from '@nestly/shared';
 
 // The account's own deletion (I9; FR-SET-002, PG-050, ERR-026, VAL-052). No id is ever sent: the server acts on the token's user. Only
 // the status, the one `error` code and a body that passes the shared schema are read; no response text reaches the screen.
@@ -9,7 +9,9 @@ export type DeletionOutcome =
   | { kind: 'failed' }; // anything else: 5xx, 400, an unreadable answer, or the call did not reach the server
 
 const FAILED: DeletionOutcome = { kind: 'failed' };
-const REFUSALS: ReadonlyArray<Exclude<AccountDeletionError, 'invalid'>> = ['reauth_required', 'group_owner', 'not_allowed', 'not_scheduled'];
+type Refusal = Exclude<AccountDeletionError, 'invalid'>;
+const isRefusal = (code: AccountDeletionError): code is Refusal => code !== 'invalid';
+const REFUSALS: readonly Refusal[] = ACCOUNT_DELETION_ERRORS.filter(isRefusal);
 
 async function call(url: string, accessToken: string, body?: object): Promise<DeletionOutcome> {
   let response: Response;

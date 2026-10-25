@@ -121,6 +121,10 @@ export function AccountDeletionForm() {
       } finally {
         await check.release();
       }
+      if (outcome.kind === 'refused' && outcome.error === 'not_allowed') {
+        // Perhaps already scheduled from another device: the state is asked again, and a scheduled account is then held on PG-050.
+        await account?.recheck();
+      }
       if (outcome.kind !== 'ok' || outcome.status.status !== 'scheduled') return fail(refusalText(outcome));
       // FR-SET-002: the session ends; the login screen says when the deletion runs and that it can still be cancelled.
       const dueAt = outcome.status.dueAt;

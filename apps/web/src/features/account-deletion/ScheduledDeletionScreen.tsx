@@ -57,12 +57,17 @@ export function ScheduledDeletionScreen() {
     try {
       const token = account === null ? null : await account.getAccessToken().catch(() => null);
       const outcome = token === null ? null : await cancelAccountDeletion(token);
-      if (outcome?.kind === 'ok') {
-        // The account is active again: the state is asked again, the hold ends and the guard leads on.
+      const notScheduled = outcome?.kind === 'refused' && outcome.error === 'not_scheduled';
+      if (outcome?.kind === 'ok' || notScheduled) {
+        // Active again (or already cancelled elsewhere): the state is asked again, the hold ends and the guard leads on. Twice: a check
+        // already in flight may have been read before the cancel; the second one starts after it.
         await account?.recheck();
+        await account?.recheck();
+        // Still held: the date has passed (not_scheduled), or the answer could not be read.
+        setFailure(notScheduled ? CANCEL_CLOSED_TEXT : GENERIC_ERROR_TEXT);
         return;
       }
-      setFailure(outcome?.kind === 'refused' && outcome.error === 'not_scheduled' ? CANCEL_CLOSED_TEXT : GENERIC_ERROR_TEXT);
+      setFailure(GENERIC_ERROR_TEXT);
     } finally {
       running.current = false;
       setBusy(false);
