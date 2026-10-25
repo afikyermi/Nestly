@@ -1,7 +1,8 @@
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import { createDatabase, type Database } from './db/client.js';
 import { PasswordStateBusy } from './db/password-lock.js';
 import { readConfig, type ServerConfig } from './lib/config.js';
+import { noErrorMonitor, type ErrorMonitor, type ErrorReport } from './lib/error-monitoring.js';
 import { createTokenVerifier } from './lib/token-verifier.js';
 import { registerAuthentication, replySessionRefused, type LinkGate } from './plugins/authentication.js';
 import { clientAddress } from './recovery/client-ip.js';
@@ -68,6 +69,8 @@ export interface AppDependencies {
   readonly recovery?: Partial<RecoveryDependencies>;
   /** I5: image storage, the image re-encoder and the background check's trigger. Defaults read the environment; a test passes fakes. */
   readonly media?: Partial<MediaDependencies>;
+  /** Where 5xx answers are reported (lib/error-monitoring.ts). Defaults to none; the deployed function passes Sentry's. */
+  readonly errorMonitor?: ErrorMonitor;
   /** The Server-Timing header (lib/server-timing.ts). Defaults to on for a Vercel Preview or Production deployment (VERCEL_ENV). */
   readonly serverTiming?: boolean;
 }
@@ -106,6 +109,23 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   // Right after it, so it times the rest of the request: a Vercel Preview only (never Production, never a test unless it asks).
   registerServerTiming(app, deps.serverTiming ?? serverTimingEnabled(process.env));
 
+  // Every 5xx is reported: a thrown error by the error handler below (with its stack), any other 5xx here, by status and route
+  // template only (`/api/posts/:postId`, never the address). Nothing from the request goes with it.
+  const monitor = deps.errorMonitor ?? noErrorMonitor;
+  const reported = new WeakSet<object>();
+  const reportOf = (request: FastifyRequest, status: number): ErrorReport => ({
+    route: request.routeOptions.url ?? 'unmatched',
+    method: request.method,
+    status,
+    surface: 'api',
+  });
+  if (monitor.enabled) {
+    app.addHook('onResponse', (request, reply, done) => {
+      if (reply.statusCode >= 500 && !reported.has(request)) monitor.captureStatus(reportOf(request, reply.statusCode));
+      done();
+    });
+  }
+
   const recovery = createRecoveryDependencies(deps.recovery);
   registerAuthentication(app, {
     verifier: config.auth === undefined ? undefined : createTokenVerifier(config.auth),
@@ -126,6 +146,10 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
     const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : undefined;
     const name = typeof error === 'object' && error !== null && 'name' in error ? error.name : undefined;
     request.log.error({ status, code, name }, 'request failed');
+    if (status === 500) {
+      reported.add(request);
+      monitor.capture(error, reportOf(request, status));
+    }
     return reply.code(status).send({ error: status === 500 ? 'internal' : 'bad_request' });
   });
 
