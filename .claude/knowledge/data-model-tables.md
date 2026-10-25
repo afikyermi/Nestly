@@ -27,6 +27,7 @@ does not instruct loading every link. Column sections and rule matrices are both
 | marketplace_listings, sponsored_products | Marketplace (I12); Media and Stories (listing and sponsored images), Chat and Support (conversations: context marketplace), Safety and admin core (reports, audit); Blocking a user |
 | promotion_plans, promotion_payments, promotions, promotion_events, usage_events, professional_views, promotion_settings, promotion_monthly_summaries | Monetization (I13); Professionals (profiles, posts, follows), Marketplace (listings), Chat and Support (conversations: attribution); Blocking a user |
 
+| account_deletion_events, the deletion job | Account deletion (I9); users, Chat and Support (conversations, messages), Feed tables (comments, reports), Safety and admin core (audit, enforcements), Profile open limits and security events, Rules: recovery |
 | tracker_events, cycle_entries, status_guides | Trackers, cycle and status guides (I6); children for the child FK |
 | media_assets, media_reviews, profile_photos, stories, media_training_candidates, media_training_samples, media_training_events | Media and Stories (I5); posts and post_authors (attach), friendships (Story audience), Safety and admin core (CONTENT_MODERATE, audit) |
 | Schema changes | Migration and rollback map; New entity template; affected consumer/cleanup order |
@@ -64,7 +65,8 @@ own `regular_profiles` row FOR NO KEY UPDATE. No DELETE on `friendships` or `reg
 |---|---|---|
 | `users.id` | uuid PK · default `auth.uid()` | the account id = the Supabase Auth user id (JWT sub); never set by the client |
 | `users.account_type` | text · not null · no default | regular · professional · admin · moderator (SRS Role, §3, BR-016). Fixed at creation, never changes. The only source of account type (rule 14) |
-| `users.status` | text · not null · no default | active · suspended · banned (FR-MOD-002, BR-024): whether the account may use the product now. A warning is not a status; suspension end dates belong to AccountEnforcement (later) |
+| `users.status` | text · not null · no default | active · suspended · banned (FR-MOD-002, BR-024) · deletion_scheduled (I9, FR-SET-002: the 30-day regret window; hidden from everyone like suspended): whether the account may use the product now. A warning is not a status; suspension end dates belong to AccountEnforcement (later) |
+| `users.deletion_due_at` | timestamptz · null | I9: when the scheduled deletion runs (request + 30 days, BR-073), set by `users_status_guard()`, never by the client; non-NULL exactly while `deletion_scheduled` (`users_deletion_due_at_check`) |
 | `users.created_at` | timestamptz · not null · `now()` | when the Nestly row was created, not the Auth sign-up |
 
 ## Columns: regular_profiles
@@ -784,3 +786,34 @@ duplicate reviews its data step deleted). No new table, no new SECURITY DEFINER,
 - `report_reasons.scope` community | reviewed_professional; four core rows (review_offensive 2, review_false 4, review_personal_info 2, review_other 4).
   `reports_insert_check()`: the reviewed Professional on a review about itself uses a reviewed_professional reason, everyone else a community one (23514);
   `reports_other_details_check` also asks a text for review_other. `reports_details_length_check` still 1,000 (500 after the code on main holds 500).
+
+## Account deletion (I9)
+
+Built by `20261025200000_account_deletion.sql` (down script in `supabase/rollback/`; refuses once a deletion was requested or executed). FR-SET-002,
+BR-073, BR-077, BR-080, AC-108, ERR-026, decisions-in-force §16.4. No new SECURITY DEFINER.
+
+| Table / change | Columns and keys | Who |
+|---|---|---|
+| `account_deletion_events` | id, account_id (no FK: outlives the account), account_type (regular, professional), kind (request, cancel, execute), due_at, created_at | SELECT the Admin with USER_DATA_EXPORT_DELETE; an identity its own execute row (so `users_insert_own` refuses a new account on a deleted identity); INSERT only by the invoker trigger `account_deletion_record()` (request, cancel) and app_jobs (execute); app_jobs DELETE 90 days after the execute row, a request/cancel of a live account after 12 months |
+| `users` | status gains `deletion_scheduled`, `deletion_due_at` | `users_update_own_deletion_request` (active Regular / Professional, valid session; not an active Group Owner: NS030, ERR-026) and `users_update_own_deletion_cancel` (before the due date); `users_status_guard()` sets the date; staff cannot schedule, cancel or act on a scheduled account. Side effect: the own active row is lockable (`FOR UPDATE / SHARE`) |
+| detached from users (kept 90 days, BR-073) | FKs dropped: `reports.reporter_id`, `security_events.user_id`, `recovery_events.user_id`, `enforcement_records.user_id`, `user_enforcements.user_id` | the uuid stays; purged by `purge_deleted_accounts()` |
+| `legal_consents` | FK now ON DELETE CASCADE | deleted with the account |
+| `conversations`, `messages` | `user_a`, `user_b`, `sender_id` nullable, FKs SET NULL; chat / outreach request links SET NULL; `conversations_one_side_check` | the other side still reads the conversation (partner NULL); nobody sends into it |
+| `comments` | `is_author_deleted` (author and text emptied) | a replied comment of the deleted account stays as "deleted user" |
+
+The job (`execute_account_deletions()`, daily, app_jobs): per account past its due date, unless an open report holds its posts, comments, listings,
+articles, reviews by or about it, or a message of a conversation that goes with it (BR-080; any anonymous post of a scheduled account under an open
+report holds all of them, rule 20): the execute row, its open account reports expired, a conversation whose other side is already gone deleted and the
+rest detached, its comments that others replied to kept, the users row deleted (a run that finds it gone undoes its execute row; a failure raises a
+WARNING with the SQLSTATE and constraint, no id) (CASCADE does the rest; `promotion_payments.payer_id` SET NULL; media links go
+with their rows, so the media job removes the files, BR-077). Returns executed / waiting / failed, one subtransaction per account.
+Cleanup (`tools/preview-e2e-cleanup.ts`): a test user's deletion rows by account id; its conversations before `users`.
+
+Approved `TO app_jobs` policies (rule 6; data-model.md "Approved exceptions" points here): users_select_jobs / users_delete_jobs (scheduled rows; delete only
+past the due date), posts_ / comments_select_deletion_jobs (content under an open report? which comments have replies), comments_update_deletion_jobs (the
+"deleted user" row), reports_update_deletion_jobs (open reports on the account expire), conversations_select_jobs / conversations_update_jobs (detach the
+deleted side; conversations_delete_jobs, a one-sided one), marketplace_listings_ / professional_articles_ / professional_reviews_ /
+messages_select_deletion_jobs (ids and owners only: is one under an open report?), account_deletion_events_select / insert (execute rows only) / delete_jobs, and the 90-day purge pairs *_select_jobs / *_delete_jobs on
+security_events, recovery_events, enforcement_records, user_enforcements, audit_log, plus reports_select_ / reports_delete_deletion_jobs — each limited to accounts whose
+execute row is 90 days old. `audit_log_append_only()` lets exactly that app_jobs DELETE through (BR-073; listed for Afik to confirm). The record row is
+written by the invoker trigger `account_deletion_record()` under a policy that holds only inside a trigger (pg_trigger_depth() > 0).

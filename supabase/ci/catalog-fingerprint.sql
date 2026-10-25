@@ -23,7 +23,10 @@ items(item) as (
   union all
   select format('rel %I.%I kind=%s owner=%s rls=%s force=%s options=%s acl=%s',
                 n.nspname, c.relname, c.relkind, c.relowner::regrole,
-                c.relrowsecurity, c.relforcerowsecurity, c.reloptions, c.relacl)
+                c.relrowsecurity, c.relforcerowsecurity, c.reloptions,
+                -- NULL (never granted) and the owner's explicit default after a GRANT + REVOKE are the same privileges: a down script
+                -- cannot set relacl back to NULL, so both read as the default
+                coalesce(c.relacl, pg_catalog.acldefault(case when c.relkind = 'S' then 's'::"char" else 'r'::"char" end, c.relowner)))
   from pg_catalog.pg_class c join nsp n on n.oid = c.relnamespace
   union all
   select format('col %I.%I.%I %s notnull=%s default=%s acl=%s',

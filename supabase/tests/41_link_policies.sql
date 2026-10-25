@@ -352,8 +352,10 @@ select is(tests.dml_as('app_recovery', tests.claims(tests.fx_id('f1')), pg_temp.
   '[F2.0-a c9] takeover_cleared with no user is accepted (the unregistered variant has no account row)');
 select is(tests.dml_as('app_recovery', tests.claims(tests.fx_id('f1')), pg_temp.ev('first_password_set', null, repeat('ee', 32), repeat('cc', 32)), false), 'OK:1',
   '[F2.0-a c11] first_password_set with no user is accepted (the F1.8 completion has no account row yet)');
-select is(tests.dml_as('app_recovery', tests.claims(tests.fx_id('f1')), pg_temp.ev('first_password_set', tests.fx_id('f1')::text, repeat('ee', 32), repeat('cc', 32)), false), 'ERR:23503',
-  '[F2.0-a c11 A3] first_password_set naming an id with no users row is a foreign-key violation: the audit carries NULL for an unregistered user');
+select is(tests.dml_as('app_recovery', tests.claims(tests.fx_id('f1')), pg_temp.ev('first_password_set', tests.fx_id('f1')::text, repeat('ee', 32), repeat('cc', 32)), false), 'OK:1',
+  '[F2.0-a c11 A3 · I9] first_password_set naming the subject with no users row is accepted since I9 dropped the audit''s foreign key (BR-073: the audit outlives the account); still only the transaction''s own subject (the server writes NULL)');
+select is(tests.dml_as('app_recovery', tests.claims(tests.fx_id('f1')), pg_temp.ev('first_password_set', tests.fx_id('a')::text, repeat('ee', 32), repeat('cc', 32)), false), 'ERR:42501',
+  '[F2.0-a c12 · I9] and never another account''s id');
 select alike(tests.dml_as_msg('app_recovery', tests.claims(tests.fx_id('f1')), pg_temp.ev('password_set_forced', null, repeat('ee', 32), repeat('cc', 32)), false), 'ERR:%',
   '[F2.0-a c7] password_set_forced always knows its account: with no user it is refused');
 select alike(tests.dml_as_msg('app_recovery', tests.claims(tests.fx_id('f1')), pg_temp.ev('password_changed', null, repeat('ee', 32), repeat('cc', 32)), false), 'ERR:%',
