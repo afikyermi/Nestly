@@ -7,6 +7,7 @@
 
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres, { type Sql } from 'postgres';
+import { markStatement } from '../lib/server-timing.js';
 
 export interface Database {
   readonly db: PostgresJsDatabase;
@@ -19,7 +20,9 @@ export interface Database {
 export function createDatabase(url: string): Database {
   const client = postgres(url, { max: 1, prepare: false });
   return {
-    db: drizzle({ client }),
+    // The logger marks each statement for Server-Timing (lib/server-timing.ts) as the request's code sends it; it reads neither the text
+    // nor the parameters. (postgres-js's own debug hook may run from the socket's callback, outside the request.)
+    db: drizzle({ client, logger: { logQuery: () => markStatement() } }),
     client,
     close: () => client.end(),
   };

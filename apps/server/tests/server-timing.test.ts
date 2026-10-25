@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // Server-Timing (preview-e2e measurement and the live site's, 24.10): on a Vercel Preview or Production deployment only, and then
 // exactly four numeric metrics — no id, no route, no parameter, no user data.
 
-const HEADER = /^cold;dur=[01], dbwait;dur=\d+(\.\d)?, db;dur=\d+(\.\d)?, total;dur=\d+(\.\d)?$/;
+const HEADER = /^cold;dur=[01], dbwait;dur=\d+(\.\d)?, db;dur=\d+(\.\d)?, total;dur=\d+(\.\d)?(, s\d+;dur=\d+(\.\d)?)*$/;
 const saved = process.env['VERCEL_ENV'];
 
 afterEach(() => {
@@ -42,7 +42,7 @@ describe('Server-Timing', () => {
 
   it('counts the wait for a transaction and the time inside it; cold only on the instance first request', async () => {
     vi.resetModules();
-    const { registerServerTiming, timeTransaction } = await import('../src/lib/server-timing.js');
+    const { registerServerTiming, timeTransaction, markStatement } = await import('../src/lib/server-timing.js');
     const app = Fastify();
     registerServerTiming(app, true);
     const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -75,5 +75,40 @@ describe('Server-Timing', () => {
     expect(outside.headers['server-timing']).toBeUndefined();
     // outside a timed request (a job, a test) nothing is counted and nothing throws
     timeTransaction()()();
+    markStatement();
+  });
+
+  it('times each statement by position, until the next one or the end of its transaction, and never more than the limit', async () => {
+    vi.resetModules();
+    const { registerServerTiming, timeTransaction, markStatement, STATEMENT_LIMIT } = await import('../src/lib/server-timing.js');
+    const app = Fastify();
+    registerServerTiming(app, true);
+    const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    app.get('/api/two', async () => {
+      const settled = timeTransaction()();
+      markStatement();
+      await pause(10);
+      markStatement();
+      await pause(60);
+      settled();
+      await pause(40); // after the transaction: not the statement's time
+      return { ok: true };
+    });
+    app.get('/api/many', () => {
+      const settled = timeTransaction()();
+      for (let i = 0; i < STATEMENT_LIMIT + 5; i += 1) markStatement();
+      settled();
+      return { ok: true };
+    });
+    const two = String((await app.inject({ method: 'GET', url: '/api/two' })).headers['server-timing']);
+    const many = String((await app.inject({ method: 'GET', url: '/api/many' })).headers['server-timing']);
+    await app.close();
+    expect(two).toMatch(HEADER);
+    const s: Record<string, number> = Object.fromEntries(two.split(', ').map((p): [string, number] => [p.split(';')[0] ?? '', Number(p.split('dur=')[1])]));
+    expect(Object.keys(s)).toEqual(['cold', 'dbwait', 'db', 'total', 's1', 's2']);
+    expect(s['s1']).toBeGreaterThanOrEqual(5);
+    expect(s['s2']).toBeGreaterThanOrEqual(55);
+    expect(s['s2']).toBeLessThan(95);
+    expect(many.match(/, s\d+;/g)).toHaveLength(STATEMENT_LIMIT);
   });
 });

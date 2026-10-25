@@ -46,12 +46,18 @@ const isKnownType = (type: string): type is NotificationType => KNOWN_TYPES.has(
  * the database shows, `hidden` when it shows none, or `author` (the anonymous author's own comment); an actor id is never returned. A type
  * this build does not know (a newer event) is left out, never an error.
  */
-export async function readNotifications(database: Database, identity: Identity, before: NotificationsCursor | null = null): Promise<NotificationsOutcome> {
+export async function readNotifications(
+  database: Database,
+  identity: Identity,
+  before: NotificationsCursor | null = null,
+  { deliver = true }: { readonly deliver?: boolean } = {},
+): Promise<NotificationsOutcome> {
   return inIdentityTransaction(database, identity, async (tx): Promise<NotificationsOutcome> => {
     const member = await classifyMember(tx);
     if (isRefusal(member)) return member;
-    // BR-037, AC-046: a Friend's child's birthday becomes the caller's notification when the list is opened (a Regular account only)
-    if (member.kind === 'regular' && before === null) await deliverChildBirthdays(tx);
+    // BR-037, AC-046, OP-059: a Friend's child's birthday becomes the caller's notification when the list is opened (a Regular account only);
+    // not on the bell's background poll, which only reads (the delivery writes, and the poll runs every 30 s on every open tab)
+    if (member.kind === 'regular' && before === null && deliver) await deliverChildBirthdays(tx);
     const rows = await readLatest(tx, NOTIFICATIONS_PAGE_SIZE + 1, before);
     const page = rows.slice(0, NOTIFICATIONS_PAGE_SIZE);
     const last = page.at(-1);

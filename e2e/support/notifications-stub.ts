@@ -75,7 +75,7 @@ export async function setupNotifications(page: Page, start: Partial<Pick<Notific
   await page.route('**/api/me', (route) => json(route, 200, { state: 'active', recoveryQuestions: 'set', mustSetPassword: false }));
   await page.route('**/api/profile', (route) => json(route, 200, { fullName: 'דנה כהן', parentGender: 'woman' }));
   await page.route('**/api/feed**', (route) => json(route, 200, { items: [], nextCursor: null, asOf: '2026-06-15T12:00:00.000000Z' }));
-  await page.route('**/api/notifications', async (route) => {
+  await page.route(/\/api\/notifications(\?poll=1)?$/, async (route) => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
     return json(route, 200, { items: net.items, unreadCount: net.items.filter((i) => !i.isRead).length, nextCursor: null });
   });
