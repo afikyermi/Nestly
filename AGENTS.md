@@ -14,7 +14,7 @@ Hebrew, plain text, short.
 - Nestly: a Hebrew (RTL) social network for pregnancy planning, pregnancy and parenting — feed, friends, groups, chat,
   stories, trackers, Professionals, Marketplace, monetization (promotions), staff moderation.
 - Roles: Regular, Professional (`/pro/*`), Moderator (permission-based), Admin / Super Admin (`/admin/*`).
-- **24.10 midnight: no new features. 25–26.10: tests, bugs, demo, SRS alignment, Word export. 27.10: lecturer review**
+- **No fixed freeze (Afik 24.10, CLAUDE.md "Stages"): each initiative is tested when it ends, then the final stage. 27.10: lecturer review**
   (code, files, SRS, every feature, bugs). Production: https://nestly-blue.vercel.app
 
 ## 2. Where things live
