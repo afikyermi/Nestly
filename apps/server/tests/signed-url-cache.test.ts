@@ -5,7 +5,7 @@ import type { MediaStorage } from '../src/media/storage-admin.js';
 import type { ImageRow, MediaStatus } from '../src/repositories/media-repository.js';
 import { withUrls } from '../src/services/media-service.js';
 
-// Stable image read addresses (Afik 25.10.2026, decisions-in-force.md §21): an address signed for one request comes back while it still has
+// Stable image read addresses (Afik 25.10.2026, approved change; lifetime 15/10 awaiting Afik, S-68): an address signed for one request comes back while it still has
 // the full life an answer promises, so the browser reuses the image; the cache replaces the signing call only, never which images the
 // caller may see.
 
