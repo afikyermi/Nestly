@@ -5,7 +5,7 @@
 ## איפה אנחנו עומדים
 **עובד כרגע:** Claude — לילה 25.10.2026 (סשן יחיד).
 **SRS:** 2.40 על main (2.39 ב-#205, ‏2.41 ב-#180, ‏2.42 ב-#201, ‏2.43 ב-#217) · **Production:** [nestly-blue.vercel.app](https://nestly-blue.vercel.app)
-- **Preview:** אדום מאז #177 — איטיות בלבד. הסיבה העיקרית: שרת Nano (תוכנית חינמית) נגמר מזיכרון בזמן ריצה → Swap → תקציב Disk IO נשרף; לא לתקן עוד flows (§17). ‏`Server-Timing` פועל ב-Preview וב-Production (#222).
+- **Preview:** **ירוק** בריצה אחרי #225 (25.10 לילה, 78/78) — לראשונה מאז #177. לפני כן אדום מאיטיות בלבד. הסיבה העיקרית: שרת Nano (תוכנית חינמית) נגמר מזיכרון בזמן ריצה → Swap → תקציב Disk IO נשרף; לא לתקן עוד flows (§17). ‏`Server-Timing` פועל ב-Preview וב-Production (#222).
 - **ממצאי ביצועים נוספים (לטיפול):**
   - ‏`dbwait` הגיע ל-2–7.5 ש׳ ב-`POST /api/register` (ריצה 19:37): חיבור אחד למסד לכל מופע (`max: 1`, `apps/server/src/db/client.ts:20`).
   - הפיד מדרג את כל טבלת הפוסטים תחת RLS בכל עמוד.
@@ -100,3 +100,4 @@ claim-lock בתור · אישור שני אנשים לפעולות רגישות 
 - `e2e/posts.spec.ts:280` c18 desktop — axe `page-has-heading-one` בסריקה הראשונה.
 - `app-shell-guard-stories.spec.ts:50/:82` — Storybook איטי בעומס.
 - `app-shell-guard-a11y.spec.ts:205` — יציאה במקלדת (Space), flaky ב-Chrome מלא של #225 (25.10).
+- `e2e-preview/password-recovery.flow.ts:86` — אין הודעה תוך 10 ש׳ בשני הגדלים בריצה אחרי #226 (עומס על ה-Preview); עבר בריצה הבאה (25.10).
