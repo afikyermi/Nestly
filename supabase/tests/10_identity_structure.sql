@@ -396,7 +396,7 @@ select set_eq(
   $$ select a from tests.approved_security_definer() as a $$,
   '[F1.1-b c18 platform r10 · F2.3b c15] the SECURITY DEFINER functions in schema nestly are exactly the approved list');
 
-select is((select count(*) from tests.approved_security_definer()), 14::bigint,
+select is((select count(*) from tests.approved_security_definer()), 13::bigint,
   '[F1.1-b c18 addendum 1 · F2.3b c15 · I4 · I10 · I14c] the approved SECURITY DEFINER list holds ten functions (profile_view, F2.3b; audit_trigger and reveal_post_author, I4; the three notification triggers and search_people, rule 17, approved by Afik 20.10.2026; I10''s notify_group and the I11 follow-ups'' notify_professional, rule 17, the same shape; the I14 completion''s child_tracker_trends, approved by Afik 21.10.2026, file 100; completion B''s calendar version of it and identical_reports_hide, file 103; the SRS-audit fixes'' deliver_child_birthdays, rule 17, the I7 shape, file 102)');
 
 select is((select count(*) from tests.approved_security_definer() as a where a like 'nestly.is\_active\_account(%'), 0::bigint,
@@ -433,7 +433,7 @@ select is_empty(
         and p.oid::regprocedure::text not in ('nestly.profile_view(text)', 'nestly.delete_post(uuid)', 'nestly.delete_comment(uuid)',
           'nestly.has_permission(text)', 'nestly.reveal_post_author(uuid)', 'nestly.search_people(text,integer,integer)',
           'nestly.group_role_rank(text)', 'nestly.my_group_rank(uuid)', 'nestly.child_tracker_trends(text,text,text,integer)', 'nestly.child_tracker_trends(text,text,text,text)',
-          'nestly.deliver_child_birthdays()', 'nestly.group_highlight_threshold(integer)', 'nestly.own_post_engagement(integer)') $$,
+          'nestly.deliver_child_birthdays()', 'nestly.group_highlight_threshold(integer)') $$,
   '[F1.1-b c18 layer 13 · F2.3b c15 · I14c] every function in nestly that authenticated can execute takes no argument and is SECURITY INVOKER, except the approved profile_view(text) (one uuid per call, no status: file 53) and F3.0b''s delete_post(uuid) / delete_comment(uuid) (the caller''s own content, RLS decides), and the I4 invoker functions has_permission(text) and reveal_post_author(uuid), and I10''s invoker helpers group_role_rank(text) (a fixed mapping) and my_group_rank(uuid) (the caller''s own Group Role, by Group id; file 96), and the I14 completion''s child_tracker_trends (closed lists, aggregates only: file 100), and the SRS-audit fixes'' definer deliver_child_birthdays() (no argument, writes only the caller''s own notifications: file 102), and I10 completion C''s invoker group_highlight_threshold(integer) (a member count to a threshold: file 106)');
 
 select * from finish();
