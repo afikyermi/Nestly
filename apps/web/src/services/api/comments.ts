@@ -10,6 +10,7 @@ export type CommentsOutcome<T> =
   | { kind: 'unavailable' } // 404: missing, not readable, or (a delete) not the caller's
   | { kind: 'refused'; reason: 'body_required' | 'body_too_long' } // 422
   | { kind: 'not-allowed' } // 403 not_allowed
+  | { kind: 'muted' } // 403 muted: muted in the post's Group (I10-C)
   | { kind: 'unauthenticated' } // 401
   | { kind: 'account-unavailable' } // 403 account_unavailable: the session guard (ERR-037)
   | { kind: 'failed' }; // anything else: 5xx, 400, an unreadable answer, or the call did not reach the server
@@ -47,6 +48,7 @@ async function call<T>(accessToken: string, init: Call, parse: Parse<T>): Promis
   const code = errorCode(body);
   if (response.status === 403) {
     if (code === 'account_unavailable') return { kind: 'account-unavailable' };
+    if (code === 'muted') return { kind: 'muted' };
     return code === 'not_allowed' ? { kind: 'not-allowed' } : FAILED;
   }
   if (response.status === 404) return { kind: 'unavailable' };

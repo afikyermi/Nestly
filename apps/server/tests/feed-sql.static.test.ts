@@ -31,7 +31,10 @@ const FORBIDDEN: Array<[string, RegExp]> = [
 const tablesOf = (text: string): string[] =>
   [...text.matchAll(/\b(?:from|join)\s+([\w".]+)(?![\w".]|\s*\()/gi)].map((m) => (m[1] ?? '').replace(/"/g, '').split('.').pop() ?? '');
 // I11: professional_follows (a Professional viewer's followed authors, FR-ALG-003) and professional_profiles (a Professional author's name and tag).
-const ALLOWED_TABLES = new Set(['posts', 'friendships', 'comments', 'reactions', 'algorithm_configurations', 'regular_names', 'professional_follows', 'professional_profiles']);
+// I10 completion C (§11.13): group_highlights (readable by the Group's members only), groups (the pin and the "מתוך" name) and group_access
+// (the caller's own Memberships) bring a Group's Highlights into its members' feed; each is read under its own policy.
+const ALLOWED_TABLES = new Set(['posts', 'friendships', 'comments', 'reactions', 'algorithm_configurations', 'regular_names', 'professional_follows', 'professional_profiles',
+  'group_highlights', 'groups', 'group_access']);
 
 describe('[F3.2-a2 c2] the feed SQL, static', () => {
   it('[F3.2-a2 c2] a feed repository exists and queries posts (the check below is not vacuous)', () => {

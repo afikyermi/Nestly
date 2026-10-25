@@ -41,7 +41,7 @@
 | AC-035 | Follow ניתן רק אל ProfessionalProfile. Professional אינו יכול Follow ל-RegularProfile. |
 | AC-036 | Public Group ניתנת לחיפוש ותוכנה נגיש למשתמש מחובר; משתמש שאינו Member אינו יכול לפרסם, להגיב, לבצע Reply או Reaction עד Join. |
 | AC-037 | Private Group ניתנת לחיפוש, אך Post לא נחשף למשתמש קהילה שאינו Member. Admin יכול לצפות לניהול; Moderator שאינו Member רק עם PRIVATE_GROUP_MODERATE דרך כלי Moderation וב-Audit. |
-| AC-038 | Group hierarchy נאכפת Owner > Admin > Group Moderator > Member. Admin אינו פועל נגד Owner/Admin אחר; Moderator רק נגד Member; Owner מעביר בעלות לפני יציאה. |
+| AC-038 | Group hierarchy נאכפת Owner > Admin > Group Moderator > Member. Admin אינו פועל נגד Owner/Admin אחר; Moderator רק נגד Member; Owner מעביר בעלות לפני יציאה. האכיפה על חבר היא אזהרה והשתקה, הסרה וחסימה, או ביטול חסימה — אין הסרה רגילה. |
 | AC-039 | Global Search מציג Dropdown מחולק ל-People/Groups/Posts ו-View All; מסך תוצאות חיפוש כולל All/People/Groups/Posts וכל תוצאה מכבדת הרשאות. |
 | AC-040 | Notification dropdown מציג unread state ו-Deep Link; מסך ההתראות מאפשר Mark all as read. Chat messages אינן מופיעות כהתראות כפולות. |
 | AC-041 | Regular/Professional יכולים לשנות Notification Preferences במולטי-סלקט/Toggles; Security/Critical אינן ניתנות לכיבוי ב-In-App; Group preference תומכת All/Highlights/Off. בשלב Mobile, קטגוריה מאופשרת יכולה להישלח גם כ-Push רק כאשר Push מופעל והרשאת מערכת ההפעלה קיימת. |
@@ -53,7 +53,7 @@
 | AC-047 | ~~Admin או Moderator עם PROFESSIONAL_VERIFY יכולים לפתוח בקשת Professional Verification ולעדכן אותה.~~ — **בוטל**: אין אימות מקצועי (OP-005 נסגר, החלטת אפיק מ-18.10.2026). |
 | AC-048 | Community Administration נגיש ל-Admin ול-Moderator עם COMMUNITY_CONFIG בלבד; שינוי תצורה נרשם ב-Audit Log. |
 | AC-049 | System Announcements ניתנים ליצירה/עריכה/פרסום/הסרה על ידי Admin או Moderator עם SYSTEM_ANNOUNCEMENTS בלבד; הפעולה נרשמת ב-Audit Log. |
-| AC-050 | Regular User יכול להמליץ על Group רק ל-Friendship פעילה; הפעולה שולחת Notification עם Deep Link לקבוצה ואינה מצרפת את הנמען אוטומטית. |
+| AC-050 | Regular User יכול להמליץ על Group רק ל-Friendship פעילה; הפעולה שולחת Notification עם Deep Link לקבוצה ואינה מצרפת את הנמען אוטומטית. חבר מושתק בקבוצה אינו ממליץ עליה. |
 | AC-051 | Regular non-Friend יכול לשלוח Message Request; ללא Accept לא נפתחת Conversation מלאה. |
 | AC-052 | Chat Block אינו מסתיר משתמש מחיפוש/פרופיל ואינו מסיר Friendship/Follow; הוא מונע הודעות עד Unblock. |
 | AC-053 | Support reply מופיעה ב-Chat בשם “Support”, מקושרת ל-SupportRequest ואינה מאפשרת פתיחת Chat חופשי אל Admin/Moderator. |
@@ -69,7 +69,7 @@
 | AC-063 | Sponsored candidate שנכשל Privacy/Safety/Relevance eligibility אינו מוצג גם אם Campaign פעיל/משולם. |
 | AC-064 | ~~Not Interested/Show Less משפיעים על ranking עתידי לפי creator/topic/source וניתנים למדידה.~~ — **בוטל** (Not Interested / Show Less בוטלו, החלטת אפיק מ-21.10.2026). הסתרת פוסט אינה משפיעה על ranking (AC-127; החלטת אפיק מ-18.10.2026). |
 | AC-065 | Global Search מבצע Authorization לפני דירוג ומיישם Exact/Prefix/Keyword ranking; Semantic AI אינו דרישת v1. |
-| AC-066 | Group Highlights פועל ללא ML לפי direct events, announcements/pinned ו-threshold configurable; All/Highlights/Off מכובד. |
+| AC-066 | Group Highlights פועל ללא ML לפי direct events, announcements/pinned ו-threshold configurable (5% מהחברים הפעילים, 3 עד 20); All/Highlights/Off מכובד. |
 | AC-067 | Chat/Support message body אינו נכתב ל-PersonalizationProfile ואינו משמש Recommendation/Paid Targeting. |
 | AC-068 | Child DOB/identifiers ו-Tracker Data אינם משמשים Paid Targeting ואינם נחשפים ב-Professional Analytics. |
 | AC-069 | Tracker-based guidance מציגה רק תוכן כללי ולא-אבחוני; בהיעדר mapping מאושר המערכת מתעלמת מה-signal. |
@@ -162,3 +162,8 @@
 | AC-156 | בתור הדיווחים לכל שורה זמן המתנה ויעד (שעה לתוכן שמסכן ילד, 24 שעות לשאר) וסימון למי שעבר את היעד; "העבודה שלי" מציג מונים לפי ההרשאות ו"הבא בתור" פותח את הפריט הראשון; Moderator מעביר דיווח למנהל עם הערה והמנהל רואה אותה ואת מי שפתח את הדיווח (BR-082). |
 | AC-157 | בית הניהול מציג פס אדום כשיש דיווח פתוח על תוכן שמסכן ילד, את "דורש תשומת לב", את השבוע מול השבוע הקודם ואת מצב הצוות; יומן ה-Audit מסונן לפי פעולה, תפקיד ותקופה, ו"רק אירועים רגישים" מציג את האירועים הרגישים בלבד (FR-ADMIN-014, FR-ADMIN-005). |
 | AC-158 | חשיפת מחבר אנונימי בפוסט של קבוצה פרטית דורשת גם PRIVATE_GROUP_MODERATE (לפי מצב הקבוצה עכשיו) ונרשמת כך ב-Audit Log; מחוץ לקבוצה פרטית REPORTS_VIEW ו-CONTENT_MODERATE מספיקים (BR-062, AC-077). |
+| AC-164 | Highlight של קבוצה מוצג בפיד הראשי של חבריה בלבד, עם "מתוך: <שם הקבוצה>" שמקשר לקבוצה; פוסט קבוצה שאינו Highlight אינו בפיד, ופוסט מקבוצה פרטית אינו מגיע למי שאינו חבר בה; Highlight אנונימי נשאר "אנונימי" (FR-GRP-001, FR-FEED-001). |
+| AC-165 | הסף של Highlight הוא 5% מהחברים הפעילים מעוגל כלפי מעלה, לפחות 3 ולכל היותר 20: 10 חברים — 3, 100 — 5, 1,000 — 20; פוסט מגיע לסף פעם אחת ונשאר Highlight (FR-ALG-010, BR-060). |
+| AC-166 | בין קבוצות שמתאימות לחיפוש באותה מידה, הפעילה מוצגת קודם בחיפוש וב-Discovery; קבוצה שקטה אינה מוצעת בפיד; מי שאינו חבר מקבל בפיד יחידת קבוצות ציבוריות פעילות בלי פוסטים, ופעילות של קבוצה פרטית אינה נחשפת לו (FR-ALG-010, FR-SEARCH-001). |
+| AC-167 | כל חבר שאינו מושתק מזמין Friend פעיל; בקבוצה פרטית הזמנה של מי שאינו Owner או Admin ממתינה לאישורם, המוזמן אינו רואה אותה עד האישור, והמזמין מקבל התראה כשאושרה או נדחתה; משתמש חסום אינו מוזמן (FR-GRP-002). |
+| AC-168 | אזהרה והשתקה: החבר מקבל הודעה עם הסיבה, ובמשך 24 שעות או 7 ימים רואה את הקבוצה עם הודעה על ההשתקה אך אינו מפרסם, מגיב, מסמן לייק, מזמין או ממליץ; ההשתקה מסתיימת מעצמה; הסרה וחסימה מתבצעות יחד; ההיסטוריה גלויה ל-Group Moderator ומעלה, וכל משתמש רואה את ההיסטוריה שנוגעת בו גם אחרי שההשתקה הסתיימה או אחרי שהוסר — בלי מי שביצע (FR-GRP-003). |

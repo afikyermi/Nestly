@@ -2,7 +2,8 @@
 // authentication hook has run before anything here (401 before the body is read, and no database query). No route takes an author id; the
 // commenter is the caller's by the database, and RLS decides who may read, comment or delete.
 //   POST   { body, parentId? } (strict) → 201 { comment } · 400 invalid | parent_invalid · 422 body_required | body_too_long ·
-//          404 post_unavailable (missing, or not readable: one body for every reason) · 403 account_unavailable | not_allowed
+//          404 post_unavailable (missing, or not readable: one body for every reason) · 403 account_unavailable | not_allowed | muted (I10-C:
+//          muted in the post's Group)
 //   GET    ?cursor= → 200 { items, nextCursor } · 400 cursor_invalid · 404 post_unavailable · 403 as above
 //   GET    /comments/:id/replies ?cursor= → 200 { items, nextCursor } · 400 cursor_invalid · 404 comment_unavailable (unknown, a reply, held or on an unreadable post: one body) · 403 as above
 //   DELETE /comments/:id no body → 204 (also a comment held for an open report) · 404 not_found (not a uuid, unknown or not the caller's) · 403
@@ -67,6 +68,8 @@ async function create(request: FastifyRequest, reply: FastifyReply, deps: Commen
         return reply.code(404).send(POST_UNAVAILABLE);
       case 'parent_invalid':
         return reply.code(400).send({ error: 'parent_invalid' });
+      case 'muted':
+        return reply.code(403).send({ error: 'muted' });
       default:
         return replyRefusal(reply, outcome);
     }

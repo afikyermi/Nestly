@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { GroupPrivacy } from '@nestly/shared';
+import type { GroupPostView, GroupPrivacy } from '@nestly/shared';
 
 // Where the feed's cards come from (I10). The community feed (the default) or one Group's discussion (FR-GRP-001): the same cards, the same
 // composer, the same comments and likes, with the Group's own differences:
@@ -22,6 +22,10 @@ export type FeedSource =
       readonly canPin: boolean;
       readonly pinnedPostId: string | null;
       readonly onPin: (postId: string | null) => void;
+      /** I10-C (§11.16): a muted member reads only: no like, comment or post on the cards. */
+      readonly readOnly?: boolean;
+      /** I10-C: every post, or the Group's Highlights only. Absent: every post. */
+      readonly view?: GroupPostView;
     };
 
 export const COMMUNITY_FEED: FeedSource = { kind: 'feed' };

@@ -25,6 +25,14 @@ const F32_PARAMS = [
   AS_OF, AS_OF, 336, 1, 24, 2, 0.2, AS_OF, AS_OF, 20, 2, STAGES, 0, 0, 0.5, 0.5, after.createdAt, after.createdAt, after.id, 21,
 ];
 
+// I10 completion C (§11.13, FR-GRP-001) widens that condition: a feed post, or a Group's Highlight (recorded by the snapshot's asOf, one more
+// bound parameter) or pinned post of the caller's own Groups. Everything else is F3.2's, byte for byte.
+const GROUP_CLAUSE =
+  '(p.group_id is null\n        or exists (select 1 from nestly.group_highlights h where h.post_id = p.id and h.reached_at <= $3::timestamptz)\n' +
+  '        or exists (select 1 from nestly.groups g join nestly.group_access a on a.group_id = g.id where g.pinned_post_id = p.id))';
+const EXPECTED_SQL = F32_SQL.replace(/\$(\d+)/g, (m: string, n: string) => (Number(n) >= 3 ? `$${Number(n) + 1}` : m)).replace('p.group_id is null', GROUP_CLAUSE);
+const EXPECTED_PARAMS = [AS_OF, AS_OF, AS_OF, ...F32_PARAMS.slice(2)];
+
 describe('[professional-posting c14 R2] the content profile reads no social or journey data', () => {
   // A content request may still carry a Stage set in its type; the statement must not take it. It is passed through a variable so that
   // a signature without the field still compiles.
@@ -55,8 +63,8 @@ describe('[professional-posting c14 R2] the content profile reads no social or j
 
   it("[professional-posting c14] the Regular profile renders F3.2's statement and parameters byte for byte", () => {
     const query = render({ profile: 'regular', asOf: AS_OF, config: heavy, after, stages: STAGES });
-    expect(query.sql).toBe(F32_SQL);
-    expect(query.params).toEqual(F32_PARAMS);
+    expect(query.sql).toBe(EXPECTED_SQL);
+    expect(query.params).toEqual(EXPECTED_PARAMS);
   });
 
   it('[professional-posting c14] the check can fail: the Regular statement does hold friendships, the tag and the Stage array', () => {

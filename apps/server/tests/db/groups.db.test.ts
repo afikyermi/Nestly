@@ -153,9 +153,11 @@ describe('[I10] Groups', () => {
   it('[FR-GRP-002 AC-050] invitations to a Friend, accepted; a recommendation notifies the Friend with the Group as target', T, async () => {
     const g = groupDetail.parse(body(await call('POST', '/api/groups', owner, { name: 'מעגל קטן', privacy: 'private' }))).id;
     const friends = groupFriendsResponse.parse(body(await call('GET', `/api/groups/${g}/friends`, owner)));
-    expect(friends.friends.map((f) => [f.userId, f.isMember, f.isInvited])).toEqual([[member, false, false]]);
+    expect(friends.friends.map((f) => [f.userId, f.isMember, f.isInvited, f.isAwaitingApproval])).toEqual([[member, false, false, false]]);
     expect((await call('POST', `/api/groups/${g}/invitations`, owner, { userId: outsider })).statusCode).toBe(422);
-    expect((await call('POST', `/api/groups/${g}/invitations`, owner, { userId: member })).statusCode).toBe(204);
+    // I10-C (§11.15): the Owner's invitation to a Private Group needs no approval
+    const sent = await call('POST', `/api/groups/${g}/invitations`, owner, { userId: member });
+    expect([sent.statusCode, body(sent)]).toEqual([200, { status: 'sent' }]);
     const mine = groupInvitationsResponse.parse(body(await call('GET', '/api/group-invitations', member)));
     const invitation = mine.invitations.find((i) => i.group.id === g);
     expect(invitation?.inviterName).toBe('Ora Owner');
@@ -177,7 +179,9 @@ describe('[I10] Groups', () => {
   });
 
   it('[FR-GRP-003] remove and block, then unblock; the Owner deletes the Group and it is gone', T, async () => {
-    expect((await call('DELETE', `/api/groups/${priv}/members/${member}?block=true`, owner)).statusCode).toBe(204);
+    // I10-C (§11.16): removal comes only with the block, with a reason; the plain DELETE of a member is gone
+    expect((await call('DELETE', `/api/groups/${priv}/members/${member}`, owner)).statusCode).toBe(404);
+    expect((await call('POST', `/api/groups/${priv}/enforcements`, owner, { userId: member, kind: 'remove_block', reason: 'rules' })).statusCode).toBe(204);
     expect(groupDetail.parse(body(await call('GET', `/api/groups/${priv}`, member))).state).toBe('blocked');
     const asked = await call('PUT', `/api/groups/${priv}/membership`, member);
     expect([asked.statusCode, body(asked)]).toEqual([403, { error: 'blocked_from_group' }]);
