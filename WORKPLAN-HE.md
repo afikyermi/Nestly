@@ -28,20 +28,21 @@
 | #109 ניקוי יומי (`work/purge-schedule`, טיוטה) | אפיק אישר (§14) | לרענן מ-main ולהשלים |
 | #213 Preview במקביל | מוכן | **מוקפא** (§17) |
 | #224 בחירת flows ב-`preview-e2e` (§18.2) | מוזג | |
-| #225 הפעמון לא מפעיל את ימי ההולדת ב-poll | ירוק; Chrome מלא: רק 50 ה-visual הידועים | למזג → Preview |
-| #226 ‏Server-Timing לכל שאילתה | מוזג; לא עבד ב-Production | #228 מתקן |
+| #225 הפעמון לא מפעיל את ימי ההולדת ב-poll | מוזג | |
+| #226 + #228 ‏Server-Timing לכל שאילתה (`s1..sN`) | מוזגו; עובד ב-Production | |
+| #229 לוח הבקרה וספירות הקידום — שאילתה לכל מספר | CI רץ | למזג → למדוד איזה מספר איטי |
 | I12 השלמה ב' · I9 | ⬜ | |
 
 ## המשך מכאן
 1. **`preview-e2e`:** רק לילי + פעם אחת אחרי כל מיזוג קוד; בלי הרצות חוזרות (§17). מיזוג לפי הטבלה.
-2. **הוזלת `deliver_child_birthdays()`** — השאילתה היקרה ביותר (351 מ״ש, בכל פתיחה של מסך ההתראות).
+2. **הוזלת `deliver_child_birthdays()`** — #225: לא רץ יותר ב-poll של הפעמון; נשאר: רק בפתיחת הרשימה.
 3. **migrations** (אחד-אחד, ואחרי כל אחד `migrate.yml` מ-main): I11-C — הסרת `is_help_request` (עמודה, check, index, grants, trigger, תנאי posts_insert/update_author, drift.test); סיבות ביקורת בלבד ל-Professional על ביקורת עליו · I14-B — `reports_details_length_check` 1000→500 · I10 — Highlight לפי אנשים שונים; Moderator מושתק בלי פעולות ניהול; `group_bans` רק דרך רשומת אכיפה.
 4. **I9 (§14, §16):** מחיקת חשבון — קודם לנתק מ-`users` את הרשומות שנשמרות 90 יום (FK RESTRICT חוסם היום כל מחיקה), ואז רשומת מחיקות נפרדת (`account_deletion_events`) → יישור פרטיות, תנאים, 18+, הגבלת קצב, נגישות → Turnstile (מפתחות קיימים, §15).
 5. **השלמת I12 ב'** · flows חסרים · **שלב אחרון** (`docs/final-stage-HE.md`).
 **מספרים פנויים:** AC מ-170 (#205: 159–163, #180: 164–168, #201: 169) · pgTAP 109.
 
 ## ממתין לך
-2. **Production לפני הדמו:** ב-26.10 לבדוק Observability → Database אחרי יצירת הדמו. אם Swap עולה או commitment ‏SEVERE — לשקול Pro לחודש. היום: Swap יציב, ‏PROBLEMATIC.
+2. **Production לפני הדמו — ממצא 25.10 (לילה):** אותה שאילתה פשוטה (`/api/group-invitations`, בלי שורות) ענתה 1783 · 70 · 181 מ״ש בשלוש טעינות רצופות, ופעם אחת 5.2 ש׳; ‏`set role` לבד 163 מ״ש. לוח הבקרה של Professional — 0.5–8.3 ש׳ לאותה שאילתה; תגובות של פוסט — 10 ש׳ פעם אחת. פיזור כזה אומר שהמסד חסר זיכרון או Disk IO (דפים נזרקים ונקראים שוב מהדיסק), לא תוכנית שאילתה. Claude מוריד עומס בקוד (#225, #229 ועוד), אבל הסיבה העיקרית היא ה-Nano. **הצעה:** לבדוק כבר עכשיו Observability → Database (Swap, Disk IO budget) ולשקול Pro לפני יצירת הדמו, לא אחריה. — **מ-24.10:** ב-26.10 לבדוק Observability → Database אחרי יצירת הדמו. אם Swap עולה או commitment ‏SEVERE — לשקול Pro לחודש. היום: Swap יציב, ‏PROBLEMATIC.
 3. **לאשר — נבנו לפי ⭐ (שורה לכל החלטה):**
    - **I13 (#177):**
      - קידום: פריט מקודם מופיע גם במקומו ברשימה האורגנית (BR-004).
@@ -89,6 +90,7 @@
 9. **סודות למחיקה (S-56):** `.live/events.jsonl` מקומי · environment `preview-e2e`: `PREVIEW_SUPABASE_SECRET_KEY` (לא בשימוש) · Actions: `PREVIEW_TEST_EMAIL`, `PREVIEW_TEST_PASSWORD`.
 10. **לפני השקה:** קופוני הדמו · דומיין ו-DNS · SMTP (S-64) · Supabase Pro · CSAM · מסך ההסכמה של Google OAuth · אישור ב-`db-production` (S-59) · S-17/S-18/S-40 · Vercel Pro או השקה לא מסחרית.
 11. **מחקר התפקידים:** המסמך לא במאגר.
+13. **קובץ החיבור של מסד ה-Preview (שורש המאגר):** הסיסמה לא עובדת (`password authentication failed`), אז `tools/db-preview.mjs` (EXPLAIN על ה-Preview) חסום. לעדכן את `PREVIEW_DATABASE_URL`.
 
 ## אחרי 27.10
 claim-lock בתור · אישור שני אנשים לפעולות רגישות · התראות צוות באימייל · מעקב בקשות פרטיות.
