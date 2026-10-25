@@ -733,6 +733,35 @@ test('[E c10] the summary prints a passed/failed line for each of mobile-375 and
   }
 });
 
+// ---- flow selection by hand (Afik 25.10.2026): only existing flow files and known projects reach Playwright -----------
+test('[Preview flows] a dispatch may walk named flows alone; an unknown or unsafe name stops the run first', (t) => {
+  const probe = spawnSync('bash', ['-c', 'true'], { encoding: 'utf8' });
+  if (probe.status !== 0) return t.skip('bash not available here');
+  const pw = steps.find((s) => /playwright test/.test(runOf(s)));
+  const dir = mkdtempSync(join(tmpdir(), 'pe2e-sel-'));
+  try {
+    // A fake npx prints its arguments instead of running Playwright.
+    writeFileSync(join(dir, 'npx'), '#!/usr/bin/env bash\necho "ARGS: $*"\n', { mode: 0o755 });
+    const run = (FLOWS, PROJECT) => spawnSync('bash', ['-c', runOf(pw)], {
+      cwd: new URL('.', ROOT),
+      env: { PATH: `${dir.replaceAll('\\', '/')}:${process.env.PATH}`, FLOWS, PROJECT },
+      encoding: 'utf8',
+    });
+    const all = run('', 'both');
+    assert.equal(all.status, 0, all.stderr);
+    assert.match(all.stdout, /ARGS: playwright test -c e2e-preview\/playwright\.config\.ts\s*$/m);
+    const one = run('marketplace profile', 'desktop-1280');
+    assert.equal(one.status, 0, one.stderr);
+    assert.match(one.stdout, /ARGS: .*e2e-preview\/marketplace\.flow\.ts e2e-preview\/profile\.flow\.ts --project desktop-1280/);
+    for (const [flows, project] of [['../e2e/posts', 'both'], ['no-such-flow', 'both'], ['marketplace;id', 'both'], ['marketplace', 'webkit']]) {
+      const bad = run(flows, project);
+      assert.notEqual(bad.status, 0, `${flows} / ${project} should stop the run`);
+      assert.doesNotMatch(bad.stdout, /ARGS:/);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 // ---- temporary staff (Afik 23.10.2026; review 24.10.2026): the database credential never meets the tested tree's code -----
 const idxOf = (re) => steps.findIndex((s) => re.test(runOf(s)) || re.test(String(s.uses ?? '')) || re.test(String(s.name ?? '')));

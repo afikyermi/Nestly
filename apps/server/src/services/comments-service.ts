@@ -34,6 +34,7 @@ import {
   type CommentRow,
 } from '../repositories/comments-repository.js';
 import { readLikeCounts, readLikedTargetIds } from '../repositories/likes-repository.js';
+import { readMutedHere } from '../repositories/group-rules-repository.js';
 import { readPost } from '../repositories/posts-repository.js';
 
 /** The caller cannot comment or read a thread: a stopped account (ERR-037), or an Admin or Moderator account (DR-1: a Professional may). */
@@ -43,6 +44,8 @@ export type CreateOutcome =
   | { readonly kind: 'comment'; readonly comment: CommentView }
   | { readonly kind: 'post_unavailable' }
   | { readonly kind: 'parent_invalid' }
+  /** I10-C (§11.16): the caller is muted in the post's Group and reads only. */
+  | { readonly kind: 'muted' }
   | CommentRefusal;
 export type ThreadOutcome = { readonly kind: 'thread'; readonly page: CommentThreadPage } | { readonly kind: 'post_unavailable' } | CommentRefusal;
 export type RepliesOutcome =
@@ -111,6 +114,7 @@ export async function createComment(database: Database, identity: Identity, post
     if ((await readPost(tx, postId)).length === 0) return { kind: 'post_unavailable' };
     const parentId = input.parentId ?? null;
     if (parentId !== null && (await readTopLevelComment(tx, postId, parentId)).length === 0) return { kind: 'parent_invalid' };
+    if (await readMutedHere(tx, 'post', postId)) return { kind: 'muted' };
     const ids = await insertComment(tx, {
       postId,
       parentId,

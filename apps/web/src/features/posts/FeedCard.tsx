@@ -6,8 +6,10 @@ import { Button } from '@/components/ui/button';
 import { ShareInFeedIcon, ShareLinkIcon } from '@/components/ui/icons';
 import { SHARE_LINK_LABEL } from '@/lib/share-link-texts';
 import { MoreActionsMenu, type MoreActionsItem } from '@/components/ui/more-actions-menu';
-import { AUDIENCE_LABELS, HELP_REQUEST_BADGE } from './posts-texts';
-import { COMMENTS_TITLE, LIKE_LABEL } from './comments-texts';
+import { AUDIENCE_LABELS, fromGroup } from './posts-texts';
+import { OfferHelpControl } from '@/components/domain/offer-help-sheet';
+import { groupPath } from '@/lib/group-link';
+import { COMMENTS_TITLE, LIKE_LABEL, MUTED_IN_GROUP_TEXT } from './comments-texts';
 import { STAGE_LABELS } from '@/lib/child-fields';
 import { PublishedTime } from '@/components/domain/published-time';
 import { postPath } from '@/lib/post-link';
@@ -58,6 +60,11 @@ export interface FeedCardProps {
   onEditCancel?: () => void;
   /** The card's comment area (ux-polish-a), drawn after the "⋯" (last in the tab order), only with the like control. */
   comments?: ReactNode;
+  /**
+   * I11 completion C (FR-SERV-005, §13.2): a Professional's "הצעת עזרה" in the action row, given only on a post it may offer on; `sent`: the
+   * offer went (one per post), so the row says "נשלחה הצעה" instead.
+   */
+  offerHelp?: { sent: boolean; onOffer: () => void } | undefined;
 }
 
 // One unit of the feed (F3.2b c14-c17; F3.3 c13; ux-polish-a): a post, an anonymous post (only "אנונימי": no name, avatar or link) or a share with its
@@ -69,7 +76,7 @@ export interface FeedCardProps {
 // tab order before the comment area (ux-polish-a c9); its items come in as actions.
 export function FeedCard(props: FeedCardProps) {
   const { unit, position, onToggleLike, onShareInFeed, onShareLink, actions = [], menuOpen, onMenuOpenChange, onMenuPressOutside } = props;
-  const { edit, onEditChange, onEditSave, onEditCancel, comments } = props;
+  const { edit, onEditChange, onEditSave, onEditCancel, comments, offerHelp } = props;
   const authorId = useId();
   const author = unit.isAnonymous ? ANONYMOUS_AUTHOR_LABEL : (unit.author.name ?? MEMBER_FALLBACK_LABEL);
   const call = useProCall();
@@ -98,10 +105,14 @@ export function FeedCard(props: FeedCardProps) {
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           {/* I13 (BR-005, VAL-012, §11.5): a promoted post is always marked "ממומן" */}
           {unit.source === 'promoted' ? <span className="rounded-full bg-badge px-2.5 text-small text-badge-foreground">{SPONSORED_LABEL}</span> : null}
-          <span className={AUDIENCE_CLASS}>{AUDIENCE_LABELS[unit.audience]}</span>
-          {unit.kind === 'post' && unit.isHelpRequest === true ? (
-            <span className="rounded-full bg-badge px-2.5 text-small text-badge-foreground">{HELP_REQUEST_BADGE}</span>
-          ) : null}
+          {/* I10-C (§11.13): a Group's Highlight says where it is from instead of its audience (the Group decides who reads it) */}
+          {unit.kind === 'post' && unit.group !== undefined ? (
+            <Link to={groupPath(unit.group.id)} className="text-small font-semibold text-primary-strong underline underline-offset-4">
+              {fromGroup(unit.group.name)}
+            </Link>
+          ) : (
+            <span className={AUDIENCE_CLASS}>{AUDIENCE_LABELS[unit.audience]}</span>
+          )}
           {unit.stageTag !== null ? (
             <span className="rounded-full bg-badge px-2.5 text-small text-badge-foreground">{STAGE_LABELS[unit.stageTag]}</span>
           ) : null}
@@ -131,6 +142,12 @@ export function FeedCard(props: FeedCardProps) {
               <OriginalQuote className="order-3 w-full" quote={unit.original.available ? unit.original : null} />
             </>
           ) : null}
+          {/* I10-C (§11.16): a member muted in the Group reads its Highlight only: no like, no comments to write */}
+          {unit.kind === 'post' && unit.group?.muted === true ? (
+            <p role="note" className="order-3 w-full text-small text-muted-foreground">
+              {MUTED_IN_GROUP_TEXT}
+            </p>
+          ) : null}
           {onToggleLike === undefined ? null : (
             <div className="order-3 w-full flex flex-wrap items-center gap-x-2">
               <LikeButton label={LIKE_LABEL} count={unit.likeCount} liked={unit.likedByMe} onToggle={onToggleLike} />
@@ -153,6 +170,7 @@ export function FeedCard(props: FeedCardProps) {
                 {COMMENTS_TITLE}
                 {unit.commentCount > 0 ? ` ${unit.commentCount.toLocaleString('en-US')}` : null}
               </button>
+              {offerHelp === undefined ? null : <OfferHelpControl {...offerHelp} />}
               {onShareInFeed === undefined ? null : (
                 <Button iconOnly label={SHARE_IN_FEED_LABEL} data-share-feed onClick={onShareInFeed}>
                   <ShareInFeedIcon className="size-5" />

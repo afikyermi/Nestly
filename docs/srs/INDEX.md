@@ -2,7 +2,7 @@
 
 # SRS — אינדקס
 
-**מקור האמת של מוצר Nestly.** SRS v2.40 · 23.10.2026.
+**מקור האמת של מוצר Nestly.** SRS v2.43 · 24.10.2026.
 
 ה-SRS מתוחזק ב-markdown ומפוצל לפי סעיפים. גרסאות ה-Word הקודמות נמצאות ב-[`archive/`](archive/) כהיסטוריה בלבד.
 
@@ -158,10 +158,10 @@
 | FR-ALG-007 | Sponsored Eligibility & Placement | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-ALG-008 | Global Search Ranking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-ALG-009 | Diversity, Exploration והסתרת פוסט | [algorithms-data.md](05-functional/algorithms-data.md) |
-| FR-ALG-010 | Group Notification Highlights v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
+| FR-ALG-010 | Group Highlights v1 וחשיפת קבוצות פעילות | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-DATA-001 | Analytics Event Tracking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 
-## קריטריוני קבלה — 163
+## קריטריוני קבלה — 174
 
 > השמות קוצרו לצורך ניווט בלבד. הנוסח המחייב נמצא ב-[15-acceptance.md](15-acceptance.md).
 
@@ -330,6 +330,17 @@
 | AC-161 | רק הפריט שדווח | [15-acceptance.md](15-acceptance.md) |
 | AC-162 | רשימת חסימה בהעלאה | [15-acceptance.md](15-acceptance.md) |
 | AC-163 | קהל להודעות מערכת | [15-acceptance.md](15-acceptance.md) |
+| AC-164 | Highlights של קבוצה בפיד | [15-acceptance.md](15-acceptance.md) |
+| AC-165 | סף ה-Highlights | [15-acceptance.md](15-acceptance.md) |
+| AC-166 | חשיפת קבוצות פעילות | [15-acceptance.md](15-acceptance.md) |
+| AC-167 | הזמנה לקבוצה ואישורה | [15-acceptance.md](15-acceptance.md) |
+| AC-168 | אזהרה והשתקה בקבוצה | [15-acceptance.md](15-acceptance.md) |
+| AC-169 | הצעת עזרה מהכרטיס ומעמוד הפוסט | [15-acceptance.md](15-acceptance.md) |
+| AC-170 | Professional מגיב ועושה לייק | [15-acceptance.md](15-acceptance.md) |
+| AC-171 | בקשות עזרה לפי תחום | [15-acceptance.md](15-acceptance.md) |
+| AC-172 | ביקורת אחת, עריכה ומחיקה | [15-acceptance.md](15-acceptance.md) |
+| AC-173 | דירוג בכוכבים ברבעים | [15-acceptance.md](15-acceptance.md) |
+| AC-174 | סיבות הדיווח על ביקורת | [15-acceptance.md](15-acceptance.md) |
 
 ## מזהים נוספים
 
@@ -341,6 +352,6 @@
 | NFR | דרישות לא-פונקציונליות | NFR-SEC-001 … NFR-SEC-010 | 37 | [06-non-functional.md](06-non-functional.md) |
 | UC | Use Cases | UC-01 … UC-42 | 42 | [14-use-cases.md](14-use-cases.md) |
 | PG | מסכים | PG-001 … PG-059 | 59 | [07-screens-navigation.md](07-screens-navigation.md) |
-| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-067 | 67 | [appendix-b-open-points.md](appendix-b-open-points.md) |
+| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-075 | 75 | [appendix-b-open-points.md](appendix-b-open-points.md) |
 | ALG | קטלוג האלגוריתמים | ALG-01 … ALG-09 | 9 | [18-algorithms-spec.md](18-algorithms-spec.md) |
 | P-ALG | עקרונות האלגוריתמים | P-ALG-01 … P-ALG-08 | 8 | [18-algorithms-spec.md](18-algorithms-spec.md) |

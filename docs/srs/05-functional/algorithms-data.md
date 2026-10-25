@@ -128,7 +128,7 @@
 | מצב לאחר ביצוע | ההסתרה נשמרת למשתמש בלבד; אין העדפה שמשפיעה על Re-ranking. |
 | בעל אחריות לוגי (Page / Feature) | הסתרת פוסט / מנוע ההמלצות מבוסס הכללים |
 
-## FR-ALG-010 — Group Notification Highlights v1
+## FR-ALG-010 — Group Highlights v1 וחשיפת קבוצות פעילות
 
 | שדה | הגדרה |
 |---|---|
@@ -136,9 +136,9 @@
 | Actor | Regular User / Professional User / System |
 | תיאור | ב-Group Notification mode=Highlights יוצגו אירועים ישירים/חשובים לפי כללים דטרמיניסטיים; mode=All מציג את כל האירועים המותרים ו-Off מדכא פעילות אופציונלית. |
 | תנאים מוקדמים | Membership פעילה והעדפת Group Notification קיימת. |
-| קלט / Trigger | Reply, Join/Invite decision, Owner/Admin announcement/pinned content, post engagement threshold, user preference. |
-| תהליך מערכת | אירועים ישירים המשפיעים על המשתמש נשמרים בכל mode: Reply/תגובה לפוסט שלו, החלטה על בקשת ההצטרפות שלו, הזמנה, המלצה של Friend, ול-Owner/Admin — בקשת הצטרפות חדשה. All: כל פוסט חדש בקבוצה, פוסט מוצמד ופוסט שעבר את ה-threshold. Highlights (ברירת המחדל כשלא נבחר mode): פוסט מוצמד (Announcement) ופוסט שעבר את ה-threshold. Off: אף אחד מאלה. ה-threshold הוא Configuration עם גרסה: מספר הלייקים והתגובות של אחרים על פוסט בקבוצה, 5 ב-v1 (OP-048); כל פוסט מדווח כ-Highlight פעם אחת לכל חבר, לא לכותב ולא למי שביצע את הפעולה. Off אינו מבטל Security/Critical/direct account events. הקטגוריה "קבוצות" בהגדרות ההתראות (FR-NOTIF-002) מכבה את כל התראות הקבוצות. |
-| פלט | Notification set בהתאם ל-All/Highlights/Off. |
+| קלט / Trigger | Reply, Join/Invite decision, Owner/Admin announcement/pinned content, post engagement threshold, group activity, user preference. |
+| תהליך מערכת | אירועים ישירים המשפיעים על המשתמש נשמרים בכל mode: Reply/תגובה לפוסט שלו, החלטה על בקשת ההצטרפות שלו, הזמנה, המלצה של Friend, ול-Owner/Admin — בקשת הצטרפות חדשה. All: כל פוסט חדש בקבוצה, פוסט מוצמד ופוסט שעבר את ה-threshold. Highlights (ברירת המחדל כשלא נבחר mode): פוסט מוצמד (Announcement) ופוסט שעבר את ה-threshold. Off: אף אחד מאלה. ה-threshold הוא Configuration עם גרסה: פוסט בקבוצה הוא Highlight כשהלייקים והתגובות של אחרים עליו מגיעים ל-5% ממספר החברים הפעילים בקבוצה באותו רגע, מעוגל כלפי מעלה, ולא פחות מ-3 ולא יותר מ-20 (10 חברים — 3; 100 — 5; 1,000 ומעלה — 20). פוסט שהגיע לסף נשאר Highlight גם אם חברים עזבו אחר כך (OP-068). הפוסט המוצמד הוא Highlight (Announcement). כל פוסט מדווח כ-Highlight פעם אחת לכל חבר, לא לכותב ולא למי שביצע את הפעולה. ה-Highlights נכנסים לפיד הראשי של חברי הקבוצה בלבד, עם "מתוך: <שם הקבוצה>" (FR-GRP-001, FR-FEED-001), ומסך הקבוצה מציג לחבריה את הסף הנוכחי. חשיפה אורגנית: קבוצה פעילה — פוסטים, תגובות וחברים חדשים בשבעת הימים האחרונים, כשאירוע ישן שוקל פחות — מוצגת גבוה יותר בהצעות הקבוצות, בתוצאות החיפוש וב-Discovery, ובפיד של מי שאינו חבר בה כיחידת קבוצה (שם, תיאור ומספר חברים) בלי פוסטים; קבוצה עם פחות משלושה אירועים בחלון אינה מקבלת חיזוק, ואין חיזוק בתשלום ואין ML (OP-069). הפעילות של קבוצה פרטית אינה גלויה למי שאינו חבר בה ואינה מחזקת אותה בעיניו: קבוצה פרטית אינה מוצעת בפיד. Off אינו מבטל Security/Critical/direct account events. הקטגוריה "קבוצות" בהגדרות ההתראות (FR-NOTIF-002) מכבה את כל התראות הקבוצות. |
+| פלט | Notification set בהתאם ל-All/Highlights/Off; ה-Highlights בפיד הראשי של חברי הקבוצה; סדר הקבוצות לפי פעילות. |
 | מצב לאחר ביצוע | NotificationPreference נשמרת; אין ML dependency. |
 | בעל אחריות לוגי (Page / Feature) | מרכז ההתראות / ניהול הקבוצות |
 

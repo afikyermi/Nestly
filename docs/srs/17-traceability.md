@@ -11,7 +11,7 @@
 | PG-008 | בניית הפיד / יצירת פוסט / תגובות ולייקים לפוסט / שיתוף פוסט / חלון שיתוף קישור / פעולת דיווח / קליטת אותות ההתאמה האישית / מנוע ההמלצות מבוסס הכללים | FR-FEED-001..007 / FR-ALG-001..004 / FR-ALG-009 / FR-MOD-001 | UC-04/26/36/37/40 | Post (כולל שיתופים), Comment, Reaction, PostHide, Report, Group, Friendship, ProfessionalFollow, PersonalizationProfile, ContentImpression, RecommendationFeedback, ContentMetadata, AlgorithmConfiguration |
 | PG-055 | עמוד פוסט / תגובות ולייקים לפוסט / שיתוף פוסט / חלון שיתוף קישור / פעולת דיווח | FR-FEED-002/003/005/006/007 / FR-MOD-001 / FR-AUTH-004 | UC-04/26 | Post (כולל שיתופים), Comment, Reaction, Report |
 | PG-056 | מסך ההצטרפות לצוות | FR-ADMIN-004 | UC-15 | User, ModeratorInvitation, AuditLogEntry |
-| PG-057 | מסך בקשות העזרה / הצעת עזרה (ניווט Professional) | FR-SERV-005 / FR-SERV-008 | UC-25 | Post (מבקש עזרה), ProfessionalOutreachRequest; AC-148 |
+| PG-057 | מסך בקשות העזרה / הצעת עזרה (מלוח הבקרה ומהתפריט של Professional) | FR-SERV-005 / FR-SERV-008 / FR-PRO-001 | UC-25 | Post, ProfessionalProfile (התחום), ProfessionalOutreachRequest; AC-148, AC-169, AC-171 |
 | PG-058 | מסך בית הצוות / בית הניהול / העבודה שלי / מגמות נתוני ילדים | FR-ADMIN-014 / FR-ADMIN-015 / FR-ADMIN-005 / FR-MOD-003 | UC-15/27 | Report, ReportEscalation, ReportOpening, TrackerEvent (מגמות בלבד), AuditLogEntry; AC-152–AC-158 |
 | PG-041/042 | מסך הקידום המקצועי / מסך חיובים וקידומים (I13: קידום, תוצאות, תשלומים מדומים) | FR-PRO-002 / FR-SERV-010 | UC-42 | Promotion, PromotionPerformanceEvent |
 | PG-059 | מסך הקידומים בניהול (I13) | FR-SERV-010 / FR-MKT-004 / FR-ALG-007 / BR-083 | UC-42 | Promotion, AuditLogEntry, AlgorithmConfiguration |
@@ -34,7 +34,7 @@
 | PG-030 | ~~מסך תור האימות המקצועי / ניהול אימות מקצועי~~ — **בוטל** (OP-005 נסגר, 18.10.2026) | FR-ADMIN-006 (בוטל) | UC-18 (בוטל) | — |
 | PG-031 | מסך הגדרות הקהילה / ניהול הגדרות הקהילה | FR-ADMIN-007 | UC-28 | CommunityConfiguration, AuditLogEntry |
 | PG-032 | מסך הודעות מערכת / ניהול הודעות מערכת | FR-ADMIN-008 / VAL-050 | UC-29 | SystemAnnouncement, AuditLogEntry; AC-163 |
-| PG-033/034/035 | ניהול הקבוצות / ניהול קבוצה | FR-GRP-001..004 | UC-22/23/32 | Group, Membership, GroupJoinRequest, GroupInvitation, GroupRoleAssignment, GroupMemberEnforcement, GroupNotificationPreference; AC-036–038, AC-050, AC-056, AC-066, AC-144, AC-145 |
+| PG-033/034/035 | ניהול הקבוצות / ניהול קבוצה | FR-GRP-001..004 | UC-22/23/32 | Group, Membership, GroupJoinRequest, GroupInvitation, GroupRoleAssignment, GroupMemberEnforcement, GroupHighlight, GroupNotificationPreference; AC-036–038, AC-050, AC-056, AC-066, AC-144, AC-145, AC-164–AC-168 |
 | PG-036 | מסך החברים / ניהול חברים | FR-REL-001 / FR-PRIV-001 / FR-MENU-001 | UC-20 | Friendship, FriendContentNotificationPreference, ProfileOpenCount |
 | Multiple / ProfessionalProfile | מעקב אחר בעל מקצוע | FR-FOLLOW-001 | UC-21 | ProfessionalFollow, ProfessionalProfile |
 | מעטפת האפליקציה (גלובלי) | Top Bar / בניית התפריט הצדדי / חלון שיתוף קישור | FR-TOP-001 / FR-MENU-001 / FR-FEED-007 | — | Role, ModeratorPermission, Notification counts |
@@ -65,12 +65,12 @@
 | FR / NFR | סטטוס | Initiative | הערה |
 |---|---|---|---|
 | FR-SET-001 | Built | I2, תיקוני בדיקת ה-SRS (21.10) | ההגדרות לפי סוג החשבון: הורה, בעל מקצוע, צוות |
-| FR-SEARCH-001 | Built | I7, תיקוני בדיקת ה-SRS (21.10) | בעלי מקצוע ב"אנשים", מסומנים, נפתחים בעמוד המקצועי |
+| FR-SEARCH-001 | Built | I7, תיקוני בדיקת ה-SRS (21.10), השלמת I10 ג' (22.10) | בעלי מקצוע ב"אנשים", מסומנים, נפתחים בעמוד המקצועי; בין קבוצות שמתאימות באותה מידה — הפעילה קודם (AC-166) |
 | FR-NOTIF-002 | Built | I7, I11, תיקוני בדיקת ה-SRS (21.10) | קטגוריות לפי סוג החשבון, "ימי הולדת" להורה בלבד |
 | FR-NOTIF-003 | Built | I7, תיקוני בדיקת ה-SRS (21.10) | התראה על יום הולדת של ילד של Friend |
 | FR-ADMIN-010 | Built | I14, I13, תיקוני בדיקת ה-SRS (21.10) | קבוצות, בעלי מקצוע ו-Marketplace במסך הנתונים; שימוש לפי יום (OP-039), ותחום הקידום ל-Admin בלבד (AC-071) |
-| FR-PRO-001 | Built | I11, תיקוני בדיקת ה-SRS (21.10) | הדירוג בלוח הבקרה |
-| FR-MOD-001 | Built | I3, I14 (השלמה ב') | "אחר" ו-500 תווים בכל דיווח; תגובה והודעה שדווחו — רק הפריט |
+| FR-PRO-001 | Built | I11, תיקוני בדיקת ה-SRS (21.10), השלמת I11 ג' | הדירוג בלוח הבקרה; "פוסטים בתחום שלך" |
+| FR-MOD-001 | Built | I3, I11, השלמת I11 ג', I14 (השלמה ב') | ארבע סיבות הביקורת לבעל המקצוע שהביקורת עליו; "אחר" ו-500 תווים בכל דיווח; תגובה והודעה שדווחו — רק הפריט |
 | FR-MOD-002 | Built | I4, I14 (השלמה ב') | היסטוריית האכיפה של תוכן שנמחק |
 | FR-MOD-003 | Built | I4, I14 (השלמה ב') | דיווח מוצדק מוחק; הסתרה אחרי 10 דיווחים זהים |
 | FR-ADMIN-008 | Built | I14 (השלמה ב') | קהל לכל הודעה |
@@ -84,3 +84,14 @@
 | FR-PRO-002 | Built | I13 | תוצאות 30 יום: אורגני ובתשלום בנפרד, מספרים בלבד |
 | FR-ALG-007 | Built | I13 | התאמה לפי נושאי חיפוש, דירוג בין הממומנים, מגבלת תדירות, שילוב בפיד כברירת מחדל כל 4–7 פוסטים (טווח וספים ניתנים לשינוי בידי Admin, אפיק 23.10.2026), סימון "ממומן"; התאמה לשלב נדחית בהחלטת אפיק מ-23.10.2026 |
 | NFR-SEC-007 | Built | I13 | ממשק תשלום אחד, מדומה, בלי פרטי כרטיס, "מחיר לדוגמה" |
+| FR-GRP-001 | Built | I10, השלמת I10 ג' (22.10) | רק Highlights בפיד הראשי של חברי הקבוצה, עם "מתוך"; "כל הפוסטים" / "עיקרי הדברים" |
+| FR-GRP-002 | Built | I10, השלמת I10 ג' (22.10) | כל חבר מזמין Friends; בקבוצה פרטית — אישור Owner או Admin |
+| FR-GRP-003 | Built | I10, השלמת I10 ג' (22.10) | אזהרה והשתקה, הסרה וחסימה, ביטול חסימה, היסטוריה למנהלים; כל משתמש רואה את ההיסטוריה שלו ב"על הקבוצה"; אין הסרה רגילה |
+| FR-GRP-004 | Built | I10 | ללא שינוי |
+| FR-ALG-010 | Built | I10, השלמת I10 ג' (22.10) | סף 5% מהחברים (3 עד 20); חשיפת קבוצות פעילות בחיפוש, ב-Discovery ובפיד |
+| FR-FEED-001 | Built | I3, I10 ג' (22.10) | Highlights של קבוצות ויחידת קבוצות פעילות |
+| FR-SERV-003 | Built | I11, השלמת I11 ג' | הדירוג בספרה אחת מעל כוכבים ברבעים, גם בכרטיסים |
+| FR-SERV-005 | Built | I11, השלמת I11 ג' | הצעת עזרה על כל פוסט שבעל המקצוע רשאי לראות, מהכרטיס, מעמוד הפוסט ומ"בקשות עזרה" לפי תחום; בלי סימון "מבקש עזרה" |
+| FR-SERV-008 | Built | I11, השלמת I11 ג' | אחת לכל פוסט, עד 100 ב-24 שעות |
+| FR-SERV-011 | Built | I11, השלמת I11 ג' | ביקורת אחת להורה לכל בעל מקצוע, עריכה ("נערכה") ומחיקה בידי הכותב |
+| FR-MENU-001 | Built | I2, I11, השלמת I11 ג' | "בקשות עזרה" בתפריט של Professional |

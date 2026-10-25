@@ -1,6 +1,6 @@
 // Groups (I10): one Group's discussion (FR-GRP-001, AC-036, AC-037). The posts the caller may read (posts_group_hide), newest first, the pin first.
 
-import { GROUP_FEED_PAGE_SIZE, feedPageResponse, type FeedPageResponse, type FeedUnit } from '@nestly/shared';
+import { GROUP_FEED_PAGE_SIZE, feedPageResponse, type FeedPageResponse, type FeedUnit, type GroupPostView } from '@nestly/shared';
 import type { Database } from '../db/client.js';
 import { inIdentityTransaction } from '../db/identity-transaction.js';
 import type { Identity } from '../lib/token-verifier.js';
@@ -30,8 +30,9 @@ export function parseGroupFeedCursor(raw: unknown): { at: string; id: string } |
 }
 
 /**
- * GET /api/groups/:id/posts: the Group's posts the caller may read, newest first, the pinned post first on the first page. The same units as
- * the feed (FeedPageResponse), so the web app shows them with the feed's cards. A Private Group's outsider reads none (posts_group_hide).
+ * GET /api/groups/:id/posts[?view=highlights]: the Group's posts the caller may read, newest first, the pinned post first on the first page;
+ * with `highlights` (I10-C) only the posts that reached the threshold. The same units as the feed (FeedPageResponse), so the web app shows
+ * them with the feed's cards, without the "מתוך" label (the page is the Group's). A Private Group's outsider reads none (posts_group_hide).
  */
 export async function readGroupFeed(
   database: Database,
@@ -39,6 +40,7 @@ export async function readGroupFeed(
   id: string,
   after: { at: string; id: string } | null,
   storage?: MediaStorage,
+  view: GroupPostView = 'all',
 ): Promise<GroupResult<FeedPageResponse>> {
   const imageRows: PostImageRow[] = [];
   const result = await inIdentityTransaction(
@@ -53,7 +55,7 @@ export async function readGroupFeed(
       const group = await readGroupDetail(tx, id);
       if (group === undefined) return fail('group_unavailable');
       const pinned = after === null && group.pinnedPostId !== null && (await readGroupPostExists(tx, id, group.pinnedPostId)) ? group.pinnedPostId : null;
-      const rows = await readGroupPostIds(tx, id, after, group.pinnedPostId, GROUP_FEED_PAGE_SIZE + 1);
+      const rows = await readGroupPostIds(tx, id, after, group.pinnedPostId, GROUP_FEED_PAGE_SIZE + 1, view);
       const page = rows.slice(0, GROUP_FEED_PAGE_SIZE);
       const ids = [...(pinned === null ? [] : [pinned]), ...page.map((row) => row.id)];
       const display = new Map((await readDisplayPosts(tx, ids)).map((row) => [row.id, row]));
@@ -63,7 +65,7 @@ export async function readGroupFeed(
       imageRows.push(...(await readPostImageRows(tx, storage, ids)));
       const items = ids.flatMap((postId): FeedUnit[] => {
         const row = display.get(postId);
-        const unit = row === undefined ? undefined : unitOf(row, { likeCount: likeCounts.get(postId) ?? 0, commentCount: commentCounts.get(postId) ?? 0, likedByMe: liked.has(postId) });
+        const unit = row === undefined ? undefined : unitOf(row, { likeCount: likeCounts.get(postId) ?? 0, commentCount: commentCounts.get(postId) ?? 0, likedByMe: liked.has(postId) }, false);
         return unit === undefined ? [] : [unit];
       });
       const last = page.at(-1);

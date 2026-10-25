@@ -60,6 +60,8 @@ export interface FeedContentProps {
   shareFeed?: { unitId: string; sheet: Omit<ShareFeedSheetProps, 'finalFocus'> } | null;
   /** The share-link window of a card (F3.6 c4), open while set; it closes onto the card's "שיתוף קישור". */
   shareLink?: { unitId: string; sheet: Omit<ShareLinkSheetProps, 'finalFocus'> } | null;
+  /** I11 completion C: a Professional's "הצעת עזרה" of a card, given only on a post it may offer on (FeedCard's `offerHelp`). */
+  offerHelpFor?: (unit: FeedUnit) => { sent: boolean; onOffer: () => void } | undefined;
 }
 
 function cardOf(list: HTMLElement | null, unitId: string): HTMLElement | undefined {
@@ -95,7 +97,7 @@ function SkeletonCards() {
 // F3.9: a card the viewer hid here is drawn as its placeholder in the same place; after a hide or an undo, focus goes where hideFocus says.
 export function FeedContent(props: FeedContentProps) {
   const { state, sentinelRef, onRetry, onToggleLike, actionsFor, onUndoHide, headingRef, openMenuId = null, onMenuOpenChange } = props;
-  const { edit = null, onEditChange, onEditSave, onEditCancel } = props;
+  const { edit = null, onEditChange, onEditSave, onEditCancel, offerHelpFor } = props;
   const { confirm = null, onConfirmDelete, onCancelDelete, onMenuPressOutside, report = null, shareActionsFor, shareFeed = null, shareLink = null, commentsFor } = props;
   const { phase, loading, items, message, focusIndex, hiddenIds, pendingHideIds, hideFocus } = state;
   const listRef = useRef<HTMLDivElement>(null);
@@ -174,7 +176,7 @@ export function FeedContent(props: FeedContentProps) {
               key={unit.id}
               unit={unit}
               position={index + 1}
-              {...(onToggleLike === undefined ? {} : { onToggleLike: () => onToggleLike(unit.id) })}
+              {...(onToggleLike === undefined || (unit.kind === 'post' && unit.group?.muted === true) ? {} : { onToggleLike: () => onToggleLike(unit.id) })}
               {...(actionsFor === undefined ? {} : { actions: actionsFor(unit) })}
               {...(shareActionsFor === undefined ? {} : shareActionsFor(unit))}
               {...(edit !== null && edit.unitId === unit.id
@@ -189,6 +191,7 @@ export function FeedContent(props: FeedContentProps) {
               {...(onMenuOpenChange === undefined ? {} : { onMenuOpenChange: (open: boolean) => onMenuOpenChange(unit.id, open) })}
               {...(onMenuPressOutside === undefined ? {} : { onMenuPressOutside })}
               {...(commentsFor === undefined ? {} : { comments: commentsFor(unit) })}
+              offerHelp={offerHelpFor?.(unit)}
             />
           ),
         )}

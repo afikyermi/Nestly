@@ -27,7 +27,23 @@ export const REPORT_REASONS = [
 /** The eight reasons every installation starts with (their labels are the web's fallback when the list cannot be read). */
 export type CoreReportReason = (typeof REPORT_REASONS)[number];
 /** A reason a reporter may choose: a core one, or one the community settings added (FR-ADMIN-007; the key is the server's). */
-export type ReportReason = CoreReportReason | `custom_${string}`;
+export type ReportReason = CoreReportReason | ReviewReportReason | `custom_${string}`;
+
+/**
+ * FR-MOD-001, AC-150 (§11.10, Afik 21.10.2026): the four reasons the reviewed Professional chooses from when it reports a review about itself, in
+ * this order: פוגענית · שקרית / בלי אינטראקציה · מידע אישי · אחר. Fixed (not in the community settings); nobody else uses them (the database).
+ */
+export const REVIEW_REPORT_REASONS = ['review_offensive', 'review_false', 'review_personal_info', 'review_other'] as const;
+export type ReviewReportReason = (typeof REVIEW_REPORT_REASONS)[number];
+
+export function isReviewReportReason(value: string): value is ReviewReportReason {
+  return REVIEW_REPORT_REASONS.some((reason) => reason === value);
+}
+
+/** "אחר" of either list needs a text (VAL-048; reports_other_details_check). */
+export function reportReasonNeedsDetails(reason: ReportReason): boolean {
+  return reason === 'other' || reason === 'review_other';
+}
 /** The shape of an added reason's key (`custom_` and 8 hex characters). */
 export const CUSTOM_REPORT_REASON = /^custom_[0-9a-f]{8}$/;
 

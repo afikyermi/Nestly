@@ -7,14 +7,11 @@
 import type {
   ArticleWrite,
   DirectoryQuery,
-  HelpRequestItem,
   OutreachItem,
   ProfessionalArticleItem,
   ProfessionalCard,
   ProfessionalDashboard,
   ProfessionalProfileWrite,
-  ProfessionalReviewItem,
-  ReviewWrite,
 } from '@nestly/shared';
 import {
   ARTICLE_STATUSES,
@@ -31,14 +28,12 @@ import { z } from 'zod';
 import type { IdentityTx } from '../db/identity-transaction.js';
 import { professionalConsentsInsert, usersInsert } from '../db/schema.js';
 
-const isoMs = sql.raw(`'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'`);
+export const isoMs = sql.raw(`'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'`);
 const DIRECTORY_LIMIT = 50;
 /** Far above any real number of Follows; the list is not paged. */
 const FOLLOWING_LIMIT = 500;
-const PAGE_REVIEWS = 50;
 const PAGE_ARTICLES = 50;
-const HELP_LIMIT = 30;
-const EXCERPT = 160;
+export const EXCERPT = 160;
 
 // ---- registration and the own profile -------------------------------------------------------------------------------------------------
 
@@ -187,17 +182,6 @@ export async function readReviewableConversation(tx: IdentityTx, professionalId:
         and exists (select 1 from nestly.messages m where m.conversation_id = c.id and m.sender_id = ${professionalId}::uuid)`),
   );
   return row?.id ?? null;
-}
-
-const reviewRow = z.object({ id: z.guid(), rating: z.number().int(), text: z.string(), at: z.string() });
-
-export async function readReviews(tx: IdentityTx, professionalId: string): Promise<ProfessionalReviewItem[]> {
-  return z.array(reviewRow).parse(
-    await tx.execute(sql`
-      select r.id, r.rating, r.body as text, to_char(r.created_at at time zone 'UTC', ${isoMs}) as at
-      from nestly.professional_reviews r where r.professional_id = ${professionalId}::uuid and r.moderation = 'active'
-      order by r.created_at desc, r.id limit ${PAGE_REVIEWS}`),
-  );
 }
 
 const articleRow = z.object({
@@ -350,13 +334,6 @@ export async function isReadableProfessional(tx: IdentityTx, userId: string): Pr
 
 // ---- reviews and articles ---------------------------------------------------------------------------------------------------------------
 
-/** FR-SERV-011: one review on one conversation. A refusal propagates (42501 not eligible, 23505 already reviewed). */
-export async function insertReview(tx: IdentityTx, professionalId: string, conversationId: string, review: ReviewWrite): Promise<void> {
-  await tx.execute(sql`
-    insert into nestly.professional_reviews (professional_id, conversation_id, rating, body)
-    values (${professionalId}::uuid, ${conversationId}::uuid, ${review.rating}, ${review.text})`);
-}
-
 export async function insertArticle(tx: IdentityTx, article: ArticleWrite): Promise<string> {
   const [row] = z.array(z.object({ id: z.guid() })).parse(
     await tx.execute(sql`
@@ -382,84 +359,79 @@ export async function deleteArticle(tx: IdentityTx, id: string): Promise<number>
 
 // ---- the Professional's home (FR-PRO-001, AC-018) ----------------------------------------------------------------------------------------
 
-const dashboardRow = z.object({
+const dashboardProfileRow = z.object({
   userId: z.guid(),
   fullName: z.string(),
   field: z.enum(PROFESSIONAL_FIELDS),
   fieldOther: z.string().nullable(),
-  followers: z.number().int(),
-  chatStarts30d: z.number().int(),
-  rating: z.number().nullable(),
-  reviewCount: z.number().int(),
-  engagement30d: z.number().int(),
-  posts30d: z.number().int(),
-  articles: z.number().int(),
-  offersToday: z.number().int(),
-  unreadChats: z.number().int(),
-  acceptedOffersNew: z.number().int(),
-  reviewsNew: z.number().int(),
-  offersAccepted: z.number().int(),
-  offersDeclined: z.number().int(),
   missing: z.array(z.string()),
 });
 
-/** The caller's own aggregates only (VAL-032): counts over rows its policies show, never who. Undefined with no own profile. */
+/**
+ * The caller's own aggregates only (VAL-032): counts over rows its policies show, never who. Undefined with no own profile.
+ * One statement per number, in this order, so Server-Timing names the slow one (after the identity entry): the profile, then followers,
+ * chatStarts30d, rating, reviewCount, engagement30d, posts30d, articles, offersToday, unreadChats, acceptedOffersNew, reviewsNew,
+ * offersAccepted, offersDeclined (25.10: the single statement took 0.5–8 s on Production and nothing said which part).
+ */
 export async function readDashboard(tx: IdentityTx): Promise<ProfessionalDashboard | undefined> {
-  const [row] = z.array(dashboardRow).parse(
+  const [profile] = z.array(dashboardProfileRow).parse(
     await tx.execute(sql`
       select pp.user_id as "userId", pp.full_name as "fullName", pp.field, pp.field_other as "fieldOther",
-        (select count(*)::int from nestly.professional_follows f where f.professional_id = pp.user_id) as followers,
-        (select count(*)::int from nestly.conversations c where pp.user_id in (c.user_a, c.user_b)
-           and c.context in ('professional', 'outreach') and c.created_at > now() - interval '30 days') as "chatStarts30d",
-        (select round(avg(r.rating)::numeric, 1)::float8 from nestly.professional_reviews r where r.professional_id = pp.user_id and r.moderation = 'active') as rating,
-        (select count(*)::int from nestly.professional_reviews r where r.professional_id = pp.user_id and r.moderation = 'active') as "reviewCount",
-        ((select count(*) from nestly.reactions x join nestly.posts p on p.id = x.post_id
-            where p.author_id = pp.user_id and not x.is_by_author and x.created_at > now() - interval '30 days')
-         + (select count(*) from nestly.comments m join nestly.posts p on p.id = m.post_id
-            where p.author_id = pp.user_id and not m.is_by_post_author and m.created_at > now() - interval '30 days'))::int as "engagement30d",
-        (select count(*)::int from nestly.posts p where p.author_id = pp.user_id and p.created_at > now() - interval '30 days') as "posts30d",
-        (select count(*)::int from nestly.professional_articles a where a.author_id = pp.user_id and a.moderation = 'active') as articles,
-        (select count(*)::int from nestly.outreach_requests o where o.professional_id = pp.user_id
-           and o.created_at > now() - interval '24 hours') as "offersToday",
-        (select count(*)::int from nestly.conversations c where pp.user_id in (c.user_a, c.user_b)
-           and exists (select 1 from nestly.messages m where m.conversation_id = c.id and m.sender_id <> pp.user_id
-                        and m.created_at > coalesce((select r.last_read_at from nestly.chat_reads r
-                                                      where r.user_id = pp.user_id and r.conversation_id = c.id), '-infinity'))) as "unreadChats",
-        (select count(*)::int from nestly.outreach_requests o where o.professional_id = pp.user_id and o.status = 'accepted'
-           and o.responded_at > now() - interval '7 days') as "acceptedOffersNew",
-        (select count(*)::int from nestly.professional_reviews r where r.professional_id = pp.user_id and r.moderation = 'active'
-           and r.created_at > now() - interval '7 days') as "reviewsNew",
-        (select count(*)::int from nestly.outreach_requests o where o.professional_id = pp.user_id and o.status = 'accepted') as "offersAccepted",
-        (select count(*)::int from nestly.outreach_requests o where o.professional_id = pp.user_id and o.status = 'declined') as "offersDeclined",
         array_remove(array[case when pp.business_name is null then 'businessName' end, case when pp.gender is null then 'gender' end,
           case when pp.area is null then 'area' end, case when pp.about is null then 'about' end,
           case when pp.price_from is null then 'priceFrom' end], null) as missing
       from nestly.professional_profiles pp where pp.user_id = (select auth.uid())`),
   );
-  if (row === undefined) return undefined;
-  const { missing, ...rest } = row;
-  return { ...rest, offersPerDay: OUTREACH_PER_DAY, profileMissing: PROFILE_OPTIONAL_FIELDS.filter((field) => missing.includes(field)) };
+  if (profile === undefined) return undefined;
+  const me = sql`(select auth.uid())`;
+  const count = async (statement: SQL): Promise<number> =>
+    z.array(z.object({ n: z.number().int() })).length(1).parse(await tx.execute(sql`select (${statement})::int as n`))[0]?.n ?? 0;
+  const followers = await count(sql`select count(*) from nestly.professional_follows f where f.professional_id = ${me}`);
+  const chatStarts30d = await count(sql`select count(*) from nestly.conversations c where ${me} in (c.user_a, c.user_b)
+    and c.context in ('professional', 'outreach') and c.created_at > now() - interval '30 days'`);
+  const [ratingRow] = z
+    .array(z.object({ rating: z.number().nullable() }))
+    .length(1)
+    .parse(
+      await tx.execute(sql`select (select round(avg(r.rating)::numeric, 1)::float8 from nestly.professional_reviews r
+        where r.professional_id = ${me} and r.moderation = 'active') as rating`),
+    );
+  const reviewCount = await count(sql`select count(*) from nestly.professional_reviews r where r.professional_id = ${me} and r.moderation = 'active'`);
+  // Likes and comments of others on the caller's own posts, 30 days: one definer count, the same number the caller's policies give
+  // (decisions-in-force §19, supabase/tests/109) without each row re-checking its post (104–1545 ms on Production, 25.10)
+  const engagement30d = await count(sql`select nestly.own_post_engagement(30)`);
+  const posts30d = await count(sql`select count(*) from nestly.posts p where p.author_id = ${me} and p.created_at > now() - interval '30 days'`);
+  const articles = await count(sql`select count(*) from nestly.professional_articles a where a.author_id = ${me} and a.moderation = 'active'`);
+  const offersToday = await count(sql`select count(*) from nestly.outreach_requests o where o.professional_id = ${me}
+    and o.created_at > now() - interval '24 hours'`);
+  const unreadChats = await count(sql`select count(*) from nestly.conversations c where ${me} in (c.user_a, c.user_b)
+    and exists (select 1 from nestly.messages m where m.conversation_id = c.id and m.sender_id <> ${me}
+                 and m.created_at > coalesce((select r.last_read_at from nestly.chat_reads r
+                                               where r.user_id = ${me} and r.conversation_id = c.id), '-infinity'))`);
+  const acceptedOffersNew = await count(sql`select count(*) from nestly.outreach_requests o where o.professional_id = ${me} and o.status = 'accepted'
+    and o.responded_at > now() - interval '7 days'`);
+  const reviewsNew = await count(sql`select count(*) from nestly.professional_reviews r where r.professional_id = ${me} and r.moderation = 'active'
+    and r.created_at > now() - interval '7 days'`);
+  const offersAccepted = await count(sql`select count(*) from nestly.outreach_requests o where o.professional_id = ${me} and o.status = 'accepted'`);
+  const offersDeclined = await count(sql`select count(*) from nestly.outreach_requests o where o.professional_id = ${me} and o.status = 'declined'`);
+  const { missing, ...rest } = profile;
+  return {
+    ...rest,
+    followers,
+    chatStarts30d,
+    rating: ratingRow?.rating ?? null,
+    reviewCount,
+    engagement30d,
+    posts30d,
+    articles,
+    offersToday,
+    unreadChats,
+    acceptedOffersNew,
+    reviewsNew,
+    offersAccepted,
+    offersDeclined,
+    offersPerDay: OUTREACH_PER_DAY,
+    profileMissing: PROFILE_OPTIONAL_FIELDS.filter((field) => missing.includes(field)),
+  };
 }
 
-const helpRow = z.object({
-  postId: z.guid(),
-  excerpt: z.string(),
-  isAnonymous: z.boolean(),
-  authorName: z.string().nullable(),
-  at: z.string(),
-  offered: z.boolean(),
-});
-
-/** FR-SERV-005: the newest posts that ask for help and that the caller can read (the feed's rules), with whether it already offered. */
-export async function readHelpRequests(tx: IdentityTx): Promise<HelpRequestItem[]> {
-  return z.array(helpRow).parse(
-    await tx.execute(sql`
-      select p.id as "postId", left(p.body, ${EXCERPT}) as excerpt, p.is_anonymous as "isAnonymous", n.full_name as "authorName",
-             to_char(p.created_at at time zone 'UTC', ${isoMs}) as at,
-             exists (select 1 from nestly.outreach_requests o where o.post_id = p.id and o.professional_id = (select auth.uid())) as offered
-      from nestly.posts p left join nestly.regular_names n on n.user_id = p.author_id
-      where p.is_help_request and p.status = 'active'
-      order by p.created_at desc, p.id
-      limit ${HELP_LIMIT}`),
-  );
-}

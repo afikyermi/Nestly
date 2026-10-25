@@ -125,7 +125,7 @@ export const professionalPageQuerySchema = z.object({ promotion: z.guid().option
 /** POST /api/posts/:id/offer-help (FR-SERV-005): the first message. Same rule as a chat message. */
 export const offerHelpSchema = z.strictObject({ text: textOf(CHAT_TEXT_MAX, 'invalid') });
 
-/** POST /api/professionals/:id/reviews (FR-SERV-011): a rating of 1-5 and a text. */
+/** POST and PUT /api/professionals/:id/reviews (FR-SERV-011, §11.21): a rating of 1-5 and a text; PUT edits the caller's own review. */
 export const reviewSchema = z.strictObject({
   rating: z.number().int().min(1).max(5),
   text: textOf(REVIEW_TEXT_MAX, 'review_invalid'),
@@ -167,7 +167,8 @@ export const directoryResponse = z.strictObject({ professionals: z.array(profess
 /** GET /api/professionals/following (PG-039, FR-FOLLOW-001): the Professionals the caller follows, as directory cards. */
 export const followingResponse = z.strictObject({ professionals: z.array(professionalCard) });
 
-export const professionalReviewItem = z.strictObject({ id: z.guid(), rating: z.number().int(), text: z.string(), at });
+/** A review as readers see it (FR-SERV-011): never who wrote it. `editedAt`: its writer's last edit ("נערכה"), null when never edited. */
+export const professionalReviewItem = z.strictObject({ id: z.guid(), rating: z.number().int(), text: z.string(), at, editedAt: at.nullable() });
 export type ProfessionalReviewItem = z.infer<typeof professionalReviewItem>;
 
 export const professionalArticleItem = z.strictObject({
@@ -195,6 +196,8 @@ export const professionalPage = professionalCard.extend({
   canChat: z.boolean(),
   /** FR-SERV-011: the conversation a Regular viewer can review this Professional on, if any. */
   reviewableConversationId: z.guid().nullable(),
+  /** §11.21: a Regular viewer's own review of this Professional (one per parent), which it edits or deletes; null when it has none. */
+  myReview: professionalReviewItem.nullable(),
   reviews: z.array(professionalReviewItem),
   articles: z.array(professionalArticleItem),
 });
@@ -253,7 +256,7 @@ export const professionalDashboard = z.strictObject({
 });
 export type ProfessionalDashboard = z.infer<typeof professionalDashboard>;
 
-/** A post that asks for help, as a Professional's home lists it (FR-SERV-005). */
+/** A post in the Professional's field it may Offer Help on, as its home and "בקשות עזרה" list it (FR-SERV-005, PG-057, §13.4). */
 export const helpRequestItem = z.strictObject({
   postId: z.guid(),
   excerpt: z.string(),

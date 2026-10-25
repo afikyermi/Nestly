@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { checkCreateReport, reportDetailsProblem, type ReportReason, type ReportTargetKind } from '@nestly/shared';
+import { checkCreateReport, isReviewReportReason, reportDetailsProblem, reportReasonNeedsDetails, type ReportReason, type ReportTargetKind } from '@nestly/shared';
 import { useSessionAccount } from '@/hooks/use-session-account';
 import { STOPPED_TEXT } from '@/lib/auth-texts';
 import { REPORT_FAILED_TEXT } from '@/lib/report-texts';
@@ -52,7 +52,7 @@ export interface ReportFlow {
 
 function errorsOf(reason: ReportReason | null, details: string): ReportErrors {
   const problem = reportDetailsProblem(details);
-  const missing = reason === 'other' && details.trim() === '';
+  const missing = reason !== null && reportReasonNeedsDetails(reason) && details.trim() === '';
   return {
     ...(reason === null ? { reason: 'required' as const } : {}),
     ...(problem !== null ? { details: problem } : missing ? { details: 'required' as const } : {}),
@@ -94,10 +94,13 @@ export function useReport(onDone: (target: ReportTarget, result: ReportResult) =
     };
   }, [open, account]);
 
-  // a reason chosen from the built-in list that the community's list no longer offers is cleared (the database would refuse it)
+  // a reason chosen from the built-in list that the community's list no longer offers is cleared (the database would refuse it); the reviewed
+  // Professional's fixed review reasons (§11.10) are not in that list and stay
   useEffect(() => {
     if (reasons === undefined) return;
-    setDraft((now) => (now === null || now.reason === null || reasons.some((item) => item.key === now.reason) ? now : { ...now, reason: null }));
+    setDraft((now) =>
+      now === null || now.reason === null || isReviewReportReason(now.reason) || reasons.some((item) => item.key === now.reason) ? now : { ...now, reason: null },
+    );
   }, [reasons]);
 
   const start = useCallback((target: ReportTarget) => {

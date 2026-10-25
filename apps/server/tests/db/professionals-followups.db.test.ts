@@ -148,8 +148,8 @@ describe('[I11 follow-ups] Professionals', () => {
     const started = ok(await startChat(database, as(mia), pro, 'שלום, שאלה על הנקה'));
     if (started.result.kind !== 'conversation') throw new Error('no conversation');
     const conversationId = started.result.conversationId;
-    const help = await createPost(database, as(mia), { body: `עזרה בהנקה ${tag}`, audience: 'everyone', isHelpRequest: true });
-    const other = await createPost(database, as(noa), { body: `עזרה בשינה ${tag}`, audience: 'everyone', isHelpRequest: true });
+    const help = await createPost(database, as(mia), { body: `עזרה בהנקה ${tag}`, audience: 'everyone' });
+    const other = await createPost(database, as(noa), { body: `עזרה בשינה ${tag}`, audience: 'everyone' });
     const offer = ok(await offerHelp(database, as(pro), help.id, `אשמח לעזור ${tag}`));
     const declined = ok(await offerHelp(database, as(pro), other.id, 'גם כאן'));
     ok(await declineOutreach(database, as(noa), declined.id));

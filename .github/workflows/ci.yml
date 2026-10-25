@@ -7,9 +7,13 @@
 #   `browser-changed`: only the e2e specs the pull request added or changed, in Chrome, skipped when it changed none. If
 #   the changed files cannot be read, the whole Chrome suite runs instead, in `browser` (fail-safe).
 # - push to main and the nightly schedule: everything above except schema-gate and `browser-changed`, and `browser`: the
-#   whole Chrome suite in ten shards, without the visual specs (*.visual.spec.ts).
-# - workflow_dispatch (by hand): as main, but `browser` includes the visual specs, and `browser-edge` runs the Edge suite
-#   in ten shards. Edge runs on no other event.
+#   whole Chrome suite in ten shards.
+# - workflow_dispatch (by hand): as main, and `browser-edge` runs the Edge suite in ten shards (Edge runs on no other
+#   event), and `browser-visual` runs the pixel visual specs, non-blocking.
+# The pixel visual specs (*.visual.spec.ts) never block (Afik 24.10, decisions-in-force §14.1): no blocking job runs them
+# (E2E_SKIP_VISUAL=true in `browser` and `browser-changed`), and `browser-visual` reports a failure as a warning. What blocks
+# is layer 1, the rule-based UI checks of e2e/layout-rules.spec.ts (skeleton, rtl, no horizontal scroll, no cut text, no
+# overlap, axe), an ordinary spec of the Chrome suite.
 # The job `changes` decides what a pull request needs; `db` needs Docker and runs in CI only.
 name: CI
 
@@ -20,7 +24,7 @@ on:
   # Nightly at 22:17 UTC (about 01:17 in Israel), on the default branch.
   schedule:
     - cron: '17 22 * * *'
-  # By hand: the whole workflow, the visual specs and the Edge job `browser-edge` included.
+  # By hand: the whole workflow, the Edge job `browser-edge` and the non-blocking visual job `browser-visual` included.
   workflow_dispatch:
 
 permissions:
@@ -197,8 +201,8 @@ jobs:
 
   # The whole Chrome suite against the built gallery and the e2e app build: on push to main, nightly, by hand, and on a
   # pull request whose changed files could not be read (changes: browser=full). Desktop and phone (the specs set their own
-  # viewports). On push and schedule E2E_SKIP_VISUAL=true leaves out *.visual.spec.ts (playwright.config.ts); by hand
-  # and on the pull-request fail-safe the blocking visual regression runs too. Ten shards in parallel, each its own
+  # viewports). E2E_SKIP_VISUAL=true leaves out *.visual.spec.ts on every event (playwright.config.ts): the pixel specs run
+  # only in `browser-visual`, which does not block. Layer 1 (e2e/layout-rules.spec.ts) runs here. Ten shards in parallel, each its own
   # runner, on e2e stubs only. Playwright splits shards by test count in file order and keeps a non-parallel file in one
   # worker; e2e/a11y.spec.ts is parallel, so its tests share the shard's workers. Timeouts by test type and the CI
   # globalTimeout, two minutes or more under timeout-minutes: playwright.config.ts, guarded by tools/ci-browser.test.mjs.
@@ -233,7 +237,7 @@ jobs:
       - run: npx playwright install --with-deps chrome
       - run: npm run build-storybook
       - env:
-          E2E_SKIP_VISUAL: ${{ github.event_name == 'push' || github.event_name == 'schedule' }}
+          E2E_SKIP_VISUAL: 'true'
         run: npx playwright test --project=${{ matrix.project }} --shard=${{ matrix.shard }}/10
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: ${{ !cancelled() }}
@@ -244,7 +248,9 @@ jobs:
           if-no-files-found: ignore
 
   # Pull requests: only the e2e specs the pull request added or changed (changes: browser=changed), in Chrome, in one job.
-  # Skipped when it changed no spec. The gallery is built here too: Playwright starts both web servers for any spec.
+  # Skipped when it changed no spec. The gallery is built here too: Playwright starts both web servers for any spec. A changed
+  # pixel visual spec is left out (E2E_SKIP_VISUAL=true; it never blocks), so a pull request that changed only visual specs
+  # runs nothing here (--pass-with-no-tests).
   browser-changed:
     needs: changes
     if: needs.changes.outputs.browser == 'changed'
@@ -271,6 +277,7 @@ jobs:
       - name: The changed specs in Chrome
         env:
           SPECS: ${{ needs.changes.outputs.specs }}
+          E2E_SKIP_VISUAL: 'true'
         run: |
           set -euf
           # The changes job admits only plain paths; checked again here, since each word becomes an argument.
@@ -280,11 +287,52 @@ jobs:
           echo "specs: ${SPECS}"
           # Word splitting is intended: one argument per spec file (globbing is off, set -f).
           # shellcheck disable=SC2086
-          npx playwright test --project=chrome ${SPECS}
+          npx playwright test --project=chrome --pass-with-no-tests ${SPECS}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: ${{ !cancelled() }}
         with:
           name: playwright-report-chrome-changed
+          path: playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # The pixel visual specs (*.visual.spec.ts), by hand (workflow_dispatch) only, in Chrome, and NOT blocking (Afik 24.10,
+  # decisions-in-force §14.1): their baselines are refreshed in the final stage, until then they report drift as a warning.
+  # The test step continues on error, so the job stays green; the step after it raises a warning and the report is uploaded.
+  # Baselines are Linux Chrome renderings (playwright.config.ts); none is written here (updateSnapshots 'none').
+  browser-visual:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - id: playwright
+        run: |
+          echo "version=$(node -p "require('./package-lock.json').packages['node_modules/playwright'].version")" >> "${GITHUB_OUTPUT}"
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - run: npx playwright install --with-deps chrome
+      - run: npm run build-storybook
+      # The argument is a file filter: only *.visual.spec.ts. E2E_SKIP_VISUAL is left unset, so the chrome project keeps them.
+      - id: visual
+        continue-on-error: true
+        run: npx playwright test --project=chrome '\.visual\.spec\.ts$'
+      - name: Report a visual failure as a warning (non-blocking)
+        if: ${{ steps.visual.outcome == 'failure' }}
+        run: echo "::warning::pixel visual specs failed (non-blocking; baselines are refreshed in the final stage). See the playwright-report-chrome-visual artifact."
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report-chrome-visual
           path: playwright-report/
           retention-days: 7
           if-no-files-found: ignore

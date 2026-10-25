@@ -2,7 +2,7 @@
 // anything here (401 before the body is read, and no database query). No route takes a user id; the liker is the caller's by the database, and
 // RLS decides which targets may be liked and whose like is removed.
 //   PUT    no body → 204 (also a repeat: one like) · 404 not_found (not a uuid, missing or not readable: one body for every reason) · 403
-//          account_unavailable | not_allowed · 400 invalid (a body)
+//          account_unavailable | not_allowed | muted (I10-C: muted in the post's Group) · 400 invalid (a body)
 //   DELETE no body → 204 (also when there is no like to remove) · 404 · 403 · 400 as above
 //   all: 401/503 session guard · 503 · 500 server_error. Any other method → 405 with Allow.
 // Nothing is returned: no count, no user id, no is_by_author. Logs carry a fixed line and the SQLSTATE, never an id (NFR-PRIV-001).
@@ -55,6 +55,8 @@ function change(target: LikeTarget, action: typeof likeTarget, deps: LikesRouteD
           return reply.code(204).send();
         case 'not_found':
           return reply.code(404).send(NOT_FOUND);
+        case 'muted':
+          return reply.code(403).send({ error: 'muted' });
         default:
           return replyRefusal(reply, outcome);
       }

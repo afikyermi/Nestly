@@ -27,6 +27,8 @@ const STATUS: Record<GroupFailure['kind'], number> = {
   already_requested: 409,
   already_member: 409,
   not_a_friend: 422,
+  muted: 403,
+  invitation_unavailable: 409,
   stopped: 403,
   forbidden: 403,
 };

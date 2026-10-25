@@ -4,10 +4,20 @@
 // permission: a row the caller may not touch is simply not there (0 rows), and a refused write raises its SQLSTATE (42501, NS026-NS028).
 // No statement carries the caller's id as a value: ownership, membership and decisions default to auth.uid() in the database.
 
-import { GROUP_NOTIFICATION_MODES, GROUP_PRIVACIES, GROUP_ROLES, type GroupNotificationMode, type GroupPrivacy, type GroupRole } from '@nestly/shared';
+import {
+  GROUP_ENFORCEMENT_REASONS,
+  GROUP_NOTIFICATION_MODES,
+  GROUP_PRIVACIES,
+  GROUP_ROLES,
+  type GroupNotificationMode,
+  type GroupPostView,
+  type GroupPrivacy,
+  type GroupRole,
+} from '@nestly/shared';
 import { sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { IdentityTx } from '../db/identity-transaction.js';
+import { groupActivityScore } from './group-activity-repository.js';
 
 const isoMs = sql.raw(`'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'`);
 const isoUs = sql.raw(`'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'`);
@@ -30,6 +40,10 @@ const detailRow = summaryRow.extend({
   pinnedPostId: z.guid().nullable(),
   mode: z.enum(GROUP_NOTIFICATION_MODES).nullable(),
   createdAt: z.string(),
+  muteUntil: z.string().nullable(),
+  muteReason: z.enum(GROUP_ENFORCEMENT_REASONS).nullable(),
+  muteReasonText: z.string().nullable(),
+  highlightThreshold: z.number().nullable(),
 });
 export type GroupDetailRow = z.infer<typeof detailRow>;
 
@@ -51,7 +65,10 @@ function summaryColumns(): SQL {
     exists (select 1 from nestly.group_bans b where b.group_id = g.id and b.user_id = (select auth.uid())) as blocked`;
 }
 
-/** Discovery (every active Group the caller may read, newest first, or those matching `q`) or the caller's own Groups (by name). */
+/**
+ * Discovery (every active Group the caller may read, the most active first, then the newest; or those matching `q`, name matches first,
+ * then activity: §11.14) or the caller's own Groups (by name).
+ */
 export async function readGroupSummaries(tx: IdentityTx, scope: 'mine' | 'discover', q: string | null, limit: number): Promise<GroupSummaryRow[]> {
   const like = q === null ? null : `%${escapeLike(q.toLowerCase())}%`;
   const rows = await tx.execute(sql`
@@ -61,7 +78,7 @@ export async function readGroupSummaries(tx: IdentityTx, scope: 'mine' | 'discov
     where g.status = 'active'
       ${scope === 'mine' ? sql`and a.role is not null` : sql``}
       ${like === null ? sql`` : sql`and (lower(g.name) like ${like} or lower(coalesce(g.description, '')) like ${like})`}
-    order by ${scope === 'mine' ? sql`g.name, g.id` : like === null ? sql`g.created_at desc, g.id desc` : sql`(lower(g.name) like ${like}) desc, g.created_at desc, g.id desc`}
+    order by ${scope === 'mine' ? sql`g.name, g.id` : like === null ? sql`${groupActivityScore()} desc, g.created_at desc, g.id desc` : sql`(lower(g.name) like ${like}) desc, ${groupActivityScore()} desc, g.created_at desc, g.id desc`}
     limit ${limit}`);
   return z.array(summaryRow).parse(rows);
 }
@@ -71,8 +88,17 @@ export async function readGroupDetail(tx: IdentityTx, id: string): Promise<Group
   const rows = await tx.execute(sql`
     select ${summaryColumns()}, g.rules, g.pinned_post_id as "pinnedPostId",
            (select p.mode from nestly.group_notification_preferences p where p.group_id = g.id and p.user_id = (select auth.uid())) as mode,
-           to_char(g.created_at at time zone 'UTC', ${isoMs}) as "createdAt"
+           to_char(g.created_at at time zone 'UTC', ${isoMs}) as "createdAt",
+           to_char(mu.mute_until at time zone 'UTC', ${isoMs}) as "muteUntil", mu.reason_key as "muteReason", mu.reason_text as "muteReasonText",
+           case when a.role is null then null
+                else nestly.group_highlight_threshold((select count(*) from nestly.group_members m where m.group_id = g.id and m.member_status = 'active')::int)
+           end as "highlightThreshold"
     from nestly.groups g
+    left join lateral (
+      select e.mute_until, e.reason_key, e.reason_text from nestly.group_member_enforcements e
+      where e.group_id = g.id and e.user_id = (select auth.uid()) and e.kind = 'warn_mute' and e.mute_until > now()
+      order by e.mute_until desc limit 1
+    ) mu on true
     left join nestly.group_access a on a.group_id = g.id and a.user_id = (select auth.uid())
     where g.id = ${id}::uuid and g.status = 'active'`);
   return z.array(detailRow).max(1).parse(rows)[0];
@@ -169,26 +195,10 @@ export async function stepDownOwner(tx: IdentityTx, groupId: string): Promise<nu
   return rows.length;
 }
 
-/** Removes a member (a lower Role only: 0 rows otherwise). */
-export async function deleteMember(tx: IdentityTx, groupId: string, userId: string): Promise<number> {
-  const rows = await tx.execute(sql`delete from nestly.group_members where group_id = ${groupId}::uuid and user_id = ${userId}::uuid returning user_id`);
-  return rows.length;
-}
-
-/** Blocks a user from the Group (removes their Membership in the same statement). */
-export async function insertBan(tx: IdentityTx, groupId: string, userId: string): Promise<void> {
-  await tx.execute(sql`insert into nestly.group_bans (group_id, user_id) values (${groupId}::uuid, ${userId}::uuid)`);
-}
-
 /** Whether the user is blocked from the Group, as the caller may read it (Moderators and higher, or the user). */
 export async function readBanned(tx: IdentityTx, groupId: string, userId: string): Promise<boolean> {
   const rows = await tx.execute(sql`select 1 from nestly.group_bans b where b.group_id = ${groupId}::uuid and b.user_id = ${userId}::uuid`);
   return rows.length > 0;
-}
-
-export async function deleteBan(tx: IdentityTx, groupId: string, userId: string): Promise<number> {
-  const rows = await tx.execute(sql`delete from nestly.group_bans where group_id = ${groupId}::uuid and user_id = ${userId}::uuid returning user_id`);
-  return rows.length;
 }
 
 const personRow = z.object({ userId: z.guid(), fullName: z.string().nullable(), at: z.string() });
@@ -223,8 +233,12 @@ export async function readBans(tx: IdentityTx, groupId: string, limit: number): 
   return z.array(personRow).parse(rows);
 }
 
-export async function insertInvitation(tx: IdentityTx, groupId: string, inviteeId: string): Promise<void> {
-  await tx.execute(sql`insert into nestly.group_invitations (group_id, invitee_id) values (${groupId}::uuid, ${inviteeId}::uuid)`);
+/** Invites a Friend; the database decides whether it waits for approval (a member's invitation to a Private Group, §11.15). */
+export async function insertInvitation(tx: IdentityTx, groupId: string, inviteeId: string): Promise<'sent' | 'awaiting_approval'> {
+  const rows = await tx.execute(sql`
+    insert into nestly.group_invitations (group_id, invitee_id) values (${groupId}::uuid, ${inviteeId}::uuid) returning status`);
+  const [row] = z.array(z.object({ status: z.enum(['pending', 'awaiting_approval']) })).length(1).parse(rows);
+  return row?.status === 'awaiting_approval' ? 'awaiting_approval' : 'sent';
 }
 
 const invitationRow = z.object({
@@ -265,7 +279,7 @@ export async function insertRecommendation(tx: IdentityTx, groupId: string, reci
     on conflict on constraint group_suggestions_once_key do nothing`);
 }
 
-const flagsRow = z.object({ userId: z.guid(), isMember: z.boolean(), isInvited: z.boolean(), isRecommended: z.boolean() });
+const flagsRow = z.object({ userId: z.guid(), isMember: z.boolean(), isInvited: z.boolean(), isAwaitingApproval: z.boolean(), isRecommended: z.boolean() });
 
 /** For each of `userIds` (the caller's Friends): a member row the caller can see, a pending invitation it can see, its own recommendation. */
 export async function readFriendFlags(tx: IdentityTx, groupId: string, userIds: readonly string[]): Promise<z.infer<typeof flagsRow>[]> {
@@ -274,6 +288,8 @@ export async function readFriendFlags(tx: IdentityTx, groupId: string, userIds: 
     select u.id as "userId",
            exists (select 1 from nestly.group_members m where m.group_id = ${groupId}::uuid and m.user_id = u.id) as "isMember",
            exists (select 1 from nestly.group_invitations i where i.group_id = ${groupId}::uuid and i.invitee_id = u.id and i.status = 'pending') as "isInvited",
+           exists (select 1 from nestly.group_invitations i where i.group_id = ${groupId}::uuid and i.invitee_id = u.id
+                     and i.status = 'awaiting_approval') as "isAwaitingApproval",
            exists (select 1 from nestly.group_suggestions r where r.group_id = ${groupId}::uuid and r.recipient_id = u.id
                      and r.sender_id = (select auth.uid())) as "isRecommended"
     from unnest(${sql.param([...userIds])}::uuid[]) as u(id)`);
@@ -299,11 +315,13 @@ export async function readGroupPostIds(
   after: { at: string; id: string } | null,
   exclude: string | null,
   limit: number,
+  view: GroupPostView = 'all',
 ): Promise<z.infer<typeof feedRow>[]> {
   const rows = await tx.execute(sql`
     select p.id, to_char(p.created_at at time zone 'UTC', ${isoUs}) as "createdAt"
     from nestly.posts p
     where p.group_id = ${groupId}::uuid
+      ${view === 'highlights' ? sql`and exists (select 1 from nestly.group_highlights h where h.post_id = p.id)` : sql``}
       ${exclude === null ? sql`` : sql`and p.id <> ${exclude}::uuid`}
       ${after === null ? sql`` : sql`and (p.created_at, p.id) < (${after.at}::timestamptz, ${after.id}::uuid)`}
     order by p.created_at desc, p.id desc
@@ -324,13 +342,13 @@ export async function readGroupNames(tx: IdentityTx, ids: readonly string[]): Pr
   return new Map(z.array(z.object({ id: z.guid(), name: z.string() })).parse(rows).map((row) => [row.id, row.name]));
 }
 
-/** Search (FR-SEARCH-001): active Groups whose name or description matches, name matches first. */
+/** Search (FR-SEARCH-001): active Groups whose name or description matches, name matches first, then the most active (§11.14). */
 export async function searchGroups(tx: IdentityTx, text: string, limit: number): Promise<{ id: string; name: string; privacy: GroupPrivacy }[]> {
   const like = `%${escapeLike(text.toLowerCase())}%`;
   const rows = await tx.execute(sql`
     select g.id, g.name, g.privacy from nestly.groups g
     where g.status = 'active' and (lower(g.name) like ${like} or lower(coalesce(g.description, '')) like ${like})
-    order by (lower(g.name) like ${like}) desc, g.name, g.id
+    order by (lower(g.name) like ${like}) desc, ${groupActivityScore()} desc, g.name, g.id
     limit ${limit}`);
   return z.array(z.object({ id: z.guid(), name: z.string(), privacy: z.enum(GROUP_PRIVACIES) })).parse(rows);
 }

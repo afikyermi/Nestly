@@ -29,7 +29,20 @@ on:
   # Nightly at 22:47 UTC (about 01:47 in Israel).
   schedule:
     - cron: '47 22 * * *'
+  # By hand, `flows` may name flow files to walk alone (Afik, 25.10.2026: a feature's own flow runs once even when the
+  # full walk times out before it). Empty walks every flow, as the schedule does.
   workflow_dispatch:
+    inputs:
+      flows:
+        description: 'Flow names to walk alone, space-separated (e.g. "marketplace profile"); empty = all'
+        required: false
+        default: ''
+      project:
+        description: 'Viewport project'
+        required: false
+        default: both
+        type: choice
+        options: [both, desktop-1280, mobile-375]
 
 permissions:
   contents: read
@@ -199,7 +212,29 @@ jobs:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           PREVIEW_E2E_REPORT_FILE: ${{ runner.temp }}/preview-e2e-report.json
           PREVIEW_E2E_STAFF_FILE: ${{ runner.temp }}/preview-e2e-staff.json
-        run: npx playwright test -c e2e-preview/playwright.config.ts
+          FLOWS: ${{ inputs.flows }}
+          PROJECT: ${{ inputs.project }}
+        run: |
+          set -euo pipefail
+          args=()
+          # Each name must be an existing e2e-preview/<name>.flow.ts; anything else fails the run before a test starts.
+          for name in ${FLOWS:-}; do
+            case "${name}" in
+              *[!a-z0-9-]*) echo "::error::a flow name may use only a-z, 0-9 and -"; exit 1 ;;
+            esac
+            if [ ! -f "e2e-preview/${name}.flow.ts" ]; then
+              echo "::error::no flow e2e-preview/${name}.flow.ts"
+              exit 1
+            fi
+            args+=("e2e-preview/${name}.flow.ts")
+          done
+          case "${PROJECT:-both}" in
+            both) ;;
+            desktop-1280|mobile-375) args+=(--project "${PROJECT}") ;;
+            *) echo "::error::unknown project"; exit 1 ;;
+          esac
+          echo "walking: ${args[*]:-all flows}"
+          npx playwright test -c e2e-preview/playwright.config.ts "${args[@]}"
       # On failure only: the error-context.md of each failed test (the page's accessibility snapshot at the failure). Trace,
       # video and screenshots stay off (playwright.config.ts), since the Vercel bypass header or a typed password could land
       # in them. The trusted harness copies each snapshot with every form-field value redacted and every occurrence of a
