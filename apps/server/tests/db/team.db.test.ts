@@ -36,6 +36,8 @@ import { buildRegisterApp, post, validBody } from '../helpers/register-app.js';
 // (System Announcements), FR-ADMIN-007 (report reasons), FR-ADMIN-010 / BR-058 (the analytics: numbers only), AC-044 (the staff inbox). The services
 // run in the identity transaction exactly as the routes call them; the policies and triggers are pgTAP's (file 95).
 
+/** The audience of an announcement for everyone (I14 completion B, OP-042). */
+const EVERYONE = { audience: 'everyone', audienceStage: null } as const;
 const T = { timeout: COLD_START_MS };
 
 let key: TestKey;
@@ -172,16 +174,42 @@ describe('[I14 FR-ADMIN-004 BR-022 BR-023] the team and its invitations', () => 
 });
 
 describe('[I14 FR-ADMIN-008 AC-049] System Announcements', () => {
+  it('[AC-163 FR-ADMIN-008 OP-042 VAL-050] an announcement reaches its audience only: parents, a stage, Professionals; a staff feed shows the everyone ones', T, async () => {
+    const make = async (title: string, audience: 'everyone' | 'parents' | 'professionals' | 'stage', audienceStage: 'planning' | 'pregnant' | 'has_child' | null) => {
+      const made = await createAnnouncement(database, id(everyKey), { title, body: 'x', audience, audienceStage });
+      if (made.kind !== 'ok') throw new Error('create refused');
+      expect(made.item).toMatchObject({ audience, audienceStage });
+      expect((await changeAnnouncementStatus(database, id(everyKey), made.item.id, 'published')).kind).toBe('ok');
+      return made.item.id;
+    };
+    await make('לכולם', 'everyone', null);
+    await make('להורים', 'parents', null);
+    await make('לבעלי מקצוע', 'professionals', null);
+    const planning = await make('למתכננים', 'stage', 'planning');
+    const titles = async (who: string) => {
+      const feed = await readFeedPage(database, id(who), null);
+      return feed.kind === 'page' ? (feed.page.announcements ?? []).map((a) => a.title).sort() : null;
+    };
+    // the regular parent ticked pregnant and has_child (not planning); the feed shows three at most, newest first
+    expect(await titles(regular)).toEqual(['להורים', 'לכולם'].sort());
+    expect(await titles(admin)).toEqual(['לכולם']);
+    // the audience of a published announcement may change, and the Audit Log keeps Before and After
+    const before = await auditCount('announcement_edited');
+    expect((await editAnnouncement(database, id(everyKey), planning, { title: 'למתכננים', body: 'x', audience: 'stage', audienceStage: 'pregnant' })).kind).toBe('ok');
+    expect(await auditCount('announcement_edited')).toBe(before + 1);
+    expect(await titles(regular)).toEqual(['להורים', 'לכולם', 'למתכננים'].sort());
+  });
+
   it('[AC-049] SYSTEM_ANNOUNCEMENTS creates, edits, publishes and removes; the feed shows a published one on its first page only', T, async () => {
     expect(
       (
-        await createAnnouncement(database, id(reportsOnly), {
+        await createAnnouncement(database, id(reportsOnly), { ...EVERYONE,
           title: 'תחזוקה',
           body: 'x',
         })
       ).kind,
     ).toBe('forbidden');
-    const made = await createAnnouncement(database, id(everyKey), {
+    const made = await createAnnouncement(database, id(everyKey), { ...EVERYONE,
       title: 'תחזוקה',
       body: 'האתר ייסגר לשעה',
     });
@@ -189,7 +217,7 @@ describe('[I14 FR-ADMIN-008 AC-049] System Announcements', () => {
     expect(made.item).toMatchObject({ status: 'draft', publishedAt: null });
     const feedBefore = await readFeedPage(database, id(regular), null);
     expect(feedBefore.kind === 'page' && feedBefore.page.announcements).toBeUndefined();
-    const edited = await editAnnouncement(database, id(everyKey), made.item.id, { title: 'תחזוקה', body: 'האתר ייסגר לשעתיים' });
+    const edited = await editAnnouncement(database, id(everyKey), made.item.id, { ...EVERYONE, title: 'תחזוקה', body: 'האתר ייסגר לשעתיים' });
     expect(edited.kind === 'ok' && edited.item?.body).toBe('האתר ייסגר לשעתיים');
     const published = await changeAnnouncementStatus(database, id(admin), made.item.id, 'published');
     expect(published.kind === 'ok' && published.item.publishedAt).not.toBeNull();
@@ -201,7 +229,7 @@ describe('[I14 FR-ADMIN-008 AC-049] System Announcements', () => {
     const gone = await readFeedPage(database, id(regular), null);
     expect(gone.kind === 'page' && gone.page.announcements).toBeUndefined();
     expect(
-      await editAnnouncement(database, id(everyKey), made.item.id, {
+      await editAnnouncement(database, id(everyKey), made.item.id, { ...EVERYONE,
         title: 'x y',
         body: 'z',
       }),

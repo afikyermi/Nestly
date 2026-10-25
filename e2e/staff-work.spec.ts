@@ -26,7 +26,7 @@ async function stubStaffKind(page: Page): Promise<void> {
 }
 
 test.describe('[F14.2-b] the staff homes', () => {
-  test('[F14.2-b c1 §9.6 §9.10] the Admin\'s /home leads to its home: the red bar, what needs attention, the week, the team and the children\'s trends', async ({ page }) => {
+  test('[F14.2-b c1 §9.6 §9.10 AC-157] the Admin\'s /home leads to its home: the red bar, what needs attention, the week, the team and the children\'s trends', async ({ page }) => {
     const net = await setupAdmin(page);
     await stubStaffKind(page);
     await signIn(page);
@@ -36,14 +36,21 @@ test.describe('[F14.2-b] the staff homes', () => {
     await expect(page.getByRole('alert').filter({ hasText: 'תוכן שמסכן ילד' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'דורש תשומת לב' })).toBeVisible();
     await expect(page.getByText(/קפיצה בדיווחים: 6 ביממה האחרונה/)).toBeVisible();
-    await expect(page.getByText('מדריכים לאישור או לבדיקה חוזרת: 9')).toBeVisible();
+    await expect(page.getByText('מדריכים שממתינים לאישור: 9')).toBeVisible();
+    // I14 completion B (AC-157, OP-057, Afik 21.10.2026 §11.8): no "expiring invitations" card
+    await expect(page.getByText(/הזמנות שפגות בקרוב/)).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'השבוע לעומת השבוע הקודם' })).toBeVisible();
     await expect(page.getByText('נועה לוי')).toBeVisible();
     // the children's trends: closed lists, cells only, a small cell hidden with no number
     await page.getByRole('combobox', { name: 'מעקב' }).selectOption('bottle');
     await page.getByRole('combobox', { name: 'מדד' }).selectOption('amount_ml');
     await page.getByRole('combobox', { name: 'חלוקה לפי' }).selectOption('child_sex');
+    // I14 completion B (AC-153, OP-056): calendar periods only, and no week or month split
+    await expect(page.getByRole('combobox', { name: 'חלוקה לפי' }).getByRole('option')).toHaveText(['—', 'גיל הילד', 'מין הילד']);
+    await page.getByRole('combobox', { name: 'תקופה' }).selectOption('this_week');
+    const asked = page.waitForRequest((request) => request.url().includes('/api/admin/child-trends'));
     await page.getByRole('button', { name: 'הצגה', exact: true }).click();
+    expect(new URL((await asked).url()).searchParams.get('period')).toBe('this_week');
     const table = page.getByRole('table', { name: 'הנתונים בטבלה' });
     await expect(table.getByRole('row', { name: /בנות/ })).toContainText('125');
     await expect(table.getByRole('row', { name: /בנים/ })).toContainText('מוסתר');

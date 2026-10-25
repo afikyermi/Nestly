@@ -161,7 +161,7 @@
 | FR-ALG-010 | Group Highlights v1 וחשיפת קבוצות פעילות | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-DATA-001 | Analytics Event Tracking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 
-## קריטריוני קבלה — 169
+## קריטריוני קבלה — 174
 
 > השמות קוצרו לצורך ניווט בלבד. הנוסח המחייב נמצא ב-[15-acceptance.md](15-acceptance.md).
 
@@ -325,6 +325,11 @@
 | AC-156 | תור העבודה של הצוות | [15-acceptance.md](15-acceptance.md) |
 | AC-157 | בית הניהול ומסנני היומן | [15-acceptance.md](15-acceptance.md) |
 | AC-158 | חשיפת מחבר בקבוצה פרטית | [15-acceptance.md](15-acceptance.md) |
+| AC-159 | דיווח מוצדק מוחק | [15-acceptance.md](15-acceptance.md) |
+| AC-160 | הסתרה בדיווחים זהים | [15-acceptance.md](15-acceptance.md) |
+| AC-161 | רק הפריט שדווח | [15-acceptance.md](15-acceptance.md) |
+| AC-162 | רשימת חסימה בהעלאה | [15-acceptance.md](15-acceptance.md) |
+| AC-163 | קהל להודעות מערכת | [15-acceptance.md](15-acceptance.md) |
 | AC-164 | Highlights של קבוצה בפיד | [15-acceptance.md](15-acceptance.md) |
 | AC-165 | סף ה-Highlights | [15-acceptance.md](15-acceptance.md) |
 | AC-166 | חשיפת קבוצות פעילות | [15-acceptance.md](15-acceptance.md) |
@@ -342,11 +347,11 @@
 | סוג | נושא | טווח | כמות | קובץ |
 |---|---|---|---|---|
 | BR | חוקים עסקיים | BR-001 … BR-083 | 83 | [08-business-rules.md](08-business-rules.md) |
-| VAL | ולידציות | VAL-001 … VAL-051 | 50 | [09-validations.md](09-validations.md) |
+| VAL | ולידציות | VAL-001 … VAL-051 | 51 | [09-validations.md](09-validations.md) |
 | ERR | שגיאות ותרחישי קצה | ERR-001 … ERR-047 | 47 | [10-errors-edge-cases.md](10-errors-edge-cases.md) |
-| NFR | דרישות לא-פונקציונליות | NFR-SEC-001 … NFR-SEC-010 | 36 | [06-non-functional.md](06-non-functional.md) |
+| NFR | דרישות לא-פונקציונליות | NFR-SEC-001 … NFR-SEC-010 | 37 | [06-non-functional.md](06-non-functional.md) |
 | UC | Use Cases | UC-01 … UC-42 | 42 | [14-use-cases.md](14-use-cases.md) |
 | PG | מסכים | PG-001 … PG-059 | 59 | [07-screens-navigation.md](07-screens-navigation.md) |
-| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-075 | 72 | [appendix-b-open-points.md](appendix-b-open-points.md) |
+| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-075 | 75 | [appendix-b-open-points.md](appendix-b-open-points.md) |
 | ALG | קטלוג האלגוריתמים | ALG-01 … ALG-09 | 9 | [18-algorithms-spec.md](18-algorithms-spec.md) |
 | P-ALG | עקרונות האלגוריתמים | P-ALG-01 … P-ALG-08 | 8 | [18-algorithms-spec.md](18-algorithms-spec.md) |

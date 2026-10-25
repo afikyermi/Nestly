@@ -1,8 +1,9 @@
-import postgres from 'postgres';
+import postgres, { type Sql } from 'postgres';
 import sharp from 'sharp';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { createDatabase, type Database } from '../../src/db/client.js';
+import { createBlockListDb, type BlockListDb } from '../../src/jobs/block-list-repository.js';
 import { processUpload } from '../../src/media/image-processing.js';
 import { AUDIENCE, COLD_START_MS, ISSUER, newKey, restoreEnv, startJwks, token, type App, type JwksServer, type TestKey } from '../helpers/identity-fixtures.js';
 import { fakeMediaStorage } from '../helpers/media-fakes.js';
@@ -77,6 +78,26 @@ async function jobSets(id: string, status: 'passed' | 'queued', reason: 'blocked
     await tx`reset role`;
     await tx`select tests.fx_media_jobs_off()`;
   });
+}
+
+/** The job's block-list steps, run by the job's own SQL (createBlockListDb) as app_media_jobs inside one committed transaction, on a reserved
+ *  connection of the side pool (the fixture lets app_server become the job only inside a transaction). */
+async function asJob(work: (blockList: BlockListDb, sql: Sql) => Promise<void>): Promise<void> {
+  const reserved = await side.reserve();
+  try {
+    await reserved`begin`;
+    await reserved`select tests.fx_media_jobs_on()`;
+    await reserved`set local role app_media_jobs`;
+    await work(createBlockListDb(reserved), reserved);
+    await reserved`reset role`;
+    await reserved`select tests.fx_media_jobs_off()`;
+    await reserved`commit`;
+  } catch (error) {
+    await reserved`rollback`;
+    throw error;
+  } finally {
+    reserved.release();
+  }
 }
 
 beforeAll(async () => {
@@ -307,5 +328,46 @@ describe('[Afik 20.10] the approval queue', () => {
     expect((await json(app, c.header, 'POST', '/api/reports', { targetKind: 'post', targetId: created.id, reason: 'spam' })).statusCode).toBeLessThan(300);
     expect((await handle('action_taken')).statusCode).toBe(200);
     expect((await json(app, admin, 'POST', `/api/admin/media/${media}/removal`, { suspected: false })).statusCode, 'a report handled with action taken').toBe(200);
+  });
+});
+
+describe('[F14.3-b AC-162 NFR-MEDIA-001 Afik 21.10] the upload block list, with the job\'s own SQL', () => {
+  it('[AC-162] a suspected image\'s hash is listed, a copy is held; "not abuse" takes the hash off the list and the job never puts it back', T, async () => {
+    const { app } = await start();
+    const a = await registered(app, 'Listed Source');
+    const b = await registered(app, 'Matched Upload');
+    const admin = await bearerFor(ADMIN);
+    // a random hash per run, and one two bits away (a re-encoded copy)
+    const hash = BigInt.asIntN(64, (BigInt(Math.floor(Math.random() * 2 ** 31)) << 32n) | BigInt(Math.floor(Math.random() * 2 ** 31)));
+    const near = (hash ^ 5n).toString();
+    const source = imageId((await upload(app, a.header, 'profile')).body);
+    await jobSets(source, 'queued');
+    expect((await json(app, admin, 'POST', `/api/admin/media/${source}/decision`, { decision: 'suspected', isChild: false })).statusCode).toBe(200);
+    await asJob(async (blockList) => {
+      await blockList.recordFingerprint(source, hash.toString());
+      expect((await blockList.suspectedToList(1000)).map((row) => row.id)).toContain(source);
+      expect(await blockList.addToList(source), 'the staff suspicion\'s hash joins the list').toBe(true);
+    });
+    const copy = imageId((await upload(app, b.header, 'profile')).body);
+    await asJob(async (blockList, tx) => {
+      await blockList.recordFingerprint(copy, near);
+      expect(await blockList.matchesBlockList(copy), 'within 6 bits').toBe(true);
+      // markMatch's two statements (it opens its own transaction on the job's connection)
+      await tx`insert into nestly.media_reviews (media_id, queue_reason, is_suspected) values (${copy}::uuid, 'hash_match', true)`;
+      await tx`update nestly.media_assets set status = 'rejected', is_held = true where id = ${copy}::uuid and status = 'pending'`;
+    });
+    const queue = z.object({ items: z.array(z.object({ id: z.guid(), queueReason: z.string() })) }).parse(JSON.parse((await json(app, admin, 'GET', '/api/admin/media-queue')).body));
+    expect(queue.items.find((item) => item.id === copy), 'the match is a staff queue item').toMatchObject({ queueReason: 'hash_match' });
+    expect((await json(app, b.header, 'POST', `/api/admin/media/${copy}/match`, { decision: 'not_abuse' })).statusCode, 'a user decides nothing').toBe(404);
+    expect((await json(app, admin, 'POST', `/api/admin/media/${copy}/match`, { decision: 'maybe' })).statusCode).toBe(400);
+    expect((await json(app, admin, 'POST', `/api/admin/media/${copy}/match`, { decision: 'not_abuse' })).statusCode).toBe(200);
+    expect((await json(app, admin, 'POST', `/api/admin/media/${copy}/match`, { decision: 'confirmed' })).statusCode, 'decided once').toBe(404);
+    const again = imageId((await upload(app, b.header, 'profile')).body);
+    await asJob(async (blockList) => {
+      expect((await blockList.suspectedToList(1000)).map((row) => row.id), 'the source stays suspected, but its hash is not listed again').not.toContain(source);
+      expect(await blockList.addToList(source)).toBe(false);
+      await blockList.recordFingerprint(again, near);
+      expect(await blockList.matchesBlockList(again), 'the same picture uploaded again is not blocked').toBe(false);
+    });
   });
 });

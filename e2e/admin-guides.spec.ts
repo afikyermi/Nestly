@@ -74,9 +74,11 @@ test.describe('I6 admin guides [FR-ADMIN-012 BR-070 AC-095]', () => {
     await expect(list.getByText('מדריך לבדיקה')).toBeVisible();
     expect(guides).toHaveLength(3);
 
-    // without a source check date a guide cannot be published
+    // FR-ADMIN-012 (Afik 21.10.2026): a guide without a source check date is published like any other (the confirmation opens)
     await list.getByRole('listitem').filter({ hasText: 'מדריך לבדיקה' }).getByRole('button', { name: 'פרסום', exact: true }).click();
-    await expect(m.getByText('כדי לפרסם יש להזין תאריך בדיקת מקורות.')).toBeVisible();
+    await expect(page.getByRole('alertdialog')).toBeVisible();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'ביטול', exact: true }).click();
+    await expect(page.getByRole('alertdialog')).toHaveCount(0);
 
     const second = list.getByRole('listitem').filter({ hasText: 'השליש השני' });
     await second.getByRole('button', { name: 'פרסום', exact: true }).click();

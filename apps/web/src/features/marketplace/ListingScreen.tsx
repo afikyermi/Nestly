@@ -1,3 +1,4 @@
+import { PublishedTime } from '@/components/domain/published-time';
 import { useCallback, useEffect, useId, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { CHAT_TEXT_MAX, codePointLength, type ListingPage } from '@nestly/shared';
@@ -202,7 +203,7 @@ export function ListingScreen({ listingId }: { listingId: string }) {
         </dd>
       </dl>
       <p className="text-small text-muted-foreground">
-        {expiresText(dateOf(page.expiresAt))} · {NO_PURCHASE_NOTE}
+        <PublishedTime iso={page.createdAt} /> · {expiresText(dateOf(page.expiresAt))} · {NO_PURCHASE_NOTE}
       </p>
       {error === '' ? null : <InlineAlert>{error}</InlineAlert>}
       {page.isMine ? (

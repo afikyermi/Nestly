@@ -121,6 +121,8 @@ async function stubTeam(page: Page): Promise<TeamNet> {
         title: field('title'),
         body: field('body'),
         status: 'draft',
+        audience: field('audience'),
+        audienceStage: field('audienceStage') === 'null' ? null : field('audienceStage'),
         createdAt: '2026-06-15T09:00:00.000Z',
         updatedAt: '2026-06-15T09:00:00.000Z',
         publishedAt: null,
@@ -247,18 +249,22 @@ test.describe('[I14] the Moderators team', () => {
     expect(net.sent.find((s) => s.path === '/api/admin/team/invitations')?.body).toEqual({ note: 'דנה כהן' });
   });
 
-  test('[I14 FR-ADMIN-008 AC-049] "הודעות מערכת": a draft is created and published', async ({ page }) => {
+  test('[I14 FR-ADMIN-008 AC-049 AC-163 VAL-050] "הודעות מערכת": a draft is created for one stage and published', async ({ page }) => {
     const net = await openAdmin(page, 'הודעות מערכת');
     await expect.poll(() => pathOf(page)).toBe('/admin/announcements');
     await page.getByRole('textbox', { name: 'כותרת' }).fill('תחזוקה מתוכננת');
     await page.getByRole('textbox', { name: 'תוכן ההודעה' }).fill('האתר ייסגר לשעה ביום שישי');
+    // I14 completion B (OP-042): the audience, one choice from the list; a stage names one of the journey stages
+    await page.getByRole('combobox', { name: 'למי ההודעה' }).selectOption('stage');
+    await page.getByRole('combobox', { name: 'השלב' }).selectOption('planning');
     await page.getByRole('button', { name: 'שמירה כטיוטה' }).click();
     const card = page.getByRole('article', { name: 'תחזוקה מתוכננת' });
     await expect(card).toContainText('טיוטה');
+    await expect(card).toContainText('קהל: מתכננים');
     await card.getByRole('button', { name: 'פרסום', exact: true }).click();
     await expect(card).toContainText('מפורסמת');
     expect(net.sent.filter((s) => s.method === 'POST').map((s) => s.body)).toEqual([
-      { title: 'תחזוקה מתוכננת', body: 'האתר ייסגר לשעה ביום שישי' },
+      { title: 'תחזוקה מתוכננת', body: 'האתר ייסגר לשעה ביום שישי', audience: 'stage', audienceStage: 'planning' },
       { status: 'published' },
     ]);
   });

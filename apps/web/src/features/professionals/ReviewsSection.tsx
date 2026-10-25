@@ -1,5 +1,6 @@
 import { useId, useRef, useState, type FormEvent } from 'react';
 import type { ProfessionalPage, ProfessionalReviewItem } from '@nestly/shared';
+import { PublishedTime } from '@/components/domain/published-time';
 import { StarRating } from '@/components/domain/star-rating';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { FormField } from '@/components/shared/form-field';
@@ -59,7 +60,7 @@ export interface ReviewsSectionProps {
 function ReviewTime({ review }: { review: ProfessionalReviewItem }) {
   return (
     <p className="mt-1 text-small text-muted-foreground">
-      <time dateTime={review.at}>{formatPostTime(review.at)}</time>
+      <PublishedTime iso={review.at} />
       {review.editedAt === null ? null : (
         <>
           {' · '}

@@ -173,7 +173,7 @@ export async function countOwnStoriesToday(tx: IdentityTx): Promise<number> {
 const queueRow = z.object({
   id: z.guid(),
   kind: z.enum(MEDIA_KINDS),
-  queueReason: z.enum(['blocked', 'unsure', 'error']),
+  queueReason: z.enum(['blocked', 'unsure', 'error', 'hash_match']),
   scores: z.record(z.string(), z.number()).nullable(),
   isChild: z.boolean(),
   createdAt: z.string(),
@@ -194,10 +194,22 @@ export async function readQueue(tx: IdentityTx, limit: number): Promise<QueueRow
     select m.id, m.kind, r.queue_reason as "queueReason", r.scores, r.is_child as "isChild", ${iso(sql.raw('m.created_at'))} as "createdAt",
            m.width, m.height
     from nestly.media_assets m join nestly.media_reviews r on r.media_id = m.id
-    where m.status = 'queued'
+    -- I14 completion B (Afik 21.10.2026): an upload that matched the block list is a queue item until staff decide the match (it stays
+    -- rejected and held for its uploader, M6)
+    where m.status = 'queued' or (m.status = 'rejected' and r.queue_reason = 'hash_match' and r.match_decision is null)
     order by m.created_at asc, m.id asc
     limit ${limit}`);
   return z.array(queueRow).parse(rows);
+}
+
+/** A staff decision on a block-list match, once (CONTENT_MODERATE; the database records who and when, audits it, and on not_abuse takes the
+ *  matched hashes off the list). False when nothing was decided (no undecided match, not permitted, or gone). */
+export async function decideMatch(tx: IdentityTx, id: string, decision: 'confirmed' | 'not_abuse'): Promise<boolean> {
+  const rows = await tx.execute(sql`
+    update nestly.media_reviews set match_decision = ${decision}
+    where media_id = ${id}::uuid and queue_reason = 'hash_match' and match_decision is null
+    returning media_id as id`);
+  return returnedId.parse(rows).length === 1;
 }
 
 const returnedId = z.array(z.object({ id: z.guid() }));

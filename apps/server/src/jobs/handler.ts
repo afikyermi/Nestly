@@ -11,6 +11,7 @@ import { createJobStorage } from '../media/storage-admin.js';
 import { readJobsConfig } from './config.js';
 import { runMediaJob } from './media-check.js';
 import { createJobDb } from './media-job-repository.js';
+import { createBlockListDb } from './block-list-repository.js';
 import { loadNudeNet } from './nudenet.js';
 
 /** The function's own limit is 60 s (vercel.json); the run leaves room to close. */
@@ -43,7 +44,7 @@ export async function handleJobRequest(req: IncomingMessage, res: ServerResponse
   }
   const sql = postgres(config.databaseUrl, { max: 1, prepare: false, onnotice: () => undefined });
   try {
-    const report = await runMediaJob({ db: createJobDb(sql), storage, model: loadNudeNet, config, timeLeft: () => BUDGET_MS - (Date.now() - started), full: req.method === 'GET' });
+    const report = await runMediaJob({ db: createJobDb(sql), blockList: createBlockListDb(sql), storage, model: loadNudeNet, config, timeLeft: () => BUDGET_MS - (Date.now() - started), full: req.method === 'GET' });
     send(res, 200, report);
   } catch (error) {
     monitor.capture(error, { route: '/api/jobs/media-check', method: req.method ?? 'unknown', status: 500, surface: 'jobs' });

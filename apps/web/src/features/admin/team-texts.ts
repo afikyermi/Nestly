@@ -180,3 +180,14 @@ export const ANALYTICS_NONE = '—';
 
 // ---- the staff inbox (AC-044)
 export const INBOX_BADGE = (count: number) => `${count} ממתינים`;
+
+// I14 completion B (FR-ADMIN-008, OP-042, Afik 21.10.2026): an announcement's audience
+export const AUDIENCE_LABEL = 'למי ההודעה';
+export const AUDIENCE_STAGE_LABEL = 'השלב';
+export const AUDIENCE_LABELS: Record<'everyone' | 'parents' | 'professionals' | 'stage', string> = {
+  everyone: 'לכולם',
+  parents: 'להורים',
+  professionals: 'לבעלי מקצוע',
+  stage: 'לשלב מסוים',
+};
+export const audienceText = (label: string) => `קהל: ${label}`;

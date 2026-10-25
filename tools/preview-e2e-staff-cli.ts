@@ -54,8 +54,9 @@ async function main(): Promise<void> {
           values (${randomUUID()}, ${id}, ${id}, ${sql.json({ sub: id, email: user.email, email_verified: true, phone_verified: false })}, 'email', now(), now())`;
         step = 'account and keys';
         await tx`insert into nestly.users (id, account_type, status) values (${id}, 'moderator', 'active')`;
+        // CONTENT_MODERATE (Afik 23.10: the promotion stop) and REPORTS_VIEW (staff-rules.flow: the report queue and a justified decision)
         await tx`insert into nestly.moderator_permissions (user_id, permission_key, granted_by)
-          values (${id}, 'CONTENT_MODERATE', ${id})`;
+          values (${id}, 'CONTENT_MODERATE', ${id}), (${id}, 'REPORTS_VIEW', ${id})`;
       }
     });
     step = 'staff file';

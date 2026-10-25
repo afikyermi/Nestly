@@ -316,3 +316,37 @@ describe('[Afik 20.10] a rejected image\'s file and the retention', () => {
     }
   });
 });
+
+describe('[F14.3-b AC-162 NFR-MEDIA-001 Afik 21.10] the upload block list in the job', () => {
+  it('a pending upload whose hash matches the list is rejected and held as a suspicion, never scored; a staff-marked suspicion joins the list', async () => {
+    const png = await sharp({ create: { width: 40, height: 30, channels: 3, background: { r: 200, g: 120, b: 40 } } }).png().toBuffer();
+    const { db, calls } = fakeDb({ pending: () => Promise.resolve([{ id: ID(1), attempts: 0 }, { id: ID(2), attempts: 0 }]) });
+    const events: string[] = [];
+    const blockList = {
+      recordFingerprint: (id: string, fingerprint: string) => {
+        events.push(`hash:${id}:${/^-?\d+$/.test(fingerprint) ? 'ok' : 'bad'}`);
+        return Promise.resolve();
+      },
+      matchesBlockList: (id: string) => Promise.resolve(id === ID(1)),
+      markMatch: (id: string) => {
+        events.push(`match:${id}`);
+        return Promise.resolve();
+      },
+      suspectedToList: () => Promise.resolve([{ id: ID(7), fingerprint: null }]),
+      addToList: (id: string) => {
+        events.push(`listed:${id}`);
+        return Promise.resolve(true);
+      },
+    };
+    let scored = 0;
+    const store = fakeJobStorage({ readImage: () => Promise.resolve(new Uint8Array(png)) });
+    const report = await runMediaJob({
+      ...deps(db, store.storage, () => Promise.resolve({ score: () => ((scored += 1), Promise.resolve({ FACE_FEMALE: 0.9 })) })),
+      blockList,
+    });
+    expect(report).toMatchObject({ checked: 2, passed: 1, blocked: 1, listed: 1 });
+    expect(scored, 'the match is never scored').toBe(1);
+    expect(events).toEqual([`hash:${ID(1)}:ok`, `match:${ID(1)}`, `hash:${ID(2)}:ok`, `hash:${ID(7)}:ok`, `listed:${ID(7)}`]);
+    expect(calls[0]).toBe(`passed:${ID(2)}`);
+  });
+});

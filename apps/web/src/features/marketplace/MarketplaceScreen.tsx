@@ -1,3 +1,4 @@
+import { formatRelativeTime } from '@/lib/format-relative-time';
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import {
@@ -268,7 +269,7 @@ export function MarketplaceScreen() {
                   image={listing.image}
                   imageAlt={imageAltOf(listing.title, 0, 1)}
                   price={priceText(listing.price)}
-                  meta={[conditionText(listing.condition), cityText(listing.city), sellerText(listing.sellerName)].join(' · ')}
+                  meta={[conditionText(listing.condition), cityText(listing.city), sellerText(listing.sellerName), formatRelativeTime(listing.createdAt)].join(' · ')}
                 />
               </li>
             ))}

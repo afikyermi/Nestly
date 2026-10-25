@@ -11,7 +11,7 @@ describe('[F3.7 c3][FR-MOD-001] checkCreateReport', () => {
       'child_safety', 'harassment', 'sexual_violent_hateful', 'personal_information', 'medical_misinformation', 'impersonation', 'spam', 'other',
     ]);
     expect([...REPORT_TARGET_KINDS]).toEqual(['post', 'comment', 'user', 'message', 'listing', 'review', 'article']);
-    expect(REPORT_DETAILS_MAX).toBe(1000);
+    expect(REPORT_DETAILS_MAX, 'VAL-048, Afik 21.10.2026 §11.9').toBe(500);
   });
 
   it('[c3] every reason and every target kind passes; details are optional', () => {
@@ -37,12 +37,12 @@ describe('[F3.7 c3][FR-MOD-001] checkCreateReport', () => {
     for (const details of ['', '   ', '\n\t ']) expect(checkCreateReport(ok({ details })), JSON.stringify(details)).toEqual({ ok: true, value: { targetKind: 'post', targetId: ID, reason: 'spam', details: null } });
   });
 
-  it('[c3] 1,000 code points pass and 1,001 are invalid, counting an emoji as one point and measuring after the trim', () => {
+  it('[c3 VAL-048 §11.9] 500 code points pass and 501 are invalid, counting an emoji as one point and measuring after the trim', () => {
     for (const unit of ['a', 'א', '😀']) {
-      expect(checkCreateReport(ok({ details: unit.repeat(1000) })).ok, `${unit} x1000`).toBe(true);
-      expect(checkCreateReport(ok({ details: unit.repeat(1001) })).ok, `${unit} x1001`).toBe(false);
+      expect(checkCreateReport(ok({ details: unit.repeat(500) })).ok, `${unit} x500`).toBe(true);
+      expect(checkCreateReport(ok({ details: unit.repeat(501) })).ok, `${unit} x501`).toBe(false);
     }
-    expect(checkCreateReport(ok({ details: `  ${'a'.repeat(1000)}  ` })).ok).toBe(true);
+    expect(checkCreateReport(ok({ details: `  ${'a'.repeat(500)}  ` })).ok).toBe(true);
   });
 
   it('[c3] a NUL in the details is invalid (also inside, also after other text); a wrong type is invalid', () => {

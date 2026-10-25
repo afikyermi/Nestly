@@ -1,12 +1,12 @@
 import { GuardedImage } from './GuardedImage';
 import { useCallback, useEffect, useState } from 'react';
-import { MEDIA_QUEUE_PAGE, type MediaDecision, type MediaQueueItem } from '@nestly/shared';
+import { MEDIA_QUEUE_PAGE, type MatchDecision, type MediaDecision, type MediaQueueItem } from '@nestly/shared';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAdminCall } from '@/hooks/use-admin-call';
-import { decideMedia, fetchMediaQueue } from '@/services/api/admin';
+import { decideMedia, decideMediaMatch, fetchMediaQueue } from '@/services/api/admin';
 import { formatAdminTime } from './admin-format';
 import {
   FORBIDDEN_TEXT,
@@ -25,6 +25,9 @@ import {
   MEDIA_REASON_LABELS,
   MEDIA_REJECT_LABEL,
   MEDIA_SUSPECT_HINT,
+  MATCH_CONFIRM_LABEL,
+  MATCH_HINT,
+  MATCH_NOT_ABUSE_LABEL,
   MEDIA_SUSPECT_LABEL,
   mediaScoreText,
   RETRY_LABEL,
@@ -107,6 +110,18 @@ function QueueCard({ item, onDone }: { item: MediaQueueItem; onDone: (id: string
   const [error, setError] = useState('');
   const headingId = `media-${item.id}`;
 
+  const isMatch = item.queueReason === 'hash_match';
+  const [matchBusy, setMatchBusy] = useState<MatchDecision | null>(null);
+  const decideMatch = async (decision: MatchDecision) => {
+    setMatchBusy(decision);
+    setError('');
+    const outcome = await call((token) => decideMediaMatch(token, item.id, decision));
+    setMatchBusy(null);
+    if (outcome.kind === 'ok') onDone(item.id, MEDIA_DECIDED_TEXT);
+    else if (outcome.kind === 'not-found') onDone(item.id, MEDIA_GONE_TEXT);
+    else setError(outcome.kind === 'forbidden' ? FORBIDDEN_TEXT : LOAD_FAILED_TEXT);
+  };
+
   const decide = async (decision: MediaDecision) => {
     setBusy(decision);
     setError('');
@@ -133,6 +148,23 @@ function QueueCard({ item, onDone }: { item: MediaQueueItem; onDone: (id: string
         {item.topScore === null ? null : <span dir="auto">{mediaScoreText(item.topScore)} · </span>}
         <time dateTime={item.createdAt}>{formatAdminTime(item.createdAt)}</time>
       </p>
+      {isMatch ? (
+        <>
+          {error === '' ? null : <InlineAlert>{error}</InlineAlert>}
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => void decideMatch('confirmed')} pending={matchBusy === 'confirmed'} disabled={matchBusy !== null} aria-describedby={`${headingId}-match`}>
+              {MATCH_CONFIRM_LABEL}
+            </Button>
+            <Button variant="soft" onClick={() => void decideMatch('not_abuse')} pending={matchBusy === 'not_abuse'} disabled={matchBusy !== null} aria-describedby={`${headingId}-match`}>
+              {MATCH_NOT_ABUSE_LABEL}
+            </Button>
+          </div>
+          <p id={`${headingId}-match`} className="text-small text-muted-foreground">
+            {MATCH_HINT}
+          </p>
+        </>
+      ) : (
+        <>
       <Checkbox checked={isChild} onCheckedChange={setIsChild} disabled={busy !== null}>
         {MEDIA_CHILD_LABEL}
       </Checkbox>
@@ -151,6 +183,8 @@ function QueueCard({ item, onDone }: { item: MediaQueueItem; onDone: (id: string
       <p id={`${headingId}-hint`} className="text-small text-muted-foreground">
         {MEDIA_SUSPECT_HINT}
       </p>
+        </>
+      )}
     </li>
   );
 }

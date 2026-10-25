@@ -18,12 +18,16 @@ export interface Net {
   /** The staff role /api/admin/access reports (an Admin also sees the Admin-only tabs). */
   role: 'admin' | 'moderator';
   permissions: readonly string[];
-  queue: Array<{ targetKind: 'post' | 'comment' | 'user'; targetId: string; reportCount: number; priority: number; topReasonLabel: string; isRising: boolean; firstReportedAt: string }>;
+  queue: Array<{ targetKind: 'post' | 'comment' | 'user'; targetId: string; reportCount: number; priority: number; topReasonLabel: string; isRising: boolean; firstReportedAt: string; autoHidden?: boolean; autoHiddenReasonLabel?: string; autoHiddenReporters?: number }>;
   userStatus: 'active' | 'suspended' | 'banned';
   history: Array<{ kind: string; reason: string; createdAt: string; stepSkipped: boolean }>;
   auditPages: number;
   /** I5: the image approval queue's items (ids). */
   mediaQueue: string[];
+  /** I14 completion B: uploads that matched the block list (queue items until staff decide the match). */
+  mediaMatches: string[];
+  /** I14 completion B: the account's content deleted by justified reports. */
+  contentDecisions: Array<{ targetKind: string; rule: string; ruleLabel: string; excerpt: string; decidedAt: string }>;
   sent: Sent[];
 }
 
@@ -45,6 +49,8 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
     history: [],
     auditPages: 2,
     mediaQueue: [ID(70), ID(71)],
+    mediaMatches: [],
+    contentDecisions: [],
     sent: [],
     ...start,
   };
@@ -97,13 +103,15 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
       }
       if (path.startsWith('/api/admin/media/')) {
         net.mediaQueue = net.mediaQueue.filter((id) => !path.includes(id));
+        net.mediaMatches = net.mediaMatches.filter((id) => !path.includes(id));
         return json(route, 200, {});
       }
       return json(route, 200, {});
     }
     if (path === '/api/admin/media-queue') {
       return json(route, 200, {
-        items: net.mediaQueue.map((id, index) => ({
+        items: [
+          ...net.mediaQueue.map((id, index) => ({
           id,
           kind: index === 0 ? 'post' : 'profile',
           queueReason: index === 0 ? 'blocked' : 'unsure',
@@ -114,7 +122,9 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
           url: null,
           width: 800,
           height: 600,
-        })),
+          })),
+          ...net.mediaMatches.map((id) => ({ id, kind: 'post', queueReason: 'hash_match', topLabel: null, topScore: null, isChild: false, createdAt: '2026-06-14T10:00:00.000Z', url: null, width: 800, height: 600 })),
+        ],
       });
     }
     if (path === '/api/admin/access') return json(route, 200, net.staff ? { staff: true, role: net.role, permissions: net.permissions } : { staff: false });
@@ -133,7 +143,7 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
     if (path === '/api/admin/overview') {
       return json(route, 200, {
         childSafetyOpen: net.queue.filter((q) => q.priority === 1).length,
-        attention: { openReports: net.queue.length, pastTargetReports: 1, escalatedReports: 1, queuedImages: net.mediaQueue.length, openSupport: 0, openInvitations: 1, expiringInvitations: 0, guidesToRecheck: 9, reportSpike: { lastDay: 6, dailyAverage: 1, isSpike: true } },
+        attention: { openReports: net.queue.length, pastTargetReports: 1, escalatedReports: 1, queuedImages: net.mediaQueue.length, openSupport: 0, openInvitations: 1, draftGuides: 9, reportSpike: { lastDay: 6, dailyAverage: 1, isSpike: true } },
         metrics: ['registrations', 'posts', 'comments', 'reports', 'enforcements', 'support'].map((key, index) => ({ key, current: 10 + index, previous: 5 })),
         team: [{ userId: ID(70), label: 'נועה לוי', status: 'active', keyCount: 3, lastActionAt: '2026-06-14T09:00:00.000Z', actionsThisWeek: 4 }],
       });
@@ -143,9 +153,9 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
         metric: url.searchParams.get('metric'),
         field: url.searchParams.get('field'),
         dimension: 'child_sex',
-        days: 90,
+        period: url.searchParams.get('period'),
         cells: [
-          { bucket: 'girl', order: 1, children: 12, value: 125, suppressed: false },
+          { bucket: 'girl', order: 1, children: 10, value: 125, suppressed: false },
           { bucket: 'boy', order: 2, children: null, value: null, suppressed: true },
           { bucket: 'unknown', order: 3, children: null, value: null, suppressed: true },
         ],
@@ -172,8 +182,10 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
             : []),
         ],
         user: { userId: USER_RINA, accountType: 'regular', status: net.userStatus, suspendedUntil: null, fullName: 'רינה כהן', history: net.history, suggestion: { kind: 'warning', hours: null } },
-        // I14 completion: the context, the author card and the handling status
-        context: { post: null, comments: [{ id: ID(80), parentId: null, text: 'תגובה בשרשור', status: 'active', isAnonymous: false, createdAt: '2026-06-13T10:00:00.000Z', isReported: false }] },
+        // I14 completion: the context (a post's thread; a reported comment opens alone, completion B), the author card and the handling status
+        ...(kind === 'post'
+          ? { context: { post: null, comments: [{ id: ID(80), parentId: null, text: 'תגובה בשרשור', status: 'active', isAnonymous: false, createdAt: '2026-06-13T10:00:00.000Z', isReported: false }] } }
+          : {}),
         authorCard: { accountAgeDays: 400, enforcementsLastYear: 1 },
         handling: { openings: [{ label: null, isMe: true, at: '2026-06-15T08:00:00.000Z' }], escalation: null },
       });
@@ -195,7 +207,7 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
     }
     if (path === '/api/admin/users') return json(route, 200, { users: [{ userId: USER_RINA, accountType: 'regular', status: net.userStatus, fullName: 'רינה כהן' }] });
     if (path.startsWith('/api/admin/users/')) {
-      return json(route, 200, { userId: USER_RINA, accountType: 'regular', status: net.userStatus, suspendedUntil: null, fullName: 'רינה כהן', history: net.history, suggestion: { kind: 'warning', hours: null } });
+      return json(route, 200, { userId: USER_RINA, accountType: 'regular', status: net.userStatus, suspendedUntil: null, fullName: 'רינה כהן', history: net.history, contentDecisions: net.contentDecisions, suggestion: { kind: 'warning', hours: null } });
     }
     return json(route, 404, { error: 'not_found' });
   });

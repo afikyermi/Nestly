@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import type { NotificationItem } from "@nestly/shared";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/cn";
-import { formatPostTime } from "@/lib/format-post-time";
+import { PublishedTime } from "@/components/domain/published-time";
 import { hrefOf, sentenceOf, UNREAD_MARK } from "./notification-texts";
 
 export interface NotificationListProps {
@@ -40,12 +40,7 @@ export function NotificationList({
               >
                 {sentenceOf(item)}
               </span>
-              <time
-                dateTime={item.createdAt}
-                className="text-caption text-muted-foreground"
-              >
-                {formatPostTime(item.createdAt)}
-              </time>
+              <PublishedTime iso={item.createdAt} className="text-caption text-muted-foreground" />
             </span>
             {item.isRead ? null : (
               <>
