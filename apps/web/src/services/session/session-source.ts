@@ -9,7 +9,7 @@ export const SESSION_STATES = ['loading', 'signed-in', 'signed-out', 'signed-in-
 export type SessionState = (typeof SESSION_STATES)[number];
 
 /** Why a session ended without the user asking (F1.5): the login screen says so. Memory only; cleared by the next sign-in. */
-export type SessionNotice = 'expired' | 'stopped';
+export type SessionNotice = 'expired' | 'stopped' | 'deleted';
 
 export interface SessionSource {
   /** The current state. */
@@ -20,6 +20,8 @@ export interface SessionSource {
   getNeedsRecoveryQuestions?(): boolean;
   /** True while the signed-in session must set a new password after a takeover clear (F2.0 c7, c14). A source that cannot tell leaves this out. */
   getMustSetPassword?(): boolean;
+  /** True while the signed-in account is scheduled for deletion (FR-SET-002, PG-050). A source that cannot tell leaves this out. */
+  getDeletionScheduled?(): boolean;
   /** Calls `listener` after every change of state. Returns the function that stops it. */
   subscribe(listener: () => void): () => void;
   /** Ends the session. The source then reports `signed-out`. */
@@ -37,6 +39,7 @@ export type SignInResult =
   | { kind: 'signed-in' }
   | { kind: 'unregistered' } // signed in, no account yet: the state is `signed-in-no-account`
   | { kind: 'stopped' } // the account is suspended or banned; the session is already ended
+  | { kind: 'deleted' } // the account was deleted (BR-073); the session is already ended
   | { kind: 'failed'; problem: SignInProblem };
 
 /** What the login and completion screens call. A source that can sign in with a password implements it. */
@@ -64,7 +67,15 @@ export interface SessionAccount {
    * session ends here too (no session notice: the screen passes its own to the login screen in router state).
    */
   endAfterPasswordChange(): Promise<void>;
+  /**
+   * VAL-052: checks the password with Auth as a separate sign-in, leaving this session alone; the token proves the fresh check to the
+   * server, `release` ends that extra sign-in. A source that cannot leaves this out.
+   */
+  checkPassword?(password: string): Promise<PasswordCheck>;
 }
+
+/** The answer of SessionAccount.checkPassword: a token for one request, or why not (keys only, no text). */
+export type PasswordCheck = { kind: 'ok'; accessToken: string; release: () => Promise<void> } | { kind: 'failed'; problem: SignInProblem };
 
 export const isSessionAccount = (source: SessionSource): source is SessionSource & SessionAccount =>
   'signInWithPassword' in source && typeof source.signInWithPassword === 'function';
@@ -81,6 +92,8 @@ export interface SessionStore {
   getNeedsRecoveryQuestions: () => boolean;
   /** True while a signed-in session must set a new password (F2.0 c14); false otherwise, and when the source cannot say. */
   getMustSetPassword: () => boolean;
+  /** True while a signed-in account is scheduled for deletion (PG-050); false otherwise, and when the source cannot say. */
+  getDeletionScheduled: () => boolean;
   subscribe: (listener: () => void) => () => void;
   /** Ends the session. Never rejects: a failed sign-out leaves the store `signed-out`. */
   signOut: () => Promise<void>;
@@ -167,6 +180,17 @@ export function createSessionStore(source: SessionSource, { onError = reportToCo
     }
   };
 
+  const getDeletionScheduled = (): boolean => {
+    if (failed) return false;
+    try {
+      return source.getDeletionScheduled?.() ?? false;
+    } catch (error) {
+      onError(error);
+      failed = true;
+      return false;
+    }
+  };
+
   const subscribe = (listener: () => void) => {
     listeners.add(listener);
     if (stopSource === null && !failed) {
@@ -206,5 +230,5 @@ export function createSessionStore(source: SessionSource, { onError = reportToCo
     return pendingSignOut;
   };
 
-  return { getState, getNotice, getNeedsRecoveryQuestions, getMustSetPassword, subscribe, signOut };
+  return { getState, getNotice, getNeedsRecoveryQuestions, getMustSetPassword, getDeletionScheduled, subscribe, signOut };
 }

@@ -1,6 +1,7 @@
 // The account state GET /api/me reports (I1 F1.5 part a; FR-AUTH-002, BR-024). The caller is already authenticated. The
 // state is read in a new identity transaction on every call, so a status change is seen by the next request. The words
-// suspended and banned never leave this layer: both are `unavailable`. For an active account the same transaction also says
+// suspended and banned never leave this layer: both are `unavailable`. A scheduled deletion is its own state (PG-050), and so is an
+// executed one whose Auth user still exists (I9). For an active account the same transaction also says
 // whether recovery answers are saved (F1.6, criterion 6): `set` or `missing`, and whether the session guard holds the caller to
 // a new password after a takeover clear (F2.0 c7): `mustSetPassword`.
 //
@@ -15,12 +16,17 @@ import type { Identity } from '../lib/token-verifier.js';
 import { emailHandle, ipHash } from '../recovery/hashing.js';
 import type { RecoveryKeys } from '../recovery/pepper.js';
 import { liftOwnExpiredSuspension, readOwnStatuses } from '../repositories/account-state-repository.js';
+import { hasOwnExecutedDeletion } from '../repositories/account-deletion-repository.js';
 import { readOwnClaim, type OwnClaim } from '../repositories/recovery-repository.js';
 import { needsRekey, rekeyOwnHandle } from './recovery-questions-service.js';
 
 export type AccountState =
   | { readonly state: 'active'; readonly recoveryQuestions: 'set' | 'missing'; readonly mustSetPassword: boolean }
   | { readonly state: 'unavailable' }
+  /** FR-SET-002, PG-050: the account is in its 30-day window; the web holds the session on PG-050 until it cancels or signs out. */
+  | { readonly state: 'deletion_scheduled' }
+  /** The account was deleted (BR-073) while its Auth user still exists: the web says so and signs out, never offers registration. */
+  | { readonly state: 'deleted' }
   | { readonly state: 'unregistered' };
 
 /** Several own rows cannot happen with the primary key and the policy; seeing them means the policy is wrong. */
@@ -51,7 +57,8 @@ export async function readAccountState(database: Database, identity: Identity, r
   const { account, own } = await inIdentityTransaction(database, identity, async (tx, guard): Promise<StateRead> => {
     const [status, ...others] = await readOwnStatuses(tx);
     if (others.length > 0) throw new AccountStateFault();
-    if (status === undefined) return { account: { state: 'unregistered' }, own: undefined };
+    if (status === undefined) return { account: { state: (await hasOwnExecutedDeletion(tx)) ? 'deleted' : 'unregistered' }, own: undefined };
+    if (status === 'deletion_scheduled') return { account: { state: 'deletion_scheduled' }, own: undefined };
     // Fail closed: only the exact word `active` opens the account. A suspension whose end time has passed ends here (FR-MOD-002).
     if (status !== 'active' && !(status === 'suspended' && (await liftOwnExpiredSuspension(tx)))) return { account: { state: 'unavailable' }, own: undefined };
     const claim = await readOwnClaim(tx);

@@ -191,7 +191,7 @@ export const SEARCH_BUTTON_LABEL = 'חיפוש';
 export const USERS_EMPTY_TEXT = 'לא נמצאו משתמשים';
 export const USERS_HINT = 'כותבים חלק מהשם. משתמשים מקצועיים מופיעים בלי שם';
 export const ACCOUNT_TYPE_LABELS = { regular: 'הורה', professional: 'בעל מקצוע', admin: 'מנהל', moderator: 'מודרטור' } as const;
-export const STATUS_LABELS = { active: 'פעיל', suspended: 'מושעה', banned: 'חסום' } as const;
+export const STATUS_LABELS = { active: 'פעיל', suspended: 'מושעה', banned: 'חסום', deletion_scheduled: 'ממתין למחיקה' } as const;
 export const NO_NAME_TEXT = 'ללא שם';
 export const OPEN_USER_LABEL = 'פתיחה';
 /** Read after the visible label by screen readers only: whose account the button opens. */

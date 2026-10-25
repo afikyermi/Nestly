@@ -5,12 +5,19 @@ export type AccountStateOutcome =
   | 'active-missing' // active, and the recovery questions are not saved yet (F1.6)
   | 'active-must-set-password' // active, and this session must set a new password after a takeover clear (F2.0 c7)
   | 'unavailable' // a stopped account (suspended or banned)
+  | 'deletion-scheduled' // the account asked to be deleted and is in its 30-day window (FR-SET-002): held on PG-050
+  | 'deleted' // the account was deleted (BR-073); its sign-in still works until the Auth user is removed
   | 'unregistered' // an Auth user with no account yet
   | 'unauthenticated' // 401: the server does not accept the token
   | 'unreachable' // 503, or the call did not reach the server
   | 'failed'; // anything else, including an answer that cannot be read
 
 const STATES: ReadonlyArray<'active' | 'unavailable' | 'unregistered'> = ['active', 'unavailable', 'unregistered'];
+// I9: the two deletion states, by the server's word.
+const DELETION_STATES = new Map<unknown, AccountStateOutcome>([
+  ['deletion_scheduled', 'deletion-scheduled'],
+  ['deleted', 'deleted'],
+]);
 
 export async function fetchAccountState(accessToken: string): Promise<AccountStateOutcome> {
   let response: Response;
@@ -29,6 +36,8 @@ export async function fetchAccountState(accessToken: string): Promise<AccountSta
     return 'failed';
   }
   const state: unknown = typeof body === 'object' && body !== null ? Reflect.get(body, 'state') : undefined;
+  const deletion = DELETION_STATES.get(state);
+  if (deletion !== undefined) return deletion;
   const known = STATES.find((candidate) => candidate === state) ?? 'failed';
   if (known !== 'active') return known;
   // F2.0 c7: only an exact `true` holds the session on the new-password screen; it comes before the questions hold (c14).

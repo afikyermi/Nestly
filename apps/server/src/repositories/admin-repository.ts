@@ -4,6 +4,7 @@
 // below names the row, a key and never a filter for permission. `nestly.audit_reason` (rule 18) carries the Actor's reason to the trigger.
 
 import {
+  ACCOUNT_STATUSES,
   PERMISSION_KEYS,
   REPORT_TARGET_KINDS,
   REPORT_RESOLUTIONS,
@@ -210,7 +211,7 @@ export async function readTargetUser(tx: IdentityTx, userId: string): Promise<Ta
     .array(
       z.object({
         accountType: z.enum(['regular', 'professional', 'admin', 'moderator']),
-        status: z.enum(['active', 'suspended', 'banned']),
+        status: z.enum(ACCOUNT_STATUSES),
         suspendedUntil: z.string().nullable(),
         fullName: z.string().nullable(),
       }),
@@ -246,7 +247,7 @@ export async function readUsers(tx: IdentityTx, search: string): Promise<UserLis
       z.object({
         userId: z.guid(),
         accountType: z.enum(['regular', 'professional', 'admin', 'moderator']),
-        status: z.enum(['active', 'suspended', 'banned']),
+        status: z.enum(ACCOUNT_STATUSES),
         fullName: z.string().nullable(),
       }),
     )

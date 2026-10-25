@@ -173,7 +173,8 @@ export const analyticsBody = z.object({
   days: z.union([z.literal(7), z.literal(30), z.literal(90)]),
   accounts: z.object({
     byType: z.object({ regular: z.number().int(), professional: z.number().int(), moderator: z.number().int(), admin: z.number().int() }),
-    byStatus: z.object({ active: z.number().int(), suspended: z.number().int(), banned: z.number().int() }),
+    /** I9: accounts in their 30-day deletion window (FR-SET-002); 0 from an answer that predates it. */
+    byStatus: z.object({ active: z.number().int(), suspended: z.number().int(), banned: z.number().int(), deletionScheduled: z.number().int().default(0) }),
     registrations: z.array(z.object({ day: z.string(), regular: z.number().int(), professional: z.number().int() })),
   }),
   content: z.object({

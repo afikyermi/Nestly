@@ -29,6 +29,8 @@ declare module 'fastify' {
      */
     verifiedEmail: string | null;
     verifiedIssuedAt: number | null;
+    /** When the verified session last proved the password (`amr`), or null. Read by the account deletion request only (VAL-052). */
+    verifiedPasswordAt: number | null;
     /**
      * The verified bearer token itself, or null (public route). Only for the Auth calls made with the caller's own token
      * (F2.0: the S-01 identity read). Never logged, stored or returned.
@@ -89,6 +91,7 @@ export function registerAuthentication(app: FastifyInstance, deps: Authenticatio
   app.decorateRequest('identity', null);
   app.decorateRequest('verifiedEmail', null);
   app.decorateRequest('verifiedIssuedAt', null);
+  app.decorateRequest('verifiedPasswordAt', null);
   app.decorateRequest('accessToken', null);
   app.decorateRequest('inIdentityTransaction', function <T>(
     this: FastifyRequest,
@@ -113,6 +116,7 @@ export function registerAuthentication(app: FastifyInstance, deps: Authenticatio
       request.identity = verified.identity;
       request.verifiedEmail = verified.email ?? null;
       request.verifiedIssuedAt = verified.issuedAt ?? null;
+      request.verifiedPasswordAt = verified.passwordAt ?? null;
       request.accessToken = token;
     } catch (error) {
       // Never log the error object: its cause is the library's error, which can carry the decoded claims.

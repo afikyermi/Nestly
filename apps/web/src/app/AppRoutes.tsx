@@ -3,6 +3,8 @@ import { AdminAnalyticsPage, AdminAnnouncementsPage, AdminChildDataPage, AdminMa
 import { JoinTeamPage } from '@/pages/join-team/JoinTeamPage';
 import { AdminIndex, AdminLayout } from '@/pages/admin/AdminLayout';
 import { ChangePasswordPage } from '@/pages/change-password/ChangePasswordPage';
+import { DeleteAccountPage } from '@/pages/delete-account/DeleteAccountPage';
+import { ScheduledDeletionPage } from '@/pages/scheduled-deletion/ScheduledDeletionPage';
 import { ChatPage } from '@/pages/chat/ChatPage';
 import { ConversationPage } from '@/pages/chat/ConversationPage';
 import { AdminGuidesPage } from '@/pages/admin-guides/AdminGuidesPage';
@@ -60,6 +62,7 @@ export function AppRoutes() {
           <Route path={PATHS.terms} element={<GuestPlaceholderPage title="תנאי השימוש" />} />
           <Route path={PATHS.privacy} element={<PrivacyPage />} />
           <Route path={PATHS.joinTeam} element={<JoinTeamPage />} />
+          <Route path={PATHS.deletionScheduled} element={<ScheduledDeletionPage />} />
           <Route element={<ProtectedLayout />}>
             <Route path={PATHS.home} element={<HomePage />} />
             <Route path={PATHS.tracker} element={<TrackerPage />} />
@@ -76,6 +79,7 @@ export function AppRoutes() {
             <Route path={PATHS.userProfile} element={<UserProfilePage />} />
             <Route path={PATHS.recoveryQuestions} element={<RecoveryQuestionsPage />} />
             <Route path={PATHS.changePassword} element={<ChangePasswordPage />} />
+            <Route path={PATHS.deleteAccount} element={<DeleteAccountPage />} />
             <Route path={PATHS.medicalHotlines} element={<MedicalHotlinesPage />} />
             <Route path={PATHS.communityRules} element={<CommunityRulesPage />} />
             <Route path={PATHS.setNewPassword} element={<SetNewPasswordPage />} />
