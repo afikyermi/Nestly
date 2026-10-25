@@ -12,6 +12,7 @@ import type { BrowserContext, Page } from '@playwright/test';
 import { createBypassRouteHandler } from './support/bypass.ts';
 import { expect, test } from './support/fixtures.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
+import { createAccount, timedResponse } from './support/timed-steps.ts';
 
 const main = (page: Page) => page.getByRole('main');
 const newUser = (): TestUser => generateTestUser(process.env['GITHUB_RUN_ID'] ?? '', process.env['GITHUB_RUN_ATTEMPT'] ?? '');
@@ -35,8 +36,8 @@ async function signUp(page: Page, fullName: string): Promise<string> {
   await box.focus();
   await page.keyboard.press('Space');
   await expect(box).toBeChecked();
-  await page.getByRole('button', { name: 'יצירת חשבון', exact: true }).click();
-  await expect(page).toHaveURL(/\/recovery-questions$/, { timeout: 30_000 });
+  await createAccount(page); // both sign-up calls, up to 30 s each, as every other flow's sign-up
+  await expect(page).toHaveURL(/\/recovery-questions$/);
   await page.getByLabel(/חיית המחמד/).fill(u.answers.pet);
   await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);
   const bell = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/notifications' && r.request().method() === 'GET');
@@ -195,7 +196,15 @@ test('[FR-GRP-001 FR-GRP-002 FR-GRP-003 FR-ALG-010 AC-038 AC-066 AC-164 AC-167 A
     expect([sent.status, field(sent.body, 'status')]).toEqual([200, 'awaiting_approval']);
     expect(list((await api(cPage, cAuth, '/api/group-invitations')).body, 'invitations').some((i) => field(field(i, 'group'), 'id') === privId)).toBe(false);
     await page.goto(`/groups/${privId}`);
-    await main(page).getByRole('tab', { name: 'ניהול' }).click();
+    // the management tab loads its lists on opening; a slow Preview took over 10 s to answer them (run 40221217817), so the queue is
+    // asserted after its own answer (up to 30 s, logged), not on a fixed wait
+    const awaitingPath = `/api/groups/${privId}/invitations`;
+    await timedResponse(
+      page,
+      `GET ${awaitingPath.replace(privId, ':id')}`,
+      (r) => r.request().method() === 'GET' && new URL(r.url()).pathname === awaitingPath,
+      () => main(page).getByRole('tab', { name: 'ניהול' }).click(),
+    );
     const queue = main(page).getByRole('region', { name: 'הזמנות שמחכות לאישור' });
     await expect(queue.getByText(`${cName}, בהזמנה של ${bName}`)).toBeVisible();
     await queue.getByRole('button', { name: 'אישור' }).click();
