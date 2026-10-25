@@ -106,7 +106,7 @@ test('[I11-C FR-SERV-005/006/011 AC-169 AC-172 AC-173 AC-174] offer → accept �
 
     // §13.2: the Professional comments and likes the anonymous post, and offers on both; one per post
     await pro.goto(`/posts/${anonymous}`);
-    await main(pro).getByLabel('כתיבת תגובה', { exact: true }).fill('אפשר לנשום עמוק, אשמח לעזור');
+    await main(pro).getByRole('textbox', { name: 'כתיבת תגובה', exact: true }).fill('אפשר לנשום עמוק, אשמח לעזור');
     await main(pro).getByRole('button', { name: 'שליחה', exact: true }).click();
     await expect(main(pro).getByText('אפשר לנשום עמוק, אשמח לעזור')).toBeVisible();
     await main(pro).getByRole('button', { name: /^לייק/ }).first().click();
