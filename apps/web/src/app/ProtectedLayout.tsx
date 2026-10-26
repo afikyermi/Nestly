@@ -39,7 +39,7 @@ import { normalizePath, PATHS } from './paths';
 // The destinations of a community account (AC-005, §7.1, in the sketch's order): home, the Marketplace (I12, "חנות", FR-MKT-001), feed, the
 // Professionals' directory (I11, FR-SERV-001) and the profile. The profile tab shows the generic person icon until profile photos exist (I5, Q7). A
 // Professional's (§11.20, Afik 21.10.2026; AC-148): home (its dashboard), feed, its conversations with the unread badge, and its
-// Professional profile (no "חנות"; "בקשות עזרה" is reached from its home and its menu).
+// Professional profile (no "חנות" in the bar: I12-B puts it in its menu, view and contact only; "בקשות עזרה" is reached from its home and its menu).
 // A staff account (I14 completion, Afik 21.10.2026): home (the admin area), the Marketplace, the feed and the directory, for review; no personal
 // profile (a work-only account).
 const navItems = (professional: boolean, staff = false) => [
@@ -160,6 +160,10 @@ export function ProtectedLayout() {
               {/* §11.20: out of the bottom navigation, reached from here and the home */}
               <MenuItem href={PATHS.helpRequests} current={PATHS.helpRequests === current} onNavigate={leaving(closeMenu)}>
                 {HELP_REQUESTS_TITLE}
+              </MenuItem>
+              {/* I12-B (Afik §10.5): "חנות" for a Professional — view and contact only; its bottom navigation stays §11.20 */}
+              <MenuItem href={PATHS.marketplace} current={current === PATHS.marketplace || current.startsWith(`${PATHS.marketplace}/`)} onNavigate={leaving(closeMenu)}>
+                {MARKETPLACE_NAV_LABEL}
               </MenuItem>
               <MenuItem href={PATHS.proPromotion} current={PATHS.proPromotion === current} onNavigate={leaving(closeMenu)}>
                 {PROMOTION_TITLE}

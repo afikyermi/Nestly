@@ -1,0 +1,39 @@
+{
+  "listings": [
+    { "key": "l-orit-stroller", "owner": "orit", "ageHours": 92, "title": "עגלת תינוק משולבת — קיפול ביד אחת", "category": ["strollers"], "condition": "like_new", "price": 1200, "city": "sharon", "image": "stroller" },
+    { "key": "l-orit-carrier", "owner": "orit", "ageHours": 91, "title": "מנשא בד ארגונומי לתינוק", "category": ["other"], "condition": "good", "price": 150, "city": "sharon", "image": "carrier" },
+    { "key": "l-orit-crib", "owner": "orit", "ageHours": 90, "title": "מיטת תינוק מעץ כולל מזרן", "category": ["furniture"], "condition": "good", "price": 450, "city": "sharon", "image": "crib" },
+    { "key": "l-orit-clothes", "owner": "orit", "ageHours": 89, "title": "שקית בגדי תינוק 0–3 חודשים", "category": ["clothing"], "condition": "used", "price": 0, "city": "sharon", "image": "clothes" },
+    { "key": "l-orit-warmer", "owner": "orit", "ageHours": 88, "title": "מחמם בקבוקים חשמלי", "category": ["electronics", "electrical_appliances", "appliances", "other"], "condition": "like_new", "price": 80, "city": "sharon", "image": "warmer" },
+    { "key": "l-hila-monitor", "owner": "hila", "ageHours": 300, "title": "מוניטור תינוק עם מצלמה", "category": ["electronics", "electrical_appliances", "appliances", "other"], "condition": "good", "price": 250, "city": "center", "image": "monitor" },
+    { "key": "l-hila-books", "owner": "hila", "ageHours": 420, "title": "ערכת ספרי ילדים לגיל הגן (12 ספרים)", "category": ["books"], "condition": "good", "price": 60, "city": "center", "image": "books" },
+    { "key": "l-hila-bike", "owner": "hila", "ageHours": 410, "title": "אופני ילדים 12 אינץ' עם גלגלי עזר", "category": ["toys"], "condition": "good", "price": 200, "city": "center", "image": "bike" },
+    { "key": "l-yossi-carseat", "owner": "yossi", "ageHours": 600, "title": "סלקל לתינוק 0–13 ק\"ג", "category": ["car_seats"], "condition": "good", "price": 250, "city": "shfela", "image": "carseat", "sold": true },
+    { "key": "l-yossi-highchair", "owner": "yossi", "ageHours": 380, "title": "כיסא אוכל מתקפל", "category": ["furniture"], "condition": "used", "price": 120, "city": "shfela", "image": "highchair" },
+    { "key": "l-maya-maternity", "owner": "maya", "ageHours": 200, "title": "חבילת בגדי הריון מידה M", "category": ["maternity"], "condition": "like_new", "price": 150, "city": "haifa", "image": "dress" },
+    { "key": "l-roni-toys", "owner": "roni", "ageHours": 260, "title": "ארגז צעצועים לגיל 6–12 חודשים", "category": ["toys"], "condition": "used", "price": 0, "city": "tel_aviv", "image": "toys" },
+    { "key": "l-roni-bath", "owner": "roni", "ageHours": 255, "title": "אמבטיית תינוק עם מעמד", "category": ["bath_care"], "condition": "good", "price": 40, "city": "tel_aviv", "image": "bath" },
+    { "key": "l-avi-playmat", "owner": "avi", "ageHours": 150, "title": "משטח פעילות עם קשת צעצועים", "category": ["toys"], "condition": "like_new", "price": 90, "city": "center", "image": "playmat" },
+    { "key": "l-dana-pump", "owner": "dana", "ageHours": 70, "title": "משאבת הנקה ידנית — בשימוש שבוע", "category": ["feeding"], "condition": "like_new", "price": 70, "city": "tel_aviv", "image": "pump" },
+    { "key": "l-tamar-bassinet", "owner": "tamar", "ageHours": 35, "title": "סל קש לתינוק — מתנה כפולה, לא בשימוש", "category": ["furniture"], "condition": "new", "price": 180, "city": "jerusalem", "image": "bassinet" }
+  ],
+  "contacts": [
+    {
+      "listing": "l-orit-stroller", "from": "michal", "ageHours": 61,
+      "text": "היי אורית! ראיתי את העגלה ואשמח לשמוע עוד. היא עוד זמינה? אפשר לבוא לראות בסוף השבוע?",
+      "replies": [
+        { "from": "orit", "ageHours": 58, "text": "היי מיכל, כן, זמינה! שבת בבוקר מתאים?" },
+        { "from": "michal", "ageHours": 57, "text": "מושלם, תשלחי לי כתובת בבקשה 🙏" },
+        { "from": "orit", "ageHours": 56, "text": "שלחתי. נתראה!" }
+      ]
+    },
+    {
+      "listing": "l-orit-carrier", "from": "dana", "ageHours": 84,
+      "text": "אורית, המנשא עוד אצלך? אשמח לקחת.",
+      "replies": [{ "from": "orit", "ageHours": 80, "text": "שמור בשבילך 🙂 מתי נוח לך לאסוף?" }]
+    }
+  ],
+  "promotions": [
+    { "owner": "orit", "planKey": "listing_7", "target": { "kind": "listing", "listing": "l-orit-stroller" } }
+  ]
+}

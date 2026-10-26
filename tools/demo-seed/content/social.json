@@ -1,0 +1,86 @@
+{
+  "friendships": [
+    { "from": "michal", "to": "tamar", "accept": true, "ageHours": 900 },
+    { "from": "yael", "to": "michal", "accept": true, "ageHours": 430 },
+    { "from": "tamar", "to": "maya", "accept": true, "ageHours": 650 },
+    { "from": "dana", "to": "avi", "accept": true, "ageHours": 600 },
+    { "from": "roni", "to": "dana", "accept": true, "ageHours": 1000 },
+    { "from": "orit", "to": "dana", "accept": true, "ageHours": 980 },
+    { "from": "yossi", "to": "avi", "accept": true, "ageHours": 590 },
+    { "from": "hila", "to": "yossi", "accept": true, "ageHours": 700 },
+    { "from": "orit", "to": "hila", "accept": true, "ageHours": 820 },
+    { "from": "maya", "to": "orit", "accept": true, "ageHours": 640 },
+    { "from": "shira", "to": "yael", "accept": true, "ageHours": 420 },
+    { "from": "roni", "to": "avi", "accept": true, "ageHours": 560 },
+    { "from": "shira", "to": "michal", "accept": false, "ageHours": 30 },
+    { "from": "hila", "to": "dana", "accept": false, "ageHours": 20 },
+    { "from": "avi", "to": "maya", "accept": false, "ageHours": 8 }
+  ],
+  "follows": [
+    { "follower": "michal", "professional": "liat", "ageHours": 300 },
+    { "follower": "avi", "professional": "liat", "ageHours": 250 },
+    { "follower": "roni", "professional": "liat", "ageHours": 900 },
+    { "follower": "dana", "professional": "inbal", "ageHours": 800 },
+    { "follower": "orit", "professional": "inbal", "ageHours": 1100 },
+    { "follower": "yael", "professional": "keren", "ageHours": 400 },
+    { "follower": "shira", "professional": "keren", "ageHours": 300 },
+    { "follower": "tamar", "professional": "sigal", "ageHours": 700 },
+    { "follower": "michal", "professional": "sigal", "ageHours": 600 },
+    { "follower": "maya", "professional": "merav", "ageHours": 500 },
+    { "follower": "dana", "professional": "merav", "ageHours": 450 },
+    { "follower": "orit", "professional": "amit", "ageHours": 1000 },
+    { "follower": "hila", "professional": "amit", "ageHours": 600 },
+    { "follower": "yossi", "professional": "alon", "ageHours": 500 },
+    { "follower": "avi", "professional": "alon", "ageHours": 300 }
+  ],
+  "groups": [
+    {
+      "key": "first-pregnancy", "owner": "tamar", "ageHours": 1150,
+      "name": "הריון ראשון",
+      "description": "מקום לשאלות של מי שעוברת הריון ראשון: בדיקות, תחושות, הכנות ללידה וכל מה שמפחיד ומרגש. אין שאלה טיפשית.",
+      "rules": "1. מדברים בכבוד, גם כשלא מסכימים.\n2. בלי עצות רפואיות חד-משמעיות — לשאלות רפואיות פונים לרופא או לאחות.\n3. בלי פרסום ומכירות.\n4. מה שמשותף כאן נשאר כאן.",
+      "privacy": "public",
+      "members": [{ "user": "michal", "ageHours": 880, "role": "admin" }, { "user": "yael", "ageHours": 400 }, { "user": "maya", "ageHours": 620 }, { "user": "shira", "ageHours": 380 }, { "user": "sigal", "ageHours": 1000, "role": "moderator" }]
+    },
+    {
+      "key": "babies-2026", "owner": "dana", "ageHours": 1050,
+      "name": "אמהות ואבות לתינוקות 2026",
+      "description": "לכל מי שהביא תינוק לעולם השנה. לילות לבנים, גזים, חיסונים, חזרה לעבודה ומה שביניהם.",
+      "rules": "1. כולנו עייפים — סבלנות אחד לשני.\n2. לא מעלים תמונות של ילדים אחרים בלי רשות.\n3. שאלות רפואיות דחופות — לרופא, לא לקבוצה.",
+      "privacy": "public",
+      "members": [{ "user": "avi", "ageHours": 590 }, { "user": "orit", "ageHours": 950, "role": "moderator" }, { "user": "roni", "ageHours": 900 }]
+    },
+    {
+      "key": "sleep", "owner": "roni", "ageHours": 1300,
+      "name": "שינה של תינוקות ופעוטות",
+      "description": "שיטות, שגרות, נסיגות שינה והרבה תמיכה. כל משפחה מוצאת את הדרך שלה.",
+      "rules": "1. אין שיטה אחת נכונה — לא שופטים.\n2. בעלי מקצוע מוזמנים לענות, בלי פרסום.\n3. שומרים על פרטיות הילדים.",
+      "privacy": "public",
+      "members": [{ "user": "dana", "ageHours": 980 }, { "user": "avi", "ageHours": 540 }, { "user": "yossi", "ageHours": 560 }, { "user": "michal", "ageHours": 290 }, { "user": "liat", "ageHours": 1200, "role": "moderator" }]
+    },
+    {
+      "key": "breastfeeding", "owner": "orit", "ageHours": 1250,
+      "name": "הנקה — תמיכה ושאלות",
+      "description": "קבוצה סגורה לאמהות מניקות ולמי שמתכננת להניק. כאן אפשר לשאול הכול, גם על כאב, שאיבה וגמילה.",
+      "rules": "1. כל דרך האכלה ראויה — הקבוצה תומכת, לא שופטת.\n2. מה שנכתב בקבוצה לא יוצא ממנה.\n3. יועצת ההנקה של הקבוצה עונה כשאפשר, אבל במקרה של חום או כאב חזק פונים לרופא.",
+      "privacy": "private",
+      "members": [{ "user": "dana", "ageHours": 790 }, { "user": "inbal", "ageHours": 1200, "role": "admin" }, { "user": "maya", "ageHours": 400 }]
+    },
+    {
+      "key": "money", "owner": "yossi", "ageHours": 780,
+      "name": "כסף והורות",
+      "description": "חופשת לידה, דמי לידה, חיסכון לכל ילד, צהרונים ומה כל זה עולה. משתפים טיפים ומספרים אמיתיים.",
+      "rules": "1. בלי המלצות על מוצרי השקעה ספציפיים.\n2. בלי שיווק שותפים.\n3. מספרים אישיים — רק אם נוח לכם.",
+      "privacy": "public",
+      "members": [{ "user": "avi", "ageHours": 560 }, { "user": "hila", "ageHours": 600 }, { "user": "orit", "ageHours": 700 }, { "user": "alon", "ageHours": 740, "role": "admin" }]
+    },
+    {
+      "key": "planning", "owner": "shira", "ageHours": 520,
+      "name": "מתכננות הריון",
+      "description": "לקראת ההריון: חומצה פולית, בדיקות, מעקב מחזור, ציפייה ותסכול. יחד זה קל יותר.",
+      "rules": "1. רגישות — לכל אחת הדרך והקצב שלה.\n2. בלי עצות רפואיות חד-משמעיות.",
+      "privacy": "public",
+      "members": [{ "user": "yael", "ageHours": 410 }, { "user": "keren", "ageHours": 500, "role": "moderator" }]
+    }
+  ]
+}

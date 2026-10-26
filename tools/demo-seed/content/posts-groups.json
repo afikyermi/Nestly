@@ -1,0 +1,118 @@
+{
+  "posts": [
+    {
+      "key": "g-bf-dana-latch", "author": "dana", "group": "breastfeeding", "ageHours": 260, "audience": "everyone",
+      "body": "אורי בת שלושה חודשים ופתאום כל הנקה מתחילה בבכי ובמשיכה של הראש אחורה. עד עכשיו הכול עבד טוב. מישהי מכירה את זה? אני מתחילה לחשוש שהחלב פחות.",
+      "likes": ["orit", "maya", "inbal"],
+      "comments": [
+        { "key": "c-gbd-1", "author": "inbal", "ageHours": 255, "body": "זה מאוד שכיח בגיל הזה, ובדרך כלל לא קשור לכמות החלב. תינוקות בני שלושה חודשים מגלים את העולם ומוסחים בקלות, וחלקם מתעצבנים כשהזרימה איטית בהתחלה. כתבתי על זה מאמר — 'הנקה בגיל שלושה חודשים: הסחות ושביתות' — בעמוד שלי. ואם תרצי, שלחתי לך גם הצעה לשיחה אישית." },
+        { "key": "c-gbd-2", "author": "dana", "ageHours": 250, "body": "וואו, לא ידעתי שיש לזה שם. קוראת עכשיו!", "replyTo": "c-gbd-1" },
+        { "key": "c-gbd-3", "author": "orit", "ageHours": 240, "body": "אצלי עזר להניק בחדר חשוך ושקט לכמה ימים." },
+        { "key": "c-gbd-4", "author": "maya", "ageHours": 230, "body": "גם אצלנו היה שבוע כזה בדיוק בגיל הזה, ועבר." }
+      ]
+    },
+    {
+      "key": "g-bf-maya-tandem", "author": "maya", "group": "breastfeeding", "ageHours": 150, "audience": "everyone",
+      "body": "מישהי הניקה בהריון? אני בשבוע 28 ויונתן עדיין יונק בלילה. לא בטוחה אם להפסיק לפני הלידה.",
+      "likes": ["orit", "dana"],
+      "comments": [
+        { "key": "c-gbm-1", "author": "inbal", "ageHours": 145, "body": "בהריון תקין רבות ממשיכות להניק, וזו החלטה אישית לגמרי. כדאי לעדכן את הרופא או המיילדת שמלווים אותך. אם את רוצה לגמול בהדרגה — אפשר להתחיל מקיצור ההנקות בלילה." },
+        { "key": "c-gbm-2", "author": "orit", "ageHours": 140, "body": "הנקתי עד החודש השישי ואז היא נגמלה לבד." }
+      ]
+    },
+    {
+      "key": "g-fp-michal-kicks", "author": "michal", "group": "first-pregnancy", "ageHours": 300, "audience": "everyone",
+      "body": "מתי התחלתן להרגיש תנועות באמת חזקות? בימים האחרונים הוא בועט כל ערב בדיוק כשאני נשכבת 😂",
+      "likes": ["tamar", "yael", "maya", "shira"],
+      "comments": [
+        { "key": "c-gfk-1", "author": "tamar", "ageHours": 296, "body": "אני בשבוע 22 ומרגישה רק 'פרפרים'. מחכה לבעיטות!" },
+        { "key": "c-gfk-2", "author": "maya", "ageHours": 290, "body": "שעת הערב היא שעת הדיסקו הרשמית של כל העוברים 😄" },
+        { "key": "c-gfk-3", "author": "sigal", "ageHours": 280, "body": "כשאת שוכבת ונחה התינוק מרגיש יותר מקום ותזוזה — ולכן זה הזמן הכי טוב גם לספור תנועות, אם הרופא ביקש." }
+      ]
+    },
+    {
+      "key": "g-fp-yael-tests", "author": "yael", "group": "first-pregnancy", "ageHours": 200, "audience": "everyone",
+      "body": "קיבלתי רשימה ארוכה של בדיקות לשליש הראשון ואני מבולבלת. מישהי הכינה לעצמה טבלה מסודרת? אשמח להעתיק 🙏",
+      "likes": ["tamar", "michal"],
+      "comments": [
+        { "key": "c-gyt-1", "author": "tamar", "ageHours": 196, "body": "יש לי! מה שהכי עזר: לשאול את האחות בקופה אילו בדיקות דחופות ואילו אפשר לקבוע בהמשך." },
+        { "key": "c-gyt-2", "author": "michal", "ageHours": 190, "body": "גם אני הייתי מבולבלת בהתחלה. בסוף זה מסתדר, צעד צעד." }
+      ]
+    },
+    {
+      "key": "g-fp-tamar-welcome", "author": "tamar", "group": "first-pregnancy", "ageHours": 1140, "audience": "everyone",
+      "body": "ברוכות הבאות לקבוצה! 💛 ספרו לנו באיזה שבוע אתן ומה הכי מעסיק אתכן עכשיו. אני בשבוע 15 ועדיין לא מעכלת.",
+      "likes": ["michal", "maya", "yael", "shira", "sigal"],
+      "comments": [
+        { "key": "c-gtw-1", "author": "michal", "ageHours": 870, "body": "שבוע 29 כאן! הכי מעסיק אותי — איך בוחרים בית חולים." },
+        { "key": "c-gtw-2", "author": "maya", "ageHours": 610, "body": "הריון שני, אבל הראשון היה לפני שלוש שנים ושכחתי הכול 😅" },
+        { "key": "c-gtw-3", "author": "yael", "ageHours": 395, "body": "שבוע 7, עדיין לא סיפרנו לאף אחד חוץ מכאן 🤫" }
+      ]
+    },
+    {
+      "key": "g-sl-roni-schedule", "author": "roni", "group": "sleep", "ageHours": 700, "audience": "everyone",
+      "body": "משתפת את סדר היום של איתמר (שנה וחצי) למי שמחפשת השראה: השכמה ב-6:30, תנומה אחת בצהריים 12:30–14:30, ארוחת ערב ב-17:30, מקלחת, ספר ושיר, ובמיטה ב-19:00. לקח לנו חודש להגיע לזה.",
+      "likes": ["dana", "avi", "yossi", "liat", "michal"],
+      "comments": [
+        { "key": "c-gsr-1", "author": "avi", "ageHours": 530, "body": "שומר לעתיד! עכשיו אנחנו עדיין בכאוס." },
+        { "key": "c-gsr-2", "author": "liat", "ageHours": 690, "body": "סדר יום מעולה לגיל הזה. מה שחשוב הוא העקביות בשעת ההשכמה — היא מכתיבה את כל השאר." }
+      ]
+    },
+    {
+      "key": "g-sl-avi-naps", "author": "avi", "group": "sleep", "ageHours": 110, "audience": "everyone",
+      "body": "תמר בת חמישה חודשים ישנה תנומות של 30 דקות בדיוק, לא דקה יותר. זה נורמלי? איך מאריכים?",
+      "likes": ["dana", "roni"],
+      "comments": [
+        { "key": "c-gsa-1", "author": "liat", "ageHours": 105, "body": "תנומות קצרות בגיל חמישה חודשים נפוצות מאוד. נסו להחשיך את החדר ולחכות כמה דקות לפני שנכנסים כשהיא מתעוררת — לפעמים היא תחזור לישון לבד." },
+        { "key": "c-gsa-2", "author": "roni", "ageHours": 100, "body": "אצלנו זה השתפר לבד בסביבות שבעה חודשים." },
+        { "key": "c-gsa-3", "author": "avi", "ageHours": 98, "body": "ננסה את החדר החשוך, תודה!", "replyTo": "c-gsa-1" }
+      ]
+    },
+    {
+      "key": "g-bb-dana-vaccine", "author": "dana", "group": "babies-2026", "ageHours": 380, "audience": "everyone",
+      "body": "מחר חיסוני גיל חודשיים 😬 טיפים להפוך את זה לקצת יותר נעים? לי ולה...",
+      "likes": ["avi", "orit", "roni"],
+      "comments": [
+        { "key": "c-gbv-1", "author": "orit", "ageHours": 375, "body": "להניק או לתת בקבוק מיד אחרי, ולהביא שמיכה מוכרת מהבית. ואת — לנשום 💛" },
+        { "key": "c-gbv-2", "author": "avi", "ageHours": 370, "body": "אצלנו היא בכתה פחות מדקה ואז נרדמה. ההורים בכו יותר 😅" }
+      ]
+    },
+    {
+      "key": "g-bb-avi-return", "author": "avi", "group": "babies-2026", "ageHours": 60, "audience": "everyone",
+      "body": "מי מכם כבר חזר לעבודה? איך היה המעבר למעון? אנחנו מתלבטים בין מעון לבין מטפלת בבית.",
+      "likes": ["dana", "orit"],
+      "comments": [
+        { "key": "c-gba-1", "author": "orit", "ageHours": 55, "body": "עם הקטנה בחרנו מטפלת עד גיל שנה ואז מעון. היה לנו נכון." },
+        { "key": "c-gba-2", "author": "dana", "ageHours": 50, "body": "אנחנו עוד לא שם, עוקבת אחרי התשובות!" }
+      ]
+    },
+    {
+      "key": "g-mo-yossi-budget", "author": "yossi", "group": "money", "ageHours": 760, "audience": "everyone",
+      "body": "פתחתי את הקבוצה כי הבנתי שאף אחד לא מדבר על כסף אחרי שיש ילדים. אז אני אתחיל: צהרון לשני ילדים עולה לנו יותר מהשכירות של הדירה הראשונה שלנו. מה ההוצאה שהכי הפתיעה אתכם?",
+      "likes": ["avi", "hila", "orit", "alon"],
+      "comments": [
+        { "key": "c-gmy-1", "author": "hila", "ageHours": 590, "body": "חוגים. התחלנו מאחד ופתאום יש שלושה." },
+        { "key": "c-gmy-2", "author": "avi", "ageHours": 550, "body": "מטרנה. אף אחד לא הכין אותי למחיר." },
+        { "key": "c-gmy-3", "author": "alon", "ageHours": 730, "body": "שאלה מצוינת לפתוח בה. מניסיון — ההוצאות שמפתיעות הן הקבועות הקטנות שמצטברות. כדאי פעם בשנה לעבור על כולן." }
+      ]
+    },
+    {
+      "key": "g-mo-hila-rights", "author": "hila", "group": "money", "ageHours": 120, "audience": "everyone",
+      "body": "מישהו יודע אם הורים זכאים לימי מחלה על ילד חולה גם כשעובדים במשרה חלקית? אני מקבלת תשובות סותרות.",
+      "likes": ["yossi", "orit"],
+      "comments": [
+        { "key": "c-gmh-1", "author": "alon", "ageHours": 115, "body": "הזכויות תלויות בהיקף המשרה ובוותק, ולכן כדאי לבדוק מול מחלקת משאבי אנוש ובאתר 'כל זכות'. אם יש הסכם קיבוצי במקום העבודה, הוא עשוי להוסיף זכויות." },
+        { "key": "c-gmh-2", "author": "hila", "ageHours": 110, "body": "תודה, אבדוק בכל זכות.", "replyTo": "c-gmh-1" }
+      ]
+    },
+    {
+      "key": "g-pl-shira-hello", "author": "shira", "group": "planning", "ageHours": 515, "audience": "everyone",
+      "body": "פתחתי את הקבוצה כי חיפשתי מקום רגוע לדבר על התקופה הזו. בלי לחץ ובלי 'נו, מתי?' 🙂 ספרו קצת על עצמכן.",
+      "likes": ["yael", "keren"],
+      "comments": [
+        { "key": "c-gps-1", "author": "yael", "ageHours": 405, "body": "הייתי כאן עד לא מזמן, ועכשיו בשבוע 7! מחזיקה לך אצבעות 🤞" },
+        { "key": "c-gps-2", "author": "keren", "ageHours": 495, "body": "קבוצה חשובה. אם יעלו שאלות על תזונה לפני הריון — אשמח לעזור." }
+      ]
+    }
+  ]
+}
