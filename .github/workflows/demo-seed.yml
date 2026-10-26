@@ -10,13 +10,14 @@
 #   shift-dry-run  the time shift, rolled back: prints the row count per statement.
 #   shift          the time shift, committed. Run once, right after the seed, off-peak: a table whose guard refuses the move is
 #                  locked (ALTER TABLE) for the few seconds of the transaction. A statement that moves no row stops it (rollback).
+#   walk           preview only, read only: every persona signs in and reads the screens it opens first (status, time, item count).
 #   stories        the Stories only - on the demo day itself (a Story expires after 24 hours, FR-FEED-008).
 #
 # Secrets and variables (Afik creates them; this file never prints one):
 #   Preview  - environment `preview-e2e` (main only): DEMO_ACCOUNTS (secret), SUPABASE_PUBLISHABLE_KEY (variable, nestly-preview);
 #              PREVIEW_DB_ADMIN_URL and VERCEL_AUTOMATION_BYPASS_SECRET are already there.
-#   Production - environment `demo-production` with Afik as required reviewer (every run waits for his approval): DEMO_ACCOUNTS
-#              (secret), PRODUCTION_DB_ADMIN_URL (secret: postgres.cihugbwafnaujsqabgyp through the session pooler, port 5432),
+#   Production - environment `demo-production`, deployment branch main only, no required reviewer (Afik 26.10): DEMO_ACCOUNTS (secret),
+#              no PRODUCTION_DB_ADMIN_URL (Afik 26.10: no shift on production; its content keeps the time of the run),
 #              SUPABASE_PUBLISHABLE_KEY (variable, nestly-prod).
 # Inputs reach the scripts through env only, never interpolated into `run:`.
 
@@ -31,10 +32,10 @@ on:
         default: preview
         options: [preview, production]
       step:
-        description: plan (dry run) · seed · shift-dry-run · shift · stories
+        description: plan (dry run) · seed · shift-dry-run · shift · walk (preview) · stories
         type: choice
         default: plan
-        options: [plan, seed, shift-dry-run, shift, stories]
+        options: [plan, seed, shift-dry-run, shift, walk, stories]
       base_url:
         description: "preview only: the deployment URL (https://nestly-<hash>-afikyermis-projects.vercel.app)"
         type: string
@@ -103,6 +104,14 @@ jobs:
           SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: node tools/demo-seed/cli.ts run "$STEP" preview
+      - name: Role walk
+        if: inputs.step == 'walk'
+        env:
+          DEMO_BASE_URL: ${{ inputs.base_url }}
+          DEMO_ACCOUNTS: ${{ secrets.DEMO_ACCOUNTS }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: node tools/demo-seed/cli.ts walk preview
       - name: Time shift
         if: inputs.step == 'shift-dry-run' || inputs.step == 'shift'
         env:
@@ -114,8 +123,8 @@ jobs:
 
   production:
     name: demo-seed production
-    if: inputs.target == 'production' && inputs.step != 'plan' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-    # Protected: Afik is its required reviewer, so every production run waits for his approval (plan §3, §6).
+    if: inputs.target == 'production' && inputs.step != 'plan' && inputs.step != 'walk' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    # main only. Afik 26.10: the seed runs here without a reviewer; the shift has no database secret here and fails.
     environment: demo-production
     runs-on: ubuntu-latest
     timeout-minutes: 45
