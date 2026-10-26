@@ -133,3 +133,12 @@ export function jsonOf(body: string): Record<string, unknown> {
   }
   return out;
 }
+
+/**
+ * Waits for the work the app's requests left for after their answers (lib/after-response.ts; plan ח1). Imported after the app was built
+ * (buildRegisterApp resets the module registry), so it is the same module instance as the most recently built app's.
+ */
+export async function afterResponseIdle(): Promise<void> {
+  const { afterResponseIdle: idle } = await import('../../src/lib/after-response.js');
+  await idle();
+}

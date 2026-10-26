@@ -5,6 +5,7 @@
 //
 // Logs carry the status and the SQLSTATE, never the token, the ids or the error object (NFR-PRIV-001).
 
+import { afterResponse } from '../lib/after-response.js';
 import { noteFailure } from '../lib/failure-report.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
@@ -56,12 +57,14 @@ async function me(request: FastifyRequest, reply: FastifyReply, deps: MeRouteDep
     const state = await readAccountState(deps.database, identity, rekeyFor(request, deps));
     // I13 (OP-039): the day's login, one counter a day (staff and inactive accounts are dropped by the database; never this answer's failure).
     // Written once a day per account and instance: remembered only once committed for an active account (what the database counts), so an
-    // account that becomes active later the same day is still counted.
+    // account that becomes active later the same day is still counted. Written after the answer was sent (plan ח1): never its delay.
     const at = deps.now();
-    if (!deps.dailyLogins.has(identity.userId, at)) {
-      const recorded = await recordExposure(deps.database, identity, { usage: 'daily_login' });
-      if (recorded && state.state === 'active') deps.dailyLogins.remember(identity.userId, at);
-    }
+    const { database } = deps;
+    if (!deps.dailyLogins.has(identity.userId, at))
+      afterResponse(reply, async () => {
+        const recorded = await recordExposure(database, identity, { usage: 'daily_login' }, { afterResponse: true });
+        if (recorded && state.state === 'active') deps.dailyLogins.remember(identity.userId, at);
+      });
     return reply.code(200).send(state);
   } catch (error) {
     const refused = replySessionRefused(reply, error);

@@ -152,6 +152,8 @@ async function remove(request: FastifyRequest, reply: FastifyReply, deps: Commen
         return reply.code(204).send();
       case 'not_found':
         return reply.code(404).send(NOT_FOUND);
+      case 'muted':
+        return reply.code(403).send({ error: 'muted' });
       default:
         return replyRefusal(reply, outcome);
     }

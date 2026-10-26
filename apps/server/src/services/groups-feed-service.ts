@@ -15,7 +15,7 @@ import { openPrivateGroupForReview } from '../repositories/group-staff-views-rep
 import { imagesByPost, readPostImageRows } from './posts-service.js';
 
 
-import { asMember, fail, ok, type GroupResult } from './groups-service.js';
+import { asMember, fail, notManaging, ok, type GroupResult } from './groups-service.js';
 import { deletePost } from '../repositories/posts-repository.js';
 
 // ---- the Group's discussion ----------------------------------------------------------------------------------------------------
@@ -90,8 +90,11 @@ export async function readGroupFeed(
  */
 export async function removeGroupPost(database: Database, identity: Identity, id: string, postId: string): Promise<GroupResult<null>> {
   return asMember(database, identity, async (tx) => {
-    if ((await readGroupDetail(tx, id)) === undefined) return fail('group_unavailable');
+    const group = await readGroupDetail(tx, id);
+    if (group === undefined) return fail('group_unavailable');
+    // the author removes their own post at any rank, so the paused state names a refusal only after the database refused it (OP-070)
     if ((await deletePost(tx, postId)) > 0) return ok(null);
-    return (await readGroupPostExists(tx, id, postId)) ? fail('role_not_allowed') : fail('user_unavailable');
+    if (!(await readGroupPostExists(tx, id, postId))) return fail('user_unavailable');
+    return group.managementPaused ? notManaging(group) : fail('role_not_allowed');
   });
 }

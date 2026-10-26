@@ -117,6 +117,23 @@ test('[FR-GRP-002 AC-167 AC-168 OP-070 §11.15 §11.16] a member invites a Frien
   await expect(mine).toContainText('ספאם או פרסום');
 });
 
+test('[FR-GRP-003 OP-070 AC-185 PG-035] a muted Group Admin: one line says management is paused; no management control, the history stays', async ({ page }) => {
+  const mutedAdmin: StubGroup = { ...WALKS, myRole: 'admin', state: 'member', privacy: 'private', myMute: { until: '2026-06-22T12:00:00.000Z', reason: 'spam', reasonText: null } };
+  const net = await setupGroups(page, [mutedAdmin]);
+  await signIn(page);
+  await page.goto(`/groups/${GID(1)}`);
+  await expect(main(page).getByRole('note').filter({ hasText: 'בזמן ההשתקה פעולות הניהול בקבוצה מושהות עד' })).toBeVisible();
+  await main(page).getByRole('tab', { name: 'ניהול' }).click();
+  await expect(main(page).getByRole('region', { name: 'היסטוריית אכיפה' })).toBeVisible();
+  for (const region of ['בקשות הצטרפות', 'הזמנות שמחכות לאישור', 'חסומים בקבוצה', 'פרטי הקבוצה']) {
+    await expect(main(page).getByRole('region', { name: region })).toHaveCount(0);
+  }
+  await main(page).getByRole('tab', { name: 'חברים' }).click();
+  await expect(main(page).getByText('יוסי כהן')).toBeVisible();
+  await expect(main(page).getByRole('button', { name: 'פעולות על יוסי כהן' })).toHaveCount(0);
+  expect(net.writes, 'nothing was attempted').toEqual([]);
+});
+
 test('[FR-GRP-001 AC-164 review #180] the "עיקרי הדברים" toggle is the members\': a non-member of a Public Group reads every post with no toggle', async ({ page }) => {
   await setupGroups(page, [WALKS, { ...WALKS, id: GID(2), name: 'אבות בבוקר', myRole: 'member', state: 'member' }]);
   await signIn(page);

@@ -18,7 +18,7 @@ import {
   readAwaitingInvitations,
   readEnforcements,
 } from '../repositories/group-rules-repository.js';
-import { asMember, fail, ok, refusalOf, type GroupFailure, type GroupResult } from './groups-service.js';
+import { asMember, fail, managingRole, notManaging, ok, refusalOf, type GroupFailure, type GroupResult } from './groups-service.js';
 
 /** A refused enforcement: an equal or higher Role (42501, ERR-019) or, for a removal racing another, a user already blocked (23505). */
 function enforcementRefusal(error: unknown): GroupFailure {
@@ -38,7 +38,8 @@ export async function enforce(database: Database, identity: Identity, id: string
     async (tx) => {
       const group = await readGroupDetail(tx, id);
       if (group === undefined) return fail('group_unavailable');
-      if (group.myRole === null || group.myRole === 'member') return fail('not_allowed');
+      const role = managingRole(group);
+      if (role === null || role === 'member') return notManaging(group);
       if (body.kind === 'warn_mute' && (await readMemberRole(tx, id, userId)) === undefined) return fail('user_unavailable');
       if (body.kind === 'remove_block' && (await readBanned(tx, id, userId))) return ok(null); // already blocked: the same answer
       await insertEnforcement(tx, id, {
@@ -60,7 +61,10 @@ export async function unblock(database: Database, identity: Identity, id: string
     database,
     identity,
     async (tx) => {
-      if ((await readGroupDetail(tx, id)) === undefined) return fail('group_unavailable');
+      const group = await readGroupDetail(tx, id);
+      if (group === undefined) return fail('group_unavailable');
+      // a muted Group Moderator or Admin lifts no block until the mute ends (OP-070; the database refuses it either way)
+      if (group.managementPaused) return notManaging(group);
       if (!(await readBanned(tx, id, userId))) return fail('user_unavailable');
       await insertEnforcement(tx, id, { userId, kind: 'unblock', reason: null, reasonText: null, muteHours: null });
       return ok(null);
@@ -96,7 +100,7 @@ export async function listAwaitingInvitations(database: Database, identity: Iden
   return asMember(database, identity, async (tx) => {
     const group = await readGroupDetail(tx, id);
     if (group === undefined) return fail('group_unavailable');
-    if (group.myRole !== 'owner' && group.myRole !== 'admin') return fail('not_allowed');
+    if (managingRole(group) !== 'owner' && managingRole(group) !== 'admin') return notManaging(group);
     const rows = await readAwaitingInvitations(tx, id, GROUP_MEMBERS_PAGE_SIZE);
     return ok(
       rows.map((row) => ({
@@ -123,7 +127,7 @@ export async function decideInvitation(
     async (tx) => {
       const group = await readGroupDetail(tx, id);
       if (group === undefined) return fail('group_unavailable');
-      if (group.myRole !== 'owner' && group.myRole !== 'admin') return fail('not_allowed');
+      if (managingRole(group) !== 'owner' && managingRole(group) !== 'admin') return notManaging(group);
       const changed = await decideAwaitingInvitation(tx, id, invitationId, decision === 'approve' ? 'pending' : 'rejected');
       // 0 rows: decided already (by another manager) or gone — the same answer as an invitation no longer valid
       return changed === 0 ? fail('invitation_unavailable') : ok(null);

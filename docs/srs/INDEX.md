@@ -161,7 +161,7 @@
 | FR-ALG-010 | Group Highlights v1 וחשיפת קבוצות פעילות | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-DATA-001 | Analytics Event Tracking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 
-## קריטריוני קבלה — 186
+## קריטריוני קבלה — 187
 
 > השמות קוצרו לצורך ניווט בלבד. הנוסח המחייב נמצא ב-[15-acceptance.md](15-acceptance.md).
 
@@ -351,6 +351,7 @@
 | AC-182 | מחיקה 90 יום אחרי הביצוע | [15-acceptance.md](15-acceptance.md) |
 | AC-183 | בקשת מחיקה עם אישור וסיסמה | [15-acceptance.md](15-acceptance.md) |
 | AC-184 | מונה המחיקות ופס אדום ל-Admin | [15-acceptance.md](15-acceptance.md) |
+| AC-185 | מנהל קבוצה מושתק: ניהול מושהה | [15-acceptance.md](15-acceptance.md) |
 | AC-186 | גרסת המסמכים שנשמרת היא תאריך העדכון | [15-acceptance.md](15-acceptance.md) |
 | AC-187 | שלושת המסמכים הציבוריים נפתחים ומלאים | [15-acceptance.md](15-acceptance.md) |
 
