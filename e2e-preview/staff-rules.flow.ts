@@ -11,7 +11,7 @@ import type { BrowserContext, Page } from '@playwright/test';
 import { createBypassRouteHandler } from './support/bypass.ts';
 import { expect, test } from './support/fixtures.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
-import { AFTER_ANSWERS_MS, createAccount, SIGN_IN_MS, submitSignIn } from './support/timed-steps.ts';
+import { AFTER_ANSWERS_MS, createAccount, SIGN_IN_MS, submitSignIn, timedResponse } from './support/timed-steps.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
 const passwordField = (page: Page) => page.getByLabel('סיסמה', { exact: true });
@@ -125,7 +125,13 @@ test('[F14.3-b AC-159 VAL-048 §11.9] a report reaches the staff on the Preview;
     await openAsStaff(pageM, staffUser, `/admin/reports?target=post:${postId}`, (p) => p.getByRole('heading', { name: /פרטי הדיווח/ }));
     const actions = pageM.getByRole('group', { name: 'טיפול' });
     await actions.getByLabel('סיבה (נרשמת ביומן)').fill('בדיקה אוטומטית של כללי הצוות');
-    await actions.getByRole('button', { name: 'דיווח מוצדק: מחיקת התוכן' }).click();
+    // the decision's own answer, logged with its Server-Timing (run 40335511977 waited 10 s for the closed notice without telling why)
+    await timedResponse(
+      pageM,
+      'POST /api/admin/reports/handle',
+      (r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/admin/reports/handle',
+      () => actions.getByRole('button', { name: 'דיווח מוצדק: מחיקת התוכן' }).click(),
+    );
     await expect(pageM.getByText('הדיווח נסגר')).toBeVisible();
 
     // the result from the other side: A's post is gone, for A too
