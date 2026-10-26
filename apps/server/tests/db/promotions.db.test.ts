@@ -415,7 +415,7 @@ describe('[I13] the rules of a running promotion', () => {
     const overview = await readOverview(counter.database, as(pro2));
     const overviewStatements = counter.statements();
     // plan ל': the identity (role, then claims and guard), the whole dashboard in one statement, then the help requests
-    expect(homeStatements, 'GET /api/professional/home statements').toBeLessThanOrEqual(5);
+    expect(homeStatements, 'GET /api/professional/home statements').toBe(4);
     // the identity, the account type, the plans, the own promotions, the promotable posts, the counts, the three dashboard numbers
     expect(overviewStatements, 'GET /api/promotions statements').toBe(8);
     expect(overview.analytics?.organic).toMatchObject({
