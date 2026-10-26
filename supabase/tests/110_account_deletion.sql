@@ -96,7 +96,7 @@ select is(pg_temp.pg($q$ select string_agg(c.relname || '.' || a.attname, ', ' o
                          from pg_class c join pg_attribute a on a.attrelid = c.oid
                         where c.relnamespace = 'nestly'::regnamespace and c.relname in ('marketplace_listings', 'professional_articles', 'professional_reviews')
                           and a.attnum > 0 and not a.attisdropped and has_column_privilege('app_jobs', c.oid, a.attnum, 'SELECT,INSERT,UPDATE') $q$),
-  'marketplace_listings.id, marketplace_listings.owner_id, marketplace_listings.owner_status, professional_articles.author_id, professional_articles.author_status, professional_articles.id, '
+  'marketplace_listings.expires_at, marketplace_listings.id, marketplace_listings.owner_id, marketplace_listings.owner_status, marketplace_listings.status, professional_articles.author_id, professional_articles.author_status, professional_articles.id, '
   || 'professional_reviews.id, professional_reviews.professional_id, professional_reviews.reviewer_id, professional_reviews.reviewer_status',
   '[I9 rule 6 BR-080] on listings, articles and reviews app_jobs reads only who owns or wrote them (is one under an open report?): no text, no write');
 select is(pg_temp.pg($q$ select string_agg(conname, ',' order by conname) from pg_constraint
