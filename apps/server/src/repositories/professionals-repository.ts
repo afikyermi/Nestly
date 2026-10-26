@@ -359,80 +359,94 @@ export async function deleteArticle(tx: IdentityTx, id: string): Promise<number>
 
 // ---- the Professional's home (FR-PRO-001, AC-018) ----------------------------------------------------------------------------------------
 
-const dashboardProfileRow = z.object({
+const dashboardRow = z.object({
   userId: z.guid(),
   fullName: z.string(),
   field: z.enum(PROFESSIONAL_FIELDS),
   fieldOther: z.string().nullable(),
   missing: z.array(z.string()),
+  followers: z.number().int(),
+  chatStarts30d: z.number().int(),
+  rating: z.number().nullable(),
+  reviewCount: z.number().int(),
+  engagement30d: z.number().int(),
+  posts30d: z.number().int(),
+  articles: z.number().int(),
+  offersToday: z.number().int(),
+  unreadChats: z.number().int(),
+  acceptedOffersNew: z.number().int(),
+  reviewsNew: z.number().int(),
+  offersAccepted: z.number().int(),
+  offersDeclined: z.number().int(),
 });
+
+const me = sql`(select auth.uid())`;
+/** Followers of the caller (VAL-032: a count, never who). */
+const followersCount = sql`(select count(*) from nestly.professional_follows f where f.professional_id = ${me})::int`;
+/** Conversations with the caller opened from its profile or an offer in the last 30 days. */
+const chatStarts30dCount = sql`(select count(*) from nestly.conversations c where ${me} in (c.user_a, c.user_b)
+    and c.context in ('professional', 'outreach') and c.created_at > now() - interval '30 days')::int`;
+/** Others' reactions and comments on the caller's posts in the last 30 days. */
+const engagement30dCount = sql`((select count(*) from nestly.reactions x join nestly.posts p on p.id = x.post_id
+      where p.author_id = ${me} and not x.is_by_author and x.created_at > now() - interval '30 days')
+    + (select count(*) from nestly.comments m join nestly.posts p on p.id = m.post_id
+      where p.author_id = ${me} and not m.is_by_post_author and m.created_at > now() - interval '30 days'))::int`;
 
 /**
  * The caller's own aggregates only (VAL-032): counts over rows its policies show, never who. Undefined with no own profile.
- * One statement per number, in this order, so Server-Timing names the slow one (after the identity entry): the profile, then followers,
- * chatStarts30d, rating, reviewCount, engagement30d, posts30d, articles, offersToday, unreadChats, acceptedOffersNew, reviewsNew,
- * offersAccepted, offersDeclined (25.10: the single statement took 0.5–8 s on Production and nothing said which part).
+ * ONE statement (plan ל', 26.10): the profile row and each number as its own sub-select, under the same policies, each with the predicates
+ * it had as a statement of its own (25.10–26.10 they ran one by one to time each; the round trips cost more than any one of them).
  */
 export async function readDashboard(tx: IdentityTx): Promise<ProfessionalDashboard | undefined> {
-  const [profile] = z.array(dashboardProfileRow).parse(
+  const [row] = z.array(dashboardRow).parse(
     await tx.execute(sql`
       select pp.user_id as "userId", pp.full_name as "fullName", pp.field, pp.field_other as "fieldOther",
         array_remove(array[case when pp.business_name is null then 'businessName' end, case when pp.gender is null then 'gender' end,
           case when pp.area is null then 'area' end, case when pp.about is null then 'about' end,
-          case when pp.price_from is null then 'priceFrom' end], null) as missing
-      from nestly.professional_profiles pp where pp.user_id = (select auth.uid())`),
+          case when pp.price_from is null then 'priceFrom' end], null) as missing,
+        ${followersCount} as followers,
+        ${chatStarts30dCount} as "chatStarts30d",
+        (select round(avg(r.rating)::numeric, 1)::float8 from nestly.professional_reviews r
+          where r.professional_id = ${me} and r.moderation = 'active') as rating,
+        (select count(*) from nestly.professional_reviews r where r.professional_id = ${me} and r.moderation = 'active')::int as "reviewCount",
+        ${engagement30dCount} as "engagement30d",
+        (select count(*) from nestly.posts p where p.author_id = ${me} and p.created_at > now() - interval '30 days')::int as "posts30d",
+        (select count(*) from nestly.professional_articles a where a.author_id = ${me} and a.moderation = 'active')::int as articles,
+        (select count(*) from nestly.outreach_requests o where o.professional_id = ${me}
+          and o.created_at > now() - interval '24 hours')::int as "offersToday",
+        (select count(*) from nestly.conversations c where ${me} in (c.user_a, c.user_b)
+          and exists (select 1 from nestly.messages m where m.conversation_id = c.id and m.sender_id <> ${me}
+                       and m.created_at > coalesce((select r.last_read_at from nestly.chat_reads r
+                                                     where r.user_id = ${me} and r.conversation_id = c.id), '-infinity')))::int as "unreadChats",
+        (select count(*) from nestly.outreach_requests o where o.professional_id = ${me} and o.status = 'accepted'
+          and o.responded_at > now() - interval '7 days')::int as "acceptedOffersNew",
+        (select count(*) from nestly.professional_reviews r where r.professional_id = ${me} and r.moderation = 'active'
+          and r.created_at > now() - interval '7 days')::int as "reviewsNew",
+        (select count(*) from nestly.outreach_requests o where o.professional_id = ${me} and o.status = 'accepted')::int as "offersAccepted",
+        (select count(*) from nestly.outreach_requests o where o.professional_id = ${me} and o.status = 'declined')::int as "offersDeclined"
+      from nestly.professional_profiles pp where pp.user_id = ${me}`),
   );
-  if (profile === undefined) return undefined;
-  const me = sql`(select auth.uid())`;
-  const count = async (statement: SQL): Promise<number> =>
-    z.array(z.object({ n: z.number().int() })).length(1).parse(await tx.execute(sql`select (${statement})::int as n`))[0]?.n ?? 0;
-  const followers = await count(sql`select count(*) from nestly.professional_follows f where f.professional_id = ${me}`);
-  const chatStarts30d = await count(sql`select count(*) from nestly.conversations c where ${me} in (c.user_a, c.user_b)
-    and c.context in ('professional', 'outreach') and c.created_at > now() - interval '30 days'`);
-  const [ratingRow] = z
-    .array(z.object({ rating: z.number().nullable() }))
-    .length(1)
-    .parse(
-      await tx.execute(sql`select (select round(avg(r.rating)::numeric, 1)::float8 from nestly.professional_reviews r
-        where r.professional_id = ${me} and r.moderation = 'active') as rating`),
-    );
-  const reviewCount = await count(sql`select count(*) from nestly.professional_reviews r where r.professional_id = ${me} and r.moderation = 'active'`);
-  const engagement30d = await count(sql`(select count(*) from nestly.reactions x join nestly.posts p on p.id = x.post_id
-      where p.author_id = ${me} and not x.is_by_author and x.created_at > now() - interval '30 days')
-    + (select count(*) from nestly.comments m join nestly.posts p on p.id = m.post_id
-      where p.author_id = ${me} and not m.is_by_post_author and m.created_at > now() - interval '30 days')`);
-  const posts30d = await count(sql`select count(*) from nestly.posts p where p.author_id = ${me} and p.created_at > now() - interval '30 days'`);
-  const articles = await count(sql`select count(*) from nestly.professional_articles a where a.author_id = ${me} and a.moderation = 'active'`);
-  const offersToday = await count(sql`select count(*) from nestly.outreach_requests o where o.professional_id = ${me}
-    and o.created_at > now() - interval '24 hours'`);
-  const unreadChats = await count(sql`select count(*) from nestly.conversations c where ${me} in (c.user_a, c.user_b)
-    and exists (select 1 from nestly.messages m where m.conversation_id = c.id and m.sender_id <> ${me}
-                 and m.created_at > coalesce((select r.last_read_at from nestly.chat_reads r
-                                               where r.user_id = ${me} and r.conversation_id = c.id), '-infinity'))`);
-  const acceptedOffersNew = await count(sql`select count(*) from nestly.outreach_requests o where o.professional_id = ${me} and o.status = 'accepted'
-    and o.responded_at > now() - interval '7 days'`);
-  const reviewsNew = await count(sql`select count(*) from nestly.professional_reviews r where r.professional_id = ${me} and r.moderation = 'active'
-    and r.created_at > now() - interval '7 days'`);
-  const offersAccepted = await count(sql`select count(*) from nestly.outreach_requests o where o.professional_id = ${me} and o.status = 'accepted'`);
-  const offersDeclined = await count(sql`select count(*) from nestly.outreach_requests o where o.professional_id = ${me} and o.status = 'declined'`);
-  const { missing, ...rest } = profile;
+  if (row === undefined) return undefined;
+  const { missing, ...rest } = row;
   return {
     ...rest,
-    followers,
-    chatStarts30d,
-    rating: ratingRow?.rating ?? null,
-    reviewCount,
-    engagement30d,
-    posts30d,
-    articles,
-    offersToday,
-    unreadChats,
-    acceptedOffersNew,
-    reviewsNew,
-    offersAccepted,
-    offersDeclined,
     offersPerDay: OUTREACH_PER_DAY,
     profileMissing: PROFILE_OPTIONAL_FIELDS.filter((field) => missing.includes(field)),
   };
+}
+
+/**
+ * The three dashboard numbers the promotions overview shows beside its own (GET /api/promotions): the same sub-selects as readDashboard, in
+ * one statement, without the rest of the dashboard. Undefined with no own profile (as readDashboard).
+ */
+export async function readDashboardReach(tx: IdentityTx): Promise<{ followers: number; engagement30d: number; chatStarts30d: number } | undefined> {
+  const [row] = z
+    .array(z.object({ followers: z.number().int(), engagement30d: z.number().int(), chatStarts30d: z.number().int() }))
+    .parse(
+      await tx.execute(sql`
+        select ${followersCount} as followers, ${engagement30dCount} as "engagement30d", ${chatStarts30dCount} as "chatStarts30d"
+        from nestly.professional_profiles pp where pp.user_id = ${me}`),
+    );
+  return row;
 }
 

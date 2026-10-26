@@ -14,7 +14,7 @@ import { createPost } from '../../src/services/posts-service.js';
 import { onPromotionSkip, recordExposure, type SkipReason } from '../../src/services/promoted-units.js';
 import { readAdminAnalytics } from '../../src/services/team-service.js';
 import { changeListingStatus, createListing, listMarketplace } from '../../src/services/marketplace-service.js';
-import { listProfessionals, readProfessional, registerProfessional } from '../../src/services/professionals-service.js';
+import { listProfessionals, readProfessional, readProfessionalHome, registerProfessional } from '../../src/services/professionals-service.js';
 import {
   buyPromotion,
   readAdminView,
@@ -27,6 +27,7 @@ import {
   writeSettings,
 } from '../../src/services/promotions-service.js';
 import { AUDIENCE, COLD_START_MS, ISSUER, newKey, restoreEnv, startJwks, token, type App, type JwksServer, type TestKey } from '../helpers/identity-fixtures.js';
+import { countingDatabase } from '../helpers/counting-database.js';
 import { buildRegisterApp, CLOCK_NOW, EMPTY_DATE, post, validBody } from '../helpers/register-app.js';
 
 // Monetization (I13; Afik 21.10.2026 §11.1–11.6) through the services against the real database (CI `db` job, as app_server): a Professional
@@ -404,6 +405,24 @@ describe('[I13] the rules of a running promotion', () => {
     expect(shown).not.toMatch(new RegExp(`sleep|שינה|תינוק|${tag}`));
     expect(Object.keys(analytics?.organic ?? {}).sort()).toEqual(['chatStarts', 'engagement', 'followers', 'postReach', 'postViews', 'profileViewers', 'profileViews']);
     expect(Object.values({ ...analytics?.organic, ...analytics?.paid }).every((value) => value === null || typeof value === 'number')).toBe(true);
+  });
+
+  it("[FR-PRO-001 AC-018 FR-PRO-002] the Professional's home and the promotions overview read their counts in one statement each, the same numbers", T, async () => {
+    const counter = countingDatabase(database);
+    const home = ok(await readProfessionalHome(counter.database, as(pro2)));
+    const homeStatements = counter.statements();
+    counter.reset();
+    const overview = await readOverview(counter.database, as(pro2));
+    const overviewStatements = counter.statements();
+    // plan ל': the identity (role, then claims and guard), the whole dashboard in one statement, then the help requests
+    expect(homeStatements, 'GET /api/professional/home statements').toBeLessThanOrEqual(5);
+    // the identity, the account type, the plans, the own promotions, the promotable posts, the counts, the three dashboard numbers
+    expect(overviewStatements, 'GET /api/promotions statements').toBe(8);
+    expect(overview.analytics?.organic).toMatchObject({
+      followers: home.dashboard.followers,
+      engagement: home.dashboard.engagement30d,
+      chatStarts: home.dashboard.chatStarts30d,
+    });
   });
 
   it('[§11.1 PG-059] a Moderator sees only the promotions of its key, with no payments; staff with no key is refused', T, async () => {

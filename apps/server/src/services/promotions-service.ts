@@ -22,7 +22,7 @@ import { inIdentityTransaction } from '../db/identity-transaction.js';
 import { readDatabaseFault } from '../lib/pg-error.js';
 import type { Identity } from '../lib/token-verifier.js';
 import { readStaffAccess } from '../repositories/admin-repository.js';
-import { readDashboard, readOwnAccountType } from '../repositories/professionals-repository.js';
+import { readDashboardReach, readOwnAccountType } from '../repositories/professionals-repository.js';
 import {
   insertPromotion,
   insertPromotionEvent,
@@ -131,7 +131,7 @@ export async function readOverview(database: Database, identity: Identity): Prom
     if (accountType !== 'professional') return { plans, promotions, posts: [], analytics: null };
     const posts = await readPromotablePosts(tx);
     const counts = await readOwnAnalyticsCounts(tx, PROMOTION_ANALYTICS_DAYS);
-    const dashboard = await readDashboard(tx);
+    const dashboard = await readDashboardReach(tx);
     const analytics: ProfessionalAnalytics = {
       days: PROMOTION_ANALYTICS_DAYS,
       organic: {
