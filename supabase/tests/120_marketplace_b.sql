@@ -110,7 +110,7 @@ select tests.fx_mkt_expire(pg_temp.v('exp'));
 select tests.fx_mkt_expire(pg_temp.v('rep'));
 select tests.fx_mkt_expire(pg_temp.v('img'));
 select tests.fx_mkt_expire(pg_temp.v('late'));
-select is(pg_temp.dml('a', format($q$ update nestly.marketplace_listings set status = ''sold'' where id = %L $q$, pg_temp.v('late'))), 'ERR:23514',
+select is(pg_temp.dml('a', format($q$ update nestly.marketplace_listings set status = 'sold' where id = %L $q$, pg_temp.v('late'))), 'ERR:23514',
   '[F12.2-a c1 I12-B ERR-054 BR-090] an expired listing is not marked sold afterwards (it would escape the deletion)');
 
 select is(pg_temp.q('a', 'select nestly.purge_expired_listings()::text'), 'ERR:42501', '[F12.2-a c1 I12-B rule 6] a user cannot run the purge');
