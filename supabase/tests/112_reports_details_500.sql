@@ -1,6 +1,6 @@
 -- pgTAP, run by pg_prove as app_server (CI `db` job): the report text cap moves to 500 (VAL-048, Afik 21.10.2026) and keeps every
 -- report written before 2026-10-26 00:00 UTC at the older 1,000 bound, so no user data changes and an old report can still be closed.
--- Source of expected values: VAL-048 (500 code points) and the migration's stated cutoff (20261026200000_reports_details_500.sql).
+-- Source of expected values: VAL-048 (500 code points) and the migration's stated cutoff (20261026350000_reports_details_500.sql).
 -- Everything rolls back with the transaction.
 
 begin;

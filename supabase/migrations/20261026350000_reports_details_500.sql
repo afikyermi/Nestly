@@ -14,7 +14,7 @@
 --
 -- Changes: reports_details_length_check replaced (same name: the server maps it by name); its comment and the reports.details comment.
 -- No table, policy, grant, function or data. Applied by the Supabase CLI as app_owner, in one transaction with its history row.
--- Down script: supabase/rollback/20261026200000_reports_details_500.down.sql (restores the 1,000 CHECK and both comments verbatim).
+-- Down script: supabase/rollback/20261026350000_reports_details_500.down.sql (restores the 1,000 CHECK and both comments verbatim).
 -- =====================================================================================================================
 
 alter table nestly.reports drop constraint reports_details_length_check;

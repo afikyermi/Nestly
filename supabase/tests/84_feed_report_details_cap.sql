@@ -21,7 +21,7 @@ select is(tests.fx_rp_count(), 0::bigint, '[F3.7 fixture] no report exists befor
 
 select set_config('t.p', tests.fx_po_add(tests.fx_id('a'))::text, true);
 
--- boundary: 500 code points (VAL-048, Afik 21.10.2026; was 1,000 until 20261026200000_reports_details_500.sql)
+-- boundary: 500 code points (VAL-048, Afik 21.10.2026; was 1,000 until 20261026350000_reports_details_500.sql)
 select is(pg_temp.dml(tests.fx_id('b'), pg_temp.rp_sql(current_setting('t.p')::uuid, 'other', repeat('x', 500)), false), 'OK:1', '[F3.7-a c3 Q1 VAL-048] 500 ASCII characters are accepted');
 select is(pg_temp.dml(tests.fx_id('b'), pg_temp.rp_sql(current_setting('t.p')::uuid, 'other', repeat(chr(128512), 500)), false), 'OK:1', '[F3.7-a c3 Q1 VAL-048] 500 emoji (4 bytes each, 500 code points) are accepted');
 select is(pg_temp.dml(tests.fx_id('b'), pg_temp.rp_sql(current_setting('t.p')::uuid, 'other', repeat('ש', 500)), false), 'OK:1', '[F3.7-a c3 Q1 VAL-048] 500 Hebrew letters (2 bytes each) are accepted');

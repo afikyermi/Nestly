@@ -1,5 +1,5 @@
 -- =====================================================================================================================
--- Down script for supabase/migrations/20261026200000_reports_details_500.sql: restores reports_details_length_check at 1,000 code points
+-- Down script for supabase/migrations/20261026350000_reports_details_500.sql: restores reports_details_length_check at 1,000 code points
 -- and both comments verbatim as 20261019200000_feed_i3_rest.sql set them. Outside supabase/migrations on purpose: the CLI never applies it.
 --
 -- Run as:   app_owner, in one transaction. CI runs it once per build (up -> down -> up) against the disposable database.
@@ -29,6 +29,6 @@ comment on constraint reports_details_length_check on nestly.reports is
 comment on column nestly.reports.details is
   'Optional text; required for other. Not blank (reports_details_check); cap 1,000 code points (reports_details_length_check, F3.7 Q1).';
 
-delete from supabase_migrations.schema_migrations where version = '20261026200000';
+delete from supabase_migrations.schema_migrations where version = '20261026350000';
 
 commit;
