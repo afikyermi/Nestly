@@ -294,11 +294,22 @@ async function readPage(
   return { kind: 'page', page, fallback: resolution.fallback };
 }
 
+export interface FeedReadOptions {
+  /** Hands the page's exposure write over to run after the answer (lib/after-response.ts). Absent: written before returning. */
+  readonly afterResponse?: (task: () => Promise<void>) => void;
+}
+
 /**
  * GET /feed: one page, in one transaction at REPEATABLE READ: the ranking, the display, the counts and the viewer's likes read one snapshot, so a
  * like the viewer's own state shows is also in the count.
  */
-export async function readFeedPage(database: Database, identity: Identity, cursor: FeedCursor | null, storage?: MediaStorage): Promise<FeedOutcome> {
+export async function readFeedPage(
+  database: Database,
+  identity: Identity,
+  cursor: FeedCursor | null,
+  storage?: MediaStorage,
+  options: FeedReadOptions = {},
+): Promise<FeedOutcome> {
   const imageRows: PostImageRow[] = [];
   const professionalAuthors: { id: string; posts: number }[] = [];
   const outcome = await inIdentityTransaction(database, identity, (tx) => readPage(tx, identity.userId, cursor, storage, imageRows, professionalAuthors), {
@@ -307,13 +318,20 @@ export async function readFeedPage(database: Database, identity: Identity, curso
   if (outcome.kind !== 'page') return outcome;
   // I13 (OP-039, FR-PRO-002): the page's exposure — one post view per post it shows, and one organic post view for a Professional per post of
   // theirs among its organic posts — recorded after the page was read, in its own transaction (never the page's failure). A promoted post's
-  // impression is reported by the screen when it shows it (FR-ALG-007), never as an organic view.
+  // impression is reported by the screen when it shows it (FR-ALG-007), never as an organic view. The route records it after the answer
+  // (options.afterResponse, plan ח1): the same rows, under the same identity and guards.
   const promoted = outcome.page.promoted ?? [];
-  await recordExposure(database, identity, {
-    usage: 'post_view',
+  const exposure = {
+    usage: 'post_view' as const,
     usageTimes: outcome.page.items.length + promoted.length,
     professionalViews: professionalAuthors.map(({ id, posts }) => ({ professionalId: id, kind: 'post_view' as const, times: posts })),
-  });
+  };
+  const { afterResponse } = options;
+  if (afterResponse === undefined) await recordExposure(database, identity, exposure);
+  else
+    afterResponse(async () => {
+      await recordExposure(database, identity, exposure, { afterResponse: true });
+    });
   if (imageRows.length === 0) return outcome;
   const imagesOf = await imagesByPost(storage, imageRows);
   const withImages = <T extends FeedUnit>(item: T): T => {

@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { buildApp } from '../src/app.js';
+import { settleAfterResponse } from '../src/lib/after-response.js';
 import { startErrorMonitor } from '../src/lib/error-monitoring.js';
 import { withoutRewriteParam } from '../src/lib/vercel-rewrite.js';
 
@@ -36,9 +37,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   // The rewrite's `path` parameter is Vercel's, not the client's (src/lib/vercel-rewrite.ts).
   if (req.url !== undefined) req.url = withoutRewriteParam(req.url);
   app.server.emit('request', req, res);
-  // The client already has its answer here; the function only waits for reports in flight (none on a normal request: instant).
-  if (monitor.enabled) {
-    await responseDone(res);
-    await monitor.flush();
-  }
+  // The client already has its answer here. The function then waits for the work the request left for after its answer (best-effort
+  // counters, lib/after-response.ts; bounded) and for reports in flight (none on a normal request: instant), so neither is frozen midway.
+  await responseDone(res);
+  await settleAfterResponse(req);
+  if (monitor.enabled) await monitor.flush();
 }
