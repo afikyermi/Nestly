@@ -122,6 +122,11 @@ export async function runShift(input: ShiftInput): Promise<ShiftReport> {
           input.log(`${String(count).padStart(4)}  ${s.label}${flag}`);
         });
       }
+      // The deferred constraints are checked here, not at commit: a dry run then meets what would refuse the commit, and a refusal is
+      // reported while its statement is known. row_security goes back on first: a constraint check runs as the table's owner, which has no
+      // BYPASSRLS, and with row_security off a check that RLS would touch is refused (42501); postgres itself still bypasses RLS.
+      await tx.run('set local row_security = on');
+      await tx.run('set constraints all immediate');
       if (input.apply && report.empty.length > 0) {
         throw new Refused(`${report.empty.length} statements moved no row (marked "0 ROWS" above); nothing was changed. Allow-list them only if that content is meant to be missing`);
       }
@@ -133,8 +138,13 @@ export async function runShift(input: ShiftInput): Promise<ShiftReport> {
       report.ok = true;
       input.log('dry run: rolled back, nothing changed');
     } else {
-      const code: unknown = typeof error === 'object' && error !== null ? Reflect.get(error, 'code') : undefined;
-      report.reason = error instanceof Refused ? error.message : `the shift failed and was rolled back${typeof code === 'string' ? ` (SQLSTATE ${code})` : ''}`;
+      const part = (name: string): string => {
+        const value: unknown = typeof error === 'object' && error !== null ? Reflect.get(error, name) : undefined;
+        return typeof value === 'string' && /^[A-Za-z0-9_]{1,63}$/.test(value) ? value : '';
+      };
+      // only schema names (table, constraint, server routine) beside the SQLSTATE: never the message, which may quote a value
+      const where = ['table_name', 'constraint_name', 'routine'].map((n) => (part(n) === '' ? '' : ` ${n.replace('_name', '')} ${part(n)}`)).join('');
+      report.reason = error instanceof Refused ? error.message : `the shift failed and was rolled back${part('code') === '' ? '' : ` (SQLSTATE ${part('code')}${where})`}`;
     }
   }
   return report;
