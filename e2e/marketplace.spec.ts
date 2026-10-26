@@ -220,3 +220,18 @@ test.describe('[I12-B AC-205 FR-MKT-001 FR-MENU-001 §10.5] a Professional\'s "�
     await expect(main(page).getByRole('button', { name: 'פרסום', exact: true })).toHaveCount(0);
   });
 });
+
+test.describe('[I12-B AC-205 FR-MKT-001 §3.2] a staff account on the Marketplace', () => {
+  test('reviews the listings and is never offered to publish', async ({ page }) => {
+    await setupAdmin(page, { permissions: [...KEYS, 'MARKETPLACE_MODERATE'] });
+    await setupMarketplace(page, {}, false);
+    await signIn(page);
+    await page.goto('/marketplace');
+    await expect(main(page).getByRole('list', { name: 'מודעות' })).toContainText('עגלת תינוק כחולה');
+    await expect(main(page).getByRole('link', { name: 'פרסום מודעה' })).toHaveCount(0);
+    await page.goto('/marketplace/new');
+    await expect(main(page).getByText('רק חשבון הורה יכול לפרסם מודעה')).toBeVisible();
+    await page.goto('/marketplace/mine');
+    await expect(main(page).getByText('רק חשבון הורה יכול לפרסם מודעה')).toBeVisible();
+  });
+});

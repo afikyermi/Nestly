@@ -5,6 +5,7 @@ import { ListingScreen } from '@/features/marketplace/ListingScreen';
 import { MarketplaceScreen } from '@/features/marketplace/MarketplaceScreen';
 import { MyListingsScreen } from '@/features/marketplace/MyListingsScreen';
 import { useAccountKind } from '@/hooks/use-account-kind';
+import { useStaffAccess } from '@/hooks/use-staff-access';
 import { documentTitle } from '@/lib/document-title';
 import { MARKETPLACE_PATH, MY_LISTINGS_PATH, NEW_LISTING_PATH } from '@/lib/marketplace-link';
 import {
@@ -28,7 +29,9 @@ import {
 // kind shows the Regular screens, as everywhere.
 function usePublisher(): boolean | null {
   const kind = useAccountKind();
-  return kind === 'loading' ? null : kind === 'regular' || kind === 'unknown';
+  const staff = useStaffAccess();
+  if (staff.kind === 'staff') return false;
+  return kind === 'loading' || staff.kind === 'loading' ? null : kind === 'regular' || kind === 'unknown';
 }
 
 /** A Professional or staff account that reached a publishing page by address: what it can do instead. */
